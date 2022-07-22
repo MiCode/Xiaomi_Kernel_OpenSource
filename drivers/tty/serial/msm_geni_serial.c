@@ -87,8 +87,8 @@ static bool con_enabled = IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE_DEFAULT_ENAB
 #define PAR_MODE_SHFT		(1)
 #define PAR_EVEN		(0x00)
 #define PAR_ODD			(0x01)
-#define PAR_SPACE		(0x10)
-#define PAR_MARK		(0x11)
+#define PAR_SPACE		(0x02)
+#define PAR_MARK		(0x03)
 
 /* SE_UART_MANUAL_RFR register fields */
 #define UART_MANUAL_RFR_EN	(BIT(31))
@@ -371,6 +371,7 @@ struct msm_geni_serial_port {
 	unsigned int count;
 	atomic_t stop_rx_inprogress;
 	bool pm_auto_suspend_disable;
+	bool gsi_rx_done;
 };
 
 static const struct uart_ops msm_geni_serial_pops;
@@ -629,6 +630,11 @@ static void msm_geni_serial_enable_interrupts(struct uart_port *uport)
 
 	geni_m_irq_en |= M_IRQ_BITS;
 	geni_s_irq_en |= S_IRQ_BITS;
+
+	if (port->gsi_mode) {
+		geni_m_irq_en &= ~M_RX_FIFO_WATERMARK_EN;
+		geni_s_irq_en &= ~S_RX_FIFO_WATERMARK_EN;
+	}
 
 	geni_write_reg(geni_m_irq_en, uport->membase, SE_GENI_M_IRQ_EN);
 	geni_write_reg(geni_s_irq_en, uport->membase, SE_GENI_S_IRQ_EN);
@@ -1846,8 +1852,15 @@ static void msm_geni_uart_gsi_cancel_rx(struct work_struct *work)
 
 	UART_LOG_DBG(msm_port->ipc_log_misc, msm_port->uport.dev,
 		     "%s: Start\n", __func__);
+	if (!msm_port->gsi_rx_done) {
+		UART_LOG_DBG(msm_port->ipc_log_misc, msm_port->uport.dev,
+			     "%s: gsi_rx not yet done\n", __func__);
+		return;
+	}
 	dmaengine_terminate_all(msm_port->gsi->rx_c);
 	complete(&msm_port->xfer);
+	msm_port->gsi_rx_done = false;
+	atomic_set(&msm_port->stop_rx_inprogress, 0);
 	UART_LOG_DBG(msm_port->ipc_log_misc, msm_port->uport.dev,
 		     "%s: End\n", __func__);
 }
@@ -1922,6 +1935,7 @@ static int msm_geni_uart_gsi_xfer_rx(struct uart_port *uport)
 	msm_port->gsi->rx_desc->callback_param = &msm_port->gsi->rx_cb;
 	rx_cookie = dmaengine_submit(msm_port->gsi->rx_desc);
 	dma_async_issue_pending(msm_port->gsi->rx_c);
+	msm_port->gsi_rx_done = true;
 
 	return 0;
 exit_gsi_xfer_rx:
@@ -1930,6 +1944,7 @@ exit_gsi_xfer_rx:
 					      msm_port->rx_gsi_buf[i], DMA_RX_BUF_SIZE);
 	}
 	msm_geni_deallocate_chan(uport);
+	msm_port->gsi_rx_done = false;
 	return -EIO;
 }
 
@@ -2372,9 +2387,14 @@ static int stop_rx_sequencer(struct uart_port *uport)
 	}
 
 	if (port->gsi_mode) {
+		if (!port->port_setup && !port->gsi_rx_done) {
+			UART_LOG_DBG(port->ipc_log_misc, uport->dev,
+				     "%s: Port setup not yet done\n", __func__);
+			atomic_set(&port->stop_rx_inprogress, 0);
+			return 0;
+		}
 		UART_LOG_DBG(port->ipc_log_misc, uport->dev,
 			     "%s: Queue Rx Work\n", __func__);
-		atomic_set(&port->stop_rx_inprogress, 0);
 		reinit_completion(&port->xfer);
 		queue_work(port->rx_wq, &port->rx_cancel_work);
 		return 0;
@@ -3238,13 +3258,15 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 					     uport->dev, "%s:GSI DMA-Tx ch\n",
 					     __func__);
 				msm_geni_serial_stop_tx(uport);
-				geni_se_common_iommu_unmap_buf(tx_dev,
-							       &msm_port->tx_dma,
-							       msm_port->xmit_size,
-							       DMA_TO_DEVICE);
-				UART_LOG_DBG(msm_port->ipc_log_misc,
-					     uport->dev, "%s:Unmap buf done\n",
-					     __func__);
+				if (msm_port->tx_dma) {
+					geni_se_common_iommu_unmap_buf(tx_dev,
+								       &msm_port->tx_dma,
+								       msm_port->xmit_size,
+								       DMA_TO_DEVICE);
+					UART_LOG_DBG(msm_port->ipc_log_misc,
+						     uport->dev, "%s:Unmap buf done\n",
+						     __func__);
+				}
 			}
 		} else {
 			msm_geni_serial_stop_tx(uport);
@@ -3466,14 +3488,14 @@ static void msm_geni_serial_termios_cfg(struct uart_port *uport,
 		tx_parity_cfg |= PAR_CALC_EN;
 		rx_parity_cfg |= PAR_CALC_EN;
 		if (termios->c_cflag & PARODD) {
-			tx_parity_cfg |= PAR_ODD;
-			rx_parity_cfg |= PAR_ODD;
+			tx_parity_cfg |= PAR_ODD << PAR_MODE_SHFT;
+			rx_parity_cfg |= PAR_ODD << PAR_MODE_SHFT;
 		} else if (termios->c_cflag & CMSPAR) {
-			tx_parity_cfg |= PAR_SPACE;
-			rx_parity_cfg |= PAR_SPACE;
+			tx_parity_cfg |= PAR_SPACE << PAR_MODE_SHFT;
+			rx_parity_cfg |= PAR_SPACE << PAR_MODE_SHFT;
 		} else {
-			tx_parity_cfg |= PAR_EVEN;
-			rx_parity_cfg |= PAR_EVEN;
+			tx_parity_cfg |= PAR_EVEN << PAR_MODE_SHFT;
+			rx_parity_cfg |= PAR_EVEN << PAR_MODE_SHFT;
 		}
 	} else {
 		tx_trans_cfg &= ~UART_TX_PAR_EN;

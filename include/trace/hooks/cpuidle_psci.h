@@ -10,7 +10,8 @@
  * mechanism for vendor modules to hook and extend functionality
  */
 
-struct cpuidle_device;
+/* struct cpuidle_device */
+#include <linux/cpuidle.h>
 DECLARE_HOOK(android_vh_cpuidle_psci_enter,
 	TP_PROTO(struct cpuidle_device *dev, bool s2idle),
 	TP_ARGS(dev, s2idle));

@@ -10,6 +10,9 @@
 #include <linux/memory_hotplug.h>
 #include <linux/module.h>
 #include <linux/qcom_dma_heap.h>
+#include <linux/qcom_tui_heap.h>
+#include <linux/dma-map-ops.h>
+#include <linux/cma.h>
 
 #include "../../../../drivers/dma-buf/heaps/qcom_sg_ops.h"
 #include "mem-buf-gh.h"
@@ -201,12 +204,75 @@ static int mem_buf_rmt_alloc_dmaheap_mem(struct mem_buf_xfer_mem *xfer_mem)
 	return 0;
 }
 
+/* In future, try allocating from buddy if cma not available */
+static int mem_buf_rmt_alloc_buddy_mem(struct mem_buf_xfer_mem *xfer_mem)
+{
+	struct cma *cma;
+	struct sg_table *table;
+	struct page *page;
+	int ret;
+	u32 align;
+	size_t nr_pages;
+
+	pr_debug("%s: Starting DMAHEAP-BUDDY allocation\n", __func__);
+
+	/*
+	 * For the common case of 4Mb transfer, we want it to be nicely aligned
+	 * to allow for 2Mb block mappings in S2 pagetable.
+	 */
+	align = min(get_order(xfer_mem->size), get_order(SZ_2M));
+	nr_pages = xfer_mem->size >> PAGE_SHIFT;
+
+	/*
+	 * Don't use dev_get_cma_area() as we don't want to fall back to
+	 * dma_contiguous_default_area.
+	 */
+	cma = mem_buf_dev->cma_area;
+	if (!cma)
+		return -ENOMEM;
+
+	table = kzalloc(sizeof(*table), GFP_KERNEL);
+	if (!table) {
+		ret = -ENOMEM;
+		goto err_alloc_table;
+	}
+
+	ret = sg_alloc_table(table, 1, GFP_KERNEL);
+	if (ret)
+		goto err_sg_init;
+
+	page = cma_alloc(cma, nr_pages, align, false);
+	if (!page) {
+		ret = -ENOMEM;
+		goto err_cma_alloc;
+	}
+
+	sg_set_page(table->sgl, page, nr_pages << PAGE_SHIFT, 0);
+
+	/* Zero memory before transferring to Guest VM */
+	memset(page_address(page), 0, nr_pages << PAGE_SHIFT);
+
+	xfer_mem->mem_sgt = table;
+	xfer_mem->secure_alloc = false;
+	pr_debug("%s: DMAHEAP-BUDDY allocation complete\n", __func__);
+	return 0;
+
+err_cma_alloc:
+	sg_free_table(table);
+err_sg_init:
+	kfree(table);
+err_alloc_table:
+	return ret;
+}
+
 static int mem_buf_rmt_alloc_mem(struct mem_buf_xfer_mem *xfer_mem)
 {
 	int ret = -EINVAL;
 
 	if (xfer_mem->mem_type == MEM_BUF_DMAHEAP_MEM_TYPE)
 		ret = mem_buf_rmt_alloc_dmaheap_mem(xfer_mem);
+	else if (xfer_mem->mem_type == MEM_BUF_BUDDY_MEM_TYPE)
+		ret = mem_buf_rmt_alloc_buddy_mem(xfer_mem);
 
 	return ret;
 }
@@ -232,10 +298,22 @@ static void mem_buf_rmt_free_dmaheap_mem(struct mem_buf_xfer_mem *xfer_mem)
 	pr_debug("%s: DMAHEAP memory freed\n", __func__);
 }
 
+static void mem_buf_rmt_free_buddy_mem(struct mem_buf_xfer_mem *xfer_mem)
+{
+	struct sg_table *table = xfer_mem->mem_sgt;
+
+	pr_debug("%s: Freeing DMAHEAP-BUDDY memory\n", __func__);
+	cma_release(dev_get_cma_area(mem_buf_dev), sg_page(table->sgl),
+		table->sgl->length >> PAGE_SHIFT);
+	pr_debug("%s: DMAHEAP-BUDDY memory freed\n", __func__);
+}
+
 static void mem_buf_rmt_free_mem(struct mem_buf_xfer_mem *xfer_mem)
 {
 	if (xfer_mem->mem_type == MEM_BUF_DMAHEAP_MEM_TYPE)
 		mem_buf_rmt_free_dmaheap_mem(xfer_mem);
+	else if (xfer_mem->mem_type == MEM_BUF_BUDDY_MEM_TYPE)
+		mem_buf_rmt_free_buddy_mem(xfer_mem);
 }
 
 static
@@ -262,6 +340,8 @@ static void *mem_buf_alloc_xfer_mem_type_data(enum mem_buf_mem_type type,
 
 	if (type == MEM_BUF_DMAHEAP_MEM_TYPE)
 		data = mem_buf_alloc_dmaheap_xfer_mem_type_data(rmt_data);
+	else if (type == MEM_BUF_BUDDY_MEM_TYPE)
+		data = NULL;
 
 	return data;
 }
@@ -277,6 +357,7 @@ static void mem_buf_free_xfer_mem_type_data(enum mem_buf_mem_type type,
 {
 	if (type == MEM_BUF_DMAHEAP_MEM_TYPE)
 		mem_buf_free_dmaheap_xfer_mem_type_data(data);
+	/* Do nothing for MEM_BUF_BUDDY_MEM_TYPE */
 }
 
 static
@@ -750,103 +831,6 @@ static void mem_buf_relinquish_memparcel_hdl(void *hdlr_data, u32 obj_id, gh_mem
 	__mem_buf_relinquish_mem(obj_id, hdl);
 }
 
-static int get_mem_buf(void *membuf_desc);
-static int mem_buf_add_dmaheap_mem(struct mem_buf_desc *membuf, struct sg_table *sgt,
-				   void *dst_data)
-{
-	char *heap_name = dst_data;
-
-	return carveout_heap_add_memory(heap_name, sgt, (void *)membuf,
-					get_mem_buf, mem_buf_put);
-}
-
-static int mem_buf_add_mem_type(struct mem_buf_desc *membuf, enum mem_buf_mem_type type,
-				void *dst_data, struct sg_table *sgt)
-{
-	if (type == MEM_BUF_DMAHEAP_MEM_TYPE)
-		return mem_buf_add_dmaheap_mem(membuf, sgt, dst_data);
-
-	return -EINVAL;
-}
-
-static int mem_buf_add_mem(struct mem_buf_desc *membuf)
-{
-	int i, ret, nr_sgl_entries;
-	struct sg_table sgt;
-	struct scatterlist *sgl;
-	u64 base, size;
-
-	pr_debug("%s: adding memory to destination\n", __func__);
-	nr_sgl_entries = membuf->sgl_desc->n_sgl_entries;
-	ret = sg_alloc_table(&sgt, nr_sgl_entries, GFP_KERNEL);
-	if (ret)
-		return ret;
-
-	for_each_sg(sgt.sgl, sgl, nr_sgl_entries, i) {
-		base = membuf->sgl_desc->sgl_entries[i].ipa_base;
-		size = membuf->sgl_desc->sgl_entries[i].size;
-		sg_set_page(sgl, phys_to_page(base), size, 0);
-	}
-
-	ret = mem_buf_add_mem_type(membuf, membuf->dst_mem_type, membuf->dst_data,
-				   &sgt);
-	if (ret)
-		pr_err("%s failed to add memory to destination rc: %d\n",
-		       __func__, ret);
-	else
-		pr_debug("%s: memory added to destination\n", __func__);
-
-	sg_free_table(&sgt);
-	return ret;
-}
-
-static int mem_buf_remove_dmaheap_mem(struct sg_table *sgt, void *dst_data)
-{
-	char *heap_name = dst_data;
-
-	return carveout_heap_remove_memory(heap_name, sgt);
-}
-
-static int mem_buf_remove_mem_type(enum mem_buf_mem_type type, void *dst_data,
-				   struct sg_table *sgt)
-{
-	if (type == MEM_BUF_DMAHEAP_MEM_TYPE)
-		return mem_buf_remove_dmaheap_mem(sgt, dst_data);
-
-	return -EINVAL;
-}
-
-static int mem_buf_remove_mem(struct mem_buf_desc *membuf)
-{
-	int i, ret, nr_sgl_entries;
-	struct sg_table sgt;
-	struct scatterlist *sgl;
-	u64 base, size;
-
-	pr_debug("%s: removing memory from destination\n", __func__);
-	nr_sgl_entries = membuf->sgl_desc->n_sgl_entries;
-	ret = sg_alloc_table(&sgt, nr_sgl_entries, GFP_KERNEL);
-	if (ret)
-		return ret;
-
-	for_each_sg(sgt.sgl, sgl, nr_sgl_entries, i) {
-		base = membuf->sgl_desc->sgl_entries[i].ipa_base;
-		size = membuf->sgl_desc->sgl_entries[i].size;
-		sg_set_page(sgl, phys_to_page(base), size, 0);
-	}
-
-	ret = mem_buf_remove_mem_type(membuf->dst_mem_type, membuf->dst_data,
-				      &sgt);
-	if (ret)
-		pr_err("%s failed to remove memory from destination rc: %d\n",
-		       __func__, ret);
-	else
-		pr_debug("%s: memory removed from destination\n", __func__);
-
-	sg_free_table(&sgt);
-	return ret;
-}
-
 static void *mem_buf_retrieve_dmaheap_mem_type_data_user(
 				struct mem_buf_dmaheap_data __user *udata)
 {
@@ -880,6 +864,8 @@ static void *mem_buf_retrieve_mem_type_data_user(enum mem_buf_mem_type mem_type,
 
 	if (mem_type == MEM_BUF_DMAHEAP_MEM_TYPE)
 		data = mem_buf_retrieve_dmaheap_mem_type_data_user(mem_type_data);
+	else if (mem_type == MEM_BUF_BUDDY_MEM_TYPE)
+		data = NULL;
 
 	return data;
 }
@@ -896,6 +882,8 @@ static void *mem_buf_retrieve_mem_type_data(enum mem_buf_mem_type mem_type,
 
 	if (mem_type == MEM_BUF_DMAHEAP_MEM_TYPE)
 		data = mem_buf_retrieve_dmaheap_mem_type_data(mem_type_data);
+	else if (mem_type == MEM_BUF_BUDDY_MEM_TYPE)
+		data = NULL;
 
 	return data;
 }
@@ -910,50 +898,23 @@ static void mem_buf_free_mem_type_data(enum mem_buf_mem_type mem_type,
 {
 	if (mem_type == MEM_BUF_DMAHEAP_MEM_TYPE)
 		mem_buf_free_dmaheap_mem_type_data(mem_type_data);
+	/* Do nothing for MEM_BUF_BUDDY_MEM_TYPE */
 }
-
-static int mem_buf_buffer_release(struct inode *inode, struct file *filp)
-{
-	struct mem_buf_desc *membuf = filp->private_data;
-	int ret;
-
-	mutex_lock(&mem_buf_list_lock);
-	list_del(&membuf->entry);
-	mutex_unlock(&mem_buf_list_lock);
-
-	pr_debug("%s: Destroyng carveout memory\n", __func__);
-	ret = mem_buf_remove_mem(membuf);
-	if (ret < 0)
-		goto out_free_mem;
-
-	ret = mem_buf_unmap_mem_s1(membuf->sgl_desc);
-	if (ret < 0)
-		goto out_free_mem;
-
-	mem_buf_relinquish_mem(membuf);
-
-out_free_mem:
-	mem_buf_free_mem_type_data(membuf->dst_mem_type, membuf->dst_data);
-	mem_buf_free_mem_type_data(membuf->src_mem_type, membuf->src_data);
-	kvfree(membuf->sgl_desc);
-	kfree(membuf->acl_desc);
-	kfree(membuf);
-	return ret;
-}
-
-static const struct file_operations mem_buf_fops = {
-	.release = mem_buf_buffer_release,
-};
 
 static bool is_valid_mem_type(enum mem_buf_mem_type mem_type)
 {
-	return mem_type == MEM_BUF_DMAHEAP_MEM_TYPE;
+	return (mem_type == MEM_BUF_DMAHEAP_MEM_TYPE) ||
+		(mem_type == MEM_BUF_BUDDY_MEM_TYPE);
 }
 
-static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
+static bool is_valid_ioctl_mem_type(enum mem_buf_mem_type mem_type)
+{
+	return (mem_type == MEM_BUF_DMAHEAP_MEM_TYPE);
+}
+
+void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 {
 	int ret;
-	struct file *filp;
 	struct mem_buf_desc *membuf;
 	int perms = PERM_READ | PERM_WRITE | PERM_EXEC;
 
@@ -971,7 +932,7 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 		return ERR_PTR(-ENOMEM);
 
 	pr_debug("%s: mem buf alloc begin\n", __func__);
-	membuf->size = ALIGN(alloc_data->size, MEM_BUF_MHP_ALIGNMENT);
+	membuf->size = alloc_data->size;
 
 	/* Create copies of data structures from alloc_data as they may be on-stack */
 	membuf->acl_desc = mem_buf_vmid_perm_list_to_gh_acl(
@@ -1021,37 +982,13 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 	if (ret)
 		goto err_map_mem_s2;
 
-	ret = mem_buf_map_mem_s1(membuf->sgl_desc);
-	if (ret)
-		goto err_map_mem_s1;
-
-	filp = anon_inode_getfile("membuf", &mem_buf_fops, membuf, O_RDWR);
-	if (IS_ERR(filp)) {
-		ret = PTR_ERR(filp);
-		goto err_get_file;
-	}
-	membuf->filp = filp;
-
 	mutex_lock(&mem_buf_list_lock);
 	list_add_tail(&membuf->entry, &mem_buf_list);
 	mutex_unlock(&mem_buf_list_lock);
 
-	ret = mem_buf_add_mem(membuf);
-	if (ret)
-		goto err_add_mem;
-
 	pr_debug("%s: mem buf alloc success\n", __func__);
 	return membuf;
 
-err_add_mem:
-	fput(filp);
-	return ERR_PTR(ret);
-err_get_file:
-	if (mem_buf_unmap_mem_s1(membuf->sgl_desc) < 0) {
-		kvfree(membuf->sgl_desc);
-		goto err_mem_req;
-	}
-err_map_mem_s1:
 err_map_mem_s2:
 	mem_buf_relinquish_mem(membuf);
 err_mem_req:
@@ -1068,82 +1005,22 @@ err_alloc_acl_list:
 	return ERR_PTR(ret);
 }
 
-static int _mem_buf_get_fd(struct file *filp)
+void mem_buf_free(void *__membuf)
 {
-	int fd;
+	struct mem_buf_desc *membuf = __membuf;
 
-	if (!filp)
-		return -EINVAL;
+	mutex_lock(&mem_buf_list_lock);
+	list_del(&membuf->entry);
+	mutex_unlock(&mem_buf_list_lock);
 
-	fd = get_unused_fd_flags(O_CLOEXEC);
-	if (fd < 0)
-		return fd;
-
-	fd_install(fd, filp);
-	return fd;
+	mem_buf_relinquish_mem(membuf);
+	kvfree(membuf->sgl_desc);
+	mem_buf_free_mem_type_data(membuf->dst_mem_type, membuf->dst_data);
+	mem_buf_free_mem_type_data(membuf->src_mem_type, membuf->src_data);
+	kfree(membuf->acl_desc);
+	kfree(membuf);
 }
-
-int mem_buf_get_fd(void *membuf_desc)
-{
-	struct mem_buf_desc *membuf = membuf_desc;
-
-	if (!membuf_desc)
-		return -EINVAL;
-
-	return _mem_buf_get_fd(membuf->filp);
-}
-EXPORT_SYMBOL(mem_buf_get_fd);
-
-static void _mem_buf_put(struct file *filp)
-{
-	fput(filp);
-}
-
-void mem_buf_put(void *membuf_desc)
-{
-	struct mem_buf_desc *membuf = membuf_desc;
-
-	if (membuf && membuf->filp)
-		_mem_buf_put(membuf->filp);
-}
-EXPORT_SYMBOL(mem_buf_put);
-
-static bool is_mem_buf_file(struct file *filp)
-{
-	return filp->f_op == &mem_buf_fops;
-}
-
-void *mem_buf_get(int fd)
-{
-	struct file *filp;
-
-	filp = fget(fd);
-
-	if (!filp)
-		return ERR_PTR(-EBADF);
-
-	if (!is_mem_buf_file(filp)) {
-		fput(filp);
-		return ERR_PTR(-EINVAL);
-	}
-
-	return filp->private_data;
-}
-EXPORT_SYMBOL(mem_buf_get);
-
-static int get_mem_buf(void *membuf_desc)
-{
-	struct mem_buf_desc *membuf = membuf_desc;
-
-	/*
-	 * get_file_rcu used for atomic_long_inc_unless_zero.
-	 * It returns 0 if file count is already zero.
-	 */
-	if (!get_file_rcu(membuf->filp))
-		return -EINVAL;
-
-	return 0;
-}
+EXPORT_SYMBOL(mem_buf_free);
 
 struct gh_sgl_desc *mem_buf_get_sgl(void *__membuf)
 {
@@ -1304,17 +1181,17 @@ static void mem_buf_free_alloc_data(struct mem_buf_allocation_data *alloc_data)
 	kfree(alloc_data->perms);
 }
 
+/* FIXME - remove is_valid_ioctl_mem_type. Its already handled */
 int mem_buf_alloc_fd(struct mem_buf_alloc_ioctl_arg *allocation_args)
 {
-	struct mem_buf_desc *membuf;
 	struct mem_buf_allocation_data alloc_data;
 	int ret;
 
 	if (!allocation_args->size || !allocation_args->nr_acl_entries ||
 	    !allocation_args->acl_list ||
 	    (allocation_args->nr_acl_entries > MEM_BUF_MAX_NR_ACL_ENTS) ||
-	    !is_valid_mem_type(allocation_args->src_mem_type) ||
-	    !is_valid_mem_type(allocation_args->dst_mem_type) ||
+	    !is_valid_ioctl_mem_type(allocation_args->src_mem_type) ||
+	    !is_valid_ioctl_mem_type(allocation_args->dst_mem_type) ||
 	    allocation_args->reserved0 || allocation_args->reserved1 ||
 	    allocation_args->reserved2)
 		return -EINVAL;
@@ -1323,19 +1200,11 @@ int mem_buf_alloc_fd(struct mem_buf_alloc_ioctl_arg *allocation_args)
 	if (ret < 0)
 		return ret;
 
-	/* Only donate is supported currently */
-	alloc_data.trans_type = GH_RM_TRANS_TYPE_DONATE;
-	membuf = mem_buf_alloc(&alloc_data);
-	if (IS_ERR(membuf)) {
-		ret = PTR_ERR(membuf);
-		goto out;
-	}
+	if (alloc_data.dst_mem_type == MEM_BUF_DMAHEAP_MEM_TYPE)
+		ret = qcom_tui_heap_add_pool_fd(&alloc_data);
+	else
+		ret = -EINVAL;
 
-	ret = mem_buf_get_fd(membuf);
-	if (ret < 0)
-		mem_buf_put(membuf);
-
-out:
 	mem_buf_free_alloc_data(&alloc_data);
 	return ret;
 }

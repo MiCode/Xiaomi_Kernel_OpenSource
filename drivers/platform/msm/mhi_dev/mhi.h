@@ -618,6 +618,7 @@ struct mhi_dev {
 	 * region from device used in mhi_write()
 	 */
 	dma_addr_t			write_dma_handle;
+	bool				mhi_dma_ready;
 
 	/* Use  PCI eDMA for data transfer */
 	bool				use_edma;

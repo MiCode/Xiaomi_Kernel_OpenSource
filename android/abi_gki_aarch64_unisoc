@@ -122,6 +122,9 @@
   cpu_hotplug_disable
   cpu_hwcap_keys
   cpu_hwcaps
+  cpu_latency_qos_add_request
+  cpu_latency_qos_remove_request
+  cpu_latency_qos_update_request
   cpumask_next
   cpumask_next_and
   cpufreq_add_update_util_hook
@@ -539,6 +542,10 @@
   kmem_cache_destroy
   kmem_cache_free
   kmemdup
+  kmsg_dump_get_buffer
+  kmsg_dump_register
+  kmsg_dump_rewind
+  kmsg_dump_unregister
   kobject_create_and_add
   kobject_uevent_env
   ksoftirqd
@@ -621,6 +628,7 @@
   nf_ct_l4proto_find
   nf_register_net_hooks
   nf_unregister_net_hooks
+  nla_strscpy
   node_states
   noop_llseek
   nr_cpu_ids
@@ -1158,6 +1166,8 @@
   xt_unregister_target
   xt_unregister_targets
   __traceiter_android_rvh_account_irq
+  __traceiter_android_rvh_account_irq_end
+  __traceiter_android_rvh_account_irq_start
   __traceiter_android_rvh_after_dequeue_task
   __traceiter_android_rvh_after_enqueue_task
   __traceiter_android_rvh_build_perf_domains
@@ -1202,6 +1212,7 @@
   __traceiter_android_rvh_update_misfit_status
   __traceiter_android_rvh_wake_up_new_task
   __traceiter_android_vh_arch_set_freq_scale
+  __traceiter_android_vh_atomic_remove_fb
   __traceiter_android_vh_audio_usb_offload_connect
   __traceiter_android_vh_audio_usb_offload_ep_action
   __traceiter_android_vh_audio_usb_offload_synctype
@@ -1211,6 +1222,7 @@
   __traceiter_android_vh_cpufreq_resolve_freq
   __traceiter_android_vh_cpufreq_fast_switch
   __traceiter_android_vh_cpufreq_target
+  __traceiter_android_vh_drm_atomic_check_modeset
   __traceiter_android_vh_dump_throttled_rt_tasks
   __traceiter_android_vh_enable_thermal_power_throttle
   __traceiter_android_vh_get_thermal_zone_device
@@ -1231,6 +1243,8 @@
   __traceiter_pelt_se_tp
   __traceiter_sched_overutilized_tp
   __tracepoint_android_rvh_account_irq
+  __tracepoint_android_rvh_account_irq_end
+  __tracepoint_android_rvh_account_irq_start
   __tracepoint_android_rvh_after_dequeue_task
   __tracepoint_android_rvh_after_enqueue_task
   __tracepoint_android_rvh_build_perf_domains
@@ -1275,6 +1289,7 @@
   __tracepoint_android_rvh_update_misfit_status
   __tracepoint_android_rvh_wake_up_new_task
   __tracepoint_android_vh_arch_set_freq_scale
+  __tracepoint_android_vh_atomic_remove_fb
   __tracepoint_android_vh_audio_usb_offload_ep_action
   __tracepoint_android_vh_audio_usb_offload_synctype
   __tracepoint_android_vh_binder_restore_priority
@@ -1283,6 +1298,7 @@
   __tracepoint_android_vh_cpufreq_resolve_freq
   __tracepoint_android_vh_cpufreq_fast_switch
   __tracepoint_android_vh_cpufreq_target
+  __tracepoint_android_vh_drm_atomic_check_modeset
   __tracepoint_android_vh_dump_throttled_rt_tasks
   __tracepoint_android_vh_enable_thermal_power_throttle
   __tracepoint_android_vh_get_thermal_zone_device
@@ -3007,3 +3023,7 @@
   usb_role_switch_get
   usb_role_switch_put
   usb_role_switch_set_role
+
+# required by unisoc_dump_io.ko
+  blk_stat_enable_accounting
+

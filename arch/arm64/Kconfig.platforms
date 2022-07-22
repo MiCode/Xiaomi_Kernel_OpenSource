@@ -255,6 +255,14 @@ config ARCH_KHAJE
 	  This enables support for the KHAJE chipset. If you do not
 	  wish to build a kernel that runs on this chipset, say 'N' here.
 
+config ARCH_MONACO
+	bool "Enable Support for Qualcomm Technologies, Inc. MONACO"
+	depends on ARCH_QCOM
+	help
+	  This enables support for the Qualcomm Technologies, Inc.'s
+	  MONACO chipset. If you do not wish to build a kernel that
+	  runs on this chipset or if you are unsure, say 'N' here.
+
 config ARCH_CINDER
 	bool "Enable Support for Qualcomm Technologies, Inc. CINDER"
 	depends on ARCH_QCOM
@@ -296,12 +304,30 @@ config ARCH_SA6155
 	  SA6155 chipset. If you do not wish to build a kernel that
 	  runs on this chipset or if you are unsure, say 'N' here.
 
+config QTI_QUIN_GVM
+	bool "Enable Support for Qualcomm Technologies, Inc. Auto GVMs on QUIN"
+	depends on ARCH_QCOM
+	help
+	  This enables support for the Qualcomm Technologies, Inc.'s
+	  Auto GVM on the QUIN platform. If you do not wish to build a
+	  kernel that runs this configuration or if you are unsure,
+	  say 'N' here.
+
 config ARCH_SA410M
 	bool "Enable Support for Qualcomm Technologies, Inc. SA410M"
 	depends on ARCH_QCOM
 	help
 	  This enables support for the Qualcomm Technologies, Inc.
 	  SA410M chipset. Say 'Y' for SA410M chipset. If you do not
+	  wish to build a kernel that runs on this chipset or if you
+	  are unsure, say 'N' here
+
+config ARCH_SCUBA_AUTO
+	bool "Enable Support for Qualcomm Technologies, Inc. SCUBA AUTO"
+	depends on ARCH_QCOM
+	help
+	  This enables support for the Qualcomm Technologies, Inc.
+	  SA410M chipset. Say 'Y' for SCUBA_AUTO chipset. If you do not
 	  wish to build a kernel that runs on this chipset or if you
 	  are unsure, say 'N' here.
 

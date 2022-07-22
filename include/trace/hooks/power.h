@@ -7,7 +7,8 @@
 #define _TRACE_HOOK_POWER_H
 #include <trace/hooks/vendor_hooks.h>
 
-struct task_struct;
+/* struct task_struct */
+#include <linux/sched.h>
 DECLARE_HOOK(android_vh_try_to_freeze_todo,
 	TP_PROTO(unsigned int todo, unsigned int elapsed_msecs, bool wq_busy),
 	TP_ARGS(todo, elapsed_msecs, wq_busy));
@@ -15,6 +16,23 @@ DECLARE_HOOK(android_vh_try_to_freeze_todo,
 DECLARE_HOOK(android_vh_try_to_freeze_todo_unfrozen,
 	TP_PROTO(struct task_struct *p),
 	TP_ARGS(p));
+
+enum freq_qos_req_type;
+struct freq_qos_request;
+struct freq_constraints;
+
+DECLARE_HOOK(android_vh_freq_qos_add_request,
+	TP_PROTO(struct freq_constraints *qos, struct freq_qos_request *req,
+		enum freq_qos_req_type type, int value, int ret),
+	TP_ARGS(qos, req, type, value, ret));
+
+DECLARE_HOOK(android_vh_freq_qos_update_request,
+		TP_PROTO(struct freq_qos_request *req, int value),
+		TP_ARGS(req, value));
+
+DECLARE_HOOK(android_vh_freq_qos_remove_request,
+		TP_PROTO(struct freq_qos_request *req),
+		TP_ARGS(req));
 
 #endif /* _TRACE_HOOK_POWER_H */
 /* This part must be outside protection */

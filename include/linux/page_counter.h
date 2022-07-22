@@ -5,6 +5,7 @@
 #include <linux/atomic.h>
 #include <linux/kernel.h>
 #include <asm/page.h>
+#include <linux/android_vendor.h>
 
 struct page_counter {
 	atomic_long_t usage;
@@ -26,6 +27,7 @@ struct page_counter {
 	/* legacy */
 	unsigned long watermark;
 	unsigned long failcnt;
+	ANDROID_VENDOR_DATA(1);
 
 	/*
 	 * 'parent' is placed here to be far from 'usage' to reduce

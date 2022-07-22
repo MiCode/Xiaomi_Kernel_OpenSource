@@ -337,6 +337,8 @@ struct queue_limits {
 	enum blk_zoned_model	zoned;
 
 	ANDROID_KABI_RESERVE(1);
+
+	ANDROID_OEM_DATA(1);
 };
 
 typedef int (*report_zones_cb)(struct blk_zone *zone, unsigned int idx,
@@ -572,6 +574,8 @@ struct request_queue {
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);
 	ANDROID_KABI_RESERVE(4);
+
+	ANDROID_OEM_DATA(1);
 };
 
 /* Keep blk_queue_flag_name[] in sync with the definitions below */

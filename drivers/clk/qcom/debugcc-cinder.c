@@ -275,6 +275,7 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_cfg_noc_ecpri_cc_ahb_clk",
 	"gcc_cfg_noc_usb3_prim_axi_clk",
 	"gcc_ddrss_ecpri_dma_clk",
+	"gcc_aggre_noc_ecpri_gsi_clk",
 	"gcc_ecpri_ahb_clk",
 	"gcc_ecpri_cc_gpll0_clk_src",
 	"gcc_ecpri_cc_gpll1_even_clk_src",
@@ -365,6 +366,7 @@ static int gcc_debug_mux_sels[] = {
 	0x10E,		/* gcc_cfg_noc_ecpri_cc_ahb_clk */
 	0x18,		/* gcc_cfg_noc_usb3_prim_axi_clk */
 	0xB5,		/* gcc_ddrss_ecpri_dma_clk */
+	0x31,		/* gcc_aggre_noc_ecpri_gsi_clk */
 	0x105,		/* gcc_ecpri_ahb_clk */
 	0x10F,		/* gcc_ecpri_cc_gpll0_clk_src */
 	0x110,		/* gcc_ecpri_cc_gpll1_even_clk_src */

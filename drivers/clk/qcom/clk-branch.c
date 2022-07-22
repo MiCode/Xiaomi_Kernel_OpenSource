@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2013, 2016, 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -61,7 +62,11 @@ static bool clk_branch2_check_halt(const struct clk_branch *br, bool enabling)
 
 	if (enabling) {
 		val &= mask;
-		return (val & BRANCH_CLK_OFF) == 0 ||
+
+		if (br->halt_check == BRANCH_HALT_INVERT)
+			val = !val;
+
+		return (val & BRANCH_CLK_OFF) == val ||
 			val == BRANCH_NOC_FSM_STATUS_ON;
 	} else {
 		return val & BRANCH_CLK_OFF;

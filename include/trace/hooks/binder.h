@@ -10,20 +10,24 @@
  * Following tracepoints are not exported in tracefs and provide a
  * mechanism for vendor modules to hook and extend functionality
  */
-struct binder_transaction;
-struct task_struct;
+/* struct binder_proc, struct binder_thread, struct binder_transaction */
+#include <../drivers/android/binder_internal.h>
+/* struct task_struct */
+#include <linux/sched.h>
+/* struct binder_transaction_data */
+#include <uapi/linux/android/binder.h>
 DECLARE_HOOK(android_vh_binder_transaction_init,
 	TP_PROTO(struct binder_transaction *t),
 	TP_ARGS(t));
+DECLARE_HOOK(android_vh_binder_priority_skip,
+	TP_PROTO(struct task_struct *task, bool *skip),
+	TP_ARGS(task, skip));
 DECLARE_HOOK(android_vh_binder_set_priority,
 	TP_PROTO(struct binder_transaction *t, struct task_struct *task),
 	TP_ARGS(t, task));
 DECLARE_HOOK(android_vh_binder_restore_priority,
 	TP_PROTO(struct binder_transaction *t, struct task_struct *task),
 	TP_ARGS(t, task));
-struct binder_proc;
-struct binder_thread;
-struct binder_transaction_data;
 DECLARE_HOOK(android_vh_binder_wakeup_ilocked,
 	TP_PROTO(struct task_struct *task, bool sync, struct binder_proc *proc),
 	TP_ARGS(task, sync, proc));
@@ -37,6 +41,37 @@ DECLARE_RESTRICTED_HOOK(android_rvh_binder_transaction,
 	TP_PROTO(struct binder_proc *target_proc, struct binder_proc *proc,
 		struct binder_thread *thread, struct binder_transaction_data *tr),
 	TP_ARGS(target_proc, proc, thread, tr), 1);
+DECLARE_HOOK(android_vh_binder_proc_transaction_finish,
+	TP_PROTO(struct binder_proc *proc, struct binder_transaction *t,
+		struct task_struct *binder_th_task, bool pending_async, bool sync),
+	TP_ARGS(proc, t, binder_th_task, pending_async, sync));
+DECLARE_HOOK(android_vh_binder_print_transaction_info,
+	TP_PROTO(struct seq_file *m, struct binder_proc *proc,
+		 const char *prefix, struct binder_transaction *t),
+	TP_ARGS(m, proc, prefix, t));
+DECLARE_HOOK(android_vh_binder_looper_state_registered,
+	TP_PROTO(struct binder_thread *thread, struct binder_proc *proc),
+	TP_ARGS(thread, proc));
+DECLARE_HOOK(android_vh_binder_thread_read,
+	TP_PROTO(struct list_head **list, struct binder_proc *proc,
+		struct binder_thread *thread),
+	TP_ARGS(list, proc, thread));
+DECLARE_HOOK(android_vh_binder_free_proc,
+	TP_PROTO(struct binder_proc *proc),
+	TP_ARGS(proc));
+DECLARE_HOOK(android_vh_binder_thread_release,
+	TP_PROTO(struct binder_proc *proc, struct binder_thread *thread),
+	TP_ARGS(proc, thread));
+DECLARE_HOOK(android_vh_binder_read_done,
+	TP_PROTO(struct binder_proc *proc, struct binder_thread *thread),
+	TP_ARGS(proc, thread));
+DECLARE_HOOK(android_vh_binder_has_work_ilocked,
+	TP_PROTO(struct binder_thread *thread, bool do_proc_work, int *ret),
+	TP_ARGS(thread, do_proc_work, ret));
+DECLARE_HOOK(android_vh_binder_preset,
+	TP_PROTO(struct hlist_head *hhead, struct mutex *lock),
+	TP_ARGS(hhead, lock));
+
 #endif /* _TRACE_HOOK_BINDER_H */
 /* This part must be outside protection */
 #include <trace/define_trace.h>

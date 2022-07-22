@@ -10,7 +10,8 @@
  * Following tracepoints are not exported in tracefs and provide a
  * mechanism for vendor modules to hook and extend functionality
  */
-struct module;
+/* struct module */
+#include <linux/module.h>
 DECLARE_HOOK(android_vh_set_module_permit_before_init,
 	TP_PROTO(const struct module *mod),
 	TP_ARGS(mod));

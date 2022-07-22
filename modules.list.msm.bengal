@@ -9,9 +9,11 @@ smd-rpm.ko
 qcom_smd.ko
 qcom_glink.ko
 qcom_wdt_core.ko
+qcom_soc_wdt.ko
 qcom_cpu_vendor_hooks.ko
+clk-smd-rpm.ko
 gcc-khaje.ko
-camcc-khaje.ko
+qcom-cpufreq-hw.ko
 qcom_ipcc.ko
 qcom_ipc_logging.ko
 qcom-pdc.ko
@@ -22,15 +24,13 @@ cmd-db.ko
 cqhci.ko
 dcc_v2.ko
 debug-regulator.ko
-dispcc-khaje.ko
-tcsrcc-khaje.ko
-videocc-khaje.ko
 gdsc-regulator.ko
 gh_arm_drv.ko
 gh_ctrl.ko
 gh_dbl.ko
 gh_msgq.ko
 gh_rm_drv.ko
+icc-rpm.ko
 icc-bcm-voter.ko
 icc-debug.ko
 iommu-logger.ko
@@ -41,7 +41,7 @@ mem_buf.ko
 msm_dma_iommu_mapping.ko
 pinctrl-khaje.ko
 pinctrl-bengal.ko
-qnoc-khaje.ko
+qnoc-bengal.ko
 ns.ko
 nvmem_qcom-spmi-sdam.ko
 phy-qcom-ufs.ko
@@ -57,7 +57,7 @@ qcom-spmi-pmic.ko
 spmi-pmic-arb.ko
 qcom-reboot-reason.ko
 qcom-scm.ko
-qnoc-qos.ko
+qnoc-qos-rpm.ko
 qrtr.ko
 qti-regmap-debugfs.ko
 regmap-spmi.ko

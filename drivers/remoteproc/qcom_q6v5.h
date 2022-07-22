@@ -9,6 +9,12 @@
 #include <linux/kernel.h>
 #include <linux/completion.h>
 
+#define RMB_BOOT_WAIT_REG 0x8
+#define RMB_BOOT_CONT_REG 0xC
+#define RMB_Q6_BOOT_STATUS_REG 0x10
+
+#define RMB_POLL_MAX_TIMES 250
+
 struct rproc;
 struct qcom_smem_state;
 struct qcom_sysmon;
@@ -16,6 +22,8 @@ struct qcom_sysmon;
 struct qcom_q6v5 {
 	struct device *dev;
 	struct rproc *rproc;
+
+	void __iomem *rmb_base;
 
 	struct qcom_smem_state *state;
 	unsigned stop_bit;

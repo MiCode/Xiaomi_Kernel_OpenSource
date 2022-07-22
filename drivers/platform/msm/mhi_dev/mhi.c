@@ -3955,11 +3955,15 @@ static void mhi_ring_init_cb(void *data)
 	if (WARN_ON(!mhi))
 		return;
 
+	mutex_lock(&mhi_ctx->mhi_lock);
 	if (!mhi_ctx->init_done) {
 		mhi_log(MHI_MSG_INFO, "mhi init is not done, returning\n");
+		mhi_ctx->mhi_dma_ready = true;
+		mutex_unlock(&mhi_ctx->mhi_lock);
 		return;
 	}
 	queue_work(mhi->ring_init_wq, &mhi->ring_init_cb_work);
+	mutex_unlock(&mhi_ctx->mhi_lock);
 }
 
 int mhi_register_state_cb(void (*mhi_state_cb)
@@ -4257,15 +4261,13 @@ static int mhi_dev_resume_mmio_mhi_reinit(struct mhi_dev *mhi_ctx)
 	}
 
 	if (mhi_ctx->use_mhi_dma) {
-		rc =  mhi_dma_register_ready_cb(mhi_ring_init_cb, mhi_ctx);
-		if (rc < 0) {
-			if (rc == -EEXIST) {
-				mhi_ring_init_cb(mhi_ctx);
-			} else {
-				pr_err("Error calling MHI DMA cb with %d\n", rc);
-				goto fail;
-			}
-		}
+		/*
+		 * In case of MHI VF, mhi_ring_int_cb() is not called as MHI DMA ready
+		 * event is registered/handled by PF. Involking mhi_dev_enable()
+		 * is necessary for enabling MHI IRQ.
+		 */
+		if (mhi_ctx->mhi_dma_ready || mhi_ctx->mhi_dma_fun_params.function_type)
+			queue_work(mhi_ctx->ring_init_wq, &mhi_ctx->ring_init_cb_work);
 	}
 
 	/* Invoke MHI SM when device is in RESET state */
@@ -4289,12 +4291,13 @@ static int mhi_dev_resume_mmio_mhi_reinit(struct mhi_dev *mhi_ctx)
 		goto fail;
 	}
 
+	atomic_set(&mhi_ctx->is_suspended, 0);
+	atomic_set(&mhi_ctx->re_init_done, 1);
+	mutex_unlock(&mhi_ctx->mhi_lock);
 	if (mhi_ctx->use_edma)
 		mhi_ring_init_cb(mhi_ctx);
-
-	atomic_set(&mhi_ctx->is_suspended, 0);
+	return rc;
 fail:
-	atomic_set(&mhi_ctx->re_init_done, 1);
 	mutex_unlock(&mhi_ctx->mhi_lock);
 	return rc;
 }
@@ -4328,8 +4331,10 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 	 * There could be multiple calls to this function if device gets
 	 * multiple link-up events (bme irqs).
 	 */
+	mutex_lock(&mhi_ctx->mhi_lock);
 	if (mhi_ctx->init_done) {
 		mhi_log(MHI_MSG_INFO, "mhi init already done, returning\n");
+		mutex_unlock(&mhi_ctx->mhi_lock);
 		return 0;
 	}
 
@@ -4341,6 +4346,7 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 							WQ_HIGHPRI, 0);
 	if (!mhi_ctx->pending_ring_wq) {
 		rc = -ENOMEM;
+		mutex_unlock(&mhi_ctx->mhi_lock);
 		return rc;
 	}
 
@@ -4354,6 +4360,7 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 							WQ_HIGHPRI, 0);
 	if (!mhi_ctx->ring_init_wq) {
 		rc = -ENOMEM;
+		mutex_unlock(&mhi_ctx->mhi_lock);
 		return rc;
 	}
 
@@ -4365,42 +4372,53 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 	mhi_ctx->phandle = ep_pcie_get_phandle(mhi_ctx->ifc_id);
 	if (!mhi_ctx->phandle) {
 		pr_err("PCIe driver get handle failed.\n");
+		mutex_unlock(&mhi_ctx->mhi_lock);
 		return -EINVAL;
 	}
 
 	rc = mhi_dev_recover(mhi_ctx);
 	if (rc) {
 		pr_err("%s: get mhi state failed\n", __func__);
+		mutex_unlock(&mhi_ctx->mhi_lock);
 		return rc;
 	}
 
 	rc = mhi_init(mhi_ctx, MHI_INIT);
-	if (rc)
+	if (rc) {
+		mutex_unlock(&mhi_ctx->mhi_lock);
 		return rc;
+	}
 
 	mhi_ctx->dma_cache = dma_alloc_coherent(&pdev->dev,
 			(TRB_MAX_DATA_SIZE * 4),
 			&mhi_ctx->cache_dma_handle, GFP_KERNEL);
-	if (!mhi_ctx->dma_cache)
+	if (!mhi_ctx->dma_cache) {
+		mutex_unlock(&mhi_ctx->mhi_lock);
 		return -ENOMEM;
+	}
 
 	mhi_ctx->read_handle = dma_alloc_coherent(&pdev->dev,
 			(TRB_MAX_DATA_SIZE * 4),
 			&mhi_ctx->read_dma_handle,
 			GFP_KERNEL);
-	if (!mhi_ctx->read_handle)
+	if (!mhi_ctx->read_handle) {
+		mutex_unlock(&mhi_ctx->mhi_lock);
 		return -ENOMEM;
+	}
 
 	mhi_ctx->write_handle = dma_alloc_coherent(&pdev->dev,
 			(TRB_MAX_DATA_SIZE * 24),
 			&mhi_ctx->write_dma_handle,
 			GFP_KERNEL);
-	if (!mhi_ctx->write_handle)
+	if (!mhi_ctx->write_handle) {
+		mutex_unlock(&mhi_ctx->mhi_lock);
 		return -ENOMEM;
+	}
 
 	rc = mhi_dev_mmio_write(mhi_ctx, MHIVER, mhi_ctx->mhi_version);
 	if (rc) {
 		pr_err("Failed to update the MHI version\n");
+		mutex_unlock(&mhi_ctx->mhi_lock);
 		return rc;
 	}
 	mhi_ctx->event_reg.events = EP_PCIE_EVENT_PM_D3_HOT |
@@ -4419,14 +4437,15 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 	rc = ep_pcie_register_event(mhi_ctx->phandle, &mhi_ctx->event_reg);
 	if (rc) {
 		pr_err("Failed to register for events from PCIe\n");
+		mutex_unlock(&mhi_ctx->mhi_lock);
 		return rc;
 	}
-
 
 	/* Invoke MHI SM when device is in RESET state */
 	rc = mhi_dev_sm_init(mhi_ctx);
 	if (rc) {
 		pr_err("%s: Error during SM init\n", __func__);
+		mutex_unlock(&mhi_ctx->mhi_lock);
 		return rc;
 	}
 
@@ -4434,6 +4453,7 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 	rc = mhi_dev_mmio_set_env(mhi_ctx, MHI_ENV_VALUE);
 	if (rc) {
 		pr_err("%s: env setting failed\n", __func__);
+		mutex_unlock(&mhi_ctx->mhi_lock);
 		return rc;
 	}
 
@@ -4445,6 +4465,7 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 			IRQF_TRIGGER_HIGH, "mhi_isr", mhi_ctx);
 		if (rc) {
 			dev_err(&pdev->dev, "request mhi irq failed %d\n", rc);
+			mutex_unlock(&mhi_ctx->mhi_lock);
 			return -EINVAL;
 		}
 
@@ -4454,16 +4475,15 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 	mhi_ctx->init_done = true;
 
 	if (mhi_ctx->use_mhi_dma) {
-		rc =  mhi_dma_register_ready_cb(mhi_ring_init_cb, mhi_ctx);
-		if (rc < 0) {
-			if (rc == -EEXIST) {
-				mhi_ring_init_cb(mhi_ctx);
-			} else {
-				pr_err("Error calling MHI DMA cb with %d\n", rc);
-				return rc;
-			}
-		}
+		/*
+		 * In case of MHI VF, mhi_ring_int_cb() is not called as MHI DMA ready
+		 * event is registered/handled by PF. Involking mhi_dev_enable()
+		 * is necessary for enabling MHI IRQ.
+		 */
+		if (mhi_ctx->mhi_dma_ready || mhi_ctx->mhi_dma_fun_params.function_type)
+			queue_work(mhi_ctx->ring_init_wq, &mhi_ctx->ring_init_cb_work);
 	}
+	mutex_unlock(&mhi_ctx->mhi_lock);
 
 	if (mhi_ctx->use_edma)
 		mhi_ring_init_cb(mhi_ctx);
@@ -4601,11 +4621,8 @@ static int mhi_dev_probe(struct platform_device *pdev)
 	mhi_ctx->phandle = ep_pcie_get_phandle(mhi_ctx->ifc_id);
 	if (mhi_ctx->phandle) {
 		/* PCIe link is already up */
-		rc = mhi_dev_resume_mmio_mhi_init(mhi_ctx);
-		if (rc) {
-			pr_err("Error during MHI device initialization\n");
-			return rc;
-		}
+		mhi_dev_pcie_notify_event = MHI_INIT;
+		queue_work(mhi_ctx->pcie_event_wq, &mhi_ctx->pcie_event);
 	} else {
 		pr_debug("Register a PCIe callback\n");
 		mhi_ctx->event_reg.events = EP_PCIE_EVENT_LINKUP;

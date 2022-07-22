@@ -81,7 +81,7 @@ int qcom_mdt_load_no_free(struct device *dev, const struct firmware *fw, const c
 	return -ENODEV;
 }
 void qcom_mdt_free_metadata(struct device *dev, int pas_id, struct qcom_mdt_metadata *mdata,
-			    bool dma_phys_below_32b, int err);
+			    bool dma_phys_below_32b, int err)
 {
 	return;
 }

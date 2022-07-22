@@ -97,3 +97,12 @@ config QCOM_DMABUF_HEAPS_BITSTREAM_CONTIG
 	  and then assigns to the CP_BITSTREAM endpoint, before
 	  returning this allocation to user space. It uses the name
 	  'system-secure'. If in doubt, say N here.
+
+config QCOM_DMABUF_HEAPS_TUI_CARVEOUT
+	bool "QCOM DMA-BUF TUI Carveout Heap"
+	depends on QCOM_DMABUF_HEAPS
+	help
+	  Choose this option to build the QCOM Trusted UI carvout heap.
+	  This heap is controlled from an ioctl, and memory is transferred
+	  to it from the Primary VM. Not GKI-Compatible as it cannot
+	  be built as a module.

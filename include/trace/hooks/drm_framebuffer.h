@@ -11,7 +11,8 @@
 
 #include <trace/hooks/vendor_hooks.h>
 
-struct drm_framebuffer;
+/* struct drm_framebuffer */
+#include <drm/drm_framebuffer.h>
 DECLARE_HOOK(android_vh_atomic_remove_fb,
 	TP_PROTO(struct drm_framebuffer *fb, bool *allow),
 	TP_ARGS(fb, allow))

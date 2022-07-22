@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -2474,7 +2475,6 @@ static struct clk_branch cam_cc_core_ahb_clk = {
 	.clkr = {
 		.enable_reg = 0x1406c,
 		.enable_mask = BIT(0),
-		.flags = QCOM_CLK_BOOT_CRITICAL,
 		.hw.init = &(struct clk_init_data){
 			.name = "cam_cc_core_ahb_clk",
 			.parent_hws = (const struct clk_hw*[]){
@@ -2493,7 +2493,6 @@ static struct clk_branch cam_cc_cpas_ahb_clk = {
 	.clkr = {
 		.enable_reg = 0x13c90,
 		.enable_mask = BIT(0),
-		.flags = QCOM_CLK_BOOT_CRITICAL,
 		.hw.init = &(struct clk_init_data){
 			.name = "cam_cc_cpas_ahb_clk",
 			.parent_hws = (const struct clk_hw*[]){

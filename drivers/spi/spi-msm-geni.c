@@ -2250,6 +2250,10 @@ static int spi_geni_runtime_suspend(struct device *dev)
 		}
 	}
 
+	/* For tui usecase LA should control clk/gpio/icb */
+	if (geni_mas->is_la_vm)
+		goto exit_rt_suspend;
+
 	/* Do not unconfigure the GPIOs for a shared_se usecase */
 	if (geni_mas->shared_ee && !geni_mas->shared_se)
 		goto exit_rt_suspend;
@@ -2315,7 +2319,7 @@ static int spi_geni_runtime_resume(struct device *dev)
 		}
 	}
 
-	if (geni_mas->shared_ee)
+	if (geni_mas->shared_ee || geni_mas->is_la_vm)
 		goto exit_rt_resume;
 
 	if (geni_mas->gsi_mode) {

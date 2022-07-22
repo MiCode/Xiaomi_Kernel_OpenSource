@@ -45,6 +45,7 @@
 #include <linux/posix-timers.h>
 #include <linux/cgroup.h>
 #include <linux/audit.h>
+#include <linux/oom.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/signal.h>
@@ -56,6 +57,8 @@
 #include <asm/cacheflush.h>
 #include <asm/syscall.h>	/* for syscall_get_* */
 
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/signal.h>
 /*
  * SLAB caches for signal bits.
  */
@@ -1289,7 +1292,7 @@ int do_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p
 {
 	unsigned long flags;
 	int ret = -ESRCH;
-
+	trace_android_vh_do_send_sig_info(sig, current, p);
 	if (lock_task_sighand(p, &flags)) {
 		ret = send_signal(sig, info, p, type);
 		unlock_task_sighand(p, &flags);
@@ -1438,8 +1441,16 @@ int group_send_sig_info(int sig, struct kernel_siginfo *info,
 	ret = check_kill_permission(sig, info, p);
 	rcu_read_unlock();
 
-	if (!ret && sig)
+	if (!ret && sig) {
 		ret = do_send_sig_info(sig, info, p, type);
+		if (!ret && sig == SIGKILL) {
+			bool reap = false;
+
+			trace_android_vh_process_killed(current, &reap);
+			if (reap)
+				add_to_oom_reaper(p);
+		}
+	}
 
 	return ret;
 }

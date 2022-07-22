@@ -10,6 +10,8 @@
 #include <trace/hooks/vendor_hooks.h>
 #include <linux/cpufreq.h>
 
+/* struct thermal_cooling_device, struct thermal_zone_device */
+#include <linux/thermal.h>
 DECLARE_HOOK(android_vh_modify_thermal_request_freq,
 	TP_PROTO(struct cpufreq_policy *policy, unsigned long *request_freq),
 	TP_ARGS(policy, request_freq));
@@ -34,12 +36,10 @@ DECLARE_HOOK(android_vh_thermal_power_cap,
 	TP_PROTO(u32 *power_range),
 	TP_ARGS(power_range));
 
-struct thermal_zone_device;
 DECLARE_HOOK(android_vh_get_thermal_zone_device,
 	TP_PROTO(struct thermal_zone_device *tz),
 	TP_ARGS(tz));
 
-struct thermal_cooling_device;
 DECLARE_HOOK(android_vh_disable_thermal_cooling_stats,
 	TP_PROTO(struct thermal_cooling_device *cdev, int *disable_stats),
 	TP_ARGS(cdev, disable_stats));

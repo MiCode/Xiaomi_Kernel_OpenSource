@@ -2206,9 +2206,6 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 					   bool intentless)
 {
 	struct qcom_glink *glink;
-	u32 *arr;
-	int size;
-	int irq;
 	int ret;
 
 	glink = devm_kzalloc(dev, sizeof(*glink), GFP_KERNEL);
@@ -2265,6 +2262,20 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 
 	snprintf(glink->irqname, 32, "glink-native-%s", glink->name);
 
+	glink->ilc = ipc_log_context_create(GLINK_LOG_PAGE_CNT, glink->name, 0);
+
+	return glink;
+}
+EXPORT_SYMBOL(qcom_glink_native_probe);
+
+int qcom_glink_native_start(struct qcom_glink *glink)
+{
+	struct device *dev = glink->dev;
+	u32 *arr;
+	int size;
+	int irq;
+	int ret;
+
 	spin_lock_init(&glink->irq_lock);
 	glink->irq_running = false;
 
@@ -2275,37 +2286,24 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 					IRQF_NO_SUSPEND | IRQF_ONESHOT,
 					glink->irqname, glink);
 	if (ret) {
-		dev_err(dev, "failed to request IRQ\n");
-		return ERR_PTR(ret);
+		dev_err(dev, "failed to request IRQ with %d\n", ret);
+		return ret;
 	}
 
 	glink->irq = irq;
-	disable_irq(glink->irq);
 
 	size = of_property_count_u32_elems(dev->of_node, "cpu-affinity");
 	if (size > 0) {
 		arr = kmalloc_array(size, sizeof(u32), GFP_KERNEL);
-		if (!arr) {
-			ret = -ENOMEM;
-			return ERR_PTR(ret);
-		}
+		if (!arr)
+			return -ENOMEM;
+
 		ret = of_property_read_u32_array(dev->of_node, "cpu-affinity",
 						 arr, size);
 		if (!ret)
 			qcom_glink_set_affinity(glink, arr, size);
 		kfree(arr);
 	}
-	glink->ilc = ipc_log_context_create(GLINK_LOG_PAGE_CNT, glink->name, 0);
-
-	return glink;
-}
-EXPORT_SYMBOL(qcom_glink_native_probe);
-
-int qcom_glink_native_start(struct qcom_glink *glink)
-{
-	int ret;
-
-	enable_irq(glink->irq);
 
 	ret = qcom_glink_send_version(glink);
 	if (ret) {

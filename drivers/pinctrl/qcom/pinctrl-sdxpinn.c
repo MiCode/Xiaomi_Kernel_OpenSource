@@ -1601,6 +1601,22 @@ static const struct msm_pingroup sdxpinn_groups[] = {
 	[139] = SDC_QDSD_PINGROUP(sdc2_data, 0x19b000, 9, 0),
 };
 
+static const struct msm_gpio_wakeirq_map sdxpinn_pdc_map[] = {
+	{ 2, 91 }, { 6, 109 }, { 9, 129 }, { 11, 62 }, { 13, 84 }, { 15, 87 },
+	{ 17, 88 }, { 18, 89 }, { 19, 90 }, { 20, 92 }, { 21, 93 }, { 22, 94 },
+	{ 23, 95 }, { 25, 96 }, { 27, 97 }, { 38, 98 }, { 39, 99 }, { 40, 100 },
+	{ 41, 101 }, { 52, 102 }, { 53, 141 }, { 54, 104 }, { 55, 105 }, { 56, 106 },
+	{ 57, 107 }, { 59, 108 }, { 60, 110 }, { 62, 111 }, { 63, 112 }, { 64, 113 },
+	{ 65, 114 }, { 67, 115 }, { 68, 116 }, { 69, 117 }, { 70, 118 }, { 71, 119 },
+	{ 72, 120 }, { 75, 121 }, { 76, 122 }, { 78, 123 }, { 79, 124 }, { 80, 125 },
+	{ 81, 50 }, { 85, 127 }, { 87, 128 }, { 91, 130 }, { 92, 131 }, { 93, 132 },
+	{ 94, 133 }, { 95, 134 }, { 97, 135 }, { 98, 136 }, { 101, 64 }, { 105, 65 },
+	{ 106, 66 }, { 107, 67 }, { 108, 68 }, { 109, 69 }, { 111, 70 }, { 113, 59 },
+	{ 115, 72 }, { 116, 73 }, { 117, 74 }, { 118, 75 }, { 119, 76 }, { 120, 77 },
+	{ 121, 78 }, { 123, 79 }, { 124, 80 }, { 125, 63 }, { 127, 81 }, { 128, 82 },
+	{ 129, 83 }, { 130, 85 }, { 132, 86 },
+};
+
 static const struct msm_pinctrl_soc_data sdxpinn_pinctrl = {
 	.pins = sdxpinn_pins,
 	.npins = ARRAY_SIZE(sdxpinn_pins),
@@ -1609,6 +1625,8 @@ static const struct msm_pinctrl_soc_data sdxpinn_pinctrl = {
 	.groups = sdxpinn_groups,
 	.ngroups = ARRAY_SIZE(sdxpinn_groups),
 	.ngpios = 133,
+	.wakeirq_map = sdxpinn_pdc_map,
+	.nwakeirq_map = ARRAY_SIZE(sdxpinn_pdc_map),
 };
 
 static int sdxpinn_pinctrl_probe(struct platform_device *pdev)

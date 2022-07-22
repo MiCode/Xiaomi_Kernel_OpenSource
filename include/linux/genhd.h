@@ -16,6 +16,7 @@
 #include <linux/blk_types.h>
 #include <linux/device.h>
 #include <linux/xarray.h>
+#include <linux/android_kabi.h>
 
 extern const struct device_type disk_type;
 extern struct device_type part_type;
@@ -112,6 +113,9 @@ struct blk_integrity {
 	unsigned char				tuple_size;
 	unsigned char				interval_exp;
 	unsigned char				tag_size;
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 };
 
 struct gendisk {
@@ -162,6 +166,11 @@ struct gendisk {
 	struct badblocks *bb;
 	struct lockdep_map lockdep_map;
 	u64 diskseq;
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 static inline bool disk_live(struct gendisk *disk)

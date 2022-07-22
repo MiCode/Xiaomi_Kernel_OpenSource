@@ -57,6 +57,15 @@ config QRTR_MHI
 	  Say Y here to support MHI based ipcrouter channels. MHI is the
 	  transport used for communicating to external modems.
 
+config QRTR_MHI_DEV
+	tristate "MHI Device IPC Router channels"
+	depends on MSM_MHI_DEV || (COMPILE_TEST && MSM_MHI_DEV=n)
+	help
+	  Say Y here to support MHI base ipcrouter channels for device
+	  endpoint mode.  MHI is the transport used for external modem
+	  connections.  This driver enables QRTR to run on the modem device
+	  side.
+
 config QRTR_GUNYAH
 	tristate "Gunyah IPC Router channels"
 	help
@@ -64,5 +73,14 @@ config QRTR_GUNYAH
 	  hypervisor signaling. The gunyah transport layer enables IPC
 	  Router communication between two virtual machines. The transport
 	  uses dynamically shared memory and gunyah doorbells.
+
+config QRTR_GENPOOL
+	tristate "Genpool FIFO IPC Router channels"
+	help
+	  Say Y here to support a fifo based ipcrouter channel with genpool and
+	  IPCC signaling. The genpool fifo transport layer enables IPC Router
+	  communication between two endpoints. The transport utilizes a reserved
+	  memory created and owned by another device, which is shared through
+	  the genpool framework.
 
 endif # QRTR
