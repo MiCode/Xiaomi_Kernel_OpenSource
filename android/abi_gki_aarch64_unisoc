@@ -1249,6 +1249,7 @@
   __traceiter_android_vh_thermal_register
   __traceiter_android_vh_thermal_unregister
   __traceiter_android_vh_update_topology_flags_workfn
+  __traceiter_android_vh_usb_new_device_added
   __traceiter_cpu_frequency
   __traceiter_cpu_frequency_limits
   __traceiter_pelt_se_tp
