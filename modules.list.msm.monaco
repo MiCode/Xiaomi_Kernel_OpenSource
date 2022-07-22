@@ -1,6 +1,5 @@
 qcom_wdt_core.ko
 qcom_soc_wdt.ko
-cmd-db.ko
 pinctrl-msm.ko
 pinctrl-monaco.ko
 qcom_cpu_vendor_hooks.ko
@@ -18,6 +17,7 @@ qcom_iommu_util.ko
 qcom_dma_heaps.ko
 qcom_hwspinlock.ko
 qti-regmap-debugfs.ko
+rpm-smd.ko
 secure_buffer.ko
 smem.ko
 socinfo.ko
