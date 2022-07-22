@@ -85,20 +85,25 @@
 #define ACTIVE_STATE_7MB              0x0
 #define SLP_NRET_STATE                0xAAAAAAAA // SLEEP NON-RETENTION STATE
 #define SLP_NRET_STATE_7MB            0xAAAA
+#define IDLE_THRESHOLD_VAL            300000
+#define IFCOUNTER_IS_ZERO_VAL         4
+#define EARLY_IDLE_EXCEED_INDICATION_THRESHOLD_VAL 8
 
-#define SPAD_LPI_LB_FF_CLK_ON_CTRL    0x1254
-#define SPAD_LPI_LB_PCB_ENABLE        0x0034
-#define SPAD_LPI_LB_PCB_WAKEUP_SEL0   0x001C
-#define SPAD_LPI_LB_PCB_WAKEUP_SEL1   0x0020
-#define SPAD_LPI_LB_PCB_CMD           0x0048
-#define SPAD_LPI_LB_PCB_SLP_SEL0      0x000C
-#define SPAD_LPI_LB_PCB_SLP_SEL1      0x0014
-#define SPAD_LPI_LB_PCB_SLP_NRET_SEL0 0x0010
-#define SPAD_LPI_LB_PCB_SLP_NRET_SEL1 0x0018
-#define SPAD_LPI_LB_PCB_PWR_STATUS0   0x0054
-#define SPAD_LPI_LB_PCB_PWR_STATUS1   0x0058
-#define SPAD_LPI_LB_PCB_PWR_STATUS2   0x005C
-#define SPAD_LPI_LB_PCB_PWR_STATUS3   0x0060
+#define SPAD_LPI_LB_PCB_SLP_SEL0       0x000C
+#define SPAD_LPI_LB_PCB_SLP_NRET_SEL0  0x0010
+#define SPAD_LPI_LB_PCB_SLP_SEL1       0x0014
+#define SPAD_LPI_LB_PCB_SLP_NRET_SEL1  0x0018
+#define SPAD_LPI_LB_PCB_WAKEUP_SEL0    0x001C
+#define SPAD_LPI_LB_PCB_WAKEUP_SEL1    0x0020
+#define SPAD_LPI_LB_PCB_ENABLE         0x0034
+#define SPAD_LPI_LB_RAM_IDLE_THRESHOLD 0x0044
+#define SPAD_LPI_LB_PCB_CMD            0x0048
+#define SPAD_LPI_LB_COUNTER_SYNC_RATE  0x004C
+#define SPAD_LPI_LB_PCB_PWR_STATUS0    0x0054
+#define SPAD_LPI_LB_PCB_PWR_STATUS1    0x0058
+#define SPAD_LPI_LB_PCB_PWR_STATUS2    0x005C
+#define SPAD_LPI_LB_PCB_PWR_STATUS3    0x0060
+#define SPAD_LPI_LB_FF_CLK_ON_CTRL     0x1254
 
 static u32 llcc_offsets_v2[] = {
 	0x0,
@@ -539,6 +544,70 @@ static int llcc_spad_poll_state(struct llcc_slice_desc *desc, u32 s0, u32 s1)
 	return 0;
 }
 
+static int llcc_spad_act_slp_wake(void)
+{
+	int ret;
+	u32 lpi_reg;
+	u32 lpi_val;
+
+	/* Before enabling activity based wakeup/sleep, CSR based sleep/wakeup
+	 * needs to be disabled as both these modes are mutually exclusive.
+	 */
+	lpi_reg = SPAD_LPI_LB_PCB_CMD;
+	lpi_val = 0;
+	ret = regmap_write(drv_data->spad_or_bcast_regmap, lpi_reg,
+			   lpi_val);
+	if (ret)
+		return ret;
+
+	/* Enable activity based (rd & wr tx) sleep and wakeup (hardware
+	 * triggered sleep and wakeup).
+	 */
+	lpi_reg = SPAD_LPI_LB_PCB_ENABLE;
+	lpi_val = WAKEUP_ENABLE | SLP_ENABLE;
+	ret = regmap_write(drv_data->spad_or_bcast_regmap, lpi_reg,
+			   lpi_val);
+	if (ret)
+		return ret;
+
+	/* As activity based sleep and wakeup tracks inflight transactions,
+	 * idle cycles etc for an PCB few other CSRs needs to be configured
+	 * too.
+	 */
+	lpi_reg = SPAD_LPI_LB_RAM_IDLE_THRESHOLD;
+	lpi_val = IDLE_THRESHOLD_VAL;
+	ret = regmap_write(drv_data->spad_or_bcast_regmap, lpi_reg,
+			   lpi_val);
+	if (ret)
+		return ret;
+
+	/* As in SPAD we are working with 3 clock domains (ff, core, cfg),
+	 * few other CSRs needs to be configured too in order to avoid race
+	 * condition between sleep/wakeup signals which is generated in ff
+	 * clock domain internal to sleep controller and SPAD ACH and WCH
+	 * going into lpi_lb_drp module which is in core clk domain.
+	 */
+	lpi_val |= (EARLY_IDLE_EXCEED_INDICATION_THRESHOLD_VAL << 20);
+	ret = regmap_write(drv_data->spad_or_bcast_regmap, lpi_reg,
+			   lpi_val);
+	if (ret)
+		return ret;
+
+	/* Similarly to avoid CDC demet errors while syncing if_counter_is_zero
+	 * from core clk to ff clk domain we also have to configure another CSR
+	 * which lets the sleep controller to sample if_counter_is_zero signal
+	 * (core clk domain) every N cycle before syncing it in ff clk domain.
+	 */
+	lpi_reg = SPAD_LPI_LB_COUNTER_SYNC_RATE;
+	lpi_val = IFCOUNTER_IS_ZERO_VAL;
+	ret = regmap_write(drv_data->spad_or_bcast_regmap, lpi_reg,
+			   lpi_val);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 static int llcc_spad_init(struct llcc_slice_desc *desc)
 {
 	int ret;
@@ -605,6 +674,14 @@ static int llcc_spad_init(struct llcc_slice_desc *desc)
 			   lpi_val);
 	if (ret)
 		return ret;
+
+	/* SPAD activity based sleep and wakeup sequence to set the
+	 * corresponding CSRs for activity based sleep/wakeup
+	 */
+	ret = llcc_spad_act_slp_wake();
+	if (ret)
+		return ret;
+
 	return 0;
 }
 
