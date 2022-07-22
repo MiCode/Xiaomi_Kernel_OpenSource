@@ -1943,6 +1943,7 @@
   mmc_switch
   mmc_wait_for_cmd
   dma_map_sg_attrs
+  mmc_issue_type
 
 # required by sdiohal.ko
   mmc_detect_change
