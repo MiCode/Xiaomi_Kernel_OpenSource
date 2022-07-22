@@ -10,6 +10,7 @@
   add_wait_queue
   aes_encrypt
   aes_expandkey
+  alarm_expires_remaining
   alloc_anon_inode
   alloc_chrdev_region
   alloc_io_pgtable_ops
@@ -826,6 +827,8 @@
   idr_preload
   idr_remove
   idr_replace
+  iio_channel_get
+  iio_channel_release
   iio_read_channel_processed
   iio_write_channel_raw
   import_iovec
@@ -1261,6 +1264,7 @@
   of_translate_address
   oops_in_progress
   page_endio
+  page_is_ram
   page_mapping
   page_pool_alloc_pages
   page_pool_create
@@ -1606,6 +1610,7 @@
   regulator_enable
   regulator_force_disable
   regulator_get
+  regulator_get_drvdata
   regulator_get_mode
   regulator_get_voltage
   regulator_get_voltage_rdev

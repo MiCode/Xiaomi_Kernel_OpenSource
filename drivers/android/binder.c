@@ -2552,6 +2552,7 @@ static int binder_proc_transaction(struct binder_transaction *t,
 	struct binder_node *node = t->buffer->target_node;
 	bool oneway = !!(t->flags & TF_ONE_WAY);
 	bool pending_async = false;
+	bool skip = false;
 
 	BUG_ON(!node);
 	binder_node_lock(node);
@@ -2577,7 +2578,10 @@ static int binder_proc_transaction(struct binder_transaction *t,
 		return proc->is_frozen ? BR_FROZEN_REPLY : BR_DEAD_REPLY;
 	}
 
-	if (!thread && !pending_async)
+	trace_android_vh_binder_proc_transaction_entry(proc, t,
+		&thread, node->debug_id, pending_async, !oneway, &skip);
+
+	if (!thread && !pending_async && !skip)
 		thread = binder_select_thread_ilocked(proc);
 
 	if (thread) {
@@ -4124,6 +4128,10 @@ retry:
 		size_t trsize = sizeof(*trd);
 
 		binder_inner_proc_lock(proc);
+		trace_android_vh_binder_select_worklist_ilocked(&list, thread,
+						proc, wait_for_proc_work);
+		if (list)
+			goto skip;
 		if (!binder_worklist_empty_ilocked(&thread->todo))
 			list = &thread->todo;
 		else if (!binder_worklist_empty_ilocked(&proc->todo) &&
@@ -4137,7 +4145,7 @@ retry:
 				goto retry;
 			break;
 		}
-
+skip:
 		if (end - ptr < sizeof(tr) + 4) {
 			binder_inner_proc_unlock(proc);
 			break;
@@ -6295,5 +6303,6 @@ device_initcall(binder_init);
 #define CREATE_TRACE_POINTS
 #include "binder_trace.h"
 EXPORT_TRACEPOINT_SYMBOL_GPL(binder_transaction_received);
+EXPORT_TRACEPOINT_SYMBOL_GPL(binder_txn_latency_free);
 
 MODULE_LICENSE("GPL v2");
