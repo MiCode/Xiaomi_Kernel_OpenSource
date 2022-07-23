@@ -369,7 +369,6 @@ static void mhi_dev_event_msi_cb(void *req)
 	struct event_req *ereq = req;
 	struct mhi_dev_channel *ch;
 	struct mhi_dev *mhi;
-	unsigned long flags;
 
 	if (!ereq) {
 		mhi_log(MHI_MSG_WARNING,
@@ -642,7 +641,6 @@ static int mhi_dev_flush_transfer_completion_events(struct mhi_dev *mhi,
 		struct mhi_dev_channel *ch)
 {
 	int rc = 0;
-	unsigned long flags;
 	struct event_req *flush_ereq;
 
 	do {
@@ -731,7 +729,6 @@ static int mhi_dev_queue_transfer_completion(struct mhi_req *mreq, bool *flush)
 {
 	union mhi_dev_ring_element_type *compl_ev;
 	struct mhi_dev_channel *ch = mreq->client->channel;
-	unsigned long flags;
 
 	if (mhi_dev_is_full_compl_evt_buf(ch) || ch->curr_ereq == NULL) {
 		mhi_log(MHI_MSG_VERBOSE, "Ran out of %s\n",
@@ -1906,7 +1903,6 @@ static void mhi_dev_process_reset_cmd(struct mhi_dev *mhi, int ch_id)
 	struct mhi_dev_channel *ch;
 	struct mhi_addr host_addr;
 	struct event_req *itr, *tmp;
-	unsigned long flags;
 
 	rc = mhi_dev_mmio_disable_chdb_a7(mhi, ch_id);
 	if (rc) {
