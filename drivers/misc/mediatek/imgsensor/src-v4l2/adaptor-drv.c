@@ -599,11 +599,6 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
-	dev_info(ctx->dev,
-		"set fmt code = 0x%x, which %d sensor_mode_id = %u\n",
-		fmt->format.code, fmt->which, mode->id);
-
-
 	update_pad_format(ctx, mode, fmt);
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 		framefmt = v4l2_subdev_get_try_format(sd, state, fmt->pad);
@@ -611,6 +606,10 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 
 		ctx->try_format_mode = mode;
 	} else {
+		dev_info(ctx->dev,
+			"set fmt code = 0x%x, which %d sensor_mode_id = %u\n",
+			fmt->format.code, fmt->which, mode->id);
+
 #ifndef POWERON_ONCE_OPENED
 		ADAPTOR_SYSTRACE_BEGIN("imgsensor::init_sensor");
 		adaptor_sensor_init(ctx);

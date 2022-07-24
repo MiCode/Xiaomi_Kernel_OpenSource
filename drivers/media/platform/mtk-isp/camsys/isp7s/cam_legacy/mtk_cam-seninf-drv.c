@@ -1437,7 +1437,6 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 #if AOV_GET_PARAM
 	struct seninf_core *core = ctx->core;
 #endif
-	dev_info(ctx->dev, "[%s] enable[%d]\n", __func__, enable);
 
 	if (ctx->csi_streaming == enable)
 		return 0;
@@ -1449,6 +1448,8 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 		dev_info(ctx->dev, "no sensor\n");
 		return -EFAULT;
 	}
+
+	dev_info(ctx->dev, "[%s] enable[%d]\n", __func__, enable);
 
 	if (ctx->is_aov_real_sensor && !enable) {
 		if (!core->pwr_refcnt_for_aov)
@@ -1540,12 +1541,12 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
 	struct seninf_core *core = ctx->core;
 
-	dev_info(ctx->dev, "[%s] enable[%d]\n", __func__, enable);
-
 	seninf_csi_s_stream(sd, enable);
 
 	if (ctx->streaming == enable)
 		return 0;
+
+	dev_info(ctx->dev, "[%s] enable[%d]\n", __func__, enable);
 
 	if (ctx->is_test_model)
 		return set_test_model(ctx, enable);

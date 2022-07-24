@@ -29,9 +29,9 @@
 #define CPHY_SETTLE 0x16 //60~80ns
 #define DPHY_TRAIL_SPEC 224
 
-#define DEBUG_CAM_MUX_SWITCH 1
+#define DEBUG_CAM_MUX_SWITCH 0
 //#define SCAN_SETTLE
-#define LOG_MORE 1
+#define LOG_MORE 0
 
 #define MT6886_IOMOM_VERSIONS "mt6886"
 
@@ -418,14 +418,18 @@ static int mtk_cam_seninf_disable_cammux(struct seninf_ctx *ctx, int cam_mux)
 static int mtk_cam_seninf_disable_all_cammux(struct seninf_ctx *ctx)
 {
 	int i = 0;
+#if LOG_MORE
 	void *pSeninf_cam_mux_gcsr = ctx->reg_if_cam_mux_gcsr;
+#endif
 
 	for (i = SENINF_CAM_MUX0; i < _seninf_ops->cam_mux_num; i++)
 		mtk_cam_seninf_disable_cammux(ctx, i);
 
+#if LOG_MORE
 	dev_info(ctx->dev, "%s all SENINF_CAM_MUX_GCSR_MUX_EN 0x%x\n",
 	__func__,
 	SENINF_READ_REG(pSeninf_cam_mux_gcsr, SENINF_CAM_MUX_GCSR_MUX_EN));
+#endif
 
 	return 0;
 }
@@ -1111,8 +1115,10 @@ static int mtk_cam_seninf_set_mux_vc_split(struct seninf_ctx *ctx,
 		SET_VC_SPLIT(pSeninf_mux, 1, 7, vc);
 		break;
 	default:
+#if LOG_MORE
 		dev_info(ctx->dev,
 			"%s: skip vc split setting for more than tag 7\n", __func__);
+#endif
 		break;
 	}
 

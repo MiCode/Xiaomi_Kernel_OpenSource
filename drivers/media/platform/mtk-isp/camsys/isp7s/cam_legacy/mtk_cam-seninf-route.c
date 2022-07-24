@@ -187,9 +187,6 @@ int mux_vr2mux(struct seninf_ctx *ctx, int mux_vr)
 	else
 		mux = sat_mux_last + (mux_vr - sat_mux_vr_last);
 
-	if (mux_vr < 0x3f)
-		dev_info(ctx->dev, "mux_vr %d -> mux %d\n", mux_vr, mux);
-
 	return mux;
 }
 
@@ -1180,8 +1177,8 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id,
 		}
 #endif
 	} else {
-		dev_info(ctx->dev, "%s: pad_id %d, camtg %d, ctx->streaming %d, vc_en %d, vc->cam %d, tag %d\n",
-			 __func__, pad_id, camtg, ctx->streaming, vc_en, vc->cam, vc->tag);
+		dev_info(ctx->dev, "%s: pad_id %d, camtg %d, ctx->streaming %d, vc_en %d, tag %d\n",
+			 __func__, pad_id, camtg, ctx->streaming, vc_en, tag_id);
 	}
 
 	return 0;
@@ -1315,8 +1312,8 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 #endif
 		} else {
 			vc->mux_vr = 0xFF;
-			dev_info(ctx->dev, "not set camtg yet, vc[%d] pad %d intf %d cam %d tag %d\n",
-					 i, vc->out_pad, intf, vc->cam, vc->tag);
+			dev_info(ctx->dev, "not set camtg yet, vc[%d] pad %d intf %d cam %d\n",
+					 i, vc->out_pad, intf, vc->cam);
 		}
 	}
 
