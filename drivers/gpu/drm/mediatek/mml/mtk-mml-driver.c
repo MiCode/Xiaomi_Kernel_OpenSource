@@ -220,6 +220,7 @@ u32 mml_qos_update_tput(struct mml_dev *mml)
 	mml_msg_qos("%s dvfs update %u to %u(%u)",
 		__func__, mml->current_volt, volt, tp->opp_speeds[i]);
 	mml->current_volt = volt;
+	mml_trace_begin("mml_volt_%u", volt);
 	if (tp->reg) {
 		ret = regulator_set_voltage(tp->reg, volt, INT_MAX);
 		if (ret)
@@ -236,6 +237,7 @@ u32 mml_qos_update_tput(struct mml_dev *mml)
 			mml_msg("%s rate %uMHz (%u) tput %u",
 				__func__, tp->opp_speeds[i], i, tput);
 	}
+	mml_trace_end();
 
 done:
 	return tp->opp_speeds[i];
@@ -755,11 +757,13 @@ void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
 	task->pipe[ccfg->pipe].bandwidth = max(bandwidth,
 		task->pipe[ccfg->pipe].bandwidth);
 	if (comp->cur_bw != bandwidth || comp->cur_peak != hrt_bw) {
+		mml_trace_begin("mml_bw_%u_%u", bandwidth, hrt_bw);
 #ifndef MML_FPGA
 		mtk_icc_set_bw(comp->icc_path, MBps_to_icc(bandwidth), hrt_bw);
 #endif
 		comp->cur_bw = bandwidth;
 		comp->cur_peak = hrt_bw;
+		mml_trace_end();
 	}
 
 	mml_msg_qos("%s comp %u %s qos bw %u(%u) by throughput %u pixel %u size %u%s",
