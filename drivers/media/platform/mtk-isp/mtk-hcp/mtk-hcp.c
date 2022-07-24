@@ -520,8 +520,10 @@ static void hcp_aee_reset(struct mtk_hcp *hcp_dev)
 int hcp_aee_init(struct mtk_hcp *hcp_dev)
 {
 	struct hcp_aee *aee_info = NULL;
+	kuid_t uid;
+	kgid_t gid;
 
-	dev_info(hcp_dev->dev, "%s -s\n", __func__);
+	dev_dbg(hcp_dev->dev, "%s -s\n", __func__);
 	aee_info = &hcp_dev->aee_info;
 	#ifdef AED_SET_EXTRA_FUNC_READY_ON_K515
 	aed_set_extra_func(hcp_notify_aee);
@@ -537,17 +539,39 @@ int hcp_aee_init(struct mtk_hcp *hcp_dev)
 
 		hcp_aee_reset(hcp_dev);
 
+
 		aee_info->daemon = proc_create("daemon",
-				0666, aee_info->entry, &aee_ops);
+				0660, aee_info->entry, &aee_ops);
 		aee_info->stream = proc_create("stream",
-				0666, aee_info->entry, &aee_ops);
+				0660, aee_info->entry, &aee_ops);
 		aee_info->kernel = proc_create("kernel",
-				0666, aee_info->entry, &aee_ops);
+				0660, aee_info->entry, &aee_ops);
+
+		dev_dbg(hcp_dev->dev, "%s -s\n", __func__);
+
+		uid = make_kuid(&init_user_ns, 0);
+		gid = make_kgid(&init_user_ns, 1000);
+
+		if (aee_info->daemon)
+			proc_set_user(aee_info->daemon, uid, gid);
+		else
+			pr_info("%s: mtk_img_dbg/daemon: failed to set u/g", __func__);
+
+		if (aee_info->stream)
+			proc_set_user(aee_info->stream, uid, gid);
+		else
+			pr_info("%s: mtk_img_dbg/stream: failed to set u/g", __func__);
+
+		if (aee_info->kernel)
+			proc_set_user(aee_info->kernel, uid, gid);
+		else
+			pr_info("%s: mtk_img_dbg/kernel: failed to set u/g", __func__);
+
 	} else {
 		pr_info("%s: failed to create imgsys debug node\n", __func__);
 	}
 
-	dev_info(hcp_dev->dev, "%s - e\n", __func__);
+	dev_dbg(hcp_dev->dev, "%s - e\n", __func__);
 	return 0;
 }
 
