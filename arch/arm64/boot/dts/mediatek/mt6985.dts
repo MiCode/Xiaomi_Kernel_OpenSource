@@ -9287,6 +9287,7 @@
 
 		irq-remain =	<&edge_keypad>,
 				<&level_apdma>,
+				<&level_ufshci>,
 				<&level_usb_host>,
 				<&level_apusys_rv>;
 		resource-ctrl = <&bus26m &infra &syspll>,
@@ -9324,6 +9325,10 @@
 			};
 			level_apdma: level_apdma {
 				target = <&apdma>;
+				value = <0 0 0 0>;
+			};
+			level_ufshci: level_ufshci {
+				target = <&ufshci>;
 				value = <0 0 0 0>;
 			};
 			level_usb_host: level_usb_host {
