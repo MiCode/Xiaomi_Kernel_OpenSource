@@ -36,9 +36,11 @@ static const struct venc_common_if *get_data_path_ptr(void)
 #endif
 		return get_enc_vcu_if();
 	}
-	return NULL;
-#elif IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+#endif
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	return get_enc_vcp_if();
+#else
+	return NULL;
 #endif
 }
 

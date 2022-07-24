@@ -35,9 +35,11 @@ static const struct vdec_common_if *get_data_path_ptr(void)
 #endif
 		return get_dec_vcu_if();
 	}
-	return NULL;
-#elif IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+#endif
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	return get_dec_vcp_if();
+#else
+	return NULL;
 #endif
 }
 
@@ -129,7 +131,10 @@ int vdec_if_get_param(struct mtk_vcodec_ctx *ctx, enum vdec_get_param_type type,
 		drv_handle_exist = 0;
 	}
 
-	ret = ctx->dec_if->get_param(ctx->drv_handle, type, out);
+	if (ctx->dec_if != NULL)
+		ret = ctx->dec_if->get_param(ctx->drv_handle, type, out);
+	else
+		ret = -EINVAL;
 
 	if (!drv_handle_exist) {
 		inst->vcu.abort = 1;
@@ -161,7 +166,10 @@ int vdec_if_set_param(struct mtk_vcodec_ctx *ctx, enum vdec_set_param_type type,
 		drv_handle_exist = 0;
 	}
 
-	ret = ctx->dec_if->set_param(ctx->drv_handle, type, in);
+	if (ctx->dec_if != NULL)
+		ret = ctx->dec_if->set_param(ctx->drv_handle, type, in);
+	else
+		ret = -EINVAL;
 
 	if (!drv_handle_exist) {
 		mtk_vcodec_del_ctx_list(ctx);
