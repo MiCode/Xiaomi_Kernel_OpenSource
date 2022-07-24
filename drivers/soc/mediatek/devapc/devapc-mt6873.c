@@ -138,7 +138,7 @@ static const char *peri_mi_trans(uint32_t bus_id)
 }
 
 static const char *mt6873_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
-		int slave_type, int shift_sta_bit, int domain)
+		int slave_type, int shift_sta_bit, uint32_t domain)
 {
 	uint8_t h_1byte;
 

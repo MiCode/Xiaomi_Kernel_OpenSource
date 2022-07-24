@@ -194,7 +194,7 @@ static const char *mminfra_mi_trans(uint32_t bus_id)
 }
 
 static const char *mt6983_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
-		int slave_type, int shift_sta_bit, int domain)
+		int slave_type, int shift_sta_bit, uint32_t domain)
 {
 	pr_debug(PFX "%s:0x%x, %s:0x%x, %s:0x%x, %s:%d\n",
 		"bus_id", bus_id, "vio_addr", vio_addr,

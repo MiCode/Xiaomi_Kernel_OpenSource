@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2022 MediaTek Inc.
+ * Copyright (C) 2021 MediaTek Inc.
  */
 
 #include <linux/bug.h>
@@ -9,65 +9,53 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 
-#include "devapc-mt6985.h"
+#include "devapc-mt6886.h"
 
-static const struct mtk_device_num mtk6985_devices_num[] = {
+static const struct mtk_device_num mtk6886_devices_num[] = {
 	{SLAVE_TYPE_INFRA, VIO_SLAVE_NUM_INFRA, IRQ_TYPE_INFRA},
 	{SLAVE_TYPE_INFRA1, VIO_SLAVE_NUM_INFRA1, IRQ_TYPE_INFRA},
-	{SLAVE_TYPE_PERI_PAR, VIO_SLAVE_NUM_PERI_PAR, IRQ_TYPE_PERI},
+	{SLAVE_TYPE_PERI_PAR, VIO_SLAVE_NUM_PERI_PAR, IRQ_TYPE_INFRA},
 	{SLAVE_TYPE_VLP, VIO_SLAVE_NUM_VLP, IRQ_TYPE_VLP},
 	{SLAVE_TYPE_ADSP, VIO_SLAVE_NUM_ADSP, IRQ_TYPE_ADSP},
 	{SLAVE_TYPE_MMINFRA, VIO_SLAVE_NUM_MMINFRA, IRQ_TYPE_MMINFRA},
 	{SLAVE_TYPE_MMUP, VIO_SLAVE_NUM_MMUP, IRQ_TYPE_MMUP},
-	{SLAVE_TYPE_GPU, VIO_SLAVE_NUM_GPU, IRQ_TYPE_GPU},
 };
 
 static const struct INFRAAXI_ID_INFO infra_mi_id_to_master[] = {
-	{"PERI2INFRA1_M",     { 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0 } },
-	{"MSDC1_M",           { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0 } },
-	{"MSDC2_M",           { 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 2, 2, 0, 0, 0, 0, 0 } },
-	{"AUDIO_M",           { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 2, 2, 0, 0, 0, 0, 0 } },
-	{"SSUSB_P1_M",        { 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 2, 2, 0, 0, 0, 0, 0 } },
-	{"NOR_M",             { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0 } },
-	{"APDMA_INT_M",       { 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 2, 2, 2, 0, 0, 0, 0 } },
-	{"SPI4567_M",         { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0 } },
-	{"PCIE0_M",           { 0, 0, 0, 0, 0, 0, 1, 0, 0, 2, 2, 2, 2, 2, 0, 0, 0, 0 } },
-	{"PCIE1_M",           { 0, 0, 0, 0, 0, 0, 1, 0, 1, 2, 2, 2, 2, 2, 0, 0, 0, 0 } },
-	{"SSUSB_DUAL_M",      { 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0 } },
-	{"SSUSB_XHCI_M",      { 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 2, 2, 0, 0, 0, 0, 0 } },
-	{"APDMA_ext_M",       { 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 2, 2, 2, 0, 0, 0, 0 } },
-	{"SPI0123_M/PWM_M",   { 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0 } },
-	{"UFS_M",             { 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 0, 0, 0, 0, 0, 0, 0 } },
-	{"SSR_M",             { 0, 0, 0, 0, 1, 0, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0 } },
-	{"DPMAIF_M",          { 0, 0, 0, 0, 0, 1, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0 } },
-	{"MCU_AP_M",          { 0, 0, 1, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0 } },
-	{"MM2SLB1_M",         { 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 } },
-	{"MMUP2INFRA_M",      { 0, 0, 0, 1, 0, 0, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 1, 0 } },
-	{"GCE_D_M",           { 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0 } },
-	{"GCE_M_M",           { 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0 } },
-	{"MD_AP_M",           { 1, 0, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
-	{"THERM_M",           { 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
-	{"CCU_M",             { 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
-	{"THERM_M2",          { 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
-	{"HWCCF_M",           { 0, 1, 0, 0, 0, 1, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
-	{"ADSPSYS_M1_M",      { 0, 1, 1, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0 } },
-	{"CONN_M",            { 0, 1, 1, 0, 0, 1, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0 } },
-	{"VLPSYS_M",          { 0, 1, 1, 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0 } },
-	{"SCP_M",             { 0, 1, 1, 0, 0, 0, 1, 0, 0, 2, 2, 2, 2, 2, 2, 0, 0, 0 } },
-	{"SSPM_M",            { 0, 1, 1, 0, 0, 0, 1, 1, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0 } },
-	{"SPM_M",             { 0, 1, 1, 0, 0, 0, 1, 0, 1, 2, 2, 0, 0, 0, 0, 0, 0, 0 } },
-	{"DXCC_M",            { 0, 1, 1, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 0, 0, 0, 0, 0 } },
-	{"CPUM_M",            { 0, 1, 0, 1, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
-	{"CQDMA_M",           { 0, 1, 0, 1, 0, 0, 1, 0, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0 } },
-	{"DEBUG_M",           { 0, 1, 0, 1, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
-	{"GPU_EB_M",          { 0, 1, 0, 1, 0, 1, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0 } },
-	{"GPUEB_RV33_P",      { 0, 1, 0, 1, 0, 1, 0, 0, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0 } },
-	{"GPUEB_RV33_D",      { 0, 1, 0, 1, 0, 1, 1, 0, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0 } },
-	{"GPUEB_DMA",         { 0, 1, 0, 1, 0, 1, 0, 1, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0 } },
-	{"IPU_M",             { 0, 1, 1, 1, 0, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0 } },
-	{"INFRA_BUS_HRE_M",   { 0, 1, 0, 0, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
-	{"NTH_EMI_GMC_M",     { 0, 1, 1, 0, 1, 0, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0 } },
-	{"STH_EMI_GMC_M",     { 0, 1, 1, 0, 1, 1, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0 } },
+	{"MD_AP_M",                     { 0, 0, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0 } },
+	{"ADSPSYS_M0_M",                { 1, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0 } },
+	{"VLPSYS_M",                    { 1, 0, 0, 0, 1, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0 } },
+	{"SCP_M",                       { 1, 0, 0, 0, 1, 0, 0, 0, 2, 2, 2, 2, 2, 2, 0, 0 } },
+	{"SSPM_M",                      { 1, 0, 0, 0, 1, 0, 1, 0, 2, 2, 0, 0, 0, 0, 0, 0 } },
+	{"SPM_M",                       { 1, 0, 0, 0, 1, 0, 0, 1, 2, 2, 0, 0, 0, 0, 0, 0 } },
+	{"DXCC_M",                      { 1, 0, 0, 0, 1, 0, 1, 1, 2, 2, 2, 2, 0, 0, 0, 0 } },
+	{"CONN_M",                      { 1, 0, 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0 } },
+	{"DEBUG_M",                     { 1, 0, 1, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 0, 0, 0 } },
+	{"CPUM_M",                      { 1, 0, 1, 0, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0 } },
+	{"CQDMA_M",                     { 1, 0, 1, 0, 1, 1, 0, 2, 2, 2, 0, 0, 0, 0, 0, 0 } },
+	{"GPU_EB_M",                    { 1, 0, 1, 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 0, 0, 0 } },
+	{"IPU_M",                       { 1, 0, 0, 1, 0, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0 } },
+	{"INFRA_BUS_HRE_M",             { 1, 0, 0, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+	{"HWCCF_M",                     { 1, 0, 1, 1, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+	{"THERM_M",                     { 1, 0, 1, 1, 1, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0 } },
+	{"THERM_M2",                    { 1, 0, 1, 1, 1, 1, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0 } },
+	{"CCU_M",                       { 1, 0, 1, 1, 1, 0, 1, 2, 2, 0, 0, 0, 0, 0, 0, 0 } },
+	{"MCU_AP_M",                    { 0, 1, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 } },
+	{"DPMAIF_M",                    { 0, 1, 1, 0, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0 } },
+	{"PERI2INFRA1_M",               { 0, 1, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0 } },
+	{"APDMA_ext_M",                 { 0, 1, 0, 1, 0, 0, 0, 0, 2, 2, 2, 0, 0, 0, 0, 0 } },
+	{"SSUSB_M",                     { 0, 1, 0, 1, 0, 0, 1, 0, 2, 2, 0, 0, 0, 0, 0, 0 } },
+	{"SSUSB2_M",                    { 0, 1, 0, 1, 0, 0, 0, 1, 2, 2, 0, 0, 0, 0, 0, 0 } },
+	{"SPI0_M/SPI1_M/SPI2_M/PWM_M",  { 0, 1, 0, 1, 0, 0, 1, 1, 2, 2, 0, 0, 0, 0, 0, 0 } },
+	{"UFS_M",                       { 0, 1, 0, 1, 1, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0 } },
+	{"APDMA_int_M",                 { 0, 1, 0, 1, 0, 1, 0, 0, 2, 2, 2, 0, 0, 0, 0, 0 } },
+	{"SPI3_M/SPI4_M/SPI5_M/SPI6_M", { 0, 1, 0, 1, 0, 1, 1, 0, 2, 2, 0, 0, 0, 0, 0, 0 } },
+	{"MSDC1_M/SPI7_M",              { 0, 1, 0, 1, 0, 1, 0, 1, 2, 2, 0, 0, 0, 0, 0, 0 } },
+	{"AFE_M",                       { 0, 1, 0, 1, 0, 1, 1, 1, 2, 2, 0, 0, 0, 0, 0, 0 } },
+	{"MM2SLB_M",                    { 0, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 } },
+	{"MMUP2INFRA_M",                { 0, 1, 1, 1, 0, 0, 2, 2, 2, 2, 2, 2, 0, 0, 1, 0 } },
+	{"GCE_D_M",                     { 0, 1, 1, 1, 1, 0, 2, 2, 0, 0, 0, 0, 0, 0, 1, 0 } },
+	{"GCE_M_M",                     { 0, 1, 1, 1, 0, 1, 2, 2, 0, 0, 0, 0, 0, 0, 1, 0 } },
 };
 
 static const struct ADSPAXI_ID_INFO ADSP_mi13_id_to_master[] = {
@@ -169,7 +157,7 @@ static const char *adsp_mi_trans(uint32_t bus_id, int mi)
 	return master;
 }
 
-static const char *mt6985_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
+static const char *mt6886_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 		int slave_type, int shift_sta_bit, uint32_t domain)
 {
 	pr_debug(PFX "%s:0x%x, %s:0x%x, %s:0x%x, %s:%d\n",
@@ -179,7 +167,18 @@ static const char *mt6985_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 
 	if (vio_addr <= SRAM_END_ADDR) {
 		pr_info(PFX "vio_addr is from on-chip SRAMROM\n");
-		return infra_mi_trans(bus_id);
+		if ((bus_id & 0x1) == 0x0)
+			return "NTH_EMI_GMC_M";
+		else
+			return infra_mi_trans(bus_id >> 1);
+	} else if ((vio_addr >= L3CACHE_0_START && vio_addr <= L3CACHE_0_END) ||
+		(vio_addr >= L3CACHE_1_START && vio_addr <= L3CACHE_1_END) ||
+		(vio_addr >= L3CACHE_2_START && vio_addr <= L3CACHE_2_END)) {
+		pr_info(PFX "vio_addr is from L3Cache share SRAM\n");
+		if ((bus_id & 0x1) == 0x0)
+			return "NTH_EMI_GMC_M";
+		else
+			return infra_mi_trans(bus_id >> 1);
 	} else if (slave_type == SLAVE_TYPE_VLP) {
 		/* mi3 */
 		if ((vio_addr >= VLP_SCP_START_ADDR) && (vio_addr <= VLP_SCP_END_ADDR)) {
@@ -189,8 +188,6 @@ static const char *mt6985_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 				return "SPM_M";
 			else if ((bus_id & 0x3) == 0x2)
 				return infra_mi_trans(bus_id >> 2);
-			else if ((bus_id & 0x3) == 0x3)
-				return "DXCC_M";
 			else
 				return "UNKNOWN_MASTER_TO_SCP";
 		/* mi1 */
@@ -202,24 +199,18 @@ static const char *mt6985_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 				return "SSPM_M";
 			else if ((bus_id & 0x3) == 0x2)
 				return "SPM_M";
-			else if ((bus_id & 0x3) == 0x3)
-				return "DXCC_M";
 			else
-				return "UNKNOWN_MASTER_TO_INFRA";
+				return "DXCC_M";
 		/* mi2 */
 		} else {
-			if ((bus_id & 0x7) == 0x0)
+			if ((bus_id & 0x3) == 0x0)
 				return "SCP_M";
-			else if ((bus_id & 0x7) == 0x1)
+			else if ((bus_id & 0x3) == 0x1)
 				return "SSPM_M";
-			else if ((bus_id & 0x7) == 0x2)
+			else if ((bus_id & 0x3) == 0x2)
 				return "SPM_M";
-			else if ((bus_id & 0x7) == 0x3)
-				return infra_mi_trans(bus_id >> 3);
-			else if ((bus_id & 0x7) == 0x4)
-				return "DXCC_M";
 			else
-				return "UNKNOWN_MASTER_TO_VLP";
+				return infra_mi_trans(bus_id >> 2);
 		}
 	} else if (slave_type == SLAVE_TYPE_ADSP) {
 		/* infra slave */
@@ -242,101 +233,78 @@ static const char *mt6985_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 				return adsp_mi_trans(bus_id, ADSP_MI15);
 		}
 	} else if (slave_type == SLAVE_TYPE_MMINFRA) {
-		/* ISP slave */
-		if (((vio_addr >= IMG_START_ADDR) && (vio_addr <= IMG_END_ADDR)) ||
-			((vio_addr >= CAM_START_ADDR) && (vio_addr <= CAM_END_ADDR))) {
-			if ((bus_id & 0x7) == 0x0)
-				return "GCEM";
-			else if ((bus_id & 0x7) == 0x1)
-				return infra_mi_trans(bus_id >> 4);
-			else if ((bus_id & 0x7) == 0x3)
-				return "MMINFRA_HRE";
-			else if ((bus_id & 0x7) == 0x5)
-				return "MMUP";
-			else if ((bus_id & 0x7) == 0x7)
-				return "GCED";
-			else
-				return mminfra_domain[domain];
-
-		/* VENC/VDEC slave*/
-		} else if ((vio_addr >= CODEC_START_ADDR) && (vio_addr <= CODEC_END_ADDR)) {
+		/* MM slave */
+		if (((vio_addr >= DISP_START_ADDR) && (vio_addr <= DISP_END_ADDR))
+				|| ((vio_addr >= MML_START_ADDR) && (vio_addr <= MML_END_ADDR))) {
 			if ((bus_id & 0x1) == 0x0)
-				return "MMUP";
-			else if ((bus_id & 0xf) == 0x1)
+				return "GCE_D";
+			else if ((bus_id & 0xF) == 0x1)
 				return infra_mi_trans(bus_id >> 4);
-			else if ((bus_id & 0xf) == 0x3)
-				return "MMINFRA_HRE";
-			else if ((bus_id & 0xf) == 0x7)
-				return "GCED";
-			else if ((bus_id & 0xf) == 0x9)
-				return "GCEM";
+			else if ((bus_id & 0xF) == 0x3)
+				return "HRE";
+			else if ((bus_id & 0xF) == 0x5)
+				return "MMUP";
+			else if ((bus_id & 0xF) == 0x7)
+				return "GCE_D";
+			else if ((bus_id & 0xF) == 0x9)
+				return "GCE_M";
 			else
-				return mminfra_domain[domain];
-
-		/* DISP/OVL/MML */
-		} else if (((vio_addr >= DISP_START_ADDR) && (vio_addr <= DISP_END_ADDR)) ||
-			((vio_addr >= OVL_START_ADDR) && (vio_addr <= OVL_END_ADDR)) ||
-			((vio_addr >= MML_START_ADDR) && (vio_addr <= MML_END_ADDR))) {
+				return NULL;
+		/* ISP slave*/
+		} else if (((vio_addr >= IMG_START_ADDR) && (vio_addr <= IMG_END_ADDR))
+				|| ((vio_addr >= CAM_START_ADDR) && (vio_addr <= CAM_END_ADDR))
+				|| ((vio_addr >= CCU_START_ADDR) && (vio_addr <= CCU_END_ADDR))) {
 			if ((bus_id & 0x1) == 0x0)
-				return "GCED";
-			else if ((bus_id & 0xf) == 0x1)
+				return "GCE_M";
+			else if ((bus_id & 0xF) == 0x1)
 				return infra_mi_trans(bus_id >> 4);
-			else if ((bus_id & 0xf) == 0x3)
-				return "MMINFRA_HRE";
-			else if ((bus_id & 0xf) == 0x5)
+			else if ((bus_id & 0xF) == 0x3)
+				return "HRE";
+			else if ((bus_id & 0xF) == 0x5)
 				return "MMUP";
-			else if ((bus_id & 0xf) == 0x9)
-				return "GCEM";
+			else if ((bus_id & 0xF) == 0x7)
+				return "GCE_D";
+			else if ((bus_id & 0xF) == 0x9)
+				return "GCE_M";
 			else
-				return mminfra_domain[domain];
-
+				return NULL;
+		/* CODEC slave*/
+		} else if (((vio_addr >= VDEC_START_ADDR) && (vio_addr <= VDEC_END_ADDR))
+				|| ((vio_addr >= VENC_START_ADDR) && (vio_addr <= VENC_END_ADDR))
+				|| ((vio_addr >= MMUP_START_ADDR) && (vio_addr <= MMUP_END_ADDR))) {
+			if ((bus_id & 0x3) == 0x0)
+				return "MMUP";
+			else if ((bus_id & 0x3) == 0x1)
+				return "GCE_M";
+			else if ((bus_id & 0x1F) == 0x2)
+				return infra_mi_trans(bus_id >> 5);
+			else if ((bus_id & 0x1F) == 0x6)
+				return "HRE";
+			else if ((bus_id & 0x1F) == 0xA)
+				return "MMUP";
+			else if ((bus_id & 0x1F) == 0xE)
+				return "GCE_D";
+			else if ((bus_id & 0x1F) == 0x12)
+				return "GCE_M";
+			else
+				return NULL;
 		/* other mminfra slave*/
 		} else {
 			if ((bus_id & 0x7) == 0x0)
 				return infra_mi_trans(bus_id >> 3);
 			else if ((bus_id & 0x7) == 0x1)
-				return "MMINFRA_HRE";
+				return "HRE";
 			else if ((bus_id & 0x7) == 0x2)
 				return "MMUP";
 			else if ((bus_id & 0x7) == 0x3)
-				return "GCED";
-			else if ((bus_id & 0xf) == 0x4)
-				return "GCEM";
+				return "GCE_D";
+			else if ((bus_id & 0x7) == 0x4)
+				return "GCE_M";
 			else
-				return mminfra_domain[domain];
+				return NULL;
 		}
 	} else if (slave_type == SLAVE_TYPE_MMUP) {
 		return mminfra_domain[domain];
-	} else if (slave_type == SLAVE_TYPE_GPU) {
-		/* PD_BUS */
-		if ((vio_addr >= GPU_PD_START) && (vio_addr <= GPU_PD_END)) {
-			if (domain == 0x6) {
-				if ((bus_id & 0x3) == 0x0)
-					return "GPUEB_RV33_P";
-				else if ((bus_id & 0x3) == 0x1)
-					return "GPUEB_RV33_D";
-				else if ((bus_id & 0x3) == 0x2)
-					return "GPUEB_DMA";
-				else
-					return "UNKNOWN_MASTER_TO_GPU";
-			} else {
-				return infra_mi_trans(bus_id);
-			}
-		/* AO_BUS */
-		} else {
-			if ((bus_id & 0x3f) == 0x2a) {
-				if (((bus_id >> 8) & 0x3) == 0x0)
-					return "GPUEB_RV33_P";
-				else if (((bus_id >> 8) & 0x3) == 0x1)
-					return "GPUEB_RV33_D";
-				else if (((bus_id >> 8) & 0x3) == 0x2)
-					return "GPUEB_DMA";
-				else
-					return "UNKNOWN_MASTER_TO_GPU";
-			} else {
-				return infra_mi_trans(bus_id);
-			}
-		}
 	} else {
 		return infra_mi_trans(bus_id);
 	}
@@ -357,43 +325,38 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index,
 	/* Filter by violation index */
 	if (slave_type == SLAVE_TYPE_INFRA) {
 		for (i = 0; i < VIO_SLAVE_NUM_INFRA; i++) {
-			if (vio_index == mt6985_devices_infra[i].vio_index)
-				return mt6985_devices_infra[i].device;
+			if (vio_index == mt6886_devices_infra[i].vio_index)
+				return mt6886_devices_infra[i].device;
 		}
 	} else if (slave_type == SLAVE_TYPE_INFRA1) {
 		for (i = 0; i < VIO_SLAVE_NUM_INFRA1; i++) {
-			if (vio_index == mt6985_devices_infra1[i].vio_index)
-				return mt6985_devices_infra1[i].device;
+			if (vio_index == mt6886_devices_infra1[i].vio_index)
+				return mt6886_devices_infra1[i].device;
 		}
 	} else if (slave_type == SLAVE_TYPE_PERI_PAR) {
 		for (i = 0; i < VIO_SLAVE_NUM_PERI_PAR; i++) {
-			if (vio_index == mt6985_devices_peri_par[i].vio_index)
-				return mt6985_devices_peri_par[i].device;
+			if (vio_index == mt6886_devices_peri_par[i].vio_index)
+				return mt6886_devices_peri_par[i].device;
 		}
 	} else if (slave_type == SLAVE_TYPE_VLP) {
 		for (i = 0; i < VIO_SLAVE_NUM_VLP; i++) {
-			if (vio_index == mt6985_devices_vlp[i].vio_index)
-				return mt6985_devices_vlp[i].device;
+			if (vio_index == mt6886_devices_vlp[i].vio_index)
+				return mt6886_devices_vlp[i].device;
 		}
 	} else if (slave_type == SLAVE_TYPE_ADSP) {
 		for (i = 0; i < VIO_SLAVE_NUM_ADSP; i++) {
-			if (vio_index == mt6985_devices_adsp[i].vio_index)
-				return mt6985_devices_adsp[i].device;
+			if (vio_index == mt6886_devices_adsp[i].vio_index)
+				return mt6886_devices_adsp[i].device;
 		}
 	} else if (slave_type == SLAVE_TYPE_MMINFRA) {
 		for (i = 0; i < VIO_SLAVE_NUM_MMINFRA; i++) {
-			if (vio_index == mt6985_devices_mminfra[i].vio_index)
-				return mt6985_devices_mminfra[i].device;
+			if (vio_index == mt6886_devices_mminfra[i].vio_index)
+				return mt6886_devices_mminfra[i].device;
 		}
 	} else if (slave_type == SLAVE_TYPE_MMUP) {
 		for (i = 0; i < VIO_SLAVE_NUM_MMUP; i++) {
-			if (vio_index == mt6985_devices_mmup[i].vio_index)
-				return mt6985_devices_mmup[i].device;
-		}
-	} else if (slave_type == SLAVE_TYPE_GPU) {
-		for (i = 0; i < VIO_SLAVE_NUM_GPU; i++) {
-			if (vio_index == mt6985_devices_gpu[i].vio_index)
-				return mt6985_devices_gpu[i].device;
+			if (vio_index == mt6886_devices_mmup[i].vio_index)
+				return mt6886_devices_mmup[i].device;
 		}
 	}
 
@@ -473,7 +436,7 @@ static void mm2nd_vio_handler(void __iomem *infracfg,
 	vio_info->write = (rw == 1);
 }
 
-static uint32_t mt6985_shift_group_get(int slave_type, uint32_t vio_idx)
+static uint32_t mt6886_shift_group_get(int slave_type, uint32_t vio_idx)
 {
 	return 31;
 }
@@ -502,7 +465,7 @@ void devapc_catch_illegal_range(phys_addr_t phys_addr, size_t size)
 	}
 }
 
-static struct mtk_devapc_dbg_status mt6985_devapc_dbg_stat = {
+static struct mtk_devapc_dbg_status mt6886_devapc_dbg_stat = {
 	.enable_ut = PLAT_DBG_UT_DEFAULT,
 	.enable_KE = PLAT_DBG_KE_DEFAULT,
 	.enable_AEE = PLAT_DBG_AEE_DEFAULT,
@@ -518,7 +481,6 @@ static const char * const slave_type_to_str[] = {
 	"SLAVE_TYPE_ADSP",
 	"SLAVE_TYPE_MMINFRA",
 	"SLAVE_TYPE_MMUP",
-	"SLAVE_TYPE_GPU",
 	"WRONG_SLAVE_TYPE",
 };
 
@@ -530,10 +492,9 @@ static int mtk_vio_mask_sta_num[] = {
 	VIO_MASK_STA_NUM_ADSP,
 	VIO_MASK_STA_NUM_MMINFRA,
 	VIO_MASK_STA_NUM_MMUP,
-	VIO_MASK_STA_NUM_GPU,
 };
 
-static struct mtk_devapc_vio_info mt6985_devapc_vio_info = {
+static struct mtk_devapc_vio_info mt6886_devapc_vio_info = {
 	.vio_mask_sta_num = mtk_vio_mask_sta_num,
 	.sramrom_vio_idx = SRAMROM_VIO_INDEX,
 	.mdp_vio_idx = MDP_VIO_INDEX,
@@ -543,7 +504,7 @@ static struct mtk_devapc_vio_info mt6985_devapc_vio_info = {
 	.mm2nd_slv_type = MM2ND_SLAVE_TYPE,
 };
 
-static const struct mtk_infra_vio_dbg_desc mt6985_vio_dbgs = {
+static const struct mtk_infra_vio_dbg_desc mt6886_vio_dbgs = {
 	.vio_dbg_mstid = INFRA_VIO_DBG_MSTID,
 	.vio_dbg_mstid_start_bit = INFRA_VIO_DBG_MSTID_START_BIT,
 	.vio_dbg_dmnid = INFRA_VIO_DBG_DMNID,
@@ -556,7 +517,7 @@ static const struct mtk_infra_vio_dbg_desc mt6985_vio_dbgs = {
 	.vio_addr_high_start_bit = INFRA_VIO_ADDR_HIGH_START_BIT,
 };
 
-static const struct mtk_sramrom_sec_vio_desc mt6985_sramrom_sec_vios = {
+static const struct mtk_sramrom_sec_vio_desc mt6886_sramrom_sec_vios = {
 	.vio_id_mask = SRAMROM_SEC_VIO_ID_MASK,
 	.vio_id_shift = SRAMROM_SEC_VIO_ID_SHIFT,
 	.vio_domain_mask = SRAMROM_SEC_VIO_DOMAIN_MASK,
@@ -565,7 +526,7 @@ static const struct mtk_sramrom_sec_vio_desc mt6985_sramrom_sec_vios = {
 	.vio_rw_shift = SRAMROM_SEC_VIO_RW_SHIFT,
 };
 
-static const uint32_t mt6985_devapc_pds[] = {
+static const uint32_t mt6886_devapc_pds[] = {
 	PD_VIO_MASK_OFFSET,
 	PD_VIO_STA_OFFSET,
 	PD_VIO_DBG0_OFFSET,
@@ -578,32 +539,31 @@ static const uint32_t mt6985_devapc_pds[] = {
 	PD_VIO_DBG3_OFFSET,
 };
 
-static struct mtk_devapc_soc mt6985_data = {
-	.dbg_stat = &mt6985_devapc_dbg_stat,
+static struct mtk_devapc_soc mt6886_data = {
+	.dbg_stat = &mt6886_devapc_dbg_stat,
 	.slave_type_arr = slave_type_to_str,
 	.slave_type_num = SLAVE_TYPE_NUM,
-	.device_info[SLAVE_TYPE_INFRA] = mt6985_devices_infra,
-	.device_info[SLAVE_TYPE_INFRA1] = mt6985_devices_infra1,
-	.device_info[SLAVE_TYPE_PERI_PAR] = mt6985_devices_peri_par,
-	.device_info[SLAVE_TYPE_VLP] = mt6985_devices_vlp,
-	.device_info[SLAVE_TYPE_ADSP] = mt6985_devices_adsp,
-	.device_info[SLAVE_TYPE_MMINFRA] = mt6985_devices_mminfra,
-	.device_info[SLAVE_TYPE_MMUP] = mt6985_devices_mmup,
-	.device_info[SLAVE_TYPE_GPU] = mt6985_devices_gpu,
-	.ndevices = mtk6985_devices_num,
-	.vio_info = &mt6985_devapc_vio_info,
-	.vio_dbgs = &mt6985_vio_dbgs,
-	.sramrom_sec_vios = &mt6985_sramrom_sec_vios,
-	.devapc_pds = mt6985_devapc_pds,
+	.device_info[SLAVE_TYPE_INFRA] = mt6886_devices_infra,
+	.device_info[SLAVE_TYPE_INFRA1] = mt6886_devices_infra1,
+	.device_info[SLAVE_TYPE_PERI_PAR] = mt6886_devices_peri_par,
+	.device_info[SLAVE_TYPE_VLP] = mt6886_devices_vlp,
+	.device_info[SLAVE_TYPE_ADSP] = mt6886_devices_adsp,
+	.device_info[SLAVE_TYPE_MMINFRA] = mt6886_devices_mminfra,
+	.device_info[SLAVE_TYPE_MMUP] = mt6886_devices_mmup,
+	.ndevices = mtk6886_devices_num,
+	.vio_info = &mt6886_devapc_vio_info,
+	.vio_dbgs = &mt6886_vio_dbgs,
+	.sramrom_sec_vios = &mt6886_sramrom_sec_vios,
+	.devapc_pds = mt6886_devapc_pds,
 	.irq_type_num = IRQ_TYPE_NUM,
 	.subsys_get = &index_to_subsys,
-	.master_get = &mt6985_bus_id_to_master,
+	.master_get = &mt6886_bus_id_to_master,
 	.mm2nd_vio_handler = &mm2nd_vio_handler,
-	.shift_group_get = mt6985_shift_group_get,
+	.shift_group_get = mt6886_shift_group_get,
 };
 
-static const struct of_device_id mt6985_devapc_dt_match[] = {
-	{ .compatible = "mediatek,mt6985-devapc" },
+static const struct of_device_id mt6886_devapc_dt_match[] = {
+	{ .compatible = "mediatek,mt6886-devapc" },
 	{},
 };
 
@@ -612,28 +572,28 @@ static const struct dev_pm_ops devapc_dev_pm_ops = {
 	.resume_noirq = devapc_resume_noirq,
 };
 
-static int mt6985_devapc_probe(struct platform_device *pdev)
+static int mt6886_devapc_probe(struct platform_device *pdev)
 {
-	return mtk_devapc_probe(pdev, &mt6985_data);
+	return mtk_devapc_probe(pdev, &mt6886_data);
 }
 
-static int mt6985_devapc_remove(struct platform_device *dev)
+static int mt6886_devapc_remove(struct platform_device *dev)
 {
 	return mtk_devapc_remove(dev);
 }
 
-static struct platform_driver mt6985_devapc_driver = {
-	.probe = mt6985_devapc_probe,
-	.remove = mt6985_devapc_remove,
+static struct platform_driver mt6886_devapc_driver = {
+	.probe = mt6886_devapc_probe,
+	.remove = mt6886_devapc_remove,
 	.driver = {
 		.name = KBUILD_MODNAME,
-		.of_match_table = mt6985_devapc_dt_match,
+		.of_match_table = mt6886_devapc_dt_match,
 		.pm = &devapc_dev_pm_ops,
 	},
 };
 
-module_platform_driver(mt6985_devapc_driver);
+module_platform_driver(mt6886_devapc_driver);
 
-MODULE_DESCRIPTION("Mediatek MT6985 Device APC Driver");
-MODULE_AUTHOR("Jackson Chang <jackson-kt.chang@mediatek.com>");
+MODULE_DESCRIPTION("Mediatek MT6886 Device APC Driver");
+MODULE_AUTHOR("Louis Yeh <louis-cy.yeh@mediatek.com>");
 MODULE_LICENSE("GPL");
