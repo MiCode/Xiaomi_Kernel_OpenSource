@@ -380,6 +380,13 @@
 			output-high;
 		};
 	};
+	camera_pins_cam0_eint: cam0@12 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO7__FUNC_GPIO7>;
+			bias-pull-up;
+			input-enable;
+		};
+	};
 	camera_pins_cam4_mclk_off: camera_pins_cam4_mclk_off {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO197__FUNC_GPIO197>;
@@ -603,7 +610,8 @@
 				"sda_ap",
 				"sda_scp",
 				"avdd1_off",
-				"avdd1_on";
+				"avdd1_on",
+				"eint";
 		pinctrl-0 = <&camera_pins_cam2_mclk_off>;
 		pinctrl-1 = <&camera_pins_cam2_mclk_2ma>;
 		pinctrl-2 = <&camera_pins_cam2_mclk_4ma>;
@@ -626,6 +634,7 @@
 		pinctrl-19 = <&camera_pins_cam2_sda_scp>;
 		pinctrl-20 = <&camera_pins_cam2_avdd1_0>;
 		pinctrl-21 = <&camera_pins_cam2_avdd1_1>;
+		pinctrl-22 = <&camera_pins_cam0_eint>;
 
 		avdd2-supply = <&rt5133_gpio2>;
 		dvdd-supply = <&rt5133_ldo7>;
