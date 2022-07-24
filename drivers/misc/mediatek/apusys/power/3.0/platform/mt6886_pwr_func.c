@@ -7,8 +7,8 @@
 
 #include "apu_top.h"
 #include "aputop_rpmsg.h"
-#include "mt6985_apupwr.h"
-#include "mt6985_apupwr_prot.h"
+#include "mt6886_apupwr.h"
+#include "mt6886_apupwr_prot.h"
 
 #define LOCAL_DBG	(1)
 
@@ -16,25 +16,21 @@ static void __iomem *spare_reg_base;
 
 // for saving data after sync with remote site
 static struct tiny_dvfs_opp_tbl opp_tbl;
-static struct tiny_dvfs_opp_tbl opp_tbl2;
-
 static struct apu_pwr_curr_info curr_info;
 static const char * const pll_name[] = {
-				"PLL_CONN", "PLL_RV33", "PLL_MVPU", "PLL_MDLA", "PLL_MDLA_APS"};
+				"PLL_CONN", "PLL_MVPU", "PLL_MDLA"};
 static const char * const buck_name[] = {
 				"BUCK_VAPU", "BUCK_VSRAM", "BUCK_VCORE"};
 static const char * const cluster_name[] = {
-				"ACX0", "ACX1", "NCX", "RCX"};
+				"ACX0", "RCX"};
 
 #define _OPP_LMT_TBL(_opp_lmt_reg) {    \
 	.opp_lmt_reg = _opp_lmt_reg,    \
 }
 static struct cluster_dev_opp_info opp_limit_tbl[CLUSTER_NUM] = {
 	_OPP_LMT_TBL(ACX0_LIMIT_OPP_REG),
-	_OPP_LMT_TBL(ACX1_LIMIT_OPP_REG),
 };
 
-uint32_t log_lvl = APUSYS_PWR_LOG_OFF;
 static inline int over_range_check(int opp)
 {
 	// we treat opp -1 as a special hint regard to unlimit opp !
@@ -64,7 +60,7 @@ static void _opp_limiter(int vpu_max, int vpu_min, int dla_max, int dla_min,
 	pr_info("%s type:%d, %d/%d/%d/%d\n", __func__, type,
 			vpu_max, vpu_min, dla_max, dla_min);
 #endif
-	for (i = 0 ; i < NCX ; i++) {
+	for (i = 0 ; i < CLUSTER_NUM ; i++) {
 		opp_limit_tbl[i].dev_opp_lmt.vpu_max = vpu_max & 0x3f;
 		opp_limit_tbl[i].dev_opp_lmt.vpu_min = vpu_min & 0x3f;
 		opp_limit_tbl[i].dev_opp_lmt.dla_max = dla_max & 0x3f;
@@ -91,16 +87,7 @@ static void _opp_limiter(int vpu_max, int vpu_min, int dla_max, int dla_min,
 
 }
 
-static void limit_opp_to_all_devices(int opp)
-{
-	int c_id, d_id;
-
-	for (c_id = 0 ; c_id < CLUSTER_NUM ; c_id++)
-		for (d_id = 0 ; d_id < DEVICE_NUM ; d_id++)
-			_opp_limiter(opp, opp, opp, opp, OPP_LIMIT_DEBUG);
-}
-
-void mt6985_aputop_opp_limit(struct aputop_func_param *aputop,
+void mt6886_aputop_opp_limit(struct aputop_func_param *aputop,
 		enum apu_opp_limit_type type)
 {
 	int vpu_max, vpu_min, dla_max, dla_min;
@@ -113,6 +100,15 @@ void mt6985_aputop_opp_limit(struct aputop_func_param *aputop,
 }
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
+static void limit_opp_to_all_devices(int opp)
+{
+	int c_id, d_id;
+
+	for (c_id = 0 ; c_id < CLUSTER_NUM ; c_id++)
+		for (d_id = 0 ; d_id < DEVICE_NUM ; d_id++)
+			_opp_limiter(opp, opp, opp, opp, OPP_LIMIT_DEBUG);
+}
+
 static int aputop_dbg_set_parameter(int param, int argc, int *args)
 {
 	int ret = 0, i;
@@ -170,16 +166,6 @@ static int aputop_dbg_set_parameter(int param, int argc, int *args)
 			ret = -EINVAL;
 		}
 		break;
-	case APUPWR_DBG_DUMP_OPP_TBL2:
-		if (argc == 1) {
-			rpmsg_data.cmd = APUTOP_DUMP_OPP_TBL2;
-			rpmsg_data.data0 = args[0]; // pseudo data
-			aputop_send_rpmsg(&rpmsg_data, 100);
-		} else {
-			pr_info("%s invalid param num:%d\n", __func__, argc);
-			ret = -EINVAL;
-		}
-		break;
 	case APUPWR_DBG_CURR_STATUS:
 		if (argc == 1) {
 			rpmsg_data.cmd = APUTOP_CURR_STATUS;
@@ -197,6 +183,30 @@ static int aputop_dbg_set_parameter(int param, int argc, int *args)
 			rpmsg_data.data0 = args[0];
 			// value of allow bit/bitmask
 			rpmsg_data.data1 = args[1]; // allow bitmask
+			aputop_send_rpmsg(&rpmsg_data, 100);
+		} else {
+			pr_info("%s invalid param num:%d\n", __func__, argc);
+			ret = -EINVAL;
+		}
+		break;
+	case APUPWR_DBG_CLK_SET_RATE:
+		if (argc == 4) {
+			rpmsg_data.cmd = APUTOP_CLK_SET_RATE;
+			rpmsg_data.data0 = args[0]; // mdla
+			rpmsg_data.data1 = args[1]; // mvpu
+			rpmsg_data.data2 = args[2]; // rv33
+			rpmsg_data.data3 = args[3]; // conn
+			aputop_send_rpmsg(&rpmsg_data, 100);
+		} else {
+			pr_info("%s invalid param num:%d\n", __func__, argc);
+			ret = -EINVAL;
+		}
+		break;
+	case APUPWR_DBG_BUK_SET_VOLT:
+		if (argc == 2) {
+			rpmsg_data.cmd = APUTOP_BUK_SET_VOLT;
+			rpmsg_data.data0 = args[0]; // vapu target opp
+			rpmsg_data.data1 = args[1]; // vapu target volt
 			aputop_send_rpmsg(&rpmsg_data, 100);
 		} else {
 			pr_info("%s invalid param num:%d\n", __func__, argc);
@@ -273,7 +283,7 @@ static void plat_dump_boost_mapping(struct seq_file *s)
 static int aputop_show_opp_tbl(struct seq_file *s, void *unused)
 {
 	struct tiny_dvfs_opp_tbl tbl;
-	int size, i, j, k;
+	int size, i, j;
 
 	pr_info("%s ++\n", __func__);
 	memcpy(&tbl, &opp_tbl, sizeof(struct tiny_dvfs_opp_tbl));
@@ -291,18 +301,6 @@ static int aputop_show_opp_tbl(struct seq_file *s, void *unused)
 
 		for (j = 0 ; j < PLL_NUM ; j++)
 			seq_printf(s, "  %07d |", tbl.opp[i].pll_freq[j]);
-
-		seq_puts(s, "\n");
-	}
-
-	memcpy(&tbl, &opp_tbl2, sizeof(struct tiny_dvfs_opp_tbl));
-	size = tbl.tbl_size;
-	for (k = 0; size > 0 ; size--, i++, k++) {
-		seq_printf(s, "| %d |   %06d  |   %06d  |",
-			i, tbl.opp[k].vapu, tbl.opp[k].vsram);
-
-		for (j = 0 ; j < PLL_NUM ; j++)
-			seq_printf(s, "  %07d |", tbl.opp[k].pll_freq[j]);
 
 		seq_puts(s, "\n");
 	}
@@ -343,7 +341,7 @@ static int aputop_show_curr_status(struct seq_file *s, void *unused)
 	}
 
 	for (i = 0 ; i < CLUSTER_NUM ; i++) {
-		mt6985_apu_dump_rpc_status(i, &cluster_dump[i]);
+		mt6886_apu_dump_rpc_status(i, &cluster_dump[i]);
 		seq_printf(s, "%s : rpc_status 0x%08x , conn_cg 0x%08x\n",
 				cluster_name[i],
 				cluster_dump[i].rpc_reg_status,
@@ -351,14 +349,16 @@ static int aputop_show_curr_status(struct seq_file *s, void *unused)
 	}
 
 	// for RCX
-	mt6985_apu_dump_rpc_status(RCX, &cluster_dump[CLUSTER_NUM]);
+	mt6886_apu_dump_rpc_status(RCX, &cluster_dump[CLUSTER_NUM]);
 	seq_printf(s,
 		"%s : rpc_status 0x%08x , conn_cg 0x%08x vcore_cg 0x%08x\n",
 			cluster_name[CLUSTER_NUM],
 			cluster_dump[CLUSTER_NUM].rpc_reg_status,
 			cluster_dump[CLUSTER_NUM].conn_reg_status,
 			cluster_dump[CLUSTER_NUM].vcore_reg_status);
+
 	seq_puts(s, "\n");
+
 	return 0;
 }
 
@@ -369,7 +369,7 @@ static int apu_top_dbg_show(struct seq_file *s, void *unused)
 
 	pr_info("%s for aputop_rpmsg_cmd : %d\n", __func__, cmd);
 
-	if (cmd == APUTOP_DUMP_OPP_TBL2)
+	if (cmd == APUTOP_DUMP_OPP_TBL)
 		ret = aputop_show_opp_tbl(s, unused);
 	else if (cmd == APUTOP_CURR_STATUS)
 		ret = aputop_show_curr_status(s, unused);
@@ -379,7 +379,7 @@ static int apu_top_dbg_show(struct seq_file *s, void *unused)
 	return ret;
 }
 
-int mt6985_apu_top_dbg_open(struct inode *inode, struct file *file)
+int mt6886_apu_top_dbg_open(struct inode *inode, struct file *file)
 {
 	pr_info("%s ++\n", __func__);
 
@@ -387,7 +387,7 @@ int mt6985_apu_top_dbg_open(struct inode *inode, struct file *file)
 }
 
 #define MAX_ARG 4
-ssize_t mt6985_apu_top_dbg_write(
+ssize_t mt6886_apu_top_dbg_write(
 		struct file *flip, const char __user *buffer,
 		size_t count, loff_t *f_pos)
 {
@@ -417,12 +417,14 @@ ssize_t mt6985_apu_top_dbg_write(
 		param = APUPWR_DBG_DVFS_DEBUG;
 	else if (!strcmp(token, "dump_opp_tbl"))
 		param = APUPWR_DBG_DUMP_OPP_TBL;
-	else if (!strcmp(token, "dump_opp_tbl2"))
-		param = APUPWR_DBG_DUMP_OPP_TBL2;
 	else if (!strcmp(token, "curr_status"))
 		param = APUPWR_DBG_CURR_STATUS;
 	else if (!strcmp(token, "pwr_profiling"))
 		param = APUPWR_DBG_PROFILING;
+	else if (!strcmp(token, "clk_set_rate"))
+		param = APUPWR_DBG_CLK_SET_RATE;
+	else if (!strcmp(token, "buk_set_volt"))
+		param = APUPWR_DBG_BUK_SET_VOLT;
 	else if (!strcmp(token, "are_dump"))
 		param = APUPWR_DBG_ARE;
 	else {
@@ -448,7 +450,7 @@ out:
 }
 #endif
 
-int mt6985_apu_top_rpmsg_cb(int cmd, void *data, int len, void *priv, u32 src)
+int mt6886_apu_top_rpmsg_cb(int cmd, void *data, int len, void *priv, u32 src)
 {
 	int ret = 0;
 
@@ -456,19 +458,19 @@ int mt6985_apu_top_rpmsg_cb(int cmd, void *data, int len, void *priv, u32 src)
 	case APUTOP_DEV_CTL:
 	case APUTOP_DEV_SET_OPP:
 	case APUTOP_PWR_PROFILING:
+	case APUTOP_CLK_SET_RATE:
+	case APUTOP_BUK_SET_VOLT:
 		// do nothing
 		break;
 	case APUTOP_DUMP_OPP_TBL:
-		if (len)
-			memcpy(&opp_tbl, data, len);
-		else
+		if (len == sizeof(opp_tbl)) {
+			memcpy(&opp_tbl,
+				(struct tiny_dvfs_opp_tbl *)data, len);
+		} else {
+			pr_info("%s invalid size : %d/%d\n",
+					__func__, len, sizeof(opp_tbl));
 			ret = -EINVAL;
-		break;
-	case APUTOP_DUMP_OPP_TBL2:
-		if (len)
-			memcpy(&opp_tbl2, data, len);
-		else
-			ret = -EINVAL;
+		}
 		break;
 	case APUTOP_CURR_STATUS:
 		if (len == sizeof(curr_info)) {
@@ -488,7 +490,7 @@ int mt6985_apu_top_rpmsg_cb(int cmd, void *data, int len, void *priv, u32 src)
 	return ret;
 }
 
-int mt6985_drv_cfg_remote_sync(struct aputop_func_param *aputop)
+int mt6886_drv_cfg_remote_sync(struct aputop_func_param *aputop)
 {
 	struct drv_cfg_data cfg;
 	uint32_t reg_data = 0x0;
@@ -497,7 +499,6 @@ int mt6985_drv_cfg_remote_sync(struct aputop_func_param *aputop)
 	cfg.dvfs_debounce = aputop->param2 & 0xf;
 	cfg.disable_hw_meter = aputop->param3 & 0xf;
 
-	log_lvl = cfg.log_level;
 	reg_data = cfg.log_level |
 		(cfg.dvfs_debounce << 8) |
 		(cfg.disable_hw_meter << 16);
@@ -508,14 +509,14 @@ int mt6985_drv_cfg_remote_sync(struct aputop_func_param *aputop)
 	return 0;
 }
 
-int mt6985_init_remote_data_sync(void __iomem *reg_base)
+int mt6886_init_remote_data_sync(void __iomem *reg_base)
 {
 	int i;
 	uint32_t reg_offset = 0x0;
 
 	spare_reg_base = reg_base;
 
-	for (i = 0 ; i < NCX ; i++) {
+	for (i = 0 ; i < CLUSTER_NUM ; i++) {
 		// 0xffff_ffff means no limit
 		memset(&opp_limit_tbl[i].dev_opp_lmt, -1,
 				sizeof(struct device_opp_limit));
