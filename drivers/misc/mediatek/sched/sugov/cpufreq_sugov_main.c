@@ -461,19 +461,6 @@ static void sugov_iowait_apply(struct sugov_cpu *sg_cpu, u64 time)
 		sg_cpu->util = boost;
 }
 
-#if IS_ENABLED(CONFIG_NO_HZ_COMMON)
-static bool sugov_cpu_is_busy(struct sugov_cpu *sg_cpu)
-{
-	unsigned long idle_calls = tick_nohz_get_idle_calls_cpu(sg_cpu->cpu);
-	bool ret = idle_calls == sg_cpu->saved_idle_calls;
-
-	sg_cpu->saved_idle_calls = idle_calls;
-	return ret;
-}
-#else
-static inline bool sugov_cpu_is_busy(struct sugov_cpu *sg_cpu) { return false; }
-#endif /* CONFIG_NO_HZ_COMMON */
-
 /*
  * Make sugov_should_update_freq() ignore the rate limit when DL
  * has increased the utilization.
@@ -543,8 +530,6 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	struct rq *rq;
 	unsigned long umin, umax;
 	unsigned int next_f;
-	bool busy;
-	unsigned int cached_freq = sg_policy->cached_raw_freq;
 
 	raw_spin_lock(&sg_policy->update_lock);
 
@@ -561,9 +546,6 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	/* Critical Task aware thermal throttling, notify thermal */
 	mtk_set_cpu_min_opp_single(sg_cpu);
 
-	/* Limits may have changed, don't skip frequency update */
-	busy = !sg_policy->need_freq_update && sugov_cpu_is_busy(sg_cpu);
-
 	sugov_get_util(sg_cpu);
 	sugov_iowait_apply(sg_cpu, time);
 
@@ -576,16 +558,6 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	}
 
 	next_f = get_next_freq(sg_policy, sg_cpu->util, sg_cpu->max);
-	/*
-	 * Do not reduce the frequency if the CPU has not been idle
-	 * recently, as the reduction is likely to be premature then.
-	 */
-	if (busy && next_f < sg_policy->next_freq) {
-		next_f = sg_policy->next_freq;
-
-		/* Restore cached freq as next_freq has changed */
-		sg_policy->cached_raw_freq = cached_freq;
-	}
 
 	if (!sugov_update_next_freq(sg_policy, time, next_f)) {
 		raw_spin_unlock(&sg_policy->update_lock);
