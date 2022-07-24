@@ -68,6 +68,7 @@
 #define UARTHUB_INTFHUB_CON2(_baseaddr)                 (_baseaddr+0xc8)
 #define UARTHUB_INTFHUB_CON3(_baseaddr)                 (_baseaddr+0xcc)
 #define UARTHUB_INTFHUB_IRQ_STA(_baseaddr)              (_baseaddr+0xd0)
+#define UARTHUB_INTFHUB_IRQ_MASK(_baseaddr)             (_baseaddr+0xd8)
 #define UARTHUB_INTFHUB_IRQ_CLR(_baseaddr)              (_baseaddr+0xd4)
 #define UARTHUB_INTFHUB_IRQ_MASK(_baseaddr)             (_baseaddr+0xd8)
 #define UARTHUB_INTFHUB_STA0(_baseaddr)                 (_baseaddr+0xe0)
