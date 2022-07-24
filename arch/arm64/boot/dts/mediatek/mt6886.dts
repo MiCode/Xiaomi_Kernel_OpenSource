@@ -4246,76 +4246,6 @@
 			"mcusys_par_wrap_complex2";
 	};
 
-	adspsys: adspsys@1e000000 {
-		compatible = "mediatek,mt6886-adspsys";
-		status = "okay";
-		reg = <0 0x1e000000 0 0x6000>, /* CFG */
-			<0 0x1e00b000 0 0x5000>, /* CFG 2 */
-			<0 0x1e006000 0 0x100>, /* MBOX0 base */
-			<0 0x1e006100 0 0x4>, /* MBOX0 set */
-			<0 0x1e00610c 0 0x4>, /* MBOX0 clr */
-			<0 0x1e007000 0 0x100>, /* MBOX1 base */
-			<0 0x1e007100 0 0x4>, /* MBOX1 set */
-			<0 0x1e00710c 0 0x4>, /* MBOX1 clr */
-			<0 0x1e008000 0 0x100>, /* MBOX2 base */
-			<0 0x1e008100 0 0x4>, /* MBOX2 set */
-			<0 0x1e00810c 0 0x4>, /* MBOX2 clr */
-			<0 0x1e009000 0 0x100>, /* MBOX3 base */
-			<0 0x1e009100 0 0x4>, /* MBOX3 set */
-			<0 0x1e00910c 0 0x4>; /* MBOX3 clr */
-		reg-names = "cfg", "cfg2",
-			"mbox0_base", "mbox0_set", "mbox0_clr",
-			"mbox1_base", "mbox1_set", "mbox1_clr",
-			"mbox2_base", "mbox2_set", "mbox2_clr",
-			"mbox3_base", "mbox3_set", "mbox3_clr";
-
-		interrupts = <GIC_SPI 724 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX0 */
-			<GIC_SPI 725 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX1 */
-			<GIC_SPI 726 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX2 */
-			<GIC_SPI 727 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX3 */
-			<GIC_SPI 728 IRQ_TYPE_LEVEL_HIGH 0>; /* DEBUG_CTRL */
-		interrupt-names = "mbox0",
-			"mbox1",
-			"mbox2",
-			"mbox3",
-			"debug_ctrl";
-		#mbox-cells = <1>;
-
-		power-domains = <&scpsys MT6886_POWER_DOMAIN_ADSP_TOP_DORMANT>;
-		clocks = <&topckgen_clk CLK_TOP_ADSP_SEL>,
-			<&topckgen_clk CLK_TOP_TCK_26M_MX9>,
-			<&topckgen_clk CLK_TOP_ADSPPLL>;
-		clock-names = "clk_top_adsp_sel",
-			"clk_top_clk26m",
-			"clk_top_adsppll";
-
-		core-num = <1>;    /* core number */
-		adsp-rsv-ipidma-a = <0x200000>;
-		adsp-rsv-ipidma-b = <0x0>;
-		adsp-rsv-logger-a = <0x80000>;
-		adsp-rsv-logger-b = <0x0>;
-		adsp-rsv-c2c = <0x0>;
-		adsp-rsv-dbg-dump-a = <0x80000>;
-		adsp-rsv-dbg-dump-b = <0x0>;
-		adsp-rsv-core-dump-a = <0x400>;
-		adsp-rsv-core-dump-b = <0x0>;
-		adsp-rsv-audio = <0x5c0000>;
-	};
-
-	adsp_core0: adsp-core0@1e020000 {
-		compatible = "mediatek,mt6886-adsp_core_0";
-		status = "okay";
-		reg = <0 0x1e050000 0 0x9000>, /* ITCM */
-			<0 0x1e020000 0 0x8000>; /* DTCM */
-		system = <0 0x50000000 0 0x900000>;
-		interrupts = <GIC_SPI 718 IRQ_TYPE_LEVEL_HIGH 0>,
-			<GIC_SPI 720 IRQ_TYPE_LEVEL_HIGH 0>,
-			<GIC_SPI 722 IRQ_TYPE_LEVEL_HIGH 0>;
-		mboxes = <&adspsys 0>, /*channel 0*/
-			<&adspsys 1>; /*channel 1*/
-		feature-control-bits = <0xffffffff>;
-	};
-
 	/* feature : $enable $dl_mem $ul_mem $ref_mem $size */
 	snd_audio_dsp: snd-audio-dsp {
 		compatible = "mediatek,snd-audio-dsp";
@@ -5442,6 +5372,76 @@
 			buf-length = <0x200000>;
 			buf-addr-align = <0x400000>;
 			buf-addr-max = <0xffffffff>;
+		};
+
+		adspsys: adspsys@1e000000 {
+			compatible = "mediatek,mt6886-adspsys";
+			status = "okay";
+			reg = <0 0x1e000000 0 0x6000>, /* CFG */
+				<0 0x1e00b000 0 0x5000>, /* CFG 2 */
+				<0 0x1e006000 0 0x100>, /* MBOX0 base */
+				<0 0x1e006100 0 0x4>, /* MBOX0 set */
+				<0 0x1e00610c 0 0x4>, /* MBOX0 clr */
+				<0 0x1e007000 0 0x100>, /* MBOX1 base */
+				<0 0x1e007100 0 0x4>, /* MBOX1 set */
+				<0 0x1e00710c 0 0x4>, /* MBOX1 clr */
+				<0 0x1e008000 0 0x100>, /* MBOX2 base */
+				<0 0x1e008100 0 0x4>, /* MBOX2 set */
+				<0 0x1e00810c 0 0x4>, /* MBOX2 clr */
+				<0 0x1e009000 0 0x100>, /* MBOX3 base */
+				<0 0x1e009100 0 0x4>, /* MBOX3 set */
+				<0 0x1e00910c 0 0x4>; /* MBOX3 clr */
+			reg-names = "cfg", "cfg2",
+				"mbox0_base", "mbox0_set", "mbox0_clr",
+				"mbox1_base", "mbox1_set", "mbox1_clr",
+				"mbox2_base", "mbox2_set", "mbox2_clr",
+				"mbox3_base", "mbox3_set", "mbox3_clr";
+
+			interrupts = <GIC_SPI 724 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX0 */
+				<GIC_SPI 725 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX1 */
+				<GIC_SPI 726 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX2 */
+				<GIC_SPI 727 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX3 */
+				<GIC_SPI 728 IRQ_TYPE_LEVEL_HIGH 0>; /* DEBUG_CTRL */
+			interrupt-names = "mbox0",
+				"mbox1",
+				"mbox2",
+				"mbox3",
+				"debug_ctrl";
+			#mbox-cells = <1>;
+
+			power-domains = <&scpsys MT6886_POWER_DOMAIN_ADSP_TOP_DORMANT>;
+			clocks = <&topckgen_clk CLK_TOP_ADSP_SEL>,
+				<&topckgen_clk CLK_TOP_TCK_26M_MX9>,
+				<&topckgen_clk CLK_TOP_ADSPPLL>;
+			clock-names = "clk_top_adsp_sel",
+				"clk_top_clk26m",
+				"clk_top_adsppll";
+
+			core-num = <1>;    /* core number */
+			adsp-rsv-ipidma-a = <0x200000>;
+			adsp-rsv-ipidma-b = <0x0>;
+			adsp-rsv-logger-a = <0x80000>;
+			adsp-rsv-logger-b = <0x0>;
+			adsp-rsv-c2c = <0x0>;
+			adsp-rsv-dbg-dump-a = <0x80000>;
+			adsp-rsv-dbg-dump-b = <0x0>;
+			adsp-rsv-core-dump-a = <0x400>;
+			adsp-rsv-core-dump-b = <0x0>;
+			adsp-rsv-audio = <0x5c0000>;
+		};
+
+		adsp_core0: adsp-core0@1e020000 {
+			compatible = "mediatek,mt6886-adsp_core_0";
+			status = "okay";
+			reg = <0 0x1e050000 0 0x9000>, /* ITCM */
+				<0 0x1e020000 0 0x8000>; /* DTCM */
+			system = <0 0x50000000 0 0x900000>;
+			interrupts = <GIC_SPI 718 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 720 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 722 IRQ_TYPE_LEVEL_HIGH 0>;
+			mboxes = <&adspsys 0>, /*channel 0*/
+				<&adspsys 1>; /*channel 1*/
+			feature-control-bits = <0xffffffff>;
 		};
 
 		gpio_usage_mapping:gpio {
