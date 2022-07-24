@@ -94,6 +94,7 @@ static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "OUTPUT_SCENARIO", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC | DRM_MODE_PROP_IMMUTABLE,
 						"CAPS_BLOB_ID", 0, UINT_MAX, 0},
+	{DRM_MODE_PROP_ATOMIC, "AOSP_CCORR_LINEAR", 0, UINT_MAX, 0},
 };
 
 static struct cmdq_pkt *sb_cmdq_handle;
@@ -130,6 +131,8 @@ static unsigned int fn;
 #endif
 /* overlay bandwidth monitor BURST ACC Window size */
 unsigned int ovl_win_size;
+
+static bool g_ccorr_linear;
 
 #define ALIGN_TO_32(x) ALIGN_TO(x, 32)
 
@@ -4394,7 +4397,7 @@ static void mtk_crtc_dc_config_color_matrix(struct drm_crtc *crtc,
 
 			if (comp->id == DDP_COMPONENT_CCORR0) {
 				disp_ccorr_set_color_matrix(comp, cmdq_handle,
-							ccorr_matrix, mode, false);
+					ccorr_matrix, mode, false, g_ccorr_linear);
 				set = true;
 				break;
 			}
@@ -4408,7 +4411,7 @@ static void mtk_crtc_dc_config_color_matrix(struct drm_crtc *crtc,
 					((drm_ccorr_caps.ccorr_number == 2) &&
 					(comp_ccorr->id == DDP_COMPONENT_CCORR2))) {
 					disp_ccorr_set_color_matrix(comp_ccorr, cmdq_handle,
-								ccorr_matrix, mode, false);
+						ccorr_matrix, mode, false, g_ccorr_linear);
 					set = true;
 					break;
 				}
@@ -9729,6 +9732,11 @@ static struct disp_ccorr_config *mtk_crtc_get_color_matrix_data(
 	if (!blob_id)
 		goto end;
 
+	if (state->prop_val[CRTC_PROP_AOSP_CCORR_LINEAR])
+		g_ccorr_linear = true;
+	else
+		g_ccorr_linear = false;
+
 	blob = drm_property_lookup_blob(crtc->dev, blob_id);
 	if (!blob) {
 		DDPPR_ERR("Cannot get color matrix blob: %d!\n", blob_id);
@@ -9806,8 +9814,8 @@ static void mtk_crtc_dl_config_color_matrix(struct drm_crtc *crtc,
 
 		if (comp->id == DDP_COMPONENT_CCORR0) {
 			disp_ccorr_set_color_matrix(comp, cmdq_handle,
-					ccorr_config->color_matrix,
-					ccorr_config->mode, ccorr_config->featureFlag);
+					ccorr_config->color_matrix, ccorr_config->mode,
+					ccorr_config->featureFlag, g_ccorr_linear);
 			set = true;
 			break;
 		}
@@ -9821,8 +9829,8 @@ static void mtk_crtc_dl_config_color_matrix(struct drm_crtc *crtc,
 				((drm_ccorr_caps.ccorr_number == 2) &&
 				(comp_ccorr->id == DDP_COMPONENT_CCORR2))) {
 				disp_ccorr_set_color_matrix(comp_ccorr, cmdq_handle,
-						ccorr_config->color_matrix,
-						ccorr_config->mode, ccorr_config->featureFlag);
+						ccorr_config->color_matrix, ccorr_config->mode,
+						ccorr_config->featureFlag, g_ccorr_linear);
 				set = true;
 				break;
 			}

@@ -748,8 +748,8 @@ static int mtk_disp_ccorr_set_interrupt(struct mtk_ddp_comp *comp, void *data)
 	return ret;
 }
 
-int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
-	struct cmdq_pkt *handle, int32_t matrix[16], int32_t hint, bool fte_flag)
+int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
+	int32_t matrix[16], int32_t hint, bool fte_flag, bool linear)
 {
 	int ret = 0;
 	int i, j;
@@ -800,6 +800,12 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 			}
 		}
 	}
+
+	DDPINFO("%s, ccorr linear:%d\n", __func__, linear);
+	if (linear)
+		ccorr_without_gamma = 0;
+	else
+		ccorr_without_gamma = 1;
 
 	// hint: 0: identity matrix; 1: arbitraty matrix
 	// fte_flag: true: gpu overlay && hwc not identity matrix
