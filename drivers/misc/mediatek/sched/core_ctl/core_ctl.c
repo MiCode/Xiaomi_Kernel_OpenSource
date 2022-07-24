@@ -1058,6 +1058,7 @@ static void get_busy_cpus(void)
 				cpus++;
 		}
 		cluster->need_spread_cpus = cpus;
+		cpus = 0;
 	}
 }
 
