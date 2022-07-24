@@ -266,7 +266,7 @@ static int __init init_magt_perfctl(void)
 	pr_debug(TAG"Start to init MAGT perf_ioctl driver\n");
 	parent = proc_mkdir("perfmgr_magt", NULL);
 	perfmgr_root = parent;
-	pe = proc_create("magt_ioctl", 0664, parent, &Fops);
+	pe = proc_create("magt_ioctl", 0660, parent, &Fops);
 	if (!pe) {
 		pr_debug(TAG"%s failed with %d\n",
 				"Creating file node ",
