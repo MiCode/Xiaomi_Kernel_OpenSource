@@ -6799,6 +6799,7 @@
 				clocks = <&clk26m>;
 				clock-names = "ref";
 				#phy-cells = <1>;
+				usb2jtag = <&vlpcfg_bus 2>;
 				nvmem-cells = <&u2_phy_data>, <&u2_phy_data>;
 				nvmem-cell-names = "intr_cal", "term_cal";
 				nvmem-cell-masks = <0x3f 0xf00>;
