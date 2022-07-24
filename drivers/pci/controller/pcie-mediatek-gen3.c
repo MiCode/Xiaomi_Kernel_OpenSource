@@ -31,10 +31,14 @@
 
 #include "../pci.h"
 
-#define PEXTP_PWRCTL_0                 0x40
-#define PCIE_HW_MTCMOS_EN_P0           BIT(0)
-#define PEXTP_PWRCTL_1                 0x44
-#define PCIE_HW_MTCMOS_EN_P1           BIT(0)
+#define PEXTP_PWRCTL_0			0x40
+#define PCIE_HW_MTCMOS_EN_P0		BIT(0)
+#define PEXTP_PWRCTL_1			0x44
+#define PCIE_HW_MTCMOS_EN_P1		BIT(0)
+#define PEXTP_RSV_0			0x60
+#define PCIE_HW_MTCMOS_EN_MD_P0		BIT(0)
+#define PEXTP_RSV_1			0x64
+#define PCIE_HW_MTCMOS_EN_MD_P1		BIT(0)
 
 #define PEXTP_SW_RST			0x4
 #define PEXTP_SW_RST_SET_OFFSET		0x8
@@ -75,6 +79,9 @@
 
 #define PCIE_LINK_STATUS_REG		0x154
 #define PCIE_PORT_LINKUP		BIT(8)
+
+#define PCIE_ASPM_CTRL			0x15c
+#define PCIE_P2_EXIT_BY_CLKREQ		BIT(17)
 
 #define PCIE_MSI_SET_NUM		8
 #define PCIE_MSI_IRQS_PER_SET		32
@@ -133,6 +140,23 @@
 #define PCIE_ATR_TLP_TYPE(type)		(((type) << 16) & GENMASK(18, 16))
 #define PCIE_ATR_TLP_TYPE_MEM		PCIE_ATR_TLP_TYPE(0)
 #define PCIE_ATR_TLP_TYPE_IO		PCIE_ATR_TLP_TYPE(2)
+
+/* PHY sif register */
+#define PCIE_PHY_SIF			0x11100000
+#define PEXTP_DIG_GLB_28		0x28
+#define RG_XTP_PHY_CLKREQ_N_IN		GENMASK(13, 12)
+#define PEXTP_DIG_GLB_50		0x50
+#define RG_XTP_CKM_EN_L1S0		BIT(13)
+
+/* PHY ckm register */
+#define PCIE_PHY_CKM			0x11110000
+#define XTP_CKM_DA_REG_3C		0x3C
+#define RG_CKM_PADCK_REQ		GENMASK(13, 12)
+
+/* vlpcfg register */
+#define PCIE_VLPCFG_BASE		0x1C00C000
+#define PCIE_VLP_AXI_PROTECT_STA	0x240
+#define PCIE_MAC0_SLP_READY_MASK	BIT(11)
 
 enum mtk_pcie_suspend_link_state {
 	LINK_STATE_L12 = 0,
@@ -327,6 +351,36 @@ static void mtk_pcie_enable_msi(struct mtk_pcie_port *port)
 	writel_relaxed(val, port->base + PCIE_INT_ENABLE_REG);
 }
 
+static void __maybe_unused mtk_pcie_mt6985_fixup(void)
+{
+	void __iomem *pcie_phy_sif;
+	void __iomem *pcie_phy_ckm;
+	u32 val;
+
+	pcie_phy_sif = ioremap(PCIE_PHY_SIF, 0x100);
+	pcie_phy_ckm = ioremap(PCIE_PHY_CKM, 0x100);
+
+	val = readl(pcie_phy_sif + PEXTP_DIG_GLB_28);
+	val |= RG_XTP_PHY_CLKREQ_N_IN;
+	writel(val, pcie_phy_sif + PEXTP_DIG_GLB_28);
+
+	val = readl(pcie_phy_sif + PEXTP_DIG_GLB_50);
+	val &= ~RG_XTP_CKM_EN_L1S0;
+	writel(val, pcie_phy_sif + PEXTP_DIG_GLB_50);
+
+	val = readl(pcie_phy_ckm + XTP_CKM_DA_REG_3C);
+	val |= RG_CKM_PADCK_REQ;
+	writel(val, pcie_phy_ckm + XTP_CKM_DA_REG_3C);
+
+	pr_info("PHY GLB_28=%#x, GLB_50=%#x, CKM_3C=%#x\n",
+		readl(pcie_phy_sif + PEXTP_DIG_GLB_28),
+		readl(pcie_phy_sif + PEXTP_DIG_GLB_50),
+		readl(pcie_phy_ckm + XTP_CKM_DA_REG_3C));
+
+	iounmap(pcie_phy_sif);
+	iounmap(pcie_phy_ckm);
+}
+
 static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 {
 	struct resource_entry *entry;
@@ -345,6 +399,14 @@ static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 	val &= ~GENMASK(31, 8);
 	val |= PCI_CLASS(PCI_CLASS_BRIDGE_PCI << 8);
 	writel_relaxed(val, port->base + PCIE_PCI_IDS_1);
+
+	if (port->pextpcfg) {
+		val = readl_relaxed(port->base + PCIE_ASPM_CTRL);
+		val |= PCIE_P2_EXIT_BY_CLKREQ;
+		writel_relaxed(val, port->base + PCIE_ASPM_CTRL);
+
+		mtk_pcie_mt6985_fixup();
+	}
 
 	/* Mask all INTx interrupts */
 	val = readl_relaxed(port->base + PCIE_INT_ENABLE_REG);
@@ -1324,6 +1386,10 @@ static int __maybe_unused mtk_pcie_suspend_noirq(struct device *dev)
 			val = readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_0);
 			val |= PCIE_HW_MTCMOS_EN_P0;
 			writel_relaxed(val, port->pextpcfg + PEXTP_PWRCTL_0);
+			dev_info(port->dev, "PCIe HW MODE BIT=%#x\n",
+				 readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_0));
+			dev_info(port->dev, "Modem HW MODE BIT=%#x\n",
+				 readl_relaxed(port->pextpcfg + PEXTP_RSV_0));
 		} else if (port->port_num == 1) {
 			val = readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_1);
 			val |= PCIE_HW_MTCMOS_EN_P1;
@@ -1354,6 +1420,7 @@ static int __maybe_unused mtk_pcie_suspend_noirq(struct device *dev)
 static int __maybe_unused mtk_pcie_resume_noirq(struct device *dev)
 {
 	struct mtk_pcie_port *port = dev_get_drvdata(dev);
+	void __iomem *vlpcfg_base;
 	int err;
 	u32 val;
 
@@ -1362,16 +1429,34 @@ static int __maybe_unused mtk_pcie_resume_noirq(struct device *dev)
 			val = readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_0);
 			val &= ~PCIE_HW_MTCMOS_EN_P0;
 			writel_relaxed(val, port->pextpcfg + PEXTP_PWRCTL_0);
+			dev_info(port->dev, "PCIe HW MODE BIT=%#x\n",
+				 readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_0));
+			dev_info(port->dev, "Modem HW MODE BIT=%#x\n",
+				 readl_relaxed(port->pextpcfg + PEXTP_RSV_0));
 		} else if (port->port_num == 1) {
 			val = readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_1);
 			val &= ~PCIE_HW_MTCMOS_EN_P1;
 			writel_relaxed(val, port->pextpcfg + PEXTP_PWRCTL_1);
 		}
 
+		/* Check the sleep protect ready */
+		vlpcfg_base = ioremap(PCIE_VLPCFG_BASE, 0x1000);
+		err = readl_poll_timeout(vlpcfg_base + PCIE_VLP_AXI_PROTECT_STA,
+					val, !(val & PCIE_MAC0_SLP_READY_MASK),
+					20, 50 * USEC_PER_MSEC);
+		if (err) {
+			dev_info(port->dev, "PCIe sleep protect not ready, %#x\n",
+				 readl_relaxed(vlpcfg_base +
+				 PCIE_VLP_AXI_PROTECT_STA));
+			iounmap(vlpcfg_base);
+			return err;
+		}
+
 		val = readl_relaxed(port->base + PCIE_MISC_CTRL_REG);
 		val |= PCIE_MAC_SLP_DIS;
 		writel_relaxed(val, port->base + PCIE_MISC_CTRL_REG);
 
+		iounmap(vlpcfg_base);
 	} else {
 		err = mtk_pcie_power_up(port);
 		if (err)
