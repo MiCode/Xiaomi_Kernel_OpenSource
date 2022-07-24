@@ -1917,8 +1917,8 @@ static struct mdpm_scenario mt6985_mdpm_scen[SCENARIO_NUM] = {
 		.scenario_reg = 1 << 1,
 		.scenario_name = "S_2G_C2K_3G",
 		.scenario_power = &md_scen_power_6985[S_2G_IDLE],
-		.tx_power_rat = {RAT_2G, RAT_C2K, RAT_3G, 0, 0},
-		.tx_power_rat_sum = true,
+		.tx_power_rat = {RAT_3G, RAT_C2K, RAT_2G, 0, 0},
+		.tx_power_rat_sum = false,
 	},
 
 	[S_4G_0D0U] = {
@@ -2029,7 +2029,7 @@ static struct mdpm_scenario mt6985_mdpm_scen[SCENARIO_NUM] = {
 		.scenario_reg = 1 << 19,
 		.scenario_name = "S_5G_FR2_1CC_1TG",
 		.scenario_power = &md_scen_power_6985[S_5G_FR2_1CC_1TG],
-		.tx_power_rat = {RAT_5G, 0, 0, 0, 0},
+		.tx_power_rat = {RAT_MMW, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
@@ -2037,7 +2037,7 @@ static struct mdpm_scenario mt6985_mdpm_scen[SCENARIO_NUM] = {
 		.scenario_reg = 1 << 20,
 		.scenario_name = "S_5G_FR2_2_4CC_1TG",
 		.scenario_power = &md_scen_power_6985[S_5G_FR2_2_4CC_1TG],
-		.tx_power_rat = {RAT_5G, 0, 0, 0, 0},
+		.tx_power_rat = {RAT_MMW, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
@@ -2045,7 +2045,7 @@ static struct mdpm_scenario mt6985_mdpm_scen[SCENARIO_NUM] = {
 		.scenario_reg = 1 << 21,
 		.scenario_name = "S_5G_FR2_5_8CC_1TG",
 		.scenario_power = &md_scen_power_6985[S_5G_FR2_5_8CC_1TG],
-		.tx_power_rat = {RAT_5G, 0, 0, 0, 0},
+		.tx_power_rat = {RAT_MMW, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
@@ -2053,7 +2053,7 @@ static struct mdpm_scenario mt6985_mdpm_scen[SCENARIO_NUM] = {
 		.scenario_reg = 1 << 22,
 		.scenario_name = "S_5G_FR2_1_8CC_2TG",
 		.scenario_power = &md_scen_power_6985[S_5G_FR2_1_8CC_2TG],
-		.tx_power_rat = {RAT_5G, 0, 0, 0, 0},
+		.tx_power_rat = {RAT_MMW, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
@@ -2061,16 +2061,16 @@ static struct mdpm_scenario mt6985_mdpm_scen[SCENARIO_NUM] = {
 		.scenario_reg = 1 << 23,
 		.scenario_name = "S_5G_FR2_1_8CC_3TG",
 		.scenario_power = &md_scen_power_6985[S_5G_FR2_1_8CC_3TG],
-		.tx_power_rat = {RAT_5G, 0, 0, 0, 0},
+		.tx_power_rat = {RAT_MMW, 0, 0, 0, 0},
 		.tx_power_rat_sum = false,
 	},
 
-	[S_5G_NNDC] = {
+	[S_5G_FR1_FR2] = {
 		.scenario_reg = 1 << 28,
 		.scenario_name = "S_5G_NNDC",
-		.scenario_power = &md_scen_power_6985[S_5G_NNDC],
-		.tx_power_rat = {RAT_5G, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
+		.scenario_power = &md_scen_power_6985[S_5G_FR1_FR2],
+		.tx_power_rat = {RAT_MMW, RAT_5G, 0, 0, 0},
+		.tx_power_rat_sum = true,
 	},
 
 	[S_5G_FR1_1CC_1TG_4G_1CC] = {
@@ -2081,11 +2081,11 @@ static struct mdpm_scenario mt6985_mdpm_scen[SCENARIO_NUM] = {
 		.tx_power_rat_sum = true,
 	},
 
-	[S_5G_FR2_1CC_1TG_4G_1CC] = {
+	[S_5G_FR2_1CC_1TG_4G_1CC_NR_0CC] = {
 		.scenario_reg = 1 << 25,
 		.scenario_name = "S_5G_FR2_1CC_1TG_4G_1CC",
-		.scenario_power = &md_scen_power_6985[S_5G_FR2_1CC_1TG_4G_1CC],
-		.tx_power_rat = {RAT_5G, RAT_4G, 0, 0, 0},
+		.scenario_power = &md_scen_power_6985[S_5G_FR2_1CC_1TG_4G_1CC_NR_0CC],
+		.tx_power_rat = {RAT_MMW, RAT_5G, RAT_4G, 0, 0},
 		.tx_power_rat_sum = true,
 	},
 
@@ -2093,47 +2093,15 @@ static struct mdpm_scenario mt6985_mdpm_scen[SCENARIO_NUM] = {
 		.scenario_reg = 1 << 26,
 		.scenario_name = "S_5G_FR2_2_4CC_1TG_4G_1CC",
 		.scenario_power = &md_scen_power_6985[S_5G_FR2_2_4CC_1TG_4G_1CC],
-		.tx_power_rat = {RAT_5G, RAT_4G, RAT_4G, 0, 0},
+		.tx_power_rat = {RAT_MMW, RAT_5G, RAT_4G, 0, 0},
 		.tx_power_rat_sum = true,
 	},
 
-	[S_5G_ENDC_OTHERS] = {
+	[S_5G_FR1_FR2_4G] = {
 		.scenario_reg = 1 << 27,
 		.scenario_name = "S_5G_ENDC_OTHERS",
-		.scenario_power = &md_scen_power_6985[S_5G_ENDC_OTHERS],
-		.tx_power_rat = {RAT_5G, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_AOC_RF_RESTORE_SUB6] = {
-		.scenario_reg = 1 << 6,
-		.scenario_name = "S_AOC_RF_RESTORE_SUB6",
-		.scenario_power = &md_scen_power_6985[S_AOC_RF_RESTORE_SUB6],
-		.tx_power_rat = {RAT_5G, RAT_4G, RAT_3G, RAT_2G, 0},
-		.tx_power_rat_sum = true,
-	},
-
-	[S_AOC_RF_RESTORE_MMW] = {
-		.scenario_reg = 1 << 7,
-		.scenario_name = "S_AOC_RF_RESTORE_MMW",
-		.scenario_power = &md_scen_power_6985[S_AOC_RF_RESTORE_MMW],
-		.tx_power_rat = {RAT_MMW, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_AOC_RF_RESTORE_SUB6_MMW] = {
-		.scenario_reg = 1 << 24,
-		.scenario_name = "S_AOC_RF_RESTORE_SUB6_MMW",
-		.scenario_power = &md_scen_power_6985[S_AOC_RF_RESTORE_SUB6_MMW],
-		.tx_power_rat = {RAT_MMW, RAT_5G, RAT_4G, RAT_3G, RAT_2G},
-		.tx_power_rat_sum = true,
-	},
-
-	[S_AOC_RF_RESTORE_SUB6_WITH_MMW_ACTIVE] = {
-		.scenario_reg = 1 << 29,
-		.scenario_name = "S_AOC_RF_RESTORE_SUB6_WITH_MMW_ACTIVE",
-		.scenario_power = &md_scen_power_6985[S_AOC_RF_RESTORE_SUB6_WITH_MMW_ACTIVE],
-		.tx_power_rat = {RAT_MMW, RAT_5G, RAT_4G, RAT_3G, RAT_2G},
+		.scenario_power = &md_scen_power_6985[S_5G_FR1_FR2_4G],
+		.tx_power_rat = {RAT_MMW, RAT_5G, RAT_4G, 0, 0},
 		.tx_power_rat_sum = true,
 	},
 
@@ -2160,10 +2128,10 @@ static int mt6985_scen_priority[SCENARIO_NUM] = {
 	S_5G_FR1_1CC_1TG_H,
 	S_5G_FR1_2CC_1TG,
 	S_5G_FR1_1CC_1TG,
-	S_5G_NNDC,
+	S_5G_FR1_FR2,
 	S_5G_FR1_1CC_1TG_4G_1CC,
-	S_5G_FR2_1CC_1TG_4G_1CC,
-	S_5G_ENDC_OTHERS,
+	S_5G_FR2_1CC_1TG_4G_1CC_NR_0CC,
+	S_5G_FR1_FR2_4G,
 	S_5G_NR_0CC_3TG,
 	S_5G_NR_0CC_2TG,
 	S_5G_NR_0CC_1TG,
@@ -2173,10 +2141,6 @@ static int mt6985_scen_priority[SCENARIO_NUM] = {
 	S_4G_2CC,
 	S_2G_IDLE,
 	S_STANDBY,
-	S_AOC_RF_RESTORE_SUB6,
-	S_AOC_RF_RESTORE_MMW,
-	S_AOC_RF_RESTORE_SUB6_MMW,
-	S_AOC_RF_RESTORE_SUB6_WITH_MMW_ACTIVE,
 	S_4G_5G_POS_URGENT
 };
 
