@@ -1199,8 +1199,45 @@ int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd, int pad_id)
 {
 	/* seninf todo: tag order */
 	/* 0: first exposure 1: second exposure 2: last exposure */
+	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
+	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
+	struct seninf_vc *vc;
+	int ret = 0;
+	int i = 0;
+	int exposure_num = 0;
 
-	return 0;
+	for (i = 0; i < vcinfo->cnt; i++) {
+		vc = &vcinfo->vc[i];
+		if (vc->out_pad == PAD_SRC_PDAF1 ||
+			vc->out_pad == PAD_SRC_PDAF3 ||
+			vc->out_pad == PAD_SRC_PDAF5) {
+			exposure_num++;
+		}
+	}
+
+	switch (pad_id) {
+	case PAD_SRC_PDAF3:
+		switch (exposure_num) {
+		case 3:
+			ret = 1;
+			break;
+		case 2:
+			ret = 2;
+			break;
+		default:
+			ret = 0;
+			break;
+		}
+		break;
+	case PAD_SRC_PDAF5:
+		ret = (exposure_num == 3) ? 2 : 0;
+		break;
+	default:
+		ret = 0;
+		break;
+	}
+
+	return ret;
 }
 
 int mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg)
