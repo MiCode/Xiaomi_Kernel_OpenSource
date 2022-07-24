@@ -796,7 +796,7 @@ static void ccci_dump_buffer_init(void)
 	struct buffer_node *node_ptr = NULL;
 	struct ccci_dump_buffer *ptr = NULL;
 
-	ccci_dump_proc = proc_create("ccci_dump", 0664, NULL, &ccci_dump_fops);
+	ccci_dump_proc = proc_create("ccci_dump", 0660, NULL, &ccci_dump_fops);
 	if (ccci_dump_proc == NULL) {
 		pr_notice("[ccci0/util]fail to create proc entry for dump\n");
 		return;
