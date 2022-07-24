@@ -10,13 +10,19 @@
 	clock-frequency = <400000>;
 	pinctrl-names = "default", "ts_int_active",
 		"ts_reset_active", "ts_int_suspend",
-		"ts_reset_suspend", "ts_i2c_mode";
+		"ts_reset_suspend", "ts_i2c_mode",
+		"synaptics_default", "pmx_ts_active",
+		"pmx_ts_suspend", "pmx_ts_i2c_mode";
 	pinctrl-0 = <&ctp_pins_default>;
 	pinctrl-1 = <&ctp_ts_int_active>;
 	pinctrl-2 = <&ctp_ts_reset_active>;
 	pinctrl-3 = <&ctp_ts_int_suspend>;
 	pinctrl-4 = <&ctp_ts_reset_suspend>;
 	pinctrl-5 = <&ctp_ts_i2c_mode>;
+	pinctrl-6 = <&ctp_synaptics_pins_default>;
+	pinctrl-7 = <&ts_active>;
+	pinctrl-8 = <&ts_suspend>;
+	pinctrl-9 = <&ts_i2c_mode>;
 
 	gt9886@5d {
 		compatible = "goodix,gt9886";
@@ -49,6 +55,28 @@
 		tpd-filter-pixel-density = <161>;
 		tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
 		tpd-filter-custom-speed = <0 0 0>;
+	};
+
+	synaptics_tcm@4b {
+		compatible = "synaptics,tcm-i2c";
+		status = "ok";
+		reg = <0x4b>;
+		interrupt-parent = <&pio>;
+		interrupts = <8 IRQ_TYPE_EDGE_FALLING 8 0>;
+		//synaptics,bus-reg-name = "vdd";
+		//vdd-supply = <&mt6373_vtp>;
+		synaptics,pwr-reg-name = "vtouch";
+		vtouch-supply = <&mt6373_vtp>;
+		synaptics,irq-gpio = <&pio 8 0x2008>;
+		synaptics,reset-gpio = <&pio 3 0x0>;
+		synaptics,irq-on-state = <0>;
+		synaptics,reset-on-state = <0>;
+		synaptics,reset-active-ms = <20>;
+		synaptics,reset-delay-ms = <200>;
+		synaptics,power-delay-ms = <200>;
+		synaptics,ubl-i2c-addr = <0x4b>;
+		/* tp-io reset is only used for specific tddi devices */
+		/* synaptics,tpio-reset-gpio = <&msm_gpio 102 0>; */
 	};
 
 };
@@ -233,6 +261,28 @@
 				<PINMUX_GPIO166__FUNC_SPI6_B_MO>,
 				<PINMUX_GPIO167__FUNC_SPI6_B_CLK>;
 			drive-strength = <2>;
+		};
+	};
+	ctp_synaptics_pins_default: synapins-default {
+	};
+	ts_active: ts-active1 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	ts_suspend: ts-suspend1 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	ts_i2c_mode: synai2cmode-default {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO78__FUNC_SCL0>,
+				<PINMUX_GPIO79__FUNC_SDA0>;
 		};
 	};
 };
