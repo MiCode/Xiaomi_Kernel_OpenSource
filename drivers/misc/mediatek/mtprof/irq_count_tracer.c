@@ -278,6 +278,9 @@ enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 			continue;
 
 		irq_cnt->count[irq] = irq_num;
+		/* The irq count is decreased */
+		if (unlikely(count > UINT_MAX / 2))
+			continue;
 
 		t_avg = t_diff;
 		t_diff_ms = t_diff;
