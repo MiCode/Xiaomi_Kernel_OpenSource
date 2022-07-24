@@ -10468,7 +10468,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			node-69 = "SSPM_SWPM_CPU__PMU_TIMES",
 				"idx_cnt,lock,idx_rechk,lock_rechk,valid,off_hint,diff_us";
 			node-70 = "SSPM_SWPM_CORE__MEM_RAW_IDX",
-				"diff_us,data_rate,ddr_ratio,emi_freq,",
+				"diff_us,data_rate,ddr_ratio,emi_freq,s1_ratio,",
 				"wact,bcnt,",
 				"dcm_ctrl,",
 				"stb_0_0,stb_0_1,stb_1_0,stb_1_1,",
@@ -10484,7 +10484,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			node-75 = "SSPM_SPM_DBG__SYS_STA",
 				"s1";
 			node-76 = "SSPM_SWPM_DRAM__MEM_RAW_IDX",
-				"diff_us,data_rate,ddr_ratio,emi_freq,",
+				"diff_us,data_rate,ddr_ratio,emi_freq,s1_ratio,",
 				"wact,bact,bcnt,tact,",
 				"pgh_0,pgh_1,",
 				"pgm_0,pgm_1,",
