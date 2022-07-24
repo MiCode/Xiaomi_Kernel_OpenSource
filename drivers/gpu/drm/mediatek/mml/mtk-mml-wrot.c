@@ -2027,7 +2027,6 @@ static const char *wrot_state(u32 state)
 static void wrot_debug_dump(struct mml_comp *comp)
 {
 	void __iomem *base = comp->base;
-	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
 	u32 value[35];
 	u32 debug[33];
 	u32 dbg_id = 0, state, smi_req;
@@ -2132,16 +2131,6 @@ static void wrot_debug_dump(struct mml_comp *comp)
 	mml_err("WROT x_cnt %u y_cnt %u",
 		debug[9] & 0xffff, (debug[9] >> 16) & 0xffff);
 	mml_err("WROT smi_req:%u => suggest to ask SMI help:%u", smi_req, smi_req);
-
-	/* inlinerot debug */
-	if (wrot->irot_va[0]) {
-		value[0] = readl(wrot->irot_va[0] + INLINEROT_OVLSEL);
-		mml_err("INLINEROT0 INLINEROT_OVLSEL %#x", value[0]);
-	}
-	if (wrot->irot_va[1]) {
-		value[1] = readl(wrot->irot_va[1] + INLINEROT_OVLSEL);
-		mml_err("INLINEROT1 INLINEROT_OVLSEL %#x", value[1]);
-	}
 }
 
 static void wrot_reset(struct mml_comp *comp, struct mml_frame_config *cfg, u32 pipe)
