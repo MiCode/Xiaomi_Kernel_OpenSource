@@ -3444,6 +3444,8 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 		return err;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		return -EINVAL;
 	ioaddr = res->start;
 	smmu->base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(smmu->base))
@@ -3542,6 +3544,8 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 
 	/* QCOM Additions */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		goto out_power_off;
 	smmu->phys_addr = res->start;
 	parse_driver_options(smmu);
 	err = arm_smmu_handoff_cbs(smmu);
