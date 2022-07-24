@@ -156,6 +156,8 @@ static inline bool mtk_cam_scen_is_stagger_pure_m2m(struct mtk_cam_scen *scen)
 
 static inline bool mtk_cam_scen_is_odt(struct mtk_cam_scen *scen)
 {
+	if (!scen)
+		return false;
 	return (scen->id == MTK_CAM_SCEN_ODT_NORMAL) ||
 	       (scen->id == MTK_CAM_SCEN_ODT_MSTREAM);
 
