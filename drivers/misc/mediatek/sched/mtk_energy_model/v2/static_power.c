@@ -270,6 +270,8 @@ static int init_public_table(void)
 			pd_info_public->table[opp].leakage_para.a_b_para.b =
 							((temp >> 12) & 0xFFFFF);
 			pd_info_public->table[opp].leakage_para.a_b_para.a = temp & 0xFFF;
+			pd_info_public->table[opp].pwr_eff = pd_info_public->table[opp].dyn_pwr
+					/ pd_info_public->table[opp].capacity;
 
 			offset += CAPACITY_ENTRY_SIZE;
 		}
