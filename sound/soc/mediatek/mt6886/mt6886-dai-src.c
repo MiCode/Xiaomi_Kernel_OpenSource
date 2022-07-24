@@ -3,12 +3,12 @@
  *  MediaTek ALSA SoC Audio DAI SRC Control
  *
  *  Copyright (c) 2021 MediaTek Inc.
- *  Author: Ting-Fang Hou <Ting-Fang.Hou@mediatek.com>
+ *  Author: Tina Tsai <tina.tsai@mediatek.com>
  */
 
 #include <linux/regmap.h>
-#include "mt6985-afe-common.h"
-#include "mt6985-interconnection.h"
+#include "mt6886-afe-common.h"
+#include "mt6886-interconnection.h"
 
 struct mtk_afe_src_priv {
 	int dl_rate;
@@ -127,7 +127,7 @@ static unsigned int mtk_get_src_freq_mode(struct mtk_base_afe *afe, int rate)
 	case 192000:
 		return 0x00780000;
 	default:
-		dev_warn(afe->dev, "%s(), rate %d invalid!!!\n",
+		dev_info(afe->dev, "%s(), rate %d invalid!!!\n",
 			 __func__, rate);
 		AUDIO_AEE("rate invalid");
 		return 0;
@@ -138,8 +138,7 @@ const unsigned int *get_iir_coeff(unsigned int rate_in,
 				  unsigned int rate_out,
 				  unsigned int *param_num)
 {
-	if ((rate_in == 32000 && rate_out == 16000) ||
-	    (rate_in == 96000 && rate_out == 48000)) {
+	if (rate_in == 32000 && rate_out == 16000) {
 		*param_num = ARRAY_SIZE(src_iir_coeff_32_to_16);
 		return src_iir_coeff_32_to_16;
 	} else if (rate_in == 44100 && rate_out == 16000) {
@@ -171,29 +170,29 @@ const unsigned int *get_iir_coeff(unsigned int rate_in,
 	return NULL;
 }
 
-//#define DEBUG_COEFF
+#define DEBUG_COEFF
 static int mtk_set_src_1_param(struct mtk_base_afe *afe, int id)
 {
-	struct mt6985_afe_private *afe_priv = afe->platform_priv;
+	struct mt6886_afe_private *afe_priv = afe->platform_priv;
 	struct mtk_afe_src_priv *src_priv = afe_priv->dai_priv[id];
 	unsigned int iir_coeff_num;
 	unsigned int iir_stage;
 	int rate_in = src_priv->dl_rate;
 	int rate_out = src_priv->ul_rate;
 	unsigned int out_freq_mode = mtk_get_src_freq_mode(afe,
-							   rate_out);
+				     rate_out);
 	unsigned int in_freq_mode = mtk_get_src_freq_mode(afe,
-							  rate_in);
+				    rate_in);
 
 	/* set out freq mode */
 	regmap_update_bits(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON3,
-			   G_SRC_ASM_FREQ_4_MASK_SFT,
-			   out_freq_mode << G_SRC_ASM_FREQ_4_SFT);
+			   ASM_FREQ_4_MASK_SFT,
+			   out_freq_mode << ASM_FREQ_4_SFT);
 
 	/* set in freq mode */
 	regmap_update_bits(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON4,
-			   G_SRC_ASM_FREQ_5_MASK_SFT,
-			   in_freq_mode << G_SRC_ASM_FREQ_5_SFT);
+			   ASM_FREQ_5_MASK_SFT,
+			   in_freq_mode << ASM_FREQ_5_SFT);
 
 	regmap_write(afe->regmap,
 		     AFE_GENERAL1_ASRC_2CH_CON5, 0x003f5986);
@@ -211,7 +210,7 @@ static int mtk_set_src_1_param(struct mtk_base_afe *afe, int id)
 		int reg_val;
 #endif
 		const unsigned int *iir_coeff = get_iir_coeff(rate_in, rate_out,
-							      &iir_coeff_num);
+						&iir_coeff_num);
 
 		if (iir_coeff_num == 0 || !iir_coeff) {
 			AUDIO_AEE("iir coeff error");
@@ -220,11 +219,11 @@ static int mtk_set_src_1_param(struct mtk_base_afe *afe, int id)
 
 		/* COEFF_SRAM_CTRL */
 		regmap_update_bits(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON0,
-				   G_SRC_COEFF_SRAM_CTRL_MASK_SFT,
-				   0x1 << G_SRC_COEFF_SRAM_CTRL_SFT);
+				   COEFF_SRAM_CTRL_MASK_SFT,
+				   0x1 << COEFF_SRAM_CTRL_SFT);
 		/* Clear coeff history to r/w coeff from the first position */
 		regmap_update_bits(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON13,
-				   G_SRC_COEFF_SRAM_ADR_MASK_SFT,
+				   COEFF_SRAM_ADR_MASK_SFT,
 				   0x0);
 		/* Write SRC coeff, should not read the reg during write */
 		for (i = 0; i < iir_coeff_num; i++)
@@ -233,7 +232,7 @@ static int mtk_set_src_1_param(struct mtk_base_afe *afe, int id)
 
 #ifdef DEBUG_COEFF
 		regmap_update_bits(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON13,
-				   G_SRC_COEFF_SRAM_ADR_MASK_SFT,
+				   COEFF_SRAM_ADR_MASK_SFT,
 				   0x0);
 
 		for (i = 0; i < iir_coeff_num; i++) {
@@ -245,21 +244,21 @@ static int mtk_set_src_1_param(struct mtk_base_afe *afe, int id)
 #endif
 		/* disable sram access */
 		regmap_update_bits(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON0,
-				   G_SRC_COEFF_SRAM_CTRL_MASK_SFT,
+				   COEFF_SRAM_CTRL_MASK_SFT,
 				   0x0);
 		/* CHSET_IIR_STAGE */
 		iir_stage = (iir_coeff_num / 6) - 1;
 		regmap_update_bits(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON2,
-				   G_SRC_CHSET_IIR_STAGE_MASK_SFT,
-				   iir_stage << G_SRC_CHSET_IIR_STAGE_SFT);
+				   CHSET_IIR_STAGE_MASK_SFT,
+				   iir_stage << CHSET_IIR_STAGE_SFT);
 		/* CHSET_IIR_EN */
 		regmap_update_bits(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON2,
-				   G_SRC_CHSET_IIR_EN_MASK_SFT,
-				   0x1 << G_SRC_CHSET_IIR_EN_SFT);
+				   CHSET_IIR_EN_MASK_SFT,
+				   0x1 << CHSET_IIR_EN_SFT);
 	} else {
 		/* CHSET_IIR_EN off */
 		regmap_update_bits(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON2,
-				   G_SRC_CHSET_IIR_EN_MASK_SFT,
+				   CHSET_IIR_EN_MASK_SFT,
 				   0x0);
 	}
 
@@ -268,26 +267,26 @@ static int mtk_set_src_1_param(struct mtk_base_afe *afe, int id)
 
 static int mtk_set_src_2_param(struct mtk_base_afe *afe, int id)
 {
-	struct mt6985_afe_private *afe_priv = afe->platform_priv;
+	struct mt6886_afe_private *afe_priv = afe->platform_priv;
 	struct mtk_afe_src_priv *src_priv = afe_priv->dai_priv[id];
 	unsigned int iir_coeff_num;
 	unsigned int iir_stage;
 	int rate_in = src_priv->dl_rate;
 	int rate_out = src_priv->ul_rate;
 	unsigned int out_freq_mode = mtk_get_src_freq_mode(afe,
-							   rate_out);
+				     rate_out);
 	unsigned int in_freq_mode = mtk_get_src_freq_mode(afe,
-							  rate_in);
+				    rate_in);
 
 	/* set out freq mode */
 	regmap_update_bits(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON3,
-			   G_SRC_ASM_FREQ_4_MASK_SFT,
-			   out_freq_mode << G_SRC_ASM_FREQ_4_SFT);
+			   ASM_FREQ_4_MASK_SFT,
+			   out_freq_mode << ASM_FREQ_4_SFT);
 
 	/* set in freq mode */
 	regmap_update_bits(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON4,
-			   G_SRC_ASM_FREQ_5_MASK_SFT,
-			   in_freq_mode << G_SRC_ASM_FREQ_5_SFT);
+			   ASM_FREQ_5_MASK_SFT,
+			   in_freq_mode << ASM_FREQ_5_SFT);
 
 	regmap_write(afe->regmap,
 		     AFE_GENERAL2_ASRC_2CH_CON5, 0x003f5986);
@@ -305,7 +304,7 @@ static int mtk_set_src_2_param(struct mtk_base_afe *afe, int id)
 		int reg_val;
 #endif
 		const unsigned int *iir_coeff = get_iir_coeff(rate_in, rate_out,
-							      &iir_coeff_num);
+						&iir_coeff_num);
 
 		if (iir_coeff_num == 0 || !iir_coeff) {
 			AUDIO_AEE("iir coeff error");
@@ -314,11 +313,11 @@ static int mtk_set_src_2_param(struct mtk_base_afe *afe, int id)
 
 		/* COEFF_SRAM_CTRL */
 		regmap_update_bits(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON0,
-				   G_SRC_COEFF_SRAM_CTRL_MASK_SFT,
-				   0x1 << G_SRC_COEFF_SRAM_CTRL_SFT);
+				   COEFF_SRAM_CTRL_MASK_SFT,
+				   0x1 << COEFF_SRAM_CTRL_SFT);
 		/* Clear coeff history to r/w coeff from the first position */
 		regmap_update_bits(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON13,
-				   G_SRC_COEFF_SRAM_ADR_MASK_SFT,
+				   COEFF_SRAM_ADR_MASK_SFT,
 				   0x0);
 		/* Write SRC coeff, should not read the reg during write */
 		for (i = 0; i < iir_coeff_num; i++)
@@ -327,7 +326,7 @@ static int mtk_set_src_2_param(struct mtk_base_afe *afe, int id)
 
 #ifdef DEBUG_COEFF
 		regmap_update_bits(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON13,
-				   G_SRC_COEFF_SRAM_ADR_MASK_SFT,
+				   COEFF_SRAM_ADR_MASK_SFT,
 				   0x0);
 
 		for (i = 0; i < iir_coeff_num; i++) {
@@ -339,125 +338,21 @@ static int mtk_set_src_2_param(struct mtk_base_afe *afe, int id)
 #endif
 		/* disable sram access */
 		regmap_update_bits(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON0,
-				   G_SRC_COEFF_SRAM_CTRL_MASK_SFT,
+				   COEFF_SRAM_CTRL_MASK_SFT,
 				   0x0);
 		/* CHSET_IIR_STAGE */
 		iir_stage = (iir_coeff_num / 6) - 1;
 		regmap_update_bits(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON2,
-				   G_SRC_CHSET_IIR_STAGE_MASK_SFT,
-				   iir_stage << G_SRC_CHSET_IIR_STAGE_SFT);
+				   CHSET_IIR_STAGE_MASK_SFT,
+				   iir_stage << CHSET_IIR_STAGE_SFT);
 		/* CHSET_IIR_EN */
 		regmap_update_bits(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON2,
-				   G_SRC_CHSET_IIR_EN_MASK_SFT,
-				   0x1 << G_SRC_CHSET_IIR_EN_SFT);
+				   CHSET_IIR_EN_MASK_SFT,
+				   0x1 << CHSET_IIR_EN_SFT);
 	} else {
 		/* CHSET_IIR_EN off */
 		regmap_update_bits(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON2,
-				   G_SRC_CHSET_IIR_EN_MASK_SFT, 0x0);
-	}
-
-	return 0;
-}
-
-static int mtk_set_src_3_param(struct mtk_base_afe *afe, int id)
-{
-	struct mt6985_afe_private *afe_priv = NULL;
-	struct mtk_afe_src_priv *src_priv = NULL;
-	unsigned int iir_coeff_num;
-	unsigned int iir_stage;
-	int rate_in;
-	int rate_out;
-	unsigned int out_freq_mode;
-	unsigned int in_freq_mode;
-
-	if (id < 0 || id >= MT6985_DAI_NUM) {
-		dev_err(afe->dev, "%s(), invalid DAI id %d\n", __func__, id);
-		return -EINVAL;
-	}
-	afe_priv = afe->platform_priv;
-	src_priv = afe_priv->dai_priv[id];
-	rate_in = src_priv->dl_rate;
-	rate_out = src_priv->ul_rate;
-	out_freq_mode = mtk_get_src_freq_mode(afe,
-					      rate_out);
-	in_freq_mode = mtk_get_src_freq_mode(afe,
-					     rate_in);
-
-	/* set out freq mode */
-	regmap_update_bits(afe->regmap, AFE_GENERAL3_ASRC_2CH_CON3,
-			   G_SRC_ASM_FREQ_4_MASK_SFT,
-			   out_freq_mode << G_SRC_ASM_FREQ_4_SFT);
-
-	/* set in freq mode */
-	regmap_update_bits(afe->regmap, AFE_GENERAL3_ASRC_2CH_CON4,
-			   G_SRC_ASM_FREQ_5_MASK_SFT,
-			   in_freq_mode << G_SRC_ASM_FREQ_5_SFT);
-
-	regmap_write(afe->regmap,
-		     AFE_GENERAL3_ASRC_2CH_CON5, 0x003f5986);
-	regmap_write(afe->regmap,
-		     AFE_GENERAL3_ASRC_2CH_CON5, 0x003f5987);
-	regmap_write(afe->regmap,
-		     AFE_GENERAL3_ASRC_2CH_CON6, 0x00001fbd);
-	regmap_write(afe->regmap,
-		     AFE_GENERAL3_ASRC_2CH_CON2, 0x00000000);
-
-	/* set iir if in_rate > out_rate */
-	if (rate_in > rate_out) {
-		int i;
-#ifdef DEBUG_COEFF
-		int reg_val;
-#endif
-		const unsigned int *iir_coeff = get_iir_coeff(rate_in, rate_out,
-							      &iir_coeff_num);
-
-		if (iir_coeff_num == 0 || !iir_coeff) {
-			AUDIO_AEE("iir coeff error");
-			return -EINVAL;
-		}
-
-		/* COEFF_SRAM_CTRL */
-		regmap_update_bits(afe->regmap, AFE_GENERAL3_ASRC_2CH_CON0,
-				   G_SRC_COEFF_SRAM_CTRL_MASK_SFT,
-				   0x1 << G_SRC_COEFF_SRAM_CTRL_SFT);
-		/* Clear coeff history to r/w coeff from the first position */
-		regmap_update_bits(afe->regmap, AFE_GENERAL3_ASRC_2CH_CON13,
-				   G_SRC_COEFF_SRAM_ADR_MASK_SFT,
-				   0x0);
-		/* Write SRC coeff, should not read the reg during write */
-		for (i = 0; i < iir_coeff_num; i++)
-			regmap_write(afe->regmap, AFE_GENERAL3_ASRC_2CH_CON12,
-				     iir_coeff[i]);
-
-#ifdef DEBUG_COEFF
-		regmap_update_bits(afe->regmap, AFE_GENERAL3_ASRC_2CH_CON13,
-				   G_SRC_COEFF_SRAM_ADR_MASK_SFT,
-				   0x0);
-
-		for (i = 0; i < iir_coeff_num; i++) {
-			regmap_read(afe->regmap, AFE_GENERAL3_ASRC_2CH_CON12,
-				    &reg_val);
-			dev_info(afe->dev, "%s(), i = %d, coeff = 0x%x\n",
-				 __func__, i, reg_val);
-		}
-#endif
-		/* disable sram access */
-		regmap_update_bits(afe->regmap, AFE_GENERAL3_ASRC_2CH_CON0,
-				   G_SRC_COEFF_SRAM_CTRL_MASK_SFT,
-				   0x0);
-		/* CHSET_IIR_STAGE */
-		iir_stage = (iir_coeff_num / 6) - 1;
-		regmap_update_bits(afe->regmap, AFE_GENERAL3_ASRC_2CH_CON2,
-				   G_SRC_CHSET_IIR_STAGE_MASK_SFT,
-				   iir_stage << G_SRC_CHSET_IIR_STAGE_SFT);
-		/* CHSET_IIR_EN */
-		regmap_update_bits(afe->regmap, AFE_GENERAL3_ASRC_2CH_CON2,
-				   G_SRC_CHSET_IIR_EN_MASK_SFT,
-				   0x1 << G_SRC_CHSET_IIR_EN_SFT);
-	} else {
-		/* CHSET_IIR_EN off */
-		regmap_update_bits(afe->regmap, AFE_GENERAL3_ASRC_2CH_CON2,
-				   G_SRC_CHSET_IIR_EN_MASK_SFT, 0x0);
+				   CHSET_IIR_EN_MASK_SFT, 0x0);
 	}
 
 	return 0;
@@ -465,7 +360,6 @@ static int mtk_set_src_3_param(struct mtk_base_afe *afe, int id)
 
 #define HW_SRC_1_EN_W_NAME "HW_SRC_1_Enable"
 #define HW_SRC_2_EN_W_NAME "HW_SRC_2_Enable"
-#define HW_SRC_3_EN_W_NAME "HW_SRC_3_Enable"
 
 static int mtk_hw_src_event(struct snd_soc_dapm_widget *w,
 			    struct snd_kcontrol *kcontrol,
@@ -473,17 +367,15 @@ static int mtk_hw_src_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	struct mt6985_afe_private *afe_priv = afe->platform_priv;
+	struct mt6886_afe_private *afe_priv = afe->platform_priv;
 	int id;
 	struct mtk_afe_src_priv *src_priv;
 	unsigned int reg;
 
 	if (strcmp(w->name, HW_SRC_1_EN_W_NAME) == 0)
-		id = MT6985_DAI_SRC_1;
-	else if (strcmp(w->name, HW_SRC_2_EN_W_NAME) == 0)
-		id = MT6985_DAI_SRC_2;
+		id = MT6886_DAI_SRC_1;
 	else
-		id = MT6985_DAI_SRC_3;
+		id = MT6886_DAI_SRC_2;
 
 	src_priv = afe_priv->dai_priv[id];
 
@@ -496,45 +388,39 @@ static int mtk_hw_src_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		if (id == MT6985_DAI_SRC_1)
+		if (id == MT6886_DAI_SRC_1)
 			mtk_set_src_1_param(afe, id);
-		else if (id == MT6985_DAI_SRC_2)
-			mtk_set_src_2_param(afe, id);
 		else
-			mtk_set_src_3_param(afe, id);
+			mtk_set_src_2_param(afe, id);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		reg = (id == MT6985_DAI_SRC_1) ?
-		      AFE_GENERAL1_ASRC_2CH_CON0 :
-		      (id == MT6985_DAI_SRC_2) ?
-		      AFE_GENERAL2_ASRC_2CH_CON0 : AFE_GENERAL3_ASRC_2CH_CON0;
+		reg = (id == MT6886_DAI_SRC_1) ?
+		      AFE_GENERAL1_ASRC_2CH_CON0 : AFE_GENERAL2_ASRC_2CH_CON0;
 		/* ASM_ON */
 		regmap_update_bits(afe->regmap, reg,
-				   G_SRC_ASM_ON_MASK_SFT,
-				   0x1 << G_SRC_ASM_ON_SFT);
+				   ASM_ON_MASK_SFT,
+				   0x1 << ASM_ON_SFT);
 		/* CHSET_ON */
 		regmap_update_bits(afe->regmap, reg,
-				   G_SRC_CHSET_ON_MASK_SFT,
-				   0x1 << G_SRC_CHSET_ON_SFT);
+				   CHSET_ON_MASK_SFT,
+				   0x1 << CHSET_ON_SFT);
 		/* CHSET_STR_CLR */
 		regmap_update_bits(afe->regmap, reg,
-				   G_SRC_CHSET_STR_CLR_MASK_SFT,
-				   0x1 << G_SRC_CHSET_STR_CLR_SFT);
+				   GSRC_CON0_CHSET_STR_CLR_MASK_SFT,
+				   0x1 << GSRC_CON0_CHSET_STR_CLR_SFT);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
-		reg = (id == MT6985_DAI_SRC_1) ?
-		      AFE_GENERAL1_ASRC_2CH_CON0 :
-		      (id == MT6985_DAI_SRC_2) ?
-		      AFE_GENERAL2_ASRC_2CH_CON0 : AFE_GENERAL3_ASRC_2CH_CON0;
+		reg = (id == MT6886_DAI_SRC_1) ?
+		      AFE_GENERAL1_ASRC_2CH_CON0 : AFE_GENERAL2_ASRC_2CH_CON0;
 		/* ASM_OFF */
 		regmap_update_bits(afe->regmap, reg,
-				   G_SRC_ASM_ON_MASK_SFT, 0x0);
+				   ASM_ON_MASK_SFT, 0x0);
 		/* CHSET_OFF */
 		regmap_update_bits(afe->regmap, reg,
-				   G_SRC_CHSET_ON_MASK_SFT, 0x0);
+				   CHSET_ON_MASK_SFT, 0x0);
 		/* CHSET_STR_CLR */
 		regmap_update_bits(afe->regmap, reg,
-				   G_SRC_CHSET_STR_CLR_MASK_SFT, 0x0);
+				   GSRC_CON0_CHSET_STR_CLR_MASK_SFT, 0x0);
 		break;
 	default:
 		break;
@@ -559,8 +445,6 @@ static const struct snd_kcontrol_new mtk_hw_src_1_in_ch1_mix[] = {
 				    I_DL6_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL11_CH1", AFE_CONN40_2,
 				    I_DL11_CH1, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH1", AFE_CONN40,
-				    I_ADDA_UL_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("I2S0_CH1", AFE_CONN40,
 				    I_I2S0_CH1, 1, 0),
 };
@@ -580,8 +464,6 @@ static const struct snd_kcontrol_new mtk_hw_src_1_in_ch2_mix[] = {
 				    I_DL6_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL11_CH2", AFE_CONN41_2,
 				    I_DL11_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN41,
-				    I_ADDA_UL_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("I2S0_CH2", AFE_CONN41,
 				    I_I2S0_CH2, 1, 0),
 };
@@ -603,10 +485,6 @@ static const struct snd_kcontrol_new mtk_hw_src_2_in_ch1_mix[] = {
 				    I_DL11_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("HW_GAIN2_OUT_CH1", AFE_CONN42,
 				    I_GAIN2_OUT_CH1, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("I2S0_CH1", AFE_CONN42,
-				    I_I2S0_CH1, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("I2S2_CH1", AFE_CONN42,
-				    I_I2S2_CH1, 1, 0),
 };
 
 static const struct snd_kcontrol_new mtk_hw_src_2_in_ch2_mix[] = {
@@ -626,32 +504,6 @@ static const struct snd_kcontrol_new mtk_hw_src_2_in_ch2_mix[] = {
 				    I_DL11_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("HW_GAIN2_OUT_CH2", AFE_CONN43,
 				    I_GAIN2_OUT_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("I2S0_CH2", AFE_CONN43,
-				    I_I2S0_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("I2S2_CH2", AFE_CONN43,
-				    I_I2S2_CH2, 1, 0),
-};
-
-static const struct snd_kcontrol_new mtk_hw_src_3_in_ch1_mix[] = {
-	SOC_DAPM_SINGLE_AUTODISABLE("DL1_CH1", AFE_CONN82,
-				    I_DL1_CH1, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("DL4_CH1", AFE_CONN82,
-				    I_DL4_CH1, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("DL11_CH1", AFE_CONN82_2,
-				    I_DL11_CH1, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH1", AFE_CONN82,
-				    I_PCM_2_CAP_CH1, 1, 0),
-};
-
-static const struct snd_kcontrol_new mtk_hw_src_3_in_ch2_mix[] = {
-	SOC_DAPM_SINGLE_AUTODISABLE("DL1_CH2", AFE_CONN83,
-				    I_DL1_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("DL4_CH2", AFE_CONN83,
-				    I_DL4_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("DL11_CH2", AFE_CONN83_2,
-				    I_DL11_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH1", AFE_CONN83,
-				    I_PCM_2_CAP_CH1, 1, 0),
 };
 
 static const struct snd_soc_dapm_widget mtk_dai_src_widgets[] = {
@@ -668,12 +520,6 @@ static const struct snd_soc_dapm_widget mtk_dai_src_widgets[] = {
 	SND_SOC_DAPM_MIXER("HW_SRC_2_IN_CH2", SND_SOC_NOPM, 0, 0,
 			   mtk_hw_src_2_in_ch2_mix,
 			   ARRAY_SIZE(mtk_hw_src_2_in_ch2_mix)),
-	SND_SOC_DAPM_MIXER("HW_SRC_3_IN_CH1", SND_SOC_NOPM, 0, 0,
-			   mtk_hw_src_3_in_ch1_mix,
-			   ARRAY_SIZE(mtk_hw_src_3_in_ch1_mix)),
-	SND_SOC_DAPM_MIXER("HW_SRC_3_IN_CH2", SND_SOC_NOPM, 0, 0,
-			   mtk_hw_src_3_in_ch2_mix,
-			   ARRAY_SIZE(mtk_hw_src_3_in_ch2_mix)),
 
 	SND_SOC_DAPM_SUPPLY(HW_SRC_1_EN_W_NAME,
 			    GENERAL_ASRC_EN_ON, GENERAL1_ASRC_EN_ON_SFT, 0,
@@ -689,19 +535,10 @@ static const struct snd_soc_dapm_widget mtk_dai_src_widgets[] = {
 			    SND_SOC_DAPM_POST_PMU |
 			    SND_SOC_DAPM_PRE_PMD),
 
-	SND_SOC_DAPM_SUPPLY(HW_SRC_3_EN_W_NAME,
-			    GENERAL_ASRC_EN_ON, GENERAL3_ASRC_EN_ON_SFT, 0,
-			    mtk_hw_src_event,
-			    SND_SOC_DAPM_PRE_PMU |
-			    SND_SOC_DAPM_POST_PMU |
-			    SND_SOC_DAPM_PRE_PMD),
-
 	SND_SOC_DAPM_INPUT("HW SRC 1 Out Endpoint"),
 	SND_SOC_DAPM_INPUT("HW SRC 2 Out Endpoint"),
-	SND_SOC_DAPM_INPUT("HW SRC 3 Out Endpoint"),
 	SND_SOC_DAPM_OUTPUT("HW SRC 1 In Endpoint"),
 	SND_SOC_DAPM_OUTPUT("HW SRC 2 In Endpoint"),
-	SND_SOC_DAPM_OUTPUT("HW SRC 3 In Endpoint"),
 };
 
 static int mtk_afe_src_en_connect(struct snd_soc_dapm_widget *source,
@@ -710,15 +547,13 @@ static int mtk_afe_src_en_connect(struct snd_soc_dapm_widget *source,
 	struct snd_soc_dapm_widget *w = source;
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	struct mt6985_afe_private *afe_priv = afe->platform_priv;
+	struct mt6886_afe_private *afe_priv = afe->platform_priv;
 	struct mtk_afe_src_priv *src_priv;
 
 	if (strcmp(w->name, HW_SRC_1_EN_W_NAME) == 0)
-		src_priv = afe_priv->dai_priv[MT6985_DAI_SRC_1];
-	else if (strcmp(w->name, HW_SRC_2_EN_W_NAME) == 0)
-		src_priv = afe_priv->dai_priv[MT6985_DAI_SRC_2];
+		src_priv = afe_priv->dai_priv[MT6886_DAI_SRC_1];
 	else
-		src_priv = afe_priv->dai_priv[MT6985_DAI_SRC_3];
+		src_priv = afe_priv->dai_priv[MT6886_DAI_SRC_2];
 
 	dev_info(afe->dev,
 		 "%s(), source %s, sink %s, dl_rate %d, ul_rate %d\n",
@@ -733,8 +568,6 @@ static const struct snd_soc_dapm_route mtk_dai_src_routes[] = {
 	{"HW_SRC_1_IN_CH2", "DL1_CH2", "DL1"},
 	{"HW_SRC_2_IN_CH1", "DL1_CH1", "DL1"},
 	{"HW_SRC_2_IN_CH2", "DL1_CH2", "DL1"},
-	{"HW_SRC_3_IN_CH1", "DL1_CH1", "DL1"},
-	{"HW_SRC_3_IN_CH2", "DL1_CH2", "DL1"},
 	{"HW_SRC_1_IN_CH1", "DL2_CH1", "DL2"},
 	{"HW_SRC_1_IN_CH2", "DL2_CH2", "DL2"},
 	{"HW_SRC_2_IN_CH1", "DL2_CH1", "DL2"},
@@ -755,20 +588,10 @@ static const struct snd_soc_dapm_route mtk_dai_src_routes[] = {
 	{"HW_SRC_1_IN_CH2", "DL4_CH2", "DL4"},
 	{"HW_SRC_2_IN_CH1", "DL4_CH1", "DL4"},
 	{"HW_SRC_2_IN_CH2", "DL4_CH2", "DL4"},
-	{"HW_SRC_3_IN_CH1", "DL4_CH1", "DL4"},
-	{"HW_SRC_3_IN_CH2", "DL4_CH2", "DL4"},
 	{"HW_SRC_1_IN_CH1", "DL11_CH1", "DL11"},
 	{"HW_SRC_1_IN_CH2", "DL11_CH2", "DL11"},
 	{"HW_SRC_2_IN_CH1", "DL11_CH1", "DL11"},
 	{"HW_SRC_2_IN_CH2", "DL11_CH2", "DL11"},
-	{"HW_SRC_3_IN_CH1", "DL11_CH1", "DL11"},
-	{"HW_SRC_3_IN_CH2", "DL11_CH2", "DL11"},
-
-	{"HW_SRC_3_IN_CH1", "PCM_2_CAP_CH1", "PCM 2 Capture"},
-	{"HW_SRC_3_IN_CH2", "PCM_2_CAP_CH1", "PCM 2 Capture"},
-
-	{"HW_SRC_2_IN_CH1", "I2S0_CH1", "I2S0"},
-	{"HW_SRC_2_IN_CH2", "I2S0_CH2", "I2S0"},
 
 	{"HW_SRC_1_In", NULL, "HW_SRC_1_IN_CH1"},
 	{"HW_SRC_1_In", NULL, "HW_SRC_1_IN_CH2"},
@@ -776,22 +599,15 @@ static const struct snd_soc_dapm_route mtk_dai_src_routes[] = {
 	{"HW_SRC_2_In", NULL, "HW_SRC_2_IN_CH1"},
 	{"HW_SRC_2_In", NULL, "HW_SRC_2_IN_CH2"},
 
-	{"HW_SRC_3_In", NULL, "HW_SRC_3_IN_CH1"},
-	{"HW_SRC_3_In", NULL, "HW_SRC_3_IN_CH2"},
-
 	{"HW_SRC_1_In", NULL, HW_SRC_1_EN_W_NAME, mtk_afe_src_en_connect},
 	{"HW_SRC_1_Out", NULL, HW_SRC_1_EN_W_NAME, mtk_afe_src_en_connect},
 	{"HW_SRC_2_In", NULL, HW_SRC_2_EN_W_NAME, mtk_afe_src_en_connect},
 	{"HW_SRC_2_Out", NULL, HW_SRC_2_EN_W_NAME, mtk_afe_src_en_connect},
-	{"HW_SRC_3_In", NULL, HW_SRC_3_EN_W_NAME, mtk_afe_src_en_connect},
-	{"HW_SRC_3_Out", NULL, HW_SRC_3_EN_W_NAME, mtk_afe_src_en_connect},
 
 	{"HW SRC 1 In Endpoint", NULL, "HW_SRC_1_In"},
 	{"HW SRC 2 In Endpoint", NULL, "HW_SRC_2_In"},
-	{"HW SRC 3 In Endpoint", NULL, "HW_SRC_3_In"},
 	{"HW_SRC_1_Out", NULL, "HW SRC 1 Out Endpoint"},
 	{"HW_SRC_2_Out", NULL, "HW SRC 2 Out Endpoint"},
-	{"HW_SRC_3_Out", NULL, "HW SRC 3 Out Endpoint"},
 };
 
 /* dai ops */
@@ -800,12 +616,12 @@ static int mtk_dai_src_hw_params(struct snd_pcm_substream *substream,
 				 struct snd_soc_dai *dai)
 {
 	struct mtk_base_afe *afe = snd_soc_dai_get_drvdata(dai);
-	struct mt6985_afe_private *afe_priv = afe->platform_priv;
+	struct mt6886_afe_private *afe_priv = afe->platform_priv;
 	int id = dai->id;
 	struct mtk_afe_src_priv *src_priv = afe_priv->dai_priv[id];
 	unsigned int sft, mask;
 	unsigned int rate = params_rate(params);
-	unsigned int rate_reg = mt6985_rate_transform(afe->dev, rate, id);
+	unsigned int rate_reg = mt6886_rate_transform(afe->dev, rate, id);
 
 	dev_info(afe->dev, "%s(), id %d, stream %d, rate %d\n",
 		 __func__,
@@ -816,27 +632,21 @@ static int mtk_dai_src_hw_params(struct snd_pcm_substream *substream,
 	/* rate */
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		src_priv->dl_rate = rate;
-		if (id == MT6985_DAI_SRC_1) {
+		if (id == MT6886_DAI_SRC_1) {
 			sft = GENERAL1_ASRCIN_MODE_SFT;
 			mask = GENERAL1_ASRCIN_MODE_MASK;
-		} else if (id == MT6985_DAI_SRC_2) {
+		} else {
 			sft = GENERAL2_ASRCIN_MODE_SFT;
 			mask = GENERAL2_ASRCIN_MODE_MASK;
-		} else {
-			sft = GENERAL3_ASRCIN_MODE_SFT;
-			mask = GENERAL3_ASRCIN_MODE_MASK;
 		}
 	} else {
 		src_priv->ul_rate = rate;
-		if (id == MT6985_DAI_SRC_1) {
+		if (id == MT6886_DAI_SRC_1) {
 			sft = GENERAL1_ASRCOUT_MODE_SFT;
 			mask = GENERAL1_ASRCOUT_MODE_MASK;
-		} else if (id == MT6985_DAI_SRC_2) {
+		} else {
 			sft = GENERAL2_ASRCOUT_MODE_SFT;
 			mask = GENERAL2_ASRCOUT_MODE_MASK;
-		} else {
-			sft = GENERAL3_ASRCOUT_MODE_SFT;
-			mask = GENERAL3_ASRCOUT_MODE_MASK;
 		}
 	}
 
@@ -852,7 +662,7 @@ static int mtk_dai_src_hw_free(struct snd_pcm_substream *substream,
 			       struct snd_soc_dai *dai)
 {
 	struct mtk_base_afe *afe = snd_soc_dai_get_drvdata(dai);
-	struct mt6985_afe_private *afe_priv = afe->platform_priv;
+	struct mt6886_afe_private *afe_priv = afe->platform_priv;
 	int id = dai->id;
 	struct mtk_afe_src_priv *src_priv = afe_priv->dai_priv[id];
 
@@ -888,7 +698,7 @@ static const struct snd_soc_dai_ops mtk_dai_src_ops = {
 static struct snd_soc_dai_driver mtk_dai_src_driver[] = {
 	{
 		.name = "HW_SRC_1",
-		.id = MT6985_DAI_SRC_1,
+		.id = MT6886_DAI_SRC_1,
 		.playback = {
 			.stream_name = "HW_SRC_1_In",
 			.channels_min = 1,
@@ -907,7 +717,7 @@ static struct snd_soc_dai_driver mtk_dai_src_driver[] = {
 	},
 	{
 		.name = "HW_SRC_2",
-		.id = MT6985_DAI_SRC_2,
+		.id = MT6886_DAI_SRC_2,
 		.playback = {
 			.stream_name = "HW_SRC_2_In",
 			.channels_min = 1,
@@ -924,28 +734,9 @@ static struct snd_soc_dai_driver mtk_dai_src_driver[] = {
 		},
 		.ops = &mtk_dai_src_ops,
 	},
-	{
-		.name = "HW_SRC_3",
-		.id = MT6985_DAI_SRC_3,
-		.playback = {
-			.stream_name = "HW_SRC_3_In",
-			.channels_min = 1,
-			.channels_max = 2,
-			.rates = MTK_SRC_RATES,
-			.formats = MTK_SRC_FORMATS,
-		},
-		.capture = {
-			.stream_name = "HW_SRC_3_Out",
-			.channels_min = 1,
-			.channels_max = 2,
-			.rates = MTK_SRC_RATES,
-			.formats = MTK_SRC_FORMATS,
-		},
-		.ops = &mtk_dai_src_ops,
-	}
 };
 
-int mt6985_dai_src_register(struct mtk_base_afe *afe)
+int mt6886_dai_src_register(struct mtk_base_afe *afe)
 {
 	struct mtk_base_afe_dai *dai;
 	int ret;
@@ -967,17 +758,12 @@ int mt6985_dai_src_register(struct mtk_base_afe *afe)
 	dai->num_dapm_routes = ARRAY_SIZE(mtk_dai_src_routes);
 
 	/* set dai priv */
-	ret = mt6985_dai_set_priv(afe, MT6985_DAI_SRC_1,
+	ret = mt6886_dai_set_priv(afe, MT6886_DAI_SRC_1,
 				  sizeof(struct mtk_afe_src_priv), NULL);
 	if (ret)
 		return ret;
 
-	ret = mt6985_dai_set_priv(afe, MT6985_DAI_SRC_2,
-				  sizeof(struct mtk_afe_src_priv), NULL);
-	if (ret)
-		return ret;
-
-	ret = mt6985_dai_set_priv(afe, MT6985_DAI_SRC_3,
+	ret = mt6886_dai_set_priv(afe, MT6886_DAI_SRC_2,
 				  sizeof(struct mtk_afe_src_priv), NULL);
 	if (ret)
 		return ret;

@@ -3,13 +3,13 @@
  *  MediaTek ALSA SoC Audio DAI I2S Control
  *
  *  Copyright (c) 2021 MediaTek Inc.
- *  Author: Ting-Fang Hou <Ting-Fang.Hou@mediatek.com>
+ *  Author: Tina Tsai <tina.tsai@mediatek.com>
  */
 
 #include <linux/regmap.h>
 #include <sound/pcm_params.h>
-#include "mt6985-afe-common.h"
-#include "mt6985-interconnection.h"
+#include "mt6886-afe-common.h"
+#include "mt6886-interconnection.h"
 
 enum AUD_TX_LCH_RPT {
 	AUD_TX_LCH_RPT_NO_REPEAT = 0,
@@ -126,12 +126,6 @@ static const struct snd_kcontrol_new mtk_pcm_2_playback_ch1_mix[] = {
 				    I_DL4_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL11_CH1", AFE_CONN17_2,
 				    I_DL11_CH1, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_1_OUT_CH1", AFE_CONN17_1,
-				    I_SRC_1_OUT_CH1, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("I2S0_CH1", AFE_CONN17,
-				    I_I2S0_CH1, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("I2S8_CH1", AFE_CONN17_1,
-				    I_I2S8_CH1, 1, 0),
 };
 
 static const struct snd_kcontrol_new mtk_pcm_2_playback_ch2_mix[] = {
@@ -147,13 +141,6 @@ static const struct snd_kcontrol_new mtk_pcm_2_playback_ch2_mix[] = {
 				    I_DL4_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL11_CH2", AFE_CONN18_2,
 				    I_DL11_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_1_OUT_CH2", AFE_CONN18_1,
-				    I_SRC_1_OUT_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("I2S0_CH2", AFE_CONN18,
-					I_I2S0_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("I2S8_CH2", AFE_CONN18_1,
-					I_I2S8_CH2, 1, 0),
-
 };
 
 static const struct snd_kcontrol_new mtk_pcm_2_playback_ch3_mix[] = {
@@ -176,10 +163,6 @@ static const struct snd_kcontrol_new mtk_pcm_2_playback_ch4_mix[] = {
 				    I_DL4_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL11_CH1", AFE_CONN24_2,
 				    I_DL11_CH1, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_3_OUT_CH1", AFE_CONN24_2,
-				    I_SRC_3_OUT_CH1, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_2_OUT_CH1", AFE_CONN24_1,
-				    I_SRC_2_OUT_CH1, 1, 0),
 };
 
 static const struct snd_kcontrol_new mtk_pcm_2_playback_ch5_mix[] = {
@@ -193,10 +176,6 @@ static const struct snd_kcontrol_new mtk_pcm_2_playback_ch5_mix[] = {
 				    I_DL4_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL11_CH2", AFE_CONN25_2,
 				    I_DL11_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_3_OUT_CH2", AFE_CONN25_2,
-				    I_SRC_3_OUT_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("HW_SRC_2_OUT_CH2", AFE_CONN25_1,
-				    I_SRC_2_OUT_CH2, 1, 0),
 };
 
 static int mtk_pcm_en_event(struct snd_soc_dapm_widget *w,
@@ -279,10 +258,6 @@ static const struct snd_soc_dapm_route mtk_dai_pcm_routes[] = {
 	{"PCM_1_PB_CH4", "DL1_CH1", "DL1"},
 	{"PCM_2_PB_CH1", "DL2_CH1", "DL2"},
 	{"PCM_2_PB_CH2", "DL2_CH2", "DL2"},
-	{"PCM_2_PB_CH1", "HW_SRC_1_OUT_CH1", "HW_SRC_1_Out"},
-	{"PCM_2_PB_CH2", "HW_SRC_1_OUT_CH2", "HW_SRC_1_Out"},
-	{"PCM_2_PB_CH4", "HW_SRC_2_OUT_CH1", "HW_SRC_2_Out"},
-	{"PCM_2_PB_CH5", "HW_SRC_2_OUT_CH2", "HW_SRC_2_Out"},
 	{"PCM_2_PB_CH4", "DL1_CH1", "DL1"},
 
 	{"PCM_1_PB_CH1", "DL4_CH1", "DL4"},
@@ -291,19 +266,12 @@ static const struct snd_soc_dapm_route mtk_dai_pcm_routes[] = {
 	{"PCM_2_PB_CH1", "DL4_CH1", "DL4"},
 	{"PCM_2_PB_CH2", "DL4_CH2", "DL4"},
 	{"PCM_2_PB_CH4", "DL4_CH1", "DL4"},
-
 	{"PCM_1_PB_CH4", "I2S0_CH1", "I2S0"},
 	{"PCM_2_PB_CH4", "I2S2_CH1", "I2S2"},
-	{"PCM_2_PB_CH4", "HW_SRC_3_OUT_CH1", "HW_SRC_3_Out"},
 	{"PCM_2_PB_CH5", "DL1_CH2", "DL1"},
 	{"PCM_2_PB_CH5", "DL4_CH2", "DL4"},
 	{"PCM_2_PB_CH5", "I2S0_CH2", "I2S0"},
 	{"PCM_2_PB_CH5", "I2S2_CH2", "I2S2"},
-	{"PCM_2_PB_CH1", "I2S0_CH1", "I2S0"},
-	{"PCM_2_PB_CH2", "I2S0_CH2", "I2S0"},
-	{"PCM_2_PB_CH1", "I2S8_CH1", "I2S8"},
-	{"PCM_2_PB_CH2", "I2S8_CH2", "I2S8"},
-	{"PCM_2_PB_CH5", "HW_SRC_3_OUT_CH2", "HW_SRC_3_Out"},
 
 	{"PCM_2_PB_CH1", "DL11_CH1", "DL11"},
 	{"PCM_2_PB_CH2", "DL11_CH2", "DL11"},
@@ -318,7 +286,7 @@ static int mtk_dai_pcm_hw_params(struct snd_pcm_substream *substream,
 {
 	struct mtk_base_afe *afe = snd_soc_dai_get_drvdata(dai);
 	unsigned int rate = params_rate(params);
-	unsigned int rate_reg = mt6985_rate_transform(afe->dev, rate, dai->id);
+	unsigned int rate_reg = mt6886_rate_transform(afe->dev, rate, dai->id);
 	unsigned int pcm_con = 0;
 
 	dev_info(afe->dev, "%s(), id %d, stream %d, rate %d, rate_reg %d, widget active p %d, c %d\n",
@@ -334,7 +302,7 @@ static int mtk_dai_pcm_hw_params(struct snd_pcm_substream *substream,
 		return 0;
 
 	switch (dai->id) {
-	case MT6985_DAI_PCM_1:
+	case MT6886_DAI_PCM_1:
 		pcm_con |= AUD_BCLK_OUT_INV_NO_INVERSE << PCM_BCLK_OUT_INV_SFT;
 		pcm_con |= AUD_TX_LCH_RPT_NO_REPEAT << PCM_TX_LCH_RPT_SFT;
 		pcm_con |= AUD_VBT_16K_MODE_DISABLE << PCM_VBT_16K_MODE_SFT;
@@ -350,7 +318,7 @@ static int mtk_dai_pcm_hw_params(struct snd_pcm_substream *substream,
 		regmap_update_bits(afe->regmap, PCM_INTF_CON1,
 				   0xfffffffe, pcm_con);
 		break;
-	case MT6985_DAI_PCM_2:
+	case MT6886_DAI_PCM_2:
 		pcm_con |= AUD_TX_LCH_RPT_NO_REPEAT << PCM2_TX_LCH_RPT_SFT;
 		pcm_con |= AUD_VBT_16K_MODE_DISABLE << PCM2_VBT_16K_MODE_SFT;
 		pcm_con |= AUD_BT_MODE_DUAL_MIC_ON_TX << PCM2_BT_MODE_SFT;
@@ -363,7 +331,7 @@ static int mtk_dai_pcm_hw_params(struct snd_pcm_substream *substream,
 				   0xfffffffe, pcm_con);
 		break;
 	default:
-		dev_warn(afe->dev, "%s(), id %d not support\n",
+		dev_info(afe->dev, "%s(), id %d not support\n",
 			 __func__, dai->id);
 		return -EINVAL;
 	}
@@ -388,7 +356,7 @@ static const struct snd_soc_dai_ops mtk_dai_pcm_ops = {
 static struct snd_soc_dai_driver mtk_dai_pcm_driver[] = {
 	{
 		.name = "PCM 1",
-		.id = MT6985_DAI_PCM_1,
+		.id = MT6886_DAI_PCM_1,
 		.playback = {
 			.stream_name = "PCM 1 Playback",
 			.channels_min = 1,
@@ -409,7 +377,7 @@ static struct snd_soc_dai_driver mtk_dai_pcm_driver[] = {
 	},
 	{
 		.name = "PCM 2",
-		.id = MT6985_DAI_PCM_2,
+		.id = MT6886_DAI_PCM_2,
 		.playback = {
 			.stream_name = "PCM 2 Playback",
 			.channels_min = 1,
@@ -430,11 +398,11 @@ static struct snd_soc_dai_driver mtk_dai_pcm_driver[] = {
 	},
 };
 
-int mt6985_dai_pcm_register(struct mtk_base_afe *afe)
+int mt6886_dai_pcm_register(struct mtk_base_afe *afe)
 {
 	struct mtk_base_afe_dai *dai;
 
-	dev_info(afe->dev, "%s()successfully start\n", __func__);
+	dev_info(afe->dev, "%s() successfully start\n", __func__);
 
 	dai = devm_kzalloc(afe->dev, sizeof(*dai), GFP_KERNEL);
 	if (!dai)
