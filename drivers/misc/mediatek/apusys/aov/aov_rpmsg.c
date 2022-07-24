@@ -44,7 +44,7 @@ static struct aov_rpmsg_ctx *rpmsg_ctx;
 
 int aov_rpmsg_send(uint32_t param)
 {
-	pr_info("%s +++\n", __func__); //debug
+	pr_debug("%s +++\n", __func__);
 
 	if (!rpmsg_ctx)
 		return -ENODEV;
@@ -52,7 +52,7 @@ int aov_rpmsg_send(uint32_t param)
 	atomic_set(&rpmsg_ctx->param, param);
 	complete(&rpmsg_ctx->notify_tx_apu);
 
-	pr_info("%s ---\n", __func__); //debug
+	pr_debug("%s ---\n", __func__);
 
 	return 0;
 }
@@ -66,10 +66,10 @@ int scp_mdw_handler(struct npu_scp_ipi_param *recv_msg)
 
 	switch (recv_msg->act) {
 	case NPU_SCP_NP_MDW_ACK:
-		pr_info("%s Get Ack\n", __func__); //debug
+		pr_debug("%s Get Ack\n", __func__);
 		break;
 	case NPU_SCP_NP_MDW_TO_APMCU:
-		pr_info("%s NPU_SCP_NP_MDW_TO_APMCU\n", __func__); //debug
+		pr_debug("%s NPU_SCP_NP_MDW_TO_APMCU\n", __func__);
 		ret = aov_rpmsg_send(APU_IPI_SCP_MIDDLEWARE);
 		break;
 	default:
@@ -229,7 +229,7 @@ static int aov_rpmsg_callback(struct rpmsg_device *rpdev, void *data, int len, v
 {
 	struct mdw_ipi_msg *ret_msg = (struct mdw_ipi_msg *)data;
 
-	pr_info("%s get src %d\n", __func__, src); //debug
+	pr_debug("%s get src %d\n", __func__, src);
 
 	if (!ret_msg || len != sizeof(struct mdw_ipi_msg)) {
 		pr_info("%s get NULL or error returned msg\n", __func__);
