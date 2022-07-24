@@ -6954,7 +6954,6 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 
 #ifndef DRM_CMDQ_DISABLE
 	if (priv->data->mmsys_id == MMSYS_MT6983 ||
-		priv->data->mmsys_id == MMSYS_MT6985 ||
 		priv->data->mmsys_id == MMSYS_MT6879 ||
 		priv->data->mmsys_id == MMSYS_MT6895 ||
 		priv->data->mmsys_id == MMSYS_MT6855 ||
@@ -6974,6 +6973,15 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 			/*Set BYPASS_MUX_SHADOW*/
 			writel(0x1, mtk_crtc->side_config_regs +
 					DISP_REG_CONFIG_BYPASS_MUX_SHADOW);
+		}
+	} else if (priv->data->mmsys_id == MMSYS_MT6985) {
+		/*Set EVENT_GCED_EN EVENT_GCEM_EN*/
+		writel(0x3, mtk_crtc->config_regs +
+				DISP_REG_CONFIG_MMSYS_GCE_EVENT_SEL);
+
+		if (mtk_crtc->side_config_regs) {
+			writel(0x3, mtk_crtc->side_config_regs +
+					DISP_REG_CONFIG_MMSYS_GCE_EVENT_SEL);
 		}
 	}
 #endif

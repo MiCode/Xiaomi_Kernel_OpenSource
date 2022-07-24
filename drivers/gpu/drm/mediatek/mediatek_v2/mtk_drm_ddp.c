@@ -14113,6 +14113,19 @@ static void mtk_ddp_ext_insert_dual_pipe_MT6985(struct mtk_drm_crtc *mtk_crtc,
 	addr = MT6985_MERGE_OUT_CROSSBAR1_MOUT_EN;
 	value = 0;
 	writel_relaxed(value, config_regs + addr);
+
+	/* OVL1 & DISPSYS1 BYPASS MUX SHADOW */
+	addr = MT6985_DISPSYS_BYPASS_MUX_SHADOW;
+	reg = readl_relaxed(side_config_regs + addr) | 0xFF0001;
+	writel_relaxed(reg, side_config_regs + addr);
+
+	addr = MT6985_OVLSYS_BYPASS_MUX_SHADOW;
+	reg = readl_relaxed(ovlsys1_regs + addr) | 0x1;
+	writel_relaxed(reg, ovlsys1_regs + addr);
+
+	addr = MT6985_OVLSYS_CROSSBAR_CON;
+	reg = readl_relaxed(ovlsys1_regs + addr) | 0xFF0000;
+	writel_relaxed(reg, ovlsys1_regs + addr);
 }
 
 static void mtk_ddp_ext_remove_dual_pipe_dsc(struct mtk_drm_crtc *mtk_crtc,
