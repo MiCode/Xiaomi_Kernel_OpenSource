@@ -332,6 +332,7 @@ int npu_scp_ipi_send(struct npu_scp_ipi_param *send_msg, struct npu_scp_ipi_para
 
 	if (ret_msg) {
 		// wait npu_scp_ipi_callback
+		reinit_completion(&ctx->comp);
 		ret = wait_for_completion_timeout(&ctx->comp, msecs_to_jiffies(timeout_ms));
 		if (!ret) {
 			dev_info(ctx->dev, "%s wait for scp ipi timeout\n", __func__);

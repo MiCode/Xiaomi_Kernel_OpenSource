@@ -235,7 +235,7 @@ static int aov_recovery_probe(struct rpmsg_device *rpdev)
 		goto apu_kthread_error;
 	}
 
-	//set_user_nice(recovery_ctx->apu_tx_worker, PRIO_TO_NICE(MAX_USER_RT_PRIO) + 1);
+	//set_user_nice(recovery_ctx->apu_tx_worker, PRIO_TO_NICE(MAX_RT_PRIO) + 1);
 	wake_up_process(recovery_ctx->apu_tx_worker);
 
 	/* create a kthread for sending to scp  */
@@ -248,7 +248,7 @@ static int aov_recovery_probe(struct rpmsg_device *rpdev)
 		goto scp_kthread_error;
 	}
 
-	//set_user_nice(recovery_ctx->scp_tx_worker, PRIO_TO_NICE(MAX_USER_RT_PRIO) + 1);
+	//set_user_nice(recovery_ctx->scp_tx_worker, PRIO_TO_NICE(MAX_RT_PRIO) + 1);
 	wake_up_process(recovery_ctx->scp_tx_worker);
 
 	scp_A_register_notify(&aov_recovery_scp_notifier);

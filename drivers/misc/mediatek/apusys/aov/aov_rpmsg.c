@@ -44,15 +44,13 @@ static struct aov_rpmsg_ctx *rpmsg_ctx;
 
 int aov_rpmsg_send(uint32_t param)
 {
-	pr_debug("%s +++\n", __func__);
-
 	if (!rpmsg_ctx)
 		return -ENODEV;
 
 	atomic_set(&rpmsg_ctx->param, param);
 	complete(&rpmsg_ctx->notify_tx_apu);
 
-	pr_debug("%s ---\n", __func__);
+	pr_debug_ratelimited("%s ---\n", __func__);
 
 	return 0;
 }
@@ -66,10 +64,9 @@ int scp_mdw_handler(struct npu_scp_ipi_param *recv_msg)
 
 	switch (recv_msg->act) {
 	case NPU_SCP_NP_MDW_ACK:
-		pr_debug("%s Get Ack\n", __func__);
+		pr_debug_ratelimited("%s Get Ack\n", __func__);
 		break;
 	case NPU_SCP_NP_MDW_TO_APMCU:
-		pr_debug("%s NPU_SCP_NP_MDW_TO_APMCU\n", __func__);
 		ret = aov_rpmsg_send(APU_IPI_SCP_MIDDLEWARE);
 		break;
 	default:
@@ -115,7 +112,7 @@ static int apu_tx_thread(void *data)
 
 		do {
 			ret = rpmsg_send(ctx->ept, &param, sizeof(param));
-			pr_debug("%s rpmsg_send %d ret %d\n", __func__, param, ret);
+			pr_debug_ratelimited("%s rpmsg_send %d ret %d\n", __func__, param, ret);
 			/* send busy, retry */
 			if (ret == -EBUSY || ret == -EAGAIN) {
 				pr_info("%s: re-send ipi(retry_cnt = %d)\n", __func__, retry_cnt);
@@ -163,6 +160,7 @@ static int scp_tx_thread(void *data)
 			send_msg.act = NPU_SCP_NP_MDW_TO_SCP;
 
 			ret = npu_scp_ipi_send(&send_msg, NULL, MDW_TIMEOUT_MS);
+			pr_debug_ratelimited("%s scp ipi, ret %d\n", __func__, ret);
 			if (ret)
 				pr_info("%s Failed to send to scp, ret %d, retry_cnt %d\n",
 					__func__, ret, retry_cnt);
@@ -197,7 +195,8 @@ static int aov_rpmsg_probe(struct rpmsg_device *rpdev)
 		goto apu_kthread_error;
 	}
 
-	//set_user_nice(rpmsg_ctx->apu_tx_worker, PRIO_TO_NICE(MAX_USER_RT_PRIO) + 1);
+	set_user_nice(rpmsg_ctx->apu_tx_worker, PRIO_TO_NICE(MAX_RT_PRIO) + 1);
+	sched_set_fifo(rpmsg_ctx->apu_tx_worker);
 	wake_up_process(rpmsg_ctx->apu_tx_worker);
 
 	/* create a kthread for sending to scp  */
@@ -210,7 +209,8 @@ static int aov_rpmsg_probe(struct rpmsg_device *rpdev)
 		goto scp_kthread_error;
 	}
 
-	//set_user_nice(rpmsg_ctx->scp_tx_worker, PRIO_TO_NICE(MAX_USER_RT_PRIO) + 1);
+	set_user_nice(rpmsg_ctx->scp_tx_worker, PRIO_TO_NICE(MAX_RT_PRIO) + 1);
+	sched_set_fifo(rpmsg_ctx->scp_tx_worker);
 	wake_up_process(rpmsg_ctx->scp_tx_worker);
 
 	pr_info("%s ---\n", __func__);
@@ -229,7 +229,7 @@ static int aov_rpmsg_callback(struct rpmsg_device *rpdev, void *data, int len, v
 {
 	struct mdw_ipi_msg *ret_msg = (struct mdw_ipi_msg *)data;
 
-	pr_debug("%s get src %d\n", __func__, src);
+	pr_debug_ratelimited("%s get src %d\n", __func__, src);
 
 	if (!ret_msg || len != sizeof(struct mdw_ipi_msg)) {
 		pr_info("%s get NULL or error returned msg\n", __func__);
