@@ -776,17 +776,6 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 		force_fallback_pre = force_fallback;
 
 		if (force_fallback == 1) {   // first transition from FB to LB
-			int i32NewFreqID = ged_get_cur_oppidx();
-
-			i32NewFreqID -= ultra_high_step_size;
-
-			if (i32NewFreqID < 0)
-				i32NewFreqID = 0;
-
-			ged_dvfs_gpu_freq_commit((unsigned long)i32NewFreqID
-			, ged_get_freq_by_idx(i32NewFreqID)
-			, GED_DVFS_LOADING_BASE_COMMIT);
-
 			/* Reset frame window when FB to LB */
 			num_pre_frames = 0;
 			for (i = 0; i < GED_DVFS_BUSY_CYCLE_MONITORING_WINDOW_NUM; i++)
@@ -1099,12 +1088,13 @@ static int _slide_window_loading(unsigned int ui32loading)
 		return 0;
 
 	unsigned int slide_count = (g_loading_slide_window_size/g_loading_stride_size);
-	int cidx = ++idx % slide_count;
-
-	data[cidx] = ui32loading;
 
 	if (slide_count == 0)
 		slide_count = 1;
+
+	int cidx = ++idx % slide_count;
+
+	data[cidx] = ui32loading;
 
 	if (slide_count > MAX_SLIDE_WINDOW_SIZE)
 		slide_count = MAX_SLIDE_WINDOW_SIZE;
