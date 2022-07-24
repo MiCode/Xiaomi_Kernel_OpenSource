@@ -3493,7 +3493,7 @@
 			dfd_cache: dfd_cache {
 				enabled = <1>;
 				/* dfd_timeout = <0x1d4c0>; */ /* 60 sec */
-				dfd_timeout = <0x3e80>; /* 8 sec */
+				dfd_timeout = <0x6000>; /* 12.3 sec */
 				/* buf_length = <0x2000000>; */
 				buf_length = <0x280000>;
 				tap_en = <0x200000>;
