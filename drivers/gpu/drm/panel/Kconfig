@@ -929,6 +929,17 @@ config DRM_PANEL_NT37801_CMD_120HZ
 	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
 	  interface to host.
 
+config DRM_TD2204_WQHD_AMB678ZY01_S6E3HC3_CMD
+	tristate "samsung wqhd amb678zy01-s6e3hc3 cmd panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for samsung amb678zy01-s6e3hc3
+	  wqhd cmd aod panel. The panel has a 1440x3200 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
+	  interface to host.
+
 config DRM_MEDIATEK_PANEL
 	tristate "drm panel common driver"
 	depends on OF
