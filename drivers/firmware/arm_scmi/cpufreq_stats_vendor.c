@@ -28,7 +28,8 @@ static int scmi_get_tunable_cpufreq_stats(const struct scmi_protocol_handle *ph,
 		return ret;
 
 	ret = ph->xops->do_xfer(ph, t);
-	memcpy(buf, t->rx.buf, t->rx.len);
+	if (!ret)
+		memcpy(buf, t->rx.buf, t->rx.len);
 	ph->xops->xfer_put(ph, t);
 	return ret;
 }
