@@ -3561,6 +3561,8 @@ static struct subdrv_ops ops = {
 };
 
 static struct subdrv_pw_seq_entry pw_seq[] = {
+	{HW_ID_SCL, 0, 0},
+	{HW_ID_SDA, 0, 0},
 	{HW_ID_MCLK1, 24, 0},
 	{HW_ID_PDN, 0, 0},
 	{HW_ID_RST1, 0, 1},
