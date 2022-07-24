@@ -85,7 +85,7 @@ struct mtk_lye_ddp_state {
 };
 
 struct mtk_addon_path_data {
-	const int *path;
+	const unsigned int *path;
 	unsigned int path_len;
 };
 
