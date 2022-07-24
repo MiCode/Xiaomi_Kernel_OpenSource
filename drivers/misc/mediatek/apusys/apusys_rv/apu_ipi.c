@@ -150,7 +150,11 @@ int apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len,
 
 	if (ipi_attrs[id].direction == IPI_HOST_INITIATE &&
 	    apu->ipi_inbound_locked == IPI_LOCKED && !bypass_check(id)) {
-		dev_info(dev, "%s: ipi locked, ipi=%d\n", __func__, id);
+		/* remove to reduce log */
+		/*
+		 * apu_ipi_info_ratelimited(dev, "%s: ipi locked, ipi=%d\n",
+		 *	__func__, id);
+		 */
 		mutex_unlock(&apu->send_lock);
 		return -EAGAIN;
 	}
