@@ -80,8 +80,7 @@ typedef int(*UARTHUB_PLAT_GET_UART_MUX_INFO) (void);
 typedef int(*UARTHUB_PLAT_GET_UARTHUB_ADDR_INFO) (struct uarthub_reg_base_addr *info);
 typedef void __iomem *(*UARTHUB_PLAT_GET_AP_UART_BASE_ADDR) (void);
 typedef void __iomem *(*UARTHUB_PLAT_GET_AP_DMA_TX_INT_ADDR) (void);
-typedef int(*UARTHUB_PLAT_GET_SPM_RES_1_INFO) (void);
-typedef int(*UARTHUB_PLAT_GET_SPM_RES_2_INFO) (void);
+typedef int(*UARTHUB_PLAT_GET_SPM_RES_INFO) (void);
 typedef int(*UARTHUB_PLAT_GET_PERI_CLK_INFO) (void);
 typedef int(*UARTHUB_PLAT_GET_PERI_UART_PAD_MODE) (void);
 
@@ -100,8 +99,7 @@ struct uarthub_ops_struct {
 	UARTHUB_PLAT_GET_UARTHUB_ADDR_INFO uarthub_plat_get_uarthub_addr_info;
 	UARTHUB_PLAT_GET_AP_UART_BASE_ADDR uarthub_plat_get_ap_uart_base_addr;
 	UARTHUB_PLAT_GET_AP_DMA_TX_INT_ADDR uarthub_plat_get_ap_dma_tx_int_addr;
-	UARTHUB_PLAT_GET_SPM_RES_1_INFO uarthub_plat_get_spm_res_1_info;
-	UARTHUB_PLAT_GET_SPM_RES_2_INFO uarthub_plat_get_spm_res_2_info;
+	UARTHUB_PLAT_GET_SPM_RES_INFO uarthub_plat_get_spm_res_info;
 	UARTHUB_PLAT_GET_PERI_CLK_INFO uarthub_plat_get_peri_clk_info;
 	UARTHUB_PLAT_GET_PERI_UART_PAD_MODE uarthub_plat_get_peri_uart_pad_mode;
 };

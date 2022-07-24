@@ -320,8 +320,7 @@ static enum hrtimer_restart sleep_wakeup_test_hrtimer_handler_cb(struct hrtimer 
 	static unsigned long long test_count = 1;
 	int APB_BUS_CLK = 0;
 	int CLK_GATING = 0;
-	int SPM_RES1 = 0;
-	int SPM_RES2 = 0;
+	int SPM_RES = 0;
 	int UNIVPLL_VOTE = 0;
 	int UNIVPLL_ON = 0;
 	int UART_MUX = 0;
@@ -334,8 +333,7 @@ static enum hrtimer_restart sleep_wakeup_test_hrtimer_handler_cb(struct hrtimer 
 
 	APB_BUS_CLK = 0;
 	CLK_GATING = 0;
-	SPM_RES1 = 0;
-	SPM_RES2 = 0;
+	SPM_RES = 0;
 	UNIVPLL_VOTE = 0;
 	UNIVPLL_ON = 0;
 	UART_MUX = 0;
@@ -354,22 +352,11 @@ static enum hrtimer_restart sleep_wakeup_test_hrtimer_handler_cb(struct hrtimer 
 	}
 
 	if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_1_info) {
-		SPM_RES1 = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_1_info();
-		if (SPM_RES1 >= 0) {
-			/* the expect value is 0x1D */
+			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_info) {
+		SPM_RES = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_info();
+		if (SPM_RES >= 0) {
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___SPM_RES1=[0x%x]", SPM_RES1);
-		}
-	}
-
-	if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_2_info) {
-		SPM_RES2 = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_2_info();
-		if (SPM_RES2 >= 0) {
-			/* the expect value is 0x17 */
-			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___SPM_RES2=[0x%x]", SPM_RES2);
+				"___SPM_RES=[PASS]", SPM_RES);
 		}
 	}
 
@@ -444,22 +431,11 @@ static enum hrtimer_restart sleep_wakeup_test_hrtimer_handler_cb(struct hrtimer 
 	}
 
 	if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_1_info) {
-		SPM_RES1 = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_1_info();
-		if (SPM_RES1 >= 0) {
-			/* the expect value is 0x1D */
+			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_info) {
+		SPM_RES = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_info();
+		if (SPM_RES >= 0) {
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___SPM_RES1=[0x%x]", SPM_RES1);
-		}
-	}
-
-	if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_2_info) {
-		SPM_RES2 = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_2_info();
-		if (SPM_RES2 >= 0) {
-			/* the expect value is 0x17 */
-			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___SPM_RES2=[0x%x]", SPM_RES2);
+				"___SPM_RES=[PASS]", SPM_RES);
 		}
 	}
 
@@ -2126,21 +2102,10 @@ int uarthub_core_is_uarthub_clk_enable(void)
 	}
 
 	if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_1_info) {
-		state = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_1_info();
-		if (state != 0x1D) {
-			/* the expect value is 0x1D */
-			pr_notice("[%s] UARTHUB SPM RES 1 is not all on(0x%x)\n", __func__, state);
-			return 0;
-		}
-	}
-
-	if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_2_info) {
-		state = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_2_info();
-		if (state != 0x17) {
-			/* the expect value is 0x17 */
-			pr_notice("[%s] UARTHUB SPM RES 2 is not all on(0x%x)\n", __func__, state);
+			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_info) {
+		state = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_info();
+		if (state != 1) {
+			pr_notice("[%s] UARTHUB SPM RES is not all on(0x%x)\n", __func__, state);
 			return 0;
 		}
 	}
@@ -3095,22 +3060,11 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 	}
 
 	if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_1_info) {
-		val = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_1_info();
+			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_info) {
+		val = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_info();
 		if (val >= 0) {
-			/* the expect value is 0x1D */
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___SPM_RES1=[0x%x]", val);
-		}
-	}
-
-	if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_2_info) {
-		val = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_2_info();
-		if (val >= 0) {
-			/* the expect value is 0x17 */
-			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___SPM_RES2=[0x%x]", val);
+				"___SPM_RES=[PASS]", val);
 		}
 	}
 

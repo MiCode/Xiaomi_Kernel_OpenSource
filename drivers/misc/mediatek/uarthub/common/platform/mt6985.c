@@ -44,8 +44,7 @@ static int uarthub_get_uart_mux_info_mt6985(void);
 static int uarthub_get_uarthub_addr_info_mt6985(struct uarthub_reg_base_addr *info);
 static void __iomem *uarthub_get_ap_uart_base_addr_mt6985(void);
 static void __iomem *uarthub_get_ap_dma_tx_int_addr_mt6985(void);
-static int uarthub_get_spm_res_1_info_mt6985(void);
-static int uarthub_get_spm_res_2_info_mt6985(void);
+static int uarthub_get_spm_res_info_mt6985(void);
 static int uarthub_get_peri_clk_info_mt6985(void);
 static int uarthub_get_peri_uart_pad_mode_mt6985(void);
 
@@ -65,8 +64,7 @@ struct uarthub_ops_struct mt6985_plat_data = {
 	.uarthub_plat_get_uarthub_addr_info = uarthub_get_uarthub_addr_info_mt6985,
 	.uarthub_plat_get_ap_uart_base_addr = uarthub_get_ap_uart_base_addr_mt6985,
 	.uarthub_plat_get_ap_dma_tx_int_addr = uarthub_get_ap_dma_tx_int_addr_mt6985,
-	.uarthub_plat_get_spm_res_1_info = uarthub_get_spm_res_1_info_mt6985,
-	.uarthub_plat_get_spm_res_2_info = uarthub_get_spm_res_2_info_mt6985,
+	.uarthub_plat_get_spm_res_info = uarthub_get_spm_res_info_mt6985,
 	.uarthub_plat_get_peri_clk_info = uarthub_get_peri_clk_info_mt6985,
 	.uarthub_plat_get_peri_uart_pad_mode = uarthub_get_peri_uart_pad_mode_mt6985,
 };
@@ -387,26 +385,26 @@ void __iomem *uarthub_get_ap_dma_tx_int_addr_mt6985(void)
 	return ap_dma_uart_3_tx_int_remap_addr;
 }
 
-int uarthub_get_spm_res_1_info_mt6985(void)
+int uarthub_get_spm_res_info_mt6985(void)
 {
+	unsigned int spm_res1 = 0, spm_res2 = 0;
+
 	if (!spm_remap_addr) {
 		pr_notice("[%s] spm_remap_addr is NULL\n", __func__);
 		return -1;
 	}
 
-	return (UARTHUB_REG_READ_BIT(spm_remap_addr + SPM_REQ_STA_9,
-		SPM_REQ_STA_9_MASK) >> SPM_REQ_STA_9_SHIFT);
-}
+	spm_res1 = UARTHUB_REG_READ_BIT(spm_remap_addr + SPM_REQ_STA_9,
+		SPM_REQ_STA_9_MASK) >> SPM_REQ_STA_9_SHIFT;
+	spm_res2 = UARTHUB_REG_READ_BIT(spm_remap_addr + SPM_MD32PCM_SCU_CTRL1,
+		SPM_MD32PCM_SCU_CTRL1_MASK) >> SPM_MD32PCM_SCU_CTRL1_SHIFT;
 
-int uarthub_get_spm_res_2_info_mt6985(void)
-{
-	if (!spm_remap_addr) {
-		pr_notice("[%s] spm_remap_addr is NULL\n", __func__);
-		return -1;
+	if (spm_res1 != 0x1D || spm_res2 != 0x17) {
+		pr_info("[%s], spm_res1=0x%x, spm_res2=0x%x\n", __func__, spm_res1, spm_res2);
+		return 0;
 	}
 
-	return (UARTHUB_REG_READ_BIT(spm_remap_addr + SPM_MD32PCM_SCU_CTRL1,
-		SPM_MD32PCM_SCU_CTRL1_MASK) >> SPM_MD32PCM_SCU_CTRL1_SHIFT);
+	return 1;
 }
 
 int uarthub_get_peri_uart_pad_mode_mt6985(void)
