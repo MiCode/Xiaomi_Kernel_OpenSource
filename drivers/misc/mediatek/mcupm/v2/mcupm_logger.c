@@ -54,6 +54,9 @@ static unsigned int mcupm_log_if_poll(struct file *file, poll_table *wait)
 
 	/* pr_debug("[MCUPM] mcupm_log_if_poll\n"); */
 
+	if (!mcupm_logger_inited)
+		return 0;
+
 	if (!(file->f_mode & FMODE_READ))
 		return ret;
 
