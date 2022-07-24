@@ -726,8 +726,8 @@ static void transceiver_restore_sensor(struct transceiver_device *dev)
 			ret = transceiver_comm_with(sensor_type,
 				SENS_COMM_CTRL_FLUSH_CMD, NULL, 0);
 			if (ret < 0)
-				pr_err("restore flush %u fail %d\n",
-				       sensor_type, ret);
+				pr_err("restore flush %u remain %u fail %d\n",
+				       sensor_type, flush, ret);
 		}
 	}
 	mutex_unlock(&dev->flush_lock);
