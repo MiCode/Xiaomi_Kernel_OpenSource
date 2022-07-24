@@ -18,6 +18,7 @@
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <mt-plat/aee.h>
 #include <soc/mediatek/emi.h>
+#include <soc/mediatek/smi.h>
 
 struct emi_slb {
 	unsigned int dump_cnt;
@@ -140,6 +141,9 @@ static irqreturn_t emislb_violation_irq(int irq, void *dev_id)
 	}
 
 	if (nr_vio && !slb->in_msg_dump && msg_len) {
+#if IS_ENABLED(CONFIG_MTK_SMI)
+		mtk_smi_dbg_hang_detect("emimpu_violation");
+#endif
 		pr_info("%s: %s", __func__, slb->vio_msg);
 		slb->in_msg_dump = 1;
 		schedule_work(&emislb_work);
