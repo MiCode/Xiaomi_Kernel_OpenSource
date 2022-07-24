@@ -74,6 +74,7 @@ static unsigned int swpm_get_avg_power(enum power_rail type)
 	if (type >= NR_POWER_RAIL)
 		pr_notice("Invalid SWPM type = %d\n", type);
 
+	/* Remove the calculation of the power rail power and return 0 directly) */
 	return 0;
 }
 
@@ -166,7 +167,7 @@ static void swpm_log_loop(struct timer_list *t)
 
 	for (i = 0; i < NR_POWER_RAIL; i++) {
 		if ((1 << i) & swpm_log_mask) {
-			ptr += snprintf(ptr, 256, "%s/",
+			ptr += scnprintf(ptr, 256, "%s/",
 					swpm_power_rail[i].name);
 		}
 	}
@@ -177,7 +178,7 @@ static void swpm_log_loop(struct timer_list *t)
 		if ((1 << i) & swpm_log_mask) {
 			swpm_power_rail[i].avg_power =
 				swpm_get_avg_power((enum power_rail)i);
-			ptr += snprintf(ptr, 256, "%d/",
+			ptr += scnprintf(ptr, 256, "%d/",
 					swpm_power_rail[i].avg_power);
 		}
 	}
@@ -190,11 +191,11 @@ static void swpm_log_loop(struct timer_list *t)
 		memset(idx_buf, 0, sizeof(char) * POWER_INDEX_CHAR_SIZE);
 		/* exclude window_cnt */
 		for (i = 0; i < idx_output_size; i++) {
-			idx_ptr += snprintf(idx_ptr, POWER_INDEX_CHAR_SIZE,
+			idx_ptr += scnprintf(idx_ptr, POWER_INDEX_CHAR_SIZE,
 					    "%d,", *(idx_ref_uint_ptr+i));
 		}
 		idx_ptr--;
-		idx_ptr += snprintf(idx_ptr, POWER_INDEX_CHAR_SIZE,
+		idx_ptr += scnprintf(idx_ptr, POWER_INDEX_CHAR_SIZE,
 				    " window_cnt = %d",
 				    share_idx_ref->window_cnt);
 

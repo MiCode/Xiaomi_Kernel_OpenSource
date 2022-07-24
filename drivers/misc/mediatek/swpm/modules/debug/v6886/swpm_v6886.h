@@ -48,11 +48,17 @@ enum swpm_type {
 	NR_SWPM_TYPE,
 };
 
+#define PMSR_MAX_SIG_SEL (48)
+struct swpm_pmsr_data {
+	unsigned int sig_record[PMSR_MAX_SIG_SEL];
+};
+
 enum pmsr_cmd_action {
 	PMSR_SET_EN,
 	PMSR_SET_SIG_SEL,
 	PMSR_SET_DBG_EN,
 	PMSR_SET_LOG_INTERVAL,
+	PMSR_GET_SIG_SEL,
 };
 
 enum power_rail {
