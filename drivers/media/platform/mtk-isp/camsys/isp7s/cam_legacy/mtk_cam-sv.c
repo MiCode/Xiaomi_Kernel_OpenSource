@@ -1450,25 +1450,19 @@ int mtk_cam_sv_central_common_disable(struct mtk_camsv_device *dev)
 			CAMSVCENTRAL_VF_CON, VFDATA_EN, 0);
 
 	mtk_cam_sv_toggle_tg_db(dev);
-	mtk_cam_sv_toggle_db(dev);
-	sv_reset(dev);
-
-	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_DMA_EN_IMG, 0);
-
-	CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_MODULE_DB,
-		CAMSVCENTRAL_MODULE_DB, CAM_DB_EN, 0);
 
 	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_DONE_STATUS_EN, 0);
 	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_ERR_STATUS_EN, 0);
 	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_SOF_STATUS_EN, 0);
 
-	CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_MODULE_DB,
-		CAMSVCENTRAL_MODULE_DB, CAM_DB_EN, 1);
-
 	if (CAMSV_READ_BITS(dev->base + REG_CAMSVCENTRAL_SEN_MODE,
 			CAMSVCENTRAL_SEN_MODE, CMOS_EN))
 		CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_SEN_MODE,
 			CAMSVCENTRAL_SEN_MODE, CMOS_EN, 0);
+
+	sv_reset(dev);
+	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_DMA_EN_IMG, 0);
+	mtk_cam_sv_toggle_db(dev);
 
 	return ret;
 }
