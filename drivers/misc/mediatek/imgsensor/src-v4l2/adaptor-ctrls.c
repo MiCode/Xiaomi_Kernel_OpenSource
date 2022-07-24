@@ -181,6 +181,10 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 {
 	union feature_para para;
 	u32 len = 0, exp_count = 0;
+	struct mtk_stagger_info info = {0};
+	int ret = 0;
+
+	info.scenario_id = SENSOR_SCENARIO_ID_NONE;
 
 	/* update ctx req id */
 	ctx->req_id = ae_ctrl->req_id;
@@ -190,6 +194,14 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 		ae_ctrl->exposure.arr[exp_count] != 0)
 		exp_count++;
 
+	/* get exp_cnt */
+	ret = g_stagger_info(ctx, ctx->cur_mode->id, &info);
+	if (!ret) {
+		dev_info(ctx->dev, "scenario_exp_cnt: %u, ae_exp_count: %u\n",
+			info.count,
+			exp_count);
+		exp_count = (info.count < exp_count) ? info.count : exp_count;
+	}
 	switch (exp_count) {
 	case 3:
 	{
