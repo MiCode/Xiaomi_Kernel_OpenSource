@@ -39,7 +39,7 @@
 /* tx left size >= vff thre */
 #define VFF_TX_INT_EN_B		BIT(0)
 #define VFF_WARM_RST_B		BIT(0)
-#define VFF_RX_INT_CLR_B	(BIT(0) | BIT(1))
+#define VFF_RX_INT_CLR_B	3
 #define VFF_TX_INT_CLR_B	0
 #define VFF_STOP_CLR_B		0
 #define VFF_EN_CLR_B		0
@@ -337,21 +337,19 @@ static void mtk_uart_apdma_tx_handler(struct mtk_chan *c)
 static void mtk_uart_apdma_rx_handler(struct mtk_chan *c)
 {
 	struct mtk_uart_apdma_desc *d = c->desc;
-	struct uart_8250_port *p = (struct uart_8250_port *)d->vd.tx.callback_param;
 	unsigned int len, wg, rg;
 	int cnt;
 	unsigned int idx = 0;
 
-	//temp patch
-	if (d->vd.tx.callback_param != NULL)
-		serial_in(p, 0x13);
-
-	/* Flush register read */
-	mb();
 	mtk_uart_apdma_write(c, VFF_INT_FLAG, VFF_RX_INT_CLR_B);
+	//Read VFF_VALID_FLAG value
+	mb();
 
-	if (!mtk_uart_apdma_read(c, VFF_VALID_SIZE))
+	if (!mtk_uart_apdma_read(c, VFF_VALID_SIZE)) {
+		pr_info("[%s]:VFF_INT_FLAG = 0x%x\n,", __func__,
+				mtk_uart_apdma_read(c, VFF_INT_FLAG));
 		return;
+	}
 
 	mtk_uart_apdma_write(c, VFF_EN, VFF_EN_CLR_B);
 	mtk_uart_apdma_write(c, VFF_INT_EN, VFF_INT_EN_CLR_B);
