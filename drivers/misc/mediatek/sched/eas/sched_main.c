@@ -425,9 +425,6 @@ static int __init mtk_scheduler_init(void)
 	sched_pause_init();
 #endif
 
-	/* Disable TTWU_QUEUE */
-	sysctl_sched_features &= ~(1UL << __SCHED_FEAT_TTWU_QUEUE);
-	static_key_disable(&sched_feat_keys[__SCHED_FEAT_TTWU_QUEUE]);
 
 out_wq:
 	return ret;
