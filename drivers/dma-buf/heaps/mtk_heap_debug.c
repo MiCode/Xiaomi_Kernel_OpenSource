@@ -35,6 +35,7 @@
 #include <linux/seq_file.h>
 #endif
 
+#include "deferred-free-helper.h"
 #include "mtk_heap_priv.h"
 #include "mtk_heap.h"
 
@@ -67,7 +68,7 @@ struct dmaheap_buf_copy {
 	struct sg_table sg_table;
 	int vmap_cnt;
 	void *vaddr;
-
+	struct deferred_freelist_item deferred_free;
 	bool uncached;
 
 	/* helper function */

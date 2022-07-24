@@ -271,9 +271,6 @@ static int region_base_free(struct secure_heap_region *sec_heap, struct mtk_sec_
 	int i, j, ret;
 	u64 sec_handle = 0;
 
-	pr_info("%s start, [%s] size:0x%lx\n",
-		__func__, dma_heap_get_name(buffer->heap), buffer->len);
-
 	/* remove all domains' sgtable */
 	for (i = 0; i < MTK_M4U_TAB_NR_MAX; i++) {
 		for (j = 0; j < MTK_M4U_DOM_NR_MAX; j++) {
@@ -283,7 +280,7 @@ static int region_base_free(struct secure_heap_region *sec_heap, struct mtk_sec_
 
 			if (!buffer->mapped[i][j] || dev_is_normal_region(dev_info.dev))
 				continue;
-			pr_info("%s: free tab:%d, dom:%d iova:0x%lx, dev:%s\n", __func__,
+			pr_debug("%s: free tab:%d, dom:%d iova:0x%lx, dev:%s\n", __func__,
 				i, j, (unsigned long)sg_dma_address(table->sgl),
 				dev_name(dev_info.dev));
 			dma_unmap_sgtable(dev_info.dev, table, dev_info.direction, attrs);
@@ -307,7 +304,7 @@ static int region_base_free(struct secure_heap_region *sec_heap, struct mtk_sec_
 			atomic64_read(&sec_heap->total_size));
 
 	if (!atomic64_read(&sec_heap->total_size)) {
-		if (sec_heap->heap_mapped) { /*need to lock ????? */
+		if (sec_heap->heap_mapped) {
 			dma_unmap_sgtable(sec_heap->heap_dev, sec_heap->region_table,
 					  DMA_BIDIRECTIONAL, DMA_ATTR_SKIP_CPU_SYNC);
 			sec_heap->heap_mapped = false;
@@ -315,10 +312,10 @@ static int region_base_free(struct secure_heap_region *sec_heap, struct mtk_sec_
 		sg_free_table(sec_heap->region_table);
 		kfree(sec_heap->region_table);
 		sec_heap->heap_filled = false;
-		pr_info("%s: all secure memory already free, unmap heap_region iova\n", __func__);
+		pr_debug("%s: all secure memory already free, unmap heap_region iova\n", __func__);
 	}
 
-	pr_info("%s done, [%s] size:0x%lx, total_size:0x%lx\n",
+	pr_debug("%s done, [%s] size:0x%lx, total_size:0x%lx\n",
 		__func__, dma_heap_get_name(buffer->heap), buffer->len,
 		atomic64_read(&sec_heap->total_size));
 	return ret;
@@ -329,9 +326,6 @@ static int page_base_free(struct secure_heap_page *sec_heap, struct mtk_sec_heap
 {
 	int i, j, ret;
 
-	pr_info("%s start, [%s] size:0x%lx\n",
-		__func__, dma_heap_get_name(buffer->heap), buffer->len);
-
 	/* remove all domains' sgtable */
 	for (i = 0; i < MTK_M4U_TAB_NR_MAX; i++) {
 		for (j = 0; j < MTK_M4U_DOM_NR_MAX; j++) {
@@ -341,7 +335,7 @@ static int page_base_free(struct secure_heap_page *sec_heap, struct mtk_sec_heap
 
 			if (!buffer->mapped[i][j])
 				continue;
-			pr_info("%s: free tab:%d, region:%d iova:0x%lx, dev:%s\n", __func__,
+			pr_debug("%s: free tab:%d, region:%d iova:0x%lx, dev:%s\n", __func__,
 				i, j, (unsigned long)sg_dma_address(table->sgl),
 				dev_name(dev_info.dev));
 			dma_unmap_sgtable(dev_info.dev, table, dev_info.direction, attrs);
@@ -362,7 +356,7 @@ static int page_base_free(struct secure_heap_page *sec_heap, struct mtk_sec_heap
 		pr_warn("%s, total memory overflow, 0x%lx!!\n", __func__,
 			atomic64_read(&sec_heap->total_size));
 
-	pr_info("%s done, [%s] size:0x%lx, total_size:0x%lx\n",
+	pr_debug("%s done, [%s] size:0x%lx, total_size:0x%lx\n",
 		__func__, dma_heap_get_name(buffer->heap), buffer->len,
 		atomic64_read(&sec_heap->total_size));
 
@@ -385,8 +379,6 @@ static void tmem_region_free(struct dma_buf *dmabuf)
 		return;
 	}
 
-	//pr_info("%s start, heap:%s, len:0x%lx\n", __func__, dmabuf->exp_name, buffer->len);
-
 	ret = region_base_free(sec_heap, buffer);
 	if (ret) {
 		pr_err("%s fail, heap:%u\n", __func__, sec_heap->heap_type);
@@ -394,9 +386,6 @@ static void tmem_region_free(struct dma_buf *dmabuf)
 	}
 	sg_free_table(&buffer->sg_table);
 	kfree(buffer);
-
-	//pr_info("%s done: [%s], size:0x%lx, total_size:0x%lx\n", __func__,
-		//dmabuf->exp_name, dmabuf->size, atomic64_read(&sec_heap->total_size));
 }
 
 static void tmem_page_free(struct dma_buf *dmabuf)
@@ -415,8 +404,6 @@ static void tmem_page_free(struct dma_buf *dmabuf)
 		return;
 	}
 
-	//pr_info("%s start, heap:%s, len:0x%lx\n", __func__, dmabuf->exp_name, buffer->len);
-
 	ret = page_base_free(sec_heap, buffer);
 	if (ret) {
 		pr_err("%s fail, heap:%u\n", __func__, sec_heap->heap_type);
@@ -424,9 +411,6 @@ static void tmem_page_free(struct dma_buf *dmabuf)
 	}
 	sg_free_table(&buffer->sg_table);
 	kfree(buffer);
-
-	//pr_info("%s done: [%s], size:0x%lx, total_size:0x%lx\n", __func__,
-		//dmabuf->exp_name, dmabuf->size, atomic64_read(&sec_heap->total_size));
 }
 
 static int mtk_sec_heap_attach(struct dma_buf *dmabuf,
@@ -583,8 +567,6 @@ static struct sg_table *mtk_sec_heap_page_map_dma_buf(struct dma_buf_attachment 
 	unsigned int tab_id = MTK_M4U_TAB_NR_MAX, dom_id = MTK_M4U_DOM_NR_MAX;
 	int attr = attachment->dma_map_attrs | DMA_ATTR_SKIP_CPU_SYNC;
 
-	//pr_info("%s start dev:%s\n", __func__, dev_name(attachment->dev));
-
 	/* non-iommu master */
 	if (!fwspec) {
 		ret = dma_map_sgtable(attachment->dev, table, direction, attr);
@@ -594,7 +576,7 @@ static struct sg_table *mtk_sec_heap_page_map_dma_buf(struct dma_buf_attachment 
 			return ERR_PTR(ret);
 		}
 		a->mapped = true;
-		pr_info("%s done, non-iommu-dev(%s)\n", __func__, dev_name(attachment->dev));
+		pr_debug("%s done, non-iommu-dev(%s)\n", __func__, dev_name(attachment->dev));
 		return table;
 	}
 
@@ -618,7 +600,7 @@ static struct sg_table *mtk_sec_heap_page_map_dma_buf(struct dma_buf_attachment 
 			return ERR_PTR(-EINVAL);
 		}
 		a->mapped = true;
-		pr_info("%s done(has mapped), dev:%s(%s), sec_handle:%u, len:0x%lx, iova:0x%lx, id:(%d,%d)\n",
+		pr_debug("%s done(has mapped), dev:%s(%s), sec_handle:%u, len:0x%lx, iova:0x%lx, id:(%d,%d)\n",
 			__func__, dev_name(buffer->dev_info[tab_id][dom_id].dev),
 			dev_name(attachment->dev), buffer->sec_handle, buffer->len,
 			(unsigned long)sg_dma_address(table->sgl),
@@ -650,7 +632,7 @@ static struct sg_table *mtk_sec_heap_page_map_dma_buf(struct dma_buf_attachment 
 	}
 	a->mapped = true;
 
-	pr_info("%s done, dev:%s, sec_handle:%u, len:0x%lx, iova:0x%lx, id:(%d,%d)\n",
+	pr_debug("%s done, dev:%s, sec_handle:%u, len:0x%lx, iova:0x%lx, id:(%d,%d)\n",
 		__func__, dev_name(attachment->dev), buffer->sec_handle, buffer->len,
 		(unsigned long)sg_dma_address(table->sgl), tab_id, dom_id);
 	mutex_unlock(&buffer->map_lock);
@@ -674,8 +656,6 @@ static struct sg_table *mtk_sec_heap_region_map_dma_buf(struct dma_buf_attachmen
 	/* for iommu mapping, should be skip cache sync */
 	int attr = attachment->dma_map_attrs | DMA_ATTR_SKIP_CPU_SYNC;
 
-	//pr_info("%s start dev:%s\n", __func__, dev_name(attachment->dev));
-
 	/* non-iommu master */
 	if (!fwspec) {
 		ret = dma_map_sgtable(attachment->dev, table, direction, attr);
@@ -685,7 +665,7 @@ static struct sg_table *mtk_sec_heap_region_map_dma_buf(struct dma_buf_attachmen
 			return ERR_PTR(ret);
 		}
 		a->mapped = true;
-		pr_info("%s done, non-iommu-dev(%s), pa:0x%lx\n", __func__,
+		pr_debug("%s done, non-iommu-dev(%s), pa:0x%lx\n", __func__,
 			dev_name(attachment->dev),
 			(unsigned long)sg_dma_address(table->sgl));
 		return table;
@@ -714,7 +694,7 @@ static struct sg_table *mtk_sec_heap_region_map_dma_buf(struct dma_buf_attachmen
 			return ERR_PTR(-ENOMEM);
 		}
 		sec_heap->heap_mapped = true;
-		pr_info("%s heap_region map success, heap:%s, iova:0x%lx, sz:0x%lx\n",
+		pr_debug("%s heap_region map success, heap:%s, iova:0x%lx, sz:0x%lx\n",
 			__func__, dma_heap_get_name(buffer->heap),
 			(unsigned long)sg_dma_address(sec_heap->region_table->sgl),
 			(unsigned long)sg_dma_len(sec_heap->region_table->sgl));
@@ -736,7 +716,7 @@ static struct sg_table *mtk_sec_heap_region_map_dma_buf(struct dma_buf_attachmen
 			return ERR_PTR(-EINVAL);
 		}
 		a->mapped = true;
-		pr_info("%s done(has mapped), dev:%s(%s), sec_handle:%u, len:0x%lx, pa:0x%llx, iova:0x%lx, id:(%d,%d)\n",
+		pr_debug("%s done(has mapped), dev:%s(%s), sec_handle:%u, len:0x%lx, pa:0x%llx, iova:0x%lx, id:(%d,%d)\n",
 			__func__, dev_name(buffer->dev_info[tab_id][dom_id].dev),
 			dev_name(attachment->dev), buffer->sec_handle, buffer->len,
 			phy_addr, (unsigned long)sg_dma_address(table->sgl),
@@ -759,7 +739,7 @@ static struct sg_table *mtk_sec_heap_region_map_dma_buf(struct dma_buf_attachmen
 			mutex_unlock(&buffer->map_lock);
 			return ERR_PTR(ret);
 		}
-		pr_info("%s reserve_iommu-dev(%s) dma_map_sgtable done, iova:0x%lx, id:(%d,%d)\n",
+		pr_debug("%s reserve_iommu-dev(%s) dma_map_sgtable done, iova:0x%lx, id:(%d,%d)\n",
 			__func__, dev_name(attachment->dev), sg_dma_address(table->sgl),
 			tab_id, dom_id);
 		goto map_done;
@@ -789,7 +769,7 @@ map_done:
 	}
 	a->mapped = true;
 
-	pr_info("%s done, dev:%s, sec_handle:%u, len:0x%lx(0x%x), pa:0x%llx, iova:0x%lx, id:(%d,%d)\n",
+	pr_debug("%s done, dev:%s, sec_handle:%u, len:0x%lx(0x%x), pa:0x%llx, iova:0x%lx, id:(%d,%d)\n",
 		__func__, dev_name(attachment->dev), buffer->sec_handle, buffer->len,
 		sg_dma_len(table->sgl), phy_addr, (unsigned long)sg_dma_address(table->sgl),
 		tab_id, dom_id);
@@ -826,14 +806,11 @@ static int fill_heap_sgtable(struct secure_heap_region *sec_heap,
 {
 	int ret;
 
-	//pr_info("%s start [%s][%d]\n", __func__, dma_heap_get_name(buffer->heap),
-		//sec_heap->tmem_type);
-
 	if (!heap_is_region_base(sec_heap->heap_type)) {
 		pr_info("%s skip page base filled\n", __func__);
 		return 0;
 	}
-	/* TODO: race condition????????????????? */
+
 	mutex_lock(&sec_heap->heap_lock);
 	if (sec_heap->heap_filled) {
 		mutex_unlock(&sec_heap->heap_lock);
@@ -868,7 +845,7 @@ static int fill_heap_sgtable(struct secure_heap_region *sec_heap,
 		    sec_heap->region_size, 0);
 	sec_heap->heap_filled = true;
 	mutex_unlock(&sec_heap->heap_lock);
-	pr_info("%s [%s] fill done, region_pa:%pa, region_size:0x%x\n",
+	pr_debug("%s [%s] fill done, region_pa:%pa, region_size:0x%x\n",
 		__func__, dma_heap_get_name(buffer->heap), &sec_heap->region_pa,
 		sec_heap->region_size);
 	return 0;
@@ -928,9 +905,6 @@ static int region_base_alloc(struct secure_heap_region *sec_heap,
 	uint64_t phy_addr = 0;
 	struct sg_table *table;
 
-	pr_info("%s start: [%s], req_size:0x%lx, align:0x%x(%d)\n",
-		__func__, dma_heap_get_name(buffer->heap), buffer->len, alignment, aligned);
-
 	if (buffer->len > UINT_MAX) {
 		pr_err("%s error. len more than UINT_MAX\n", __func__);
 		return -EINVAL;
@@ -939,7 +913,7 @@ static int region_base_alloc(struct secure_heap_region *sec_heap,
 				    &refcount, &sec_handle,
 				    (uint8_t *)dma_heap_get_name(buffer->heap),
 				    0, NULL);
-	if (ret == -ENOMEM) { //return value ???????????????????
+	if (ret == -ENOMEM) {
 		pr_err("%s error: security out of memory!! heap:%s\n",
 			__func__, dma_heap_get_name(buffer->heap));
 		return -ENOMEM;
@@ -985,7 +959,7 @@ static int region_base_alloc(struct secure_heap_region *sec_heap,
 
 	atomic64_add(buffer->len, &sec_heap->total_size);
 
-	pr_info("%s done: [%s], req_size:0x%lx, align_sz:0x%lx, handle:%u, pa:0x%lx, total_sz:0x%lx\n",
+	pr_debug("%s done: [%s], req_size:0x%lx, align_sz:0x%lx, handle:%u, pa:0x%lx, total_sz:0x%lx\n",
 		__func__, dma_heap_get_name(buffer->heap), req_sz, buffer->len,
 		buffer->sec_handle, phy_addr, atomic64_read(&sec_heap->total_size));
 
@@ -1009,9 +983,6 @@ static int page_base_alloc(struct secure_heap_page *sec_heap, struct mtk_sec_hea
 	u32 refcount = 0;/* tmem refcount */
 	struct ssheap_buf_info *ssheap = NULL;
 	struct sg_table *table = &buffer->sg_table;
-
-	pr_info("%s start: [%s], req_size:0x%lx\n",
-		__func__, dma_heap_get_name(sec_heap->heap), buffer->len);
 
 	if (buffer->len > UINT_MAX) {
 		pr_err("%s error. len more than UINT_MAX\n", __func__);
@@ -1041,7 +1012,7 @@ static int page_base_alloc(struct secure_heap_page *sec_heap, struct mtk_sec_hea
 	buffer->ssheap = ssheap;
 	atomic64_add(buffer->len, &sec_heap->total_size);
 
-	pr_info("%s done: [%s], req_size:0x%lx(0x%lx), align_sz:0x%lx, nent:%u--%lu, align:0x%lx, total_sz:0x%lx\n",
+	pr_debug("%s done: [%s], req_size:0x%lx(0x%lx), align_sz:0x%lx, nent:%u--%lu, align:0x%lx, total_sz:0x%lx\n",
 		__func__, dma_heap_get_name(sec_heap->heap), buffer->ssheap->req_size, req_sz,
 		buffer->len, buffer->ssheap->table->orig_nents, buffer->ssheap->elems,
 		buffer->ssheap->alignment, atomic64_read(&sec_heap->total_size));
@@ -1104,9 +1075,6 @@ static struct dma_buf *tmem_page_allocate(struct dma_heap *heap,
 		return ERR_PTR(-EINVAL);
 	}
 
-	//pr_info("%s start, heap:[%s], req_sz:0x%lx\n",
-		 //__func__, dma_heap_get_name(heap), len);
-
 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
 	if (!buffer)
 		return ERR_PTR(-ENOMEM);
@@ -1129,9 +1097,6 @@ static struct dma_buf *tmem_page_allocate(struct dma_heap *heap,
 	}
 
 	init_buffer_info(heap, buffer);
-
-	//pr_info("%s done: [%s], req_size:0x%lx, align_sz:0x%lx\n",
-		//__func__, dma_heap_get_name(heap), len, buffer->len);
 
 	return dmabuf;
 
@@ -1162,9 +1127,6 @@ static struct dma_buf *tmem_region_allocate(struct dma_heap *heap,
 		return ERR_PTR(-EINVAL);
 	}
 
-	//pr_info("%s start, heap:[%s], req_sz: 0x%lx, aligned:%d\n",
-		 //__func__, dma_heap_get_name(heap), len, aligned);
-
 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
 	if (!buffer)
 		return ERR_PTR(-ENOMEM);
@@ -1184,9 +1146,6 @@ static struct dma_buf *tmem_region_allocate(struct dma_heap *heap,
 		goto free_tmem;
 	}
 	init_buffer_info(heap, buffer);
-
-	//pr_info("%s done: [%s], req_size:0x%lx, align_sz:0x%lx\n",
-		//__func__, dma_heap_get_name(heap), len, buffer->len);
 
 	return dmabuf;
 
@@ -1323,7 +1282,6 @@ u64 dmabuf_to_secure_handle(const struct dma_buf *dmabuf)
 		return 0;
 	}
 
-	pr_info("%s done, secure_handle:%u\n", __func__, buffer->sec_handle);
 	return buffer->sec_handle;
 }
 EXPORT_SYMBOL_GPL(dmabuf_to_secure_handle);
