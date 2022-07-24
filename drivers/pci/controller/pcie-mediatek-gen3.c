@@ -82,6 +82,8 @@
 
 #define PCIE_ASPM_CTRL			0x15c
 #define PCIE_P2_EXIT_BY_CLKREQ		BIT(17)
+#define PCIE_P2_IDLE_TIME_MASK		GENMASK(27, 24)
+#define PCIE_P2_IDLE_TIME(x)		((x << 24) & PCIE_P2_IDLE_TIME_MASK)
 
 #define PCIE_MSI_SET_NUM		8
 #define PCIE_MSI_IRQS_PER_SET		32
@@ -402,7 +404,8 @@ static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 
 	if (port->pextpcfg) {
 		val = readl_relaxed(port->base + PCIE_ASPM_CTRL);
-		val |= PCIE_P2_EXIT_BY_CLKREQ;
+		val &= ~PCIE_P2_IDLE_TIME_MASK;
+		val |= PCIE_P2_EXIT_BY_CLKREQ | PCIE_P2_IDLE_TIME(8);
 		writel_relaxed(val, port->base + PCIE_ASPM_CTRL);
 
 		mtk_pcie_mt6985_fixup();
