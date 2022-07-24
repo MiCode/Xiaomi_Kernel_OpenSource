@@ -682,11 +682,6 @@ int fpsgo_switch_fstb(int enable)
 	return fpsgo_ctrl2fstb_switch_fstb(enable);
 }
 
-int fpsgo_fstb_sample_window(long long time_usec)
-{
-	return switch_sample_window(time_usec);
-}
-
 int fpsgo_fstb_fps_range(int nr_level,
 		struct fps_level *level)
 {
@@ -703,16 +698,6 @@ int fpsgo_fstb_thread_fps_range(pid_t pid,
 	int nr_level, struct fps_level *level)
 {
 	return switch_thread_fps_range(pid, nr_level, level);
-}
-
-int fpsgo_fstb_fps_error_threhosld(int threshold)
-{
-	return switch_fps_error_threhosld(threshold);
-}
-
-int fpsgo_fstb_percentile_frametime(int ratio)
-{
-	return switch_percentile_frametime(ratio);
 }
 
 struct tracepoints_table {

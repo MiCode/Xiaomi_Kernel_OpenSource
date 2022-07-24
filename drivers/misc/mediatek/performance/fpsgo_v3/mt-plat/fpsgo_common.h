@@ -100,8 +100,6 @@ int fpsgo_is_fstb_enable(void);
 int fpsgo_switch_fstb(int enable);
 int fpsgo_fstb_sample_window(long long time_usec);
 int fpsgo_fstb_fps_range(int nr_level, struct fps_level *level);
-int fpsgo_fstb_fps_error_threhosld(int threshold);
-int fpsgo_fstb_percentile_frametime(int ratio);
 
 void fpsgo_switch_enable(int enable);
 int fpsgo_is_enable(void);
@@ -154,8 +152,6 @@ static inline int fpsgo_switch_fstb(int en) { return 0; }
 static inline int fpsgo_fstb_sample_window(long long time_usec) { return 0; }
 static inline int fpsgo_fstb_fps_range(int nr_level, struct fps_level *level)
 { return 0; }
-static inline int fpsgo_fstb_fps_error_threhosld(int threshold) { return 0; }
-static inline int fpsgo_fstb_percentile_frametime(int ratio) { return 0; }
 
 static inline void fpsgo_switch_enable(int enable) { }
 static inline int fpsgo_is_enable(void) { return 0; }

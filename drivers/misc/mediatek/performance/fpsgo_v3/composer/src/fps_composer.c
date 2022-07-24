@@ -255,9 +255,6 @@ void fpsgo_ctrl2comp_enqueue_start(int pid,
 		}
 	}
 
-	if (f_render->api == NATIVE_WINDOW_API_CAMERA)
-		fpsgo_comp2fstb_camera_active(pid);
-
 	f_render->frame_type = fpsgo_com_check_frame_type(pid,
 			f_render->queue_SF, f_render->api,
 			f_render->hwui, f_render->sbe_control_flag,
