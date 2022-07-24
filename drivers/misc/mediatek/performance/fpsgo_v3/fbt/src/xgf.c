@@ -1846,6 +1846,9 @@ static void xgf_print_critical_path_info(struct xgf_render *r)
 	struct xgf_render_dep *xrd;
 	struct xgf_dep_task *xdt;
 
+	if (!xgf_log_trace_enable)
+		return;
+
 	if (r->xrd_arr_idx < 0 || r->xrd_arr_idx > MAX_DEP_PATH_NUM)
 		goto error;
 
