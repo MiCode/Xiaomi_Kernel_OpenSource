@@ -38,6 +38,11 @@ static void *mmdvfs_vcp_ipi_data_base;
 static u64 mmdvfs_vcp_ipi_data;
 static DEFINE_MUTEX(mmdvfs_vcp_ipi_mutex);
 
+#define MMDVFS_VB_ENABLE_OFFSET 0xff4
+#define MMDVFS_AGING_ENABLE_OFFSET 0xff8
+static void *mmdvfs_vb_enable_base;
+static void *mmdvfs_aging_enable_base;
+
 static int log_level;
 static bool mmdvfs_init_done;
 static DEFINE_MUTEX(mmdvfs_vcp_pwr_mutex);
@@ -61,6 +66,8 @@ static unsigned int clk_en_cnt;
 
 static int last_ccu_freq = -1;
 static unsigned int ccu_pwr_usage[CCU_PWR_USR_NUM];
+
+static struct notifier_block vcp_ready_notifier;
 
 enum mmdvfs_log_level {
 	log_ipi,
@@ -343,6 +350,12 @@ static inline bool mmdvfs_vcp_ipi_base_get(void)
 		MMDVFS_DBG("pa:%pa iova:%pa va:%#llx offset:%#x",
 			&pa, &mmdvfs_vcp_base, mmdvfs_vcp_ipi_data_base,
 			MMDVFS_VCP_IPI_DATA_OFFSET);
+
+	if (!mmdvfs_aging_enable_base)
+		mmdvfs_aging_enable_base = mmdvfs_vcp_ipi_data_base + MMDVFS_AGING_ENABLE_OFFSET;
+
+	if (!mmdvfs_vb_enable_base)
+		mmdvfs_vb_enable_base = mmdvfs_vcp_ipi_data_base + MMDVFS_VB_ENABLE_OFFSET;
 
 	if (mmdvfs_vcp_ipi_data_base)
 		mmdvfs_vcp_ipi_data_base += MMDVFS_VCP_IPI_DATA_OFFSET;
@@ -726,9 +739,33 @@ static struct kernel_param_ops mmdvfs_vote_step_ops = {
 module_param_cb(vote_step, &mmdvfs_vote_step_ops, NULL, 0644);
 MODULE_PARM_DESC(vote_step, "vote mmdvfs to specified step");
 
+static int mmdvfs_set_vcp_init(void)
+{
+	int ret;
+	struct mmdvfs_ipi_data slot;
+
+	ret = mmdvfs_vcp_ipi_send(FUNT_VMRC_SET_VCP_INIT, MAX_OPP, MAX_OPP, MAX_OPP);
+
+	slot = *(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
+	MMDVFS_DBG("ret:%d slot:%#x ack:%hhu", ret, slot, slot.ack);
+
+	return 0;
+}
+
+static int vcp_ready_notify_callback(struct notifier_block *this,
+	unsigned long event, void *ptr)
+{
+
+	switch (event) {
+	case VCP_EVENT_READY:
+		mmdvfs_set_vcp_init();
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
 static int mmdvfs_set_vmm_init(const char *val, const struct kernel_param *kp)
 {
-	struct mmdvfs_ipi_data slot;
 	int ret;
 	unsigned int bin, aging;
 
@@ -738,14 +775,22 @@ static int mmdvfs_set_vmm_init(const char *val, const struct kernel_param *kp)
 		return -EINVAL;
 	}
 
-	mtk_mmdvfs_enable_vcp(true);
-	ret = mmdvfs_vcp_ipi_send(FUNT_VMRC_SET_VMM_INIT, bin, aging, MAX_OPP);
+	if (!mmdvfs_vb_enable_base) {
+		MMDVFS_ERR("mmdvfs_vb_enable_base is NULL");
+		return ret;
+	}
+
+	if (!mmdvfs_aging_enable_base) {
+		MMDVFS_ERR("mmdvfs_aging_enable_base is NULL");
+		return ret;
+	}
+
+	writel(bin, mmdvfs_vb_enable_base);
+	writel(aging, mmdvfs_aging_enable_base);
 	mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VMM, 0);
 	mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VMM, -1);
-	mtk_mmdvfs_enable_vcp(false);
 
-	slot = *(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
-	MMDVFS_DBG("ret:%d slot:%#x ack:%hhu", ret, slot, slot.ack);
+	MMDVFS_DBG("ret:%d bin:%u aging:%u", ret, bin, aging);
 
 	return ret;
 }
@@ -1086,6 +1131,9 @@ static int mmdvfs_vcp_init_thread(void *data)
 		}
 		ssleep(1);
 	}
+
+	vcp_ready_notifier.notifier_call = vcp_ready_notify_callback;
+	vcp_A_register_notify_ex(&vcp_ready_notifier);
 
 	mmdvfs_init_done = true;
 	MMDVFS_DBG("mmdvfs_init_done:%d", mmdvfs_init_done);
