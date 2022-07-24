@@ -5705,8 +5705,8 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 	sv_buf_entry->buffer.iova = buf_entry->buffer.iova;
 	sv_buf_entry->sv_cq_desc_offset =
 		ipi_msg->ack_data.frame_result.camsv[0].offset;
-	sv_buf_entry->sv_cq_desc_size =
-		ipi_msg->ack_data.frame_result.camsv[0].size;
+	sv_buf_entry->sv_cq_desc_size = (mtk_cam_scen_is_m2m(&scen)) ?
+		0 : ipi_msg->ack_data.frame_result.camsv[0].size;
 
 	if (mtk_cam_scen_is_m2m(&scen)) {
 		/* here do nothing */
@@ -6491,6 +6491,9 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 		 req->flags, req->ctx_link_update, stream_id,
 		 scen_first_req->id);
 
+	/* stop the camsv */
+	mtk_cam_sv_dev_stream_on(ctx, 0);
+
 	/* stop the raw */
 	if (ctx->used_raw_num) {
 #ifdef MTK_CAM_HSF_SUPPORT
@@ -6534,8 +6537,6 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 		}
 	}
 
-	/* stop the camsv */
-	mtk_cam_sv_dev_stream_on(ctx, 0);
 	if (ctx->sv_dev) {
 		for (i = SVTAG_START; i < SVTAG_END; i++) {
 			if (ctx->sv_dev->enabled_tags & (1 << i)) {
