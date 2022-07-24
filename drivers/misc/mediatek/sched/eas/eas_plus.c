@@ -655,6 +655,60 @@ void mtk_hook_after_enqueue_task(void *data, struct rq *rq,
 }
 
 #if IS_ENABLED(CONFIG_UCLAMP_TASK)
+/**
+ * uclamp_rq_util_with - clamp @util with @rq and @p effective uclamp values.
+ * @rq:		The rq to clamp against. Must not be NULL.
+ * @util:	The util value to clamp.
+ * @p:		The task to clamp against. Can be NULL if you want to clamp
+ *		against @rq only.
+ * @min_cap:	uclamp_eff_value(p, UCLAMP_MIN)
+ * @max_cap:	uclamp_eff_value(p, UCLAMP_MAX)
+ *
+ * Clamps the passed @util to the max(@rq, @p) effective uclamp values.
+ *
+ * If sched_uclamp_used static key is disabled, then just return the util
+ * without any clamping since uclamp aggregation at the rq level in the fast
+ * path is disabled, rendering this operation a NOP.
+ *
+ * Use uclamp_eff_value() if you don't care about uclamp values at rq level. It
+ * will return the correct effective uclamp value of the task even if the
+ * static key is disabled.
+ */
+__always_inline
+unsigned long mtk_uclamp_rq_util_with_inirq(struct rq *rq, unsigned long util,
+				  struct task_struct *p,
+				  unsigned long min_cap, unsigned long max_cap)
+{
+	unsigned long min_util;
+	unsigned long max_util;
+
+	if (!static_branch_likely(&sched_uclamp_used))
+		return util;
+
+	min_util = READ_ONCE(rq->uclamp[UCLAMP_MIN].value);
+	max_util = READ_ONCE(rq->uclamp[UCLAMP_MAX].value);
+
+	if (p) {
+		min_util = max(min_util, min_cap);
+#if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
+		max_util = max_cap;
+#else
+		max_util = max(max_util, max_cap);
+#endif
+	}
+
+	/*
+	 * Since CPU's {min,max}_util clamps are MAX aggregated considering
+	 * RUNNABLE tasks with _different_ clamps, we can end up with an
+	 * inversion. Fix it now when the clamps are applied.
+	 */
+	if (unlikely(min_util >= max_util))
+		return min_util;
+
+	return clamp(util, min_util, max_util);
+}
+
+
 /*
  * Verify the fitness of task @p to run on @cpu taking into account the uclamp
  * settings.
@@ -669,10 +723,9 @@ void mtk_hook_after_enqueue_task(void *data, struct rq *rq,
  * Note that uclamp_min will be clamped to uclamp_max if uclamp_min
  * > uclamp_max.
  */
-static inline bool mtk_rt_task_fits_capacity(struct task_struct *p, int cpu)
+static inline bool mtk_rt_task_fits_capacity(struct task_struct *p, int cpu,
+					unsigned long min_cap, unsigned long max_cap)
 {
-	unsigned int min_cap;
-	unsigned int max_cap;
 	unsigned int cpu_cap;
 	unsigned long util;
 	struct rq *rq;
@@ -682,11 +735,9 @@ static inline bool mtk_rt_task_fits_capacity(struct task_struct *p, int cpu)
 		return true;
 
 	rq = cpu_rq(cpu);
-	min_cap = uclamp_eff_value(p, UCLAMP_MIN);
-	max_cap = uclamp_eff_value(p, UCLAMP_MAX);
 	/* refer code from sched.h: effective_cpu_util -> cpu_util_rt */
 	util = cpu_util_rt(rq);
-	util = uclamp_rq_util_with(rq, util, p);
+	util = mtk_uclamp_rq_util_with_inirq(rq, util, p, min_cap, max_cap);
 	cpu_cap = capacity_orig_of(cpu);
 
 	return cpu_cap >= clamp_val(util, min_cap, max_cap);
@@ -696,19 +747,24 @@ static inline bool mtk_rt_task_fits_capacity(struct task_struct *p, int cpu)
 {
 	return true;
 }
+static inline
+unsigned long mtk_uclamp_rq_util_with_inirq(struct rq *rq, unsigned long util,
+				  struct task_struct *p,
+				  unsigned long min_cap, unsigned long max_cap)
+{
+	return util;
+}
 #endif
 
-static inline unsigned int mtk_task_cap(struct task_struct *p, int cpu)
+static inline unsigned int mtk_task_cap(struct task_struct *p, int cpu,
+					unsigned long min_cap, unsigned long max_cap)
 {
-	unsigned int min_cap;
-	unsigned int max_cap;
 	unsigned long util;
 	struct rq *rq;
 
 	rq = cpu_rq(cpu);
-	util = min_cap = uclamp_eff_value(p, UCLAMP_MIN);
-	max_cap = uclamp_eff_value(p, UCLAMP_MAX);
-	util = uclamp_rq_util_with(rq, util, p);
+	util = min_cap;
+	util = mtk_uclamp_rq_util_with_inirq(rq, util, p, min_cap, max_cap);
 
 	return clamp_val(util, min_cap, max_cap);
 }
@@ -742,7 +798,7 @@ unsigned long calc_pwr_eff(int cpu, unsigned long cpu_util)
 	opp = pd_get_util_opp(cpu, map_util_perf(cpu_util));
 	cap = pd_get_opp_capacity(cpu, opp);
 	dyn_pwr_eff = pd_get_util_pwr_eff(cpu, cpu_util);
-	static_pwr_eff = mtk_get_leakage(cpu, opp, get_cpu_temp(cpu)/1000) / cap;
+	static_pwr_eff = mtk_get_leakage(cpu, opp, get_cpu_temp(cpu) >> 10) / cap;
 	pwr_eff = dyn_pwr_eff + static_pwr_eff;
 
 	trace_sched_calc_pwr_eff(cpu, cpu_util, opp, cap, dyn_pwr_eff, static_pwr_eff, pwr_eff);
@@ -772,6 +828,8 @@ void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 	int best_idle_cpu = -1;
 	unsigned long pwr_eff = ULONG_MAX;
 	unsigned long this_pwr_eff = ULONG_MAX;
+	unsigned long min_cap;
+	unsigned long max_cap;
 
 	*target_cpu = -1;
 	/* For anything but wake ups, just return the task_cpu */
@@ -792,6 +850,9 @@ void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 		goto unlock;
 	}
 
+	min_cap = uclamp_eff_value(p, UCLAMP_MIN);
+	max_cap = uclamp_eff_value(p, UCLAMP_MAX);
+
 	for (; pd; pd = pd->next) {
 		for_each_cpu_and(cpu, perf_domain_span(pd), cpu_active_mask) {
 			if (!cpumask_test_cpu(cpu, p->cpus_ptr))
@@ -800,11 +861,11 @@ void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 			if (cpu_paused(cpu))
 				continue;
 
-			if (!mtk_rt_task_fits_capacity(p, cpu))
+			if (!mtk_rt_task_fits_capacity(p, cpu, min_cap, max_cap))
 				continue;
 
 			if (idle_cpu(cpu)) {
-				cpu_util = mtk_task_cap(p, cpu);
+				cpu_util = mtk_task_cap(p, cpu, min_cap, max_cap);
 				this_pwr_eff = calc_pwr_eff(cpu, cpu_util);
 
 				trace_sched_aware_energy_rt(cpu, this_pwr_eff, pwr_eff, cpu_util);
