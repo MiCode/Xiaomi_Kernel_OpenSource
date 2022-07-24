@@ -13164,7 +13164,11 @@
 				"aud_gpio_i2s8_off",
 				"aud_gpio_i2s8_on",
 				"aud_gpio_i2s9_off",
-				"aud_gpio_i2s9_on";
+				"aud_gpio_i2s9_on",
+				"aud-gpio-tdmin-off",
+				"aud-gpio-etdmin-on",
+				"aud-gpio-etdmout-off",
+				"aud-gpio-etdmout-on";
 		pinctrl-0 = <&aud_clk_mosi_off>;
 		pinctrl-1 = <&aud_clk_mosi_on>;
 		pinctrl-2 = <&aud_dat_mosi_off>;
@@ -13187,6 +13191,15 @@
 		pinctrl-19 = <&aud_gpio_i2s8_on>;
 		pinctrl-20 = <&aud_gpio_i2s9_off>;
 		pinctrl-21 = <&aud_gpio_i2s9_on>;
+		pinctrl-22 = <&aud_gpio_etdmin_off>;
+		pinctrl-23 = <&aud_gpio_etdmin_on>;
+		pinctrl-24 = <&aud_gpio_etdmout_off>;
+		pinctrl-25 = <&aud_gpio_etdmout_on>;
+
+		etdm-out-ch = <2>;
+		etdm-in-ch = <2>;
+		etdm-out-sync = <0>; /* 0: disable; 1: enable */
+		etdm-in-sync = <1>; /* 0: disable; 1: enable */
 	};
 
 	snd_scp_ultra: snd-scp-ultra {
@@ -15999,6 +16012,74 @@ l3_hit,l3_mis,pmu_cyc_cnt";
 		};
 		pins_cmd3_dat {
 			pinmux = <PINMUX_GPIO237__FUNC_I2S9_DO>;
+			input-schmitt-enable;
+			bias-disable;
+		};
+	};
+	aud_gpio_etdmin_off: aud-gpio-etdmin-off {
+		pins-cmd1-dat {
+			pinmux = <PINMUX_GPIO155__FUNC_GPIO155>;
+			input-enable;
+			bias-pull-down;
+		};
+		pins-cmd2-dat {
+			pinmux = <PINMUX_GPIO156__FUNC_GPIO156>;
+			input-enable;
+			bias-pull-down;
+		};
+	};
+	aud_gpio_etdmin_on: aud-gpio-etdmin-on {
+		pins-cmd1-dat {
+			pinmux = <PINMUX_GPIO155__FUNC_TDMIN1_DATA2>;
+			input-schmitt-enable;
+			bias-disable;
+		};
+		pins-cmd2-dat {
+			pinmux = <PINMUX_GPIO156__FUNC_TDMIN1_DATA3>;
+			input-schmitt-enable;
+			bias-disable;
+		};
+	};
+	aud_gpio_etdmout_off: aud-gpio-etdmout-off {
+		pins-cmd1-dat {
+			pinmux = <PINMUX_GPIO143__FUNC_GPIO143>;
+			input-enable;
+			bias-pull-down;
+		};
+		pins-cmd2-dat {
+			pinmux = <PINMUX_GPIO144__FUNC_GPIO144>;
+			input-enable;
+			bias-pull-down;
+		};
+		pins-cmd3-dat {
+			pinmux = <PINMUX_GPIO148__FUNC_GPIO148>;
+			input-enable;
+			bias-pull-down;
+		};
+		pins-cmd4-dat {
+			pinmux = <PINMUX_GPIO149__FUNC_GPIO149>;
+			input-enable;
+			bias-pull-down;
+		};
+	};
+	aud_gpio_etdmout_on: aud-gpio-etdmout-on {
+		pins-cmd1-dat {
+			pinmux = <PINMUX_GPIO143__FUNC_TDMOUT1_LRCK>;
+			input-schmitt-enable;
+			bias-disable;
+		};
+		pins-cmd2-dat {
+			pinmux = <PINMUX_GPIO144__FUNC_TDMOUT1_BCK>;
+			input-schmitt-enable;
+			bias-disable;
+		};
+		pins-cmd3-dat {
+			pinmux = <PINMUX_GPIO146__FUNC_TDMOUT1_DATA0>;
+			input-schmitt-enable;
+			bias-disable;
+		};
+		pins-cmd4-dat {
+			pinmux = <PINMUX_GPIO147__FUNC_TDMOUT1_DATA1>;
 			input-schmitt-enable;
 			bias-disable;
 		};
