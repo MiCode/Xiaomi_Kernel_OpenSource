@@ -179,7 +179,7 @@ static void mtk_cam_power_on_ccu(struct mtk_cam_hsf_ctrl *handle_inst, unsigned 
 }
 #endif
 
-void ccu_stream_on(struct mtk_raw_device *dev)
+void ccu_stream_on(struct mtk_raw_device *dev, int on)
 {
 	int ret = 0;
 	struct mtk_cam_ctx *ctx;
@@ -194,6 +194,7 @@ void ccu_stream_on(struct mtk_raw_device *dev)
 	ms_0 = time.tv_sec + time.tv_usec;
 #endif
 	pData.tg_idx = dev->id;
+	pData.vf_en = on;
 	ctx = mtk_cam_find_ctx(dev->cam, &dev->pipeline->subdev.entity);
 
 	if (ctx == NULL) {
@@ -228,9 +229,9 @@ void ccu_stream_on(struct mtk_raw_device *dev)
 #endif
 
 	if (ret != 0)
-		pr_info("error: %s fail%d\n", __func__, pData.tg_idx);
+		pr_info("%s TG(%d) VF(%d) fail\n", __func__, pData.tg_idx, on);
 	else
-		pr_info("%s success\n", __func__, pData.tg_idx);
+		pr_info("%s TG(%d) VF(%d) success\n", __func__, pData.tg_idx, on);
 }
 
 void ccu_hsf_config(struct mtk_cam_ctx *ctx, unsigned int En)
@@ -582,6 +583,10 @@ int mtk_cam_hsf_uninit(struct mtk_cam_ctx *ctx)
 	kfree(hsf_config->cq_buf);
 	kfree(hsf_config->chk_buf);
 	kfree(ctx->hsf);
+
+	ctx->pipe->res_config.enable_hsf_raw = 0;
+	dev_info(cam->dev, "enable_hsf_raw:%d\n", ctx->pipe->res_config.enable_hsf_raw);
+
 	return 0;
 }
 

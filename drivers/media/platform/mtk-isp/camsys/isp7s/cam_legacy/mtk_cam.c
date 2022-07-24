@@ -8867,16 +8867,6 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	}
 
 	if (ctx->used_raw_num) {
-#ifdef MTK_CAM_HSF_SUPPORT
-		if (mtk_cam_is_hsf(ctx)) {
-			ret = mtk_cam_hsf_uninit(ctx);
-			if (ret != 0) {
-				dev_info(cam->dev, "failed to stream off %s:%d mtk_cam_hsf_uninit fail\n",
-					 ctx->seninf->name, ret);
-				return -EPERM;
-			}
-		}
-#endif
 		dev = mtk_cam_find_raw_dev(cam, ctx->used_raw_dev);
 		if (!dev) {
 			dev_info(cam->dev, "streamoff raw device not found\n");
@@ -8888,6 +8878,17 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 				stream_on(raw_dev, 0);
 		} else {
 			stream_on(raw_dev, 0);
+#ifdef MTK_CAM_HSF_SUPPORT
+			if (mtk_cam_is_hsf(ctx)) {
+				ret = mtk_cam_hsf_uninit(ctx);
+				if (ret != 0) {
+					dev_info(cam->dev, "failed to stream off %s:%d mtk_cam_hsf_uninit fail\n",
+						ctx->seninf->name, ret);
+					return -EPERM;
+				}
+			}
+#endif
+
 		}
 		/* Twin */
 		if (ctx->pipe->res_config.raw_num_used != 1) {

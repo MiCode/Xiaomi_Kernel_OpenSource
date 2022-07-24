@@ -2244,7 +2244,7 @@ void stream_on(struct mtk_raw_device *dev, int on)
 			}
 #ifdef MTK_CAM_HSF_SUPPORT
 		} else {
-			ccu_stream_on(dev);
+			ccu_stream_on(dev, on);
 		}
 #else
 		}
@@ -2259,34 +2259,41 @@ void stream_on(struct mtk_raw_device *dev, int on)
 			readl_relaxed(dev->base + REG_SCQ_START_PERIOD));
 	} else {
 		atomic_set(&dev->vf_en, 0);
+		if (!pipe->res_config.enable_hsf_raw) {
+			writel_relaxed(~CQ_THR0_EN, dev->base + REG_CQ_THR0_CTL);
+			wmb(); /* TBC */
 
-		writel_relaxed(~CQ_THR0_EN, dev->base + REG_CQ_THR0_CTL);
-		wmb(); /* TBC */
+			cfg_val = readl_relaxed(dev->base + REG_TG_PATH_CFG);
+			cfg_val |= 0x100;
+			writel(cfg_val, dev->base + REG_TG_PATH_CFG);
 
-		cfg_val = readl_relaxed(dev->base + REG_TG_PATH_CFG);
-		cfg_val |= 0x100;
-		writel(cfg_val, dev->base + REG_TG_PATH_CFG);
+			enable_tg_db(dev, 0);
+			val = readl_relaxed(dev->base + REG_TG_VF_CON);
+			val &= ~TG_VFDATA_EN;
+			writel(val, dev->base + REG_TG_VF_CON);
 
-		enable_tg_db(dev, 0);
-		val = readl_relaxed(dev->base + REG_TG_VF_CON);
-		val &= ~TG_VFDATA_EN;
-		writel(val, dev->base + REG_TG_VF_CON);
+			cfg_val = readl_relaxed(dev->base + REG_TG_PATH_CFG);
+			cfg_val &= ~0x100;
+			writel(cfg_val, dev->base + REG_TG_PATH_CFG);
 
-		cfg_val = readl_relaxed(dev->base + REG_TG_PATH_CFG);
-		cfg_val &= ~0x100;
-		writel(cfg_val, dev->base + REG_TG_PATH_CFG);
+			//writel_relaxed(val, dev->base_inner + REG_CTL_EN);
+			//writel_relaxed(val, dev->base_inner + REG_CTL_EN2);
 
-		//writel_relaxed(val, dev->base_inner + REG_CTL_EN);
-		//writel_relaxed(val, dev->base_inner + REG_CTL_EN2);
+			wmb(); /* make sure committed */
 
-		wmb(); /* make sure committed */
-
-		dev_info(dev->dev,
-			"%s VF off, TG_VF_CON outer:0x%8x inner:0x%8x\n",
-			__func__, readl_relaxed(dev->base + REG_TG_VF_CON),
+			dev_info(dev->dev,
+				"%s VF off, TG_VF_CON outer:0x%8x inner:0x%8x\n",
+				__func__, readl_relaxed(dev->base + REG_TG_VF_CON),
 			readl_relaxed(dev->base_inner + REG_TG_VF_CON));
 
-		reset_reg(dev);
+			reset_reg(dev);
+#ifdef MTK_CAM_HSF_SUPPORT
+		} else {
+			ccu_stream_on(dev, on);
+		}
+#else
+		}
+#endif
 	}
 }
 
