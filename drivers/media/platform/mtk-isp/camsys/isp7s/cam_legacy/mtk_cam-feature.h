@@ -231,6 +231,7 @@ static inline bool mtk_cam_scen_is_hdr(struct mtk_cam_scen *scen)
 static inline bool mtk_cam_scen_is_switchable_hdr(struct mtk_cam_scen *scen)
 {
 	return mtk_cam_scen_is_mstream(scen) ||
+	       mtk_cam_scen_is_mstream_m2m(scen) ||
 	       mtk_cam_scen_is_sensor_stagger(scen);
 }
 
