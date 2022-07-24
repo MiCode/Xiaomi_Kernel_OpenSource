@@ -1149,7 +1149,7 @@ void ccci_log_init(void)
 {
 	struct proc_dir_entry *ccci_log_proc;
 
-	ccci_log_proc = proc_create("ccci_log", 0444, NULL, &ccci_log_fops);
+	ccci_log_proc = proc_create("ccci_log", 0440, NULL, &ccci_log_fops);
 	if (ccci_log_proc == NULL) {
 		pr_notice("[ccci0/util]fail to create proc entry for log\n");
 		return;
