@@ -428,6 +428,13 @@ static int mtk_uart_apdma_alloc_chan_resources(struct dma_chan *chan)
 		goto err_pm;
 	}
 
+	ret = enable_irq_wake(c->irq);
+	if (ret) {
+		dev_info(chan->device->dev, "Can't enable dma IRQ wake\n");
+		ret = -EINVAL;
+		goto err_pm;
+	}
+
 	if (mtkd->support_bits > VFF_ORI_ADDR_BITS_NUM)
 		mtk_uart_apdma_write(c, VFF_4G_SUPPORT, VFF_4G_SUPPORT_CLR_B);
 
