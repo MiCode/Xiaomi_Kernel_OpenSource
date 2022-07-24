@@ -1700,24 +1700,32 @@ static void check_buffer_mem_saving(
 		const struct v4l2_format *vfmt,
 		int rawi_port_num)
 {
-	if (s_data->feature.scen && mtk_cam_scen_is_hdr_save_mem(s_data->feature.scen)) {
-		if (rawi_port_num == 2 || rawi_port_num == 1) {
-			__u64 rawi_r2_iova = s_data->frame_params.img_ins[0].buf[0].iova;
+	// Note: stagger/mstream use RAWI_R2 as first exp
+	// the iova top of imgo buffer is set to first exp
+	// change if needed
+	bool is_imgo_buf_top =
+		in_fmt->uid.id == MTKCAM_IPI_RAW_RAWI_2;
+
+	if (s_data->feature.scen &&
+		mtk_cam_scen_is_hdr_save_mem(s_data->feature.scen)) {
+		if (is_imgo_buf_top) {
+			__u64 imgo_iova_top = s_data->frame_params.img_ins[
+				in_fmt->uid.id - MTKCAM_IPI_RAW_RAWI_2].buf[0].iova;
+
 			/*raw's imgo using buf from user*/
-			s_data->frame_params.img_outs[0].buf[0][0].iova =
-				rawi_r2_iova;
+			s_data->frame_params.img_outs[0].buf[0][0].iova = imgo_iova_top;
 
 			if (mtk_cam_scen_is_rgbw_enabled(s_data->feature.scen)) {
 				s_data->frame_params.img_outs[
-					MTK_CAM_IMGO_W_IMG_OUT_IDX].buf[0][0].iova = rawi_r2_iova +
+					MTK_CAM_IMGO_W_IMG_OUT_IDX].buf[0][0].iova = imgo_iova_top +
 						vfmt->fmt.pix_mp.plane_fmt[0].sizeimage;
 			}
-
-			/*sv's imgo using img pool buf*/
-			in_fmt->buf[0].iova = 0x0;
 		}
-		dev_dbg(s_data->ctx->cam->dev, "%s: req:%d, rawi_num:%d\n",
-			__func__, s_data->frame_seq_no, rawi_port_num);
+
+		/* use img working buf */
+		in_fmt->buf[0].iova = 0x0;
+		dev_dbg(s_data->ctx->cam->dev, "%s: req:%d, ipi video id:%d\n",
+			__func__, s_data->frame_seq_no, in_fmt->uid.id);
 	}
 }
 
