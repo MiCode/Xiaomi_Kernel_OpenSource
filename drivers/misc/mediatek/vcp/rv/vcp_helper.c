@@ -300,7 +300,7 @@ static int vcp_ipi_dbg_resume_noirq(struct device *dev)
 	bool state = false;
 
 	if (mmup_enable_count() == 0)
-		return -1;
+		return 0;
 
 	for (i = 0; i < IRQ_NUMBER; i++) {
 		ret = irq_get_irqchip_state(vcp_ipi_irqs[i].irq_no,
@@ -769,7 +769,7 @@ uint32_t vcp_wait_ready_sync(enum feature_id id)
 				if (feature_table[j].enable)
 					pr_info("[VCP] Active feature id %d cnt\n",
 						j, feature_table[j].enable);
-			mtk_smi_dbg_hang_detect("VCP");
+			/* mtk_smi_dbg_hang_detect("VCP"); */
 			if (vcp_ee_enable)
 				vcp_aee_print("wait ready timeout id %d\n", id);
 			else

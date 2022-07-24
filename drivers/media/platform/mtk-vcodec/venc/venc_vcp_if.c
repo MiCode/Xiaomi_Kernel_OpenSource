@@ -130,7 +130,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 		timeout++;
 		if (timeout > VCP_SYNC_TIMEOUT_MS) {
 			mtk_vcodec_err(inst, "VCP_A_ID not ready");
-			mtk_smi_dbg_hang_detect("VENC VCP");
+			/* mtk_smi_dbg_hang_detect("VENC VCP"); */
 #if IS_ENABLED(CONFIG_MTK_EMI)
 			mtk_emidbg_dump();
 #endif
@@ -934,10 +934,6 @@ int vcp_enc_encode(struct venc_inst *inst, unsigned int bs_mode,
 	if (ret) {
 		mtk_vcodec_err(inst, "AP_IPIMSG_ENC_ENCODE %d fail %d",
 					   bs_mode, ret);
-		mtk_smi_dbg_hang_detect("VENC VCP");
-#if IS_ENABLED(CONFIG_MTK_EMI)
-		mtk_emidbg_dump();
-#endif
 		return ret;
 	}
 
