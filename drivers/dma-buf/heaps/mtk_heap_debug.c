@@ -1095,8 +1095,8 @@ struct dump_fd_data *dmabuf_rbtree_add_all(struct dma_heap *heap,
 	fddata->dmabuf_root = RB_ROOT;
 	spin_lock_init(&fddata->splock);
 
-	get_each_dmabuf(dmabuf_rbtree_dbg_add_cb, fddata);
 	if (pid > 0) {
+		get_each_dmabuf(dmabuf_rbtree_dbg_add_cb, fddata);
 		dmabuf_rbtree_add_all_pid(fddata, heap, s, pid);
 		return fddata;
 	}
@@ -1108,7 +1108,9 @@ struct dump_fd_data *dmabuf_rbtree_add_all(struct dma_heap *heap,
 
 	if (pid_max <= 0) {
 		rcu_read_unlock();
-		return fddata;
+		kfree(fddata);
+		dmabuf_dump(s, "%s: pid not found\n", __func__);
+		return ERR_PTR(-EINVAL);
 	}
 	pids = kcalloc(pid_max, sizeof(*pids), DMA_HEAP_DUMP_ALLOC_GFP);
 	if (!pids) {
@@ -1132,6 +1134,7 @@ struct dump_fd_data *dmabuf_rbtree_add_all(struct dma_heap *heap,
 		dmabuf_dump(s, "%s: time:%lu max:%d count:%d\n", __func__,
 			    cur_ts2 - cur_ts1, pid_max, pid_count);
 
+	get_each_dmabuf(dmabuf_rbtree_dbg_add_cb, fddata);
 	while (pid_count) {
 		dmabuf_rbtree_add_all_pid(fddata, heap, s, pids[pid_count-1]);
 		pid_count--;
@@ -1277,10 +1280,8 @@ void dmabuf_rbtree_dump_all(struct dma_heap *heap, unsigned long flag,
 	time1 = get_current_time_ms();
 
 	fddata = dmabuf_rbtree_add_all(heap, s, pid);
-	if (IS_ERR_OR_NULL(fddata)) {
-		dmabuf_dump(s, "[%s]err: no memory\n", __func__);
+	if (IS_ERR_OR_NULL(fddata))
 		return;
-	}
 
 	time2 = get_current_time_ms();
 
