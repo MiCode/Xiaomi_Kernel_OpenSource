@@ -676,6 +676,11 @@ static inline void prepare_a2d_v2(struct emi_cen *cen)
 	emi_chn_conc = readl(emi_chn_base + emi_a2d_chn_con_offset[1]);
 	emi_chn_conc_2nd = readl(emi_chn_base + emi_a2d_chn_con_offset[2]);
 
+	pr_info("a2d_cen: 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
+			emi_cona, emi_conf, emi_conh, emi_conh_2nd, emi_conk, emi_scrm_ext);
+	pr_info("a2d_chn: 0x%x, 0x%x, 0x%x\n",
+			emi_chn_cona, emi_chn_conc, emi_chn_conc_2nd);
+
 	tmp = (emi_cona >> EMI_CONA_CHN_POS_0) & mask_2b;
 	switch (tmp) {
 	case 3:
@@ -1094,7 +1099,7 @@ static int mtk_emicen_addr2dram_v2(unsigned long addr,
 	}
 
 	if (!s6s->rank_pos) {
-		noraddr = saddr - (s6s->rank0_size_MB << 20);
+		noraddr = (map->rank) ? (saddr - (s6s->rank0_size_MB << 20)) : saddr;
 	} else {
 		tmp = 1 + s6s->dw32_en;
 		tmp += (map->rank) ?
