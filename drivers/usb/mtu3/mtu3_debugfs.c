@@ -25,6 +25,13 @@
 	.offset = os,		\
 }
 
+static bool mtu3_is_usb_off(struct ssusb_mtk *ssusb)
+{
+	struct otg_switch_mtk *otg_sx = &ssusb->otg_switch;
+
+	return (otg_sx->current_role == USB_ROLE_NONE);
+}
+
 static const struct debugfs_reg32 mtu3_ippc_regs[] = {
 	dump_register(SSUSB_IP_PW_CTRL0),
 	dump_register(SSUSB_IP_PW_CTRL1),
@@ -81,6 +88,9 @@ static int mtu3_link_state_show(struct seq_file *sf, void *unused)
 	struct mtu3 *mtu = sf->private;
 	void __iomem *mbase = mtu->mac_base;
 
+	if (mtu3_is_usb_off(mtu->ssusb))
+		return -ESHUTDOWN;
+
 	seq_printf(sf, "opstate: %#x, ltssm: %#x\n",
 		   mtu3_readl(mbase, U3D_USB20_OPSTATE),
 		   LTSSM_STATE(mtu3_readl(mbase, U3D_LINK_STATE_MACHINE)));
@@ -95,6 +105,9 @@ static int mtu3_ep_used_show(struct seq_file *sf, void *unused)
 	unsigned long flags;
 	int used = 0;
 	int i;
+
+	if (mtu3_is_usb_off(mtu->ssusb))
+		return -ESHUTDOWN;
 
 	spin_lock_irqsave(&mtu->lock, flags);
 
@@ -121,6 +134,52 @@ static int mtu3_ep_used_show(struct seq_file *sf, void *unused)
 DEFINE_SHOW_ATTRIBUTE(mtu3_link_state);
 DEFINE_SHOW_ATTRIBUTE(mtu3_ep_used);
 
+static void mtu3_debugfs_print_regs32(struct seq_file *s,
+	  const struct debugfs_reg32 *regs,
+	  int nregs, void __iomem *base, char *prefix)
+{
+	int i;
+
+	for (i = 0; i < nregs; i++, regs++) {
+		if (prefix)
+			seq_printf(s, "%s", prefix);
+		seq_printf(s, "%s = 0x%08x\n", regs->name,
+			   readl(base + regs->offset));
+		if (seq_has_overflowed(s))
+			break;
+	}
+}
+
+static int mtu3_debugfs_show_regset32(struct seq_file *s, void *data)
+{
+	struct debugfs_regset32 *regset = s->private;
+	struct ssusb_mtk *ssusb = dev_get_drvdata(regset->dev);
+
+	if (mtu3_is_usb_off(ssusb))
+		return -ESHUTDOWN;
+
+	pm_runtime_get_sync(regset->dev);
+
+	mtu3_debugfs_print_regs32(s, regset->regs,
+		regset->nregs, regset->base, "");
+
+	pm_runtime_put(regset->dev);
+
+	return 0;
+}
+
+static int mtu3_debugfs_open_regset32(struct inode *inode, struct file *file)
+{
+	return single_open(file, mtu3_debugfs_show_regset32, inode->i_private);
+}
+
+static const struct file_operations mtu3_fops_regset32 = {
+	.open =		mtu3_debugfs_open_regset32,
+	.read =		seq_read,
+	.llseek =	seq_lseek,
+	.release =	single_release,
+};
+
 static void mtu3_debugfs_regset(struct mtu3 *mtu, void __iomem *base,
 				const struct debugfs_reg32 *regs, size_t nregs,
 				const char *name, struct dentry *parent)
@@ -134,11 +193,13 @@ static void mtu3_debugfs_regset(struct mtu3 *mtu, void __iomem *base,
 
 	sprintf(mregs->name, "%s", name);
 	regset = &mregs->regset;
+	regset->dev = mtu->dev;
 	regset->regs = regs;
 	regset->nregs = nregs;
 	regset->base = base;
 
-	debugfs_create_regset32(mregs->name, 0444, parent, regset);
+
+	debugfs_create_file(mregs->name, 0444, parent, regset, &mtu3_fops_regset32);
 }
 
 static void mtu3_debugfs_ep_regset(struct mtu3 *mtu, struct mtu3_ep *mep,
@@ -176,6 +237,9 @@ static int mtu3_ep_info_show(struct seq_file *sf, void *unused)
 	struct mtu3 *mtu = mep->mtu;
 	unsigned long flags;
 
+	if (mtu3_is_usb_off(mtu->ssusb))
+		return -ESHUTDOWN;
+
 	spin_lock_irqsave(&mtu->lock, flags);
 	seq_printf(sf, "ep - type:%d, maxp:%d, slot:%d, flags:%x\n",
 		   mep->type, mep->maxp, mep->slot, mep->flags);
@@ -189,6 +253,9 @@ static int mtu3_fifo_show(struct seq_file *sf, void *unused)
 	struct mtu3_ep *mep = sf->private;
 	struct mtu3 *mtu = mep->mtu;
 	unsigned long flags;
+
+	if (mtu3_is_usb_off(mtu->ssusb))
+		return -ESHUTDOWN;
 
 	spin_lock_irqsave(&mtu->lock, flags);
 	seq_printf(sf, "fifo - seg_size:%d, addr:%d, size:%d\n",
@@ -204,6 +271,9 @@ static int mtu3_qmu_ring_show(struct seq_file *sf, void *unused)
 	struct mtu3 *mtu = mep->mtu;
 	struct mtu3_gpd_ring *ring;
 	unsigned long flags;
+
+	if (mtu3_is_usb_off(mtu->ssusb))
+		return -ESHUTDOWN;
 
 	ring = &mep->gpd_ring;
 	spin_lock_irqsave(&mtu->lock, flags);
@@ -225,6 +295,9 @@ static int mtu3_qmu_gpd_show(struct seq_file *sf, void *unused)
 	dma_addr_t dma;
 	unsigned long flags;
 	int i;
+
+	if (mtu3_is_usb_off(mtu->ssusb))
+		return -ESHUTDOWN;
 
 	spin_lock_irqsave(&mtu->lock, flags);
 	ring = &mep->gpd_ring;
@@ -293,6 +366,9 @@ static int mtu3_probe_show(struct seq_file *sf, void *unused)
 	const struct debugfs_reg32 *regs;
 	int i;
 
+	if (mtu3_is_usb_off(mtu->ssusb))
+		return -ESHUTDOWN;
+
 	for (i = 0; i < ARRAY_SIZE(mtu3_prb_regs); i++) {
 		regs = &mtu3_prb_regs[i];
 
@@ -321,6 +397,9 @@ static ssize_t mtu3_probe_write(struct file *file, const char __user *ubuf,
 	char buf[32];
 	u32 val;
 	int i;
+
+	if (mtu3_is_usb_off(mtu->ssusb))
+		return -ESHUTDOWN;
 
 	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
 		return -EFAULT;
