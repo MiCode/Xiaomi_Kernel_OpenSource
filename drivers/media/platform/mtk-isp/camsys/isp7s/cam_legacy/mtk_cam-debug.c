@@ -542,6 +542,12 @@ static ssize_t dbg_ctrl_write(struct file *file, const char __user *data,
 
 	if (cmd_str[0] == 'r') {
 		param_str_1 = strsep(&parse_str, ":");
+		if (!param_str_1) {
+			dev_info(ctrl->debug_fs->cam->dev,
+				"%s: parse param_str_1 failed\n", __func__);
+			goto FAIL;
+		}
+
 		if (kstrtoul(param_str_1, 10, &seq)) {
 			ret = -EFAULT;
 			dev_dbg(ctrl->debug_fs->cam->dev, "kstrtoul failed:%s\n",
@@ -658,15 +664,21 @@ static ssize_t exp_read(struct file *file, char __user *user_buf,
 		pr_debug("%s: dev can't be null\n", __func__);
 
 	cam = (struct mtk_cam_device *)dev_get_drvdata(dev);
-	if (!cam)
+	if (!cam) {
 		dev_dbg(dev, "%s: cam can't be null\n", __func__);
+		return 0;
+	}
 
 	debug_fs = cam->debug_fs;
-	if (!debug_fs)
+	if (!debug_fs) {
 		dev_dbg(dev, "%s: debug_fs can't be null\n", __func__);
+		return 0;
+	}
 
-	if (!debug_fs->exp_dump_buf)
+	if (!debug_fs->exp_dump_buf) {
 		dev_dbg(dev, "%s: dump buf can't be null\n", __func__);
+		return 0;
+	}
 
 	/* If no dump, return 0 byte read directly */
 	if (!mtk_cam_debug_has_exp_dump(debug_fs))
@@ -754,7 +766,7 @@ static int mtk_cam_debug_init(struct mtk_cam_debug_fs *debug_fs,
 {
 	struct mtk_cam_dump_buf_ctrl *ctrl;
 	void *exp_dump_buf;
-	int dump_mem_size, i;
+	int dump_mem_size, i, ret;
 
 	dump_mem_size = content_size + sizeof(struct mtk_cam_dump_header);
 	debug_fs->cam = cam;
@@ -787,7 +799,13 @@ static int mtk_cam_debug_init(struct mtk_cam_debug_fs *debug_fs,
 		atomic_set(&ctrl->dump_state, CAMSYS_DUMP_SATATE_INIT);
 		mutex_init(&ctrl->ctrl_lock);
 
-		snprintf(name, 4, "%d", i);
+		ret = snprintf(name, 4, "%d", i);
+		if (ret < 0) {
+			dev_info(cam->dev,
+				 "debug dir name error:%d\n", i);
+			return -ENOMEM;
+		}
+
 		ctrl->dir_entry = debugfs_create_dir(name, debug_fs->dbg_entry);
 		if (!ctrl->dir_entry) {
 			dev_info(cam->dev,
@@ -893,10 +911,24 @@ static void mtk_cam_exception_work(struct work_struct *work)
 	}
 
 	ctx->cam->debug_fs->ops->exp_dump(ctx->cam->debug_fs, &dump_param);
-	snprintf(title_desc, 48, "Camsys:%s", dbg_work->desc);
-	snprintf(warn_desc, 48, "%s:ctx(%d):req(%d):%s",
+	ret = snprintf(title_desc, 48, "Camsys:%s", dbg_work->desc);
+	if (ret < 0) {
+		dev_info(ctx->cam->dev, "%s:camsys dump title desc error\n",
+			__func__);
+		atomic_set(&dbg_work->state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
+		return;
+	}
+
+	ret = snprintf(warn_desc, 48, "%s:ctx(%d):req(%d):%s",
 		 req->req.debug_str, ctx->stream_id, s_data->frame_seq_no,
 		 dbg_work->desc);
+	if (ret < 0) {
+		dev_info(ctx->cam->dev, "%s:camsys dump warn desc error\n",
+			__func__);
+		atomic_set(&dbg_work->state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
+		return;
+	}
+
 	dev_info(ctx->cam->dev, "%s:camsys dump, %s\n",
 		 __func__, warn_desc);
 
@@ -1010,6 +1042,7 @@ int mtk_cam_req_dump(struct mtk_cam_request_stream_data *s_data,
 	struct mtk_cam_req_dbg_work *dbg_work;
 	void (*work_func)(struct work_struct *work);
 	struct workqueue_struct *wq;
+	int ret;
 
 	if (!ctx->cam->debug_fs)
 		return false;
@@ -1050,7 +1083,14 @@ int mtk_cam_req_dump(struct mtk_cam_request_stream_data *s_data,
 	dbg_work->dump_flags = dump_flag;
 	dbg_work->smi_dump = smi_dump;
 	atomic_set(&dbg_work->state, MTK_CAM_REQ_DBGWORK_S_PREPARED);
-	snprintf(dbg_work->desc, MTK_CAM_DEBUG_DUMP_DESC_SIZE - 1, desc);
+	ret = snprintf(dbg_work->desc, MTK_CAM_DEBUG_DUMP_DESC_SIZE - 1, desc);
+	if (ret < 0) {
+		dev_info(ctx->cam->dev,
+			"%s: seq(%d) failed, debug dump desc error\n",
+			__func__, s_data->frame_seq_no);
+		return false;
+	}
+
 	if (!queue_work(wq, &dbg_work->work)) {
 		dev_dbg(ctx->cam->dev,
 			"%s: seq(%d) failed, debug work is already in queue\n",
@@ -1211,6 +1251,9 @@ mtk_cam_debug_seninf_dump(struct mtk_cam_request_stream_data *s_data)
 	}
 
 	dump_work = kmalloc(sizeof(*dump_work), GFP_ATOMIC);
+	if (!dump_work)
+		return;
+
 	dump_work->seninf = ctx->seninf;
 	dump_work->frame_seq_no = s_data->frame_seq_no;
 	INIT_WORK(&dump_work->work, mtk_cam_req_seninf_dump_work);
