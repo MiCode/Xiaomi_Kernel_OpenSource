@@ -400,6 +400,8 @@ static void cat_register(char *buf)
 			idx+1, pmic_read(idx+1),
 			idx+2, pmic_read(idx+2),
 			idx+3, pmic_read(idx+3));
+		if (ret < 0)
+			pr_notice("sprintf failed\n");
 		strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 	}
 

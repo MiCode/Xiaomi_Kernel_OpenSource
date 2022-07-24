@@ -362,12 +362,16 @@ static void cat_register(char *buf)
 
 	ret = sprintf(accdet_log_buf, "[Accdet EINTx support][MODE_%d]regs:\n",
 		accdet_dts.mic_mode);
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	dump_reg = true;
 	dump_register();
 	dump_reg = false;
 	ret = sprintf(accdet_log_buf, "ACCDET_RG\n");
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 	st_addr = ACCDET_AUXADC_SEL_ADDR;
 	end_addr = ACCDET_MON_FLAG_EN_ADDR;
@@ -379,9 +383,13 @@ static void cat_register(char *buf)
 			idx+2, accdet_read(idx+2),
 			idx+4, accdet_read(idx+4),
 			idx+6, accdet_read(idx+6));
+		if (ret < 0)
+			pr_notice("sprintf failed\n");
 		strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 	}
 	ret = sprintf(accdet_log_buf, "AUDDEC_ANA_RG\n");
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 	st_addr = RG_AUDPREAMPLON_ADDR;
 	end_addr = RG_CLKSQ_EN_ADDR;
@@ -393,17 +401,23 @@ static void cat_register(char *buf)
 			idx+2, accdet_read(idx+2),
 			idx+4, accdet_read(idx+4),
 			idx+6, accdet_read(idx+6));
+			if (ret < 0)
+				pr_notice("sprintf failed\n");
 		strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 	}
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x\n",
 		RG_SCK32K_CK_PDN_ADDR,
 		accdet_read(RG_SCK32K_CK_PDN_ADDR));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x\n",
 		RG_ACCDET_RST_ADDR,
 		accdet_read(RG_ACCDET_RST_ADDR));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x, [0x%x]=0x%x, [0x%x]=0x%x\n",
@@ -413,6 +427,8 @@ static void cat_register(char *buf)
 		accdet_read(RG_INT_MASK_ACCDET_ADDR),
 		RG_INT_STATUS_ACCDET_ADDR,
 		accdet_read(RG_INT_STATUS_ACCDET_ADDR));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x,[0x%x]=0x%x\n",
@@ -420,6 +436,8 @@ static void cat_register(char *buf)
 		accdet_read(RG_AUDPWDBMICBIAS1_ADDR),
 		RG_AUDACCDETMICBIAS0PULLLOW_ADDR,
 		accdet_read(RG_AUDACCDETMICBIAS0PULLLOW_ADDR));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x, [0x%x]=0x%x\n",
@@ -427,6 +445,8 @@ static void cat_register(char *buf)
 		accdet_read(AUXADC_RQST_CH5_ADDR),
 		AUXADC_ACCDET_AUTO_SPL_ADDR,
 		accdet_read(AUXADC_ACCDET_AUTO_SPL_ADDR));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	ret = sprintf(accdet_log_buf,
