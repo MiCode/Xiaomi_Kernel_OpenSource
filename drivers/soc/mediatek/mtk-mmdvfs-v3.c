@@ -460,6 +460,11 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 			pwr_opp = mtk_mmdvfs_clks[i].opp;
 	}
 
+	if (!mtk_is_mmdvfs_init_done()) {
+		MMDVFS_DBG("mmdvfs_v3 init not ready");
+		return 0;
+	}
+
 	/* Choose max step among all users of special independence */
 	if (mmdvfs_clk->spec_type == SPEC_MMDVFS_ALONE) {
 		for (i = 0; i < mmdvfs_clk_num; i++) {
