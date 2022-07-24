@@ -743,8 +743,14 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 		case VC_RAW_W_DATA:
 			vc->feature = VC_RAW_DATA;
 			vc->out_pad = PAD_SRC_RAW_W0;
-
-			vc->group = VC_CH_GROUP_RAW2;
+			break;
+		case VC_RAW_ME_W_DATA:
+			vc->feature = VC_RAW_ME_W_DATA;
+			vc->out_pad = PAD_SRC_RAW_W1;
+			break;
+		case VC_RAW_SE_W_DATA:
+			vc->feature = VC_RAW_SE_W_DATA;
+			vc->out_pad = PAD_SRC_RAW_W2;
 			break;
 		default:
 			if (vc->dt == 0x2a || vc->dt == 0x2b ||
