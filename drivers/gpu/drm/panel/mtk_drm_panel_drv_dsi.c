@@ -280,10 +280,10 @@ static int mtk_drm_panel_do_prepare(struct mtk_panel_context *ctx_dsi)
 		return -ENOMEM;
 
 	if (mtk_lcm_create_input(input.condition, 1,
-			MTK_LCM_INPUT_TYPE_CURRENT_FPS) < 0)
+			MTK_LCM_INPUT_TYPE_CURRENT_MODE) < 0)
 		goto fail2;
 	spin_lock_irqsave(&ctx_dsi->lock, flags);
-	*(unsigned int *)input.condition->data = ctx_dsi->current_mode->fps;
+	*(unsigned int *)input.condition->data = ctx_dsi->current_mode->id;
 	spin_unlock_irqrestore(&ctx_dsi->lock, flags);
 
 	if (mtk_lcm_create_input(input.data, 1,
@@ -1026,9 +1026,13 @@ static int mtk_panel_mode_switch(struct drm_panel *panel,
 	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
 				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
 				MTK_LCM_DSI_CMD_PROP_PACK;
-	bool found = false;
-	int ret = 0;
+	bool found = false, default_switch = false;
 	const struct mtk_panel_cust *cust = NULL;
+	struct mtk_lcm_ops_input_packet input;
+	unsigned long flags = 0;
+	int *fps_switch_mode = NULL;
+	unsigned int mode_count = 0;
+	int ret = 0;
 
 	if (IS_ERR_OR_NULL(ctx_dsi) ||
 		IS_ERR_OR_NULL(ctx_dsi->panel_resource)) {
@@ -1039,7 +1043,7 @@ static int mtk_panel_mode_switch(struct drm_panel *panel,
 	if (cur_mode == dst_mode)
 		return 0;
 
-	DDPINFO("%s+, cur:%u, dst:%u, stage:%d, powerdown:%d\n",
+	DDPMSG("%s+, cur:%u, dst:%u, stage:%d, powerdown:%d\n",
 		__func__, cur_mode, dst_mode, stage, BEFORE_DSI_POWERDOWN);
 	cust = ctx_dsi->panel_resource->cust;
 	if (cust != NULL &&
@@ -1071,25 +1075,100 @@ static int mtk_panel_mode_switch(struct drm_panel *panel,
 
 	switch (stage) {
 	case BEFORE_DSI_POWERDOWN:
-		table = &mode_node->fps_switch_bfoff;
+		if (mode_node->fps_switch_bfoff.size > 0) {
+			table = &mode_node->fps_switch_bfoff;
+			ret = snprintf(owner, sizeof(owner),
+					"private_fps_switch_bfoff_%u-%u-%u",
+					mode_node->width, mode_node->height,
+					mode_node->fps);
+		} else if (ops->default_fps_switch_bfoff.size > 0) {
+			table = &ops->default_fps_switch_bfoff;
+			default_switch = true;
+			fps_switch_mode = &ops->fps_switch_bfoff_mode[0];
+			mode_count = ARRAY_SIZE(ops->fps_switch_bfoff_mode);
+			ret = snprintf(owner, sizeof(owner),
+					"default_fps_switch_bfoff_%u-%u-%u",
+					mode_node->width, mode_node->height,
+					mode_node->fps);
+		} else {
+			DDPINFO("%s, %d, invalid fps_switch_bfoff table\n",
+				__func__, __LINE__);
+			return 0;
+		}
+		if (ret < 0 || (size_t)ret >= sizeof(owner))
+			DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 		break;
 	case AFTER_DSI_POWERON:
-		table = &mode_node->fps_switch_afon;
+		if (mode_node->fps_switch_afon.size > 0) {
+			table = &mode_node->fps_switch_afon;
+			ret = snprintf(owner, sizeof(owner),
+					"private_fps_switch_afon_%u-%u-%u",
+					mode_node->width, mode_node->height,
+					mode_node->fps);
+		} else if (ops->default_fps_switch_afon.size > 0) {
+			table = &ops->default_fps_switch_afon;
+			default_switch = true;
+			fps_switch_mode = &ops->fps_switch_afon_mode[0];
+			mode_count = ARRAY_SIZE(ops->fps_switch_afon_mode);
+			ret = snprintf(owner, sizeof(owner),
+					"default_fps_switch_afon_%u-%u-%u",
+					mode_node->width, mode_node->height,
+					mode_node->fps);
+		} else {
+			DDPINFO("%s, %d, invalid fps_switch_afon table\n",
+				__func__, __LINE__);
+			return 0;
+		}
+		if (ret < 0 || (size_t)ret >= sizeof(owner))
+			DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 		break;
 	default:
 		DDPPR_ERR("%s: invalid stage:%d\n", __func__, stage);
 		return -EINVAL;
 	}
 
-	ret = snprintf(owner, sizeof(owner), "fps-switch-%u-%u-%u",
-		mode_node->width, mode_node->height, mode_node->fps);
-	if (ret < 0 || (size_t)ret >= sizeof(owner))
-		DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
+	if (default_switch == true) {
+		int i = 0;
+
+		if (mtk_lcm_create_input_packet(&input, 0, 1) < 0)
+			return -ENOMEM;
+
+		if (mtk_lcm_create_input(input.condition, 1,
+				MTK_LCM_INPUT_TYPE_CURRENT_MODE) < 0) {
+			DDPPR_ERR("%s, %d: failed to alloc condition data\n",
+				__func__, __LINE__);
+			ret = -ENOMEM;
+			goto fail;
+		}
+		spin_lock_irqsave(&ctx_dsi->lock, flags);
+		*(unsigned int *)input.condition->data = ctx_dsi->current_mode->id;
+		for (i = 0; i < mode_count; i++) {
+			if (fps_switch_mode[i] == ctx_dsi->current_mode->id)
+				break;
+		}
+		spin_unlock_irqrestore(&ctx_dsi->lock, flags);
+
+		/* some mode doesn't support fps_switch*/
+		if (i == mode_count) {
+			ret = 0;
+			DDPMSG("%s,%d, mode:%u doesn't support default_fps_switch\n",
+				__func__, __LINE__, ctx_dsi->current_mode->id);
+			goto fail2;
+		}
+	}
+
 	ret = mtk_panel_execute_operation(dsi_dev, table,
 				ctx_dsi->panel_resource,
-				NULL, NULL, NULL, prop, owner);
+				&input, NULL, NULL, prop, owner);
 
-	DDPMSG("%s-, %d\n", __func__, ret);
+fail2:
+	if (default_switch == true)
+		mtk_lcm_destroy_input(input.condition);
+fail:
+	if (default_switch == true)
+		mtk_lcm_destroy_input_packet(&input);
+
+	DDPMSG("%s-, %s,ret:%d\n", __func__, owner, ret);
 	return ret;
 }
 
@@ -1554,8 +1633,8 @@ static struct mtk_lcm_mode_dsi *mtk_lcm_find_1st_max_fps_mode(unsigned int level
 			max_node = mode_node;
 		}
 	}
-	DDPMSG("%s, %d, level:%u, max_fps:%u\n",
-		__func__, __LINE__, level, max_fps);
+	DDPMSG("%s, %d, level:%u, max_fps:%d\n",
+		__func__, __LINE__, level, (int)max_fps);
 
 	return max_node;
 }
@@ -1589,8 +1668,14 @@ static int mtk_panel_msync_te_level_switch(void *dsi, dcs_write_gce cb,
 	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
 				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
 				MTK_LCM_DSI_CMD_PROP_PACK;
-	int ret = 0;
 	const struct mtk_panel_cust *cust = NULL;
+	struct mtk_lcm_ops_table *table = NULL;
+	struct mtk_lcm_ops_dsi *ops = NULL;
+	char owner[MAX_PANEL_OPERATION_NAME] = {0};
+	struct mtk_lcm_ops_input_packet input;
+	bool default_switch = false;
+	unsigned long flags = 0;
+	int ret = 0;
 
 	if (IS_ERR_OR_NULL(ctx_dsi) ||
 		IS_ERR_OR_NULL(ctx_dsi->panel_resource)) {
@@ -1605,17 +1690,17 @@ static int mtk_panel_msync_te_level_switch(void *dsi, dcs_write_gce cb,
 		return cust->ext_funcs.msync_te_level_switch(dsi, cb,
 				handle, fps_level);
 
-	if (fps_level == MTK_LCM_MTE_OFF) { /*close multi te */
-		struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
+	ops = ctx_dsi->panel_resource->ops.dsi_ops;
+	if (IS_ERR_OR_NULL(ops) ||
+		ops->msync_close_mte.size == 0 ||
+		ops->msync_default_mte.size == 0) {
+		DDPMSG("%s, %d, invalid msync operation\n", __func__, __LINE__);
+		ret = -EINVAL;
+		goto out;
+	}
 
+	if (fps_level == MTK_LCM_MTE_OFF) { /*close multi te */
 		DDPMSG("%s:%d Close MTE\n", __func__, __LINE__);
-		if (IS_ERR_OR_NULL(ops) ||
-			ops->msync_close_mte.size == 0 ||
-			ops->msync_default_mte.size == 0) {
-			DDPMSG("%s, %d, invalid msync operation\n", __func__, __LINE__);
-			ret = -EINVAL;
-			goto out;
-		}
 
 		if (mtk_lcm_support_cb == 0) {
 			ret = mtk_panel_execute_operation(dsi_dev,
@@ -1633,16 +1718,72 @@ static int mtk_panel_msync_te_level_switch(void *dsi, dcs_write_gce cb,
 	} else {
 		mode_node = mtk_lcm_find_1st_max_fps_mode(fps_level);
 		if (mode_node != NULL) {
-			DDPMSG("%s:%d switch to fps:%u, level:%u\n",
-				__func__, __LINE__, mode_node->fps, fps_level);
+			if (mode_node->msync_switch_mte.size > 0) {
+				table = &mode_node->msync_switch_mte;
+				ret = snprintf(owner, sizeof(owner),
+					"private_msync_switch_mte_%u-%u-%u",
+					mode_node->width, mode_node->height,
+					mode_node->fps);
+				if (ret < 0 || (size_t)ret >= sizeof(owner))
+					DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
+			} else if (ops->default_msync_switch_mte.size > 0) {
+				default_switch = true;
+				table = &ops->default_msync_switch_mte;
+				ret = snprintf(owner, sizeof(owner),
+					"default_msync_switch_mte_%u-%u-%u",
+					mode_node->width, mode_node->height,
+					mode_node->fps);
+				if (ret < 0 || (size_t)ret >= sizeof(owner))
+					DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
+			} else {
+				DDPMSG("%s,%d: invalid msync_switch_mte table\n",
+					__func__, __LINE__);
+				ret = -EFAULT;
+				goto out;
+			}
+
+			if (default_switch == true) {
+				int i = 0;
+
+				if (mtk_lcm_create_input_packet(&input, 0, 1) < 0)
+					return -ENOMEM;
+
+				if (mtk_lcm_create_input(input.condition, 1,
+						MTK_LCM_INPUT_TYPE_CURRENT_MODE) < 0) {
+					DDPPR_ERR("%s, %d: failed to alloc condition data\n",
+						__func__, __LINE__);
+					ret = -ENOMEM;
+					goto fail;
+				}
+				spin_lock_irqsave(&ctx_dsi->lock, flags);
+				*(unsigned int *)input.condition->data = ctx_dsi->current_mode->id;
+				for (i = 0; i < ARRAY_SIZE(ops->msync_switch_mte_mode); i++) {
+					if (ops->msync_switch_mte_mode[i] ==
+						ctx_dsi->current_mode->id)
+						break;
+				}
+				spin_unlock_irqrestore(&ctx_dsi->lock, flags);
+
+				/* some mode doesn't support msync_switch_mte*/
+				if (i == ARRAY_SIZE(ops->msync_switch_mte_mode)) {
+					ret = 0;
+					DDPMSG("%s,%d, mode:%u invalid default_msync_switch_mte\n",
+						__func__, __LINE__, ctx_dsi->current_mode->id);
+					goto fail2;
+				}
+			}
+
+			DDPMSG("%s:%d switch to fps:%u, level:%u, owner:%s\n",
+				__func__, __LINE__, mode_node->fps,
+				fps_level, owner);
+
 			if (mtk_lcm_support_cb == 0)
-				ret = mtk_panel_execute_operation(dsi_dev,
-						&mode_node->msync_switch_mte,
-						ctx_dsi->panel_resource, NULL, handle,
-						NULL, prop, "msync_switch_mte");
+				ret = mtk_panel_execute_operation(dsi_dev, table,
+						ctx_dsi->panel_resource, &input, handle,
+						NULL, prop, owner);
 			else
 				ret = mtk_panel_execute_callback(dsi, cb, handle,
-					&mode_node->msync_switch_mte, NULL, "msync_switch_mte");
+					table, &input, owner);
 		} else {
 			DDPMSG("%s, %d, failed to find fps node of level:%u\n",
 				__func__, __LINE__, fps_level);
@@ -1651,8 +1792,14 @@ static int mtk_panel_msync_te_level_switch(void *dsi, dcs_write_gce cb,
 		}
 	}
 
+fail2:
+	if (default_switch == true)
+		mtk_lcm_destroy_input(input.condition);
+fail:
+	if (default_switch == true)
+		mtk_lcm_destroy_input_packet(&input);
 out:
-	DDPMSG("%s:%d fps_level:%d, ret:%%u\n",
+	DDPMSG("%s:%d fps_level:%d, ret:%u\n",
 		__func__, __LINE__, fps_level, ret);
 	return ret;
 }
@@ -1665,8 +1812,15 @@ static int mtk_panel_msync_te_level_switch_grp(void *dsi, dcs_grp_write_gce cb,
 	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
 				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
 				MTK_LCM_DSI_CMD_PROP_PACK;
-	int ret = 0;
+	struct mtk_lcm_ops_table *table = NULL;
+	struct mtk_lcm_ops_dsi *ops = NULL;
+	char owner[MAX_PANEL_OPERATION_NAME] = {0};
+	struct mtk_lcm_ops_input_packet input;
+	bool default_switch = false;
+	unsigned long flags = 0;
 	const struct mtk_panel_cust *cust = NULL;
+	struct mtk_panel_ext *ext = find_panel_ext(panel);
+	int ret = 0;
 
 	if (IS_ERR_OR_NULL(ctx_dsi) ||
 		IS_ERR_OR_NULL(ctx_dsi->panel_resource)) {
@@ -1681,19 +1835,18 @@ static int mtk_panel_msync_te_level_switch_grp(void *dsi, dcs_grp_write_gce cb,
 		return cust->ext_funcs.msync_te_level_switch_grp(dsi, cb,
 				handle, panel, fps_level);
 
+	ops = ctx_dsi->panel_resource->ops.dsi_ops;
+	if (IS_ERR_OR_NULL(ops) ||
+		ops->msync_close_mte.size == 0 ||
+		ops->msync_default_mte.size == 0) {
+		DDPMSG("%s, %d, invalid msync operation\n", __func__, __LINE__);
+		ret = -EINVAL;
+		goto out;
+	}
+
 	dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
 	if (fps_level == MTK_LCM_MTE_OFF) { /*close multi te */
-		struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
-
 		DDPMSG("%s:%d Close MTE\n", __func__, __LINE__);
-		if (IS_ERR_OR_NULL(ops) ||
-			ops->msync_close_mte.size == 0 ||
-			ops->msync_default_mte.size == 0) {
-			DDPMSG("%s, %d, invalid msync operation\n", __func__, __LINE__);
-			ret = -EINVAL;
-			goto out;
-		}
-
 		if (mtk_lcm_support_cb == 0) {
 			ret = mtk_panel_execute_operation(dsi_dev,
 					&ops->msync_close_mte, ctx_dsi->panel_resource,
@@ -1710,28 +1863,96 @@ static int mtk_panel_msync_te_level_switch_grp(void *dsi, dcs_grp_write_gce cb,
 	} else {
 		mode_node = mtk_lcm_find_1st_max_fps_mode(fps_level);
 		if (mode_node != NULL) {
-			DDPMSG("%s:%d switch to fps:%u, level:%u\n",
-				__func__, __LINE__, mode_node->fps, fps_level);
+			if (mode_node->msync_switch_mte.size > 0) {
+				table = &mode_node->msync_switch_mte;
+				ret = snprintf(owner, sizeof(owner),
+					"private_msync_switch_mte_%u-%u-%u",
+					mode_node->width, mode_node->height,
+					mode_node->fps);
+				if (ret < 0 || (size_t)ret >= sizeof(owner))
+					DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
+			} else if (ops->default_msync_switch_mte.size > 0) {
+				default_switch = true;
+				table = &ops->default_msync_switch_mte;
+				ret = snprintf(owner, sizeof(owner),
+					"default_msync_switch_mte_%u-%u-%u",
+					mode_node->width, mode_node->height,
+					mode_node->fps);
+				if (ret < 0 || (size_t)ret >= sizeof(owner))
+					DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
+			} else {
+				DDPMSG("%s,%d: invalid msync_switch_mte table\n",
+					__func__, __LINE__);
+				ret = -EFAULT;
+				goto out;
+			}
+
+			if (default_switch == true) {
+				int i = 0;
+
+				if (mtk_lcm_create_input_packet(&input, 0, 1) < 0)
+					return -ENOMEM;
+
+				if (mtk_lcm_create_input(input.condition, 1,
+						MTK_LCM_INPUT_TYPE_CURRENT_MODE) < 0) {
+					DDPPR_ERR("%s, %d: failed to alloc condition data\n",
+						__func__, __LINE__);
+					ret = -ENOMEM;
+					goto fail;
+				}
+				spin_lock_irqsave(&ctx_dsi->lock, flags);
+				*(unsigned int *)input.condition->data = ctx_dsi->current_mode->id;
+				for (i = 0; i < ARRAY_SIZE(ops->msync_switch_mte_mode); i++) {
+					if (ops->msync_switch_mte_mode[i] ==
+						ctx_dsi->current_mode->id)
+						break;
+				}
+				spin_unlock_irqrestore(&ctx_dsi->lock, flags);
+
+				/* some mode doesn't support msync_switch_mte*/
+				if (i == ARRAY_SIZE(ops->msync_switch_mte_mode)) {
+					ret = 0;
+					DDPMSG("%s,%d, mode:%u invalid default_msync_switch_mte\n",
+						__func__, __LINE__, ctx_dsi->current_mode->id);
+					goto fail2;
+				}
+			}
+
+			DDPMSG("%s:%d switch to fps:%u, level:%u, owner:%s\n",
+				__func__, __LINE__, mode_node->fps,
+				fps_level, owner);
+
 			if (mtk_lcm_support_cb == 0)
-				ret = mtk_panel_execute_operation(dsi_dev,
-						&mode_node->msync_switch_mte,
-						ctx_dsi->panel_resource, NULL,
-						handle, NULL, prop, "msync_switch_mte");
+				ret = mtk_panel_execute_operation(dsi_dev, table,
+						ctx_dsi->panel_resource, &input, handle,
+						NULL, prop, owner);
 			else
 				ret = mtk_panel_execute_callback_group(dsi, cb,
-						handle, &mode_node->msync_switch_mte,
-						NULL, "msync_switch_mte");
+					handle, table, &input, owner);
 		} else {
-			DDPPR_ERR("%s, %d, failed to find max fps mode, level:%u\n",
+			DDPMSG("%s, %d, failed to find fps node of level:%u\n",
 				__func__, __LINE__, fps_level);
 			ret = 1;
 			goto out;
 		}
 	}
 
+	if (ret == 0) {
+		ext->params->pll_clk = ctx_dsi->current_mode->ext_param.pll_clk;
+		ext->params->data_rate = ctx_dsi->current_mode->ext_param.data_rate;
+	}
+
+fail2:
+	if (default_switch == true)
+		mtk_lcm_destroy_input(input.condition);
+fail:
+	if (default_switch == true)
+		mtk_lcm_destroy_input_packet(&input);
 out:
-	DDPMSG("%s:%d fps_level:%d, ret:%%u\n",
-		__func__, __LINE__, fps_level, ret);
+	DDPMSG("%s:%d fps_level:%d, ret:%u, mode:%d, pll:%u, data_rate:%u\n",
+		__func__, __LINE__, fps_level, ret,
+		ctx_dsi->current_mode->id,
+		ext->params->pll_clk, ext->params->data_rate);
 	return ret;
 }
 

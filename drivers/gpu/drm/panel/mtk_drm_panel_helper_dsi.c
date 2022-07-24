@@ -1028,7 +1028,7 @@ static void parse_lcm_dsi_msync_cmd_table(struct device_node *np,
 			table[i].level_fps = level_fps[i];
 			table[i].max_fps = max_fps[i];
 			table[i].min_fps = min_fps[i];
-			DDPMSG("%s, %d >>> table%u, id:%u, fps:%u, max:%u, min:%u\n",
+			DDPDBG("%s, %d >>> table%u, id:%u, fps:%u, max:%u, min:%u\n",
 				__func__, __LINE__, i,
 				table[i].level_id, table[i].level_fps,
 				table[i].max_fps, table[i].min_fps);
@@ -1627,6 +1627,26 @@ int parse_lcm_ops_dsi(struct device_node *np,
 	for_each_available_child_of_node(np, mode_np) {
 		if (of_device_is_compatible(mode_np,
 				"mediatek,lcm-ops-dsi-fps-switch-before-powerdown")) {
+			int i = 0;
+
+			ret = mtk_lcm_dts_read_u32_array(mode_np, "fps_switch_mode_list",
+					(u32 *)&ops->fps_switch_bfoff_mode[0], 0, 20);
+			if (ret < 0)
+				ret = 0;
+			for (i = ret; i < 20; i++)
+				ops->fps_switch_bfoff_mode[i] = -1;
+
+			if (ret > 0) {
+				ret = parse_lcm_ops_func(mode_np,
+						&ops->default_fps_switch_bfoff,
+						"default_fps_switch_table", ops->flag_len,
+						MTK_LCM_FUNC_DSI, cust,
+						MTK_LCM_PHASE_KERNEL);
+				if (ret < 0)
+					DDPMSG("%s, %d invalid default_fps_switch_bfoff,ret:%d\n",
+						__func__, __LINE__, ret);
+			}
+
 			list_for_each_entry(mode_node, &params->mode_list, list) {
 				ret = snprintf(mode_name, sizeof(mode_name),
 					"fps-switch-%u-%u-%u-%u_table",
@@ -1649,6 +1669,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				if (ret < 0) {
 					DDPMSG("%s, %d failed to parsing %s, ret:%d\n",
 						__func__, __LINE__, mode_name, ret);
+					mode_node->fps_switch_bfoff.size = 0;
 					return ret;
 				}
 			}
@@ -1656,6 +1677,27 @@ int parse_lcm_ops_dsi(struct device_node *np,
 
 		if (of_device_is_compatible(mode_np,
 				"mediatek,lcm-ops-dsi-fps-switch-after-poweron")) {
+			int i = 0;
+
+			ret = mtk_lcm_dts_read_u32_array(mode_np, "fps_switch_mode_list",
+					(u32 *)&ops->fps_switch_afon_mode[0],
+					0, 20);
+			if (ret < 0)
+				ret = 0;
+			for (i = ret; i < 20; i++)
+				ops->fps_switch_afon_mode[i] = -1;
+
+			if (ret > 0) {
+				ret = parse_lcm_ops_func(mode_np,
+						&ops->default_fps_switch_afon,
+						"default_fps_switch_table", ops->flag_len,
+						MTK_LCM_FUNC_DSI, cust,
+						MTK_LCM_PHASE_KERNEL);
+				if (ret < 0)
+					DDPMSG("%s, %d no default_fps_switch_afon,ret:%d\n",
+						__func__, __LINE__, ret);
+			}
+
 			list_for_each_entry(mode_node, &params->mode_list, list) {
 				ret = snprintf(mode_name, sizeof(mode_name),
 					"fps-switch-%u-%u-%u-%u_table",
@@ -1678,6 +1720,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				if (ret < 0) {
 					DDPMSG("%s, %d failed to parsing %s, ret:%d\n",
 						__func__, __LINE__, mode_name, ret);
+					mode_node->fps_switch_afon.size = 0;
 					return ret;
 				}
 			}
@@ -1685,6 +1728,27 @@ int parse_lcm_ops_dsi(struct device_node *np,
 
 		if (of_device_is_compatible(mode_np,
 				"mediatek,lcm-ops-dsi-msync-switch-mte")) {
+			int i = 0;
+
+			ret = mtk_lcm_dts_read_u32_array(mode_np, "msync_switch_mte_mode_list",
+					(u32 *)&ops->msync_switch_mte_mode[0],
+					0, 20);
+			if (ret < 0)
+				ret = 0;
+			for (i = ret; i < 20; i++)
+				ops->msync_switch_mte_mode[i] = -1;
+
+			if (ret > 0) {
+				ret = parse_lcm_ops_func(mode_np,
+						&ops->default_msync_switch_mte,
+						"msync_switch_mte_default_table", ops->flag_len,
+						MTK_LCM_FUNC_DSI, cust,
+						MTK_LCM_PHASE_KERNEL);
+				if (ret < 0)
+					DDPMSG("%s, %d no msync_switch_mte_default_table, ret:%d\n",
+						__func__, __LINE__, ret);
+			}
+
 			list_for_each_entry(mode_node, &params->mode_list, list) {
 				if (mode_node->ext_param.msync2_enable == 0)
 					continue;
@@ -2171,6 +2235,33 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 	DDPDUMP("read_panelid_len: %u\n", ops->read_panelid_len);
 	dump_lcm_ops_table(&ops->read_panelid, cust, "read_panelid");
 
+	for (i = 0; i <= MTK_LCM_MODE_UNIT - 4; i += 4)
+		DDPDUMP("msync_switch_mte_mode: %d %d %d %d\n",
+			ops->msync_switch_mte_mode[i],
+			ops->msync_switch_mte_mode[i + 1],
+			ops->msync_switch_mte_mode[i + 2],
+			ops->msync_switch_mte_mode[i + 3]);
+	dump_lcm_ops_table(&ops->default_msync_switch_mte,
+			cust, "default_msync_switch_mte");
+
+	for (i = 0; i <= MTK_LCM_MODE_UNIT - 4; i += 4)
+		DDPDUMP("fps_switch_bfoff_mode: %d %d %d %d\n",
+			ops->fps_switch_bfoff_mode[i],
+			ops->fps_switch_bfoff_mode[i + 1],
+			ops->fps_switch_bfoff_mode[i + 2],
+			ops->fps_switch_bfoff_mode[i + 3]);
+	dump_lcm_ops_table(&ops->default_fps_switch_bfoff,
+			cust, "default_fps_switch_bfoff");
+
+	for (i = 0; i <= MTK_LCM_MODE_UNIT - 4; i += 4)
+		DDPDUMP("fps_switch_afon_mode: %d %d %d %d\n",
+			ops->fps_switch_afon_mode[i],
+			ops->fps_switch_afon_mode[i + 1],
+			ops->fps_switch_afon_mode[i + 2],
+			ops->fps_switch_afon_mode[i + 3]);
+	dump_lcm_ops_table(&ops->default_fps_switch_afon,
+			cust, "default_fps_switch_afon");
+
 	if (params != NULL && params->mode_count > 0) {
 		list_for_each_entry(mode_node, &params->mode_list, list) {
 			ret = snprintf(mode_name, sizeof(mode_name),
@@ -2349,6 +2440,9 @@ void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 	free_lcm_ops_table(&ops->msync_close_mte, cust);
 	free_lcm_ops_table(&ops->msync_default_mte, cust);
 	free_lcm_ops_table(&ops->read_panelid, cust);
+	free_lcm_ops_table(&ops->default_msync_switch_mte, cust);
+	free_lcm_ops_table(&ops->default_fps_switch_bfoff, cust);
+	free_lcm_ops_table(&ops->default_fps_switch_afon, cust);
 
 	LCM_KFREE(ops, sizeof(struct mtk_lcm_ops_dsi));
 }

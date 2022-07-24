@@ -1882,7 +1882,7 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 			}
 			if (op->param.buf_con_data.condition ==
 			    *(u8 *)input->condition[index].data) {
-				DDPPR_ERR("%s,%d, name:0x%x, condition:%u, %u\n",
+				DDPDBG("%s,%d, name:0x%x, condition:%u, %u\n",
 					__func__, __LINE__,
 					op->param.buf_con_data.name,
 					op->param.buf_con_data.condition,
@@ -2035,7 +2035,7 @@ int mtk_execute_func_ddic_package(struct mipi_dsi_device *dsi,
 	}
 
 	if (size == 0 || list_empty(&packet->cmd_list)) {
-		DDPMSG("%s, %d, cmd list is null, size:%u, list:0x%lx\n",
+		DDPDBG("%s, %d, cmd list is null, size:%u, list:0x%lx\n",
 			__func__, __LINE__, size, (unsigned long)&packet->cmd_list);
 		ret = 0; //it is ok when write may miss condition
 		goto out;

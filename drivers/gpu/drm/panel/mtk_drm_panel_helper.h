@@ -21,9 +21,10 @@
 
 extern unsigned long long mtk_lcm_total_size;
 
-#define MTK_LCM_MODE_UNIT (4)
-#define MTK_LCM_DEBUG_DUMP (0)
+#define MTK_LCM_MODE_UNIT   (4)
+#define MTK_LCM_DEBUG_DUMP  (0)
 #define MTK_LCM_DATA_OFFSET (2)
+#define MTK_LCM_MODE_COUNT  (20)
 
 /* mtk_lcm_ops_table
  * used to store the lcm operation commands
@@ -64,9 +65,9 @@ struct mtk_lcm_mode_dsi {
 	struct list_head msync_min_fps_switch;
 	unsigned int msync_min_fps_count;
 /* ops */
+	struct mtk_lcm_ops_table msync_switch_mte;
 	struct mtk_lcm_ops_table fps_switch_bfoff;
 	struct mtk_lcm_ops_table fps_switch_afon;
-	struct mtk_lcm_ops_table msync_switch_mte;
 };
 
 struct mtk_lcm_params_dsi {
@@ -266,6 +267,15 @@ struct mtk_lcm_ops_dsi {
 
 	unsigned int read_panelid_len;
 	struct mtk_lcm_ops_table read_panelid;
+
+	int msync_switch_mte_mode[MTK_LCM_MODE_COUNT];
+	struct mtk_lcm_ops_table default_msync_switch_mte;
+
+	int fps_switch_afon_mode[MTK_LCM_MODE_COUNT];
+	struct mtk_lcm_ops_table default_fps_switch_afon;
+
+	int fps_switch_bfoff_mode[MTK_LCM_MODE_COUNT];
+	struct mtk_lcm_ops_table default_fps_switch_bfoff;
 
 #if MTK_LCM_DEBUG_DUMP
 	struct mtk_lcm_ops_table gpio_test;
