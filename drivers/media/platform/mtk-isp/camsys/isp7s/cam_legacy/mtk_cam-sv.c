@@ -447,6 +447,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SBGGR10,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -454,6 +455,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SBGGR8,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -461,6 +463,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SBGGR12,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -468,6 +471,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SBGGR14,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -475,6 +479,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGBRG8,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -482,6 +487,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGBRG10,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -489,6 +495,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGBRG12,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -496,6 +503,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGBRG14,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -503,6 +511,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGRBG8,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -510,6 +519,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGRBG10,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -517,6 +527,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGRBG12,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -524,6 +535,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGRBG14,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -531,6 +543,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SRGGB8,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -538,6 +551,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SRGGB10,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -545,6 +559,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SRGGB12,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -552,6 +567,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SRGGB14,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -559,6 +575,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SBGGR10P,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -566,6 +583,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGBRG10P,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -573,6 +591,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGRBG10P,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -580,6 +599,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SRGGB10P,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -587,6 +607,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SBGGR10,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -594,6 +615,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SBGGR12,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -601,6 +623,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SBGGR14,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -608,6 +631,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGBRG10,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -615,6 +639,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGBRG12,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -622,6 +647,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGBRG14,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -629,6 +655,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGRBG10,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -636,6 +663,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGRBG12,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -643,6 +671,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGRBG14,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -650,6 +679,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SRGGB10,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -657,6 +687,7 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SRGGB12,
+			.num_planes = 1,
 		},
 	},
 	{
@@ -664,11 +695,60 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SRGGB14,
+			.num_planes = 1,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_NV12,
+			.num_planes = 1,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_NV21,
+			.num_planes = 1,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_NV12_10,
+			.num_planes = 1,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_NV21_10,
+			.num_planes = 1,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_NV12_10P,
+			.num_planes = 1,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_NV21_10P,
+			.num_planes = 1,
 		},
 	},
 };
 
-#define MTK_CAMSV_TOTAL_CAPTURE_QUEUES 1
+#define MTK_CAMSV_TOTAL_CAPTURE_QUEUES 2
 
 static const struct
 mtk_cam_dev_node_desc sv_capture_queues[] = {
@@ -698,25 +778,67 @@ mtk_cam_dev_node_desc sv_capture_queues[] = {
 			},
 		},
 	},
+	{
+		.id = MTK_CAMSV_EXT_STREAM_OUT,
+		.name = "ext stream",
+		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
+		.image = true,
+		.smem_alloc = false,
+		.dma_port = MTKCAM_IPI_CAMSV_MAIN_OUT,
+		.fmts = sv_stream_out_fmts,
+		.num_fmts = ARRAY_SIZE(sv_stream_out_fmts),
+		.default_fmt_idx = 0,
+		.ioctl_ops = &mtk_camsv_v4l2_vcap_ioctl_ops,
+		.frmsizes = &(struct v4l2_frmsizeenum) {
+			.index = 0,
+			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
+			.stepwise = {
+				.max_width = SV_IMG_MAX_WIDTH,
+				.min_width = SV_IMG_MIN_WIDTH,
+				.max_height = SV_IMG_MAX_HEIGHT,
+				.min_height = SV_IMG_MIN_HEIGHT,
+				.step_height = 1,
+				.step_width = 1,
+			},
+		},
+	},
 };
 
 static const char *sv_capture_queue_names[MAX_SV_PIPELINE_NUN][MTK_CAMSV_TOTAL_CAPTURE_QUEUES] = {
-	{"mtk-cam camsv-0 main-stream"},
-	{"mtk-cam camsv-1 main-stream"},
-	{"mtk-cam camsv-2 main-stream"},
-	{"mtk-cam camsv-3 main-stream"},
-	{"mtk-cam camsv-4 main-stream"},
-	{"mtk-cam camsv-5 main-stream"},
-	{"mtk-cam camsv-6 main-stream"},
-	{"mtk-cam camsv-7 main-stream"},
-	{"mtk-cam camsv-8 main-stream"},
-	{"mtk-cam camsv-9 main-stream"},
-	{"mtk-cam camsv-10 main-stream"},
-	{"mtk-cam camsv-11 main-stream"},
-	{"mtk-cam camsv-12 main-stream"},
-	{"mtk-cam camsv-13 main-stream"},
-	{"mtk-cam camsv-14 main-stream"},
-	{"mtk-cam camsv-15 main-stream"},
+	{"mtk-cam camsv-0 main-stream",
+		"mtk-cam camsv-0 ext-stream"},
+	{"mtk-cam camsv-1 main-stream",
+		"mtk-cam camsv-1 ext-stream"},
+	{"mtk-cam camsv-2 main-stream",
+		"mtk-cam camsv-2 ext-stream"},
+	{"mtk-cam camsv-3 main-stream",
+		"mtk-cam camsv-3 ext-stream"},
+	{"mtk-cam camsv-4 main-stream",
+		"mtk-cam camsv-4 ext-stream"},
+	{"mtk-cam camsv-5 main-stream",
+		"mtk-cam camsv-5 ext-stream"},
+	{"mtk-cam camsv-6 main-stream",
+		"mtk-cam camsv-6 ext-stream"},
+	{"mtk-cam camsv-7 main-stream",
+		"mtk-cam camsv-7 ext-stream"},
+	{"mtk-cam camsv-8 main-stream",
+		"mtk-cam camsv-8 ext-stream"},
+	{"mtk-cam camsv-9 main-stream",
+		"mtk-cam camsv-9 ext-stream"},
+	{"mtk-cam camsv-10 main-stream",
+		"mtk-cam camsv-10 ext-stream"},
+	{"mtk-cam camsv-11 main-stream",
+		"mtk-cam camsv-11 ext-stream"},
+	{"mtk-cam camsv-12 main-stream",
+		"mtk-cam camsv-12 ext-stream"},
+	{"mtk-cam camsv-13 main-stream",
+		"mtk-cam camsv-13 ext-stream"},
+	{"mtk-cam camsv-14 main-stream",
+		"mtk-cam camsv-14 ext-stream"},
+	{"mtk-cam camsv-15 main-stream",
+		"mtk-cam camsv-15 ext-stream"},
 };
 
 static int reset_msgfifo(struct mtk_camsv_device *dev)
@@ -1502,6 +1624,39 @@ void apply_camsv_cq(struct mtk_camsv_device *dev,
 		cq_addr_msb, cq_addr_lsb, cq_size);
 }
 
+int mtk_cam_sv_update_feature(struct mtk_cam_video_device *node)
+{
+	struct mtk_cam_device *cam = video_get_drvdata(&node->vdev);
+	struct mtk_camsv_pipeline *sv_pipeline;
+
+	sv_pipeline = mtk_cam_dev_get_sv_pipeline(cam, node->uid.pipe_id);
+	if (sv_pipeline) {
+		if (node->desc.id == MTK_CAMSV_EXT_STREAM_OUT)
+			sv_pipeline->feature_pending |= DISPLAY_IC;
+	}
+
+	return 0;
+}
+
+int mtk_cam_sv_update_image_size(struct mtk_cam_video_device *node,
+	struct v4l2_format *f)
+{
+	if (node->desc.dma_port == MTKCAM_IPI_CAMSV_MAIN_OUT &&
+		node->desc.id == MTK_CAMSV_MAIN_STREAM_OUT)
+		f->fmt.pix_mp.plane_fmt[0].sizeimage +=
+			(GET_PLAT_V4L2(meta_sv_ext_size) + 16);
+
+	return 0;
+}
+
+bool mtk_cam_is_display_ic(struct mtk_cam_ctx *ctx)
+{
+	if (!ctx->used_sv_num)
+		return false;
+
+	return (ctx->sv_pipe[0]->feature_pending & DISPLAY_IC) != 0;
+}
+
 unsigned int mtk_cam_get_sv_tag_index(struct mtk_cam_ctx *ctx,
 		unsigned int pipe_id)
 {
@@ -1628,16 +1783,12 @@ int mtk_cam_call_sv_pipeline_config(
 	tag_info = &arr_tag[tag_idx];
 	cfg_in_param = &tag_info->cfg_in_param;
 
-	if (tag_idx >= SVTAG_META_START && tag_idx < SVTAG_META_END)
-		tag_info->sv_pipe = pipeline;
-	else
-		tag_info->sv_pipe = NULL;
-
+	tag_info->sv_pipe = pipeline;
 	tag_info->seninf_padidx = seninf_padidx;
 	tag_info->hw_scen = hw_scen;
 	tag_info->tag_order = tag_order;
 	tag_info->cfg_in_param.pixel_mode = pixelmode;
-	tag_info->img_fmt = img_fmt;
+	tag_info->img_fmt = *img_fmt;
 	atomic_set(&tag_info->is_config_done, 0);
 	atomic_set(&tag_info->is_stream_on, 0);
 
@@ -1685,7 +1836,7 @@ struct mtk_camsv_device *mtk_cam_get_used_sv_dev(struct mtk_cam_ctx *ctx)
 	if (ctx->used_raw_num)
 		i = get_master_raw_id(cam->num_raw_drivers, ctx->pipe->enabled_raw);
 	else
-		i = 0;
+		i = GET_PLAT_V4L2(reserved_camsv_dev_id);
 
 	dev_sv = cam->sv.devs[i];
 	if (dev_sv == NULL) {
@@ -2692,11 +2843,6 @@ static int mtk_camsv_runtime_resume(struct device *dev)
 	if (ret)
 		return ret;
 
-	for (i = 0; i < CAMSV_IRQ_NUM; i++) {
-		enable_irq(camsv_dev->irq[i]);
-		dev_info(dev, "%s:enable irq %d\n", __func__, camsv_dev->irq[i]);
-	}
-
 	dev_dbg(dev, "%s:enable clock\n", __func__);
 	for (i = 0; i < camsv_dev->num_clks; i++) {
 		ret = clk_prepare_enable(camsv_dev->clks[i]);
@@ -2711,6 +2857,11 @@ static int mtk_camsv_runtime_resume(struct device *dev)
 		}
 	}
 	sv_reset(camsv_dev);
+
+	for (i = 0; i < CAMSV_IRQ_NUM; i++) {
+		enable_irq(camsv_dev->irq[i]);
+		dev_info(dev, "%s:enable irq %d\n", __func__, camsv_dev->irq[i]);
+	}
 
 	return 0;
 }

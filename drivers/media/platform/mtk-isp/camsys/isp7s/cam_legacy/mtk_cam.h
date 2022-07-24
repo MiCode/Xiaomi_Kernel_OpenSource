@@ -54,6 +54,8 @@
 /*stagger sensor stability option for camsys*/
 #define STAGGER_CQ_LAST_SOF 1
 
+#define MTK_CAM_MAX_DISPLAY_IC_RUNNING_JOBS 9
+
 struct platform_device;
 struct mtk_rpmsg_device;
 struct mtk_cam_debug_fs;

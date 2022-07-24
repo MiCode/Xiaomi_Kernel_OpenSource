@@ -5,7 +5,7 @@
 #include <linux/module.h>
 
 #include "mtk_cam-plat.h"
-#include "mtk_cam-meta-mt6985.h"
+#include "mtk_cam-meta-mt6886.h"
 #include "mtk_cam-ipi.h"
 
 #define RAW_STATS_CFG_SIZE \
@@ -13,11 +13,6 @@
 
 #define RAW_STATS_CFG_SIZE_RGBW \
 	ALIGN(sizeof(struct mtk_cam_uapi_meta_raw_stats_rgbw_cfg), SZ_1K)
-
-/* meta out max size include 1k meta info and dma buffer size */
-
-#define RAW_STAT_0_STRUCT_SIZE \
-	ALIGN(sizeof(struct mtk_cam_uapi_meta_raw_stats_0), SZ_1K)
 
 #define RAW_STAT_0_BUF_SIZE_RGBW_BAYER \
 			(MTK_CAM_UAPI_AAO_MAX_BUF_SIZE + \
@@ -35,6 +30,10 @@
 			MTK_CAM_UAPI_FLK_MAX_BUF_SIZE + \
 			MTK_CAM_UAPI_TSFSO_SIZE * 2 + \
 			MTK_CAM_UAPI_TCYSO_SIZE)
+
+			/* meta out max size include 1k meta info and dma buffer size */
+#define RAW_STAT_0_STRUCT_SIZE \
+	ALIGN(sizeof(struct mtk_cam_uapi_meta_raw_stats_0), SZ_1K)
 
 #define RAW_STATS_0_SIZE \
 	ALIGN(RAW_STAT_0_STRUCT_SIZE + \
@@ -137,8 +136,8 @@ static int set_meta_stat1_info(struct mtk_cam_uapi_meta_raw_stats_1 *stats, bool
 
 	/* w part */
 	set_payload(&stats->af_stats_w.afo_buf,
-			(is_rgbw) ? MTK_CAM_UAPI_AFO_MAX_BUF_SIZE : 0,
-			&offset);
+				(is_rgbw) ? MTK_CAM_UAPI_AFO_MAX_BUF_SIZE : 0,
+				&offset);
 
 	return 0;
 }
@@ -277,11 +276,19 @@ static int get_mraw_stats_cfg_param(
 	return 0;
 }
 
-static u32 get_dev_link_flags(int ipi_id)
+static u32 get_link_flags(int ipi_id)
 {
-	(void) ipi_id;
+	u32 flags =
+		MEDIA_LNK_FL_ENABLED | MEDIA_LNK_FL_IMMUTABLE;
 
-	return MEDIA_LNK_FL_ENABLED | MEDIA_LNK_FL_IMMUTABLE;
+	switch (ipi_id) {
+	case MTKCAM_IPI_RAW_DRZS4NO_1:
+		flags = 0;
+		break;
+	default:
+		break;
+	}
+	return flags;
 }
 
 static int get_port_bw(
@@ -306,6 +313,7 @@ static int get_port_bw(
 
 	return 0;
 }
+
 static struct raw_mmqos raw_qos = {
 	.port = {
 		"cqi_r1",
@@ -324,9 +332,9 @@ static struct raw_mmqos raw_qos = {
 		"yuvo_r3",
 		"yuvo_r2",
 		"yuvo_r5",
-		"rgbwi_r1",
+		"yuv_r_0",
 		"tcyso_r1",
-		"drz4no_r3"
+		"drzhno_r9"
 	}
 };
 
@@ -337,10 +345,10 @@ static int get_mmqos_port(struct raw_mmqos **mmqos_port)
 	return 0;
 }
 
-static const struct plat_v4l2_data mt6985_v4l2_data = {
+static const struct plat_v4l2_data mt6886_v4l2_data = {
 	.raw_pipeline_num = 3,
 	.camsv_pipeline_num = 16,
-	.mraw_pipeline_num = 4,
+	.mraw_pipeline_num = 3,
 
 	.meta_major = MTK_CAM_META_VERSION_MAJOR,
 	.meta_minor = MTK_CAM_META_VERSION_MINOR,
@@ -364,21 +372,21 @@ static const struct plat_v4l2_data mt6985_v4l2_data = {
 
 	.set_mraw_meta_stats_info = set_mraw_meta_stats_info,
 
-	.get_dev_link_flags = get_dev_link_flags,
+	.get_dev_link_flags = get_link_flags,
 
 	.get_port_bw = get_port_bw,
 
-	.cammux_id_raw_start = 34,
+	.cammux_id_raw_start = 25,
 
 	.get_mmqos_port = get_mmqos_port,
 
 	.get_mraw_stats_cfg_param = get_mraw_stats_cfg_param,
 
-	.reserved_camsv_dev_id = 3,
+	.reserved_camsv_dev_id = 2,
 };
 
-struct camsys_platform_data mt6985_data = {
-	.platform = "mt6985",
-	.v4l2 = &mt6985_v4l2_data,
+struct camsys_platform_data mt6886_data = {
+	.platform = "mt6886",
+	.v4l2 = &mt6886_v4l2_data,
 	.hw = NULL,
 };

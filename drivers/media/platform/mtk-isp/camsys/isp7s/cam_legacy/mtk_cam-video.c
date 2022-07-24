@@ -2396,21 +2396,6 @@ int mtk_cam_video_s_fmt_common(struct mtk_cam_video_device *node,
 			 try_fmt.fmt.pix_mp.num_planes);
 	}
 
-	/* add header size for vc channel */
-	if (node->desc.dma_port == MTKCAM_IPI_CAMSV_MAIN_OUT &&
-		node->desc.id == MTK_CAMSV_MAIN_STREAM_OUT) {
-
-		try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage +=
-			GET_PLAT_V4L2(meta_sv_ext_size);
-		/* add additional size for 16-alignment */
-		try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage += 16;
-
-		dev_info(cam->dev, "%s id:%d stride:%d size:%d\n",
-			 __func__, node->desc.id,
-			 try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline,
-			 try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage);
-	}
-
 	/* Constant format fields */
 	try_fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_SRGB;
 	try_fmt.fmt.pix_mp.field = V4L2_FIELD_NONE;
@@ -2455,6 +2440,9 @@ int mtk_cam_vidioc_s_fmt(struct file *file, void *fh, struct v4l2_format *f)
 
 		mtk_cam_video_set_fmt(node, f, &scen, "s_fmt");
 
+		if (is_camsv_subdev(node->uid.pipe_id))
+			mtk_cam_sv_update_feature(node);
+
 		/* Configure to video device */
 		node->active_fmt = *f;
 
@@ -2478,8 +2466,14 @@ int mtk_cam_vidioc_try_fmt(struct file *file, void *fh,
 			   struct v4l2_format *f)
 {
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
+	int ret;
 
-	return mtk_cam_video_s_fmt_common(node, f, "try_fmt");
+	ret = mtk_cam_video_s_fmt_common(node, f, "try_fmt");
+
+	if (is_camsv_subdev(node->uid.pipe_id))
+		ret |= mtk_cam_sv_update_image_size(node, f);
+
+	return ret;
 }
 
 int mtk_cam_vidioc_meta_enum_fmt(struct file *file, void *fh,

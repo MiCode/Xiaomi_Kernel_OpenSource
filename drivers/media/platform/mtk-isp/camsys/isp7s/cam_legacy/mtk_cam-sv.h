@@ -22,9 +22,11 @@
 #define SV_IMG_MIN_WIDTH		0
 #define SV_IMG_MIN_HEIGHT		0
 
+/* refer to ipi hw path definition */
 enum mtkcam_sv_hw_path_control {
-	MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW = HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE_RGBW) + 1,
-	MTKCAM_SV_SPECIAL_SCENARIO_EXT_ISP = HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE_RGBW) + 2,
+	MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW = 24,
+	MTKCAM_SV_SPECIAL_SCENARIO_EXT_ISP,
+	MTKCAM_SV_SPECIAL_SCENARIO_DISPLAY_IC
 };
 
 #define CAMSV_EXT_META_0_WIDTH 1024
@@ -37,6 +39,7 @@ enum mtkcam_sv_hw_path_control {
 #define MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO	(\
 			(1 << MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW) |\
 			(1 << MTKCAM_SV_SPECIAL_SCENARIO_EXT_ISP) |\
+			(1 << MTKCAM_SV_SPECIAL_SCENARIO_DISPLAY_IC) |\
 			(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_STAGGER)) |\
 			(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER)) |\
 			(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER)) |\
@@ -71,6 +74,10 @@ enum mtkcam_sv_hw_path_control {
 struct mtk_cam_ctx;
 struct mtk_cam_request;
 struct mtk_cam_request_stream_data;
+
+enum camsv_function_id {
+	DISPLAY_IC = (1 << 0)
+};
 
 enum camsv_module_id {
 	CAMSV_START = 0,
@@ -142,6 +149,7 @@ enum {
 
 	MTK_CAMSV_SOURCE_BEGIN = MTK_CAMSV_SINK_NUM,
 	MTK_CAMSV_MAIN_STREAM_OUT = MTK_CAMSV_SOURCE_BEGIN,
+	MTK_CAMSV_EXT_STREAM_OUT,
 	MTK_CAMSV_PIPELINE_PADS_NUM,
 };
 
@@ -182,6 +190,9 @@ struct mtk_camsv_pipeline {
 	unsigned int req_vfmt_update;
 	unsigned int req_pfmt_update;
 	struct v4l2_subdev_format req_pad_fmt[MTK_CAMSV_PIPELINE_PADS_NUM];
+
+	/* display ic */
+	u32 feature_pending;
 };
 
 struct mtk_camsv_tag_info {
@@ -192,7 +203,7 @@ struct mtk_camsv_tag_info {
 	/* camsv todo: move stride to frame param */
 	unsigned int stride;
 	struct mtkcam_ipi_input_param cfg_in_param;
-	struct v4l2_format *img_fmt;
+	struct v4l2_format img_fmt;
 	atomic_t is_config_done;
 	atomic_t is_stream_on;
 };
@@ -335,6 +346,10 @@ int mtk_cam_sv_frame_no_inner(struct mtk_camsv_device *dev);
 void apply_camsv_cq(struct mtk_camsv_device *dev,
 	      dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
 	      int initial);
+int mtk_cam_sv_update_feature(struct mtk_cam_video_device *node);
+int mtk_cam_sv_update_image_size(struct mtk_cam_video_device *node, struct v4l2_format *f);
+bool mtk_cam_is_display_ic(struct mtk_cam_ctx *ctx);
+
 #ifdef CAMSYS_TF_DUMP_7S
 int mtk_camsv_translation_fault_callback(int port, dma_addr_t mva, void *data);
 #endif

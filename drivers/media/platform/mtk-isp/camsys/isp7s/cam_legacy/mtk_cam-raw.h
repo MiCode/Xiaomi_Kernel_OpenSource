@@ -24,8 +24,8 @@ struct mtk_cam_request_stream_data;
 /* FIXME: dynamic config image max/min w/h */
 #define IMG_MAX_WIDTH		12000
 #define IMG_MAX_HEIGHT		9000
-#define IMG_MIN_WIDTH		80
-#define IMG_MIN_HEIGHT		60
+#define IMG_MIN_WIDTH		8
+#define IMG_MIN_HEIGHT		1
 #define YUV_GROUP1_MAX_WIDTH	8160
 #define YUV_GROUP1_MAX_HEIGHT	3896
 #define YUV_GROUP2_MAX_WIDTH	3060

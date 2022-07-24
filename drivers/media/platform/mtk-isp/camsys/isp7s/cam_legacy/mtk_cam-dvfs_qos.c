@@ -917,7 +917,7 @@ void mtk_cam_qos_sv_bw_calc(struct mtk_cam_ctx *ctx, bool force)
 		qos_port_id = (ctx->sv_dev->id * sv_qos_port_num) + sv_imgo;
 		sv_mmqos = &sv_qos[ctx->sv_dev->id];
 		ipi_fmt = mtk_cam_get_img_fmt(
-			ctx->sv_dev->tag_info[i].img_fmt->fmt.pix_mp.pixelformat);
+			ctx->sv_dev->tag_info[i].img_fmt.fmt.pix_mp.pixelformat);
 		pixel_bits = mtk_cam_get_pixel_bits(ipi_fmt);
 		plane_factor = mtk_cam_get_fmt_size_factor(ipi_fmt);
 		PBW_MB_s = cfg_in_param->in_crop.s.w * fps *

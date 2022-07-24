@@ -123,6 +123,7 @@ struct plat_v4l2_data {
 	int (*get_mmqos_port)(struct raw_mmqos **mmqos_port);
 
 	int (*get_mraw_stats_cfg_param)(void *addr, struct mraw_stats_cfg_param *param);
+	int reserved_camsv_dev_id;
 };
 
 struct plat_data_hw {
