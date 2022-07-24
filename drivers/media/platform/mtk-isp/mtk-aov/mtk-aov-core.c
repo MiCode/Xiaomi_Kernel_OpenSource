@@ -25,6 +25,8 @@
 #define ALIGN16(x) (x)
 #endif  // AOV_EVENT_IN_PLACE
 
+static enum AOV_DEINIT_TYPE aov_seninf_deinit_type;
+
 static struct mtk_aov *curr_dev;
 
 struct mtk_aov *aov_core_get_device(void)
@@ -252,6 +254,9 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 						__func__, user.tuning_size);
 					return -ENOMEM;
 				}
+
+				aov_seninf_deinit_type = DEINIT_NORMAL;
+
 				/* set seninf aov parameters for scp use and
 				 * switch i2c bus aux function here on scp side.
 				 */
@@ -414,7 +419,7 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 				 * clear un-success event to prevent unexpected flow
 				 * cauesd be remaining data
 				 */
-				return -EIO;
+				// return -EIO;
 			} else if (-ERESTARTSYS == ret) {
 				dev_info(aov_dev->dev, "%s: wait cmd(%d) ack interrupted\n",
 					__func__, cmd);
@@ -478,7 +483,8 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 
 		dev_dbg(aov_dev->dev, "mtk_cam_seninf_aov_runtime_resume(%d)+\n",
 			core_info->sensor_id);
-		mtk_cam_seninf_aov_runtime_resume(core_info->sensor_id);
+		mtk_cam_seninf_aov_runtime_resume(core_info->sensor_id,
+			aov_seninf_deinit_type);
 		dev_dbg(aov_dev->dev, "mtk_cam_seninf_aov_runtime_resume(%d)-\n",
 			core_info->sensor_id);
 	}
@@ -993,6 +999,7 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 #endif  // AOV_SLB_ALLOC_FREE
 
 		dev_info(aov_dev->dev, "%s: force aov deinit+\n", __func__);
+		aov_seninf_deinit_type = DEINIT_ABNORMAL;
 		ret = aov_core_send_cmd(aov_dev,
 			AOV_SCP_CMD_DEINIT, NULL, 0, false);
 

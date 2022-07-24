@@ -642,6 +642,9 @@ static int seninf_core_probe(struct platform_device *pdev)
 
 	core->seninf_vsync_debug_flag = &seninf_vsync_debug;
 
+	core->aov_csi_clk_switch_flag = CSI_CLK_242;
+	core->aov_abnormal_deinit_flag = 0;
+
 	for (i = 0; i < CLK_MAXCNT; i++) {
 		core->clk[i] = devm_clk_get(dev, clk_names[i]);
 		if (IS_ERR(core->clk[i])) {
@@ -1438,18 +1441,22 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 	struct seninf_core *core = ctx->core;
 #endif
 
-	if (ctx->csi_streaming == enable)
+	if (ctx->csi_streaming == enable) {
+		dev_info(ctx->dev,
+			"[%s] is_csi_streaming(%d)\n",
+			__func__, ctx->csi_streaming);
 		return 0;
+	}
 
 	if (ctx->is_test_model)
 		return 0; // skip
 
 	if (!ctx->sensor_sd) {
-		dev_info(ctx->dev, "no sensor\n");
+		dev_info(ctx->dev, "[%s] no sensor\n", __func__);
 		return -EFAULT;
 	}
 
-	dev_info(ctx->dev, "[%s] enable[%d]\n", __func__, enable);
+	dev_info(ctx->dev, "[%s] enable(%d)\n", __func__, enable);
 
 	if (ctx->is_aov_real_sensor && !enable) {
 		if (!core->pwr_refcnt_for_aov)
@@ -1501,7 +1508,7 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 
 		ret = v4l2_subdev_call(ctx->sensor_sd, video, s_stream, 1);
 		if (ret) {
-			dev_info(ctx->dev, "sensor stream-on ret %d\n", ret);
+			dev_info(ctx->dev, "sensor stream-on fail,ret(%d)\n", ret);
 			return  ret;
 		}
 #ifdef SENINF_UT_DUMP
@@ -1511,7 +1518,7 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 	} else {
 		ret = v4l2_subdev_call(ctx->sensor_sd, video, s_stream, 0);
 		if (ret) {
-			dev_info(ctx->dev, "sensor stream-off ret %d\n", ret);
+			dev_info(ctx->dev, "sensor stream-off fail,ret(%d)\n", ret);
 			return ret;
 		}
 #ifdef SENSOR_SECURE_MTEE_SUPPORT
@@ -1543,10 +1550,14 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 
 	seninf_csi_s_stream(sd, enable);
 
-	if (ctx->streaming == enable)
+	if (ctx->streaming == enable) {
+		dev_info(ctx->dev,
+			"[%s] is_ctx_streaming(%d)\n",
+			__func__, ctx->streaming);
 		return 0;
+	}
 
-	dev_info(ctx->dev, "[%s] enable[%d]\n", __func__, enable);
+	dev_info(ctx->dev, "[%s] enable(%d)\n", __func__, enable);
 
 	if (ctx->is_test_model)
 		return set_test_model(ctx, enable);
@@ -1575,6 +1586,25 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 	}
 
 	ctx->streaming = enable;
+
+	if (core->aov_abnormal_deinit_flag) {
+		ctx->is_aov_real_sensor = 0;
+		if (!core->pwr_refcnt_for_aov) {
+			dev_info(ctx->dev,
+				"[%s] set aov real sensor off\n", __func__);
+			/* array size of aov_ctx[] is
+			 * 6: most number of sensors support
+			 */
+			if (g_aov_param.sensor_idx < 6) {
+				aov_ctx[g_aov_param.sensor_idx] = NULL;
+				memset(&g_aov_param, 0,
+					sizeof(struct mtk_seninf_aov_param));
+			}
+		}
+		/* switch aov pm ops: force power off sensor */
+		aov_switch_pm_ops(ctx, AOV_ABNORMAL_FORCE_SENSOR_PWR_OFF);
+		core->aov_abnormal_deinit_flag = 0;
+	}
 
 	return 0;
 }
@@ -2315,7 +2345,8 @@ static int enable_phya_clk(struct seninf_core *core)
 
 	ret = clk_prepare_enable(core->clk[CLK_TOP_CAMTG]);
 	if (ret < 0) {
-		dev_info(core->dev, "[%s] fail to enable phya clk,ret[%d]\n",
+		dev_info(core->dev,
+			"[%s] fail to enable phya clk,ret(%d)\n",
 			__func__, ret);
 		return ret;
 	}
@@ -2332,7 +2363,8 @@ static int enable_phya_clk(struct seninf_core *core)
 		ret = clk_set_parent(core->clk[CLK_TOP_CAMTG],
 				     core->clk[CLK_TOP_TCK_26M_MX9]);
 		if (ret < 0) {
-			dev_info(core->dev, "[%s] fail to set phya parent,ret[%d]\n",
+			dev_info(core->dev,
+				"[%s] fail to set phya parent,ret(%d)\n",
 				__func__, ret);
 			return ret;
 		}
@@ -2360,11 +2392,11 @@ static int runtime_suspend(struct device *dev)
 	if (core->refcnt >= 0) {
 		if (core->refcnt == 0)
 			dev_info(dev,
-				"[%s] last user[%d],cnt[%d]\n",
+				"[%s] last user(%d),cnt(%d)\n",
 				__func__, core->current_sensor_id, core->refcnt);
 		else
 			dev_info(dev,
-				"[%s] multi user[%d],cnt[%d]\n",
+				"[%s] multi user(%d),cnt(%d)\n",
 				__func__, core->current_sensor_id, core->refcnt);
 
 		if (!ctx->is_test_model) {
@@ -2401,7 +2433,7 @@ static int runtime_suspend(struct device *dev)
 					clk_disable_unprepare(core->clk[CLK_TOP_SENINF5]);
 				break;
 			default:
-				dev_info(dev, "invalid seninfIdx %d\n", ctx->seninfIdx);
+				dev_info(dev, "invalid seninfIdx(%d)\n", ctx->seninfIdx);
 				return -EINVAL;
 			}
 		} else {
@@ -2423,7 +2455,7 @@ static int runtime_suspend(struct device *dev)
 		}
 	} else
 		dev_info(dev,
-			"[%s] times error! cnt[%d]\n",
+			"[%s] times error! cnt(%d)\n",
 			__func__, core->refcnt);
 
 	mutex_unlock(&core->mutex);
@@ -2443,7 +2475,7 @@ static int runtime_resume(struct device *dev)
 	if (core->refcnt > 0) {
 		if (core->refcnt == 1) {
 			dev_info(dev,
-				"[%s] 1st user[%d],cnt[%d]\n",
+				"[%s] 1st user(%d),cnt(%d)\n",
 				__func__, core->current_sensor_id, core->refcnt);
 			/* power-domains enable */
 			seninf_core_pm_runtime_get_sync(core);
@@ -2454,14 +2486,19 @@ static int runtime_resume(struct device *dev)
 				ret = clk_prepare_enable(core->clk[CLK_CAM_SENINF]);
 				if (ret < 0) {
 					dev_info(dev,
-						"[%s] clk_prepare_enable CLK_CAM_SENINF fail, ret[%d]\n",
-						__func__, ret);
+						"[%s] clk_prepare_enable clk[CLK_CAM_SENINF:%u]:%s(fail),ret(%d)\n",
+						__func__, CLK_CAM_SENINF,
+						clk_names[CLK_CAM_SENINF], ret);
 					return ret;
 				}
+				dev_dbg(dev,
+					"[%s] clk_prepare_enable clk[CLK_CAM_SENINF:%u]:%s(success),ret(%d)\n",
+					__func__, CLK_CAM_SENINF,
+					clk_names[CLK_CAM_SENINF], ret);
 			}
 		} else
 			dev_info(dev,
-				"[%s] multi user[%d],cnt[%d]\n",
+				"[%s] multi user(%d),cnt(%d)\n",
 				__func__, core->current_sensor_id, core->refcnt);
 
 		if (!ctx->is_test_model) {
@@ -2473,10 +2510,15 @@ static int runtime_resume(struct device *dev)
 					ret = clk_prepare_enable(core->clk[CLK_TOP_SENINF]);
 					if (ret < 0) {
 						dev_info(dev,
-							"[%s] clk_prepare_enable CLK_TOP_SENINF fail, ret[%d]\n",
-							__func__, ret);
+							"[%s] clk_prepare_enable clk[CLK_TOP_SENINF:%u]:%s(fail),ret(%d)\n",
+							__func__, CLK_TOP_SENINF,
+							clk_names[CLK_TOP_SENINF], ret);
 						return ret;
 					}
+					dev_dbg(dev,
+						"[%s] clk_prepare_enable clk[CLK_TOP_SENINF:%u]:%s(success),ret(%d)\n",
+						__func__, CLK_TOP_SENINF,
+						clk_names[CLK_TOP_SENINF], ret);
 				}
 				break;
 			case SENINF_3:
@@ -2485,10 +2527,15 @@ static int runtime_resume(struct device *dev)
 					ret = clk_prepare_enable(core->clk[CLK_TOP_SENINF1]);
 					if (ret < 0) {
 						dev_info(dev,
-							"[%s] clk_prepare_enable CLK_TOP_SENINF1 fail, ret[%d]\n",
-							__func__, ret);
+							"[%s] clk_prepare_enable clk[CLK_TOP_SENINF1:%u]:%s(fail),ret(%d)\n",
+							__func__, CLK_TOP_SENINF1,
+							clk_names[CLK_TOP_SENINF1], ret);
 						return ret;
 					}
+					dev_dbg(dev,
+						"[%s] clk_prepare_enable clk[CLK_TOP_SENINF1:%u]:%s(success),ret(%d)\n",
+						__func__, CLK_TOP_SENINF1,
+						clk_names[CLK_TOP_SENINF1], ret);
 				}
 				break;
 			case SENINF_5:
@@ -2497,10 +2544,15 @@ static int runtime_resume(struct device *dev)
 					ret = clk_prepare_enable(core->clk[CLK_TOP_SENINF2]);
 					if (ret < 0) {
 						dev_info(dev,
-							"[%s] clk_prepare_enable CLK_TOP_SENINF2 fail, ret[%d]\n",
-							__func__, ret);
+							"[%s] clk_prepare_enable clk[CLK_TOP_SENINF2:%u]:%s(fail),ret(%d)\n",
+							__func__, CLK_TOP_SENINF2,
+							clk_names[CLK_TOP_SENINF2], ret);
 						return ret;
 					}
+					dev_dbg(dev,
+						"[%s] clk_prepare_enable clk[CLK_TOP_SENINF2:%u]:%s(success),ret(%d)\n",
+						__func__, CLK_TOP_SENINF2,
+						clk_names[CLK_TOP_SENINF2], ret);
 				}
 				break;
 			case SENINF_7:
@@ -2509,10 +2561,15 @@ static int runtime_resume(struct device *dev)
 					ret = clk_prepare_enable(core->clk[CLK_TOP_SENINF3]);
 					if (ret < 0) {
 						dev_info(dev,
-							"[%s] clk_prepare_enable CLK_TOP_SENINF3 fail, ret[%d]\n",
-							__func__, ret);
+							"[%s] clk_prepare_enable clk[CLK_TOP_SENINF3:%u]:%s(fail),ret(%d)\n",
+							__func__, CLK_TOP_SENINF3,
+							clk_names[CLK_TOP_SENINF3], ret);
 						return ret;
 					}
+					dev_dbg(dev,
+						"[%s] clk_prepare_enable clk[CLK_TOP_SENINF3:%u]:%s(success),ret(%d)\n",
+						__func__, CLK_TOP_SENINF3,
+						clk_names[CLK_TOP_SENINF3], ret);
 				}
 				break;
 			case SENINF_9:
@@ -2521,10 +2578,15 @@ static int runtime_resume(struct device *dev)
 					ret = clk_prepare_enable(core->clk[CLK_TOP_SENINF4]);
 					if (ret < 0) {
 						dev_info(dev,
-							"[%s] clk_prepare_enable CLK_TOP_SENINF4 fail, ret[%d]\n",
-							__func__, ret);
+							"[%s] clk_prepare_enable clk[CLK_TOP_SENINF4:%u]:%s(fail),ret(%d)\n",
+							__func__, CLK_TOP_SENINF4,
+							clk_names[CLK_TOP_SENINF4], ret);
 						return ret;
 					}
+					dev_dbg(dev,
+						"[%s] clk_prepare_enable clk[CLK_TOP_SENINF4:%u]:%s(success),ret(%d)\n",
+						__func__, CLK_TOP_SENINF4,
+						clk_names[CLK_TOP_SENINF4], ret);
 				}
 				break;
 			case SENINF_11:
@@ -2533,10 +2595,15 @@ static int runtime_resume(struct device *dev)
 					ret = clk_prepare_enable(core->clk[CLK_TOP_SENINF5]);
 					if (ret < 0) {
 						dev_info(dev,
-							"[%s] clk_prepare_enable CLK_TOP_SENINF5 fail, ret[%d]\n",
-							__func__, ret);
+							"[%s] clk_prepare_enable clk[CLK_TOP_SENINF5:%u]:%s(fail),ret(%d)\n",
+							__func__, CLK_TOP_SENINF5,
+							clk_names[CLK_TOP_SENINF5], ret);
 						return ret;
 					}
+					dev_dbg(dev,
+						"[%s] clk_prepare_enable clk[CLK_TOP_SENINF5:%u]:%s(success),ret(%d)\n",
+						__func__, CLK_TOP_SENINF5,
+						clk_names[CLK_TOP_SENINF5], ret);
 				}
 				break;
 			default:
@@ -2548,10 +2615,15 @@ static int runtime_resume(struct device *dev)
 				ret = clk_prepare_enable(core->clk[CLK_TOP_CAMTM]);
 				if (ret < 0) {
 					dev_info(dev,
-						"[%s] clk_prepare_enable CLK_TOP_CAMTM fail, ret[%d]\n",
-						__func__, ret);
+						"[%s] clk_prepare_enable clk[CLK_TOP_CAMTM:%u]:%s(fail),ret(%d)\n",
+						__func__, CLK_TOP_CAMTM,
+						clk_names[CLK_TOP_CAMTM], ret);
 					return ret;
 				}
+				dev_dbg(dev,
+					"[%s] clk_prepare_enable clk[CLK_TOP_CAMTM:%u]:%s(success),ret(%d)\n",
+					__func__, CLK_TOP_CAMTM,
+					clk_names[CLK_TOP_CAMTM], ret);
 			}
 		}
 
@@ -2573,7 +2645,7 @@ static int runtime_resume(struct device *dev)
 		}
 	} else
 		dev_info(dev,
-			"[%s] times error! cnt[%d]\n",
+			"[%s] times error! cnt(%d)\n",
 			__func__, core->refcnt);
 
 	mutex_unlock(&core->mutex);
@@ -2796,24 +2868,22 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 	struct seninf_ctx *ctx = NULL;
 	unsigned int real_sensor_id = 0;
 	struct seninf_core *core = NULL;
-#ifdef AOV_SET_CLK_PARENT
 	int ret = 0;
-#endif
 
-	pr_info("[%s] sensor_id[%d]\n", __func__, sensor_id);
+	pr_info("[%s] sensor_id(%d)\n", __func__, sensor_id);
 
 	if (g_aov_param.is_test_model) {
 		real_sensor_id = 5;
 	} else {
 		if (sensor_id == g_aov_param.sensor_idx) {
 			real_sensor_id = g_aov_param.sensor_idx;
-			pr_info("[%s] input sensor id[%u] success\n",
+			pr_info("[%s] input sensor id(%u)(success)\n",
 				__func__, real_sensor_id);
 		} else {
 			real_sensor_id = sensor_id;
-			pr_info("input sensor id[%u] fail\n", real_sensor_id);
+			pr_info("input sensor id(%u)(fail)\n", real_sensor_id);
 			seninf_aee_print(
-				"[AEE] [%s] input sensor id[%u] fail",
+				"[AEE] [%s] input sensor id(%u)(fail)",
 				__func__, real_sensor_id);
 			return -ENODEV;
 		}
@@ -2824,10 +2894,10 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 	 *		g_aov_param.sensor_idx);
 	 */
 	if (aov_ctx[real_sensor_id] != NULL) {
-		pr_info("[%s] sensor idx[%u]\n", __func__, real_sensor_id);
+		pr_info("[%s] sensor idx(%u)\n", __func__, real_sensor_id);
 		ctx = aov_ctx[real_sensor_id];
 	} else {
-		pr_info("[%s] Can't find ctx from input sensor_id!\n", __func__);
+		pr_info("[%s] Can't find ctx from input sensor id!\n", __func__);
 		return -ENODEV;
 	}
 
@@ -2837,80 +2907,96 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 	core->pwr_refcnt_for_aov++;
 	if (core->pwr_refcnt_for_aov < 0) {
 		dev_info(ctx->dev,
-			"[%s] please check aov_deinit times?[%d]\n",
+			"[%s] please check aov_deinit times?(%d)\n",
 			__func__, core->pwr_refcnt_for_aov);
 		return -ENODEV;
 	}
 	dev_info(ctx->dev,
-		"[%s] pwr_refcnt_for_aov[%d]\n",
+		"[%s] pwr_refcnt_for_aov(%d)\n",
 		__func__, core->pwr_refcnt_for_aov);
 #ifdef AOV_SUSPEND_RESUME_USE_PM_CLK
 	core->refcnt--;
 	if (core->refcnt >= 0) {
 		if (core->refcnt == 0)
 			dev_info(ctx->dev,
-				"[%s] last user[%d],cnt[%d]\n",
+				"[%s] last user(%d),cnt(%d)\n",
 				__func__, core->aov_sensor_id, core->refcnt);
 		else
 			dev_info(ctx->dev,
-				"[%s] multi user[%d],cnt[%d]\n",
+				"[%s] multi user(%d),cnt(%d)\n",
 				__func__, core->aov_sensor_id, core->refcnt);
 
 		if (!g_aov_param.is_test_model) {
 			/* AP side to SCP */
-#ifdef AOV_SET_CLK_PARENT
-			/* set the parent of clk as parent_clk */
-			if (core->clk[CLK_TOP_SENINF1] && core->clk[CLK_TOP_OSC_D4]) {
-				ret = clk_set_parent(core->clk[CLK_TOP_SENINF1],
-					core->clk[CLK_TOP_OSC_D4]);
-				if (ret < 0) {
+			if (core->aov_csi_clk_switch_flag == CSI_CLK_130) {
+				/* set the parent of clk as parent_clk */
+				if (core->clk[CLK_TOP_SENINF1] && core->clk[CLK_TOP_OSC_D4]) {
+					ret = clk_set_parent(core->clk[CLK_TOP_SENINF1],
+						core->clk[CLK_TOP_OSC_D4]);
+					if (ret < 0) {
+						dev_info(ctx->dev,
+							"[%s] clk[CLK_TOP_SENINF1:%u]:%s set_parent clk[CLK_TOP_OSC_D4:%u]:%s(fail),ret(%d)\n",
+							__func__, CLK_TOP_SENINF1,
+							clk_names[CLK_TOP_SENINF1], CLK_TOP_OSC_D4,
+							clk_names[CLK_TOP_OSC_D4], ret);
+						return ret;
+					}
 					dev_info(ctx->dev,
-						"[%s] CLK_TOP_SENINF1 set_parent CLK_TOP_OSC_D4 fail,ret[%d]\n",
-						__func__, ret);
-					return ret;
+						"[%s] clk[CLK_TOP_SENINF1:%u]:%s set_parent clk[CLK_TOP_OSC_D4:%u]:%s(correct),ret(%d)\n",
+						__func__, CLK_TOP_SENINF1,
+						clk_names[CLK_TOP_SENINF1], CLK_TOP_OSC_D4,
+						clk_names[CLK_TOP_OSC_D4], ret);
+				} else {
+					dev_info(ctx->dev,
+						"[%s] Please check clk get whether NULL?\n",
+						__func__);
+					return -EINVAL;
 				}
-				dev_info(ctx->dev,
-					"[%s] CLK_TOP_SENINF1 set_parent CLK_TOP_OSC_D4 correct,ret[%d]\n",
-					__func__, ret);
-			} else {
-				dev_info(ctx->dev,
-					"[%s] Please check clk get whether NULL?\n", __func__);
-				return -EINVAL;
 			}
-#endif
+
 			/* disable seninf csi clk which connects aov sensor */
 			if (core->clk[CLK_TOP_SENINF1]) {
 				clk_disable_unprepare(core->clk[CLK_TOP_SENINF1]);
 				dev_info(ctx->dev,
-					"[%s] disable_unprepare CLK_TOP_SENINF1\n", __func__);
+					"[%s] disable_unprepare clk[CLK_TOP_SENINF1:%u]:%s\n",
+					__func__, CLK_TOP_SENINF1,
+					clk_names[CLK_TOP_SENINF1]);
 			}
 		} else {
 			/* AP side to SCP */
-#ifdef AOV_SET_CLK_PARENT
-			/* set the parent of clk as parent_clk */
-			if (core->clk[CLK_TOP_CAMTM] && core->clk[CLK_TOP_OSC_D4]) {
-				ret = clk_set_parent(core->clk[CLK_TOP_CAMTM],
-					core->clk[CLK_TOP_OSC_D4]);
-				if (ret < 0) {
+			if (core->aov_csi_clk_switch_flag == CSI_CLK_130) {
+				/* set the parent of clk as parent_clk */
+				if (core->clk[CLK_TOP_CAMTM] && core->clk[CLK_TOP_OSC_D4]) {
+					ret = clk_set_parent(core->clk[CLK_TOP_CAMTM],
+						core->clk[CLK_TOP_OSC_D4]);
+					if (ret < 0) {
+						dev_info(ctx->dev,
+							"[%s] clk[CLK_TOP_CAMTM:%u]:%s set_parent clk[CLK_TOP_OSC_D4:%u]:%s(fail),ret(%d)\n",
+							__func__, CLK_TOP_CAMTM,
+							clk_names[CLK_TOP_CAMTM], CLK_TOP_OSC_D4,
+							clk_names[CLK_TOP_OSC_D4], ret);
+						return ret;
+					}
 					dev_info(ctx->dev,
-						"[%s] CLK_TOP_CAMTM set_parent CLK_TOP_OSC_D4 fail,ret[%d]\n",
-						__func__, ret);
-					return ret;
+						"[%s] clk[CLK_TOP_CAMTM:%u]:%s set_parent clk[CLK_TOP_OSC_D4:%u]:%s(correct),ret(%d)\n",
+						__func__, CLK_TOP_CAMTM,
+						clk_names[CLK_TOP_CAMTM], CLK_TOP_OSC_D4,
+						clk_names[CLK_TOP_OSC_D4], ret);
+				} else {
+					dev_info(ctx->dev,
+						"[%s] Please check clk get whether NULL?\n",
+						__func__);
+					return -EINVAL;
 				}
-				dev_info(ctx->dev,
-					"[%s] CLK_TOP_CAMTM set_parent CLK_TOP_OSC_D4 correct,ret[%d]\n",
-					__func__, ret);
-			} else {
-				dev_info(ctx->dev,
-					"[%s] Please check clk get whether NULL?\n", __func__);
-				return -EINVAL;
 			}
-#endif
+
 			/* disable seninf test model clk while aov is using it */
 			if (core->clk[CLK_TOP_CAMTM]) {
 				clk_disable_unprepare(core->clk[CLK_TOP_CAMTM]);
 				dev_info(ctx->dev,
-					"[%s] disable_unprepare CLK_TOP_CAMTM\n", __func__);
+					"[%s] disable_unprepare clk[CLK_TOP_CAMTM:%u]:%s\n",
+					__func__, CLK_TOP_CAMTM,
+					clk_names[CLK_TOP_CAMTM]);
 			}
 		}
 		if (core->refcnt == 0) {
@@ -2918,34 +3004,44 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 			if (core->clk[CLK_CAM_SENINF]) {
 				clk_disable_unprepare(core->clk[CLK_CAM_SENINF]);
 				dev_info(ctx->dev,
-					"[%s] disable_unprepare CLK_CAM_SENINF\n", __func__);
+					"[%s] disable_unprepare clk[CLK_CAM_SENINF:%u]:%s\n",
+					__func__, CLK_CAM_SENINF,
+					clk_names[CLK_CAM_SENINF]);
 			}
 			/* AP side to SCP */
-#ifdef AOV_SET_CLK_PARENT
-			/* set the parent of clk as parent_clk */
-			if (core->clk[CLK_TOP_CAMTG] && core->clk[CLK_TOP_OSC_D20]) {
-				ret = clk_set_parent(core->clk[CLK_TOP_CAMTG],
-					core->clk[CLK_TOP_OSC_D20]);
-				if (ret < 0) {
+			if (core->aov_csi_clk_switch_flag == CSI_CLK_130) {
+				/* set the parent of clk as parent_clk */
+				if (core->clk[CLK_TOP_CAMTG] && core->clk[CLK_TOP_OSC_D20]) {
+					ret = clk_set_parent(core->clk[CLK_TOP_CAMTG],
+						core->clk[CLK_TOP_OSC_D20]);
+					if (ret < 0) {
+						dev_info(ctx->dev,
+							"[%s] clk[CLK_TOP_CAMTG:%u]:%s set_parent clk[CLK_TOP_OSC_D20:%u]:%s(fail),ret(%d)\n",
+							__func__, CLK_TOP_CAMTG,
+							clk_names[CLK_TOP_CAMTG], CLK_TOP_OSC_D20,
+							clk_names[CLK_TOP_OSC_D20], ret);
+						return ret;
+					}
 					dev_info(ctx->dev,
-						"[%s] CLK_TOP_CAMTG set_parent CLK_TOP_OSC_D20 fail,ret[%d]\n",
-						__func__, ret);
-					return ret;
+						"[%s] clk[CLK_TOP_CAMTG:%u]:%s set_parent clk[CLK_TOP_OSC_D20:%u]:%s(correct),ret(%d)\n",
+						__func__, CLK_TOP_CAMTG,
+						clk_names[CLK_TOP_CAMTG], CLK_TOP_OSC_D20,
+						clk_names[CLK_TOP_OSC_D20], ret);
+				} else {
+					dev_info(ctx->dev,
+						"[%s] Please check clk get whether NULL?\n",
+						__func__);
+					return -EINVAL;
 				}
-				dev_info(ctx->dev,
-					"[%s] CLK_TOP_CAMTG set_parent CLK_TOP_OSC_D20 correct,ret[%d]\n",
-					__func__, ret);
-			} else {
-				dev_info(ctx->dev,
-					"[%s] Please check clk get whether NULL?\n", __func__);
-				return -EINVAL;
 			}
-#endif
+
 			/* disable seninf camtg clk (phya) while aov is using it */
 			if (core->clk[CLK_TOP_CAMTG]) {
 				clk_disable_unprepare(core->clk[CLK_TOP_CAMTG]);
 				dev_info(ctx->dev,
-					"[%s] disable_unprepare CLK_TOP_CAMTG\n", __func__);
+					"[%s] disable_unprepare clk[CLK_TOP_CAMTG:%u]:%s\n",
+					__func__, CLK_TOP_CAMTG,
+					clk_names[CLK_TOP_CAMTG]);
 			}
 			seninf_core_pm_runtime_put(core);
 		}
@@ -2957,7 +3053,8 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 }
 EXPORT_SYMBOL(mtk_cam_seninf_aov_runtime_suspend);
 
-int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id)
+int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
+	enum AOV_DEINIT_TYPE aov_seninf_deinit_type)
 {
 	struct seninf_ctx *ctx = NULL;
 	unsigned int real_sensor_id = 0;
@@ -2966,19 +3063,19 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id)
 	int ret = 0;
 #endif
 
-	pr_info("[%s] sensor_id[%d]\n", __func__, sensor_id);
+	pr_info("[%s] sensor_id(%d)\n", __func__, sensor_id);
 
 	if (g_aov_param.is_test_model) {
 		real_sensor_id = 5;
 	} else {
 		if (sensor_id == g_aov_param.sensor_idx) {
 			real_sensor_id = g_aov_param.sensor_idx;
-			pr_info("input sensor id[%u] success\n", real_sensor_id);
+			pr_info("input sensor id(%u)(success)\n", real_sensor_id);
 		} else {
 			real_sensor_id = sensor_id;
-			pr_info("input sensor id[%u] fail\n", real_sensor_id);
+			pr_info("input sensor id(%u)(fail)\n", real_sensor_id);
 			seninf_aee_print(
-				"[AEE] [%s] input sensor id[%u] fail",
+				"[AEE] [%s] input sensor id(%u)(fail)",
 				__func__, real_sensor_id);
 			return -ENODEV;
 		}
@@ -2989,7 +3086,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id)
 	 *		g_aov_param.sensor_idx);
 	 */
 	if (aov_ctx[real_sensor_id] != NULL) {
-		pr_info("[%s] sensor idx[%u]\n", __func__, real_sensor_id);
+		pr_info("[%s] sensor idx(%u)\n", __func__, real_sensor_id);
 		ctx = aov_ctx[real_sensor_id];
 #ifdef SENSING_MODE_READY
 		if (!g_aov_param.is_test_model) {
@@ -2997,10 +3094,12 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id)
 			aov_switch_i2c_bus_scl_aux(ctx, SCL4);
 			/* switch i2c bus sda from scp to apmcu */
 			aov_switch_i2c_bus_sda_aux(ctx, SDA4);
+			/* restore aov pm ops: pm_stay_awake */
+			aov_switch_pm_ops(ctx, AOV_PM_STAY_AWAKE);
 		}
 #endif
 	} else {
-		pr_info("[%s] Can't find ctx from input sensor_id!\n", __func__);
+		pr_info("[%s] Can't find ctx from input sensor id!\n", __func__);
 		return -ENODEV;
 	}
 
@@ -3010,19 +3109,19 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id)
 	core->pwr_refcnt_for_aov--;
 	if (core->pwr_refcnt_for_aov < 0) {
 		dev_info(ctx->dev,
-			"[%s] please check aov_deinit times?[%d]\n",
+			"[%s] please check aov_deinit times?(%d)\n",
 			__func__, core->pwr_refcnt_for_aov);
 		return -ENODEV;
 	}
 	dev_info(ctx->dev,
-		"[%s] pwr_refcnt_for_aov[%d]\n",
+		"[%s] pwr_refcnt_for_aov(%d)\n",
 		__func__, core->pwr_refcnt_for_aov);
 #ifdef AOV_SUSPEND_RESUME_USE_PM_CLK
 	core->refcnt++;
 	if (core->refcnt >= 0) {
 		if (core->refcnt == 1) {
 			dev_info(ctx->dev,
-				"[%s] 1st user[%d],cnt[%d]\n",
+				"[%s] 1st user(%d),cnt(%d)\n",
 				__func__, core->aov_sensor_id, core->refcnt);
 			/* power-domains enable */
 			seninf_core_pm_runtime_get_sync(core);
@@ -3032,55 +3131,67 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id)
 				ret = clk_prepare_enable(core->clk[CLK_TOP_CAMTG]);
 				if (ret < 0) {
 					dev_info(ctx->dev,
-						"[%s] prepare_enable CLK_TOP_CAMTG fail,ret[%d]\n",
-						__func__, ret);
+						"[%s] prepare_enable clk[CLK_TOP_CAMTG:%u]:%s(fail),ret(%d)\n",
+						__func__, CLK_TOP_CAMTG,
+						clk_names[CLK_TOP_CAMTG], ret);
 					return ret;
 				}
 				dev_info(ctx->dev,
-					"[%s] prepare_enable CLK_TOP_CAMTG correct,ret[%d]\n",
-					__func__, ret);
+					"[%s] prepare_enable clk[CLK_TOP_CAMTG:%u]:%s(correct),ret(%d)\n",
+					__func__, CLK_TOP_CAMTG,
+					clk_names[CLK_TOP_CAMTG], ret);
 			} else {
 				dev_info(ctx->dev,
 					"[%s] Please check clk get whether NULL?\n", __func__);
 				return -EINVAL;
 			}
 			/* SCP side to AP */
-#ifdef AOV_SET_CLK_PARENT
-			/* set the parent of clk as parent_clk */
-			if (core->clk[CLK_TOP_CAMTG] && core->clk[CLK_TOP_TCK_26M_MX9]) {
-				ret = clk_set_parent(core->clk[CLK_TOP_CAMTG],
-					core->clk[CLK_TOP_TCK_26M_MX9]);
-				if (ret < 0) {
+			if (core->aov_csi_clk_switch_flag == CSI_CLK_130) {
+				/* set the parent of clk as parent_clk */
+				if (core->clk[CLK_TOP_CAMTG] && core->clk[CLK_TOP_TCK_26M_MX9]) {
+					ret = clk_set_parent(core->clk[CLK_TOP_CAMTG],
+						core->clk[CLK_TOP_TCK_26M_MX9]);
+					if (ret < 0) {
+						dev_info(ctx->dev,
+							"[%s] clk[CLK_TOP_CAMTG:%u]:%s set_parent clk[CLK_TOP_TCK_26M_MX9:%u]:%s(fail),ret(%d)\n",
+							__func__, CLK_TOP_CAMTG,
+							clk_names[CLK_TOP_CAMTG],
+							CLK_TOP_TCK_26M_MX9,
+							clk_names[CLK_TOP_TCK_26M_MX9], ret);
+						return ret;
+					}
 					dev_info(ctx->dev,
-						"[%s] CLK_TOP_CAMTG set_parent CLK_TOP_TCK_26M_MX9 fail,ret[%d]\n",
-						__func__, ret);
-					return ret;
+						"[%s] clk[CLK_TOP_CAMTG:%u]:%s set_parent clk[CLK_TOP_TCK_26M_MX9:%u]:%s(correct),ret(%d)\n",
+						__func__, CLK_TOP_CAMTG,
+						clk_names[CLK_TOP_CAMTG],
+						CLK_TOP_TCK_26M_MX9,
+						clk_names[CLK_TOP_TCK_26M_MX9], ret);
+				} else {
+					dev_info(ctx->dev,
+						"[%s] Please check clk get whether NULL?\n",
+						__func__);
+					return -EINVAL;
 				}
-				dev_info(ctx->dev,
-					"[%s] CLK_TOP_CAMTG set_parent CLK_TOP_TCK_26M_MX9 correct,ret[%d]\n",
-					__func__, ret);
-			} else {
-				dev_info(ctx->dev,
-					"[%s] Please check clk get whether NULL?\n", __func__);
-				return -EINVAL;
 			}
-#endif
+
 			/* enable seninf cg */
 			if (core->clk[CLK_CAM_SENINF]) {
 				ret = clk_prepare_enable(core->clk[CLK_CAM_SENINF]);
 				if (ret < 0) {
 					dev_info(ctx->dev,
-						"[%s] clk_prepare_enable CLK_CAM_SENINF fail, ret[%d]\n",
-						__func__, ret);
+						"[%s] clk_prepare_enable clk[CLK_CAM_SENINF:%u]:%s(fail),ret(%d)\n",
+						__func__, CLK_CAM_SENINF,
+						clk_names[CLK_CAM_SENINF], ret);
 					return ret;
 				}
 				dev_info(ctx->dev,
-					"[%s] prepare_enable CLK_CAM_SENINF correct,ret[%d]\n",
-					__func__, ret);
+					"[%s] prepare_enable clk[CLK_CAM_SENINF:%u]:%s(correct),ret(%d)\n",
+					__func__, CLK_CAM_SENINF,
+					clk_names[CLK_CAM_SENINF], ret);
 			}
 		} else
 			dev_info(ctx->dev,
-				"[%s] multi user[%d],cnt[%d]\n",
+				"[%s] multi user(%d),cnt(%d)\n",
 				__func__, core->aov_sensor_id, core->refcnt);
 
 		if (!g_aov_param.is_test_model) {
@@ -3090,39 +3201,50 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id)
 				ret = clk_prepare_enable(core->clk[CLK_TOP_SENINF1]);
 				if (ret < 0) {
 					dev_info(ctx->dev,
-						"[%s] prepare_enable CLK_TOP_SENINF1 fail,ret[%d]\n",
-						__func__, ret);
+						"[%s] prepare_enable clk[CLK_TOP_SENINF1:%u]:%s(fail),ret(%d)\n",
+						__func__, CLK_TOP_SENINF1,
+						clk_names[CLK_TOP_SENINF1], ret);
 					return ret;
 				}
 				dev_info(ctx->dev,
-					"[%s] prepare_enable CLK_TOP_SENINF1 correct,ret[%d]\n",
-					__func__, ret);
+					"[%s] prepare_enable clk[CLK_TOP_SENINF1:%u]:%s(correct),ret(%d)\n",
+					__func__, CLK_TOP_SENINF1,
+					clk_names[CLK_TOP_SENINF1], ret);
 			} else {
 				dev_info(ctx->dev,
-					"[%s] Please check clk get whether NULL?\n", __func__);
+					"[%s] Please check clk get whether NULL?\n",
+					__func__);
 				return -EINVAL;
 			}
 			/* SCP side to AP */
-#ifdef AOV_SET_CLK_PARENT
-			/* set the parent of clk as parent_clk */
-			if (core->clk[CLK_TOP_SENINF1] && core->clk[CLK_TOP_MAINPLL2_D9]) {
-				ret = clk_set_parent(core->clk[CLK_TOP_SENINF1],
-					core->clk[CLK_TOP_MAINPLL2_D9]);
-				if (ret < 0) {
+			if (core->aov_csi_clk_switch_flag == CSI_CLK_130) {
+				/* set the parent of clk as parent_clk */
+				if (core->clk[CLK_TOP_SENINF1] && core->clk[CLK_TOP_MAINPLL2_D9]) {
+					ret = clk_set_parent(core->clk[CLK_TOP_SENINF1],
+						core->clk[CLK_TOP_MAINPLL2_D9]);
+					if (ret < 0) {
+						dev_info(ctx->dev,
+							"[%s] clk[CLK_TOP_SENINF1:%u]:%s set_parent clk[CLK_TOP_MAINPLL2_D9:%u]:%s(fail),ret(%d)\n",
+							__func__, CLK_TOP_SENINF1,
+							clk_names[CLK_TOP_SENINF1],
+							CLK_TOP_MAINPLL2_D9,
+							clk_names[CLK_TOP_MAINPLL2_D9], ret);
+						return ret;
+					}
 					dev_info(ctx->dev,
-						"[%s] CLK_TOP_SENINF1 set_parent CLK_TOP_MAINPLL2_D9 fail,ret[%d]\n",
-						__func__, ret);
-					return ret;
+						"[%s] clk[CLK_TOP_SENINF1:%u]:%s set_parent clk[CLK_TOP_MAINPLL2_D9:%u]:%s(correct),ret(%d)\n",
+						__func__, CLK_TOP_SENINF1,
+						clk_names[CLK_TOP_SENINF1],
+						CLK_TOP_MAINPLL2_D9,
+						clk_names[CLK_TOP_MAINPLL2_D9], ret);
+				} else {
+					dev_info(ctx->dev,
+						"[%s] Please check clk get whether NULL?\n",
+						__func__);
+					return -EINVAL;
 				}
-				dev_info(ctx->dev,
-					"[%s] CLK_TOP_SENINF1 set_parent CLK_TOP_MAINPLL2_D9 correct,ret[%d]\n",
-					__func__, ret);
-			} else {
-				dev_info(ctx->dev,
-					"[%s] Please check clk get whether NULL?\n", __func__);
-				return -EINVAL;
 			}
-#endif
+
 		} else {
 			/* enable seninf test model clk while aov is using it */
 			if (core->clk[CLK_TOP_CAMTM]) {
@@ -3130,43 +3252,65 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id)
 				ret = clk_prepare_enable(core->clk[CLK_TOP_CAMTM]);
 				if (ret < 0) {
 					dev_info(ctx->dev,
-						"[%s] prepare_enable CLK_TOP_CAMTM fail,ret[%d]\n",
-						__func__, ret);
+						"[%s] prepare_enable clk[CLK_TOP_CAMTM:%u]:%s(fail),ret(%d)\n",
+						__func__, CLK_TOP_CAMTM,
+						clk_names[CLK_TOP_CAMTM], ret);
 					return ret;
 				}
 				dev_info(ctx->dev,
-					"[%s] prepare_enable CLK_TOP_CAMTM correct,ret[%d]\n",
-					__func__, ret);
+					"[%s] prepare_enable clk[CLK_TOP_CAMTM:%u]:%s(correct),ret(%d)\n",
+					__func__, CLK_TOP_CAMTM,
+					clk_names[CLK_TOP_CAMTM], ret);
 			} else {
 				dev_info(ctx->dev,
 					"[%s] Please check clk get whether NULL?\n", __func__);
 				return -EINVAL;
 			}
 			/* SCP side to AP */
-#ifdef AOV_SET_CLK_PARENT
-			if (core->clk[CLK_TOP_CAMTM] && core->clk[CLK_TOP_MAINPLL2_D9]) {
-				/* set the parent of clk as parent_clk */
-				ret = clk_set_parent(core->clk[CLK_TOP_CAMTM],
-					core->clk[CLK_TOP_MAINPLL2_D9]);
-				if (ret < 0) {
+			if (core->aov_csi_clk_switch_flag == CSI_CLK_130) {
+				if (core->clk[CLK_TOP_CAMTM] && core->clk[CLK_TOP_MAINPLL2_D9]) {
+					/* set the parent of clk as parent_clk */
+					ret = clk_set_parent(core->clk[CLK_TOP_CAMTM],
+						core->clk[CLK_TOP_MAINPLL2_D9]);
+					if (ret < 0) {
+						dev_info(ctx->dev,
+							"[%s] clk[CLK_TOP_CAMTM:%u]:%s set_parent clk[CLK_TOP_MAINPLL2_D9:%u]:%s(fail),ret(%d)\n",
+							__func__, CLK_TOP_CAMTM,
+							clk_names[CLK_TOP_CAMTM],
+							CLK_TOP_MAINPLL2_D9,
+							clk_names[CLK_TOP_MAINPLL2_D9], ret);
+						return ret;
+					}
 					dev_info(ctx->dev,
-						"[%s] CLK_TOP_CAMTM set_parent CLK_TOP_MAINPLL2_D9 fail,ret[%d]\n",
-						__func__, ret);
-					return ret;
+						"[%s] clk[CLK_TOP_CAMTM:%u]:%s set_parent clk[CLK_TOP_MAINPLL2_D9:%u]:%s(correct),ret(%d)\n",
+						__func__, CLK_TOP_CAMTM,
+						clk_names[CLK_TOP_CAMTM],
+						CLK_TOP_MAINPLL2_D9,
+						clk_names[CLK_TOP_MAINPLL2_D9], ret);
+				} else {
+					dev_info(ctx->dev,
+						"[%s] Please check clk get whether NULL?\n",
+						__func__);
+					return -EINVAL;
 				}
-				dev_info(ctx->dev,
-					"[%s] CLK_TOP_CAMTM set_parent CLK_TOP_MAINPLL2_D9 correct,ret[%d]\n",
-					__func__, ret);
-			} else {
-				dev_info(ctx->dev,
-					"[%s] Please check clk get whether NULL?\n", __func__);
-				return -EINVAL;
 			}
-#endif
 		}
 	}
 #endif
 	mutex_unlock(&core->mutex);
+
+	switch (aov_seninf_deinit_type) {
+	case DEINIT_ABNORMAL:
+		dev_info(ctx->dev, "[%s] deinit type is abnormal!\n", __func__);
+		core->aov_abnormal_deinit_flag = 1;
+		/* seninf/sensor streaming off */
+		seninf_s_stream(&ctx->subdev, 0);
+		break;
+	case DEINIT_NORMAL:
+	default:
+		dev_info(ctx->dev, "[%s] deinit type is normal!\n", __func__);
+		break;
+	}
 
 	return 0;
 }

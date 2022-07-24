@@ -110,11 +110,6 @@
  */
 #define AOV_SUSPEND_RESUME_USE_PM_CLK
 
-/* FIX ME: #define it when default clk test ready
- * #undef it not to set parent
- */
-#undef AOV_SET_CLK_PARENT
-
 enum CSI_PORT {
 	CSI_PORT_0 = 0,
 	CSI_PORT_1,

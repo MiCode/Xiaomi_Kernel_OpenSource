@@ -184,6 +184,10 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 	struct mtk_stagger_info info = {0};
 	int ret = 0;
 
+#if IMGSENSOR_LOG_MORE
+	dev_info(ctx->dev, "[%s]+\n", __func__);
+#endif
+
 	info.scenario_id = SENSOR_SCENARIO_ID_NONE;
 
 	/* update ctx req id */
@@ -278,6 +282,9 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 	ctx->analogue_gain->val = ae_ctrl->gain.le_gain;
 	ctx->subctx.ae_ctrl_gph_en = 0;
 	dump_perframe_info(ctx, ae_ctrl);
+#if IMGSENSOR_LOG_MORE
+	dev_info(ctx->dev, "[%s]-\n", __func__);
+#endif
 	return 0;
 }
 
@@ -406,27 +413,32 @@ static int _aov_switch_i2c_bus_scl_aux(struct v4l2_ctrl *ctrl)
 	case SDA4:
 		ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_SCL_AP]);
 		if (ret < 0) {
-			dev_info(ctx->dev, "[%s] fail to select %s\n",
+			dev_info(ctx->dev,
+				"[%s] select(%s)(fail)\n",
 				__func__, state_names[STATE_SCL_AP]);
 			return ret;
-		} else
-			dev_info(ctx->dev, "[%s] select %s correct\n",
-				__func__, state_names[STATE_SCL_AP]);
+		}
+		dev_info(ctx->dev,
+			"[%s] select(%s)(correct)\n",
+			__func__, state_names[STATE_SCL_AP]);
 		break;
 	case SCL7:
 		ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_SCL_SCP]);
 		if (ret < 0) {
-			dev_info(ctx->dev, "[%s] fail to select %s\n",
+			dev_info(ctx->dev,
+				"[%s] select(%s)(fail)\n",
 				__func__, state_names[STATE_SCL_SCP]);
 			return ret;
-		} else
-			dev_info(ctx->dev, "[%s] select %s correct\n",
-				__func__, state_names[STATE_SCL_SCP]);
+		}
+		dev_info(ctx->dev,
+			"[%s] select(%s)(correct)\n",
+			__func__, state_names[STATE_SCL_SCP]);
 		break;
 	default:
-		dev_info(ctx->dev, "[%s] i2c bus aux function not support: %d\n",
+		dev_info(ctx->dev,
+			"[%s] i2c bus aux function not support(%d)\n",
 			__func__, ctrl->val);
-		break;
+		return -EINVAL;
 	}
 
 	return 0;
@@ -444,27 +456,129 @@ static int _aov_switch_i2c_bus_sda_aux(struct v4l2_ctrl *ctrl)
 	case SDA4:
 		ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_SDA_AP]);
 		if (ret < 0) {
-			dev_info(ctx->dev, "[%s] fail to select %s\n",
+			dev_info(ctx->dev,
+				"[%s] select(%s)(fail)\n",
 				__func__, state_names[STATE_SDA_AP]);
 			return ret;
 		} else
-			dev_info(ctx->dev, "[%s] select %s correct\n",
+			dev_info(ctx->dev,
+				"[%s] select(%s)(correct)\n",
 				__func__, state_names[STATE_SDA_AP]);
 		break;
 	case SDA7:
 		ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_SDA_SCP]);
 		if (ret < 0) {
-			dev_info(ctx->dev, "[%s] fail to select %s\n",
+			dev_info(ctx->dev,
+				"[%s] select(%s)(fail)\n",
 				__func__, state_names[STATE_SDA_SCP]);
 			return ret;
 		} else
-			dev_info(ctx->dev, "[%s] select %s correct\n",
+			dev_info(ctx->dev,
+				"[%s] select(%s)(correct)\n",
 				__func__, state_names[STATE_SDA_SCP]);
 		break;
 	default:
-		dev_info(ctx->dev, "[%s] i2c bus aux function not support: %d\n",
+		dev_info(ctx->dev,
+			"[%s] i2c bus aux function not support(%d)\n",
 			__func__, ctrl->val);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int _aov_switch_rx_param(struct v4l2_ctrl *ctrl)
+{
+	struct adaptor_ctx *ctx = ctrl_to_ctx(ctrl);
+	enum mtk_cam_seninf_csi_clk_for_param csi_clk =
+		(enum mtk_cam_seninf_csi_clk_for_param)ctrl->val;
+	union feature_para para;
+	u32 len;
+	struct sensor_mode *mode;
+	u32 i = 0;
+
+	switch (csi_clk) {
+	case CSI_CLK_130:
+		para.u32[0] = 130;
+		subdrv_call(ctx, feature_control,
+			SENSOR_FEATURE_SET_AOV_CSI_CLK, para.u8, &len);
+		dev_info(ctx->dev,
+			"[%s] csi clk select(%u)\n",
+			__func__, csi_clk);
+		/* update mode csi_param */
+		for (i = SENSOR_SCENARIO_ID_MIN; i < SENSOR_SCENARIO_ID_MAX; i++) {
+			mode = &ctx->mode[i];
+			mode->id = i;
+			subdrv_call(ctx, get_csi_param, mode->id, &mode->csi_param);
+		}
+		dev_info(ctx->dev,
+			"[%s] update mode csi_param(done)\n", __func__);
 		break;
+	case CSI_CLK_242:
+		para.u32[0] = 242;
+		subdrv_call(ctx, feature_control,
+			SENSOR_FEATURE_SET_AOV_CSI_CLK, para.u8, &len);
+		dev_info(ctx->dev,
+			"[%s] csi clk select(%u)\n", __func__, csi_clk);
+		/* update mode csi_param */
+		for (i = SENSOR_SCENARIO_ID_MIN; i < SENSOR_SCENARIO_ID_MAX; i++) {
+			mode = &ctx->mode[i];
+			mode->id = i;
+			subdrv_call(ctx, get_csi_param, mode->id, &mode->csi_param);
+		}
+		dev_info(ctx->dev,
+			"[%s] update mode csi_param(done)\n", __func__);
+		break;
+	default:
+		dev_info(ctx->dev,
+			"[%s] csi clk not support(%d)\n",
+			__func__, ctrl->val);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int _aov_switch_pm_ops(struct v4l2_ctrl *ctrl)
+{
+	struct adaptor_ctx *ctx = ctrl_to_ctx(ctrl);
+	enum mtk_cam_sensor_pm_ops pm_ops =
+		(enum mtk_cam_sensor_pm_ops)ctrl->val;
+
+	switch (pm_ops) {
+	case AOV_PM_RELAX:
+		if (ctx->aov_pm_ops_flag == 1) {
+			ctx->aov_pm_ops_flag = 0;
+			__pm_relax(ctx->sensor_ws);
+			dev_info(ctx->dev,
+				"[%s] switch to __pm_relax(correct),pm_ops_flag(%d)\n",
+				__func__, ctx->aov_pm_ops_flag);
+		} else
+			dev_info(ctx->dev,
+				"[%s] switch to __pm_relax(no need),pm_ops_flag(%d)\n",
+				__func__, ctx->aov_pm_ops_flag);
+		break;
+	case AOV_PM_STAY_AWAKE:
+		if (ctx->aov_pm_ops_flag == 0) {
+			ctx->aov_pm_ops_flag = 1;
+			__pm_stay_awake(ctx->sensor_ws);
+			dev_info(ctx->dev,
+				"[%s] switch to __pm_stay_awake(correct),pm_ops_flag(%d)\n",
+				__func__, ctx->aov_pm_ops_flag);
+		} else
+			dev_info(ctx->dev,
+				"[%s] switch to __pm_stay_awake(no need),pm_ops_flag(%d)\n",
+				__func__, ctx->aov_pm_ops_flag);
+		break;
+	case AOV_ABNORMAL_FORCE_SENSOR_PWR_OFF:
+		adaptor_hw_power_off(ctx);
+		dev_info(ctx->dev, "[%s] adaptor_hw_power_off(done)", __func__);
+		break;
+	default:
+		dev_info(ctx->dev,
+			"[%s] function not support(%d)\n",
+			__func__, ctrl->val);
+		return -EINVAL;
 	}
 
 	return 0;
@@ -1104,12 +1218,36 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MTK_AOV_SWITCH_I2C_BUS_SCL_AUX:
 		ret = _aov_switch_i2c_bus_scl_aux(ctrl);
 		if (ret < 0)
-			dev_info(dev, "_aov_switch_i2c_bus_scl_aux fail, ret: %d\n", ret);
+			dev_info(dev,
+				"[%s] _aov_switch_i2c_bus_scl_aux(fail),ret(%d)\n",
+				__func__, ret);
+		else
+			dev_info(dev,
+				"[%s] _aov_switch_i2c_bus_scl_aux(correct),ret(%d)\n",
+				__func__, ret);
 		break;
 	case V4L2_CID_MTK_AOV_SWITCH_I2C_BUS_SDA_AUX:
 		ret = _aov_switch_i2c_bus_sda_aux(ctrl);
 		if (ret < 0)
-			dev_info(dev, "_aov_switch_i2c_bus_sda_aux fail, ret: %d\n", ret);
+			dev_info(dev,
+				"[%s] _aov_switch_i2c_bus_sda_aux(fail),ret(%d)\n",
+				__func__, ret);
+		else
+			dev_info(dev,
+				"[%s] _aov_switch_i2c_bus_sda_aux(correct),ret(%d)\n",
+				__func__, ret);
+		break;
+	case V4L2_CID_MTK_AOV_SWITCH_RX_PARAM:
+		ret = _aov_switch_rx_param(ctrl);
+		dev_info(dev,
+			"[%s] _aov_switch_rx_param(correct),ret(%d)\n",
+			__func__, ret);
+		break;
+	case V4L2_CID_MTK_AOV_SWITCH_PM_OPS:
+		ret = _aov_switch_pm_ops(ctrl);
+		dev_info(dev,
+			"[%s] _aov_switch_pm_ops(correct),ret(%d)\n",
+			__func__, ret);
 		break;
 	}
 
@@ -1618,16 +1756,45 @@ static const struct v4l2_ctrl_config cfg_mtkcam_aov_switch_i2c_bus_sda_aux = {
 	.step = 1,
 };
 
+static const struct v4l2_ctrl_config cfg_mtkcam_aov_switch_rx_param = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_MTK_AOV_SWITCH_RX_PARAM,
+	.name = "aov_switch_rx_param",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 0xffff,
+	.step = 1,
+};
+
+static const struct v4l2_ctrl_config cfg_mtkcam_aov_switch_pm_ops = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_MTK_AOV_SWITCH_PM_OPS,
+	.name = "aov_pm_ops",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 0xffff,
+	.step = 1,
+};
+
 void adaptor_sensor_init(struct adaptor_ctx *ctx)
 {
+#if IMGSENSOR_LOG_MORE
+	dev_info(ctx->dev, "[%s]+\n", __func__);
+#endif
 	if (ctx && !ctx->is_sensor_inited) {
 		subdrv_call(ctx, open);
 		ctx->is_sensor_inited = 1;
 	}
+#if IMGSENSOR_LOG_MORE
+	dev_info(ctx->dev, "[%s]-\n", __func__);
+#endif
 }
 
 void restore_ae_ctrl(struct adaptor_ctx *ctx)
 {
+#if IMGSENSOR_LOG_MORE
+	dev_info(ctx->dev, "[%s]+\n", __func__);
+#endif
 	if (!ctx->ae_memento.exposure.le_exposure ||
 		!ctx->ae_memento.gain.le_gain) {
 		return;
@@ -1636,6 +1803,9 @@ void restore_ae_ctrl(struct adaptor_ctx *ctx)
 	// dev_dbg(ctx->dev, "%s\n", __func__);
 
 	do_set_ae_ctrl(ctx, &ctx->ae_memento);
+#if IMGSENSOR_LOG_MORE
+	dev_info(ctx->dev, "[%s]-\n", __func__);
+#endif
 }
 
 int adaptor_init_ctrls(struct adaptor_ctx *ctx)
@@ -1869,6 +2039,8 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_mtkcam_sensor_idx, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_mtkcam_aov_switch_i2c_bus_scl_aux, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_mtkcam_aov_switch_i2c_bus_sda_aux, NULL);
+	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_mtkcam_aov_switch_rx_param, NULL);
+	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_mtkcam_aov_switch_pm_ops, NULL);
 
 #ifdef IMGSENSOR_DEBUG
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_debug_cmd, NULL);

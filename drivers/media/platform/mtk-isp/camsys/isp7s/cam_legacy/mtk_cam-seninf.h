@@ -116,6 +116,11 @@ struct seninf_core {
 
 	/* debug flag for vsync */
 	u32 *seninf_vsync_debug_flag;
+
+	/* debug flag for aov csi clk */
+	enum mtk_cam_seninf_csi_clk_for_param aov_csi_clk_switch_flag;
+	/* abnormal deinit flag */
+	u32 aov_abnormal_deinit_flag;
 };
 
 struct seninf_ctx {

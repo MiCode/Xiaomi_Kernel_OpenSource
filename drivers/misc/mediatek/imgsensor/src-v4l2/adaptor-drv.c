@@ -239,7 +239,11 @@ static void control_sensor(struct adaptor_ctx *ctx)
 {
 	MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT image_window;
 	MSDK_SENSOR_CONFIG_STRUCT sensor_config_data;
-
+#if IMGSENSOR_LOG_MORE
+	dev_info(ctx->dev,
+		"[%s]+ is_sensor_scenario_inited(%u),is_streaming(%u)\n",
+		__func__, ctx->is_sensor_scenario_inited, ctx->is_streaming);
+#endif
 	if (!ctx->is_sensor_scenario_inited && !ctx->is_streaming) {
 		subdrv_call(ctx, control,
 				ctx->cur_mode->id,
@@ -248,6 +252,9 @@ static void control_sensor(struct adaptor_ctx *ctx)
 		ctx->is_sensor_scenario_inited = 1;
 	}
 	restore_ae_ctrl(ctx);
+#if IMGSENSOR_LOG_MORE
+	dev_info(ctx->dev, "[%s]-\n", __func__);
+#endif
 }
 
 static int set_sensor_mode(struct adaptor_ctx *ctx,
@@ -392,7 +399,9 @@ static int imgsensor_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	struct adaptor_ctx *ctx = to_ctx(sd);
 	struct v4l2_mbus_framefmt *try_fmt =
 		v4l2_subdev_get_try_format(sd, fh->state, 0);
-
+#if IMGSENSOR_LOG_MORE
+	dev_info(ctx->dev, "[%s]+\n", __func__);
+#endif
 	mutex_lock(&ctx->mutex);
 
 	ctx->open_refcnt++;
@@ -415,7 +424,9 @@ static int imgsensor_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 #endif
 
 	mutex_unlock(&ctx->mutex);
-
+#if IMGSENSOR_LOG_MORE
+	dev_info(ctx->dev, "[%s]-\n", __func__);
+#endif
 	return 0;
 }
 
@@ -423,7 +434,9 @@ static int imgsensor_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct adaptor_ctx *ctx = to_ctx(sd);
 	int i;
-
+#if IMGSENSOR_LOG_MORE
+	dev_info(ctx->dev, "[%s]+\n", __func__);
+#endif
 	mutex_lock(&ctx->mutex);
 
 #ifdef POWERON_ONCE_OPENED
@@ -444,7 +457,9 @@ static int imgsensor_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	}
 
 	mutex_unlock(&ctx->mutex);
-
+#if IMGSENSOR_LOG_MORE
+	dev_info(ctx->dev, "[%s]-\n", __func__);
+#endif
 	return 0;
 }
 
@@ -678,7 +693,9 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 	u64 data[4];
 	u32 len;
 	union feature_para para;
-
+#if IMGSENSOR_LOG_MORE
+	dev_info(ctx->dev, "[%s]+\n", __func__);
+#endif
 	adaptor_sensor_init(ctx);
 
 	control_sensor(ctx);
@@ -692,17 +709,27 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 
 	data[0] = 0; // shutter
 	para.u8[0] = 0;
+#if IMGSENSOR_LOG_MORE
+	dev_info(ctx->dev, "[%s] [SENSOR_FEATURE_SET_TEST_PATTERN]+\n", __func__);
+#endif
 	//Make sure close test pattern
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_TEST_PATTERN,
 		para.u8, &len);
+#if IMGSENSOR_LOG_MORE
+	dev_info(ctx->dev, "[%s] [SENSOR_FEATURE_SET_TEST_PATTERN]-\n", __func__);
+#endif
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_STREAMING_RESUME,
 		(u8 *)data, &len);
-
+#if IMGSENSOR_LOG_MORE
+	dev_info(ctx->dev, "[%s] [SENSOR_FEATURE_SET_STREAMING_RESUME]-\n", __func__);
+#endif
 	/* notify frame-sync streaming ON */
 	notify_fsync_mgr_streaming(ctx, 1);
-
+#if IMGSENSOR_LOG_MORE
+	dev_info(ctx->dev, "[%s]-\n", __func__);
+#endif
 	return 0;
 }
 
@@ -759,6 +786,11 @@ static int imgsensor_set_stream(struct v4l2_subdev *sd, int enable)
 
 	mutex_lock(&ctx->mutex);
 	if (ctx->is_streaming == enable) {
+#if IMGSENSOR_LOG_MORE
+		dev_info(ctx->dev,
+			"[%s]+ is_streaming(%d)\n",
+			__func__, ctx->is_streaming);
+#endif
 		mutex_unlock(&ctx->mutex);
 		return 0;
 	}
@@ -1212,6 +1244,7 @@ static int imgsensor_probe(struct i2c_client *client)
 	ctx->i2c_client = client;
 	ctx->dev = dev;
 	ctx->sensor_debug_flag = &sensor_debug;
+	ctx->aov_pm_ops_flag = 0;
 
 	endpoint = of_graph_get_next_endpoint(dev->of_node, NULL);
 	if (!endpoint) {

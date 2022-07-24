@@ -644,6 +644,12 @@ struct mtk_cam_apu_info {
 #define V4L2_CID_FSYNC_ASYNC_MASTER \
 	(V4L2_CID_USER_MTK_SENSOR_BASE + 39)
 
+#define V4L2_CID_MTK_AOV_SWITCH_RX_PARAM \
+	(V4L2_CID_USER_MTK_SENSOR_BASE + 40)
+
+#define V4L2_CID_MTK_AOV_SWITCH_PM_OPS \
+	(V4L2_CID_USER_MTK_SENSOR_BASE + 41)
+
 /**
  * enum scl for imgsensor gpio aux function.
  */
@@ -691,6 +697,24 @@ enum stream_mode {
 struct mtk_seninf_s_stream {
 	enum stream_mode stream_mode;
 	int enable;
+};
+
+enum mtk_cam_seninf_csi_clk_for_param {
+	CSI_CLK_52 = 0,
+	CSI_CLK_65,
+	CSI_CLK_104,
+	CSI_CLK_130,
+	CSI_CLK_242,
+	CSI_CLK_260,
+	CSI_CLK_312,
+	CSI_CLK_416,
+	CSI_CLK_499,
+};
+
+enum mtk_cam_sensor_pm_ops {
+	AOV_PM_RELAX = 0,
+	AOV_PM_STAY_AWAKE,
+	AOV_ABNORMAL_FORCE_SENSOR_PWR_OFF,
 };
 
 /* S E N I N F */

@@ -1070,96 +1070,216 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 	return set_gain_w_gph(ctx, gain, KAL_TRUE);
 }	/* set_gain */
 
-#undef pwr_seq_all_on_for_aov_mode_transition
-static int pwr_seq_reset_view_to_sensing(struct subdrv_ctx *ctx)
+#ifdef PWR_SEQ_ALL_USE_FOR_AOV_MODE_TRANSITION
+static int pwr_seq_common_disable_for_mode_transition(struct adaptor_ctx *ctx)
 {
 	int ret = 0;
 
-	/* switch viewing mode sw stand-by to hw stand-by */
 	// 1. set gpio
-	// xclr(reset) = 0
-	ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_RST1_LOW]);
-	if (ret < 0)
-		LOG_INF("fail to select %s\n", state_names[STATE_RST1_LOW]);
-	mdelay(1);	// response time T4-T6 in datasheet
-	// ponv = 0
-	ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_PONV_LOW]);
-	if (ret < 0)
-		LOG_INF("fail to select %s\n", state_names[STATE_PONV_LOW]);
-	mdelay(1);	// response time T4-T6 in datasheet
-#ifdef pwr_seq_all_on_for_aov_mode_transition
 	// mclk_driving_current_off
-	ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_MCLK1_OFF]);
-	if (ret < 0)
-		LOG_INF("fail to select %s\n", state_names[STATE_MCLK1_OFF]);
+	ret = pinctrl_select_state(ctx->pinctrl,
+		ctx->state[STATE_MCLK1_OFF]);
+	if (ret < 0) {
+		LOG_INF(
+			"select(%s)(fail),ret(%d)\n",
+			state_names[STATE_MCLK1_OFF], ret);
+		return ret;
+	}
+	LOG_INF("select(%s)(correct)\n", state_names[STATE_MCLK1_OFF]);
 	mdelay(6);
 	// 2. set reg
+	// disable DOVDD
 	ret = regulator_disable(ctx->regulator[REGULATOR_DOVDD]);
-	if (ret)
-		LOG_INF("failed to disable %s\n", reg_names[REGULATOR_DOVDD]);
+	if (ret) {
+		LOG_INF(
+			"disable(%s)(fail),ret(%d)\n",
+			reg_names[REGULATOR_DOVDD], ret);
+		return ret;
+	}
+	LOG_INF("select(%s)(correct)\n", reg_names[REGULATOR_DOVDD]);
 	mdelay(1);
 	// disable DVDD1
 	ret = regulator_disable(ctx->regulator[REGULATOR_DVDD1]);
-	if (ret)
-		LOG_INF("failed to disable %s\n", reg_names[REGULATOR_DVDD1]);
+	if (ret) {
+		LOG_INF("disable(%s)(fail),ret(%d)\n",
+		reg_names[REGULATOR_DVDD1], ret);
+		return ret;
+	}
+	LOG_INF("select(%s)(correct)\n", reg_names[REGULATOR_DVDD1]);
 	mdelay(4);
 	// disable AVDD2
 	ret = regulator_disable(ctx->regulator[REGULATOR_AVDD2]);
-	if (ret)
-		LOG_INF("failed to disable %s\n", reg_names[REGULATOR_AVDD2]);
+	if (ret) {
+		LOG_INF(
+			"disable(%s)(fail),ret(%d)\n",
+			reg_names[REGULATOR_AVDD2], ret);
+		return ret;
+	}
+	LOG_INF("select(%s)(correct)\n", reg_names[REGULATOR_AVDD2]);
 	mdelay(3);
 	// 3. set mclk
 	// disable mclk
 	clk_disable_unprepare(ctx->clk[CLK1_MCLK1]);
 
-	// switch hw stand-by to sensing mode sw stand-by
+	return ret;
+}
+
+static int pwr_seq_common_enable_for_mode_transition(struct adaptor_ctx *ctx)
+{
+	int ret = 0;
+
 	// 1. set mclk
 	// 24MHz
 	ret = clk_prepare_enable(ctx->clk[CLK1_MCLK1]);
-	if (ret)
-		LOG_INF("failed to enable mclk\n");
+	if (ret) {
+		LOG_INF("enable mclk(fail),ret(%d)\n", ret);
+		return ret;
+	}
+	LOG_INF("enable mclk(correct)\n");
 	ret = clk_set_parent(ctx->clk[CLK1_MCLK1], ctx->clk[CLK1_24M]);
-	if (ret)
-		LOG_INF("failed to enable mclk's parent\n");
+	if (ret) {
+		LOG_INF("enable mclk's parent(fail),ret(%d)\n", ret);
+		return ret;
+	}
+	LOG_INF("enable mclk's parent(correct)\n");
 	// 2. set reg
 	// enable AVDD2
 	ret = regulator_set_voltage(ctx->regulator[REGULATOR_AVDD2], 1800000, 1800000);
-	if (ret)
-		LOG_INF("failed to set voltage %s %d\n",
-			reg_names[REGULATOR_AVDD2], 1800000);
+	if (ret) {
+		LOG_INF(
+			"set voltage(%s)(%d)(fail),ret(%d)\n",
+			reg_names[REGULATOR_AVDD2], 1800000, ret);
+		return ret;
+	}
+	LOG_INF("set voltage(%s)(%d)(correct)\n",
+		reg_names[REGULATOR_AVDD2], 1800000);
 	ret = regulator_enable(ctx->regulator[REGULATOR_AVDD2]);
-	if (ret)
-		LOG_INF("failed to enable %s\n", reg_names[REGULATOR_AVDD2]);
+	if (ret) {
+		LOG_INF(
+			"enable(%s)(fail),ret(%d)\n",
+			reg_names[REGULATOR_AVDD2], ret);
+		return ret;
+	}
+	LOG_INF("enable(%s)(correct)\n", reg_names[REGULATOR_AVDD2]);
 	mdelay(3);
 	// enable DVDD1
 	ret = regulator_set_voltage(ctx->regulator[REGULATOR_DVDD1], 855000, 855000);
-	if (ret)
-		LOG_INF("failed to set voltage %s %d\n",
-			reg_names[REGULATOR_DVDD1], 855000);
+	if (ret) {
+		LOG_INF(
+			"set voltage(%s)(%d)(fail),ret(%d)\n",
+			reg_names[REGULATOR_DVDD1], 855000, ret);
+		return ret;
+	}
+	LOG_INF("set voltage(%s)(%d)(correct)\n",
+		reg_names[REGULATOR_DVDD1], 855000);
 	ret = regulator_enable(ctx->regulator[REGULATOR_DVDD1]);
-	if (ret)
-		LOG_INF("failed to enable %s\n", reg_names[REGULATOR_DVDD1]);
+	if (ret) {
+		LOG_INF(
+			"enable(%s)(fail),ret(%d)\n",
+			reg_names[REGULATOR_DVDD1], ret);
+		return ret;
+	}
+	LOG_INF("enable(%s)(correct)\n", reg_names[REGULATOR_DVDD1]);
 	mdelay(4);
 	// enable DOVDD
 	ret = regulator_set_voltage(ctx->regulator[REGULATOR_DOVDD], 1800000, 1800000);
-	if (ret)
-		LOG_INF("failed to set voltage %s %d\n",
-			reg_names[REGULATOR_DOVDD], 1800000);
+	if (ret) {
+		LOG_INF(
+			"set voltage(%s)(%d)(fail),ret(%d)\n",
+			reg_names[REGULATOR_DOVDD], 1800000, ret);
+		return ret;
+	}
+	LOG_INF("set voltage(%s)(%d)(correct)\n",
+		reg_names[REGULATOR_DOVDD], 1800000);
 	ret = regulator_enable(ctx->regulator[REGULATOR_DOVDD]);
-	if (ret)
-		LOG_INF("failed to enable %s\n", reg_names[REGULATOR_DOVDD]);
+	if (ret) {
+		LOG_INF(
+			"enable(%s)(fail),ret(%d)\n",
+			reg_names[REGULATOR_DOVDD], ret);
+		return ret;
+	}
+	LOG_INF("enable(%s)(correct)\n", reg_names[REGULATOR_DOVDD]);
 	mdelay(1);
 	// 3. set gpio
 	// mclk_driving_current_on 6MA
 	ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_MCLK1_6MA]);
-	if (ret < 0)
-		LOG_INF("fail to select %s\n", state_names[STATE_MCLK1_6MA]);
+	if (ret < 0) {
+		LOG_INF(
+			"select(%s)(fail),ret(%d)\n",
+			state_names[STATE_MCLK1_6MA], ret);
+		return ret;
+	}
+	LOG_INF("select(%s)(correct)\n", state_names[STATE_MCLK1_6MA]);
 	mdelay(6);
+
+	return ret;
+}
+#endif
+
+static int pwr_seq_reset_view_to_sensing(struct subdrv_ctx *ctx)
+{
+	int ret = 0;
+	struct adaptor_ctx *_adaptor_ctx = NULL;
+
+	imgsensor_info.sd = i2c_get_clientdata(ctx->i2c_client);
+	_adaptor_ctx = to_ctx(imgsensor_info.sd);
+
+	/* switch viewing mode sw stand-by to hw stand-by */
+	// 1. set gpio
+	// xclr(reset) = 0
+	ret = pinctrl_select_state(
+		_adaptor_ctx->pinctrl,
+		_adaptor_ctx->state[STATE_RST1_LOW]);
+	if (ret < 0) {
+		LOG_INF(
+			"select(%s)(fail),ret(%d)\n",
+			state_names[STATE_RST1_LOW], ret);
+		return ret;
+	}
+	LOG_INF("select(%s)(correct)\n", state_names[STATE_RST1_LOW]);
+	mdelay(1);	// response time T4-T6 in datasheet
+	// ponv = 0
+	ret = pinctrl_select_state(
+		_adaptor_ctx->pinctrl,
+		_adaptor_ctx->state[STATE_PONV_LOW]);
+	if (ret < 0) {
+		LOG_INF(
+			"select(%s)(fail),ret(%d)\n",
+			state_names[STATE_PONV_LOW], ret);
+		return ret;
+	}
+	LOG_INF("select(%s)(correct)\n", state_names[STATE_PONV_LOW]);
+	mdelay(1);	// response time T4-T6 in datasheet
+#ifdef PWR_SEQ_ALL_USE_FOR_AOV_MODE_TRANSITION
+	ret = pwr_seq_common_disable_for_mode_transition(_adaptor_ctx);
+	if (ret < 0) {
+		LOG_INF(
+			"pwr_seq_common_disable_for_mode_transition(fail),ret(%d)\n",
+			ret);
+		return ret;
+	}
+	LOG_INF("pwr_seq_common_disable_for_mode_transition(correct)\n");
+	// switch hw stand-by to sensing mode sw stand-by
+	ret = pwr_seq_common_enable_for_mode_transition(_adaptor_ctx);
+	if (ret < 0) {
+		LOG_INF(
+			"pwr_seq_common_enable_for_mode_transition(fail),ret(%d)\n",
+			ret);
+		return ret;
+	}
+	LOG_INF("pwr_seq_common_enable_for_mode_transition)(correct)\n");
 #endif
 	// xclr(reset) = 1
-	ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_RST1_HIGH]);
-	if (ret < 0)
-		LOG_INF("fail to select %s\n", state_names[STATE_RST1_HIGH]);
+	ret = pinctrl_select_state(
+		_adaptor_ctx->pinctrl,
+		_adaptor_ctx->state[STATE_RST1_HIGH]);
+	if (ret < 0) {
+		LOG_INF(
+			"select(%s)(fail),ret(%d)\n",
+			state_names[STATE_RST1_HIGH], ret);
+		return ret;
+	}
+	LOG_INF("select(%s)(correct)\n", state_names[STATE_RST1_HIGH]);
 	mdelay(4);	// response time T7 in datasheet
 
 	return ret;
@@ -1168,95 +1288,91 @@ static int pwr_seq_reset_view_to_sensing(struct subdrv_ctx *ctx)
 static int pwr_seq_reset_sens_to_viewing(struct subdrv_ctx *ctx)
 {
 	int ret = 0;
+	struct adaptor_ctx *_adaptor_ctx = NULL;
 
+	imgsensor_info.sd = i2c_get_clientdata(ctx->i2c_client);
+	_adaptor_ctx = to_ctx(imgsensor_info.sd);
+
+	ret = pinctrl_select_state(
+		_adaptor_ctx->pinctrl,
+		_adaptor_ctx->state[STATE_SCL_AP]);
+	if (ret < 0) {
+		LOG_INF(
+			"select(%s)(fail),ret(%d)\n",
+			state_names[STATE_SCL_AP], ret);
+		return ret;
+	}
+	LOG_INF("select(%s)(correct)\n", state_names[STATE_SCL_AP]);
+
+	ret = pinctrl_select_state(
+		_adaptor_ctx->pinctrl,
+		_adaptor_ctx->state[STATE_SDA_AP]);
+	if (ret < 0) {
+		LOG_INF(
+			"select(%s)(fail),ret(%d)\n",
+			state_names[STATE_SDA_AP], ret);
+		return ret;
+	}
+	LOG_INF("select(%s)(correct)\n", state_names[STATE_SDA_AP]);
+	mdelay(1);
+
+	write_cmos_sensor_8(ctx, 0x0100, 0x00);
+	LOG_INF("MODE_SEL(%08x)\n", read_cmos_sensor_8(ctx, 0x0100));
 	/* switch sensing mode sw stand-by to hw stand-by */
 	// 1. set gpio
 	// xclr(reset) = 0
-	ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_RST1_LOW]);
-	if (ret < 0)
-		LOG_INF("fail to select %s\n", state_names[STATE_RST1_LOW]);
+	ret = pinctrl_select_state(
+		_adaptor_ctx->pinctrl,
+		_adaptor_ctx->state[STATE_RST1_LOW]);
+	if (ret < 0) {
+		LOG_INF(
+			"select(%s)(fail),ret(%d)\n",
+			state_names[STATE_RST1_LOW], ret);
+		return ret;
+	}
+	LOG_INF("select(%s)(correct)\n", state_names[STATE_RST1_LOW]);
 	mdelay(1);	// response time T2 in datasheet
-#ifdef pwr_seq_all_on_for_aov_mode_transition
-	// mclk_driving_current_off
-	ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_MCLK1_OFF]);
-	if (ret < 0)
-		LOG_INF("fail to select %s\n", state_names[STATE_MCLK1_OFF]);
-	mdelay(6);
-	// 2. set reg
-	// disable DOVDD
-	ret = regulator_disable(ctx->regulator[REGULATOR_DOVDD]);
-	if (ret)
-		LOG_INF("failed to disable %s\n", reg_names[REGULATOR_DOVDD]);
-	mdelay(1);
-	// disable DVDD1
-	ret = regulator_disable(ctx->regulator[REGULATOR_DVDD1]);
-	if (ret)
-		LOG_INF("failed to disable %s\n", reg_names[REGULATOR_DVDD1]);
-	mdelay(4);
-	// disable AVDD2
-	ret = regulator_disable(ctx->regulator[REGULATOR_AVDD2]);
-	if (ret)
-		LOG_INF("failed to disable %s\n", reg_names[REGULATOR_AVDD2]);
-	mdelay(3);
-	// 3. set mclk
-	// disable mclk
-	clk_disable_unprepare(ctx->clk[CLK1_MCLK1]);
+#ifdef PWR_SEQ_ALL_USE_FOR_AOV_MODE_TRANSITION
+	ret = pwr_seq_common_disable_for_mode_transition(_adaptor_ctx);
+	if (ret < 0) {
+		LOG_INF(
+			"pwr_seq_common_disable_for_mode_transition(fail),ret(%d)\n",
+			ret);
+		return ret;
+	}
+	LOG_INF("pwr_seq_common_disable_for_mode_transition(correct)\n");
 
 	// switch hw stand-by to viewing mode sw stand-by
-	// 1. set mclk
-	// 24MHz
-	ret = clk_prepare_enable(ctx->clk[CLK1_MCLK1]);
-	if (ret)
-		LOG_INF("failed to enable mclk\n");
-	ret = clk_set_parent(ctx->clk[CLK1_MCLK1], ctx->clk[CLK1_24M]);
-	if (ret)
-		LOG_INF("failed to enable mclk's parent\n");
-	// 2. set reg
-	// enable AVDD2
-	ret = regulator_set_voltage(ctx->regulator[REGULATOR_AVDD2], 1800000, 1800000);
-	if (ret)
-		LOG_INF("failed to set voltage %s %d\n",
-			reg_names[REGULATOR_AVDD2], 1800000);
-	ret = regulator_enable(ctx->regulator[REGULATOR_AVDD2]);
-	if (ret)
-		LOG_INF("failed to enable %s\n", reg_names[REGULATOR_AVDD2]);
-	mdelay(3);
-	// enable DVDD1
-	ret = regulator_set_voltage(ctx->regulator[REGULATOR_DVDD1], 855000, 855000);
-	if (ret)
-		LOG_INF("failed to set voltage %s %d\n",
-			reg_names[REGULATOR_DVDD1], 855000);
-	ret = regulator_enable(ctx->regulator[REGULATOR_DVDD1]);
-	if (ret)
-		LOG_INF("failed to enable %s\n", reg_names[REGULATOR_DVDD1]);
-	mdelay(4);
-	// enable DOVDD
-	ret = regulator_set_voltage(ctx->regulator[REGULATOR_DOVDD], 1800000, 1800000);
-	if (ret)
-		LOG_INF("failed to set voltage %s %d\n",
-			reg_names[REGULATOR_DOVDD], 1800000);
-	ret = regulator_enable(ctx->regulator[REGULATOR_DOVDD]);
-	if (ret)
-		LOG_INF("failed to enable %s\n", reg_names[REGULATOR_DOVDD]);
-	mdelay(1);
-	// 3. set gpio
-	// mclk_driving_current_on 6MA
-	ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_MCLK1_6MA]);
-	if (ret < 0)
-		LOG_INF("fail to select %s\n", state_names[STATE_MCLK1_6MA]);
-	mdelay(6);
-#endif
+	ret = pwr_seq_common_enable_for_mode_transition(_adaptor_ctx);
+	if (ret < 0) {
+		LOG_INF(
+			"pwr_seq_common_enable_for_mode_transition(fail),ret(%d)\n",
+			ret);
+		return ret;
+	}
+	LOG_INF("pwr_seq_common_enable_for_mode_transition(correct)\n");
+
 	// ponv = 1
-	ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_PONV_HIGH]);
-	if (ret < 0)
-		LOG_INF("fail to select %s\n", state_names[STATE_PONV_HIGH]);
+	ret = pinctrl_select_state(_adaptor_ctx->pinctrl, _adaptor_ctx->state[STATE_PONV_HIGH]);
+	if (ret < 0) {
+		LOG_INF(
+			"select(%s)(fail),ret(%d)\n",
+			state_names[STATE_PONV_HIGH], ret);
+		return ret;
+	}
+	LOG_INF("select(%s)(correct)\n", state_names[STATE_PONV_HIGH]);
 	mdelay(1);
 	// xclr(reset) = 1
-	ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_RST1_HIGH]);
-	if (ret < 0)
-		LOG_INF("fail to select %s\n", state_names[STATE_RST1_HIGH]);
+	ret = pinctrl_select_state(_adaptor_ctx->pinctrl, _adaptor_ctx->state[STATE_RST1_HIGH]);
+	if (ret < 0) {
+		LOG_INF(
+			"select(%s)(fail),ret(%d)\n",
+			state_names[STATE_RST1_HIGH], ret);
+		return ret;
+	}
+	LOG_INF("select(%s)(correct)\n", state_names[STATE_RST1_HIGH]);
 	mdelay(4);	// response time T7 in datasheet
-
+#endif
 	return ret;
 }
 
@@ -1273,7 +1389,7 @@ static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 #ifdef AOV_MODE_SENSING_UT
 	int ret = 0;
 #endif
-	LOG_INF("streaming_enable(0=Sw Standby,1=streaming):[%d]\n", enable);
+	LOG_INF("streaming_enable(0=Sw Standby,1=streaming):(%d)\n", enable);
 #ifdef AOV_MODE_SENSING
 	if (ctx->sensor_mode >= IMGSENSOR_MODE_CUSTOM1 &&
 		ctx->sensor_mode < IMGSENSOR_MODE_CUSTOM4) {
@@ -1286,22 +1402,27 @@ static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 					ctx->sensor_mode < IMGSENSOR_MODE_CUSTOM4) {
 					ret = pwr_seq_reset_sens_to_viewing(ctx);
 					if (ret)
-						LOG_INF("pwr_seq_reset_sens_to_viewing fail:%d\n",
+						LOG_INF(
+							"pwr_seq_reset_sens_to_viewing(fail),ret(%d)\n",
 							ret);
 					else
-						LOG_INF("pwr_seq_reset_sens_to_viewing correct\n");
-					// sensor_init(ctx);
+						LOG_INF(
+							"pwr_seq_reset_sens_to_viewing(correct),ret(%d)\n",
+							ret);
 				}
 			}
 			stream_refcnt_for_aov = 0;
+			LOG_INF(
+				"off[correct],stream_refcnt_for_aov(%d)\n",
+				stream_refcnt_for_aov);
 		}
-		pr_info(
-			"AOV mode[%d] streaming control on scp side\n",
+		LOG_INF(
+			"AOV mode(%d) streaming control on scp side\n",
 			ctx->sensor_mode);
 		return ERROR_NONE;
 #else
-		pr_info(
-			"AOV mode[%d] streaming control on apmcu side\n",
+		LOG_INF(
+			"AOV mode(%d) streaming control on apmcu side\n",
 			ctx->sensor_mode);
 #endif
 	}
@@ -1321,6 +1442,7 @@ static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 		write_cmos_sensor_8(ctx, 0x42B0, 0x00);
 #endif
 		write_cmos_sensor_8(ctx, 0x0100, 0X01);
+		LOG_INF("MODE_SEL(%08x)\n", read_cmos_sensor_8(ctx, 0x0100));
 		ctx->test_pattern = 0;
 	} else {
 		write_cmos_sensor_8(ctx, 0x0100, 0x00);
@@ -1330,13 +1452,19 @@ static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 				ctx->sensor_mode < IMGSENSOR_MODE_CUSTOM4) {
 				ret = pwr_seq_reset_sens_to_viewing(ctx);
 				if (ret)
-					LOG_INF("pwr_seq_reset_sens_to_viewing fail:%d\n", ret);
+					LOG_INF(
+						"pwr_seq_reset_sens_to_viewing(fail),ret(%d)\n",
+						ret);
 				else
-					LOG_INF("pwr_seq_reset_sens_to_viewing correct\n");
-				sensor_init(ctx);
+					LOG_INF(
+						"pwr_seq_reset_sens_to_viewing(correct),ret(%d)\n",
+						ret);
 			}
 		}
 		stream_refcnt_for_aov = 0;
+		LOG_INF(
+			"off(correct),stream_refcnt_for_aov(%d)\n",
+			stream_refcnt_for_aov);
 #endif
 	}
 
@@ -2542,7 +2670,7 @@ static kal_uint32 get_fine_integ_line_by_scenario(struct subdrv_ctx *ctx,
 static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 {
 	if (mode != ctx->test_pattern)
-		pr_debug("mode %d -> %d\n", ctx->test_pattern, mode);
+		LOG_INF("mode %d -> %d\n", ctx->test_pattern, mode);
 	//1:Solid Color 2:Color bar 5:Black
 	if (mode == 5)
 		write_cmos_sensor_8(ctx, 0x020E, 0x00);//Dgain = 0
@@ -2562,7 +2690,7 @@ static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 static kal_uint32 set_test_pattern_data(struct subdrv_ctx *ctx,
 	struct mtk_test_pattern_data *data)
 {
-	pr_debug("IMX709 Only could support black\n");
+	LOG_INF("IMX709 Only could support black\n");
 	/*
 	 * set_cmos_sensor_8(ctx, 0x0602, (data->Channel_R >> 30) & 0x3);
 	 * set_cmos_sensor_8(ctx, 0x0603, (data->Channel_R >> 22) & 0xff);
@@ -3273,6 +3401,18 @@ static int feature_control(struct subdrv_ctx *ctx,
 					(UINT16) (*(feature_data + 1)),
 					(UINT16) (*(feature_data + 2)));
 		break;
+	case SENSOR_FEATURE_SET_AOV_CSI_CLK:
+		switch (*feature_return_para_32) {
+		case 130:
+			ctx->aov_csi_clk = 130;
+			break;
+		case 242:
+		default:
+			ctx->aov_csi_clk = 242;
+			break;
+		}
+		LOG_INF("do set aov csi clk[%u]\n", *feature_return_para_32);
+		break;
 	default:
 		break;
 	}
@@ -3307,7 +3447,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus1[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
-			.data_type = 0x2b,
+			.data_type = 0x2a,
 			.hsize = 640,
 			.vsize = 480,
 			.user_data_desc = VC_STAGGER_NE,
@@ -3318,7 +3458,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus2[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
-			.data_type = 0x2b,
+			.data_type = 0x2a,
 			.hsize = 480,
 			.vsize = 320,
 			.user_data_desc = VC_STAGGER_NE,
@@ -3329,7 +3469,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus3[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
-			.data_type = 0x2b,
+			.data_type = 0x2a,
 			.hsize = 320,
 			.vsize = 240,
 			.user_data_desc = VC_STAGGER_NE,
@@ -3382,7 +3522,6 @@ static int get_frame_desc(struct subdrv_ctx *ctx,
 #endif
 
 static const struct subdrv_ctx defctx = {
-
 	.ana_gain_def = BASEGAIN * 4,
 	.ana_gain_max = BASEGAIN * 32,
 	.ana_gain_min = BASEGAIN * 1,
@@ -3418,85 +3557,15 @@ static const struct subdrv_ctx defctx = {
 	.current_ae_effective_frame = 2,
 	.extend_frame_length_en = KAL_FALSE,
 	.ae_ctrl_gph_en = KAL_FALSE,
+	.aov_csi_clk = 242,
 };
 
 static int init_ctx(struct subdrv_ctx *ctx,
 		struct i2c_client *i2c_client, u8 i2c_write_id)
 {
-	struct device *dev = &i2c_client->dev;
-	unsigned int i = 0;
-
 	memcpy(ctx, &defctx, sizeof(*ctx));
 	ctx->i2c_client = i2c_client;
 	ctx->i2c_write_id = i2c_write_id;
-
-	/* clcok */
-	for (i = 0; i < CLK_MAXCNT; i++) {
-		ctx->clk[i] = devm_clk_get(dev, clk_names[i]);
-		if (IS_ERR(ctx->clk[i])) {
-			ctx->clk[i] = NULL;
-			LOG_INF("no clk %s\n", clk_names[i]);
-		}
-	}
-
-	/* regulator */
-	for (i = 0; i < REGULATOR_MAXCNT; i++) {
-		ctx->regulator[i] = devm_regulator_get_optional(dev, reg_names[i]);
-		if (IS_ERR(ctx->regulator[i])) {
-			ctx->regulator[i] = NULL;
-			LOG_INF("no reg %s\n", reg_names[i]);
-		}
-	}
-
-	/* pinctrl */
-	ctx->pinctrl = devm_pinctrl_get(dev);
-	if (IS_ERR(ctx->pinctrl)) {
-		LOG_INF("fail to get pinctrl\n");
-		return PTR_ERR(ctx->pinctrl);
-	}
-
-	/* pinctrl states */
-	ctx->state[STATE_RST1_LOW] = pinctrl_lookup_state(
-			ctx->pinctrl, state_names[STATE_RST1_LOW]);
-	if (IS_ERR(ctx->state[STATE_RST1_LOW])) {
-		ctx->state[STATE_RST1_LOW] = NULL;
-		LOG_INF("no STATE_RST1_LOW %s\n", state_names[STATE_RST1_LOW]);
-	}
-
-	ctx->state[STATE_RST1_HIGH] = pinctrl_lookup_state(
-			ctx->pinctrl, state_names[STATE_RST1_HIGH]);
-	if (IS_ERR(ctx->state[STATE_RST1_HIGH])) {
-		ctx->state[STATE_RST1_HIGH] = NULL;
-		LOG_INF("no STATE_RST1_HIGH %s\n", state_names[STATE_RST1_HIGH]);
-	}
-
-	ctx->state[STATE_PONV_LOW] = pinctrl_lookup_state(
-			ctx->pinctrl, state_names[STATE_PONV_LOW]);
-	if (IS_ERR(ctx->state[STATE_PONV_LOW])) {
-		ctx->state[STATE_PONV_LOW] = NULL;
-		LOG_INF("no STATE_PONV_LOW %s\n", state_names[STATE_PONV_LOW]);
-	}
-
-	ctx->state[STATE_PONV_HIGH] = pinctrl_lookup_state(
-			ctx->pinctrl, state_names[STATE_PONV_HIGH]);
-	if (IS_ERR(ctx->state[STATE_PONV_HIGH])) {
-		ctx->state[STATE_PONV_HIGH] = NULL;
-		LOG_INF("no STATE_PONV_HIGH %s\n", state_names[STATE_PONV_HIGH]);
-	}
-
-	ctx->state[STATE_MCLK1_OFF] = pinctrl_lookup_state(
-			ctx->pinctrl, state_names[STATE_MCLK1_OFF]);
-	if (IS_ERR(ctx->state[STATE_MCLK1_OFF])) {
-		ctx->state[STATE_MCLK1_OFF] = NULL;
-		LOG_INF("no STATE_MCLK1_OFF %s\n", state_names[STATE_MCLK1_OFF]);
-	}
-
-	ctx->state[STATE_MCLK1_6MA] = pinctrl_lookup_state(
-			ctx->pinctrl, state_names[STATE_MCLK1_6MA]);
-	if (IS_ERR(ctx->state[STATE_MCLK1_6MA])) {
-		ctx->state[STATE_MCLK1_6MA] = NULL;
-		LOG_INF("no STATE_MCLK1_6MA %s\n", state_names[STATE_MCLK1_6MA]);
-	}
 
 	return 0;
 }
@@ -3515,32 +3584,72 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	case SENSOR_SCENARIO_ID_CUSTOM1:
 		csi_param->legacy_phy = 0;
 		csi_param->not_fixed_trail_settle = 1;
-		csi_param->dphy_data_settle = 0x15;
-		csi_param->dphy_clk_settle = 0x15;
-		csi_param->dphy_trail = 0x30;	//0x83? FIX ME
-		csi_param->dphy_csi2_resync_dmy_cycle = 0x2C;
+		switch (ctx->aov_csi_clk) {
+		case 242:
+			csi_param->dphy_data_settle = 0x15;
+			csi_param->dphy_clk_settle = 0x15;
+			csi_param->dphy_trail = 0x30;	//0x83? FIX ME
+			csi_param->dphy_csi2_resync_dmy_cycle = 0x2C;
+			break;
+		case 130:
+			csi_param->dphy_data_settle = 0x9;	//0xB? FIX ME
+			csi_param->dphy_clk_settle = 0x9;	//0xB? FIX ME
+			csi_param->dphy_trail = 0x18;	//0x46? FIX ME
+			csi_param->dphy_csi2_resync_dmy_cycle = 0x18;
+			break;
+		}
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM2:
 		csi_param->legacy_phy = 0;
 		csi_param->not_fixed_trail_settle = 1;
-		csi_param->dphy_data_settle = 0x10;
-		csi_param->dphy_clk_settle = 0x10;
-		csi_param->dphy_trail = 0x2F;	//0x6A? FIX ME
-		csi_param->dphy_csi2_resync_dmy_cycle = 0x24;
+		switch (ctx->aov_csi_clk) {
+		case 242:
+			csi_param->dphy_data_settle = 0x10;
+			csi_param->dphy_clk_settle = 0x10;
+			csi_param->dphy_trail = 0x2F;	//0x6A? FIX ME
+			csi_param->dphy_csi2_resync_dmy_cycle = 0x24;
+			break;
+		case 130:
+			csi_param->dphy_data_settle = 0x9;
+			csi_param->dphy_clk_settle = 0x9;
+			csi_param->dphy_trail = 0x15;	//0x39? FIX ME
+			csi_param->dphy_csi2_resync_dmy_cycle = 0x13;
+			break;
+		}
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM3:
 		csi_param->legacy_phy = 0;
 		csi_param->not_fixed_trail_settle = 1;
-		csi_param->dphy_data_settle = 0x15;
-		csi_param->dphy_clk_settle = 0x15;
-		csi_param->dphy_trail = 0x30;	//0x85? FIX ME
-		csi_param->dphy_csi2_resync_dmy_cycle = 0x2D;
+		switch (ctx->aov_csi_clk) {
+		case 242:
+			csi_param->dphy_data_settle = 0x15;
+			csi_param->dphy_clk_settle = 0x15;
+			csi_param->dphy_trail = 0x30;	//0x85? FIX ME
+			csi_param->dphy_csi2_resync_dmy_cycle = 0x2D;
+			break;
+		case 130:
+			csi_param->dphy_data_settle = 0x9;	//0xC? FIX ME
+			csi_param->dphy_clk_settle = 0x9;	//0xC? FIX ME
+			csi_param->dphy_trail = 0x1A;	//0x48? FIX ME
+			csi_param->dphy_csi2_resync_dmy_cycle = 0x18;
+			break;
+		}
 		break;
 	default:
 		csi_param->legacy_phy = 0;
 		csi_param->not_fixed_trail_settle = 0;
 		break;
 	}
+	LOG_INF("[%s] aov_csi_clk[%u] %d|%d|%d|%d|%d|%d|%d\n",
+		__func__,
+		ctx->aov_csi_clk,
+		csi_param->cphy_settle,
+		csi_param->dphy_clk_settle,
+		csi_param->dphy_data_settle,
+		csi_param->dphy_trail,
+		csi_param->not_fixed_trail_settle,
+		csi_param->legacy_phy,
+		csi_param->dphy_csi2_resync_dmy_cycle);
 	return 0;
 }
 
@@ -3561,16 +3670,17 @@ static struct subdrv_ops ops = {
 };
 
 static struct subdrv_pw_seq_entry pw_seq[] = {
-	{HW_ID_SCL, 0, 0},
-	{HW_ID_SDA, 0, 0},
+	{HW_ID_SCL, 0, 0},	/* default i2c bus scl 4 on apmcu side */
+	{HW_ID_SDA, 0, 0},	/* default i2c bus sda 4 on apmcu side */
 	{HW_ID_MCLK1, 24, 0},
-	{HW_ID_PDN, 0, 0},
+	// {HW_ID_PDN, 0, 0},
+	{HW_ID_PONV, 0, 1},
 	{HW_ID_RST1, 0, 1},
 	{HW_ID_AVDD2, 1800000, 3},
 	{HW_ID_DVDD1, 855000, 4},
 	{HW_ID_DOVDD, 1800000, 1},
 	{HW_ID_MCLK1_DRIVING_CURRENT, 6, 6},
-	{HW_ID_PDN, 1, 1},
+	// {HW_ID_PDN, 1, 1},
 	{HW_ID_PONV, 1, 1},
 	{HW_ID_RST1, 1, 4}
 };

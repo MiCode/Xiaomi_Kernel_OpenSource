@@ -42,4 +42,7 @@ int aov_switch_i2c_bus_scl_aux(struct seninf_ctx *ctx,
 int aov_switch_i2c_bus_sda_aux(struct seninf_ctx *ctx,
 	enum mtk_cam_sensor_i2c_bus_sda aux);
 
+int aov_switch_pm_ops(struct seninf_ctx *ctx,
+	enum mtk_cam_sensor_pm_ops pm_ops);
+
 #endif

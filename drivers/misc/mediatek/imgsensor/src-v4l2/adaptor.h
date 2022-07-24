@@ -149,6 +149,7 @@ struct adaptor_ctx {
 	int req_id; /* from mtk hdr ae ctrl */
 	u32 shutter_for_timeout;
 	struct wakeup_source *sensor_ws;
+	unsigned int aov_pm_ops_flag;	/* flag for aov pm ops */
 };
 
 #endif

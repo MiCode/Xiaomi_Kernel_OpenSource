@@ -4184,14 +4184,13 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
 
 	core = dev_get_drvdata(ctx->dev->parent);
 
-	if (!ctx->streaming)
-		return 0;
-
 	dev_info(ctx->dev, "%s key = 0x%x, val = 0x%x\n",
 		 __func__, key, val);
 
 	switch (key) {
 	case REG_KEY_SETTLE_CK:
+		if (!ctx->streaming)
+			return 0;
 		SENINF_BITS(base, DPHY_RX_CLOCK_LANE0_HS_PARAMETER,
 			    RG_DPHY_RX_LC0_HS_SETTLE_PARAMETER,
 			    val);
@@ -4200,6 +4199,8 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
 			    val);
 		break;
 	case REG_KEY_SETTLE_DT:
+		if (!ctx->streaming)
+			return 0;
 		SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 			    RG_CDPHY_RX_LD0_TRIO0_HS_SETTLE_PARAMETER,
 			    val);
@@ -4214,6 +4215,8 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
 			    val);
 		break;
 	case REG_KEY_HS_TRAIL_EN:
+		if (!ctx->streaming)
+			return 0;
 		SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 			    RG_DPHY_RX_LD0_HS_TRAIL_EN, val);
 		SENINF_BITS(base, DPHY_RX_DATA_LANE1_HS_PARAMETER,
@@ -4224,6 +4227,8 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
 			    RG_DPHY_RX_LD3_HS_TRAIL_EN, val);
 		break;
 	case REG_KEY_HS_TRAIL_PARAM:
+		if (!ctx->streaming)
+			return 0;
 		SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 			    RG_DPHY_RX_LD0_HS_TRAIL_PARAMETER, val);
 		SENINF_BITS(base, DPHY_RX_DATA_LANE1_HS_PARAMETER,
@@ -4234,14 +4239,20 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
 			    RG_DPHY_RX_LD3_HS_TRAIL_PARAMETER, val);
 		break;
 	case REG_KEY_CSI_IRQ_STAT:
+		if (!ctx->streaming)
+			return 0;
 		SENINF_WRITE_REG(csi2, SENINF_CSI2_IRQ_STATUS,
 				 val & 0xFFFFFFFF);
 		break;
 	case REG_KEY_CSI_RESYNC_CYCLE:
+		if (!ctx->streaming)
+			return 0;
 		SENINF_BITS(csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
 			   RG_CSI2_RESYNC_DMY_CYCLE, val);
 		break;
 	case REG_KEY_MUX_IRQ_STAT:
+		if (!ctx->streaming)
+			return 0;
 		for (i = 0; i < ctx->vcinfo.cnt; i++) {
 			vc = &ctx->vcinfo.vc[i];
 			pmux = ctx->reg_if_mux[vc->mux];
@@ -4250,6 +4261,8 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
 		}
 		break;
 	case REG_KEY_CAMMUX_IRQ_STAT:
+		if (!ctx->streaming)
+			return 0;
 		for (i = 0; i < ctx->vcinfo.cnt; i++) {
 			vc = &ctx->vcinfo.vc[i];
 			pcammux = ctx->reg_if_cam_mux_pcsr[vc->cam];
@@ -4259,6 +4272,8 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
 		}
 		break;
 	case REG_KEY_CAMMUX_VSYNC_IRQ_EN:
+		if (!ctx->streaming)
+			return 0;
 		p_gcammux = ctx->reg_if_cam_mux_gcsr;
 		SENINF_WRITE_REG(p_gcammux,
 				SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN,
@@ -4267,6 +4282,8 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
 		update_vsync_irq_en_flag(ctx);
 		break;
 	case REG_KEY_CAMMUX_VSYNC_IRQ_EN_H:
+		if (!ctx->streaming)
+			return 0;
 		p_gcammux = ctx->reg_if_cam_mux_gcsr;
 		SENINF_WRITE_REG(p_gcammux,
 				SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN_H,
@@ -4276,6 +4293,8 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
 		break;
 	case REG_KEY_CSI_IRQ_EN:
 		{
+			if (!ctx->streaming)
+				return 0;
 			if (!val)
 				core->detection_cnt = 50;
 
@@ -4287,6 +4306,24 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
 						0xA0002058);
 			}
 		}
+		break;
+	case REG_KEY_AOV_CSI_CLK_SWITCH:
+		switch (val) {
+		case 130:
+			core->aov_csi_clk_switch_flag = CSI_CLK_130;
+			dev_info(ctx->dev,
+				"[%s] set aov csi clk (%u)\n",
+				__func__, val);
+			break;
+		case 242:
+		default:
+			core->aov_csi_clk_switch_flag = CSI_CLK_242;
+			dev_info(ctx->dev,
+				"[%s] set aov csi clk (%u)\n",
+				__func__, val);
+			break;
+		}
+		break;
 	}
 
 	return 0;

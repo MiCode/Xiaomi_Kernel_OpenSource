@@ -38,6 +38,7 @@ enum SET_REG_KEYS {
 	REG_KEY_CAMMUX_VSYNC_IRQ_EN,
 	REG_KEY_CAMMUX_VSYNC_IRQ_EN_H,
 	REG_KEY_CSI_IRQ_EN,
+	REG_KEY_AOV_CSI_CLK_SWITCH,
 	REG_KEY_MAX_NUM
 };
 
@@ -53,6 +54,7 @@ enum SET_REG_KEYS {
 	"RG_VSYNC_IRQ_EN", \
 	"RG_VSYNC_IRQ_EN_H", \
 	"RG_CSI_IRQ_EN", \
+	"RG_AOV_CSI_CLK_SWITCH", \
 
 struct mtk_cam_seninf_mux_meter {
 	u32 width;

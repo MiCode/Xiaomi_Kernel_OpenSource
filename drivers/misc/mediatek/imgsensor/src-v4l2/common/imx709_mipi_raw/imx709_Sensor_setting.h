@@ -30,6 +30,9 @@
 #define AOV_MODE_SENSING_UT
 #endif
 
+// #define it to debug for power sequence if needed
+#undef PWR_SEQ_ALL_USE_FOR_AOV_MODE_TRANSITION
+
 #define EEPROM_READY 0	// FIX ME
 
 static kal_uint16 imx709_init_setting[] = {

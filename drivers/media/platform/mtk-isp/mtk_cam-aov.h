@@ -62,11 +62,17 @@ struct mtk_seninf_aov_param {
 	u32 dphy_csi2_resync_dmy_cycle;
 };
 
+enum AOV_DEINIT_TYPE {
+	DEINIT_NORMAL = 0,
+	DEINIT_ABNORMAL,
+};
+
 extern int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
-				struct mtk_seninf_aov_param *aov_seninf_param);
+	struct mtk_seninf_aov_param *aov_seninf_param);
 
 extern int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id);
 
-extern int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id);
+extern int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
+	enum AOV_DEINIT_TYPE aov_seninf_deinit_type);
 
 #endif /* __MTK_CAM_AOV_H */

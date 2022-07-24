@@ -577,6 +577,38 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx)
 	if (!ctx->sensor_sd)
 		return -EINVAL;
 
+	if (ctx->is_aov_real_sensor) {
+		switch (core->aov_csi_clk_switch_flag) {
+		case CSI_CLK_52:
+		case CSI_CLK_65:
+		case CSI_CLK_104:
+		case CSI_CLK_130:
+		case CSI_CLK_242:
+		case CSI_CLK_260:
+		case CSI_CLK_312:
+		case CSI_CLK_416:
+		case CSI_CLK_499:
+			ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
+				V4L2_CID_MTK_AOV_SWITCH_RX_PARAM);
+			if (!ctrl) {
+				dev_info(ctx->dev,
+					"no(%s) in subdev(%s)\n",
+					__func__, sensor_sd->name);
+				return -EINVAL;
+			}
+			dev_info(ctx->dev,
+				"[%s] aov csi clk switch to (%u)\n",
+				__func__, core->aov_csi_clk_switch_flag);
+			v4l2_ctrl_s_ctrl(ctrl, (unsigned int)core->aov_csi_clk_switch_flag);
+			break;
+		default:
+			dev_info(ctx->dev,
+				"[%s] csi clk not support (%u)\n",
+				__func__, core->aov_csi_clk_switch_flag);
+			return -EINVAL;
+		}
+	}
+
 	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler, V4L2_CID_MTK_CSI_PARAM);
 	if (!ctrl) {
 		dev_info(ctx->dev, "%s, no V4L2_CID_MTK_CSI_PARAM %s\n",
@@ -1680,12 +1712,14 @@ int aov_switch_i2c_bus_scl_aux(struct seninf_ctx *ctx,
 	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
 		V4L2_CID_MTK_AOV_SWITCH_I2C_BUS_SCL_AUX);
 	if (!ctrl) {
-		dev_info(ctx->dev, "no %s in subdev %s\n",
-			__func__,
-			sensor_sd->name);
+		dev_info(ctx->dev,
+			"no(%s) in subdev(%s)\n",
+			__func__, sensor_sd->name);
 		return -EINVAL;
 	}
-
+	dev_info(ctx->dev,
+		"[%s] find ctrl (V4L2_CID_MTK_AOV_SWITCH_I2C_BUS_SCL_AUX)\n",
+		__func__);
 	v4l2_ctrl_s_ctrl(ctrl, (unsigned int)aux);
 
 	return 0;
@@ -1708,17 +1742,47 @@ int aov_switch_i2c_bus_sda_aux(struct seninf_ctx *ctx,
 	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
 		V4L2_CID_MTK_AOV_SWITCH_I2C_BUS_SDA_AUX);
 	if (!ctrl) {
-		dev_info(ctx->dev, "no %s in subdev %s\n",
-			__func__,
-			sensor_sd->name);
+		dev_info(ctx->dev,
+			"no(%s) in subdev(%s)\n",
+			__func__, sensor_sd->name);
 		return -EINVAL;
 	}
-
+	dev_info(ctx->dev,
+		"[%s] find ctrl (V4L2_CID_MTK_AOV_SWITCH_I2C_BUS_SDA_AUX)\n",
+		__func__);
 	v4l2_ctrl_s_ctrl(ctrl, (unsigned int)aux);
 
 	return 0;
 }
 #endif
+
+/**
+ * @brief: switch aov pm ops.
+ *
+ * switch __pm_relax/__pm_stay_awake.
+ *
+ */
+int aov_switch_pm_ops(struct seninf_ctx *ctx,
+	enum mtk_cam_sensor_pm_ops pm_ops)
+{
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	struct v4l2_ctrl *ctrl;
+
+	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
+		V4L2_CID_MTK_AOV_SWITCH_PM_OPS);
+	if (!ctrl) {
+		dev_info(ctx->dev,
+			"no(%s) in subdev(%s)\n",
+			__func__, sensor_sd->name);
+		return -EINVAL;
+	}
+	dev_info(ctx->dev,
+		"[%s] find ctrl (V4L2_CID_MTK_AOV_SWITCH_PM_OPS)\n",
+		__func__);
+	v4l2_ctrl_s_ctrl(ctrl, (unsigned int)pm_ops);
+
+	return 0;
+}
 
 /**
  * @brief: send apmcu param to scp.
@@ -1733,27 +1797,27 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 	struct seninf_ctx *ctx = NULL;
 	struct seninf_vc *vc;
 
-	pr_info("[%s] sensor_id[%d]\n", __func__, sensor_id);
+	pr_info("[%s]+ sensor_id(%d)\n", __func__, sensor_id);
 
 	if (g_aov_param.is_test_model) {
 		real_sensor_id = 5;
 	} else {
 		if (sensor_id == g_aov_param.sensor_idx) {
 			real_sensor_id = g_aov_param.sensor_idx;
-			pr_info("[%s] input sensor id[%u] success\n",
+			pr_info("[%s] input sensor id(%u)(success)\n",
 				__func__, real_sensor_id);
 		} else {
 			real_sensor_id = sensor_id;
-			pr_info("input sensor id[%u] fail\n", real_sensor_id);
+			pr_info("input sensor id(%u)(fail)\n", real_sensor_id);
 			seninf_aee_print(
-				"[AEE] [%s] input sensor id[%u] fail",
+				"[AEE] [%s] input sensor id(%u)(fail)",
 				__func__, real_sensor_id);
 			return -ENODEV;
 		}
 	}
 
 	if (aov_ctx[real_sensor_id] != NULL) {
-		pr_info("[%s] sensor idx[%u]\n", __func__, real_sensor_id);
+		pr_info("[%s] sensor idx(%u)\n", __func__, real_sensor_id);
 		ctx = aov_ctx[real_sensor_id];
 #ifdef SENSING_MODE_READY
 		if (!g_aov_param.is_test_model) {
@@ -1761,11 +1825,13 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 			aov_switch_i2c_bus_scl_aux(ctx, SCL7);
 			/* switch i2c bus sda from apmcu to scp */
 			aov_switch_i2c_bus_sda_aux(ctx, SDA7);
+			/* switch aov pm ops: pm_relax */
+			aov_switch_pm_ops(ctx, AOV_PM_RELAX);
 		}
 #endif
 		vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
 	} else {
-		pr_info("[%s] Can't find ctx from input sensor_id!\n", __func__);
+		pr_info("[%s] Can't find ctx from input sensor id!\n", __func__);
 		return -ENODEV;
 	}
 	if (!vc) {
@@ -1787,116 +1853,115 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 		pr_info("[%s] memcpy aov_seninf_param\n", __func__);
 		memcpy((void *)aov_seninf_param, (void *)&g_aov_param,
 			sizeof(struct mtk_seninf_aov_param));
-		/* debug use
-		 * pr_info(
-		 *	"[%s] port[%d]\n", __func__, aov_seninf_param->port);
-		 * pr_info(
-		 *	"[%s] portA[%d]\n", __func__, aov_seninf_param->portA);
-		 * pr_info(
-		 *	"[%s] portB[%d]\n", __func__, aov_seninf_param->portB);
-		 * pr_info(
-		 *	"[%s] is_4d1c[%u]\n", __func__, aov_seninf_param->is_4d1c);
-		 * pr_info(
-		 *	"[%s] seninfIdx[%d]\n", __func__, aov_seninf_param->seninfIdx);
-		 * pr_info(
-		 *	"[%s] vcinfo_cnt[%d]\n", __func__, aov_seninf_param->cnt);
-		 * pr_info(
-		 *	"[%s] seninf_dphy_settle_delay_dt[%d]\n",
-		 *	__func__, aov_seninf_param->seninf_dphy_settle_delay_dt);
-		 * pr_info(
-		 *	"[%s] cphy_settle_delay_dt[%d]\n",
-		 *	__func__, aov_seninf_param->cphy_settle_delay_dt);
-		 * pr_info(
-		 *	"[%s] dphy_settle_delay_dt[%d]\n",
-		 *	__func__, aov_seninf_param->dphy_settle_delay_dt);
-		 * pr_info(
-		 *	"[%s] settle_delay_ck[%d]\n",
-		 *	__func__, aov_seninf_param->settle_delay_ck);
-		 * pr_info(
-		 *	"[%s] hs_trail_parameter[%d]\n",
-		 *	__func__, aov_seninf_param->hs_trail_parameter);
-		 * pr_info(
-		 *	"[%s] width[%lld]\n", __func__, aov_seninf_param->width);
-		 * pr_info(
-		 *	"[%s] height[%lld]\n", __func__, aov_seninf_param->height);
-		 * pr_info(
-		 *	"[%s] hblank[%lld]\n", __func__, aov_seninf_param->hblank);
-		 * pr_info(
-		 *	"[%s] vblank[%lld]\n", __func__, aov_seninf_param->vblank);
-		 * pr_info(
-		 *	"[%s] fps_n[%d]\n", __func__, aov_seninf_param->fps_n);
-		 * pr_info(
-		 *	"[%s] fps_d[%d]\n", __func__, aov_seninf_param->fps_d);
-		 * pr_info(
-		 *	"[%s] customized_pixel_rate[%lld]\n",
-		 *	__func__, aov_seninf_param->customized_pixel_rate);
-		 * pr_info(
-		 *	"[%s] mipi_pixel_rate[%lld]\n",
-		 *	__func__, aov_seninf_param->mipi_pixel_rate);
-		 * pr_info(
-		 *	"[%s] is_cphy[%u]\n",
-		 *	__func__, aov_seninf_param->is_cphy);
-		 * pr_info(
-		 *	"[%s] num_data_lanes[%d]\n",
-		 *	__func__, aov_seninf_param->num_data_lanes);
-		 * pr_info(
-		 *	"[%s] isp_freq[%d]\n",
-		 *	__func__, aov_seninf_param->isp_freq);
-		 * pr_info(
-		 *	"[%s] cphy_settle[%u]\n",
-		 *	__func__, aov_seninf_param->cphy_settle);
-		 * pr_info(
-		 *	"[%s] dphy_clk_settle[%u]\n",
-		 *	__func__, aov_seninf_param->dphy_clk_settle);
-		 * pr_info(
-		 *	"[%s] dphy_data_settle[%u]\n",
-		 *	__func__, aov_seninf_param->dphy_data_settle);
-		 * pr_info(
-		 *	"[%s] dphy_trail[%d]\n",
-		 *	__func__, aov_seninf_param->dphy_trail);
-		 * pr_info(
-		 *	"[%s] legacy_phy[%d]\n",
-		 *	__func__, aov_seninf_param->legacy_phy);
-		 * pr_info(
-		 *	"[%s] not_fixed_trail_settle[%d]\n",
-		 *	__func__, aov_seninf_param->not_fixed_trail_settle);
-		 * pr_info(
-		 *	"[%s] dphy_csi2_resync_dmy_cycle[%u]\n",
-		 *	__func__, aov_seninf_param->dphy_csi2_resync_dmy_cycle);
-		 * pr_info(
-		 *	"[%s] vc[%d]\n", __func__, aov_seninf_param->vc.vc);
-		 * pr_info(
-		 *	"[%s] dt[%d]\n", __func__, aov_seninf_param->vc.dt);
-		 * pr_info(
-		 *	"[%s] feature[%d]\n", __func__, aov_seninf_param->vc.feature);
-		 * pr_info(
-		 *	"[%s] out_pad[%d]\n", __func__, aov_seninf_param->vc.out_pad);
-		 * pr_info(
-		 *	"[%s] pixel_mode[%d]\n", __func__, aov_seninf_param->vc.pixel_mode);
-		 * pr_info(
-		 *	"[%s] group[%d]\n", __func__, aov_seninf_param->vc.group);
-		 * pr_info(
-		 *	"[%s] mux[%d]\n", __func__, aov_seninf_param->vc.mux);
-		 * pr_info(
-		 *	"[%s] mux_vr[%d]\n", __func__, aov_seninf_param->vc.mux_vr);
-		 * pr_info(
-		 *	"[%s] cam[%d]\n", __func__, aov_seninf_param->vc.cam);
-		 * pr_info(
-		 *	"[%s] tag[%d]\n", __func__, aov_seninf_param->vc.tag);
-		 * pr_info(
-		 *	"[%s] cam_type[%d]\n", __func__, aov_seninf_param->vc.cam_type);
-		 * pr_info(
-		 *	"[%s] enable[%d]\n", __func__, aov_seninf_param->vc.enable);
-		 * pr_info(
-		 *	"[%s] exp_hsize[%d]\n", __func__, aov_seninf_param->vc.exp_hsize);
-		 * pr_info(
-		 *	"[%s] exp_vsize[%d]\n", __func__, aov_seninf_param->vc.exp_vsize);
-		 * pr_info(
-		 *	"[%s] bit_depth[%d]\n", __func__, aov_seninf_param->vc.bit_depth);
-		 * pr_info(
-		 *	"[%s] dt_remap_to_type[%d]\n",
-		 *	__func__, aov_seninf_param->vc.dt_remap_to_type);
-		 */
+		// debug use
+		pr_debug(
+			"[%s] port(%d)\n", __func__, aov_seninf_param->port);
+		pr_debug(
+			"[%s] portA(%d)\n", __func__, aov_seninf_param->portA);
+		pr_debug(
+			"[%s] portB(%d)\n", __func__, aov_seninf_param->portB);
+		pr_debug(
+			"[%s] is_4d1c(%u)\n", __func__, aov_seninf_param->is_4d1c);
+		pr_debug(
+			"[%s] seninfIdx(%d)\n", __func__, aov_seninf_param->seninfIdx);
+		pr_debug(
+			"[%s] vcinfo_cnt(%d)\n", __func__, aov_seninf_param->cnt);
+		pr_debug(
+			"[%s] seninf_dphy_settle_delay_dt(%d)\n",
+			__func__, aov_seninf_param->seninf_dphy_settle_delay_dt);
+		pr_debug(
+			"[%s] cphy_settle_delay_dt(%d)\n",
+			__func__, aov_seninf_param->cphy_settle_delay_dt);
+		pr_debug(
+			"[%s] dphy_settle_delay_dt(%d)\n",
+			__func__, aov_seninf_param->dphy_settle_delay_dt);
+		pr_debug(
+			"[%s] settle_delay_ck(%d)\n",
+			__func__, aov_seninf_param->settle_delay_ck);
+		pr_debug(
+			"[%s] hs_trail_parameter(%d)\n",
+			__func__, aov_seninf_param->hs_trail_parameter);
+		pr_debug(
+			"[%s] width(%lld)\n", __func__, aov_seninf_param->width);
+		pr_debug(
+			"[%s] height(%lld)\n", __func__, aov_seninf_param->height);
+		pr_debug(
+			"[%s] hblank(%lld)\n", __func__, aov_seninf_param->hblank);
+		pr_debug(
+			"[%s] vblank(%lld)\n", __func__, aov_seninf_param->vblank);
+		pr_debug(
+			"[%s] fps_n(%d)\n", __func__, aov_seninf_param->fps_n);
+		pr_debug(
+			"[%s] fps_d(%d)\n", __func__, aov_seninf_param->fps_d);
+		pr_debug(
+			"[%s] customized_pixel_rate(%lld)\n",
+			__func__, aov_seninf_param->customized_pixel_rate);
+		pr_debug(
+			"[%s] mipi_pixel_rate(%lld)\n",
+			__func__, aov_seninf_param->mipi_pixel_rate);
+		pr_debug(
+			"[%s] is_cphy(%u)\n",
+			__func__, aov_seninf_param->is_cphy);
+		pr_debug(
+			"[%s] num_data_lanes(%d)\n",
+			__func__, aov_seninf_param->num_data_lanes);
+		pr_debug(
+			"[%s] isp_freq(%d)\n",
+			__func__, aov_seninf_param->isp_freq);
+		pr_debug(
+			"[%s] cphy_settle(%u)\n",
+			__func__, aov_seninf_param->cphy_settle);
+		pr_debug(
+			"[%s] dphy_clk_settle(%u)\n",
+			__func__, aov_seninf_param->dphy_clk_settle);
+		pr_debug(
+			"[%s] dphy_data_settle(%u)\n",
+			__func__, aov_seninf_param->dphy_data_settle);
+		pr_debug(
+			"[%s] dphy_trail(%d)\n",
+			__func__, aov_seninf_param->dphy_trail);
+		pr_debug(
+			"[%s] legacy_phy(%d)\n",
+			__func__, aov_seninf_param->legacy_phy);
+		pr_debug(
+			"[%s] not_fixed_trail_settle(%d)\n",
+			__func__, aov_seninf_param->not_fixed_trail_settle);
+		pr_debug(
+			"[%s] dphy_csi2_resync_dmy_cycle(%u)\n",
+			__func__, aov_seninf_param->dphy_csi2_resync_dmy_cycle);
+		pr_debug(
+			"[%s] vc(%d)\n", __func__, aov_seninf_param->vc.vc);
+		pr_debug(
+			"[%s] dt(%d)\n", __func__, aov_seninf_param->vc.dt);
+		pr_debug(
+			"[%s] feature(%d)\n", __func__, aov_seninf_param->vc.feature);
+		pr_debug(
+			"[%s] out_pad(%d)\n", __func__, aov_seninf_param->vc.out_pad);
+		pr_debug(
+			"[%s] pixel_mode(%d)\n", __func__, aov_seninf_param->vc.pixel_mode);
+		pr_debug(
+			"[%s] group(%d)\n", __func__, aov_seninf_param->vc.group);
+		pr_debug(
+			"[%s] mux(%d)\n", __func__, aov_seninf_param->vc.mux);
+		pr_debug(
+			"[%s] mux_vr(%d)\n", __func__, aov_seninf_param->vc.mux_vr);
+		pr_debug(
+			"[%s] cam(%d)\n", __func__, aov_seninf_param->vc.cam);
+		pr_debug(
+			"[%s] tag(%d)\n", __func__, aov_seninf_param->vc.tag);
+		pr_debug(
+			"[%s] cam_type(%d)\n", __func__, aov_seninf_param->vc.cam_type);
+		pr_debug(
+			"[%s] enable(%d)\n", __func__, aov_seninf_param->vc.enable);
+		pr_debug(
+			"[%s] exp_hsize(%d)\n", __func__, aov_seninf_param->vc.exp_hsize);
+		pr_debug(
+			"[%s] exp_vsize(%d)\n", __func__, aov_seninf_param->vc.exp_vsize);
+		pr_debug(
+			"[%s] bit_depth(%d)\n", __func__, aov_seninf_param->vc.bit_depth);
+		pr_debug(
+			"[%s] dt_remap_to_type(%d)\n",
+			__func__, aov_seninf_param->vc.dt_remap_to_type);
 	} else {
 		pr_info("[%s] Must allocate buffer first!\n", __func__);
 		return -ENOMEM;

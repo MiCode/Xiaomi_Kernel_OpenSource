@@ -318,6 +318,7 @@ struct subdrv_ctx {
 	struct clk *clk[CLK_MAXCNT];
 
 	struct subdrv_static_ctx s_ctx;
+	u32 aov_csi_clk;	/* aov switch csi clk param */
 };
 
 struct subdrv_feature_control {
