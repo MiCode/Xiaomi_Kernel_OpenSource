@@ -351,8 +351,9 @@ static int aov_runtime_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops mtk_aov_pm_ops = {
-	.suspend_late = aov_runtime_suspend,
-	.resume_early = aov_runtime_resume,
+	.suspend_noirq = aov_runtime_suspend,
+	.resume_noirq = aov_runtime_resume,
+
 };
 
 static const struct of_device_id mtk_aov_of_match[] = {
