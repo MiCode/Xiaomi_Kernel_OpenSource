@@ -288,13 +288,13 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 	}
 
 	if (priv->mmsys_dev && pm_runtime_get_if_in_use(priv->mmsys_dev) <= 0)
-		goto done_mmsys;
+		goto done_return;
 	if (priv->side_mmsys_dev && pm_runtime_get_if_in_use(priv->side_mmsys_dev) <= 0)
-		goto done_side_mmsys;
+		goto done_return;
 	if (priv->ovlsys_dev && pm_runtime_get_if_in_use(priv->ovlsys_dev) <= 0)
-		goto done_ovlsys;
+		goto done_return;
 	if (priv->side_ovlsys_dev && pm_runtime_get_if_in_use(priv->side_ovlsys_dev) <= 0)
-		goto done_side_ovlsys;
+		goto done_return;
 
 	DDPFUNC("crtc%d\n", crtc_id);
 
@@ -428,18 +428,17 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 		mtk_dump_reg(comp);
 	}
 
-done_side_ovlsys:
 	if (priv->side_ovlsys_dev)
 		pm_runtime_put(priv->side_ovlsys_dev);
-done_ovlsys:
 	if (priv->ovlsys_dev)
 		pm_runtime_put(priv->ovlsys_dev);
-done_side_mmsys:
 	if (priv->side_mmsys_dev)
 		pm_runtime_put(priv->side_mmsys_dev);
-done_mmsys:
 	if (priv->mmsys_dev)
 		pm_runtime_put(priv->mmsys_dev);
+
+done_return:
+	return;
 }
 
 static void mtk_drm_crtc_addon_analysis(struct drm_crtc *crtc,
@@ -485,13 +484,13 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	}
 
 	if (priv->mmsys_dev && pm_runtime_get_if_in_use(priv->mmsys_dev) <= 0)
-		goto done_mmsys;
+		goto done_return;
 	if (priv->side_mmsys_dev && pm_runtime_get_if_in_use(priv->side_mmsys_dev) <= 0)
-		goto done_side_mmsys;
+		goto done_return;
 	if (priv->ovlsys_dev && pm_runtime_get_if_in_use(priv->ovlsys_dev) <= 0)
-		goto done_ovlsys;
+		goto done_return;
 	if (priv->side_ovlsys_dev && pm_runtime_get_if_in_use(priv->side_ovlsys_dev) <= 0)
-		goto done_side_ovlsys;
+		goto done_return;
 
 	DDPFUNC("crtc%d\n", crtc_id);
 
@@ -653,18 +652,17 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 		mtk_drm_crtc_addon_analysis(crtc, addon_data);
 	}
 
-done_side_ovlsys:
 	if (priv->side_ovlsys_dev)
 		pm_runtime_put(priv->side_ovlsys_dev);
-done_ovlsys:
 	if (priv->ovlsys_dev)
 		pm_runtime_put(priv->ovlsys_dev);
-done_side_mmsys:
 	if (priv->side_mmsys_dev)
 		pm_runtime_put(priv->side_mmsys_dev);
-done_mmsys:
 	if (priv->mmsys_dev)
 		pm_runtime_put(priv->mmsys_dev);
+
+done_return:
+	return;
 }
 
 struct mtk_ddp_comp *mtk_ddp_comp_request_output(struct mtk_drm_crtc *mtk_crtc)
