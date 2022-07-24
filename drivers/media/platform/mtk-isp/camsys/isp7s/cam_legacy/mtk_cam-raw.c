@@ -1396,6 +1396,19 @@ static void cmdq_apu_frame_mode_worker(struct work_struct *work)
 
 	cmdq_pkt_write(pkt, NULL, 0x1a003380, 0x00001, 0xffffffff);
 
+	if (ctx->pipe->enabled_raw & 0x1) {
+		cmdq_pkt_write(pkt, NULL, 0x1a00032c, 0x1, 0xffffffff);
+		cmdq_pkt_write(pkt, NULL, 0x1a0300c0, 0x1100, 0xffffffff);
+	} else if (ctx->pipe->enabled_raw & 0x2) {
+		cmdq_pkt_write(pkt, NULL, 0x1a00032c, 0x1 << 1 | 0x1,
+			       0xffffffff);
+		cmdq_pkt_write(pkt, NULL, 0x1a0700c0, 0x1100, 0xffffffff);
+	} else if (ctx->pipe->enabled_raw & 0x4) {
+		cmdq_pkt_write(pkt, NULL, 0x1a00032c, 0x2 << 1 | 0x1,
+			       0xffffffff);
+		cmdq_pkt_write(pkt, NULL, 0x1a0b00c0, 0x1100, 0xffffffff);
+	}
+
 	cmdq_pkt_flush(pkt);
 	cmdq_pkt_destroy(pkt);
 }
@@ -1439,7 +1452,6 @@ static void cmdq_apu_dc_worker(struct work_struct *work)
 
 	/* trigger APU */
 	cmdq_pkt_write(pkt, NULL, 0x190E1600, 0x1, 0xffffffff);
-	dev_info(ctx->cam->dev, "cmdq_pkt_flush\n");
 
 	cmdq_pkt_flush(pkt);
 	cmdq_pkt_destroy(pkt);
@@ -1447,24 +1459,11 @@ static void cmdq_apu_dc_worker(struct work_struct *work)
 
 void trigger_vpui(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx)
 {
-#define TRIGGER_ADL 0x1100
 	u32 cmd = 0;
 
-	cmd = TRIGGER_ADL;
 	dev_info(dev->dev, "apu frame mode %s, cmd:%d\n", __func__, cmd);
-
 	INIT_WORK(&ctx->cmdq_work, cmdq_apu_frame_mode_worker);
 	queue_work(ctx->cmdq_wq, &ctx->cmdq_work);
-
-	if (ctx->pipe->enabled_raw & 0x1)
-		writel_relaxed(0x1, dev->cam->base + 0x32c);
-	else if (ctx->pipe->enabled_raw & 0x2)
-		writel_relaxed(0x1 << 1 | 0x1, dev->cam->base + 0x32c);
-	else if (ctx->pipe->enabled_raw & 0x4)
-		writel_relaxed(0x2 << 1 | 0x1, dev->cam->base + 0x32c);
-
-	writel_relaxed(cmd, dev->base + REG_CTL_RAWI_TRIG);
-	wmb(); /* TBC */
 }
 
 void trigger_apu_start(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx)
