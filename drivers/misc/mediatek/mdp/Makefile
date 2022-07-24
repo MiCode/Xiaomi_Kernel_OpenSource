@@ -42,10 +42,8 @@ endif
 #ccflags-y += -DMDP_COMMAND_SIMULATE
 
 # Secure path for SVP/HDCP/SecCam
-ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),m)
 ifeq ($(CONFIG_MTK_MDP_MTEE_SUPPORT),m)
 ccflags-y += -DCMDQ_SECURE_PATH_SUPPORT
-endif
 endif
 
 # platform dependent definition
