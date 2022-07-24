@@ -217,7 +217,7 @@ u32 mml_qos_update_tput(struct mml_dev *mml)
 	if (mml->current_volt == volt)	/* skip for better performance */
 		goto done;
 
-	mml_msg_qos("%s dvfs update %s to %u(%u)",
+	mml_msg_qos("%s dvfs update %u to %u(%u)",
 		__func__, mml->current_volt, volt, tp->opp_speeds[i]);
 	mml->current_volt = volt;
 	if (tp->reg) {
