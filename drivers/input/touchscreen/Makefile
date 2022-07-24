@@ -116,3 +116,7 @@ obj-$(CONFIG_TOUCHSCREEN_IQS5XX)	+= iqs5xx.o
 obj-$(CONFIG_TOUCHSCREEN_ZINITIX)	+= zinitix.o
 TOUCH_LISTS := $(subst ",,$(CONFIG_TOUCHSCREEN_MTK_TOUCH))
 obj-y += $(foreach TOUCH,$(TOUCH_LISTS),$(TOUCH)/)
+
+ifneq ($(wildcard $(srctree)/$(src)/k6985v1_64_alpha),)
+obj-$(CONFIG_TOUCHSCREEN_MT6985_ALPHA_SUPPORT) += k6985v1_64_alpha/
+endif
