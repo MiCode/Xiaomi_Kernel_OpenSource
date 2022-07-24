@@ -412,6 +412,7 @@ enum rdma_golden_fmt {
 	GOLDEN_FMT_RGB,
 	GOLDEN_FMT_YUV420,
 	GOLDEN_FMT_YV12,
+	GOLDEN_FMT_HYFBC,
 	GOLDEN_FMT_TOTAL
 };
 
@@ -529,6 +530,10 @@ static const struct rdma_data mt6985_rdma_data = {
 			.cnt = ARRAY_SIZE(th_yv12_mt6985),
 			.settings = th_yv12_mt6985,
 		},
+		[GOLDEN_FMT_HYFBC] = {
+			.cnt = ARRAY_SIZE(th_hyfbc_mt6985),
+			.settings = th_hyfbc_mt6985,
+		},
 	},
 };
 
@@ -551,6 +556,10 @@ static const struct rdma_data mt6886_rdma_data = {
 		[GOLDEN_FMT_YV12] = {
 			.cnt = ARRAY_SIZE(th_yv12_mt6985),
 			.settings = th_yv12_mt6985,
+		},
+		[GOLDEN_FMT_HYFBC] = {
+			.cnt = ARRAY_SIZE(th_hyfbc_mt6985),
+			.settings = th_hyfbc_mt6985,
 		},
 	},
 };
@@ -1142,7 +1151,9 @@ static void rdma_select_threshold_hrt(struct mml_comp_rdma *rdma,
 	u32 idx, i, dmabuf_con;
 	u32 plane = MML_FMT_PLANE(format);
 
-	if (plane == 1) {
+	if (MML_FMT_HYFBC(format)) {
+		golden = &rdma->data->golden[GOLDEN_FMT_HYFBC];
+	} else if (plane == 1) {
 		if (MML_FMT_BITS_PER_PIXEL(format) >= 32)
 			golden = &rdma->data->golden[GOLDEN_FMT_ARGB];
 		else
