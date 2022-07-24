@@ -562,10 +562,12 @@ static void disp_gamma_wait_sof_irq(void)
 
 static int mtk_gamma_sof_irq_trigger(void *data)
 {
-	while (1) {
+	while (!kthread_should_stop()) {
 		disp_gamma_wait_sof_irq();
 		atomic_set(&g_gamma_sof_irq_available, 0);
 	}
+
+	return 0;
 }
 
 static void mtk_gamma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
@@ -755,7 +757,7 @@ static int mtk_gamma_user_cmd(struct mtk_ddp_comp *comp,
 			DDPPR_ERR("%s: failed\n", __func__);
 			return -EFAULT;
 		}
-		if (comp->mtk_crtc->is_dual_pipe) {
+		if (!comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe) {
 			struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
@@ -780,7 +782,7 @@ static int mtk_gamma_user_cmd(struct mtk_ddp_comp *comp,
 			DDPPR_ERR("%s: failed\n", __func__);
 			return -EFAULT;
 		}
-		if (comp->mtk_crtc->is_dual_pipe) {
+		if (!comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe) {
 			struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
