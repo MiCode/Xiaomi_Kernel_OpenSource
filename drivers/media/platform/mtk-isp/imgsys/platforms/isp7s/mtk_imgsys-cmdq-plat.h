@@ -20,8 +20,8 @@
 #define GCE_SUPPORT_REPLACE_MODE    (0)
 
 /* Record info definitions */
-#define GCE_REC_MAX_FRAME_BLOCK     (40)
-#define GCE_REC_MAX_TILE_BLOCK      (40)
+#define GCE_REC_MAX_FRAME_BLOCK     (50)
+#define GCE_REC_MAX_TILE_BLOCK      (50)
 #if GCE_SUPPORT_REPLACE_MODE
 #define GCE_REC_MAX_LABEL_COUNT     (2048)
 #endif
