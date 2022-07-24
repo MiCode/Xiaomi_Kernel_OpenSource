@@ -58,14 +58,14 @@ static int wifi_cooling_set_cur_state(struct thermal_cooling_device *cdev, unsig
 	if (wifi_cdev->target_state == state)
 		return 0;
 
+	wifi_cdev->target_state = state;
+
 	ret = wifi_cdev->throttle->state_to_wifi_limit(wifi_cdev);
 
 	if (ret < 0) {
 		dev_err(dev, "wifi limit fail\n");
 		return ret;
 	}
-
-	wifi_cdev->target_state = state;
 
 	dev_info(dev, "%s: set lv = %ld done\n", wifi_cdev->name, state);
 
