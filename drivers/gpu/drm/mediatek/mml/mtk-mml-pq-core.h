@@ -173,6 +173,7 @@ struct mml_pq_sub_task {
 	struct list_head mbox_list;
 	bool job_cancelled;
 	bool first_job;
+	bool aee_dump_done;
 	u32 mml_task_jobid;
 	u64 job_id;
 };

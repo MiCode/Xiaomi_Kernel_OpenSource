@@ -564,11 +564,11 @@ static s32 tdshp_config_post(struct mml_comp *comp, struct mml_task *task,
 	struct mml_frame_dest *dest = &task->config->info.dest[ccfg->node->out_idx];
 
 	if ((dest->pq_config.en_sharp && dest->pq_config.en_dre) ||
-		dest->pq_config.en_dc) {
+		dest->pq_config.en_dc)
 		tdshp_readback_cmdq(comp, task, ccfg);
-		mml_pq_put_comp_config_result(task);
-	}
 
+	if (dest->pq_config.en_sharp || dest->pq_config.en_dc)
+		mml_pq_put_comp_config_result(task);
 	return 0;
 }
 
@@ -645,10 +645,11 @@ static s32 tdshp_config_repost(struct mml_comp *comp, struct mml_task *task,
 			(u32)task->pq_task->tdshp_hist[pipe]->pa);
 		mml_update(reuse, tdshp_frm->labels[TDSHP_POLLGPR_1],
 			(u32)(task->pq_task->tdshp_hist[pipe]->pa >> 32));
+	}
 
 comp_config_put:
+	if (dest->pq_config.en_sharp || dest->pq_config.en_dc)
 		mml_pq_put_comp_config_result(task);
-	}
 	return 0;
 }
 

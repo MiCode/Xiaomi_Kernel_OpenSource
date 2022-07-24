@@ -227,6 +227,7 @@ static void init_sub_task(struct mml_pq_sub_task *sub_task)
 	init_waitqueue_head(&sub_task->wq);
 	INIT_LIST_HEAD(&sub_task->mbox_list);
 	sub_task->first_job = true;
+	sub_task->aee_dump_done = false;
 }
 
 s32 mml_pq_task_create(struct mml_task *task)
@@ -624,12 +625,17 @@ static int set_sub_task(struct mml_task *task,
 
 	if (!atomic_fetch_add_unless(&sub_task->queued, 1, 1)) {
 		//WARN_ON(atomic_read(&sub_task->result_ref));
-		if (atomic_read(&sub_task->result_ref))
+		if (atomic_read(&sub_task->result_ref) && !sub_task->aee_dump_done) {
 			mml_pq_log("%s ref[%d] job_id[%d, %d] mode[%d] dual[%d]",
 				__func__, atomic_read(&sub_task->result_ref),
 				sub_task->job_id, task->job.jobid,
 				task->config->info.mode,
 				task->config->dual);
+			mml_pq_util_aee("MMLPQ ref is not zero",
+				"jobid:%d",
+				task->job.jobid);
+			sub_task->aee_dump_done = true;
+		}
 		atomic_set(&sub_task->result_ref, 0);
 		kref_get(&pq_task->ref);
 		memcpy(&sub_task->frame_data.pq_param, task->pq_param,

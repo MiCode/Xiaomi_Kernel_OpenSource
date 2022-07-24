@@ -835,6 +835,11 @@ static void ddp_command_make(struct mml_task *task, u32 pipe,
 		call_cfg_op(comp, tile, task, &ccfg[i], 0);
 	}
 
+	for (i = 0; i < path->node_cnt; i++) {
+		comp = path->nodes[i].comp;
+		call_cfg_op(comp, post, task, &ccfg[i]);
+	}
+
 	/* return task pkt pointer */
 	task->pkts[pipe] = NULL;
 }
