@@ -316,7 +316,7 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 		}
 
 		max_util_base = max(max_util_base, min(cpu_util_base, _cpu_cap));
-		max_util_cur = max(max_util_cur, min(cpu_util_base, _cpu_cap));
+		max_util_cur = max(max_util_cur, min(cpu_util_cur, _cpu_cap));
 
 		trace_sched_energy_util(-1, max_util_base, sum_util_base, cpu, util_freq_base,
 				util_running_base, cpu_util_base);
