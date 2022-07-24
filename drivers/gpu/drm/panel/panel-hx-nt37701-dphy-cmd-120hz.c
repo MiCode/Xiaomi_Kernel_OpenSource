@@ -363,6 +363,9 @@ static struct mtk_panel_params ext_params = {
 		.count = 1,
 		.para_list[0] = 0x9c,
 	},
+	.is_support_od = true,
+	.is_support_dmr = true,
+	.lp_perline_en = 1,
 	.cm_params = {
 		.enable = 1,
 		.relay = 1,
@@ -462,6 +465,8 @@ static struct mtk_panel_params ext_params_60hz = {
 		.count = 1,
 		.para_list[0] = 0x9c,
 	},
+	.is_support_od = true,
+	.is_support_dmr = true,
 	.lp_perline_en = 1,
 	.cm_params = {
 		.enable = 1,

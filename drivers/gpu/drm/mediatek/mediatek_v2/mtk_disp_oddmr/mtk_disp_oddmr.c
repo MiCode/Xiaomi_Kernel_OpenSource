@@ -280,11 +280,47 @@ static bool debug_api_log;
 		DDPINFO("[API]%s:" fmt, __func__, ##arg); \
 	} while (0)
 
+//TODO add MMP
+//TODO split dmr table in sw for dynamic overhead
+static bool is_oddmr_od_support;
+static bool is_oddmr_dmr_support;
+
+/*
+ * od_weight_trigger is used to trigger od set pq
+ * is used in resume, res switch flow frame 2
+ * frame 1: od on weight = 0 (weight_trigger == 1)
+ * frame 2: od on weight != 0 (weight_trigger == 0)
+ */
+static atomic_t g_oddmr_od_weight_trigger = ATOMIC_INIT(0);
+static atomic_t g_oddmr_frame_dirty = ATOMIC_INIT(0);
+static atomic_t g_oddmr_pq_dirty = ATOMIC_INIT(0);
+static atomic_t g_oddmr_sof_irq_available = ATOMIC_INIT(0);
+/* 2: need oddmr hrt, 1: oddmr hrt done, 0:nothing todo */
+static atomic_t g_oddmr_dmr_hrt_done = ATOMIC_INIT(0);
+static atomic_t g_oddmr_od_hrt_done = ATOMIC_INIT(0);
+
+// It's a work around for no comp assigned in functions.
+struct mtk_ddp_comp *default_comp;
+struct mtk_ddp_comp *oddmr1_default_comp;
+struct mtk_disp_oddmr *g_oddmr_priv;
+struct mtk_disp_oddmr *g_oddmr1_priv;
+struct mtk_oddmr_timing g_oddmr_current_timing;
+static struct mtk_oddmr_panelid g_panelid;
+
+static struct task_struct *oddmr_sof_irq_event_task;
+static DECLARE_WAIT_QUEUE_HEAD(g_oddmr_sof_irq_wq);
+static DECLARE_WAIT_QUEUE_HEAD(g_oddmr_hrt_wq);
+static DEFINE_SPINLOCK(g_oddmr_clock_lock);
+static DEFINE_SPINLOCK(g_oddmr_od_sram_lock);
+static DEFINE_SPINLOCK(g_oddmr_timing_lock);
+
 static void mtk_oddmr_od_hsk_force_clk(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg);
 static void mtk_oddmr_od_smi(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg);
 static void mtk_oddmr_od_set_dram(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg);
 static void mtk_oddmr_od_set_dram(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg);
 static void mtk_oddmr_set_od_enable(struct mtk_ddp_comp *comp, uint32_t enable,
+		struct cmdq_pkt *handle);
+static void mtk_oddmr_set_od_enable_dual(struct mtk_ddp_comp *comp, uint32_t enable,
 		struct cmdq_pkt *handle);
 
 static inline unsigned int mtk_oddmr_read(struct mtk_ddp_comp *comp,
@@ -357,40 +393,6 @@ static inline void mtk_oddmr_write_mask(struct mtk_ddp_comp *comp, unsigned int 
 		mtk_oddmr_write_mask_cpu(comp, value, offset, mask);
 	}
 }
-
-//TODO add MMP
-//TODO split dmr table in sw for dynamic overhead
-static bool is_oddmr_od_support;
-static bool is_oddmr_dmr_support;
-
-/*
- * od_weight_trigger is used to trigger od set pq
- * is used in resume, res switch flow frame 2
- * frame 1: od on weight = 0 (weight_trigger == 1)
- * frame 2: od on weight != 0 (weight_trigger == 0)
- */
-static atomic_t g_oddmr_od_weight_trigger = ATOMIC_INIT(0);
-static atomic_t g_oddmr_frame_dirty = ATOMIC_INIT(0);
-static atomic_t g_oddmr_pq_dirty = ATOMIC_INIT(0);
-static atomic_t g_oddmr_sof_irq_available = ATOMIC_INIT(0);
-/* 2: need oddmr hrt, 1: oddmr hrt done, 0:nothing todo */
-static atomic_t g_oddmr_dmr_hrt_done = ATOMIC_INIT(0);
-static atomic_t g_oddmr_od_hrt_done = ATOMIC_INIT(0);
-
-// It's a work around for no comp assigned in functions.
-struct mtk_ddp_comp *default_comp;
-struct mtk_ddp_comp *oddmr1_default_comp;
-struct mtk_disp_oddmr *g_oddmr_priv;
-struct mtk_disp_oddmr *g_oddmr1_priv;
-struct mtk_oddmr_timing g_oddmr_current_timing;
-static struct mtk_oddmr_panelid g_panelid;
-
-static struct task_struct *oddmr_sof_irq_event_task;
-static DECLARE_WAIT_QUEUE_HEAD(g_oddmr_sof_irq_wq);
-static DECLARE_WAIT_QUEUE_HEAD(g_oddmr_hrt_wq);
-static DEFINE_SPINLOCK(g_oddmr_clock_lock);
-static DEFINE_SPINLOCK(g_oddmr_od_sram_lock);
-static DEFINE_SPINLOCK(g_oddmr_timing_lock);
 
 static inline struct mtk_disp_oddmr *comp_to_oddmr(struct mtk_ddp_comp *comp)
 {
@@ -683,7 +685,6 @@ static void mtk_oddmr_od_common_init(struct mtk_ddp_comp *comp, struct cmdq_pkt 
 
 	ODDMRAPI_LOG("+\n");
 	/* top */
-	//mtk_oddmr_write(default_comp, 1, DISP_ODDMR_TOP_OD_BYASS, pkg);
 	SET_VAL_MASK(value, mask, 0, REG_OD_EN);
 	SET_VAL_MASK(value, mask, g_od_param.od_basic_info.basic_param.od_mode, REG_OD_MODE);
 	mtk_oddmr_write(comp, value, DISP_ODDMR_OD_CTRL_EN, pkg);
@@ -895,29 +896,6 @@ static int mtk_oddmr_od_bpp(int mode)
 	ret = 2 * ret;
 	ret = ret * bits / (hscaling * vscaling * 8);
 	return ret;
-}
-int mtk_oddmr_hrt_cal_notify(int *oddmr_hrt)
-{
-	int sum = 0;
-
-	if (is_oddmr_od_support || is_oddmr_dmr_support) {
-		if (atomic_read(&g_oddmr_od_hrt_done) == 2)
-			atomic_set(&g_oddmr_od_hrt_done, 1);
-		if (atomic_read(&g_oddmr_dmr_hrt_done) == 2)
-			atomic_set(&g_oddmr_dmr_hrt_done, 1);
-		if (g_oddmr_priv->od_enable)
-			sum += mtk_oddmr_od_bpp(g_od_param.od_basic_info.basic_param.od_mode);
-		if (g_oddmr_priv->dmr_enable)
-			sum += mtk_oddmr_dmr_bpp(
-					g_dmr_param.dmr_basic_info.basic_param.dmr_table_mode);
-		wake_up_all(&g_oddmr_hrt_wq);
-		ODDMRLOW_LOG("od %d dmr %d sum %d\n",
-				g_oddmr_priv->od_enable, g_oddmr_priv->dmr_enable, sum);
-	} else {
-		return 0;
-	}
-	*oddmr_hrt += sum;
-	return sum;
 }
 
 static void mtk_oddmr_set_spr2rgb(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg,
@@ -1163,7 +1141,7 @@ static void mtk_oddmr_first_cfg(struct mtk_ddp_comp *comp,
 	crtc_idx = drm_crtc_index(&mtk_crtc->base);
 	if (crtc_idx == 0)
 		out_comp = mtk_ddp_comp_request_output(mtk_crtc);
-	if (out_comp)
+	if (out_comp && (is_oddmr_dmr_support || is_oddmr_od_support))
 		out_comp->funcs->io_cmd(out_comp, NULL, DSI_READ_PANELID, &g_panelid);
 	spin_lock_irqsave(&g_oddmr_timing_lock, flags);
 	mtk_oddmr_drm_mode_to_oddmr_timg(mtk_crtc, &g_oddmr_current_timing);
@@ -1231,8 +1209,7 @@ static void mtk_oddmr_config(struct mtk_ddp_comp *comp,
 		mtk_oddmr_od_common_init(comp, NULL);
 		mtk_oddmr_od_set_res(comp, NULL, hdisplay, vdisplay);
 		mtk_oddmr_od_init_end(comp, NULL);
-		mtk_oddmr_write_mask(comp, oddmr_priv->od_enable,
-			DISP_ODDMR_OD_CTRL_EN, 0x01, handle);
+		mtk_oddmr_set_od_enable(comp, oddmr_priv->od_enable, handle);
 		//sw bypass first frame od pq
 		//TODO: g_oddmr_od_weight_trigger = 2 ???
 		if ((oddmr_priv->data->is_od_support_hw_skip_first_frame == false) &&
@@ -1341,6 +1318,7 @@ int mtk_oddmr_analysis(struct mtk_ddp_comp *comp)
 	struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
 
 	DDPDUMP("== %s ANALYSIS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
+	DDPDUMP("od_support %d dmr_support %d\n", is_oddmr_od_support, is_oddmr_dmr_support);
 	DDPDUMP("od_en %d, dmr_en %d, od_state %d, dmr_state %d\n",
 			oddmr_priv->od_enable,
 			oddmr_priv->dmr_enable,
@@ -2379,14 +2357,55 @@ void mtk_oddmr_bl_chg(uint32_t bl_level, struct cmdq_pkt *handle)
 	g_oddmr_current_timing.bl_level = bl_level;
 	spin_unlock_irqrestore(&g_oddmr_timing_lock, flags);
 }
-inline void mtk_oddmr_set_pq_dirty(void)
+void mtk_oddmr_set_pq_dirty(void)
 {
 	atomic_set(&g_oddmr_frame_dirty, 1);
 }
+
+int mtk_oddmr_hrt_cal_notify(int *oddmr_hrt)
+{
+	int sum = 0;
+
+	if (is_oddmr_od_support || is_oddmr_dmr_support) {
+		if (atomic_read(&g_oddmr_od_hrt_done) == 2)
+			atomic_set(&g_oddmr_od_hrt_done, 1);
+		if (atomic_read(&g_oddmr_dmr_hrt_done) == 2)
+			atomic_set(&g_oddmr_dmr_hrt_done, 1);
+		if (g_oddmr_priv->od_enable)
+			sum += mtk_oddmr_od_bpp(g_od_param.od_basic_info.basic_param.od_mode);
+		if (g_oddmr_priv->dmr_enable)
+			sum += mtk_oddmr_dmr_bpp(
+					g_dmr_param.dmr_basic_info.basic_param.dmr_table_mode);
+		wake_up_all(&g_oddmr_hrt_wq);
+		ODDMRLOW_LOG("od %d dmr %d sum %d\n",
+				g_oddmr_priv->od_enable, g_oddmr_priv->dmr_enable, sum);
+	} else {
+		return 0;
+	}
+	*oddmr_hrt += sum;
+	return sum;
+}
+
+void mtk_oddmr_od_sec_bypass(uint32_t sec_on, struct cmdq_pkt *handle)
+{
+	uint32_t enable;
+
+	if (is_oddmr_od_support) {
+		enable = g_oddmr_priv->od_enable && (!sec_on);
+		mtk_oddmr_set_od_enable_dual(NULL, enable, handle);
+		if (enable &&
+			(g_oddmr_priv->data->is_od_support_hw_skip_first_frame == false)) {
+			mtk_oddmr_set_od_weight_dual(default_comp, 0, handle);
+			// called in atomic flush, set 2 to skip one frame
+			atomic_set(&g_oddmr_od_weight_trigger, 2);
+		}
+	}
+}
+
 int mtk_oddmr_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		enum mtk_ddp_io_cmd cmd, void *params)
 {
-	/* only handle comp0 as main oddmr comp */
+	/* only handle oddmr0 as main oddmr comp */
 	if (comp->id == DDP_COMPONENT_ODDMR1)
 		return 0;
 	ODDMRLOW_LOG("cmd %d+\n", cmd);
@@ -2412,6 +2431,13 @@ int mtk_oddmr_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		mtk_oddmr_timing_chg(timing, handle);
 	}
 		break;
+	case COMP_SEC_CFG:
+	{
+		bool sec_on = *(bool *)params;
+
+		mtk_oddmr_od_sec_bypass(sec_on, handle);
+	}
+		break;
 	case COMP_ADD_HRT:
 		mtk_oddmr_hrt_cal_notify(params);
 		break;
@@ -2424,8 +2450,11 @@ int mtk_oddmr_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 static void mtk_oddmr_set_od_enable(struct mtk_ddp_comp *comp, uint32_t enable,
 		struct cmdq_pkt *handle)
 {
-	ODDMRAPI_LOG("+\n");
-	if (enable)
+	bool sec_on;
+
+	sec_on = comp->mtk_crtc->sec_on;
+	ODDMRAPI_LOG("en %d, sec %d+\n", enable, sec_on);
+	if (enable && !sec_on)
 		mtk_oddmr_write_mask(comp, 1, DISP_ODDMR_OD_CTRL_EN, 0x01, handle);
 	else
 		mtk_oddmr_write_mask(comp, 0, DISP_ODDMR_OD_CTRL_EN, 0x01, handle);
@@ -2522,6 +2551,12 @@ static int mtk_oddmr_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle
 		mtk_oddmr_od_init_end_dual(comp, handle);
 		break;
 	}
+	case ODDMR_CMD_EOF_CHECK_TRIGGER:
+	{
+		//if(atomic_read(&g_oddmr_frame_dirty) == 0)
+		cmdq_pkt_set_event(handle, comp->mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+		break;
+	}
 	default:
 	ODDMRFLOW_LOG("error cmd: %d\n", cmd);
 	return -EINVAL;
@@ -2575,7 +2610,9 @@ static void disp_oddmr_wait_sof_irq(void)
 				atomic_read(&g_oddmr_pq_dirty) ||
 				atomic_read(&g_oddmr_od_weight_trigger)) {
 			ODDMRLOW_LOG("check trigger\n");
-			mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
+			//mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
+			mtk_crtc_user_cmd(&default_comp->mtk_crtc->base,
+				default_comp, ODDMR_CMD_EOF_CHECK_TRIGGER, NULL);
 			atomic_set(&g_oddmr_frame_dirty, 0);
 			atomic_set(&g_oddmr_pq_dirty, 0);
 			if (atomic_read(&g_oddmr_od_weight_trigger) > 0)
@@ -2631,6 +2668,10 @@ static int mtk_oddmr_od_init(void)
 	ODDMRAPI_LOG("+\n");
 	if (default_comp == NULL || g_oddmr_priv == NULL || default_comp->mtk_crtc == NULL) {
 		ODDMRFLOW_LOG("oddmr comp is not available\n");
+		return -1;
+	}
+	if (!is_oddmr_od_support) {
+		ODDMRFLOW_LOG("od is not support\n");
 		return -1;
 	}
 	if (g_oddmr_priv->od_state != ODDMR_LOAD_PARTS) {
@@ -2934,6 +2975,10 @@ static int mtk_oddmr_dmr_init(void)
 		ODDMRFLOW_LOG("oddmr comp is NULL\n");
 		return -1;
 	}
+	if (!is_oddmr_dmr_support) {
+		ODDMRFLOW_LOG("dmr is not support\n");
+		return -1;
+	}
 	if (g_oddmr_priv->dmr_state != ODDMR_LOAD_PARTS) {
 		ODDMRFLOW_LOG("dmr can not init, state %d\n", g_oddmr_priv->dmr_state);
 		return -1;
@@ -3099,13 +3144,37 @@ int mtk_drm_ioctl_oddmr_load_param(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
 {
 	int ret;
+	struct mtk_drm_oddmr_param *param = data;
 
 	ODDMRAPI_LOG("+\n");
 	if (default_comp == NULL || g_oddmr_priv == NULL) {
-		ODDMRFLOW_LOG("od comp is NULL\n");
+		ODDMRFLOW_LOG("oddmr comp is NULL\n");
 		return -1;
 	}
-	/* if any module is loaded, set all to loading */
+	if (param == NULL) {
+		ODDMRFLOW_LOG("param is NULL\n");
+		return -EFAULT;
+	}
+	switch (param->head_id >> 24) {
+	case ODDMR_DMR_BASIC_INFO:
+	case ODDMR_DMR_TABLE:
+		if (!is_oddmr_dmr_support) {
+			ODDMRFLOW_LOG("dmr not support\n");
+			return -EFAULT;
+		}
+	case ODDMR_OD_BASIC_INFO:
+	case ODDMR_OD_TABLE:
+		if (!is_oddmr_od_support) {
+			ODDMRFLOW_LOG("od not support\n");
+			return -EFAULT;
+		}
+	default:
+		break;
+	}
+	/*
+	 * If any section is loaded, set all to loading,
+	 * set loading done in init to support partial loading.
+	 */
 	ret = mtk_oddmr_load_param(g_oddmr_priv, data);
 	return ret;
 }
