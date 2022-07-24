@@ -25,8 +25,10 @@ config MTK_HANG_DETECT_LOG
 
 config MTK_HANG_PROC
 	bool "enable hang proc interface"
+	depends on DEBUG_FS
 	help
 	  MTK_HANG_PROC is the kernel config of hang feature designed by
 	  MTK, after enable this config, you can get kernel backtrace and
-	  native backtrace by proc interface.if value is 2, will dump all
-	  thread info; if value > 10, will dump backtrace of pid equals value.
+	  native backtrace by proc interface "sys/kernel/debug/monitor_hang".
+	  if value is 2, will dump all thread info; if value > 10,
+	  will dump backtrace of pid equals value.

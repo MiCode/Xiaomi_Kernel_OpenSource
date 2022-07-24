@@ -16,7 +16,6 @@
 #include <linux/module.h>
 #include <linux/pid.h>
 #include <linux/poll.h>
-#include <linux/proc_fs.h>
 #include <linux/ptrace.h>
 #include <linux/sched.h>
 #include <linux/sched/clock.h>
@@ -38,6 +37,7 @@
 #include <linux/highmem.h>
 #include <asm/cacheflush.h>
 #include <linux/android_debug_symbols.h>
+#include <linux/debugfs.h>
 
 #include <mt-plat/aee.h>
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
@@ -90,10 +90,6 @@ struct list_hang_callback {
 	struct rw_semaphore rwsem;
 };
 static struct list_hang_callback hc_list;
-
-#if IS_ENABLED(CONFIG_MTK_HANG_PROC)
-static struct proc_dir_entry *pe;
-#endif
 
 DECLARE_WAIT_QUEUE_HEAD(dump_bt_start_wait);
 DECLARE_WAIT_QUEUE_HEAD(dump_bt_done_wait);
@@ -530,12 +526,12 @@ static ssize_t monitor_hang_proc_write(struct file *filp, const char *ubuf,
 	return cnt;
 }
 
-static const struct proc_ops monitor_hang_fops = {
-	.proc_open = monitor_hang_proc_open,
-	.proc_write = monitor_hang_proc_write,
-	.proc_read = seq_read,
-	.proc_lseek = seq_lseek,
-	.proc_release = single_release,
+static const struct file_operations monitor_hang_file_fops = {
+	.open = monitor_hang_proc_open,
+	.write = monitor_hang_proc_write,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
 };
 #endif /* CONFIG_MTK_HANG_PROC */
 
@@ -1820,6 +1816,9 @@ int hang_detect_init(void)
 static int __init monitor_hang_init(void)
 {
 	int err = 0;
+#if IS_ENABLED(CONFIG_MTK_HANG_PROC)
+	struct dentry *hang_dir, *err_p;
+#endif
 
 #ifdef CONFIG_MTK_HANG_DETECT_DB
 	Hang_Info = kmalloc(MAX_HANG_INFO_SIZE, GFP_KERNEL);
@@ -1848,9 +1847,12 @@ static int __init monitor_hang_init(void)
 	mrdump_regist_hang_bt(show_task_info);
 
 #if IS_ENABLED(CONFIG_MTK_HANG_PROC)
-	pe = proc_create("monitor_hang", 0660, NULL, &monitor_hang_fops);
-	if (!pe)
-		return -ENOMEM;
+	/* debug node: sys/kernel/debug/monitor_hang/monitor_hang */
+	hang_dir = debugfs_create_dir("monitor_hang", NULL);
+	err_p = debugfs_create_file("monitor_hang",
+		0660, hang_dir, NULL, &monitor_hang_file_fops);
+	if (IS_ERR(err_p))
+		pr_info("debugfs_create_file monitor_hang failed!");
 #endif
 
 	return err;
