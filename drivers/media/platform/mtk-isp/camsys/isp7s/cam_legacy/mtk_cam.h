@@ -234,7 +234,7 @@ struct mtk_cam_request_stream_data {
 	int index;
 	struct mtk_cam_request *req;
 	struct mtk_cam_ctx *ctx;
-	unsigned int pipe_id;
+	int pipe_id;
 	unsigned int frame_seq_no;
 	unsigned int flags;
 	unsigned long raw_dmas;
@@ -605,7 +605,7 @@ mtk_cam_ctrl_state_get_req(struct mtk_camsys_ctrl_state *state)
 static inline int
 mtk_cam_req_get_num_s_data(struct mtk_cam_request *req, int pipe_id)
 {
-	if (pipe_id < 0 || pipe_id >= MTKCAM_SUBDEV_MAX)
+	if (pipe_id < 0 || pipe_id > MTKCAM_SUBDEV_MAX)
 		return 0;
 
 	return req->p_data[pipe_id].s_data_num;
@@ -624,7 +624,7 @@ mtk_cam_req_get_s_data_no_chk(struct mtk_cam_request *req, int pipe_id, int idx)
 static inline struct mtk_cam_request_stream_data*
 mtk_cam_req_get_s_data(struct mtk_cam_request *req, int pipe_id, int idx)
 {
-	if (!req || pipe_id < 0 || pipe_id >= MTKCAM_SUBDEV_MAX) {
+	if (!req || pipe_id < 0 || pipe_id > MTKCAM_SUBDEV_MAX) {
 		pr_info("%s failed: req(%p), pipe_id(%d), MTKCAM_SUBDEV_MAX(%d)\n",
 			__func__, req, pipe_id, MTKCAM_SUBDEV_MAX);
 		return NULL;
@@ -751,11 +751,8 @@ static inline int
 mtk_cam_s_data_get_vbuf_idx(struct mtk_cam_request_stream_data *s_data,
 			    int node_id)
 {
-	/**
-	 * pipe_id is unsigned int and MTKCAM_SUBDEV_RAW_START is 0,
-	 * "unsigned int >= 0" is always true which is not allowed by coverity
-	 */
-	if (/* s_data->pipe_id >= MTKCAM_SUBDEV_RAW_START && */
+
+	if (s_data->pipe_id >= MTKCAM_SUBDEV_RAW_START &&
 		s_data->pipe_id < MTKCAM_SUBDEV_RAW_END)
 		return node_id - MTK_RAW_SINK_NUM;
 

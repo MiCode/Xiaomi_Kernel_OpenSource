@@ -1419,9 +1419,10 @@ int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
 		const struct mtk_format_info *info;
 
 		info = mtk_format_info(pixelformat);
+		pixfmt->num_planes = info->mem_planes;
+
 		if (!info)
 			return -EINVAL;
-		pixfmt->num_planes = info->mem_planes;
 
 		if (info->mem_planes == 1) {
 			if (is_yuv_ufo(pixelformat)) {
