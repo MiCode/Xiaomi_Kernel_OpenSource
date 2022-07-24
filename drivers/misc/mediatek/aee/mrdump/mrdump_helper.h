@@ -8,9 +8,6 @@
 
 #include <asm/stacktrace.h>
 
-/* for aee_aed.ko */
-extern const char *aee_arch_vma_name(struct vm_area_struct *vma);
-
 /* for mrdump.ko */
 extern unsigned long aee_get_stext(void);
 extern unsigned long aee_get_etext(void);

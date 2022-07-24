@@ -41,7 +41,6 @@
 #include <mt-plat/slog.h>
 
 #include "aed.h"
-#include "mrdump_helper.h"
 
 struct aee_req_queue {
 	struct list_head list;
@@ -1444,73 +1443,7 @@ void Maps2Buffer(unsigned char *Userthread_maps, int *Userthread_mapsLength,
 	}
 	va_end(ap);
 }
-#if 0
-static void print_vma_name(unsigned char *Userthread_maps,
-	int *Userthread_mapsLength, struct vm_area_struct *vma, char *str)
-{
-	const char __user *name = vma_get_anon_name(vma);
-	struct mm_struct *mm = vma->vm_mm;
 
-	unsigned long page_start_vaddr;
-	unsigned long page_offset;
-	unsigned long num_pages;
-	unsigned long max_len = NAME_MAX;
-	int i;
-
-	page_start_vaddr = (unsigned long)name & PAGE_MASK;
-	page_offset = (unsigned long)name - page_start_vaddr;
-	num_pages = DIV_ROUND_UP(page_offset + max_len, PAGE_SIZE);
-
-	for (i = 0; i < num_pages; i++) {
-		int len;
-		int write_len;
-		const char *kaddr;
-		long pages_pinned;
-		struct page *page = NULL;
-
-		pages_pinned = get_user_pages_remote(mm,
-				page_start_vaddr, 1, 0, &page, NULL, NULL);
-		if (pages_pinned < 1)
-			return;
-
-		if (!page) {
-			pr_info("%s: page is null\n", __func__);
-			return;
-		}
-
-		kaddr = (const char *)kmap(page);
-		len = min(max_len, PAGE_SIZE - page_offset);
-		write_len = strnlen(kaddr + page_offset, len);
-		if (strnstr((kaddr + page_offset), "signal stack", write_len)) {
-			char *name = vmalloc(write_len + 1);
-
-			if (!name) {
-				Maps2Buffer(Userthread_maps,
-					Userthread_mapsLength,
-					"%s[anon:%s]\n", str, "NULL");
-			} else {
-				memcpy(name, kaddr + page_offset, write_len);
-				name[write_len] = '\0';
-				Maps2Buffer(Userthread_maps,
-					Userthread_mapsLength,
-					"%s[anon:%s]\n", str, name);
-				vfree(name);
-			}
-		}
-
-		kunmap(page);
-		put_page(page);
-
-		/* if strnlen hit a null terminator then we're done */
-		if (write_len != len)
-			break;
-
-		max_len -= len;
-		page_offset = 0;
-		page_start_vaddr += PAGE_SIZE;
-	}
-}
-#endif
 static int is_stack(struct vm_area_struct *vma)
 {
 	return vma->vm_start <= vma->vm_mm->start_stack &&
@@ -1561,40 +1494,21 @@ static void show_map_vma(unsigned char *Userthread_maps,
 		if (name)
 			goto done;
 	}
-	name = aee_arch_vma_name(vma);
-	if (!name) {
-		if (!mm) {
-			name = "[vdso]";
-			goto done;
-		}
 
-		if (vma->vm_start <= mm->brk &&
-			vma->vm_end >= mm->start_brk) {
-			name = "[heap]";
-			goto done;
-		}
+	if (!mm) {
+		name = "[vdso]";
+		goto done;
+	}
 
-		if (is_stack(vma)) {
-			name = "[stack]";
-			goto done;
-		}
+	if (vma->vm_start <= mm->brk &&
+	    vma->vm_end >= mm->start_brk) {
+		name = "[heap]";
+		goto done;
+	}
 
-		/*if (vma_get_anon_name(vma)) {
-			len = snprintf(str, sizeof(str),
-				"%08lx-%08lx %c%c%c%c %08llx %02x:%02x %lu ",
-				start, end, flags & VM_READ ? 'r' : '-',
-				flags & VM_WRITE ? 'w' : '-',
-				flags & VM_EXEC ? 'x' : '-',
-				flags & VM_MAYSHARE ? 's' : 'p',
-				pgoff, MAJOR(dev), MINOR(dev), ino);
-			if (len < 0) {
-				pr_info("%s: snprintf failed\n", __func__);
-				return;
-			}
-			print_vma_name(Userthread_maps, Userthread_mapsLength,
-				vma, str);
-			return;
-		}*/
+	if (is_stack(vma)) {
+		name = "[stack]";
+		goto done;
 	}
 
 done:

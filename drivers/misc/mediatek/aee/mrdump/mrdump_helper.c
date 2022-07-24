@@ -299,44 +299,6 @@ void aee_reinit_die_lock(void)
 	raw_spin_lock_init(p_die_lock);
 }
 
-/* for aee_aed.ko */
-#ifdef __aarch64__
-const char *aee_arch_vma_name(struct vm_area_struct *vma)
-{
-	return NULL;
-}
-#else
-#ifdef CONFIG_KUSER_HELPERS
-static struct vm_area_struct *p_gate_vma;
-static struct vm_area_struct *aee_get_gate_vma(void)
-{
-	if (p_gate_vma)
-		return p_gate_vma;
-
-	p_gate_vma = (void *)(aee_addr_find("gate_vma"));
-
-	if (!p_gate_vma) {
-		pr_info("%s failed", __func__);
-		return NULL;
-	}
-	return p_gate_vma;
-}
-
-const char *aee_arch_vma_name(struct vm_area_struct *vma)
-{
-	struct vm_area_struct *gate_vma_p = aee_get_gate_vma();
-
-	return vma == gate_vma_p ? "[vectors]" : NULL;
-}
-#else /* #ifdef CONFIG_KUSER_HELPERS */
-const char *aee_arch_vma_name(struct vm_area_struct *vma)
-{
-	return NULL;
-}
-#endif
-#endif
-EXPORT_SYMBOL(aee_arch_vma_name);
-
 /* find the addrs needed during driver init stage */
 static void aee_base_addrs_init(void)
 {
@@ -467,13 +429,6 @@ void aee_reinit_die_lock(void)
 	/* If a crash is occurring, make sure we can't deadlock */
 	raw_spin_lock_init(p_die_lock);
 }
-
-/* for aee_aed.ko */
-const char *aee_arch_vma_name(struct vm_area_struct *vma)
-{
-	return arch_vma_name(vma);
-}
-EXPORT_SYMBOL(aee_arch_vma_name);
 
 #endif
 
