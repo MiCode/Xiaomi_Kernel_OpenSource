@@ -228,7 +228,7 @@ static int cammux_tag_2_fsync_target_id(struct seninf_ctx *ctx, int cammux, int 
 		ret = 1 + (cammux - core->cammux_range[TYPE_RAW].first);
 	}
 
-	dev_info(ctx->dev, "%s cammux = %d, tag = %d, target_id = %d\n",
+	dev_dbg(ctx->dev, "[%s] cammux = %d, tag = %d, target_id = %d\n",
 		 __func__, cammux, tag, ret);
 
 	return ret;
@@ -284,7 +284,7 @@ static void chk_is_fsync_vsync_src(struct seninf_ctx *ctx, const int pad_id)
 		notify_fsync_listen_target_with_kthread(ctx);
 	} else if (vsync_src_pad == PAD_SRC_GENERAL0) {
 		dev_info(ctx->dev,
-			"%s, NOTICE: pad_id:%d, fsync_vsync_src_pad:%d(%d:RAW0/%d:GENERAL0), fsync listen 3A-meta(general-embedded) vsync signal\n",
+			"[%s] NOTICE: pad_id:%d, fsync_vsync_src_pad:%d(%d:RAW0/%d:GENERAL0), fsync listen 3A-meta(general-embedded) vsync signal\n",
 			__func__,
 			pad_id,
 			vsync_src_pad,
@@ -295,7 +295,7 @@ static void chk_is_fsync_vsync_src(struct seninf_ctx *ctx, const int pad_id)
 	} else {
 		/* unexpected case */
 		dev_info(ctx->dev,
-			"%s, ERROR: unknown fsync_vsync_src_pad:%d(%d:RAW0/%d:GENERAL0) type, pad_id:%d\n",
+			"[%s] ERROR: unknown fsync_vsync_src_pad:%d(%d:RAW0/%d:GENERAL0) type, pad_id:%d\n",
 			__func__,
 			vsync_src_pad,
 			PAD_SRC_RAW0,
@@ -1395,16 +1395,33 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 	return 0;
 }
 
-static int mtk_cam_seninf_get_raw_cam_info(struct seninf_ctx *ctx)
+static int mtk_cam_seninf_get_fsync_vsync_src_cam_info(struct seninf_ctx *ctx)
 {
 	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
 	struct seninf_vc *vc;
 	int i;
+	int target_id = -1;
 
 	for (i = 0; i < vcinfo->cnt; i++) {
 		vc = &vcinfo->vc[i];
-		if (vc->out_pad == PAD_SRC_RAW0) /* first raw */
-			return cammux_tag_2_fsync_target_id(ctx, vc->cam, vc->tag);
+
+		if (vc->out_pad == ctx->fsync_vsync_src_pad) {
+			/* vsync_src_pad must be first-raw or general-embedded */
+			target_id = cammux_tag_2_fsync_target_id(ctx,
+					vc->cam, vc->tag);
+
+			dev_info(ctx->dev,
+				"[%s] fsync_vsync_src_pad:%d(%d:RAW0/%d:GENERAL0) => vc->cam:%d, vc->tag:%d => target_id:%d\n",
+				__func__,
+				ctx->fsync_vsync_src_pad,
+				PAD_SRC_RAW0,
+				PAD_SRC_GENERAL0,
+				vc->cam,
+				vc->tag,
+				target_id);
+
+			return target_id;
+		}
 	}
 
 	dev_info(ctx->dev, "%s: no raw data in vc channel\n", __func__);
@@ -1638,7 +1655,7 @@ int reset_sensor(struct seninf_ctx *ctx)
 
 int notify_fsync_listen_target(struct seninf_ctx *ctx)
 {
-	int cam_idx = mtk_cam_seninf_get_raw_cam_info(ctx);
+	int cam_idx = mtk_cam_seninf_get_fsync_vsync_src_cam_info(ctx);
 	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
 	struct v4l2_ctrl *ctrl;
 
