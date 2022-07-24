@@ -8681,6 +8681,9 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 	static unsigned int count1;
 	static unsigned int msync_is_close;
 	dma_addr_t addr = 0;
+	struct mtk_oddmr_timing oddmr_timing = { 0 };
+	struct mtk_ddp_comp *oddmr_comp;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
 
 	DDPMSG("[Msync2.0] Cmd mode send cmds before config\n");
@@ -8809,6 +8812,17 @@ rte_target:
 
 		/* Switch msync TE level */
 		if (fps_level != fps_level_old) {
+
+			oddmr_timing.hdisplay = crtc->state->mode.hdisplay;
+			oddmr_timing.vdisplay = crtc->state->mode.vdisplay;
+			if (fps_level == 0xFFFF)
+				oddmr_timing.vrefresh =  drm_mode_vrefresh(&crtc->state->mode);
+			else
+				oddmr_timing.vrefresh = fps_level;
+
+			oddmr_comp = priv->ddp_comp[DDP_COMPONENT_ODDMR0];
+			mtk_ddp_comp_io_cmd(oddmr_comp, state->cmdq_handle,
+				ODDMR_TIMING_CHG, &oddmr_timing);
 			mtk_ddp_comp_io_cmd(comp, state->cmdq_handle,
 				DSI_MSYNC_SWITCH_TE_LEVEL_GRP, &fps_level);
 			fps_level_old = fps_level;
@@ -8942,6 +8956,17 @@ mte_target:
 
 		/* Switch msync TE level */
 		if (fps_level != fps_level_old) {
+
+			oddmr_timing.hdisplay = crtc->state->mode.hdisplay;
+			oddmr_timing.vdisplay = crtc->state->mode.vdisplay;
+			if (fps_level == 0xFFFF)
+				oddmr_timing.vrefresh =  drm_mode_vrefresh(&crtc->state->mode);
+			else
+				oddmr_timing.vrefresh = fps_level;
+
+			oddmr_comp = priv->ddp_comp[DDP_COMPONENT_ODDMR0];
+			mtk_ddp_comp_io_cmd(oddmr_comp, state->cmdq_handle,
+				ODDMR_TIMING_CHG, &oddmr_timing);
 			mtk_ddp_comp_io_cmd(comp, state->cmdq_handle,
 					DSI_MSYNC_SWITCH_TE_LEVEL_GRP, &fps_level);
 			fps_level_old = fps_level;
