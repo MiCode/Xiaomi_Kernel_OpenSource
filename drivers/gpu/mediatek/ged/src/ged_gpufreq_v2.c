@@ -367,32 +367,40 @@ int ged_gpufreq_commit(int oppidx, int commit_type, int *bCommited)
 {
 	int ret = GED_OK;
 	int oppidx_tar = 0;
+	int oppidx_cur = 0;
 	int mask_idx = 0;
+	int freqScaleUpFlag = false;
 	unsigned int freq = 0, core_mask_tar = 0, core_num_tar = 0;
 	unsigned int ud_mask_bit = 0;
 
 	int dvfs_state = 0;
 
+	oppidx_cur = ged_get_cur_oppidx();
+	if (oppidx_cur > oppidx) /* freq scale up */
+		freqScaleUpFlag = true;
+
+	/* convert virtual opp to working opp with corresponding core mask */
+	if (oppidx > g_min_working_oppidx) {
+		mask_idx = oppidx - g_virtual_oppnum + g_avail_mask_num;
+		oppidx_tar = g_min_working_oppidx;
+	} else {
+		mask_idx = 0;
+		oppidx_tar = oppidx;
+	}
+
+	/* scaling cores to max if freq. is fixed */
+	dvfs_state = gpufreq_get_dvfs_state();
+
+	if (dvfs_state == DVFS_DEBUG_KEEP) {
+		mask_idx = 0;
+		oppidx_tar = oppidx;
+	}
+
+	if (!freqScaleUpFlag) /* freq scale down: commit freq. --> set core_mask */
+		ged_dvfs_gpu_freq_commit_fp(oppidx_tar, commit_type, bCommited);
+
 	/* DCS policy enabled */
 	if (is_dcs_enable()) {
-
-		/* convert virtual opp to working opp with corresponding core mask */
-		if (oppidx > g_min_working_oppidx) {
-			mask_idx = oppidx - g_virtual_oppnum + g_avail_mask_num;
-			oppidx_tar = g_min_working_oppidx;
-		} else {
-			mask_idx = 0;
-			oppidx_tar = oppidx;
-		}
-
-		/* scaling cores to max if freq. is fixed */
-		dvfs_state = gpufreq_get_dvfs_state();
-
-		if (dvfs_state == DVFS_DEBUG_KEEP) {
-			mask_idx = 0;
-			oppidx_tar = oppidx;
-		}
-
 		core_mask_tar = g_mask_table[mask_idx].mask;
 		core_num_tar = g_mask_table[mask_idx].num;
 		ud_mask_bit = (ged_get_ud_mask_bit() |
@@ -406,26 +414,11 @@ int ged_gpufreq_commit(int oppidx, int commit_type, int *bCommited)
 			}
 		}
 
-		/* scaling freq first than scaling shader cores*/
-		if (ged_is_fdvfs_support())
-			mtk_gpueb_dvfs_dcs_commit(oppidx_tar, commit_type,
-				 g_virtual_table[oppidx].freq);
-		else
-			ged_dvfs_gpu_freq_commit_fp(oppidx_tar, commit_type, bCommited);
-
 		dcs_set_core_mask(core_mask_tar, core_num_tar);
 	}
-	/* DCS policy disabled */
-	else {
-		freq = (g_working_table == NULL) ?
-			gpufreq_get_freq_by_idx(TARGET_DEFAULT, oppidx)
-			: g_working_table[oppidx].freq;
 
-		if (ged_is_fdvfs_support())
-			mtk_gpueb_dvfs_dcs_commit(oppidx, commit_type, freq);
-		else
-			ged_dvfs_gpu_freq_commit_fp(oppidx, commit_type, bCommited);
-	}
+	if (freqScaleUpFlag) /* freq scale up: set core_mask --> commit freq. */
+		ged_dvfs_gpu_freq_commit_fp(oppidx_tar, commit_type, bCommited);
 
 	/* TODO: return value handling */
 	return ret;
