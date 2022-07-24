@@ -2814,11 +2814,9 @@ int ufs_mtk_runtime_resume(struct device *dev)
 
 void ufs_mtk_shutdown(struct platform_device *pdev)
 {
+#if defined(CONFIG_UFSFEATURE)
 	struct device *dev = &pdev->dev;
 	struct ufs_hba *hba = dev_get_drvdata(dev);
-	struct scsi_device *sdev;
-
-#if defined(CONFIG_UFSFEATURE)
 	struct ufsf_feature *ufsf = ufs_mtk_get_ufsf(hba);
 
 	if (ufsf->hba)
@@ -2826,23 +2824,13 @@ void ufs_mtk_shutdown(struct platform_device *pdev)
 #endif
 
 	/*
-	 * Quiesce all SCSI devices to prevent any non-PM requests sending
-	 * from block layer during and after shutdown.
-	 *
-	 * Note. Using scsi_autopm_get_device() instead of pm_runtime_disable()
-	 * is to prevent noisy message by below checking,
-	 * WARN_ON_ONCE(sdev->quiesced_by && sdev->quiesced_by != current);
-	 * This warning shows up if we try to quiesce a runtime-suspended
-	 * SCSI device. This is possible during our new shutdown flow.
-	 * Using scsi_autopm_get_device() to resume all SCSI devices first
-	 * can prevent it.
+	 * ufshcd_wl_shutdown may run concurrently and have racing problem.
+	 * ufshcd_pltfrm_shutdown only turn off power and clock, which is not
+	 * necessary in shutdwon flow. Beside, ufshcd_shutdown flow is
+	 * incorrect, it will not turn off power and clock after
+	 * ufshcd_wl_shutdown (dev is poweroff and link is off)
+	 * So, it is not necessary and remove ufshcd_pltfrm_shutdown.
 	 */
-	shost_for_each_device(sdev, hba->host)
-		scsi_device_quiesce(sdev);
-
-
-	/* Alaways shutdown even in case of error */
-	ufshcd_pltfrm_shutdown(pdev);
 }
 
 static const struct dev_pm_ops ufs_mtk_pm_ops = {
