@@ -497,8 +497,7 @@ static void sys_racing_loop(struct mml_comp *comp, struct mml_task *task,
 			sys->data->gpr[ccfg->pipe]);
 
 	/* do eoc to avoid task timeout during self-loop */
-	if (unlikely(mml_racing_eoc == 3))
-		cmdq_pkt_eoc(pkt, false);
+	cmdq_pkt_eoc(pkt, false);
 
 	/* wait display frame done before checking next, so disp driver has
 	 * chance to tell mml to entering next task.
