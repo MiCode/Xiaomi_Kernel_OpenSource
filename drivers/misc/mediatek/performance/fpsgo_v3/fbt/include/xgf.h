@@ -296,7 +296,7 @@ void xgf_clean_deps_list(struct xgf_render *render, int pos);
 void fpsgo_ctrl2xgf_switch_xgf(int val);
 
 int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
-	unsigned long long *run_time, unsigned long long ts);
+	unsigned long long *run_time, unsigned long long ts, int skip);
 void fpsgo_fstb2xgf_do_recycle(int fstb_active);
 int has_xgf_dep(pid_t tid);
 

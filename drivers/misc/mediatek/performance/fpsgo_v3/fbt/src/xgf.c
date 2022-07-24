@@ -2124,7 +2124,7 @@ out:
 }
 
 int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
-	unsigned long long *run_time, unsigned long long ts)
+	unsigned long long *run_time, unsigned long long ts, int skip)
 {
 	int ret = XGF_NOTIFY_OK;
 	struct xgf_render *r, **rrender;
@@ -2171,6 +2171,9 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 		q2q_time = ts - r->queue.end_ts;
 		r->queue.end_ts = ts;
 		cur_xgf_extra_sub = xgf_extra_sub;
+
+		if (skip)
+			goto queue_end_skip;
 
 		new_spid = xgf_get_spid(r);
 		if (new_spid != -1) {
@@ -2288,6 +2291,8 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 			fpsgo_systrace_c_fbt(rpid, bufID, tmp_runtime, "ema2_t_cpu");
 
 		xgf_print_critical_path_info(r);
+queue_end_skip:
+		r->prev_queue_end_ts = ts;
 		break;
 
 	case XGF_DEQUEUE_START:

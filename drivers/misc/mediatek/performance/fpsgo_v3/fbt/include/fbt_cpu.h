@@ -68,6 +68,7 @@ void fbt_xgff_blc_set(struct fbt_thread_blc *p_blc, int blc_wt,
 int fbt_xgff_dep_thread_notify(int pid, int op);
 
 void fbt_set_render_boost_attr(struct render_info *thr);
+void fbt_set_render_last_cb(struct render_info *thr, unsigned long long ts);
 
 #else
 static inline void fpsgo_ctrl2fbt_dfrc_fps(int fps_limit) { }
@@ -105,6 +106,7 @@ static inline void fpsgo_sbe2fbt_rescue(struct render_info *thr, int start, int 
 static inline void eara2fbt_set_2nd_t2wnt(int pid, unsigned long long buffer_id,
 			unsigned long long t_duration) { }
 static inline void fbt_set_render_boost_attr(struct render_info *thr) { }
+static inline void fbt_set_render_last_cb(struct render_info *thr, unsigned long long ts) { }
 #endif
 
 #endif

@@ -1958,6 +1958,16 @@ void fbt_set_render_boost_attr(struct render_info *thr)
 #endif  // FPSGO_MW
 }
 
+void fbt_set_render_last_cb(struct render_info *thr, unsigned long long ts_ns)
+{
+	int new_ts_100us;
+
+	new_ts_100us = nsec_to_100usec(ts_ns);
+	thr->render_last_cb_ts = new_ts_100us;
+	fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
+		thr->render_last_cb_ts, "render_last_cb_ts");
+}
+
 
 static int fbt_get_target_cluster(unsigned int blc_wt)
 {
