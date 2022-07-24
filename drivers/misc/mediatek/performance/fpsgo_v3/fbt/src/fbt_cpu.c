@@ -1046,6 +1046,29 @@ static inline void __incr_alt(int t, int max, int *incr_t, int *incr_c)
 		*incr_c = 1;
 }
 
+static int cmpint(const void *a, const void *b)
+{
+	return *(int *)a - *(int *)b;
+}
+
+/* compare function for fbt_loading_info */
+static int cmp_loading(const void *a, const void *b)
+{
+	long l = ((struct fbt_loading_info *)a)->loading;
+	long r = ((struct fbt_loading_info *)b)->loading;
+
+	return (l - r);
+}
+
+/* compare function for fpsgo_loading */
+static int cmp_loading_desc(const void *a, const void *b)
+{
+	long l = ((struct fpsgo_loading *)a)->loading;
+	long r = ((struct fpsgo_loading *)b)->loading;
+
+	return (r - l);
+}
+
 static void dep_a_except_b(
 	struct fpsgo_loading dep_a[], int size_a,
 	struct fpsgo_loading dep_b[], int size_b,
@@ -1372,34 +1395,14 @@ int fbt_is_light_loading(int loading, int loading_threshold)
 	return 1;
 }
 
-static int fbt_get_heavy_pid(int size, struct fpsgo_loading *dep_arr)
+static int fbt_is_heavy_task(int rank)
 {
-	int i;
-	int max = 0;
-	int ret_pid = 0;
+	return rank < max_cl_core_num;
+}
 
-	if (!dep_arr || !size)
-		return 0;
-
-	for (i = 0; i < size; i++) {
-		struct fpsgo_loading *fl = &dep_arr[i];
-
-		if (!fl->pid)
-			continue;
-
-		if (fl->loading <= 0) {
-			fl->loading = fpsgo_fbt2minitop_query_single(fl->pid);
-			if (fl->loading <= 0)
-				continue;
-		}
-
-		if (fl->loading > max) {
-			ret_pid = fl->pid;
-			max = fl->loading;
-		}
-	}
-
-	return ret_pid;
+static int  fbt_is_R_L_task(int pid, int heaviest_pid, int thr_pid)
+{
+	return (heaviest_pid && heaviest_pid == pid) || (thr_pid == pid);
 }
 
 static int fbt_get_opp_by_normalized_cap(unsigned int cap, int cluster)
@@ -1641,7 +1644,7 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	int size = 0, size_final = 0, i;
 	char *dep_str = NULL;
 	int ret;
-	int heavy_pid = 0;
+	int heaviest_pid = 0;
 	struct fpsgo_loading *dep_need_set;
 	int temp_size_need_set = 0;
 	char temp[MAX_PID_DIGIT] = {"\0"};
@@ -1699,9 +1702,6 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	if (loading_th_final || boost_affinity_final || boost_LR_final
 				|| loading_enable || separate_aa_final)
 		fbt_query_dep_list_loading(thr);
-
-	if (boost_affinity_final || boost_LR_final || separate_aa_final)
-		heavy_pid = fbt_get_heavy_pid(thr->dep_valid_size, thr->dep_arr);
 
 	dep_str = kcalloc(size + 1, MAX_PID_DIGIT * sizeof(char),
 				GFP_KERNEL);
@@ -1765,6 +1765,24 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	if (jerk == FPSGO_JERK_INACTIVE)
 		fbt_check_cm_limit(thr);
 
+	if (loading_th_final || boost_affinity_final
+			|| boost_LR_final || separate_aa_final) {
+		for (i = 0; i < size_final; i++) {
+			struct fpsgo_loading *fl;
+
+			fl = &dep_final_need_set[i];
+			if (!fl->pid)
+				continue;
+
+			if (fl->loading == 0 || fl->loading == -1)
+				fl->loading = fpsgo_fbt2minitop_query_single(fl->pid);
+		}
+		sort(dep_final_need_set, size_final,
+			sizeof(struct fpsgo_loading), cmp_loading_desc, NULL);
+		heaviest_pid = dep_final_need_set[0].pid;
+	}
+
+
 
 	for (i = 0; i < size_final; i++) {
 		struct fpsgo_loading *fl;
@@ -1778,13 +1796,6 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			separate_aa_final) {
 			fpsgo_systrace_c_fbt_debug(fl->pid, thr->buffer_id,
 				fl->loading, "dep-loading");
-
-			if (fl->loading == 0 || fl->loading == -1) {
-				fl->loading = fpsgo_fbt2minitop_query_single(
-					fl->pid);
-				fpsgo_systrace_c_fbt_debug(fl->pid, thr->buffer_id,
-					fl->loading, "dep-loading");
-			}
 		}
 
 		light_thread = fbt_is_light_loading(fl->loading, loading_th_final);
@@ -1800,11 +1811,10 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			else
 				fbt_set_task_policy(fl, llf_task_policy_final,
 					FPSGO_PREFER_LITTLE, 0);
-		} else if ((heavy_pid && heavy_pid == fl->pid) ||
-					(thr->pid == fl->pid && max_cl_core_num > 1)) {
-			if (heavy_pid && heavy_pid == fl->pid)
+		} else if (fbt_is_heavy_task(i)) {
+			if (heaviest_pid && heaviest_pid == fl->pid)
 				fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
-						heavy_pid, "heavy_pid");
+						heaviest_pid, "heavy_pid");
 			if (separate_aa_final)
 				fbt_set_per_task_cap(fl->pid, min_cap_b, max_cap_b);
 			else
@@ -1812,19 +1822,21 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			if (boost_affinity_final)
 				fbt_set_task_policy(fl, boost_affinity_final,
 						FPSGO_PREFER_BIG, 1);
-			else if (boost_LR_final && thr->hwui == RENDER_INFO_HWUI_NONE)
+			else if (boost_LR_final && thr->hwui == RENDER_INFO_HWUI_NONE
+					&& fbt_is_R_L_task(fl->pid, heaviest_pid, thr->pid)) {
 				fbt_set_task_policy(fl, FPSGO_TPOLICY_NONE,
 						FPSGO_PREFER_NONE, 1);
+			}
 		} else {
 			if (separate_aa_final)
 				fbt_set_per_task_cap(fl->pid, min_cap_m, max_cap_m);
 			else
 				fbt_set_per_task_cap(fl->pid, min_cap, max_cap);
-			if (boost_affinity_final && heavy_pid && heavy_pid != fl->pid) {
+			if (boost_affinity_final) {
 				fbt_set_task_policy(fl, FPSGO_TPOLICY_AFFINITY,
 						FPSGO_PREFER_L_M, 0);
-			} else if (boost_LR_final && thr->pid == fl->pid &&
-						thr->hwui == RENDER_INFO_HWUI_NONE) {
+			} else if (boost_LR_final && thr->hwui == RENDER_INFO_HWUI_NONE
+					&& fbt_is_R_L_task(fl->pid, heaviest_pid, thr->pid)) {
 				fbt_set_task_policy(fl, FPSGO_TPOLICY_NONE,
 						FPSGO_PREFER_NONE, 1);
 			} else {
@@ -2047,19 +2059,6 @@ unsigned int fbt_get_new_base_blc(struct cpu_ctrl_data *pld,
 	}
 
 	return blc_wt;
-}
-
-static int cmpint(const void *a, const void *b)
-{
-	return *(int *)a - *(int *)b;
-}
-
-static int cmp_loading(const void *a, const void *b)
-{
-	long l = ((struct fbt_loading_info *)a)->loading;
-	long r = ((struct fbt_loading_info *)b)->loading;
-
-	return (l - r);
 }
 
 static void fbt_pidlist_add(int pid, struct list_head *dest_list)
