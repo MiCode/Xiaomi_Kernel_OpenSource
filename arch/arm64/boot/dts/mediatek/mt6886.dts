@@ -5359,7 +5359,7 @@
 			dfd-disable-efuse = <25 11>;
 			dfd_cache: dfd-cache {
 				enabled = <1>;
-				dfd-timeout = <0x32c8>; /* 6.5 sec */
+				dfd-timeout = <0x4650>; /* 9 sec */
 				buf-length = <0x280000>;
 				tap-en = <0x200000>;
 			};
