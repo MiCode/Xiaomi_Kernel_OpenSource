@@ -19,7 +19,7 @@ vb2_dma_contig_plane_dma_addr(struct vb2_buffer *vb, unsigned int plane_no)
 	return *addr;
 }
 
-int vb2_dpe_dma_contig_set_max_seg_size_isp7s(struct device *dev, unsigned int size);
+// int vb2_dpe_dma_contig_set_max_seg_size_isp7s(struct device *dev, unsigned int size);
 void vb2_dpe_dma_contig_clear_max_seg_size_isp7s(struct device *dev);
 
 extern const struct vb2_mem_ops vb2_dpe_dma_contig_memops_isp7s;

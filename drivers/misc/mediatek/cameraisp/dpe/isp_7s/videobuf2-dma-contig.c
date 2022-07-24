@@ -42,17 +42,18 @@ struct vb2_dc_buf {
 
 static unsigned long vb2_dc_get_contiguous_size(struct sg_table *sgt)
 {
-	struct scatterlist *s;
-	dma_addr_t expected = sg_dma_address(sgt->sgl);
-	unsigned int i;
+	// struct scatterlist *s;
+	// dma_addr_t expected = sg_dma_address(sgt->sgl);
+	// unsigned int i;
 	unsigned long size = 0;
 
-	for_each_sg(sgt->sgl, s, sgt->nents, i) {
-		if (sg_dma_address(s) != expected)
-			break;
-		expected = sg_dma_address(s) + sg_dma_len(s);
-		size += sg_dma_len(s);
-	}
+		// for_each_sg(sgt->sgl, s, sgt->nents, i) {
+	 // if (sg_dma_address(s) != expected) {
+	//		break;
+	//	}
+	//	expected = sg_dma_address(s) + sg_dma_len(s);
+	//	size += sg_dma_len(s);
+	 // }
 	return size;
 }
 
@@ -760,13 +761,15 @@ EXPORT_SYMBOL_GPL(vb2_dpe_dma_contig_memops_isp7s);
  * (either USERPTR or DMABUF). This should be done before initializing
  * videobuf2 queue.
  */
-int vb2_dpe_dma_contig_set_max_seg_size_isp7s(struct device *dev, unsigned int size)
+/*int vb2_dpe_dma_contig_set_max_seg_size_isp7s(struct device *dev, unsigned int size)
 {
 	if (!dev->dma_parms) {
 		memcpy(dev->dma_parms, NULL, sizeof(struct device));
 		dev->dma_parms = kzalloc(sizeof(*dev->dma_parms), GFP_KERNEL);
 		if (!dev->dma_parms)
 			return -ENOMEM;
+	} else {
+		return -ENOMEM;
 	}
 	if (dma_get_max_seg_size(dev) < size)
 		return dma_set_max_seg_size(dev, size);
@@ -774,7 +777,7 @@ int vb2_dpe_dma_contig_set_max_seg_size_isp7s(struct device *dev, unsigned int s
 	return 0;
 }
 EXPORT_SYMBOL_GPL(vb2_dpe_dma_contig_set_max_seg_size_isp7s);
-
+*/
 /*
  * vb2_dpe_dma_contig_clear_max_seg_size() -
  * release resources for DMA parameters
