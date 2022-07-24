@@ -22,7 +22,7 @@
 #define PWR_ID_SHIFT			0
 #define PWR_STA_SHIFT			8
 
-static DEFINE_SPINLOCK(trace_lock);
+static DEFINE_SPINLOCK(pwr_trace_lock);
 static unsigned int pwr_event[EVT_LEN];
 static unsigned int evt_cnt;
 
@@ -934,14 +934,14 @@ static void trace_power_event(unsigned int id, unsigned int pwr_sta)
 	if (id >= MT6985_CHK_PD_NUM)
 		return;
 
-	spin_lock_irqsave(&trace_lock, flags);
+	spin_lock_irqsave(&pwr_trace_lock, flags);
 
 	pwr_event[evt_cnt] = (id << PWR_ID_SHIFT) | (pwr_sta << PWR_STA_SHIFT);
 	evt_cnt++;
 	if (evt_cnt >= EVT_LEN)
 		evt_cnt = 0;
 
-	spin_unlock_irqrestore(&trace_lock, flags);
+	spin_unlock_irqrestore(&pwr_trace_lock, flags);
 }
 
 static void dump_power_event(void)
@@ -949,7 +949,7 @@ static void dump_power_event(void)
 	unsigned long flags = 0;
 	int i;
 
-	spin_lock_irqsave(&trace_lock, flags);
+	spin_lock_irqsave(&pwr_trace_lock, flags);
 
 	pr_notice("first idx: %d\n", evt_cnt);
 	for (i = 0; i < EVT_LEN; i += 5)
@@ -961,7 +961,7 @@ static void dump_power_event(void)
 				pwr_event[i + 3],
 				pwr_event[i + 4]);
 
-	spin_unlock_irqrestore(&trace_lock, flags);
+	spin_unlock_irqrestore(&pwr_trace_lock, flags);
 }
 
 /*

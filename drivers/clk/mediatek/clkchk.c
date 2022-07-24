@@ -644,7 +644,12 @@ static void clkchk_trigger_trace_dump(unsigned int enable)
 static int clkchk_evt_handling(struct notifier_block *nb,
 			unsigned long flags, void *data)
 {
-	struct clk_event_data *clkd = (struct clk_event_data *)data;
+	struct clk_event_data *clkd;
+
+	if (!data)
+		return NOTIFY_OK;
+
+	clkd = (struct clk_event_data *)data;
 
 	switch (clkd->event_type) {
 	case CLK_EVT_HWV_CG_TIMEOUT:

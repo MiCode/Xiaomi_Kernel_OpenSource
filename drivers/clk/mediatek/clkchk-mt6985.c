@@ -50,7 +50,7 @@
 #define CLK_ID_SHIFT			0
 #define CLK_STA_SHIFT			8
 
-static DEFINE_SPINLOCK(trace_lock);
+static DEFINE_SPINLOCK(clk_trace_lock);
 static unsigned int clk_event[EVT_LEN];
 static unsigned int evt_cnt;
 static bool trace_dump_flag;
@@ -103,7 +103,10 @@ static void trace_clk_event(const char *name, unsigned int clk_sta)
 	unsigned long flags = 0;
 	int i;
 
-	spin_lock_irqsave(&trace_lock, flags);
+	spin_lock_irqsave(&clk_trace_lock, flags);
+
+	if (!name)
+		goto OUT;
 
 	for (i = 0; i < TRACE_CLK_NUM; i++) {
 		if (!strcmp(imgsys_main_cgs[i], name))
@@ -119,7 +122,7 @@ static void trace_clk_event(const char *name, unsigned int clk_sta)
 		evt_cnt = 0;
 
 OUT:
-	spin_unlock_irqrestore(&trace_lock, flags);
+	spin_unlock_irqrestore(&clk_trace_lock, flags);
 }
 
 static void dump_clk_event(void)
@@ -127,7 +130,7 @@ static void dump_clk_event(void)
 	unsigned long flags = 0;
 	int i;
 
-	spin_lock_irqsave(&trace_lock, flags);
+	spin_lock_irqsave(&clk_trace_lock, flags);
 
 	pr_notice("first idx: %d\n", evt_cnt);
 	for (i = 0; i < EVT_LEN; i += 5)
@@ -139,7 +142,7 @@ static void dump_clk_event(void)
 				clk_event[i + 3],
 				clk_event[i + 4]);
 
-	spin_unlock_irqrestore(&trace_lock, flags);
+	spin_unlock_irqrestore(&clk_trace_lock, flags);
 }
 
 static void trigger_trace_dump(unsigned int enable)
