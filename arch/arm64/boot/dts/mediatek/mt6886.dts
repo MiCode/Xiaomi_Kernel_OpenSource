@@ -5340,28 +5340,28 @@
 					<240 4 9 0>,<241 4 10 0>,<242 4 11 0>;
 		};
 
-		dfd_mcu: dfd_mcu@c020000 {
+		dfd_mcu: dfd-mcu {
 			compatible = "mediatek,dfd_mcu";
 			enabled = <1>;
-			hw_version = <35>;
-			sw_version = <1>;
-			dfd_timeout = <0x7d0>; /* 1 sec */
-			buf_length = <0x280000>;
-			buf_addr_align = <0x400000>;
-			buf_addr_max = <0xffffffff>;
-			nr_max_core = <8>;
-			nr_big_core = <2>;
-			nr_rs_entry_little = <8>;
-			nr_rs_entry_big = <16>;
-			nr_header_row = <4>;
-			chip_id_offset = <0x38>;
-			check_pattern_offset = <0x20>;
-			dfd_disable_efuse = <25 11>;
-			dfd_cache: dfd_cache {
+			hw-version = <35>;
+			sw-version = <1>;
+			dfd-timeout = <0x7d0>; /* 1 sec */
+			buf-length = <0x280000>;
+			buf-addr-align = <0x400000>;
+			buf-addr-max = <0xffffffff>;
+			nr-max-core = <8>;
+			nr-big-core = <2>;
+			nr-rs-entry-little = <8>;
+			nr-rs-entry-big = <16>;
+			nr-header-row = <4>;
+			chip-id-offset = <0x38>;
+			check-pattern-offset = <0x20>;
+			dfd-disable-efuse = <25 11>;
+			dfd_cache: dfd-cache {
 				enabled = <1>;
-				dfd_timeout = <0x32c8>; /* 6.5 sec */
-				buf_length = <0x280000>;
-				tap_en = <0x200000>;
+				dfd-timeout = <0x32c8>; /* 6.5 sec */
+				buf-length = <0x280000>;
+				tap-en = <0x200000>;
 			};
 		};
 
