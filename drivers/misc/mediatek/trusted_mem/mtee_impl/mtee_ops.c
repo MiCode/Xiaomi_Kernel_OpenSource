@@ -161,20 +161,16 @@ static int mtee_alloc(u32 alignment, u32 size, u32 *refcount, u64 *sec_handle,
 	struct mtee_peer_ops_data *ops_data = &mtee_dev_desc->u_ops_data.mtee;
 
 	if (is_ffa_enabled()) {
-		MTEE_SESSION_LOCK();
-		ret = tmem_carveout_heap_alloc(mtee_dev_desc->mtee_chunks_id, size, sec_handle);
+		ret = tmem_ffa_region_alloc(mtee_dev_desc->mtee_chunks_id, size, sec_handle);
 		if (*sec_handle == 0) {
-			pr_info("tmem_carveout_heap_alloc,  out of memory, ret=%d!\n",  ret);
-			MTEE_SESSION_UNLOCK();
+			pr_info("tmem_ffa_region_alloc,  out of memory, ret=%d!\n",  ret);
 			return -ENOMEM;
 		} else if (ret != 0) {
-			pr_info("[%d] tmem_carveout_heap_alloc failed:%d\n",
+			pr_info("[%d] tmem_ffa_region_alloc failed:%d\n",
 			       mtee_dev_desc->kern_tmem_type, ret);
-			MTEE_SESSION_UNLOCK();
 			return TMEM_KPOOL_ALLOC_CHUNK_FAILED;
 		}
 		*refcount = 1;
-		MTEE_SESSION_UNLOCK();
 	} else {
 		UNUSED(ops_data);
 		MTEE_SESSION_LOCK();
@@ -218,15 +214,12 @@ static int mtee_free(u64 sec_handle, u8 *owner, u32 id, void *peer_data,
 	struct mtee_peer_ops_data *ops_data = &mtee_dev_desc->u_ops_data.mtee;
 
 	if (is_ffa_enabled()) {
-		MTEE_SESSION_LOCK();
-		ret = tmem_carveout_heap_free(mtee_dev_desc->mtee_chunks_id, sec_handle);
+		ret = tmem_ffa_region_free(mtee_dev_desc->mtee_chunks_id, sec_handle);
 		if (ret != 0) {
-			pr_info("[%d] tmem_carveout_heap_free failed:%d\n",
+			pr_info("[%d] tmem_ffa_region_free failed:%d\n",
 			       mtee_dev_desc->kern_tmem_type, ret);
-			MTEE_SESSION_UNLOCK();
 			return TMEM_KPOOL_ALLOC_CHUNK_FAILED;
 		}
-		MTEE_SESSION_UNLOCK();
 	} else {
 		UNUSED(ops_data);
 		MTEE_SESSION_LOCK();

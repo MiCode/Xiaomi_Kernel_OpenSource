@@ -32,6 +32,9 @@
 #include <public/trusted_mem_api.h>
 #include <ssmr/memory_ssmr.h>
 
+#include "public/mtee_regions.h"
+#include "mtee_impl/tmem_carveout_heap.h"
+
 #define independent_ssheap 0
 
 #define HYP_PMM_ASSIGN_BUFFER (0XBB00FFA0)
@@ -322,6 +325,9 @@ int ssheap_free_non_contig(struct ssheap_buf_info *info)
 	if (!info)
 		return -EINVAL;
 
+	if (is_ffa_enabled())
+		tmem_ffa_page_free(info->ffa_handle);
+
 	freed_size = free_blocks(info);
 
 	if (info->pmm_msg_page)
@@ -498,6 +504,9 @@ retry:
 	}
 
 	dma_sync_sgtable_for_cpu(ssheap_dev, info->table, DMA_BIDIRECTIONAL);
+
+	if (is_ffa_enabled())
+		tmem_ffa_page_alloc(MTEE_MCUHNKS_INVALID, info->table, &info->ffa_handle);
 
 	return info;
 out_err:

@@ -67,6 +67,9 @@ static const struct ffa_dev_ops *ffa_ops;
 static ffa_partition_id_t sp_partition_id;
 static struct ffa_device *sp_partition_dev;
 
+/* bit[31]=1 is do retrieve_req in EL2 */
+#define PAGED_BASED_FFA_FLAGS 0x80000000
+
 /* receiver numbers */
 #define ATTRS_NUM 10
 /* receiver should be a VM at normal world */
@@ -227,6 +230,15 @@ static void set_memory_region_attrs(enum MTEE_MCHUNKS_ID mchunk_id,
 		pr_info("%s: mchunk_id = MTEE_MCHUNKS_TUI\n", __func__);
 		break;
 
+	case MTEE_MCUHNKS_INVALID:
+		mem_region_attrs[0] = (struct ffa_mem_region_attributes) {
+			.receiver = VM_HA_1,
+			.attrs = FFA_MEM_RW
+		};
+		ffa_args->nattrs = 1;
+		pr_info("%s: VM_LIUNX\n", __func__);
+		break;
+
 	default:
 		mem_region_attrs[0] = (struct ffa_mem_region_attributes) {
 			.receiver = SP_TA_1,
@@ -240,9 +252,72 @@ static void set_memory_region_attrs(enum MTEE_MCHUNKS_ID mchunk_id,
 	ffa_args->attrs = mem_region_attrs;
 }
 
-int tmem_carveout_heap_alloc(enum MTEE_MCHUNKS_ID mchunk_id,
-								unsigned long size,
-								u64 *handle)
+int tmem_ffa_page_alloc(enum MTEE_MCHUNKS_ID mchunk_id,
+					    struct sg_table *sg_tbl,
+					    u64 *handle)
+{
+	struct ffa_mem_ops_args ffa_args;
+	struct ffa_mem_region_attributes mem_region_attrs[ATTRS_NUM];
+	int ret;
+
+	if (sp_partition_dev == NULL) {
+		pr_info("%s: ffa_device_register() failed\n", __func__);
+		return TMEM_KPOOL_FFA_INIT_FAILED;
+	}
+
+	mutex_lock(&tmem_block_mutex);
+
+	/* set ffa_mem_ops_args */
+	set_memory_region_attrs(mchunk_id, &ffa_args, mem_region_attrs);
+	ffa_args.use_txbuf = true;
+	/* set bit[31]=1 then ffa_lend will do retrieve_req */
+	ffa_args.flags = PAGED_BASED_FFA_FLAGS;
+	ffa_args.tag = 0;
+	ffa_args.g_handle = 0;
+	ffa_args.sg = sg_tbl->sgl;
+
+	ret = ffa_ops->memory_lend(sp_partition_dev, &ffa_args);
+	if (ret) {
+		pr_info("page-based, Failed to FF-A send the memory, ret=%d\n", ret);
+		mutex_unlock(&tmem_block_mutex);
+		return TMEM_KPOOL_FFA_PAGE_FAILED;
+	}
+
+	*handle = ffa_args.g_handle;
+
+	mutex_unlock(&tmem_block_mutex);
+
+	pr_info("%s PASS: handle=0x%llx\n", __func__, *handle);
+	return TMEM_OK;
+}
+
+int tmem_ffa_page_free(u64 handle)
+{
+	int ret;
+
+	if (sp_partition_dev == NULL) {
+		pr_info("%s: ffa_device_register() failed\n", __func__);
+		return TMEM_KPOOL_FFA_INIT_FAILED;
+	}
+
+	mutex_lock(&tmem_block_mutex);
+
+	ret = ffa_ops->memory_reclaim(handle, PAGED_BASED_FFA_FLAGS);
+	if (ret) {
+		pr_info("page-based, Failed to FF-A reclaim the memory, ret=%d\n", ret);
+		mutex_unlock(&tmem_block_mutex);
+		return TMEM_KPOOL_FFA_PAGE_FAILED;
+	}
+
+	mutex_unlock(&tmem_block_mutex);
+
+	pr_info("%s PASS: handle=0x%lx\n", __func__, handle);
+	return TMEM_OK;
+}
+
+int tmem_ffa_region_alloc(enum MTEE_MCHUNKS_ID mchunk_id,
+						  unsigned long size,
+						  u64 *handle)
 {
 	unsigned long paddr;
 	struct tmem_block *entry;
@@ -289,7 +364,7 @@ int tmem_carveout_heap_alloc(enum MTEE_MCHUNKS_ID mchunk_id,
 
 	ret = ffa_ops->memory_lend(sp_partition_dev, &ffa_args);
 	if (ret) {
-		pr_info("Failed to FF-A send the memory, ret=%d\n", ret);
+		pr_info("region-based, Failed to FF-A send the memory, ret=%d\n", ret);
 		goto out1;
 	}
 
@@ -325,7 +400,7 @@ out4:
 	return -ENOMEM;
 }
 
-int tmem_carveout_heap_free(enum MTEE_MCHUNKS_ID mchunk_id, u64 handle)
+int tmem_ffa_region_free(enum MTEE_MCHUNKS_ID mchunk_id, u64 handle)
 {
 	struct tmem_block *tmp;
 	unsigned long pool_idx = mchunk_id;
@@ -340,9 +415,9 @@ int tmem_carveout_heap_free(enum MTEE_MCHUNKS_ID mchunk_id, u64 handle)
 
 	ret = ffa_ops->memory_reclaim(handle, 0);
 	if (ret) {
-		pr_info("Failed to FF-A reclaim the memory, ret=%d\n", ret);
+		pr_info("region-based, Failed to FF-A reclaim the memory, ret=%d\n", ret);
 		mutex_unlock(&tmem_block_mutex);
-		return ret;
+		return TMEM_KPOOL_FFA_PAGE_FAILED;
 	}
 
 	list_for_each_entry(tmp, &tmem_block_list, head) {
