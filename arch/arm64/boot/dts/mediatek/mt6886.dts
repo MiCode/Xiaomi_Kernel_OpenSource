@@ -4862,6 +4862,10 @@
 		clock-names = "vcore", "vmm";
 	};
 
+	mmdvfs-v3-start {
+		compatible = "mediatek,mmdvfs-v3-start";
+	};
+
 	mmdvfs {
 		compatible = "mediatek,mmdvfs";
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;

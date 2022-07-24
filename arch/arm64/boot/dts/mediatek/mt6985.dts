@@ -12080,6 +12080,10 @@
 		clock-names = "aov_clk";
 	};
 
+	mmdvfs-v3-start {
+		compatible = "mediatek,mmdvfs-v3-start";
+	};
+
 	mmdvfs {
 		compatible = "mediatek,mmdvfs";
 		operating-points-v2 = <&opp_table_disp>;
