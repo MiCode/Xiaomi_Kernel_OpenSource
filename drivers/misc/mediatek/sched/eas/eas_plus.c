@@ -263,7 +263,7 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 	struct em_perf_state *ps;
 	int cpu, opp = -1;
 #if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
-	unsigned long pwr_eff, cap, sum_cap = 0;
+	unsigned long pwr_eff, cap, freq_legacy, sum_cap = 0;
 #else
 	int i;
 #endif
@@ -294,6 +294,7 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 	opp = pd_get_freq_opp(cpu, freq);
 	pwr_eff = pd_get_opp_pwr_eff(cpu, opp);
 	cap = pd_get_opp_capacity(cpu, opp);
+	freq_legacy = pd_get_opp_freq_legacy(cpu, pd_get_freq_opp_legacy(cpu, freq));
 #else
 	/*
 	 * Find the lowest performance state of the Energy Model above the
@@ -369,10 +370,10 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 	dyn_pwr = pwr_eff * sum_util;
 
 	/* for pd_opp_capacity is scaled based on maximum scale 1024, so cost = pwr_eff * 1024 */
-	trace_sched_em_cpu_energy(opp, pwr_eff, scale_cpu, dyn_pwr, static_pwr);
+	trace_sched_em_cpu_energy(opp, freq_legacy, pwr_eff, scale_cpu, dyn_pwr, static_pwr);
 #else
 	dyn_pwr = (ps->cost * sum_util / scale_cpu);
-	trace_sched_em_cpu_energy(opp, ps->cost, scale_cpu, dyn_pwr, static_pwr);
+	trace_sched_em_cpu_energy(opp, freq, ps->cost, scale_cpu, dyn_pwr, static_pwr);
 #endif
 
 	energy = dyn_pwr + static_pwr;
@@ -774,7 +775,7 @@ unsigned long calc_pwr(int cpu, unsigned long task_util)
 {
 	int opp;
 	unsigned long cap;
-	unsigned long dyn_pwr_eff, dyn_pwr, static_pwr, pwr;
+	unsigned long dyn_pwr_eff, dyn_pwr, static_pwr, pwr, freq;
 
 	opp = pd_get_util_opp(cpu, map_util_perf(task_util));
 	cap = pd_get_opp_capacity(cpu, opp);
@@ -784,7 +785,9 @@ unsigned long calc_pwr(int cpu, unsigned long task_util)
 	static_pwr =  (mtk_get_leakage(cpu, opp, get_cpu_temp(cpu)/1000) * task_util) / cap;
 	pwr = dyn_pwr + static_pwr;
 
-	trace_sched_em_cpu_energy(opp, dyn_pwr_eff, cpu, dyn_pwr, static_pwr);
+	freq = pd_get_util_freq(cpu, map_util_perf(task_util));
+	freq = pd_get_opp_freq_legacy(cpu, pd_get_freq_opp_legacy(cpu, freq));
+	trace_sched_em_cpu_energy(opp, freq, dyn_pwr_eff, cpu, dyn_pwr, static_pwr);
 
 	return pwr;
 }
