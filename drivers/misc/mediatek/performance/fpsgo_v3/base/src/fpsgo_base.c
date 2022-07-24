@@ -41,6 +41,7 @@
 
 #define TIME_1S  1000000000ULL
 #define TRAVERSE_PERIOD  300000000000ULL
+#define FPSGO_MAX_TREE_SIZE 10
 
 #define event_trace(ip, fmt, args...) \
 do { \
@@ -545,6 +546,34 @@ int fpsgo_base_is_finished(struct render_info *thr)
 	return 1;
 }
 
+void fpsgo_reset_pid_attr(struct fpsgo_boost_attr *boost_attr)
+{
+	if (boost_attr) {
+		boost_attr->llf_task_policy_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->light_loading_policy_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->loading_th_by_pid = BY_PID_DEFAULT_VAL;
+
+		boost_attr->rescue_second_enable_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->rescue_second_time_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->rescue_second_group_by_pid = BY_PID_DEFAULT_VAL;
+
+		boost_attr->filter_frame_enable_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->filter_frame_window_size_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->filter_frame_kmin_by_pid = BY_PID_DEFAULT_VAL;
+
+		boost_attr->boost_affinity_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->boost_lr_by_pid = BY_PID_DEFAULT_VAL;
+
+		boost_attr->separate_aa_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->limit_uclamp_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->limit_ruclamp_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->limit_uclamp_m_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->limit_ruclamp_m_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->separate_pct_b_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->separate_pct_m_by_pid = BY_PID_DEFAULT_VAL;
+	}
+}
+
 static int render_key_compare(struct fbt_render_key target,
 		struct fbt_render_key node_key)
 {
@@ -560,6 +589,27 @@ static int render_key_compare(struct fbt_render_key target,
 		return -1;
 	else
 		return 0;
+}
+
+void fpsgo_reset_render_pid_attr(int tgid)
+{
+	struct rb_node *n;
+	struct render_info *iter;
+
+	if (!tgid)
+		return;
+
+	fpsgo_lockprove(__func__);
+
+	for (n = rb_first(&render_pid_tree); n != NULL; n = rb_next(n)) {
+		iter = rb_entry(n, struct render_info, render_key_node);
+
+		if (iter->tgid == tgid) {
+			fpsgo_thread_lock(&(iter->thr_mlock));
+			fpsgo_reset_pid_attr(&(iter->attr));
+			fpsgo_thread_unlock(&(iter->thr_mlock));
+		}
+	}
 }
 
 struct render_info *eara2fpsgo_search_render_info(int pid,
@@ -578,19 +628,14 @@ struct render_info *eara2fpsgo_search_render_info(int pid,
 	return NULL;
 }
 
-
 struct render_info *fpsgo_search_and_add_render_info(int pid,
 	unsigned long long identifier, int force)
 {
 	struct rb_node **p = &render_pid_tree.rb_node;
 	struct rb_node *parent = NULL;
-	struct render_info *tmp = NULL;
+	struct render_info *iter_thr = NULL;
 	int tgid;
 	struct fbt_render_key render_key;
-	#if FPSGO_MW
-	struct fpsgo_attr_by_pid *attr_render = NULL;
-	int ret;
-	#endif
 
 	render_key.key1 = pid;
 	render_key.key2 = identifier;
@@ -601,54 +646,38 @@ struct render_info *fpsgo_search_and_add_render_info(int pid,
 
 	while (*p) {
 		parent = *p;
-		tmp = rb_entry(parent, struct render_info, render_key_node);
+		iter_thr = rb_entry(parent, struct render_info, render_key_node);
 
-		if (render_key_compare(render_key, tmp->render_key) < 0)
+		if (render_key_compare(render_key, iter_thr->render_key) < 0)
 			p = &(*p)->rb_left;
-		else if (render_key_compare(render_key, tmp->render_key) > 0)
+		else if (render_key_compare(render_key, iter_thr->render_key) > 0)
 			p = &(*p)->rb_right;
 		else
-			return tmp;
+			return iter_thr;
 	}
 
 	if (!force)
 		return NULL;
 
-	tmp = kzalloc(sizeof(*tmp), GFP_KERNEL);
-	if (!tmp)
+	iter_thr = kzalloc(sizeof(*iter_thr), GFP_KERNEL);
+	if (!iter_thr)
 		return NULL;
 
-	mutex_init(&tmp->thr_mlock);
-	INIT_LIST_HEAD(&(tmp->bufferid_list));
-	tmp->pid = pid;
-	tmp->render_key.key1 = pid;
-	tmp->render_key.key2 = identifier;
-	tmp->identifier = identifier;
-	tmp->tgid = tgid;
-	tmp->frame_type = BY_PASS_TYPE;
+	mutex_init(&iter_thr->thr_mlock);
+	INIT_LIST_HEAD(&(iter_thr->bufferid_list));
+	iter_thr->pid = pid;
+	iter_thr->render_key.key1 = pid;
+	iter_thr->render_key.key2 = identifier;
+	iter_thr->identifier = identifier;
+	iter_thr->tgid = tgid;
+	iter_thr->frame_type = BY_PASS_TYPE;
 
-	#if FPSGO_MW
-	attr_render = fpsgo_find_attr_by_pid(tgid, 0);
-	if (!attr_render) {
-		tmp->llf_task_policy_by_pid = 0;
-		tmp->light_loading_policy_by_pid = 0;
-		tmp->loading_th_by_pid = 0;
-		tmp->rescue_second_enable_by_pid = 0;
-		tmp->rescue_second_time_by_pid = 0;
-		tmp->rescue_second_group_by_pid = 0;
+	fbt_set_render_boost_attr(iter_thr);
 
-		tmp->filter_frame_enable_by_pid = -1;
-		tmp->filter_frame_window_size_by_pid = 6;
-		tmp->filter_frame_kmin_by_pid = 3;
-	} else {
-		ret = update_attr_to_render_info(tmp, attr_render, tgid);
-		if (ret < 0)
-			FPSGO_LOGI("fpsgo pid %d tgid %d attr update fail ", pid, tgid);
-	}
-	#endif
-	rb_link_node(&tmp->render_key_node, parent, p);
-	rb_insert_color(&tmp->render_key_node, &render_pid_tree);
-	return tmp;
+	rb_link_node(&iter_thr->render_key_node, parent, p);
+	rb_insert_color(&iter_thr->render_key_node, &render_pid_tree);
+
+	return iter_thr;
 }
 
 void fpsgo_delete_render_info(int pid,
@@ -747,48 +776,121 @@ void fpsgo_delete_hwui_info(int pid)
 }
 
 #if FPSGO_MW
+int is_to_delete_fpsgo_attr(struct fpsgo_attr_by_pid *fpsgo_attr)
+{
+	struct fpsgo_boost_attr boost_attr;
+
+	if (!fpsgo_attr)
+		return 0;
+
+	boost_attr = fpsgo_attr->attr;
+	if	(boost_attr.rescue_second_enable_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.rescue_second_time_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.rescue_second_group_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.llf_task_policy_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.light_loading_policy_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.loading_th_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.filter_frame_enable_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.filter_frame_window_size_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.filter_frame_kmin_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.boost_affinity_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.boost_lr_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.separate_aa_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.limit_uclamp_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.limit_ruclamp_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.limit_uclamp_m_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.limit_ruclamp_m_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.separate_pct_b_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.separate_pct_m_by_pid == BY_PID_DEFAULT_VAL) {
+		return 1;
+	}
+	if (boost_attr.rescue_second_enable_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.rescue_second_time_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.rescue_second_group_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.llf_task_policy_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.light_loading_policy_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.loading_th_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.filter_frame_enable_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.filter_frame_window_size_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.filter_frame_kmin_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.boost_affinity_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.boost_lr_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.separate_aa_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.limit_uclamp_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.limit_ruclamp_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.limit_uclamp_m_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.limit_ruclamp_m_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.separate_pct_b_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.separate_pct_m_by_pid == BY_PID_DELETE_VAL) {
+		return 1;
+	}
+	return 0;
+}
+
+static int delete_oldest_attr(void)
+{
+	struct rb_node *n;
+	struct fpsgo_attr_by_pid *iter;
+	unsigned long long oldest_ts = (unsigned long long)-1; // max val
+	int tgid = 0, count = 0;
+
+	fpsgo_lockprove(__func__);
+
+	for (n = rb_first(&fpsgo_attr_by_pid_tree), count = 0; n != NULL;
+		n = rb_next(n), count++) {
+		iter = rb_entry(n,  struct fpsgo_attr_by_pid, entry);
+		if (iter->ts < oldest_ts) {
+			tgid = iter->tgid;
+			oldest_ts = iter->ts;
+		}
+	}
+
+	if (count >= FPSGO_MAX_TREE_SIZE)
+		return tgid;
+	else
+		return 0;
+}
+
 struct fpsgo_attr_by_pid *fpsgo_find_attr_by_pid(int pid, int add_new)
 {
 	struct rb_node **p = &fpsgo_attr_by_pid_tree.rb_node;
 	struct rb_node *parent = NULL;
-	struct fpsgo_attr_by_pid *tmp = NULL;
+	struct fpsgo_attr_by_pid *iter_attr = NULL;
+	int delete_tgid = 0;
 
 	fpsgo_lockprove(__func__);
 
 	while (*p) {
 		parent = *p;
-		tmp = rb_entry(parent, struct fpsgo_attr_by_pid, entry);
+		iter_attr = rb_entry(parent, struct fpsgo_attr_by_pid, entry);
 
-		if (pid < tmp->tgid)
+		if (pid < iter_attr->tgid)
 			p = &(*p)->rb_left;
-		else if (pid > tmp->tgid)
+		else if (pid > iter_attr->tgid)
 			p = &(*p)->rb_right;
 		else
-			return tmp;
+			return iter_attr;
 	}
 
 	if (!add_new)
 		return NULL;
 
-	tmp = kzalloc(sizeof(*tmp), GFP_KERNEL);
-	if (!tmp)
+	iter_attr = kzalloc(sizeof(*iter_attr), GFP_KERNEL);
+	if (!iter_attr)
 		return NULL;
 
-	tmp->tgid = pid;
-	tmp->loading_th_by_pid = 0;
-	tmp->llf_task_policy_by_pid = -1;
-	tmp->light_loading_policy_by_pid = 0;
-	tmp->rescue_second_enable_by_pid = -1;
-	tmp->rescue_second_time_by_pid = 0;
-	tmp->rescue_second_group_by_pid = 0;
-	tmp->filter_frame_enable_by_pid = -1;
-	tmp->filter_frame_window_size_by_pid = 6;
-	tmp->filter_frame_kmin_by_pid = 3;
+	iter_attr->ts = fpsgo_get_time();
+	iter_attr->tgid = pid;
+	fpsgo_reset_pid_attr(&(iter_attr->attr));
+	rb_link_node(&iter_attr->entry, parent, p);
+	rb_insert_color(&iter_attr->entry, &fpsgo_attr_by_pid_tree);
 
-	rb_link_node(&tmp->entry, parent, p);
-	rb_insert_color(&tmp->entry, &fpsgo_attr_by_pid_tree);
+	/* If the tree size exceeds, then delete the oldest node. */
+	delete_tgid = delete_oldest_attr();
+	if (delete_tgid)
+		delete_attr_by_pid(delete_tgid);
 
-	return tmp;
+	return iter_attr;
 }
 
 void delete_attr_by_pid(int tgid)
@@ -799,69 +901,30 @@ void delete_attr_by_pid(int tgid)
 	data = fpsgo_find_attr_by_pid(tgid, 0);
 	if (!data)
 		return;
-
 	rb_erase(&data->entry, &fpsgo_attr_by_pid_tree);
 	kfree(data);
 }
 
-int update_attr_to_render_info(struct render_info *f_render,
-	struct fpsgo_attr_by_pid *attr, int tgid)
+void delete_all_attr_items_in_tree(void)
 {
 	struct rb_node *n;
-	struct render_info *iter;
-	int ret = -1;
-
-	if (!attr)
-		return -1;
+	struct fpsgo_attr_by_pid *iter;
 
 	fpsgo_lockprove(__func__);
 
-	if (!f_render && tgid) {
-		for (n = rb_first(&render_pid_tree); n != NULL; n = rb_next(n)) {
-			iter = rb_entry(n, struct render_info, render_key_node);
+	n = rb_first(&fpsgo_attr_by_pid_tree);
 
-			if (iter->tgid == tgid) {
-				fpsgo_thread_lock(&(iter->thr_mlock));
-				iter->llf_task_policy_by_pid = attr->llf_task_policy_by_pid;
-				iter->light_loading_policy_by_pid =
-						attr->light_loading_policy_by_pid;
-				iter->loading_th_by_pid = attr->loading_th_by_pid;
-				iter->rescue_second_enable_by_pid =
-						attr->rescue_second_enable_by_pid;
-				iter->rescue_second_time_by_pid = attr->rescue_second_time_by_pid;
-				iter->rescue_second_group_by_pid = attr->rescue_second_group_by_pid;
-				iter->filter_frame_enable_by_pid = attr->filter_frame_enable_by_pid;
-				iter->filter_frame_window_size_by_pid =
-					attr->filter_frame_window_size_by_pid;
-				iter->filter_frame_kmin_by_pid = attr->filter_frame_kmin_by_pid;
-				fpsgo_thread_unlock(&(iter->thr_mlock));
-				ret = 0;
-			}
-		}
+	while (n) {
+		iter = rb_entry(n,  struct fpsgo_attr_by_pid, entry);
+
+		rb_erase(&iter->entry, &fpsgo_attr_by_pid_tree);
+		n = rb_first(&fpsgo_attr_by_pid_tree);
+
+		kfree(iter);
 	}
-
-	if (f_render) {
-		fpsgo_thread_lock(&(f_render->thr_mlock));
-		f_render->llf_task_policy_by_pid = attr->llf_task_policy_by_pid;
-		f_render->light_loading_policy_by_pid = attr->light_loading_policy_by_pid;
-		f_render->loading_th_by_pid = attr->loading_th_by_pid;
-		f_render->rescue_second_enable_by_pid = attr->rescue_second_enable_by_pid;
-		f_render->rescue_second_time_by_pid = attr->rescue_second_time_by_pid;
-		f_render->rescue_second_group_by_pid = attr->rescue_second_group_by_pid;
-		f_render->filter_frame_enable_by_pid = attr->filter_frame_enable_by_pid;
-		f_render->filter_frame_window_size_by_pid = attr->filter_frame_window_size_by_pid;
-		f_render->filter_frame_kmin_by_pid = attr->filter_frame_kmin_by_pid;
-		fpsgo_thread_unlock(&(f_render->thr_mlock));
-		ret = 0;
-	}
-	if (attr->rescue_second_enable_by_pid == -1 && attr->llf_task_policy_by_pid == -1
-		&& attr->filter_frame_enable_by_pid == -1)
-		delete_attr_by_pid(tgid);
-
-	return ret;
 }
 
-#endif
+#endif  // FPSGO_MW
 
 struct sbe_info *fpsgo_search_and_add_sbe_info(int pid, int force)
 {
@@ -985,7 +1048,7 @@ static void fpsgo_check_BQid_status(void)
 	}
 }
 
-void fpsgo_clear_llf_cpu_policy(int policy)
+void fpsgo_clear_llf_cpu_policy(void)
 {
 	struct rb_node *n;
 	struct render_info *iter;
@@ -996,7 +1059,7 @@ void fpsgo_clear_llf_cpu_policy(int policy)
 		iter = rb_entry(n, struct render_info, render_key_node);
 
 		fpsgo_thread_lock(&iter->thr_mlock);
-		fpsgo_base2fbt_clear_llf_policy(iter, policy);
+		fpsgo_base2fbt_clear_llf_policy(iter);
 		fpsgo_thread_unlock(&iter->thr_mlock);
 	}
 
@@ -1004,29 +1067,24 @@ void fpsgo_clear_llf_cpu_policy(int policy)
 }
 
 #if FPSGO_MW
-void fpsgo_clear_llf_cpu_policy_by_pid(int tgid, int policy_orig)
+void fpsgo_clear_llf_cpu_policy_by_pid(int tgid)
 {
 	struct rb_node *n;
 	struct render_info *iter;
-	int policy;
 
 	fpsgo_lockprove(__func__);
 	for (n = rb_first(&render_pid_tree); n != NULL; n = rb_next(n)) {
 		iter = rb_entry(n, struct render_info, render_key_node);
 
 		if (iter->tgid == tgid) {
-			policy = iter->llf_task_policy_by_pid > 0 ?
-				iter->llf_task_policy_by_pid : policy_orig;
-			if (policy <= 0)
-				break;
 			fpsgo_thread_lock(&iter->thr_mlock);
-			fpsgo_base2fbt_clear_llf_policy(iter, iter->llf_task_policy_by_pid);
+			fpsgo_base2fbt_clear_llf_policy(iter);
 			fpsgo_thread_unlock(&iter->thr_mlock);
 		}
 	}
 
 }
-#endif
+#endif  // FPSGO_MW
 
 static void fpsgo_clear_uclamp_boost_locked(void)
 {
@@ -1167,6 +1225,10 @@ void fpsgo_clear(void)
 		if (delete == 1)
 			kfree(iter);
 	}
+
+#if FPSGO_MW
+	delete_all_attr_items_in_tree();
+#endif  // FPSGO_MW
 
 	fpsgo_render_tree_unlock(__func__);
 }
@@ -1504,51 +1566,97 @@ static ssize_t render_info_params_show(struct kobject *kobj,
 	struct rb_node *n;
 	struct render_info *iter;
 	struct task_struct *tsk;
+	struct fpsgo_boost_attr attr_item;
 	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int pos = 0;
 	int length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+		"\n (PID, NAME, TGID,\n");
+	pos += length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+		" llf_task_policy, loading_th, light_loading_policy,\n");
+	pos += length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+		" rescue_second_enable, rescue_second_time, rescue_second_group,\n");
+	pos += length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+		" ff_enable, ff_window_size, ff_k_min,\n");
+	pos += length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+		" boost_affinity, boost_LR,\n");
+	pos += length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+		" separate_aa, pct_b, pct_m,\n");
+	pos += length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+		" uclamp, ruclamp, uclamp_m, ruclamp_m)\n\n");
+	pos += length;
 
 	fpsgo_render_tree_lock(__func__);
 	rcu_read_lock();
 
 	for (n = rb_first(&render_pid_tree); n != NULL; n = rb_next(n)) {
 		iter = rb_entry(n, struct render_info, render_key_node);
+		attr_item = iter->attr;
 		tsk = find_task_by_vpid(iter->tgid);
 		if (tsk) {
 			get_task_struct(tsk);
-			length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				"\n by_pid params:\n  PID  NAME  TGID  llf_task_policy loading_th light_loading_policy\n");
-			pos += length;
 
 			length = scnprintf(temp + pos,
-					FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-					"%5d %4s %4d %4d %4d %4d",
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				" (%5d, %4s, %4d,\n",
 				iter->pid, tsk->comm,
-				iter->tgid, iter->llf_task_policy_by_pid,
-				iter->loading_th_by_pid, iter->light_loading_policy_by_pid);
-			pos += length;
-
-			length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				"\n rescue_second_enable  rescue_second_time  rescue_second_group\n");
+				iter->tgid);
 			pos += length;
 
 			length = scnprintf(temp + pos,
-				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, "%4d, %4d %4d\n",
-				iter->rescue_second_enable_by_pid, iter->rescue_second_time_by_pid,
-				iter->rescue_second_group_by_pid);
-			pos += length;
-
-			length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				"\n filter_frame_enable  filter_frame_window_size  filter_frame_k_min\n");
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				" %4d, %4d, %4d,\n",
+				attr_item.llf_task_policy_by_pid, attr_item.loading_th_by_pid,
+				attr_item.light_loading_policy_by_pid);
 			pos += length;
 
 			length = scnprintf(temp + pos,
-				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, "%4d, %4d %4d\n",
-				iter->filter_frame_enable_by_pid,
-				iter->filter_frame_window_size_by_pid,
-				iter->filter_frame_kmin_by_pid);
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d,\n",
+				attr_item.rescue_second_enable_by_pid,
+				attr_item.rescue_second_time_by_pid,
+				attr_item.rescue_second_group_by_pid);
 			pos += length;
 
+			length = scnprintf(temp + pos,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d,\n",
+				attr_item.filter_frame_enable_by_pid,
+				attr_item.filter_frame_window_size_by_pid,
+				attr_item.filter_frame_kmin_by_pid);
+			pos += length;
+
+			length = scnprintf(temp + pos,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d,\n",
+				attr_item.boost_affinity_by_pid,
+				attr_item.boost_lr_by_pid);
+			pos += length;
+
+			length = scnprintf(temp + pos,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d,\n",
+				attr_item.separate_aa_by_pid,
+				attr_item.separate_pct_b_by_pid,
+				attr_item.separate_pct_m_by_pid);
+			pos += length;
+
+			length = scnprintf(temp + pos,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d, %4d)\n\n",
+				attr_item.limit_uclamp_by_pid,
+				attr_item.limit_ruclamp_by_pid,
+				attr_item.limit_uclamp_m_by_pid,
+				attr_item.limit_ruclamp_m_by_pid);
+			pos += length;
 
 			put_task_struct(tsk);
 		}
@@ -1566,45 +1674,82 @@ static ssize_t render_attr_params_show(struct kobject *kobj,
 {
 	struct rb_node *n;
 	struct fpsgo_attr_by_pid *iter;
+	struct fpsgo_boost_attr attr_item;
 	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int pos = 0;
 	int length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+		"\n (TGID, llf_task_policy, loading_th, light_loading_policy,\n");
+	pos += length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+		" rescue_second_enable, rescue_second_time, rescue_second_group,\n");
+	pos += length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+		" ff_enable, ff_window_size, ff_k_min,\n");
+	pos += length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+		" boost_affinity, boost_LR,\n");
+	pos += length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+		" separate_aa, pct_b, pct_m,\n");
+	pos += length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+		" uclamp, ruclamp, uclamp_m, ruclamp_m)\n\n");
+	pos += length;
 
 	fpsgo_render_tree_lock(__func__);
 
 	for (n = rb_first(&fpsgo_attr_by_pid_tree); n != NULL; n = rb_next(n)) {
 		iter = rb_entry(n,  struct fpsgo_attr_by_pid, entry);
-			length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				"\n by_pid attr params:\n  TGID  llf_task_policy loading_th light_loading_policy\n");
+		attr_item = iter->attr;
+
+		length = scnprintf(temp + pos,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				" (%4d, %4d, %4d, %4d,\n",
+			iter->tgid, attr_item.llf_task_policy_by_pid,
+			attr_item.loading_th_by_pid, attr_item.light_loading_policy_by_pid);
 		pos += length;
 
 		length = scnprintf(temp + pos,
-					FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-					"%4d %4d %4d %4d",
-				iter->tgid, iter->llf_task_policy_by_pid,
-				iter->loading_th_by_pid, iter->light_loading_policy_by_pid);
-			pos += length;
+			FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d,\n",
+			attr_item.rescue_second_enable_by_pid,
+			attr_item.rescue_second_time_by_pid,
+			attr_item.rescue_second_group_by_pid);
+		pos += length;
 
-			length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				"\n rescue_second_enable  rescue_second_time  rescue_second_group\n");
-			pos += length;
+		length = scnprintf(temp + pos,
+			FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d,\n",
+			attr_item.filter_frame_enable_by_pid,
+			attr_item.filter_frame_window_size_by_pid,
+			attr_item.filter_frame_kmin_by_pid);
+		pos += length;
 
-			length = scnprintf(temp + pos,
-				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, "%4d, %4d %4d\n",
-				iter->rescue_second_enable_by_pid, iter->rescue_second_time_by_pid,
-				iter->rescue_second_group_by_pid);
-			pos += length;
+		length = scnprintf(temp + pos,
+			FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d,\n",
+			attr_item.boost_affinity_by_pid,
+			attr_item.boost_lr_by_pid);
+		pos += length;
 
-			length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				"\n filter_frame_enable  filter_frame_window_size  filter_frame_k_min\n");
-			pos += length;
+		length = scnprintf(temp + pos,
+			FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d,\n",
+			attr_item.separate_aa_by_pid,
+			attr_item.separate_pct_b_by_pid,
+			attr_item.separate_pct_m_by_pid);
+		pos += length;
 
-			length = scnprintf(temp + pos,
-				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, "%4d, %4d %4d\n",
-				iter->filter_frame_enable_by_pid,
-				iter->filter_frame_window_size_by_pid,
-				iter->filter_frame_kmin_by_pid);
-			pos += length;
+		length = scnprintf(temp + pos,
+			FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d, %4d)\n\n",
+			attr_item.limit_uclamp_by_pid,
+			attr_item.limit_ruclamp_by_pid,
+			attr_item.limit_uclamp_m_by_pid,
+			attr_item.limit_ruclamp_m_by_pid);
+		pos += length;
 	}
 
 	fpsgo_render_tree_unlock(__func__);
@@ -1612,7 +1757,7 @@ static ssize_t render_attr_params_show(struct kobject *kobj,
 }
 static KOBJ_ATTR_RO(render_attr_params);
 
-#endif
+#endif  // FPSGO_MW
 
 static ssize_t force_onoff_show(struct kobject *kobj,
 		struct kobj_attribute *attr,

@@ -35,8 +35,7 @@ void fpsgo_base2fbt_no_one_render(void);
 void fpsgo_base2fbt_only_bypass(void);
 void fpsgo_base2fbt_set_min_cap(struct render_info *thr, int min_cap,
 					int min_cap_b, int min_cap_m);
-void fpsgo_base2fbt_clear_llf_policy(struct render_info *thr,
-						int orig_policy);
+void fpsgo_base2fbt_clear_llf_policy(struct render_info *thr);
 void fpsgo_base2fbt_cancel_jerk(struct render_info *thr);
 int fpsgo_base2fbt_is_finished(struct render_info *thr);
 void fpsgo_base2fbt_stop_boost(struct render_info *thr);
@@ -69,6 +68,8 @@ void fbt_xgff_list_blc_del(struct fbt_thread_blc *p_blc);
 void fbt_xgff_blc_set(struct fbt_thread_blc *p_blc, int blc_wt,
 	int dep_num, int *dep_arr);
 
+void fbt_set_render_boost_attr(struct render_info *thr);
+
 #else
 static inline void fpsgo_ctrl2fbt_dfrc_fps(int fps_limit) { }
 static inline void fpsgo_ctrl2fbt_cpufreq_cb_exp(int cid,
@@ -96,8 +97,7 @@ static inline void fpsgo_base2fbt_no_one_render(void) { }
 static inline int fbt_switch_ceiling(int en) { return 0; }
 static inline void fpsgo_base2fbt_set_min_cap(struct render_info *thr,
 				int min_cap) { }
-static inline void fpsgo_base2fbt_clear_llf_policy(struct render_info *thr,
-				int orig_policy) { }
+static inline void fpsgo_base2fbt_clear_llf_policy(struct render_info *thr) { }
 static inline void fpsgo_base2fbt_cancel_jerk(struct render_info *thr) { }
 static inline int fpsgo_base2fbt_is_finished(struct render_info *thr) { return 0; }
 static inline void fpsgo_base2fbt_stop_boost(struct render_info *thr) { }
@@ -105,6 +105,7 @@ static inline void fpsgo_sbe2fbt_rescue(struct render_info *thr, int start, int 
 			unsigned long long frame_id) { }
 static inline void eara2fbt_set_2nd_t2wnt(int pid, unsigned long long buffer_id,
 			unsigned long long t_duration) { }
+static inline void fbt_set_render_boost_attr(struct render_info *thr) { }
 #endif
 
 #endif

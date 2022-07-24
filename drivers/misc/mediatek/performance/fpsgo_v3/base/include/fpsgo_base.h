@@ -22,6 +22,8 @@
 #define LOADING_CNT 256
 #define FBT_FILTER_MAX_WINDOW 100
 #define FPSGO_MW 1
+#define BY_PID_DEFAULT_VAL -1
+#define BY_PID_DELETE_VAL -2
 
 enum {
 	FPSGO_SET_UNKNOWN = -1,
@@ -157,6 +159,38 @@ struct fbt_boost_info {
 	unsigned long long t_duration;
 };
 
+struct fpsgo_boost_attr {
+	/*    LLF    */
+	int loading_th_by_pid;
+	int llf_task_policy_by_pid;
+	int light_loading_policy_by_pid;
+
+	/*    rescue    */
+	int rescue_second_enable_by_pid;
+	int rescue_second_time_by_pid;
+	int rescue_second_group_by_pid;
+
+	/* filter frame */
+	int filter_frame_enable_by_pid;
+	int filter_frame_window_size_by_pid;
+	int filter_frame_kmin_by_pid;
+
+	/* boost affinity */
+	int boost_affinity_by_pid;
+
+	/* boost LR */
+	int boost_lr_by_pid;
+
+	/* separate cap */
+	int separate_aa_by_pid;
+	int limit_uclamp_by_pid;
+	int limit_ruclamp_by_pid;
+	int limit_uclamp_m_by_pid;
+	int limit_ruclamp_m_by_pid;
+	int separate_pct_b_by_pid;
+	int separate_pct_m_by_pid;
+};
+
 struct render_info {
 	struct rb_node render_key_node;
 	struct list_head bufferid_list;
@@ -198,42 +232,17 @@ struct render_info {
 	int avg_freq;
 
 	struct mutex thr_mlock;
-	#if FPSGO_MW
-	/*    LLF    */
-	int loading_th_by_pid;
-	int llf_task_policy_by_pid;
-	int light_loading_policy_by_pid;
 
-	/*    rescue    */
-	int rescue_second_enable_by_pid;
-	int rescue_second_time_by_pid;
-	int rescue_second_group_by_pid;
-
-	/* filter frame */
-	int filter_frame_enable_by_pid;
-	int filter_frame_window_size_by_pid;
-	int filter_frame_kmin_by_pid;
-	#endif
+	/* boost policy */
+	struct fpsgo_boost_attr attr;
 };
 
 #if FPSGO_MW
 struct fpsgo_attr_by_pid {
 	struct rb_node entry;
 	int tgid;
-	/*    LLF    */
-	int loading_th_by_pid;
-	int llf_task_policy_by_pid;
-	int light_loading_policy_by_pid;
-
-	/*    rescue    */
-	int rescue_second_enable_by_pid;
-	int rescue_second_time_by_pid;
-	int rescue_second_group_by_pid;
-
-	/* filter frame */
-	int filter_frame_enable_by_pid;
-	int filter_frame_window_size_by_pid;
-	int filter_frame_kmin_by_pid;
+	unsigned long long ts;
+	struct fpsgo_boost_attr attr;
 };
 #endif
 
@@ -304,12 +313,12 @@ void fpsgo_thread_unlock(struct mutex *mlock);
 void fpsgo_lockprove(const char *tag);
 void fpsgo_thread_lockprove(const char *tag, struct mutex *mlock);
 #if FPSGO_MW
-void fpsgo_clear_llf_cpu_policy_by_pid(int tgid, int policy_orig);
+void fpsgo_clear_llf_cpu_policy_by_pid(int tgid);
 struct fpsgo_attr_by_pid *fpsgo_find_attr_by_pid(int pid, int add_new);
-int update_attr_to_render_info(struct render_info *f_render,
-	struct fpsgo_attr_by_pid *attr_render, int pid);
 void delete_attr_by_pid(int tgid);
-#endif
+void fpsgo_reset_render_pid_attr(int tgid);
+int is_to_delete_fpsgo_attr(struct fpsgo_attr_by_pid *fpsgo_attr);
+#endif  // FPSGO_MW
 struct render_info *eara2fpsgo_search_render_info(int pid,
 		unsigned long long buffer_id);
 void fpsgo_delete_render_info(int pid,
@@ -330,7 +339,7 @@ int fpsgo_get_BQid_pair(int pid, int tgid, long long identifier,
 		unsigned long long *buffer_id, int *queue_SF, int enqueue);
 void fpsgo_main_trace(const char *fmt, ...);
 void fpsgo_clear_uclamp_boost(void);
-void fpsgo_clear_llf_cpu_policy(int orig_llf);
+void fpsgo_clear_llf_cpu_policy(void);
 void fpsgo_del_linger(struct render_info *thr);
 int fpsgo_base_is_finished(struct render_info *thr);
 int fpsgo_update_swap_buffer(int pid);
