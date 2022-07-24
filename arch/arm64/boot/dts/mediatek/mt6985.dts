@@ -13165,7 +13165,7 @@
 				"aud_gpio_i2s8_on",
 				"aud_gpio_i2s9_off",
 				"aud_gpio_i2s9_on",
-				"aud-gpio-tdmin-off",
+				"aud-gpio-etdmin-off",
 				"aud-gpio-etdmin-on",
 				"aud-gpio-etdmout-off",
 				"aud-gpio-etdmout-on";
