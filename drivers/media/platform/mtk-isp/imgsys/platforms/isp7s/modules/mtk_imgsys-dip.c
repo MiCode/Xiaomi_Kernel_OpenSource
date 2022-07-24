@@ -461,6 +461,69 @@ static void imgsys_dip_dump_ee(struct mtk_imgsys_dev *a_pDev,
 
 }
 
+static void imgsys_dip_dump_cnr(struct mtk_imgsys_dev *a_pDev,
+				void __iomem *a_pRegBA,
+				unsigned int a_DdbSel,
+				unsigned int a_DbgOut)
+{
+	unsigned int DbgCmd = 0;
+	unsigned int DbgData = 0;
+	unsigned int Idx = 0;
+	unsigned int CmdOft = 0x10000;
+
+	pr_info("dump cnr debug\n");
+
+	/* cnr debug */
+	DbgCmd = 0x0C201;
+	for (Idx = 0; Idx < 0xA; Idx++) {
+		DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+		DbgCmd += CmdOft;
+	}
+
+}
+
+static void imgsys_dip_dump_aks(struct mtk_imgsys_dev *a_pDev,
+				void __iomem *a_pRegBA,
+				unsigned int a_DdbSel,
+				unsigned int a_DbgOut)
+{
+	unsigned int DbgCmd = 0;
+	unsigned int DbgData = 0;
+	unsigned int Idx = 0;
+	unsigned int CmdOft = 0x10000;
+
+	pr_info("dump aks debug\n");
+
+	/* aks debug */
+	DbgCmd = 0x1C701;
+	for (Idx = 0; Idx < 0x8; Idx++) {
+		DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+		DbgCmd += CmdOft;
+	}
+
+}
+
+static void imgsys_dip_dump_smtd9(struct mtk_imgsys_dev *a_pDev,
+				void __iomem *a_pRegBA,
+				unsigned int a_DdbSel,
+				unsigned int a_DbgOut)
+{
+	unsigned int DbgCmd = 0;
+	unsigned int DbgData = 0;
+	unsigned int Idx = 0;
+	unsigned int CmdOft = 0x20000;
+
+	pr_info("dump smt_d9 debug\n");
+
+	/* smt_d9 debug */
+	DbgCmd = 0x1CC01;
+	for (Idx = 0; Idx < 0x3; Idx++) {
+		DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+		DbgCmd += CmdOft;
+	}
+
+}
+
 void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 							unsigned int engine)
 {
@@ -655,6 +718,12 @@ void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 	imgsys_dip_dump_smtd5(imgsys_dev, dipRegBA, CtlDdbSel, CtlDbgOut);
 	/* EE debug data */
 	imgsys_dip_dump_ee(imgsys_dev, dipRegBA, CtlDdbSel, CtlDbgOut);
+	/* CNR debug data */
+	imgsys_dip_dump_cnr(imgsys_dev, dipRegBA, CtlDdbSel, CtlDbgOut);
+	/* AKS debug data */
+	imgsys_dip_dump_aks(imgsys_dev, dipRegBA, CtlDdbSel, CtlDbgOut);
+	/* SMT_D9 debug data */
+	imgsys_dip_dump_smtd9(imgsys_dev, dipRegBA, CtlDdbSel, CtlDbgOut);
 
 	pr_info("%s: -\n", __func__);
 
