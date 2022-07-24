@@ -154,6 +154,8 @@ enum {
 	MTK_UART_FC_HW,
 };
 
+unsigned int uart_reg_buf[24];
+
 static struct mtk8250_reg_data peri_wakeup = {0};
 
 static void mtk8250_clear_wakeup(void)
@@ -320,6 +322,20 @@ static void mtk8250_uart_rx_setting(struct dma_chan *chan)
 	#endif
 }
 
+static void mtk8250_uart_apdma_start_record(struct dma_chan *chan)
+{
+	#if defined(KERNEL_mtk_uart_apdma_start_record)
+		KERNEL_mtk_uart_apdma_start_record(chan);
+	#endif
+}
+
+static void mtk8250_uart_apdma_end_record(struct dma_chan *chan)
+{
+	#if defined(KERNEL_mtk_uart_apdma_end_record)
+		KERNEL_mtk_uart_apdma_end_record(chan);
+	#endif
+}
+
 static int mtk8250_uart_rx_dma(struct uart_8250_port *up)
 {
 	unsigned int iir = 0;
@@ -367,8 +383,12 @@ void mtk8250_data_dump(struct mtk8250_data *data)
 {
 #ifdef CONFIG_UART_DATA_RECORD
 	int idx = 0;
+	int count = 0;
 
-	for (idx = 0; idx < UART_DUMP_RECORE_NUM; idx++) {
+	if (data->rx_record.rec_total > UART_DUMP_RECORE_NUM)
+		idx = (unsigned int)((data->rx_record.rec_total + 1) % UART_DUMP_RECORE_NUM);
+
+	while (count < min_t(int, UART_DUMP_RECORE_NUM, data->rx_record.rec_total)) {
 		unsigned int cnt_ = 0;
 		unsigned int cyc_ = 0;
 		unsigned int len_ = data->rx_record.rec[idx].trans_len;
@@ -382,11 +402,8 @@ void mtk8250_data_dump(struct mtk8250_data *data)
 			data->rx_record.rec_total, idx, len_,
 			data->rx_record.rec[idx].r_rx_pos, data->rx_record.rec[idx].r_copied);
 
-		if (len_ > UART_DUMP_BUF_LEN) {
-			pr_info("[%s] msg len is exceed buf size:%d\n",
-				__func__, UART_DUMP_BUF_LEN);
-			continue;
-		}
+		if (len_ > UART_DUMP_BUF_LEN)
+			len_ = UART_DUMP_BUF_LEN;
 		for (cyc_ = 0; cyc_ < len_;) {
 			unsigned int cnt_min = (((len_ - cyc_) < 256) ? (len_ - cyc_) : 256);
 
@@ -396,6 +413,9 @@ void mtk8250_data_dump(struct mtk8250_data *data)
 			pr_info("[%d] data=%s\n", cyc_, raw_buf);
 			cyc_ += 256;
 		}
+		count++;
+		idx++;
+		idx = idx%UART_DUMP_RECORE_NUM;
 	}
 #else
 	pr_info("[%s] UART_DATA_RECORD is not config\n", __func__);
@@ -499,6 +519,67 @@ int mtk8250_uart_dump(struct tty_struct *tty)
 }
 EXPORT_SYMBOL(mtk8250_uart_dump);
 
+void mtk8250_uart_start_record(struct tty_struct *tty)
+{
+	struct uart_state *state = NULL;
+	struct uart_port *port = NULL;
+	struct uart_8250_port *up = NULL;
+
+	state = tty->driver_data;
+	port = state->uart_port;
+	up = up_to_u8250p(port);
+
+	mtk_save_uart_reg(up, uart_reg_buf);
+
+#if IS_ENABLED(CONFIG_MTK_UARTHUB)
+	KERNEL_UARTHUB_debug_dump_tx_rx_count("mtk8250_uarthub", DUMP0);
+#endif
+
+#ifdef CONFIG_SERIAL_8250_DMA
+	mtk8250_uart_apdma_start_record(up->dma->rxchan);
+	mtk8250_uart_apdma_start_record(up->dma->txchan);
+#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_start_record);
+
+
+void mtk8250_uart_end_record(struct tty_struct *tty)
+{
+	struct uart_state *state = NULL;
+	struct uart_port *port = NULL;
+	struct uart_8250_port *up = NULL;
+	unsigned int uart_dbg_reg[24];
+
+	state = tty->driver_data;
+	port = state->uart_port;
+	up = up_to_u8250p(port);
+
+	mtk_save_uart_reg(up, uart_dbg_reg);
+
+	pr_info("[%s] start 0x60=0x%x,0x64=0x%x,0x68=0x%x,0x6c=0x%x,\n"
+		"0x70=0x%x,0x74=0x%x,0x78=0x%x,0x7c=0x%x,0x80=0x%x,\n",
+		__func__, uart_reg_buf[11], uart_reg_buf[12], uart_reg_buf[13],
+		uart_reg_buf[14], uart_reg_buf[15], uart_reg_buf[16],
+		uart_reg_buf[17], uart_reg_buf[18], uart_reg_buf[19]);
+
+	pr_info("[%s] end 0x60=0x%x,0x64=0x%x,0x68=0x%x,0x6c=0x%x,\n"
+		"0x70=0x%x,0x74=0x%x,0x78=0x%x,0x7c=0x%x,0x80=0x%x,\n",
+		__func__, uart_dbg_reg[11], uart_dbg_reg[12], uart_dbg_reg[13],
+		uart_dbg_reg[14], uart_dbg_reg[15], uart_dbg_reg[16],
+		uart_dbg_reg[17], uart_dbg_reg[18], uart_dbg_reg[19]);
+
+#if IS_ENABLED(CONFIG_MTK_UARTHUB)
+	KERNEL_UARTHUB_debug_dump_tx_rx_count("mtk8250_uarthub", DUMP1);
+#endif
+
+#ifdef CONFIG_SERIAL_8250_DMA
+	mtk8250_uart_apdma_end_record(up->dma->rxchan);
+	mtk8250_uart_apdma_end_record(up->dma->txchan);
+#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_end_record);
+
+
 #ifdef CONFIG_SERIAL_8250_DMA
 static void mtk8250_rx_dma(struct uart_8250_port *up);
 
@@ -540,18 +621,18 @@ static void mtk8250_dma_rx_complete(void *param)
 	if (total <= UART_DUMP_BUF_LEN)
 		memcpy(data->rx_record.rec[idx].rec_buf, ptr, cnt);
 	else
-		pr_info("[%s] total=%d, exceeds buf size:%d\n",
+		pr_info("[%s] total = %d, exceeds buf size: %d\n",
 			__func__, total, UART_DUMP_BUF_LEN);
 #endif
 
 	if (total > cnt) {
 		ptr = (unsigned char *)(dma->rx_buf);
 #ifdef CONFIG_UART_DATA_RECORD
-		if (total <= UART_DUMP_BUF_LEN)
-			memcpy(data->rx_record.rec[idx].rec_buf + cnt, ptr, total - cnt);
-		else
-			pr_info("[%s] total=%d, cnt=%d, exceeds buf size:%d\n",
-				__func__, total, cnt, UART_DUMP_BUF_LEN);
+	if (total <= UART_DUMP_BUF_LEN)
+		memcpy(data->rx_record.rec[idx].rec_buf + cnt, ptr, total - cnt);
+	else
+		pr_info("[%s] total = %d, cnt = %d, exceeds buf size:%d\n",
+			__func__, total, cnt, UART_DUMP_BUF_LEN);
 #endif
 		cnt = total - cnt;
 		copied += tty_insert_flip_string(tty_port, ptr, cnt);

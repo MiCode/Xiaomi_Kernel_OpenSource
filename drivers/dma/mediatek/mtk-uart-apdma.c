@@ -78,14 +78,18 @@
 #define VFF_DEBUG_STATUS	0x50
 #define VFF_4G_SUPPORT		0x54
 
-#define UART_RECORD_COUNT	5
+#define UART_RECORD_COUNT	10
 #define MAX_POLLING_CNT		5000
+#define UART_RECORD_MAXLEN	4096
+#define CONFIG_UART_DMA_DATA_RECORD
 
 struct uart_info {
 	unsigned int wpt_reg;
 	unsigned int rpt_reg;
 	unsigned int trans_len;
 	unsigned long long trans_time;
+	unsigned long long trans_duration_time;
+	unsigned char rec_buf[UART_RECORD_MAXLEN];
 };
 
 struct mtk_uart_apdmacomp {
@@ -116,7 +120,8 @@ struct mtk_chan {
 
 	unsigned int irq_wg;
 	unsigned int rx_status;
-	unsigned long long rec_idx;
+	unsigned int rec_idx;
+	unsigned int rec_total;
 	struct uart_info rec_info[UART_RECORD_COUNT];
 };
 
@@ -175,21 +180,80 @@ void mtk_save_uart_apdma_reg(struct dma_chan *chan, unsigned int *reg_buf)
 }
 EXPORT_SYMBOL(mtk_save_uart_apdma_reg);
 
+int wpt, rpt;
+
+void mtk_uart_apdma_start_record(struct dma_chan *chan)
+{
+	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
+
+	wpt =  mtk_uart_apdma_read(c, VFF_WPT);
+	rpt = mtk_uart_apdma_read(c, VFF_RPT);
+}
+EXPORT_SYMBOL(mtk_uart_apdma_start_record);
+
+void mtk_uart_apdma_end_record(struct dma_chan *chan)
+{
+	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
+	int _wpt =  mtk_uart_apdma_read(c, VFF_WPT);
+	int _rpt = mtk_uart_apdma_read(c, VFF_RPT);
+
+	dev_info(c->vc.chan.device->dev,
+			"[%s] [%s] begin wpt=0x%x,rpt=0x%x, now _wpt=0x%x, _rpt=0x%x\n",
+			__func__, c->dir == DMA_DEV_TO_MEM ? "dma_rx" : "dma_tx",
+			wpt, rpt, _wpt, _rpt);
+}
+EXPORT_SYMBOL(mtk_uart_apdma_end_record);
+
 void mtk_uart_apdma_data_dump(struct dma_chan *chan)
 {
 	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
-	int idx = 0;
+	unsigned int count = 0;
+	unsigned int idx = 0;
 
-	for (idx = 0; idx < UART_RECORD_COUNT; idx++) {
+	idx = c->rec_total < UART_RECORD_COUNT ? 0 : (c->rec_idx + 1) % UART_RECORD_COUNT;
+
+	while (count < min_t(unsigned int, UART_RECORD_COUNT, c->rec_total)) {
 		unsigned long long endtime = c->rec_info[idx].trans_time;
+		unsigned long long durationtime = c->rec_info[idx].trans_duration_time;
 		unsigned long ns = 0;
+		unsigned long long elapseNs = do_div(durationtime, 1000000000);
+#ifdef CONFIG_UART_DMA_DATA_RECORD
+		unsigned int cnt = 0;
+		unsigned int cyc = 0;
+		unsigned int len = c->rec_info[idx].trans_len;
+		unsigned char raw_buf[256*3 + 4];
+		const unsigned char *ptr = c->rec_info[idx].rec_buf;
+#endif
 
 		ns = do_div(endtime, 1000000000);
 		dev_info(c->vc.chan.device->dev,
-			"[%s][%5lu.%06lu] total=%llu,idx=%d,wpt=0x%x,rpt=0x%x,len=%d\n",
-			__func__, (unsigned long)endtime, ns / 1000, c->rec_idx, idx,
+			"[%s] [%s] [begin %5lu.%06lu] [elapsed time %5lu.%06lu] total=%llu,idx=%d,wpt=0x%x,rpt=0x%x,len=%d\n",
+			__func__, c->dir == DMA_DEV_TO_MEM ? "dma_rx" : "dma_tx",
+			(unsigned long)endtime, ns / 1000,
+			(unsigned long)durationtime, elapseNs/1000,
+			c->rec_total, idx,
 			c->rec_info[idx].wpt_reg, c->rec_info[idx].rpt_reg,
 			c->rec_info[idx].trans_len);
+#ifdef CONFIG_UART_DMA_DATA_RECORD
+		if (len > UART_RECORD_MAXLEN) {
+			pr_info("[%s] msg len is exceed buf size:%d\n",
+				__func__, UART_RECORD_MAXLEN);
+			continue;
+		}
+
+		for (cyc = 0; cyc < len; cyc += 256) {
+			unsigned int cnt_min = len - cyc < 256 ? len - cyc : 256;
+
+			for (cnt = 0; cnt < cnt_min; cnt++)
+				(void)snprintf(raw_buf + 3 * cnt, 4, "%02X ", ptr[cnt + cyc]);
+			raw_buf[3*cnt] = '\0';
+			pr_info("%s [%d] data = %s\n",
+			    c->dir == DMA_DEV_TO_MEM ? "Rx" : "Tx", cyc, raw_buf);
+		}
+#endif
+		idx++;
+		idx = idx % UART_RECORD_COUNT;
+		count++;
 	}
 }
 EXPORT_SYMBOL(mtk_uart_apdma_data_dump);
@@ -268,10 +332,31 @@ static void mtk_uart_apdma_start_tx(struct mtk_chan *c)
 
 	idx = (unsigned int)(c->rec_idx % UART_RECORD_COUNT);
 	c->rec_idx++;
+	c->rec_idx = (unsigned int)(c->rec_idx % UART_RECORD_COUNT);
+	c->rec_total++;
+
 	c->rec_info[idx].wpt_reg = wpt;
-	c->rec_info[idx].rpt_reg = wpt;
+	c->rec_info[idx].rpt_reg = mtk_uart_apdma_read(c, VFF_RPT);
 	c->rec_info[idx].trans_len = c->desc->avail_len;
 	c->rec_info[idx].trans_time = sched_clock();
+#ifdef CONFIG_UART_DMA_DATA_RECORD
+	if (d->vd.tx.callback_param != NULL) {
+		struct uart_8250_port *p = (struct uart_8250_port *)d->vd.tx.callback_param;
+		struct uart_state *u_state = p->port.state;
+		struct circ_buf *xmit = &u_state->xmit;
+		const char *ptr = xmit->buf + xmit->tail;
+		int tx_size = CIRC_CNT_TO_END(xmit->head, xmit->tail, UART_XMIT_SIZE);
+		int dump_len = min(tx_size, UART_RECORD_MAXLEN);
+
+		if (u_state != NULL) {
+			if (c->rec_info[idx].trans_len <= UART_RECORD_MAXLEN)
+				memcpy(c->rec_info[idx].rec_buf, ptr,
+					min((unsigned int)dump_len, c->rec_info[idx].trans_len));
+		} else {
+			dev_info(c->vc.chan.device->dev, "[%s] u_state==NULL\n", __func__);
+		}
+	}
+#endif
 
 	wpt += c->desc->avail_len;
 	if ((wpt & VFF_RING_SIZE) == vff_sz)
@@ -294,11 +379,15 @@ static void mtk_uart_apdma_start_rx(struct mtk_chan *c)
 				to_mtk_uart_apdma_dev(c->vc.chan.device);
 	struct mtk_uart_apdma_desc *d = c->desc;
 	unsigned int vff_sz;
+	int idx;
 
 	if (d == NULL) {
 		dev_info(c->vc.chan.device->dev, "%s:[%d] FIX ME1!", __func__, c->irq);
 		return;
 	}
+	idx = (unsigned int)(c->rec_idx % UART_RECORD_COUNT);
+	c->rec_info[idx].trans_time = sched_clock();
+
 	vff_sz = c->cfg.src_port_window_size;
 	if (!mtk_uart_apdma_read(c, VFF_LEN)) {
 		mtk_uart_apdma_write(c, VFF_ADDR, d->addr);
@@ -321,6 +410,7 @@ static void mtk_uart_apdma_start_rx(struct mtk_chan *c)
 static void mtk_uart_apdma_tx_handler(struct mtk_chan *c)
 {
 	struct mtk_uart_apdma_desc *d = c->desc;
+	int idx = (unsigned int)(c->rec_idx % UART_RECORD_COUNT);
 
 	mtk_uart_apdma_write(c, VFF_INT_FLAG, VFF_TX_INT_CLR_B);
 	if (unlikely(d == NULL)) {
@@ -332,6 +422,7 @@ static void mtk_uart_apdma_tx_handler(struct mtk_chan *c)
 
 	list_del(&d->vd.node);
 	vchan_cookie_complete(&d->vd);
+	c->rec_info[idx].trans_duration_time = sched_clock() - c->rec_info[idx].trans_time;
 }
 
 static void mtk_uart_apdma_rx_handler(struct mtk_chan *c)
@@ -371,10 +462,23 @@ static void mtk_uart_apdma_rx_handler(struct mtk_chan *c)
 
 	idx = (unsigned int)(c->rec_idx % UART_RECORD_COUNT);
 	c->rec_idx++;
+	c->rec_idx = (unsigned int)(c->rec_idx % UART_RECORD_COUNT);
+	c->rec_total++;
+
 	c->rec_info[idx].wpt_reg = wg;
 	c->rec_info[idx].rpt_reg = rg;
 	c->rec_info[idx].trans_len = cnt;
-	c->rec_info[idx].trans_time = sched_clock();
+	c->rec_info[idx].trans_duration_time = sched_clock() - c->rec_info[idx].trans_time;
+#ifdef CONFIG_UART_DMA_DATA_RECORD
+	if (d->vd.tx.callback_param != NULL) {
+		struct uart_8250_port *p = (struct uart_8250_port *)d->vd.tx.callback_param;
+		struct uart_8250_dma *dma = p->dma;
+
+	if ((dma != NULL) && (cnt <= UART_RECORD_MAXLEN))
+		memcpy(c->rec_info[idx].rec_buf, (unsigned char *)dma->rx_buf,
+			cnt);
+	}
+#endif
 
 	list_del(&d->vd.node);
 	vchan_cookie_complete(&d->vd);
