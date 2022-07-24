@@ -20,7 +20,6 @@ aee_aed-y	+= \
 	aed-main.o \
 	aed-debug.o \
 	aee-common.o \
-	slog.o \
-	reboot-reason.o
+	slog.o
 
 obj-$(CONFIG_MTK_AEE_FEATURE)	+= aee_rs.o

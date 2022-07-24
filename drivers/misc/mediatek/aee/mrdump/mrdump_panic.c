@@ -235,7 +235,6 @@ int mrdump_common_die(int reboot_reason, const char *msg,
 		show_kaslr();
 	case AEE_FIQ_STEP_COMMON_DIE_SCP:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_SCP);
-		aee_rr_rec_scp();
 	case AEE_FIQ_STEP_COMMON_DIE_TRACE:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_TRACE);
 		switch (reboot_reason) {

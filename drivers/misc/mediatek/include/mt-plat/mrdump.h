@@ -25,8 +25,6 @@
 #define reg_fp	ARM_fp
 #endif
 
-#define MRDUMP_CPU_MAX 12
-
 #define MRDUMP_GO_DUMP "MRDUMP11"
 
 #define KSYM_32        1
@@ -221,10 +219,6 @@ enum AEE_EXTRA_FILE_ID {
 	AEE_EXTRA_FILE_CCU,
 	AEE_EXTRA_FILE_NUM
 };
-
-int mrdump_init(void);
-void mrdump_save_ctrlreg(int cpu);
-void mrdump_save_per_cpu_reg(int cpu, struct pt_regs *regs);
 
 int mrdump_common_die(int reboot_reason, const char *msg, struct pt_regs *regs);
 void mrdump_mini_add_hang_raw(unsigned long vaddr, unsigned long size);

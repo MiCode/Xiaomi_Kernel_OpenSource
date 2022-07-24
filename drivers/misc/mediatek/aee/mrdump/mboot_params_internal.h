@@ -10,6 +10,4 @@
 	((exp_type ^ MBOOT_PARAMS_EXP_TYPE_MAGIC) < 16 ? \
 	 exp_type ^ MBOOT_PARAMS_EXP_TYPE_MAGIC : exp_type)
 
-extern u32 scp_dump_pc(void);
-extern u32 scp_dump_lr(void);
 #endif

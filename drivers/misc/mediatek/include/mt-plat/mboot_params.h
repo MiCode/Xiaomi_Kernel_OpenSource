@@ -37,13 +37,10 @@ enum AEE_EXP_TYPE_NUM {
 
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 extern void aee_rr_rec_clk(int id, u32 val);
-extern int aee_rr_reboot_reason_show(struct seq_file *m, void *v);
-extern int aee_rr_last_fiq_step(void);
 extern void aee_rr_rec_exp_type(unsigned int type);
 extern unsigned int aee_rr_curr_exp_type(void);
 extern void aee_rr_rec_kick(uint32_t kick_bit);
 extern void aee_rr_rec_check(uint32_t check_bit);
-extern void aee_rr_rec_scp(void);
 extern void aee_rr_rec_kaslr_offset(u64 value64);
 extern void aee_rr_rec_cpu_dvfs_vproc_big(u8 val);
 extern void aee_rr_rec_cpu_dvfs_vproc_little(u8 val);
@@ -223,16 +220,6 @@ static inline void aee_rr_rec_clk(int id, u32 val)
 {
 }
 
-static inline int aee_rr_reboot_reason_show(struct seq_file *m, void *v)
-{
-	return 0;
-}
-
-static inline int aee_rr_last_fiq_step(void)
-{
-	return 0;
-}
-
 static inline void aee_rr_rec_exp_type(unsigned int type)
 {
 }
@@ -247,10 +234,6 @@ static inline void aee_rr_rec_kick(uint32_t kick_bit)
 }
 
 static inline void aee_rr_rec_check(uint32_t check_bit)
-{
-}
-
-static inline void aee_rr_rec_scp(void)
 {
 }
 

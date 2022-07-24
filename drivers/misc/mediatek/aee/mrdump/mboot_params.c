@@ -250,6 +250,7 @@ static DEFINE_SPINLOCK(mboot_params_lock);
 static atomic_t mp_in_fiq = ATOMIC_INIT(0);
 
 static void mboot_params_init_val(void);
+static void aee_rr_mboot_params_proc_init(void);
 
 #include "desc/desc_s.h"
 void aee_rr_get_desc_info(unsigned long *addr, unsigned long *size,
@@ -507,6 +508,7 @@ static int __init mboot_params_init(struct mboot_params_buffer *buffer,
 	mbootlog_buf = kzalloc(SZ_128K, GFP_KERNEL);
 	if (!mbootlog_buf)
 		pr_notice("mboot_params: mbootlog_buf(SYS_LAST_KMSG) invalid");
+	aee_rr_mboot_params_proc_init();
 	mboot_params_init_done = 1;
 	return 0;
 }
@@ -2149,49 +2151,6 @@ u8 aee_rr_curr_ocp_enable(void)
 	return LAST_RR_VAL(ocp_enable);
 }
 
-void aee_rr_rec_scp_pc(u32 val)
-{
-	if (!mboot_params_init_done || !mboot_params_buffer)
-		return;
-	LAST_RR_SET(scp_pc, val);
-}
-
-uint32_t aee_rr_curr_scp_pc(void)
-{
-	return LAST_RR_VAL(scp_pc);
-}
-
-void aee_rr_rec_scp_lr(u32 val)
-{
-	if (!mboot_params_init_done || !mboot_params_buffer)
-		return;
-	LAST_RR_SET(scp_lr, val);
-}
-
-uint32_t aee_rr_curr_scp_lr(void)
-{
-	return LAST_RR_VAL(scp_lr);
-}
-
-__weak uint32_t scp_dump_pc(void)
-{
-	return 0;
-}
-
-__weak uint32_t scp_dump_lr(void)
-{
-	return 0;
-}
-
-void aee_rr_rec_scp(void)
-{
-	u32 pc = scp_dump_pc();
-	u32 lr = scp_dump_lr();
-
-	aee_rr_rec_scp_pc(pc);
-	aee_rr_rec_scp_lr(lr);
-}
-
 void aee_rr_rec_last_init_func(unsigned long val)
 {
 	if (!mboot_params_init_done || !mboot_params_buffer)
@@ -2268,15 +2227,6 @@ void aee_rr_rec_suspend_debug_flag(u32 val)
 		return;
 	LAST_RR_SET(suspend_debug_flag, val);
 }
-
-/* aee sram flags print */
-int aee_rr_last_fiq_step(void)
-{
-	if (!mboot_params_init_done || !mboot_params_buffer)
-		return 0;
-	return LAST_RRR_VAL(fiq_step);
-}
-EXPORT_SYMBOL(aee_rr_last_fiq_step);
 
 typedef void (*last_rr_show_t) (struct seq_file *m);
 typedef void (*last_rr_show_cpu_t) (struct seq_file *m, int cpu);
@@ -3401,7 +3351,7 @@ last_rr_show_t aee_rr_last_xxx[] = {
 };
 
 #define array_size(x) (sizeof(x) / sizeof((x)[0]))
-int aee_rr_reboot_reason_show(struct seq_file *m, void *v)
+static int aee_rr_reboot_reason_show(struct seq_file *m, void *v)
 {
 	int i, cpu;
 
@@ -3424,7 +3374,32 @@ int aee_rr_reboot_reason_show(struct seq_file *m, void *v)
 	}
 	return 0;
 }
-EXPORT_SYMBOL(aee_rr_reboot_reason_show);
+
+static int aee_rr_mboot_params_proc_open(struct inode *inode,
+		struct file *file)
+{
+	return single_open(file, aee_rr_reboot_reason_show, NULL);
+}
+
+static const struct proc_ops aee_rr_mboot_params_proc_fops = {
+	.proc_open = aee_rr_mboot_params_proc_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+static void aee_rr_mboot_params_proc_init(void)
+{
+	struct proc_dir_entry *aee_rr_file;
+
+	proc_mkdir("aed", NULL);
+
+	aee_rr_file = proc_create("aed/reboot-reason", 0440, NULL,
+			&aee_rr_mboot_params_proc_fops);
+	if (!aee_rr_file)
+		pr_notice("%s: Can't create rr proc entry\n", __func__);
+}
+
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("MediaTek AED Driver");
 MODULE_AUTHOR("MediaTek Inc.");

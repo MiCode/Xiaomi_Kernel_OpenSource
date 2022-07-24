@@ -2227,32 +2227,13 @@ AED_PROC_CURRENT_KE_FOPS(ee_coredump);
 
 static int aed_proc_init(void)
 {
-	aed_proc_dir = proc_mkdir("aed", NULL);
-	if (!aed_proc_dir) {
-		pr_info("aed proc_mkdir failed\n");
-		return -ENOMEM;
-	}
 	/* 0400: S_IRUSR */
-	AED_PROC_ENTRY(current-ee-coredump, current_ke_ee_coredump, 0400);
+	AED_PROC_ENTRY(aed/current-ee-coredump, current_ke_ee_coredump, 0400);
 
-	aee_rr_proc_init(aed_proc_dir);
 #if IS_ENABLED(CONFIG_MTK_AEE_UT)
-	aed_proc_debug_init(aed_proc_dir);
+	aed_proc_debug_init(NULL);
 #endif
 
-	return 0;
-}
-
-static int aed_proc_done(void)
-{
-	remove_proc_entry(CURRENT_EE_COREDUMP, aed_proc_dir);
-
-	aee_rr_proc_done(aed_proc_dir);
-#if IS_ENABLED(CONFIG_MTK_AEE_UT)
-	aed_proc_debug_done(aed_proc_dir);
-#endif
-
-	remove_proc_entry("aed", NULL);
 	return 0;
 }
 
@@ -2378,8 +2359,6 @@ static void __exit aed_exit(void)
 
 	ee_destroy_log();
 	ke_destroy_log();
-
-	aed_proc_done();
 
 	mtk_slog_exit();
 }

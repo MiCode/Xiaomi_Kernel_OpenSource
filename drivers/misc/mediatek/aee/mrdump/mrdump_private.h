@@ -21,10 +21,6 @@
 #define MBOOT_PARAMS_DRAM_OFF	0x1000
 #define MBOOT_PARAMS_DRAM_SIZE	0x1000
 
-extern int kernel_addr_valid(unsigned long addr);
-#define mrdump_virt_addr_valid(kaddr) \
-	kernel_addr_valid((unsigned long)kaddr)
-
 struct pt_regs;
 
 struct mrdump_params {

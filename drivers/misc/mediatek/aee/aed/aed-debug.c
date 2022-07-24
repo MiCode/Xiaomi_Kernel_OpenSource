@@ -827,19 +827,19 @@ AED_FILE_OPS(generate_platform);
 int aed_proc_debug_init(struct proc_dir_entry *aed_proc_dir)
 {
 	/* 0600: S_IRUSR | S_IWUSR */
-	AED_PROC_ENTRY(generate-oops, generate_oops, 0600);
+	AED_PROC_ENTRY(aed/generate-oops, generate_oops, 0600);
 	/* 0400: S_IRUSR */
-	AED_PROC_ENTRY(generate-nested-ke, generate_nested_ke, 0400);
+	AED_PROC_ENTRY(aed/generate-nested-ke, generate_nested_ke, 0400);
 	/* 0600: S_IRUSR | S_IWUSR */
-	AED_PROC_ENTRY(generate-kernel-notify, generate_kernel_notify, 0600);
-	AED_PROC_ENTRY(generate-wdt, generate_wdt, 0600);
+	AED_PROC_ENTRY(aed/generate-kernel-notify, generate_kernel_notify, 0600);
+	AED_PROC_ENTRY(aed/generate-wdt, generate_wdt, 0600);
 	/* 0400: S_IRUSR */
-	AED_PROC_ENTRY(generate-ee, generate_ee, 0400);
-	AED_PROC_ENTRY(generate-combo, generate_combo, 0400);
-	AED_PROC_ENTRY(generate-md32, generate_md32, 0400);
-	AED_PROC_ENTRY(generate-scp, generate_scp, 0400);
-	AED_PROC_ENTRY(generate-adsp, generate_adsp, 0400);
-	AED_PROC_ENTRY(generate-platform, generate_platform, 0600);
+	AED_PROC_ENTRY(aed/generate-ee, generate_ee, 0400);
+	AED_PROC_ENTRY(aed/generate-combo, generate_combo, 0400);
+	AED_PROC_ENTRY(aed/generate-md32, generate_md32, 0400);
+	AED_PROC_ENTRY(aed/generate-scp, generate_scp, 0400);
+	AED_PROC_ENTRY(aed/generate-adsp, generate_adsp, 0400);
+	AED_PROC_ENTRY(aed/generate-platform, generate_platform, 0600);
 
 	return 0;
 }
