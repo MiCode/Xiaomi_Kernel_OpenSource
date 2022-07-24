@@ -106,6 +106,12 @@ int UARTHUB_assert_state_ctrl(int assert_ctrl)
 }
 EXPORT_SYMBOL(UARTHUB_assert_state_ctrl);
 
+int UARTHUB_reset_flow_control(void)
+{
+	return uarthub_core_reset_flow_control();
+}
+EXPORT_SYMBOL(UARTHUB_reset_flow_control);
+
 int UARTHUB_sw_reset(void)
 {
 	uarthub_core_reset();

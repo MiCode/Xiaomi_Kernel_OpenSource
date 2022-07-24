@@ -85,7 +85,7 @@ static int mtk_uarthub_remove(struct platform_device *pdev);
 static int uarthub_core_init(void);
 static void uarthub_core_exit(void);
 static irqreturn_t uarthub_irq_isr(int irq, void *arg);
-static void trigger_assert_worker_handler(struct work_struct *work);
+static void trigger_uarthub_error_worker_handler(struct work_struct *work);
 static void debug_info_worker_handler(struct work_struct *work);
 static int uarthub_fb_notifier_callback(struct notifier_block *nb, unsigned long value, void *v);
 static enum hrtimer_restart dump_hrtimer_handler_cb(struct hrtimer *hrt);
@@ -238,7 +238,7 @@ static int uarthub_core_init(void)
 		goto ERROR;
 	}
 
-	INIT_WORK(&uarthub_assert_ctrl.trigger_assert_work, trigger_assert_worker_handler);
+	INIT_WORK(&uarthub_assert_ctrl.trigger_assert_work, trigger_uarthub_error_worker_handler);
 	INIT_WORK(&uarthub_debug_info_ctrl.debug_info_work, debug_info_worker_handler);
 
 	cmm_base_remap_addr =
@@ -342,8 +342,8 @@ static enum hrtimer_restart sleep_wakeup_test_hrtimer_handler_cb(struct hrtimer 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len, "APB_BUS_CLK=[0x%x]", APB_BUS_CLK);
 
 	if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_clk_gating_info) {
-		CLK_GATING = g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_clk_gating_info();
+			g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_cg_info) {
+		CLK_GATING = g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_cg_info();
 		if (CLK_GATING >= 0) {
 			/* the expect value is 0x0 */
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
@@ -421,8 +421,8 @@ static enum hrtimer_restart sleep_wakeup_test_hrtimer_handler_cb(struct hrtimer 
 		"APB_BUS_CLK=[0x%x]", APB_BUS_CLK);
 
 	if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_clk_gating_info) {
-		CLK_GATING = g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_clk_gating_info();
+			g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_cg_info) {
+		CLK_GATING = g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_cg_info();
 		if (CLK_GATING >= 0) {
 			/* the expect value is 0x0 */
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
@@ -625,7 +625,7 @@ static irqreturn_t uarthub_irq_isr(int irq, void *arg)
 		spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
 #else
 		spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
-		uarthub_core_set_trigger_assert_worker(err_type);
+		uarthub_core_set_trigger_uarthub_error_worker(err_type);
 #endif
 	} else {
 		/* clear irq */
@@ -1758,13 +1758,13 @@ int uarthub_core_config_external_baud_rate(int rate_index)
 	return 0;
 }
 
-void uarthub_core_set_trigger_assert_worker(int err_type)
+void uarthub_core_set_trigger_uarthub_error_worker(int err_type)
 {
 	uarthub_assert_ctrl.err_type = err_type;
 	queue_work(uarthub_workqueue, &uarthub_assert_ctrl.trigger_assert_work);
 }
 
-static void trigger_assert_worker_handler(struct work_struct *work)
+static void trigger_uarthub_error_worker_handler(struct work_struct *work)
 {
 	struct assert_ctrl *queue = container_of(work, struct assert_ctrl, trigger_assert_work);
 	int err_type = (int) queue->err_type;
@@ -1896,6 +1896,155 @@ int uarthub_core_assert_state_ctrl(int assert_ctrl)
 		UARTHUB_CLR_BIT(UARTHUB_INTFHUB_DBG(intfhub_base_remap_addr), (0x1 << 0));
 		uarthub_core_irq_clear_ctrl();
 		uarthub_core_irq_mask_ctrl(0);
+	}
+
+	return 0;
+}
+
+int uarthub_core_reset_flow_control(void)
+{
+	void __iomem *uarthub_dev_base = NULL;
+	struct uarthub_uart_ip_debug_info debug1 = {0};
+	struct uarthub_uart_ip_debug_info debug8 = {0};
+	unsigned char dmp_info_buf[DBG_LOG_LEN];
+	int len = 0;
+	int val = 0;
+	int retry = 0;
+	int i = 0;
+
+	debug8.dev0 = UARTHUB_REG_READ(UARTHUB_DEBUG_8(dev0_base_remap_addr));
+	debug8.dev1 = UARTHUB_REG_READ(UARTHUB_DEBUG_8(dev1_base_remap_addr));
+	debug8.dev2 = UARTHUB_REG_READ(UARTHUB_DEBUG_8(dev2_base_remap_addr));
+	debug8.cmm = UARTHUB_REG_READ(UARTHUB_DEBUG_8(cmm_base_remap_addr));
+
+	if (((debug8.dev0 & 0x8) >> 3) == 0 && ((debug8.dev1 & 0x8) >> 3) == 0 &&
+			((debug8.dev2 & 0x8) >> 3) == 0 && ((debug8.cmm & 0x8) >> 3) == 0)
+		return 0;
+
+	debug1.dev0 = UARTHUB_REG_READ(UARTHUB_DEBUG_1(dev0_base_remap_addr));
+	debug1.dev1 = UARTHUB_REG_READ(UARTHUB_DEBUG_1(dev1_base_remap_addr));
+	debug1.dev2 = UARTHUB_REG_READ(UARTHUB_DEBUG_1(dev2_base_remap_addr));
+	debug1.cmm = UARTHUB_REG_READ(UARTHUB_DEBUG_1(cmm_base_remap_addr));
+
+	len = 0;
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		"[%s][BEGIN] xcstate(wait_for_send_xoff)=[d0:%d, d1:%d, d2:%d, cmm:%d]",
+		__func__,
+		((((debug1.dev0 & 0xE0) >> 5) == 1) ? 1 : 0),
+		((((debug1.dev1 & 0xE0) >> 5) == 1) ? 1 : 0),
+		((((debug1.dev2 & 0xE0) >> 5) == 1) ? 1 : 0),
+		((((debug1.cmm & 0xE0) >> 5) == 1) ? 1 : 0));
+
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		", swtxdis(detect_xoff)=[d0:%d, d1:%d, d2:%d, cmm:%d]",
+		((debug8.dev0 & 0x8) >> 3),
+		((debug8.dev1 & 0x8) >> 3),
+		((debug8.dev2 & 0x8) >> 3),
+		((debug8.cmm & 0x8) >> 3));
+
+	pr_info("%s\n", dmp_info_buf);
+
+	for (i = 0; i <= g_max_dev; i++) {
+		if (i != g_max_dev) {
+			if (i == 0)
+				uarthub_dev_base = dev0_base_remap_addr;
+			else if (i == 1)
+				uarthub_dev_base = dev1_base_remap_addr;
+			else if (i == 2)
+				uarthub_dev_base = dev2_base_remap_addr;
+		} else
+			uarthub_dev_base = cmm_base_remap_addr;
+
+		retry = 20;
+		while (retry-- > 0) {
+			val = UARTHUB_REG_READ(UARTHUB_DEBUG_1(uarthub_dev_base));
+			if ((val & 0x1f) == 0x0)
+				break;
+			usleep_range(3, 4);
+		}
+
+		UARTHUB_REG_WRITE(UARTHUB_MCR(uarthub_dev_base), 0x10);
+		UARTHUB_REG_WRITE(UARTHUB_DMA_EN(uarthub_dev_base), 0x0);
+		UARTHUB_REG_WRITE(UARTHUB_IIR_FCR(uarthub_dev_base), 0x80);
+		UARTHUB_REG_WRITE(UARTHUB_SLEEP_REQ(uarthub_dev_base), 0x1);
+		UARTHUB_REG_WRITE(UARTHUB_SLEEP_EN(uarthub_dev_base), 0x1);
+
+		retry = 20;
+		while (retry-- > 0) {
+			val = UARTHUB_REG_READ(UARTHUB_DEBUG_1(uarthub_dev_base));
+			if ((val & 0x1f) == 0x0)
+				break;
+			usleep_range(3, 4);
+		}
+
+		debug8.dev0 = UARTHUB_REG_READ(UARTHUB_DEBUG_8(dev0_base_remap_addr));
+		debug8.dev1 = UARTHUB_REG_READ(UARTHUB_DEBUG_8(dev1_base_remap_addr));
+		debug8.dev2 = UARTHUB_REG_READ(UARTHUB_DEBUG_8(dev2_base_remap_addr));
+		debug8.cmm = UARTHUB_REG_READ(UARTHUB_DEBUG_8(cmm_base_remap_addr));
+		debug1.dev0 = UARTHUB_REG_READ(UARTHUB_DEBUG_1(dev0_base_remap_addr));
+		debug1.dev1 = UARTHUB_REG_READ(UARTHUB_DEBUG_1(dev1_base_remap_addr));
+		debug1.dev2 = UARTHUB_REG_READ(UARTHUB_DEBUG_1(dev2_base_remap_addr));
+		debug1.cmm = UARTHUB_REG_READ(UARTHUB_DEBUG_1(cmm_base_remap_addr));
+
+		len = 0;
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			"[%s][SLEEP_REQ][%d] xcstate(wait_for_send_xoff)=[d0:%d, d1:%d, d2:%d, cmm:%d]",
+			__func__, i,
+			((((debug1.dev0 & 0xE0) >> 5) == 1) ? 1 : 0),
+			((((debug1.dev1 & 0xE0) >> 5) == 1) ? 1 : 0),
+			((((debug1.dev2 & 0xE0) >> 5) == 1) ? 1 : 0),
+			((((debug1.cmm & 0xE0) >> 5) == 1) ? 1 : 0));
+
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			", swtxdis(detect_xoff)=[d0:%d, d1:%d, d2:%d, cmm:%d]",
+			((debug8.dev0 & 0x8) >> 3),
+			((debug8.dev1 & 0x8) >> 3),
+			((debug8.dev2 & 0x8) >> 3),
+			((debug8.cmm & 0x8) >> 3));
+
+		pr_info("%s\n", dmp_info_buf);
+
+		UARTHUB_REG_WRITE(UARTHUB_SLEEP_REQ(uarthub_dev_base), 0x0);
+		UARTHUB_REG_WRITE(UARTHUB_SLEEP_EN(uarthub_dev_base), 0x0);
+
+		retry = 20;
+		while (retry-- > 0) {
+			val = UARTHUB_REG_READ(UARTHUB_DEBUG_1(uarthub_dev_base));
+			if ((val & 0x1f) == 0x0)
+				break;
+			usleep_range(3, 4);
+		}
+
+		UARTHUB_REG_WRITE(UARTHUB_IIR_FCR(uarthub_dev_base), 0x81);
+		UARTHUB_REG_WRITE(UARTHUB_DMA_EN(uarthub_dev_base), 0x3);
+		UARTHUB_REG_WRITE(UARTHUB_MCR(uarthub_dev_base), 0x0);
+
+		debug8.dev0 = UARTHUB_REG_READ(UARTHUB_DEBUG_8(dev0_base_remap_addr));
+		debug8.dev1 = UARTHUB_REG_READ(UARTHUB_DEBUG_8(dev1_base_remap_addr));
+		debug8.dev2 = UARTHUB_REG_READ(UARTHUB_DEBUG_8(dev2_base_remap_addr));
+		debug8.cmm = UARTHUB_REG_READ(UARTHUB_DEBUG_8(cmm_base_remap_addr));
+		debug1.dev0 = UARTHUB_REG_READ(UARTHUB_DEBUG_1(dev0_base_remap_addr));
+		debug1.dev1 = UARTHUB_REG_READ(UARTHUB_DEBUG_1(dev1_base_remap_addr));
+		debug1.dev2 = UARTHUB_REG_READ(UARTHUB_DEBUG_1(dev2_base_remap_addr));
+		debug1.cmm = UARTHUB_REG_READ(UARTHUB_DEBUG_1(cmm_base_remap_addr));
+
+		len = 0;
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			"[%s][SLEEP_REQ_DIS][%d] xcstate(wait_for_send_xoff)=[d0:%d, d1:%d, d2:%d, cmm:%d]",
+			__func__, i,
+			((((debug1.dev0 & 0xE0) >> 5) == 1) ? 1 : 0),
+			((((debug1.dev1 & 0xE0) >> 5) == 1) ? 1 : 0),
+			((((debug1.dev2 & 0xE0) >> 5) == 1) ? 1 : 0),
+			((((debug1.cmm & 0xE0) >> 5) == 1) ? 1 : 0));
+
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			", swtxdis(detect_xoff)=[d0:%d, d1:%d, d2:%d, cmm:%d]",
+			((debug8.dev0 & 0x8) >> 3),
+			((debug8.dev1 & 0x8) >> 3),
+			((debug8.dev2 & 0x8) >> 3),
+			((debug8.cmm & 0x8) >> 3));
+
+		pr_info("%s\n", dmp_info_buf);
 	}
 
 	return 0;
@@ -2058,6 +2207,17 @@ int uarthub_core_is_apb_bus_clk_enable(void)
 	if (g_uarthub_disable == 1)
 		return 0;
 
+	if (!g_uarthub_plat_ic_ops)
+		return 0;
+
+	if (g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_clk_cg_info) {
+		state = g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_clk_cg_info();
+		if (state != 0x0) {
+			pr_notice("[%s] UARTHUB HCLK/PCLK GC OFF(0x%x)\n", __func__, state);
+			return 0;
+		}
+	}
+
 	state = UARTHUB_REG_READ_BIT(
 		UARTHUB_INTFHUB_CON1(intfhub_base_remap_addr), 0xFFFF);
 
@@ -2074,17 +2234,15 @@ int uarthub_core_is_uarthub_clk_enable(void)
 	if (!g_uarthub_plat_ic_ops)
 		return 0;
 
-	if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_clk_gating_info) {
-		state = g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_clk_gating_info();
+	if (g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_cg_info) {
+		state = g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_cg_info();
 		if (state != 0x0) {
-			pr_notice("[%s] UARTHUB CLK is GATING(0x%x)\n", __func__, state);
+			pr_notice("[%s] UARTHUB CG OFF(0x%x)\n", __func__, state);
 			return 0;
 		}
 	}
 
-	if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_vote_info) {
+	if (g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_vote_info) {
 		state = g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_vote_info();
 		if (state != 1) {
 			pr_notice("[%s] UNIVPLL CLK NO VOTE INFO(0x%x)\n", __func__, state);
@@ -2092,8 +2250,7 @@ int uarthub_core_is_uarthub_clk_enable(void)
 		}
 	}
 
-	if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_on_info) {
+	if (g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_on_info) {
 		state = g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_on_info();
 		if (state != 1) {
 			pr_notice("[%s] UNIVPLL CLK is OFF(0x%x)\n", __func__, state);
@@ -2101,8 +2258,7 @@ int uarthub_core_is_uarthub_clk_enable(void)
 		}
 	}
 
-	if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_info) {
+	if (g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_info) {
 		state = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_info();
 		if (state != 1) {
 			pr_notice("[%s] UARTHUB SPM RES is not all on(0x%x)\n", __func__, state);
@@ -2121,8 +2277,7 @@ int uarthub_core_is_uarthub_clk_enable(void)
 		(0x3 << 8)) >> 8);
 
 	if (state != 0x3) {
-		if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_uart_mux_info) {
+		if (g_uarthub_plat_ic_ops->uarthub_plat_get_uart_mux_info) {
 			state = g_uarthub_plat_ic_ops->uarthub_plat_get_uart_mux_info();
 			state2 = (UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DEV0_STA(
 				intfhub_base_remap_addr),
@@ -3029,8 +3184,8 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 	}
 
 	if (g_uarthub_plat_ic_ops &&
-			g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_clk_gating_info) {
-		val = g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_clk_gating_info();
+			g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_cg_info) {
+		val = g_uarthub_plat_ic_ops->uarthub_plat_get_uarthub_cg_info();
 		if (val >= 0) {
 			/* the expect value is 0x0 */
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,

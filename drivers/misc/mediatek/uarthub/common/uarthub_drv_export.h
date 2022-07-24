@@ -68,10 +68,11 @@ typedef void (*UARTHUB_IRQ_CB) (unsigned int err_type);
 #define KERNEL_UARTHUB_md_adsp_fifo_ctrl          UARTHUB_md_adsp_fifo_ctrl
 #define KERNEL_UARTHUB_dump_debug_info            UARTHUB_dump_debug_info
 #define KERNEL_UARTHUB_dump_debug_info_with_tag   UARTHUB_dump_debug_info_with_tag
-#define KERNEL_UARTHUB_debug_bt_tx_timeout               UARTHUB_debug_bt_tx_timeout
+#define KERNEL_UARTHUB_debug_bt_tx_timeout        UARTHUB_debug_bt_tx_timeout
 #define KERNEL_UARTHUB_loopback_test              UARTHUB_loopback_test
 #define KERNEL_UARTHUB_dump_trx_info_loop_ctrl    UARTHUB_dump_trx_info_loop_ctrl
-#define KERNEL_UARTHUB_debug_dump_tx_rx_count    UARTHUB_debug_dump_tx_rx_count
+#define KERNEL_UARTHUB_debug_dump_tx_rx_count     UARTHUB_debug_dump_tx_rx_count
+#define KERNEL_UARTHUB_reset_flow_control         UARTHUB_reset_flow_control
 
 int UARTHUB_open(void);
 int UARTHUB_close(void);
@@ -88,6 +89,7 @@ int UARTHUB_is_bypass_mode(void);
 int UARTHUB_config_internal_baud_rate(int dev_index, enum UARTHUB_baud_rate rate);
 int UARTHUB_config_external_baud_rate(enum UARTHUB_baud_rate rate);
 int UARTHUB_assert_state_ctrl(int assert_ctrl);
+int UARTHUB_reset_flow_control(void);
 int UARTHUB_sw_reset(void);
 int UARTHUB_md_adsp_fifo_ctrl(int enable);
 int UARTHUB_dump_debug_info(void);
