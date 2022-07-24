@@ -879,7 +879,7 @@ static void mdee_dumper_v5_emimpu_callback(
 	struct ccci_modem *md = ccci_get_modem();
 
 	if (vio_msg)
-		CCCI_NORMAL_LOG(0, FSM,
+		CCCI_MEM_LOG_TAG(0, FSM,
 			"%s: %s\n", __func__, vio_msg);
 	else {
 		CCCI_ERROR_LOG(0, FSM,
