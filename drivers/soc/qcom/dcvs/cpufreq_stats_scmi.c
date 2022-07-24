@@ -235,7 +235,7 @@ static int qcom_cpufreq_stats_init(struct scmi_handle *handle)
 
 	ret = ops->cpufreq_stats_info_get(ph, &prot_attr);
 	if (ret) {
-		pr_err("SCMI CPUFREQ Stats CPUFREQSTATS_GET_MEM_INFO error\n");
+		pr_err("SCMI CPUFREQ Stats CPUFREQSTATS_GET_MEM_INFO error: %d\n", ret);
 		return ret;
 	}
 
