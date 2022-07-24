@@ -84,7 +84,6 @@ static int aputop_pwr_on_rpm_cb(struct device *dev)
 		return 0;
 	}
 
-	dev_info(dev, "%s %s\n", __func__, pwr_data->plat_name);
 	apu_pwr_wake_lock();
 	ret =  pwr_data->plat_aputop_on(dev);
 

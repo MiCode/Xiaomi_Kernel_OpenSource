@@ -294,11 +294,11 @@ static void aputop_dump_pll_data(void)
 static int __apu_wake_rpc_rcx(struct device *dev)
 {
 	int ret = 0, val = 0;
-
-	dev_info(dev, "%s before wakeup RCX APU_RPC_INTF_PWR_RDY 0x%x = 0x%x\n",
-			__func__,
-			(u32)(apupw.phy_addr[apu_rpc] + APU_RPC_INTF_PWR_RDY),
-			readl(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY));
+	if (log_lvl)
+		dev_info(dev, "%s before wakeup RCX APU_RPC_INTF_PWR_RDY 0x%x = 0x%x\n",
+			 __func__,
+			 (u32)(apupw.phy_addr[apu_rpc] + APU_RPC_INTF_PWR_RDY),
+			 readl(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY));
 
 	apusys_pwr_smc_call(dev,
 			MTK_APUSYS_KERNEL_OP_APUSYS_PWR_RCX,
