@@ -589,6 +589,7 @@ const char * const *get_mt6985_all_clk_names(void)
 		"cam_m_cam2mm2_gcon_0",
 		"cam_m_ccusys_con_0",
 		"cam_m_ips_con_0",
+		"cam_m_avs_con_0",
 		"cam_m_camsv_a_con_1",
 		"cam_m_camsv_b_con_1",
 		"cam_m_camsv_c_con_1",
