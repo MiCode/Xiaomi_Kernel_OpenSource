@@ -53,6 +53,8 @@ struct mtk_keypad {
 	u16 keymap_state[KPD_NUM_MEMS];
 };
 
+static struct platform_device *ktf_pdev;
+static struct mtk_keypad *ktf_keypad;
 static void kpd_get_keymap_state(void __iomem *kp_base, u16 state[])
 {
 	state[0] = readw(kp_base + KP_MEM1);
@@ -186,6 +188,7 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 	struct resource *res;
 	int i;
 	int ret;
+	ktf_pdev = pdev;
 
 	keypad = devm_kzalloc(&pdev->dev, sizeof(*keypad), GFP_KERNEL);
 	if (!keypad)
@@ -278,6 +281,7 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 			keypad->base + KP_DEBOUNCE);
 
 	/* register IRQ */
+	ktf_keypad = keypad;
 	ret = request_irq(keypad->irqnr, kpd_irq_handler, IRQF_TRIGGER_NONE,
 			KPD_NAME, keypad);
 	if (ret) {
@@ -353,6 +357,33 @@ static struct platform_driver kpd_pdrv = {
 };
 module_platform_driver(kpd_pdrv);
 
+int ktf_mtk_kpd_test(char *str)
+{
+	int ret = 0;
+	int irq = 0;
+	pm_message_t ktf_state;
+
+	if (!str)
+		return -EINVAL;
+	if (!ktf_pdev)
+		return -ENODEV;
+	if (!ktf_keypad)
+		return -ENODEV;
+	if (!strncmp(str, "suspend", 7)) {
+		ktf_state.event = 0;
+		kpd_pdrv_suspend(ktf_pdev, ktf_state);
+		ret = kpd_pdrv_resume(ktf_pdev);
+	} else if (!strncmp(str, "probe", 5)) {
+		ret = kpd_pdrv_probe(ktf_pdev);
+	} else if (!strncmp(str, "handler", 7)) {
+		ret = kpd_irq_handler(irq, ktf_keypad);
+	} else {
+		pr_info("%s is fail", __func__);
+		ret = -ENODEV;
+	}
+	return ret;
+}
+EXPORT_SYMBOL(ktf_mtk_kpd_test);
 MODULE_AUTHOR("Mediatek Corporation");
 MODULE_DESCRIPTION("MTK Keypad (KPD) Driver");
 MODULE_LICENSE("GPL");

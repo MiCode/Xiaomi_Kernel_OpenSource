@@ -71,3 +71,7 @@ obj-$(CONFIG_KEYBOARD_TEGRA)		+= tegra-kbc.o
 obj-$(CONFIG_KEYBOARD_TM2_TOUCHKEY)	+= tm2-touchkey.o
 obj-$(CONFIG_KEYBOARD_TWL4030)		+= twl4030_keypad.o
 obj-$(CONFIG_KEYBOARD_XTKBD)		+= xtkbd.o
+ifeq ($(CONFIG_GCOV_KERNEL),y)
+       GCOV_PROFILE_mtk-kpd.o := y
+       GCOV_PROFILE_mtk-pmic-keys.o := y
+endif

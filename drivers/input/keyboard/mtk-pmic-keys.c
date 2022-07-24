@@ -149,6 +149,8 @@ enum mtk_pmic_keys_lp_mode {
 	LP_TWOKEY,
 };
 
+static struct platform_device *ktf_pmic_pdev;
+static struct mtk_pmic_keys *ktf_pmic_key;
 static void mtk_pmic_keys_lp_reset_setup(struct mtk_pmic_keys *keys,
 		const struct mtk_pmic_regs *pmic_regs)
 {
@@ -350,6 +352,7 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
 	const struct of_device_id *of_id =
 		of_match_device(of_mtk_pmic_keys_match_tbl, &pdev->dev);
 
+	ktf_pmic_pdev = pdev;
 	keys = devm_kzalloc(&pdev->dev, sizeof(*keys), GFP_KERNEL);
 	if (!keys)
 		return -ENOMEM;
@@ -382,6 +385,7 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
 
 	__set_bit(EV_KEY, input_dev->evbit);
 	keycount = of_get_available_child_count(node);
+	ktf_pmic_key = keys;
 	if (keycount > MTK_PMIC_MAX_KEY_COUNT) {
 		dev_err(keys->dev, "too many keys defined (%d)\n", keycount);
 		return -EINVAL;
@@ -449,6 +453,28 @@ static struct platform_driver pmic_keys_pdrv = {
 
 module_platform_driver(pmic_keys_pdrv);
 
+int ktf_mtk_pmic_kpd_test(char *str)
+{
+	int ret = 0;
+
+	if (!str)
+		return -EINVAL;
+	if (!ktf_pmic_pdev)
+		return -ENODEV;
+	if (!ktf_pmic_key)
+		return -ENODEV;
+	if (!strncmp(str, "pmicsuspend", 11)) {
+		mtk_pmic_keys_suspend(ktf_pmic_key->dev);
+		ret = mtk_pmic_keys_resume(ktf_pmic_key->dev);
+	} else if (!strncmp(str, "pmicprobe", 9)) {
+		ret = mtk_pmic_keys_probe(ktf_pmic_pdev);
+	} else {
+		pr_info("%s is fail", __func__);
+		ret = -ENODEV;
+	}
+	return ret;
+}
+EXPORT_SYMBOL(ktf_mtk_pmic_kpd_test);
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Chen Zhong <chen.zhong@mediatek.com>");
 MODULE_DESCRIPTION("MTK pmic-keys driver v0.1");
