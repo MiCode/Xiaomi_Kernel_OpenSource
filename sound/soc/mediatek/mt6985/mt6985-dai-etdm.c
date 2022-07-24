@@ -4,14 +4,19 @@
  * Author: yiwen chiou<yiwen.chiou@mediatek.com
  */
 #include <linux/regmap.h>
+#include <linux/of_device.h>
 #include <sound/pcm_params.h>
 #include "mt6985-afe-clk.h"
 #include "mt6985-afe-common.h"
+#include "mt6985-afe-gpio.h"
 #include "mt6985-interconnection.h"
 
 struct mtk_afe_etdm_priv {
 	int id;
 	int etdm_rate;
+	int mclk_id;
+	int mclk_rate;
+	int mclk_apll;
 };
 
 enum {
@@ -97,6 +102,9 @@ enum {
 	DAI_ETDMOUT,
 	DAI_ETDM_NUM,
 };
+
+#define ETDMIN_MCLK_EN_W_NAME "ETDMIN_MCLK_EN"
+#define ETDMOUT_MCLK_EN_W_NAME "ETDMOUT_MCLK_EN"
 
 static const struct mtk_afe_etdm_priv mt6985_etdm_priv[DAI_ETDM_NUM] = {
 	[DAI_ETDMIN] = {
@@ -372,6 +380,133 @@ static SOC_ENUM_SINGLE_EXT_DECL(etdm_lpbk_map_enum,
 				etdm_lpbk_map);
 /* lpbk */
 
+/* multi-ip mode */
+static const int etdm_ip_mode_idx[] = {
+	0x0, 0x1,
+};
+static int etdm_ip_mode_get(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+		snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
+	unsigned int value = 0;
+	unsigned int reg = 0;
+	unsigned int mask = 0;
+	unsigned int shift = 0;
+
+	reg = ETDM_IN1_CON2;
+	mask = REG_MULTI_IP_MODE_MASK_SFT;
+	shift = REG_MULTI_IP_MODE_SFT;
+
+	if (reg)
+		regmap_read(afe->regmap, reg, &value);
+
+	value &= mask;
+	value >>= shift;
+	ucontrol->value.enumerated.item[0] = value;
+
+	return 0;
+}
+
+static int etdm_ip_mode_put(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
+	unsigned int value = ucontrol->value.integer.value[0];
+
+	if (value >= ARRAY_SIZE(etdm_ip_mode_idx))
+		return -EINVAL;
+
+	/* 0: One IP multi-channel 1: Multi-IP 2-channel */
+	regmap_update_bits(afe->regmap, ETDM_IN1_CON2,
+			   REG_MULTI_IP_MODE_MASK_SFT,
+			   etdm_ip_mode_idx[value] << REG_MULTI_IP_MODE_SFT);
+
+	return 0;
+}
+static const char *const etdm_ip_mode_map[] = {
+	"Off", "On",
+};
+static SOC_ENUM_SINGLE_EXT_DECL(etdm_ip_mode_map_enum,
+				etdm_ip_mode_map);
+/* multi-ip mode */
+
+/* ch num */
+static const int etdm_ch_num_idx[] = {
+	0x2, 0x4, 0x6, 0x8,
+};
+static int etdm_ch_num_get(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component =
+		snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
+	unsigned int value = 0;
+	unsigned int reg = 0;
+	unsigned int mask = 0;
+	unsigned int shift = 0;
+
+	if (!strcmp(kcontrol->id.name, "ETDM_IN1_CH_NUM"))
+		reg = ETDM_IN1_CON0;
+	else if (!strcmp(kcontrol->id.name, "ETDM_OUT1_CH_NUM"))
+		reg = ETDM_OUT1_CON0;
+
+	mask = REG_CH_NUM_MASK_SFT;
+	shift = REG_CH_NUM_SFT;
+
+	if (reg)
+		regmap_read(afe->regmap, reg, &value);
+
+	value &= mask;
+	value >>= shift;
+
+	if (value == 0x1)
+		ucontrol->value.enumerated.item[0] = 0;
+	else if (value == 0x3)
+		ucontrol->value.enumerated.item[0] = 1;
+	else if (value == 0x5)
+		ucontrol->value.enumerated.item[0] = 2;
+	else
+		ucontrol->value.enumerated.item[0] = 3;
+
+	return 0;
+}
+
+static int etdm_ch_num_put(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
+	unsigned int value = ucontrol->value.integer.value[0];
+	unsigned int reg = 0;
+	unsigned int val = 0;
+	unsigned int mask = 0;
+
+	if (value >= ARRAY_SIZE(etdm_ch_num_idx))
+		return -EINVAL;
+
+	if (!strcmp(kcontrol->id.name, "ETDM_IN1_CH_NUM"))
+		reg = ETDM_IN1_CON0;
+	else if (!strcmp(kcontrol->id.name, "ETDM_OUT1_CH_NUM"))
+		reg = ETDM_OUT1_CON0;
+
+	mask = REG_CH_NUM_MASK_SFT;
+	val =  (etdm_ch_num_idx[value] - 1) << REG_CH_NUM_SFT;
+
+	if (reg)
+		regmap_update_bits(afe->regmap, reg, mask, val);
+
+	return 0;
+}
+static const char *const etdm_ch_num_map[] = {
+	"2CH", "4CH", "6CH", "8CH",
+};
+static SOC_ENUM_SINGLE_EXT_DECL(etdm_ch_num_map_enum,
+				etdm_ch_num_map);
+/* ch num */
+
 /* dai component */
 static const struct snd_kcontrol_new mtk_etdm_playback_ch1_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("DL11_CH1", AFE_CONN62_2,  I_DL11_CH1, 1, 0),
@@ -402,6 +537,7 @@ static const struct snd_kcontrol_new mtk_etdm_playback_ch8_mix[] = {
 
 enum {
 	SUPPLY_SEQ_APLL,
+	SUPPLY_SEQ_ETDM_MCLK_EN,
 };
 
 /* Tinyconn Mux */
@@ -524,6 +660,38 @@ static int etdm_out_tinyconn_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int mtk_mclk_en_event(struct snd_soc_dapm_widget *w,
+			     struct snd_kcontrol *kcontrol,
+			     int event)
+{
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	struct mtk_afe_etdm_priv *etdm_priv;
+
+	dev_dbg(cmpnt->dev, "%s(), name %s, event 0x%x\n",
+		 __func__, w->name, event);
+
+	etdm_priv = get_etdm_priv_by_name(afe, w->name);
+
+	if (!etdm_priv) {
+		AUDIO_AEE("i2s_priv == NULL");
+		return -EINVAL;
+	}
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		mt6985_mck_enable(afe, etdm_priv->mclk_id, etdm_priv->mclk_rate);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		etdm_priv->mclk_rate = 0;
+		mt6985_mck_disable(afe, etdm_priv->mclk_id);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
 
 static int mtk_afe_etdm_apll_connect(struct snd_soc_dapm_widget *source,
 				     struct snd_soc_dapm_widget *sink)
@@ -556,7 +724,12 @@ static const struct snd_kcontrol_new mtk_dai_etdm_controls[] = {
 		     etdm_lpbk_get, etdm_lpbk_put),
 	SOC_ENUM_EXT("ETDM_LPBK_1", etdm_lpbk_map_enum,
 		     etdm_lpbk_get, etdm_lpbk_put),
-
+	SOC_ENUM_EXT("ETDM_IN1_IP_MODE", etdm_ip_mode_map_enum,
+		     etdm_ip_mode_get, etdm_ip_mode_put),
+	SOC_ENUM_EXT("ETDM_IN1_CH_NUM", etdm_ch_num_map_enum,
+		     etdm_ch_num_get, etdm_ch_num_put),
+	SOC_ENUM_EXT("ETDM_OUT1_CH_NUM", etdm_ch_num_map_enum,
+		     etdm_ch_num_get, etdm_ch_num_put),
 };
 
 static const struct snd_soc_dapm_widget mtk_dai_etdm_widgets[] = {
@@ -620,6 +793,15 @@ static const struct snd_soc_dapm_widget mtk_dai_etdm_widgets[] = {
 			   etdm_out_tinyconn_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 
+	/* etdm mclk en */
+	SND_SOC_DAPM_SUPPLY_S(ETDMIN_MCLK_EN_W_NAME, SUPPLY_SEQ_ETDM_MCLK_EN,
+				  SND_SOC_NOPM, 0, 0,
+				  mtk_mclk_en_event,
+				  SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SUPPLY_S(ETDMOUT_MCLK_EN_W_NAME, SUPPLY_SEQ_ETDM_MCLK_EN,
+				  SND_SOC_NOPM, 0, 0,
+				  mtk_mclk_en_event,
+				  SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	/* endpoint */
 	SND_SOC_DAPM_INPUT("ETDM_INPUT"),
@@ -719,10 +901,6 @@ static int mtk_dai_etdm_hw_params(struct snd_pcm_substream *substream,
 		regmap_update_bits(afe->regmap, ETDM_IN1_CON2,
 				   REG_CK_EN_SEL_AUTO_MASK_SFT,
 				   0x1 << REG_CK_EN_SEL_AUTO_SFT);
-		/* 0: One IP multi-channel 1: Multi-IP 2-channel */
-		regmap_update_bits(afe->regmap, ETDM_IN1_CON2,
-				   REG_MULTI_IP_MODE_MASK_SFT,
-				   0x0 << REG_MULTI_IP_MODE_SFT);
 		regmap_update_bits(afe->regmap, ETDM_IN1_CON3,
 				   REG_FS_TIMING_SEL_MASK_SFT,
 				   get_etdm_rate(rate) << REG_FS_TIMING_SEL_SFT);
@@ -749,8 +927,7 @@ static int mtk_dai_etdm_hw_params(struct snd_pcm_substream *substream,
 		/* 5:  TDM Mode */
 		regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
 				   REG_FMT_MASK_SFT, 0x5 << REG_FMT_SFT);
-		regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
-				   REG_CH_NUM_MASK_SFT, (channels - 1) << REG_CH_NUM_SFT);
+
 		/* APLL */
 		regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
 				   REG_RELATCH_1X_EN_SEL_DOMAIN_MASK_SFT,
@@ -785,8 +962,7 @@ static int mtk_dai_etdm_hw_params(struct snd_pcm_substream *substream,
 		/* 5:  TDM Mode */
 		regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
 				   REG_FMT_MASK_SFT, 0x5 << REG_FMT_SFT);
-		regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
-				   REG_CH_NUM_MASK_SFT, (channels - 1) << REG_CH_NUM_SFT);
+
 		/* APLL */
 		regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
 				   REG_RELATCH_1X_EN_SEL_DOMAIN_MASK_SFT,
@@ -845,10 +1021,13 @@ static int mtk_dai_etdm_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_RESUME:
 		/* enable etdm in/out */
 		if (dai->id == MT6985_DAI_ETDMIN) {
+			mt6985_afe_gpio_request(afe, true, MT6985_DAI_ETDMIN, 0);
+			mt6985_afe_gpio_request(afe, true, MT6985_DAI_ETDMOUT, 0);
 			regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
 					   REG_ETDM_IN_EN_MASK_SFT,
 					   0x1 << REG_ETDM_IN_EN_SFT);
 		} else {
+			mt6985_afe_gpio_request(afe, true, MT6985_DAI_ETDMOUT, 0);
 			regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
 					   REG_ETDM_OUT_EN_MASK_SFT,
 					   0x1 << REG_ETDM_OUT_EN_SFT);
@@ -861,11 +1040,13 @@ static int mtk_dai_etdm_trigger(struct snd_pcm_substream *substream,
 			regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
 					   REG_ETDM_IN_EN_MASK_SFT,
 					   0x0 << REG_ETDM_IN_EN_SFT);
+			mt6985_afe_gpio_request(afe, false, MT6985_DAI_ETDMIN, 0);
+			mt6985_afe_gpio_request(afe, false, MT6985_DAI_ETDMOUT, 0);
 		} else {
 			regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
 					   REG_ETDM_OUT_EN_MASK_SFT,
 					   0x0 << REG_ETDM_OUT_EN_SFT);
-		}
+			mt6985_afe_gpio_request(afe, false, MT6985_DAI_ETDMOUT, 0);		}
 		break;
 	default:
 		return -EINVAL;
@@ -915,6 +1096,56 @@ static struct snd_soc_dai_driver mtk_dai_etdm_driver[] = {
 	},
 };
 
+static int etdm_parse_dt(struct mtk_base_afe *afe)
+{
+	int ret;
+	unsigned int ch_num_in;
+	unsigned int ch_num_out;
+	unsigned int sync_in;
+	unsigned int sync_out;
+
+	/* get etdm ch */
+	ret = of_property_read_u32(afe->dev->of_node, "etdm-out-ch", &ch_num_out);
+	if (ret) {
+		dev_info(afe->dev, "%s() failed to read etdm-out-ch\n", __func__);
+		return -EINVAL;
+	}
+	regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
+			   REG_CH_NUM_MASK_SFT, (ch_num_out - 1) << REG_CH_NUM_SFT);
+	dev_info(afe->dev, "%s() etdm-out-ch: %d\n", __func__, ch_num_out);
+
+	ret = of_property_read_u32(afe->dev->of_node, "etdm-in-ch", &ch_num_in);
+	if (ret) {
+		dev_info(afe->dev, "%s() failed to read etdm-in-ch\n", __func__);
+		return -EINVAL;
+	}
+	regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
+			   REG_CH_NUM_MASK_SFT, (ch_num_in - 1) << REG_CH_NUM_SFT);
+	dev_info(afe->dev, "%s() etdm-in-ch: %d\n", __func__, ch_num_in);
+
+	/* get etdm sync */
+	ret = of_property_read_u32(afe->dev->of_node, "etdm-out-sync", &sync_out);
+	if (ret) {
+		dev_info(afe->dev, "%s() failed to read etdm-out-sync\n", __func__);
+		return -EINVAL;
+	}
+	regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
+			   REG_SYNC_MODE_MASK_SFT, sync_out << REG_SYNC_MODE_SFT);
+	dev_info(afe->dev, "%s() etdm-out-sync: %d\n", __func__, sync_out);
+
+	ret = of_property_read_u32(afe->dev->of_node, "etdm-in-sync", &sync_in);
+	if (ret) {
+		dev_info(afe->dev, "%s() failed to read etdm-in-sync\n", __func__);
+		return -EINVAL;
+	}
+	regmap_update_bits(afe->regmap, ETDM_IN1_CON0,
+			   REG_SYNC_MODE_MASK_SFT, sync_in << REG_SYNC_MODE_SFT);
+	dev_info(afe->dev, "%s() etdm-in-sync: %d\n", __func__, sync_in);
+
+
+	return 0;
+}
+
 int init_etdm_priv_data(struct mtk_base_afe *afe)
 {
 	int i;
@@ -927,6 +1158,7 @@ int init_etdm_priv_data(struct mtk_base_afe *afe)
 		if (ret)
 			return ret;
 	}
+
 	return 0;
 }
 
@@ -956,6 +1188,17 @@ int mt6985_dai_etdm_register(struct mtk_base_afe *afe)
 	ret = init_etdm_priv_data(afe);
 	if (ret)
 		return ret;
+
+	/* 0: One IP multi-channel 1: Multi-IP 2-channel */
+	regmap_update_bits(afe->regmap, ETDM_IN1_CON2,
+			   REG_MULTI_IP_MODE_MASK_SFT,
+			   0x1 << REG_MULTI_IP_MODE_SFT);
+
+	ret = etdm_parse_dt(afe);
+	if (ret) {
+		dev_info(afe->dev, "%s() fail to parse dts: %d\n", __func__, ret);
+		return ret;
+	}
 
 	return 0;
 }
