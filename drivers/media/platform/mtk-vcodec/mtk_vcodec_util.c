@@ -69,6 +69,10 @@ EXPORT_SYMBOL(mtk_venc_vcp_log);
 int mtk_vdec_sw_mem_sec;
 EXPORT_SYMBOL_GPL(mtk_vdec_sw_mem_sec);
 
+/* For vcp vdec align mode force setting limit grouping count */
+int mtk_vdec_align_limit;
+EXPORT_SYMBOL_GPL(mtk_vdec_align_limit);
+
 struct vcu_v4l2_func vcu_func = { NULL };
 EXPORT_SYMBOL_GPL(vcu_func);
 

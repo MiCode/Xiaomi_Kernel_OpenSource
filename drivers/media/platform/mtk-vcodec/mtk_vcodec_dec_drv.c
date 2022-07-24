@@ -34,6 +34,7 @@ module_param(mtk_vcodec_vcp, int, 0644);
 char mtk_vdec_property_prev[1024];
 char mtk_vdec_vcp_log_prev[1024];
 module_param(mtk_vdec_sw_mem_sec, int, 0644);
+module_param(mtk_vdec_align_limit, int, 0644);
 
 static struct mtk_vcodec_dev *dev_ptr;
 

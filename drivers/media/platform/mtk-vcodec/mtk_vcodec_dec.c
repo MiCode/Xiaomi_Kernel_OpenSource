@@ -3197,6 +3197,8 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		if (ctx->input_driven == NON_INPUT_DRIVEN && ctx->align_mode) {
 			pair_cnt = MIN((*ctx->src_cnt), (*ctx->dst_cnt));
 			limit_cnt = MIN(ctx->dpb_size - 6, 6);
+			if (mtk_vdec_align_limit > 0)
+				limit_cnt = mtk_vdec_align_limit;
 
 			if (pair_cnt >= limit_cnt) {
 				mtk_v4l2_debug(2, "[%d] (%d) pair cnt %d(%d,%d) >= %d when align mode, need to set align_type(%d)",
@@ -3222,6 +3224,8 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	if (ctx->input_driven == NON_INPUT_DRIVEN && ctx->align_mode) {
 		pair_cnt = MIN((*ctx->src_cnt), (*ctx->dst_cnt));
 		limit_cnt = MIN(ctx->dpb_size - 6, 6);
+		if (mtk_vdec_align_limit > 0)
+			limit_cnt = mtk_vdec_align_limit;
 
 		if (pair_cnt >= limit_cnt || buf->lastframe != NON_EOS)
 			mtk_v4l2_debug(2, "[%d] (%d) pair cnt %d(%d,%d) >= %d or is EOS (%d) when align mode, need to set align_type(%d)",

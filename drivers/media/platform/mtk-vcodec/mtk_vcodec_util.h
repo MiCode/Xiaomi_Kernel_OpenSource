@@ -126,6 +126,7 @@ extern char mtk_vdec_vcp_log_prev[LOG_PROPERTY_SIZE];
 extern char *mtk_venc_vcp_log;
 extern char mtk_venc_vcp_log_prev[LOG_PROPERTY_SIZE];
 extern int mtk_vdec_sw_mem_sec;
+extern int mtk_vdec_align_limit;
 
 #define DEBUG   1
 #define VCU_FPTR(x) (vcu_func.x)
