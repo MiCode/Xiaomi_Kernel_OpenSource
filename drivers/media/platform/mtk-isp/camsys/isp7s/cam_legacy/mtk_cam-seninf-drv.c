@@ -1839,6 +1839,7 @@ static int mtk_cam_seninf_set_ctrl(struct v4l2_ctrl *ctrl)
 					return -EBUSY;
 				}
 				ctx->is_test_model = 1;
+				ctx->is_aov_test_model = 1;
 				dev_info(ctx->dev, "set aov test pattern on\n");
 				ret = seninf_s_stream(&ctx->subdev, s_stream_ctrl->enable);
 			} else {
@@ -1849,6 +1850,7 @@ static int mtk_cam_seninf_set_ctrl(struct v4l2_ctrl *ctrl)
 					return -EBUSY;
 				}
 				ctx->is_test_model = 0;
+				ctx->is_aov_test_model = 0;
 				dev_info(ctx->dev, "set aov test pattern off\n");
 			}
 			break;
