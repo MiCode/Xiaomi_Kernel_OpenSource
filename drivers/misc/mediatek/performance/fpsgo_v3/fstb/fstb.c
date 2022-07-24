@@ -2645,7 +2645,7 @@ static ssize_t fstb_soft_level_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "%d-%d\n",
+	return scnprintf(buf, PAGE_SIZE, "1 %d-%d\n",
 		fps_global_level.start, fps_global_level.end);
 }
 
