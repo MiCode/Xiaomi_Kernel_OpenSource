@@ -122,6 +122,7 @@ static const struct proc_ops ged_proc_fops = {
 	.proc_poll = ged_poll,
 	.proc_read = ged_read,
 	.proc_write = ged_write,
+	.proc_lseek = no_llseek,
 	.proc_ioctl = ged_ioctl,
 #ifdef CONFIG_COMPAT
 	.proc_compat_ioctl = ged_ioctl_compat,
