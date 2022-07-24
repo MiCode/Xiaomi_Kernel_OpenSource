@@ -709,18 +709,13 @@ void clear_opp_cap_info(void)
 
 #if IS_ENABLED(CONFIG_NONLINEAR_FREQ_CTL)
 static inline void mtk_arch_set_freq_scale_gearless(struct cpufreq_policy *policy,
-		unsigned int *target_freq, unsigned int old_target_freq)
+		unsigned int *target_freq)
 {
-	int index, i;
+	int i;
 	unsigned long cap, max_cap;
 	struct cpufreq_mtk *c = policy->driver_data;
 
-	if (policy->cached_target_freq == *target_freq)
-		index = policy->cached_resolved_idx;
-	else
-		index = pd_get_freq_opp_legacy(policy->cpu, *target_freq);
-
-	if (c->last_index == index) {
+	if (c->last_index == policy->cached_resolved_idx) {
 		cap = pd_get_freq_util(policy->cpu, *target_freq);
 		max_cap = pd_get_freq_util(policy->cpu, policy->cpuinfo.max_freq);
 		for_each_cpu(i, policy->related_cpus)
@@ -731,11 +726,18 @@ static inline void mtk_arch_set_freq_scale_gearless(struct cpufreq_policy *polic
 void mtk_cpufreq_fast_switch(void *data, struct cpufreq_policy *policy,
 		unsigned int *target_freq, unsigned int old_target_freq)
 {
-	trace_sugov_ext_gear_state(per_cpu(gear_id, policy->cpu),
-		pd_get_freq_opp(policy->cpu, *target_freq));
+	if (trace_sugov_ext_gear_state_enabled())
+		trace_sugov_ext_gear_state(per_cpu(gear_id, policy->cpu),
+			pd_get_freq_opp(policy->cpu, *target_freq));
+
+	if (policy->cached_target_freq != *target_freq) {
+		policy->cached_target_freq = *target_freq;
+		policy->cached_resolved_idx = pd_get_freq_opp_legacy(policy->cpu,
+			*target_freq);
+	}
 
 	if (is_gearless_support())
-		mtk_arch_set_freq_scale_gearless(policy, target_freq, old_target_freq);
+		mtk_arch_set_freq_scale_gearless(policy, target_freq);
 }
 
 void mtk_arch_set_freq_scale(void *data, const struct cpumask *cpus,
@@ -792,19 +794,6 @@ void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 		struct sugov_policy *sg_policy = (struct sugov_policy *)data;
 		struct cpufreq_policy *policy = sg_policy->policy;
 
-		if (sg_policy->need_freq_update) {
-			unsigned int idx_min, idx_max;
-			unsigned int min_freq, max_freq;
-
-			idx_min = cpufreq_frequency_table_target(policy, policy->min,
-						CPUFREQ_RELATION_L);
-			idx_max = cpufreq_frequency_table_target(policy, policy->max,
-						CPUFREQ_RELATION_H);
-			min_freq = policy->freq_table[idx_min].frequency;
-			max_freq = policy->freq_table[idx_max].frequency;
-			*next_freq = clamp_val(*next_freq, min_freq, max_freq);
-			sg_policy->need_freq_update = false;
-		}
 		policy->cached_target_freq = *next_freq;
 		policy->cached_resolved_idx = pd_get_freq_opp_legacy(cpu, *next_freq);
 		sg_policy->cached_raw_freq = *next_freq;
