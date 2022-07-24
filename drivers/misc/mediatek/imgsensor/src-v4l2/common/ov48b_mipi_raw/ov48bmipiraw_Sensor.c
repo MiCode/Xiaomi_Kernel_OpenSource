@@ -25,6 +25,8 @@
 static void set_sensor_cali(void *arg);
 static int get_sensor_temperature(void *arg);
 static void set_group_hold(void *arg, u8 en);
+static void ov48b_set_dummy(struct subdrv_ctx *ctx);
+static void ov48b_set_max_framerate_by_scenario(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static u16 get_gain2reg(u32 gain);
 static void ov48b_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static void ov48b_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len);
@@ -35,6 +37,7 @@ static int init_ctx(struct subdrv_ctx *ctx,	struct i2c_client *i2c_client, u8 i2
 static struct subdrv_feature_control feature_control_list[] = {
 	{SENSOR_FEATURE_SET_TEST_PATTERN, ov48b_set_test_pattern},
 	{SENSOR_FEATURE_SEAMLESS_SWITCH, ov48b_seamless_switch},
+	{SENSOR_FEATURE_SET_MAX_FRAME_RATE_BY_SCENARIO, ov48b_set_max_framerate_by_scenario},
 };
 
 static struct eeprom_info_struct eeprom_info[] = {
@@ -1289,6 +1292,44 @@ static void set_group_hold(void *arg, u8 en)
 		set_i2c_buffer(ctx, 0x3208, 0x10);
 		set_i2c_buffer(ctx, 0x3208, 0xA0);
 	}
+}
+
+static void ov48b_set_dummy(struct subdrv_ctx *ctx)
+{
+	// bool gph = !ctx->is_seamless && (ctx->s_ctx.s_gph != NULL);
+
+	// if (gph)
+	// ctx->s_ctx.s_gph((void *)ctx, 1);
+	write_frame_length(ctx, ctx->frame_length);
+	// if (gph)
+	// ctx->s_ctx.s_gph((void *)ctx, 0);
+
+	commit_i2c_buffer(ctx);
+}
+
+static void ov48b_set_max_framerate_by_scenario(struct subdrv_ctx *ctx, u8 *para, u32 *len)
+{
+	u64 *feature_data = (u64 *)para;
+	enum SENSOR_SCENARIO_ID_ENUM scenario_id = (enum SENSOR_SCENARIO_ID_ENUM)*feature_data;
+	u32 framerate = *(feature_data + 1);
+	u32 frame_length;
+
+	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
+		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+			scenario_id, ctx->s_ctx.sensor_mode_num);
+		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
+	}
+	frame_length = ctx->s_ctx.mode[scenario_id].pclk / framerate * 10
+		/ ctx->s_ctx.mode[scenario_id].linelength;
+	ctx->frame_length =
+		max(frame_length, ctx->s_ctx.mode[scenario_id].framelength);
+	ctx->frame_length = min(ctx->frame_length, ctx->s_ctx.frame_length_max);
+	ctx->current_fps = ctx->pclk / ctx->frame_length * 10 / ctx->line_length;
+	ctx->min_frame_length = ctx->frame_length;
+	DRV_LOG(ctx, "max_fps(input/output):%u/%u(sid:%u), min_fl_en:1\n",
+		framerate, ctx->current_fps, scenario_id);
+	if (ctx->frame_length > (ctx->exposure[0] - ctx->s_ctx.exposure_margin))
+		ov48b_set_dummy(ctx);
 }
 
 static u16 get_gain2reg(u32 gain)
