@@ -11696,7 +11696,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		mtk_crtc->crtc_caps.crtc_ability = caps_value;
 	} else {
 		DDPINFO("%s pipe %d of_property_read_u32 not found : %d\n",
-			__func__, __LINE__, pipe, of_red);
+			__func__, pipe, of_red);
 		/* define each pipe's CRTC ability's default value */
 		/* use it when CRTC not define ability in DTS */
 		if (pipe == 0) {
@@ -11713,7 +11713,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 			mtk_crtc->crtc_caps.crtc_ability |= ABILITY_MSYNC20;
 		}
 	}
-	DDPINFO("%s %x %s\n", crtc_caps, caps_value);
+	DDPINFO("%s:%x\n", crtc_caps, caps_value);
 
 	mtk_crtc->planes = devm_kzalloc(dev,
 			mtk_crtc->layer_nr * sizeof(struct mtk_drm_plane),
