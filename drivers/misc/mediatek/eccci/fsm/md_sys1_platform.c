@@ -106,7 +106,7 @@ static int md_cd_io_remap_md_side_register(struct ccci_modem *md)
 
 void md_cd_lock_modem_clock_src(int locked)
 {
-	int settle = -1;
+	int settle;
 	struct arm_smccc_res res = {0};
 
 	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
@@ -169,9 +169,9 @@ static void md_cd_get_md_bootup_status(
  * GEN98+ == 0x5443000FU;
  * GEN99 == 0x54430012U;
  */
-u64 get_expected_boot_status_val(void)
+u32 get_expected_boot_status_val(void)
 {
-	u64 boot_status_val = 0;
+	u32 boot_status_val = 0;
 
 	if ((md_cd_plat_val_ptr.md_gen <= 6295) && !md_cd_plat_val_ptr.md_sub_ver)
 		boot_status_val = 0x54430007U;
@@ -200,7 +200,7 @@ static void md_cd_dump_debug_register(struct ccci_modem *md)
 	unsigned int reg_value[2] = { 0 };
 	unsigned int ccif_sram[
 		CCCI_EE_SIZE_CCIF_SRAM/sizeof(unsigned int)] = { 0 };
-	u64 boot_status_val = 0;
+	u32 boot_status_val = 0;
 
 	/* EMI debug feature */
 #if IS_ENABLED(CONFIG_MTK_EMI)
@@ -218,7 +218,7 @@ static void md_cd_dump_debug_register(struct ccci_modem *md)
 	} else if (!((reg_value[0] == boot_status_val) || (reg_value[0] == 0) ||
 		(reg_value[0] >= 0x53310000 && reg_value[0] <= 0x533100FF))) {
 		CCCI_MEM_LOG_TAG(0, TAG,
-			"get 0x%X, expect 0x%llX, no dump\n", reg_value[0], boot_status_val);
+			"get 0x%X, expect 0x%X, no dump\n", reg_value[0], boot_status_val);
 		return;
 	}
 	if (unlikely(in_interrupt())) {
@@ -290,7 +290,7 @@ static void md1_pmic_setting_init(struct platform_device *plat_dev)
 
 static void md1_pmic_setting_on(void)
 {
-	int ret = -1, idx;
+	int ret, idx;
 
 	CCCI_BOOTUP_LOG(-1, TAG, "[POWER ON]%s start\n", __func__);
 	CCCI_NORMAL_LOG(-1, TAG, "[POWER ON]%s start\n", __func__);
@@ -564,7 +564,7 @@ static int md1_disable_sequencer_setting(struct ccci_modem *md)
 
 static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 {
-	int ret = -1;
+	int ret;
 	unsigned int reg_value = 0;
 
 #ifdef FEATURE_INFORM_NFC_VSIM_CHANGE
@@ -1091,7 +1091,7 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 	struct ccci_dev_cfg *dev_cfg, struct md_hw_info *hw_info)
 {
 	int idx = 0;
-	int ret = -1;
+	int ret;
 #ifdef USING_PM_RUNTIME
 	int retval = 0;
 #endif
@@ -1357,7 +1357,6 @@ static int ccci_modem_probe(struct platform_device *plat_dev)
 		CCCI_ERROR_LOG(-1, TAG,
 			"%s:get hw info fail(%d)\n", __func__, ret);
 		kfree(md_hw);
-		md_hw = NULL;
 		return -1;
 	}
 #ifdef CCCI_KMODULE_ENABLE
@@ -1366,7 +1365,6 @@ static int ccci_modem_probe(struct platform_device *plat_dev)
 	ret = ccci_modem_init_common(plat_dev, &dev_cfg, md_hw);
 	if (ret < 0) {
 		kfree(md_hw);
-		md_hw = NULL;
 	}
 	return ret;
 }
