@@ -1705,9 +1705,12 @@ GED_ERROR ged_kpi_queue_buffer_ts(int pid, u64 ullWdnd, int i32FrameID,
 			, &psMonitor->sSyncWaiter
 			, ged_kpi_gpu_3d_fence_sync_cb);
 
-		if (ret < 0) {
+		/* acquire fence is already signaled before cb registration */
+		if (ret == -ENOENT) {
+			// manually execute cb as cb would not be called in this case
 			ged_kpi_gpu_3d_fence_sync_cb(psMonitor->psSyncFence,
 				&psMonitor->sSyncWaiter);
+			ret = 0;
 		}
 	}
 	return ret;
