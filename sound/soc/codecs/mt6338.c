@@ -5017,7 +5017,7 @@ static int mt_adc_l_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-	unsigned int rc_tune = 0;
+	unsigned int rc_tune_l = 0;
 	unsigned int value = 0;
 
 	dev_info(priv->dev, "%s(), event = 0x%x, vow_setup %d\n",
@@ -5093,9 +5093,9 @@ static int mt_adc_l_event(struct snd_soc_dapm_widget *w,
 		if (priv->vow_setup) {
 			usleep_range(500, 520);
 			/* Read 5-bit audio L RC tune data */
-			regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON32, &rc_tune);
-			dev_dbg(priv->dev, "%s(), vow rc_tune %d\n",
-				 __func__, rc_tune);
+			regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON32, &rc_tune_l);
+			dev_dbg(priv->dev, "%s(), vow rc_tune_l %d\n",
+				__func__, rc_tune_l);
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON1,
 				RG_AUDADCLPWRUP_MASK_SFT,
 				0x0 << RG_AUDADCLPWRUP_SFT);
@@ -5139,7 +5139,7 @@ static int mt_adc_l_event(struct snd_soc_dapm_widget *w,
 			/* Write 5-bit audio L RC tune data */
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON28,
 				RG_AUDRCTUNEL_MASK_SFT,
-				rc_tune << RG_AUDRCTUNEL_SFT);
+				rc_tune_l << RG_AUDRCTUNEL_SFT);
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON18,
 				RG_AUDADCLCLKSEL_MASK_SFT,
 				0x3 << RG_AUDADCLCLKSEL_SFT);
@@ -5158,9 +5158,6 @@ static int mt_adc_l_event(struct snd_soc_dapm_widget *w,
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON14,
 				RG_AUDADCLMODE_MASK_SFT,
 				0x3 << RG_AUDADCLMODE_SFT);
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON1,
-				RG_AUDADCLPWRUP_MASK_SFT,
-				0x1 << RG_AUDADCLPWRUP_SFT);
 		} else {
 			value = 0x1 << RG_AUDADCHIGHDR_EN_SFT |
 					0x1 << RG_AUDADCHIGHDRSW_SEL_SFT |
@@ -5245,9 +5242,33 @@ static int mt_adc_l_event(struct snd_soc_dapm_widget *w,
 					0x2 << RG_AUDADCLMODE_SFT);
 			}
 		}
+
+		/* Audio L ADC power on */
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON1,
 			RG_AUDADCLPWRUP_MASK_SFT,
 			0x1 << RG_AUDADCLPWRUP_SFT);
+
+		usleep_range(500, 520);
+		/* adc reset mechanism */
+		regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON32, &rc_tune_l);
+		dev_dbg(priv->dev, "%s(), rc_tune_l = 0x%x\n", __func__, rc_tune_l);
+		if (rc_tune_l == 0x0 || rc_tune_l == 0x1f) {
+			dev_info(priv->dev, "%s(), adc_l calibration fail, resetting...\n",
+				 __func__);
+			/* Disable audio L ADC */
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON1,
+					   RG_AUDADCLPWRUP_MASK_SFT,
+					   0x0 << RG_AUDADCLPWRUP_SFT);
+			/* Enable audio L ADC */
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON1,
+					   RG_AUDADCLPWRUP_MASK_SFT,
+					   0x1 << RG_AUDADCLPWRUP_SFT);
+		}
+		usleep_range(500, 520);
+		regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON32, &rc_tune_l);
+		dev_dbg(priv->dev, "%s(), after reset: rc_tune_l = 0x%x\n",
+			__func__, rc_tune_l);
+
 		/* Audio L preamplifier DCC precharge */
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON0,
 			RG_AUDPREAMPLDCPRECHARGE_MASK_SFT,
@@ -5275,7 +5296,7 @@ static int mt_adc_r_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-	unsigned int rc_tune = 0;
+	unsigned int rc_tune_r = 0;
 	unsigned int value = 0;
 
 	dev_info(priv->dev, "%s(), event = 0x%x, vow_setup %d\n",
@@ -5351,9 +5372,9 @@ static int mt_adc_r_event(struct snd_soc_dapm_widget *w,
 		if (priv->vow_setup) {
 			usleep_range(500, 520);
 			/* Read 5-bit audio R RC tune data */
-			regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON33, &rc_tune);
-			dev_dbg(priv->dev, "%s(), vow rc_tune %d\n",
-				 __func__, rc_tune);
+			regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON33, &rc_tune_r);
+			dev_dbg(priv->dev, "%s(), vow rc_tune_r %d\n",
+				__func__, rc_tune_r);
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON3,
 				RG_AUDADCRPWRUP_MASK_SFT,
 				0x0 << RG_AUDADCRPWRUP_SFT);
@@ -5397,7 +5418,7 @@ static int mt_adc_r_event(struct snd_soc_dapm_widget *w,
 			/* Write 5-bit audio R RC tune data */
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON29,
 				RG_AUDRCTUNER_MASK_SFT,
-				rc_tune << RG_AUDRCTUNER_SFT);
+				rc_tune_r << RG_AUDRCTUNER_SFT);
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON19,
 				RG_AUDADCRCLKSEL_MASK_SFT,
 				0x3 << RG_AUDADCRCLKSEL_SFT);
@@ -5416,9 +5437,6 @@ static int mt_adc_r_event(struct snd_soc_dapm_widget *w,
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON14,
 				RG_AUDADCRMODE_MASK_SFT,
 				0x3 << RG_AUDADCRMODE_SFT);
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON3,
-				RG_AUDADCRPWRUP_MASK_SFT,
-				0x1 << RG_AUDADCRPWRUP_SFT);
 		} else {
 			/* VICM loop control SW mode enable. */
 			value = 0x1 << RG_AUDADCHIGHDR_EN_SFT |
@@ -5502,9 +5520,33 @@ static int mt_adc_r_event(struct snd_soc_dapm_widget *w,
 					0x2 << RG_AUDADCRMODE_SFT);
 			}
 		}
+
+		/* Audio R ADC power on */
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON3,
 			RG_AUDADCRPWRUP_MASK_SFT,
 			0x1 << RG_AUDADCRPWRUP_SFT);
+
+		usleep_range(500, 520);
+		/* adc reset mechanism */
+		regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON33, &rc_tune_r);
+		dev_dbg(priv->dev, "%s(), rc_tune_r = 0x%x\n", __func__, rc_tune_r);
+		if (rc_tune_r == 0x0 || rc_tune_r == 0x1f) {
+			dev_info(priv->dev, "%s(), adc_r calibration fail, resetting...\n",
+					 __func__);
+			/* Disable audio R ADC */
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON3,
+					   RG_AUDADCRPWRUP_MASK_SFT,
+					   0x0 << RG_AUDADCRPWRUP_SFT);
+			/* Enable audio R ADC */
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON3,
+					   RG_AUDADCRPWRUP_MASK_SFT,
+					   0x1 << RG_AUDADCRPWRUP_SFT);
+		}
+		usleep_range(500, 520);
+		regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON33, &rc_tune_r);
+		dev_dbg(priv->dev, "%s(), after reset: rc_tune_r = 0x%x\n",
+			__func__, rc_tune_r);
+
 		/* Audio R preamplifier DCC precharge */
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON2,
 			RG_AUDPREAMPRDCPRECHARGE_MASK_SFT,
@@ -5532,7 +5574,7 @@ static int mt_adc_3_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-	unsigned int rc_tune = 0;
+	unsigned int rc_tune_3 = 0;
 	unsigned int value = 0;
 
 	dev_info(priv->dev, "%s(), event = 0x%x, vow_setup %d\n",
@@ -5605,9 +5647,9 @@ static int mt_adc_3_event(struct snd_soc_dapm_widget *w,
 		if (priv->vow_setup) {
 			usleep_range(500, 520);
 			/* Read 5-bit audio 3 RC tune data */
-			regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON34, &rc_tune);
-			dev_dbg(priv->dev, "%s(), vow rc_tune %d\n",
-				 __func__, rc_tune);
+			regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON34, &rc_tune_3);
+			dev_dbg(priv->dev, "%s(), vow rc_tune_3 %d\n",
+				__func__, rc_tune_3);
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON5,
 				RG_AUDADC3PWRUP_MASK_SFT,
 				0x0 << RG_AUDADC3PWRUP_SFT);
@@ -5651,7 +5693,7 @@ static int mt_adc_3_event(struct snd_soc_dapm_widget *w,
 			/* Write 5-bit audio 3 RC tune data */
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON30,
 				RG_AUDRCTUNE3_MASK_SFT,
-				rc_tune << RG_AUDRCTUNE3_SFT);
+				rc_tune_3 << RG_AUDRCTUNE3_SFT);
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON20,
 				RG_AUDADC3CLKSEL_MASK_SFT,
 				0x3 << RG_AUDADC3CLKSEL_SFT);
@@ -5667,9 +5709,6 @@ static int mt_adc_3_event(struct snd_soc_dapm_widget *w,
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON15,
 				RG_AUDADC3MODE_MASK_SFT,
 				0x3 << RG_AUDADC3MODE_SFT);
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON5,
-				RG_AUDADC3PWRUP_MASK_SFT,
-				0x1 << RG_AUDADC3PWRUP_SFT);
 		} else {
 			/* VICM loop control SW mode enable. */
 			value = 0x1 << RG_AUDADCHIGHDR_EN_SFT |
@@ -5746,9 +5785,33 @@ static int mt_adc_3_event(struct snd_soc_dapm_widget *w,
 					0x2 << RG_AUDADC3MODE_SFT);
 			}
 		}
+
+		/* Audio 3 ADC power on */
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON5,
 			RG_AUDADC3PWRUP_MASK_SFT,
 			0x1 << RG_AUDADC3PWRUP_SFT);
+
+		usleep_range(500, 520);
+		/* adc reset mechanism */
+		regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON34, &rc_tune_3);
+		dev_dbg(priv->dev, "%s(), rc_tune_3 = 0x%x\n", __func__, rc_tune_3);
+		if (rc_tune_3 == 0x0 || rc_tune_3 == 0x1f) {
+			dev_info(priv->dev, "%s(), adc_3 calibration fail, resetting...\n",
+				 __func__);
+			/* Disable audio 3 ADC */
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON5,
+					   RG_AUDADC3PWRUP_MASK_SFT,
+					   0x0 << RG_AUDADC3PWRUP_SFT);
+			/* Enable audio 3 ADC */
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON5,
+					   RG_AUDADC3PWRUP_MASK_SFT,
+					   0x1 << RG_AUDADC3PWRUP_SFT);
+		}
+		usleep_range(500, 520);
+		regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON34, &rc_tune_3);
+		dev_dbg(priv->dev, "%s(), after reset: rc_tune_3 = 0x%x\n",
+			__func__, rc_tune_3);
+
 		/* Audio 3 preamplifier DCC precharge */
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON4,
 			RG_AUDPREAMP3DCPRECHARGE_MASK_SFT,
@@ -5776,7 +5839,7 @@ static int mt_adc_4_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-	unsigned int rc_tune = 0;
+	unsigned int rc_tune_4 = 0;
 	unsigned int value = 0;
 
 	dev_info(priv->dev, "%s(), event = 0x%x, vow_setup %d\n",
@@ -5849,9 +5912,9 @@ static int mt_adc_4_event(struct snd_soc_dapm_widget *w,
 		if (priv->vow_setup) {
 			usleep_range(500, 520);
 			/* Read 5-bit audio 4 RC tune data */
-			regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON35, &rc_tune);
-			dev_dbg(priv->dev, "%s(), vow rc_tune %d\n",
-				 __func__, rc_tune);
+			regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON35, &rc_tune_4);
+			dev_dbg(priv->dev, "%s(), vow rc_tune_4 %d\n",
+				 __func__, rc_tune_4);
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON7,
 				RG_AUDADC4PWRUP_MASK_SFT,
 				0x0 << RG_AUDADC4PWRUP_SFT);
@@ -5895,7 +5958,7 @@ static int mt_adc_4_event(struct snd_soc_dapm_widget *w,
 			/* Write 5-bit audio 4 RC tune data */
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON31,
 				RG_AUDRCTUNE4_MASK_SFT,
-				rc_tune << RG_AUDRCTUNE4_SFT);
+				rc_tune_4 << RG_AUDRCTUNE4_SFT);
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON21,
 				RG_AUDADC4CLKSEL_MASK_SFT,
 				0x3 << RG_AUDADC4CLKSEL_SFT);
@@ -5911,9 +5974,6 @@ static int mt_adc_4_event(struct snd_soc_dapm_widget *w,
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON15,
 				RG_AUDADC4MODE_MASK_SFT,
 				0x3 << RG_AUDADC4MODE_SFT);
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON7,
-				RG_AUDADC4PWRUP_MASK_SFT,
-				0x1 << RG_AUDADC4PWRUP_SFT);
 		} else {
 			/* VICM loop control SW mode enable. */
 			value = 0x1 << RG_AUDADCHIGHDR_EN_SFT |
@@ -5989,9 +6049,33 @@ static int mt_adc_4_event(struct snd_soc_dapm_widget *w,
 					0x2 << RG_AUDADC4MODE_SFT);
 			}
 		}
+
+		/* Audio 4 ADC power on */
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON7,
 			RG_AUDADC4PWRUP_MASK_SFT,
 			0x1 << RG_AUDADC4PWRUP_SFT);
+
+		usleep_range(500, 520);
+		/* adc reset mechanism */
+		regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON35, &rc_tune_4);
+		dev_dbg(priv->dev, "%s(), rc_tune_4 = 0x%x\n", __func__, rc_tune_4);
+		if (rc_tune_4 == 0x0 || rc_tune_4 == 0x1f) {
+			dev_info(priv->dev, "%s(), adc_4 calibration fail, resetting...\n",
+				 __func__);
+			/* Disable audio 4 ADC */
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON7,
+					   RG_AUDADC4PWRUP_MASK_SFT,
+					   0x0 << RG_AUDADC4PWRUP_SFT);
+			/* Enable audio 4 ADC */
+			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON7,
+					   RG_AUDADC4PWRUP_MASK_SFT,
+					   0x1 << RG_AUDADC4PWRUP_SFT);
+		}
+		usleep_range(500, 520);
+		regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON35, &rc_tune_4);
+		dev_dbg(priv->dev, "%s(), after reset: rc_tune_4 = 0x%x\n",
+			__func__, rc_tune_4);
+
 		/* Audio 4 preamplifier DCC precharge */
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON6,
 			RG_AUDPREAMP4DCPRECHARGE_MASK_SFT,
