@@ -92,7 +92,7 @@ struct mtk_addon_path_data {
 struct mtk_addon_module_data {
 	enum addon_module module;
 	enum addon_type type;
-	int attach_comp;
+	unsigned int attach_comp;
 };
 
 struct mtk_addon_scenario_data {
