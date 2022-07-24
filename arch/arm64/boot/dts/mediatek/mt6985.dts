@@ -6799,14 +6799,16 @@
 			baudrate = <12000000>;
 			pinctrl-names = "bt_combo_gpio_init",
 					"bt_combo_gpio_pre_on",
-					"bt_combo_gpio_on",
+					"bt_combo_uart_tx_aux",
+					"bt_combo_uart_rx_aux",
 					"bt_rst_on",
 					"bt_rst_off";
 			pinctrl-0 = <&bt_combo_gpio_init>;
 			pinctrl-1 = <&bt_combo_gpio_pre_on>;
-			pinctrl-2 = <&bt_combo_gpio_on>;
-			pinctrl-3 = <&bt_rst_on>;
-			pinctrl-4 = <&bt_rst_off>;
+			pinctrl-2 = <&bt_combo_uart_tx_aux>;
+			pinctrl-3 = <&bt_combo_uart_rx_aux>;
+			pinctrl-4 = <&bt_rst_on>;
+			pinctrl-5 = <&bt_rst_off>;
 		};
 
 		wifi: wifi@18000000 {
@@ -15620,11 +15622,13 @@ l3_hit,l3_mis,pmu_cyc_cnt";
 			bias-pull-up;
 		};
 	};
-	bt_combo_gpio_on: bt_combo_gpio_on {
+	bt_combo_uart_tx_aux: bt_combo_uart_tx_aux {
 		pins_cmd1_dat {
 			pinmux = <PINMUX_GPIO224__FUNC_UARTHUB_UART_TX>;
 		};
-		pins_cmd2_dat {
+	};
+	bt_combo_uart_rx_aux: bt_combo_uart_rx_aux {
+		pins_cmd1_dat {
 			pinmux = <PINMUX_GPIO225__FUNC_UARTHUB_UART_RX>;
 		};
 	};
