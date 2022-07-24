@@ -619,18 +619,18 @@ static void read_sensor_Cali(struct subdrv_ctx *ctx)
 static void write_sensor_QSC(struct subdrv_ctx *ctx)
 {
 	// calibration tool version 3.0 -> 0x4E
-	write_cmos_sensor_8(ctx, 0x86A9, 0x4E);
-	// set QSC from EEPROM to sensor
-	if ((otp_flag == OTP_QSC_CUSTOM) || (otp_flag == OTP_QSC_INTERNAL)) {
-#if SEQUENTIAL_WRITE_EN
-		imx866_seq_write_cmos_sensor_8(ctx, QSC_OTP_ADDR,
-		imx866_QSC_setting, sizeof(imx866_QSC_setting));
-#else
-		imx866_table_write_cmos_sensor_8(ctx, imx866_QSC_setting,
-		sizeof(imx866_QSC_setting) / sizeof(kal_uint16));
-#endif
-	}
-	write_cmos_sensor_8(ctx, 0x32D2, 0x01);
+//	write_cmos_sensor_8(ctx, 0x86A9, 0x4E);
+//	// set QSC from EEPROM to sensor
+//	if ((otp_flag == OTP_QSC_CUSTOM) || (otp_flag == OTP_QSC_INTERNAL)) {
+//#if SEQUENTIAL_WRITE_EN
+//		imx866_seq_write_cmos_sensor_8(ctx, QSC_OTP_ADDR,
+//		imx866_QSC_setting, sizeof(imx866_QSC_setting));
+//#else
+//		imx866_table_write_cmos_sensor_8(ctx, imx866_QSC_setting,
+//		sizeof(imx866_QSC_setting) / sizeof(kal_uint16));
+//#endif
+//	}
+//	write_cmos_sensor_8(ctx, 0x32D2, 0x01);
 }
 
 static void write_frame_len(struct subdrv_ctx *ctx, kal_uint32 fll)
