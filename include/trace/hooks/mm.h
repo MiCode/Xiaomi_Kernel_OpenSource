@@ -21,6 +21,7 @@
 #include <linux/mm.h>
 #include <linux/oom.h>
 #include <trace/hooks/vendor_hooks.h>
+#include <linux/rwsem.h>
 
 /* struct slabinfo */
 #include <../mm/slab.h>
@@ -91,6 +92,10 @@ DECLARE_HOOK(android_vh_mem_cgroup_css_offline,
 DECLARE_HOOK(android_vh_vmpressure,
 	TP_PROTO(struct mem_cgroup *memcg, bool *bypass),
 	TP_ARGS(memcg, bypass));
+DECLARE_HOOK(android_vh_do_page_trylock,
+	TP_PROTO(struct page *page, struct rw_semaphore *sem,
+		bool *got_lock, bool *success),
+	TP_ARGS(page, sem, got_lock, success));
 DECLARE_HOOK(android_vh_update_page_mapcount,
 	TP_PROTO(struct page *page, bool inc_size, bool compound,
 			bool *first_mapping, bool *success),
