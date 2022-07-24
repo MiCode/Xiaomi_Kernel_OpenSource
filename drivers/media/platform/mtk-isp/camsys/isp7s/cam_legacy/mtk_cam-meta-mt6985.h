@@ -684,6 +684,20 @@ struct mtk_cam_uapi_act_stats {
 	struct mtk_cam_uapi_meta_hw_buf actso_buf;
 };
 
+enum mtk_cam_uapi_pmrg_r7_select_control {
+	MTK_CAM_UAPI_PMRG_R7_SEL_AFTER_SEP_R2,
+	MTK_CAM_UAPI_PMRG_R7_SEL_AFTER_BPC_R1,
+	MTK_CAM_UAPI_PMRG_R7_SEL_AFTER_LTM,
+	MTK_CAM_UAPI_PMRG_R7_SEL_AFTER_BPS,
+	MTK_CAM_UAPI_PMRG_R7_SEL_AFTER_BPC_R2,
+	MTK_CAM_UAPI_PMRG_R7_SEL_FULLY_PROCESSED =
+		MTK_CAM_UAPI_PMRG_R7_SEL_AFTER_LTM,
+};
+
+struct mtk_cam_uapi_pmrg_r7_sel_param {
+	__u32 select_control;
+};
+
 
 /**
  *  V 4 L 2  M E T A  B U F F E R  L A Y O U T
@@ -732,6 +746,7 @@ struct mtk_cam_uapi_meta_raw_stats_cfg {
 	struct mtk_cam_uapi_tsf_param tsf_param;
 	struct mtk_cam_uapi_wb_param wb_param;
 	struct mtk_cam_uapi_pde_param pde_param;
+	struct mtk_cam_uapi_pmrg_r7_sel_param pmrg_r7_sel_param;
 
 	__u8 bytes[97632];
 };
@@ -833,7 +848,7 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 };
 
 #define MTK_CAM_META_VERSION_MAJOR 1
-#define MTK_CAM_META_VERSION_MINOR 4
+#define MTK_CAM_META_VERSION_MINOR 5
 #define MTK_CAM_META_PLATFORM_NAME "isp7s"
 #define MTK_CAM_META_CHIP_NAME "mt6985"
 
