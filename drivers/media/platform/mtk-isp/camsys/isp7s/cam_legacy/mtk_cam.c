@@ -7477,7 +7477,7 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 		unsigned int sv_cammux_id;
 
 		idle_tags = mtk_cam_get_sv_idle_tags(ctx,
-			s_raw_pipe_data->enabled_sv_tags, 1, 1, 1, true, false);
+			s_raw_pipe_data->enabled_sv_tags, 0, 1, 1, true, false);
 		if (idle_tags == 0) {
 			dev_info(cam->dev, "no available sv tags for meta use");
 			return -EINVAL;
@@ -7983,7 +7983,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 		unsigned int sv_cammux_id;
 
 		idle_tags = mtk_cam_get_sv_idle_tags(ctx,
-			ctx->sv_dev->enabled_tags, 1, 1, 1, true, false);
+			ctx->sv_dev->enabled_tags, 0, 1, 1, true, false);
 		if (idle_tags == 0) {
 			dev_info(cam->dev, "no available sv tags for meta use");
 			return -EINVAL;
