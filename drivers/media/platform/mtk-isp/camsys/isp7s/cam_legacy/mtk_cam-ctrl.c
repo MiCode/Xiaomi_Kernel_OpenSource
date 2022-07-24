@@ -1838,6 +1838,7 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 	struct mtk_cam_ctx *ctx = sensor_ctrl->ctx;
 	struct mtk_camsys_ctrl_state *state_temp, *state_outer = NULL;
 	struct mtk_camsys_ctrl_state *state_ready = NULL;
+	struct mtk_camsys_ctrl_state *state_cq = NULL;
 	struct mtk_camsys_ctrl_state *state_rec[STATE_NUM_AT_SOF];
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *req_stream_data;
@@ -1871,6 +1872,8 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 				state_temp->estate == E_STATE_SUBSPL_SCQ_DELAY) {
 				state_ready = state_temp;
 			}
+			if (state_temp->estate == E_STATE_SUBSPL_SCQ)
+				state_cq = state_temp;
 			dev_dbg(raw_dev->dev,
 			"[SOF-subsample] STATE_CHECK [N-%d] Req:%d / State:0x%x\n",
 			stateidx, req_stream_data->frame_seq_no,
@@ -1882,9 +1885,23 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 	spin_unlock(&sensor_ctrl->camsys_state_lock);
 	/* check if last sensor setting triggered */
 	if (sensor_seq_no < frame_idx_inner) {
-		dev_info(raw_dev->dev, "[%s:pass] sen_no:%d inner:%d\n",
-			__func__, sensor_seq_no, frame_idx_inner);
-		return STATE_RESULT_PASS_CQ_SW_DELAY;
+		/* check if cq done signal missing */
+		if (que_cnt > 0 && state_cq &&
+			state_cq->estate == E_STATE_SUBSPL_SCQ &&
+			atomic_read(&sensor_ctrl->initial_drop_frame_cnt) == 0 &&
+			irq_info->frame_idx == frame_idx_inner) {
+			req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_cq);
+			state_transition(state_cq, E_STATE_SUBSPL_SCQ,
+					E_STATE_SUBSPL_OUTER);
+			atomic_set(&sensor_ctrl->isp_enq_seq_no,
+					req_stream_data->frame_seq_no);
+			dev_info(raw_dev->dev, "[SOF-subsample] cq done missing (inner:%d)\n",
+				frame_idx_inner);
+		} else {
+			dev_info(raw_dev->dev, "[%s:pass] sen_no:%d inner:%d\n",
+				__func__, sensor_seq_no, frame_idx_inner);
+			return STATE_RESULT_PASS_CQ_SW_DELAY;
+		}
 	}
 	/* HW imcomplete case */
 	if (que_cnt >= STATE_NUM_AT_SOF)
