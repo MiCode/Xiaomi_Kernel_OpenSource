@@ -2666,7 +2666,7 @@
 	};
 
 	bus_parity {
-		compatible = "mediatek,bus-parity";
+		compatible = "mediatek,disable-bus-parity";
 		reg = <0 0x0c000900 0 0x20>, /* MST_EMI0_CH0 */
 			<0 0x0c000920 0 0x20>,   /* MST_EMI0_CH1 */
 			<0 0x0c000980 0 0x20>,   /* MST_INFRA */
