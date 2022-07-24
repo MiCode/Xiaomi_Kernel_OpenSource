@@ -743,6 +743,8 @@ static void mtk_cam_mraw_set_mraw_dmao_info(
 	unsigned int width_mbn = 0, height_mbn = 0;
 	unsigned int width_cpi = 0, height_cpi = 0;
 	int i;
+	struct mtk_mraw_pipeline *pipe =
+		&cam->mraw.pipelines[pipe_id - MTKCAM_SUBDEV_MRAW_START];
 
 	mtk_cam_mraw_get_mbn_size(cam, pipe_id, &width_mbn, &height_mbn);
 	mtk_cam_mraw_get_cpi_size(cam, pipe_id, &width_cpi, &height_cpi);
@@ -765,6 +767,17 @@ static void mtk_cam_mraw_set_mraw_dmao_info(
 	info[cpio_m1].xsize = mtk_cam_mraw_xsize_cal_cpio(width_cpi);
 	info[cpio_m1].stride = info[cpio_m1].xsize;
 
+	if (atomic_read(&pipe->res_config.is_fmt_change) == 1) {
+		for (i = 0; i < mraw_dmao_num; i++)
+			pipe->res_config.mraw_dma_size[i] = info[i].stride * info[i].height;
+
+		dev_info(cam->dev, "%s imgo_size:%d imgbo_size:%d cpio_size:%d", __func__,
+		pipe->res_config.mraw_dma_size[imgo_m1],
+		pipe->res_config.mraw_dma_size[imgbo_m1],
+		pipe->res_config.mraw_dma_size[cpio_m1]);
+		atomic_set(&pipe->res_config.is_fmt_change, 0);
+	}
+
 	for (i = 0; i < mraw_dmao_num; i++) {
 		dev_dbg(cam->dev, "dma_id:%d, w:%d s:%d xsize:%d stride:%d\n",
 			i, info[i].width, info[i].height, info[i].xsize, info[i].stride);
@@ -782,14 +795,10 @@ static void mtk_cam_mraw_copy_user_input_param(
 	CALL_PLAT_V4L2(
 		get_mraw_stats_cfg_param, vaddr, param);
 
-	if (atomic_read(&mraw_pipeline->res_config.is_fmt_change) == 1) {
-		mraw_pipeline->res_config.crop_width = param->crop_width;
-		mraw_pipeline->res_config.crop_height = param->crop_height;
-		atomic_set(&mraw_pipeline->res_config.is_fmt_change, 0);
-	}
 	if (mraw_pipeline->res_config.tg_crop.s.w < param->crop_width ||
 		mraw_pipeline->res_config.tg_crop.s.h < param->crop_height)
 		dev_info(dev, "%s tg size smaller than crop size", __func__);
+
 	dev_dbg(dev, "%s:enable:(%d,%d,%d) crop:(%d,%d) mqe:%d mbn:0x%x_%x_%x_%x_%x_%x_%x_%x cpi:0x%x_%x_%x_%x_%x_%x_%x_%x\n",
 		__func__,
 		param->mqe_en,
@@ -817,7 +826,7 @@ static void mtk_cam_mraw_copy_user_input_param(
 }
 
 static void mtk_cam_mraw_set_frame_param_dmao(
-	struct device *dev,
+	struct mtk_cam_device *cam,
 	struct mtkcam_ipi_mraw_frame_param *mraw_param,
 	struct dma_info *info, int pipe_id,
 	dma_addr_t buf_daddr)
@@ -825,6 +834,8 @@ static void mtk_cam_mraw_set_frame_param_dmao(
 	struct mtkcam_ipi_img_output *mraw_img_outputs;
 	int i;
 	unsigned long offset;
+	struct mtk_mraw_pipeline *pipe =
+		&cam->mraw.pipelines[pipe_id - MTKCAM_SUBDEV_MRAW_START];
 
 	mraw_param->pipe_id = pipe_id;
 	offset =
@@ -850,11 +861,13 @@ static void mtk_cam_mraw_set_frame_param_dmao(
 		mraw_img_outputs->buf[0][0].size =
 			mraw_img_outputs->fmt.stride[0] * mraw_img_outputs->fmt.s.h;
 
-		offset = offset + (((mraw_img_outputs->buf[0][0].size + 15) >> 4) << 4);
+		offset = offset + (((pipe->res_config.mraw_dma_size[i] + 15) >> 4) << 4);
 
-		dev_dbg(dev, "%s:dmao_id:%d iova:0x%llx size:%d\n",
+
+		dev_dbg(cam->dev, "%s:dmao_id:%d iova:0x%llx stride:0x%x height:0x%x size:%d offset:%d\n",
 			__func__, i, mraw_img_outputs->buf[0][0].iova,
-			mraw_img_outputs->buf[0][0].size);
+			mraw_img_outputs->fmt.stride[0], mraw_img_outputs->fmt.s.h,
+			pipe->res_config.mraw_dma_size[i], offset);
 	}
 }
 
@@ -960,7 +973,7 @@ int mtk_cam_mraw_cal_cfg_info(struct mtk_cam_device *cam,
 		&cam->mraw.pipelines[pipe_id - MTKCAM_SUBDEV_MRAW_START];
 
 	mtk_cam_mraw_set_mraw_dmao_info(cam, pipe_id, info);
-	mtk_cam_mraw_set_frame_param_dmao(cam->dev, mraw_param,
+	mtk_cam_mraw_set_frame_param_dmao(cam, mraw_param,
 		info, pipe_id,
 		pipe->res_config.daddr[MTKCAM_IPI_MRAW_META_STATS_0
 			- MTKCAM_IPI_MRAW_ID_START]);
@@ -978,8 +991,8 @@ void mtk_cam_mraw_get_mqe_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 		&cam->mraw.pipelines[pipe_id - MTKCAM_SUBDEV_MRAW_START];
 	struct mraw_stats_cfg_param *param = &pipe->res_config.stats_cfg_param;
 
-	*width = pipe->res_config.crop_width;
-	*height = pipe->res_config.crop_height;
+	*width = param->crop_width;
+	*height = param->crop_height;
 
 	if (param->mqe_en) {
 		switch (param->mqe_mode) {
