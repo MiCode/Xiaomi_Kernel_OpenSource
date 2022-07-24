@@ -290,6 +290,19 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.max_framerate = 20,	/* 2fps */
 	},
 #endif
+	.custom10 = {    /* 640x480@10FPS */
+		.pclk = 465600000,
+		.linelength = 3700,
+		.framelength = 12576,
+		.startx = 0,
+		.starty = 0,
+		.grabwindow_width = 640,
+		.grabwindow_height = 480,
+		.mipi_data_lp2hs_settle_dc = 85,
+		.mipi_pixel_rate = 120000000,
+		.max_framerate = 100,   /* 10fps */
+	},
+
 	.min_gain = BASEGAIN * 1,	/*1x gain*/
 	.max_gain = BASEGAIN * 32,	/*64x gain*/
 	.min_gain_iso = 100,
@@ -304,7 +317,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.ihdr_support = 0,	/* 1: support; 0: not support */
 	.ihdr_le_firstline = 0,	/* 1:le first; 0: se first */
 	.temperature_support = 1,	/* 1, support; 0,not support */
-	.sensor_mode_num = 14,	/* support sensor mode num */
+	.sensor_mode_num = 15,	/* support sensor mode num */
 	.frame_time_delay_frame = 3,
 
 	.pre_delay_frame = 2,	/* 3 guanjd modify for c-t-s */
@@ -332,6 +345,8 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.custom8_ae_ctrl_support = 0,	/* 1:support; 0:not support */
 	.custom9_ae_ctrl_support = 0,	/* 1:support; 0:not support */
 #endif
+	.custom10_delay_frame = 2,
+	.custom10_ae_ctrl_support = 1,	/* 1:support; 0:not support */
 	.isp_driving_current = ISP_DRIVING_6MA,
 	.sensor_interface_type = SENSOR_INTERFACE_TYPE_MIPI,
 	.mipi_sensor_type = MIPI_OPHY_NCSI2,	/* only concern if it's cphy */
@@ -348,7 +363,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 };
 
 /* Sensor output window information */
-static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[14] = {
+static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[15] = {
 	{6560, 4928, 0, 0, 6560, 4928, 3280, 2464,
 	0, 0, 3280, 2464, 0, 0, 3280, 2464},	/* Preview reg_B2 */
 	{6560, 4928, 0, 0, 6560, 4928, 3280, 2464,
@@ -379,10 +394,12 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[14] = {
 	{6560, 4928, 0, 544, 6560, 3840, 410, 240,
 	45, 0, 320, 240, 0, 0, 320, 240},	/* custom9  QVGA+ */
 #endif
+	{6560, 4928, 0, 1504, 6560, 1920, 3280, 480,
+	1320, 0, 640, 480, 0, 0, 640, 480},     /* custom10 */
 };
 
 //the index order of VC_STAGGER_NE/ME/SE in array identify the order of readout in MIPI transfer
-static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[14] = {
+static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[15] = {
 	{
 		0x01, 0x0a, 0x00, 0x08, 0x40, 0x00,	// preivew
 		{
@@ -483,6 +500,13 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[14] = {
 		1
 	},
 #endif
+	{
+		0x01, 0x0a, 0x00, 0x08, 0x40, 0x00,     // custom10
+		{
+			{VC_STAGGER_NE, 0x00, 0x2b, 640, 480},
+		},
+		1
+	},
 };
 
 //mode 0,  1,  2,   3,  4,  5,  6,  7,   8,   9,  10, 11,  12,  13,  14, 15, 16, 17, 18, 19, 20
@@ -501,7 +525,7 @@ static MUINT32 fine_integ_line_table[SENSOR_SCENARIO_ID_MAX] = {
 	0,	//mode 11
 	0,	//mode 12
 	0,	//mode 13
-	0,	//mode 14
+	3700,	//mode 14
 	0,	//mode 15
 	0,	//mode 16
 	0,	//mode 17
@@ -591,6 +615,10 @@ static void get_vc_info_2(struct SENSOR_VC_INFO2_STRUCT *pvcinfo2, kal_uint32 sc
 			sizeof(struct SENSOR_VC_INFO2_STRUCT));
 		break;
 #endif
+	case SENSOR_SCENARIO_ID_CUSTOM10:
+		memcpy((void *)pvcinfo2, (void *)&SENSOR_VC_INFO2[14],
+			sizeof(struct SENSOR_VC_INFO2_STRUCT));
+		break;
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 	default:
 		memcpy((void *)pvcinfo2, (void *)&SENSOR_VC_INFO2[0],
@@ -1803,6 +1831,15 @@ static void custom9_setting(struct subdrv_ctx *ctx)
 	set_mirror_flip(ctx, ctx->mirror);
 	LOG_INF("X! custom9 setting!\n");
 }
+static void custom10_setting(struct subdrv_ctx *ctx)
+{
+	/*************MIPI output setting************/
+	imx709_table_write_cmos_sensor(ctx, imx709_custom10_setting,
+		sizeof(imx709_custom10_setting)/sizeof(kal_uint16));
+	set_mirror_flip(ctx, ctx->mirror);
+	LOG_INF("X! custom10 setting!\n");
+}
+
 static void motion_detection1_setting(struct subdrv_ctx *ctx)
 {
 	imx709_table_write_cmos_sensor(ctx, imx709_md1_setting,
@@ -2589,6 +2626,27 @@ static kal_uint32 custom9(struct subdrv_ctx *ctx,
 	return ERROR_NONE;
 }
 
+static kal_uint32 custom10(struct subdrv_ctx *ctx,
+		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
+		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
+{
+	LOG_INF("imx709:Enter %s.\n", __func__);
+	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM10;
+	ctx->pclk = imgsensor_info.custom10.pclk;
+	ctx->line_length = imgsensor_info.custom10.linelength;
+	ctx->frame_length = imgsensor_info.custom10.framelength;
+	ctx->min_frame_length = imgsensor_info.custom10.framelength;
+	ctx->readout_length = imgsensor_info.custom10.readout_length;
+	ctx->read_margin = imgsensor_info.custom10.read_margin;
+	ctx->autoflicker_en = KAL_FALSE;
+	 custom10_setting(ctx);
+	LOG_INF("imx709:Leave %s., w*h:%d x %d.\n",
+		__func__, ctx->line_length, ctx->frame_length);
+	mdelay(8);
+
+	return ERROR_NONE;
+}
+
 static int get_resolution(struct subdrv_ctx *ctx,
 	MSDK_SENSOR_RESOLUTION_INFO_STRUCT *sensor_resolution)
 {
@@ -2678,6 +2736,10 @@ static int get_info(struct subdrv_ctx *ctx,
 	sensor_info->Mode_AE_Ctrl_Support[SENSOR_SCENARIO_ID_CUSTOM9] =
 		imgsensor_info.custom9_ae_ctrl_support;
 #endif
+	sensor_info->DelayFrame[SENSOR_SCENARIO_ID_CUSTOM10] =
+		imgsensor_info.custom10_delay_frame;
+	sensor_info->Mode_AE_Ctrl_Support[SENSOR_SCENARIO_ID_CUSTOM10] =
+		imgsensor_info.custom10_ae_ctrl_support;
 
 	sensor_info->SensorMasterClockSwitch = 0; /* not use */
 	sensor_info->SensorDrivingCurrent = imgsensor_info.isp_driving_current;
@@ -2854,6 +2916,11 @@ static int control(struct subdrv_ctx *ctx,
 		custom9(ctx, image_window, sensor_config_data);
 		break;
 #endif
+	case SENSOR_SCENARIO_ID_CUSTOM10:
+		/* initail sequence write in */
+		sensor_init(ctx);
+		custom10(ctx, image_window, sensor_config_data);
+		break;
 	default:
 		LOG_INF("Error ScenarioId setting\n");
 		preview(ctx, image_window, sensor_config_data);
@@ -3085,6 +3152,17 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 		// set_dummy(ctx);
 		break;
 #endif
+	case SENSOR_SCENARIO_ID_CUSTOM10:
+		frame_length = imgsensor_info.custom10.pclk / framerate * 10
+				/ imgsensor_info.custom10.linelength;
+		ctx->dummy_line =
+			(frame_length > imgsensor_info.custom10.framelength)
+		? (frame_length - imgsensor_info.custom10.framelength) : 0;
+		ctx->frame_length =
+			imgsensor_info.custom10.framelength + ctx->dummy_line;
+		ctx->min_frame_length = ctx->frame_length;
+		set_dummy(ctx);
+		break;
 	default:  /*coding with  preview scenario by default*/
 		frame_length = imgsensor_info.pre.pclk / framerate * 10
 			/ imgsensor_info.pre.linelength;
@@ -3153,6 +3231,9 @@ static kal_uint32 get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 		*framerate = imgsensor_info.custom9.max_framerate;
 		break;
 #endif
+	case SENSOR_SCENARIO_ID_CUSTOM10:
+		*framerate = imgsensor_info.custom10.max_framerate;
+		break;
 	default:
 		break;
 	}
@@ -3440,6 +3521,10 @@ static int feature_control(struct subdrv_ctx *ctx,
 				imgsensor_info.custom9.pclk;
 			break;
 #endif
+		case SENSOR_SCENARIO_ID_CUSTOM10:
+			*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) =
+				imgsensor_info.custom10.pclk;
+			break;
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 		default:
 			*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) =
@@ -3522,6 +3607,11 @@ static int feature_control(struct subdrv_ctx *ctx,
 				+ (ratio * imgsensor_info.custom9.linelength);
 			break;
 #endif
+		case SENSOR_SCENARIO_ID_CUSTOM10:
+			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+			= (imgsensor_info.custom10.framelength << 16)
+				+ (ratio * imgsensor_info.custom10.linelength);
+			break;
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 		default:
 			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
@@ -3703,6 +3793,10 @@ static int feature_control(struct subdrv_ctx *ctx,
 					sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
 			break;
 #endif
+		case SENSOR_SCENARIO_ID_CUSTOM10:
+			memcpy((void *)wininfo, (void *)&imgsensor_winsize_info[14],
+					sizeof(struct SENSOR_WINSIZE_INFO_STRUCT));
+			break;
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 		default:
 			memcpy((void *)wininfo, (void *)&imgsensor_winsize_info[0],
@@ -3789,6 +3883,7 @@ static int feature_control(struct subdrv_ctx *ctx,
 		case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
 		case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
 		case SENSOR_SCENARIO_ID_SLIM_VIDEO:
+		case SENSOR_SCENARIO_ID_CUSTOM10:
 		default:
 			*(MUINT32 *) (uintptr_t) (*(feature_data + 1)) = 0x0;
 			break;
@@ -3954,6 +4049,7 @@ static int feature_control(struct subdrv_ctx *ctx,
 		case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
 		case SENSOR_SCENARIO_ID_SLIM_VIDEO:
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
+		case SENSOR_SCENARIO_ID_CUSTOM10:
 		default:
 			*feature_return_para_32 = 1;	/* BINNING_AVERAGED */
 			break;
@@ -4028,6 +4124,10 @@ static int feature_control(struct subdrv_ctx *ctx,
 				imgsensor_info.custom9.mipi_pixel_rate;
 			break;
 #endif
+		case SENSOR_SCENARIO_ID_CUSTOM10:
+			*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) =
+				imgsensor_info.custom10.mipi_pixel_rate;
+			break;
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 		default:
 			*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) =
@@ -4136,7 +4236,17 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus3[] = {
 	}
 };
 #endif
-
+static struct mtk_mbus_frame_desc_entry frame_desc_cus10[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 640,
+			.vsize = 480,
+			.user_data_desc = VC_STAGGER_NE,
+		},
+	}
+};
 static int get_frame_desc(struct subdrv_ctx *ctx,
 		int scenario_id, struct mtk_mbus_frame_desc *fd)
 {
@@ -4177,6 +4287,11 @@ static int get_frame_desc(struct subdrv_ctx *ctx,
 		memcpy(fd->entry, frame_desc_cus3, sizeof(frame_desc_cus3));
 		break;
 #endif
+	case SENSOR_SCENARIO_ID_CUSTOM10:
+		fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->num_entries = ARRAY_SIZE(frame_desc_cus10);
+		memcpy(fd->entry, frame_desc_cus10, sizeof(frame_desc_cus10));
+		break;
 	default:
 		return -1;
 	}
@@ -4312,6 +4427,13 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 		csi_param->dphy_data_settle = 0x15;
 		csi_param->dphy_clk_settle = 0x15;
 		csi_param->dphy_trail = 0x7C;
+		break;
+	case SENSOR_SCENARIO_ID_CUSTOM10:
+		csi_param->legacy_phy = 0;
+		csi_param->not_fixed_trail_settle = 1;
+		csi_param->dphy_data_settle = 0x14;
+		csi_param->dphy_clk_settle = 0x14;
+		csi_param->dphy_trail = 0xA2;
 		break;
 	default:
 		csi_param->legacy_phy = 0;
