@@ -6,6 +6,7 @@
 #include <linux/cdev.h>
 #include <linux/cpufreq.h>
 #include <linux/fs.h>
+#include <linux/proc_fs.h>
 #include <linux/uaccess.h>
 
 #include "user.h"
@@ -97,6 +98,19 @@ static void teeperf_set_cpu_group_to_high_freq(enum teeperf_cpu_group group,
 	}
 }
 
+static void teeperf_high_freq(enum teeperf_cpu_type type, u32 high_freq)
+{
+	teeperf_set_cpu_to_high_freq(TEE_CPU, high_freq, BIG_CPU_FREQ_LEVEL_INDEX);
+	teeperf_set_cpu_group_to_high_freq(CPU_LITTLE_GROUP, high_freq);
+
+	if (type == CPU_V9_TYPE)
+		teeperf_set_cpu_group_to_high_freq(CPU_BIG_GROUP, high_freq);
+	else if (type == CPU_V8_TYPE)
+		teeperf_set_cpu_group_to_high_freq(CPU_LITTLE_GROUP, high_freq);
+	else
+		teeperf_set_cpu_group_to_high_freq(CPU_LITTLE_GROUP, high_freq);
+}
+
 static int teeperf_user_open(struct inode *inode, struct file *file)
 {
 	return 0;
@@ -137,16 +151,7 @@ static long teeperf_user_ioctl(struct file *file, unsigned int id, unsigned long
 			ret = -EFAULT;
 			break;
 		}
-
-		teeperf_set_cpu_to_high_freq(TEE_CPU, high_freq, BIG_CPU_FREQ_LEVEL_INDEX);
-		teeperf_set_cpu_group_to_high_freq(CPU_LITTLE_GROUP, high_freq);
-
-		if (type == CPU_V9_TYPE)
-			teeperf_set_cpu_group_to_high_freq(CPU_BIG_GROUP, high_freq);
-		else if (type == CPU_V8_TYPE)
-			teeperf_set_cpu_group_to_high_freq(CPU_LITTLE_GROUP, high_freq);
-		else
-			teeperf_set_cpu_group_to_high_freq(CPU_LITTLE_GROUP, high_freq);
+		teeperf_high_freq(type, high_freq);
 
 		ret = 0;
 		break;
@@ -159,6 +164,51 @@ static long teeperf_user_ioctl(struct file *file, unsigned int id, unsigned long
 	return ret;
 }
 
+ssize_t teeperf_dbg_write(struct file *file, const char __user *buffer,
+	size_t count, loff_t *data)
+{
+	enum teeperf_cpu_type type = cpu_type;
+	char *pinput, *cmd_str, *parm_str;
+	char input[32] = {0};
+	long param;
+	int len, err;
+	u32 high_freq;
+
+	len = (count < (sizeof(input) - 1)) ? count : (sizeof(input) - 1);
+	if (copy_from_user(input, buffer, len)) {
+		pr_info(PFX "copy from user failed\n");
+		return -EFAULT;
+	}
+
+	input[len] = '\0';
+	pinput = input;
+
+	cmd_str = strsep(&pinput, " ");
+	if (!cmd_str)
+		return -EINVAL;
+
+	parm_str = strsep(&pinput, " ");
+	if (!parm_str)
+		return -EINVAL;
+
+	err = kstrtol(parm_str, 10, &param);
+	if (err)
+		return err;
+
+	if (!strncmp(cmd_str, "teeperf_ut", sizeof("teeperf_ut"))) {
+		if (param != 0)
+			high_freq = 1;
+		else
+			high_freq = 0;
+
+		teeperf_high_freq(type, high_freq);
+	} else {
+		return -EINVAL;
+	}
+
+	return count;
+}
+
 static const struct file_operations teeperf_user_fops = {
 	.owner = THIS_MODULE,
 	.open = teeperf_user_open,
@@ -169,8 +219,13 @@ static const struct file_operations teeperf_user_fops = {
 #endif
 };
 
+static const struct proc_ops teeperf_dbg_fops = {
+	.proc_write = teeperf_dbg_write,
+};
+
 int teeperf_user_init(struct cdev *cdev)
 {
 	cdev_init(cdev, &teeperf_user_fops);
+	proc_create("teeperf_dbg", 0660, NULL, &teeperf_dbg_fops);
 	return 0;
 }
