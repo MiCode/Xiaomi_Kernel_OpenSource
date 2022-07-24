@@ -206,6 +206,8 @@ unsigned long mtk_cpu_util(int cpu, unsigned long util_cfs,
 				 struct task_struct *p)
 {
 	unsigned long dl_util, util, irq;
+	unsigned long util_ori;
+	bool sbb_trigger = false;
 	struct rq *rq = cpu_rq(cpu);
 
 
@@ -237,20 +239,22 @@ unsigned long mtk_cpu_util(int cpu, unsigned long util_cfs,
 	 * frequency will be gracefully reduced with the utilization decay.
 	 */
 	util = util_cfs + cpu_util_rt(rq);
+	util_ori = util;
 
 	if (type == FREQUENCY_UTIL) {
-#if IS_ENABLED(CONFIG_SCHEDSTATS)
-		if ((rq->curr->android_vendor_data1[5] || is_busy_tick_boost_all())
-			&& rq->android_vendor_data1[1]) {
-			rq->android_vendor_data1[1] = 0;
-			rq->android_vendor_data1[2] = 2 * rq->android_vendor_data1[2];
-			if (rq->android_vendor_data1[2] > 4)
-				rq->android_vendor_data1[2] = 4;
-			util *= rq->android_vendor_data1[2];
+		if ((rq->curr->android_vendor_data1[5] || is_busy_tick_boost_all()) &&
+			p == (struct task_struct *)UINTPTR_MAX && rq->android_vendor_data1[0] > 1) {
+			util = util * rq->android_vendor_data1[0];
+			sbb_trigger = true;
 		}
-#endif
+		if (p == (struct task_struct *)UINTPTR_MAX)
+			p = NULL;
 		util = mtk_uclamp_rq_util_with(rq, util, p);
+		if (sbb_trigger && trace_sugov_ext_sbb_enabled())
+			trace_sugov_ext_sbb(rq->cpu, rq->android_vendor_data1[0],
+				util_ori, util);
 	}
+
 
 	dl_util = cpu_util_dl(rq);
 
@@ -332,7 +336,8 @@ static void sugov_get_util(struct sugov_cpu *sg_cpu)
 
 	spin_unlock(&per_cpu(cpufreq_idle_cpu_lock, sg_cpu->cpu));
 
-	sg_cpu->util = mtk_cpu_util(sg_cpu->cpu, cpu_util_cfs(rq), max, FREQUENCY_UTIL, NULL);
+	sg_cpu->util = mtk_cpu_util(sg_cpu->cpu, cpu_util_cfs(rq), max, FREQUENCY_UTIL,
+							(struct task_struct *)UINTPTR_MAX);
 }
 
 /**

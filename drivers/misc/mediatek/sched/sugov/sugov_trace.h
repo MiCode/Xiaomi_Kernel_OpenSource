@@ -51,6 +51,30 @@ TRACE_EVENT(sugov_ext_gear_state,
 		__entry->gear_id,
 		__entry->state)
 );
+
+TRACE_EVENT(sugov_ext_sbb,
+	TP_PROTO(int cpu, unsigned int boost,
+		unsigned int util, unsigned int util_boost),
+	TP_ARGS(cpu, boost, util, util_boost),
+	TP_STRUCT__entry(
+		__field(int, cpu)
+		__field(unsigned int, boost)
+		__field(unsigned int, util)
+		__field(unsigned int, util_boost)
+	),
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->boost = boost;
+		__entry->util = util;
+		__entry->util_boost = util_boost;
+	),
+	TP_printk(
+		"cpu=%d boost=%d util=%d util_boost=%d",
+		__entry->cpu,
+		__entry->boost,
+		__entry->util,
+		__entry->util_boost)
+);
 #endif /* _TRACE_SCHEDULER_H */
 
 #undef TRACE_INCLUDE_PATH
