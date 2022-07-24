@@ -584,8 +584,8 @@ static void calc_predicted_frame_length(unsigned int idx)
 
 	/* for error handle, check sensor fl_active_delay value */
 	if ((fdelay < 2) || (fdelay > 3)) {
-		LOG_INF(
-			"ERROR: [%u] ID:%#x(sidx:%u), frame_time_delay_frame:%u is not valid (must be 2 or 3)\n",
+		LOG_MUST(
+			"ERROR: [%u] ID:%#x(sidx:%u), frame_time_delay_frame:%u is not valid (must be 2 or 3), plz check sensor driver for getting correct value\n",
 			idx,
 			fs_inst[idx].sensor_id,
 			fs_inst[idx].sensor_idx,
@@ -785,15 +785,14 @@ static unsigned int calc_vts_sync_bias(unsigned int idx)
  *     0: not trigger in ts critical section
  */
 static inline unsigned int check_timing_critical_section(
-	unsigned int pred_vdiff, unsigned int target_min_fl_us)
+	const unsigned int pred_vdiff, const unsigned int target_min_fl_us)
 {
-	unsigned int threshold = 0, delta = 0;
+	unsigned int threshold = 0/*, delta = 0*/;
 
-
-	threshold = FS_TOLERANCE / 2;
-	delta = threshold / 10;
-	threshold += delta;
-
+	// threshold = FS_TOLERANCE / 2;
+	// delta = threshold / 10;
+	// threshold += delta;
+	threshold = FS_TOLERANCE;
 
 	if (pred_vdiff > target_min_fl_us)
 		return (((pred_vdiff - target_min_fl_us) < threshold) ? 1 : 0);
@@ -1225,7 +1224,7 @@ static unsigned int fs_alg_sa_calc_target_pred_fl_us(
 	/* fdelay must only be 2 or 3 */
 	if (!((fdelay == 2) || (fdelay == 3))) {
 		LOG_MUST(
-			"get non valid frame_time_delay_frame:%u value\n",
+			"ERROR: frame_time_delay_frame:%u is not valid (must be 2 or 3), plz check sensor driver for getting correct value\n",
 			fdelay
 		);
 	}
@@ -1694,6 +1693,9 @@ static long long fs_alg_sa_calc_adjust_diff_async(
 	unsigned int f_cell_s = get_valid_frame_cell_size(s_idx);
 	long long adjust_diff_s = 0;
 
+	/* case handle for FL: N+1 sensor due to NOT doing FPS sync */
+	if (fs_inst[s_idx].fl_active_delay == 2)
+		p_para_s->delta += p_para_s->stable_fl_us;
 
 	adjust_diff_s =
 		(ts_diff_m + p_para_m->delta) -
