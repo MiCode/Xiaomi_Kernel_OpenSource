@@ -1771,6 +1771,11 @@ static int mtk_panel_msync_te_level_switch(void *dsi, dcs_write_gce cb,
 						__func__, __LINE__, ctx_dsi->current_mode->id);
 					goto fail2;
 				}
+			} else {
+				input.data_count = 0;
+				input.condition_count = 0;
+				input.data = NULL;
+				input.condition = NULL;
 			}
 
 			DDPMSG("%s:%d switch to fps:%u, level:%u, owner:%s\n",
@@ -1916,6 +1921,11 @@ static int mtk_panel_msync_te_level_switch_grp(void *dsi, dcs_grp_write_gce cb,
 						__func__, __LINE__, ctx_dsi->current_mode->id);
 					goto fail2;
 				}
+			} else {
+				input.data_count = 0;
+				input.condition_count = 0;
+				input.data = NULL;
+				input.condition = NULL;
 			}
 
 			DDPMSG("%s:%d switch to fps:%u, level:%u, owner:%s\n",
