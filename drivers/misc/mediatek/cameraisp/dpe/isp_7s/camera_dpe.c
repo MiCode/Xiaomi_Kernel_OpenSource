@@ -10,7 +10,6 @@
  *
  **************************************************************/
 
-
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>
@@ -76,7 +75,7 @@
 #define SMI_CLK
 #define CMDQ_COMMON
 #define CHECK_SERVICE_IF_0 0
-#define DPE_debug_log_en
+//#define DPE_debug_log_en
 //#define m4u_en
 //!#define smi_en
 //!#define WAKEUP_INIT
@@ -446,6 +445,7 @@ unsigned int DVS_only_en;
 unsigned int DVS_Num;
 unsigned int DVP_only_en;
 unsigned int DVP_Num;
+unsigned int DPE_debug_log_en;
 /**************************************************************
  *
  **************************************************************/
@@ -1270,14 +1270,14 @@ static bool dpe_get_dma_buffer(struct tee_mmu *mmu, int fd)
 {
 	struct dma_buf *buf;
 
-	LOG_INF("get_dma_buffer_fd= %d\n", fd);
+	// LOG_INF("get_dma_buffer_fd= %d\n", fd);
 	if (fd <= 0)
 		return false;
 	buf = dma_buf_get(fd);
 	//  LOG_INF("dpe_get_dma_buffer buf= %d\n", buf);
 	if (IS_ERR(buf))
 		return false;
-	LOG_INF("buf_addr = %x\n", buf);
+	// LOG_INF("buf_addr = %x\n", buf);
 	mmu->dma_buf = buf;
 	mmu->attach = dma_buf_attach(mmu->dma_buf, gdev);
 
@@ -1325,7 +1325,6 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 	unsigned int Dpe_search_range[TILE_WITH_NUM] = {64, 51, 38};
 	unsigned int search_cnt = 0;
 	//unsigned int P4_temp = 0;
-	//struct tee_mmu	*mmu;
 
 #ifdef IOVA_TO_PA
 	uint64_t iova_temp = 0x200000000;
@@ -1347,9 +1346,9 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 
 
 	ucnt = 0;
-	#ifdef DPE_debug_log_en
-	LOG_INF("dpe enque star\n");
-	#endif
+	if (DPE_debug_log_en == 1)
+		LOG_INF("dpe enque star\n");
+
 
 
 	mutex_lock(&gFDMutex);
@@ -1384,18 +1383,18 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		mutex_lock(&gFDMutex);
 		DVS_only_en++;
 		DVS_Num++;
-		#ifdef DPE_debug_log_en
-		LOG_INF("DVS_only_en = %d ,DVS_Num = %d\n", DVS_only_en, DVS_Num);
-		#endif
+		if (DPE_debug_log_en == 1)
+			LOG_INF("DVS_only_en = %d ,DVS_Num = %d\n", DVS_only_en, DVS_Num);
+
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
-		#ifdef DPE_debug_log_en
-		LOG_INF("SrcImg_Y_L va = %x\n",
-		_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_L);
-		LOG_INF("SrcImg_Y_L fd = %d offset = %d\n",
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_fd,
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_Ofs);
-		#endif
+		if (DPE_debug_log_en == 1) {
+			LOG_INF("SrcImg_Y_L va = %x\n",
+			_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_L);
+			LOG_INF("SrcImg_Y_L fd = %d offset = %d\n",
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_Ofs);
+		}
 		//spin_lock(&(DPEInfo.SpinLockFD));
 		mutex_lock(&gFDMutex);
 		success = dpe_get_dma_buffer(&SrcImg_Y_L_mmu[DVS_only_en-1],
@@ -1405,10 +1404,10 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(SrcImg_Y_L_mmu[DVS_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_Ofs));
 			get_dvs_iova[0] += 1;
-			#ifdef DPE_debug_log_en
-			LOG_INF("Dpe_InBuf_SrcImg_Y_L iova = %lx, get_dvs_iova[0] = %d\n",
-			_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_L, get_dvs_iova[0]);
-			#endif
+			if (DPE_debug_log_en == 1) {
+				LOG_INF("Dpe_InBuf_SrcImg_Y_L iova = %lx, get_dvs_iova[0] = %d\n",
+				_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_L, get_dvs_iova[0]);
+			}
 			#ifdef IOVA_TO_PA
 			iova_temp = _req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_L | iova_temp;
 			pgpa = iommu_iova_to_phys(domain, iova_temp);
@@ -1424,13 +1423,13 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 
 
-		#ifdef DPE_debug_log_en
-		LOG_INF("SrcImg_Y_R va = %x\n",
-		_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_R);
-		LOG_INF("SrcImg_Y_R fd = %d offset = %d\n",
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_fd,
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_Ofs);
-		#endif
+		if (DPE_debug_log_en == 1) {
+			LOG_INF("SrcImg_Y_R va = %x\n",
+			_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_R);
+			LOG_INF("SrcImg_Y_R fd = %d offset = %d\n",
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_Ofs);
+		}
 		//spin_lock(&(DPEInfo.SpinLockFD));
 		mutex_lock(&gFDMutex);
 		success = dpe_get_dma_buffer(&SrcImg_Y_R_mmu[DVS_only_en-1],
@@ -1440,10 +1439,10 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(SrcImg_Y_R_mmu[DVS_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_Ofs));
 			get_dvs_iova[1] += 1;
-			#ifdef DPE_debug_log_en
-			LOG_INF("Dpe_InBuf_SrcImg_Y_R iova = %lx, get_dvs_iova[1] = %d\n",
-			_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_R, get_dvs_iova[1]);
-			#endif
+			if (DPE_debug_log_en == 1) {
+				LOG_INF("Dpe_InBuf_SrcImg_Y_R iova = %lx, get_dvs_iova[1] = %d\n",
+				_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_R, get_dvs_iova[1]);
+			}
 		} else {
 			LOG_INF("get Dpe_InBuf_SrcImg_Y_R fail\n");
 			mutex_unlock(&gFDMutex);
@@ -1452,11 +1451,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 
-		#ifdef DPE_debug_log_en
-		LOG_INF("ValidMap_L fd = %d offset = %d\n",
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_ValidMap_L_fd,
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_ValidMap_L_Ofs);
-		#endif
+		if (DPE_debug_log_en == 1) {
+			LOG_INF("ValidMap_L fd = %d offset = %d\n",
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_ValidMap_L_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_ValidMap_L_Ofs);
+		}
 		//spin_lock(&(DPEInfo.SpinLockFD));
 		mutex_lock(&gFDMutex);
 		success = dpe_get_dma_buffer(&ValidMap_L_mmu[DVS_only_en-1],
@@ -1467,9 +1466,9 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(ValidMap_L_mmu[DVS_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_ValidMap_L_Ofs));
 			get_dvs_iova[2] += 1;
-			#ifdef DPE_debug_log_en
-			LOG_INF("get_dvs_iova [2] = %d\n", get_dvs_iova[2]);
-			#endif
+			if (DPE_debug_log_en == 1)
+				LOG_INF("get_dvs_iova [2] = %d\n", get_dvs_iova[2]);
+
 		} else {
 			LOG_INF("get Dpe_InBuf_ValidMap_L fail\n");
 			mutex_unlock(&gFDMutex);
@@ -1478,11 +1477,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 
-		#ifdef DPE_debug_log_en
-		LOG_INF("ValidMap_R fd= %x ,offset = %x\n",
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_ValidMap_R_fd,
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_ValidMap_R_Ofs);
-		#endif
+		if (DPE_debug_log_en == 1) {
+			LOG_INF("ValidMap_R fd= %x ,offset = %x\n",
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_ValidMap_R_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_ValidMap_R_Ofs);
+		}
 		//spin_lock(&(DPEInfo.SpinLockFD));
 		mutex_lock(&gFDMutex);
 		success = dpe_get_dma_buffer(&ValidMap_R_mmu[DVS_only_en-1],
@@ -1493,11 +1492,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(ValidMap_R_mmu[DVS_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_ValidMap_R_Ofs));
 			get_dvs_iova[3] += 1;
-			#ifdef DPE_debug_log_en
-			LOG_INF("Dpe_InBuf_ValidMap_R = %lx, get_dvs_iova [3] = %d\n",
-			_req->m_pDpeConfig[ucnt].Dpe_InBuf_ValidMap_R, get_dvs_iova[3]);
-			LOG_INF("============================================\n");
-			#endif
+			if (DPE_debug_log_en == 1) {
+				LOG_INF("Dpe_InBuf_ValidMap_R = %lx, get_dvs_iova [3] = %d\n",
+				_req->m_pDpeConfig[ucnt].Dpe_InBuf_ValidMap_R, get_dvs_iova[3]);
+				LOG_INF("============================================\n");
+			}
 		} else {
 			LOG_INF("get Dpe_InBuf_ValidMap_R fail\n");
 			mutex_unlock(&gFDMutex);
@@ -1506,11 +1505,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 
-		#ifdef DPE_debug_log_en
-		LOG_INF("OCC fd = %d offset = %d\n",
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_fd,
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ofs);
-		#endif
+		if (DPE_debug_log_en == 1) {
+			LOG_INF("OCC fd = %d offset = %d\n",
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ofs);
+		}
 		//spin_lock(&(DPEInfo.SpinLockFD));
 		mutex_lock(&gFDMutex);
 		success = dpe_get_dma_buffer(&OutBuf_OCC_mmu[DVS_only_en-1],
@@ -1521,11 +1520,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(OutBuf_OCC_mmu[DVS_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ofs));
 			get_dvs_iova[4] += 1;
-			#ifdef DPE_debug_log_en
-			LOG_INF("Dpe_OutBuf_OCC = %lx, get_dvs_iova[4] = %d\n",
-			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_OCC, get_dvs_iova[4]);
-			LOG_INF("=========================================\n");
-			#endif
+			if (DPE_debug_log_en == 1) {
+				LOG_INF("Dpe_OutBuf_OCC = %lx, get_dvs_iova[4] = %d\n",
+				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_OCC, get_dvs_iova[4]);
+				LOG_INF("=========================================\n");
+			}
 		} else {
 			LOG_INF("get Dpe_OutBuf_OCC fail\n");
 			mutex_unlock(&gFDMutex);
@@ -1534,11 +1533,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 
-		#ifdef DPE_debug_log_en
-		LOG_INF("OCC_Ext fd = %d offset = %d\n",
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ext_fd,
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ext_Ofs);
-		#endif
+		if (DPE_debug_log_en == 1) {
+			LOG_INF("OCC_Ext fd = %d offset = %d\n",
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ext_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ext_Ofs);
+		}
 		//spin_lock(&(DPEInfo.SpinLockFD));
 		mutex_lock(&gFDMutex);
 		success = dpe_get_dma_buffer(&OutBuf_OCC_Ext_mmu[DVS_only_en-1],
@@ -1548,11 +1547,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(OutBuf_OCC_Ext_mmu[DVS_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ext_Ofs));
 			get_dvs_iova[5] += 1;
-			#ifdef DPE_debug_log_en
-			LOG_INF("Dpe_OutBuf_OCC_Ext = %lx, get_dvs_iova[5] = %d\n",
-			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_OCC_Ext, get_dvs_iova[5]);
-			LOG_INF("=========================================\n");
-			#endif
+			if (DPE_debug_log_en == 1) {
+				LOG_INF("Dpe_OutBuf_OCC_Ext = %lx, get_dvs_iova[5] = %d\n",
+				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_OCC_Ext, get_dvs_iova[5]);
+				LOG_INF("=========================================\n");
+			}
 		} else {
 			LOG_INF("get Dpe_OutBuf_OCC_Ext fail\n");
 			mutex_unlock(&gFDMutex);
@@ -1566,11 +1565,9 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		//spin_lock(&(DPEInfo.SpinLockFD));
 		mutex_lock(&gFDMutex);
 		if (DPE_P4_EN == 1) {
-			#ifdef DPE_debug_log_en
 			LOG_INF("SrcImg_Y_L_Pre fd= %x ,offset = %x\n",
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_Pre_fd,
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_Pre_Ofs);
-			#endif
 			success = dpe_get_dma_buffer(&SrcImg_Y_L_Pre_mmu[DVS_only_en-1],
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_Pre_fd);
 			if (success) {
@@ -1578,22 +1575,22 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				sg_dma_address(SrcImg_Y_L_Pre_mmu[DVS_only_en-1].sgt->sgl) +
 				_req->m_pDpeConfig[0].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_Pre_Ofs;
 				get_dvs_iova[6] += 1;
-				#ifdef DPE_debug_log_en
-				LOG_INF("Dpe_InBuf_SrcImg_Y_L_Pre = %lx iova[6]=%d\n",
-				_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_L_Pre, get_dvs_iova[6]);
-				LOG_INF("====================================\n");
-				#endif
+				if (DPE_debug_log_en == 1) {
+					LOG_INF("Dpe_InBuf_SrcImg_Y_L_Pre = %lx iova[6]=%d\n",
+					_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_L_Pre,
+					get_dvs_iova[6]);
+					LOG_INF("====================================\n");
+				}
 			} else {
 				LOG_INF("get Dpe_InBuf_SrcImg_Y_L_Pre fail\n");
 				mutex_unlock(&gFDMutex);
 				return ENQUE_FAIL;
 			}
 
-			#ifdef DPE_debug_log_en
 			LOG_INF("SrcImg_Y_R_Pre fd= %x ,offset = %x\n",
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_Pre_fd,
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_Pre_Ofs);
-			#endif
+
 
 			success = dpe_get_dma_buffer(&SrcImg_Y_R_Pre_mmu[DVS_only_en-1],
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_Pre_fd);
@@ -1602,23 +1599,23 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				sg_dma_address(SrcImg_Y_R_Pre_mmu[DVS_only_en-1].sgt->sgl) +
 				_req->m_pDpeConfig[0].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_Pre_Ofs;
 				get_dvs_iova[7] += 1;
-				#ifdef DPE_debug_log_en
-				LOG_INF("Dpe_InBuf_SrcImg_Y_R_Pre = %lx iova[7]= %d\n",
-				_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_R_Pre,
-				get_dvs_iova[7]);
-				LOG_INF("===========================\n");
-				#endif
+				if (DPE_debug_log_en == 1) {
+					LOG_INF("Dpe_InBuf_SrcImg_Y_R_Pre = %lx iova[7]= %d\n",
+					_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_R_Pre,
+					get_dvs_iova[7]);
+					LOG_INF("===========================\n");
+				}
 			}	else {
 				LOG_INF("get Dpe_InBuf_SrcImg_Y_R_Pre fail\n");
 				mutex_unlock(&gFDMutex);
 				return ENQUE_FAIL;
 			}
 
-			#ifdef DPE_debug_log_en
-			LOG_INF("P4_L_DV fd= %x ,offset = %x\n",
-			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_L_DV_fd,
-			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_L_DV_Ofs);
-			#endif
+			if (DPE_debug_log_en == 1) {
+				LOG_INF("P4_L_DV fd= %x ,offset = %x\n",
+				_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_L_DV_fd,
+				_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_L_DV_Ofs);
+			}
 
 			success = dpe_get_dma_buffer(&InBuf_P4_L_mmu[DVS_only_en-1],
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_L_DV_fd);
@@ -1627,22 +1624,23 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				(sg_dma_address(InBuf_P4_L_mmu[DVS_only_en-1].sgt->sgl) +
 				(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_L_DV_Ofs));
 				get_dvs_iova[8] += 1;
-				#ifdef DPE_debug_log_en
-				LOG_INF("Dpe_InBuf_P4_L_DV = %lx iova[8]= %d\n",
-				_req->m_pDpeConfig[ucnt].Dpe_InBuf_P4_L_DV, get_dvs_iova[8]);
-				LOG_INF("===========================\n");
-				#endif
+				if (DPE_debug_log_en == 1) {
+					LOG_INF("Dpe_InBuf_P4_L_DV = %lx iova[8]= %d\n",
+					_req->m_pDpeConfig[ucnt].Dpe_InBuf_P4_L_DV,
+					get_dvs_iova[8]);
+					LOG_INF("===========================\n");
+				}
 			} else {
 				LOG_INF("get Dpe_InBuf_P4_L_DV fail\n");
 				mutex_unlock(&gFDMutex);
 				return ENQUE_FAIL;
 			}
 
-			#ifdef DPE_debug_log_en
-			LOG_INF("Dpe_InBuf_P4_R_DV fd= %x ,offset = %x\n",
-			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_R_DV_fd,
-			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_R_DV_Ofs);
-			#endif
+			if (DPE_debug_log_en == 1) {
+				LOG_INF("Dpe_InBuf_P4_R_DV fd= %x ,offset = %x\n",
+				_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_R_DV_fd,
+				_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_R_DV_Ofs);
+			}
 
 			success = dpe_get_dma_buffer(&InBuf_P4_R_mmu[DVS_only_en-1],
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_R_DV_fd);
@@ -1651,11 +1649,12 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				(sg_dma_address(InBuf_P4_R_mmu[DVS_only_en-1].sgt->sgl) +
 				(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_R_DV_Ofs));
 				get_dvs_iova[9] += 1;
-				#ifdef DPE_debug_log_en
-				LOG_INF("Dpe_InBuf_P4_R_DV = %lx iova[9] = %d\n",
-				_req->m_pDpeConfig[ucnt].Dpe_InBuf_P4_R_DV, get_dvs_iova[9]);
-				LOG_INF("===================\n");
-				#endif
+				if (DPE_debug_log_en == 1) {
+					LOG_INF("Dpe_InBuf_P4_R_DV = %lx iova[9] = %d\n",
+					_req->m_pDpeConfig[ucnt].Dpe_InBuf_P4_R_DV,
+					get_dvs_iova[9]);
+					LOG_INF("===================\n");
+				}
 			} else {
 				LOG_INF("get Dpe_InBuf_P4_R_DV fail\n");
 				mutex_unlock(&gFDMutex);
@@ -1665,9 +1664,9 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		}
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
-		#ifdef DPE_debug_log_en
-		LOG_INF("dvs_buffer end\n");
-		#endif
+		if (DPE_debug_log_en == 1)
+			LOG_INF("dvs_buffer end\n");
+
 	}
 
 	if ((_req->m_pDpeConfig[ucnt].Dpe_engineSelect == MODE_DVP_ONLY) ||
@@ -1696,9 +1695,9 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		mutex_lock(&gFDMutex);
 		DVP_only_en++;
 		DVP_Num++;
-		#ifdef DPE_debug_log_en
-		LOG_INF("DVP_only_en = %d ,DVP_Num = %d\n", DVP_only_en, DVP_Num);
-		#endif
+		if (DPE_debug_log_en == 1)
+			LOG_INF("DVP_only_en = %d ,DVP_Num = %d\n", DVP_only_en, DVP_Num);
+
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
 		//LOG_INF("SrcImg_Y fd = %d offset = %d\n",
@@ -1714,11 +1713,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(SrcImg_Y_mmu[DVP_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_Ofs));
 			get_dvp_iova[0] += 1;
-			#ifdef DPE_debug_log_en
-			LOG_INF("Dpe_InBuf_SrcImg_Y = %lx iova[0] = %d\n",
-			_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y, get_dvp_iova[0]);
-			LOG_INF("==========================================\n");
-			#endif
+			if (DPE_debug_log_en == 1) {
+				LOG_INF("Dpe_InBuf_SrcImg_Y = %lx iova[0] = %d\n",
+				_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y, get_dvp_iova[0]);
+				LOG_INF("==========================================\n");
+			}
 		} else {
 			LOG_INF("get Dpe_InBuf_SrcImg_Y fail\n");
 			mutex_unlock(&gFDMutex);
@@ -1727,11 +1726,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
 
-		#ifdef DPE_debug_log_en
-		LOG_INF("Dpe_InBuf_SrcImg_C fd = %d offset = %d\n",
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_C_fd,
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_C_Ofs);
-		#endif
+		if (DPE_debug_log_en == 1) {
+			LOG_INF("Dpe_InBuf_SrcImg_C fd = %d offset = %d\n",
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_C_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_C_Ofs);
+		}
 		//spin_lock(&(DPEInfo.SpinLockFD));
 		mutex_lock(&gFDMutex);
 		success = dpe_get_dma_buffer(&SrcImg_C_mmu[DVP_only_en-1],
@@ -1741,11 +1740,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(SrcImg_C_mmu[DVP_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_C_Ofs));
 			get_dvp_iova[1] += 1;
-			#ifdef DPE_debug_log_en
-			LOG_INF("SrcImg_C = %lx iova[1] = %d\n",
-			_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_C, get_dvp_iova[1]);
-			LOG_INF("=======================================\n");
-			#endif
+			if (DPE_debug_log_en == 1) {
+				LOG_INF("SrcImg_C = %lx iova[1] = %d\n",
+				_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_C, get_dvp_iova[1]);
+				LOG_INF("=======================================\n");
+			}
 		} else {
 			LOG_INF("get Dpe_InBuf_SrcImg_C fail\n");
 			mutex_unlock(&gFDMutex);
@@ -1753,11 +1752,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		}
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
-		#ifdef DPE_debug_log_en
-		LOG_INF("Dpe_InBuf_OCC fd = %d offset = %d\n",
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_fd,
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ofs);
-		#endif
+		if (DPE_debug_log_en == 1) {
+			LOG_INF("Dpe_InBuf_OCC fd = %d offset = %d\n",
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ofs);
+		}
 
 		//spin_lock(&(DPEInfo.SpinLockFD));
 		mutex_lock(&gFDMutex);
@@ -1768,11 +1767,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(InBuf_OCC_mmu[DVP_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ofs));
 			get_dvp_iova[2] += 1;
-			#ifdef DPE_debug_log_en
-			LOG_INF("Dpe_InBuf_OCC = %lx iova[2] = %d\n",
-			_req->m_pDpeConfig[ucnt].Dpe_InBuf_OCC, get_dvp_iova[2]);
-			LOG_INF("=========================================================\n");
-			#endif
+			if (DPE_debug_log_en == 1) {
+				LOG_INF("Dpe_InBuf_OCC = %lx iova[2] = %d\n",
+				_req->m_pDpeConfig[ucnt].Dpe_InBuf_OCC, get_dvp_iova[2]);
+				LOG_INF("=======================================\n");
+			}
 		} else {
 			LOG_INF("get Dpe_InBuf_OCC fail\n");
 			mutex_unlock(&gFDMutex);
@@ -1781,11 +1780,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
 		//memcpy(&DVP_mmu[2], &mmu, sizeof(struct tee_mmu));
-		#ifdef DPE_debug_log_en
-		LOG_INF("Dpe_OutBuf_CRM fd = %d offset = %d\n",
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_CRM_fd,
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_CRM_Ofs);
-		#endif
+		if (DPE_debug_log_en == 1) {
+			LOG_INF("Dpe_OutBuf_CRM fd = %d offset = %d\n",
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_CRM_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_CRM_Ofs);
+		}
 		//spin_lock(&(DPEInfo.SpinLockFD));
 		mutex_lock(&gFDMutex);
 		success = dpe_get_dma_buffer(&OutBuf_CRM_mmu[DVP_only_en-1],
@@ -1795,11 +1794,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(OutBuf_CRM_mmu[DVP_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_CRM_Ofs));
 			get_dvp_iova[3] += 1;
-			#ifdef DPE_debug_log_en
-			LOG_INF("Dpe_OutBuf_CRM = %lx iova[3] = %d\n",
-			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_CRM, get_dvp_iova[3]);
-			LOG_INF("=========================================================\n");
-			#endif
+			if (DPE_debug_log_en == 1) {
+				LOG_INF("Dpe_OutBuf_CRM = %lx iova[3] = %d\n",
+				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_CRM, get_dvp_iova[3]);
+				LOG_INF("===========================================\n");
+			}
 		} else {
 			LOG_INF("get Dpe_OutBuf_CRM fail\n");
 			mutex_unlock(&gFDMutex);
@@ -1808,11 +1807,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
 		//memcpy(&DVP_mmu[3], &mmu, sizeof(struct tee_mmu));
-		#ifdef DPE_debug_log_en
-		LOG_INF("Dpe_OutBuf_ASF_RD fd = %d offset = %d\n",
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_fd,
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ofs);
-		#endif
+		if (DPE_debug_log_en == 1) {
+			LOG_INF("Dpe_OutBuf_ASF_RD fd = %d offset = %d\n",
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ofs);
+		}
 		//spin_lock(&(DPEInfo.SpinLockFD));
 		mutex_lock(&gFDMutex);
 		success = dpe_get_dma_buffer(&ASF_RD_mmu[DVP_only_en-1],
@@ -1822,11 +1821,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(ASF_RD_mmu[DVP_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ofs));
 			get_dvp_iova[4] += 1;
-			#ifdef DPE_debug_log_en
-			LOG_INF("Dpe_OutBuf_ASF_RD = %lx iova[4] = %d\n",
-			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_RD, get_dvp_iova[4]);
-			LOG_INF("=========================================================\n");
-			#endif
+			if (DPE_debug_log_en == 1) {
+				LOG_INF("Dpe_OutBuf_ASF_RD = %lx iova[4] = %d\n",
+				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_RD, get_dvp_iova[4]);
+				LOG_INF("==============================================\n");
+			}
 		} else {
 			LOG_INF("get Dpe_OutBuf_ASF_RD fail\n");
 			mutex_unlock(&gFDMutex);
@@ -1835,11 +1834,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
 		//memcpy(&DVP_mmu[4], &mmu, sizeof(struct tee_mmu));
-		#ifdef DPE_debug_log_en
-		LOG_INF("Dpe_OutBuf_ASF_HF fd = %d offset = %d\n",
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_fd,
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ofs);
-		#endif
+		if (DPE_debug_log_en == 1) {
+			LOG_INF("Dpe_OutBuf_ASF_HF fd = %d offset = %d\n",
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ofs);
+		}
 		//spin_lock(&(DPEInfo.SpinLockFD));
 		mutex_lock(&gFDMutex);
 		success = dpe_get_dma_buffer(&ASF_HF_mmu[DVP_only_en-1],
@@ -1850,11 +1849,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(ASF_HF_mmu[DVP_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ofs));
 			get_dvp_iova[5] += 1;
-			#ifdef DPE_debug_log_en
-			LOG_INF("Dpe_OutBuf_ASF_HF = %lx iova[5] = %d\n",
-			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_HF, get_dvp_iova[5]);
-			LOG_INF("=========================================================\n");
-			#endif
+			if (DPE_debug_log_en == 1) {
+				LOG_INF("Dpe_OutBuf_ASF_HF = %lx iova[5] = %d\n",
+				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_HF, get_dvp_iova[5]);
+				LOG_INF("===============================================\n");
+			}
 		} else {
 			LOG_INF("get Dpe_OutBuf_ASF_HF fail\n");
 			mutex_unlock(&gFDMutex);
@@ -1862,11 +1861,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		}
 
 		mutex_unlock(&gFDMutex);
-		#ifdef DPE_debug_log_en
-		LOG_INF("Dpe_OutBuf_WMF_FILT fd = %d offset = %d\n",
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_FILT_fd,
-		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_FILT_Ofs);
-		#endif
+		if (DPE_debug_log_en == 1) {
+			LOG_INF("Dpe_OutBuf_WMF_FILT fd = %d offset = %d\n",
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_FILT_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_FILT_Ofs);
+		}
 
 		mutex_lock(&gFDMutex);
 		success = dpe_get_dma_buffer(&WMF_FILT_mmu[DVP_only_en-1],
@@ -1876,11 +1875,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			(sg_dma_address(WMF_FILT_mmu[DVP_only_en-1].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_FILT_Ofs));
 			get_dvp_iova[6] += 1;
-			#ifdef DPE_debug_log_en
-			LOG_INF("Dpe_OutBuf_WMF_FILT = %lx iova[6] = %d\n",
-			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_WMF_FILT, get_dvp_iova[6]);
-			LOG_INF("=========================================================\n");
-			#endif
+			if (DPE_debug_log_en == 1) {
+				LOG_INF("Dpe_OutBuf_WMF_FILT = %lx iova[6] = %d\n",
+				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_WMF_FILT, get_dvp_iova[6]);
+				LOG_INF("================================================\n");
+			}
 		} else {
 			LOG_INF("get Dpe_OutBuf_WMF_FILT fail\n");
 			mutex_unlock(&gFDMutex);
@@ -1890,11 +1889,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 
 		if (((DVP_16bitMode == 1) && (DVP_ASF_CONF_EN == 0)) ||
 			((DVP_16bitMode == 0) && (DVP_ASF_CONF_EN == 1))) {
-			#ifdef DPE_debug_log_en
-			LOG_INF("Dpe_InBuf_OCC_Ext fd = %d offset = %d\n",
-			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ext_fd,
-			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ext_Ofs);
-			#endif
+			if (DPE_debug_log_en == 1) {
+				LOG_INF("Dpe_InBuf_OCC_Ext fd = %d offset = %d\n",
+				_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ext_fd,
+				_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ext_Ofs);
+			}
 
 			mutex_lock(&gFDMutex);
 			success = dpe_get_dma_buffer(&InBuf_OCC_Ext_mmu[DVP_only_en-1],
@@ -1904,11 +1903,12 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				(sg_dma_address(InBuf_OCC_Ext_mmu[DVP_only_en-1].sgt->sgl) +
 				(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ext_Ofs));
 				get_dvp_iova[7] += 1;
-				#ifdef DPE_debug_log_en
-				LOG_INF("Dpe_InBuf_OCC_Ext = %lx iova[7] = %d\n",
-				_req->m_pDpeConfig[ucnt].Dpe_InBuf_OCC_Ext, get_dvp_iova[7]);
-				LOG_INF("==========================================\n");
-				#endif
+				if (DPE_debug_log_en == 1) {
+					LOG_INF("Dpe_InBuf_OCC_Ext = %lx iova[7] = %d\n",
+					_req->m_pDpeConfig[ucnt].Dpe_InBuf_OCC_Ext,
+					get_dvp_iova[7]);
+					LOG_INF("==========================================\n");
+				}
 			} else {
 				LOG_INF("get Dpe_InBuf_OCC_Ext fail\n");
 				mutex_unlock(&gFDMutex);
@@ -1917,11 +1917,10 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			mutex_unlock(&gFDMutex);
 
 
-			#ifdef DPE_debug_log_en
+
 			LOG_INF("Dpe_OutBuf_ASF_RD_Ext fd = %d offset = %d\n",
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ext_fd,
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ext_Ofs);
-			#endif
 
 			mutex_lock(&gFDMutex);
 			success = dpe_get_dma_buffer(&ASF_RD_Ext_mmu[DVP_only_en-1],
@@ -1933,11 +1932,12 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				(_req->m_pDpeConfig[
 				ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ext_Ofs));
 				get_dvp_iova[8] += 1;
-				#ifdef DPE_debug_log_en
-				LOG_INF("Dpe_OutBuf_ASF_RD_Ext = %lx iova[8] = %d\n",
-				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_RD_Ext, get_dvp_iova[8]);
-				LOG_INF("=======================================\n");
-				#endif
+				if (DPE_debug_log_en == 1) {
+					LOG_INF("Dpe_OutBuf_ASF_RD_Ext = %lx iova[8] = %d\n",
+					_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_RD_Ext,
+					get_dvp_iova[8]);
+					LOG_INF("=======================================\n");
+				}
 			} else {
 				LOG_INF("get Dpe_OutBuf_ASF_RD_Ext fail\n");
 				mutex_unlock(&gFDMutex);
@@ -1945,11 +1945,9 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			}
 			mutex_unlock(&gFDMutex);
 
-			#ifdef DPE_debug_log_en
 			LOG_INF("Dpe_OutBuf_ASF_HF_Ext fd = %d offset = %d\n",
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ext_fd,
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ext_Ofs);
-			#endif
 
 			mutex_lock(&gFDMutex);
 			success = dpe_get_dma_buffer(&ASF_HF_Ext_mmu[DVP_only_en-1],
@@ -1963,11 +1961,12 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				LOG_INF("Dpe_OutBuf_ASF_HF_Ext = %lx\n",
 				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_HF_Ext);
 				get_dvp_iova[9] += 1;
-				#ifdef DPE_debug_log_en
-				LOG_INF("Dpe_OutBuf_ASF_HF_Ext = %x iova[9] = %d\n",
-				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_HF_Ext, get_dvp_iova[9]);
-				LOG_INF("=============================================\n");
-				#endif
+				if (DPE_debug_log_en == 1) {
+					LOG_INF("Dpe_OutBuf_ASF_HF_Ext = %x iova[9] = %d\n",
+					_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_HF_Ext,
+					get_dvp_iova[9]);
+					LOG_INF("=============================================\n");
+				}
 			} else {
 				LOG_INF("get Dpe_OutBuf_ASF_HF_Ext fail\n");
 				mutex_unlock(&gFDMutex);
@@ -2150,9 +2149,9 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 	_req = (struct DPE_Request *) req;
 	if (frames == NULL || _req == NULL)
 		return -1;
-	#ifdef DPE_debug_log_en
-	LOG_INF("dpe_deque start\n");
-	#endif
+	if (DPE_debug_log_en == 1)
+		LOG_INF("dpe_deque start\n");
+
 	/*TODO: m_ReqNum is FrmNum; FIFO only thus f starts from 0 */
 	ucnt = 0;
 	fcnt = _req->m_ReqNum;
@@ -2171,10 +2170,10 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 		ucnt++;
 		//memcpy(&_req->m_pDpeConfig[f], frames[f].data,
 		//sizeof(struct DPE_Config));
-		#ifdef DPE_debug_log_en
-		LOG_INF("[%s]request dequeued frame(%d/%d).", __func__, f,
+		if (DPE_debug_log_en == 1) {
+			LOG_INF("[%s]request dequeued frame(%d/%d).", __func__, f,
 									fcnt);
-		#endif
+		}
 #ifdef dpe_dump_read_en
 		LOG_INF(
 		"[%s] request queued with  frame(%d)", __func__, f);
@@ -2188,16 +2187,17 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 	dvp_put = 0;
 	dvs_put = 0;
 	//spin_lock(&(DPEInfo.SpinLockFD));
-		#ifdef DPE_debug_log_en
-		LOG_INF("put fd DVS_only_en =%d, DVP_only_en =%d\n", DVS_only_en, DVP_only_en);
-		//LOG_INF("put fd DVS_Num =%d DVP_Num =%d\n",DVS_Num,DVP_Num);
-		//LOG_INF("[dpe_deque_cb] Dpe_engineSelect %d\n",pDpeConfig->Dpe_engineSelect);
-		#endif
+		if (DPE_debug_log_en == 1) {
+			LOG_INF("put fd DVS_only_en =%d, DVP_only_en =%d\n",
+			DVS_only_en, DVP_only_en);
+		  //LOG_INF("put fd DVS_Num =%d DVP_Num =%d\n",DVS_Num,DVP_Num);
+		  //LOG_INF("[dpe_deque_cb] Dpe_engineSelect %d\n",pDpeConfig->Dpe_engineSelect);
+		}
 	if ((pDpeConfig->Dpe_engineSelect == MODE_DVS_ONLY) ||
 		(pDpeConfig->Dpe_engineSelect == MODE_DVS_DVP_BOTH)) {
-		#ifdef DPE_debug_log_en
-		LOG_INF("dpe_deque DVS put fd\n");
-		#endif
+		if (DPE_debug_log_en == 1)
+			LOG_INF("dpe_deque DVS put fd\n");
+
 		mutex_lock(&gFDMutex);
 		LOG_INF("put fd DVS_only_en =%d, get_dvs_iova =%d\n", DVS_only_en, get_dvs_iova[0]);
 		if (DVS_only_en > 0)
@@ -2211,9 +2211,9 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			get_dvs_iova[0]--;
 			memcpy(&temp_dvs, &SrcImg_Y_L_mmu[i], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvs, 0);
-			#ifdef DPE_debug_log_en
-			LOG_INF("dpe_deque SrcImg_Y_L_mmu put fd\n");
-			#endif
+			if (DPE_debug_log_en == 1)
+				LOG_INF("dpe_deque SrcImg_Y_L_mmu put fd\n");
+
 			dvs_cnt++;
 		}
 		mutex_unlock(&gFDMutex);
@@ -2225,9 +2225,9 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			mmu_release(&temp_dvs, 1);
 			//mutex_unlock(&gFDMutex);
 			//#ifdef DPE_debug_log_en
-			#ifdef DPE_debug_log_en
-			LOG_INF("dpe_deque SrcImg_Y_R_mmu put fd\n");
-			#endif
+			if (DPE_debug_log_en == 1)
+				LOG_INF("dpe_deque SrcImg_Y_R_mmu put fd\n");
+
 			//#endif
 			dvs_cnt++;
 		}
@@ -2237,9 +2237,9 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			get_dvs_iova[2]--;
 			memcpy(&temp_dvs, &ValidMap_L_mmu[i], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvs, 2);
-			#ifdef DPE_debug_log_en
-			LOG_INF("dpe_deque ValidMap_L_mmu put fd\n");
-			#endif
+			if (DPE_debug_log_en == 1)
+				LOG_INF("dpe_deque ValidMap_L_mmu put fd\n");
+
 			//mmu_release(&ValidMap_L_mmu[i], 2);
 			//get_dvs_iova[2]--;
 			dvs_cnt++;
@@ -2250,9 +2250,9 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			get_dvs_iova[3]--;
 			memcpy(&temp_dvs, &ValidMap_R_mmu[i], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvs, 3);
-			#ifdef DPE_debug_log_en
-			LOG_INF("dpe_deque ValidMap_R_mmu put fd\n");
-			#endif
+			if (DPE_debug_log_en == 1)
+				LOG_INF("dpe_deque ValidMap_R_mmu put fd\n");
+
 			//mmu_release(&ValidMap_R_mmu[i], 3);
 			//get_dvs_iova[3]--;
 			dvs_cnt++;
@@ -2264,9 +2264,9 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			get_dvs_iova[4]--;
 			memcpy(&temp_dvs, &OutBuf_OCC_mmu[i], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvs, 4);
-			#ifdef DPE_debug_log_en
-			LOG_INF("dpe_deque OutBuf_OCC_mmu put fd\n");
-			#endif
+			if (DPE_debug_log_en == 1)
+				LOG_INF("dpe_deque OutBuf_OCC_mmu put fd\n");
+
 			//mmu_release(&OutBuf_OCC_mmu[i], 4);
 			//get_dvs_iova[4]--;
 			dvs_cnt++;
@@ -2277,9 +2277,9 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			get_dvs_iova[5]--;
 			memcpy(&temp_dvs, &OutBuf_OCC_Ext_mmu[i], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvs, 5);
-			#ifdef DPE_debug_log_en
-			LOG_INF("dpe_deque OutBuf_OCC_mmu put fd\n");
-			#endif
+			if (DPE_debug_log_en == 1)
+				LOG_INF("dpe_deque OutBuf_OCC_mmu put fd\n");
+
 			//mmu_release(&OutBuf_OCC_Ext_mmu[i], 5);
 			//get_dvs_iova[5]--;
 			dvs_cnt++;
@@ -2367,9 +2367,9 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			get_dvp_iova[0]--;
 			memcpy(&temp_dvp, &SrcImg_Y_mmu[i], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvp, 0);
-			#ifdef DPE_debug_log_en
-			LOG_INF("dpe_deque SrcImg_Y_mmu put fd\n");
-			#endif
+			if (DPE_debug_log_en == 1)
+				LOG_INF("dpe_deque SrcImg_Y_mmu put fd\n");
+
 			//mmu_release(&SrcImg_Y_mmu[i], 0);
 			//get_dvp_iova[0]--;
 			dvp_cnt++;
@@ -2548,14 +2548,14 @@ void DPE_Config_DVS(struct DPE_Config *pDpeConfig,
 	pDpeConfig->Dpe_InBuf_SrcImg_Y_L, pDpeConfig->Dpe_InBuf_SrcImg_Y_R,
 	pDpeConfig->Dpe_InBuf_ValidMap_L, pDpeConfig->Dpe_InBuf_ValidMap_R,
 	pDpeConfig->Dpe_OutBuf_CONF, pDpeConfig->Dpe_OutBuf_OCC);
-	#ifdef DPE_debug_log_en
-	LOG_INF(
-	"Dpe_InBuf_SrcImg_Y_L: (0x%lx), Dpe_InBuf_SrcImg_Y_R(0x%lx), Dpe_InBuf_ValidMap_L(0x%lx), Dpe_InBuf_ValidMap_R(0x%lx), Dpe_OutBuf_CONF(0x%lx), Dpe_OutBuf_OCC(0x%lx)\n",
-	pDpeConfig->Dpe_InBuf_SrcImg_Y_L,
-	pDpeConfig->Dpe_InBuf_SrcImg_Y_R,
-	pDpeConfig->Dpe_InBuf_ValidMap_L, pDpeConfig->Dpe_InBuf_ValidMap_R,
-	pDpeConfig->Dpe_OutBuf_CONF, pDpeConfig->Dpe_OutBuf_OCC);
-	#endif
+	if (DPE_debug_log_en == 1) {
+		LOG_INF(
+		"Dpe_InBuf_SrcImg_Y_L: (0x%lx), Dpe_InBuf_SrcImg_Y_R(0x%lx), Dpe_InBuf_ValidMap_L(0x%lx), Dpe_InBuf_ValidMap_R(0x%lx), Dpe_OutBuf_CONF(0x%lx), Dpe_OutBuf_OCC(0x%lx)\n",
+		pDpeConfig->Dpe_InBuf_SrcImg_Y_L,
+		pDpeConfig->Dpe_InBuf_SrcImg_Y_R,
+		pDpeConfig->Dpe_InBuf_ValidMap_L, pDpeConfig->Dpe_InBuf_ValidMap_R,
+		pDpeConfig->Dpe_OutBuf_CONF, pDpeConfig->Dpe_OutBuf_OCC);
+	}
 	if ((frmWidth % 16 != 0))
 		LOG_ERR("frame width is not 16 byte align w(%d)\n", frmWidth);
 	if ((frmHeight % 2 != 0))
@@ -2865,10 +2865,10 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 			LOG_ERR("No DVP Left Src Image Y!\n");
 	}
 
-	#ifdef DPE_debug_log_en
-	LOG_INF("DVP_SRC_05_Y_FRM0 = %lx\n",
-	pConfigToKernel->DVP_SRC_05_Y_FRM0);
-	#endif
+	if (DPE_debug_log_en == 1) {
+		LOG_INF("DVP_SRC_05_Y_FRM0 = %lx\n",
+		pConfigToKernel->DVP_SRC_05_Y_FRM0);
+	}
 
 	if (pDpeConfig->Dpe_InBuf_SrcImg_C != 0x0) {
 		pConfigToKernel->DVP_SRC_09_C_FRM0 =
@@ -2877,10 +2877,10 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 	} else
 		LOG_ERR("No Src Image C!\n");
 
-	#ifdef DPE_debug_log_en
-	LOG_INF("DVP_SRC_09_C_FRM0 = %lx\n",
-	pConfigToKernel->DVP_SRC_09_C_FRM0);
-	#endif
+	if (DPE_debug_log_en == 1) {
+		LOG_INF("DVP_SRC_09_C_FRM0 = %lx\n",
+		pConfigToKernel->DVP_SRC_09_C_FRM0);
+	}
 
 	if (pDpeConfig->Dpe_InBuf_OCC != 0x0) {
 		pConfigToKernel->DVP_SRC_13_OCCDV0 =
@@ -2888,10 +2888,10 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 	} else
 		LOG_ERR("No DVP OCC In!\n");
 
-	#ifdef DPE_debug_log_en
-	LOG_INF("DVP_SRC_13_OCCDV0 = %lx\n",
-	pConfigToKernel->DVP_SRC_13_OCCDV0);
-	#endif
+	if (DPE_debug_log_en == 1) {
+		LOG_INF("DVP_SRC_13_OCCDV0 = %lx\n",
+		pConfigToKernel->DVP_SRC_13_OCCDV0);
+	}
 
 	if (pDpeConfig->Dpe_OutBuf_CRM != 0x0) {
 		pConfigToKernel->DVP_SRC_17_CRM =
@@ -2899,10 +2899,10 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 	} else
 		LOG_ERR("No CRM Output Buffer!\n");
 
-	#ifdef DPE_debug_log_en
-	LOG_INF("DVP_SRC_17_CRM = %lx\n",
-	pConfigToKernel->DVP_SRC_17_CRM);
-	#endif
+	if (DPE_debug_log_en == 1) {
+		LOG_INF("DVP_SRC_17_CRM = %lx\n",
+		pConfigToKernel->DVP_SRC_17_CRM);
+	}
 
 	#ifdef KERNEL_DMA_BUFFER
 	//LOG_INF("get kernel asf buffer\n");
@@ -2916,20 +2916,20 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 		LOG_ERR("No DVS DVP_SRC_18_ASF_RMDV Buffer!\n");
 	#endif
 
-	#ifdef DPE_debug_log_en
-	LOG_INF("DVP_SRC_18_ASF_RMDV = %lx\n",
-	pConfigToKernel->DVP_SRC_18_ASF_RMDV);
-	#endif
+	if (DPE_debug_log_en == 1) {
+		LOG_INF("DVP_SRC_18_ASF_RMDV = %lx\n",
+		pConfigToKernel->DVP_SRC_18_ASF_RMDV);
+	}
 
 	if (pDpeConfig->Dpe_OutBuf_ASF_RD != 0x0) {
 		pConfigToKernel->DVP_SRC_19_ASF_RDDV =
 		pDpeConfig->Dpe_OutBuf_ASF_RD;
 	} else
 		LOG_ERR("No ASF_RD Output Buffer!\n");
-	#ifdef DPE_debug_log_en
-	LOG_INF("DVP_SRC_19_ASF_RDDV = %lx\n",
-	pConfigToKernel->DVP_SRC_19_ASF_RDDV);
-	#endif
+	if (DPE_debug_log_en == 1) {
+		LOG_INF("DVP_SRC_19_ASF_RDDV = %lx\n",
+		pConfigToKernel->DVP_SRC_19_ASF_RDDV);
+	}
 
 	if (pDpeConfig->Dpe_OutBuf_ASF_HF != 0x0) {
 		pConfigToKernel->DVP_SRC_20_ASF_DV0 =
@@ -2937,10 +2937,10 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 	} else
 		LOG_ERR("No ASF Output Buffer!\n");
 
-	#ifdef DPE_debug_log_en
-	LOG_INF("DVP_SRC_20_ASF_DV0 = %lx\n",
-	pConfigToKernel->DVP_SRC_20_ASF_DV0);
-	#endif
+	if (DPE_debug_log_en == 1) {
+		LOG_INF("DVP_SRC_20_ASF_DV0 = %lx\n",
+		pConfigToKernel->DVP_SRC_20_ASF_DV0);
+	}
 
 	if (pDpeConfig->Dpe_is16BitMode == 0) { //for WMF
 		#ifdef KERNEL_DMA_BUFFER
@@ -2954,10 +2954,10 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 			LOG_INF("No DVS DVP_SRC_24_WMF_HFDV Buffer!\n");
 		#endif
 
-		#ifdef DPE_debug_log_en
-		LOG_INF("DVP_SRC_24_WMF_HFDV = %lx\n",
-		pConfigToKernel->DVP_SRC_24_WMF_HFDV);
-		#endif
+		if (DPE_debug_log_en == 1) {
+			LOG_INF("DVP_SRC_24_WMF_HFDV = %lx\n",
+			pConfigToKernel->DVP_SRC_24_WMF_HFDV);
+		}
 
 		if (pDpeConfig->Dpe_OutBuf_WMF_FILT != 0x0) {
 			pConfigToKernel->DVP_SRC_25_WMF_DV0 =
@@ -2968,10 +2968,10 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 			DVP_is16BitMode = 0;
 			spin_unlock(&(DPEInfo.SpinLockFD));
 	}
-		#ifdef DPE_debug_log_en
-		LOG_INF("DVP_SRC_25_WMF_DV0 = %lx\n",
-		pConfigToKernel->DVP_SRC_25_WMF_DV0);
-		#endif
+		if (DPE_debug_log_en == 1) {
+			LOG_INF("DVP_SRC_25_WMF_DV0 = %lx\n",
+			pConfigToKernel->DVP_SRC_25_WMF_DV0);
+		}
 
 		if (((pDpeConfig->Dpe_is16BitMode == 1) && (DVP_ASF_CONF_EN == 0)) ||
 				((pDpeConfig->Dpe_is16BitMode == 0) && (DVP_ASF_CONF_EN == 1))) {
@@ -3281,19 +3281,6 @@ void DPE_DumpUserSpaceReg(struct DPE_Kernel_Config *pDpeConfig)
 void cmdq_cb_destroy(struct cmdq_cb_data data)
 {
 	cmdq_pkt_destroy((struct cmdq_pkt *)data.data);
-}
-struct sg_table *dpe_dma_buf_map_attachment(struct dma_buf_attachment *attach,
-					enum dma_data_direction direction)
-{
-	struct sg_table *sg_table;
-
-	might_sleep();
-	if (WARN_ON(!attach || !attach->dmabuf))
-		return ERR_PTR(-EINVAL);
-	sg_table = attach->dmabuf->ops->map_dma_buf(attach, direction);
-	if (!sg_table)
-		sg_table = ERR_PTR(-ENOMEM);
-	return sg_table;
 }
 
 signed int CmdqDPEHW(struct frame *frame)
@@ -5871,6 +5858,7 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	DPE_EnableClock(MTRUE);
 	cmdq_mbox_enable(dpe_clt->chan);
 	g_SuspendCnt = 0;
+	DPE_debug_log_en = 0;
 	LOG_INF("DPE open g_u4EnableClockCount: %d", g_u4EnableClockCount);
 	/*  */
 /*#define KERNEL_LOG*/
@@ -6018,9 +6006,9 @@ unsigned int dpe_fop_poll(struct file *file, poll_table *wait)
 	unsigned int p;
 
 
-	#ifdef DPE_debug_log_en
-	LOG_INF("DPE Poll\n");
-	#endif
+	if (DPE_debug_log_en == 1)
+		LOG_INF("DPE Poll\n");
+
 	//DPE_DumpUserSpaceReg(pDpeConfig);
 	//LOG_INF("DPE_DumpReg star dpe_fop_poll!\n");
 	//DPE_DumpReg();
@@ -6071,24 +6059,24 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	//pid_t ProcessID;
 
 	//int tmep_cnt;
-	#ifdef DPE_debug_log_en
-	LOG_INF("[%s]buf address/len = 0x%lx/0x%x\n",
+	if (DPE_debug_log_en == 1) {
+		LOG_INF("[%s]buf address/len = 0x%lx/0x%x\n",
 		__func__, p->m.userptr,  p->length);
-	#endif
+	}
 	pUserInfo = (struct DPE_USER_INFO_STRUCT *) (file->private_data);
 	ret = copy_from_user(&ureq, (void __user *)p->m.userptr, sizeof(ureq));
-	LOG_INF("Copy 1 from userm_ret=%d\n", ret);
+	// LOG_INF("Copy 1 from userm_ret=%d\n", ret);
 	if (ret != 0)
 		goto EXIT;
-	LOG_INF("Copy 2 from ureq.m_ReqNum =%d\n", ureq.m_ReqNum);
+	// LOG_INF("Copy 2 from ureq.m_ReqNum =%d\n", ureq.m_ReqNum);
 	//if (ureq.m_ReqNum > MAX_FRAMES_PER_REQUEST)
 	if (ureq.m_ReqNum > 3)
 		goto EXIT;
-	LOG_INF("Copy from userm_ReqNum OK\n");
-	//LOG_INF("[%s]This request has %d configs.\n", __func__, ureq.m_ReqNum);
+	// LOG_INF("Copy from userm_ReqNum OK\n");
+	// LOG_INF("[%s]This request has %d configs.\n", __func__, ureq.m_ReqNum);
 	if (ureq.m_pDpeConfig == NULL)
 		goto EXIT;
-	LOG_INF("Copy from user m_pDpeConfig OK\n");
+	// LOG_INF("Copy from user m_pDpeConfig OK\n");
 	ret = copy_from_user(&cfgs[0], (void __user *)ureq.m_pDpeConfig,
 				ureq.m_ReqNum * sizeof(struct DPE_Config));
 	if (ret != 0)
@@ -6104,16 +6092,12 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	}
 	kreq.m_pDpeConfig = cfgs;
 	kreq.m_ReqNum = m_real_ReqNum;
-	#ifdef DPE_debug_log_en
+
 	LOG_INF("[vidioc qbuf] Dpe engineSelect = %d\n",
 	cfgs[0].Dpe_engineSelect);
 	LOG_INF("[vidioc qbuf] Dpe_RegDump = %lx\n",
 	cfgs[0].Dpe_RegDump);
-	//LOG_INF("[vidioc qbuf] Dpe_RegDump_fd = %d\n",
-	//cfgs[0].DPE_DMapSettings.Dpe_RegDump_fd);
-	LOG_INF("[vidioc qbuf] Dpe_RegDump= %d\n",
-	cfgs[0].Dpe_RegDump);
-	#endif
+	DPE_debug_log_en = cfgs[0].Dpe_RegDump;
 
 	//kreq.m_ReqNum = ureq.m_ReqNum;
 	//mutex_lock(&gDpeMutex);	/* Protect the Multi Process */
@@ -6137,9 +6121,9 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 
 	if (cfgs[0].Dpe_engineSelect == MODE_DVS_ONLY) {
 		temp_req = dpe_request_running_isp7s(&dpe_reqs_dvs);
-		#ifdef DPE_debug_log_en
-		LOG_INF("[vidioc qbuf]dpe_request_running_isp7s stat = %d\n", temp_req);
-		#endif
+		if (DPE_debug_log_en == 1)
+			LOG_INF("[vidioc qbuf]dpe_request_running_isp7s stat = %d\n", temp_req);
+
 		if (!temp_req) {
 			//if (!dpe_request_running_isp7s(&dpe_reqs)) {
 			//LOG_INF("[vidioc_qbuf]direct request_handler\n");
@@ -6150,9 +6134,9 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	if ((cfgs[0].Dpe_engineSelect == MODE_DVP_ONLY) ||
 		(cfgs[0].Dpe_engineSelect == MODE_DVS_DVP_BOTH)) {
 		temp_req = dpe_request_running_isp7s(&dpe_reqs_dvp);
-		#ifdef DPE_debug_log_en
-		LOG_INF("[vidioc qbuf]dpe_request_running_isp7s stat = %d\n", temp_req);
-		#endif
+		if (DPE_debug_log_en == 1)
+			LOG_INF("[vidioc qbuf]dpe_request_running_isp7s stat = %d\n", temp_req);
+
 		if (!temp_req) {
 			//if (!dpe_request_running_isp7s(&dpe_reqs)) {
 			//LOG_INF("[vidioc_qbuf]direct request_handler\n");
@@ -6178,11 +6162,11 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	//unsigned int m_real_ReqNum;
 
 	//struct DPE_Config *pDpeConfig;
-	#ifdef DPE_debug_log_en
-	//LOG_INF("DPE_DumpReg  star\n");
-	//DPE_DumpReg();//!test
-	//LOG_INF("DPE_DumpReg end\n");
-	#endif
+	if (DPE_debug_log_en == 1) {
+		LOG_INF("DPE_DumpReg  star\n");
+		DPE_DumpReg();//!test
+		LOG_INF("DPE_DumpReg end\n");
+	}
 	//LOG_INF("[%s]buf address/len = 0x%lx/0x%x, ureq =0x%x\n",
 	//__func__, p->m.userptr,  p->length, sizeof(ureq));
 
@@ -6196,10 +6180,10 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 		//!mutex_lock(&gDpeDequeMutex);
 		mutex_lock(&gDVSMutex);
 		kreq.m_pDpeConfig = cfgs;
-		#ifdef DPE_debug_log_en
-		LOG_INF("[vidioc dqbuf] Dpe_engineSelect = %d\n",
-		cfgs[0].Dpe_engineSelect);
-		#endif
+		if (DPE_debug_log_en == 1) {
+			LOG_INF("[vidioc dqbuf] Dpe_engineSelect = %d\n",
+			cfgs[0].Dpe_engineSelect);
+		}
 		if (cfgs[0].Dpe_engineSelect == MODE_DVS_ONLY)
 			dpe_deque_request_isp7s(&dpe_reqs_dvs, &kreq.m_ReqNum, &kreq);
 
@@ -6332,6 +6316,8 @@ static signed int DPE_probe(struct platform_device *pDev)
 	DPE_devs = _dpe_dev;
 	DPE_dev = &(DPE_devs[nr_DPE_devs - 1]);
 	DPE_dev->dev = &pDev->dev;
+	_dpe_dev = NULL;
+	//DPE_devs = NULL;
 	/* iomap registers */
 	DPE_dev->regs = of_iomap(pDev->dev.of_node, 0);
 	if (!DPE_dev->regs) {
@@ -7399,10 +7385,10 @@ static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId)
 		LOG_INF("DPE Read status fail, IRQ, DvsStatus: 0x%08x, DvpStatus: 0x%08x\n",
 		DvsStatus, DvpStatus);
 
-	#ifdef DPE_debug_log_en
-	 LOG_INF("DVP IRQ, DvsStatus: 0x%08x, DvpStatus: 0x%08x\n",
-	 DvsStatus, DvpStatus);
-	#endif
+	if (DPE_debug_log_en == 1) {
+		LOG_INF("DVP IRQ, DvsStatus: 0x%08x, DvpStatus: 0x%08x\n",
+		DvsStatus, DvpStatus);
+	}
 	/* DPE done status may rise later, so can't use done status now  */
 	/* if (DPE_INT_ST == (DPE_INT_ST & DvpStatus)) { */
 
@@ -7491,10 +7477,10 @@ static irqreturn_t ISP_Irq_DVS(signed int Irq, void *DeviceId)
 		LOG_INF("DPE Read status fail, IRQ, DvsStatus: 0x%08x, DvpStatus: 0x%08x\n",
 		DvsStatus, DvpStatus);
 
-	#ifdef DPE_debug_log_en
-	LOG_INF("DVS IRQ, DvsStatus: 0x%08x, DvpStatus: 0x%08x\n",
-	DvsStatus, DvpStatus);
-	#endif
+	if (DPE_debug_log_en == 1) {
+		LOG_INF("DVS IRQ, DvsStatus: 0x%08x, DvpStatus: 0x%08x\n",
+		DvsStatus, DvpStatus);
+	}
 
 	/* DPE done status may rise later, so can't use done status now  */
 	/* if (DPE_INT_ST == (DPE_INT_ST & DvsStatus)) { */

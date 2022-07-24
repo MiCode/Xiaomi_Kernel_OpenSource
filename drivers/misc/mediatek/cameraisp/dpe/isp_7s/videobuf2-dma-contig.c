@@ -763,6 +763,7 @@ EXPORT_SYMBOL_GPL(vb2_dpe_dma_contig_memops_isp7s);
 int vb2_dpe_dma_contig_set_max_seg_size_isp7s(struct device *dev, unsigned int size)
 {
 	if (!dev->dma_parms) {
+		memcpy(dev->dma_parms, NULL, sizeof(struct device));
 		dev->dma_parms = kzalloc(sizeof(*dev->dma_parms), GFP_KERNEL);
 		if (!dev->dma_parms)
 			return -ENOMEM;

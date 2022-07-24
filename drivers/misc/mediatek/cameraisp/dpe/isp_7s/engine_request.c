@@ -43,13 +43,13 @@ MODULE_PARM_DESC(dpe_egn_debug, " activates debug info");
 
 #define LOG_WRN(format, args...)				 \
 	do {							 \
-		if (dpe_egn_debug >= 0)				 \
+		if (dpe_egn_debug >= 1)				 \
 			pr_info(MyTag "[%s] " format, __func__, ##args); \
 	} while (0)
 
 #define LOG_ERR(format, args...)				 \
 	do {							 \
-		if (dpe_egn_debug >= 0)				 \
+		if (dpe_egn_debug >= 1)				 \
 			pr_info(MyTag "[%s] " format, __func__, ##args); \
 	} while (0)
 
@@ -469,7 +469,8 @@ EXPORT_SYMBOL(dpe_request_handler_isp7s);
 
 int dpe_update_request_isp7s(struct engine_requests *eng, pid_t *pid)
 {
-	unsigned int i, f, n;
+	unsigned int i, n;
+	unsigned int f = 0;
 	int req_jobs = -1;
 
 	if (eng == NULL)
@@ -594,8 +595,8 @@ EXPORT_SYMBOL(dpe_deque_request_isp7s);
 
 signed int dpe_request_dump_isp7s(struct engine_requests *eng)
 {
-	unsigned int r;
-	unsigned int f;
+	unsigned int r = 0;
+	unsigned int f = 0;
 
 	LOG_ERR("[%s] +\n", __func__);
 
