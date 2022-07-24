@@ -144,7 +144,13 @@ static void drv3_common_hw_init(void)
 
 	drv_md_hw_bus_remap();
 
-	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L1TIMR0, ((1<<9)|(1<<10)|(1<<15)|(1<<16)));
+	if (g_plat_inf == 6985)
+		/* this bit24 is used to mask irq2's isr to irq1 */
+		DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L1TIMR0,
+				((1<<9)|(1<<10)|(1<<15)|(1<<16)|(1<<24)));
+	else
+		DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L1TIMR0,
+				((1<<9)|(1<<10)|(1<<15)|(1<<16)));
 
 	/*Set Power on/off flag*/
 	DPMA_WRITE_PD_DL(NRL2_DPMAIF_DL_RESERVE_RW, 0xFF);

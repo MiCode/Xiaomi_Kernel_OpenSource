@@ -949,6 +949,8 @@ static inline int dpmaif_rxq_handle_normal_pit(struct dpmaif_rx_queue *rxq,
 			dpmaif_rxq_lro_end(rxq);
 		else
 			dpmaif_rxq_add_skb_to_rx_push_thread(rxq);
+
+		rxq->enqueue_skb_cnt++;
 	}
 
 	return 0;
@@ -1009,6 +1011,8 @@ static int dpmaif_rxq_start_read_from_pit(struct dpmaif_rx_queue *rxq,
 		ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
 	}
 
+	rxq->enqueue_skb_cnt = 0;
+
 	for (rx_cnt = 0; rx_cnt < read_cnt; rx_cnt++) {
 		if (time_after_eq(jiffies, time_limit))
 			break;
@@ -1030,9 +1034,10 @@ static int dpmaif_rxq_start_read_from_pit(struct dpmaif_rx_queue *rxq,
 			}
 
 			recv_skb_cnt++;
-			if ((recv_skb_cnt & 0x7) == 0) {
+			if ((rxq->enqueue_skb_cnt > 1) && (recv_skb_cnt > 14)) {
 				NOTIFY_RX_PUSH(rxq);
 				recv_skb_cnt = 0;
+				rxq->enqueue_skb_cnt = 0;
 			}
 		}
 
@@ -2489,6 +2494,8 @@ static int dpmaif_stop(unsigned char hif_id)
 
 static void dpmaif_total_spd_cb(u64 total_ul_speed, u64 total_dl_speed)
 {
+	ccmni_set_cur_speed(total_dl_speed);
+
 	if ((g_debug_flags & DEBUG_UL_DL_TPUT) &&
 			(total_ul_speed || total_dl_speed)) {
 		struct debug_ul_dl_tput_hdr hdr = {0};
@@ -2528,10 +2535,10 @@ static void dpmaif_total_spd_cb(u64 total_ul_speed, u64 total_dl_speed)
 		g_rx_flush_pkt_cnt = 10;
 #endif
 	} else if (total_dl_speed > 300000000LL) {  // dl tput > 300M
-		g_alloc_skb_threshold = 3000;
-		g_alloc_frg_threshold = 3000;
-		g_alloc_skb_tbl_threshold = 1000;
-		g_alloc_frg_tbl_threshold = 1000;
+		g_alloc_skb_threshold = 4096;
+		g_alloc_frg_threshold = 4096;
+		g_alloc_skb_tbl_threshold = 2000;
+		g_alloc_frg_tbl_threshold = 2000;
 
 #ifdef DPMAIF_REDUCE_RX_FLUSH
 		g_rx_flush_pkt_cnt = 5;

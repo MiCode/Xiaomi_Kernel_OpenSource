@@ -16,7 +16,7 @@
 
 #include "net_speed.h"
 
-#define DL_QUE_NUM 1
+#define DL_QUE_NUM 2
 #define UL_QUE_NUM 3
 
 #define MAX_CALL_BACK_FUNC_NUM	5
