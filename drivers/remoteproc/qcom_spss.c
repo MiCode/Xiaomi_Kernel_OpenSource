@@ -714,6 +714,7 @@ static const struct spss_data spss_resource_init = {
 static const struct of_device_id spss_of_match[] = {
 	{ .compatible = "qcom,waipio-spss-pas", .data = &spss_resource_init},
 	{ .compatible = "qcom,cape-spss-pas", .data = &spss_resource_init},
+	{ .compatible = "qcom,anorak-spss-pas", .data = &spss_resource_init},
 	{ },
 };
 MODULE_DEVICE_TABLE(of, spss_of_match);

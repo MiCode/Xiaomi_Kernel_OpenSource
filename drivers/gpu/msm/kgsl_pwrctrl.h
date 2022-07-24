@@ -141,7 +141,6 @@ struct kgsl_pwrctrl {
 	unsigned int bus_percent_ab;
 	unsigned int bus_width;
 	unsigned long bus_ab_mbytes;
-	u32 ddr_stall_percent;
 	/** @ddr_table: List of the DDR bandwidths in KBps for the target */
 	u32 *ddr_table;
 	/** @ddr_table_count: Number of objects in @ddr_table */

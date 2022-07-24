@@ -2381,7 +2381,9 @@ static int goodix_ts_remove(struct platform_device *pdev)
 	goodix_tools_exit();
 
 	if (core_data->init_stage >= CORE_INIT_STAGE2) {
+	#ifdef GOODIX_SUSPEND_GESTURE_ENABLE
 		gesture_module_exit();
+	#endif
 		inspect_module_exit();
 		hw_ops->irq_enable(core_data, false);
 

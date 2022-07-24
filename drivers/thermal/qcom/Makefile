@@ -31,3 +31,4 @@ obj-$(CONFIG_QTI_USERSPACE_CDEV) += qti_userspace_cdev.o
 obj-$(CONFIG_QTI_CPUFREQ_CDEV) += qti_cpufreq_cdev.o
 obj-$(CONFIG_QTI_DEVFREQ_CDEV) += qti_devfreq_cdev.o
 obj-$(CONFIG_QTI_THERMALZONE_CONFIG_DEBUG) += thermal_config.o
+obj-$(CONFIG_QTI_AOP_REG_COOLING_DEVICE) += regulator_aop_cdev.o

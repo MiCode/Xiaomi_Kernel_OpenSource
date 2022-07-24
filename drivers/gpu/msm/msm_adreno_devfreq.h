@@ -10,8 +10,10 @@
 #include <linux/devfreq.h>
 #include <linux/notifier.h>
 
-#define DEVFREQ_FLAG_FAST_HINT		0x1
-#define DEVFREQ_FLAG_SLOW_HINT		0x2
+/* Flags used to send bus modifier hint from busmon governer to driver */
+#define BUSMON_FLAG_FAST_HINT		BIT(0)
+#define BUSMON_FLAG_SUPER_FAST_HINT	BIT(1)
+#define BUSMON_FLAG_SLOW_HINT		BIT(2)
 
 struct device;
 
@@ -54,6 +56,8 @@ struct devfreq_msm_adreno_tz_data {
 	bool ctxt_aware_enable;
 	/* Multiplier to change gpu busy status */
 	u32 mod_percent;
+	/* Increase IB vote on high ddr stall */
+	bool avoid_ddr_stall;
 };
 
 struct msm_adreno_extended_profile {
@@ -66,7 +70,6 @@ struct msm_busmon_extended_profile {
 	u32 sampling_ms;
 	unsigned long percent_ab;
 	unsigned long ab_mbytes;
-	u32 wait_active_percent;
 	struct devfreq_msm_adreno_tz_data *private_data;
 	struct devfreq_dev_profile profile;
 };

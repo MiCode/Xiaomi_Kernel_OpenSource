@@ -14,3 +14,4 @@ obj-$(CONFIG_QTI_SCMI_C1DCVS_PROTOCOL) += c1dcvs_vendor.o
 obj-$(CONFIG_QTI_SCMI_PLH_PROTOCOL) += plh_vendor.o
 obj-$(CONFIG_QTI_SCMI_MEMLAT_PROTOCOL) += memlat_vendor.o
 obj-$(CONFIG_QTI_SCMI_GPLAF_PROTOCOL) += gplaf_vendor.o
+obj-$(CONFIG_QTI_SCMI_CPUFREQ_STATS_PROTOCOL) += cpufreq_stats_vendor.o

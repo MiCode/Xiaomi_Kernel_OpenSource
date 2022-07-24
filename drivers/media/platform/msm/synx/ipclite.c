@@ -16,6 +16,7 @@
 #include <asm/memory.h>
 #include <linux/sizes.h>
 
+#include <linux/hwspinlock.h>
 #include <soc/qcom/secure_buffer.h>
 
 #include "ipclite_client.h"
@@ -38,6 +39,15 @@ u32 global_atomic_support = GLOBAL_ATOMICS_ENABLED;
 #define FIFO_FULL_RESERVE 8
 #define FIFO_ALIGNMENT 8
 
+void ipclite_hwlock_reset(enum ipcmem_host_type core_id)
+{
+	/* verify and reset the hw mutex lock */
+	if (core_id == ipclite->ipcmem.toc->global_atomic_hwlock_owner) {
+		ipclite->ipcmem.toc->global_atomic_hwlock_owner = IPCMEM_INVALID_HOST;
+		hwspin_unlock_raw(ipclite->hwlock);
+	}
+}
+
 static void ipclite_hw_mutex_acquire(void)
 {
 	int32_t ret;
@@ -50,6 +60,8 @@ static void ipclite_hw_mutex_acquire(void)
 			if (ret)
 				pr_err("Hw mutex lock acquire failed\n");
 
+			ipclite->ipcmem.toc->global_atomic_hwlock_owner = IPCMEM_APPS;
+
 			pr_debug("Hw mutex lock acquired\n");
 		}
 	}
@@ -59,6 +71,7 @@ static void ipclite_hw_mutex_release(void)
 {
 	if (ipclite != NULL) {
 		if (!ipclite->ipcmem.toc->ipclite_features.global_atomic_support) {
+			ipclite->ipcmem.toc->global_atomic_hwlock_owner = IPCMEM_INVALID_HOST;
 			hwspin_unlock_irqrestore(ipclite->hwlock,
 				&ipclite->ipclite_hw_mutex->flags);
 			pr_debug("Hw mutex lock release\n");
@@ -974,6 +987,9 @@ static int ipclite_probe(struct platform_device *pdev)
 
 	/* store to ipclite structure */
 	ipclite->ipclite_hw_mutex = ipclite_hw_mutex;
+
+	/* initialize hwlock owner to invalid host */
+	ipclite->ipcmem.toc->global_atomic_hwlock_owner = IPCMEM_INVALID_HOST;
 
 	pr_info("IPCLite probe completed successfully\n");
 	return ret;
