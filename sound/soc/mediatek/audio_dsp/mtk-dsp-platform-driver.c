@@ -1027,6 +1027,9 @@ static int mtk_dsp_pcm_hw_prepare(struct snd_soc_component *component,
 	RingBuf_Bridge_Reset(&adsp_buf->aud_buffer.buf_bridge);
 	RingBuf_Bridge_Reset(&dsp_mem->adsp_work_buf.aud_buffer.buf_bridge);
 
+	/* clear underflow */
+	dsp_mem->underflowed = 0;
+
 	ret = set_audiobuffer_threshold(adsp_buf, substream);
 	if (ret < 0)
 		pr_warn("%s set_audiobuffer_attribute err\n", __func__);
@@ -1135,6 +1138,10 @@ static int mtk_dsp_pcm_copy_dl(struct snd_pcm_substream *substream,
 			   &dsp_mem->adsp_buf.aud_buffer.buf_bridge);
 #endif
 
+	/* handle for underflow */
+	if (dsp_mem->underflowed)
+		return -EPIPE;
+
 	if (dsp_copy_buf == NULL)
 		return -ENOMEM;
 
@@ -1161,8 +1168,6 @@ static int mtk_dsp_pcm_copy_dl(struct snd_pcm_substream *substream,
 		return -1;
 	}
 
-	trace_mtk_dsp_pcm_copy_dl(id, copy_size, availsize);
-
 	RingBuf_copyFromLinear(ringbuf, dsp_copy_buf, copy_size);
 	RingBuf_Bridge_update_writeptr(buf_bridge, copy_size);
 	spin_unlock_irqrestore(ringbuf_lock, flags);
@@ -1177,6 +1182,8 @@ static int mtk_dsp_pcm_copy_dl(struct snd_pcm_substream *substream,
 	Ringbuf_Bridge_Check(
 		&dsp_mem->adsp_buf.aud_buffer.buf_bridge);
 	dsp_mem->adsp_buf.counter++;
+
+	trace_mtk_dsp_pcm_copy_dl(id, copy_size, availsize);
 
 	if (substream->runtime->status->state != SNDRV_PCM_STATE_RUNNING)
 		ack_type = AUDIO_IPI_MSG_NEED_ACK;

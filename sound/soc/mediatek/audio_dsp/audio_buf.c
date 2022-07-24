@@ -1202,7 +1202,7 @@ void dump_rbuf(struct RingBuf *ring_buffer)
 	if (ring_buffer == NULL)
 		return;
 #if defined(__linux__)
-	pr_info("%s Base[%p] End[%p] R[%p] w[%p] Len[%d] count[%d]\n",
+	pr_info("%s Base[%px] End[%px] R[%px] w[%px] Len[%d] count[%d]\n",
 		__func__,
 		ring_buffer->pBufBase,
 		ring_buffer->pBufEnd,
@@ -1227,7 +1227,7 @@ void dump_rbuf_s(const char *appendingstring, struct RingBuf *ring_buffer)
 	if (ring_buffer == NULL)
 		return;
 #if defined(__linux__)
-	pr_info("%s %s Base[%p] End[%p] R[%p] w[%p] Len[%d] count[%d]\n",
+	pr_info("%s %s Base[%px] End[%px] R[%px] w[%px] Len[%d] count[%d]\n",
 		appendingstring, __func__,
 		ring_buffer->pBufBase,
 		ring_buffer->pBufEnd,
@@ -1298,7 +1298,7 @@ void dump_ring_bufinfo(struct RingBuf *buf)
 {
 #if defined(__linux__)
 	pr_info(
-		"pBufBase = %p pBufEnd = %p pread = %p write = %p DataCount = %u freespace = %u\n",
+		"pBufBase = %px pBufEnd = %px pread = %px write = %px DataCount = %u freespace = %u\n",
 		buf->pBufBase, buf->pBufEnd, buf->pRead, buf->pWrite,
 		RingBuf_getDataCount(buf), RingBuf_getFreeSpace(buf));
 #else
