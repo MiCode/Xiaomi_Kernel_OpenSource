@@ -189,6 +189,13 @@ static int fops_vcodec_release(struct file *file)
 	mtk_v4l2_debug(0, "[%d] encoder", ctx->id);
 	mutex_lock(&dev->dev_mutex);
 
+	/*
+	 * Check no more ipi in progress, to avoid inst abort since vcp
+	 * wdt (maybe cause by vdec) but still has ipi waiting timeout
+	 */
+	mutex_lock(&dev->ipi_mutex);
+	mutex_unlock(&dev->ipi_mutex);
+
 	mtk_vcodec_enc_empty_queues(file, ctx);
 	mutex_lock(&ctx->worker_lock);
 	v4l2_m2m_ctx_release(ctx->m2m_ctx);
