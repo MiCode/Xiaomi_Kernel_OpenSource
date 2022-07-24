@@ -325,7 +325,6 @@ struct ufs_queue_config {
 	u8 cq_nr;
 	u8 sq_cq_map[UFSHCD_MAX_Q_NR];          //sq to cq mapping, ex. sq_cq_mapping[3] = 2 means sq[3] mapping to cq[2]
 	u32 sent_cmd_count[UFSHCD_MAX_Q_NR];
-	u32 processing_cmd_count;
 
 #ifdef MCQ_PRIORITY
 	struct ufs_sw_queue *swq;

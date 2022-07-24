@@ -324,12 +324,10 @@ static void ufs_mtk_inc_cq_head(struct ufs_hba *hba, struct ufs_queue *q)
 static void ufs_mtk_transfer_req_compl_handler(struct ufs_hba *hba,
 					bool retry_requests, int index)
 {
-	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
 	struct ufshcd_lrb *lrbp;
 	struct scsi_cmnd *cmd;
 	int result;
 	bool update_scaling = false;
-	unsigned long flags;
 
 	lrbp = &hba->lrb[index];
 	lrbp->compl_time_stamp = ktime_get();
@@ -358,11 +356,6 @@ static void ufs_mtk_transfer_req_compl_handler(struct ufs_hba *hba,
 			update_scaling = true;
 		}
 	}
-
-	spin_lock_irqsave(&hba->outstanding_lock, flags);
-	hba_priv->mcq_q_cfg.processing_cmd_count--;
-	/* If processing_cmd_count zero, call ATF to disable DRAM */
-	spin_unlock_irqrestore(&hba->outstanding_lock, flags);
 
 	if (update_scaling)
 		ufshcd_clk_scaling_update_busy(hba);
@@ -517,11 +510,6 @@ static void ufs_mtk_mcq_send_hw_cmd(struct ufs_hba *hba, unsigned int task_tag)
 	int q_index = lrbp->android_vendor_data1;
 	struct ufs_queue *sq_ptr = &hba_priv->mcq_q_cfg.sq[q_index];
 	unsigned long flags;
-
-	spin_lock_irqsave(&hba->outstanding_lock, flags);
-	hba_priv->mcq_q_cfg.processing_cmd_count++;
-	/* If processing_cmd_count zero, call ATF to enable DRAM */
-	spin_unlock_irqrestore(&hba->outstanding_lock, flags);
 
 	hba_priv->mcq_q_cfg.sent_cmd_count[q_index]++;
 
@@ -791,9 +779,6 @@ static void ufs_mtk_mcq_enable(struct ufs_hba *hba)
 
 	if (hba_priv->mcq_nr_intr > 0)
 		ufshcd_rmwl(hba, MCQ_INTR_EN_MSK, MCQ_MULTI_INTR_EN, REG_UFS_MMIO_OPT_CTRL_0);
-
-	hba_priv->mcq_q_cfg.processing_cmd_count = 0;
-	/* Call ATF to disable DRAM */
 
 }
 
