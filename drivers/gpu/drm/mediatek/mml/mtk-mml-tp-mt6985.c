@@ -72,6 +72,8 @@ enum topology_scenario {
 	PATH_MML_2OUT_P1,
 	PATH_MML_2IN_2OUT_P0,
 	PATH_MML_2IN_2OUT_P1,
+	PATH_MML_2IN_1OUT_P0,
+	PATH_MML_2IN_1OUT_P1,
 	PATH_MML_APUPQ_DD0,
 	PATH_MML_APUPQ_DD1,
 	PATH_MML_MAX
@@ -284,6 +286,38 @@ static const struct path_node path_map[PATH_MML_MAX][MML_MAX_PATH_NODES] = {
 		{MML_WROT1,},
 		{MML_WROT3,},
 	},
+	[PATH_MML_2IN_1OUT_P0] = {
+		{MML_MMLSYS,},
+		{MML_MUTEX,},
+		{MML_RDMA2,},
+		{MML_BIRSZ0,},
+		{MML_RDMA0, MML_DLI0_SEL,},
+		{MML_DLI0_SEL, MML_HDR0,},
+		{MML_HDR0, MML_AAL0,},
+		{MML_AAL0, MML_RSZ0,},
+		{MML_RSZ0, MML_TDSHP0,},
+		{MML_TDSHP0, MML_COLOR0,},
+		{MML_COLOR0, MML_PQ0_SOUT,},
+		{MML_PQ0_SOUT, MML_DLO0_SOUT,},
+		{MML_DLO0_SOUT, MML_WROT0,},
+		{MML_WROT0,},
+	},
+	[PATH_MML_2IN_1OUT_P1] = {
+		{MML_MMLSYS,},
+		{MML_MUTEX,},
+		{MML_RDMA3,},
+		{MML_BIRSZ1,},
+		{MML_RDMA1, MML_DLI1_SEL,},
+		{MML_DLI1_SEL, MML_HDR1,},
+		{MML_HDR1, MML_AAL1,},
+		{MML_AAL1, MML_RSZ1,},
+		{MML_RSZ1, MML_TDSHP1,},
+		{MML_TDSHP1, MML_COLOR1,},
+		{MML_COLOR1, MML_PQ1_SOUT,},
+		{MML_PQ1_SOUT, MML_DLO1_SOUT,},
+		{MML_DLO1_SOUT, MML_WROT1,},
+		{MML_WROT1,},
+	},
 	[PATH_MML_APUPQ_DD0] = {
 		{MML_MMLSYS,},
 		{MML_MUTEX,},
@@ -335,6 +369,8 @@ static const u8 clt_dispatch[PATH_MML_MAX] = {
 	[PATH_MML_2OUT_P1] = MML_CLT_PIPE1,
 	[PATH_MML_2IN_2OUT_P0] = MML_CLT_PIPE0,
 	[PATH_MML_2IN_2OUT_P1] = MML_CLT_PIPE1,
+	[PATH_MML_2IN_1OUT_P0] = MML_CLT_PIPE0,
+	[PATH_MML_2IN_1OUT_P1] = MML_CLT_PIPE1,
 	[PATH_MML_APUPQ_DD0] = MML_CLT_PIPE0,
 	[PATH_MML_APUPQ_DD1] = MML_CLT_PIPE1,
 };
@@ -366,6 +402,8 @@ static const u8 grp_dispatch[PATH_MML_MAX] = {
 	[PATH_MML_2OUT_P1] = MUX_SOF_GRP2,
 	[PATH_MML_2IN_2OUT_P0] = MUX_SOF_GRP1,
 	[PATH_MML_2IN_2OUT_P1] = MUX_SOF_GRP2,
+	[PATH_MML_2IN_1OUT_P0] = MUX_SOF_GRP1,
+	[PATH_MML_2IN_1OUT_P1] = MUX_SOF_GRP2,
 	[PATH_MML_APUPQ_DD0] = MUX_SOF_GRP1,
 	[PATH_MML_APUPQ_DD1] = MUX_SOF_GRP2,
 };
@@ -703,9 +741,14 @@ static void tp_select_path(struct mml_topology_cache *cache,
 		scene[0] = PATH_MML_PQ_P2;
 		scene[1] = PATH_MML_PQ_P3;
 	} else {
-		/* 1 in 1 out with PQs */
-		scene[0] = PATH_MML_PQ_P0;
-		scene[1] = PATH_MML_PQ_P1;
+		if (cfg->info.dest[0].pq_config.en_region_pq) {
+			scene[0] = PATH_MML_2IN_1OUT_P0;
+			scene[1] = PATH_MML_2IN_1OUT_P1;
+		} else {
+			/* 1 in 1 out with PQs */
+			scene[0] = PATH_MML_PQ_P0;
+			scene[1] = PATH_MML_PQ_P1;
+		}
 	}
 
 done:

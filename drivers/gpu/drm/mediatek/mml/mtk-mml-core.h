@@ -151,7 +151,7 @@ extern int mml_racing_wdone_eoc;
 
 #define MML_PIPE_CNT		2
 #define MML_MAX_PATH_NODES	18 /* must align MAX_TILE_FUNC_NO in tile_driver.h */
-#define MML_MAX_PATH_CACHES	16
+#define MML_MAX_PATH_CACHES	18
 #define MML_MAX_CMDQ_CLTS	4
 #define MML_MAX_OPPS		5
 #define MML_MAX_TPUT		800
