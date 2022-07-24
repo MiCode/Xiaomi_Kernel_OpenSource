@@ -174,8 +174,8 @@ ssize_t teeperf_dbg_write(struct file *file, const char __user *buffer,
 	int len, err;
 	u32 high_freq;
 
-	len = (count < (sizeof(input) - 1)) ? count : (sizeof(input) - 1);
-	if (copy_from_user(input, buffer, len)) {
+	len = (count < sizeof(input)) ? count : sizeof(input);
+	if (copy_from_user(input, buffer, len - 1)) {
 		pr_info(PFX "copy from user failed\n");
 		return -EFAULT;
 	}
