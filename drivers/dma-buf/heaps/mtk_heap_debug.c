@@ -49,7 +49,7 @@ int dump_all_attach;
 #define DMA_HEAP_CMDLINE_LEN      (30)
 #define DMA_HEAP_DUMP_ALLOC_GFP   (GFP_ATOMIC)
 #define OOM_DUMP_INTERVAL         (2000)  /* unit: ms */
-
+#define SET_PID_CMDLINE_LEN       (16)
 
 /* Bit map for error */
 #define DBG_ALLOC_MEM_FAIL        (1 << 0)
@@ -1621,14 +1621,24 @@ static ssize_t heap_stat_pid_proc_write(struct file *file, const char *buf,
 					size_t count, loff_t *data)
 {
 	int pid = 0;
-	char line[64] = {0};
-	size_t size = (count > sizeof(line)) ? sizeof(line) : count;
+	char line[SET_PID_CMDLINE_LEN];
 
-	if (copy_from_user(line, buf, size))
-		return 0;
+	if (count <= (strlen("pid:\n")) || count >= SET_PID_CMDLINE_LEN)
+		return -EINVAL;
 
-	if (sscanf(line, "pid:%d\n", &pid) != 1)
-		return 0;
+	if (copy_from_user(line, buf, count))
+		return -EFAULT;
+
+	line[count] = '\0';
+
+	if (!strstarts(line, "pid:"))
+		return -EINVAL;
+
+	if (sscanf(line, "pid:%u\n", &pid) != 1)
+		return -EINVAL;
+
+	if (pid < 0)
+		return -EINVAL;
 
 	g_stat_pid = pid;
 	return count;
@@ -1718,6 +1728,8 @@ static int dma_buf_init_procfs(void)
 {
 	struct proc_dir_entry *proc_file;
 	int ret = 0;
+	kuid_t uid;
+	kgid_t gid;
 
 	dma_heap_proc_root = proc_mkdir("dma_heap", NULL);
 	if (!dma_heap_proc_root) {
@@ -1760,7 +1772,7 @@ static int dma_buf_init_procfs(void)
 	pr_info("create debug file for stats\n");
 
 	dma_heaps_stat_pid = proc_create_data("rss_pid",
-					      S_IFREG | 0666,
+					      S_IFREG | 0660,
 					      dma_heap_proc_root,
 					      &heap_stat_pid_proc_fops,
 					      NULL);
@@ -1770,6 +1782,11 @@ static int dma_buf_init_procfs(void)
 		return -1;
 	}
 	pr_info("create debug file for stats_pid\n");
+
+	/* set group of proc file rss_pid to system */
+	uid = make_kuid(&init_user_ns, 0);
+	gid = make_kgid(&init_user_ns, 1000);
+	proc_set_user(dma_heaps_stat_pid, uid, gid);
 
 	return ret;
 }
