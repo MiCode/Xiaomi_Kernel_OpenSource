@@ -74,9 +74,10 @@ GED_ERROR ged_gpufreq_init(void)
 	g_max_core_num = dcs_get_max_core_num();
 	g_avail_mask_num = dcs_get_avail_mask_num();
 
-	if (g_max_core_num && DCS_DEFAULT_MIN_CORE) {
-		g_ud_mask_bit = ((1 << (g_max_core_num - 1)) - 1) &
-		(1 << (DCS_DEFAULT_MIN_CORE - 1));
+	if (g_max_core_num > 0) {
+		g_ud_mask_bit = ((1 << (g_max_core_num - 1)) - 1);
+		if (DCS_DEFAULT_MIN_CORE > 0)
+			g_ud_mask_bit &= (1 << (DCS_DEFAULT_MIN_CORE - 1));
 		GED_LOGI("default g_ud_mask_bit: %x", g_ud_mask_bit);
 	}
 
@@ -406,7 +407,7 @@ int ged_gpufreq_commit(int oppidx, int commit_type, int *bCommited)
 		ud_mask_bit = (ged_get_ud_mask_bit() |
 			(1 << (g_max_core_num-1))) & ((1 << (g_max_core_num)) - 1);
 
-		if (ud_mask_bit && mask_idx) {
+		if ((ud_mask_bit > 0) && (mask_idx > 0)) {
 			while (!((1 << (core_num_tar-1)) & ud_mask_bit) && mask_idx) {
 				mask_idx -= 1;
 				core_mask_tar = g_mask_table[mask_idx].mask;
