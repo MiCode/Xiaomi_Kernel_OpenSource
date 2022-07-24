@@ -1261,7 +1261,7 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	rdma_write(pkt, base_pa, hw_pipe, CPR_RDMA_DITHER_CON, 0x0, write_sec);
 
 	gmcif_con = BIT(0) |		/* COMMAND_DIV */
-		    GENMASK(6, 4) |	/* READ_REQUEST_TYPE */
+		    GENMASK(7, 4) |	/* READ_REQUEST_TYPE */
 		    GENMASK(9, 8) |	/* WRITE_REQUEST_TYPE */
 		    BIT(16);		/* PRE_ULTRA_EN */
 	/* racing case also enable urgent/ultra to not blocking disp */
