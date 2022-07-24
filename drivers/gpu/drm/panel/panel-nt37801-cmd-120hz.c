@@ -401,7 +401,7 @@ static int lcm_enable(struct drm_panel *panel)
 }
 
 static const struct drm_display_mode default_mode = {
-	.clock = 163406,
+	.clock = 596534,
 	.hdisplay = FRAME_WIDTH,
 	.hsync_start = FRAME_WIDTH + 40,
 	.hsync_end = FRAME_WIDTH + 40 + 20,
