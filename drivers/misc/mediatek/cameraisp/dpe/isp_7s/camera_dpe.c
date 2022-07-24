@@ -6316,7 +6316,7 @@ static signed int DPE_probe(struct platform_device *pDev)
 	DPE_devs = _dpe_dev;
 	DPE_dev = &(DPE_devs[nr_DPE_devs - 1]);
 	DPE_dev->dev = &pDev->dev;
-	_dpe_dev = NULL;
+	//_dpe_dev = NULL;
 	//DPE_devs = NULL;
 	/* iomap registers */
 	DPE_dev->regs = of_iomap(pDev->dev.of_node, 0);
@@ -6725,6 +6725,11 @@ static signed int DPE_remove(struct platform_device *pDev)
 	class_destroy(pDPEClass);
 	pDPEClass = NULL;
 	/*  */
+	if (DPE_devs != NULL) {
+		kfree(DPE_devs);
+		DPE_devs = NULL;
+	}
+
 #if defined(DPE_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
 	pm_qos_remove_request(&dpe_pm_qos_request);
 #endif
