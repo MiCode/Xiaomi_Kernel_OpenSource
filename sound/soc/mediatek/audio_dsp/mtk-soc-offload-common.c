@@ -105,8 +105,8 @@ static void offloadservice_setwriteblocked(bool flag)
 
 static void offloadservice_releasewriteblocked(void)
 {
-	if (offload_stream == NULL) {
-		pr_info("%s offload_stream == NULL\n", __func__);
+	if (!offload_stream || !offload_stream->runtime) {
+		pr_info("%s offload_stream or offload_stream->runtime is NULL\n", __func__);
 		return;
 	}
 
