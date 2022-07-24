@@ -188,6 +188,40 @@ static void uaudio_dev_cleanup(struct usb_audio_dev *dev)
 	dev->udev = NULL;
 }
 
+int send_disconnect_ipi_msg_to_adsp(void)
+{
+	int send_result = 0;
+	struct ipi_msg_t ipi_msg;
+	uint8_t scene = 0;
+
+	USB_OFFLOAD_INFO("%s ++\n");
+
+	// Send DISCONNECT msg to ADSP Via IPI
+	for (scene = TASK_SCENE_USB_DL; scene <= TASK_SCENE_USB_UL; scene++) {
+		send_result = audio_send_ipi_msg(
+						 &ipi_msg, scene,
+						 AUDIO_IPI_LAYER_TO_DSP,
+						 AUDIO_IPI_MSG_ONLY,
+						 AUDIO_IPI_MSG_NEED_ACK,
+						 AUD_USB_MSG_A2D_DISCONNECT,
+						 0,
+						 0,
+						 NULL);
+		if (send_result == 0) {
+			send_result = ipi_msg.param2;
+			if (send_result)
+				break;
+		}
+	}
+
+	if (send_result != 0)
+		USB_OFFLOAD_ERR("USB Offload disconnect IPI msg send fail\n");
+	else
+		USB_OFFLOAD_INFO("USB Offload disconnect IPI msg send succeed\n");
+
+	return send_result;
+}
+
 static void uaudio_disconnect_cb(struct snd_usb_audio *chip)
 {
 	int ret;
@@ -218,8 +252,9 @@ static void uaudio_disconnect_cb(struct snd_usb_audio *chip)
 		msg.status_valid = 1;
 
 		/* write to audio ipi*/
-		ret = 0;
+		ret = send_disconnect_ipi_msg_to_adsp();
 		/* wait response */
+		USB_OFFLOAD_INFO("send_disconnect_ipi_msg_to_adsp msg, ret: %d\n", ret);
 
 		atomic_set(&dev->in_use, 0);
 
@@ -1275,7 +1310,7 @@ static struct xhci_ring *xhci_mtk_alloc_transfer_ring(struct xhci_hcd *xhci,
 
 	if (ring_type != TYPE_EVENT) {
 		/* See section 4.9.2.1 and 6.4.4.1 */
-		ring->last_seg->trbs[TRBS_PER_SEGMENT - 1].link.control |=
+		ring->last_seg->trbs[USB_OFFLOAD_TRBS_PER_SEGMENT - 1].link.control |=
 			cpu_to_le32(LINK_TOGGLE);
 	}
 	xhci_initialize_ring_info(ring, cycle_state);

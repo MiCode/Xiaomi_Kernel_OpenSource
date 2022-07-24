@@ -32,7 +32,7 @@
 
 #define BUF_CTX_SIZE					31
 #define BUF_SEG_SIZE					((15 * 2 + 1) * 2)
-#define USB_OFFLOAD_TRBS_PER_SEGMENT	256
+#define USB_OFFLOAD_TRBS_PER_SEGMENT	512
 #define USB_OFFLOAD_TRB_SEGMENT_SIZE	(USB_OFFLOAD_TRBS_PER_SEGMENT*16)
 
 struct usb_offload_buffer *buf_dcbaa;

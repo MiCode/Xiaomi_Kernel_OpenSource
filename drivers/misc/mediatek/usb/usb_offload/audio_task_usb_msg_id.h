@@ -21,6 +21,7 @@ enum aud_usb_msg_id_t {
 
 	AUD_USB_MSG_A2D_ENABLE_STREAM       = AUD_USB_MSG_A2D_BASE + 0x10,
 
+	AUD_USB_MSG_A2D_DISCONNECT			= AUD_USB_MSG_A2D_BASE + 0x20,
 
 	/* ADSP to AP, 0xDA-- */
 	AUD_USB_MSG_D2A_DUMP                = AUD_USB_MSG_D2A_BASE + 0x00,
