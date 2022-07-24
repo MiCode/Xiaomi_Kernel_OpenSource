@@ -242,24 +242,36 @@ ssize_t vcp_A_log_read(char __user *data, size_t len)
 	r_pos = VCP_A_buf_info->r_pos;
 	w_pos = VCP_A_buf_info->w_pos;
 
+	pr_debug("[VCP] r %x w %x read log buff size:%d get size: %d\n",
+		r_pos, w_pos, VCP_A_log_ctl->buff_size, len);
+
 	if (strcmp(current->comm, "mobile_log_d.rd") != 0) {
-		buf = ((char *) VCP_A_log_ctl) + VCP_A_log_ctl->buff_ofs;
-
-		pr_notice("[VCP] r %x w %x read last log buff size:%d get size: %d\n",
-			r_pos, w_pos, VCP_A_log_ctl->buff_size, len);
-
-		if (w_pos >= len) {
-			if (copy_to_user(data, (char *)buf + w_pos - len, len))
-				pr_debug("[VCP] copy to user buf failed.. %d\n", __LINE__);
-		} else {
-			buf += VCP_A_log_ctl->buff_size;
-			if (copy_to_user(data, (char *)buf - (len - w_pos), (len - w_pos)))
-				pr_debug("[VCP] copy to user buf failed..%d\n", __LINE__);
-
-			buf = ((char *) VCP_A_log_ctl) + VCP_A_log_ctl->buff_ofs;
-			if (copy_to_user(data + (len - w_pos), (char *)buf, w_pos))
-				pr_debug("[VCP] copy to user buf failed..%d\n", __LINE__);
+		if (log_ctl_debug) {
+			/* dump full logger buffer start from w_pos + 1 */
+			r_pos_debug = (w_pos >= DRAM_BUF_LEN) ?  0 : (w_pos+1);
+			log_ctl_debug = 0;
 		}
+
+		if (r_pos_debug == w_pos)
+			goto error;
+
+		if (r_pos_debug > w_pos)
+			datalen = DRAM_BUF_LEN - r_pos_debug; /* not wrap */
+		else
+			datalen = w_pos - r_pos_debug;
+
+		if (datalen > len)
+			datalen = len;
+
+		buf = ((char *) VCP_A_log_ctl) + VCP_A_log_ctl->buff_ofs + r_pos_debug;
+
+		len = datalen;
+		if (copy_to_user(data, buf, len))
+			pr_debug("[VCP] copy to user buf failed..\n");
+
+		r_pos_debug += datalen;
+		if (r_pos_debug >= DRAM_BUF_LEN)
+			r_pos_debug -= DRAM_BUF_LEN;
 
 		goto error;
 	}
