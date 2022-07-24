@@ -145,9 +145,8 @@ extern int mml_slt;
 
 /* racing mode ut and debug */
 extern int mml_racing_ut;
-extern int mml_racing_timeout;
 extern int mml_racing_urgent;
-extern int mml_racing_wdone_eoc;
+extern int mml_racing_eoc;
 
 #define MML_PIPE_CNT		2
 #define MML_MAX_PATH_NODES	18 /* must align MAX_TILE_FUNC_NO in tile_driver.h */

@@ -65,19 +65,17 @@ module_param(mml_slt, int, 0644);
 int mml_racing_ut;
 module_param(mml_racing_ut, int, 0644);
 
-int mml_racing_timeout;
-module_param(mml_racing_timeout, int, 0644);
-
 int mml_racing_urgent;
 module_param(mml_racing_urgent, int, 0644);
 
-/* wdone mmp debug mark
- * 0: disable
- * 1: always
+/* loop eoc and wdone mmp debug mark
+ * 0: disable/per-task
+ * 1: per-tile
  * 2: only tile 0 and tile 1
+ * 3: per-loop/per-frame eoc
  */
-int mml_racing_wdone_eoc = 2;
-module_param(mml_racing_wdone_eoc, int, 0644);
+int mml_racing_eoc;
+module_param(mml_racing_eoc, int, 0644);
 
 int mml_hw_perf;
 module_param(mml_hw_perf, int, 0644);
@@ -1511,17 +1509,6 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 	/* assign error handler */
 	pkt->err_cb.cb = dump_cbs[pipe];
 	pkt->err_cb.data = (void *)task;
-
-	if (unlikely(mml_racing_timeout)) {
-		if (task->config->info.mode == MML_MODE_RACING)
-			cmdq_mbox_set_thread_timeout(
-				task->config->path[pipe]->clt->chan,
-				mml_racing_timeout);
-		else
-			cmdq_mbox_set_thread_timeout(
-				task->config->path[pipe]->clt->chan,
-				CMDQ_TIMEOUT_DEFAULT);
-	}
 
 	if (task->config->info.mode == MML_MODE_RACING) {
 		/* force stop current running racing */
