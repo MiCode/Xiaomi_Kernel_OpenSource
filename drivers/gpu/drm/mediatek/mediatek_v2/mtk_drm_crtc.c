@@ -11943,7 +11943,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 				MTK_DRM_OPT_DUAL_TE))
 		mtk_ddp_comp_io_cmd(output_comp, NULL, DUAL_TE_INIT,
 				&mtk_crtc->base);
-
+	mtk_crtc->last_aee_trigger_ts = 0;
 	DDPMSG("%s-CRTC%d create successfully\n", __func__,
 		priv->num_pipes - 1);
 

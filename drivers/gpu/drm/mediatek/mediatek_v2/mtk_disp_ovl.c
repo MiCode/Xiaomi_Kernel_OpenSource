@@ -834,7 +834,6 @@ next:
 	trace_layer_bw(msg);
 #endif
 }
-
 static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 {
 	struct mtk_disp_ovl *priv = dev_id;
@@ -893,6 +892,8 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 		dump_ovl_layer_trace(mtk_crtc, ovl);
 	}
 	if (val & (1 << 2)) {
+		unsigned long long aee_now_ts = sched_clock();
+
 		if (__ratelimit(&isr_ratelimit)) {
 			unsigned int smi_cnt = 0;
 
@@ -901,17 +902,12 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 			DDPPR_ERR("[IRQ] %s: frame underflow! %u reqs are smi hang, cnt=%d\n",
 				  mtk_dump_comp_str(ovl), smi_cnt, priv->underflow_cnt);
 		}
-
 		priv->underflow_cnt++;
-		if (priv->underflow_cnt % 1000 == 0) {
-			if (ovl->id == DDP_COMPONENT_OVL0 ||
-			    ovl->id == DDP_COMPONENT_OVL1) {
-				DDPAEE("[IRQ] %s:buffer underflow\n",
-					mtk_dump_comp_str(ovl));
-				mtk_smi_dbg_hang_detect("ovl-underflow");
-			}
+		if (mtk_crtc && (mtk_crtc->last_aee_trigger_ts == 0 ||
+			(aee_now_ts - mtk_crtc->last_aee_trigger_ts > TIGGER_INTERVAL_S(10)))) {
 			mtk_ovl_dump(ovl);
 			mtk_ovl_analysis(ovl);
+			mtk_crtc->last_aee_trigger_ts = aee_now_ts;
 		}
 	}
 	if (val & (1 << 3))

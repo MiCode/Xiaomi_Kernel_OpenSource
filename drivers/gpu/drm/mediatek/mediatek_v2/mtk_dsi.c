@@ -1924,7 +1924,6 @@ void clear_dsi_underrun_event(void)
 	DDPMSG("%s, do clear underrun event\n", __func__);
 	dsi_underrun_trigger = 1;
 }
-
 static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 {
 	struct mtk_dsi *dsi = dev_id;
@@ -1971,17 +1970,26 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 		writel(~status, dsi->regs + DSI_INTSTA);
 		if (status & BUFFER_UNDERRUN_INT_FLAG) {
 			struct mtk_drm_private *priv = NULL;
+			unsigned long long aee_now_ts = sched_clock();
+			int trigger_aee = 0;
+
+			if (mtk_crtc && (mtk_crtc->last_aee_trigger_ts == 0 ||
+				(aee_now_ts - mtk_crtc->last_aee_trigger_ts
+				> TIGGER_INTERVAL_S(10))))
+				trigger_aee = 1;
 
 			if (mtk_crtc && mtk_crtc->base.dev)
 				priv = mtk_crtc->base.dev->dev_private;
-			if (dsi_underrun_trigger == 1 && priv &&
-					mtk_drm_helper_get_opt(priv->helper_opt,
-					MTK_DRM_OPT_DSI_UNDERRUN_AEE)) {
+
+			if ((dsi_underrun_trigger == 1 && priv &&
+				mtk_drm_helper_get_opt(priv->helper_opt,
+				MTK_DRM_OPT_DSI_UNDERRUN_AEE)) && trigger_aee) {
 				DDPAEE("[IRQ] %s:buffer underrun\n",
 					mtk_dump_comp_str(&dsi->ddp_comp));
+				mtk_crtc->last_aee_trigger_ts = aee_now_ts;
 			}
 
-			if (dsi_underrun_trigger == 1 && dsi->encoder.crtc) {
+			if ((dsi_underrun_trigger == 1 && dsi->encoder.crtc) && trigger_aee) {
 				if (mtk_crtc && mtk_crtc->is_mml) { /* Temp patch for debug MML */
 					mmprofile_enable(0);
 				}
@@ -1989,6 +1997,7 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				mtk_drm_crtc_dump(dsi->encoder.crtc);
 				dsi_underrun_trigger = 0;
 				mtk_smi_dbg_hang_detect("dsi-underrun");
+				mtk_crtc->last_aee_trigger_ts = aee_now_ts;
 			}
 
 			if (__ratelimit(&ioctl_ratelimit))

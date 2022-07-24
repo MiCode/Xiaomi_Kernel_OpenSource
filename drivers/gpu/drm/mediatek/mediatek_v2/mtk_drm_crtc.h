@@ -874,6 +874,7 @@ struct mtk_drm_crtc {
 	wait_queue_head_t signal_irq_for_pre_fence_wq;
 	enum PF_TS_TYPE pf_ts_type;
 	struct list_head lyeblob_head;
+	unsigned long long last_aee_trigger_ts;
 };
 
 struct mtk_crtc_state {
@@ -918,7 +919,7 @@ struct mtk_cmdq_cb_data {
 	struct mtk_lcm_dsi_cmd_packet *ddic_packet;
 	ktime_t signal_ts;
 };
-
+#define TIGGER_INTERVAL_S(x) ((unsigned long long)x*1000*1000*1000)
 extern unsigned int disp_spr_bypass;
 
 int mtk_drm_crtc_enable_vblank(struct drm_crtc *crtc);
