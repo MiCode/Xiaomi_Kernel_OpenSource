@@ -2299,6 +2299,10 @@ static int mtk_panel_set_bl_elvss_cmdq(void *dsi, dcs_grp_write_gce cb,
 		}
 		data = (u8 *)input.data->data;
 		*data = (u8)((1<<7)|pulses);
+	} else {
+		DDPPR_ERR("%s, invalid flag:0x%x\n",
+			__func__, bl_ext_config->cfg_flag);
+		return -EINVAL;
 	}
 
 	DDPINFO("%s: %s,flag:0x%x,bl=%d,pulses:%d,mode:0x%x,update_bl:%d\n",

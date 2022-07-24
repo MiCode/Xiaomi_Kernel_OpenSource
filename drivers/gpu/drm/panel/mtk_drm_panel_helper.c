@@ -1731,7 +1731,9 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 		}
 		cmd->msg.rx_len = 0;
 		cmd->msg.tx_len = 0;
+		cmd->msg.flags = 0;
 		cmd->tx_free = false;
+		cmd->rx_free = false;
 
 		switch (op->type) {
 		case MTK_LCM_CMD_TYPE_READ_BUFFER:
