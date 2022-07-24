@@ -9514,8 +9514,12 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 			struct mtk_plane_state plane_state_l;
 			struct mtk_plane_state plane_state_r;
 
-			if (plane_state->comp_state.comp_id == 0)
-				plane_state->comp_state.comp_id = comp->id;
+			if (plane_state->comp_state.comp_id == 0) {
+				if (comp)
+					plane_state->comp_state.comp_id = comp->id;
+				else
+					DDPPR_ERR("%s NULL comp_id error\n", __func__, __LINE__);
+			}
 
 			mtk_drm_layer_dispatch_to_dual_pipe(priv->data->mmsys_id, plane_state,
 				&plane_state_l, &plane_state_r,

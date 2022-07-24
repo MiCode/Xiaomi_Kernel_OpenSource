@@ -516,9 +516,9 @@ void mtk_drm_assert_fb_init(struct drm_device *dev, u32 width, u32 height)
 
 void mtk_drm_assert_init(struct drm_device *dev)
 {
-	struct mtk_drm_gem_obj *mtk_gem;
-	struct drm_crtc *crtc;
-	u32 width, height, size;
+	struct mtk_drm_gem_obj *mtk_gem = NULL;
+	struct drm_crtc *crtc = NULL;
+	u32 width = 0, height = 0, size = 0;
 
 	crtc = list_first_entry(&(dev)->mode_config.crtc_list,
 		typeof(*crtc), head);

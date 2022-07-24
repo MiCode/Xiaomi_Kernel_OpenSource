@@ -12915,12 +12915,8 @@ void mtk_ddp_remove_comp_from_path(struct mtk_drm_crtc *mtk_crtc,
 		break;
 	case MMSYS_MT6895:
 	case MMSYS_MT6886:
-		if (!reg_data || !reg_data->dispsys_map) {
-			DDPPR_ERR("%s failed with NULL reg_data or dispsys_map\n", __func__);
-			break;
-		}
 		/* decide which dispsys need to config */
-		if (mtk_crtc->dispsys_num > 1 && reg_data->dispsys_map &&
+		if (mtk_crtc->dispsys_num > 1 && reg_data && reg_data->dispsys_map &&
 				reg_data->dispsys_map[cur] == 1)
 			config_regs = mtk_crtc->side_config_regs;
 
