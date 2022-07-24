@@ -2740,8 +2740,8 @@
 			     "mediatek,common-emicen";
 		reg = <0 0x10219000 0 0x1000>;
 		mediatek,emi-reg = <&emichn>;
-		a2d_hash = <1>;
-		a2d_disph = <2>;
+		a2d_hash = <0xb>;
+		a2d_disph = <0>;
 	};
 
 	emichn: emichn@10235000 {
