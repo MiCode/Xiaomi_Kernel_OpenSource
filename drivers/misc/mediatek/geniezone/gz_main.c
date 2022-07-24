@@ -1108,7 +1108,7 @@ static int __init gz_init(void)
 		}
 
 		if (IS_ERR_OR_NULL(tz_system_dev))
-			return TZ_RESULT_ERROR_GENERIC;
+			KREE_ERR("%s tz_system_dev is NULL\n", __func__);
 	}
 
 #if enable_code
