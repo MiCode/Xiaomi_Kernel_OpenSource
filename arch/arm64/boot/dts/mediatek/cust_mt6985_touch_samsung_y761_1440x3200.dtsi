@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2022 MediaTek Inc.
+ */
+&odm{ /* ts configure */
+	tp_module1 {  //Y792-sdc-1211826
+		compatible = "touch,touch-panel-module";
+		vts-ic-number=<72>;
+		vts-type=<0>;
+		vts-lcmid=<255>;
+		vts-dimention-x=<11059>;
+		vts-dimention-y=<24576>;
+		vts-display-x=<1440>;
+		vts-display-y=<3200>;
+		vts-tx-sensors=<17>;
+		vts-rx-sensors=<38>;
+		vts-incell=<0>;
+		vts-need-caliberation=<1>;
+		vts-virtual-proximinity=<0>;
+		vts-long-press=<1>;
+		vts-gesture=<1>;
+		vts-report-timestamp=<1>;
+		vts-finger-mode=<1>;
+		vts-resolution-adjust=<1>;
+		vts-game-mode=<1>;
+		vts-game-idle-time=<10>;
+		vts-screen-clock=<1>;
+		vts-input-method=<1>;
+	};
+};
+
+&pio {
+	tp_int_driving_set_driving:tp_int_driving_set_driving {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO106__FUNC_GPIO106>;
+			bias-disable;
+			drive-strength = <2>;
+		};
+	};
+	tp_i2c_driving_set_driving:tp_i2c_driving_set_driving {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO78__FUNC_SCL0>,
+					<PINMUX_GPIO79__FUNC_SDA0>;
+			bias-disable;
+		};
+	};
+};
+&i2c0 {
+	status = "okay";
+	clock-frequency = <400000>;
+
+	sec_ts@48 {
+		compatible = "samsung,y761";
+		pinctrl-names = "default";
+		pinctrl-0 = <&tp_int_driving_set_driving &tp_i2c_driving_set_driving>;
+		reg = <0x48>;
+		pressure-sensor = "Y";
+		samsung,irq-gpio = <&pio 106 0x00>;
+		samsung,reset-gpio = <&pio 220 0x00>;
+		sec,irq_type = <8200>;
+		vts-ic-number=<72>;
+		vts-type=<0>;
+		sec,max_coords = <4095 4095>;
+		sec,mis_cal_check = <1>;
+		vcc_i2c-supply = <&mt6373_vrfio18_aif>;
+		avdd_pwr-supply = <&mt6373_vcn33_3>;
+		sec,regulator_boot_on;
+		sec,always_lpmode = <1>;
+	};
+};
