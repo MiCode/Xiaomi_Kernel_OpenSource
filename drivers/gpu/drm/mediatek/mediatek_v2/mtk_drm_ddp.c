@@ -15019,7 +15019,7 @@ void mtk_disp_mutex_remove_comp(struct mtk_disp_mutex *mutex,
 		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
 	unsigned int reg, reg1;
 	void __iomem *reg_addr;
-	void __iomem *reg_addr1;
+	void __iomem *reg_addr1 = NULL;
 
 	if (&ddp->mutex[mutex->id] != mutex)
 		DDPAEE("%s:%d, invalid mutex:(%p,%p) id:%d\n",
