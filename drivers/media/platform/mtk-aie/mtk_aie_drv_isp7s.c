@@ -636,6 +636,14 @@ static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
 			fd->base_para->fd_yuv2rgb_cfg_va, fd->fd_yuv2rgb_cfg_size);
 		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_yuv2rgb_cfg_va,
 								fd->fd_yuv2rgb_cfg_size);
+
+		dev_info(fd->dev,
+			"attr_yuv2rgb_config:	0x%x, attr_yuv2rgb_cfg_aligned_size:	%d",
+			fd->base_para->attr_yuv2rgb_cfg_va[fd->attr_para->w_idx],
+			fd->attr_yuv2rgb_cfg_aligned_size);
+		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para
+			->attr_yuv2rgb_cfg_va[fd->attr_para->w_idx],
+			fd->attr_yuv2rgb_cfg_aligned_size);
 		dev_info(fd->dev,
 			"fdmode_fdvt_rs_config:	  0x%x, fdmode_fdvt_rs_config_size:	 %d",
 			fd->base_para->fd_rs_cfg_va, fd->fd_rs_cfg_size);
