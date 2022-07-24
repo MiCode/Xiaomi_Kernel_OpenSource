@@ -81,6 +81,17 @@ static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = {
 	},
 };
 
+static struct mtk_mbus_frame_desc_entry frame_desc_hs_vid[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x0780,
+			.vsize = 0x0438,
+		},
+	},
+};
+
 static struct mtk_mbus_frame_desc_entry frame_desc_slim_vid[] = {
 	{
 		.bus.csi2 = {
@@ -220,8 +231,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {0},
 	},
 	{
-		.frame_desc = frame_desc_vid,
-		.num_entries = ARRAY_SIZE(frame_desc_vid),
+		.frame_desc = frame_desc_hs_vid,
+		.num_entries = ARRAY_SIZE(frame_desc_hs_vid),
 		.mode_setting_table = addr_data_pair_hs_video,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_hs_video),
 		.seamless_switch_group = PARAM_UNDEFINED,

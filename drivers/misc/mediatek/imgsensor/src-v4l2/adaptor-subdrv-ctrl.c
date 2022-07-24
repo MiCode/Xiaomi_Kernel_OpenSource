@@ -369,7 +369,8 @@ void set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 	ctx->min_frame_length = ctx->frame_length;
 	DRV_LOG(ctx, "max_fps(input/output):%u/%u(sid:%u), min_fl_en:1\n",
 		framerate, ctx->current_fps, scenario_id);
-	if (ctx->frame_length > (ctx->exposure[0] - ctx->s_ctx.exposure_margin))
+	if (ctx->s_ctx.reg_addr_auto_extend ||
+			(ctx->frame_length > (ctx->exposure[0] - ctx->s_ctx.exposure_margin)))
 		set_dummy(ctx);
 }
 
@@ -752,9 +753,10 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 		return;
 	}
 
-	if (enable)
+	if (enable) {
+		set_dummy(ctx);
 		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_stream, 0x01);
-	else {
+	} else {
 		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_stream, 0x00);
 		if (ctx->s_ctx.reg_addr_fast_mode && ctx->fast_mode_on) {
 			ctx->fast_mode_on = FALSE;
@@ -763,6 +765,9 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 			set_i2c_buffer(ctx, ctx->s_ctx.reg_addr_fast_mode, 0x00);
 			commit_i2c_buffer(ctx);
 		}
+		ctx->autoflicker_en = FALSE;
+		ctx->extend_frame_length_en = 0;
+		ctx->is_seamless = 0;
 	}
 	ctx->is_streaming = enable;
 	DRV_LOG(ctx, "enable:%u\n", enable);
