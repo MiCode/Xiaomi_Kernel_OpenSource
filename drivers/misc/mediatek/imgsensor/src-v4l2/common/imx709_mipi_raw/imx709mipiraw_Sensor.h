@@ -33,6 +33,13 @@ enum IMGSENSOR_MODE {
 	IMGSENSOR_MODE_CUSTOM4,
 	IMGSENSOR_MODE_CUSTOM5,
 	IMGSENSOR_MODE_CUSTOM6,
+	IMGSENSOR_MODE_CUSTOM7,
+	IMGSENSOR_MODE_CUSTOM8,
+	IMGSENSOR_MODE_CUSTOM9,
+	IMGSENSOR_MODE_CUSTOM10,
+	IMGSENSOR_MODE_CUSTOM11,
+	IMGSENSOR_MODE_CUSTOM12,
+	IMGSENSOR_MODE_CUSTOM13,
 };
 
 enum {
@@ -109,6 +116,10 @@ struct imgsensor_info_struct {
 	struct imgsensor_mode_struct custom7;
 	struct imgsensor_mode_struct custom8;
 	struct imgsensor_mode_struct custom9;
+	struct imgsensor_mode_struct custom10;
+	struct imgsensor_mode_struct custom11;
+	struct imgsensor_mode_struct custom12;
+	struct imgsensor_mode_struct custom13;
 
 	kal_uint8 ae_shut_delay_frame;	/* shutter delay frame for AE cycle */
 	kal_uint8 ae_sensor_gain_delay_frame;
@@ -127,8 +138,15 @@ struct imgsensor_info_struct {
 	kal_uint8 custom2_delay_frame;	/* enter custom2 delay frame num */
 	kal_uint8 custom3_delay_frame;	/* enter custom3 delay frame num */
 	kal_uint8 custom4_delay_frame;	/* enter custom4 delay frame num */
-	kal_uint8 custom5_delay_frame;	/* enter custom4 delay frame num */
-	kal_uint8 custom6_delay_frame;	/* enter custom4 delay frame num */
+	kal_uint8 custom5_delay_frame;	/* enter custom5 delay frame num */
+	kal_uint8 custom6_delay_frame;	/* enter custom6 delay frame num */
+	kal_uint8 custom7_delay_frame;	/* enter custom7 delay frame num */
+	kal_uint8 custom8_delay_frame;	/* enter custom8 delay frame num */
+	kal_uint8 custom9_delay_frame;	/* enter custom9 delay frame num */
+	kal_uint8 custom10_delay_frame;	/* enter custom10 delay frame num */
+	kal_uint8 custom11_delay_frame;	/* enter custom11 delay frame num */
+	kal_uint8 custom12_delay_frame;	/* enter custom12 delay frame num */
+	kal_uint8 custom13_delay_frame;	/* enter custom13 delay frame num */
 	kal_uint8  frame_time_delay_frame;
 	kal_uint8 margin;	/* sensor framelength & shutter margin */
 	kal_uint32 min_shutter;	/* min shutter */
@@ -169,6 +187,8 @@ struct imgsensor_info_struct {
 	kal_uint8 custom9_ae_ctrl_support;	/* enter custom9 ae ctrl support */
 	kal_uint8 custom10_ae_ctrl_support;	/* enter custom10 ae ctrl support */
 	kal_uint8 custom11_ae_ctrl_support;	/* enter custom11 ae ctrl support */
+	kal_uint8 custom12_ae_ctrl_support;	/* enter custom12 ae ctrl support */
+	kal_uint8 custom13_ae_ctrl_support;	/* enter custom13 ae ctrl support */
 };
 
 /* SENSOR READ/WRITE ID */
