@@ -510,9 +510,7 @@ static enum alarmtimer_restart vbat0_alarm_poll_func(
 {
 	struct mt6375_priv *priv = container_of(alarm, struct mt6375_priv,
 						vbat0_alarm);
-	dev_info(priv->dev, "%s: ++\n", __func__);
 	schedule_work(&priv->vbat0_work);
-	dev_info(priv->dev, "%s: --\n", __func__);
 	return ALARMTIMER_NORESTART;
 }
 
