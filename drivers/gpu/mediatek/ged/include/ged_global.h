@@ -68,6 +68,7 @@ extern int g_ged_slide_window_support;
 extern u64 fb_timeout;
 extern u64 lb_timeout;
 
+extern struct mutex gsPolicyLock;
 extern unsigned int ged_is_fdvfs_support(void);
 extern void mtk_gpueb_dvfs_commit(unsigned long ui32NewFreqID,
 	GED_DVFS_COMMIT_TYPE eCommitType, int *pbCommited);

@@ -56,7 +56,6 @@ static struct workqueue_struct *g_psNotifyWorkQueue;
 
 static struct mutex gsVsyncStampLock;
 
-
 struct GED_NOTIFY_SW_SYNC {
 	struct work_struct	sWork;
 	unsigned long t;
@@ -132,37 +131,45 @@ static void ged_notify_sw_sync_work_handle(struct work_struct *psWork)
 		GED_CONTAINER_OF(psWork, struct GED_NOTIFY_SW_SYNC, sWork);
 	unsigned long long temp;
 	GED_DVFS_COMMIT_TYPE eCommitType;
-	if (ged_get_policy_state() == 1 || ged_get_policy_state() == 2) {
-		eCommitType = GED_DVFS_FB_FALLBACK_COMMIT;
-		ged_set_policy_state(2);
-		if (ged_get_policy_state_pre() == 1) {
-			ged_set_backup_timer_timeout(ged_get_fallback_time());
-			ged_cancel_backup_timer();
-		}
-	} else {
-		eCommitType = GED_DVFS_LOADING_BASE_COMMIT;
-	}
-
-	temp = 0;
+	u64 timeout_value;
+	/*only one policy at a time*/
 	if (psNotify) {
-		/* if callback is queued, send mode off to real driver */
-		ged_sw_vsync_event(false);
-#ifdef ENABLE_TIMER_BACKUP
-		temp = ged_get_time();
-
-		if (temp-sw_vsync_ts > GED_DVFS_TIMER_TIMEOUT) {
-			do_div(temp, 1000);
-			psNotify->t = temp;
-			ged_dvfs_run(psNotify->t, psNotify->phase,
-				psNotify->ul3DFenceDoneTime, eCommitType);
-			ged_log_buf_print(ghLogBuf_DVFS,
-				"[GED_K] Timer kicked	(ts=%llu) ", temp);
-		} else {
-			ged_log_buf_print(ghLogBuf_DVFS,
-				"[GED_K] Timer kick giveup (ts=%llu)", temp);
-		}
-#endif
+		mutex_lock(&gsPolicyLock);
+		timeout_value = lb_timeout;
 		psNotify->bUsed = false;
+		if (!hrtimer_active(&g_HT_hwvsync_emu) &&
+		!hrtimer_is_queued(&g_HT_hwvsync_emu)) {
+			if (ged_get_policy_state() == 1 ||
+				ged_get_policy_state() == 2) {
+				eCommitType = GED_DVFS_FB_FALLBACK_COMMIT;
+				ged_set_policy_state(2);
+				timeout_value = ged_get_fallback_time();
+			} else {
+				eCommitType = GED_DVFS_LOADING_BASE_COMMIT;
+			}
+
+			temp = 0;
+			/* if callback is queued, send mode off to real driver */
+			ged_sw_vsync_event(false);
+#ifdef ENABLE_TIMER_BACKUP
+			temp = ged_get_time();
+			if (temp-sw_vsync_ts > GED_DVFS_TIMER_TIMEOUT) {
+				do_div(temp, 1000);
+				psNotify->t = temp;
+				ged_dvfs_run(psNotify->t, psNotify->phase,
+					psNotify->ul3DFenceDoneTime, eCommitType);
+				ged_log_buf_print(ghLogBuf_DVFS,
+					"[GED_K] Timer kicked	(ts=%llu) ", temp);
+			} else {
+				ged_log_buf_print(ghLogBuf_DVFS,
+					"[GED_K] Timer kick giveup (ts=%llu)", temp);
+			}
+#endif
+			ged_set_backup_timer_timeout(timeout_value);
+			hrtimer_start(&g_HT_hwvsync_emu,
+				ns_to_ktime(GED_DVFS_TIMER_TIMEOUT), HRTIMER_MODE_REL);
+		}
+		mutex_unlock(&gsPolicyLock);
 	}
 }
 
@@ -450,8 +457,6 @@ enum hrtimer_restart ged_sw_vsync_check_cb(struct hrtimer *timer)
 					"[GED_K] Timer queue to kick (ts=%llu)", temp);
 #endif
 			}
-			hrtimer_start(&g_HT_hwvsync_emu,
-			ns_to_ktime(GED_DVFS_TIMER_TIMEOUT), HRTIMER_MODE_REL);
 			g_timer_on_ts = temp;
 		}
 	}

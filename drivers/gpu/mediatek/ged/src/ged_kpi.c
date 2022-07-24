@@ -271,7 +271,6 @@ static int idle_fw_set_flag;
 static int g_is_idle_fw_enable;
 u64 fb_timeout = 100000000;/*100 ms*/
 u64 lb_timeout = 100000000;
-
 module_param(g_fb_dvfs_threshold, int, 0644);
 
 // module_param(gx_dfps, uint, 0644);
@@ -1221,21 +1220,17 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		t_gpu_target = psKPI->t_gpu_target;
 		target_fps_margin = psKPI->target_fps_margin;
 		force_fallback = g_force_gpu_dvfs_fallback;
+		/*only one policy at a time*/
+		mutex_lock(&gsPolicyLock);
 		if (main_head == psHead) {
 			if (!g_force_gpu_dvfs_fallback) {
 				/* Frame based & main head*/
 				ged_set_policy_state(1);
-				if (g_frame_target_mode) {
-					ged_set_backup_timer_timeout(
-						psKPI->t_gpu_target *
-						g_frame_target_time  / 10);
+				if (g_frame_target_mode)
 					fb_timeout = psKPI->t_gpu_target *
-						g_frame_target_time  / 10;
-				} else {
-					ged_set_backup_timer_timeout(g_frame_target_time
-					* GED_KPI_MSEC_DIVIDER);
-					fb_timeout = g_frame_target_time;
-				}
+						(u64)g_frame_target_time  / 10;
+				else
+					fb_timeout = g_frame_target_time * GED_KPI_MSEC_DIVIDER;
 				if (use_gpu_completion_time) {
 					t_gpu_done_interval = psKPI->t_gpu;   // use GPU completion
 					force_fallback = 2;   // do not use loading
@@ -1243,37 +1238,26 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			} else {
 				/* Loading based & main head*/
 				ged_set_policy_state(0);
-				if (g_loading_slide_enable) {
-					ged_set_backup_timer_timeout(
-						g_loading_stride_size * GED_KPI_MSEC_DIVIDER
-						);
+				if (g_loading_slide_enable)
 					lb_timeout = g_loading_stride_size
 					* GED_KPI_MSEC_DIVIDER;
-				} else {
-					ged_set_backup_timer_timeout(
-						psKPI->t_gpu_target << 1);
+				else
 					lb_timeout = psKPI->t_gpu_target << 1;
-				}
 			}
 		} else if (g_force_gpu_dvfs_fallback) {
 			/* Loading based & not main head*/
 			ged_set_policy_state(0);
-			if (g_loading_slide_enable) {
-				ged_set_backup_timer_timeout(
-					g_loading_stride_size * GED_KPI_MSEC_DIVIDER);
+			if (g_loading_slide_enable)
 				lb_timeout = g_loading_stride_size * GED_KPI_MSEC_DIVIDER;
-			} else {
-				ged_set_backup_timer_timeout(
-					psKPI->t_gpu_target << 1);
+			else
 				lb_timeout = psKPI->t_gpu_target << 1;
-			}
 		} else {
 			/* Frame based & not main head*/
 			t_gpu_done_interval = -1;   // t_gpu is not accurate, so hint -1
 		}
 		gpu_freq_pre = ged_kpi_gpu_dvfs(t_gpu_done_interval, t_gpu_target,
 			target_fps_margin, force_fallback);
-
+		mutex_unlock(&gsPolicyLock);
 		psKPI->cpu_gpu_info.gpu.gpu_freq_target = gpu_freq_pre;
 
 		g_psGIFT->gpu_freq_cur = psKPI->gpu_freq * 1000;

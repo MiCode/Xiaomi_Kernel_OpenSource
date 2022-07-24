@@ -45,6 +45,7 @@ spinlock_t gsGpuUtilLock;
 
 static struct mutex gsDVFSLock;
 static struct mutex gsVSyncOffsetLock;
+struct mutex gsPolicyLock;
 
 static unsigned int g_iSkipCount;
 static int g_dvfs_skip_round;
@@ -757,7 +758,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 	int busy_cycle_cur;
 	unsigned long ui32IRQFlags;
 	static unsigned int force_fallback_pre;
-
+	u64 timeout_value = lb_timeout;
 	static int margin_low_bound;
 	int ultra_high_step_size = (dvfs_step_mode & 0xff);
 
@@ -767,8 +768,9 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 			__func__, gpu_dvfs_enable);
 
 		gpu_freq_pre = ret_freq = ged_get_cur_freq();
-
-		goto FB_RET;
+		ged_set_backup_timer_timeout(timeout_value);
+		is_fb_dvfs_triggered = 0;
+		return ret_freq;
 	}
 
 	// force_fallback 0: FB, 1: LB, 2: special token for first FB after LB
@@ -780,14 +782,15 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 			num_pre_frames = 0;
 			for (i = 0; i < GED_DVFS_BUSY_CYCLE_MONITORING_WINDOW_NUM; i++)
 				busy_cycle[i] = 0;
-			ged_cancel_backup_timer();
 		}
 
 	}
 	/* (t_gpu_done_interval == -1) means it's inaccurate, i.e., non-main BQ */
 	if (force_fallback == 1 || t_gpu_done_interval == -1) {
 		gpu_freq_pre = ret_freq = ged_get_cur_freq();
-		goto FB_RET;
+		ged_set_backup_timer_timeout(timeout_value);
+		is_fb_dvfs_triggered = 0;
+		return ret_freq;
 	}
 
 	/* initialize different GPU time */
@@ -824,11 +827,9 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 		"[GED_K][FB_DVFS] skip DVFS due to t_gpu <= 0, t_gpu: %d"
 			, t_gpu);
 		gpu_freq_pre = ret_freq = ged_get_cur_freq();
-
-		goto FB_RET;
+		is_fb_dvfs_triggered = 0;
+		return ret_freq;
 	}
-
-	ged_cancel_backup_timer();
 
 	/* calculate dynamic margin */
 	/* configure margin mode */
@@ -1051,13 +1052,14 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 	dvfs_margin_mode, dvfs_margin_value, gx_fb_dvfs_margin,
 	margin_low_bound, target_fps_margin, dvfs_margin_low_bound,
 	dvfs_min_margin_inc_step);
-
 	g_CommitType = MTK_GPU_DVFS_TYPE_VSYNCBASED;
 	ged_dvfs_gpu_freq_commit((unsigned long)ui32NewFreqID,
 		gpu_freq_tar, GED_DVFS_FRAME_BASE_COMMIT);
 
 	ret_freq = gpu_freq_tar;
-FB_RET:
+	timeout_value = fb_timeout;
+	ged_set_backup_timer_timeout(timeout_value);
+	ged_cancel_backup_timer();
 	is_fb_dvfs_triggered = 0;
 	return ret_freq;
 }
@@ -2060,6 +2062,7 @@ GED_ERROR ged_dvfs_probe(int pid)
 GED_ERROR ged_dvfs_system_init(void)
 {
 	mutex_init(&gsDVFSLock);
+	mutex_init(&gsPolicyLock);
 	mutex_init(&gsVSyncOffsetLock);
 
 	spin_lock_init(&gsGpuUtilLock);
@@ -2147,6 +2150,7 @@ GED_ERROR ged_dvfs_system_init(void)
 void ged_dvfs_system_exit(void)
 {
 	mutex_destroy(&gsDVFSLock);
+	mutex_destroy(&gsPolicyLock);
 	mutex_destroy(&gsVSyncOffsetLock);
 }
 
