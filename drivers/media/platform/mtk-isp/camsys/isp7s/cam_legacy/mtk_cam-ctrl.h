@@ -46,7 +46,7 @@ struct mtk_camsys_irq_error_data {
 
 
 struct mtk_camsys_irq_info {
-	unsigned int irq_type;  /* a mask of 1 << MTK_CAMSYS_IRQ_EVENT */
+	enum MTK_CAMSYS_IRQ_EVENT irq_type;
 	u64 ts_ns;
 	int frame_idx;
 	int frame_idx_inner;

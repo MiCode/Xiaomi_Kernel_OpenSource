@@ -1079,10 +1079,8 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MTK_CAM_CAMSYS_HDR_TIMESTAMP:
 		ret = 0;
-		break;
 	case V4L2_CID_MTK_CAM_PDE_INFO:
 		ret = mtk_raw_pde_try_set_ctrl(ctrl, CAM_SET_CTRL);
-		break;
 	case V4L2_CID_MTK_CAM_APU_INFO:
 		ret = mtk_raw_apu_set_ctrl(ctrl);
 		break;
@@ -2200,7 +2198,7 @@ void stream_on(struct mtk_raw_device *dev, int on)
 	u32 val;
 	u32 cfg_val;
 	struct mtk_raw_pipeline *pipe;
-	u32 fps_ratio;
+	u32 fps_ratio = 1;
 	struct mtk_cam_scen *scen_active;
 
 	dev_dbg(dev->dev, "raw %d %s %d\n", dev->id, __func__, on);
@@ -3129,8 +3127,6 @@ static int raw_stagger_select(struct mtk_cam_ctx *ctx,
 	int mask = 0x0;
 	bool selected = false;
 
-	memset(&stagger_select, 0, sizeof(stagger_select));
-
 	stagger_order = stagger_mode_plan[stagger_plan];
 	/* check how many stagger sensors are running, */
 	/* this will affect the decision of which mode */
@@ -3320,6 +3316,7 @@ int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
 		} else {
 			/*if no , use new engine from a->b->c*/
 			for (m = MTKCAM_SUBDEV_RAW_0; m < ARRAY_SIZE(pipe->raw->devs); m++) {
+				pipe_chk = pipe->raw->pipelines + m;
 				mask = 1 << m;
 				if (!(raw_status & mask)) {
 					pipe->enabled_raw |= mask;
@@ -3465,7 +3462,7 @@ mtk_raw_pipeline_get_fmt(struct mtk_raw_pipeline *pipe,
 	if (which == V4L2_SUBDEV_FORMAT_TRY)
 		return v4l2_subdev_get_try_format(&pipe->subdev, state, padid);
 
-	if (WARN_ON(padid >= pipe->subdev.entity.num_pads) || padid < 0)
+	if (WARN_ON(padid >= pipe->subdev.entity.num_pads))
 		return &pipe->cfg[0].mbus_fmt;
 
 	return &pipe->cfg[padid].mbus_fmt;
@@ -3480,7 +3477,7 @@ mtk_raw_pipeline_get_selection(struct mtk_raw_pipeline *pipe,
 	if (which == V4L2_SUBDEV_FORMAT_TRY)
 		return v4l2_subdev_get_try_crop(&pipe->subdev, state, pad);
 
-	if (WARN_ON(pad >= pipe->subdev.entity.num_pads || pad < 0))
+	if (WARN_ON(pad >= pipe->subdev.entity.num_pads))
 		return &pipe->cfg[0].crop;
 
 	return &pipe->cfg[pad].crop;
@@ -3849,8 +3846,7 @@ int mtk_raw_set_src_pad_fmt(struct v4l2_subdev *sd,
 	const struct mtk_cam_format_desc *fmt_desc;
 	struct mtk_raw_pipeline *pipe;
 	int ret = 0;
-	struct v4l2_mbus_framefmt *source_fmt = NULL;
-	struct v4l2_mbus_framefmt *sink_fmt = NULL;
+	struct v4l2_mbus_framefmt *source_fmt, *sink_fmt = NULL;
 
 	/* Do nothing for pad to meta video device */
 	if (fmt->pad >= MTK_RAW_META_OUT_BEGIN)
@@ -3879,13 +3875,6 @@ int mtk_raw_set_src_pad_fmt(struct v4l2_subdev *sd,
 		*source_fmt = fmt->format;
 		ret = node->desc.pad_ops->set_pad_fmt(sd, state, sink_fmt, NULL, fmt->pad,
 											fmt->which);
-	}
-
-	if (!source_fmt) {
-		dev_info(dev,
-			"%s(%d): Set fmt pad:%d(%s), no s_fmt on source pad\n",
-			__func__, fmt->which, fmt->pad, node->desc.name);
-		return -EINVAL;
 	}
 
 	if (ret)
@@ -4085,14 +4074,6 @@ static int mtk_cam_collect_pfmt(struct mtk_raw_pipeline *pipe,
 {
 	int pad = fmt->pad;
 
-	if (!pipe) {
-		pr_info("%s: pipe is null", __func__);
-		return -1;
-	}
-
-	if (WARN_ON(pad >= pipe->subdev.entity.num_pads || pad < 0))
-		pad = 0;
-
 	pipe->req_pfmt_update |= 1 << pad;
 	pipe->req_pad_fmt[pad] = *fmt;
 
@@ -4244,7 +4225,7 @@ mtk_cam_get_link_enabled_raw(struct v4l2_subdev *seninf)
 	int i;
 
 	cam = container_of(seninf->v4l2_dev->mdev, struct mtk_cam_device, media_dev);
-	for (i = MTKCAM_SUBDEV_RAW_0; i < MTKCAM_SUBDEV_RAW_END; i++) {
+	for (i = MTKCAM_SUBDEV_RAW_0; i <= MTKCAM_SUBDEV_RAW_END; i++) {
 		if (cam->raw.pipelines[i].res_config.seninf == seninf)
 			return &cam->raw.pipelines[i];
 	}
@@ -6353,11 +6334,9 @@ static void mtk_raw_pipeline_queue_setup(struct mtk_raw_pipeline *pipe)
 	struct mtk_cam_video_device *vdev;
 	unsigned int node_idx, i;
 
-	if (MTK_RAW_TOTAL_OUTPUT_QUEUES + MTK_RAW_TOTAL_CAPTURE_QUEUES
-	    != MTK_RAW_TOTAL_NODES) {
-		WARN_ON(1);
+	if (WARN_ON(MTK_RAW_TOTAL_OUTPUT_QUEUES + MTK_RAW_TOTAL_CAPTURE_QUEUES
+	    != MTK_RAW_TOTAL_NODES))
 		return;
-	}
 
 	node_idx = 0;
 
@@ -6443,7 +6422,7 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 			       V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
 
 	/* pde module ctrl */
-	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_pde_info, NULL);
+	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_pde_info, NULL);
 
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_hdr_timestamp_info, NULL);
 	if (ctrl)
@@ -6502,7 +6481,7 @@ static int mtk_raw_pipeline_register(unsigned int id, struct device *dev,
 	struct mtk_cam_device *cam = dev_get_drvdata(pipe->raw->cam_dev);
 	struct v4l2_subdev *sd = &pipe->subdev;
 	struct mtk_cam_video_device *video;
-	int i;
+	unsigned int i;
 	int ret;
 
 	pipe->id = id;
@@ -6573,7 +6552,7 @@ static int mtk_raw_pipeline_register(unsigned int id, struct device *dev,
 	return 0;
 
 fail_unregister_video:
-	for (i = i - 1; i >= 0; i--)  /* unsigned in casuse infinte loop */
+	for (i = i - 1; i >= 0; i--)
 		mtk_cam_video_unregister(pipe->vdev_nodes + i);
 
 	return ret;
