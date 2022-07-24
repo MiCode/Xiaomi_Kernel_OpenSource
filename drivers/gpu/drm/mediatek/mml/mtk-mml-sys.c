@@ -546,8 +546,7 @@ static void sys_racing_loop_pipe1(struct mml_comp *comp, struct mml_task *task,
 	struct cmdq_operand lhs, rhs;
 
 	/* do eoc to avoid task timeout during self-loop */
-	if (unlikely(mml_racing_eoc == 3))
-		cmdq_pkt_eoc(pkt, false);
+	cmdq_pkt_eoc(pkt, false);
 
 	/* reserve assign inst for jump addr */
 	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX0, 0);
