@@ -116,6 +116,10 @@ int fbt_cpu_set_floor_bound(int bound);
 int fbt_cpu_set_floor_kmin(int k);
 int fbt_cpu_set_floor_opp(int new_opp);
 
+int fbt_cpu_get_bhr(void);
+int fbt_cpu_get_bhr_opp(void);
+int fbt_cpu_get_rescue_opp_c(void);
+
 #else
 static inline void fpsgo_systrace_c(uint32_t m, pid_t id,
 	unsigned long long bufID, int val, const char *s, ...) { }

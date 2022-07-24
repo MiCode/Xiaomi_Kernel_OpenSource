@@ -340,6 +340,7 @@ static DEFINE_SPINLOCK(freq_slock);
 static DEFINE_MUTEX(fbt_mlock);
 static DEFINE_SPINLOCK(loading_slock);
 static DEFINE_MUTEX(blc_mlock);
+static DEFINE_MUTEX(cam_dep_lock);
 
 static struct list_head blc_list;
 
@@ -415,6 +416,8 @@ static int last_cb_ts;
 
 static unsigned long long sbe_rescuing_frame_id;
 
+static struct rb_root cam_dep_thread_tree;
+
 static int nsec_to_100usec(unsigned long long nsec)
 {
 	unsigned long long husec;
@@ -445,6 +448,11 @@ int fbt_cpu_set_bhr(int new_bhr)
 	return 0;
 }
 
+int fbt_cpu_get_bhr(void)
+{
+	return bhr;
+}
+
 int fbt_cpu_set_bhr_opp(int new_opp)
 {
 	if (new_opp < 0)
@@ -457,6 +465,11 @@ int fbt_cpu_set_bhr_opp(int new_opp)
 	return 0;
 }
 
+int fbt_cpu_get_bhr_opp(void)
+{
+	return bhr_opp;
+}
+
 int fbt_cpu_set_rescue_opp_c(int new_opp)
 {
 	if (new_opp < 0)
@@ -467,6 +480,11 @@ int fbt_cpu_set_rescue_opp_c(int new_opp)
 	mutex_unlock(&fbt_mlock);
 
 	return 0;
+}
+
+int fbt_cpu_get_rescue_opp_c(void)
+{
+	return rescue_opp_c;
 }
 
 int fbt_cpu_set_rescue_opp_f(int new_opp)
@@ -1267,6 +1285,38 @@ EXIT:
 	return ret;
 }
 
+static int fbt_get_cam_dep_list(struct fpsgo_loading *dep_arr)
+{
+	int index = 0;
+	struct cam_dep_thread *iter;
+	struct fpsgo_loading *cam_dep_list_local;
+	struct rb_root *rbr;
+	struct rb_node *rbn;
+
+	cam_dep_list_local =
+		kcalloc(MAX_DEP_NUM, sizeof(struct fpsgo_loading), GFP_KERNEL);
+	if (!cam_dep_list_local)
+		return -ENOMEM;
+
+	mutex_lock(&cam_dep_lock);
+	rbr = &cam_dep_thread_tree;
+	for (rbn = rb_first(rbr); rbn; rbn = rb_next(rbn)) {
+		iter = rb_entry(rbn, struct cam_dep_thread, rb_node);
+		if (index < MAX_DEP_NUM) {
+			cam_dep_list_local[index].pid = iter->pid;
+			index++;
+		}
+	}
+	mutex_unlock(&cam_dep_lock);
+
+	memset(dep_arr, 0, MAX_DEP_NUM * sizeof(struct fpsgo_loading));
+	memcpy(dep_arr, cam_dep_list_local, index * sizeof(struct fpsgo_loading));
+
+	kfree(cam_dep_list_local);
+
+	return index;
+}
+
 static void fbt_clear_dep_list(struct fpsgo_loading *pdep)
 {
 	if (pdep)
@@ -1668,9 +1718,12 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 		FPSGO_LOGE("ERROR OOM %d\n", __LINE__);
 		goto EXIT;
 	}
-	cam_dep_arr_size = fpsgo_fbt2cam_get_all_thread_num();
-	cam_dep_arr_size = clamp(cam_dep_arr_size, 1, MAX_DEP_NUM);
-	ret = fpsgo_fbt2cam_get_all_thread(cam_dep_arr, cam_dep_arr_size);
+
+	cam_dep_arr_size = fbt_get_cam_dep_list(cam_dep_arr);
+	if (cam_dep_arr_size <= 0) {
+		cam_dep_arr_size = 0;
+		memset(cam_dep_arr, 0, MAX_DEP_NUM * sizeof(struct fpsgo_loading));
+	}
 
 	if (thr->pid == max_blc_pid && thr->buffer_id == max_blc_buffer_id) {
 		dep_a_except_b(
@@ -5630,6 +5683,73 @@ void fbt_xgff_blc_set(struct fbt_thread_blc *p_blc, int blc_wt,
 	mutex_unlock(&blc_mlock);
 }
 
+static struct cam_dep_thread *fbt_xgff_dep_thread_notify_add(int pid, int force)
+{
+	struct rb_node **p = &cam_dep_thread_tree.rb_node;
+	struct rb_node *parent = NULL;
+	struct cam_dep_thread *iter = NULL;
+
+	while (*p) {
+		parent = *p;
+		iter = rb_entry(parent, struct cam_dep_thread, rb_node);
+
+		if (pid < iter->pid)
+			p = &(*p)->rb_left;
+		else if (pid > iter->pid)
+			p = &(*p)->rb_right;
+		else
+			return iter;
+	}
+
+	if (!force)
+		return NULL;
+
+	iter = kzalloc(sizeof(*iter), GFP_KERNEL);
+	if (!iter)
+		return NULL;
+	iter->pid = pid;
+
+	rb_link_node(&iter->rb_node, parent, p);
+	rb_insert_color(&iter->rb_node, &cam_dep_thread_tree);
+
+	return iter;
+}
+
+static void fbt_xgff_dep_thread_notify_del(int pid)
+{
+	struct cam_dep_thread *iter;
+
+	iter = fbt_xgff_dep_thread_notify_add(pid, 0);
+
+	if (!iter)
+		return;
+
+	rb_erase(&iter->rb_node, &cam_dep_thread_tree);
+	kfree(iter);
+}
+
+int fbt_xgff_dep_thread_notify(int pid, int op)
+{
+	int ret = 0;
+	struct cam_dep_thread *iter = NULL;
+
+	mutex_lock(&cam_dep_lock);
+
+	if (op == 1)
+		iter = fbt_xgff_dep_thread_notify_add(pid, 1);
+	else if (op == 0)
+		iter = fbt_xgff_dep_thread_notify_add(pid, 0);
+	else if (op == -1)
+		fbt_xgff_dep_thread_notify_del(pid);
+
+	if (iter)
+		ret = 1;
+
+	mutex_unlock(&cam_dep_lock);
+
+	return ret;
+}
+
 static ssize_t light_loading_policy_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -7258,6 +7378,8 @@ int __init fbt_cpu_init(void)
 	separate_pct_m = 0;
 
 	sbe_rescue_enable = fbt_get_default_sbe_rescue_enable();
+
+	cam_dep_thread_tree = RB_ROOT;
 
 	if (cluster_num <= 0)
 		FPSGO_LOGE("cpufreq policy not found");

@@ -50,15 +50,15 @@
 #include "fbt_cpu_cam.h"
 
 #define NSEC_PER_HUSEC 100000
+#define IDLE_DBNC 10
 #define MAX_PID_DIGIT 7
 #define MAIN_LOG_SIZE 256
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
 static atomic_t fbt_cam_uclamp_boost_enable;
 static atomic_t fbt_cam_gcc_enable;
-static int fbt_cam_bhr_opp;
-static int fbt_cam_bhr;
-static int fbt_cam_rescue_opp_c;
+static int fbt_cam_active;
+static int fbt_cam_idle_cnt;
 static int cluster_num;
 static DEFINE_MUTEX(fbt_cam_frame_lock);
 static DEFINE_MUTEX(fbt_cam_tree_lock);
@@ -182,6 +182,8 @@ static struct fbt_cam_thread *get_fbt_cam_thread(int tid, int force)
 	rb_link_node(&iter->rb_node, parent, p);
 	rb_insert_color(&iter->rb_node, &fbt_cam_thread_tree);
 
+	fbt_xgff_dep_thread_notify(tid, 1);
+
 	return iter;
 }
 
@@ -198,6 +200,14 @@ static void do_recycle(struct work_struct *work)
 
 	mutex_lock(&fbt_cam_frame_lock);
 
+	if (hlist_empty(&fbt_cam_frames)) {
+		fbt_cam_idle_cnt++;
+		if (fbt_cam_idle_cnt >= IDLE_DBNC) {
+			fbt_cam_active = 0;
+			goto out;
+		}
+	}
+
 	hlist_for_each_entry_safe(iter1, h, &fbt_cam_frames, hlist) {
 		diff = cur_ts - iter1->ts;
 		if (diff >= period && fbt_cam_jerk_is_finish(iter1)) {
@@ -213,6 +223,7 @@ static void do_recycle(struct work_struct *work)
 					}
 				}
 				if (RB_EMPTY_ROOT(&iter2->group_tree)) {
+					fbt_xgff_dep_thread_notify(iter2->tid, -1);
 					rb_erase(&iter2->rb_node, &fbt_cam_thread_tree);
 					kfree(iter2);
 				}
@@ -229,6 +240,7 @@ static void do_recycle(struct work_struct *work)
 
 	enable_fbt_cpu_cam_timer();
 
+out:
 	mutex_unlock(&fbt_cam_frame_lock);
 }
 
@@ -240,54 +252,6 @@ static enum hrtimer_restart recycle_fbt_cam_frame(struct hrtimer *timer)
 		schedule_work(&recycle_work);
 
 	return HRTIMER_NORESTART;
-}
-
-int fpsgo_fbt2cam_get_all_thread_num(void)
-{
-	int count = 0;
-	struct rb_root *rbr;
-	struct rb_node *rbn;
-
-	mutex_lock(&fbt_cam_tree_lock);
-
-	rbr = &fbt_cam_thread_tree;
-	for (rbn = rb_first(rbr); rbn; rbn = rb_next(rbn))
-		count++;
-
-	mutex_unlock(&fbt_cam_tree_lock);
-
-	return count;
-}
-
-static int __cmptid(const void *a, const void *b)
-{
-	return (((struct fpsgo_loading *)a)->pid)
-		- (((struct fpsgo_loading *)b)->pid);
-}
-
-int fpsgo_fbt2cam_get_all_thread(struct fpsgo_loading *dep_arr, int dep_valid_size)
-{
-	int index = 0;
-	struct fbt_cam_thread *iter;
-	struct rb_root *rbr;
-	struct rb_node *rbn;
-
-	mutex_lock(&fbt_cam_tree_lock);
-
-	rbr = &fbt_cam_thread_tree;
-	for (rbn = rb_first(rbr); rbn; rbn = rb_next(rbn)) {
-		iter = rb_entry(rbn, struct fbt_cam_thread, rb_node);
-		if (index < dep_valid_size) {
-			dep_arr[index].pid = iter->tid;
-			index++;
-		}
-	}
-
-	sort(dep_arr, index, sizeof(struct fpsgo_loading), __cmptid, NULL);
-
-	mutex_unlock(&fbt_cam_tree_lock);
-
-	return index;
 }
 
 static int fbt_cam_blc_wt_arb(int tid, int group_id, int blc_wt)
@@ -565,10 +529,10 @@ static void fbt_cam_set_min_cap(struct fbt_cam_frame *iter, int min_cap, int jer
 	}
 
 	if (!jerk) {
-		bhr_opp_local = fbt_cam_bhr_opp;
-		bhr_local = fbt_cam_bhr;
+		bhr_opp_local = fbt_cpu_get_bhr_opp();
+		bhr_local = fbt_cpu_get_bhr();
 	} else {
-		bhr_opp_local = fbt_cam_rescue_opp_c;
+		bhr_opp_local = fbt_cpu_get_rescue_opp_c();
 		bhr_local = 0;
 	}
 
@@ -615,6 +579,7 @@ static int fbt_cam_get_next_jerk(int cur_id)
 
 static void fbt_cam_do_jerk_locked(struct fbt_cam_frame *iter, int num)
 {
+	int rescue_opp_c_local = fbt_cpu_get_rescue_opp_c();
 	unsigned int blc_wt = 0;
 	struct cpu_ctrl_data *pld;
 
@@ -628,7 +593,7 @@ static void fbt_cam_do_jerk_locked(struct fbt_cam_frame *iter, int num)
 		return;
 
 	blc_wt = fbt_get_new_base_blc(pld, blc_wt,
-		iter->rescue_f_1, 0, fbt_cam_rescue_opp_c);
+		iter->rescue_f_1, 0, rescue_opp_c_local);
 	if (!blc_wt)
 		return;
 
@@ -1165,6 +1130,14 @@ static int xgff_boost_startend(unsigned int startend, int group_id,
 
 	if (!fpsgo_is_enable())
 		return XGF_DISABLE;
+
+	if (fbt_cam_idle_cnt) {
+		fbt_cam_idle_cnt = 0;
+		if (!fbt_cam_active) {
+			fbt_cam_active = 1;
+			enable_fbt_cpu_cam_timer();
+		}
+	}
 
 	if (!startend) {
 		xgff_ret = fbt_cam_frame_startend(0, group_id, NULL, 0,
@@ -1713,9 +1686,6 @@ int __init fbt_cpu_cam_init(void)
 {
 	atomic_set(&fbt_cam_uclamp_boost_enable, 1);
 	atomic_set(&fbt_cam_gcc_enable, 1);
-	fbt_cam_bhr_opp = 0;
-	fbt_cam_bhr = 0;
-	fbt_cam_rescue_opp_c = fpsgo_arch_nr_freq_cpu() - 1;
 	cluster_num = fpsgo_arch_nr_clusters();
 	fbt_cam_thread_tree = RB_ROOT;
 

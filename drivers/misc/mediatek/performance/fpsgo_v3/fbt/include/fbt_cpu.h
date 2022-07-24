@@ -12,8 +12,6 @@
 extern int fpsgo_fbt2xgf_get_dep_list_num(int pid, unsigned long long bufID);
 extern int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 		struct fpsgo_loading *arr, unsigned long long bufID);
-extern int fpsgo_fbt2cam_get_all_thread_num(void);
-extern int fpsgo_fbt2cam_get_all_thread(struct fpsgo_loading *dep_arr, int dep_valid_size);
 
 #if defined(CONFIG_MTK_FPSGO) || defined(CONFIG_MTK_FPSGO_V3)
 void fpsgo_ctrl2fbt_dfrc_fps(int fps_limit);
@@ -67,6 +65,7 @@ struct fbt_thread_blc *fbt_xgff_list_blc_add(int pid,
 void fbt_xgff_list_blc_del(struct fbt_thread_blc *p_blc);
 void fbt_xgff_blc_set(struct fbt_thread_blc *p_blc, int blc_wt,
 	int dep_num, int *dep_arr);
+int fbt_xgff_dep_thread_notify(int pid, int op);
 
 void fbt_set_render_boost_attr(struct render_info *thr);
 

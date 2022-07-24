@@ -283,6 +283,11 @@ struct gbe_runtime {
 	unsigned long long loading;
 };
 
+struct cam_dep_thread {
+	int pid;
+	struct rb_node rb_node;
+};
+
 #ifdef FPSGO_DEBUG
 #define FPSGO_LOGI(...)	pr_debug("FPSGO:" __VA_ARGS__)
 #else
