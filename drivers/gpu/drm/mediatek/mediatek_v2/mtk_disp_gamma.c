@@ -757,7 +757,7 @@ static int mtk_gamma_user_cmd(struct mtk_ddp_comp *comp,
 			DDPPR_ERR("%s: failed\n", __func__);
 			return -EFAULT;
 		}
-		if (!comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe) {
+		if ((comp->mtk_crtc != NULL) && comp->mtk_crtc->is_dual_pipe) {
 			struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
@@ -782,7 +782,7 @@ static int mtk_gamma_user_cmd(struct mtk_ddp_comp *comp,
 			DDPPR_ERR("%s: failed\n", __func__);
 			return -EFAULT;
 		}
-		if (!comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe) {
+		if ((comp->mtk_crtc != NULL) && comp->mtk_crtc->is_dual_pipe) {
 			struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
