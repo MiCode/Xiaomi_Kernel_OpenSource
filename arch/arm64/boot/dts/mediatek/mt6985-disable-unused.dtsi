@@ -195,6 +195,7 @@
 			<&camsys_main_clk CLK_CAM_MAIN_CAM2MM2_GALS_CON_0>,
 			<&camsys_main_clk CLK_CAM_MAIN_CCUSYS_CON_0>,
 			<&camsys_main_clk CLK_CAM_MAIN_IPS_CON_0>,
+			<&camsys_main_clk CLK_CAM_MAIN_AVS_CON_0>,
 			<&camsys_main_clk CLK_CAM_MAIN_CAMSV_A_CON_1>,
 			<&camsys_main_clk CLK_CAM_MAIN_CAMSV_B_CON_1>,
 			<&camsys_main_clk CLK_CAM_MAIN_CAMSV_C_CON_1>,
