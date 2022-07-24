@@ -612,7 +612,7 @@ unsigned int lbat_read_raw(void)
 {
 	unsigned int adc_out = 0;
 
-	if (!regmap)
+	if (!regmap || !lbat_regs)
 		return 0;
 	__regmap_read(regmap, &lbat_regs->adc_out, &adc_out);
 	adc_out &= lbat_regs->adc_out.mask;
@@ -624,6 +624,8 @@ unsigned int lbat_read_volt(void)
 {
 	unsigned int raw_data = lbat_read_raw();
 
+	if (!raw_data)
+		return 0;
 	return (raw_data * lbat_regs->volt_full * r_ratio[0] / r_ratio[1]) >> LBAT_RES;
 }
 EXPORT_SYMBOL(lbat_read_volt);
