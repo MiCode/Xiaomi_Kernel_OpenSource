@@ -736,7 +736,8 @@ static void debug_dump(unsigned int id, unsigned int pwr_sta)
 	}
 
 	fclk = mt_get_fmeter_clks();
-	mt_get_fmeter_freq(fclk->id, fclk->type);
+	if (fclk != NULL)
+		mt_get_fmeter_freq(fclk->id, fclk->type);
 
 	BUG_ON(1);
 }

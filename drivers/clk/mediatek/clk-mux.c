@@ -239,7 +239,7 @@ static int mtk_clk_ipi_mux_enable(struct clk_hw *hw)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
 	struct ipi_callbacks *cb;
-	u32 val;
+	u32 val = 0;
 	int ret = 0;
 
 	cb = mtk_clk_get_ipi_cb();
@@ -266,7 +266,7 @@ static void mtk_clk_ipi_mux_disable(struct clk_hw *hw)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
 	struct ipi_callbacks *cb;
-	u32 val;
+	u32 val = 0;
 	int ret = 0;
 
 	cb = mtk_clk_get_ipi_cb();

@@ -876,6 +876,8 @@ static struct mtk_vf vf_table[] = {
 
 static const char *get_vf_name(int id)
 {
+	if (id < 0)
+		return NULL;
 #if CHECK_VCORE_FREQ
 	return vf_table[id].name;
 #else
@@ -885,6 +887,8 @@ static const char *get_vf_name(int id)
 
 static int get_vf_opp(int id, int opp)
 {
+	if ((id < 0) || (opp < 0))
+		return 0;
 #if CHECK_VCORE_FREQ
 	return vf_table[id].freq_table[opp];
 #else
