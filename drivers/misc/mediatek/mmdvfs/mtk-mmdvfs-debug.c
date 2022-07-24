@@ -61,6 +61,7 @@ struct mmdvfs_debug {
 
 static struct mmdvfs_debug *g_mmdvfs;
 static bool ftrace_v1_ena, ftrace_v3_ena;
+static bool mmdvfs_v3_debug_init_done;
 
 void mtk_mmdvfs_debug_release_step0(void)
 {
@@ -240,6 +241,12 @@ static const struct proc_ops mmdvfs_debug_opp_fops = {
 	.proc_release = single_release,
 };
 
+bool mtk_is_mmdvfs_v3_debug_init_done(void)
+{
+	return mmdvfs_v3_debug_init_done;
+}
+EXPORT_SYMBOL_GPL(mtk_is_mmdvfs_v3_debug_init_done);
+
 static int mmdvfs_v3_debug_thread(void *data)
 {
 	phys_addr_t pa = 0ULL;
@@ -285,7 +292,7 @@ static int mmdvfs_v3_debug_thread(void *data)
 		ret, &pa, g_mmdvfs->pwr_base, g_mmdvfs->user_base);
 
 err:
-	mtk_mmdvfs_enable_vcp(false);
+	mmdvfs_v3_debug_init_done = true;
 	return ret;
 }
 

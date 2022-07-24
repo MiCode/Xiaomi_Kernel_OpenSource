@@ -653,7 +653,7 @@ int mtk_mmdvfs_v3_set_vote_step(u16 pwr_idx, s16 opp)
 		return -EINVAL;
 	}
 
-	last = &last_force_step[pwr_idx];
+	last = &last_vote_step[pwr_idx];
 	if (*last == opp)
 		return 0;
 
