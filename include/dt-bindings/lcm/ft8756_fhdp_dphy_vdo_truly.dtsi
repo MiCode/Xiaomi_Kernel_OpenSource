@@ -93,6 +93,7 @@
 				lcm-params-dsi-fps-0-1080-2300-60 {
 					compatible = "mediatek,lcm-dsi-fps-0-1080-2300-60";
 					lcm-params-dsi-voltage;
+					lcm-params-dsi-fake = <0>;
 
 					/* drm_display_mode */
 					lcm-params-dsi-vrefresh = <60>;
@@ -112,7 +113,7 @@
 					lcm-params-dsi-pll_clock = <530>;
 					lcm-params-dsi-data_rate;
 					lcm-params-dsi-vfp_for_low_power = <840>;
-					lcm-params-dsi-ssc_disable;
+					lcm-params-dsi-ssc_enable;
 					lcm-params-dsi-ssc_range;
 					lcm-params-dsi-lcm_color_mode;
 					lcm-params-dsi-min_luminance;
