@@ -545,11 +545,6 @@ ssize_t port_dev_write(struct file *file, const char __user *buf,
 				ccci_h->reserved = ret;	/* Unity ID */
 		}
 		/* 4. send out */
-		/*
-		 * for md3, ccci_h->channel will probably
-		 * change after call send_skb
-		 * because md3's channel mapping
-		 */
 		ret = port_send_skb_to_md(port, skb, blocking);
 		/* do NOT reference request after called this,
 		 * modem may have freed it, unless you get -EBUSY
@@ -562,9 +557,12 @@ ssize_t port_dev_write(struct file *file, const char __user *buf,
 		return actual_count;
 
  err_out:
-		CCCI_NORMAL_LOG(0, CHAR,
-			"write error done on %s, l=%zu r=%d\n",
-			port->name, actual_count, ret);
+		if ((ret != -ETXTBSY) || (ret != -ENODEV)) {
+			CCCI_NORMAL_LOG(0, CHAR,
+				"write error done on %s, l=%zu r=%d\n",
+				port->name, actual_count, ret);
+		}
+
 		ccci_free_skb(skb);
 		return ret;
 	}
