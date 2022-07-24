@@ -236,6 +236,7 @@
 #define MTK_USB_STR "mtk_usb"
 #define U2_PHY_STR "u2_phy"
 #define U3_PHY_STR "u3_phy"
+#define USB_JTAG_REG "usb_jtag_rg"
 
 #define TERM_SEL_STR "term_sel"
 #define VRT_SEL_STR "vrt_sel"
@@ -465,6 +466,35 @@ static const struct  proc_ops proc_loopback_test_fops = {
 	.proc_release = single_release,
 };
 
+static int proc_jtag_show(struct seq_file *s, void *unused)
+{
+	struct xsphy_instance *inst = s->private;
+	void __iomem *pbase = inst->port_base;
+	u32 cr4, cr6, cr0, cr2;
+
+	cr4 = readl(pbase + XSP_USBPHYACR4);
+	cr6 = readl(pbase + XSP_USBPHYACR6);
+	cr0 = readl(pbase + XSP_USBPHYACR0);
+	cr2 = readl(pbase + XSP_USBPHYACR2);
+
+	seq_printf(s, "<0x20, 0x18, 0x00, 0x08>=<%x, %x, %x, %x>\n",
+		cr4, cr6, cr0, cr2);
+	return 0;
+}
+
+static int proc_tx_jtag_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_jtag_show, PDE_DATA(inode));
+}
+
+static const struct proc_ops proc_jtag_fops = {
+	.proc_open = proc_tx_jtag_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+
 static int proc_tx_lctxcm1_show(struct seq_file *s, void *unused)
 {
 	struct xsphy_instance *inst = s->private;
@@ -526,6 +556,7 @@ static const struct proc_ops proc_tx_lctxcm1_fops = {
 	.proc_lseek = seq_lseek,
 	.proc_release = single_release,
 };
+
 
 static int proc_tx_lctxc0_show(struct seq_file *s, void *unused)
 {
@@ -2001,6 +2032,9 @@ static int mtk_phy_jtag_init(struct phy *phy)
 	struct device_node *np = dev->of_node;
 	struct of_phandle_args args;
 	struct regmap *reg_base;
+	struct proc_dir_entry *root = xsphy->root;
+	struct proc_dir_entry *phy_root;
+	struct proc_dir_entry *file;
 	u32 jtag_vers;
 	u32 tmp;
 	int ret;
@@ -2060,7 +2094,26 @@ static int mtk_phy_jtag_init(struct phy *phy)
 		break;
 	}
 
+	phy_root = proc_mkdir(U2_PHY_STR, root);
+	if (!root) {
+		dev_info(dev, "failed to creat dir proc %s\n", U2_PHY_STR);
+		ret = -ENOMEM;
+		goto err0;
+	}
+
+	file = proc_create_data(USB_JTAG_REG, 0644,
+			phy_root, &proc_jtag_fops, inst);
+	if (!file) {
+		dev_info(dev, "failed to creat proc file: %s\n", USB_JTAG_REG);
+		ret = -ENOMEM;
+		goto err1;
+	}
+
 	return 0;
+err1:
+	proc_remove(phy_root);
+err0:
+	return ret;
 }
 
 static int mtk_phy_jtag_exit(struct phy *phy)
