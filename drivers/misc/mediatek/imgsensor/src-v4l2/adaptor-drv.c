@@ -1223,6 +1223,62 @@ ERR_DEBUG_PWR_OPS_STORE:
 
 static DEVICE_ATTR_RW(debug_pwr_ops);
 
+static ssize_t debug_sensor_mode_ops_show(struct device *dev,
+			   struct device_attribute *attr, char *buf)
+{
+	int len = 0;
+	struct adaptor_ctx *ctx = to_ctx(dev_get_drvdata(dev));
+
+	SHOW(buf, len, "(%s) sensor_mode_ops is (%d)\n",
+			ctx->subdrv->name,
+			ctx->subctx.sensor_mode_ops);
+	return len;
+
+}
+
+static ssize_t debug_sensor_mode_ops_store(struct device *dev,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	char *sbuf = kzalloc(sizeof(char) * (count + 1), GFP_KERNEL);
+	struct adaptor_ctx *ctx = to_ctx(dev_get_drvdata(dev));
+	unsigned int val = 0;
+	int ret;
+
+	if (!sbuf)
+		goto ERR_DEBUG_SENSOR_MODE_OPS_STORE;
+
+	memcpy(sbuf, buf, count);
+
+	ret = kstrtouint(sbuf, 0, &val);
+	if (ret)
+		goto ERR_DEBUG_SENSOR_MODE_OPS_STORE;
+
+	switch (val) {
+	case AOV_MODE_CTRL_OPS_SENSING_CTRL:
+	case AOV_MODE_CTRL_OPS_MONTION_DETECTION_CTRL:
+		ctx->subctx.sensor_mode_ops = val;
+		break;
+	case AOV_MODE_CTRL_OPS_DEBUG_LOG_ENABLE_CTRL:
+		ctx->subctx.sensor_debug_log_enable = true;
+		break;
+	case AOV_MODE_CTRL_OPS_DEBUG_LOG_DISABLE_CTRL:
+		ctx->subctx.sensor_debug_log_enable = false;
+		break;
+	default:
+		dev_info(dev, "Wrong command parameter number (%u)\n", val);
+		break;
+	}
+
+ERR_DEBUG_SENSOR_MODE_OPS_STORE:
+
+	kfree(sbuf);
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(debug_sensor_mode_ops);
+
 static int imgsensor_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
@@ -1357,6 +1413,10 @@ static int imgsensor_probe(struct i2c_client *client)
 	if (ret)
 		dev_info(dev, "failed to create sysfs debug_pwr_ops\n");
 
+	ret = device_create_file(dev, &dev_attr_debug_sensor_mode_ops);
+	if (ret)
+		dev_info(dev, "failed to create sysfs debug_sensor_mode_ops\n");
+
 	ctx->sensor_ws = wakeup_source_register(dev, ctx->sd.name);
 
 	if (!ctx->sensor_ws)
@@ -1398,6 +1458,7 @@ static int imgsensor_remove(struct i2c_client *client)
 #endif
 	device_remove_file(ctx->dev, &dev_attr_debug_i2c_ops);
 	device_remove_file(ctx->dev, &dev_attr_debug_pwr_ops);
+	device_remove_file(ctx->dev, &dev_attr_debug_sensor_mode_ops);
 
 	mutex_destroy(&ctx->mutex);
 

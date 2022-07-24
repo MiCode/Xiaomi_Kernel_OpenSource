@@ -25,13 +25,9 @@
 // FIX ME: #define it for default aov sensing mode streaming control on scp
 // #undef it for default aov sensing mode streaming control on apmcu side
 #define AOV_MODE_SENSING_UT_ON_SCP
-// FIX ME: #undef it: default write motion detection setting
-// #define it to write custom1-3 setting for debugging
-#define AOV_MODE_SENSING_UT
-#endif
-
 // #define it to debug for power sequence if needed
 #undef PWR_SEQ_ALL_USE_FOR_AOV_MODE_TRANSITION
+#endif
 
 #define EEPROM_READY 0	// FIX ME
 
@@ -1333,7 +1329,6 @@ static kal_uint16 imx709_slim_video_setting[] = {
 	0x317D, 0x0A,
 };
 
-#ifdef AOV_MODE_SENSING_UT
 static kal_uint16 imx709_custom1_setting[] = {
 	// 640x480 @10FPS (VGA+)
 	// MIPI output setting
@@ -2065,7 +2060,7 @@ static kal_uint16 imx709_custom3_setting[] = {
 	0x38FE, 0x30,
 	0x38FF, 0x00,
 };
-#else
+
 static kal_uint16 imx709_md1_setting[] = {
 	// 512x512 @1FPS (MD1)
 	// MIPI output setting
@@ -2308,6 +2303,14 @@ static kal_uint16 imx709_md1_setting[] = {
 	0x38FB, 0x00,
 	0x38FE, 0x30,
 	0x38FF, 0x00,
+	// Monitoring terminals
+	0x371C, 0x01,
+	0x37B0, 0x01,
+	0x3030, 0x01,
+	0x4512, 0x03,
+	0x4513, 0xFF,
+	0x4501, 0x02,
+	0x442D, 0x00,
 };
 
 static kal_uint16 imx709_md2_setting[] = {
@@ -2552,6 +2555,14 @@ static kal_uint16 imx709_md2_setting[] = {
 	0x38FB, 0x00,
 	0x38FE, 0x30,
 	0x38FF, 0x00,
+	// Monitoring terminals
+	0x371C, 0x01,
+	0x37B0, 0x01,
+	0x3030, 0x01,
+	0x4512, 0x03,
+	0x4513, 0xFF,
+	0x4501, 0x02,
+	0x442D, 0x00,
 };
 
 static kal_uint16 imx709_md3_setting[] = {
@@ -2796,8 +2807,15 @@ static kal_uint16 imx709_md3_setting[] = {
 	0x38FB, 0x00,
 	0x38FE, 0x30,
 	0x38FF, 0x00,
+	// Monitoring terminals
+	0x371C, 0x01,
+	0x37B0, 0x01,
+	0x3030, 0x01,
+	0x4512, 0x03,
+	0x4513, 0xFF,
+	0x4501, 0x02,
+	0x442D, 0x00,
 };
-#endif
 
 /* reg_B2 from pre 3280x2464@10FPS */
 static kal_uint16 imx709_custom4_setting[] = {

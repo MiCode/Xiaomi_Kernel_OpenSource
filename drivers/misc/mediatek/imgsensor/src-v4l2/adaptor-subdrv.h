@@ -48,6 +48,7 @@ enum {
 	HW_ID_PONV,
 	HW_ID_SCL,
 	HW_ID_SDA,
+	HW_ID_EINT,
 	HW_ID_MAXCNT,
 };
 
@@ -71,6 +72,15 @@ enum {
 	"HW_ID_PONV", \
 	"HW_ID_SCL", \
 	"HW_ID_SDA", \
+	"HW_ID_EINT", \
+
+enum AOV_MODE_CTRL_OPS {
+	AOV_MODE_CTRL_OPS_SENSING_CTRL = 0,
+	AOV_MODE_CTRL_OPS_MONTION_DETECTION_CTRL,
+	AOV_MODE_CTRL_OPS_DEBUG_LOG_ENABLE_CTRL,
+	AOV_MODE_CTRL_OPS_DEBUG_LOG_DISABLE_CTRL,
+	AOV_MODE_CTRL_OPS_MAX_NUM,
+};
 
 struct subdrv_pw_seq_entry {
 	int id;
@@ -319,6 +329,8 @@ struct subdrv_ctx {
 
 	struct subdrv_static_ctx s_ctx;
 	u32 aov_csi_clk;	/* aov switch csi clk param */
+	unsigned int sensor_mode_ops;
+	bool sensor_debug_log_enable;
 };
 
 struct subdrv_feature_control {

@@ -553,6 +553,9 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 	INST_OPS(ctx, state, STATE_SDA_AP, HW_ID_SDA,
 			set_state, unset_state);
 
+	INST_OPS(ctx, state, STATE_EINT, HW_ID_EINT,
+		 set_state, unset_state);
+
 	/* the pins of mipi switch are shared. free it for another users */
 	if (ctx->state[STATE_MIPI_SWITCH_ON] ||
 		ctx->state[STATE_MIPI_SWITCH_OFF]) {

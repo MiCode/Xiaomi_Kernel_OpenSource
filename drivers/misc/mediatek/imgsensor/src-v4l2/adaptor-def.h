@@ -91,6 +91,7 @@ enum {
 	STATE_SCL_SCP,
 	STATE_SDA_AP,
 	STATE_SDA_SCP,
+	STATE_EINT,
 	STATE_MAXCNT,
 };
 
@@ -135,6 +136,7 @@ enum {
 	"scl_scp", \
 	"sda_ap", \
 	"sda_scp", \
+	"eint", \
 
 enum {
 	REGULATOR_AVDD = 0,
