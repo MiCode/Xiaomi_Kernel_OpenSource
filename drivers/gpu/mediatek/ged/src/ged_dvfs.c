@@ -1015,17 +1015,12 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 	else
 		gpu_freq_tar = gpu_freq_pre;
 
-	gpu_freq_floor = GED_FB_DVFS_FERQ_DROP_RATIO_LIMIT * gpu_freq_pre;
-	if (gpu_freq_tar * 100 < gpu_freq_floor) {
-		gpu_freq_tar = gpu_freq_pre;
-		gpu_freq_tar *= GED_FB_DVFS_FERQ_DROP_RATIO_LIMIT;
-		gpu_freq_tar /= 100;
-	}
-
+	gpu_freq_floor = (gpu_freq_pre * GED_FB_DVFS_FERQ_DROP_RATIO_LIMIT / 100) << 10;
 	gpu_freq_tar = gpu_freq_tar << 10;
-	// gpu_freq_tar = gpu_freq_tar * 1000;
-	Policy__Frame_based__Frequency(gpu_freq_tar, (gpu_freq_floor << 10) / 100);
+	if (gpu_freq_tar < gpu_freq_floor)
+		gpu_freq_tar = gpu_freq_floor;
 
+	Policy__Frame_based__Frequency(gpu_freq_tar, gpu_freq_floor);
 	pre_frame_idx = cur_frame_idx;
 	cur_frame_idx = (cur_frame_idx + 1) %
 		GED_DVFS_BUSY_CYCLE_MONITORING_WINDOW_NUM;
