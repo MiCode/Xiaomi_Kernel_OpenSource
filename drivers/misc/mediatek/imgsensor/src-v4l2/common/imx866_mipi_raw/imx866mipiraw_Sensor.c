@@ -3637,6 +3637,9 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	case SENSOR_SCENARIO_ID_CUSTOM3:
 		csi_param->cphy_settle = 69;//0x13;
 		break;
+	case SENSOR_SCENARIO_ID_CUSTOM6:
+		csi_param->cphy_settle = 34;//0x13;
+		break;
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
 	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
@@ -3645,7 +3648,6 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	case SENSOR_SCENARIO_ID_CUSTOM1:
 	case SENSOR_SCENARIO_ID_CUSTOM4:
 	case SENSOR_SCENARIO_ID_CUSTOM5:
-	case SENSOR_SCENARIO_ID_CUSTOM6:
 		csi_param->cphy_settle = 73;//0x14;
 		break;
 	default:
