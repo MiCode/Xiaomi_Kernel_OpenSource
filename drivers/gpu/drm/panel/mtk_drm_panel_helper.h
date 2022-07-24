@@ -58,6 +58,7 @@ struct mtk_lcm_mode_dsi {
 	unsigned int height;
 	unsigned int fps;
 	unsigned int voltage;
+	unsigned int fake;
 	struct list_head list;
 /* params */
 	struct drm_display_mode mode;

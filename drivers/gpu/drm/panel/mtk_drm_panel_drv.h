@@ -51,6 +51,9 @@ struct mtk_panel_context {
 
 	/* current fps mode */
 	atomic_t current_backlight;
+
+	/* fake mode */
+	atomic_t fake_mode;
 };
 
 extern struct platform_driver mtk_drm_panel_dbi_driver;

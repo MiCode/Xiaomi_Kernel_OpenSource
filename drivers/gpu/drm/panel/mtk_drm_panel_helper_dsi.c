@@ -798,19 +798,24 @@ static void parse_lcm_dsi_fps_ext_param(struct device_node *np,
 		}
 	}
 
+	ret = 0;
 	mtk_lcm_dts_read_u32(np,
 			"lcm-params-dsi-lcm_is_support_od", &ret);
-	if (ret == 0)
+	if (ret <= 0)
 		ext_param->is_support_od = false;
 	else
 		ext_param->is_support_od = true;
 
 	mtk_lcm_dts_read_u32(np,
 			"lcm-params-dsi-lcm_is_support_dmr", &ret);
-	if (ret == 0)
+	if (ret <= 0)
 		ext_param->is_support_dmr = false;
 	else
 		ext_param->is_support_dmr = true;
+
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-skip_vblank",
+			&ext_param->skip_vblank);
 }
 
 static void parse_lcm_dsi_fpga_settings(struct device_node *np,
@@ -1058,6 +1063,9 @@ static void parse_lcm_dsi_fps_setting(struct device_node *np,
 	mtk_lcm_dts_read_u32(np,
 			"lcm-params-dsi-voltage",
 			&mode_node->voltage);
+	mtk_lcm_dts_read_u32(np,
+			"lcm-params-dsi-fake",
+			&mode_node->fake);
 
 	parse_lcm_dsi_fps_mode(np, mode);
 	parse_lcm_dsi_fps_ext_param(np, ext_param);

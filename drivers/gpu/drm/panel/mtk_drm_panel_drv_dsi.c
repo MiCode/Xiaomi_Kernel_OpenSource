@@ -2333,6 +2333,16 @@ fail:
 	return ret;
 }
 
+static int mtk_panel_set_value(int value)
+{
+	if (value == 1)
+		atomic_set(&ctx_dsi->fake_mode, 1);
+	else
+		atomic_set(&ctx_dsi->fake_mode, 0);
+
+	return 0;
+}
+
 static struct mtk_panel_funcs mtk_drm_panel_ext_funcs = {
 	.set_backlight_cmdq = mtk_panel_set_backlight_cmdq,
 	.set_aod_light_mode = mtk_panel_set_aod_light_mode,
@@ -2363,6 +2373,7 @@ static struct mtk_panel_funcs mtk_drm_panel_ext_funcs = {
 	.cust_funcs = mtk_panel_cust_funcs,
 	.read_panelid = mtk_panel_read_panelid,
 	.set_bl_elvss_cmdq = mtk_panel_set_bl_elvss_cmdq,
+	.set_value = mtk_panel_set_value,
 };
 
 static void mtk_drm_update_disp_mode_params(struct drm_display_mode *mode)
@@ -2402,7 +2413,7 @@ static int mtk_drm_panel_get_modes(struct drm_panel *panel,
 	struct mtk_lcm_params_dsi *dsi_params = NULL;
 	struct mtk_lcm_mode_dsi *mode_node = NULL;
 	const struct mtk_panel_cust *cust = NULL;
-	int count = 0;
+	int count = 0, skip_fake = 0;
 
 	if (IS_ERR_OR_NULL(ctx_dsi) ||
 		IS_ERR_OR_NULL(ctx_dsi->panel_resource)) {
@@ -2432,6 +2443,13 @@ static int mtk_drm_panel_get_modes(struct drm_panel *panel,
 		if (IS_ERR_OR_NULL(mode_node))
 			break;
 
+		if (atomic_read(&ctx_dsi->fake_mode) == 0 &&
+			mode_node->fake > 0) {
+			count++;
+			skip_fake++;
+			continue;
+		}
+
 		mode_src = &mode_node->mode;
 		mtk_drm_update_disp_mode_params(mode_src);
 
@@ -2458,7 +2476,8 @@ static int mtk_drm_panel_get_modes(struct drm_panel *panel,
 	connector->display_info.height_mm =
 			params->physical_height;
 
-	DDPMSG("%s- count =%d\n", __func__, count);
+	DDPMSG("%s- total count:%d, skip fake count:%d\n",
+		__func__, count, skip_fake);
 	return count;
 }
 
