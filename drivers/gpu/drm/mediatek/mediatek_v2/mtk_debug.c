@@ -1903,6 +1903,10 @@ static void mtk_crtc_set_spr_tune_para(
 		DDPPR_ERR("find crtc fail\n");
 		return;
 	}
+	if (color_type >= SPR_COLOR_PARAMS_TYPE_NUM) {
+		DDPMSG("color_type:%d do not support\n", color_type);
+		return;
+	}
 
 	mtk_crtc = to_mtk_crtc(crtc);
 	if (!mtk_crtc->panel_spr_params) {
@@ -1924,6 +1928,10 @@ static void mtk_crtc_set_spr_tune_para(
 	}
 	if (!spr_tune_params) {
 		DDPPR_ERR("%s: allocate memory fail\n", __func__);
+		return;
+	}
+	if (count >= (ARRAY_SIZE(spr_tune_params->para_list))) {
+		DDPMSG("count:%d do not support\n", count);
 		return;
 	}
 
