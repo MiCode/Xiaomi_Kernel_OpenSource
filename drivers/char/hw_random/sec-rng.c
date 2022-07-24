@@ -135,7 +135,7 @@ static int sec_rng_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	proc_create("sec_rng_dbg", 0664, NULL, &sec_rng_dbg_fops);
+	proc_create("sec_rng_dbg", 0660, NULL, &sec_rng_dbg_fops);
 
 	return 0;
 }
