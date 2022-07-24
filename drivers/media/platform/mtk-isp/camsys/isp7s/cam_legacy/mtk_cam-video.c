@@ -435,6 +435,10 @@ int is_mtk_format(u32 pixelformat)
 	case V4L2_PIX_FMT_SGBRG16:
 	case V4L2_PIX_FMT_SGRBG16:
 	case V4L2_PIX_FMT_SRGGB16:
+	case V4L2_PIX_FMT_MTISP_SBGGR12:
+	case V4L2_PIX_FMT_MTISP_SGBRG12:
+	case V4L2_PIX_FMT_MTISP_SGRBG12:
+	case V4L2_PIX_FMT_MTISP_SRGGB12:
 		return 1;
 	break;
 	default:
@@ -728,6 +732,18 @@ const struct mtk_format_info *mtk_format_info(u32 format)
 		{ .format = V4L2_PIX_FMT_SRGGB16, .mem_planes = 1, .comp_planes = 1,
 			.bpp = { 2, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
 			.bit_r_num = 1, .bit_r_den = 1, .pixel_id = 3 },
+		{ .format = V4L2_PIX_FMT_MTISP_SBGGR12, .mem_planes = 1, .comp_planes = 1,
+			.bpp = { 1, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bit_r_num = 1, .bit_r_den = 1, .pixel_id = 0 },
+		{ .format = V4L2_PIX_FMT_MTISP_SGBRG12, .mem_planes = 1, .comp_planes = 1,
+			.bpp = { 1, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bit_r_num = 1, .bit_r_den = 1, .pixel_id = 1 },
+		{ .format = V4L2_PIX_FMT_MTISP_SGRBG12, .mem_planes = 1, .comp_planes = 1,
+			.bpp = { 1, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bit_r_num = 1, .bit_r_den = 1, .pixel_id = 2 },
+		{ .format = V4L2_PIX_FMT_MTISP_SRGGB12, .mem_planes = 1, .comp_planes = 1,
+			.bpp = { 1, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bit_r_num = 3, .bit_r_den = 2, .pixel_id = 3 },
 	};
 	unsigned int i;
 
