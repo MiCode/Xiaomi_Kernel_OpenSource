@@ -35,9 +35,6 @@ EXPORT_SYMBOL_GPL(fpsgo_notify_swap_buffer_fp);
 void (*fpsgo_notify_sbe_rescue_fp)(int pid, int start, int enhance, unsigned long long frameID);
 EXPORT_SYMBOL_GPL(fpsgo_notify_sbe_rescue_fp);
 
-int (*usrtch_ioctl_fp)(unsigned long arg);
-EXPORT_SYMBOL(usrtch_ioctl_fp);
-
 struct proc_dir_entry *perfmgr_root;
 EXPORT_SYMBOL(perfmgr_root);
 
@@ -431,8 +428,6 @@ static long device_ioctl(struct file *filp,
 				msgKM->start);
 		break;
 	case FPSGO_TOUCH:
-		if (usrtch_ioctl_fp)
-			usrtch_ioctl_fp(msgKM->frame_time);
 		break;
 	case FPSGO_VSYNC:
 		if (fpsgo_notify_vsync_fp)

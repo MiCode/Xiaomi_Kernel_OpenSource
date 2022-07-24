@@ -107,10 +107,6 @@ void exit_fbt_platform(void)
 	platform_driver_unregister(&mtk_platform_fpsgo_driver);
 }
 
-void fbt_reg_dram_request(int reg)
-{
-}
-
 void fbt_boost_dram(int boost)
 {
 	if (boost)

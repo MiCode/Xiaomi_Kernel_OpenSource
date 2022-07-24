@@ -29,14 +29,6 @@
 #define FSTB_IDLE_DBNC 10
 #define MAX_FSTB_POLICY_CMD_NUM 10
 
-extern int (*fbt_notifier_cpu_frame_time_fps_stabilizer)(
-	int pid,
-	int frame_type,
-	unsigned long long Q2Q_time,
-	unsigned long long Runnging_time,
-	unsigned int Curr_cap,
-	unsigned int Max_cap,
-	unsigned int Target_fps);
 extern void (*ged_kpi_output_gfx_info2_fp)(long long t_gpu,
 	unsigned int cur_freq, unsigned int cur_max_freq, u64 ulID);
 
@@ -62,13 +54,7 @@ struct FSTB_FRAME_INFO {
 	int new_info;
 	int target_fps_diff;
 	int target_fps_notifying;
-	int sbe_state; /* -1: no chase, 0: free run, 1: max_fps*/
-	/*set ui control: 1, otherswise: 0
-	 *  HWUI & 1-> sbe_state: 0,1
-	 *  HWUI & 0-> sbe_state: -1
-	 *  non-HWUI-> 0
-	 */
-	int sbe_fpsgo_ctrl;
+	int sbe_state; /*0: free run, 1: max_fps*/
 
 	long long cpu_time;
 	long long gpu_time;

@@ -28,8 +28,6 @@ enum {
 	FPSGO_SET_BOOST_TA = 0,
 	FPSGO_SET_IDLE_PREFER = 1,
 	FPSGO_SET_SCHED_RATE = 2,
-	FPSGO_SET_DRAM = 3,
-	FPSGO_SET_ISOLATION = 4,
 };
 
 /* composite key for render_info rbtree */
@@ -197,7 +195,6 @@ struct render_info {
 	int dep_valid_size;
 	unsigned long long dep_loading_ts;
 	unsigned long long linger_ts;
-	long long last_sched_runtime;
 	int avg_freq;
 
 	struct mutex thr_mlock;

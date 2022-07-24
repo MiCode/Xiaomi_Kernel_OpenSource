@@ -421,7 +421,6 @@ static struct FSTB_FRAME_INFO *add_new_frame_info(int pid, unsigned long long bu
 	new_frame_info->vote_i = 0;
 	new_frame_info->render_idle_cnt = 0;
 	new_frame_info->hwui_flag = hwui_flag;
-	new_frame_info->sbe_fpsgo_ctrl = 0;
 	new_frame_info->sbe_state = 0;
 	new_frame_info->self_ctrl_fps_enable = 0;
 	new_frame_info->tfb_enable = 0;
@@ -1022,12 +1021,7 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 		mutex_unlock(&fstb_lock);
 		return 0;
 	}
-	if (Curr_cap) {
-		if (wq_has_sleeper(&active_queue)) {
-			condition_fstb_active = 1;
-			wake_up_interruptible(&active_queue);
-		}
-	}
+
 	mtk_fstb_dprintk(
 	"pid %d Q2Q_time %lld Runnging_time %lld Curr_cap %u Max_cap %u\n",
 	pid, Q2Q_time, Runnging_time, Curr_cap, Max_cap);
@@ -1530,6 +1524,11 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 		iter->bufid = bufID;
 
 	iter->hwui_flag = hwui_flag;
+
+	if (wq_has_sleeper(&active_queue)) {
+		condition_fstb_active = 1;
+		wake_up_interruptible(&active_queue);
+	}
 
 	if (iter->queue_time_begin < 0 ||
 			iter->queue_time_end < 0 ||

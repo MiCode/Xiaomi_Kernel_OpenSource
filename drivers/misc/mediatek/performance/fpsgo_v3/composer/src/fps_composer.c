@@ -771,6 +771,8 @@ static int switch_ui_ctrl(int pid, int set_ctrl)
 
 	fpsgo_systrace_c_fbt(pid, 0,
 			set_ctrl, "sbe_set_ctrl");
+	fpsgo_systrace_c_fbt(pid, 0,
+			0, "sbe_state");
 
 	return 0;
 }
