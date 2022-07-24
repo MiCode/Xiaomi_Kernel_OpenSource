@@ -32,6 +32,8 @@
 #define AAL_SRAM_STATUS_BIT	BIT(17)
 #define AAL_HIST_MAX_SUM (300)
 #define REG_NOT_SUPPORT 0xfff
+#define BLK_WIDTH_DEFAULT (120)
+#define BLK_HEIGH_DEFAULT (135)
 
 /* min of label count for aal curve
  *	(AAL_CURVE_NUM * 7 / CMDQ_NUM_CMD(CMDQ_CMD_BUFFER_SIZE) + 1)
@@ -619,8 +621,10 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 			aal_frm->out_hist_xs = aal_frm->cut_pos_x;
 	}
 
-	dre_blk_width = aal_frm->dre_blk_width;
-	dre_blk_height = aal_frm->dre_blk_height;
+	dre_blk_width =
+		(aal_frm->dre_blk_width) ? aal_frm->dre_blk_width : BLK_WIDTH_DEFAULT;
+	dre_blk_height =
+		(aal_frm->dre_blk_height) ? aal_frm->dre_blk_height : BLK_HEIGH_DEFAULT;
 
 	aal_hist_left_start =
 		(tile->out.xs > aal_frm->out_hist_xs) ? tile->out.xs : aal_frm->out_hist_xs;
