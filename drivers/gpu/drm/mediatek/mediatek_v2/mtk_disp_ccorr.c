@@ -1295,18 +1295,28 @@ static int mtk_ccorr_user_cmd(struct mtk_ddp_comp *comp,
 
 struct ccorr_backup {
 	unsigned int REG_CCORR_CFG;
+	unsigned int REG_CCORR_INTEN;
 };
-static struct ccorr_backup g_ccorr_backup;
+static struct ccorr_backup g_ccorr_backup[DISP_CCORR_TOTAL];
 
 static void ddp_ccorr_backup(struct mtk_ddp_comp *comp)
 {
-	g_ccorr_backup.REG_CCORR_CFG =
-		readl(comp->regs + DISP_REG_CCORR_CFG);
+	unsigned int index = index_of_ccorr(comp->id);
+
+	g_ccorr_backup[index].REG_CCORR_CFG =
+			readl(comp->regs + DISP_REG_CCORR_CFG);
+	g_ccorr_backup[index].REG_CCORR_INTEN =
+			readl(comp->regs + DISP_REG_CCORR_INTEN);
 }
 
 static void ddp_ccorr_restore(struct mtk_ddp_comp *comp)
 {
-	writel(g_ccorr_backup.REG_CCORR_CFG, comp->regs + DISP_REG_CCORR_CFG);
+	unsigned int index = index_of_ccorr(comp->id);
+
+	writel(g_ccorr_backup[index].REG_CCORR_CFG,
+			comp->regs + DISP_REG_CCORR_CFG);
+	writel(g_ccorr_backup[index].REG_CCORR_INTEN,
+			comp->regs + DISP_REG_CCORR_INTEN);
 }
 
 static void mtk_ccorr_prepare(struct mtk_ddp_comp *comp)
@@ -1329,6 +1339,7 @@ static void mtk_ccorr_unprepare(struct mtk_ddp_comp *comp)
 {
 	unsigned long flags;
 
+	ddp_ccorr_backup(comp);
 	disp_ccorr_clear_irq_only(comp);
 
 	DDPINFO("%s @ %d......... spin_lock_irqsave ++ ", __func__, __LINE__);
@@ -1338,7 +1349,6 @@ static void mtk_ccorr_unprepare(struct mtk_ddp_comp *comp)
 	spin_unlock_irqrestore(&g_ccorr_clock_lock, flags);
 	DDPDBG("%s @ %d......... spin_unlock_irqrestore ", __func__, __LINE__);
 	wake_up_interruptible(&g_ccorr_get_irq_wq); // wake up who's waiting isr
-	ddp_ccorr_backup(comp);
 	mtk_ddp_comp_clk_unprepare(comp);
 
 	DDPINFO("%s\n", __func__);
