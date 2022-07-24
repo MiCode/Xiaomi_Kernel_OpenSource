@@ -33,10 +33,8 @@ static int vmm_user_counter;
 static int vmm_locked_isp_open(void)
 {
 	vmm_user_counter++;
-	if (vmm_user_counter == 1) {
-		ISP_LOGI("ISP mtcmos on");
+	if (vmm_user_counter == 1)
 		mtk_mmdvfs_camera_notify(1);
-	}
 
 	return 0;
 }
@@ -48,10 +46,8 @@ static int vmm_locked_isp_close(void)
 		return 0;
 
 	vmm_user_counter--;
-	if (vmm_user_counter == 0) {
-		ISP_LOGI("ISP mtcmos off");
+	if (vmm_user_counter == 0)
 		mtk_mmdvfs_camera_notify(0);
-	}
 
 	return 0;
 }
