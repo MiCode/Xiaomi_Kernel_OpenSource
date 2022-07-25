@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
-#if !IS_ENABLED(CONFIG_QSEECOM)
+
 #include <linux/file.h>
 #include <linux/fs.h>
 #include <linux/fdtable.h>
@@ -13,12 +14,20 @@
 #include <linux/firmware.h>
 #include <linux/elf.h>
 #include <linux/smcinvoke.h>
+
+#include "smcinvoke_helper.h"
+#include <soc/qcom/IAppLoader.h>
+#include <soc/qcom/CAppLoader.h>
+#include <soc/qcom/IAppController.h>
+#include <soc/qcom/IClientEnv.h>
+#include <soc/qcom/IOpener.h>
+
+#if !IS_ENABLED(CONFIG_QSEECOM)
 #include <linux/qseecom.h>
-#include "smcinvoke_object.h"
 #include <misc/qseecom_kernel.h>
 #include "IQSEEComCompat.h"
 #include "IQSEEComCompatAppLoader.h"
-#include "IClientEnv.h"
+#endif
 
 const uint32_t CQSEEComCompatAppLoader_UID = 122;
 
@@ -280,20 +289,10 @@ static int get_root_obj(struct Object *rootObj)
  * Get a client environment using CBOR encoded credentials
  * with UID of SYSTEM_UID (1000)
  */
-static int32_t get_client_env_object(struct Object *clientEnvObj)
+int32_t get_client_env_object(struct Object *clientEnvObj)
 {
 	int32_t  ret = OBJECT_ERROR;
 	struct Object rootObj = Object_NULL;
-	/* Hardcode self cred buffer in CBOR encoded format.
-	 * CBOR encoded credentials is created using following parameters,
-	 * #define ATTR_UID        1
-	 * #define ATTR_PKG_NAME   3
-	 * #define SYSTEM_UID      1000
-	 * static const uint8_t bufString[] = {"UefiSmcInvoke"};
-	 */
-	uint8_t encodedBuf[] = {0xA2, 0x01, 0x19, 0x03, 0xE8, 0x03, 0x6E, 0x55,
-				0x65, 0x66, 0x69, 0x53, 0x6D, 0x63, 0x49, 0x6E,
-				0x76, 0x6F, 0x6B, 0x65, 0x0};
 
 	/* get rootObj */
 	ret = get_root_obj(&rootObj);
@@ -302,14 +301,17 @@ static int32_t get_client_env_object(struct Object *clientEnvObj)
 		return ret;
 	}
 
-	/* get client env */
-	ret = IClientEnv_registerLegacy(rootObj, encodedBuf,
-			sizeof(encodedBuf), clientEnvObj);
+	ret = IClientEnv_registerWithCredentials(rootObj, Object_NULL, clientEnvObj);
+
 	if (ret)
 		pr_err("Failed to get ClientEnvObject, ret = %d\n", ret);
+
 	Object_release(rootObj);
 	return ret;
 }
+EXPORT_SYMBOL(get_client_env_object);
+
+#if !IS_ENABLED(CONFIG_QSEECOM)
 
 static int load_app(struct qseecom_compat_context *cxt, const char *app_name)
 {
