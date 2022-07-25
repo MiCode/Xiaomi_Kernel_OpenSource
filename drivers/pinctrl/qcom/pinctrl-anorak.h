@@ -804,10 +804,14 @@ enum anorak_functions {
 	msm_mux_qup0_se3_l1,
 	msm_mux_qup0_se3_l2,
 	msm_mux_qup0_se3_l3,
-	msm_mux_qup0_se4_l0,
-	msm_mux_qup0_se4_l1,
-	msm_mux_qup0_se4_l2,
-	msm_mux_qup0_se4_l3,
+	msm_mux_qup0_se4_l0_mira,
+	msm_mux_qup0_se4_l0_mirb,
+	msm_mux_qup0_se4_l1_mira,
+	msm_mux_qup0_se4_l1_mirb,
+	msm_mux_qup0_se4_l2_mira,
+	msm_mux_qup0_se4_l2_mirb,
+	msm_mux_qup0_se4_l3_mira,
+	msm_mux_qup0_se4_l3_mirb,
 	msm_mux_qup0_se4_l4,
 	msm_mux_qup0_se4_l5,
 	msm_mux_qup0_se4_l6,
@@ -822,19 +826,23 @@ enum anorak_functions {
 	msm_mux_qup1_se0_l0,
 	msm_mux_qup1_se0_l1,
 	msm_mux_qup1_se0_l2,
-	msm_mux_qup1_se0_l3,
+	msm_mux_qup1_se0_l3_mira,
+	msm_mux_qup1_se0_l3_mirb,
 	msm_mux_qup1_se1_l0,
 	msm_mux_qup1_se1_l1,
 	msm_mux_qup1_se1_l2,
-	msm_mux_qup1_se1_l3,
+	msm_mux_qup1_se1_l3_mira,
+	msm_mux_qup1_se1_l3_mirb,
 	msm_mux_qup1_se2_l0,
 	msm_mux_qup1_se2_l1,
 	msm_mux_qup1_se2_l2,
-	msm_mux_qup1_se2_l3,
+	msm_mux_qup1_se2_l3_mira,
+	msm_mux_qup1_se2_l3_mirb,
 	msm_mux_qup1_se3_l0,
 	msm_mux_qup1_se3_l1,
 	msm_mux_qup1_se3_l2,
-	msm_mux_qup1_se3_l3,
+	msm_mux_qup1_se3_l3_mira,
+	msm_mux_qup1_se3_l3_mirb,
 	msm_mux_qup1_se4_l0,
 	msm_mux_qup1_se4_l1,
 	msm_mux_qup1_se4_l2,
@@ -846,8 +854,10 @@ enum anorak_functions {
 	msm_mux_qup1_se5_l1,
 	msm_mux_qup1_se5_l2,
 	msm_mux_qup1_se5_l3,
-	msm_mux_qup1_se6_l0,
-	msm_mux_qup1_se6_l1,
+	msm_mux_qup1_se6_l0_mira,
+	msm_mux_qup1_se6_l0_mirb,
+	msm_mux_qup1_se6_l1_mira,
+	msm_mux_qup1_se6_l1_mirb,
 	msm_mux_qup1_se6_l2,
 	msm_mux_qup1_se6_l3,
 	msm_mux_sd_write_protect,
@@ -1594,17 +1604,29 @@ static const char * const qup0_se3_l2_groups[] = {
 static const char * const qup0_se3_l3_groups[] = {
 	"gpio137",
 };
-static const char * const qup0_se4_l0_groups[] = {
-	"gpio130", "gpio162",
+static const char * const qup0_se4_l0_mira_groups[] = {
+	"gpio130",
 };
-static const char * const qup0_se4_l1_groups[] = {
-	"gpio131", "gpio163",
+static const char * const qup0_se4_l0_mirb_groups[] = {
+	"gpio162",
 };
-static const char * const qup0_se4_l2_groups[] = {
-	"gpio132", "gpio164",
+static const char * const qup0_se4_l1_mira_groups[] = {
+	"gpio131",
 };
-static const char * const qup0_se4_l3_groups[] = {
-	"gpio133", "gpio165",
+static const char * const qup0_se4_l1_mirb_groups[] = {
+	"gpio163",
+};
+static const char * const qup0_se4_l2_mira_groups[] = {
+	"gpio132",
+};
+static const char * const qup0_se4_l2_mirb_groups[] = {
+	"gpio164",
+};
+static const char * const qup0_se4_l3_mira_groups[] = {
+	"gpio133",
+};
+static const char * const qup0_se4_l3_mirb_groups[] = {
+	"gpio165",
 };
 static const char * const qup0_se4_l4_groups[] = {
 	"gpio166",
@@ -1648,8 +1670,11 @@ static const char * const qup1_se0_l1_groups[] = {
 static const char * const qup1_se0_l2_groups[] = {
 	"gpio59",
 };
-static const char * const qup1_se0_l3_groups[] = {
-	"gpio60", "gpio62",
+static const char * const qup1_se0_l3_mira_groups[] = {
+	"gpio60",
+};
+static const char * const qup1_se0_l3_mirb_groups[] = {
+	"gpio62",
 };
 static const char * const qup1_se1_l0_groups[] = {
 	"gpio63",
@@ -1660,8 +1685,11 @@ static const char * const qup1_se1_l1_groups[] = {
 static const char * const qup1_se1_l2_groups[] = {
 	"gpio65",
 };
-static const char * const qup1_se1_l3_groups[] = {
-	"gpio66", "gpio68",
+static const char * const qup1_se1_l3_mira_groups[] = {
+	"gpio66",
+};
+static const char * const qup1_se1_l3_mirb_groups[] = {
+	"gpio68",
 };
 static const char * const qup1_se2_l0_groups[] = {
 	"gpio69",
@@ -1672,8 +1700,11 @@ static const char * const qup1_se2_l1_groups[] = {
 static const char * const qup1_se2_l2_groups[] = {
 	"gpio71",
 };
-static const char * const qup1_se2_l3_groups[] = {
-	"gpio72", "gpio74",
+static const char * const qup1_se2_l3_mira_groups[] = {
+	"gpio72",
+};
+static const char * const qup1_se2_l3_mirb_groups[] = {
+	"gpio74",
 };
 static const char * const qup1_se3_l0_groups[] = {
 	"gpio75",
@@ -1684,8 +1715,11 @@ static const char * const qup1_se3_l1_groups[] = {
 static const char * const qup1_se3_l2_groups[] = {
 	"gpio77",
 };
-static const char * const qup1_se3_l3_groups[] = {
-	"gpio78", "gpio80",
+static const char * const qup1_se3_l3_mira_groups[] = {
+	"gpio78",
+};
+static const char * const qup1_se3_l3_mirb_groups[] = {
+	"gpio80",
 };
 static const char * const qup1_se4_l0_groups[] = {
 	"gpio81",
@@ -1720,11 +1754,17 @@ static const char * const qup1_se5_l2_groups[] = {
 static const char * const qup1_se5_l3_groups[] = {
 	"gpio91",
 };
-static const char * const qup1_se6_l0_groups[] = {
-	"gpio92", "gpio103",
+static const char * const qup1_se6_l0_mira_groups[] = {
+	"gpio92",
 };
-static const char * const qup1_se6_l1_groups[] = {
-	"gpio93", "gpio104",
+static const char * const qup1_se6_l0_mirb_groups[] = {
+	"gpio103",
+};
+static const char * const qup1_se6_l1_mira_groups[] = {
+	"gpio93",
+};
+static const char * const qup1_se6_l1_mirb_groups[] = {
+	"gpio104",
 };
 static const char * const qup1_se6_l2_groups[] = {
 	"gpio105",
@@ -2012,10 +2052,14 @@ static const struct msm_function anorak_functions[] = {
 	FUNCTION(qup0_se3_l1),
 	FUNCTION(qup0_se3_l2),
 	FUNCTION(qup0_se3_l3),
-	FUNCTION(qup0_se4_l0),
-	FUNCTION(qup0_se4_l1),
-	FUNCTION(qup0_se4_l2),
-	FUNCTION(qup0_se4_l3),
+	FUNCTION(qup0_se4_l0_mira),
+	FUNCTION(qup0_se4_l0_mirb),
+	FUNCTION(qup0_se4_l1_mira),
+	FUNCTION(qup0_se4_l1_mirb),
+	FUNCTION(qup0_se4_l2_mira),
+	FUNCTION(qup0_se4_l2_mirb),
+	FUNCTION(qup0_se4_l3_mira),
+	FUNCTION(qup0_se4_l3_mirb),
 	FUNCTION(qup0_se4_l4),
 	FUNCTION(qup0_se4_l5),
 	FUNCTION(qup0_se4_l6),
@@ -2030,19 +2074,23 @@ static const struct msm_function anorak_functions[] = {
 	FUNCTION(qup1_se0_l0),
 	FUNCTION(qup1_se0_l1),
 	FUNCTION(qup1_se0_l2),
-	FUNCTION(qup1_se0_l3),
+	FUNCTION(qup1_se0_l3_mira),
+	FUNCTION(qup1_se0_l3_mirb),
 	FUNCTION(qup1_se1_l0),
 	FUNCTION(qup1_se1_l1),
 	FUNCTION(qup1_se1_l2),
-	FUNCTION(qup1_se1_l3),
+	FUNCTION(qup1_se1_l3_mira),
+	FUNCTION(qup1_se1_l3_mirb),
 	FUNCTION(qup1_se2_l0),
 	FUNCTION(qup1_se2_l1),
 	FUNCTION(qup1_se2_l2),
-	FUNCTION(qup1_se2_l3),
+	FUNCTION(qup1_se2_l3_mira),
+	FUNCTION(qup1_se2_l3_mirb),
 	FUNCTION(qup1_se3_l0),
 	FUNCTION(qup1_se3_l1),
 	FUNCTION(qup1_se3_l2),
-	FUNCTION(qup1_se3_l3),
+	FUNCTION(qup1_se3_l3_mira),
+	FUNCTION(qup1_se3_l3_mirb),
 	FUNCTION(qup1_se4_l0),
 	FUNCTION(qup1_se4_l1),
 	FUNCTION(qup1_se4_l2),
@@ -2054,8 +2102,10 @@ static const struct msm_function anorak_functions[] = {
 	FUNCTION(qup1_se5_l1),
 	FUNCTION(qup1_se5_l2),
 	FUNCTION(qup1_se5_l3),
-	FUNCTION(qup1_se6_l0),
-	FUNCTION(qup1_se6_l1),
+	FUNCTION(qup1_se6_l0_mira),
+	FUNCTION(qup1_se6_l0_mirb),
+	FUNCTION(qup1_se6_l1_mira),
+	FUNCTION(qup1_se6_l1_mirb),
 	FUNCTION(qup1_se6_l2),
 	FUNCTION(qup1_se6_l3),
 	FUNCTION(sd_write_protect),
@@ -2196,10 +2246,10 @@ static const struct msm_pingroup anorak_groups[] = {
 	[58] = PINGROUP(58, qup1_se0_l1, ibi_i3c_qup1, NA, NA, NA, NA, NA, NA,
 			NA, 0, -1),
 	[59] = PINGROUP(59, qup1_se0_l2, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
-	[60] = PINGROUP(60, qup1_se0_l3, pwm_2, mdp1_vsync0_out, NA, NA, NA,
+	[60] = PINGROUP(60, qup1_se0_l3_mira, pwm_2, mdp1_vsync0_out, NA, NA, NA,
 			NA, NA, NA, 0xE0010, 1),
 	[61] = PINGROUP(61, pwm_3, mdp1_vsync1_out, NA, NA, NA, NA, NA, NA, NA, 0xE0010, 2),
-	[62] = PINGROUP(62, gcc_gp4_clk, qup1_se0_l3, mdp1_vsync2_out, NA, NA,
+	[62] = PINGROUP(62, gcc_gp4_clk, qup1_se0_l3_mirb, mdp1_vsync2_out, NA, NA,
 			NA, NA, NA, NA, 0xE0010, 3),
 	[63] = PINGROUP(63, qup1_se1_l0, ibi_i3c_qup1, mdp1_vsync3_out, NA, NA,
 			NA, NA, NA, NA, 0xE0010, 4),
@@ -2207,10 +2257,10 @@ static const struct msm_pingroup anorak_groups[] = {
 			NA, NA, NA, NA, 0, -1),
 	[65] = PINGROUP(65, qup1_se1_l2, mdp1_vsync5_out, NA, NA, NA, NA, NA,
 			NA, NA, 0, -1),
-	[66] = PINGROUP(66, qup1_se1_l3, pwm_4, mdp1_vsync6_out, NA, NA, NA,
+	[66] = PINGROUP(66, qup1_se1_l3_mira, pwm_4, mdp1_vsync6_out, NA, NA, NA,
 			NA, NA, NA, 0xE0010, 5),
 	[67] = PINGROUP(67, pwm_5, mdp1_vsync7_out, NA, NA, NA, NA, NA, NA, NA, 0, -1),
-	[68] = PINGROUP(68, gcc_gp5_clk, qup1_se1_l3, mdp1_vsync8_out, NA, NA,
+	[68] = PINGROUP(68, gcc_gp5_clk, qup1_se1_l3_mirb, mdp1_vsync8_out, NA, NA,
 			NA, NA, NA, NA, 0xE0010, 6),
 	[69] = PINGROUP(69, qup1_se2_l0, mdp0_vsync0_out, NA, NA, NA, NA, NA,
 			NA, NA, 0, -1),
@@ -2218,10 +2268,10 @@ static const struct msm_pingroup anorak_groups[] = {
 			NA, NA, 0, -1),
 	[71] = PINGROUP(71, qup1_se2_l2, mdp0_vsync2_out, NA, NA, NA, NA, NA,
 			NA, NA, 0, -1),
-	[72] = PINGROUP(72, qup1_se2_l3, pwm_6, mdp0_vsync3_out, NA, NA, NA,
+	[72] = PINGROUP(72, qup1_se2_l3_mira, pwm_6, mdp0_vsync3_out, NA, NA, NA,
 			NA, NA, NA, 0xE0010, 7),
 	[73] = PINGROUP(73, pwm_7, mdp0_vsync4_out, NA, NA, NA, NA, NA, NA, NA, 0, -1),
-	[74] = PINGROUP(74, gcc_gp6_clk, qup1_se2_l3, mdp0_vsync5_out, NA, NA,
+	[74] = PINGROUP(74, gcc_gp6_clk, qup1_se2_l3_mirb, mdp0_vsync5_out, NA, NA,
 			NA, NA, NA, NA, 0xE0010, 8),
 	[75] = PINGROUP(75, qup1_se3_l0, mdp0_vsync6_out, NA, NA, NA, NA, NA,
 			NA, NA, 0, -1),
@@ -2229,9 +2279,9 @@ static const struct msm_pingroup anorak_groups[] = {
 			NA, NA, 0, -1),
 	[77] = PINGROUP(77, qup1_se3_l2, mdp0_vsync8_out, NA, NA, NA, NA, NA,
 			NA, NA, 0, -1),
-	[78] = PINGROUP(78, qup1_se3_l3, pwm_8, NA, NA, NA, NA, NA, NA, NA, 0xE0010, 9),
+	[78] = PINGROUP(78, qup1_se3_l3_mira, pwm_8, NA, NA, NA, NA, NA, NA, NA, 0xE0010, 9),
 	[79] = PINGROUP(79, pwm_9, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
-	[80] = PINGROUP(80, gcc_gp7_clk, qup1_se3_l3, NA, NA, NA, NA, NA, NA,
+	[80] = PINGROUP(80, gcc_gp7_clk, qup1_se3_l3_mirb, NA, NA, NA, NA, NA, NA,
 			NA, 0xE0010, 10),
 	[81] = PINGROUP(81, qup1_se4_l0, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[82] = PINGROUP(82, qup1_se4_l1, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
@@ -2245,8 +2295,8 @@ static const struct msm_pingroup anorak_groups[] = {
 	[89] = PINGROUP(89, qup1_se5_l1, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[90] = PINGROUP(90, qup1_se5_l2, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[91] = PINGROUP(91, qup1_se5_l3, NA, NA, NA, NA, NA, NA, NA, NA, 0xE0010, 14),
-	[92] = PINGROUP(92, qup1_se6_l0, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
-	[93] = PINGROUP(93, qup1_se6_l1, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
+	[92] = PINGROUP(92, qup1_se6_l0_mira, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
+	[93] = PINGROUP(93, qup1_se6_l1_mira, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[94] = PINGROUP(94, qup0_se0_l0, ibi_i3c_qup0, NA, NA, NA, NA, NA, NA,
 			NA, 0xE0000, 3),
 	[95] = PINGROUP(95, qup0_se0_l1, ibi_i3c_qup0, NA, NA, NA, NA, NA, NA,
@@ -2265,9 +2315,9 @@ static const struct msm_pingroup anorak_groups[] = {
 			 NA, NA, NA, NA, 0xE0000, 7),
 	[102] = PINGROUP(102, tsense_pwm1_out, tsense_pwm2_out, NA, NA, NA, NA,
 			 NA, NA, NA, 0, -1),
-	[103] = PINGROUP(103, qup1_se6_l0, dp0_hot_plug, NA, NA, NA, NA, NA,
+	[103] = PINGROUP(103, qup1_se6_l0_mirb, dp0_hot_plug, NA, NA, NA, NA, NA,
 			 NA, NA, 0xE0010, 15),
-	[104] = PINGROUP(104, qup1_se6_l1, edp0_hot_plug, NA, NA, NA, NA, NA,
+	[104] = PINGROUP(104, qup1_se6_l1_mirb, edp0_hot_plug, NA, NA, NA, NA, NA,
 			 NA, NA, 0xE0014, 0),
 	[105] = PINGROUP(105, qup1_se6_l2, edp1_hot_plug, NA, NA, NA, NA, NA,
 			 NA, NA, 0xE0014, 1),
@@ -2304,14 +2354,14 @@ static const struct msm_pingroup anorak_groups[] = {
 	[129] = PINGROUP(129, qup0_se5_l3, cmu_rng_entropy2, NA,
 			 atest_usb0_testdataout02, ddr_pxi1_test, NA, NA, NA,
 			 NA, 0xE0000, 9),
-	[130] = PINGROUP(130, qup0_se4_l0, cmu_rng_entropy1, NA,
+	[130] = PINGROUP(130, qup0_se4_l0_mira, cmu_rng_entropy1, NA,
 			 atest_usb0_testdataout03, ddr_pxi2_test, NA, NA, NA,
 			 NA, 0, -1),
-	[131] = PINGROUP(131, qup0_se4_l1, cmu_rng_entropy0, NA, NA,
+	[131] = PINGROUP(131, qup0_se4_l1_mira, cmu_rng_entropy0, NA, NA,
 			 ddr_pxi2_test, NA, NA, NA, NA, 0, -1),
-	[132] = PINGROUP(132, qup0_se4_l2, NA, NA, ddr_pxi3_test, NA, NA, NA,
+	[132] = PINGROUP(132, qup0_se4_l2_mira, NA, NA, ddr_pxi3_test, NA, NA, NA,
 			 NA, NA, 0, -1),
-	[133] = PINGROUP(133, qup0_se4_l3, dbg_out_clk, ddr_pxi3_test, NA, NA,
+	[133] = PINGROUP(133, qup0_se4_l3_mira, dbg_out_clk, ddr_pxi3_test, NA, NA,
 			 NA, NA, NA, NA, 0xE0000, 10),
 	[134] = PINGROUP(134, qup0_se3_l0, qdss_gpio_tracedata10, NA, NA, NA,
 			 NA, NA, NA, NA, 0, -1),
@@ -2353,13 +2403,13 @@ static const struct msm_pingroup anorak_groups[] = {
 			 NA, 0, -1),
 	[160] = PINGROUP(160, usb0_phy_ps, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[161] = PINGROUP(161, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
-	[162] = PINGROUP(162, qup0_se4_l0, ext_mclk0, audio_ref_clk, NA, NA,
+	[162] = PINGROUP(162, qup0_se4_l0_mirb, ext_mclk0, audio_ref_clk, NA, NA,
 			 NA, NA, NA, NA, 0xE0004, 4),
-	[163] = PINGROUP(163, qup0_se4_l1, i2s0_data0, tgu_ch0_trigout, NA, NA,
+	[163] = PINGROUP(163, qup0_se4_l1_mirb, i2s0_data0, tgu_ch0_trigout, NA, NA,
 			 NA, NA, NA, NA, 0xE0004, 5),
-	[164] = PINGROUP(164, qup0_se4_l2, i2s0_sck, tgu_ch1_trigout, NA, NA,
+	[164] = PINGROUP(164, qup0_se4_l2_mirb, i2s0_sck, tgu_ch1_trigout, NA, NA,
 			 NA, NA, NA, NA, 0xE0004, 6),
-	[165] = PINGROUP(165, qup0_se4_l3, i2s0_data1, tgu_ch2_trigout, NA, NA,
+	[165] = PINGROUP(165, qup0_se4_l3_mirb, i2s0_data1, tgu_ch2_trigout, NA, NA,
 			 NA, NA, NA, NA, 0xE0004, 7),
 	[166] = PINGROUP(166, qup0_se4_l4, i2s0_ws, tgu_ch3_trigout, NA, NA,
 			 NA, NA, NA, NA, 0xE0004, 8),
