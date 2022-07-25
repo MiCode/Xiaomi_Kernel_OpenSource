@@ -1968,6 +1968,11 @@ static int spi_geni_probe(struct platform_device *pdev)
 	geni_mas->spi_rsc.wrapper = dev_get_drvdata(dev->parent);
 	spi->dev.of_node = pdev->dev.of_node;
 
+	if (!geni_mas->spi_rsc.wrapper) {
+		dev_err(&pdev->dev, "SE Wrapper is NULL, deferring probe\n");
+		return -EPROBE_DEFER;
+	}
+
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,le-vm")) {
 		geni_mas->is_le_vm = true;
 		dev_info(&pdev->dev, "LE-VM usecase\n");
@@ -2184,12 +2189,6 @@ static int spi_geni_probe(struct platform_device *pdev)
 		spi_rsc->icc_paths[CPU_TO_GENI].avg_bw,
 		spi_rsc->icc_paths[GENI_TO_DDR].avg_bw);
 
-	ret = spi_register_master(spi);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to register SPI master\n");
-		goto spi_geni_probe_err;
-	}
-
 	if (!geni_mas->is_le_vm) {
 		ret = geni_icc_disable(spi_rsc);
 		if (ret) {
@@ -2199,6 +2198,11 @@ static int spi_geni_probe(struct platform_device *pdev)
 		}
 	}
 
+	ret = spi_register_master(spi);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to register SPI master\n");
+		goto spi_geni_probe_err;
+	}
 	dev_info(&pdev->dev, "%s: completed %d\n", __func__, ret);
 	return ret;
 spi_geni_probe_err:
