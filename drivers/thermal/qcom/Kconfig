@@ -220,3 +220,12 @@ config REGULATOR_COOLING_DEVICE
 	  on a particular regulator. This mitigation device will be used by low
 	  temperature reliability rules to mitigate a regulator at nominal
 	  voltage.
+
+config QTI_QMI_SENSOR
+	tristate "QTI QMI sensor driver"
+	depends on QCOM_QMI_HELPERS && THERMAL
+	help
+	   This enables to list the QTI remote subsystem temperature sensors.
+	   This driver can read the temperature of the remote sensor.
+	   These sensors can take thresholds and notify the thermal
+	   framework when the threshold is reached.
