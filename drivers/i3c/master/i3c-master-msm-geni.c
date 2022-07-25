@@ -2018,6 +2018,11 @@ static int i3c_geni_rsrcs_init(struct geni_i3c_dev *gi3c,
 	gi3c->se.dev = dev;
 	gi3c->se.wrapper = dev_get_drvdata(dev->parent);
 	gi3c->wrapper_dev = dev->parent;
+	if (!gi3c->se.wrapper) {
+		I3C_LOG_ERR(gi3c->ipcl, false, gi3c->se.dev,
+			"SE Wrapper is NULL, deferring probe\n");
+		return -EPROBE_DEFER;
+	}
 
 	ret = device_property_read_u32(&pdev->dev, "se-clock-frequency",
 		&gi3c->clk_src_freq);
@@ -2379,7 +2384,7 @@ cleanup_icc_init:
 			"%s: geni_icc_disable failed%d\n", __func__, ret);
 
 cleanup_init:
-	I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev, "I3C probe failed\n");
+	I3C_LOG_ERR(gi3c->ipcl, false, gi3c->se.dev, "I3C probe failed\n");
 	return ret;
 }
 
