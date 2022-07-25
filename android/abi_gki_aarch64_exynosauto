@@ -33,6 +33,7 @@
   __bitmap_clear
   __bitmap_complement
   bitmap_find_free_region
+  bitmap_print_to_pagebuf
   bitmap_release_region
   __bitmap_set
   __bitmap_weight
@@ -176,6 +177,7 @@
   cpu_pm_register_notifier
   cpu_pm_unregister_notifier
   __cpu_possible_mask
+  __cpu_present_mask
   cpus_read_lock
   cpus_read_unlock
   crc32_le
@@ -393,6 +395,7 @@
   dql_reset
   driver_unregister
   drm_add_edid_modes
+  drm_add_modes_noedid
   drm_any_plane_has_format
   drm_aperture_remove_conflicting_pci_framebuffers
   drm_atomic_bridge_chain_enable
@@ -611,6 +614,7 @@
   drm_prime_sg_to_dma_addr_array
   drm_print_bits
   drm_printf
+  __drm_printfn_info
   __drm_printfn_seq_file
   drm_property_create_enum
   drm_property_create_range
@@ -620,6 +624,7 @@
   drm_rotation_simplify
   drm_set_preferred_mode
   drm_simple_encoder_init
+  drm_state_dump
   drm_syncobj_add_point
   drm_syncobj_create
   drm_syncobj_find
@@ -630,6 +635,7 @@
   drm_syncobj_replace_fence
   drm_universal_plane_init
   drm_vblank_init
+  drm_writeback_connector_init
   dump_backtrace
   dump_stack
   dw_pcie_ep_init
@@ -644,6 +650,11 @@
   eth_commit_mac_addr_change
   ether_setup
   eth_mac_addr
+  ethnl_cable_test_amplitude
+  ethnl_cable_test_fault_length
+  ethnl_cable_test_pulse
+  ethnl_cable_test_result
+  ethnl_cable_test_step
   eth_prepare_mac_addr_change
   __ethtool_get_link_ksettings
   ethtool_op_get_link
@@ -679,6 +690,23 @@
   generic_file_llseek
   generic_handle_domain_irq
   generic_handle_irq
+  genphy_c45_an_config_aneg
+  genphy_c45_aneg_done
+  genphy_c45_check_and_restart_aneg
+  genphy_c45_loopback
+  genphy_c45_pma_read_abilities
+  genphy_c45_pma_setup_forced
+  genphy_c45_read_link
+  genphy_c45_read_lpa
+  genphy_check_and_restart_aneg
+  __genphy_config_aneg
+  genphy_read_lpa
+  genphy_read_status_fixed
+  genphy_resume
+  genphy_setup_forced
+  genphy_soft_reset
+  genphy_suspend
+  genphy_update_link
   gen_pool_add_owner
   gen_pool_alloc_algo_owner
   gen_pool_free_owner
@@ -747,6 +775,21 @@
   i2c_transfer_buffer_flags
   i2c_unregister_device
   i2c_verify_client
+  i3c_generic_ibi_alloc_pool
+  i3c_generic_ibi_free_pool
+  i3c_generic_ibi_get_free_slot
+  i3c_generic_ibi_recycle_slot
+  i3c_master_add_i3c_dev_locked
+  i3c_master_defslvs_locked
+  i3c_master_disec_locked
+  i3c_master_do_daa
+  i3c_master_enec_locked
+  i3c_master_entdaa_locked
+  i3c_master_get_free_addr
+  i3c_master_queue_ibi
+  i3c_master_register
+  i3c_master_set_info
+  i3c_master_unregister
   ida_alloc_range
   ida_free
   idr_alloc
@@ -780,6 +823,7 @@
   input_set_abs_params
   input_unregister_device
   input_unregister_handle
+  int_pow
   iomem_resource
   iommu_alloc_resv_region
   iommu_device_register
@@ -919,8 +963,12 @@
   mdiobus_alloc_size
   mdiobus_free
   mdiobus_get_phy
+  __mdiobus_read
+  mdiobus_read
   __mdiobus_register
   mdiobus_unregister
+  __mdiobus_write
+  mdiobus_write
   memcpy
   __memcpy_fromio
   __memcpy_toio
@@ -1171,31 +1219,56 @@
   perf_trace_run_bpf_submit
   pfn_is_map_memory
   phy_attached_info
+  phy_config_aneg
   phy_configure
   phy_disconnect
+  phy_drivers_register
+  phy_drivers_unregister
+  phy_error
   phy_ethtool_get_eee
   phy_ethtool_ksettings_get
   phy_ethtool_ksettings_set
   phy_ethtool_nway_reset
   phy_ethtool_set_eee
   phy_exit
+  phy_gbit_fibre_features
   phy_get_eee_err
   phy_init
   phy_init_eee
   phylink_connect_phy
   phylink_create
   phylink_destroy
+  phylink_ethtool_ksettings_get
   phylink_of_phy_connect
   phylink_set_port_modes
   phylink_start
   phy_mac_interrupt
   phy_mii_ioctl
+  __phy_modify
+  phy_modify
+  phy_modify_changed
+  phy_modify_mmd
+  phy_modify_mmd_changed
+  phy_modify_paged
+  phy_modify_paged_changed
   phy_power_off
   phy_power_on
+  phy_read_mmd
+  phy_read_paged
+  phy_resolve_aneg_pause
+  phy_restore_page
   phy_resume
+  phy_save_page
+  phy_select_page
+  phy_sfp_attach
+  phy_sfp_detach
+  phy_sfp_probe
   phy_start_aneg
   phy_stop
   phy_suspend
+  phy_trigger_machine
+  phy_write_mmd
+  phy_write_paged
   pid_task
   pinctrl_add_gpio_range
   pinctrl_dev_get_drvdata
@@ -1436,6 +1509,7 @@
   smp_call_function
   smp_call_function_single
   smp_call_on_cpu
+  snd_ctl_enum_info
   snd_dmaengine_pcm_prepare_slave_config
   snd_pcm_format_width
   snd_pcm_hw_constraint_integer
@@ -1445,6 +1519,7 @@
   snd_pcm_lib_preallocate_free_for_all
   snd_pcm_lib_preallocate_pages
   snd_pcm_period_elapsed
+  snd_soc_add_component_controls
   snd_soc_component_init_regmap
   snd_soc_component_read
   snd_soc_component_update_bits
@@ -1489,6 +1564,7 @@
   __splice_from_pipe
   split_page
   sprintf
+  sprint_symbol
   sscanf
   __stack_chk_fail
   start_backtrace
@@ -1651,10 +1727,21 @@
   ttm_sg_tt_init
   ttm_tt_destroy_common
   ttm_tt_fini
+  __tty_alloc_driver
+  tty_driver_kref_put
   tty_flip_buffer_push
   tty_insert_flip_string_fixed_flag
   tty_kref_put
+  tty_port_close
+  tty_port_destroy
+  tty_port_hangup
+  tty_port_init
+  tty_port_link_device
+  tty_port_open
   tty_port_tty_get
+  tty_register_driver
+  tty_std_termios
+  tty_unregister_driver
   typec_register_partner
   typec_register_port
   typec_set_data_role
@@ -1692,6 +1779,7 @@
   unregister_blkdev
   __unregister_chrdev
   unregister_chrdev_region
+  unregister_console
   unregister_netdev
   unregister_netdevice_notifier
   unregister_netdevice_queue
@@ -1883,3 +1971,13 @@
   xdp_rxq_info_reg_mem_model
   xdp_rxq_info_unreg
   xdp_warn
+  zs_compact
+  zs_create_pool
+  zs_destroy_pool
+  zs_free
+  zs_get_total_pages
+  zs_huge_class_size
+  zs_malloc
+  zs_map_object
+  zs_pool_stats
+  zs_unmap_object
