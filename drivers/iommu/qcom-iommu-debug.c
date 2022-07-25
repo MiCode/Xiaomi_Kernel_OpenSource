@@ -6,6 +6,7 @@
 
 #define pr_fmt(fmt) "iommu-debug: %s: " fmt, __func__
 
+#include <linux/bitfield.h>
 #include <linux/debugfs.h>
 #include <linux/iommu.h>
 #include <linux/module.h>
