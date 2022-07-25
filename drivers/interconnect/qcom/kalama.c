@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  */
 
@@ -2072,35 +2073,41 @@ static struct qcom_icc_bcm bcm_cn0 = {
 	.voter_idx = 0,
 	.enable_mask = 0x1,
 	.keepalive = true,
-	.num_nodes = 55,
+	.num_nodes = 54,
 	.nodes = { &qsm_cfg, &qhs_ahb2phy0,
 		   &qhs_ahb2phy1, &qhs_apss,
 		   &qhs_camera_cfg, &qhs_clk_ctl,
 		   &qhs_cpr_cx, &qhs_cpr_mmcx,
 		   &qhs_cpr_mxa, &qhs_cpr_mxc,
 		   &qhs_cpr_nspcx, &qhs_crypto0_cfg,
-		   &qhs_cx_rdpm, &qhs_display_cfg,
-		   &qhs_gpuss_cfg, &qhs_i2c,
-		   &qhs_imem_cfg, &qhs_ipa,
-		   &qhs_ipc_router, &qhs_mss_cfg,
-		   &qhs_mx_rdpm, &qhs_pcie0_cfg,
-		   &qhs_pcie1_cfg, &qhs_pdm,
-		   &qhs_pimem_cfg, &qhs_prng,
-		   &qhs_qdss_cfg, &qhs_qspi,
-		   &qhs_qup1, &qhs_qup2,
-		   &qhs_sdc2, &qhs_sdc4,
-		   &qhs_spss_cfg, &qhs_tcsr,
-		   &qhs_tlmm, &qhs_ufs_mem_cfg,
-		   &qhs_usb3_0, &qhs_venus_cfg,
-		   &qhs_vsense_ctrl_cfg, &qss_lpass_qtb_cfg,
-		   &qss_mnoc_cfg, &qss_nsp_qtb_cfg,
-		   &qss_pcie_anoc_cfg, &xs_qdss_stm,
-		   &xs_sys_tcu_cfg, &qnm_gemnoc_cnoc,
-		   &qnm_gemnoc_pcie, &qhs_aoss,
-		   &qhs_tme_cfg, &qss_cfg,
-		   &qss_ddrss_cfg, &qxs_boot_imem,
-		   &qxs_imem, &xs_pcie_0,
-		   &xs_pcie_1 },
+		   &qhs_cx_rdpm, &qhs_gpuss_cfg,
+		   &qhs_i2c, &qhs_imem_cfg,
+		   &qhs_ipa, &qhs_ipc_router,
+		   &qhs_mss_cfg, &qhs_mx_rdpm,
+		   &qhs_pcie0_cfg, &qhs_pcie1_cfg,
+		   &qhs_pdm, &qhs_pimem_cfg,
+		   &qhs_prng, &qhs_qdss_cfg,
+		   &qhs_qspi, &qhs_qup1,
+		   &qhs_qup2, &qhs_sdc2,
+		   &qhs_sdc4, &qhs_spss_cfg,
+		   &qhs_tcsr, &qhs_tlmm,
+		   &qhs_ufs_mem_cfg, &qhs_usb3_0,
+		   &qhs_venus_cfg, &qhs_vsense_ctrl_cfg,
+		   &qss_lpass_qtb_cfg, &qss_mnoc_cfg,
+		   &qss_nsp_qtb_cfg, &qss_pcie_anoc_cfg,
+		   &xs_qdss_stm, &xs_sys_tcu_cfg,
+		   &qnm_gemnoc_cnoc, &qnm_gemnoc_pcie,
+		   &qhs_aoss, &qhs_tme_cfg,
+		   &qss_cfg, &qss_ddrss_cfg,
+		   &qxs_boot_imem, &qxs_imem,
+		   &xs_pcie_0, &xs_pcie_1 },
+};
+
+static struct qcom_icc_bcm bcm_cn1 = {
+	.name = "CN1",
+	.voter_idx = 0,
+	.num_nodes = 1,
+	.nodes = { &qhs_display_cfg },
 };
 
 static struct qcom_icc_bcm bcm_co0 = {
@@ -2498,6 +2505,7 @@ static struct qcom_icc_desc kalama_clk_virt = {
 
 static struct qcom_icc_bcm *cnoc_cfg_bcms[] = {
 	&bcm_cn0,
+	&bcm_cn1,
 };
 
 static struct qcom_icc_node *cnoc_cfg_nodes[] = {
