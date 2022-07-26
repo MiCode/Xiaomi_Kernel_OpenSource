@@ -2227,9 +2227,13 @@
   usb_get_maximum_speed
   usb_get_role_switch_default_mode
   usb_gstrings_attach
+  usb_hcd_end_port_resume
   usb_hcd_is_primary_hcd
   usb_hcd_poll_rh_status
+  usb_hcd_start_port_resume
+  usb_hub_clear_tt_buffer
   usb_interface_id
+  usb_wakeup_notification
   usbnet_change_mtu
   usbnet_disconnect
   usbnet_get_drvinfo
@@ -2501,6 +2505,7 @@
   pci_set_power_state
   pci_unregister_driver
   _raw_spin_trylock_bh
+  radix_tree_maybe_preload
   register_inetaddr_notifier
   regmap_multi_reg_write
   regmap_register_patch
@@ -2508,6 +2513,8 @@
   rtnl_is_locked
   sched_setattr
   sched_set_fifo_low
+  sg_pcopy_from_buffer
+  sg_pcopy_to_buffer
   skb_copy
   skb_pull_rcsum
   skb_queue_head
