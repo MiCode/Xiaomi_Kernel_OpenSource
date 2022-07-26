@@ -1140,6 +1140,13 @@ void gen7_hwsched_hfi_stop(struct adreno_device *adreno_dev)
 
 	hfi->irq_mask &= ~HFI_IRQ_MSGQ_MASK;
 
+	/*
+	 * In some corner cases, it is possible that GMU put TS_RETIRE
+	 * on the msgq after we have turned off gmu interrupts. Hence,
+	 * drain the queue one last time before we reset HFI queues.
+	 */
+	gen7_hwsched_process_msgq(adreno_dev);
+
 	reset_hfi_queues(adreno_dev);
 
 	kgsl_pwrctrl_axi(KGSL_DEVICE(adreno_dev), false);

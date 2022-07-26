@@ -1448,8 +1448,6 @@ void gen7_gmu_suspend(struct adreno_device *adreno_dev)
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	gen7_gmu_irq_disable(adreno_dev);
-
 	gen7_gmu_pwrctrl_suspend(adreno_dev);
 
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
@@ -1846,12 +1844,12 @@ static int gen7_gmu_first_boot(struct adreno_device *adreno_dev)
 	return 0;
 
 err:
+	gen7_gmu_irq_disable(adreno_dev);
+
 	if (device->gmu_fault) {
 		gen7_gmu_suspend(adreno_dev);
 		return ret;
 	}
-
-	gen7_gmu_irq_disable(adreno_dev);
 
 clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
@@ -1918,12 +1916,12 @@ static int gen7_gmu_boot(struct adreno_device *adreno_dev)
 	return 0;
 
 err:
+	gen7_gmu_irq_disable(adreno_dev);
+
 	if (device->gmu_fault) {
 		gen7_gmu_suspend(adreno_dev);
 		return ret;
 	}
-
-	gen7_gmu_irq_disable(adreno_dev);
 
 clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
@@ -2558,6 +2556,7 @@ static int gen7_gmu_power_off(struct adreno_device *adreno_dev)
 	return 0;
 
 error:
+	gen7_gmu_irq_disable(adreno_dev);
 	gen7_hfi_stop(adreno_dev);
 	gen7_gmu_suspend(adreno_dev);
 
@@ -3113,9 +3112,11 @@ int gen7_gmu_reset(struct adreno_device *adreno_dev)
 {
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
 
-	gen7_hfi_stop(adreno_dev);
-
 	gen7_disable_gpu_irq(adreno_dev);
+
+	gen7_gmu_irq_disable(adreno_dev);
+
+	gen7_hfi_stop(adreno_dev);
 
 	/* Hard reset the gmu and gpu */
 	gen7_gmu_suspend(adreno_dev);
