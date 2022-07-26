@@ -1,0 +1,22 @@
+[abi_symbol_list]
+# abi_gki_aarch64_virtual_device contains all the symbols that are used by the
+# virtual device modules. Here goes all the symbols that were used
+# in abi_gki_aarch64_virtual_device but currently retired (e.g Intel HDA).
+  _snd_ctl_add_follower
+  get_device_system_crosststamp
+  snd_card_disconnect
+  snd_component_add
+  snd_ctl_add_vmaster_hook
+  snd_ctl_apply_vmaster_followers
+  snd_ctl_make_virtual_master
+  snd_ctl_remove
+  snd_ctl_sync_vmaster
+  snd_device_disconnect
+  snd_device_new
+  snd_pci_quirk_lookup
+  snd_pci_quirk_lookup_id
+  snd_pcm_hw_limit_rates
+  snd_pcm_set_sync
+  snd_pcm_suspend_all
+  snd_sgbuf_get_chunk_size
+  snd_pcm_std_chmaps
