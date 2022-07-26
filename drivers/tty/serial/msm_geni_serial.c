@@ -689,6 +689,11 @@ static int vote_clock_on(struct uart_port *uport)
 	int usage_count;
 	int ret = 0;
 
+	if (port->ioctl_count) {
+		UART_LOG_DBG(port->ipc_log_pwr, uport->dev,
+			     "%s clock already on\n", __func__);
+		return ret;
+	}
 	ret = msm_geni_serial_power_on(uport);
 	if (ret) {
 		dev_err(uport->dev, "Failed to vote clock on\n");
@@ -723,9 +728,11 @@ static int vote_clock_off(struct uart_port *uport)
 		return -EPERM;
 	}
 	ret = wait_for_transfers_inflight(uport);
-	if (ret)
+	if (ret) {
 		UART_LOG_DBG(port->ipc_log_pwr, uport->dev,
 			"%s wait_for_transfer_inflight return ret: %d", __func__, ret);
+		return -EAGAIN;
+	}
 
 	port->ioctl_count--;
 	msm_geni_serial_power_off(uport);
@@ -2201,8 +2208,11 @@ static int msm_geni_serial_handle_dma_rx(struct uart_port *uport, bool drop_rx)
 
 	if (atomic_read(&msm_port->check_wakeup_byte)) {
 		offset = msm_geni_find_wakeup_byte(uport, rx_bytes);
-		if (atomic_read(&msm_port->check_wakeup_byte)) {
+		if (offset == -EINVAL) {
 			/* wakeup byte not found, drop the rx data */
+			UART_LOG_DBG(msm_port->ipc_log_rx, uport->dev,
+				     "%s wakeup byte not found in %d bytes\n",
+				     __func__, rx_bytes);
 			memset(msm_port->rx_buf, 0, rx_bytes);
 			return 0;
 		}
