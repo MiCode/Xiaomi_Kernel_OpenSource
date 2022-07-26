@@ -499,6 +499,8 @@ static int icnss_send_smp2p(struct icnss_priv *priv,
 					     icnss_smp2p_str[smp2p_entry]);
 				if (!test_bit(ICNSS_FW_DOWN, &priv->state))
 					ICNSS_ASSERT(0);
+				else
+					ret = -ETIMEDOUT;
 			}
 		}
 	}
