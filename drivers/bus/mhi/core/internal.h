@@ -673,6 +673,7 @@ void mhi_ring_cmd_db(struct mhi_controller *mhi_cntrl, struct mhi_cmd *mhi_cmd);
 void mhi_ring_chan_db(struct mhi_controller *mhi_cntrl,
 		      struct mhi_chan *mhi_chan);
 void *mhi_to_virtual(struct mhi_ring *ring, dma_addr_t addr);
+dma_addr_t mhi_to_physical(struct mhi_ring *ring, void *addr);
 
 /* Initialization methods */
 int mhi_init_mmio(struct mhi_controller *mhi_cntrl);
