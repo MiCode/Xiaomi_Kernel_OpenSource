@@ -159,6 +159,43 @@ int mhi_dma_provide_ops(const struct mhi_dma_ops *ops)
 }
 EXPORT_SYMBOL(mhi_dma_provide_ops);
 
+static void unmap_single(struct mhi_dev *mhi, dma_addr_t phys,
+		size_t size, enum dma_data_direction dir)
+{
+	if (mhi->use_mhi_dma)
+		mhi_dma_fun_ops->mhi_dma_unmap_buffer(phys, size, dir);
+	else
+		dma_unmap_single(&mhi->mhi_hw_ctx->pdev->dev, phys, size, dir);
+}
+
+static dma_addr_t map_single(struct mhi_dev *mhi, void *virt, size_t size,
+			enum dma_data_direction dir)
+{
+	dma_addr_t dma;
+
+	if (mhi->use_mhi_dma)
+		dma = mhi_dma_fun_ops->mhi_dma_map_buffer(virt, size, dir);
+	else
+		dma = dma_map_single(&mhi->mhi_hw_ctx->pdev->dev, virt, size, dir);
+	return dma;
+}
+
+static void free_coherent(struct mhi_dev *mhi, size_t size, void *virt, dma_addr_t phys)
+{
+	if (mhi->use_mhi_dma)
+		mhi_dma_fun_ops->mhi_dma_free_buffer(size, virt, phys);
+	else
+		dma_free_coherent(&mhi->mhi_hw_ctx->pdev->dev, size, virt, phys);
+}
+
+static void *alloc_coherent(struct mhi_dev *mhi, size_t size, dma_addr_t *phys, gfp_t gfp)
+{
+	if (mhi->use_mhi_dma)
+		return mhi_dma_fun_ops->mhi_dma_alloc_buffer(size, phys, gfp);
+	else
+		return dma_alloc_coherent(&mhi->mhi_hw_ctx->pdev->dev, size, phys, gfp);
+}
+
 static inline struct mhi_dev *mhi_get_dev_ctx(struct mhi_dev_ctx *mhi_hw_ctx, enum mhi_id id)
 {
 	return mhi_hw_ctx->mhi_dev[id];
@@ -266,7 +303,7 @@ void mhi_dev_write_to_host_mhi_dma(struct mhi_dev *mhi, struct mhi_addr *transfe
 			ereq->event_type == SEND_MSI)
 			dma = transfer->phy_addr;
 		else
-			dma = dma_map_single(&mhi->mhi_hw_ctx->pdev->dev,
+			dma = map_single(mhi,
 				transfer->virt_addr, transfer->size,
 				DMA_TO_DEVICE);
 		if (ereq->event_type == SEND_EVENT_BUFFER) {
@@ -327,16 +364,23 @@ void mhi_dev_write_to_host_mhi_dma(struct mhi_dev *mhi, struct mhi_addr *transfe
  */
 static void mhi_dev_event_buf_completion_cb(void *req)
 {
+	struct mhi_dev_channel *ch;
+	struct mhi_dev *mhi;
 	struct event_req *ereq = req;
-
 	if (!ereq) {
 		mhi_log(MHI_MSG_ERROR, "Null ereq\n");
 		return;
 	}
 
+	if (ereq->is_cmd_cpl)
+		mhi = ereq->context;
+	else {
+		ch = ereq->context;
+		mhi = ch->ring->mhi_dev;
+	}
+
 	if (ereq->dma && ereq->dma_len)
-		dma_unmap_single(&mhi_hw_ctx->pdev->dev, ereq->dma,
-				ereq->dma_len, DMA_TO_DEVICE);
+		unmap_single(mhi, ereq->dma, ereq->dma_len, DMA_TO_DEVICE);
 
 	mhi_log(MHI_MSG_VERBOSE,
 		"Event buf dma completed for flush req %d\n", ereq->flush_num);
@@ -397,14 +441,25 @@ static int mhi_dev_schedule_msi_mhi_dma(struct mhi_dev *mhi, struct event_req *e
  */
 static void mhi_dev_event_rd_offset_completion_cb(void *req)
 {
+	struct mhi_dev *mhi;
+	struct mhi_dev_channel *ch;
 	struct event_req *ereq = req;
+
+	if (!ereq || !ereq->event_rd_dma)
+		return;
+
+	if (ereq->is_cmd_cpl)
+		mhi = ereq->context;
+	else  {
+		ch = ereq->context;
+		mhi = ch->ring->mhi_dev;
+	}
 
 	mhi_log(MHI_MSG_VERBOSE, "Rd offset dma completed for flush req %d\n",
 		ereq->flush_num);
 
 	if (ereq->event_rd_dma)
-		dma_unmap_single(&mhi_hw_ctx->pdev->dev, ereq->event_rd_dma,
-		sizeof(uint64_t), DMA_TO_DEVICE);
+		unmap_single(mhi, ereq->event_rd_dma, sizeof(uint64_t), DMA_TO_DEVICE);
 }
 
 static void mhi_dev_cmd_event_msi_cb(void *req)
@@ -932,8 +987,7 @@ int mhi_transfer_host_to_device_mhi_dma(void *dev, uint64_t host_pa, uint32_t le
 	} else if (mreq->mode == DMA_ASYNC) {
 		ch = mreq->client->channel;
 		ring = ch->ring;
-		mreq->dma = dma_map_single(&mhi->mhi_hw_ctx->pdev->dev, dev, len,
-				DMA_FROM_DEVICE);
+		mreq->dma = map_single(mhi, dev, len, DMA_FROM_DEVICE);
 		mhi_dev_ring_inc_index(ring, ring->rd_offset);
 
 		if (ring->rd_offset == ring->wr_offset) {
@@ -963,8 +1017,7 @@ int mhi_transfer_host_to_device_mhi_dma(void *dev, uint64_t host_pa, uint32_t le
 			/* Roll back the completion event that we wrote above */
 			mhi_dev_rollback_compl_evt(ch);
 			/* Unmap the buffer */
-			dma_unmap_single(&mhi->mhi_hw_ctx->pdev->dev, mreq->dma,
-							len, DMA_FROM_DEVICE);
+			unmap_single(mhi, mreq->dma, len, DMA_FROM_DEVICE);
 			return rc;
 		}
 	}
@@ -1014,8 +1067,7 @@ int mhi_transfer_device_to_host_mhi_dma(uint64_t host_addr, void *dev, uint32_t 
 	} else if (req->mode == DMA_ASYNC) {
 		ch = req->client->channel;
 
-		req->dma = dma_map_single(&mhi->mhi_hw_ctx->pdev->dev, req->buf,
-				req->len, DMA_TO_DEVICE);
+		req->dma = map_single(mhi, req->buf, req->len, DMA_TO_DEVICE);
 
 		ring = ch->ring;
 		mhi_dev_ring_inc_index(ring, ring->rd_offset);
@@ -1045,8 +1097,7 @@ int mhi_transfer_device_to_host_mhi_dma(uint64_t host_addr, void *dev, uint32_t 
 			/* Roll back the completion event that we wrote above */
 			mhi_dev_rollback_compl_evt(ch);
 			/* Unmap the buffer */
-			dma_unmap_single(&mhi->mhi_hw_ctx->pdev->dev, req->dma,
-				req->len, DMA_TO_DEVICE);
+			unmap_single(mhi, req->dma, req->len, DMA_TO_DEVICE);
 			return rc;
 		}
 		if (snd_cmpl || flush) {
@@ -1138,7 +1189,7 @@ void mhi_dev_write_to_host_edma(struct mhi_dev *mhi, struct mhi_addr *transfer,
 		if (transfer->phy_addr) {
 			dma = transfer->phy_addr;
 		} else {
-			dma = dma_map_single(&mhi->mhi_hw_ctx->pdev->dev,
+			dma = map_single(mhi,
 				transfer->virt_addr, transfer->size,
 				DMA_TO_DEVICE);
 			if (dma_mapping_error(&mhi->mhi_hw_ctx->pdev->dev, dma)) {
@@ -1167,7 +1218,7 @@ void mhi_dev_write_to_host_edma(struct mhi_dev *mhi, struct mhi_addr *transfer,
 				DMA_PREP_INTERRUPT);
 		if (!descriptor) {
 			pr_err("%s(): descriptor is null\n", __func__);
-			dma_unmap_single(&mhi->mhi_hw_ctx->pdev->dev,
+			unmap_single(mhi,
 				(size_t)transfer->virt_addr, transfer->size,
 				DMA_TO_DEVICE);
 			return;
@@ -1255,8 +1306,7 @@ int mhi_transfer_host_to_device_edma(void *dev, uint64_t host_pa, uint32_t len,
 	} else if (mreq->mode == DMA_ASYNC) {
 		ch = mreq->client->channel;
 		ring = ch->ring;
-		mreq->dma = dma_map_single(&mhi->mhi_hw_ctx->pdev->dev, dev, len,
-				DMA_FROM_DEVICE);
+		mreq->dma = map_single(mhi, dev, len, DMA_FROM_DEVICE);
 		if (dma_mapping_error(&mhi->mhi_hw_ctx->pdev->dev, mreq->dma)) {
 			pr_err("%s(): dma map single failed\n", __func__);
 			return -ENOMEM;
@@ -1285,8 +1335,7 @@ int mhi_transfer_host_to_device_edma(void *dev, uint64_t host_pa, uint32_t len,
 			pr_err("%s(): descriptor is null\n", __func__);
 			/* Roll back the completion event that we wrote above */
 			mhi_dev_rollback_compl_evt(ch);
-			dma_unmap_single(&mhi->mhi_hw_ctx->pdev->dev, (size_t)dev, len,
-							DMA_FROM_DEVICE);
+			unmap_single(mhi, (size_t)dev, len, DMA_FROM_DEVICE);
 			return -EFAULT;
 		}
 		descriptor->callback_param = mreq;
@@ -1349,8 +1398,7 @@ int mhi_transfer_device_to_host_edma(uint64_t host_addr, void *dev,
 		}
 	} else if (req->mode == DMA_ASYNC) {
 		ch = req->client->channel;
-		req->dma = dma_map_single(&mhi->mhi_hw_ctx->pdev->dev, req->buf,
-				req->len, DMA_TO_DEVICE);
+		req->dma = map_single(mhi, req->buf, req->len, DMA_TO_DEVICE);
 		if (dma_mapping_error(&mhi->mhi_hw_ctx->pdev->dev, req->dma)) {
 			pr_err("%s(): dma map single failed\n", __func__);
 			return -ENOMEM;
@@ -1376,8 +1424,7 @@ int mhi_transfer_device_to_host_edma(uint64_t host_addr, void *dev,
 			/* Roll back the completion event that we wrote above */
 			mhi_dev_rollback_compl_evt(ch);
 			/* Unmap the buffer */
-			dma_unmap_single(&mhi->mhi_hw_ctx->pdev->dev, (size_t)req->buf,
-				req->len, DMA_TO_DEVICE);
+			unmap_single(mhi, (size_t)req->buf, req->len, DMA_TO_DEVICE);
 			return -EFAULT;
 		}
 		descriptor->callback_param = req;
@@ -2632,8 +2679,7 @@ static void mhi_dev_transfer_completion_cb(void *mreq)
 	ch = req->client->channel;
 	mhi_ctx = ch->ring->mhi_dev;
 
-	dma_unmap_single(&mhi_ctx->mhi_hw_ctx->pdev->dev, req->dma,
-		req->transfer_len, DMA_FROM_DEVICE);
+	unmap_single(mhi_ctx, req->dma, req->transfer_len, DMA_FROM_DEVICE);
 
 	if (mhi_ctx->ch_ctx_cache[ch->ch_id].ch_type ==
 		MHI_DEV_CH_TYPE_INBOUND_CHANNEL) {
@@ -2928,10 +2974,8 @@ static int mhi_dev_cache_host_cfg(struct mhi_dev *mhi)
 	 * memory leak.
 	 */
 	if (!mhi->cmd_ctx_cache) {
-		mhi->cmd_ctx_cache = dma_alloc_coherent(&pdev->dev,
-			sizeof(struct mhi_dev_cmd_ctx),
-			&mhi->cmd_ctx_cache_dma_handle,
-			GFP_KERNEL);
+		mhi->cmd_ctx_cache = alloc_coherent(mhi, sizeof(struct mhi_dev_cmd_ctx),
+				&mhi->cmd_ctx_cache_dma_handle, GFP_KERNEL);
 		if (!mhi->cmd_ctx_cache) {
 			pr_err("no memory while allocating cmd ctx\n");
 			rc = -ENOMEM;
@@ -2940,11 +2984,11 @@ static int mhi_dev_cache_host_cfg(struct mhi_dev *mhi)
 	}
 
 	if (!mhi->ev_ctx_cache) {
-		mhi->ev_ctx_cache = dma_alloc_coherent(&pdev->dev,
-			sizeof(struct mhi_dev_ev_ctx) *
-			mhi->cfg.event_rings,
-			&mhi->ev_ctx_cache_dma_handle,
-			GFP_KERNEL);
+		mhi->ev_ctx_cache = alloc_coherent(mhi,
+				sizeof(struct mhi_dev_ev_ctx) *
+				mhi->cfg.event_rings,
+				&mhi->ev_ctx_cache_dma_handle,
+				GFP_KERNEL);
 		if (!mhi->ev_ctx_cache) {
 			rc = -ENOMEM;
 			goto exit;
@@ -2954,11 +2998,11 @@ static int mhi_dev_cache_host_cfg(struct mhi_dev *mhi)
 						mhi->cfg.event_rings);
 
 	if (!mhi->ch_ctx_cache) {
-		mhi->ch_ctx_cache = dma_alloc_coherent(&pdev->dev,
-			sizeof(struct mhi_dev_ch_ctx) *
-			mhi->cfg.channels,
-			&mhi->ch_ctx_cache_dma_handle,
-			GFP_KERNEL);
+		mhi->ch_ctx_cache = alloc_coherent(mhi,
+				sizeof(struct mhi_dev_ch_ctx) *
+				mhi->cfg.channels,
+				&mhi->ch_ctx_cache_dma_handle,
+				GFP_KERNEL);
 		if (!mhi->ch_ctx_cache) {
 			rc = -ENOMEM;
 			goto exit;
@@ -3020,7 +3064,7 @@ exit:
 			(mhi->cfg.channels + mhi->cfg.event_rings + 1)));
 	}
 	if (mhi->cmd_ctx_cache) {
-		dma_free_coherent(&pdev->dev,
+		free_coherent(mhi,
 			sizeof(struct mhi_dev_cmd_ctx),
 			mhi->cmd_ctx_cache,
 			mhi->cmd_ctx_cache_dma_handle);
@@ -3029,7 +3073,7 @@ exit:
 			sizeof(struct mhi_dev_cmd_ctx));
 	}
 	if (mhi->ev_ctx_cache) {
-		dma_free_coherent(&pdev->dev,
+		free_coherent(mhi,
 			sizeof(struct mhi_dev_ev_ctx) *
 			mhi->cfg.event_rings,
 			mhi->ev_ctx_cache,
@@ -4545,7 +4589,7 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 		return rc;
 	}
 
-	mhi_ctx->dma_cache = dma_alloc_coherent(&pdev->dev,
+	mhi_ctx->dma_cache = alloc_coherent(mhi_ctx,
 			(TRB_MAX_DATA_SIZE * 4),
 			&mhi_ctx->cache_dma_handle, GFP_KERNEL);
 	if (!mhi_ctx->dma_cache) {
@@ -4554,7 +4598,7 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 	}
 
 	if (!mhi_ctx->is_mhi_pf) {
-		mhi_ctx->read_handle = dma_alloc_coherent(&pdev->dev,
+		mhi_ctx->read_handle = alloc_coherent(mhi_ctx,
 				(TRB_MAX_DATA_SIZE * 4),
 				&mhi_ctx->mhi_hw_ctx->read_dma_handle,
 				GFP_KERNEL);
@@ -4563,7 +4607,7 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 			return -ENOMEM;
 		}
 
-		mhi_ctx->write_handle = dma_alloc_coherent(&pdev->dev,
+		mhi_ctx->write_handle = alloc_coherent(mhi_ctx,
 				(TRB_MAX_DATA_SIZE * 24),
 				&mhi_ctx->mhi_hw_ctx->write_dma_handle,
 				GFP_KERNEL);
