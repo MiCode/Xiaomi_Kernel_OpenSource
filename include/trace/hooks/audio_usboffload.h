@@ -9,8 +9,12 @@
 
 #include <trace/hooks/vendor_hooks.h>
 
-struct usb_interface;
-struct snd_usb_audio;
+/* struct snd_usb_audio */
+#include <../sound/usb/usbaudio.h>
+/* struct usb_interface */
+#include <linux/usb.h>
+/* struct snd_pcm_substream */
+#include <sound/pcm.h>
 
 DECLARE_HOOK(android_vh_audio_usb_offload_vendor_set,
 	TP_PROTO(void *arg),
@@ -31,6 +35,10 @@ DECLARE_HOOK(android_vh_audio_usb_offload_connect,
 DECLARE_RESTRICTED_HOOK(android_rvh_audio_usb_offload_disconnect,
 	TP_PROTO(struct usb_interface *intf),
 	TP_ARGS(intf), 1);
+
+DECLARE_HOOK(android_vh_audio_usb_offload_suspend,
+	TP_PROTO(struct snd_pcm_substream *substream, int cmd, bool *suspend),
+	TP_ARGS(substream, cmd, suspend));
 
 #endif /* _TRACE_HOOK_AUDIO_USBOFFLOAD_H */
 /* This part must be outside protection */

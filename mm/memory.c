@@ -3988,16 +3988,10 @@ static vm_fault_t __do_fault(struct vm_fault *vmf)
 			/*
 			 * The mmap sequence count check guarantees that the
 			 * vma we fetched at the start of the fault was still
-			 * current at that point in time. The notifier lock
-			 * ensures vmf->vma->vm_file stays valid. vma is
-			 * stable because we are operating on a copy made at
-			 * the start of the fault.
+			 * current at that point in time. The rcu read lock
+			 * ensures vmf->vma->vm_file stays valid.
 			 */
-			if (mmu_notifier_trylock(vmf->vma->vm_mm)) {
-				ret = vma->vm_ops->fault(vmf);
-				mmu_notifier_unlock(vmf->vma->vm_mm);
-			} else
-				ret = VM_FAULT_RETRY;
+			ret = vma->vm_ops->fault(vmf);
 		}
 		rcu_read_unlock();
 	} else

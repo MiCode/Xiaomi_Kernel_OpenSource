@@ -10,6 +10,7 @@
 #include <linux/slab.h>
 #include <linux/srcu.h>
 #include <linux/interval_tree.h>
+#include <linux/android_kabi.h>
 
 struct mmu_notifier_subscriptions;
 struct mmu_notifier;
@@ -223,6 +224,11 @@ struct mmu_notifier_ops {
 	 */
 	struct mmu_notifier *(*alloc_notifier)(struct mm_struct *mm);
 	void (*free_notifier)(struct mmu_notifier *subscription);
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 /*
@@ -242,6 +248,9 @@ struct mmu_notifier {
 	struct mm_struct *mm;
 	struct rcu_head rcu;
 	unsigned int users;
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 };
 
 /**
@@ -772,7 +781,7 @@ static inline void mmu_notifier_synchronize(void)
 
 #endif /* CONFIG_MMU_NOTIFIER */
 
-#if defined(CONFIG_SPECULATIVE_PAGE_FAULT)
+#if defined(CONFIG_MMU_NOTIFIER) && defined(CONFIG_SPECULATIVE_PAGE_FAULT)
 
 static inline bool mmu_notifier_trylock(struct mm_struct *mm)
 {

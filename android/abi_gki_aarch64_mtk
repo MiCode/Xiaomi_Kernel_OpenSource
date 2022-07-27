@@ -972,6 +972,7 @@
   irq_work_sync
   is_dma_buf_file
   is_vmalloc_addr
+  iterate_dir
   iterate_fd
   jiffies_64_to_clock_t
   jiffies
@@ -1162,6 +1163,7 @@
   mmc_detect_change
   mmc_free_host
   mmc_get_card
+  mmc_get_ext_csd
   mmc_gpio_get_cd
   mmc_gpio_get_ro
   mmc_hw_reset
@@ -1937,7 +1939,9 @@
   __traceiter_android_rvh_commit_creds
   __traceiter_android_rvh_cpu_overutilized
   __traceiter_android_rvh_dequeue_task
+  __traceiter_android_rvh_dequeue_task_fair
   __traceiter_android_rvh_enqueue_task
+  __traceiter_android_rvh_enqueue_task_fair
   __traceiter_android_rvh_exit_creds
   __traceiter_android_rvh_find_busiest_group
   __traceiter_android_rvh_find_busiest_queue
@@ -1963,6 +1967,7 @@
   __traceiter_android_rvh_selinux_is_initialized
   __traceiter_android_rvh_setscheduler
   __traceiter_android_rvh_set_cpus_allowed_ptr_locked
+  __traceiter_android_rvh_set_cpus_allowed_by_task
   __traceiter_android_rvh_set_user_nice
   __traceiter_android_rvh_tick_entry
   __traceiter_android_rvh_update_cpu_capacity
@@ -2000,6 +2005,7 @@
   __traceiter_mmap_lock_released
   __traceiter_mmap_lock_start_locking
   __traceiter_pelt_se_tp
+  __traceiter_sched_update_nr_running_tp
   __traceiter_task_newtask
   __traceiter_xhci_urb_giveback
   trace_output_call
@@ -2008,7 +2014,9 @@
   __tracepoint_android_rvh_commit_creds
   __tracepoint_android_rvh_cpu_overutilized
   __tracepoint_android_rvh_dequeue_task
+  __tracepoint_android_rvh_dequeue_task_fair
   __tracepoint_android_rvh_enqueue_task
+  __tracepoint_android_rvh_enqueue_task_fair
   __tracepoint_android_rvh_exit_creds
   __tracepoint_android_rvh_find_busiest_group
   __tracepoint_android_rvh_find_busiest_queue
@@ -2034,6 +2042,7 @@
   __tracepoint_android_rvh_selinux_is_initialized
   __tracepoint_android_rvh_setscheduler
   __tracepoint_android_rvh_set_cpus_allowed_ptr_locked
+  __tracepoint_android_rvh_set_cpus_allowed_by_task
   __tracepoint_android_rvh_set_user_nice
   __tracepoint_android_rvh_tick_entry
   __tracepoint_android_rvh_update_cpu_capacity
@@ -2073,6 +2082,8 @@
   __tracepoint_pelt_se_tp
   tracepoint_probe_register
   tracepoint_probe_unregister
+  __tracepoint_sched_update_nr_running_tp
+  tracepoint_srcu
   __tracepoint_task_newtask
   __tracepoint_xhci_urb_giveback
   trace_print_array_seq
@@ -2115,6 +2126,9 @@
   __ubsan_handle_cfi_check_fail_abort
   uclamp_eff_value
   __udelay
+  ufshcd_add_command_trace
+  ufshcd_clk_scaling_start_busy
+  ufshcd_clk_scaling_update_busy
   ufshcd_delay_us
   ufshcd_dme_configure_adapt
   ufshcd_dme_get_attr
@@ -2122,6 +2136,7 @@
   ufshcd_dump_regs
   ufshcd_fixup_dev_quirks
   ufshcd_get_pwr_dev_param
+  ufshcd_get_vreg
   ufshcd_hba_enable
   ufshcd_hba_stop
   ufshcd_init_pwr_dev_param
@@ -2129,6 +2144,7 @@
   ufshcd_make_hba_operational
   ufshcd_pltfrm_init
   ufshcd_pltfrm_shutdown
+  ufshcd_populate_vreg
   ufshcd_query_attr
   ufshcd_query_descriptor_retry
   ufshcd_query_flag
@@ -2140,6 +2156,8 @@
   ufshcd_suspend_prepare
   ufshcd_system_resume
   ufshcd_system_suspend
+  ufshcd_transfer_rsp_status
+  ufshcd_uic_change_pwr_mode
   ufshcd_uic_hibern8_exit
   ufshcd_update_evt_hist
   unlock_page

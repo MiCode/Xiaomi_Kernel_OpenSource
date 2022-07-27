@@ -10,7 +10,8 @@
 #include <trace/hooks/vendor_hooks.h>
 
 #if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
-struct pt_regs;
+/* struct pt_regs */
+#include <asm/ptrace.h>
 
 DECLARE_HOOK(android_vh_ipi_stop,
 	TP_PROTO(struct pt_regs *regs),

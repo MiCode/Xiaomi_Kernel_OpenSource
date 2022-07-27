@@ -91,8 +91,10 @@
 
 #ifdef CONFIG_64BIT
 #define IF_HAVE_PG_ARCH_2(flag,string) ,{1UL << flag, string}
+#define IF_HAVE_PG_OEM_RESERVED(flag,string) ,{1UL << flag, string}
 #else
 #define IF_HAVE_PG_ARCH_2(flag,string)
+#define IF_HAVE_PG_OEM_RESERVED(flag,string)
 #endif
 
 #ifdef CONFIG_KASAN_HW_TAGS
@@ -129,6 +131,7 @@ IF_HAVE_PG_HWPOISON(PG_hwpoison,	"hwpoison"	)		\
 IF_HAVE_PG_IDLE(PG_young,		"young"		)		\
 IF_HAVE_PG_IDLE(PG_idle,		"idle"		)		\
 IF_HAVE_PG_ARCH_2(PG_arch_2,		"arch_2"	)		\
+IF_HAVE_PG_OEM_RESERVED(PG_oem_reserved,"oem_reserved"	)		\
 IF_HAVE_PG_SKIP_KASAN_POISON(PG_skip_kasan_poison, "skip_kasan_poison")
 
 #define show_page_flags(flags)						\
