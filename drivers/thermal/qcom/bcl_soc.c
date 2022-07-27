@@ -34,6 +34,13 @@ struct bcl_device {
 
 static struct bcl_device *bcl_perph;
 
+static int bcl_soc_tz_change_mode(void *data, enum thermal_device_mode mode)
+{
+	struct bcl_device *bcl_perph = data;
+
+	return qti_tz_change_mode(bcl_perph->tz_dev, mode);
+}
+
 static int bcl_soc_get_trend(void *data, int trip,
 				    enum thermal_trend *trend)
 {
@@ -153,11 +160,9 @@ static int bcl_soc_remove(struct platform_device *pdev)
 {
 	power_supply_unreg_notifier(&bcl_perph->psy_nb);
 	flush_work(&bcl_perph->soc_eval_work);
-	if (bcl_perph->tz_dev) {
+	if (bcl_perph->tz_dev)
 		thermal_zone_of_sensor_unregister(&pdev->dev,
 				bcl_perph->tz_dev);
-		qti_update_tz_ops(bcl_perph->tz_dev, false);
-	}
 
 	return 0;
 }
@@ -175,6 +180,7 @@ static int bcl_soc_probe(struct platform_device *pdev)
 	bcl_perph->ops.get_temp = bcl_read_soc;
 	bcl_perph->ops.set_trips = bcl_set_soc;
 	bcl_perph->ops.get_trend = bcl_soc_get_trend;
+	bcl_perph->ops.change_mode = bcl_soc_tz_change_mode;
 	INIT_WORK(&bcl_perph->soc_eval_work, bcl_evaluate_soc);
 	bcl_perph->psy_nb.notifier_call = battery_supply_callback;
 	ret = power_supply_reg_notifier(&bcl_perph->psy_nb);
@@ -193,7 +199,6 @@ static int bcl_soc_probe(struct platform_device *pdev)
 		bcl_perph->tz_dev = NULL;
 		goto bcl_soc_probe_exit;
 	}
-	qti_update_tz_ops(bcl_perph->tz_dev, true);
 	thermal_zone_device_update(bcl_perph->tz_dev, THERMAL_DEVICE_UP);
 	schedule_work(&bcl_perph->soc_eval_work);
 

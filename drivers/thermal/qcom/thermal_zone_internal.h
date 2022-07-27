@@ -16,6 +16,9 @@ static inline __maybe_unused int qti_tz_change_mode(struct thermal_zone_device *
 {
 	struct thermal_instance *instance;
 
+	if (!tz)
+		return 0;
+
 	tz->passive = 0;
 	tz->temperature = THERMAL_TEMP_INVALID;
 	tz->prev_low_trip = -INT_MAX;
@@ -29,22 +32,6 @@ static inline __maybe_unused int qti_tz_change_mode(struct thermal_zone_device *
 		}
 	}
 
-	return 0;
-}
-
-static inline __maybe_unused int qti_update_tz_ops(struct thermal_zone_device *tz, bool enable)
-{
-	if (!tz || !tz->ops)
-		return -EINVAL;
-
-	mutex_lock(&tz->lock);
-	if (enable) {
-		if (!tz->ops->change_mode)
-			tz->ops->change_mode = qti_tz_change_mode;
-	} else {
-		tz->ops->change_mode = NULL;
-	}
-	mutex_unlock(&tz->lock);
 	return 0;
 }
 
