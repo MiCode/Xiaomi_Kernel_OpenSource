@@ -1,4 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0 */
+#ifdef PROTECT_TRACE_INCLUDE_PATH
+#undef PROTECT_TRACE_INCLUDE_PATH
+
+#include <trace/hooks/save_incpath.h>
+#include <trace/hooks/mm.h>
+#include <trace/hooks/restore_incpath.h>
+
+#else /* PROTECT_TRACE_INCLUDE_PATH */
+
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM mm
 
@@ -87,3 +96,5 @@ DECLARE_HOOK(android_vh_vmpressure,
 
 /* This part must be outside protection */
 #include <trace/define_trace.h>
+
+#endif /* PROTECT_TRACE_INCLUDE_PATH */
