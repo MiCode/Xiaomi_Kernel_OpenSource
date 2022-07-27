@@ -4252,6 +4252,10 @@ static int msm_geni_serial_read_dtsi(struct platform_device *pdev,
 
 	dev_port->se.dev = &pdev->dev;
 	dev_port->se.wrapper = dev_get_drvdata(pdev->dev.parent);
+	if (!dev_port->se.wrapper) {
+		dev_err(&pdev->dev, "SE Wrapper is NULL, deferring probe\n");
+		return -EPROBE_DEFER;
+	}
 	dev_port->se.clk = devm_clk_get(&pdev->dev, "se-clk");
 
 	if (IS_ERR(dev_port->se.clk)) {
