@@ -780,12 +780,19 @@ static void qmp_shim_worker(struct work_struct *work)
 	struct qmp_mbox *mbox = container_of(work, struct qmp_mbox, tx_work);
 	struct qmp_device *mdev = mbox->mdev;
 	struct qmp_pkt *pkt = &mbox->tx_pkt;
+	unsigned long flags;
+	int idx;
 	int rc;
 
 	QMP_INFO(mdev->ilc, "Calling qmp_send msg:%s\n", pkt->data);
 	rc = qmp_send(mbox->mdev->qmp, pkt->data, pkt->size);
+	spin_lock_irqsave(&mbox->tx_lock, flags);
+	mbox->tx_pkt.size = 0;
+	idx = mbox->idx_in_flight;
+	spin_unlock_irqrestore(&mbox->tx_lock, flags);
+
 	QMP_INFO(mdev->ilc, "Calling txdone rc:%d\n", rc);
-	mbox_chan_txdone(&mbox->ctrl.chans[mbox->idx_in_flight], rc);
+	mbox_chan_txdone(&mbox->ctrl.chans[idx], rc);
 	QMP_INFO(mdev->ilc, "Exiting txdone\n");
 }
 
@@ -794,6 +801,7 @@ static int qmp_shim_send_data(struct mbox_chan *chan, void *data)
 	struct qmp_mbox *mbox = chan->con_priv;
 	struct qmp_device *mdev = mbox->mdev;
 	struct qmp_pkt *pkt = (struct qmp_pkt *)data;
+	unsigned long flags;
 	int i;
 
 	if (!mbox || !mbox->mdev || !data)
@@ -801,6 +809,12 @@ static int qmp_shim_send_data(struct mbox_chan *chan, void *data)
 
 	if (pkt->size > SZ_4K)
 		return -EINVAL;
+
+	spin_lock_irqsave(&mbox->tx_lock, flags);
+	if (mbox->tx_pkt.size) {
+		spin_unlock_irqrestore(&mbox->tx_lock, flags);
+		return -EAGAIN;
+	}
 
 	for (i = 0; i < mbox->ctrl.num_chans; i++) {
 		if (chan == &mbox->ctrl.chans[i]) {
@@ -813,6 +827,7 @@ static int qmp_shim_send_data(struct mbox_chan *chan, void *data)
 	memcpy(mbox->tx_pkt.data, pkt->data, pkt->size);
 	QMP_INFO(mdev->ilc, "scheduling worker to send msg:%s\n", pkt->data);
 	schedule_work(&mbox->tx_work);
+	spin_unlock_irqrestore(&mbox->tx_lock, flags);
 	return 0;
 }
 
@@ -975,6 +990,7 @@ static int qmp_shim_init(struct platform_device *pdev, struct qmp_device *mdev)
 	mbox->ctrl.txdone_poll = false;
 	mbox->ctrl.of_xlate = qmp_mbox_of_xlate;
 
+	spin_lock_init(&mbox->tx_lock);
 	mutex_init(&mbox->state_lock);
 	mbox->num_assigned = 0;
 	mbox->mdev = mdev;
