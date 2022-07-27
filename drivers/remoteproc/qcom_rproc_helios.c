@@ -26,6 +26,8 @@
 #include <misc/qseecom_kernel.h>
 #include <soc/qcom/qseecomi.h>
 #include <soc/qcom/ramdump.h>
+#include <soc/qcom/smcinvoke_object.h>
+#include <linux/smcinvoke.h>
 
 #include "../soc/qcom/helioscom.h"
 
@@ -33,13 +35,23 @@
 #include "qcom_pil_info.h"
 #include "remoteproc_internal.h"
 
-#define SECURE_APP "heliosapp"
+#include "../soc/qcom/helios_app_smc_interface.h"
+
+#include <soc/qcom/CAppClient.h>
+#include <soc/qcom/CAppLoader.h>
+#include <soc/qcom/IAppClient.h>
+#include <soc/qcom/IAppController.h>
+#include <soc/qcom/IAppLoader.h>
+#include <soc/qcom/IClientEnv.h>
+#include <soc/qcom/IOpener.h>
 
 #define RESULT_SUCCESS		0
 #define RESULT_FAILURE		-1
 
-/* Helios Ramdump Size 3100 KB */
-#define HELIOS_RAMDUMP_SZ	(0x307000)
+/* Helios Ramdump Size 4 MB */
+#define HELIOS_RAMDUMP_SZ SZ_4M
+
+uint32_t helios_app_uid = 286;
 
 /* tzapp command list.*/
 enum helios_tz_commands {
@@ -154,31 +166,6 @@ static void helios_crash_handler(void *handle, void *priv)
 }
 
 /**
- * get_cmd_rsp_buffers() - Function sets cmd & rsp buffer pointers and
- *						   aligns buffer lengths
- * @handle: index of qseecom_handle
- * @cmd: req buffer - set to qseecom_handle.sbuf
- * @cmd_len: ptr to req buffer len
- * @rsp: rsp buffer - set to qseecom_handle.sbuf + offset
- * @rsp_len: ptr to rsp buffer len
- *
- * Return: Success always .
- */
-static int get_cmd_rsp_buffers(struct qseecom_handle *handle, void **cmd,
-		uint32_t *cmd_len, void **rsp, uint32_t *rsp_len)
-{
-	*cmd = handle->sbuf;
-	if (*cmd_len & QSEECOM_ALIGN_MASK)
-		*cmd_len = QSEECOM_ALIGN(*cmd_len);
-
-	*rsp = handle->sbuf + *cmd_len;
-	if (*rsp_len & QSEECOM_ALIGN_MASK)
-		*rsp_len = QSEECOM_ALIGN(*rsp_len);
-
-	return 0;
-}
-
-/**
  * load_helios_tzapp() - Called to load TZ app.
  * @pbd: struct containing private <helios> data.
  *
@@ -186,23 +173,122 @@ static int get_cmd_rsp_buffers(struct qseecom_handle *handle, void **cmd,
  */
 static int load_helios_tzapp(struct qcom_helios *pbd)
 {
-	int rc;
+	int rc = 0;
+	uint8_t *buffer  = NULL;
+	struct qtee_shm shm = {0};
+	size_t size = 0;
+	char *app_name = "heliosapp";
+	struct Object client_env = {NULL, NULL};
+	struct Object app_client = {NULL, NULL};
+	struct Object app_loader = {NULL, NULL};
+	struct Object app_controller_obj = {NULL, NULL};
 
-	/* return success if already loaded */
-	if (pbd->qseecom_handle && !pbd->app_status)
-		return 0;
+	pbd->app_status = RESULT_FAILURE;
 
 	/* Load the APP */
 	pr_debug("Start loading of secure app\n");
-	rc = qseecom_start_app(&pbd->qseecom_handle, SECURE_APP, SZ_4K);
-	if (rc < 0) {
-		dev_err(pbd->dev, "<helios> TZ app load failure\n");
-		pbd->app_status = RESULT_FAILURE;
-		return -EIO;
+	rc = get_client_env_object(&client_env);
+	if (rc) {
+		client_env.invoke = NULL;
+		client_env.context = NULL;
+		dev_err(pbd->dev, "<helios> get client env object failure\n");
+		rc =  -EIO;
+		goto end;
 	}
+
+	rc = IClientEnv_open(client_env, CAppLoader_UID, &app_loader);
+	if (rc) {
+		app_loader.invoke = NULL;
+		app_loader.context = NULL;
+		dev_err(pbd->dev, "<helios> IClientEnv_open failure\n");
+		rc = -EIO;
+		goto end;
+	}
+
+	buffer = firmware_request_from_smcinvoke(app_name, &size, &shm);
+	if (buffer == NULL) {
+		dev_err(pbd->dev, "firmware_request_from_smcinvoke failure\n");
+		rc =  -EINVAL;
+		goto end;
+	}
+
+	rc = IAppLoader_loadFromBuffer(app_loader, (const void *)buffer, size,
+			&app_controller_obj);
+	if (rc) {
+		app_controller_obj.invoke = NULL;
+		app_controller_obj.context = NULL;
+		dev_err(pbd->dev, "<helios> IAppLoader_loadFromBuffer failure\n");
+		rc = -EIO;
+		goto end;
+	}
+
+	rc = IClientEnv_open(client_env, CAppClient_UID, &app_client);
+	if (rc) {
+		app_client.invoke = NULL;
+		app_client.context = NULL;
+		dev_err(pbd->dev, "<helios> CAppClient_UID failure\n");
+		rc = -EIO;
+		goto end;
+	}
+
 	pbd->app_status = RESULT_SUCCESS;
-	pr_debug("App loaded\n");
-	return 0;
+end:
+	Object_ASSIGN_NULL(app_controller_obj);
+	Object_ASSIGN_NULL(app_loader);
+	Object_ASSIGN_NULL(client_env);
+	Object_ASSIGN_NULL(app_client);
+	return rc;
+}
+
+static int32_t get_helios_app_object(struct Object *helios_app_obj)
+{
+	int32_t ret = 0;
+	const char *app_name = "heliosapp";
+	struct Object remote_obj = {NULL, NULL};
+	struct Object client_env = {NULL, NULL};
+	struct Object app_client = {NULL, NULL};
+
+	ret = get_client_env_object(&client_env);
+	if (ret) {
+		client_env.invoke = NULL;
+		client_env.context = NULL;
+		pr_err("<helios> get client env object failure:[%d]\n", ret);
+		ret =  -EIO;
+		goto end;
+	}
+
+	ret = IClientEnv_open(client_env, CAppClient_UID, &app_client);
+	if (ret) {
+		app_client.invoke = NULL;
+		app_client.context = NULL;
+		pr_err("<helios> CAppClient_UID failure:[%d]\n", ret);
+		ret = -EIO;
+		goto end;
+	}
+
+	ret = IAppClient_getAppObject(app_client, app_name, strlen(app_name), &remote_obj);
+	if (ret) {
+		pr_err("IAppClient_getAppObject failure:[%d]\n", ret);
+		remote_obj.invoke = NULL;
+		remote_obj.context = NULL;
+		ret = -EIO;
+		goto end;
+	}
+
+	ret = IOpener_open(remote_obj, helios_app_uid, helios_app_obj);
+	if (ret) {
+		pr_err("IOpener_open failure: ret:[%d]\n", ret);
+		helios_app_obj->invoke = NULL;
+		helios_app_obj->context = NULL;
+		ret = -EIO;
+		goto end;
+	}
+
+end:
+	Object_ASSIGN_NULL(remote_obj);
+	Object_ASSIGN_NULL(client_env);
+	Object_ASSIGN_NULL(app_client);
+	return ret;
 }
 
 /**
@@ -215,32 +301,62 @@ static int load_helios_tzapp(struct qcom_helios *pbd)
 static long helios_tzapp_comm(struct qcom_helios *pbd,
 		struct tzapp_helios_req *req)
 {
-	struct tzapp_helios_req *helios_tz_req;
-	struct tzapp_helios_rsp *helios_tz_rsp;
-	int rc, req_len, rsp_len;
+	int32_t ret = 0;
+	struct Object helios_app_obj = {NULL, NULL};
+	size_t rsp_len = 0;
 
-	/* Fill command structure */
-	req_len = sizeof(struct tzapp_helios_req);
-	rsp_len = sizeof(struct tzapp_helios_rsp);
-	rc = get_cmd_rsp_buffers(pbd->qseecom_handle,
-			(void **)&helios_tz_req, &req_len,
-			(void **)&helios_tz_rsp, &rsp_len);
-	if (rc)
+	pr_debug("command id = %d\n", req->tzapp_helios_cmd);
+	ret = get_helios_app_object(&helios_app_obj);
+	if (ret) {
+		dev_err(pbd->dev, "<helios> Failed to get helios TA context\n");
 		goto end;
+	}
 
-	helios_tz_req->tzapp_helios_cmd = req->tzapp_helios_cmd;
-	helios_tz_req->address_fw = req->address_fw;
-	helios_tz_req->size_fw = req->size_fw;
+	switch (req->tzapp_helios_cmd) {
 
-	rc = qseecom_send_command(pbd->qseecom_handle,
-			(void *)helios_tz_req, req_len, (void *)helios_tz_rsp, rsp_len);
-	if (rc || helios_tz_rsp->status)
-		pbd->cmd_status = helios_tz_rsp->status;
-	else
-		pbd->cmd_status = 0;
+	case HELIOS_RPROC_AUTH_MDT:
+		pbd->cmd_status = helios_app_load_meta_data(
+				helios_app_obj,
+				(void *)req,
+				sizeof(struct tzapp_helios_req));
+
+		break;
+
+	case HELIOS_RPROC_IMAGE_LOAD:
+		pbd->cmd_status = helios_app_transfer_and_authenticate_fw(
+				helios_app_obj,
+				(void *)req,
+				sizeof(struct tzapp_helios_req));
+		break;
+
+	case HELIOS_RPROC_RAMDUMP:
+		pbd->cmd_status = helios_app_collect_ramdump(
+				helios_app_obj,
+				(void *)req,
+				sizeof(struct tzapp_helios_req),
+				&rsp_len);
+		break;
+
+	case HELIOS_RPROC_RESTART:
+		pbd->cmd_status = helios_app_force_restart(helios_app_obj);
+		break;
+
+	case HELIOS_RPROC_SHUTDOWN:
+		pbd->cmd_status = helios_app_shutdown(helios_app_obj);
+		break;
+
+	case HELIOS_RPROC_POWERDOWN:
+		pbd->cmd_status = helios_app_force_power_down(helios_app_obj);
+		break;
+
+	default:
+		pr_debug("Invalid command\n");
+		break;
+	}
 
 end:
-	return rc;
+	Object_ASSIGN_NULL(helios_app_obj);
+	return ret;
 }
 
 /**
@@ -349,7 +465,7 @@ static int helios_prepare(struct rproc *rproc)
 	int ret = 0;
 
 	init_completion(&helios->err_ready);
-	if (!helios->qseecom_handle) {
+	if (helios->app_status != RESULT_SUCCESS) {
 		ret = load_helios_tzapp(helios);
 		if (ret) {
 			dev_err(helios->dev,
@@ -357,8 +473,9 @@ static int helios_prepare(struct rproc *rproc)
 					__func__);
 			return ret;
 		}
-		helios->is_ready = true;
 	}
+	helios->is_ready = true;
+
 	pr_debug("heliosapp loaded\n");
 	return ret;
 }
@@ -608,7 +725,26 @@ static void helios_coredump(struct rproc *rproc)
 			   start_addr, DMA_ATTR_SKIP_ZEROING);
 }
 
-static int helios_shutdown(struct rproc *rproc)
+static int helios_force_powerdown(struct qcom_helios *helios)
+{
+	int ret;
+	struct tzapp_helios_req helios_tz_req;
+
+	pr_debug("Force powerdown helios\n");
+	helios_tz_req.tzapp_helios_cmd = HELIOS_RPROC_POWERDOWN;
+	helios_tz_req.address_fw = 0;
+	helios_tz_req.size_fw = 0;
+	ret = helios_tzapp_comm(helios, &helios_tz_req);
+	if (ret || helios->cmd_status) {
+		dev_err(helios->dev, "%s: Helios Power Down failed\n", __func__);
+		return helios->cmd_status;
+	}
+
+	pr_debug("Helios is powered down.\n");
+	return ret;
+}
+
+static int helios_force_restart(struct rproc *rproc)
 {
 	struct qcom_helios *helios = (struct qcom_helios *)rproc->priv;
 	struct tzapp_helios_req helios_tz_req;
@@ -626,31 +762,54 @@ static int helios_shutdown(struct rproc *rproc)
 		pr_info("A2H response is received! Collect ramdump now!\n");
 		helios_coredump(rproc);
 	} else {
-		/* Helios is not responding. So forcing S3 reset to power down Helios n Yoda
-		 * It should be powered on in Start Sequence.
-		 * If Helios not responding, we need to Helios SSR or Aurora+Helios power cycle
+		/* Helios is not responding. So forcing S3 reset to power down Helios
+		 * and Yoda. It should be powered on in Start Sequence.
 		 */
-		pr_debug("Powerdown helios\n");
-		helios_tz_req.tzapp_helios_cmd = HELIOS_RPROC_POWERDOWN;
-		helios_tz_req.address_fw = 0;
-		helios_tz_req.size_fw = 0;
-		ret = helios_tzapp_comm(helios, &helios_tz_req);
-		if (ret || helios->cmd_status) {
+		pr_debug("Helios is not responding. Powerdown helios\n");
+		ret = helios_force_powerdown(helios);
+		if (ret) {
 			dev_err(helios->dev, "%s: Helios Power Down failed\n", __func__);
-			return helios->cmd_status;
+			return ret;
 		}
-		pr_debug("Helios is powered down.\n");
 	}
 
+	pr_debug("Helios Restart is success!\n");
+	return ret;
+}
+
+static int helios_shutdown(struct rproc *rproc)
+{
+	struct qcom_helios *helios = rproc->priv;
+	struct tzapp_helios_req helios_tz_req;
+	int ret;
+
+	helios_tz_req.tzapp_helios_cmd = HELIOS_RPROC_SHUTDOWN;
+	helios_tz_req.address_fw = 0;
+	helios_tz_req.size_fw = 0;
+
+	ret = helios_tzapp_comm(helios, &helios_tz_req);
+	if (ret || helios->cmd_status) {
+		/* Helios is not responding. So forcing S3 reset to power down Helios.
+		 * It should be powered on in Start Sequence.
+		 */
+		pr_debug("Helios is not responding. Powerdown helios\n");
+		ret = helios_force_powerdown(helios);
+		if (ret) {
+			dev_err(helios->dev, "%s: Helios Power Down failed\n", __func__);
+			return ret;
+		}
+	}
+
+	pr_debug("Helios Shutdown is success!\n");
 	return ret;
 }
 
 /**
  * helios_stop() - Called by stop operation of remoteproc framework
- * Triggers a watchdog bite in helios to start ramdump collection
+ * It can help to force restart or shutdown Helios based on recovery option.
  * @rproc: struct containing private helios data.
  *
- * Return: always success
+ * Return: success or TA response error code
  */
 static int helios_stop(struct rproc *rproc)
 {
@@ -659,14 +818,18 @@ static int helios_stop(struct rproc *rproc)
 
 	/* In case of crash, STOP operation is dummy */
 	if (rproc->state == RPROC_CRASHED) {
-		pr_err("Helios is crashed!. No need to do anything here! Collect ramdump directly.\n");
+		pr_err("Helios is crashed! Skip stop and collect ramdump directly.\n");
 		return ret;
 	}
 
-	if (helios->is_ready)
-		ret = helios_shutdown(rproc);
+	if (helios->is_ready) {
+		if (rproc->recovery_disabled)
+			ret = helios_shutdown(rproc);
+		else
+			ret = helios_force_restart(rproc);
+	}
 
-	pr_info("Helios Shutdown is success\n");
+	pr_info("Helios Stop is %s\n", ret ? "failed" : "success");
 	return ret;
 }
 
@@ -688,16 +851,16 @@ static int helios_reboot_notify(struct notifier_block *nb, unsigned long action,
 	if (action != SYS_RESTART)
 		return NOTIFY_OK;
 
-	pr_debug("System is going for reboot!. Powerdown helios.\n");
-	helios_tz_req.tzapp_helios_cmd = HELIOS_RPROC_POWERDOWN;
+	pr_debug("System is going for reboot!. Shutdown helios.\n");
+	helios_tz_req.tzapp_helios_cmd = HELIOS_RPROC_SHUTDOWN;
 	helios_tz_req.address_fw = 0;
 	helios_tz_req.size_fw = 0;
 	ret = helios_tzapp_comm(helios, &helios_tz_req);
 	if (ret || helios->cmd_status) {
-		dev_err(helios->dev, "%s: Helios Power Down failed\n", __func__);
+		dev_err(helios->dev, "%s: Helios Shutdown failed\n", __func__);
 		return helios->cmd_status;
 	}
-	pr_debug("Helios is powered down.\n");
+	pr_debug("Helios is Shutdown successfully.\n");
 
 	return NOTIFY_OK;
 }
@@ -733,6 +896,7 @@ static int rproc_helios_driver_probe(struct platform_device *pdev)
 	helios->ssr_name = ssr_name;
 	helios->firmware_name = fw_name;
 	helios->dev = &pdev->dev;
+	helios->app_status = RESULT_FAILURE;
 	rproc->dump_conf = RPROC_COREDUMP_ENABLED;
 	rproc->recovery_disabled = true;
 	rproc->auto_boot = false;
