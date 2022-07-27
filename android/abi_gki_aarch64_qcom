@@ -1496,6 +1496,7 @@
   pwmchip_add
   pwmchip_remove
   qcom_smem_state_get
+  qcom_smem_state_put
   qcom_smem_state_register
   qcom_smem_state_unregister
   qcom_smem_state_update_bits
