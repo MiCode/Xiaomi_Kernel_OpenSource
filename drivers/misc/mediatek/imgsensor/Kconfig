@@ -30,6 +30,14 @@ config MTK_IMGSENSOR_MT6853
 	  To compile this driver as a module, choose M here: the
 	  module will be called imgsensor_mt6853.
 
+config MTK_SENSOR_PROJECT
+    string "MTK camera sensor project folder name"
+	help
+	  This config is set as project folder name
+	  which imgsenor driver used for.
+	  When MTK_SENSOR_PROJECT is set, imgsensor
+	  will use the driver in this project folder.
+
 config MTK_IMGSENSOR_MT6893
 	tristate "MTK PLATFORM for MT6893"
 	help

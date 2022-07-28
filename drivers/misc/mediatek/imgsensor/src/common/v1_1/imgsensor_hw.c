@@ -32,6 +32,9 @@ char * const imgsensor_hw_id_names[] = {
 	"mclk",
 	"regulator",
 	"gpio"
+	#ifdef SUPPORT_WL2868
+	,"wl2868"
+	#endif
 };
 
 enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
