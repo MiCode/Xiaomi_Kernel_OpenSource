@@ -1358,11 +1358,16 @@ int mtk_register_power_domains(struct platform_device *pdev,
 		 * software.  The unused domains will be switched off during
 		 * late_init time.
 		 */
-		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_BYPASS_INIT_ON))
+		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_BYPASS_INIT_ON)) {
 			on = false;
-		else
+			if (MTK_SCPD_CAPS(scpd, MTK_SCPD_DISABLE_INIT_ON) &&
+				(scpsys_pwr_con_is_on(scpd))) {
+				on = WARN_ON(genpd->power_off(genpd) < 0);
+				dev_err(&pdev->dev, "disable not reset power_domain:%s, on:%d\n",
+					genpd->name, on);
+			}
+		} else
 			on = !WARN_ON(genpd->power_on(genpd) < 0);
-
 		pm_genpd_init(genpd, NULL, !on);
 	}
 
