@@ -2449,6 +2449,13 @@ _mtk_crtc_lye_addon_module_connect(
 				lye_state->lc_tgt_layer;
 
 			if (mtk_crtc->is_dual_pipe) {
+				struct mtk_panel_params *params = NULL;
+				bool rotate = false;
+
+				params = mtk_drm_get_lcm_ext_params(crtc);
+				if (params && params->rotate == MTK_PANEL_ROTATE_180)
+					rotate = true;
+
 				if (state->rsz_param[0].in_len) {
 					memcpy(&(addon_config.addon_rsz_config.rsz_param),
 						&state->rsz_param[0], sizeof(struct mtk_rsz_param));
@@ -2459,6 +2466,12 @@ _mtk_crtc_lye_addon_module_connect(
 						state->rsz_param[0].out_len;
 					addon_config.addon_rsz_config.rsz_dst_roi.x =
 						state->rsz_param[0].out_x;
+					if (rotate == true) {
+						addon_module = &addon_data_dual->module_data[i];
+						addon_config.config_type.module =
+							addon_module->module;
+						addon_config.config_type.type = addon_module->type;
+					}
 					mtk_addon_connect_between(crtc, ddp_mode, addon_module,
 							  &addon_config, cmdq_handle);
 				}
@@ -2473,10 +2486,13 @@ _mtk_crtc_lye_addon_module_connect(
 						state->rsz_param[1].out_len;
 					addon_config.addon_rsz_config.rsz_dst_roi.x =
 						state->rsz_param[1].out_x;
-					addon_module = &addon_data_dual->module_data[i];
-					addon_config.config_type.module = addon_module->module;
-					addon_config.config_type.type = addon_module->type;
 
+					if (rotate == false) {
+						addon_module = &addon_data_dual->module_data[i];
+						addon_config.config_type.module =
+							addon_module->module;
+						addon_config.config_type.type = addon_module->type;
+					}
 					mtk_addon_connect_between(crtc, ddp_mode, addon_module,
 							  &addon_config, cmdq_handle);
 				}
@@ -5711,6 +5727,13 @@ void mtk_crtc_dual_layer_config(struct mtk_drm_crtc *mtk_crtc,
 	struct mtk_plane_state plane_state_l;
 	struct mtk_plane_state plane_state_r;
 	struct mtk_ddp_comp *p_comp;
+	struct mtk_panel_params *params = NULL;
+	bool rotate = false;
+
+	if (crtc)
+		params = mtk_drm_get_lcm_ext_params(crtc);
+	if (params && params->rotate == MTK_PANEL_ROTATE_180)
+		rotate = true;
 
 	if (!comp) {
 		DDPPR_ERR("%s invalid comp\n", __func__);
@@ -5724,14 +5747,22 @@ void mtk_crtc_dual_layer_config(struct mtk_drm_crtc *mtk_crtc,
 		plane_state_r.comp_state.comp_id = 0;
 
 	p_comp = priv->ddp_comp[dual_pipe_comp_mapping(priv->data->mmsys_id, comp->id)];
-	mtk_ddp_comp_layer_config(p_comp, idx,
-				&plane_state_r, cmdq_handle);
+	if (rotate)
+		mtk_ddp_comp_layer_config(p_comp, idx,
+					&plane_state_l, cmdq_handle);
+	else
+		mtk_ddp_comp_layer_config(p_comp, idx,
+					&plane_state_r, cmdq_handle);
 	DDPINFO("%s+ comp_id:%d, comp_id:%d\n",
 		__func__, p_comp->id,
 		plane_state_r.comp_state.comp_id);
 
 	p_comp = comp;
-	mtk_ddp_comp_layer_config(p_comp, idx, &plane_state_l,
+	if (rotate)
+		mtk_ddp_comp_layer_config(p_comp, idx, &plane_state_r,
+				  cmdq_handle);
+	else
+		mtk_ddp_comp_layer_config(p_comp, idx, &plane_state_l,
 				  cmdq_handle);
 }
 /* restore ovl layer config and set dal layer if any */

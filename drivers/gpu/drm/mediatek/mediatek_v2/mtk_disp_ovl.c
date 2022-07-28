@@ -1611,6 +1611,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	unsigned int buf_size = 0;
 	int rotate = 0;
 	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
+	struct mtk_panel_params *params = NULL;
 	unsigned int aid_sel_offset = 0;
 	resource_size_t mmsys_reg = 0;
 	int sec_bit;
@@ -1628,10 +1629,10 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		}
 	}
 
-#ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
-	if (drm_crtc_index(&comp->mtk_crtc->base) == 0)
+	if (comp->mtk_crtc)
+		params = mtk_drm_get_lcm_ext_params(&comp->mtk_crtc->base);
+	if (params && params->rotate == MTK_PANEL_ROTATE_180)
 		rotate = 1;
-#endif
 
 	if (rotate)
 		offset = (src_x + dst_w) * mtk_drm_format_plane_cpp(fmt, 0) +
@@ -1788,6 +1789,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	unsigned int value = 0, mask = 0, fmt_ex = 0;
 	unsigned long long temp_bw;
 	unsigned int dim_color;
+	struct mtk_panel_params *params = NULL;
 
 	/* handle dim layer for compression flag & color dim*/
 	if (fmt == DRM_FORMAT_C8) {
@@ -1812,10 +1814,10 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		_ovl_common_config(comp, idx, state, handle);
 	}
 
-#ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
-	if (drm_crtc_index(&comp->mtk_crtc->base) == 0)
+	if (comp->mtk_crtc)
+		params = mtk_drm_get_lcm_ext_params(&comp->mtk_crtc->base);
+	if (params && params->rotate == MTK_PANEL_ROTATE_180)
 		rotate = 1;
-#endif
 
 	if (state->comp_state.comp_id) {
 		lye_idx = state->comp_state.lye_id;
@@ -1866,7 +1868,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		_get_bg_roi(comp, &bg_h, &bg_w);
 		offset = ((bg_h - pending->height - pending->dst_y) << 16) +
 			 (bg_w - pending->width - pending->dst_x);
-		DDPINFO("bg(%d,%d) (%d,%d,%dx%d)\n", bg_w, bg_h, pending->dst_x,
+		DDPINFO("ROTT bg(%d,%d) (%d,%d,%dx%d)\n", bg_w, bg_h, pending->dst_x,
 			pending->dst_y, pending->width, pending->height);
 		con |= (CON_HORI_FLIP + CON_VERTICAL_FLIP);
 	} else {
@@ -2031,16 +2033,17 @@ static bool compr_l_config_PVRIC_V4_1(struct mtk_ddp_comp *comp,
 	dma_addr_t lx_addr, lx_hdr_addr;
 	unsigned int lx_pitch, lx_hdr_pitch;
 	unsigned int lx_clip, lx_src_size;
+	struct mtk_panel_params *params = NULL;
 
 	if (Bpp == 0) {
 		DDPPR_ERR("%s invalid Bpp with fmt %u\n", __func__, fmt);
 		return 0;
 	}
 
-#ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
-	if (drm_crtc_index(&comp->mtk_crtc->base) == 0)
+	if (comp->mtk_crtc)
+		params = mtk_drm_get_lcm_ext_params(&comp->mtk_crtc->base);
+	if (params && params->rotate == MTK_PANEL_ROTATE_180)
 		rotate = 1;
-#endif
 
 	if (!Bpp) {
 		DDPPR_ERR("%s wrong Bpp = %d\n", __func__, Bpp);
@@ -2329,6 +2332,7 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 	resource_size_t mmsys_reg = 0;
 	int sec_bit;
 
+	struct mtk_panel_params *params = NULL;
 	/* variable to config into register */
 	unsigned int lx_fbdc_en;
 	dma_addr_t lx_addr, lx_hdr_addr;
@@ -2340,10 +2344,10 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 		return 0;
 	}
 
-#ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
-	if (drm_crtc_index(&comp->mtk_crtc->base) == 0)
+	if (comp->mtk_crtc)
+		params = mtk_drm_get_lcm_ext_params(&comp->mtk_crtc->base);
+	if (params && params->rotate == MTK_PANEL_ROTATE_180)
 		rotate = 1;
-#endif
 
 	if (!Bpp) {
 		DDPPR_ERR("%s wrong Bpp = %d\n", __func__, Bpp);
@@ -2611,6 +2615,7 @@ bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	unsigned int lx_2nd_subbuf = 0;
 	unsigned int lx_pitch_msb = 0;
 
+	struct mtk_panel_params *params = NULL;
 	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
 	unsigned int aid_sel_offset = 0;
 	resource_size_t mmsys_reg = 0;
@@ -2630,10 +2635,10 @@ bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 		fmt, Bpp,
 		compress);
 
-#ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
-	if (drm_crtc_index(&comp->mtk_crtc->base) == 0)
+	if (comp->mtk_crtc)
+		params = mtk_drm_get_lcm_ext_params(&comp->mtk_crtc->base);
+	if (params && params->rotate == MTK_PANEL_ROTATE_180)
 		rotate = 1;
-#endif
 
 	if (!Bpp) {
 		DDPPR_ERR("%s wrong Bpp = %d\n", __func__, Bpp);
@@ -2938,15 +2943,17 @@ mtk_ovl_addon_rsz_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 		int lc_x = rsz_dst_roi.x, lc_y = rsz_dst_roi.y;
 		int lc_w = rsz_dst_roi.width, lc_h = rsz_dst_roi.height;
 
-#ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
-		{
-			int bg_w, bg_h;
+		int bg_w, bg_h;
+		struct mtk_panel_params *params = NULL;
 
+		if (comp->mtk_crtc)
+			params = mtk_drm_get_lcm_ext_params(&comp->mtk_crtc->base);
+		if (params && params->rotate == MTK_PANEL_ROTATE_180) {
 			_get_bg_roi(comp, &bg_h, &bg_w);
 			lc_y = bg_h - lc_h - lc_y;
 			lc_x = bg_w - lc_w - lc_x;
 		}
-#endif
+
 		_ovl_UFOd_in(comp, 1, handle);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_LC_OFFSET,

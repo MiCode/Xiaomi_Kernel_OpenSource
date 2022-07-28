@@ -103,6 +103,11 @@ enum MTK_PANEL_OUTPUT_PORT_MODE {
 	MTK_PANEL_DUAL_PORT,
 };
 
+enum MTK_PANEL_ROTATION {
+	MTK_PANEL_ROTATE_0 = 0,
+	MTK_PANEL_ROTATE_180,
+};
+
 enum MTK_PANEL_SPR_OUTPUT_MODE {
 	MTK_PANEL_SPR_OUTPUT_MODE_NOT_DEFINED = 0,
 	MTK_PANEL_PACKED_SPR_8_BITS = 1,
@@ -427,6 +432,7 @@ struct mtk_panel_params {
 
 	struct mtk_panel_cm_params cm_params;
 	struct mtk_panel_spr_params spr_params;
+	enum MTK_PANEL_ROTATION rotate;
 };
 
 struct mtk_panel_ext {

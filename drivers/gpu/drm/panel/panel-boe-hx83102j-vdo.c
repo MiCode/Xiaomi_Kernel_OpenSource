@@ -539,6 +539,7 @@ static struct mtk_panel_params ext_params = {
 	.corner_pattern_height = ROUND_CORNER_H_TOP,
 	.corner_pattern_tp_size = sizeof(top_rc_pattern),
 	.corner_pattern_lt_addr = (void *)top_rc_pattern,
+	.rotate = 1,
 };
 
 static struct mtk_panel_params ext_params_90hz = {
@@ -623,6 +624,7 @@ static struct mtk_panel_params ext_params_90hz = {
 	.corner_pattern_height = ROUND_CORNER_H_TOP,
 	.corner_pattern_tp_size = sizeof(top_rc_pattern),
 	.corner_pattern_lt_addr = (void *)top_rc_pattern,
+	.rotate = 1,
 };
 
 static struct mtk_panel_params ext_params_120hz = {
@@ -707,6 +709,7 @@ static struct mtk_panel_params ext_params_120hz = {
 	.corner_pattern_height = ROUND_CORNER_H_TOP,
 	.corner_pattern_tp_size = sizeof(top_rc_pattern),
 	.corner_pattern_lt_addr = (void *)top_rc_pattern,
+	.rotate = 1,
 };
 
 static int panel_ata_check(struct drm_panel *panel)
