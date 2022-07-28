@@ -984,8 +984,6 @@ static int venc_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 		return -ENOMEM;
 	}
 
-	mtk_vcodec_add_ctx_list(ctx);
-
 	inst->ctx = ctx;
 	inst->vcu_inst.ctx = ctx;
 	inst->vcu_inst.dev = ctx->dev->vcu_plat_dev;
@@ -1012,6 +1010,9 @@ static int venc_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *handle)
 	out.venc_inst = (unsigned long)&inst->vcu_inst;
 	(*handle) = (unsigned long)inst;
 	inst->vcu_inst.daemon_pid = get_vcp_generation();
+
+	mtk_vcodec_add_ctx_list(ctx);
+
 	ret = venc_vcp_ipi_send(inst, &out, sizeof(out), 0);
 	inst->vsi = (struct venc_vsi *)inst->vcu_inst.vsi;
 
