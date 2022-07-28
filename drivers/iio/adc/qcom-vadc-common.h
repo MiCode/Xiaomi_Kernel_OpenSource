@@ -65,6 +65,8 @@
 #define DIE_TEMP_ADC7_MAX			160000
 #define R_PMR_COMP		3670000
 
+#define PMIC5_GEN3_USB_IN_I_SCALE_FACTOR		9248
+
 #define ADC_VDD_REF			1875000
 
 /**
@@ -186,13 +188,13 @@ struct adc_tm_client_info {
  *	charger temperature.
  * SCALE_HW_CALIB_PM5_SMB_TEMP: Returns result in millidegrees for PMIC5
  *	SMB1390 temperature.
- * SCALE_HW_CALIB_BATT_THERM_100K: Returns battery thermistor voltage in
+ * SCALE_HW_CALIB_BATT_THERM_100K: Returns battery thermistor temperature in
  *	decidegC using 100k pullup. The hardware applies offset/slope to adc
  *	code.
- * SCALE_HW_CALIB_BATT_THERM_30K: Returns battery thermistor voltage in
+ * SCALE_HW_CALIB_BATT_THERM_30K: Returns battery thermistor temperature in
  *	decidegC using 30k pullup. The hardware applies offset/slope to adc
  *	code.
- * SCALE_HW_CALIB_BATT_THERM_400K: Returns battery thermistor voltage in
+ * SCALE_HW_CALIB_BATT_THERM_400K: Returns battery thermistor temperature in
  *	decidegC using 400k pullup. The hardware applies offset/slope to adc
  *	code.
  * SCALE_HW_CALIB_PM5_SMB1398_TEMP: Returns result in millidegrees for PMIC5
@@ -214,6 +216,12 @@ struct adc_tm_client_info {
  * SCALE_HW_CALIB_THERM_PMR_COMP_100K_PU_PM7: Returns channel resistance
  *	in ohms using 100k pullup for PMR735A/PMR735B thermistor channels,
  *	compensating for ADC internal impedance. The hardware applies offset/slope to adc code.
+ * SCALE_HW_CALIB_PM5_GEN3_BATT_THERM_100K: Returns battery thermistor
+ *	temperature in decidegC using 100k pullup. The hardware applies
+ *	offset/slope to adc code.
+ * SCALE_HW_CALIB_PM5_GEN3_BATT_ID_100K: Returns battery ID resistance
+ *	in ohms using 100k pullup. The hardware applies offset/slope to adc code.
+ * SCALE_HW_CALIB_PM5_GEN3_USB_IN_I: Returns USB input current in microamperes.
  */
 enum vadc_scale_fn_type {
 	SCALE_DEFAULT = 0,
@@ -241,6 +249,9 @@ enum vadc_scale_fn_type {
 	SCALE_HW_CALIB_PM5_CUR,
 	SCALE_HW_CALIB_RESISTANCE_100K_PU_PM7,
 	SCALE_HW_CALIB_THERM_PMR_COMP_100K_PU_PM7,
+	SCALE_HW_CALIB_PM5_GEN3_BATT_THERM_100K,
+	SCALE_HW_CALIB_PM5_GEN3_BATT_ID_100K,
+	SCALE_HW_CALIB_PM5_GEN3_USB_IN_I,
 	SCALE_HW_CALIB_INVALID,
 };
 
