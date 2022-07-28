@@ -219,9 +219,9 @@ void mhal_dump_reg(struct mtk_dp *mtk_dp);
 void mhal_DPTx_Verify_Clock(struct mtk_dp *mtk_dp);
 void mhal_DPTx_ISR(struct mtk_dp *mtk_dp);
 BYTE mhal_DPTx_GetColorBpp(struct mtk_dp *mtk_dp);
-bool mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp,
+UINT8 mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp,
 	BYTE ubCmd, DWORD usDPCDADDR, size_t ubLength, BYTE *pRxBuf);
-bool mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
+UINT8 mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
 	BYTE ubCmd, DWORD usDPCDADDR, size_t ubLength, BYTE *pData);
 bool mhal_DPTx_SetSwingtPreEmphasis(struct mtk_dp *mtk_dp, int lane_num,
 	int swingValue, int preEmphasis);
@@ -317,5 +317,6 @@ void mhal_DPTx_SetTxRate(struct mtk_dp *mtk_dp, int Value);
 void mhal_DPTx_AnalogPowerOnOff(struct mtk_dp *mtk_dp, bool enable);
 void mhal_DPTx_DataLanePNSwap(struct mtk_dp *mtk_dp, bool bENABLE);
 void mhal_DPTx_SetAuxSwap(struct mtk_dp *mtk_dp, bool enable);
+void mhal_DPTx_Set_BS2BS_Cnt(struct mtk_dp *mtk_dp, bool bEnable, DWORD uiHTT);
 
 #endif //__DRTX_HAL_H__

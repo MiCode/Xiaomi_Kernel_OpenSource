@@ -219,7 +219,7 @@ int notify_uevent_user(struct notify_dev *sdev, int state)
 bool mdrv_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp, u8 ubCmd,
 	u32  usDPCDADDR, size_t ubLength, BYTE *pData)
 {
-	bool bReplyStatus = false;
+	UINT8 bReplyStatus = false;
 	u8 ubRetryLimit = 0x7;
 
 	if (!mtk_dp->training_info.bCablePlugIn ||
@@ -234,7 +234,7 @@ bool mdrv_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp, u8 ubCmd,
 		bReplyStatus = mhal_DPTx_AuxWrite_Bytes(mtk_dp, ubCmd,
 			usDPCDADDR, ubLength, pData);
 		ubRetryLimit--;
-		if (!bReplyStatus) {
+		if (bReplyStatus) {
 			udelay(50);
 			DPTXFUNC("Retry Num = %d\n", ubRetryLimit);
 		} else
@@ -292,7 +292,7 @@ bool mdrv_DPTx_AuxWrite_DPCD(struct mtk_dp *mtk_dp, u8 ubCmd,
 bool mdrv_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, u8 ubCmd,
 	u32 usDPCDADDR, size_t ubLength, BYTE *pData)
 {
-	bool bReplyStatus = false;
+	UINT8 bReplyStatus = false;
 	u8 ubRetryLimit = 7;
 
 	if (!mtk_dp->training_info.bCablePlugIn ||
@@ -306,7 +306,7 @@ bool mdrv_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, u8 ubCmd,
 	do {
 		bReplyStatus = mhal_DPTx_AuxRead_Bytes(mtk_dp, ubCmd,
 					usDPCDADDR, ubLength, pData);
-		if (!bReplyStatus) {
+		if (bReplyStatus) {
 			udelay(50);
 			DPTXFUNC("Retry Num = %d\n", ubRetryLimit);
 		} else
@@ -2361,6 +2361,7 @@ int mdrv_DPTx_Handle(struct mtk_dp *mtk_dp)
 		if (mtk_dp->video_enable) {
 			mtk_dp_video_config(mtk_dp);
 			mdrv_DPTx_Video_Enable(mtk_dp, true);
+			mhal_DPTx_Set_BS2BS_Cnt(mtk_dp, TRUE, mtk_dp->info.DPTX_OUTBL.Htt);
 		}
 
 		if (mtk_dp->audio_enable && (mtk_dp->info.audio_caps != 0)) {
@@ -3823,6 +3824,8 @@ static int mtk_dp_bind(struct device *dev, struct device *master, void *data)
 	struct drm_device *drm = data;
 	int ret;
 	mtk_dp->drm_dev = drm;
+	mtk_dp->priv = drm->dev_private;
+
 	DPTXDBG("%s, %d, mtk_dp 0x%p\n", __func__, __LINE__, mtk_dp);
 	ret = drm_connector_init(drm, &mtk_dp->conn, &mtk_dp_connector_funcs,
 		DRM_MODE_CONNECTOR_DisplayPort);
