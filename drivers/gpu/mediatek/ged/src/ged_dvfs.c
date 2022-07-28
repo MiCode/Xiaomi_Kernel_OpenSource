@@ -425,11 +425,11 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 				5566, 0, 0, batch_freq);
 
 #if defined(CONFIG_MTK_GPUFREQ_V2)
-			Frequency__((long long)(avg_freq * 1000),
+			Frequency__(((long long)avg_freq) * 1000,
 			gpufreq_get_cur_freq(TARGET_DEFAULT));
 #else
-			Frequency__((long long)(avg_freq * 1000),
-			(long long)(avg_freq * 1000));
+			Frequency__(((long long)avg_freq) * 1000,
+			((long long)avg_freq) * 1000);
 #endif /* CONFIG_MTK_GPUFREQ_V2 */
 		} else {
 			ged_log_perf_trace_counter("gpu_freq",

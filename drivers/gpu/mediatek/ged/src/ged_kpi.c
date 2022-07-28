@@ -60,7 +60,7 @@
 #define GED_PR_DEBUG(fmt, args...)\
 	pr_debug(GED_KPI_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
 
-#define GED_KPI_MSEC_DIVIDER 1000000
+#define GED_KPI_MSEC_DIVIDER ((u64)1000000)
 #define GED_KPI_SEC_DIVIDER 1000000000
 #define GED_KPI_MAX_FPS 60
 /* set default margin to be distinct from FPSGO(0 or 3) */
@@ -1322,9 +1322,9 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					if (g_frame_target_mode) {
 						ged_set_backup_timer_timeout(
 							psKPI->t_gpu_target *
-							g_frame_target_time  / 10);
+							(u64)g_frame_target_time  / 10);
 						fb_timeout = psKPI->t_gpu_target *
-							g_frame_target_time  / 10;
+							(u64)g_frame_target_time  / 10;
 					} else {
 						ged_set_backup_timer_timeout(g_frame_target_time
 						* GED_KPI_MSEC_DIVIDER);
