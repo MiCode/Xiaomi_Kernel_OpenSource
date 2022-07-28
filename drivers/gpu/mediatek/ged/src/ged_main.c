@@ -130,6 +130,8 @@ static const struct proc_ops ged_proc_fops = {
 
 unsigned int g_ged_gpueb_support;
 unsigned int g_ged_fdvfs_support;
+int g_ged_slide_window_support;
+unsigned int g_ged_gpu_freq_notify_support;
 unsigned int g_fastdvfs_mode;
 unsigned int g_fastdvfs_margin;
 #define GED_TARGET_UNLIMITED_FPS 240
@@ -436,7 +438,7 @@ EXPORT_SYMBOL(ged_is_fdvfs_support);
 GED_ERROR check_eb_config(void)
 {
 	struct device_node *gpueb_node, *fdvfs_node;
-	int ret = GED_OK;
+	int ret = GED_OK, ret_temp;
 
 	gpueb_node = of_find_compatible_node(NULL, NULL, "mediatek,gpueb");
 	if (!gpueb_node) {
@@ -453,22 +455,51 @@ GED_ERROR check_eb_config(void)
 	if (!fdvfs_node) {
 		GED_LOGE("No fdvfs node.");
 		g_ged_fdvfs_support = 0;
+		g_ged_gpu_freq_notify_support = 0;
 		g_ged_gpueb_support = 0;
 	} else {
-		of_property_read_u32(fdvfs_node, "fdvfs-policy-support",
+		ret_temp = of_property_read_u32(fdvfs_node, "fdvfs-policy-support",
 				&g_ged_fdvfs_support);
-		if (unlikely(ret))
-			GED_LOGE("fail to read fdvfs-policy-support (%d)", ret);
+		if (unlikely(ret_temp))
+			GED_LOGE("fail to read fdvfs-policy-support (%d)", ret_temp);
+		ret_temp = of_property_read_u32(fdvfs_node, "gpu-freq-notify-support",
+				&g_ged_gpu_freq_notify_support);
+		if (unlikely(ret_temp))
+			GED_LOGE("fail to read gpu-freq-notify-support (%d)", ret_temp);
 	}
 
 	if (g_ged_gpueb_support && g_ged_fdvfs_support)
 		g_fastdvfs_mode = 1;
 
-	GED_LOGI("%s. gpueb_support: %d, fdvfs_support: %d, fastdvfs_mode: %d",
-		__func__, g_ged_gpueb_support, g_ged_fdvfs_support, g_fastdvfs_mode);
+	GED_LOGI("%s. gpueb_support: %d, fdvfs_support: %d, gpu_freq_notify_support: %d",
+		__func__, g_ged_gpueb_support, g_ged_fdvfs_support,
+		g_ged_gpu_freq_notify_support);
+	GED_LOGI("fastdvfs_mode: %d", g_fastdvfs_mode);
 
 	return ret;
 }
+
+GED_ERROR check_afs_config(void)
+{
+	struct device_node *gpu_afs_node;
+	int ret = GED_OK;
+
+	gpu_afs_node = of_find_compatible_node(NULL, NULL, "mediatek,gpu_afs");
+	if (!gpu_afs_node) {
+		GED_LOGE("No gpu afs node.");
+		g_ged_slide_window_support = -1;
+	} else {
+		ret = of_property_read_u32(gpu_afs_node, "afs-policy-support",
+			&g_ged_slide_window_support);
+		if (unlikely(ret))
+			GED_LOGE("fail to read afs-policy-support (%d)", ret);
+	}
+	if (g_ged_slide_window_support == 1)
+		g_loading_slide_enable = 1;
+
+	return ret;
+}
+
 
 /******************************************************************************
  * Module related
@@ -491,8 +522,10 @@ static int ged_pdrv_probe(struct platform_device *pdev)
 
 	g_ged_gpueb_support = 0;
 	g_ged_fdvfs_support = 0;
+	g_ged_gpu_freq_notify_support = 0;
 	g_fastdvfs_mode		= 0;
 	g_fastdvfs_margin   = 0;
+	g_loading_slide_enable = 0;
 	err = check_eb_config();
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE("Failed to check ged config!\n");
@@ -503,6 +536,12 @@ static int ged_pdrv_probe(struct platform_device *pdev)
 		fastdvfs_proc_init();
 		fdvfs_init();
 		GED_LOGI("@%s: fdvfs init done\n", __func__);
+	}
+
+	err = check_afs_config();
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("Failed to check ged config!\n");
+		goto ERROR;
 	}
 
 	err = ged_sysfs_init();

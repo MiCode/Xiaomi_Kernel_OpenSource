@@ -7,8 +7,9 @@
 
 #include "ged_type.h"
 
-#define DCS_POLICY_MARGIN 250
-#define DCS_MIN_OPP_CNT 4
+#define DCS_POLICY_MARGIN    (250)
+#define DCS_MIN_OPP_CNT      (4)
+#define DCS_DEFAULT_MIN_CORE (5)
 
 struct dcs_core_mask {
 	unsigned int core_mask;
@@ -26,6 +27,7 @@ GED_ERROR ged_dcs_init_platform_info(void);
 void ged_dcs_exit(void);
 struct gpufreq_core_mask_info *dcs_get_avail_mask_table(void);
 
+int dcs_get_dcs_opp_setting(void);
 int dcs_get_cur_core_num(void);
 int dcs_get_max_core_num(void);
 int dcs_get_avail_mask_num(void);

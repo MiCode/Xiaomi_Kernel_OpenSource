@@ -73,6 +73,32 @@ void ged_log_perf_trace_batch_counter(char *name, long long count, int pid,
 	unsigned long frameID, u64 BQID, char *batch_str);
 
 void ged_log_dump(GED_LOG_BUF_HANDLE hLogBuf);
+// Frame-based
+noinline void Policy__Frame_based__Frequency(int v1, int v2);
+noinline void Policy__Frame_based__Workload(int v1, int v2);
+noinline void Policy__Frame_based__Workload__Source(int v1, int v2, int v3);
+noinline void Policy__Frame_based__GPU_Time(int v1, int v2, int v3);
+noinline void Policy__Frame_based__GPU_Time__Detail(int v1, int v2, int v3);
+noinline void Policy__Frame_based__Margin(int v1, int v2, int v3);
+noinline void Policy__Frame_based__Margin__Detail(unsigned int v1, int v2, int v3, int v4, int v5);
+// Loading-based
+noinline void Policy__Loading_based__Opp(int v1);
+noinline void Policy__Loading_based__Loading(unsigned int v1, unsigned int v2);
+noinline void Policy__Loading_based__Loading__Detail(unsigned int v1, unsigned int v2,
+	unsigned int v3, unsigned int v4, int v5);
+noinline void Policy__Loading_based__Bound(int v1, int v2, int v3, int v4);
+noinline void Policy__Loading_based__Step(unsigned int v1, unsigned int v2, int v3, int v4);
+noinline void Policy__Loading_based__GPU_Time(int v1, int v2, int v3, int v4, int v5);
+noinline void Policy__Loading_based__Margin(int v1, int v2, int v3);
+noinline void Policy__Loading_based__Margin__Detail(unsigned int v1, int v2, int v3,
+	unsigned int v4, int v5);
+// DCS
+noinline void Policy__DCS(int v1, int v2);
+noinline void Policy__DCS__Detail(unsigned int v1);
+// Common
+noinline void Policy__Common__Commit_Reason(int v1, int v2);
+// Frequency
+noinline void Frequency__(long long v1, unsigned long v2);
 
 #if defined(CONFIG_GPU_MT8167) || defined(CONFIG_GPU_MT8173) ||\
 defined(CONFIG_GPU_MT6739) || defined(CONFIG_GPU_MT6761)\
