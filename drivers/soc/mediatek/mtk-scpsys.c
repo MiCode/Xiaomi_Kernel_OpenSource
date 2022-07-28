@@ -1344,14 +1344,27 @@ int mtk_register_power_domains(struct platform_device *pdev,
 				struct scp *scp, int num)
 {
 	struct genpd_onecell_data *pd_data;
-	int i, ret;
+	int i = 0, ret = 0;
+	struct scp_domain *scpd;
+	struct generic_pm_domain *genpd;
+	bool on;
 
 	scpsys_init_flag = true;
-	for (i = 0; i < num; i++) {
-		struct scp_domain *scpd = &scp->domains[i];
-		struct generic_pm_domain *genpd = &scpd->genpd;
-		bool on;
+	for (i = num - 1; i >= 0; i--) {
+		scpd = &scp->domains[i];
+		genpd = &scpd->genpd;
 
+		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_DISABLE_INIT_ON) &&
+			(scpsys_pwr_con_is_on(scpd))) {
+			dev_notice(&pdev->dev, "disable not reset power_domain:%s, on:%d\n",
+				genpd->name, on);
+			on = WARN_ON(genpd->power_off(genpd) < 0);
+			pm_genpd_init(genpd, NULL, !on);
+		}
+	}
+	for (i = 0; i < num; i++) {
+		scpd = &scp->domains[i];
+		genpd = &scpd->genpd;
 		/*
 		 * Initially turn on all domains to make the domains usable
 		 * with !CONFIG_PM and to get the hardware in sync with the
@@ -1360,12 +1373,6 @@ int mtk_register_power_domains(struct platform_device *pdev,
 		 */
 		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_BYPASS_INIT_ON)) {
 			on = false;
-			if (MTK_SCPD_CAPS(scpd, MTK_SCPD_DISABLE_INIT_ON) &&
-				(scpsys_pwr_con_is_on(scpd))) {
-				on = WARN_ON(genpd->power_off(genpd) < 0);
-				dev_err(&pdev->dev, "disable not reset power_domain:%s, on:%d\n",
-					genpd->name, on);
-			}
 		} else
 			on = !WARN_ON(genpd->power_on(genpd) < 0);
 		pm_genpd_init(genpd, NULL, !on);
