@@ -148,6 +148,8 @@
 #define MT6879_MMSYS	        0x14000000
 #define MT6879_MMSYS_DUMMY_REG	(0x40CUL)
 
+#define PARSE_FROM_DTS 0xFFFFFFFF
+
 enum GS_WDMA_FLD {
 	GS_WDMA_SMI_CON = 0, /* whole reg */
 	GS_WDMA_BUF_CON1,    /* whole reg */
@@ -208,6 +210,7 @@ struct mtk_disp_wdma {
 	struct mtk_ddp_comp ddp_comp;
 	const struct mtk_disp_wdma_data *data;
 	struct mtk_wdma_cfg_info cfg_info;
+	struct mtk_disp_wdma_data *info_data;
 	int wdma_sec_first_time_install;
 	int wdma_sec_cur_state_chk;
 };
@@ -491,8 +494,8 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 	case DRM_FORMAT_YVU420:
 	case DRM_FORMAT_YUV420:
 		/* 3 plane */
-		fifo_size = wdma->data->fifo_size_3plane;
-		fifo_size_uv = wdma->data->fifo_size_uv_3plane;
+		fifo_size = wdma->info_data->fifo_size_3plane;
+		fifo_size_uv = wdma->info_data->fifo_size_uv_3plane;
 		fifo = fifo_size_uv;
 		factor1 = 4;
 		factor2 = 4;
@@ -502,8 +505,8 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 	case DRM_FORMAT_NV12:
 	case DRM_FORMAT_NV21:
 		/* 2 plane */
-		fifo_size = wdma->data->fifo_size_2plane;
-		fifo_size_uv = wdma->data->fifo_size_uv_2plane;
+		fifo_size = wdma->info_data->fifo_size_2plane;
+		fifo_size_uv = wdma->info_data->fifo_size_uv_2plane;
 		fifo = fifo_size_uv;
 		factor1 = 2;
 		factor2 = 4;
@@ -1629,6 +1632,60 @@ static int mtk_disp_wdma_probe(struct platform_device *pdev)
 	}
 
 	priv->data = of_device_get_match_data(dev);
+	priv->info_data = devm_kzalloc(dev, sizeof(*priv->info_data), GFP_KERNEL);
+
+	if (priv->info_data == NULL) {
+		DDPPR_ERR("priv->info_data is NULL\n");
+		return -1;
+	}
+
+	priv->info_data->fifo_size_1plane = priv->data->fifo_size_1plane;
+	priv->info_data->fifo_size_uv_1plane = priv->data->fifo_size_uv_1plane;
+	priv->info_data->fifo_size_2plane = priv->data->fifo_size_2plane;
+	priv->info_data->fifo_size_uv_2plane = priv->data->fifo_size_uv_2plane;
+	priv->info_data->fifo_size_3plane = priv->data->fifo_size_3plane;
+	priv->info_data->fifo_size_uv_3plane = priv->data->fifo_size_uv_3plane;
+
+	if (priv->data->fifo_size_1plane == PARSE_FROM_DTS) {
+		ret = of_property_read_u32(dev->of_node,
+			"fifo-size-1plane", &(priv->info_data->fifo_size_1plane));
+		if (ret) {
+			DDPPR_ERR("Failed to parse fifo-size-1plane parse failed from dts\n");
+			return -1;
+		}
+	}
+	if (priv->data->fifo_size_2plane == PARSE_FROM_DTS) {
+		ret = of_property_read_u32(dev->of_node,
+			"fifo-size-2plane", &(priv->info_data->fifo_size_2plane));
+		if (ret) {
+			DDPPR_ERR("Failed to parse fifo-size-2plane from dts\n");
+			return -1;
+		}
+	}
+	if (priv->data->fifo_size_uv_2plane == PARSE_FROM_DTS) {
+		ret = of_property_read_u32(dev->of_node,
+			"fifo-size-uv-2plane", &(priv->info_data->fifo_size_uv_2plane));
+		if (ret) {
+			DDPPR_ERR("Failed to parse fifo-size-uv-2plane from dts\n");
+			return -1;
+		}
+	}
+	if (priv->data->fifo_size_3plane == PARSE_FROM_DTS) {
+		ret = of_property_read_u32(dev->of_node,
+			"fifo-size-3plane", &(priv->info_data->fifo_size_3plane));
+		if (ret) {
+			DDPPR_ERR("Failed to parse fifo-size-3plane from dts\n");
+			return -1;
+		}
+	}
+	if (priv->data->fifo_size_uv_3plane == PARSE_FROM_DTS) {
+		ret = of_property_read_u32(dev->of_node,
+			"fifo-size-uv-3plane", &(priv->info_data->fifo_size_uv_3plane));
+		if (ret) {
+			DDPPR_ERR("Failed to parse fifo-size-uv-3plane from dts\n");
+			return -1;
+		}
+	}
 
 	mtk_ddp_comp_pm_enable(&priv->ddp_comp);
 
@@ -1756,12 +1813,12 @@ static const struct mtk_disp_wdma_data mt6983_wdma_driver_data = {
 };
 
 static const struct mtk_disp_wdma_data mt6895_wdma_driver_data = {
-	.fifo_size_1plane = 905,
+	.fifo_size_1plane = PARSE_FROM_DTS,
 	.fifo_size_uv_1plane = 29,
-	.fifo_size_2plane = 599,
-	.fifo_size_uv_2plane = 299,
-	.fifo_size_3plane = 596,
-	.fifo_size_uv_3plane = 148,
+	.fifo_size_2plane = PARSE_FROM_DTS,
+	.fifo_size_uv_2plane = PARSE_FROM_DTS,
+	.fifo_size_3plane = PARSE_FROM_DTS,
+	.fifo_size_uv_3plane = PARSE_FROM_DTS,
 	.sodi_config = mt6895_mtk_sodi_config,
 	.check_wdma_sec_reg = &mtk_wdma_check_sec_reg_MT6895,
 	.support_shadow = false,
