@@ -452,7 +452,8 @@ int mtk_drm_ioctl_c3d_get_bin_num(struct drm_device *dev, void *data,
 	struct mtk_disp_c3d *c3d_data = comp_to_c3d(comp);
 
 	int *c3d_bin_num = (int *)data;
-	*c3d_bin_num = c3d_data->data->bin_num;
+	if (c3d_data && c3d_data->data)
+		*c3d_bin_num = c3d_data->data->bin_num;
 
 	return ret;
 }
