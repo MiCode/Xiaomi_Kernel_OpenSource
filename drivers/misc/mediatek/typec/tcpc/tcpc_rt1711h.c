@@ -926,10 +926,12 @@ static int rt1711_set_polarity(struct tcpc_device *tcpc, int polarity)
 {
 	int data;
 
-	data = rt1711h_init_cc_params(tcpc,
-		tcpc->typec_remote_cc[polarity]);
-	if (data)
-		return data;
+	if (polarity >= 0 && polarity < ARRAY_SIZE(tcpc->typec_remote_cc)) {
+		data = rt1711h_init_cc_params(tcpc,
+			tcpc->typec_remote_cc[polarity]);
+		if (data)
+			return data;
+	}
 
 	data = rt1711_i2c_read8(tcpc, TCPC_V10_REG_TCPC_CTRL);
 	if (data < 0)
@@ -1236,17 +1238,16 @@ static int rt_parse_dt(struct rt1711_chip *chip, struct device *dev)
 
 #if !IS_ENABLED(CONFIG_MTK_GPIO) || IS_ENABLED(CONFIG_MTK_GPIOLIB_STAND)
 	ret = of_get_named_gpio(np, "rt1711pd,intr_gpio", 0);
-	if (ret < 0) {
+	if (ret < 0)
 		pr_err("%s no intr_gpio info\n", __func__);
-		return ret;
-	}
-	chip->irq_gpio = ret;
+	else
+		chip->irq_gpio = ret;
 #else
 	ret = of_property_read_u32(np,
 		"rt1711pd,intr_gpio_num", &chip->irq_gpio);
 	if (ret < 0)
 		pr_err("%s no intr_gpio info\n", __func__);
-#endif
+#endif /* !CONFIG_MTK_GPIO || CONFIG_MTK_GPIOLIB_STAND */
 	return ret < 0 ? ret : 0;
 }
 

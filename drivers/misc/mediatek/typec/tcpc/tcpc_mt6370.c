@@ -1363,17 +1363,18 @@ static int mt_parse_dt(struct mt6370_chip *chip, struct device *dev)
 	}
 	dev->of_node = np;
 
-#if IS_ENABLED(CONFIG_MTK_GPIO) || IS_ENABLED(CONFIG_MTK_GPIOLIB_STAND)
+#if !IS_ENABLED(CONFIG_MTK_GPIO) || IS_ENABLED(CONFIG_MTK_GPIOLIB_STAND)
 	ret = of_get_named_gpio(np, "mt6370pd,intr_gpio", 0);
 	if (ret < 0)
 		pr_err("%s no intr_gpio info\n", __func__);
-	chip->irq_gpio = ret;
+	else
+		chip->irq_gpio = ret;
 #else
 	ret = of_property_read_u32(
 		np, "mt6370pd,intr_gpio_num", &chip->irq_gpio);
 	if (ret < 0)
 		pr_err("%s no intr_gpio info\n", __func__);
-#endif
+#endif /* !CONFIG_MTK_GPIO || CONFIG_MTK_GPIOLIB_STAND */
 	return ret < 0 ? ret : 0;
 }
 
