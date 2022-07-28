@@ -3540,7 +3540,7 @@
 			< 1 0x4E300 0x0>,  /* vow, 297KB (2 model size)*/
 			< 2 0x100000 0x0>, /* ensor main, 1 MB */
 			< 3 0x180000 0x0>, /* logger, 1.5 MB */
-			< 4 0x19000 0x0>,  /* audio, 100 KB */
+			< 4 0x200000 0x0>,  /* audio, 2 MB */
 			< 5 0x5A00 0x0>,   /* vow bargein, 22.5KB */
 			< 6 0x100 0x0>,    /* scp parames, 256 bytes */
 			< 7 0x19000 0x0>,   /* ultrasound */
@@ -3787,17 +3787,18 @@
 			interrupt-names = "mbox0";
 		};
 
-		sound: sound {
-			compatible = "mediatek,mt6789-mt6366-sound";
-			mediatek,platform = <&afe>;
-			mediatek,speaker-codec {
-			};
-		};
-
 		snd_scp_audio: snd_scp_audio {
 			compatible = "mediatek,snd_scp_audio";
 			status = "disabled";
-			scp_spk_process_enable = <0x0 0x4 0x10 0x14>;
+			scp_spk_process_enable = <0x0 0x4 0xf 0x13>;
+		};
+
+		sound: sound {
+			compatible = "mediatek,mt6789-mt6366-sound";
+			mediatek,platform = <&afe>;
+			mediatek,scp-audio = <&snd_scp_audio>;
+			mediatek,speaker-codec {
+			};
 		};
 
 		efuse: efuse@11c10000 {
