@@ -260,11 +260,16 @@ static const struct vadc_prescale_ratio adc5_prescale_ratios[] = {
 	{.num =  1, .den =  3},
 	{.num =  1, .den =  6},
 	{.num =  1, .den = 16},
+	{.num = 40, .den = 41},		/* PM7_SMB_TEMP */
 	/* Prescale ratios for current channels below */
-	{.num = 32, .den = 100},	/* IIN_FB */
-	{.num = 14, .den = 100},	/* ICHG_SMB */
-	{.num = 28, .den = 100},	/* IIN_SMB */
+	{.num = 32, .den = 100},	/* IIN_FB, IIN_SMB */
+	{.num = 16, .den = 100},	/* ICHG_SMB */
+	{.num = 1280, .den = 4100},	/* IIN_SMB_new */
+	{.num = 640, .den = 4100},	/* ICHG_SMB_new */
 	{.num = 1000, .den = 305185},	/* ICHG_FB */
+	{.num = 1000, .den = 610370},	/* ICHG_FB_2X */
+	{.num = 1000, .den = 366220},	/* ICHG_FB ADC5_GEN3 */
+	{.num = 1000, .den = 732440}	/* ICHG_FB_2X ADC5_GEN3 */
 };
 
 static int adc5_read(struct adc5_chip *adc, unsigned int sdam_index, u16 offset, u8 *data, int len)
@@ -620,50 +625,15 @@ handler_end:
 	return IRQ_NONE;
 }
 
-static void __tm_handler_work(struct adc5_chip *adc, unsigned int sdam_index)
+static void tm_handler_work(struct work_struct *work)
 {
 	struct adc5_channel_prop *chan_prop;
 	u8 tm_status[2], buf[16], val;
-	int ret, i;
+	int ret, i, sdam_index = -1;
+	struct adc5_chip *adc = container_of(work, struct adc5_chip,
+						tm_handler_work);
 
-	mutex_lock(&adc->lock);
-
-	ret = adc5_read(adc, sdam_index, ADC5_GEN3_TM_HIGH_STS, tm_status, 2);
-	if (ret < 0) {
-		pr_err("adc read TM status failed with %d\n", ret);
-		goto work_unlock;
-	}
-
-	ret = adc5_write(adc, sdam_index, ADC5_GEN3_TM_HIGH_STS_CLR, tm_status, 2);
-	if (ret < 0) {
-		pr_err("adc write TM status failed with %d\n", ret);
-		goto work_unlock;
-	}
-
-	/* To indicate conversion request is only to clear a status */
-	val = 0;
-	ret = adc5_write(adc, sdam_index, ADC5_GEN3_PERPH_CH, &val, 1);
-	if (ret < 0) {
-		pr_err("adc write status clear conv_req failed with %d\n", ret);
-		goto work_unlock;
-	}
-
-	val = ADC5_GEN3_CONV_REQ_REQ;
-	ret = adc5_write(adc, sdam_index, ADC5_GEN3_CONV_REQ, &val, 1);
-	if (ret < 0) {
-		pr_err("adc write conv_req failed with %d\n", ret);
-		goto work_unlock;
-	}
-
-	ret = adc5_read(adc, sdam_index, ADC5_GEN3_CH0_DATA0, buf, sizeof(buf));
-	if (ret < 0) {
-		pr_err("adc read data failed with %d\n", ret);
-		goto work_unlock;
-	}
-
-	mutex_unlock(&adc->lock);
-
-	for (i = sdam_index * 8; i < (sdam_index + 1) * 8; i++) {
+	for (i = 0; i < adc->nchannels; i++) {
 		bool upper_set = false, lower_set = false;
 		u8 data_low = 0, data_high = 0;
 		u16 code = 0;
@@ -671,10 +641,47 @@ static void __tm_handler_work(struct adc5_chip *adc, unsigned int sdam_index)
 
 		chan_prop = &adc->chan_props[i];
 		offset = chan_prop->tm_chan_index;
-		if (!chan_prop->adc_tm)
+
+		if (chan_prop->adc_tm != ADC_TM && chan_prop->adc_tm != ADC_TM_NON_THERMAL)
 			continue;
 
 		mutex_lock(&adc->lock);
+		if (chan_prop->sdam_index != sdam_index) {
+			sdam_index = chan_prop->sdam_index;
+			ret = adc5_read(adc, sdam_index, ADC5_GEN3_TM_HIGH_STS, tm_status, 2);
+			if (ret < 0) {
+				pr_err("adc read TM status failed with %d\n", ret);
+				goto work_unlock;
+			}
+
+			ret = adc5_write(adc, sdam_index, ADC5_GEN3_TM_HIGH_STS_CLR, tm_status, 2);
+			if (ret < 0) {
+				pr_err("adc write TM status failed with %d\n", ret);
+				goto work_unlock;
+			}
+
+			/* To indicate conversion request is only to clear a status */
+			val = 0;
+			ret = adc5_write(adc, sdam_index, ADC5_GEN3_PERPH_CH, &val, 1);
+			if (ret < 0) {
+				pr_err("adc write status clear conv_req failed with %d\n", ret);
+				goto work_unlock;
+			}
+
+			val = ADC5_GEN3_CONV_REQ_REQ;
+			ret = adc5_write(adc, sdam_index, ADC5_GEN3_CONV_REQ, &val, 1);
+			if (ret < 0) {
+				pr_err("adc write conv_req failed with %d\n", ret);
+				goto work_unlock;
+			}
+
+			ret = adc5_read(adc, sdam_index, ADC5_GEN3_CH0_DATA0, buf, sizeof(buf));
+			if (ret < 0) {
+				pr_err("adc read data failed with %d\n", ret);
+				goto work_unlock;
+			}
+		}
+
 		if ((tm_status[0] & BIT(offset)) && (chan_prop->high_thr_en))
 			upper_set = true;
 
@@ -730,16 +737,6 @@ static void __tm_handler_work(struct adc5_chip *adc, unsigned int sdam_index)
 
 work_unlock:
 	mutex_unlock(&adc->lock);
-}
-
-static void tm_handler_work(struct work_struct *work)
-{
-	int i;
-	struct adc5_chip *adc = container_of(work, struct adc5_chip,
-						tm_handler_work);
-
-	for (i = 0; i < adc->num_sdams; i++)
-		__tm_handler_work(adc, i);
 }
 
 static int adc5_gen3_of_xlate(struct iio_dev *indio_dev,
@@ -1331,13 +1328,13 @@ static int adc_tm_register_tzd(struct adc5_chip *adc)
 		default:
 			pr_err("Invalid ADC_TM type:%d for dt_ch:%d\n",
 					adc->chan_props[i].adc_tm, adc->chan_props[i].channel);
-			continue;
+			return -EINVAL;
 		}
 
 		if (IS_ERR(tzd)) {
 			pr_err("Error registering TZ zone:%ld for dt_ch:%d\n",
 				PTR_ERR(tzd), adc->chan_props[i].channel);
-			continue;
+			return PTR_ERR(tzd);
 		}
 		adc->chan_props[i].tzd = tzd;
 	}
@@ -1387,7 +1384,7 @@ static const struct adc5_channels adc5_chans_pmic[ADC5_MAX_CHANNEL] = {
 						SCALE_HW_CALIB_DEFAULT)
 	[ADC5_GEN3_VBAT_SNS_QBG]	= ADC5_CHAN_VOLT("vbat_sns", 1,
 						SCALE_HW_CALIB_DEFAULT)
-	[ADC5_GEN3_AMUX3_THM]		= ADC5_CHAN_TEMP("smb_temp", 0,
+	[ADC5_GEN3_AMUX3_THM]		= ADC5_CHAN_TEMP("smb_temp", 4,
 						SCALE_HW_CALIB_PM7_SMB_TEMP)
 	[ADC5_GEN3_CHG_TEMP]		= ADC5_CHAN_TEMP("chg_temp", 0,
 						SCALE_HW_CALIB_PM7_CHG_TEMP)
@@ -1395,15 +1392,17 @@ static const struct adc5_channels adc5_chans_pmic[ADC5_MAX_CHANNEL] = {
 						SCALE_HW_CALIB_DEFAULT)
 	[ADC5_GEN3_VIN_DIV16_MUX]	= ADC5_CHAN_TEMP("vin_div_16", 3,
 						SCALE_HW_CALIB_DEFAULT)
-	[ADC5_GEN3_IIN_FB]		= ADC5_CHAN_CUR("iin_fb", 4,
+	[ADC5_GEN3_IIN_FB]		= ADC5_CHAN_CUR("iin_fb", 5,
 						SCALE_HW_CALIB_CUR)
-	[ADC5_GEN3_ICHG_SMB]		= ADC5_CHAN_CUR("ichg_smb", 5,
+	[ADC5_GEN3_ICHG_SMB]		= ADC5_CHAN_CUR("ichg_smb", 8,
 						SCALE_HW_CALIB_CUR)
-	[ADC5_GEN3_IIN_SMB]		= ADC5_CHAN_CUR("iin_smb", 6,
+	[ADC5_GEN3_IIN_SMB]		= ADC5_CHAN_CUR("iin_smb", 7,
 						SCALE_HW_CALIB_CUR)
-	[ADC5_GEN3_ICHG_FB]		= ADC5_CHAN_CUR("ichg_fb", 7,
+	[ADC5_GEN3_ICHG_FB]		= ADC5_CHAN_CUR("ichg_fb", 11,
 						SCALE_HW_CALIB_CUR_RAW)
 	[ADC5_GEN3_DIE_TEMP]		= ADC5_CHAN_TEMP("die_temp", 0,
+						SCALE_HW_CALIB_PMIC_THERM_PM7)
+	[ADC5_GEN3_TEMP_ALARM_LITE]	= ADC5_CHAN_TEMP("die_temp_lite", 0,
 						SCALE_HW_CALIB_PMIC_THERM_PM7)
 	[ADC5_GEN3_AMUX1_THM_100K_PU]	= ADC5_CHAN_TEMP("amux_thm1_pu2", 0,
 						SCALE_HW_CALIB_THERM_100K_PU_PM7)
@@ -1604,7 +1603,7 @@ static int adc5_get_dt_data(struct adc5_chip *adc, struct device_node *node)
 {
 	const struct adc5_channels *adc_chan;
 	struct iio_chan_spec *iio_chan;
-	struct adc5_channel_prop prop, *chan_props;
+	struct adc5_channel_prop *chan_props;
 	struct device_node *child;
 	unsigned int index = 0;
 	const struct of_device_id *id;
@@ -1636,21 +1635,20 @@ static int adc5_get_dt_data(struct adc5_chip *adc, struct device_node *node)
 	adc->data = data;
 
 	for_each_available_child_of_node(node, child) {
-		ret = adc5_get_dt_channel_data(adc, &prop, child, data);
+		ret = adc5_get_dt_channel_data(adc, chan_props, child, data);
 		if (ret < 0) {
 			of_node_put(child);
 			return ret;
 		}
 
-		prop.chip = adc;
-		if (prop.scale_fn_type == -EINVAL)
-			prop.scale_fn_type =
-				data->adc_chans[prop.channel].scale_fn_type;
-		*chan_props = prop;
-		adc_chan = &data->adc_chans[prop.channel];
-		iio_chan->channel = prop.channel;
-		iio_chan->datasheet_name = prop.datasheet_name;
-		iio_chan->extend_name = prop.datasheet_name;
+		chan_props->chip = adc;
+		if (chan_props->scale_fn_type == -EINVAL)
+			chan_props->scale_fn_type =
+				data->adc_chans[chan_props->channel].scale_fn_type;
+		adc_chan = &data->adc_chans[chan_props->channel];
+		iio_chan->channel = chan_props->channel;
+		iio_chan->datasheet_name = chan_props->datasheet_name;
+		iio_chan->extend_name = chan_props->datasheet_name;
 		iio_chan->info_mask_separate = adc_chan->info_mask;
 		iio_chan->type = adc_chan->type;
 		iio_chan->address = index;
@@ -1731,14 +1729,16 @@ static int adc5_gen3_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
-	adc_tm_register_tzd(adc);
-
 	for (i = 0; i < adc->num_sdams; i++) {
 		ret = devm_request_irq(dev, adc->base[i].irq, adc5_gen3_isr,
 					0, adc->base[i].irq_name, adc);
 		if (ret < 0)
 			goto fail;
 	}
+
+	ret = adc_tm_register_tzd(adc);
+	if (ret < 0)
+		goto fail;
 
 	if (adc->n_tm_channels)
 		INIT_WORK(&adc->tm_handler_work, tm_handler_work);
