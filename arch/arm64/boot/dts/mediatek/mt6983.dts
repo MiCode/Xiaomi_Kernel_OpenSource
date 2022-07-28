@@ -1820,13 +1820,19 @@
 		gpu_fdvfs@00112000 {
 			compatible = "mediatek,gpu_fdvfs";
 			reg = <0 0x112000 0 0x400>;
-			fdvfs-policy-support = <1>;
+			fdvfs-policy-support = <0>;
+			gpu-freq-notify-support = <1>;
 		};
 
 		gpu_dcs: gpu_dcs {
 			compatible = "mediatek,gpu_dcs";
 			dcs-policy-support = <1>;
 			virtual-opp-support = <0x213>;
+		};
+
+		gpu_afs: gpu-afs {
+			compatible = "mediatek,gpu_afs";
+			afs-policy-support = <1>;
 		};
 
 		gpueb: gpueb@13c00000 {
