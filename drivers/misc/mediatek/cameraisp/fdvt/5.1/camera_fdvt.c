@@ -1493,7 +1493,7 @@ static bool update_fdvt(pid_t *process_id)
 					*hw_process_idx =
 						(*hw_process_idx + 1) %
 						MAX_FDVT_REQUEST_RING_SIZE;
-
+/*
 					IRQ_LOG_KEEPER(
 						FDVT_IRQ_TYPE_INT_FDVT_ST,
 						m_CurrentPPB,
@@ -1501,6 +1501,7 @@ static bool update_fdvt(pid_t *process_id)
 						"Finish FDVT Request i:%d, j:%d, hw_process_idx:%d\n",
 						i, j,
 						*hw_process_idx);
+*/
 				} else {
 					IRQ_LOG_KEEPER(
 						FDVT_IRQ_TYPE_INT_FDVT_ST,
@@ -5306,11 +5307,13 @@ static irqreturn_t isp_irq_fdvt(signed int irq, void *device_id)
 		wake_up_interruptible(&fdvt_info.wait_queue_head);
 
 	/* dump log, use tasklet */
+/*
 	IRQ_LOG_KEEPER(FDVT_IRQ_TYPE_INT_FDVT_ST, m_CurrentPPB, _LOG_INF,
 		       "Irq_FDVT:%d, reg 0x%x : 0x%x, result:%d, FdvtHWSta:0x%x, fdvt_irq_cnt:0x%x, write_req_idx:0x%x, read_req_idx:0x%x\n",
 		       irq, FDVT_INT_HW, status, result, status,
 		       fdvt_info.irq_info.fdvt_irq_cnt,
 		       fdvt_info.write_req_idx, fdvt_info.read_req_idx);
+*/
 	/* IRQ_LOG_KEEPER(FDVT_IRQ_TYPE_INT_FDVT_ST, m_CurrentPPB, _LOG_INF,
 	 * "FdvtHWSta:0x%x, FdvtHWSta:0x%x,
 	 * DpeDveSta0:0x%x\n", DveStatus, status, DpeDveSta0);
