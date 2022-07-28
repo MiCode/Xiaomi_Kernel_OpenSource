@@ -1776,10 +1776,10 @@ static int rt9759_check_devinfo(struct i2c_client *client, u8 *chip_rev,
 	ms_val = (ret & RT9759_MS_MASK) >> RT9759_MS_SHFT;
 	if (ms_val >= ARRAY_SIZE(rt9759_type_name))
 		return -EINVAL;
-	*type = ms_val;
 	dev_info(&client->dev, "%s rev(0x%02X), type(%s)\n", __func__,
-		 *chip_rev, rt9759_type_name[*type]);
+		 *chip_rev, rt9759_type_name[ms_val]);
 
+	*type = ms_val;
 	return 0;
 }
 
