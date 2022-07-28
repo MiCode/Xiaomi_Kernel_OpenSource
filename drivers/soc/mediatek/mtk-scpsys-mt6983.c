@@ -621,8 +621,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0CC4, 0x0CC8, 0x0CC0, 0x0CCC,
 				CAM_MAIN_PROT_STEP2_1_MASK),
 		},
-		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON |
-			MTK_SCPD_DISABLE_INIT_ON,
+		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_MFG2] = {
 		.name = "mfg2",
@@ -787,8 +786,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.subsys_clk_prefix = "mraw",
-		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON |
-			MTK_SCPD_DISABLE_INIT_ON,
+		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_CAM_SUBA] = {
 		.name = "cam_suba",
@@ -797,8 +795,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.subsys_clk_prefix = "suba",
-		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON |
-			MTK_SCPD_DISABLE_INIT_ON,
+		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_CAM_SUBB] = {
 		.name = "cam_subb",
@@ -807,8 +804,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.subsys_clk_prefix = "subb",
-		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON |
-			MTK_SCPD_DISABLE_INIT_ON,
+		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_CAM_SUBC] = {
 		.name = "cam_subc",
@@ -817,8 +813,7 @@ static const struct scp_domain_data scp_domain_data_mt6983[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.subsys_clk_prefix = "subc",
-		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON |
-			MTK_SCPD_DISABLE_INIT_ON,
+		.caps = MTK_SCPD_IS_PWR_CON_ON | MTK_SCPD_BYPASS_INIT_ON,
 	},
 	[MT6983_POWER_DOMAIN_APU] = {
 		.name = "apu",

@@ -259,8 +259,7 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0CC4, 0x0CC8, 0x0CC0, 0x0CCC,
 				MT6895_TOP_AXI_PROT_EN_DRAMC0_CAM_MAIN_2ND),
 		},
-		.caps = MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_IS_PWR_CON_ON |
-			MTK_SCPD_DISABLE_INIT_ON,
+		.caps = MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6895_POWER_DOMAIN_CAM_MRAW] = {
 		.name = "cam_mraw",
@@ -269,8 +268,7 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.subsys_clk_prefix = "cam_mraw",
-		.caps = MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_IS_PWR_CON_ON |
-			MTK_SCPD_DISABLE_INIT_ON,
+		.caps = MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6895_POWER_DOMAIN_CAM_SUBA] = {
 		.name = "cam_suba",
@@ -279,8 +277,7 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.subsys_clk_prefix = "cam_suba",
-		.caps = MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_IS_PWR_CON_ON |
-			MTK_SCPD_DISABLE_INIT_ON,
+		.caps = MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6895_POWER_DOMAIN_CAM_SUBB] = {
 		.name = "cam_subb",
@@ -289,8 +286,7 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.subsys_clk_prefix = "cam_subb",
-		.caps = MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_IS_PWR_CON_ON |
-			MTK_SCPD_DISABLE_INIT_ON,
+		.caps = MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6895_POWER_DOMAIN_CAM_SUBC] = {
 		.name = "cam_subc",
@@ -299,8 +295,7 @@ static const struct scp_domain_data scp_domain_data_mt6895[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.subsys_clk_prefix = "cam_subc",
-		.caps = MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_IS_PWR_CON_ON |
-			MTK_SCPD_DISABLE_INIT_ON,
+		.caps = MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_IS_PWR_CON_ON,
 	},
 	[MT6895_POWER_DOMAIN_CAM_VCORE] = {
 		.name = "cam_vcore",
