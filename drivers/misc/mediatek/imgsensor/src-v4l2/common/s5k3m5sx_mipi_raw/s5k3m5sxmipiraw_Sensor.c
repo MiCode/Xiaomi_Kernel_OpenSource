@@ -4485,14 +4485,6 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			 // *feature_return_para_32);
 		*feature_para_len = 4;
 		break;
-	case SENSOR_FEATURE_GET_AE_EFFECTIVE_FRAME_FOR_LE:
-		*feature_return_para_32 = ctx->current_ae_effective_frame;
-		break;
-	case SENSOR_FEATURE_GET_AE_FRAME_MODE_FOR_LE:
-		memcpy(feature_return_para_32,
-		       &ctx->ae_frm_mode,
-		       sizeof(struct IMGSENSOR_AE_FRM_MODE));
-		break;
 	case SENSOR_FEATURE_GET_MIPI_PIXEL_RATE:
 		switch (*feature_data) {
 		case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:

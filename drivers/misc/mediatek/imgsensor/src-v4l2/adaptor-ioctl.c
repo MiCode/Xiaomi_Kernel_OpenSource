@@ -938,18 +938,18 @@ static int g_preload_eeprom_data(struct adaptor_ctx *ctx, void *arg)
 
 static int g_ae_frame_mode_for_le(struct adaptor_ctx *ctx, void *arg)
 {
-	subdrv_call(ctx, feature_control,
-		SENSOR_FEATURE_GET_AE_FRAME_MODE_FOR_LE,
-		0, arg);
+	//subdrv_call(ctx, feature_control,
+	//		SENSOR_FEATURE_GET_AE_FRAME_MODE_FOR_LE,
+	//		0, arg);
 
 	return 0;
 }
 
 static int g_ae_effective_frame_for_le(struct adaptor_ctx *ctx, void *arg)
 {
-	subdrv_call(ctx, feature_control,
-		SENSOR_FEATURE_GET_AE_EFFECTIVE_FRAME_FOR_LE,
-		0, arg);
+	//subdrv_call(ctx, feature_control,
+	//	SENSOR_FEATURE_GET_AE_EFFECTIVE_FRAME_FOR_LE,
+	//	0, arg);
 
 	return 0;
 }
