@@ -5146,7 +5146,7 @@
 			compatible = "mediatek,scp_dvfs";
 			clocks = <&vlp_cksys_clk CLK_VLP_CK_SCP_SEL>,
 				<&topckgen_clk CLK_TOP_TCK_26M_MX9>,
-				<&topckgen_clk CLK_TOP_UNIVPLL_D4>,
+				<&topckgen_clk CLK_TOP_UNIVPLL_D4>, /* 624M */
 				<&topckgen_clk CLK_TOP_UNIVPLL_D3>,
 				<&topckgen_clk CLK_TOP_MAINPLL_D3>, /* 728M */
 				<&topckgen_clk CLK_TOP_UNIVPLL_D6>,
@@ -5157,7 +5157,7 @@
 
 			clock-names = "clk_mux",
 				"clk_pll_0",
-				"clk_pll_1",
+				"clk_pll_1", /* 624M */
 				"clk_pll_2",
 				"clk_pll_3", /* 728M */
 				"clk_pll_4",
@@ -5177,6 +5177,7 @@
 			< 750000	750000	0xff		0xfff		133  0	0x0>,
 			< 750000	750000	0xff		0xfff		200  0	0x0>,
 			< 750000	750000	0xff		0xfff		400  0	0x0>,
+			< 750000	750000	0xff		0xfff		624  1	0x1>,
 			< 750000	750000	0xff		0xfff		728  3	0x3>;
 
 			gpio-base = <&scp_gpio>;
