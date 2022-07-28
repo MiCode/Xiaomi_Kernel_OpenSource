@@ -57,6 +57,14 @@ DECLARE_HOOK(android_vh_mmc_update_partition_status,
 	TP_PROTO(struct mmc_card *card),
 	TP_ARGS(card));
 
+DECLARE_HOOK(android_vh_mmc_sd_update_cmdline_timing,
+	TP_PROTO(struct mmc_card *card, int *err),
+	TP_ARGS(card, err));
+
+DECLARE_HOOK(android_vh_mmc_sd_update_dataline_timing,
+	TP_PROTO(struct mmc_card *card, int *err),
+	TP_ARGS(card, err));
+
 #endif /* _TRACE_HOOK_MMC_H */
 /* This part must be outside protection */
 #include <trace/define_trace.h>
