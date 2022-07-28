@@ -16,6 +16,8 @@
 
 #define MDDP_RESET_READY_TIME_MS (100)
 static struct work_struct wfpm_reset_work;
+static struct work_struct mddp_hook_work;
+static struct work_struct mddp_unhook_work;
 static struct work_struct md_rsp_fail_work;
 
 //------------------------------------------------------------------------------
@@ -191,7 +193,7 @@ static void mddpwh_sm_rsp_act_ok(struct mddp_app_t *app)
 	mddp_dev_response(app->type, MDDP_CMCMD_ACT_RSP,
 			true, (uint8_t *)&act, sizeof(act));
 
-	mddp_netfilter_hook();
+	schedule_work(&mddp_hook_work);
 }
 
 static void mddpwh_sm_deact(struct mddp_app_t *app)
@@ -224,9 +226,7 @@ static void mddpwh_sm_rsp_deact(struct mddp_app_t *app)
 {
 	struct mddp_dev_rsp_deact_t     deact = {0};
 
-	mddp_netfilter_unhook();
-	mddp_f_dev_del_wan_dev(app->ap_cfg.ul_dev_name);
-	mddp_f_dev_del_lan_dev(app->ap_cfg.dl_dev_name);
+	schedule_work(&mddp_unhook_work);
 
 	// 2. Send RSP to WiFi
 	if (app->drv_hdlr.change_state != NULL)
@@ -901,6 +901,21 @@ static void wfpm_reset_work_func(struct work_struct *work)
 	}
 }
 
+static void mddp_hook_work_func(struct work_struct *work)
+{
+	mddp_netfilter_hook();
+}
+
+static void mddp_unhook_work_func(struct work_struct *work)
+{
+	struct mddp_app_t       *app;
+
+	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
+	mddp_netfilter_unhook();
+	mddp_f_dev_del_wan_dev(app->ap_cfg.ul_dev_name);
+	mddp_f_dev_del_lan_dev(app->ap_cfg.dl_dev_name);
+}
+
 static void md_rsp_fail_work_func(struct work_struct *work)
 {
 	struct mddp_app_t       *app;
@@ -929,6 +944,8 @@ int32_t mddpwh_sm_init(struct mddp_app_t *app)
 	app->is_config = 1;
 
 	INIT_WORK(&wfpm_reset_work, wfpm_reset_work_func);
+	INIT_WORK(&mddp_hook_work, mddp_hook_work_func);
+	INIT_WORK(&mddp_unhook_work, mddp_unhook_work_func);
 	INIT_WORK(&md_rsp_fail_work, md_rsp_fail_work_func);
 
 	return 0;
