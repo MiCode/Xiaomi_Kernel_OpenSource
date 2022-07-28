@@ -666,6 +666,17 @@ config CHARGER_BQ25980
 	  Say Y to enable support for the TI BQ25980, BQ25975 and BQ25960
 	  series of fast battery chargers.
 
+config CHARGER_BQ2589X
+	tristate "TI BQ2589X battery charger driver"
+	depends on I2C
+	depends on GPIOLIB || COMPILE_TEST
+	select REGMAP_I2C
+	help
+	  This adds support for charger IC bq2589x.
+	  Say Y to include support for Texas Instruments
+	  bq2589x charger IC Battery Charger. The base name for this driver is
+	  'bq2589x_charger.c'.
+
 config CHARGER_SMB347
 	tristate "Summit Microelectronics SMB3XX Battery Charger"
 	depends on I2C
