@@ -1822,7 +1822,7 @@ void initialize(struct mtk_raw_device *dev, int is_slave)
 	u32 val;
 
 	if (!dev) {
-		dev_info(dev->dev, "%s: dev is null\n",
+		pr_info("%s: dev is null\n",
 			 __func__);
 		return;
 	}
