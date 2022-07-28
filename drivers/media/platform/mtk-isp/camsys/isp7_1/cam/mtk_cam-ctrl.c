@@ -484,7 +484,7 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 
 	/* stagger mode - use sv to output data to DRAM - online mode */
 	if (mtk_cam_is_stagger(ctx)) {
-		int used_pipes, src_pad_idx;
+		int used_pipes, src_pad_idx = 0;
 		struct mtk_raw_device *raw_dev;
 		bool is_dc;
 		int exp_shift = 0;

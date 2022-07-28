@@ -1607,8 +1607,12 @@ static void init_dma_threshold(struct mtk_raw_device *dev)
 	bool is_srt = mtk_cam_is_srt(dev->pipeline->hw_mode);
 	unsigned int raw_urgent, yuv_urgent;
 
+	if (!yuv_dev) {
+		dev_info(dev->dev, "%s: yuv_dev is null\n",
+			 __func__);
+		return;
+	}
 	cam_dev = dev->cam;
-
 	dev_info(dev->dev, "%s: SRT:%d\n", __func__, is_srt);
 
 	set_fifo_threshold(dev->base + REG_IMGO_R1_BASE);
@@ -1817,18 +1821,17 @@ void initialize(struct mtk_raw_device *dev, int is_slave)
 #if USINGSCQ
 	u32 val;
 
+	if (!dev) {
+		dev_info(dev->dev, "%s: dev is null\n",
+			 __func__);
+		return;
+	}
 	val = readl_relaxed(dev->base + REG_CQ_EN);
 	writel_relaxed(val | SCQ_EN | CQ_DROP_FRAME_EN, dev->base + REG_CQ_EN);
 
 	//writel_relaxed(0x100010, dev->base + REG_CQ_EN);
 	writel_relaxed(0xffffffff, dev->base + REG_SCQ_START_PERIOD);
 #endif
-
-	if (!dev) {
-		dev_info(dev->dev, "%s: dev is null\n",
-			 __func__);
-		return;
-	}
 	writel_relaxed(CQ_THR0_MODE_IMMEDIATE | CQ_THR0_EN,
 		       dev->base + REG_CQ_THR0_CTL);
 	writel_relaxed(CQ_THR0_MODE_IMMEDIATE | CQ_THR0_EN,
