@@ -128,22 +128,13 @@ static void mon_enable(int cpu)
 
 static unsigned long read_cnt(int cpu)
 {
-	unsigned long value;
 
 	if (!llccpmu->ver) {
 		pr_err("LLCCPMU version not correct\n");
 		return -EINVAL;
 	}
 
-	switch (llccpmu->ver) {
-	case LLCC_PMU_VER1:
-		value = readl_relaxed(MON_CNT(llccpmu, cpu));
-		break;
-	case LLCC_PMU_VER2:
-		value = readl_relaxed(MON_CNT(llccpmu, cpu));
-		break;
-	}
-	return value;
+	return readl_relaxed(MON_CNT(llccpmu, cpu));
 }
 
 static int qcom_llcc_event_init(struct perf_event *event)
