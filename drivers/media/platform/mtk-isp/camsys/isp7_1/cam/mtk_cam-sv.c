@@ -2126,7 +2126,8 @@ int mtk_cam_sv_dev_config(
 	if (hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
 		pm_runtime_get_sync(cam->sv.devs[idx]);
 	} else {
-		ret = mtk_cam_sv_pipeline_config(ctx, idx, &cfg_in_param);
+		user_ctl_idx = idx % MAX_SV_PIPES_PER_STREAM;
+		ret = mtk_cam_sv_pipeline_config(ctx, user_ctl_idx, &cfg_in_param);
 		if (ret)
 			return ret;
 	}
