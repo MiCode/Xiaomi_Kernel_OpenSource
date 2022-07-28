@@ -211,7 +211,8 @@ static void mtk_dsc_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 
 	mtk_ddp_write_mask(comp, 0x0, DISP_REG_DSC_CON, DSC_EN, handle);
 
-	if (comp->mtk_crtc->is_dual_pipe &&
+	if (comp->mtk_crtc && comp->mtk_crtc->panel_ext &&
+		comp->mtk_crtc->is_dual_pipe &&
 		comp->mtk_crtc->panel_ext->params->output_mode
 				== MTK_PANEL_DUAL_PORT)
 		mtk_ddp_write_mask(comp, 0x0, DISP_REG_DSC_CON +
