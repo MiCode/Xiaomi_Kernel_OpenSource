@@ -114,18 +114,10 @@ static int mtk_pinconf_get(struct pinctrl_dev *pctldev,
 				if (ret != MTK_DISABLE)
 					err = -EINVAL;
 			} else if (param == PIN_CONFIG_BIAS_PULL_UP) {
-				/* When desire to get pull-up value, return
-				 *  error if current setting is pull-down nor
-				 *  no-pull
-				 */
-				if (pullup == 0 || pullup == 2)
+				if (!pullup || ret == MTK_DISABLE)
 					err = -EINVAL;
 			} else if (param == PIN_CONFIG_BIAS_PULL_DOWN) {
-				/* When desire to get pull-down value, return
-				 *  error if current setting is pull-up or
-				 *  no-pull
-				 */
-				if (pullup == 1 || pullup == 2)
+				if (pullup || ret == MTK_DISABLE)
 					err = -EINVAL;
 			}
 		} else {
