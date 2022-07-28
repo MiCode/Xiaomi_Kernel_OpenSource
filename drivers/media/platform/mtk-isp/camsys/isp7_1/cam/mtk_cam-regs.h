@@ -373,7 +373,7 @@
 #define REG_FHO_R1_SPARE_6	   0x4998
 #define REG_AAHO_R1_BASE       0x49e0
 #define REG_PDO_R1_BASE        0x4a90
-#define REG_AAO_R1_BASE        0x4a40
+#define REG_AAO_R1_BASE        0x4b40
 #define REG_AFO_R1_BASE        0x4bf0
 /* CAMSYS_YUV 0x1a05 */
 #define REG_YUVO_R1_BASE       0x4200
