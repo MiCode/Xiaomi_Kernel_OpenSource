@@ -21,6 +21,7 @@
   alloc_netdev_mqs
   __alloc_pages
   __alloc_percpu
+  __alloc_percpu_gfp
   __alloc_skb
   alloc_skb_with_frags
   alloc_workqueue
@@ -67,13 +68,18 @@
   bitmap_release_region
   __bitmap_set
   __blk_alloc_disk
+  blk_bio_list_merge
+  blkcg_policy_register
+  blkcg_policy_unregister
   blk_cleanup_disk
   blkdev_get_by_dev
   blkdev_issue_flush
   blkdev_put
   blk_execute_rq_nowait
   blk_get_request
+  blk_mq_debugfs_rq_show
   blk_mq_rq_cpu
+  blk_mq_run_hw_queue
   blk_put_request
   blk_queue_flag_clear
   blk_queue_flag_set
@@ -86,13 +92,14 @@
   blk_rq_map_user
   blk_rq_map_user_iov
   blk_rq_unmap_user
+  blk_stat_enable_accounting
   blocking_notifier_call_chain
   blocking_notifier_chain_register
   blocking_notifier_chain_unregister
+  bpf_trace_run1
   bpf_trace_run10
   bpf_trace_run11
   bpf_trace_run12
-  bpf_trace_run1
   bpf_trace_run2
   bpf_trace_run3
   bpf_trace_run4
@@ -107,6 +114,7 @@
   bus_register
   bus_set_iommu
   bus_unregister
+  cache_line_size
   cancel_delayed_work
   cancel_delayed_work_sync
   cancel_work_sync
@@ -129,8 +137,8 @@
   class_find_device
   class_for_each_device
   class_interface_unregister
-  class_remove_file_ns
   __class_register
+  class_remove_file_ns
   class_unregister
   cleanup_srcu_struct
   clear_page
@@ -817,6 +825,9 @@
   edac_device_free_ctl_info
   edac_device_handle_ce_count
   edac_device_handle_ue_count
+  elevator_alloc
+  elv_register
+  elv_unregister
   enable_irq
   enable_percpu_irq
   ether_setup
@@ -1265,6 +1276,7 @@
   kstrtoull
   kstrtoull_from_user
   kthread_bind_mask
+  kthread_blkcg
   kthread_cancel_delayed_work_sync
   kthread_cancel_work_sync
   kthread_create_on_node
@@ -1344,8 +1356,8 @@
   mempool_free_slab
   memremap
   mem_section
-  memset64
   memset
+  memset64
   __memset_io
   memstart_addr
   memunmap
@@ -1417,8 +1429,8 @@
   netlink_unicast
   nla_memcpy
   __nla_parse
-  nla_put_64bit
   nla_put
+  nla_put_64bit
   nla_strscpy
   __nlmsg_put
   no_llseek
@@ -1449,6 +1461,7 @@
   of_clk_src_simple_get
   of_count_phandle_with_args
   of_cpu_node_to_id
+  of_css
   of_devfreq_cooling_register
   of_device_get_match_data
   of_device_is_available
@@ -1703,6 +1716,7 @@
   print_hex_dump
   _printk
   _printk_deferred
+  printk_timed_ratelimit
   proc_create
   proc_create_data
   proc_create_single_data
@@ -1920,6 +1934,16 @@
   rtnl_unicast
   rtnl_unlock
   runqueues
+  sbitmap_add_wait_queue
+  sbitmap_any_bit_set
+  sbitmap_del_wait_queue
+  sbitmap_init_node
+  sbitmap_queue_clear
+  __sbitmap_queue_get
+  sbitmap_queue_init_node
+  sbitmap_queue_min_shallow_depth
+  sbitmap_queue_resize
+  sbitmap_queue_show
   scatterwalk_ffwd
   scatterwalk_map_and_copy
   sched_clock
@@ -1975,6 +1999,8 @@
   send_sig_info
   seq_buf_printf
   seq_hex_dump
+  seq_list_next
+  seq_list_start
   seq_lseek
   seq_open
   seq_printf
@@ -2261,6 +2287,7 @@
   thermal_zone_of_sensor_unregister
   tick_nohz_get_sleep_length
   time64_to_tm
+  timer_reduce
   topology_clear_scale_freq_source
   topology_set_thermal_pressure
   topology_update_done
@@ -2325,6 +2352,7 @@
   __traceiter_android_vh_shrink_slab_bypass
   __traceiter_android_vh_try_to_unmap_one
   __traceiter_android_vh_ufs_check_int_errors
+  __traceiter_android_vh_ufs_clock_scaling
   __traceiter_android_vh_ufs_compl_command
   __traceiter_android_vh_ufs_prepare_command
   __traceiter_android_vh_ufs_send_command
@@ -2332,6 +2360,7 @@
   __traceiter_android_vh_ufs_send_uic_command
   __traceiter_android_vh_ufs_update_sdev
   __traceiter_android_vh_update_topology_flags_workfn
+  __traceiter_block_rq_insert
   __traceiter_cpu_frequency_limits
   __traceiter_dwc3_complete_trb
   __traceiter_dwc3_ctrl_req
@@ -2428,6 +2457,7 @@
   __tracepoint_android_vh_timer_calc_index
   __tracepoint_android_vh_try_to_unmap_one
   __tracepoint_android_vh_ufs_check_int_errors
+  __tracepoint_android_vh_ufs_clock_scaling
   __tracepoint_android_vh_ufs_compl_command
   __tracepoint_android_vh_ufs_prepare_command
   __tracepoint_android_vh_ufs_send_command
@@ -2436,6 +2466,7 @@
   __tracepoint_android_vh_ufs_update_sdev
   __tracepoint_android_vh_update_topology_flags_workfn
   __tracepoint_binder_transaction_received
+  __tracepoint_block_rq_insert
   __tracepoint_cpu_frequency_limits
   __tracepoint_dwc3_complete_trb
   __tracepoint_dwc3_ctrl_req
@@ -2449,16 +2480,16 @@
   __tracepoint_mmap_lock_acquire_returned
   __tracepoint_mmap_lock_released
   __tracepoint_mmap_lock_start_locking
-  __tracepoint_rwmmio_read
-  __tracepoint_rwmmio_write
-  __tracepoint_usb_gadget_connect
-  __tracepoint_usb_gadget_disconnect
   tracepoint_probe_register
   tracepoint_probe_register_prio
   tracepoint_probe_unregister
+  __tracepoint_rwmmio_read
+  __tracepoint_rwmmio_write
   __tracepoint_sched_overutilized_tp
   __tracepoint_sched_switch
   __tracepoint_suspend_resume
+  __tracepoint_usb_gadget_connect
+  __tracepoint_usb_gadget_disconnect
   trace_print_array_seq
   trace_print_flags_seq
   trace_print_hex_seq
