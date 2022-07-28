@@ -368,15 +368,14 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 			priv->ddp_comp.ts_works[work_id].irq_time, i)
 	}
 
-	if (rdma->id == DDP_COMPONENT_RDMA0 && mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base))
-		cur_time = ktime_get();
-
 	if (val & (1 << 1)) {
 		int vrefresh = 0;
 		if (mtk_crtc &&
 			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
-			if (rdma->id == DDP_COMPONENT_RDMA0)
+			if (rdma->id == DDP_COMPONENT_RDMA0) {
+				cur_time = ktime_get();
 				DRM_MMP_EVENT_START(rdma0, val, 0);
+			}
 			DDPIRQ("[IRQ] %s: frame start!\n", mtk_dump_comp_str(rdma));
 //			mtk_drm_refresh_tag_start(&priv->ddp_comp);
 			IF_DEBUG_IRQ_TS(find_work, priv->ddp_comp.ts_works[work_id].irq_time, i)
