@@ -173,7 +173,7 @@ static void ccci_scp_md_state_sync_work(struct work_struct *work)
 	int count = 0;
 
 	if (!ctl) {
-		CCCI_ERROR_LOG(ctl->md_id, FSM, "%s ctl is NULL !\n", __func__);
+		CCCI_ERROR_LOG(-1, FSM, "%s ctl is NULL !\n", __func__);
 		return;
 	}
 
