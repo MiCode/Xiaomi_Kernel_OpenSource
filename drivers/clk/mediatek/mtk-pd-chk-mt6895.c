@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
-//
-// Copyright (c) 2021 MediaTek Inc.
-// Author: Ren-Ting Wang <ren-ting.wang@mediatek.com>
+/*
+ * Copyright (c) 2022 MediaTek Inc.
+ * Author: Owen Chen <owen.chen@mediatek.com>
+ */
 
 #include <linux/io.h>
 #include <linux/module.h>
@@ -810,12 +811,21 @@ static int pd_chk_mt6895_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id of_match_pdchk_mt6895[] = {
+	{
+		.compatible = "mediatek,mt6895-pdchk",
+	}, {
+		/* sentinel */
+	}
+};
+
 static struct platform_driver pd_chk_mt6895_drv = {
 	.probe = pd_chk_mt6895_probe,
 	.driver = {
 		.name = "pd-chk-mt6895",
 		.owner = THIS_MODULE,
 		.pm = &pdchk_dev_pm_ops,
+		.of_match_table = of_match_pdchk_mt6895,
 	},
 };
 
@@ -825,12 +835,6 @@ static struct platform_driver pd_chk_mt6895_drv = {
 
 static int __init pd_chk_init(void)
 {
-	static struct platform_device *pd_chk_dev;
-
-	pd_chk_dev = platform_device_register_simple("pd-chk-mt6895", -1, NULL, 0);
-	if (IS_ERR(pd_chk_dev))
-		pr_warn("unable to register pd-chk device");
-
 	return platform_driver_register(&pd_chk_mt6895_drv);
 }
 

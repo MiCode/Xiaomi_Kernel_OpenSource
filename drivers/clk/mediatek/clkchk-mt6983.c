@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
-//
-// Copyright (c) 2021 MediaTek Inc.
-// Author: Owen Chen <owen.chen@mediatek.com>
+/*
+ * Copyright (c) 2022 MediaTek Inc.
+ * Author: Owen Chen <owen.chen@mediatek.com>
+ */
 
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
@@ -642,12 +643,21 @@ static int clk_chk_mt6983_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id of_match_clkchk_mt6983[] = {
+	{
+		.compatible = "mediatek,mt6983-clkchk",
+	}, {
+		/* sentinel */
+	}
+};
+
 static struct platform_driver clk_chk_mt6983_drv = {
 	.probe = clk_chk_mt6983_probe,
 	.driver = {
 		.name = "clk-chk-mt6983",
 		.owner = THIS_MODULE,
 		.pm = &clk_chk_dev_pm_ops,
+		.of_match_table = of_match_clkchk_mt6983,
 	},
 };
 
@@ -657,12 +667,6 @@ static struct platform_driver clk_chk_mt6983_drv = {
 
 static int __init clkchk_mt6983_init(void)
 {
-	static struct platform_device *clk_chk_dev;
-
-	clk_chk_dev = platform_device_register_simple("clk-chk-mt6983", -1, NULL, 0);
-	if (IS_ERR(clk_chk_dev))
-		pr_notice("unable to register clk-chk device");
-
 	return platform_driver_register(&clk_chk_mt6983_drv);
 }
 
