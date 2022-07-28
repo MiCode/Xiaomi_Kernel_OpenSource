@@ -5167,6 +5167,9 @@ struct mt6359_priv {
 	/* vow dmic low power mode, 1: enable, 0: disable */
 	int vow_dmic_lp;
 	int vow_single_mic_select;
+
+	/* regulator */
+	struct regulator *reg_vaud18;
 };
 
 #define MT_SOC_ENUM_EXT_ID(xname, xenum, xhandler_get, xhandler_put, id) \
