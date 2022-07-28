@@ -1294,9 +1294,10 @@ static bool config_fdvt_request(signed int req_idx)
 					FDVT_FRAME_STATUS_RUNNING;
 				spin_unlock_irqrestore(spinlock_lrq_ptr, flags);
 				if (request->frame_config[j].FDVT_METADATA_TO_GCE.SecMemType
-					== 3)
+					== 3 && request->frame_config[j].FDVT_IS_SECURE)
 					fdvt_sec_fd2handler(
 					&request->frame_config[j], &request->frame_dmabuf[j]);
+
 				if (request->frame_config[j].FDVT_IS_SECURE) {
 					config_secure_fdvt_hw(
 					&request->frame_config[j], &request->frame_dmabuf[j]);
@@ -1352,6 +1353,7 @@ static bool config_fdvt(void)
 						== 3 && request->frame_config[j].FDVT_IS_SECURE)
 						fdvt_sec_fd2handler(
 					&request->frame_config[j], &request->frame_dmabuf[j]);
+
 					if (request->frame_config[j].FDVT_IS_SECURE) {
 						config_secure_fdvt_hw(
 					&request->frame_config[j], &request->frame_dmabuf[j]);
@@ -2211,10 +2213,11 @@ static signed int config_secure_fdvt_hw(struct fdvt_config *basic_config,
 				log_err("[Special memory] VA alloc error\n");
 				return -1;
 			}
-			basic_config->FDVT_METADATA_TO_GCE.FDResultBuf_MVA =
-								fdvt_sec_dma.FDResultBuf_MVA.iova;
+
 			fdvt_sec_dma.tzmp1_first_time++;
 		}
+		basic_config->FDVT_METADATA_TO_GCE.FDResultBuf_MVA =
+								fdvt_sec_dma.FDResultBuf_MVA.iova;
 	}
 
 
@@ -3530,8 +3533,7 @@ static long FDVT_ioctl(struct file *pFile,
 					copy_to_user(
 					request->frame_config[request->frame_rd_idx].FDVT_IMG_Y_VA,
 					fdvt_sec_dma.FDResultBuf_MVA.va,
-		request->frame_config[request->frame_rd_idx].FDVT_METADATA_TO_GCE.FDResultBufSize);
-
+	request->frame_config[request->frame_rd_idx].FDVT_METADATA_TO_GCE.FDResultBufSize);
 				memcpy(&fdvt_FdvtConfig,
 				       &request->frame_config
 						[request->frame_rd_idx],
@@ -3625,7 +3627,7 @@ static long FDVT_ioctl(struct file *pFile,
 						copy_to_user(
 				(void *)request->frame_config[request->frame_rd_idx].FDVT_IMG_Y_VA,
 				fdvt_sec_dma.FDResultBuf_MVA.va,
-		request->frame_config[request->frame_rd_idx].FDVT_METADATA_TO_GCE.FDResultBufSize);
+	request->frame_config[request->frame_rd_idx].FDVT_METADATA_TO_GCE.FDResultBufSize);
 					memcpy(&fdvt_deq_req
 						.frame_config[idx],
 						&request->frame_config
