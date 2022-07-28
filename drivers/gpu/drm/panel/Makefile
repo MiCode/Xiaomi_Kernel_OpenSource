@@ -90,6 +90,7 @@ obj-$(CONFIG_DRM_PANEL_BOE_HX83102J_VDO) += panel-boe-hx83102j-vdo.o
 obj-$(CONFIG_DRM_PANEL_TIANMA_HX83102J_VDO) += panel-tianma-hx83102j-vdo.o
 
 obj-$(CONFIG_BACKLIGHT_KTZ8866)         += ktz8866.o
+obj-$(CONFIG_DRM_PANEL_EDO_HX5329_CMD_120) += panel-edo-hx5329-cmd-120hz.o
 
 mediatek-drm-gateic-y := mtk_drm_panel_i2c.o \
 		  mtk_drm_gateic_rt4801h.o \

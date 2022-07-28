@@ -220,6 +220,21 @@ struct mtk_panel_spr_params {
 	struct spr_color_params spr_color_params[SPR_COLOR_PARAMS_TYPE_NUM];
 
 };
+struct dsc_rc_range_parameters {
+	/**
+	 * @range_min_qp: Min Quantization Parameters allowed for this range
+	 */
+	u8 range_min_qp;
+	/**
+	 * @range_max_qp: Max Quantization Parameters allowed for this range
+	 */
+	u8 range_max_qp;
+	/**
+	 * @range_bpg_offset:
+	 * Bits/group offset to apply to target for this group
+	 */
+	u8 range_bpg_offset;
+};
 
 struct mtk_panel_dsc_params {
 	unsigned int enable;
@@ -255,6 +270,8 @@ struct mtk_panel_dsc_params {
 	unsigned int rc_quant_incr_limit1;
 	unsigned int rc_tgt_offset_hi;
 	unsigned int rc_tgt_offset_lo;
+	unsigned int rc_buf_thresh[14];
+	struct dsc_rc_range_parameters rc_range_parameters[15];
 };
 struct mtk_dsi_phy_timcon {
 	unsigned int hs_trail;
@@ -421,6 +438,7 @@ struct mtk_panel_params {
 	unsigned int lp_perline_en; //0: lp perframe 1: lp perline
 	unsigned int cmd_null_pkt_en;
 	unsigned int cmd_null_pkt_len;
+	unsigned int set_area_before_trigger;
 
 //Settings for LFR Function:
 	unsigned int lfr_enable;
@@ -482,6 +500,7 @@ struct mtk_panel_funcs {
 			void *handle, unsigned int flag);
 	int (*get_virtual_heigh)(void);
 	int (*get_virtual_width)(void);
+	int (*ext_cmd_set)(void *dsi, dcs_write_gce cb, void *handle);
 	/**
 	 * @doze_enable_start:
 	 *

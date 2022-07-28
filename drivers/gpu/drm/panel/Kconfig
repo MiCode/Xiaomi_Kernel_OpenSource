@@ -852,6 +852,17 @@ config BACKLIGHT_KTZ8866
 		 Say N here if you want to disable support for platform,
 		 KTZ8866 can control backlight.
 
+config DRM_PANEL_EDO_HX5329_CMD_120
+	tristate "edo hx5329 cmd 120hz panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for hx5329 fhdplus and
+	  wqhd cmd panel. The panel has a 3000x1876 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
+	  interface to host.
+
 config DRM_MEDIATEK_PANEL
 	tristate "drm panel common driver"
 	depends on OF
