@@ -2041,6 +2041,7 @@ int mtk_cam_sv_dev_config(
 	int ret, pad_idx;
 	int cfg_pixel_mode = pixelmode;
 	int stride;
+	int user_ctl_idx;
 
 	if (hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
 		if (!ctx->pipe) {
@@ -2087,11 +2088,12 @@ int mtk_cam_sv_dev_config(
 			mf = &ctx->pipe->cfg[MTK_RAW_SINK].mbus_fmt;
 		}
 	} else {
-		img_fmt = &ctx->sv_pipe[idx]
+		user_ctl_idx = idx % MAX_SV_PIPES_PER_STREAM;
+		img_fmt = &ctx->sv_pipe[user_ctl_idx]
 			->vdev_nodes[MTK_CAMSV_MAIN_STREAM_OUT-MTK_CAMSV_SINK_NUM].active_fmt;
 		size_img_fmt = img_fmt;
-		pad_idx = ctx->sv_pipe[idx]->seninf_padidx;
-		mf = &ctx->sv_pipe[idx]->cfg[MTK_CAMSV_SINK].mbus_fmt;
+		pad_idx = ctx->sv_pipe[user_ctl_idx]->seninf_padidx;
+		mf = &ctx->sv_pipe[user_ctl_idx]->cfg[MTK_CAMSV_SINK].mbus_fmt;
 	}
 
 	/* Update cfg_in_param */
