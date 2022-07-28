@@ -1572,7 +1572,7 @@ static int mt6362_transmit(struct tcpc_device *tcpc,
 			   const u32 *data)
 {
 	int ret, data_cnt, packet_cnt;
-	u8 temp[MT6362_TRANSMIT_MAX_SIZE];
+	u8 temp[MT6362_TRANSMIT_MAX_SIZE + 1];
 	struct mt6362_tcpc_data *tdata = tcpc_get_dev_data(tcpc);
 
 	if (type < TCPC_TX_HARD_RESET) {
