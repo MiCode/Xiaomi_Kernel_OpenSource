@@ -106,6 +106,9 @@ static void playback_gpio_set(struct mt6358_priv *priv)
 			   0xffff, 0x0249);
 	regmap_update_bits(priv->regmap, MT6358_GPIO_MODE2,
 			   0xffff, 0x0249);
+
+	/* with high slew rate bit[3]=1, Driving: 8:4mA(default), a:8mA, c:12mA, e:16mA */
+	/* regmap_write(priv->regmap, MT6358_DRV_CON2, 0x8888); */
 }
 
 static void playback_gpio_reset(struct mt6358_priv *priv)
@@ -121,6 +124,9 @@ static void playback_gpio_reset(struct mt6358_priv *priv)
 			   0x01f8, 0x0000);
 	regmap_update_bits(priv->regmap, MT6358_GPIO_DIR0,
 			   0xf << 8, 0x0);
+
+	/* gpio mosi driving set to default 4mA */
+	/* regmap_write(priv->regmap, MT6358_DRV_CON2, 0x8888); */
 }
 
 static void capture_gpio_set(struct mt6358_priv *priv)
@@ -132,6 +138,9 @@ static void capture_gpio_set(struct mt6358_priv *priv)
 			   0xffff, 0x0249);
 	regmap_update_bits(priv->regmap, MT6358_GPIO_MODE3,
 			   0xffff, 0x0249);
+
+	/* with high slew rate bit[3]=1, Driving: 8:4mA(default), a:8mA, c:12mA, e:16mA */
+	/* regmap_write(priv->regmap, MT6358_DRV_CON3, 0x8888); */
 }
 
 static void capture_gpio_reset(struct mt6358_priv *priv)
@@ -148,6 +157,9 @@ static void capture_gpio_reset(struct mt6358_priv *priv)
 			   0xffff, 0x0000);
 	regmap_update_bits(priv->regmap, MT6358_GPIO_DIR0,
 			   0xf << 12, 0x0);
+
+	/* gpio miso driving set to default 4mA */
+	/* regmap_write(priv->regmap, MT6358_DRV_CON3, 0x8888); */
 }
 
 /* use only when not govern by DAPM */
@@ -6538,6 +6550,12 @@ static const struct snd_kcontrol_new mt6358_snd_misc_controls[] = {
 	SOC_ENUM_EXT("DMic Used", misc_control_enum[0], dmic_used_get, NULL),
 };
 
+static void mt6358_set_gpio_smt(struct mt6358_priv *priv)
+{
+	/* set gpio SMT mode */
+	regmap_update_bits(priv->regmap, MT6358_SMT_CON1, 0xff0, 0xff0);
+}
+
 static void mt6358_codec_init_reg(struct mt6358_priv *priv)
 {
 	/* enable clk buf */
@@ -6577,12 +6595,11 @@ static void mt6358_codec_init_reg(struct mt6358_priv *priv)
 			   RG_EINTCOMPVTH_MASK_SFT,
 			   0x1 << RG_EINTCOMPVTH_SFT);
 
-	/* gpio miso driving set to 4mA */
-	regmap_write(priv->regmap, MT6358_DRV_CON3, 0x8888);
-
 	/* set gpio */
 	playback_gpio_reset(priv);
 	capture_gpio_reset(priv);
+
+	mt6358_set_gpio_smt(priv);
 
 	/* disable clk buf */
 	regmap_update_bits(priv->regmap, MT6358_DCXO_CW14,
@@ -6817,7 +6834,12 @@ static ssize_t mt6358_codec_read(struct mt6358_priv *priv, char *buffer, size_t 
 		       priv->hp_impedance);
 	n += scnprintf(buffer + n, size - n, "hp_current_calibrate_val = %d\n",
 		       priv->hp_current_calibrate_val);
-
+	regmap_read(priv->regmap, MT6358_SMT_CON1, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "MT6358_SMT_CON1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6358_DRV_CON2, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "MT6358_DRV_CON2 = 0x%x\n", value);
 	regmap_read(priv->regmap, MT6358_DRV_CON3, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "[0x%x] MT6358_DRV_CON3 = 0x%x\n", MT6358_DRV_CON3, value);
