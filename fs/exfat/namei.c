@@ -340,7 +340,7 @@ static int exfat_find_empty_entry(struct inode *inode,
 		exfat_chain_set(&clu, last_clu + 1, 0, p_dir->flags);
 
 		/* allocate a cluster */
-		ret = exfat_alloc_cluster(inode, 1, &clu);
+		ret = exfat_alloc_cluster(inode, 1, &clu, IS_DIRSYNC(inode));
 		if (ret)
 			return ret;
 
@@ -395,9 +395,9 @@ static int exfat_find_empty_entry(struct inode *inode,
 
 		/* directory inode should be updated in here */
 		i_size_write(inode, size);
-		EXFAT_I(inode)->i_size_ondisk += sbi->cluster_size;
-		EXFAT_I(inode)->i_size_aligned += sbi->cluster_size;
-		EXFAT_I(inode)->flags = p_dir->flags;
+		ei->i_size_ondisk += sbi->cluster_size;
+		ei->i_size_aligned += sbi->cluster_size;
+		ei->flags = p_dir->flags;
 		inode->i_blocks += 1 << sbi->sect_per_clus_bits;
 	}
 
