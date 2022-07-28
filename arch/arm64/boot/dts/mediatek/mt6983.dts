@@ -815,6 +815,14 @@
 		compatible = "simple-bus";
 	};
 
+	clkchk {
+		compatible = "mediatek,mt6983-clkchk";
+	};
+
+	pdchk {
+		compatible = "mediatek,mt6983-pdchk";
+	};
+
 	clocks {
 		clk_null: clk_null {
 			compatible = "fixed-clock";
