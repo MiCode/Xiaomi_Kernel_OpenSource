@@ -8253,10 +8253,12 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 				} else if (atomic_read(&raw->vf_en) == 1 &&
 					raw->overrun_debug_dump_cnt == 0) {
 					dev_info(ctx->cam->dev,
-						"[Outer] TG PATHCFG/SENMODE/DCIF_CTL:0x%x/0x%x/0x%x\n",
+						"[Outer] TG PATHCFG/SENMODE/DCIF_CTL/TG_VF_CON/CTL_RAW_INT_EN:0x%x/0x%x/0x%x/0x%x/0x%x\n",
 						readl_relaxed(raw->base + REG_TG_PATH_CFG),
 						readl_relaxed(raw->base + REG_TG_SEN_MODE),
-						readl_relaxed(raw->base + REG_TG_DCIF_CTL));
+						readl_relaxed(raw->base + REG_TG_DCIF_CTL),
+						readl_relaxed(raw->base + REG_TG_VF_CON),
+						readl_relaxed(raw->base + REG_CTL_RAW_INT_EN));
 
 					dev_info(ctx->cam->dev,
 						"REQ RAW/2/3 DMA/2:%08x/%08x/%08x/%08x/%08x\n",
