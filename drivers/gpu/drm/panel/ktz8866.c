@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/backlight.h>
+#include <linux/gpio/consumer.h>
 
 #include "ktz8866.h"
 
@@ -59,7 +60,7 @@ static int lcd_bl_write_byte(unsigned char addr, unsigned char value)
 
     return ret;
 }
-#if 0
+
 static int lcd_bl_read_byte(u8 regnum)
 {
 	u8 buffer[1], reg_value[1];
@@ -89,7 +90,7 @@ static int lcd_bl_read_byte(u8 regnum)
 
 	return reg_value[0];
 }
-#endif
+
 int lcd_bl_set_led_brightness(int value)//for set bringhtness
 {
 	pr_debug("%s:hyper bl = %d\n", __func__, value);
@@ -130,7 +131,62 @@ int lcd_set_bias(int enable)
 }
 
 EXPORT_SYMBOL(lcd_set_bias);
+int lcd_set_bl_bias_reg(struct device *pdev, int enable)
+{
+	struct device *dev = pdev;
+	struct gpio_desc *hw_led_en;
+	int res = 0;
 
+	if (enable) {
+		hw_led_en = devm_gpiod_get(dev, "pm-enable", GPIOD_OUT_HIGH);
+		if (IS_ERR(hw_led_en))
+			pr_debug("could not get pm-enable gpio\n");
+
+		gpiod_set_value(hw_led_en, 1);
+		devm_gpiod_put(dev, hw_led_en);
+		usleep_range(125, 130);
+
+		//write vsp/vsn reg
+		lcd_bl_write_byte(0x0C, 0x30); /* LCD_BOOST_CFG */
+		lcd_bl_write_byte(0x0D, 0x28); /* OUTP_CFG，OUTP = 6.0V */
+		lcd_bl_write_byte(0x0E, 0x28); /* OUTN_CFG，OUTN = -6.0V */
+
+		lcd_bl_write_byte(0x09, 0x9C); /* enable OUTP */
+		mdelay(5); /* delay 5ms */
+		lcd_bl_write_byte(0x09, 0x9E); /* enable OUTN */
+
+		//write backlight reg
+		/* BL_CFG1；OVP=34V，线性调光，PWM Disabled */
+		lcd_bl_write_byte(0x02, 0X3B);
+		/* BL_OPTION2；电感4.7uH，BL_CURRENT_LIMIT 2.5A；*/
+		lcd_bl_write_byte(0x11, 0x37);
+		 /* Backlight Full-scale LED Current 22.8mA/CH；*/
+		lcd_bl_write_byte(0x15, 0xB0);
+		/* BL enabled and Current sink 1/2/3/4 /5 enabled；*/
+		lcd_bl_write_byte(0x08, 0x5F);
+
+	} else {
+		hw_led_en = devm_gpiod_get(dev, "pm-enable", GPIOD_OUT_HIGH);
+		if (IS_ERR(hw_led_en))
+			pr_debug("could not get pm-enable gpio\n");
+
+		lcd_bl_write_byte(0x09, 0x9C);/* Disable OUTN */
+		mdelay(5);
+		lcd_bl_write_byte(0x09, 0x98);/* Disable OUTP */
+		/* BL disabled and Current sink 1/2/3/4 /5 enabled；*/
+		lcd_bl_write_byte(0x08, 0x00);
+
+		gpiod_set_value(hw_led_en, 0);
+		devm_gpiod_put(dev, hw_led_en);
+
+
+	}
+	res = lcd_bl_read_byte(0x0f);
+	pr_debug("%s:ktz8866 0x0f = 0x%x\n", __func__, res);
+
+	return 0;
+}
+EXPORT_SYMBOL(lcd_set_bl_bias_reg);
 #ifdef CONFIG_OF
 static const struct of_device_id i2c_of_match[] = {
     { .compatible = "ktz,ktz8866", },
@@ -175,7 +231,7 @@ static int lcd_bl_i2c_probe(struct i2c_client *client, const struct i2c_device_i
 	pr_debug("--wlc, i2c address: %0x\n", client->addr);
 
 	//write vsp/vsn reg
-	ret = lcd_bl_write_byte(0x0C, 0x2E); /* LCD_BOOST_CFG */
+	ret = lcd_bl_write_byte(0x0C, 0x30); /* LCD_BOOST_CFG */
 	ret = lcd_bl_write_byte(0x0D, 0x28); /* OUTP_CFG，OUTP = 6.0V */
 	ret = lcd_bl_write_byte(0x0E, 0x28); /* OUTN_CFG，OUTN = -6.0V */
 
@@ -184,9 +240,9 @@ static int lcd_bl_i2c_probe(struct i2c_client *client, const struct i2c_device_i
 	ret = lcd_bl_write_byte(0x09, 0x9E); /* enable OUTN */
 
 	//write backlight reg
-	ret = lcd_bl_write_byte(0x02, 0XDA); /* BL_CFG1；OVP=34V，线性调光，PWM Disabled */
+	ret = lcd_bl_write_byte(0x02, 0X3B); /* BL_CFG1；OVP=34V，线性调光，PWM Disabled */
 	ret = lcd_bl_write_byte(0x11, 0x37); /* BL_OPTION2；电感4.7uH，BL_CURRENT_LIMIT 2.5A；*/
-	ret = lcd_bl_write_byte(0x15, 0xC0); /* Backlight Full-scale LED Current 24.4mA/CH；*/
+	ret = lcd_bl_write_byte(0x15, 0xB0); /* Backlight Full-scale LED Current 22.8mA/CH；*/
 	ret = lcd_bl_write_byte(0x08, 0x5F); /* BL enabled and Current sink 1/2/3/4 /5 enabled；*/
 
 	if (ret < 0) {
@@ -228,7 +284,7 @@ module_init(lcd_bl_init);
 module_exit(lcd_bl_exit);
 
 MODULE_AUTHOR("wulongchao <wulongchao@huanqin.com>");
-MODULE_DESCRIPTION("QCOM LCD BL I2C Driver");
+MODULE_DESCRIPTION("Mediatek LCD BL I2C Driver");
 MODULE_LICENSE("GPL");
 
 
