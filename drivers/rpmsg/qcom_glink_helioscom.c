@@ -31,6 +31,7 @@
 #include <linux/component.h>
 #include <linux/ipc_logging.h>
 #include <linux/termios.h>
+#include <linux/unistd.h>
 #include "../soc/qcom/helioscom.h"
 
 #include <linux/rpmsg/qcom_glink.h>
@@ -447,12 +448,15 @@ static int glink_helioscom_tx_write_one(struct glink_helioscom *glink, void *src
 		return -ENOSPC;
 	}
 
-	ret = helioscom_fifo_write(glink->helioscom_handle, size_in_words, src);
-	if (ret < 0) {
-		GLINK_ERR(glink, "%s: Error %d writing data\n",
-							__func__, ret);
-		return ret;
-	}
+	do {
+		ret = helioscom_fifo_write(glink->helioscom_handle, size_in_words, src);
+		if (ret < 0) {
+			GLINK_ERR(glink, "%s: Error %d writing data\n",
+								__func__, ret);
+			if (ret == -ECANCELED)
+				usleep_range(TX_WAIT_US, TX_WAIT_US + 1000);
+		}
+	} while (ret == -ECANCELED);
 
 	glink_helioscom_update_tx_avail(glink, size_in_words);
 	return ret;
@@ -1717,20 +1721,23 @@ static int glink_helioscom_rx_data(struct glink_helioscom *glink,
 		return msglen;
 	}
 
-	rc = helioscom_ahb_read(glink->helioscom_handle, (uint32_t)(size_t)addr,
-			ALIGN(chunk_size, WORD_SIZE)/WORD_SIZE,
-			intent->data + intent->offset);
-	if (rc < 0) {
-		GLINK_ERR(glink, "%s: Error %d receiving data\n",
-							__func__, rc);
-	}
+	do {
+		rc = helioscom_ahb_read(glink->helioscom_handle, (uint32_t)(size_t)addr,
+				ALIGN(chunk_size, WORD_SIZE)/WORD_SIZE,
+				intent->data + intent->offset);
+		if (rc < 0) {
+			GLINK_ERR(glink, "%s: Error %d receiving data\n",
+								__func__, rc);
+			if (rc == -ECANCELED)
+				usleep_range(TX_WAIT_US, TX_WAIT_US + 1000);
+		}
+
+	} while (rc == -ECANCELED);
 
 	intent->offset += chunk_size;
 
 	/* Handle message when no fragments remain to be received */
 	if (!left_size) {
-		glink_helioscom_send_rx_done(glink, channel, intent);
-
 		spin_lock_irqsave(&channel->recv_lock, flags);
 		if (channel->ept.cb) {
 			channel->ept.cb(channel->ept.rpdev,
@@ -1741,6 +1748,7 @@ static int glink_helioscom_rx_data(struct glink_helioscom *glink,
 		}
 		spin_unlock_irqrestore(&channel->recv_lock, flags);
 
+		glink_helioscom_send_rx_done(glink, channel, intent);
 		glink_helioscom_free_intent(channel, intent);
 	}
 	mutex_unlock(&channel->intent_lock);
