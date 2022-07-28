@@ -65,9 +65,6 @@ int srclken_rc_subsys_ctrl(u8 idx, const char *mode)
 	else if (!strcmp(mode, "SW_FPM"))
 		return __srclken_rc_subsys_ctrl(&rc_hw.subsys[idx],
 			CLKBUF_CMD_SW, RC_FPM_REQ);
-	else if (!strcmp(mode, "SW_BBLPM"))
-		return __srclken_rc_subsys_ctrl(&rc_hw.subsys[idx],
-			CLKBUF_CMD_SW, RC_BBLPM_REQ);
 	else if (!strcmp(mode, "SW_LPM"))
 		return __srclken_rc_subsys_ctrl(&rc_hw.subsys[idx],
 			CLKBUF_CMD_SW, RC_LPM_VOTE_REQ);
@@ -177,6 +174,7 @@ int clk_buf_voter_ctrl_by_id(const uint8_t subsys_id, enum RC_CTRL_CMD rc_req)
 		return -EINVAL;
 	}
 
+	pr_debug("[%s] Subsys %u change RC mode to %s\n", __func__, subsys_id, rc_req_list[rc_req]);
 	return srclken_rc_subsys_ctrl(subsys_id, rc_req_list[rc_req]);
 }
 EXPORT_SYMBOL(clk_buf_voter_ctrl_by_id);

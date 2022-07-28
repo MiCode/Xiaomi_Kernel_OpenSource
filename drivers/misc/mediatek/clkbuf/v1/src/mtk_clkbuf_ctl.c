@@ -62,25 +62,6 @@ int clk_buf_hw_ctrl(const char *xo_name, bool onoff)
 }
 EXPORT_SYMBOL(clk_buf_hw_ctrl);
 
-int clk_buf_control_bblpm(bool onoff)
-{
-	if (!clkbuf_ctl.init_done) {
-		pr_notice("clkbuf not init yet\n");
-		return -ENODEV;
-	}
-
-	if (!clkbuf_dcxo_is_bblpm_support()) {
-		pr_notice("clkbuf not support bblpm\n");
-		return -ENODEV;
-	}
-
-	if (clkbuf_dcxo_set_hwbblpm(false))
-		pr_debug("clkbuf not support hw bblpm\n");
-
-	return clkbuf_dcxo_set_swbblpm(onoff);
-}
-EXPORT_SYMBOL(clk_buf_control_bblpm);
-
 static ssize_t __clk_buf_dump_xo_en_sta(char *buf)
 {
 	u32 mode = 0;
@@ -531,71 +512,6 @@ static ssize_t clk_buf_debug_show(struct kobject *kobj,
 	return len;
 }
 
-static ssize_t clk_buf_bblpm_store(struct kobject *kobj,
-		struct kobj_attribute *attr, const char *buf, size_t count)
-{
-	char cmd[11] = {0};
-	int ret = 0;
-
-	if (!clkbuf_ctl.init_done) {
-		pr_notice("clkbuf HW not init yet\n");
-		return -ENODEV;
-	}
-
-	if (!clkbuf_dcxo_is_bblpm_support()) {
-		pr_notice("clkbuf bblpm not support\n");
-		return -ENODEV;
-	}
-
-	if (sscanf(buf, "%10s", cmd) != 1)
-		return -EPERM;
-
-	if (!strcmp(cmd, "HW")) {
-		ret = clkbuf_dcxo_set_hwbblpm(true);
-		if (ret) {
-			pr_notice("hw bblpm not support\n");
-			return ret;
-		}
-		goto BBLPM_STORE_DONE;
-	} else if (!strcmp(cmd, "SW_OFF")) {
-		ret = clkbuf_dcxo_set_hwbblpm(false);
-		if (ret == -EHW_NOT_SUPPORT) {
-			pr_debug("hw bblpm not support\n");
-		} else if (ret) {
-			pr_notice("hw bblpm set failed\n");
-			return ret;
-		}
-
-		ret = clkbuf_dcxo_set_swbblpm(false);
-		if (ret) {
-			pr_notice("bblpm set failed\n");
-			return ret;
-		}
-		goto BBLPM_STORE_DONE;
-	} else if (!strcmp(cmd, "SW_ON")) {
-		ret = clkbuf_dcxo_set_hwbblpm(false);
-		if (ret == -EHW_NOT_SUPPORT) {
-			pr_debug("hw bblpm not support\n");
-		} else if (ret) {
-			pr_notice("hw bblpm set failed\n");
-			return ret;
-		}
-
-		ret = clkbuf_dcxo_set_swbblpm(true);
-		if (ret) {
-			pr_notice("bblpm set failed\n");
-			return ret;
-		}
-		goto BBLPM_STORE_DONE;
-	}
-
-	pr_notice("unknown command: %s\n", cmd);
-	return -EPERM;
-
-BBLPM_STORE_DONE:
-	return count;
-}
-
 static ssize_t clk_buf_bblpm_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
@@ -608,11 +524,6 @@ static ssize_t clk_buf_bblpm_show(struct kobject *kobj,
 
 	if (!clkbuf_ctl.init_done) {
 		pr_notice("clkbuf HW not init yet\n");
-		return -ENODEV;
-	}
-
-	if (!clkbuf_dcxo_is_bblpm_support()) {
-		pr_notice("clkbuf bblpm not support\n");
 		return -ENODEV;
 	}
 
@@ -643,9 +554,6 @@ static ssize_t clk_buf_bblpm_show(struct kobject *kobj,
 		len += snprintf(buf + len, PAGE_SIZE - len, "bblpm en: %d\n",
 			bblpm_stat);
 	}
-
-	len += snprintf(buf + len, PAGE_SIZE - len,
-			"available input: HW, SW, SW_ON, SW_OFF");
 
 	return len;
 }
@@ -876,7 +784,7 @@ DEFINE_ATTR_RO(clk_buf_ctrl);
 DEFINE_ATTR_RW(clk_buf_pmic);
 DEFINE_ATTR_RW(clk_buf_pmif);
 DEFINE_ATTR_RW(clk_buf_debug);
-DEFINE_ATTR_RW(clk_buf_bblpm);
+DEFINE_ATTR_RO(clk_buf_bblpm);
 DEFINE_ATTR_RW(clk_buf_capid);
 DEFINE_ATTR_RW(clk_buf_heater);
 DEFINE_ATTR_RO(rc_cfg_ctl);
