@@ -1240,11 +1240,12 @@ static void glink_helioscom_destroy_ept(struct rpmsg_endpoint *ept)
 	unsigned long flags;
 
 	spin_lock_irqsave(&channel->recv_lock, flags);
+	if (!channel->ept.cb) {
+		spin_unlock_irqrestore(&channel->recv_lock, flags);
+		return;
+	}
 	channel->ept.cb = NULL;
 	spin_unlock_irqrestore(&channel->recv_lock, flags);
-
-	/* Decouple the potential rpdev from the channel */
-	channel->rpdev = NULL;
 
 	glink_helioscom_send_close_req(glink, channel);
 }
@@ -1273,6 +1274,7 @@ static void glink_helioscom_rx_close(struct glink_helioscom *glink, unsigned int
 		return;
 	CH_INFO(channel, "\n");
 
+	/* Decouple the potential rpdev from the channel */
 	if (channel->rpdev) {
 		strlcpy(chinfo.name, channel->name, sizeof(chinfo.name));
 		chinfo.src = RPMSG_ADDR_ANY;
@@ -1280,6 +1282,7 @@ static void glink_helioscom_rx_close(struct glink_helioscom *glink, unsigned int
 
 		rpmsg_unregister_device(glink->dev, &chinfo);
 	}
+	channel->rpdev = NULL;
 
 	glink_helioscom_send_close_ack(glink, channel->rcid);
 
@@ -1294,6 +1297,7 @@ static void glink_helioscom_rx_close(struct glink_helioscom *glink, unsigned int
 static void glink_helioscom_rx_close_ack(struct glink_helioscom *glink,
 							unsigned int lcid)
 {
+	struct rpmsg_channel_info chinfo;
 	struct glink_helioscom_channel *channel;
 
 	mutex_lock(&glink->idr_lock);
@@ -1307,6 +1311,16 @@ static void glink_helioscom_rx_close_ack(struct glink_helioscom *glink,
 	idr_remove(&glink->lcids, channel->lcid);
 	channel->lcid = 0;
 	mutex_unlock(&glink->idr_lock);
+
+	/* Decouple the potential rpdev from the channel */
+	if (channel->rpdev) {
+		strlcpy(chinfo.name, channel->name, sizeof(chinfo.name));
+		chinfo.src = RPMSG_ADDR_ANY;
+		chinfo.dst = RPMSG_ADDR_ANY;
+
+		rpmsg_unregister_device(glink->dev, &chinfo);
+	}
+	channel->rpdev = NULL;
 
 	kref_put(&channel->refcount, glink_helioscom_channel_release);
 }
