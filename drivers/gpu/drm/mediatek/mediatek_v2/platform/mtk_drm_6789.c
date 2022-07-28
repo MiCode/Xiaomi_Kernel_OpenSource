@@ -1172,6 +1172,11 @@ static const struct mtk_addon_scenario_data mt6789_addon_main[ADDON_SCN_NR] = {
 				.module_data = addon_rsz_data,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
+		[WDMA_WRITE_BACK] = {
+				.module_num = ARRAY_SIZE(addon_wdma0_data),
+				.module_data = addon_wdma0_data,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
 };
 
 static const struct mtk_addon_scenario_data mt6789_addon_ext[ADDON_SCN_NR] = {
