@@ -1257,6 +1257,8 @@ static int mtk_mipi_tx_pll_prepare_mt6789(struct clk_hw *hw)
 	unsigned int txdiv, txdiv0, txdiv1, tmp;
 	u32 rate;
 
+	if (mipi_tx == NULL)
+		return -EINVAL;
 	DDPDBG("%s+\n", __func__);
 
 	/* if mipitx is on, skip it... */
@@ -1345,6 +1347,8 @@ static void mtk_mipi_tx_pll_unprepare_mt6789(struct clk_hw *hw)
 {
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
 
+	if (mipi_tx == NULL)
+		return;
 	DDPDBG("%s+\n", __func__);
 	dev_dbg(mipi_tx->dev, "unprepare\n");
 
@@ -1378,6 +1382,9 @@ static int mtk_mipi_tx_pll_cphy_prepare_mt6789(struct clk_hw *hw)
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
 	unsigned int txdiv, txdiv0, txdiv1, tmp;
 	u32 rate;
+
+	if (mipi_tx == NULL)
+		return -EINVAL;
 
 	DDPDBG("%s+\n", __func__);
 
@@ -1460,6 +1467,8 @@ static void mtk_mipi_tx_pll_cphy_unprepare_mt6789(struct clk_hw *hw)
 {
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
 
+	if (mipi_tx == NULL)
+		return;
 	DDPDBG("%s+\n", __func__);
 	dev_dbg(mipi_tx->dev, "cphy unprepare\n");
 
