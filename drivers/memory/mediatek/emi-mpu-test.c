@@ -206,17 +206,20 @@ static ssize_t emimpu_ctrl_store
 		pr_info("%s: %s %s %s %s\n",
 			__func__, token[0], token[1], token[2], token[3]);
 
-		ret = kstrtoull(token[1], 16, &start);
-		if (ret != 0)
+		ret = 0;
+		if (kstrtoull(token[1], 16, &start) != 0) {
+			ret = -1;
 			pr_info("%s: fail to parse start\n", __func__);
-		ret = kstrtoull(token[2], 16, &end);
-		if (ret != 0)
+		}
+		if (kstrtoull(token[2], 16, &end) != 0) {
+			ret = -1;
 			pr_info("%s: fail to parse end\n", __func__);
-		ret = kstrtoul(token[3], 10, &region);
-		if (ret != 0)
+		}
+		if (kstrtoul(token[3], 10, &region) != 0) {
+			ret = -1;
 			pr_info("%s: fail to parse region\n", __func__);
-
-		if (region < mpu_test->region_cnt) {
+		}
+		if ((ret == 0) && (region < mpu_test->region_cnt)) {
 			rg_info->start = start;
 			rg_info->end = end;
 			rg_info->rg_num = (unsigned int)region;
