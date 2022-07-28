@@ -133,7 +133,7 @@
 #define VOW_BARGEIN_IRQ_MAX_NUM       32
 
 #define KERNEL_VOW_DRV_VER "2.1.4"
-#define DEFAULT_GOOGLE_ENGINE_VER       2147483647
+#define DEFAULT_GOOGLE_ENGINE_VER       1235201314  /* set meaningless default value */
 
 struct dump_package_t {
 	uint32_t dump_data_type;
