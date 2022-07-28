@@ -648,12 +648,6 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 	if (power == POWER_ON && g_gpu.power_count == 1) {
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_01);
 
-		//set way_en, 0x1021504c [12:11] = 0x1 when power on
-		val = readl(g_infra_bcrm_base + 0x4C);
-		val |= (1UL << 11);
-		val |= (1UL << 12);
-		writel(val, g_infra_bcrm_base + 0x4C);
-
 		/* control Buck */
 		ret = __gpufreq_buck_control(POWER_ON);
 		if (unlikely(ret)) {
@@ -686,11 +680,6 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 		g_dvfs_state &= ~DVFS_POWEROFF;
 	} else if (power == POWER_OFF && g_gpu.power_count == 0) {
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_05);
-
-		//set way_en, 0x1021504c [12] = 0x1 when power off
-		val = readl(g_infra_bcrm_base + 0x4C);
-		val |= (1UL << 12);
-		writel(val, g_infra_bcrm_base + 0x4C);
 
 		/* freeze DVFS when power off */
 		g_dvfs_state |= DVFS_POWEROFF;
