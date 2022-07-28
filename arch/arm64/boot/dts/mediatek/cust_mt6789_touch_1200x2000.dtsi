@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+/* TOUCH start */
+
+&spi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	himax_touch@0 {
+		compatible = "himax,hxcommon";
+		reg = <0>; //Same as CS ID
+		spi-max-frequency = <10000000>;
+		spi-cpha;
+		interrupt-parent = <&pio>;
+		himax,irq-gpio = <&pio 54 0x2800>;
+		himax,rst-gpio = <&pio 42 0x0000>;
+		himax,lcm-id0 = <&pio 109 0x0000>;
+		himax,lcm-id1 = <&pio 98 0x0000>;
+		himax,panel-coords = <0 1200 0 2000>;
+		himax,display-coords = <1200 2000>;
+		report_type = <1>;
+	};
+};
+/* TOUCH end */
+
+
