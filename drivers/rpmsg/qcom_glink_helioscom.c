@@ -1440,9 +1440,6 @@ static struct device_node *glink_helioscom_match_channel(struct device_node *nod
 static void glink_helioscom_rpdev_release(struct device *dev)
 {
 	struct rpmsg_device *rpdev = to_rpmsg_device(dev);
-	struct glink_helioscom_channel *channel = to_glink_channel(rpdev->ept);
-
-	channel->rpdev = NULL;
 	kfree(rpdev);
 
 }
