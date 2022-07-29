@@ -837,6 +837,8 @@ static void calculate_sampling_stats(void)
 			if (delta->grp_ctrs[grp][MISS_IDX])
 				stats->spm[grp] /=
 					delta->grp_ctrs[grp][MISS_IDX];
+			else
+				stats->spm[grp] = 0;
 			if (!memlat_grp->grp_ev_ids[WB_IDX]
 					|| !memlat_grp->grp_ev_ids[ACC_IDX])
 				stats->wb_pct[grp] = 0;
