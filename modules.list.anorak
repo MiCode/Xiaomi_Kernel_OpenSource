@@ -74,3 +74,4 @@ cmd-db.ko
 rpmhpd.ko
 qcom-pdc.ko
 qcom_rpmh.ko
+kryo_arm64_edac.ko
