@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/iopoll.h>
@@ -678,6 +679,16 @@ static size_t a6xx_legacy_snapshot_shader(struct kgsl_device *device,
 		SNAPSHOT_ERR_NOMEM(device, "SHADER MEMORY");
 		return 0;
 	}
+
+	/*
+	 * If crashdumper times out, accessing some readback states from
+	 * AHB path might fail. Hence, skip SP_INST_TAG and SP_INST_DATA
+	 * state types during snapshot dump in legacy flow.
+	 */
+	if (adreno_is_a660(ADRENO_DEVICE(device)) &&
+		(block->statetype == A6XX_SP_INST_TAG ||
+		 block->statetype == A6XX_SP_INST_DATA))
+		return 0;
 
 	header->type = block->statetype;
 	header->index = info->bank;
