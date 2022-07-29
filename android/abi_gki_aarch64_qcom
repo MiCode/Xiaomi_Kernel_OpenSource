@@ -52,6 +52,7 @@
   bio_end_io_acct_remapped
   bio_start_io_acct
   bitmap_allocate_region
+  __balance_callbacks
   __bitmap_and
   __bitmap_clear
   bitmap_find_next_zero_area_off
