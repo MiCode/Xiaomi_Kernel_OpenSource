@@ -694,7 +694,10 @@ enum ipa3_nat_mem_in {
 enum ipa_ip_type {
 	IPA_IP_v4,
 	IPA_IP_v6,
-	IPA_IP_MAX
+	IPA_IP_MAX,
+	IPA_IP_v4_VLAN = IPA_IP_MAX,
+	IPA_IP_v6_VLAN,
+	IPA_IP_MAX_WLAN
 };
 
 #define VALID_IPA_IP_TYPE(t) \
@@ -3165,11 +3168,13 @@ struct ipa_tether_device_info {
 enum ipa_vlan_ifaces {
 	IPA_VLAN_IF_ETH,
 	IPA_VLAN_IF_RNDIS,
-	IPA_VLAN_IF_ECM
+	IPA_VLAN_IF_ECM,
+	IPA_VLAN_IF_WLAN
 };
 
 #define IPA_VLAN_IF_EMAC IPA_VLAN_IF_ETH
-#define IPA_VLAN_IF_MAX (IPA_VLAN_IF_ECM + 1)
+#define IPA_VLAN_IF_WLAN IPA_VLAN_IF_WLAN
+#define IPA_VLAN_IF_MAX (IPA_VLAN_IF_WLAN + 1)
 
 /**
  * struct ipa_get_vlan_mode - get vlan mode of a Lan interface
