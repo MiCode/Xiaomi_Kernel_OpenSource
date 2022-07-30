@@ -654,3 +654,9 @@ void tty_buffer_flush_work(struct tty_port *port)
 {
 	flush_work(&port->buf.work);
 }
+
+void tty_schedule_flip(struct tty_port *port)
+{
+	tty_flip_buffer_push(port);
+}
+EXPORT_SYMBOL(tty_schedule_flip);

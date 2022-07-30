@@ -47,4 +47,5 @@ int tty_ldisc_receive_buf(struct tty_ldisc *ld, const unsigned char *p,
 extern void tty_buffer_lock_exclusive(struct tty_port *port);
 extern void tty_buffer_unlock_exclusive(struct tty_port *port);
 
+void tty_schedule_flip(struct tty_port *port);
 #endif /* _LINUX_TTY_FLIP_H */
