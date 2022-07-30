@@ -30,11 +30,13 @@
 #include <asm/cacheflush.h>
 #include <soc/qcom/qseecomi.h>
 #include <linux/qtee_shmbridge.h>
-#include "smcinvoke_object.h"
+#include <soc/qcom/smcinvoke_object.h>
 #include <misc/qseecom_kernel.h>
+#include <soc/qcom/IClientEnv.h>
 
 #define CREATE_TRACE_POINTS
 #include "trace_smcinvoke.h"
+
 
 #define SMCINVOKE_DEV				"smcinvoke"
 #define SMCINVOKE_TZ_ROOT_OBJ			1
@@ -1942,6 +1944,14 @@ static long process_invoke_req(struct file *filp, unsigned int cmd,
 	}
 	if (req.argsize != sizeof(union smcinvoke_arg)) {
 		pr_err("arguments size for invoke req is invalid\n");
+		return -EINVAL;
+	}
+
+	if (context_type == SMCINVOKE_OBJ_TYPE_TZ_OBJ &&
+		tzobj->tzhandle == SMCINVOKE_TZ_ROOT_OBJ &&
+		(req.op == IClientEnv_OP_notifyDomainChange ||
+		req.op == IClientEnv_OP_registerWithCredentials)) {
+		pr_err("invalid rootenv op\n");
 		return -EINVAL;
 	}
 

@@ -1,12 +1,20 @@
 /* SPDX-License-Identifier: GPL-2.0-only
  *
  * Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
+
+#ifndef __ICLIENT_ENV_H
+#define __ICLIENT_ENV_H
+
+#include "smcinvoke_object.h"
 
 #define IClientEnv_OP_open 0
 #define IClientEnv_OP_registerLegacy 1
 #define IClientEnv_OP_register 2
 #define IClientEnv_OP_registerWithWhitelist 3
+#define IClientEnv_OP_notifyDomainChange 4
+#define IClientEnv_OP_registerWithCredentials 5
 
 static inline int32_t
 IClientEnv_release(struct Object self)
@@ -89,3 +97,27 @@ IClientEnv_registerWithWhitelist(struct Object self,
 	return result;
 }
 
+static inline int32_t
+IClientEnv_notifyDomainChange(struct Object self)
+{
+	return Object_invoke(self, IClientEnv_OP_notifyDomainChange, 0, 0);
+}
+
+static inline int32_t
+IClientEnv_registerWithCredentials(struct Object self, struct Object
+		credentials_val, struct Object *clientEnv_ptr)
+{
+	union ObjectArg a[2] = {{{0, 0}}};
+	int32_t result;
+
+	a[0].o = credentials_val;
+
+	result = Object_invoke(self, IClientEnv_OP_registerWithCredentials, a,
+	ObjectCounts_pack(0, 0, 1, 1));
+
+	*clientEnv_ptr = a[1].o;
+
+	return result;
+}
+
+#endif /* __ICLIENT_ENV_H */

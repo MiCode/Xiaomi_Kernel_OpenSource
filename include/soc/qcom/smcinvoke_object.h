@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
+
 #ifndef __SMCINVOKE_OBJECT_H
 #define __SMCINVOKE_OBJECT_H
 
-#include <linux/types.h>
 #include <linux/firmware.h>
 #include <linux/qtee_shmbridge.h>
 
@@ -183,13 +184,13 @@ static inline void Object_replace(struct Object *loc, struct Object objNew)
 
 #define Object_ASSIGN_NULL(loc)  Object_replace(&(loc), Object_NULL)
 
-int smcinvoke_release_from_kernel_client(int fd);
+/* API Exposed Functionality for Kernel Client to get root env object */
+int32_t get_client_env_object(struct Object *clientEnvObj);
 
-int get_root_fd(int *root_fd);
-
-int process_invoke_request_from_kernel_client(
-		int fd, struct smcinvoke_cmd_req *req);
-
+/* API to provide functionality to Client to load a firmware using shared memory Bridge
+ * app name is the TA name which will load the firmware and we will search for firmware on
+ * predefined path.
+ */
 char *firmware_request_from_smcinvoke(const char *appname, size_t *fw_size, struct qtee_shm *shm);
 
 #endif /* __SMCINVOKE_OBJECT_H */
