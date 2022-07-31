@@ -2526,6 +2526,16 @@
   kobject_uevent
   match_string
 
+# required by typec_displayport.ko
+  extcon_sync
+  typec_altmode2port
+  typec_altmode_enter
+  typec_altmode_exit
+  typec_altmode_get_partner
+  __typec_altmode_register_driver
+  typec_altmode_unregister_driver
+  typec_get_negotiated_svdm_version
+
 # required by usb-storage.ko
   blk_queue_bounce_limit
   blk_queue_max_hw_sectors
