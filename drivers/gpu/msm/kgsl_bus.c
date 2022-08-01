@@ -184,4 +184,5 @@ void kgsl_bus_close(struct kgsl_device *device)
 	kfree(device->pwrctrl.ddr_table);
 	device->pwrctrl.ddr_table = NULL;
 	icc_put(device->pwrctrl.icc_path);
+	device->pwrctrl.icc_path = NULL;
 }

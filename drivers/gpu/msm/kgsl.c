@@ -4748,6 +4748,9 @@ static void _unregister_device(struct kgsl_device *device)
 {
 	int minor;
 
+	if (device->gpu_sysfs_kobj.state_initialized)
+		kobject_del(&device->gpu_sysfs_kobj);
+
 	mutex_lock(&kgsl_driver.devlock);
 	for (minor = 0; minor < ARRAY_SIZE(kgsl_driver.devp); minor++) {
 		if (device == kgsl_driver.devp[minor]) {
@@ -4973,9 +4976,6 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 	}
 
 	kgsl_device_snapshot_close(device);
-
-	if (device->gpu_sysfs_kobj.state_initialized)
-		kobject_del(&device->gpu_sysfs_kobj);
 
 	idr_destroy(&device->context_idr);
 	idr_destroy(&device->timelines);
