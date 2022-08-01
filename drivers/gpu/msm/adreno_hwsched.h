@@ -220,4 +220,15 @@ void adreno_hwsched_deregister_hw_fence(struct adreno_device *adreno_dev);
 void adreno_hwsched_remove_hw_fence_entry(struct adreno_device *adreno_dev,
 	struct adreno_hw_fence_entry *entry);
 
+/**
+ * adreno_hwsched_trigger_hw_fence_cpu - Trigger hardware fence from cpu
+ * @adreno_dev: pointer to the adreno device
+ * @fence: hardware fence entry to be triggered
+ *
+ * Trigger the hardware fence by sending it to GMU's Tx Queue and raise the
+ * interrupt from GMU to APPS
+ */
+void adreno_hwsched_trigger_hw_fence_cpu(struct adreno_device *adreno_dev,
+	struct adreno_hw_fence_entry *fence);
+
 #endif

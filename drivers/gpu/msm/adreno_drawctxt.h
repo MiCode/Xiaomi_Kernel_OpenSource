@@ -111,6 +111,11 @@ enum adreno_context_priv {
 	ADRENO_CONTEXT_FORCE_PREAMBLE,
 	ADRENO_CONTEXT_SKIP_CMD,
 	ADRENO_CONTEXT_FENCE_LOG,
+	/**
+	 * @ADRENO_CONTEXT_DRAIN_HW_FENCE: Signal any hardware fences that weren't dispatched to
+	 * GMU
+	 */
+	ADRENO_CONTEXT_DRAIN_HW_FENCE,
 };
 
 struct kgsl_context *adreno_drawctxt_create(

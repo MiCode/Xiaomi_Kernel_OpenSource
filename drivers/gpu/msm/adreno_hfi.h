@@ -821,6 +821,9 @@ struct hfi_log_block {
 	u32 stop_index;
 } __packed;
 
+/* Request GMU to add this fence to TxQueue without checking whether this is retired or not */
+#define HW_FENCE_FLAG_SKIP_MEMSTORE 0x1
+
 struct hfi_hw_fence_info {
 	/** @hdr: Header for the fence info packet */
 	u32 hdr;

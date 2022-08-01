@@ -4,6 +4,7 @@
  * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
+#include <dt-bindings/soc/qcom,ipcc.h>
 #include <linux/soc/qcom/msm_hw_fence.h>
 
 #include "adreno.h"
@@ -2252,4 +2253,22 @@ void adreno_hwsched_register_hw_fence(struct adreno_device *adreno_dev)
 	hwsched->hw_fence_cache = KMEM_CACHE(adreno_hw_fence_entry, 0);
 
 	set_bit(ADRENO_HWSCHED_HW_FENCE, &hwsched->flags);
+}
+
+void adreno_hwsched_trigger_hw_fence_cpu(struct adreno_device *adreno_dev,
+	struct adreno_hw_fence_entry *fence)
+{
+	struct kgsl_sync_fence *kfence = fence->kfence;
+	int ret = msm_hw_fence_update_txq(kfence->hw_fence_handle,
+			kfence->hw_fence_index, 0, 0);
+
+	if (ret) {
+		dev_err_ratelimited(adreno_dev->dev.dev,
+			"Failed to trigger hw fence via cpu: ctx:%d ts:%d ret:%d\n",
+			fence->drawctxt->base.id, kfence->timestamp, ret);
+		return;
+	}
+
+	msm_hw_fence_trigger_signal(kfence->hw_fence_handle, IPCC_CLIENT_GPU,
+		IPCC_CLIENT_APSS, 0);
 }
