@@ -78,3 +78,8 @@ rpmhpd.ko
 qcom-pdc.ko
 qcom_rpmh.ko
 kryo_arm64_edac.ko
+tmecom-intf.ko
+crypto-qti-common.ko
+crypto-qti-hwkm.ko
+hwkm.ko
+ufshcd-crypto-qti.ko
