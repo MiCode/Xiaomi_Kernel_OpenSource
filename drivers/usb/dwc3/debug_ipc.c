@@ -32,6 +32,7 @@ static int allow_dbg_print(u8 ep_num)
 	return 0;
 }
 
+#ifdef CONFIG_TRACING
 void dwc3_dbg_trace_log_ctrl(void *log_ctxt, struct usb_ctrlrequest *ctrl)
 {
 	char *ctrl_req_str;
@@ -50,6 +51,11 @@ void dwc3_dbg_trace_log_ctrl(void *log_ctxt, struct usb_ctrlrequest *ctrl)
 	ipc_log_string(log_ctxt, "dbg_trace_log_ctrl: %s", ctrl_req_str);
 	kfree(ctrl_req_str);
 }
+#else
+void dwc3_dbg_trace_log_ctrl(void *log_ctxt, struct usb_ctrlrequest *ctrl)
+{
+}
+#endif
 
 void dwc3_dbg_trace_log_request(void *log_ctxt, struct dwc3_request *req,
 				char *tag)
