@@ -971,6 +971,7 @@ static int qcom_slim_ngd_xfer_msg(struct slim_controller *sctrl,
 	if (ret) {
 		SLIM_WARN(ctrl, "ADSP slimbus not up MC:0x%x,mt:0x%x ret:%d\n",
 						txn->mc, txn->mt, ret);
+		mutex_unlock(&ctrl->tx_lock);
 		return ret;
 	}
 
