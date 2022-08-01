@@ -55,3 +55,10 @@ qti-fixed-regulator.ko
 icc-rpm.ko
 qnoc-qos-rpm.ko
 qnoc-monaco.ko
+clk-smd-rpm.ko
+gcc-monaco.ko
+clk-dummy.ko
+clk-qcom.ko
+gdsc-regulator.ko
+qcom-cpufreq-hw.ko
+dispcc-monaco.ko
