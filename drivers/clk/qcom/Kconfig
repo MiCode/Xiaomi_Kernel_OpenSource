@@ -918,4 +918,13 @@ config SM_GCC_SCUBA
 	  Say Y if you want to use peripheral devices such as UART, SPI,
 	  I2C, USB, UFS, SD/eMMC, encode/decode, Camera, Video etc.
 
+config SDW_GCC_MONACO
+	tristate "MONACO Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc.
+	  MONACO devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, SD/eMMC, etc.
+
 endif
