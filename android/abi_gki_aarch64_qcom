@@ -145,6 +145,7 @@
   __clk_get_name
   clk_get_parent
   clk_get_rate
+  clk_get_sys
   clk_hw_get_flags
   clk_hw_get_name
   clk_hw_get_num_parents
