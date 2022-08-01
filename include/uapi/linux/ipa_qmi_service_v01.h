@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /*
@@ -2876,7 +2876,7 @@ struct ipa_move_nat_table_complt_ind_msg_v01 {
 #define QMI_IPA_MOVE_NAT_COMPLETE_IND_V01 0x0046
 
 /* add for max length*/
-#define QMI_IPA_INIT_MODEM_DRIVER_REQ_MAX_MSG_LEN_V01 210
+#define QMI_IPA_INIT_MODEM_DRIVER_REQ_MAX_MSG_LEN_V01 197
 #define QMI_IPA_INIT_MODEM_DRIVER_RESP_MAX_MSG_LEN_V01 25
 #define QMI_IPA_INDICATION_REGISTER_REQ_MAX_MSG_LEN_V01 16
 #define QMI_IPA_INDICATION_REGISTER_RESP_MAX_MSG_LEN_V01 7
