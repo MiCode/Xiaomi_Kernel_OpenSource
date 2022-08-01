@@ -109,13 +109,10 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"apss_cc_debug_mux",
 	"disp_cc_debug_mux",
 	"gcc_ahb2phy_csi_clk",
-	"gcc_ahb2phy_usb_clk",
 	"gcc_bimc_gpu_axi_clk",
 	"gcc_boot_rom_ahb_clk",
 	"gcc_cam_throttle_nrt_clk",
 	"gcc_cam_throttle_rt_clk",
-	"gcc_camera_ahb_clk",
-	"gcc_camera_xo_clk",
 	"gcc_camss_axi_clk",
 	"gcc_camss_camnoc_atb_clk",
 	"gcc_camss_camnoc_nts_xo_clk",
@@ -140,17 +137,12 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_camss_tfe_1_csid_clk",
 	"gcc_camss_top_ahb_clk",
 	"gcc_cfg_noc_usb2_prim_axi_clk",
-	"gcc_cpuss_gnoc_clk",
-	"gcc_cpuss_trig_clk",
-	"gcc_disp_ahb_clk",
 	"gcc_disp_gpll0_clk_src",
 	"gcc_disp_hf_axi_clk",
 	"gcc_disp_throttle_core_clk",
-	"gcc_disp_xo_clk",
 	"gcc_gp1_clk",
 	"gcc_gp2_clk",
 	"gcc_gp3_clk",
-	"gcc_gpu_cfg_ahb_clk",
 	"gcc_gpu_gpll0_clk_src",
 	"gcc_gpu_gpll0_div_clk_src",
 	"gcc_gpu_memnoc_gfx_clk",
@@ -211,13 +203,10 @@ static int gcc_debug_mux_sels[] = {
 	0xAB,		/* apss_cc_debug_mux */
 	0x40,		/* disp_cc_debug_mux */
 	0x5E,		/* gcc_ahb2phy_csi_clk */
-	0x5F,		/* gcc_ahb2phy_usb_clk */
 	0x8E,		/* gcc_bimc_gpu_axi_clk */
 	0x73,		/* gcc_boot_rom_ahb_clk */
 	0x4A,		/* gcc_cam_throttle_nrt_clk */
 	0x49,		/* gcc_cam_throttle_rt_clk */
-	0x36,		/* gcc_camera_ahb_clk */
-	0x3D,		/* gcc_camera_xo_clk */
 	0x120,		/* gcc_camss_axi_clk */
 	0x122,		/* gcc_camss_camnoc_atb_clk */
 	0x124,		/* gcc_camss_camnoc_nts_xo_clk */
@@ -242,17 +231,12 @@ static int gcc_debug_mux_sels[] = {
 	0x119,		/* gcc_camss_tfe_1_csid_clk */
 	0x11F,		/* gcc_camss_top_ahb_clk */
 	0x1B,		/* gcc_cfg_noc_usb2_prim_axi_clk */
-	0xA6,		/* gcc_cpuss_gnoc_clk */
-	0xA7,		/* gcc_cpuss_trig_clk */
-	0x37,		/* gcc_disp_ahb_clk */
 	0x45,		/* gcc_disp_gpll0_clk_src */
 	0x3B,		/* gcc_disp_hf_axi_clk */
 	0x47,		/* gcc_disp_throttle_core_clk */
-	0x3E,		/* gcc_disp_xo_clk */
 	0xB8,		/* gcc_gp1_clk */
 	0xB9,		/* gcc_gp2_clk */
 	0xBA,		/* gcc_gp3_clk */
-	0xE1,		/* gcc_gpu_cfg_ahb_clk */
 	0xE7,		/* gcc_gpu_gpll0_clk_src */
 	0xE8,		/* gcc_gpu_gpll0_div_clk_src */
 	0xE4,		/* gcc_gpu_memnoc_gfx_clk */
@@ -329,7 +313,6 @@ static struct clk_debug_mux gcc_debug_mux = {
 };
 
 static const char *const gpu_cc_debug_mux_parent_names[] = {
-	"gpu_cc_ahb_clk",
 	"gpu_cc_crc_ahb_clk",
 	"gpu_cc_cx_apb_clk",
 	"gpu_cc_cx_gfx3d_clk",
@@ -344,7 +327,6 @@ static const char *const gpu_cc_debug_mux_parent_names[] = {
 };
 
 static int gpu_cc_debug_mux_sels[] = {
-	0x10,		/* gpu_cc_ahb_clk */
 	0x11,		/* gpu_cc_crc_ahb_clk */
 	0x14,		/* gpu_cc_cx_apb_clk */
 	0x1A,		/* gpu_cc_cx_gfx3d_clk */
