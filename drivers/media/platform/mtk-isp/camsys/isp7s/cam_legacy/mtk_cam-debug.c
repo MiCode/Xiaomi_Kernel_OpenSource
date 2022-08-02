@@ -572,13 +572,14 @@ static ssize_t dbg_ctrl_write(struct file *file, const char __user *data,
 	} else if (cmd_str[0] == 'd') {
 		if (param_str_0[0] == 's') {
 			mtk_cam_dump_buf_realloc(ctrl, MTK_CAM_DEBUG_DUMP_MAX_BUF);
-			debug_fs->force_dump = MTK_CAM_REQ_DUMP_FORCE;
+			debug_fs->force_dump |= 1 << ctrl->pipe_id;
 		} else if (param_str_0[0] == 'r') {
 			mtk_cam_dump_ctrl_reinit(ctrl);
-			debug_fs->force_dump = MTK_CAM_REQ_DUMP_FORCE;
+			debug_fs->force_dump |= 1 << ctrl->pipe_id;
 		} else if (param_str_0[0] == 'e') {
-			debug_fs->force_dump = 0;
-			mtk_cam_dump_buf_realloc(ctrl, 0);
+			debug_fs->force_dump &= ~(1 << ctrl->pipe_id);
+			if (!debug_fs->force_dump)
+				mtk_cam_dump_buf_realloc(ctrl, 0);
 		} else {
 			ret = -EFAULT;
 			goto FAIL;
@@ -1050,6 +1051,11 @@ int mtk_cam_req_dump(struct mtk_cam_request_stream_data *s_data,
 
 	if (!ctx->cam->debug_fs)
 		return false;
+
+	dev_dbg(ctx->cam->dev, "%s pipe id:%d, force_dump:%d, ctrl_num:%d\n",
+		__func__, ctx->pipe->id,
+		ctx->cam->debug_fs->force_dump,
+		ctx->cam->debug_fs->ctrl[ctx->stream_id].num);
 
 	switch (dump_flag) {
 	case MTK_CAM_REQ_DUMP_FORCE:
