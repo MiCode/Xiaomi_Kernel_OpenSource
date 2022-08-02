@@ -503,10 +503,14 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 	struct mtk_mbox_device *mbdev = minfo->mbdev;
 	struct mtk_ipi_msg_hd *ipihead;
 	unsigned long flags;
+	const uint64_t timeout_time = 5 * 1000 * 1000;
+	uint64_t start_time, end_time, cbtimediff;
+	uint32_t execute_count = 0;
 	//void *user_data;
 	int ret;
 	int i;
 
+	start_time = cpu_clock(0);
 	mbox = minfo->id;
 	ret = MBOX_DONE;
 
@@ -559,6 +563,15 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 					pin_recv->recv_record.post_timestamp
 						= cpu_clock(0);
 					pin_recv->recv_record.cb_count++;
+					execute_count++;
+					cbtimediff = pin_recv->recv_record.post_timestamp
+						- pin_recv->recv_record.pre_timestamp;
+					if (cbtimediff > timeout_time) {
+						pr_notice("[MBOX Error]dev=%s ipi_id=%d, timeout=%llu\n"
+								, mbdev->name
+								, pin_recv->chan_id
+								, cbtimediff);
+					}
 				}
 			} else {
 				/*direct mode*/
@@ -579,6 +592,15 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 					pin_recv->recv_record.post_timestamp
 						= cpu_clock(0);
 					pin_recv->recv_record.cb_count++;
+					execute_count++;
+					cbtimediff = pin_recv->recv_record.post_timestamp
+						- pin_recv->recv_record.pre_timestamp;
+					if (cbtimediff > timeout_time) {
+						pr_notice("[MBOX Error]dev=%s ipi_id=%d, timeout=%llu\n"
+								, mbdev->name
+								, pin_recv->chan_id
+								, cbtimediff);
+					}
 				}
 			}
 
@@ -632,7 +654,11 @@ skip:
 			}
 		}
 	}
-
+	end_time = cpu_clock(0);
+	if (end_time - start_time > timeout_time) {
+		pr_notice("[MBOX Error]start=%llu, end=%llu diff=%llu, count=%u\n",
+				start_time, end_time, end_time - start_time, execute_count);
+	}
 	return IRQ_HANDLED;
 }
 
