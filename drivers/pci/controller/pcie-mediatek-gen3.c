@@ -15,6 +15,7 @@
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqdomain.h>
 #include <linux/kernel.h>
+#include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/msi.h>
 #include <linux/of.h>
@@ -1499,5 +1500,29 @@ static struct platform_driver mtk_pcie_driver = {
 	},
 };
 
-module_platform_driver(mtk_pcie_driver);
+static int mtk_pcie_init_func(void *pvdev)
+{
+	return platform_driver_register(&mtk_pcie_driver);
+}
+
+static int __init mtk_pcie_init(void)
+{
+	struct task_struct *driver_thread_handle;
+
+	driver_thread_handle = kthread_run(mtk_pcie_init_func,
+					   NULL, "pcie_thread");
+
+	if (IS_ERR(driver_thread_handle))
+		return PTR_ERR(driver_thread_handle);
+
+	return 0;
+}
+
+static void __exit mtk_pcie_exit(void)
+{
+	platform_driver_unregister(&mtk_pcie_driver);
+}
+
+module_init(mtk_pcie_init);
+module_exit(mtk_pcie_exit);
 MODULE_LICENSE("GPL v2");
