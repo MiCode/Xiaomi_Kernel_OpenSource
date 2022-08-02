@@ -346,6 +346,8 @@ static void disp_c3d_config_sram(struct mtk_ddp_comp *comp,
 	if (*handle == NULL)
 		return;
 
+	(*handle)->no_pool = true;
+
 	// Write 3D LUT to SRAM
 	if (!gPktReused[index_of_c3d(comp->id)]) {
 		for (sram_offset = c3d_data->data->c3d_sram_start_addr;
