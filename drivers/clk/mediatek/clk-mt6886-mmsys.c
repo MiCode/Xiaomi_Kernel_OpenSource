@@ -186,8 +186,6 @@ static const struct mtk_gate mminfra_config_clks[] = {
 			"mminfra_ck"/* parent */, 0),
 	GATE_MMINFRA_CONFIG0(CLK_MMINFRA_GCE_M, "mminfra_gce_m",
 			"mminfra_ck"/* parent */, 1),
-	GATE_MMINFRA_CONFIG0(CLK_MMINFRA_SMI, "mminfra_smi",
-			"clk26m"/* parent */, 2),
 	/* MMINFRA_CONFIG1 */
 	GATE_MMINFRA_CONFIG1(CLK_MMINFRA_GCE_26M, "mminfra_gce_26m",
 			"mminfra_ck"/* parent */, 17),

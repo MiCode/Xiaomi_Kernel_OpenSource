@@ -452,7 +452,6 @@ const char * const *get_mt6886_all_clk_names(void)
 		/* mminfra_config */
 		"mminfra_gce_d",
 		"mminfra_gce_m",
-		"mminfra_smi",
 		"mminfra_gce_26m",
 
 		/* mdpsys_config */
