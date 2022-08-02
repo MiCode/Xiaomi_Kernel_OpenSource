@@ -147,6 +147,8 @@ static ssize_t ccd_debug_read(struct file *filp,
 	u32  len = 0;
 
 	len = snprintf(buf, sizeof(buf), "ccu_debug_read\n");
+	if (len >= sizeof(buf))
+		pr_info("%s: snprintf fail\n");
 
 	return simple_read_from_buffer(user_buf, count, ppos, buf, len);
 }
@@ -200,11 +202,13 @@ static long ccd_unlocked_ioctl(struct file *filp, unsigned int cmd,
 	struct ccd_master_listen_item listen_obj;
 	struct ccd_worker_item work_obj;
 	struct ccd_master_status_item master_obj;
+	memset(&work_obj, 0, sizeof(work_obj));
+	memset(&listen_obj, 0, sizeof(listen_obj));
+	memset(&master_obj, 0, sizeof(master_obj));
 
 	switch (cmd) {
 	case IOCTL_CCD_MASTER_INIT:
 		dev_dbg(ccd->dev, "enter IOCTL_CCD_MASTER_INIT\n");
-		memset(&master_obj, 0, sizeof(master_obj));
 		master_obj.state = CCD_MASTER_ACTIVE;
 		/*  TBD: Protect by lock? */
 		ccd->master_status.state = CCD_MASTER_ACTIVE;
@@ -220,7 +224,6 @@ static long ccd_unlocked_ioctl(struct file *filp, unsigned int cmd,
 		ccd->master_status.state = master_obj.state;
 		break;
 	case IOCTL_CCD_MASTER_LISTEN:
-		memset(&listen_obj, 0, sizeof(listen_obj));
 		ccd_master_listen(ccd, &listen_obj);
 
 		ret = copy_to_user(user_addr, &listen_obj,
@@ -229,7 +232,8 @@ static long ccd_unlocked_ioctl(struct file *filp, unsigned int cmd,
 	case IOCTL_CCD_WORKER_READ:
 		ret = copy_from_user(&work_obj, user_addr,
 				     sizeof(struct ccd_worker_item));
-
+		if (ret < 0)
+			break;
 		ret = ccd_worker_read(ccd, &work_obj);
 		if (ret < 0)
 			break;

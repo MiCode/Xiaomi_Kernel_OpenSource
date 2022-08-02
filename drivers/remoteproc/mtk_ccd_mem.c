@@ -42,6 +42,7 @@ static struct mtk_ccd_buf *mtk_ccd_buf_alloc(
 	struct mtk_ccd_buf *buf;
 	struct dma_heap *dma_heap;
 	struct dma_buf_map map;
+	memset(&map, 0, sizeof(map));
 
 	buf = kzalloc(sizeof(*buf), GFP_KERNEL);
 	if (!buf)
@@ -50,37 +51,49 @@ static struct mtk_ccd_buf *mtk_ccd_buf_alloc(
 	dma_heap = dma_heap_find("mtk_mm-uncached");
 	if (!dma_heap) {
 		pr_info("dma_heap find fail\n");
-		return ERR_PTR(-ENOMEM);
+		goto fail_alloc;
 	}
 
 	buf->dbuf = dma_heap_buffer_alloc(dma_heap, size,
 			O_RDWR | O_CLOEXEC, DMA_HEAP_VALID_HEAP_FLAGS);
 	if (IS_ERR(buf->dbuf)) {
 		pr_info("dma_heap buffer alloc fail\n");
-		return ERR_PTR(-ENOMEM);
+		goto fail_alloc;
 	}
 
 	buf->db_attach = dma_buf_attach(buf->dbuf, dev);
 	if (IS_ERR(buf->db_attach)) {
 		pr_info("dma_heap attach fail\n");
-		return ERR_PTR(-ENOMEM);
+		goto fail_alloc;
 	}
 
 	buf->dma_sgt = dma_buf_map_attachment(buf->db_attach,
 				DMA_BIDIRECTIONAL);
 	if (IS_ERR(buf->dma_sgt)) {
 		pr_info("dma_heap map failed\n");
-		dma_buf_detach(buf->dbuf, buf->db_attach);
-		return ERR_PTR(-ENOMEM);
+		goto fail_map_attach;
 	}
 
-	dma_buf_vmap(buf->dbuf, &map);
+	if (dma_buf_vmap(buf->dbuf, &map) < 0) {
+		pr_info("dma_heap vmap failed\n");
+		goto fail_vmap;
+	}
+
 	buf->vaddr = map.vaddr;
 	buf->map = map;
 	buf->dma_addr = sg_dma_address(buf->dma_sgt->sgl);
 	buf->dev = get_device(dev);
 	buf->size = size;
 	return buf;
+
+fail_vmap:
+	dma_buf_unmap_attachment(
+		buf->db_attach, buf->dma_sgt, DMA_BIDIRECTIONAL);
+fail_map_attach:
+	dma_buf_detach(buf->dbuf, buf->db_attach);
+fail_alloc:
+	kfree(buf);
+	return ERR_PTR(-ENOMEM);
 }
 
 static void mtk_ccd_buf_put(struct mtk_ccd_buf *buf)
@@ -113,7 +126,10 @@ static dma_addr_t mtk_ccd_buf_get_daddr(struct mtk_ccd_buf *buf)
 static void *mtk_ccd_buf_get_vaddr(struct mtk_ccd_buf *buf)
 {
 	if (!buf->vaddr && buf->db_attach) {
-		dma_buf_vmap(buf->db_attach->dmabuf, &buf->map);
+		if (dma_buf_vmap(buf->db_attach->dmabuf, &buf->map) < 0) {
+			pr_info("dma_heap vmap failed\n");
+			return NULL;
+		}
 		buf->vaddr = buf->map.vaddr;
 	}
 
