@@ -575,8 +575,7 @@ do { \
 #define DPMAIF_DL_INT_BATCNT_LEN_ERR(q_num)      (1 << 2)
 #define DPMAIF_DL_INT_PITCNT_LEN_ERR(q_num)      (1 << 3)
 
-#define AP_DL_L2INTR_ERR_En_Msk \
-	(DPMAIF_DL_INT_SKB_LEN_ERR(0) | DPMAIF_DL_INT_MTU_ERR_MSK)
+#define AP_DL_L2INTR_ERR_En_Msk	DPMAIF_DL_INT_MTU_ERR_MSK
 
 /* DPMAIF_DL_INT_EMPTY_MSK | */
 #define AP_DL_L2INTR_En_Msk \
