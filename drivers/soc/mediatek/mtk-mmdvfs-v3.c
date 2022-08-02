@@ -66,6 +66,7 @@ static unsigned int clk_en_cnt;
 
 static int last_ccu_freq = -1;
 static unsigned int ccu_pwr_usage[CCU_PWR_USR_NUM];
+static unsigned int vcp_pwr_usage[VCP_PWR_USR_NUM];
 
 static struct notifier_block vcp_ready_notifier;
 
@@ -260,7 +261,22 @@ static int reset_vcp_power(void)
 	return ret;
 }
 
-int mtk_mmdvfs_enable_vcp(bool enable)
+static void check_vcp_pwr(void)
+{
+	int i;
+	bool has_error = false;
+
+	for (i = 0; i < VCP_PWR_USR_NUM; i++) {
+		if (vcp_pwr_usage[i] > 0) {
+			MMDVFS_ERR("usr:%u is not disabled usage:%u", i, vcp_pwr_usage[i]);
+			has_error = true;
+		}
+	}
+	// Todo: mark it until vcp-enable API removed from mmqos
+	//WARN_ON(has_error);
+}
+
+int mtk_mmdvfs_enable_vcp(bool enable, unsigned int usr_id)
 {
 	int ret;
 
@@ -283,6 +299,7 @@ int mtk_mmdvfs_enable_vcp(bool enable)
 			}
 		}
 		vcp_power++;
+		vcp_pwr_usage[usr_id]++;
 	} else {
 		if (vcp_power == 0) {
 			MMDVFS_ERR("disable vcp when vcp_power==0");
@@ -298,10 +315,11 @@ int mtk_mmdvfs_enable_vcp(bool enable)
 			}
 		}
 		vcp_power--;
+		vcp_pwr_usage[usr_id]--;
 	}
 
-	if (log_level & 1 << log_vcp)
-		MMDVFS_DBG("enable:%d vcp_power:%d", enable, vcp_power);
+	MMDVFS_DBG("enable:%d vcp_power:%d usr_id:%u usage:%u",
+		enable, vcp_power, usr_id, vcp_pwr_usage[usr_id]);
 	mutex_unlock(&mmdvfs_vcp_pwr_mutex);
 
 	return 0;
@@ -575,9 +593,9 @@ int mtk_mmdvfs_camera_notify_from_mmqos(const bool enable)
 		return 0;
 	}
 
-	mtk_mmdvfs_enable_vcp(true);
+	mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_VMM_CEIL);
 	ret = mmdvfs_vcp_ipi_send(FUNC_CAMERA_ON, enable, MAX_OPP, MAX_OPP);
-	mtk_mmdvfs_enable_vcp(false);
+	mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_VMM_CEIL);
 
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
 	MMDVFS_DBG("ret:%d slot:%#x ena:%hhu", ret, slot, slot.ack);
@@ -606,7 +624,7 @@ int mtk_mmdvfs_v3_set_force_step(u16 pwr_idx, s16 opp)
 		return 0;
 
 	if (*last == -1) {
-		mtk_mmdvfs_enable_vcp(true);
+		mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_FORCE_STEP);
 
 		if (pwr_idx == PWR_MMDVFS_VMM)
 			mtk_mmdvfs_enable_vmm(true);
@@ -620,7 +638,7 @@ int mtk_mmdvfs_v3_set_force_step(u16 pwr_idx, s16 opp)
 		if (pwr_idx == PWR_MMDVFS_VMM)
 			mtk_mmdvfs_enable_vmm(false);
 
-		mtk_mmdvfs_enable_vcp(false);
+		mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMDVFS_FORCE_STEP);
 	}
 	*last = opp;
 
@@ -674,7 +692,7 @@ int mtk_mmdvfs_v3_set_vote_step(u16 pwr_idx, s16 opp)
 		return 0;
 
 	if (*last == -1) {
-		mtk_mmdvfs_enable_vcp(true);
+		mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_VOTE_STEP);
 
 		if (pwr_idx == PWR_MMDVFS_VMM)
 			mtk_mmdvfs_enable_vmm(true);
@@ -704,7 +722,7 @@ int mtk_mmdvfs_v3_set_vote_step(u16 pwr_idx, s16 opp)
 		if (pwr_idx == PWR_MMDVFS_VMM)
 			mtk_mmdvfs_enable_vmm(false);
 
-		mtk_mmdvfs_enable_vcp(false);
+		mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMDVFS_VOTE_STEP);
 	}
 	*last = opp;
 
@@ -821,6 +839,7 @@ static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 				mtk_mmdvfs_v3_set_force_step(i, -1);
 		}
 		check_ccu_pwr();
+		check_vcp_pwr();
 		//enable_aoc_iso(true);
 		reset_ccu_power();
 		reset_vcp_power();
@@ -849,7 +868,7 @@ int mmdvfs_set_ccu_ipi(const char *val, const struct kernel_param *kp)
 
 	if (ccu_pdev) {
 		if (last_ccu_freq < 0 && freq >= 0) {
-			mtk_mmdvfs_enable_vcp(true);
+			mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_CCU_TEST);
 			mtk_mmdvfs_enable_ccu(true, CCU_PWR_USR_MMDVFS_CCU_TEST);
 			while (!is_vcp_ready_ex(VCP_A_ID)) {
 				if (++retry > 100) {
@@ -864,7 +883,7 @@ int mmdvfs_set_ccu_ipi(const char *val, const struct kernel_param *kp)
 
 		if (freq < 0) {
 			mtk_mmdvfs_enable_ccu(false, CCU_PWR_USR_MMDVFS_CCU_TEST);
-			mtk_mmdvfs_enable_vcp(false);
+			mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMDVFS_CCU_TEST);
 			return 0;
 		}
 		ret = mtk_ccu_rproc_ipc_send(
@@ -900,7 +919,7 @@ int mmdvfs_dump_setting(char *buf, const struct kernel_param *kp)
 	}
 
 	len += snprintf(buf + len, PAGE_SIZE - len, "user request opp");
-	mtk_mmdvfs_enable_vcp(true);
+	mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_DUMP_SETTING);
 
 	for (i = 0; i < USER_NUM; i += 3) {
 		ret = mmdvfs_vcp_ipi_send(FUNC_GET_OPP, i, i + 1, i + 2);
@@ -925,7 +944,7 @@ int mmdvfs_dump_setting(char *buf, const struct kernel_param *kp)
 			", %hhu, %hhu, %hhu", slot.idx, slot.opp, slot.ack);
 	}
 
-	mtk_mmdvfs_enable_vcp(false);
+	mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMDVFS_DUMP_SETTING);
 	len += snprintf(buf + len, PAGE_SIZE - len, "\n");
 
 	if (len >= PAGE_SIZE) {
@@ -960,10 +979,10 @@ int mmdvfs_set_vcp_stress(const char *val, const struct kernel_param *kp)
 	}
 
 	if (ena)
-		mtk_mmdvfs_enable_vcp(true);
+		mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_VCP_STRESS);
 	ret = mmdvfs_vcp_ipi_send(FUNC_STRESS, ena, MAX_OPP, MAX_OPP);
 	if (!ena)
-		mtk_mmdvfs_enable_vcp(false);
+		mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMDVFS_VCP_STRESS);
 
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
 	MMDVFS_DBG("ret:%d slot:%#x ena:%d ena:%#x", ret, slot, ena, slot.ack);
@@ -997,16 +1016,10 @@ static int mtk_mmdvfs_clk_ctrl(const u8 clk_idx, const bool enable)
 	if (!enable && (clk_en_cnt & (1 << clk_idx)) != (1 << clk_idx))
 		return 0;
 
-	ret = mtk_mmdvfs_enable_vcp(true);
-	if (ret) {
-		if (log_level & (1 << log_clk))
-			MMDVFS_DBG("enable_vcp failed:%d idx:%hhu ena:%d",
-				ret, clk_idx, enable);
+	if (is_vcp_suspending_ex())
 		return 0;
-	}
 
 	ret = mmdvfs_vcp_ipi_send(FUNC_SET_CLK, clk_idx, enable, MAX_OPP);
-	mtk_mmdvfs_enable_vcp(false);
 
 	if (!ret) {
 		if (enable)
@@ -1046,9 +1059,9 @@ int mmdvfs_get_vcp_log(char *buf, const struct kernel_param *kp)
 		return 0;
 	}
 
-	mtk_mmdvfs_enable_vcp(true);
+	mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_GET_VCP_LOG);
 	ret = mmdvfs_vcp_ipi_send(FUNC_SET_LOG, LOG_NUM, MAX_OPP, MAX_OPP);
-	mtk_mmdvfs_enable_vcp(false);
+	mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMDVFS_GET_VCP_LOG);
 
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
 	len += snprintf(
@@ -1074,9 +1087,9 @@ int mmdvfs_set_vcp_log(const char *val, const struct kernel_param *kp)
 		return ret;
 	}
 
-	mtk_mmdvfs_enable_vcp(true);
+	mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_SET_VCP_LOG);
 	ret = mmdvfs_vcp_ipi_send(FUNC_SET_LOG, log, MAX_OPP, MAX_OPP);
-	mtk_mmdvfs_enable_vcp(false);
+	mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMDVFS_SET_VCP_LOG);
 
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
 	MMDVFS_DBG("ret:%d slot:%#x log:%hu log:%#x", ret, slot, log, slot.ack);
@@ -1105,7 +1118,7 @@ static int mmdvfs_vcp_init_thread(void *data)
 	static struct mtk_ipi_device *vcp_ipi_dev;
 	int ret = 0, retry = 0;
 
-	while (mtk_mmdvfs_enable_vcp(true)) {
+	while (mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_VCP_INIT)) {
 		if (++retry > 100) {
 			MMDVFS_ERR("vcp is not powered on yet");
 			return -ETIMEDOUT;
