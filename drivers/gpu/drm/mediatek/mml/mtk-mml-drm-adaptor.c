@@ -433,11 +433,24 @@ static u32 frame_calc_layer_hrt(struct mml_drm_ctx *ctx, struct mml_frame_info *
 	 *
 	 * Following api reorder factors to avoid overflow of uint32_t.
 	 */
-	const u32 bpp_div = MML_FMT_BLOCK(info->src.format) ? 256 : 8;
+	u32 plane = MML_FMT_PLANE(info->src.format);
+	u64 hrt;
 
-	return ctx->panel_pixel / layer_w * info->src.width / layer_h * info->src.height *
-		MML_FMT_BITS_PER_PIXEL(info->src.format) / bpp_div * 122 / 100 *
-		MML_HRT_FPS / 1000;
+	/* calculate source data size as bandwidth */
+	hrt = mml_color_get_min_y_size(info->src.format, info->src.width, info->src.height);
+	if (!MML_FMT_COMPRESS(info->src.format) && plane > 1) {
+		if (plane == 2)
+			hrt += mml_color_get_min_uv_size(info->src.format,
+				info->src.width, info->src.height);
+		else if (plane == 3)
+			hrt += mml_color_get_min_uv_size(info->src.format,
+				info->src.width, info->src.height) * 2;
+	}
+
+	/* calculate panel ratio, v-blanking overhead, fps */
+	hrt = hrt * ctx->panel_pixel / layer_w / layer_h * 122 / 100 * MML_HRT_FPS / 1000;
+
+	return (u32)hrt;
 }
 
 static void frame_buf_to_task_buf(struct mml_file_buf *fbuf,
