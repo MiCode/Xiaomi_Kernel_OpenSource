@@ -3713,15 +3713,6 @@ enum {
 	RCV_MIC_DCC,
 };
 
-enum {
-	MIC_TYPE_MUX_IDLE = 0,
-	MIC_TYPE_MUX_ACC,
-	MIC_TYPE_MUX_DMIC,
-	MIC_TYPE_MUX_DCC,
-	MIC_TYPE_MUX_DCC_ECM_DIFF,
-	MIC_TYPE_MUX_DCC_ECM_SINGLE,
-};
-
 #ifdef ANALOG_HPTRIM
 struct ana_offset {
 	int enable;
@@ -3801,6 +3792,8 @@ struct mt6358_priv {
 	int reg_afe_vow_periodic;
 	/* vow dmic low power mode, 1: enable, 0: disable */
 	int vow_dmic_lp;
+
+	int pull_down_stay_enable;
 };
 
 /* dl pga gain */
