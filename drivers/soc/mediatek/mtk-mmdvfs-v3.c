@@ -249,6 +249,7 @@ bool mtk_is_mmdvfs_init_done(void)
 }
 EXPORT_SYMBOL_GPL(mtk_is_mmdvfs_init_done);
 
+/*
 static int reset_vcp_power(void)
 {
 	int ret = 0;
@@ -268,6 +269,7 @@ static int reset_vcp_power(void)
 
 	return ret;
 }
+*/
 
 static void check_vcp_pwr(void)
 {
@@ -628,24 +630,29 @@ void cam_notify_work_func(struct work_struct *work)
 	kfree(cam_notify_work);
 }
 
-int mtk_mmdvfs_camera_notify(const bool enable)
+int mtk_mmdvfs_camera_notify(const bool genpd_update, const bool enable)
 {
-/*
+
 	struct mmdvfs_cam_notify_work *work;
 
 	MMDVFS_DBG("enable:%u", enable);
+	if (genpd_update) {
+		if (!cam_notify_wq) {
+			MMDVFS_ERR("no came notify wq");
+			return -ENODEV;
+		}
 
-	if (!cam_notify_wq)
-		return -ENODEV;
+		work = kzalloc(sizeof(*work), GFP_KERNEL);
+		if (!work) {
+			MMDVFS_ERR("memory allocation failed");
+			return -ENOMEM;
+		}
 
-	work = kzalloc(sizeof(*work), GFP_KERNEL);
-	if (!work)
-		return -ENOMEM;
+		work->enable = enable;
+		INIT_WORK(&work->cam_notify_work, cam_notify_work_func);
+		queue_work(cam_notify_wq, &work->cam_notify_work);
+	}
 
-	work->enable = enable;
-	INIT_WORK(&work->cam_notify_work, cam_notify_work_func);
-	queue_work(cam_notify_wq, &work->cam_notify_work);
-*/
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_camera_notify);
@@ -892,7 +899,7 @@ static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 		check_vcp_pwr();
 		//enable_aoc_iso(true);
 		reset_ccu_power();
-		reset_vcp_power();
+		//reset_vcp_power();
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
 		return NOTIFY_DONE;

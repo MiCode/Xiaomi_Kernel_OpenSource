@@ -38,7 +38,7 @@ enum vcp_pwr_usr {
 
 #if IS_ENABLED(CONFIG_MTK_MMDVFS)
 void *mtk_mmdvfs_vcp_get_base(phys_addr_t *pa);
-int mtk_mmdvfs_camera_notify(bool enable);
+int mtk_mmdvfs_camera_notify(bool genpd_update, bool enable);
 int mtk_mmdvfs_camera_notify_from_mmqos(bool enable);
 bool mtk_is_mmdvfs_init_done(void);
 int mtk_mmdvfs_enable_vcp(bool enable, unsigned int usr_id);
@@ -58,7 +58,7 @@ int mtk_mmdvfs_camera_notify_from_mmqos(bool enable)
 { return 0; }
 
 static inline
-int mtk_mmdvfs_camera_notify(bool enable)
+int mtk_mmdvfs_camera_notify(bool genpd_update, bool enable)
 { return 0; }
 
 static inline
