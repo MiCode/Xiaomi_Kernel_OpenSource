@@ -280,7 +280,7 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.scheme_flag = TUI_FLAGS,
 		.req_size = 0,
 		.is_page_based = false,
-		.is_dma_alloc = true,
+		.is_dma_alloc = false,
 		.is_reserved_mem = false
 	},
 	[SSMR_FEAT_SVP_PAGE] = {
@@ -346,7 +346,7 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 				FACE_UNLOCK_FLAGS,
 		.req_size = 0,
 		.is_page_based = false,
-		.is_dma_alloc = true,
+		.is_dma_alloc = false,
 		.is_reserved_mem = false
 	},
 	[SSMR_FEAT_SAPU_ENGINE_SHM] = {
@@ -359,7 +359,7 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 				FACE_UNLOCK_FLAGS,
 		.req_size = 0,
 		.is_page_based = false,
-		.is_dma_alloc = true,
+		.is_dma_alloc = false,
 		.is_reserved_mem = false
 	},
 	[SSMR_FEAT_AP_MD_SHM] = {
