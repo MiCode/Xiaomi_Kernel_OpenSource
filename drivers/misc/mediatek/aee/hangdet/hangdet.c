@@ -35,6 +35,7 @@
 #include <mt-plat/mrdump.h>
 #include "mrdump_helper.h"
 #include "mrdump_private.h"
+#include <linux/smp.h>
 
 void sysrq_sched_debug_show_at_AEE(void);
 
@@ -489,6 +490,20 @@ static void aee_dump_timer_func(struct timer_list *t)
 	}
 }
 
+#if IS_ENABLED(CONFIG_SMP)
+static char tmr_buf[8][WK_MAX_MSG_SIZE];
+static struct __call_single_data wdt_csd[8];
+static void wdt_dump_cntcv(void *arg)
+{
+	snprintf(tmr_buf[smp_processor_id()], WK_MAX_MSG_SIZE,
+		"%s CPU:%d CNTCV_CTL:%x CNTCV_TVAL:%x\n",
+		__func__,
+		smp_processor_id(),
+		read_sysreg(cntv_ctl_el0),
+		read_sysreg(cntv_tval_el0));
+}
+#endif
+
 static void kwdt_process_kick(int local_bit, int cpu,
 				unsigned long curInterval, char msg_buf[],
 				unsigned int original_kicker)
@@ -497,6 +512,9 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	int i = 0;
 	bool rgu_fiq = false;
 	unsigned long s_s2idle = get_s2idle_state();
+#if IS_ENABLED(CONFIG_SMP)
+	static int j;
+#endif
 
 	if (toprgu_base && (ioread32(toprgu_base + WDT_MODE) & WDT_MODE_EN))
 		r_counter = ioread32(toprgu_base + WDT_COUNTER) / (32 * 1024);
@@ -548,6 +566,15 @@ static void kwdt_process_kick(int local_bit, int cpu,
 		dump_timeout = 2;
 	}
 
+#if IS_ENABLED(CONFIG_SMP)
+	if ((((~(local_bit - 1)) & local_bit) == local_bit) && j++ > 3) {
+		int cpu = 0;
+
+		for (cpu = 0; get_check_bit() & (1 << cpu); cpu++)
+			smp_call_function_single_async(cpu, &wdt_csd[cpu]);
+	}
+#endif
+
 	wk_tsk_kick_time[cpu] = sched_clock();
 	snprintf(msg_buf, WK_MAX_MSG_SIZE,
 	 "[wdk-c] cpu=%d o_k=%d lbit=0x%x cbit=0x%x,%x,%d,%d,%lld,%x,%ld,%ld,%ld,%ld,[%lld,%ld] %d %lx\n",
@@ -598,6 +625,10 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	spin_unlock_bh(&lock);
 
 	pr_info("%s", msg_buf);
+
+#if IS_ENABLED(CONFIG_SMP)
+	pr_info("%s", tmr_buf[cpu]);
+#endif
 
 	if (dump_timeout) {
 #if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
@@ -817,7 +848,7 @@ static int wdt_pm_notify(struct notifier_block *notify_block,
 		lastsuspend_syst = cnt;
 
 		spin_lock_bh(&lock);
-		del_timer_sync(&aee_dump_timer);
+		del_timer(&aee_dump_timer);
 		aee_dump_timer_t = 0;
 		g_hang_detected = 0;
 		spin_unlock_bh(&lock);
@@ -996,6 +1027,14 @@ static int __init hangdet_init(void)
 	}
 
 	timer_setup(&aee_dump_timer, aee_dump_timer_func, 0);
+
+#if IS_ENABLED(CONFIG_SMP)
+	for (res = 0; res < 8; res++) {
+		wdt_csd[res].func = wdt_dump_cntcv;
+		wdt_csd[res].info = NULL;
+	}
+#endif
+
 	aee_reboot_hook_init();
 
 	return 0;
