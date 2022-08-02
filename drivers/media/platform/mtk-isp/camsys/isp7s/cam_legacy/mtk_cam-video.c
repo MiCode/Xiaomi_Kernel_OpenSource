@@ -1786,7 +1786,7 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 	vdev->lock = &video->q_lock;
 	strscpy(vdev->name, video->desc.name, sizeof(vdev->name));
 
-	ret = video_register_device(vdev, VFL_TYPE_VIDEO, -1);
+	ret = video_register_device(vdev, VFL_TYPE_VIDEO, CAMSYS_VIDEO_DEV_NR);
 	if (ret < 0) {
 		dev_info(v4l2_dev->dev, "Failed to register video device: %d\n",
 			ret);

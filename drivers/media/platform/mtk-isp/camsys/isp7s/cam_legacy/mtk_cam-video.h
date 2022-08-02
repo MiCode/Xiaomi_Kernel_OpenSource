@@ -18,6 +18,8 @@
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
 
+#define CAMSYS_VIDEO_DEV_NR 6
+
 #define MAX_PLANE_NUM 3
 #define MAX_SUBSAMPLE_PLANE_NUM 8
 
