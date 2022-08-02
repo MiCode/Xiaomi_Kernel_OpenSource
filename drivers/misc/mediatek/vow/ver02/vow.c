@@ -1326,8 +1326,8 @@ static void vow_check_boundary(unsigned int copy_len, unsigned int bound_len)
 #if IS_ENABLED(CONFIG_MTK_VOW_1STSTAGE_PCMCALLBACK)
 static void vow_service_ReadPayloadDumpData(unsigned int buf_length)
 {
-	unsigned int tx_len;
-	unsigned int ret;
+	unsigned int ret = 0;
+
 	if (vowserv.payloaddump_kernel_ptr == NULL) {
 		VOWDRV_DEBUG("%s(), payloaddump_kernel_ptr is NULL!!\n", __func__);
 		return;
@@ -1336,6 +1336,12 @@ static void vow_service_ReadPayloadDumpData(unsigned int buf_length)
 		VOWDRV_DEBUG("%s(), MAX len = 0 !!\n", __func__);
 		return;
 	}
+	if (buf_length > vowserv.payloaddump_user_max_size) {
+		VOWDRV_DEBUG("%s(), [VOW PDR] buf_len=0x%x, MAX len=0x%x\n",
+			__func__, buf_length, vowserv.payloaddump_user_max_size);
+		return;
+	}
+
 	// copy from DRAM to get payload data
 	mutex_lock(&vow_payloaddump_mutex);
 	memcpy(&vowserv.payloaddump_kernel_ptr[0],
@@ -1343,20 +1349,15 @@ static void vow_service_ReadPayloadDumpData(unsigned int buf_length)
 	mutex_unlock(&vow_payloaddump_mutex);
 
 	//copy to user space
-	tx_len = buf_length;
-	VOWDRV_DEBUG("[VOW PDR] buf_len=0x%x, MAX len=0x%x\n",
-		     buf_length, vowserv.payloaddump_user_max_size);
-	if (buf_length > vowserv.payloaddump_user_max_size)
-		tx_len = vowserv.payloaddump_user_max_size;
 	ret = copy_to_user(
 		      (void __user *)(vowserv.payloaddump_user_return_size_addr),
-		      &tx_len,
+		      &buf_length,
 		      sizeof(unsigned int));
 	mutex_lock(&vow_payloaddump_mutex);
 	ret = copy_to_user(
 		      (void __user *)vowserv.payloaddump_user_addr,
 		      vowserv.payloaddump_kernel_ptr,
-		      tx_len);
+		      buf_length);
 	mutex_unlock(&vow_payloaddump_mutex);
 }
 #endif
@@ -1396,22 +1397,53 @@ static int vow_service_ReadVoiceData_Internal(unsigned int buf_offset,
 			vowserv.kernel_voicedata_idx = 0;
 			mutex_unlock(&vow_vmalloc_lock);
 		}
-		mutex_lock(&vow_vmalloc_lock);
+
+		if ((vowserv.kernel_voicedata_idx + buf_length) > VOW_VBUF_LENGTH) {
+			VOWDRV_DEBUG(
+			"%s(), kernel_voicedata_idx=0x%x, buf_length=0x%x, VOW_VBUF_LENGTH=0x%x",
+				__func__,
+				vowserv.kernel_voicedata_idx,
+				buf_length,
+				VOW_VBUF_LENGTH);
+			stop_condition = 1;
+			return stop_condition;
+		}
 #if IS_ENABLED(CONFIG_DUAL_CH_TRANSFER)
+		if (buf_offset > (VOW_MAX_MIC_NUM * VOW_VOICEDATA_SIZE)) {
+			VOWDRV_DEBUG(
+			"%s(), buf_offset=0x%x, buf_length=0x%x, VOW_VOICEDATA_SIZE=0x%x\n",
+				__func__,
+				buf_offset,
+				buf_length,
+				VOW_VOICEDATA_SIZE);
+			stop_condition = 1;
+			return stop_condition;
+		}
+		mutex_lock(&vow_vmalloc_lock);
 		/* start interleaving L+R */
 		vow_interleaving(
 			&vowserv.voicedata_kernel_ptr[vowserv.kernel_voicedata_idx],
 			(short *)(vowserv.voicedata_scp_ptr + buf_offset),
 			(short *)(vowserv.voicedata_scp_ptr + buf_offset +
-			    VOW_VOICEDATA_SIZE),
-			buf_length);
+				VOW_VOICEDATA_SIZE), buf_length);
 		/* end interleaving*/
-#else
-		memcpy(&vowserv.voicedata_kernel_ptr[vowserv.kernel_voicedata_idx],
-		       vowserv.voicedata_scp_ptr + buf_offset, buf_length);
-#endif
 		mutex_unlock(&vow_vmalloc_lock);
-
+#else
+		if (buf_offset > VOW_VOICEDATA_SIZE) {
+			VOWDRV_DEBUG(
+			"%s(), buf_offset=0x%x, buf_length=0x%x, VOW_VOICEDATA_SIZE=0x%x\n",
+				__func__,
+				buf_offset,
+				buf_length,
+				VOW_VOICEDATA_SIZE);
+			stop_condition = 1;
+			return stop_condition;
+		}
+		mutex_lock(&vow_vmalloc_lock);
+		memcpy(&vowserv.voicedata_kernel_ptr[vowserv.kernel_voicedata_idx],
+			vowserv.voicedata_scp_ptr + buf_offset, buf_length);
+		mutex_unlock(&vow_vmalloc_lock);
+#endif
 		if (buf_length > VOW_VOICE_RECORD_BIG_THRESHOLD) {
 			/* means now is start to transfer */
 			/* keyword buffer(64kB) to AP */
@@ -1462,10 +1494,10 @@ static int vow_service_ReadVoiceData_Internal(unsigned int buf_offset,
 
 			tmp = (vowserv.kernel_voicedata_idx << 1)
 			      - vowserv.transfer_length;
-			vow_check_boundary(tmp, vowserv.voicedata_user_size);
 			idx = (vowserv.transfer_length >> 1);
+			vow_check_boundary(tmp + idx, VOW_VBUF_LENGTH);
 			mutex_lock(&vow_vmalloc_lock);
-			memcpy(&vowserv.voicedata_kernel_ptr[0],
+			memmove(&vowserv.voicedata_kernel_ptr[0],
 			       &vowserv.voicedata_kernel_ptr[idx],
 			       tmp);
 			mutex_unlock(&vow_vmalloc_lock);
@@ -1596,7 +1628,15 @@ static void vow_service_GetVowDumpData(void)
 				unsigned int idx_left;
 
 				size_left = idx - size;
-				vow_check_boundary(size_left, temp_dump_info.kernel_dump_size);
+				if (temp_dump_info.kernel_dump_size != kReadVowDumpSize) {
+					VOWDRV_DEBUG(
+						"%s(), kernel_dump_size=%x, kReadVowDumpSize=%x\n",
+						__func__,
+						temp_dump_info.kernel_dump_size,
+						kReadVowDumpSize);
+					return;
+				}
+				vow_check_boundary(idx, temp_dump_info.kernel_dump_size);
 				idx_left = size;
 				mutex_lock(&vow_vmalloc_lock);
 				memmove(&temp_dump_info.kernel_dump_addr[0],
