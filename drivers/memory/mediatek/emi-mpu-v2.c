@@ -101,7 +101,6 @@ static void clear_violation(
 	struct emi_mpu *mpu, unsigned int emi_id)
 {
 	void __iomem *emi_cen_base;
-	struct arm_smccc_res smc_res;
 	void __iomem *miu_mpu_base;
 
 	emi_cen_base = mpu->emi_cen_base[emi_id];
@@ -113,11 +112,16 @@ static void clear_violation(
 	set_regs(mpu->clear_hp_reg,
 		mpu->clear_hp_reg_cnt, emi_cen_base);
 
-	arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIMPU_CLEAR_KP,
-		0, 0, 0, 0, 0, 0, &smc_res);
-
 	set_regs(mpu->clear_miumpu_reg,
 		mpu->clear_miumpu_reg_cnt, miu_mpu_base);
+}
+
+static void clear_kp_violation(unsigned int emi_id)
+{
+	struct arm_smccc_res smc_res;
+
+	arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIMPU_CLEAR_KP,
+		emi_id, 0, 0, 0, 0, 0, &smc_res);
 }
 
 static void emimpu_vio_dump(struct work_struct *work)
@@ -148,7 +152,7 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 	unsigned int emi_id, i;
 	ssize_t msg_len;
 	int nr_vio, prefetch;
-	bool violation, miu_violation, miu_kp_violation;
+	bool violation, miu_violation, miu_kp_violation, miu_mpu_violation;
 	irqreturn_t irqret;
 	const unsigned int hp_mask = 0x600000;
 	char md_str[MTK_EMI_MAX_CMD_LEN + 13] = {'\0'};
@@ -162,6 +166,8 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 		violation = false;
 		miu_violation = false;
 		miu_kp_violation = false;
+		miu_mpu_violation = false;
+
 		emi_cen_base = mpu->emi_cen_base[emi_id];
 		for (i = 0; i < mpu->dump_cnt; i++) {
 			dump_reg[i].value = readl(
@@ -184,14 +190,14 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 		 */
 		miu_violation = (dump_reg[2].value & hp_mask) ? true : false;
 		if (miu_violation) {
-			violation = false;
+			miu_mpu_violation = false;
 			miu_mpu_base = mpu->miu_mpu_base[emi_id];
 			for (i = 0; i < mpu->miumpu_dump_cnt; i++) {
 				miumpu_dump_reg[i].value = readl(
 				miu_mpu_base + miumpu_dump_reg[i].offset);
 
 				if (miumpu_dump_reg[i].value)
-					violation = true;
+					miu_mpu_violation = true;
 			}
 
 			miu_kp_violation = false;
@@ -200,13 +206,11 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 				miukp_dump_reg[i].value = readl(
 				miu_kp_base + miukp_dump_reg[i].offset);
 
-				if (miukp_dump_reg[i].value) {
-					violation = true;
+				if (miukp_dump_reg[i].value)
 					miu_kp_violation = true;
-				}
 			}
 
-			if (!violation) {
+			if ((!miu_mpu_violation) && (!miu_kp_violation)) {
 				if (__ratelimit(&ratelimit))
 					pr_info("%s: emi:%d miu_mpu = 0, miu_kp = 0"
 					, __func__, emi_id);
@@ -235,20 +239,7 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 
 		if (miu_violation) {
 
-			if (miu_kp_violation) {
-				/* Dump MIUKP violation info */
-				if (msg_len < MTK_EMI_MAX_CMD_LEN)
-					msg_len += scnprintf(mpu->vio_msg + msg_len,
-						MTK_EMI_MAX_CMD_LEN - msg_len,
-						"\n[MIUKP]emiid%d\n", emi_id);
-				for (i = 0; i < mpu->miukp_dump_cnt; i++)
-					if (msg_len < MTK_EMI_MAX_CMD_LEN)
-						msg_len += scnprintf(mpu->vio_msg + msg_len,
-							MTK_EMI_MAX_CMD_LEN - msg_len,
-							"[%x]%x;",
-							miukp_dump_reg[i].offset,
-							miukp_dump_reg[i].value);
-			} else {
+			if (miu_mpu_violation) {
 				/* MPUT_2ND[28] = CPU-preftech flag*/
 				prefetch = (dump_reg[2].value >> 28) & 0x1;
 				if (msg_len < MTK_EMI_MAX_CMD_LEN)
@@ -267,7 +258,21 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 							"[%x]%x;",
 							miumpu_dump_reg[i].offset,
 							miumpu_dump_reg[i].value);
+			} else {
+				/* Dump MIUKP violation info */
+				if (msg_len < MTK_EMI_MAX_CMD_LEN)
+					msg_len += scnprintf(mpu->vio_msg + msg_len,
+						MTK_EMI_MAX_CMD_LEN - msg_len,
+						"\n[MIUKP]emiid%d\n", emi_id);
+				for (i = 0; i < mpu->miukp_dump_cnt; i++)
+					if (msg_len < MTK_EMI_MAX_CMD_LEN)
+						msg_len += scnprintf(mpu->vio_msg + msg_len,
+							MTK_EMI_MAX_CMD_LEN - msg_len,
+							"[%x]%x;",
+							miukp_dump_reg[i].offset,
+							miukp_dump_reg[i].value);
 			}
+
 		} else {
 			/* Dump EMIMPU violation info */
 			if (msg_len < MTK_EMI_MAX_CMD_LEN)
@@ -315,7 +320,8 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 
 clear_violation:
 		clear_violation(mpu, emi_id);
-
+		if (miu_kp_violation)
+			clear_kp_violation(emi_id);
 	}
 
 	if (nr_vio) {
