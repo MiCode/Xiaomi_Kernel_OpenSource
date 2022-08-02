@@ -556,11 +556,38 @@ void mtk8250_uart_end_record(struct tty_struct *tty)
 	struct uart_state *state = NULL;
 	struct uart_port *port = NULL;
 	struct uart_8250_port *up = NULL;
+	struct mtk8250_data *data = NULL;
 	unsigned int uart_dbg_reg[24];
 
+	if (tty == NULL) {
+		pr_info("[%s] para error. tty is NULL\n", __func__);
+		return;
+	}
 	state = tty->driver_data;
+	if (state == NULL) {
+		pr_info("[%s] para error. state is NULL\n", __func__);
+		return;
+	}
 	port = state->uart_port;
+	if (port == NULL) {
+		pr_info("[%s] para error. port is NULL\n", __func__);
+		return;
+	}
 	up = up_to_u8250p(port);
+	if (up == NULL) {
+		pr_info("[%s] para error. up is NULL\n", __func__);
+		return;
+	}
+	data = port->private_data;
+	if (data == NULL) {
+		pr_info("[%s] para error. data is NULL\n", __func__);
+		return;
+	}
+	if (data->clk_count == 0) {
+		pr_info("[%s] para error. clk_count = %d, clk close, please open ttys[%d]\n",
+			__func__, data->clk_count, data->line);
+		return;
+	}
 
 	mtk_save_uart_reg(up, uart_dbg_reg);
 
@@ -581,6 +608,12 @@ void mtk8250_uart_end_record(struct tty_struct *tty)
 #endif
 
 #ifdef CONFIG_SERIAL_8250_DMA
+	if ((up->dma == NULL) || (up->dma->rxchan == NULL) ||
+		(up->dma->txchan == NULL)) {
+		pr_info("[%s] para error. up->dma,rx,tx is NULL\n", __func__);
+		return;
+	}
+
 	mtk8250_uart_apdma_end_record(up->dma->rxchan);
 	mtk8250_uart_apdma_end_record(up->dma->txchan);
 #endif
