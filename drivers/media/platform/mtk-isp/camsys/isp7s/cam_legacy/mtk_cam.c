@@ -1049,7 +1049,8 @@ STOP_SCAN:
 			continue;
 		}
 
-		if (s_data->frame_seq_no < dequeued_frame_seq_no) {
+		if (s_data->frame_seq_no < dequeued_frame_seq_no &&
+			pipe_id == ctx->stream_id) {
 			buf_state = VB2_BUF_STATE_ERROR;
 			dev_dbg(ctx->cam->dev,
 				"%s:%s:pipe(%d) seq:%d, time:%lld drop, ctx:%d\n",
