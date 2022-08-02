@@ -29,6 +29,9 @@ int adaptor_i2c_rd_u8(struct i2c_client *i2c_client,
 	u8 buf[2];
 	struct i2c_msg msg[2];
 
+	if (i2c_client == NULL)
+		return -ENODEV;
+
 	buf[0] = reg >> 8;
 	buf[1] = reg & 0xff;
 
@@ -59,6 +62,9 @@ int adaptor_i2c_rd_u16(struct i2c_client *i2c_client,
 	int ret;
 	u8 buf[2];
 	struct i2c_msg msg[2];
+
+	if (i2c_client == NULL)
+		return -ENODEV;
 
 	buf[0] = reg >> 8;
 	buf[1] = reg & 0xff;
@@ -91,6 +97,9 @@ int adaptor_i2c_rd_p8(struct i2c_client *i2c_client,
 	u8 buf[2];
 	struct i2c_msg msg[2];
 	u8 *pbuf;
+
+	if (i2c_client == NULL)
+		return -ENODEV;
 
 	recv = 0;
 	total = n_vals;
@@ -139,6 +148,9 @@ int adaptor_i2c_wr_u8(struct i2c_client *i2c_client,
 	u8 buf[3];
 	struct i2c_msg msg;
 
+	if (i2c_client == NULL)
+		return -ENODEV;
+
 	buf[0] = reg >> 8;
 	buf[1] = reg & 0xff;
 	buf[2] = val;
@@ -161,6 +173,9 @@ int adaptor_i2c_wr_u16(struct i2c_client *i2c_client,
 	int ret;
 	u8 buf[4];
 	struct i2c_msg msg;
+
+	if (i2c_client == NULL)
+		return -ENODEV;
 
 	buf[0] = reg >> 8;
 	buf[1] = reg & 0xff;
@@ -185,6 +200,9 @@ int adaptor_i2c_wr_p8(struct i2c_client *i2c_client,
 	u8 *buf, *pbuf, *pdata;
 	struct i2c_msg msg;
 	int ret, sent, total, cnt;
+
+	if (i2c_client == NULL)
+		return -ENODEV;
 
 	buf = kmalloc(MAX_BUF_SIZE, GFP_KERNEL);
 	if (!buf)
@@ -236,6 +254,9 @@ int adaptor_i2c_wr_p16(struct i2c_client *i2c_client,
 	u16 *pdata;
 	struct i2c_msg msg;
 	int i, ret, sent, total, cnt;
+
+	if (i2c_client == NULL)
+		return -ENODEV;
 
 	buf = kmalloc(MAX_BUF_SIZE, GFP_KERNEL);
 	if (!buf)
@@ -292,6 +313,9 @@ int adaptor_i2c_wr_seq_p8(struct i2c_client *i2c_client,
 	struct i2c_msg msg;
 	int ret, sent, total, cnt;
 
+	if (i2c_client == NULL)
+		return -ENODEV;
+
 	buf = kmalloc(MAX_BUF_SIZE, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
@@ -347,6 +371,9 @@ int adaptor_i2c_wr_regs_u8(struct i2c_client *i2c_client,
 	u8 *pbuf;
 	u16 *plist;
 	int i, ret, sent, total, cnt;
+
+	if (i2c_client == NULL)
+		return -ENODEV;
 
 	pmem = kmalloc(sizeof(*pmem), GFP_KERNEL);
 	if (!pmem)
@@ -406,6 +433,9 @@ int adaptor_i2c_wr_regs_u16(struct i2c_client *i2c_client,
 	u8 *pbuf;
 	u16 *plist;
 	int i, ret, sent, total, cnt;
+
+	if (i2c_client == NULL)
+		return -ENODEV;
 
 	pmem = kmalloc(sizeof(*pmem), GFP_KERNEL);
 	if (!pmem)
