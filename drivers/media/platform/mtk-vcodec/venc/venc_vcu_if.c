@@ -630,8 +630,9 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 {
 
 	struct venc_ap_ipi_msg_enc out;
+	struct venc_ap_ipi_msg_set_param out_slb;
 	struct venc_vsi *vsi = (struct venc_vsi *)vcu->vsi;
-	unsigned int i, ret;
+	unsigned int i, ret, ret_slb;
 
 	mtk_vcodec_debug(vcu, "bs_mode %d ->", bs_mode);
 
@@ -705,6 +706,57 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 	}
 
 	mutex_lock(vcu->ctx_ipi_lock);
+	if (mtk_venc_slb_info.use_slbc && mtk_venc_slb_info.release_slbc) {
+		memset(&out_slb, 0, sizeof(out_slb));
+		out_slb.msg_id = AP_IPIMSG_ENC_SET_PARAM;
+		out_slb.vcu_inst_addr = vcu->inst_addr;
+		out_slb.ctx_id = vcu->ctx->id;
+		out_slb.param_id = VENC_SET_PARAM_RELEASE_SLB;
+		out_slb.data_item = 1;
+		out_slb.data[0] = 1; //release_slb 1
+		ret_slb = vcu_enc_send_msg(vcu, &out_slb, sizeof(out_slb));
+
+		if (ret_slb)
+			mtk_vcodec_err(vcu, "set VENC_SET_PARAM_RELEASE_SLB fail %d", ret_slb);
+		else {
+			mtk_v4l2_debug(0, "slbc_release, %p\n", &vcu->ctx->sram_data);
+			slbc_release(&vcu->ctx->sram_data);
+			mtk_venc_slb_info.release_slbc = 0;
+			mtk_venc_slb_info.use_slbc = vcu->ctx->use_slbc = 0;
+		}
+	} else if (!mtk_venc_slb_info.use_slbc && mtk_venc_slb_info.request_slbc) {
+		memset(&out_slb, 0, sizeof(out_slb));
+		out_slb.msg_id = AP_IPIMSG_ENC_SET_PARAM;
+		out_slb.vcu_inst_addr = vcu->inst_addr;
+		out_slb.ctx_id = vcu->ctx->id;
+		out_slb.param_id = VENC_SET_PARAM_RELEASE_SLB;
+		out_slb.data_item = 1;
+		out_slb.data[0] = 0; //release_slb 0
+		ret_slb = vcu_enc_send_msg(vcu, &out_slb, sizeof(out_slb));
+
+		if (ret_slb) {
+			mtk_vcodec_err(vcu, "set VENC_SET_PARAM_RELEASE_SLB fail %d", ret_slb);
+		} else {
+			if (slbc_request(&vcu->ctx->sram_data) >= 0) {
+				vcu->ctx->use_slbc = 1;
+				vcu->ctx->slbc_addr = (unsigned int)(unsigned long)
+					vcu->ctx->sram_data.paddr;
+			} else {
+				mtk_vcodec_err(vcu, "slbc_request fail\n");
+				vcu->ctx->use_slbc = 0;
+			}
+			if (vcu->ctx->slbc_addr % 256 != 0 || vcu->ctx->slbc_addr == 0) {
+				mtk_vcodec_err(vcu, "slbc_addr error 0x%x\n", vcu->ctx->slbc_addr);
+				vcu->ctx->use_slbc = 0;
+			}
+
+			mtk_venc_slb_info.use_slbc = vcu->ctx->use_slbc;
+			mtk_venc_slb_info.request_slbc = 0;
+			mtk_v4l2_debug(0, "slbc_request %d, 0x%x, 0x%llx\n",
+			vcu->ctx->use_slbc, vcu->ctx->slbc_addr, vcu->ctx->sram_data.paddr);
+		}
+	}
+
 	vcu_enc_set_ctx(vcu, frm_buf, bs_buf);
 	ret = vcu_enc_send_msg(vcu, &out, sizeof(out));
 	mutex_unlock(vcu->ctx_ipi_lock);

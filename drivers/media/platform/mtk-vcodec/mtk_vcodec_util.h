@@ -127,6 +127,16 @@ extern char *mtk_venc_vcp_log;
 extern char mtk_venc_vcp_log_prev[LOG_PROPERTY_SIZE];
 extern int mtk_vdec_sw_mem_sec;
 extern int mtk_vdec_align_limit;
+struct VENC_SLB_RELEASE_T {
+	int use_slbc;
+	int release_slbc;
+	int request_slbc;
+	unsigned int width;
+	unsigned int height;
+	unsigned int frm_rate;
+	unsigned int operationrate;
+};
+extern struct VENC_SLB_RELEASE_T mtk_venc_slb_info;
 
 #define DEBUG   1
 #define VCU_FPTR(x) (vcu_func.x)

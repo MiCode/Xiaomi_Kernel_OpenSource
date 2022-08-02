@@ -2234,6 +2234,11 @@ static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 	mtk_venc_set_param(ctx, &param);
 	ret = venc_if_set_param(ctx, VENC_SET_PARAM_ENC, &param);
 
+	mtk_venc_slb_info.width = param.width;
+	mtk_venc_slb_info.height = param.height;
+	mtk_venc_slb_info.frm_rate = param.frm_rate;
+	mtk_venc_slb_info.operationrate = param.operationrate;
+
 	mtk_v4l2_debug(0,
 	"fmt 0x%x, P/L %d/%d, w/h %d/%d, buf %d/%d, fps/bps %d/%d(%d), gop %d, ip# %d opr %d async %d grid size %d/%d b#%d, slbc %d maxqp %d minqp %d",
 	param.input_yuv_fmt, param.profile,
@@ -2365,6 +2370,8 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 		mtk_venc_pmqos_end_inst(ctx);
 		mutex_unlock(&ctx->dev->enc_dvfs_mutex);
 	}
+
+	memset(&mtk_venc_slb_info, 0, sizeof(struct VENC_SLB_RELEASE_T));
 
 	if ((q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
 	     vb2_is_streaming(&ctx->m2m_ctx->out_q_ctx.q)) ||

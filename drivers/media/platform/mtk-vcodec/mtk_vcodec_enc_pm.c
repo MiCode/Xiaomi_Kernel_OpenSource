@@ -30,13 +30,89 @@
 #include "iommu_debug.h"
 #endif
 
+/*
+ * SLB activate callback, cb calls when high priority user to release SLB,
+ * venc request SLB depand on whether slb is required.
+ * return value
+ *    0: venc is not required slb
+ *    1: venc is required slb
+ */
+int mtk_slb_user_activate_request(struct slbc_data *d)
+{
+	int ret = 1;
+
+	mtk_v4l2_debug(0, "slb %d/%d/%d, w/h %d/%d, fps %d, opr %d",
+		mtk_venc_slb_info.use_slbc, mtk_venc_slb_info.release_slbc,
+		mtk_venc_slb_info.request_slbc, mtk_venc_slb_info.width,
+		mtk_venc_slb_info.height, mtk_venc_slb_info.frm_rate,
+		mtk_venc_slb_info.operationrate);
+
+	if ((mtk_venc_slb_info.width == 0) && (mtk_venc_slb_info.height == 0) &&
+		(mtk_venc_slb_info.frm_rate == 0) && (mtk_venc_slb_info.operationrate == 0)) {
+		mtk_v4l2_debug(0, "venc is not required slb");
+		ret = 0;
+	} else {
+		mtk_v4l2_debug(0, "venc is required slb");
+		mtk_venc_slb_info.request_slbc = 1;
+	}
+
+	return ret;
+}
+
+/*
+ * SLB deactivate callback, cb calls when high priority user to request SLB,
+ * venc would to release SLB depand on whether normal recording or high
+ * performance recording.
+ * return value
+ *    0: venc unable to release SLB when high performance recording
+ *    1: venc able to release SLB when normal recording
+ */
+int mtk_slb_user_deactivate_request(struct slbc_data *d)
+{
+	int ret = 1;
+
+	mtk_v4l2_debug(0, "slb %d/%d/%d, w/h %d/%d, fps %d, opr %d",
+		mtk_venc_slb_info.use_slbc, mtk_venc_slb_info.release_slbc,
+		mtk_venc_slb_info.request_slbc, mtk_venc_slb_info.width,
+		mtk_venc_slb_info.height, mtk_venc_slb_info.frm_rate,
+		mtk_venc_slb_info.operationrate);
+
+	if (mtk_venc_slb_info.use_slbc == 1) {
+		if (((mtk_venc_slb_info.width >= 3840) && (mtk_venc_slb_info.height >= 2160) &&
+		(mtk_venc_slb_info.frm_rate >= 30)) ||
+		((mtk_venc_slb_info.width >= 1920) && (mtk_venc_slb_info.height >= 1080) &&
+		(mtk_venc_slb_info.operationrate >= 120)) ||
+		((mtk_venc_slb_info.width >= 1280) && (mtk_venc_slb_info.height >= 720) &&
+		(mtk_venc_slb_info.operationrate >= 240))) {
+			mtk_v4l2_debug(0, "venc unable to release SLB");
+			ret = 0;
+		} else {
+			mtk_v4l2_debug(0, "venc able to release SLB");
+			mtk_venc_slb_info.release_slbc = 1;
+		}
+	} else {
+		mtk_v4l2_debug(0, "SLB released, venc does not use SLB");
+	}
+
+	return ret;
+}
+
 void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
+	struct slbc_ops slbc_ops;
+
 	ctx->sram_data.uid = UID_MM_VENC;
 	ctx->sram_data.type = TP_BUFFER;
 	ctx->sram_data.size = 0;
 	ctx->sram_data.flag = FG_POWER;
+	slbc_ops.data = &ctx->sram_data;
+	slbc_ops.activate = mtk_slb_user_activate_request;
+	slbc_ops.deactivate = mtk_slb_user_deactivate_request;
+	memset(&mtk_venc_slb_info, 0, sizeof(struct VENC_SLB_RELEASE_T));
 
+	if (slbc_register_activate_ops(&slbc_ops) != 0) {
+		pr_info("register cb slbc_register_activate_ops fail\n");
+	}
 	if (slbc_request(&ctx->sram_data) >= 0) {
 		ctx->use_slbc = 1;
 		ctx->slbc_addr = (unsigned int)(unsigned long)ctx->sram_data.paddr;
@@ -48,6 +124,7 @@ void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 		pr_info("slbc_addr error 0x%x\n", ctx->slbc_addr);
 		ctx->use_slbc = 0;
 	}
+	mtk_venc_slb_info.use_slbc = ctx->use_slbc;
 
 	pr_info("slbc_request %d, 0x%x, 0x%llx\n",
 	ctx->use_slbc, ctx->slbc_addr, ctx->sram_data.paddr);
