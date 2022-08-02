@@ -4846,10 +4846,10 @@
 			pwmsrcclk = <&pericfg_ao_clk>;
 		};
 
-		irtx_pwm:irtx_pwm {
+		irtx_pwm:irtx-pwm {
 			compatible = "mediatek,irtx-pwm";
-			pwm_ch = <3>;
-			pwm_data_invert = <0>;
+			pwm-ch = <3>;
+			pwm-data-invert = <0>;
 			pwm-supply = "mt6373_vio28";
 		};
 
