@@ -55,7 +55,7 @@ static const struct mtk_node_desc node_descs_mt6886[] = {
 	DEFINE_MNODE(larb17, SLAVE_LARB(17), 0, false, 0x0, MASTER_COMMON_PORT(0, 7)), //larb17A
 	DEFINE_MNODE(larb30, SLAVE_LARB(30), 0, false, 0x0, MASTER_COMMON_PORT(0, 7)), //larb16B
 	DEFINE_MNODE(larb25, SLAVE_LARB(25), 0, false, 0x0, MASTER_COMMON_PORT(0, 7)),
-	DEFINE_MNODE(larb35, SLAVE_LARB(35), 0, false, 0x0, MASTER_COMMON_PORT(0, 8)), //virt disp
+	DEFINE_MNODE(larb35, SLAVE_LARB(35), 0, false, 0x1, MASTER_COMMON_PORT(0, 8)), //virt disp
 	DEFINE_MNODE(larb36, SLAVE_LARB(36), 0, true, 0x1, MASTER_COMMON_PORT(0, 6)), //virt ccu0
 	DEFINE_MNODE(larb37, SLAVE_LARB(37), 0, true, 0x2, MASTER_COMMON_PORT(0, 7)), //virt ccu1
 	/* LARB0 */
