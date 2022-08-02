@@ -1395,9 +1395,6 @@ static int __maybe_unused mtk_pcie_suspend_noirq(struct device *dev)
 		writel_relaxed(val, port->base + PCIE_MISC_CTRL_REG);
 
 		if (port->port_num == 0) {
-			val = readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_0);
-			val |= PCIE_HW_MTCMOS_EN_P0;
-			writel_relaxed(val, port->pextpcfg + PEXTP_PWRCTL_0);
 			dev_info(port->dev, "PCIe HW MODE BIT=%#x\n",
 				 readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_0));
 			dev_info(port->dev, "Modem HW MODE BIT=%#x\n",
@@ -1438,9 +1435,6 @@ static int __maybe_unused mtk_pcie_resume_noirq(struct device *dev)
 
 	if (port->suspend_mode == LINK_STATE_L12) {
 		if (port->port_num == 0) {
-			val = readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_0);
-			val &= ~PCIE_HW_MTCMOS_EN_P0;
-			writel_relaxed(val, port->pextpcfg + PEXTP_PWRCTL_0);
 			dev_info(port->dev, "PCIe HW MODE BIT=%#x\n",
 				 readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_0));
 			dev_info(port->dev, "Modem HW MODE BIT=%#x\n",
