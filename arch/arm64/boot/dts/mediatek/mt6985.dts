@@ -3290,12 +3290,12 @@
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&tboard_thermistor4>;
 		};
-		wifi_ntc: wifi_ntc {
+		wifi_ntc: wifi-ntc {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&tboard_thermistor5>;
 		};
-		tsx_ntc: tsx_ntc {
+		tsx_ntc: tsx-ntc {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&tsx_thermistor>;
@@ -3336,27 +3336,27 @@
 			thermal-sensors = <&vtskin 6>;
 		};
 
-		wifi_adie_0 {
+		wifi-adie-0 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&wifi 0>;
 		};
-		wifi_ddie_0 {
+		wifi-ddie-0 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&wifi 1>;
 		};
-		wifi_ddie_1 {
+		wifi-ddie-1 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&wifi 2>;
 		};
-		wifi_ddie_2 {
+		wifi-ddie-2 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&wifi 3>;
 		};
-		wifi_ddie_3 {
+		wifi-ddie-3 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&wifi 4>;
