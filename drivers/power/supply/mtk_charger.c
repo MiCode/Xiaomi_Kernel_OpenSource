@@ -137,15 +137,11 @@ void _wake_up_charger(struct mtk_charger *info)
 
 	if (info == NULL)
 		return;
-	info->timer_cb_duration[2] = ktime_get_boottime();
 	spin_lock_irqsave(&info->slock, flags);
-	info->timer_cb_duration[3] = ktime_get_boottime();
 	if (!info->charger_wakelock->active)
 		__pm_stay_awake(info->charger_wakelock);
-	info->timer_cb_duration[4] = ktime_get_boottime();
 	spin_unlock_irqrestore(&info->slock, flags);
 	info->charger_thread_timeout = true;
-	info->timer_cb_duration[5] = ktime_get_boottime();
 	wake_up_interruptible(&info->wait_que);
 }
 
@@ -2788,32 +2784,12 @@ static enum alarmtimer_restart
 {
 	struct mtk_charger *info =
 	container_of(alarm, struct mtk_charger, charger_timer);
-	ktime_t *time_p = info->timer_cb_duration;
 
-	info->timer_cb_duration[0] = ktime_get_boottime();
 	if (info->is_suspend == false) {
-		chr_debug("%s: not suspend, wake up charger\n", __func__);
-		info->timer_cb_duration[1] = ktime_get_boottime();
 		_wake_up_charger(info);
-		info->timer_cb_duration[6] = ktime_get_boottime();
 	} else {
-		chr_debug("%s: alarm timer timeout\n", __func__);
 		__pm_stay_awake(info->charger_wakelock);
 	}
-
-	info->timer_cb_duration[7] = ktime_get_boottime();
-
-	if (ktime_us_delta(time_p[7], time_p[0]) > 5000)
-		chr_err("%s: delta_t: %ld %ld %ld %ld %ld %ld %ld (%ld)\n",
-			__func__,
-			ktime_us_delta(time_p[1], time_p[0]),
-			ktime_us_delta(time_p[2], time_p[1]),
-			ktime_us_delta(time_p[3], time_p[2]),
-			ktime_us_delta(time_p[4], time_p[3]),
-			ktime_us_delta(time_p[5], time_p[4]),
-			ktime_us_delta(time_p[6], time_p[5]),
-			ktime_us_delta(time_p[7], time_p[6]),
-			ktime_us_delta(time_p[7], time_p[0]));
 
 	return ALARMTIMER_NORESTART;
 }

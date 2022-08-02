@@ -316,7 +316,6 @@ struct mtk_charger {
 	struct timespec64 endtime;
 	bool is_suspend;
 	struct notifier_block pm_notifier;
-	ktime_t timer_cb_duration[8];
 
 	/* notify charger user */
 	struct srcu_notifier_head evt_nh;
