@@ -171,7 +171,8 @@ ssize_t teeperf_dbg_write(struct file *file, const char __user *buffer,
 	char *pinput, *cmd_str, *parm_str;
 	char input[32] = {0};
 	long param;
-	int len, err;
+	size_t len;
+	int err;
 	u32 high_freq;
 
 	len = (count < sizeof(input)) ? count : sizeof(input);
