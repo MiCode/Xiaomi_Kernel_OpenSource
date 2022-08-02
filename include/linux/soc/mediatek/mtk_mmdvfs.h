@@ -5,9 +5,39 @@
 #ifndef __SOC_MTK_MMDVFS_H
 #define __SOC_MTK_MMDVFS_H
 
+#include <linux/kernel.h>
+
 typedef void (*record_opp)(const u8 opp);
 
 #if IS_ENABLED(CONFIG_MTK_MMDVFS)
+
+/* For systrace */
+bool mmdvfs_systrace_enabled(void);
+int tracing_mark_write(char *fmt, ...);
+
+#define TRACE_MSG_LEN	1024
+
+#define MMDVFS_TRACE_FORCE_BEGIN_TID(tid, fmt, args...) \
+	tracing_mark_write("B|%d|" fmt "\n", tid, ##args)
+
+#define MMDVFS_TRACE_FORCE_BEGIN(fmt, args...) \
+	MMDVFS_TRACE_FORCE_BEGIN_TID(current->tgid, fmt, ##args)
+
+#define MMDVFS_TRACE_FORCE_END() \
+	tracing_mark_write("E\n")
+
+#define MMDVFS_SYSTRACE_BEGIN(fmt, args...) do { \
+	if (mmdvfs_systrace_enabled()) { \
+		MMDVFS_TRACE_FORCE_BEGIN(fmt, ##args); \
+	} \
+} while (0)
+
+#define MMDVFS_SYSTRACE_END() do { \
+	if (mmdvfs_systrace_enabled()) { \
+		MMDVFS_TRACE_FORCE_END(); \
+	} \
+} while (0)
+
 int register_mmdvfs_notifier(struct notifier_block *nb);
 int unregister_mmdvfs_notifier(struct notifier_block *nb);
 int mmdvfs_set_force_step(int force_step);

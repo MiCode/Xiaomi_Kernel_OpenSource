@@ -79,6 +79,12 @@ enum mmdvfs_log_level {
 	log_freq = 0,
 };
 
+static u32 trace_ena;
+enum mmdvfs_trace_ena {
+	trace_systrace_ena = 0,
+};
+
+
 static BLOCKING_NOTIFIER_HEAD(mmdvfs_notifier_list);
 
 static record_opp record_opp_fp;
@@ -120,6 +126,7 @@ static void set_all_muxes(struct mmdvfs_drv_data *drv_data, u32 opp_level)
 	struct clk *mux, *clk_src;
 	s32 err;
 
+	MMDVFS_SYSTRACE_BEGIN("%s opp:%d\n", __func__, opp_level);
 	for (i = 0; i < num_muxes; i++) {
 		mux = drv_data->muxes[i].mux;
 		clk_src = drv_data->muxes[i].clk_src[opp_level];
@@ -135,6 +142,7 @@ static void set_all_muxes(struct mmdvfs_drv_data *drv_data, u32 opp_level)
 				  drv_data->muxes[i].mux_name, err, opp_level);
 		clk_disable_unprepare(mux);
 	}
+	MMDVFS_SYSTRACE_END();
 }
 
 static void set_all_hoppings(struct mmdvfs_drv_data *drv_data, u32 opp_level)
@@ -144,6 +152,7 @@ static void set_all_hoppings(struct mmdvfs_drv_data *drv_data, u32 opp_level)
 	struct clk *hopping;
 	s32 err;
 
+	MMDVFS_SYSTRACE_BEGIN("%s opp:%d\n", __func__, opp_level);
 	for (i = 0; i < num_hoppings; i++) {
 		hopping = drv_data->hoppings[i].hopping_clk;
 		hopping_rate = drv_data->hoppings[i].hopping_rate[opp_level];
@@ -161,6 +170,7 @@ static void set_all_hoppings(struct mmdvfs_drv_data *drv_data, u32 opp_level)
 				  hopping_rate, err, opp_level);
 		clk_disable_unprepare(hopping);
 	}
+	MMDVFS_SYSTRACE_END();
 }
 
 static int mmdvfs_dbg_log_cb(struct notifier_block *nb,
@@ -187,7 +197,7 @@ static void set_all_clk(struct mmdvfs_drv_data *drv_data,
 {
 	s32 i;
 	u32 opp_level;
-
+	MMDVFS_SYSTRACE_BEGIN("%s voltage:%lu\n", __func__, voltage);
 	for (i = drv_data->num_voltages - 1; i >= 0; i--) {
 		if (voltage >= drv_data->voltages[i]) {
 			opp_level = i;
@@ -221,7 +231,7 @@ static void set_all_clk(struct mmdvfs_drv_data *drv_data,
 	mmdvfs_dbg->opp_level[mmdvfs_dbg->idx] = opp_level;
 	mmdvfs_dbg->idx = (mmdvfs_dbg->idx + 1) % MMDVFS_RECORD_NUM;
 	record_opp_fp(opp_level);
-
+	MMDVFS_SYSTRACE_END();
 #if IS_ENABLED(CONFIG_MMPROFILE)
 	mmprofile_log_ex(
 		mmdvfs_mmp_events.freq_change,
@@ -238,9 +248,12 @@ static int regulator_event_notify(struct notifier_block *nb,
 
 	drv_data = container_of(nb, struct mmdvfs_drv_data, nb);
 
+	MMDVFS_SYSTRACE_BEGIN("%s event:0x%x\n", __func__, event);
 	if (event == REGULATOR_EVENT_PRE_VOLTAGE_CHANGE) {
 		pvc_data = data;
 		uV = pvc_data->min_uV;
+		MMDVFS_SYSTRACE_BEGIN("%s event=PRE_VOLTAGE_CHANGE old=%lu new=%lu\n",
+			__func__, pvc_data->old_uV, pvc_data->min_uV);
 		if (uV < pvc_data->old_uV) {
 			set_all_clk(drv_data, uV, false);
 			drv_data->request_voltage = uV;
@@ -250,8 +263,11 @@ static int regulator_event_notify(struct notifier_block *nb,
 		if (log_level & 1 << log_freq)
 			pr_notice("regulator event=PRE_VOLTAGE_CHANGE old=%lu new=%lu\n",
 				pvc_data->old_uV, pvc_data->min_uV);
+		MMDVFS_SYSTRACE_END();
 	} else if (event == REGULATOR_EVENT_VOLTAGE_CHANGE) {
 		uV = (unsigned long)data;
+		MMDVFS_SYSTRACE_BEGIN("%s event=VOLTAGE_CHANGE voltage=%lu\n",
+			__func__, uV);
 		if (drv_data->need_change_voltage) {
 			set_all_clk(drv_data, uV, true);
 			drv_data->need_change_voltage = false;
@@ -259,8 +275,11 @@ static int regulator_event_notify(struct notifier_block *nb,
 		}
 		if (log_level & 1 << log_freq)
 			pr_notice("regulator event=VOLTAGE_CHANGE voltage=%lu\n", uV);
+		MMDVFS_SYSTRACE_END();
 	} else if (event == REGULATOR_EVENT_ABORT_VOLTAGE_CHANGE) {
 		uV = (unsigned long)data;
+		MMDVFS_SYSTRACE_BEGIN("%s event=ABORT_VOLTAGE_CHANGE voltage=%lu\n",
+			__func__, uV);
 		/* If clk was changed, restore to previous setting */
 		if (uV != drv_data->request_voltage) {
 			set_all_clk(drv_data, uV,
@@ -270,7 +289,9 @@ static int regulator_event_notify(struct notifier_block *nb,
 		}
 		pr_info("regulator event=ABORT_VOLTAGE_CHANGE voltage=%lu\n",
 			uV);
+		MMDVFS_SYSTRACE_END();
 	}
+	MMDVFS_SYSTRACE_END();
 	return 0;
 }
 
@@ -686,6 +707,33 @@ static int mmdvfs_pm_resume(struct device *dev)
 	mmdvfs_set_aov_clk(true);
 	return 0;
 }
+
+bool mmdvfs_systrace_enabled(void)
+{
+	return trace_ena & (1 << trace_systrace_ena);
+}
+
+noinline int tracing_mark_write(char *fmt, ...)
+{
+#if IS_ENABLED(CONFIG_MTK_FTRACER)
+	char buf[TRACE_MSG_LEN];
+	va_list args;
+	int len;
+
+	va_start(args, fmt);
+	len = vsnprintf(buf, sizeof(buf), fmt, args);
+	va_end(args);
+	if (len >= TRACE_MSG_LEN) {
+		pr_notice("%s trace size %u exceed limit\n", __func__, len);
+		return -1;
+	}
+	trace_puts(buf);
+#endif
+	return 0;
+}
+
+module_param(trace_ena, uint, 0644);
+MODULE_PARM_DESC(trace_ena, "mmdvfs trace enable");
 
 static const struct dev_pm_ops mmdvfs_pm_ops = {
 	.suspend = mmdvfs_pm_suspend,
