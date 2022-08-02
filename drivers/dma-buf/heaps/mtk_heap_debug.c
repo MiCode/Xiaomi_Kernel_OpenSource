@@ -769,7 +769,7 @@ static int dmabuf_rbtree_add_vmas(struct dump_fd_data *fd_data)
 		struct vm_area_struct vma_val;
 
 		if (get_kernel_nofault(vma_val, vma))
-			goto next_vma;
+			goto out;
 
 		file = vma->vm_file;
 		if (IS_ERR_OR_NULL(get_dmabuf_from_file(file)))
