@@ -467,7 +467,7 @@ int vcp_enc_ipi_handler(void *arg)
 		list_for_each_safe(p, q, &dev->ctx_list) {
 			temp_ctx = list_entry(p, struct mtk_vcodec_ctx, list);
 			inst = (struct venc_inst *)temp_ctx->drv_handle;
-			if (vcu == &inst->vcu_inst) {
+			if (inst != NULL && vcu == &inst->vcu_inst && vcu->ctx == temp_ctx) {
 				msg_valid = 1;
 				break;
 			}

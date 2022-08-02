@@ -39,6 +39,11 @@ int mtk_vcodec_wait_for_done_ctx(struct mtk_vcodec_ctx  *ctx,
 	wait_queue_head_t *waitqueue;
 	long timeout_jiff, ret;
 
+	if (ctx == NULL) {
+		mtk_v4l2_err("ctx is NULL! (core_id %d, command 0x%x)", core_id, command);
+		return -1;
+	}
+
 	if (core_id >= MTK_VDEC_HW_NUM ||
 		core_id < 0) {
 		mtk_v4l2_err("ctx %d, invalid core_id=%d", ctx->id, core_id);

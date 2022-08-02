@@ -186,7 +186,7 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 	list_for_each_safe(p, q, &dev->ctx_list) {
 		temp_ctx = list_entry(p, struct mtk_vcodec_ctx, list);
 		inst = (struct vdec_inst *)temp_ctx->drv_handle;
-		if (vcu == &inst->vcu) {
+		if (inst != NULL && vcu == &inst->vcu && vcu->ctx == temp_ctx) {
 			msg_valid = 1;
 			break;
 		}

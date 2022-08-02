@@ -94,8 +94,6 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 		goto error_free_inst;
 	}
 
-	mtk_vcodec_add_ctx_list(ctx);
-
 	inst->ctx = ctx;
 	inst->vcu.id = IPI_VDEC_COMMON;
 	inst->vcu.dev = VCU_FPTR(vcu_get_plat_device)(ctx->dev->plat_dev);
@@ -107,6 +105,8 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	inst->vcu.ctx = ctx;
 	inst->vcu.handler = vcu_dec_ipi_handler;
 	*h_vdec = (unsigned long)inst;
+
+	mtk_vcodec_add_ctx_list(ctx);
 
 	err = vcu_dec_init(&inst->vcu);
 	if (err != 0) {
