@@ -8,6 +8,10 @@
 #include <soc/mediatek/mmdvfs_v3.h>
 #include "mmqos-mtk.h"
 #include "mtk-mmdvfs-debug.h"
+
+#define CREATE_TRACE_POINTS
+#include "mmqos_hrt_events.h"
+
 #define MULTIPLY_W_DRAM_WEIGHT(value) ((value)*6/5)
 #define MULTIPLY_RATIO(value) ((value)*1000)
 #define DIVIDE_RATIO(value) ((value)/1000)
@@ -20,6 +24,8 @@ enum mmqos_log_hrt_level {
 	log_hrt_bw = 0,
 };
 
+static int hrt_ftrace_ena;
+
 s32 mtk_mmqos_get_avail_hrt_bw(enum hrt_type type)
 {
 	u32 i, used_bw = 0;
@@ -31,6 +37,9 @@ s32 mtk_mmqos_get_avail_hrt_bw(enum hrt_type type)
 		if (i != type)
 			used_bw += (MULTIPLY_RATIO(mmqos_hrt->hrt_bw[i])
 				/ mmqos_hrt->hrt_ratio[i]);
+		if (hrt_ftrace_ena) {
+			trace_mmqos__used_hrt_bw(i, mmqos_hrt->hrt_bw[i]);
+		}
 	}
 	if (type != HRT_CAM && mmqos_hrt->cam_max_bw)
 		used_bw = used_bw - (MULTIPLY_RATIO(mmqos_hrt->hrt_bw[HRT_CAM])
@@ -43,6 +52,11 @@ s32 mtk_mmqos_get_avail_hrt_bw(enum hrt_type type)
 			- used_bw;
 
 	result = DIVIDE_RATIO(result * mmqos_hrt->hrt_ratio[type]);
+
+	if (hrt_ftrace_ena) {
+		trace_mmqos__used_hrt_bw(HRT_NONE, mmqos_hrt->cam_max_bw);
+		trace_mmqos__avail_hrt_bw(result);
+	}
 
 	return result;
 }
@@ -97,6 +111,8 @@ s32 mtk_mmqos_set_hrt_bw(enum hrt_type type, u32 bw)
 		mmqos_hrt->hrt_bw[type] = bw;
 		if (mmqos_log_hrt_level & 1 << log_hrt_bw)
 			pr_notice("%s: type=%d bw=%d\n", __func__, type, bw);
+		if (hrt_ftrace_ena)
+			trace_mmqos__total_hrt_bw(type, bw);
 	}
 	if (unlikely(!disp_report_bw) && type == HRT_DISP) {
 		disp_report_bw = true;
@@ -333,5 +349,8 @@ EXPORT_SYMBOL_GPL(mtk_mmqos_unregister_hrt_sysfs);
 
 module_param(mmqos_log_hrt_level, uint, 0644);
 MODULE_PARM_DESC(mmqos_log_hrt_level, "mmqos hrt log level");
+
+module_param(hrt_ftrace_ena, uint, 0644);
+MODULE_PARM_DESC(hrt_ftrace_ena, "hrt ftrace enable");
 
 MODULE_LICENSE("GPL v2");

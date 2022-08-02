@@ -19,6 +19,10 @@
 #include "mtk_iommu.h"
 #include "mmqos-mtk.h"
 #include "mtk_qos_bound.h"
+
+#define CREATE_TRACE_POINTS
+#include "mmqos_events.h"
+
 #define SHIFT_ROUND(a, b)	((((a) - 1) >> (b)) + 1)
 #define icc_to_MBps(x)		((x) / 1000)
 #define MASK_8(a)		((a) & 0xff)
@@ -377,6 +381,20 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 						chn_srt_r_bw[comm_id][chnn_id],
 						chn_hrt_r_bw[comm_id][chnn_id]);
 			}
+
+			if (mmqos_met_enabled()) {
+				trace_mmqos__larb_avg_bw(
+					LARB_ID(src->id),
+					icc_to_MBps(src->avg_bw));
+				trace_mmqos__larb_peak_bw(
+					LARB_ID(src->id),
+					icc_to_MBps(src->peak_bw));
+				trace_mmqos__chn_bw(comm_id, chnn_id,
+					icc_to_MBps(chn_srt_r_bw[comm_id][chnn_id]),
+					icc_to_MBps(chn_srt_w_bw[comm_id][chnn_id]),
+					icc_to_MBps(chn_hrt_r_bw[comm_id][chnn_id]),
+					icc_to_MBps(chn_hrt_w_bw[comm_id][chnn_id]));
+			}
 		}
 		mutex_lock(&comm_port_node->bw_lock);
 		if (comm_port_node->latest_mix_bw == comm_port_node->base->mix_bw
@@ -453,6 +471,19 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 				icc_to_MBps(larb_port_node->base->icc_node->avg_bw),
 				icc_to_MBps(larb_port_node->base->icc_node->peak_bw),
 				value);
+		if (mmqos_met_enabled()) {
+			trace_mmqos__larb_port_avg_bw(
+				MTK_M4U_TO_LARB(src->id), MTK_M4U_TO_PORT(src->id),
+				icc_to_MBps(larb_port_node->base->icc_node->avg_bw));
+			trace_mmqos__larb_port_peak_bw(
+				MTK_M4U_TO_LARB(src->id), MTK_M4U_TO_PORT(src->id),
+				icc_to_MBps(larb_port_node->base->icc_node->peak_bw));
+			trace_mmqos__chn_bw(comm_id, chnn_id,
+				icc_to_MBps(chn_srt_r_bw[comm_id][chnn_id]),
+				icc_to_MBps(chn_srt_w_bw[comm_id][chnn_id]),
+				icc_to_MBps(chn_hrt_r_bw[comm_id][chnn_id]),
+				icc_to_MBps(chn_hrt_w_bw[comm_id][chnn_id]));
+		}
 		//queue_work(mmqos->wq, &larb_node->work);
 		break;
 	default:
@@ -829,6 +860,11 @@ int mtk_mmqos_remove(struct platform_device *pdev)
 	//destroy_workqueue(mmqos->wq);
 	mtk_mmqos_unregister_hrt_sysfs(&pdev->dev);
 	return 0;
+}
+
+bool mmqos_met_enabled(void)
+{
+	return ftrace_ena & (1 << MMQOS_PROFILE_MET);
 }
 
 bool mmqos_systrace_enabled(void)
