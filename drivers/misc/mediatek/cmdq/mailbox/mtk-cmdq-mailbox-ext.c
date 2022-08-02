@@ -697,6 +697,39 @@ void cmdq_init_cmds(void *dev_cmdq)
 	cmdq_trace_ex_end();
 }
 
+void cmdq_thread_pause(struct cmdq_thread *thread, bool lock)
+{
+	struct cmdq *cmdq;
+	unsigned long flags;
+	u32 event_val = 0;
+
+	if (!thread || !append_by_event)
+		return;
+	cmdq = dev_get_drvdata(thread->chan->mbox->dev);
+	if (!cmdq)
+		return;
+
+	if (lock) {
+		spin_lock_irqsave(&cmdq->lock, flags);
+		cmdq_clear_event(thread->chan, CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx);
+		event_val = cmdq_get_event(thread->chan,
+			CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx);
+		spin_unlock_irqrestore(&cmdq->lock, flags);
+		if (event_val != 0)
+			cmdq_err("clear event fail, event[%u] = %u",
+				(CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx), event_val);
+	} else {
+		spin_lock_irqsave(&cmdq->lock, flags);
+		cmdq_set_event(thread->chan, CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx);
+		event_val = cmdq_get_event(thread->chan,
+			CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx);
+		spin_unlock_irqrestore(&cmdq->lock, flags);
+		if (event_val == 0)
+			cmdq_err("set event fail, event[%u] = %u",
+				(CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx), event_val);
+	}
+}
+
 static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 {
 	struct cmdq *cmdq;
@@ -786,18 +819,8 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 			- (pkt->loop ? 0 : CMDQ_INST_SIZE));
 		cmdq_thread_set_pc(thread, task->pa_base);
 
-		if (append_by_event) {
-			u32 event_val = 0;
-
-			spin_lock_irqsave(&cmdq->lock, flags);
-			cmdq_set_event(thread->chan, CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx);
-			event_val = cmdq_get_event(thread->chan,
-				CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx);
-			spin_unlock_irqrestore(&cmdq->lock, flags);
-			if (event_val == 0)
-				cmdq_err("set event fail, event[%u] = %u",
-					(CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx), event_val);
-		}
+		if (append_by_event)
+			cmdq_thread_pause(thread, false);
 
 		writel(CMDQ_THR_IRQ_EN, thread->base + CMDQ_THR_IRQ_ENABLE);
 		writel(CMDQ_THR_ENABLED, thread->base + CMDQ_THR_ENABLE_TASK);
@@ -823,17 +846,7 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 		/* no warn on here to prevent slow down cpu */
 
 		if (append_by_event) {
-			u32 event_val = 0;
-
-			/* replace suspend thrd */
-			spin_lock_irqsave(&cmdq->lock, flags);
-			cmdq_clear_event(thread->chan, CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx);
-			event_val = cmdq_get_event(thread->chan,
-				CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx);
-			spin_unlock_irqrestore(&cmdq->lock, flags);
-			if (event_val != 0)
-				cmdq_err("clear event fail, event[%u] = %u",
-					(CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx), event_val);
+			cmdq_thread_pause(thread, true);
 
 			/* reorder case */
 			last_task = list_last_entry(&thread->task_busy_list,
@@ -897,18 +910,8 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 		curr_pa = cmdq_thread_get_pc(thread);
 		task->pkt->append.pc[1] = curr_pa;
 
-		if (append_by_event) {
-			u32 event_val = 0;
-
-			spin_lock_irqsave(&cmdq->lock, flags);
-			cmdq_set_event(thread->chan, CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx);
-			event_val = cmdq_get_event(thread->chan,
-				CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx);
-			spin_unlock_irqrestore(&cmdq->lock, flags);
-			if (event_val == 0)
-				cmdq_err("set event fail, event[%u] = %u",
-					(CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx), event_val);
-		}
+		if (append_by_event)
+			cmdq_thread_pause(thread, false);
 
 		if (thread->dirty) {
 			cmdq_err("new task during error on thread:%u",
@@ -2467,10 +2470,6 @@ void cmdq_mbox_enable(void *chan)
 		cmdq->hwid, usage, i, atomic_read(&cmdq->thread[i].usage));
 
 	thd_usage = atomic_inc_return(&cmdq->thread[i].usage);
-	if (thd_usage == 1) {
-		thread = &cmdq->thread[i];
-		thread->mbox_en = sched_clock();
-	}
 
 	usage = atomic_inc_return(&cmdq->usage);
 	if (usage == 1) {
@@ -2530,6 +2529,11 @@ void cmdq_mbox_enable(void *chan)
 			cmdq_util_hw_trace_enable(cmdq->hwid,
 				cmdq_util_get_bit_feature() &
 				CMDQ_LOG_FEAT_PERF);
+	}
+
+	if (thd_usage == 1) {
+		thread = &cmdq->thread[i];
+		thread->mbox_en = sched_clock();
 	}
 }
 EXPORT_SYMBOL(cmdq_mbox_enable);
