@@ -2254,6 +2254,7 @@ struct xhci_vendor_ops {
 	void (*alloc_container_ctx)(struct xhci_hcd *xhci, struct xhci_container_ctx *ctx,
 				    int type, gfp_t flags);
 	void (*free_container_ctx)(struct xhci_hcd *xhci, struct xhci_container_ctx *ctx);
+	bool (*is_streaming)(struct xhci_hcd *xhci);
 };
 
 struct xhci_vendor_ops *xhci_vendor_get_ops_(struct xhci_hcd *xhci);
