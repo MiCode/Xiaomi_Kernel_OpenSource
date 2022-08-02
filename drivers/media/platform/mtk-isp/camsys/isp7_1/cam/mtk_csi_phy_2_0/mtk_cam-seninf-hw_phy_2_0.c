@@ -2587,8 +2587,8 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	}
 
 	/* Seninf_csi status IRQ */
-	for (j = SENINF_1; j < _seninf_ops->seninf_num; j++) {
-		base_csi = ctx->reg_if_csi2[j];
+	for (i = SENINF_1; i < _seninf_ops->seninf_num; i++) {
+		base_csi = ctx->reg_if_csi2[i];
 		temp = SENINF_READ_REG(base_csi, SENINF_CSI2_IRQ_STATUS);
 		if (temp & ~(0x324)) {
 			SENINF_WRITE_REG(base_csi, SENINF_CSI2_IRQ_STATUS,
@@ -2596,7 +2596,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 		}
 		dev_info(ctx->dev,
 			"SENINF%d_CSI2_EN(0x%x) SENINF_CSI2_OPT(0x%x) SENINF_CSI2_IRQ_STATUS(0x%x)\n",
-			j,
+			i,
 			SENINF_READ_REG(base_csi, SENINF_CSI2_EN),
 			SENINF_READ_REG(base_csi, SENINF_CSI2_OPT),
 			temp);
