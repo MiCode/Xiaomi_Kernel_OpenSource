@@ -141,7 +141,7 @@
 #define VOW_BARGEIN_IRQ_MAX_NUM           (32)
 
 #define KERNEL_VOW_DRV_VER                "3.0.0"
-#define DEFAULT_GOOGLE_ENGINE_VER         (2147483647)
+#define DEFAULT_GOOGLE_ENGINE_VER         (1235201314)  /* set meaningless default value */
 
 
 enum { /* dump_data_t */
