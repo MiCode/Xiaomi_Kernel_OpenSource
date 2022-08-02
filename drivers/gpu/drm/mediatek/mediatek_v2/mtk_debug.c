@@ -2573,7 +2573,7 @@ static void process_dbg_opt(const char *opt)
 		}
 		DDPINFO("BWMT===== unchanged_compress_ratio_table =====\n");
 		DDPINFO("BWMT===== Item   Frame   Key   avg   peak   valid   active =====\n");
-		for (i = 0; i < MAX_FRAME_RATIO_NUMBER*MAX_LAYER_RATIO_NUMBER; i++) {
+		for (i = 0; i < MAX_LAYER_RATIO_NUMBER; i++) {
 			if ((unchanged_compress_ratio_table[i].key_value) &&
 					(unchanged_compress_ratio_table[i].average_ratio != 0) &&
 					(unchanged_compress_ratio_table[i].peak_ratio != 0))

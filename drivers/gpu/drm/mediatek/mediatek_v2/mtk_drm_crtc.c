@@ -121,7 +121,7 @@ struct layer_compress_ratio_item
 fbt_layer_compress_ratio_tb[MAX_FRAME_RATIO_NUMBER];
 
 struct layer_compress_ratio_item
-unchanged_compress_ratio_table[MAX_FRAME_RATIO_NUMBER*MAX_LAYER_RATIO_NUMBER];
+unchanged_compress_ratio_table[MAX_LAYER_RATIO_NUMBER];
 struct layer_compress_ratio_item
 fbt_compress_ratio_table[MAX_FRAME_RATIO_NUMBER];
 
@@ -4954,18 +4954,18 @@ static void mtk_drm_ovl_bw_monitor_ratio_save(unsigned int frame_idx)
 			normal_layer_compress_ratio_tb[index].active =
 				display_compress_ratio_table[i].active;
 
-			unchanged_compress_ratio_table[index].frame_idx =
+			unchanged_compress_ratio_table[i].frame_idx =
 				display_compress_ratio_table[i].frame_idx;
-			unchanged_compress_ratio_table[index].key_value =
+			unchanged_compress_ratio_table[i].key_value =
 				normal_layer_compress_ratio_tb[index].key_value -
 				normal_layer_compress_ratio_tb[index].frame_idx;
-			unchanged_compress_ratio_table[index].average_ratio =
+			unchanged_compress_ratio_table[i].average_ratio =
 				*(display_compress_ratio_table[i].average_ratio);
-			unchanged_compress_ratio_table[index].peak_ratio =
+			unchanged_compress_ratio_table[i].peak_ratio =
 				*(display_compress_ratio_table[i].peak_ratio);
-			unchanged_compress_ratio_table[index].valid =
+			unchanged_compress_ratio_table[i].valid =
 				display_compress_ratio_table[i].valid;
-			unchanged_compress_ratio_table[index].active =
+			unchanged_compress_ratio_table[i].active =
 				display_compress_ratio_table[i].active;
 		}
 	}
@@ -5017,7 +5017,7 @@ static void mtk_drm_ovl_bw_monitor_ratio_save(unsigned int frame_idx)
 	}
 	DDPDBG("BWMT===== unchanged_compress_ratio_table =====\n");
 	DDPDBG("BWMT===== Item     Frame    Key     avg    peak     valid    active=====\n");
-	for (i = 0; i < 60; i++) {
+	for (i = 0; i < MAX_LAYER_RATIO_NUMBER; i++) {
 		if (unchanged_compress_ratio_table[i].key_value)
 			DDPDBG("BWMT===== %4d     %u     %lu     %u    %u     %u    %u =====\n", i,
 				unchanged_compress_ratio_table[i].frame_idx,

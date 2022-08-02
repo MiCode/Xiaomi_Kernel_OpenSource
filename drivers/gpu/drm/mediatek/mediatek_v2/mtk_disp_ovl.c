@@ -2121,8 +2121,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 				int have_get_ratio = 0;
 
 				key = frame_idx + alloc_id - MAX_FRAME_RATIO_NUMBER;
-				for (i = 0; i < MAX_FRAME_RATIO_NUMBER*MAX_LAYER_RATIO_NUMBER;
-					i++) {
+				for (i = 0; i < MAX_LAYER_RATIO_NUMBER; i++) {
 					if ((alloc_id ==
 						unchanged_compress_ratio_table[i].key_value) &&
 						(unchanged_compress_ratio_table[i].average_ratio

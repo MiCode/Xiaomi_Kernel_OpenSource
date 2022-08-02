@@ -1588,7 +1588,8 @@ static int get_layer_weight(struct drm_device *dev, int disp_idx,
 	weight = HRT_UINT_WEIGHT;
 
 	if (get_layering_opt(LYE_OPT_OVL_BW_MONITOR) && frame_idx && is_gles &&
-			(disp_idx == HRT_PRIMARY)) {
+			get_layering_opt(LYE_OPT_GPU_CACHE) && (disp_idx == HRT_PRIMARY)
+			&& (have_force_gpu_layer == 0)) {
 		uint64_t key_value = frame_idx -
 			MAX_FRAME_RATIO_NUMBER;
 		int i = 0;
@@ -1627,7 +1628,7 @@ static int get_layer_weight(struct drm_device *dev, int disp_idx,
 #ifdef HRT_DEBUG_LEVEL1
 		print_bwm_table();
 #endif
-		for (i = 0; i < MAX_FRAME_RATIO_NUMBER * MAX_LAYER_RATIO_NUMBER; i++) {
+		for (i = 0; i < MAX_LAYER_RATIO_NUMBER; i++) {
 			if ((unchanged_compress_ratio_table[i].key_value
 				== layer_info->buffer_alloc_id) &&
 				(unchanged_compress_ratio_table[i].valid == 1) &&
@@ -1755,17 +1756,6 @@ static bool _calc_gpu_cache_layerset_hrt_num(struct drm_device *dev,
 	}
 	DDPDBG("GPUC: Have %d Inactiver layer gles head:%d tail:%d\n", j,
 		disp_info->gles_head[disp], disp_info->gles_tail[disp]);
-
-	for (i = 0; i < disp_info->layer_num[disp]; i++) {
-		layer_info = &disp_info->input_config[disp][i];
-		if ((layer_info != NULL) &&
-			(layer_info->layer_caps & MTK_HWC_UNCHANGED_LAYER))
-			break;
-	}
-	if (i == disp_info->layer_num[disp]) {
-		DDPDBG("%s:%d no unchanged layer, clear bwm flag\n");
-		bw_monitor_is_on = 0;
-	}
 
 	for (i = 0; i < disp_info->layer_num[disp]; i++) {
 		int ovl_idx;
@@ -2035,17 +2025,6 @@ static int _calc_hrt_num(struct drm_device *dev,
 	}
 
 	for (i = 0; i < disp_info->layer_num[disp]; i++) {
-		layer_info = &disp_info->input_config[disp][i];
-		if ((layer_info != NULL) &&
-			(layer_info->layer_caps & MTK_HWC_UNCHANGED_LAYER))
-			break;
-	}
-	if (i == disp_info->layer_num[disp]) {
-		bw_monitor_is_on = 0;
-		DDPDBG("%s:%d no unchanged layer, clear bwm flag\n");
-	}
-
-	for (i = 0; i < disp_info->layer_num[disp]; i++) {
 		int ovl_idx;
 		int skipped = 0;
 
@@ -2127,7 +2106,7 @@ static int _calc_hrt_num(struct drm_device *dev,
 		sum_overlap_w += get_layer_weight(dev, disp, NULL, 0, has_gles);
 		if ((disp == HRT_PRIMARY) && bw_monitor_is_on) {
 			sum_overlap_w_of_bwm += get_layer_weight(dev, disp, NULL,
-				disp_info->frame_idx[disp], has_gles);
+				disp_info->frame_idx[disp], need_gpu_cache);
 			DDPDBG("BWM line:%d sum_overlap_w:%d sum_overlap_w_of_bwm:%d\n",
 				__LINE__, sum_overlap_w, sum_overlap_w_of_bwm);
 		}
@@ -2162,7 +2141,7 @@ static int _calc_hrt_num(struct drm_device *dev,
 			sum_overlap_w += get_layer_weight(dev, disp, NULL, 0, has_gles);
 			if ((disp == HRT_PRIMARY) && bw_monitor_is_on) {
 				sum_overlap_w_of_bwm += get_layer_weight(dev, disp, NULL,
-						disp_info->frame_idx[disp], has_gles);
+						disp_info->frame_idx[disp], need_gpu_cache);
 				DDPDBG("BWM line:%d sum_overlap_w:%d sum_overlap_w_of_bwm:%d\n",
 					__LINE__, sum_overlap_w, sum_overlap_w_of_bwm);
 			}

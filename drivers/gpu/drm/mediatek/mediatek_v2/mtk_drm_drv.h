@@ -329,7 +329,7 @@ normal_layer_compress_ratio_tb[MAX_FRAME_RATIO_NUMBER*MAX_LAYER_RATIO_NUMBER];
 extern struct layer_compress_ratio_item
 fbt_layer_compress_ratio_tb[MAX_FRAME_RATIO_NUMBER];
 extern struct layer_compress_ratio_item
-unchanged_compress_ratio_table[MAX_FRAME_RATIO_NUMBER*MAX_LAYER_RATIO_NUMBER];
+unchanged_compress_ratio_table[MAX_LAYER_RATIO_NUMBER];
 extern struct layer_compress_ratio_item
 fbt_compress_ratio_table[MAX_FRAME_RATIO_NUMBER];
 extern unsigned int ovl_win_size;
