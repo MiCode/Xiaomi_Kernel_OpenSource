@@ -723,6 +723,8 @@ static void mtk_atomic_force_doze_switch(struct drm_device *dev,
 
 static void mtk_atomic_aod_scp_ipi(struct drm_crtc *crtc, bool prepare)
 {
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_crtc_state *mtk_state;
 	bool need_modeset;
 
@@ -732,6 +734,12 @@ static void mtk_atomic_aod_scp_ipi(struct drm_crtc *crtc, bool prepare)
 	mtk_state = to_mtk_crtc_state(crtc->state);
 	if (!mtk_state->doze_changed || !mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE])
 		return;
+
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_MMQOS_SUPPORT)) {
+		//bw for dual pipe 2 layers.
+		mtk_disp_set_hrt_bw(mtk_crtc, 3360);
+	}
 
 	//TODO: After the power control implementation in SCP is completed,
 	//it only needs to judge prepare==1 to send IPI to SCP
