@@ -1428,9 +1428,11 @@ static void u2_phy_instance_power_off(struct mtk_xsphy *xsphy,
 	tmp |= (P2D_RG_XCVRSEL_VAL(1) | P2D_DTM0_PART_MASK);
 	writel(tmp, pbase + XSP_U2PHYDTM0);
 
-	tmp = readl(pbase + XSP_USBPHYACR0);
-	tmp |= P2A0_RG_USB20_TX_PH_ROT_SEL_VAL(6);
-	writel(tmp, pbase + XSP_USBPHYACR0);
+	if (mode == PHY_MODE_INVALID) {
+		tmp = readl(pbase + XSP_USBPHYACR0);
+		tmp |= P2A0_RG_USB20_TX_PH_ROT_SEL_VAL(6);
+		writel(tmp, pbase + XSP_USBPHYACR0);
+	}
 
 	tmp = readl(pbase + XSP_USBPHYACR6);
 	tmp |= P2A6_RG_U2_PHY_REV6_VAL(1);
