@@ -83,3 +83,4 @@ crypto-qti-common.ko
 crypto-qti-hwkm.ko
 hwkm.ko
 ufshcd-crypto-qti.ko
+llcc-qcom.ko
