@@ -17,6 +17,7 @@
 #include <linux/rpmsg.h>
 #include <linux/rpmsg/mtk_rpmsg.h>
 #include <linux/iommu.h>
+#include <linux/workqueue.h>
 
 #include "clk-mtk.h"
 #include "mtk-mmdvfs-v3.h"
@@ -74,6 +75,8 @@ static unsigned int ccu_pwr_usage[CCU_PWR_USR_NUM];
 static unsigned int vcp_pwr_usage[VCP_PWR_USR_NUM];
 
 static struct notifier_block vcp_ready_notifier;
+
+static struct workqueue_struct *cam_notify_wq;
 
 enum mmdvfs_log_level {
 	log_ipi,
@@ -245,26 +248,6 @@ bool mtk_is_mmdvfs_init_done(void)
 	return mmdvfs_init_done;
 }
 EXPORT_SYMBOL_GPL(mtk_is_mmdvfs_init_done);
-
-static int reset_vcp_power(void)
-{
-	int ret = 0;
-
-	mutex_lock(&mmdvfs_vcp_pwr_mutex);
-	if (vcp_power > 0) {
-		ret = vcp_deregister_feature_ex(MMDVFS_FEATURE_ID);
-		if (ret) {
-			MMDVFS_ERR("vcp_deregister_feature failed:%d", ret);
-			mutex_unlock(&mmdvfs_vcp_pwr_mutex);
-			return ret;
-		}
-		vcp_power = 0;
-		MMDVFS_DBG("check vcp_power > 0 and power off vcp");
-	}
-	mutex_unlock(&mmdvfs_vcp_pwr_mutex);
-
-	return ret;
-}
 
 static void check_vcp_pwr(void)
 {
@@ -613,9 +596,32 @@ static int mmdvfs_set_vcp_init(void)
 	return 0;
 }
 
+void cam_notify_work_func(struct work_struct *work)
+{
+	struct mmdvfs_cam_notify_work *cam_notify_work =
+		container_of(work, struct mmdvfs_cam_notify_work, cam_notify_work);
+
+	mtk_mmdvfs_enable_vcp(cam_notify_work->enable, VCP_PWR_USR_MMDVFS_CAM_NOTIFY);
+	kfree(cam_notify_work);
+}
+
 int mtk_mmdvfs_camera_notify(const bool enable)
 {
-	// TODO : replace from_mmqos
+	struct mmdvfs_cam_notify_work *work;
+
+	MMDVFS_DBG("enable:%u", enable);
+
+	if (!cam_notify_wq)
+		return -ENODEV;
+
+	work = kzalloc(sizeof(*work), GFP_KERNEL);
+	if (!work)
+		return -ENOMEM;
+
+	work->enable = enable;
+	INIT_WORK(&work->cam_notify_work, cam_notify_work_func);
+	queue_work(cam_notify_wq, &work->cam_notify_work);
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_camera_notify);
@@ -862,7 +868,7 @@ static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 		check_vcp_pwr();
 		//enable_aoc_iso(true);
 		reset_ccu_power();
-		reset_vcp_power();
+		//reset_vcp_power();
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
 		return NOTIFY_DONE;
@@ -1355,6 +1361,8 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 
 	kthr_vcp = kthread_run(mmdvfs_vcp_init_thread, NULL, "mmdvfs-vcp");
 	kthr_ccu = kthread_run(mmdvfs_ccu_init_thread, node, "mmdvfs-ccu");
+
+	cam_notify_wq = create_singlethread_workqueue("cam_notify_wq");
 
 	return ret;
 }

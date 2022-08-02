@@ -8,6 +8,7 @@
 #define __DRV_CLK_MMDVFS_V3_H
 
 #include <dt-bindings/clock/mmdvfs-clk.h>
+#include <linux/workqueue.h>
 
 #define MAX_OPP		(8)
 #define IPI_TIMEOUT_MS	(200U)
@@ -82,6 +83,11 @@ struct mmdvfs_ipi_data {
 	uint8_t opp;
 	uint8_t ack;
 	uint32_t base;
+};
+
+struct mmdvfs_cam_notify_work {
+	struct work_struct cam_notify_work;
+	bool enable;
 };
 
 #endif /* __DRV_CLK_MMDVFS_V3_H */
