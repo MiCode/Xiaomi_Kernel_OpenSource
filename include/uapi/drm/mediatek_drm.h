@@ -8,6 +8,10 @@
 
 #include <drm/drm.h>
 
+#ifndef BIT
+#define BIT(nr)                 ((unsigned long)(1) << (nr))
+#endif
+
 #define MTK_SUBMIT_NO_IMPLICIT   0x0 /* disable implicit sync */
 #define MTK_SUBMIT_IN_FENCE   0x1 /* enable input fence */
 #define MTK_SUBMIT_OUT_FENCE  0x2  /* enable output fence */
@@ -408,8 +412,8 @@ struct DISP_PQ_PARAM {
 #define DISP_PQ_PARAM_T struct DISP_PQ_PARAM
 
 struct DISP_DITHER_PARAM {
-	bool relay;
-	uint32_t mode;
+	_Bool relay;
+	__u32 mode;
 };
 
 struct DISP_AAL_TRIG_STATE {
@@ -633,8 +637,8 @@ struct drm_mtk_layering_info {
 	int layer_num[LYE_CRTC];
 	int gles_head[LYE_CRTC];
 	int gles_tail[LYE_CRTC];
-	uint32_t disp_caps[LYE_CRTC];
-	uint32_t frame_idx[LYE_CRTC];
+	__u32 disp_caps[LYE_CRTC];
+	__u32 frame_idx[LYE_CRTC];
 	int hrt_num;
 	__u32 disp_idx;
 	__u32 disp_list;
@@ -788,9 +792,9 @@ enum MTK_CRTC_ABILITY {
 };
 
 struct mtk_drm_wb_caps {
-	bool support;
-	bool rsz;
-	bool rsz_crop;
+	_Bool support;
+	_Bool rsz;
+	_Bool rsz_crop;
 	unsigned int rsz_out_min_w;
 	unsigned int rsz_out_min_h;
 	unsigned int rsz_out_max_w;
@@ -849,152 +853,152 @@ struct DRM_DISP_WRITE_REG {
 };
 
 struct DISP_TDSHP_REG {
-	uint32_t tdshp_softcoring_gain;
-	uint32_t tdshp_gain_high;
-	uint32_t tdshp_gain_mid;
-	uint32_t tdshp_ink_sel;
-	uint32_t tdshp_bypass_high;
-	uint32_t tdshp_bypass_mid;
-	uint32_t tdshp_en;
-	uint32_t tdshp_limit_ratio;
-	uint32_t tdshp_gain;
-	uint32_t tdshp_coring_zero;
-	uint32_t tdshp_coring_thr;
-	uint32_t tdshp_coring_value;
-	uint32_t tdshp_bound;
-	uint32_t tdshp_limit;
-	uint32_t tdshp_sat_proc;
-	uint32_t tdshp_ac_lpf_coe;
-	uint32_t tdshp_clip_thr;
-	uint32_t tdshp_clip_ratio;
-	uint32_t tdshp_clip_en;
-	uint32_t tdshp_ylev_p048;
-	uint32_t tdshp_ylev_p032;
-	uint32_t tdshp_ylev_p016;
-	uint32_t tdshp_ylev_p000;
-	uint32_t tdshp_ylev_p112;
-	uint32_t tdshp_ylev_p096;
-	uint32_t tdshp_ylev_p080;
-	uint32_t tdshp_ylev_p064;
-	uint32_t tdshp_ylev_p176;
-	uint32_t tdshp_ylev_p160;
-	uint32_t tdshp_ylev_p144;
-	uint32_t tdshp_ylev_p128;
-	uint32_t tdshp_ylev_p240;
-	uint32_t tdshp_ylev_p224;
-	uint32_t tdshp_ylev_p208;
-	uint32_t tdshp_ylev_p192;
-	uint32_t tdshp_ylev_en;
-	uint32_t tdshp_ylev_alpha;
-	uint32_t tdshp_ylev_256;
-	uint32_t pbc1_radius_r;
-	uint32_t pbc1_theta_r;
-	uint32_t pbc1_rslope_1;
-	uint32_t pbc1_gain;
-	uint32_t pbc1_lpf_en;
-	uint32_t pbc1_en;
-	uint32_t pbc1_lpf_gain;
-	uint32_t pbc1_tslope;
-	uint32_t pbc1_radius_c;
-	uint32_t pbc1_theta_c;
-	uint32_t pbc1_edge_slope;
-	uint32_t pbc1_edge_thr;
-	uint32_t pbc1_edge_en;
-	uint32_t pbc1_conf_gain;
-	uint32_t pbc1_rslope;
-	uint32_t pbc2_radius_r;
-	uint32_t pbc2_theta_r;
-	uint32_t pbc2_rslope_1;
-	uint32_t pbc2_gain;
-	uint32_t pbc2_lpf_en;
-	uint32_t pbc2_en;
-	uint32_t pbc2_lpf_gain;
-	uint32_t pbc2_tslope;
-	uint32_t pbc2_radius_c;
-	uint32_t pbc2_theta_c;
-	uint32_t pbc2_edge_slope;
-	uint32_t pbc2_edge_thr;
-	uint32_t pbc2_edge_en;
-	uint32_t pbc2_conf_gain;
-	uint32_t pbc2_rslope;
-	uint32_t pbc3_radius_r;
-	uint32_t pbc3_theta_r;
-	uint32_t pbc3_rslope_1;
-	uint32_t pbc3_gain;
-	uint32_t pbc3_lpf_en;
-	uint32_t pbc3_en;
-	uint32_t pbc3_lpf_gain;
-	uint32_t pbc3_tslope;
-	uint32_t pbc3_radius_c;
-	uint32_t pbc3_theta_c;
-	uint32_t pbc3_edge_slope;
-	uint32_t pbc3_edge_thr;
-	uint32_t pbc3_edge_en;
-	uint32_t pbc3_conf_gain;
-	uint32_t pbc3_rslope;
-	uint32_t tdshp_mid_softlimit_ratio;
-	uint32_t tdshp_mid_coring_zero;
-	uint32_t tdshp_mid_coring_thr;
-	uint32_t tdshp_mid_softcoring_gain;
-	uint32_t tdshp_mid_coring_value;
-	uint32_t tdshp_mid_bound;
-	uint32_t tdshp_mid_limit;
-	uint32_t tdshp_high_softlimit_ratio;
-	uint32_t tdshp_high_coring_zero;
-	uint32_t tdshp_high_coring_thr;
-	uint32_t tdshp_high_softcoring_gain;
-	uint32_t tdshp_high_coring_value;
-	uint32_t tdshp_high_bound;
-	uint32_t tdshp_high_limit;
-	uint32_t edf_clip_ratio_inc;
-	uint32_t edf_edge_gain;
-	uint32_t edf_detail_gain;
-	uint32_t edf_flat_gain;
-	uint32_t edf_gain_en;
-	uint32_t edf_edge_th;
-	uint32_t edf_detail_fall_th;
-	uint32_t edf_detail_rise_th;
-	uint32_t edf_flat_th;
-	uint32_t edf_edge_slope;
-	uint32_t edf_detail_fall_slope;
-	uint32_t edf_detail_rise_slope;
-	uint32_t edf_flat_slope;
-	uint32_t edf_edge_mono_slope;
-	uint32_t edf_edge_mono_th;
-	uint32_t edf_edge_mag_slope;
-	uint32_t edf_edge_mag_th;
-	uint32_t edf_edge_trend_flat_mag;
-	uint32_t edf_edge_trend_slope;
-	uint32_t edf_edge_trend_th;
-	uint32_t edf_bld_wgt_mag;
-	uint32_t edf_bld_wgt_mono;
-	uint32_t edf_bld_wgt_trend;
-	uint32_t tdshp_cboost_lmt_u;
-	uint32_t tdshp_cboost_lmt_l;
-	uint32_t tdshp_cboost_en;
-	uint32_t tdshp_cboost_gain;
-	uint32_t tdshp_cboost_yconst;
-	uint32_t tdshp_cboost_yoffset_sel;
-	uint32_t tdshp_cboost_yoffset;
-	uint32_t tdshp_post_ylev_p048;
-	uint32_t tdshp_post_ylev_p032;
-	uint32_t tdshp_post_ylev_p016;
-	uint32_t tdshp_post_ylev_p000;
-	uint32_t tdshp_post_ylev_p112;
-	uint32_t tdshp_post_ylev_p096;
-	uint32_t tdshp_post_ylev_p080;
-	uint32_t tdshp_post_ylev_p064;
-	uint32_t tdshp_post_ylev_p176;
-	uint32_t tdshp_post_ylev_p160;
-	uint32_t tdshp_post_ylev_p144;
-	uint32_t tdshp_post_ylev_p128;
-	uint32_t tdshp_post_ylev_p240;
-	uint32_t tdshp_post_ylev_p224;
-	uint32_t tdshp_post_ylev_p208;
-	uint32_t tdshp_post_ylev_p192;
-	uint32_t tdshp_post_ylev_en;
-	uint32_t tdshp_post_ylev_alpha;
-	uint32_t tdshp_post_ylev_256;
+	__u32 tdshp_softcoring_gain;
+	__u32 tdshp_gain_high;
+	__u32 tdshp_gain_mid;
+	__u32 tdshp_ink_sel;
+	__u32 tdshp_bypass_high;
+	__u32 tdshp_bypass_mid;
+	__u32 tdshp_en;
+	__u32 tdshp_limit_ratio;
+	__u32 tdshp_gain;
+	__u32 tdshp_coring_zero;
+	__u32 tdshp_coring_thr;
+	__u32 tdshp_coring_value;
+	__u32 tdshp_bound;
+	__u32 tdshp_limit;
+	__u32 tdshp_sat_proc;
+	__u32 tdshp_ac_lpf_coe;
+	__u32 tdshp_clip_thr;
+	__u32 tdshp_clip_ratio;
+	__u32 tdshp_clip_en;
+	__u32 tdshp_ylev_p048;
+	__u32 tdshp_ylev_p032;
+	__u32 tdshp_ylev_p016;
+	__u32 tdshp_ylev_p000;
+	__u32 tdshp_ylev_p112;
+	__u32 tdshp_ylev_p096;
+	__u32 tdshp_ylev_p080;
+	__u32 tdshp_ylev_p064;
+	__u32 tdshp_ylev_p176;
+	__u32 tdshp_ylev_p160;
+	__u32 tdshp_ylev_p144;
+	__u32 tdshp_ylev_p128;
+	__u32 tdshp_ylev_p240;
+	__u32 tdshp_ylev_p224;
+	__u32 tdshp_ylev_p208;
+	__u32 tdshp_ylev_p192;
+	__u32 tdshp_ylev_en;
+	__u32 tdshp_ylev_alpha;
+	__u32 tdshp_ylev_256;
+	__u32 pbc1_radius_r;
+	__u32 pbc1_theta_r;
+	__u32 pbc1_rslope_1;
+	__u32 pbc1_gain;
+	__u32 pbc1_lpf_en;
+	__u32 pbc1_en;
+	__u32 pbc1_lpf_gain;
+	__u32 pbc1_tslope;
+	__u32 pbc1_radius_c;
+	__u32 pbc1_theta_c;
+	__u32 pbc1_edge_slope;
+	__u32 pbc1_edge_thr;
+	__u32 pbc1_edge_en;
+	__u32 pbc1_conf_gain;
+	__u32 pbc1_rslope;
+	__u32 pbc2_radius_r;
+	__u32 pbc2_theta_r;
+	__u32 pbc2_rslope_1;
+	__u32 pbc2_gain;
+	__u32 pbc2_lpf_en;
+	__u32 pbc2_en;
+	__u32 pbc2_lpf_gain;
+	__u32 pbc2_tslope;
+	__u32 pbc2_radius_c;
+	__u32 pbc2_theta_c;
+	__u32 pbc2_edge_slope;
+	__u32 pbc2_edge_thr;
+	__u32 pbc2_edge_en;
+	__u32 pbc2_conf_gain;
+	__u32 pbc2_rslope;
+	__u32 pbc3_radius_r;
+	__u32 pbc3_theta_r;
+	__u32 pbc3_rslope_1;
+	__u32 pbc3_gain;
+	__u32 pbc3_lpf_en;
+	__u32 pbc3_en;
+	__u32 pbc3_lpf_gain;
+	__u32 pbc3_tslope;
+	__u32 pbc3_radius_c;
+	__u32 pbc3_theta_c;
+	__u32 pbc3_edge_slope;
+	__u32 pbc3_edge_thr;
+	__u32 pbc3_edge_en;
+	__u32 pbc3_conf_gain;
+	__u32 pbc3_rslope;
+	__u32 tdshp_mid_softlimit_ratio;
+	__u32 tdshp_mid_coring_zero;
+	__u32 tdshp_mid_coring_thr;
+	__u32 tdshp_mid_softcoring_gain;
+	__u32 tdshp_mid_coring_value;
+	__u32 tdshp_mid_bound;
+	__u32 tdshp_mid_limit;
+	__u32 tdshp_high_softlimit_ratio;
+	__u32 tdshp_high_coring_zero;
+	__u32 tdshp_high_coring_thr;
+	__u32 tdshp_high_softcoring_gain;
+	__u32 tdshp_high_coring_value;
+	__u32 tdshp_high_bound;
+	__u32 tdshp_high_limit;
+	__u32 edf_clip_ratio_inc;
+	__u32 edf_edge_gain;
+	__u32 edf_detail_gain;
+	__u32 edf_flat_gain;
+	__u32 edf_gain_en;
+	__u32 edf_edge_th;
+	__u32 edf_detail_fall_th;
+	__u32 edf_detail_rise_th;
+	__u32 edf_flat_th;
+	__u32 edf_edge_slope;
+	__u32 edf_detail_fall_slope;
+	__u32 edf_detail_rise_slope;
+	__u32 edf_flat_slope;
+	__u32 edf_edge_mono_slope;
+	__u32 edf_edge_mono_th;
+	__u32 edf_edge_mag_slope;
+	__u32 edf_edge_mag_th;
+	__u32 edf_edge_trend_flat_mag;
+	__u32 edf_edge_trend_slope;
+	__u32 edf_edge_trend_th;
+	__u32 edf_bld_wgt_mag;
+	__u32 edf_bld_wgt_mono;
+	__u32 edf_bld_wgt_trend;
+	__u32 tdshp_cboost_lmt_u;
+	__u32 tdshp_cboost_lmt_l;
+	__u32 tdshp_cboost_en;
+	__u32 tdshp_cboost_gain;
+	__u32 tdshp_cboost_yconst;
+	__u32 tdshp_cboost_yoffset_sel;
+	__u32 tdshp_cboost_yoffset;
+	__u32 tdshp_post_ylev_p048;
+	__u32 tdshp_post_ylev_p032;
+	__u32 tdshp_post_ylev_p016;
+	__u32 tdshp_post_ylev_p000;
+	__u32 tdshp_post_ylev_p112;
+	__u32 tdshp_post_ylev_p096;
+	__u32 tdshp_post_ylev_p080;
+	__u32 tdshp_post_ylev_p064;
+	__u32 tdshp_post_ylev_p176;
+	__u32 tdshp_post_ylev_p160;
+	__u32 tdshp_post_ylev_p144;
+	__u32 tdshp_post_ylev_p128;
+	__u32 tdshp_post_ylev_p240;
+	__u32 tdshp_post_ylev_p224;
+	__u32 tdshp_post_ylev_p208;
+	__u32 tdshp_post_ylev_p192;
+	__u32 tdshp_post_ylev_en;
+	__u32 tdshp_post_ylev_alpha;
+	__u32 tdshp_post_ylev_256;
 };
 
 struct DISP_TDSHP_DISPLAY_SIZE {
@@ -1006,296 +1010,296 @@ struct DISP_TDSHP_DISPLAY_SIZE {
 
 struct DISP_MDP_AAL_CLARITY_REG {
 	// Bilateral
-	uint32_t bilateral_impulse_noise_en;
-	uint32_t dre_bilateral_detect_en;
-	uint32_t bilateral_range_flt_slope;
-	uint32_t bilateral_flt_en;
-	uint32_t have_bilateral_filter;
+	__u32 bilateral_impulse_noise_en;
+	__u32 dre_bilateral_detect_en;
+	__u32 bilateral_range_flt_slope;
+	__u32 bilateral_flt_en;
+	__u32 have_bilateral_filter;
 
 	// Bilateral Blending
-	uint32_t dre_bilateral_activate_blending_A;
-	uint32_t dre_bilateral_activate_blending_B;
-	uint32_t dre_bilateral_activate_blending_C;
-	uint32_t dre_bilateral_activate_blending_D;
-	uint32_t dre_bilateral_activate_blending_wgt_gain;
-	uint32_t dre_bilateral_blending_en;
-	uint32_t dre_bilateral_blending_wgt;
-	uint32_t dre_bilateral_blending_wgt_mode;
-	uint32_t dre_bilateral_size_blending_wgt;
+	__u32 dre_bilateral_activate_blending_A;
+	__u32 dre_bilateral_activate_blending_B;
+	__u32 dre_bilateral_activate_blending_C;
+	__u32 dre_bilateral_activate_blending_D;
+	__u32 dre_bilateral_activate_blending_wgt_gain;
+	__u32 dre_bilateral_blending_en;
+	__u32 dre_bilateral_blending_wgt;
+	__u32 dre_bilateral_blending_wgt_mode;
+	__u32 dre_bilateral_size_blending_wgt;
 
 	// Filter 1
-	uint32_t bilateral_custom_range_flt1_0_0;
-	uint32_t bilateral_custom_range_flt1_0_1;
-	uint32_t bilateral_custom_range_flt1_0_2;
-	uint32_t bilateral_custom_range_flt1_0_3;
-	uint32_t bilateral_custom_range_flt1_0_4;
+	__u32 bilateral_custom_range_flt1_0_0;
+	__u32 bilateral_custom_range_flt1_0_1;
+	__u32 bilateral_custom_range_flt1_0_2;
+	__u32 bilateral_custom_range_flt1_0_3;
+	__u32 bilateral_custom_range_flt1_0_4;
 
-	uint32_t bilateral_custom_range_flt1_1_0;
-	uint32_t bilateral_custom_range_flt1_1_1;
-	uint32_t bilateral_custom_range_flt1_1_2;
-	uint32_t bilateral_custom_range_flt1_1_3;
-	uint32_t bilateral_custom_range_flt1_1_4;
+	__u32 bilateral_custom_range_flt1_1_0;
+	__u32 bilateral_custom_range_flt1_1_1;
+	__u32 bilateral_custom_range_flt1_1_2;
+	__u32 bilateral_custom_range_flt1_1_3;
+	__u32 bilateral_custom_range_flt1_1_4;
 
-	uint32_t bilateral_custom_range_flt1_2_0;
-	uint32_t bilateral_custom_range_flt1_2_1;
-	uint32_t bilateral_custom_range_flt1_2_2;
-	uint32_t bilateral_custom_range_flt1_2_3;
-	uint32_t bilateral_custom_range_flt1_2_4;
+	__u32 bilateral_custom_range_flt1_2_0;
+	__u32 bilateral_custom_range_flt1_2_1;
+	__u32 bilateral_custom_range_flt1_2_2;
+	__u32 bilateral_custom_range_flt1_2_3;
+	__u32 bilateral_custom_range_flt1_2_4;
 
 	// Filter 2
-	uint32_t bilateral_custom_range_flt2_0_0;
-	uint32_t bilateral_custom_range_flt2_0_1;
-	uint32_t bilateral_custom_range_flt2_0_2;
-	uint32_t bilateral_custom_range_flt2_0_3;
-	uint32_t bilateral_custom_range_flt2_0_4;
+	__u32 bilateral_custom_range_flt2_0_0;
+	__u32 bilateral_custom_range_flt2_0_1;
+	__u32 bilateral_custom_range_flt2_0_2;
+	__u32 bilateral_custom_range_flt2_0_3;
+	__u32 bilateral_custom_range_flt2_0_4;
 
-	uint32_t bilateral_custom_range_flt2_1_0;
-	uint32_t bilateral_custom_range_flt2_1_1;
-	uint32_t bilateral_custom_range_flt2_1_2;
-	uint32_t bilateral_custom_range_flt2_1_3;
-	uint32_t bilateral_custom_range_flt2_1_4;
+	__u32 bilateral_custom_range_flt2_1_0;
+	__u32 bilateral_custom_range_flt2_1_1;
+	__u32 bilateral_custom_range_flt2_1_2;
+	__u32 bilateral_custom_range_flt2_1_3;
+	__u32 bilateral_custom_range_flt2_1_4;
 
-	uint32_t bilateral_custom_range_flt2_2_0;
-	uint32_t bilateral_custom_range_flt2_2_1;
-	uint32_t bilateral_custom_range_flt2_2_2;
-	uint32_t bilateral_custom_range_flt2_2_3;
-	uint32_t bilateral_custom_range_flt2_2_4;
+	__u32 bilateral_custom_range_flt2_2_0;
+	__u32 bilateral_custom_range_flt2_2_1;
+	__u32 bilateral_custom_range_flt2_2_2;
+	__u32 bilateral_custom_range_flt2_2_3;
+	__u32 bilateral_custom_range_flt2_2_4;
 
 	// Bilateral Flt Config
-	uint32_t bilateral_contrary_blending_wgt;
-	uint32_t bilateral_custom_range_flt_gain;
-	uint32_t bilateral_custom_range_flt_slope;
-	uint32_t bilateral_range_flt_gain;
-	uint32_t bilateral_size_blending_wgt;
+	__u32 bilateral_contrary_blending_wgt;
+	__u32 bilateral_custom_range_flt_gain;
+	__u32 bilateral_custom_range_flt_slope;
+	__u32 bilateral_range_flt_gain;
+	__u32 bilateral_size_blending_wgt;
 
 	// Bilateral Frequency Blending
-	uint32_t bilateral_contrary_blending_out_wgt;
-	uint32_t bilateral_custom_range_flt1_out_wgt;
-	uint32_t bilateral_custom_range_flt2_out_wgt;
-	uint32_t bilateral_range_flt_out_wgt;
-	uint32_t bilateral_size_blending_out_wgt;
+	__u32 bilateral_contrary_blending_out_wgt;
+	__u32 bilateral_custom_range_flt1_out_wgt;
+	__u32 bilateral_custom_range_flt2_out_wgt;
+	__u32 bilateral_range_flt_out_wgt;
+	__u32 bilateral_size_blending_out_wgt;
 
 	// Bilateral Region Protection
-	uint32_t dre_bilateral_blending_region_protection_en;
-	uint32_t dre_bilateral_region_protection_activate_A;
-	uint32_t dre_bilateral_region_protection_activate_B;
-	uint32_t dre_bilateral_region_protection_activate_C;
-	uint32_t dre_bilateral_region_protection_activate_D;
-	uint32_t dre_bilateral_region_protection_input_shift_bit;
+	__u32 dre_bilateral_blending_region_protection_en;
+	__u32 dre_bilateral_region_protection_activate_A;
+	__u32 dre_bilateral_region_protection_activate_B;
+	__u32 dre_bilateral_region_protection_activate_C;
+	__u32 dre_bilateral_region_protection_activate_D;
+	__u32 dre_bilateral_region_protection_input_shift_bit;
 };
 
 struct DISP_TDSHP_CLARITY_REG {
 	// High & Mid Gain
-	uint32_t tdshp_gain_high;
-	uint32_t tdshp_gain_mid;
+	__u32 tdshp_gain_high;
+	__u32 tdshp_gain_mid;
 
 	// Mid-Band Vertical Filter
-	uint32_t mid_coef_v_custom_range_flt_0_0;
-	uint32_t mid_coef_v_custom_range_flt_0_1;
-	uint32_t mid_coef_v_custom_range_flt_0_2;
-	uint32_t mid_coef_v_custom_range_flt_0_3;
-	uint32_t mid_coef_v_custom_range_flt_0_4;
+	__u32 mid_coef_v_custom_range_flt_0_0;
+	__u32 mid_coef_v_custom_range_flt_0_1;
+	__u32 mid_coef_v_custom_range_flt_0_2;
+	__u32 mid_coef_v_custom_range_flt_0_3;
+	__u32 mid_coef_v_custom_range_flt_0_4;
 
-	uint32_t mid_coef_v_custom_range_flt_1_0;
-	uint32_t mid_coef_v_custom_range_flt_1_1;
-	uint32_t mid_coef_v_custom_range_flt_1_2;
-	uint32_t mid_coef_v_custom_range_flt_1_3;
-	uint32_t mid_coef_v_custom_range_flt_1_4;
+	__u32 mid_coef_v_custom_range_flt_1_0;
+	__u32 mid_coef_v_custom_range_flt_1_1;
+	__u32 mid_coef_v_custom_range_flt_1_2;
+	__u32 mid_coef_v_custom_range_flt_1_3;
+	__u32 mid_coef_v_custom_range_flt_1_4;
 
-	uint32_t mid_coef_v_custom_range_flt_2_0;
-	uint32_t mid_coef_v_custom_range_flt_2_1;
-	uint32_t mid_coef_v_custom_range_flt_2_2;
-	uint32_t mid_coef_v_custom_range_flt_2_3;
-	uint32_t mid_coef_v_custom_range_flt_2_4;
+	__u32 mid_coef_v_custom_range_flt_2_0;
+	__u32 mid_coef_v_custom_range_flt_2_1;
+	__u32 mid_coef_v_custom_range_flt_2_2;
+	__u32 mid_coef_v_custom_range_flt_2_3;
+	__u32 mid_coef_v_custom_range_flt_2_4;
 
 	// Mid-Band Horizontal Filter
-	uint32_t mid_coef_h_custom_range_flt_0_0;
-	uint32_t mid_coef_h_custom_range_flt_0_1;
-	uint32_t mid_coef_h_custom_range_flt_0_2;
-	uint32_t mid_coef_h_custom_range_flt_0_3;
-	uint32_t mid_coef_h_custom_range_flt_0_4;
+	__u32 mid_coef_h_custom_range_flt_0_0;
+	__u32 mid_coef_h_custom_range_flt_0_1;
+	__u32 mid_coef_h_custom_range_flt_0_2;
+	__u32 mid_coef_h_custom_range_flt_0_3;
+	__u32 mid_coef_h_custom_range_flt_0_4;
 
-	uint32_t mid_coef_h_custom_range_flt_1_0;
-	uint32_t mid_coef_h_custom_range_flt_1_1;
-	uint32_t mid_coef_h_custom_range_flt_1_2;
-	uint32_t mid_coef_h_custom_range_flt_1_3;
-	uint32_t mid_coef_h_custom_range_flt_1_4;
+	__u32 mid_coef_h_custom_range_flt_1_0;
+	__u32 mid_coef_h_custom_range_flt_1_1;
+	__u32 mid_coef_h_custom_range_flt_1_2;
+	__u32 mid_coef_h_custom_range_flt_1_3;
+	__u32 mid_coef_h_custom_range_flt_1_4;
 
-	uint32_t mid_coef_h_custom_range_flt_2_0;
-	uint32_t mid_coef_h_custom_range_flt_2_1;
-	uint32_t mid_coef_h_custom_range_flt_2_2;
-	uint32_t mid_coef_h_custom_range_flt_2_3;
-	uint32_t mid_coef_h_custom_range_flt_2_4;
+	__u32 mid_coef_h_custom_range_flt_2_0;
+	__u32 mid_coef_h_custom_range_flt_2_1;
+	__u32 mid_coef_h_custom_range_flt_2_2;
+	__u32 mid_coef_h_custom_range_flt_2_3;
+	__u32 mid_coef_h_custom_range_flt_2_4;
 
 	// High-Band Vertical Filter
-	uint32_t high_coef_v_custom_range_flt_0_0;
-	uint32_t high_coef_v_custom_range_flt_0_1;
-	uint32_t high_coef_v_custom_range_flt_0_2;
-	uint32_t high_coef_v_custom_range_flt_0_3;
-	uint32_t high_coef_v_custom_range_flt_0_4;
+	__u32 high_coef_v_custom_range_flt_0_0;
+	__u32 high_coef_v_custom_range_flt_0_1;
+	__u32 high_coef_v_custom_range_flt_0_2;
+	__u32 high_coef_v_custom_range_flt_0_3;
+	__u32 high_coef_v_custom_range_flt_0_4;
 
-	uint32_t high_coef_v_custom_range_flt_1_0;
-	uint32_t high_coef_v_custom_range_flt_1_1;
-	uint32_t high_coef_v_custom_range_flt_1_2;
-	uint32_t high_coef_v_custom_range_flt_1_3;
-	uint32_t high_coef_v_custom_range_flt_1_4;
+	__u32 high_coef_v_custom_range_flt_1_0;
+	__u32 high_coef_v_custom_range_flt_1_1;
+	__u32 high_coef_v_custom_range_flt_1_2;
+	__u32 high_coef_v_custom_range_flt_1_3;
+	__u32 high_coef_v_custom_range_flt_1_4;
 
-	uint32_t high_coef_v_custom_range_flt_2_0;
-	uint32_t high_coef_v_custom_range_flt_2_1;
-	uint32_t high_coef_v_custom_range_flt_2_2;
-	uint32_t high_coef_v_custom_range_flt_2_3;
-	uint32_t high_coef_v_custom_range_flt_2_4;
+	__u32 high_coef_v_custom_range_flt_2_0;
+	__u32 high_coef_v_custom_range_flt_2_1;
+	__u32 high_coef_v_custom_range_flt_2_2;
+	__u32 high_coef_v_custom_range_flt_2_3;
+	__u32 high_coef_v_custom_range_flt_2_4;
 
 	// High-Band Horizontal Filter
-	uint32_t high_coef_h_custom_range_flt_0_0;
-	uint32_t high_coef_h_custom_range_flt_0_1;
-	uint32_t high_coef_h_custom_range_flt_0_2;
-	uint32_t high_coef_h_custom_range_flt_0_3;
-	uint32_t high_coef_h_custom_range_flt_0_4;
+	__u32 high_coef_h_custom_range_flt_0_0;
+	__u32 high_coef_h_custom_range_flt_0_1;
+	__u32 high_coef_h_custom_range_flt_0_2;
+	__u32 high_coef_h_custom_range_flt_0_3;
+	__u32 high_coef_h_custom_range_flt_0_4;
 
-	uint32_t high_coef_h_custom_range_flt_1_0;
-	uint32_t high_coef_h_custom_range_flt_1_1;
-	uint32_t high_coef_h_custom_range_flt_1_2;
-	uint32_t high_coef_h_custom_range_flt_1_3;
-	uint32_t high_coef_h_custom_range_flt_1_4;
+	__u32 high_coef_h_custom_range_flt_1_0;
+	__u32 high_coef_h_custom_range_flt_1_1;
+	__u32 high_coef_h_custom_range_flt_1_2;
+	__u32 high_coef_h_custom_range_flt_1_3;
+	__u32 high_coef_h_custom_range_flt_1_4;
 
-	uint32_t high_coef_h_custom_range_flt_2_0;
-	uint32_t high_coef_h_custom_range_flt_2_1;
-	uint32_t high_coef_h_custom_range_flt_2_2;
-	uint32_t high_coef_h_custom_range_flt_2_3;
-	uint32_t high_coef_h_custom_range_flt_2_4;
+	__u32 high_coef_h_custom_range_flt_2_0;
+	__u32 high_coef_h_custom_range_flt_2_1;
+	__u32 high_coef_h_custom_range_flt_2_2;
+	__u32 high_coef_h_custom_range_flt_2_3;
+	__u32 high_coef_h_custom_range_flt_2_4;
 
 	// High-Band Right-Diagonal Filter
-	uint32_t high_coef_rd_custom_range_flt_0_0;
-	uint32_t high_coef_rd_custom_range_flt_0_1;
-	uint32_t high_coef_rd_custom_range_flt_0_2;
-	uint32_t high_coef_rd_custom_range_flt_0_3;
-	uint32_t high_coef_rd_custom_range_flt_0_4;
+	__u32 high_coef_rd_custom_range_flt_0_0;
+	__u32 high_coef_rd_custom_range_flt_0_1;
+	__u32 high_coef_rd_custom_range_flt_0_2;
+	__u32 high_coef_rd_custom_range_flt_0_3;
+	__u32 high_coef_rd_custom_range_flt_0_4;
 
-	uint32_t high_coef_rd_custom_range_flt_1_0;
-	uint32_t high_coef_rd_custom_range_flt_1_1;
-	uint32_t high_coef_rd_custom_range_flt_1_2;
-	uint32_t high_coef_rd_custom_range_flt_1_3;
-	uint32_t high_coef_rd_custom_range_flt_1_4;
+	__u32 high_coef_rd_custom_range_flt_1_0;
+	__u32 high_coef_rd_custom_range_flt_1_1;
+	__u32 high_coef_rd_custom_range_flt_1_2;
+	__u32 high_coef_rd_custom_range_flt_1_3;
+	__u32 high_coef_rd_custom_range_flt_1_4;
 
-	uint32_t high_coef_rd_custom_range_flt_2_0;
-	uint32_t high_coef_rd_custom_range_flt_2_1;
-	uint32_t high_coef_rd_custom_range_flt_2_2;
-	uint32_t high_coef_rd_custom_range_flt_2_3;
-	uint32_t high_coef_rd_custom_range_flt_2_4;
+	__u32 high_coef_rd_custom_range_flt_2_0;
+	__u32 high_coef_rd_custom_range_flt_2_1;
+	__u32 high_coef_rd_custom_range_flt_2_2;
+	__u32 high_coef_rd_custom_range_flt_2_3;
+	__u32 high_coef_rd_custom_range_flt_2_4;
 
 	// High-Band Left-Diagonal Filter
-	uint32_t high_coef_ld_custom_range_flt_0_0;
-	uint32_t high_coef_ld_custom_range_flt_0_1;
-	uint32_t high_coef_ld_custom_range_flt_0_2;
-	uint32_t high_coef_ld_custom_range_flt_0_3;
-	uint32_t high_coef_ld_custom_range_flt_0_4;
+	__u32 high_coef_ld_custom_range_flt_0_0;
+	__u32 high_coef_ld_custom_range_flt_0_1;
+	__u32 high_coef_ld_custom_range_flt_0_2;
+	__u32 high_coef_ld_custom_range_flt_0_3;
+	__u32 high_coef_ld_custom_range_flt_0_4;
 
-	uint32_t high_coef_ld_custom_range_flt_1_0;
-	uint32_t high_coef_ld_custom_range_flt_1_1;
-	uint32_t high_coef_ld_custom_range_flt_1_2;
-	uint32_t high_coef_ld_custom_range_flt_1_3;
-	uint32_t high_coef_ld_custom_range_flt_1_4;
+	__u32 high_coef_ld_custom_range_flt_1_0;
+	__u32 high_coef_ld_custom_range_flt_1_1;
+	__u32 high_coef_ld_custom_range_flt_1_2;
+	__u32 high_coef_ld_custom_range_flt_1_3;
+	__u32 high_coef_ld_custom_range_flt_1_4;
 
-	uint32_t high_coef_ld_custom_range_flt_2_0;
-	uint32_t high_coef_ld_custom_range_flt_2_1;
-	uint32_t high_coef_ld_custom_range_flt_2_2;
-	uint32_t high_coef_ld_custom_range_flt_2_3;
-	uint32_t high_coef_ld_custom_range_flt_2_4;
+	__u32 high_coef_ld_custom_range_flt_2_0;
+	__u32 high_coef_ld_custom_range_flt_2_1;
+	__u32 high_coef_ld_custom_range_flt_2_2;
+	__u32 high_coef_ld_custom_range_flt_2_3;
+	__u32 high_coef_ld_custom_range_flt_2_4;
 
 	// Active Parameters
-	uint32_t mid_negative_offset;
-	uint32_t mid_positive_offset;
-	uint32_t high_negative_offset;
-	uint32_t high_positive_offset;
+	__u32 mid_negative_offset;
+	__u32 mid_positive_offset;
+	__u32 high_negative_offset;
+	__u32 high_positive_offset;
 
 	// Active Parameters Frequency D
-	uint32_t D_active_parameter_N_gain;
-	uint32_t D_active_parameter_N_offset;
-	uint32_t D_active_parameter_P_gain;
-	uint32_t D_active_parameter_P_offset;
+	__u32 D_active_parameter_N_gain;
+	__u32 D_active_parameter_N_offset;
+	__u32 D_active_parameter_P_gain;
+	__u32 D_active_parameter_P_offset;
 
 	// Active Parameters Frequency H
-	uint32_t High_active_parameter_N_gain;
-	uint32_t High_active_parameter_N_offset;
-	uint32_t High_active_parameter_P_gain;
-	uint32_t High_active_parameter_P_offset;
+	__u32 High_active_parameter_N_gain;
+	__u32 High_active_parameter_N_offset;
+	__u32 High_active_parameter_P_gain;
+	__u32 High_active_parameter_P_offset;
 
 	// Active Parameters Frequency L
-	uint32_t L_active_parameter_N_gain;
-	uint32_t L_active_parameter_N_offset;
-	uint32_t L_active_parameter_P_gain;
-	uint32_t L_active_parameter_P_offset;
+	__u32 L_active_parameter_N_gain;
+	__u32 L_active_parameter_N_offset;
+	__u32 L_active_parameter_P_gain;
+	__u32 L_active_parameter_P_offset;
 
 	// Active Parameters Frequency M
-	uint32_t Mid_active_parameter_N_gain;
-	uint32_t Mid_active_parameter_N_offset;
-	uint32_t Mid_active_parameter_P_gain;
-	uint32_t Mid_active_parameter_P_offset;
+	__u32 Mid_active_parameter_N_gain;
+	__u32 Mid_active_parameter_N_offset;
+	__u32 Mid_active_parameter_P_gain;
+	__u32 Mid_active_parameter_P_offset;
 
 	// Size Parameters
-	uint32_t SIZE_PARA_BIG_HUGE;
-	uint32_t SIZE_PARA_MEDIUM_BIG;
-	uint32_t SIZE_PARA_SMALL_MEDIUM;
+	__u32 SIZE_PARA_BIG_HUGE;
+	__u32 SIZE_PARA_MEDIUM_BIG;
+	__u32 SIZE_PARA_SMALL_MEDIUM;
 
 	// Final Size Adaptive Weight Huge
-	uint32_t high_auto_adaptive_weight_HUGE;
-	uint32_t high_size_adaptive_weight_HUGE;
-	uint32_t Mid_auto_adaptive_weight_HUGE;
-	uint32_t Mid_size_adaptive_weight_HUGE;
+	__u32 high_auto_adaptive_weight_HUGE;
+	__u32 high_size_adaptive_weight_HUGE;
+	__u32 Mid_auto_adaptive_weight_HUGE;
+	__u32 Mid_size_adaptive_weight_HUGE;
 
 	// Final Size Adaptive Weight Big
-	uint32_t high_auto_adaptive_weight_BIG;
-	uint32_t high_size_adaptive_weight_BIG;
-	uint32_t Mid_auto_adaptive_weight_BIG;
-	uint32_t Mid_size_adaptive_weight_BIG;
+	__u32 high_auto_adaptive_weight_BIG;
+	__u32 high_size_adaptive_weight_BIG;
+	__u32 Mid_auto_adaptive_weight_BIG;
+	__u32 Mid_size_adaptive_weight_BIG;
 
 	// Final Size Adaptive Weight Medium
-	uint32_t high_auto_adaptive_weight_MEDIUM;
-	uint32_t high_size_adaptive_weight_MEDIUM;
-	uint32_t Mid_auto_adaptive_weight_MEDIUM;
-	uint32_t Mid_size_adaptive_weight_MEDIUM;
+	__u32 high_auto_adaptive_weight_MEDIUM;
+	__u32 high_size_adaptive_weight_MEDIUM;
+	__u32 Mid_auto_adaptive_weight_MEDIUM;
+	__u32 Mid_size_adaptive_weight_MEDIUM;
 
 	// Final Size Adaptive Weight Small
-	uint32_t high_auto_adaptive_weight_SMALL;
-	uint32_t high_size_adaptive_weight_SMALL;
-	uint32_t Mid_auto_adaptive_weight_SMALL;
-	uint32_t Mid_size_adaptive_weight_SMALL;
+	__u32 high_auto_adaptive_weight_SMALL;
+	__u32 high_size_adaptive_weight_SMALL;
+	__u32 Mid_auto_adaptive_weight_SMALL;
+	__u32 Mid_size_adaptive_weight_SMALL;
 
 	// Config
-	uint32_t FILTER_HIST_EN;
-	uint32_t FREQ_EXTRACT_ENHANCE;
+	__u32 FILTER_HIST_EN;
+	__u32 FREQ_EXTRACT_ENHANCE;
 
 	// Frequency Weighting
-	uint32_t freq_D_weighting;
-	uint32_t freq_H_weighting;
-	uint32_t freq_L_weighting;
-	uint32_t freq_M_weighting;
+	__u32 freq_D_weighting;
+	__u32 freq_H_weighting;
+	__u32 freq_L_weighting;
+	__u32 freq_M_weighting;
 
 	// Frequency Weighting Final
-	uint32_t freq_D_final_weighting;
-	uint32_t freq_L_final_weighting;
-	uint32_t freq_M_final_weighting;
-	uint32_t freq_WH_final_weighting;
-	uint32_t SIZE_PARAMETER;
+	__u32 freq_D_final_weighting;
+	__u32 freq_L_final_weighting;
+	__u32 freq_M_final_weighting;
+	__u32 freq_WH_final_weighting;
+	__u32 SIZE_PARAMETER;
 
 	// Luma Chroma Parameters
-	uint32_t chroma_high_gain;
-	uint32_t chroma_high_index;
-	uint32_t chroma_low_gain;
-	uint32_t chroma_low_index;
-	uint32_t luma_high_gain;
-	uint32_t luma_high_index;
-	uint32_t luma_low_gain;
-	uint32_t luma_low_index;
-	uint32_t Chroma_adaptive_mode;
-	uint32_t Chroma_shift;
-	uint32_t Luma_adaptive_mode;
-	uint32_t Luma_shift;
+	__u32 chroma_high_gain;
+	__u32 chroma_high_index;
+	__u32 chroma_low_gain;
+	__u32 chroma_low_index;
+	__u32 luma_high_gain;
+	__u32 luma_high_index;
+	__u32 luma_low_gain;
+	__u32 luma_low_index;
+	__u32 Chroma_adaptive_mode;
+	__u32 Chroma_shift;
+	__u32 Luma_adaptive_mode;
+	__u32 Luma_shift;
 
 	// Base Black & White edges
-	uint32_t class_0_positive_gain;
-	uint32_t class_0_negative_gain;
+	__u32 class_0_positive_gain;
+	__u32 class_0_negative_gain;
 };
 
 struct DISP_CLARITY_REG {
@@ -1319,7 +1323,7 @@ struct drm_mtk_chist_info {
 };
 
 struct drm_mtk_channel_config {
-	bool enabled;
+	_Bool enabled;
 	enum MTK_DRM_CHIST_COLOR_FORMT color_format;
 	unsigned int bin_count;
 	unsigned int channel_id;
@@ -1370,15 +1374,15 @@ enum MTK_DRM_ODDMR_CTL_CMD {
 
 struct mtk_drm_oddmr_ctl {
 	enum MTK_DRM_ODDMR_CTL_CMD cmd;
-	uint32_t size;
-	uint8_t *data;
+	__u32 size;
+	__u8 *data;
 };
 
 struct mtk_drm_oddmr_param {
-	uint32_t head_id;
-	uint32_t size;
-	uint8_t *data;
-	uint32_t checksum;
+	__u32 head_id;
+	__u32 size;
+	__u8 *data;
+	__u32 checksum;
 };
 
 #define DRM_IOCTL_MTK_GEM_CREATE	DRM_IOWR(DRM_COMMAND_BASE + \
@@ -1458,7 +1462,7 @@ struct mtk_drm_oddmr_param {
 		DRM_MTK_CCORR_GET_IRQ, unsigned int)
 
 #define DRM_IOCTL_MTK_AIBLD_CV_MODE     DRM_IOWR(DRM_COMMAND_BASE + \
-		DRM_MTK_AIBLD_CV_MODE, bool)
+		DRM_MTK_AIBLD_CV_MODE, _Bool)
 
 #define DRM_IOCTL_MTK_SET_GAMMALUT     DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_SET_GAMMALUT, struct DISP_GAMMA_LUT_T)
@@ -1639,7 +1643,7 @@ struct DISP_DRE30_INIT {
 struct DISP_AAL_DISPLAY_SIZE {
 	int width;
 	int height;
-	bool isdualpipe;
+	_Bool isdualpipe;
 };
 
 struct DISP_AAL_HIST {
@@ -1709,7 +1713,7 @@ struct DISP_AAL_ESS20_SPECT_PARAM {
 		DRM_MTK_AAL_SET_ESS20_SPECT_PARAM, struct DISP_AAL_ESS20_SPECT_PARAM)
 
 #define DRM_IOCTL_MTK_SET_GAMMA_MUL_DISABLE DRM_IOWR(DRM_COMMAND_BASE + \
-		DRM_MTK_SET_GAMMA_MUL_DISABLE, bool)
+		DRM_MTK_SET_GAMMA_MUL_DISABLE, _Bool)
 
 #define MTK_DRM_ADVANCE
 #define MTK_DRM_FORMAT_DIM		fourcc_code('D', ' ', '0', '0')
