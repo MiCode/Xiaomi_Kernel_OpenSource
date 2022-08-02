@@ -1169,12 +1169,28 @@ void get_stagger_max_exp_time(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 		enum VC_FEATURE vc, u64 *exposure_max)
 {
+	*exposure_max = 0;
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
 		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		return;
 	}
-	*exposure_max = ctx->s_ctx.exposure_max;
+
+	switch (vc) {
+	case VC_STAGGER_ME:
+		if (ctx->s_ctx.mode[scenario_id].hdr_mode == HDR_RAW_STAGGER_2EXP ||
+			ctx->s_ctx.mode[scenario_id].hdr_mode == HDR_RAW_STAGGER_3EXP)
+			*exposure_max = ctx->s_ctx.exposure_max;
+		break;
+	case VC_STAGGER_SE:
+		if (ctx->s_ctx.mode[scenario_id].hdr_mode == HDR_RAW_STAGGER_3EXP)
+			*exposure_max = ctx->s_ctx.exposure_max;
+		break;
+	case VC_STAGGER_NE:
+	default:
+		*exposure_max = ctx->s_ctx.exposure_max;
+		break;
+	}
 }
 
 void get_temperature_value(struct subdrv_ctx *ctx, u32 *value)
