@@ -47,6 +47,7 @@ struct dpidle_msg {
 };
 
 /* #define APU_DEEPIDLE_WQ */
+#define BOOT_WARN_LOG_TIME_US 3000
 
 static struct mtk_apu *g_apu;
 static struct work_struct pwron_dbg_wk;
@@ -111,6 +112,7 @@ int apu_deepidle_power_on_aputop(struct mtk_apu *apu)
 	uint32_t wait_ms = 10000;
 	int retry = 0;
 	int ret;
+	u64 t;
 
 	if (pm_runtime_suspended(apu->dev)) {
 
@@ -176,7 +178,15 @@ wait_for_warm_boot:
 			return -1;
 		}
 
-		dev_info(apu->dev, "%s: warm boot done\n", __func__);
+		ktime_get_ts64(&end);
+		delta = timespec64_sub(end, begin);
+		t = timespec64_to_ns(&delta);
+		if (t > BOOT_WARN_LOG_TIME_US * 1000)
+			dev_info(dev, "%s: warm boot done (%lldns)\n",
+				__func__, t);
+		else
+			apu_info_ratelimited(dev,
+				"%s: warm boot done\n", __func__);
 	}
 
 	return 0;
@@ -209,8 +219,11 @@ static void __apu_deepidle(struct mtk_apu *apu)
 	case DPIDLE_CMD_LOCK_IPI:
 		ret = apu_ipi_lock(apu);
 		if (ret) {
-			dev_info(apu->dev, "%s: IPI busy, ret=%d\n",
-				 __func__, ret);
+			/* remove to reduce log */
+			/*
+			 * dev_info(apu->dev, "%s: IPI busy, ret=%d\n",
+			 *	 __func__, ret);
+			 */
 			apu_deepidle_send_ack(apu, DPIDLE_CMD_LOCK_IPI,
 					DPIDLE_ACK_LOCK_BUSY);
 			return;
@@ -242,7 +255,7 @@ static void __apu_deepidle(struct mtk_apu *apu)
 
 		hw_logger_deep_idle_enter_post();
 		apu_ipi_unlock(apu);
-		dev_info(apu->dev, "power off done\n");
+		apu_info_ratelimited(apu->dev, "power off done\n");
 		break;
 
 	default:
