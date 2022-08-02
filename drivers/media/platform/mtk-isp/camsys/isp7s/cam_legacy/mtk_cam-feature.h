@@ -10,6 +10,17 @@
 #include "mtk_cam-raw.h"
 #include "mtk_camera-v4l2-controls.h"
 
+/* TODO(MTK): mtk_cam-util.c */
+#define snprintf_safe(buf, size, fmt, args...) \
+({ \
+	int r = snprintf(buf, size, fmt, ## args); \
+	if (r < 0 || r > size) { \
+		WARN_ON(1); \
+		pr_info("%s:%s:%d snprintf failed", \
+			__func__, __FILE__, __LINE__); \
+	} \
+})
+
 static inline bool mtk_cam_feature_change_is_mstream(int feature_change)
 {
 	if (feature_change & MSTREAM_EXPOSURE_CHANGE)
@@ -43,28 +54,34 @@ static inline void mtk_cam_scen_update_dbg_str(struct mtk_cam_scen *scen)
 	switch (scen->id) {
 	case MTK_CAM_SCEN_MSTREAM:
 	case MTK_CAM_SCEN_ODT_MSTREAM:
-		snprintf(scen->dbg_str, 15, "%d:%d:%d", scen->id,
-			 scen->scen.mstream.type, scen->scen.mstream.mem_saving);
+		snprintf_safe(scen->dbg_str, 15, "%d:%d:%d", scen->id,
+			      scen->scen.mstream.type,
+			      scen->scen.mstream.mem_saving);
 		break;
 	case MTK_CAM_SCEN_SMVR:
-		snprintf(scen->dbg_str, 15, "%d:%d", scen->id, scen->scen.smvr.subsample_num);
+		snprintf_safe(scen->dbg_str, 15, "%d:%d", scen->id,
+			      scen->scen.smvr.subsample_num);
 		break;
 	case MTK_CAM_SCEN_NORMAL:
 	case MTK_CAM_SCEN_ODT_NORMAL:
 	case MTK_CAM_SCEN_M2M_NORMAL:
-		snprintf(scen->dbg_str, 15, "%d:%d:%d:%d",
-			 scen->scen.normal.max_exp_num, scen->scen.normal.exp_num,
-			 scen->scen.normal.w_chn_supported, scen->scen.normal.frame_order);
+		snprintf_safe(scen->dbg_str, 15, "%d:%d:%d:%d",
+			      scen->scen.normal.max_exp_num,
+			      scen->scen.normal.exp_num,
+			      scen->scen.normal.w_chn_supported,
+			      scen->scen.normal.frame_order);
 		break;
 	case MTK_CAM_SCEN_TIMESHARE:
-		snprintf(scen->dbg_str, 15, "%d:%d", scen->id, scen->scen.timeshare.group);
+		snprintf_safe(scen->dbg_str, 15, "%d:%d", scen->id,
+			      scen->scen.timeshare.group);
 		break;
 	case MTK_CAM_SCEN_EXT_ISP:
-		snprintf(scen->dbg_str, 15, "%d:%d", scen->id, scen->scen.extisp.type);
+		snprintf_safe(scen->dbg_str, 15, "%d:%d", scen->id,
+			      scen->scen.extisp.type);
 		break;
 	case MTK_CAM_SCEN_CAMSV_RGBW:
 	default:
-		snprintf(scen->dbg_str, 15, "%d", scen->id);
+		snprintf_safe(scen->dbg_str, 15, "%d", scen->id);
 		break;
 	}
 }
@@ -75,6 +92,8 @@ static inline void mtk_cam_scen_init(struct mtk_cam_scen *scen)
 		pr_info("%s: failed, scen can't be NULL", __func__);
 		return;
 	}
+
+	memset(scen, 0, sizeof(*scen));
 
 	scen->id = MTK_CAM_SCEN_NORMAL;
 	mtk_cam_scen_update_dbg_str(scen);
@@ -156,9 +175,10 @@ static inline bool mtk_cam_scen_is_stagger_pure_m2m(struct mtk_cam_scen *scen)
 
 static inline bool mtk_cam_scen_is_odt(struct mtk_cam_scen *scen)
 {
+	if (!scen)
+		return false;
 	return (scen->id == MTK_CAM_SCEN_ODT_NORMAL) ||
 	       (scen->id == MTK_CAM_SCEN_ODT_MSTREAM);
-
 }
 
 /* is pure offline nad offline */

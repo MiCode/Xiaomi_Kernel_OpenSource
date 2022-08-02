@@ -240,8 +240,8 @@ static bool mtk_cam_req_frame_sync_start(struct mtk_cam_request *req)
 		container_of(req->req.mdev, struct mtk_cam_device, media_dev);
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_ctx *sync_ctx[MTKCAM_SUBDEV_MAX];
-	unsigned int pipe_id;
-	int i, ctx_cnt = 0, synced_cnt = 0;
+	unsigned int pipe_id, ctx_cnt = 0, synced_cnt = 0;
+	int i;
 	bool ret = false;
 
 	/* pick out the used ctxs */
@@ -1425,7 +1425,7 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 		MTK_CAM_TRACE_END(BASIC); /* frame_sync_end */
 	}
 
-	if (ctx->used_raw_num) {
+	if (ctx->used_raw_num && raw_dev) {
 		if (atomic_read(&raw_dev->vf_en) == 0 &&
 			ctx->sensor_ctrl.initial_cq_done == 1 &&
 			s_data->frame_seq_no == 1) {
@@ -1839,7 +1839,7 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 	struct mtk_camsys_ctrl_state *state_temp, *state_outer = NULL;
 	struct mtk_camsys_ctrl_state *state_ready = NULL;
 	struct mtk_camsys_ctrl_state *state_cq = NULL;
-	struct mtk_camsys_ctrl_state *state_rec[STATE_NUM_AT_SOF];
+	struct mtk_camsys_ctrl_state *state_rec[STATE_NUM_AT_SOF] = {};
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *req_stream_data;
 	int frame_idx_inner = irq_info->frame_idx_inner;
@@ -1986,7 +1986,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 	struct mtk_camsys_ctrl_state *state_temp, *state_outer = NULL;
 	struct mtk_camsys_ctrl_state *state_sensor = NULL;
 	struct mtk_camsys_ctrl_state *state_inner = NULL;
-	struct mtk_camsys_ctrl_state *state_rec[STATE_NUM_AT_SOF];
+	struct mtk_camsys_ctrl_state *state_rec[STATE_NUM_AT_SOF] = {};
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_cam_request_stream_data *prev_stream_data = NULL;
 	int frame_idx_inner = irq_info->frame_idx_inner;
@@ -2326,7 +2326,7 @@ static int mtk_camsys_ts_state_handle(
 {
 	struct mtk_cam_ctx *ctx = sensor_ctrl->ctx;
 	struct mtk_camsys_ctrl_state *state_temp = NULL;
-	struct mtk_camsys_ctrl_state *state_rec[STATE_NUM_AT_SOF];
+	struct mtk_camsys_ctrl_state *state_rec[STATE_NUM_AT_SOF] = {};
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *req_stream_data;
 	int stateidx;
@@ -2480,7 +2480,7 @@ static void mtk_cam_mstream_frame_sync(struct mtk_raw_device *raw_dev,
 	if (s_data)
 		req = s_data->req;
 
-	if (req) {
+	if (s_data && req) {
 		ctx->trigger_next_drain = false;
 
 		/* whether 1exp or 2exp, s_data[0] always holds scenario  */
@@ -2509,7 +2509,7 @@ static void mtk_cam_mstream_frame_sync(struct mtk_raw_device *raw_dev,
 					raw_dev->sof_count);
 				/* after mask out, reset mask frame seq */
 				ctx->next_sof_mask_frame_seq_no = 1;
-			} else if (s_data && s_data->no_frame_done_cnt) {
+			} else if (s_data->no_frame_done_cnt) {
 				/* bypass if sof just sent */
 				if (s_data->frame_seq_no != ctx->next_sof_mask_frame_seq_no - 1) {
 					dev_dbg(raw_dev->dev, "mstream [SOF] p1done delay frame idx:%d with-req frame:%d\n",
@@ -2657,9 +2657,6 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 	spin_lock(&sensor_ctrl->camsys_state_lock);
 	list_for_each_entry(state_temp, &sensor_ctrl->camsys_state_list,
 			    state_element) {
-		req = mtk_cam_ctrl_state_get_req(state_temp);
-		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
-
 		if (state_temp->estate == E_STATE_INNER && state_inner == NULL)
 			state_inner = state_temp;
 		else if (state_temp->estate == E_STATE_SENSOR && state_sensor == NULL)
@@ -2695,12 +2692,14 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 	 * The legacy code checks if it is 2 exp odt mstream, however
 	 * it only always run use 2 exp.
 	 */
-	if (mtk_cam_ctx_has_raw(ctx) &&
+	if (mtk_cam_ctx_has_raw(ctx) && req_stream_data &&
 	    mtk_cam_scen_is_mstream_m2m(req_stream_data->feature.scen) &&
 	    mtk_cam_scen_is_2_exp(req_stream_data->feature.scen)) {
 		if (mtk_cam_raw_prepare_mstream_frame_done(ctx, req_stream_data)) {
 			dequeue_cnt = mtk_cam_dequeue_req_frame(ctx,
 					dequeued_frame_seq_no, ctx->stream_id);
+		} else {
+			dequeue_cnt = 0;
 		}
 	} else {
 		/* here */
@@ -2809,7 +2808,7 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
 	struct mtk_cam_working_buf_entry *buf_entry;
-	struct mtk_camsys_ctrl_state *current_state;
+	struct mtk_camsys_ctrl_state *current_state = NULL;
 	dma_addr_t base_addr;
 	enum MTK_CAMSYS_STATE_RESULT state_handle_ret;
 	bool is_apply = false;
@@ -2842,7 +2841,6 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	/* Detect no frame done and trigger camsys dump for debugging */
 	mtk_cam_debug_detect_dequeue_failed(req_stream_data, 30, irq_info, raw_dev);
 	if (ctx->sensor) {
-		current_state = NULL;
 		if (mtk_cam_ctx_has_raw(ctx) &&
 		    mtk_cam_scen_is_subsample(&ctx->pipe->scen_active))
 			state_handle_ret =
@@ -3101,7 +3099,8 @@ static void seamless_switch_check_bad_frame(
 		if (switch_type &&
 			!mtk_cam_feature_change_is_mstream(switch_type)) {
 			req_bad = mtk_cam_get_req(ctx, frame_seq_no - 1);
-			raw_pipe_done = req_bad->done_status & (1 << ctx->pipe->id);
+			if (req_bad)
+				raw_pipe_done = req_bad->done_status & (1 << ctx->pipe->id);
 			if (req_bad && raw_pipe_done == 0) {
 				raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
 				s_data_bad = mtk_cam_req_get_s_data(req_bad, ctx->stream_id, 0);
@@ -3949,7 +3948,7 @@ mtk_camsys_raw_prepare_frame_done(struct mtk_raw_device *raw_dev,
 	struct mtk_cam_request *state_req;
 	struct mtk_cam_request *state_req_done;
 	struct mtk_cam_request_stream_data *s_data;
-	struct mtk_cam_request_stream_data *s_data_done;
+	struct mtk_cam_request_stream_data *s_data_done = NULL;
 
 	if (!ctx->sensor) {
 		dev_info(cam->dev, "%s: no sensor found in ctx:%d, req:%d",
@@ -4487,11 +4486,13 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 					break;
 				}
 
-			if (!ctx_2) {
-				dev_dbg(raw_dev->dev, "%s: time sharing ctx-%d deq_no(%d)\n",
-				 __func__, ctx_2->stream_id, ctx_2->dequeued_frame_seq_no+1);
+			if (ctx_2) {
+				dev_dbg(raw_dev->dev,
+					"%s: time sharing ctx-%d deq_no(%d)\n",
+					__func__, ctx_2->stream_id,
+					ctx_2->dequeued_frame_seq_no + 1);
 				mtk_camsys_ts_raw_try_set(raw_dev, ctx_2,
-								ctx_2->dequeued_frame_seq_no + 1);
+							  ctx_2->dequeued_frame_seq_no + 1);
 			}
 		}
 		mtk_camsys_ts_raw_try_set(raw_dev, ctx, ctx->dequeued_frame_seq_no + 1);
@@ -4567,7 +4568,7 @@ static int mtk_camsys_camsv_state_handle(
 	struct mtk_cam_ctx *ctx = sensor_ctrl->ctx;
 	struct mtk_camsys_ctrl_state *state_temp;
 	struct mtk_camsys_ctrl_state *state_outer = NULL, *state_inner = NULL;
-	struct mtk_camsys_ctrl_state *state_rec[STATE_NUM_AT_SOF];
+	struct mtk_camsys_ctrl_state *state_rec[STATE_NUM_AT_SOF] = {};
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *req_stream_data;
 	int stateidx;
@@ -5657,7 +5658,9 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_camsys_sensor_ctrl *camsys_sensor_ctrl = &ctx->sensor_ctrl;
 	struct v4l2_subdev_frame_interval fi;
-	int fps_factor = 1, sub_ratio = 0;
+	int fps_factor, sub_ratio = 0;
+
+	memset(&fi, 0, sizeof(fi));
 
 	fi.pad = 0;
 	v4l2_subdev_call(ctx->sensor, video, g_frame_interval, &fi);
@@ -5734,6 +5737,8 @@ void mtk_camsys_ctrl_update(struct mtk_cam_ctx *ctx, int sensor_ctrl_factor)
 	struct mtk_camsys_sensor_ctrl *camsys_sensor_ctrl = &ctx->sensor_ctrl;
 	struct v4l2_subdev_frame_interval fi;
 	int fps_factor = 1, sub_ratio = 0;
+
+	memset(&fi, 0, sizeof(fi));
 
 	if (ctx->used_raw_num) {
 		fi.pad = 0;
@@ -6033,11 +6038,17 @@ void mtk_camsys_extisp_yuv_frame_start(struct mtk_camsv_device *camsv,
 			E_STATE_EXTISP_SV_OUTER, E_STATE_EXTISP_OUTER);
 		state_transition(current_state,
 			E_STATE_EXTISP_SV_INNER, E_STATE_EXTISP_OUTER);
-		dev_info(camsv->dev,
-		"YUVSOF[ctx:%d-#%d], CQ-%d is update, composed:%d, time:%lld, monotime:%lld\n",
-		ctx->stream_id, dequeued_frame_seq_no, req_stream_data->frame_seq_no,
-		ctx->composed_frame_seq_no, req_stream_data->timestamp,
-		req_stream_data->timestamp_mono);
+		if (req_stream_data)
+			dev_info(camsv->dev,
+			"YUVSOF[ctx:%d-#%d], CQ-%d is update, composed:%d, time:%lld, monotime:%lld\n",
+			ctx->stream_id, dequeued_frame_seq_no, req_stream_data->frame_seq_no,
+			ctx->composed_frame_seq_no, req_stream_data->timestamp,
+			req_stream_data->timestamp_mono);
+		else
+			dev_info(camsv->dev,
+			"YUVSOF[ctx:%d-#%d], CQ is update, composed:%d\n",
+			ctx->stream_id, dequeued_frame_seq_no,
+			ctx->composed_frame_seq_no);
 	}
 }
 
