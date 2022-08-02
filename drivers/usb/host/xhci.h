@@ -2274,6 +2274,9 @@ struct xhci_vendor_ops {
 	void (*alloc_container_ctx)(struct xhci_hcd *xhci, struct xhci_container_ctx *ctx,
 				    int type, gfp_t flags);
 	void (*free_container_ctx)(struct xhci_hcd *xhci, struct xhci_container_ctx *ctx);
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+	bool (*is_streaming)(struct xhci_hcd *xhci);
+#endif
 };
 
 struct xhci_vendor_ops *xhci_vendor_get_ops(struct xhci_hcd *xhci);
@@ -2283,7 +2286,9 @@ void xhci_vendor_free_transfer_ring(struct xhci_hcd *xhci,
 		struct xhci_ring *ring, unsigned int ep_index);
 bool xhci_vendor_is_usb_offload_enabled(struct xhci_hcd *xhci,
 		struct xhci_virt_device *virt_dev, unsigned int ep_index);
-
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+bool xhci_vendor_is_streaming(struct xhci_hcd *xhci);
+#endif
 #endif
 /*
  * TODO: As per spec Isochronous IDT transmissions are supported. We bypass

@@ -35,11 +35,17 @@
 #define USB_OFFLOAD_TRBS_PER_SEGMENT	512
 #define USB_OFFLOAD_TRB_SEGMENT_SIZE	(USB_OFFLOAD_TRBS_PER_SEGMENT*16)
 
+#define USB_OFFLOAD_USE_SRAM	0
+#define SRAM_ADDR			0x11052000
+#define SRAM_TOTAL_SIZE		0x12000
+#define SRAM_TR_SIZE		0x4000
+#define SRAM_TR_OFST		0x20C0
+
 struct usb_offload_buffer *buf_dcbaa;
 struct usb_offload_buffer *buf_ctx;
 struct usb_offload_buffer *buf_seg;
 
-struct usb_offload_dram {
+struct usb_offload_mem_info {
 	unsigned long long phy_addr;
 	unsigned long long va_addr;
 	unsigned long long size;
@@ -54,9 +60,10 @@ struct usb_offload_buffer {
 	bool allocated;
 };
 
-enum {
-	USB_OFFLOAD_SHARE_MEM_ID = 0,
-	USB_OFFLOAD_SHARE_MEM_NUM,
+enum usb_offload_mem_id {
+	USB_OFFLOAD_MEM_DRAM_ID = 0,
+	USB_OFFLOAD_MEM_SRAM_ID = 1,
+	USB_OFFLOAD_MEM_NUM,
 };
 
 enum {
@@ -94,7 +101,20 @@ enum usb_audio_device_speed {
 	USB_AUDIO_DEVICE_SPEED_ENUM_MAX_VAL = INT_MAX,
 };
 
-struct mpu_info_xhci {
+enum ssusb_offload_mode {
+	SSUSB_OFFLOAD_MODE_NONE = 0,
+	SSUSB_OFFLOAD_MODE_D,
+	SSUSB_OFFLOAD_MODE_S,
+};
+
+/* struct ssusb_offload */
+struct ssusb_offload {
+	struct device *dev;
+	int	(*get_mode)(struct device *dev);
+};
+
+struct mem_info_xhci {
+	bool use_sram;
 	unsigned int xhci_data_addr;
 	unsigned int xhci_data_size;
 };
@@ -188,10 +208,20 @@ struct usb_offload_dev {
 	struct device *dev;
 	u32 intr_num;
 	unsigned long card_slot;
+	enum usb_offload_mem_id mem_id;
+	bool default_use_sram;
+	int current_mem_mode;
+	bool is_streaming;
+	struct ssusb_offload *ssusb_offload_notify;
+	struct mutex dev_lock;
 };
 
 extern int mtk_usb_offload_allocate_mem(struct usb_offload_buffer *buf,
-		unsigned int size, int align);
-extern int mtk_usb_offload_free_mem(struct usb_offload_buffer *buf);
+		unsigned int size, int align, enum usb_offload_mem_id mem_id);
+extern int mtk_usb_offload_free_mem(struct usb_offload_buffer *buf, enum usb_offload_mem_id mem_id);
+extern int ssusb_offload_register(struct ssusb_offload *offload);
+extern int ssusb_offload_unregister(struct device *dev);
+
+
 extern bool usb_offload_ready(void);
 #endif /* __USB_OFFLOAD_H__ */

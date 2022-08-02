@@ -632,12 +632,55 @@ static int xhci_mtk_setup(struct usb_hcd *hcd)
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+bool xhci_vendor_is_streaming(struct xhci_hcd *xhci)
+{
+	struct xhci_vendor_ops *ops = xhci_vendor_get_ops(xhci);
+
+	if (ops && ops->is_streaming)
+		return ops->is_streaming(xhci);
+	return 0;
+}
+
+static int xhci_mtk_bus_suspend(struct usb_hcd *hcd)
+{
+	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+	int ret;
+
+	if (xhci_vendor_is_streaming(xhci)) {
+		pr_info("%s - USB_OFFLOAD bypass\n", __func__);
+		return 0;
+	}
+	ret = xhci_bus_suspend(hcd);
+
+	return ret;
+}
+
+static int xhci_mtk_bus_resume(struct usb_hcd *hcd)
+{
+	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+	int ret;
+
+	if (xhci_vendor_is_streaming(xhci)) {
+		pr_info("%s - USB_OFFLOAD bypass\n", __func__);
+		return 0;
+	}
+	ret = xhci_bus_resume(hcd);
+
+	return ret;
+}
+#endif
+
 static const struct xhci_driver_overrides xhci_mtk_overrides __initconst = {
 	.reset = xhci_mtk_setup,
 	.add_endpoint = xhci_mtk_add_ep,
 	.drop_endpoint = xhci_mtk_drop_ep,
 	.check_bandwidth = xhci_mtk_check_bandwidth,
 	.reset_bandwidth = xhci_mtk_reset_bandwidth,
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+	.bus_suspend = xhci_mtk_bus_suspend,
+	.bus_resume = xhci_mtk_bus_resume,
+#endif
 };
 
 static struct hc_driver __read_mostly xhci_mtk_hc_driver;
@@ -897,6 +940,13 @@ static int __maybe_unused xhci_mtk_suspend(struct device *dev)
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
 	int ret;
 
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+	if (xhci_vendor_is_streaming(xhci)) {
+		pr_info("%s - USB_OFFLOAD bypass\n", __func__);
+		return 0;
+	}
+#endif
+
 	xhci_dbg(xhci, "%s: stop port polling\n", __func__);
 	clear_bit(HCD_FLAG_POLL_RH, &hcd->flags);
 	del_timer_sync(&hcd->rh_timer);
@@ -927,6 +977,13 @@ static int __maybe_unused xhci_mtk_resume(struct device *dev)
 	struct usb_hcd *hcd = mtk->hcd;
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
 	int ret;
+
+#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
+		if (xhci_vendor_is_streaming(xhci)) {
+			pr_info("%s - USB_OFFLOAD bypass\n", __func__);
+			return 0;
+		}
+#endif
 
 	usb_wakeup_set(mtk, false);
 	if (!mtk->keep_clk_on) {
