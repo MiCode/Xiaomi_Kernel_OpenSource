@@ -59,11 +59,13 @@ f include/trace/events/block.h
 f include/trace/events/f2fs.h
 f kernel/audit.c
 f kernel/fork.c
+f kernel/irq_work.c
 f kernel/printk/printk.c
 f kernel/printk/printk_ringbuffer.c
 f kernel/printk/printk_ringbuffer.h
 f kernel/sched/core.c
 f kernel/signal.c
+f kernel/time/timer.c
 f kernel/trace/trace.c
 f kernel/trace/trace_events.c
 f kernel/workqueue.c
