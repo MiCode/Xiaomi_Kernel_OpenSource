@@ -3857,7 +3857,7 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 					req_stream_data->frame_seq_no, state_entry->estate);
 				fixed_clklv = mtk_cam_handle_seamless_switch(req_stream_data);
 				scen = req_stream_data->feature.scen;
-				if (mtk_cam_scen_is_mstream(scen)) {
+				if (mtk_cam_scen_is_mstream_is_2_exp(scen)) {
 					atomic_set(&sensor_ctrl->isp_enq_seq_no,
 							req_stream_data->frame_seq_no);
 					mtk_cam_handle_mstream_mux_switch(raw_dev,
