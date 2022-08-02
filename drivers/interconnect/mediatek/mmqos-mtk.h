@@ -11,6 +11,7 @@
 #include <linux/platform_device.h>
 #include <linux/workqueue.h>
 #include <soc/mediatek/mmqos.h>
+#include <linux/kernel.h>
 #define MMQOS_NO_LINK			(0xffffffff)
 #define MMQOS_MAX_COMM_NUM		(3)
 #define MMQOS_MAX_COMM_PORT_NUM		(10)
@@ -127,4 +128,36 @@ int mtk_mmqos_remove(struct platform_device *pdev);
 void mtk_mmqos_init_hrt(struct mmqos_hrt *hrt);
 int mtk_mmqos_register_hrt_sysfs(struct device *dev);
 void mtk_mmqos_unregister_hrt_sysfs(struct device *dev);
+
+/* For systrace */
+enum MMQOS_PROFILE_LEVEL {
+	MMQOS_PROFILE_MET = 0,
+	MMQOS_PROFILE_SYSTRACE = 1,
+	MMQOS_PROFILE_MAX /* Always keep at the end */
+};
+bool mmqos_systrace_enabled(void);
+int tracing_mark_write(char *fmt, ...);
+
+#define TRACE_MSG_LEN	1024
+
+#define MMQOS_TRACE_FORCE_BEGIN_TID(tid, fmt, args...) \
+	tracing_mark_write("B|%d|" fmt "\n", tid, ##args)
+
+#define MMQOS_TRACE_FORCE_BEGIN(fmt, args...) \
+	MMQOS_TRACE_FORCE_BEGIN_TID(current->tgid, fmt, ##args)
+
+#define MMQOS_TRACE_FORCE_END() \
+	tracing_mark_write("E\n")
+
+#define MMQOS_SYSTRACE_BEGIN(fmt, args...) do { \
+	if (mmqos_systrace_enabled()) { \
+		MMQOS_TRACE_FORCE_BEGIN(fmt, ##args); \
+	} \
+} while (0)
+
+#define MMQOS_SYSTRACE_END() do { \
+	if (mmqos_systrace_enabled()) { \
+		MMQOS_TRACE_FORCE_END(); \
+	} \
+} while (0)
 #endif /* MMQOS_MTK_H */

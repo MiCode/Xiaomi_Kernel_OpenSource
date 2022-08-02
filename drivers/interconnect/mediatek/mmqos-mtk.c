@@ -31,6 +31,8 @@
 
 static u32 mmqos_state = MMQOS_ENABLE;
 
+static int ftrace_ena;
+
 struct common_port_node {
 	struct mmqos_base_node *base;
 	struct common_node *common;
@@ -217,6 +219,7 @@ static void set_comm_icc_bw(struct common_node *comm_node)
 	u32 volt, i, j, comm_id;
 	s32 ret;
 
+	MMQOS_SYSTRACE_BEGIN("%s %s\n", __func__, comm_node->base->icc_node->name);
 	list_for_each_entry(comm_port_node, &comm_node->comm_port_list, list) {
 		mutex_lock(&comm_port_node->bw_lock);
 		avg_bw += comm_port_node->latest_avg_bw;
@@ -278,8 +281,12 @@ static void set_comm_icc_bw(struct common_node *comm_node)
 		}
 		comm_node->smi_clk = smi_clk;
 	}
+	MMQOS_SYSTRACE_BEGIN("to EMI avg %d peak %d\n", avg_bw, peak_bw);
 	icc_set_bw(comm_node->icc_path, avg_bw, 0);
 	icc_set_bw(comm_node->icc_hrt_path, peak_bw, 0);
+	MMQOS_SYSTRACE_END();
+
+	MMQOS_SYSTRACE_END();
 }
 
 static void update_hrt_bw(struct mtk_mmqos *mmqos)
@@ -318,6 +325,7 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 	u32 value = 1;
 	u32 comm_id, chnn_id, port_id;
 
+	MMQOS_SYSTRACE_BEGIN("%s %s->%s\n", __func__, src->name, dst->name);
 	switch (NODE_TYPE(dst->id)) {
 	case MTK_MMQOS_NODE_COMMON:
 		comm_node = (struct common_node *)dst->data;
@@ -450,6 +458,7 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 	default:
 		break;
 	}
+	MMQOS_SYSTRACE_END();
 	return 0;
 }
 
@@ -464,6 +473,7 @@ static int mtk_mmqos_aggregate(struct icc_node *node,
 	if (!node || !node->data)
 		return 0;
 
+	MMQOS_SYSTRACE_BEGIN("%s %s\n", __func__, node->name);
 	switch (NODE_TYPE(node->id)) {
 	case MTK_MMQOS_NODE_LARB_PORT:
 		larb_port_node = (struct larb_port_node *)node->data;
@@ -494,6 +504,8 @@ static int mtk_mmqos_aggregate(struct icc_node *node,
 		*agg_peak += 1000; /* for BWL soft mode */
 	else
 		*agg_peak += peak_bw;
+
+	MMQOS_SYSTRACE_END();
 	return 0;
 }
 
@@ -819,12 +831,40 @@ int mtk_mmqos_remove(struct platform_device *pdev)
 	return 0;
 }
 
+bool mmqos_systrace_enabled(void)
+{
+	return ftrace_ena & (1 << MMQOS_PROFILE_SYSTRACE);
+}
+
+noinline int tracing_mark_write(char *fmt, ...)
+{
+#if IS_ENABLED(CONFIG_MTK_FTRACER)
+	char buf[TRACE_MSG_LEN];
+	va_list args;
+	int len;
+
+	va_start(args, fmt);
+	len = vsnprintf(buf, sizeof(buf), fmt, args);
+	va_end(args);
+
+	if (len >= TRACE_MSG_LEN) {
+		pr_notice("%s trace size %u exceed limit\n", __func__, len);
+		return -1;
+	}
+
+	trace_puts(buf);
+#endif
+	return 0;
+}
+
 module_param(log_level, uint, 0644);
 MODULE_PARM_DESC(log_level, "mmqos log level");
 
 module_param(mmqos_state, uint, 0644);
 MODULE_PARM_DESC(mmqos_state, "mmqos_state");
 
+module_param(ftrace_ena, uint, 0644);
+MODULE_PARM_DESC(ftrace_ena, "ftrace enable");
 
 EXPORT_SYMBOL_GPL(mtk_mmqos_remove);
 MODULE_LICENSE("GPL v2");
