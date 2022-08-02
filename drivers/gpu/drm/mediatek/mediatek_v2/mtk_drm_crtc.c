@@ -9077,7 +9077,7 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 	int index = drm_crtc_index(crtc);
 	struct mtk_ddp_comp *comp;
 	int i, j;
-	int crtc_idx = drm_crtc_index(crtc);
+	unsigned int crtc_idx = drm_crtc_index(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	/*Msync 2.0*/
 	unsigned long crtc_id = (unsigned long)drm_crtc_index(crtc);
