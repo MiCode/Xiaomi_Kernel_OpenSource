@@ -76,7 +76,7 @@ uint32_t msg_vcp_ready0, msg_vcp_ready1;
 char msg_vcp_err_info0[40], msg_vcp_err_info1[40];
 
 /* vcp ready status for notify*/
-unsigned int vcp_ready[VCP_CORE_TOTAL];
+volatile unsigned int vcp_ready[VCP_CORE_TOTAL];
 
 /* vcp enable status*/
 unsigned int vcp_enable[VCP_CORE_TOTAL];
@@ -859,6 +859,11 @@ int vcp_disable_pm_clk(enum feature_id id)
 		flush_workqueue(vcp_reset_workqueue);
 #endif
 		waitCnt = vcp_wait_ready_sync(id);
+
+		mutex_lock(&vcp_A_notify_mutex);
+		vcp_extern_notify(VCP_EVENT_STOP);
+		mutex_unlock(&vcp_A_notify_mutex);
+
 		vcp_disable_irqs();
 		vcp_ready[VCP_A_ID] = 0;
 
@@ -879,10 +884,6 @@ int vcp_disable_pm_clk(enum feature_id id)
 			readl(VCP_BUS_DEBUG_OUT), waitCnt);
 
 		vcp_disable_dapc();
-		mutex_lock(&vcp_A_notify_mutex);
-		vcp_extern_notify(VCP_EVENT_STOP);
-		mutex_unlock(&vcp_A_notify_mutex);
-
 		vcp_wait_awake_count();
 
 		ret = pm_runtime_put_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
