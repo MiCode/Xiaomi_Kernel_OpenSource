@@ -423,8 +423,10 @@ enum hrtimer_restart ged_sw_vsync_check_cb(struct hrtimer *timer)
 		} else if (loading_mode == LOADING_MAX_3DTA) {
 			gpu_loading =
 			MAX(util_ex.util_3d, util_ex.util_ta);
-		} else if (loading_mode == LOADING_ITER_ACTIVE) {
+		} else if (loading_mode == LOADING_ITER) {
 			gpu_loading = util_ex.util_iter;
+		} else if (loading_mode == LOADING_MAX_ITERMCU) {
+			gpu_loading = MAX(util_ex.util_iter, util_ex.util_mcu);
 		}
 
 		if (false == g_bGPUClock && 0 == gpu_loading

@@ -1221,15 +1221,16 @@ noinline void Policy__Frame_based__Workload(int v1, int v2)
 }
 
 noinline void Policy__Frame_based__Workload__Source(unsigned int v1,
-	unsigned int v2, unsigned int v3, unsigned int v4, unsigned int v5)
+	unsigned int v2, unsigned int v3, unsigned int v4, unsigned int v5,
+	unsigned int v6)
 {
 	char buf[256];
 	int cx;
 
 	if (ged_log_perf_trace_enable) {
 		cx = snprintf(buf, sizeof(buf),
-			"gpueb=%u, ap_active=%u, ap_3d=%u, ap_iter=%u, mode=%u\n",
-			v1, v2, v3, v4, v5);
+			"gpueb=%u, ap_active=%u, ap_3d=%u, ap_iter=%u, ap_mcu=%u, mode=%u\n",
+			v1, v2, v3, v4, v5, v6);
 		if (cx >= 0 && cx < sizeof(buf))
 			trace_printk(buf);
 	}
@@ -1250,15 +1251,15 @@ noinline void Policy__Frame_based__GPU_Time(int v1, int v2, int v3)
 }
 
 noinline void Policy__Frame_based__GPU_Time__Detail(int v1, int v2, int v3,
-	int v4)
+	int v4, int v5)
 {
 	char buf[256];
 	int cx;
 
 	if (ged_log_perf_trace_enable) {
 		cx = snprintf(buf, sizeof(buf),
-			"t_gpu_done_interval=%d, t_gpu_active=%d, t_gpu_3d=%d, t_gpu_iter=%d\n",
-				v1, v2, v3, v4);
+			"t_gpu_done_interval=%d, t_gpu_active=%d, t_gpu_3d=%d, t_gpu_iter=%d, t_gpu_mcu=%d\n",
+				v1, v2, v3, v4, v5);
 		if (cx >= 0 && cx < sizeof(buf))
 			trace_printk(buf);
 	}
@@ -1315,15 +1316,15 @@ noinline void Policy__Loading_based__Loading(unsigned int v1, unsigned int v2)
 }
 
 noinline void Policy__Loading_based__Loading__Detail(unsigned int v1, unsigned int v2,
-	unsigned int v3, unsigned int v4, unsigned int v5, int v6)
+	unsigned int v3, unsigned int v4, unsigned int v5, unsigned int v6, int v7)
 {
 	char buf[256];
 	int cx;
 
 	if (ged_log_perf_trace_enable) {
 		cx = snprintf(buf, sizeof(buf),
-			"active=%u, 3d=%u, ta=%u, compute=%u, iter=%u, mode=%d\n",
-			v1, v2, v3, v4, v5, v6);
+			"active=%u, 3d=%u, ta=%u, compute=%u, iter=%u, mcu=%u, mode=%d\n",
+			v1, v2, v3, v4, v5, v6, v7);
 		if (cx >= 0 && cx < sizeof(buf))
 			trace_printk(buf);
 	}
