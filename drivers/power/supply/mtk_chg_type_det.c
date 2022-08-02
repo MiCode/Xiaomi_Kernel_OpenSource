@@ -310,8 +310,7 @@ static int mtk_ctd_probe(struct platform_device *pdev)
 
 	mtk_ctd_parse_dt(mci);
 
-	mci->bc12_psy = devm_power_supply_get_by_phandle(&pdev->dev,
-							"bc12");
+	mci->bc12_psy = power_supply_get_by_name("primary_chg");
 	if (IS_ERR_OR_NULL(mci->bc12_psy)) {
 		dev_notice(&pdev->dev, "Failed to get charger psy\n");
 		return PTR_ERR(mci->bc12_psy);

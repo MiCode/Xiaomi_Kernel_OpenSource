@@ -2197,7 +2197,7 @@ static int rt9490_charger_probe(struct platform_device *pdev)
 	}
 
 	desc = &data->chg_desc;
-	desc->name = dev_name(&pdev->dev);
+	desc->name = data->chg_name;
 	desc->type = POWER_SUPPLY_TYPE_USB;
 	desc->properties = rt9490_charger_properties;
 	desc->num_properties = ARRAY_SIZE(rt9490_charger_properties);

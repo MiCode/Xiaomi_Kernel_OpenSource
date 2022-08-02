@@ -2508,6 +2508,7 @@ static int mt6375_chg_get_iio_adc(struct mt6375_chg_data *ddata)
 
 static int mt6375_chg_init_psy(struct mt6375_chg_data *ddata)
 {
+	struct mt6375_chg_platform_data *pdata = dev_get_platdata(ddata->dev);
 	struct power_supply_config cfg = {
 		.drv_data = ddata,
 		.of_node = ddata->dev->of_node,
@@ -2517,7 +2518,7 @@ static int mt6375_chg_init_psy(struct mt6375_chg_data *ddata)
 
 	mt_dbg(ddata->dev, "%s: entry. Init power supply now.\n", __func__);
 	memcpy(&ddata->psy_desc, &mt6375_psy_desc, sizeof(ddata->psy_desc));
-	ddata->psy_desc.name = dev_name(ddata->dev);
+	ddata->psy_desc.name = pdata->chg_name;
 	ddata->psy = devm_power_supply_register(ddata->dev, &ddata->psy_desc,
 						&cfg);
 	return IS_ERR(ddata->psy) ? PTR_ERR(ddata->psy) : 0;
