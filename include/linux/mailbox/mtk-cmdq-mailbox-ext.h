@@ -182,6 +182,7 @@ struct cmdq_pkt {
 	cmdq_aee_cb		aee_cb;
 	void			*user_priv; /* cmdq user use only */
 	u32			vcp_eng;
+	bool		no_pool;
 	struct cmdq_append append;
 
 	struct work_struct	destroy_work;

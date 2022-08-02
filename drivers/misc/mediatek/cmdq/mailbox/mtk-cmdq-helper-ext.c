@@ -733,11 +733,11 @@ struct cmdq_pkt_buffer *cmdq_pkt_alloc_buf(struct cmdq_pkt *pkt)
 	}
 
 	/* try dma pool if available */
-	if (pkt->cur_pool.pool)
+	if (pkt->cur_pool.pool && !pkt->no_pool)
 		buf->va_base = cmdq_mbox_pool_alloc_impl(pkt->cur_pool.pool,
 			use_iommu ? &buf->iova_base : &buf->pa_base,
 			pkt->cur_pool.cnt, *pkt->cur_pool.limit);
-	else if (cl) {
+	else if (cl && !pkt->no_pool) {
 		struct client_priv *priv = (struct client_priv *)cl->cl_priv;
 
 		buf->va_base = cmdq_mbox_pool_alloc(cl,
