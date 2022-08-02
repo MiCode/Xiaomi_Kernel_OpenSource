@@ -1454,12 +1454,12 @@ static int mtkdip_ioc_add_kva(struct v4l2_subdev *subdev, void *arg)
 	for (i = 0; i < fd_info->fd_num; i++) {
 		buf_va_info = (struct buf_va_info_t *)
 			vzalloc(sizeof(vlist_type(struct buf_va_info_t)));
-		INIT_LIST_HEAD(vlist_link(buf_va_info, struct buf_va_info_t));
 		if (buf_va_info == NULL) {
 			dev_info(imgsys_pipe->imgsys_dev->dev, "%s: null buf_va_info\n",
 								__func__);
 			return -EINVAL;
 		}
+		INIT_LIST_HEAD(vlist_link(buf_va_info, struct buf_va_info_t));
 
 		if (!fd_info->fds[i]) {
 			dev_info(imgsys_pipe->imgsys_dev->dev, "%s: zero fd bypassed\n",
