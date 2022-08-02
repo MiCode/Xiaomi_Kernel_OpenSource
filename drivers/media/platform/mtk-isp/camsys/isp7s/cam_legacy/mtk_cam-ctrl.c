@@ -5820,6 +5820,7 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 	}
 	INIT_LIST_HEAD(&camsys_sensor_ctrl->camsys_state_list);
 	spin_lock_init(&camsys_sensor_ctrl->camsys_state_lock);
+	spin_lock_init(&camsys_sensor_ctrl->drained_check_lock);
 	if (ctx->sensor) {
 		hrtimer_init(&camsys_sensor_ctrl->sensor_deadline_timer,
 			     CLOCK_MONOTONIC, HRTIMER_MODE_REL);

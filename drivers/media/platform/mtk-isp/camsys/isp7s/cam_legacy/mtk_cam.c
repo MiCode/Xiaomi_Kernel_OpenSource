@@ -6774,6 +6774,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 {
 	unsigned int i, j;
 	struct mtk_cam_scen *scen;
+	unsigned long flags;
 
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (req->pipe_used & (1 << i)) {
@@ -6813,7 +6814,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			if (ctx->used_raw_num) {
 				req_stream_data = mtk_cam_req_get_s_data(req, stream_id, 0);
 				scen = req_stream_data->feature.scen;
-				spin_lock(&sensor_ctrl->drained_check_lock);
+				spin_lock_irqsave(&sensor_ctrl->drained_check_lock, flags);
 				drained_seq_no = atomic_read(&sensor_ctrl->last_drained_seq_no);
 				dev_dbg(cam->dev, "%s: feature s_data(%d) scen(%s)\n",
 					__func__, req_stream_data->frame_seq_no,
@@ -6840,7 +6841,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 							sensor_ctrl->sensorsetting_wq,
 							sensor_ctrl);
 				}
-				spin_unlock(&sensor_ctrl->drained_check_lock);
+				spin_unlock_irqrestore(&sensor_ctrl->drained_check_lock, flags);
 			}
 			immediate_switch_sensor = mtk_cam_is_immediate_switch_req(req, stream_id);
 			switch_sensor = mtk_cam_is_raw_switch_req(req, stream_id);
