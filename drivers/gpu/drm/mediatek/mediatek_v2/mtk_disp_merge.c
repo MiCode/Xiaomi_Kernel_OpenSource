@@ -70,15 +70,24 @@ static inline struct mtk_disp_merge *comp_to_merge(struct mtk_ddp_comp *comp)
 
 static void mtk_merge_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
-	int ret;
-	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
+	int ret = 0;
+	struct mtk_drm_private *priv = NULL;
 
-	ret = pm_runtime_get_sync(comp->dev);
+	if (!comp) {
+		DDPPR_ERR("find comp fail\n");
+		return;
+	}
+
+	if (comp->mtk_crtc && comp->mtk_crtc->base.dev->dev_private)
+		priv = comp->mtk_crtc->base.dev->dev_private;
+	if (comp->dev)
+		ret = pm_runtime_get_sync(comp->dev);
+
 	if (ret < 0)
 		DRM_ERROR("Failed to enable power domain: %d\n", ret);
 	DDPMSG("%s\n", __func__);
 
-	if (priv->data->mmsys_id == MMSYS_MT6985) {
+	if (priv && priv->data && priv->data->mmsys_id == MMSYS_MT6985) {
 		cmdq_pkt_write(handle, comp->cmdq_base,
 				   comp->regs_pa + DISP_REG_VPP_MERGE_ENABLE, 0x1, ~0);
 	} else {

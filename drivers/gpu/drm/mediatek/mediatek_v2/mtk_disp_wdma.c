@@ -451,7 +451,7 @@ static void mtk_wdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 		return;
 	}
 
-	if (data->use_larb_control_sec && crtc_idx == 2) {
+	if (data && data->use_larb_control_sec && crtc_idx == 2) {
 		if (disp_sec_cb.cb != NULL) {
 			void __iomem *ovl0_2l_reg_addr;
 			switch (priv->data->mmsys_id) {
@@ -565,7 +565,7 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 		frame_rate = gsc->vrefresh;
 	res = gsc->dst_width * gsc->dst_height;
 
-	consume_rate = res * frame_rate;
+	consume_rate = (unsigned long long)res * frame_rate;
 	do_div(consume_rate, 1000);
 	consume_rate *= 125; /* PF = 100 */
 	do_div(consume_rate, 16 * 1000);
@@ -1142,7 +1142,7 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	mtk_ddp_write(comp, comp->fb->pitches[0],
 		DISP_REG_WDMA_DST_WIN_BYTE, handle);
 
-	if (wdma->data->use_larb_control_sec) {
+	if (wdma->data && wdma->data->use_larb_control_sec) {
 		if (wdma->data && wdma->data->check_wdma_sec_reg)
 			larb_ctl_dummy = wdma->data->check_wdma_sec_reg(comp);
 		if (larb_ctl_dummy) {

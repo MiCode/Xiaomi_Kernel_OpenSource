@@ -890,7 +890,7 @@ unsigned long long mtk_dpintf_get_frame_hrt_bw_base(
 	int vrefresh = drm_mode_vrefresh(&mtk_crtc->base.state->adjusted_mode);
 	u32 bpp = 3;
 
-	bw_base = vact * hact * vrefresh * 4 / 1000;
+	bw_base = (unsigned long long)vact * hact * vrefresh * 4 / 1000;
 	bw_base = bw_base * vtotal / vact;
 	bw_base = bw_base / 1000;
 

@@ -1229,6 +1229,11 @@ void ddic_dsi_send_switch_pgt(unsigned int cmd_num, u8 addr,
 
 	DDPMSG("%s start case_num:%d\n", __func__, val3);
 
+	if (!cmd_msg) {
+		DDPPR_ERR("cmd msg is NULL\n");
+		return;
+	}
+
 	if (!cmd_num)
 		return;
 	memset(cmd_msg, 0, sizeof(struct mtk_ddic_dsi_msg));
@@ -2008,11 +2013,15 @@ int mtk_drm_add_cb_data(struct cb_data_store *cb_data, unsigned int crtc_id)
 	struct cb_data_store *tmp_cb_data = NULL;
 	int search = 0;
 	unsigned long flags;
+	if (crtc_id >= MAX_CRTC) {
+		DDPMSG("%s, crtc_id is invalid\n", __func__);
+		return -1;
+	}
 
 	spin_lock_irqsave(&cb_data_clock_lock, flags);
 	list_for_each_entry(tmp_cb_data, &cb_data_list[crtc_id], link) {
 		if (!memcmp(&tmp_cb_data->data, &cb_data->data,
-				sizeof(struct cb_data_store))) {
+				sizeof(struct cmdq_cb_data))) {
 			search = 1;
 			break;
 		}
@@ -2036,7 +2045,8 @@ struct cb_data_store *mtk_drm_get_cb_data(unsigned int crtc_id)
 
 	spin_lock_irqsave(&cb_data_clock_lock, flags);
 
-	if (!list_empty(&cb_data_list[crtc_id]))
+	if (crtc_id < MAX_CRTC &&
+		(!list_empty(&cb_data_list[crtc_id])))
 		tmp_cb_data = list_first_entry(&cb_data_list[crtc_id],
 			struct cb_data_store, link);
 	spin_unlock_irqrestore(&cb_data_clock_lock, flags);
@@ -2372,6 +2382,7 @@ static void process_dbg_opt(const char *opt)
 			__func__, __LINE__);
 		cust_data->cmd = 2;
 		comp->funcs->io_cmd(comp, NULL, LCM_CUST_FUNC, (void *)cust_data);
+		kfree(cust_data->name);
 		kfree(cust_data);
 	} else if (strncmp(opt, "lcm0_reset", 10) == 0) {
 		struct mtk_ddp_comp *comp;
@@ -2881,7 +2892,8 @@ static void process_dbg_opt(const char *opt)
 
 			mtk_crtc = to_mtk_crtc(crtc);
 			comp = mtk_ddp_comp_request_output(mtk_crtc);
-			mtk_dp_intf_dump(comp);
+			if (comp)
+				mtk_dp_intf_dump(comp);
 		}
 	} else if (strncmp(opt, "arr4_enable", 11) == 0) {
 		struct mtk_ddp_comp *comp;

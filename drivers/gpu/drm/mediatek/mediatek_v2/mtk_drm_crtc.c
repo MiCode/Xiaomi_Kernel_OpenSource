@@ -1136,7 +1136,7 @@ int mtk_drm_setbacklight_grp(struct drm_crtc *crtc, unsigned int level,
 		bl_ext_config.cfg_flag = cfg_flag;
 		bl_ext_config.backlight_level = level;
 		bl_ext_config.elvss_pn = panel_ext_param;
-		if (comp->funcs && comp->funcs->io_cmd)
+		if (comp && comp->funcs && comp->funcs->io_cmd)
 			comp->funcs->io_cmd(comp, cmdq_handle, DSI_SET_BL_ELVSS, &bl_ext_config);
 
 	}
@@ -5243,7 +5243,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	struct drm_atomic_state *atomic_state = crtc_state->state;
 	struct drm_crtc *crtc = crtc_state->crtc;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
+	struct mtk_drm_private *priv = NULL;
 	struct drm_crtc_state *old_crtc_state =
 		drm_atomic_get_old_crtc_state(atomic_state, crtc);
 	struct mtk_crtc_state *old_mtk_state =
@@ -5258,6 +5258,8 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	unsigned int _dsi_state_dbg7_2 = 0;
 	ktime_t pf_time;
 
+	if (mtk_crtc && mtk_crtc->base.dev->dev_private)
+		priv = mtk_crtc->base.dev->dev_private;
 	DDPINFO("crtc_state:%x, atomic_state:%x, crtc:%x, pf:%u\n",
 		crtc_state, atomic_state, crtc, cb_data->pres_fence_idx);
 
@@ -5267,7 +5269,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 
 	CRTC_MMP_EVENT_START(id, frame_cfg, (unsigned long)cb_data->cmdq_handle, 0);
 
-	if ((drm_crtc_index(crtc) != 2) && (priv->power_state)) {
+	if ((drm_crtc_index(crtc) != 2) && (priv && priv->power_state)) {
 		// only VDO mode panel use CMDQ call
 		if (mtk_crtc && !mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
 				!cb_data->msync2_enable) {
@@ -5289,7 +5291,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	}
 
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
-	if ((id == 0) && (priv->power_state)) {
+	if ((id == 0) && (priv && priv->power_state)) {
 		ovl_status = *(unsigned int *)mtk_get_gce_backup_slot_va(mtk_crtc,
 				DISP_SLOT_OVL_STATUS);
 
@@ -5335,7 +5337,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	mtk_crtc_release_input_layer_fence(crtc, session_id);
 
 	// release present fence
-	if ((drm_crtc_index(crtc) != 2) && (priv->power_state)) {
+	if ((drm_crtc_index(crtc) != 2) && (priv && priv->power_state)) {
 		unsigned int fence_idx = readl(mtk_get_gce_backup_slot_va(mtk_crtc,
 				DISP_SLOT_PRESENT_FENCE(drm_crtc_index(crtc))));
 
@@ -5353,7 +5355,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	}
 
 	/* for wfd latency debug */
-	if ((id == 0 || id == 2) && (priv->power_state)) {
+	if ((id == 0 || id == 2) && (priv && priv->power_state)) {
 		unsigned int ovl_dsi_seq = 0;
 		unsigned int slot = (id == 0) ? DISP_SLOT_OVL_DSI_SEQ :
 							DISP_SLOT_OVL_WDMA_SEQ;
@@ -5371,7 +5373,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	if (!mtk_crtc_is_dc_mode(crtc) && id != 0)
 		mtk_crtc_release_output_buffer_fence(crtc, session_id);
 
-	if (priv->power_state)
+	if (priv && priv->power_state)
 		mtk_crtc_update_hrt_qos(crtc, cb_data->misc);
 	else
 		DDPINFO("crtc%d is disabled so skip update hrt qos\n", id);
