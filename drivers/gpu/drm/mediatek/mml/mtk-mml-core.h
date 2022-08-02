@@ -37,6 +37,9 @@ extern int mml_cmdq_err;
 extern int mml_qos;
 extern int mml_qos_log;
 
+/* define in mtk-mml-wrot.c */
+extern int mml_wrot_bkgd_en;
+
 #define mml_msg(fmt, args...) \
 do { \
 	if (mtk_mml_msg) \

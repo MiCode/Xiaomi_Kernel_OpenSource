@@ -77,7 +77,8 @@ static inline struct mml_mutex *comp_to_mutex(struct mml_comp *comp)
 }
 
 static s32 mutex_enable(struct mml_mutex *mutex, struct cmdq_pkt *pkt,
-			const struct mml_topology_path *path, u32 mutex_sof)
+			const struct mml_topology_path *path, u32 mutex_sof,
+			enum mml_mode mode)
 {
 	const phys_addr_t base_pa = mutex->comp.base_pa;
 	s32 mutex_id = -1;
@@ -92,6 +93,17 @@ static s32 mutex_enable(struct mml_mutex *mutex, struct cmdq_pkt *pkt,
 		if (mod->trigger)
 			mutex_mod[mod->index] |= 1 << mod->field;
 	}
+
+	if (unlikely(mml_wrot_bkgd_en) &&
+		(mode == MML_MODE_RACING || mode == MML_MODE_MML_DECOUPLE)) {
+		u32 comp_id = path->out_engine_ids[0];
+		struct mutex_module *mod = &mutex->modules[comp_id];
+
+		memset(mutex_mod, 0, sizeof(mutex_mod));
+		if (mod->trigger)
+			mutex_mod[mod->index] |= 1 << mod->field;
+	}
+
 	/* TODO: get sof group0 shift from dts */
 	mutex_mod[1] |= 1 << (24 + path->mux_group);
 
@@ -138,7 +150,7 @@ static s32 mutex_trigger(struct mml_comp *comp, struct mml_task *task,
 	const struct mml_topology_path *path = task->config->path[ccfg->pipe];
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 
-	return mutex_enable(mutex, pkt, path, 0x0);
+	return mutex_enable(mutex, pkt, path, 0x0, task->config->info.mode);
 }
 
 static const struct mml_comp_config_ops mutex_config_ops = {
@@ -284,7 +296,7 @@ static void mutex_addon_config(struct mtk_ddp_comp *ddp_comp,
 	if (cfg->config_type.type == ADDON_DISCONNECT)
 		mutex_disable(mutex, pkt, path);
 	else
-		mutex_enable(mutex, pkt, path, get_mutex_sof(&cfg->mutex));
+		mutex_enable(mutex, pkt, path, get_mutex_sof(&cfg->mutex), MML_MODE_DDP_ADDON);
 }
 
 static const struct mtk_ddp_comp_funcs ddp_comp_funcs = {

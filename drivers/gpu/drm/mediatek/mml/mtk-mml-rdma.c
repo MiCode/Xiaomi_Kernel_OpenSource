@@ -1266,7 +1266,10 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		    BIT(16);		/* PRE_ULTRA_EN */
 	/* racing case also enable urgent/ultra to not blocking disp */
 	if (unlikely(mml_racing_urgent)) {
-		gmcif_con ^= BIT(16) | BIT(15);	/* URGENT_EN: always */
+		if (mml_racing_urgent == 1)
+			gmcif_con ^= BIT(16) | BIT(15);	/* URGENT_EN: always */
+		else if (mml_racing_urgent == 2)
+			gmcif_con ^= BIT(13) | BIT(16);	/* ULTRA_EN: always */
 		rdma_reset_threshold(rdma, pkt, base_pa, hw_pipe, write_sec);
 	} else if (cfg->info.mode == MML_MODE_RACING) {
 		gmcif_con |= BIT(12) |	/* ULTRA_EN */
@@ -1712,11 +1715,11 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 static s32 rdma_wait(struct mml_comp *comp, struct mml_task *task,
 		     struct mml_comp_config *ccfg, u32 idx)
 {
-	struct mml_comp_rdma *rdma = comp_to_rdma(comp);
-	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	if (unlikely(mml_wrot_bkgd_en))
+		return 0;
 
 	/* wait rdma frame done */
-	cmdq_pkt_wfe(pkt, rdma->event_eof);
+	cmdq_pkt_wfe(task->pkts[ccfg->pipe], comp_to_rdma(comp)->event_eof);
 	return 0;
 }
 

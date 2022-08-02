@@ -38,6 +38,11 @@ module_param(mml_ir_loop, int, 0644);
 int mml_racing_sleep = 16000;
 module_param(mml_racing_sleep, int, 0644);
 
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+int mml_ddp_dump = 1;
+module_param(mml_ddp_dump, int, 0644);
+#endif
+
 enum mml_comp_type {
 	MML_CT_COMPONENT = 0,
 	MML_CT_SYS,
@@ -1178,7 +1183,14 @@ static void ddp_comp_dump(const struct mml_topology_path *path)
 static void sys_ddp_dump(struct mtk_ddp_comp *ddp_comp)
 {
 #if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
-	struct mml_sys *sys = ddp_comp_to_sys(ddp_comp);
+	struct mml_sys *sys;
+
+	if (!mml_ddp_dump) {
+		mml_err("Inline rotate direct link fail");
+		return;
+	}
+
+	sys = ddp_comp_to_sys(ddp_comp);
 
 	ddp_comp_dump(sys->ddp_path[0]);
 	ddp_comp_dump(sys->ddp_path[1]);

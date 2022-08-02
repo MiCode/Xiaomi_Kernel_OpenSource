@@ -119,6 +119,11 @@ module_param(mml_racing_rdone, int, 0644);
 int mml_wrot_crc;
 module_param(mml_wrot_crc, int, 0644);
 
+int mml_wrot_bkgd_en;
+module_param(mml_wrot_bkgd_en, int, 0644);
+int mml_wrot_bkgd;
+module_param(mml_wrot_bkgd, int, 0644);
+
 /* ceil_m and floor_m helper function */
 static u32 ceil_m(u64 n, u64 d)
 {
@@ -1148,6 +1153,12 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 		       (out_swap	<<  8) +
 		       (hw_fmt		<<  0), 0xf131510f);
 
+
+	if (unlikely(mml_wrot_bkgd_en)) {
+		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_CTRL, BIT(5), BIT(5));
+		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_BKGD, mml_wrot_bkgd, U32_MAX);
+	}
+
 	if (MML_FMT_10BIT_LOOSE(dest_fmt)) {
 		scan_10bit = 1;
 		bit_num = 1;
@@ -1707,16 +1718,16 @@ static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
 			base_pa + VIDO_OFST_ADDR_V,
 			base_pa + VIDO_OFST_ADDR_HIGH_V, ofst.v);
 
-	/* Write source size */
-	wrot_in_xsize = in_xe  - in_xs + 1;
-	wrot_in_ysize = in_ye  - in_ys  + 1;
+	/* Write source size and target size */
+	wrot_in_xsize = in_xe - in_xs + 1;
+	wrot_in_ysize = in_ye - in_ys + 1;
+	wrot_tar_xsize = out_xe - out_xs + 1;
+	wrot_tar_ysize = out_ye - out_ys + 1;
+
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_IN_SIZE,
 		       (wrot_in_ysize << 16) + (wrot_in_xsize <<  0),
 		       U32_MAX);
 
-	/* Write target size */
-	wrot_tar_xsize = out_xe - out_xs + 1;
-	wrot_tar_ysize = out_ye - out_ys + 1;
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_TAR_SIZE,
 		       (wrot_tar_ysize << 16) + (wrot_tar_xsize <<  0),
 		       U32_MAX);
