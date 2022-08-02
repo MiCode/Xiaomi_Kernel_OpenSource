@@ -65,6 +65,8 @@ static struct rproc *ccu_rproc;
 static DEFINE_MUTEX(mmdvfs_ccu_pwr_mutex);
 static int ccu_power;
 struct ipi_callbacks clk_cb;
+static DEFINE_MUTEX(mmdvfs_clkmux_mutex);
+static unsigned int clk_en_cnt_expected;
 static unsigned int clk_en_cnt;
 
 static int last_ccu_freq = -1;
@@ -585,13 +587,28 @@ static const struct clk_ops mtk_mmdvfs_req_ops = {
 
 static int mmdvfs_set_vcp_init(void)
 {
-	int ret;
+	int i, ret;
 	struct mmdvfs_ipi_data slot;
 
 	ret = mmdvfs_vcp_ipi_send(FUNT_VMRC_SET_VCP_INIT, MAX_OPP, MAX_OPP, MAX_OPP);
 
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
 	MMDVFS_DBG("ret:%d slot:%#x ack:%hhu", ret, slot, slot.ack);
+
+	if (clk_en_cnt == clk_en_cnt_expected)
+		return 0;
+
+	mutex_lock(&mmdvfs_clkmux_mutex);
+	for (i = 0; i < 32; i++) {
+		if ((clk_en_cnt & (1 << i)) == (clk_en_cnt_expected & (1 << i)))
+			continue;
+
+		MMDVFS_DBG("i:%d expected:%d", i, (clk_en_cnt_expected & (1 << i)) ? 1 : 0);
+		ret = mmdvfs_vcp_ipi_send(FUNC_SET_CLK,
+			i, (clk_en_cnt_expected & (1 << i)) ? 1 : 0, MAX_OPP);
+	}
+	clk_en_cnt = clk_en_cnt_expected;
+	mutex_unlock(&mmdvfs_clkmux_mutex);
 
 	return 0;
 }
@@ -773,11 +790,10 @@ static struct kernel_param_ops mmdvfs_vote_step_ops = {
 module_param_cb(vote_step, &mmdvfs_vote_step_ops, NULL, 0644);
 MODULE_PARM_DESC(vote_step, "vote mmdvfs to specified step");
 
-static int vcp_ready_notify_callback(struct notifier_block *this,
-	unsigned long event, void *ptr)
+static int mmdvfs_vcp_notifier_callback(struct notifier_block *nb, unsigned long action, void *data)
 {
 
-	switch (event) {
+	switch (action) {
 	case VCP_EVENT_READY:
 		mmdvfs_set_vcp_init();
 		break;
@@ -1023,6 +1039,12 @@ static int mtk_mmdvfs_clk_ctrl(const u8 clk_idx, const bool enable)
 	if (is_vcp_suspending_ex())
 		return 0;
 
+	mutex_lock(&mmdvfs_clkmux_mutex);
+	if (enable)
+		clk_en_cnt_expected |= 1 << clk_idx;
+	else
+		clk_en_cnt_expected &= ~(1 << clk_idx);
+
 	ret = mmdvfs_vcp_ipi_send(FUNC_SET_CLK, clk_idx, enable, MAX_OPP);
 
 	if (!ret) {
@@ -1031,6 +1053,7 @@ static int mtk_mmdvfs_clk_ctrl(const u8 clk_idx, const bool enable)
 		else
 			clk_en_cnt &= ~(1 << clk_idx);
 	}
+	mutex_unlock(&mmdvfs_clkmux_mutex);
 
 	if (log_level & (1 << log_clk)) {
 		struct mmdvfs_ipi_data slot =
@@ -1040,7 +1063,7 @@ static int mtk_mmdvfs_clk_ctrl(const u8 clk_idx, const bool enable)
 			ret, slot, slot.idx, slot.opp, clk_en_cnt);
 	}
 
-	return ret;
+	return 0;
 }
 
 static int mtk_mmdvfs_clk_enable(const u8 clk_idx)
@@ -1148,7 +1171,7 @@ static int mmdvfs_vcp_init_thread(void *data)
 		ssleep(1);
 	}
 
-	vcp_ready_notifier.notifier_call = vcp_ready_notify_callback;
+	vcp_ready_notifier.notifier_call = mmdvfs_vcp_notifier_callback;
 	vcp_A_register_notify_ex(&vcp_ready_notifier);
 
 	mmdvfs_init_done = true;
