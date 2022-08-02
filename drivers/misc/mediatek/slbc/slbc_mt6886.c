@@ -60,9 +60,10 @@ static struct pm_qos_request slbc_qos_request;
 
 static struct mtk_slbc *slbc;
 
-#define _BIT_(_bit_) ((uint32_t)(1 << (_bit_)))
-#define SLBC_CHECK_TIME msecs_to_jiffies(1000)
-#define SLBC_CHECK_TIMEOUT msecs_to_jiffies(5000)
+#define _BIT_(_bit_)		((uint32_t)(1 << (_bit_)))
+#define SLBC_CHECK_TIME		msecs_to_jiffies(1000)
+#define SLBC_CHECK_TIMEOUT	msecs_to_jiffies(5000)
+#define SLBC_TIMEOUT_LIMIT	500
 
 static int slb_disable;
 static int slc_disable;
@@ -886,7 +887,7 @@ static int slbc_request_buffer(struct slbc_data *d)
 			slbc_debug_log("%s(%d) %s need to wait slb release!",
 						__func__, __LINE__, slbc_uid_str[uid]);
 			ret = -EWAIT_RELEASE;
-		} else {
+		} else if (d->timeout < SLBC_TIMEOUT_LIMIT) {
 			if (deact_sid_list) {
 				slbc_sid_cb_fail &= ~deact_sid_list;
 				slbc_debug_log("%s: %s clr slbc_sid_cb_fail %lx on %s %lx",
@@ -938,6 +939,10 @@ static int slbc_request_buffer(struct slbc_data *d)
 						__func__, __LINE__, slbc_uid_str[uid]);
 				ret = -ENOT_AVAILABLE;
 			}
+		} else {
+			slbc_debug_log("%s(%d) %s need to wait slb release(invalid timeout:%u ms)!",
+					__func__, __LINE__, slbc_uid_str[uid], d->timeout);
+			ret = -ENOT_AVAILABLE;
 		}
 	} else {
 		ret = _slbc_request_buffer_scmi(d);
