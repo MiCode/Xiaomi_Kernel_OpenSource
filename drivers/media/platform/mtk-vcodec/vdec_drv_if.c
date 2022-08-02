@@ -218,8 +218,15 @@ void vdec_decode_prepare(void *ctx_prepare,
 	mutex_lock(&ctx->hw_status);
 	ret = mtk_vdec_lock(ctx, hw_id);
 	mtk_vcodec_set_curr_ctx(ctx->dev, ctx, hw_id);
-	mtk_vcodec_dec_clock_on(&ctx->dev->pm, hw_id);
-	if (ret == 0 && !(mtk_vcodec_vcp & (1 << MTK_INST_DECODER)))
+	if (!ctx->dev->dec_always_on[hw_id]) {
+		mtk_vcodec_dec_clock_on(&ctx->dev->pm, hw_id);
+		if (ctx->dec_params.operating_rate >= MTK_VDEC_ALWAYS_ON_OP_RATE) {
+			ctx->power_type[hw_id] = VDEC_POWER_ALWAYS;
+			ctx->dev->dec_always_on[hw_id] = true;
+		}
+	}
+	if (ret == 0 && !(mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) &&
+	    ctx->power_type[hw_id] != VDEC_POWER_RELEASE)
 		enable_irq(ctx->dev->dec_irq[hw_id]);
 	mtk_vdec_dvfs_begin_frame(ctx, hw_id);
 	mtk_vdec_pmqos_begin_frame(ctx);
@@ -253,9 +260,13 @@ void vdec_decode_unprepare(void *ctx_unprepare,
 	else
 		vcodec_trace_count("VDEC_HW_LAT", 0);
 
-	if (!(mtk_vcodec_vcp & (1 << MTK_INST_DECODER)))
+	if (!(mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) &&
+	    ctx->power_type[hw_id] != VDEC_POWER_RELEASE)
 		disable_irq(ctx->dev->dec_irq[hw_id]);
-	mtk_vcodec_dec_clock_off(&ctx->dev->pm, hw_id);
+	if (!ctx->dev->dec_always_on[hw_id] || ctx->power_type[hw_id] == VDEC_POWER_RELEASE) {
+		mtk_vcodec_dec_clock_off(&ctx->dev->pm, hw_id);
+		ctx->dev->dec_always_on[hw_id] = false;
+	}
 	mtk_vcodec_set_curr_ctx(ctx->dev, NULL, hw_id);
 	mtk_vdec_unlock(ctx, hw_id);
 	mutex_unlock(&ctx->hw_status);
@@ -266,11 +277,25 @@ void vdec_check_release_lock(void *ctx_check)
 {
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_check;
 	int i;
+	bool is_always_on;
 
 	for (i = 0; i < MTK_VDEC_HW_NUM; i++) {
+		is_always_on = false;
+		if (ctx->power_type[i] == VDEC_POWER_ALWAYS) {
+			is_always_on = true;
+			ctx->power_type[i] = VDEC_POWER_RELEASE;
+			if (ctx->hw_locked[i] == 0)
+				vdec_decode_prepare(ctx, i); // for mtk_vdec_lock
+		}
 		if (ctx->hw_locked[i] == 1) {
 			vdec_decode_unprepare(ctx, i);
-			mtk_v4l2_err("[%d] daemon killed when holding lock %d", ctx->id, i);
+			ctx->power_type[i] = VDEC_POWER_NORMAL;
+			if (is_always_on)
+				mtk_v4l2_debug(2, "[%d] always power on inst clk off hw_id %d",
+					ctx->id, i);
+			else
+				mtk_v4l2_err("[%d] daemon killed when holding lock %d",
+					ctx->id, i);
 		}
 	}
 }

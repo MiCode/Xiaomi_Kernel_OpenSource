@@ -47,6 +47,7 @@
 #define MTK_MAX_CTRLS_HINT      64
 #define V4L2_BUF_FLAG_OUTPUT_NOT_GENERATED 0x02000000
 #define MTK_INVALID_TIMESTAMP   ((u64)-1)
+#define MTK_VDEC_ALWAYS_ON_OP_RATE 300
 
 #define MAX_CODEC_FREQ_STEP	10
 #define MTK_VDEC_PORT_NUM	64
@@ -231,6 +232,12 @@ enum venc_lock {
 	VENC_LOCK_NONE,
 	VENC_LOCK_NORMAL,
 	VENC_LOCK_SEC
+};
+
+enum vdec_power_type {
+	VDEC_POWER_NORMAL = 0,
+	VDEC_POWER_ALWAYS,
+	VDEC_POWER_RELEASE
 };
 
 /**
@@ -612,6 +619,7 @@ struct mtk_vcodec_ctx {
 
 	/* for user lock HW case release check */
 	struct mutex hw_status;
+	enum vdec_power_type power_type[MTK_VDEC_HW_NUM];
 	int hw_locked[MTK_VDEC_HW_NUM];
 	int core_locked[MTK_VENC_HW_NUM];
 	int async_mode;
@@ -740,6 +748,7 @@ struct mtk_vcodec_dev {
 
 	struct semaphore dec_sem[MTK_VDEC_HW_NUM];
 	struct semaphore enc_sem[MTK_VENC_HW_NUM];
+	bool dec_always_on[MTK_VDEC_HW_NUM];
 
 	struct mutex dec_dvfs_mutex;
 	struct mutex enc_dvfs_mutex;
