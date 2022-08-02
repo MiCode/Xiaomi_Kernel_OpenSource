@@ -73,7 +73,8 @@ static void actions_per_1s(void)
 	u64 dl_speed[DL_QUE_NUM];
 	u64 ul_speed[UL_QUE_NUM];
 	struct speed_t *ctl;
-	int i, ul_speed_total = 0, dl_speed_total = 0;
+	int i;
+	u64 ul_speed_total = 0, dl_speed_total = 0;
 
 	if (s_spd_cb_num_1s || s_spd_dl_cb_num_1s) {
 		/* Copy speed info */
