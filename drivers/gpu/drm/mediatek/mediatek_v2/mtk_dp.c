@@ -3961,8 +3961,10 @@ void mtk_dp_HPDInterruptSet(int bstatus)
 			mdrv_DPTx_InitPort(g_mtk_dp);
 			mhal_DPTx_USBC_HPD(g_mtk_dp, true);
 			g_mtk_dp->bPowerOn = true;
-		} else if (bstatus == HPD_DISCONNECT)
+		} else if (bstatus == HPD_DISCONNECT) {
 			mhal_DPTx_USBC_HPD(g_mtk_dp, false);
+			g_mtk_dp->bPowerOn = false;
+		}
 
 		mdrv_DPTx_USBC_HPD_Event(bstatus);
 		return;

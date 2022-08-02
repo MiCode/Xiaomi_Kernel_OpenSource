@@ -2122,7 +2122,7 @@ void mhal_DPTx_AuxSetting(struct mtk_dp *mtk_dp)
 	// modify timeout threshold = 1595 [12 : 8]
 	msWrite2ByteMask(mtk_dp,
 		REG_360C_AUX_TX_P0,
-		0x1D0C,  // 572us = 400us + 172bits (with 16 bytes data)
+		0x1FFE,  // 630us
 		AUX_TIMEOUT_THR_AUX_TX_P0_FLDMASK);
 	msWriteByteMask(mtk_dp,
 		REG_3658_AUX_TX_P0,
