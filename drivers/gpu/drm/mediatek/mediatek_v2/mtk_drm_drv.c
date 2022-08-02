@@ -1319,11 +1319,13 @@ static void mtk_atomic_mml(struct drm_device *dev,
 		else
 			return;
 	}
-
 	mtk_crtc = to_mtk_crtc(crtc);
+
+	if (mtk_crtc->is_mml && mtk_crtc_is_frame_trigger_mode(crtc) && mtk_drm_is_idle(crtc))
+		mtk_drm_idlemgr_kick(__func__, crtc, false);
+
 	last_is_mml = mtk_crtc->is_mml;
 	mtk_crtc->is_mml = false;
-	mtk_crtc->mml_ir_state = NOT_MML_IR;
 
 	for_each_old_plane_in_state(state, plane, old_plane_state, i) {
 		plane_state = plane->state;
@@ -1342,6 +1344,8 @@ static void mtk_atomic_mml(struct drm_device *dev,
 		mtk_crtc->mml_ir_state = MML_IR_RACING;
 	else if (last_is_mml && !mtk_crtc->is_mml)
 		mtk_crtc->mml_ir_state = MML_IR_LEAVING;
+	else
+		mtk_crtc->mml_ir_state = NOT_MML_IR;
 
 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
 		struct mtk_crtc_state *s = to_mtk_crtc_state(new_crtc_state);

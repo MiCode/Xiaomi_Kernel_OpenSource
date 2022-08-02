@@ -466,6 +466,7 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 				mtk_crtc->base.dev->dev_private;
 	struct mtk_ddp_comp *output_comp = NULL;
 	int en = 0;
+	bool wait = true;
 
 	DDPINFO("%s, crtc%d+\n", __func__, crtc_id);
 
@@ -475,11 +476,26 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 		return;
 	}
 
+	if (mtk_crtc->is_mml) {
+		struct cmdq_pkt *cmdq_handle;
+
+		mtk_crtc_pkt_create(&cmdq_handle, crtc, mtk_crtc->gce_obj.client[CLIENT_CFG]);
+		if (cmdq_handle) {
+			cmdq_pkt_clear_event(cmdq_handle,
+					     mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+			cmdq_pkt_clear_event(cmdq_handle,
+					     mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+			cmdq_pkt_flush(cmdq_handle);
+			cmdq_pkt_destroy(cmdq_handle);
+			wait = false;
+		}
+	}
+
 	/* 1. stop connector */
 	mtk_drm_idlemgr_disable_connector(crtc);
 
 	/* 2. stop CRTC */
-	mtk_crtc_stop(mtk_crtc, true);
+	mtk_crtc_stop(mtk_crtc, wait);
 
 	/* 3. disconnect addon module and recover config */
 	mtk_crtc_disconnect_addon_module(crtc);
@@ -576,7 +592,14 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 	mtk_crtc_config_default_path(mtk_crtc);
 
 	/* 6. conect addon module and config */
-	mtk_crtc_connect_addon_module(crtc);
+	if (!mtk_crtc->is_mml)
+		mtk_crtc_connect_addon_module(crtc);
+	else {
+		/* do not config mml addon module but dsc */
+		mtk_crtc_addon_connector_connect(crtc, NULL);
+		mtk_crtc_alloc_sram(mtk_crtc, mtk_state->prop_val[CRTC_PROP_LYE_IDX]);
+		mtk_crtc->is_mml = false; /* for MML_IR_ENTERING */
+	}
 
 	/* 7. restore OVL setting */
 	mtk_crtc_restore_plane_setting(mtk_crtc);
@@ -603,10 +626,6 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 
 	/* 12. enable fake vsync if need */
 	mtk_drm_fake_vsync_switch(crtc, true);
-
-	/* 13. alloc sram if last is MML */
-	if (mtk_crtc->is_mml)
-		mtk_crtc_alloc_sram(mtk_crtc, mtk_state->prop_val[CRTC_PROP_LYE_IDX]);
 
 	DDPINFO("crtc%d do %s-\n", crtc_id, __func__);
 }

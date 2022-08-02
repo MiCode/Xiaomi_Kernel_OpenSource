@@ -6397,8 +6397,8 @@ void mtk_crtc_disconnect_addon_module(struct drm_crtc *crtc)
 	cmdq_pkt_destroy(handle);
 }
 
-static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
-	struct cmdq_pkt *handle)
+void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
+	struct cmdq_pkt *_handle)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_panel_params *panel_ext = mtk_drm_get_lcm_ext_params(crtc);
@@ -6409,6 +6409,15 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 	if (panel_ext &&
 		panel_ext->output_mode == MTK_PANEL_DSC_SINGLE_PORT) {
 		struct mtk_ddp_config cfg;
+		bool flush = false;
+		struct cmdq_pkt *handle = NULL;
+
+		if (_handle) {
+			handle = _handle;
+		} else {
+			mtk_crtc_pkt_create(&handle, crtc, mtk_crtc->gce_obj.client[CLIENT_CFG]);
+			flush = true;
+		}
 
 		dsc_comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
 
@@ -6480,6 +6489,11 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 
 		mtk_ddp_comp_config(dsc_comp, &cfg, handle);
 		mtk_ddp_comp_start(dsc_comp, handle);
+
+		if (flush) {
+			cmdq_pkt_flush(handle);
+			cmdq_pkt_destroy(handle);
+		}
 	}
 
 }
@@ -6643,7 +6657,8 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 		struct mtk_plane_state *plane_state;
 
 		plane_state = to_mtk_plane_state(plane->state);
-		if (i >= OVL_PHY_LAYER_NR && !plane_state->comp_state.comp_id) {
+		if (!plane_state->pending.enable ||
+			(i >= OVL_PHY_LAYER_NR && !plane_state->comp_state.comp_id)) {
 			DDPINFO("%s i=%d comp_id=%u continue\n", __func__, i,
 				plane_state->comp_state.comp_id);
 			continue;
@@ -6893,6 +6908,12 @@ void mtk_crtc_check_trigger(struct mtk_drm_crtc *mtk_crtc, bool delay,
 		goto err;
 	}
 
+	if (mtk_crtc->is_mml) {
+		DDPINFO("%s:%d, skip check trigger when MML IR\n", __func__, __LINE__);
+		CRTC_MMP_MARK(index, kick_trigger, 0, 4);
+		goto err;
+	}
+
 	panel_ext = mtk_crtc->panel_ext;
 	mtk_state = to_mtk_crtc_state(crtc->state);
 	if (mtk_crtc_is_frame_trigger_mode(crtc) &&
@@ -6905,7 +6926,7 @@ void mtk_crtc_check_trigger(struct mtk_drm_crtc *mtk_crtc, bool delay,
 	if (delay) {
 		/* implicit way make sure wait queue was initiated */
 		if (unlikely(&mtk_crtc->trigger_delay_task == NULL)) {
-			CRTC_MMP_MARK(index, kick_trigger, 0, 4);
+			CRTC_MMP_MARK(index, kick_trigger, 0, 5);
 			goto err;
 		}
 		atomic_set(&mtk_crtc->trig_delay_act, 1);
@@ -6913,7 +6934,7 @@ void mtk_crtc_check_trigger(struct mtk_drm_crtc *mtk_crtc, bool delay,
 	} else {
 		/* implicit way make sure wait queue was initiated */
 		if (unlikely(&mtk_crtc->trigger_event_task == NULL)) {
-			CRTC_MMP_MARK(index, kick_trigger, 0, 5);
+			CRTC_MMP_MARK(index, kick_trigger, 0, 6);
 			goto err;
 		}
 		atomic_set(&mtk_crtc->trig_event_act, 1);
@@ -7177,7 +7198,7 @@ skip:
 		struct mtk_drm_sram_list *entry, *tmp;
 		struct mml_drm_ctx *mml_ctx = mtk_drm_get_mml_drm_ctx(crtc->dev, crtc);
 
-		mml_drm_stop(mml_ctx, mtk_crtc->mml_cfg, true);
+		mml_drm_stop(mml_ctx, mtk_crtc->mml_cfg, false);
 		mutex_lock(&mtk_crtc->mml_ir_sram.lock);
 		list_for_each_entry_safe(entry, tmp, &mtk_crtc->mml_ir_sram.list.head, head) {
 			list_del_init(&entry->head);

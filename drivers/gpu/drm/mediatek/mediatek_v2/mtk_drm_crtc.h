@@ -1097,6 +1097,7 @@ void mtk_crtc_mml_force_stop(struct drm_crtc *crtc);
 
 bool mtk_crtc_alloc_sram(struct mtk_drm_crtc *mtk_crtc, unsigned int hrt_idx);
 int mtk_crtc_attach_ddp_comp(struct drm_crtc *crtc, int ddp_mode, bool is_attach);
+void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc, struct cmdq_pkt *handle);
 
 /* ********************* Legacy DISP API *************************** */
 unsigned int DISP_GetScreenWidth(void);
