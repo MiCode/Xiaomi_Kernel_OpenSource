@@ -25,13 +25,13 @@ extern int arch_get_cluster_id(unsigned int cpu);
 extern int init_sched_avg(void);
 extern void exit_sched_avg(void);
 extern unsigned int get_cpu_util_pct(unsigned int cpu, bool orig);
-extern void set_over_threshold(unsigned int index, unsigned int val);
+extern int set_over_threshold(unsigned int index, unsigned int val);
 unsigned int get_over_threshold(int index);
 unsigned int get_max_capacity(unsigned int cid);
 extern unsigned int mtk_get_leakage(unsigned int cpu,
 				    unsigned int opp,
 				    unsigned int temperature);
-extern unsigned long pd_get_opp_capacity(int cpu, int opp);
+extern unsigned long pd_get_opp_capacity_legacy(int cpu, int opp);
 extern int get_max_nr_running(int cpu);
 
 #endif /* _SCHED_AVG_H */

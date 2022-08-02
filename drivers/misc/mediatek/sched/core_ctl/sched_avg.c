@@ -240,15 +240,14 @@ unsigned int get_max_capacity(unsigned int cid)
 EXPORT_SYMBOL(get_max_capacity);
 
 static void over_thresh_chg_notify(void);
-void set_over_threshold(unsigned int index, unsigned int val)
+int set_over_threshold(unsigned int index, unsigned int val)
 {
-	if (index >= OVER_THRES_SIZE)
-		return;
+	if (index >= OVER_THRES_SIZE || val > 100)
+		return -EINVAL;
 
-	if (val <= 100) {
-		over_thres[index] = (int)val;
-		over_thresh_chg_notify();
-	}
+	over_thres[index] = (int)val;
+	over_thresh_chg_notify();
+	return 0;
 }
 EXPORT_SYMBOL(set_over_threshold);
 

@@ -32,15 +32,13 @@
 #define TAG "core_ctl"
 
 struct ppm_table {
-	/* normal: cpu power data */
-	unsigned int static_pwr;
-	/* thermal: cpu power data */
-	unsigned int thermal_static_pwr;
-	unsigned int dyn_pwr;
+	unsigned int power;
+	unsigned int leakage;
+	unsigned int thermal_leakage;
+	unsigned int freq;
 	unsigned int capacity;
-	/* cpu cacpacity divide cpu power data */
-	unsigned int efficiency;
-	unsigned int thermal_efficiency;
+	unsigned int eff;
+	unsigned int thermal_eff;
 };
 
 struct cluster_ppm_data {
@@ -428,23 +426,29 @@ void set_not_preferred_locked(int cpu, bool enable)
 	}
 }
 
-static void set_up_thres(struct cluster_data *cluster, unsigned int val)
+static int set_up_thres(struct cluster_data *cluster, unsigned int val)
 {
 	unsigned int old_thresh;
 	unsigned long flags;
+	int ret = 0;
+
+	if (val > 100)
+		return -EINVAL;
 
 	spin_lock_irqsave(&state_lock, flags);
 	old_thresh = cluster->up_thres;
-	cluster->up_thres = val;
 
-	if (old_thresh != cluster->up_thres) {
-		update_next_cluster_down_thres(
+	if (old_thresh != val) {
+		ret = set_over_threshold(cluster->cluster_id, val);
+		if (!ret) {
+			cluster->up_thres = val;
+			update_next_cluster_down_thres(
 				cluster->cluster_id,
 				cluster->up_thres);
-		set_over_threshold(cluster->cluster_id,
-				       cluster->up_thres);
+		}
 	}
 	spin_unlock_irqrestore(&state_lock, flags);
+	return ret;
 }
 
 /* ==================== export function ======================== */
@@ -619,8 +623,7 @@ int core_ctl_set_up_thres(int cid, unsigned int val)
 		return -EINVAL;
 
 	cluster = &cluster_state[cid];
-	set_up_thres(cluster, val);
-	return 0;
+	return set_up_thres(cluster, val);
 }
 EXPORT_SYMBOL(core_ctl_set_up_thres);
 
@@ -878,17 +881,16 @@ static ssize_t show_ppm_state(const struct cluster_data *state, char *buf)
 		return count;
 	}
 
-	count += snprintf(buf + count, PAGE_SIZE - count,
-			"OPP   CAP   STATIC_45   STATIC_65   DYNC   EFF_45   EFF_85\n");
 	for (i = 0; i < opp_nr; i++) {
 		count += snprintf(buf + count, PAGE_SIZE - count,
-				"%4d  %4u   %8u   %8u   %8u   %8u   %8u\n", i,
+				"%4d: %8u %4u %8u %8u %8u %8u %8u\n", i,
+				state->ppm_data.ppm_tbl[i].freq,
 				state->ppm_data.ppm_tbl[i].capacity,
-				state->ppm_data.ppm_tbl[i].static_pwr,
-				state->ppm_data.ppm_tbl[i].thermal_static_pwr,
-				state->ppm_data.ppm_tbl[i].dyn_pwr,
-				state->ppm_data.ppm_tbl[i].efficiency,
-				state->ppm_data.ppm_tbl[i].thermal_efficiency);
+				state->ppm_data.ppm_tbl[i].power,
+				state->ppm_data.ppm_tbl[i].leakage,
+				state->ppm_data.ppm_tbl[i].thermal_leakage,
+				state->ppm_data.ppm_tbl[i].eff,
+				state->ppm_data.ppm_tbl[i].thermal_eff);
 	}
 	return count;
 }
@@ -1809,10 +1811,10 @@ static unsigned int find_turn_point(struct cluster_data *c1,
 					c1->ppm_data.ppm_tbl[i].capacity)
 				continue;
 
-			c1_eff = is_thermal ? c1->ppm_data.ppm_tbl[i].thermal_efficiency
-				: c1->ppm_data.ppm_tbl[i].efficiency;
-			c2_eff = is_thermal ? c2->ppm_data.ppm_tbl[j].thermal_efficiency
-				: c2->ppm_data.ppm_tbl[j].efficiency;
+			c1_eff = is_thermal ? c1->ppm_data.ppm_tbl[i].thermal_eff
+				: c1->ppm_data.ppm_tbl[i].eff;
+			c2_eff = is_thermal ? c2->ppm_data.ppm_tbl[j].thermal_eff
+				: c2->ppm_data.ppm_tbl[j].eff;
 			if (c2_eff < c1_eff ||
 					check_eff_precisely(
 						c1->ppm_data.ppm_tbl[i].capacity, c1_eff,
@@ -1872,16 +1874,15 @@ static int ppm_data_init(struct cluster_data *cluster)
 
 	for (i = 0; i < opp_nr; i++) {
 		ps = &pd->table[opp_nr-1-i];
-		ppm_tbl[i].dyn_pwr = ps->power << 10;
-		ppm_tbl[i].static_pwr = mtk_get_leakage(first_cpu, i, NORMAL_TEMP);
-		ppm_tbl[i].thermal_static_pwr = mtk_get_leakage(first_cpu, i, THERMAL_TEMP);
-		ppm_tbl[i].capacity = pd_get_opp_capacity(first_cpu, i);
-		ppm_tbl[i].efficiency =
-			div64_u64(ppm_tbl[i].static_pwr + ppm_tbl[i].dyn_pwr,
-					ppm_tbl[i].capacity);
-		ppm_tbl[i].thermal_efficiency =
-			div64_u64(ppm_tbl[i].thermal_static_pwr + ppm_tbl[i].dyn_pwr,
-					ppm_tbl[i].capacity);
+		ppm_tbl[i].power = em_scale_power(ps->power);
+		ppm_tbl[i].freq = ps->frequency;
+		ppm_tbl[i].leakage = mtk_get_leakage(first_cpu, i, NORMAL_TEMP);
+		ppm_tbl[i].thermal_leakage = mtk_get_leakage(first_cpu, i, THERMAL_TEMP);
+		ppm_tbl[i].capacity = pd_get_opp_capacity_legacy(first_cpu, i);
+		ppm_tbl[i].eff =
+			div64_u64(ppm_tbl[i].leakage + ppm_tbl[i].power, ppm_tbl[i].capacity);
+		ppm_tbl[i].thermal_eff = div64_u64(ppm_tbl[i].thermal_leakage + ppm_tbl[i].power,
+						ppm_tbl[i].capacity);
 	}
 
 	cluster->ppm_data.ppm_tbl = ppm_tbl;
