@@ -9411,6 +9411,11 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 		sof_count = raw->sof_count;
 	} else if (is_camsv_subdev(pipe_id)) {
 		camsv_dev = mtk_cam_get_used_sv_dev(ctx);
+		if (camsv_dev == NULL) {
+			dev_info(ctx->cam->dev, "%s:ctx/pipe_id(%d/%d):camsv device not found\n",
+				__func__, ctx->stream_id, pipe_id);
+			return;
+		}
 		dequeued_frame_seq_no =
 			readl_relaxed(camsv_dev->base_inner + REG_CAMSVCENTRAL_FRAME_SEQ_NO);
 		vf_en = readl_relaxed(camsv_dev->base_inner + REG_CAMSVCENTRAL_VF_CON) &
@@ -9420,7 +9425,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 		idx = pipe_id - MTKCAM_SUBDEV_MRAW_START;
 		dev = ctx->cam->mraw.devs[idx];
 		if (dev == NULL) {
-			dev_info(ctx->cam->dev, "%s:ctx/pipe_id(%d/%d):config mraw device not found\n",
+			dev_info(ctx->cam->dev, "%s:ctx/pipe_id(%d/%d):mraw device not found\n",
 				__func__, ctx->stream_id, pipe_id);
 			return;
 		}
@@ -9606,6 +9611,11 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 				is_vf_on = atomic_read(&raw->vf_en);
 			} else if (is_camsv_subdev(i)) {
 				camsv_dev = mtk_cam_get_used_sv_dev(ctx);
+				if (camsv_dev == NULL) {
+					dev_info(ctx->cam->dev, "%s:ctx/pipe_id(%d/%d):camsv device not found\n",
+						__func__, ctx->stream_id, i);
+					goto GET_DEV_FAILED;
+				}
 				watchdog_data->watchdog_time_diff_ns =
 					current_time_ns - camsv_dev->last_sof_time_ns;
 				sof_count = camsv_dev->sof_count;
@@ -9616,7 +9626,7 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 				idx = watchdog_data->pipe_id - MTKCAM_SUBDEV_MRAW_START;
 				dev = cam->mraw.devs[idx];
 				if (dev == NULL) {
-					dev_info(ctx->cam->dev, "%s:ctx/pipe_id(%d/%d):config mraw %d device not found\n",
+					dev_info(ctx->cam->dev, "%s:ctx/pipe_id(%d/%d):mraw %d device not found\n",
 						__func__, ctx->stream_id, i, idx);
 					goto GET_DEV_FAILED;
 				}
