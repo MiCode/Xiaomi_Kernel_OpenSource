@@ -6667,6 +6667,7 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 		else
 			mtk_ddp_comp_layer_config(comp, i, plane_state, cmdq_handle);
 
+#ifdef IF_ZERO
 		if (comp->id == DDP_COMPONENT_OVL2_2L
 			&& mtk_crtc->is_dual_pipe) {
 			DDPFUNC();
@@ -6685,6 +6686,8 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 			//will be used next time
 			plane_state->comp_state.comp_id = DDP_COMPONENT_OVL2_2L;
 		}
+#endif
+
 	}
 
 	if (mtk_drm_dal_enable() && drm_crtc_index(crtc) == 0)
