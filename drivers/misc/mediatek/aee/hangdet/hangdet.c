@@ -364,8 +364,9 @@ static void show_irq_count(void)
 	static unsigned int irq_counts[MAX_IRQ_NUM];
 	unsigned int count, unkick_cpu = cpumask_first(cpu_online_mask);
 	unsigned int unkick_cpumask = (get_kick_bit()^get_check_bit())&get_check_bit();
-	struct task_struct *tsk = READ_ONCE(cpu_curr(unkick_cpu));
-	u64 preempt_cnt = READ_ONCE(task_thread_info(tsk)->preempt_count);
+	struct task_struct *tsk = cpu_curr(unkick_cpu);
+	struct thread_info *ti = task_thread_info(tsk);
+	u64 preempt_cnt = READ_ONCE(ti->preempt_count);
 	struct irq_desc *desc;
 	char msg[64];
 	int irq;
