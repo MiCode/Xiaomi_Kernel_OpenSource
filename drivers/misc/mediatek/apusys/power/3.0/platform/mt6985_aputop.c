@@ -21,6 +21,7 @@
 #include "apusys_secure.h"
 #include "aputop_rpmsg.h"
 #include "apu_top.h"
+#include "aputop_log.h"
 #include "apu_hw_sema.h"
 #include "mt6985_apupwr.h"
 #include "mt6985_apupwr_prot.h"
@@ -294,6 +295,7 @@ static void aputop_dump_pll_data(void)
 static int __apu_wake_rpc_rcx(struct device *dev)
 {
 	int ret = 0, val = 0;
+
 	if (log_lvl)
 		dev_info(dev, "%s before wakeup RCX APU_RPC_INTF_PWR_RDY 0x%x = 0x%x\n",
 			 __func__,
@@ -316,10 +318,11 @@ static int __apu_wake_rpc_rcx(struct device *dev)
 		goto out;
 	}
 
-	dev_info(dev, "%s after wakeup RCX APU_RPC_INTF_PWR_RDY 0x%x = 0x%x\n",
-			__func__,
-			(u32)(apupw.phy_addr[apu_rpc] + APU_RPC_INTF_PWR_RDY),
-			readl(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY));
+	/*  show this once per 500ms */
+	apu_info_ratelimited(dev, "%s after wakeup RCX APU_RPC_INTF_PWR_RDY 0x%x = 0x%x\n",
+			     __func__,
+			     (u32)(apupw.phy_addr[apu_rpc] + APU_RPC_INTF_PWR_RDY),
+			     readl(apupw.regs[apu_rpc] + APU_RPC_INTF_PWR_RDY));
 
 	/* polling FSM @RPC-lite to ensure RPC is in on/off stage */
 	ret |= readl_relaxed_poll_timeout_atomic(
