@@ -29,6 +29,7 @@ enum vcp_pwr_usr {
 	VCP_PWR_USR_VFMT,
 	VCP_PWR_USR_IMG,
 	VCP_PWR_USR_CAM,
+	VCP_PWR_USR_SENIF,
 	VCP_PWR_USR_NUM
 };
 
