@@ -1116,13 +1116,11 @@ void __gpufreq_dump_infra_status(void)
 		__gpufreq_get_real_fgpu(), readl(TOPCK_CLK_CFG_30) & MFG_INT0_SEL_MASK,
 		__gpufreq_get_real_fstack(), readl(TOPCK_CLK_CFG_30) & MFGSC_INT1_SEL_MASK);
 
-	/* MALI_SHADER_READY_LO */
 	/* MFG_RPC_AO_CLK_CFG */
 	/* MFG_RPC_SLP_PROT_EN_STA */
 	/* MFG_RPC_IPS_SES_PWR_CON */
-	GPUFREQ_LOGI("%-11s (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x",
+	GPUFREQ_LOGI("%-11s (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x",
 		"[MFG]",
-		0x13000140, readl(MALI_SHADER_READY_LO),
 		0x13F91034, readl(MFG_RPC_AO_CLK_CFG),
 		0x13F91048, readl(MFG_RPC_SLP_PROT_EN_STA),
 		0x13F910FC, readl(MFG_RPC_IPS_SES_PWR_CON));

@@ -119,6 +119,22 @@ void gpueb_dump_status(void)
 }
 EXPORT_SYMBOL(gpueb_dump_status);
 
+void gpueb_dump_footprint(void)
+{
+	gpueb_pr_info("@%s: == [GPUEB FOOTPRINT] ==\n", __func__);
+
+	if (g_gpueb_gpr_base) {
+		gpueb_pr_info("@%s: LOW_POWER_FOOTPRINT_GPR: 0x%08x\n", __func__,
+			readl(g_gpueb_gpr_base + 0x14));
+		gpueb_pr_info("@%s: GPUFREQ_FOOTPRINT_GPR: 0x%08x\n", __func__,
+			readl(g_gpueb_gpr_base + 0x44));
+		gpueb_pr_info("@%s: GPUEB_DRAM_RES_STA_GPR: 0x%08x\n", __func__,
+			readl(g_gpueb_gpr_base + 0x40));
+	} else
+		gpueb_pr_info("@%s: skip null g_gpueb_gpr_base\n", __func__);
+}
+EXPORT_SYMBOL(gpueb_dump_footprint);
+
 void gpueb_trigger_wdt(const char *name)
 {
 	struct arm_smccc_res res;

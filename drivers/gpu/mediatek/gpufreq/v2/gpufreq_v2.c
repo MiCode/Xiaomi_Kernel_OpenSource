@@ -256,6 +256,7 @@ EXPORT_SYMBOL(gpufreq_set_ocl_timestamp);
  ***********************************************************************************/
 void gpufreq_dump_infra_status(void)
 {
+	gpueb_dump_footprint();
 	gpufreq_dump_dvfs_status();
 
 	/* implement on AP */
