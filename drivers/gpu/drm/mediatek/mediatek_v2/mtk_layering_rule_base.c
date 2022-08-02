@@ -2893,8 +2893,9 @@ static int dispatch_ovl_id(struct drm_mtk_layering_info *disp_info,
 static int check_layering_result(struct drm_mtk_layering_info *info,
 				 const enum SCN_FACTOR scn_decision_flag)
 {
-	int disp_idx;
+	int disp_idx, i;
 	bool no_disp = true;
+	struct drm_mtk_layer_config *c;
 
 	for (disp_idx = 0; disp_idx < HRT_DISP_TYPE_NUM; disp_idx++)
 		if (info->layer_num[disp_idx] > 0) {
@@ -2924,16 +2925,22 @@ static int check_layering_result(struct drm_mtk_layering_info *info,
 			DDPAEE("Inv ovl:%d,disp:%d\n", max_ovl_id, disp_idx);
 	}
 
-	if (l_rule_info->addon_scn[HRT_PRIMARY] == NONE) {
-		int i;
+	for (i = 0; i < info->layer_num[HRT_PRIMARY]; i++) {
+		c = &info->input_config[HRT_PRIMARY][i];
 
-		for (i = 0; i < info->layer_num[HRT_PRIMARY]; i++) {
-			struct drm_mtk_layer_config *c = &info->input_config[HRT_PRIMARY][i];
+		if (!mtk_has_layer_cap(c, MTK_MML_DISP_DIRECT_DECOUPLE_LAYER))
+			continue;
 
-			if (mtk_has_layer_cap(c, MTK_MML_DISP_DIRECT_DECOUPLE_LAYER)) {
-				c->layer_caps &= ~MTK_MML_DISP_DIRECT_DECOUPLE_LAYER;
-				c->layer_caps |= MTK_MML_DISP_NOT_SUPPORT;
-			}
+		if (l_rule_info->addon_scn[HRT_PRIMARY] == NONE) {
+			c->layer_caps &= ~MTK_MML_DISP_DIRECT_DECOUPLE_LAYER;
+			c->layer_caps |= MTK_MML_DISP_NOT_SUPPORT;
+			DDPINFO("remove ir caps if scn is not align to decision\n");
+		} else if ((scn_decision_flag & SCN_CLEAR) &&
+			   !mtk_has_layer_cap(c, MTK_DISP_CLIENT_CLEAR_LAYER)) {
+			c->layer_caps &= ~MTK_MML_DISP_DIRECT_DECOUPLE_LAYER;
+			c->layer_caps |= MTK_MML_DISP_NOT_SUPPORT;
+			l_rule_info->addon_scn[HRT_PRIMARY] = NONE;
+			DDPINFO("remove ir caps and scn if clear layer exist\n");
 		}
 	}
 
