@@ -2865,12 +2865,12 @@ static const struct mtk_mux top_muxes[] = {
 		7/* pdn */, CKSYS2_CLK_CFG_UPDATE1/* upd ofs */,
 		TOP_MUX_SENINF5_SHIFT/* upd shift */),
 	/* CKSYS2_CLK_CFG_14 */
-	MUX_HWV(CLK_TOP_VENC_SEL/* dts */, "venc_sel", venc_parents/* parent */,
+	MUX_HWV_FLAGS(CLK_TOP_VENC_SEL/* dts */, "venc_sel", venc_parents/* parent */,
 		CKSYS2_CLK_CFG_14, CKSYS2_CLK_CFG_14_SET, CKSYS2_CLK_CFG_14_CLR/* set parent */,
 		HWV_CG_27_DONE, HWV_CG_27_SET, HWV_CG_27_CLR, /* hwv */
 		0/* lsb */, 4/* width */,
 		7/* pdn */, CKSYS2_CLK_CFG_UPDATE1/* upd ofs */,
-		TOP_MUX_VENC_SHIFT/* upd shift */),
+		TOP_MUX_VENC_SHIFT/* upd shift */, CLK_SET_PARENT_DELAY),
 	MUX_IPI(CLK_TOP_VDEC_SEL/* dts */, "vdec_sel", vdec_parents/* parent */,
 		CKSYS2_CLK_CFG_14, CKSYS2_CLK_CFG_14_SET, CKSYS2_CLK_CFG_14_CLR/* set parent */,
 		HWV_CG_27_DONE, HWV_CG_27_SET, HWV_CG_27_CLR, /* hwv */

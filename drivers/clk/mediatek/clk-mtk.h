@@ -241,6 +241,7 @@ void mtk_free_clk_data(struct clk_onecell_data *clk_data);
 #define PLL_AO		BIT(1)
 #define CLK_USE_HW_VOTER	BIT(2)
 #define HWV_CHK_FULL_STA	BIT(3)
+#define CLK_SET_PARENT_DELAY	BIT(4)
 
 struct mtk_pll_div_table {
 	u32 div;

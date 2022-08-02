@@ -15,6 +15,7 @@ struct mtk_clk_mux {
 	struct regmap *hwv_regmap;
 	const struct mtk_mux *data;
 	spinlock_t *lock;
+	unsigned int flags;
 };
 
 struct mtk_mux {
@@ -135,6 +136,29 @@ extern const struct clk_ops mtk_ipi_mux_ops;
 		.parent_names = _parents,				\
 		.num_parents = ARRAY_SIZE(_parents),			\
 		.flags = CLK_SET_RATE_PARENT | CLK_USE_HW_VOTER,	\
+		.ops = &mtk_hwv_mux_ops,				\
+	}
+
+#define MUX_HWV_FLAGS(_id, _name, _parents, _mux_ofs,		\
+			_mux_set_ofs, _mux_clr_ofs, _hwv_sta_ofs,	\
+			_hwv_set_ofs, _hwv_clr_ofs, _shift, _width,	\
+			_gate, _upd_ofs, _upd, _flags) {		\
+		.id = _id,						\
+		.name = _name,						\
+		.mux_ofs = _mux_ofs,					\
+		.set_ofs = _mux_set_ofs,				\
+		.clr_ofs = _mux_clr_ofs,				\
+		.hwv_sta_ofs = _hwv_sta_ofs,				\
+		.hwv_set_ofs = _hwv_set_ofs,				\
+		.hwv_clr_ofs = _hwv_clr_ofs,				\
+		.upd_ofs = _upd_ofs,					\
+		.mux_shift = _shift,					\
+		.mux_width = _width,					\
+		.gate_shift = _gate,					\
+		.upd_shift = _upd,					\
+		.parent_names = _parents,				\
+		.num_parents = ARRAY_SIZE(_parents),			\
+		.flags = CLK_SET_RATE_PARENT | CLK_USE_HW_VOTER | _flags,	\
 		.ops = &mtk_hwv_mux_ops,				\
 	}
 

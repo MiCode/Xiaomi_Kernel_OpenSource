@@ -315,6 +315,10 @@ static int __mtk_clk_mux_set_parent_lock(struct clk_hw *hw, u8 index, bool setcl
 
 	if (setclr) {
 		regmap_read(mux->regmap, mux->data->mux_ofs, &orig);
+		if ((mux->flags & CLK_SET_PARENT_DELAY) == CLK_SET_PARENT_DELAY) {
+			mtk_clk_hwv_mux_enable(hw);
+			udelay(10);
+		}
 		val = (orig & ~(mask << mux->data->mux_shift))
 				| (index << mux->data->mux_shift);
 
@@ -435,6 +439,7 @@ static struct clk *mtk_clk_register_mux(const struct mtk_mux *mux,
 	clk_mux->hwv_regmap = hw_voter_regmap;
 	clk_mux->data = mux;
 	clk_mux->lock = lock;
+	clk_mux->flags = mux->flags;
 	clk_mux->hw.init = &init;
 
 	clk = clk_register(NULL, &clk_mux->hw);
