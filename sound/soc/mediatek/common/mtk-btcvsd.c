@@ -744,8 +744,8 @@ static irqreturn_t mtk_btcvsd_snd_irq_handler(int irq_id, void *dev)
 	if (bt->tx->state == BT_SCO_STATE_IDLE || bt->write_tx == 0) {
 		if (bt->isMblockSupport) {
 			arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
-			MTK_AUDIO_SMC_OP_BTCVSD_UPDATE_CTRL_UNDERFLOW,
-			0, 0, 0, 0, 0, 0, &res);
+				MTK_AUDIO_SMC_OP_BTCVSD_UPDATE_CTRL_UNDERFLOW,
+				0, 0, 0, 0, 0, 0, &res);
 		} else {
 			*bt->bt_reg_ctl |= BT_CVSD_TX_UNDERFLOW;
 		}
@@ -767,8 +767,17 @@ static irqreturn_t mtk_btcvsd_snd_irq_handler(int irq_id, void *dev)
 
 	return IRQ_HANDLED;
 irq_handler_exit:
-	*bt->bt_reg_ctl |= BT_CVSD_TX_UNDERFLOW;
-	*bt->bt_reg_ctl &= ~BT_CVSD_CLEAR;
+	if (bt->isMblockSupport) {
+		arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+			MTK_AUDIO_SMC_OP_BTCVSD_UPDATE_CTRL_UNDERFLOW,
+			0, 0, 0, 0, 0, 0, &res);
+		arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
+			MTK_AUDIO_SMC_OP_BTCVSD_UPDATE_CTRL_CLEAR,
+			0, 0, 0, 0, 0, 0, &res);
+	} else {
+		*bt->bt_reg_ctl |= BT_CVSD_TX_UNDERFLOW;
+		*bt->bt_reg_ctl &= ~BT_CVSD_CLEAR;
+	}
 	dev_warn(bt->dev, "%s(), irq_handler_exit, bt_reg_ctl = 0x%lx\n",
 		 __func__, *bt->bt_reg_ctl);
 
