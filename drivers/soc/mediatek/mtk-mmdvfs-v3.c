@@ -43,6 +43,9 @@ static DEFINE_MUTEX(mmdvfs_vcp_ipi_mutex);
 static void *mmdvfs_vb_enable_base;
 static void *mmdvfs_aging_enable_base;
 
+#define MMDVFS_VMM_CEIL_ENABLE_OFFSET 0xff0
+static void *mmdvfs_vmm_ceil_enable_base;
+
 static int log_level;
 static bool mmdvfs_init_done;
 static DEFINE_MUTEX(mmdvfs_vcp_pwr_mutex);
@@ -374,6 +377,10 @@ static inline bool mmdvfs_vcp_ipi_base_get(void)
 	if (!mmdvfs_vb_enable_base && mmdvfs_vcp_ipi_data_base)
 		mmdvfs_vb_enable_base = mmdvfs_vcp_ipi_data_base + MMDVFS_VB_ENABLE_OFFSET;
 
+	if (!mmdvfs_vmm_ceil_enable_base)
+		mmdvfs_vmm_ceil_enable_base =
+			mmdvfs_vcp_ipi_data_base + MMDVFS_VMM_CEIL_ENABLE_OFFSET;
+
 	if (mmdvfs_vcp_ipi_data_base)
 		mmdvfs_vcp_ipi_data_base += MMDVFS_VCP_IPI_DATA_OFFSET;
 
@@ -576,6 +583,19 @@ static const struct clk_ops mtk_mmdvfs_req_ops = {
 	.recalc_rate	= mtk_mmdvfs_recalc_rate,
 };
 
+static int mmdvfs_set_vcp_init(void)
+{
+	int ret;
+	struct mmdvfs_ipi_data slot;
+
+	ret = mmdvfs_vcp_ipi_send(FUNT_VMRC_SET_VCP_INIT, MAX_OPP, MAX_OPP, MAX_OPP);
+
+	slot = *(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
+	MMDVFS_DBG("ret:%d slot:%#x ack:%hhu", ret, slot, slot.ack);
+
+	return 0;
+}
+
 int mtk_mmdvfs_camera_notify(const bool enable)
 {
 	// TODO : replace from_mmqos
@@ -585,20 +605,17 @@ EXPORT_SYMBOL_GPL(mtk_mmdvfs_camera_notify);
 
 int mtk_mmdvfs_camera_notify_from_mmqos(const bool enable)
 {
-	struct mmdvfs_ipi_data slot;
-	int ret;
 
-	if (!mtk_is_mmdvfs_init_done()) {
-		MMDVFS_DBG("mmdvfs_v3 init not ready");
-		return 0;
+	if (!mmdvfs_vmm_ceil_enable_base) {
+		MMDVFS_ERR("mmdvfs_vmm_ceil_enable_base is NULL");
+		return -EINVAL;
 	}
 
-	mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_VMM_CEIL);
-	ret = mmdvfs_vcp_ipi_send(FUNC_CAMERA_ON, enable, MAX_OPP, MAX_OPP);
-	mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_VMM_CEIL);
+	writel(enable ? 1 : 0, mmdvfs_vmm_ceil_enable_base);
+	if (is_vcp_ready_ex(VCP_A_ID))
+		mmdvfs_set_vcp_init();
 
-	slot = *(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
-	MMDVFS_DBG("ret:%d slot:%#x ena:%hhu", ret, slot, slot.ack);
+	MMDVFS_DBG("enable:%u", enable);
 
 	return 0;
 }
@@ -755,19 +772,6 @@ static struct kernel_param_ops mmdvfs_vote_step_ops = {
 };
 module_param_cb(vote_step, &mmdvfs_vote_step_ops, NULL, 0644);
 MODULE_PARM_DESC(vote_step, "vote mmdvfs to specified step");
-
-static int mmdvfs_set_vcp_init(void)
-{
-	int ret;
-	struct mmdvfs_ipi_data slot;
-
-	ret = mmdvfs_vcp_ipi_send(FUNT_VMRC_SET_VCP_INIT, MAX_OPP, MAX_OPP, MAX_OPP);
-
-	slot = *(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
-	MMDVFS_DBG("ret:%d slot:%#x ack:%hhu", ret, slot, slot.ack);
-
-	return 0;
-}
 
 static int vcp_ready_notify_callback(struct notifier_block *this,
 	unsigned long event, void *ptr)
