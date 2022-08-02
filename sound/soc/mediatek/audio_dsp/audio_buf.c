@@ -806,6 +806,16 @@ void Ringbuf_Bridge_Check(struct ringbuf_bridge *buf_bridge)
 /* check if ringbur read write pointer */
 void Ringbuf_Check(struct RingBuf *RingBuf1)
 {
+	unsigned long pRead, pWrite, pBase, pEnd;
+
+	if (!RingBuf1)
+		return;
+
+	pRead = (unsigned long)RingBuf1->pRead;
+	pWrite = (unsigned long)RingBuf1->pWrite;
+	pBase = (unsigned long)RingBuf1->pBufBase;
+	pEnd = (unsigned long)RingBuf1->pBufEnd;
+
 	if (RingBuf1->pRead  ==  RingBuf1->pWrite) {
 #ifdef RINGBUF_COUNT_CHECK
 		if (RingBuf1->datacount != 0 && RingBuf1->datacount
@@ -850,6 +860,8 @@ void Ringbuf_Check(struct RingBuf *RingBuf1)
 	}
 	if (RingBuf1->pRead < RingBuf1->pBufBase ||
 	    RingBuf1->pRead > RingBuf1->pBufEnd) {
+		pr_info("pread = %lx pWrite = %lx pBase = %lx pEnd = %lx\n",
+			pRead, pWrite, pBase, pEnd);
 		dump_rbuf(RingBuf1);
 #if defined(__linux__)
 		dump_stack();
