@@ -121,6 +121,9 @@ struct seninf_core {
 	enum mtk_cam_seninf_csi_clk_for_param aov_csi_clk_switch_flag;
 	/* abnormal deinit flag */
 	u32 aov_abnormal_deinit_flag;
+	u32 aov_abnormal_deinit_usr_fd_kill_flag;
+	/* abnormal init flag */
+	u32 aov_abnormal_init_flag;
 };
 
 struct seninf_ctx {

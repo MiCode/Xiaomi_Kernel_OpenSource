@@ -715,6 +715,7 @@ enum mtk_cam_sensor_pm_ops {
 	AOV_PM_RELAX = 0,
 	AOV_PM_STAY_AWAKE,
 	AOV_ABNORMAL_FORCE_SENSOR_PWR_OFF,
+	AOV_ABNORMAL_FORCE_SENSOR_PWR_ON,
 };
 
 /* S E N I N F */

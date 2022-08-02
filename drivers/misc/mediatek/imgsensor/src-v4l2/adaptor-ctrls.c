@@ -574,6 +574,10 @@ static int _aov_switch_pm_ops(struct v4l2_ctrl *ctrl)
 		adaptor_hw_power_off(ctx);
 		dev_info(ctx->dev, "[%s] adaptor_hw_power_off(done)", __func__);
 		break;
+	case AOV_ABNORMAL_FORCE_SENSOR_PWR_ON:
+		adaptor_hw_power_on(ctx);
+		dev_info(ctx->dev, "[%s] adaptor_hw_power_on(done)", __func__);
+		break;
 	default:
 		dev_info(ctx->dev,
 			"[%s] function not support(%d)\n",

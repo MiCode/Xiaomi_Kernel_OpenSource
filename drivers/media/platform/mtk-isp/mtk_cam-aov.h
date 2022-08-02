@@ -64,11 +64,18 @@ struct mtk_seninf_aov_param {
 
 enum AOV_DEINIT_TYPE {
 	DEINIT_NORMAL = 0,
-	DEINIT_ABNORMAL,
+	DEINIT_ABNORMAL_USR_FD_KILL,
+	DEINIT_ABNORMAL_SCP_STOP,
+};
+
+enum AOV_INIT_TYPE {
+	INIT_NORMAL = 0,
+	INIT_ABNORMAL_SCP_READY,
 };
 
 extern int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
-	struct mtk_seninf_aov_param *aov_seninf_param);
+	struct mtk_seninf_aov_param *aov_seninf_param,
+	enum AOV_INIT_TYPE aov_seninf_init_type);
 
 extern int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id);
 

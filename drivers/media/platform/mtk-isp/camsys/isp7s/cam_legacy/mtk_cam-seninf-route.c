@@ -1808,13 +1808,16 @@ int aov_switch_pm_ops(struct seninf_ctx *ctx,
  *
  */
 int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
-				struct mtk_seninf_aov_param *aov_seninf_param)
+	struct mtk_seninf_aov_param *aov_seninf_param,
+	enum AOV_INIT_TYPE aov_seninf_init_type)
 {
 	unsigned int real_sensor_id = 0;
 	struct seninf_ctx *ctx = NULL;
 	struct seninf_vc *vc;
+	struct seninf_core *core = NULL;
 
-	pr_info("[%s]+ sensor_id(%d)\n", __func__, sensor_id);
+	pr_info("[%s]+ sensor_id(%d),aov_seninf_init_type(%u)\n",
+		__func__, sensor_id, aov_seninf_init_type);
 
 	if (g_aov_param.is_test_model) {
 		real_sensor_id = 5;
@@ -1836,7 +1839,24 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 	if (aov_ctx[real_sensor_id] != NULL) {
 		pr_info("[%s] sensor idx(%u)\n", __func__, real_sensor_id);
 		ctx = aov_ctx[real_sensor_id];
+		core = ctx->core;
 #ifdef SENSING_MODE_READY
+		switch (aov_seninf_init_type) {
+		case INIT_ABNORMAL_SCP_READY:
+			dev_info(ctx->dev,
+				"[%s] init type is abnormal(%u)!\n",
+				__func__, aov_seninf_init_type);
+			core->aov_abnormal_init_flag = 1;
+			/* seninf/sensor streaming on */
+			v4l2_subdev_call(&ctx->subdev, video, s_stream, 1);
+			break;
+		case INIT_NORMAL:
+		default:
+			dev_info(ctx->dev,
+				"[%s] init type is normal(%u)!\n",
+				__func__, aov_seninf_init_type);
+			break;
+		}
 		if (!g_aov_param.is_test_model) {
 			/* switch i2c bus scl from apmcu to scp */
 			aov_switch_i2c_bus_scl_aux(ctx, SCL7);
