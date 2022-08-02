@@ -48,6 +48,7 @@ struct mtk_disp_ddp_data {
 	unsigned int mutex_sof_reg;
 	const unsigned int *dispsys_map;
 	bool wakeup_pf_wq;
+	bool wakeup_esd_wq;
 };
 
 struct mtk_ddp {
@@ -69,6 +70,7 @@ struct mtk_ddp {
 	resource_size_t ovlsys1_regs_pa;
 	struct mtk_disp_mutex mutex[10];
 	const struct mtk_disp_ddp_data *data;
+	struct mtk_drm_crtc *mtk_crtc[MAX_CRTC];
 	struct cmdq_base *cmdq_base;
 };
 

@@ -11507,10 +11507,11 @@ static int mtk_drm_sf_pf_release_thread(void *data)
 }
 
 static int disp_mutex_dispatch(struct mtk_drm_private *priv, struct mtk_drm_crtc *mtk_crtc,
-			const struct mtk_crtc_path_data *path_data)
+			const struct mtk_crtc_path_data *path_data, unsigned int pipe)
 {
 	int i, j;
 	unsigned int max_path = 0, cur = 0;
+	struct mtk_ddp *ddp = dev_get_drvdata(priv->mutex_dev);
 
 	if (unlikely(!priv || !mtk_crtc || !path_data)) {
 		DDPPR_ERR("%s invalid parameter\n", __func__);
@@ -11526,7 +11527,7 @@ static int disp_mutex_dispatch(struct mtk_drm_private *priv, struct mtk_drm_crtc
 		if (max_path < cur)
 			max_path = cur;
 	}
-
+	ddp->mtk_crtc[pipe] = mtk_crtc;
 	for (i = 0, cur = 0 ; i < 10 ; ++i) {
 		struct mtk_disp_mutex *mutex;
 
@@ -11649,7 +11650,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 			sizeof(struct mtk_ddp_comp *), GFP_KERNEL);
 	}
 
-	ret = disp_mutex_dispatch(priv, mtk_crtc, path_data);
+	ret = disp_mutex_dispatch(priv, mtk_crtc, path_data, pipe);
 	if (ret)
 		DDPPR_ERR("mutex_dispatch fail %d\n", ret);
 

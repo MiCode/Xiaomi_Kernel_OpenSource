@@ -3727,6 +3727,7 @@ static const struct mtk_disp_ddp_data mt6985_ddp_driver_data = {
 	.mutex_sof_reg = MT6983_DISP_MUTEX0_SOF,
 	.dispsys_map = mt6985_dispsys_map,
 	.wakeup_pf_wq = 1,
+	.wakeup_esd_wq = 1,
 };
 
 static const struct mtk_disp_ddp_data mt6895_ddp_driver_data = {
@@ -15472,7 +15473,29 @@ void mtk_disp_mutex_submit_sof(struct mtk_disp_mutex *mutex)
 		}
 	}
 }
+void mtk_wakeup_esd_wq(struct mtk_ddp *ddp, int m_id)
+{
+	unsigned int mutex_index = 0;
+	unsigned int crtc_index = 0;
+	struct mtk_drm_crtc *mtk_crtc = NULL;
 
+	for (crtc_index = 0; crtc_index < MAX_CRTC; crtc_index++) {
+		for (mutex_index = 0; mutex_index < DDP_PATH_NR; mutex_index++) {
+			if (!ddp->mtk_crtc[crtc_index])
+				break;
+			mtk_crtc = ddp->mtk_crtc[crtc_index];
+			if (!mtk_crtc->mutex[mutex_index])
+				continue;
+			if (mtk_crtc->mutex[mutex_index]->id == m_id) {
+				if (mtk_crtc->esd_ctx) {
+					atomic_set(&mtk_crtc->esd_ctx->target_time, 1);
+					wake_up_interruptible(&mtk_crtc->esd_ctx->check_task_wq);
+					break;
+				}
+			}
+		}
+	}
+}
 static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 {
 	struct mtk_ddp *ddp = dev_id;
@@ -15520,6 +15543,8 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 				vcp_cmd_ex(VCP_SET_DISP_SYNC);
 			}
 #endif
+			if (ddp->data->wakeup_esd_wq)
+				mtk_wakeup_esd_wq(ddp, m_id);
 			if (m_id == 0 && ddp->data->wakeup_pf_wq)
 				mtk_wakeup_pf_wq();
 			if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
