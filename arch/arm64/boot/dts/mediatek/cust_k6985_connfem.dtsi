@@ -90,14 +90,14 @@
 				fe-reserved = [80];
 			};
 			flags-8 {
-				rx-mode = [35];
+				rx-mode = [00];
 				fe-ant-cnt = [81];
 				fe-main-bt-share-lp2g = [80];
 				fe-conn-spdt = [83];
 				fe-reserved = [80];
 			};
 			flags-9 {
-				rx-mode = [35];
+				rx-mode = [00];
 				fe-ant-cnt = [82];
 				fe-main-bt-share-lp2g = [80];
 				fe-conn-spdt = [83];
@@ -105,7 +105,7 @@
 			};
 			flags-10 {
 				/* SKU5 is not include final SPDT data */
-				rx-mode = [35];
+				rx-mode = [00];
 				fe-ant-cnt = [82];
 				fe-main-bt-share-lp2g = [80];
 				fe-conn-spdt = [83];
@@ -113,21 +113,21 @@
 			};
 			flags-11 {
 				/* Undefined, use SKU1 configuration */
-				rx-mode = [35];
+				rx-mode = [00];
 				fe-ant-cnt = [81];
 				fe-main-bt-share-lp2g = [80];
 				fe-conn-spdt = [83];
 				fe-reserved = [80];
 			};
 			flags-12 {
-				rx-mode = [35];
+				rx-mode = [00];
 				fe-ant-cnt = [81];
 				fe-main-bt-share-lp2g = [80];
 				fe-conn-spdt = [83];
 				fe-reserved = [80];
 			};
 			flags-13 {
-				rx-mode = [35];
+				rx-mode = [00];
 				fe-ant-cnt = [82];
 				fe-main-bt-share-lp2g = [80];
 				fe-conn-spdt = [83];
@@ -135,7 +135,7 @@
 			};
 			flags-14 {
 				/* SKU5 is not include final SPDT data */
-				rx-mode = [35];
+				rx-mode = [00];
 				fe-ant-cnt = [82];
 				fe-main-bt-share-lp2g = [80];
 				fe-conn-spdt = [83];
@@ -143,7 +143,7 @@
 			};
 			flags-15 {
 				/* Undefined, use flags-4 configuration */
-				rx-mode = [35];
+				rx-mode = [00];
 				fe-ant-cnt = [81];
 				fe-main-bt-share-lp2g = [80];
 				fe-conn-spdt = [83];
@@ -153,74 +153,66 @@
 
 		wifi {
 			flags-0 {
-				epa-option = [99];
+				epa-option = [AA];
 				/* open-loop; */
 			};
 			flags-1 {
-				epa-option = [99];
+				epa-option = [AA];
 				/* open-loop; */
 			};
 			flags-2 {
-				epa-option = [99];
+				epa-option = [AA];
 				/* open-loop; */
 			};
 			flags-3 {
-				epa-option = [99];
+				epa-option = [AA];
 				/* Undefined, open-loop; */
 			};
 			flags-4 {
-				epa-option = [99];
+				epa-option = [AA];
 				/* open-loop; */
 				only-2g;
 			};
 			flags-5 {
-				epa-option = [99];
+				epa-option = [AA];
 				/* open-loop; */
 				only-2g;
 			};
 			flags-6 {
-				epa-option = [99];
+				epa-option = [AA];
 				/* open-loop; */
 				only-2g;
 			};
 			flags-7 {
-				epa-option = [99];
+				epa-option = [AA];
 				/* Undefiend, open-loop; */
 				only-2g;
 			};
 			flags-8 {
-				epa-option = [99];
 				/* open-loop; */
 			};
 			flags-9 {
-				epa-option = [99];
 				/* open-loop; */
 			};
 			flags-10 {
-				epa-option = [99];
 				/* open-loop; */
 			};
 			flags-11 {
-				epa-option = [99];
 				/* Undefined, open-loop; */
 			};
 			flags-12 {
-				epa-option = [99];
 				/* open-loop; */
 				only-2g;
 			};
 			flags-13 {
-				epa-option = [99];
 				/* open-loop; */
 				only-2g;
 			};
 			flags-14 {
-				epa-option = [99];
 				/* open-loop; */
 				only-2g;
 			};
 			flags-15 {
-				epa-option = [99];
 				/* Undefiend, open-loop; */
 				only-2g;
 			};

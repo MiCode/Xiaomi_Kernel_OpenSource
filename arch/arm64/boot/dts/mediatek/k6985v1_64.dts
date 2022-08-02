@@ -44,6 +44,7 @@ initcall_debug=1";
 
 		wifi {
 			flags-0 {
+				epa-option = [AA];
 				/* open-loop; */
 			};
 		};
