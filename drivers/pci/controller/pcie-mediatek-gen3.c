@@ -770,8 +770,16 @@ static void mtk_pcie_irq_teardown(struct mtk_pcie_port *port)
 {
 	irq_set_chained_handler_and_data(port->irq, NULL, NULL);
 
-	if (port->intx_domain)
+	if (port->intx_domain) {
+		int virq, i;
+
+		for (i = 0; i < PCI_NUM_INTX; i++) {
+			virq = irq_find_mapping(port->intx_domain, i);
+			if (virq > 0)
+				irq_dispose_mapping(virq);
+		}
 		irq_domain_remove(port->intx_domain);
+	}
 
 	if (port->msi_domain)
 		irq_domain_remove(port->msi_domain);
