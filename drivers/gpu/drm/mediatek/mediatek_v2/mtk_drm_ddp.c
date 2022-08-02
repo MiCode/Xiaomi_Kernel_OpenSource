@@ -10104,6 +10104,8 @@ static int mtk_ddp_ovl_con_MT6985(enum mtk_ddp_comp_id cur,
 			   enum mtk_ddp_comp_id next, unsigned int *addr)
 {
 	int value = 0;
+	bool next_is_ovl;
+
 	*addr = MT6985_OVLSYS_OVL_CON;
 
 	if (next == DDP_COMPONENT_OVLSYS_DLO_ASYNC0 || next == DDP_COMPONENT_OVLSYS_DLO_ASYNC7 ||
@@ -10111,23 +10113,27 @@ static int mtk_ddp_ovl_con_MT6985(enum mtk_ddp_comp_id cur,
 	    next == DDP_COMPONENT_OVLSYS_WDMA0 || next == DDP_COMPONENT_OVLSYS_WDMA2)
 		return 0;
 
+	next_is_ovl = (mtk_ddp_comp_get_type(next) == MTK_DISP_OVL);
 	if (cur == DDP_COMPONENT_OVL0_2L || cur == DDP_COMPONENT_OVL4_2L) {
-		if (next == DDP_COMPONENT_OVL1_2L || next == DDP_COMPONENT_OVL5_2L)
+		if (next_is_ovl)
 			value = DISP_OVL0_2L_TO_BG_CROSSBAR0;
 		else
 			value = DISP_OVL0_2L_TO_BLEND_CROSSBAR0;
 	} else if (cur == DDP_COMPONENT_OVL1_2L || cur == DDP_COMPONENT_OVL5_2L) {
-		if (next == DDP_COMPONENT_OVL2_2L || next == DDP_COMPONENT_OVL6_2L)
+		if (next_is_ovl)
 			value = DISP_OVL1_2L_TO_BG_CROSSBAR1;
 		else
 			value = DISP_OVL1_2L_TO_BLEND_CROSSBAR1;
 	} else if (cur == DDP_COMPONENT_OVL2_2L || cur == DDP_COMPONENT_OVL6_2L) {
-		if (next == DDP_COMPONENT_OVL3_2L || next == DDP_COMPONENT_OVL7_2L)
+		if (next_is_ovl)
 			value = DISP_OVL2_2L_TO_BG_CROSSBAR2;
 		else
 			value = DISP_OVL2_2L_TO_BLEND_CROSSBAR2;
 	} else if (cur == DDP_COMPONENT_OVL3_2L || cur == DDP_COMPONENT_OVL7_2L) {
-		value = DISP_OVL3_2L_TO_BLEND_CROSSBAR3;
+		if (next_is_ovl)
+			value = DISP_OVL3_2L_TO_BG_CROSSBAR3;
+		else
+			value = DISP_OVL3_2L_TO_BLEND_CROSSBAR3;
 	} else {
 		value = -1;
 	}
@@ -10135,6 +10141,75 @@ static int mtk_ddp_ovl_con_MT6985(enum mtk_ddp_comp_id cur,
 	return value;
 }
 
+static int mtk_ddp_ovl_bg_cb_MT6985(enum mtk_ddp_comp_id cur, enum mtk_ddp_comp_id next,
+				unsigned int *addr)
+{
+	/* Aware this function can't detect cross OVLSYS path description,
+	 * like DDP_COMPONENT_OVL0_2L -> DDP_COMPONENT_OVL5_2L.
+	 * And can't detect OVL module self connect,
+	 * like DDP_COMPONENT_OVL0_2L -> DDP_COMPONENT_OVL0_2L.
+	 */
+	int value = -1;
+
+	/* set addr from current comp */
+	switch (cur) {
+	case DDP_COMPONENT_OVL0_2L:
+	case DDP_COMPONENT_OVL4_2L:
+		*addr = MT6985_OVL_BG_CROSSBAR0_MOUT_EN;
+		break;
+	case DDP_COMPONENT_OVL1_2L:
+	case DDP_COMPONENT_OVL5_2L:
+		*addr = MT6985_OVL_BG_CROSSBAR1_MOUT_EN;
+		break;
+	case DDP_COMPONENT_OVL2_2L:
+	case DDP_COMPONENT_OVL6_2L:
+		*addr = MT6985_OVL_BG_CROSSBAR2_MOUT_EN;
+		break;
+	case DDP_COMPONENT_OVL3_2L:
+	case DDP_COMPONENT_OVL7_2L:
+		*addr = MT6985_OVL_BG_CROSSBAR3_MOUT_EN;
+		break;
+	case DDP_COMPONENT_OVLSYS_DLI_ASYNC2:
+	case DDP_COMPONENT_OVLSYS_DLI_ASYNC5:
+		*addr = MT6985_OVL_BG_CROSSBAR4_MOUT_EN;
+		break;
+	default:
+		value = -1;
+		DDPPR_ERR("%s, cur=%s->next=%s not found in MOUT_EN\n", __func__,
+			mtk_dump_comp_str_id(cur), mtk_dump_comp_str_id(next));
+		return value;
+	}
+
+	/* set value according to dst comp */
+	switch (next) {
+	case DDP_COMPONENT_OVL0_2L:
+	case DDP_COMPONENT_OVL4_2L:
+		value = BIT(0);
+		break;
+	case DDP_COMPONENT_OVL1_2L:
+	case DDP_COMPONENT_OVL5_2L:
+		value = BIT(1);
+		break;
+	case DDP_COMPONENT_OVL2_2L:
+	case DDP_COMPONENT_OVL6_2L:
+		value = BIT(2);
+		break;
+	case DDP_COMPONENT_OVL3_2L:
+	case DDP_COMPONENT_OVL7_2L:
+		value = BIT(3);
+		break;
+	case DDP_COMPONENT_OVLSYS_DLO_ASYNC1:
+	case DDP_COMPONENT_OVLSYS_DLO_ASYNC8:
+		value = BIT(4);
+		break;
+	default:
+		value = -1;
+		DDPPR_ERR("%s, cur=%s->next=%s not found in MOUT_EN\n", __func__,
+			mtk_dump_comp_str_id(cur), mtk_dump_comp_str_id(next));
+		return value;
+	}
+	return value;
+}
 static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 			   enum mtk_ddp_comp_id cur, enum mtk_ddp_comp_id next,
 			   unsigned int *addr)
@@ -10146,23 +10221,13 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 	    cur == DDP_COMPONENT_INLINE_ROTATE0)
 		return 0;
 
-	if ((cur == DDP_COMPONENT_OVL0_2L && next == DDP_COMPONENT_OVL1_2L) ||
-		(cur == DDP_COMPONENT_OVL4_2L && next == DDP_COMPONENT_OVL5_2L)) {
-		*addr = MT6985_OVL_BG_CROSSBAR0_MOUT_EN;
-		value = DISP_OVL0_2L_TO_OVL1_2L;
-	} else if ((cur == DDP_COMPONENT_OVL1_2L &&
-		next == DDP_COMPONENT_OVL2_2L) ||
-		(cur == DDP_COMPONENT_OVL5_2L &&
-		next == DDP_COMPONENT_OVL6_2L)) {
-		*addr = MT6985_OVL_BG_CROSSBAR1_MOUT_EN;
-		value = DISP_OVL1_2L_TO_OVL2_2L;
-	} else if ((cur == DDP_COMPONENT_OVL2_2L &&
-		next == DDP_COMPONENT_OVL3_2L) ||
-		(cur == DDP_COMPONENT_OVL6_2L &&
-		next == DDP_COMPONENT_OVL7_2L)) {
-		*addr = MT6985_OVL_BG_CROSSBAR2_MOUT_EN;
-		value = DISP_OVL2_2L_TO_OVL3_2L;
-	} else if ((cur == DDP_COMPONENT_OVL0_2L &&
+	if (mtk_ddp_comp_get_type(cur) == MTK_DISP_OVL &&
+		mtk_ddp_comp_get_type(next) == MTK_DISP_OVL) {
+		value = mtk_ddp_ovl_bg_cb_MT6985(cur, next, addr);
+		return value;
+	}
+
+	if ((cur == DDP_COMPONENT_OVL0_2L &&
 		next == DDP_COMPONENT_OVLSYS_DLO_ASYNC3) ||
 		(cur == DDP_COMPONENT_OVL4_2L &&
 		next == DDP_COMPONENT_OVLSYS_DLO_ASYNC10)) {
