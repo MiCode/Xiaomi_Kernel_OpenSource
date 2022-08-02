@@ -431,10 +431,16 @@ void mtk_vdec_pmqos_begin_inst(struct mtk_vcodec_ctx *ctx)
 {
 	int i;
 	struct mtk_vcodec_dev *dev = 0;
+	struct vdec_inst *inst = (struct vdec_inst *) ctx->drv_handle;
 	u64 target_bw = 0;
 	dev = ctx->dev;
 
 	mtk_v4l2_debug(8, "[VDVFS][VDEC] ctx = %p",  ctx);
+
+	if (ctx->dev->vdec_reg == 0 && ctx->dev->vdec_mmdvfs_clk == 0) {
+		dev->vdec_dvfs_params.target_freq = inst->vsi->target_freq;
+		mtk_v4l2_debug(8, "[VDVFS][VDEC] sync target from up in begin");
+	}
 
 	for (i = 0; i < dev->vdec_port_cnt; i++) {
 		target_bw = (u64)dev->vdec_port_bw[i].port_base_bw *
@@ -466,10 +472,16 @@ void mtk_vdec_pmqos_end_inst(struct mtk_vcodec_ctx *ctx)
 {
 	int i;
 	struct mtk_vcodec_dev *dev = 0;
+	struct vdec_inst *inst = (struct vdec_inst *) ctx->drv_handle;
 	u64 target_bw = 0;
 	dev = ctx->dev;
 
 	mtk_v4l2_debug(8, "[VDVFS][VDEC] ctx = %p",  ctx);
+
+	if (ctx->dev->vdec_reg == 0 && ctx->dev->vdec_mmdvfs_clk == 0) {
+		dev->vdec_dvfs_params.target_freq = inst->vsi->target_freq;
+		mtk_v4l2_debug(8, "[VDVFS][VDEC] sync target from up in end");
+	}
 
 	for (i = 0; i < dev->vdec_port_cnt; i++) {
 		target_bw = (u64)dev->vdec_port_bw[i].port_base_bw *

@@ -161,22 +161,28 @@ void mtk_vcodec_release_dec_pm(struct mtk_vcodec_dev *dev)
 	pm_runtime_disable(dev->pm.dev);
 }
 
-void mtk_vcodec_dec_pw_on(struct mtk_vcodec_pm *pm, int hw_id)
+void mtk_vcodec_dec_pw_on(struct mtk_vcodec_pm *pm)
 {
-	int ret;
+	int ret, larb_index;
 
-	ret = pm_runtime_resume_and_get(pm->dev);
-	if (ret)
-		mtk_v4l2_err("pm_runtime_get_sync fail");
+	for (larb_index = 0; larb_index < MTK_VDEC_MAX_LARB_COUNT; larb_index++) {
+		if (pm->larbvdecs[larb_index]) {
+			ret = mtk_smi_larb_get(pm->larbvdecs[larb_index]);
+			if (ret)
+				mtk_v4l2_err("Failed to get vdec larb. index: %d",
+					larb_index);
+		}
+	}
 }
 
-void mtk_vcodec_dec_pw_off(struct mtk_vcodec_pm *pm, int hw_id)
+void mtk_vcodec_dec_pw_off(struct mtk_vcodec_pm *pm)
 {
-	int ret;
+	int larb_index;
 
-	ret = pm_runtime_put_sync(pm->dev);
-	if (ret)
-		mtk_v4l2_err("pm_runtime_put_sync fail");
+	for (larb_index = 0; larb_index < MTK_VDEC_MAX_LARB_COUNT; larb_index++) {
+		if (pm->larbvdecs[larb_index])
+			mtk_smi_larb_put(pm->larbvdecs[larb_index]);
+	}
 }
 
 static void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)

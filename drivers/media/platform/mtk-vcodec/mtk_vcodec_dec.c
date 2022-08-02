@@ -3600,8 +3600,10 @@ static int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 		mutex_lock(&ctx->dev->dec_dvfs_mutex);
 		if (ctx->dev->vdec_reg == 0 && ctx->dev->vdec_mmdvfs_clk == 0) {
 			mtk_v4l2_debug(4, "[VDVFS][VDEC] start ctrl DVFS in UP\n");
+			mtk_vcodec_dec_pw_on(&ctx->dev->pm);
 			mtk_vdec_prepare_vcp_dvfs_data(ctx, vcp_dvfs_data);
 			vdec_if_set_param(ctx, SET_PARAM_MMDVFS, vcp_dvfs_data);
+			mtk_vcodec_dec_pw_off(&ctx->dev->pm);
 		} else {
 			mtk_v4l2_debug(4, "[VDVFS][VDEC] start ctrl DVFS in AP\n");
 			mtk_vdec_dvfs_begin_inst(ctx);
@@ -3726,8 +3728,10 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 	mutex_lock(&ctx->dev->dec_dvfs_mutex);
 	if (ctx->dev->vdec_reg == 0 && ctx->dev->vdec_mmdvfs_clk == 0) {
 		mtk_v4l2_debug(0, "[VDVFS][VDEC] stop ctrl DVFS in UP\n");
+		mtk_vcodec_dec_pw_on(&ctx->dev->pm);
 		mtk_vdec_unprepare_vcp_dvfs_data(ctx, vcp_dvfs_data);
 		vdec_if_set_param(ctx, SET_PARAM_MMDVFS, vcp_dvfs_data);
+		mtk_vcodec_dec_pw_off(&ctx->dev->pm);
 	} else {
 		mtk_v4l2_debug(0, "[VDVFS][VDEC] stop ctrl DVFS in AP\n");
 		mtk_vdec_dvfs_end_inst(ctx);
