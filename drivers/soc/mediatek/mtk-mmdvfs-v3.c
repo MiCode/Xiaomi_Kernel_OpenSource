@@ -429,14 +429,14 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 
 	retry = 0;
 	while ((mmdvfs_update_vcp_ipi_data(data) & 0xff) == func) {
-		if (++retry > 100) {
+		if (++retry > 10000) {
 			ret = IPI_COMPL_TIMEOUT;
 			MMDVFS_ERR("ipi ack timeout:%d slot:%#llx data:%#llx",
 				ret, *(u64 *)(unsigned long *)&slot, mmdvfs_vcp_ipi_data);
 			WARN_ON(1);
 			break;
 		}
-		mdelay(1);
+		udelay(10);
 	}
 
 	mutex_unlock(&mmdvfs_vcp_ipi_mutex);
