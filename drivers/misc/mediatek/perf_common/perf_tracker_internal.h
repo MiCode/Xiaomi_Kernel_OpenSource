@@ -51,7 +51,7 @@ extern struct kobj_attribute perf_tracker_enable_attr;
 
 extern void perf_tracker(u64 wallclock,
 			 bool hit_long_check);
-extern unsigned long get_cpu_pmu(int cpu, unsigned int offset);
+extern u64 get_cpu_pmu(int cpu, u32 offset);
 
 extern struct kobj_attribute perf_fuel_gauge_enable_attr;
 extern struct kobj_attribute perf_fuel_gauge_period_attr;

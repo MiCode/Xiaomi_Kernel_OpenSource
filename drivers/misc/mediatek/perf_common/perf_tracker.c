@@ -51,6 +51,7 @@ static unsigned int is_gpu_pmu_worked;
 static unsigned int gpu_pmu_period = 8000000; //8ms
 #endif
 static unsigned int mcupm_freq_enable;
+/* 1: enable, 3: enable & enable debug */
 static unsigned int support_cpu_pmu = 1;
 
 static DEFINE_PER_CPU(u64, cpu_last_inst_spec);
@@ -87,9 +88,11 @@ static void exit_pmu_data(void)
 	set_pmu_enable(0);
 }
 
-unsigned long get_cpu_pmu(int cpu, unsigned int offset)
+#define PMU_UPDATE_LOCK_OFFSET	0x12F0
+#define PMU_IDX_CNT_OFFSET	0x12EC
+u64 get_cpu_pmu(int cpu, u32 offset)
 {
-	unsigned long count = 0;
+	u64 count = 0;
 
 	if (IS_ERR_OR_NULL((void *)csram_base))
 		return count;
@@ -99,24 +102,45 @@ unsigned long get_cpu_pmu(int cpu, unsigned int offset)
 }
 EXPORT_SYMBOL_GPL(get_cpu_pmu);
 
-#define DEFINE_GET_CUR_CPU_PMU_FUNC(_name, _pmu_offset)					\
-	unsigned long get_cur_cpu_##_name(int cpu)					\
-	{										\
-		unsigned long cur = 0, res = 0;						\
-											\
-		if (cpu >= nr_cpu_ids || !pmu_init)					\
-			return res;							\
-		cur = get_cpu_pmu(cpu, _pmu_offset);					\
-		/* handle overflow case */						\
-		if (cur < per_cpu(cpu_last_##_name, cpu))				\
-			res = ((u64)0xffffffff -					\
-				per_cpu(cpu_last_##_name, cpu) + (0x7fffffff & cur));	\
-		else									\
-			res = per_cpu(cpu_last_##_name, cpu) == 0 ?			\
-				0 : cur - per_cpu(cpu_last_##_name, cpu);		\
-		per_cpu(cpu_last_##_name, cpu) = cur;					\
-		return res;								\
-	}										\
+/* 3GHz * 4ms * 10 IPC * 3 chances */
+#define MAX_PMU_VALUE	360000000
+#define DEBUG_BIT	2
+#define DEFINE_GET_CUR_CPU_PMU_FUNC(_name, _pmu_offset)						\
+	u64 get_cur_cpu_##_name(int cpu)							\
+	{											\
+		u64 cur = 0, res = 0;								\
+		int retry = 3;									\
+												\
+		if (cpu >= nr_cpu_ids || !pmu_init)						\
+			return res;								\
+												\
+		do {										\
+			cur = get_cpu_pmu(cpu, _pmu_offset);					\
+			/* invalid counter */							\
+			if (cur == 0 || cur == 0xDEADDEAD)					\
+				return 0;							\
+												\
+			/* handle overflow case */						\
+			if (cur < per_cpu(cpu_last_##_name, cpu))				\
+				res = ((u64)0xffffffff -					\
+					per_cpu(cpu_last_##_name, cpu) + (0x7fffffff & cur));	\
+			else									\
+				res = per_cpu(cpu_last_##_name, cpu) == 0 ?			\
+					0 : cur - per_cpu(cpu_last_##_name, cpu);		\
+			--retry;								\
+		} while (res > MAX_PMU_VALUE && retry > 0);					\
+												\
+		if (res > MAX_PMU_VALUE && retry == 0) {					\
+			if (support_cpu_pmu & DEBUG_BIT)					\
+				trace_cpu_pmu_debug(cpu, "_" #_name ":", 0, cur, res);		\
+			return 0;								\
+		}										\
+												\
+		per_cpu(cpu_last_##_name, cpu) = cur;						\
+		if (support_cpu_pmu & DEBUG_BIT)						\
+			trace_cpu_pmu_debug(cpu, "_" #_name ":", 1, cur, res);			\
+		return res;									\
+	}
 
 DEFINE_GET_CUR_CPU_PMU_FUNC(inst_spec, CPU_INST_SPEC_OFFSET);
 DEFINE_GET_CUR_CPU_PMU_FUNC(cycle, CPU_IDX_CYCLES_OFFSET);
@@ -224,7 +248,8 @@ enum {
 #define for_each_cpu_get_pmu(cpu, _pmu)						\
 	do {									\
 		for ((cpu) = 0; (cpu) < max_cpus; (cpu)++)			\
-			sbin_data[sbin_lens + cpu] = get_cur_cpu_##_pmu(cpu);	\
+			sbin_data[sbin_lens + cpu] =				\
+					(u32)get_cur_cpu_##_pmu(cpu);		\
 		sbin_lens += max_cpus;						\
 	} while (0)
 
@@ -691,13 +716,14 @@ static ssize_t show_cpu_pmu_enable(struct kobject *kobj,
 	return len;
 }
 
+#define SUPPORT_BIT	3
 static ssize_t store_cpu_pmu_enable(struct kobject *kobj,
 		struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	mutex_lock(&perf_ctl_mutex);
 
 	if (kstrtouint(buf, 10, &support_cpu_pmu) == 0)
-		support_cpu_pmu = (support_cpu_pmu > 0) ? 1 : 0;
+		support_cpu_pmu &= SUPPORT_BIT;
 
 	mutex_unlock(&perf_ctl_mutex);
 

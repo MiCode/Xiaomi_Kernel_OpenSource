@@ -269,6 +269,42 @@ TRACE_EVENT(freq_qos_user_setting,
 	)
 );
 
+TRACE_EVENT(cpu_pmu_debug,
+	TP_PROTO(
+		int cpu,
+		const char *pmu_name,
+		int valid,
+		u64 cur,
+		u64 diff
+	),
+
+	TP_ARGS(cpu, pmu_name, valid, cur, diff),
+
+	TP_STRUCT__entry(
+		__field(int, cpu)
+		__string(pmu_name, pmu_name)
+		__field(int, valid)
+		__field(u64, cur)
+		__field(u64, diff)
+	),
+
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__assign_str(pmu_name, pmu_name);
+		__entry->valid = valid;
+		__entry->cur = cur;
+		__entry->diff = diff;
+	),
+
+	TP_printk("cpu_%d%s valid = %d, cur = %llu diff = %llu",
+		__entry->cpu,
+		__get_str(pmu_name),
+		__entry->valid,
+		__entry->cur,
+		__entry->diff
+	)
+);
+
 #endif /*_PERF_TRACKER_TRACE_H */
 
 #undef TRACE_INCLUDE_PATH
