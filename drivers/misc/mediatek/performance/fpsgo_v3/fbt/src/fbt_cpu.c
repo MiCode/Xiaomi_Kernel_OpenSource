@@ -1654,6 +1654,7 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	int loading_policy_final = thr->attr.light_loading_policy_by_pid;
 	int llf_task_policy_final = thr->attr.llf_task_policy_by_pid;
 	int separate_aa_final = thr->attr.separate_aa_by_pid;
+	int separate_release_sec_final = thr->attr.separate_release_sec_by_pid;
 	int boost_affinity_final = thr->attr.boost_affinity_by_pid;
 	int boost_LR_final = thr->attr.boost_lr_by_pid;
 	struct fpsgo_loading *cam_dep_arr = NULL;
@@ -1830,7 +1831,7 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			}
 		} else {
 			if (separate_aa_final) {
-				if (separate_release_sec)
+				if (separate_release_sec_final)
 					fbt_set_per_task_cap(fl->pid, min_cap_m,
 						max(max_cap_m, max_cap_b));
 				else
@@ -1895,6 +1896,7 @@ void fbt_set_render_boost_attr(struct render_info *thr)
 	render_attr->boost_affinity_by_pid = boost_affinity;
 	render_attr->boost_lr_by_pid = boost_LR;
 	render_attr->separate_aa_by_pid = separate_aa;
+	render_attr->separate_release_sec_by_pid = separate_release_sec;
 	render_attr->limit_uclamp_by_pid = limit_uclamp;
 	render_attr->limit_ruclamp_by_pid = limit_ruclamp;
 	render_attr->limit_uclamp_m_by_pid = limit_uclamp_m;
@@ -1960,6 +1962,9 @@ void fbt_set_render_boost_attr(struct render_info *thr)
 	if (pid_attr.separate_aa_by_pid != BY_PID_DEFAULT_VAL)
 		render_attr->separate_aa_by_pid =
 			pid_attr.separate_aa_by_pid;
+	if (pid_attr.separate_release_sec_by_pid != BY_PID_DEFAULT_VAL)
+		render_attr->separate_release_sec_by_pid =
+			pid_attr.separate_release_sec_by_pid;
 	if (pid_attr.limit_uclamp_by_pid != BY_PID_DEFAULT_VAL)
 		render_attr->limit_uclamp_by_pid =
 			pid_attr.limit_uclamp_by_pid;
@@ -6349,6 +6354,11 @@ static ssize_t fbt_attr_by_pid_store(struct kobject *kobj,
 			boost_attr->separate_aa_by_pid = val;
 		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->separate_aa_by_pid = BY_PID_DEFAULT_VAL;
+	} else if  (!strcmp(cmd, "separate_release_sec")) {
+		if ((val == 0 || val == 1) && action == 's')
+			boost_attr->separate_release_sec_by_pid = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->separate_release_sec_by_pid = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "limit_uclamp")) {
 		if (val >= 0 && val < 100 && action == 's')
 			boost_attr->limit_uclamp_by_pid = val;

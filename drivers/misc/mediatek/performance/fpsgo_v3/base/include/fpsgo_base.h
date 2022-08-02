@@ -189,6 +189,7 @@ struct fpsgo_boost_attr {
 	int limit_ruclamp_m_by_pid;
 	int separate_pct_b_by_pid;
 	int separate_pct_m_by_pid;
+	int separate_release_sec_by_pid;
 
 	/* QUOTA */
 	int qr_enable_by_pid;
