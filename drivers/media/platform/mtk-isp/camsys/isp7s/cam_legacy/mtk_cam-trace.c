@@ -28,11 +28,13 @@ void mtk_cam_trace(const char *fmt, ...)
 {
 	char buf[256];
 	va_list args;
+	int ret = 0;
 
 	va_start(args, fmt);
-	vsnprintf(buf, sizeof(buf), fmt, args);
+	ret = vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
 
-	tracing_mark_write(buf);
+	if (ret != -1)
+		tracing_mark_write(buf);
 }
 

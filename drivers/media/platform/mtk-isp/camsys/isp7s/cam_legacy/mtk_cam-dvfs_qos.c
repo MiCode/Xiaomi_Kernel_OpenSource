@@ -188,13 +188,14 @@ void mtk_cam_dvfs_force_clk(struct mtk_cam_device *cam, bool enable)
 
 	struct mtk_camsys_dvfs *dvfs = &cam->camsys_ctrl.dvfs_info;
 	unsigned int clklv = dvfs->clklv[FORCE_CLK_LEVEL];
+	int ret = 0;
 
 	if (dvfs->mmdvfs_clk && dvfs->clklv_num) {
 		if (enable) {
 			atomic_set(&dvfs->fixed_clklv, clklv);
-			clk_set_rate(dvfs->mmdvfs_clk, clklv);
-			dev_info(cam->dev, "[%s] force clk:%d volt:%d", __func__,
-				clklv, dvfs->voltlv[FORCE_CLK_LEVEL]);
+			ret = clk_set_rate(dvfs->mmdvfs_clk, clklv);
+			dev_info(cam->dev, "[%s] force clk:%d volt:%d (ret:%d)",
+				__func__, clklv, dvfs->voltlv[FORCE_CLK_LEVEL], ret);
 		} else {
 			if (atomic_cmpxchg(&dvfs->fixed_clklv, clklv, 0)) {
 				mtk_cam_dvfs_update_clk(cam);
