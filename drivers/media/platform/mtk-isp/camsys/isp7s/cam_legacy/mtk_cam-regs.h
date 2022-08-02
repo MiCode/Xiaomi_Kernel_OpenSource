@@ -317,6 +317,7 @@
 
 #define CAMCTL_IMGO_R1_RCNT_INC				BIT(0)
 #define CAMCTL_CQ_THR0_DONE_ST				BIT(0)
+#define CAMCTL_CQ_THRSUB_DONE_ST			BIT(4)
 #define CTL_CQ_THR0_START					BIT(0)
 
 /* AE debug info */

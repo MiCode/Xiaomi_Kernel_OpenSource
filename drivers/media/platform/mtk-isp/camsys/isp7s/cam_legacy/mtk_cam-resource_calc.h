@@ -6,9 +6,11 @@
 #ifndef __MTK_CAM_RAW_RESOURCE_H
 #define __MTK_CAM_RAW_RESOURCE_H
 
+#include <linux/align.h>
 #include <linux/minmax.h>
 
 struct mtk_cam_res_calc {
+	s64 mipi_pixel_rate;
 	long line_time;		/* ns */
 	int width;
 	int height;
@@ -36,18 +38,25 @@ struct raw_resource_stepper {
 	unsigned int opp_num;
 	unsigned int *clklv;
 	unsigned int *voltlv;
+	int min_opp_idx;
 
 	int pixel_mode;
 	int num_raw;
 	int opp_idx;
 };
 
-static int _pixel_mode(struct mtk_cam_res_calc *c)
+static inline int _bin_ratio(struct mtk_cam_res_calc *c)
 {
-	return min(8, c->raw_num * (c->bin_en ? 4 : 1) * c->raw_pixel_mode);
+	/* note: qbn is not used yet */
+	return (c->cbn_type || c->qbnd_en || c->bin_en) ? 4 : 1;
 }
 
-static int _hor_twin_loss(struct mtk_cam_res_calc *c)
+static inline int mtk_raw_overall_pixel_mode(struct mtk_cam_res_calc *c)
+{
+	return min(8, c->raw_num * _bin_ratio(c) * c->raw_pixel_mode);
+}
+
+static inline int _hor_twin_loss(struct mtk_cam_res_calc *c)
 {
 	static const int loss[] = {0, 108, 148};
 	int idx = c->raw_num - 1;
@@ -58,17 +67,26 @@ static int _hor_twin_loss(struct mtk_cam_res_calc *c)
 	return loss[idx];
 }
 
-static int _twin_loss(struct mtk_cam_res_calc *c)
+static inline int _tsfs_overhead(struct mtk_cam_res_calc *c)
+{
+	int w = c->width;
+
+	return (w/40) * 14 + (w - (w/40) * 40) - ((w/3) & ~1) + 34 + 4;
+}
+
+static inline int _twin_loss(struct mtk_cam_res_calc *c)
 {
 	int loss;
 
 	loss = _hor_twin_loss(c);
 
-	/* TODO: tsfs issue in 3-raw case */
+	if (c->raw_num == 3)
+		loss = max(loss, _tsfs_overhead(c));
+
 	return loss;
 }
 
-static int _hor_overhead(struct mtk_cam_res_calc *c)
+static inline int _hor_overhead(struct mtk_cam_res_calc *c)
 {
 	int oh;
 	const int HOR_BUBBLE = 25;
@@ -76,36 +94,45 @@ static int _hor_overhead(struct mtk_cam_res_calc *c)
 	oh = HOR_BUBBLE * c->raw_num * c->raw_pixel_mode
 		+ c->raw_num * _twin_loss(c);
 
-	/* TODO: what if cbn? */
 	if (c->bin_en)
 		oh = oh * 2;
+	if (c->cbn_type)
+		oh = oh * (1 + c->cbn_type);
+	if (c->qbnd_en)
+		oh = oh * 2;
+	if (c->qbn_type)
+		oh = oh * (1 + c->qbn_type);
 
-	return max(_pixel_mode(c) == 8 ? 999 : 0, oh);
+	return max(mtk_raw_overall_pixel_mode(c) == 8 ? 999 : 0, oh);
 
 }
 
-static int _twin_overhead(struct mtk_cam_res_calc *c)
+static inline int _twin_overhead(struct mtk_cam_res_calc *c)
 {
 	return _hor_overhead(c) * 100 / c->width;
+}
+
+static inline int _clk_hopping(void)
+{
+	return 2; /* percent */
 }
 
 static inline int _process_pxl_per_line(struct mtk_cam_res_calc *c,
 					bool is_raw, bool enable_log)
 {
-	const int hopping = 2; /* percent */
 	int twin_overhead = 0;
 	int freq_Mhz = c->clk / 1000000;
 	int w_processed;
 
 	if (is_raw) {
 		twin_overhead = _twin_overhead(c);
-		w_processed = c->line_time * freq_Mhz * _pixel_mode(c)
-			* (100 - hopping) / 100
+		w_processed = c->line_time * freq_Mhz * mtk_raw_overall_pixel_mode(c)
+			* (100 - _clk_hopping()) / 100
 			* (100 - twin_overhead) / 100
 			/ 1000;
 	} else
 		w_processed = c->line_time * freq_Mhz * 8
-			* (100 - hopping) / 100
+			* (100 - _clk_hopping()) / 100
 			/ 1000;
 
 	if (enable_log)
@@ -155,6 +182,19 @@ static inline int _xbin_scale_ratio(struct mtk_cam_res_calc *c)
 	return ratio;
 }
 
+static inline bool mtk_cam_check_mipi_pixel_rate(struct mtk_cam_res_calc *c,
+						 bool enable_log)
+{
+	s64 frontal_throughput = (s64)c->clk * (100 - _clk_hopping()) / 100 * 8;
+	bool valid = frontal_throughput > c->mipi_pixel_rate;
+
+	if (!valid && enable_log)
+		pr_info("%s: clk %d is not enough for mipi pixel rate %lld\n",
+			__func__,  c->clk, c->mipi_pixel_rate);
+
+	return valid;
+}
+
 static inline bool mtk_cam_raw_check_line_buffer(struct mtk_cam_res_calc *c,
 						 bool enable_log)
 {
@@ -196,7 +236,7 @@ static inline bool mtk_cam_sv_check_throughput(struct mtk_cam_res_calc *c,
 	return c->width <= processed_w;
 }
 
-static __maybe_unused int step_next_raw_num(struct raw_resource_stepper *stepper)
+static inline int step_next_raw_num(struct raw_resource_stepper *stepper)
 {
 	if (stepper->num_raw < stepper->num_raw_max) {
 		++stepper->num_raw;
@@ -206,17 +246,17 @@ static __maybe_unused int step_next_raw_num(struct raw_resource_stepper *stepper
 	return -1;
 }
 
-static __maybe_unused int step_next_opp(struct raw_resource_stepper *stepper)
+static inline int step_next_opp(struct raw_resource_stepper *stepper)
 {
 	++stepper->opp_idx;
 	if (stepper->opp_idx < stepper->opp_num)
 		return 0;
 
-	stepper->opp_idx = 0;
+	stepper->opp_idx = stepper->min_opp_idx;
 	return -1;
 }
 
-static __maybe_unused int step_next_pixel_mode(struct raw_resource_stepper *stepper)
+static inline int step_next_pixel_mode(struct raw_resource_stepper *stepper)
 {
 	if (stepper->pixel_mode < stepper->pixel_mode_max) {
 		++stepper->pixel_mode;
@@ -228,17 +268,17 @@ static __maybe_unused int step_next_pixel_mode(struct raw_resource_stepper *step
 
 typedef int (*step_fn_t)(struct raw_resource_stepper *stepper);
 
-static __maybe_unused bool valid_resouce_set(struct raw_resource_stepper *stepper)
+static inline bool valid_resouce_set(struct raw_resource_stepper *s)
 {
 	/* invalid sets */
 	bool invalid =
-		(stepper->pixel_mode == 1 && stepper->opp_idx != 0) ||
-		(stepper->pixel_mode == 1 && stepper->num_raw > 1);
+		(s->pixel_mode == 1 && s->opp_idx != s->min_opp_idx) ||
+		(s->pixel_mode == 1 && s->num_raw > 1);
 
 	return !invalid;
 }
 
-static __maybe_unused int loop_resource_till_valid(struct mtk_cam_res_calc *c,
+static inline int loop_resource_till_valid(struct mtk_cam_res_calc *c,
 				    struct raw_resource_stepper *stepper,
 				    const step_fn_t *arr_step, int arr_size)
 {
@@ -256,7 +296,8 @@ static __maybe_unused int loop_resource_till_valid(struct mtk_cam_res_calc *c,
 			c->raw_num = stepper->num_raw;
 			c->clk = stepper->clklv[stepper->opp_idx];
 
-			pass = mtk_cam_raw_check_line_buffer(c, enable_log) &&
+			pass = mtk_cam_check_mipi_pixel_rate(c, enable_log) &&
+				mtk_cam_raw_check_line_buffer(c, enable_log) &&
 				mtk_cam_raw_check_throughput(c, enable_log);
 			if (pass) {
 				ret = 0;
@@ -275,7 +316,17 @@ static __maybe_unused int loop_resource_till_valid(struct mtk_cam_res_calc *c,
 	return ret;
 }
 
-static __maybe_unused int mtk_raw_find_combination(struct mtk_cam_res_calc *c,
+static inline int _get_min_opp_idx(struct raw_resource_stepper *stepper)
+{
+	int min_idx = 0;
+
+	while (min_idx < stepper->opp_num && stepper->clklv[min_idx] == 0)
+		++min_idx;
+
+	return (min_idx == stepper->opp_num) ? 0 : min_idx;
+}
+
+static inline int mtk_raw_find_combination(struct mtk_cam_res_calc *c,
 				    struct raw_resource_stepper *stepper)
 {
 	static const step_fn_t policy[] = {
@@ -284,10 +335,12 @@ static __maybe_unused int mtk_raw_find_combination(struct mtk_cam_res_calc *c,
 		step_next_raw_num
 	};
 
+	stepper->min_opp_idx = _get_min_opp_idx(stepper);
+
 	/* initial value */
 	stepper->pixel_mode = stepper->pixel_mode_min;
 	stepper->num_raw = stepper->num_raw_min;
-	stepper->opp_idx = 0;
+	stepper->opp_idx = stepper->min_opp_idx;
 
 	return loop_resource_till_valid(c, stepper,
 					policy, ARRAY_SIZE(policy));

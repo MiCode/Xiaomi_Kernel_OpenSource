@@ -1861,22 +1861,20 @@ void set_fifo_threshold(void __iomem *dma_base, unsigned int fifo_size)
 {
 	writel_relaxed((0x10 << 24) | fifo_size,
 			dma_base + DMA_OFFSET_CON0);
-	writel_relaxed((0x1 << 28) | FIFO_THRESHOLD(fifo_size, 9/10, 1),
+	writel_relaxed((0x1 << 28) | FIFO_THRESHOLD(fifo_size, 2/10, 1/10),
 			dma_base + DMA_OFFSET_CON1);
-	writel_relaxed((0x1 << 28) | FIFO_THRESHOLD(fifo_size, 8/10, 9/10),
+	writel_relaxed((0x1 << 28) | FIFO_THRESHOLD(fifo_size, 4/10, 3/10),
 			dma_base + DMA_OFFSET_CON2);
-	writel_relaxed((0x1 << 31) | FIFO_THRESHOLD(fifo_size, 6/10, 7/10),
+	writel_relaxed((0x1 << 31) | FIFO_THRESHOLD(fifo_size, 6/10, 5/10),
 			dma_base + DMA_OFFSET_CON3);
-	writel_relaxed((0x1 << 31) | FIFO_THRESHOLD(fifo_size, 4/10, 5/10),
+	writel_relaxed((0x1 << 31) | FIFO_THRESHOLD(fifo_size, 1/10, 0),
 			dma_base + DMA_OFFSET_CON4);
 }
 
 static void init_dma_halt(struct mtk_raw_device *dev)
 {
 	struct mtk_cam_device *cam_dev = dev->cam;
-#ifdef SMI_LARB_ULTRA_CTL
 	struct mtk_yuv_device *yuv_dev = get_yuv_dev(dev);
-#endif
 	bool is_srt = mtk_cam_is_srt(dev->pipeline->hw_mode);
 	unsigned int reg_raw_urgent, reg_yuv_urgent;
 	unsigned int raw_urgent, yuv_urgent;
@@ -1921,17 +1919,13 @@ static void init_dma_halt(struct mtk_raw_device *dev)
 	if (is_srt) {
 		writel_relaxed(0x0, cam_dev->base + reg_raw_urgent);
 		writel_relaxed(0x0, cam_dev->base + reg_yuv_urgent);
-#ifdef SMI_LARB_ULTRA_CTL
 		mtk_smi_larb_ultra_dis(&dev->larb_pdev->dev, true);
 		mtk_smi_larb_ultra_dis(&yuv_dev->larb_pdev->dev, true);
-#endif
 	} else {
 		writel_relaxed(raw_urgent, cam_dev->base + reg_raw_urgent);
 		writel_relaxed(yuv_urgent, cam_dev->base + reg_yuv_urgent);
-#ifdef SMI_LARB_ULTRA_CTL
 		mtk_smi_larb_ultra_dis(&dev->larb_pdev->dev, false);
 		mtk_smi_larb_ultra_dis(&yuv_dev->larb_pdev->dev, false);
-#endif
 	}
 }
 
@@ -2075,8 +2069,8 @@ void initialize(struct mtk_raw_device *dev, int is_slave)
 		       dev->base + REG_CQ_THR0_CTL);
 	writel_relaxed(CQ_THR0_MODE_IMMEDIATE | CQ_THR0_EN,
 		       dev->base + REG_CQ_SUB_THR0_CTL);
-	writel_relaxed(CAMCTL_CQ_THR0_DONE_ST, dev->base + REG_CTL_RAW_INT6_EN);
-	writel_relaxed(BIT(10), dev->base + REG_CTL_RAW_INT7_EN);
+	writel_relaxed(CAMCTL_CQ_THR0_DONE_ST | CAMCTL_CQ_THRSUB_DONE_ST,
+		       dev->base + REG_CTL_RAW_INT6_EN);
 
 	dev->is_slave = is_slave;
 	dev->sof_count = 0;
@@ -2343,21 +2337,23 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 	struct raw_resource_stepper stepper;
 	int ret;
 	int hwn_limit_min, hwn_limit_max;
-	int rgb_2raw = 0, h_ratio = 1;
+	int rgb_2raw = 0;
 
 	if (mtk_cam_scen_is_rgbw_enabled(&res->scen)) {
+		/* only 2raw 1pass*/
 		hwn_limit_min = 1;
 		hwn_limit_max = 1;
 		rgb_2raw = 2;
-		h_ratio = 2;
 	} else {
 		hwn_limit_min = res->hwn_limit_min;
 		hwn_limit_max = res->hwn_limit_max;
 	}
 
+	calc.mipi_pixel_rate = (s64)(in_w + res->hblank) * (in_h + res->vblank)
+		* res->interval.denominator / res->interval.numerator;
 	calc.line_time = 1000000000L
 		* res->interval.numerator / res->interval.denominator
-		/ (in_h * h_ratio + res->vblank);
+		/ (in_h + res->vblank);
 	calc.width = in_w;
 	calc.height = in_h;
 	calc.bin_en = (res->bin_limit >= 1) ? 1:0;
@@ -2389,7 +2385,7 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 	res->frz_ratio = 100;
 	res->res_plan = res_plan;
 	res->pixel_rate = pixel_rate;
-	res->tgo_pxl_mode = mtk_pixelmode_val(calc.raw_pixel_mode * calc.raw_num);
+	res->tgo_pxl_mode = mtk_pixelmode_val(mtk_raw_overall_pixel_mode(&calc));
 	res->raw_pixel_mode = mtk_pixelmode_val(calc.raw_pixel_mode);
 	res->tgo_pxl_mode_before_raw = 3; //fixed to 8p
 	res->raw_num_used = calc.raw_num;
