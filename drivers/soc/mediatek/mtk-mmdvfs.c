@@ -197,7 +197,7 @@ static void set_all_clk(struct mmdvfs_drv_data *drv_data,
 {
 	s32 i;
 	u32 opp_level;
-	MMDVFS_SYSTRACE_BEGIN("%s voltage:%lu\n", __func__, voltage);
+	MMDVFS_SYSTRACE_BEGIN("%s voltage:%u\n", __func__, voltage);
 	for (i = drv_data->num_voltages - 1; i >= 0; i--) {
 		if (voltage >= drv_data->voltages[i]) {
 			opp_level = i;
@@ -248,7 +248,7 @@ static int regulator_event_notify(struct notifier_block *nb,
 
 	drv_data = container_of(nb, struct mmdvfs_drv_data, nb);
 
-	MMDVFS_SYSTRACE_BEGIN("%s event:0x%x\n", __func__, event);
+	MMDVFS_SYSTRACE_BEGIN("%s event:0x%lx\n", __func__, event);
 	if (event == REGULATOR_EVENT_PRE_VOLTAGE_CHANGE) {
 		pvc_data = data;
 		uV = pvc_data->min_uV;
