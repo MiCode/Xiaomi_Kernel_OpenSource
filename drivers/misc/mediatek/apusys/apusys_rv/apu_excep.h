@@ -50,8 +50,16 @@
 			dev_info(dev, "%s: snprintf fail(%d)\n", __func__, __LINE__); \
 		} \
 	} while (0)
+
+#define apusys_rv_exception_aee_warn(module) \
+	do { \
+		dev_info(dev, "APUSYS_RV_EXCEPTION: %s\n", module); \
+		aee_kernel_exception("APUSYS_RV_EXCEPTION_APUSYS_RV", \
+			"\nCRDISPATCH_KEY:%s\n", module); \
+	} while (0)
 #else
 #define apusys_rv_aee_warn(module, reason)
+#define apusys_rv_exception_aee_warn(module, reason)
 #endif
 
 int apu_excep_init(struct platform_device *pdev, struct mtk_apu *apu);
