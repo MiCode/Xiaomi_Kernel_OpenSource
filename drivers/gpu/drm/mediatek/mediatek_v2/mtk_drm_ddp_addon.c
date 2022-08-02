@@ -521,7 +521,7 @@ void mtk_addon_connect_between(struct drm_crtc *crtc, unsigned int ddp_mode,
 	attach_comp_id =
 		mtk_crtc_find_comp(crtc, ddp_mode, module_data->attach_comp);
 
-	if (attach_comp_id == -1) {
+	if (attach_comp_id == -1 || attach_comp_id >= DDP_COMPONENT_ID_MAX) {
 		comp = priv->ddp_comp[module_data->attach_comp];
 		DDPPR_ERR("Attach module:%s is not in path mode %d\n",
 			  mtk_dump_comp_str(comp), ddp_mode);
@@ -531,7 +531,7 @@ void mtk_addon_connect_between(struct drm_crtc *crtc, unsigned int ddp_mode,
 	next_attach_comp_id = mtk_crtc_find_next_comp(crtc, ddp_mode,
 						      module_data->attach_comp);
 
-	if (next_attach_comp_id == -1) {
+	if (next_attach_comp_id == -1 || next_attach_comp_id >= DDP_COMPONENT_ID_MAX) {
 		comp = priv->ddp_comp[module_data->attach_comp];
 		DDPPR_ERR("Attach module:%s has not a next comp in path mode\n",
 			  mtk_dump_comp_str(comp));
@@ -638,7 +638,7 @@ void mtk_addon_disconnect_between(
 	next_attach_comp_id = mtk_crtc_find_next_comp(crtc, ddp_mode,
 						      module_data->attach_comp);
 
-	if (next_attach_comp_id == -1) {
+	if (next_attach_comp_id == -1 || next_attach_comp_id >= DDP_COMPONENT_ID_MAX) {
 		comp = priv->ddp_comp[module_data->attach_comp];
 		DDPPR_ERR(
 			"Attach module:%s has not a next comp in path mode %d\n",
@@ -705,7 +705,7 @@ void mtk_addon_connect_before(struct drm_crtc *crtc, unsigned int ddp_mode,
 		return;
 	}
 
-	if (next_attach_comp_id == -1) {
+	if (next_attach_comp_id == -1 || next_attach_comp_id >= DDP_COMPONENT_ID_MAX) {
 		comp = priv->ddp_comp[module_data->attach_comp];
 		DDPPR_ERR("Attach module:%s is not in path mode %d\n",
 			  mtk_dump_comp_str(comp), ddp_mode);
@@ -781,7 +781,7 @@ void mtk_addon_disconnect_before(
 	next_attach_comp_id =
 		mtk_crtc_find_comp(crtc, ddp_mode, module_data->attach_comp);
 
-	if (next_attach_comp_id == -1) {
+	if (next_attach_comp_id == -1 || next_attach_comp_id >= DDP_COMPONENT_ID_MAX) {
 		comp = priv->ddp_comp[module_data->attach_comp];
 		DDPPR_ERR("Attach module:%s is not in path mode %d\n",
 			  mtk_dump_comp_str(comp), ddp_mode);
@@ -836,7 +836,7 @@ void mtk_addon_connect_after(struct drm_crtc *crtc, unsigned int ddp_mode,
 		path_attach_id = prev_attach_comp_id;
 	}
 
-	if (prev_attach_comp_id == -1) {
+	if (prev_attach_comp_id == -1 || prev_attach_comp_id >= DDP_COMPONENT_ID_MAX) {
 		comp = priv->ddp_comp[module_data->attach_comp];
 		DDPPR_ERR("Attach module:%s is not in path mode %d\n",
 			mtk_dump_comp_str(comp), ddp_mode);
@@ -929,7 +929,7 @@ void mtk_addon_disconnect_after(
 		path_attach_id = prev_attach_comp_id;
 	}
 
-	if (prev_attach_comp_id == -1) {
+	if (prev_attach_comp_id == -1 || prev_attach_comp_id >= DDP_COMPONENT_ID_MAX) {
 		comp = priv->ddp_comp[module_data->attach_comp];
 		DDPPR_ERR("Attach module:%s is not in path mode %d\n",
 			mtk_dump_comp_str(comp), ddp_mode);
@@ -977,7 +977,7 @@ void mtk_addon_connect_embed(struct drm_crtc *crtc, unsigned int ddp_mode,
 	unsigned int addon_idx;
 
 	attach_comp_id = mtk_crtc_find_comp(crtc, ddp_mode, module_data->attach_comp);
-	if (attach_comp_id == -1) {
+	if (attach_comp_id == -1 || attach_comp_id >= DDP_COMPONENT_ID_MAX) {
 		if (module_data->attach_comp >= 0)
 			comp = priv->ddp_comp[module_data->attach_comp];
 		DDPPR_ERR("Attach module:%s is not in path mode %d\n", mtk_dump_comp_str(comp),
@@ -1052,7 +1052,7 @@ void mtk_addon_disconnect_embed(struct drm_crtc *crtc, unsigned int ddp_mode,
 
 	attach_comp_id = mtk_crtc_find_comp(crtc, ddp_mode, module_data->attach_comp);
 
-	if (attach_comp_id == -1) {
+	if (attach_comp_id == -1 || attach_comp_id >= DDP_COMPONENT_ID_MAX) {
 		comp = priv->ddp_comp[module_data->attach_comp];
 		DDPPR_ERR("Attach module:%s is not in path mode %d\n", mtk_dump_comp_str(comp),
 			  ddp_mode);
