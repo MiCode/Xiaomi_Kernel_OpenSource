@@ -2064,8 +2064,8 @@ static void module_uninit(struct kref *kref)
 		dev_dbg(dvfs_info->dev,
 			"%s: [ERROR] mmdvfs_clk is null\n", __func__);
 	else {
-		mtk_mmdvfs_enable_vcp(false);
 		mtk_mmdvfs_enable_ccu(false, CCU_PWR_USR_IMG);
+		mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_IMG);
 	}
 }
 
@@ -2110,7 +2110,7 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 		dev_dbg(dvfs_info->dev,
 			"%s: [ERROR] mmdvfs_clk is null\n", __func__);
 	else {
-		mtk_mmdvfs_enable_vcp(true);
+		mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_IMG);
 		mtk_mmdvfs_enable_ccu(true, CCU_PWR_USR_IMG);
 	}
 	if (IS_ERR_OR_NULL(dvfs_info->reg))
