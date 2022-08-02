@@ -1629,7 +1629,7 @@ static long usb_offload_ioctl(struct file *fp,
 		if (cmd == USB_OFFLOAD_ENABLE_STREAM && ret == 0)
 			uodev->is_streaming = true;
 
-		if (cmd == USB_OFFLOAD_DISABLE_STREAM && ret == 0)
+		if (cmd == USB_OFFLOAD_DISABLE_STREAM)
 			uodev->is_streaming = false;
 
 		break;
