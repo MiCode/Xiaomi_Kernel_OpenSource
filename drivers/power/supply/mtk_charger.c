@@ -1460,9 +1460,12 @@ int smart_charging(struct mtk_charger *info)
 			}
 		}
 	}
-
 	info->sc.last_solution = ret_value;
-
+	if (info->sc.last_solution == SC_DISABLE)
+		info->sc.disable_charger = true;
+	else
+		info->sc.disable_charger = false;
+	chr_err("[sc]disable_charger: %d\n", info->sc.disable_charger);
 	chr_err("[sc1]en:%d t:%d,%d,%d,%d t:%d,%d,%d,%d c:%d,%d ibus:%d uisoc: %d,%d s:%d ans:%s\n",
 		info->sc.enable, info->sc.start_time, info->sc.end_time,
 		sc_real_time, sc_left_time, info->sc.left_time_for_cv,
