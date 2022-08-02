@@ -2003,7 +2003,7 @@ int mtk_drm_ioctl_pq_get_persist_property(struct drm_device *dev, void *data,
 	return ret;
 }
 
-int mtk_drm_add_cb_data(struct cb_data_store *cb_data, int crtc_id)
+int mtk_drm_add_cb_data(struct cb_data_store *cb_data, unsigned int crtc_id)
 {
 	struct cb_data_store *tmp_cb_data = NULL;
 	int search = 0;
@@ -2029,7 +2029,7 @@ int mtk_drm_add_cb_data(struct cb_data_store *cb_data, int crtc_id)
 	return 0;
 }
 
-struct cb_data_store *mtk_drm_get_cb_data(int crtc_id)
+struct cb_data_store *mtk_drm_get_cb_data(unsigned int crtc_id)
 {
 	struct cb_data_store *tmp_cb_data = NULL;
 	unsigned long flags;
@@ -2044,7 +2044,7 @@ struct cb_data_store *mtk_drm_get_cb_data(int crtc_id)
 	return tmp_cb_data;
 }
 
-void mtk_drm_del_cb_data(struct cmdq_cb_data data, int crtc_id)
+void mtk_drm_del_cb_data(struct cmdq_cb_data data, unsigned int crtc_id)
 {
 	struct cb_data_store *tmp_cb_data = NULL;
 	unsigned long flags;
@@ -2054,7 +2054,7 @@ void mtk_drm_del_cb_data(struct cmdq_cb_data data, int crtc_id)
 		return;
 	}
 
-	if (crtc_id < 0 || crtc_id >= MAX_CRTC) {
+	if (crtc_id >= MAX_CRTC) {
 		DDPMSG("%s, crtc_id is invalid\n", __func__);
 		return;
 	}

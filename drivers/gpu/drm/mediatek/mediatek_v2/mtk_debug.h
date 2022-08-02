@@ -83,9 +83,9 @@ unsigned int mtk_dbg_get_lfr_update_value(void);
 unsigned int mtk_dbg_get_lfr_vse_dis_value(void);
 unsigned int mtk_dbg_get_lfr_skip_num_value(void);
 unsigned int mtk_dbg_get_lfr_dbg_value(void);
-int mtk_drm_add_cb_data(struct cb_data_store *cb_data, int crtc_id);
-struct cb_data_store *mtk_drm_get_cb_data(int crtc_id);
-void mtk_drm_del_cb_data(struct cmdq_cb_data data, int crtc_id);
+int mtk_drm_add_cb_data(struct cb_data_store *cb_data, unsigned int crtc_id);
+struct cb_data_store *mtk_drm_get_cb_data(unsigned int crtc_id);
+void mtk_drm_del_cb_data(struct cmdq_cb_data data, unsigned int crtc_id);
 int hrt_lp_switch_get(void);
 #endif
 
