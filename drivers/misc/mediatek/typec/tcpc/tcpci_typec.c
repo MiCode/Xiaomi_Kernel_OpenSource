@@ -119,10 +119,8 @@ static inline int typec_enable_low_power_mode(
 
 static inline int typec_enable_vconn(struct tcpc_device *tcpc)
 {
-#if !IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	if (!typec_is_sink_with_emark())
 		return 0;
-#endif /* CONFIG_USB_POWER_DELIVERY */
 
 #if CONFIG_TCPC_VCONN_SUPPLY_MODE
 	if (tcpc->tcpc_vconn_supply == TCPC_VCONN_SUPPLY_NEVER)
@@ -1595,9 +1593,7 @@ static inline void typec_attach_wait_entry(struct tcpc_device *tcpc)
 		tcpc->typec_state == typec_attached_src) {
 		tcpc_reset_typec_debounce_timer(tcpc);
 		TYPEC_DBG("Attached, Ignore cc_attach\n");
-#if !IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 		typec_enable_vconn(tcpc);
-#endif /* CONFIG_USB_POWER_DELIVERY */
 		return;
 	}
 
