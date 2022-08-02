@@ -133,6 +133,7 @@ struct mtk8250_data {
 	unsigned int   support_hub;
 	unsigned int   hub_baud;
 	struct mtk8250_data_dump rx_record;
+	struct mutex uart_mutex;
 };
 
 struct mtk8250_comp {
@@ -432,10 +433,6 @@ int mtk8250_uart_dump(struct tty_struct *tty)
 	unsigned int apdma_rx_reg_buf[24];
 	unsigned int apdma_tx_reg_buf[24];
 
-	memset(uart_reg_buf, 0, 24);
-	memset(apdma_rx_reg_buf, 0, 24);
-	memset(apdma_tx_reg_buf, 0, 24);
-
 	if (tty == NULL) {
 		pr_info("[%s] para error. tty is NULL\n", __func__);
 		return -EINVAL;
@@ -460,17 +457,24 @@ int mtk8250_uart_dump(struct tty_struct *tty)
 		pr_info("[%s] para error. data is NULL\n", __func__);
 		return -EINVAL;
 	}
+	mutex_lock(&data->uart_mutex);
 	if (data->clk_count == 0) {
 		pr_info("%s: clk_count = %d, clk close, please open ttys[%d]\n", __func__,
 		data->clk_count, data->line);
+		mutex_unlock(&data->uart_mutex);
 		return -EINVAL;
 	}
+
+	memset(uart_reg_buf, 0, 24);
+	memset(apdma_rx_reg_buf, 0, 24);
+	memset(apdma_tx_reg_buf, 0, 24);
 	mtk_save_uart_reg(up, uart_reg_buf);
 
 #ifdef CONFIG_SERIAL_8250_DMA
 	if ((up->dma == NULL) || (up->dma->rxchan == NULL) ||
 		(up->dma->txchan == NULL)) {
 		pr_info("[%s] para error. up->dma,rx,tx is NULL\n", __func__);
+		mutex_unlock(&data->uart_mutex);
 		return -EINVAL;
 	}
 	mtk8250_save_uart_apdma_reg(up->dma->rxchan, apdma_rx_reg_buf);
@@ -515,6 +519,7 @@ int mtk8250_uart_dump(struct tty_struct *tty)
 	mtk8250_uart_apdma_data_dump(up->dma->txchan);
 	mtk8250_data_dump(data);
 #endif
+	mutex_unlock(&data->uart_mutex);
 	return 0;
 }
 EXPORT_SYMBOL(mtk8250_uart_dump);
@@ -744,13 +749,15 @@ static void mtk8250_shutdown(struct uart_port *port)
 	if (up->dma)
 		data->rx_status = DMA_RX_SHUTDOWN;
 #endif
-
+	mutex_lock(&data->uart_mutex);
 #if defined(KERNEL_UARTHUB_close)
 	if (data->support_hub == 1)
 		KERNEL_UARTHUB_close();
 #endif
 
-	return serial8250_do_shutdown(port);
+	serial8250_do_shutdown(port);
+	mutex_unlock(&data->uart_mutex);
+	return;
 }
 
 static void mtk8250_disable_intrs(struct uart_8250_port *up, int mask)
@@ -1274,6 +1281,7 @@ static int mtk8250_probe(struct platform_device *pdev)
 			"uart support uarthub: %d\n", data->support_hub);
 
 	data->clk_count = 0;
+	mutex_init(&data->uart_mutex);
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	if (pdev->dev.of_node) {
