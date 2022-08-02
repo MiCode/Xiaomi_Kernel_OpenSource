@@ -478,12 +478,11 @@ static int mtk_cam_dump_buf_realloc(struct mtk_cam_dump_buf_ctrl *ctrl,
 static int dbg_ctrl_open(struct inode *inode, struct file *file)
 {
 	struct mtk_cam_debug_fs *debug_fs;
-	struct mtk_cam_dump_buf_ctrl *ctrl;
+	struct mtk_cam_dump_buf_ctrl *ctrl = PDE_DATA(inode);
 
-	if (inode->i_private)
-		file->private_data = inode->i_private;
+	WARN_ON(!ctrl);
 
-	ctrl = file->private_data;
+	file->private_data = ctrl;
 	debug_fs = ctrl->debug_fs;
 
 	dev_dbg(debug_fs->cam->dev,
@@ -591,12 +590,11 @@ FAIL:
 static int dbg_data_open(struct inode *inode, struct file *file)
 {
 	struct mtk_cam_debug_fs *debug_fs;
-	struct mtk_cam_dump_buf_ctrl *ctrl;
+	struct mtk_cam_dump_buf_ctrl *ctrl = PDE_DATA(inode);
 
-	if (inode->i_private)
-		file->private_data = inode->i_private;
+	WARN_ON(!ctrl);
 
-	ctrl = file->private_data;
+	file->private_data = ctrl;
 	debug_fs = ctrl->debug_fs;
 
 	dev_dbg(debug_fs->cam->dev,
@@ -721,21 +719,21 @@ static int exp_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static const struct file_operations dbg_ctrl_fops = {
-	.open = dbg_ctrl_open,
-	.write = dbg_ctrl_write,
+static const struct proc_ops dbg_ctrl_fops = {
+	.proc_open = dbg_ctrl_open,
+	.proc_write = dbg_ctrl_write,
 };
 
-static const struct file_operations dbg_data_fops = {
-	.open = dbg_data_open,
-	.read = dbg_data_read,
-	.llseek = default_llseek,
+static const struct proc_ops dbg_data_fops = {
+	.proc_open = dbg_data_open,
+	.proc_read = dbg_data_read,
+	.proc_lseek = default_llseek,
 };
 
-static const struct file_operations exp_fops = {
-	.open = exp_open,
-	.read = exp_read,
-	.release = exp_release,
+static const struct proc_ops exp_fops = {
+	.proc_open	= exp_open,
+	.proc_read	= exp_read,
+	.proc_release	= exp_release,
 };
 
 static int mtk_cam_exp_reinit(struct mtk_cam_debug_fs *debug_fs)
@@ -781,15 +779,15 @@ static int mtk_cam_debug_init(struct mtk_cam_debug_fs *debug_fs,
 	atomic_set(&debug_fs->exp_dump_state, CAMSYS_DUMP_SATATE_INIT);
 	mutex_init(&debug_fs->exp_dump_buf_lock);
 
-	debug_fs->exp_dump_entry = debugfs_create_file("mtk_cam_exp_dump",
-						       0444, NULL, cam->dev,
-						       &exp_fops);
+	/* Test proc file system */
+	debug_fs->exp_dump_entry = proc_create("mtk_cam_exp_dump", 0644, NULL,
+						&exp_fops);
 	if (!debug_fs->exp_dump_entry) {
-		dev_info(cam->dev, "Can't create debug fs\n");
+		dev_info(cam->dev, "Can't create proc fs\n");
 		return -ENOMEM;
 	}
 
-	debug_fs->dbg_entry = debugfs_create_dir("mtk_cam_dbg", NULL);
+	debug_fs->dbg_entry = proc_mkdir("mtk_cam_dbg", NULL);
 	for (i = 0; i < cam->max_stream_num; i++) {
 		char name[4];
 
@@ -806,25 +804,25 @@ static int mtk_cam_debug_init(struct mtk_cam_debug_fs *debug_fs,
 			return -ENOMEM;
 		}
 
-		ctrl->dir_entry = debugfs_create_dir(name, debug_fs->dbg_entry);
+		ctrl->dir_entry = proc_mkdir(name, debug_fs->dbg_entry);
 		if (!ctrl->dir_entry) {
 			dev_info(cam->dev,
 				 "Can't create dir for pipe:%d\n", i);
 			return -ENOMEM;
 		}
 
-		ctrl->ctrl_entry = debugfs_create_file("ctrl", 0664,
-						       ctrl->dir_entry, ctrl,
-						       &dbg_ctrl_fops);
+		ctrl->ctrl_entry = proc_create_data("ctrl", 0664,
+						       ctrl->dir_entry,
+						       &dbg_ctrl_fops, ctrl);
 		if (!ctrl->ctrl_entry) {
 			dev_info(cam->dev,
 				 "Can't create ctrl file for pipe:%d\n", i);
 			return -ENOMEM;
 		}
 
-		ctrl->data_entry = debugfs_create_file("data", 0444,
-						       ctrl->dir_entry, ctrl,
-						       &dbg_data_fops);
+		ctrl->data_entry = proc_create_data("data", 0444,
+						       ctrl->dir_entry,
+						       &dbg_data_fops, ctrl);
 		if (!ctrl->data_entry) {
 			dev_info(cam->dev,
 				 "Can't create data file for pipe:%d\n", i);
@@ -845,15 +843,15 @@ static void mtk_cam_debug_deinit(struct mtk_cam_debug_fs *debug_fs)
 
 	for (i = 0; i < debug_fs->cam->max_stream_num; i++) {
 		ctrl = &debug_fs->ctrl[i];
-		debugfs_remove(ctrl->ctrl_entry);
-		debugfs_remove(ctrl->data_entry);
-		debugfs_remove(ctrl->dir_entry);
+		proc_remove(ctrl->ctrl_entry);
+		proc_remove(ctrl->data_entry);
+		proc_remove(ctrl->dir_entry);
 	}
 
-	debugfs_remove(debug_fs->dbg_entry);
+	proc_remove(debug_fs->dbg_entry);
 	kfree(debug_fs->exp_dump_buf);
 	dev_dbg(debug_fs->cam->dev, "Free exception dump buffer\n");
-	debugfs_remove(debug_fs->exp_dump_entry);
+	proc_remove(debug_fs->exp_dump_entry);
 }
 
 static void mtk_cam_debug_dump_work(struct work_struct *work)

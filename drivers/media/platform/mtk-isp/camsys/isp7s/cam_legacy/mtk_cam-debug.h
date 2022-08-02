@@ -6,7 +6,7 @@
 #ifndef __MTK_CAM_DEBUG__
 #define __MTK_CAM_DEBUG__
 
-#include <linux/debugfs.h>
+#include <linux/proc_fs.h>
 struct mtk_cam_debug_fs;
 struct mtk_cam_device;
 struct mtk_cam_dump_param;
@@ -166,9 +166,9 @@ struct mtk_cam_dump_buf_ctrl {
 	int pipe_id;
 	struct mtk_cam_debug_fs *debug_fs;
 	struct mtk_cam_dump_ctrl_block blocks[MTK_CAM_DEBUG_DUMP_MAX_BUF];
-	struct dentry *dir_entry;
-	struct dentry *ctrl_entry;
-	struct dentry *data_entry;
+	struct proc_dir_entry *dir_entry;
+	struct proc_dir_entry *ctrl_entry;
+	struct proc_dir_entry *data_entry;
 	struct mutex ctrl_lock;
 	int head;
 	int tail;
@@ -176,7 +176,7 @@ struct mtk_cam_dump_buf_ctrl {
 	int count;
 	int cur_read;
 	atomic_t dump_state;
-	struct dentry *dump_entry;
+	struct proc_dir_entry *dump_entry;
 };
 
 struct mtk_cam_debug_ops {
@@ -198,9 +198,9 @@ struct mtk_cam_debug_fs {
 	void *exp_dump_buf; /* kernel exception dump */
 	atomic_t exp_dump_state;
 	struct mutex exp_dump_buf_lock;
-	struct dentry *exp_dump_entry;
+	struct proc_dir_entry *exp_dump_entry;
 	int buf_size;
-	struct dentry *dbg_entry;
+	struct proc_dir_entry *dbg_entry;
 	struct mtk_cam_dump_buf_ctrl ctrl[MTKCAM_SUBDEV_MAX];
 	struct mtk_cam_debug_ops *ops;
 };
