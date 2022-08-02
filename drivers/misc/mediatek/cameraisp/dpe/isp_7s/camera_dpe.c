@@ -6299,7 +6299,7 @@ static signed int DPE_probe(struct platform_device *pDev)
 	nr_DPE_devs += 1;
 	_dpe_dev = krealloc(DPE_devs, sizeof(struct DPE_device) * nr_DPE_devs,
 							GFP_KERNEL|__GFP_ZERO);
-	if ((!_dpe_dev) || (DPE_devs == NULL)) {
+	if (!_dpe_dev) {
 		dev_dbg(&pDev->dev, "Unable to allocate DPE_devs\n");
 		return -ENOMEM;
 	}
