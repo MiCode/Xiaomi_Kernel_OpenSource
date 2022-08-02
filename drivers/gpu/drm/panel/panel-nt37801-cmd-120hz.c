@@ -38,6 +38,7 @@
 #define FRAME_WIDTH				(1440)
 #define FRAME_HEIGHT			(3200)
 
+static atomic_t current_backlight;
 struct lcm {
 	struct device *dev;
 	struct drm_panel panel;
@@ -209,6 +210,9 @@ static int lcm_panel_bias_disable(void)
 
 static void lcm_panel_init(struct lcm *ctx)
 {
+	char bl_tb[] = {0x51, 0x0f, 0xff};
+	unsigned int level = 0;
+
 	ctx->reset_gpio =
 		devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(ctx->reset_gpio)) {
@@ -246,6 +250,11 @@ static void lcm_panel_init(struct lcm *ctx)
 	lcm_dcs_write_seq_static(ctx, 0x5F, 0x01);
 	lcm_dcs_write_seq_static(ctx, 0x2F, 0x00);
 	lcm_dcs_write_seq_static(ctx, 0x26, 0x00);
+	//backlight
+	level = atomic_read(&current_backlight);
+	bl_tb[1] = (level >> 8) & 0xf;
+	bl_tb[2] = level & 0xFF;
+	lcm_dcs_write(ctx, bl_tb, ARRAY_SIZE(bl_tb));
 
 	lcm_dcs_write_seq_static(ctx, 0x11);
 	msleep(140);
@@ -460,14 +469,14 @@ static int panel_ata_check(struct drm_panel *panel)
 static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
 	void *handle, unsigned int level)
 {
-	char bl_tb0[] = {0x51, 0xFF};
+	char bl_tb[] = {0x51, 0x0F, 0xff};
 
-	bl_tb0[1] = level;
-
+	bl_tb[1] = (level >> 8) & 0xF;
+	bl_tb[2] = level & 0xFF;
 	if (!cb)
 		return -1;
-
-	cb(dsi, handle, bl_tb0, ARRAY_SIZE(bl_tb0));
+	cb(dsi, handle, bl_tb, ARRAY_SIZE(bl_tb));
+	atomic_set(&current_backlight, level);
 
 	return 0;
 }
@@ -482,6 +491,7 @@ static struct mtk_panel_params ext_params = {
 		.count = 1,
 		.para_list[0] = 0x1c,
 	},
+	.is_support_od = true,
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
 		.enable = 1,
@@ -660,6 +670,7 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 
 	ctx->prepared = true;
 	ctx->enabled = true;
+	atomic_set(&current_backlight, 2047);
 
 	drm_panel_init(&ctx->panel, dev, &lcm_drm_funcs, DRM_MODE_CONNECTOR_DSI);
 
