@@ -4997,7 +4997,7 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	struct DPE_CLEAR_IRQ_STRUCT ClearIrq;
 	struct DPE_Config dpe_DpeConfig;
 	struct DPE_Request dpe_DpeReq;
-	signed int enqnum;
+	// signed int enqnum;
 	struct DPE_USER_INFO_STRUCT *pUserInfo;
 	int enqueNum;
 	int dequeNum;
@@ -5020,15 +5020,16 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	switch (Cmd) {
 	case DPE_RESET:
 		{
-			spin_lock(&(DPEInfo.SpinLockDPE));
-			DPE_Reset();
-			spin_unlock(&(DPEInfo.SpinLockDPE));
+			LOG_INF("Not support DPE ioctl DPE_RESET\n");
+			//DPE_Reset();
+			//spin_unlock(&(DPEInfo.SpinLockDPE));
 			break;
 		}
 		/*  */
 	case DPE_DUMP_REG:
 		{
-			Ret = DPE_DumpReg();
+			LOG_INF("DPE ioctl DumpReg star\n");
+			//Ret = DPE_DumpReg();
 			break;
 		}
 	case DPE_DUMP_ISR_LOG:
@@ -5297,17 +5298,6 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					g_DpeEnqueReq_Struct.DpeFrameConfig;
 				LOG_INF("[DPE ioctl DPE ENQUE REQ] Dpe_engineSelect = %d\n",
 				kDpeReq.m_pDpeConfig->Dpe_engineSelect);
-
-				if (kDpeReq.m_pDpeConfig->Dpe_engineSelect == MODE_DVS_ONLY) {
-					enqnum = dpe_enque_request_isp7s(&dpe_reqs_dvs,
-					kDpeReq.m_ReqNum, &kDpeReq, pUserInfo->Pid);
-				}
-				if ((kDpeReq.m_pDpeConfig->Dpe_engineSelect == MODE_DVP_ONLY) ||
-					(kDpeReq.m_pDpeConfig->Dpe_engineSelect ==
-					MODE_DVS_DVP_BOTH)) {
-					enqnum = dpe_enque_request_isp7s(&dpe_reqs_dvp,
-					kDpeReq.m_ReqNum, &kDpeReq, pUserInfo->Pid);
-				}
 
 				spin_unlock_irqrestore(
 				&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]),
@@ -6309,7 +6299,7 @@ static signed int DPE_probe(struct platform_device *pDev)
 	nr_DPE_devs += 1;
 	_dpe_dev = krealloc(DPE_devs, sizeof(struct DPE_device) * nr_DPE_devs,
 							GFP_KERNEL|__GFP_ZERO);
-	if (!_dpe_dev) {
+	if ((!_dpe_dev) || (DPE_devs == NULL)) {
 		dev_dbg(&pDev->dev, "Unable to allocate DPE_devs\n");
 		return -ENOMEM;
 	}
