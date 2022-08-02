@@ -260,10 +260,21 @@ void mtk_uart_apdma_data_dump(struct dma_chan *chan)
 }
 EXPORT_SYMBOL(mtk_uart_apdma_data_dump);
 
-void mtk_uart_rx_setting(struct dma_chan *chan)
+void mtk_uart_rx_setting(struct dma_chan *chan, int copied, int total)
 {
 	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
+	unsigned int rpt_old, rpt_new, vff_sz;
 
+	if (total > copied) {
+		vff_sz = c->cfg.src_port_window_size;
+		rpt_old = mtk_uart_apdma_read(c, VFF_RPT);
+		rpt_new = rpt_old + (unsigned int)copied;
+		if ((rpt_new & vff_sz) == vff_sz)
+			rpt_new = (rpt_new - vff_sz) ^ VFF_RING_WRAP;
+		pr_info("%s: copied=%d,total=%d,rpt_old=0x%x,wpt_old=0x%x,rpt_new=0x%x\n",
+			__func__, copied, total, rpt_old, c->irq_wg, rpt_new);
+		c->irq_wg = rpt_new;
+	}
 	/* Flush before update vff_rpt */
 	mb();
 	/* Let DMA start moving data */

@@ -14,7 +14,7 @@
 
 void mtk_save_uart_apdma_reg(struct dma_chan *chan, unsigned int *reg_buf);
 void mtk_uart_apdma_data_dump(struct dma_chan *chan);
-void mtk_uart_rx_setting(struct dma_chan *chan);
+void mtk_uart_rx_setting(struct dma_chan *chan, int copied, int total);
 void mtk_uart_apdma_start_record(struct dma_chan *chan);
 void mtk_uart_apdma_end_record(struct dma_chan *chan);
 

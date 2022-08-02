@@ -316,10 +316,10 @@ static void mtk8250_uart_apdma_data_dump(struct dma_chan *chan)
 	#endif
 }
 
-static void mtk8250_uart_rx_setting(struct dma_chan *chan)
+static void mtk8250_uart_rx_setting(struct dma_chan *chan, int copied, int total)
 {
 	#if defined(KERNEL_mtk_uart_rx_setting)
-		KERNEL_mtk_uart_rx_setting(chan);
+		KERNEL_mtk_uart_rx_setting(chan, copied, total);
 	#endif
 }
 
@@ -630,7 +630,7 @@ static void mtk8250_dma_rx_complete(void *param)
 			__func__, total, UART_DUMP_BUF_LEN);
 #endif
 
-	if (total > cnt) {
+	if ((copied == cnt) && (total > cnt)) {
 		ptr = (unsigned char *)(dma->rx_buf);
 #ifdef CONFIG_UART_DATA_RECORD
 	if (total <= UART_DUMP_BUF_LEN)
@@ -646,7 +646,7 @@ static void mtk8250_dma_rx_complete(void *param)
 	data->rx_record.rec[idx].r_copied = copied;
 
 	up->port.icount.rx += copied;
-	mtk8250_uart_rx_setting(dma->rxchan);
+	mtk8250_uart_rx_setting(dma->rxchan, copied, total);
 
 	tty_flip_buffer_push(tty_port);
 
