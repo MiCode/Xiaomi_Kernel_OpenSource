@@ -34,6 +34,7 @@
 
 #define TAG "drv3"
 
+static unsigned int g_backup_dl_isr, g_backup_ul_isr;
 
 static struct dpmaif_clk_node g_clk_tbs[] = {
 	{ NULL, "infra-dpmaif-clk"},
@@ -1145,11 +1146,15 @@ void ccci_drv3_dl_lro_hpc_hw_init(void)
 
 static int drv3_suspend_noirq(struct device *dev)
 {
+	g_backup_dl_isr = drv3_get_dl_interrupt_mask();
+	g_backup_ul_isr = DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMR0);
 	return 0;
 }
 
 static int drv3_resume_noirq(struct device *dev)
 {
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMSR0, g_backup_ul_isr);
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMSR0, g_backup_dl_isr);
 	return 0;
 }
 
