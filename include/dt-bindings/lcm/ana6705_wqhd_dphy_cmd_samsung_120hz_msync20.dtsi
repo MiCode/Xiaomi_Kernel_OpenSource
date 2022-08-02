@@ -72,7 +72,7 @@
 				lcm-params-dsi-mode_flags_doze_off;
 
 				lcm-params-dsi-need_fake_resolution;
-				lcm-params-dsi-fake_resolution = <1440 3216>;
+				lcm-params-dsi-fake_resolution;
 
 				lcm_gpio_list = <&pio 42 0>, /* gpio list*/
 					<&pio 28 0>,
@@ -113,8 +113,8 @@
 					lcm-params-dsi-vscan;
 
 					/* mtk_panel_params */
-					lcm-params-dsi-lk-pll_clock = <718>;
-					lcm-params-dsi-lk-data_rate = <1436>;
+					//lcm-params-dsi-lk-pll_clock = <718>;
+					//lcm-params-dsi-lk-data_rate = <1436>;
 					lcm-params-dsi-pll_clock = <834>;
 					lcm-params-dsi-data_rate = <1668>;
 					lcm-params-dsi-vfp_for_low_power;
@@ -1003,7 +1003,7 @@
 					lcm-params-dsi-vscan;
 
 					/* mtk_panel_params */
-					lcm-params-dsi-pll_clock;
+					lcm-params-dsi-pll_clock = <488>;
 					lcm-params-dsi-data_rate = <976>;
 					lcm-params-dsi-vfp_for_low_power;
 					lcm-params-dsi-ssc_enable;
@@ -1187,7 +1187,7 @@
 					lcm-params-dsi-vscan;
 
 					/* mtk_panel_params */
-					lcm-params-dsi-pll_clock;
+					lcm-params-dsi-pll_clock = <488>;
 					lcm-params-dsi-data_rate = <976>;
 					lcm-params-dsi-vfp_for_low_power;
 					lcm-params-dsi-ssc_enable;
@@ -1895,7 +1895,6 @@
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 04],
 						[B0 00 18 60],
 	/* oplus adfr -> max:min */
-					[MTK_LCM_PHASE_TYPE_HEX_START 01 MTK_LCM_PHASE_HEX_KERNEL],
 					/* wqhd 120 init*/
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
 						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 00 06 00 00],
@@ -1914,14 +1913,6 @@
 					/* fhd 60 init*/
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
 						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 05 06 0c 03],
-					[MTK_LCM_PHASE_TYPE_HEX_END 01 MTK_LCM_PHASE_HEX_KERNEL],
-
-					[MTK_LCM_PHASE_TYPE_HEX_START 02 MTK_LCM_PHASE_HEX_LK],
-						[MTK_LCM_PHASE_HEX_LK_DISPLAY_ON_DELAY],
-					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03],
-						[60 00 00],
-					[MTK_LCM_PHASE_TYPE_HEX_END 02 MTK_LCM_PHASE_HEX_LK],
-						[MTK_LCM_PHASE_HEX_LK_DISPLAY_ON_DELAY],
 
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 04],
 						[B0 00 04 60],
@@ -1984,7 +1975,13 @@
 					[MTK_LCM_PHASE_TYPE_HEX_END 02 MTK_LCM_PHASE_HEX_LK],
 						[MTK_LCM_PHASE_HEX_LK_DISPLAY_ON_DELAY],
     /* Display On Setting */
+					[MTK_LCM_PHASE_TYPE_HEX_START 02],
+						[MTK_LCM_PHASE_HEX_LK],
+						[MTK_LCM_PHASE_HEX_KERNEL],
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 01 29],
+					[MTK_LCM_PHASE_TYPE_HEX_END 02],
+						[MTK_LCM_PHASE_HEX_LK],
+						[MTK_LCM_PHASE_HEX_KERNEL],
 					[MTK_LCM_TYPE_HEX_END];
 
 				unprepare_table = [MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 01 28],
@@ -2055,7 +2052,7 @@
 					[MTK_LCM_CMD_TYPE_HEX_READ_CMD 03 00 03 04],
 					[MTK_LCM_TYPE_HEX_END];
 
-				compare_id_value_data = [c5 a7];
+				compare_id_value_data = [c5 c5];
 				compare_id_table = [MTK_LCM_UTIL_TYPE_HEX_RESET 01 01],
 					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 0a],
 					[MTK_LCM_UTIL_TYPE_HEX_RESET 01 00],
@@ -2065,7 +2062,7 @@
 					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_COUNT 01 01],
 					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM 05 00 00 01 37 00],
 					[MTK_LCM_LK_TYPE_HEX_WRITE_PARAM 00],
-					[MTK_LCM_CMD_TYPE_HEX_READ_BUFFER 03 00 01 da],
+					[MTK_LCM_CMD_TYPE_HEX_READ_CMD 03 00 02 da],
 					[MTK_LCM_TYPE_HEX_END];
 
 				doze_enable_start_table =
