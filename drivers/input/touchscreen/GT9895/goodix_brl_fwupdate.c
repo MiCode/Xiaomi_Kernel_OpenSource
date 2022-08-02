@@ -1235,6 +1235,7 @@ static int goodix_fw_update_thread(void *data)
 	struct fw_update_ctrl *fwu_ctrl = data;
 	ktime_t start, end;
 	int r = -EINVAL;
+	int mode = fwu_ctrl->mode;
 
 	start = ktime_get();
 	fwu_ctrl->spend_time = 0;
@@ -1244,13 +1245,13 @@ static int goodix_fw_update_thread(void *data)
 	ts_debug("notify update start");
 	goodix_ts_blocking_notify(NOTIFY_FWUPDATE_START, NULL);
 
-	if (fwu_ctrl->mode & UPDATE_MODE_SRC_REQUEST) {
+	if (mode & UPDATE_MODE_SRC_REQUEST) {
 		ts_info("Firmware request update starts");
 		r = goodix_request_firmware(&fwu_ctrl->fw_data,
 						fwu_ctrl->fw_name);
 		if (r < 0)
 			goto out;
-	} else if (fwu_ctrl->mode & UPDATE_MODE_SRC_SYSFS) {
+	} else if (mode & UPDATE_MODE_SRC_SYSFS) {
 		if (!fwu_ctrl->fw_data.fw_sysfs) {
 			ts_err("Invalid firmware from sysfs");
 			r = -EINVAL;
@@ -1266,7 +1267,7 @@ static int goodix_fw_update_thread(void *data)
 			goto out;
 		}
 	} else {
-		ts_err("unknown update mode 0x%x", fwu_ctrl->mode);
+		ts_err("unknown update mode 0x%x", mode);
 		r = -EINVAL;
 		goto out;
 	}
@@ -1276,11 +1277,11 @@ static int goodix_fw_update_thread(void *data)
 	r = goodix_fw_update_proc(fwu_ctrl);
 
 	/* clean */
-	if (fwu_ctrl->mode & UPDATE_MODE_SRC_SYSFS) {
+	if (mode & UPDATE_MODE_SRC_SYSFS) {
 		vfree(fwu_ctrl->fw_data.fw_sysfs->data);
 		kfree(fwu_ctrl->fw_data.fw_sysfs);
 		fwu_ctrl->fw_data.fw_sysfs = NULL;
-	} else if (fwu_ctrl->mode & UPDATE_MODE_SRC_REQUEST) {
+	} else if (mode & UPDATE_MODE_SRC_REQUEST) {
 		goodix_release_firmware(&fwu_ctrl->fw_data);
 	}
 out:
