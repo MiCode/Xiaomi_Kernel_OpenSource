@@ -366,6 +366,11 @@ static int mtk_mraw_collect_pfmt(struct mtk_mraw_pipeline *pipe,
 {
 	int pad = fmt->pad;
 
+	if (pad < 0) {
+		dev_info(pipe->subdev.v4l2_dev->dev,
+		"%s pad is negative", __func__);
+		return 0;
+	}
 	pipe->req_pfmt_update |= 1 << pad;
 	pipe->req_pad_fmt[pad] = *fmt;
 
@@ -624,12 +629,12 @@ void apply_mraw_cq(struct mtk_mraw_device *dev,
 static unsigned int mtk_cam_mraw_powi(unsigned int x, unsigned int n)
 {
 	unsigned int rst = 1.0;
-	unsigned int m = (n >= 0) ? n : -n;
+	unsigned int m = n;
 
 	while (m--)
 		rst *= x;
 
-	return (n >= 0) ? rst : 1.0 / rst;
+	return rst;
 }
 
 static unsigned int mtk_cam_mraw_xsize_cal(unsigned int length)
@@ -1183,7 +1188,7 @@ int mtk_cam_mraw_pipeline_config(
 {
 	struct mtk_mraw_pipeline *mraw_pipe = ctx->mraw_pipe[idx];
 	struct mtk_mraw *mraw = mraw_pipe->mraw;
-	unsigned int i;
+	unsigned int i, j;
 	int ret;
 
 	/* reset pm_runtime during streaming dynamic change */
@@ -1208,9 +1213,9 @@ int mtk_cam_mraw_pipeline_config(
 		dev_dbg(mraw->cam_dev,
 			"failed at pm_runtime_get_sync: %s\n",
 			dev_driver_string(mraw->devs[i]));
-		for (i = i-1; i >= 0; i--)
-			if (mraw_pipe->enabled_mraw & 1<<i)
-				pm_runtime_put_sync(mraw->devs[i]);
+		for (j = 0; j < i; j++)
+			if (mraw_pipe->enabled_mraw & 1<<j)
+				pm_runtime_put_sync(mraw->devs[j]);
 		return ret;
 	}
 
@@ -1711,7 +1716,7 @@ static int  mtk_mraw_pipeline_register(
 	struct mtk_mraw_device *mraw_dev = dev_get_drvdata(dev);
 	struct v4l2_subdev *sd = &pipe->subdev;
 	struct mtk_cam_video_device *video;
-	unsigned int i;
+	unsigned int i, j;
 	int ret;
 
 	pipe->id = id;
@@ -1788,8 +1793,8 @@ static int  mtk_mraw_pipeline_register(
 	return 0;
 
 fail_unregister_video:
-	for (i = i-1; i >= 0; i--)
-		mtk_cam_video_unregister(pipe->vdev_nodes + i);
+	for (j = 0; j < i; j++)
+		mtk_cam_video_unregister(pipe->vdev_nodes + j);
 
 	return ret;
 }

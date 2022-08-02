@@ -2379,6 +2379,7 @@ static int mtk_camsys_ts_state_handle(
 static void mtk_camsys_ts_frame_start(struct mtk_cam_ctx *ctx,
 				       unsigned int dequeued_frame_seq_no)
 {
+
 	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_cam_request *req_cq = NULL;
 	struct mtk_cam_request_stream_data *req_stream_data;
@@ -2411,10 +2412,11 @@ static void mtk_camsys_ts_frame_start(struct mtk_cam_ctx *ctx,
 		req_stream_data = mtk_cam_req_get_s_data(req_cq, ctx->stream_id, 0);
 		/* time sharing sv wdma flow - stream on at 1st request*/
 		/* camsv todo: need tag_idx */
+
 		for (sv_i = MTKCAM_SUBDEV_CAMSV_END - 1;
 			sv_i >= MTKCAM_SUBDEV_CAMSV_START; sv_i--) {
 			if (ctx->pipe->enabled_raw & (1 << sv_i)) {
-				dev_sv = cam->sv.devs[sv_i - MTKCAM_SUBDEV_CAMSV_START];
+				dev_sv = cam->sv.devs[0];
 				camsv_dev = dev_get_drvdata(dev_sv);
 				mtk_cam_sv_enquehwbuf(camsv_dev,
 				req_stream_data->frame_params.img_ins[0].buf[0].iova,
@@ -2427,7 +2429,9 @@ static void mtk_camsys_ts_frame_start(struct mtk_cam_ctx *ctx,
 		ctx->stream_id, dequeued_frame_seq_no, req_stream_data->frame_seq_no,
 		ctx->composed_frame_seq_no, req_stream_data->frame_params.img_ins[0].buf[0].iova,
 		req_stream_data->timestamp);
+
 	}
+
 }
 
 static bool
@@ -3191,6 +3195,8 @@ int hdr_apply_cq_at_last_sof(struct mtk_raw_device *raw_dev,
 				if (!s_raw_pipe_data)
 					return 0;
 				camsv_dev = mtk_cam_get_used_sv_dev(ctx);
+				if (!camsv_dev)
+					return 0;
 				for (i = SVTAG_IMG_START; i < SVTAG_IMG_END; i++) {
 					if (s_raw_pipe_data->enabled_sv_tags & (1 << i)) {
 						mtk_cam_sv_dev_pertag_write_rcnt(camsv_dev, i);
@@ -5061,8 +5067,7 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 	int group_idx, tag_idx, i;
 
 	camsv_dev = dev_get_drvdata(cam->sv.devs[engine_id]);
-	if (camsv_dev->ctx_stream_id < MTKCAM_SUBDEV_RAW_START ||
-		camsv_dev->ctx_stream_id >= MTKCAM_SUBDEV_CAMSV_END) {
+	if (camsv_dev->ctx_stream_id >= MTKCAM_SUBDEV_CAMSV_END) {
 		dev_info(camsv_dev->dev, "stream id out of range : %d",
 				camsv_dev->ctx_stream_id);
 		return -1;
@@ -5145,8 +5150,7 @@ int mtk_camsv_special_hw_scenario_handler(struct mtk_cam_device *cam,
 	struct mtk_cam_ctx *ctx;
 	bool bDcif = false;
 
-	if (camsv_dev->ctx_stream_id < MTKCAM_SUBDEV_RAW_START ||
-		camsv_dev->ctx_stream_id >= MTKCAM_SUBDEV_RAW_END) {
+	if (camsv_dev->ctx_stream_id >= MTKCAM_SUBDEV_RAW_END) {
 		dev_info(camsv_dev->dev, "stream id out of raw range : %d",
 				camsv_dev->ctx_stream_id);
 		return -1;

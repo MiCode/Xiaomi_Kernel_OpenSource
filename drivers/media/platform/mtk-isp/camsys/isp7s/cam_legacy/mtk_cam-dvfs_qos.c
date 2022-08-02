@@ -170,12 +170,17 @@ static void mtk_cam_dvfs_get_clkidx(struct mtk_cam_device *cam)
 void mtk_cam_dvfs_update_clk(struct mtk_cam_device *cam)
 {
 	struct mtk_camsys_dvfs *dvfs = &cam->camsys_ctrl.dvfs_info;
+	int ret;
 
 	if (dvfs->mmdvfs_clk && dvfs->clklv_num &&
 		(atomic_read(&dvfs->fixed_clklv) == 0)) {
 		mtk_cam_dvfs_enumget_clktarget(cam);
 		mtk_cam_dvfs_get_clkidx(cam);
-		clk_set_rate(dvfs->mmdvfs_clk, dvfs->clklv_target);
+		ret = clk_set_rate(dvfs->mmdvfs_clk, dvfs->clklv_target);
+		if (ret < 0) {
+			dev_info(cam->dev, "[%s] clk set rate fail", __func__);
+			return;
+		}
 		dev_info(cam->dev, "[%s] update idx:%d clk:%d volt:%d", __func__,
 			dvfs->clklv_idx, dvfs->clklv_target, dvfs->voltlv[dvfs->clklv_idx]);
 	}
@@ -288,7 +293,7 @@ static void __mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, struct mtk_raw_device
 	unsigned int qos_port_id, port_id;
 	unsigned int ipi_fmt;
 	int i, j, pixel_bits, plane_factor;
-	unsigned long vblank, fps, height, PBW_MB_s, ABW_MB_s;
+	unsigned long vblank, fps, height, PBW_MB_s = 0, ABW_MB_s;
 	unsigned int width_mbn = 0, height_mbn = 0;
 	unsigned int width_cpi = 0, height_cpi = 0;
 	bool is_raw_srt = mtk_cam_is_srt(pipe->hw_mode);
@@ -883,9 +888,11 @@ void mtk_cam_qos_sv_bw_calc(struct mtk_cam_ctx *ctx, bool force)
 	unsigned int qos_port_id;
 	unsigned int ipi_fmt;
 	int i, pixel_bits, plane_factor;
-	unsigned long vblank, fps, height, PBW_MB_s, ABW_MB_s;
+	unsigned long vblank = 0, fps = 0, height = 0, PBW_MB_s, ABW_MB_s;
 	struct mtkcam_ipi_input_param *cfg_in_param;
 
+	memset(&fi, 0, sizeof(fi));
+	memset(&sd_fmt, 0, sizeof(sd_fmt));
 	/* Reset all dvfs_info bw */
 	for (i = 0; i < sv_qos_port_num; i++) {
 		qos_port_id = (ctx->sv_dev->id * sv_qos_port_num) + i;
@@ -903,7 +910,10 @@ void mtk_cam_qos_sv_bw_calc(struct mtk_cam_ctx *ctx, bool force)
 			v4l2_subdev_call(ctx->sensor, video, g_frame_interval, &fi);
 			fps = fi.interval.denominator / fi.interval.numerator;
 			ctrl = v4l2_ctrl_find(ctx->sensor->ctrl_handler, V4L2_CID_VBLANK);
-			vblank = v4l2_ctrl_g_ctrl(ctrl);
+			if (!ctrl)
+				vblank = v4l2_ctrl_g_ctrl(ctrl);
+			else
+				dev_info(cam->dev, "[%s] ctrl is NULL\n", __func__);
 			sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 			sd_fmt.pad = ctx->sv_dev->tag_info[i].seninf_padidx;
 			v4l2_subdev_call(ctx->seninf, pad, get_fmt, NULL, &sd_fmt);

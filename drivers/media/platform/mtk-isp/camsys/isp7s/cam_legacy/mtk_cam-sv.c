@@ -1026,8 +1026,8 @@ unsigned int mtk_cam_sv_pak_sel(unsigned int pixel_fmt,
 unsigned int mtk_cam_sv_xsize_cal(struct mtkcam_ipi_input_param *cfg_in_param)
 {
 
-	unsigned int size;
-	unsigned int divisor;
+	unsigned int size = 0;
+	unsigned int divisor = 0;
 
 	switch (cfg_in_param->fmt) {
 	case V4L2_PIX_FMT_SBGGR8:
@@ -1520,6 +1520,11 @@ bool mtk_cam_sv_is_zero_fbc_cnt(struct mtk_cam_ctx *ctx,
 	unsigned int tag_idx;
 
 	camsv_dev = mtk_cam_get_used_sv_dev(ctx);
+	if (!camsv_dev) {
+		dev_info(ctx->cam->dev, "[%s] camsv_dev is null",
+		__func__);
+		return result;
+	}
 	tag_idx = mtk_cam_get_sv_tag_index(ctx, pipe_id);
 
 	if (CAMSV_READ_BITS(camsv_dev->base +
@@ -1769,6 +1774,7 @@ int mtk_cam_call_sv_pipeline_config(
 	unsigned int bbp;
 	struct mtk_cam_scen scen;
 
+	memset(&scen, 0, sizeof(scen));
 	mtk_cam_scen_init(&scen);
 	if (mtk_cam_ctx_has_raw(ctx))
 		scen = ctx->pipe->scen_active;
@@ -1845,7 +1851,7 @@ struct mtk_camsv_device *mtk_cam_get_used_sv_dev(struct mtk_cam_ctx *ctx)
 
 int mtk_cam_get_sv_cammux_id(struct mtk_camsv_device *camsv_dev, int tag_idx)
 {
-	int cammux_id;
+	int cammux_id = 0;
 
 	switch (camsv_dev->id) {
 	case CAMSV_0:
@@ -1887,7 +1893,7 @@ int mtk_cam_sv_dev_pertag_stream_on(
 			(tag_idx >= SVTAG_META_START &&
 			tag_idx < SVTAG_META_END)) {
 			sv_pipe = camsv_dev->tag_info[tag_idx].sv_pipe;
-			if (!sv_pipe)
+			if (sv_pipe)
 				mtk_ctx_watchdog_stop(ctx, sv_pipe->id);
 		}
 
@@ -2113,8 +2119,7 @@ void camsv_irq_handle_err(
 
 	if (camsv_dev->tag_info[tag_idx].hw_scen &
 		MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
-		if (camsv_dev->ctx_stream_id < MTKCAM_SUBDEV_RAW_START ||
-			camsv_dev->ctx_stream_id >= MTKCAM_SUBDEV_CAMSV_END) {
+		if (camsv_dev->ctx_stream_id >= MTKCAM_SUBDEV_CAMSV_END) {
 			dev_info(camsv_dev->dev, "stream id out of range : %d",
 					camsv_dev->ctx_stream_id);
 			return;
@@ -2203,6 +2208,7 @@ static irqreturn_t mtk_irq_camsv_done(int irq, void *data)
 	unsigned int irq_flag = 0;
 	bool wake_thread = 0;
 
+	memset(&irq_info, 0, sizeof(irq_info));
 	dequeued_imgo_seq_no =
 		readl_relaxed(camsv_dev->base + REG_CAMSVCENTRAL_FRAME_SEQ_NO);
 	dequeued_imgo_seq_no_inner =
@@ -2246,6 +2252,7 @@ static irqreturn_t mtk_irq_camsv_sof(int irq, void *data)
 	bool wake_thread = 0;
 	unsigned int i;
 
+	memset(&irq_info, 0, sizeof(irq_info));
 	dequeued_imgo_seq_no =
 		readl_relaxed(camsv_dev->base + REG_CAMSVCENTRAL_FRAME_SEQ_NO);
 	dequeued_imgo_seq_no_inner =
@@ -2330,6 +2337,7 @@ static irqreturn_t mtk_irq_camsv_err(int irq, void *data)
 
 	if (err_status) {
 		struct mtk_camsys_irq_info err_info;
+		memset(&err_info, 0, sizeof(err_info));
 		if (err_status & ERR_ST_MASK_TAG1_ERR)
 			err_info.err_tags |= (1 << 0);
 		if (err_status & ERR_ST_MASK_TAG2_ERR)
