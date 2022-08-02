@@ -137,10 +137,8 @@ enum rt9490_fields {
 	F_PE_SEL,
 	F_PE10_INC,
 	F_PE20_CODE,
-	F_AUTO_AICR,
 	F_TD_EOC,
 	F_EOC_RST,
-	F_AUTO_MIVR,
 	F_SPEC_TA_EN,
 	F_MAX_FIELDS
 };
@@ -289,10 +287,8 @@ static struct reg_field rt9490_reg_fields[] = {
 	[F_PE_SEL]	= REG_FIELD(RT9490_REG_PUMP_EXP, 6, 6),
 	[F_PE10_INC]	= REG_FIELD(RT9490_REG_PUMP_EXP, 5, 5),
 	[F_PE20_CODE]	= REG_FIELD(RT9490_REG_PUMP_EXP, 0, 4),
-	[F_AUTO_AICR]	= REG_FIELD(RT9490_REG_ADD_CTRL0, 5, 5),
 	[F_TD_EOC]	= REG_FIELD(RT9490_REG_ADD_CTRL0, 4, 4),
 	[F_EOC_RST]	= REG_FIELD(RT9490_REG_ADD_CTRL0, 3, 3),
-	[F_AUTO_MIVR]	= REG_FIELD(RT9490_REG_ADD_CTRL0, 2, 2),
 	[F_SPEC_TA_EN]	= REG_FIELD(RT9490_REG_ADD_CTRL2, 2, 2),
 };
 
@@ -1174,10 +1170,9 @@ static int rt9490_is_safety_timer_enable(
 static int rt9490_enable_power_path(struct charger_device *chgdev, bool en)
 {
 	struct rt9490_chg_data *data = charger_get_data(chgdev);
-	u32 mivr = (en ? 4500000 : RT9490_VMIVR_MAXUV);
 
 	dev_info(data->dev, "%s: en = %d\n", __func__, en);
-	return rt9490_set_mivr(chgdev, mivr);
+	return rt9490_enable_hz(chgdev, !en);
 }
 
 static int rt9490_is_power_path_enable(struct charger_device *chgdev, bool *en)
@@ -1767,10 +1762,6 @@ static int rt9490_do_charger_init(struct rt9490_chg_data *data)
 	if (ret)
 		return ret;
 
-	ret = regmap_field_write(data->rm_field[F_AUTO_AICR], 0);
-	if (ret)
-		return ret;
-
 	/* mediatek boot mode */
 	boot_np = of_parse_phandle(np, "boot_mode", 0);
 	if (!boot_np) {
@@ -1892,6 +1883,14 @@ static int rt9490_chg_enable_bc12(struct rt9490_chg_data *data, bool en)
 
 	dev_info(data->dev, "%s en=%d\n", __func__, en);
 	if (en) {
+		/* set aicr = 100mA */
+		ret = rt9490_set_aicr(data->chgdev, 100000);
+		if (ret)
+			return ret;
+		/* disable HZ */
+		ret = rt9490_enable_hz(data->chgdev, false);
+		if (ret)
+			return ret;
 		/* CDP port specific process */
 		dev_info(data->dev, "check CDP block\n");
 		for (i = 0; i < max_wait_cnt; i++) {

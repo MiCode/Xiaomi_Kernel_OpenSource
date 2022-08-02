@@ -16,7 +16,6 @@
 #include <linux/pm.h>
 #include <linux/regmap.h>
 
-#define RT9490_REG_EOC_CTRL		0x09
 #define RT9490_REG_CHG_IRQ_FLAG0	0x22
 #define RT9490_REG_CHG_IRQ_MASK0	0x28
 #define RT9490_REG_DEVICE_INFO		0x48
@@ -25,7 +24,6 @@
 
 #define RT9490_NUM_IRQ_REGS		7
 #define RT9490_ADD_IRQ_OFFSET		6
-#define RT9490_RSTRG_MASK		BIT(6)
 #define RT9490_DEVICE_ID_MASK		GENMASK(6, 3)
 #define RT9490_VENDOR_ID		0x60
 //#define RT9490_VENDOR_ID		0x00
@@ -280,18 +278,6 @@ static int rt9490_remove(struct i2c_client *i2c)
 	return 0;
 }
 
-static void rt9490_shutdown(struct i2c_client *i2c)
-{
-	struct rt9490_data *data = i2c_get_clientdata(i2c);
-	int ret;
-
-	/* Trigger the whole chip register reset */
-	ret = regmap_update_bits(data->regmap, RT9490_REG_EOC_CTRL,
-				 RT9490_RSTRG_MASK, RT9490_RSTRG_MASK);
-	if (ret)
-		dev_err(&i2c->dev, "Failed to reset registers(%d)\n", ret);
-}
-
 static int __maybe_unused rt9490_suspend(struct device *dev)
 {
 	struct i2c_client *i2c = to_i2c_client(dev);
@@ -328,7 +314,6 @@ static struct i2c_driver rt9490_driver = {
 	},
 	.probe_new = rt9490_probe,
 	.remove = rt9490_remove,
-	.shutdown = rt9490_shutdown,
 };
 module_i2c_driver(rt9490_driver);
 
