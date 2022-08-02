@@ -1782,6 +1782,8 @@ unsigned int mtk_cam_get_sv_idle_tags(
 			used_tags = (1 << SVTAG_0) | (1 << SVTAG_3);
 		else if (req_amount == 3)
 			used_tags = (1 << SVTAG_0) | (1 << SVTAG_1) | (1 << SVTAG_3);
+		else if (req_amount == 1)
+			used_tags = (1 << SVTAG_3);
 	} else if (hw_scen & (1 << MTKCAM_SV_SPECIAL_SCENARIO_DISPLAY_IC)) {
 		if (req_amount == 3)
 			used_tags = (1 << SVTAG_0) | (1 << SVTAG_1) | (1 << SVTAG_2);
@@ -6805,6 +6807,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			if (ctx->used_raw_num) {
 				req_stream_data = mtk_cam_req_get_s_data(req, stream_id, 0);
 				scen = req_stream_data->feature.scen;
+				spin_lock(&sensor_ctrl->drained_check_lock);
 				drained_seq_no = atomic_read(&sensor_ctrl->last_drained_seq_no);
 				dev_dbg(cam->dev, "%s: feature s_data(%d) scen(%s)\n",
 					__func__, req_stream_data->frame_seq_no,
@@ -6831,6 +6834,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 							sensor_ctrl->sensorsetting_wq,
 							sensor_ctrl);
 				}
+				spin_unlock(&sensor_ctrl->drained_check_lock);
 			}
 			immediate_switch_sensor = mtk_cam_is_immediate_switch_req(req, stream_id);
 			switch_sensor = mtk_cam_is_raw_switch_req(req, stream_id);
@@ -7280,6 +7284,7 @@ int mtk_cam_sv_extisp_tag_update(struct mtk_cam_ctx *ctx,
 	int i;
 	unsigned int seninf_padidx, tag_order;
 	struct v4l2_format *img_fmt;
+	struct v4l2_mbus_framefmt mbus_fmt = *mf;
 
 	for (i = SVTAG_IMG_START; i < SVTAG_IMG_END; i++) {
 		if (enabled_tags & (1 << i)) {
@@ -7297,13 +7302,14 @@ int mtk_cam_sv_extisp_tag_update(struct mtk_cam_ctx *ctx,
 				seninf_padidx = PAD_SRC_GENERAL0;
 				img_fmt = &ctx->pipe->vdev_nodes[
 					MTK_RAW_META_SV_OUT_0 - MTK_RAW_SINK_NUM].active_fmt;
+				mbus_fmt.code = MEDIA_BUS_FMT_SBGGR8_1X8;
 			} else {
 				dev_info(ctx->cam->dev, "%s: illegal tag_idx(%d) used for extisp\n",
 					 __func__, i);
 				return -EINVAL;
 			}
 			mtk_cam_call_sv_pipeline_config(ctx, arr_tag, i, seninf_padidx,
-				hw_scen, tag_order, 3, sub_ratio, NULL, mf, img_fmt);
+				hw_scen, tag_order, 3, sub_ratio, NULL, &mbus_fmt, img_fmt);
 		}
 	}
 
@@ -7961,6 +7967,8 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 			req_amount = 3;
 		else
 			req_amount = 2;
+		if (ctx->ext_isp_pureraw_off)
+			req_amount = req_amount - 1;
 		idle_tags = mtk_cam_get_sv_idle_tags(ctx,
 			ctx->sv_dev->enabled_tags, hw_scen, exp_no, req_amount, true, false);
 		if (idle_tags == 0) {

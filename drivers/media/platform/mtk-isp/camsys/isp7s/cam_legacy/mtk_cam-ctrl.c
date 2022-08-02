@@ -149,7 +149,7 @@ static bool mtk_cam_request_drained(struct mtk_camsys_sensor_ctrl *sensor_ctrl)
 	if (mtk_cam_ctx_has_raw(ctx) &&
 	    mtk_cam_scen_is_subsample(&ctx->pipe->scen_active))
 		sensor_seq_no_next = atomic_read(&ctx->sensor_ctrl.isp_enq_seq_no) + 1;
-
+	spin_lock(&sensor_ctrl->drained_check_lock);
 	if (mtk_cam_ctx_has_raw(ctx) &&
 	    mtk_cam_scen_is_mstream_2exp_types(&ctx->pipe->scen_active)) {
 		if (sensor_seq_no_next <= atomic_read(&ctx->sensor_ctrl.sensor_enq_seq_no) ||
@@ -167,6 +167,7 @@ static bool mtk_cam_request_drained(struct mtk_camsys_sensor_ctrl *sensor_ctrl)
 		dev_dbg(ctx->cam->dev, "request_drained:(%d)\n",
 			sensor_seq_no_next);
 	}
+	spin_unlock(&sensor_ctrl->drained_check_lock);
 	return (res == 0);
 }
 
@@ -6158,6 +6159,21 @@ int mtk_cam_extisp_prepare_meta(struct mtk_cam_ctx *ctx,
 				.active_fmt;
 			img_fmt->fmt.pix_mp.width = result.exp_hsize;
 			img_fmt->fmt.pix_mp.height = result.exp_vsize;
+			dev_info(ctx->cam->dev, "[%s] vdev_nodes:%d, w/h/size:%d/%d/%d\n",
+				__func__, MTK_RAW_META_SV_OUT_0 - MTK_RAW_SINK_NUM,
+				img_fmt->fmt.pix_mp.width,
+				img_fmt->fmt.pix_mp.height,
+				img_fmt->fmt.pix_mp.width * img_fmt->fmt.pix_mp.height);
+		}
+		if (pad_src == PAD_SRC_RAW0) {
+			img_fmt = &ctx->pipe->vdev_nodes[
+				MTK_RAW_MAIN_STREAM_SV_1_OUT - MTK_RAW_SINK_NUM]
+				.active_fmt;
+			if (img_fmt->fmt.pix_mp.width != result.exp_hsize ||
+				img_fmt->fmt.pix_mp.height != result.exp_vsize) {
+				result.exp_hsize = 0;
+				result.exp_vsize = 0;
+			}
 			dev_info(ctx->cam->dev, "[%s] vdev_nodes:%d, w/h/size:%d/%d/%d\n",
 				__func__, MTK_RAW_META_SV_OUT_0 - MTK_RAW_SINK_NUM,
 				img_fmt->fmt.pix_mp.width,

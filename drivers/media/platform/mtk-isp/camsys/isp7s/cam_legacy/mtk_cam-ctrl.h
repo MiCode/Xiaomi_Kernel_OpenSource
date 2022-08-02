@@ -130,6 +130,7 @@ struct mtk_camsys_sensor_ctrl {
 	atomic_t isp_enq_seq_no;
 	atomic_t isp_update_timer_seq_no;
 	atomic_t last_drained_seq_no;
+	spinlock_t drained_check_lock;
 	int initial_cq_done;
 	atomic_t initial_drop_frame_cnt;
 	struct list_head camsys_state_list;
