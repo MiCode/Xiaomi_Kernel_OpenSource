@@ -755,10 +755,11 @@ static int get_pvd_pwr_data_idx(const char *pvdname)
  */
 static u32 get_pwr_status(s32 idx)
 {
-	if (idx < 0 || idx >= MT6985_CHK_PD_NUM)
+
+	if (idx < 0 || idx >= ARRAY_SIZE(pvd_pwr_data))
 		return 0;
 
-	if (pvd_pwr_data[idx].base >= chk_sys_num)
+	if (pvd_pwr_data[idx].id >= chk_sys_num)
 		return 0;
 
 	return  clk_readl(rb[pvd_pwr_data[idx].base].virt + pvd_pwr_data[idx].ofs);
