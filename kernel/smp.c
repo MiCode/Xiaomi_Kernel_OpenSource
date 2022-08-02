@@ -564,6 +564,24 @@ static void flush_smp_call_function_queue(bool warn_cpu_offline)
 	struct llist_node *entry, *prev;
 	struct llist_head *head;
 	static bool warned;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[5];
+
+#define CHECK_LATENCY(a) \
+	do { \
+		u64 start, end, delta; \
+		\
+		start = sched_clock(); \
+		do { a; } while (0); \
+		end = sched_clock(); \
+		delta = end - start; \
+		if (delta > 50000000ULL) \
+			pr_info("irq_monitor: %s:%ps, duration:%llu, from %llu to %llu\n",\
+				__func__, func, delta, start, end); \
+	} while (0)
+
+	ts[0] = sched_clock();
+#endif
 
 	lockdep_assert_irqs_disabled();
 
@@ -608,6 +626,9 @@ static void flush_smp_call_function_queue(bool warn_cpu_offline)
 		}
 	}
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+#endif
 	/*
 	 * First; run all SYNC callbacks, people are waiting for us.
 	 */
@@ -625,7 +646,11 @@ static void flush_smp_call_function_queue(bool warn_cpu_offline)
 			}
 
 			csd_lock_record(csd);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+			CHECK_LATENCY(func(info));
+#else
 			func(info);
+#endif
 			csd_unlock(csd);
 			csd_lock_record(NULL);
 		} else {
@@ -640,6 +665,9 @@ static void flush_smp_call_function_queue(bool warn_cpu_offline)
 		return;
 	}
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[2] = sched_clock();
+#endif
 	/*
 	 * Second; run all !SYNC callbacks.
 	 */
@@ -660,7 +688,11 @@ static void flush_smp_call_function_queue(bool warn_cpu_offline)
 
 				csd_lock_record(csd);
 				csd_unlock(csd);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+				CHECK_LATENCY(func(info));
+#else
 				func(info);
+#endif
 				csd_lock_record(NULL);
 			} else if (type == CSD_TYPE_IRQ_WORK) {
 				irq_work_single(csd);
@@ -671,11 +703,25 @@ static void flush_smp_call_function_queue(bool warn_cpu_offline)
 		}
 	}
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[3] = sched_clock();
+#endif
 	/*
 	 * Third; only CSD_TYPE_TTWU is left, issue those.
 	 */
 	if (entry)
 		sched_ttwu_pending(entry);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[4] = sched_clock();
+	if (ts[4] - ts[0] > 5000000ULL) {
+		int i;
+
+		pr_info("%s duration %llu, from %llu\n", __func__, ts[0]);
+		for (i = 0; i < 4; i++)
+			pr_info("%s duration %d=%llu\n", __func__, i, ts[i + 1] - ts[i]);
+	}
+#undef CHECK_LATENCY
+#endif
 
 	cfd_seq_store(this_cpu_ptr(&cfd_seq_local)->hdlend, CFD_SEQ_NOCPU,
 		      smp_processor_id(), CFD_SEQ_HDLEND);

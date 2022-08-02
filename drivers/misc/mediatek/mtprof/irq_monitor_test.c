@@ -128,6 +128,16 @@ void irq_mon_test_PREEMPT_COUNT(void)
 		      HRTIMER_MODE_REL_PINNED);
 }
 
+void irq_mon_delay(void *unused)
+{
+	mdelay(600);
+}
+
+void irq_mon_test_smp_func(void)
+{
+	smp_call_function(irq_mon_delay, 0, 0);
+}
+
 struct irq_mon_test_func {
 	char name[32];
 	void (*func)(void);
@@ -141,6 +151,7 @@ struct irq_mon_test_func irq_mon_test_list[] = {
 	{"hirq_disable", irq_mon_test_irq_disable},
 	{"hrtimer_dur", irq_mon_test_HRTIMER},
 	{"preempt_count", irq_mon_test_PREEMPT_COUNT},
+	{"smp_func_dur", irq_mon_test_smp_func},
 };
 
 static ssize_t

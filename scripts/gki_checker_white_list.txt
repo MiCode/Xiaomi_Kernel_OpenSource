@@ -68,6 +68,7 @@ f kernel/sched/core.c
 f kernel/sched/fair.c
 f kernel/sched/rt.c
 f kernel/signal.c
+f kernel/smp.c
 f kernel/time/timer.c
 f kernel/trace/trace.c
 f kernel/trace/trace_events.c
