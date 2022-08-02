@@ -1013,8 +1013,7 @@ MODULE_PARM_DESC(dump_setting, "dump mmdvfs current setting");
 
 int mmdvfs_set_vcp_stress(const char *val, const struct kernel_param *kp)
 {
-	struct mmdvfs_ipi_data slot;
-	u16 ena = 0;
+	u16 test = 0, para = 0;
 	int ret;
 
 	if (!mtk_is_mmdvfs_init_done()) {
@@ -1022,20 +1021,31 @@ int mmdvfs_set_vcp_stress(const char *val, const struct kernel_param *kp)
 		return 0;
 	}
 
-	ret = kstrtou16(val, 0, &ena);
-	if (ret) {
-		MMDVFS_ERR("failed:%d ena:%hu", ret, ena);
-		return ret;
+	ret = sscanf(val, "%hu %hu", &test, &para);
+	if (ret != 2) {
+		MMDVFS_ERR("input failed:%d test:%hu para:%hu", ret, test, para);
+		return -EINVAL;
 	}
 
-	if (ena)
-		mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_VCP_STRESS);
-	ret = mmdvfs_vcp_ipi_send(FUNC_STRESS, ena, MAX_OPP, MAX_OPP);
-	if (!ena)
-		mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMDVFS_VCP_STRESS);
-
-	slot = *(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
-	MMDVFS_DBG("ret:%d slot:%#x ena:%d ena:%#x", ret, slot, ena, slot.ack);
+	switch (test) {
+	case 0:
+		if (para)
+			mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_VCP_STRESS);
+		ret = mmdvfs_vcp_ipi_send(FUNC_STRESS, para, MAX_OPP, MAX_OPP);
+		if (!para)
+			mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMDVFS_VCP_STRESS);
+		break;
+	case 1:
+		ret = vcp_register_feature_ex(MMDVFS_FEATURE_ID);
+		if (ret)
+			MMDVFS_DBG("vcp register feature:%d", GCE_FEATURE_ID);
+		while (!ret)
+			ret = is_vcp_ready_ex(VCP_A_ID);
+		ret = vcp_deregister_feature_ex(MMDVFS_FEATURE_ID);
+		if (ret)
+			MMDVFS_DBG("vcp deregister feature:%d", GCE_FEATURE_ID);
+		break;
+	}
 
 	return 0;
 }
