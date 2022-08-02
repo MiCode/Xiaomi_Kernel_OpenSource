@@ -158,6 +158,7 @@ enum mtu3_power_state {
 	MTU3_STATE_POWER_ON,
 	MTU3_STATE_SUSPEND,
 	MTU3_STATE_RESUME,
+	MTU3_STATE_OFFLOAD,
 };
 
 enum mtu3_plat_type {
@@ -171,6 +172,12 @@ enum mtu3_fpga_phy {
 	A60979_USB_PHY = 2,
 	A60931_USB_PHY = 3,
 	A60862_USB_PHY = 4,
+};
+
+enum ssusb_offload_mode {
+	SSUSB_OFFLOAD_MODE_NONE = 0,
+	SSUSB_OFFLOAD_MODE_D,
+	SSUSB_OFFLOAD_MODE_S,
 };
 
 /**
@@ -326,6 +333,8 @@ struct ssusb_mtk {
 	u32 vsv_reg;
 	u32 vsv_mask;
 	u32 vsv_vers;
+	/* offload */
+	int offload_mode;
 };
 
 /**
@@ -427,6 +436,12 @@ struct mtu3 {
 	unsigned is_gadget_ready:1;
 	unsigned async_callbacks:1;
 	int ep_slot_mode;
+};
+
+/* struct ssusb_offload */
+struct ssusb_offload {
+	struct device *dev;
+	int	(*get_mode)(struct device *dev);
 };
 
 static inline struct mtu3 *gadget_to_mtu3(struct usb_gadget *g)

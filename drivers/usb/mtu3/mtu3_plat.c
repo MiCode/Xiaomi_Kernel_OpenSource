@@ -41,6 +41,9 @@ enum ssusb_hwrscs_vers {
 	SSUSB_HWRECS_V1 = 1,
 };
 
+static struct ssusb_offload *usb_offload;
+static DEFINE_MUTEX(offload_lock);
+
 /* protect vs voter state */
 static DEFINE_MUTEX(vsv_mutex);
 static unsigned int vsv_use_count;
@@ -65,6 +68,10 @@ static void ssusb_hwrscs_req(struct ssusb_mtk *ssusb,
 		break;
 	case MTU3_STATE_POWER_ON:
 		spm_ctrl |= SSUSB_SPM_REQ_MSK;
+		break;
+	case MTU3_STATE_OFFLOAD:
+		spm_ctrl &= ~SSUSB_SPM_REQ_MSK;
+		spm_ctrl |= (SSUSB_SPM_SRCCLKENA | SSUSB_SPM_INFRE_REQ);
 		break;
 	case MTU3_STATE_RESUME:
 		spm_ctrl |= SSUSB_SPM_REQ_MSK;
@@ -222,6 +229,64 @@ static int ssusb_vsvoter_of_property_parse(struct ssusb_mtk *ssusb,
 
 	return PTR_ERR_OR_ZERO(ssusb->vsv);
 }
+
+
+static int ssusb_offload_get_mode(void)
+{
+	if (usb_offload && usb_offload->get_mode)
+		return usb_offload->get_mode(usb_offload->dev);
+	else
+		return SSUSB_OFFLOAD_MODE_NONE;
+}
+
+int ssusb_offload_register(struct ssusb_offload *offload)
+{
+	int ret = 0;
+
+	mutex_lock(&offload_lock);
+
+	if (IS_ERR_OR_NULL(offload) || IS_ERR_OR_NULL(offload->dev)) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (usb_offload) {
+		ret = -EEXIST;
+		goto out;
+	}
+
+	usb_offload = kzalloc(sizeof(*usb_offload), GFP_KERNEL);
+	if (!usb_offload) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	usb_offload->dev = offload->dev;
+	usb_offload->get_mode = offload->get_mode;
+out:
+	mutex_unlock(&offload_lock);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(ssusb_offload_register);
+
+int ssusb_offload_unregister(struct device *dev)
+{
+	int ret = 0;
+
+	mutex_lock(&offload_lock);
+
+	if (usb_offload->dev != dev) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	kfree(usb_offload);
+	usb_offload = NULL;
+out:
+	mutex_unlock(&offload_lock);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(ssusb_offload_unregister);
 
 void ssusb_set_force_vbus(struct ssusb_mtk *ssusb, bool vbus_on)
 {
@@ -797,6 +862,17 @@ static int mtu3_suspend_common(struct device *dev, pm_message_t msg)
 	if (ssusb->clk_mgr && !ssusb->is_host)
 		return 0;
 
+	ssusb->offload_mode = ssusb_offload_get_mode();
+
+	dev_info(ssusb->dev, "%s offload_mode %d\n", __func__, ssusb->offload_mode);
+
+	if (ssusb->offload_mode == SSUSB_OFFLOAD_MODE_S) {
+		ssusb_set_power_state(ssusb, MTU3_STATE_OFFLOAD);
+		return 0;
+	} else if (ssusb->offload_mode == SSUSB_OFFLOAD_MODE_D) {
+		return 0;
+	}
+
 	ssusb_set_power_state(ssusb, MTU3_STATE_SUSPEND);
 
 	switch (ssusb->dr_mode) {
@@ -846,6 +922,16 @@ static int mtu3_resume_common(struct device *dev, pm_message_t msg)
 	/* workaround for pm runtime*/
 	if (ssusb->clk_mgr && !ssusb->is_host)
 		return 0;
+
+	dev_info(ssusb->dev, "%s offload_mode %d\n",
+		__func__, ssusb->offload_mode);
+
+	if (ssusb->offload_mode == SSUSB_OFFLOAD_MODE_S) {
+		ssusb_set_power_state(ssusb, MTU3_STATE_POWER_ON);
+		return 0;
+	} else if (ssusb->offload_mode == SSUSB_OFFLOAD_MODE_D) {
+		return 0;
+	}
 
 	ssusb_wakeup_set(ssusb, false);
 	ret = clk_bulk_prepare_enable(BULK_CLKS_CNT, ssusb->clks);
