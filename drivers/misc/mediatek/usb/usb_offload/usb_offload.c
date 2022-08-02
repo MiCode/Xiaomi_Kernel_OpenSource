@@ -31,6 +31,8 @@
 #include <linux/iommu.h>
 #include <linux/dma-mapping.h>
 
+#include <trace/hooks/audio_usboffload.h>
+
 #if IS_ENABLED(CONFIG_SND_USB_AUDIO)
 #include "usbaudio.h"
 #include "card.h"
@@ -70,6 +72,107 @@ MODULE_PARM_DESC(usb_offload_log, "Enable/Disable USB Offload log");
 		pr_info("UD, %s(%d) " fmt, __func__, __LINE__, ## args); \
 	} while (0)
 
+static DEFINE_MUTEX(register_mutex);
+static struct snd_usb_audio *usb_chip[SNDRV_CARDS];
+
+static void uaudio_disconnect_cb(struct snd_usb_audio *chip);
+
+static struct snd_usb_substream *find_snd_usb_substream(unsigned int card_num,
+	unsigned int pcm_idx, unsigned int direction, struct snd_usb_audio
+	**uchip)
+{
+	int idx;
+	struct snd_usb_stream *as;
+	struct snd_usb_substream *subs = NULL;
+	struct snd_usb_audio *chip = NULL;
+
+	mutex_lock(&register_mutex);
+	/*
+	 * legacy audio snd card number assignment is dynamic. Hence
+	 * search using chip->card->number
+	 */
+	for (idx = 0; idx < SNDRV_CARDS; idx++) {
+		if (!usb_chip[idx])
+			continue;
+		if (usb_chip[idx]->card->number == card_num) {
+			chip = usb_chip[idx];
+			break;
+		}
+	}
+
+	if (!chip || atomic_read(&chip->shutdown)) {
+		USB_OFFLOAD_ERR("instance of usb crad # %d does not exist\n", card_num);
+		goto err;
+	}
+
+	if (pcm_idx >= chip->pcm_devs) {
+		USB_OFFLOAD_ERR("invalid pcm dev number %u > %d\n", pcm_idx, chip->pcm_devs);
+		goto err;
+	}
+
+	if (direction > SNDRV_PCM_STREAM_CAPTURE) {
+		USB_OFFLOAD_ERR("invalid direction %u\n", direction);
+		goto err;
+	}
+
+	list_for_each_entry(as, &chip->pcm_list, list) {
+		if (as->pcm_index == pcm_idx) {
+			subs = &as->substream[direction];
+			if (!subs->data_endpoint && !subs->sync_endpoint) {
+				USB_OFFLOAD_ERR("stream disconnected, bail out\n");
+				subs = NULL;
+				goto err;
+			}
+			goto done;
+		}
+	}
+
+done:
+	USB_OFFLOAD_INFO("done\n");
+err:
+	*uchip = chip;
+	if (!subs)
+		USB_OFFLOAD_ERR("substream instance not found\n");
+	mutex_unlock(&register_mutex);
+	return subs;
+}
+
+static void sound_usb_connect(void *data, struct usb_interface *intf, struct snd_usb_audio *chip)
+{
+	USB_OFFLOAD_INFO("index=%d\n", chip->index);
+
+	usb_chip[chip->index] = chip;
+}
+
+static void sound_usb_disconnect(void *data, struct usb_interface *intf)
+{
+	struct snd_usb_audio *chip = usb_get_intfdata(intf);
+	unsigned int card_num;
+
+	USB_OFFLOAD_INFO("\n");
+
+	if (chip == USB_AUDIO_IFACE_UNUSED)
+		return;
+
+	card_num = chip->card->number;
+
+	USB_OFFLOAD_INFO("index=%d num_interfaces=%d, card_num=%d\n",
+			chip->index, chip->num_interfaces, card_num);
+
+	uaudio_disconnect_cb(chip);
+
+	if (chip->num_interfaces < 1)
+		usb_chip[chip->index] = NULL;
+}
+
+static int sound_usb_trace_init(void)
+{
+	WARN_ON(register_trace_android_vh_audio_usb_offload_connect(sound_usb_connect, NULL));
+	WARN_ON(register_trace_android_rvh_audio_usb_offload_disconnect(
+		sound_usb_disconnect, NULL));
+
+	return 0;
+}
 
 static struct usb_audio_dev uadev[SNDRV_CARDS];
 static struct usb_offload_dev *uodev;
@@ -226,7 +329,7 @@ static void uaudio_disconnect_cb(struct snd_usb_audio *chip)
 {
 	int ret;
 	struct usb_audio_dev *dev;
-	int card_num = chip->card_num;
+	int card_num = chip->card->number;
 	struct usb_audio_stream_msg msg = {0};
 
 	USB_OFFLOAD_INFO("for card# %d\n", card_num);
@@ -236,7 +339,7 @@ static void uaudio_disconnect_cb(struct snd_usb_audio *chip)
 		return;
 	}
 
-	mutex_lock(&chip->dev_lock);
+	//mutex_lock(&chip->dev_lock);
 	dev = &uadev[card_num];
 
 	/* clean up */
@@ -246,7 +349,7 @@ static void uaudio_disconnect_cb(struct snd_usb_audio *chip)
 	}
 
 	if (atomic_read(&dev->in_use)) {
-		mutex_unlock(&chip->dev_lock);
+		//mutex_unlock(&chip->dev_lock);
 
 		msg.status = USB_AUDIO_STREAM_REQ_STOP;
 		msg.status_valid = 1;
@@ -258,12 +361,14 @@ static void uaudio_disconnect_cb(struct snd_usb_audio *chip)
 
 		atomic_set(&dev->in_use, 0);
 
-		mutex_lock(&chip->dev_lock);
+		//mutex_lock(&chip->dev_lock);
 	}
 
 	uaudio_dev_cleanup(dev);
 done:
-	mutex_unlock(&chip->dev_lock);
+	//mutex_unlock(&chip->dev_lock);
+
+	USB_OFFLOAD_INFO("done %d\n");
 }
 
 static void uaudio_dev_release(struct kref *kref)
@@ -678,7 +783,7 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 	}
 
 	subs = find_snd_usb_substream(pcm_card_num, pcm_dev_num, direction,
-					&chip, uaudio_disconnect_cb);
+					&chip);
 	if (!subs || !chip || atomic_read(&chip->shutdown)) {
 		USB_OFFLOAD_ERR("can't find substream for card# %u, dev# %u, dir: %u\n",
 				pcm_card_num, pcm_dev_num, direction);
@@ -686,7 +791,7 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 		goto done;
 	}
 
-	mutex_lock(&chip->dev_lock);
+	//mutex_lock(&chip->dev_lock);
 	USB_OFFLOAD_INFO("inside mutex\n");
 
 	if (subs->cur_audiofmt)
@@ -699,7 +804,7 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 	if (atomic_read(&chip->shutdown) || !subs->stream || !subs->stream->pcm
 			|| !subs->stream->chip || !subs->pcm_substream || info_idx < 0) {
 		ret = -ENODEV;
-		mutex_unlock(&chip->dev_lock);
+		//mutex_unlock(&chip->dev_lock);
 		goto done;
 	}
 	USB_OFFLOAD_INFO("info_idx: %d, interface: %d\n",
@@ -710,7 +815,7 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 			USB_OFFLOAD_ERR("interface# %d already in use card# %d\n",
 					interface, pcm_card_num);
 			ret = -EBUSY;
-			mutex_unlock(&chip->dev_lock);
+			//mutex_unlock(&chip->dev_lock);
 			goto done;
 		}
 	}
@@ -721,7 +826,7 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 		if (ret == -EINVAL) {
 			USB_OFFLOAD_ERR("invalid service interval %u\n",
 					uainfo->service_interval);
-			mutex_unlock(&chip->dev_lock);
+			//mutex_unlock(&chip->dev_lock);
 			goto done;
 		}
 
@@ -762,7 +867,7 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 
 		USB_OFFLOAD_ERR("no hw_params/hw_free/prepare ops\n");
 		ret = -ENODEV;
-		mutex_unlock(&chip->dev_lock);
+		//mutex_unlock(&chip->dev_lock);
 		goto done;
 	}
 	USB_OFFLOAD_INFO("uainfo->enable:%d\n", uainfo->enable);
@@ -770,7 +875,7 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 		ret = usb_offload_prepare_msg(subs, uainfo, &msg, info_idx);
 		USB_OFFLOAD_INFO("prepare msg, ret: %d\n", ret);
 		if (ret < 0) {
-			mutex_unlock(&chip->dev_lock);
+			//mutex_unlock(&chip->dev_lock);
 			return ret;
 		}
 	} else {
@@ -779,7 +884,7 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 
 		msg.uainfo.direction = uainfo->direction;
 	}
-	mutex_unlock(&chip->dev_lock);
+	//mutex_unlock(&chip->dev_lock);
 
 	msg.status = uainfo->enable ?
 		USB_AUDIO_STREAM_REQ_START : USB_AUDIO_STREAM_REQ_STOP;
@@ -792,7 +897,7 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 
 done:
 	if (!uainfo->enable && ret != -EINVAL && ret != -ENODEV) {
-		mutex_lock(&chip->dev_lock);
+		//mutex_lock(&chip->dev_lock);
 		if (info_idx >= 0) {
 			info = &uadev[pcm_card_num].info[info_idx];
 			usb_audio_dev_intf_cleanup(
@@ -803,7 +908,7 @@ done:
 			}
 			if (atomic_read(&uadev[pcm_card_num].in_use))
 				kref_put(&uadev[pcm_card_num].kref, uaudio_dev_release);
-			mutex_unlock(&chip->dev_lock);
+			//mutex_unlock(&chip->dev_lock);
 	}
 
 	return ret;
@@ -1496,6 +1601,9 @@ static int usb_offload_probe(struct platform_device *pdev)
 	} else
 		USB_OFFLOAD_ERR("No 'xhci_host' node, NOT support USB_OFFLOAD\n");
 
+	sound_usb_trace_init();
+
+INIT_OFFLOAD_NOTIFY_FAIL:
 INIT_SHAREMEM_FAIL:
 	of_node_put(node_xhci_host);
 	return ret;
