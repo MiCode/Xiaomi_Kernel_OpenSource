@@ -398,8 +398,6 @@ int mt6985_afe_sram_request(struct mtk_base_afe *afe)
 {
 	struct arm_smccc_res res;
 
-	dev_info(afe->dev, "%s() successfully start\n", __func__);
-
 	/* use arm_smccc_smc to notify SPM */
 	arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
 		MTK_AUDIO_SMC_OP_SRAM_REQUEST,
@@ -411,8 +409,6 @@ int mt6985_afe_sram_request(struct mtk_base_afe *afe)
 void mt6985_afe_sram_release(struct mtk_base_afe *afe)
 {
 	struct arm_smccc_res res;
-
-	dev_info(afe->dev, "%s() successfully start\n", __func__);
 
 	/* use arm_smccc_smc to notify SPM */
 	arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
