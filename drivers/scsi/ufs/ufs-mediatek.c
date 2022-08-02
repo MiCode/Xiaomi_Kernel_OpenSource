@@ -2485,7 +2485,7 @@ static void ufs_mtk_config_scaling_param(struct ufs_hba *hba,
 					struct devfreq_dev_profile *profile,
 					void *data)
 {
-	/* customize min gear in clk scaling */
+	/* customize clk scaling parms */
 	hba->clk_scaling.min_gear = UFS_HS_G4;
 
 	hba->vps->devfreq_profile.polling_ms = 200;
@@ -2538,6 +2538,9 @@ static void ufs_mtk_clk_scale(struct ufs_hba *hba, bool scale_up)
 static int ufs_mtk_clk_scale_notify(struct ufs_hba *hba, bool scale_up,
 				enum ufs_notify_change_status status)
 {
+	if (!ufshcd_is_clkscaling_supported(hba) || !hba->clk_scaling.is_enabled)
+		return 0;
+
 	if (status == PRE_CHANGE) {
 		ufs_mtk_pm_qos(hba, scale_up);
 

@@ -102,6 +102,15 @@ static void ufs_mtk_dbg_print_info(char **buff, unsigned long *size,
 		      "Auto BKOPS=%d, Host self-block=%d\n",
 		      hba->auto_bkops_enabled,
 		      hba->host->host_self_blocked);
+	SPREAD_PRINTF(buff, size, m,
+		      "Clk scale sup./en=%d/%d, min g.=G%d, polling_ms=%d, upthr=%d, downthr=%d\n",
+		    !!ufshcd_is_clkscaling_supported(hba),
+			hba->clk_scaling.is_enabled,
+			hba->clk_scaling.min_gear,
+			hba->vps->devfreq_profile.polling_ms,
+			hba->vps->ondemand_data.upthreshold,
+			hba->vps->ondemand_data.downdifferential
+	);
 	if (ufshcd_is_clkgating_allowed(hba))
 		SPREAD_PRINTF(buff, size, m,
 			      "Clk gate=%d, suspended=%d, active_reqs=%d\n",
