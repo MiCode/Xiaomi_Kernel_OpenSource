@@ -22,6 +22,10 @@
 #include <linux/mfd/mt6685/registers.h>
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <mt-plat/aee.h>
+#endif
+
 #ifdef SUPPORT_PWR_OFF_ALARM
 #include <linux/notifier.h>
 #include <linux/suspend.h>
@@ -834,10 +838,74 @@ exit:
 	return ret;
 }
 
+static bool mtk_rtc_check_set_time(struct mt6685_rtc *rtc, struct rtc_time *tm,
+	int retry_time, int rtc_time_reg)
+{
+	int ret, i, j, write_fail = 0, prot_key = 0, hwid = 0, mclk = 0;
+	u16 data[RTC_OFFSET_COUNT], latest[RTC_OFFSET_COUNT];
+
+	data[RTC_OFFSET_SEC] = tm->tm_sec;
+	data[RTC_OFFSET_MIN] = tm->tm_min;
+	data[RTC_OFFSET_HOUR] = tm->tm_hour;
+	data[RTC_OFFSET_DOM] = tm->tm_mday;
+	data[RTC_OFFSET_MTH] = tm->tm_mon;
+	data[RTC_OFFSET_YEAR] = tm->tm_year;
+
+	for (j = 1; j <= retry_time; j++) {
+
+		write_fail = 0;
+
+		ret = rtc_bulk_read(rtc, rtc->addr_base + rtc_time_reg,
+				       latest, RTC_OFFSET_COUNT * 2);
+		if (ret < 0)
+			return ret;
+
+		for (i = 0; i < RTC_OFFSET_COUNT; i++) {
+			if (i == RTC_OFFSET_DOW)
+				continue;
+
+			latest[i] = latest[i] & rtc_time_mask[i];
+			if (latest[i] != data[i])
+				write_fail++;
+
+			if (j == retry_time) {
+				ret = rtc_read(rtc, MT6685_HWCID_L, &hwid);
+				if (ret < 0)
+					return ret;
+
+				ret = rtc_read(rtc, RG_RTC_MCLK_PDN, &mclk);
+				if (ret < 0)
+					return ret;
+				mclk = mclk >> RG_RTC_MCLK_PDN_STA_SHIFT & RG_RTC_MCLK_PDN_STA_MASK;
+
+				ret = rtc_read(rtc, rtc->addr_base + RTC_SPAR_MACRO, &prot_key);
+				if (ret < 0)
+					return ret;
+
+				prot_key = prot_key >> SPAR_PROT_STAT_SHIFT & SPAR_PROT_STAT_MASK;
+
+				dev_info(rtc->rtc_dev->dev.parent,
+				"[HWID 0x%x, MCLK 0x%x, prot key 0x%x] %s write %d, latest %d\n",
+				hwid, mclk, prot_key, rtc_time_reg_name[i], data[i], latest[i]);
+			}
+		}
+
+		if (write_fail > 0)
+			mdelay(2);
+		else
+			break;
+	}
+
+	if (write_fail > 0)
+		return false;
+
+	return true;
+}
+
 static int mtk_rtc_set_time(struct device *dev, struct rtc_time *tm)
 {
 	struct mt6685_rtc *rtc = dev_get_drvdata(dev);
-	int ret;
+	int ret, result = 0;
 	u16 data[RTC_OFFSET_COUNT];
 
 	power_on_mclk(rtc);
@@ -865,6 +933,18 @@ static int mtk_rtc_set_time(struct device *dev, struct rtc_time *tm)
 
 	/* Time register write to hardware after call trigger function */
 	ret = mtk_rtc_write_trigger(rtc);
+	if (ret < 0)
+		goto exit;
+
+	result = mtk_rtc_check_set_time(rtc, tm, 2, RTC_TC_SEC);
+
+	if (!result) {
+		dev_info(rtc->rtc_dev->dev.parent, "check rtc set time\n");
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+		aee_kernel_warning("mt6685-rtc", "mt6685-rtc: set tick time failed\n");
+#endif
+	}
+
 exit:
 	mutex_unlock(&rtc->lock);
 	power_down_mclk(rtc);
@@ -921,7 +1001,7 @@ static int mtk_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 {
 	struct rtc_time *tm = &alm->time;
 	struct mt6685_rtc *rtc = dev_get_drvdata(dev);
-	int ret;
+	int ret, result = 0;
 	u16 data[RTC_OFFSET_COUNT];
 	ktime_t target;
 
@@ -1011,6 +1091,17 @@ static int mtk_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 	 * occur happen during writing alarm time register.
 	 */
 	ret = mtk_rtc_write_trigger(rtc);
+	if (ret < 0)
+		goto exit;
+
+	result = mtk_rtc_check_set_time(rtc, tm, 2, RTC_AL_SEC);
+
+	if (!result) {
+		dev_info(rtc->rtc_dev->dev.parent, "check rtc set alarm\n");
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+		aee_kernel_warning("mt6685-rtc", "mt6685-rtc: set alarm time failed\n");
+#endif
+	}
 exit:
 	mutex_unlock(&rtc->lock);
 	power_down_mclk(rtc);
