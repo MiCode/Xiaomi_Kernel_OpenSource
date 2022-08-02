@@ -4914,7 +4914,7 @@ static void mtk_drm_ovl_bw_monitor_ratio_save(unsigned int frame_idx)
 	if (g_ovl_bwm_debug) {
 		/* Clear fn frame record for recording next frame */
 		for (i = 0; i < MAX_LAYER_RATIO_NUMBER; i++) {
-			int index = fn*MAX_LAYER_RATIO_NUMBER + i;
+			unsigned int index = fn*MAX_LAYER_RATIO_NUMBER + i;
 
 			normal_layer_compress_ratio_tb[index].frame_idx = 0;
 			normal_layer_compress_ratio_tb[index].key_value = 0;
@@ -4933,7 +4933,7 @@ static void mtk_drm_ovl_bw_monitor_ratio_save(unsigned int frame_idx)
 
 	/* Copy one frame ratio to table */
 	for (i = 0; i < MAX_LAYER_RATIO_NUMBER; i++) {
-		int index = fn * MAX_LAYER_RATIO_NUMBER + i;
+		unsigned int index = fn * MAX_LAYER_RATIO_NUMBER + i;
 		DDPDBG("BWM: fn:%u frame_idx:%u index:%d\n", fn, frame_idx, index);
 
 		if ((display_compress_ratio_table[i].key_value) &&
