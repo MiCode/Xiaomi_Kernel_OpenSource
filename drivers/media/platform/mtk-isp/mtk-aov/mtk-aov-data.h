@@ -55,7 +55,7 @@
 #define AOV_MAX_AIE_SIZE          (162 * 1024)
 
 #define AOV_MAX_YUVO1_OUTPUT      (640 * 480 + 640 * 240 + 32)  // 640 x 480
-#define AOV_MAX_YUVO2_OUTPUT      (320 * 240 + 320 * 120 + 32)  // 320 x 240
+#define AOV_MAX_YUVO2_OUTPUT      (384 * 240 + 384 * 120 + 32)  // 320 x 240
 #define AOV_MAX_AIE_OUTPUT        (32 * 1024)
 #define AOV_MAX_APU_OUTPUT        (256 * 1024)
 #define AOV_MAX_IMGO_OUTPUT       (921600 + 32)  // 640 x 480, bayer12
@@ -82,9 +82,15 @@ struct aov_dqevent {
 	uint32_t detect_mode;
 
 	// for general debug
+	uint32_t yuvo1_width;
+	uint32_t yuvo1_height;
+	uint32_t yuvo1_format;
 	uint32_t yuvo1_stride;
 	void *yuvo1_output;
 
+	uint32_t yuvo2_width;
+	uint32_t yuvo2_height;
+	uint32_t yuvo2_format;
 	uint32_t yuvo2_stride;
 	void *yuvo2_output;
 
@@ -95,6 +101,10 @@ struct aov_dqevent {
 	void *apu_output;
 
 	// for NDD debug mode
+	uint32_t imgo_width;
+	uint32_t imgo_height;
+	uint32_t imgo_format;
+	uint32_t imgo_order;
 	uint32_t imgo_stride;
 	void *imgo_output;
 
@@ -120,9 +130,15 @@ struct aov_event {
 	uint32_t detect_mode;
 
 	// for general debug
+	uint32_t yuvo1_width;
+	uint32_t yuvo1_height;
+	uint32_t yuvo1_format;
 	uint32_t yuvo1_stride;
 	uint8_t yuvo1_output[AOV_MAX_YUVO1_OUTPUT];
 
+	uint32_t yuvo2_width;
+	uint32_t yuvo2_height;
+	uint32_t yuvo2_format;
 	uint32_t yuvo2_stride;
 	uint8_t yuvo2_output[AOV_MAX_YUVO2_OUTPUT];
 
@@ -133,6 +149,10 @@ struct aov_event {
 	uint8_t apu_output[AOV_MAX_APU_OUTPUT];
 
 	// for NDD debug mode
+	uint32_t imgo_width;
+	uint32_t imgo_height;
+	uint32_t imgo_format;
+	uint32_t imgo_order;
 	uint32_t imgo_stride;
 	uint8_t imgo_output[AOV_MAX_IMGO_OUTPUT];
 
@@ -181,6 +201,7 @@ struct aov_user {
 	uint32_t frame_mode;
 	uint32_t debug_mode;
 	uint32_t debug_level[AOV_LOG_ID_MAX];
+	uint32_t trace_perf;
 	uint32_t reserved[5];
 
 	uint32_t aaa_size;
@@ -224,6 +245,7 @@ struct aov_init {
 	uint32_t frame_mode;
 	uint32_t debug_mode;
 	uint32_t debug_level[AOV_LOG_ID_MAX];
+	uint32_t trace_perf;
 	uint32_t reserved[5];
 
 	// display on/off

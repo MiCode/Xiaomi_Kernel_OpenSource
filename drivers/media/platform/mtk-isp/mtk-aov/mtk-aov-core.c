@@ -702,6 +702,15 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 	if ((event->detect_mode) || (debug_mode == AOV_DEBUG_MODE_DUMP) ||
 		(debug_mode == AOV_DEBUG_MODE_NDD)) {
 		// Setup yuvo1 stride
+		put_user(event->yuvo1_width, (uint32_t *)((uintptr_t)dequeue +
+			offsetof(struct aov_dqevent, yuvo1_width)));
+
+		put_user(event->yuvo1_height, (uint32_t *)((uintptr_t)dequeue +
+			offsetof(struct aov_dqevent, yuvo1_height)));
+
+		put_user(event->yuvo1_format, (uint32_t *)((uintptr_t)dequeue +
+			offsetof(struct aov_dqevent, yuvo1_format)));
+
 		put_user(event->yuvo1_stride, (uint32_t *)((uintptr_t)dequeue +
 			offsetof(struct aov_dqevent, yuvo1_stride)));
 
@@ -723,6 +732,15 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 		}
 
 		// Setup yuvo2 stride
+		put_user(event->yuvo2_width, (uint32_t *)((uintptr_t)dequeue +
+			offsetof(struct aov_dqevent, yuvo2_width)));
+
+		put_user(event->yuvo2_height, (uint32_t *)((uintptr_t)dequeue +
+			offsetof(struct aov_dqevent, yuvo2_height)));
+
+		put_user(event->yuvo2_format, (uint32_t *)((uintptr_t)dequeue +
+			offsetof(struct aov_dqevent, yuvo2_format)));
+
 		put_user(event->yuvo2_stride, (uint32_t *)((uintptr_t)dequeue +
 			offsetof(struct aov_dqevent, yuvo2_stride)));
 
@@ -806,6 +824,18 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 
 	if (debug_mode == AOV_DEBUG_MODE_NDD) {
 		// Setup imgo stride
+		put_user(event->imgo_width, (uint32_t *)((uintptr_t)dequeue +
+			offsetof(struct aov_dqevent, imgo_width)));
+
+		put_user(event->imgo_height, (uint32_t *)((uintptr_t)dequeue +
+			offsetof(struct aov_dqevent, imgo_height)));
+
+		put_user(event->imgo_format, (uint32_t *)((uintptr_t)dequeue +
+			offsetof(struct aov_dqevent, imgo_format)));
+
+		put_user(event->imgo_order, (uint32_t *)((uintptr_t)dequeue +
+			offsetof(struct aov_dqevent, imgo_order)));
+
 		put_user(event->imgo_stride, (uint32_t *)((uintptr_t)dequeue +
 			offsetof(struct aov_dqevent, imgo_stride)));
 
