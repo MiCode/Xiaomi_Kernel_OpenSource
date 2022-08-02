@@ -2964,7 +2964,8 @@ static int vb2ops_vdec_queue_setup(struct vb2_queue *vq,
 
 	ctx = vb2_get_drv_priv(vq);
 	q_data = mtk_vdec_get_q_data(ctx, vq->type);
-	if (q_data == NULL || (*nplanes) > MTK_VCODEC_MAX_PLANES) {
+	if (q_data == NULL || (*nplanes) > MTK_VCODEC_MAX_PLANES ||
+	    (vq->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE && q_data->fmt == NULL)) {
 		mtk_v4l2_err("vq->type=%d nplanes %d err", vq->type, *nplanes);
 		return -EINVAL;
 	}

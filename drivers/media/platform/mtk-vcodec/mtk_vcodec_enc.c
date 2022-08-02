@@ -1987,7 +1987,8 @@ static int vb2ops_venc_queue_setup(struct vb2_queue *vq,
 
 	ctx = vb2_get_drv_priv(vq);
 	q_data = mtk_venc_get_q_data(ctx, vq->type);
-	if (q_data == NULL || (*nplanes) > MTK_VCODEC_MAX_PLANES) {
+	if (q_data == NULL || q_data->fmt == NULL ||
+	    (*nplanes) > MTK_VCODEC_MAX_PLANES) {
 		mtk_v4l2_err("vq->type=%d nplanes %d err", vq->type, *nplanes);
 		return -EINVAL;
 	}
