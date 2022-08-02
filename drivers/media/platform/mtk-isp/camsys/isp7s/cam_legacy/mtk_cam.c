@@ -10174,6 +10174,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 		return ret;
 	}
 	dev_dbg(dev, "registered adl irq=%d\n", irq);
+	disable_irq(irq);
 
 	cam_dev->dev = dev;
 	dev_set_drvdata(dev, cam_dev);
