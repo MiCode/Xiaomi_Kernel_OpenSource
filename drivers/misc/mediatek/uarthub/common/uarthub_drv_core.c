@@ -355,9 +355,15 @@ static enum hrtimer_restart sleep_wakeup_test_hrtimer_handler_cb(struct hrtimer 
 	if (g_uarthub_plat_ic_ops &&
 			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_info) {
 		SPM_RES = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_info();
-		if (SPM_RES >= 0) {
+		if (SPM_RES == 1) {
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___SPM_RES=[PASS]", SPM_RES);
+				"___SPM_RES=[PASS]");
+		} else if (SPM_RES == 0) {
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___SPM_RES=[FAIL]");
+		} else {
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___SPM_RES=NULL");
 		}
 	}
 
@@ -434,9 +440,15 @@ static enum hrtimer_restart sleep_wakeup_test_hrtimer_handler_cb(struct hrtimer 
 	if (g_uarthub_plat_ic_ops &&
 			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_info) {
 		SPM_RES = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_info();
-		if (SPM_RES >= 0) {
+		if (SPM_RES == 1) {
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___SPM_RES=[PASS]", SPM_RES);
+				"___SPM_RES=[PASS]");
+		} else if (SPM_RES == 0) {
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___SPM_RES=[FAIL]");
+		} else {
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___SPM_RES=NULL");
 		}
 	}
 
@@ -2270,8 +2282,11 @@ int uarthub_core_is_uarthub_clk_enable(void)
 
 	if (g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_info) {
 		state = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_info();
-		if (state != 1) {
-			pr_notice("[%s] UARTHUB SPM RES is not all on(0x%x)\n", __func__, state);
+		if (state == 0) {
+			pr_notice("[%s] UARTHUB SPM RES is not all on\n", __func__);
+			return 0;
+		} else if (state < 0) {
+			pr_notice("[%s] UARTHUB SPM RES cannot be accessed\n", __func__);
 			return 0;
 		}
 	}
@@ -3227,9 +3242,15 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 	if (g_uarthub_plat_ic_ops &&
 			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_info) {
 		val = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_info();
-		if (val >= 0) {
+		if (val == 1) {
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___SPM_RES=[PASS]", val);
+				"___SPM_RES=[PASS]");
+		} else if (val == 0) {
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___SPM_RES=[FAIL]");
+		} else {
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				"___SPM_RES=NULL");
 		}
 	}
 
@@ -3269,7 +3290,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		if (val == 0) {
 			len = 0;
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"[%s][%s] GPIO TX_MODE=0x%lx, ",
+				"[%s][%s] GPIO TX_MODE=0x%lx",
 				def_tag, ((tag == NULL) ? "null" : tag),
 				gpio_base_addr.tx_mode.gpio_value);
 
@@ -3278,7 +3299,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 				gpio_base_addr.rx_mode.gpio_value);
 
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"[%s][%s] DRV=[T:0x%lx,R:0x%lx]",
+				"___DRV=[T:0x%lx,R:0x%lx]",
 				def_tag, ((tag == NULL) ? "null" : tag),
 				gpio_base_addr.tx_drv.gpio_value, gpio_base_addr.rx_drv.gpio_value);
 
@@ -3350,7 +3371,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 
 	val = UARTHUB_REG_READ(UARTHUB_INTFHUB_CON2(intfhub_base_remap_addr));
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		", 0xc8,INTFHUB_CON2=[0x%x]\n", val);
+		", 0xc8,INTFHUB_CON2=[0x%x]", val);
 
 	pr_info("%s\n", dmp_info_buf);
 
@@ -3559,7 +3580,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		UARTHUB_REG_READ(UARTHUB_MCR(cmm_base_remap_addr)));
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		", 0x14,LSR=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]\n",
+		", 0x14,LSR=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
 		UARTHUB_REG_READ(UARTHUB_LSR(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
 			UARTHUB_REG_READ(UARTHUB_LSR(dev1_base_remap_addr)) : 0),
