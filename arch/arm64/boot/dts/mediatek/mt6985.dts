@@ -8417,14 +8417,14 @@
 			compatible = "arm,physical-memory-group-manager";
 		};
 
-		gpu_protected_memory_allocator: protected-memory-allocator {
+		gpu_protected_memory_allocator: protected-memory-allocator@13c00000 {
 			compatible = "arm,protected-memory-allocator";
 			reg = <0 0x13c00000 0 0x30000>;
 			reg-names = "gpueb_base";
-			gpr_offset = <0x2fd1c>;
-			gpr_id = <6>;
-			gmpu_table_size = <0x00400000>;
-			protected_reserve_size = <0x400000>;
+			gpr-offset = <0x2fd1c>;
+			gpr-id = <6>;
+			gmpu-table-size = <0x00400000>;
+			protected-reserve-size = <0x400000>;
 		};
 
 		mali: mali@13000000 {
