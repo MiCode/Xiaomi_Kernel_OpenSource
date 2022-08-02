@@ -35,9 +35,9 @@
 #include "frame_sync_camsys.h"
 
 #define SENSOR_SET_DEADLINE_MS  18
-#define SENSOR_SET_RESERVED_MS  7
+#define SENSOR_SET_RESERVED_MS  11
 #define SENSOR_SET_DEADLINE_MS_60FPS  6
-#define SENSOR_SET_RESERVED_MS_60FPS  4
+#define SENSOR_SET_RESERVED_MS_60FPS  5
 #define SENSOR_DELAY_GUARD_TIME_60FPS 16
 #define SENSOR_SET_STAGGER_DEADLINE_MS  20
 #define SENSOR_SET_STAGGER_RESERVED_MS  7
@@ -5240,6 +5240,39 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 	}
 
 	return 0;
+}
+
+static bool mtk_cam_before_sensor_margin(struct mtk_cam_request_stream_data *s_data)
+{
+	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &s_data->ctx->sensor_ctrl;
+	int time_after_sof = ktime_get_boottime_ns() / 1000000 -
+		s_data->ctx->sensor_ctrl.sof_time;
+	int sensor_margin_ms = sensor_ctrl->timer_req_event +
+		sensor_ctrl->timer_req_sensor;
+
+	dev_dbg(sensor_ctrl->ctx->cam->dev, "[%s] %d + %d <= %d ? ret : %d",
+		__func__, sensor_ctrl->timer_req_event, sensor_ctrl->timer_req_sensor,
+		time_after_sof, time_after_sof <= sensor_margin_ms);
+
+	return time_after_sof <= sensor_margin_ms;
+}
+void mtk_cam_try_set_sensor_at_enque(struct mtk_cam_request_stream_data *s_data)
+{
+	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &s_data->ctx->sensor_ctrl;
+	int time_after_sof = ktime_get_boottime_ns() / 1000000 -
+							s_data->ctx->sensor_ctrl.sof_time;
+
+	if (!s_data->sensor_hdl_obj)
+		mtk_cam_submit_kwork_in_sensorctrl(
+			sensor_ctrl->sensorsetting_wq,
+			sensor_ctrl);
+	else if (mtk_cam_before_sensor_margin(s_data))
+		mtk_cam_submit_kwork_in_sensorctrl(
+			sensor_ctrl->sensorsetting_wq,
+			sensor_ctrl);
+	else
+		dev_info(s_data->ctx->cam->dev, "over-margin req:%d (+%dms)\n",
+		s_data->frame_seq_no, time_after_sof);
 }
 int mtk_camsv_special_hw_scenario_handler(struct mtk_cam_device *cam,
 	struct mtk_camsv_device *camsv_dev, struct mtk_camsys_irq_info *irq_info,

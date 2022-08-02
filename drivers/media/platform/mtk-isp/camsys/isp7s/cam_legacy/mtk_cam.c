@@ -6828,9 +6828,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 					/* should exclude sensor set in below <= second request */
 					if (atomic_read(&sensor_ctrl->sensor_enq_seq_no) ==
 						drained_seq_no && drained_seq_no > 2)
-						mtk_cam_submit_kwork_in_sensorctrl(
-							sensor_ctrl->sensorsetting_wq,
-							sensor_ctrl);
+						mtk_cam_try_set_sensor_at_enque(req_stream_data);
 				} else if (mtk_cam_scen_is_mstream(scen) &&
 					   scen->scen.mstream.type !=
 					   MTK_CAM_MSTREAM_1_EXPOSURE) {

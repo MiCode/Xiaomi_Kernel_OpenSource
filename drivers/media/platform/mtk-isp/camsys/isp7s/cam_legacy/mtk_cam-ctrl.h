@@ -228,6 +228,8 @@ void
 mtk_camsys_raw_change_pipeline(struct mtk_cam_ctx *ctx,
 			       struct mtk_camsys_sensor_ctrl *sensor_ctrl,
 			       struct mtk_cam_request_stream_data *req_stream_data);
+void mtk_cam_try_set_sensor_at_enque(struct mtk_cam_request_stream_data *s_data);
+
 int mtk_camsv_normal_scenario_handler(struct mtk_cam_device *cam,
 	struct mtk_camsv_device *camsv_dev, struct mtk_camsys_irq_info *irq_info,
 	unsigned int tag_idx);
