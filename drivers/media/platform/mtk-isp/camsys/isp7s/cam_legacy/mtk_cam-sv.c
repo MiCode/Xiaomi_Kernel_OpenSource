@@ -2225,13 +2225,13 @@ static irqreturn_t mtk_irq_camsv_done(int irq, void *data)
 	irq_info.frame_idx = dequeued_imgo_seq_no;
 	irq_info.frame_idx_inner = dequeued_imgo_seq_no_inner;
 
-	if (irq_done_status & CAMSVCENTRAL_GP_PASS1_DONE_0_ST)
+	if (irq_done_status & CAMSVCENTRAL_SW_GP_PASS1_DONE_0_ST)
 		irq_info.done_groups |= (1<<0);
-	if (irq_done_status & CAMSVCENTRAL_GP_PASS1_DONE_1_ST)
+	if (irq_done_status & CAMSVCENTRAL_SW_GP_PASS1_DONE_1_ST)
 		irq_info.done_groups |= (1<<1);
-	if (irq_done_status & CAMSVCENTRAL_GP_PASS1_DONE_2_ST)
+	if (irq_done_status & CAMSVCENTRAL_SW_GP_PASS1_DONE_2_ST)
 		irq_info.done_groups |= (1<<2);
-	if (irq_done_status & CAMSVCENTRAL_GP_PASS1_DONE_3_ST)
+	if (irq_done_status & CAMSVCENTRAL_SW_GP_PASS1_DONE_3_ST)
 		irq_info.done_groups |= (1<<3);
 	irq_info.irq_type |= (1 << CAMSYS_IRQ_FRAME_DONE);
 	irq_flag = irq_info.irq_type;
