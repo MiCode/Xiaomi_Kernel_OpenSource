@@ -3324,7 +3324,6 @@ EXPORT_SYMBOL(cmdq_pkt_dump_buf);
 int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_ist)
 {
 	struct cmdq_client *client;
-	struct cmdq_thread *thread;
 
 	if (!pkt) {
 		cmdq_err("pkt is empty");
@@ -3336,8 +3335,9 @@ int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_ist)
 	}
 
 	client = (struct cmdq_client *)pkt->cl;
-	thread = (struct cmdq_thread *)client->chan->con_priv;
 	if (client) {
+		struct cmdq_thread *thread = (struct cmdq_thread *)client->chan->con_priv;
+
 		cmdq_util_user_msg(client->chan,
 			"pkt:0x%p(%#x) size:%zu/%zu avail size:%zu priority:%u%s",
 			pkt, (u32)(unsigned long)pkt, pkt->cmd_buf_size,

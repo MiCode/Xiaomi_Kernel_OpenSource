@@ -2563,20 +2563,21 @@ void cmdq_mbox_disable(void *chan)
 		WARN_ON(1);
 		return;
 	}
-	cmdq_log("%s: hwid:%hu usage:%d idx:%d usage:%d", __func__,
+	cmdq_log("%s: hwid:%u usage:%d idx:%d usage:%d", __func__,
 		cmdq->hwid, usage, i, atomic_read(&cmdq->thread[i].usage));
 
 	usage = atomic_dec_return(&cmdq->thread[i].usage);
-	if (usage == 0) {
+	if (!usage && !list_empty(&cmdq->thread[i].task_busy_list)) {
+		cmdq_err("hwid:%u idx:%d usage:%d still has tasks",
+			cmdq->hwid, i, usage);
+	} else if (usage == 0) {
 		thread = &cmdq->thread[i];
 		thread->mbox_dis = sched_clock();
 	} else if (usage < 0) {
 		cmdq_err("hwid:%u idx:%d usage:%d cannot below zero",
 			cmdq->hwid, i, usage);
 		WARN_ON(1);
-	} else if (!usage && !list_empty(&cmdq->thread[i].task_busy_list))
-		cmdq_err("hwid:%hu idx:%d usage:%d still has tasks",
-			cmdq->hwid, i, usage);
+	}
 
 	usage = atomic_read(&cmdq->usage);
 	if (cmdq_hw_trace && usage == 1)
