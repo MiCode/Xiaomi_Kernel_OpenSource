@@ -42,11 +42,72 @@ void i2c_table_write(struct subdrv_ctx *ctx, u16 *list, u32 len)
 	}
 }
 
+static void dump_i2c_buf(struct subdrv_ctx *ctx)
+{
+	int i, j;
+	char *out_str = NULL;
+	char *strptr = NULL;
+	size_t buf_size = SUBDRV_I2C_BUF_SIZE * sizeof(char);
+	size_t remind = buf_size;
+	int num = 0;
+
+	out_str = kzalloc(buf_size + 1, GFP_KERNEL);
+	if (!out_str)
+		return;
+
+	strptr = out_str;
+	for (i = 0, j = i; ctx->_size_to_write > (i + 1); i += 2) {
+		num = snprintf(strptr, remind,
+			       "[0x%04x, 0x%04x] ",
+			       ctx->_i2c_data[i],
+			       ctx->_i2c_data[i + 1]);
+		remind -= num;
+		strptr += num;
+
+		if (remind <= 20) {
+			DRV_LOG(ctx, "write idx %d to %d: %s\n",
+				j, i + 1, out_str);
+			j = i + 2;
+			strptr = out_str;
+			remind = buf_size;
+		}
+	}
+	if (ctx->_size_to_write > i) {
+		num = snprintf(strptr, remind,
+			       "[0x%04x]",
+			       ctx->_i2c_data[i]);
+		i++;
+		remind -= num;
+		strptr += num;
+	}
+	if (strptr != out_str) {
+		DRV_LOG(ctx, "write idx %d to %d: %s\n",
+			j, i - 1, out_str);
+		strptr = out_str;
+		remind = buf_size;
+	}
+
+	kfree(out_str);
+}
+
+#define DUMP_I2C_BUF_IF_DEBUG(ctx) do { \
+	struct v4l2_subdev *_sd = NULL; \
+	struct adaptor_ctx *_adaptor_ctx = NULL; \
+	if (ctx->i2c_client) \
+		_sd = i2c_get_clientdata(ctx->i2c_client); \
+	if (_sd) \
+		_adaptor_ctx = to_ctx(_sd); \
+	if (_adaptor_ctx && (_adaptor_ctx)->subdrv \
+		&& unlikely(*((_adaptor_ctx)->sensor_debug_flag))) { \
+		dump_i2c_buf(ctx); \
+	} \
+} while (0)
+
 void commit_i2c_buffer(struct subdrv_ctx *ctx)
 {
 	if (ctx->_size_to_write && !ctx->fast_mode_on) {
 		subdrv_i2c_wr_regs_u8(ctx, ctx->_i2c_data, ctx->_size_to_write);
-		DRV_LOG(ctx, "table write size:%u\n", ctx->_size_to_write);
+		DUMP_I2C_BUF_IF_DEBUG(ctx);
 		memset(ctx->_i2c_data, 0x0, sizeof(ctx->_i2c_data));
 		ctx->_size_to_write = 0;
 	}
@@ -431,7 +492,8 @@ void set_long_exposure(struct subdrv_ctx *ctx)
 		ctx->ae_frm_mode.frame_mode_2 = IMGSENSOR_AE_MODE_SE;
 		ctx->current_ae_effective_frame = 2;
 	} else {
-		set_i2c_buffer(ctx, ctx->s_ctx.reg_addr_exposure_lshift, l_shift);
+		if (ctx->s_ctx.reg_addr_exposure_lshift != PARAM_UNDEFINED)
+			set_i2c_buffer(ctx, ctx->s_ctx.reg_addr_exposure_lshift, l_shift);
 		ctx->current_ae_effective_frame = 2;
 	}
 
@@ -726,6 +788,93 @@ void set_multi_gain(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt)
 	commit_i2c_buffer(ctx);
 	/* group hold end */
 }
+
+static u16 dgain2reg(struct subdrv_ctx *ctx, u32 dgain)
+{
+	u32 step = max((ctx->s_ctx.dig_gain_step), (u32)1);
+	u8 integ = (u8) (dgain / BASE_DGAIN); // integer parts
+	u8 dec = (u8) ((dgain % BASE_DGAIN) / step); // decimal parts
+	u16 ret = ((u16)integ << 8) | dec;
+
+	DRV_LOG(ctx, "dgain reg = 0x%x\n", ret);
+
+	return ret;
+}
+
+void set_multi_dig_gain(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt)
+{
+	int i = 0;
+	u16 rg_gains[IMGSENSOR_STAGGER_EXPOSURE_CNT] = {0};
+	bool gph = !ctx->is_seamless && (ctx->s_ctx.s_gph != NULL);
+
+	// skip if no porting digital gain
+	if (!ctx->s_ctx.reg_addr_dig_gain[0].addr[0])
+		return;
+
+	if (exp_cnt > ARRAY_SIZE(ctx->dig_gain)) {
+		DRV_LOGE(ctx, "invalid exp_cnt:%u>%u\n", exp_cnt, ARRAY_SIZE(ctx->dig_gain));
+		exp_cnt = ARRAY_SIZE(ctx->dig_gain);
+	}
+	for (i = 0; i < exp_cnt; i++) {
+		/* check boundary of gain */
+		gains[i] = max(gains[i], ctx->s_ctx.dig_gain_min);
+		gains[i] = min(gains[i], ctx->s_ctx.dig_gain_max);
+		gains[i] = dgain2reg(ctx, gains[i]);
+	}
+
+	/* restore gain */
+	memset(ctx->dig_gain, 0, sizeof(ctx->dig_gain));
+	for (i = 0; i < exp_cnt; i++)
+		ctx->dig_gain[i] = gains[i];
+
+	/* group hold start */
+	if (gph && !ctx->ae_ctrl_gph_en)
+		ctx->s_ctx.s_gph((void *)ctx, 1);
+
+	/* write gain */
+	switch (exp_cnt) {
+	case 1:
+		rg_gains[0] = gains[0];
+	case 2:
+		rg_gains[0] = gains[0];
+		rg_gains[2] = gains[1];
+		break;
+	case 3:
+		rg_gains[0] = gains[0];
+		rg_gains[1] = gains[1];
+		rg_gains[2] = gains[2];
+		break;
+	default:
+		break;
+	}
+	for (i = 0;
+	     (i < ARRAY_SIZE(rg_gains)) && (i < ARRAY_SIZE(ctx->s_ctx.reg_addr_dig_gain));
+	     i++) {
+		if (!rg_gains[i])
+			continue; // skip zero gain setting
+
+		if (ctx->s_ctx.reg_addr_dig_gain[i].addr[0]) {
+			set_i2c_buffer(ctx,
+				ctx->s_ctx.reg_addr_dig_gain[i].addr[0],
+				(rg_gains[i] >> 8) & 0x0F);
+		}
+		if (ctx->s_ctx.reg_addr_dig_gain[i].addr[1]) {
+			set_i2c_buffer(ctx,
+				ctx->s_ctx.reg_addr_dig_gain[i].addr[1],
+				rg_gains[i] & 0xFF);
+		}
+	}
+
+	if (!ctx->ae_ctrl_gph_en) {
+		if (gph)
+			ctx->s_ctx.s_gph((void *)ctx, 0);
+		commit_i2c_buffer(ctx);
+	}
+
+	DRV_LOG(ctx, "dgain reg[lg/mg/sg]: 0x%x 0x%x 0x%x\n",
+		rg_gains[0], rg_gains[1], rg_gains[2]);
+}
+
 
 void get_lens_driver_id(struct subdrv_ctx *ctx, u32 *lens_id)
 {
@@ -1762,6 +1911,10 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		break;
 	case SENSOR_FEATURE_SET_HDR_TRI_GAIN:
 		set_hdr_tri_gain(ctx, feature_data, 3);
+		break;
+	case SENSOR_FEATURE_SET_MULTI_DIG_GAIN:
+		set_multi_dig_gain(ctx, (u32 *)(*feature_data),
+					(u16) (*(feature_data + 1)));
 		break;
 	case SENSOR_FEATURE_GET_TEMPERATURE_VALUE:
 		get_temperature_value(ctx, feature_data_32);

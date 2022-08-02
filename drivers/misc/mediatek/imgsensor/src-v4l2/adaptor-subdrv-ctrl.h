@@ -61,6 +61,7 @@ u16 gain2reg(u32 gain);
 void set_gain(struct subdrv_ctx *ctx, u32 gain);
 void set_hdr_tri_gain(struct subdrv_ctx *ctx, u64 *gains, u16 exp_cnt);
 void set_multi_gain(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt);
+void set_multi_dig_gain(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt);
 void get_lens_driver_id(struct subdrv_ctx *ctx, u32 *lens_id);
 void check_stream_off(struct subdrv_ctx *ctx);
 void streaming_control(struct subdrv_ctx *ctx, bool enable);
