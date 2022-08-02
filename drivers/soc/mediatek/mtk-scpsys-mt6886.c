@@ -526,7 +526,6 @@ static const struct scp_domain_data scp_domain_mt6886_spm_data[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.basic_clk_name = {"mm_infra"},
-		.subsys_lp_clk_prefix = "mm_infra_lp",
 		.bp_table = {
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
 				MT6886_VLP_AXI_PROT_EN_MM_INFRA),
