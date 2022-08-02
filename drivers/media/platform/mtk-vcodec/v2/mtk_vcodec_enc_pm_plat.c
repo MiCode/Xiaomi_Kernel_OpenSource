@@ -323,7 +323,7 @@ void mtk_prepare_venc_emi_bw(struct mtk_vcodec_dev *dev)
 	int i, ret;
 	struct platform_device *pdev = 0;
 	u32 port_num = 0;
-	const char *path_strs[64];
+	const char *path_strs[MTK_VENC_PORT_NUM];
 
 	pdev = dev->plat_dev;
 	for (i = 0; i < MTK_VENC_PORT_NUM; i++)
