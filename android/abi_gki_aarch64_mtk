@@ -29,6 +29,10 @@
   __arch_copy_to_user
   arch_freq_scale
   arch_timer_read_counter
+  arm_smccc_1_1_get_conduit
+  arm_smccc_1_2_hvc
+  arm_smccc_1_2_smc
+  arm_smccc_get_version
   arm64_const_caps_ready
   arm64_use_ng_mappings
   __arm_smccc_hvc
@@ -317,6 +321,7 @@
   device_init_wakeup
   device_link_add
   device_link_remove
+  device_match_any
   device_node_to_regmap
   device_property_present
   device_property_read_string
