@@ -415,7 +415,7 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 {
 	struct mmdvfs_ipi_data slot = {func, idx, opp, ack, 0U};
 	const u64 data = *(u64 *)(unsigned long *)&slot;
-	int retry = 0, ret;
+	int retry = 0, ret, gen;
 
 	if (!mtk_is_mmdvfs_init_done()) {
 		MMDVFS_DBG("mmdvfs_v3 init not ready");
@@ -447,6 +447,7 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 	mmdvfs_vcp_ipi_data = *(u64 *)(unsigned long *)&slot;
 	writel(data, mmdvfs_vcp_ipi_data_base);
 
+	gen = vcp_cmd_ex(VCP_GET_GEN);
 	ret = mtk_ipi_send(vcp_get_ipidev(), IPI_OUT_MMDVFS, IPI_SEND_WAIT,
 		&slot, PIN_OUT_SIZE_MMDVFS, IPI_TIMEOUT_MS);
 
@@ -463,6 +464,8 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 			ret = IPI_COMPL_TIMEOUT;
 			MMDVFS_ERR("ipi ack timeout:%d slot:%#llx data:%#llx",
 				ret, *(u64 *)(unsigned long *)&slot, mmdvfs_vcp_ipi_data);
+			if (gen == vcp_cmd_ex(VCP_GET_GEN))
+				vcp_cmd_ex(VCP_SET_HALT);
 			WARN_ON(1);
 			break;
 		}
