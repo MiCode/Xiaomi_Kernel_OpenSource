@@ -513,6 +513,7 @@ static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 	fd->fd_stream_count++;
 	if (fd->fd_stream_count == 1) {
 		cmdq_mbox_enable(fd->fdvt_clt->chan);
+		cmdq_clear_event(fd->fdvt_clt->chan, fd->fdvt_event_id);
 		ret = mtk_aie_hw_enable(fd);
 		if (ret)
 			return -EINVAL;

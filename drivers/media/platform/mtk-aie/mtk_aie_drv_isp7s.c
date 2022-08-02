@@ -4206,7 +4206,16 @@ static int aie_config_dram(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 
 void aie_reset(struct mtk_aie_dev *fd)
 {
-	writel(0x30000, fd->fd_base + AIE_START_REG);
+	unsigned int ret = 0, counter = 0;
+
+	writel(0x20000, fd->fd_base + AIE_START_REG);
+	ret = (unsigned int)readl(fd->fd_base + AIE_START_REG);
+	while (!((ret & 0X20000) == 0) && counter < 10) {
+		ret = (unsigned int)readl(fd->fd_base + AIE_START_REG);
+		dev_info(fd->dev, "SW Reset... 0x%08X\n", ret);
+		counter++;
+	}
+	writel(0x10000, fd->fd_base + AIE_START_REG);
 	writel(0x0, fd->fd_base + AIE_START_REG);
 }
 
@@ -4215,6 +4224,7 @@ int aie_alloc_aie_buf(struct mtk_aie_dev *fd)
 	int ret;
 	int err_tag = 0;
 
+	aie_reset(fd);
 	memset(&fd->st_info, 0, sizeof(fd->st_info));
 	aie_init_table(fd, fd->base_para->max_pyramid_width,
 		       fd->base_para->max_pyramid_height);
