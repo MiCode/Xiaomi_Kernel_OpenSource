@@ -66,6 +66,10 @@ static char *dsp_task_dsp_name[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_UL_PROCESS_ID]  = "mtk-dsp-ulproc",
 	[AUDIO_TASK_ECHO_REF_ID]    = "mtk-dsp-echoref",
 	[AUDIO_TASK_ECHO_REF_DL_ID] = "mtk-dsp-echodl",
+	[AUDIO_TASK_USBDL_ID]       = "mtk-dsp-usbdl",
+	[AUDIO_TASK_USBUL_ID]       = "mtk-dsp-usbul",
+	[AUDIO_TASK_MDDL_ID]        = "mtk-dsp-mddl",
+	[AUDIO_TASK_MDUL_ID]        = "mtk-dsp-mdul",
 };
 
 static int dsp_pcm_taskattr_init(struct platform_device *pdev)

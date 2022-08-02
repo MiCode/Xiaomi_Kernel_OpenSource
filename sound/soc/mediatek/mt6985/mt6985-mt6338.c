@@ -898,6 +898,22 @@ SND_SOC_DAILINK_DEFS(dspechodl,
 	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_echodl_dai")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
+SND_SOC_DAILINK_DEFS(dspusbdl,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_usbdl_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
+SND_SOC_DAILINK_DEFS(dspusbul,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_usbul_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
+SND_SOC_DAILINK_DEFS(dspmddl,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_mddl_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
+SND_SOC_DAILINK_DEFS(dspmdul,
+	DAILINK_COMP_ARRAY(COMP_CPU("audio_task_mdul_dai")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("snd-audio-dsp")));
 #endif
 
 static struct snd_soc_dai_link mt6985_mt6338_dai_links[] = {
@@ -1734,6 +1750,26 @@ static struct snd_soc_dai_link mt6985_mt6338_dai_links[] = {
 		.name = "DSP_Playback_Echoref",
 		.stream_name = "DSP_Playback_Echoref",
 		SND_SOC_DAILINK_REG(dspechodl),
+	},
+	{
+		.name = "DSP_Playback_USB",
+		.stream_name = "DSP_Playback_USB",
+		SND_SOC_DAILINK_REG(dspusbdl),
+	},
+	{
+		.name = "DSP_Capture_USB",
+		.stream_name = "DSP_Capture_USB",
+		SND_SOC_DAILINK_REG(dspusbul),
+	},
+	{
+		.name = "DSP_Capture_MDDL",
+		.stream_name = "DSP_Capture_MDDL",
+		SND_SOC_DAILINK_REG(dspmddl),
+	},
+	{
+		.name = "DSP_Playback_MDUL",
+		.stream_name = "DSP_Playback_MDUL",
+		SND_SOC_DAILINK_REG(dspmdul),
 	},
 #endif
 };

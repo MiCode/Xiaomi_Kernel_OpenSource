@@ -389,8 +389,8 @@ void audio_ringbuf_drop_all(struct audio_ringbuf_t *rb)
 		return;
 	}
 
-	rb->read = 0;
-	rb->write = 0;
+	rb->read = rb->base;
+	rb->write = rb->base;
 }
 
 void audio_ringbuf_compensate_value_impl(
