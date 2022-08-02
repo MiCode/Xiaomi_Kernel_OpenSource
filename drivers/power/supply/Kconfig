@@ -850,6 +850,15 @@ config GAUGE_MT6375
 	  The fuelgauge calculates and determines the battery state of charge
 	  according to battery open circuit voltage.
 
+config GAUGE_BQ28Z610
+	tristate " TI BQ28Z610 gauge support"
+	depends on I2C
+	help
+	  Say Y here to enable support for TI BQ28Z610 gauge.
+	  This adds support for bq28z610 fuel gauge
+	  Select Alpha gauge Platform is mt6985
+	  Say N to disable.
+
 config CHARGER_RT9490
 	tristate "Richtek RT9490 charger support"
 	depends on MFD_RT9490
