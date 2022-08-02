@@ -487,7 +487,7 @@ static int xhci_stop_device(struct xhci_hcd *xhci, int slot_id, int suspend)
 
 	trace_xhci_stop_device(virt_dev);
 
-	cmd = xhci_alloc_command(xhci, true, GFP_NOIO);
+	cmd = mtk_xhci_alloc_command(xhci, true, GFP_NOIO);
 	if (!cmd)
 		return -ENOMEM;
 
@@ -497,35 +497,35 @@ static int xhci_stop_device(struct xhci_hcd *xhci, int slot_id, int suspend)
 			struct xhci_ep_ctx *ep_ctx;
 			struct xhci_command *command;
 
-			ep_ctx = xhci_get_ep_ctx(xhci, virt_dev->out_ctx, i);
+			ep_ctx = mtk_xhci_get_ep_ctx(xhci, virt_dev->out_ctx, i);
 
 			/* Check ep is running, required by AMD SNPS 3.1 xHC */
 			if (GET_EP_CTX_STATE(ep_ctx) != EP_STATE_RUNNING)
 				continue;
 
-			command = xhci_alloc_command(xhci, false, GFP_NOWAIT);
+			command = mtk_xhci_alloc_command(xhci, false, GFP_NOWAIT);
 			if (!command) {
 				spin_unlock_irqrestore(&xhci->lock, flags);
 				ret = -ENOMEM;
 				goto cmd_cleanup;
 			}
 
-			ret = xhci_queue_stop_endpoint(xhci, command, slot_id,
+			ret = mtk_xhci_queue_stop_endpoint(xhci, command, slot_id,
 						       i, suspend);
 			if (ret) {
 				spin_unlock_irqrestore(&xhci->lock, flags);
-				xhci_free_command(xhci, command);
+				mtk_xhci_free_command(xhci, command);
 				goto cmd_cleanup;
 			}
 		}
 	}
-	ret = xhci_queue_stop_endpoint(xhci, cmd, slot_id, 0, suspend);
+	ret = mtk_xhci_queue_stop_endpoint(xhci, cmd, slot_id, 0, suspend);
 	if (ret) {
 		spin_unlock_irqrestore(&xhci->lock, flags);
 		goto cmd_cleanup;
 	}
 
-	xhci_ring_cmd_db(xhci);
+	mtk_xhci_ring_cmd_db(xhci);
 	spin_unlock_irqrestore(&xhci->lock, flags);
 
 	/* Wait for last stop endpoint command to finish */
@@ -543,7 +543,7 @@ static int xhci_stop_device(struct xhci_hcd *xhci, int slot_id, int suspend)
 		xhci_warn(xhci, "Sync device context failed, ret=%d\n", ret);
 
 cmd_cleanup:
-	xhci_free_command(xhci, cmd);
+	mtk_xhci_free_command(xhci, cmd);
 	return ret;
 }
 
@@ -901,9 +901,9 @@ static void xhci_del_comp_mod_timer(struct xhci_hcd *xhci, u32 status,
 		xhci->port_status_u0 |= 1 << wIndex;
 		if (xhci->port_status_u0 == all_ports_seen_u0) {
 			del_timer_sync(&xhci->comp_mode_recovery_timer);
-			xhci_dbg_trace(xhci, trace_xhci_dbg_quirks,
+			mtk_xhci_dbg_trace(xhci, trace_mtk_xhci_dbg_quirks,
 				"All USB3 ports have entered U0 already!");
-			xhci_dbg_trace(xhci, trace_xhci_dbg_quirks,
+			mtk_xhci_dbg_trace(xhci, trace_mtk_xhci_dbg_quirks,
 				"Compliance Mode Recovery Timer Deleted.");
 		}
 	}

@@ -697,8 +697,8 @@ static int add_ep_quirk(struct usb_hcd *hcd, struct usb_device *udev,
 	unsigned int ep_index;
 
 	virt_dev = xhci->devs[udev->slot_id];
-	ep_index = xhci_get_endpoint_index(&ep->desc);
-	ep_ctx = xhci_get_ep_ctx(xhci, virt_dev->in_ctx, ep_index);
+	ep_index = mtk_xhci_get_endpoint_index(&ep->desc);
+	ep_ctx = mtk_xhci_get_ep_ctx(xhci, virt_dev->in_ctx, ep_index);
 
 	if (!need_bw_sch(udev, ep)) {
 		/*
@@ -761,7 +761,7 @@ int xhci_mtk_check_bandwidth(struct usb_hcd *hcd, struct usb_device *udev)
 	list_for_each_entry(sch_ep, &mtk->bw_ep_chk_list, endpoint) {
 		struct xhci_ep_ctx *ep_ctx;
 		struct usb_host_endpoint *ep = sch_ep->ep;
-		unsigned int ep_index = xhci_get_endpoint_index(&ep->desc);
+		unsigned int ep_index = mtk_xhci_get_endpoint_index(&ep->desc);
 
 		ret = check_sch_bw(sch_ep);
 		if (ret) {
@@ -770,7 +770,7 @@ int xhci_mtk_check_bandwidth(struct usb_hcd *hcd, struct usb_device *udev)
 			return -ENOSPC;
 		}
 
-		ep_ctx = xhci_get_ep_ctx(xhci, virt_dev->in_ctx, ep_index);
+		ep_ctx = mtk_xhci_get_ep_ctx(xhci, virt_dev->in_ctx, ep_index);
 		ep_ctx->reserved[0] = cpu_to_le32(EP_BPKTS(sch_ep->pkts)
 			| EP_BCSCOUNT(sch_ep->cs_count)
 			| EP_BBM(sch_ep->burst_mode));
@@ -782,7 +782,7 @@ int xhci_mtk_check_bandwidth(struct usb_hcd *hcd, struct usb_device *udev)
 			sch_ep->offset, sch_ep->repeat);
 	}
 
-	ret = xhci_check_bandwidth(hcd, udev);
+	ret = mtk_xhci_check_bandwidth(hcd, udev);
 	if (!ret)
 		list_del_init(&mtk->bw_ep_chk_list);
 
@@ -800,7 +800,7 @@ void xhci_mtk_reset_bandwidth(struct usb_hcd *hcd, struct usb_device *udev)
 	list_for_each_entry_safe(sch_ep, tmp, &mtk->bw_ep_chk_list, endpoint)
 		destroy_sch_ep(mtk, udev, sch_ep);
 
-	xhci_reset_bandwidth(hcd, udev);
+	mtk_xhci_reset_bandwidth(hcd, udev);
 }
 
 int xhci_mtk_add_ep(struct usb_hcd *hcd, struct usb_device *udev,
@@ -808,7 +808,7 @@ int xhci_mtk_add_ep(struct usb_hcd *hcd, struct usb_device *udev,
 {
 	int ret;
 
-	ret = xhci_add_endpoint(hcd, udev, ep);
+	ret = mtk_xhci_add_endpoint(hcd, udev, ep);
 	if (ret)
 		return ret;
 
@@ -823,7 +823,7 @@ int xhci_mtk_drop_ep(struct usb_hcd *hcd, struct usb_device *udev,
 {
 	int ret;
 
-	ret = xhci_drop_endpoint(hcd, udev, ep);
+	ret = mtk_xhci_drop_endpoint(hcd, udev, ep);
 	if (ret)
 		return ret;
 

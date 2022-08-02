@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# USB Host Controller Drivers
+#
+
+config DEVICE_MODULES_USB_XHCI_MTK
+	tristate "xHCI support for MediaTek SoCs"
+	select MFD_SYSCON
+	help
+	  Say 'Y' to enable the support for the xHCI host controller
+	  found in MediaTek SoCs.
+	  If unsure, say N.

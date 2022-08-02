@@ -611,7 +611,7 @@ static int xhci_mtk_setup(struct usb_hcd *hcd)
 		xhci_mtk_set_frame_interval(mtk);
 	}
 
-	ret = xhci_gen_setup(hcd, xhci_mtk_quirks);
+	ret = mtk_xhci_gen_setup(hcd, xhci_mtk_quirks);
 	if (ret)
 		return ret;
 
@@ -1000,7 +1000,7 @@ static int __init xhci_mtk_init(void)
 {
 	int ret;
 
-	xhci_init_driver(&xhci_mtk_hc_driver, &xhci_mtk_overrides);
+	mtk_xhci_init_driver(&xhci_mtk_hc_driver, &xhci_mtk_overrides);
 	ret = platform_driver_register(&mtk_xhci_p1_driver);
 	if (ret < 0)
 		return ret;
