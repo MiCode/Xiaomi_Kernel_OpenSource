@@ -426,10 +426,8 @@ static int mt6985_apu_top_off(struct device *dev)
 		ret = readl_relaxed_poll_timeout_atomic(
 				(apupw.regs[apu_rpc] + APU_RPC_STATUS),
 				val, (val & 0x1UL) == 0x1, 50, 10000);
-		if (ret) {
+		if (ret)
 			pr_info("%s polling PWR STATUS timeout\n", __func__);
-			return -1;
-		}
 	}
 
 	if (ret) {
