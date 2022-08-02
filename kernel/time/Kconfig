@@ -181,5 +181,13 @@ config HIGH_RES_TIMERS
 	  hardware is not capable then this option only increases
 	  the size of the kernel image.
 
+config ALARMTIMER_DEBUG
+	bool "Alarmtimer Debug"
+	help
+	  This kernel config can be used to debug RTC (Real-time Clock)
+          alarm not fire. When enable this option, we can get rtc alarm
+          time and currnet time.
+          If unsure, say N.
+
 endmenu
 endif
