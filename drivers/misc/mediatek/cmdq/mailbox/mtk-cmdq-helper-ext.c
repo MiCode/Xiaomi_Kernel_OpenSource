@@ -2081,6 +2081,9 @@ int cmdq_pkt_wfe(struct cmdq_pkt *pkt, u16 event)
 	if (event >= CMDQ_EVENT_MAX)
 		return -EINVAL;
 
+	if ((event >= CMDQ_TOKEN_PAUSE_TASK_0)
+		&& (event <= CMDQ_TOKEN_PAUSE_TASK_32))
+		cmdq_err("use invalid event:%d", event);
 	/*
 	 * WFE arg_b
 	 * bit 0-11: wait value
@@ -2154,6 +2157,10 @@ s32 cmdq_pkt_clear_event(struct cmdq_pkt *pkt, u16 event)
 {
 	if (event >= CMDQ_EVENT_MAX)
 		return -EINVAL;
+
+	if ((event >= CMDQ_TOKEN_PAUSE_TASK_0)
+		&& (event <= CMDQ_TOKEN_PAUSE_TASK_32))
+		cmdq_err("use invalid event:%d", event);
 
 	return cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(CMDQ_WFE_UPDATE),
 		CMDQ_GET_ARG_B(CMDQ_WFE_UPDATE), event,
