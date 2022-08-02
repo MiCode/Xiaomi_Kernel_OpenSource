@@ -3307,7 +3307,7 @@ static void mtk_ovl_backup_info_cmp(struct mtk_ddp_comp *comp, bool *compare)
 		cur_info[i].layer = i;
 		cur_info[i].layer_en = src_on & (0x1 << i);
 		if (!cur_info[i].layer_en) {
-			DDPMSG("%s:layer%d,en %d,size 0x%x,addr 0x%lx\n",
+			DDPDBG("%s:layer%d,en %d,size 0x%x,addr 0x%lx\n",
 			       __func__, i, cur_info[i].layer_en,
 			       cur_info[i].src_size, (unsigned long)cur_info[i].addr);
 			continue;
@@ -3326,7 +3326,7 @@ static void mtk_ovl_backup_info_cmp(struct mtk_ddp_comp *comp, bool *compare)
 		cur_info[i].data_path_con =
 			readl(DISP_REG_OVL_DATAPATH_CON + Lx_base);
 
-		DDPMSG("%s:layer%d,en %d,size 0x%x, addr 0x%lx\n", __func__, i,
+		DDPDBG("%s:layer%d,en %d,size 0x%x, addr 0x%lx\n", __func__, i,
 		       cur_info[i].layer_en, cur_info[i].src_size,
 		       (unsigned long)cur_info[i].addr);
 		if (memcmp(&cur_info[i], &ovl->backup_info[i],
