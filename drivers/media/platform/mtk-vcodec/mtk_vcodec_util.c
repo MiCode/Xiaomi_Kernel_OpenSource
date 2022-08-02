@@ -186,6 +186,11 @@ struct mtk_vcodec_ctx *mtk_vcodec_get_curr_ctx(struct mtk_vcodec_dev *dev,
 	unsigned long flags;
 	struct mtk_vcodec_ctx *ctx;
 
+	if (!dev) {
+		mtk_v4l2_err("dev is NULL! (hw_id %d)");
+		return NULL;
+	}
+
 	spin_lock_irqsave(&dev->irqlock, flags);
 	ctx = dev->curr_dec_ctx[hw_id];
 	spin_unlock_irqrestore(&dev->irqlock, flags);
