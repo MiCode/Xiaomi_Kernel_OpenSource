@@ -354,6 +354,7 @@ void set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 framerate)
 {
 	u32 frame_length;
+	u32 frame_length_step;
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
 		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
@@ -362,6 +363,9 @@ void set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 	}
 	frame_length = ctx->s_ctx.mode[scenario_id].pclk / framerate * 10
 		/ ctx->s_ctx.mode[scenario_id].linelength;
+	frame_length_step = ctx->s_ctx.mode[scenario_id].framelength_step;
+	frame_length = frame_length_step ?
+		(frame_length - (frame_length % frame_length_step)) : frame_length;
 	ctx->frame_length =
 		max(frame_length, ctx->s_ctx.mode[scenario_id].framelength);
 	ctx->frame_length = min(ctx->frame_length, ctx->s_ctx.frame_length_max);
