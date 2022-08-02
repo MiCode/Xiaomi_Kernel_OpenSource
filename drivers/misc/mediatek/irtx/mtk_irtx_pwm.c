@@ -228,9 +228,9 @@ static int mtk_pwm_ir_probe(struct platform_device *pdev)
 	if (!pwm_ir)
 		return -ENOMEM;
 
-	of_property_read_u32(pdev->dev.of_node, "pwm_ch",
+	of_property_read_u32(pdev->dev.of_node, "pwm-ch",
 		&pwm_ir->pwm_ch);
-	of_property_read_u32(pdev->dev.of_node, "pwm_data_invert",
+	of_property_read_u32(pdev->dev.of_node, "pwm-data-invert",
 		&pwm_ir->pwm_data_invert);
 	if (of_property_read_string(pdev->dev.of_node, "pwm-supply",
 		&pwm_str)) {
