@@ -1191,12 +1191,18 @@ static void mtk_oddmr_config(struct mtk_ddp_comp *comp,
 		cmdq_handle0 = oddmr_priv->od_data.od_sram_pkgs[0];
 		cmdq_handle1 = oddmr_priv->od_data.od_sram_pkgs[1];
 		if (cmdq_handle0) {
+			CRTC_MMP_MARK(0, oddmr_ctl, comp->id, 0);
 			cmdq_pkt_refinalize(cmdq_handle0);
+			CRTC_MMP_MARK(0, oddmr_ctl, comp->id, 1);
 			cmdq_pkt_flush(cmdq_handle0);
+			CRTC_MMP_MARK(0, oddmr_ctl, comp->id, 2);
 		}
 		if (cmdq_handle1) {
+			CRTC_MMP_MARK(0, oddmr_ctl, comp->id, 3);
 			cmdq_pkt_refinalize(cmdq_handle1);
+			CRTC_MMP_MARK(0, oddmr_ctl, comp->id, 4);
 			cmdq_pkt_flush(cmdq_handle1);
+			CRTC_MMP_MARK(0, oddmr_ctl, comp->id, 5);
 		}
 		cmdq_mbox_disable(client->chan);
 		if (oddmr_priv->od_data.od_sram_read_sel == 1)
@@ -2774,12 +2780,15 @@ static int mtk_oddmr_od_init(void)
 		cmdq_mbox_enable(client->chan);
 
 		if (IS_TABLE_VALID(0, g_od_param.valid_table)) {
+			CRTC_MMP_MARK(0, oddmr_ctl, 0, 0);
 			mtk_oddmr_create_gce_pkt(&mtk_crtc->base,
 				&g_oddmr_priv->od_data.od_sram_pkgs[0]);
 			mtk_oddmr_od_init_sram(default_comp,
 				g_oddmr_priv->od_data.od_sram_pkgs[0], 0, 0);
 			g_oddmr_priv->od_data.od_sram_table_idx[0] = 0;
+			CRTC_MMP_MARK(0, oddmr_ctl, 0, 1);
 			cmdq_pkt_flush(g_oddmr_priv->od_data.od_sram_pkgs[0]);
+			CRTC_MMP_MARK(0, oddmr_ctl, 0, 2);
 		} else {
 			ODDMRFLOW_LOG("table0 must be valid\n");
 			g_oddmr_priv->od_state = ODDMR_LOAD_PARTS;
@@ -2788,12 +2797,15 @@ static int mtk_oddmr_od_init(void)
 			return -1;
 		}
 		if (IS_TABLE_VALID(1, g_od_param.valid_table)) {
+			CRTC_MMP_MARK(0, oddmr_ctl, 0, 3);
 			mtk_oddmr_create_gce_pkt(&mtk_crtc->base,
 				&g_oddmr_priv->od_data.od_sram_pkgs[1]);
 			mtk_oddmr_od_init_sram(default_comp,
 				g_oddmr_priv->od_data.od_sram_pkgs[1], 1, 1);
 			g_oddmr_priv->od_data.od_sram_table_idx[1] = 1;
+			CRTC_MMP_MARK(0, oddmr_ctl, 0, 4);
 			cmdq_pkt_flush(g_oddmr_priv->od_data.od_sram_pkgs[1]);
+			CRTC_MMP_MARK(0, oddmr_ctl, 0, 5);
 		}
 		if (table_idx == 1) {
 			mtk_oddmr_write(default_comp, 0x20, DISP_ODDMR_OD_SRAM_CTRL_0, NULL);
@@ -2803,19 +2815,25 @@ static int mtk_oddmr_od_init(void)
 			g_oddmr_priv->od_data.od_sram_read_sel = 0;
 		}
 		if (default_comp->mtk_crtc->is_dual_pipe) {
+			CRTC_MMP_MARK(0, oddmr_ctl, 1, 0);
 			mtk_oddmr_create_gce_pkt(&mtk_crtc->base,
 				&g_oddmr1_priv->od_data.od_sram_pkgs[0]);
 			mtk_oddmr_od_init_sram(oddmr1_default_comp,
 				g_oddmr1_priv->od_data.od_sram_pkgs[0], 0, 0);
 			g_oddmr1_priv->od_data.od_sram_table_idx[0] = 0;
+			CRTC_MMP_MARK(0, oddmr_ctl, 1, 1);
 			cmdq_pkt_flush(g_oddmr1_priv->od_data.od_sram_pkgs[0]);
+			CRTC_MMP_MARK(0, oddmr_ctl, 1, 2);
 			if (IS_TABLE_VALID(1, g_od_param.valid_table)) {
+				CRTC_MMP_MARK(0, oddmr_ctl, 1, 3);
 				mtk_oddmr_create_gce_pkt(&mtk_crtc->base,
 					&g_oddmr1_priv->od_data.od_sram_pkgs[1]);
 				mtk_oddmr_od_init_sram(oddmr1_default_comp,
 					g_oddmr1_priv->od_data.od_sram_pkgs[1], 1, 1);
 				g_oddmr1_priv->od_data.od_sram_table_idx[1] = 1;
+				CRTC_MMP_MARK(0, oddmr_ctl, 1, 4);
 				cmdq_pkt_flush(g_oddmr1_priv->od_data.od_sram_pkgs[1]);
+				CRTC_MMP_MARK(0, oddmr_ctl, 1, 5);
 			}
 			if (table_idx == 1) {
 				mtk_oddmr_write(oddmr1_default_comp,

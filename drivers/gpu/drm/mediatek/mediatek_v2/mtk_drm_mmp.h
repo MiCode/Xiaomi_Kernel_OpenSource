@@ -139,6 +139,7 @@ struct CRTC_MMP_Events {
 	mmp_event clarity_set_regs;
 	/*ODDMR mmp mark*/
 	mmp_event oddmr_sof_thread;
+	mmp_event oddmr_ctl;
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);

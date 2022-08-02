@@ -317,6 +317,8 @@ void init_crtc_mmp_event(void)
 		/*ODDMR mmp mark*/
 		g_CRTC_MMP_Events[i].oddmr_sof_thread = mmprofile_register_event(
 			crtc_mmp_root, "oddmr_sof_thread");
+		g_CRTC_MMP_Events[i].oddmr_ctl = mmprofile_register_event(
+			crtc_mmp_root, "oddmr_ctl");
 	}
 }
 void drm_mmp_init(void)

@@ -149,8 +149,10 @@ static uint32_t mtk_oddmr_parse_od_table_gain(int table_idx, uint8_t *data, uint
 			return 0;
 		}
 		g_od_param.od_tables[table_idx].gain_table_raw = buffer_alloc;
+		memcpy(g_od_param.od_tables[table_idx].gain_table_raw, data, len);
+	} else {
+		len = 0;
 	}
-	memcpy(g_od_param.od_tables[table_idx].gain_table_raw, data, len);
 	return len;
 }
 
@@ -165,7 +167,8 @@ static uint32_t mtk_oddmr_parse_od_table_bl_gain(int table_idx, uint8_t *data, u
 	g_od_param.od_tables[table_idx].bl_cnt = *(uint32_t *)data;
 	data += 4;
 	tmp = g_od_param.od_tables[table_idx].bl_table;
-	memcpy(tmp, data, len - 4);
+	if (len > 4)
+		memcpy(tmp, data, len - 4);
 	return len;
 }
 
@@ -180,7 +183,8 @@ static uint32_t mtk_oddmr_parse_od_table_fps_gain(int table_idx, uint8_t *data, 
 	g_od_param.od_tables[table_idx].fps_cnt = *(uint32_t *)data;
 	data += 4;
 	tmp = g_od_param.od_tables[table_idx].fps_table;
-	memcpy(tmp, data, len - 4);
+	if (len > 4)
+		memcpy(tmp, data, len - 4);
 	return len;
 }
 
@@ -192,7 +196,8 @@ static uint32_t mtk_oddmr_parse_dmr_table_fps_gain(int table_idx, uint8_t *data,
 	g_dmr_param.dmr_tables[table_idx].fps_cnt = *(uint32_t *)data;
 	data += 4;
 	tmp = g_dmr_param.dmr_tables[table_idx].fps_table;
-	memcpy(tmp, data, len - 4);
+	if (len > 4)
+		memcpy(tmp, data, len - 4);
 	return len;
 }
 /* return loaded size */
@@ -203,7 +208,9 @@ static uint32_t mtk_oddmr_parse_dmr_table_bl_gain(int table_idx, uint8_t *data, 
 	g_dmr_param.dmr_tables[table_idx].bl_cnt = *(uint32_t *)data;
 	data += 4;
 	tmp = g_dmr_param.dmr_tables[table_idx].bl_table;
-	memcpy(tmp, data, len - 4);
+
+	if (len > 4)
+		memcpy(tmp, data, len - 4);
 	return len;
 }
 
@@ -322,29 +329,39 @@ static int _mtk_oddmr_load_param(struct mtk_drm_oddmr_param *param)
 				/* p is now pointing to sub data_body */
 				uint32_t counts = *(uint32_t *)p;
 
-				if (tmp_size != counts * 16 + 4) {
+				if (tmp_size < 4
+					|| counts > DMR_GAIN_MAX
+					|| (tmp_size != counts * 16 + 4)) {
 					DDPINFO("%s:%d, table%d 0x%x size error,size %d,count %d\n",
 							__func__, __LINE__,
 							table_idx, tmp_head_id, tmp_size, counts);
 					ret = -EFAULT;
 					goto fail;
 				}
-				if (mtk_oddmr_parse_dmr_table_fps_gain(table_idx, p, tmp_size) == 0)
+				if (mtk_oddmr_parse_dmr_table_fps_gain(table_idx, p, tmp_size) !=
+					tmp_size) {
+					ret = -EFAULT;
 					goto fail;
+				}
 			} else if (sub_head_id == DMR_TABLE_BL_GAIN_TABLE &&
 					data_type_id == ODDMR_DMR_TABLE) {
 				/* p is now pointing to sub data_body */
 				uint32_t counts = *(uint32_t *)p;
 
-				if (tmp_size != counts * 8 + 4) {
+				if (tmp_size < 4
+					|| counts > DMR_GAIN_MAX
+					|| (tmp_size != counts * 8 + 4)) {
 					DDPINFO("%s:%d, table%d 0x%x size error,size %d,count %d\n",
 							__func__, __LINE__,
 							table_idx, tmp_head_id, tmp_size, counts);
 					ret = -EFAULT;
 					goto fail;
 				}
-				if (mtk_oddmr_parse_dmr_table_bl_gain(table_idx, p, tmp_size) == 0)
+				if (mtk_oddmr_parse_dmr_table_bl_gain(table_idx, p, tmp_size) !=
+					tmp_size) {
+					ret = -EFAULT;
 					goto fail;
+				}
 			} else if (sub_head_id == DMR_TABLE_PQ_COMMON &&
 					data_type_id == ODDMR_DMR_TABLE) {
 				/* p is now pointing to sub data_body */
@@ -442,7 +459,8 @@ static int _mtk_oddmr_load_param(struct mtk_drm_oddmr_param *param)
 					ret = -EFAULT;
 					goto fail;
 				}
-				if (mtk_oddmr_parse_od_table_gain(table_idx, p, tmp_size) == 0) {
+				if (mtk_oddmr_parse_od_table_gain(table_idx, p, tmp_size) !=
+					tmp_size) {
 					ret = -EFAULT;
 					goto fail;
 				}
@@ -460,29 +478,39 @@ static int _mtk_oddmr_load_param(struct mtk_drm_oddmr_param *param)
 				/* p is now pointing to sub data_body */
 				uint32_t counts = *(uint32_t *)p;
 
-				if (tmp_size != counts * 8 + 4) {
+				if (tmp_size < 4
+					|| counts > OD_GAIN_MAX
+					|| (tmp_size != counts * 8 + 4)) {
 					DDPINFO("%s:%d, table%d 0x%x size error,size %d,count %d\n",
 							__func__, __LINE__,
 							table_idx, tmp_head_id, tmp_size, counts);
 					ret = -EFAULT;
 					goto fail;
 				}
-				if (mtk_oddmr_parse_od_table_fps_gain(table_idx, p, tmp_size) == 0)
+				if (mtk_oddmr_parse_od_table_fps_gain(table_idx, p, tmp_size) !=
+					tmp_size) {
+					ret = -EFAULT;
 					goto fail;
+				}
 			} else if (sub_head_id == OD_TABLE_DBV_GAIN_TABLE &&
 					data_type_id == ODDMR_OD_TABLE) {
 				/* p is now pointing to sub data_body */
 				uint32_t counts = *(uint32_t *)p;
 
-				if (tmp_size != counts * 8 + 4) {
+				if (tmp_size < 4 ||
+					counts > OD_GAIN_MAX
+					|| (tmp_size != counts * 8 + 4)) {
 					DDPINFO("%s:%d, table%d 0x%x size error,size %d,count %d\n",
 							__func__, __LINE__,
 							table_idx, tmp_head_id, tmp_size, counts);
 					ret = -EFAULT;
 					goto fail;
 				}
-				if (mtk_oddmr_parse_od_table_bl_gain(table_idx, p, tmp_size) == 0)
+				if (mtk_oddmr_parse_od_table_bl_gain(table_idx, p, tmp_size) !=
+					tmp_size) {
+					ret = -EFAULT;
 					goto fail;
+				}
 			} else if (sub_head_id == OD_TABLE_DATA && data_type_id == ODDMR_OD_TABLE) {
 				/* p is now pointing to sub data_body */
 				tmp_size = mtk_oddmr_parse_raw_table(table_idx, p, tmp_size,
