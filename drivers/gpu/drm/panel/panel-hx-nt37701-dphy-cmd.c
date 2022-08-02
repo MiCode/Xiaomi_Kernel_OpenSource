@@ -29,7 +29,6 @@
 #include "../mediatek/mediatek_v2/mtk_panel_ext.h"
 #include "../mediatek/mediatek_v2/mtk_drm_graphics_base.h"
 #endif
-static atomic_t current_backlight;
 
 static struct mtk_panel_para_table bl_tb0[] = {
 		{3, { 0x51, 0x0f, 0xff}},
@@ -45,9 +44,10 @@ static struct mtk_panel_para_table elvss_tb[] = {
 	};
 
 
-
-#define ENABLE_DSC 1
 static atomic_t current_backlight;
+static int current_fps = 60;
+#define ENABLE_DSC 1
+
 struct lcm {
 	struct device *dev;
 	struct drm_panel panel;
@@ -226,7 +226,10 @@ static void lcm_panel_init(struct lcm *ctx)
 
 	//FrameRate 60Hz:0x01  120HZ:0x02
 	/* Frame Rate 60Hz*/
-	lcm_dcs_write_seq_static(ctx, 0x2F, 0x01);
+	if (current_fps == 120)
+		lcm_dcs_write_seq_static(ctx, 0x2F, 0x02);
+	else
+		lcm_dcs_write_seq_static(ctx, 0x2F, 0x01);
 	//backlight
 	level = atomic_read(&current_backlight);
 	bl_tb[1] = (level >> 8) & 0xf;
@@ -527,6 +530,9 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 		ext->params = &ext_params;
 	else
 		ret = 1;
+
+	if (!ret)
+		current_fps = drm_mode_vrefresh(m);
 
 	return ret;
 }
