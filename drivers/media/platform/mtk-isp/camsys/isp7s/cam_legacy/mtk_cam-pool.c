@@ -345,6 +345,9 @@ int mtk_cam_user_buf_deattach_unmap(struct mtk_cam_device_buf *buf)
 {
 	struct dma_buf *dbuf;
 
+	if (!buf)
+		return -EINVAL;
+
 	dbuf = buf->dbuf;
 	if (buf)
 		mtk_cam_device_buf_uninit(buf);
