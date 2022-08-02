@@ -161,7 +161,8 @@ static int mtee_alloc(u32 alignment, u32 size, u32 *refcount, u64 *sec_handle,
 	struct mtee_peer_ops_data *ops_data = &mtee_dev_desc->u_ops_data.mtee;
 
 	if (is_ffa_enabled()) {
-		ret = tmem_ffa_region_alloc(mtee_dev_desc->mtee_chunks_id, size, sec_handle);
+		ret = tmem_ffa_region_alloc(mtee_dev_desc->mtee_chunks_id,
+				size, alignment, sec_handle);
 		if (*sec_handle == 0) {
 			pr_info("tmem_ffa_region_alloc,  out of memory, ret=%d!\n",  ret);
 			return -ENOMEM;

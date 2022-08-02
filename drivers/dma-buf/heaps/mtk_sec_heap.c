@@ -959,7 +959,7 @@ static int region_base_alloc(struct secure_heap_region *sec_heap,
 
 	atomic64_add(buffer->len, &sec_heap->total_size);
 
-	pr_debug("%s done: [%s], req_size:0x%lx, align_sz:0x%lx, handle:%u, pa:0x%lx, total_sz:0x%lx\n",
+	pr_debug("%s done: [%s], req_size:0x%lx, align_sz:0x%lx, handle:0x%llx, pa:0x%lx, total_sz:0x%lx\n",
 		__func__, dma_heap_get_name(buffer->heap), req_sz, buffer->len,
 		buffer->sec_handle, phy_addr, atomic64_read(&sec_heap->total_size));
 

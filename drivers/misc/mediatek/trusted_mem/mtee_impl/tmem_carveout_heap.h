@@ -15,7 +15,7 @@ int tmem_register_ffa_module(void);
 int tmem_run_ffa_test(int test_id);
 
 int tmem_ffa_region_alloc(enum MTEE_MCHUNKS_ID mchunk_id,
-		unsigned long size, u64 *ffa_handle);
+		unsigned long size, unsigned long alignment, u64 *ffa_handle);
 int tmem_ffa_region_free(enum MTEE_MCHUNKS_ID mchunk_id,
 		u64 ffa_handle);
 

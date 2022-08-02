@@ -53,7 +53,7 @@ static struct tmem_carveout_heap *tmem_carveout_heap[MTEE_MCHUNKS_MAX_ID];
 
 struct tmem_block {
 	struct list_head head;
-	unsigned long start;
+	dma_addr_t start;
 	int size;
 	u64 handle;
 	struct sg_table *sgtbl;
@@ -317,9 +317,11 @@ int tmem_ffa_page_free(u64 handle)
 
 int tmem_ffa_region_alloc(enum MTEE_MCHUNKS_ID mchunk_id,
 						  unsigned long size,
+						  unsigned long alignment,
 						  u64 *handle)
 {
-	unsigned long paddr;
+	dma_addr_t paddr;
+	void *vaddr;
 	struct tmem_block *entry;
 	unsigned long pool_idx = mchunk_id;
 	struct ffa_mem_ops_args ffa_args;
@@ -335,7 +337,11 @@ int tmem_ffa_region_alloc(enum MTEE_MCHUNKS_ID mchunk_id,
 
 	mutex_lock(&tmem_block_mutex);
 
-	paddr = gen_pool_alloc(tmem_carveout_heap[pool_idx]->pool, size);
+	if (alignment == 0)
+		alignment = PAGE_SIZE;
+	vaddr = gen_pool_dma_alloc_align(tmem_carveout_heap[pool_idx]->pool, size,
+								NULL, alignment);
+	paddr = (dma_addr_t)vaddr;
 	if (!paddr)
 		goto out4;
 
@@ -352,7 +358,7 @@ int tmem_ffa_region_alloc(enum MTEE_MCHUNKS_ID mchunk_id,
 	tmem_sgl = tmem_sgtbl->sgl;
 	sg_dma_len(tmem_sgl) = size;
 	sg_set_page(tmem_sgl, pfn_to_page(PFN_DOWN(paddr)), size, 0);
-	sg_dma_address(tmem_sgl) = (dma_addr_t) paddr;
+	sg_dma_address(tmem_sgl) = paddr;
 
 	/* set ffa_mem_ops_args */
 	set_memory_region_attrs(mchunk_id, &ffa_args, mem_region_attrs);
@@ -382,7 +388,8 @@ int tmem_ffa_region_alloc(enum MTEE_MCHUNKS_ID mchunk_id,
 	list_add(&entry->head, &tmem_block_list);
 	mutex_unlock(&tmem_block_mutex);
 
-	pr_info("%s PASS: handle=0x%llx, paddr=0x%llx\n", __func__, *handle, paddr);
+	pr_info("%s PASS: handle=0x%llx, paddr=0x%llx, size=0x%lx, alignment=0x%lx\n",
+			__func__, *handle, paddr, size, alignment);
 	return TMEM_OK;
 
 out1:
@@ -392,8 +399,8 @@ out2:
 out3:
 	gen_pool_free(tmem_carveout_heap[pool_idx]->pool, paddr, size);
 out4:
-	pr_info("%s fail: size=0x%lx, gen_pool_avail=0x%lx, pool_idx=%d\n",
-			__func__, size,
+	pr_info("%s fail: size=0x%lx, alignment=0x%lx, gen_pool_avail=0x%lx, pool_idx=%d\n",
+			__func__, size, alignment,
 			gen_pool_avail(tmem_carveout_heap[pool_idx]->pool), pool_idx);
 	mutex_unlock(&tmem_block_mutex);
 
