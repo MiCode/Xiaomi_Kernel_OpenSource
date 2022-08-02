@@ -342,15 +342,18 @@ int mtk_hcp_proc_open(struct inode *inode, struct file *file)
 	if (!try_module_get(THIS_MODULE))
 		return -ENODEV;
 
-
 	name = file->f_path.dentry->d_name.name;
 	if (!strcmp(name, "daemon")) {
-		file->private_data = &hcp_dev->aee_info.data[0];
+		file->private_data
+			= &hcp_dev->aee_info.data[HCP_AEE_PROC_FILE_DAEMON];
 	} else if (!strcmp(name, "kernel")) {
-		file->private_data = &hcp_dev->aee_info.data[1];
+		file->private_data
+			= &hcp_dev->aee_info.data[HCP_AEE_PROC_FILE_KERNEL];
 	} else if (!strcmp(name, "stream")) {
-		file->private_data = &hcp_dev->aee_info.data[2];
+		file->private_data
+			= &hcp_dev->aee_info.data[HCP_AEE_PROC_FILE_STREAM];
 	} else {
+		pr_info("unknown proc file(%s)", name);
 		module_put(THIS_MODULE);
 		return -EPERM;
 	}
@@ -361,7 +364,7 @@ int mtk_hcp_proc_open(struct inode *inode, struct file *file)
 		return -ENOMEM;
 	}
 
-	pr_info("%s: %s", __func__, name);
+	pr_info("%s: %s opened\n", __func__, name);
 
 	return 0;
 }
@@ -370,74 +373,68 @@ static ssize_t mtk_hcp_proc_read(struct file *file, char __user *buf,
 	size_t lbuf, loff_t *ppos)
 {
 	struct mtk_hcp *hcp_dev = hcp_mtkdev;
-	struct proc_info *info = (struct proc_info *)file->private_data;
-	int nbytes = 0;
-	int maxbytes = 0;
-	int bytes_to_do = 0;
+	struct hcp_proc_data *data = (struct hcp_proc_data *)file->private_data;
+	int remain = 0;
+	int len = 0;
 	int ret = 0;
-	int b_is_need_to_lock =
-		(info == &hcp_dev->aee_info.data[HCP_AEE_PROC_FILE_KERNEL]) ? 1 : 0;
 
-	if (b_is_need_to_lock)
-		ret = mutex_lock_killable(&hcp_dev->aee_kernel_db_lock);
-
+	ret = mutex_lock_killable(&data->mtx);
 	if (ret == -EINTR) {
 		pr_info("mtx lock failed due to process being killed");
-		return nbytes;
+		return ret;
 	}
 
-	maxbytes = info->count - *ppos;
-	bytes_to_do = (maxbytes > lbuf) ? lbuf : maxbytes;
-	if (bytes_to_do == 0) {
-		if (b_is_need_to_lock)
-			mutex_unlock(&hcp_dev->aee_kernel_db_lock);
+	remain = data->cnt - *ppos;
+	len = (remain > lbuf) ? lbuf : remain;
+	if (len == 0) {
+		mutex_unlock(&data->mtx);
 		dev_dbg(hcp_dev->dev, "Reached end of the device on a read");
 		return 0;
 	}
 
-	nbytes = bytes_to_do - copy_to_user(buf, info->buffer + *ppos, bytes_to_do);
-	*ppos += nbytes;
+	len = len - copy_to_user(buf, data->buf + *ppos, len);
+	*ppos += len;
 
-	if (b_is_need_to_lock)
-		mutex_unlock(&hcp_dev->aee_kernel_db_lock);
+	mutex_unlock(&data->mtx);
 
-	dev_dbg(hcp_dev->dev, "Leaving the READ function, nbytes=%d, pos=%d\n",
-		nbytes, (int)*ppos);
+	dev_dbg(hcp_dev->dev, "Leaving the READ function, len=%d, pos=%d\n",
+		len, (int)*ppos);
 
-	return nbytes;
+	return len;
 }
 
 ssize_t mtk_hcp_kernel_db_write(struct platform_device *pdev,
 		const char *buf, size_t sz)
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
-	struct proc_info *info
-		= (struct proc_info *)&hcp_dev->aee_info.data[HCP_AEE_PROC_FILE_KERNEL];
-	size_t maxbytes = 0;
-	size_t bytes_to_do = 0;
+	struct hcp_aee_info *info = &hcp_dev->aee_info;
+	struct hcp_proc_data *data
+		= (struct hcp_proc_data *)&info->data[HCP_AEE_PROC_FILE_KERNEL];
+	size_t remain = 0;
+	size_t len = 0;
 	int ret = 0;
 
-	ret = mutex_lock_killable(&hcp_dev->aee_kernel_db_lock);
+	ret = mutex_lock_killable(&data->mtx);
 	if (ret == -EINTR) {
 		pr_info("mtx lock failed due to process being killed");
-		return bytes_to_do;
+		return ret;
 	}
 
-	maxbytes = info->size - info->count;
-	bytes_to_do = (maxbytes > sz) ? sz : maxbytes;
+	remain = data->sz - data->cnt;
+	len = (remain > sz) ? sz : remain;
 
-	if (bytes_to_do == 0) {
+	if (len == 0) {
 		dev_dbg(hcp_dev->dev, "Reach end of the file on write");
-		mutex_unlock(&hcp_dev->aee_kernel_db_lock);
+		mutex_unlock(&data->mtx);
 		return 0;
 	}
 
-	memcpy(info->buffer + info->count, buf, bytes_to_do);
-	info->count += bytes_to_do;
+	memcpy(data->buf + data->cnt, buf, len);
+	data->cnt += len;
 
-	mutex_unlock(&hcp_dev->aee_kernel_db_lock);
+	mutex_unlock(&data->mtx);
 
-	return bytes_to_do;
+	return len;
 }
 EXPORT_SYMBOL(mtk_hcp_kernel_db_write);
 
@@ -445,47 +442,36 @@ static ssize_t mtk_hcp_proc_write(struct file *file, const char __user *buf,
 	size_t lbuf, loff_t *ppos)
 {
 	struct mtk_hcp *hcp_dev = hcp_mtkdev;
-	struct proc_info *info = (struct proc_info *)file->private_data;
-	int nbytes = 0;
-	int maxbytes = 0;
-	int bytes_to_do = 0;
-	unsigned long bytes_remain = 0;
+	struct hcp_proc_data *data = (struct hcp_proc_data *)file->private_data;
+	ssize_t remain = 0;
+	ssize_t len = 0;
 	int ret = 0;
 
-	int b_is_need_to_lock
-		= (info == &hcp_dev->aee_info.data[HCP_AEE_PROC_FILE_KERNEL]) ? 1 : 0;
-
-	if (b_is_need_to_lock)
-		ret = mutex_lock_killable(&hcp_dev->aee_kernel_db_lock);
-
+	ret = mutex_lock_killable(&data->mtx);
 	if (ret == -EINTR) {
 		pr_info("mtx lock failed due to process being killed");
 		return 0;
 	}
 
-	maxbytes = info->size - info->count;
-	bytes_to_do = (maxbytes > lbuf) ? lbuf : maxbytes;
-	if (bytes_to_do == 0) {
-		if (b_is_need_to_lock)
-			mutex_unlock(&hcp_dev->aee_kernel_db_lock);
-
+	remain = data->sz - data->cnt;
+	len = (remain > lbuf) ? lbuf : remain;
+	if (len == 0) {
+		mutex_unlock(&data->mtx);
 		dev_dbg(hcp_dev->dev, "Reached end of the device on a write");
 		return 0;
 	}
 
-	bytes_remain = copy_from_user(info->buffer + info->count, buf, bytes_to_do);
-	nbytes = bytes_to_do - bytes_remain;
+	len = len - copy_from_user(data->buf + data->cnt, buf, len);
 
-	info->count += nbytes;
-	*ppos = info->count;
+	data->cnt += len;
+	*ppos = data->cnt;
 
-	if (b_is_need_to_lock)
-		mutex_unlock(&hcp_dev->aee_kernel_db_lock);
+	mutex_unlock(&data->mtx);
 
-	dev_dbg(hcp_dev->dev, "Leaving the WRITE function, nbytes=%d, pos=%d\n",
-		nbytes, (int)*ppos);
+	dev_dbg(hcp_dev->dev, "Leaving the WRITE function, len=%d, pos=%u\n",
+		len, data->cnt);
 
-	return nbytes;
+	return len;
 }
 
 int mtk_hcp_proc_close(struct inode *inode, struct file *file)
@@ -504,72 +490,75 @@ static const struct proc_ops aee_ops = {
 static void hcp_aee_reset(struct mtk_hcp *hcp_dev)
 {
 	int i = 0;
-	struct hcp_aee *aee_info = NULL;
+	struct hcp_aee_info *info = &hcp_dev->aee_info;
 
-	dev_info(hcp_dev->dev, "%s -s\n", __func__);
-	aee_info = &hcp_dev->aee_info;
+	dev_dbg(hcp_dev->dev, "%s -s\n", __func__);
 
-	for (i = 0 ; i < HCP_AEE_PROC_FILE_NUM ; i++) {
-		memset(aee_info->data[i].buffer, 0, aee_info->data[i].size);
-		aee_info->data[i].count = 0;
+	if (info == NULL) {
+		dev_info(hcp_dev->dev, " %s - aee_info is NULL\n", __func__);
+		return;
 	}
 
-	dev_info(hcp_dev->dev, "%s -e\n", __func__);
+	for (i = 0 ; i < HCP_AEE_PROC_FILE_NUM ; i++) {
+		memset(info->data[i].buf, 0, info->data[i].sz);
+		info->data[i].cnt = 0;
+	}
+
+	dev_dbg(hcp_dev->dev, "%s -e\n", __func__);
 }
 
 int hcp_aee_init(struct mtk_hcp *hcp_dev)
 {
-	struct hcp_aee *aee_info = NULL;
+	struct hcp_aee_info *info = NULL;
+	struct hcp_proc_data *data = NULL;
 	kuid_t uid;
 	kgid_t gid;
+	int i = 0;
 
 	dev_dbg(hcp_dev->dev, "%s -s\n", __func__);
-	aee_info = &hcp_dev->aee_info;
-	#ifdef AED_SET_EXTRA_FUNC_READY_ON_K515
+	info = &hcp_dev->aee_info;
+
+#ifdef AED_SET_EXTRA_FUNC_READY_ON_K515
 	aed_set_extra_func(hcp_notify_aee);
-	#endif
-	aee_info->entry = proc_mkdir("mtk_img_debug", NULL);
-	if (aee_info->entry) {
-		//  Set size separately to reserve the size flexibility of
-		//  different proc.
-		aee_info->data[HCP_AEE_PROC_FILE_DAEMON].size = HCP_AEE_MAX_BUFFER_SIZE;
-		aee_info->data[HCP_AEE_PROC_FILE_KERNEL].size = HCP_AEE_MAX_BUFFER_SIZE;
-		aee_info->data[HCP_AEE_PROC_FILE_IMGSTREAM].size =
-			HCP_AEE_MAX_BUFFER_SIZE;
-
-		hcp_aee_reset(hcp_dev);
-
-
-		aee_info->daemon = proc_create("daemon",
-				0660, aee_info->entry, &aee_ops);
-		aee_info->stream = proc_create("stream",
-				0660, aee_info->entry, &aee_ops);
-		aee_info->kernel = proc_create("kernel",
-				0660, aee_info->entry, &aee_ops);
-
-		dev_dbg(hcp_dev->dev, "%s -s\n", __func__);
-
-		uid = make_kuid(&init_user_ns, 0);
-		gid = make_kgid(&init_user_ns, 1000);
-
-		if (aee_info->daemon)
-			proc_set_user(aee_info->daemon, uid, gid);
-		else
-			pr_info("%s: mtk_img_dbg/daemon: failed to set u/g", __func__);
-
-		if (aee_info->stream)
-			proc_set_user(aee_info->stream, uid, gid);
-		else
-			pr_info("%s: mtk_img_dbg/stream: failed to set u/g", __func__);
-
-		if (aee_info->kernel)
-			proc_set_user(aee_info->kernel, uid, gid);
-		else
-			pr_info("%s: mtk_img_dbg/kernel: failed to set u/g", __func__);
-
-	} else {
+#endif
+	info->entry = proc_mkdir("mtk_img_debug", NULL);
+	if (info->entry == NULL) {
 		pr_info("%s: failed to create imgsys debug node\n", __func__);
+		return -1;
 	}
+
+	for (i = 0 ; i < HCP_AEE_PROC_FILE_NUM; i++) {
+		data = &info->data[i];
+		data->sz = HCP_AEE_MAX_BUFFER_SIZE;
+		mutex_init(&data->mtx);
+	}
+
+	hcp_aee_reset(hcp_dev);
+
+	info->daemon =
+		proc_create("daemon", 0660, info->entry, &aee_ops);
+	info->stream =
+		proc_create("stream", 0660, info->entry, &aee_ops);
+	info->kernel =
+		proc_create("kernel", 0660, info->entry, &aee_ops);
+
+	uid = make_kuid(&init_user_ns, 0);
+	gid = make_kgid(&init_user_ns, 1000);
+
+	if (info->daemon)
+		proc_set_user(info->daemon, uid, gid);
+	else
+		pr_info("%s: mtk_img_dbg/daemon: failed to set u/g", __func__);
+
+	if (info->stream)
+		proc_set_user(info->stream, uid, gid);
+	else
+		pr_info("%s: mtk_img_dbg/stream: failed to set u/g", __func__);
+
+	if (info->kernel)
+		proc_set_user(info->kernel, uid, gid);
+	else
+		pr_info("%s: mtk_img_dbg/kernel: failed to set u/g", __func__);
 
 	dev_dbg(hcp_dev->dev, "%s - e\n", __func__);
 	return 0;
@@ -577,19 +566,27 @@ int hcp_aee_init(struct mtk_hcp *hcp_dev)
 
 int hcp_aee_deinit(struct mtk_hcp *hcp_dev)
 {
-	struct hcp_aee *aee_info = &hcp_dev->aee_info;
+	struct hcp_aee_info *info = &hcp_dev->aee_info;
+	struct hcp_proc_data *data = NULL;
+	int i = 0;
 
-	if (aee_info->kernel)
-		proc_remove(aee_info->kernel);
+	for (i = 0 ; i < HCP_AEE_PROC_FILE_NUM; i++) {
+		data = &info->data[i];
+		data->sz = HCP_AEE_MAX_BUFFER_SIZE;
+		mutex_destroy(&data->mtx);
+	}
 
-	if (aee_info->daemon)
-		proc_remove(aee_info->daemon);
+	if (info->kernel)
+		proc_remove(info->kernel);
 
-	if (aee_info->stream)
-		proc_remove(aee_info->stream);
+	if (info->daemon)
+		proc_remove(info->daemon);
 
-	if (aee_info->entry)
-		proc_remove(aee_info->entry);
+	if (info->stream)
+		proc_remove(info->stream);
+
+	if (info->entry)
+		proc_remove(info->entry);
 
 	return 0;
 }
@@ -1614,7 +1611,6 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 	}
 
 	hcp_aee_init(hcp_mtkdev);
-	mutex_init(&hcp_dev->aee_kernel_db_lock);
 	dev_dbg(&pdev->dev, "hcp aee init done\n");
 	dev_dbg(&pdev->dev, "- X. hcp driver probe success.\n");
 
@@ -1667,9 +1663,7 @@ static int mtk_hcp_remove(struct platform_device *pdev)
 
 	dev_dbg(&pdev->dev, "- E. hcp driver remove.\n");
 
-	mutex_destroy(&hcp_dev->aee_kernel_db_lock);
 	hcp_aee_deinit(hcp_dev);
-
 
 	for (i = 0; i < MODULE_MAX_ID; i++) {
 		if (hcp_dev->daemon_notify_wq[i]) {

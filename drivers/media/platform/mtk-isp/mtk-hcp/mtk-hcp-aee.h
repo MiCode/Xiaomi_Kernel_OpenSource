@@ -6,30 +6,33 @@
 #ifndef MTK_HCP_AEE_H
 #define MTK_HCP_AEE_H
 
+#include <linux/mutex.h>
+
 #define HCP_AEE_MAX_BUFFER_SIZE (512*1024)  // 512KB
 
 // Forward declaration
 struct mtk_hcp;
 
 enum HCP_AEE_DB_FILE {
-	HCP_AEE_PROC_FILE_DAEMON    = 0,
-	HCP_AEE_PROC_FILE_KERNEL    = 1,
-	HCP_AEE_PROC_FILE_IMGSTREAM = 2,
-	HCP_AEE_PROC_FILE_NUM       = 3,
+	HCP_AEE_PROC_FILE_DAEMON = 0,
+	HCP_AEE_PROC_FILE_KERNEL = 1,
+	HCP_AEE_PROC_FILE_STREAM = 2,
+	HCP_AEE_PROC_FILE_NUM    = 3,
 };
 
-struct proc_info {
-	uint8_t buffer[HCP_AEE_MAX_BUFFER_SIZE];
-	size_t size;
-	size_t count;
+struct hcp_proc_data {
+	struct mutex mtx;
+	size_t sz;
+	size_t cnt;
+	uint8_t buf[HCP_AEE_MAX_BUFFER_SIZE];
 };
 
-struct hcp_aee {
+struct hcp_aee_info {
 	struct proc_dir_entry *entry;
 	struct proc_dir_entry *daemon;
 	struct proc_dir_entry *kernel;
 	struct proc_dir_entry *stream;
-	struct proc_info data[HCP_AEE_PROC_FILE_NUM];
+	struct hcp_proc_data data[HCP_AEE_PROC_FILE_NUM];
 };
 
 int hcp_aee_init(struct mtk_hcp *hcp_dev);

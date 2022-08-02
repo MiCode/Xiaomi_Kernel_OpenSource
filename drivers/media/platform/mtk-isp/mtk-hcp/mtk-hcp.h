@@ -338,8 +338,7 @@ struct mtk_hcp {
 	bool cm4_support_list[MODULE_MAX_ID];
 	struct task_struct *current_task;
 	struct workqueue_struct *daemon_notify_wq[MODULE_MAX_ID];
-	struct hcp_aee aee_info;
-	struct mutex aee_kernel_db_lock;
+	struct hcp_aee_info aee_info;
 };
 
 struct mtk_hcp_data {
