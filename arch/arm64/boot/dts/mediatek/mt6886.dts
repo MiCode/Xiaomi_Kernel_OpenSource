@@ -4356,10 +4356,12 @@
 		iommus = <&apu_iommu0 M4U_PORT_L37_APU_CODE>;
 
 		interrupts = <GIC_SPI 603 IRQ_TYPE_LEVEL_HIGH 0>,
-				<GIC_SPI 673 IRQ_TYPE_LEVEL_HIGH 0>;
+				<GIC_SPI 673 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 674 IRQ_TYPE_LEVEL_HIGH 0>;
 
 		interrupt-names = "apu_wdt",
-				"mbox0_irq";
+				"mbox0_irq",
+				"mbox1_irq";
 
 		up_code_buf_sz = <0x100000>;
 		up_coredump_buf_sz = <0x180000>;
@@ -9464,7 +9466,7 @@
 		irq-remain = <&edge_keypad>,
 				<&level_btif_tx &level_btif_rx &level_bt>,
 				<&level_usb_host>,
-				<&level_apusys_rv>;
+				<&level_apusys_rv_mbox0 &level_apusys_rv_mbox1>;
 
 		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
@@ -9515,9 +9517,13 @@
 				target = <&usb_host>;
 				value = <0 0 0 0>;
 			};
-			level_apusys_rv: level_apusys_rv {
+			level_apusys_rv_mbox0: level-apusys-rv-mbox0 {
 				target = <&apusys_rv>;
 				value = <0 1 0 0>;
+			};
+			level_apusys_rv_mbox1: level-apusys-rv-mbox1 {
+				target = <&apusys_rv>;
+				value = <0 2 0 0>;
 			};
 		};
 
