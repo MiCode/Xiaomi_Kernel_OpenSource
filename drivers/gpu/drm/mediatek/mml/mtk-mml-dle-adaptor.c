@@ -526,7 +526,7 @@ s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
 {
 	struct mml_frame_config *cfg;
 	struct mml_task *task;
-	s32 result;
+	s32 result = 0;
 	u32 i;
 
 	mml_trace_begin("%s", __func__);
@@ -639,9 +639,11 @@ s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
 
 	/* get config from core */
 	mml_core_config_task(cfg, task);
+	if (cfg->err)
+		result = -EINVAL;
 
 	mml_trace_end();
-	return 0;
+	return result;
 
 err_unlock_exit:
 	mutex_unlock(&ctx->config_mutex);
