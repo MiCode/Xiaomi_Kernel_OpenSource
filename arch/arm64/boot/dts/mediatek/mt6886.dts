@@ -377,7 +377,7 @@
 			<&cpu4>, <&cpu5>, <&cpu6>, <&cpu7>;
 	};
 
-	tboard_thermistor1: thermal-ntc1 {
+	tboard_thermistor1: thermal-ntc1@1c805554 {
 		compatible = "mediatek,mt6685-tia-ntc";
 		#thermal-sensor-cells = <0>;
 		reg = <0 0x1c805554 0 0x4>; /* TIA DATA T0 */
@@ -550,7 +550,7 @@
 			125000 2522>;
 	};
 
-	tboard_thermistor2: thermal-ntc2 {
+	tboard_thermistor2: thermal-ntc2@1c805558 {
 		compatible = "mediatek,mt6685-tia-ntc";
 		#thermal-sensor-cells = <0>;
 		reg = <0 0x1c805558 0 0x4>; /* TIA DATA T1 */
@@ -723,7 +723,7 @@
 			125000 2522>;
 	};
 
-	tboard_thermistor3: thermal-ntc3 {
+	tboard_thermistor3: thermal-ntc3@1c80555c {
 		compatible = "mediatek,mt6685-tia-ntc";
 		#thermal-sensor-cells = <0>;
 		reg = <0 0x1c80555c 0 0x4>; /* TIA DATA T2 */
@@ -1070,7 +1070,7 @@
 			125000 44>;
 	};
 
-	tsx_thermistor: thermal-ntc5 {
+	tsx_thermistor: thermal-ntc5@1c80554c {
 		compatible = "mediatek,mt6685-tia-ntc";
 		#thermal-sensor-cells = <0>;
 		reg = <0 0x1c80554c 0 0x4>; /* TIA DATA TSX */
@@ -2164,7 +2164,7 @@
 		#cooling-cells = <2>;
 	};
 
-	therm_intf: therm_intf@00114000 {
+	therm_intf: therm_intf@114000 {
 		compatible = "mediatek,therm_intf";
 		reg = <0 0x00114000 0 0x400>,
 		      <0 0x190e1000 0 0x1000>;
@@ -2179,7 +2179,7 @@
 			thermal-sensors = <&lvts 0>;
 
 			trips {
-				soc_max_crit: soc_max_crit@0 {
+				soc_max_crit: soc_max_crit {
 					temperature = <119000>;
 					hysteresis = <2000>;
 					type = "critical";
