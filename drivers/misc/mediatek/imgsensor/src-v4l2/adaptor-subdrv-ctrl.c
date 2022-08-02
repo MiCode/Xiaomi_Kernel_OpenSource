@@ -1346,6 +1346,8 @@ void subdrv_ctx_init(struct subdrv_ctx *ctx)
 			ctx->s_ctx.mode[i].dig_gain_min = ctx->s_ctx.dig_gain_min;
 		if (!ctx->s_ctx.mode[i].dig_gain_max)
 			ctx->s_ctx.mode[i].dig_gain_max = ctx->s_ctx.dig_gain_max;
+		if (!ctx->s_ctx.mode[i].min_exposure_line)
+			ctx->exposure_min = ctx->s_ctx.mode[i].min_exposure_line;
 	}
 }
 
