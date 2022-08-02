@@ -14,8 +14,7 @@ bootargs_ext = "console=tty0 root=/dev/ram vmalloc=400M \
 8250.nr_uarts=4 \
 loglevel=8 \
 
-initcall_debug=1 \
-mtk_printk_ctrl.disable_uart=0";
+initcall_debug=1";
 };
 
 &mtk_leds {
