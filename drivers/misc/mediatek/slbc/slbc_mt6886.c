@@ -104,8 +104,8 @@ static struct slbc_data test_d;
 static struct timer_list slbc_deactivate_timer;
 static LIST_HEAD(slbc_ops_list);
 static DEFINE_MUTEX(slbc_ops_lock);
-static DEFINE_MUTEX(slbc_lock);
-static DEFINE_MUTEX(slbc_timeout_lock);
+static DEFINE_MUTEX(slbc_req_lock);
+static DEFINE_MUTEX(slbc_rel_lock);
 DECLARE_WAIT_QUEUE_HEAD(slbc_wq);
 
 /* 1 in bit is from request done to relase done */
@@ -400,50 +400,49 @@ static int slbc_release_check(struct slbc_data *d)
 
 static void slbc_deactivate_timer_fn(struct timer_list *timer)
 {
-	struct slbc_ops *ops;
 	int ref = 0;
 	unsigned long expires;
-	unsigned int i;
+	unsigned int sid;
+	unsigned int uid;
 
-	slbc_debug_log("%s: slbc_sid_rel_q %lx",
-			__func__, slbc_sid_rel_q);
+	slbc_debug_log("%s: slbc_sid_rel_q %lx, slbc_uid_timeout %lx",
+			__func__, slbc_sid_rel_q, slbc_uid_timeout);
 
-	/* mutex_lock(&slbc_ops_lock); */ /* error in eng load */
-	list_for_each_entry(ops, &slbc_ops_list, node) {
-		struct slbc_data *d = ops->data;
-		unsigned int uid = d->uid;
-		unsigned int sid = slbc_get_sid_by_uid((enum slbc_uid)uid);
 
-		if (test_bit(sid, &slbc_sid_rel_q)) {
+	if (slbc_sid_rel_q) {
+		for (sid = 0; sid < ARRAY_SIZE(p_config); sid++) {
+			uid = p_config[sid].uid;
+			if (test_bit(sid, &slbc_sid_rel_q)) {
 #ifdef SLBC_TRACE
-			trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
+				trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
 #endif /* SLBC_TRACE */
-			slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
+				slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
 
-			slbc_uid_used = slbc_sram_read(SLBC_UID_USED);
-			if (test_bit(uid, &slbc_uid_used)) {
-				ref++;
+				slbc_uid_used = slbc_sram_read(SLBC_UID_USED);
+				if (test_bit(uid, &slbc_uid_used)) {
+					ref++;
 
-				slbc_debug_log("%s(%d) %s not released!",
-						__func__, __LINE__, slbc_uid_str[uid]);
-			} else {
-				clear_bit(sid, &slbc_sid_rel_q);
-				slbc_sram_write(SLBC_SID_REL_Q, slbc_sid_rel_q);
-				slbc_debug_log("%s: slbc_sid_rel_q %lx",
-						__func__, slbc_sid_rel_q);
+					slbc_debug_log("%s(%d) %s not released!",
+							__func__, __LINE__, slbc_uid_str[uid]);
+				} else {
+					clear_bit(sid, &slbc_sid_rel_q);
+					slbc_sram_write(SLBC_SID_REL_Q, slbc_sid_rel_q);
+					slbc_debug_log("%s: slbc_sid_rel_q %lx",
+							__func__, slbc_sid_rel_q);
 
-				slbc_debug_log("%s: %s released!",
-						__func__, slbc_uid_str[uid]);
+					slbc_debug_log("%s: %s released!",
+							__func__, slbc_uid_str[uid]);
+				}
 			}
 		}
 	}
-	/* mutex_unlock(&slbc_ops_lock); */ /* error in eng load */
 
 	if (slbc_uid_timeout) {
-		for (i = 1; i < ARRAY_SIZE(p_config); i++) {
-			if (test_bit(p_config[i].uid, &slbc_uid_timeout))
+		for (sid = 0; sid < ARRAY_SIZE(p_config); sid++) {
+			uid = p_config[sid].uid;
+			if (test_bit(uid, &slbc_uid_timeout))
 				slbc_debug_log("%s(%d) %s slb req timeout!",
-						__func__, __LINE__, slbc_uid_str[p_config[i].uid]);
+						__func__, __LINE__, slbc_uid_str[uid]);
 		}
 	}
 
@@ -474,15 +473,11 @@ static int slbc_activate_thread(void *arg)
 		return -EINVAL;
 	uid = d->uid;
 
-	// if slb req wait cb, activate cb should be handle after slb req done
-	mutex_lock(&slbc_timeout_lock);
 
 #ifdef SLBC_TRACE
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
 #endif /* SLBC_TRACE */
 	slbc_debug_log("%s: %s", __func__, slbc_uid_str[uid]);
-
-	mutex_unlock(&slbc_timeout_lock);
 
 	if (ops->activate) {
 		slbc_debug_log("%s: %s activate CB run!",
@@ -862,7 +857,7 @@ static int slbc_request_buffer(struct slbc_data *d)
 #endif /* SLBC_CB_SLEEP */
 #endif /* SLBC_CB */
 
-	mutex_lock(&slbc_lock);
+	mutex_lock(&slbc_req_lock);
 	slbc_debug_log("%s: TP_BUFFER", __func__);
 
 	if (!SLBC_UID_VALID(uid))
@@ -884,7 +879,6 @@ static int slbc_request_buffer(struct slbc_data *d)
 	if (SLBC_UID_VALID(uid) && SLBC_SID_VALID(sid) &&
 		find_slbc_slot_by_data(d) == SLOT_USED &&
 		!slbc_request_check(d) && !test_bit(uid, &slbc_uid_used)) {
-		mutex_unlock(&slbc_lock);
 
 		deact_sid_list = slbc_deactivate_check(d);
 
@@ -894,7 +888,6 @@ static int slbc_request_buffer(struct slbc_data *d)
 			ret = -EWAIT_RELEASE;
 		} else {
 			if (deact_sid_list) {
-				mutex_lock(&slbc_timeout_lock);
 				slbc_sid_cb_fail &= ~deact_sid_list;
 				slbc_debug_log("%s: %s clr slbc_sid_cb_fail %lx on %s %lx",
 						__func__, slbc_uid_str[uid],
@@ -925,9 +918,7 @@ static int slbc_request_buffer(struct slbc_data *d)
 					if (!SLBC_SID_SRAM_IN_USED(sid)) {
 						slbc_debug_log("%s: %s wait success", __func__,
 								slbc_uid_str[uid]);
-						mutex_lock(&slbc_lock);
 						ret = _slbc_request_buffer_scmi(d);
-						mutex_unlock(&slbc_lock);
 					} else {
 						slbc_debug_log("%s(%d) %s wait fail: %s %lx",
 								__func__, __LINE__,
@@ -942,7 +933,6 @@ static int slbc_request_buffer(struct slbc_data *d)
 					set_bit(uid, &slbc_uid_timeout);
 					ret = -EREQ_TIMEOUT;
 				}
-				mutex_unlock(&slbc_timeout_lock);
 			} else {
 				slbc_debug_log("%s(%d) %s no need to wait slb release!",
 						__func__, __LINE__, slbc_uid_str[uid]);
@@ -951,11 +941,9 @@ static int slbc_request_buffer(struct slbc_data *d)
 		}
 	} else {
 		ret = _slbc_request_buffer_scmi(d);
-		mutex_unlock(&slbc_lock);
 	}
 #else /* SLBC_CB */
 	ret = _slbc_request_buffer_scmi(d);
-	mutex_unlock(&slbc_lock);
 #endif /* SLBC_CB */
 
 	if (!ret) {
@@ -979,6 +967,8 @@ static int slbc_request_buffer(struct slbc_data *d)
 		buffer_ref++;
 #endif /* CONFIG_MTK_SLBC_IPI */
 	}
+	mutex_unlock(&slbc_req_lock);
+
 	return ret;
 }
 
@@ -1089,13 +1079,14 @@ static int slbc_release_buffer(struct slbc_data *d)
 	int sid;
 #endif /* SLBC_CB */
 
-	mutex_lock(&slbc_lock);
+	mutex_lock(&slbc_rel_lock);
 	slbc_debug_log("%s: TP_BUFFER", __func__);
 #ifdef SLBC_CB
 	sid = slbc_get_sid_by_uid(d->uid);
 	slbc_uid_used = slbc_sram_read(SLBC_UID_USED);
 	if (!test_bit(d->uid, &slbc_uid_used) &&
-			sid != SID_NOT_FOUND &&
+			SLBC_SID_VALID(sid) &&
+			SLBC_UID_VALID(d->uid) &&
 			test_bit(sid, &slbc_sid_req_q)) {
 		clear_bit(sid, &slbc_sid_req_q);
 		slbc_sram_write(SLBC_SID_REQ_Q, slbc_sid_req_q);
@@ -1116,7 +1107,6 @@ static int slbc_release_buffer(struct slbc_data *d)
 #endif /* CONFIG_MTK_SLBC_IPI */
 		WARN_ON(buffer_ref < 0);
 	}
-	mutex_unlock(&slbc_lock);
 
 #ifdef SLBC_CB
 #ifdef SLBC_CB_SLEEP
@@ -1131,6 +1121,7 @@ static int slbc_release_buffer(struct slbc_data *d)
 		slbc_activate_check(d);
 	}
 #endif /* SLBC_CB */
+	mutex_unlock(&slbc_rel_lock);
 
 	return ret;
 }
