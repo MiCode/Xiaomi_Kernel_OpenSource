@@ -274,8 +274,6 @@ static int rtc_pm_event(struct notifier_block *notifier, unsigned long pm_event,
 	struct mt6685_rtc *rtc = container_of(notifier,
 		struct mt6685_rtc, pm_nb);
 
-	dev_notice(rtc->rtc_dev->dev.parent, "%s = %lu\n", __func__, pm_event);
-
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
 		rtc_pm_status = PM_SUSPEND_PREPARE;
