@@ -5238,8 +5238,10 @@ int mtk_camsv_normal_scenario_handler(struct mtk_cam_device *cam,
 		return -EINVAL;
 	}
 	/* camsv's sw group done */
-	if ((irq_info->irq_type & (1<<CAMSYS_IRQ_FRAME_DONE)) &&
-		(camsv_dev->first_tag == (1 << tag_idx))) {
+	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE)) {
+		if (mtk_cam_is_display_ic(ctx) &&
+			camsv_dev->first_tag != (1 << tag_idx))
+			return 0;
 		if (!tag_info->sv_pipe) {
 			dev_dbg(camsv_dev->dev,
 				"tag_idx:%d is not controlled by user", tag_idx);
@@ -5250,8 +5252,10 @@ int mtk_camsv_normal_scenario_handler(struct mtk_cam_device *cam,
 		mtk_camsys_frame_done(ctx, seq_no, pipe_id);
 	}
 	/* camsv's tag sof */
-	if ((irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START)) &&
-		(camsv_dev->first_tag == (1 << tag_idx))) {
+	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START)) {
+		if (mtk_cam_is_display_ic(ctx) &&
+			camsv_dev->first_tag != (1 << tag_idx))
+			return 0;
 		mtk_camsys_camsv_frame_start(camsv_dev, ctx,
 			irq_info->frame_idx_inner, irq_info->ts_ns, tag_idx);
 	}
