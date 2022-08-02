@@ -17,7 +17,6 @@
 #include "clk-mtk.h"
 #include "clk-gate.h"
 
-static unsigned long long profile_time[4];
 static bool is_registered;
 
 static int mtk_cg_bit_is_cleared(struct clk_hw *hw)
@@ -159,17 +158,11 @@ static int __cg_enable_hwv(struct clk_hw *hw, bool inv)
 {
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
 	u32 val, val2;
-	int i = 0, j = 0;
-
-	profile_time[2] = 0;
-	profile_time[3] = 0;
-
-	/* dummy read to clr idle signal of hw voter bus */
-	regmap_read(cg->hwv_regmap, cg->hwv_set_ofs, &val);
+	bool is_done = false;
+	int i = 0;
 
 	regmap_write(cg->hwv_regmap, cg->hwv_set_ofs,
 			BIT(cg->bit));
-	profile_time[0] = sched_clock();
 
 	while (!mtk_cg_is_set_hwv(hw)) {
 		if (i < MTK_WAIT_HWV_PREPARE_CNT)
@@ -179,27 +172,23 @@ static int __cg_enable_hwv(struct clk_hw *hw, bool inv)
 		i++;
 	}
 
-	profile_time[1] = sched_clock();
 	i = 0;
 
 	while (1) {
-		regmap_read(cg->hwv_regmap, cg->hwv_sta_ofs, &val);
+		if (!is_done)
+			regmap_read(cg->hwv_regmap, cg->hwv_sta_ofs, &val);
 
-		if ((profile_time[2] == 0) && (val & BIT(cg->bit)) != 0)
-			profile_time[2] = sched_clock();
-		else {
-			regmap_read(cg->regmap, cg->sta_ofs, &val);
-			if ((inv && (val & BIT(cg->bit)) != 0) ||
-					(!inv && (val & BIT(cg->bit)) == 0)) {
-				profile_time[3] = sched_clock();
+		if (((val & BIT(cg->bit)) != 0))
+			is_done = true;
+
+		if (is_done) {
+			regmap_read(cg->regmap, cg->sta_ofs, &val2);
+			if ((inv && (val2 & BIT(cg->bit)) != 0) ||
+					(!inv && (val2 & BIT(cg->bit)) == 0))
 				break;
-			} else if (j  > MTK_WAIT_HWV_STA_CNT)
-				goto hwv_sta_fail;
-			else
-				j++;
 		}
 
-		if (i < MTK_WAIT_HWV_DONE_CNT && j < MTK_WAIT_HWV_STA_CNT)
+		if (i < MTK_WAIT_HWV_DONE_CNT)
 			udelay(MTK_WAIT_HWV_DONE_US);
 		else
 			goto hwv_done_fail;
@@ -213,10 +202,6 @@ static int __cg_enable_hwv(struct clk_hw *hw, bool inv)
 
 	return 0;
 
-hwv_sta_fail:
-	mtk_clk_notify(cg->regmap, cg->hwv_regmap, NULL,
-			cg->sta_ofs, (cg->hwv_set_ofs / MTK_HWV_ID_OFS),
-			cg->bit, CLK_EVT_LONG_BUS_LATENCY);
 hwv_done_fail:
 	regmap_read(cg->regmap, cg->sta_ofs, &val);
 	regmap_read(cg->hwv_regmap, cg->hwv_sta_ofs, &val2);
@@ -224,9 +209,6 @@ hwv_done_fail:
 hwv_prepare_fail:
 	regmap_read(cg->regmap, cg->hwv_sta_ofs, &val);
 	pr_err("%s cg prepare timeout(%x)\n", clk_hw_get_name(hw), val);
-
-	for (i = 0; i < 4; i++)
-		pr_err("[%d]%lld us", i, profile_time[i]);
 
 	mtk_clk_notify(cg->regmap, cg->hwv_regmap, clk_hw_get_name(hw),
 			cg->sta_ofs, (cg->hwv_set_ofs / MTK_HWV_ID_OFS),

@@ -2667,11 +2667,11 @@ static const struct mtk_mux top_muxes[] = {
 		CLK_CFG_13_CLR/* set parent */, 24/* lsb */, 4/* width */,
 		CLK_CFG_UPDATE1/* upd ofs */, TOP_MUX_DPMAIF_MAIN_SHIFT/* upd shift */),
 	/* CLK_CFG_14 */
-	MUX_IPI(CLK_TOP_VDEC_CKSYS1_SEL/* dts */, "vdec_cksys1_sel",
+	MUX_HWV(CLK_TOP_VDEC_CKSYS1_SEL/* dts */, "vdec_cksys1_sel",
 		vdec_cksys1_parents/* parent */,
 		CLK_CFG_14, CLK_CFG_14_SET, CLK_CFG_14_CLR/* set parent */,
 		HWV_CG_21_DONE, HWV_CG_21_SET, HWV_CG_21_CLR, /* hwv */
-		8/* ipi */, 8/* lsb */, 4/* width */,
+		8/* lsb */, 4/* width */,
 		15/* pdn */, CLK_CFG_UPDATE1/* upd ofs */,
 		TOP_MUX_VDEC_CKSYS1_SHIFT/* upd shift */),
 	MUX_GATE_CLR_SET_UPD(CLK_TOP_PWM_SEL/* dts */, "pwm_sel",

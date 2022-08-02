@@ -13,11 +13,11 @@
 #include <linux/platform_device.h>
 
 /* hw voter timeout configures */
-#define MTK_WAIT_HWV_PREPARE_CNT	100
-#define MTK_WAIT_HWV_PREPARE_US		2
-#define MTK_WAIT_HWV_DONE_CNT		100
-#define MTK_WAIT_HWV_DONE_US		5
-#define MTK_WAIT_HWV_STA_CNT		20
+#define MTK_WAIT_HWV_PREPARE_CNT	200
+#define MTK_WAIT_HWV_PREPARE_US		1
+#define MTK_WAIT_HWV_DONE_CNT		500
+#define MTK_WAIT_HWV_DONE_US		1
+#define MTK_WAIT_HWV_STA_CNT		100
 #define MTK_HWV_ID_OFS			(0x8)
 #define MTK_HWV_PREPARE_TMROUT		(200000)
 #define MTK_HWV_DONE_TMROUT		(500000)
