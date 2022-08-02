@@ -8440,6 +8440,12 @@ static void update_blocked_averages(int cpu)
 	struct rq_flags rf;
 
 	rq_lock_irqsave(rq, &rf);
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+	rq->android_vendor_data1[5] = rq->android_vendor_data1[5] << 6;
+	rq->android_vendor_data1[5] = rq->android_vendor_data1[5] + 36;
+	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] << 6;
+	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] + (this_rq()->cpu);
+#endif
 	update_blocked_load_tick(rq);
 	update_rq_clock(rq);
 
@@ -8450,6 +8456,12 @@ static void update_blocked_averages(int cpu)
 	if (decayed)
 		cpufreq_update_util(rq, 0);
 	rq_unlock_irqrestore(rq, &rf);
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+	rq->android_vendor_data1[5] = rq->android_vendor_data1[5] << 6;
+	rq->android_vendor_data1[5] = rq->android_vendor_data1[5] + 37;
+	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] << 6;
+	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] + (this_rq()->cpu);
+#endif
 }
 
 /********** Helpers for find_busiest_group ************************/

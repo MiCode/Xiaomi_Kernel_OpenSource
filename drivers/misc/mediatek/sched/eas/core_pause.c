@@ -129,8 +129,28 @@ static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf)
 		 * will not interfere. Also, stop-machine.
 		 */
 		rq_unlock(rq, rf);
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+		rq->android_vendor_data1[5] = rq->android_vendor_data1[5] << 6;
+		rq->android_vendor_data1[5] = rq->android_vendor_data1[5] + 10;
+		rq->android_vendor_data1[6] = rq->android_vendor_data1[6] << 6;
+		rq->android_vendor_data1[6] = rq->android_vendor_data1[6] + (this_rq()->cpu);
+#endif
+
 		raw_spin_lock(&next->pi_lock);
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+		rq->android_vendor_data1[7] = rq->android_vendor_data1[7] << 6;
+		rq->android_vendor_data1[7] = rq->android_vendor_data1[7] + 1;
+		rq->android_vendor_data1[8] = rq->android_vendor_data1[8] << 6;
+		rq->android_vendor_data1[8] = rq->android_vendor_data1[8] + (this_rq()->cpu);
+#endif
 		rq_relock(rq, rf);
+
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+		rq->android_vendor_data1[5] = rq->android_vendor_data1[5] << 6;
+		rq->android_vendor_data1[5] = rq->android_vendor_data1[5] + 11;
+		rq->android_vendor_data1[6] = rq->android_vendor_data1[6] << 6;
+		rq->android_vendor_data1[6] = rq->android_vendor_data1[6] + (this_rq()->cpu);
+#endif
 
 		/*
 		 * Since we're inside stop-machine, _nothing_ should have
@@ -139,6 +159,14 @@ static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf)
 		 */
 		if (task_rq(next) != rq || !task_on_rq_queued(next)) {
 			raw_spin_unlock(&next->pi_lock);
+
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+			rq->android_vendor_data1[7] = rq->android_vendor_data1[7] << 6;
+			rq->android_vendor_data1[7] = rq->android_vendor_data1[7] + 2;
+			rq->android_vendor_data1[8] = rq->android_vendor_data1[8] << 6;
+			rq->android_vendor_data1[8] =
+				rq->android_vendor_data1[8] + (this_rq()->cpu);
+#endif
 			continue;
 		}
 
@@ -149,9 +177,23 @@ static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf)
 			rq = __migrate_task(rq, rf, next, dest_cpu);
 			if (rq != dead_rq) {
 				rq_unlock(rq, rf);
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+				rq->android_vendor_data1[5] = rq->android_vendor_data1[5] << 6;
+				rq->android_vendor_data1[5] = rq->android_vendor_data1[5] + 12;
+				rq->android_vendor_data1[6] = rq->android_vendor_data1[6] << 6;
+				rq->android_vendor_data1[6] =
+					rq->android_vendor_data1[6] + (this_rq()->cpu);
+#endif
 				rq = dead_rq;
 				*rf = orf;
 				rq_relock(rq, rf);
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+				rq->android_vendor_data1[5] = rq->android_vendor_data1[5] << 6;
+				rq->android_vendor_data1[5] = rq->android_vendor_data1[5] + 13;
+				rq->android_vendor_data1[6] = rq->android_vendor_data1[6] << 6;
+				rq->android_vendor_data1[6] =
+					rq->android_vendor_data1[6] + (this_rq()->cpu);
+#endif
 			}
 		} else {
 			detach_one_task_clone(next, rq, &percpu_kthreads);
@@ -159,6 +201,12 @@ static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf)
 		}
 
 		raw_spin_unlock(&next->pi_lock);
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+		rq->android_vendor_data1[7] = rq->android_vendor_data1[7] << 6;
+		rq->android_vendor_data1[7] = rq->android_vendor_data1[7] + 3;
+		rq->android_vendor_data1[8] = rq->android_vendor_data1[8] << 6;
+		rq->android_vendor_data1[8] = rq->android_vendor_data1[8] + (this_rq()->cpu);
+#endif
 	}
 
 	if (num_pinned_kthreads > 0)
@@ -173,9 +221,20 @@ int drain_rq_cpu_stop(void *data)
 	struct rq_flags rf;
 
 	rq_lock_irqsave(rq, &rf);
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+	rq->android_vendor_data1[5] = rq->android_vendor_data1[5] << 6;
+	rq->android_vendor_data1[5] = rq->android_vendor_data1[5] + 14;
+	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] << 6;
+	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] + (this_rq()->cpu);
+#endif
 	migrate_tasks(rq, &rf);
 	rq_unlock_irqrestore(rq, &rf);
-
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+	rq->android_vendor_data1[5] = rq->android_vendor_data1[5] << 6;
+	rq->android_vendor_data1[5] = rq->android_vendor_data1[5] + 15;
+	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] << 6;
+	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] + (this_rq()->cpu);
+#endif
 	return 0;
 }
 
@@ -198,19 +257,59 @@ int __ref try_drain_rqs(void *data)
 
 	while (!kthread_should_stop()) {
 		raw_spin_lock_irqsave(&drain_pending_lock, flags);
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+		this_rq()->android_vendor_data1[9] =
+			this_rq()->android_vendor_data1[9] << 6;
+		this_rq()->android_vendor_data1[9] =
+			this_rq()->android_vendor_data1[9] + 1;
+		this_rq()->android_vendor_data1[10] =
+			this_rq()->android_vendor_data1[10] << 6;
+		this_rq()->android_vendor_data1[10] =
+			this_rq()->android_vendor_data1[10] + (this_rq()->cpu);
+#endif
 		if (cpumask_weight(cpus_ptr)) {
 			cpumask_t local_cpus;
 
 			cpumask_copy(&local_cpus, cpus_ptr);
 			raw_spin_unlock_irqrestore(&drain_pending_lock, flags);
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+			this_rq()->android_vendor_data1[9] =
+				this_rq()->android_vendor_data1[9] << 6;
+			this_rq()->android_vendor_data1[9] =
+				this_rq()->android_vendor_data1[9] + 2;
+			this_rq()->android_vendor_data1[10] =
+				this_rq()->android_vendor_data1[10] << 6;
+			this_rq()->android_vendor_data1[10] =
+				this_rq()->android_vendor_data1[10] + (this_rq()->cpu);
+#endif
 
 			for_each_cpu(cpu, &local_cpus)
 				cpu_drain_rq(cpu);
 
 			raw_spin_lock_irqsave(&drain_pending_lock, flags);
+
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+			this_rq()->android_vendor_data1[9] =
+				this_rq()->android_vendor_data1[9] << 6;
+			this_rq()->android_vendor_data1[9] =
+				this_rq()->android_vendor_data1[9] + 3;
+			this_rq()->android_vendor_data1[10] =
+				this_rq()->android_vendor_data1[10] << 6;
+			this_rq()->android_vendor_data1[10] =
+				this_rq()->android_vendor_data1[10] + (this_rq()->cpu);
+#endif
 			cpumask_andnot(cpus_ptr, cpus_ptr, &local_cpus);
 		}
 		raw_spin_unlock_irqrestore(&drain_pending_lock, flags);
+
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+		this_rq()->android_vendor_data1[9] = this_rq()->android_vendor_data1[9] << 6;
+		this_rq()->android_vendor_data1[9] = this_rq()->android_vendor_data1[9] + 4;
+		this_rq()->android_vendor_data1[10] =
+			this_rq()->android_vendor_data1[10] << 6;
+		this_rq()->android_vendor_data1[10] =
+			this_rq()->android_vendor_data1[10] + (this_rq()->cpu);
+#endif
 		set_current_state(TASK_INTERRUPTIBLE);
 		schedule();
 		set_current_state(TASK_RUNNING);
@@ -229,6 +328,14 @@ int pause_cpus(struct cpumask *cpus)
 	cpumask_t unpaused;
 
 	raw_spin_lock_irqsave(&sched_pause_lock, flags);
+
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+	this_rq()->android_vendor_data1[11] = this_rq()->android_vendor_data1[11] << 6;
+	this_rq()->android_vendor_data1[11] = this_rq()->android_vendor_data1[11] + 1;
+	this_rq()->android_vendor_data1[12] = this_rq()->android_vendor_data1[12] << 6;
+	this_rq()->android_vendor_data1[12] =
+		this_rq()->android_vendor_data1[12] + (this_rq()->cpu);
+#endif
 	cpumask_copy(&requested_cpus, cpus);
 
 	cpumask_andnot(cpus, cpus, cpu_pause_mask);
@@ -245,9 +352,23 @@ int pause_cpus(struct cpumask *cpus)
 	}
 
 	raw_spin_lock_irqsave(&drain_pending_lock, flags);
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+	this_rq()->android_vendor_data1[9] = this_rq()->android_vendor_data1[9] << 6;
+	this_rq()->android_vendor_data1[9] = this_rq()->android_vendor_data1[9] + 5;
+	this_rq()->android_vendor_data1[10] = this_rq()->android_vendor_data1[10] << 6;
+	this_rq()->android_vendor_data1[10] =
+		this_rq()->android_vendor_data1[10] + (this_rq()->cpu);
+#endif
 	cpumask_or(&drain_data.cpus_to_drain, &drain_data.cpus_to_drain, cpus);
 	raw_spin_unlock_irqrestore(&drain_pending_lock, flags);
 
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+	this_rq()->android_vendor_data1[9] = this_rq()->android_vendor_data1[9] << 6;
+	this_rq()->android_vendor_data1[9] = this_rq()->android_vendor_data1[9] + 6;
+	this_rq()->android_vendor_data1[10] = this_rq()->android_vendor_data1[10] << 6;
+	this_rq()->android_vendor_data1[10] =
+		this_rq()->android_vendor_data1[10] + (this_rq()->cpu);
+#endif
 	if (!IS_ERR(pause_drain_thread))
 		wake_up_process(pause_drain_thread);
 
@@ -258,6 +379,13 @@ int pause_cpus(struct cpumask *cpus)
 
 unlock:
 	raw_spin_unlock_irqrestore(&sched_pause_lock, flags);
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+	this_rq()->android_vendor_data1[11] = this_rq()->android_vendor_data1[11] << 6;
+	this_rq()->android_vendor_data1[11] = this_rq()->android_vendor_data1[11] + 2;
+	this_rq()->android_vendor_data1[12] = this_rq()->android_vendor_data1[12] << 6;
+	this_rq()->android_vendor_data1[12] =
+		this_rq()->android_vendor_data1[12] + (this_rq()->cpu);
+#endif
 	trace_sched_pause_cpus(&requested_cpus, cpus, start_time, 1, err, cpu_pause_mask);
 
 	return err;
@@ -273,6 +401,13 @@ int resume_cpus(struct cpumask *cpus)
 	cpumask_t unpaused;
 
 	raw_spin_lock_irqsave(&sched_pause_lock, flags);
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+	this_rq()->android_vendor_data1[11] = this_rq()->android_vendor_data1[11] << 6;
+	this_rq()->android_vendor_data1[11] = this_rq()->android_vendor_data1[11] + 3;
+	this_rq()->android_vendor_data1[12] = this_rq()->android_vendor_data1[12] << 6;
+	this_rq()->android_vendor_data1[12] =
+		this_rq()->android_vendor_data1[12] + (this_rq()->cpu);
+#endif
 	cpumask_copy(&requested_cpus, cpus);
 
 	cpumask_and(cpus, cpus, cpu_pause_mask);
@@ -295,6 +430,13 @@ int resume_cpus(struct cpumask *cpus)
 
 unlock:
 	raw_spin_unlock_irqrestore(&sched_pause_lock, flags);
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+	this_rq()->android_vendor_data1[11] = this_rq()->android_vendor_data1[11] << 6;
+	this_rq()->android_vendor_data1[11] = this_rq()->android_vendor_data1[11] + 4;
+	this_rq()->android_vendor_data1[12] = this_rq()->android_vendor_data1[12] << 6;
+	this_rq()->android_vendor_data1[12] =
+		this_rq()->android_vendor_data1[12] + (this_rq()->cpu);
+#endif
 	trace_sched_pause_cpus(&requested_cpus, cpus, start_time, 0, err, cpu_pause_mask);
 
 	return err;

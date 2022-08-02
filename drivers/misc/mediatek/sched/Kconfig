@@ -124,3 +124,8 @@ config MTK_CORE_CTL
 	  utilizations from scheduler information automatically.
 	  If you are not sure about whether to enable it or not,
 	  please set n.
+
+config MTK_SCHED_DEBUG
+       tristate "add sched debug log"
+       help
+       MTK_SCHED_DEBUG is the kernel config to add debug log.

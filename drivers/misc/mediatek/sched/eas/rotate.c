@@ -45,9 +45,20 @@ int is_reserved(int cpu)
 	struct rq_flags rf;
 
 	rq_lock(rq, &rf);
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+	rq->android_vendor_data1[5] = rq->android_vendor_data1[5] << 6;
+	rq->android_vendor_data1[5] = rq->android_vendor_data1[5] + 20;
+	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] << 6;
+	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] + (this_rq()->cpu);
+#endif
 	reserved = rq->active_balance;
 	rq_unlock(rq, &rf);
-
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+	rq->android_vendor_data1[5] = rq->android_vendor_data1[5] << 6;
+	rq->android_vendor_data1[5] = rq->android_vendor_data1[5] + 21;
+	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] << 6;
+	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] + (this_rq()->cpu);
+#endif
 	return reserved;
 }
 
@@ -90,9 +101,31 @@ static void task_rotate_work_func(struct work_struct *work)
 
 	local_irq_disable();
 	double_rq_lock(src_rq, dst_rq);
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+	src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] << 6;
+	src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] + 22;
+	src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] << 6;
+	src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] + (this_rq()->cpu);
+
+	dst_rq->android_vendor_data1[5] = dst_rq->android_vendor_data1[5] << 6;
+	dst_rq->android_vendor_data1[5] = dst_rq->android_vendor_data1[5] + 22;
+	dst_rq->android_vendor_data1[6] = dst_rq->android_vendor_data1[6] << 6;
+	dst_rq->android_vendor_data1[6] = dst_rq->android_vendor_data1[6] + (this_rq()->cpu);
+#endif
 	src_rq->active_balance = 0;
 	dst_rq->active_balance = 0;
 	double_rq_unlock(src_rq, dst_rq);
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+	src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] << 6;
+	src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] + 23;
+	src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] << 6;
+	src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] + (this_rq()->cpu);
+
+	dst_rq->android_vendor_data1[5] = dst_rq->android_vendor_data1[5] << 6;
+	dst_rq->android_vendor_data1[5] = dst_rq->android_vendor_data1[5] + 23;
+	dst_rq->android_vendor_data1[6] = dst_rq->android_vendor_data1[6] << 6;
+	dst_rq->android_vendor_data1[6] = dst_rq->android_vendor_data1[6] + (this_rq()->cpu);
+#endif
 	local_irq_enable();
 }
 
@@ -228,6 +261,17 @@ void task_check_for_rotation(struct rq *src_rq)
 	dst_rq = cpu_rq(dst_cpu);
 
 	double_rq_lock(src_rq, dst_rq);
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+	src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] << 6;
+	src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] + 24;
+	src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] << 6;
+	src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] + (this_rq()->cpu);
+
+	dst_rq->android_vendor_data1[5] = dst_rq->android_vendor_data1[5] << 6;
+	dst_rq->android_vendor_data1[5] = dst_rq->android_vendor_data1[5] + 24;
+	dst_rq->android_vendor_data1[6] = dst_rq->android_vendor_data1[6] << 6;
+	dst_rq->android_vendor_data1[6] = dst_rq->android_vendor_data1[6] + (this_rq()->cpu);
+#endif
 	if (dst_rq->curr->policy == SCHED_NORMAL) {
 		if (!cpumask_test_cpu(dst_cpu,
 					src_rq->curr->cpus_ptr) ||
@@ -258,6 +302,17 @@ void task_check_for_rotation(struct rq *src_rq)
 		}
 	}
 	double_rq_unlock(src_rq, dst_rq);
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+	src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] << 6;
+	src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] + 25;
+	src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] << 6;
+	src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] + (this_rq()->cpu);
+
+	dst_rq->android_vendor_data1[5] = dst_rq->android_vendor_data1[5] << 6;
+	dst_rq->android_vendor_data1[5] = dst_rq->android_vendor_data1[5] + 25;
+	dst_rq->android_vendor_data1[6] = dst_rq->android_vendor_data1[6] << 6;
+	dst_rq->android_vendor_data1[6] = dst_rq->android_vendor_data1[6] + (this_rq()->cpu);
+#endif
 
 	if (force) {
 		queue_work_on(src_cpu, system_highpri_wq, &wr->w);
