@@ -361,11 +361,12 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 
 #ifdef MTK_DRM_ASYNC_HANDLE
 	ret = mtk_crtc_gce_flush(crtc, NULL, cmdq_handle, cmdq_handle);
-	if (!ret)
-		cmdq_pkt_wait_complete(cmdq_handle);
-	else
+	if (ret == -1) {
 		DDPPR_ERR("%s mtk_crtc_gce_flush failed %d\n", __func__, __LINE__);
-	cmdq_pkt_destroy(cmdq_handle);
+	} else {
+		cmdq_pkt_wait_complete(cmdq_handle);
+		cmdq_pkt_destroy(cmdq_handle);
+	}
 #else
 	mtk_crtc_gce_flush(crtc, mtk_drm_cmdq_done, cmdq_handle, cmdq_handle);
 #endif
