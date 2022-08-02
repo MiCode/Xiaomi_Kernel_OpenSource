@@ -1,6 +1,11 @@
 ################################################################################
 # Common configuration for building kernel for SXR products
-DEFCONFIG="generic_sxr_defconfig"
+if [[ "${MSM_ARCH}" == "anorak" ]]; then
+	DEFCONFIG="gki_defconfig"
+else
+	DEFCONFIG="generic_sxr_defconfig"
+fi
+
 OPENSSL_DIR=${KERNEL_DIR}/../build/build-tools/path/linux-x86/openssl
 # Kernel platform missing aosp/1843323
 DISABLE_HERMETIC_SYSROOT=1
