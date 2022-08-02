@@ -98,6 +98,7 @@ struct mml_ut {
 };
 
 static struct mml_ut the_case;
+atomic_t mml_test_protect = ATOMIC_INIT(0);
 
 unsigned int mml_case;
 module_param(mml_case, uint, 0644);
@@ -247,6 +248,45 @@ static void fillin_buf_dma(struct mml_frame_data *data, void *dmabuf, u32 size,
 	buf->use_dma = true;
 }
 
+static bool mml_test_check_data_valid(struct mml_frame_data *data)
+{
+	if (!(data->width >= 64 && data->height <= 8192)) {
+		mml_err("%s width not valid %u", __func__, data->width);
+		return false;
+	}
+
+	if (!(data->height >= 64 && data->height <= 8192)) {
+		mml_err("%s height not valid %u", __func__, data->height);
+		return false;
+	}
+
+	return true;
+}
+
+static bool mml_test_check_info_valid(struct mml_frame_info *info)
+{
+	u32 i;
+
+	if (!mml_test_check_data_valid(&info->src)) {
+		mml_err("%s src not valid", __func__);
+		return false;
+	}
+
+	if (!info->dest_cnt || info->dest_cnt > MML_MAX_OUTPUTS) {
+		mml_err("%s dest cnt not valid %u", __func__, info->dest_cnt);
+		return false;
+	}
+
+	for (i = 0; i < info->dest_cnt; i++) {
+		if (!mml_test_check_data_valid(&info->dest[i].data)) {
+			mml_err("%s dest %u not valid", __func__, i);
+			return false;
+		}
+	}
+
+	return true;
+}
+
 static void case_general_submit(struct mml_test *test,
 	struct mml_ut *cur,
 	void (*setup)(struct mml_submit *task, struct mml_ut *cur))
@@ -339,9 +379,14 @@ static void case_general_submit(struct mml_test *test,
 	mode = task.info.mode;
 
 	mml_drm_try_frame(mml_ctx, &task.info);
+	if (!mml_test_check_info_valid(&task.info)) {
+		mml_err("[test]%s parameter not valid", __func__);
+		goto err_done;
+	}
+
 	if (mml_drm_query_cap(mml_ctx, &task.info) == MML_MODE_NOT_SUPPORT) {
 		mml_err("[test]%s not support", __func__);
-		return;
+		goto err_done;
 	}
 
 	/* for ut do not fall to inline rotate unless force use */
@@ -357,8 +402,8 @@ static void case_general_submit(struct mml_test *test,
 	}
 
 	fences = kcalloc(run_cnt, sizeof(*fences), GFP_KERNEL);
+	ktime_get_real_ts64((struct timespec64 *)&task.end);
 	for (i = 0; i < run_cnt; i++) {
-		ktime_get_real_ts64((struct timespec64 *)&task.end);
 		timespec64_add_ns((struct timespec64 *)&task.end,
 			mml_test_interval * 1000000);
 		ret = mml_drm_submit(mml_ctx, &task, NULL);
@@ -389,6 +434,8 @@ static void case_general_submit(struct mml_test *test,
 		mml_log("[test]wait for ctx idle...");
 		msleep_interruptible(1000);	/* make sure mml stops */
 	}
+
+err_done:
 	if (mml_drm_ctx_idle(mml_ctx))
 		mml_drm_put_context(mml_ctx);
 	else
@@ -1507,15 +1554,23 @@ static ssize_t test_write(struct file *filp, const char *buf, size_t count,
 	struct mml_test *test = (struct mml_test *)filp->f_inode->i_private;
 	struct mml_test_case user_case = {0};
 	struct mml_ut cur = {0};
+	ssize_t ret = -EFAULT;
+	int ref;
+
+	ref = atomic_inc_return(&mml_test_protect);
+	if (ref != 1) {
+		mml_log("[test]single run protect %d", ref);
+		goto err_done;
+	}
 
 	if (count > sizeof(user_case)) {
 		mml_err("[test]buf count not match %zu %zu", count, sizeof(user_case));
-		return -EFAULT;
+		goto err_done;
 	}
 
 	if (copy_from_user(&user_case, buf, count)) {
 		mml_err("[test]copy_from_user failed len:%zu", count);
-		return -EFAULT;
+		goto err_done;
 	}
 
 	cur.cfg_src_format = user_case.cfg_src_format;
@@ -1541,8 +1596,11 @@ static ssize_t test_write(struct file *filp, const char *buf, size_t count,
 
 	if (mml_case < ARRAY_SIZE(cases) && cases[mml_case].run)
 		cases[mml_case].run(test, &cur);
+	ret = count;
 
-	return count;
+err_done:
+	atomic_dec(&mml_test_protect);
+	return ret;
 }
 
 static const struct file_operations test_fops = {

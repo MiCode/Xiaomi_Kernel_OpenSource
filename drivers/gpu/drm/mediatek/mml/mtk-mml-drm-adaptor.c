@@ -1059,6 +1059,9 @@ static s32 dup_task(struct mml_task *task, u32 pipe)
 		goto dup_command;
 	}
 
+	/* this config may have issue, do not reuse anymore */
+	cfg->err = true;
+
 	mutex_unlock(&ctx->config_mutex);
 	return -EBUSY;
 
@@ -1203,11 +1206,15 @@ bool mml_drm_ctx_idle(struct mml_drm_ctx *ctx)
 
 	mutex_lock(&ctx->config_mutex);
 	list_for_each_entry(cfg, &ctx->configs, entry) {
-		if (!list_empty(&cfg->await_tasks))
+		if (!list_empty(&cfg->await_tasks)) {
+			mml_log("%s await_tasks not empty", __func__);
 			goto done;
+		}
 
-		if (!list_empty(&cfg->tasks))
+		if (!list_empty(&cfg->tasks)) {
+			mml_log("%s tasks not empty", __func__);
 			goto done;
+		}
 	}
 
 	idle = true;

@@ -754,6 +754,9 @@ static s32 dup_task(struct mml_task *task, u32 pipe)
 		goto dupd_pq;
 	}
 
+	/* this config may have issue, do not reuse anymore */
+	cfg->err = true;
+
 	mutex_unlock(&ctx->config_mutex);
 	return -EBUSY;
 
