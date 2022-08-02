@@ -3981,7 +3981,9 @@
 		subpmic_pmu_eint:subpmic_pmu_eint {
 		};
 
-		dsi_te:dsi_te {
+		dsi_te:dsi-te {
+			compatible = "mediatek, dsi_te-eint";
+			status = "disabled";
 		};
 
 		ap-ccif0@10209000 {
@@ -9674,7 +9676,7 @@
 			<1>, /*MTK_DRM_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ*/
 			<0>, /*MTK_DRM_OPT_MET_LOG*/
 			<1>, /*MTK_DRM_OPT_USE_PQ*/
-			<0>, /*MTK_DRM_OPT_ESD_CHECK_RECOVERY*/
+			<1>, /*MTK_DRM_OPT_ESD_CHECK_RECOVERY*/
 			<0>, /*MTK_DRM_OPT_ESD_CHECK_SWITCH*/
 			<1>, /*MTK_DRM_OPT_PRESENT_FENCE*/
 			<0>, /*MTK_DRM_OPT_RDMA_UNDERFLOW_AEE*/
