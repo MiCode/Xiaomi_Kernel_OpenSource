@@ -496,12 +496,20 @@ static char tmr_buf[8][WK_MAX_MSG_SIZE];
 static struct __call_single_data wdt_csd[8];
 static void wdt_dump_cntcv(void *arg)
 {
-	snprintf(tmr_buf[smp_processor_id()], WK_MAX_MSG_SIZE,
-		"%s CPU:%d CNTCV_CTL:%x CNTCV_TVAL:%x\n",
+	int ret = -1;
+
+	ret = snprintf(tmr_buf[smp_processor_id()], WK_MAX_MSG_SIZE,
+		"%s CPU:%d CNTCV_CTL:%llx CNTCV_TVAL:%llx\n",
 		__func__,
 		smp_processor_id(),
 		read_sysreg(cntv_ctl_el0),
 		read_sysreg(cntv_tval_el0));
+	if (ret < 0) {
+		tmr_buf[smp_processor_id()][0] = 'E';
+		tmr_buf[smp_processor_id()][1] = 'R';
+		tmr_buf[smp_processor_id()][2] = 'R';
+		tmr_buf[smp_processor_id()][3] = '\0';
+	}
 }
 #endif
 
