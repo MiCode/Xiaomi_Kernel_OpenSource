@@ -83,8 +83,6 @@ static int mtk_aov_open(struct inode *inode, struct file *file)
 	file->private_data = aov_dev;
 
 	if (aov_dev->user_cnt == 0) {
-		vmm_isp_ctrl_notify(1);
-		mtk_mmdvfs_aov_enable(1);
 		aov_dev->is_open = true;
 	}
 	aov_dev->user_cnt++;
@@ -105,9 +103,14 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 	switch (cmd) {
 	case AOV_DEV_INIT: {
 		dev_info(aov_dev->dev, "AOV init+\n");
-
+		vmm_isp_ctrl_notify(1);
+		mtk_mmdvfs_aov_enable(1);
 		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_INIT,
 			(void *)arg, sizeof(struct aov_user), true);
+		if (ret < 0) {
+			vmm_isp_ctrl_notify(0);
+			mtk_mmdvfs_aov_enable(0);
+		}
 
 		dev_info(aov_dev->dev, "AOV init-(%d)\n", ret);
 		break;
@@ -130,6 +133,12 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 	case AOV_DEV_DEINIT: {
 		dev_info(aov_dev->dev, "AOV deinit+\n");
 		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_DEINIT, NULL, 0, true);
+		if (ret >= 0) {
+			dev_info(aov_dev->dev, "AOV disable vmm+\n");
+			vmm_isp_ctrl_notify(0);
+			mtk_mmdvfs_aov_enable(0);
+			dev_info(aov_dev->dev, "AOV disable vmm-\n");
+		}
 		dev_info(aov_dev->dev, "AOV deinit-(%d)\n", ret);
 		break;
 	}
@@ -177,17 +186,21 @@ static unsigned int mtk_aov_poll(struct file *file, poll_table *wait)
 static int mtk_aov_release(struct inode *inode, struct file *file)
 {
 	struct mtk_aov *aov_dev = (struct mtk_aov *)file->private_data;
+	int ret;
 
 	pr_info("%s release aov driver+\n", __func__);
 
-	aov_dev->user_cnt--;
-	if (aov_dev->user_cnt == 0) {
+	ret = aov_core_reset(aov_dev);
+	if (ret > 0) {
+		dev_info(aov_dev->dev, "AOV force disable vmm+\n");
 		vmm_isp_ctrl_notify(0);
 		mtk_mmdvfs_aov_enable(0);
-		aov_dev->is_open = false;
+		dev_info(aov_dev->dev, "AOV force disable vmm-\n");
 	}
 
-	aov_core_reset(aov_dev);
+	aov_dev->user_cnt--;
+	if (aov_dev->user_cnt == 0)
+		aov_dev->is_open = false;
 
 	pr_info("%s release aov driver-\n", __func__);
 

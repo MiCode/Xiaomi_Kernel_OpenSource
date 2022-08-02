@@ -1050,6 +1050,8 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 #endif  // AOV_SLB_ALLOC_FREE
 
 		dev_info(aov_dev->dev, "%s: force aov deinit-: (%d)", __func__, ret);
+
+		ret = 1;
 	}
 
 	return ret;
