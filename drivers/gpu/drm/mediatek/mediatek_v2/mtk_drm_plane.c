@@ -394,7 +394,7 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	struct mtk_drm_crtc *mtk_crtc;
 	unsigned int plane_index = to_crtc_plane_index(plane->index);
 	bool skip_update = 0;
-	int crtc_index = 0;
+	unsigned int crtc_index = 0;
 
 	if (!crtc)
 		return;
