@@ -123,7 +123,6 @@
   kstrdup
   __list_add_valid
   __list_del_entry_valid
-  __lock_page
   memstart_addr
   page_mapping
   prepare_to_wait_event
@@ -141,4 +140,5 @@
   system_wq
   unlock_page
   unregister_shrinker
+  wait_on_page_bit
   __wake_up
