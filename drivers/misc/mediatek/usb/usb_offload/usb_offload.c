@@ -40,7 +40,7 @@
 #include "pcm.h"
 #include "power.h"
 #endif
-#if IS_ENABLED(CONFIG_USB_XHCI_MTK)
+#if IS_ENABLED(CONFIG_USB_XHCI_MTK) || IS_ENABLED(CONFIG_DEVICE_MODULES_USB_XHCI_MTK)
 #include "xhci.h"
 #include "xhci-mtk.h"
 #endif
@@ -1438,12 +1438,19 @@ static int xhci_mtk_usb_offload_alloc_segments_for_ring(struct xhci_hcd *xhci,
 			}
 			return -ENOMEM;
 		}
+#if IS_ENABLED(CONFIG_DEVICE_MODULES_USB_XHCI_MTK)
+		xhci_link_segments_(prev, next, type, chain_links);
+#else
 		xhci_link_segments(prev, next, type, chain_links);
-
+#endif
 		prev = next;
 		num_segs--;
 	}
+#if IS_ENABLED(CONFIG_DEVICE_MODULES_USB_XHCI_MTK)
+	xhci_link_segments_(prev, *first, type, chain_links);
+#else
 	xhci_link_segments(prev, *first, type, chain_links);
+#endif
 	*last = prev;
 
 	return 0;

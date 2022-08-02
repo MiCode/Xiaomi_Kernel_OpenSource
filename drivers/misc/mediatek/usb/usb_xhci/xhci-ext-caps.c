@@ -82,7 +82,7 @@ static int xhci_create_intel_xhci_sw_pdev(struct xhci_hcd *xhci, u32 cap_offset)
 	return 0;
 }
 
-int mtk_xhci_ext_cap_init(struct xhci_hcd *xhci)
+int xhci_ext_cap_init_(struct xhci_hcd *xhci)
 {
 	void __iomem *base = &xhci->cap_regs->hc_capbase;
 	u32 offset, val;
@@ -108,4 +108,4 @@ int mtk_xhci_ext_cap_init(struct xhci_hcd *xhci)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(mtk_xhci_ext_cap_init);
+EXPORT_SYMBOL_GPL(xhci_ext_cap_init_);

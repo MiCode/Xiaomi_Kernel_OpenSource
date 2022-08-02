@@ -46,7 +46,7 @@ DEFINE_EVENT(xhci_log_msg, xhci_dbg_context_change,
 	TP_ARGS(vaf)
 );
 
-DEFINE_EVENT(xhci_log_msg, mtk_xhci_dbg_quirks,
+DEFINE_EVENT(xhci_log_msg, xhci_dbg_quirks_,
 	TP_PROTO(struct va_format *vaf),
 	TP_ARGS(vaf)
 );
@@ -146,7 +146,7 @@ DEFINE_EVENT(xhci_log_trb, xhci_handle_command,
 	TP_ARGS(ring, trb)
 );
 
-DEFINE_EVENT(xhci_log_trb, mtk_xhci_handle_transfer,
+DEFINE_EVENT(xhci_log_trb, xhci_handle_transfer_,
 	TP_PROTO(struct xhci_ring *ring, struct xhci_generic_trb *trb),
 	TP_ARGS(ring, trb)
 );
@@ -300,12 +300,12 @@ DECLARE_EVENT_CLASS(xhci_log_urb,
 		)
 );
 
-DEFINE_EVENT(xhci_log_urb, mtk_xhci_urb_enqueue,
+DEFINE_EVENT(xhci_log_urb, xhci_urb_enqueue_,
 	TP_PROTO(struct urb *urb),
 	TP_ARGS(urb)
 );
 
-DEFINE_EVENT(xhci_log_urb, mtk_xhci_urb_giveback,
+DEFINE_EVENT(xhci_log_urb, xhci_urb_giveback_,
 	TP_PROTO(struct urb *urb),
 	TP_ARGS(urb)
 );
@@ -356,7 +356,7 @@ DEFINE_EVENT(xhci_log_ep_ctx, xhci_handle_cmd_config_ep,
 	TP_ARGS(ctx)
 );
 
-DEFINE_EVENT(xhci_log_ep_ctx, mtk_xhci_add_endpoint,
+DEFINE_EVENT(xhci_log_ep_ctx, xhci_add_endpoint_,
 	TP_PROTO(struct xhci_ep_ctx *ctx),
 	TP_ARGS(ctx)
 );
@@ -480,8 +480,8 @@ DECLARE_EVENT_CLASS(xhci_log_ring,
 		__entry->cycle_state = ring->cycle_state;
 		__entry->num_trbs_free = ring->num_trbs_free;
 		__entry->bounce_buf_len = ring->bounce_buf_len;
-		__entry->enq = mtk_xhci_trb_virt_to_dma(ring->enq_seg, ring->enqueue);
-		__entry->deq = mtk_xhci_trb_virt_to_dma(ring->deq_seg, ring->dequeue);
+		__entry->enq = xhci_trb_virt_to_dma_(ring->enq_seg, ring->enqueue);
+		__entry->deq = xhci_trb_virt_to_dma_(ring->deq_seg, ring->dequeue);
 	),
 	TP_printk("%s %p: enq %pad(%pad) deq %pad(%pad) segs %d stream %d free_trbs %d bounce %d cycle %d",
 			xhci_ring_type_string(__entry->type), __entry->ring,
@@ -495,12 +495,12 @@ DECLARE_EVENT_CLASS(xhci_log_ring,
 		)
 );
 
-DEFINE_EVENT(xhci_log_ring, mtk_xhci_ring_alloc,
+DEFINE_EVENT(xhci_log_ring, xhci_ring_alloc_,
 	TP_PROTO(struct xhci_ring *ring),
 	TP_ARGS(ring)
 );
 
-DEFINE_EVENT(xhci_log_ring, mtk_xhci_ring_free,
+DEFINE_EVENT(xhci_log_ring, xhci_ring_free_,
 	TP_PROTO(struct xhci_ring *ring),
 	TP_ARGS(ring)
 );

@@ -164,9 +164,9 @@ struct dbc_request {
 #define dbc_bulkin_ctx(d)		\
 	((struct xhci_ep_ctx *)((d)->ctx->bytes + DBC_CONTEXT_SIZE * 2))
 #define dbc_bulkout_enq(d)		\
-	mtk_xhci_trb_virt_to_dma((d)->ring_out->enq_seg, (d)->ring_out->enqueue)
+	xhci_trb_virt_to_dma_((d)->ring_out->enq_seg, (d)->ring_out->enqueue)
 #define dbc_bulkin_enq(d)		\
-	mtk_xhci_trb_virt_to_dma((d)->ring_in->enq_seg, (d)->ring_in->enqueue)
+	xhci_trb_virt_to_dma_((d)->ring_in->enq_seg, (d)->ring_in->enqueue)
 #define dbc_epctx_info2(t, p, b)	\
 	cpu_to_le32(EP_TYPE(t) | MAX_PACKET(p) | MAX_BURST(b))
 #define dbc_ep_dma_direction(d)		\
