@@ -571,6 +571,24 @@ void fpsgo_reset_pid_attr(struct fpsgo_boost_attr *boost_attr)
 		boost_attr->limit_ruclamp_m_by_pid = BY_PID_DEFAULT_VAL;
 		boost_attr->separate_pct_b_by_pid = BY_PID_DEFAULT_VAL;
 		boost_attr->separate_pct_m_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->qr_enable_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->qr_t2wnt_x_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->qr_t2wnt_y_p_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->qr_t2wnt_y_n_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->gcc_enable_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->gcc_fps_margin_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->gcc_up_sec_pct_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->gcc_up_step_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->gcc_down_sec_pct_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->gcc_down_step_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->gcc_reserved_up_quota_pct_by_pid =
+			BY_PID_DEFAULT_VAL;
+		boost_attr->gcc_reserved_down_quota_pct_by_pid =
+			BY_PID_DEFAULT_VAL;
+		boost_attr->gcc_enq_bound_thrs_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->gcc_deq_bound_thrs_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->gcc_enq_bound_quota_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->gcc_deq_bound_quota_by_pid = BY_PID_DEFAULT_VAL;
 	}
 }
 
@@ -801,7 +819,23 @@ int is_to_delete_fpsgo_attr(struct fpsgo_attr_by_pid *fpsgo_attr)
 			boost_attr.limit_uclamp_m_by_pid == BY_PID_DEFAULT_VAL &&
 			boost_attr.limit_ruclamp_m_by_pid == BY_PID_DEFAULT_VAL &&
 			boost_attr.separate_pct_b_by_pid == BY_PID_DEFAULT_VAL &&
-			boost_attr.separate_pct_m_by_pid == BY_PID_DEFAULT_VAL) {
+			boost_attr.separate_pct_m_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.qr_enable_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.qr_t2wnt_x_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.qr_t2wnt_y_n_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.qr_t2wnt_y_p_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.gcc_deq_bound_quota_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.gcc_deq_bound_thrs_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.gcc_down_sec_pct_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.gcc_down_step_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.gcc_enable_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.gcc_enq_bound_quota_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.gcc_enq_bound_thrs_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.gcc_fps_margin_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.gcc_reserved_down_quota_pct_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.gcc_reserved_up_quota_pct_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.gcc_up_sec_pct_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.gcc_up_step_by_pid == BY_PID_DEFAULT_VAL) {
 		return 1;
 	}
 	if (boost_attr.rescue_second_enable_by_pid == BY_PID_DELETE_VAL ||
@@ -821,7 +855,23 @@ int is_to_delete_fpsgo_attr(struct fpsgo_attr_by_pid *fpsgo_attr)
 			boost_attr.limit_uclamp_m_by_pid == BY_PID_DELETE_VAL ||
 			boost_attr.limit_ruclamp_m_by_pid == BY_PID_DELETE_VAL ||
 			boost_attr.separate_pct_b_by_pid == BY_PID_DELETE_VAL ||
-			boost_attr.separate_pct_m_by_pid == BY_PID_DELETE_VAL) {
+			boost_attr.separate_pct_m_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.qr_enable_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.qr_t2wnt_x_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.qr_t2wnt_y_n_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.qr_t2wnt_y_p_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.gcc_deq_bound_quota_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.gcc_deq_bound_thrs_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.gcc_down_sec_pct_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.gcc_down_step_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.gcc_enable_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.gcc_enq_bound_quota_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.gcc_enq_bound_thrs_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.gcc_fps_margin_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.gcc_reserved_down_quota_pct_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.gcc_reserved_up_quota_pct_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.gcc_up_sec_pct_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.gcc_up_step_by_pid == BY_PID_DELETE_VAL) {
 		return 1;
 	}
 	return 0;
@@ -1572,7 +1622,7 @@ static ssize_t render_info_params_show(struct kobject *kobj,
 	int length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-		"\n (PID, NAME, TGID,\n");
+		"\nNEW PID: PID, NAME, TGID\n");
 	pos += length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
@@ -1580,23 +1630,36 @@ static ssize_t render_info_params_show(struct kobject *kobj,
 	pos += length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-		" rescue_second_enable, rescue_second_time, rescue_second_group,\n");
+		" rescue_second_enable, rescue_second_time, rescue_second_group\n");
 	pos += length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-		" ff_enable, ff_window_size, ff_k_min,\n");
+		" ff_enable, ff_window_size, ff_k_min\n");
 	pos += length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-		" boost_affinity, boost_LR,\n");
+		" boost_affinity, boost_LR\n");
 	pos += length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-		" separate_aa, pct_b, pct_m,\n");
+		" separate_aa, pct_b, pct_m\n");
 	pos += length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-		" uclamp, ruclamp, uclamp_m, ruclamp_m)\n\n");
+		" uclamp, ruclamp, uclamp_m, ruclamp_m\n");
+	pos += length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				" qr_enable, qr_t2wnt_x, qr_t2wnt_y_p, qr_t2wnt_y_n\n");
+	pos += length;
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				" gcc_enable, gcc_fps_margin, gcc_up_sec_pct, gcc_up_step gcc_reserved_up_quota_pct\n");
+	pos += length;
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				" gcc_down_sec_pct, gcc_down_step, gcc_reserved_down_quota_pct\n");
+	pos += length;
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				" gcc_enq_bound_thrs, gcc_enq_bound_quota, gcc_deq_bound_thrs, gcc_deq_bound_quota\n");
 	pos += length;
 
 	fpsgo_render_tree_lock(__func__);
@@ -1611,51 +1674,83 @@ static ssize_t render_info_params_show(struct kobject *kobj,
 
 			length = scnprintf(temp + pos,
 				FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				" (%5d, %4s, %4d,\n",
+				"\nNEW PID: %5d, %4s, %4d\n",
 				iter->pid, tsk->comm,
 				iter->tgid);
 			pos += length;
 
 			length = scnprintf(temp + pos,
 				FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				" %4d, %4d, %4d,\n",
+				" %4d, %4d, %4d\n",
 				attr_item.llf_task_policy_by_pid, attr_item.loading_th_by_pid,
 				attr_item.light_loading_policy_by_pid);
 			pos += length;
 
 			length = scnprintf(temp + pos,
-				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d,\n",
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d\n",
 				attr_item.rescue_second_enable_by_pid,
 				attr_item.rescue_second_time_by_pid,
 				attr_item.rescue_second_group_by_pid);
 			pos += length;
 
 			length = scnprintf(temp + pos,
-				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d,\n",
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d\n",
 				attr_item.filter_frame_enable_by_pid,
 				attr_item.filter_frame_window_size_by_pid,
 				attr_item.filter_frame_kmin_by_pid);
 			pos += length;
 
 			length = scnprintf(temp + pos,
-				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d,\n",
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d\n",
 				attr_item.boost_affinity_by_pid,
 				attr_item.boost_lr_by_pid);
 			pos += length;
 
 			length = scnprintf(temp + pos,
-				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d,\n",
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d\n",
 				attr_item.separate_aa_by_pid,
 				attr_item.separate_pct_b_by_pid,
 				attr_item.separate_pct_m_by_pid);
 			pos += length;
 
 			length = scnprintf(temp + pos,
-				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d, %4d)\n\n",
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d, %4d\n",
 				attr_item.limit_uclamp_by_pid,
 				attr_item.limit_ruclamp_by_pid,
 				attr_item.limit_uclamp_m_by_pid,
 				attr_item.limit_ruclamp_m_by_pid);
+			pos += length;
+
+			length = scnprintf(temp + pos,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d, %4d\n",
+				attr_item.qr_enable_by_pid,
+				attr_item.qr_t2wnt_x_by_pid,
+				attr_item.qr_t2wnt_y_p_by_pid,
+				attr_item.qr_t2wnt_y_n_by_pid);
+			pos += length;
+
+			length = scnprintf(temp + pos,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d, %4d, %4d\n",
+				attr_item.gcc_enable_by_pid,
+				attr_item.gcc_fps_margin_by_pid,
+				attr_item.gcc_up_sec_pct_by_pid,
+				attr_item.gcc_up_step_by_pid,
+				attr_item.gcc_reserved_up_quota_pct_by_pid);
+			pos += length;
+
+			length = scnprintf(temp + pos,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d\n",
+				attr_item.gcc_down_sec_pct_by_pid,
+				attr_item.gcc_down_step_by_pid,
+				attr_item.gcc_reserved_down_quota_pct_by_pid);
+			pos += length;
+
+			length = scnprintf(temp + pos,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d, %4d\n",
+				attr_item.gcc_enq_bound_thrs_by_pid,
+				attr_item.gcc_enq_bound_quota_by_pid,
+				attr_item.gcc_deq_bound_thrs_by_pid,
+				attr_item.gcc_deq_bound_quota_by_pid);
 			pos += length;
 
 			put_task_struct(tsk);
@@ -1680,7 +1775,7 @@ static ssize_t render_attr_params_show(struct kobject *kobj,
 	int length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-		"\n (TGID, llf_task_policy, loading_th, light_loading_policy,\n");
+		"\n NEW tgid: TGID, llf_task_policy, loading_th, light_loading_policy,\n");
 	pos += length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
@@ -1700,7 +1795,20 @@ static ssize_t render_attr_params_show(struct kobject *kobj,
 	pos += length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-		" uclamp, ruclamp, uclamp_m, ruclamp_m)\n\n");
+		" uclamp, ruclamp, uclamp_m, ruclamp_m\n");
+	pos += length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				" qr_enable, qr_t2wnt_x, qr_t2wnt_y_p, qr_t2wnt_y_n\n");
+	pos += length;
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				" gcc_enable, gcc_fps_margin, gcc_up_sec_pct, gcc_up_step gcc_reserved_up_quota_pct\n");
+	pos += length;
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				" gcc_down_sec_pct, gcc_down_step, gcc_reserved_down_quota_pct\n");
+	pos += length;
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				" gcc_enq_bound_thrs, gcc_enq_bound_quota, gcc_deq_bound_thrs, gcc_deq_bound_quota\n");
 	pos += length;
 
 	fpsgo_render_tree_lock(__func__);
@@ -1711,7 +1819,7 @@ static ssize_t render_attr_params_show(struct kobject *kobj,
 
 		length = scnprintf(temp + pos,
 				FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				" (%4d, %4d, %4d, %4d,\n",
+				"\n NEW tgid: %4d, %4d, %4d, %4d,\n",
 			iter->tgid, attr_item.llf_task_policy_by_pid,
 			attr_item.loading_th_by_pid, attr_item.light_loading_policy_by_pid);
 		pos += length;
@@ -1744,11 +1852,43 @@ static ssize_t render_attr_params_show(struct kobject *kobj,
 		pos += length;
 
 		length = scnprintf(temp + pos,
-			FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d, %4d)\n\n",
+			FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d, %4d\n",
 			attr_item.limit_uclamp_by_pid,
 			attr_item.limit_ruclamp_by_pid,
 			attr_item.limit_uclamp_m_by_pid,
 			attr_item.limit_ruclamp_m_by_pid);
+		pos += length;
+
+		length = scnprintf(temp + pos,
+			FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d, %4d\n",
+			attr_item.qr_enable_by_pid,
+			attr_item.qr_t2wnt_x_by_pid,
+			attr_item.qr_t2wnt_y_p_by_pid,
+			attr_item.qr_t2wnt_y_n_by_pid);
+		pos += length;
+
+		length = scnprintf(temp + pos,
+			FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d, %4d, %4d\n",
+			attr_item.gcc_enable_by_pid,
+			attr_item.gcc_fps_margin_by_pid,
+			attr_item.gcc_up_sec_pct_by_pid,
+			attr_item.gcc_up_step_by_pid,
+			attr_item.gcc_reserved_up_quota_pct_by_pid);
+		pos += length;
+
+		length = scnprintf(temp + pos,
+			FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d\n",
+			attr_item.gcc_down_sec_pct_by_pid,
+			attr_item.gcc_down_step_by_pid,
+			attr_item.gcc_reserved_down_quota_pct_by_pid);
+		pos += length;
+
+		length = scnprintf(temp + pos,
+			FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d, %4d\n",
+			attr_item.gcc_enq_bound_thrs_by_pid,
+			attr_item.gcc_enq_bound_quota_by_pid,
+			attr_item.gcc_deq_bound_thrs_by_pid,
+			attr_item.gcc_deq_bound_quota_by_pid);
 		pos += length;
 	}
 

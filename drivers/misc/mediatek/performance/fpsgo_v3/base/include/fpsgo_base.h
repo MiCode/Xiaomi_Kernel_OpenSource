@@ -189,6 +189,26 @@ struct fpsgo_boost_attr {
 	int limit_ruclamp_m_by_pid;
 	int separate_pct_b_by_pid;
 	int separate_pct_m_by_pid;
+
+	/* QUOTA */
+	int qr_enable_by_pid;
+	int qr_t2wnt_x_by_pid;
+	int qr_t2wnt_y_p_by_pid;
+	int qr_t2wnt_y_n_by_pid;
+
+	/*  GCC   */
+	int gcc_enable_by_pid;
+	int gcc_fps_margin_by_pid;
+	int gcc_up_sec_pct_by_pid;
+	int gcc_down_sec_pct_by_pid;
+	int gcc_up_step_by_pid;
+	int gcc_down_step_by_pid;
+	int gcc_reserved_up_quota_pct_by_pid;
+	int gcc_reserved_down_quota_pct_by_pid;
+	int gcc_enq_bound_thrs_by_pid;
+	int gcc_deq_bound_thrs_by_pid;
+	int gcc_enq_bound_quota_by_pid;
+	int gcc_deq_bound_quota_by_pid;
 };
 
 struct render_info {

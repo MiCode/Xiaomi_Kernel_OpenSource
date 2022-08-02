@@ -1897,6 +1897,24 @@ void fbt_set_render_boost_attr(struct render_info *thr)
 	render_attr->separate_pct_b_by_pid = separate_pct_b;
 	render_attr->separate_pct_m_by_pid = separate_pct_m;
 
+	render_attr->qr_enable_by_pid = qr_enable;
+	render_attr->qr_t2wnt_x_by_pid = qr_t2wnt_x;
+	render_attr->qr_t2wnt_y_p_by_pid = qr_t2wnt_y_p;
+	render_attr->qr_t2wnt_y_n_by_pid = qr_t2wnt_y_n;
+
+	render_attr->gcc_enable_by_pid = gcc_enable;
+	render_attr->gcc_reserved_up_quota_pct_by_pid = gcc_reserved_up_quota_pct;
+	render_attr->gcc_reserved_down_quota_pct_by_pid = gcc_reserved_down_quota_pct;
+	render_attr->gcc_up_step_by_pid = gcc_up_step;
+	render_attr->gcc_down_step_by_pid = gcc_down_step;
+	render_attr->gcc_fps_margin_by_pid = gcc_fps_margin;
+	render_attr->gcc_up_sec_pct_by_pid = gcc_up_sec_pct;
+	render_attr->gcc_down_sec_pct_by_pid = gcc_down_sec_pct;
+	render_attr->gcc_enq_bound_thrs_by_pid = gcc_enq_bound_thrs;
+	render_attr->gcc_enq_bound_quota_by_pid = gcc_enq_bound_quota;
+	render_attr->gcc_deq_bound_thrs_by_pid = gcc_deq_bound_thrs;
+	render_attr->gcc_deq_bound_quota_by_pid = gcc_deq_bound_quota;
+
 #if FPSGO_MW
 	fpsgo_attr = fpsgo_find_attr_by_pid(thr->tgid, 0);
 	if (!fpsgo_attr)
@@ -1955,6 +1973,55 @@ void fbt_set_render_boost_attr(struct render_info *thr)
 	if (pid_attr.separate_pct_m_by_pid != BY_PID_DEFAULT_VAL)
 		render_attr->separate_pct_m_by_pid =
 			pid_attr.separate_pct_m_by_pid;
+	if (pid_attr.qr_enable_by_pid != BY_PID_DEFAULT_VAL)
+		render_attr->qr_enable_by_pid =
+			pid_attr.qr_enable_by_pid;
+	if (pid_attr.qr_t2wnt_x_by_pid != BY_PID_DEFAULT_VAL)
+		render_attr->qr_t2wnt_x_by_pid =
+			pid_attr.qr_t2wnt_x_by_pid;
+	if (pid_attr.qr_t2wnt_y_n_by_pid != BY_PID_DEFAULT_VAL)
+		render_attr->qr_t2wnt_y_n_by_pid =
+			pid_attr.qr_t2wnt_y_n_by_pid;
+	if (pid_attr.qr_t2wnt_y_p_by_pid != BY_PID_DEFAULT_VAL)
+		render_attr->qr_t2wnt_y_p_by_pid =
+			pid_attr.qr_t2wnt_y_p_by_pid;
+
+	if (pid_attr.gcc_enable_by_pid != BY_PID_DEFAULT_VAL)
+		render_attr->gcc_enable_by_pid =
+			pid_attr.gcc_enable_by_pid;
+	if (pid_attr.gcc_fps_margin_by_pid != BY_PID_DEFAULT_VAL)
+		render_attr->gcc_fps_margin_by_pid =
+			pid_attr.gcc_fps_margin_by_pid;
+	if (pid_attr.gcc_up_sec_pct_by_pid != BY_PID_DEFAULT_VAL)
+		render_attr->gcc_up_sec_pct_by_pid =
+			pid_attr.gcc_up_sec_pct_by_pid;
+	if (pid_attr.gcc_down_sec_pct_by_pid != BY_PID_DEFAULT_VAL)
+		render_attr->gcc_down_sec_pct_by_pid =
+			pid_attr.gcc_down_sec_pct_by_pid;
+	if (pid_attr.gcc_up_step_by_pid != BY_PID_DEFAULT_VAL)
+		render_attr->gcc_up_step_by_pid =
+			pid_attr.gcc_up_step_by_pid;
+	if (pid_attr.gcc_down_step_by_pid != BY_PID_DEFAULT_VAL)
+		render_attr->gcc_down_step_by_pid =
+			pid_attr.gcc_down_step_by_pid;
+	if (pid_attr.gcc_reserved_up_quota_pct_by_pid != BY_PID_DEFAULT_VAL)
+		render_attr->gcc_reserved_up_quota_pct_by_pid =
+			pid_attr.gcc_reserved_up_quota_pct_by_pid;
+	if (pid_attr.gcc_reserved_down_quota_pct_by_pid != BY_PID_DEFAULT_VAL)
+		render_attr->gcc_reserved_down_quota_pct_by_pid =
+			pid_attr.gcc_reserved_down_quota_pct_by_pid;
+	if (pid_attr.gcc_enq_bound_thrs_by_pid != BY_PID_DEFAULT_VAL)
+		render_attr->gcc_enq_bound_thrs_by_pid =
+			pid_attr.gcc_enq_bound_thrs_by_pid;
+	if (pid_attr.gcc_deq_bound_thrs_by_pid != BY_PID_DEFAULT_VAL)
+		render_attr->gcc_deq_bound_thrs_by_pid =
+			pid_attr.gcc_deq_bound_thrs_by_pid;
+	if (pid_attr.gcc_enq_bound_quota_by_pid != BY_PID_DEFAULT_VAL)
+		render_attr->gcc_enq_bound_quota_by_pid =
+			pid_attr.gcc_enq_bound_quota_by_pid;
+	if (pid_attr.gcc_deq_bound_quota_by_pid != BY_PID_DEFAULT_VAL)
+		render_attr->gcc_deq_bound_quota_by_pid =
+			pid_attr.gcc_deq_bound_quota_by_pid;
 #endif  // FPSGO_MW
 }
 
@@ -3362,10 +3429,12 @@ static int fbt_get_next_jerk(int cur_id)
 
 static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	unsigned long long t_Q2Q_ns, unsigned long long t_enq_len_ns,
-	unsigned long long t_deq_len_ns, int target_fpks, int cooler_on)
+	unsigned long long t_deq_len_ns, int target_fpks, int cooler_on,
+	struct fpsgo_boost_attr *attr)
 {
 	int rm_idx, new_idx, first_idx;
-	long long target_time = div64_s64(1000000000, target_fpks + gcc_fps_margin * 10);
+	int gcc_fps_margin_final = attr->gcc_fps_margin_by_pid;
+	long long target_time = div64_s64(1000000000, target_fpks + gcc_fps_margin_final * 10);
 	int window_cnt;
 	int s32_t_Q2Q = nsec_to_usec(t_Q2Q_ns);
 	int s32_t_enq_len = nsec_to_usec(t_enq_len_ns);
@@ -3373,14 +3442,18 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	int avg = 0, i, quota_adj = 0, qr_quota = 0;
 	long long std_square = 0;
 	int s32_target_time;
+	int gcc_enq_bound_thrs_final = attr->gcc_enq_bound_thrs_by_pid;
+	int gcc_enq_bound_quota_final = attr->gcc_enq_bound_quota_by_pid;
+	int gcc_deq_bound_quota_final = attr->gcc_deq_bound_quota_by_pid;
+	int gcc_deq_bound_thrs_final = attr->gcc_deq_bound_thrs_by_pid;
 
-	if (!gcc_fps_margin && target_fps == 60)
+	if (!gcc_fps_margin_final && target_fps == 60)
 		target_time = max(target_time, (long long)vsync_duration_us_60);
-	if (!gcc_fps_margin && target_fps == 90)
+	if (!gcc_fps_margin_final && target_fps == 90)
 		target_time = max(target_time, (long long)vsync_duration_us_90);
-	if (!gcc_fps_margin && target_fps == 120)
+	if (!gcc_fps_margin_final && target_fps == 120)
 		target_time = max(target_time, (long long)vsync_duration_us_120);
-	if (!gcc_fps_margin && target_fps == 144)
+	if (!gcc_fps_margin_final && target_fps == 144)
 		target_time = max(target_time, (long long)vsync_duration_us_144);
 
 	s32_target_time = target_time;
@@ -3396,8 +3469,8 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 		boost_info->deq_sum = 0;
 	}
 
-	if (boost_info->enq_avg * 100 > s32_target_time * gcc_enq_bound_thrs ||
-		boost_info->deq_avg * 100 > s32_target_time * gcc_deq_bound_thrs) {
+	if (boost_info->enq_avg * 100 > s32_target_time * gcc_enq_bound_thrs_final ||
+		boost_info->deq_avg * 100 > s32_target_time * gcc_deq_bound_thrs_final) {
 		boost_info->quota_cur_idx = -1;
 		boost_info->quota_cnt = 0;
 		boost_info->quota = 0;
@@ -3410,10 +3483,11 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	if (new_idx >= QUOTA_MAX_SIZE)
 		new_idx -= QUOTA_MAX_SIZE;
 
-	if (boost_info->enq_avg * 100 > s32_target_time * gcc_enq_bound_thrs)
-		boost_info->quota_raw[new_idx] = target_time * gcc_enq_bound_quota / 100;
-	else if (boost_info->deq_avg * 100 > s32_target_time * gcc_deq_bound_thrs)
-		boost_info->quota_raw[new_idx] = target_time * gcc_deq_bound_quota / 100;
+	if (boost_info->enq_avg * 100 > s32_target_time * gcc_enq_bound_thrs_final)
+		boost_info->quota_raw[new_idx] =
+		target_time * gcc_enq_bound_quota_final / 100;
+	else if (boost_info->deq_avg * 100 > s32_target_time * gcc_deq_bound_thrs_final)
+		boost_info->quota_raw[new_idx] = target_time * gcc_deq_bound_quota_final / 100;
 	else
 		boost_info->quota_raw[new_idx] = target_time - s32_t_Q2Q;
 
@@ -3530,9 +3604,11 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 		int target_fps, int fps_margin, unsigned long long t_Q2Q,
 		unsigned int gpu_loading, int blc_wt,
-		long long t_cpu, int target_fpks, int max_iso_cap, int cooler_on, int pid)
+		long long t_cpu, int target_fpks, int max_iso_cap, int cooler_on,
+		int pid, struct fpsgo_boost_attr *attr)
 {
-	long long target_time = div64_s64(1000000000, target_fpks + gcc_fps_margin * 10);
+	int gcc_fps_margin_final = attr->gcc_fps_margin_by_pid;
+	long long target_time = div64_s64(1000000000, target_fpks + gcc_fps_margin_final * 10);
 	int gcc_down_window, gcc_up_window;
 	int quota = INT_MAX;
 	int weight_t_gpu = boost_info->quantile_gpu_time > 0 ?
@@ -3540,31 +3616,37 @@ int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 	int weight_t_cpu = boost_info->quantile_cpu_time > 0 ?
 		nsec_to_usec(boost_info->quantile_cpu_time) : -1;
 	int ret = 0;
+	int gcc_down_sec_pct_final = attr->gcc_down_sec_pct_by_pid;
+	int gcc_up_sec_pct_final = attr->gcc_up_step_by_pid;
+	int gcc_reserved_down_quota_pct_final = attr->gcc_reserved_down_quota_pct_by_pid;
+	int gcc_reserved_up_quota_pct_final = attr->gcc_reserved_up_quota_pct_by_pid;
+	int gcc_down_step_final = attr->gcc_down_step_by_pid;
+	int gcc_up_step_final = attr->gcc_up_step_by_pid;
 
-	if (!gcc_fps_margin && target_fps == 60)
+	if (!gcc_fps_margin_final && target_fps == 60)
 		target_time = max(target_time, (long long)vsync_duration_us_60);
-	if (!gcc_fps_margin && target_fps == 90)
+	if (!gcc_fps_margin_final && target_fps == 90)
 		target_time = max(target_time, (long long)vsync_duration_us_90);
-	if (!gcc_fps_margin && target_fps == 120)
+	if (!gcc_fps_margin_final && target_fps == 120)
 		target_time = max(target_time, (long long)vsync_duration_us_120);
-	if (!gcc_fps_margin && target_fps == 144)
+	if (!gcc_fps_margin_final && target_fps == 144)
 		target_time = max(target_time, (long long)vsync_duration_us_144);
 
-	gcc_down_window = target_fps * gcc_down_sec_pct;
+	gcc_down_window = target_fps * gcc_down_sec_pct_final;
 	do_div(gcc_down_window, 100);
 	if (gcc_down_window <= 0) {
 		gcc_down_window = 1;
 		FPSGO_LOGE(
 		"%s error: pid:%d, target_fps:%d, gcc_down_sec_pct:%d",
-		__func__, pid, target_fps, gcc_down_sec_pct);
+		__func__, pid, target_fps, gcc_down_sec_pct_final);
 	}
-	gcc_up_window = target_fps * gcc_up_sec_pct;
+	gcc_up_window = target_fps * gcc_up_sec_pct_final;
 	do_div(gcc_up_window, 100);
 	if (gcc_up_window <= 0) {
 		gcc_up_window = 1;
 		FPSGO_LOGE(
 		"%s error: pid:%d, target_fps:%d, gcc_up_sec_pct:%d",
-		__func__, pid, target_fps, gcc_up_sec_pct);
+		__func__, pid, target_fps, gcc_up_sec_pct_final);
 	}
 
 	if (boost_info->gcc_target_fps != target_fps && !cooler_on) {
@@ -3582,9 +3664,9 @@ int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 
 		quota = boost_info->quota_adj;
 
-		if (quota * 100 >= target_time * gcc_reserved_down_quota_pct)
+		if (quota * 100 >= target_time * gcc_reserved_down_quota_pct_final)
 			goto check_deboost;
-		if (quota * 100 + target_time * gcc_reserved_up_quota_pct <= 0)
+		if (quota * 100 + target_time * gcc_reserved_up_quota_pct_final <= 0)
 			goto check_boost;
 
 		goto done;
@@ -3601,7 +3683,7 @@ check_deboost:
 			goto done;
 		}
 
-		if (quota * 100 < target_time * gcc_reserved_down_quota_pct) {
+		if (quota * 100 < target_time * gcc_reserved_down_quota_pct_final) {
 			ret += 2;
 			goto done;
 		}
@@ -3612,7 +3694,7 @@ check_deboost:
 			goto done;
 		}
 
-		boost_info->correction -= gcc_down_step;
+		boost_info->correction -= gcc_down_step_final;
 
 		goto done;
 	}
@@ -3628,7 +3710,7 @@ check_boost:
 			goto done;
 		}
 
-		if (quota * 100 + target_time * gcc_reserved_up_quota_pct > 0) {
+		if (quota * 100 + target_time * gcc_reserved_up_quota_pct_final > 0) {
 			ret += 2;
 			goto done;
 		}
@@ -3659,7 +3741,7 @@ check_boost:
 			goto done;
 		}
 
-		boost_info->correction += gcc_up_step;
+		boost_info->correction += gcc_up_step_final;
 	}
 
 done:
@@ -3732,6 +3814,11 @@ static int fbt_boost_policy(
 	int ff_kmin = thread_info->attr.filter_frame_kmin_by_pid;
 	int separate_aa_final = thread_info->attr.separate_aa_by_pid;
 	int max_cap = 100, max_cap_b = 100, max_cap_m = 100;
+	int qr_enable_active = thread_info->attr.qr_enable_by_pid;
+	int gcc_enable_active = thread_info->attr.gcc_enable_by_pid;
+	int qr_t2wnt_x_final = thread_info->attr.qr_t2wnt_x_by_pid;
+	int qr_t2wnt_y_n_final = thread_info->attr.qr_t2wnt_y_n_by_pid;
+	int qr_t2wnt_y_p_final = thread_info->attr.qr_t2wnt_y_p_by_pid;
 
 	if (!thread_info) {
 		FPSGO_LOGE("ERROR %d\n", __LINE__);
@@ -3854,13 +3941,13 @@ static int fbt_boost_policy(
 	}
 
 	/* update quota */
-	if (qr_enable || gcc_enable) {
+	if (qr_enable_active || gcc_enable_active) {
 		int s32_target_time = update_quota(boost_info,
 				target_fps,
 				thread_info->Q2Q_time,
 				thread_info->enqueue_length_real,
 				thread_info->dequeue_length,
-				target_fpks, cooler_on);
+				target_fpks, cooler_on, &(thread_info->attr));
 
 		if (qr_debug)
 			fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->quota, "quota");
@@ -3871,7 +3958,7 @@ static int fbt_boost_policy(
 
 	limit_max_cap = fbt_get_limit_capacity(0);
 
-	if (gcc_enable && (!gcc_hwui_hint ||
+	if (gcc_enable_active && (!gcc_hwui_hint ||
 			thread_info->hwui != RENDER_INFO_HWUI_TYPE)) {
 		unsigned int gpu_loading;
 		int gcc_boost;
@@ -3881,7 +3968,7 @@ static int fbt_boost_policy(
 				boost_info,
 				target_fps, fps_margin, thread_info->Q2Q_time,
 				gpu_loading, blc_wt, t_cpu_cur,
-				target_fpks, limit_max_cap, cooler_on, pid);
+				target_fpks, limit_max_cap, cooler_on, pid, &(thread_info->attr));
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->gcc_count, "gcc_count");
 		fpsgo_systrace_c_fbt(pid, buffer_id, gcc_boost, "gcc_boost");
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->correction, "correction");
@@ -3954,7 +4041,7 @@ static int fbt_boost_policy(
 
 	if (blc_wt) {
 		 /* ignore hwui hint || not hwui */
-		if (qr_enable && (!qr_hwui_hint ||
+		if (qr_enable_active && (!qr_hwui_hint ||
 			thread_info->hwui != RENDER_INFO_HWUI_TYPE)) {
 			rescue_target_t = div64_s64(1000000, target_fps); /* unit:1us */
 
@@ -3964,21 +4051,21 @@ static int fbt_boost_policy(
 				rescue_target_t * 1000, "t2wnt");
 
 			/* rescue_target_t, unit: 1us */
-			rescue_target_t = (qr_t2wnt_x) ?
-				rescue_target_t * 10 * (100 + qr_t2wnt_x) :
+			rescue_target_t = (qr_t2wnt_x_final) ?
+				rescue_target_t * 10 * (100 + qr_t2wnt_x_final) :
 				rescue_target_t * 1000;
 
 			if (boost_info->quota_mod > 0) { /* qr_quota, unit: 1us */
 				/* qr_t2wnt_y_p: percentage */
-				qr_quota_adj = (qr_t2wnt_y_p != 100) ?
+				qr_quota_adj = (qr_t2wnt_y_p_final != 100) ?
 					(long long)boost_info->quota_mod * 10 *
-					(long long)qr_t2wnt_y_p :
+					(long long)qr_t2wnt_y_p_final :
 					(long long)boost_info->quota_mod * 1000;
 			} else {
 				 /* qr_t2wnt_y_n: percentage */
-				qr_quota_adj = (qr_t2wnt_y_n != 0) ?
+				qr_quota_adj = (qr_t2wnt_y_n_final != 0) ?
 					(long long)boost_info->quota_mod * 10 *
-					(long long)qr_t2wnt_y_n : 0;
+					(long long)qr_t2wnt_y_n_final : 0;
 			}
 			t2wnt = (rescue_target_t + qr_quota_adj > 0)
 				? rescue_target_t + qr_quota_adj : 0;
@@ -6157,17 +6244,18 @@ static ssize_t fbt_attr_by_pid_store(struct kobject *kobj,
 	char cmd[64];
 	u32 pid;
 	int val;
+	char action;
 	struct fpsgo_attr_by_pid *attr_render = NULL;
 	struct fpsgo_boost_attr *boost_attr;
 	int delete = 0;
 
-	ret = sscanf(buf, "%63s %d %d", cmd, &pid, &val);
+	ret = sscanf(buf, "%63s %c %d %d", cmd, &action, &pid, &val);
 	if (ret < 1) {
 		ret = -EPERM;
 		goto out;
 	}
 
-	FPSGO_LOGI("fpsgo cmd is %63s , pid is %d, val is %d", cmd, pid, val);
+	FPSGO_LOGI("fpsgo cmd is %63s, action %c, pid %d, val %d", cmd, action, pid, val);
 
 	fpsgo_render_tree_lock(__func__);
 	attr_render = fpsgo_find_attr_by_pid(pid, 1);
@@ -6178,145 +6266,199 @@ static ssize_t fbt_attr_by_pid_store(struct kobject *kobj,
 	}
 
 	boost_attr = &(attr_render->attr);
+	if (val == BY_PID_DELETE_VAL && action == 'u') {
+		delete = 1;
+		goto delete_pid;
+	}
 
 	if (!strcmp(cmd, "rescue_second_enable")) {
-		if (val == 0 || val == 1)
+		if ((val == 0 || val == 1) && action == 's')
 			boost_attr->rescue_second_enable_by_pid = val;
-		else if (val == BY_PID_DELETE_VAL)
-			delete = 1;
-		else if (val == BY_PID_DEFAULT_VAL)
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->rescue_second_enable_by_pid = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "rescue_second_time")) {
-		if (val <= 10 && val >= 1)
+		if (val <= 10 && val >= 1 && action == 's')
 			boost_attr->rescue_second_time_by_pid = val;
-		else if (val == BY_PID_DELETE_VAL)
-			delete = 1;
-		else if (val == BY_PID_DEFAULT_VAL)
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->rescue_second_time_by_pid = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "rescue_second_group")) {
-		if (val == 0 || val == 1)
+		if ((val == 0 || val == 1) && action == 's')
 			boost_attr->rescue_second_group_by_pid = val;
-		else if (val == BY_PID_DELETE_VAL)
-			delete = 1;
-		else if (val == BY_PID_DEFAULT_VAL)
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->rescue_second_group_by_pid = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "loading_th")) {
-		if (val <= 100 && val >= 0)
+		if (val <= 100 && val >= 0 && action == 's')
 			boost_attr->loading_th_by_pid = val;
-		else if (val == BY_PID_DELETE_VAL)
-			delete = 1;
-		else if (val == BY_PID_DEFAULT_VAL)
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->loading_th_by_pid = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "light_loading_policy")) {
-		if (val <= 100 && val >= 0)
+		if (val <= 100 && val >= 0 && action == 's')
 			boost_attr->light_loading_policy_by_pid = val;
-		else if (val == BY_PID_DELETE_VAL)
-			delete = 1;
-		else if (val == BY_PID_DEFAULT_VAL)
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->light_loading_policy_by_pid = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "llf_task_policy")) {
-		if (val < FPSGO_TPOLICY_MAX && val >= FPSGO_TPOLICY_NONE) {
+		if (val < FPSGO_TPOLICY_MAX && val >= FPSGO_TPOLICY_NONE
+			&& action == 's') {
 			fpsgo_clear_llf_cpu_policy_by_pid(pid);
 			boost_attr->llf_task_policy_by_pid = val;
-		} else if (val == BY_PID_DELETE_VAL) {
-			delete = 1;
-		} else if (val == BY_PID_DEFAULT_VAL) {
+		} else if (val == BY_PID_DEFAULT_VAL && action == 'u') {
 			boost_attr->llf_task_policy_by_pid = BY_PID_DEFAULT_VAL;
 		}
 	} else if (!strcmp(cmd, "filter_frame_enable")) {
-		if (val == 1 || val == 0)
+		if ((val == 1 || val == 0) && action == 's')
 			boost_attr->filter_frame_enable_by_pid = val;
-		else if (val == BY_PID_DELETE_VAL)
-			delete = 1;
-		else if (val == BY_PID_DEFAULT_VAL)
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->filter_frame_enable_by_pid = val;
 	} else if (!strcmp(cmd, "filter_frame_window_size")) {
 		int ff_kmin = filter_frame_kmin;
 
 		if (boost_attr->filter_frame_kmin_by_pid != BY_PID_DEFAULT_VAL)
 			ff_kmin = boost_attr->filter_frame_kmin_by_pid;
-		if (val >= ff_kmin && val <= FBT_FILTER_MAX_WINDOW)
+		if (val >= ff_kmin && val <= FBT_FILTER_MAX_WINDOW
+			&& action == 's')
 			boost_attr->filter_frame_window_size_by_pid = val;
-		else if (val == BY_PID_DELETE_VAL)
-			delete = 1;
-		else if (val == BY_PID_DEFAULT_VAL)
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->filter_frame_window_size_by_pid = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "filter_frame_kmin")) {
 		int ff_window_size = filter_frame_window_size;
 
 		if (boost_attr->filter_frame_window_size_by_pid != BY_PID_DEFAULT_VAL)
 			ff_window_size = boost_attr->filter_frame_window_size_by_pid;
-		if (val > 0 && val <= ff_window_size)
+		if (val > 0 && val <= ff_window_size && action == 's')
 			boost_attr->filter_frame_kmin_by_pid = val;
-		else if (val == BY_PID_DELETE_VAL)
-			delete = 1;
-		else if (val == BY_PID_DEFAULT_VAL)
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->filter_frame_kmin_by_pid = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "boost_affinity")) {
-		if (val >= FPSGO_TPOLICY_NONE && val < FPSGO_TPOLICY_MAX)
+		if (val >= FPSGO_TPOLICY_NONE && val < FPSGO_TPOLICY_MAX
+			&& action == 's')
 			boost_attr->boost_affinity_by_pid = val;
-		else if (val == BY_PID_DELETE_VAL)
-			delete = 1;
-		else if (val == BY_PID_DEFAULT_VAL)
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->boost_affinity_by_pid = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "boost_lr")) {
-		if (val == 0 || val == 1)
+		if ((val == 0 || val == 1) && action == 's')
 			boost_attr->boost_lr_by_pid = val;
-		else if (val == BY_PID_DELETE_VAL)
-			delete = 1;
 		else if (val == BY_PID_DEFAULT_VAL)
 			boost_attr->boost_lr_by_pid = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "separate_aa")) {
-		if (val == 0 || val == 1)
+		if ((val == 0 || val == 1) && action == 's')
 			boost_attr->separate_aa_by_pid = val;
-		else if (val == BY_PID_DELETE_VAL)
-			delete = 1;
-		else if (val == BY_PID_DEFAULT_VAL)
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->separate_aa_by_pid = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "limit_uclamp")) {
-		if (val >= 0 && val < 100)
+		if (val >= 0 && val < 100 && action == 's')
 			boost_attr->limit_uclamp_by_pid = val;
-		else if (val == BY_PID_DELETE_VAL)
-			delete = 1;
-		else if (val == BY_PID_DEFAULT_VAL)
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->limit_uclamp_by_pid = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "limit_ruclamp")) {
-		if (val >= 0 && val < 100)
+		if (val >= 0 && val < 100 && action == 's')
 			boost_attr->limit_ruclamp_by_pid = val;
-		else if (val == BY_PID_DELETE_VAL)
-			delete = 1;
-		else if (val == BY_PID_DEFAULT_VAL)
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->limit_ruclamp_by_pid = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "limit_uclamp_m")) {
-		if (val >= 0 && val < 100)
+		if (val >= 0 && val < 100 && action == 's')
 			boost_attr->limit_uclamp_m_by_pid = val;
-		else if (val == BY_PID_DELETE_VAL)
-			delete = 1;
-		else if (val == BY_PID_DEFAULT_VAL)
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->limit_uclamp_m_by_pid = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "limit_ruclamp_m")) {
-		if (val >= 0 && val < 100)
+		if (val >= 0 && val < 100 && action == 's')
 			boost_attr->limit_ruclamp_m_by_pid = val;
-		else if (val == BY_PID_DELETE_VAL)
-			delete = 1;
-		else if (val == BY_PID_DEFAULT_VAL)
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->limit_ruclamp_m_by_pid = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "separate_pct_b")) {
-		if (val >= 0 && val < 200)
+		if (val >= 0 && val < 200 && action == 's')
 			boost_attr->separate_pct_b_by_pid = val;
-		else if (val == BY_PID_DELETE_VAL)
-			delete = 1;
-		else if (val == BY_PID_DEFAULT_VAL)
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->separate_pct_b_by_pid = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "separate_pct_m")) {
-		if (val >= 0 && val < 200)
+		if (val >= 0 && val < 200 && action == 's')
 			boost_attr->separate_pct_m_by_pid = val;
-		else if (val == BY_PID_DELETE_VAL)
-			delete = 1;
-		else if (val == BY_PID_DEFAULT_VAL)
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->separate_pct_m_by_pid = BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "qr_enable")) {
+		if ((val == 0 || val == 1) && action == 's')
+			boost_attr->qr_enable_by_pid = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->qr_enable_by_pid = BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "qr_t2wnt_x")) {
+		if ((val >= -100 && val <= 100) && action == 's')
+			boost_attr->qr_t2wnt_x_by_pid = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->qr_t2wnt_x_by_pid = BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "qr_t2wnt_y_p")) {
+		if (val >= 0 && val <= 100 && action == 's')
+			boost_attr->qr_t2wnt_y_p_by_pid = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->qr_t2wnt_y_p_by_pid = BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "qr_t2wnt_y_n")) {
+		if (val >= 0 && val <= 100 && action == 's')
+			boost_attr->qr_t2wnt_y_n_by_pid = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->qr_t2wnt_y_n_by_pid = BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "gcc_enable")) {
+		if ((val == 0 || val == 1) && action == 's')
+			boost_attr->gcc_enable_by_pid = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->gcc_enable_by_pid = BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "gcc_fps_margin")) {
+		if (val <= 6000 && val >= -6000 && action == 's')
+			boost_attr->gcc_fps_margin_by_pid = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->gcc_fps_margin_by_pid = BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "gcc_up_sec_pct")) {
+		if (val <= 100 && val >= 0 && action == 's')
+			boost_attr->gcc_up_sec_pct_by_pid = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->gcc_up_sec_pct_by_pid = BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "gcc_down_sec_pct")) {
+		if (val <= 100 && val >= 0 && action == 's')
+			boost_attr->gcc_down_sec_pct_by_pid = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->gcc_down_sec_pct_by_pid = BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "gcc_up_step")) {
+		if (val <= 100 && val >= 0 && action == 's')
+			boost_attr->gcc_up_step_by_pid = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->gcc_up_step_by_pid = BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "gcc_down_step")) {
+		if (val <= 100 && val >= 0 && action == 's')
+			boost_attr->gcc_down_step_by_pid = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->gcc_down_step_by_pid = BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "gcc_reserved_up_quota_pct")) {
+		if (val <= 100 && val >= 0 && action == 's')
+			boost_attr->gcc_reserved_up_quota_pct_by_pid = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->gcc_reserved_up_quota_pct_by_pid =
+				BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "gcc_reserved_down_quota_pct")) {
+		if (val <= 100 && val >= 0 && action == 's')
+			boost_attr->gcc_reserved_down_quota_pct_by_pid = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->gcc_reserved_down_quota_pct_by_pid =
+				BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "gcc_enq_bound_thrs")) {
+		if (val <= 200 && val >= 0 && action == 's')
+			boost_attr->gcc_enq_bound_thrs_by_pid = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->gcc_enq_bound_thrs_by_pid = BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "gcc_enq_bound_quota")) {
+		if (val <= 200 && val >= 0 && action == 's')
+			boost_attr->gcc_enq_bound_quota_by_pid = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->gcc_enq_bound_quota_by_pid = BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "gcc_deq_bound_thrs")) {
+		if (val <= 200 && val >= 0 && action == 's')
+			boost_attr->gcc_deq_bound_thrs_by_pid = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->gcc_deq_bound_thrs_by_pid = BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "gcc_deq_bound_quota")) {
+		if (val <= 200 && val >= 0 && action == 's')
+			boost_attr->gcc_deq_bound_quota_by_pid = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->gcc_deq_bound_quota_by_pid = BY_PID_DEFAULT_VAL;
 	}
 
+delete_pid:
 	if (delete) {
 		fpsgo_reset_render_pid_attr(pid);
 		delete_attr_by_pid(pid);

@@ -10,7 +10,7 @@
 
 //#include "fpsgo_type.h"
 
-#define FPSGO_SYSFS_MAX_BUFF_SIZE 1024
+#define FPSGO_SYSFS_MAX_BUFF_SIZE 2048
 
 #define KOBJ_ATTR_RW(_name)	\
 	struct kobj_attribute kobj_attr_##_name =	\
