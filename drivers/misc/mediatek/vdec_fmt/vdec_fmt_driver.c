@@ -619,7 +619,7 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 			fmt_err("fmt_clock_on failed!%d",
 			ret);
 			cmdq_mbox_disable(fmt->clt_fmt[0]->chan);
-			mtk_mmdvfs_enable_vcp(false);
+			mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_VFMT);
 			mutex_unlock(&fmt->mux_gce_th[identifier]);
 			mutex_unlock(&fmt->mux_fmt);
 			return -EINVAL;
