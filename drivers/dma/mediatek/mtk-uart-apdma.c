@@ -46,6 +46,7 @@
 #define VFF_INT_EN_CLR_B	0
 #define VFF_4G_SUPPORT_CLR_B	0
 #define VFF_ORI_ADDR_BITS_NUM    32
+#define VFF_RX_FLOWCTL_THRE_SIZE 0xc00
 /*
  * interrupt trigger level for tx
  * if threshold is n, no polling is required to start tx.
@@ -70,6 +71,7 @@
 #define VFF_THRE		0x28
 #define VFF_WPT			0x2c
 #define VFF_RPT			0x30
+#define VFF_RX_FLOWCTL_THRE	 0x34
 #define VFF_INT_BUF_SIZE	0x38
 /* TX: the buffer size HW can read. RX: the buffer size SW can read. */
 #define VFF_VALID_SIZE		0x3c
@@ -401,6 +403,7 @@ static void mtk_uart_apdma_start_rx(struct mtk_chan *c)
 					upper_32_bits(d->addr));
 	}
 
+	mtk_uart_apdma_write(c, VFF_RX_FLOWCTL_THRE, VFF_RX_FLOWCTL_THRE_SIZE);
 	mtk_uart_apdma_write(c, VFF_INT_EN, VFF_RX_INT_EN_B);
 	mtk_uart_apdma_write(c, VFF_EN, VFF_EN_B);
 	if (mtk_uart_apdma_read(c, VFF_EN) != VFF_EN_B)
