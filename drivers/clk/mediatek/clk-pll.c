@@ -30,12 +30,12 @@
 /* default 7 bits integer, can be overridden with pcwibits. */
 #define INTEGER_BITS		7
 
-#define MTK_WAIT_HWV_PLL_PREPARE_CNT	10
-#define MTK_WAIT_HWV_PLL_PREPARE_US		10
+#define MTK_WAIT_HWV_PLL_PREPARE_CNT	300
+#define MTK_WAIT_HWV_PLL_PREPARE_US		1
 #define MTK_WAIT_HWV_PLL_VOTE_CNT		100
 #define MTK_WAIT_HWV_PLL_VOTE_US		2
-#define MTK_WAIT_HWV_PLL_DONE_CNT		10000
-#define MTK_WAIT_HWV_PLL_DONE_US		10
+#define MTK_WAIT_HWV_PLL_DONE_CNT		100000
+#define MTK_WAIT_HWV_PLL_DONE_US		1
 
 static bool is_registered;
 
