@@ -101,7 +101,7 @@ s32 cmdq_op_condition_find_op_type(const struct cmdq_stack_node *top_node,
 
 	/* get the value of the top */
 	do {
-		if (!temp_node)
+		if (!temp_node || temp_node->stack_type == CMDQ_STACK_NULL)
 			break;
 
 		if ((1 << temp_node->stack_type) & op_type_bit) {
