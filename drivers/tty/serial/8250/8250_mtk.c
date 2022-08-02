@@ -378,6 +378,8 @@ static void mtk_save_uart_reg(struct uart_8250_port *up, unsigned int *reg_buf)
 	reg_buf[19] = serial_in(up, MTK_UART_DEBUG8);
 	reg_buf[20] = serial_in(up, UART_IER);
 	reg_buf[21] = serial_in(up, UART_IIR);
+	reg_buf[22] = serial_in(up, UART_LSR);
+	reg_buf[23] = serial_in(up, MTK_UART_DMA_EN);
 }
 
 void mtk8250_data_dump(struct mtk8250_data *data)
@@ -493,11 +495,12 @@ int mtk8250_uart_dump(struct tty_struct *tty)
 		uart_reg_buf[8], uart_reg_buf[9], uart_reg_buf[10]);
 	pr_info("[%s] 0x60=0x%x,0x64=0x%x,0x68=0x%x,0x6c=0x%x,\n"
 		"0x70=0x%x,0x74=0x%x,0x78=0x%x,0x7c=0x%x,0x80=0x%x,\n"
-		"ier=0x%x,iir=0x%x\n",
+		"ier=0x%x,iir=0x%x, LSR=0x%x, DMA_EN=0x%x\n",
 		__func__, uart_reg_buf[11], uart_reg_buf[12], uart_reg_buf[13],
 		uart_reg_buf[14], uart_reg_buf[15], uart_reg_buf[16],
 		uart_reg_buf[17], uart_reg_buf[18], uart_reg_buf[19],
-		uart_reg_buf[20], uart_reg_buf[21]);
+		uart_reg_buf[20], uart_reg_buf[21], uart_reg_buf[22],
+		uart_reg_buf[23]);
 #ifdef CONFIG_SERIAL_8250_DMA
 	pr_info("[apdma_rx] int_flag=0x%x,int_en=0x%x,en=0x%x,flush=0x%x,addr=0x%x,\n"
 		"len=0x%x,thre=0x%x,wpt=0x%x,rpt=0x%x,int_buf_size=0x%x\n"

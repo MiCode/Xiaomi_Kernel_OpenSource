@@ -80,7 +80,7 @@
 #define VFF_DEBUG_STATUS	0x50
 #define VFF_4G_SUPPORT		0x54
 
-#define UART_RECORD_COUNT	10
+#define UART_RECORD_COUNT	5
 #define MAX_POLLING_CNT		5000
 #define UART_RECORD_MAXLEN	4096
 #define CONFIG_UART_DMA_DATA_RECORD
@@ -240,6 +240,7 @@ void mtk_uart_apdma_data_dump(struct dma_chan *chan)
 		if (len > UART_RECORD_MAXLEN) {
 			pr_info("[%s] msg len is exceed buf size:%d\n",
 				__func__, UART_RECORD_MAXLEN);
+			count++;
 			continue;
 		}
 
