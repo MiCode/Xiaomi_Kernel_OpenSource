@@ -773,6 +773,23 @@ static void mtk8250_enable_intrs(struct uart_8250_port *up, int mask)
 static void mtk8250_set_flow_ctrl(struct uart_8250_port *up, int mode)
 {
 	struct uart_port *port = &up->port;
+	struct uart_state *state = NULL;
+	struct tty_struct *tty = NULL;
+
+	if (port == NULL) {
+		pr_info("mtk8250_set_flow_ctrl port is NULL\n");
+		return;
+	}
+	state = port->state;
+	if (state == NULL) {
+		pr_info("mtk8250_set_flow_ctrl state is NULL\n");
+		return;
+	}
+	tty = state->port.tty;
+	if (tty == NULL) {
+		pr_info("mtk8250_set_flow_ctrl tty is NULL\n");
+		return;
+	}
 
 	serial_out(up, MTK_UART_FEATURE_SEL, 1);
 	serial_out(up, MTK_UART_EFR, UART_EFR_ECB);
@@ -815,10 +832,10 @@ static void mtk8250_set_flow_ctrl(struct uart_8250_port *up, int mode)
 		serial_out(up, MTK_UART_EFR, MTK_UART_EFR_XON1_XOFF1 |
 			(serial_in(up, MTK_UART_EFR) &
 			(~(MTK_UART_EFR_HW_FC | MTK_UART_EFR_SW_FC_MASK))));
-		serial_out(up, MTK_UART_XON1,  START_CHAR(port->state->port.tty));
-		serial_out(up, MTK_UART_XOFF1, STOP_CHAR(port->state->port.tty));
-		serial_out(up, MTK_UART_XON2,  START_CHAR(port->state->port.tty));
-		serial_out(up, MTK_UART_XOFF2, STOP_CHAR(port->state->port.tty));
+		serial_out(up, MTK_UART_XON1,  START_CHAR(tty));
+		serial_out(up, MTK_UART_XOFF1, STOP_CHAR(tty));
+		serial_out(up, MTK_UART_XON2,  START_CHAR(tty));
+		serial_out(up, MTK_UART_XOFF2, STOP_CHAR(tty));
 		serial_out(up, MTK_UART_FEATURE_SEL, 0);
 		mtk8250_disable_intrs(up, MTK_UART_IER_CTSI|MTK_UART_IER_RTSI);
 		break;
