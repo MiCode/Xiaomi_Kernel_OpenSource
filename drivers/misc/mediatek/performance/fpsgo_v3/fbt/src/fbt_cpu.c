@@ -358,6 +358,7 @@ static int enable_ceiling;
 static int separate_aa;
 static int separate_pct_b;
 static int separate_pct_m;
+static int separate_release_sec;
 
 static int cluster_num;
 static int nr_freq_cpu;
@@ -1828,9 +1829,13 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 						FPSGO_PREFER_NONE, 1);
 			}
 		} else {
-			if (separate_aa_final)
-				fbt_set_per_task_cap(fl->pid, min_cap_m, max_cap_m);
-			else
+			if (separate_aa_final) {
+				if (separate_release_sec)
+					fbt_set_per_task_cap(fl->pid, min_cap_m,
+						max(max_cap_m, max_cap_b));
+				else
+					fbt_set_per_task_cap(fl->pid, min_cap_m, max_cap_m);
+			} else
 				fbt_set_per_task_cap(fl->pid, min_cap, max_cap);
 			if (boost_affinity_final) {
 				fbt_set_task_policy(fl, FPSGO_TPOLICY_AFFINITY,
@@ -7313,6 +7318,42 @@ static ssize_t separate_pct_m_store(struct kobject *kobj,
 
 static KOBJ_ATTR_RW(separate_pct_m);
 
+static ssize_t separate_release_sec_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	int val = -1;
+
+	mutex_lock(&fbt_mlock);
+	val = separate_release_sec;
+	mutex_unlock(&fbt_mlock);
+	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
+}
+
+static ssize_t separate_release_sec_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	int val = -1;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0) {
+				val = !!arg;
+				mutex_lock(&fbt_mlock);
+				separate_release_sec = val;
+				mutex_unlock(&fbt_mlock);
+			}
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(separate_release_sec);
+
 void fbt_init_cpu_loading_info(void)
 {
 	int i = 0, err_exit = 0;
@@ -7409,6 +7450,8 @@ void __exit fbt_cpu_exit(void)
 			&kobj_attr_separate_pct_b);
 	fpsgo_sysfs_remove_file(fbt_kobj,
 			&kobj_attr_separate_pct_m);
+	fpsgo_sysfs_remove_file(fbt_kobj,
+			&kobj_attr_separate_release_sec);
 
 	fpsgo_sysfs_remove_dir(&fbt_kobj);
 	fbt_delete_cpu_loading_info();
@@ -7527,6 +7570,7 @@ int __init fbt_cpu_init(void)
 	separate_aa = 0;
 	separate_pct_b = 0;
 	separate_pct_m = 0;
+	separate_release_sec = 0;
 
 	sbe_rescue_enable = fbt_get_default_sbe_rescue_enable();
 
@@ -7619,6 +7663,8 @@ int __init fbt_cpu_init(void)
 				&kobj_attr_separate_pct_b);
 		fpsgo_sysfs_create_file(fbt_kobj,
 				&kobj_attr_separate_pct_m);
+		fpsgo_sysfs_create_file(fbt_kobj,
+				&kobj_attr_separate_release_sec);
 #if FPSGO_MW
 		fpsgo_sysfs_create_file(fbt_kobj,
 				&kobj_attr_fbt_attr_by_pid);
