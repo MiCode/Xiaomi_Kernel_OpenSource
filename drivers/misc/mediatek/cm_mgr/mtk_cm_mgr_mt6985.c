@@ -232,10 +232,10 @@ void cm_mgr_perf_platform_set_status_mt6985(int enable)
 		csram_write(OFFS_CM_HINT, 0x3);
 
 		if (cm_mgr_get_dram_opp_base() == -1) {
-			cm_mgr_dram_opp = 0;
+			cm_mgr_dram_opp = 1;
 			cm_mgr_set_dram_opp_base(cm_mgr_get_num_perf());
 		} else {
-			if (cm_mgr_dram_opp > 0)
+			if (cm_mgr_dram_opp > 1)
 				cm_mgr_dram_opp--;
 		}
 

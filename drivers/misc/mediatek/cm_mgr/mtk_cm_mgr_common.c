@@ -102,6 +102,7 @@ static int cm_mgr_dram_opp_floor = -1;
 static int dsu_enable = 1;
 static int dsu_opp_send = 0xff;
 static int dsu_mode;
+static int dsu_perf;
 static int cm_aggr;
 unsigned int cm_hint;
 #endif
@@ -561,6 +562,8 @@ static ssize_t dbg_cm_mgr_show(struct kobject *kobj,
 			dsu_opp_send);
 	len += cm_mgr_print("dsu_mode_change %d\n",
 			dsu_mode);
+	len += cm_mgr_print("dsu_perf %d\n",
+			dsu_perf);
 	len += cm_mgr_print("cm_aggr %d\n",
 			cm_aggr);
 	len += cm_mgr_print("cm_hint %d\n",
@@ -730,6 +733,9 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 	} else if (!strcmp(cmd, "dsu_mode")) {
 		dsu_mode = val_1;
 		cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_MODE, val_1);
+	} else if (!strcmp(cmd, "dsu_perf")) {
+		dsu_perf = val_1;
+		cm_mgr_to_sspm_command(IPI_CM_MGR_DSU_PERF_HINT, val_1);
 	} else if (!strcmp(cmd, "cm_aggr")) {
 		cm_aggr = val_1;
 		cm_mgr_to_sspm_command(IPI_CM_MGR_AGGRESSIVE, val_1);
