@@ -7396,13 +7396,21 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 		mf = &ctx->sv_pipe[i]->cfg[MTK_CAMSV_SINK].mbus_fmt;
 		img_fmt = &ctx->sv_pipe[i]->vdev_nodes[
 			MTK_CAMSV_MAIN_STREAM_OUT - MTK_CAMSV_SINK_NUM].active_fmt;
+		if (req->ctx_link_update & 1 << ctx->stream_id)
+			mtk_cam_call_sv_pipeline_config(ctx, s_raw_pipe_data->tag_info,
+				tag_idx, ctx->sv_pipe[i]->seninf_padidx, 1,
+				mtk_cam_seninf_get_tag_order(s_data->seninf_new,
+				ctx->sv_pipe[i]->seninf_padidx),
+				3, cfg_in_param->subsample,
+				ctx->sv_pipe[i], mf, img_fmt);
+		else
+			mtk_cam_call_sv_pipeline_config(ctx, s_raw_pipe_data->tag_info,
+				tag_idx, ctx->sv_pipe[i]->seninf_padidx, 1,
+				mtk_cam_seninf_get_tag_order(ctx->seninf,
+				ctx->sv_pipe[i]->seninf_padidx),
+				3, cfg_in_param->subsample,
+				ctx->sv_pipe[i], mf, img_fmt);
 
-		mtk_cam_call_sv_pipeline_config(ctx, s_raw_pipe_data->tag_info,
-			tag_idx, ctx->sv_pipe[i]->seninf_padidx, 1,
-			mtk_cam_seninf_get_tag_order(s_data->seninf_new,
-			ctx->sv_pipe[i]->seninf_padidx),
-			3, cfg_in_param->subsample,
-			ctx->sv_pipe[i], mf, img_fmt);
 		s_raw_pipe_data->enabled_sv_tags |= (1 << tag_idx);
 		s_raw_pipe_data->used_tag_cnt++;
 	}
