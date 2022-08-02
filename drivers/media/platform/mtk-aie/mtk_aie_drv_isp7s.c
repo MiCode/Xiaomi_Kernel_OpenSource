@@ -331,6 +331,8 @@ static const unsigned int attr_wdma_size[attr_loop_num][output_WDMA_WRA_num] = {
 	{2048, 0, 0, 0},
 	{1024, 0, 0, 0},
 	{0, 0, 0, 0} };
+static const unsigned int debug_info_sel[input_WDMA_WRA_num] = {
+	0x00000000, 0x11111111, 0x22222222, 0x33333333};
 static unsigned int attr_wdma_aligned_size[attr_loop_num][output_WDMA_WRA_num];
 /* (128-bits ALIGN work-around)*/
 #define fld_blink_weight_size 6416
@@ -637,13 +639,25 @@ static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
 		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_yuv2rgb_cfg_va,
 								fd->fd_yuv2rgb_cfg_size);
 
-		dev_info(fd->dev,
-			"attr_yuv2rgb_config:	0x%x, attr_yuv2rgb_cfg_aligned_size:	%d",
-			fd->base_para->attr_yuv2rgb_cfg_va[fd->attr_para->w_idx],
-			fd->attr_yuv2rgb_cfg_aligned_size);
-		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para
-			->attr_yuv2rgb_cfg_va[fd->attr_para->w_idx],
-			fd->attr_yuv2rgb_cfg_aligned_size);
+
+		if (fd->attr_para->w_idx == 0) {
+			dev_info(fd->dev,
+				"attr_yuv2rgb_config:	0x%x, attr_yuv2rgb_cfg_aligned_size:	%d",
+				fd->base_para->attr_yuv2rgb_cfg_va[MAX_ENQUE_FRAME_NUM - 1],
+				fd->attr_yuv2rgb_cfg_data_size);
+			FDVT_DumpDRAMOut(fd,
+				(u32 *)fd->base_para->attr_yuv2rgb_cfg_va[MAX_ENQUE_FRAME_NUM - 1],
+				fd->attr_yuv2rgb_cfg_data_size);
+		} else {
+			dev_info(fd->dev,
+				"attr_yuv2rgb_config:	0x%x, attr_yuv2rgb_cfg_aligned_size:	%d",
+				fd->base_para->attr_yuv2rgb_cfg_va[fd->attr_para->w_idx - 1],
+				fd->attr_yuv2rgb_cfg_data_size);
+			FDVT_DumpDRAMOut(fd,
+				(u32 *)fd->base_para->attr_yuv2rgb_cfg_va[fd->attr_para->w_idx - 1],
+				fd->attr_yuv2rgb_cfg_data_size);
+	}
+
 		dev_info(fd->dev,
 			"fdmode_fdvt_rs_config:	  0x%x, fdmode_fdvt_rs_config_size:	 %d",
 			fd->base_para->fd_rs_cfg_va, fd->fd_rs_cfg_size);
@@ -659,129 +673,143 @@ static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
 			((fd->fd_fd_cfg_aligned_size)/87) * loop_num);
 
 		dev_info(fd->dev, "FDVT DMA Debug Info\n");
+		dev_info(fd->dev, "[FDVT_DMA_RDMA_0_CHECK_SUM]: 0x%08X %08X\n",
+		  FDVT_DMA_RDMA_0_CHECK_SUM,
+		  (unsigned int)readl(fd->fd_base + FDVT_DMA_RDMA_0_CHECK_SUM));
+		dev_info(fd->dev, "[FDVT_DMA_RDMA_1_CHECK_SUM]: 0x%08X %08X\n",
+		  FDVT_DMA_RDMA_1_CHECK_SUM,
+		  (unsigned int)readl(fd->fd_base + FDVT_DMA_RDMA_1_CHECK_SUM));
+		dev_info(fd->dev, "[FDVT_DMA_RDMA_2_CHECK_SUM]: 0x%08X %08X\n",
+		  FDVT_DMA_RDMA_2_CHECK_SUM,
+		  (unsigned int)readl(fd->fd_base + FDVT_DMA_RDMA_2_CHECK_SUM));
+		dev_info(fd->dev, "[FDVT_DMA_RDMA_3_CHECK_SUM]: 0x%08X %08X\n",
+		  FDVT_DMA_RDMA_3_CHECK_SUM,
+		  (unsigned int)readl(fd->fd_base + FDVT_DMA_RDMA_3_CHECK_SUM));
 
-		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFFF00B,
-					fd->fd_base + DMA_DEBUG_SEL_REG); //0x3f4
-		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFF1FFF,
-					fd->fd_base + FDVT_CTRL_REG); //0x0098 bit[15:13] = 0
-		dev_info(fd->dev, "[FDVT_CTRL]: 0x%08X %08X\n",
-		  (fd->fd_base + FDVT_CTRL_REG),
-		  (unsigned int)readl(fd->fd_base + FDVT_CTRL_REG));
-		dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08X %08X\n", i,
-			(fd->fd_base + FDVT_DEBUG_INFO_2),
-			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
+		dev_info(fd->dev, "[FDVT_DMA_WDMA_0_CHECK_SUM]: 0x%08X %08X\n",
+		  FDVT_DMA_WDMA_0_CHECK_SUM,
+		  (unsigned int)readl(fd->fd_base + FDVT_DMA_WDMA_0_CHECK_SUM));
+		dev_info(fd->dev, "[FDVT_DMA_WDMA_1_CHECK_SUM]: 0x%08X %08X\n",
+		  FDVT_DMA_WDMA_1_CHECK_SUM,
+		  (unsigned int)readl(fd->fd_base + FDVT_DMA_WDMA_1_CHECK_SUM));
+		dev_info(fd->dev, "[FDVT_DMA_WDMA_2_CHECK_SUM]: 0x%08X %08X\n",
+		  FDVT_DMA_WDMA_2_CHECK_SUM,
+		  (unsigned int)readl(fd->fd_base + FDVT_DMA_WDMA_2_CHECK_SUM));
+		dev_info(fd->dev, "[FDVT_DMA_WDMA_3_CHECK_SUM]: 0x%08X %08X\n",
+		  FDVT_DMA_WDMA_3_CHECK_SUM,
+		  (unsigned int)readl(fd->fd_base + FDVT_DMA_WDMA_3_CHECK_SUM));
 
-		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFFF00C,
-			fd->fd_base + DMA_DEBUG_SEL_REG);
-		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFF1FFF,
-			fd->fd_base + FDVT_CTRL_REG); //0x0098 bit[15:13] = 0
-		dev_info(fd->dev, "[FDVT_CTRL]: 0x%08X %08X\n",
-		  (fd->fd_base + FDVT_CTRL_REG),
-		  (unsigned int)readl(fd->fd_base + FDVT_CTRL_REG));
-		dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08X %08X\n", i,
-			(fd->fd_base + FDVT_DEBUG_INFO_2),
-			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
+		for (i = 0; i < input_WDMA_WRA_num; i++) {
+			writel((unsigned int)debug_info_sel[i], fd->fd_base + FDVT_DMA_DEBUG_SEL);
+			dev_info(fd->dev, "[sel = %d][FDVT_DMA_DEBUG_SEL]: 0x%08X %08X\n",
+			  i, FDVT_DMA_DEBUG_SEL,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_SEL));
 
-		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFFF00D,
-			fd->fd_base + DMA_DEBUG_SEL_REG);
-		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFF1FFF,
-			fd->fd_base + FDVT_CTRL_REG); //0x0098 bit[15:13] = 0
-		dev_info(fd->dev, "[FDVT_CTRL]: 0x%08X %08X\n",
-		  (fd->fd_base + FDVT_CTRL_REG),
-		  (unsigned int)readl(fd->fd_base + FDVT_CTRL_REG));
-		dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08X %08X\n", i,
-			(fd->fd_base + FDVT_DEBUG_INFO_2),
-			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
+			/*  read dma status  */
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_RDMA_0_0]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_RDMA_0_0,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_RDMA_0_0));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_RDMA_0_1]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_RDMA_0_1,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_RDMA_0_1));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_RDMA_0_2]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_RDMA_0_2,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_RDMA_0_2));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_RDMA_0_3]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_RDMA_0_3,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_RDMA_0_3));
 
-		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFFF00E,
-			fd->fd_base + DMA_DEBUG_SEL_REG);
-		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFF1FFF,
-			fd->fd_base + FDVT_CTRL_REG); //0x0098 bit[15:13] = 0
-		dev_info(fd->dev, "[FDVT_CTRL]: 0x%08X %08X\n",
-		  (fd->fd_base + FDVT_CTRL_REG),
-		  (unsigned int)readl(fd->fd_base + FDVT_CTRL_REG));
-		dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08X %08X\n", i,
-			(fd->fd_base + FDVT_DEBUG_INFO_2),
-			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_RDMA_1_0]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_RDMA_1_0,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_RDMA_1_0));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_RDMA_1_1]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_RDMA_1_1,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_RDMA_1_1));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_RDMA_1_2]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_RDMA_1_2,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_RDMA_1_2));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_RDMA_1_3]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_RDMA_1_3,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_RDMA_1_3));
 
-		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFF1FFF,
-			fd->fd_base + FDVT_CTRL_REG);
-		dev_info(fd->dev, "[FDVT_CTRL - %x]: 0x%08X %08X\n", i,
-		  (fd->fd_base + FDVT_CTRL_REG),
-		  (unsigned int)readl(fd->fd_base + FDVT_CTRL_REG));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_RDMA_2_0]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_RDMA_2_0,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_RDMA_2_0));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_RDMA_2_1]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_RDMA_2_1,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_RDMA_2_1));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_RDMA_2_2]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_RDMA_2_2,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_RDMA_2_2));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_RDMA_2_3]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_RDMA_2_3,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_RDMA_2_3));
 
-		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
-		   0xFFFFFF00) | 0x13, fd->fd_base + DMA_DEBUG_SEL_REG);
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_RDMA_3_0]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_RDMA_3_0,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_RDMA_3_0));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_RDMA_3_1]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_RDMA_3_1,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_RDMA_3_1));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_RDMA_3_2]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_RDMA_3_2,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_RDMA_3_2));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_RDMA_3_3]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_RDMA_3_3,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_RDMA_3_3));
 
-		for (i = 0; i <= 0x27; i++) {
-			if (i > 0x7 && i < 0x10)
-				continue;
-			writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
-			   0xFFFF00FF) | (i << 8), fd->fd_base + DMA_DEBUG_SEL_REG);
-			dev_info(fd->dev, "[FDVT_DEBUG_SEL - %x]: 0x%08X %08X\n", i,
-				(fd->fd_base + DMA_DEBUG_SEL_REG),
-				(unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG));
+			/*  write dma status  */
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_WDMA_0_0]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_WDMA_0_0,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_WDMA_0_0));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_WDMA_0_1]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_WDMA_0_1,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_WDMA_0_1));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_WDMA_0_2]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_WDMA_0_2,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_WDMA_0_2));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_WDMA_0_3]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_WDMA_0_3,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_WDMA_0_3));
 
-			dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08X %08X\n", i,
-				(fd->fd_base + FDVT_DEBUG_INFO_2),
-				(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
-		}
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_WDMA_1_0]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_WDMA_1_0,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_WDMA_1_0));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_WDMA_1_1]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_WDMA_1_1,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_WDMA_1_1));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_WDMA_1_2]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_WDMA_1_2,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_WDMA_1_2));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_WDMA_1_3]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_WDMA_1_3,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_WDMA_1_3));
 
-		dev_info(fd->dev, "FDVT SMI Debug Info\n");
-		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[15:8] = 0x1\n");
-		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[23:16] = 0x0\n");
-		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
-			0xFFFF00FF) | (1 << 8), fd->fd_base + DMA_DEBUG_SEL_REG);
-		writel(((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG))
-			& 0xFF00FFFF, fd->fd_base + DMA_DEBUG_SEL_REG);
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_WDMA_2_0]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_WDMA_2_0,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_WDMA_2_0));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_WDMA_2_1]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_WDMA_2_1,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_WDMA_2_1));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_WDMA_2_2]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_WDMA_2_2,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_WDMA_2_2));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_WDMA_2_3]: 0x%08X %08X\n",
+			  (fd->fd_base + FDVT_DMA_DEBUG_DATA_WDMA_2_3),
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_WDMA_2_3));
 
-		for (i = 1; i <= 0xe; i++) {
-			writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
-				0xFFFFFF00) | i, fd->fd_base + DMA_DEBUG_SEL_REG);
-			dev_info(fd->dev, "[FDVT_DEBUG_SEL SMI - %x]: 0x%08X %08X\n", i,
-				(fd->fd_base + DMA_DEBUG_SEL_REG),
-				(unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG));
-			dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 SMI - %x]: 0x%08X %08X\n", i,
-				(fd->fd_base + FDVT_DEBUG_INFO_2),
-				(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
-		}
-
-		dev_info(fd->dev, "FDVT fifo_debug_data_case1\n");
-		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[15:8] = 0x2\n");
-		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[23:16] = 0x1\n");
-		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
-			0xFFFF00FF) | (2 << 8), fd->fd_base + DMA_DEBUG_SEL_REG);
-		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
-			0xFF00FFFF) | (1 << 16), fd->fd_base + DMA_DEBUG_SEL_REG);
-
-		for (i = 1; i <= 0xe; i++) {
-			writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
-				0xFFFFFF00) | i, fd->fd_base + DMA_DEBUG_SEL_REG);
-			dev_info(fd->dev, "[FDVT_DEBUG_SEL SMI - %x]: 0x%08X %08X\n", i,
-				(fd->fd_base + DMA_DEBUG_SEL_REG),
-				(unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG));
-			dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 SMI - %x]: 0x%08X %08X\n", i,
-				(fd->fd_base + FDVT_DEBUG_INFO_2),
-				(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
-		}
-
-		dev_info(fd->dev, "FDVT fifo_debug_data_case3\n");
-		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[15:8] = 0x2\n");
-		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[23:16] = 0x3\n");
-		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
-			0xFFFF00FF) | (2 << 8), fd->fd_base + DMA_DEBUG_SEL_REG);
-		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
-			0xFF00FFFF) | (3 << 16), fd->fd_base + DMA_DEBUG_SEL_REG);
-
-		for (i = 1; i <= 0xe; i++) {
-			writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
-			   0xFFFFFF00) | i, fd->fd_base + DMA_DEBUG_SEL_REG);
-			dev_info(fd->dev, "[FDVT_DEBUG_SEL SMI - %x]: 0x%08X %08X\n", i,
-				(fd->fd_base + DMA_DEBUG_SEL_REG),
-				(unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG));
-			dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 SMI - %x]: 0x%08X %08X\n", i,
-				(fd->fd_base + FDVT_DEBUG_INFO_2),
-				(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_WDMA_3_0]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_WDMA_3_0,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_WDMA_3_0));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_WDMA_3_1]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_WDMA_3_1,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_WDMA_3_1));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_WDMA_3_2]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_WDMA_3_2,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_WDMA_3_2));
+			dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_WDMA_3_3]: 0x%08X %08X\n",
+			  FDVT_DMA_DEBUG_DATA_WDMA_3_3,
+			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_WDMA_3_3));
 		}
 	}
 }

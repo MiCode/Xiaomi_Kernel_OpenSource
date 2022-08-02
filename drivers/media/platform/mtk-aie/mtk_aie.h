@@ -224,6 +224,58 @@
 #define FDVT_KERNEL_BASE_ADR_1 0x0c0
 #define DMA_DEBUG_SEL_REG 0x3f4
 
+#define FDVT_DMA_RDMA_0_CHECK_SUM 0x240
+#define FDVT_DMA_RDMA_1_CHECK_SUM 0x244
+#define FDVT_DMA_RDMA_2_CHECK_SUM 0x248
+#define FDVT_DMA_RDMA_3_CHECK_SUM 0x24c
+
+#define FDVT_DMA_WDMA_0_CHECK_SUM 0x250
+#define FDVT_DMA_WDMA_1_CHECK_SUM 0x254
+#define FDVT_DMA_WDMA_2_CHECK_SUM 0x258
+#define FDVT_DMA_WDMA_3_CHECK_SUM 0x25c
+
+#define FDVT_DMA_DEBUG_SEL 0x278
+#define FDVT_DMA_DEBUG_DATA_RDMA_0_0 0x280
+#define FDVT_DMA_DEBUG_DATA_RDMA_0_1 0x284
+#define FDVT_DMA_DEBUG_DATA_RDMA_0_2 0x288
+#define FDVT_DMA_DEBUG_DATA_RDMA_0_3 0x28c
+
+#define FDVT_DMA_DEBUG_DATA_RDMA_1_0 0x290
+#define FDVT_DMA_DEBUG_DATA_RDMA_1_1 0x294
+#define FDVT_DMA_DEBUG_DATA_RDMA_1_2 0x298
+#define FDVT_DMA_DEBUG_DATA_RDMA_1_3 0x29c
+
+#define FDVT_DMA_DEBUG_DATA_RDMA_2_0 0x2a0
+#define FDVT_DMA_DEBUG_DATA_RDMA_2_1 0x2a4
+#define FDVT_DMA_DEBUG_DATA_RDMA_2_2 0x2a8
+#define FDVT_DMA_DEBUG_DATA_RDMA_2_3 0x2ac
+
+#define FDVT_DMA_DEBUG_DATA_RDMA_3_0 0x2b0
+#define FDVT_DMA_DEBUG_DATA_RDMA_3_1 0x2b4
+#define FDVT_DMA_DEBUG_DATA_RDMA_3_2 0x2b8
+#define FDVT_DMA_DEBUG_DATA_RDMA_3_3 0x2bc
+
+#define FDVT_DMA_DEBUG_DATA_WDMA_0_0 0x2c0
+#define FDVT_DMA_DEBUG_DATA_WDMA_0_1 0x2c4
+#define FDVT_DMA_DEBUG_DATA_WDMA_0_2 0x2c8
+#define FDVT_DMA_DEBUG_DATA_WDMA_0_3 0x2cc
+
+#define FDVT_DMA_DEBUG_DATA_WDMA_1_0 0x2d0
+#define FDVT_DMA_DEBUG_DATA_WDMA_1_1 0x2d4
+#define FDVT_DMA_DEBUG_DATA_WDMA_1_2 0x2d8
+#define FDVT_DMA_DEBUG_DATA_WDMA_1_3 0x2dc
+
+#define FDVT_DMA_DEBUG_DATA_WDMA_2_0 0x2e0
+#define FDVT_DMA_DEBUG_DATA_WDMA_2_1 0x2e4
+#define FDVT_DMA_DEBUG_DATA_WDMA_2_2 0x2e8
+#define FDVT_DMA_DEBUG_DATA_WDMA_2_3 0x2ec
+
+#define FDVT_DMA_DEBUG_DATA_WDMA_3_0 0x2f0
+#define FDVT_DMA_DEBUG_DATA_WDMA_3_1 0x2f4
+#define FDVT_DMA_DEBUG_DATA_WDMA_3_2 0x2f8
+#define FDVT_DMA_DEBUG_DATA_WDMA_3_3 0x2fc
+#define FDVT_DMA_ERR_STATUS 0x300
+
 #define FDVT_WRA_0_CON3_REG 0x254
 #define FDVT_WRA_1_CON3_REG 0x284
 
@@ -325,41 +377,7 @@
 #define SPECIAL_FUN_EN_HW                  (FDVT_BASE_HW + 0x21c)
 #define FDVT_WRA_0_BASE_ADDR_HW            (FDVT_BASE_HW + 0x230)
 #define FDVT_WRA_0_OFST_ADDR_HW            (FDVT_BASE_HW + 0x238)
-#define FDVT_WRA_0_XSIZE_HW                (FDVT_BASE_HW + 0x240)
-#define FDVT_WRA_0_YSIZE_HW                (FDVT_BASE_HW + 0x244)
-#define FDVT_WRA_0_STRIDE_HW               (FDVT_BASE_HW + 0x248)
-#define FDVT_WRA_0_CON_HW                  (FDVT_BASE_HW + 0x24c)
-#define FDVT_WRA_0_CON2_HW                 (FDVT_BASE_HW + 0x250)
-#define FDVT_WRA_0_CON3_HW                 (FDVT_BASE_HW + 0x254)
-#define FDVT_WRA_0_CROP_HW                 (FDVT_BASE_HW + 0x258)
-#define FDVT_WRA_1_BASE_ADDR_HW            (FDVT_BASE_HW + 0x260)
-#define FDVT_WRA_1_OFST_ADDR_HW            (FDVT_BASE_HW + 0x268)
-#define FDVT_WRA_1_XSIZE_HW                (FDVT_BASE_HW + 0x270)
-#define FDVT_WRA_1_YSIZE_HW                (FDVT_BASE_HW + 0x274)
-#define FDVT_WRA_1_STRIDE_HW               (FDVT_BASE_HW + 0x278)
-#define FDVT_WRA_1_CON_HW                  (FDVT_BASE_HW + 0x27c)
-#define FDVT_WRA_1_CON2_HW                 (FDVT_BASE_HW + 0x280)
-#define FDVT_WRA_1_CON3_HW                 (FDVT_BASE_HW + 0x284)
-#define FDVT_WRA_1_CROP_HW                 (FDVT_BASE_HW + 0x288)
-#define FDVT_RDA_0_BASE_ADDR_HW            (FDVT_BASE_HW + 0x290)
-#define FDVT_RDA_0_OFST_ADDR_HW            (FDVT_BASE_HW + 0x298)
-#define FDVT_RDA_0_XSIZE_HW                (FDVT_BASE_HW + 0x2a0)
-#define FDVT_RDA_0_YSIZE_HW                (FDVT_BASE_HW + 0x2a4)
-#define FDVT_RDA_0_STRIDE_HW               (FDVT_BASE_HW + 0x2a8)
-#define FDVT_RDA_0_CON_HW                  (FDVT_BASE_HW + 0x2ac)
-#define FDVT_RDA_0_CON2_HW                 (FDVT_BASE_HW + 0x2b0)
-#define FDVT_RDA_0_CON3_HW                 (FDVT_BASE_HW + 0x2b4)
-#define FDVT_RDA_1_BASE_ADDR_HW            (FDVT_BASE_HW + 0x2c0)
-#define FDVT_RDA_1_OFST_ADDR_HW            (FDVT_BASE_HW + 0x2c8)
-#define FDVT_RDA_1_XSIZE_HW                (FDVT_BASE_HW + 0x2d0)
-#define FDVT_RDA_1_YSIZE_HW                (FDVT_BASE_HW + 0x2d4)
-#define FDVT_RDA_1_STRIDE_HW               (FDVT_BASE_HW + 0x2d8)
-#define FDVT_RDA_1_CON_HW                  (FDVT_BASE_HW + 0x2dc)
-#define FDVT_RDA_1_CON2_HW                 (FDVT_BASE_HW + 0x2e0)
-#define FDVT_RDA_1_CON3_HW                 (FDVT_BASE_HW + 0x2e4)
-#define FDVT_WRB_0_BASE_ADDR_HW            (FDVT_BASE_HW + 0x2f0)
-#define FDVT_WRB_0_OFST_ADDR_HW            (FDVT_BASE_HW + 0x2f8)
-#define FDVT_WRB_0_XSIZE_HW                (FDVT_BASE_HW + 0x300)
+
 #define FDVT_WRB_0_YSIZE_HW                (FDVT_BASE_HW + 0x304)
 #define FDVT_WRB_0_STRIDE_HW               (FDVT_BASE_HW + 0x308)
 #define FDVT_WRB_0_CON_HW                  (FDVT_BASE_HW + 0x30c)
