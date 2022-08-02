@@ -2115,6 +2115,90 @@ static s32 smi_cmdq(void *data)
 	return 0;
 }
 
+#define SMI_SRAM_COMM_BASE	(0x1e80b000)
+#define	SMICOMM_MAX_OFFSET	(0x448)
+static void dump_smi_sysram_common(void)
+{
+	void __iomem *comm_base;
+	s32 ret, offset, len = 0, val;
+	char buf[LINK_MAX + 1] = {0};
+
+	comm_base = ioremap(SMI_SRAM_COMM_BASE, 0x1000);
+	pr_notice("[smi]===== slbmpu:%s%u =====\n", "COMM", 2);
+
+	for (offset = 0x100; offset <= SMICOMM_MAX_OFFSET; offset += 4) {
+		val = readl_relaxed(comm_base + offset);
+		if (!val)
+			continue;
+
+		ret = snprintf(buf + len, LINK_MAX - len, " %#x=%#x,",
+			offset, val);
+		if (ret < 0 || ret >= LINK_MAX - len) {
+			snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+			pr_notice("[smi] %s\n", buf);
+
+			len = 0;
+			memset(buf, '\0', sizeof(char) * ARRAY_SIZE(buf));
+			ret = snprintf(buf + len, LINK_MAX - len, " %#x=%#x,",
+				offset, val);
+			if (ret < 0 || ret >= LINK_MAX - len)
+				pr_notice("%s: ret:%d buf size:%d\n",
+					__func__, ret, LINK_MAX - len);
+		}
+		len += ret;
+	}
+	ret = snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+	if (ret < 0 || ret >= LINK_MAX - len)
+		pr_notice("%s: ret:%d buf size:%d\n", __func__, ret, LINK_MAX - len);
+	pr_notice("[smi] %s\n", buf);
+
+	iounmap(comm_base);
+}
+
+#define NEMI_VIO_BASE	(0x10342000)
+#define SEMI_VIO_BASE	(0x10343000)
+#define VIO_OFFS_START	(0xd14)
+#define VIO_OFFS_END	(0xd24)
+
+static void is_mpu_violation(struct device *dev, bool is_probe_start)
+{
+	void __iomem *nemi_base;
+	void __iomem *semi_base;
+	u32	offset, val;
+	bool	is_vio = false;
+
+	if (!of_property_read_bool(dev->of_node, "emimpu-check"))
+		return;
+
+	dev_notice(dev, "is probe start: %d\n", is_probe_start);
+	nemi_base = ioremap(NEMI_VIO_BASE, 0x1000);
+	semi_base = ioremap(SEMI_VIO_BASE, 0x1000);
+
+	/* check NEMI mpu violation */
+	for (offset = VIO_OFFS_START; offset <= VIO_OFFS_END; offset += 4) {
+		val = readl(nemi_base + offset);
+		if (val) {
+			is_vio = true;
+			dev_notice(dev, "%#x: %#x=%#x\n", NEMI_VIO_BASE, offset, val);
+		}
+	}
+	/* check SEMI mpu violation */
+	for (offset = VIO_OFFS_START; offset <= VIO_OFFS_END; offset += 4) {
+		val = readl(semi_base + offset);
+		if (val) {
+			is_vio = true;
+			dev_notice(dev, "%#x: %#x=%#x\n", SEMI_VIO_BASE, offset, val);
+		}
+	}
+
+	if (is_vio)
+		dump_smi_sysram_common();
+
+	iounmap(nemi_base);
+	iounmap(semi_base);
+}
+
+
 static int mtk_smi_larb_probe(struct platform_device *pdev)
 {
 	struct mtk_smi_larb *larb;
@@ -2125,6 +2209,7 @@ static int mtk_smi_larb_probe(struct platform_device *pdev)
 	struct device_link *link;
 	int ret, i;
 
+	is_mpu_violation(dev, true);
 	larb = devm_kzalloc(dev, sizeof(*larb), GFP_KERNEL);
 	if (!larb)
 		return -ENOMEM;
@@ -2223,6 +2308,7 @@ static int mtk_smi_larb_probe(struct platform_device *pdev)
 		}
 	}
 
+	is_mpu_violation(dev, false);
 	return ret;
 }
 
@@ -3157,6 +3243,7 @@ static int mtk_smi_common_probe(struct platform_device *pdev)
 	struct device_link *link;
 	int ret;
 
+	is_mpu_violation(dev, true);
 	common = devm_kzalloc(dev, sizeof(*common), GFP_KERNEL);
 	if (!common)
 		return -ENOMEM;
@@ -3267,6 +3354,7 @@ static int mtk_smi_common_probe(struct platform_device *pdev)
 		}
 	}
 
+	is_mpu_violation(dev, false);
 	return 0;
 }
 
@@ -3370,6 +3458,7 @@ static int mtk_smi_pd_probe(struct platform_device *pdev)
 	int ret, i;
 	u32 reset_tmp, reset_num, offset;
 
+	is_mpu_violation(dev, true);
 	smi_pd = devm_kzalloc(&pdev->dev, sizeof(*smi_pd), GFP_KERNEL);
 	if (!smi_pd)
 		return -ENOMEM;
@@ -3459,6 +3548,7 @@ static int mtk_smi_pd_probe(struct platform_device *pdev)
 	if (smi_pd->bus_prot)
 		smi_pd_ctrl[smi_pd_ctrl_num++] = smi_pd;
 
+	is_mpu_violation(dev, false);
 	return 0;
 }
 
