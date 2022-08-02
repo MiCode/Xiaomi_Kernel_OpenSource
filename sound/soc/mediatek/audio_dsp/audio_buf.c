@@ -318,16 +318,17 @@ void RingBuf_update_readptr(struct RingBuf *RingBuf1, unsigned int count)
 	}
 
 	if (RingBuf1->pRead <= RingBuf1->pWrite) {
-		RingBuf1->pRead += count;
-		if (RingBuf1->pRead >= RingBuf1->pBufEnd)
-			RingBuf1->pRead -= RingBuf1->bufLen;
+		if (RingBuf1->pRead + count >= RingBuf1->pBufEnd)
+			RingBuf1->pRead = RingBuf1->pRead - RingBuf1->bufLen + count;
+		else
+			RingBuf1->pRead += count;
 	} else {
 		unsigned int r2e = RingBuf1->pBufEnd - RingBuf1->pRead;
-
 		if (count <= r2e) {
-			RingBuf1->pRead += count;
-			if (RingBuf1->pRead >= RingBuf1->pBufEnd)
-				RingBuf1->pRead -= RingBuf1->bufLen;
+			if (RingBuf1->pRead + count >= RingBuf1->pBufEnd)
+				RingBuf1->pRead = RingBuf1->pRead - RingBuf1->bufLen + count;
+			else
+				RingBuf1->pRead += count;
 		} else {
 			RingBuf1->pRead = RingBuf1->pBufBase + count - r2e;
 			if (RingBuf1->pRead >= RingBuf1->pBufEnd)
