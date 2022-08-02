@@ -322,9 +322,9 @@ int mtk_mmdvfs_enable_vcp(bool enable, unsigned int usr_id)
 		vcp_power--;
 		vcp_pwr_usage[usr_id]--;
 	}
-
-	MMDVFS_DBG("enable:%d vcp_power:%d usr_id:%u usage:%u",
-		enable, vcp_power, usr_id, vcp_pwr_usage[usr_id]);
+	if (log_level & 1 << log_vcp)
+		MMDVFS_DBG("enable:%d vcp_power:%d usr_id:%u usage:%u",
+			enable, vcp_power, usr_id, vcp_pwr_usage[usr_id]);
 	mutex_unlock(&mmdvfs_vcp_pwr_mutex);
 
 	return 0;
