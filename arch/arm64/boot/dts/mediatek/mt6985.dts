@@ -1765,13 +1765,13 @@
 	camsys_power: camsys_power {
 		compatible = "mediatek,vmm_notifier";
 
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_VCORE>;
 	};
 
 	imgsys_power: imgsys_power {
 		compatible = "mediatek,vmm_notifier";
 
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_ISP_MAIN>;
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_ISP_VCORE>;
 	};
 
 	ccu_rproc1: ccu_rproc1 {
