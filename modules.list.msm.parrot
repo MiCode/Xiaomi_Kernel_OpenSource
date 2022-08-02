@@ -86,3 +86,4 @@ ufshcd-crypto-qti.ko
 tmecom-intf.ko
 cqhci-crypto-qti.ko
 bcl_pmic5.ko
+dispcc-ravelin.ko
