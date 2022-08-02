@@ -13,6 +13,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/pm_wakeirq.h>
@@ -643,6 +644,9 @@ static int xhci_mtk_probe(struct platform_device *pdev)
 	struct xhci_hcd *xhci;
 	struct resource *res;
 	struct usb_hcd *hcd;
+	struct platform_device *offload_pdev;
+	struct device_node *offload_node;
+	struct xhci_vendor_ops *ops;
 	int ret = -ENODEV;
 	int wakeup_irq;
 	int irq;
@@ -754,6 +758,22 @@ static int xhci_mtk_probe(struct platform_device *pdev)
 
 	xhci = hcd_to_xhci(hcd);
 	xhci->main_hcd = hcd;
+
+	/* get vendor_ops data */
+	offload_node = of_parse_phandle(node, "mediatek,usb-offload", 0);
+	if (offload_node) {
+		offload_pdev = of_find_device_by_node(offload_node);
+		of_node_put(offload_node);
+		if (offload_pdev) {
+			ops = dev_get_drvdata(&offload_pdev->dev);
+			if (ops) {
+				dev_info(dev, "set offload vendor_ops data\n");
+				xhci->vendor_ops = ops;
+			} else
+				dev_info(dev, "failed to get offload data\n");
+		} else
+			dev_info(dev, "failed to get offload platform device\n");
+	}
 
 	/*
 	 * imod_interval is the interrupt moderation value in nanoseconds.
