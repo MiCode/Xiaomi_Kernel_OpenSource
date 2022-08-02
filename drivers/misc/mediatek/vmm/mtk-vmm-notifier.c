@@ -29,25 +29,39 @@
 		__func__, __LINE__, ##args)
 
 struct mutex ctrl_mutex;
+static int vmm_genpd_user_counter;
 static int vmm_user_counter;
-static int vmm_locked_isp_open(void)
+static int vmm_locked_isp_open(bool genpd_update)
 {
+	if (genpd_update) {
+		vmm_genpd_user_counter++;
+		if (vmm_genpd_user_counter == 1)
+			mtk_mmdvfs_camera_notify(true, true);
+	}
+
 	vmm_user_counter++;
 	if (vmm_user_counter == 1)
-		mtk_mmdvfs_camera_notify(1);
+		mtk_mmdvfs_camera_notify(false, true);
 
 	return 0;
 }
 
-static int vmm_locked_isp_close(void)
+static int vmm_locked_isp_close(bool genpd_update)
 {
+	if (genpd_update) {
+		if (vmm_genpd_user_counter == 0)
+			return 0;
+		vmm_genpd_user_counter--;
+		if (vmm_genpd_user_counter == 0)
+			mtk_mmdvfs_camera_notify(true, false);
+	}
+
 	/* no need to counter down at probe stage */
 	if (vmm_user_counter == 0)
 		return 0;
-
 	vmm_user_counter--;
 	if (vmm_user_counter == 0)
-		mtk_mmdvfs_camera_notify(0);
+		mtk_mmdvfs_camera_notify(false, false);
 
 	return 0;
 }
@@ -60,9 +74,9 @@ static int mtk_camera_pd_callback(struct notifier_block *nb,
 	mutex_lock(&ctrl_mutex);
 
 	if (flags == GENPD_NOTIFY_PRE_ON)
-		ret = vmm_locked_isp_open();
+		ret = vmm_locked_isp_open(true);
 	else if (flags == GENPD_NOTIFY_OFF)
-		ret = vmm_locked_isp_close();
+		ret = vmm_locked_isp_close(true);
 
 	mutex_unlock(&ctrl_mutex);
 
@@ -76,9 +90,9 @@ int vmm_isp_ctrl_notify(int openIsp)
 	mutex_lock(&ctrl_mutex);
 
 	if (openIsp)
-		ret = vmm_locked_isp_open();
+		ret = vmm_locked_isp_open(false);
 	else
-		ret = vmm_locked_isp_close();
+		ret = vmm_locked_isp_close(false);
 
 	mutex_unlock(&ctrl_mutex);
 
