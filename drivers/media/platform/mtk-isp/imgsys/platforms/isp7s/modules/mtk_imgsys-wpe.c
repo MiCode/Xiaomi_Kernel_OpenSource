@@ -166,8 +166,6 @@ const struct imgsys_reg_range wpe_regs[] = {
 	{0x0680, 0x0694}, /* DMA CROP */
 	{0x06C0, 0x07B4}, /* DEC,PAK */
 	{0x07C0, 0x084C}, /* TOP2 */
-	{0x0800, 0x080C},
-	{0x0830, 0x083C}, /* MERGE */
 	{0x0B00, 0x0C34}, /* DIPCQ_W1 */
 };
 #define WPE_REG_ARRAY_COUNT	ARRAY_SIZE(wpe_regs)
