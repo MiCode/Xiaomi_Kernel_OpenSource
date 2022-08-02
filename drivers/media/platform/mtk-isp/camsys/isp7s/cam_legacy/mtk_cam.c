@@ -4541,6 +4541,10 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 				  req_stream_data);
 	mtk_cam_req_work_init(&req_stream_data->meta1_done_work,
 				  req_stream_data);
+#if PURE_RAW_WITH_SV
+	mtk_cam_req_work_init(&req_stream_data->pure_raw_done_work,
+				  req_stream_data);
+#endif
 
 	/**
 	 * clean the param structs since we support req reinit.
