@@ -346,15 +346,14 @@ static inline bool mmdvfs_vcp_ipi_base_get(void)
 	if (!mmdvfs_vcp_ipi_data_base) // va
 		mmdvfs_vcp_ipi_data_base = mtk_mmdvfs_vcp_get_base(&pa);
 
-	if (!flags || !mmdvfs_vcp_ipi_data_base)
-		MMDVFS_DBG("pa:%pa iova:%pa va:%#llx offset:%#x",
-			&pa, &mmdvfs_vcp_base, mmdvfs_vcp_ipi_data_base,
-			MMDVFS_VCP_IPI_DATA_OFFSET);
+	MMDVFS_DBG("pa:%pa iova:%pa va:%#llx offset:%#x",
+		&pa, &mmdvfs_vcp_base, mmdvfs_vcp_ipi_data_base,
+		MMDVFS_VCP_IPI_DATA_OFFSET);
 
-	if (!mmdvfs_aging_enable_base)
+	if (!mmdvfs_aging_enable_base && mmdvfs_vcp_ipi_data_base)
 		mmdvfs_aging_enable_base = mmdvfs_vcp_ipi_data_base + MMDVFS_AGING_ENABLE_OFFSET;
 
-	if (!mmdvfs_vb_enable_base)
+	if (!mmdvfs_vb_enable_base && mmdvfs_vcp_ipi_data_base)
 		mmdvfs_vb_enable_base = mmdvfs_vcp_ipi_data_base + MMDVFS_VB_ENABLE_OFFSET;
 
 	if (mmdvfs_vcp_ipi_data_base)
