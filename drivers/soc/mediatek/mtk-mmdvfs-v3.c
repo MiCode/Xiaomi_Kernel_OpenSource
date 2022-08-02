@@ -249,6 +249,26 @@ bool mtk_is_mmdvfs_init_done(void)
 }
 EXPORT_SYMBOL_GPL(mtk_is_mmdvfs_init_done);
 
+static int reset_vcp_power(void)
+{
+	int ret = 0;
+
+	mutex_lock(&mmdvfs_vcp_pwr_mutex);
+	if (vcp_power > 0) {
+		ret = vcp_deregister_feature_ex(MMDVFS_FEATURE_ID);
+		if (ret) {
+			MMDVFS_ERR("vcp_deregister_feature failed:%d", ret);
+			mutex_unlock(&mmdvfs_vcp_pwr_mutex);
+			return ret;
+		}
+		vcp_power = 0;
+		MMDVFS_DBG("check vcp_power > 0 and power off vcp");
+	}
+	mutex_unlock(&mmdvfs_vcp_pwr_mutex);
+
+	return ret;
+}
+
 static void check_vcp_pwr(void)
 {
 	int i;
@@ -607,6 +627,7 @@ void cam_notify_work_func(struct work_struct *work)
 
 int mtk_mmdvfs_camera_notify(const bool enable)
 {
+/*
 	struct mmdvfs_cam_notify_work *work;
 
 	MMDVFS_DBG("enable:%u", enable);
@@ -621,7 +642,7 @@ int mtk_mmdvfs_camera_notify(const bool enable)
 	work->enable = enable;
 	INIT_WORK(&work->cam_notify_work, cam_notify_work_func);
 	queue_work(cam_notify_wq, &work->cam_notify_work);
-
+*/
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_camera_notify);
@@ -868,7 +889,7 @@ static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 		check_vcp_pwr();
 		//enable_aoc_iso(true);
 		reset_ccu_power();
-		//reset_vcp_power();
+		reset_vcp_power();
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
 		return NOTIFY_DONE;
