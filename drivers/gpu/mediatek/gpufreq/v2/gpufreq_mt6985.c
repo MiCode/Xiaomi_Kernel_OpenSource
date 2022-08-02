@@ -63,6 +63,7 @@
 static unsigned int __gpufreq_custom_init_enable(void);
 static unsigned int __gpufreq_dvfs_enable(void);
 static void __gpufreq_set_dvfs_state(unsigned int set, unsigned int state);
+static void __gpufreq_fake_mtcmos_control(unsigned int mode);
 static void __gpufreq_set_ocl_timestamp(void);
 static void __gpufreq_set_margin_mode(unsigned int mode);
 static void __gpufreq_set_gpm_mode(unsigned int version, unsigned int mode);
@@ -292,7 +293,6 @@ static struct gpufreq_platform_fp platform_ap_fp = {
 	.get_core_mask_table = __gpufreq_get_core_mask_table,
 	.get_core_num = __gpufreq_get_core_num,
 	.pdca_config = __gpufreq_pdca_config,
-	.fake_mtcmos_control = __gpufreq_fake_mtcmos_control,
 	.update_debug_opp_info = __gpufreq_update_debug_opp_info,
 	.set_shared_status = __gpufreq_set_shared_status,
 	.mssv_commit = __gpufreq_mssv_commit,
@@ -304,7 +304,6 @@ static struct gpufreq_platform_fp platform_eb_fp = {
 	.get_dyn_pstack = __gpufreq_get_dyn_pstack,
 	.get_core_mask_table = __gpufreq_get_core_mask_table,
 	.get_core_num = __gpufreq_get_core_num,
-	.fake_mtcmos_control = __gpufreq_fake_mtcmos_control,
 };
 
 /**
@@ -1295,6 +1294,9 @@ void __gpufreq_set_mfgsys_config(enum gpufreq_config_target target, enum gpufreq
 	case CONFIG_OCL_TIMESTAMP:
 		__gpufreq_set_ocl_timestamp();
 		break;
+	case CONFIG_FAKE_MTCMOS_CTRL:
+		__gpufreq_fake_mtcmos_control(val);
+		break;
 	default:
 		GPUFREQ_LOGE("invalid config target: %d", target);
 		break;
@@ -1437,56 +1439,6 @@ void __gpufreq_pdca_config(enum gpufreq_power_state power)
 		writel((readl_mfg(MFG_ACTIVE_POWER_CON_60) & ~BIT(0)), MFG_ACTIVE_POWER_CON_60);
 		/* MFG_ACTIVE_POWER_CON_61 0x13FBF4F4 [31] rg_sc10_active_pwrctl_rsv = 1'b0 */
 		writel((readl_mfg(MFG_ACTIVE_POWER_CON_61) & ~BIT(31)), MFG_ACTIVE_POWER_CON_61);
-	}
-#else
-	GPUFREQ_UNREFERENCED(power);
-#endif /* GPUFREQ_PDCA_ENABLE */
-}
-
-/* API: fake PWR_CON value to temporarily disable PDCA */
-void __gpufreq_fake_mtcmos_control(enum gpufreq_power_state power)
-{
-#if GPUFREQ_PDCA_ENABLE
-	if (power == POWER_ON) {
-		/* fake power on value of SPM MFG2-19 */
-		writel(0xC000000D, MFG_RPC_MFG2_PWR_CON);  /* MFG2  */
-		writel(0xC000000D, MFG_RPC_MFG3_PWR_CON);  /* MFG3  */
-		writel(0xC000000D, MFG_RPC_MFG4_PWR_CON);  /* MFG4  */
-		writel(0xC000000D, MFG_RPC_MFG5_PWR_CON);  /* MFG5  */
-		writel(0xC000000D, MFG_RPC_MFG6_PWR_CON);  /* MFG6  */
-		writel(0xC000000D, MFG_RPC_MFG7_PWR_CON);  /* MFG7  */
-		writel(0xC000000D, MFG_RPC_MFG8_PWR_CON);  /* MFG8  */
-		writel(0xC000000D, MFG_RPC_MFG9_PWR_CON);  /* MFG9  */
-		writel(0xC000000D, MFG_RPC_MFG10_PWR_CON); /* MFG10 */
-		writel(0xC000000D, MFG_RPC_MFG11_PWR_CON); /* MFG11 */
-		writel(0xC000000D, MFG_RPC_MFG12_PWR_CON); /* MFG12 */
-		writel(0xC000000D, MFG_RPC_MFG13_PWR_CON); /* MFG13 */
-		writel(0xC000000D, MFG_RPC_MFG14_PWR_CON); /* MFG14 */
-		writel(0xC000000D, MFG_RPC_MFG15_PWR_CON); /* MFG15 */
-		writel(0xC000000D, MFG_RPC_MFG16_PWR_CON); /* MFG16 */
-		writel(0xC000000D, MFG_RPC_MFG17_PWR_CON); /* MFG17 */
-		writel(0xC000000D, MFG_RPC_MFG18_PWR_CON); /* MFG18 */
-		writel(0xC000000D, MFG_RPC_MFG19_PWR_CON); /* MFG19 */
-	} else {
-		/* fake power off value of SPM MFG2-19 */
-		writel(0x1112, MFG_RPC_MFG19_PWR_CON); /* MFG19 */
-		writel(0x1112, MFG_RPC_MFG18_PWR_CON); /* MFG18 */
-		writel(0x1112, MFG_RPC_MFG17_PWR_CON); /* MFG17 */
-		writel(0x1112, MFG_RPC_MFG16_PWR_CON); /* MFG16 */
-		writel(0x1112, MFG_RPC_MFG15_PWR_CON); /* MFG15 */
-		writel(0x1112, MFG_RPC_MFG14_PWR_CON); /* MFG14 */
-		writel(0x1112, MFG_RPC_MFG13_PWR_CON); /* MFG13 */
-		writel(0x1112, MFG_RPC_MFG12_PWR_CON); /* MFG12 */
-		writel(0x1112, MFG_RPC_MFG11_PWR_CON); /* MFG11 */
-		writel(0x1112, MFG_RPC_MFG10_PWR_CON); /* MFG10 */
-		writel(0x1112, MFG_RPC_MFG9_PWR_CON);  /* MFG9  */
-		writel(0x1112, MFG_RPC_MFG8_PWR_CON);  /* MFG8  */
-		writel(0x1112, MFG_RPC_MFG7_PWR_CON);  /* MFG7  */
-		writel(0x1112, MFG_RPC_MFG6_PWR_CON);  /* MFG6  */
-		writel(0x1112, MFG_RPC_MFG5_PWR_CON);  /* MFG5  */
-		writel(0x1112, MFG_RPC_MFG4_PWR_CON);  /* MFG4  */
-		writel(0x1112, MFG_RPC_MFG3_PWR_CON);  /* MFG3  */
-		writel(0x1112, MFG_RPC_MFG2_PWR_CON);  /* MFG2  */
 	}
 #else
 	GPUFREQ_UNREFERENCED(power);
@@ -1862,6 +1814,56 @@ static void __gpufreq_set_dvfs_state(unsigned int set, unsigned int state)
 		g_shared_status->dvfs_state = g_dvfs_state;
 
 	mutex_unlock(&gpufreq_lock);
+}
+
+/* API: fake PWR_CON value to temporarily disable PDCA */
+static void __gpufreq_fake_mtcmos_control(unsigned int mode)
+{
+#if GPUFREQ_PDCA_ENABLE
+	if (mode == FEAT_ENABLE) {
+		/* fake power on value of SPM MFG2-19 */
+		writel(0xC000000D, MFG_RPC_MFG2_PWR_CON);  /* MFG2  */
+		writel(0xC000000D, MFG_RPC_MFG3_PWR_CON);  /* MFG3  */
+		writel(0xC000000D, MFG_RPC_MFG4_PWR_CON);  /* MFG4  */
+		writel(0xC000000D, MFG_RPC_MFG5_PWR_CON);  /* MFG5  */
+		writel(0xC000000D, MFG_RPC_MFG6_PWR_CON);  /* MFG6  */
+		writel(0xC000000D, MFG_RPC_MFG7_PWR_CON);  /* MFG7  */
+		writel(0xC000000D, MFG_RPC_MFG8_PWR_CON);  /* MFG8  */
+		writel(0xC000000D, MFG_RPC_MFG9_PWR_CON);  /* MFG9  */
+		writel(0xC000000D, MFG_RPC_MFG10_PWR_CON); /* MFG10 */
+		writel(0xC000000D, MFG_RPC_MFG11_PWR_CON); /* MFG11 */
+		writel(0xC000000D, MFG_RPC_MFG12_PWR_CON); /* MFG12 */
+		writel(0xC000000D, MFG_RPC_MFG13_PWR_CON); /* MFG13 */
+		writel(0xC000000D, MFG_RPC_MFG14_PWR_CON); /* MFG14 */
+		writel(0xC000000D, MFG_RPC_MFG15_PWR_CON); /* MFG15 */
+		writel(0xC000000D, MFG_RPC_MFG16_PWR_CON); /* MFG16 */
+		writel(0xC000000D, MFG_RPC_MFG17_PWR_CON); /* MFG17 */
+		writel(0xC000000D, MFG_RPC_MFG18_PWR_CON); /* MFG18 */
+		writel(0xC000000D, MFG_RPC_MFG19_PWR_CON); /* MFG19 */
+	} else if (mode == FEAT_DISABLE) {
+		/* fake power off value of SPM MFG2-19 */
+		writel(0x1112, MFG_RPC_MFG19_PWR_CON); /* MFG19 */
+		writel(0x1112, MFG_RPC_MFG18_PWR_CON); /* MFG18 */
+		writel(0x1112, MFG_RPC_MFG17_PWR_CON); /* MFG17 */
+		writel(0x1112, MFG_RPC_MFG16_PWR_CON); /* MFG16 */
+		writel(0x1112, MFG_RPC_MFG15_PWR_CON); /* MFG15 */
+		writel(0x1112, MFG_RPC_MFG14_PWR_CON); /* MFG14 */
+		writel(0x1112, MFG_RPC_MFG13_PWR_CON); /* MFG13 */
+		writel(0x1112, MFG_RPC_MFG12_PWR_CON); /* MFG12 */
+		writel(0x1112, MFG_RPC_MFG11_PWR_CON); /* MFG11 */
+		writel(0x1112, MFG_RPC_MFG10_PWR_CON); /* MFG10 */
+		writel(0x1112, MFG_RPC_MFG9_PWR_CON);  /* MFG9  */
+		writel(0x1112, MFG_RPC_MFG8_PWR_CON);  /* MFG8  */
+		writel(0x1112, MFG_RPC_MFG7_PWR_CON);  /* MFG7  */
+		writel(0x1112, MFG_RPC_MFG6_PWR_CON);  /* MFG6  */
+		writel(0x1112, MFG_RPC_MFG5_PWR_CON);  /* MFG5  */
+		writel(0x1112, MFG_RPC_MFG4_PWR_CON);  /* MFG4  */
+		writel(0x1112, MFG_RPC_MFG3_PWR_CON);  /* MFG3  */
+		writel(0x1112, MFG_RPC_MFG2_PWR_CON);  /* MFG2  */
+	}
+#else
+	GPUFREQ_UNREFERENCED(mode);
+#endif /* GPUFREQ_PDCA_ENABLE */
 }
 
 static void __gpufreq_set_ocl_timestamp(void)

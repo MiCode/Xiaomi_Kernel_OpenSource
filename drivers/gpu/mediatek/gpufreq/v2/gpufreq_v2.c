@@ -1045,11 +1045,10 @@ EXPORT_SYMBOL(gpufreq_pdca_config);
  ***********************************************************************************/
 void gpufreq_fake_mtcmos_control(enum gpufreq_power_state power)
 {
-	/* implement only on AP */
-	if (gpufreq_fp && gpufreq_fp->fake_mtcmos_control)
-		gpufreq_fp->fake_mtcmos_control(power);
-	else
-		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+	if (power == POWER_ON)
+		gpufreq_set_mfgsys_config(CONFIG_FAKE_MTCMOS_CTRL, FEAT_ENABLE);
+	else if (power == POWER_OFF)
+		gpufreq_set_mfgsys_config(CONFIG_FAKE_MTCMOS_CTRL, FEAT_DISABLE);
 }
 EXPORT_SYMBOL(gpufreq_fake_mtcmos_control);
 

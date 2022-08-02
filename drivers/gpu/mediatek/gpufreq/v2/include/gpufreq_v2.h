@@ -96,20 +96,21 @@ enum gpufreq_power_state {
 };
 
 enum gpufreq_config_target {
-	CONFIG_TARGET_INVALID = -1,
-	CONFIG_TEST_MODE      = 0,
-	CONFIG_STRESS_TEST    = 1,
-	CONFIG_MARGIN         = 2,
-	CONFIG_GPM1           = 3,
-	CONFIG_GPM3           = 4,
-	CONFIG_DFD            = 5,
-	CONFIG_IMAX_STACK     = 6,
-	CONFIG_IMAX_SRAM      = 7,
-	CONFIG_DYN_STACK      = 8,
-	CONFIG_DYN_SRAM_GPU   = 9,
-	CONFIG_DYN_SRAM_STACK = 10,
-	CONFIG_IPS            = 11,
-	CONFIG_OCL_TIMESTAMP  = 12,
+	CONFIG_TARGET_INVALID   = -1,
+	CONFIG_TEST_MODE        = 0,
+	CONFIG_STRESS_TEST      = 1,
+	CONFIG_MARGIN           = 2,
+	CONFIG_GPM1             = 3,
+	CONFIG_GPM3             = 4,
+	CONFIG_DFD              = 5,
+	CONFIG_IMAX_STACK       = 6,
+	CONFIG_IMAX_SRAM        = 7,
+	CONFIG_DYN_STACK        = 8,
+	CONFIG_DYN_SRAM_GPU     = 9,
+	CONFIG_DYN_SRAM_STACK   = 10,
+	CONFIG_IPS              = 11,
+	CONFIG_OCL_TIMESTAMP    = 12,
+	CONFIG_FAKE_MTCMOS_CTRL = 13,
 };
 
 enum gpufreq_config_value {
@@ -346,7 +347,6 @@ struct gpufreq_platform_fp {
 	struct gpufreq_core_mask_info *(*get_core_mask_table)(void);
 	unsigned int (*get_core_num)(void);
 	void (*pdca_config)(enum gpufreq_power_state power);
-	void (*fake_mtcmos_control)(enum gpufreq_power_state power);
 	void (*set_shared_status)(struct gpufreq_shared_status *shared_status);
 	int (*mssv_commit)(unsigned int target, unsigned int val);
 	/* GPU */
