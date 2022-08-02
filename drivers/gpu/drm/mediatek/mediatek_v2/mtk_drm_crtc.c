@@ -7177,7 +7177,6 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
 	if (!need_wait)
 		goto skip;
 
-
 	if (crtc_id == 2) {
 		int gce_event =
 			get_path_wait_event(mtk_crtc, mtk_crtc->ddp_mode);
@@ -7249,7 +7248,8 @@ skip:
 		struct mtk_drm_sram_list *entry, *tmp;
 		struct mml_drm_ctx *mml_ctx = mtk_drm_get_mml_drm_ctx(crtc->dev, crtc);
 
-		mml_drm_stop(mml_ctx, mtk_crtc->mml_cfg, false);
+		if (mml_ctx && mtk_crtc->mml_cfg)
+			mml_drm_stop(mml_ctx, mtk_crtc->mml_cfg, false);
 		mutex_lock(&mtk_crtc->mml_ir_sram.lock);
 		list_for_each_entry_safe(entry, tmp, &mtk_crtc->mml_ir_sram.list.head, head) {
 			list_del_init(&entry->head);
@@ -10597,8 +10597,10 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	}
 
 	/* need to check mml is submit done */
-	if (mtk_crtc->is_mml)
+	if (mtk_crtc->is_mml) {
 		mtk_drm_wait_mml_submit_done(&(mtk_crtc->mml_cb));
+		mtk_drm_idlemgr_kick(__func__, crtc, false); /* update kick timestamp */
+	}
 
 #ifndef DRM_CMDQ_DISABLE
 #ifdef MTK_DRM_CMDQ_ASYNC

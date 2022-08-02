@@ -2017,9 +2017,6 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			}
 
 			if ((dsi_underrun_trigger == 1 && dsi->encoder.crtc) && trigger_aee) {
-				if (mtk_crtc && mtk_crtc->is_mml) { /* Temp patch for debug MML */
-					mmprofile_enable(0);
-				}
 				mtk_drm_crtc_analysis(dsi->encoder.crtc);
 				mtk_drm_crtc_dump(dsi->encoder.crtc);
 				dsi_underrun_trigger = 0;
@@ -7549,10 +7546,9 @@ static unsigned int mtk_dsi_get_cmd_mode_line_time(struct drm_crtc *crtc)
 	}
 
 	line_time_ns = DIV_ROUND_UP(line_time * 1000, dsi_clk);
-	DDPMSG/*DDPINFO*/(
-		"%s, ps_wc=%d, lpx=%d, hs_prpr=%d, hs_zero=%d, hs_trail=%d, da_hs_exit=%d\n",
+	DDPINFO("%s, ps_wc=%d, lpx=%d, hs_prpr=%d, hs_zero=%d, hs_trail=%d, da_hs_exit=%d\n",
 		__func__, ps_wc, lpx, hs_prpr, hs_zero, hs_trail, da_hs_exit);
-	DDPMSG/*DDPINFO*/("%s, dsi_clk=%d, line_time=%d, line_time_ns=%d\n",
+	DDPINFO("%s, dsi_clk=%d, line_time=%d, line_time_ns=%d\n",
 		__func__, dsi_clk, line_time, line_time_ns);
 
 	return line_time_ns;
