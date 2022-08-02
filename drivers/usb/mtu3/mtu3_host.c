@@ -252,7 +252,8 @@ int ssusb_host_resume(struct ssusb_mtk *ssusb, bool p0_skipped)
 			continue;
 
 		value = mtu3_readl(ibase, SSUSB_U3_CTRL(i));
-		value &= ~SSUSB_U3_PORT_PDN;
+		/* resume u3phy since power issue. */
+		value &= ~(SSUSB_U3_PORT_PDN | SSUSB_U3_PORT_DIS);
 		mtu3_writel(ibase, SSUSB_U3_CTRL(i), value);
 	}
 
@@ -284,7 +285,8 @@ int ssusb_host_suspend(struct ssusb_mtk *ssusb)
 			continue;
 
 		value = mtu3_readl(ibase, SSUSB_U3_CTRL(i));
-		value |= SSUSB_U3_PORT_PDN;
+		/* disable u3phy since power issue. */
+		value |= SSUSB_U3_PORT_PDN | SSUSB_U3_PORT_DIS;
 		mtu3_writel(ibase, SSUSB_U3_CTRL(i), value);
 	}
 
