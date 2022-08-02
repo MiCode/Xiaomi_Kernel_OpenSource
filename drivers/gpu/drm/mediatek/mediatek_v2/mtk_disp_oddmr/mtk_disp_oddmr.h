@@ -85,6 +85,7 @@ struct mtk_disp_oddmr_data {
 	bool is_od_support_hw_skip_first_frame;
 	bool is_od_need_crop_garbage;
 	bool is_od_need_force_clk;
+	bool is_od_support_sec;
 	int tile_overhead;
 	uint32_t dmr_buffer_size;
 	uint32_t odr_buffer_size;
