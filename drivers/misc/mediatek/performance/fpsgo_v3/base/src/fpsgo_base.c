@@ -1653,7 +1653,7 @@ static ssize_t render_info_params_show(struct kobject *kobj,
 				" qr_enable, qr_t2wnt_x, qr_t2wnt_y_p, qr_t2wnt_y_n\n");
 	pos += length;
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				" gcc_enable, gcc_fps_margin, gcc_up_sec_pct, gcc_up_step gcc_reserved_up_quota_pct\n");
+				" gcc_enable, gcc_fps_margin, gcc_up_sec_pct, gcc_up_step, gcc_reserved_up_quota_pct\n");
 	pos += length;
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
 				" gcc_down_sec_pct, gcc_down_step, gcc_reserved_down_quota_pct\n");

@@ -3622,7 +3622,7 @@ int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 		nsec_to_usec(boost_info->quantile_cpu_time) : -1;
 	int ret = 0;
 	int gcc_down_sec_pct_final = attr->gcc_down_sec_pct_by_pid;
-	int gcc_up_sec_pct_final = attr->gcc_up_step_by_pid;
+	int gcc_up_sec_pct_final = attr->gcc_up_sec_pct_by_pid;
 	int gcc_reserved_down_quota_pct_final = attr->gcc_reserved_down_quota_pct_by_pid;
 	int gcc_reserved_up_quota_pct_final = attr->gcc_reserved_up_quota_pct_by_pid;
 	int gcc_down_step_final = attr->gcc_down_step_by_pid;
