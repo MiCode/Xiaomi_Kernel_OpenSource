@@ -103,8 +103,8 @@ void mtk_cam_seninf_alloc_cammux(struct seninf_ctx *ctx)
 		if (ctx->pad2cam[vc->out_pad] == 0xff) {
 			cam_type = mtk_cam_seninf_get_vc_type(vc->out_pad);
 			list_for_each_entry(ent, &core->list_cam_mux, list) {
-				if (ent->idx >= core->cammux_range[cam_type].first &&
-				    ent->idx <= core->cammux_range[cam_type].second) {
+				if (ent->idx >= core->cammux_range[(unsigned int)cam_type].first &&
+				    ent->idx <= core->cammux_range[(unsigned int)cam_type].second) {
 					list_move_tail(&ent->list,
 						       &ctx->list_cam_mux);
 					ctx->pad2cam[vc->out_pad] = ent->idx;

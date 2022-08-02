@@ -152,7 +152,10 @@ static ssize_t debug_ops_store(struct device *dev,
 
 		for (i = 0; i < CSI_PORT_MAX_NUM; i++) {
 			memset(csi_names, 0, ARRAY_SIZE(csi_names));
-			snprintf(csi_names, 10, "csi-%s", csi_port_names[i]);
+			ret = snprintf(csi_names, 10, "csi-%s", csi_port_names[i]);
+			if (ret < 0)
+				dev_info(dev, "%s: snprintf error\n", __func__);
+
 			if (!strcasecmp(arg[REG_OPS_CMD_CSI], csi_names))
 				csi_port = i;
 		}
@@ -297,6 +300,9 @@ static int seninf_core_pm_runtime_enable(struct seninf_core *core)
 	core->pm_domain_cnt = of_count_phandle_with_args(core->dev->of_node,
 					"power-domains",
 					"#power-domain-cells");
+	if (core->pm_domain_cnt < 0)
+		return -EINVAL;
+
 	if (core->pm_domain_cnt == 1)
 		pm_runtime_enable(core->dev);
 	else {
@@ -362,7 +368,7 @@ static int seninf_core_pm_runtime_put(struct seninf_core *core)
 	if (core->pm_domain_cnt == 1)
 		pm_runtime_put_sync(core->dev);
 	else {
-		if (!core->pm_domain_devs && core->pm_domain_cnt < 1)
+		if (!core->pm_domain_devs || core->pm_domain_cnt < 1)
 			return -EINVAL;
 
 		for (i = core->pm_domain_cnt - 1; i >= 0; i--) {
@@ -782,7 +788,7 @@ static int mtk_cam_seninf_get_fmt(struct v4l2_subdev *sd,
 static int set_test_model(struct seninf_ctx *ctx, char enable)
 {
 	struct seninf_vc *vc[] = {NULL, NULL, NULL, NULL, NULL};
-	int i = 0, vc_used = 0;
+	int i = 0, vc_used = 0, ret;
 	struct seninf_mux *mux;
 	struct seninf_dfs *dfs = &ctx->core->dfs;
 	int pref_idx[] = {0, 1, 2, 3, 4}; //FIXME
@@ -819,8 +825,16 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 
 	if (enable) {
 		pm_runtime_get_sync(ctx->dev);
-		if (ctx->core->clk[CLK_TOP_CAMTM])
-			clk_prepare_enable(ctx->core->clk[CLK_TOP_CAMTM]);
+		if (ctx->core->clk[CLK_TOP_CAMTM]) {
+			ret = clk_prepare_enable(ctx->core->clk[CLK_TOP_CAMTM]);
+			if (ret < 0) {
+				dev_info(ctx->dev,
+					"[%s] clk_prepare_enable clk[CLK_TOP_CAMTM:%u]:%s(fail),ret(%d)\n",
+					__func__, CLK_TOP_CAMTM,
+					clk_names[CLK_TOP_CAMTM], ret);
+				return ret;
+			}
+		}
 
 		if (dfs->cnt)
 			seninf_dfs_set(ctx, dfs->freqs[dfs->cnt - 1]);
@@ -1902,7 +1916,7 @@ static int runtime_suspend(struct device *dev)
 
 static int runtime_resume(struct device *dev)
 {
-	int i;
+	int i, ret;
 	struct seninf_ctx *ctx = dev_get_drvdata(dev);
 	struct seninf_core *core = ctx->core;
 
@@ -1913,8 +1927,16 @@ static int runtime_resume(struct device *dev)
 	if (core->refcnt == 1) {
 		seninf_core_pm_runtime_get_sync(core);
 		for (i = 0; i < CLK_TOP_SENINF_END; i++) {
-			if (core->clk[i])
-				clk_prepare_enable(core->clk[i]);
+			if (core->clk[i]) {
+				ret = clk_prepare_enable(core->clk[i]);
+				if (ret < 0) {
+					dev_info(dev,
+						"[%s] clk_prepare_enable clk[i:%d]:%s(fail),ret(%d)\n",
+						__func__, i,
+						clk_names[i], ret);
+					return ret;
+				}
+			}
 		}
 		g_seninf_ops->_disable_all_mux(ctx);
 		g_seninf_ops->_disable_all_cammux(ctx);
