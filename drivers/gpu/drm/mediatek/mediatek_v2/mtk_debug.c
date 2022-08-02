@@ -37,6 +37,7 @@
 #include "mtk_disp_aal.h"
 #include "mtk_disp_c3d.h"
 #include "mtk_disp_tdshp.h"
+#include "mtk_disp_oddmr/mtk_disp_oddmr.h"
 #include "mtk_dp_debug.h"
 #include "mtk_drm_arr.h"
 #include "mtk_drm_graphics_base.h"
@@ -2649,6 +2650,8 @@ static void process_dbg_opt(const char *opt)
 		disp_aal_debug(opt + 4);
 	} else if (strncmp(opt, "c3d:", 4) == 0) {
 		mtk_disp_c3d_debug(opt + 4);
+	} else if (strncmp(opt, "oddmr:", 4) == 0) {
+		mtk_disp_oddmr_debug(opt + 6);
 	} else if (strncmp(opt, "aee:", 4) == 0) {
 		DDPAEE("trigger aee dump of mmproile\n");
 	} else if (strncmp(opt, "send_ddic_test:", 15) == 0) {

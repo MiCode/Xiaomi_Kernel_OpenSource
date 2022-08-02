@@ -134,8 +134,5 @@ void disp_oddmr_on_start_of_frame(void);
 void mtk_oddmr_timing_chg(struct mtk_oddmr_timing *timing, struct cmdq_pkt *handle);
 void mtk_oddmr_bl_chg(uint32_t bl_level, struct cmdq_pkt *handle);
 int mtk_oddmr_hrt_cal_notify(int *oddmr_hrt);
-extern struct mtk_ddp_comp *default_comp;
-extern struct mtk_ddp_comp *oddmr1_default_comp;
-extern struct mtk_disp_oddmr *g_oddmr_priv;
-extern struct mtk_disp_oddmr *g_oddmr1_priv;
+void mtk_disp_oddmr_debug(const char *opt);
 #endif

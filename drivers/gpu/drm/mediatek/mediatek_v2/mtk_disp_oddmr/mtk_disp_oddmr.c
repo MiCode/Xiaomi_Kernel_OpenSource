@@ -298,6 +298,7 @@ static atomic_t g_oddmr_sof_irq_available = ATOMIC_INIT(0);
 /* 2: need oddmr hrt, 1: oddmr hrt done, 0:nothing todo */
 static atomic_t g_oddmr_dmr_hrt_done = ATOMIC_INIT(0);
 static atomic_t g_oddmr_od_hrt_done = ATOMIC_INIT(0);
+static atomic_t g_od_check_trigger = ATOMIC_INIT(1);
 
 // It's a work around for no comp assigned in functions.
 struct mtk_ddp_comp *default_comp;
@@ -1405,6 +1406,35 @@ void mtk_oddmr_dump(struct mtk_ddp_comp *comp)
 	}
 }
 
+void mtk_disp_oddmr_debug(const char *opt)
+{
+	ODDMRFLOW_LOG(":%s\n", opt);
+	if (strncmp(opt, "flow_log:", 9) == 0) {
+		debug_flow_log = strncmp(opt + 9, "1", 1) == 0;
+		ODDMRFLOW_LOG("debug_flow_log = %d\n", debug_flow_log);
+	} else if (strncmp(opt, "api_log:", 8) == 0) {
+		debug_api_log = strncmp(opt + 8, "1", 1) == 0;
+		ODDMRFLOW_LOG("debug_api_log = %d\n", debug_api_log);
+	} else if (strncmp(opt, "low_log:", 8) == 0) {
+		debug_low_log = strncmp(opt + 8, "1", 1) == 0;
+		ODDMRFLOW_LOG("debug_low_log = %d\n", debug_low_log);
+	} else if (strncmp(opt, "check_trigger:", 14) == 0) {
+		unsigned int on, ret;
+
+		ret = sscanf(opt, "check_trigger:%u\n", &on);
+		if (ret != 1) {
+			ODDMRFLOW_LOG("error to parse cmd %s\n", opt);
+			return;
+		}
+		ODDMRFLOW_LOG("check_trigger = %u\n", on);
+		atomic_set(&g_od_check_trigger, on);
+	} else if (strncmp(opt, "debugdump:", 10) == 0) {
+		ODDMRFLOW_LOG("debug_flow_log = %d\n", debug_flow_log);
+		ODDMRFLOW_LOG("debug_api_log = %d\n", debug_api_log);
+		ODDMRFLOW_LOG("debug_low_log = %d\n", debug_low_log);
+	}
+}
+
 static inline int mtk_oddmr_gain_interpolation(int left_item,
 		int tmp_item, int right_item, int left_value, int right_value)
 {
@@ -2359,7 +2389,7 @@ void mtk_oddmr_bl_chg(uint32_t bl_level, struct cmdq_pkt *handle)
 }
 void mtk_oddmr_set_pq_dirty(void)
 {
-	atomic_set(&g_oddmr_frame_dirty, 1);
+	atomic_set(&g_oddmr_pq_dirty, 1);
 }
 
 int mtk_oddmr_hrt_cal_notify(int *oddmr_hrt)
@@ -2389,16 +2419,17 @@ int mtk_oddmr_hrt_cal_notify(int *oddmr_hrt)
 void mtk_oddmr_od_sec_bypass(uint32_t sec_on, struct cmdq_pkt *handle)
 {
 	uint32_t enable;
+	static uint32_t prev;
 
 	if (is_oddmr_od_support) {
 		enable = g_oddmr_priv->od_enable && (!sec_on);
 		mtk_oddmr_set_od_enable_dual(NULL, enable, handle);
-		if (enable &&
+		if (enable && prev == 0 &&
 			(g_oddmr_priv->data->is_od_support_hw_skip_first_frame == false)) {
 			mtk_oddmr_set_od_weight_dual(default_comp, 0, handle);
-			// called in atomic flush, set 2 to skip one frame
-			atomic_set(&g_oddmr_od_weight_trigger, 2);
+			atomic_set(&g_oddmr_od_weight_trigger, 1);
 		}
+		prev = enable;
 	}
 }
 
@@ -2413,6 +2444,13 @@ int mtk_oddmr_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	switch (cmd) {
 	case FRAME_DIRTY:
 		atomic_set(&g_oddmr_frame_dirty, 1);
+		break;
+	case ODDMR_TRIG_CTL:
+	{
+		uint32_t on = *(uint32_t *)params;
+
+		atomic_set(&g_od_check_trigger, on);
+	}
 		break;
 	case PQ_DIRTY:
 		mtk_oddmr_set_pq_dirty();
@@ -2553,7 +2591,6 @@ static int mtk_oddmr_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle
 	}
 	case ODDMR_CMD_EOF_CHECK_TRIGGER:
 	{
-		//if(atomic_read(&g_oddmr_frame_dirty) == 0)
 		cmdq_pkt_set_event(handle, comp->mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
 		break;
 	}
@@ -2584,6 +2621,7 @@ static void disp_oddmr_wait_sof_irq(void)
 {
 	uint32_t weight;
 	int ret = 0, sel = 0;
+	bool frame_req_trig, pq_req_trig;
 
 	if (atomic_read(&g_oddmr_sof_irq_available) == 0) {
 		ODDMRLOW_LOG("wait_event_interruptible\n");
@@ -2596,7 +2634,10 @@ static void disp_oddmr_wait_sof_irq(void)
 		ODDMRFLOW_LOG("sof_irq_available = 0\n");
 		return;
 	}
+	CRTC_MMP_EVENT_START(0, oddmr_sof_thread, 0, 0);
+	CRTC_MMP_MARK(0, oddmr_sof_thread, atomic_read(&g_oddmr_od_weight_trigger), 0);
 	if (g_oddmr_priv->od_enable) {
+		/* 1. restore user weight */
 		if (atomic_read(&g_oddmr_od_weight_trigger) == 1) {
 			sel = g_oddmr_priv->od_data.od_sram_read_sel;
 			mtk_oddmr_od_gain_lookup(g_oddmr_current_timing.vrefresh,
@@ -2605,20 +2646,44 @@ static void disp_oddmr_wait_sof_irq(void)
 			ODDMRFLOW_LOG("weight restore %u\n", weight);
 			mtk_crtc_user_cmd(&default_comp->mtk_crtc->base,
 				default_comp, ODDMR_CMD_OD_SET_WEIGHT, &weight);
+			CRTC_MMP_MARK(0, oddmr_sof_thread, weight, 1);
 		}
-		if (atomic_read(&g_oddmr_frame_dirty) ||
-				atomic_read(&g_oddmr_pq_dirty) ||
+		/* 2. wait until near next frame te */
+		frame_req_trig = (atomic_read(&g_oddmr_frame_dirty) == 1);
+		pq_req_trig = (atomic_read(&g_oddmr_pq_dirty) == 1);
+		atomic_set(&g_oddmr_frame_dirty, 0);
+		atomic_set(&g_oddmr_pq_dirty, 0);
+		{
+			uint32_t second = 1000000, eof;
+			u16 fps = g_oddmr_current_timing.vrefresh;
+
+			if (fps <= 0)
+				fps = 10;
+			eof = 1 * second / fps;
+
+			ODDMRLOW_LOG("fps: %u eof %u\n", fps, eof);
+			if (eof >= 2000)
+				usleep_range(eof - 2000, eof - 1500);
+		}
+		CRTC_MMP_MARK(0, oddmr_sof_thread, 0, 2);
+		/* 3. check & trigger */
+		if (frame_req_trig || pq_req_trig ||
 				atomic_read(&g_oddmr_od_weight_trigger)) {
-			ODDMRLOW_LOG("check trigger\n");
-			//mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
-			mtk_crtc_user_cmd(&default_comp->mtk_crtc->base,
-				default_comp, ODDMR_CMD_EOF_CHECK_TRIGGER, NULL);
-			atomic_set(&g_oddmr_frame_dirty, 0);
-			atomic_set(&g_oddmr_pq_dirty, 0);
+			if (atomic_read(&g_oddmr_frame_dirty) == 0 &&
+				atomic_read(&g_oddmr_pq_dirty) == 0 &&
+				mtk_crtc_is_frame_trigger_mode(&default_comp->mtk_crtc->base) &&
+				atomic_read(&g_od_check_trigger)) {
+				ODDMRLOW_LOG("check trigger\n");
+				mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
+				//mtk_crtc_user_cmd(&default_comp->mtk_crtc->base,
+						//default_comp, ODDMR_CMD_EOF_CHECK_TRIGGER, NULL);
+				CRTC_MMP_MARK(0, oddmr_sof_thread, 0, 3);
+			}
 			if (atomic_read(&g_oddmr_od_weight_trigger) > 0)
 				atomic_dec(&g_oddmr_od_weight_trigger);
 		}
 	}
+	CRTC_MMP_EVENT_END(0, oddmr_sof_thread, 0, 0);
 }
 static int mtk_oddmr_sof_irq_trigger(void *data)
 {
@@ -2694,7 +2759,7 @@ static int mtk_oddmr_od_init(void)
 	}
 	mtk_crtc = default_comp->mtk_crtc;
 	mtk_drm_set_idlemgr(&mtk_crtc->base, 0, 1);
-	mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
+	mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
 	ret = mtk_oddmr_acquire_clock();
 	if (ret == 0) {
 		g_oddmr_priv->od_state = ODDMR_LOAD_DONE;
@@ -2815,7 +2880,7 @@ static int mtk_oddmr_od_enable(struct drm_device *dev, int en)
 			g_oddmr1_priv->od_enable = enable;
 		atomic_set(&g_oddmr_od_hrt_done, 2);
 		drm_trigger_repaint(DRM_REPAINT_FOR_IDLE, dev);
-		mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
+		//mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
 		ret = wait_event_interruptible_timeout(g_oddmr_hrt_wq,
 				atomic_read(&g_oddmr_od_hrt_done) == 1, msecs_to_jiffies(200));
 		if (ret <= 0) {
@@ -2847,7 +2912,7 @@ static int mtk_oddmr_od_enable(struct drm_device *dev, int en)
 			g_oddmr1_priv->od_enable = enable;
 		atomic_set(&g_oddmr_od_hrt_done, 2);
 		drm_trigger_repaint(DRM_REPAINT_FOR_IDLE, dev);
-		mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
+		//mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
 		ret = wait_event_interruptible_timeout(g_oddmr_hrt_wq,
 				atomic_read(&g_oddmr_od_hrt_done) == 1, msecs_to_jiffies(200));
 		if (ret <= 0)

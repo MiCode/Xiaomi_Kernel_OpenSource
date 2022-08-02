@@ -137,6 +137,8 @@ struct CRTC_MMP_Events {
 	mmp_event aal_ess20_curve;
 	/*Clarity mmp mark*/
 	mmp_event clarity_set_regs;
+	/*ODDMR mmp mark*/
+	mmp_event oddmr_sof_thread;
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);

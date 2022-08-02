@@ -314,6 +314,9 @@ void init_crtc_mmp_event(void)
 		/*Clarity MMP MARK*/
 		g_CRTC_MMP_Events[i].clarity_set_regs = mmprofile_register_event(
 			crtc_mmp_root, "clarity_set_regs");
+		/*ODDMR mmp mark*/
+		g_CRTC_MMP_Events[i].oddmr_sof_thread = mmprofile_register_event(
+			crtc_mmp_root, "oddmr_sof_thread");
 	}
 }
 void drm_mmp_init(void)
