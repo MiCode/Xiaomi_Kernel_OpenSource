@@ -6,8 +6,1436 @@
  * Author: KaiChieh Chuang <kaichieh.chuang@mediatek.com>
  */
 
-#ifndef __MT6358_H__
-#define __MT6358_H__
+#ifndef _MT6358_H_
+#define _MT6358_H_
+
+/*************Register Bit Define*************/
+#define MT6358_TOP0_ID                       0x0
+#define MT6358_SMT_CON1                      0x30
+#define MT6358_DRV_CON2                      0x3a
+#define MT6358_DRV_CON3                      0x3c
+#define MT6358_DRV_CON4                      0x3e
+#define MT6358_GPIO_DIR0                     0x88
+#define MT6358_GPIO_DIR0_SET                 0x8a
+#define MT6358_GPIO_DIR0_CLR                 0x8c
+#define MT6358_GPIO_MODE2                    0xd8
+#define MT6358_GPIO_MODE2_SET                0xda
+#define MT6358_GPIO_MODE2_CLR                0xdc
+#define MT6358_GPIO_MODE3                    0xde
+#define MT6358_GPIO_MODE3_SET                0xe0
+#define MT6358_GPIO_MODE3_CLR                0xe2
+#define MT6358_TOP_CKPDN_CON0                0x10c
+#define MT6358_TOP_CKPDN_CON0_SET            0x10e
+#define MT6358_TOP_CKPDN_CON0_CLR            0x110
+#define MT6358_TOP_CKHWEN_CON0               0x12a
+#define MT6358_TOP_CKHWEN_CON0_SET           0x12c
+#define MT6358_TOP_CKHWEN_CON0_CLR           0x12e
+#define MT6358_OTP_CON0                      0x38a
+#define MT6358_OTP_CON1                      0x38c
+#define MT6358_OTP_CON2                      0x38e
+#define MT6358_OTP_CON3                      0x390
+#define MT6358_OTP_CON4                      0x392
+#define MT6358_OTP_CON5                      0x394
+#define MT6358_OTP_CON6                      0x396
+#define MT6358_OTP_CON7                      0x398
+#define MT6358_OTP_CON8                      0x39a
+#define MT6358_OTP_CON9                      0x39c
+#define MT6358_OTP_CON10                     0x39e
+#define MT6358_OTP_CON11                     0x3a0
+#define MT6358_OTP_CON12                     0x3a2
+#define MT6358_OTP_CON13                     0x3a4
+#define MT6358_OTP_CON14                     0x3a6
+#define MT6358_DCXO_CW00                     0x788
+#define MT6358_DCXO_CW00_SET                 0x78a
+#define MT6358_DCXO_CW00_CLR                 0x78c
+#define MT6358_DCXO_CW01                     0x78e
+#define MT6358_DCXO_CW02                     0x790
+#define MT6358_DCXO_CW03                     0x792
+#define MT6358_DCXO_CW04                     0x794
+#define MT6358_DCXO_CW05                     0x796
+#define MT6358_DCXO_CW06                     0x798
+#define MT6358_DCXO_CW07                     0x79a
+#define MT6358_DCXO_CW08                     0x79c
+#define MT6358_DCXO_CW09                     0x79e
+#define MT6358_DCXO_CW10                     0x7a0
+#define MT6358_DCXO_CW11                     0x7a2
+#define MT6358_DCXO_CW11_SET                 0x7a4
+#define MT6358_DCXO_CW11_CLR                 0x7a6
+#define MT6358_DCXO_CW12                     0x7a8
+#define MT6358_DCXO_CW13                     0x7aa
+#define MT6358_DCXO_CW14                     0x7ac
+#define MT6358_DCXO_CW15                     0x7ae
+#define MT6358_DCXO_CW16                     0x7b0
+#define MT6358_DCXO_CW17                     0x7b2
+#define MT6358_DCXO_CW18                     0x7b4
+#define MT6358_DCXO_CW19                     0x7b6
+#define MT6358_DCXO_CW20                     0x7b8
+#define MT6358_DCXO_CW21                     0x7ba
+#define MT6358_DCXO_CW22                     0x7bc
+#define MT6358_DCXO_CW23                     0x7be
+#define MT6358_DCXO_CW24                     0x7c0
+#define MT6358_AUXADC_DSN_ID                 0x1000
+#define MT6358_AUXADC_DSN_REV0               0x1002
+#define MT6358_AUXADC_DSN_DBI                0x1004
+#define MT6358_AUXADC_DSN_FPI                0x1006
+#define MT6358_AUXADC_ANA_CON0               0x1008
+#define MT6358_AUXADC_DIG_1_DSN_ID           0x1080
+#define MT6358_AUXADC_DIG_1_DSN_REV0         0x1082
+#define MT6358_AUXADC_DIG_1_DSN_DBI          0x1084
+#define MT6358_AUXADC_DIG_1_DSN_DXI          0x1086
+#define MT6358_AUXADC_ADC0                   0x1088
+#define MT6358_AUXADC_ADC1                   0x108a
+#define MT6358_AUXADC_ADC2                   0x108c
+#define MT6358_AUXADC_ADC3                   0x108e
+#define MT6358_AUXADC_ADC4                   0x1090
+#define MT6358_AUXADC_ADC5                   0x1092
+#define MT6358_AUXADC_ADC6                   0x1094
+#define MT6358_AUXADC_ADC7                   0x1096
+#define MT6358_AUXADC_ADC8                   0x1098
+#define MT6358_AUXADC_ADC9                   0x109a
+#define MT6358_AUXADC_ADC10                  0x109c
+#define MT6358_AUXADC_ADC11                  0x109e
+#define MT6358_AUXADC_ADC12                  0x10a0
+#define MT6358_AUXADC_ADC13                  0x10a2
+#define MT6358_AUXADC_ADC14                  0x10a4
+#define MT6358_AUXADC_ADC15                  0x10a6
+#define MT6358_AUXADC_ADC16                  0x10a8
+#define MT6358_AUXADC_ADC17                  0x10aa
+#define MT6358_AUXADC_ADC18                  0x10ac
+#define MT6358_AUXADC_ADC19                  0x10ae
+#define MT6358_AUXADC_ADC20                  0x10b0
+#define MT6358_AUXADC_ADC21                  0x10b2
+#define MT6358_AUXADC_ADC22                  0x10b4
+#define MT6358_AUXADC_ADC23                  0x10b6
+#define MT6358_AUXADC_ADC24                  0x10b8
+#define MT6358_AUXADC_ADC25                  0x10ba
+#define MT6358_AUXADC_ADC26                  0x10bc
+#define MT6358_AUXADC_ADC27                  0x10be
+#define MT6358_AUXADC_ADC28                  0x10c0
+#define MT6358_AUXADC_ADC29                  0x10c2
+#define MT6358_AUXADC_ADC30                  0x10c4
+#define MT6358_AUXADC_ADC31                  0x10c6
+#define MT6358_AUXADC_ADC32                  0x10c8
+#define MT6358_AUXADC_ADC33                  0x10ca
+#define MT6358_AUXADC_ADC34                  0x10cc
+#define MT6358_AUXADC_ADC35                  0x10ce
+#define MT6358_AUXADC_ADC36                  0x10d0
+#define MT6358_AUXADC_ADC37                  0x10d2
+#define MT6358_AUXADC_ADC38                  0x10d4
+#define MT6358_AUXADC_ADC39                  0x10d6
+#define MT6358_AUXADC_ADC40                  0x10d8
+#define MT6358_AUXADC_STA0                   0x10da
+#define MT6358_AUXADC_STA1                   0x10dc
+#define MT6358_AUXADC_STA2                   0x10de
+#define MT6358_AUXADC_DIG_2_DSN_ID           0x1100
+#define MT6358_AUXADC_DIG_2_DSN_REV0         0x1102
+#define MT6358_AUXADC_DIG_2_DSN_DBI          0x1104
+#define MT6358_AUXADC_DIG_2_DSN_DXI          0x1106
+#define MT6358_AUXADC_RQST0                  0x1108
+#define MT6358_AUXADC_RQST1                  0x110a
+#define MT6358_AUXADC_DIG_3_DSN_ID           0x1180
+#define MT6358_AUXADC_DIG_3_DSN_REV0         0x1182
+#define MT6358_AUXADC_DIG_3_DSN_DBI          0x1184
+#define MT6358_AUXADC_DIG_3_DSN_DXI          0x1186
+#define MT6358_AUXADC_CON0                   0x1188
+#define MT6358_AUXADC_CON0_SET               0x118a
+#define MT6358_AUXADC_CON0_CLR               0x118c
+#define MT6358_AUXADC_CON1                   0x118e
+#define MT6358_AUXADC_CON2                   0x1190
+#define MT6358_AUXADC_CON3                   0x1192
+#define MT6358_AUXADC_CON4                   0x1194
+#define MT6358_AUXADC_CON5                   0x1196
+#define MT6358_AUXADC_CON6                   0x1198
+#define MT6358_AUXADC_CON7                   0x119a
+#define MT6358_AUXADC_CON8                   0x119c
+#define MT6358_AUXADC_CON9                   0x119e
+#define MT6358_AUXADC_CON10                  0x11a0
+#define MT6358_AUXADC_CON11                  0x11a2
+#define MT6358_AUXADC_CON12                  0x11a4
+#define MT6358_AUXADC_CON13                  0x11a6
+#define MT6358_AUXADC_CON14                  0x11a8
+#define MT6358_AUXADC_CON15                  0x11aa
+#define MT6358_AUXADC_CON16                  0x11ac
+#define MT6358_AUXADC_CON17                  0x11ae
+#define MT6358_AUXADC_CON18                  0x11b0
+#define MT6358_AUXADC_CON19                  0x11b2
+#define MT6358_AUXADC_CON20                  0x11b4
+#define MT6358_AUXADC_AUTORPT0               0x11b6
+#define MT6358_AUXADC_ACCDET                 0x11b8
+#define MT6358_AUXADC_DBG0                   0x11ba
+#define MT6358_AUXADC_DIG_3_ELR_NUM          0x11bc
+#define MT6358_AUXADC_DIG_3_ELR0             0x11be
+#define MT6358_AUXADC_DIG_3_ELR1             0x11c0
+#define MT6358_AUXADC_DIG_3_ELR2             0x11c2
+#define MT6358_AUXADC_DIG_3_ELR3             0x11c4
+#define MT6358_AUXADC_DIG_3_ELR4             0x11c6
+#define MT6358_AUXADC_DIG_3_ELR5             0x11c8
+#define MT6358_AUXADC_DIG_3_ELR6             0x11ca
+#define MT6358_AUXADC_DIG_3_ELR7             0x11cc
+#define MT6358_AUXADC_DIG_3_ELR8             0x11ce
+#define MT6358_AUXADC_DIG_3_ELR9             0x11d0
+#define MT6358_AUXADC_DIG_3_ELR10            0x11d2
+#define MT6358_AUXADC_DIG_3_ELR11            0x11d4
+#define MT6358_AUXADC_DIG_3_ELR12            0x11d6
+#define MT6358_AUXADC_DIG_3_ELR13            0x11d8
+#define MT6358_AUXADC_DIG_4_DSN_ID           0x1200
+#define MT6358_AUXADC_DIG_4_DSN_REV0         0x1202
+#define MT6358_AUXADC_DIG_4_DSN_DBI          0x1204
+#define MT6358_AUXADC_DIG_4_DSN_DXI          0x1206
+#define MT6358_AUXADC_IMP0                   0x1208
+#define MT6358_AUXADC_IMP1                   0x120a
+#define MT6358_AUXADC_IMP2                   0x120c
+#define MT6358_AUXADC_LBAT0                  0x120e
+#define MT6358_AUXADC_LBAT1                  0x1210
+#define MT6358_AUXADC_LBAT2                  0x1212
+#define MT6358_AUXADC_LBAT3                  0x1214
+#define MT6358_AUXADC_LBAT4                  0x1216
+#define MT6358_AUXADC_LBAT5                  0x1218
+#define MT6358_AUXADC_LBAT6                  0x121a
+#define MT6358_AUXADC_BAT_TEMP_0             0x121c
+#define MT6358_AUXADC_BAT_TEMP_1             0x121e
+#define MT6358_AUXADC_BAT_TEMP_2             0x1220
+#define MT6358_AUXADC_BAT_TEMP_3             0x1222
+#define MT6358_AUXADC_BAT_TEMP_4             0x1224
+#define MT6358_AUXADC_BAT_TEMP_5             0x1226
+#define MT6358_AUXADC_BAT_TEMP_6             0x1228
+#define MT6358_AUXADC_BAT_TEMP_7             0x122a
+#define MT6358_AUXADC_LBAT2_1                0x122c
+#define MT6358_AUXADC_LBAT2_2                0x122e
+#define MT6358_AUXADC_LBAT2_3                0x1230
+#define MT6358_AUXADC_LBAT2_4                0x1232
+#define MT6358_AUXADC_LBAT2_5                0x1234
+#define MT6358_AUXADC_LBAT2_6                0x1236
+#define MT6358_AUXADC_LBAT2_7                0x1238
+#define MT6358_AUXADC_MDRT_0                 0x123a
+#define MT6358_AUXADC_MDRT_1                 0x123c
+#define MT6358_AUXADC_MDRT_2                 0x123e
+#define MT6358_AUXADC_MDRT_3                 0x1240
+#define MT6358_AUXADC_MDRT_4                 0x1242
+#define MT6358_AUXADC_DCXO_MDRT_1            0x1244
+#define MT6358_AUXADC_DCXO_MDRT_2            0x1246
+#define MT6358_AUXADC_NAG_0                  0x1248
+#define MT6358_AUXADC_NAG_1                  0x124a
+#define MT6358_AUXADC_NAG_2                  0x124c
+#define MT6358_AUXADC_NAG_3                  0x124e
+#define MT6358_AUXADC_NAG_4                  0x1250
+#define MT6358_AUXADC_NAG_5                  0x1252
+#define MT6358_AUXADC_NAG_6                  0x1254
+#define MT6358_AUXADC_NAG_7                  0x1256
+#define MT6358_AUXADC_NAG_8                  0x1258
+#define MT6358_AUXADC_NAG_9                  0x125a
+#define MT6358_AUXADC_RSV_1                  0x125c
+#define MT6358_AUXADC_PRI_NEW                0x125e
+#define MT6358_AUXADC_DCM_CON                0x1260
+#define MT6358_AUXADC_SPL_LIST_0             0x1262
+#define MT6358_AUXADC_SPL_LIST_1             0x1264
+#define MT6358_AUXADC_SPL_LIST_2             0x1266
+#define MT6358_LDO_VAUD28_CON0               0x1ac4
+#define MT6358_LDO_VUSB_OP_EN                0x1b32
+#define MT6358_LDO_VUSB_OP_EN_SET            0x1b34
+#define MT6358_LDO_VUSB_OP_EN_CLR            0x1b36
+#define MT6358_AUD_TOP_ID                    0x2200
+#define MT6358_AUD_TOP_REV0                  0x2202
+#define MT6358_AUD_TOP_DBI                   0x2204
+#define MT6358_AUD_TOP_DXI                   0x2206
+#define MT6358_AUD_TOP_CKPDN_TPM0            0x2208
+#define MT6358_AUD_TOP_CKPDN_TPM1            0x220a
+#define MT6358_AUD_TOP_CKPDN_CON0            0x220c
+#define MT6358_AUD_TOP_CKPDN_CON0_SET        0x220e
+#define MT6358_AUD_TOP_CKPDN_CON0_CLR        0x2210
+#define MT6358_AUD_TOP_CKSEL_CON0            0x2212
+#define MT6358_AUD_TOP_CKSEL_CON0_SET        0x2214
+#define MT6358_AUD_TOP_CKSEL_CON0_CLR        0x2216
+#define MT6358_AUD_TOP_CKTST_CON0            0x2218
+#define MT6358_AUD_TOP_CLK_HWEN_CON0         0x221a
+#define MT6358_AUD_TOP_CLK_HWEN_CON0_SET     0x221c
+#define MT6358_AUD_TOP_CLK_HWEN_CON0_CLR     0x221e
+#define MT6358_AUD_TOP_RST_CON0              0x2220
+#define MT6358_AUD_TOP_RST_CON0_SET          0x2222
+#define MT6358_AUD_TOP_RST_CON0_CLR          0x2224
+#define MT6358_AUD_TOP_RST_BANK_CON0         0x2226
+#define MT6358_AUD_TOP_INT_CON0              0x2228
+#define MT6358_AUD_TOP_INT_CON0_SET          0x222a
+#define MT6358_AUD_TOP_INT_CON0_CLR          0x222c
+#define MT6358_AUD_TOP_INT_MASK_CON0         0x222e
+#define MT6358_AUD_TOP_INT_MASK_CON0_SET     0x2230
+#define MT6358_AUD_TOP_INT_MASK_CON0_CLR     0x2232
+#define MT6358_AUD_TOP_INT_STATUS0           0x2234
+#define MT6358_AUD_TOP_INT_RAW_STATUS0       0x2236
+#define MT6358_AUD_TOP_INT_MISC_CON0         0x2238
+#define MT6358_AUDNCP_CLKDIV_CON0            0x223a
+#define MT6358_AUDNCP_CLKDIV_CON1            0x223c
+#define MT6358_AUDNCP_CLKDIV_CON2            0x223e
+#define MT6358_AUDNCP_CLKDIV_CON3            0x2240
+#define MT6358_AUDNCP_CLKDIV_CON4            0x2242
+#define MT6358_AUD_TOP_MON_CON0              0x2244
+#define MT6358_AUDIO_DIG_DSN_ID              0x2280
+#define MT6358_AUDIO_DIG_DSN_REV0            0x2282
+#define MT6358_AUDIO_DIG_DSN_DBI             0x2284
+#define MT6358_AUDIO_DIG_DSN_DXI             0x2286
+#define MT6358_AFE_UL_DL_CON0                0x2288
+#define MT6358_AFE_DL_SRC2_CON0_L            0x228a
+#define MT6358_AFE_UL_SRC_CON0_H             0x228c
+#define MT6358_AFE_UL_SRC_CON0_L             0x228e
+#define MT6358_AFE_TOP_CON0                  0x2290
+#define MT6358_AUDIO_TOP_CON0                0x2292
+#define MT6358_AFE_MON_DEBUG0                0x2294
+#define MT6358_AFUNC_AUD_CON0                0x2296
+#define MT6358_AFUNC_AUD_CON1                0x2298
+#define MT6358_AFUNC_AUD_CON2                0x229a
+#define MT6358_AFUNC_AUD_CON3                0x229c
+#define MT6358_AFUNC_AUD_CON4                0x229e
+#define MT6358_AFUNC_AUD_CON5                0x22a0
+#define MT6358_AFUNC_AUD_CON6                0x22a2
+#define MT6358_AFUNC_AUD_MON0                0x22a4
+#define MT6358_AUDRC_TUNE_MON0               0x22a6
+#define MT6358_AFE_ADDA_MTKAIF_FIFO_CFG0     0x22a8
+#define MT6358_AFE_ADDA_MTKAIF_FIFO_LOG_MON1 0x22aa
+#define MT6358_AFE_ADDA_MTKAIF_MON0          0x22ac
+#define MT6358_AFE_ADDA_MTKAIF_MON1          0x22ae
+#define MT6358_AFE_ADDA_MTKAIF_MON2          0x22b0
+#define MT6358_AFE_ADDA_MTKAIF_MON3          0x22b2
+#define MT6358_AFE_ADDA_MTKAIF_CFG0          0x22b4
+#define MT6358_AFE_ADDA_MTKAIF_RX_CFG0       0x22b6
+#define MT6358_AFE_ADDA_MTKAIF_RX_CFG1       0x22b8
+#define MT6358_AFE_ADDA_MTKAIF_RX_CFG2       0x22ba
+#define MT6358_AFE_ADDA_MTKAIF_RX_CFG3       0x22bc
+#define MT6358_AFE_ADDA_MTKAIF_TX_CFG1       0x22be
+#define MT6358_AFE_SGEN_CFG0                 0x22c0
+#define MT6358_AFE_SGEN_CFG1                 0x22c2
+#define MT6358_AFE_ADC_ASYNC_FIFO_CFG        0x22c4
+#define MT6358_AFE_DCCLK_CFG0                0x22c6
+#define MT6358_AFE_DCCLK_CFG1                0x22c8
+#define MT6358_AUDIO_DIG_CFG                 0x22ca
+#define MT6358_AFE_AUD_PAD_TOP               0x22cc
+#define MT6358_AFE_AUD_PAD_TOP_MON           0x22ce
+#define MT6358_AFE_AUD_PAD_TOP_MON1          0x22d0
+#define MT6358_AFE_DL_NLE_CFG                0x22d2
+#define MT6358_AFE_DL_NLE_MON                0x22d4
+#define MT6358_AFE_CG_EN_MON                 0x22d6
+#define MT6358_AUDIO_DIG_2ND_DSN_ID          0x2300
+#define MT6358_AUDIO_DIG_2ND_DSN_REV0        0x2302
+#define MT6358_AUDIO_DIG_2ND_DSN_DBI         0x2304
+#define MT6358_AUDIO_DIG_2ND_DSN_DXI         0x2306
+#define MT6358_AFE_PMIC_NEWIF_CFG3           0x2308
+#define MT6358_AFE_VOW_TOP                   0x230a
+#define MT6358_AFE_VOW_CFG0                  0x230c
+#define MT6358_AFE_VOW_CFG1                  0x230e
+#define MT6358_AFE_VOW_CFG2                  0x2310
+#define MT6358_AFE_VOW_CFG3                  0x2312
+#define MT6358_AFE_VOW_CFG4                  0x2314
+#define MT6358_AFE_VOW_CFG5                  0x2316
+#define MT6358_AFE_VOW_CFG6                  0x2318
+#define MT6358_AFE_VOW_MON0                  0x231a
+#define MT6358_AFE_VOW_MON1                  0x231c
+#define MT6358_AFE_VOW_MON2                  0x231e
+#define MT6358_AFE_VOW_MON3                  0x2320
+#define MT6358_AFE_VOW_MON4                  0x2322
+#define MT6358_AFE_VOW_MON5                  0x2324
+#define MT6358_AFE_VOW_SN_INI_CFG            0x2326
+#define MT6358_AFE_VOW_TGEN_CFG0             0x2328
+#define MT6358_AFE_VOW_POSDIV_CFG0           0x232a
+#define MT6358_AFE_VOW_HPF_CFG0              0x232c
+#define MT6358_AFE_VOW_PERIODIC_CFG0         0x232e
+#define MT6358_AFE_VOW_PERIODIC_CFG1         0x2330
+#define MT6358_AFE_VOW_PERIODIC_CFG2         0x2332
+#define MT6358_AFE_VOW_PERIODIC_CFG3         0x2334
+#define MT6358_AFE_VOW_PERIODIC_CFG4         0x2336
+#define MT6358_AFE_VOW_PERIODIC_CFG5         0x2338
+#define MT6358_AFE_VOW_PERIODIC_CFG6         0x233a
+#define MT6358_AFE_VOW_PERIODIC_CFG7         0x233c
+#define MT6358_AFE_VOW_PERIODIC_CFG8         0x233e
+#define MT6358_AFE_VOW_PERIODIC_CFG9         0x2340
+#define MT6358_AFE_VOW_PERIODIC_CFG10        0x2342
+#define MT6358_AFE_VOW_PERIODIC_CFG11        0x2344
+#define MT6358_AFE_VOW_PERIODIC_CFG12        0x2346
+#define MT6358_AFE_VOW_PERIODIC_CFG13        0x2348
+#define MT6358_AFE_VOW_PERIODIC_CFG14        0x234a
+#define MT6358_AFE_VOW_PERIODIC_CFG15        0x234c
+#define MT6358_AFE_VOW_PERIODIC_CFG16        0x234e
+#define MT6358_AFE_VOW_PERIODIC_CFG17        0x2350
+#define MT6358_AFE_VOW_PERIODIC_CFG18        0x2352
+#define MT6358_AFE_VOW_PERIODIC_CFG19        0x2354
+#define MT6358_AFE_VOW_PERIODIC_CFG20        0x2356
+#define MT6358_AFE_VOW_PERIODIC_CFG21        0x2358
+#define MT6358_AFE_VOW_PERIODIC_CFG22        0x235a
+#define MT6358_AFE_VOW_PERIODIC_CFG23        0x235c
+#define MT6358_AFE_VOW_PERIODIC_MON0         0x235e
+#define MT6358_AFE_VOW_PERIODIC_MON1         0x2360
+#define MT6358_AUDENC_DSN_ID                 0x2380
+#define MT6358_AUDENC_DSN_REV0               0x2382
+#define MT6358_AUDENC_DSN_DBI                0x2384
+#define MT6358_AUDENC_DSN_FPI                0x2386
+#define MT6358_AUDENC_ANA_CON0               0x2388
+#define MT6358_AUDENC_ANA_CON1               0x238a
+#define MT6358_AUDENC_ANA_CON2               0x238c
+#define MT6358_AUDENC_ANA_CON3               0x238e
+#define MT6358_AUDENC_ANA_CON4               0x2390
+#define MT6358_AUDENC_ANA_CON5               0x2392
+#define MT6358_AUDENC_ANA_CON6               0x2394
+#define MT6358_AUDENC_ANA_CON7               0x2396
+#define MT6358_AUDENC_ANA_CON8               0x2398
+#define MT6358_AUDENC_ANA_CON9               0x239a
+#define MT6358_AUDENC_ANA_CON10              0x239c
+#define MT6358_AUDENC_ANA_CON11              0x239e
+#define MT6358_AUDENC_ANA_CON12              0x23a0
+#define MT6358_AUDDEC_DSN_ID                 0x2400
+#define MT6358_AUDDEC_DSN_REV0               0x2402
+#define MT6358_AUDDEC_DSN_DBI                0x2404
+#define MT6358_AUDDEC_DSN_FPI                0x2406
+#define MT6358_AUDDEC_ANA_CON0               0x2408
+#define MT6358_AUDDEC_ANA_CON1               0x240a
+#define MT6358_AUDDEC_ANA_CON2               0x240c
+#define MT6358_AUDDEC_ANA_CON3               0x240e
+#define MT6358_AUDDEC_ANA_CON4               0x2410
+#define MT6358_AUDDEC_ANA_CON5               0x2412
+#define MT6358_AUDDEC_ANA_CON6               0x2414
+#define MT6358_AUDDEC_ANA_CON7               0x2416
+#define MT6358_AUDDEC_ANA_CON8               0x2418
+#define MT6358_AUDDEC_ANA_CON9               0x241a
+#define MT6358_AUDDEC_ANA_CON10              0x241c
+#define MT6358_AUDDEC_ANA_CON11              0x241e
+#define MT6358_AUDDEC_ANA_CON12              0x2420
+#define MT6358_AUDDEC_ANA_CON13              0x2422
+#define MT6358_AUDDEC_ANA_CON14              0x2424
+#define MT6358_AUDDEC_ANA_CON15              0x2426
+#define MT6358_AUDDEC_ELR_NUM                0x2428
+#define MT6358_AUDDEC_ELR_0                  0x242a
+#define MT6358_AUDZCD_DSN_ID                 0x2480
+#define MT6358_AUDZCD_DSN_REV0               0x2482
+#define MT6358_AUDZCD_DSN_DBI                0x2484
+#define MT6358_AUDZCD_DSN_FPI                0x2486
+#define MT6358_ZCD_CON0                      0x2488
+#define MT6358_ZCD_CON1                      0x248a
+#define MT6358_ZCD_CON2                      0x248c
+#define MT6358_ZCD_CON3                      0x248e
+#define MT6358_ZCD_CON4                      0x2490
+#define MT6358_ZCD_CON5                      0x2492
+#define MT6358_ACCDET_DSN_DIG_ID             0x2500
+#define MT6358_ACCDET_DSN_DIG_REV0           0x2502
+#define MT6358_ACCDET_DSN_DBI                0x2504
+#define MT6358_ACCDET_DSN_FPI                0x2506
+#define MT6358_ACCDET_CON0                   0x2508
+#define MT6358_ACCDET_CON1                   0x250a
+#define MT6358_ACCDET_CON2                   0x250c
+#define MT6358_ACCDET_CON3                   0x250e
+#define MT6358_ACCDET_CON4                   0x2510
+#define MT6358_ACCDET_CON5                   0x2512
+#define MT6358_ACCDET_CON6                   0x2514
+#define MT6358_ACCDET_CON7                   0x2516
+#define MT6358_ACCDET_CON8                   0x2518
+#define MT6358_ACCDET_CON9                   0x251a
+#define MT6358_ACCDET_CON10                  0x251c
+#define MT6358_ACCDET_CON11                  0x251e
+#define MT6358_ACCDET_CON12                  0x2520
+#define MT6358_ACCDET_CON13                  0x2522
+#define MT6358_ACCDET_CON14                  0x2524
+#define MT6358_ACCDET_CON15                  0x2526
+#define MT6358_ACCDET_CON16                  0x2528
+#define MT6358_ACCDET_CON17                  0x252a
+#define MT6358_ACCDET_CON18                  0x252c
+#define MT6358_ACCDET_CON19                  0x252e
+#define MT6358_ACCDET_CON20                  0x2530
+#define MT6358_ACCDET_CON21                  0x2532
+#define MT6358_ACCDET_CON22                  0x2534
+#define MT6358_ACCDET_CON23                  0x2536
+#define MT6358_ACCDET_CON24                  0x2538
+#define MT6358_ACCDET_CON25                  0x253a
+#define MT6358_ACCDET_CON26                  0x253c
+#define MT6358_ACCDET_CON27                  0x253e
+#define MT6358_ACCDET_CON28                  0x2540
+#define TOP0_ANA_ID_ADDR                               \
+	MT6358_TOP0_ID
+#define TOP0_ANA_ID_SFT                                0
+#define TOP0_ANA_ID_MASK                               0xFF
+#define TOP0_ANA_ID_MASK_SFT                           (0xFF << 0)
+#define AUXADC_RQST_CH0_ADDR                           \
+	MT6358_AUXADC_RQST0
+#define AUXADC_RQST_CH0_SFT                            0
+#define AUXADC_RQST_CH0_MASK                           0x1
+#define AUXADC_RQST_CH0_MASK_SFT                       (0x1 << 0)
+#define AUXADC_ACCDET_ANASWCTRL_EN_ADDR                \
+	MT6358_AUXADC_CON15
+#define AUXADC_ACCDET_ANASWCTRL_EN_SFT                 6
+#define AUXADC_ACCDET_ANASWCTRL_EN_MASK                0x1
+#define AUXADC_ACCDET_ANASWCTRL_EN_MASK_SFT            (0x1 << 6)
+
+#define AUXADC_ACCDET_AUTO_SPL_ADDR                     \
+	MT6358_AUXADC_ACCDET
+#define AUXADC_ACCDET_AUTO_SPL_SFT                      0
+#define AUXADC_ACCDET_AUTO_SPL_MASK                     0x1
+#define AUXADC_ACCDET_AUTO_SPL_MASK_SFT                 (0x1 << 0)
+#define AUXADC_ACCDET_AUTO_RQST_CLR_ADDR                \
+	MT6358_AUXADC_ACCDET
+#define AUXADC_ACCDET_AUTO_RQST_CLR_SFT                 1
+#define AUXADC_ACCDET_AUTO_RQST_CLR_MASK                0x1
+#define AUXADC_ACCDET_AUTO_RQST_CLR_MASK_SFT            (0x1 << 1)
+#define AUXADC_ACCDET_DIG1_RSV0_ADDR                    \
+	MT6358_AUXADC_ACCDET
+#define AUXADC_ACCDET_DIG1_RSV0_SFT                     2
+#define AUXADC_ACCDET_DIG1_RSV0_MASK                    0x3F
+#define AUXADC_ACCDET_DIG1_RSV0_MASK_SFT                (0x3F << 2)
+#define AUXADC_ACCDET_DIG0_RSV0_ADDR                    \
+	MT6358_AUXADC_ACCDET
+#define AUXADC_ACCDET_DIG0_RSV0_SFT                     8
+#define AUXADC_ACCDET_DIG0_RSV0_MASK                    0xFF
+#define AUXADC_ACCDET_DIG0_RSV0_MASK_SFT                (0xFF << 8)
+
+#define RG_ACCDET_CK_PDN_ADDR                           \
+	MT6358_AUD_TOP_CKPDN_CON0
+#define RG_ACCDET_CK_PDN_SFT                            0
+#define RG_ACCDET_CK_PDN_MASK                           0x1
+#define RG_ACCDET_CK_PDN_MASK_SFT                       (0x1 << 0)
+#define RG_ACCDET_RST_ADDR                              \
+	MT6358_AUD_TOP_RST_CON0
+#define RG_ACCDET_RST_SFT                               1
+#define RG_ACCDET_RST_MASK                              0x1
+#define RG_ACCDET_RST_MASK_SFT                          (0x1 << 1)
+#define BANK_ACCDET_SWRST_ADDR                          \
+	MT6358_AUD_TOP_RST_BANK_CON0
+#define BANK_ACCDET_SWRST_SFT                           0
+#define BANK_ACCDET_SWRST_MASK                          0x1
+#define BANK_ACCDET_SWRST_MASK_SFT                      (0x1 << 0)
+#define RG_INT_EN_ACCDET_ADDR                           \
+	MT6358_AUD_TOP_INT_CON0
+#define RG_INT_EN_ACCDET_SFT                            5
+#define RG_INT_EN_ACCDET_MASK                           0x1
+#define RG_INT_EN_ACCDET_MASK_SFT                       (0x1 << 5)
+#define RG_INT_EN_ACCDET_EINT0_ADDR                     \
+	MT6358_AUD_TOP_INT_CON0
+#define RG_INT_EN_ACCDET_EINT0_SFT                      6
+#define RG_INT_EN_ACCDET_EINT0_MASK                     0x1
+#define RG_INT_EN_ACCDET_EINT0_MASK_SFT                 (0x1 << 6)
+#define RG_INT_EN_ACCDET_EINT1_ADDR                     \
+	MT6358_AUD_TOP_INT_CON0
+#define RG_INT_EN_ACCDET_EINT1_SFT                      7
+#define RG_INT_EN_ACCDET_EINT1_MASK                     0x1
+#define RG_INT_EN_ACCDET_EINT1_MASK_SFT                 (0x1 << 7)
+#define RG_INT_MASK_ACCDET_ADDR                         \
+	MT6358_AUD_TOP_INT_MASK_CON0
+#define RG_INT_MASK_ACCDET_SFT                          5
+#define RG_INT_MASK_ACCDET_MASK                         0x1
+#define RG_INT_MASK_ACCDET_MASK_SFT                     (0x1 << 5)
+#define RG_INT_MASK_ACCDET_EINT0_ADDR                   \
+	MT6358_AUD_TOP_INT_MASK_CON0
+#define RG_INT_MASK_ACCDET_EINT0_SFT                    6
+#define RG_INT_MASK_ACCDET_EINT0_MASK                   0x1
+#define RG_INT_MASK_ACCDET_EINT0_MASK_SFT               (0x1 << 6)
+#define RG_INT_MASK_ACCDET_EINT1_ADDR                   \
+	MT6358_AUD_TOP_INT_MASK_CON0
+#define RG_INT_MASK_ACCDET_EINT1_SFT                    7
+#define RG_INT_MASK_ACCDET_EINT1_MASK                   0x1
+#define RG_INT_MASK_ACCDET_EINT1_MASK_SFT               (0x1 << 7)
+#define RG_INT_STATUS_ACCDET_ADDR                       \
+	MT6358_AUD_TOP_INT_STATUS0
+#define RG_INT_STATUS_ACCDET_SFT                        5
+#define RG_INT_STATUS_ACCDET_MASK                       0x1
+#define RG_INT_STATUS_ACCDET_MASK_SFT                   (0x1 << 5)
+#define RG_INT_STATUS_ACCDET_EINT0_ADDR                 \
+	MT6358_AUD_TOP_INT_STATUS0
+#define RG_INT_STATUS_ACCDET_EINT0_SFT                  6
+#define RG_INT_STATUS_ACCDET_EINT0_MASK                 0x1
+#define RG_INT_STATUS_ACCDET_EINT0_MASK_SFT             (0x1 << 6)
+#define RG_INT_STATUS_ACCDET_EINT1_ADDR                 \
+	MT6358_AUD_TOP_INT_STATUS0
+#define RG_INT_STATUS_ACCDET_EINT1_SFT                  7
+#define RG_INT_STATUS_ACCDET_EINT1_MASK                 0x1
+#define RG_INT_STATUS_ACCDET_EINT1_MASK_SFT             (0x1 << 7)
+#define RG_INT_RAW_STATUS_ACCDET_ADDR                   \
+	MT6358_AUD_TOP_INT_RAW_STATUS0
+#define RG_INT_RAW_STATUS_ACCDET_SFT                    5
+#define RG_INT_RAW_STATUS_ACCDET_MASK                   0x1
+#define RG_INT_RAW_STATUS_ACCDET_MASK_SFT               (0x1 << 5)
+#define RG_INT_RAW_STATUS_ACCDET_EINT0_ADDR             \
+	MT6358_AUD_TOP_INT_RAW_STATUS0
+#define RG_INT_RAW_STATUS_ACCDET_EINT0_SFT              6
+#define RG_INT_RAW_STATUS_ACCDET_EINT0_MASK             0x1
+#define RG_INT_RAW_STATUS_ACCDET_EINT0_MASK_SFT         (0x1 << 6)
+#define RG_INT_RAW_STATUS_ACCDET_EINT1_ADDR             \
+	MT6358_AUD_TOP_INT_RAW_STATUS0
+#define RG_INT_RAW_STATUS_ACCDET_EINT1_SFT              7
+#define RG_INT_RAW_STATUS_ACCDET_EINT1_MASK             0x1
+#define RG_INT_RAW_STATUS_ACCDET_EINT1_MASK_SFT         (0x1 << 7)
+
+#define RG_AUDPREAMPLON_ADDR                            \
+	MT6358_AUDENC_ANA_CON0
+#define RG_AUDPREAMPLON_SFT                             0
+#define RG_AUDPREAMPLON_MASK                            0x1
+#define RG_AUDPREAMPLON_MASK_SFT                        (0x1 << 0)
+#define RG_CLKSQ_EN_ADDR                                \
+	MT6358_AUDENC_ANA_CON6
+#define RG_CLKSQ_EN_SFT                                 0
+#define RG_CLKSQ_EN_MASK                                0x1
+#define RG_CLKSQ_EN_MASK_SFT                            (0x1 << 0)
+#define RG_AUDSPARE_ADDR                                \
+	MT6358_AUDENC_ANA_CON6
+#define RG_AUDPWDBMICBIAS0_ADDR                         \
+	MT6358_AUDENC_ANA_CON9
+#define RG_AUDPWDBMICBIAS0_SFT                          0
+#define RG_AUDPWDBMICBIAS0_MASK                         0x1
+#define RG_AUDPWDBMICBIAS0_MASK_SFT                     (0x1 << 0)
+#define RG_AUDPWDBMICBIAS1_ADDR                         \
+	MT6358_AUDENC_ANA_CON10
+#define RG_AUDPWDBMICBIAS1_SFT                          0
+#define RG_AUDPWDBMICBIAS1_MASK                         0x1
+#define RG_AUDPWDBMICBIAS1_MASK_SFT                     (0x1 << 0)
+#define RG_AUDMICBIAS1BYPASSEN_ADDR                     \
+	MT6358_AUDENC_ANA_CON10
+#define RG_AUDMICBIAS1BYPASSEN_SFT                      1
+#define RG_AUDMICBIAS1BYPASSEN_MASK                     0x1
+#define RG_AUDMICBIAS1BYPASSEN_MASK_SFT                 (0x1 << 1)
+#define RG_AUDMICBIAS1LOWPEN_ADDR                       \
+	MT6358_AUDENC_ANA_CON10
+#define RG_AUDMICBIAS1LOWPEN_SFT                        2
+#define RG_AUDMICBIAS1LOWPEN_MASK                       0x1
+#define RG_AUDMICBIAS1LOWPEN_MASK_SFT                   (0x1 << 2)
+#define RG_AUDMICBIAS1VREF_ADDR                         \
+	MT6358_AUDENC_ANA_CON10
+#define RG_AUDMICBIAS1VREF_SFT                          4
+#define RG_AUDMICBIAS1VREF_MASK                         0x7
+#define RG_AUDMICBIAS1VREF_MASK_SFT                     (0x7 << 4)
+#define RG_AUDMICBIAS1DCSW1PEN_ADDR                     \
+	MT6358_AUDENC_ANA_CON10
+#define RG_AUDMICBIAS1DCSW1PEN_SFT                      8
+#define RG_AUDMICBIAS1DCSW1PEN_MASK                     0x1
+#define RG_AUDMICBIAS1DCSW1PEN_MASK_SFT                 (0x1 << 8)
+#define RG_AUDMICBIAS1DCSW1NEN_ADDR                     \
+	MT6358_AUDENC_ANA_CON10
+#define RG_AUDMICBIAS1DCSW1NEN_SFT                      9
+#define RG_AUDMICBIAS1DCSW1NEN_MASK                     0x1
+#define RG_AUDMICBIAS1DCSW1NEN_MASK_SFT                 (0x1 << 9)
+#define RG_BANDGAPGEN_ADDR                              \
+	MT6358_AUDENC_ANA_CON10
+#define RG_BANDGAPGEN_SFT                               12
+#define RG_BANDGAPGEN_MASK                              0x1
+#define RG_BANDGAPGEN_MASK_SFT                          (0x1 << 12)
+#define RG_MTEST_EN_ADDR                                \
+	MT6358_AUDENC_ANA_CON10
+#define RG_MTEST_EN_SFT                                 13
+#define RG_MTEST_EN_MASK                                0x1
+#define RG_MTEST_EN_MASK_SFT                            (0x1 << 13)
+#define RG_MTEST_SEL_ADDR                               \
+	MT6358_AUDENC_ANA_CON10
+#define RG_MTEST_SEL_SFT                                14
+#define RG_MTEST_SEL_MASK                               0x1
+#define RG_MTEST_SEL_MASK_SFT                           (0x1 << 14)
+#define RG_MTEST_CURRENT_ADDR                           \
+	MT6358_AUDENC_ANA_CON10
+#define RG_MTEST_CURRENT_SFT                            15
+#define RG_MTEST_CURRENT_MASK                           0x1
+#define RG_MTEST_CURRENT_MASK_SFT                       (0x1 << 15)
+#define RG_AUDACCDETMICBIAS0PULLLOW_ADDR                \
+	MT6358_AUDENC_ANA_CON11
+#define RG_AUDACCDETMICBIAS0PULLLOW_SFT                 0
+#define RG_AUDACCDETMICBIAS0PULLLOW_MASK                0x1
+#define RG_AUDACCDETMICBIAS0PULLLOW_MASK_SFT            (0x1 << 0)
+#define RG_AUDACCDETMICBIAS1PULLLOW_ADDR                \
+	MT6358_AUDENC_ANA_CON11
+#define RG_AUDACCDETMICBIAS1PULLLOW_SFT                 1
+#define RG_AUDACCDETMICBIAS1PULLLOW_MASK                0x1
+#define RG_AUDACCDETMICBIAS1PULLLOW_MASK_SFT            (0x1 << 1)
+#define RG_AUDACCDETVIN1PULLLOW_ADDR                    \
+	MT6358_AUDENC_ANA_CON11
+#define RG_AUDACCDETVIN1PULLLOW_SFT                     2
+#define RG_AUDACCDETVIN1PULLLOW_MASK                    0x1
+#define RG_AUDACCDETVIN1PULLLOW_MASK_SFT                (0x1 << 2)
+#define RG_AUDACCDETVTHACAL_ADDR                        \
+	MT6358_AUDENC_ANA_CON11
+#define RG_AUDACCDETVTHACAL_SFT                         4
+#define RG_AUDACCDETVTHACAL_MASK                        0x1
+#define RG_AUDACCDETVTHACAL_MASK_SFT                    (0x1 << 4)
+#define RG_AUDACCDETVTHBCAL_ADDR                        \
+	MT6358_AUDENC_ANA_CON11
+#define RG_AUDACCDETVTHBCAL_SFT                         5
+#define RG_AUDACCDETVTHBCAL_MASK                        0x1
+#define RG_AUDACCDETVTHBCAL_MASK_SFT                    (0x1 << 5)
+#define RG_AUDACCDETTVDET_ADDR                          \
+	MT6358_AUDENC_ANA_CON11
+#define RG_AUDACCDETTVDET_SFT                           6
+#define RG_AUDACCDETTVDET_MASK                          0x1
+#define RG_AUDACCDETTVDET_MASK_SFT                      (0x1 << 6)
+#define RG_ACCDETSEL_ADDR                               \
+	MT6358_AUDENC_ANA_CON11
+#define RG_ACCDETSEL_SFT                                7
+#define RG_ACCDETSEL_MASK                               0x1
+#define RG_ACCDETSEL_MASK_SFT                           (0x1 << 7)
+#define RG_SWBUFMODSEL_ADDR                             \
+	MT6358_AUDENC_ANA_CON11
+#define RG_SWBUFMODSEL_SFT                              8
+#define RG_SWBUFMODSEL_MASK                             0x1
+#define RG_SWBUFMODSEL_MASK_SFT                         (0x1 << 8)
+#define RG_SWBUFSWEN_ADDR                               \
+	MT6358_AUDENC_ANA_CON11
+#define RG_SWBUFSWEN_SFT                                9
+#define RG_SWBUFSWEN_MASK                               0x1
+#define RG_SWBUFSWEN_MASK_SFT                           (0x1 << 9)
+#define RG_EINTCOMPVTH_ADDR                             \
+	MT6358_AUDENC_ANA_CON11
+#define RG_EINTCOMPVTH_SFT                              10
+#define RG_EINTCOMPVTH_MASK                             0x1
+#define RG_EINTCOMPVTH_MASK_SFT                         (0x1 << 10)
+#define RG_EINTCONFIGACCDET_ADDR                        \
+	MT6358_AUDENC_ANA_CON11
+#define RG_EINTCONFIGACCDET_SFT                         11
+#define RG_EINTCONFIGACCDET_MASK                        0x1
+#define RG_EINTCONFIGACCDET_MASK_SFT                    (0x1 << 11)
+#define RG_EINTHIRENB_ADDR                              \
+	MT6358_AUDENC_ANA_CON11
+#define RG_EINTHIRENB_SFT                               12
+#define RG_EINTHIRENB_MASK                              0x1
+#define RG_EINTHIRENB_MASK_SFT                          (0x1 << 12)
+#define RG_ACCDET2AUXRESBYPASS_ADDR                     \
+	MT6358_AUDENC_ANA_CON11
+#define RG_ACCDET2AUXRESBYPASS_SFT                      13
+#define RG_ACCDET2AUXRESBYPASS_MASK                     0x1
+#define RG_ACCDET2AUXRESBYPASS_MASK_SFT                 (0x1 << 13)
+#define RG_ACCDET2AUXBUFFERBYPASS_ADDR                  \
+	MT6358_AUDENC_ANA_CON11
+#define RG_ACCDET2AUXBUFFERBYPASS_SFT                   14
+#define RG_ACCDET2AUXBUFFERBYPASS_MASK                  0x1
+#define RG_ACCDET2AUXBUFFERBYPASS_MASK_SFT              (0x1 << 14)
+#define RG_ACCDET2AUXSWEN_ADDR                          \
+	MT6358_AUDENC_ANA_CON11
+#define RG_ACCDET2AUXSWEN_SFT                           15
+#define RG_ACCDET2AUXSWEN_MASK                          0x1
+#define RG_ACCDET2AUXSWEN_MASK_SFT                      (0x1 << 15)
+
+#define ACCDET_ANA_ID_ADDR                              \
+	MT6358_ACCDET_DSN_DIG_ID
+#define ACCDET_ANA_ID_SFT                               0
+#define ACCDET_ANA_ID_MASK                              0xFF
+#define ACCDET_ANA_ID_MASK_SFT                          (0xFF << 0)
+#define ACCDET_DIG_ID_ADDR                              \
+	MT6358_ACCDET_DSN_DIG_ID
+#define ACCDET_DIG_ID_SFT                               8
+#define ACCDET_DIG_ID_MASK                              0xFF
+#define ACCDET_DIG_ID_MASK_SFT                          (0xFF << 8)
+#define ACCDET_ANA_MINOR_REV_ADDR                       \
+	MT6358_ACCDET_DSN_DIG_REV0
+#define ACCDET_ANA_MINOR_REV_SFT                        0
+#define ACCDET_ANA_MINOR_REV_MASK                       0xF
+#define ACCDET_ANA_MINOR_REV_MASK_SFT                   (0xF << 0)
+#define ACCDET_ANA_MAJOR_REV_ADDR                       \
+	MT6358_ACCDET_DSN_DIG_REV0
+#define ACCDET_ANA_MAJOR_REV_SFT                        4
+#define ACCDET_ANA_MAJOR_REV_MASK                       0xF
+#define ACCDET_ANA_MAJOR_REV_MASK_SFT                   (0xF << 4)
+#define ACCDET_DIG_MINOR_REV_ADDR                       \
+	MT6358_ACCDET_DSN_DIG_REV0
+#define ACCDET_DIG_MINOR_REV_SFT                        8
+#define ACCDET_DIG_MINOR_REV_MASK                       0xF
+#define ACCDET_DIG_MINOR_REV_MASK_SFT                   (0xF << 8)
+#define ACCDET_DIG_MAJOR_REV_ADDR                       \
+	MT6358_ACCDET_DSN_DIG_REV0
+#define ACCDET_DIG_MAJOR_REV_SFT                        12
+#define ACCDET_DIG_MAJOR_REV_MASK                       0xF
+#define ACCDET_DIG_MAJOR_REV_MASK_SFT                   (0xF << 12)
+#define ACCDET_DSN_CBS_ADDR                             \
+	MT6358_ACCDET_DSN_DBI
+#define ACCDET_DSN_CBS_SFT                              0
+#define ACCDET_DSN_CBS_MASK                             0x3
+#define ACCDET_DSN_CBS_MASK_SFT                         (0x3 << 0)
+#define ACCDET_DSN_BIX_ADDR                             \
+	MT6358_ACCDET_DSN_DBI
+#define ACCDET_DSN_BIX_SFT                              2
+#define ACCDET_DSN_BIX_MASK                             0x3
+#define ACCDET_DSN_BIX_MASK_SFT                         (0x3 << 2)
+#define ACCDET_ESP_ADDR                                 \
+	MT6358_ACCDET_DSN_DBI
+#define ACCDET_ESP_SFT                                  8
+#define ACCDET_ESP_MASK                                 0xFF
+#define ACCDET_ESP_MASK_SFT                             (0xFF << 8)
+#define ACCDET_DSN_FPI_ADDR                             \
+	MT6358_ACCDET_DSN_FPI
+#define ACCDET_DSN_FPI_SFT                              0
+#define ACCDET_DSN_FPI_MASK                             0xFF
+#define ACCDET_DSN_FPI_MASK_SFT                         (0xFF << 0)
+#define AUDACCDETAUXADCSWCTRL_ADDR                      \
+	MT6358_ACCDET_CON0
+#define AUDACCDETAUXADCSWCTRL_SFT                       10
+#define AUDACCDETAUXADCSWCTRL_MASK                      0x1
+#define AUDACCDETAUXADCSWCTRL_MASK_SFT                  (0x1 << 10)
+#define AUDACCDETAUXADCSWCTRL_SEL_ADDR                  \
+	MT6358_ACCDET_CON0
+#define AUDACCDETAUXADCSWCTRL_SEL_SFT                   11
+#define AUDACCDETAUXADCSWCTRL_SEL_MASK                  0x1
+#define AUDACCDETAUXADCSWCTRL_SEL_MASK_SFT              (0x1 << 11)
+#define RG_AUDACCDETRSV_ADDR                            \
+	MT6358_ACCDET_CON0
+#define RG_AUDACCDETRSV_SFT                             13
+#define RG_AUDACCDETRSV_MASK                            0x3
+#define RG_AUDACCDETRSV_MASK_SFT                        (0x3 << 13)
+#define ACCDET_EN_ADDR                                  \
+	MT6358_ACCDET_CON1
+#define ACCDET_EN_SFT                                   0
+#define ACCDET_EN_MASK                                  0x1
+#define ACCDET_EN_MASK_SFT                              (0x1 << 0)
+#define ACCDET_SEQ_INIT_ADDR                            \
+	MT6358_ACCDET_CON1
+#define ACCDET_SEQ_INIT_SFT                             1
+#define ACCDET_SEQ_INIT_MASK                            0x1
+#define ACCDET_SEQ_INIT_MASK_SFT                        (0x1 << 1)
+#define ACCDET_EINT0_EN_ADDR                            \
+	MT6358_ACCDET_CON1
+#define ACCDET_EINT0_EN_SFT                             2
+#define ACCDET_EINT0_EN_MASK                            0x1
+#define ACCDET_EINT0_EN_MASK_SFT                        (0x1 << 2)
+#define ACCDET_EINT0_SEQ_INIT_ADDR                      \
+	MT6358_ACCDET_CON1
+#define ACCDET_EINT0_SEQ_INIT_SFT                       3
+#define ACCDET_EINT0_SEQ_INIT_MASK                      0x1
+#define ACCDET_EINT0_SEQ_INIT_MASK_SFT                  (0x1 << 3)
+#define ACCDET_EINT1_EN_ADDR                            \
+	MT6358_ACCDET_CON1
+#define ACCDET_EINT1_EN_SFT                             4
+#define ACCDET_EINT1_EN_MASK                            0x1
+#define ACCDET_EINT1_EN_MASK_SFT                        (0x1 << 4)
+#define ACCDET_EINT1_SEQ_INIT_ADDR                      \
+	MT6358_ACCDET_CON1
+#define ACCDET_EINT1_SEQ_INIT_SFT                       5
+#define ACCDET_EINT1_SEQ_INIT_MASK                      0x1
+#define ACCDET_EINT1_SEQ_INIT_MASK_SFT                  (0x1 << 5)
+#define ACCDET_ANASWCTRL_SEL_ADDR                       \
+	MT6358_ACCDET_CON1
+#define ACCDET_ANASWCTRL_SEL_SFT                        6
+#define ACCDET_ANASWCTRL_SEL_MASK                       0x1
+#define ACCDET_ANASWCTRL_SEL_MASK_SFT                   (0x1 << 6)
+#define ACCDET_CMP_PWM_EN_ADDR                          \
+	MT6358_ACCDET_CON2
+#define ACCDET_CMP_PWM_EN_SFT                           0
+#define ACCDET_CMP_PWM_EN_MASK                          0x1
+#define ACCDET_CMP_PWM_EN_MASK_SFT                      (0x1 << 0)
+#define ACCDET_VTH_PWM_EN_ADDR                          \
+	MT6358_ACCDET_CON2
+#define ACCDET_VTH_PWM_EN_SFT                           1
+#define ACCDET_VTH_PWM_EN_MASK                          0x1
+#define ACCDET_VTH_PWM_EN_MASK_SFT                      (0x1 << 1)
+#define ACCDET_MBIAS_PWM_EN_ADDR                        \
+	MT6358_ACCDET_CON2
+#define ACCDET_MBIAS_PWM_EN_SFT                         2
+#define ACCDET_MBIAS_PWM_EN_MASK                        0x1
+#define ACCDET_MBIAS_PWM_EN_MASK_SFT                    (0x1 << 2)
+#define ACCDET_EINT0_PWM_EN_ADDR                        \
+	MT6358_ACCDET_CON2
+#define ACCDET_EINT0_PWM_EN_SFT                         3
+#define ACCDET_EINT0_PWM_EN_MASK                        0x1
+#define ACCDET_EINT0_PWM_EN_MASK_SFT                    (0x1 << 3)
+#define ACCDET_EINT1_PWM_EN_ADDR                        \
+	MT6358_ACCDET_CON2
+#define ACCDET_EINT1_PWM_EN_SFT                         4
+#define ACCDET_EINT1_PWM_EN_MASK                        0x1
+#define ACCDET_EINT1_PWM_EN_MASK_SFT                    (0x1 << 4)
+#define ACCDET_CMP_PWM_IDLE_ADDR                        \
+	MT6358_ACCDET_CON2
+#define ACCDET_CMP_PWM_IDLE_SFT                         8
+#define ACCDET_CMP_PWM_IDLE_MASK                        0x1
+#define ACCDET_CMP_PWM_IDLE_MASK_SFT                    (0x1 << 8)
+#define ACCDET_VTH_PWM_IDLE_ADDR                        \
+	MT6358_ACCDET_CON2
+#define ACCDET_VTH_PWM_IDLE_SFT                         9
+#define ACCDET_VTH_PWM_IDLE_MASK                        0x1
+#define ACCDET_VTH_PWM_IDLE_MASK_SFT                    (0x1 << 9)
+#define ACCDET_MBIAS_PWM_IDLE_ADDR                      \
+	MT6358_ACCDET_CON2
+#define ACCDET_MBIAS_PWM_IDLE_SFT                       10
+#define ACCDET_MBIAS_PWM_IDLE_MASK                      0x1
+#define ACCDET_MBIAS_PWM_IDLE_MASK_SFT                  (0x1 << 10)
+#define ACCDET_EINT0_PWM_IDLE_ADDR                      \
+	MT6358_ACCDET_CON2
+#define ACCDET_EINT0_PWM_IDLE_SFT                       11
+#define ACCDET_EINT0_PWM_IDLE_MASK                      0x1
+#define ACCDET_EINT0_PWM_IDLE_MASK_SFT                  (0x1 << 11)
+#define ACCDET_EINT1_PWM_IDLE_ADDR                      \
+	MT6358_ACCDET_CON2
+#define ACCDET_EINT1_PWM_IDLE_SFT                       12
+#define ACCDET_EINT1_PWM_IDLE_MASK                      0x1
+#define ACCDET_EINT1_PWM_IDLE_MASK_SFT                  (0x1 << 12)
+#define ACCDET_PWM_WIDTH_ADDR                           \
+	MT6358_ACCDET_CON3
+#define ACCDET_PWM_WIDTH_SFT                            0
+#define ACCDET_PWM_WIDTH_MASK                           0xFFFF
+#define ACCDET_PWM_WIDTH_MASK_SFT                       (0xFFFF << 0)
+#define ACCDET_PWM_THRESH_ADDR                          \
+	MT6358_ACCDET_CON4
+#define ACCDET_PWM_THRESH_SFT                           0
+#define ACCDET_PWM_THRESH_MASK                          0xFFFF
+#define ACCDET_PWM_THRESH_MASK_SFT                      (0xFFFF << 0)
+#define ACCDET_RISE_DELAY_ADDR                          \
+	MT6358_ACCDET_CON5
+#define ACCDET_RISE_DELAY_SFT                           0
+#define ACCDET_RISE_DELAY_MASK                          0x7FFF
+#define ACCDET_RISE_DELAY_MASK_SFT                      (0x7FFF << 0)
+#define ACCDET_FALL_DELAY_ADDR                          \
+	MT6358_ACCDET_CON5
+#define ACCDET_FALL_DELAY_SFT                           15
+#define ACCDET_FALL_DELAY_MASK                          0x1
+#define ACCDET_FALL_DELAY_MASK_SFT                      (0x1 << 15)
+#define ACCDET_DEBOUNCE0_ADDR                           \
+	MT6358_ACCDET_CON6
+#define ACCDET_DEBOUNCE0_SFT                            0
+#define ACCDET_DEBOUNCE0_MASK                           0xFFFF
+#define ACCDET_DEBOUNCE0_MASK_SFT                       (0xFFFF << 0)
+#define ACCDET_DEBOUNCE1_ADDR                           \
+	MT6358_ACCDET_CON7
+#define ACCDET_DEBOUNCE1_SFT                            0
+#define ACCDET_DEBOUNCE1_MASK                           0xFFFF
+#define ACCDET_DEBOUNCE1_MASK_SFT                       (0xFFFF << 0)
+#define ACCDET_DEBOUNCE2_ADDR                           \
+	MT6358_ACCDET_CON8
+#define ACCDET_DEBOUNCE2_SFT                            0
+#define ACCDET_DEBOUNCE2_MASK                           0xFFFF
+#define ACCDET_DEBOUNCE2_MASK_SFT                       (0xFFFF << 0)
+#define ACCDET_DEBOUNCE3_ADDR                           \
+	MT6358_ACCDET_CON9
+#define ACCDET_DEBOUNCE3_SFT                            0
+#define ACCDET_DEBOUNCE3_MASK                           0xFFFF
+#define ACCDET_DEBOUNCE3_MASK_SFT                       (0xFFFF << 0)
+#define ACCDET_DEBOUNCE4_ADDR                           \
+	MT6358_ACCDET_CON10
+#define ACCDET_DEBOUNCE4_SFT                            0
+#define ACCDET_DEBOUNCE4_MASK                           0xFFFF
+#define ACCDET_DEBOUNCE4_MASK_SFT                       (0xFFFF << 0)
+#define ACCDET_IVAL_CUR_IN_ADDR                         \
+	MT6358_ACCDET_CON11
+#define ACCDET_IVAL_CUR_IN_SFT                          0
+#define ACCDET_IVAL_CUR_IN_MASK                         0x3
+#define ACCDET_IVAL_CUR_IN_MASK_SFT                     (0x3 << 0)
+#define ACCDET_EINT0_IVAL_CUR_IN_ADDR                   \
+	MT6358_ACCDET_CON11
+#define ACCDET_EINT0_IVAL_CUR_IN_SFT                    2
+#define ACCDET_EINT0_IVAL_CUR_IN_MASK                   0x1
+#define ACCDET_EINT0_IVAL_CUR_IN_MASK_SFT               (0x1 << 2)
+#define ACCDET_EINT1_IVAL_CUR_IN_ADDR                   \
+	MT6358_ACCDET_CON11
+#define ACCDET_EINT1_IVAL_CUR_IN_SFT                    3
+#define ACCDET_EINT1_IVAL_CUR_IN_MASK                   0x1
+#define ACCDET_EINT1_IVAL_CUR_IN_MASK_SFT               (0x1 << 3)
+#define ACCDET_IVAL_SAM_IN_ADDR                         \
+	MT6358_ACCDET_CON11
+#define ACCDET_IVAL_SAM_IN_SFT                          4
+#define ACCDET_IVAL_SAM_IN_MASK                         0x3
+#define ACCDET_IVAL_SAM_IN_MASK_SFT                     (0x3 << 4)
+#define ACCDET_EINT0_IVAL_SAM_IN_ADDR                   \
+	MT6358_ACCDET_CON11
+#define ACCDET_EINT0_IVAL_SAM_IN_SFT                    6
+#define ACCDET_EINT0_IVAL_SAM_IN_MASK                   0x1
+#define ACCDET_EINT0_IVAL_SAM_IN_MASK_SFT               (0x1 << 6)
+#define ACCDET_EINT1_IVAL_SAM_IN_ADDR                   \
+	MT6358_ACCDET_CON11
+#define ACCDET_EINT1_IVAL_SAM_IN_SFT                    7
+#define ACCDET_EINT1_IVAL_SAM_IN_MASK                   0x1
+#define ACCDET_EINT1_IVAL_SAM_IN_MASK_SFT               (0x1 << 7)
+#define ACCDET_IVAL_MEM_IN_ADDR                         \
+	MT6358_ACCDET_CON11
+#define ACCDET_IVAL_MEM_IN_SFT                          8
+#define ACCDET_IVAL_MEM_IN_MASK                         0x3
+#define ACCDET_IVAL_MEM_IN_MASK_SFT                     (0x3 << 8)
+#define ACCDET_EINT0_IVAL_MEM_IN_ADDR                   \
+	MT6358_ACCDET_CON11
+#define ACCDET_EINT0_IVAL_MEM_IN_SFT                    10
+#define ACCDET_EINT0_IVAL_MEM_IN_MASK                   0x1
+#define ACCDET_EINT0_IVAL_MEM_IN_MASK_SFT               (0x1 << 10)
+#define ACCDET_EINT1_IVAL_MEM_IN_ADDR                   \
+	MT6358_ACCDET_CON11
+#define ACCDET_EINT1_IVAL_MEM_IN_SFT                    11
+#define ACCDET_EINT1_IVAL_MEM_IN_MASK                   0x1
+#define ACCDET_EINT1_IVAL_MEM_IN_MASK_SFT               (0x1 << 11)
+#define ACCDET_IVAL_SEL_ADDR                            \
+	MT6358_ACCDET_CON11
+#define ACCDET_IVAL_SEL_SFT                             13
+#define ACCDET_IVAL_SEL_MASK                            0x1
+#define ACCDET_IVAL_SEL_MASK_SFT                        (0x1 << 13)
+#define ACCDET_EINT0_IVAL_SEL_ADDR                      \
+	MT6358_ACCDET_CON11
+#define ACCDET_EINT0_IVAL_SEL_SFT                       14
+#define ACCDET_EINT0_IVAL_SEL_MASK                      0x1
+#define ACCDET_EINT0_IVAL_SEL_MASK_SFT                  (0x1 << 14)
+#define ACCDET_EINT1_IVAL_SEL_ADDR                      \
+	MT6358_ACCDET_CON11
+#define ACCDET_EINT1_IVAL_SEL_SFT                       15
+#define ACCDET_EINT1_IVAL_SEL_MASK                      0x1
+#define ACCDET_EINT1_IVAL_SEL_MASK_SFT                  (0x1 << 15)
+#define ACCDET_IRQ_ADDR                                 \
+	MT6358_ACCDET_CON12
+#define ACCDET_IRQ_SFT                                  0
+#define ACCDET_IRQ_MASK                                 0x1
+#define ACCDET_IRQ_MASK_SFT                             (0x1 << 0)
+#define ACCDET_EINT0_IRQ_ADDR                           \
+	MT6358_ACCDET_CON12
+#define ACCDET_EINT0_IRQ_SFT                            2
+#define ACCDET_EINT0_IRQ_MASK                           0x1
+#define ACCDET_EINT0_IRQ_MASK_SFT                       (0x1 << 2)
+#define ACCDET_EINT1_IRQ_ADDR                           \
+	MT6358_ACCDET_CON12
+#define ACCDET_EINT1_IRQ_SFT                            3
+#define ACCDET_EINT1_IRQ_MASK                           0x1
+#define ACCDET_EINT1_IRQ_MASK_SFT                       (0x1 << 3)
+#define ACCDET_IRQ_CLR_ADDR                             \
+	MT6358_ACCDET_CON12
+#define ACCDET_IRQ_CLR_SFT                              8
+#define ACCDET_IRQ_CLR_MASK                             0x1
+#define ACCDET_IRQ_CLR_MASK_SFT                         (0x1 << 8)
+#define ACCDET_EINT0_IRQ_CLR_ADDR                       \
+	MT6358_ACCDET_CON12
+#define ACCDET_EINT0_IRQ_CLR_SFT                        10
+#define ACCDET_EINT0_IRQ_CLR_MASK                       0x1
+#define ACCDET_EINT0_IRQ_CLR_MASK_SFT                   (0x1 << 10)
+#define ACCDET_EINT1_IRQ_CLR_ADDR                       \
+	MT6358_ACCDET_CON12
+#define ACCDET_EINT1_IRQ_CLR_SFT                        11
+#define ACCDET_EINT1_IRQ_CLR_MASK                       0x1
+#define ACCDET_EINT1_IRQ_CLR_MASK_SFT                   (0x1 << 11)
+#define ACCDET_EINT0_IRQ_POLARITY_ADDR                  \
+	MT6358_ACCDET_CON12
+#define ACCDET_EINT0_IRQ_POLARITY_SFT                   14
+#define ACCDET_EINT0_IRQ_POLARITY_MASK                  0x1
+#define ACCDET_EINT0_IRQ_POLARITY_MASK_SFT              (0x1 << 14)
+#define ACCDET_EINT1_IRQ_POLARITY_ADDR                  \
+	MT6358_ACCDET_CON12
+#define ACCDET_EINT1_IRQ_POLARITY_SFT                   15
+#define ACCDET_EINT1_IRQ_POLARITY_MASK                  0x1
+#define ACCDET_EINT1_IRQ_POLARITY_MASK_SFT              (0x1 << 15)
+#define ACCDET_TEST_MODE0_ADDR                          \
+	MT6358_ACCDET_CON13
+#define ACCDET_TEST_MODE0_SFT                           0
+#define ACCDET_TEST_MODE0_MASK                          0x1
+#define ACCDET_TEST_MODE0_MASK_SFT                      (0x1 << 0)
+#define ACCDET_CMP_SWSEL_ADDR                           \
+	MT6358_ACCDET_CON13
+#define ACCDET_CMP_SWSEL_SFT                            1
+#define ACCDET_CMP_SWSEL_MASK                           0x1
+#define ACCDET_CMP_SWSEL_MASK_SFT                       (0x1 << 1)
+#define ACCDET_VTH_SWSEL_ADDR                           \
+	MT6358_ACCDET_CON13
+#define ACCDET_VTH_SWSEL_SFT                            2
+#define ACCDET_VTH_SWSEL_MASK                           0x1
+#define ACCDET_VTH_SWSEL_MASK_SFT                       (0x1 << 2)
+#define ACCDET_MBIAS_SWSEL_ADDR                         \
+	MT6358_ACCDET_CON13
+#define ACCDET_MBIAS_SWSEL_SFT                          3
+#define ACCDET_MBIAS_SWSEL_MASK                         0x1
+#define ACCDET_MBIAS_SWSEL_MASK_SFT                     (0x1 << 3)
+#define ACCDET_TEST_MODE4_ADDR                          \
+	MT6358_ACCDET_CON13
+#define ACCDET_TEST_MODE4_SFT                           4
+#define ACCDET_TEST_MODE4_MASK                          0x1
+#define ACCDET_TEST_MODE4_MASK_SFT                      (0x1 << 4)
+#define ACCDET_TEST_MODE5_ADDR                          \
+	MT6358_ACCDET_CON13
+#define ACCDET_TEST_MODE5_SFT                           5
+#define ACCDET_TEST_MODE5_MASK                          0x1
+#define ACCDET_TEST_MODE5_MASK_SFT                      (0x1 << 5)
+#define ACCDET_PWM_SEL_ADDR                             \
+	MT6358_ACCDET_CON13
+#define ACCDET_PWM_SEL_SFT                              6
+#define ACCDET_PWM_SEL_MASK                             0x3
+#define ACCDET_PWM_SEL_MASK_SFT                         (0x3 << 6)
+#define ACCDET_IN_SW_ADDR                               \
+	MT6358_ACCDET_CON13
+#define ACCDET_IN_SW_SFT                                8
+#define ACCDET_IN_SW_MASK                               0x3
+#define ACCDET_IN_SW_MASK_SFT                           (0x3 << 8)
+#define ACCDET_CMP_EN_SW_ADDR                           \
+	MT6358_ACCDET_CON13
+#define ACCDET_CMP_EN_SW_SFT                            12
+#define ACCDET_CMP_EN_SW_MASK                           0x1
+#define ACCDET_CMP_EN_SW_MASK_SFT                       (0x1 << 12)
+#define ACCDET_VTH_EN_SW_ADDR                           \
+	MT6358_ACCDET_CON13
+#define ACCDET_VTH_EN_SW_SFT                            13
+#define ACCDET_VTH_EN_SW_MASK                           0x1
+#define ACCDET_VTH_EN_SW_MASK_SFT                       (0x1 << 13)
+#define ACCDET_MBIAS_EN_SW_ADDR                         \
+	MT6358_ACCDET_CON13
+#define ACCDET_MBIAS_EN_SW_SFT                          14
+#define ACCDET_MBIAS_EN_SW_MASK                         0x1
+#define ACCDET_MBIAS_EN_SW_MASK_SFT                     (0x1 << 14)
+#define ACCDET_PWM_EN_SW_ADDR                           \
+	MT6358_ACCDET_CON13
+#define ACCDET_PWM_EN_SW_SFT                            15
+#define ACCDET_PWM_EN_SW_MASK                           0x1
+#define ACCDET_PWM_EN_SW_MASK_SFT                       (0x1 << 15)
+#define ACCDET_IN_ADDR                                  \
+	MT6358_ACCDET_CON14
+#define ACCDET_IN_SFT                                   0
+#define ACCDET_IN_MASK                                  0x3
+#define ACCDET_IN_MASK_SFT                              (0x3 << 0)
+#define ACCDET_CUR_IN_ADDR                              \
+	MT6358_ACCDET_CON14
+#define ACCDET_CUR_IN_SFT                               2
+#define ACCDET_CUR_IN_MASK                              0x3
+#define ACCDET_CUR_IN_MASK_SFT                          (0x3 << 2)
+#define ACCDET_SAM_IN_ADDR                              \
+	MT6358_ACCDET_CON14
+#define ACCDET_SAM_IN_SFT                               4
+#define ACCDET_SAM_IN_MASK                              0x3
+#define ACCDET_SAM_IN_MASK_SFT                          (0x3 << 4)
+#define ACCDET_MEM_IN_ADDR                              \
+	MT6358_ACCDET_CON14
+#define ACCDET_MEM_IN_SFT                               6
+#define ACCDET_MEM_IN_MASK                              0x3
+#define ACCDET_MEM_IN_MASK_SFT                          (0x3 << 6)
+#define ACCDET_STATE_ADDR                               \
+	MT6358_ACCDET_CON14
+#define ACCDET_STATE_SFT                                8
+#define ACCDET_STATE_MASK                               0x7
+#define ACCDET_STATE_MASK_SFT                           (0x7 << 8)
+#define ACCDET_MBIAS_CLK_ADDR                           \
+	MT6358_ACCDET_CON14
+#define ACCDET_MBIAS_CLK_SFT                            12
+#define ACCDET_MBIAS_CLK_MASK                           0x1
+#define ACCDET_MBIAS_CLK_MASK_SFT                       (0x1 << 12)
+#define ACCDET_VTH_CLK_ADDR                             \
+	MT6358_ACCDET_CON14
+#define ACCDET_VTH_CLK_SFT                              13
+#define ACCDET_VTH_CLK_MASK                             0x1
+#define ACCDET_VTH_CLK_MASK_SFT                         (0x1 << 13)
+#define ACCDET_CMP_CLK_ADDR                             \
+	MT6358_ACCDET_CON14
+#define ACCDET_CMP_CLK_SFT                              14
+#define ACCDET_CMP_CLK_MASK                             0x1
+#define ACCDET_CMP_CLK_MASK_SFT                         (0x1 << 14)
+#define DA_AUDACCDETAUXADCSWCTRL_ADDR                   \
+	MT6358_ACCDET_CON14
+#define DA_AUDACCDETAUXADCSWCTRL_SFT                    15
+#define DA_AUDACCDETAUXADCSWCTRL_MASK                   0x1
+#define DA_AUDACCDETAUXADCSWCTRL_MASK_SFT               (0x1 << 15)
+#define ACCDET_EINT0_DEB_SEL_ADDR                       \
+	MT6358_ACCDET_CON15
+#define ACCDET_EINT0_DEB_SEL_SFT                        0
+#define ACCDET_EINT0_DEB_SEL_MASK                       0x1
+#define ACCDET_EINT0_DEB_SEL_MASK_SFT                   (0x1 << 0)
+#define ACCDET_EINT0_DEBOUNCE_ADDR                      \
+	MT6358_ACCDET_CON15
+#define ACCDET_EINT0_DEBOUNCE_SFT                       3
+#define ACCDET_EINT0_DEBOUNCE_MASK                      0xF
+#define ACCDET_EINT0_DEBOUNCE_MASK_SFT                  (0xF << 3)
+#define ACCDET_EINT0_PWM_THRESH_ADDR                    \
+	MT6358_ACCDET_CON15
+#define ACCDET_EINT0_PWM_THRESH_SFT                     8
+#define ACCDET_EINT0_PWM_THRESH_MASK                    0x7
+#define ACCDET_EINT0_PWM_THRESH_MASK_SFT                (0x7 << 8)
+#define ACCDET_EINT0_PWM_WIDTH_ADDR                     \
+	MT6358_ACCDET_CON15
+#define ACCDET_EINT0_PWM_WIDTH_SFT                      12
+#define ACCDET_EINT0_PWM_WIDTH_MASK                     0x3
+#define ACCDET_EINT0_PWM_WIDTH_MASK_SFT                 (0x3 << 12)
+#define ACCDET_EINT0_PWM_FALL_DELAY_ADDR                \
+	MT6358_ACCDET_CON16
+#define ACCDET_EINT0_PWM_FALL_DELAY_SFT                 5
+#define ACCDET_EINT0_PWM_FALL_DELAY_MASK                0x1
+#define ACCDET_EINT0_PWM_FALL_DELAY_MASK_SFT            (0x1 << 5)
+#define ACCDET_EINT0_PWM_RISE_DELAY_ADDR                \
+	MT6358_ACCDET_CON16
+#define ACCDET_EINT0_PWM_RISE_DELAY_SFT                 6
+#define ACCDET_EINT0_PWM_RISE_DELAY_MASK                0x3FF
+#define ACCDET_EINT0_PWM_RISE_DELAY_MASK_SFT            (0x3FF << 6)
+#define ACCDET_TEST_MODE11_ADDR                         \
+	MT6358_ACCDET_CON17
+#define ACCDET_TEST_MODE11_SFT                          5
+#define ACCDET_TEST_MODE11_MASK                         0x1
+#define ACCDET_TEST_MODE11_MASK_SFT                     (0x1 << 5)
+#define ACCDET_TEST_MODE10_ADDR                         \
+	MT6358_ACCDET_CON17
+#define ACCDET_TEST_MODE10_SFT                          6
+#define ACCDET_TEST_MODE10_MASK                         0x1
+#define ACCDET_TEST_MODE10_MASK_SFT                     (0x1 << 6)
+#define ACCDET_EINT0_CMPOUT_SW_ADDR                     \
+	MT6358_ACCDET_CON17
+#define ACCDET_EINT0_CMPOUT_SW_SFT                      7
+#define ACCDET_EINT0_CMPOUT_SW_MASK                     0x1
+#define ACCDET_EINT0_CMPOUT_SW_MASK_SFT                 (0x1 << 7)
+#define ACCDET_EINT1_CMPOUT_SW_ADDR                     \
+	MT6358_ACCDET_CON17
+#define ACCDET_EINT1_CMPOUT_SW_SFT                      8
+#define ACCDET_EINT1_CMPOUT_SW_MASK                     0x1
+#define ACCDET_EINT1_CMPOUT_SW_MASK_SFT                 (0x1 << 8)
+#define ACCDET_TEST_MODE9_ADDR                          \
+	MT6358_ACCDET_CON17
+#define ACCDET_TEST_MODE9_SFT                           9
+#define ACCDET_TEST_MODE9_MASK                          0x1
+#define ACCDET_TEST_MODE9_MASK_SFT                      (0x1 << 9)
+#define ACCDET_TEST_MODE8_ADDR                          \
+	MT6358_ACCDET_CON17
+#define ACCDET_TEST_MODE8_SFT                           10
+#define ACCDET_TEST_MODE8_MASK                          0x1
+#define ACCDET_TEST_MODE8_MASK_SFT                      (0x1 << 10)
+#define ACCDET_AUXADC_CTRL_SW_ADDR                      \
+	MT6358_ACCDET_CON17
+#define ACCDET_AUXADC_CTRL_SW_SFT                       11
+#define ACCDET_AUXADC_CTRL_SW_MASK                      0x1
+#define ACCDET_AUXADC_CTRL_SW_MASK_SFT                  (0x1 << 11)
+#define ACCDET_TEST_MODE7_ADDR                          \
+	MT6358_ACCDET_CON17
+#define ACCDET_TEST_MODE7_SFT                           12
+#define ACCDET_TEST_MODE7_MASK                          0x1
+#define ACCDET_TEST_MODE7_MASK_SFT                      (0x1 << 12)
+#define ACCDET_TEST_MODE6_ADDR                          \
+	MT6358_ACCDET_CON17
+#define ACCDET_TEST_MODE6_SFT                           13
+#define ACCDET_TEST_MODE6_MASK                          0x1
+#define ACCDET_TEST_MODE6_MASK_SFT                      (0x1 << 13)
+#define ACCDET_EINT0_CMP_EN_SW_ADDR                     \
+	MT6358_ACCDET_CON17
+#define ACCDET_EINT0_CMP_EN_SW_SFT                      14
+#define ACCDET_EINT0_CMP_EN_SW_MASK                     0x1
+#define ACCDET_EINT0_CMP_EN_SW_MASK_SFT                 (0x1 << 14)
+#define ACCDET_EINT1_CMP_EN_SW_ADDR                     \
+	MT6358_ACCDET_CON17
+#define ACCDET_EINT1_CMP_EN_SW_SFT                      15
+#define ACCDET_EINT1_CMP_EN_SW_MASK                     0x1
+#define ACCDET_EINT1_CMP_EN_SW_MASK_SFT                 (0x1 << 15)
+#define ACCDET_EINT0_STATE_ADDR                         \
+	MT6358_ACCDET_CON18
+#define ACCDET_EINT0_STATE_SFT                          0
+#define ACCDET_EINT0_STATE_MASK                         0x7
+#define ACCDET_EINT0_STATE_MASK_SFT                     (0x7 << 0)
+#define ACCDET_AUXADC_DEBOUNCE_END_ADDR                 \
+	MT6358_ACCDET_CON18
+#define ACCDET_AUXADC_DEBOUNCE_END_SFT                  3
+#define ACCDET_AUXADC_DEBOUNCE_END_MASK                 0x1
+#define ACCDET_AUXADC_DEBOUNCE_END_MASK_SFT             (0x1 << 3)
+#define ACCDET_AUXADC_CONNECT_PRE_ADDR                  \
+	MT6358_ACCDET_CON18
+#define ACCDET_AUXADC_CONNECT_PRE_SFT                   4
+#define ACCDET_AUXADC_CONNECT_PRE_MASK                  0x1
+#define ACCDET_AUXADC_CONNECT_PRE_MASK_SFT              (0x1 << 4)
+#define ACCDET_EINT0_CUR_IN_ADDR                        \
+	MT6358_ACCDET_CON18
+#define ACCDET_EINT0_CUR_IN_SFT                         8
+#define ACCDET_EINT0_CUR_IN_MASK                        0x1
+#define ACCDET_EINT0_CUR_IN_MASK_SFT                    (0x1 << 8)
+#define ACCDET_EINT0_SAM_IN_ADDR                        \
+	MT6358_ACCDET_CON18
+#define ACCDET_EINT0_SAM_IN_SFT                         9
+#define ACCDET_EINT0_SAM_IN_MASK                        0x1
+#define ACCDET_EINT0_SAM_IN_MASK_SFT                    (0x1 << 9)
+#define ACCDET_EINT0_MEM_IN_ADDR                        \
+	MT6358_ACCDET_CON18
+#define ACCDET_EINT0_MEM_IN_SFT                         10
+#define ACCDET_EINT0_MEM_IN_MASK                        0x1
+#define ACCDET_EINT0_MEM_IN_MASK_SFT                    (0x1 << 10)
+#define AD_EINT0CMPOUT_ADDR                             \
+	MT6358_ACCDET_CON18
+#define AD_EINT0CMPOUT_SFT                              14
+#define AD_EINT0CMPOUT_MASK                             0x1
+#define AD_EINT0CMPOUT_MASK_SFT                         (0x1 << 14)
+#define DA_NI_EINT0CMPEN_ADDR                           \
+	MT6358_ACCDET_CON18
+#define DA_NI_EINT0CMPEN_SFT                            15
+#define DA_NI_EINT0CMPEN_MASK                           0x1
+#define DA_NI_EINT0CMPEN_MASK_SFT                       (0x1 << 15)
+#define ACCDET_CUR_DEB_ADDR                             \
+	MT6358_ACCDET_CON19
+#define ACCDET_CUR_DEB_SFT                              0
+#define ACCDET_CUR_DEB_MASK                             0xFFFF
+#define ACCDET_CUR_DEB_MASK_SFT                         (0xFFFF << 0)
+#define ACCDET_EINT0_CUR_DEB_ADDR                       \
+	MT6358_ACCDET_CON20
+#define ACCDET_EINT0_CUR_DEB_SFT                        0
+#define ACCDET_EINT0_CUR_DEB_MASK                       0x7FFF
+#define ACCDET_EINT0_CUR_DEB_MASK_SFT                   (0x7FFF << 0)
+#define ACCDET_MON_FLAG_EN_ADDR                         \
+	MT6358_ACCDET_CON21
+#define ACCDET_MON_FLAG_EN_SFT                          0
+#define ACCDET_MON_FLAG_EN_MASK                         0x1
+#define ACCDET_MON_FLAG_EN_MASK_SFT                     (0x1 << 0)
+#define ACCDET_MON_FLAG_SEL_ADDR                        \
+	MT6358_ACCDET_CON21
+#define ACCDET_MON_FLAG_SEL_SFT                         4
+#define ACCDET_MON_FLAG_SEL_MASK                        0xFF
+#define ACCDET_MON_FLAG_SEL_MASK_SFT                    (0xFF << 4)
+#define ACCDET_RSV_CON1_ADDR                            \
+	MT6358_ACCDET_CON22
+#define ACCDET_RSV_CON1_SFT                             0
+#define ACCDET_RSV_CON1_MASK                            0xFFFF
+#define ACCDET_RSV_CON1_MASK_SFT                        (0xFFFF << 0)
+#define ACCDET_AUXADC_CONNECT_TIME_ADDR                 \
+	MT6358_ACCDET_CON23
+#define ACCDET_AUXADC_CONNECT_TIME_SFT                  0
+#define ACCDET_AUXADC_CONNECT_TIME_MASK                 0xFFFF
+#define ACCDET_AUXADC_CONNECT_TIME_MASK_SFT             (0xFFFF << 0)
+#define ACCDET_HWEN_SEL_ADDR                            \
+	MT6358_ACCDET_CON24
+#define ACCDET_HWEN_SEL_SFT                             0
+#define ACCDET_HWEN_SEL_MASK                            0x3
+#define ACCDET_HWEN_SEL_MASK_SFT                        (0x3 << 0)
+#define ACCDET_HWMODE_SEL_ADDR                          \
+	MT6358_ACCDET_CON24
+#define ACCDET_HWMODE_SEL_SFT                           2
+#define ACCDET_HWMODE_SEL_MASK                          0x1
+#define ACCDET_HWMODE_SEL_MASK_SFT                      (0x1 << 2)
+#define ACCDET_EINT_DEB_OUT_DFF_ADDR                    \
+	MT6358_ACCDET_CON24
+#define ACCDET_EINT_DEB_OUT_DFF_SFT                     3
+#define ACCDET_EINT_DEB_OUT_DFF_MASK                    0x1
+#define ACCDET_EINT_DEB_OUT_DFF_MASK_SFT                (0x1 << 3)
+#define ACCDET_FAST_DISCHARGE_ADDR                      \
+	MT6358_ACCDET_CON24
+#define ACCDET_FAST_DISCHARGE_SFT                       4
+#define ACCDET_FAST_DISCHARGE_MASK                      0x1
+#define ACCDET_FAST_DISCHARGE_MASK_SFT                  (0x1 << 4)
+#define ACCDET_EINT0_REVERSE_ADDR                       \
+	MT6358_ACCDET_CON24
+#define ACCDET_EINT0_REVERSE_SFT                        14
+#define ACCDET_EINT0_REVERSE_MASK                       0x1
+#define ACCDET_EINT0_REVERSE_MASK_SFT                   (0x1 << 14)
+#define ACCDET_EINT1_REVERSE_ADDR                       \
+	MT6358_ACCDET_CON24
+#define ACCDET_EINT1_REVERSE_SFT                        15
+#define ACCDET_EINT1_REVERSE_MASK                       0x1
+#define ACCDET_EINT1_REVERSE_MASK_SFT                   (0x1 << 15)
+#define ACCDET_EINT1_DEB_SEL_ADDR                       \
+	MT6358_ACCDET_CON25
+#define ACCDET_EINT1_DEB_SEL_SFT                        0
+#define ACCDET_EINT1_DEB_SEL_MASK                       0x1
+#define ACCDET_EINT1_DEB_SEL_MASK_SFT                   (0x1 << 0)
+#define ACCDET_EINT1_DEBOUNCE_ADDR                      \
+	MT6358_ACCDET_CON25
+#define ACCDET_EINT1_DEBOUNCE_SFT                       3
+#define ACCDET_EINT1_DEBOUNCE_MASK                      0xF
+#define ACCDET_EINT1_DEBOUNCE_MASK_SFT                  (0xF << 3)
+#define ACCDET_EINT1_PWM_THRESH_ADDR                    \
+	MT6358_ACCDET_CON25
+#define ACCDET_EINT1_PWM_THRESH_SFT                     8
+#define ACCDET_EINT1_PWM_THRESH_MASK                    0x7
+#define ACCDET_EINT1_PWM_THRESH_MASK_SFT                (0x7 << 8)
+#define ACCDET_EINT1_PWM_WIDTH_ADDR                     \
+	MT6358_ACCDET_CON25
+#define ACCDET_EINT1_PWM_WIDTH_SFT                      12
+#define ACCDET_EINT1_PWM_WIDTH_MASK                     0x3
+#define ACCDET_EINT1_PWM_WIDTH_MASK_SFT                 (0x3 << 12)
+#define ACCDET_EINT1_PWM_FALL_DELAY_ADDR                \
+	MT6358_ACCDET_CON26
+#define ACCDET_EINT1_PWM_FALL_DELAY_SFT                 5
+#define ACCDET_EINT1_PWM_FALL_DELAY_MASK                0x1
+#define ACCDET_EINT1_PWM_FALL_DELAY_MASK_SFT            (0x1 << 5)
+#define ACCDET_EINT1_PWM_RISE_DELAY_ADDR                \
+	MT6358_ACCDET_CON26
+#define ACCDET_EINT1_PWM_RISE_DELAY_SFT                 6
+#define ACCDET_EINT1_PWM_RISE_DELAY_MASK                0x3FF
+#define ACCDET_EINT1_PWM_RISE_DELAY_MASK_SFT            (0x3FF << 6)
+#define ACCDET_EINT1_STATE_ADDR                         \
+	MT6358_ACCDET_CON27
+#define ACCDET_EINT1_STATE_SFT                          0
+#define ACCDET_EINT1_STATE_MASK                         0x7
+#define ACCDET_EINT1_STATE_MASK_SFT                     (0x7 << 0)
+#define ACCDET_EINT1_CUR_IN_ADDR                        \
+	MT6358_ACCDET_CON27
+#define ACCDET_EINT1_CUR_IN_SFT                         8
+#define ACCDET_EINT1_CUR_IN_MASK                        0x1
+#define ACCDET_EINT1_CUR_IN_MASK_SFT                    (0x1 << 8)
+#define ACCDET_EINT1_SAM_IN_ADDR                        \
+	MT6358_ACCDET_CON27
+#define ACCDET_EINT1_SAM_IN_SFT                         9
+#define ACCDET_EINT1_SAM_IN_MASK                        0x1
+#define ACCDET_EINT1_SAM_IN_MASK_SFT                    (0x1 << 9)
+#define ACCDET_EINT1_MEM_IN_ADDR                        \
+	MT6358_ACCDET_CON27
+#define ACCDET_EINT1_MEM_IN_SFT                         10
+#define ACCDET_EINT1_MEM_IN_MASK                        0x1
+#define ACCDET_EINT1_MEM_IN_MASK_SFT                    (0x1 << 10)
+#define AD_EINT1CMPOUT_ADDR                             \
+	MT6358_ACCDET_CON27
+#define AD_EINT1CMPOUT_SFT                              14
+#define AD_EINT1CMPOUT_MASK                             0x1
+#define AD_EINT1CMPOUT_MASK_SFT                         (0x1 << 14)
+#define DA_NI_EINT1CMPEN_ADDR                           \
+	MT6358_ACCDET_CON27
+#define DA_NI_EINT1CMPEN_SFT                            15
+#define DA_NI_EINT1CMPEN_MASK                           0x1
+#define DA_NI_EINT1CMPEN_MASK_SFT                       (0x1 << 15)
+#define ACCDET_EINT1_CUR_DEB_ADDR                       \
+	MT6358_ACCDET_CON28
+#define ACCDET_EINT1_CUR_DEB_SFT                        0
+#define ACCDET_EINT1_CUR_DEB_MASK                       0x7FFF
+#define ACCDET_EINT1_CUR_DEB_MASK_SFT                   (0x7FFF << 0)
+
+#define RG_RTC32K_CK_PDN_ADDR                           \
+	MT6358_TOP_CKPDN_CON0
+#define RG_RTC32K_CK_PDN_SFT                            15
+#define RG_RTC32K_CK_PDN_MASK                           0x1
+#define RG_RTC32K_CK_PDN_MASK_SFT                       (0x1 << 15)
+#define AUXADC_RQST_CH5_ADDR                            \
+	MT6358_AUXADC_RQST0
+#define AUXADC_RQST_CH5_SFT                             5
+#define AUXADC_RQST_CH5_MASK                            0x1
+#define AUXADC_RQST_CH5_MASK_SFT                        (0x1 << 5)
+#define ACCDET_EINT0_IRQ_POLARITY_ADDR                  \
+	MT6358_ACCDET_CON12
+#define ACCDET_EINT0_IRQ_POLARITY_SFT                   14
+#define ACCDET_EINT0_IRQ_POLARITY_MASK                  0x1
+#define ACCDET_EINT0_IRQ_POLARITY_MASK_SFT              (0x1 << 14)
+#define ACCDET_EINT1_IRQ_POLARITY_ADDR                  \
+	MT6358_ACCDET_CON12
+#define ACCDET_EINT1_IRQ_POLARITY_SFT                   15
+#define ACCDET_EINT1_IRQ_POLARITY_MASK                  0x1
+#define ACCDET_EINT1_IRQ_POLARITY_MASK_SFT              (0x1 << 15)
+
+#define ACCDET_HWMODE_SEL_BIT		BIT(2)
+#define ACCDET_FAST_DISCAHRGE		BIT(4)
+
+/* AUDENC_ANA_CON6:  analog fast discharge*/
+#define RG_AUDSPARE				(0x00A0)
+#define RG_AUDSPARE_FSTDSCHRG_ANALOG_DIR_EN	BIT(5)
+#define RG_AUDSPARE_FSTDSCHRG_IMPR_EN		BIT(6)
+
+/* 0ms */
+#define ACCDET_EINT1_DEB_BYPASS		(0x00<<3)
+/* 0.12ms */
+#define ACCDET_EINT1_DEB_OUT_012	(0x01<<3)
+/* 32ms */
+#define ACCDET_EINT1_DEB_IN_32		(0x0A<<3)
+/* 64ms */
+#define ACCDET_EINT1_DEB_IN_64		(0x0C<<3)
+/* 256ms */
+#define ACCDET_EINT1_DEB_IN_256		(0x0E<<3)
+/* 512ms */
+#define ACCDET_EINT1_DEB_512		(0x0F<<3)
+
+/* ACCDET_CON15: accdet eint0 debounce, PWM width&thresh, etc.
+ * bit0: ACCDET_EINT0_DEB_SEL, 1,debounce_multi_sync_path;0,from register
+ */
+#define ACCDET_EINT0_DEB_SEL		(0x01<<0)
+/* 0ms */
+#define ACCDET_EINT0_DEB_BYPASS		(0x00<<3)
+/* 0.12ms */
+#define ACCDET_EINT0_DEB_OUT_012	(0x01)
+/* 32ms */
+#define ACCDET_EINT0_DEB_IN_32		(0x0A)
+/* 64ms */
+#define ACCDET_EINT0_DEB_IN_64		(0x0C)
+/* 256ms */
+#define ACCDET_EINT0_DEB_IN_256		(0x0E)
+/* 512ms */
+#define ACCDET_EINT0_DEB_512		(0x0F)
+#define ACCDET_EINT0_DEB_CLR		(0x0F)
+
+/* AUDENC_ANA_CON10: */
+#define RG_ACCDET_MODE_ANA11_MODE1	(0x0807)
+#define RG_ACCDET_MODE_ANA11_MODE2	(0x0887)
+#define RG_ACCDET_MODE_ANA11_MODE6	(0x0887)
+
+#define ACCDET_CALI_MASK0		(0xFF)
+#define ACCDET_CALI_MASK1		(0xFF<<8)
+#define ACCDET_CALI_MASK2		(0xFF)
+#define ACCDET_CALI_MASK3		(0xFF<<8)
+#define ACCDET_CALI_MASK4		(0xFF)
+
+#define ACCDET_EINT_IRQ_B2_B3		(0x03<<ACCDET_EINT0_IRQ_SFT)
+
+/* ACCDET_CON25: RO, accdet FSM state,etc.*/
+#define ACCDET_STATE_MEM_IN_OFFSET	(ACCDET_MEM_IN_SFT)
+#define ACCDET_STATE_AB_MASK		(0x03)
+#define ACCDET_STATE_AB_00		(0x00)
+#define ACCDET_STATE_AB_01		(0x01)
+#define ACCDET_STATE_AB_10		(0x02)
+#define ACCDET_STATE_AB_11		(0x03)
+
+#define ACCDET_EINT0_IVAL_B2_6_10	(0x0444)
+
+
+/* The following are used for mt6359.c */
 
 /* Reg bit define */
 /* MT6358_DCXO_CW14 */
@@ -2085,218 +3513,19 @@
 #define RG_AUDINTGAIN2_MASK                               0x3f
 #define RG_AUDINTGAIN2_MASK_SFT                           (0x3f << 8)
 
-/* audio register */
-#define MT6358_DRV_CON3            0x3c
-#define MT6358_GPIO_DIR0           0x88
-
-#define MT6358_GPIO_MODE2          0xd8	/* mosi */
-#define MT6358_GPIO_MODE2_SET      0xda
-#define MT6358_GPIO_MODE2_CLR      0xdc
-
-#define MT6358_GPIO_MODE3          0xde	/* miso */
-#define MT6358_GPIO_MODE3_SET      0xe0
-#define MT6358_GPIO_MODE3_CLR      0xe2
-
-#define MT6358_TOP_CKPDN_CON0      0x10c
-#define MT6358_TOP_CKPDN_CON0_SET  0x10e
-#define MT6358_TOP_CKPDN_CON0_CLR  0x110
-
-#define MT6358_TOP_CKHWEN_CON0     0x12a
-#define MT6358_TOP_CKHWEN_CON0_SET 0x12c
-#define MT6358_TOP_CKHWEN_CON0_CLR 0x12e
-
-#define MT6358_OTP_CON0            0x38a
-#define MT6358_OTP_CON8            0x39a
-#define MT6358_OTP_CON11           0x3a0
-#define MT6358_OTP_CON12           0x3a2
-#define MT6358_OTP_CON13           0x3a4
-
-#define MT6358_DCXO_CW13           0x7aa
-#define MT6358_DCXO_CW14           0x7ac
-
-#define MT6358_AUXADC_CON10        0x11a0
-
-/* audio register */
-#define MT6358_AUD_TOP_ID                    0x2200
-#define MT6358_AUD_TOP_REV0                  0x2202
-#define MT6358_AUD_TOP_DBI                   0x2204
-#define MT6358_AUD_TOP_DXI                   0x2206
-#define MT6358_AUD_TOP_CKPDN_TPM0            0x2208
-#define MT6358_AUD_TOP_CKPDN_TPM1            0x220a
-#define MT6358_AUD_TOP_CKPDN_CON0            0x220c
-#define MT6358_AUD_TOP_CKPDN_CON0_SET        0x220e
-#define MT6358_AUD_TOP_CKPDN_CON0_CLR        0x2210
-#define MT6358_AUD_TOP_CKSEL_CON0            0x2212
-#define MT6358_AUD_TOP_CKSEL_CON0_SET        0x2214
-#define MT6358_AUD_TOP_CKSEL_CON0_CLR        0x2216
-#define MT6358_AUD_TOP_CKTST_CON0            0x2218
-#define MT6358_AUD_TOP_CLK_HWEN_CON0         0x221a
-#define MT6358_AUD_TOP_CLK_HWEN_CON0_SET     0x221c
-#define MT6358_AUD_TOP_CLK_HWEN_CON0_CLR     0x221e
-#define MT6358_AUD_TOP_RST_CON0              0x2220
-#define MT6358_AUD_TOP_RST_CON0_SET          0x2222
-#define MT6358_AUD_TOP_RST_CON0_CLR          0x2224
-#define MT6358_AUD_TOP_RST_BANK_CON0         0x2226
-#define MT6358_AUD_TOP_INT_CON0              0x2228
-#define MT6358_AUD_TOP_INT_CON0_SET          0x222a
-#define MT6358_AUD_TOP_INT_CON0_CLR          0x222c
-#define MT6358_AUD_TOP_INT_MASK_CON0         0x222e
-#define MT6358_AUD_TOP_INT_MASK_CON0_SET     0x2230
-#define MT6358_AUD_TOP_INT_MASK_CON0_CLR     0x2232
-#define MT6358_AUD_TOP_INT_STATUS0           0x2234
-#define MT6358_AUD_TOP_INT_RAW_STATUS0       0x2236
-#define MT6358_AUD_TOP_INT_MISC_CON0         0x2238
-#define MT6358_AUDNCP_CLKDIV_CON0            0x223a
-#define MT6358_AUDNCP_CLKDIV_CON1            0x223c
-#define MT6358_AUDNCP_CLKDIV_CON2            0x223e
-#define MT6358_AUDNCP_CLKDIV_CON3            0x2240
-#define MT6358_AUDNCP_CLKDIV_CON4            0x2242
-#define MT6358_AUD_TOP_MON_CON0              0x2244
-#define MT6358_AUDIO_DIG_DSN_ID              0x2280
-#define MT6358_AUDIO_DIG_DSN_REV0            0x2282
-#define MT6358_AUDIO_DIG_DSN_DBI             0x2284
-#define MT6358_AUDIO_DIG_DSN_DXI             0x2286
-#define MT6358_AFE_UL_DL_CON0                0x2288
-#define MT6358_AFE_DL_SRC2_CON0_L            0x228a
-#define MT6358_AFE_UL_SRC_CON0_H             0x228c
-#define MT6358_AFE_UL_SRC_CON0_L             0x228e
-#define MT6358_AFE_TOP_CON0                  0x2290
-#define MT6358_AUDIO_TOP_CON0                0x2292
-#define MT6358_AFE_MON_DEBUG0                0x2294
-#define MT6358_AFUNC_AUD_CON0                0x2296
-#define MT6358_AFUNC_AUD_CON1                0x2298
-#define MT6358_AFUNC_AUD_CON2                0x229a
-#define MT6358_AFUNC_AUD_CON3                0x229c
-#define MT6358_AFUNC_AUD_CON4                0x229e
-#define MT6358_AFUNC_AUD_CON5                0x22a0
-#define MT6358_AFUNC_AUD_CON6                0x22a2
-#define MT6358_AFUNC_AUD_MON0                0x22a4
-#define MT6358_AUDRC_TUNE_MON0               0x22a6
-#define MT6358_AFE_ADDA_MTKAIF_FIFO_CFG0     0x22a8
-#define MT6358_AFE_ADDA_MTKAIF_FIFO_LOG_MON1 0x22aa
-#define MT6358_AFE_ADDA_MTKAIF_MON0          0x22ac
-#define MT6358_AFE_ADDA_MTKAIF_MON1          0x22ae
-#define MT6358_AFE_ADDA_MTKAIF_MON2          0x22b0
-#define MT6358_AFE_ADDA_MTKAIF_MON3          0x22b2
-#define MT6358_AFE_ADDA_MTKAIF_CFG0          0x22b4
-#define MT6358_AFE_ADDA_MTKAIF_RX_CFG0       0x22b6
-#define MT6358_AFE_ADDA_MTKAIF_RX_CFG1       0x22b8
-#define MT6358_AFE_ADDA_MTKAIF_RX_CFG2       0x22ba
-#define MT6358_AFE_ADDA_MTKAIF_RX_CFG3       0x22bc
-#define MT6358_AFE_ADDA_MTKAIF_TX_CFG1       0x22be
-#define MT6358_AFE_SGEN_CFG0                 0x22c0
-#define MT6358_AFE_SGEN_CFG1                 0x22c2
-#define MT6358_AFE_ADC_ASYNC_FIFO_CFG        0x22c4
-#define MT6358_AFE_DCCLK_CFG0                0x22c6
-#define MT6358_AFE_DCCLK_CFG1                0x22c8
-#define MT6358_AUDIO_DIG_CFG                 0x22ca
-#define MT6358_AFE_AUD_PAD_TOP               0x22cc
-#define MT6358_AFE_AUD_PAD_TOP_MON           0x22ce
-#define MT6358_AFE_AUD_PAD_TOP_MON1          0x22d0
-#define MT6358_AFE_DL_NLE_CFG                0x22d2
-#define MT6358_AFE_DL_NLE_MON                0x22d4
-#define MT6358_AFE_CG_EN_MON                 0x22d6
-#define MT6358_AUDIO_DIG_2ND_DSN_ID          0x2300
-#define MT6358_AUDIO_DIG_2ND_DSN_REV0        0x2302
-#define MT6358_AUDIO_DIG_2ND_DSN_DBI         0x2304
-#define MT6358_AUDIO_DIG_2ND_DSN_DXI         0x2306
-#define MT6358_AFE_PMIC_NEWIF_CFG3           0x2308
-#define MT6358_AFE_VOW_TOP                   0x230a
-#define MT6358_AFE_VOW_CFG0                  0x230c
-#define MT6358_AFE_VOW_CFG1                  0x230e
-#define MT6358_AFE_VOW_CFG2                  0x2310
-#define MT6358_AFE_VOW_CFG3                  0x2312
-#define MT6358_AFE_VOW_CFG4                  0x2314
-#define MT6358_AFE_VOW_CFG5                  0x2316
-#define MT6358_AFE_VOW_CFG6                  0x2318
-#define MT6358_AFE_VOW_MON0                  0x231a
-#define MT6358_AFE_VOW_MON1                  0x231c
-#define MT6358_AFE_VOW_MON2                  0x231e
-#define MT6358_AFE_VOW_MON3                  0x2320
-#define MT6358_AFE_VOW_MON4                  0x2322
-#define MT6358_AFE_VOW_MON5                  0x2324
-#define MT6358_AFE_VOW_SN_INI_CFG            0x2326
-#define MT6358_AFE_VOW_TGEN_CFG0             0x2328
-#define MT6358_AFE_VOW_POSDIV_CFG0           0x232a
-#define MT6358_AFE_VOW_HPF_CFG0              0x232c
-#define MT6358_AFE_VOW_PERIODIC_CFG0         0x232e
-#define MT6358_AFE_VOW_PERIODIC_CFG1         0x2330
-#define MT6358_AFE_VOW_PERIODIC_CFG2         0x2332
-#define MT6358_AFE_VOW_PERIODIC_CFG3         0x2334
-#define MT6358_AFE_VOW_PERIODIC_CFG4         0x2336
-#define MT6358_AFE_VOW_PERIODIC_CFG5         0x2338
-#define MT6358_AFE_VOW_PERIODIC_CFG6         0x233a
-#define MT6358_AFE_VOW_PERIODIC_CFG7         0x233c
-#define MT6358_AFE_VOW_PERIODIC_CFG8         0x233e
-#define MT6358_AFE_VOW_PERIODIC_CFG9         0x2340
-#define MT6358_AFE_VOW_PERIODIC_CFG10        0x2342
-#define MT6358_AFE_VOW_PERIODIC_CFG11        0x2344
-#define MT6358_AFE_VOW_PERIODIC_CFG12        0x2346
-#define MT6358_AFE_VOW_PERIODIC_CFG13        0x2348
-#define MT6358_AFE_VOW_PERIODIC_CFG14        0x234a
-#define MT6358_AFE_VOW_PERIODIC_CFG15        0x234c
-#define MT6358_AFE_VOW_PERIODIC_CFG16        0x234e
-#define MT6358_AFE_VOW_PERIODIC_CFG17        0x2350
-#define MT6358_AFE_VOW_PERIODIC_CFG18        0x2352
-#define MT6358_AFE_VOW_PERIODIC_CFG19        0x2354
-#define MT6358_AFE_VOW_PERIODIC_CFG20        0x2356
-#define MT6358_AFE_VOW_PERIODIC_CFG21        0x2358
-#define MT6358_AFE_VOW_PERIODIC_CFG22        0x235a
-#define MT6358_AFE_VOW_PERIODIC_CFG23        0x235c
-#define MT6358_AFE_VOW_PERIODIC_MON0         0x235e
-#define MT6358_AFE_VOW_PERIODIC_MON1         0x2360
-#define MT6358_AUDENC_DSN_ID                 0x2380
-#define MT6358_AUDENC_DSN_REV0               0x2382
-#define MT6358_AUDENC_DSN_DBI                0x2384
-#define MT6358_AUDENC_DSN_FPI                0x2386
-#define MT6358_AUDENC_ANA_CON0               0x2388
-#define MT6358_AUDENC_ANA_CON1               0x238a
-#define MT6358_AUDENC_ANA_CON2               0x238c
-#define MT6358_AUDENC_ANA_CON3               0x238e
-#define MT6358_AUDENC_ANA_CON4               0x2390
-#define MT6358_AUDENC_ANA_CON5               0x2392
-#define MT6358_AUDENC_ANA_CON6               0x2394
-#define MT6358_AUDENC_ANA_CON7               0x2396
-#define MT6358_AUDENC_ANA_CON8               0x2398
-#define MT6358_AUDENC_ANA_CON9               0x239a
-#define MT6358_AUDENC_ANA_CON10              0x239c
-#define MT6358_AUDENC_ANA_CON11              0x239e
-#define MT6358_AUDENC_ANA_CON12              0x23a0
-#define MT6358_AUDDEC_DSN_ID                 0x2400
-#define MT6358_AUDDEC_DSN_REV0               0x2402
-#define MT6358_AUDDEC_DSN_DBI                0x2404
-#define MT6358_AUDDEC_DSN_FPI                0x2406
-#define MT6358_AUDDEC_ANA_CON0               0x2408
-#define MT6358_AUDDEC_ANA_CON1               0x240a
-#define MT6358_AUDDEC_ANA_CON2               0x240c
-#define MT6358_AUDDEC_ANA_CON3               0x240e
-#define MT6358_AUDDEC_ANA_CON4               0x2410
-#define MT6358_AUDDEC_ANA_CON5               0x2412
-#define MT6358_AUDDEC_ANA_CON6               0x2414
-#define MT6358_AUDDEC_ANA_CON7               0x2416
-#define MT6358_AUDDEC_ANA_CON8               0x2418
-#define MT6358_AUDDEC_ANA_CON9               0x241a
-#define MT6358_AUDDEC_ANA_CON10              0x241c
-#define MT6358_AUDDEC_ANA_CON11              0x241e
-#define MT6358_AUDDEC_ANA_CON12              0x2420
-#define MT6358_AUDDEC_ANA_CON13              0x2422
-#define MT6358_AUDDEC_ANA_CON14              0x2424
-#define MT6358_AUDDEC_ANA_CON15              0x2426
-#define MT6358_AUDDEC_ELR_NUM                0x2428
-#define MT6358_AUDDEC_ELR_0                  0x242a
-#define MT6358_AUDZCD_DSN_ID                 0x2480
-#define MT6358_AUDZCD_DSN_REV0               0x2482
-#define MT6358_AUDZCD_DSN_DBI                0x2484
-#define MT6358_AUDZCD_DSN_FPI                0x2486
-#define MT6358_ZCD_CON0                      0x2488
-#define MT6358_ZCD_CON1                      0x248a
-#define MT6358_ZCD_CON2                      0x248c
-#define MT6358_ZCD_CON3                      0x248e
-#define MT6358_ZCD_CON4                      0x2490
-#define MT6358_ZCD_CON5                      0x2492
-#define MT6358_ACCDET_CON13                  0x2522
-
 #define MT6358_MAX_REGISTER MT6358_ZCD_CON5
+
+#define REG_STRIDE 2
+#define ANALOG_HPTRIM
+
+/* dl pga gain */
+enum {
+	DL_GAIN_8DB = 0,
+	DL_GAIN_0DB = 8,
+	DL_GAIN_N_1DB = 9,
+	DL_GAIN_N_10DB = 18,
+	DL_GAIN_N_40DB = 0x1f,
+};
 
 enum {
 	MT6358_MTKAIF_PROTOCOL_1 = 0,
@@ -2304,7 +3533,328 @@ enum {
 	MT6358_MTKAIF_PROTOCOL_2_CLK_P2,
 };
 
+enum {
+	AUDIO_ANALOG_VOLUME_HSOUTL,
+	AUDIO_ANALOG_VOLUME_HSOUTR,
+	AUDIO_ANALOG_VOLUME_HPOUTL,
+	AUDIO_ANALOG_VOLUME_HPOUTR,
+	AUDIO_ANALOG_VOLUME_LINEOUTL,
+	AUDIO_ANALOG_VOLUME_LINEOUTR,
+	AUDIO_ANALOG_VOLUME_MICAMP1,
+	AUDIO_ANALOG_VOLUME_MICAMP2,
+	AUDIO_ANALOG_VOLUME_TYPE_MAX
+};
+
+enum {
+	MUX_ADC_L,
+	MUX_ADC_R,
+	MUX_PGA_L,
+	MUX_PGA_R,
+	MUX_MIC_TYPE,
+	MUX_HP_L,
+	MUX_HP_R,
+	MUX_NUM,
+};
+
+enum {
+	DEVICE_HP,
+	DEVICE_LO,
+	DEVICE_RCV,
+	DEVICE_MIC1,
+	DEVICE_MIC2,
+	DEVICE_NUM
+};
+
+/* Supply widget subseq */
+enum {
+	/* common */
+	SUPPLY_SEQ_CLK_BUF,
+	SUPPLY_SEQ_AUD_GLB,
+	SUPPLY_SEQ_CLKSQ,
+	SUPPLY_SEQ_ADC_SUPPLY,
+	SUPPLY_SEQ_AUD_VOW,
+	SUPPLY_SEQ_VOW_CLK,
+	SUPPLY_SEQ_VOW_LDO,
+	SUPPLY_SEQ_TOP_CK,
+	SUPPLY_SEQ_TOP_CK_LAST,
+	SUPPLY_SEQ_AUD_TOP,
+	SUPPLY_SEQ_AUD_TOP_LAST,
+	SUPPLY_SEQ_AFE,
+
+	/* capture */
+	SUPPLY_SEQ_MIC_BIAS,
+};
+
+enum {
+	CH_L = 0,
+	CH_R,
+	NUM_CH,
+};
+
+/* Auxadc average resolution */
+enum {
+	AUXADC_AVG_1 = 0,
+	AUXADC_AVG_4,
+	AUXADC_AVG_8,
+	AUXADC_AVG_16,
+	AUXADC_AVG_32,
+	AUXADC_AVG_64,
+	AUXADC_AVG_128,
+	AUXADC_AVG_256,
+};
+
+enum {
+	DBG_DCTRIM_BYPASS_4POLE = 0x1 << 0,
+	DBG_DCTRIM_4POLE_LOG = 0x1 << 1,
+};
+
+/* LOL MUX */
+enum {
+	LOL_MUX_OPEN = 0,
+	LOL_MUX_MUTE,
+	LOL_MUX_PLAYBACK,
+	LOL_MUX_TEST_MODE,
+	LOL_MUX_MASK = 0x3,
+};
+
+/*HP MUX */
+enum {
+	HP_MUX_OPEN = 0,
+	HP_MUX_HPSPK,
+	HP_MUX_HP,
+	HP_MUX_TEST_MODE,
+	HP_MUX_HP_IMPEDANCE,
+	HP_MUX_HP_DUALSPK,
+	HP_MUX_MASK = 0x7,
+};
+
+/* RCV MUX */
+enum {
+	RCV_MUX_OPEN = 0,
+	RCV_MUX_MUTE,
+	RCV_MUX_VOICE_PLAYBACK,
+	RCV_MUX_TEST_MODE,
+	RCV_MUX_MASK = 0x3,
+};
+
+/* Mic Type MUX */
+enum {
+	MIC_TYPE_MUX_IDLE = 0,
+	MIC_TYPE_MUX_ACC,
+	MIC_TYPE_MUX_DMIC,
+	MIC_TYPE_MUX_DCC,
+	MIC_TYPE_MUX_DCC_ECM_DIFF,
+	MIC_TYPE_MUX_DCC_ECM_SINGLE,
+	MIC_TYPE_MUX_MASK = 0x7,
+};
+
+/* ADC L MUX */
+enum {
+	ADC_MUX_IDLE = 0,
+	ADC_MUX_AIN0,
+	ADC_MUX_PREAMPLIFIER,
+	ADC_MUX_IDLE1,
+	ADC_MUX_MASK = 0x3,
+};
+
+/* PGA L MUX */
+enum {
+	PGA_MUX_NONE = 0,
+	PGA_MUX_AIN0,
+	PGA_MUX_AIN1,
+	PGA_MUX_AIN2,
+	PGA_MUX_MASK = 0x3,
+};
+
+enum {
+	HP_INPUT_MUX_OPEN = 0,
+	HP_INPUT_MUX_LOL,
+	HP_INPUT_MUX_IDACR,
+	HP_INPUT_MUX_HS,
+};
+
+/* trim buffer */
+enum {
+	TRIM_BUF_MUX_OPEN = 0,
+	TRIM_BUF_MUX_HPL,
+	TRIM_BUF_MUX_HPR,
+	TRIM_BUF_MUX_HSP,
+	TRIM_BUF_MUX_HSN,
+	TRIM_BUF_MUX_LOLP,
+	TRIM_BUF_MUX_LOLN,
+	TRIM_MUX_AU_REFN,
+	TRIM_MUX_AVSS28,
+	TRIM_MUX_AVSS28_2,
+	TRIM_MUX_UNUSED,
+	TRIM_BUF_MUX_GROUND,
+};
+
+enum {
+	TRIM_BUF_GAIN_0DB = 0,
+	TRIM_BUF_GAIN_6DB,
+	TRIM_BUF_GAIN_12DB,
+	TRIM_BUF_GAIN_18DB,
+};
+
+enum {
+	MIC_BIAS_1P7 = 0,
+	MIC_BIAS_1P8,
+	MIC_BIAS_1P9,
+	MIC_BIAS_2P0,
+	MIC_BIAS_2P1,
+	MIC_BIAS_2P5,
+	MIC_BIAS_2P6,
+	MIC_BIAS_2P7,
+};
+
+enum {
+	RCV_MIC_OFF = 0,
+	RCV_MIC_ACC,
+	RCV_MIC_DCC,
+};
+
+enum {
+	MIC_TYPE_MUX_IDLE = 0,
+	MIC_TYPE_MUX_ACC,
+	MIC_TYPE_MUX_DMIC,
+	MIC_TYPE_MUX_DCC,
+	MIC_TYPE_MUX_DCC_ECM_DIFF,
+	MIC_TYPE_MUX_DCC_ECM_SINGLE,
+};
+
+#ifdef ANALOG_HPTRIM
+struct ana_offset {
+	int enable;
+	int hp_trim_code[NUM_CH];
+	int hp_fine_trim[NUM_CH];
+};
+#endif
+
+struct dc_trim_data {
+	bool calibrated;
+	int hp_offset[NUM_CH];
+	int hp_trim_offset[NUM_CH];
+	int spk_l_offset;
+	int pre_comp_value[NUM_CH];
+	int mic_vinp_mv;
+#ifdef ANALOG_HPTRIM
+	int dc_compensation_disabled;
+	unsigned int hp_3_pole_trim_setting;
+	unsigned int hp_4_pole_trim_setting;
+	unsigned int spk_hp_3_pole_trim_setting;
+	unsigned int spk_hp_4_pole_trim_setting;
+	struct ana_offset hp_3_pole_ana_offset;
+	struct ana_offset hp_4_pole_ana_offset;
+	struct ana_offset spk_3_pole_ana_offset;
+	struct ana_offset spk_4_pole_ana_offset;
+#endif
+};
+
+struct mt6358_codec_ops {
+	int (*enable_dc_compensation)(bool enable);
+	int (*set_lch_dc_compensation)(int value);
+	int (*set_rch_dc_compensation)(int value);
+	int (*adda_dl_gain_control)(bool mute);
+};
+
+struct mt6358_priv {
+	struct device *dev;
+	struct regmap *regmap;
+
+	unsigned int dl_rate;
+	unsigned int ul_rate;
+
+	int ana_gain[AUDIO_ANALOG_VOLUME_TYPE_MAX];
+	unsigned int mux_select[MUX_NUM];
+	int dmic_one_wire_mode;
+
+	int dev_counter[DEVICE_NUM];
+
+	struct mt6358_codec_ops ops;
+	bool apply_n12db_gain;
+	int hp_plugged;
+
+	/* dc trim */
+	struct dc_trim_data dc_trim;
+	struct iio_channel *hpofs_cal_auxadc;
+
+	/* headphone impedence */
+	struct nvmem_device *hp_efuse;
+	int hp_impedance;
+	int hp_current_calibrate_val;
+
+	int mtkaif_protocol;
+
+	struct dentry *debugfs;
+	unsigned int debug_flag;
+	/* regulator */
+	struct regulator *reg_vaud28;
+
+	/* vow control */
+	int vow_enable;
+	int reg_afe_vow_cfg0;
+	int reg_afe_vow_cfg1;
+	int reg_afe_vow_cfg2;
+	int reg_afe_vow_cfg3;
+	int reg_afe_vow_cfg4;
+	int reg_afe_vow_cfg5;
+	int reg_afe_vow_periodic;
+	/* vow dmic low power mode, 1: enable, 0: disable */
+	int vow_dmic_lp;
+};
+
+/* dl pga gain */
+#define DL_GAIN_N_10DB_REG (DL_GAIN_N_10DB << 7 | DL_GAIN_N_10DB)
+#define DL_GAIN_N_40DB_REG (DL_GAIN_N_40DB << 7 | DL_GAIN_N_40DB)
+#define DL_GAIN_REG_MASK 0x0f9f
+
+/* reg idx for -40dB*/
+#define PGA_MINUS_40_DB_REG_VAL 0x1f
+#define HP_PGA_MINUS_40_DB_REG_VAL 0x3f
+
+/* mic type */
+#define IS_DCC_BASE(x) (x == MIC_TYPE_MUX_DCC || \
+			x == MIC_TYPE_MUX_DCC_ECM_DIFF || \
+			x == MIC_TYPE_MUX_DCC_ECM_SINGLE)
+
+#define IS_AMIC_BASE(x) (x == MIC_TYPE_MUX_ACC || IS_DCC_BASE(x))
+
+#define MIC_VINP_4POLE_THRES_MV 283
+#define VINP_NORMALIZED_TO_MV 1700
+
+/* hp trim */
+#ifdef ANALOG_HPTRIM
+#define HPTRIM_L_SHIFT 0
+#define HPTRIM_R_SHIFT 4
+#define HPFINETRIM_L_SHIFT 8
+#define HPFINETRIM_R_SHIFT 10
+#define HPTRIM_EN_SHIFT 12
+#define HPTRIM_L_MASK (0xf << HPTRIM_L_SHIFT)
+#define HPTRIM_R_MASK (0xf << HPTRIM_R_SHIFT)
+#define HPFINETRIM_L_MASK (0x3 << HPFINETRIM_L_SHIFT)
+#define HPFINETRIM_R_MASK (0x3 << HPFINETRIM_R_SHIFT)
+#define HPTRIM_EN_MASK (0x1 << HPTRIM_EN_SHIFT)
+#endif
+
+/* dc trim */
+#ifdef ANALOG_HPTRIM
+#define TRIM_TIMES 7
+#else
+#define TRIM_TIMES 26
+#endif
+#define TRIM_DISCARD_NUM 1
+#define TRIM_USEFUL_NUM (TRIM_TIMES - (TRIM_DISCARD_NUM * 2))
+
+/* headphone impedance detection */
+#define PARALLEL_OHM 0
+
+/* codec name */
+#define CODEC_MT6358_NAME "mtk-codec-mt6358"
+#define DEVICE_MT6358_NAME "mt6358-sound"
+
 /* set only during init */
+int mt6358_set_codec_ops(struct snd_soc_component *cmpnt,
+			 struct mt6358_codec_ops *ops);
 int mt6358_set_mtkaif_protocol(struct snd_soc_component *cmpnt,
 			       int mtkaif_protocol);
 int mt6358_mtkaif_calibration_enable(struct snd_soc_component *cmpnt);
