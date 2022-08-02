@@ -1760,17 +1760,39 @@ static void
 mtk_cam_set_hdr_timestamp_first(struct mtk_cam_request_stream_data *stream_data,
 	u64 time_boot, u64 time_mono)
 {
-	switch (stream_data->feature.scen->scen.normal.exp_order) {
-	case MTK_CAM_EXP_LE_SE:
-		stream_data->hdr_timestamp_cache.ne = time_boot;
-		stream_data->hdr_timestamp_cache.ne_mono = time_mono;
-		break;
-	case MTK_CAM_EXP_SE_LE:
-		stream_data->hdr_timestamp_cache.se = time_boot;
-		stream_data->hdr_timestamp_cache.se_mono = time_mono;
-		break;
-	default:
-		break;
+	if (!stream_data) {
+		pr_info("%s sdata is null\n", __func__);
+		return;
+	}
+
+	if (mtk_cam_scen_is_mstream_types(stream_data->feature.scen)) {
+		switch (stream_data->feature.scen->scen.mstream.type) {
+		case MTK_CAM_MSTREAM_SE_NE:
+			stream_data->hdr_timestamp_cache.se = time_boot;
+			stream_data->hdr_timestamp_cache.se_mono = time_mono;
+			break;
+		case MTK_CAM_MSTREAM_NE_SE:
+		default:
+			stream_data->hdr_timestamp_cache.ne = time_boot;
+			stream_data->hdr_timestamp_cache.ne_mono = time_mono;
+			break;
+		}
+	} else if (mtk_cam_scen_is_stagger_types(stream_data->feature.scen)) {
+		switch (stream_data->feature.scen->scen.normal.exp_order) {
+		case MTK_CAM_EXP_SE_LE:
+			stream_data->hdr_timestamp_cache.se = time_boot;
+			stream_data->hdr_timestamp_cache.se_mono = time_mono;
+			break;
+		case MTK_CAM_EXP_LE_SE:
+		default:
+			stream_data->hdr_timestamp_cache.ne = time_boot;
+			stream_data->hdr_timestamp_cache.ne_mono = time_mono;
+			break;
+		}
+	} else {
+		dev_info(stream_data->ctx->cam->dev,
+			"[%s] req:%d unsupport scenario\n",
+			__func__, stream_data->frame_seq_no);
 	}
 	dev_dbg(stream_data->ctx->cam->dev,
 			"[%s] req:%d le/ne/se:%lld/%lld/%lld\n", __func__,
@@ -1784,17 +1806,39 @@ static void
 mtk_cam_set_hdr_timestamp_last(struct mtk_cam_request_stream_data *stream_data,
 	u64 time_boot, u64 time_mono)
 {
-	switch (stream_data->feature.scen->scen.normal.exp_order) {
-	case MTK_CAM_EXP_LE_SE:
-		stream_data->hdr_timestamp_cache.se = time_boot;
-		stream_data->hdr_timestamp_cache.se_mono = time_mono;
-		break;
-	case MTK_CAM_EXP_SE_LE:
-		stream_data->hdr_timestamp_cache.ne = time_boot;
-		stream_data->hdr_timestamp_cache.ne_mono = time_mono;
-		break;
-	default:
-		break;
+	if (!stream_data) {
+		pr_info("%s sdata is null\n", __func__);
+		return;
+	}
+
+	if (mtk_cam_scen_is_mstream_types(stream_data->feature.scen)) {
+		switch (stream_data->feature.scen->scen.mstream.type) {
+		case MTK_CAM_MSTREAM_SE_NE:
+			stream_data->hdr_timestamp_cache.ne = time_boot;
+			stream_data->hdr_timestamp_cache.ne_mono = time_mono;
+			break;
+		case MTK_CAM_MSTREAM_NE_SE:
+		default:
+			stream_data->hdr_timestamp_cache.se = time_boot;
+			stream_data->hdr_timestamp_cache.se_mono = time_mono;
+			break;
+		}
+	} else if (mtk_cam_scen_is_stagger_types(stream_data->feature.scen)) {
+		switch (stream_data->feature.scen->scen.normal.exp_order) {
+		case MTK_CAM_EXP_SE_LE:
+			stream_data->hdr_timestamp_cache.ne = time_boot;
+			stream_data->hdr_timestamp_cache.ne_mono = time_mono;
+			break;
+		case MTK_CAM_EXP_LE_SE:
+		default:
+			stream_data->hdr_timestamp_cache.se = time_boot;
+			stream_data->hdr_timestamp_cache.se_mono = time_mono;
+			break;
+		}
+	} else {
+		dev_info(stream_data->ctx->cam->dev,
+			"[%s] req:%d unsupport scenario\n",
+			__func__, stream_data->frame_seq_no);
 	}
 	dev_dbg(stream_data->ctx->cam->dev,
 			"[%s] req:%d le/ne/se:%lld/%lld/%lld\n", __func__,
@@ -1805,11 +1849,45 @@ mtk_cam_set_hdr_timestamp_last(struct mtk_cam_request_stream_data *stream_data,
 }
 
 static void
+mtk_cam_set_mstream_hdr_timestamp(struct mtk_cam_ctx *ctx,
+	struct mtk_cam_request_stream_data *stream_data, bool is_first,
+	u64 time_boot, u64 time_mono)
+{
+	struct mtk_cam_request *req = NULL;
+	struct mtk_cam_request_stream_data *mstream_sdata;
+
+	if (!stream_data) {
+		pr_info("%s sdata is null\n");
+		return;
+	}
+
+	req = mtk_cam_get_req(ctx, stream_data->frame_seq_no);
+	mstream_sdata = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+
+	if (mtk_cam_scen_is_mstream_2exp_types(&ctx->pipe->scen_active)) {
+		if (is_first)
+			mtk_cam_set_hdr_timestamp_first(mstream_sdata,
+				time_boot, time_mono);
+		else {
+			mtk_cam_set_hdr_timestamp_last(mstream_sdata,
+				time_boot, time_mono);
+		}
+	} else {
+		mtk_cam_set_hdr_timestamp_first(stream_data,
+			time_boot, time_mono);
+	}
+}
+
+static void
 mtk_cam_read_hdr_timestamp(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_request_stream_data *stream_data)
 {
-	if (mtk_cam_ctx_has_raw(ctx) &&
-		mtk_cam_scen_is_sensor_stagger(&ctx->pipe->scen_active)) {
+	if (!stream_data) {
+		pr_info("%s sdata is null\n", __func__);
+		return;
+	}
+
+	if (mtk_cam_ctx_has_raw(ctx)) {
 		ctx->pipe->hdr_timestamp.le =
 			stream_data->hdr_timestamp_cache.le;
 		ctx->pipe->hdr_timestamp.le_mono =
@@ -2027,9 +2105,11 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 					state_outer = state_temp;
 					mtk_cam_set_timestamp(req_stream_data,
 						time_boot, time_mono);
-					if (mtk_cam_scen_is_sensor_stagger(&ctx->pipe->scen_active))
+					if (mtk_cam_scen_is_sensor_stagger(
+						&ctx->pipe->scen_active)) {
 						mtk_cam_set_hdr_timestamp_first(req_stream_data,
-						time_boot, time_mono);
+							time_boot, time_mono);
+					}
 				}
 			}
 			/* Find inner state element request*/
@@ -2475,7 +2555,8 @@ mtk_cam_raw_prepare_mstream_frame_done(struct mtk_cam_ctx *ctx,
 
 static void mtk_cam_mstream_frame_sync(struct mtk_raw_device *raw_dev,
 					struct mtk_cam_ctx *ctx,
-					unsigned int dequeued_frame_seq_no)
+					unsigned int dequeued_frame_seq_no,
+					bool *is_first_frame)
 {
 	struct mtk_cam_request *req = NULL;
 	struct mtk_cam_request_stream_data *s_data =
@@ -2507,6 +2588,7 @@ static void mtk_cam_mstream_frame_sync(struct mtk_raw_device *raw_dev,
 				mtk_cam_event_frame_sync(ctx->pipe,
 					req->p_data[ctx->stream_id].req_seq);
 				ctx->trigger_next_drain = true;
+				*is_first_frame = true;
 			} else if (dequeued_frame_seq_no ==
 					ctx->next_sof_mask_frame_seq_no) {
 				dev_dbg(raw_dev->dev, "mstream [SOF-mask] with-req frame:%d working_seq:%d, sof_cnt:%d\n",
@@ -2529,6 +2611,7 @@ static void mtk_cam_mstream_frame_sync(struct mtk_raw_device *raw_dev,
 					mtk_cam_event_frame_sync(ctx->pipe,
 							ctx->working_request_seq);
 					ctx->trigger_next_drain = true;
+					*is_first_frame = true;
 				} else {
 					ctx->next_sof_frame_seq_no =
 							ctx->next_sof_mask_frame_seq_no;
@@ -2550,6 +2633,7 @@ static void mtk_cam_mstream_frame_sync(struct mtk_raw_device *raw_dev,
 						ctx->working_request_seq);
 
 				ctx->trigger_next_drain = true;
+				*is_first_frame = true;
 			}
 		} else {
 			/* mstream 1exp case */
@@ -2560,6 +2644,7 @@ static void mtk_cam_mstream_frame_sync(struct mtk_raw_device *raw_dev,
 			ctx->trigger_next_drain = true;
 			ctx->next_sof_frame_seq_no =
 					dequeued_frame_seq_no + 1;
+			*is_first_frame = true;
 			dev_dbg(raw_dev->dev,
 					"%s mstream 1-exp [SOF] with-req frame:%d sof:%d enque_req_cnt:%d next sof frame:%d\n",
 					__func__, dequeued_frame_seq_no,
@@ -2595,6 +2680,7 @@ static void mtk_cam_mstream_frame_sync(struct mtk_raw_device *raw_dev,
 				ctx->next_sof_frame_seq_no =
 						ctx->next_sof_mask_frame_seq_no + 1;
 				ctx->trigger_next_drain = true;
+				*is_first_frame = true;
 			} else {
 				ctx->next_sof_frame_seq_no =
 						dequeued_frame_seq_no + 1;
@@ -2608,6 +2694,7 @@ static void mtk_cam_mstream_frame_sync(struct mtk_raw_device *raw_dev,
 			mtk_cam_event_frame_sync(ctx->pipe,
 					ctx->working_request_seq);
 			ctx->trigger_next_drain = true;
+			*is_first_frame = true;
 		}
 	}
 }
@@ -2628,6 +2715,7 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 	u64 time_boot = ktime_get_boottime_ns();
 	u64 time_mono = ktime_get_ns();
 	int dequeue_cnt;
+	bool is_mstream_first = false;
 
 	spin_lock(&ctx->streaming_lock);
 	if (!ctx->streaming) {
@@ -2650,7 +2738,8 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 		 * mtk_cam_mstream_frame_sync when feature is switched from
 		 * mstream 1 exp to 2 exp. Is it the expected flow the original design?
 		 */
-		mtk_cam_mstream_frame_sync(raw_dev, ctx, dequeued_frame_seq_no);
+		mtk_cam_mstream_frame_sync(raw_dev, ctx,
+				dequeued_frame_seq_no, &is_mstream_first);
 	} else {
 		/* normal */
 		mtk_cam_event_frame_sync(ctx->pipe, dequeued_frame_seq_no);
@@ -2817,6 +2906,9 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	dma_addr_t base_addr;
 	enum MTK_CAMSYS_STATE_RESULT state_handle_ret;
 	bool is_apply = false;
+	bool is_mstream_first = false;
+	u64 time_boot = ktime_get_boottime_ns();
+	u64 time_mono = ktime_get_ns();
 
 	/*touch watchdog*/
 	if (watchdog_scenario(ctx))
@@ -2834,7 +2926,7 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 		 * mtk_cam_mstream_frame_sync when feature is switched from
 		 * mstream 1 exp to 2 exp. Is it the expected flow the original design?
 		 */
-		mtk_cam_mstream_frame_sync(raw_dev, ctx, dequeued_frame_seq_no);
+		mtk_cam_mstream_frame_sync(raw_dev, ctx, dequeued_frame_seq_no, &is_mstream_first);
 	} else {
 		/* normal */
 		mtk_cam_event_frame_sync(ctx->pipe, dequeued_frame_seq_no);
@@ -2842,6 +2934,13 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 
 	/* Find request of this dequeued frame */
 	req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, dequeued_frame_seq_no);
+
+	/* mstream time stamp */
+	if (mtk_cam_scen_is_mstream(&ctx->pipe->scen_active)) {
+		mtk_cam_set_mstream_hdr_timestamp(ctx,
+			req_stream_data, is_mstream_first,
+			time_boot, time_mono);
+	}
 
 	/* Detect no frame done and trigger camsys dump for debugging */
 	mtk_cam_debug_detect_dequeue_failed(req_stream_data, 30, irq_info, raw_dev);
@@ -3329,7 +3428,6 @@ int mtk_cam_hdr_last_frame_start(struct mtk_raw_device *raw_dev,
 				if (mtk_cam_scen_is_sensor_stagger(&ctx->pipe->scen_active)) {
 					mtk_cam_set_hdr_timestamp_last(req_stream_data,
 						time_boot, time_mono);
-					mtk_cam_read_hdr_timestamp(ctx, req_stream_data);
 				}
 			}
 			/*Find CQ element for DCIF stagger*/
@@ -4335,6 +4433,7 @@ static void mtk_cam_meta1_done(struct mtk_cam_ctx *ctx,
 	}
 
 	meta1_done_work = &req_stream_data->meta1_done_work;
+	mtk_cam_read_hdr_timestamp(ctx, req_stream_data);
 	atomic_set(&meta1_done_work->is_queued, 1);
 	queue_work(ctx->frame_done_wq, &meta1_done_work->work);
 }

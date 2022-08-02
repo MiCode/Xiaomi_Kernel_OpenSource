@@ -4524,6 +4524,8 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 	atomic_set(&req_stream_data->buf_state, -1);
 	memset(&req_stream_data->apu_info, 0,
 		sizeof(req_stream_data->apu_info));
+	memset(&req_stream_data->hdr_timestamp_cache, 0,
+		sizeof(req_stream_data->hdr_timestamp_cache));
 
 	/**
 	 * req_stream_data->flags is cleaned by
