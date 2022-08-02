@@ -102,10 +102,8 @@ static void get_dpb_size(struct vdec_inst *inst, unsigned int *dpb_sz)
 
 static void get_dvfs_data(struct mtk_vcodec_dev *dev, unsigned int target_freq, unsigned int need)
 {
-	if (need >= 0) {
-		dev->vdec_dvfs_params.target_freq = target_freq;
-		dev->vdec_dvfs_params.frame_need_update = need;
-	}
+	dev->vdec_dvfs_params.target_freq = target_freq;
+	dev->vdec_dvfs_params.frame_need_update = need;
 }
 
 static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is_ack)
