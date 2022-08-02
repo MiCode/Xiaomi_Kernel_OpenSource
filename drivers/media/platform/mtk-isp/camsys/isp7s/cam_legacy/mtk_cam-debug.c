@@ -482,6 +482,9 @@ static int dbg_ctrl_open(struct inode *inode, struct file *file)
 
 	WARN_ON(!ctrl);
 
+	if (!ctrl)
+		return -EFAULT;
+
 	file->private_data = ctrl;
 	debug_fs = ctrl->debug_fs;
 
@@ -593,6 +596,9 @@ static int dbg_data_open(struct inode *inode, struct file *file)
 	struct mtk_cam_dump_buf_ctrl *ctrl = PDE_DATA(inode);
 
 	WARN_ON(!ctrl);
+
+	if (!ctrl)
+		return -EFAULT;
 
 	file->private_data = ctrl;
 	debug_fs = ctrl->debug_fs;
