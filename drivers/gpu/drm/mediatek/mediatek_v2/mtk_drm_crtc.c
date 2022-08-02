@@ -819,17 +819,40 @@ static int mtk_drm_crtc_get_property(struct drm_crtc *crtc,
 }
 
 struct mtk_ddp_comp *mtk_crtc_get_comp(struct drm_crtc *crtc,
+				       unsigned int mode_id,
 				       unsigned int path_id,
 				       unsigned int comp_idx)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_ddp_ctx *ddp_ctx = mtk_crtc->ddp_ctx;
 
-	if (mtk_crtc->ddp_mode > DDP_MINOR) {
+	if (mode_id > DDP_MINOR) {
 		DDPPR_ERR("invalid ddp mode:%d!\n", mtk_crtc->ddp_mode);
 		return NULL;
 	}
-	return ddp_ctx[mtk_crtc->ddp_mode].ddp_comp[path_id][comp_idx];
+	if (ddp_ctx[mode_id].ovl_comp_nr[path_id] &&
+			comp_idx < ddp_ctx[mode_id].ovl_comp_nr[path_id])
+		return ddp_ctx[mode_id].ovl_comp[path_id][comp_idx];
+
+	/* shift comp_idx from global idx to local idx for ddp_comp array */
+	comp_idx -= ddp_ctx[mode_id].ovl_comp_nr[path_id];
+	return ddp_ctx[mode_id].ddp_comp[path_id][comp_idx];
+}
+
+struct mtk_ddp_comp *mtk_crtc_get_dual_comp(struct drm_crtc *crtc,
+				       unsigned int path_id,
+				       unsigned int comp_idx)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_crtc_ddp_ctx *ddp_ctx = &mtk_crtc->dual_pipe_ddp_ctx;
+
+	if (ddp_ctx->ovl_comp_nr[path_id] &&
+			comp_idx < ddp_ctx->ovl_comp_nr[path_id])
+		return ddp_ctx->ovl_comp[path_id][comp_idx];
+
+	/* shift comp_idx from global idx to local idx for ddp_comp array */
+	comp_idx -= ddp_ctx->ovl_comp_nr[path_id];
+	return ddp_ctx->ddp_comp[path_id][comp_idx];
 }
 
 unsigned int mtk_get_mmsys_id(struct drm_crtc *crtc)
@@ -907,7 +930,7 @@ int mtk_drm_crtc_enable_vblank(struct drm_crtc *crtc)
 	unsigned int pipe = crtc->index;
 	struct mtk_drm_private *priv = drm->dev_private;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(priv->crtc[pipe]);
-	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(&mtk_crtc->base, 0, 0);
+	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(&mtk_crtc->base, mtk_crtc->ddp_mode, 0, 0);
 
 	mtk_crtc->vblank_en = 1;
 
@@ -1376,7 +1399,7 @@ void mtk_drm_crtc_disable_vblank(struct drm_crtc *crtc)
 	unsigned int pipe = crtc->index;
 	struct mtk_drm_private *priv = drm->dev_private;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(priv->crtc[pipe]);
-	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(&mtk_crtc->base, 0, 0);
+	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(&mtk_crtc->base, mtk_crtc->ddp_mode, 0, 0);
 
 	DDPINFO("%s\n", __func__);
 
@@ -1470,6 +1493,11 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 	}
 
 	for (j = 0; j < DDP_SECOND_PATH; j++) {
+		mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[j] =
+			mtk_crtc->path_data->dual_ovl_path_len[j];
+		mtk_crtc->dual_pipe_ddp_ctx.ovl_comp[j] = devm_kmalloc_array(
+			dev, mtk_crtc->path_data->dual_ovl_path_len[j],
+			sizeof(struct mtk_ddp_comp *), GFP_KERNEL);
 		mtk_crtc->dual_pipe_ddp_ctx.ddp_comp_nr[j] =
 			mtk_crtc->path_data->dual_path_len[j];
 		mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[j] = devm_kmalloc_array(
@@ -1493,7 +1521,13 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 
 			comp = kzalloc(sizeof(*comp), GFP_KERNEL);
 			comp->id = comp_id;
-			mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i][j] = comp;
+			if (mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i] &&
+					j < mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i])
+				mtk_crtc->dual_pipe_ddp_ctx.ovl_comp[i][j] = comp;
+			else
+				/* shift comp_idx from global idx to local idx for ddp_comp array */
+				mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i]
+					[j - mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i]] = comp;
 			continue;
 		} else if (mtk_ddp_comp_get_type(comp_id) == MTK_DISP_DSC) {
 			/*4k 30 use DISP_MERGE1, 4k 60 use DSC*/
@@ -1501,13 +1535,28 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 			if ((drm_crtc_index(&mtk_crtc->base) == 1) &&
 				(drm_mode_vrefresh(&crtc->state->adjusted_mode) == 30)) {
 				comp = priv->ddp_comp[DDP_COMPONENT_MERGE1];
-				mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i][j] = comp;
-				comp->mtk_crtc = mtk_crtc;
+				if (mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i] &&
+						j < mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i]) {
+					mtk_crtc->dual_pipe_ddp_ctx.ovl_comp[i][j] = comp;
+				} else {
+					unsigned int dual_ovl_comp_nr =
+						mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i];
+				/* shift comp_idx from global idx to local idx for ddp_comp array */
+					mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i]
+						[j - dual_ovl_comp_nr] = comp;
 				}
+				comp->mtk_crtc = mtk_crtc;
+			}
 			continue;
 		}
 		comp = priv->ddp_comp[comp_id];
-		mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i][j] = comp;
+		if (mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i] &&
+				j < mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i])
+			mtk_crtc->dual_pipe_ddp_ctx.ovl_comp[i][j] = comp;
+		else
+			/* shift comp_idx from global idx to local idx for ddp_comp array */
+			mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i]
+				[j - mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i]] = comp;
 		comp->mtk_crtc = mtk_crtc;
 	}
 	comp = mtk_ddp_comp_request_output(mtk_crtc);
@@ -1818,7 +1867,7 @@ mtk_crtc_get_plane_comp(struct drm_crtc *crtc,
 	int i, j;
 
 	if (plane_state->comp_state.comp_id == 0)
-		return mtk_crtc_get_comp(crtc, 0, 0);
+		return mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, 0, 0);
 
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i,
 				       j)
@@ -4388,11 +4437,9 @@ static void mtk_crtc_dc_config_color_matrix(struct drm_crtc *crtc,
 	if (all_zero)
 		DDPPR_ERR("CCORR color matrix backup param is zero matrix\n");
 	else {
-		ddp_ctx = &mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode];
-		for (i = 0; i < ddp_ctx->ddp_comp_nr[DDP_SECOND_PATH]; i++) {
-			struct mtk_ddp_comp *comp =
-					ddp_ctx->ddp_comp[DDP_SECOND_PATH][i];
+		struct mtk_ddp_comp *comp;
 
+		for_each_comp_in_crtc_target_path(comp, mtk_crtc, i, DDP_SECOND_PATH) {
 			if (comp->id == DDP_COMPONENT_CCORR0) {
 				disp_ccorr_set_color_matrix(comp, cmdq_handle,
 					ccorr_matrix, mode, false, g_ccorr_linear);
@@ -5501,7 +5548,7 @@ static void mtk_crtc_ddp_config(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *state = to_mtk_crtc_state(mtk_crtc->base.state);
-	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(crtc, 0, 0);
+	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, 0, 0);
 	struct mtk_ddp_config cfg;
 	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
 	unsigned int i;
@@ -6524,20 +6571,27 @@ void mtk_crtc_connect_default_path(struct mtk_drm_crtc *mtk_crtc)
 	unsigned int i, j;
 	struct mtk_ddp_comp *comp;
 	struct drm_crtc *crtc = &mtk_crtc->base;
-	struct mtk_ddp_comp **ddp_comp;
 	enum mtk_ddp_comp_id prev_id, next_id;
 
 	/* connect path */
 	for_each_comp_in_crtc_path_bound(comp, mtk_crtc, i, j, 1) {
-		ddp_comp = mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode].ddp_comp[i];
-		prev_id = (j == 0 ? DDP_COMPONENT_ID_MAX : ddp_comp[j - 1]->id);
-		next_id = ddp_comp[j + 1]->id;
+		struct mtk_ddp_comp *tmp_comp;
+
+		if (j == 0) {
+			prev_id = DDP_COMPONENT_ID_MAX;
+		} else {
+			tmp_comp = mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, i, j - 1);
+			prev_id = tmp_comp ? tmp_comp->id : DDP_COMPONENT_ID_MAX;
+		}
+
+		tmp_comp = mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, i, j + 1);
+		next_id = tmp_comp ? tmp_comp->id : DDP_COMPONENT_ID_MAX;
 
 		DDPINFO("%s, %s --> %s --> %s\n", __func__,
 			mtk_dump_comp_str_id(prev_id),
-			mtk_dump_comp_str(ddp_comp[j]),
+			mtk_dump_comp_str(comp),
 			mtk_dump_comp_str_id(next_id));
-		mtk_ddp_add_comp_to_path(mtk_crtc, ddp_comp[j], prev_id,
+		mtk_ddp_add_comp_to_path(mtk_crtc, comp, prev_id,
 					 next_id);
 	}
 
@@ -6647,7 +6701,6 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_ddp_comp *comp;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
-	struct mtk_crtc_ddp_ctx *ddp_ctx;
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
@@ -6671,8 +6724,7 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 		else {
 			/* TODO: all plane should contain proper mtk_plane_state
 			 */
-			ddp_ctx = &mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode];
-			comp = ddp_ctx->ddp_comp[DDP_FIRST_PATH][0];
+			comp = mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, DDP_FIRST_PATH, 0);
 			DDPINFO("%s no comp_id, assign to comp:%d\n", __func__, comp->id);
 		}
 
@@ -6694,8 +6746,7 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 
 			plane_state->pending.dst_x = 0;
 			plane_state->pending.dst_y = 0;
-			ddp_ctx = &mtk_crtc->dual_pipe_ddp_ctx;
-			comp = ddp_ctx->ddp_comp[DDP_FIRST_PATH][0];
+			comp = mtk_crtc_get_dual_comp(crtc, DDP_FIRST_PATH, 0);
 			plane_state->comp_state.comp_id =
 						DDP_COMPONENT_OVL3_2L;
 			mtk_ddp_comp_layer_config(comp,
@@ -6711,14 +6762,12 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 		drm_set_dal(&mtk_crtc->base, cmdq_handle);
 
 	if (mtk_crtc->is_mml) {
-		ddp_ctx = &mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode];
-		comp = ddp_ctx->ddp_comp[DDP_FIRST_PATH][0];
+		mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, DDP_FIRST_PATH, 0);
 		cmdq_pkt_write(cmdq_handle, NULL, comp->larb_cons[0], GENMASK(19, 16),
 			       GENMASK(19, 16));
 
 		if (mtk_crtc->is_dual_pipe) {
-			ddp_ctx = &mtk_crtc->dual_pipe_ddp_ctx;
-			comp = ddp_ctx->ddp_comp[DDP_FIRST_PATH][0];
+			comp = mtk_crtc_get_dual_comp(crtc, DDP_FIRST_PATH, 0);
 			cmdq_pkt_write(cmdq_handle, NULL, comp->larb_cons[0], GENMASK(19, 16),
 				       GENMASK(19, 16));
 		}
@@ -7221,16 +7270,19 @@ void mtk_crtc_disconnect_default_path(struct mtk_drm_crtc *mtk_crtc)
 	int i, j;
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	struct mtk_ddp_comp *comp;
-	struct mtk_ddp_comp **ddp_comp;
 
 	/* if VDO mode, disable mutex by CPU here */
 	if (!mtk_crtc_is_frame_trigger_mode(crtc))
 		mtk_disp_mutex_disable(mtk_crtc->mutex[0]);
 
 	for_each_comp_in_crtc_path_bound(comp, mtk_crtc, i, j, 1) {
-		ddp_comp = mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode].ddp_comp[i];
+		struct mtk_ddp_comp *tmp_comp;
+		unsigned int next_comp_id;
+
+		tmp_comp = mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, i, j + 1);
+		next_comp_id = tmp_comp ? tmp_comp->id : DDP_COMPONENT_ID_MAX;
 		mtk_ddp_remove_comp_from_path(mtk_crtc,
-			ddp_comp[j]->id, ddp_comp[j + 1]->id);
+			comp->id, next_comp_id);
 	}
 
 	if (mtk_crtc_is_dc_mode(crtc)) {
@@ -9396,7 +9448,7 @@ void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 	unsigned int plane_index = to_crtc_plane_index(plane->index);
 	struct drm_crtc_state *crtc_state = crtc->state;
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc_state);
-	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(crtc, 0, 0);
+	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, 0, 0);
 	struct mtk_plane_comp_state *comp_state;
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 #ifndef DRM_CMDQ_DISABLE
@@ -9501,7 +9553,7 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 	unsigned int plane_index = to_crtc_plane_index(plane->index);
 	struct drm_crtc_state *crtc_state = crtc->state;
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc_state);
-	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(crtc, 0, 0);
+	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, 0, 0);
 #ifndef DRM_CMDQ_DISABLE
 	unsigned int v = crtc->state->adjusted_mode.vdisplay;
 	unsigned int h = crtc->state->adjusted_mode.hdisplay;
@@ -9823,19 +9875,14 @@ static void mtk_crtc_dl_config_color_matrix(struct drm_crtc *crtc,
 {
 
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_crtc_ddp_ctx *ddp_ctx;
 	bool set =  false;
 	int i, j;
-	struct mtk_ddp_comp *comp_ccorr;
+	struct mtk_ddp_comp *comp_ccorr, *comp;
 
 	if (!ccorr_config)
 		return;
 
-	ddp_ctx = &mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode];
-	for (i = 0; i < ddp_ctx->ddp_comp_nr[DDP_FIRST_PATH]; i++) {
-		struct mtk_ddp_comp *comp =
-		ddp_ctx->ddp_comp[DDP_FIRST_PATH][i];
-
+	for_each_comp_in_crtc_target_path(comp, mtk_crtc, i, DDP_FIRST_PATH) {
 		if (comp->id == DDP_COMPONENT_CCORR0) {
 			disp_ccorr_set_color_matrix(comp, cmdq_handle,
 					ccorr_config->color_matrix, ccorr_config->mode,
@@ -11664,6 +11711,11 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 			mtk_crtc->ddp_ctx[i].ddp_comp[j] = devm_kmalloc_array(
 				dev, path_data->path_len[i][j],
 				sizeof(struct mtk_ddp_comp *), GFP_KERNEL);
+			mtk_crtc->ddp_ctx[i].ovl_comp_nr[j] =
+				path_data->ovl_path_len[i][j];
+			mtk_crtc->ddp_ctx[i].ovl_comp[j] = devm_kmalloc_array(
+				dev, path_data->ovl_path_len[i][j],
+				sizeof(struct mtk_ddp_comp *), GFP_KERNEL);
 			mtk_crtc->ddp_ctx[i].req_hrt[j] =
 				path_data->path_req_hrt[i][j];
 		}
@@ -11687,7 +11739,13 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 
 			comp = kzalloc(sizeof(*comp), GFP_KERNEL);
 			comp->id = comp_id;
-			mtk_crtc->ddp_ctx[p_mode].ddp_comp[i][j] = comp;
+			if (mtk_crtc->ddp_ctx[p_mode].ovl_comp_nr[i] &&
+					j < mtk_crtc->ddp_ctx[p_mode].ovl_comp_nr[i])
+				mtk_crtc->ddp_ctx[p_mode].ovl_comp[i][j] = comp;
+			else
+				/* shift comp_idx from global idx to local idx for ddp_comp array */
+				mtk_crtc->ddp_ctx[p_mode].ddp_comp[i]
+					[j - mtk_crtc->ddp_ctx[p_mode].ovl_comp_nr[i]] = comp;
 			continue;
 		}
 
@@ -11725,7 +11783,13 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 			mtk_crtc->layer_nr = RDMA_LAYER_NR;
 		}
 
-		mtk_crtc->ddp_ctx[p_mode].ddp_comp[i][j] = comp;
+		if (mtk_crtc->ddp_ctx[p_mode].ovl_comp_nr[i] &&
+				j < mtk_crtc->ddp_ctx[p_mode].ovl_comp_nr[i])
+			mtk_crtc->ddp_ctx[p_mode].ovl_comp[i][j] = comp;
+		else
+			/* shift comp_idx from global idx to local idx for ddp_comp array */
+			mtk_crtc->ddp_ctx[p_mode].ddp_comp[i]
+				[j - mtk_crtc->ddp_ctx[p_mode].ovl_comp_nr[i]] = comp;
 	}
 
 	for_each_wb_comp_id_in_path_data(comp_id, path_data, i, p_mode) {
@@ -12393,19 +12457,21 @@ static void mtk_crtc_disconnect_single_path_cmdq(struct drm_crtc *crtc,
 						 unsigned int mutex_id)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_crtc_ddp_ctx *ddp_ctx;
+	struct mtk_ddp_comp *comp;
 	int i;
 
-	ddp_ctx = &mtk_crtc->ddp_ctx[ddp_mode];
-	for (i = 0; i < ddp_ctx->ddp_comp_nr[path_idx] - 1; i++)
-		mtk_ddp_remove_comp_from_path_with_cmdq(
-			mtk_crtc, ddp_ctx->ddp_comp[path_idx][i]->id,
-			ddp_ctx->ddp_comp[path_idx][i + 1]->id, cmdq_handle);
+	for (i = 0; i < __mtk_crtc_path_len(mtk_crtc, ddp_mode, path_idx) - 1; ++i) {
+		struct mtk_ddp_comp *temp_comp;
 
-	for (i = 0; i < ddp_ctx->ddp_comp_nr[path_idx]; i++)
+		comp = mtk_crtc_get_comp(crtc, ddp_mode, path_idx, i);
+		temp_comp = mtk_crtc_get_comp(crtc, ddp_mode, path_idx, i + 1);
+
+		mtk_ddp_remove_comp_from_path_with_cmdq(
+			mtk_crtc, comp->id, temp_comp->id, cmdq_handle);
+	}
+	for_each_comp_in_crtc_target_mode_path(comp, mtk_crtc, i, ddp_mode, path_idx)
 		mtk_disp_mutex_remove_comp_with_cmdq(
-			mtk_crtc, ddp_ctx->ddp_comp[path_idx][i]->id,
-			cmdq_handle, mutex_id);
+			mtk_crtc, comp->id, cmdq_handle, mutex_id);
 }
 
 static void mtk_crtc_connect_single_path_cmdq(struct drm_crtc *crtc,
@@ -12415,18 +12481,21 @@ static void mtk_crtc_connect_single_path_cmdq(struct drm_crtc *crtc,
 					      unsigned int mutex_id)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_crtc_ddp_ctx *ddp_ctx;
+	struct mtk_ddp_comp *comp;
 	int i;
 
-	ddp_ctx = &mtk_crtc->ddp_ctx[ddp_mode];
-	for (i = 0; i < ddp_ctx->ddp_comp_nr[path_idx] - 1; i++)
-		mtk_ddp_add_comp_to_path_with_cmdq(
-			mtk_crtc, ddp_ctx->ddp_comp[path_idx][i]->id,
-			ddp_ctx->ddp_comp[path_idx][i + 1]->id, cmdq_handle);
+	for (i = 0; i < __mtk_crtc_path_len(mtk_crtc, ddp_mode, path_idx) - 1; ++i) {
+		struct mtk_ddp_comp *temp_comp;
 
-	for (i = 0; i < ddp_ctx->ddp_comp_nr[path_idx]; i++)
+		comp = mtk_crtc_get_comp(crtc, ddp_mode, path_idx, i);
+		temp_comp = mtk_crtc_get_comp(crtc, ddp_mode, path_idx, i + 1);
+
+		mtk_ddp_add_comp_to_path_with_cmdq(
+			mtk_crtc, comp->id, temp_comp->id, cmdq_handle);
+	}
+	for_each_comp_in_crtc_target_mode_path(comp, mtk_crtc, i, ddp_mode, path_idx)
 		mtk_disp_mutex_add_comp_with_cmdq(
-			mtk_crtc, ddp_ctx->ddp_comp[path_idx][i]->id,
+			mtk_crtc, comp->id,
 			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base),
 			cmdq_handle, mutex_id);
 }
@@ -12437,27 +12506,22 @@ static void mtk_crtc_config_dual_pipe_cmdq(struct mtk_drm_crtc *mtk_crtc,
 					     struct mtk_ddp_config *cfg)
 {
 	//struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
-	struct mtk_crtc_ddp_ctx *ddp_ctx;
+	struct mtk_ddp_comp *comp;
 	int i;
 
 	DDPFUNC();
-	ddp_ctx = &mtk_crtc->dual_pipe_ddp_ctx;
-	for (i = 0; i < ddp_ctx->ddp_comp_nr[path_idx]; i++) {
-		struct mtk_ddp_comp *comp = ddp_ctx->ddp_comp[path_idx][i];
-
+	for_each_comp_in_dual_pipe(comp, mtk_crtc, path_idx, i) {
 		if (comp->id == DDP_COMPONENT_RDMA4 ||
 		    comp->id == DDP_COMPONENT_RDMA5) {
 			bool *rdma_memory_mode =
-				ddp_ctx->ddp_comp[path_idx][i]->comp_mode;
+				comp->comp_mode;
 
 				*rdma_memory_mode = false;
 			break;
 		}
 	}
 
-	for (i = 0; i < ddp_ctx->ddp_comp_nr[path_idx]; i++) {
-		struct mtk_ddp_comp *comp = ddp_ctx->ddp_comp[path_idx][i];
-
+	for_each_comp_in_dual_pipe(comp, mtk_crtc, path_idx, i) {
 		mtk_ddp_comp_config(comp, cfg, cmdq_handle);
 		mtk_ddp_comp_start(comp, cmdq_handle);
 	}
@@ -12471,20 +12535,16 @@ static void mtk_crtc_config_single_path_cmdq(struct drm_crtc *crtc,
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
-	struct mtk_crtc_ddp_ctx *ddp_ctx;
+	struct mtk_ddp_comp *comp;
 	int i;
 
-	ddp_ctx = &mtk_crtc->ddp_ctx[ddp_mode];
-	for (i = 0; i < ddp_ctx->ddp_comp_nr[path_idx]; i++) {
-		struct mtk_ddp_comp *comp = ddp_ctx->ddp_comp[path_idx][i];
-
+	for_each_comp_in_crtc_target_mode_path(comp, mtk_crtc, i, ddp_mode, path_idx) {
 		if (comp->id == DDP_COMPONENT_RDMA0 ||
 		    comp->id == DDP_COMPONENT_RDMA1 ||
 		    comp->id == DDP_COMPONENT_RDMA2 ||
 		    comp->id == DDP_COMPONENT_RDMA4 ||
 		    comp->id == DDP_COMPONENT_RDMA5) {
-			bool *rdma_memory_mode =
-				ddp_ctx->ddp_comp[path_idx][i]->comp_mode;
+			bool *rdma_memory_mode = comp->comp_mode;
 
 			if (i == 0)
 				*rdma_memory_mode = true;
@@ -12494,9 +12554,7 @@ static void mtk_crtc_config_single_path_cmdq(struct drm_crtc *crtc,
 		}
 	}
 
-	for (i = 0; i < ddp_ctx->ddp_comp_nr[path_idx]; i++) {
-		struct mtk_ddp_comp *comp = ddp_ctx->ddp_comp[path_idx][i];
-
+	for_each_comp_in_crtc_target_mode_path(comp, mtk_crtc, i, ddp_mode, path_idx) {
 		mtk_ddp_comp_config(comp, cfg, cmdq_handle);
 		mtk_ddp_comp_start(comp, cmdq_handle);
 		if (!mtk_drm_helper_get_opt(
@@ -12642,8 +12700,8 @@ static void mtk_crtc_config_wb_path_cmdq(struct drm_crtc *crtc,
 	plane_state.pending.dst_y = 0;
 	plane_state.pending.width = fb->width;
 	plane_state.pending.height = fb->height;
-	ddp_ctx = &mtk_crtc->ddp_ctx[ddp_mode];
-	mtk_ddp_comp_layer_config(ddp_ctx->ddp_comp[path_idx][0], 0,
+	comp = mtk_crtc_get_comp(crtc, ddp_mode, path_idx, 0);
+	mtk_ddp_comp_layer_config(comp, 0,
 				  &plane_state, cmdq_handle);
 }
 
@@ -12767,7 +12825,6 @@ static void __mtk_crtc_old_sub_path_destroy(struct drm_crtc *crtc,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(crtc->state);
 	struct cmdq_pkt *cmdq_handle;
-	struct mtk_crtc_ddp_ctx *ddp_ctx;
 	int i;
 	struct mtk_ddp_comp *comp = NULL;
 	int index = drm_crtc_index(crtc);
@@ -12782,13 +12839,8 @@ static void __mtk_crtc_old_sub_path_destroy(struct drm_crtc *crtc,
 					&crtc_state->lye_state,
 					cmdq_handle);
 
-	ddp_ctx = &mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode];
-	for (i = 0; i < ddp_ctx->ddp_comp_nr[DDP_FIRST_PATH]; i++) {
-		struct mtk_ddp_comp *comp =
-				ddp_ctx->ddp_comp[DDP_FIRST_PATH][i];
-
+	for_each_comp_in_crtc_target_path(comp, mtk_crtc, i, DDP_FIRST_PATH)
 		mtk_ddp_comp_stop(comp, cmdq_handle);
-	}
 
 	mtk_crtc_disconnect_single_path_cmdq(crtc, cmdq_handle,
 		DDP_FIRST_PATH,	mtk_crtc->ddp_mode, 1);
@@ -13231,7 +13283,6 @@ void mtk_crtc_disconnect_path_between_component(struct drm_crtc *crtc,
 	struct mtk_ddp_comp *comp;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	int mutex_id = mtk_crtc_get_mutex_id(crtc, ddp_mode, prev);
-	struct mtk_crtc_ddp_ctx *ddp_ctx = &mtk_crtc->ddp_ctx[ddp_mode];
 	int find_idx = -1;
 
 	if (mutex_id < 0) {
@@ -13243,9 +13294,13 @@ void mtk_crtc_disconnect_path_between_component(struct drm_crtc *crtc,
 		if (comp->id == prev)
 			find_idx = j;
 
-		if (find_idx > -1 && j > find_idx) {
+		if (find_idx > -1 && j > find_idx && j > 0) {
+			struct mtk_ddp_comp *temp_comp;
+
+			temp_comp = mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, i, j - 1);
+
 			mtk_ddp_remove_comp_from_path_with_cmdq(
-				mtk_crtc, ddp_ctx->ddp_comp[i][j - 1]->id,
+				mtk_crtc, temp_comp->id,
 				comp->id, cmdq_handle);
 
 			if (comp->id != next)
@@ -13263,14 +13318,16 @@ void mtk_crtc_disconnect_path_between_component(struct drm_crtc *crtc,
 		return;
 
 	i = j = 0;
-	ddp_ctx = &mtk_crtc->dual_pipe_ddp_ctx;
 	for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
 		if (comp->id == prev)
 			find_idx = j;
 
 		if (find_idx > -1 && j > find_idx) {
+			struct mtk_ddp_comp *temp_comp;
+
+			temp_comp = mtk_crtc_get_dual_comp(crtc, i, j - 1);
 			mtk_ddp_remove_comp_from_path_with_cmdq(
-					mtk_crtc, ddp_ctx->ddp_comp[i][j - 1]->id,
+					mtk_crtc, temp_comp->id,
 					comp->id, cmdq_handle);
 
 			if (comp->id != next)
@@ -13294,7 +13351,6 @@ void mtk_crtc_connect_path_between_component(struct drm_crtc *crtc,
 	struct mtk_ddp_comp *comp;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	int mutex_id = mtk_crtc_get_mutex_id(crtc, ddp_mode, prev);
-	struct mtk_crtc_ddp_ctx *ddp_ctx = &mtk_crtc->ddp_ctx[ddp_mode];
 	int find_idx = -1;
 
 	if (mutex_id < 0) {
@@ -13306,9 +13362,12 @@ void mtk_crtc_connect_path_between_component(struct drm_crtc *crtc,
 		if (comp->id == prev)
 			find_idx = j;
 
-		if (find_idx > -1 && j > find_idx) {
+		if (find_idx > -1 && j > find_idx && j > 0) {
+			struct mtk_ddp_comp *temp_comp;
+
+			temp_comp = mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, i, j - 1);
 			mtk_ddp_add_comp_to_path_with_cmdq(
-				mtk_crtc, ddp_ctx->ddp_comp[i][j - 1]->id,
+				mtk_crtc, temp_comp->id,
 				comp->id, cmdq_handle);
 
 			if (comp->id != next)
@@ -13326,14 +13385,17 @@ void mtk_crtc_connect_path_between_component(struct drm_crtc *crtc,
 		return;
 
 	i = j = 0;
-	ddp_ctx = &mtk_crtc->dual_pipe_ddp_ctx;
+
 	for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
 		if (comp->id == prev)
 			find_idx = j;
 
 		if (find_idx > -1 && j > find_idx) {
+			struct mtk_ddp_comp *temp_comp;
+
+			temp_comp = mtk_crtc_get_dual_comp(crtc, i, j - 1);
 			mtk_ddp_add_comp_to_path_with_cmdq(
-					mtk_crtc, ddp_ctx->ddp_comp[i][j - 1]->id,
+					mtk_crtc, temp_comp->id,
 					comp->id, cmdq_handle);
 
 			if (comp->id != next)
@@ -13386,14 +13448,14 @@ int mtk_crtc_find_next_comp(struct drm_crtc *crtc, unsigned int ddp_mode,
 
 	for_each_comp_in_target_ddp_mode(comp, mtk_crtc, i, j, ddp_mode) {
 		if (comp->id == comp_id) {
-			struct mtk_crtc_ddp_ctx *ddp_ctx =
-				&mtk_crtc->ddp_ctx[ddp_mode];
+			for (k = j + 1; k < __mtk_crtc_path_len(mtk_crtc, ddp_mode, i) ; k++) {
+				struct mtk_ddp_comp *temp_comp;
 
-			for (k = j + 1; k < ddp_ctx->ddp_comp_nr[i]; k++) {
-				id = ddp_ctx->ddp_comp[i][k]->id;
+				temp_comp = mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, i, k);
+				id = temp_comp->id;
 				if (mtk_ddp_comp_get_type(id) !=
 				    MTK_DISP_VIRTUAL)
-					return ddp_ctx->ddp_comp[i][k]->id;
+					return id;
 			}
 
 			return -1;
@@ -13406,14 +13468,14 @@ int mtk_crtc_find_next_comp(struct drm_crtc *crtc, unsigned int ddp_mode,
 	i = j = 0;
 	for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
 		if (comp->id == comp_id) {
-			struct mtk_crtc_ddp_ctx *ddp_ctx =
-				&mtk_crtc->dual_pipe_ddp_ctx;
+			struct mtk_ddp_comp *temp_comp;
 
-			for (k = j + 1; k < ddp_ctx->ddp_comp_nr[i]; k++) {
-				id = ddp_ctx->ddp_comp[i][k]->id;
+			for (k = j + 1; k < __mtk_crtc_dual_path_len(mtk_crtc, i); k++) {
+				temp_comp = mtk_crtc_get_dual_comp(crtc, i, k);
+				id = temp_comp->id;
 				if (mtk_ddp_comp_get_type(id) !=
 						MTK_DISP_VIRTUAL)
-					return ddp_ctx->ddp_comp[i][k]->id;
+					return id;
 			}
 
 			return -1;

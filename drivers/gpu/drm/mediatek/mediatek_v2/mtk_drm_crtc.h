@@ -238,18 +238,30 @@ enum DISP_PMQOS_SLOT {
 
 #define MAX_CRTC_DC_FB 3
 
+#define __mtk_crtc_path_len(mtk_crtc, ddp_mode, ddp_path) \
+	((mtk_crtc)->ddp_ctx[ddp_mode].ovl_comp_nr[ddp_path] + \
+	(mtk_crtc)->ddp_ctx[ddp_mode].ddp_comp_nr[ddp_path])
+
+#define __mtk_crtc_dual_path_len(mtk_crtc, ddp_path) \
+	((mtk_crtc)->dual_pipe_ddp_ctx.ovl_comp_nr[ddp_path] + \
+	(mtk_crtc)->dual_pipe_ddp_ctx.ddp_comp_nr[ddp_path])
+
+#define __mtk_crtc_path_comp(mtk_crtc, ddp_mode, ddp_path, __idx) \
+	((__idx) < (mtk_crtc)->ddp_ctx[ddp_mode].ovl_comp_nr[ddp_path] ? \
+	(mtk_crtc)->ddp_ctx[ddp_mode].ovl_comp[ddp_path][__idx] : \
+	(mtk_crtc)->ddp_ctx[ddp_mode].ddp_comp[ddp_path] \
+	[__idx - (mtk_crtc)->ddp_ctx[ddp_mode].ovl_comp_nr[ddp_path]])
+
 #define for_each_comp_in_target_ddp_mode_bound(comp, mtk_crtc, __i, __j,       \
 					       ddp_mode, offset)               \
 	for ((__i) = 0; (__i) < DDP_PATH_NR; (__i)++)                          \
 		for ((__j) = 0;                         \
 			(offset) <                          \
-			(mtk_crtc)->ddp_ctx[ddp_mode].ddp_comp_nr[__i] &&  \
+			(__mtk_crtc_path_len(mtk_crtc, ddp_mode, (__i))) &&  \
 			(__j) <                             \
-			(mtk_crtc)->ddp_ctx[ddp_mode].ddp_comp_nr[__i] -  \
+			(__mtk_crtc_path_len(mtk_crtc, ddp_mode, (__i))) -  \
 			offset &&                           \
-			((comp) = (mtk_crtc)->ddp_ctx[ddp_mode].ddp_comp[__i]  \
-			[__j],                              \
-			1);                                 \
+			((comp) = __mtk_crtc_path_comp(mtk_crtc, ddp_mode, (__i), (__j)), 1) ; \
 			(__j)++)                            \
 			for_each_if(comp)
 
@@ -266,83 +278,75 @@ enum DISP_PMQOS_SLOT {
 
 #define for_each_comp_in_crtc_target_path(comp, mtk_crtc, __i, ddp_path)       \
 	for ((__i) = 0;                           \
-		(__i) <                               \
-		(mtk_crtc)->ddp_ctx[mtk_crtc->ddp_mode]  \
-		.ddp_comp_nr[(ddp_path)] &&           \
-		((comp) = (mtk_crtc)                  \
-		->ddp_ctx[mtk_crtc->ddp_mode]         \
-		.ddp_comp[(ddp_path)][__i],           \
-		1);                                   \
-		(__i)++)                              \
+		(__i) < __mtk_crtc_path_len(mtk_crtc, mtk_crtc->ddp_mode, ddp_path) &&   \
+		((comp) = __mtk_crtc_path_comp(mtk_crtc, mtk_crtc->ddp_mode, \
+		ddp_path, (__i)), 1) ; (__i)++)                              \
 		for_each_if(comp)
 
 #define for_each_comp_in_crtc_target_mode(comp, mtk_crtc, __i, __j, ddp_mode)  \
 	for ((__i) = 0; (__i) < DDP_PATH_NR; (__i)++)                          \
 		for ((__j) = 0;                       \
-			(__j) <                           \
-			(mtk_crtc)->ddp_ctx[ddp_mode].ddp_comp_nr[__i] &&  \
-			((comp) = (mtk_crtc)->ddp_ctx[ddp_mode].ddp_comp[__i]  \
-			[__j],                            \
-			1);                               \
+			(__j) <  __mtk_crtc_path_len(mtk_crtc, ddp_mode, (__i)) &&  \
+			((comp) = __mtk_crtc_path_comp(mtk_crtc, ddp_mode, (__i), (__j)), 1); \
 			(__j)++)                          \
 			for_each_if(comp)
 
 #define for_each_comp_in_crtc_path_reverse(comp, mtk_crtc, __i, __j)           \
 	for ((__i) = DDP_PATH_NR - 1; (__i) >= 0; (__i)--)                     \
-		for ((__j) =                          \
-			(mtk_crtc)->ddp_ctx[mtk_crtc->ddp_mode]   \
-			.ddp_comp_nr[__i] -               \
-			1;                                \
-			(__j) >= 0 &&                     \
-			((comp) = (mtk_crtc)              \
-			->ddp_ctx[mtk_crtc->ddp_mode]     \
-			.ddp_comp[__i][__j],              \
-			1);                               \
-			(__j)--)                          \
+		for ((__j) = __mtk_crtc_path_len(mtk_crtc, mtk_crtc->ddp_mode, (__i)) - 1;     \
+			(__j) >= 0 && ((comp) = __mtk_crtc_path_comp(mtk_crtc, \
+			mtk_crtc->ddp_mode, (__i), (__j)), 1) ; (__j)--)                     \
 			for_each_if(comp)
 
 #define for_each_comp_in_all_crtc_mode(comp, mtk_crtc, __i, __j, p_mode)       \
 	for ((p_mode) = 0; (p_mode) < DDP_MODE_NR; (p_mode)++)                 \
 		for ((__i) = 0; (__i) < DDP_PATH_NR; (__i)++)                  \
-			for ((__j) = 0; (__j) <           \
-				(mtk_crtc)->ddp_ctx[p_mode]   \
-				.ddp_comp_nr[__i] &&          \
-				((comp) = (mtk_crtc)          \
-				->ddp_ctx[p_mode]             \
-				.ddp_comp[__i][__j],          \
-				1);                           \
+			for ((__j) = 0; (__j) < __mtk_crtc_path_len(mtk_crtc, p_mode, (__i)) &&   \
+				((comp) = \
+					__mtk_crtc_path_comp(mtk_crtc, p_mode, (__i), (__j)), 1) ; \
 				(__j)++)                      \
 				for_each_if(comp)
+
+#define for_each_comp_in_crtc_target_mode_path(comp, mtk_crtc, __i, p_mode, ddp_path)       \
+	for ((__i) = 0;                           \
+		(__i) < __mtk_crtc_path_len(mtk_crtc, p_mode, ddp_path) &&   \
+		((comp) = __mtk_crtc_path_comp(mtk_crtc, p_mode, ddp_path, (__i)), 1) ;\
+		(__i)++)                              \
+		for_each_if(comp)
 
 #define for_each_comp_id_in_path_data(comp_id, path_data, __i, __j, p_mode)    \
 	for ((p_mode) = 0; (p_mode) < DDP_MODE_NR; (p_mode)++)        \
 		for ((__i) = 0; (__i) < DDP_PATH_NR; (__i)++)             \
 			for ((__j) = 0;                   \
-				(__j) <                       \
-				(path_data)->path_len[p_mode][__i] &&  \
-				((comp_id) = (path_data)      \
-				->path[p_mode][__i][__j],     \
+				(__j) < ((path_data)->ovl_path_len[p_mode][__i] + \
+					(path_data)->path_len[p_mode][__i]) &&  \
+				((comp_id) = (__j < (path_data)->ovl_path_len[p_mode][__i]) ? \
+					(path_data)->ovl_path[p_mode][__i][__j] : \
+					(path_data)->path[p_mode][__i] \
+					[__j - (path_data)->ovl_path_len[p_mode][__i]], \
 				1);                           \
 				(__j)++)
 
 #define for_each_comp_id_in_dual_pipe(comp_id, path_data, __i, __j)    \
 	for ((__i) = 0; (__i) < DDP_SECOND_PATH; (__i)++) \
 		for ((__j) = 0;				  \
-			(__j) <					  \
-			(path_data)->dual_path_len[__i] &&  \
-			((comp_id) = (path_data)	  \
-			->dual_path[__i][__j],	  \
+			(__j) <	((path_data)->dual_ovl_path_len[__i] + \
+				(path_data)->dual_path_len[__i]) &&  \
+			((comp_id) = (__j < (path_data)->dual_ovl_path_len[__i]) ? \
+				(path_data)->dual_ovl_path[__i][__j] : \
+				(path_data)->dual_path[__i] \
+				[__j - (path_data)->dual_ovl_path_len[__i]],	  \
 			1);						  \
 			(__j)++)
 
 #define for_each_comp_in_dual_pipe(comp, mtk_crtc, __i, __j)       \
 	for ((__i) = 0; (__i) < DDP_SECOND_PATH; (__i)++)		   \
-		for ((__j) = 0; (__j) <		  \
-			(mtk_crtc)->dual_pipe_ddp_ctx   \
-			.ddp_comp_nr[__i] &&		  \
-			((comp) = (mtk_crtc)		  \
-			->dual_pipe_ddp_ctx			  \
-			.ddp_comp[__i][__j],		  \
+		for ((__j) = 0; (__j) < ((mtk_crtc)->dual_pipe_ddp_ctx.ovl_comp_nr[__i] + \
+				(mtk_crtc)->dual_pipe_ddp_ctx.ddp_comp_nr[__i]) &&		  \
+			((comp) = (__j < (mtk_crtc)->dual_pipe_ddp_ctx.ovl_comp_nr[__i]) ? \
+				(mtk_crtc)->dual_pipe_ddp_ctx.ovl_comp[__i][__j] : \
+				(mtk_crtc)->dual_pipe_ddp_ctx.ddp_comp[__i] \
+				[__j - (mtk_crtc)->dual_pipe_ddp_ctx.ovl_comp_nr[__i]], \
 			1);						  \
 			(__j)++)					  \
 			for_each_if(comp)
@@ -532,6 +536,8 @@ enum SLBC_STATE {
 
 struct mtk_crtc_path_data {
 	bool is_fake_path;
+	const enum mtk_ddp_comp_id *ovl_path[DDP_MODE_NR][DDP_PATH_NR];
+	unsigned int ovl_path_len[DDP_MODE_NR][DDP_PATH_NR];
 	const enum mtk_ddp_comp_id *path[DDP_MODE_NR][DDP_PATH_NR];
 	unsigned int path_len[DDP_MODE_NR][DDP_PATH_NR];
 	bool path_req_hrt[DDP_MODE_NR][DDP_PATH_NR];
@@ -539,6 +545,8 @@ struct mtk_crtc_path_data {
 	unsigned int wb_path_len[DDP_MODE_NR];
 	const struct mtk_addon_scenario_data *addon_data;
 	//for dual path
+	const enum mtk_ddp_comp_id *dual_ovl_path[DDP_PATH_NR];
+	unsigned int dual_ovl_path_len[DDP_PATH_NR];
 	const enum mtk_ddp_comp_id *dual_path[DDP_PATH_NR];
 	unsigned int dual_path_len[DDP_PATH_NR];
 	const struct mtk_addon_scenario_data *addon_data_dual;
@@ -565,6 +573,8 @@ struct mtk_crtc_gce_obj {
  */
 struct mtk_crtc_ddp_ctx {
 	struct mtk_disp_mutex *mutex;
+	unsigned int ovl_comp_nr[DDP_PATH_NR];
+	struct mtk_ddp_comp **ovl_comp[DDP_PATH_NR];
 	unsigned int ddp_comp_nr[DDP_PATH_NR];
 	struct mtk_ddp_comp **ddp_comp[DDP_PATH_NR];
 	bool req_hrt[DDP_PATH_NR];
@@ -946,6 +956,15 @@ void mtk_crtc_wait_frame_done(struct mtk_drm_crtc *mtk_crtc,
 			      struct cmdq_pkt *cmdq_handle,
 			      enum CRTC_DDP_PATH ddp_path,
 			      int clear_event);
+struct mtk_ddp_comp *mtk_crtc_get_comp(struct drm_crtc *crtc,
+				       unsigned int mode_id,
+				       unsigned int path_id,
+				       unsigned int comp_idx);
+
+struct mtk_ddp_comp *mtk_crtc_get_dual_comp(struct drm_crtc *crtc,
+				       unsigned int path_id,
+				       unsigned int comp_idx);
+
 
 struct mtk_ddp_comp *mtk_ddp_comp_request_output(struct mtk_drm_crtc *mtk_crtc);
 

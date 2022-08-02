@@ -55,7 +55,10 @@ static void mtk_inlinerotate_addon_config(struct mtk_ddp_comp *comp,
 	if (!mtk_crtc)
 		return;
 
-	first_ovl = mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode].ddp_comp[DDP_FIRST_PATH][0];
+	if (mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode].ovl_comp_nr[0] != 0)
+		first_ovl = mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode].ovl_comp[DDP_FIRST_PATH][0];
+	else
+		first_ovl = mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode].ddp_comp[DDP_FIRST_PATH][0];
 	ovl_sel = ir->data->ovl_sel_mapping(first_ovl);
 
 	/* TODO: dynamic OVLSEL */

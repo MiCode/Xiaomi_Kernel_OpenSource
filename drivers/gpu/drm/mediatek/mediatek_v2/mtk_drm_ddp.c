@@ -14640,27 +14640,31 @@ void mtk_ddp_connect_dual_pipe_path(struct mtk_drm_crtc *mtk_crtc,
 		else
 			mtk_ddp_ext_insert_dual_pipe(mtk_crtc, mutex);
 	} else if (drm_crtc_index(&mtk_crtc->base) == 0) {
+		struct drm_crtc *crtc = &mtk_crtc->base;
 		unsigned int i, j;
-		struct mtk_ddp_comp *comp;
-		struct mtk_ddp_comp **ddp_comp;
+		struct mtk_ddp_comp *comp, *temp_comp;
 		enum mtk_ddp_comp_id prev_id, next_id;
 
 		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
-			if (j >= mtk_crtc->dual_pipe_ddp_ctx.ddp_comp_nr[i]) {
+			if (j >= __mtk_crtc_dual_path_len(mtk_crtc, i)) {
 				DDPINFO("exceed comp nr\n");
 				continue;
 			}
-			ddp_comp = mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i];
-			prev_id = (j == 0 ? DDP_COMPONENT_ID_MAX :
-				ddp_comp[j - 1]->id);
+			if (j != 0) {
+				temp_comp = mtk_crtc_get_dual_comp(crtc, i, j - 1);
+				prev_id = temp_comp->id;
+			} else {
+				prev_id = DDP_COMPONENT_ID_MAX;
+			}
 
 			/*connect the last comp to encoder*/
-			if (j + 1 == mtk_crtc->dual_pipe_ddp_ctx.ddp_comp_nr[i])
+			if (j + 1 == __mtk_crtc_dual_path_len(mtk_crtc, i)) {
 				next_id = DDP_COMPONENT_DSI1;
-			else
-				next_id = ddp_comp[j + 1]->id;
-
-			mtk_ddp_add_comp_to_path(mtk_crtc, ddp_comp[j], prev_id,
+			} else {
+				temp_comp = mtk_crtc_get_dual_comp(crtc, i, j + 1);
+				next_id = temp_comp->id;
+			}
+			mtk_ddp_add_comp_to_path(mtk_crtc, comp, prev_id,
 						 next_id);
 		}
 	}

@@ -1507,7 +1507,10 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state)
 	crtc = plane_state->crtc;
 	mtk_crtc = to_mtk_crtc(crtc);
 	ddp_ctx = mtk_crtc->ddp_ctx;
-	comp = ddp_ctx[mtk_crtc->ddp_mode].ddp_comp[0][0];
+	if (ddp_ctx[mtk_crtc->ddp_mode].ovl_comp_nr[0] != 0)
+		comp = ddp_ctx[mtk_crtc->ddp_mode].ovl_comp[0][0];
+	else
+		comp = ddp_ctx[mtk_crtc->ddp_mode].ddp_comp[0][0];
 	global_lye_num = plane_state->comp_state.lye_id;
 	if (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_OVL) {
 		if (plane_state->comp_state.comp_id != comp->id)
