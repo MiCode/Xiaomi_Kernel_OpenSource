@@ -505,6 +505,17 @@ static void mtu3_gadget_set_ready(struct usb_gadget *gadget)
 	mtu->is_gadget_ready = 1;
 }
 
+static void mtu3_nuke_all_ep(struct mtu3 *mtu)
+{
+	int i;
+
+	nuke(mtu->ep0, -ESHUTDOWN);
+	for (i = 1; i < mtu->num_eps; i++) {
+		nuke(mtu->in_eps + i, -ESHUTDOWN);
+		nuke(mtu->out_eps + i, -ESHUTDOWN);
+	}
+}
+
 static int mtu3_gadget_pullup(struct usb_gadget *gadget, int is_on)
 {
 	struct mtu3 *mtu = gadget_to_mtu3(gadget);
@@ -524,6 +535,10 @@ static int mtu3_gadget_pullup(struct usb_gadget *gadget, int is_on)
 		mtu->softconnect = is_on;
 	} else if (is_on != mtu->softconnect) {
 		mtu->softconnect = is_on;
+
+		if (!is_on)
+			mtu3_nuke_all_ep(mtu);
+
 		mtu3_dev_on_off(mtu, is_on);
 	}
 
