@@ -3080,107 +3080,107 @@
 				};
 			};
 		};
-		cpu_medium1 {
+		cpu-medium1 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 1>;
 		};
-		cpu_medium2 {
+		cpu-medium2 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 2>;
 		};
-		cpu_medium3 {
+		cpu-medium3 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 3>;
 		};
-		cpu_medium4 {
+		cpu-medium4 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 4>;
 		};
-		cpu_little1 {
+		cpu-little1 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 5>;
 		};
-		cpu_little2 {
+		cpu-little2 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 6>;
 		};
-		cpu_little3 {
+		cpu-little3 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 7>;
 		};
-		cpu_little4 {
+		cpu-little4 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 8>;
 		};
-		cpu_little5 {
+		cpu-little5 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 9>;
 		};
-		cpu_little6 {
+		cpu-little6 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 10>;
 		};
-		cpu_little7 {
+		cpu-little7 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 11>;
 		};
-		cpu_little8 {
+		cpu-little8 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 12>;
 		};
-		cpu_medium5 {
+		cpu-medium5 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 13>;
 		};
-		cpu_medium6 {
+		cpu-medium6 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 14>;
 		};
-		cpu_big1 {
+		cpu-big1 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 15>;
 		};
-		cpu_big2 {
+		cpu-big2 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 16>;
 		};
-		apu_a_1 {
+		apu-a-1 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 17>;
 		};
-		apu_a_2 {
+		apu-a-2 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 18>;
 		};
-		apu_a_3 {
+		apu-a-3 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 19>;
 		};
-		apu_a_4{
+		apu-a-4{
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 20>;
 		};
-		apu_b_1 {
+		apu-b-1 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 21>;
@@ -3361,49 +3361,49 @@
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&wifi 4>;
 		};
-		pmic6363_vio18 {
+		pmic6363-vio18 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&mt6363_temp 0>;
 		};
-		pmic6363_vs1_vs3 {
+		pmic6363-vs1-vs3 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&mt6363_temp 1>;
 		};
-		pmic6363_bk3_bk7 {
+		pmic6363-bk3-bk7 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&mt6363_temp 2>;
 		};
-		pmic6363_vs2 {
+		pmic6363-vs2 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&mt6363_temp 3>;
 		};
-		pmic6373_bk0 {
+		pmic6373-bk0 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&mt6373_temp 0>;
 		};
-		pmic6373_ldo {
+		pmic6373-ldo {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&mt6373_temp 1>;
 		};
-		pmic6373_bk3_bk7 {
+		pmic6373-bk3-bk7 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&mt6373_temp 2>;
 		};
-		pmic6373_bk4_bk8 {
+		pmic6373-bk4-bk8 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&mt6373_temp 3>;
 		};
 	};
 
-	mt6363_temp: mt6363_temp {
+	mt6363_temp: mt6363-temp {
 		compatible = "mediatek,mt6363-pmic-temp";
 		io-channels =
 			<&pmic_adc AUXADC_CHIP_TEMP>,
@@ -3421,7 +3421,7 @@
 		nvmem-cell-names = "mt6363_e_data";
 	};
 
-	mt6373_temp: mt6373_temp {
+	mt6373_temp: mt6373-temp {
 		compatible = "mediatek,mt6373-pmic-temp";
 		io-channels =
 			<&mt6373_adc AUXADC_CHIP_TEMP>,
