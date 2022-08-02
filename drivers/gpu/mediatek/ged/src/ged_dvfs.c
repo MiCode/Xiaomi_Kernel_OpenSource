@@ -126,7 +126,7 @@ static int g_VsyncOffsetLevel;
 
 static int g_probe_pid = GED_NO_UM_SERVICE;
 
-#define DEFAULT_DVFS_STEP_MODE	0x0000 /* dvfs step =0, enlarge range= 0 */
+#define DEFAULT_DVFS_STEP_MODE 0x103 /* ultra high/low step: 3/1 */
 unsigned int dvfs_step_mode = DEFAULT_DVFS_STEP_MODE;
 static int init;
 
@@ -176,8 +176,8 @@ struct ld_ud_table {
 };
 static struct ld_ud_table *loading_ud_table;
 
-static int gx_dvfs_loading_mode = LOADING_ITER;
-static int gx_dvfs_workload_mode = WORKLOAD_ITER;
+static int gx_dvfs_loading_mode = LOADING_MAX_ITERMCU;
+static int gx_dvfs_workload_mode = WORKLOAD_MAX_ITERMCU;
 struct GpuUtilization_Ex g_Util_Ex;
 static int ged_get_dvfs_loading_mode(void);
 
@@ -194,6 +194,7 @@ static int gx_tb_dvfs_margin_cur = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
 #define DYNAMIC_TB_PERF_MODE_MASK        0x00000400
 #define DYNAMIC_TB_FIX_TARGET_MASK       0x00000800
 #define TIMER_BASED_MARGIN_MASK          0x000000ff
+// default loading-based margin mode + value is 30
 static int g_tb_dvfs_margin_value = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
 static int g_tb_dvfs_margin_value_min = MIN_TB_DVFS_MARGIN;
 static unsigned int g_tb_dvfs_margin_mode = CONFIGURE_TIMER_BASED_MODE;
@@ -690,7 +691,7 @@ GED_ERROR ged_dvfs_um_commit(unsigned long gpu_tar_freq, bool bFallback)
 	return GED_OK;
 }
 
-#define DEFAULT_DVFS_MARGIN 100 /* 10% margin */
+#define DEFAULT_DVFS_MARGIN 300 /* 30% margin */
 #define FIXED_FPS_MARGIN 3 /* Fixed FPS margin: 3fps */
 
 int gx_fb_dvfs_margin = DEFAULT_DVFS_MARGIN;/* 10-bias */
@@ -721,8 +722,9 @@ int gx_fb_dvfs_margin = DEFAULT_DVFS_MARGIN;/* 10-bias */
 
 #define MIN_MARGIN_INC_STEP 1 /* 1% headroom */
 
+// default frame-based margin mode + value is 130
 static int dvfs_margin_value = DEFAULT_DVFS_MARGIN/10;
-unsigned int dvfs_margin_mode = CONFIGURE_MARGIN_MODE;
+unsigned int dvfs_margin_mode = DYNAMIC_MARGIN_MODE_CONFIG_FPS_MARGIN;
 
 static int dvfs_min_margin_inc_step = MIN_MARGIN_INC_STEP;
 static int dvfs_margin_low_bound = 1; /* 1% headroom */
@@ -1357,8 +1359,8 @@ static bool ged_dvfs_policy(
 		ui32GPULoading_avg = _loading_avg(ui32GPULoading);
 		Policy__Loading_based__Loading(ui32GPULoading, ui32GPULoading_avg);
 
-		int ultra_high = (110 - gx_tb_dvfs_margin_cur >= 95)
-			? 95 : 110 - gx_tb_dvfs_margin_cur;
+		int ultra_high = (120 - gx_tb_dvfs_margin_cur >= 95)
+			? 95 : 120 - gx_tb_dvfs_margin_cur;
 		int high = loading_ud_table[ui32GPUFreq].up;
 		int low = loading_ud_table[ui32GPUFreq].down;
 		int ultra_low = 20;
@@ -1685,9 +1687,8 @@ unsigned int ged_get_dvfs_margin_mode(void)
 
 static void ged_loading_base_dvfs_step(int i32StepValue)
 {
-	/* -1:  default */
-	/* bit0~bit7: dvfs step */
-	/* bit8~bit15: enlarge range  */
+	/* bit0~bit7: ultra high step */
+	/* bit8~bit15: ultra low step */
 
 	mutex_lock(&gsDVFSLock);
 
