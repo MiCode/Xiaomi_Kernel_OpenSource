@@ -190,7 +190,7 @@
 			enable-method = "psci";
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff_l
 						&system_mem &system_pll &system_bus
-						&s2idle>;
+						&system_vcore &s2idle>;
 			capacity-dmips-mhz = <307>;
 		};
 
@@ -202,7 +202,7 @@
 			enable-method = "psci";
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff_l
 						&system_mem &system_pll &system_bus
-						&s2idle>;
+						&system_vcore &s2idle>;
 			capacity-dmips-mhz = <307>;
 		};
 
@@ -214,7 +214,7 @@
 			enable-method = "psci";
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff_l
 						&system_mem &system_pll &system_bus
-						&s2idle>;
+						&system_vcore &s2idle>;
 			capacity-dmips-mhz = <307>;
 		};
 
@@ -226,7 +226,7 @@
 			enable-method = "psci";
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff_l
 						&system_mem &system_pll &system_bus
-						&s2idle>;
+						&system_vcore &s2idle>;
 			capacity-dmips-mhz = <307>;
 		};
 
@@ -238,7 +238,7 @@
 			enable-method = "psci";
 			cpu-idle-states = <&cpuoff_m &clusteroff_m &mcusysoff_m
 						&system_mem &system_pll &system_bus
-						&s2idle>;
+						&system_vcore &s2idle>;
 			capacity-dmips-mhz = <785>;
 		};
 
@@ -250,7 +250,7 @@
 			enable-method = "psci";
 			cpu-idle-states = <&cpuoff_m &clusteroff_m &mcusysoff_m
 						&system_mem &system_pll &system_bus
-						&s2idle>;
+						&system_vcore &s2idle>;
 			capacity-dmips-mhz = <785>;
 		};
 
@@ -262,7 +262,7 @@
 			enable-method = "psci";
 			cpu-idle-states = <&cpuoff_m &clusteroff_m &mcusysoff_m
 						&system_mem &system_pll &system_bus
-						&s2idle>;
+						&system_vcore &s2idle>;
 			capacity-dmips-mhz = <785>;
 		};
 
@@ -274,7 +274,7 @@
 			enable-method = "psci";
 			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff_b
 						&system_mem &system_pll &system_bus
-						&s2idle>;
+						&system_vcore &s2idle>;
 			capacity-dmips-mhz = <1024>;
 		};
 
@@ -416,6 +416,14 @@
 				entry-latency-us = <640>;
 				exit-latency-us = <2800>;
 				min-residency-us = <13200>;
+			};
+			system_vcore: system_vcore {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x020100ff>;
+				local-timer-stop;
+				entry-latency-us = <940>;
+				exit-latency-us = <3500>;
+				min-residency-us = <35200>;
 			};
 			s2idle: s2idle {
 				compatible = "arm,idle-state";
@@ -9285,7 +9293,7 @@
 		suspend-method = "enable";
 
 		logger-enable-states = "mcusysoff_l", "mcusysoff_m", "mcusysoff_b", "system_mem",
-					"system_pll", "system_bus";
+					"system_pll", "system_bus", "system_vcore";
 
 		irq-remain =	<&edge_keypad>,
 				<&level_apdma>,
@@ -9294,7 +9302,7 @@
 				<&level_apusys_rv>;
 		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
-		constraints = <&rc_bus26m &rc_syspll>;
+		constraints = <&rc_bus26m &rc_syspll &rc_vcore>;
 		spm-cond = <&spm_cond_pll>;
 		cg-shift = <0>; /* cg blocking index */
 		pll-shift = <0>; /* pll blocking index */
@@ -9379,14 +9387,20 @@
 		constraint-list {
 			rc_syspll: rc_syspll {
 				rc-name = "syspll";
-				id = <0x00000001>;
+				id = <0x00000002>;
 				value = <1>;
 				cond-info = <1>;
 			};
 			rc_bus26m: rc_bus26m {
 				rc-name = "bus26m";
-				id = <0x00000000>;
+				id = <0x00000001>;
 				value = <1>;
+				cond-info = <1>;
+			};
+			rc_vcore: rc_vcore {
+				rc-name = "vcore";
+				id = <0x00000000>;
+				value = <0>;
 				cond-info = <1>;
 			};
 		};
