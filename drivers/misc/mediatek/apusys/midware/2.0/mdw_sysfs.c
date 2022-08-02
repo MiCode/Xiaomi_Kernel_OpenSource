@@ -205,7 +205,7 @@ static ssize_t ulog_store(struct device *dev,
 		return -ENODEV;
 	}
 
-	if (!kstrtouint(buf, 10, &val)) {
+	if (!kstrtouint(buf, 0, &val)) {
 		mdw_drv_info("set ulog(%u)\n", val);
 		mdev->dev_funcs->set_param(mdev, MDW_INFO_ULOG, val);
 	}
@@ -248,7 +248,7 @@ static ssize_t klog_store(struct device *dev,
 		return -ENODEV;
 	}
 
-	if (!kstrtouint(buf, 10, &val)) {
+	if (!kstrtouint(buf, 0, &val)) {
 		mdw_drv_info("set klog(%u)\n", val);
 		mdev->dev_funcs->set_param(mdev, MDW_INFO_KLOG, val);
 	}
@@ -277,7 +277,7 @@ static ssize_t tlog_store(struct device *dev,
 {
 	uint32_t val = 0;
 
-	if (!kstrtouint(buf, 10, &val)) {
+	if (!kstrtouint(buf, 0, &val)) {
 		mdw_drv_info("set tlog(%u)\n", val);
 		cfg_apusys_trace = val;
 	}

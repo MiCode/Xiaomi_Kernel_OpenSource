@@ -20,7 +20,7 @@
 	(uint64_t)m->mpriv, (uint64_t)m, m->handle, (uint64_t)m->dbuf, \
 	m->type, (uint64_t)m->vaddr, m->size, \
 	m->device_va, m->dva_size, m->align, m->flags, m->need_handle, \
-	m->priv, current->pid)
+	m->priv, task_pid_nr(current))
 
 /* allocate a memory chunk, and add it to pool */
 static int mdw_mem_pool_chunk_add(struct mdw_mem_pool *pool, uint32_t size)
@@ -42,7 +42,7 @@ static int mdw_mem_pool_chunk_add(struct mdw_mem_pool *pool, uint32_t size)
 
 	memset(buf_name, 0, sizeof(buf_name));
 	snprintf(buf_name, sizeof(buf_name)-1, "APU_CMDBUF_POOL:%u/%u",
-		current->pid, current->tgid);
+		task_pid_nr(current), task_tgid_nr(current));
 	if (mdw_mem_set_name(m, buf_name)) {
 		mdw_drv_err("s(0x%llx) m(0x%llx) set name fail, size: %d\n",
 			(uint64_t)pool->mpriv, (uint64_t)m);

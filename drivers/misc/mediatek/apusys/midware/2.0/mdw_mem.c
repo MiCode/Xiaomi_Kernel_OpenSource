@@ -23,7 +23,7 @@
 	(uint64_t)m->mpriv, (uint64_t)m, m->handle, (uint64_t)m->dbuf, \
 	m->type, (uint64_t)m->vaddr, m->size, \
 	m->device_va, m->dva_size, m->align, m->flags, m->need_handle, \
-	m->priv, current->pid)
+	m->priv, task_pid_nr(current))
 
 
 void mdw_mem_put(struct mdw_fpriv *mpriv, struct mdw_mem *m)
@@ -422,7 +422,8 @@ free_map:
 	kfree(map);
 out:
 	if (ret) {
-		mdw_exception("map device va fail, size(%u) align(%u)\n", m->size, m->align);
+		mdw_exception("%s:map dva fail, type(%u) size(%u)\n",
+			current->comm, m->type, m->size);
 		dma_buf_put(m->dbuf);
 	}
 	mutex_unlock(&m->mtx);

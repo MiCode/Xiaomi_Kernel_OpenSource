@@ -21,7 +21,7 @@
 	c->power_save, c->power_plcy, c->power_dtime, \
 	c->app_type, c->num_subcmds, c->cmdbufs, \
 	c->num_cmdbufs, c->size_cmdbufs, \
-	c->pid, c->tgid, current->pid)
+	c->pid, c->tgid, task_pid_nr(current))
 
 static void mdw_cmd_delete(struct mdw_cmd *c);
 
@@ -368,7 +368,7 @@ static const char *mdw_fence_get_timeline_name(struct dma_fence *fence)
 	struct mdw_fence *f =
 		container_of(fence, struct mdw_fence, base_fence);
 
-	return dev_name(f->mdev->misc_dev->this_device);
+	return f->name;
 }
 
 static bool mdw_fence_enable_signaling(struct dma_fence *fence)
@@ -394,7 +394,7 @@ static const struct dma_fence_ops mdw_fence_ops = {
 };
 
 //--------------------------------------------
-static int mdw_fence_init(struct mdw_cmd *c)
+static int mdw_fence_init(struct mdw_cmd *c, int fd)
 {
 	int ret = 0;
 
@@ -404,6 +404,8 @@ static int mdw_fence_init(struct mdw_cmd *c)
 
 	mdw_drv_debug("fence init\n");
 
+	if (snprintf(c->fence->name, sizeof(c->fence->name), "%d:%s", fd, c->comm) <= 0)
+		mdw_drv_warn("set fance name fail\n");
 	c->fence->mdev = c->mpriv->mdev;
 	spin_lock_init(&c->fence->lock);
 	dma_fence_init(&c->fence->base_fence, &mdw_fence_ops,
@@ -631,11 +633,13 @@ static int mdw_cmd_run(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 static void mdw_cmd_check_rets(struct mdw_cmd *c, int ret)
 {
 	uint32_t idx = 0, is_dma = 0;
+	DECLARE_BITMAP(tmp, 64);
+
+	memcpy(&tmp, &c->einfos->c.sc_rets, sizeof(c->einfos->c.sc_rets));
 
 	/* extract fail subcmd */
 	do {
-		idx = find_next_bit((unsigned long *)&c->einfos->c.sc_rets,
-			c->num_subcmds, idx);
+		idx = find_next_bit((unsigned long *)&tmp, c->num_subcmds, idx);
 		if (idx >= c->num_subcmds)
 			break;
 
@@ -650,9 +654,9 @@ static void mdw_cmd_check_rets(struct mdw_cmd *c, int ret)
 
 	/* trigger exception if dma */
 	if (is_dma) {
-		dma_exception("s(0x%llx)pid(%d/%d)c(0x%llx)fail(%d/0x%llx)\n",
-			(uint64_t)c->mpriv, c->pid, c->tgid,
-			c->kid, ret, c->einfos->c.sc_rets);
+		dma_exception("dma exec fail:%s:ret(%d/0x%llx)pid(%d/%d)c(0x%llx)\n",
+			c->comm, ret, c->einfos->c.sc_rets,
+			c->pid, c->tgid, c->kid);
 	}
 }
 
@@ -666,10 +670,10 @@ static int mdw_cmd_complete(struct mdw_cmd *c, int ret)
 
 	c->end_ts = sched_clock();
 	c->einfos->c.total_us = (c->end_ts - c->start_ts) / 1000;
-	mdw_flw_debug("s(0x%llx) c(0x%llx/0x%llx/0x%llx) ret(%d) sc_rets(0x%llx) complete, pid(%d/%d)(%d)\n",
-		(uint64_t)mpriv, c->uid, c->kid, c->rvid,
+	mdw_flw_debug("s(0x%llx) c(%s/0x%llx/0x%llx/0x%llx) ret(%d) sc_rets(0x%llx) complete, pid(%d/%d)(%d)\n",
+		(uint64_t)mpriv, c->comm, c->uid, c->kid, c->rvid,
 		ret, c->einfos->c.sc_rets,
-		c->pid, c->tgid, current->pid);
+		c->pid, c->tgid, task_pid_nr(current));
 
 	/* check subcmds return value */
 	if (c->einfos->c.sc_rets) {
@@ -681,14 +685,18 @@ static int mdw_cmd_complete(struct mdw_cmd *c, int ret)
 	c->einfos->c.ret = ret;
 
 	if (ret) {
-		mdw_drv_err("s(0x%llx) c(0x%llx/0x%llx/0x%llx) ret(%d/0x%llx) time(%llu) pid(%d/%d)\n",
-			(uint64_t)mpriv, c->uid, c->kid, c->rvid,
+		mdw_drv_err("s(0x%llx) c(%s/0x%llx/0x%llx/0x%llx) ret(%d/0x%llx) time(%llu) pid(%d/%d)\n",
+			(uint64_t)mpriv, c->comm, c->uid, c->kid, c->rvid,
 			ret, c->einfos->c.sc_rets,
 			c->einfos->c.total_us, c->pid, c->tgid);
 		dma_fence_set_error(&c->fence->base_fence, ret);
+
+		if (mdw_debug_on(MDW_DBG_EXP))
+			mdw_exception("exec fail:%s:ret(%d/0x%llx)pid(%d/%d)\n",
+				c->comm, ret, c->einfos->c.sc_rets, c->pid, c->tgid);
 	} else {
-		mdw_flw_debug("s(0x%llx) c(0x%llx/0x%llx/0x%llx) ret(%d/0x%llx) time(%llu) pid(%d/%d)\n",
-			(uint64_t)mpriv, c->uid, c->kid, c->rvid,
+		mdw_flw_debug("s(0x%llx) c(%s/0x%llx/0x%llx/0x%llx) ret(%d/0x%llx) time(%llu) pid(%d/%d)\n",
+			(uint64_t)mpriv, c->comm, c->uid, c->kid, c->rvid,
 			ret, c->einfos->c.sc_rets,
 			c->einfos->c.total_us, c->pid, c->tgid);
 	}
@@ -753,10 +761,11 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 	c->mpriv = mpriv;
 
 	/* setup cmd info */
-	c->pid = current->pid;
-	c->tgid = current->tgid;
+	c->pid = task_pid_nr(current);
+	c->tgid = task_tgid_nr(current);
 	c->kid = (uint64_t)c;
 	c->uid = in->exec.uid;
+	get_task_comm(c->comm, current);
 	c->priority = in->exec.priority;
 	c->hardlimit = in->exec.hardlimit;
 	c->softlimit = in->exec.softlimit;
@@ -939,11 +948,6 @@ static int mdw_cmd_ioctl_run(struct mdw_fpriv *mpriv, union mdw_cmd_args *args)
 	}
 
 exec:
-	if (mdw_fence_init(c)) {
-		mdw_drv_err("cmd init fence fail\n");
-		goto delete_idr;
-	}
-
 	/* get sync_file fd */
 	fd = get_unused_fd_flags(O_CLOEXEC);
 	if (fd < 0) {
@@ -951,9 +955,14 @@ exec:
 		ret = -EINVAL;
 		goto delete_idr;
 	}
+	if (mdw_fence_init(c, fd)) {
+		mdw_drv_err("cmd init fence fail\n");
+		goto put_fd;
+	}
 	sync_file = sync_file_create(&c->fence->base_fence);
 	if (!sync_file) {
 		mdw_drv_err("create sync file fail\n");
+		dma_fence_put(&c->fence->base_fence);
 		ret = -ENOMEM;
 		goto put_fd;
 	}

@@ -210,7 +210,7 @@ static int mdw_rv_dev_send_cmd(struct mdw_rv_dev *mrdev, struct mdw_rv_cmd *rc)
 	int ret = 0;
 
 	mdw_drv_debug("pid(%d) run cmd(0x%llx/0x%llx) dva(0x%llx) size(%u)\n",
-		current->pid, rc->c->kid, rc->c->rvid,
+		task_pid_nr(current), rc->c->kid, rc->c->rvid,
 		rc->cb->device_va, rc->cb->size);
 
 	rc->s_msg.msg.id = MDW_IPI_APU_CMD;
@@ -224,7 +224,7 @@ static int mdw_rv_dev_send_cmd(struct mdw_rv_dev *mrdev, struct mdw_rv_cmd *rc)
 	ret = mdw_rv_dev_send_msg(mrdev, &rc->s_msg);
 	if (ret) {
 		mdw_rv_dev_trace(rc, true);
-		mdw_drv_err("pid(%d) send msg fail\n", current->pid);
+		mdw_drv_err("pid(%d) send msg fail\n", task_pid_nr(current));
 	}
 
 	return ret;
@@ -267,7 +267,7 @@ static int mdw_rv_callback(struct rpmsg_device *rpdev, void *data,
 	mutex_lock(&mrdev->msg_mtx);
 	s_msg = mdw_rv_dev_msg_find(mrdev, msg->sync_id);
 	if (!s_msg) {
-		mdw_exception("get msg fail(0x%llx)", msg->sync_id);
+		mdw_exception("get ipi msg fail(0x%llx)", msg->sync_id);
 	} else {
 		memcpy(&s_msg->msg, msg, sizeof(*msg));
 		list_del(&s_msg->ud_item);

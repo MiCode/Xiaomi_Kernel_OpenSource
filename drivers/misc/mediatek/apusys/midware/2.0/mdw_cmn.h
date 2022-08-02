@@ -23,6 +23,8 @@ enum {
 	MDW_DBG_PEF = 0x10,
 	MDW_DBG_SUB = 0x20,
 	MDW_DBG_VLD = 0x40,
+
+	MDW_DBG_EXP = 0x1000,
 };
 
 extern struct mdw_device *mdw_dev;

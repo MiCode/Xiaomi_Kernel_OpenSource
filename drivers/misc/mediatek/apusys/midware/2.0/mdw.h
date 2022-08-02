@@ -266,6 +266,7 @@ struct mdw_fence {
 	struct dma_fence base_fence;
 	struct mdw_device *mdev;
 	spinlock_t lock;
+	char name[32];
 };
 
 struct mdw_cmd_map_invoke {
@@ -276,6 +277,7 @@ struct mdw_cmd_map_invoke {
 struct mdw_cmd {
 	pid_t pid;
 	pid_t tgid;
+	char comm[16];
 	uint64_t kid;
 	uint64_t uid;
 	uint64_t rvid;
@@ -335,23 +337,22 @@ struct mdw_dev_func {
 
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <aee.h>
-#define mdw_exception(format, args...) \
+#define _mdw_exception(key, reason, args...) \
 	do { \
-		pr_info("apusys mdw:" format, ##args); \
-		aee_kernel_warning("APUSYS_AP_EXCEPTION_APUSYS_MIDDLEWARE", \
-			"\nCRDISPATCH_KEY:APUSYS_MIDDLEWARE\n" format, \
-			##args); \
+		char info[150];\
+		mdw_drv_err(reason, args); \
+		if (snprintf(info, 150, "apu_mdw:" reason, args) > 0) { \
+			aee_kernel_exception(info, \
+				"\nCRDISPATCH_KEY:%s\n", key); \
+		} else { \
+			mdw_drv_err("apu_mdw: %s snprintf fail(%d)\n", __func__, __LINE__); \
+		} \
 	} while (0)
-#define dma_exception(format, args...) \
-	do { \
-		pr_info("apusys mdw:" format, ##args); \
-		aee_kernel_warning("APUSYS_AP_EXCEPTION_APUSYS_MIDDLEWARE", \
-			"\nCRDISPATCH_KEY:APUSYS_EDMA\n" format, \
-	##args); \
-	} while (0)
+#define mdw_exception(reason, args...) _mdw_exception("APUSYS_MIDDLEWARE", reason, ##args)
+#define dma_exception(reason, args...) _mdw_exception("APUSYS_EDMA", reason, ##args)
 #else
-#define mdw_exception(format, args...)
-#define dma_exception(format, args...)
+#define mdw_exception(reason, args...)
+#define dma_exception(reason, args...)
 #endif
 
 void mdw_rv_set_func(struct mdw_device *mdev);

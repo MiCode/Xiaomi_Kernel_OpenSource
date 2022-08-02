@@ -45,7 +45,7 @@ struct mdw_mem_dma {
 	mdw_mem_debug("mem(0x%llx/%d/0x%llx/0x%x/0x%llx/0x%x/%d/%d)(%d)\n", \
 	(uint64_t) d->mmem, d->mmem->handle, (uint64_t)d->mmem->vaddr, d->mmem->size, \
 	d->dma_addr, d->dma_size, d->mmem->need_handle, \
-	file_count(d->mmem->dbuf->file), current->pid)
+	file_count(d->mmem->dbuf->file), task_pid_nr(current))
 
 static struct sg_table *mdw_mem_dma_dup_sg(struct sg_table *table)
 {
