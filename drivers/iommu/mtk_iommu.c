@@ -2914,7 +2914,9 @@ static int mtk_iommu_remove(struct platform_device *pdev)
 	if (iommu_present(&platform_bus_type))
 		bus_set_iommu(&platform_bus_type, NULL);
 
-	clk_disable_unprepare(data->bclk);
+	if (MTK_IOMMU_HAS_FLAG(data->plat_data, HAS_BCLK))
+		clk_disable_unprepare(data->bclk);
+
 	device_link_remove(data->smicomm_dev, &pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	if (!MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_NO_IRQ))
@@ -2934,7 +2936,9 @@ static int __maybe_unused mtk_iommu_runtime_suspend(struct device *dev)
 
 	/* skip read register when hw_init is not finish. */
 	if (!data->m4u_dom) {
-		clk_disable_unprepare(data->bclk);
+		if (MTK_IOMMU_HAS_FLAG(data->plat_data, HAS_BCLK))
+			clk_disable_unprepare(data->bclk);
+
 		return 0;
 	}
 
@@ -2962,7 +2966,9 @@ static int __maybe_unused mtk_iommu_runtime_suspend(struct device *dev)
 	mtk_iommu_pm_trace(dev, false);
 #endif
 
-	clk_disable_unprepare(data->bclk);
+	if (MTK_IOMMU_HAS_FLAG(data->plat_data, HAS_BCLK))
+		clk_disable_unprepare(data->bclk);
+
 	return 0;
 }
 
@@ -2980,10 +2986,13 @@ static int __maybe_unused mtk_iommu_runtime_resume(struct device *dev)
 		return 0;
 	}
 
-	ret = clk_prepare_enable(data->bclk);
-	if (ret) {
-		dev_err(data->dev, "Failed to enable clk(%d) in resume\n", ret);
-		return ret;
+	if (MTK_IOMMU_HAS_FLAG(data->plat_data, HAS_BCLK)) {
+		ret = clk_prepare_enable(data->bclk);
+		if (ret) {
+			dev_err(data->dev,
+				"Failed to enable clk(%d) in resume\n", ret);
+			return ret;
+		}
 	}
 
 	/*
@@ -3326,7 +3335,7 @@ static const struct mtk_iommu_plat_data mt6886_data_disp = {
 	.m4u_plat	= M4U_MT6886,
 	.flags          = OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY | SKIP_CFG_PORT |
 			  NOT_STD_AXI_MODE | TLB_SYNC_EN | IOMMU_SEC_EN |
-			  IOVA_34_EN | HAS_BCLK | HAS_SMI_SUB_COMM | PGTABLE_PA_35_EN |
+			  IOVA_34_EN | HAS_SMI_SUB_COMM | PGTABLE_PA_35_EN |
 			  IOMMU_MAU_EN,
 	.hw_list        = &mm_iommu_list,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
