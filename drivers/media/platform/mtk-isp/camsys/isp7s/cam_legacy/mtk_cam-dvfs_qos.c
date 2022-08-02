@@ -274,7 +274,7 @@ opp_default_table:
 #define MTK_CAM_QOS_LSCI_TABLE_MAX_SIZE (32768)
 #define MTK_CAM_QOS_CACI_TABLE_MAX_SIZE (32768)
 #define BW_B2KB(value) ((value) / 1024)
-#define BW_B2KB_WITH_RATIO(value) ((value) * 4 / 3 / 1024)
+#define BW_B2KB_WITH_RATIO(value) ((value) * 5 / 4 / 1024)
 
 /* Watch out there is a mutex lock lying in sensor g_frame_interval */
 static void __mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, struct mtk_raw_device *raw_dev,
@@ -384,18 +384,29 @@ static void __mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, struct mtk_raw_device
 			pixel_bits = mtk_cam_get_pixel_bits(ipi_fmt);
 			plane_factor = mtk_cam_get_fmt_size_factor(ipi_fmt);
 			PBW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
-						(vblank + height) * pixel_bits *
-						plane_factor / 8 / 100;
-			ABW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
-						vdev->active_fmt.fmt.pix_mp.height * pixel_bits *
-						plane_factor / 8 / 100;
+				(vblank + height) * pixel_bits *
+				plane_factor / 8 / 100;
+			if (is_yuv_ufo(vdev->active_fmt.fmt.pix_mp.pixelformat)) {
+				//bitstream: yuvo + yuvbo apply compression ratio 0.7
+				ABW_MB_s = (vdev->active_fmt.fmt.pix_mp.width * fps *
+					vdev->active_fmt.fmt.pix_mp.height * pixel_bits *
+					plane_factor / 8 / 100) * 7 / 10;
+				//table: yuvco + yuvdo
+				ABW_MB_s += DIV_ROUND_UP(vdev->active_fmt.fmt.pix_mp.width, 64) *
+					fps * vdev->active_fmt.fmt.pix_mp.height *
+					plane_factor / 100;
+			} else {
+				ABW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
+					vdev->active_fmt.fmt.pix_mp.height * pixel_bits *
+					plane_factor / 8 / 100;
+			}
 			dvfs_info->qos_bw_peak[qos_port_id] = PBW_MB_s;
 			dvfs_info->qos_bw_avg[qos_port_id] = ABW_MB_s;
 			if (unlikely(debug_mmqos))
 				dev_info(cam->dev, "[%16s] qos_idx:%2d video_id/ipifmt/bits/plane/w/h : %2d/%2d/%2d/%d/%5d/%5d BW(B/s)(avg:%lu,peak:%lu)\n",
 				  raw_qos->port[yuvo_r1],
-				  qos_port_id, ipi_fmt,
-				  pixel_bits, ipi_video_id, plane_factor,
+				  qos_port_id, ipi_video_id, ipi_fmt,
+				  pixel_bits, plane_factor,
 				  vdev->active_fmt.fmt.pix_mp.width,
 				  vdev->active_fmt.fmt.pix_mp.height,
 				  ABW_MB_s, PBW_MB_s);
@@ -407,11 +418,22 @@ static void __mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, struct mtk_raw_device
 			pixel_bits = mtk_cam_get_pixel_bits(ipi_fmt);
 			plane_factor = mtk_cam_get_fmt_size_factor(ipi_fmt);
 			PBW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
-						(vblank + height) * pixel_bits *
-						plane_factor / 8 / 100;
-			ABW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
-						vdev->active_fmt.fmt.pix_mp.height * pixel_bits *
-						plane_factor / 8 / 100;
+				(vblank + height) * pixel_bits *
+				plane_factor / 8 / 100;
+			if (is_yuv_ufo(vdev->active_fmt.fmt.pix_mp.pixelformat)) {
+				//bitstream: yuvo + yuvbo apply compression ratio 0.7
+				ABW_MB_s = (vdev->active_fmt.fmt.pix_mp.width * fps *
+					vdev->active_fmt.fmt.pix_mp.height * pixel_bits *
+					plane_factor / 8 / 100) * 7 / 10;
+				//table: yuvco + yuvdo
+				ABW_MB_s += DIV_ROUND_UP(vdev->active_fmt.fmt.pix_mp.width, 64) *
+					fps * vdev->active_fmt.fmt.pix_mp.height *
+					plane_factor / 100;
+			} else {
+				ABW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
+					vdev->active_fmt.fmt.pix_mp.height * pixel_bits *
+					plane_factor / 8 / 100;
+			}
 			dvfs_info->qos_bw_peak[qos_port_id] = PBW_MB_s;
 			dvfs_info->qos_bw_avg[qos_port_id] = ABW_MB_s;
 
@@ -490,10 +512,10 @@ static void __mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, struct mtk_raw_device
 
 			//1 plane
 			PBW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
-						(vblank + height) * pixel_bits / 8 / 100;
+						(vblank + height) * pixel_bits / 8;
 			ABW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
 						vdev->active_fmt.fmt.pix_mp.height *
-						pixel_bits / 8 / 100;
+						pixel_bits / 8;
 			dvfs_info->qos_bw_peak[engine_id*raw_qos_port_num + drz4no_r3] += PBW_MB_s;
 			dvfs_info->qos_bw_avg[engine_id*raw_qos_port_num + drz4no_r3] += ABW_MB_s;
 			if (unlikely(debug_mmqos))
