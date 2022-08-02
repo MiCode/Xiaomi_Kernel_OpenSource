@@ -528,7 +528,8 @@ void screen_logger_add_message(char *obj, enum message_mode mode, char *message)
 		case MESSAGE_APPEND:
 			len = strlen(p->message) + strlen(message);
 			new = kzalloc(sizeof(char) * (len + 1), GFP_KERNEL);
-			strncpy(new, p->message, strlen(p->message));
+			strncpy(new, p->message,
+				(strlen(p->message) < len) ? strlen(p->message) : len);
 			if (strlen(message) + strlen(p->message) < len)
 				strncat(new, message, strlen(message));
 			else
