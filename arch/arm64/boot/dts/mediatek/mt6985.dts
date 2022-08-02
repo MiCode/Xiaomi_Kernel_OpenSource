@@ -9400,7 +9400,7 @@
 			rc_vcore: rc_vcore {
 				rc-name = "vcore";
 				id = <0x00000000>;
-				value = <0>;
+				value = <1>;
 				cond-info = <1>;
 			};
 		};
