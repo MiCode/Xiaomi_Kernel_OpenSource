@@ -3073,7 +3073,7 @@
 			thermal-sensors = <&lvts 0>;
 
 			trips {
-				soc_max_crit: soc_max_crit@0 {
+				soc_max_crit: so-max-crit {
 					temperature = <119000>;
 					hysteresis = <2000>;
 					type = "critical";
