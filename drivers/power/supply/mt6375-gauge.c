@@ -530,9 +530,8 @@ static int mv_to_reg_12_temp_value(signed int _reg)
 
 static void pre_gauge_update(struct mtk_gauge *gauge)
 {
-	int m = 0;
-	unsigned int reg_val = 0;
-	int ret = 0;
+	u32 rdata = 0;
+	int i, ret, max_retry_cnt = 5;
 
 	if (gauge->gm->disableGM30)
 		return;
@@ -540,23 +539,28 @@ static void pre_gauge_update(struct mtk_gauge *gauge)
 	ret = regmap_update_bits(gauge->regmap, RG_FGADC_CON3,
 				 FG_SW_READ_PRE_MASK, FG_SW_READ_PRE_MASK);
 	if (ret) {
-		pr_notice("%s error, ret = %d\n", __func__, ret);
+		pr_notice("%s: failed to set pre read(%d)\n", __func__, ret);
 		return;
 	}
-	do {
-		m++;
-		if (m > 1000) {
-			bm_err("[%s] gauge_update_polling timeout 1!\r\n",
-				__func__);
-			break;
-		}
-
-		ret = regmap_read(gauge->regmap, RG_FGADC_CON2, &reg_val);
+	for (i = 0; i < max_retry_cnt; i++) {
+		ret = regmap_read(gauge->regmap, RG_FGADC_CON2, &rdata);
 		if (ret) {
-			pr_notice("%s error, ret = %d\n", __func__, ret);
+			pr_notice("%s: failed to read latch stat(%d)\n", __func__, ret);
 			return;
 		}
-	} while (!(reg_val & FG_LATCHDATA_ST_MASK));
+		if (rdata & FG_LATCHDATA_ST_MASK)
+			break;
+		mdelay(1);
+	}
+	if (i == max_retry_cnt) {
+		pr_notice("[%s] timeout! last BM[0x6F]=0x%x\n", __func__, rdata);
+		ret = regmap_read(gauge->regmap, RG_FGADC_CON3, &rdata);
+		pr_notice("[%s] BM[0x70]=0x%x, ret:%d\n", __func__, rdata, ret);
+		ret = regmap_read(gauge->regmap, 0x35D, &rdata);
+		pr_notice("[%s] HK1[0x5D]=0x%x, ret:%d\n", __func__, rdata, ret);
+		ret = regmap_read(gauge->regmap, 0x35E, &rdata);
+		pr_notice("[%s] HK1[0x5E]=0x%x, ret:%d\n", __func__, rdata, ret);
+	}
 }
 
 void disable_all_irq(struct mtk_battery *gm)
