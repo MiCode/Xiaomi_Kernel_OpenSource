@@ -1519,6 +1519,10 @@ retry:
 		 */
 		mmc_set_clock(host, mmc_sd_get_max_clock(card));
 
+		trace_android_vh_mmc_sd_update_cmdline_timing(card, &err);
+		if (err)
+			goto free_card;
+
 		/*
 		 * Switch to wider bus (if supported).
 		 */
@@ -1530,6 +1534,10 @@ retry:
 
 			mmc_set_bus_width(host, MMC_BUS_WIDTH_4);
 		}
+
+		trace_android_vh_mmc_sd_update_dataline_timing(card, &err);
+		if (err)
+			goto free_card;
 	}
 
 	if (!oldcard) {

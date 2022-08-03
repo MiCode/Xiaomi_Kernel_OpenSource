@@ -55,6 +55,7 @@
   dec_zone_page_state
   delayed_work_timer_fn
   del_gendisk
+  del_timer
   del_timer_sync
   device_add_disk
   disk_end_io_acct
@@ -70,25 +71,40 @@
   free_percpu
   fs_bio_set
   fsync_bdev
+  genlmsg_put
+  genl_register_family
+  genl_unregister_family
   __get_free_pages
+  get_wchan
   idr_alloc
   idr_destroy
   idr_find
   idr_for_each
   idr_remove
   inc_zone_page_state
+  __inet6_lookup_established
+  inet_csk_get_port
+  __inet_lookup_established
+  init_net
   init_pseudo
   __init_rwsem
   init_timer_key
   init_wait_entry
   __init_waitqueue_head
   io_schedule
+  ip6_local_out
+  ip6_route_me_harder
+  ip_local_out
+  ip_route_me_harder
   iput
+  ipv6_find_hdr
+  ipv6_skip_exthdr
   jiffies
   kasan_flag_enabled
   kern_mount
   kern_unmount
   kfree
+  kfree_skb
   kill_anon_super
   kmalloc_caches
   kmem_cache_alloc
@@ -105,13 +121,15 @@
   kthread_create_on_node
   kthread_should_stop
   kthread_stop
+  ktime_get_raw_ts64
+  ktime_get_real_ts64
   __list_add_valid
   __list_del_entry_valid
   __lock_page
   memcpy
   memparse
-  memset64
   memset
+  memset64
   memstart_addr
   migrate_page_copy
   mod_timer
@@ -122,6 +140,17 @@
   mutex_lock
   mutex_trylock
   mutex_unlock
+  nf_ct_attach
+  nf_ct_delete
+  nf_register_net_hooks
+  nf_unregister_net_hooks
+  nla_find
+  nla_memcpy
+  __nla_parse
+  nla_put
+  nla_put_64bit
+  nla_reserve
+  nla_reserve_64bit
   nr_cpu_ids
   __num_online_cpus
   page_endio
@@ -129,6 +158,10 @@
   page_mapping
   param_ops_uint
   __per_cpu_offset
+  platform_device_add
+  platform_device_alloc
+  platform_device_put
+  platform_driver_unregister
   preempt_schedule
   preempt_schedule_notrace
   prepare_to_wait
@@ -161,13 +194,17 @@
   __register_blkdev
   register_reboot_notifier
   register_shrinker
+  register_sysctl_table
+  register_tcf_proto_ops
   schedule
   schedule_timeout
   scnprintf
-  shrink_slab
   set_capacity
   set_capacity_and_notify
   __SetPageMovable
+  shrink_slab
+  __skb_checksum_complete
+  skb_dump
   snprintf
   sprintf
   __stack_chk_fail
@@ -175,6 +212,7 @@
   strcpy
   strlcpy
   strlen
+  strncmp
   strncpy
   submit_bio
   sysfs_create_files
@@ -183,22 +221,96 @@
   sysfs_streq
   system_freezable_wq
   system_wq
+  tcf_action_exec
+  tcf_exts_destroy
+  tcf_exts_dump
+  tcf_exts_dump_stats
+  tcf_exts_validate
+  tcf_queue_work
+  tcp_hashinfo
+  __traceiter_android_rvh_check_preempt_wakeup_ignore
+  __traceiter_android_rvh_pick_next_entity
+  __traceiter_android_rvh_place_entity
+  __traceiter_android_vh_account_task_time
+  __traceiter_android_vh_alloc_pages_slowpath
+  __traceiter_android_vh_binder_free_proc
+  __traceiter_android_vh_binder_has_work_ilocked
+  __traceiter_android_vh_binder_looper_state_registered
+  __traceiter_android_vh_binder_preset
+  __traceiter_android_vh_binder_priority_skip
+  __traceiter_android_vh_binder_proc_transaction_entry
+  __traceiter_android_vh_binder_proc_transaction_finish
+  __traceiter_android_vh_binder_read_done
+  __traceiter_android_vh_binder_select_worklist_ilocked
+  __traceiter_android_vh_binder_thread_read
+  __traceiter_android_vh_binder_thread_release
+  __traceiter_android_vh_build_sched_domains
+  __traceiter_android_vh_cache_show
+  __traceiter_android_vh_cma_drain_all_pages_bypass
+  __traceiter_android_vh_drain_all_pages_bypass
+  __traceiter_android_vh_exit_signal
+  __traceiter_android_vh_futex_sleep_start
+  __traceiter_android_vh_irqtime_account_process_tick
+  __traceiter_android_vh_page_referenced_check_bypass
+  __traceiter_android_vh_pcplist_add_cma_pages_bypass
+  __traceiter_android_vh_print_slabinfo_header
+  __traceiter_android_vh_rwsem_wake_finish
+  __traceiter_android_vh_sched_stat_runtime_rt
+  __traceiter_android_vh_sync_txn_recvd
+  __traceiter_sched_stat_blocked
+  __traceiter_sched_stat_iowait
+  __traceiter_sched_stat_runtime
+  __traceiter_sched_stat_sleep
+  __traceiter_sched_stat_wait
+  __traceiter_sched_waking
+  __traceiter_task_rename
+  __tracepoint_android_rvh_check_preempt_wakeup_ignore
+  __tracepoint_android_rvh_pick_next_entity
+  __tracepoint_android_rvh_place_entity
+  __tracepoint_android_vh_account_task_time
+  __tracepoint_android_vh_alloc_pages_slowpath
+  __tracepoint_android_vh_binder_free_proc
+  __tracepoint_android_vh_binder_has_work_ilocked
+  __tracepoint_android_vh_binder_looper_state_registered
+  __tracepoint_android_vh_binder_preset
+  __tracepoint_android_vh_binder_priority_skip
+  __tracepoint_android_vh_binder_proc_transaction_entry
+  __tracepoint_android_vh_binder_proc_transaction_finish
+  __tracepoint_android_vh_binder_read_done
+  __tracepoint_android_vh_binder_select_worklist_ilocked
+  __tracepoint_android_vh_binder_thread_read
+  __tracepoint_android_vh_binder_thread_release
+  __tracepoint_android_vh_build_sched_domains
+  __tracepoint_android_vh_cache_show
+  __tracepoint_android_vh_cma_drain_all_pages_bypass
+  __tracepoint_android_vh_drain_all_pages_bypass
+  __tracepoint_android_vh_exit_signal
+  __tracepoint_android_vh_futex_sleep_start
+  __tracepoint_android_vh_irqtime_account_process_tick
+  __tracepoint_android_vh_page_referenced_check_bypass
+  __tracepoint_android_vh_pcplist_add_cma_pages_bypass
+  __tracepoint_android_vh_print_slabinfo_header
+  __tracepoint_android_vh_rwsem_wake_finish
+  __tracepoint_android_vh_sched_stat_runtime_rt
+  __tracepoint_android_vh_sync_txn_recvd
+  __tracepoint_sched_stat_blocked
+  __tracepoint_sched_stat_iowait
+  __tracepoint_sched_stat_runtime
+  __tracepoint_sched_stat_sleep
+  __tracepoint_sched_stat_wait
+  __tracepoint_sched_waking
+  __tracepoint_task_rename
   __ubsan_handle_cfi_check_fail_abort
   unlock_page
   unregister_blkdev
   unregister_reboot_notifier
   unregister_shrinker
+  unregister_sysctl_table
+  unregister_tcf_proto_ops
   up_read
   up_write
   vfree
   vzalloc
   __wake_up
   wake_up_process
-  __traceiter_android_vh_page_referenced_check_bypass
-  __traceiter_android_vh_drain_all_pages_bypass
-  __traceiter_android_vh_cma_drain_all_pages_bypass
-  __traceiter_android_vh_pcplist_add_cma_pages_bypass
-  __tracepoint_android_vh_page_referenced_check_bypass
-  __tracepoint_android_vh_drain_all_pages_bypass
-  __tracepoint_android_vh_cma_drain_all_pages_bypass
-  __tracepoint_android_vh_pcplist_add_cma_pages_bypass
+  wq_worker_comm

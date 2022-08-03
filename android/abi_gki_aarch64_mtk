@@ -29,6 +29,10 @@
   __arch_copy_to_user
   arch_freq_scale
   arch_timer_read_counter
+  arm_smccc_1_1_get_conduit
+  arm_smccc_1_2_hvc
+  arm_smccc_1_2_smc
+  arm_smccc_get_version
   arm64_const_caps_ready
   arm64_use_ng_mappings
   __arm_smccc_hvc
@@ -317,6 +321,7 @@
   device_init_wakeup
   device_link_add
   device_link_remove
+  device_match_any
   device_node_to_regmap
   device_property_present
   device_property_read_string
@@ -1163,6 +1168,7 @@
   mmc_detect_change
   mmc_free_host
   mmc_get_card
+  mmc_get_ext_csd
   mmc_gpio_get_cd
   mmc_gpio_get_ro
   mmc_hw_reset
@@ -1938,7 +1944,9 @@
   __traceiter_android_rvh_commit_creds
   __traceiter_android_rvh_cpu_overutilized
   __traceiter_android_rvh_dequeue_task
+  __traceiter_android_rvh_dequeue_task_fair
   __traceiter_android_rvh_enqueue_task
+  __traceiter_android_rvh_enqueue_task_fair
   __traceiter_android_rvh_exit_creds
   __traceiter_android_rvh_find_busiest_group
   __traceiter_android_rvh_find_busiest_queue
@@ -1964,6 +1972,7 @@
   __traceiter_android_rvh_selinux_is_initialized
   __traceiter_android_rvh_setscheduler
   __traceiter_android_rvh_set_cpus_allowed_ptr_locked
+  __traceiter_android_rvh_set_cpus_allowed_by_task
   __traceiter_android_rvh_set_user_nice
   __traceiter_android_rvh_tick_entry
   __traceiter_android_rvh_update_cpu_capacity
@@ -2001,6 +2010,7 @@
   __traceiter_mmap_lock_released
   __traceiter_mmap_lock_start_locking
   __traceiter_pelt_se_tp
+  __traceiter_sched_update_nr_running_tp
   __traceiter_task_newtask
   __traceiter_xhci_urb_giveback
   trace_output_call
@@ -2009,7 +2019,9 @@
   __tracepoint_android_rvh_commit_creds
   __tracepoint_android_rvh_cpu_overutilized
   __tracepoint_android_rvh_dequeue_task
+  __tracepoint_android_rvh_dequeue_task_fair
   __tracepoint_android_rvh_enqueue_task
+  __tracepoint_android_rvh_enqueue_task_fair
   __tracepoint_android_rvh_exit_creds
   __tracepoint_android_rvh_find_busiest_group
   __tracepoint_android_rvh_find_busiest_queue
@@ -2035,6 +2047,7 @@
   __tracepoint_android_rvh_selinux_is_initialized
   __tracepoint_android_rvh_setscheduler
   __tracepoint_android_rvh_set_cpus_allowed_ptr_locked
+  __tracepoint_android_rvh_set_cpus_allowed_by_task
   __tracepoint_android_rvh_set_user_nice
   __tracepoint_android_rvh_tick_entry
   __tracepoint_android_rvh_update_cpu_capacity
@@ -2074,6 +2087,8 @@
   __tracepoint_pelt_se_tp
   tracepoint_probe_register
   tracepoint_probe_unregister
+  __tracepoint_sched_update_nr_running_tp
+  tracepoint_srcu
   __tracepoint_task_newtask
   __tracepoint_xhci_urb_giveback
   trace_print_array_seq
@@ -2116,6 +2131,9 @@
   __ubsan_handle_cfi_check_fail_abort
   uclamp_eff_value
   __udelay
+  ufshcd_add_command_trace
+  ufshcd_clk_scaling_start_busy
+  ufshcd_clk_scaling_update_busy
   ufshcd_delay_us
   ufshcd_dme_configure_adapt
   ufshcd_dme_get_attr
@@ -2123,6 +2141,7 @@
   ufshcd_dump_regs
   ufshcd_fixup_dev_quirks
   ufshcd_get_pwr_dev_param
+  ufshcd_get_vreg
   ufshcd_hba_enable
   ufshcd_hba_stop
   ufshcd_init_pwr_dev_param
@@ -2130,6 +2149,7 @@
   ufshcd_make_hba_operational
   ufshcd_pltfrm_init
   ufshcd_pltfrm_shutdown
+  ufshcd_populate_vreg
   ufshcd_query_attr
   ufshcd_query_descriptor_retry
   ufshcd_query_flag
@@ -2141,6 +2161,8 @@
   ufshcd_suspend_prepare
   ufshcd_system_resume
   ufshcd_system_suspend
+  ufshcd_transfer_rsp_status
+  ufshcd_uic_change_pwr_mode
   ufshcd_uic_hibern8_exit
   ufshcd_update_evt_hist
   unlock_page
@@ -2210,9 +2232,13 @@
   usb_get_maximum_speed
   usb_get_role_switch_default_mode
   usb_gstrings_attach
+  usb_hcd_end_port_resume
   usb_hcd_is_primary_hcd
   usb_hcd_poll_rh_status
+  usb_hcd_start_port_resume
+  usb_hub_clear_tt_buffer
   usb_interface_id
+  usb_wakeup_notification
   usbnet_change_mtu
   usbnet_disconnect
   usbnet_get_drvinfo
@@ -2484,6 +2510,7 @@
   pci_set_power_state
   pci_unregister_driver
   _raw_spin_trylock_bh
+  radix_tree_maybe_preload
   register_inetaddr_notifier
   regmap_multi_reg_write
   regmap_register_patch
@@ -2491,6 +2518,8 @@
   rtnl_is_locked
   sched_setattr
   sched_set_fifo_low
+  sg_pcopy_from_buffer
+  sg_pcopy_to_buffer
   skb_copy
   skb_pull_rcsum
   skb_queue_head

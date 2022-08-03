@@ -324,7 +324,7 @@ static int ffa_host_share_ranges(struct ffa_mem_region_addr_range *ranges,
 	int ret = 0;
 
 	if (nshared != nranges) {
-		WARN_ON(__ffa_host_unshare_ranges(ranges, nshared));
+		WARN_ON(__ffa_host_unshare_ranges(ranges, nshared) != nshared);
 		ret = FFA_RET_DENIED;
 	}
 
@@ -338,7 +338,7 @@ static int ffa_host_unshare_ranges(struct ffa_mem_region_addr_range *ranges,
 	int ret = 0;
 
 	if (nunshared != nranges) {
-		WARN_ON(__ffa_host_share_ranges(ranges, nunshared));
+		WARN_ON(__ffa_host_share_ranges(ranges, nunshared) != nunshared);
 		ret = FFA_RET_DENIED;
 	}
 
