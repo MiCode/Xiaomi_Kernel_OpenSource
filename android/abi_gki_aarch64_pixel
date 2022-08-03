@@ -1853,6 +1853,7 @@
   __traceiter_android_rvh_select_task_rq_rt
   __traceiter_android_rvh_set_iowait
   __traceiter_android_rvh_uclamp_eff_get
+  __traceiter_android_rvh_ufs_reprogram_all_keys
   __traceiter_android_rvh_util_est_update
   __traceiter_android_vh_arch_set_freq_scale
   __traceiter_android_vh_cpu_idle_enter
@@ -1900,6 +1901,7 @@
   __tracepoint_android_rvh_select_task_rq_rt
   __tracepoint_android_rvh_set_iowait
   __tracepoint_android_rvh_uclamp_eff_get
+  __tracepoint_android_rvh_ufs_reprogram_all_keys
   __tracepoint_android_rvh_util_est_update
   __tracepoint_android_vh_arch_set_freq_scale
   __tracepoint_android_vh_cpu_idle_enter
