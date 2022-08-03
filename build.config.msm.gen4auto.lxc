@@ -19,7 +19,7 @@ PREFERRED_USERSPACE=le
 TRIM_UNUSED_MODULES=1
 TARGET_HAS_SEPARATE_RD=1
 
-[ -z "${DT_OVERLAY_SUPPORT}" ] && DT_OVERLAY_SUPPORT=0
+[ -z "${DT_OVERLAY_SUPPORT}" ] && DT_OVERLAY_SUPPORT=1
 
 if [ "${KERNEL_CMDLINE_CONSOLE_AUTO}" != "0" ]; then
 	KERNEL_CMDLINE+=' console=ttyMSM0,115200n8 earlycon=qcom_geni,0xa8c000 qcom_geni_serial.con_enabled=1 loglevel=8 '
