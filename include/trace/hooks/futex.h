@@ -16,6 +16,11 @@ DECLARE_HOOK(android_vh_alter_futex_plist_add,
 		 struct plist_head *head,
 		 bool *already_on_hb),
 	TP_ARGS(node, head, already_on_hb));
+
+DECLARE_HOOK(android_vh_futex_sleep_start,
+	TP_PROTO(struct task_struct *p),
+	TP_ARGS(p));
+
 #endif /* _TRACE_HOOK_FUTEX_H */
 /* This part must be outside protection */
 #include <trace/define_trace.h>

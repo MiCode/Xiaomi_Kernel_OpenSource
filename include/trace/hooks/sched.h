@@ -384,6 +384,10 @@ DECLARE_HOOK(android_vh_em_dev_register_pd,
 	TP_PROTO(bool *cond),
 	TP_ARGS(cond));
 
+DECLARE_HOOK(android_vh_sched_stat_runtime_rt,
+	TP_PROTO(struct task_struct *tsk, u64 delta),
+	TP_ARGS(tsk, delta));
+
 DECLARE_RESTRICTED_HOOK(android_rvh_post_init_entity_util_avg,
 	TP_PROTO(struct sched_entity *se),
 	TP_ARGS(se), 1);
