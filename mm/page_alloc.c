@@ -5426,8 +5426,8 @@ unsigned long __alloc_pages_bulk(gfp_t gfp, int preferred_nid,
 		page = __rmqueue_pcplist(zone, 0, ac.migratetype, alloc_flags,
 								pcp, alloc_gfp);
 		if (unlikely(!page)) {
-			/* Try and get at least one page */
-			if (!nr_populated)
+			/* Try and allocate at least one page */
+			if (!nr_account)
 				goto failed_irq;
 			break;
 		}

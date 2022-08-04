@@ -381,7 +381,8 @@ int dw_pcie_host_init(struct pcie_port *pp)
 			pp->msi_page = alloc_page(GFP_DMA32);
 			pp->msi_data = dma_map_page(pci->dev, pp->msi_page, 0, PAGE_SIZE,
 						    DMA_FROM_DEVICE);
-			if (dma_mapping_error(pci->dev, pp->msi_data)) {
+			ret = dma_mapping_error(pci->dev, pp->msi_data);
+			if (ret) {
 				dev_err(pci->dev, "Failed to map MSI data\n");
 				__free_page(pp->msi_page);
 				pp->msi_page = NULL;
