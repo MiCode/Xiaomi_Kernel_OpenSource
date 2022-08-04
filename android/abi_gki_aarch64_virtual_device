@@ -586,9 +586,11 @@
   __devm_request_region
   dma_fence_match_context
   dma_fence_wait_timeout
+  dma_map_resource
   dma_resv_add_excl_fence
   dma_resv_test_signaled
   dma_resv_wait_timeout
+  dma_unmap_resource
   drm_add_edid_modes
   drm_aperture_remove_conflicting_pci_framebuffers
   drm_atomic_helper_crtc_destroy_state
@@ -611,6 +613,7 @@
   drm_dev_set_unique
   drm_dev_unplug
   drm_do_get_edid
+  drm_event_reserve_init
   drm_framebuffer_init
   drm_gem_create_mmap_offset
   drm_gem_dmabuf_mmap
@@ -655,9 +658,11 @@
   drm_plane_cleanup
   __drm_printfn_seq_file
   __drm_puts_seq_file
+  drm_send_event
   drm_universal_plane_init
   __get_task_comm
   iomem_resource
+  is_virtio_device
   memdup_user
   sync_file_get_fence
   __traceiter_dma_fence_emit
