@@ -164,5 +164,6 @@
 #define GCC_VIDEO_BCR						31
 #define GCC_IRIS_SS_HF_AXI_CLK_ARES				32
 #define GCC_IRIS_SS_SPD_AXI_CLK_ARES				33
+#define GCC_DDRSS_SPAD_CLK_ARES					34
 
 #endif
