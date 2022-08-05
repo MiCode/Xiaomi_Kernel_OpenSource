@@ -235,7 +235,6 @@ typedef struct compat_siginfo {
 				struct {
 					compat_ulong_t _data;
 					u32 _type;
-					u32 _flags;
 				} _perf;
 			};
 		} _sigfault;
