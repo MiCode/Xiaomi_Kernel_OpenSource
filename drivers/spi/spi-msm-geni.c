@@ -1595,7 +1595,8 @@ static int setup_fifo_xfer(struct spi_transfer *xfer,
 	 * mode for transfers or select the mode dynamically based on
 	 * size of data.
 	 */
-	mas->cur_xfer_mode = GENI_SE_DMA;
+	if (spi->slave)
+		mas->cur_xfer_mode = GENI_SE_DMA;
 	if (mas->disable_dma || trans_len <= fifo_size)
 		mas->cur_xfer_mode = GENI_SE_FIFO;
 	geni_se_select_mode(&mas->spi_rsc, mas->cur_xfer_mode);
