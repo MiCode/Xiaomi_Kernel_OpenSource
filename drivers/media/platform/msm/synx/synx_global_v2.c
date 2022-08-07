@@ -544,7 +544,18 @@ static int synx_global_update_status_core(u32 idx,
 	/* notify waiting clients on signal */
 	if (data) {
 		/* notify wait client */
-		for (i = 1; i < SYNX_CORE_MAX; i++) {
+
+	/* In case of SSR, someone might be waiting on same core
+	 * However, in other cases, synx_signal API will take care
+	 * of signaling handles on same core and thus we don't need
+	 * to send interrupt
+	 */
+		if (status == SYNX_STATE_SIGNALED_SSR)
+			i = 0;
+		else
+			i = 1;
+
+		for (; i < SYNX_CORE_MAX ; i++) {
 			if (!wait_cores[i])
 				continue;
 			dprintk(SYNX_DBG,
