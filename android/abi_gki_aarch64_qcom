@@ -52,6 +52,7 @@
   bio_end_io_acct_remapped
   bio_start_io_acct
   bitmap_allocate_region
+  __balance_callbacks
   __bitmap_and
   __bitmap_clear
   bitmap_find_next_zero_area_off
@@ -1263,6 +1264,7 @@
   of_thermal_get_trip_points
   of_thermal_is_trip_valid
   of_translate_address
+  on_each_cpu_cond_mask
   oops_in_progress
   page_endio
   page_is_ram

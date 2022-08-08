@@ -1755,6 +1755,7 @@
   skb_put
   skb_queue_tail
   skb_realloc_headroom
+  skb_split
   skb_trim
   smp_call_function
   smp_call_function_single
@@ -2096,13 +2097,16 @@
   tracing_off
   try_module_get
   try_wait_for_completion
+  tty_chars_in_buffer
   tty_driver_flush_buffer
   tty_flip_buffer_push
   tty_insert_flip_string_fixed_flag
   tty_register_ldisc
+  tty_set_termios
   tty_termios_baud_rate
   tty_termios_encode_baud_rate
   tty_unregister_ldisc
+  tty_write_room
   typec_mux_get_drvdata
   typec_mux_register
   typec_mux_set
@@ -2227,9 +2231,13 @@
   usb_get_maximum_speed
   usb_get_role_switch_default_mode
   usb_gstrings_attach
+  usb_hcd_end_port_resume
   usb_hcd_is_primary_hcd
   usb_hcd_poll_rh_status
+  usb_hcd_start_port_resume
+  usb_hub_clear_tt_buffer
   usb_interface_id
+  usb_wakeup_notification
   usbnet_change_mtu
   usbnet_disconnect
   usbnet_get_drvinfo
@@ -2501,6 +2509,7 @@
   pci_set_power_state
   pci_unregister_driver
   _raw_spin_trylock_bh
+  radix_tree_maybe_preload
   register_inetaddr_notifier
   regmap_multi_reg_write
   regmap_register_patch
@@ -2508,6 +2517,8 @@
   rtnl_is_locked
   sched_setattr
   sched_set_fifo_low
+  sg_pcopy_from_buffer
+  sg_pcopy_to_buffer
   skb_copy
   skb_pull_rcsum
   skb_queue_head
