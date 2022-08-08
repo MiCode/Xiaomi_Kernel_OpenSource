@@ -133,7 +133,7 @@ int sysmon_stats_query_q6_votes(enum dsp_id_t dsp_id,
  * q6load_avg parameter.
  * @arg1: dsp_id DSP subsystem id from dsp_id_t enum.
  * @arg2: u32 pointer to Average Q6 load in KCPS
- * @return: SUCCESS (0) if Query is succssful
+ * @return: SUCCESS (0) if Query is successful
  *        FAILURE (Non-zero) if Query could not be processed.
  */
 int sysmon_stats_query_q6_load(enum dsp_id_t dsp_id,
@@ -151,4 +151,23 @@ int sysmon_stats_query_q6_load(enum dsp_id_t dsp_id,
 int sysmon_stats_query_sleep(enum dsp_id_t dsp_id,
 					struct sleep_stats *sleep_stats_lpm,
 					struct sleep_stats_island *sleep_stats_lpi);
+/**
+ * sysmon_stats_query_hvx_utlization() - * API to query
+ * CDSP subsystem hvx utlization.On success, returns HVX utilization
+ * in the hvx_util parameter.
+ * @arg1: u32 pointer to HVX utilization in percentage.
+ * @return: SUCCESS (0) if Query is successful
+ *        FAILURE (Non-zero) if Query could not be processed.
+ */
+int sysmon_stats_query_hvx_utlization(u32 *hvx_util);
+
+/**
+ * sysmon_stats_query_hmx_utlization() - * API to query
+ * CDSP hmx utlization.On success, returns HMX utilization
+ * in the hmx_util parameter.
+ * @arg1: u32 pointer to HMX utilization in percentage.
+ * @return: SUCCESS (0) if Query is successful
+ *        FAILURE (Non-zero) if Query could not be processed.
+ */
+int sysmon_stats_query_hmx_utlization(u32 *hmx_util);
 #endif
