@@ -678,9 +678,11 @@ static int llcc_spad_init(struct llcc_slice_desc *desc)
 	/* SPAD activity based sleep and wakeup sequence to set the
 	 * corresponding CSRs for activity based sleep/wakeup
 	 */
-	ret = llcc_spad_act_slp_wake();
-	if (ret)
-		return ret;
+	if (drv_data->spad_act_slp_wake_enable) {
+		ret = llcc_spad_act_slp_wake();
+		if (ret)
+			return ret;
+	}
 
 	return 0;
 }
@@ -1106,6 +1108,39 @@ static struct regmap *qcom_llcc_init_mmio(struct platform_device *pdev,
 	return devm_regmap_init_mmio(&pdev->dev, base, &llcc_regmap_config);
 }
 
+static inline ssize_t spad_act_slp_wake_enable_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n",
+			 drv_data->spad_act_slp_wake_enable);
+}
+
+static inline ssize_t spad_act_slp_wake_enable_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	int ret;
+
+	ret = strtobool(buf, &drv_data->spad_act_slp_wake_enable);
+	if (ret)
+		return ret;
+	return count;
+}
+
+static DEVICE_ATTR_RW(spad_act_slp_wake_enable);
+
+static int qcom_llcc_init_sysfs(struct platform_device *pdev)
+{
+	int ret = 0;
+
+	ret = device_create_file(&pdev->dev,
+				 &dev_attr_spad_act_slp_wake_enable);
+	if (ret)
+		dev_err(&pdev->dev, "cannot create sysfs attribute\n");
+
+	return ret;
+}
+
 static int qcom_llcc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1255,6 +1290,12 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 		if (ret)
 			dev_err(dev, "Failed to probe TCM manager\n");
 	}
+
+	drv_data->spad_act_slp_wake_enable = false;
+	ret = qcom_llcc_init_sysfs(pdev);
+	if (ret)
+		goto err;
+
 	return 0;
 err:
 	drv_data = ERR_PTR(-ENODEV);

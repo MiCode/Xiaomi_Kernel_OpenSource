@@ -188,6 +188,7 @@ struct llcc_drv_data {
 	struct llcc_slice_desc *desc;
 	struct regmap *spad_or_bcast_regmap;
 	struct regmap *spad_and_bcast_regmap;
+	bool spad_act_slp_wake_enable;
 };
 
 #if IS_ENABLED(CONFIG_QCOM_LLCC)
