@@ -447,6 +447,7 @@ static int helios_auth_and_xfer(struct qcom_helios *helios_data)
 
 	/* helios Transfer of image is complete, free up the memory */
 	pr_debug("Firmware authentication and transfer done\n");
+	helios_data->is_ready = true;
 
 tzapp_comm_failed:
 	qtee_shmbridge_deregister(shm_bridge_handle);
@@ -474,7 +475,6 @@ static int helios_prepare(struct rproc *rproc)
 			return ret;
 		}
 	}
-	helios->is_ready = true;
 
 	pr_debug("heliosapp loaded\n");
 	return ret;
@@ -677,6 +677,11 @@ static void helios_coredump(struct rproc *rproc)
 
 	rproc_coredump_cleanup(rproc);
 
+	if (!helios->is_ready) {
+		dev_err(helios->dev, "%s: Helios is not up! Returning..\n", __func__);
+		return;
+	}
+
 	region = dma_alloc_attrs(helios->dev, size,
 				&start_addr, GFP_KERNEL, DMA_ATTR_SKIP_ZEROING);
 	if (region == NULL) {
@@ -740,6 +745,8 @@ static int helios_force_powerdown(struct qcom_helios *helios)
 		return helios->cmd_status;
 	}
 
+	helios->is_ready = false;
+
 	pr_debug("Helios is powered down.\n");
 	return ret;
 }
@@ -748,7 +755,15 @@ static int helios_force_restart(struct rproc *rproc)
 {
 	struct qcom_helios *helios = (struct qcom_helios *)rproc->priv;
 	struct tzapp_helios_req helios_tz_req;
-	int ret;
+	int ret = RESULT_FAILURE;
+
+	helios->cmd_status = 0;
+
+	if (!helios->is_ready) {
+		dev_err(helios->dev, "%s: Helios is not up!\n", __func__);
+		ret = RESULT_FAILURE;
+		goto end;
+	}
 
 	helios_tz_req.tzapp_helios_cmd = HELIOS_RPROC_RESTART;
 	helios_tz_req.address_fw = 0;
@@ -756,12 +771,18 @@ static int helios_force_restart(struct rproc *rproc)
 
 	ret = helios_tzapp_comm(helios, &helios_tz_req);
 	if (!ret && !helios->cmd_status) {
-		/* Helios Shutdown is success but Helios is responding.
+		/* Helios Restart is success but Helios is responding.
 		 * In this case, collect ramdump and store it.
 		 */
 		pr_info("A2H response is received! Collect ramdump now!\n");
 		helios_coredump(rproc);
-	} else {
+
+		pr_debug("Helios Restart is success!\n");
+		helios->is_ready = false;
+	}
+
+end:
+	if (ret || helios->cmd_status) {
 		/* Helios is not responding. So forcing S3 reset to power down Helios
 		 * and Yoda. It should be powered on in Start Sequence.
 		 */
@@ -771,9 +792,9 @@ static int helios_force_restart(struct rproc *rproc)
 			dev_err(helios->dev, "%s: Helios Power Down failed\n", __func__);
 			return ret;
 		}
+		pr_debug("Helios Force Power Down is success!\n");
+		helios->is_ready = false;
 	}
-
-	pr_debug("Helios Restart is success!\n");
 	return ret;
 }
 
@@ -781,7 +802,15 @@ static int helios_shutdown(struct rproc *rproc)
 {
 	struct qcom_helios *helios = rproc->priv;
 	struct tzapp_helios_req helios_tz_req;
-	int ret;
+	int ret = RESULT_FAILURE;
+
+	helios->cmd_status = 0;
+
+	if (!helios->is_ready) {
+		dev_err(helios->dev, "%s: Helios is not up!\n", __func__);
+		ret = RESULT_FAILURE;
+		goto end;
+	}
 
 	helios_tz_req.tzapp_helios_cmd = HELIOS_RPROC_SHUTDOWN;
 	helios_tz_req.address_fw = 0;
@@ -789,18 +818,27 @@ static int helios_shutdown(struct rproc *rproc)
 
 	ret = helios_tzapp_comm(helios, &helios_tz_req);
 	if (ret || helios->cmd_status) {
-		/* Helios is not responding. So forcing S3 reset to power down Helios.
-		 * It should be powered on in Start Sequence.
-		 */
 		pr_debug("Helios is not responding. Powerdown helios\n");
+		goto end;
+	}
+
+	helios->is_ready = false;
+	pr_debug("Helios Shutdown is success!\n");
+	return ret;
+
+end:
+	if (ret || helios->cmd_status) {
+		/* Helios is not responding. So forcing S3 reset to power down Helios
+		 * and Yoda. It should be powered on in Start Sequence.
+		 */
 		ret = helios_force_powerdown(helios);
 		if (ret) {
 			dev_err(helios->dev, "%s: Helios Power Down failed\n", __func__);
 			return ret;
 		}
+		pr_debug("Helios Force Power Down is success!\n");
+		helios->is_ready = false;
 	}
-
-	pr_debug("Helios Shutdown is success!\n");
 	return ret;
 }
 
@@ -845,21 +883,10 @@ static const struct rproc_ops helios_ops = {
 static int helios_reboot_notify(struct notifier_block *nb, unsigned long action, void *data)
 {
 	struct qcom_helios *helios = container_of(nb, struct qcom_helios, reboot_nb);
-	struct tzapp_helios_req helios_tz_req;
-	int ret;
-
-	if (action != SYS_RESTART)
-		return NOTIFY_OK;
 
 	pr_debug("System is going for reboot!. Shutdown helios.\n");
-	helios_tz_req.tzapp_helios_cmd = HELIOS_RPROC_SHUTDOWN;
-	helios_tz_req.address_fw = 0;
-	helios_tz_req.size_fw = 0;
-	ret = helios_tzapp_comm(helios, &helios_tz_req);
-	if (ret || helios->cmd_status) {
-		dev_err(helios->dev, "%s: Helios Shutdown failed\n", __func__);
-		return helios->cmd_status;
-	}
+	helios->rproc->recovery_disabled = true;
+	rproc_shutdown(helios->rproc);
 	pr_debug("Helios is Shutdown successfully.\n");
 
 	return NOTIFY_OK;
