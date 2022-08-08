@@ -117,6 +117,13 @@ static void slpi_load_fw(struct work_struct *slpi_ldr_work)
 			dev_err(&pdev->dev, "rproc not found\n");
 			goto fail;
 		}
+		if  (strcmp(firmware_name, "slpi2.mdt") == 0) {
+			ret = rproc_set_firmware(priv->pil_h, firmware_name);
+			if (ret) {
+				dev_err(&pdev->dev, "%s: rproc set firmware failed,\n", __func__);
+				goto fail;
+			}
+		}
 	}
 
 	ret = rproc_boot(priv->pil_h);
