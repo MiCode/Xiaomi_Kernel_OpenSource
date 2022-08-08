@@ -338,6 +338,7 @@ struct qseecom_control {
 	struct task_struct *unload_app_kthread_task;
 	wait_queue_head_t unload_app_kthread_wq;
 	atomic_t unload_app_kthread_state;
+	bool no_user_contig_mem_support;
 };
 
 struct qseecom_unload_app_pending_list {
@@ -9558,12 +9559,17 @@ static int qseecom_register_shmbridge(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = qseecom_register_heap_shmbridge(pdev, "user_contig_mem",
+	/* no-user-contig-mem is present in dtsi if user_contig_region is not needed*/
+	qseecom.no_user_contig_mem_support = of_property_read_bool((&pdev->dev)->of_node,
+						"qcom,no-user-contig-mem-support");
+	if (!qseecom.no_user_contig_mem_support) {
+		ret = qseecom_register_heap_shmbridge(pdev, "user_contig_mem",
 					&qseecom.user_contig_bridge_handle);
-	if (ret) {
-		qtee_shmbridge_deregister(qseecom.qseecom_bridge_handle);
-		qtee_shmbridge_deregister(qseecom.ta_bridge_handle);
-		return ret;
+		if (ret) {
+			qtee_shmbridge_deregister(qseecom.qseecom_bridge_handle);
+			qtee_shmbridge_deregister(qseecom.ta_bridge_handle);
+			return ret;
+		}
 	}
 
 	return 0;
@@ -9571,7 +9577,8 @@ static int qseecom_register_shmbridge(struct platform_device *pdev)
 
 static void qseecom_deregister_shmbridge(void)
 {
-	qtee_shmbridge_deregister(qseecom.user_contig_bridge_handle);
+	if (!qseecom.no_user_contig_mem_support)
+		qtee_shmbridge_deregister(qseecom.user_contig_bridge_handle);
 	qtee_shmbridge_deregister(qseecom.qseecom_bridge_handle);
 	qtee_shmbridge_deregister(qseecom.ta_bridge_handle);
 }
