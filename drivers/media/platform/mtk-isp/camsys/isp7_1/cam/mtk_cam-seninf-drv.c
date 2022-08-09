@@ -1414,6 +1414,9 @@ static int seninf_link_setup(struct media_entity *entity,
 	struct seninf_ctx *ctx;
 
 	sd = media_entity_to_v4l2_subdev(entity);
+	if (sd == NULL)
+		return -EINVAL;
+
 	ctx = v4l2_get_subdevdata(sd);
 
 	if (local->flags & MEDIA_PAD_FL_SOURCE) {
@@ -1705,11 +1708,13 @@ static int register_subdev(struct seninf_ctx *ctx, struct v4l2_device *v4l2_dev)
 	sd->dev = dev;
 
 	if (strlen(dev->of_node->name) > 16)
-		snprintf(sd->name, sizeof(sd->name), "%s-%s",
+		ret = snprintf(sd->name, sizeof(sd->name), "%s-%s",
 			 dev_driver_string(dev), &dev->of_node->name[16]);
 	else
-		snprintf(sd->name, sizeof(sd->name), "%s-%s",
+		ret = snprintf(sd->name, sizeof(sd->name), "%s-%s",
 			 dev_driver_string(dev), csi_port_names[ctx->port]);
+	if (ret < 0)
+		dev_info(dev, "%s: snprintf error\n", __func__);
 
 	v4l2_set_subdevdata(sd, ctx);
 

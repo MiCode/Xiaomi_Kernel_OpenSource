@@ -1328,7 +1328,7 @@ static void ov48b_set_max_framerate_by_scenario(struct subdrv_ctx *ctx, u8 *para
 	ctx->min_frame_length = ctx->frame_length;
 	DRV_LOG(ctx, "max_fps(input/output):%u/%u(sid:%u), min_fl_en:1\n",
 		framerate, ctx->current_fps, scenario_id);
-	if (ctx->frame_length > (ctx->exposure[0] - ctx->s_ctx.exposure_margin))
+	if (ctx->frame_length > (ctx->exposure[0] + ctx->s_ctx.exposure_margin))
 		ov48b_set_dummy(ctx);
 }
 

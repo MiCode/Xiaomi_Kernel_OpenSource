@@ -338,6 +338,7 @@ void write_frame_length(struct subdrv_ctx *ctx, u32 fll)
 	fll_step = ctx->s_ctx.mode[ctx->current_scenario_id].framelength_step;
 	if (fll_step)
 		fll = round_up(fll, fll_step);
+	ctx->frame_length = fll;
 
 	switch (ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode) {
 	case HDR_RAW_STAGGER_2EXP:
@@ -435,7 +436,7 @@ void set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 	DRV_LOG(ctx, "max_fps(input/output):%u/%u(sid:%u), min_fl_en:1\n",
 		framerate, ctx->current_fps, scenario_id);
 	if (ctx->s_ctx.reg_addr_auto_extend ||
-			(ctx->frame_length > (ctx->exposure[0] - ctx->s_ctx.exposure_margin)))
+			(ctx->frame_length > (ctx->exposure[0] + ctx->s_ctx.exposure_margin)))
 		set_dummy(ctx);
 }
 
@@ -448,11 +449,15 @@ bool set_auto_flicker(struct subdrv_ctx *ctx, bool min_framelength_en)
 	if (!ctx->autoflicker_en)
 		return FALSE;
 
-	if (framerate > 586 && framerate < 616)
-		set_max_framerate(ctx, 586, min_framelength_en);
-	else if (framerate > 296 && framerate < 306)
+	if (framerate > 592 && framerate <= 607)
+		set_max_framerate(ctx, 592, min_framelength_en);
+	else if (framerate > 296 && framerate <= 305)
 		set_max_framerate(ctx, 296, min_framelength_en);
-	else if (framerate > 146 && framerate < 151)
+	else if (framerate > 246 && framerate <= 253)
+		set_max_framerate(ctx, 246, min_framelength_en);
+	else if (framerate > 236 && framerate <= 243)
+		set_max_framerate(ctx, 236, min_framelength_en);
+	else if (framerate > 146 && framerate <= 153)
 		set_max_framerate(ctx, 146, min_framelength_en);
 	else
 		return FALSE;
@@ -629,7 +634,7 @@ void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 	ctx->frame_length =	min(ctx->frame_length, ctx->s_ctx.frame_length_max);
 	/* restore shutter */
 	memset(ctx->exposure, 0, sizeof(ctx->exposure));
-	for (i = 1; i < exp_cnt; i++)
+	for (i = 0; i < exp_cnt; i++)
 		ctx->exposure[i] = shutters[i];
 	/* group hold start */
 	if (gph)
@@ -737,6 +742,7 @@ void set_multi_gain(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt)
 {
 	int i = 0;
 	u16 rg_gains[3] = {0};
+	u8 has_gains[3] = {TRUE};
 	bool gph = !ctx->is_seamless && (ctx->s_ctx.s_gph != NULL);
 
 	if (exp_cnt > ARRAY_SIZE(ctx->ana_gain)) {
@@ -755,7 +761,7 @@ void set_multi_gain(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt)
 	}
 	/* restore gain */
 	memset(ctx->ana_gain, 0, sizeof(ctx->ana_gain));
-	for (i = 1; i < exp_cnt; i++)
+	for (i = 0; i < exp_cnt; i++)
 		ctx->ana_gain[i] = gains[i];
 	/* group hold start */
 	if (gph && !ctx->ae_ctrl_gph_en)
@@ -764,6 +770,7 @@ void set_multi_gain(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt)
 	switch (exp_cnt) {
 	case 2:
 		rg_gains[0] = gains[0];
+		has_gains[1] = FALSE;
 		rg_gains[2] = gains[1];
 		break;
 	case 3:
@@ -772,10 +779,13 @@ void set_multi_gain(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt)
 		rg_gains[2] = gains[2];
 		break;
 	default:
+		has_gains[0] = FALSE;
+		has_gains[1] = FALSE;
+		has_gains[2] = FALSE;
 		break;
 	}
 	for (i = 0; i < 3; i++) {
-		if (rg_gains[i]) {
+		if (has_gains[i]) {
 			set_i2c_buffer(ctx,	ctx->s_ctx.reg_addr_ana_gain[i].addr[0],
 				(rg_gains[i] >> 8) & 0xFF);
 			set_i2c_buffer(ctx,	ctx->s_ctx.reg_addr_ana_gain[i].addr[1],
