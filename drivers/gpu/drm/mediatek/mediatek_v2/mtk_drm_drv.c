@@ -1319,7 +1319,7 @@ static bool _mtk_atomic_mml_plane(struct drm_device *dev,
 	if (mtk_crtc_is_frame_trigger_mode(mtk_plane_state->crtc)) {
 		struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
 
-		if (mtk_crtc->mml_ir_state == MML_IR_IDLE)
+		if (mtk_drm_is_idle(mtk_plane_state->crtc))
 			mtk_drm_idlemgr_kick(__func__, mtk_plane_state->crtc, false);
 
 		if (comp)

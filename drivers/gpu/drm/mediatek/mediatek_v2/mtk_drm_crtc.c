@@ -7211,10 +7211,23 @@ skip:
 			PMQOS_UPDATE_BW, NULL);
 
 	/* 3.1 stop the last mml pkt */
-	if (mtk_crtc->is_mml &&
-		!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
-		mtk_crtc_is_connector_enable(mtk_crtc))
-		mtk_crtc_mml_racing_stop_sync(crtc, cmdq_handle);
+	if (mtk_crtc->is_mml) {
+		struct mtk_drm_sram_list *entry, *tmp;
+		struct mml_drm_ctx *mml_ctx = mtk_drm_get_mml_drm_ctx(crtc->dev, crtc);
+
+		if (mml_ctx && (mtk_crtc_is_frame_trigger_mode(crtc) ||
+				mtk_crtc_is_connector_enable(mtk_crtc)))
+			mml_drm_racing_stop_sync(mml_ctx, cmdq_handle);
+
+		mutex_lock(&mtk_crtc->mml_ir_sram.lock);
+		list_for_each_entry_safe(entry, tmp, &mtk_crtc->mml_ir_sram.list.head, head) {
+			list_del_init(&entry->head);
+			kfree(entry);
+		}
+		mtk_crtc_free_sram(mtk_crtc);
+		refcount_set(&mtk_crtc->mml_ir_sram.ref.refcount, 0);
+		mutex_unlock(&mtk_crtc->mml_ir_sram.lock);
+	}
 
 	cmdq_pkt_flush(cmdq_handle);
 	if (cmdq_handle != NULL)
@@ -7242,23 +7255,6 @@ skip:
 	if (mtk_crtc_with_event_loop(crtc) &&
 			(mtk_crtc_is_frame_trigger_mode(crtc)))
 		mtk_crtc_stop_event_loop(crtc);
-
-
-	if (mtk_crtc->is_mml) {
-		struct mtk_drm_sram_list *entry, *tmp;
-		struct mml_drm_ctx *mml_ctx = mtk_drm_get_mml_drm_ctx(crtc->dev, crtc);
-
-		if (mml_ctx && mtk_crtc->mml_cfg)
-			mml_drm_stop(mml_ctx, mtk_crtc->mml_cfg, false);
-		mutex_lock(&mtk_crtc->mml_ir_sram.lock);
-		list_for_each_entry_safe(entry, tmp, &mtk_crtc->mml_ir_sram.list.head, head) {
-			list_del_init(&entry->head);
-			kfree(entry);
-		}
-		mtk_crtc_free_sram(mtk_crtc);
-		refcount_set(&mtk_crtc->mml_ir_sram.ref.refcount, 0);
-		mutex_unlock(&mtk_crtc->mml_ir_sram.lock);
-	}
 
 	DDPINFO("%s:%d -\n", __func__, __LINE__);
 #endif
