@@ -5,6 +5,7 @@
 
 #include <linux/types.h>
 #include <linux/string.h>
+#include <linux/module.h>
 #include "tee_client_api.h"
 #include "tlcDpHdcp.h"
 
@@ -115,6 +116,7 @@ int tee_addDevice(uint32_t version)
 
 	return ret;
 }
+EXPORT_SYMBOL(tee_addDevice);
 
 void tee_removeDevice(void)
 {
@@ -148,6 +150,7 @@ void tee_removeDevice(void)
 	TEEC_CloseSession(&sSession);
 	TEEC_FinalizeContext(&sContext);
 }
+EXPORT_SYMBOL(tee_removeDevice);
 
 int tee_clearParing(void)
 {
@@ -170,6 +173,7 @@ int tee_clearParing(void)
 
 	return ret;
 }
+EXPORT_SYMBOL(tee_clearParing);
 
 int tee_hdcp1x_setTxAn(uint8_t *an_code)
 {
@@ -197,6 +201,7 @@ int tee_hdcp1x_setTxAn(uint8_t *an_code)
 
 	return ret;
 }
+EXPORT_SYMBOL(tee_hdcp1x_setTxAn);
 
 int tee_hdcp_enableEncrypt(bool bEnable, uint8_t version)
 {
@@ -230,6 +235,7 @@ int tee_hdcp_enableEncrypt(bool bEnable, uint8_t version)
 
 	return ret;
 }
+EXPORT_SYMBOL(tee_hdcp_enableEncrypt);
 
 int tee_hdcp1x_softRst(void)
 {
@@ -259,6 +265,7 @@ int tee_hdcp1x_softRst(void)
 
 	return ret;
 }
+EXPORT_SYMBOL(tee_hdcp1x_softRst);
 
 int tee_hdcp2_softRst(void)
 {
@@ -289,6 +296,7 @@ int tee_hdcp2_softRst(void)
 
 	return ret;
 }
+EXPORT_SYMBOL(tee_hdcp2_softRst);
 
 /** V1.X **/
 int tee_getAksv(uint8_t *Aksv)
@@ -315,6 +323,8 @@ int tee_getAksv(uint8_t *Aksv)
 
 	return ret;
 }
+EXPORT_SYMBOL(tee_getAksv);
+
 int tee_calculateLm(uint8_t *Bksv)
 {
 	uint32_t ret = TEEC_SUCCESS;
@@ -339,6 +349,7 @@ int tee_calculateLm(uint8_t *Bksv)
 
 	return ret;
 }
+EXPORT_SYMBOL(tee_calculateLm);
 
 int tee_compareR0(uint8_t *r0, uint32_t len)
 {
@@ -364,6 +375,7 @@ int tee_compareR0(uint8_t *r0, uint32_t len)
 
 	return ret;
 }
+EXPORT_SYMBOL(tee_compareR0);
 
 int tee_hdcp1x_ComputeCompareV(uint8_t *cryptoParam, uint32_t paramLen,
 	uint8_t *rxV)
@@ -392,6 +404,7 @@ int tee_hdcp1x_ComputeCompareV(uint8_t *cryptoParam, uint32_t paramLen,
 
 	return ret;
 }
+EXPORT_SYMBOL(tee_hdcp1x_ComputeCompareV);
 
 /**** V2.X****/
 int tee_akeCertificate(uint8_t *certificate, bool *bStored, uint8_t *out_m,
@@ -427,6 +440,7 @@ int tee_akeCertificate(uint8_t *certificate, bool *bStored, uint8_t *out_m,
 
 	return ret;
 }
+EXPORT_SYMBOL(tee_akeCertificate);
 
 int tee_encRsaesOaep(uint8_t *ekm)
 {
@@ -451,6 +465,7 @@ int tee_encRsaesOaep(uint8_t *ekm)
 		ENC_KM_LEN);
 	return ret;
 }
+EXPORT_SYMBOL(tee_encRsaesOaep);
 
 int tee_akeHPrime(uint8_t *rtx, uint8_t *rrx, uint8_t *rxCaps, uint8_t *txCaps,
 	 uint8_t *rxH, uint32_t rxH_len)
@@ -486,6 +501,7 @@ int tee_akeHPrime(uint8_t *rtx, uint8_t *rrx, uint8_t *rxCaps, uint8_t *txCaps,
 
 	return tci->message.cmdHDCP.responseHeader.returnCode;
 }
+EXPORT_SYMBOL(tee_akeHPrime);
 
 int tee_akeParing(uint8_t *rx_ekm)
 {
@@ -510,6 +526,7 @@ int tee_akeParing(uint8_t *rx_ekm)
 
 	return ret;
 }
+EXPORT_SYMBOL(tee_akeParing);
 
 int tee_lcLPrime(uint8_t *rn, uint8_t *rxL, uint32_t len)
 {
@@ -538,6 +555,7 @@ int tee_lcLPrime(uint8_t *rn, uint8_t *rxL, uint32_t len)
 
 	return tci->message.cmdHDCP.responseHeader.returnCode;
 }
+EXPORT_SYMBOL(tee_lcLPrime);
 
 int tee_skeEncKs(uint8_t *riv, uint8_t *eks)
 {
@@ -564,6 +582,7 @@ int tee_skeEncKs(uint8_t *riv, uint8_t *eks)
 
 	return ret;
 }
+EXPORT_SYMBOL(tee_skeEncKs);
 
 int tee_hdcp2_ComputeCompareV(uint8_t *cryptoParam, uint32_t paramLen,
 	uint8_t *rxV, uint8_t *txV)
@@ -594,6 +613,7 @@ int tee_hdcp2_ComputeCompareV(uint8_t *cryptoParam, uint32_t paramLen,
 
 	return ret;
 }
+EXPORT_SYMBOL(tee_hdcp2_ComputeCompareV);
 
 int tee_hdcp2_ComputeCompareM(uint8_t *cryptoParam, uint32_t paramLen,
 	uint8_t *rxM)
@@ -622,6 +642,7 @@ int tee_hdcp2_ComputeCompareM(uint8_t *cryptoParam, uint32_t paramLen,
 
 	return ret;
 }
+EXPORT_SYMBOL(tee_hdcp2_ComputeCompareM);
 
 int tee_loadHdcpKeyById(uint32_t version)
 {
@@ -716,6 +737,7 @@ int tee_hdcp1x_setKey(uint8_t *key)
 	return TEEC_SUCCESS;
 #endif
 }
+EXPORT_SYMBOL(tee_hdcp1x_setKey);
 
 int tee_hdcp2_setKey(uint8_t *kpubdcp, uint8_t *lc128)
 {
@@ -748,4 +770,7 @@ int tee_hdcp2_setKey(uint8_t *kpubdcp, uint8_t *lc128)
 	return TEEC_SUCCESS;
 #endif
 }
+EXPORT_SYMBOL(tee_hdcp2_setKey);
+
+MODULE_LICENSE("GPL v2");
 

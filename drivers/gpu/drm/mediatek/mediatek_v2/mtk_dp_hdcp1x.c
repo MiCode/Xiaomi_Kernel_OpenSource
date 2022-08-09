@@ -13,31 +13,18 @@
 #ifdef DPTX_HDCP_ENABLE
 
 //Please replace AKSV and Key0~Key39 with your product key.
-unsigned char DPTX_HDCP1X_KEY_REAL[289] = {
-	//Need add AKSV(5Bytes) (The format can refer to P77 of HDCP SPEC1_1)
-		//For Example
-		//0x14, 0xf7, 0x61, 0x03, 0xb7,
-	//dummy(3Bytes)
-	0x00, 0x00, 0x00,
-	//Key0 ~ Key39 (The format can refer to P77 of HDCP SPEC1_1)
-		//For Example
-		//0x69, 0x1e, 0x13, 0x8f, 0x58, 0xa4, 0x4d,	// Key 0
-		//...
-		//0x41, 0x20, 0x56, 0xb4, 0xbb, 0x73, 0x25,	// Key 39
-	//Ln_seed(1Byte)
-	0x00
-};
+unsigned char DPTX_HDCP1X_KEY_REAL[289] = {};
 
 static DWORD gdwPreTime;
 
 void mhal_DPTx_HDCP1X_StartCipher(struct mtk_dp *mtk_dp, bool bEnable)
 {
 	if (bEnable) {
-		msWriteByteMask(mtk_dp, REG_3480_DP_TRANS_P0 + 1, BIT4, BIT4);
-		msWriteByteMask(mtk_dp, REG_3480_DP_TRANS_P0, BIT4, BIT4);
+		msWriteByteMask(mtk_dp, REG_3480_DP_TRANS_P0 + 1, BIT(4), BIT(4));
+		msWriteByteMask(mtk_dp, REG_3480_DP_TRANS_P0, BIT(4), BIT(4));
 	} else {
-		msWriteByteMask(mtk_dp, REG_3480_DP_TRANS_P0, 0, BIT4);
-		msWriteByteMask(mtk_dp, REG_3480_DP_TRANS_P0 + 1, 0, BIT4);
+		msWriteByteMask(mtk_dp, REG_3480_DP_TRANS_P0, 0, BIT(4));
+		msWriteByteMask(mtk_dp, REG_3480_DP_TRANS_P0 + 1, 0, BIT(4));
 	}
 }
 
@@ -45,7 +32,7 @@ bool mhal_DPTx_HDCP1X_GetTxR0Available(struct mtk_dp *mtk_dp)
 {
 	bool R0Available;
 
-	if (msReadByte(mtk_dp, REG_34A4_DP_TRANS_P0) & BIT12)
+	if (msReadByte(mtk_dp, REG_34A4_DP_TRANS_P0) & BIT(12))
 		R0Available = true;
 	else
 		R0Available = false;
@@ -56,15 +43,15 @@ bool mhal_DPTx_HDCP1X_GetTxR0Available(struct mtk_dp *mtk_dp)
 void mhal_DPTx_HDCP1X_SetTxRepeater(struct mtk_dp *mtk_dp, bool bEnable)
 {
 	if (bEnable)
-		msWriteByteMask(mtk_dp, REG_34A4_DP_TRANS_P0 + 1, BIT7, BIT7);
+		msWriteByteMask(mtk_dp, REG_34A4_DP_TRANS_P0 + 1, BIT(7), BIT(7));
 	else
-		msWriteByteMask(mtk_dp, REG_34A4_DP_TRANS_P0 + 1, 0,  BIT7);
+		msWriteByteMask(mtk_dp, REG_34A4_DP_TRANS_P0 + 1, 0,  BIT(7));
 
 #ifdef IF_ZERO
 	if (mtk_dp->info.hdcp1x_info.bRepeater) {
 		unsigned char temp;
 
-		temp = BIT0;//REAUTHENTICATION_ENABLE_IRQ_HPD
+		temp = BIT(0);//REAUTHENTICATION_ENABLE_IRQ_HPD
 		drm_dp_dpcd_write(&mtk_dp->aux, DPCD_6803B, &temp, 1);
 	}
 #endif
@@ -95,10 +82,10 @@ bool mdrv_DPTx_HDCP1x_Support(struct mtk_dp *mtk_dp)
 
 	drm_dp_dpcd_read(&mtk_dp->aux, DPCD_68028, bTempBuffer, 0x1);
 
-	mtk_dp->info.hdcp1x_info.bEnable = bTempBuffer[0x0] & BIT0;
-	mtk_dp->info.hdcp1x_info.bRepeater = (bTempBuffer[0x0] & BIT1) >> 1;
+	mtk_dp->info.hdcp1x_info.bEnable = bTempBuffer[0x0] & BIT(0);
+	mtk_dp->info.hdcp1x_info.bRepeater = (bTempBuffer[0x0] & BIT(1)) >> 1;
 
-	DPTXMSG("HDCP1.3 CAPABLE: %d, Reapeater: %d\n",
+	DPTXMSG("HDCP1.3 CAPABLE: %d, Reapeater!!: %d\n",
 		mtk_dp->info.hdcp1x_info.bEnable,
 		mtk_dp->info.hdcp1x_info.bRepeater);
 
@@ -116,22 +103,22 @@ bool mdrv_DPTx_HDCP1x_Support(struct mtk_dp *mtk_dp)
 bool mdrv_DPTx_HDCP1X_irq(struct mtk_dp *mtk_dp)
 {
 	BYTE RxStatus = 0;
-	BYTE ClearCpirq = BIT2;
+	BYTE ClearCpirq = BIT(2);
 
 	drm_dp_dpcd_read(&mtk_dp->aux, DPCD_68029, &RxStatus,
 			DP_HDCP1_BSTATUS_SIZE);
 	DPTXDBG("CP_IRQ Bstatus:0x%x\n", RxStatus);
-	if (RxStatus & BIT1) {
+	if (RxStatus & BIT(1)) {
 		DPTXMSG("R0'_AVAILABLE Ready!\n");
 		mtk_dp->info.hdcp1x_info.bR0Read = true;
 	}
 
-	if (RxStatus & BIT0) {
+	if (RxStatus & BIT(0)) {
 		DPTXMSG("KSV_READY Ready!\n");
 		mtk_dp->info.hdcp1x_info.bKSV_READY = true;
 	}
 
-	if (RxStatus & BIT2 || RxStatus & BIT3) {
+	if (RxStatus & BIT(2) || RxStatus & BIT(3)) {
 		DPTXMSG("Re-Auth HDCP1X!\n");
 		mdrv_DPTx_HDCP1X_SetStartAuth(mtk_dp, true);
 		mdrv_DPTx_reAuthentication(mtk_dp);
@@ -194,7 +181,7 @@ bool mdrv_DPTx_HDCP1X_CheckSinkKSVReady(struct mtk_dp *mtk_dp)
 	drm_dp_dpcd_read(&mtk_dp->aux, DPCD_68029, &pReadBuffer, 1);
 
 	mtk_dp->info.hdcp1x_info.bKSV_READY
-		= (pReadBuffer & BIT0)  ? true : false;
+		= (pReadBuffer & BIT(0))  ? true : false;
 
 	return mtk_dp->info.hdcp1x_info.bKSV_READY;
 }
@@ -206,7 +193,7 @@ bool mdrv_DPTx_HDCP1X_CheckSinkCap(struct mtk_dp *mtk_dp)
 	drm_dp_dpcd_read(&mtk_dp->aux, DPCD_68028, pReadBuffer, 1);
 
 	mtk_dp->info.hdcp1x_info.bRepeater
-		= (pReadBuffer[0] & BIT1) ? true : false;
+		= (pReadBuffer[0] & BIT(1)) ? true : false;
 
 	return true;
 }
@@ -221,9 +208,9 @@ bool mdrv_DPTx_HDCP1X_ReadSinkBinfo(struct mtk_dp *mtk_dp)
 	mtk_dp->info.hdcp1x_info.ubBinfo[0] = pReadBuffer[0];
 	mtk_dp->info.hdcp1x_info.ubBinfo[1] = pReadBuffer[1];
 	mtk_dp->info.hdcp1x_info.bMAX_CASCADE
-		= (pReadBuffer[1] & BIT3) ? true:false;
+		= (pReadBuffer[1] & BIT(3)) ? true:false;
 	mtk_dp->info.hdcp1x_info.bMAX_DEVS
-		= (pReadBuffer[0] & BIT7) ? true:false;
+		= (pReadBuffer[0] & BIT(7)) ? true:false;
 	mtk_dp->info.hdcp1x_info.ubDEVICE_COUNT = pReadBuffer[0] & 0x7F;
 
 	DPTXMSG("HDCP Binfo MAX_CASCADE_EXCEEDED = %d\n",
@@ -382,13 +369,13 @@ bool mdrv_DPTx_HDCP1X_CheckR0(struct mtk_dp *mtk_dp)
 	if (!mtk_dp->info.hdcp1x_info.bR0Read) {
 		drm_dp_dpcd_read(&mtk_dp->aux, DPCD_68029, ubTempValue, 1);
 		bSinkR0Available
-			= ((ubTempValue[0x0] & BIT1) == BIT1) ? true : false;
+			= ((ubTempValue[0x0] & BIT(1)) == BIT(1)) ? true : false;
 
 		if (!bSinkR0Available) {
 			drm_dp_dpcd_read(&mtk_dp->aux,
 				DPCD_68029, ubTempValue, 1);
 			bSinkR0Available
-				= ((ubTempValue[0x0] & BIT1) == BIT1)
+				= ((ubTempValue[0x0] & BIT(1)) == BIT(1))
 					? true : false;
 
 			if (!bSinkR0Available)

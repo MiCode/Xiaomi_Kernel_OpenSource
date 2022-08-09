@@ -41,13 +41,9 @@ struct hdcp2_info_rx {
 struct hdcp2_info_tx rhdcp_tx;
 struct hdcp2_info_rx rhdcp_rx;
 
-UINT8 g_u8LC128_real[16] = {
-	// need add LC128(16Bytes)
-};
+UINT8 g_u8LC128_real[16] = {};
 
-UINT8 t_kpubdcp_real[385] = {
-	//add DCP LLC Public Key (HDCP22 SPEC p73)
-};
+UINT8 t_kpubdcp_real[385] = {};
 
 UINT8 t_rtx[HDCP2_RTX_SIZE] = {
 	0x18, 0xfa, 0xe4, 0x20, 0x6a, 0xfb, 0x51, 0x49
@@ -113,11 +109,11 @@ void HDCPTx_Hdcp2SetState(BYTE u8MainState, BYTE u8SubState)
 void HDCPTx_Hdcp2xSetAuthPass(struct mtk_dp *mtk_dp, bool bEnable)
 {
 	if (bEnable) {
-		msWriteByteMask(mtk_dp, REG_3400_DP_TRANS_P0 + 1, BIT3, BIT3);
-		msWriteByteMask(mtk_dp, REG_34A4_DP_TRANS_P0, BIT4, BIT4);
+		msWriteByteMask(mtk_dp, REG_3400_DP_TRANS_P0 + 1, BIT(3), BIT(3));
+		msWriteByteMask(mtk_dp, REG_34A4_DP_TRANS_P0, BIT(4), BIT(4));
 	} else {
-		msWriteByteMask(mtk_dp, REG_3400_DP_TRANS_P0 + 1, 0, BIT3);
-		msWriteByteMask(mtk_dp, REG_34A4_DP_TRANS_P0, 0, BIT4);
+		msWriteByteMask(mtk_dp, REG_3400_DP_TRANS_P0 + 1, 0, BIT(3));
+		msWriteByteMask(mtk_dp, REG_34A4_DP_TRANS_P0, 0, BIT(4));
 	}
 }
 
@@ -128,9 +124,9 @@ void HDCPTx_Hdcp2EnableAuth(struct mtk_dp *mtk_dp, bool bEnable)
 	if (bEnable) {
 		uint32_t version = HDCP_V2_3;
 
-		if (rhdcp_rx.rxInfo[1] & BIT0)
+		if (rhdcp_rx.rxInfo[1] & BIT(0))
 			version = HDCP_V1;
-		else if (rhdcp_rx.rxInfo[1] & BIT1)
+		else if (rhdcp_rx.rxInfo[1] & BIT(1))
 			version = HDCP_V2;
 
 		tee_hdcp_enableEncrypt(bEnable, version);
@@ -381,7 +377,7 @@ bool HDCPTx_ReadMsg(struct mtk_dp *mtk_dp, BYTE u8CmdID)
 			HDCP2_RXINFO_SIZE);
 		mtk_dp->info.hdcp2_info.uDeviceCount
 			= ((rhdcp_rx.rxInfo[1] & MASKBIT(7:4)) >> 4)
-				| ((rhdcp_rx.rxInfo[0] & BIT0) << 4);
+				| ((rhdcp_rx.rxInfo[0] & BIT(0)) << 4);
 
 		drm_dp_dpcd_read(&mtk_dp->aux,
 			DPCD_69332,
@@ -912,7 +908,7 @@ int HDCPTx_Hdcp2FSM(struct mtk_dp *mtk_dp)
 	case HDCP2_MS_A7F7:
 		switch (g_stHdcpHandler.u8SubState) {
 		case HDCP2_MSG_REPAUTH_VERIFY_RECVID_LIST:
-			if ((rhdcp_rx.rxInfo[1] & (BIT2 | BIT3)) != 0) {
+			if ((rhdcp_rx.rxInfo[1] & (BIT(2) | BIT(3))) != 0) {
 				DPTXERR("DEVS_EXCEEDED or CASCADE_EXCEDDED!\n");
 				enErrCode = HDCP_ERR_PROCESS_FAIL;
 				HDCPTx_ERRHandle(enErrCode, __LINE__);
@@ -1070,13 +1066,13 @@ bool mdrv_DPTx_HDCP2_Support(struct mtk_dp *mtk_dp)
 
 	drm_dp_dpcd_read(&mtk_dp->aux, DPCD_6921D, bTempBuffer, 0x3);
 
-	if ((bTempBuffer[2] & BIT1) && (bTempBuffer[0] == 0x02)) {
+	if ((bTempBuffer[2] & BIT(1)) && (bTempBuffer[0] == 0x02)) {
 		mtk_dp->info.hdcp2_info.bEnable = true;
-		mtk_dp->info.hdcp2_info.bRepeater = bTempBuffer[2] & BIT0;
+		mtk_dp->info.hdcp2_info.bRepeater = bTempBuffer[2] & BIT(0);
 	} else
 		mtk_dp->info.hdcp2_info.bEnable = false;
 
-	DPTXMSG("HDCP.2x CAPABLE: %d, Reapeater: %d\n",
+	DPTXMSG("HDCP.2x CAPABLE: %d, Reapeater~~: %d\n",
 		mtk_dp->info.hdcp2_info.bEnable,
 		mtk_dp->info.hdcp2_info.bRepeater);
 
@@ -1094,28 +1090,28 @@ bool mdrv_DPTx_HDCP2_Support(struct mtk_dp *mtk_dp)
 bool mdrv_DPTx_HDCP2_irq(struct mtk_dp *mtk_dp)
 {
 	BYTE RxStatus = 0;
-	BYTE ClearCpirq = BIT2;
+	BYTE ClearCpirq = BIT(2);
 
 	drm_dp_dpcd_read(&mtk_dp->aux, DPCD_69493, &RxStatus,
 		HDCP2_RXSTATUS_SIZE);
 
 	DPTXMSG("HDCP2x RxStatus = 0x%x\n", RxStatus);
-	if (RxStatus & BIT0) {
+	if (RxStatus & BIT(0)) {
 		DPTXMSG("READY_BIT0 Ready!\n");
 		mtk_dp->info.hdcp2_info.bReadVprime = true;
 	}
 
-	if (RxStatus & BIT1) {
+	if (RxStatus & BIT(1)) {
 		DPTXMSG("H'_AVAILABLE Ready!\n");
 		mtk_dp->info.hdcp2_info.bReadHprime = true;
 	}
 
-	if (RxStatus & BIT2) {
+	if (RxStatus & BIT(2)) {
 		DPTXMSG("PAIRING_AVAILABLE Ready!\n");
 		mtk_dp->info.hdcp2_info.bReadPairing = true;
 	}
 
-	if (RxStatus & BIT4 || RxStatus & BIT3) {
+	if (RxStatus & BIT(4) || RxStatus & BIT(3)) {
 		DPTXMSG("Re-Auth HDCP2X!\n");
 		mdrv_DPTx_HDCP2_SetStartAuth(mtk_dp, true);
 		mdrv_DPTx_reAuthentication(mtk_dp);
