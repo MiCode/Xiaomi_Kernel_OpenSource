@@ -919,7 +919,7 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 	this_rq->android_vendor_data1[5] = this_rq->android_vendor_data1[5] + 26;
 	this_rq->android_vendor_data1[6] = this_rq->android_vendor_data1[6] << 6;
 	this_rq->android_vendor_data1[6] =
-		this_rq->android_vendor_data1[6] + (this_rq()->cpu);
+		this_rq->android_vendor_data1[6] + (this_rq->cpu);
 #endif
 	this_cpu = this_rq->cpu;
 	for_each_cpu(cpu, cpu_active_mask) {
@@ -933,7 +933,7 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 		src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] + 27;
 		src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] << 6;
 		src_rq->android_vendor_data1[6] =
-			src_rq->android_vendor_data1[6] + (this_rq()->cpu);
+			src_rq->android_vendor_data1[6] + (this_rq->cpu);
 #endif
 		update_rq_clock(src_rq);
 		if (src_rq->active_balance) {
@@ -943,7 +943,7 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 		src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] + 28;
 		src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] << 6;
 		src_rq->android_vendor_data1[6] =
-			src_rq->android_vendor_data1[6] + (this_rq()->cpu);
+			src_rq->android_vendor_data1[6] + (this_rq->cpu);
 #endif
 			continue;
 		}
@@ -972,7 +972,7 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 			src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] + 29;
 			src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] << 6;
 			src_rq->android_vendor_data1[6] =
-				src_rq->android_vendor_data1[6] + (this_rq()->cpu);
+				src_rq->android_vendor_data1[6] + (this_rq->cpu);
 #endif
 			continue;
 		}
@@ -985,7 +985,7 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 		src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] + 30;
 		src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] << 6;
 		src_rq->android_vendor_data1[6] =
-			src_rq->android_vendor_data1[6] + (this_rq()->cpu);
+			src_rq->android_vendor_data1[6] + (this_rq->cpu);
 #endif
 		if (p) {
 			trace_sched_force_migrate(p, this_cpu, MIGR_IDLE_BALANCE);
@@ -1009,7 +1009,7 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 	this_rq->android_vendor_data1[5] = this_rq->android_vendor_data1[5] + 31;
 	this_rq->android_vendor_data1[6] = this_rq->android_vendor_data1[6] << 6;
 	this_rq->android_vendor_data1[6] =
-		this_rq->android_vendor_data1[6] + (this_rq()->cpu);
+		this_rq->android_vendor_data1[6] + (this_rq->cpu);
 #endif
 	/*
 	 * While browsing the domains, we released the rq lock, a task could

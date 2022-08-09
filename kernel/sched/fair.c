@@ -8438,13 +8438,18 @@ static void update_blocked_averages(int cpu)
 	bool decayed = false, done = true;
 	struct rq *rq = cpu_rq(cpu);
 	struct rq_flags rf;
+#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+	struct rq *this_rq;
+#endif
 
 	rq_lock_irqsave(rq, &rf);
 #if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
+	this_rq = this_rq();
+
 	rq->android_vendor_data1[5] = rq->android_vendor_data1[5] << 6;
 	rq->android_vendor_data1[5] = rq->android_vendor_data1[5] + 36;
 	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] << 6;
-	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] + (this_rq()->cpu);
+	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] + (this_rq->cpu);
 #endif
 	update_blocked_load_tick(rq);
 	update_rq_clock(rq);
@@ -8460,7 +8465,7 @@ static void update_blocked_averages(int cpu)
 	rq->android_vendor_data1[5] = rq->android_vendor_data1[5] << 6;
 	rq->android_vendor_data1[5] = rq->android_vendor_data1[5] + 37;
 	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] << 6;
-	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] + (this_rq()->cpu);
+	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] + (this_rq->cpu);
 #endif
 }
 

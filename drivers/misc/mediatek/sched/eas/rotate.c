@@ -49,7 +49,7 @@ int is_reserved(int cpu)
 	rq->android_vendor_data1[5] = rq->android_vendor_data1[5] << 6;
 	rq->android_vendor_data1[5] = rq->android_vendor_data1[5] + 20;
 	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] << 6;
-	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] + (this_rq()->cpu);
+	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] + (cpu);
 #endif
 	reserved = rq->active_balance;
 	rq_unlock(rq, &rf);
@@ -57,7 +57,7 @@ int is_reserved(int cpu)
 	rq->android_vendor_data1[5] = rq->android_vendor_data1[5] << 6;
 	rq->android_vendor_data1[5] = rq->android_vendor_data1[5] + 21;
 	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] << 6;
-	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] + (this_rq()->cpu);
+	rq->android_vendor_data1[6] = rq->android_vendor_data1[6] + (cpu);
 #endif
 	return reserved;
 }
@@ -105,12 +105,12 @@ static void task_rotate_work_func(struct work_struct *work)
 	src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] << 6;
 	src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] + 22;
 	src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] << 6;
-	src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] + (this_rq()->cpu);
+	src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] + (src_rq->cpu);
 
 	dst_rq->android_vendor_data1[5] = dst_rq->android_vendor_data1[5] << 6;
 	dst_rq->android_vendor_data1[5] = dst_rq->android_vendor_data1[5] + 22;
 	dst_rq->android_vendor_data1[6] = dst_rq->android_vendor_data1[6] << 6;
-	dst_rq->android_vendor_data1[6] = dst_rq->android_vendor_data1[6] + (this_rq()->cpu);
+	dst_rq->android_vendor_data1[6] = dst_rq->android_vendor_data1[6] + (src_rq->cpu);
 #endif
 	src_rq->active_balance = 0;
 	dst_rq->active_balance = 0;
@@ -119,12 +119,12 @@ static void task_rotate_work_func(struct work_struct *work)
 	src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] << 6;
 	src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] + 23;
 	src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] << 6;
-	src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] + (this_rq()->cpu);
+	src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] + (src_rq->cpu);
 
 	dst_rq->android_vendor_data1[5] = dst_rq->android_vendor_data1[5] << 6;
 	dst_rq->android_vendor_data1[5] = dst_rq->android_vendor_data1[5] + 23;
 	dst_rq->android_vendor_data1[6] = dst_rq->android_vendor_data1[6] << 6;
-	dst_rq->android_vendor_data1[6] = dst_rq->android_vendor_data1[6] + (this_rq()->cpu);
+	dst_rq->android_vendor_data1[6] = dst_rq->android_vendor_data1[6] + (src_rq->cpu);
 #endif
 	local_irq_enable();
 }
@@ -265,12 +265,12 @@ void task_check_for_rotation(struct rq *src_rq)
 	src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] << 6;
 	src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] + 24;
 	src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] << 6;
-	src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] + (this_rq()->cpu);
+	src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] + (src_rq->cpu);
 
 	dst_rq->android_vendor_data1[5] = dst_rq->android_vendor_data1[5] << 6;
 	dst_rq->android_vendor_data1[5] = dst_rq->android_vendor_data1[5] + 24;
 	dst_rq->android_vendor_data1[6] = dst_rq->android_vendor_data1[6] << 6;
-	dst_rq->android_vendor_data1[6] = dst_rq->android_vendor_data1[6] + (this_rq()->cpu);
+	dst_rq->android_vendor_data1[6] = dst_rq->android_vendor_data1[6] + (src_rq->cpu);
 #endif
 	if (dst_rq->curr->policy == SCHED_NORMAL) {
 		if (!cpumask_test_cpu(dst_cpu,
@@ -306,12 +306,12 @@ void task_check_for_rotation(struct rq *src_rq)
 	src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] << 6;
 	src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] + 25;
 	src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] << 6;
-	src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] + (this_rq()->cpu);
+	src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] + (src_rq->cpu);
 
 	dst_rq->android_vendor_data1[5] = dst_rq->android_vendor_data1[5] << 6;
 	dst_rq->android_vendor_data1[5] = dst_rq->android_vendor_data1[5] + 25;
 	dst_rq->android_vendor_data1[6] = dst_rq->android_vendor_data1[6] << 6;
-	dst_rq->android_vendor_data1[6] = dst_rq->android_vendor_data1[6] + (this_rq()->cpu);
+	dst_rq->android_vendor_data1[6] = dst_rq->android_vendor_data1[6] + (src_rq->cpu);
 #endif
 
 	if (force) {

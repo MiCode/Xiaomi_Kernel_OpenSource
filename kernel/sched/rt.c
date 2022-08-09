@@ -1935,7 +1935,7 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 			lowest_rq->android_vendor_data1[6] =
 				lowest_rq->android_vendor_data1[6] << 6;
 			lowest_rq->android_vendor_data1[6] =
-				lowest_rq->android_vendor_data1[6] + (this_rq()->cpu);
+				lowest_rq->android_vendor_data1[6] + (rq->cpu);
 #endif
 			/*
 			 * We had to unlock the run queue. In
@@ -1958,7 +1958,7 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 				lowest_rq->android_vendor_data1[6] =
 					lowest_rq->android_vendor_data1[6] << 6;
 				lowest_rq->android_vendor_data1[6] =
-					lowest_rq->android_vendor_data1[6] + (this_rq()->cpu);
+					lowest_rq->android_vendor_data1[6] + (rq->cpu);
 #endif
 				lowest_rq = NULL;
 				break;
@@ -1979,7 +1979,7 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 		lowest_rq->android_vendor_data1[6] =
 			lowest_rq->android_vendor_data1[6] << 6;
 		lowest_rq->android_vendor_data1[6] =
-			lowest_rq->android_vendor_data1[6] + (this_rq()->cpu);
+			lowest_rq->android_vendor_data1[6] + (rq->cpu);
 #endif
 		lowest_rq = NULL;
 	}
@@ -2073,7 +2073,7 @@ retry:
 			rq->android_vendor_data1[5] = rq->android_vendor_data1[5] + 8;
 			rq->android_vendor_data1[6] = rq->android_vendor_data1[6] << 6;
 			rq->android_vendor_data1[6] =
-				rq->android_vendor_data1[6] + (this_rq()->cpu);
+				rq->android_vendor_data1[6] + (rq->cpu);
 #endif
 			stop_one_cpu_nowait(rq->cpu, push_cpu_stop,
 					    push_task, &rq->push_work);
@@ -2083,7 +2083,7 @@ retry:
 			rq->android_vendor_data1[5] = rq->android_vendor_data1[5] + 9;
 			rq->android_vendor_data1[6] = rq->android_vendor_data1[6] << 6;
 			rq->android_vendor_data1[6] =
-				rq->android_vendor_data1[6] + (this_rq()->cpu);
+				rq->android_vendor_data1[6] + (rq->cpu);
 #endif
 		}
 
@@ -2143,7 +2143,7 @@ retry:
 	lowest_rq->android_vendor_data1[5] = lowest_rq->android_vendor_data1[5] << 6;
 	lowest_rq->android_vendor_data1[5] = lowest_rq->android_vendor_data1[5] + 19;
 	lowest_rq->android_vendor_data1[6] = lowest_rq->android_vendor_data1[6] << 6;
-	lowest_rq->android_vendor_data1[6] = lowest_rq->android_vendor_data1[6] + (this_rq()->cpu);
+	lowest_rq->android_vendor_data1[6] = lowest_rq->android_vendor_data1[6] + (rq->cpu);
 #endif
 out:
 	put_task_struct(next_task);

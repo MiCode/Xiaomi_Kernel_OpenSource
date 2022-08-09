@@ -585,11 +585,11 @@ void check_for_migration(struct task_struct *p)
 
 		raw_spin_lock(&migration_lock);
 #if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
-		this_rq()->android_vendor_data1[13] = this_rq()->android_vendor_data1[13] << 6;
-		this_rq()->android_vendor_data1[13] = this_rq()->android_vendor_data1[13] + 1;
-		this_rq()->android_vendor_data1[14] = this_rq()->android_vendor_data1[14] << 6;
-		this_rq()->android_vendor_data1[14] =
-			this_rq()->android_vendor_data1[14] + (this_rq()->cpu);
+		rq->android_vendor_data1[13] = rq->android_vendor_data1[13] << 6;
+		rq->android_vendor_data1[13] = rq->android_vendor_data1[13] + 1;
+		rq->android_vendor_data1[14] = rq->android_vendor_data1[14] << 6;
+		rq->android_vendor_data1[14] =
+			rq->android_vendor_data1[14] + (rq->cpu);
 #endif
 		raw_spin_lock(&p->pi_lock);
 		new_cpu = p->sched_class->select_task_rq(p, cpu, WF_TTWU);
@@ -604,14 +604,14 @@ void check_for_migration(struct task_struct *p)
 		if (new_cpu < 0) {
 			raw_spin_unlock(&migration_lock);
 #if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
-			this_rq()->android_vendor_data1[13] =
-				this_rq()->android_vendor_data1[13] << 6;
-			this_rq()->android_vendor_data1[13] =
-				this_rq()->android_vendor_data1[13] + 2;
-			this_rq()->android_vendor_data1[14] =
-				this_rq()->android_vendor_data1[14] << 6;
-			this_rq()->android_vendor_data1[14] =
-				this_rq()->android_vendor_data1[14] + (this_rq()->cpu);
+			rq->android_vendor_data1[13] =
+				rq->android_vendor_data1[13] << 6;
+			rq->android_vendor_data1[13] =
+				rq->android_vendor_data1[13] + 2;
+			rq->android_vendor_data1[14] =
+				rq->android_vendor_data1[14] << 6;
+			rq->android_vendor_data1[14] =
+				rq->android_vendor_data1[14] + (rq->cpu);
 #endif
 			return;
 		}
@@ -619,14 +619,14 @@ void check_for_migration(struct task_struct *p)
 			(capacity_orig_of(new_cpu) > capacity_orig_of(cpu))) {
 			raw_spin_unlock(&migration_lock);
 #if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
-			this_rq()->android_vendor_data1[13] =
-				this_rq()->android_vendor_data1[13] << 6;
-			this_rq()->android_vendor_data1[13] =
-				this_rq()->android_vendor_data1[13] + 3;
-			this_rq()->android_vendor_data1[14] =
-				this_rq()->android_vendor_data1[14] << 6;
-			this_rq()->android_vendor_data1[14] =
-				this_rq()->android_vendor_data1[14] + (this_rq()->cpu);
+			rq->android_vendor_data1[13] =
+				rq->android_vendor_data1[13] << 6;
+			rq->android_vendor_data1[13] =
+				rq->android_vendor_data1[13] + 3;
+			rq->android_vendor_data1[14] =
+				rq->android_vendor_data1[14] << 6;
+			rq->android_vendor_data1[14] =
+				rq->android_vendor_data1[14] + (rq->cpu);
 #endif
 			migrate_running_task(new_cpu, p, rq, MIGR_TICK_PULL_MISFIT_RUNNING);
 		} else {
@@ -643,14 +643,14 @@ void check_for_migration(struct task_struct *p)
 #endif
 			raw_spin_unlock(&migration_lock);
 #if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
-			this_rq()->android_vendor_data1[13] =
-				this_rq()->android_vendor_data1[13] << 6;
-			this_rq()->android_vendor_data1[13] =
-				this_rq()->android_vendor_data1[13] + 4;
-			this_rq()->android_vendor_data1[14] =
-				this_rq()->android_vendor_data1[14] << 6;
-			this_rq()->android_vendor_data1[14] =
-				this_rq()->android_vendor_data1[14] + (this_rq()->cpu);
+			rq->android_vendor_data1[13] =
+				rq->android_vendor_data1[13] << 6;
+			rq->android_vendor_data1[13] =
+				rq->android_vendor_data1[13] + 4;
+			rq->android_vendor_data1[14] =
+				rq->android_vendor_data1[14] << 6;
+			rq->android_vendor_data1[14] =
+				rq->android_vendor_data1[14] + (rq->cpu);
 #endif
 		}
 	}
