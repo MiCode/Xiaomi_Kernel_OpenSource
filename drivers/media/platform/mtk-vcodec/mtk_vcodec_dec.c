@@ -1020,50 +1020,6 @@ static dma_addr_t get_general_buffer_dma_addr(struct mtk_vcodec_ctx *ctx, int fd
 	return dma_addr;
 }
 
-static int flush_dma_buffer(const struct sg_table *sgt,
-	const struct mtk_vcodec_ctx *ctx, unsigned int size,
-	enum dma_data_direction direction)
-{
-	struct sg_table *sgt_tmp;
-	struct scatterlist *s_sgl, *d_sgl;
-	unsigned int contig_size = 0;
-	int ret, i;
-
-	sgt_tmp = kzalloc(sizeof(*sgt_tmp), GFP_KERNEL);
-	if (!sgt_tmp)
-		return -1;
-
-	ret = sg_alloc_table(sgt_tmp, sgt->orig_nents, GFP_KERNEL);
-	if (ret) {
-		mtk_v4l2_debug(0, "%s sg alloc table failed %d.\n",
-			__func__, ret);
-		kfree(sgt_tmp);
-		return -1;
-	}
-	sgt_tmp->nents = 0;
-	d_sgl = sgt_tmp->sgl;
-
-	for_each_sg(sgt->sgl, s_sgl, sgt->orig_nents, i) {
-		mtk_v4l2_debug(4, "%d contig_size %d bytesused %d.\n",
-			i, contig_size, size);
-		if (contig_size >= size)
-			break;
-		memcpy(d_sgl, s_sgl, sizeof(*s_sgl));
-		contig_size += s_sgl->length;
-		d_sgl = sg_next(d_sgl);
-		sgt_tmp->nents++;
-	}
-	dma_sync_sg_for_device(&ctx->dev->plat_dev->dev,
-		sgt_tmp->sgl,
-		sgt_tmp->nents,
-		direction);
-	mtk_v4l2_debug(4, "flush nents %d total nents %d\n",
-		sgt_tmp->nents, sgt->orig_nents);
-	sg_free_table(sgt_tmp);
-	kfree(sgt_tmp);
-	return 0;
-}
-
 int mtk_vdec_defer_put_fb_job(struct mtk_vcodec_ctx *ctx, int type)
 {
 	int ret = -1;
@@ -3054,8 +3010,8 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 			struct vb2_dc_buf *dc_buf = vb->planes[0].mem_priv;
 			mtk_v4l2_debug(4, "[%d] Cache sync+", ctx->id);
 
-			flush_dma_buffer(dc_buf->dma_sgt, ctx, vb->planes[0].bytesused,
-				DMA_TO_DEVICE);
+			mtk_dma_sync_sg_range(dc_buf->dma_sgt, &ctx->dev->plat_dev->dev,
+				vb->planes[0].bytesused, DMA_TO_DEVICE);
 
 			src_mem.dma_addr = vb2_dma_contig_plane_dma_addr(vb, 0);
 			src_mem.size = (size_t)vb->planes[0].bytesused;

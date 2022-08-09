@@ -2101,26 +2101,13 @@ static void vb2ops_venc_buf_finish(struct vb2_buffer *vb)
 		!(mtkbuf->flags & NO_CAHCE_INVALIDATE)) {
 		if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 			struct mtk_vcodec_mem dst_mem;
-			struct dma_buf_attachment *buf_att;
-			struct sg_table *sgt;
+			struct vb2_dc_buf *dc_buf = vb->planes[0].mem_priv;
 
-			buf_att = dma_buf_attach(vb->planes[0].dbuf,
-				&ctx->dev->plat_dev->dev);
-			buf_att->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
-			sgt = dma_buf_map_attachment(buf_att, DMA_FROM_DEVICE);
-			if (IS_ERR_OR_NULL(sgt)) {
-				mtk_v4l2_err("dma_buf_map_attachment fail %d.\n", sgt);
-				dma_buf_detach(vb->planes[0].dbuf, buf_att);
-				return;
-			}
-			mtk_dma_sync_sg_range(sgt, &ctx->dev->plat_dev->dev,
-				 ROUND_N(vb->planes[0].bytesused, 64), DMA_FROM_DEVICE);
-
-			dma_buf_unmap_attachment(buf_att, sgt, DMA_FROM_DEVICE);
+			mtk_dma_sync_sg_range(dc_buf->dma_sgt, &ctx->dev->plat_dev->dev,
+				ROUND_N(vb->planes[0].bytesused, 64), DMA_FROM_DEVICE);
 
 			dst_mem.dma_addr = vb2_dma_contig_plane_dma_addr(vb, 0);
 			dst_mem.size = (size_t)vb->planes[0].bytesused;
-			dma_buf_detach(vb->planes[0].dbuf, buf_att);
 			mtk_v4l2_debug(4,
 				"[%d] Cache sync FD for %lx sz=%d dev %p",
 				ctx->id,
