@@ -5770,8 +5770,16 @@
 			op_mode = <0>;
 		};
 
-		vmm_notifier: vmm_notifier {
+		camsys_power: camsys-power {
 			compatible = "mediatek,vmm_notifier";
+
+			power-domains = <&scpsys MT6886_POWER_DOMAIN_CAM_VCORE>;
+		};
+
+		imgsys_power: imgsys-power {
+			compatible = "mediatek,vmm_notifier";
+
+			power-domains = <&scpsys MT6886_POWER_DOMAIN_ISP_VCORE>;
 		};
 
 		hcp: hcp@0 {
