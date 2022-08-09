@@ -255,7 +255,7 @@ static int mtk_cam_seninf_init_port(struct seninf_ctx *ctx, int port)
 	int portNum;
 
 	if (port >= CSI_PORT_0A)
-		portNum = (port - CSI_PORT_0) >> 1;
+		portNum = (port - CSI_PORT_0A) >> 1;
 	else
 		portNum = port;
 

@@ -2046,6 +2046,8 @@ static int seninf_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		if (ctx->streaming)
 #endif
 			seninf_s_stream(&ctx->subdev, 0);
+		else if (ctx->csi_streaming)
+			seninf_csi_s_stream(&ctx->subdev, 0);
 	}
 
 	mutex_unlock(&ctx->mutex);

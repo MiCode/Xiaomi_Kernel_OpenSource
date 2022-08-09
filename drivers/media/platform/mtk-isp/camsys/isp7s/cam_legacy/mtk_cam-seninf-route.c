@@ -1476,6 +1476,7 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 	for (i = 0; param && (i < param->num); i++) {
 		sd = param->settings[i].seninf;
 		pad_id = param->settings[i].source;
+		camtg = param->settings[i].camtg;
 		ctx = container_of(sd, struct seninf_ctx, subdev);
 
 		g_seninf_ops->_set_cam_mux_dyn_en(ctx, true, camtg, index);
