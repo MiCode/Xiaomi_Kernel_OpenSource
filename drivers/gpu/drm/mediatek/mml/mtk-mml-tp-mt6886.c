@@ -500,10 +500,6 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 	if (MML_FMT_PLANE(info->src.format) > 2)
 		goto decouple;
 
-	/* NV21 format go DC mode (temp workaround) */
-	if (info->src.format == MML_FMT_NV21)
-		goto decouple;
-
 	/* get mid opp frequency */
 	tp = mml_topology_get_cache(mml);
 	if (!tp || !tp->opp_cnt) {

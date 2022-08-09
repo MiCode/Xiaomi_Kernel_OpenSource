@@ -647,5 +647,137 @@ static const struct golden_setting th_hyfbc_mt6985[] = {
 };
 /* end of mt6985 */
 
+/* begin of mt6886 racing mode golden settings */
+
+/* ARGB/YUYV 1 plane 4 bpp */
+#define MT6886_ARGB_FHD_PREULTRA	(990 << 16 | 880)
+#define MT6886_ARGB_FHD_ULTRA		(770 << 16 | 660)
+#define MT6886_ARGB_FHD_URGENT		(550 << 16 | 440)
+/* RGB 1 plane 3 bpp */
+#define MT6886_RGB_FHD_PREULTRA		(990 << 16 | 880)
+#define MT6886_RGB_FHD_ULTRA		(770 << 16 | 660)
+#define MT6886_RGB_FHD_URGENT		(550 << 16 | 440)
+/* YUV420/NV21/NV12 2 plane 1 bpp */
+#define MT6886_YUV420_FHD_PREULTRA_0	(660 << 16 | 586)
+#define MT6886_YUV420_FHD_ULTRA_0	(513 << 16 | 440)
+#define MT6886_YUV420_FHD_URGENT_0	(367 << 16 | 293)
+#define MT6886_YUV420_FHD_PREULTRA_1	(330 << 16 | 294)
+#define MT6886_YUV420_FHD_ULTRA_1	(257 << 16 | 220)
+#define MT6886_YUV420_FHD_URGENT_1	(184 << 16 | 147)
+/* YV12 3 plane 1 bpp */
+#define MT6886_YV12_FHD_PREULTRA	(660 << 16 | 586)
+#define MT6886_YV12_FHD_ULTRA		(513 << 16 | 440)
+#define MT6886_YV12_FHD_URGENT		(367 << 16 | 293)
+#define MT6886_YV12_FHD_PREULTRA_1	(165 << 16 | 147)
+#define MT6886_YV12_FHD_ULTRA_1		(128 << 16 | 110)
+#define MT6886_YV12_FHD_URGENT_1	(92 << 16 | 73)
+#define MT6886_YV12_FHD_PREULTRA_2	(165 << 16 | 147)
+#define MT6886_YV12_FHD_ULTRA_2		(128 << 16 | 110)
+#define MT6886_YV12_FHD_URGENT_2	(92 << 16 | 73)
+/* AFBC 4 plane 1 bpp */
+#define MT6886_AFBC_FHD_PREULTRA	(961 << 16 | 854)
+#define MT6886_AFBC_FHD_ULTRA		(748 << 16 | 641)
+#define MT6886_AFBC_FHD_URGENT		(534 << 16 | 427)
+#define MT6886_AFBC_FHD_PREULTRA_1	(0 << 16 | 0)
+#define MT6886_AFBC_FHD_ULTRA_1		(0 << 16 | 0)
+#define MT6886_AFBC_FHD_URGENT_1	(0 << 16 | 0)
+#define MT6886_AFBC_FHD_PREULTRA_2	(8 << 16 | 16)
+#define MT6886_AFBC_FHD_ULTRA_2		(0 << 16 | 0)
+#define MT6886_AFBC_FHD_URGENT_2	(0 << 16 | 0)
+#define MT6886_AFBC_FHD_PREULTRA_3	(0 << 16 | 0)
+#define MT6886_AFBC_FHD_ULTRA_3		(0 << 16 | 0)
+#define MT6886_AFBC_FHD_URGENT_3	(0 << 16 | 0)
+
+static const struct golden_setting th_argb_mt6886[] = {
+	{
+		.pixel = GOLDEN_PIXEL_FHD,
+		.plane = {
+			{
+				.preultra	= MT6886_ARGB_FHD_PREULTRA,
+				.ultra		= MT6886_ARGB_FHD_ULTRA,
+				.urgent		= MT6886_ARGB_FHD_URGENT,
+			},
+		},
+	},
+};
+
+static const struct golden_setting th_rgb_mt6886[] = {
+	{
+		.pixel = GOLDEN_PIXEL_FHD,
+		.plane = {
+			{
+				.preultra	= MT6886_RGB_FHD_PREULTRA,
+				.ultra		= MT6886_RGB_FHD_ULTRA,
+				.urgent		= MT6886_RGB_FHD_URGENT,
+			},
+		},
+	},
+};
+
+static const struct golden_setting th_yuv420_mt6886[] = {
+	{
+		.pixel = GOLDEN_PIXEL_FHD,
+		.plane = {
+			{
+				.preultra	= MT6886_YUV420_FHD_PREULTRA_0,
+				.ultra		= MT6886_YUV420_FHD_ULTRA_0,
+				.urgent		= MT6886_YUV420_FHD_URGENT_0,
+			}, {
+				.preultra	= MT6886_YUV420_FHD_PREULTRA_1,
+				.ultra		= MT6886_YUV420_FHD_ULTRA_1,
+				.urgent		= MT6886_YUV420_FHD_URGENT_1,
+			},
+		},
+	},
+};
+
+static const struct golden_setting th_yv12_mt6886[] = {
+	{
+		.pixel = GOLDEN_PIXEL_FHD,
+		.plane = {
+			{
+				.preultra	= MT6886_YV12_FHD_PREULTRA,
+				.ultra		= MT6886_YV12_FHD_ULTRA,
+				.urgent		= MT6886_YV12_FHD_URGENT,
+			}, {
+				.preultra	= MT6886_YV12_FHD_PREULTRA_1,
+				.ultra		= MT6886_YV12_FHD_ULTRA_1,
+				.urgent		= MT6886_YV12_FHD_URGENT_1,
+			}, {
+				.preultra	= MT6886_YV12_FHD_PREULTRA_2,
+				.ultra		= MT6886_YV12_FHD_ULTRA_2,
+				.urgent		= MT6886_YV12_FHD_URGENT_2,
+			},
+
+		},
+	},
+};
+
+static const struct golden_setting th_afbc_mt6886[] = {
+	{
+		.pixel = GOLDEN_PIXEL_FHD,
+		.plane = {
+			{
+				.preultra	= MT6886_AFBC_FHD_PREULTRA,
+				.ultra		= MT6886_AFBC_FHD_ULTRA,
+				.urgent		= MT6886_AFBC_FHD_URGENT,
+			}, {
+				.preultra	= MT6886_AFBC_FHD_PREULTRA_1,
+				.ultra		= MT6886_AFBC_FHD_ULTRA_1,
+				.urgent		= MT6886_AFBC_FHD_URGENT_1,
+			}, {
+				.preultra	= MT6886_AFBC_FHD_PREULTRA_2,
+				.ultra		= MT6886_AFBC_FHD_ULTRA_2,
+				.urgent		= MT6886_AFBC_FHD_URGENT_2,
+			}, {
+				.preultra	= MT6886_AFBC_FHD_PREULTRA_3,
+				.ultra		= MT6886_AFBC_FHD_ULTRA_3,
+				.urgent		= MT6886_AFBC_FHD_URGENT_3,
+			},
+
+		},
+	},
+};
+/* end of mt6886 */
 
 #endif	/* __MTK_MML_RDMA_GOLDEN_H__ */
