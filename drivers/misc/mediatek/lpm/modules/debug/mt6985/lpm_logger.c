@@ -31,6 +31,9 @@
 
 #define aee_sram_printk pr_info
 
+#define SPM_HW_CG_CHECK_MASK (0x7f)
+#define SPM_HW_CG_CHECK_SHIFT (12)
+
 
 /*FIXME*/
 const char *wakesrc_str[32] = {
@@ -134,7 +137,8 @@ static int lpm_get_wakeup_status(void)
 	help->wakesrc->req_sta10 = plat_mmio_read(SPM_REQ_STA_10);
 
 	/* get HW CG check status */
-	help->wakesrc->cg_check_sta = plat_mmio_read(SPM_REQ_STA_2);
+	help->wakesrc->cg_check_sta =
+		((plat_mmio_read(SPM_REQ_STA_3) >> SPM_HW_CG_CHECK_SHIFT) & SPM_HW_CG_CHECK_MASK);
 
 	/* get debug flag for PCM execution check */
 	help->wakesrc->debug_flag = plat_mmio_read(PCM_WDT_LATCH_SPARE_0);
@@ -166,6 +170,52 @@ static int lpm_get_wakeup_status(void)
 
 	help->cur += 1;
 	return 0;
+}
+
+static void dump_hw_cg_status(void)
+{
+#define LOG_BUF_SIZE	(128)
+	char log_buf[LOG_BUF_SIZE] = { 0 };
+	unsigned int log_size = 0;
+	unsigned int hwcg_num, setting_num;
+	unsigned int sta, setting;
+	int i, j;
+
+	hwcg_num = (unsigned int)lpm_smc_spm_dbg(MT_SPM_DBG_SMC_HWCG_NUM,
+				MT_LPM_SMC_ACT_GET, 0, 0);
+
+	setting_num = (unsigned int)lpm_smc_spm_dbg(MT_SPM_DBG_SMC_HWCG_NUM,
+				MT_LPM_SMC_ACT_GET, 0, 1);
+
+	log_size = scnprintf(log_buf + log_size,
+		LOG_BUF_SIZE - log_size,
+		"HWCG sta :");
+
+	for (i = 0 ; i < hwcg_num; i++) {
+		log_size += scnprintf(log_buf + log_size,
+				LOG_BUF_SIZE - log_size,
+				"[%d] ", i);
+		for (j = 0 ; j < setting_num; j++) {
+			sta =  (unsigned int)lpm_smc_spm_dbg(
+					MT_SPM_DBG_SMC_HWCG_STATUS,
+					MT_LPM_SMC_ACT_GET, i, j);
+
+			setting = (unsigned int)lpm_smc_spm_dbg(
+						MT_SPM_DBG_SMC_HWCG_SETTING,
+						MT_LPM_SMC_ACT_GET, i, j);
+
+			log_size += scnprintf(log_buf + log_size,
+				LOG_BUF_SIZE - log_size,
+				"0x%x ", setting & sta);
+		}
+		log_size += scnprintf(log_buf + log_size,
+				LOG_BUF_SIZE - log_size,
+				i < hwcg_num - 1 ? "|" : ".");
+
+	}
+	WARN_ON(strlen(log_buf) >= LOG_BUF_SIZE);
+	pr_info("[name:spm&][SPM] %s\n", log_buf);
+
 }
 
 static void lpm_save_sleep_info(void)
@@ -222,6 +272,7 @@ static void suspend_show_detailed_wakeup_reason
 static void suspend_spm_rsc_req_check
 	(struct lpm_spm_wake_status *wakesta)
 {
+#undef LOG_BUF_SIZE
 #define LOG_BUF_SIZE		        256
 #define IS_BLOCKED_OVER_TIMES		10
 #undef AVOID_OVERFLOW
@@ -240,7 +291,7 @@ static u32 is_blocked_cnt;
 		is_blocked_cnt = 0;
 
 	/* Check if ever enter deepest System LPM */
-	is_no_blocked = wakesta->debug_flag & 0x2;
+	is_no_blocked = wakesta->debug_flag & 0x200;
 
 	/* Check if System LPM ever is blocked over 10 times */
 	if (!is_no_blocked)
@@ -313,6 +364,7 @@ static u32 is_blocked_cnt;
 	}
 	WARN_ON(strlen(log_buf) >= LOG_BUF_SIZE);
 	pr_info("[name:spm&][SPM] %s\n", log_buf);
+	dump_hw_cg_status();
 }
 
 static int lpm_show_message(int type, const char *prefix, void *data)
