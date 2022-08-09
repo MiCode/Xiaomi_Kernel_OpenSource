@@ -42,12 +42,14 @@ struct fbt_jerk {
 	int id;
 	int jerking;
 	int postpone;
+	unsigned long long frame_qu_ts;
 	struct hrtimer timer;
 	struct work_struct work;
 };
 
 struct fbt_proc {
 	int active_jerk_id;
+	unsigned long long active_frame_qu_ts;
 	struct fbt_jerk jerks[RESCUE_TIMER_NUM];
 };
 

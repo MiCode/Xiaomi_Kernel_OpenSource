@@ -2726,7 +2726,9 @@ static void fbt_do_jerk(struct work_struct *work)
 	fpsgo_render_tree_lock(__func__);
 	fpsgo_thread_lock(&(thr->thr_mlock));
 
-	if (jerk->id != proc->active_jerk_id || thr->linger != 0)
+	if (jerk->id != proc->active_jerk_id ||
+		jerk->frame_qu_ts != thr->t_enqueue_end ||
+		thr->linger != 0)
 		goto EXIT;
 
 	fbt_do_jerk_locked(thr, jerk, jerk->id);
@@ -4128,6 +4130,8 @@ static int fbt_boost_policy(
 					active_jerk_id].jerking == 0) {
 					boost_info->proc.jerks[
 						active_jerk_id].jerking = 1;
+					boost_info->proc.jerks[
+						active_jerk_id].frame_qu_ts = ts;
 					hrtimer_start(timer,
 							ns_to_ktime(t2wnt),
 							HRTIMER_MODE_REL);
