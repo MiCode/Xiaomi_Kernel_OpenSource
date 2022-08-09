@@ -33,6 +33,8 @@
 #include "../pci.h"
 #include "../../misc/mediatek/clkbuf/v1/inc/mtk_clkbuf_ctl.h"
 
+#define PCIE_BASIC_STATUS		0x18
+
 #define PEXTP_PWRCTL_0			0x40
 #define PCIE_HW_MTCMOS_EN_P0		BIT(0)
 #define PEXTP_PWRCTL_1			0x44
@@ -1250,6 +1252,52 @@ int mtk_pcie_remove_port(int port)
 	return 0;
 }
 EXPORT_SYMBOL(mtk_pcie_remove_port);
+
+/**
+ * mtk_pcie_dump_link_info() - Dump PCIe RC information
+ * @port: The port number which EP use
+ * @ret_val: bit[4:0]: LTSSM state (PCIe MAC offset 0x150 bit[28:24])
+ *           bit[5]: DL_UP state (PCIe MAC offset 0x154 bit[8])
+ */
+u32 mtk_pcie_dump_link_info(int port)
+{
+	struct device_node *pcie_node;
+	struct platform_device *pdev;
+	struct mtk_pcie_port *pcie_port;
+	u32 val, ret_val = 0;
+
+	pcie_node = mtk_pcie_find_node_by_port(port);
+	if (!pcie_node) {
+		pr_info("PCIe device node not found!\n");
+		return 0;
+	}
+
+	pdev = of_find_device_by_node(pcie_node);
+	if (!pdev) {
+		pr_info("PCIe platform device not found!\n");
+		return 0;
+	}
+
+	pcie_port = platform_get_drvdata(pdev);
+	if (!pcie_port) {
+		pr_info("PCIe port not found!\n");
+		return 0;
+	}
+
+	val = readl_relaxed(pcie_port->base + PCIE_LTSSM_STATUS_REG);
+	ret_val |= PCIE_LTSSM_STATE(val);
+	val = readl_relaxed(pcie_port->base + PCIE_LINK_STATUS_REG);
+	ret_val |= (val >> 3) & BIT(5);
+
+	pr_info("ltssm reg: %#x, link sta: %#x, power sta: %#x, IP basic sta:%#x\n",
+		readl_relaxed(pcie_port->base + PCIE_LTSSM_STATUS_REG),
+		readl_relaxed(pcie_port->base + PCIE_LINK_STATUS_REG),
+		readl_relaxed(pcie_port->base + PCIE_ISTATUS_PM),
+		readl_relaxed(pcie_port->base + PCIE_BASIC_STATUS));
+
+	return ret_val;
+}
+EXPORT_SYMBOL(mtk_pcie_dump_link_info);
 
 /**
  * mtk_msi_unmask_to_other_mcu() - Unmask msi dispatch to other mcu
