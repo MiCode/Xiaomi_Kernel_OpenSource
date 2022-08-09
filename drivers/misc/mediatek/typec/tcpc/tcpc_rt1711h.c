@@ -726,13 +726,10 @@ static inline int rt1711_fault_status_vconn_ov(struct tcpc_device *tcpc)
 
 int rt1711_fault_status_clear(struct tcpc_device *tcpc, uint8_t status)
 {
-	int ret;
-
 	if (status & TCPC_V10_REG_FAULT_STATUS_VCONN_OV)
-		ret = rt1711_fault_status_vconn_ov(tcpc);
+		rt1711_fault_status_vconn_ov(tcpc);
 
-	rt1711_i2c_write8(tcpc, TCPC_V10_REG_FAULT_STATUS, status);
-	return 0;
+	return rt1711_i2c_write8(tcpc, TCPC_V10_REG_FAULT_STATUS, status);
 }
 
 int rt1711_get_alert_mask(struct tcpc_device *tcpc, uint32_t *mask)

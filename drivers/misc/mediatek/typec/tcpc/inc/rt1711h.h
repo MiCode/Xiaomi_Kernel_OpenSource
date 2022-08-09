@@ -10,7 +10,7 @@
 #include "pd_dbg_info.h"
 
 /*show debug message or not */
-#define ENABLE_RT1711_DBG	0
+#define ENABLE_RT1711_DBG	1
 
 /* RT1711H Private RegMap */
 
