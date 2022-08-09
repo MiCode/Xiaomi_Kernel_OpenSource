@@ -205,7 +205,7 @@ struct mtk_cam_debug_fs {
 	struct mtk_cam_debug_ops *ops;
 };
 
-#ifndef CONFIG_DEBUG_FS
+#ifndef CONFIG_PROC_FS
 static inline struct mtk_cam_debug_fs *mtk_cam_get_debugfs(void)
 {
 	return NULL;
@@ -263,7 +263,7 @@ void mtk_cam_req_dbg_works_clean(struct mtk_cam_request_stream_data *s_data);
 void
 mtk_cam_debug_seninf_dump(struct mtk_cam_request_stream_data *s_data);
 
-#endif /* CONFIG_DEBUG_FS */
+#endif /* CONFIG_PROC_FS */
 
 static inline struct mtk_cam_req_dbg_work *
 to_mtk_cam_req_dbg_work(struct work_struct *__work)

@@ -2,7 +2,7 @@
 //
 // Copyright (c) 2019 MediaTek Inc.
 
-#ifdef CONFIG_DEBUG_FS
+#ifdef CONFIG_PROC_FS
 
 #include <linux/freezer.h>
 #include <media/v4l2-event.h>
@@ -651,8 +651,17 @@ static int mtk_cam_debug_has_exp_dump(struct mtk_cam_debug_fs *debug_fs)
 
 static int exp_open(struct inode *inode, struct file *file)
 {
-	if (inode->i_private)
-		file->private_data = inode->i_private;
+	struct mtk_cam_debug_fs *debug_fs = PDE_DATA(inode);
+
+	WARN_ON(!debug_fs);
+
+	if (!debug_fs)
+		return -EFAULT;
+
+	file->private_data = debug_fs;
+
+	dev_dbg(debug_fs->cam->dev,
+		"%s:entry_sz(%d)\n", __func__, debug_fs->buf_size);
 
 	return 0;
 }
@@ -660,23 +669,25 @@ static int exp_open(struct inode *inode, struct file *file)
 static ssize_t exp_read(struct file *file, char __user *user_buf,
 			size_t count, loff_t *ppos)
 {
-	struct device *dev = file->private_data;
+	struct device *dev;
 	struct mtk_cam_device *cam;
-	struct mtk_cam_debug_fs *debug_fs;
+	struct mtk_cam_debug_fs *debug_fs = file->private_data;
 	size_t read_count;
 
-	if (!dev)
-		pr_debug("%s: dev can't be null\n", __func__);
-
-	cam = (struct mtk_cam_device *)dev_get_drvdata(dev);
-	if (!cam) {
-		dev_dbg(dev, "%s: cam can't be null\n", __func__);
+	if (!debug_fs) {
+		pr_debug("%s: debug_fs can't be null\n", __func__);
 		return 0;
 	}
 
-	debug_fs = cam->debug_fs;
-	if (!debug_fs) {
-		dev_dbg(dev, "%s: debug_fs can't be null\n", __func__);
+	cam = debug_fs->cam;
+	if (!cam) {
+		pr_debug("%s: cam can't be null\n", __func__);
+		return 0;
+	}
+
+	dev = cam->dev;
+	if (!dev) {
+		pr_debug("%s: dev can't be null\n", __func__);
 		return 0;
 	}
 
@@ -705,21 +716,25 @@ static int exp_release(struct inode *inode, struct file *file)
 {
 	struct device *dev;
 	struct mtk_cam_device *cam;
-	struct mtk_cam_debug_fs *debug_fs;
+	struct mtk_cam_debug_fs *debug_fs = file->private_data;
 
-	dev = file->private_data;
+	if (!debug_fs) {
+		pr_debug("%s: debug_fs can't be null\n", __func__);
+		return 0;
+	}
+
+	cam = debug_fs->cam;
+	if (!cam) {
+		pr_debug("%s: cam is NULL", __func__);
+		return 0;
+	}
+
+	dev = cam->dev;
 	if (!dev) {
 		pr_debug("%s: dev is NULL", __func__);
 		return 0;
 	}
 
-	cam = (struct mtk_cam_device *)dev_get_drvdata(dev);
-	if (!cam) {
-		dev_dbg(dev, "%s: cam is NULL", __func__);
-		return 0;
-	}
-
-	debug_fs = cam->debug_fs;
 	dev_dbg(dev, "%s dump_state: %d\n", __func__,
 		atomic_read(&debug_fs->exp_dump_state));
 
@@ -787,8 +802,8 @@ static int mtk_cam_debug_init(struct mtk_cam_debug_fs *debug_fs,
 	mutex_init(&debug_fs->exp_dump_buf_lock);
 
 	/* Test proc file system */
-	debug_fs->exp_dump_entry = proc_create("mtk_cam_exp_dump", 0644, NULL,
-						&exp_fops);
+	debug_fs->exp_dump_entry = proc_create_data("mtk_cam_exp_dump", 0644, NULL,
+						&exp_fops, debug_fs);
 	if (!debug_fs->exp_dump_entry) {
 		dev_info(cam->dev, "Can't create proc fs\n");
 		return -ENOMEM;
@@ -1345,4 +1360,4 @@ struct mtk_cam_debug_fs *mtk_cam_get_debugfs(void)
 	return &debug_fs;
 }
 
-#endif /* CONFIG_DEBUG_FS */
+#endif /* CONFIG_PROC_FS */
