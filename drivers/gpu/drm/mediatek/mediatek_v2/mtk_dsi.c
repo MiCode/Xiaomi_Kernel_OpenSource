@@ -1113,9 +1113,10 @@ void mtk_dsi_config_null_packet(struct mtk_dsi *dsi)
 {
 	u32 null_packet_len = dsi->ext->params->cmd_null_pkt_len;
 
-	if (!dsi->ext->params->lp_perline_en &&
+	if (dsi->ext->params->lp_perline_en == 0 &&
 		mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
 		dsi->ext->params->cmd_null_pkt_en) {
+		// hs mode
 		mtk_dsi_mask(dsi, DSI_CMD_TYPE1_HS,
 				CMD_HS_HFP_BLANKING_NULL_EN,
 				CMD_HS_HFP_BLANKING_NULL_EN);
@@ -1498,14 +1499,15 @@ static void mtk_dsi_cmd_type1_hs(struct mtk_dsi *dsi)
 static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 {
 	u32 mmsys_clk = 208, ps_wc = 0;
-	u32 width, height, tmp, rw_times;
+	u32 width, height, tmp = 0, rw_times;
 	u32 preultra_hi, preultra_lo, ultra_hi, ultra_lo, urgent_hi, urgent_lo;
 	u32 fill_rate;
 	u32 sodi_hi, sodi_lo;
 	u32 sram_unit, buffer_unit;
 	struct mtk_panel_ext *ext = mtk_dsi_get_panel_ext(&dsi->ddp_comp);
 	struct mtk_panel_dsc_params *dsc_params = &ext->params->dsc_params;
-	struct mtk_drm_crtc *mtk_crtc = dsi->ddp_comp.mtk_crtc;
+	struct mtk_drm_crtc *mtk_crtc =	dsi->is_slave ?
+			dsi->master_dsi->ddp_comp.mtk_crtc : dsi->ddp_comp.mtk_crtc;
 	u32 dsi_buf_bpp = mtk_get_dsi_buf_bpp(dsi);
 
 	if (!dsi->is_slave) {
@@ -1518,44 +1520,54 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 				dsi->master_dsi->encoder.crtc);
 	}
 
-	if (dsc_params->enable != 0) {
+	if (dsc_params->enable)
 		ps_wc = dsc_params->chunk_size * (dsc_params->slice_mode + 1);
-		width = (ps_wc + dsi_buf_bpp - 1) / dsi_buf_bpp;
-	}
+	else
+		ps_wc = width * dsi_buf_bpp;
+
 	buffer_unit = dsi->driver_data->buffer_unit;
 	sram_unit = dsi->driver_data->sram_unit;
 	if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
-		if ((width * dsi_buf_bpp % 9) == 0)
-			rw_times = (width * dsi_buf_bpp / 9) * height;
-		else
-			rw_times = (width * dsi_buf_bpp / 9 + 1) * height;
+		// cmd mode
+		if (ext->params->lp_perline_en) {
+		// LP mode per line  => enables DSI wait data every line in command mode
+			mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
+						DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
+			if ((ps_wc % 9) == 0)
+				rw_times = (ps_wc / 9) * height;
+			else
+				rw_times = (ps_wc / 9 + 1) * height;
+		} else {
+			mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
+						0);
+			if ((ps_wc * height % 9) == 0)
+				rw_times = ps_wc * height / 9;
+			else
+				rw_times = ps_wc * height / 9 + 1;
+		}
 
 		if (dsi->ext->params->is_cphy)
 			tmp = 25 * dsi->data_rate * 2 * dsi->lanes / 7 / 18;
 		else
 			tmp = 25 * dsi->data_rate * dsi->lanes / 8 / 18;
 	} else {
-		if ((width * height * dsi_buf_bpp % 9) == 0)
-			rw_times = width * height * dsi_buf_bpp / 9;
+		if ((ps_wc * height % 9) == 0)
+			rw_times = ps_wc * height / 9;
 		else
-			rw_times = width * height * dsi_buf_bpp / 9 + 1;
-		tmp = 0;
+			rw_times = ps_wc * height / 9 + 1;
 	}
 
 	DDPINFO(
-		"%s,mode=0x%x,tmp=0x%x,width=%d,height=%d,bpp:%u,rw_times=%d\n",
-		__func__, dsi->mode_flags, tmp,
-		width, height, dsi_buf_bpp, rw_times);
+		"%s,mode=0x%x,valid_theshold=0x%x,width=%d,height=%d,ps_wc:%d,rw_times=%d,lp_perline_en=%d\n",
+		__func__, dsi->mode_flags & MIPI_DSI_MODE_VIDEO, tmp,
+		width, height, ps_wc, rw_times, ext->params->lp_perline_en);
 
-	/*mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
-	 *		DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
-	 */
 	mtk_dsi_mask(dsi, DSI_BUF_CON1, 0x7fff, tmp);
 	mtk_dsi_mask(dsi, DSI_DEBUG_SEL, MM_RST_SEL, MM_RST_SEL);
 
 	/* enable ultra signal between SOF to VACT */
 	mtk_dsi_mask(dsi, DSI_RESERVED, DSI_VDE_BLOCK_ULTRA, 0);
-	fill_rate = mmsys_clk * dsi_buf_bpp / buffer_unit;
+	fill_rate = mmsys_clk * ps_wc / width / buffer_unit;
 	tmp = (readl(dsi->regs + DSI_BUF_CON1) >> 16) * sram_unit / buffer_unit;
 
 	if (dsi->ext->params->is_cphy) {
@@ -3734,8 +3746,9 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 	case MTK_TRIG_FLAG_TRIGGER:
 		mtk_dsi_poll_for_idle(dsi, handle);
 		/* TODO: avoid hardcode: 0xF0 register offset  */
-		if (!ext->params->lp_perline_en &&
+		if (ext->params->lp_perline_en == 0 &&
 			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+			// hs mode
 			if (priv && priv->data && (priv->data->mmsys_id == MMSYS_MT6855 ||
 			    priv->data->mmsys_id == MMSYS_MT6886))
 				cmdq_pkt_write(handle, comp->cmdq_base,
@@ -3743,9 +3756,6 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 						DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
 						DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
 			else {
-				cmdq_pkt_write(handle, comp->cmdq_base,
-						comp->regs_pa + DSI_CON_CTRL,
-						0, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + DSI_CMD_TYPE1_HS,
 					CMD_HS_HFP_BLANKING_HS_EN, CMD_HS_HFP_BLANKING_HS_EN);
@@ -3772,7 +3782,8 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 	case MTK_TRIG_FLAG_EOF:
 		mtk_dsi_poll_for_idle(dsi, handle);
 
-		if (!ext->params->lp_perline_en && mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base))
+		if (ext->params->lp_perline_en == 0 &&
+			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base))
 			cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMD_TYPE1_HS, 0,
 					CMD_HS_HFP_BLANKING_HS_EN);
 		break;
@@ -6488,9 +6499,7 @@ unsigned int mtk_dsi_get_ps_wc(struct mtk_drm_crtc *mtk_crtc,
 	if (dsc_params->enable == 0) {
 		ps_wc = width * dsi_buf_bpp;
 	} else {
-		ps_wc = (((dsc_params->chunk_size + 2) / 3) * 3);
-		if (dsc_params->slice_mode == 1)
-			ps_wc *= 2;
+		ps_wc = dsc_params->chunk_size * (dsc_params->slice_mode + 1);
 	}
 
 	return ps_wc;
