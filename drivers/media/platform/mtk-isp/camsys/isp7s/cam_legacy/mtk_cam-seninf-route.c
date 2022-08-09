@@ -3,6 +3,7 @@
 
 #include <linux/module.h>
 #include <linux/delay.h>
+#include <linux/jiffies.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/of_graph.h>
@@ -281,7 +282,7 @@ static void chk_is_fsync_vsync_src(struct seninf_ctx *ctx, const int pad_id)
 
 	if (vsync_src_pad == PAD_SRC_RAW0) {
 		// notify vc->cam
-		notify_fsync_listen_target_with_kthread(ctx);
+		notify_fsync_listen_target_with_kthread(ctx, 0);
 	} else if (vsync_src_pad == PAD_SRC_GENERAL0) {
 		dev_info(ctx->dev,
 			"[%s] NOTICE: pad_id:%d, fsync_vsync_src_pad:%d(%d:RAW0/%d:GENERAL0), fsync listen 3A-meta(general-embedded) vsync signal\n",
@@ -291,7 +292,7 @@ static void chk_is_fsync_vsync_src(struct seninf_ctx *ctx, const int pad_id)
 			PAD_SRC_RAW0,
 			PAD_SRC_GENERAL0);
 
-		notify_fsync_listen_target_with_kthread(ctx);
+		notify_fsync_listen_target_with_kthread(ctx, 0);
 	} else {
 		/* unexpected case */
 		dev_info(ctx->dev,
@@ -1682,7 +1683,9 @@ static void mtk_notify_listen_target_fn(struct kthread_work *work)
 	struct mtk_seninf_work *seninf_work = NULL;
 	struct seninf_ctx *ctx = NULL;
 
-	seninf_work = container_of(work, struct mtk_seninf_work, work);
+	// --- change to use kthread_delayed_work.
+	// seninf_work = container_of(work, struct mtk_seninf_work, work);
+	seninf_work = container_of(work, struct mtk_seninf_work, dwork.work);
 
 	if (seninf_work) {
 		ctx = seninf_work->ctx;
@@ -1693,7 +1696,8 @@ static void mtk_notify_listen_target_fn(struct kthread_work *work)
 	}
 }
 
-void notify_fsync_listen_target_with_kthread(struct seninf_ctx *ctx)
+void notify_fsync_listen_target_with_kthread(struct seninf_ctx *ctx,
+	const unsigned int mdelay)
 {
 	struct mtk_seninf_work *seninf_work = NULL;
 
@@ -1701,11 +1705,20 @@ void notify_fsync_listen_target_with_kthread(struct seninf_ctx *ctx)
 		seninf_work = kmalloc(sizeof(struct mtk_seninf_work),
 					GFP_ATOMIC);
 		if (seninf_work) {
-			kthread_init_work(&seninf_work->work,
+			// --- change to use kthread_delayed_work.
+			// kthread_init_work(&seninf_work->work,
+			//		mtk_notify_listen_target_fn);
+			kthread_init_delayed_work(&seninf_work->dwork,
 					mtk_notify_listen_target_fn);
+
 			seninf_work->ctx = ctx;
-			kthread_queue_work(&ctx->core->seninf_worker,
-					&seninf_work->work);
+
+			// --- change to use kthread_delayed_work.
+			// kthread_queue_work(&ctx->core->seninf_worker,
+			//		&seninf_work->work);
+			kthread_queue_delayed_work(&ctx->core->seninf_worker,
+					&seninf_work->dwork,
+					msecs_to_jiffies(mdelay));
 		}
 	}
 }

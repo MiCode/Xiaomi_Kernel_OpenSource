@@ -24,7 +24,8 @@ int mtk_cam_seninf_is_vc_enabled(struct seninf_ctx *ctx,
 int mtk_cam_seninf_is_di_enabled(struct seninf_ctx *ctx, u8 ch, u8 dt);
 
 int notify_fsync_listen_target(struct seninf_ctx *ctx);
-void notify_fsync_listen_target_with_kthread(struct seninf_ctx *ctx);
+void notify_fsync_listen_target_with_kthread(struct seninf_ctx *ctx,
+	const unsigned int mdelay);
 int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx);
 u8 is_reset_by_user(struct seninf_ctx *ctx);
 int reset_sensor(struct seninf_ctx *ctx);

@@ -1612,10 +1612,11 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 			dev_info(ctx->dev, "vsync irq enabled\n");
 		}
 		mtk_cam_seninf_s_stream_mux(ctx);
-		notify_fsync_listen_target(ctx);
+		// notify_fsync_listen_target(ctx);
 	}
 
 	ctx->streaming = enable;
+	notify_fsync_listen_target_with_kthread(ctx, 2);
 
 	if (core->aov_abnormal_deinit_flag) {
 		ctx->is_aov_real_sensor = 0;
