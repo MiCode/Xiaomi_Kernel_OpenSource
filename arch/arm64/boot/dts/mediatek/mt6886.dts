@@ -10144,7 +10144,7 @@
 	};
 
 	usb_boost: usb-boost-manager {
-		compatible = "mediatek,usb-boost";
+		compatible = "mediatek,usb-boost", "mediatek,mt6886-usb-boost";
 		interconnects = <&dvfsrc MT6873_MASTER_DBGIF &dvfsrc MT6873_SLAVE_DDR_EMI>;
 		interconnect-names = "icc-bw";
 		required-opps = <&dvfsrc_freq_opp0>;
