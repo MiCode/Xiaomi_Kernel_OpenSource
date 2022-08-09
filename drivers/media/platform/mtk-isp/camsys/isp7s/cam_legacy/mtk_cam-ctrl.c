@@ -1857,7 +1857,7 @@ mtk_cam_set_mstream_hdr_timestamp(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_request_stream_data *mstream_sdata;
 
 	if (!stream_data) {
-		pr_info("%s sdata is null\n");
+		pr_info("%s sdata is null\n", __func__);
 		return;
 	}
 

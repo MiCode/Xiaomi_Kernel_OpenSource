@@ -1123,7 +1123,7 @@ static int mtk_raw_hdr_timestamp_get_ctrl(struct v4l2_ctrl *ctrl)
 		hdr_ts_info_p->ne_mono = hdr_ts_info->ne_mono;
 		hdr_ts_info_p->se = hdr_ts_info->se;
 		hdr_ts_info_p->se_mono = hdr_ts_info->se_mono;
-		dev_info(dev, "%s [le:%lld,%lld][ne:%lld,%lld][se:%lld,%lld]\n",
+		dev_dbg(dev, "%s [le:%lld,%lld][ne:%lld,%lld][se:%lld,%lld]\n",
 			 __func__,
 			 hdr_ts_info_p->le, hdr_ts_info_p->le_mono,
 			 hdr_ts_info_p->ne, hdr_ts_info_p->ne_mono,

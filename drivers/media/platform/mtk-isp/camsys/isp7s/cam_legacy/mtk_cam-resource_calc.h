@@ -282,7 +282,7 @@ static inline int loop_resource_till_valid(struct mtk_cam_res_calc *c,
 				    struct raw_resource_stepper *stepper,
 				    const step_fn_t *arr_step, int arr_size)
 {
-	const bool enable_log = true;
+	const bool enable_log = false;
 	int i;
 	int ret = -1;
 

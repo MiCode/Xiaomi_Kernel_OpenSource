@@ -413,7 +413,7 @@ static void dump_request_status(struct mtk_cam_request *cam_req)
 static void mtk_cam_remove_req_from_running(struct mtk_cam_device *cam,
 					    struct mtk_cam_request *req)
 {
-	dev_info(cam->dev,
+	dev_dbg(cam->dev,
 		"%s:%s: real removed, ctx:(0x%x/0x%x), pipe:(0x%x/0x%x) done_status:0x%x)\n",
 		__func__, req->req.debug_str,
 		req->ctx_used, cam->streaming_ctx,
