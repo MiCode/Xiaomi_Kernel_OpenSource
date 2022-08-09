@@ -4005,7 +4005,7 @@ static ssize_t hrt_lp_proc_set(struct file *file, const char __user *ubuf,
 	if (ret)
 		return ret;
 
-	hrt_lp_switch = !!val;
+	hrt_lp_switch = val;
 
 	return count;
 }

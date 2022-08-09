@@ -3361,7 +3361,29 @@ static unsigned int overlap_to_bw(struct drm_crtc *crtc,
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 	int crtc_idx = drm_crtc_index(crtc);
 	unsigned int bw_base = mtk_drm_primary_frame_bw(crtc);
-	unsigned int bw = bw_base * overlap_num / 400;
+	unsigned int bw = 0;
+	unsigned int ori_overlap_num = overlap_num;
+	int discount = hrt_lp_switch_get();
+
+	if (discount >= 200) {
+		if (discount > overlap_num)
+			DDPINFO("overlap_num discount:%d > original:%d\n",
+				discount, overlap_num);
+		else {
+			overlap_num -= discount;
+
+			if (overlap_num < 400) {
+				DDPINFO("overlap_num of discount < 400, change to 400\n");
+				overlap_num  = 400;
+			}
+		}
+
+		DDPINFO("%s:%d ori overlap_num=%u, after discount overlap_num=%u\n",
+			__func__, __LINE__, ori_overlap_num, overlap_num);
+	}
+
+	bw = bw_base * overlap_num / 400;
+
 	DDPDBG("%s:%d bw_base:%u overlap:%u bw:%u\n", __func__, __LINE__,
 		bw_base, overlap_num, bw);
 
