@@ -437,9 +437,9 @@
 				set_aod_light_mask = <0xff>;
 				set_aod_light_table;
 
-				ata_id_value_data = [00 00 00];
+				ata_id_value_data = [01 25 00];
 				ata_check_table =
-					[MTK_LCM_CMD_TYPE_HEX_READ_CMD 04 00 00 03 04],
+					[MTK_LCM_CMD_TYPE_HEX_READ_CMD 03 00 03 04],
 					[MTK_LCM_TYPE_HEX_END];
 
 				compare_id_value_data = [00];

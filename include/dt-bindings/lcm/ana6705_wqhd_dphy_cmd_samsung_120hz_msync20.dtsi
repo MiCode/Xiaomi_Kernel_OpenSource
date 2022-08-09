@@ -145,18 +145,6 @@
 					lcm-params-dsi-lfr_minimum_fps;
 					lcm-params-dsi-msync2_enable = <1>;
 					lcm-params-dsi-max_vfp_for_msync;
-					lcm-params-dsi-msync_min_fps_list =
-						[78 02 00 00],
-						[5a 02 00 01],
-						[48 02 00 02],
-						[3c 02 00 03],
-						[33 02 00 04],
-						[2d 02 00 05],
-						[28 02 00 06],
-						[24 02 00 07],
-						[21 02 00 08],
-						[1e 02 00 09],
-						[18 02 00 0c];
 
 					/* lane swap */
 					lcm-params-dsi-lane_swap_en;
@@ -439,18 +427,6 @@
 					lcm-params-dsi-lfr_minimum_fps;
 					lcm-params-dsi-msync2_enable = <1>;
 					lcm-params-dsi-max_vfp_for_msync;
-					lcm-params-dsi-msync_min_fps_list =
-						[5a 02 04 01],
-						[48 02 04 02],
-						[3c 02 04 03],
-						[33 02 04 04],
-						[2d 02 04 05],
-						[28 02 04 06],
-						[24 02 04 07],
-						[21 02 04 08],
-						[1e 02 04 09],
-						[1c 02 04 0a],
-						[18 02 04 0c];
 
 					/* lane swap */
 					lcm-params-dsi-lane_swap_en;
@@ -637,18 +613,6 @@
 					lcm-params-dsi-lfr_minimum_fps;
 					lcm-params-dsi-msync2_enable = <1>;
 					lcm-params-dsi-max_vfp_for_msync;
-					lcm-params-dsi-msync_min_fps_list =
-						[48 02 08 03],
-						[3c 02 08 03],
-						[33 02 08 04],
-						[2d 02 08 05],
-						[28 02 08 06],
-						[24 02 08 07],
-						[21 02 08 08],
-						[1e 02 08 09],
-						[1c 02 08 0a],
-						[1a 02 08 0b],
-						[18 02 08 0c];
 
 					/* lane swap */
 					lcm-params-dsi-lane_swap_en;
@@ -835,18 +799,6 @@
 					lcm-params-dsi-lfr_minimum_fps;
 					lcm-params-dsi-msync2_enable = <1>;
 					lcm-params-dsi-max_vfp_for_msync;
-					lcm-params-dsi-msync_min_fps_list =
-						[3c 02 0c 03],
-						[33 02 0c 04],
-						[2d 02 0c 05],
-						[28 02 0c 06],
-						[24 02 0c 07],
-						[21 02 0c 08],
-						[1e 02 0c 09],
-						[1c 02 0c 0a],
-						[1a 02 0c 0b],
-						[18 02 0c 0c],
-						[15 02 0c 0d];
 
 					/* lane swap */
 					lcm-params-dsi-lane_swap_en;
@@ -1033,7 +985,6 @@
 					lcm-params-dsi-lfr_minimum_fps;
 					lcm-params-dsi-msync2_enable;
 					lcm-params-dsi-max_vfp_for_msync;
-					lcm-params-dsi-msync_min_fps_list;
 
 					/* lane swap */
 					lcm-params-dsi-lane_swap_en;
@@ -1217,7 +1168,6 @@
 					lcm-params-dsi-lfr_minimum_fps;
 					lcm-params-dsi-msync2_enable;
 					lcm-params-dsi-max_vfp_for_msync;
-					lcm-params-dsi-msync_min_fps_list;
 
 					/* lane swap */
 					lcm-params-dsi-lane_swap_en;
@@ -2101,15 +2051,7 @@
 					[MTK_LCM_GPIO_TYPE_HEX_OUT 02 01 01],
 					[MTK_LCM_TYPE_HEX_END];
 
-				msync_set_min_fps_table =
-					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 04],
-							[b0 00 18 60],
-					/* runtime input count, data id*/
-					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 08],
-						[MTK_LCM_INPUT_TYPE_HEX_MISC 02 01 02 03 60 ff ff],
-					[MTK_LCM_TYPE_HEX_END];
-
-				msync_close_mte_table =
+				msync_close_mte_default_table =
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03],
 						[F0 5A 5A],
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
@@ -2892,6 +2834,173 @@
 
 					fps_switch_mode_list;
 					default_fps_switch_table;
+				};
+
+				/* set min fps cmd for msync 2.0 feature */
+				msync-set-min-fps {
+					compatible =
+						"mediatek,lcm-ops-dsi-msync-set-min-fps";
+
+					//wqhd 120fps
+					msync_min_fps_list_0_1440_3216_120 =
+						<120 90 72 60 51 45 40 36 33 30 24>;
+					msync_set_min_fps_table_0_1440_3216_120 =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 04],
+								[b0 00 18 60],
+						//120fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 78 60 00 00],
+						//90fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 5a 60 00 01],
+						//72fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 48 60 00 02],
+						//60fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 3C 60 00 03],
+						//51fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 33 60 00 04],
+						//45fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 2d 60 00 05],
+						//40fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 28 60 00 06],
+						//36fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 24 60 00 07],
+						//33fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 21 60 00 08],
+						//30fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 1e 60 00 09],
+						//24fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 18 60 00 0c],
+						[MTK_LCM_TYPE_HEX_END];
+
+					//wqhd 90fps
+					msync_min_fps_list_1_1440_3216_90 =
+						<90 72 60 51 45 40 36 33 30 24>;
+					msync_set_min_fps_table_1-1440-3216-90 =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 04],
+								[b0 00 18 60],
+						//90fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 5a 60 04 01],
+						//72fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 48 60 04 02],
+						//60fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 3C 60 04 03],
+						//51fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 33 60 04 04],
+						//45fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 2d 60 04 05],
+						//40fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 28 60 04 06],
+						//36fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 24 60 04 07],
+						//33fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 21 60 04 08],
+						//30fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 1e 60 04 09],
+						//24fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 18 60 04 0c],
+						[MTK_LCM_TYPE_HEX_END];
+
+					//wqhd 72fps
+					msync_min_fps_list_2_1440_3216_72 =
+						<72 60 51 45 40 36 33 30 28 26 24>;
+					msync_set_min_fps_table_2-1440-3216-72 =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 04],
+								[b0 00 18 60],
+						//72fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 48 60 08 03],
+						//60fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 3C 60 08 03],
+						//51fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 33 60 08 04],
+						//45fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 2d 60 08 05],
+						//40fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 28 60 08 06],
+						//36fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 24 60 08 07],
+						//33fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 21 60 08 08],
+						//30fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 1e 60 08 09],
+						//28fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 1c 60 08 0a],
+						//26fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 1a 60 08 0b],
+						//24fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 18 60 08 0c],
+						[MTK_LCM_TYPE_HEX_END];
+
+					//wqhd 60fps
+					msync_min_fps_list_3_1440_3216_60 =
+						<60 51 45 40 36 33 30 28 26 24>;
+					msync_set_min_fps_table_3-1440-3216-60 =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 04],
+								[b0 00 18 60],
+						//60fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 3C 60 0c 03],
+						//51fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 33 60 0c 04],
+						//45fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 2d 60 0c 05],
+						//40fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 28 60 0c 06],
+						//36fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 24 60 0c 07],
+						//33fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 21 60 0c 08],
+						//30fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 1e 60 0c 09],
+						//28fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 1c 60 0c 0a],
+						//26fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 1a 60 0c 0b],
+						//24fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 18 60 0c 0c],
+						//21fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 15 60 0c 0d],
+						[MTK_LCM_TYPE_HEX_END];
 				};
 			};
 		};

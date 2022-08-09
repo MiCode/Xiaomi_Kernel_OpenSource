@@ -1,0 +1,3270 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree defines for LCM settings
+ * Copyright (c) 2021 MediaTek Inc.
+ */
+
+#include "mtk_lcm_settings.h"
+
+&pio {
+	nt37801_fhd_dphy_cmd_120hz_msync2_rte: nt37801_fhd_dphy_cmd_120hz {
+		compatible = "mediatek,nt37801_fhd_dphy_cmd_120hz_msync2_rte";
+		lcm-version = <0>;
+
+		lcm-params{
+			compatible = "mediatek,lcm-params";
+			lcm-params-name = "nt37801_fhd_dphy_cmd_120hz_msync2_rte";
+			lcm-params-types = <MTK_LCM_FUNC_DSI>;
+			lcm-params-resolution = <1080 2400>;
+			lcm-params-physical_width = <71>;
+			lcm-params-physical_height = <153>;
+
+			/* lk support */
+			lcm-params-lk {
+				compatible = "mediatek,lcm-params-lk";
+				lcm-params-lk_ctrl;
+				lcm-params-lk_lcm_if;
+				lcm-params-lk_lcm_cmd_if;
+				lcm-params-lk_io_select_mode;
+				lcm-params-lk_lcm_x;
+				lcm-params-lk_lcm_y;
+				lcm-params-lk_virtual_resolution = <0 0>;
+				lcm-params-lk_od_table_size;
+				lcm-params-lk_od_table;
+			};
+
+			lcm-params-lk-round-corner {
+				compatible = "mediatek,lcm-params-lk-round-corner";
+				lcm-params-lk-rc_round_corner_en = <0>;
+				lcm-params-lk-rc_is_notch;
+				lcm-params-lk-rc_full_content = <0>;
+				lcm-params-lk-rc_width;
+				lcm-params-lk-rc_height;
+				lcm-params-lk-rc_width_bot;
+				lcm-params-lk-rc_height_bot;
+				lcm-params-lk-rc_top_size;
+				lcm-params-lk-rc_top_size_left;
+				lcm-params-lk-rc_top_size_right;
+				lcm-params-lk-rc_bottom_size;
+				lcm-params-lk-rc_pattern_name;
+			};
+
+			lcm-params-dbi {
+				compatible = "mediatek,lcm-params-dbi";
+				/* future reserved for dbi interfaces */
+			};
+
+			lcm-params-dpi {
+				compatible = "mediatek,lcm-params-dpi";
+				/* future reserved for dpi interfaces */
+			};
+
+			lcm-params-dsi {
+				compatible = "mediatek,lcm-params-dsi";
+				lcm-params-dsi-density = <480>;
+				lcm-params-dsi-lanes = <4>;
+				lcm-params-dsi-format = <MTK_MIPI_DSI_FMT_RGB888>;
+				lcm-params-dsi-phy_type = <MTK_LCM_MIPI_DPHY>;
+				lcm-params-dsi-mode_flags = <MTK_MIPI_DSI_MODE_LPM>,
+						<MTK_MIPI_DSI_MODE_EOT_PACKET>,
+						<MTK_MIPI_DSI_CLOCK_NON_CONTINUOUS>;
+				lcm-params-dsi-mode_flags_doze_on;
+				lcm-params-dsi-mode_flags_doze_off;
+
+				lcm-params-dsi-need_fake_resolution;
+				lcm-params-dsi-fake_resolution = <1080 2400>;
+
+				lcm-params-dsi-default_mode = <0>;
+				lcm-params-dsi-mode_count = <4>;
+				lcm-params-dsi-mode_list =
+					<0 1080 2400 60>,
+					<1 1080 2400 80>,
+					<2 1080 2400 96>,
+					<3 1080 2400 120>;
+
+				lcm-params-dsi-fps-0-1080-2400-60 {
+					compatible = "mediatek,lcm-dsi-fps-0-1080-2400-60";
+					lcm-params-dsi-voltage;
+					lcm-params-dsi-fake = <0>;
+
+					/* drm_display_mode */
+					lcm-params-dsi-vrefresh = <60>;
+					lcm-params-dsi-vertical_sync_active = <10>;
+					lcm-params-dsi-vertical_backporch = <10>;
+					lcm-params-dsi-vertical_frontporch = <54>;
+					lcm-params-dsi-vertical_active_line = <2400>;
+					lcm-params-dsi-horizontal_sync_active = <2>;
+					lcm-params-dsi-horizontal_backporch = <16>;
+					lcm-params-dsi-horizontal_frontporch = <20>;
+					lcm-params-dsi-horizontal_active_pixel = <1080>;
+					lcm-params-dsi-pixel_clock = <166300>;
+					lcm-params-dsi-hskew;
+					lcm-params-dsi-vscan;
+
+					/* mtk_panel_params */
+					lcm-params-dsi-pll_clock = <420>;
+					lcm-params-dsi-data_rate = <840>;
+					lcm-params-dsi-vfp_for_low_power;
+					lcm-params-dsi-ssc_enable;
+					lcm-params-dsi-ssc_range;
+					lcm-params-dsi-lcm_color_mode =
+						<MTK_LCM_COLOR_MODE_DISPLAY_P3>;
+					lcm-params-dsi-min_luminance;
+					lcm-params-dsi-average_luminance;
+					lcm-params-dsi-max_luminance;
+					lcm-params-dsi-round_corner_en = <0>;
+					lcm-params-dsi-corner_pattern_height;
+					lcm-params-dsi-corner_pattern_height_bot;
+					lcm-params-dsi-corner_pattern_tp_size;
+					lcm-params-dsi-corner_pattern_tp_size_left;
+					lcm-params-dsi-corner_pattern_tp_size_right;
+					lcm-params-dsi-corner_pattern_name;
+					lcm-params-dsi-physical_width_um = <70200>;
+					lcm-params-dsi-physical_height_um = <152100>;
+					lcm-params-dsi-output_mode =
+						<MTK_LCM_PANEL_DSC_SINGLE_PORT>;
+					lcm-params-dsi-lcm_cmd_if;
+					lcm-params-dsi-hbm_en_time;
+					lcm-params-dsi-hbm_dis_time;
+					lcm-params-dsi-lcm_index;
+					lcm-params-dsi-wait_sof_before_dec_vfp;
+					lcm-params-dsi-doze_delay;
+					lcm-params-dsi-lfr_enable;
+					lcm-params-dsi-lfr_minimum_fps;
+					lcm-params-dsi-msync2_enable = <1>;
+					lcm-params-dsi-max_vfp_for_msync;
+
+					/* lane swap */
+					lcm-params-dsi-lane_swap_en;
+					lcm-params-dsi-lane_swap0;
+					lcm-params-dsi-lane_swap1;
+
+					/* esd check table */
+					lcm-params-dsi-cust_esd_check = <0>;
+					lcm-params-dsi-esd_check_enable = <1>;
+					lcm-params-dsi-lcm_esd_check_table0 = [0a 01 1c];
+					lcm-params-dsi-lcm_esd_check_table1;
+					lcm-params-dsi-lcm_esd_check_table2;
+
+					lcm-params-dsi-lcm_is_support_od;
+					lcm-params-dsi-lcm_is_support_dmr;
+
+					/* fpga support */
+					lcm-params-dsi-fpga-params-0-1080-2400-60 {
+						compatible = "mediatek,lcm-dsi-fpga-params";
+
+						lcm-params-dsi-lk_pll_div = <0 0>;
+						lcm-params-dsi-lk_fbk_div = <1>;
+					};
+
+					/* lk support */
+					lcm-params-dsi-lk-params-0-1080-2400-60 {
+						compatible = "mediatek,lcm-dsi-lk-params";
+						lcm-params-dsi-lk_mode = <MTK_LK_CMD_MODE>;
+						lcm-params-dsi-lk_switch_mode =
+							<MTK_LK_SYNC_PULSE_VDO_MODE>;
+						lcm-params-dsi-lk_switch_mode_enable = <0>;
+						lcm-params-dsi-lk_dsi_wmem_conti;
+						lcm-params-dsi-lk_dsi_rmem_conti;
+						lcm-params-dsi-lk_vc_num;
+						lcm-params-dsi-lk_data_format =
+							<MTK_LCM_COLOR_ORDER_RGB>,
+							<MTK_LCM_DSI_TRANS_SEQ_MSB_FIRST>,
+							<MTK_LCM_DSI_PADDING_ON_LSB>,
+							<MTK_LCM_DSI_FORMAT_RGB888>;
+						lcm-params-dsi-lk_intermediat_buffer_num;
+						lcm-params-dsi-lk_ps =
+							<MTK_LCM_PACKED_PS_24BIT_RGB888>;
+						lcm-params-dsi-lk_word_count;
+						lcm-params-dsi-lk_packet_size = <256>;
+
+						lcm-params-dsi-lk_horizontal_blanking_pixel;
+						lcm-params-dsi-lk_bllp;
+						lcm-params-dsi-lk_line_byte;
+						lcm-params-dsi-lk_horizontal_sync_active_byte;
+						lcm-params-dsi-lk_horizontal_backporch_byte;
+						lcm-params-dsi-lk_horizontal_frontporch_byte;
+						lcm-params-dsi-lk_rgb_byte;
+						lcm-params-dsi-lk_horizontal_sync_active_word_count;
+						lcm-params-dsi-lk_horizontal_backporch_word_count;
+						lcm-params-dsi-lk_horizontal_frontporch_word_count;
+						lcm-params-dsi-lk_pll_select;
+						lcm-params-dsi-lk_pll_div;
+						lcm-params-dsi-lk_fbk_div;
+						lcm-params-dsi-lk_fbk_sel;
+						lcm-params-dsi-lk_rg = <0 0 0>;
+						lcm-params-dsi-lk_dsi_clock;
+						lcm-params-dsi-lk_ssc_disable = <1>;
+						lcm-params-dsi-lk_ssc_range;
+						lcm-params-dsi-lk_compatibility_for_nvk;
+						lcm-params-dsi-lk_cont_clock;
+						lcm-params-dsi-lk_ufoe_enable;
+						lcm-params-dsi-lk_ufoe_params = <0 0 0 0>;
+						lcm-params-dsi-lk_edp_panel;
+						lcm-params-dsi-lk_lcm_int_te_monitor;
+						lcm-params-dsi-lk_lcm_int_te_period;
+						lcm-params-dsi-lk_lcm_ext_te_monitor;
+						lcm-params-dsi-lk_lcm_ext_te_period;
+						lcm-params-dsi-lk_noncont_clock;
+						lcm-params-dsi-lk_noncont_clock_period;
+						lcm-params-dsi-lk_clk_lp_per_line_enable = <0>;
+						lcm-params-dsi-lk_dual_dsi_type;
+						lcm-params-dsi-lk_mixmode_enable;
+						lcm-params-dsi-lk_mixmode_mipi_clock;
+						lcm-params-dsi-lk_pwm_fps;
+						lcm-params-dsi-lk_pll_clock_lp;
+						lcm-params-dsi-lk_ulps_sw_enable;
+						lcm-params-dsi-lk_null_packet_en;
+						lcm-params-dsi-lk_vact_fps;
+						lcm-params-dsi-lk_send_frame_enable;
+						lcm-params-dsi-lk_lfr_enable;
+						lcm-params-dsi-lk_lfr_mode;
+						lcm-params-dsi-lk_lfr_type;
+						lcm-params-dsi-lk_lfr_skip_num;
+						lcm-params-dsi-lk_ext_te_edge;
+						lcm-params-dsi-lk_eint_disable;
+						lcm-params-dsi-lk_phy_sel = <0 0 0 0>;
+					};
+
+					lcm-params-dsi-dsc-params-0-1080-2400-60 {
+						compatible =
+							"mediatek,lcm-params-dsi-dsc-params";
+						lcm-params-dsi-dsc_enable = <1>;
+						lcm-params-dsi-dsc_enable_lk = <1>;
+						lcm-params-dsi-dsc_ver = <17>;
+						lcm-params-dsi-dsc_slice_mode = <0>;
+						lcm-params-dsi-dsc_rgb_swap = <0>;
+						lcm-params-dsi-dsc_cfg = <40>;
+						lcm-params-dsi-dsc_rct_on = <1>;
+						lcm-params-dsi-dsc_bit_per_channel = <10>;
+						lcm-params-dsi-dsc_line_buf_depth = <11>;
+						lcm-params-dsi-dsc_bp_enable = <1>;
+						lcm-params-dsi-dsc_bit_per_pixel = <128>;
+						lcm-params-dsi-dsc_pic_height = <2400>;
+						lcm-params-dsi-dsc_pic_width = <1080>;
+						lcm-params-dsi-dsc_slice_height = <12>;
+						lcm-params-dsi-dsc_slice_width = <1080>;
+						lcm-params-dsi-dsc_chunk_size = <1080>;
+						lcm-params-dsi-dsc_xmit_delay = <512>;
+						lcm-params-dsi-dsc_dec_delay = <796>;
+						lcm-params-dsi-dsc_scale_value = <32>;
+						lcm-params-dsi-dsc_increment_interval = <382>;
+						lcm-params-dsi-dsc_decrement_interval = <15>;
+						lcm-params-dsi-dsc_line_bpg_offset = <12>;
+						lcm-params-dsi-dsc_nfl_bpg_offset = <2235>;
+						lcm-params-dsi-dsc_slice_bpg_offset = <1085>;
+						lcm-params-dsi-dsc_initial_offset = <6144>;
+						lcm-params-dsi-dsc_final_offset = <4336>;
+						lcm-params-dsi-dsc_flatness_minqp = <7>;
+						lcm-params-dsi-dsc_flatness_maxqp = <16>;
+						lcm-params-dsi-dsc_rc_model_size = <8192>;
+						lcm-params-dsi-dsc_rc_edge_factor = <6>;
+						lcm-params-dsi-dsc_rc_quant_incr_limit0 = <15>;
+						lcm-params-dsi-dsc_rc_quant_incr_limit1 = <15>;
+						lcm-params-dsi-dsc_rc_tgt_offset_hi = <3>;
+						lcm-params-dsi-dsc_rc_tgt_offset_lo = <3>;
+					};
+
+					lcm-params-dsi-phy-timcon-params-0-1080-2400-60 {
+						compatible =
+							"mediatek,lcm-params-dsi-phy-timcon";
+						lcm-params-dsi-phy_timcon_hs_trail;
+						lcm-params-dsi-phy_timcon_hs_prpr;
+						lcm-params-dsi-phy_timcon_hs_zero;
+						lcm-params-dsi-phy_timcon_lpx;
+						lcm-params-dsi-phy_timcon_ta_get;
+						lcm-params-dsi-phy_timcon_ta_sure;
+						lcm-params-dsi-phy_timcon_ta_go;
+						lcm-params-dsi-phy_timcon_da_hs_exit;
+						lcm-params-dsi-phy_timcon_clk_trail;
+						lcm-params-dsi-phy_timcon_cont_det;
+						lcm-params-dsi-phy_timcon_da_hs_sync;
+						lcm-params-dsi-phy_timcon_clk_zero;
+						lcm-params-dsi-phy_timcon_clk_prpr;
+						lcm-params-dsi-phy_timcon_clk_exit;
+						lcm-params-dsi-phy_timcon_clk_post;
+
+						/* lk support */
+						lcm-params-dsi-phy_timcon_lk_hs_trail;
+						lcm-params-dsi-phy_timcon_lk_hs_zero;
+						lcm-params-dsi-phy_timcon_lk_hs_prpr;
+						lcm-params-dsi-phy_timcon_lk_lpx;
+						lcm-params-dsi-phy_timcon_lk_ta_sack;
+						lcm-params-dsi-phy_timcon_lk_ta_get;
+						lcm-params-dsi-phy_timcon_lk_ta_sure;
+						lcm-params-dsi-phy_timcon_lk_ta_go;
+						lcm-params-dsi-phy_timcon_lk_clk_trail;
+						lcm-params-dsi-phy_timcon_lk_clk_zero;
+						lcm-params-dsi-phy_timcon_lk_lpx_wait;
+						lcm-params-dsi-phy_timcon_lk_cont_det;
+						lcm-params-dsi-phy_timcon_lk_clk_hs_prpr;
+						lcm-params-dsi-phy_timcon_lk_clk_hs_post;
+						lcm-params-dsi-phy_timcon_lk_da_hs_exit;
+						lcm-params-dsi-phy_timcon_lk_clk_hs_exit;
+					};
+
+					lcm-params-dsi-dyn-params-0-1080-2400-60 {
+						compatible =
+							"mediatek,lcm-params-dsi-dyn";
+						lcm-params-dsi-dyn_switch_en;
+						lcm-params-dsi-dyn_pll_clk;
+						lcm-params-dsi-dyn_data_rate;
+						lcm-params-dsi-dyn_vsa;
+						lcm-params-dsi-dyn_vbp;
+						lcm-params-dsi-dyn_vfp;
+						lcm-params-dsi-dyn_vfp_lp_dyn;
+						lcm-params-dsi-dyn_vac;
+						lcm-params-dsi-dyn_hsa;
+						lcm-params-dsi-dyn_hbp;
+						lcm-params-dsi-dyn_hfp;
+						lcm-params-dsi-dyn_hac;
+						lcm-params-dsi-dyn_max_vfp_for_msync_dyn;
+					};
+
+					lcm-params-dsi-dyn-fps-params-0-1080-2400-60 {
+						compatible =
+							"mediatek,lcm-params-dsi-dyn-fps";
+						lcm-params-dsi-dyn_fps_switch_en;
+						lcm-params-dsi-dyn_fps_vact_timing_fps;
+						lcm-params-dsi-dyn_fps_data_rate;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table0;
+					};
+
+					lcm-params-dsi-msync-cmd-table-0-1080-2400-60 {
+						compatible =
+							"mediatek,lcm-params-dsi-msync-cmd-table";
+						lcm-params-dsi-te_type = <MTK_LCM_REQUEST_TE>;
+						lcm-params-dsi-msync_max_fps = <120>;
+						lcm-params-dsi-msync_min_fps = <43>;
+						lcm-params-dsi-msync_level_num = <20>;
+						lcm-params-dsi-delay_frame_num = <2>;
+						lcm-params-dsi-multi_te_tb_count = <3>;
+						lcm-params-dsi-multi_te_level_id =
+							<0 1 3>;
+						lcm-params-dsi-multi_te_level_fps =
+							<60 80 120>;
+						lcm-params-dsi-multi_te_max_fps =
+							<60 80 120>;
+						lcm-params-dsi-multi_te_min_fps =
+							<48 60 80>;
+					};
+				};
+
+				lcm-params-dsi-fps-1-1080-2400-80 {
+					compatible = "mediatek,lcm-dsi-fps-1-1080-2400-80";
+					lcm-params-dsi-voltage;
+					lcm-params-dsi-fake = <0>;
+
+					/* drm_display_mode */
+					lcm-params-dsi-vrefresh = <80>;
+					lcm-params-dsi-vertical_sync_active = <10>;
+					lcm-params-dsi-vertical_backporch = <10>;
+					lcm-params-dsi-vertical_frontporch = <54>;
+					lcm-params-dsi-vertical_active_line = <2400>;
+					lcm-params-dsi-horizontal_sync_active = <2>;
+					lcm-params-dsi-horizontal_backporch = <16>;
+					lcm-params-dsi-horizontal_frontporch = <20>;
+					lcm-params-dsi-horizontal_active_pixel = <1080>;
+					lcm-params-dsi-pixel_clock = <221300>;
+					lcm-params-dsi-hskew;
+					lcm-params-dsi-vscan;
+
+					/* mtk_panel_params */
+					lcm-params-dsi-pll_clock = <420>;
+					lcm-params-dsi-data_rate = <840>;
+					lcm-params-dsi-vfp_for_low_power;
+					lcm-params-dsi-ssc_enable;
+					lcm-params-dsi-ssc_range;
+					lcm-params-dsi-lcm_color_mode =
+						<MTK_LCM_COLOR_MODE_DISPLAY_P3>;
+					lcm-params-dsi-min_luminance;
+					lcm-params-dsi-average_luminance;
+					lcm-params-dsi-max_luminance;
+					lcm-params-dsi-round_corner_en = <0>;
+					lcm-params-dsi-corner_pattern_height;
+					lcm-params-dsi-corner_pattern_height_bot;
+					lcm-params-dsi-corner_pattern_tp_size;
+					lcm-params-dsi-corner_pattern_tp_size_left;
+					lcm-params-dsi-corner_pattern_tp_size_right;
+					lcm-params-dsi-corner_pattern_name;
+					lcm-params-dsi-physical_width_um = <70200>;
+					lcm-params-dsi-physical_height_um = <152100>;
+					lcm-params-dsi-output_mode =
+						<MTK_LCM_PANEL_DSC_SINGLE_PORT>;
+					lcm-params-dsi-lcm_cmd_if;
+					lcm-params-dsi-hbm_en_time;
+					lcm-params-dsi-hbm_dis_time;
+					lcm-params-dsi-lcm_index;
+					lcm-params-dsi-wait_sof_before_dec_vfp;
+					lcm-params-dsi-doze_delay;
+					lcm-params-dsi-lfr_enable;
+					lcm-params-dsi-lfr_minimum_fps;
+					lcm-params-dsi-msync2_enable = <1>;
+					lcm-params-dsi-max_vfp_for_msync;
+
+					/* lane swap */
+					lcm-params-dsi-lane_swap_en;
+					lcm-params-dsi-lane_swap0;
+					lcm-params-dsi-lane_swap1;
+
+					/* esd check table */
+					lcm-params-dsi-cust_esd_check = <0>;
+					lcm-params-dsi-esd_check_enable = <1>;
+					lcm-params-dsi-lcm_esd_check_table0 = [0a 01 1c];
+					lcm-params-dsi-lcm_esd_check_table1;
+					lcm-params-dsi-lcm_esd_check_table2;
+
+					lcm-params-dsi-lcm_is_support_od;
+					lcm-params-dsi-lcm_is_support_dmr;
+
+					lcm-params-dsi-dsc-params-1-1080-2400-80 {
+						compatible =
+							"mediatek,lcm-params-dsi-dsc-params";
+						lcm-params-dsi-dsc_enable = <1>;
+						lcm-params-dsi-dsc_enable_lk = <1>;
+						lcm-params-dsi-dsc_ver = <17>;
+						lcm-params-dsi-dsc_slice_mode = <0>;
+						lcm-params-dsi-dsc_rgb_swap = <0>;
+						lcm-params-dsi-dsc_cfg = <40>;
+						lcm-params-dsi-dsc_rct_on = <1>;
+						lcm-params-dsi-dsc_bit_per_channel = <10>;
+						lcm-params-dsi-dsc_line_buf_depth = <11>;
+						lcm-params-dsi-dsc_bp_enable = <1>;
+						lcm-params-dsi-dsc_bit_per_pixel = <128>;
+						lcm-params-dsi-dsc_pic_height = <2400>;
+						lcm-params-dsi-dsc_pic_width = <1080>;
+						lcm-params-dsi-dsc_slice_height = <12>;
+						lcm-params-dsi-dsc_slice_width = <1080>;
+						lcm-params-dsi-dsc_chunk_size = <1080>;
+						lcm-params-dsi-dsc_xmit_delay = <512>;
+						lcm-params-dsi-dsc_dec_delay = <796>;
+						lcm-params-dsi-dsc_scale_value = <32>;
+						lcm-params-dsi-dsc_increment_interval = <382>;
+						lcm-params-dsi-dsc_decrement_interval = <15>;
+						lcm-params-dsi-dsc_line_bpg_offset = <12>;
+						lcm-params-dsi-dsc_nfl_bpg_offset = <2235>;
+						lcm-params-dsi-dsc_slice_bpg_offset = <1085>;
+						lcm-params-dsi-dsc_initial_offset = <6144>;
+						lcm-params-dsi-dsc_final_offset = <4336>;
+						lcm-params-dsi-dsc_flatness_minqp = <7>;
+						lcm-params-dsi-dsc_flatness_maxqp = <16>;
+						lcm-params-dsi-dsc_rc_model_size = <8192>;
+						lcm-params-dsi-dsc_rc_edge_factor = <6>;
+						lcm-params-dsi-dsc_rc_quant_incr_limit0 = <15>;
+						lcm-params-dsi-dsc_rc_quant_incr_limit1 = <15>;
+						lcm-params-dsi-dsc_rc_tgt_offset_hi = <3>;
+						lcm-params-dsi-dsc_rc_tgt_offset_lo = <3>;
+					};
+
+					lcm-params-dsi-phy-timcon-params-1-1080-2400-80 {
+						compatible =
+							"mediatek,lcm-params-dsi-phy-timcon";
+						lcm-params-dsi-phy_timcon_hs_trail;
+						lcm-params-dsi-phy_timcon_hs_prpr;
+						lcm-params-dsi-phy_timcon_hs_zero;
+						lcm-params-dsi-phy_timcon_lpx;
+						lcm-params-dsi-phy_timcon_ta_get;
+						lcm-params-dsi-phy_timcon_ta_sure;
+						lcm-params-dsi-phy_timcon_ta_go;
+						lcm-params-dsi-phy_timcon_da_hs_exit;
+						lcm-params-dsi-phy_timcon_clk_trail;
+						lcm-params-dsi-phy_timcon_cont_det;
+						lcm-params-dsi-phy_timcon_da_hs_sync;
+						lcm-params-dsi-phy_timcon_clk_zero;
+						lcm-params-dsi-phy_timcon_clk_prpr;
+						lcm-params-dsi-phy_timcon_clk_exit;
+						lcm-params-dsi-phy_timcon_clk_post;
+
+						/* lk support */
+						lcm-params-dsi-phy_timcon_lk_hs_trail;
+						lcm-params-dsi-phy_timcon_lk_hs_zero;
+						lcm-params-dsi-phy_timcon_lk_hs_prpr;
+						lcm-params-dsi-phy_timcon_lk_lpx;
+						lcm-params-dsi-phy_timcon_lk_ta_sack;
+						lcm-params-dsi-phy_timcon_lk_ta_get;
+						lcm-params-dsi-phy_timcon_lk_ta_sure;
+						lcm-params-dsi-phy_timcon_lk_ta_go;
+						lcm-params-dsi-phy_timcon_lk_clk_trail;
+						lcm-params-dsi-phy_timcon_lk_clk_zero;
+						lcm-params-dsi-phy_timcon_lk_lpx_wait;
+						lcm-params-dsi-phy_timcon_lk_cont_det;
+						lcm-params-dsi-phy_timcon_lk_clk_hs_prpr;
+						lcm-params-dsi-phy_timcon_lk_clk_hs_post;
+						lcm-params-dsi-phy_timcon_lk_da_hs_exit;
+						lcm-params-dsi-phy_timcon_lk_clk_hs_exit;
+					};
+
+					lcm-params-dsi-dyn-params-1-1080-2400-80 {
+						compatible =
+							"mediatek,lcm-params-dsi-dyn";
+						lcm-params-dsi-dyn_switch_en;
+						lcm-params-dsi-dyn_pll_clk;
+						lcm-params-dsi-dyn_data_rate;
+						lcm-params-dsi-dyn_vsa;
+						lcm-params-dsi-dyn_vbp;
+						lcm-params-dsi-dyn_vfp;
+						lcm-params-dsi-dyn_vfp_lp_dyn;
+						lcm-params-dsi-dyn_vac;
+						lcm-params-dsi-dyn_hsa;
+						lcm-params-dsi-dyn_hbp;
+						lcm-params-dsi-dyn_hfp;
+						lcm-params-dsi-dyn_hac;
+						lcm-params-dsi-dyn_max_vfp_for_msync_dyn;
+					};
+
+					lcm-params-dsi-dyn-fps-params-1-1080-2400-80 {
+						compatible =
+							"mediatek,lcm-params-dsi-dyn-fps";
+						lcm-params-dsi-dyn_fps_switch_en;
+						lcm-params-dsi-dyn_fps_vact_timing_fps;
+						lcm-params-dsi-dyn_fps_data_rate;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table0;
+					};
+
+					lcm-params-dsi-msync-cmd-table-1-1080-2400-80 {
+						compatible =
+							"mediatek,lcm-params-dsi-msync-cmd-table";
+						lcm-params-dsi-te_type = <MTK_LCM_REQUEST_TE>;
+						lcm-params-dsi-msync_max_fps = <120>;
+						lcm-params-dsi-msync_min_fps = <43>;
+						lcm-params-dsi-msync_level_num = <20>;
+						lcm-params-dsi-delay_frame_num = <2>;
+						lcm-params-dsi-multi_te_tb_count = <3>;
+						lcm-params-dsi-multi_te_level_id =
+							<0 1 3>;
+						lcm-params-dsi-multi_te_level_fps =
+							<60 80 120>;
+						lcm-params-dsi-multi_te_max_fps =
+							<60 80 120>;
+						lcm-params-dsi-multi_te_min_fps =
+							<48 60 80>;
+					};
+				};
+
+				lcm-params-dsi-fps-2-1080-2400-96 {
+					compatible = "mediatek,lcm-dsi-fps-2-1080-2400-96";
+					lcm-params-dsi-voltage;
+					lcm-params-dsi-fake = <0>;
+
+					/* drm_display_mode */
+					lcm-params-dsi-vrefresh = <96>;
+					lcm-params-dsi-vertical_sync_active = <10>;
+					lcm-params-dsi-vertical_backporch = <10>;
+					lcm-params-dsi-vertical_frontporch = <54>;
+					lcm-params-dsi-vertical_active_line = <2400>;
+					lcm-params-dsi-horizontal_sync_active = <2>;
+					lcm-params-dsi-horizontal_backporch = <16>;
+					lcm-params-dsi-horizontal_frontporch = <20>;
+					lcm-params-dsi-horizontal_active_pixel = <1080>;
+					lcm-params-dsi-pixel_clock = <266300>;
+					lcm-params-dsi-hskew;
+					lcm-params-dsi-vscan;
+
+					/* mtk_panel_params */
+					lcm-params-dsi-pll_clock = <420>;
+					lcm-params-dsi-data_rate = <840>;
+					lcm-params-dsi-vfp_for_low_power;
+					lcm-params-dsi-ssc_enable;
+					lcm-params-dsi-ssc_range;
+					lcm-params-dsi-lcm_color_mode =
+						<MTK_LCM_COLOR_MODE_DISPLAY_P3>;
+					lcm-params-dsi-min_luminance;
+					lcm-params-dsi-average_luminance;
+					lcm-params-dsi-max_luminance;
+					lcm-params-dsi-round_corner_en = <0>;
+					lcm-params-dsi-corner_pattern_height;
+					lcm-params-dsi-corner_pattern_height_bot;
+					lcm-params-dsi-corner_pattern_tp_size;
+					lcm-params-dsi-corner_pattern_tp_size_left;
+					lcm-params-dsi-corner_pattern_tp_size_right;
+					lcm-params-dsi-corner_pattern_name;
+					lcm-params-dsi-physical_width_um = <70200>;
+					lcm-params-dsi-physical_height_um = <152100>;
+					lcm-params-dsi-output_mode =
+						<MTK_LCM_PANEL_DSC_SINGLE_PORT>;
+					lcm-params-dsi-lcm_cmd_if;
+					lcm-params-dsi-hbm_en_time;
+					lcm-params-dsi-hbm_dis_time;
+					lcm-params-dsi-lcm_index;
+					lcm-params-dsi-wait_sof_before_dec_vfp;
+					lcm-params-dsi-doze_delay;
+					lcm-params-dsi-lfr_enable;
+					lcm-params-dsi-lfr_minimum_fps;
+					lcm-params-dsi-msync2_enable = <1>;
+					lcm-params-dsi-max_vfp_for_msync;
+
+					/* lane swap */
+					lcm-params-dsi-lane_swap_en;
+					lcm-params-dsi-lane_swap0;
+					lcm-params-dsi-lane_swap1;
+
+					/* esd check table */
+					lcm-params-dsi-cust_esd_check = <0>;
+					lcm-params-dsi-esd_check_enable = <1>;
+					lcm-params-dsi-lcm_esd_check_table0 = [0a 01 1c];
+					lcm-params-dsi-lcm_esd_check_table1;
+					lcm-params-dsi-lcm_esd_check_table2;
+
+					lcm-params-dsi-lcm_is_support_od;
+					lcm-params-dsi-lcm_is_support_dmr;
+
+					/* fpga support */
+					lcm-params-dsi-fpga-params-2-1080-2400-96 {
+						compatible = "mediatek,lcm-dsi-fpga-params";
+
+						lcm-params-dsi-lk_pll_div = <0 0>;
+						lcm-params-dsi-lk_fbk_div = <1>;
+					};
+
+					lcm-params-dsi-dsc-params-2-1080-2400-96 {
+						compatible =
+							"mediatek,lcm-params-dsi-dsc-params";
+						lcm-params-dsi-dsc_enable = <1>;
+						lcm-params-dsi-dsc_enable_lk = <1>;
+						lcm-params-dsi-dsc_ver = <17>;
+						lcm-params-dsi-dsc_slice_mode = <0>;
+						lcm-params-dsi-dsc_rgb_swap = <0>;
+						lcm-params-dsi-dsc_cfg = <40>;
+						lcm-params-dsi-dsc_rct_on = <1>;
+						lcm-params-dsi-dsc_bit_per_channel = <10>;
+						lcm-params-dsi-dsc_line_buf_depth = <11>;
+						lcm-params-dsi-dsc_bp_enable = <1>;
+						lcm-params-dsi-dsc_bit_per_pixel = <128>;
+						lcm-params-dsi-dsc_pic_height = <2400>;
+						lcm-params-dsi-dsc_pic_width = <1080>;
+						lcm-params-dsi-dsc_slice_height = <12>;
+						lcm-params-dsi-dsc_slice_width = <1080>;
+						lcm-params-dsi-dsc_chunk_size = <1080>;
+						lcm-params-dsi-dsc_xmit_delay = <512>;
+						lcm-params-dsi-dsc_dec_delay = <796>;
+						lcm-params-dsi-dsc_scale_value = <32>;
+						lcm-params-dsi-dsc_increment_interval = <382>;
+						lcm-params-dsi-dsc_decrement_interval = <15>;
+						lcm-params-dsi-dsc_line_bpg_offset = <12>;
+						lcm-params-dsi-dsc_nfl_bpg_offset = <2235>;
+						lcm-params-dsi-dsc_slice_bpg_offset = <1085>;
+						lcm-params-dsi-dsc_initial_offset = <6144>;
+						lcm-params-dsi-dsc_final_offset = <4336>;
+						lcm-params-dsi-dsc_flatness_minqp = <7>;
+						lcm-params-dsi-dsc_flatness_maxqp = <16>;
+						lcm-params-dsi-dsc_rc_model_size = <8192>;
+						lcm-params-dsi-dsc_rc_edge_factor = <6>;
+						lcm-params-dsi-dsc_rc_quant_incr_limit0 = <15>;
+						lcm-params-dsi-dsc_rc_quant_incr_limit1 = <15>;
+						lcm-params-dsi-dsc_rc_tgt_offset_hi = <3>;
+						lcm-params-dsi-dsc_rc_tgt_offset_lo = <3>;
+					};
+
+					lcm-params-dsi-phy-timcon-params-2-1080-2400-96 {
+						compatible =
+							"mediatek,lcm-params-dsi-phy-timcon";
+						lcm-params-dsi-phy_timcon_hs_trail;
+						lcm-params-dsi-phy_timcon_hs_prpr;
+						lcm-params-dsi-phy_timcon_hs_zero;
+						lcm-params-dsi-phy_timcon_lpx;
+						lcm-params-dsi-phy_timcon_ta_get;
+						lcm-params-dsi-phy_timcon_ta_sure;
+						lcm-params-dsi-phy_timcon_ta_go;
+						lcm-params-dsi-phy_timcon_da_hs_exit;
+						lcm-params-dsi-phy_timcon_clk_trail;
+						lcm-params-dsi-phy_timcon_cont_det;
+						lcm-params-dsi-phy_timcon_da_hs_sync;
+						lcm-params-dsi-phy_timcon_clk_zero;
+						lcm-params-dsi-phy_timcon_clk_prpr;
+						lcm-params-dsi-phy_timcon_clk_exit;
+						lcm-params-dsi-phy_timcon_clk_post;
+
+						/* lk support */
+						lcm-params-dsi-phy_timcon_lk_hs_trail;
+						lcm-params-dsi-phy_timcon_lk_hs_zero;
+						lcm-params-dsi-phy_timcon_lk_hs_prpr;
+						lcm-params-dsi-phy_timcon_lk_lpx;
+						lcm-params-dsi-phy_timcon_lk_ta_sack;
+						lcm-params-dsi-phy_timcon_lk_ta_get;
+						lcm-params-dsi-phy_timcon_lk_ta_sure;
+						lcm-params-dsi-phy_timcon_lk_ta_go;
+						lcm-params-dsi-phy_timcon_lk_clk_trail;
+						lcm-params-dsi-phy_timcon_lk_clk_zero;
+						lcm-params-dsi-phy_timcon_lk_lpx_wait;
+						lcm-params-dsi-phy_timcon_lk_cont_det;
+						lcm-params-dsi-phy_timcon_lk_clk_hs_prpr;
+						lcm-params-dsi-phy_timcon_lk_clk_hs_post;
+						lcm-params-dsi-phy_timcon_lk_da_hs_exit;
+						lcm-params-dsi-phy_timcon_lk_clk_hs_exit;
+					};
+
+					lcm-params-dsi-dyn-params-2-1080-2400-96 {
+						compatible =
+							"mediatek,lcm-params-dsi-dyn";
+						lcm-params-dsi-dyn_switch_en;
+						lcm-params-dsi-dyn_pll_clk;
+						lcm-params-dsi-dyn_data_rate;
+						lcm-params-dsi-dyn_vsa;
+						lcm-params-dsi-dyn_vbp;
+						lcm-params-dsi-dyn_vfp;
+						lcm-params-dsi-dyn_vfp_lp_dyn;
+						lcm-params-dsi-dyn_vac;
+						lcm-params-dsi-dyn_hsa;
+						lcm-params-dsi-dyn_hbp;
+						lcm-params-dsi-dyn_hfp;
+						lcm-params-dsi-dyn_hac;
+						lcm-params-dsi-dyn_max_vfp_for_msync_dyn;
+					};
+
+					lcm-params-dsi-dyn-fps-params-2-1080-2400-96 {
+						compatible =
+							"mediatek,lcm-params-dsi-dyn-fps";
+						lcm-params-dsi-dyn_fps_switch_en;
+						lcm-params-dsi-dyn_fps_vact_timing_fps;
+						lcm-params-dsi-dyn_fps_data_rate;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table0;
+					};
+
+					lcm-params-dsi-msync-cmd-table-2-1080-2400-96 {
+						compatible =
+							"mediatek,lcm-params-dsi-msync-cmd-table";
+						lcm-params-dsi-te_type = <MTK_LCM_REQUEST_TE>;
+						lcm-params-dsi-msync_max_fps = <120>;
+						lcm-params-dsi-msync_min_fps = <43>;
+						lcm-params-dsi-msync_level_num = <20>;
+						lcm-params-dsi-delay_frame_num = <2>;
+						lcm-params-dsi-multi_te_tb_count = <3>;
+						lcm-params-dsi-multi_te_level_id =
+							<0 1 3>;
+						lcm-params-dsi-multi_te_level_fps =
+							<60 80 120>;
+						lcm-params-dsi-multi_te_max_fps =
+							<60 80 120>;
+						lcm-params-dsi-multi_te_min_fps =
+							<48 60 80>;
+					};
+				};
+
+				lcm-params-dsi-fps-3-1080-2400-120 {
+					compatible = "mediatek,lcm-dsi-fps-3-1080-2400-120";
+					lcm-params-dsi-voltage;
+					lcm-params-dsi-fake = <0>;
+
+					/* drm_display_mode */
+					lcm-params-dsi-vrefresh = <120>;
+					lcm-params-dsi-vertical_sync_active = <10>;
+					lcm-params-dsi-vertical_backporch = <10>;
+					lcm-params-dsi-vertical_frontporch = <54>;
+					lcm-params-dsi-vertical_active_line = <2400>;
+					lcm-params-dsi-horizontal_sync_active = <2>;
+					lcm-params-dsi-horizontal_backporch = <16>;
+					lcm-params-dsi-horizontal_frontporch = <20>;
+					lcm-params-dsi-horizontal_active_pixel = <1080>;
+					lcm-params-dsi-pixel_clock = <332600>;
+					lcm-params-dsi-hskew;
+					lcm-params-dsi-vscan;
+
+					/* mtk_panel_params */
+					lcm-params-dsi-pll_clock = <420>;
+					lcm-params-dsi-data_rate = <840>;
+					lcm-params-dsi-vfp_for_low_power;
+					lcm-params-dsi-ssc_enable;
+					lcm-params-dsi-ssc_range;
+					lcm-params-dsi-lcm_color_mode =
+						<MTK_LCM_COLOR_MODE_DISPLAY_P3>;
+					lcm-params-dsi-min_luminance;
+					lcm-params-dsi-average_luminance;
+					lcm-params-dsi-max_luminance;
+					lcm-params-dsi-round_corner_en = <0>;
+					lcm-params-dsi-corner_pattern_height;
+					lcm-params-dsi-corner_pattern_height_bot;
+					lcm-params-dsi-corner_pattern_tp_size;
+					lcm-params-dsi-corner_pattern_tp_size_left;
+					lcm-params-dsi-corner_pattern_tp_size_right;
+					lcm-params-dsi-corner_pattern_name;
+					lcm-params-dsi-physical_width_um = <70200>;
+					lcm-params-dsi-physical_height_um = <152100>;
+					lcm-params-dsi-output_mode =
+						<MTK_LCM_PANEL_DSC_SINGLE_PORT>;
+					lcm-params-dsi-lcm_cmd_if;
+					lcm-params-dsi-hbm_en_time;
+					lcm-params-dsi-hbm_dis_time;
+					lcm-params-dsi-lcm_index;
+					lcm-params-dsi-wait_sof_before_dec_vfp;
+					lcm-params-dsi-doze_delay;
+					lcm-params-dsi-lfr_enable;
+					lcm-params-dsi-lfr_minimum_fps;
+					lcm-params-dsi-msync2_enable = <1>;
+					lcm-params-dsi-max_vfp_for_msync;
+
+					/* lane swap */
+					lcm-params-dsi-lane_swap_en;
+					lcm-params-dsi-lane_swap0;
+					lcm-params-dsi-lane_swap1;
+
+					/* esd check table */
+					lcm-params-dsi-cust_esd_check = <0>;
+					lcm-params-dsi-esd_check_enable = <1>;
+					lcm-params-dsi-lcm_esd_check_table0 = [0a 01 1c];
+					lcm-params-dsi-lcm_esd_check_table1;
+					lcm-params-dsi-lcm_esd_check_table2;
+
+					lcm-params-dsi-lcm_is_support_od;
+					lcm-params-dsi-lcm_is_support_dmr;
+
+					/* fpga support */
+					lcm-params-dsi-fpga-params-3-1080-2400-120 {
+						compatible = "mediatek,lcm-dsi-fpga-params";
+
+						lcm-params-dsi-lk_pll_div = <0 0>;
+						lcm-params-dsi-lk_fbk_div = <1>;
+					};
+
+					lcm-params-dsi-dsc-params-3-1080-2400-120 {
+						compatible =
+							"mediatek,lcm-params-dsi-dsc-params";
+						lcm-params-dsi-dsc_enable = <1>;
+						lcm-params-dsi-dsc_ver = <17>;
+						lcm-params-dsi-dsc_slice_mode = <0>;
+						lcm-params-dsi-dsc_rgb_swap = <0>;
+						lcm-params-dsi-dsc_cfg = <40>;
+						lcm-params-dsi-dsc_rct_on = <1>;
+						lcm-params-dsi-dsc_bit_per_channel = <10>;
+						lcm-params-dsi-dsc_line_buf_depth = <11>;
+						lcm-params-dsi-dsc_bp_enable = <1>;
+						lcm-params-dsi-dsc_bit_per_pixel = <128>;
+						lcm-params-dsi-dsc_pic_height = <2400>;
+						lcm-params-dsi-dsc_pic_width = <1080>;
+						lcm-params-dsi-dsc_slice_height = <12>;
+						lcm-params-dsi-dsc_slice_width = <1080>;
+						lcm-params-dsi-dsc_chunk_size = <1080>;
+						lcm-params-dsi-dsc_xmit_delay = <512>;
+						lcm-params-dsi-dsc_dec_delay = <796>;
+						lcm-params-dsi-dsc_scale_value = <32>;
+						lcm-params-dsi-dsc_increment_interval = <382>;
+						lcm-params-dsi-dsc_decrement_interval = <15>;
+						lcm-params-dsi-dsc_line_bpg_offset = <12>;
+						lcm-params-dsi-dsc_nfl_bpg_offset = <2235>;
+						lcm-params-dsi-dsc_slice_bpg_offset = <1085>;
+						lcm-params-dsi-dsc_initial_offset = <6144>;
+						lcm-params-dsi-dsc_final_offset = <4336>;
+						lcm-params-dsi-dsc_flatness_minqp = <7>;
+						lcm-params-dsi-dsc_flatness_maxqp = <16>;
+						lcm-params-dsi-dsc_rc_model_size = <8192>;
+						lcm-params-dsi-dsc_rc_edge_factor = <6>;
+						lcm-params-dsi-dsc_rc_quant_incr_limit0 = <15>;
+						lcm-params-dsi-dsc_rc_quant_incr_limit1 = <15>;
+						lcm-params-dsi-dsc_rc_tgt_offset_hi = <3>;
+						lcm-params-dsi-dsc_rc_tgt_offset_lo = <3>;
+					};
+
+					lcm-params-dsi-phy-timcon-params-3-1080-2400-120 {
+						compatible =
+							"mediatek,lcm-params-dsi-phy-timcon";
+						lcm-params-dsi-phy_timcon_hs_trail;
+						lcm-params-dsi-phy_timcon_hs_prpr;
+						lcm-params-dsi-phy_timcon_hs_zero;
+						lcm-params-dsi-phy_timcon_lpx;
+						lcm-params-dsi-phy_timcon_ta_get;
+						lcm-params-dsi-phy_timcon_ta_sure;
+						lcm-params-dsi-phy_timcon_ta_go;
+						lcm-params-dsi-phy_timcon_da_hs_exit;
+						lcm-params-dsi-phy_timcon_clk_trail;
+						lcm-params-dsi-phy_timcon_cont_det;
+						lcm-params-dsi-phy_timcon_da_hs_sync;
+						lcm-params-dsi-phy_timcon_clk_zero;
+						lcm-params-dsi-phy_timcon_clk_prpr;
+						lcm-params-dsi-phy_timcon_clk_exit;
+						lcm-params-dsi-phy_timcon_clk_post;
+
+						/* lk support */
+						lcm-params-dsi-phy_timcon_lk_hs_trail;
+						lcm-params-dsi-phy_timcon_lk_hs_zero;
+						lcm-params-dsi-phy_timcon_lk_hs_prpr;
+						lcm-params-dsi-phy_timcon_lk_lpx;
+						lcm-params-dsi-phy_timcon_lk_ta_sack;
+						lcm-params-dsi-phy_timcon_lk_ta_get;
+						lcm-params-dsi-phy_timcon_lk_ta_sure;
+						lcm-params-dsi-phy_timcon_lk_ta_go;
+						lcm-params-dsi-phy_timcon_lk_clk_trail;
+						lcm-params-dsi-phy_timcon_lk_clk_zero;
+						lcm-params-dsi-phy_timcon_lk_lpx_wait;
+						lcm-params-dsi-phy_timcon_lk_cont_det;
+						lcm-params-dsi-phy_timcon_lk_clk_hs_prpr;
+						lcm-params-dsi-phy_timcon_lk_clk_hs_post = <36>;
+						lcm-params-dsi-phy_timcon_lk_da_hs_exit;
+						lcm-params-dsi-phy_timcon_lk_clk_hs_exit;
+					};
+
+					lcm-params-dsi-dyn-params-3-1080-2400-120 {
+						compatible =
+							"mediatek,lcm-params-dsi-dyn";
+						lcm-params-dsi-dyn_switch_en;
+						lcm-params-dsi-dyn_pll_clk;
+						lcm-params-dsi-dyn_data_rate;
+						lcm-params-dsi-dyn_vsa;
+						lcm-params-dsi-dyn_vbp;
+						lcm-params-dsi-dyn_vfp;
+						lcm-params-dsi-dyn_vfp_lp_dyn;
+						lcm-params-dsi-dyn_vac;
+						lcm-params-dsi-dyn_hsa;
+						lcm-params-dsi-dyn_hbp;
+						lcm-params-dsi-dyn_hfp;
+						lcm-params-dsi-dyn_hac;
+						lcm-params-dsi-dyn_max_vfp_for_msync_dyn;
+					};
+
+					lcm-params-dsi-dyn-fps-params-3-1080-2400-120 {
+						compatible =
+							"mediatek,lcm-params-dsi-dyn-fps";
+						lcm-params-dsi-dyn_fps_switch_en;
+						lcm-params-dsi-dyn_fps_vact_timing_fps;
+						lcm-params-dsi-dyn_fps_data_rate;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table0;
+					};
+
+					lcm-params-dsi-msync-cmd-table-3-1080-2400-120 {
+						compatible =
+							"mediatek,lcm-params-dsi-msync-cmd-table";
+						lcm-params-dsi-te_type = <MTK_LCM_REQUEST_TE>;
+						lcm-params-dsi-msync_max_fps = <120>;
+						lcm-params-dsi-msync_min_fps = <43>;
+						lcm-params-dsi-msync_level_num = <20>;
+						lcm-params-dsi-delay_frame_num = <2>;
+						lcm-params-dsi-multi_te_tb_count = <3>;
+						lcm-params-dsi-multi_te_level_id =
+							<0 1 3>;
+						lcm-params-dsi-multi_te_level_fps =
+							<60 80 120>;
+						lcm-params-dsi-multi_te_max_fps =
+							<60 80 120>;
+						lcm-params-dsi-multi_te_min_fps =
+							<48 60 80>;
+					};
+				};
+			};
+		};
+
+
+		lcm-ops {
+			compatible = "mediatek,lcm-ops";
+			lcm-ops-dbi {
+				compatible = "mediatek,lcm-ops-dbi";
+				/* future reserved for dbi interfaces*/
+			};
+
+			lcm-ops-dpi {
+				compatible = "mediatek,lcm-ops-dpi";
+				/* future reserved for dpi interfaces*/
+			};
+
+			lcm-ops-dsi {
+				compatible = "mediatek,lcm-ops-dsi";
+				prepare_table = [MTK_LCM_UTIL_TYPE_HEX_RESET 01 00],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 0f],
+					[MTK_LCM_UTIL_TYPE_HEX_RESET 01 01],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 01],
+					[MTK_LCM_UTIL_TYPE_HEX_RESET 01 00],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 0a],
+					[MTK_LCM_UTIL_TYPE_HEX_RESET 01 01],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 0a],
+				/*lcm init*/
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+						[F0 55 AA 52 08 00],
+					//FSET0 120HZ
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 08],
+						[BA 08 6B 00 14 00 1C 10],
+					//FSET1 96HZ
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 07],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 08],
+						[BA 00 6B 00 14 02 80 10],
+					//FSET2 80HZ
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 0E],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 08],
+						[BA 00 6B 00 14 04 E4 10],
+					//FSET3 60HZ
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 15],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 08],
+						[BA 00 6B 00 14 09 AC 10],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 11],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 08],
+						[B2 03 04 45 87 03 00 00],
+					//EM_DT_FCON0  120hz
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 19],
+						[B4 09 90 08 E0 08 70 08],
+						[70 07 C0 07 C0 06 6C 06],
+						[6C 03 DC 03 DC 00 34 00 34],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 18],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 17],
+						[B4 00 30 00 30 00 30 00],
+						[30 00 30 00 30 00 30 00],
+						[30 00 30 00 30 00 30],
+					//EM_DT_FCON1  96hz
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 2E],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 19],
+						[B4 0B F4 0B 18 0A 8C 0A],
+						[8C 09 B0 09 B0 08 07 08],
+						[07 04 D3 04 D3 00 41 00 41],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 46],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 17],
+						[B4 00 3C 00 3C 00 3C 00],
+						[3C 00 3C 00 3C 00 3C 00],
+						[3C 00 3C 00 3C 00 3C],
+					//EM_DT_FCON2 80HZ
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 5C],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 19],
+						[B4 0E 58 0D 50 0C A8 0C],
+						[A8 0B A0 0B A0 09 A2 09],
+						[A2 05 CA 05 CA 00 4E 00 4E],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 74],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 17],
+						[B4 00 48 00 48 00 48 00],
+						[48 00 48 00 48 00 48 00],
+						[48 00 48 00 48 00 48],
+					//EM_DT_FCON3 60HZ
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 8A],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 19],
+						[B4 13 20 11 C0 10 E0 10],
+						[E0 0F 80 0F 80 0C D8 0C],
+						[D8 07 B8 07 B8 00 68 00 68],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F A2],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 17],
+						[B4 00 60 00 60 00 60 00],
+						[60 00 60 00 60 00 60 00],
+						[60 00 60 00 60 00 60],
+					//Gamma Map
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 03],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03 C0 21 43],
+					//EM pluse number
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 11],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 05],
+						[B2 03 04 45 87],
+				/*lcm gamma init*/
+					//By Gamma Update)
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+						[F0 55 AA 52 08 02],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 CC 30],
+
+					//CMD2_Page2)
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+						[F0 55 AA 52 08 02],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 BF 0B],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 02 DA 03 D9 03 E0 03],
+						[EF 03 F9 04 00 04 06 04],
+						[0C 04 18],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 04 29 04 3C 04 48 04],
+						[4C 04 53 04 63 04 73 00],
+						[00 00 00],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 00 00 00 00 00 00 00],
+						[00 00 00 00 4B 0D AB],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 02 E3 03 E2 03 E9 03],
+						[F7 04 00 04 05 04 09 04],
+						[0D 04 15],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 04 19 04 1F 04 25 04],
+						[2A 04 47 04 5C 04 71 00],
+						[00 00 00],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 00 00 00 00 00 00 00],
+						[00 00 00 01 DD 0D AB],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 02 D4 03 D3 03 DB 03],
+						[EB 03 F6 03 FE 04 05 04],
+						[0C 04 1A],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 04 26 04 3A 04 4B 04],
+						[4E 04 53 04 63 04 73 00],
+						[00 00 00],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 00 00 00 00 00 00 00],
+						[00 00 00 00 4B 0D AB],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 BF 0A],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 01 10 02 0F 02 2B 02],
+						[81 02 D9 03 1D 03 5C 03],
+						[99 04 0A],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 04 88 04 DE 05 32 05],
+						[77 05 F9 06 6B 06 D6 07],
+						[3D 07 A1],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 08 05 08 5C 08 B3 09],
+						[09 09 61 0A 1D 0B 8D],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 F6 01 F5 02 04 02],
+						[37 02 7B 02 B7 02 ED 03 23 03 8F],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 03 FB 04 48 04 92 04],
+						[CE 05 41 05 A6 06 0B 06 6B 06 BE],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 07 11 07 5B 07 AE 07],
+						[F7 08 40 08 D3 0A 06],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 E5 01 E4 02 09 02],
+						[72 02 DF 03 3B 03 86 03 D1 04 55],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 04 DA 05 34 05 8E 05],
+						[D2 06 5B 06 D7 07 48 07 BB 08 23],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 08 8B 08 E6 09 48 09],
+						[A7 0A 08 0A CA 0B 8D],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 BF 09],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 01 10 01 F5 02 27 02],
+						[72 02 C0 03 03 03 3E 03 75 03 DE],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 04 4A 04 AB 04 F7 05],
+						[40 05 B8 06 26 06 8B 06 EA 07 46],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 07 A0 07 FA 08 49 08],
+						[98 08 E5 09 85 09 89],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 F6 01 DB 02 02 02],
+						[2E 02 68 02 A0 02 D3 03 03 03 64],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 03 C6 04 1A 04 5E 04],
+						[9E 05 07 05 69 05 C4 06 1E 06 73],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 06 BD 07 08 07 4B 07],
+						[94 07 D9 08 5C 08 5F],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 E5 01 CA 02 03 02],
+						[5F 02 C1 03 18 03 62 03 A5 04 21],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 04 98 04 FE 05 4F 05],
+						[9C 06 16 06 8C 06 F8 07 5E 07 C5],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 08 22 08 7F 08 D3 09],
+						[29 09 7F 0A 2D 0A 31],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 BF 08],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 01 10 01 D7 02 1D 02],
+						[61 02 A4 02 E2 03 19 03 4C 03 A9],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 04 05 04 60 04 B3 04],
+						[F5 05 6A 05 D0 06 2F 06 87 06 DA],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 07 2A 07 79 07 C7 08],
+						[12 08 57 08 DE 08 E1],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 F6 01 BD 01 FA 02],
+						[24 02 53 02 84 02 B3 02 DF 03 33],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 03 87 03 D9 04 21 04],
+						[5C 04 C3 05 1D 05 71 05 C0 06 0F],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 06 59 06 9D 06 DE 07],
+						[1C 07 58 07 D3 07 D6],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 E5 01 AC 01 F8 02],
+						[4A 02 9E 02 ED 03 34 03 73 03 E2],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 04 4C 04 AF 05 06 05],
+						[4C 05 C7 06 30 06 96 06 F4 07 4D],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 07 A6 07 FA 08 4B 08],
+						[99 08 E2 09 77 09 7B],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 BF 07],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 01 10 01 B2 02 0A 02],
+						[4B 02 82 02 B7 02 E9 03 16 03 66],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 B2 03 FD 04 47 04],
+						[8D 04 FF 05 5F 05 B3 06 03 06 4E],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 06 95 06 D8 07 1A 07],
+						[5A 07 9A 08 16 08 18],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 F6 01 98 01 E9 02],
+						[16 02 3B 02 62 02 8A 02 B0 02 F7],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 03 3B 03 80 03 C3 04],
+						[00 04 65 04 B9 05 04 05 4A 05 8D],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 05 CD 06 0D 06 4A 06],
+						[82 06 B9 07 1F 07 22],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 E5 01 87 01 E3 02],
+						[2F 02 73 02 B6 02 F6 03 30 03 93],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 ED 04 43 04 94 04],
+						[DE 05 57 05 BB 06 12 06 66 06 B7],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 07 03 07 4B 07 94 07],
+						[D9 08 1C 08 9D 08 A0],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 BF 06],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 01 10 01 7F 01 E0 02],
+						[27 02 52 02 78 02 9C 02 C0 03 01],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 3A 03 71 03 A4 03],
+						[D8 04 3D 04 9B 04 E8 05 2E 05 6D],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 05 A6 05 DE 06 13 06],
+						[47 06 77 06 D5 06 D7],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 F6 01 65 01 C3 01],
+						[FD 02 1B 02 34 02 4E 02 69 02 9F],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 02 D0 03 00 03 2F 03],
+						[5E 03 BA 04 0C 04 51 04 8E 04 C6],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 04 F9 05 29 05 59 05],
+						[86 05 B2 06 0A 06 0C],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 E5 01 54 01 B7 02],
+						[05 02 38 02 66 02 94 02 C1 03 16],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 5D 03 9F 03 DD 04],
+						[18 04 8A 04 EC 05 3F 05 87 05 CA],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 06 05 06 3F 06 78 06],
+						[AF 06 E3 07 47 07 4A],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 BF 05],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 01 10 01 7F 01 E0 02],
+						[27 02 52 02 78 02 9C 02 C0 03 01],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 3A 03 71 03 A4 03],
+						[D8 04 3D 04 9B 04 E8 05 2E 05 6D],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 05 A6 05 DE 06 13 06],
+						[47 06 77 06 D5 06 D7],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 F6 01 65 01 C3 01],
+						[FD 02 1B 02 34 02 4E 02 69 02 9F],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 02 D0 03 00 03 2F 03],
+						[5E 03 BA 04 0C 04 51 04 8E 04 C6],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 04 F9 05 29 05 59 05],
+						[86 05 B2 06 0A 06 0C],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 E5 01 54 01 B7 02],
+						[05 02 38 02 66 02 94 02 C1 03 16],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 5D 03 9F 03 DD 04],
+						[18 04 8A 04 EC 05 3F 05 87 05 CA],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 06 05 06 3F 06 78 06],
+						[AF 06 E3 07 47 07 4A],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 BF 04],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 01 10 01 7F 01 E0 02],
+						[27 02 52 02 78 02 9C 02 C0 03 01],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 3A 03 71 03 A4 03],
+						[D8 04 3D 04 9B 04 E8 05 2E 05 6D],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 05 A6 05 DE 06 13 06],
+						[47 06 77 06 D5 06 D7],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 F6 01 65 01 C3 01],
+						[FD 02 1B 02 34 02 4E 02 69 02 9F],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 02 D0 03 00 03 2F 03],
+						[5E 03 BA 04 0C 04 51 04 8E 04 C6],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 04 F9 05 29 05 59 05],
+						[86 05 B2 06 0A 06 0C],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 E5 01 54 01 B7 02],
+						[05 02 38 02 66 02 94 02 C1 03 16],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 5D 03 9F 03 DD 04],
+						[18 04 8A 04 EC 05 3F 05 87 05 CA],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 06 05 06 3F 06 78 06],
+						[AF 06 E3 07 47 07 4A],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 BF 03],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 01 10 01 7F 01 E0 02],
+						[27 02 52 02 78 02 9C 02 C0 03 01],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 3A 03 71 03 A4 03],
+						[D8 04 3D 04 9B 04 E8 05 2E 05 6D],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 05 A6 05 DE 06 13 06],
+						[47 06 77 06 D5 06 D7],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 F6 01 65 01 C3 01],
+						[FD 02 1B 02 34 02 4E 02 69 02 9F],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 02 D0 03 00 03 2F 03],
+						[5E 03 BA 04 0C 04 51 04 8E 04 C6],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 04 F9 05 29 05 59 05],
+						[86 05 B2 06 0A 06 0C],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 E5 01 54 01 B7 02],
+						[05 02 38 02 66 02 94 02 C1 03 16],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 5D 03 9F 03 DD 04],
+						[18 04 8A 04 EC 05 3F 05 87 05 CA],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 06 05 06 3F 06 78 06],
+						[AF 06 E3 07 47 07 4A],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 02],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 01 10 01 7F 01 E0 02],
+						[27 02 52 02 78 02 9C 02 C0 03 01],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 3A 03 71 03 A4 03],
+						[D8 04 3D 04 9B 04 E8 05 2E 05 6D],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 05 A6 05 DE 06 13 06],
+						[47 06 77 06 D5 06 D7],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 F6 01 65 01 C3 01],
+						[FD 02 1B 02 34 02 4E 02 69 02 9F],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 02 D0 03 00 03 2F 03],
+						[5E 03 BA 04 0C 04 51 04 8E 04 C6],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 04 F9 05 29 05 59 05],
+						[86 05 B2 06 0A 06 0C],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 E5 01 54 01 B7 02],
+						[05 02 38 02 66 02 94 02 C1 03 16],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 5D 03 9F 03 DD 04],
+						[18 04 8A 04 EC 05 3F 05 87 05 CA],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 06 05 06 3F 06 78 06],
+						[AF 06 E3 07 47 07 4A],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 01],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 01 10 01 7F 01 E0 02],
+						[27 02 52 02 78 02 9C 02 C0 03 01],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 3A 03 71 03 A4 03],
+						[D8 04 3D 04 9B 04 E8 05 2E 05 6D],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 05 A6 05 DE 06 13 06],
+						[47 06 77 06 D5 06 D7],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 F6 01 65 01 C3 01],
+						[FD 02 1B 02 34 02 4E 02 69 02 9F],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 02 D0 03 00 03 2F 03],
+						[5E 03 BA 04 0C 04 51 04 8E 04 C6],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 04 F9 05 29 05 59 05],
+						[86 05 B2 06 0A 06 0C],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 E5 01 54 01 B7 02],
+						[05 02 38 02 66 02 94 02 C1 03 16],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 5D 03 9F 03 DD 04],
+						[18 04 8A 04 EC 05 3F 05 87 05 CA],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 06 05 06 3F 06 78 06],
+						[AF 06 E3 07 47 07 4A],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 00],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 01 10 01 25 01 4E 01],
+						[8E 01 B2 01 D7 01 EA 01 F7 02 12],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 02 2A 02 3A 02 4A 02],
+						[59 02 76 02 91 02 AC 02 C6 02 DE],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 02 F7 03 0D 03 23 03],
+						[38 03 4D 03 75 03 76],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 F6 01 0B 01 34 01],
+						[74 01 97 01 BA 01 CB 01 D6 01 EC],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 01 FF 02 0A 02 16 02],
+						[20 02 33 02 46 02 5A 02 6E 02 82],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 02 96 02 AA 02 BC 02],
+						[CE 02 E0 03 04 03 05],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 E5 00 FA 01 23 01],
+						[63 01 88 01 AD 01 C2 01 D0 01 EE],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 02 09 02 1C 02 2F 02],
+						[41 02 63 02 86 02 A8 02 C9 02 E9],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 03 09 03 25 03 40 03],
+						[5A 03 73 03 A4 03 A5],
+
+					//96Hz gamma code],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 1B],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 02 DA 03 D9 03 E0 03],
+						[EF 03 F9 04 00 04 06 04 0C 04 18],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 04 29 04 3C 04 48 04],
+						[4C 04 53 04 63 04 73 00 00 00 00],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 00 00 00 00 00 00 00],
+						[00 00 00 00 4B 0D AB],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 02 E3 03 E2 03 E9 03],
+						[F7 04 00 04 05 04 09 04 0D 04 15],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 04 19 04 1F 04 25 04],
+						[2A 04 47 04 5C 04 71 00 00 00 00],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 00 00 00 00 00 00 00],
+						[00 00 00 01 DD 0D AB],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 02 D4 03 D3 03 DB 03],
+						[EB 03 F6 03 FE 04 05 04 0C 04 1A],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 04 26 04 3A 04 4B 04],
+						[4E 04 53 04 63 04 73 00 00 00 00],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 00 00 00 00 00 00 00],
+						[00 00 00 00 4B 0D AB],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 1A],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 A7 01 A6 01 AE 01],
+						[C2 01 D2 01 E1 01 F0 02 01 02 1C],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 02 2D 02 3E 02 49 02],
+						[61 02 96 02 BA 02 DA 02 FC 03 20],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 03 44 03 64 03 82 03],
+						[9D 03 BC 03 EA 03 EB],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 C8 01 C7 01 CA 01],
+						[D1 01 D4 01 D6 01 D8 01 DB 01 E1],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 01 EE 01 FB 02 02 02],
+						[14 02 3A 02 5A 02 7A 02 98 02 BB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 02 D9 02 F6 03 11 03],
+						[2A 03 40 03 7A 03 7B],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 BF 01 BE 01 C1 01],
+						[CB 01 D1 01 D6 01 DB 01 E2 01 FB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 02 11 02 27 02 37 02],
+						[54 02 92 02 C0 02 ED 03 1A 03 47],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 03 74 03 99 03 BB 03],
+						[DC 03 E9 03 EA 03 EB],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 19],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 A7 01 8C 01 AD 01],
+						[BE 01 CE 01 DB 01 E9 01 F7 02 11],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 02 25 02 34 02 41 02],
+						[4E 02 7B 02 A4 02 C3 02 E1 02 FF],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 03 20 03 40 03 5D 03],
+						[79 03 92 03 C5 03 C6],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 C8 01 AD 01 CA 01],
+						[D0 01 D3 01 D5 01 D7 01 D9 01 DF],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 01 E8 01 F3 01 FD 02],
+						[06 02 27 02 47 02 63 02 80 02 9B],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 02 BB 02 D6 02 F0 03],
+						[09 03 20 03 4B 03 4C],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 BF 01 A4 01 C1 01],
+						[C9 01 CF 01 D4 01 D9 01 DE 01 F1],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 02 06 02 1A 02 2C 02],
+						[3D 02 73 02 A4 02 CD 02 F6 03 1E],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 03 47 03 6F 03 91 03],
+						[B0 03 CE 03 E9 03 E9],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 18],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 A7 01 6E 01 A7 01],
+						[BA 01 C8 01 D5 01 E0 01 EC 02 04],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 02 18 02 28 02 35 02],
+						[41 02 5E 02 84 02 A7 02 C2 02 DC],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 02 F6 03 12 03 2E 03],
+						[49 03 62 03 90 03 91],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 C8 01 8F 01 C4 01],
+						[CF 01 D2 01 D4 01 D6 01 D7 01 DC],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 01 E2 01 EB 01 F4 01],
+						[FD 02 12 02 2E 02 4A 02 62 02 7B],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 02 93 02 AD 02 C7 02],
+						[DE 02 F4 03 1E 03 1F],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 BF 01 86 01 BB 01],
+						[C7 01 CD 01 D2 01 D6 01 DA 01 E7],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 01 F9 02 0B 02 1C 02],
+						[2B 02 50 02 7E 02 A8 02 CB 02 EF],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 03 12 03 35 03 58 03],
+						[79 03 96 03 CB 03 CD],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 17],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 A7 01 49 01 97 01],
+						[B4 01 C1 01 CC 01 D6 01 DF 01 F3],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 02 06 02 16 02 24 02],
+						[2F 02 44 02 5B 02 79 02 97 02 B0],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 02 C6 02 DB 02 F1 03],
+						[07 03 1E 03 4A 03 4B],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 C8 01 6A 01 B5 01],
+						[CB 01 D0 01 D3 01 D4 01 D6 01 D8],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 01 DD 01 E1 01 E9 01],
+						[F0 01 FF 02 10 02 26 02 3D 02 52],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 02 66 02 7A 02 8E 02],
+						[A3 02 B8 02 DF 02 E0],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 BF 01 61 01 AC 01],
+						[C3 01 CA 01 CF 01 D2 01 D6 01 DE],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 01 E9 01 F7 02 06 02],
+						[14 02 2E 02 4C 02 71 02 94 02 B4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 02 D1 02 EE 03 0B 03],
+						[27 03 44 03 7B 03 7C],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 16],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 A7 01 16 01 72 01],
+						[A4 01 B6 01 BF 01 C6 01 CE 01 DB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 01 E8 01 F6 02 03 02],
+						[0E 02 22 02 31 02 40 02 4F 02 60],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 02 75 02 89 02 9C 02],
+						[AE 02 BD 02 DA 02 DB],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 C8 01 37 01 91 01],
+						[BF 01 CC 01 CF 01 D1 01 D3 01 D5],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 01 D7 01 D9 01 DC 01],
+						[DF 01 E8 01 F2 01 FC 02 07 02 14],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 02 23 02 32 02 42 02],
+						[50 02 5E 02 79 02 7A],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 BF 01 2E 01 88 01],
+						[B6 01 C4 01 C9 01 CC 01 D0 01 D4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 01 DA 01 E0 01 E7 01],
+						[F0 02 04 02 17 02 29 02 3D 02 52],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 02 6B 02 84 02 9B 02],
+						[B1 02 C5 02 ED 02 ED],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 15],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 A7 01 16 01 72 01],
+						[A4 01 B6 01 BF 01 C6 01 CE 01 DB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 01 E8 01 F6 02 03 02],
+						[0E 02 22 02 31 02 40 02 4F 02 60],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 02 75 02 89 02 9C 02],
+						[AE 02 BD 02 DA 02 DB],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 C8 01 37 01 91 01],
+						[BF 01 CC 01 CF 01 D1 01 D3 01 D5],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 01 D7 01 D9 01 DC 01],
+						[DF 01 E8 01 F2 01 FC 02 07 02 14],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 02 23 02 32 02 42 02],
+						[50 02 5E 02 79 02 7A],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 BF 01 2E 01 88 01],
+						[B6 01 C4 01 C9 01 CC 01 D0 01 D4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 01 DA 01 E0 01 E7 01],
+						[F0 02 04 02 17 02 29 02 3D 02 52],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 02 6B 02 84 02 9B 02],
+						[B1 02 C5 02 ED 02 ED],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 14],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 A7 01 16 01 72 01],
+						[A4 01 B6 01 BF 01 C6 01 CE 01 DB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 01 E8 01 F6 02 03 02],
+						[0E 02 22 02 31 02 40 02 4F 02 60],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 02 75 02 89 02 9C 02],
+						[AE 02 BD 02 DA 02 DB],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 C8 01 37 01 91 01],
+						[BF 01 CC 01 CF 01 D1 01 D3 01 D5],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 01 D7 01 D9 01 DC 01],
+						[DF 01 E8 01 F2 01 FC 02 07 02 14],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 02 23 02 32 02 42 02],
+						[50 02 5E 02 79 02 7A],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 BF 01 2E 01 88 01],
+						[B6 01 C4 01 C9 01 CC 01 D0 01 D4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 01 DA 01 E0 01 E7 01],
+						[F0 02 04 02 17 02 29 02 3D 02 52],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 02 6B 02 84 02 9B 02],
+						[B1 02 C5 02 ED 02 ED],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 13],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 A7 01 16 01 72 01],
+						[A4 01 B6 01 BF 01 C6 01 CE 01 DB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 01 E8 01 F6 02 03 02],
+						[0E 02 22 02 31 02 40 02 4F 02 60],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 02 75 02 89 02 9C 02],
+						[AE 02 BD 02 DA 02 DB],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 C8 01 37 01 91 01],
+						[BF 01 CC 01 CF 01 D1 01 D3 01 D5],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 01 D7 01 D9 01 DC 01],
+						[DF 01 E8 01 F2 01 FC 02 07 02 14],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 02 23 02 32 02 42 02],
+						[50 02 5E 02 79 02 7A],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 BF 01 2E 01 88 01],
+						[B6 01 C4 01 C9 01 CC 01 D0 01 D4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 01 DA 01 E0 01 E7 01],
+						[F0 02 04 02 17 02 29 02 3D 02 52],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 02 6B 02 84 02 9B 02],
+						[B1 02 C5 02 ED 02 ED],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 12],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 A7 01 16 01 72 01],
+						[A4 01 B6 01 BF 01 C6 01 CE 01 DB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 01 E8 01 F6 02 03 02],
+						[0E 02 22 02 31 02 40 02 4F 02 60],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 02 75 02 89 02 9C 02],
+						[AE 02 BD 02 DA 02 DB],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 C8 01 37 01 91 01],
+						[BF 01 CC 01 CF 01 D1 01 D3 01 D5],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 01 D7 01 D9 01 DC 01],
+						[DF 01 E8 01 F2 01 FC 02 07 02 14],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 02 23 02 32 02 42 02],
+						[50 02 5E 02 79 02 7A],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 BF 01 2E 01 88 01],
+						[B6 01 C4 01 C9 01 CC 01 D0 01 D4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 01 DA 01 E0 01 E7 01],
+						[F0 02 04 02 17 02 29 02 3D 02 52],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 02 6B 02 84 02 9B 02],
+						[B1 02 C5 02 ED 02 ED],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 11],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 A7 01 16 01 72 01],
+						[A4 01 B6 01 BF 01 C6 01 CE 01 DB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 01 E8 01 F6 02 03 02],
+						[0E 02 22 02 31 02 40 02 4F 02 60],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 02 75 02 89 02 9C 02],
+						[AE 02 BD 02 DA 02 DB],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 C8 01 37 01 91 01],
+						[BF 01 CC 01 CF 01 D1 01 D3 01 D5],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 01 D7 01 D9 01 DC 01],
+						[DF 01 E8 01 F2 01 FC 02 07 02 14],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 02 23 02 32 02 42 02],
+						[50 02 5E 02 79 02 7A],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 BF 01 2E 01 88 01],
+						[B6 01 C4 01 C9 01 CC 01 D0 01 D4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 01 DA 01 E0 01 E7 01],
+						[F0 02 04 02 17 02 29 02 3D 02 52],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 02 6B 02 84 02 9B 02],
+						[B1 02 C5 02 ED 02 ED],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 10],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 A7 00 BC 00 E5 01],
+						[24 01 47 01 69 01 79 01 82 01 95],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 01 A5 01 AC 01 B3 01],
+						[B8 01 BE 01 C4 01 CA 01 CF 01 D4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 01 D9 01 DE 01 E3 01],
+						[E8 01 ED 01 F7 01 F7],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 C8 00 DD 01 06 01],
+						[45 01 67 01 88 01 97 01 A0 01 B1],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 01 C0 01 C5 01 CA 01],
+						[CD 01 CF 01 D0 01 D2 01 D3 01 D4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 01 D5 01 D5 01 D6 01],
+						[D7 01 D8 01 D9 01 D9],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 BF 00 D4 00 FD 01],
+						[3C 01 5E 01 7F 01 8E 01 97 01 A8],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 01 B7 01 BC 01 C1 01],
+						[C5 01 C9 01 CB 01 CE 01 D0 01 D2],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 01 D3 01 D5 01 D8 01],
+						[DA 01 DC 01 E1 01 E1],
+
+					//80Hz gamma code],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 2B],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 02 DA 03 D9 03 E0 03],
+						[EF 03 F9 04 00 04 06 04 0C 04 18],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 04 29 04 3C 04 48 04],
+						[4C 04 53 04 63 04 73 00 00 00 00],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 00 00 00 00 00 00 00],
+						[00 00 00 00 4B 0D AB],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 02 E3 03 E2 03 E9 03],
+						[F7 04 00 04 05 04 09 04 0D 04 15],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 04 19 04 1F 04 25 04],
+						[2A 04 47 04 5C 04 71 00 00 00 00],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 00 00 00 00 00 00 00],
+						[00 00 00 01 DD 0D AB],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 02 D4 03 D3 03 DB 03],
+						[EB 03 F6 03 FE 04 05 04 0C 04 1A],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 04 26 04 3A 04 4B 04],
+						[4E 04 53 04 63 04 73 00 00 00 00],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 00 00 00 00 00 00 00],
+						[00 00 00 00 4B 0D AB],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 2A],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 D2 01 D1 01 F9 02],
+						[58 02 B3 03 12 03 60 03 9F 04 0F],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 04 7F 04 E0 05 27 05],
+						[6D 05 F9 06 73 06 DD 07 3F 07 A0],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 08 03 08 66 08 B6 09],
+						[0F 09 68 0A 1F 0A 20],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 A0 01 9F 01 BE 02],
+						[02 02 4D 02 A1 02 ED 03 27 03 8D],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 03 F3 04 46 04 85 04],
+						[C4 05 42 05 AE 06 10 06 68 06 C0],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 07 12 07 62 07 B0 07],
+						[FA 08 44 08 DC 08 DD],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 9A 01 99 01 CE 02],
+						[47 02 BD 03 33 03 98 03 DE 04 59],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 04 D4 05 39 05 84 05],
+						[CC 06 5B 06 DD 07 52 07 BA 08 22],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 08 8B 08 F4 09 4A 09],
+						[A9 0A 08 0A DC 0A DD],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 29],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 D2 01 B7 01 F3 02],
+						[47 02 9A 02 EE 03 3A 03 7A 03 E3],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 04 48 04 A6 04 F5 05],
+						[35 05 B3 06 29 06 92 06 F0 07 48],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 07 9F 07 F8 08 51 08],
+						[9D 08 EA 09 8B 09 8F],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 A0 01 85 01 B9 01],
+						[F6 02 38 02 81 02 C8 03 05 03 65],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 03 C0 04 14 04 59 04],
+						[92 05 03 05 6D 05 CB 06 21 06 70],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 06 BF 07 09 07 51 07],
+						[97 07 DB 08 61 08 64],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 9A 01 7F 01 C6 02],
+						[31 02 9C 03 06 03 67 03 B5 04 29],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 04 97 04 FD 05 50 05],
+						[92 06 13 06 8F 07 00 07 66 07 C4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 08 21 08 7F 08 DE 09],
+						[2F 09 81 0A 30 0A 35],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 28],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 D2 01 99 01 E7 02],
+						[34 02 7C 02 C5 03 0B 03 4A 03 AE],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 04 07 04 5E 04 AE 04],
+						[F2 05 61 05 CD 06 33 06 8E 06 E0],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 07 2D 07 79 07 C6 08],
+						[13 08 5E 08 E3 08 E6],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 A0 01 67 01 AF 01 E8],
+						[02 20 02 5D 02 9C 02 D7 03 34],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 03 86 03 D3 04 1B 04 57],
+						[04 BA 05 1B 05 76 05 C7 06 12],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 06 58 06 9D 06 DF 07 1F],
+						[07 5D 07 D5 07 D8],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 9A 01 61 01 B8 02 18],
+						[02 75 02 D2 03 2B 03 7A 03 EE],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 04 51 04 AE 05 05 05 4D],
+						[05 C0 06 2F 06 99 06 FB 07 55],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 07 A8 07 F9 08 4A 08 9C],
+						[08 EC 09 7A 09 7D],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 27],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 D2 01 74 01 D1 02 1B],
+						[02 57 02 92 02 CE 03 07 03 66],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 B7 03 FF 04 46 04 8A],
+						[04 FC 05 56 05 AF 06 03 06 53],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 06 9B 06 DE 07 1D 07 5B],
+						[07 9A 08 17 08 1A],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 A0 01 42 01 9B 01 D6],
+						[02 04 02 33 02 65 02 98 02 F1],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 03 3C 03 7F 03 BE 03 FA],
+						[04 60 04 B0 05 00 05 4C 05 92],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 05 D3 06 10 06 4A 06 82],
+						[06 B9 07 22 07 25],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 9A 01 3C 01 A0 01 F9],
+						[02 46 02 92 02 DD 03 25 03 9B],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 F8 04 49 04 95 04 DD],
+						[05 57 05 B5 06 10 06 68 06 BB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 07 0A 07 53 07 97 07 D9],
+						[08 1B 08 A0 08 A3],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 26],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 D2 01 41 01 A5 01 F2],
+						[02 23 02 4C 02 74 02 9D 02 ED],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 32 03 71 03 A9 03 DB],
+						[04 3D 04 98 04 E5 05 28 05 65],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 05 A2 05 DC 06 14 06 4B],
+						[06 7D 06 DB 06 DD],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 A0 01 0F 01 71 01 B5],
+						[01 DC 01 FB 02 1B 02 3C 02 81],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 02 C1 02 FB 03 2F 03 5E],
+						[03 B6 04 06 04 4C 04 87 04 BD],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 04 F4 05 29 05 5B 05 8B],
+						[05 B8 06 0D 06 0F],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 9A 01 09 01 70 01 C8],
+						[02 03 02 38 02 6C 02 9F 03 04],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 5B 03 A8 03 E7 04 21],
+						[04 8B 04 EB 05 3F 05 85 05 C4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 06 02 06 3F 06 7A 06 B3],
+						[06 E9 07 4F 07 52],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 25],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 D2 01 41 01 A5 01 F2],
+						[02 23 02 4C 02 74 02 9D 02 ED],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 32 03 71 03 A9 03 DB],
+						[04 3D 04 98 04 E5 05 28 05 65],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 05 A2 05 DC 06 14 06 4B],
+						[06 7D 06 DB 06 DD],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 A0 01 0F 01 71 01 B5],
+						[01 DC 01 FB 02 1B 02 3C 02 81],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 02 C1 02 FB 03 2F 03 5E],
+						[03 B6 04 06 04 4C 04 87 04 BD],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 04 F4 05 29 05 5B 05 8B],
+						[05 B8 06 0D 06 0F],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 9A 01 09 01 70 01 C8],
+						[02 03 02 38 02 6C 02 9F 03 04],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 5B 03 A8 03 E7 04 21],
+						[04 8B 04 EB 05 3F 05 85 05 C4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 06 02 06 3F 06 7A 06 B3],
+						[06 E9 07 4F 07 52],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 24],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 D2 01 41 01 A5 01 F2],
+						[02 23 02 4C 02 74 02 9D 02 ED],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 32 03 71 03 A9 03 DB],
+						[04 3D 04 98 04 E5 05 28 05 65],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 05 A2 05 DC 06 14 06 4B],
+						[06 7D 06 DB 06 DD],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 A0 01 0F 01 71 01 B5],
+						[01 DC 01 FB 02 1B 02 3C 02 81],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 02 C1 02 FB 03 2F 03 5E],
+						[03 B6 04 06 04 4C 04 87 04 BD],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 04 F4 05 29 05 5B 05 8B],
+						[05 B8 06 0D 06 0F],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 9A 01 09 01 70 01 C8],
+						[02 03 02 38 02 6C 02 9F 03 04],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 5B 03 A8 03 E7 04 21],
+						[04 8B 04 EB 05 3F 05 85 05 C4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 06 02 06 3F 06 7A 06 B3],
+						[06 E9 07 4F 07 52],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 23],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 D2 01 41 01 A5 01 F2],
+						[02 23 02 4C 02 74 02 9D 02 ED],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 32 03 71 03 A9 03 DB],
+						[04 3D 04 98 04 E5 05 28 05 65],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 05 A2 05 DC 06 14 06 4B],
+						[06 7D 06 DB 06 DD],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 A0 01 0F 01 71 01 B5],
+						[01 DC 01 FB 02 1B 02 3C 02 81],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 02 C1 02 FB 03 2F 03 5E],
+						[03 B6 04 06 04 4C 04 87 04 BD],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 04 F4 05 29 05 5B 05 8B],
+						[05 B8 06 0D 06 0F],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 9A 01 09 01 70 01 C8],
+						[02 03 02 38 02 6C 02 9F 03 04],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 5B 03 A8 03 E7 04 21],
+						[04 8B 04 EB 05 3F 05 85 05 C4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 06 02 06 3F 06 7A 06 B3],
+						[06 E9 07 4F 07 52],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 22],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 D2 01 41 01 A5 01 F2],
+						[02 23 02 4C 02 74 02 9D 02 ED],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 32 03 71 03 A9 03 DB],
+						[04 3D 04 98 04 E5 05 28 05 65],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 05 A2 05 DC 06 14 06 4B],
+						[06 7D 06 DB 06 DD],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 A0 01 0F 01 71 01 B5],
+						[01 DC 01 FB 02 1B 02 3C 02 81],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 02 C1 02 FB 03 2F 03 5E],
+						[03 B6 04 06 04 4C 04 87 04 BD],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 04 F4 05 29 05 5B 05 8B],
+						[05 B8 06 0D 06 0F],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 9A 01 09 01 70 01 C8],
+						[02 03 02 38 02 6C 02 9F 03 04],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 5B 03 A8 03 E7 04 21],
+						[04 8B 04 EB 05 3F 05 85 05 C4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 06 02 06 3F 06 7A 06 B3],
+						[06 E9 07 4F 07 52],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 21],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 D2 01 41 01 A5 01 F2],
+						[02 23 02 4C 02 74 02 9D 02 ED],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 32 03 71 03 A9 03 DB],
+						[04 3D 04 98 04 E5 05 28 05 65],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 05 A2 05 DC 06 14 06 4B],
+						[06 7D 06 DB 06 DD],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 A0 01 0F 01 71 01 B5],
+						[01 DC 01 FB 02 1B 02 3C 02 81],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 02 C1 02 FB 03 2F 03 5E],
+						[03 B6 04 06 04 4C 04 87 04 BD],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 04 F4 05 29 05 5B 05 8B],
+						[05 B8 06 0D 06 0F],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 9A 01 09 01 70 01 C8],
+						[02 03 02 38 02 6C 02 9F 03 04],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 5B 03 A8 03 E7 04 21],
+						[04 8B 04 EB 05 3F 05 85 05 C4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 06 02 06 3F 06 7A 06 B3],
+						[06 E9 07 4F 07 52],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 20],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 D2 00 E7 01 10 01 50],
+						[01 76 01 9B 01 B0 01 BE 01 DB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 01 F6 02 08 02 1A 02 2B],
+						[02 4A 02 68 02 86 02 A4 02 C2],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 02 E0 02 FC 03 16 03 2F],
+						[03 47 03 76 03 77],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 A0 00 B5 00 DE 01 1E],
+						[01 43 01 67 01 7A 01 87 01 A1],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 01 B8 01 C6 01 D5 01 E2],
+						[01 F9 02 11 02 29 02 42 02 5C],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 02 76 02 8F 02 A7 02 BF],
+						[02 D5 02 FF 03 00],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 9A 00 AF 00 D8 01 19],
+						[01 3F 01 66 01 7C 01 8D 01 AE],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 01 CC 01 E2 01 F8 02 0D],
+						[02 35 02 5C 02 82 02 A8 02 CE],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 02 F4 03 17 03 37 03 58],
+						[03 75 03 AD 03 AE],
+					//60Hz gamma code],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 3B],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 02 DA 03 D9 03 E0 03 EF],
+						[03 F9 04 00 04 06 04 0C 04 18],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 04 29 04 3C 04 48 04 4C],
+						[04 53 04 63 04 73 00 00 00 00],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 00 00 00 00 00 00 00 00],
+						[00 00 00 4B 0D AB],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 02 E3 03 E2 03 E9 03 F7],
+						[04 00 04 05 04 09 04 0D 04 15],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 04 19 04 1F 04 25 04 2A],
+						[04 47 04 5C 04 71 00 00 00 00],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 00 00 00 00 00 00 00 00],
+						[00 00 01 DD 0D AB],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 02 D4 03 D3 03 DB 03 EB],
+						[03 F6 03 FE 04 05 04 0C 04 1A],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 04 26 04 3A 04 4B 04 4E],
+						[04 53 04 63 04 73 00 00 00 00],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 00 00 00 00 00 00 00 00],
+						[00 00 00 4B 0D AB],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 3A],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 B8 01 B7 01 DF 02 48],
+						[02 A1 02 FD 03 58 03 9B 04 11],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 04 85 04 DC 05 31 05 72],
+						[05 F4 06 76 06 DA 07 46 07 A8],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 08 08 08 60 08 BA 09 0D],
+						[09 64 0A 1F 0A 22],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 60 01 5F 01 88 01 E5],
+						[02 3B 02 8E 02 E1 03 22 03 8E],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 03 F6 04 43 04 90 04 CB],
+						[05 3E 05 B1 06 0E 06 6A 06 BF],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 07 14 07 63 07 B2 07 FB],
+						[08 43 08 DC 08 DF],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 67 01 66 01 A5 02 3C],
+						[02 AD 03 1E 03 90 03 DC 04 5B],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 04 DA 05 35 05 90 05 D3],
+						[06 59 06 DF 07 4F 07 BF 08 25],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 08 8F 08 F1 09 4E 09 AA],
+						[0A 0A 0A D7 0A DA],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 39],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 B8 01 9D 01 D9 02 35],
+						[02 88 02 DA 03 2C 03 74 03 E3],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 04 4C 04 A8 04 F6 05 3E],
+						[05 B3 06 28 06 94 06 EF 07 4F],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 07 A7 07 FD 08 4D 08 9E],
+						[08 EA 09 88 09 8C],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 60 01 45 01 82 01 D4],
+						[02 23 02 6E 02 B9 02 FC 03 63],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 03 C2 04 15 04 5A 04 9C],
+						[05 04 05 6C 05 CC 06 20 06 72],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 06 BE 07 0B 07 52 07 99],
+						[07 DD 08 60 08 63],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 67 01 4C 01 9B 02 21],
+						[02 8D 02 F3 03 59 03 B0 04 29],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 04 9B 04 FF 05 50 05 9D],
+						[06 16 06 8E 07 00 07 65 07 C8],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 08 24 08 83 08 DC 09 31],
+						[09 84 0A 31 0A 35],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 38],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 B8 01 7F 01 CD 02 20],
+						[02 6A 02 B2 02 F9 03 3E 03 AB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 04 09 04 61 04 B0 04 F4],
+						[05 67 05 CD 06 32 06 90 06 DF],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 07 32 07 81 07 CC 08 15],
+						[08 5B 08 E3 08 E6],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 60 01 27 01 76 01 C1],
+						[02 07 02 49 02 8A 02 CA 03 2F],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 03 85 03 D5 04 1C 04 58],
+						[04 C1 05 1B 05 75 05 C8 06 12],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 06 59 06 9D 06 E0 07 21],
+						[07 5E 07 D7 07 DA],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 67 01 2E 01 8B 02 02],
+						[02 66 02 C1 03 1A 03 6E 03 EC],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 04 52 04 B2 05 07 05 4D],
+						[05 C8 06 31 06 98 06 FB 07 54],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 07 AA 07 FC 08 4D 08 9E],
+						[08 EB 09 7D 09 80],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 37],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 B8 01 5A 01 B7 02 05],
+						[02 44 02 80 02 BB 02 F5 03 5D],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 B4 04 01 04 49 04 8C],
+						[04 FE 05 5C 05 B0 06 03 06 53],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 06 9D 06 DD 07 21 07 62],
+						[07 A1 08 19 08 1C],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 60 01 02 01 60 01 A9],
+						[01 E3 02 1B 02 51 02 86 02 E7],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 03 38 03 7E 03 BF 03 FC],
+						[04 61 04 B7 05 02 05 4B 05 92],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 05 D4 06 10 06 4A 06 82],
+						[06 B9 07 24 07 27],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 67 01 09 01 71 01 DC],
+						[02 33 02 82 02 CC 03 14 03 92],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 F6 04 49 04 98 04 E0],
+						[05 58 05 BC 06 13 06 68 06 BA],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 07 0A 07 52 07 98 07 DC],
+						[08 1E 08 A2 08 A5],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 36],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 B8 01 27 01 8B 01 DA],
+						[02 0D 02 38 02 62 02 8B 02 DB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 24 03 69 03 A4 03 DB],
+						[04 40 04 9A 04 E7 05 2C 05 6A],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 05 A3 05 DC 06 14 06 4B],
+						[06 7E 06 DA 06 DC],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 60 00 CF 01 33 01 81],
+						[01 B0 01 D8 01 FF 02 25 02 6E],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 02 B2 02 F2 03 2A 03 5B],
+						[03 B7 04 08 04 4D 04 8B 04 C4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 04 F7 05 29 05 5A 05 8B],
+						[05 B9 06 0D 06 0F],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 67 00 D6 01 40 01 A1],
+						[01 E7 02 23 02 5A 02 8F 02 F3],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 4D 03 A0 03 E4 04 20],
+						[04 8E 04 EE 05 40 05 88 05 CB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 06 06 06 40 06 7A 06 B2],
+						[06 E9 07 4E 07 51],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 35],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 B8 01 27 01 8B 01 DA],
+						[02 0D 02 38 02 62 02 8B 02 DB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 24 03 69 03 A4 03 DB],
+						[04 40 04 9A 04 E7 05 2C 05 6A],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 05 A3 05 DC 06 14 06 4B],
+						[06 7E 06 DA 06 DC],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 60 00 CF 01 33 01 81],
+						[01 B0 01 D8 01 FF 02 25 02 6E],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 02 B2 02 F2 03 2A 03 5B],
+						[03 B7 04 08 04 4D 04 8B 04 C4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 04 F7 05 29 05 5A 05 8B],
+						[05 B9 06 0D 06 0F],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 67 00 D6 01 40 01 A1],
+						[01 E7 02 23 02 5A 02 8F 02 F3],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 4D 03 A0 03 E4 04 20],
+						[04 8E 04 EE 05 40 05 88 05 CB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 06 06 06 40 06 7A 06 B2],
+						[06 E9 07 4E 07 51],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 34],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 B8 01 27 01 8B 01 DA],
+						[02 0D 02 38 02 62 02 8B 02 DB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 24 03 69 03 A4 03 DB],
+						[04 40 04 9A 04 E7 05 2C 05 6A],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 05 A3 05 DC 06 14 06 4B],
+						[06 7E 06 DA 06 DC],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 60 00 CF 01 33 01 81],
+						[01 B0 01 D8 01 FF 02 25 02 6E],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 02 B2 02 F2 03 2A 03 5B],
+						[03 B7 04 08 04 4D 04 8B 04 C4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 04 F7 05 29 05 5A 05 8B],
+						[05 B9 06 0D 06 0F],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 67 00 D6 01 40 01 A1],
+						[01 E7 02 23 02 5A 02 8F 02 F3],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 4D 03 A0 03 E4 04 20],
+						[04 8E 04 EE 05 40 05 88 05 CB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 06 06 06 40 06 7A 06 B2],
+						[06 E9 07 4E 07 51],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 33],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 B8 01 27 01 8B 01 DA],
+						[02 0D 02 38 02 62 02 8B 02 DB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 24 03 69 03 A4 03 DB],
+						[04 40 04 9A 04 E7 05 2C 05 6A],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 05 A3 05 DC 06 14 06 4B],
+						[06 7E 06 DA 06 DC],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 60 00 CF 01 33 01 81],
+						[01 B0 01 D8 01 FF 02 25 02 6E],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 02 B2 02 F2 03 2A 03 5B],
+						[03 B7 04 08 04 4D 04 8B 04 C4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 04 F7 05 29 05 5A 05 8B],
+						[05 B9 06 0D 06 0F],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 67 00 D6 01 40 01 A1],
+						[01 E7 02 23 02 5A 02 8F 02 F3],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 4D 03 A0 03 E4 04 20],
+						[04 8E 04 EE 05 40 05 88 05 CB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 06 06 06 40 06 7A 06 B2],
+						[06 E9 07 4E 07 51],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 32],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 B8 01 27 01 8B 01 DA],
+						[02 0D 02 38 02 62 02 8B 02 DB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 24 03 69 03 A4 03 DB],
+						[04 40 04 9A 04 E7 05 2C 05 6A],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 05 A3 05 DC 06 14 06 4B],
+						[06 7E 06 DA 06 DC],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 60 00 CF 01 33 01 81],
+						[01 B0 01 D8 01 FF 02 25 02 6E],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 02 B2 02 F2 03 2A 03 5B],
+						[03 B7 04 08 04 4D 04 8B 04 C4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 04 F7 05 29 05 5A 05 8B],
+						[05 B9 06 0D 06 0F],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 67 00 D6 01 40 01 A1],
+						[01 E7 02 23 02 5A 02 8F 02 F3],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 4D 03 A0 03 E4 04 20],
+						[04 8E 04 EE 05 40 05 88 05 CB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 06 06 06 40 06 7A 06 B2],
+						[06 E9 07 4E 07 51],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 31],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 B8 01 27 01 8B 01 DA],
+						[02 0D 02 38 02 62 02 8B 02 DB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 03 24 03 69 03 A4 03 DB],
+						[04 40 04 9A 04 E7 05 2C 05 6A],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 05 A3 05 DC 06 14 06 4B],
+						[06 7E 06 DA 06 DC],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 60 00 CF 01 33 01 81],
+						[01 B0 01 D8 01 FF 02 25 02 6E],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 02 B2 02 F2 03 2A 03 5B],
+						[03 B7 04 08 04 4D 04 8B 04 C4],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 04 F7 05 29 05 5A 05 8B],
+						[05 B9 06 0D 06 0F],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 67 00 D6 01 40 01 A1],
+						[01 E7 02 23 02 5A 02 8F 02 F3],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 03 4D 03 A0 03 E4 04 20],
+						[04 8E 04 EE 05 40 05 88 05 CB],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 06 06 06 40 06 7A 06 B2],
+						[06 E9 07 4E 07 51],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[BF 30],
+					//R+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B0 00 B8 00 CD 00 F6 01 36],
+						[01 5C 01 81 01 96 01 A5 01 C2],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B1 01 DE 01 F1 02 04 02 15],
+						[02 36 02 55 02 74 02 92 02 B0],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B2 02 CE 02 EB 03 06 03 21],
+						[03 3B 03 6E 03 6F],
+					//G+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B3 00 60 00 75 00 9E 00 DE],
+						[01 04 01 29 01 3E 01 4C 01 6A],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B4 01 84 01 96 01 A8 01 B8],
+						[01 D6 01 F3 02 10 02 2C 02 47],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B5 02 62 02 7D 02 96 02 AF],
+						[02 C8 02 F7 02 F8],
+					//B+],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B6 00 67 00 7C 00 A5 00 E6],
+						[01 0E 01 36 01 4D 01 60 01 84],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[B7 01 A6 01 C0 01 DA 01 F3],
+						[02 20 02 49 02 71 02 98 02 BE],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B8 02 E3 03 06 03 28 03 4A],
+						[03 69 03 A6 03 A7],
+					//By Gamma Update Echo],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[CE 01],
+					//By 26h/51h/38h/39h Change],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[CC 00],
+
+					//CMD2_Page0],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+						[F0 55 AA 52 08 00],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 21],
+						[B3 00 08 00 18 00 18 00],
+						[31 00 31 00 62 00 62 00 C0 00 C0 01 46 01],
+						[46 01 47 01 47 02 F5 02 F5 04 A3],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[6F 20],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0d],
+						[B3 04 A3 06 51 06 51 07],
+						[FF 07 FF 0F FF],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 21],
+						[B4 08 E0 08 E0 08 70 08],
+						[70 07 C0 07 C0 06 6C 06 6C 03 DC 03 DC 00],
+						[34 00 34 00 30 00 30 00 30 00 30],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[6F 20],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 0f],
+						[B4 00 30 00 30 00 30 00],
+						[30 00 30 00 30 00 30],
+
+					//CMD2_Page2],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+						[F0 55 AA 52 08 02],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 19],
+						[B9 00 04 00 0C 00 1C 00],
+						[2C 00 3C 00 4C 00 5C 00 7C 00 9C 00 BC 00],
+						[DC 00 FC],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 19],
+						[BA 01 3C 01 7C 01 BC 01],
+						[FC 02 3C 02 7C 02 BC 02 FC 03 3C 03 7C 03],
+						[FC 03 FF],
+
+/*mode switch*/
+				/* ESD */
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+						[F0 55 AA 52 08 00],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 05],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 BE 08],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 01],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 BE 45],
+				/* DC init Code */
+				/* 3.1 DVDD Strong */
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+						[F0 55 AA 52 08 01],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 05],
+						[C5 00 0B 0B 0B],
+				/* DSC setting */
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03 90 13 03],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+						[91 AB 28 00 0C C2 00],
+						[03 1C 01 7E 00 0F 08 BB],
+						[04 3D 10 F0],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 1F 70],
+				/* 3.2 TE ON */
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 35 00],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 5A 01],
+				/* 3.3 CASET/RASET Setting*/
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 05],
+						[2A 00 00 04 37],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 05],
+						[2B 00 00 09 5F],
+				/* 3.4 Dimming ON Setting */
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 53 28],
+				/* 3.4.1 Adjusting dimming speed */
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+						[F0 55 AA 52 08 00],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 05],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03 B2 08 08],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 09],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03 B2 5F 5F],
+
+				/*RTE*/
+				/* EM cycle 612 */
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 13],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03 C0 02 64],
+				/* XXXX */
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 1F],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 C0 38],
+				/* AFP */
+					[MTK_LCM_PHASE_TYPE_HEX_START 01 MTK_LCM_PHASE_HEX_KERNEL],
+					//60fps
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 00 6F 26],
+					//80fps
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 01 6F 26],
+					//96fps
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 02 6F 26],
+					//120fps
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 03 6F 22],
+					[MTK_LCM_PHASE_TYPE_HEX_END 01 MTK_LCM_PHASE_HEX_KERNEL],
+
+					[MTK_LCM_PHASE_TYPE_HEX_START 02 MTK_LCM_PHASE_HEX_LK],
+						[MTK_LCM_PHASE_HEX_LK_DISPLAY_ON_DELAY],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 26],
+					[MTK_LCM_PHASE_TYPE_HEX_END 02 MTK_LCM_PHASE_HEX_LK],
+						[MTK_LCM_PHASE_HEX_LK_DISPLAY_ON_DELAY],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03 C0 01 F4],
+				/* protection period */
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 20],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03 C0 02 00],
+				/* Valid TE period */
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 40 07],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 01],
+					[MTK_LCM_PHASE_TYPE_HEX_START 01 MTK_LCM_PHASE_HEX_KERNEL],
+					//60fps
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 00 40 12 BC],
+					//80fps
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 01 40 0D F8],
+					//96fps
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 02 40 0D F8],
+					//120fps
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 03 40 09 2C],
+					[MTK_LCM_PHASE_TYPE_HEX_END 01 MTK_LCM_PHASE_HEX_KERNEL],
+
+					[MTK_LCM_PHASE_TYPE_HEX_START 02 MTK_LCM_PHASE_HEX_LK],
+						[MTK_LCM_PHASE_HEX_LK_DISPLAY_ON_DELAY],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03 40 12 BC],
+					[MTK_LCM_PHASE_TYPE_HEX_END 02 MTK_LCM_PHASE_HEX_LK],
+						[MTK_LCM_PHASE_HEX_LK_DISPLAY_ON_DELAY],
+
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 03],
+
+					[MTK_LCM_PHASE_TYPE_HEX_START 01 MTK_LCM_PHASE_HEX_KERNEL],
+					//60fps
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 00 40 15 20],
+					//80fps
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 01 40 10 5C],
+					//96fps
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 02 40 10 5C],
+					//120fps
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 03 40 0B 90],
+					[MTK_LCM_PHASE_TYPE_HEX_END 01 MTK_LCM_PHASE_HEX_KERNEL],
+
+					[MTK_LCM_PHASE_TYPE_HEX_START 02 MTK_LCM_PHASE_HEX_LK],
+						[MTK_LCM_PHASE_HEX_LK_DISPLAY_ON_DELAY],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03 40 15 20],
+					[MTK_LCM_PHASE_TYPE_HEX_END 02 MTK_LCM_PHASE_HEX_LK],
+						[MTK_LCM_PHASE_HEX_LK_DISPLAY_ON_DELAY],
+
+				/* 3.5 Frame Rate 60Hz GIR OFF */
+					[MTK_LCM_PHASE_TYPE_HEX_START 01 MTK_LCM_PHASE_HEX_KERNEL],
+					//60fps
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 00 2F 03],
+					//80fps
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 01 2F 02],
+					//96fps
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 02 2F 01],
+					//120fps
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 03 2F 00],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 03 26 00],
+					[MTK_LCM_PHASE_TYPE_HEX_END 01 MTK_LCM_PHASE_HEX_KERNEL],
+
+					[MTK_LCM_PHASE_TYPE_HEX_START 02 MTK_LCM_PHASE_HEX_LK],
+						[MTK_LCM_PHASE_HEX_LK_DISPLAY_ON_DELAY],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 03],
+					[MTK_LCM_PHASE_TYPE_HEX_END 02 MTK_LCM_PHASE_HEX_LK],
+						[MTK_LCM_PHASE_HEX_LK_DISPLAY_ON_DELAY],
+
+				/* 3.6 GIR OFF */
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 5F 01],
+				/* 3.7 DBV */
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03 51 07 FF],
+
+				/* set tear_scanline = 2400 */
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03 44 09 60],
+
+				/* 4. User Command Set */
+				/* Sleep Out */
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 01 11],
+					[MTK_LCM_PHASE_TYPE_HEX_START 02],
+						[MTK_LCM_PHASE_HEX_KERNEL MTK_LCM_PHASE_HEX_LK],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 78],
+				/* Display On */
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 29 00],
+					[MTK_LCM_PHASE_TYPE_HEX_END 02],
+						[MTK_LCM_PHASE_HEX_KERNEL MTK_LCM_PHASE_HEX_LK],
+					[MTK_LCM_TYPE_HEX_END];
+
+				unprepare_table = [MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 01 28],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 32],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 01 10],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 96],
+					[MTK_LCM_TYPE_HEX_END];
+
+				set_display_on_table = [MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 01 29],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 64],
+					[MTK_LCM_TYPE_HEX_END];
+
+				lcm_update_table = [MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_COUNT 01 03],
+						[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM 05],
+						[00 00 05 39 02],
+					/*2a is of data[1] bit0 */
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_FIX_BIT 03 01 00 2a],
+					/*x0_msb is of data[1] bit8 */
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_X0_MSB_BIT 03 01 08 00],
+					/*x0_lsb is of data[1] bit16 */
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_X0_LSB_BIT 03 01 10 00],
+					/*x1_msb is of data[1] bit24 */
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_X1_MSB_BIT 03 01 18 00],
+					/*x0_lsb is of data[2] bit0 */
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_X1_LSB_BIT 03 02 00 00],
+					[MTK_LCM_LK_TYPE_HEX_WRITE_PARAM 00],
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_COUNT 01 03],
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM 05],
+						[00 00 05 39 02],
+					/*2b is of data[1] bit0 */
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_FIX_BIT 03 01 00 2b],
+					/*y0_msb is of data[1] bit8 */
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_Y0_MSB_BIT 03 01 08 00],
+					/*y0_lsb is of data[1] bit16 */
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_Y0_LSB_BIT 03 01 10 00],
+					/*y1_msb is of data[1] bit24 */
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_Y1_MSB_BIT 03 01 18 00],
+					/*y0_lsb is of data[2] bit0 */
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_Y1_LSB_BIT 03 02 00 00],
+					[MTK_LCM_LK_TYPE_HEX_WRITE_PARAM 00],
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_COUNT 01 01],
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM 05],
+						[00 00 2c 39 09],
+					[MTK_LCM_LK_TYPE_HEX_WRITE_PARAM_UNFORCE 00],
+					[MTK_LCM_TYPE_HEX_END];
+
+				set_backlight_mask = <0x7ff>;
+				set_backlight_cmdq_table =
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 08],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_BACKLIGHT 02 01 02],
+						[03 51 07 FF],
+					[MTK_LCM_TYPE_HEX_END];
+
+				set_elvss_cmdq_table;
+				set_backlight_elvss_cmdq_table;
+
+				set_aod_light_mask = <0xff>;
+				set_aod_light_table;
+
+				ata_id_value_data = [01 25 00];
+				ata_check_table =
+					[MTK_LCM_CMD_TYPE_HEX_READ_CMD 03 00 03 04],
+					[MTK_LCM_TYPE_HEX_END];
+
+				compare_id_value_data = [00];
+				compare_id_table = [MTK_LCM_UTIL_TYPE_HEX_RESET 01 01],
+					[MTK_LCM_UTIL_TYPE_HEX_RESET 01 00],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 01],
+					[MTK_LCM_UTIL_TYPE_HEX_RESET 01 01],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 14],
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_COUNT 01 01],
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM 05],
+						[00 00 01 37 00],
+					[MTK_LCM_LK_TYPE_HEX_WRITE_PARAM 00],
+					[MTK_LCM_CMD_TYPE_HEX_READ_BUFFER 03 00 01 bf],
+					[MTK_LCM_TYPE_HEX_END];
+
+				doze_enable_start_table;
+
+				doze_enable_table;
+
+				doze_disable_table;
+
+				doze_area_table;
+
+				doze_post_disp_on_table;
+
+				hbm_set_cmdq_switch_id;
+				hbm_set_cmdq_switch_on;
+				hbm_set_cmdq_switch_off;
+				hbm_set_cmdq_table;
+
+				read_panelid_len = <0>;
+				read_panelid_table;
+
+				msync_request_mte_table =
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[3F 00],
+					[MTK_LCM_TYPE_HEX_END];
+
+				msync_close_mte_default_table =
+					//60fps
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 00 2F 03],
+					//80fps
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 01 2F 02],
+					//96fps
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 02 2F 01],
+					//120fps
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 03 2F 00],
+					[MTK_LCM_TYPE_HEX_END];
+
+				msync_default_mte_table;
+
+				/* set min fps cmd for msync 2.0 feature */
+				msync-set-min-fps {
+					compatible =
+						"mediatek,lcm-ops-dsi-msync-set-min-fps";
+
+					//60fps
+					msync_min_fps_list_0_1080_2400_60 =
+						<60 53 48>;
+					msync_set_min_fps_table_0_1080_2400_60 =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+							[F0 55 AA 52 08 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+							[6F 22],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03],
+							[C0 01 F4],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+							[6F 03],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03],
+							[40 09 6F],
+						[MTK_LCM_TYPE_HEX_END];
+
+					//80fps
+					msync_min_fps_list_1_1080_2400_80 =
+						<80 68 60 53 48>;
+					msync_set_min_fps_table_1_1080_2400_80 =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+							[F0 55 AA 52 08 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+							[6F 22],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03],
+							[C0 01 F4],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+							[6F 03],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03],
+							[40 09 6F],
+						[MTK_LCM_TYPE_HEX_END];
+
+					//96fps
+					msync_min_fps_list_2_1080_2400_96 =
+						<96 80 68 60 53 48>;
+					msync_set_min_fps_table_2_1080_2400_96 =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+							[F0 55 AA 52 08 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+							[6F 22],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03],
+							[C0 01 F4],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+							[6F 03],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03],
+							[40 09 6F],
+						[MTK_LCM_TYPE_HEX_END];
+
+					//120fps
+					msync_min_fps_list_3_1080_2400_120 =
+						<120 96 80 68 60 53 48>;
+					msync_set_min_fps_table_3_1080_2400_120 =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+							[F0 55 AA 52 08 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+							[6F 22],
+						//120fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 78 C0 01 F4],
+						//96fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 60 C0 01 F4],
+						//80fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 50 C0 03 E8],
+						//68fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 44 C0 05 DC],
+						//60fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 3C C0 07 D0],
+						//53fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 35 C0 09 C4],
+						//48fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 30 C0 0B B8],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+							[6F 03],
+
+						//120fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 78 40 09 6F],
+						//96fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 60 40 0B 70],
+						//80fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 50 40 0D 64],
+						//68fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 44 40 0F 58],
+						//60fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 3C 40 11 4C],
+						//53fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 35 40 13 40],
+						//48fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS 30 40 15 34],
+						[MTK_LCM_TYPE_HEX_END];
+				};
+
+				/* fps switch cmd for msync 2.0 feature */
+				msync-switch-mte {
+					compatible =
+						"mediatek,lcm-ops-dsi-msync-switch-mte";
+
+					msync_switch_mte_mode_list = <0 1 2 3>;
+					msync_switch_mte_default_table =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+						[F0 55 AA 52 08 00],
+					/*RTE*/
+					/* EM cycle 612 */
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[6F 13],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03],
+						[C0 02 64],
+					/* XXXX */
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[6F 1F],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[C0 38],
+					/* AFP */
+						//60fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 00 6F 28],
+						//80fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 01 6F 26],
+						//96fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 02 6F 24],
+						//120fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 03 6F 22],
+
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03],
+						[C0 03 E8],
+					/* protection period */
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[6F 20],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03],
+						[C0 02 00],
+					/* Valid TE period */
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[40 07],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[6F 01],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03],
+						[40 09 7A],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
+						[6F 03],
+						//60fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 00 40 17 D0],
+						//80fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 01 40 13 08],
+						//96fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 02 40 10 A4],
+						//120fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 03 40 0E 40],
+
+					/* 3.5 GIR OFF */
+						//60fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 00 2F 13],
+						//80fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 01 2F 12],
+						//96fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 02 2F 11],
+						//120fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 03 2F 10],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 03 26 00],
+						[MTK_LCM_TYPE_HEX_END];
+				};
+
+				/* fps switch cmd for high frame rate feature */
+				lcm-ops-dsi-fps-switch-after-poweron {
+					compatible =
+						"mediatek,lcm-ops-dsi-fps-switch-after-poweron";
+
+					fps_switch_mode_list = <0 1 2 3>;
+					default_fps_switch_table =
+					/* ESD */
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+							[F0 55 AA 52 08 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 05],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 BE 08],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 01],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 BE 45],
+					/* DC init Code */
+					/* 3.1 DVDD Strong */
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+							[F0 55 AA 52 08 01],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 05],
+							[C5 00 0B 0B 0B],
+					/* DSC setting */
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03 90 13 03],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
+							[91 AB 28 00 0C C2 00],
+							[03 1C 01 7E 00 0F 08 BB],
+							[04 3D 10 F0],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 1F 70],
+					/* 3.2 TE ON */
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 35 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 5A 01],
+					/* 3.3 CASET/RASET Setting*/
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 05],
+							[2A 00 00 04 37],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 05],
+							[2B 00 00 09 5F],
+					/* 3.4 Dimming ON Setting */
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 53 28],
+					/* 3.4.1 Adjusting dimming speed */
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+							[F0 55 AA 52 08 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 05],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03 B2 08 08],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 09],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03 B2 5F 5F],
+
+					/*RTE*/
+					/* EM cycle 612 */
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 13],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03 C0 02 64],
+					/* XXXX */
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 1F],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 C0 38],
+					/* AFP */
+						//60fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 00 6F 26],
+						//80fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 01 6F 26],
+						//96fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 02 6F 26],
+						//120fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 03 6F 22],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03 C0 01 F4],
+					/* protection period */
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 20],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03 C0 02 00],
+					/* Valid TE period */
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 40 07],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 01],
+						//60fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 00 40 12 BC],
+						//80fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 01 40 0D F8],
+						//96fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 02 40 0D F8],
+						//120fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 03 40 09 2C],
+
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 03],
+
+						//60fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 00 40 15 20],
+						//80fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 01 40 10 5C],
+						//96fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 02 40 10 5C],
+						//120fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 05],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 03 40 0B 90],
+
+					/* 3.5 Frame Rate 60Hz GIR OFF */
+						//60fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 00 2F 03],
+						//80fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 01 2F 02],
+						//96fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 02 2F 01],
+						//120fps
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 03 2F 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_CONDITION 04],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE 03 26 00],
+						[MTK_LCM_TYPE_HEX_END];
+				};
+
+				lcm-ops-dsi-fps-switch-before-powerdown {
+					compatible =
+						"mediatek,lcm-ops-dsi-fps-switch-before-powerdown";
+
+					fps_switch_mode_list;
+					default_fps_switch_table;
+				};
+			};
+		};
+	};
+};
+
