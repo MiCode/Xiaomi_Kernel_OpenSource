@@ -187,6 +187,16 @@ static void mtk8250_clear_wakeup(void)
 }
 
 #if IS_ENABLED(CONFIG_MTK_UARTHUB)
+int mtk8250_uart_hub_reset_flow_ctrl(void)
+{
+	#if defined(KERNEL_UARTHUB_reset_flow_control)
+		return KERNEL_UARTHUB_reset_flow_control();
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_reset_flow_ctrl);
+
 int mtk8250_uart_hub_dump_with_tag(const char *tag)
 {
 	#if defined(KERNEL_UARTHUB_dump_debug_info_with_tag)
