@@ -182,11 +182,13 @@ static int mvpu_validation(void *hnd)
 #ifdef MVPU_SEC_BLOCK_EDMA_KERNEL
 	if ((batch_name_hash & RT_BATCH_KERNEL_USING_EDMA) != 0x0) {
 		if (algo_in_img == false) {
-			pr_info("[MVPU][Sec] [ERROR] batch 0x%08x using EDMA function is forbiddened!!!\n",
+			if (mvpu_loglvl_drv >= APUSYS_MVPU_LOG_DBG)
+				pr_info("[MVPU][Sec] [ERROR] batch 0x%08x using EDMA function is forbiddened!!!\n",
 						batch_name_hash);
-
+#ifdef MVPU_SEC_BLOCK_EDMA_KERNEL_RETURN
 			ret = -1;
 			goto END;
+#endif // MVPU_SEC_BLOCK_EDMA_KERNEL_RETURN
 		}
 	}
 #endif
@@ -1074,6 +1076,15 @@ static int mvpu_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 
 	dev_info(dev, "mvpu probe start\n");
+	ret = mvpu_plat_info_init(pdev);
+	if (!ret) {
+		dev_info(dev, "(f:%s/l:%d) mvpu get plat info pass\n",
+						__func__, __LINE__);
+	} else {
+		dev_info(dev, "(f:%s/l:%d) mvpu get plat info fail\n",
+						__func__, __LINE__);
+		return ret;
+	}
 
 	ret = mvpu_apusys_register(pdev);
 	if (!ret) {

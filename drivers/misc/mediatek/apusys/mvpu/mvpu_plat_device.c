@@ -16,12 +16,11 @@
 #include <linux/sched/clock.h>
 
 static struct mvpu_plat_drv mt6983_drv = { .sw_preemption_level = 1, };
-
 static struct mvpu_plat_drv mt8139_drv = { .sw_preemption_level = 1, };
-
 static struct mvpu_plat_drv mt6879_drv = { .sw_preemption_level = 1, };
-
 static struct mvpu_plat_drv mt6895_drv = { .sw_preemption_level = 1, };
+static struct mvpu_plat_drv mt6985_drv = { .sw_preemption_level = 1, };
+static struct mvpu_plat_drv mt6886_drv = { .sw_preemption_level = 1, };
 
 static const struct of_device_id mvpu_of_match[] = {
 	{
@@ -41,6 +40,14 @@ static const struct of_device_id mvpu_of_match[] = {
 	.data = &mt6895_drv
 	},
 	{
+	.compatible = "mediatek, mt6985-mvpu",
+	.data = &mt6985_drv
+	},
+	{
+	.compatible = "mediatek, mt6886-mvpu",
+	.data = &mt6886_drv
+	},
+	{
 	/* end of list */
 
 	},
@@ -53,14 +60,13 @@ const struct of_device_id *mvpu_plat_get_device(void)
 	return mvpu_of_match;
 }
 
-int mvpu_plat_init(struct platform_device *pdev)
+int mvpu_plat_info_init(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct device *dev = &(pdev->dev);
 	struct mvpu_plat_drv *plat_drv;
-	uint64_t mask = 0;
 
-	of_property_read_u32(dev->of_node, "core_num", &nr_core_ids);
+	of_property_read_u32(dev->of_node, "core-num", &nr_core_ids);
 
 	dev_info(&pdev->dev, "nr_core_ids = %d\n", nr_core_ids);
 
@@ -83,6 +89,15 @@ int mvpu_plat_init(struct platform_device *pdev)
 
 	dev_info(dev, "core number = %d, sw_preemption_level = 0x%x\n",
 		nr_core_ids, sw_preemption_level);
+
+	return ret;
+}
+
+int mvpu_plat_init(struct platform_device *pdev)
+{
+	int ret = 0;
+	struct device *dev = &(pdev->dev);
+	uint64_t mask = 0;
 
 	// get dma mask
 	of_property_read_u64(dev->of_node, "mask", &mask);
@@ -111,7 +126,6 @@ int mvpu_plat_init(struct platform_device *pdev)
 
 int mvpu_config_init(struct mtk_apu *apu)
 {
-
 	int id, level = 0;
 
 	struct mvpu_preempt_data *info;
@@ -120,7 +134,7 @@ int mvpu_config_init(struct mtk_apu *apu)
 	uint32_t *addr0;
 	uint32_t *addr1;
 
-	pr_info("core number = %d, sw_preemption_level = 0x%x\n",
+	pr_info("%s core number = %d, sw_preemption_level = 0x%x\n", __func__,
 			nr_core_ids, sw_preemption_level);
 
 	info = (struct mvpu_preempt_data *) get_apu_config_user_ptr(
@@ -204,8 +218,7 @@ int mvpu_config_init(struct mtk_apu *apu)
 			} else {
 				pr_info("nr_core_ids error\n");
 			}
-
-	}
+		}
 	}
 	return 0;
 }

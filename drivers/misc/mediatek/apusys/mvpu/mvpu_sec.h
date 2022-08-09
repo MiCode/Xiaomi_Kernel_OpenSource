@@ -30,6 +30,7 @@
 #define MVPU_SEC_USE_OLDEST_HASH_ID    //TBD: clear and use oldest hash id
 
 #define MVPU_SEC_BLOCK_EDMA_KERNEL   // Forbidden edma in kernel code
+// #define MVPU_SEC_BLOCK_EDMA_KERNEL_RETURN // FIXME: block jobs to use edma in kernel code
 #define RT_BATCH_KERNEL_USING_EDMA	(1 << 27)
 #define RT_BATCH_HASH_EXEC_CNT      ((1 << 31) | (1 << 30) | (1 << 29) | (1 << 28))
 #define MPVU_BATCH_MASK             0x07FFFFFF
