@@ -786,6 +786,17 @@ config DRM_PANEL_ALPHA_JDI_NT36672E_CPHY_VDO
 	  resolution and uses 24-bits RGB per pixel. It provides a
 	  MIPI DSI interface to host.
 
+config DRM_PANEL_L12A_42_02_0A_DSC_CMD
+	tristate "L12A 42 02 0A DSC cmd mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for ALPHA JDI NT36672E
+	  CPHY vdo mode Full HD Plus panel. The panel has a 1080x2400
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
 config DRM_PANEL_ALPHA_JDI_NT36672E_VDO_120HZ
 	tristate "ALPHA JDI FHD+ DPHY vdo mode 120HZ panel"
 	depends on OF
