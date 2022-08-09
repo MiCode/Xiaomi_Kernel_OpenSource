@@ -312,7 +312,12 @@ static int md_cd_start(struct ccci_modem *md)
 
 	if (md->per_md_data.config.setting & MD_SETTING_FIRST_BOOT) {
 		if (md->hw_info->plat_ptr->remap_md_reg)
-			md->hw_info->plat_ptr->remap_md_reg(md);
+			ret = md->hw_info->plat_ptr->remap_md_reg(md);
+		if (ret < 0) {
+			CCCI_BOOTUP_LOG(0, TAG,
+				"remap fail %d\n", ret);
+			goto out;
+		}
 		md_sys1_sw_init(md);
 
 		//ccci_hif_late_init(md->hif_flag);
@@ -446,7 +451,7 @@ static void debug_in_flight_mode(struct ccci_modem *md)
 					mdss_dbg->size);
 				}
 				if (md->hw_info->plat_ptr->debug_reg)
-					md->hw_info->plat_ptr->debug_reg(md);
+					md->hw_info->plat_ptr->debug_reg(md, true);
 	/* cldma_dump_register(CLDMA_HIF_ID);*/
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 				aed_md_exception_api(
@@ -507,7 +512,7 @@ static int md_cd_pre_stop(struct ccci_modem *md, unsigned int stop_type)
 					mdss_dbg->size);
 			}
 			if (md->hw_info->plat_ptr->debug_reg)
-				md->hw_info->plat_ptr->debug_reg(md);
+				md->hw_info->plat_ptr->debug_reg(md, true);
 			/* cldma_dump_register(CLDMA_HIF_ID);*/
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 			aed_md_exception_api(NULL, 0, NULL, 0,
@@ -841,7 +846,7 @@ static int md_cd_dump_info(struct ccci_modem *md,
 		}
 
 		ccci_hif_dump_status(1 << CCIF_HIF_ID, DUMP_FLAG_CCIF,
-			buff, length);
+			dest_buff, length);
 	}
 
 	/*HIF related dump flag*/
@@ -850,7 +855,7 @@ static int md_cd_dump_info(struct ccci_modem *md,
 		ccci_hif_dump_status(md->hif_flag, flag, NULL, length);
 
 	if ((flag & DUMP_FLAG_REG) && md->hw_info->plat_ptr->debug_reg)
-		md->hw_info->plat_ptr->debug_reg(md);
+		md->hw_info->plat_ptr->debug_reg(md, true);
 	if (flag & DUMP_FLAG_SMEM_EXP) {
 		struct ccci_smem_region *mdccci_dbg =
 			ccci_md_get_smem_by_user_id(SMEM_USER_RAW_MDCCCI_DBG);

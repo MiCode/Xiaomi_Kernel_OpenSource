@@ -101,6 +101,32 @@ EXPORT_SYMBOL(ccci_dump);
 
 static int md_cd_io_remap_md_side_register(struct ccci_modem *md)
 {
+	struct arm_smccc_res res;
+	unsigned long long buf_addr, buf_size;
+
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_DEBUG_DUMP,
+		MD_REG_DUMP_START, MD_REG_DUMP_MAGIC, 0, 0, 0, 0, &res);
+
+	buf_addr = res.a1;
+	buf_size = res.a2;
+
+	if ((res.a0 & 0xffff0000) != 0) {
+		CCCI_NORMAL_LOG(-1, TAG, "[%s] kernel md reg dump flow\n", __func__);
+		return 0;
+	}
+
+	if (buf_addr <= 0 || buf_size <= 0)
+		return -1;
+
+	/* get read buffer, remap */
+	md->ioremap_buff_src = ioremap_wt(buf_addr, buf_size);
+	if (md->ioremap_buff_src == NULL) {
+		CCCI_ERROR_LOG(0, TAG,
+			"Dump MD failed to ioremap 0x%llx bytes from 0x%llx\n",
+			buf_size, buf_addr);
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -194,7 +220,7 @@ u32 get_expected_boot_status_val(void)
 }
 
 static atomic_t reg_dump_ongoing;
-static void md_cd_dump_debug_register(struct ccci_modem *md)
+static void md_cd_dump_debug_register(struct ccci_modem *md, bool isr_skip_dump)
 {
 	/* MD no need dump because of bus hang happened - open for debug */
 	unsigned int reg_value[2] = { 0 };
@@ -221,7 +247,7 @@ static void md_cd_dump_debug_register(struct ccci_modem *md)
 			"get 0x%X, expect 0x%X, no dump\n", reg_value[0], boot_status_val);
 		return;
 	}
-	if (unlikely(in_interrupt())) {
+	if (in_interrupt() && isr_skip_dump) {
 		CCCI_MEM_LOG_TAG(0, TAG,
 			"In interrupt, skip dump MD debug register.\n");
 		return;
@@ -233,7 +259,7 @@ static void md_cd_dump_debug_register(struct ccci_modem *md)
 	}
 
 	md_cd_lock_modem_clock_src(1);
-	md_dump_reg();
+	md_dump_reg(md);
 	md_cd_lock_modem_clock_src(0);
 
 	atomic_set(&reg_dump_ongoing, 0);

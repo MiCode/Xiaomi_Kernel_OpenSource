@@ -150,6 +150,7 @@ struct ccci_modem {
 	struct md_hw_info *hw_info;
 
 	struct ccci_per_md per_md_data;
+	void *ioremap_buff_src;
 };
 
 extern struct ccci_modem *modem_sys;

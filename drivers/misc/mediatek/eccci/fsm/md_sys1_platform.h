@@ -68,7 +68,7 @@ struct ccci_plat_ops {
 	int (*remap_md_reg)(struct ccci_modem *md);
 	void (*lock_modem_clock_src)(int locked);
 	void (*get_md_bootup_status)(unsigned int *buff, int length);
-	void (*debug_reg)(struct ccci_modem *md);
+	void (*debug_reg)(struct ccci_modem *md, bool isr_skip_dump);
 	int (*pccif_send)(struct ccci_modem *md, int channel_id);
 	void (*check_emi_state)(struct ccci_modem *md, int polling);
 	int (*soft_power_off)(struct ccci_modem *md, unsigned int mode);

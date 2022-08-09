@@ -9,6 +9,7 @@
 #include "cldma_reg.h"
 #include "modem_secure_base.h"
 #include "ap_md_reg_dump.h"
+#include "modem_sys.h"
 
 #define TAG "mcd"
 
@@ -749,8 +750,6 @@ void internal_md_dump_debug_register(void)
 	iounmap(dump_reg0);
 }
 
-#define MD_REG_DUMP_MAGIC   (0x44554D50) /* DUMP */
-
 static int md_dump_mem_once(const void *buff_src, unsigned long dump_len)
 {
 	int ret;
@@ -806,7 +805,7 @@ static int md_dump_mem_once(const void *buff_src, unsigned long dump_len)
 	return i;
 }
 
-void md_dump_reg(void)
+void md_dump_reg(struct ccci_modem *md)
 {
 	struct arm_smccc_res res;
 	unsigned long long buf_addr, buf_size, total_len = 0;
@@ -824,13 +823,24 @@ void md_dump_reg(void)
 	/* go kernel debug red dump,fix me,we need make it more compatible later */
 	if ((res.a0 & 0xffff0000) != 0) {
 		CCCI_NORMAL_LOG(-1, TAG, "[%s] go kernel md reg dump\n", __func__);
+
+		/* FIX ME
+		 * can't call ioremap in interrupt,
+		 * move ioremap to md_cd_start flow in the future.
+		 */
+		if (in_interrupt()) {
+			CCCI_MEM_LOG_TAG(0, TAG,
+				"In interrupt, skip internal_md_dump_debug_register\n");
+			return;
+		}
 		internal_md_dump_debug_register();
 		return;
 	}
 	if (buf_addr <= 0 || buf_size <= 0)
 		return;
+
 	/* get read buffer, remap */
-	buff_src = ioremap_wt(buf_addr, buf_size);
+	buff_src = md->ioremap_buff_src;
 	if (buff_src == NULL) {
 		CCCI_ERROR_LOG(0, TAG,
 			"Dump MD failed to ioremap 0x%llx bytes from 0x%llx\n",
@@ -872,7 +882,6 @@ DUMP_END:
 	CCCI_MEM_LOG_TAG(-1, TAG,
 		"[%s]MD register dump end 0x%x, 0x%llx, 0x%llx\n",
 		__func__, loop_max_cnt, buf_size, total_len);
-	iounmap(buff_src);
 }
 
 void md_dump_register_6873(void)

@@ -31,6 +31,8 @@ enum md_dump_flag {
 	DUMP_DELAY_us,
 };
 
+#define MD_REG_DUMP_MAGIC   (0x44554D50) /* DUMP */
+
 void md_dump_register_6873(void);
-void md_dump_reg(void);
+void md_dump_reg(struct ccci_modem *md);
 #endif

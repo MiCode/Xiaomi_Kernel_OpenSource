@@ -1619,6 +1619,30 @@ struct ccci_fsm_ctl *fsm_get_entity(void)
 EXPORT_SYMBOL(fsm_get_entity);
 
 #if IS_ENABLED(CONFIG_MTK_DEVAPC)
+void dump_md_info_in_devapc(struct ccci_modem *md)
+{
+	unsigned char ccif_sram[CCCI_EE_SIZE_CCIF_SRAM] = { 0 };
+
+	// DUMP_FLAG_CCIF_REG
+	CCCI_MEM_LOG_TAG(0, FSM, "Dump CCIF REG\n");
+	ccci_hif_dump_status(CCIF_HIF_ID, DUMP_FLAG_CCIF_REG, NULL, -1);
+
+	// DUMP_FLAG_CCIF
+	ccci_hif_dump_status(1 << CCIF_HIF_ID, DUMP_FLAG_CCIF, ccif_sram,
+			sizeof(ccif_sram));
+
+	// DUMP_FLAG_QUEUE_0_1
+	ccci_hif_dump_status(md->hif_flag, DUMP_FLAG_QUEUE_0_1, NULL, 0);
+
+	// DUMP_FLAG_REG
+	if (md->hw_info->plat_ptr->debug_reg)
+		md->hw_info->plat_ptr->debug_reg(md, false);
+
+	// DUMP_MD_BOOTUP_STATUS
+	if (md->hw_info->plat_ptr->get_md_bootup_status)
+		md->hw_info->plat_ptr->get_md_bootup_status(NULL, 0);
+}
+
 void ccci_dump_md_in_devapc(char *user_info)
 {
 	struct ccci_modem *md = NULL;
@@ -1627,9 +1651,7 @@ void ccci_dump_md_in_devapc(char *user_info)
 	md = ccci_get_modem();
 	if (md != NULL) {
 		CCCI_NORMAL_LOG(0, FSM, "%s dump start\n", __func__);
-		md->ops->dump_info(md, DUMP_FLAG_CCIF_REG | DUMP_FLAG_CCIF |
-			DUMP_FLAG_REG | DUMP_FLAG_QUEUE_0_1 |
-			DUMP_MD_BOOTUP_STATUS, NULL, 0);
+		dump_md_info_in_devapc(md);
 	} else
 		CCCI_NORMAL_LOG(0, FSM, "%s error, md is NULL!\n", __func__);
 	CCCI_NORMAL_LOG(0, FSM, "%s exit\n", __func__);
