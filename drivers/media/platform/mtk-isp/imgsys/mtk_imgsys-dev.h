@@ -261,8 +261,10 @@ struct mtk_imgsys_qos {
 	struct device *dev;
 	struct mtk_imgsys_qos_path *qos_path;
 	unsigned long bw_total[MTK_IMGSYS_DVFS_GROUP][MTK_IMGSYS_QOS_GROUP];
+	unsigned long bw_avg[MTK_IMGSYS_DVFS_GROUP][MTK_IMGSYS_QOS_GROUP];
 	unsigned long ts_total[MTK_IMGSYS_DVFS_GROUP];
 	unsigned long req_cnt;
+	unsigned long avg_cnt;
 	u64 time_prev_req; /* unit is ms */
 	u32 sc_monitor;
 	u32 sc_nums;

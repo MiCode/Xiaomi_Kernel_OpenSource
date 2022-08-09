@@ -2136,6 +2136,8 @@ void mtk_imgsys_mmqos_monitor_plat7s(struct mtk_imgsys_dev *imgsys_dev, u32 stat
 
 	flag[0] = 1;
 	flag[1] = 2;
+	flag[2] = 1;
+	flag[3] = 2;
 
 	if (state == SMI_MONITOR_STOP_STATE ||
 	    state == SMI_MONITOR_ACQUIRE_STATE) {
@@ -2153,20 +2155,20 @@ void mtk_imgsys_mmqos_monitor_plat7s(struct mtk_imgsys_dev *imgsys_dev, u32 stat
 		qos_info->bw_total[SMI_COMMON_ID_32][SMI_WRITE] = 0;
 	} else if (state == SMI_MONITOR_ACQUIRE_STATE) {
 		if (qos_info->req_cnt == 0) { //Initial setting
-			qos_info->bw_total[SMI_COMMON_ID_31][SMI_READ] = IMGSYS_QOS_MAX_PERF;
-			qos_info->bw_total[SMI_COMMON_ID_31][SMI_WRITE] = IMGSYS_QOS_MAX_PERF;
-			qos_info->bw_total[SMI_COMMON_ID_32][SMI_READ] = IMGSYS_QOS_MAX_PERF;
-			qos_info->bw_total[SMI_COMMON_ID_32][SMI_WRITE] = IMGSYS_QOS_MAX_PERF;
+			qos_info->bw_total[SMI_COMMON_ID_31][SMI_READ] = IMGSYS_QOS_MAX_PERF >> 6;
+			qos_info->bw_total[SMI_COMMON_ID_31][SMI_WRITE] = IMGSYS_QOS_MAX_PERF >> 6;
+			qos_info->bw_total[SMI_COMMON_ID_32][SMI_READ] = IMGSYS_QOS_MAX_PERF >> 6;
+			qos_info->bw_total[SMI_COMMON_ID_32][SMI_WRITE] = IMGSYS_QOS_MAX_PERF >> 6;
 		} else {
-			qos_info->bw_total[SMI_COMMON_ID_31][SMI_READ] = bw0[0];
-			qos_info->bw_total[SMI_COMMON_ID_31][SMI_WRITE] = bw0[1];
+			qos_info->bw_total[SMI_COMMON_ID_31][SMI_READ] = bw0[0] >> 20;
+			qos_info->bw_total[SMI_COMMON_ID_31][SMI_WRITE] = bw0[1] >> 20;
 
 			if (qos_info->sc_monitor > 1) {
-				qos_info->bw_total[SMI_COMMON_ID_32][SMI_READ] = bw1[0];
-				qos_info->bw_total[SMI_COMMON_ID_32][SMI_WRITE] = bw1[1];
+				qos_info->bw_total[SMI_COMMON_ID_32][SMI_READ] = bw1[0] >> 20;
+				qos_info->bw_total[SMI_COMMON_ID_32][SMI_WRITE] = bw1[1] >> 20;
 			} else {
-				qos_info->bw_total[SMI_COMMON_ID_32][SMI_READ] = bw0[2];
-				qos_info->bw_total[SMI_COMMON_ID_32][SMI_WRITE] = bw0[3];
+				qos_info->bw_total[SMI_COMMON_ID_32][SMI_READ] = bw0[2] >> 20;
+				qos_info->bw_total[SMI_COMMON_ID_32][SMI_WRITE] = bw0[3] >> 20;
 			}
 		}
 	}
@@ -2196,6 +2198,7 @@ void mtk_imgsys_mmqos_set_by_scen_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 	u32 frm_num = 0;
 	u64 bw_final[4] = {0};
 	u32 sidx = 0;
+	const u32 step = imgsys_qos_update_freq;
 
 	frm_num = frm_info->total_frmnum;
 	hw_comb = frm_info->user_info[frm_num-1].hw_comb;
@@ -2222,10 +2225,10 @@ void mtk_imgsys_mmqos_set_by_scen_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 			bw_final[2] = qos_info->qos_path[IMGSYS_COMMON_1_R].bw;
 			bw_final[3] = qos_info->qos_path[IMGSYS_COMMON_1_W].bw;
 
-			bw_final[0] = (bw_final[0] * imgsys_qos_factor)/10;
-			bw_final[1] = (bw_final[1] * imgsys_qos_factor)/10;
-			bw_final[2] = (bw_final[2] * imgsys_qos_factor)/10;
-			bw_final[3] = (bw_final[3] * imgsys_qos_factor)/10;
+			bw_final[0] = (bw_final[0] * imgsys_qos_factor) >> 2;
+			bw_final[1] = (bw_final[1] * imgsys_qos_factor) >> 2;
+			bw_final[2] = (bw_final[2] * imgsys_qos_factor) >> 2;
+			bw_final[3] = (bw_final[3] * imgsys_qos_factor) >> 2;
 			if (imgsys_qos_dbg_enable_plat7s())
 				dev_info(qos_info->dev,
 					"imgsys_qos: frame_no:%d-sc0_r-%d sc0_w-%d, sc1_r-%d sc0_w-%d\n",
@@ -2255,8 +2258,10 @@ void mtk_imgsys_mmqos_set_by_scen_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 			cur_interval = (ktime_get_boottime_ns()/1000000) - qos_info->time_prev_req;
 
 			if (frm_info->frm_owner == IMGSYS_QOS_SYNC_OWNER && sidx == 0 &&
-			    frm_info->frame_no == 0)
+			    frm_info->frame_no == 0) {
 				qos_info->req_cnt = 0;
+				qos_info->avg_cnt = 0;
+			}
 
 			if (cur_interval >= frame_duration &&
 			    frm_info->frame_no >= qos_info->req_cnt) {
@@ -2266,22 +2271,49 @@ void mtk_imgsys_mmqos_set_by_scen_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 				qos_info->req_cnt = frm_info->frame_no + 1;
 				qos_info->time_prev_req = ktime_get_boottime_ns()/1000000;
 
-				if (dvfs_info->vss_task_cnt == 0) {
+				bw_final[0] = (qos_info->bw_total[0][0] * fps);
+				bw_final[1] = (qos_info->bw_total[0][1] * fps);
+				bw_final[2] = (qos_info->bw_total[1][0] * fps);
+				bw_final[3] = (qos_info->bw_total[1][1] * fps);
+
+				if (imgsys_qos_dbg_enable_plat7s())
+					dev_info(qos_info->dev,
+						 "imgsys_qos: ori frame_no:%d-sc0_r-%d sc0_w-%d, sc1_r-%d sc0_w-%d\n",
+						 frm_info->frame_no,
+						 bw_final[0], bw_final[1],
+						 bw_final[2], bw_final[3]);
+
+				qos_info->bw_avg[0][0] += bw_final[0];
+				qos_info->bw_avg[0][1] += bw_final[1];
+				qos_info->bw_avg[1][0] += bw_final[2];
+				qos_info->bw_avg[1][1] += bw_final[3];
+				qos_info->avg_cnt++;
+
+				if (dvfs_info->vss_task_cnt == 0 &&
+					((qos_info->avg_cnt >= step) ||
+					 (qos_info->req_cnt <= 1))) {
 					/* unit is MB/s */
-					bw_final[0] = (qos_info->bw_total[0][0] * fps) >> 20;
-					bw_final[1] = (qos_info->bw_total[0][1] * fps) >> 20;
-					bw_final[2] = (qos_info->bw_total[1][0] * fps) >> 20;
-					bw_final[3] = (qos_info->bw_total[1][1] * fps) >> 20;
+					bw_final[0] = qos_info->bw_avg[0][0] / qos_info->avg_cnt;
+					bw_final[1] = qos_info->bw_avg[0][1] / qos_info->avg_cnt;
+					bw_final[2] = qos_info->bw_avg[1][0] / qos_info->avg_cnt;
+					bw_final[3] = qos_info->bw_avg[1][1] / qos_info->avg_cnt;
+
+					if (imgsys_qos_dbg_enable_plat7s())
+						dev_info(qos_info->dev,
+							 "imgsys_qos: avg frame_no:%d-sc0_r-%d sc0_w-%d, sc1_r-%d sc0_w-%d\n",
+							 frm_info->frame_no,
+							 bw_final[0], bw_final[1],
+							 bw_final[2], bw_final[3]);
 
 					qos_info->qos_path[IMGSYS_COMMON_0_R].bw = bw_final[0];
 					qos_info->qos_path[IMGSYS_COMMON_0_W].bw = bw_final[1];
 					qos_info->qos_path[IMGSYS_COMMON_1_R].bw = bw_final[2];
 					qos_info->qos_path[IMGSYS_COMMON_1_W].bw = bw_final[3];
 
-					bw_final[0] = (bw_final[0] * imgsys_qos_factor)/10;
-					bw_final[1] = (bw_final[1] * imgsys_qos_factor)/10;
-					bw_final[2] = (bw_final[2] * imgsys_qos_factor)/10;
-					bw_final[3] = (bw_final[3] * imgsys_qos_factor)/10;
+					bw_final[0] = (bw_final[0] * imgsys_qos_factor) >> 2;
+					bw_final[1] = (bw_final[1] * imgsys_qos_factor) >> 2;
+					bw_final[2] = (bw_final[2] * imgsys_qos_factor) >> 2;
+					bw_final[3] = (bw_final[3] * imgsys_qos_factor) >> 2;
 
 					if (imgsys_qos_dbg_enable_plat7s())
 						dev_info(qos_info->dev,
@@ -2306,7 +2338,13 @@ void mtk_imgsys_mmqos_set_by_scen_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 							0);
 #endif
 					IMGSYS_CMDQ_SYSTRACE_END();
+					qos_info->bw_avg[0][0] = 0;
+					qos_info->bw_avg[0][1] = 0;
+					qos_info->bw_avg[1][0] = 0;
+					qos_info->bw_avg[1][1] = 0;
+					qos_info->avg_cnt = 0;
 				}
+
 			}
 		}
 	}
@@ -2333,11 +2371,14 @@ void mtk_imgsys_mmqos_reset_plat7s(struct mtk_imgsys_dev *imgsys_dev)
 #endif
 
 	for (dvfs_idx = 0; dvfs_idx < MTK_IMGSYS_DVFS_GROUP; dvfs_idx++) {
-		for (qos_idx = 0; qos_idx < MTK_IMGSYS_QOS_GROUP; qos_idx++)
+		for (qos_idx = 0; qos_idx < MTK_IMGSYS_QOS_GROUP; qos_idx++) {
 			qos_info->bw_total[dvfs_idx][qos_idx] = 0;
+			qos_info->bw_avg[dvfs_idx][qos_idx] = 0;
+		}
 		qos_info->ts_total[dvfs_idx] = 0;
 	}
 	qos_info->req_cnt = 0;
+	qos_info->avg_cnt = 0;
 	qos_info->time_prev_req = 0;
 	qos_info->isIdle = 0;
 
