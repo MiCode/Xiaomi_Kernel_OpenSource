@@ -1234,6 +1234,26 @@ static void drv3_dump_register(int buf_type)
 	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_sram_base + 0x00, 0x184);
 
+	/* open sram clock for sram dump */
+	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_CG_EN, 0x7F);
+	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
+		"dump AP DPMAIF AO MISC SRAM; ao_msic_sram_base register -> (start addr: 0x%llX, len: %d):\n",
+		(unsigned long long)dpmaif_ctl->ao_msic_sram_base + 0x00, 0xFF);
+	ccci_util_mem_dump(buf_type,
+		dpmaif_ctl->ao_msic_sram_base + 0x00, 0xFF);
+
+	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
+		"dump AP DPMAIF AO UL SRAM; ao_ul_sram_base register -> (start addr: 0x%llX, len: %d):\n",
+		(unsigned long long)dpmaif_ctl->ao_ul_sram_base + 0x00, 0xFF);
+	ccci_util_mem_dump(buf_type,
+		dpmaif_ctl->ao_ul_sram_base + 0x00, 0xFF);
+
+	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
+		"dump AP DPMAIF AO DL SRAM; ao_dl_sram_base register -> (start addr: 0x%llX, len: %d):\n",
+		(unsigned long long)dpmaif_ctl->ao_dl_sram_base + 0x00, 0xFF);
+	ccci_util_mem_dump(buf_type,
+		dpmaif_ctl->ao_dl_sram_base + 0x00, 0xFF);
+
 #ifdef ENABLE_DPMAIF_ISR_LOG
 	ccci_dpmaif_print_irq_log();
 #endif
