@@ -722,6 +722,8 @@ static struct mtk_panel_funcs ext_funcs = {
 	.ext_param_set = mtk_panel_ext_param_set,
 	.mode_switch = mode_switch,
 	.set_bl_elvss_cmdq = lcm_set_bl_elvss_cmdq,
+	/* Not real backlight cmd in AOD, just for QC purpose */
+	.set_aod_light_mode = lcm_setbacklight_cmdq,
 	.ata_check = panel_ata_check,
 };
 #endif
