@@ -197,7 +197,8 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 		mutex_unlock(msg_mutex);
 		inst->vcu.failure = VDEC_IPI_MSG_STATUS_FAIL;
 		inst->vcu.abort = 1;
-		trigger_vcp_halt(VCP_A_ID);
+		if (inst->vcu.daemon_pid == get_vcp_generation())
+			trigger_vcp_halt(VCP_A_ID);
 		inst->ctx->err_msg = *(__u32 *)msg;
 		return -EIO;
 	}
@@ -226,7 +227,8 @@ wait_ack:
 			mutex_unlock(msg_mutex);
 			inst->vcu.failure = VDEC_IPI_MSG_STATUS_FAIL;
 			inst->vcu.abort = 1;
-			trigger_vcp_halt(VCP_A_ID);
+			if (inst->vcu.daemon_pid == get_vcp_generation())
+				trigger_vcp_halt(VCP_A_ID);
 			inst->ctx->err_msg = *(__u32 *)msg;
 			return -EIO;
 		} else if (-ERESTARTSYS == ret) {

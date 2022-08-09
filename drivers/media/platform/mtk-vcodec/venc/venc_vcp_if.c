@@ -170,7 +170,8 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 		mutex_unlock(&inst->ctx->dev->ipi_mutex);
 		inst->vcu_inst.failure = VENC_IPI_MSG_STATUS_FAIL;
 		inst->vcu_inst.abort = 1;
-		trigger_vcp_halt(VCP_A_ID);
+		if (inst->vcu_inst.daemon_pid == get_vcp_generation())
+			trigger_vcp_halt(VCP_A_ID);
 		inst->ctx->err_msg = *(__u32 *)msg;
 		return -EIO;
 	}
@@ -198,7 +199,8 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 			mutex_unlock(&inst->ctx->dev->ipi_mutex);
 			inst->vcu_inst.failure = VENC_IPI_MSG_STATUS_FAIL;
 			inst->vcu_inst.abort = 1;
-			trigger_vcp_halt(VCP_A_ID);
+			if (inst->vcu_inst.daemon_pid == get_vcp_generation())
+				trigger_vcp_halt(VCP_A_ID);
 			inst->ctx->err_msg = *(__u32 *)msg;
 			return -EIO;
 		}
