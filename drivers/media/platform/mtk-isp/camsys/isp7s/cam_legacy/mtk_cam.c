@@ -7687,6 +7687,10 @@ int mtk_cam_sv_dev_config(struct mtk_cam_ctx *ctx)
 
 	memset(&config_param, 0, sizeof(config_param));
 	ctx->sv_dev = mtk_cam_get_used_sv_dev(ctx);
+	if (!ctx->sv_dev) {
+		dev_info(cam->dev, "%s sv_dev is NULL", __func__);
+		return -EINVAL;
+	}
 	ctx->sv_dev->used_tag_cnt = 0;
 	ctx->sv_dev->enabled_tags = 0;
 	mtk_cam_sv_reset_tag_info(ctx->sv_dev->tag_info);
@@ -7716,7 +7720,7 @@ int mtk_cam_sv_dev_config(struct mtk_cam_ctx *ctx)
 		mf = &ctx->sv_pipe[0]->cfg[MTK_CAMSV_SINK].mbus_fmt;
 		if (mtk_cam_is_display_ic(ctx)) {
 			if (i == SVTAG_0) {
-				img_fmt = ctx->sv_pipe[i]->vdev_nodes[
+				img_fmt = ctx->sv_pipe[0]->vdev_nodes[
 					MTK_CAMSV_MAIN_STREAM_OUT - MTK_CAMSV_SINK_NUM].active_fmt;
 				if (img_fmt.fmt.pix_mp.pixelformat == V4L2_PIX_FMT_NV21)
 					img_fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_SBGGR8;
@@ -7724,7 +7728,7 @@ int mtk_cam_sv_dev_config(struct mtk_cam_ctx *ctx)
 					img_fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_SBGGR10;
 				seninf_padidx = PAD_SRC_RAW0;
 			} else if (i == SVTAG_1) {
-				img_fmt = ctx->sv_pipe[i]->vdev_nodes[
+				img_fmt = ctx->sv_pipe[0]->vdev_nodes[
 					MTK_CAMSV_MAIN_STREAM_OUT - MTK_CAMSV_SINK_NUM].active_fmt;
 				img_fmt.fmt.pix_mp.height /= 2;
 				if (img_fmt.fmt.pix_mp.pixelformat == V4L2_PIX_FMT_NV21)
@@ -7733,12 +7737,12 @@ int mtk_cam_sv_dev_config(struct mtk_cam_ctx *ctx)
 					img_fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_SBGGR10;
 				seninf_padidx = PAD_SRC_RAW1;
 			} else {
-				img_fmt = ctx->sv_pipe[i]->vdev_nodes[
+				img_fmt = ctx->sv_pipe[0]->vdev_nodes[
 					MTK_CAMSV_EXT_STREAM_OUT - MTK_CAMSV_SINK_NUM].active_fmt;
 				seninf_padidx = PAD_SRC_GENERAL0;
 			}
 		} else {
-			img_fmt = ctx->sv_pipe[i]->vdev_nodes[
+			img_fmt = ctx->sv_pipe[0]->vdev_nodes[
 				MTK_CAMSV_MAIN_STREAM_OUT - MTK_CAMSV_SINK_NUM].active_fmt;
 			seninf_padidx = ctx->sv_pipe[0]->seninf_padidx;
 		}

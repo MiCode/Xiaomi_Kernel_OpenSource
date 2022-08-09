@@ -5322,6 +5322,11 @@ int mtk_camsv_special_hw_scenario_handler(struct mtk_cam_device *cam,
 
 				s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id,
 					ctx->component_dequeued_frame_seq_no);
+				if (!s_data) {
+					dev_info(ctx->cam->dev, "ctx(%d): extisp:s_data is NULL\n",
+					ctx->stream_id);
+					return 0;
+				}
 				buf = mtk_cam_s_data_get_vbuf(s_data, MTK_RAW_META_SV_OUT_0);
 				if (!buf) {
 					dev_info(ctx->cam->dev,

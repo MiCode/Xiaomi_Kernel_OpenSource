@@ -310,7 +310,7 @@ int mtk_camsv_call_pending_set_fmt(struct v4l2_subdev *sd,
 static int mtk_camsv_collect_pfmt(struct mtk_camsv_pipeline *pipe,
 				struct v4l2_subdev_format *fmt)
 {
-	int pad = fmt->pad;
+	unsigned int pad = fmt->pad;
 
 	pipe->req_pfmt_update |= 1 << pad;
 	pipe->req_pad_fmt[pad] = *fmt;
@@ -2131,8 +2131,7 @@ void camsv_irq_handle_err(
 		}
 		stream_id = camsv_dev->ctx_stream_id;
 	} else {
-		if (camsv_dev->ctx_stream_id < MTKCAM_SUBDEV_RAW_START ||
-		camsv_dev->ctx_stream_id >= MTKCAM_SUBDEV_CAMSV_END) {
+		if (camsv_dev->ctx_stream_id >= MTKCAM_SUBDEV_CAMSV_END) {
 			dev_info(camsv_dev->dev, "stream id out of range : %d",
 					camsv_dev->ctx_stream_id);
 			return;

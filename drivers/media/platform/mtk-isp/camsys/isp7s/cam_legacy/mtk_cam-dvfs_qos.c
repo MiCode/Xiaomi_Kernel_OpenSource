@@ -288,12 +288,12 @@ static void __mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, struct mtk_raw_device
 	struct v4l2_subdev_format sd_fmt;
 	struct v4l2_ctrl *ctrl;
 	struct mraw_mmqos *mraw_mmqos;
-	unsigned int ipi_video_id;
+	unsigned int ipi_video_id, ipi_mraw_video_id;
 	int engine_id = raw_dev->id;
 	unsigned int qos_port_id, port_id;
 	unsigned int ipi_fmt;
 	int i, j, pixel_bits, plane_factor;
-	unsigned long vblank, fps, height, PBW_MB_s = 0, ABW_MB_s;
+	unsigned long vblank = 0, fps, height, PBW_MB_s = 0, ABW_MB_s = 0;
 	unsigned int width_mbn = 0, height_mbn = 0;
 	unsigned int width_cpi = 0, height_cpi = 0;
 	bool is_raw_srt = mtk_cam_is_srt(pipe->hw_mode);
@@ -301,6 +301,8 @@ static void __mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, struct mtk_raw_device
 
 	CALL_PLAT_V4L2(get_mmqos_port, &raw_qos);
 
+	memset(&sd_fmt, 0, sizeof(sd_fmt));
+	memset(&fi, 0, sizeof(fi));
 	if (force == true)
 		dvfs_info->updated_raw_dmas[engine_id] = 0;
 	else
@@ -325,7 +327,10 @@ static void __mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, struct mtk_raw_device
 		pipe->res_config.interval.denominator = fi.interval.denominator;
 		pipe->res_config.interval.numerator = fi.interval.numerator;
 		ctrl = v4l2_ctrl_find(ctx->sensor->ctrl_handler, V4L2_CID_VBLANK);
-		vblank = v4l2_ctrl_g_ctrl(ctrl);
+		if (!ctrl)
+			dev_info(cam->dev, "[%s] ctrl is NULL\n", __func__);
+		else
+			vblank = v4l2_ctrl_g_ctrl(ctrl);
 		sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 		sd_fmt.pad = PAD_SRC_RAW0;
 		v4l2_subdev_call(ctx->seninf, pad, get_fmt, NULL, &sd_fmt);
@@ -752,11 +757,11 @@ static void __mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, struct mtk_raw_device
 	for (i = 0; i < ctx->used_mraw_num; i++) {
 		for (j = MTKCAM_IPI_MRAW_META_STATS_CFG; j < MTKCAM_IPI_MRAW_ID_MAX; j++) {
 			if (ctx->mraw_pipe[i]->enabled_dmas & 1ULL<<j)
-				ipi_video_id = j;
+				ipi_mraw_video_id = j;
 			else
 				continue;
 			/* update buffer internal address */
-			switch (ipi_video_id) {
+			switch (ipi_mraw_video_id) {
 			case MTKCAM_IPI_MRAW_META_STATS_CFG:
 				/* common */
 				ipi_fmt = ctx->mraw_pipe[i]->res_config.tg_fmt;
@@ -909,15 +914,15 @@ void mtk_cam_qos_sv_bw_calc(struct mtk_cam_ctx *ctx, bool force)
 	struct sv_mmqos *sv_mmqos;
 	unsigned int qos_port_id;
 	unsigned int ipi_fmt;
-	int i, pixel_bits, plane_factor;
+	int i, j, pixel_bits, plane_factor;
 	unsigned long vblank = 0, fps = 0, height = 0, PBW_MB_s, ABW_MB_s;
 	struct mtkcam_ipi_input_param *cfg_in_param;
 
 	memset(&fi, 0, sizeof(fi));
 	memset(&sd_fmt, 0, sizeof(sd_fmt));
 	/* Reset all dvfs_info bw */
-	for (i = 0; i < sv_qos_port_num; i++) {
-		qos_port_id = (ctx->sv_dev->id * sv_qos_port_num) + i;
+	for (j = 0; j < sv_qos_port_num; j++) {
+		qos_port_id = (ctx->sv_dev->id * sv_qos_port_num) + j;
 		dvfs_info->sv_qos_bw_peak[qos_port_id] = 0;
 		dvfs_info->sv_qos_bw_avg[qos_port_id] = 0;
 	}
@@ -933,9 +938,9 @@ void mtk_cam_qos_sv_bw_calc(struct mtk_cam_ctx *ctx, bool force)
 			fps = fi.interval.denominator / fi.interval.numerator;
 			ctrl = v4l2_ctrl_find(ctx->sensor->ctrl_handler, V4L2_CID_VBLANK);
 			if (!ctrl)
-				vblank = v4l2_ctrl_g_ctrl(ctrl);
-			else
 				dev_info(cam->dev, "[%s] ctrl is NULL\n", __func__);
+			else
+				vblank = v4l2_ctrl_g_ctrl(ctrl);
 			sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 			sd_fmt.pad = ctx->sv_dev->tag_info[i].seninf_padidx;
 			v4l2_subdev_call(ctx->seninf, pad, get_fmt, NULL, &sd_fmt);
