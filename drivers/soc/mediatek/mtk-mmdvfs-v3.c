@@ -531,7 +531,6 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 		if (mmdvfs_free_run) {
 			if (mmdvfs_clk->ipi_type == IPI_MMDVFS_CCU) {
 				if (ccu_pdev) {
-					mtk_mmdvfs_enable_ccu(true, CCU_PWR_USR_MMDVFS_SET_RATE);
 					ret = mtk_ccu_rproc_ipc_send(
 						ccu_pdev,
 						MTK_CCU_FEATURE_ISPDVFS,
@@ -539,7 +538,6 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
 						(void *)&img_clk, sizeof(unsigned int));
 					if (ret)
 						MMDVFS_ERR("mtk_ccu_rproc_ipc_send fail(%d)", ret);
-					mtk_mmdvfs_enable_ccu(false, CCU_PWR_USR_MMDVFS_SET_RATE);
 				}
 			} else {
 				ret = mmdvfs_vcp_ipi_send(FUNC_SET_OPP,
