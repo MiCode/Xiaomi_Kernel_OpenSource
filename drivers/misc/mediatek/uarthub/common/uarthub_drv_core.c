@@ -41,7 +41,7 @@ int g_uarthub_open;
 struct clk *clk_apmixedsys_univpll;
 int g_uarthub_disable;
 static struct notifier_block uarthub_fb_notifier;
-spinlock_t g_clear_trx_req_lock;
+struct mutex g_clear_trx_req_lock;
 struct workqueue_struct *uarthub_workqueue;
 static int g_last_err_type = -1;
 static struct timespec64 tv_now_assert, tv_end_assert;
@@ -53,8 +53,6 @@ static struct timespec64 tv_now_assert, tv_end_assert;
 #define UARTHUB_DEBUG_LOG 1
 #define UARTHUB_CONFIG_TRX_GPIO 0
 #define SUPPORT_SSPM_DRIVER 1
-#define UARTHUB_ASSERT_BIT_DISABLE_MD_ADSP_FIFO 0
-#define UARTHUB_ERR_IRQ_DUMP_WORKER 1
 #define UARTHUB_DEFAULT_DUMP_DEBUG_LOOP_MS 10
 #define UARTHUB_DUMP_DEBUG_LOOP_ENABLE 0
 #define UARTHUB_DUMP_DEBUG_LOOP_MODE 0
@@ -265,7 +263,7 @@ static int uarthub_core_init(void)
 	else
 		pr_info("uarthub register fb_notifier OK!\n");
 
-	spin_lock_init(&g_clear_trx_req_lock);
+	mutex_init(&g_clear_trx_req_lock);
 
 #if UARTHUB_SLEEP_WAKEUP_TEST
 	hrtimer_init(&sleep_wakeup_test_hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
@@ -298,21 +296,22 @@ static void uarthub_core_exit(void)
 
 static enum hrtimer_restart dump_hrtimer_handler_cb(struct hrtimer *hrt)
 {
-	unsigned long flags;
-
 #if UARTHUB_DUMP_DEBUG_LOOP_MODE
 	hrtimer_forward_now(hrt, ns_to_ktime(1000 * 10));
 #else
 	hrtimer_forward_now(hrt, ms_to_ktime(g_dump_loop_dur_ms));
 #endif
 
-	spin_lock_irqsave(&g_clear_trx_req_lock, flags);
+	if (mutex_lock_killable(&g_clear_trx_req_lock))
+		return HRTIMER_RESTART;
+
 #if UARTHUB_DUMP_DEBUG_LOOP_MODE
 	uarthub_core_debug_uart_ip_info_loop_compare_diff();
 #else
 	uarthub_core_debug_uart_ip_info_loop();
 #endif
-	spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
+
+	mutex_unlock(&g_clear_trx_req_lock);
 
 	return HRTIMER_RESTART;
 }
@@ -556,102 +555,17 @@ static int uarthub_fb_notifier_callback(struct notifier_block *nb, unsigned long
 static irqreturn_t uarthub_irq_isr(int irq, void *arg)
 {
 	int err_type = -1;
-	int is_bypass = 0;
-	int is_assert = 0;
-	unsigned long flags;
-#if !(UARTHUB_ERR_IRQ_DUMP_WORKER)
-	int id = 0;
-	int err_total = 0;
-	int err_index = 0;
-#endif
 
 	if (!intfhub_base_remap_addr || uarthub_core_is_apb_bus_clk_enable() == 0)
 		return IRQ_HANDLED;
-
-	if (spin_trylock_irqsave(&g_clear_trx_req_lock, flags) == 0) {
-		pr_notice("[%s] fail to get g_clear_trx_req_lock lock\n", __func__);
-		/* clear irq */
-		UARTHUB_REG_WRITE_MASK(UARTHUB_INTFHUB_DEV0_IRQ_CLR(intfhub_base_remap_addr),
-			0x3FFFF, 0x3FFFF);
-		return IRQ_HANDLED;
-	}
 
 	/* mask irq */
 	UARTHUB_REG_WRITE_MASK(UARTHUB_INTFHUB_DEV0_IRQ_MASK(intfhub_base_remap_addr),
 		0x3FFFF, 0x3FFFF);
 
-	/* check is bypass */
-	is_bypass = (UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_CON2(intfhub_base_remap_addr),
-		(0x1 << 2)) >> 2);
-
-	/* check is assert state */
-	is_assert = (UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DBG(intfhub_base_remap_addr),
-		(0x1 << 0)) >> 0);
-
-	if (g_max_dev <= 0 || is_bypass == 1 || is_assert == 1) {
-		/* clear irq */
-		UARTHUB_REG_WRITE_MASK(UARTHUB_INTFHUB_DEV0_IRQ_CLR(intfhub_base_remap_addr),
-			0x3FFFF, 0x3FFFF);
-		spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
-		return IRQ_HANDLED;
-	}
-
 	err_type = uarthub_core_check_irq_err_type();
-#if !(UARTHUB_ERR_IRQ_DUMP_WORKER)
-	if (g_last_err_type == err_type) {
-		/* clear irq */
-		UARTHUB_REG_WRITE_MASK(UARTHUB_INTFHUB_DEV0_IRQ_CLR(intfhub_base_remap_addr),
-			0x3FFFF, 0x3FFFF);
-		spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
-		return IRQ_HANDLED;
-	}
-	g_last_err_type = err_type;
-	pr_info("[%s] err_type=[0x%x]\n", __func__, err_type);
-#endif
 	if (err_type > 0) {
-#if !(UARTHUB_ERR_IRQ_DUMP_WORKER)
-		err_total = 0;
-		for (id = 0; id < irq_err_type_max; id++) {
-			if (((err_type >> id) & 0x1) == 0x1)
-				err_total++;
-		}
-
-		if (err_total > 0) {
-			err_index = 0;
-			for (id = 0; id < irq_err_type_max; id++) {
-				if (((err_type >> id) & 0x1) == 0x1) {
-					err_index++;
-					if (g_core_irq_callback == NULL) {
-						pr_info("[%s] %d-%d, err_id=[%d], reason=[%s], g_core_irq_callback=[NULL]\n",
-							__func__, err_total, err_index,
-							id, UARTHUB_irq_err_type_str[id]);
-					} else {
-						pr_info("[%s] %d-%d, err_id=[%d], reason=[%s], g_core_irq_callback=[%p]\n",
-							__func__, err_total, err_index,
-							id, UARTHUB_irq_err_type_str[id],
-							g_core_irq_callback);
-					}
-				}
-			}
-		}
-
-		g_last_err_type = err_type;
-		uarthub_core_debug_info_with_tag_no_spinlock(__func__);
-
-		if (g_core_irq_callback)
-			(*g_core_irq_callback)(err_type);
-
-		/* clear irq */
-		UARTHUB_REG_WRITE_MASK(UARTHUB_INTFHUB_DEV0_IRQ_CLR(intfhub_base_remap_addr),
-			0x3FFFF, 0x3FFFF);
-		/* unmask irq */
-		UARTHUB_REG_WRITE_MASK(UARTHUB_INTFHUB_DEV0_IRQ_MASK(intfhub_base_remap_addr),
-			0x0, 0x3FFFF);
-		spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
-#else
-		spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
 		uarthub_core_set_trigger_uarthub_error_worker(err_type);
-#endif
 	} else {
 		/* clear irq */
 		UARTHUB_REG_WRITE_MASK(UARTHUB_INTFHUB_DEV0_IRQ_CLR(intfhub_base_remap_addr),
@@ -659,8 +573,6 @@ static irqreturn_t uarthub_irq_isr(int irq, void *arg)
 		/* unmask irq */
 		UARTHUB_REG_WRITE_MASK(UARTHUB_INTFHUB_DEV0_IRQ_MASK(intfhub_base_remap_addr),
 			0x0, 0x3FFFF);
-
-		spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
 	}
 
 	return IRQ_HANDLED;
@@ -1139,8 +1051,6 @@ int uarthub_core_dev0_set_txrx_request(void)
 
 int uarthub_core_dev0_clear_txrx_request(void)
 {
-	unsigned long flags;
-
 	if (g_uarthub_disable == 1)
 		return 0;
 
@@ -1162,9 +1072,12 @@ int uarthub_core_dev0_clear_txrx_request(void)
 	pr_info("[%s] g_max_dev=[%d]\n", __func__, g_max_dev);
 #endif
 
-	spin_lock_irqsave(&g_clear_trx_req_lock, flags);
+	if (mutex_lock_killable(&g_clear_trx_req_lock))
+		return -5;
+
 	UARTHUB_REG_WRITE(UARTHUB_INTFHUB_DEV0_STA_CLR(intfhub_base_remap_addr), 0x7);
-	spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
+
+	mutex_unlock(&g_clear_trx_req_lock);
 
 	return 0;
 }
@@ -1736,21 +1649,23 @@ static void trigger_uarthub_error_worker_handler(struct work_struct *work)
 	int id = 0;
 	int err_total = 0;
 	int err_index = 0;
-	unsigned long flags;
 	struct timespec64 now;
 
-	if (spin_trylock_irqsave(&g_clear_trx_req_lock, flags) == 0) {
+	if (!mutex_trylock(&g_clear_trx_req_lock)) {
 		pr_notice("[%s] fail to get g_clear_trx_req_lock lock\n", __func__);
 		uarthub_core_irq_clear_ctrl();
 		uarthub_core_irq_mask_ctrl(0);
 		return;
 	}
 
+	if (!intfhub_base_remap_addr || uarthub_core_is_apb_bus_clk_enable() == 0)
+		return;
+
 	if (uarthub_core_is_bypass_mode() == 1) {
 		pr_info("[%s] ignore irq error in bypass mode\n", __func__);
 		uarthub_core_irq_mask_ctrl(1);
 		uarthub_core_irq_clear_ctrl();
-		spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
+		mutex_unlock(&g_clear_trx_req_lock);
 		return;
 	}
 
@@ -1764,7 +1679,7 @@ static void trigger_uarthub_error_worker_handler(struct work_struct *work)
 				(tv_now_assert.tv_sec > tv_end_assert.tv_sec)) == false) {
 			uarthub_core_irq_clear_ctrl();
 			uarthub_core_irq_mask_ctrl(0);
-			spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
+			mutex_unlock(&g_clear_trx_req_lock);
 			tv_end_assert = tv_now_assert;
 			tv_end_assert.tv_sec += 1;
 			return;
@@ -1788,11 +1703,11 @@ static void trigger_uarthub_error_worker_handler(struct work_struct *work)
 			if (((err_type >> id) & 0x1) == 0x1) {
 				err_index++;
 				if (g_core_irq_callback == NULL) {
-					pr_info("[%s] %d-%d, err_id=[%d], reason=[%s], g_core_irq_callback=[NULL]\n",
+					pr_info("[%s] %d-%d, err_id=[%d], reason=[%s], hub_irq_cb=[NULL]\n",
 						__func__, err_total, err_index,
 						id, UARTHUB_irq_err_type_str[id]);
 				} else {
-					pr_info("[%s] %d-%d, err_id=[%d], reason=[%s], g_core_irq_callback=[%p]\n",
+					pr_info("[%s] %d-%d, err_id=[%d], reason=[%s], hub_irq_cb=[%p]\n",
 						__func__, err_total, err_index, id,
 						UARTHUB_irq_err_type_str[id], g_core_irq_callback);
 				}
@@ -1803,7 +1718,7 @@ static void trigger_uarthub_error_worker_handler(struct work_struct *work)
 	if (uarthub_core_is_assert_state() == 1) {
 		pr_info("[%s] ignore irq error if assert flow\n", __func__);
 		uarthub_core_irq_clear_ctrl();
-		spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
+		mutex_unlock(&g_clear_trx_req_lock);
 		return;
 	}
 
@@ -1811,7 +1726,7 @@ static void trigger_uarthub_error_worker_handler(struct work_struct *work)
 
 	uarthub_core_irq_clear_ctrl();
 	uarthub_core_irq_mask_ctrl(0);
-	spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
+	mutex_unlock(&g_clear_trx_req_lock);
 
 	if (g_core_irq_callback)
 		(*g_core_irq_callback)(err_type);
@@ -1862,26 +1777,8 @@ int uarthub_core_assert_state_ctrl(int assert_ctrl)
 	if (assert_ctrl == 1) {
 		uarthub_core_irq_mask_ctrl(1);
 		uarthub_core_irq_clear_ctrl();
-#if UARTHUB_ASSERT_BIT_DISABLE_MD_ADSP_FIFO
-		uarthub_core_reset_to_ap_enable_only(1);
-#endif
 		UARTHUB_SET_BIT(UARTHUB_INTFHUB_DBG(intfhub_base_remap_addr), (0x1 << 0));
 	} else {
-#if UARTHUB_ASSERT_BIT_DISABLE_MD_ADSP_FIFO
-#if UARTHUB_ENABLE_UART_1_CHANNEL
-		if (g_max_dev >= 2) {
-			UARTHUB_REG_WRITE(UARTHUB_IIR_FCR(dev1_base_remap_addr),
-				((UARTHUB_REG_READ(UARTHUB_FCR_RD(
-				dev1_base_remap_addr)) & (~(0x1))) | (0x1)));
-		}
-#endif
-
-		if (g_max_dev >= 3) {
-			UARTHUB_REG_WRITE(UARTHUB_IIR_FCR(dev2_base_remap_addr),
-				((UARTHUB_REG_READ(UARTHUB_FCR_RD(
-				dev2_base_remap_addr)) & (~(0x1))) | (0x1)));
-		}
-#endif
 		UARTHUB_CLR_BIT(UARTHUB_INTFHUB_DBG(intfhub_base_remap_addr), (0x1 << 0));
 		uarthub_core_irq_clear_ctrl();
 		uarthub_core_irq_mask_ctrl(0);
@@ -1900,6 +1797,17 @@ int uarthub_core_reset_flow_control(void)
 	int val = 0;
 	int retry = 0;
 	int i = 0;
+
+	if (g_uarthub_disable == 1)
+		return 0;
+
+	if (g_max_dev <= 0)
+		return -1;
+
+	if (uarthub_core_is_uarthub_clk_enable() == 0) {
+		pr_notice("[%s] uarthub_core_is_uarthub_clk_enable=[0]\n", __func__);
+		return -2;
+	}
 
 	debug8.dev0 = UARTHUB_REG_READ(UARTHUB_DEBUG_8(dev0_base_remap_addr));
 	debug8.dev1 = UARTHUB_REG_READ(UARTHUB_DEBUG_8(dev1_base_remap_addr));
@@ -2049,7 +1957,7 @@ int uarthub_core_reset(void)
 
 int uarthub_core_reset_to_ap_enable_only(int ap_only)
 {
-	int tx_state = -1;
+	int rx_state = -1;
 	int dev1_fifoe = -1, dev2_fifoe = -1;
 	int i = 0;
 
@@ -2080,18 +1988,18 @@ int uarthub_core_reset_to_ap_enable_only(int ap_only)
 			(0x1 << 0)) >> 0);
 	}
 
-	tx_state = (UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DEV0_STA(intfhub_base_remap_addr),
-		(0x1 << 1)) >> 1);
+	rx_state = (UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DEV0_STA(intfhub_base_remap_addr),
+		(0x1 << 0)) >> 0);
 
 #if UARTHUB_DEBUG_LOG
-	pr_info("[%s] g_max_dev=[%d], dev1_fifoe=[%d], dev2_fifoe=[%d], tx_state=[%d]\n",
-		__func__, g_max_dev, dev1_fifoe, dev2_fifoe, tx_state);
+	pr_info("[%s] g_max_dev=[%d], dev1_fifoe=[%d], dev2_fifoe=[%d], rx_state=[%d]\n",
+		__func__, g_max_dev, dev1_fifoe, dev2_fifoe, rx_state);
 #endif
 
-	/* set tx request */
+	/* set rx request */
 	UARTHUB_REG_WRITE(UARTHUB_INTFHUB_DEV0_STA_SET(intfhub_base_remap_addr),
 		((UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV0_STA(
-		intfhub_base_remap_addr)) & (~(0x10))) | (0x10)));
+		intfhub_base_remap_addr)) & (~(0x1))) | (0x1)));
 
 	/* disable and clear uarthub FIFO for UART0/1/2/CMM */
 	UARTHUB_REG_WRITE(UARTHUB_IIR_FCR(cmm_base_remap_addr),
@@ -2142,11 +2050,11 @@ int uarthub_core_reset_to_ap_enable_only(int ap_only)
 			dev2_base_remap_addr)) & (~(0x1))) | (0x1)));
 	}
 
-	if (tx_state == 0) {
+	if (rx_state == 0) {
 		/* clear tx request */
 		UARTHUB_REG_WRITE(UARTHUB_INTFHUB_DEV0_STA_CLR(intfhub_base_remap_addr),
 			((UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV0_STA(
-			intfhub_base_remap_addr)) & (~(0x10))) | (0x10)));
+			intfhub_base_remap_addr)) & (~(0x1))) | (0x1)));
 	}
 
 	return 0;
@@ -3126,11 +3034,12 @@ static void debug_info_worker_handler(struct work_struct *work)
 int uarthub_core_debug_info_with_tag(const char *tag)
 {
 	int ret = 0;
-	unsigned long flags;
 
-	spin_lock_irqsave(&g_clear_trx_req_lock, flags);
+	if (mutex_lock_killable(&g_clear_trx_req_lock))
+		return -5;
+
 	ret = uarthub_core_debug_info_with_tag_no_spinlock(tag);
-	spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
+	mutex_unlock(&g_clear_trx_req_lock);
 
 	return ret;
 }
@@ -3557,7 +3466,6 @@ int uarthub_core_debug_dump_tx_rx_count(const char *tag, int trigger_point)
 	static int pre_trigger_point = -1;
 	struct uarthub_uart_ip_debug_info pkt_cnt = {0};
 	struct uarthub_uart_ip_debug_info debug1 = {0};
-	unsigned long flags;
 	int pkt_cnt_readable = 1, debug1_readable = 1;
 	const char *def_tag = "UARTHUB_DBG";
 
@@ -3576,7 +3484,9 @@ int uarthub_core_debug_dump_tx_rx_count(const char *tag, int trigger_point)
 			d2_wait_for_send_xoff, cmm_wait_for_send_xoff);
 	}
 
-	spin_lock_irqsave(&g_clear_trx_req_lock, flags);
+	if (mutex_lock_killable(&g_clear_trx_req_lock))
+		return -5;
+
 	if (uarthub_core_is_apb_bus_clk_enable() == 0) {
 		pr_notice("[%s] apb bus clk disable\n", __func__);
 		pkt_cnt_readable = 0;
@@ -3587,7 +3497,7 @@ int uarthub_core_debug_dump_tx_rx_count(const char *tag, int trigger_point)
 	}
 	if (pkt_cnt_readable == 0 && debug1_readable == 0) {
 		pre_trigger_point = trigger_point;
-		spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
+		mutex_unlock(&g_clear_trx_req_lock);
 		return -1;
 	}
 
@@ -3621,7 +3531,7 @@ int uarthub_core_debug_dump_tx_rx_count(const char *tag, int trigger_point)
 		d2_wait_for_send_xoff = ((((debug1.dev2 & 0xE0) >> 5) == 1) ? 1 : 0);
 		cmm_wait_for_send_xoff = ((((debug1.cmm & 0xE0) >> 5) == 1) ? 1 : 0);
 	}
-	spin_unlock_irqrestore(&g_clear_trx_req_lock, flags);
+	mutex_unlock(&g_clear_trx_req_lock);
 
 	if (trigger_point != DUMP0) {
 		pr_info("[%s][%s], dump1, [rx cnt, tx cnt]=[%d, %d][%d, %d][%d, %d], wait_for_send_xoff=[%d, %d, %d, %d]\n",
