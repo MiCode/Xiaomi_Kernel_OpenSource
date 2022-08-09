@@ -2613,7 +2613,7 @@ static void msdc_of_property_parse(struct platform_device *pdev,
 static int msdc_of_clock_parse(struct platform_device *pdev,
 			       struct msdc_host *host)
 {
-	int ret;
+	int ret = 0;
 
 	host->src_clk = devm_clk_get(&pdev->dev, "source");
 	if (IS_ERR(host->src_clk))
@@ -2649,7 +2649,11 @@ static int msdc_of_clock_parse(struct platform_device *pdev,
 		host->crypto_cg = NULL;
 
 	/* If present, always enable for this clock gate */
-	clk_prepare_enable(host->sys_clk_cg);
+	ret = clk_prepare_enable(host->sys_clk_cg);
+	if (ret) {
+		dev_info(&pdev->dev, "Cannot enable clock gate\n");
+		return ret;
+	}
 
 	host->bulk_clks[0].id = "pclk_cg";
 	host->bulk_clks[1].id = "axi_cg";
