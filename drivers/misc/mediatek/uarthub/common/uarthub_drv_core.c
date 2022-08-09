@@ -50,7 +50,8 @@ static struct timespec64 tv_now_assert, tv_end_assert;
 
 #define CLK_CTRL_UNIVPLL_REQ 0
 #define INIT_UARTHUB_DEFAULT 0
-#define UARTHUB_DEBUG_LOG 1
+#define UARTHUB_INFO_LOG 1
+#define UARTHUB_DEBUG_LOG 0
 #define UARTHUB_CONFIG_TRX_GPIO 0
 #define SUPPORT_SSPM_DRIVER 1
 #define UARTHUB_DEFAULT_DUMP_DEBUG_LOOP_MS 10
@@ -175,7 +176,7 @@ static int uarthub_core_init(void)
 {
 	int ret = -1, retry = 0;
 
-#if UARTHUB_DEBUG_LOG
+#if UARTHUB_INFO_LOG
 	pr_info("[%s] g_uarthub_disable=[%d]\n", __func__, g_uarthub_disable);
 #endif
 
@@ -821,7 +822,7 @@ int uarthub_core_open(void)
 	if (g_max_dev <= 0)
 		return -1;
 
-#if UARTHUB_DEBUG_LOG
+#if UARTHUB_INFO_LOG
 	pr_info("[%s] g_max_dev=[%d]\n", __func__, g_max_dev);
 #endif
 
@@ -864,7 +865,7 @@ int uarthub_core_close(void)
 		return -1;
 	}
 
-#if UARTHUB_DEBUG_LOG
+#if UARTHUB_INFO_LOG
 	pr_info("[%s] g_max_dev=[%d]\n", __func__, g_max_dev);
 #endif
 
@@ -985,7 +986,7 @@ int uarthub_core_dev0_is_txrx_idle(int rx)
 			(0x1 << 1)) >> 1);
 	}
 
-#if UARTHUB_DEBUG_LOG
+#if UARTHUB_INFO_LOG
 	pr_info("[%s] rx=[%d], state=[%d]\n", __func__, rx, state);
 #endif
 
@@ -1068,7 +1069,7 @@ int uarthub_core_dev0_clear_txrx_request(void)
 		return -4;
 	}
 
-#if UARTHUB_DEBUG_LOG
+#if UARTHUB_INFO_LOG
 	pr_info("[%s] g_max_dev=[%d]\n", __func__, g_max_dev);
 #endif
 
@@ -1106,7 +1107,7 @@ int uarthub_core_dump_trx_info_loop_trigger(void)
 	state = (UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DBG(intfhub_base_remap_addr),
 		(0x1 << 1)) >> 1);
 
-#if UARTHUB_DEBUG_LOG
+#if UARTHUB_INFO_LOG
 	pr_info("[%s] state=[%d], g_enable_dump_loop=[%d]\n", __func__, state, g_enable_dump_loop);
 #endif
 
@@ -1148,7 +1149,7 @@ int uarthub_core_dump_trx_info_loop_ctrl(int enable, int loop_dur_ms)
 		UARTHUB_CLR_BIT(UARTHUB_INTFHUB_DBG(intfhub_base_remap_addr), (0x1 << 1));
 	}
 
-#if UARTHUB_DEBUG_LOG
+#if UARTHUB_INFO_LOG
 	pr_info("[%s] enable=[%d], loop_dur_ms=[%d]\n", __func__, enable, loop_dur_ms);
 #endif
 
@@ -1277,7 +1278,7 @@ int uarthub_core_bypass_mode_ctrl(int enable)
 		return -4;
 	}
 
-#if UARTHUB_DEBUG_LOG
+#if UARTHUB_INFO_LOG
 	pr_info("[%s] enable=[%d]\n", __func__, enable);
 #endif
 
@@ -1313,7 +1314,7 @@ int uarthub_core_md_adsp_fifo_ctrl(int enable)
 		return -4;
 	}
 
-#if UARTHUB_DEBUG_LOG
+#if UARTHUB_INFO_LOG
 	pr_info("[%s] enable=[%d]\n", __func__, enable);
 #endif
 
@@ -1770,7 +1771,7 @@ int uarthub_core_assert_state_ctrl(int assert_ctrl)
 		return 0;
 	}
 
-#if UARTHUB_DEBUG_LOG
+#if UARTHUB_INFO_LOG
 	pr_info("[%s] assert_ctrl=[%d]\n", __func__, assert_ctrl);
 #endif
 
@@ -1949,7 +1950,7 @@ int uarthub_core_reset_flow_control(void)
 
 int uarthub_core_reset(void)
 {
-#if UARTHUB_DEBUG_LOG
+#if UARTHUB_INFO_LOG
 	pr_info("[%s] g_max_dev=[%d]\n", __func__, g_max_dev);
 #endif
 	return uarthub_core_reset_to_ap_enable_only(0);
@@ -2089,7 +2090,7 @@ int uarthub_core_loopback_test(int dev_index, int tx_to_rx, int enable)
 	offset = ((dev_index + 1) * 2) - 1;
 	offset = (tx_to_rx == 0) ? offset : (offset - 1);
 
-#if UARTHUB_DEBUG_LOG
+#if UARTHUB_INFO_LOG
 	pr_info("[%s] dev_index=[%d], tx_to_rx=[%d], enable=[%d], offset=[%d]\n",
 		__func__, dev_index, tx_to_rx, enable, offset);
 #endif
