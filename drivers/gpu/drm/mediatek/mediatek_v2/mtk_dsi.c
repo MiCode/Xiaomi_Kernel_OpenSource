@@ -6962,30 +6962,32 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 	if (dsi->ext->params->dsc_params.enable)
 		bpp = dsi->ext->params->dsc_params.bit_per_channel * 3;
 
-	bw_base = vact * hact * vrefresh * 4 / 1000;
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
+		//vdo mode
+		bw_base = vact * hact * vrefresh * 4 / 1000;
 		bw_base = bw_base * vtotal / vact;
 		bw_base = bw_base / 1000;
 	} else {
+		//cmd mode
 		bw_base = data_rate * dsi->lanes * compress_rate * 4;
 		bw_base = bw_base / bpp / 100;
-	}
 
-	if (dsi->driver_data->dsi_buffer) {
-		u32 line_time = 0, image_time = 1, ps_wc;
+		if (dsi->driver_data->dsi_buffer) {
+			u32 line_time = 0, image_time = 1, ps_wc;
 
-		ps_wc =  mtk_dsi_get_ps_wc(mtk_crtc, dsi);
+			ps_wc =  mtk_dsi_get_ps_wc(mtk_crtc, dsi);
 
-		if (ext->params->is_cphy)
-			image_time = DIV_ROUND_UP(DIV_ROUND_UP(ps_wc, 2), dsi->lanes);
-		else
-			image_time = DIV_ROUND_UP(ps_wc, dsi->lanes);
+			if (ext->params->is_cphy)
+				image_time = DIV_ROUND_UP(DIV_ROUND_UP(ps_wc, 2), dsi->lanes);
+			else
+				image_time = DIV_ROUND_UP(ps_wc, dsi->lanes);
 
-		line_time = mtk_dsi_get_line_time(mtk_crtc, dsi);
+			line_time = mtk_dsi_get_line_time(mtk_crtc, dsi);
 
-		bw_base = bw_base * image_time / line_time;
-		DDPINFO("%s, image_time=%d, line_time=%d\n",
-			__func__, image_time, line_time);
+			bw_base = bw_base * image_time / line_time;
+			DDPINFO("%s, image_time=%d, line_time=%d\n",
+				__func__, image_time, line_time);
+		}
 	}
 
 	DDPDBG("%s Frame Bw:%llu, bpp:%d\n", __func__, bw_base, bpp);
@@ -7033,30 +7035,32 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 			DDPMSG("panel_params is null\n");
 	}
 
-	bw_base = mode->vdisplay * mode->hdisplay * vrefresh * 4 / 1000;
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
+		//vdo mode
+		bw_base = mode->vdisplay * mode->hdisplay * vrefresh * 4 / 1000;
 		bw_base = bw_base * mode->vtotal / mode->vdisplay;
 		bw_base = bw_base / 1000;
 	} else {
+		//cmd mode
 		bw_base = (unsigned long long) data_rate * dsi->lanes * compress_rate * 4;
 		bw_base = bw_base / bpp / 100;
-	}
 
-	if (dsi->driver_data->dsi_buffer) {
-		u32 line_time = 0, image_time = 1, ps_wc;
+		if (dsi->driver_data->dsi_buffer) {
+			u32 line_time = 0, image_time = 1, ps_wc;
 
-		ps_wc =  mtk_dsi_get_ps_wc(mtk_crtc, dsi);
+			ps_wc =  mtk_dsi_get_ps_wc(mtk_crtc, dsi);
 
-		if (dsi->ext->params->is_cphy)
-			image_time = DIV_ROUND_UP(DIV_ROUND_UP(ps_wc, 2), dsi->lanes);
-		else
-			image_time = DIV_ROUND_UP(ps_wc, dsi->lanes);
+			if (dsi->ext->params->is_cphy)
+				image_time = DIV_ROUND_UP(DIV_ROUND_UP(ps_wc, 2), dsi->lanes);
+			else
+				image_time = DIV_ROUND_UP(ps_wc, dsi->lanes);
 
-		line_time = mtk_dsi_get_line_time(mtk_crtc, dsi);
+			line_time = mtk_dsi_get_line_time(mtk_crtc, dsi);
 
-		bw_base = bw_base * image_time / line_time;
-		DDPINFO("%s, image_time=%d, line_time=%d\n",
-			__func__, image_time, line_time);
+			bw_base = bw_base * image_time / line_time;
+			DDPINFO("%s, image_time=%d, line_time=%d\n",
+				__func__, image_time, line_time);
+		}
 	}
 
 	DDPMSG("%s Frame Bw:%llu, bpp:%d\n", __func__, bw_base, bpp);
