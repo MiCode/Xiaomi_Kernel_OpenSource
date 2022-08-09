@@ -702,17 +702,17 @@ void mtk_dsc_dump(struct mtk_ddp_comp *comp)
 	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 
 	DDPDUMP("(0x000)DSC_START=0x%x\n", readl(baddr + DISP_REG_DSC_CON));
-	DDPDUMP("(0x020)DSC_SLICE_WIDTH=0x%x\n",
-		readl(baddr + DISP_REG_DSC_SLICE_W));
-	DDPDUMP("(0x024)DSC_SLICE_HIGHT=0x%x\n",
-		readl(baddr + DISP_REG_DSC_SLICE_H));
-	DDPDUMP("(0x018)DSC_WIDTH=0x%x\n", readl(baddr + DISP_REG_DSC_PIC_W));
-	DDPDUMP("(0x01C)DSC_HEIGHT=0x%x\n", readl(baddr + DISP_REG_DSC_PIC_H));
+	DDPDUMP("(0x020)DSC_SLICE_WIDTH=%d\n",
+		readl(baddr + DISP_REG_DSC_SLICE_W) & 0xffff);
+	DDPDUMP("(0x024)DSC_SLICE_HIGHT=%d\n",
+		(readl(baddr + DISP_REG_DSC_SLICE_H) & 0xffff) + 1);
+	DDPDUMP("(0x018)DSC_WIDTH=%d\n", readl(baddr + DISP_REG_DSC_PIC_W) & 0xffff);
+	DDPDUMP("(0x01C)DSC_HEIGHT=%d\n", (readl(baddr + DISP_REG_DSC_PIC_H) & 0xffff) + 1);
 	DDPDUMP("(0x200)DSC_SHADOW=0x%x\n",
 		readl(baddr + DISP_REG_DSC_SHADOW));
 	DDPDUMP("-- Start dump dsc registers --\n");
 	for (i = 0; i < 204; i += 16) {
-		DDPDUMP("DSC+%x: 0x%x 0x%x 0x%x 0x%x\n", i, readl(baddr + i),
+		DDPDUMP("DSC+0x%03x: 0x%08x 0x%08x 0x%08x 0x%08x\n", i, readl(baddr + i),
 			 readl(baddr + i + 0x4), readl(baddr + i + 0x8),
 			 readl(baddr + i + 0xc));
 	}
