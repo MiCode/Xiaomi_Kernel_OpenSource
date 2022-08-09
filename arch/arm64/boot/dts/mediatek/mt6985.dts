@@ -994,10 +994,14 @@
 
 	clkchk {
 		compatible = "mediatek,mt6985-clkchk";
+		interrupts = <GIC_SPI 303 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupt-names = "hwv_irq";
 	};
 
 	pdchk {
 		compatible = "mediatek,mt6985-pdchk";
+		interrupts = <GIC_SPI 303 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupt-names = "hwv_irq";
 	};
 
 	clocks {
@@ -1476,8 +1480,6 @@
 		semi_bus = <&semi_bus>;
 
 		hw-voter-regmap = <&hwv>;
-		interrupts = <GIC_SPI 303 IRQ_TYPE_LEVEL_LOW 0>;
-		interrupt-names = "hwv_irq";
 	};
 
 	watchdog: watchdog@1C007000 {
