@@ -162,6 +162,14 @@ int cm_mgr_get_disable_fb(void)
 }
 EXPORT_SYMBOL_GPL(cm_mgr_get_disable_fb);
 
+void cm_mgr_set_disable_fb(int disable_fb)
+{
+	cm_mgr_disable_fb = disable_fb;
+	cm_mgr_to_sspm_command(IPI_CM_MGR_DISABLE_FB,
+				cm_mgr_disable_fb);
+}
+EXPORT_SYMBOL_GPL(cm_mgr_set_disable_fb);
+
 int cm_mgr_get_perf_enable(void)
 {
 	return cm_mgr_perf_enable;

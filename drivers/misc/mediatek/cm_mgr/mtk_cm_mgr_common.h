@@ -94,6 +94,7 @@ extern int debounce_times_perf_down_force_local_get(void);
 extern void debounce_times_perf_down_force_local_set(int num);
 extern int cm_mgr_get_blank_status(void);
 extern int cm_mgr_get_disable_fb(void);
+extern void cm_mgr_set_disable_fb(int disable_fb);
 extern struct icc_path *cm_mgr_get_bw_path(void);
 extern struct icc_path *cm_mgr_set_bw_path(struct icc_path *bw_path);
 extern void cm_mgr_perf_set_status(int enable);
