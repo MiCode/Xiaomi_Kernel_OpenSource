@@ -258,6 +258,7 @@ struct mt6375_tcpc_data {
 	struct iio_channel *adc_iio;
 	int irq;
 	u16 did;
+	u16 curr_irq_mask;
 	bool wd0_state;
 	bool wd0_enable;
 	u8 wd0_tsleep;
@@ -617,6 +618,7 @@ static int mt6375_init_alert_mask(struct mt6375_tcpc_data *ddata)
 
 	mask |= TCPC_REG_ALERT_FAULT;
 	ret = mt6375_write16(ddata, TCPC_V10_REG_ALERT_MASK, mask);
+	ddata->curr_irq_mask = mask;
 	if (ret < 0)
 		return ret;
 	return 0;
@@ -639,6 +641,7 @@ static int mt6375_enable_force_discharge(struct mt6375_tcpc_data *ddata,
 
 static int mt6375_enable_vsafe0v_detect(struct mt6375_tcpc_data *ddata, bool en)
 {
+	MT6375_DBGINFO("%s: en = %d\n", __func__, en);
 	return (en ? mt6375_set_bits : mt6375_clr_bits)
 		(ddata, MT6375_REG_MTMASK1, MT6375_MSK_VBUS80);
 }
@@ -1582,19 +1585,16 @@ static int mt6375_set_alert_mask(struct tcpc_device *tcpc, u32 mask)
 	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
 
 	MT6375_DBGINFO("%s: mask = 0x%04x\n", __func__, mask);
+	ddata->curr_irq_mask = mask;
 	return mt6375_write16(ddata, TCPC_V10_REG_ALERT_MASK, mask);
 }
 
 static int mt6375_get_alert_mask(struct tcpc_device *tcpc, u32 *mask)
 {
-	int ret;
-	u16 data;
 	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
 
-	ret = mt6375_read16(ddata, TCPC_V10_REG_ALERT_MASK, &data);
-	if (ret < 0)
-		return ret;
-	*mask = data;
+	*mask = ddata->curr_irq_mask;
+	MT6375_DBGINFO("%s: mask = 0x%04x\n", __func__, *mask);
 	return 0;
 }
 
@@ -2363,6 +2363,7 @@ static int mt6375_tcpc_init_irq(struct mt6375_tcpc_data *ddata)
 	mt6375_bulk_write(ddata, MT6375_REG_MTINT1, mt6375_vend_alert_clearall,
 			  ARRAY_SIZE(mt6375_vend_alert_clearall));
 	mt6375_write16(ddata, TCPC_V10_REG_ALERT_MASK, 0);
+	ddata->curr_irq_mask = 0;
 	mt6375_write16(ddata, TCPC_V10_REG_ALERT, 0x8FFF);
 
 	kthread_init_worker(&ddata->irq_worker);
