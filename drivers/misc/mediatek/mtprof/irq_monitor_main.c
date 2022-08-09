@@ -392,7 +392,7 @@ static void probe_irq_handler_exit(void *ignore,
 			/* skip arch_timer aee, let hrtimer handle it. */
 			irq_aee_state[irq] = 1;
 
-		if (!strcmp(irq_name, "emimpu_violation_irq"))
+		if (!strcmp(irq_name, "emimpu"))
 			/* skip debug irq. */
 			irq_aee_state[irq] = 1;
 
