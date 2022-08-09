@@ -143,7 +143,7 @@ static ssize_t lpm_generic_hwreq_read(char *ToUserBuf,
 						(unsigned long)lpm_smc_spm_dbg(
 							(node->hwreq_fs)->smc_def_set,
 							MT_LPM_SMC_ACT_GET, node->hwreq_id, i));
-					if ((node->hwreq_fs)->smc_id_raw >= 0) {
+					if ((node->hwreq_fs)->smc_id_raw > 0) {
 						#define RAW_DATA_TYPE_SHIFT	8
 						#define RAW_DATA_IDX_SHIFT	4
 						#define RAW_DATA_NUM	(0 << RAW_DATA_IDX_SHIFT)
@@ -303,7 +303,7 @@ static void lpm_hwreq_fs_create(struct LPM_HWREQ_FS *hwreq_fs,
 		if (name[j] != '\0') {
 			val = lpm_smc_spm_dbg(hwreq_fs->smc_id_name,
 					MT_LPM_SMC_ACT_GET, i, 0);
-			for (j = HWREQ_RES_NAME; j < (2*HWREQ_RES_NAME); ++j) {
+			for (j = HWREQ_RES_NAME; j < (2*HWREQ_RES_NAME - 1); ++j) {
 				name[j] = ((val >> ((j-HWREQ_RES_NAME)<<3)) & 0xFF);
 
 				if (name[j] == '\0')
@@ -357,7 +357,7 @@ int lpm_hwreq_fs_init(void)
 			LPM_GENERIC_HWREQ_FS_INIT(hwreq_fs_hwcg, &lpm_hwcg_fs, pro_name,
 			MT_SPM_DBG_SMC_HWCG_NUM, MT_SPM_DBG_SMC_HWCG_RES_NAME,
 			MT_SPM_DBG_SMC_HWCG_STATUS, MT_SPM_DBG_SMC_HWCG_SETTING,
-			MT_SPM_DBG_SMC_HWCG_DEF_SETTING, -1,
+			MT_SPM_DBG_SMC_HWCG_DEF_SETTING, 0,
 			lpm_hwcg);
 			lpm_hwreq_fs_create(hwreq_fs_hwcg, &lpm_entry_hwreq);
 		} else if (!strcmp(pro_name, LPM_PERI_NAME)) {

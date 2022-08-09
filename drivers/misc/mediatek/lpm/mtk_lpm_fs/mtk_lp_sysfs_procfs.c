@@ -35,6 +35,7 @@ void *mtk_lp_sysfs_procfs_seq_start(struct seq_file *sf, loff_t *ppos)
 void *mtk_lp_sysfs_procfs_seq_next(struct seq_file *sf
 			, void *v, loff_t *ppos)
 {
+	++*ppos;
 	return NULL;
 }
 
