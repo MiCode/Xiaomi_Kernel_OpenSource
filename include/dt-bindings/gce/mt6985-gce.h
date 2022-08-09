@@ -984,6 +984,10 @@
 #define CMDQ_SYNC_RESOURCE_WROT0			710
 #define CMDQ_SYNC_RESOURCE_WROT1			711
 
+/* HW TRACE sw token */
+#define CMDQ_SYNC_TOKEN_HW_TRACE_WAIT			712
+#define CMDQ_SYNC_TOKEN_HW_TRACE_LOCK			713
+
 /* SW sync token for dual display */
 #define CMDQ_SYNC_TOKEN_CONFIG_DIRTY_3			714
 #define CMDQ_SYNC_TOKEN_STREAM_EOF_3			715
