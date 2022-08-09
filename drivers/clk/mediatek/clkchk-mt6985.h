@@ -149,4 +149,5 @@ extern void print_subsys_reg_mt6985(enum chk_sys_id id);
 extern void set_subsys_reg_dump_mt6985(enum chk_sys_id id[]);
 extern void get_subsys_reg_dump_mt6985(void);
 extern u32 get_mt6985_reg_value(u32 id, u32 ofs);
+extern void release_hwv_secure(void);
 #endif	/* __DRV_CLKCHK_MT6985_H */

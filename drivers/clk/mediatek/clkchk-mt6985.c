@@ -29,7 +29,11 @@
 #define CHECK_VCORE_FREQ		1
 #define CG_CHK_PWRON_ENABLE		0
 
+#define HWV_INT_PLL_TRIGGER		0x0004
+#define HWV_INT_CG_TRIGGER		0x10001
+
 #define HWV_DOMAIN_KEY			0x055C
+#define HWV_IRQ_STATUS			0x0500
 #define HWV_SECURE_KEY			0x10907
 #define HWV_CG_SET(xpu, id)		((0x200 * (xpu)) + (id * 0x8))
 #define HWV_CG_STA(id)			(0x1800 + (id * 0x4))
@@ -37,14 +41,6 @@
 #define HWV_CG_SET_STA(id)		(0x1A00 + (id * 0x4))
 #define HWV_CG_CLR_STA(id)		(0x1B00 + (id * 0x4))
 #define HWV_CG_DONE(id)			(0x1C00 + (id * 0x4))
-
-#define HWV_PLL_SET			(0x190)
-#define HWV_PLL_CLR			(0x194)
-#define HWV_PLL_EN			(0x1400)
-#define HWV_PLL_STA			(0x1404)
-#define HWV_PLL_DONE			(0x140C)
-#define HWV_PLL_SET_STA			(0x1464)
-#define HWV_PLL_CLR_STA			(0x1468)
 
 #define EVT_LEN				40
 #define CLK_ID_SHIFT			0
@@ -492,6 +488,7 @@ static struct regname rn[] = {
 	REGNAME(spm, 0xF84, PWR_STATUS),
 	REGNAME(spm, 0xF88, PWR_STATUS_2ND),
 	REGNAME(spm, 0xF74, MD_BUCK_ISO_CON),
+	REGNAME(spm, 0xF78, SOC_BUCK_ISO_CON),
 	REGNAME(spm, 0xE04, CONN_PWR_CON),
 	REGNAME(spm, 0xE10, UFS0_PWR_CON),
 	REGNAME(spm, 0xE14, UFS0_PHY_PWR_CON),
@@ -612,18 +609,25 @@ static struct regname rn[] = {
 	REGNAME(semi, 0x8c, EMI_RDY1),
 	/* HWV register */
 	REGNAME(hwv_wrt, 0x055C, HWV_DOMAIN_KEY),
-	REGNAME(hwv, 0x0194, HW_CCF_AP_PLL_SET),
-	REGNAME(hwv, 0x0994, HW_CCF_SSPM_PLL_SET),
-	REGNAME(hwv, 0x0F94, HW_CCF_MMUP_PLL_SET),
-	REGNAME(hwv_ext, 0x0394, HW_CCF_SCP_PLL_SET),
+	REGNAME(hwv, 0x0190, HW_CCF_AP_PLL_SET),
+	REGNAME(hwv, 0x0990, HW_CCF_SSPM_PLL_SET),
+	REGNAME(hwv, 0x0F90, HW_CCF_MMUP_PLL_SET),
+	REGNAME(hwv_ext, 0x0390, HW_CCF_SCP_PLL_SET),
 	REGNAME(hwv_ext, 0x0400, HW_CCF_PLL_ENABLE),
+	REGNAME(hwv_ext, 0x0404, HW_CCF_PLL_STA),
 	REGNAME(hwv_ext, 0x040C, HW_CCF_PLL_DONE),
+	REGNAME(hwv_ext, 0x0464, HW_CCF_PLL_SET_STA),
+	REGNAME(hwv_ext, 0x0468, HW_CCF_PLL_CLR_STA),
 	REGNAME(hwv, 0x0198, HW_CCF_AP_MTCMOS_SET),
 	REGNAME(hwv, 0x0998, HW_CCF_SSPM_MTCMOS_SET),
 	REGNAME(hwv, 0x0F98, HW_CCF_MMUP_MTCMOS_SET),
 	REGNAME(hwv_ext, 0x0398, HW_CCF_SCP_MTCMOS_SET),
 	REGNAME(hwv_ext, 0x0410, HW_CCF_MTCMOS_ENABLE),
+	REGNAME(hwv_ext, 0x0414, HW_CCF_MTCMOS_STA),
 	REGNAME(hwv_ext, 0x041C, HW_CCF_MTCMOS_DONE),
+	REGNAME(hwv_ext, 0x046C, HW_CCF_MTCMOS_SET_STA),
+	REGNAME(hwv_ext, 0x0470, HW_CCF_MTCMOS_CLR_STA),
+	REGNAME(hwv_ext, 0x0500, HW_CCF_IRQ_STATUS),
 	REGNAME(hwv_ext, 0x0F04, HWV_ADDR_HISTORY_0),
 	REGNAME(hwv_ext, 0x0F08, HWV_ADDR_HISTORY_1),
 	REGNAME(hwv_ext, 0x0F0C, HWV_ADDR_HISTORY_2),
@@ -686,10 +690,19 @@ u32 get_mt6985_reg_value(u32 id, u32 ofs)
 }
 EXPORT_SYMBOL_GPL(get_mt6985_reg_value);
 
+static void set_mt6985_reg_value(u32 id, u32 ofs, u32 val)
+{
+	if (id >= chk_sys_num)
+		return;
+
+	clk_writel(rb[id].virt + ofs, val);
+}
+
 void release_hwv_secure(void)
 {
-	clk_writel(rb[hwv_wrt].virt + HWV_DOMAIN_KEY, HWV_SECURE_KEY);
+	set_mt6985_reg_value(hwv_wrt, HWV_DOMAIN_KEY, HWV_SECURE_KEY);
 }
+EXPORT_SYMBOL_GPL(release_hwv_secure);
 
 /*
  * clkchk pwr_data
@@ -755,7 +768,6 @@ static int get_pvd_pwr_data_idx(const char *pvdname)
  */
 static u32 get_pwr_status(s32 idx)
 {
-
 	if (idx < 0 || idx >= ARRAY_SIZE(pvd_pwr_data))
 		return 0;
 
@@ -877,8 +889,6 @@ static struct mtk_vf vf_table[] = {
 
 static const char *get_vf_name(int id)
 {
-	if (id < 0)
-		return NULL;
 #if CHECK_VCORE_FREQ
 	return vf_table[id].name;
 #else
@@ -888,9 +898,10 @@ static const char *get_vf_name(int id)
 
 static int get_vf_opp(int id, int opp)
 {
-	if ((id < 0) || (opp < 0))
-		return 0;
 #if CHECK_VCORE_FREQ
+	if (id < 0 || opp < 0)
+		return 0;
+
 	return vf_table[id].freq_table[opp];
 #else
 	return 0;
@@ -1124,26 +1135,30 @@ static void dump_hwv_history(struct regmap *regmap, u32 id)
 	u32 set[XPU_NUM] = {0}, sta = 0, set_sta = 0, clr_sta = 0, en = 0, done = 0;
 	int i;
 
-	set_subsys_reg_dump_mt6985(history_dump_id);
-	for (i = 0; i < XPU_NUM; i++)
-		regmap_read(regmap, HWV_CG_SET(xpu_id[i], id), &set[i]);
-
 	release_hwv_secure();
-	regmap_read(regmap, HWV_CG_STA(id), &sta);
-	regmap_read(regmap, HWV_CG_SET_STA(id), &set_sta);
-	regmap_read(regmap, HWV_CG_CLR_STA(id), &clr_sta);
-	regmap_read(regmap, HWV_CG_EN(id), &en);
-	regmap_read(regmap, HWV_CG_DONE(id), &done);
+	set_subsys_reg_dump_mt6985(history_dump_id);
 
-	for (i = 0; i < XPU_NUM; i++)
-		pr_notice("set: (%x)%x", HWV_CG_SET(xpu_id[i], id), set[i]);
-	pr_notice("[%d] (%x)%x, (%x)%x, (%x)%x, (%x)%x, (%x)%x\n",
-			id,
-			HWV_CG_STA(id), sta,
-			HWV_CG_SET_STA(id), set_sta,
-			HWV_CG_CLR_STA(id), clr_sta,
-			HWV_CG_EN(id), en,
-			HWV_CG_DONE(id), done);
+	if (regmap != NULL) {
+		for (i = 0; i < XPU_NUM; i++)
+			regmap_read(regmap, HWV_CG_SET(xpu_id[i], id), &set[i]);
+
+		regmap_read(regmap, HWV_CG_STA(id), &sta);
+		regmap_read(regmap, HWV_CG_SET_STA(id), &set_sta);
+		regmap_read(regmap, HWV_CG_CLR_STA(id), &clr_sta);
+		regmap_read(regmap, HWV_CG_EN(id), &en);
+		regmap_read(regmap, HWV_CG_DONE(id), &done);
+
+
+		for (i = 0; i < XPU_NUM; i++)
+			pr_notice("set: (%x)%x", HWV_CG_SET(xpu_id[i], id), set[i]);
+		pr_notice("[%d] (%x)%x, (%x)%x, (%x)%x, (%x)%x, (%x)%x\n",
+				id,
+				HWV_CG_STA(id), sta,
+				HWV_CG_SET_STA(id), set_sta,
+				HWV_CG_CLR_STA(id), clr_sta,
+				HWV_CG_EN(id), en,
+				HWV_CG_DONE(id), done);
+	}
 
 	get_subsys_reg_dump_mt6985();
 }
@@ -1170,39 +1185,34 @@ static void dump_bus_reg(struct regmap *regmap, u32 ofs)
 static enum chk_sys_id hwv_pll_dump_id[] = {
 	apmixed,
 	top,
+	hwv,
+	hwv_ext,
 	chk_sys_num,
 };
 
 static void dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
 {
-	u32 val[7] = { 0 };
-
-	regmap_read(regmap, HWV_PLL_SET, &val[0]);
-	regmap_read(regmap, HWV_PLL_CLR, &val[1]);
-	regmap_read(regmap, HWV_PLL_STA, &val[2]);
-	regmap_read(regmap, HWV_PLL_EN, &val[3]);
-	regmap_read(regmap, HWV_PLL_DONE, &val[4]);
-	regmap_read(regmap, HWV_PLL_SET_STA, &val[5]);
-	regmap_read(regmap, HWV_PLL_CLR_STA, &val[6]);
-
+	release_hwv_secure();
 	set_subsys_reg_dump_mt6985(hwv_pll_dump_id);
-
-	regmap_write(regmap, HWV_DOMAIN_KEY, HWV_SECURE_KEY);
-
-	pr_notice("[%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x\n",
-			HWV_PLL_SET, val[0],
-			HWV_PLL_CLR, val[1],
-			HWV_PLL_STA, val[2],
-			HWV_PLL_EN, val[3],
-			HWV_PLL_DONE, val[4],
-			HWV_PLL_SET_STA, val[5],
-			HWV_PLL_CLR_STA, val[6]);
-
 	get_subsys_reg_dump_mt6985();
 
 	mdelay(100);
 
 	BUG_ON(1);
+}
+
+static void check_hwv_irq_sta(void)
+{
+	u32 irq_sta;
+
+	irq_sta = get_mt6985_reg_value(hwv_ext, HWV_IRQ_STATUS);
+
+	if ((irq_sta & HWV_INT_CG_TRIGGER) == HWV_INT_CG_TRIGGER) {
+		dump_hwv_history(NULL, 0);
+		dump_bus_reg(NULL, 0);
+	}
+	if ((irq_sta & HWV_INT_PLL_TRIGGER) == HWV_INT_PLL_TRIGGER)
+		dump_hwv_pll_reg(NULL, 0);
 }
 
 /*
@@ -1228,6 +1238,7 @@ static struct clkchk_ops clkchk_mt6985_ops = {
 	.dump_hwv_pll_reg = dump_hwv_pll_reg,
 	.trace_clk_event = trace_clk_event,
 	.trigger_trace_dump = trigger_trace_dump,
+	.check_hwv_irq_sta = check_hwv_irq_sta,
 };
 
 static int clk_chk_mt6985_probe(struct platform_device *pdev)
@@ -1246,6 +1257,8 @@ static int clk_chk_mt6985_probe(struct platform_device *pdev)
 #if CHECK_VCORE_FREQ
 	mtk_clk_check_muxes();
 #endif
+
+	clkchk_hwv_irq_init(pdev);
 
 	return 0;
 }

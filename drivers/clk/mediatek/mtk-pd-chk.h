@@ -43,9 +43,11 @@ struct pdchk_ops {
 	int *(*get_suspend_allow_id)(void);
 	void (*trace_power_event)(unsigned int pd_id, unsigned int pwr_sta);
 	void (*dump_power_event)(void);
+	void (*check_hwv_irq_sta)(void);
 };
 
 void pdchk_common_init(const struct pdchk_ops *ops);
+void pdchk_hwv_irq_init(struct platform_device *pdev);
 
 extern const struct dev_pm_ops pdchk_dev_pm_ops;
 extern struct clk *clk_chk_lookup(const char *name);

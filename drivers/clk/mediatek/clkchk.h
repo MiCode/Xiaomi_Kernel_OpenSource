@@ -91,6 +91,7 @@ struct clkchk_ops {
 	bool (*is_cg_chk_pwr_on)(void);
 	void (*trace_clk_event)(const char *name, unsigned int clk_sta);
 	void (*trigger_trace_dump)(unsigned int enable);
+	void (*check_hwv_irq_sta)(void);
 };
 
 int pwr_hw_is_on(enum PWR_STA_TYPE type, s32 val);
@@ -101,6 +102,7 @@ bool is_valid_reg(void __iomem *addr);
 int mtk_clk_check_muxes(void);
 int set_clkchk_notify(void);
 void set_clkchk_ops(const struct clkchk_ops *ops);
+void clkchk_hwv_irq_init(struct platform_device *pdev);
 
 extern bool pdchk_get_bug_on_stat(void);
 extern void pdchk_dump_trace_evt(void);

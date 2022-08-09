@@ -5,6 +5,7 @@
 
 #include <linux/clk-provider.h>
 #include <linux/device.h>
+#include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/pm_domain.h>
 #include <linux/pm_runtime.h>
@@ -34,6 +35,7 @@ static bool pd_evt[MAX_PD_NUM];
 static const struct pdchk_ops *pdchk_ops;
 static bool bug_on_stat;
 static atomic_t check_enabled;
+static int hwv_irq;
 
 static bool is_in_pd_list(unsigned int id)
 {
@@ -504,4 +506,45 @@ void pdchk_common_init(const struct pdchk_ops *ops)
 	set_genpd_notify();
 }
 EXPORT_SYMBOL(pdchk_common_init);
+
+static void pdchk_check_hwv_irq_sta(void)
+{
+	if (pdchk_ops == NULL || pdchk_ops->check_hwv_irq_sta == NULL)
+		return;
+
+	pdchk_ops->check_hwv_irq_sta();
+}
+
+static irqreturn_t pdchk_hwv_irq_handler(int irq, void *dev_id)
+{
+	disable_irq_nosync(irq);
+
+	if (likely(irq == hwv_irq))
+		pdchk_check_hwv_irq_sta();
+
+	return IRQ_HANDLED;
+}
+
+void pdchk_hwv_irq_init(struct platform_device *pdev)
+{
+	int ret;
+
+	hwv_irq = platform_get_irq_byname(pdev, "hwv_irq");
+	if (hwv_irq < 0) {
+		pr_notice("[pdchk] get hwv irq is not support\n");
+	} else {
+		ret = request_irq(hwv_irq, pdchk_hwv_irq_handler,
+				IRQF_TRIGGER_NONE, "HWV IRQ", NULL);
+		if (ret < 0) {
+			pr_notice("[pdchk]hwv require irq fail %d %d\n",
+				hwv_irq, ret);
+		} else {
+			ret = enable_irq_wake(hwv_irq);
+			if (ret < 0)
+				pr_notice("[pdchk]hwv wake fail:%d,%d\n",
+					hwv_irq, ret);
+		}
+	}
+}
+EXPORT_SYMBOL(pdchk_hwv_irq_init);
 

@@ -21,10 +21,50 @@
 #define EVT_LEN				40
 #define PWR_ID_SHIFT			0
 #define PWR_STA_SHIFT			8
+#define HWV_INT_MTCMOS_TRIGGER		0x0008
+
+#define HWV_IRQ_STATUS			0x0500
 
 static DEFINE_SPINLOCK(pwr_trace_lock);
 static unsigned int pwr_event[EVT_LEN];
 static unsigned int evt_cnt;
+
+static void trace_power_event(unsigned int id, unsigned int pwr_sta)
+{
+	unsigned long flags = 0;
+
+	if (id >= MT6985_CHK_PD_NUM)
+		return;
+
+	spin_lock_irqsave(&pwr_trace_lock, flags);
+
+	pwr_event[evt_cnt] = (id << PWR_ID_SHIFT) | (pwr_sta << PWR_STA_SHIFT);
+	evt_cnt++;
+	if (evt_cnt >= EVT_LEN)
+		evt_cnt = 0;
+
+	spin_unlock_irqrestore(&pwr_trace_lock, flags);
+}
+
+static void dump_power_event(void)
+{
+	unsigned long flags = 0;
+	int i;
+
+	spin_lock_irqsave(&pwr_trace_lock, flags);
+
+	pr_notice("first idx: %d\n", evt_cnt);
+	for (i = 0; i < EVT_LEN; i += 5)
+		pr_notice("pwr_evt[%d] = 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
+				i,
+				pwr_event[i],
+				pwr_event[i + 1],
+				pwr_event[i + 2],
+				pwr_event[i + 3],
+				pwr_event[i + 4]);
+
+	spin_unlock_irqrestore(&pwr_trace_lock, flags);
+}
 
 /*
  * The clk names in Mediatek CCF.
@@ -709,11 +749,12 @@ static enum chk_sys_id debug_dump_id[] = {
 
 static void debug_dump(unsigned int id, unsigned int pwr_sta)
 {
-	const struct fmeter_clk *fclk;
 	int i, parent_id = PD_NULL;
 
 	if (id >= MT6985_CHK_PD_NUM)
 		return;
+
+	release_hwv_secure();
 
 	set_subsys_reg_dump_mt6985(debug_dump_id);
 
@@ -735,9 +776,7 @@ static void debug_dump(unsigned int id, unsigned int pwr_sta)
 			print_subsys_reg_mt6985(mtk_subsys_check[i].chk_id);
 	}
 
-	fclk = mt_get_fmeter_clks();
-	if (fclk != NULL)
-		mt_get_fmeter_freq(fclk->id, fclk->type);
+	dump_power_event();
 
 	BUG_ON(1);
 }
@@ -929,41 +968,14 @@ static int *get_suspend_allow_id(void)
 	return suspend_allow_id;
 }
 
-static void trace_power_event(unsigned int id, unsigned int pwr_sta)
+static void check_hwv_irq_sta(void)
 {
-	unsigned long flags = 0;
+	u32 irq_sta;
 
-	if (id >= MT6985_CHK_PD_NUM)
-		return;
+	irq_sta = get_mt6985_reg_value(hwv_ext, HWV_IRQ_STATUS);
 
-	spin_lock_irqsave(&pwr_trace_lock, flags);
-
-	pwr_event[evt_cnt] = (id << PWR_ID_SHIFT) | (pwr_sta << PWR_STA_SHIFT);
-	evt_cnt++;
-	if (evt_cnt >= EVT_LEN)
-		evt_cnt = 0;
-
-	spin_unlock_irqrestore(&pwr_trace_lock, flags);
-}
-
-static void dump_power_event(void)
-{
-	unsigned long flags = 0;
-	int i;
-
-	spin_lock_irqsave(&pwr_trace_lock, flags);
-
-	pr_notice("first idx: %d\n", evt_cnt);
-	for (i = 0; i < EVT_LEN; i += 5)
-		pr_notice("pwr_evt[%d] = 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
-				i,
-				pwr_event[i],
-				pwr_event[i + 1],
-				pwr_event[i + 2],
-				pwr_event[i + 3],
-				pwr_event[i + 4]);
-
-	spin_unlock_irqrestore(&pwr_trace_lock, flags);
+	if ((irq_sta & HWV_INT_MTCMOS_TRIGGER) == HWV_INT_MTCMOS_TRIGGER)
+		debug_dump(MT6985_CHK_PD_NUM, 0);
 }
 
 /*
@@ -983,11 +995,13 @@ static struct pdchk_ops pdchk_mt6985_ops = {
 	.get_suspend_allow_id = get_suspend_allow_id,
 	.trace_power_event = trace_power_event,
 	.dump_power_event = dump_power_event,
+	.check_hwv_irq_sta = check_hwv_irq_sta,
 };
 
 static int pd_chk_mt6985_probe(struct platform_device *pdev)
 {
 	pdchk_common_init(&pdchk_mt6985_ops);
+	pdchk_hwv_irq_init(pdev);
 
 	return 0;
 }

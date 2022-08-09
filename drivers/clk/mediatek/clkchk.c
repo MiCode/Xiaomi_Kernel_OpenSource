@@ -5,6 +5,7 @@
 
 #define pr_fmt(fmt) "[clkchk] " fmt
 
+#include <linux/interrupt.h>
 #include <linux/notifier.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -39,6 +40,7 @@ void __attribute__((weak)) clkchk_set_cfg(void)
 
 static const struct clkchk_ops *clkchk_ops;
 static struct notifier_block mtk_clkchk_notifier;
+static int hwv_irq;
 
 void set_clkchk_ops(const struct clkchk_ops *ops)
 {
@@ -693,3 +695,45 @@ int set_clkchk_notify(void)
 	return r;
 }
 EXPORT_SYMBOL(set_clkchk_notify);
+
+static void clkchk_check_hwv_irq_sta(void)
+{
+	if (clkchk_ops == NULL || clkchk_ops->check_hwv_irq_sta == NULL)
+		return;
+
+	clkchk_ops->check_hwv_irq_sta();
+}
+
+static irqreturn_t clkchk_hwv_irq_handler(int irq, void *dev_id)
+{
+	disable_irq_nosync(irq);
+
+	if (likely(irq == hwv_irq))
+		clkchk_check_hwv_irq_sta();
+
+	return IRQ_HANDLED;
+}
+
+void clkchk_hwv_irq_init(struct platform_device *pdev)
+{
+	int ret;
+
+	hwv_irq = platform_get_irq_byname(pdev, "hwv_irq");
+	if (hwv_irq < 0) {
+		pr_notice("[clkchk] get hwv irq is not support\n");
+	} else {
+		ret = request_irq(hwv_irq, clkchk_hwv_irq_handler,
+			IRQF_TRIGGER_NONE, "HWV IRQ", NULL);
+		if (ret < 0) {
+			pr_notice("[clkchk]hwv require irq fail %d %d\n",
+				hwv_irq, ret);
+		} else {
+			ret = enable_irq_wake(hwv_irq);
+			if (ret < 0)
+				pr_notice("[clkchk]hwv wake fail:%d,%d\n",
+					hwv_irq, ret);
+		}
+	}
+}
+EXPORT_SYMBOL(clkchk_hwv_irq_init);
+
