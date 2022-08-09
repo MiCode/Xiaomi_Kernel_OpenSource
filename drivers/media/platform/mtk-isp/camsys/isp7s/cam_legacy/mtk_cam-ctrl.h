@@ -104,6 +104,8 @@ enum MTK_CAMSYS_STATE_IDX {
 struct mtk_camsys_ctrl_state {
 	enum MTK_CAMSYS_STATE_IDX estate;
 	struct list_head state_element;
+	/* for sof counter between each data in preisp */
+	int sof_cnt_key;
 };
 
 struct mtk_camsys_link_ctrl {
@@ -220,6 +222,8 @@ void mtk_camsys_extisp_yuv_frame_start(struct mtk_camsv_device *camsv,
 void mtk_camsys_extisp_raw_frame_start(struct mtk_raw_device *raw_dev,
 	struct mtk_cam_ctx *ctx, struct mtk_camsys_irq_info *irq_info);
 void mtk_cam_extisp_handle_sv_tstamp(struct mtk_cam_ctx *ctx,
+	struct mtk_cam_request_stream_data *s_data, struct mtk_camsys_irq_info *irq_info);
+void mtk_cam_extisp_handle_raw_tstamp(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_request_stream_data *s_data, struct mtk_camsys_irq_info *irq_info);
 void mtk_cam_state_add_wo_sensor(struct mtk_cam_ctx *ctx);
 void mtk_cam_state_del_wo_sensor(struct mtk_cam_ctx *ctx,

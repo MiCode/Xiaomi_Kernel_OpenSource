@@ -2477,6 +2477,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	unsigned int frame_idx, frame_idx_inner, fbc_fho_ctl2;
 	unsigned int irq_status, err_status, dmao_done_status, dmai_done_status;
 	unsigned int drop_status, dma_ofl_status, cq_done_status, dcif_status;
+	unsigned int tg_cnt;
 	bool wake_thread = 0;
 
 	irq_status	 = readl_relaxed(raw_dev->base + REG_CTL_RAW_INT_STAT);
@@ -2492,7 +2493,8 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 
 	fbc_fho_ctl2 =
 		readl_relaxed(REG_FBC_CTL2(raw_dev->base + FBC_R1A_BASE, 1));
-
+	tg_cnt = readl_relaxed(raw_dev->base + REG_TG_INTER_ST);
+	tg_cnt = (tg_cnt & 0xff0000) >> 16;
 	err_status = irq_status & INT_ST_MASK_CAM_ERR;
 
 	if (unlikely(debug_raw))
@@ -2545,6 +2547,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		raw_dev->sof_count++;
 
 		raw_dev->cur_vsync_idx = 0;
+		raw_dev->tg_count = tg_cnt;
 		raw_dev->last_sof_time_ns = irq_info.ts_ns;
 		irq_info.write_cnt = ((fbc_fho_ctl2 & WCNT_BIT_MASK) >> 8) - 1;
 		irq_info.fbc_cnt = (fbc_fho_ctl2 & CNT_BIT_MASK) >> 16;

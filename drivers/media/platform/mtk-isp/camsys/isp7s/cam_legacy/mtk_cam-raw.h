@@ -337,6 +337,8 @@ struct mtk_raw_device {
 	u64 vsync_count;
 	u64 last_sof_time_ns;
 
+	/* for preisp - for sof counter sync.*/
+	int tg_count;
 	/* for subsample, sensor-control */
 	bool sub_sensor_ctrl_en;
 	int set_sensor_idx;
