@@ -344,6 +344,7 @@ static int dpmaif_debug_open(struct inode *inode, struct file *file)
 		return -EBUSY;
 	}
 
+	g_debug_flags = 0xFFFFFFFF;
 	CCCI_ERROR_LOG(-1, TAG, "[%s] name: %s\n", __func__, current->comm);
 	return 0;
 }
@@ -376,7 +377,7 @@ void ccci_dpmaif_debug_init(void)
 {
 	struct proc_dir_entry *dpmaif_debug_proc;
 
-	g_debug_buf_len = 0;
+	g_debug_buf_len = 1024*1024; //1M buffer size
 	g_debug_flags   = 0;
 
 	atomic_set(&g_debug_buf.dbg_user_cnt, 0);
@@ -395,6 +396,12 @@ void ccci_dpmaif_debug_init(void)
 	init_waitqueue_head(&g_debug_buf.dbg_wq);
 
 	ccci_set_dpmaif_debug_cb(&dpmaif_md_ee_cb);
+
+	if (g_debug_buf_len > 0) {
+		g_debug_buf.data = vmalloc(g_debug_buf_len);
+		CCCI_NORMAL_LOG(-1, TAG, "[%s] vmalloc(%u): %p\n",
+			__func__, g_debug_buf_len, g_debug_buf.data);
+	}
 
 #ifdef ENABLE_DPMAIF_ISR_LOG
 	g_isr_log = kzalloc(sizeof(struct dpmaif_isr_log) * ISR_LOG_DATA_LEN, GFP_KERNEL);
