@@ -966,6 +966,14 @@ config CHARGER_RT9759
 	  for Mediatek Pump Express 5.0.
 	  It depends on config MTK_CHARGER
 
+config CHARGER_MT6985_ALPHA_SUPPORT
+	tristate "Specify Alpha Charger Platform is mt6985"
+	help
+		Select Alpha Charger Platform is mt6985.
+		To compile this dirver for used charger IC.
+		Set Y or M to select this feature for specific platform-mt6985,
+		and set N to disable.
+
 config RN5T618_POWER
 	tristate "RN5T618 charger/fuel gauge support"
 	depends on MFD_RN5T618
