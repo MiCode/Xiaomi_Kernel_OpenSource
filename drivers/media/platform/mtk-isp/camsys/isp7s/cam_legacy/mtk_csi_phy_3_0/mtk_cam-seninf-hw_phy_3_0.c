@@ -3961,9 +3961,9 @@ static int mtk_cam_seninf_set_cam_mux_dyn_en(
 
 	SENINF_BITS(pSeninf_cam_mux_gcsr,
 		    SENINF_CAM_MUX_GCSR_DYN_CTRL, RG_SENINF_CAM_MUX_DYN_SKIP_CURR_EN, enable);
-	dev_info(ctx->dev, "%s skip curr_en enbled\n", __func__);
+	dev_info(ctx->dev, "%s skip curr_en enbled. cam_mux %d\n", __func__, cam_mux);
 
-	if (cam_mux <= 31) {
+	if ((cam_mux >= 0) && (cam_mux <= 31)) {
 		if (index == 0) {
 			tmp = SENINF_READ_BITS(pSeninf_cam_mux_gcsr,
 				SENINF_CAM_MUX_GCSR_DYN_EN0, RG_SENINF_CAM_MUX_GCSR_DYN_SWITCH_EN0);
@@ -3985,7 +3985,7 @@ static int mtk_cam_seninf_set_cam_mux_dyn_en(
 				SENINF_CAM_MUX_GCSR_DYN_EN1, RG_SENINF_CAM_MUX_GCSR_DYN_SWITCH_EN1,
 				tmp);
 		}
-	} else if (cam_mux >= 32) {
+	} else if ((cam_mux >= 32) && (cam_mux <= 63)) {
 		cam_mux -= 32;
 		if (index == 0) {
 			tmp = SENINF_READ_BITS(pSeninf_cam_mux_gcsr,
@@ -4056,7 +4056,7 @@ static int mtk_cam_seninf_enable_cam_mux_vsync_irq(struct seninf_ctx *ctx, bool 
 	void *pSeninf_cam_mux_gcsr = ctx->reg_if_cam_mux_gcsr;
 	int tmp = 0;
 
-	if (cam_mux <= 31) {
+	if ((cam_mux >= 0) && (cam_mux <= 31)) {
 		tmp = SENINF_READ_BITS(pSeninf_cam_mux_gcsr,
 			SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN, RG_SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN);
 		if (enable)
@@ -4066,7 +4066,7 @@ static int mtk_cam_seninf_enable_cam_mux_vsync_irq(struct seninf_ctx *ctx, bool 
 		SENINF_BITS(pSeninf_cam_mux_gcsr,
 			SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN,
 			RG_SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN, tmp);
-	} else if (cam_mux >= 32) {
+	} else if ((cam_mux >= 32) && (cam_mux <= 63)) {
 		cam_mux -= 32;
 		tmp = SENINF_READ_BITS(pSeninf_cam_mux_gcsr,
 			SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN_H,
