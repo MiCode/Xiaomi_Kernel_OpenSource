@@ -191,6 +191,7 @@ struct mtk_msi_set {
  * @dev: pointer to PCIe device
  * @base: IO mapped register base
  * @pextpcfg: pextpcfg_ao(pcie HW MTCMOS) IO mapped register base
+ * @vlpcfg_base: vlpcfg(bus protect ready) IO mapped register base
  * @reg_base: physical register base
  * @mac_reset: MAC reset control
  * @phy_reset: PHY reset control
@@ -209,12 +210,16 @@ struct mtk_msi_set {
  * @msi_bottom_domain: MSI IRQ bottom domain
  * @msi_sets: MSI sets information
  * @lock: lock protecting IRQ bit map
+ * @vote_lock: lock protecting vote HW control mode
+ * @ep_hw_mode_en: flag of ep control hw mode
+ * @rc_hw_mode_en: flag of rc control hw mode
  * @msi_irq_in_use: bit map for assigned MSI IRQ
  */
 struct mtk_pcie_port {
 	struct device *dev;
 	void __iomem *base;
 	void __iomem *pextpcfg;
+	void __iomem *vlpcfg_base;
 	phys_addr_t reg_base;
 	struct reset_control *mac_reset;
 	struct reset_control *phy_reset;
@@ -236,6 +241,9 @@ struct mtk_pcie_port {
 	struct irq_domain *msi_bottom_domain;
 	struct mtk_msi_set msi_sets[PCIE_MSI_SET_NUM];
 	struct mutex lock;
+	struct mutex vote_lock;
+	bool ep_hw_mode_en;
+	bool rc_hw_mode_en;
 	DECLARE_BITMAP(msi_irq_in_use, PCIE_MSI_IRQS_NUM);
 };
 
@@ -412,6 +420,12 @@ static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 	writel_relaxed(val, port->base + PCIE_PCI_IDS_1);
 
 	if (port->pextpcfg) {
+		mutex_init(&port->vote_lock);
+
+		port->vlpcfg_base = ioremap(PCIE_VLPCFG_BASE, 0x1000);
+		port->ep_hw_mode_en = false;
+		port->rc_hw_mode_en = false;
+
 		val = readl_relaxed(port->base + PCIE_ASPM_CTRL);
 		val &= ~PCIE_P2_IDLE_TIME_MASK;
 		val |= PCIE_P2_EXIT_BY_CLKREQ | PCIE_P2_IDLE_TIME(8);
@@ -1449,6 +1463,91 @@ static int __maybe_unused mtk_pcie_turn_off_link(struct mtk_pcie_port *port)
 				   50 * USEC_PER_MSEC);
 }
 
+static void mtk_pcie_enable_hw_control(struct mtk_pcie_port *port, bool enable)
+{
+	u32 val;
+
+	val = readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_0);
+	if (enable)
+		val |= PCIE_HW_MTCMOS_EN_P0;
+	else
+		val &= ~PCIE_HW_MTCMOS_EN_P0;
+
+	writel_relaxed(val, port->pextpcfg + PEXTP_PWRCTL_0);
+	dev_info(port->dev, "PCIe HW MODE BIT=%#x\n",
+		 readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_0));
+}
+
+/*
+ * mtk_pcie_hw_control_vote() - Vote mechanism
+ * @port: The port number which EP use
+ * @hw_mode_en: vote mechanism, true: agree open hw mode;
+ *        false: disagree open hw mode
+ * @who: 0 is rc, 1 is wifi
+ */
+int mtk_pcie_hw_control_vote(int port, bool hw_mode_en, u8 who)
+{
+	struct device_node *pcie_node;
+	struct platform_device *pdev;
+	struct mtk_pcie_port *pcie_port;
+	bool vote_hw_mode_en;
+	int err = 0;
+	u32 val;
+
+	pcie_node = mtk_pcie_find_node_by_port(port);
+	if (!pcie_node)
+		return -ENODEV;
+
+	pdev = of_find_device_by_node(pcie_node);
+	if (!pdev) {
+		pr_info("PCIe platform device not found!\n");
+		return -ENODEV;
+	}
+
+	pcie_port = platform_get_drvdata(pdev);
+	if (!pcie_port)
+		return -ENODEV;
+
+	mutex_lock(&pcie_port->vote_lock);
+
+	if (who) {
+		if (hw_mode_en)
+			pcie_port->ep_hw_mode_en = true;
+		else
+			pcie_port->ep_hw_mode_en = false;
+	} else {
+		if (hw_mode_en)
+			pcie_port->rc_hw_mode_en = true;
+		else
+			pcie_port->rc_hw_mode_en = false;
+	}
+
+	vote_hw_mode_en = (pcie_port->ep_hw_mode_en && pcie_port->rc_hw_mode_en)
+			   ? true : false;
+	mtk_pcie_enable_hw_control(pcie_port, vote_hw_mode_en);
+
+	mutex_unlock(&pcie_port->vote_lock);
+
+	pr_info("hw_mode_en=%d, who=%d, ep_hw_mode_en=%d, rc_hw_mode_en=%d, vote=%d\n",
+		hw_mode_en, who, pcie_port->ep_hw_mode_en,
+		pcie_port->rc_hw_mode_en, vote_hw_mode_en);
+
+	if (!vote_hw_mode_en) {
+		/* Check the sleep protect ready */
+		err = readl_poll_timeout(pcie_port->vlpcfg_base +
+					 PCIE_VLP_AXI_PROTECT_STA, val,
+					 !(val & PCIE_MAC0_SLP_READY_MASK),
+					 20, 50 * USEC_PER_MSEC);
+		if (err)
+			dev_info(pcie_port->dev, "PCIe sleep protect not ready, %#x\n",
+				 readl_relaxed(pcie_port->vlpcfg_base +
+				 PCIE_VLP_AXI_PROTECT_STA));
+	}
+
+	return err;
+}
+EXPORT_SYMBOL(mtk_pcie_hw_control_vote);
+
 static int __maybe_unused mtk_pcie_suspend_noirq(struct device *dev)
 {
 	struct mtk_pcie_port *port = dev_get_drvdata(dev);
@@ -1462,8 +1561,10 @@ static int __maybe_unused mtk_pcie_suspend_noirq(struct device *dev)
 		dev_info(port->dev, "pcie L1SS_pm=%#x\n", val);
 
 		if (port->port_num == 0) {
-			dev_info(port->dev, "PCIe HW MODE BIT=%#x\n",
-				 readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_0));
+			err = mtk_pcie_hw_control_vote(0, true, 0);
+			if (err)
+				return err;
+
 			dev_info(port->dev, "Modem HW MODE BIT=%#x\n",
 				 readl_relaxed(port->pextpcfg + PEXTP_RSV_0));
 		} else if (port->port_num == 1) {
@@ -1499,7 +1600,6 @@ static int __maybe_unused mtk_pcie_suspend_noirq(struct device *dev)
 static int __maybe_unused mtk_pcie_resume_noirq(struct device *dev)
 {
 	struct mtk_pcie_port *port = dev_get_drvdata(dev);
-	void __iomem *vlpcfg_base;
 	int err;
 	u32 val;
 
@@ -1508,8 +1608,10 @@ static int __maybe_unused mtk_pcie_resume_noirq(struct device *dev)
 		clk_buf_voter_ctrl_by_id(7, SW_FPM);
 
 		if (port->port_num == 0) {
-			dev_info(port->dev, "PCIe HW MODE BIT=%#x\n",
-				 readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_0));
+			err = mtk_pcie_hw_control_vote(0, false, 0);
+			if (err)
+				return err;
+
 			dev_info(port->dev, "Modem HW MODE BIT=%#x\n",
 				 readl_relaxed(port->pextpcfg + PEXTP_RSV_0));
 		} else if (port->port_num == 1) {
@@ -1517,21 +1619,6 @@ static int __maybe_unused mtk_pcie_resume_noirq(struct device *dev)
 			val &= ~PCIE_HW_MTCMOS_EN_P1;
 			writel_relaxed(val, port->pextpcfg + PEXTP_PWRCTL_1);
 		}
-
-		/* Check the sleep protect ready */
-		vlpcfg_base = ioremap(PCIE_VLPCFG_BASE, 0x1000);
-		err = readl_poll_timeout(vlpcfg_base + PCIE_VLP_AXI_PROTECT_STA,
-					val, !(val & PCIE_MAC0_SLP_READY_MASK),
-					20, 50 * USEC_PER_MSEC);
-		if (err) {
-			dev_info(port->dev, "PCIe sleep protect not ready, %#x\n",
-				 readl_relaxed(vlpcfg_base +
-				 PCIE_VLP_AXI_PROTECT_STA));
-			iounmap(vlpcfg_base);
-			return err;
-		}
-
-		iounmap(vlpcfg_base);
 	} else {
 		err = mtk_pcie_power_up(port);
 		if (err)
