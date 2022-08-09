@@ -3809,7 +3809,7 @@ static int msm_nand_scan(struct mtd_info *mtd)
 	uint8_t id_byte[NAND_MAX_ID_LEN];
 	uint32_t bad_block_byte, spare_bytes;
 	struct nand_flash_dev *flashdev = NULL;
-	const struct nand_manufacturer  *flashman = NULL;
+	const struct nand_manufacturer_desc *flashman = NULL;
 
 	/* Probe the Flash device for ONFI compliance */
 	if (!msm_nand_flash_onfi_probe(info)) {
@@ -3830,7 +3830,7 @@ static int msm_nand_scan(struct mtd_info *mtd)
 		id_byte[6] = (flash_id2 >> 16) & 0xFF;
 		id_byte[7] = (flash_id2 >> 24) & 0xFF;
 
-		flashman = nand_get_manufacturer(manid);
+		flashman = nand_get_manufacturer_desc(manid);
 
 		for (i = 0; !flashdev; ++i) {
 			/*

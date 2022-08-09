@@ -372,7 +372,7 @@ struct msm_nand_info {
 
 extern struct nand_flash_dev nand_flash_ids[];
 
-const struct nand_manufacturer *nand_get_manufacturer(u8 id);
+const struct nand_manufacturer_desc *nand_get_manufacturer_desc(u8 id);
 
 /* Structure that defines an ONFI parameter page (512B) */
 struct onfi_param_page {
