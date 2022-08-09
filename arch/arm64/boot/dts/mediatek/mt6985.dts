@@ -12231,6 +12231,9 @@
 		mediatek,mux-venc = "TOP_UNIVPLL2_D5_D2",
 			"TOP_UNIVPLL2_D4_D2", "TOP_MMPLL2_D6",
 			"TOP_UNIVPLL2_D4", "TOP_MMPLL2_D4";
+		mediatek,mux-lp = "TOP_MAINPLL_D5_D2", "TOP_MAINPLL_D5_D2",
+				"TOP_MAINPLL_D5_D2", "TOP_MAINPLL_D5_D2",
+				"", "", "", "";
 
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 
