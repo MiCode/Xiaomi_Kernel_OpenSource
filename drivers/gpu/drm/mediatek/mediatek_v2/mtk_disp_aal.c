@@ -89,7 +89,7 @@ static atomic_t g_aal1_eof_irq = ATOMIC_INIT(0);
 static atomic_t g_aal_first_frame = ATOMIC_INIT(1);
 static atomic_t g_aal1_first_frame = ATOMIC_INIT(1);
 static atomic_t g_aal_dre30_write = ATOMIC_INIT(1);
-static atomic_t g_aal_interrupt_enabled = ATOMIC_INIT(1);
+static atomic_t g_aal_interrupt_enabled = ATOMIC_INIT(0);
 static struct workqueue_struct *aal_flip_wq;
 static struct workqueue_struct *aal_refresh_wq;
 
@@ -339,29 +339,19 @@ static void disp_aal_set_interrupt(struct mtk_ddp_comp *comp, int enable)
 		m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS] ||
 		m_new_pq_persist_property[DISP_PQ_GAMMA_SILKY_BRIGHTNESS])) {
 		/* Enable output frame end interrupt */
-		if (comp == NULL) {
-			if (isDualPQ) {
-				writel(0x2, default_comp->regs + DISP_AAL_INTEN);
-				writel(0x2, aal1_default_comp->regs + DISP_AAL_INTEN);
-			} else
-				writel(0x2, default_comp->regs + DISP_AAL_INTEN);
-		} else
+		if (comp == NULL)
+			writel(0x2, default_comp->regs + DISP_AAL_INTEN);
+		else
 			writel(0x2, comp->regs + DISP_AAL_INTEN);
 
 		atomic_set(&g_aal_interrupt_enabled, 1);
 		AALIRQ_LOG("interrupt enabled\n");
 	} else if (!enable) {
 		if (atomic_read(&aal_data->dirty_frame_retrieved) == 1) {
-			if (comp == NULL) {
-				if (isDualPQ) {
-					writel(0x0, default_comp->regs + DISP_AAL_INTEN);
-					writel(0x0, aal1_default_comp->regs + DISP_AAL_INTEN);
-				} else {
-					writel(0x0, default_comp->regs + DISP_AAL_INTEN);
-				}
-			} else {
+			if (comp == NULL)
+				writel(0x0, default_comp->regs + DISP_AAL_INTEN);
+			else
 				writel(0x0, comp->regs + DISP_AAL_INTEN);
-			}
 
 			atomic_set(&g_aal_interrupt_enabled, 0);
 			AALIRQ_LOG("interrupt disabled");
@@ -579,6 +569,14 @@ int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
 	int retry = 5;
 
 	AALFLOW_LOG("%d\n", *enabled);
+
+	spin_lock_irqsave(&g_aal_irq_en_lock, flags);
+	if ((atomic_read(&g_aal_interrupt_enabled) == 1 && *enabled)
+		|| (atomic_read(&g_aal_interrupt_enabled) == 0 && !*enabled)) {
+		spin_unlock_irqrestore(&g_aal_irq_en_lock, flags);
+		return ret;
+	}
+	spin_unlock_irqrestore(&g_aal_irq_en_lock, flags);
 
 	if (*enabled) {
 		mtk_drm_idlemgr_kick(__func__,
@@ -3196,6 +3194,7 @@ struct aal_backup { /* structure for backup AAL register value */
 	unsigned int DUAL_PIPE_INFO_01;
 #endif
 	unsigned int AAL_CFG;
+	unsigned int AAL_INTEN;
 };
 static struct aal_backup g_aal_backup;
 
@@ -3263,6 +3262,8 @@ static void ddp_aal_cabc_backup(struct mtk_ddp_comp *comp)
 static void ddp_aal_cfg_backup(struct mtk_ddp_comp *comp)
 {
 	g_aal_backup.AAL_CFG = readl(comp->regs + DISP_AAL_CFG);
+	if (comp->id == DDP_COMPONENT_AAL0)
+		g_aal_backup.AAL_INTEN = readl(comp->regs + DISP_AAL_INTEN);
 }
 
 static void ddp_aal_backup(struct mtk_ddp_comp *comp)
@@ -3346,6 +3347,8 @@ static void ddp_aal_cabc_restore(struct mtk_ddp_comp *comp)
 static void ddp_aal_cfg_restore(struct mtk_ddp_comp *comp)
 {
 	writel(g_aal_backup.AAL_CFG, comp->regs + DISP_AAL_CFG);
+	if (comp->id == DDP_COMPONENT_AAL0)
+		writel(g_aal_backup.AAL_INTEN, comp->regs + DISP_AAL_INTEN);
 }
 
 static void ddp_aal_restore(struct mtk_ddp_comp *comp)
@@ -3697,29 +3700,32 @@ static irqreturn_t mtk_disp_aal_irq_handler(int irq, void *dev_id)
 	struct mtk_disp_aal *priv = dev_id;
 	struct mtk_ddp_comp *comp = &priv->ddp_comp;
 	struct mtk_disp_aal *aal_data = comp_to_aal(comp);
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 
 	if (atomic_read(&aal_data->is_clock_on) == 1)
 		val = readl(comp->regs + DISP_AAL_INTSTA);
 
 	DRM_MMP_MARK(IRQ, irq, val);
-	if (comp->id == DDP_COMPONENT_AAL0)
-		DRM_MMP_MARK(aal0, val, 0);
-	else if (comp->id == DDP_COMPONENT_AAL1)
-		DRM_MMP_MARK(aal1, val, 0);
+	DRM_MMP_MARK(aal0, val, 0);
 
 	spin_lock_irqsave(&g_aal_clock_lock, flags);
 	if (atomic_read(&aal_data->is_clock_on) != 1)
 		AALIRQ_LOG("clock is off\n");
 	else {
 		disp_aal_on_end_of_frame(comp);
+		if (mtk_crtc->is_dual_pipe) {
+			struct drm_crtc *crtc = &mtk_crtc->base;
+			struct mtk_drm_private *dev_priv = crtc->dev->dev_private;
+			struct mtk_ddp_comp *comp1 = dev_priv->ddp_comp[DDP_COMPONENT_AAL1];
+
+			if (comp1)
+				disp_aal_on_end_of_frame(comp1);
+		}
 		ret = IRQ_HANDLED;
 	}
 	spin_unlock_irqrestore(&g_aal_clock_lock, flags);
 
-	if (comp->id == DDP_COMPONENT_AAL0)
-		DRM_MMP_MARK(aal0, val, 1);
-	else if (comp->id == DDP_COMPONENT_AAL1)
-		DRM_MMP_MARK(aal1, val, 1);
+	DRM_MMP_MARK(aal0, val, 1);
 
 	return ret;
 }
@@ -3824,10 +3830,12 @@ static int mtk_disp_aal_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, priv);
 
-	ret = devm_request_irq(dev, irq, mtk_disp_aal_irq_handler,
-		IRQF_TRIGGER_NONE | IRQF_SHARED, dev_name(dev), priv);
-	if (ret)
-		dev_err(dev, "devm_request_irq fail: %d\n", ret);
+	if (comp_id == DDP_COMPONENT_AAL0) {
+		ret = devm_request_irq(dev, irq, mtk_disp_aal_irq_handler,
+			IRQF_TRIGGER_NONE | IRQF_SHARED, dev_name(dev), priv);
+		if (ret)
+			dev_err(dev, "devm_request_irq fail: %d\n", ret);
+	}
 
 	mtk_ddp_comp_pm_enable(&priv->ddp_comp);
 
