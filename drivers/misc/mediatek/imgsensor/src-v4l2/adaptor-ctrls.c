@@ -67,7 +67,8 @@ static int g_pd_pixel_region(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl)
 static void dump_perframe_info(struct adaptor_ctx *ctx, struct mtk_hdr_ae *ae_ctrl)
 {
 	dev_info(ctx->dev,
-		"sensor_idx %d, req id %d, sof_cnt:%u, exposure[LLLE->SSSE] %d %d %d %d %d ana_gain[LLLE->SSSE] %d %d %d %d %d, w(%d/%d/%d/%d/%d,%d/%d/%d/%d/%d) sub_tag:%u, fl:%u, min_fl:%u, flick_en:%u, mode:(line_time:%u, margin:%u, scen:%u; STG:(readout_l:%u, read_margin:%u, ext_fl:%u, fast_mode:%u))\n",
+		"[%s] sensor_idx %d, req id %d, sof_cnt:%u, exposure[LLLE->SSSE] %d %d %d %d %d ana_gain[LLLE->SSSE] %d %d %d %d %d, w(%d/%d/%d/%d/%d,%d/%d/%d/%d/%d) sub_tag:%u, fl:%u, min_fl:%u, flick_en:%u, mode:(line_time:%u, margin:%u, scen:%u; STG:(readout_l:%u, read_margin:%u, ext_fl:%u, fast_mode:%u))\n",
+		(ctx->subdrv) ? (ctx->subdrv->name) : "null",
 		ctx->idx,
 		ae_ctrl->req_id,
 		ctx->sof_cnt,
@@ -683,8 +684,9 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 
 			ctrl->val = tmp / 1000;
 		}
-		dev_info(ctx->dev, "[%s] sof timeout value in us %d|%llu|%d|%d\n",
+		dev_info(ctx->dev, "[%s][%s] sof timeout value in us %d|%llu|%d|%d\n",
 			__func__,
+			(ctx->subdrv) ? (ctx->subdrv->name) : "null",
 			ctx->shutter_for_timeout,
 			mode->linetime_in_ns,
 			ctrl->val,
@@ -1861,21 +1863,24 @@ static const struct v4l2_ctrl_config cfg_mtkcam_aov_switch_pm_ops = {
 void adaptor_sensor_init(struct adaptor_ctx *ctx)
 {
 #if IMGSENSOR_LOG_MORE
-	dev_info(ctx->dev, "[%s]+\n", __func__);
+	dev_info(ctx->dev, "[%s][%s]+\n",
+		__func__, (ctx->subdrv) ? (ctx->subdrv->name) : "null");
 #endif
 	if (ctx && !ctx->is_sensor_inited) {
 		subdrv_call(ctx, open);
 		ctx->is_sensor_inited = 1;
 	}
 #if IMGSENSOR_LOG_MORE
-	dev_info(ctx->dev, "[%s]-\n", __func__);
+	dev_info(ctx->dev, "[%s][%s]-\n",
+		__func__, (ctx->subdrv) ? (ctx->subdrv->name) : "null");
 #endif
 }
 
 void restore_ae_ctrl(struct adaptor_ctx *ctx)
 {
 #if IMGSENSOR_LOG_MORE
-	dev_info(ctx->dev, "[%s]+\n", __func__);
+	dev_info(ctx->dev, "[%s][%s]+\n",
+		__func__, (ctx->subdrv) ? (ctx->subdrv->name) : "null");
 #endif
 	if (!ctx->ae_memento.exposure.le_exposure ||
 		!ctx->ae_memento.gain.le_gain) {
@@ -1886,7 +1891,8 @@ void restore_ae_ctrl(struct adaptor_ctx *ctx)
 
 	do_set_ae_ctrl(ctx, &ctx->ae_memento);
 #if IMGSENSOR_LOG_MORE
-	dev_info(ctx->dev, "[%s]-\n", __func__);
+	dev_info(ctx->dev, "[%s][%s]-\n",
+		__func__, (ctx->subdrv) ? (ctx->subdrv->name) : "null");
 #endif
 }
 
