@@ -420,6 +420,10 @@ int gen7_start(struct adreno_device *adreno_dev)
 	kgsl_regmap_multi_write(&device->regmap, gen7_core->gbif,
 		gen7_core->gbif_count);
 
+	if (gen7_core->qos_value)
+		kgsl_regwrite(device, GEN7_RBBM_GBIF_CLIENT_QOS_CNTL,
+			gen7_core->qos_value[adreno_dev->cur_rb->id]);
+
 	kgsl_regwrite(device, GEN7_UCHE_GBIF_GX_CONFIG, 0x10240e0);
 
 	/* Make all blocks contribute to the GPU BUSY perf counter */
@@ -652,29 +656,42 @@ static int gen7_post_start(struct adreno_device *adreno_dev)
 	int ret;
 	unsigned int *cmds;
 	struct adreno_ringbuffer *rb = adreno_dev->cur_rb;
+	struct adreno_preemption *preempt = &adreno_dev->preempt;
+	u64 kmd_postamble_addr = PREEMPT_SCRATCH_ADDR(adreno_dev, KMD_POSTAMBLE_IDX);
 
 	if (!adreno_is_preemption_enabled(adreno_dev))
 		return 0;
 
-	cmds = adreno_ringbuffer_allocspace(rb, 12);
+	gen7_preemption_prepare_postamble(adreno_dev);
+
+	cmds = adreno_ringbuffer_allocspace(rb, (preempt->postamble_len ? 16 : 12));
 	if (IS_ERR(cmds))
 		return PTR_ERR(cmds);
 
-	cmds[0] = cp_type7_packet(CP_SET_PSEUDO_REGISTER, 6);
-	cmds[1] = SET_PSEUDO_PRIV_NON_SECURE_SAVE_ADDR;
-	cmds[2] = lower_32_bits(rb->preemption_desc->gpuaddr);
-	cmds[3] = upper_32_bits(rb->preemption_desc->gpuaddr);
+	*cmds++ = cp_type7_packet(CP_SET_PSEUDO_REGISTER, 6);
+	*cmds++ = SET_PSEUDO_PRIV_NON_SECURE_SAVE_ADDR;
+	*cmds++ = lower_32_bits(rb->preemption_desc->gpuaddr);
+	*cmds++ = upper_32_bits(rb->preemption_desc->gpuaddr);
 
-	cmds[4] = SET_PSEUDO_PRIV_SECURE_SAVE_ADDR;
-	cmds[5] = lower_32_bits(rb->secure_preemption_desc->gpuaddr);
-	cmds[6] = upper_32_bits(rb->secure_preemption_desc->gpuaddr);
+	*cmds++ = SET_PSEUDO_PRIV_SECURE_SAVE_ADDR;
+	*cmds++ = lower_32_bits(rb->secure_preemption_desc->gpuaddr);
+	*cmds++ = upper_32_bits(rb->secure_preemption_desc->gpuaddr);
 
-	cmds[7] = cp_type7_packet(CP_CONTEXT_SWITCH_YIELD, 4);
-	cmds[8] = 0;
-	cmds[9] = 0;
-	cmds[10] = 0;
+	/* Postambles are not preserved across slumber */
+	if (preempt->postamble_len) {
+		*cmds++ = cp_type7_packet(CP_SET_AMBLE, 3);
+		*cmds++ = lower_32_bits(kmd_postamble_addr);
+		*cmds++ = upper_32_bits(kmd_postamble_addr);
+		*cmds++ = FIELD_PREP(GENMASK(22, 20), CP_KMD_AMBLE_TYPE)
+			| (FIELD_PREP(GENMASK(19, 0), adreno_dev->preempt.postamble_len));
+	}
+
+	*cmds++ = cp_type7_packet(CP_CONTEXT_SWITCH_YIELD, 4);
+	*cmds++ = 0;
+	*cmds++ = 0;
+	*cmds++ = 0;
 	/* generate interrupt on preemption completion */
-	cmds[11] = 0;
+	*cmds++ = 0;
 
 	ret = gen7_ringbuffer_submit(rb, NULL);
 	if (!ret) {

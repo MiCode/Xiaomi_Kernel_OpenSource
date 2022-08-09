@@ -65,6 +65,9 @@
 /* reads register in chip and writes to memory */
 #define CP_REG_TO_MEM		0x3e
 
+/* reads memory and writes to register in chip */
+#define CP_MEM_TO_REG		0x42
+
 /* write N 32-bit words to memory */
 #define CP_MEM_WRITE		0x3d
 
