@@ -215,6 +215,8 @@ struct cmdq_mmp_event {
 	mmp_event wait;
 	mmp_event wait_done;
 	mmp_event warning;
+	mmp_event hw_exec;
+	mmp_event pkt_size;
 };
 struct cmdq_mmp_event	cmdq_mmp;
 
@@ -329,12 +331,14 @@ static inline void cmdq_mmp_init(void)
 
 	cmdq_mmp.cmdq = mmprofile_register_event(MMP_ROOT_EVENT, "CMDQ");
 	cmdq_mmp.cmdq_irq = mmprofile_register_event(cmdq_mmp.cmdq, "cmdq_irq");
+	cmdq_mmp.hw_exec = mmprofile_register_event(cmdq_mmp.cmdq, "hw_exec");
 	cmdq_mmp.loop_irq = mmprofile_register_event(cmdq_mmp.cmdq, "loop_irq");
 	cmdq_mmp.thread_en =
 		mmprofile_register_event(cmdq_mmp.cmdq, "thread_en");
 	cmdq_mmp.thread_suspend =
 		mmprofile_register_event(cmdq_mmp.cmdq, "thread_suspend");
 	cmdq_mmp.submit = mmprofile_register_event(cmdq_mmp.cmdq, "submit");
+	cmdq_mmp.pkt_size = mmprofile_register_event(cmdq_mmp.cmdq, "pkt_size");
 	cmdq_mmp.wait = mmprofile_register_event(cmdq_mmp.cmdq, "wait");
 	cmdq_mmp.warning = mmprofile_register_event(cmdq_mmp.cmdq, "warning");
 	mmprofile_enable_event_recursive(cmdq_mmp.cmdq, 1);
@@ -764,6 +768,8 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 #if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
 	mmprofile_log_ex(cmdq_mmp.submit, MMPROFILE_FLAG_PULSE,
 		MMP_THD(thread, cmdq), (unsigned long)pkt);
+	mmprofile_log_ex(cmdq_mmp.pkt_size, MMPROFILE_FLAG_PULSE,
+		(unsigned long)pkt, (unsigned long)pkt->cmd_buf_size);
 #endif
 
 	task->cmdq = cmdq;
@@ -930,6 +936,25 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 
 static void cmdq_task_exec_done(struct cmdq_task *task, s32 err)
 {
+#if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
+	u32 *perf, hw_time = 0, exec_begin = 0, exec_end = 0;
+	unsigned long hw_time_rem = 0;
+
+	if (task) {
+		perf = cmdq_pkt_get_perf_ret(task->pkt);
+		if (perf) {
+			exec_begin = perf[0];
+			exec_end = perf[1];
+			hw_time = exec_end > exec_begin ?
+				exec_end - exec_begin :
+				~exec_begin + 1 + exec_end;
+			hw_time_rem = (u32)CMDQ_TICK_TO_US(hw_time);
+		}
+	}
+
+	mmprofile_log_ex(cmdq_mmp.hw_exec, MMPROFILE_FLAG_PULSE,
+		task ? (unsigned long)task->pkt : 0, (unsigned long)hw_time);
+#endif
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	task->pkt->rec_irq = sched_clock();
 #endif
