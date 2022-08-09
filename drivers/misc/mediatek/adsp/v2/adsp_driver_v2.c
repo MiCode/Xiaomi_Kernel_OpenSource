@@ -356,7 +356,8 @@ static int __init platform_adsp_init(void)
 
 	register_3way_semaphore_notifier(&adsp_semaphore_init_notifier);
 
-	return adsp_system_bootup();
+	adsp_system_bootup();
+	return 0;
 }
 
 static void __exit platform_adsp_exit(void)
