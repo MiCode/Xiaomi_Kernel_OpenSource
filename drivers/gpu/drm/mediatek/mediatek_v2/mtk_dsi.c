@@ -33,6 +33,7 @@
 #endif
 #include <linux/ratelimit.h>
 #include <soc/mediatek/smi.h>
+#include <soc/mediatek/dramc.h>
 
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_crtc.h"
@@ -2014,6 +2015,9 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			}
 
 			if ((dsi_underrun_trigger == 1 && dsi->encoder.crtc) && trigger_aee) {
+#if IS_ENABLED(CONFIG_MTK_DRAMC)
+				DDPMSG("DDR: %u Mbps\n", mtk_dramc_get_data_rate());
+#endif
 				mtk_drm_crtc_analysis(dsi->encoder.crtc);
 				mtk_drm_crtc_dump(dsi->encoder.crtc);
 				dsi_underrun_trigger = 0;
