@@ -389,9 +389,13 @@ int mtk_dma_sync_sg_range(const struct sg_table *sgt,
 	unsigned int contig_size = 0;
 	int ret, i;
 
-	if (sgt == NULL || dev == NULL || size == 0) {
+	if (sgt == NULL || dev == NULL) {
 		mtk_v4l2_err("sgt 0x%x dev 0x%x size %d invalid", sgt, dev, size);
 		return -1;
+	}
+	if (size == 0) {
+		mtk_v4l2_debug(1, "size %d no need to cache sync", size);
+		return 0;
 	}
 
 	sgt_tmp = kzalloc(sizeof(*sgt_tmp), GFP_KERNEL);
