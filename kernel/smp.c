@@ -716,7 +716,7 @@ static void flush_smp_call_function_queue(bool warn_cpu_offline)
 	if (ts[4] - ts[0] > 5000000ULL) {
 		int i;
 
-		pr_info("%s duration %llu, from %llu\n", __func__, ts[0]);
+		pr_info("%s duration %llu, from %llu\n", __func__, ts[4] - ts[0], ts[0]);
 		for (i = 0; i < 4; i++)
 			pr_info("%s duration %d=%llu\n", __func__, i, ts[i + 1] - ts[i]);
 	}
