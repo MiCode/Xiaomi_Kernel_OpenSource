@@ -742,7 +742,7 @@ void set_multi_gain(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt)
 {
 	int i = 0;
 	u16 rg_gains[3] = {0};
-	u8 has_gains[3] = {TRUE};
+	u8 has_gains[3] = {0};
 	bool gph = !ctx->is_seamless && (ctx->s_ctx.s_gph != NULL);
 
 	if (exp_cnt > ARRAY_SIZE(ctx->ana_gain)) {
@@ -767,10 +767,11 @@ void set_multi_gain(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt)
 	if (gph && !ctx->ae_ctrl_gph_en)
 		ctx->s_ctx.s_gph((void *)ctx, 1);
 	/* write gain */
+	memset(has_gains, 1, sizeof(has_gains));
 	switch (exp_cnt) {
 	case 2:
 		rg_gains[0] = gains[0];
-		has_gains[1] = FALSE;
+		has_gains[1] = 0;
 		rg_gains[2] = gains[1];
 		break;
 	case 3:
@@ -779,9 +780,9 @@ void set_multi_gain(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt)
 		rg_gains[2] = gains[2];
 		break;
 	default:
-		has_gains[0] = FALSE;
-		has_gains[1] = FALSE;
-		has_gains[2] = FALSE;
+		has_gains[0] = 0;
+		has_gains[1] = 0;
+		has_gains[2] = 0;
 		break;
 	}
 	for (i = 0; i < 3; i++) {
