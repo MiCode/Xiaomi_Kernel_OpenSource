@@ -548,7 +548,7 @@ static int lcm_set_bl_elvss_cmdq(void *dsi, dcs_grp_write_gce cb, void *handle,
 }
 
 static struct mtk_panel_params ext_params = {
-	.pll_clk = 600,
+	.pll_clk = 750,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -557,6 +557,7 @@ static struct mtk_panel_params ext_params = {
 		.para_list[0] = 0x1c,
 	},
 	.is_support_od = true,
+	.lp_perline_en = 1,
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
 		.enable = 1,
@@ -593,11 +594,11 @@ static struct mtk_panel_params ext_params = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 		},
-	.data_rate = 1200,
+	.data_rate = 1500,
 };
 
 static struct mtk_panel_params ext_params_60hz = {
-	.pll_clk = 600,
+	.pll_clk = 750,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -606,6 +607,7 @@ static struct mtk_panel_params ext_params_60hz = {
 		.para_list[0] = 0x1c,
 	},
 	.is_support_od = true,
+	.lp_perline_en = 1,
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
 		.enable = 1,
@@ -642,7 +644,7 @@ static struct mtk_panel_params ext_params_60hz = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 		},
-	.data_rate = 1200,
+	.data_rate = 1500,
 };
 
 struct drm_display_mode *get_mode_by_id(struct drm_connector *connector,
