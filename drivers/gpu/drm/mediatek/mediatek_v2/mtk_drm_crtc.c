@@ -1472,7 +1472,7 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_MMDVFS_SUPPORT)) {
 			if (drm_crtc_index(&mtk_crtc->base) == 1) {
-				mtk_drm_set_mmclk(&mtk_crtc->base, 3, __func__);
+				mtk_drm_set_mmclk(&mtk_crtc->base, 3, false, __func__);
 				//DDPFUNC("current freq: %d\n",
 				//pm_qos_request(PM_QOS_DISP_FREQ));
 			}
@@ -1483,7 +1483,7 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_MMDVFS_SUPPORT)) {
 			if (drm_crtc_index(&mtk_crtc->base) == 1)
-				mtk_drm_set_mmclk(&mtk_crtc->base, 0, __func__);
+				mtk_drm_set_mmclk(&mtk_crtc->base, 0, false, __func__);
 			//DDPFUNC("crtc%d single pipe current freq: %d\n",
 			//	drm_crtc_index(&mtk_crtc->base),
 			//	pm_qos_request(PM_QOS_DISP_FREQ));
@@ -1852,7 +1852,7 @@ void mtk_crtc_ddp_unprepare(struct mtk_drm_crtc *mtk_crtc)
 		MTK_DRM_OPT_MMDVFS_SUPPORT)) {
 		/*restore default mm freq, PM_QOS_MM_FREQ_DEFAULT_VALUE*/
 		if (drm_crtc_index(&mtk_crtc->base) == 1)
-			mtk_drm_set_mmclk(&mtk_crtc->base, 0, __func__);
+			mtk_drm_set_mmclk(&mtk_crtc->base, -1, false, __func__);
 	}
 }
 struct drm_framebuffer *mtk_drm_framebuffer_lookup(struct drm_device *dev,

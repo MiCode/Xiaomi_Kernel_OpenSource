@@ -15,7 +15,7 @@
 
 #include <dt-bindings/interconnect/mtk,mmqos.h>
 #include <soc/mediatek/mmqos.h>
-
+#include <soc/mediatek/mmdvfs_v3.h>
 
 #define CRTC_NUM		3
 static struct drm_crtc *dev_crtc;
@@ -23,7 +23,9 @@ static struct drm_crtc *dev_crtc;
 static struct clk *mm_clk;
 static struct regulator *mm_freq_request;
 static unsigned long *g_freq_steps;
+static unsigned int lp_freq;
 static int g_freq_level[CRTC_NUM] = {-1, -1, -1};
+static bool g_freq_lp[CRTC_NUM] = {false, false, false};
 static long g_freq;
 static int step_size = 1;
 
@@ -282,6 +284,7 @@ static void mtk_drm_mmdvfs_get_avail_freq(struct device *dev)
 	int i = 0;
 	struct dev_pm_opp *opp;
 	unsigned long freq;
+	int ret;
 
 	step_size = dev_pm_opp_get_opp_count(dev);
 	g_freq_steps = kcalloc(step_size, sizeof(unsigned long), GFP_KERNEL);
@@ -292,6 +295,9 @@ static void mtk_drm_mmdvfs_get_avail_freq(struct device *dev)
 		i++;
 		dev_pm_opp_put(opp);
 	}
+
+	ret = of_property_read_u32(dev->of_node, "lp-mmclk-freq", &lp_freq);
+	DDPINFO("%s lp_freq = %d\n", __func__, lp_freq);
 }
 
 void mtk_drm_mmdvfs_init(struct device *dev)
@@ -319,17 +325,20 @@ void mtk_drm_mmdvfs_init(struct device *dev)
 		DDPPR_ERR("%s, get mmdvfs-dvfsrc-vcore failed\n", __func__);
 }
 
-void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
+void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level, bool lp_mode,
 			const char *caller)
 {
 	struct dev_pm_opp *opp;
 	unsigned long freq;
 	int volt, ret, idx, i;
+	int final_lp_mode = true;
+	int final_level = -1;
+	int cnt = 0;
 
 	idx = drm_crtc_index(crtc);
 
-	DDPINFO("%s[%d] g_freq_level[idx=%d]: %d\n",
-		__func__, __LINE__, idx, level);
+	DDPINFO("%s[%d] g_freq_level[idx=%d]: %d, g_freq_lp[idx=%d]: %d\n",
+		__func__, __LINE__, idx, level, idx, lp_mode);
 
 	/* only for crtc = 0, 1 */
 	if (idx > 2)
@@ -338,26 +347,36 @@ void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
 	if (level < 0 || level > (step_size - 1))
 		level = -1;
 
-	if (level == g_freq_level[idx])
+	if (level == g_freq_level[idx] && lp_mode == g_freq_lp[idx])
 		return;
 
+	g_freq_lp[idx] = lp_mode;
 	g_freq_level[idx] = level;
 
-	for (i = 0 ; i < CRTC_NUM; i++) {
-		if (g_freq_level[i] > g_freq_level[idx]) {
-			DDPINFO("%s[%d] g_freq_level[i=%d]=%d > g_freq_level[idx=%d]=%d\n",
-				__func__, __LINE__, i, g_freq_level[i], idx, g_freq_level[idx]);
-			return;
-		}
+	for (i = 0; i < CRTC_NUM; i++) {
+		if (g_freq_level[i] == -1)
+			cnt++;
+
+		if (g_freq_level[i] != -1 && !g_freq_lp[i])
+			final_lp_mode = false;
+
+		if (g_freq_level[i] > final_level)
+			final_level = g_freq_level[i];
 	}
 
-	if (g_freq_level[idx] >= 0)
-		freq = g_freq_steps[g_freq_level[idx]];
+	if (cnt == CRTC_NUM)
+		final_lp_mode = false;
+
+	DDPINFO("%s set lp mode:%d\n", __func__, final_lp_mode);
+	mmdvfs_set_lp_mode(final_lp_mode);
+
+	if (final_level >= 0)
+		freq = g_freq_steps[final_level];
 	else
 		freq = g_freq_steps[0];
 
-	DDPINFO("%s[%d] g_freq_level[idx=%d](freq=%d, %lu)\n",
-		__func__, __LINE__, idx, g_freq_level[idx], freq);
+	DDPINFO("%s[%d] final_level(freq=%d, %lu)\n",
+		__func__, __LINE__, final_level, freq);
 
 	if (!IS_ERR_OR_NULL(mm_clk)) {
 		ret = clk_set_rate(mm_clk, freq);
@@ -387,20 +406,24 @@ void mtk_drm_set_mmclk_by_pixclk(struct drm_crtc *crtc,
 	if (freq > g_freq_steps[step_size - 1]) {
 		DDPPR_ERR("%s:pixleclk (%d) is to big for mmclk (%llu)\n",
 			caller, freq, g_freq_steps[step_size - 1]);
-		mtk_drm_set_mmclk(crtc, step_size - 1, caller);
+		mtk_drm_set_mmclk(crtc, step_size - 1, false, caller);
 		return;
 	}
 	if (!freq) {
-		mtk_drm_set_mmclk(crtc, -1, caller);
+		mtk_drm_set_mmclk(crtc, -1, false, caller);
 		return;
 	}
 	for (i = step_size - 2 ; i >= 0; i--) {
 		if (freq > g_freq_steps[i]) {
-			mtk_drm_set_mmclk(crtc, i + 1, caller);
+			mtk_drm_set_mmclk(crtc, i + 1, false, caller);
 			break;
 		}
-		if (i == 0)
-			mtk_drm_set_mmclk(crtc, 0, caller);
+		if (i == 0) {
+			if (!lp_freq || (lp_freq && (freq > lp_freq)))
+				mtk_drm_set_mmclk(crtc, 0, false, caller);
+			else
+				mtk_drm_set_mmclk(crtc, 0, true, caller);
+		}
 	}
 }
 
