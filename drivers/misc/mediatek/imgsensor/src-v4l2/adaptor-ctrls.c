@@ -157,8 +157,10 @@ static void get_dispatch_gain(struct adaptor_ctx *ctx, u32 tgain, u32 *again, u3
 	if (dgain)
 		*dgain = dg;
 
+#if IMGSENSOR_LOG_MORE
 	dev_info(ctx->dev, "again tlb cnt = %u sz(%u), gain(t/a/d) = %u / %u / %u\n",
 		 ana_gain_table_cnt, ana_gain_table_size, tgain, ag, dg);
+#endif
 }
 
 static int set_hdr_gain_tri(struct adaptor_ctx *ctx, struct mtk_hdr_gain *info)
@@ -266,9 +268,11 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 	/* get exp_cnt */
 	ret = g_stagger_info(ctx, ctx->cur_mode->id, &info);
 	if (!ret) {
+#if IMGSENSOR_LOG_MORE
 		dev_info(ctx->dev, "scenario_exp_cnt: %u, ae_exp_count: %u\n",
 			info.count,
 			exp_count);
+#endif
 		exp_count = (info.count < exp_count) ? info.count : exp_count;
 	}
 	switch (exp_count) {
