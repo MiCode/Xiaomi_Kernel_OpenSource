@@ -45,6 +45,7 @@ int mtk_mmdvfs_enable_vcp(bool enable, unsigned int usr_id);
 int mtk_mmdvfs_enable_ccu(bool enable, unsigned int usr_id);
 int mtk_mmdvfs_v3_set_force_step(u16 pwr_idx, s16 opp);
 int mtk_mmdvfs_v3_set_vote_step(u16 pwr_idx, s16 opp);
+void mmdvfs_set_lp_mode(bool lp_mode);
 #else
 static inline
 void *mtk_mmdvfs_vcp_get_base(phys_addr_t *pa)
@@ -78,6 +79,10 @@ int mtk_mmdvfs_v3_set_force_step(u16 pwr_idx, s16 opp)
 static inline
 int mtk_mmdvfs_v3_set_vote_step(u16 pwr_idx, s16 opp)
 { return 0; }
+
+static inline
+void mmdvfs_set_lp_mode(bool lp_mode)
+{ return; };
 #endif
 
 #endif /* MTK_MMDVFS_V3_H */

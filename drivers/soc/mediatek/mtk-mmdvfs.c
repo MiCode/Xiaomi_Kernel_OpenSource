@@ -41,6 +41,8 @@ struct mmdvfs_mux_data {
 	const char *mux_name;
 	struct clk *mux;
 	struct clk *clk_src[MAX_OPP_NUM];
+	struct clk *clk_src_lp;
+	struct clk *clk_src_normal;
 };
 
 struct mmdvfs_hopping_data {
@@ -60,6 +62,9 @@ struct mmdvfs_drv_data {
 	struct notifier_block nb;
 	u32 voltages[MAX_OPP_NUM];
 	u32 num_voltages;
+	struct mutex lp_mutex;
+	bool lp_mode;
+	u32 last_opp_level;
 };
 
 static struct regulator *vcore_reg_id;
@@ -207,21 +212,29 @@ static void set_all_clk(struct mmdvfs_drv_data *drv_data,
 	if (i < 0)
 		opp_level = 0;
 
-	switch (drv_data->action) {
-	/* Voltage Increase: Hopping First, Decrease: MUX First*/
-	case ACTION_IHDM:
-		if (vol_inc) {
-			set_all_hoppings(drv_data, opp_level);
+	mutex_lock(&drv_data->lp_mutex);
+	do {
+		if (opp_level == drv_data->last_opp_level)
+			break;
+
+		switch (drv_data->action) {
+		/* Voltage Increase: Hopping First, Decrease: MUX First*/
+		case ACTION_IHDM:
+			if (vol_inc) {
+				set_all_hoppings(drv_data, opp_level);
+				set_all_muxes(drv_data, opp_level);
+			} else {
+				set_all_muxes(drv_data, opp_level);
+				set_all_hoppings(drv_data, opp_level);
+			}
+			break;
+		default:
 			set_all_muxes(drv_data, opp_level);
-		} else {
-			set_all_muxes(drv_data, opp_level);
-			set_all_hoppings(drv_data, opp_level);
+			break;
 		}
-		break;
-	default:
-		set_all_muxes(drv_data, opp_level);
-		break;
-	}
+		drv_data->last_opp_level = opp_level;
+	} while (0);
+	mutex_unlock(&drv_data->lp_mutex);
 	blocking_notifier_call_chain(&mmdvfs_notifier_list, opp_level, NULL);
 	if (log_level & 1 << log_freq)
 		pr_notice("set clk to opp level:%d\n", opp_level);
@@ -313,6 +326,59 @@ struct mmdvfs_dbg_data {
 };
 
 struct mmdvfs_dbg_data *dbg_data;
+
+/**
+ * unregister_mmdvfs_notifier - unregister multimedia clk changing notifier
+ * @nb: notifier block
+ *
+ * Unregister clk changing notifier block.
+ */
+void mmdvfs_set_lp_mode(bool lp_mode)
+{
+	struct mmdvfs_drv_data *drv_data = dbg_data->drv_data;
+	struct mmdvfs_mux_data *mux;
+	int i;
+
+	mutex_lock(&drv_data->lp_mutex);
+	do {
+		if (lp_mode == drv_data->lp_mode)
+			break;
+
+		drv_data->lp_mode = lp_mode;
+		for (i = 0; i < drv_data->num_muxes; i++) {
+			mux = &drv_data->muxes[i];
+			if (!mux->clk_src_lp)
+				continue;
+
+			mux->clk_src[0] = lp_mode ? mux->clk_src_lp
+				: mux->clk_src_normal;
+		}
+		if (drv_data->last_opp_level == 0)
+			set_all_muxes(drv_data, 0);
+	} while (0);
+	mutex_unlock(&drv_data->lp_mutex);
+}
+EXPORT_SYMBOL_GPL(mmdvfs_set_lp_mode);
+
+static int set_lp_mode(const char *val, const struct kernel_param *kp)
+{
+	int result;
+	int new_lp_mode;
+
+	result = kstrtoint(val, 0, &new_lp_mode);
+	if (result) {
+		pr_notice("mmdvfs lp mode failed: %d\n", result);
+		return result;
+	}
+	mmdvfs_set_lp_mode(new_lp_mode);
+	return 0;
+}
+
+static struct kernel_param_ops lp_mode_ops = {
+	.set = set_lp_mode,
+};
+module_param_cb(lp_mode, &lp_mode_ops, NULL, 0644);
+MODULE_PARM_DESC(lp_mode, "set low power mode");
 
 int mmdvfs_dbg_clk_set(int step, bool is_force)
 {
@@ -513,12 +579,15 @@ static int mmdvfs_probe(struct platform_device *pdev)
 	struct regulator *reg;
 	u32 num_mux = 0, num_hopping = 0;
 	u32 num_clksrc, hopping_rate, num_hopping_rate;
+	u32 num_lp_clksrc = 0;
 	struct property *mux_prop, *clksrc_prop;
 	struct property *hopping_prop, *hopping_rate_prop;
 	struct property *aov_prop;
+	struct property *lp_mux_prop;
 	const char *mux_name, *clksrc_name, *hopping_name;
 	char prop_name[32];
 	const char *aov_prop_name;
+	const char *lp_clksrc_name;
 	const __be32 *p;
 	s32 ret, i = 0;
 	unsigned long freq;
@@ -644,6 +713,22 @@ static int mmdvfs_probe(struct platform_device *pdev)
 				PTR_ERR(vcore_reg_id));
 	}
 
+	of_property_for_each_string(dev->of_node, "mediatek,mux-lp",
+				    lp_mux_prop, lp_clksrc_name) {
+		if (num_lp_clksrc >= drv_data->num_muxes) {
+			pr_notice("Too many items in mux-lp\n");
+			return -EINVAL;
+		}
+		if (strlen(lp_clksrc_name)) {
+			drv_data->muxes[num_lp_clksrc].clk_src_lp
+				= devm_clk_get(dev, lp_clksrc_name);
+			drv_data->muxes[num_lp_clksrc].clk_src_normal
+				= drv_data->muxes[num_lp_clksrc].clk_src[0];
+		}
+		num_lp_clksrc++;
+	}
+	mutex_init(&drv_data->lp_mutex);
+	drv_data->last_opp_level = MAX_OPP_NUM;
 	mmdvfs_dbg = kzalloc(sizeof(*mmdvfs_dbg), GFP_KERNEL);
 	if (!mmdvfs_dbg)
 		return -ENOMEM;
