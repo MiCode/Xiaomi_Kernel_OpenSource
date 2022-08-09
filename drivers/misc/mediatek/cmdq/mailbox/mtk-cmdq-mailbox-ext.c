@@ -1539,6 +1539,7 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	void *va_base = NULL;
 	dma_addr_t curr_pa, end_pa, pa_base;
 	bool empty = true;
+	u32 timeout_ms = cmdq_mbox_get_thread_timeout(chan);
 
 	/* lock channel and get info */
 	spin_lock_irqsave(&chan->lock, flags);
@@ -1592,8 +1593,8 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	spin_unlock_irqrestore(&chan->lock, flags);
 
 	cmdq_util_user_msg(chan,
-		"thd:%u pc:%pa(%p) inst:%#018llx end:%pa cnt:%#x token:%#010x",
-		thread->idx, &curr_pa, curr_va, inst, &end_pa, cnt, wait_token);
+		"thd:%u timeout:0x%x pc:%pa(%p) inst:%#018llx end:%pa cnt:%#x token:%#010x",
+		thread->idx, timeout_ms, &curr_pa, curr_va, inst, &end_pa, cnt, wait_token);
 	cmdq_util_user_msg(chan,
 		"rst:%#x en:%#x suspend:%#x status:%#x irq:%x en:%#x cfg:%#x",
 		warn_rst, en, suspend, status, irq, irq_en, cfg);

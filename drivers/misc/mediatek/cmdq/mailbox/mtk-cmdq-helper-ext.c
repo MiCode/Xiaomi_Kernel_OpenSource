@@ -1415,7 +1415,8 @@ s32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src)
 	struct device *dev = dst->dev;
 	void *cl = dst->cl;
 	u64 *va;
-	u32 cmd_size, copy_size, reduce_size = 0;
+	u32 cmd_size, copy_size;
+	int reduce_size = 0, last_page = 0;
 
 	cmdq_pkt_free_buf(dst);
 	INIT_LIST_HEAD(&dst->buf);
@@ -1429,11 +1430,18 @@ s32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src)
 	cmd_size = src->cmd_buf_size;
 
 	if (cmdq_pkt_is_finalized(src)) {
+		reduce_size += 2 * CMDQ_INST_SIZE;
+		if (append_by_event && !src->sec_data)
+			reduce_size += 2 * CMDQ_INST_SIZE;
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 		if (cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
 			reduce_size += 2 * CMDQ_INST_SIZE;
 #endif
 	}
+	if (cmd_size)
+		last_page = cmd_size % CMDQ_CMD_BUFFER_SIZE;
+	if ((last_page > 0) && ((last_page - reduce_size) <= 0))
+		reduce_size += CMDQ_INST_SIZE;
 	cmd_size -= reduce_size;
 
 	/* copy buf */
