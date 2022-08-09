@@ -165,6 +165,7 @@ struct aal_backup { /* structure for backup AAL register value */
 	unsigned int DRE1_TILE_00;
 	unsigned int TILE_01;
 	unsigned int TILE_02;
+	unsigned int MDP_AAL_CFG;
 };
 static struct aal_backup g_aal_backup;
 
@@ -235,6 +236,8 @@ static void ddp_aal_dre_backup(struct mtk_ddp_comp *comp)
 {
 	g_aal_backup.DRE_MAPPING =
 		readl(comp->regs + DMDP_AAL_DRE_MAPPING_00);
+	g_aal_backup.MDP_AAL_CFG =
+		readl(comp->regs + DMDP_AAL_CFG);
 }
 
 static void mtk_dmdp_aal_backup(struct mtk_ddp_comp *comp)
@@ -298,6 +301,8 @@ static void ddp_aal_dre_restore(struct mtk_ddp_comp *comp)
 {
 	writel(g_aal_backup.DRE_MAPPING,
 		comp->regs + DMDP_AAL_DRE_MAPPING_00);
+	writel(g_aal_backup.MDP_AAL_CFG,
+		comp->regs + DMDP_AAL_CFG);
 }
 
 static void mtk_dmdp_aal_restore(struct mtk_ddp_comp *comp)

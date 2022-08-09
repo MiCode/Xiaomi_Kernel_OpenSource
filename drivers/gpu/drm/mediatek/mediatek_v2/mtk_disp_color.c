@@ -2484,6 +2484,25 @@ static bool color_get_DISP_C3D1_REG(struct resource *res)
 	return true;
 }
 
+static bool color_get_DISP_DMDP_AAL_REG(struct resource *res)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,disp_mdp_aal1");
+	rc = of_address_to_resource(node, 0, res);
+
+	// check if fail to get reg.
+	if (rc)	{
+		DDPINFO("Fail to get disp_c3d1 REG\n");
+		return false;
+	}
+
+	DDPDBG("disp_mdp_aal1 REG: 0x%llx ~ 0x%llx\n", res->start, res->end);
+
+	return true;
+}
+
 static int get_tuning_reg_table_idx_and_offset(struct mtk_ddp_comp *comp,
 	unsigned long addr, unsigned int *offset)
 {
@@ -3312,6 +3331,9 @@ static int mtk_color_user_cmd(struct mtk_ddp_comp *comp,
 					else if (color_get_DISP_CCORR1_REG(&res))
 						pa1 =  res.start + offset;
 
+				} else if (tablet_index == TUNING_DISP_MDP_AAL) {
+					if (color_get_DISP_DMDP_AAL_REG(&res))
+						pa1 =  res.start + offset;
 				}
 				if (pa) {
 					cmdq_pkt_write(handle, comp->cmdq_base,

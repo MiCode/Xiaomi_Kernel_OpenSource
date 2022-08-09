@@ -444,7 +444,9 @@ static void mtk_dither_bypass(struct mtk_ddp_comp *comp, int bypass,
 struct dither_backup {
 	unsigned int REG_DITHER_CFG;
 };
-static struct dither_backup g_dither_backup;
+static struct dither_backup g_dither_backup = {
+	.REG_DITHER_CFG = 0x80000182,
+};
 
 static void ddp_dither_backup(struct mtk_ddp_comp *comp)
 {
