@@ -269,12 +269,12 @@ static void suspend_show_detailed_wakeup_reason
 {
 }
 
+unsigned int is_lp_blocked_threshold;
 static void suspend_spm_rsc_req_check
 	(struct lpm_spm_wake_status *wakesta)
 {
 #undef LOG_BUF_SIZE
 #define LOG_BUF_SIZE		        256
-#define IS_BLOCKED_OVER_TIMES		10
 #undef AVOID_OVERFLOW
 #define AVOID_OVERFLOW (0xF0000000)
 static u32 is_blocked_cnt;
@@ -299,7 +299,7 @@ static u32 is_blocked_cnt;
 	else
 		is_blocked_cnt = 0;
 
-	if (is_blocked_cnt < IS_BLOCKED_OVER_TIMES)
+	if (is_blocked_cnt < is_lp_blocked_threshold)
 		return;
 
 	if (!lpm_spm_base)
@@ -660,6 +660,8 @@ int dbg_ops_register(void)
 	int ret;
 
 	ret = lpm_dbg_plat_ops_register(&dbg_ops);
+
+	is_lp_blocked_threshold = 10;
 
 	return ret;
 }

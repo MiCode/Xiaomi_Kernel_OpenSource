@@ -19,6 +19,8 @@
 #include <lpm_dbg_fs_common.h>
 #include <lpm_spm_comm.h>
 
+#include "lpm_logger.h"
+
 /* Determine for node route */
 #define MT_LP_RQ_NODE	"/proc/mtk_lpm/spm/spm_resource_req"
 
@@ -673,6 +675,30 @@ static const struct mtk_lp_sysfs_op vsram_lp_volt_fops = {
 	.fs_write = vsram_lp_volt_write,
 };
 
+static ssize_t block_threshold_read(char *ToUserBuf, size_t sz, void *priv)
+{
+	char *p = ToUserBuf;
+
+	mtk_dbg_spm_log("%u\n", is_lp_blocked_threshold);
+
+	return p - ToUserBuf;
+}
+
+static ssize_t block_threshold_write(char *FromUserBuf, size_t sz, void *priv)
+{
+	unsigned int val;
+
+	if (!kstrtouint(FromUserBuf, 10, &val))
+		is_lp_blocked_threshold = val;
+
+	return sz;
+}
+
+static const struct mtk_lp_sysfs_op block_threshold_fops = {
+	.fs_read = block_threshold_read,
+	.fs_write = block_threshold_write,
+};
+
 int lpm_spm_fs_init(void)
 {
 	int r;
@@ -688,6 +714,8 @@ int lpm_spm_fs_init(void)
 			, &vsram_lp_enable_fops, NULL);
 	mtk_spm_sysfs_entry_node_add("vsram_lp_volt", 0444
 			, &vsram_lp_volt_fops, NULL);
+	mtk_spm_sysfs_entry_node_add("block_threshold", 0444
+			, &block_threshold_fops, NULL);
 
 	r = mtk_lp_sysfs_entry_func_create(spm_root.name,
 					   spm_root.mode, NULL,
