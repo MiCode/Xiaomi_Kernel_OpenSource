@@ -1450,6 +1450,9 @@ static int mtkdip_ioc_add_kva(struct v4l2_subdev *subdev, void *arg)
 	int ret = 0;
 	int i;
 
+	if (fd_info->fd_num > FD_MAX)
+		return -EINVAL;
+
 	kva_list = get_fd_kva_list();
 	for (i = 0; i < fd_info->fd_num; i++) {
 		buf_va_info = (struct buf_va_info_t *)
@@ -1541,6 +1544,9 @@ static int mtkdip_ioc_del_kva(struct v4l2_subdev *subdev, void *arg)
 	struct list_head *ptr = NULL;
 	int i;
 
+	if (fd_info->fd_num > FD_MAX)
+		return -EINVAL;
+
 	kva_list = get_fd_kva_list();
 	for (i = 0; i < fd_info->fd_num; i++) {
 		find = false;
@@ -1603,6 +1609,9 @@ static int mtkdip_ioc_add_iova(struct v4l2_subdev *subdev, void *arg)
 		return -EINVAL;
 		dev_dbg(pipe->imgsys_dev->dev, "%s:NULL usrptr\n", __func__);
 	}
+
+	if (fd_tbl->fd_num > FD_MAX)
+		return -EINVAL;
 
 	size = sizeof(*kfd) * fd_tbl->fd_num;
 	kfd = vzalloc(size);
@@ -1695,7 +1704,7 @@ static int mtkdip_ioc_del_iova(struct v4l2_subdev *subdev, void *arg)
 	size_t size;
 	int i, ret;
 
-	if ((!fd_tbl->fds) || (!fd_tbl->fd_num)) {
+	if ((!fd_tbl->fds) || (!fd_tbl->fd_num) || (fd_tbl->fd_num > FD_MAX)) {
 		return -EINVAL;
 		dev_dbg(pipe->imgsys_dev->dev, "%s:NULL usrptr\n", __func__);
 	}
@@ -1725,7 +1734,6 @@ static int mtkdip_ioc_del_iova(struct v4l2_subdev *subdev, void *arg)
 		dmabuf = dma_buf_get(fd);
 		if (IS_ERR(dmabuf))
 			continue;
-
 		list_for_each_entry_safe(iova_info, tmp,
 					&pipe->iova_cache.list, list_entry) {
 
