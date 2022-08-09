@@ -126,6 +126,11 @@ config MTK_CORE_CTL
 	  please set n.
 
 config MTK_SCHED_DEBUG
-       tristate "add sched debug log"
-       help
-       MTK_SCHED_DEBUG is the kernel config to add debug log.
+	tristate "add sched debug log"
+	help
+	  MTK_SCHED_DEBUG is the kernel config to add debug log.
+
+config MTK_FIX_CGROUP_COMMON
+	tristate "add sched debug log"
+	help
+	  MTK_FIX_CGROUP_COMMON is the kernel config to fix cgroup common code issue.
