@@ -1053,11 +1053,10 @@ STOP_SCAN:
 			continue;
 		}
 
-		if (s_data->frame_seq_no < dequeued_frame_seq_no &&
-			pipe_id == ctx->stream_id) {
-			buf_state = VB2_BUF_STATE_ERROR;
-			dev_dbg(ctx->cam->dev,
-				"%s:%s:pipe(%d) seq:%d, time:%lld drop, ctx:%d\n",
+		if (s_data->frame_seq_no < dequeued_frame_seq_no) {
+			buf_state = VB2_BUF_STATE_DONE;
+			dev_info(ctx->cam->dev,
+				"%s:%s:pipe(%d) seq:%d, time:%lld, ctx:%d done worker delay\n",
 				__func__, req->req.debug_str, pipe_id,
 				s_data->frame_seq_no, s_data->timestamp,
 				ctx->stream_id);

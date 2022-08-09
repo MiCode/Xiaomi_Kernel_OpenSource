@@ -4092,11 +4092,18 @@ static int mtk_cam_collect_pfmt(struct mtk_raw_pipeline *pipe,
 	pipe->req_pfmt_update |= 1 << pad;
 	pipe->req_pad_fmt[pad] = *fmt;
 
-	dev_dbg(pipe->subdev.v4l2_dev->dev,
-		"%s:%s:pad(%d), pending s_fmt, w/h/code=%d/%d/0x%x\n",
-		__func__, pipe->subdev.name,
-		pad, fmt->format.width, fmt->format.height,
-		fmt->format.code);
+	if (pad == MTK_RAW_SINK)
+		dev_info(pipe->subdev.v4l2_dev->dev,
+			"%s:%s:pad(%d), pending s_fmt, w/h/code=%d/%d/0x%x\n",
+			__func__, pipe->subdev.name,
+			pad, fmt->format.width, fmt->format.height,
+			fmt->format.code);
+	else
+		dev_dbg(pipe->subdev.v4l2_dev->dev,
+			"%s:%s:pad(%d), pending s_fmt, w/h/code=%d/%d/0x%x\n",
+			__func__, pipe->subdev.name,
+			pad, fmt->format.width, fmt->format.height,
+			fmt->format.code);
 
 	return 0;
 }
