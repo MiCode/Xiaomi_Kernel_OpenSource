@@ -2657,11 +2657,11 @@ ufs_qcom_ioctl(struct scsi_device *dev, unsigned int cmd, void __user *buffer)
 
 	switch (cmd) {
 	case UFS_IOCTL_QUERY:
-		pm_runtime_get_sync(hba->dev);
+		ufshcd_rpm_get_sync(hba);
 		err = ufs_qcom_query_ioctl(hba,
 					   ufshcd_scsi_to_upiu_lun(dev->lun),
 					   buffer);
-		pm_runtime_put_sync(hba->dev);
+		ufshcd_rpm_put_sync(hba);
 		break;
 	default:
 		err = -ENOIOCTLCMD;
