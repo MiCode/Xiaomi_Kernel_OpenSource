@@ -2203,7 +2203,9 @@ void camsv_handle_err(
 			imgo_addr, dcif_set, tg_vf_con);
 		camsv_irq_handle_err(camsv_dev, frame_idx_inner, tag_idx);
 	}
-
+	if (!(data->err_tags) && (err_status & CAMSVCENTRAL_DMA_SRAM_FULL_ST))
+		dev_info_ratelimited(camsv_dev->dev, "camsv_id:%d camsv dma full error_status:0x%x",
+			camsv_dev->id, err_status);
 	/* dump dma debug data */
 	camsv_dump_dma_debug_data(camsv_dev);
 
