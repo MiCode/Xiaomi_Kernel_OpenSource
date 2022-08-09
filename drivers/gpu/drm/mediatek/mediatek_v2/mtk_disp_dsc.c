@@ -103,6 +103,9 @@
 #define DSC_READ_WORKING	BIT(2)
 #define MT6983_DISP_REG_SHADOW_CTRL		0x0228
 
+#define RC_BUF_THRESH_NUM (14)
+#define RANGE_BPG_OFS_NUM (15)
+
 struct mtk_disp_dsc_data {
 	bool support_shadow;
 	bool need_bypass_shadow;
@@ -320,6 +323,12 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 	struct mtk_panel_dsc_params *dsc_params;
 	struct mtk_panel_spr_params *spr_params;
 
+	unsigned int *rc_buf_thresh;
+	unsigned int *range_min_qp;
+	unsigned int *range_max_qp;
+	int *range_bpg_ofs;
+	unsigned int i = 0;
+
 	if (!comp->mtk_crtc || (!comp->mtk_crtc->panel_ext
 				&& !comp->mtk_crtc->is_dual_pipe))
 		return;
@@ -330,6 +339,11 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 
 	dsc_params = &comp->mtk_crtc->panel_ext->params->dsc_params;
 	spr_params = &comp->mtk_crtc->panel_ext->params->spr_params;
+
+	rc_buf_thresh = dsc_params->ext_pps_cfg.rc_buf_thresh;
+	range_min_qp = dsc_params->ext_pps_cfg.range_min_qp;
+	range_max_qp = dsc_params->ext_pps_cfg.range_max_qp;
+	range_bpg_ofs = dsc_params->ext_pps_cfg.range_bpg_ofs;
 
 	if (dsc_params->enable == 1) {
 		DDPINFO("%s, w:%d, h:%d, slice_mode:%d,slice(%d,%d),bpp:%d\n",
@@ -575,16 +589,63 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 			mtk_ddp_write(comp, 0xd1a7d1a5,	DISP_REG_DSC_PPS18, handle);
 			mtk_ddp_write(comp, 0x0000d1ed,	DISP_REG_DSC_PPS19, handle);
 		}
-
 		if (spr_params->enable && spr_params->relay == 0
 					&& disp_spr_bypass == 0) {
 			//mtk_ddp_write(comp, 0x0001d822, DISP_REG_DSC_CFG, handle);//VESA1.2 needed
 			//mtk_ddp_write(comp, 0x00014001, DISP_REG_DSC_CON, handle);
 			mtk_ddp_write(comp, 0x800840, DISP_REG_DSC_PPS12, handle);
-			mtk_ddp_write(comp, 0xd923e103,	DISP_REG_DSC_PPS16, handle);
-			mtk_ddp_write(comp, 0xd125d925,	DISP_REG_DSC_PPS17, handle);
-			mtk_ddp_write(comp, 0xd147d125,	DISP_REG_DSC_PPS18, handle);
-			mtk_ddp_write(comp, 0xd16a,	DISP_REG_DSC_PPS19, handle);
+			mtk_ddp_write(comp, 0xd923e103, DISP_REG_DSC_PPS16, handle);
+			mtk_ddp_write(comp, 0xd125d925, DISP_REG_DSC_PPS17, handle);
+			mtk_ddp_write(comp, 0xd147d125, DISP_REG_DSC_PPS18, handle);
+			mtk_ddp_write(comp, 0xd16a, DISP_REG_DSC_PPS19, handle);
+		}
+
+		if (dsc_params->ext_pps_cfg.enable) {
+			if (rc_buf_thresh) {
+				for (i = 0; i < RC_BUF_THRESH_NUM/4; i++) {
+					reg_val = 0;
+					reg_val += ((*(rc_buf_thresh+i*4+0))>>6)<<0;
+					reg_val += ((*(rc_buf_thresh+i*4+1))>>6)<<8;
+					reg_val += ((*(rc_buf_thresh+i*4+2))>>6)<<16;
+					reg_val += ((*(rc_buf_thresh+i*4+3))>>6)<<24;
+					mtk_ddp_write(comp, reg_val, DISP_REG_DSC_PPS8+i*4, handle);
+				}
+				reg_val = 0;
+				for (i = 0; i < RC_BUF_THRESH_NUM%4; i++)
+					reg_val += ((*(rc_buf_thresh +
+							RC_BUF_THRESH_NUM/4*4+i))>>6)<<(8*i);
+				mtk_ddp_write(comp, reg_val,
+					DISP_REG_DSC_PPS8+RC_BUF_THRESH_NUM/4*4, handle);
+			}
+			if (range_min_qp && range_max_qp && range_bpg_ofs) {
+				for (i = 0; i < RANGE_BPG_OFS_NUM/2; i++) {
+					reg_val = 0;
+					reg_val += (*(range_min_qp+i*2+0))<<0;
+					reg_val += (*(range_max_qp+i*2+0))<<5;
+					if (*(range_bpg_ofs+i*2+0) >= 0)
+						reg_val += (*(range_bpg_ofs+i*2+0))<<10;
+					else
+						reg_val += (64 - (*(range_bpg_ofs+i*2+0))*(-1))<<10;
+					reg_val += (*(range_min_qp+i*2+1))<<16;
+					reg_val += (*(range_max_qp+i*2+1))<<21;
+					if (*(range_bpg_ofs+i*2+1) >= 0)
+						reg_val += (*(range_bpg_ofs+i*2+1))<<26;
+					else
+						reg_val += (64 - (*(range_bpg_ofs+i*2+1))*(-1))<<26;
+					mtk_ddp_write(comp, reg_val,
+						DISP_REG_DSC_PPS12+i*4, handle);
+				}
+				reg_val = 0;
+				reg_val += (*(range_min_qp+RANGE_BPG_OFS_NUM/2*2))<<0;
+				reg_val += (*(range_max_qp+RANGE_BPG_OFS_NUM/2*2))<<5;
+				if (*(range_bpg_ofs+RANGE_BPG_OFS_NUM/2*2) >= 0)
+					reg_val += (*(range_bpg_ofs+RANGE_BPG_OFS_NUM/2*2))<<10;
+				else
+					reg_val += (64 - (*(range_bpg_ofs +
+							RANGE_BPG_OFS_NUM/2*2))*(-1))<<10;
+				mtk_ddp_write(comp, reg_val,
+					DISP_REG_DSC_PPS12+RANGE_BPG_OFS_NUM/2*4, handle);
+			}
 		}
 
 #ifdef IF_ZERO

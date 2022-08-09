@@ -940,6 +940,17 @@ config DRM_PANEL_NT37801_CMD_120HZ
 	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
 	  interface to host.
 
+config DRM_PANEL_NT37801_CMD_SPR
+	tristate "nt37801 fhdplus and wqhd dphy spr panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for nt37801 fhdplus and
+	  wqhd cmd panel. The panel has a 1080x2400 or 1440x3200 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
+	  interface to host.
+
 config DRM_TD2204_WQHD_AMB678ZY01_S6E3HC3_CMD
 	tristate "mt6985 wqhd amb678zy01-s6e3hc3 cmd panel"
 	depends on OF

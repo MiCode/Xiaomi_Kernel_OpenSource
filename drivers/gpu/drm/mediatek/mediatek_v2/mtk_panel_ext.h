@@ -272,6 +272,15 @@ struct mtk_panel_spr_params {
 	unsigned int spr_ip_params_len;
 };
 
+struct mtk_panel_dsc_ext_pps_cfg {
+	unsigned int enable;
+	unsigned int *rc_buf_thresh;
+	unsigned int *range_min_qp;
+	unsigned int *range_max_qp;
+	int *range_bpg_ofs;
+};
+
+
 struct mtk_panel_dsc_params {
 	unsigned int enable;
 	unsigned int ver; /* [7:4] major [3:0] minor */
@@ -306,6 +315,7 @@ struct mtk_panel_dsc_params {
 	unsigned int rc_quant_incr_limit1;
 	unsigned int rc_tgt_offset_hi;
 	unsigned int rc_tgt_offset_lo;
+	struct mtk_panel_dsc_ext_pps_cfg ext_pps_cfg;
 };
 struct mtk_dsi_phy_timcon {
 	unsigned int hs_trail;

@@ -674,7 +674,7 @@ static void mtk_spr_prepare(struct mtk_ddp_comp *comp)
 			spr_params = &comp->mtk_crtc->panel_ext->params->spr_params;
 			if (spr_params->enable == 1 && spr_params->relay == 0) {
 				DDPINFO("%s: spr ip config\n", __func__);
-				for (i = 0; i < MT6985_SPR_IP_PARAMS_NUM; i++)
+				for (i = 1; i < MT6985_SPR_IP_PARAMS_NUM; i++)
 					mtk_ddp_write_relaxed(comp,
 						*(spr_params->spr_ip_params + i),
 						(MT6985_DISP_REG_SPR_IP_CFG_0 + 0x4 * i), NULL);
@@ -1033,19 +1033,15 @@ static void mtk_spr_config_V2(struct mtk_ddp_comp *comp,
 		}
 
 		//todo
-		width = (cfg->w / 2 + tile_overhead + 3) / 4 * 4;
+		//width = (cfg->w / 2 + tile_overhead + 3) / 4 * 4;
+		width = cfg->w / 2;
 		height = cfg->h;
 
-		mtk_ddp_write_mask(comp, (cfg->w / 2) << 16,
+		mtk_ddp_write_mask(comp, (width) << 16,
 			DISP_REG_SPR_RDY_SEL, REG_FLD_MASK(CROP_OUT_HSIZE), handle);
 		mtk_ddp_write_mask(comp, height << 16,
 			DISP_REG_SPR_RDY_SEL_EN, REG_FLD_MASK(CROP_OUT_VSIZE), handle);
-
-		if (comp->id == DDP_COMPONENT_SPR0)
-			mtk_ddp_write_mask(comp, 0 << 16,
-				DISP_REG_SPR_CK_ON, REG_FLD_MASK(CROP_HOFFSET), handle);
-		else
-			mtk_ddp_write_mask(comp, (width - cfg->w / 2) << 16,
+		mtk_ddp_write_mask(comp, 0 << 16,
 				DISP_REG_SPR_CK_ON, REG_FLD_MASK(CROP_HOFFSET), handle);
 	} else {
 		width = cfg->w;
@@ -1071,10 +1067,6 @@ static void mtk_spr_config_V2(struct mtk_ddp_comp *comp,
 		mtk_ddp_write_mask(comp, SPR_RELAY_MODE, DISP_REG_SPR_EN,
 			SPR_RELAY_MODE, handle);
 
-		if (comp->mtk_crtc->is_dual_pipe == true &&
-			comp->id == DDP_COMPONENT_SPR1)
-			mtk_ddp_write_mask(comp, 0 << 16,
-				DISP_REG_SPR_CK_ON, REG_FLD_MASK(CROP_HOFFSET), handle);
 
 		//disable postalign
 		if (handle)
@@ -1099,11 +1091,11 @@ static void mtk_spr_config_V2(struct mtk_ddp_comp *comp,
 				reg_val, ~0);
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				config_regs_pa + DISP_REG_POSTALIGN0_CON1,
-				(cfg->h << 16 | cfg->w), ~0);
+				(height << 16 | width), ~0);
 		} else {
 			writel_relaxed(reg_val,
 				config_regs + DISP_REG_POSTALIGN0_CON0);
-			writel_relaxed((cfg->h << 16 | cfg->w),
+			writel_relaxed((height << 16 | width),
 				config_regs + DISP_REG_POSTALIGN0_CON1);
 		}
 
@@ -1139,6 +1131,9 @@ static void mtk_spr_config_V2(struct mtk_ddp_comp *comp,
 			writel_relaxed(reg_val,
 				config_regs + DISP_REG_POSTALIGN0_CON2);
 
+		mtk_ddp_write_relaxed(comp, height << 12 | width,
+		MT6985_DISP_REG_SPR_IP_CFG_0, handle);
+
 		reg_val = (!!spr_params->bypass_dither << 5) |
 			(!!spr_params->rgb_swap << 4) |
 			(!!spr_params->outdata_res_sel << 2) |
@@ -1170,11 +1165,6 @@ static void mtk_spr_config_V2(struct mtk_ddp_comp *comp,
 			SPR_LUT_EN, handle);
 		mtk_ddp_write_mask(comp, SPR_RELAY_MODE, DISP_REG_SPR_EN,
 			SPR_RELAY_MODE, handle);
-
-		if (comp->mtk_crtc->is_dual_pipe == true &&
-			comp->id == DDP_COMPONENT_SPR1)
-			mtk_ddp_write_mask(comp, 0 << 16,
-				DISP_REG_SPR_CK_ON, REG_FLD_MASK(CROP_HOFFSET), handle);
 
 		//disable postalign
 		if (handle)

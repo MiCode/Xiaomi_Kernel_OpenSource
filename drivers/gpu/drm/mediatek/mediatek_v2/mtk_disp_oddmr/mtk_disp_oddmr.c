@@ -1147,13 +1147,12 @@ static void mtk_oddmr_first_cfg(struct mtk_ddp_comp *comp,
 	spin_lock_irqsave(&g_oddmr_timing_lock, flags);
 	mtk_oddmr_drm_mode_to_oddmr_timg(mtk_crtc, &g_oddmr_current_timing);
 	spin_unlock_irqrestore(&g_oddmr_timing_lock, flags);
-	if (is_oddmr_dmr_support || is_oddmr_od_support) {
-		if (comp->id == DDP_COMPONENT_ODDMR0)
-			mtk_oddmr_set_spr2rgb_dual(handle);
-	}
 	hdisplay = g_oddmr_current_timing.hdisplay;
 	vdisplay = g_oddmr_current_timing.vdisplay;
 	overhead = oddmr_priv->data->tile_overhead;
+	if (is_oddmr_dmr_support || is_oddmr_od_support)
+		mtk_oddmr_set_spr2rgb(comp, handle, hdisplay, overhead);
+
 	DDPMSG("%s dmr %d od %d-\n", __func__, is_oddmr_dmr_support, is_oddmr_od_support);
 }
 
