@@ -29,6 +29,7 @@
 
 #define MC_DISABLE_IRQ_WAKEUP /* Failing on this platform */
 
-#define MC_BIG_CORE	0x6
+/* #define MC_BIG_CORE	0x6 */
+#define PLAT_DEFAULT_TEE_AFFINITY_MASK	0x70
 
 #endif /* MC_DRV_PLATFORM_H */
