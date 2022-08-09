@@ -24,7 +24,11 @@
 #include <linux/kmemleak.h>
 #include <uapi/linux/sched/types.h>
 #include <drm/drm_auth.h>
+#define NONE DEL_NONE
+#include <linux/scmi_protocol.h>
+#undef NONE
 
+#include "tinysys-scmi.h"
 #include "drm_internal.h"
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp.h"
@@ -97,6 +101,11 @@ unsigned long long mutex_nested_time_end;
 long long mutex_nested_time_period;
 const char *mutex_nested_locker;
 static int aod_scp_flag;
+static unsigned int g_disp_plat_dbg_addr;
+static unsigned int g_disp_plat_dbg_size;
+static void __iomem *g_disp_plat_dbg_buf_addr;
+static struct scmi_tinysys_info_st *tinfo;
+static int feature_id;
 
 struct lcm_fps_ctx_t lcm_fps_ctx[MAX_CRTC];
 
@@ -121,12 +130,69 @@ void **mtk_aod_scp_ipi_init(void)
 }
 EXPORT_SYMBOL(mtk_aod_scp_ipi_init);
 
+static ssize_t read_disp_plat_dbg_buf(struct file *filp, struct kobject *kobj,
+	struct bin_attribute *bin_attr, char *buff, loff_t pos, size_t count)
+{
+	ssize_t bytes = 0, ret;
+
+	if (!(g_disp_plat_dbg_addr))
+		return 0;
+
+	if (!(g_disp_plat_dbg_size))
+		return 0;
+
+	ret = memory_read_from_buffer(buff, count, &pos,
+		g_disp_plat_dbg_buf_addr, g_disp_plat_dbg_size);
+
+	if (ret < 0)
+		return ret;
+	else
+		return bytes + ret;
+}
+
+static struct bin_attribute disp_plat_dbg_buf_attr = {
+	.attr = {.name = "disp_plat_dbg_buf", .mode = 0444},
+	.read = read_disp_plat_dbg_buf,
+};
+
+void disp_plat_dbg_init(void)
+{
+
+	int err;
+
+	DDPMSG("addr=0x%x, size=0x%x, %s\n", g_disp_plat_dbg_addr, g_disp_plat_dbg_size, __func__);
+
+	if ((g_disp_plat_dbg_addr > 0) && (g_disp_plat_dbg_size > 0)) {
+		if (!tinfo) {
+			tinfo = get_scmi_tinysys_info();
+
+			if ((IS_ERR_OR_NULL(tinfo)) || (IS_ERR_OR_NULL(tinfo->ph))) {
+				DDPMSG("%s: tinfo or tinfo->ph is wrong!!\n", __func__);
+				tinfo = NULL;
+				} else {
+					of_property_read_u32(tinfo->sdev->dev.of_node,
+						"scmi_dispplatdbg", &feature_id);
+					DDPMSG("%s: get scmi_smi succeed id=%d!!\n",
+						__func__, feature_id);
+
+					err = scmi_tinysys_common_set(tinfo->ph, feature_id,
+					g_disp_plat_dbg_addr, g_disp_plat_dbg_size, 0, 0, 0);
+					if (err)
+						DDPMSG("%s: call scmi_tinysys_common_set err=%d\n",
+						__func__, err);
+				}
+			}
+		}
+	DDPMSG("%s++\n", __func__);
+}
+
 struct mtk_drm_disp_sec_cb disp_sec_cb;
 EXPORT_SYMBOL(disp_sec_cb);
 
 void **mtk_drm_disp_sec_cb_init(void)
 {
 	DDPMSG("%s+\n", __func__);
+	disp_plat_dbg_init();
 	return (void **)&disp_sec_cb.cb;
 }
 EXPORT_SYMBOL(mtk_drm_disp_sec_cb_init);
@@ -6417,6 +6483,7 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	struct device *side_dev = NULL;
 	struct device_node *side_node = NULL;
 	struct device_node *aod_scp_node = NULL;
+	struct device_node *disp_plat_dbg_node = pdev->dev.of_node;
 	const __be32 *ranges = NULL;
 	bool mml_found = false;
 
@@ -6617,6 +6684,32 @@ SKIP_OVLSYS_CONFIG:
 		DDPMSG("%s AOD-SCP ON\n", __func__);
 	}
 
+	ret = of_property_read_u32(disp_plat_dbg_node, "disp_plat_dbg_addr", &g_disp_plat_dbg_addr);
+	if (ret) {
+		g_disp_plat_dbg_addr = 0;
+		pr_info("%s: get disp_plat_dbg_addr fail\n", __func__);
+	}
+
+	ret = of_property_read_u32(disp_plat_dbg_node, "disp_plat_dbg_size", &g_disp_plat_dbg_size);
+	if (ret) {
+		g_disp_plat_dbg_size = 0;
+		pr_info("%s: get disp_plat_dbg_size fail\n", __func__);
+	}
+
+	if ((g_disp_plat_dbg_addr > 0) && (g_disp_plat_dbg_size > 0)) {
+		g_disp_plat_dbg_buf_addr = ioremap_wc((phys_addr_t)g_disp_plat_dbg_addr,
+			g_disp_plat_dbg_size);
+		DDPMSG("disp_plat_dbg addr=0x%x, size=0x%x, buf_addr=0x%lx, %s\n",
+			g_disp_plat_dbg_addr, g_disp_plat_dbg_size,
+			(unsigned long)g_disp_plat_dbg_buf_addr, __func__);
+		disp_plat_dbg_buf_attr.size = g_disp_plat_dbg_size;
+		ret = sysfs_create_bin_file(&pdev->dev.kobj, &disp_plat_dbg_buf_attr);
+		if (ret) {
+			dev_err(&pdev->dev, "Failed to create disp_plat_dbg buf file\n");
+			return ret;
+		}
+	}
+
 	if (mtk_drm_helper_get_opt(private->helper_opt,
 			MTK_DRM_OPT_MMQOS_SUPPORT))
 		private->hrt_bw_request =
@@ -6765,6 +6858,9 @@ err_node:
 	of_node_put(private->mutex_node);
 	for (i = 0; i < DDP_COMPONENT_ID_MAX; i++)
 		of_node_put(private->comp_node[i]);
+
+	sysfs_remove_bin_file(&pdev->dev.kobj, &disp_plat_dbg_buf_attr);
+
 	return ret;
 }
 

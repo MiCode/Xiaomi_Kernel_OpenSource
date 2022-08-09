@@ -13,6 +13,7 @@
 #include <drm/drm_encoder.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
+#include <linux/clocksource.h>
 #include <linux/sched.h>
 #include <linux/sched/clock.h>
 #include <linux/component.h>
@@ -2011,8 +2012,9 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			if ((dsi_underrun_trigger == 1 && priv &&
 				mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_DSI_UNDERRUN_AEE)) && trigger_aee) {
-				DDPAEE("[IRQ] %s:buffer underrun\n",
-					mtk_dump_comp_str(&dsi->ddp_comp));
+				DDPAEE("[IRQ] %s:buffer underrun. TS: 0x%08x\n",
+					mtk_dump_comp_str(&dsi->ddp_comp),
+					arch_timer_read_counter());
 				mtk_crtc->last_aee_trigger_ts = aee_now_ts;
 			}
 
