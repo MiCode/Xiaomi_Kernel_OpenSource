@@ -508,6 +508,10 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	struct rq *rq;
 	unsigned long umin, umax;
 	unsigned int next_f;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[2];
+#endif
+
 
 	raw_spin_lock(&sg_policy->update_lock);
 
@@ -547,9 +551,20 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	 * concurrently on two different CPUs for the same target and it is not
 	 * necessary to acquire the lock in the fast switch case.
 	 */
-	if (sg_policy->policy->fast_switch_enabled)
+	if (sg_policy->policy->fast_switch_enabled) {
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[0] = sched_clock();
+#endif
 		cpufreq_driver_fast_switch(sg_policy->policy, next_f);
-	else
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[1] = sched_clock();
+
+		if (ts[1] - ts[0] > 500000ULL) {
+			printk_deferred("%s duration %llu, ts[0]=%llu, ts[1]=%llu\n",
+				__func__, ts[1] - ts[0], ts[0], ts[1]);
+		}
+#endif
+	} else
 		sugov_deferred_update(sg_policy);
 
 	raw_spin_unlock(&sg_policy->update_lock);
@@ -596,6 +611,9 @@ sugov_update_shared(struct update_util_data *hook, u64 time, unsigned int flags)
 	struct sugov_cpu *sg_cpu = container_of(hook, struct sugov_cpu, update_util);
 	struct sugov_policy *sg_policy = sg_cpu->sg_policy;
 	unsigned int next_f;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[2];
+#endif
 
 	raw_spin_lock(&sg_policy->update_lock);
 
@@ -610,9 +628,20 @@ sugov_update_shared(struct update_util_data *hook, u64 time, unsigned int flags)
 		if (!sugov_update_next_freq(sg_policy, time, next_f))
 			goto unlock;
 
-		if (sg_policy->policy->fast_switch_enabled)
+		if (sg_policy->policy->fast_switch_enabled) {
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+			ts[0] = sched_clock();
+#endif
 			cpufreq_driver_fast_switch(sg_policy->policy, next_f);
-		else
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+			ts[1] = sched_clock();
+
+			if (ts[1] - ts[0] > 500000ULL) {
+				printk_deferred("%s duration %llu, ts[0]=%llu, ts[1]=%llu\n",
+					__func__, ts[1] - ts[0], ts[0], ts[1]);
+			}
+#endif
+		} else
 			sugov_deferred_update(sg_policy);
 	}
 unlock:

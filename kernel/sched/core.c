@@ -3101,13 +3101,20 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 {
 #ifdef CONFIG_SCHED_DEBUG
 	unsigned int state = READ_ONCE(p->__state);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[7];
 
+	ts[0] = sched_clock();
+#endif
 	/*
 	 * We should never call set_task_cpu() on a blocked task,
 	 * ttwu() will sort out the placement.
 	 */
 	WARN_ON_ONCE(state != TASK_RUNNING && state != TASK_WAKING && !p->on_rq);
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+#endif
 	/*
 	 * Migrating fair class task must have p->on_rq = TASK_ON_RQ_MIGRATING,
 	 * because schedstat_wait_{start,end} rebase migrating task's wait_start
@@ -3116,7 +3123,9 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 	WARN_ON_ONCE(state == TASK_RUNNING &&
 		     p->sched_class == &fair_sched_class &&
 		     (p->on_rq && !task_on_rq_migrating(p)));
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[2] = sched_clock();
+#endif
 #ifdef CONFIG_LOCKDEP
 	/*
 	 * The caller should hold either p->pi_lock or rq->lock, when changing
@@ -3131,6 +3140,9 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 	WARN_ON_ONCE(debug_locks && !(lockdep_is_held(&p->pi_lock) ||
 				      lockdep_is_held(__rq_lockp(task_rq(p)))));
 #endif
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[3] = sched_clock();
+#endif
 	/*
 	 * Clearly, migrating tasks to offline CPUs is a fairly daft thing.
 	 */
@@ -3138,7 +3150,9 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 
 	WARN_ON_ONCE(is_migration_disabled(p));
 #endif
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[4] = sched_clock();
+#endif
 	trace_sched_migrate_task(p, new_cpu);
 
 	if (task_cpu(p) != new_cpu) {
@@ -3149,8 +3163,23 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 		perf_event_task_migrate(p);
 		trace_android_rvh_set_task_cpu(p, new_cpu);
 	}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[5] = sched_clock();
+#endif
 	__set_task_cpu(p, new_cpu);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[6] = sched_clock();
+
+	if (ts[6] - ts[0] > 500000ULL) {
+		int i;
+
+		printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__, ts[6] - ts[0], ts[0]);
+		for (i = 0; i < 6; i++) {
+			printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
+					__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
+		}
+	}
+#endif
 }
 EXPORT_SYMBOL_GPL(set_task_cpu);
 
@@ -4090,7 +4119,13 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 {
 	unsigned long flags;
 	int cpu, success = 0;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[14];
+#endif
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[0] = sched_clock();
+#endif
 	preempt_disable();
 	if (p == current) {
 		/*
@@ -4112,7 +4147,9 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 		trace_sched_wakeup(p);
 		goto out;
 	}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+#endif
 	/*
 	 * If we are going to wake up a thread waiting for CONDITION we
 	 * need to ensure that CONDITION=1 done by the caller can not be
@@ -4120,10 +4157,16 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	 * in set_current_state() that the waiting thread does.
 	 */
 	raw_spin_lock_irqsave(&p->pi_lock, flags);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[2] = sched_clock();
+#endif
 	smp_mb__after_spinlock();
 	if (!ttwu_state_match(p, state, &success))
 		goto unlock;
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[3] = sched_clock();
+#endif
 #ifdef CONFIG_FREEZER
 	/*
 	 * If we're going to wake up a thread which may be frozen, then
@@ -4136,7 +4179,9 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	    !cpumask_intersects(cpu_active_mask, task_cpu_possible_mask(p)))
 		goto unlock;
 #endif
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[4] = sched_clock();
+#endif
 	trace_sched_waking(p);
 
 	/*
@@ -4164,6 +4209,9 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	smp_rmb();
 	if (READ_ONCE(p->on_rq) && ttwu_runnable(p, wake_flags))
 		goto unlock;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[5] = sched_clock();
+#endif
 
 	if (READ_ONCE(p->__state) & TASK_UNINTERRUPTIBLE)
 		trace_sched_blocked_reason(p);
@@ -4221,9 +4269,15 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	 * to ensure we observe the correct CPU on which the task is currently
 	 * scheduling.
 	 */
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[6] = sched_clock();
+#endif
 	if (smp_load_acquire(&p->on_cpu) &&
 	    ttwu_queue_wakelist(p, task_cpu(p), wake_flags | WF_ON_CPU))
 		goto unlock;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[7] = sched_clock();
+#endif
 
 	/*
 	 * If the owning (remote) CPU is still in the middle of schedule() with
@@ -4237,8 +4291,13 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	smp_cond_load_acquire(&p->on_cpu, !VAL);
 
 	trace_android_rvh_try_to_wake_up(p);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[8] = sched_clock();
+#endif
 	cpu = select_task_rq(p, p->wake_cpu, wake_flags | WF_TTWU);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[9] = sched_clock();
+#endif
 	if (task_cpu(p) != cpu) {
 		if (p->in_iowait) {
 			delayacct_blkio_end(p);
@@ -4252,17 +4311,38 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 #else
 	cpu = task_cpu(p);
 #endif /* CONFIG_SMP */
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[10] = sched_clock();
+#endif
 	ttwu_queue(p, cpu, wake_flags);
 unlock:
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[11] = sched_clock();
+#endif
 	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
 out:
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[12] = sched_clock();
+#endif
 	if (success) {
 		trace_android_rvh_try_to_wake_up_success(p);
 		ttwu_stat(p, task_cpu(p), wake_flags);
 	}
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[13] = sched_clock();
+#endif
 	preempt_enable();
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (ts[13] - ts[0] > 4000000ULL) {
+		int i;
 
+		printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__, ts[13] - ts[0], ts[0]);
+		for (i = 0; i < 13; i++) {
+			printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
+					__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
+		}
+	}
+#endif
 	return success;
 }
 

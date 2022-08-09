@@ -99,6 +99,11 @@ static void sched_queue_task_hook(void *data, struct rq *rq, struct task_struct 
 {
 	int cpu = rq->cpu;
 	int type = *(int *)data;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[2];
+
+	ts[0] = sched_clock();
+#endif
 
 	if (trace_sched_queue_task_enabled()) {
 		unsigned long util = READ_ONCE(rq->cfs.avg.util_avg);
@@ -110,6 +115,14 @@ static void sched_queue_task_hook(void *data, struct rq *rq, struct task_struct 
 				rq->uclamp[UCLAMP_MIN].value, rq->uclamp[UCLAMP_MAX].value,
 				p->uclamp[UCLAMP_MIN].value, p->uclamp[UCLAMP_MAX].value);
 	}
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+	if (ts[1] - ts[0] > 500000ULL) {
+		printk_deferred("%s duration %llu, ts[0]=%llu, ts[1]=%llu\n",
+				__func__, ts[1] - ts[0], ts[0], ts[1]);
+	}
+#endif
 }
 
 #if IS_ENABLED(CONFIG_DETECT_HUNG_TASK)
