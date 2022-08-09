@@ -468,7 +468,6 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 				ret, *(u64 *)(unsigned long *)&slot, mmdvfs_vcp_ipi_data);
 			if (gen == vcp_cmd_ex(VCP_GET_GEN))
 				vcp_cmd_ex(VCP_SET_HALT);
-			WARN_ON(1);
 			break;
 		}
 		udelay(10);
