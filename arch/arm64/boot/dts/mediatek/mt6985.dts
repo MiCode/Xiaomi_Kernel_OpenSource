@@ -5456,6 +5456,14 @@
 			iommus = <&apu_iommu0 M4U_PORT_L40_APU_CODE>;
 		};
 
+		mvpu {
+			compatible = "mediatek, mt6985-mvpu";
+			core-num = <2>;
+			version = <0x0>;
+			mask = /bits/ 64 <0x00000003ffffffff>;
+			iommus = <&apu_iommu0 M4U_PORT_L40_APU_CODE>;
+		};
+
 		apusys-aov {
 			compatible = "mediatek,apusys_aov";
 		};
