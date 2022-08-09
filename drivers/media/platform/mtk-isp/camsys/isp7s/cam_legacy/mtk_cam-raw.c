@@ -2470,8 +2470,10 @@ static void raw_handle_error(struct mtk_raw_device *raw_dev,
 	}
 
 	if (err_status & INT_ST_MASK_CAM_DBG) {
-		dev_info(raw_dev->dev, "%s: err_status:0x%x\n",
-			__func__, err_status);
+		dev_info(raw_dev->dev, "%s: err_status:0x%x statx:0x%x cq period:0x%x\n",
+			__func__, err_status,
+			readl_relaxed(raw_dev->base + REG_CTL_RAW_INT_STATX),
+			readl_relaxed(raw_dev->base + REG_SCQ_START_PERIOD));
 	}
 
 }

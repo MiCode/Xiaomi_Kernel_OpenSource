@@ -41,11 +41,13 @@
 #define TG_GBERR_ST						BIT(7)
 #define SOF_DROP_ST						BIT(10)
 
+#define CQ_MAX_START_DLY_ERR_INT_ST			BIT(14)
+#define CQ_MAX_START_DLY_SMALL_INT_ST			BIT(15)
 #define CQ_MAIN_CODE_ERR_ST				BIT(16)
 #define CQ_MAIN_VS_ERR_ST				BIT(17)
 #define CQ_MAIN_TRIG_DLY_ST				BIT(18)
-#define CQ_SUB_CODE_ERR_ST				BIT(17)
-#define CQ_SUB_VS_ERR_ST				BIT(19)
+#define CQ_SUB_CODE_ERR_ST				BIT(19)
+#define CQ_SUB_VS_ERR_ST				BIT(20)
 #define DMA_ERR_ST						BIT(25)
 
 /* CAM DMA done status */
@@ -74,6 +76,8 @@
 							CQ_MAIN_TRIG_DLY_ST |\
 							CQ_SUB_CODE_ERR_ST |\
 							CQ_SUB_VS_ERR_ST	 |\
+							CQ_MAX_START_DLY_ERR_INT_ST |\
+							CQ_MAX_START_DLY_SMALL_INT_ST |\
 							DMA_ERR_ST)
 
 /* IRQ Debug Mask */
@@ -82,7 +86,9 @@
 							CQ_MAIN_VS_ERR_ST	 |\
 							CQ_MAIN_TRIG_DLY_ST |\
 							CQ_SUB_CODE_ERR_ST |\
-							CQ_SUB_VS_ERR_ST)
+							CQ_SUB_VS_ERR_ST |\
+							CQ_MAX_START_DLY_ERR_INT_ST |\
+							CQ_MAX_START_DLY_SMALL_INT_ST)
 
 /* camsys */
 #define REG_CG_CON				0x0000
@@ -176,6 +182,7 @@
 
 #define REG_CTL_RAW_INT_EN				0x00F0
 #define REG_CTL_RAW_INT_STAT			0x00F4
+#define REG_CTL_RAW_INT_STATX			0x00F8
 #define REG_CTL_RAW_INT2_EN				0x00FC
 #define REG_CTL_RAW_INT2_STAT			0x0100
 #define REG_CTL_RAW_INT3_STAT			0x0110
