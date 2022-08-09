@@ -24,7 +24,7 @@ TRACE_EVENT(ufs_mtk_event,
 		__entry->data = data;
 	),
 
-	TP_printk("ufs:event=%u data=%u",
+	TP_printk("ufs: event=%u data=%u",
 		  __entry->type, __entry->data)
 );
 
@@ -44,7 +44,7 @@ TRACE_EVENT(ufs_mtk_clk_scale,
 		__entry->clk_rate = clk_rate;
 	),
 
-	TP_printk("ufs: clk (%s) scaled %s @%d",
+	TP_printk("ufs: clk (%s) scaled %s @ %lld",
 		  __entry->name,
 		  __entry->scale_up ? "up" : "down",
 		  __entry->clk_rate)

@@ -2407,7 +2407,7 @@ static void ufs_mtk_event_notify(struct ufs_hba *hba,
 {
 	unsigned int val = *(u32 *)data;
 	unsigned long reg;
-	int bit;
+	uint8_t bit;
 
 	trace_ufs_mtk_event(evt, val);
 

@@ -75,11 +75,13 @@ static void ufs_mtk_dbg_print_info(char **buff, unsigned long *size,
 {
 	struct ufs_mtk_host *host;
 	struct ufs_hba *hba = ufshba;
-	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
+	struct ufs_hba_private *hba_priv;
 	int i;
 
 	if (!hba)
 		return;
+
+	hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
 
 	host = ufshcd_get_variant(hba);
 
