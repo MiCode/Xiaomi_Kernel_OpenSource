@@ -9505,6 +9505,7 @@
 		clock-num = <48>;
 		operating-points-v2 = <&opp_table_disp>;
 		mmdvfs-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		lp-mmclk-freq = <218000000>;
 		interconnects = <&mmqos SLAVE_LARB(38) &mmqos SLAVE_COMMON(0)>;
 		interconnect-names = "disp_hrt_qos";
 		pre-define-bw = <0xffffffff>, <4200>, <0>;
