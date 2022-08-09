@@ -1499,9 +1499,12 @@ static void u2_phy_instance_set_mode(struct mtk_xsphy *xsphy,
 			writel(tmp, inst->port_base + XSP_USBPHYACR6);
 			break;
 		case PHY_MODE_BC11_SW_CLR:
-			tmp = readl(inst->port_base + XSP_USBPHYACR6);
-			tmp &= ~P2A6_RG_BC11_SW_EN;
-			writel(tmp, inst->port_base + XSP_USBPHYACR6);
+			/* dont' need to switch back to usb when phy off */
+			if (inst->phy->power_count > 0) {
+				tmp = readl(inst->port_base + XSP_USBPHYACR6);
+				tmp &= ~P2A6_RG_BC11_SW_EN;
+				writel(tmp, inst->port_base + XSP_USBPHYACR6);
+			}
 			break;
 		case PHY_MODE_DPDMPULLDOWN_SET:
 			tmp = readl(inst->port_base + XSP_U2PHYDTM0);
