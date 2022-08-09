@@ -283,6 +283,7 @@
 #define MSDC_PB2_SUPPORT_64G      (0x1 << 1)    /* RW */
 #define MSDC_PB2_RESPWAIT         (0x3 << 2)    /* RW */
 #define MSDC_PB2_RESPSTSENSEL     (0x7 << 16)   /* RW */
+#define MSDC_PB2_POP_EN_CNT       (0xf << 20)   /* RW */
 #define MSDC_PB2_CRCSTSENSEL      (0x7 << 29)   /* RW */
 
 #define MSDC_PAD_TUNE_DATWRDLY	  (0x1f <<  0)	/* RW */
