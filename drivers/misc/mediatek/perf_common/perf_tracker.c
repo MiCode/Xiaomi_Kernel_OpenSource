@@ -184,7 +184,7 @@ static unsigned int cpudvfs_get_cur_freq(int cluster_id, bool is_mcupm)
 #define DSU_FREQ_2_CLUSTER	0x11e8
 #define DSU_VOLT_3_CLUSTER	0x51c
 #define DSU_FREQ_3_CLUSTER	0x11ec
-#define MCUPM_OFFSET_BASE	0x132c
+#define MCUPM_OFFSET_BASE	0x133c
 
 unsigned int csram_read(unsigned int offs)
 {
