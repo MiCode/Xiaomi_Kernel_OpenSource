@@ -343,6 +343,7 @@ struct DSI_T0_INS {
 	unsigned Data0 : 8;
 	unsigned Data1 : 8;
 };
+#define to_mtk_dsi(x) container_of(x, struct mtk_dsi, conn)
 
 #define DECLARE_DSI_PORCH(EXPR)                                                \
 	EXPR(DSI_VFP)                                                          \
@@ -408,7 +409,7 @@ struct mtk_dsi {
 	bool is_slave;
 	struct mtk_dsi *slave_dsi;
 	struct mtk_dsi *master_dsi;
-
+	struct mtk_drm_connector_caps connector_caps;
 	void __iomem *regs;
 
 	struct clk *engine_clk;
@@ -466,6 +467,9 @@ enum DSI_MODE_CON {
 	MODE_CON_SYNC_PULSE_VDO,
 	MODE_CON_SYNC_EVENT_VDO,
 	MODE_CON_BURST_VDO,
+};
+static struct mtk_drm_property mtk_connector_property[CONNECTOR_PROP_MAX] = {
+	{DRM_MODE_PROP_IMMUTABLE, "CAPS_BLOB_ID", 0, UINT_MAX, 0},
 };
 
 struct mtk_panel_ext *mtk_dsi_get_panel_ext(struct mtk_ddp_comp *comp);
@@ -2990,10 +2994,81 @@ static int mtk_drm_attach_bridge(struct drm_bridge *bridge,
 
 	return ret;
 }
+static void mtk_drm_set_connector_caps(struct drm_connector *conn)
+{
+	struct drm_device *dev = conn->dev;
+	struct mtk_drm_connector_caps connector_caps;
+	struct mtk_dsi *dsi = to_mtk_dsi(conn);
+	struct drm_property_blob *blob;
+	uint32_t blob_id = 0;
+
+	memset(&connector_caps, 0, sizeof(connector_caps));
+
+	blob = drm_property_create_blob(dev, sizeof(connector_caps), &dsi->connector_caps);
+	if (!IS_ERR_OR_NULL(blob))
+		blob_id = blob->base.id;
+	else
+		DDPPR_ERR("create_blob error\n");
+
+	mtk_connector_property[CONNECTOR_PROP_CAPS_BLOB_ID].val = blob_id;
+}
+
+
+static void mtk_drm_connector_attach_property(struct drm_connector *conn)
+{
+	struct drm_device *dev = conn->dev;
+	struct mtk_drm_private *private = dev->dev_private;
+	struct drm_property *prop;
+	static struct drm_property *mtk_connector_prop[CONNECTOR_PROP_MAX];
+	struct mtk_drm_property *conn_prop;
+	int index = conn->index;
+	int i;
+	static int num;
+
+	DDPINFO("%s:%d conn:%d\n", __func__, __LINE__, index);
+
+	if (num == 0) {
+		for (i = 0; i < CONNECTOR_PROP_MAX; i++) {
+			conn_prop = &(mtk_connector_property[i]);
+			mtk_connector_prop[i] = drm_property_create_range(
+				dev, conn_prop->flags, conn_prop->name,
+				conn_prop->min, conn_prop->max);
+			if (!mtk_connector_prop[i]) {
+				DDPPR_ERR("fail to create property:%s\n",
+					  conn_prop->name);
+				return;
+			}
+			DDPINFO("create property:%s, flags:0x%x\n",
+				conn_prop->name, mtk_connector_prop[i]->flags);
+		}
+		num++;
+	}
+
+	mtk_drm_set_connector_caps(conn);
+
+	for (i = 0; i < CONNECTOR_PROP_MAX; i++) {
+		prop = private->connector_property[index][i];
+		conn_prop = &(mtk_connector_property[i]);
+		DDPINFO("%s:%d prop:%p\n", __func__, __LINE__, prop);
+		if (!prop) {
+			prop = mtk_connector_prop[i];
+		      private
+			->connector_property[index][i] = prop;
+
+			drm_object_attach_property(&conn->base, prop,
+						   conn_prop->val);
+
+		}
+	}
+}
 
 static int mtk_dsi_create_connector(struct drm_device *drm, struct mtk_dsi *dsi)
 {
 	int ret;
+	struct mtk_panel_params *params;
+
+	if (dsi->ext && dsi->ext->params)
+		params = dsi->ext->params;
 
 	ret = drm_connector_init(drm, &dsi->conn, &mtk_dsi_connector_funcs,
 				 DRM_MODE_CONNECTOR_DSI);
@@ -3002,7 +3077,9 @@ static int mtk_dsi_create_connector(struct drm_device *drm, struct mtk_dsi *dsi)
 		return ret;
 	}
 
+	dsi->connector_caps.conn_caps.lcm_degree = params->lcm_degree;
 	drm_connector_helper_add(&dsi->conn, &mtk_dsi_conn_helper_funcs);
+	mtk_drm_connector_attach_property(&dsi->conn);
 
 	dsi->conn.dpms = DRM_MODE_DPMS_OFF;
 	drm_connector_attach_encoder(&dsi->conn, &dsi->encoder);

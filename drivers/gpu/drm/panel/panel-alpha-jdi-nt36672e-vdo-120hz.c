@@ -40,6 +40,9 @@
 
 static char bl_tb0[] = { 0x51, 0xff };
 
+/*LCM_DEGREE default value*/
+#define PROBE_FROM_DTS 0
+
 //TO DO: You have to do that remove macro BYPASSI2C and solve build error
 //otherwise voltage will be unstable
 #define BYPASSI2C
@@ -48,6 +51,7 @@ static char bl_tb0[] = { 0x51, 0xff };
 /* i2c control start */
 #define LCM_I2C_ID_NAME "I2C_LCD_BIAS"
 static struct i2c_client *_lcm_i2c_client;
+
 
 /*****************************************************************************
  * Function Prototype
@@ -167,6 +171,7 @@ struct jdi {
 	bool enabled;
 
 	unsigned int gate_ic;
+	unsigned int lcm_degree;
 
 	int error;
 };
@@ -945,6 +950,7 @@ static struct mtk_panel_params ext_params = {
 	.vfp_low_power = 4180,
 	.cust_esd_check = 1,
 	.esd_check_enable = 1,
+	.lcm_degree = PROBE_FROM_DTS,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
 	},
@@ -1023,6 +1029,7 @@ static struct mtk_panel_params ext_params_90hz = {
 	.vfp_low_power = 2528,
 	.cust_esd_check = 1,
 	.esd_check_enable = 1,
+	.lcm_degree = PROBE_FROM_DTS,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
 	},
@@ -1101,6 +1108,7 @@ static struct mtk_panel_params ext_params_120hz = {
 	.vfp_low_power = 2528,
 	.cust_esd_check = 1,
 	.esd_check_enable = 1,
+	.lcm_degree = PROBE_FROM_DTS,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
 	},
@@ -1473,8 +1481,9 @@ static int jdi_probe(struct mipi_dsi_device *dsi)
 	struct jdi *ctx;
 	struct device_node *backlight;
 	unsigned int value;
+	unsigned int lcm_degree;
 	int ret;
-
+	int probe_ret;
 	pr_info("%s+ jdi,nt36672e,vdo,120hz\n", __func__);
 
 	dsi_node = of_get_parent(dev->of_node);
@@ -1512,6 +1521,7 @@ static int jdi_probe(struct mipi_dsi_device *dsi)
 		value = 0;
 	else
 		ctx->gate_ic = value;
+
 
 	backlight = of_parse_phandle(dev->of_node, "backlight", 0);
 	if (backlight) {
@@ -1561,9 +1571,13 @@ static int jdi_probe(struct mipi_dsi_device *dsi)
 	ret = mtk_panel_ext_create(dev, &ext_params, &ext_funcs, &ctx->panel);
 	if (ret < 0)
 		return ret;
-
+	probe_ret = of_property_read_u32(dev->of_node, "lcm-degree", &lcm_degree);
+	if (probe_ret < 0)
+		lcm_degree = 0;
+	else
+		ext_params.lcm_degree = lcm_degree;
+	pr_info("lcm_degree: %d\n", ext_params.lcm_degree);
 #endif
-
 	pr_info("%s- jdi,nt36672e,vdo,120hz\n", __func__);
 
 	return ret;

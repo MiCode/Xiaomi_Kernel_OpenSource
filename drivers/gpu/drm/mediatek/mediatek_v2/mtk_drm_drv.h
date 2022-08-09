@@ -103,6 +103,12 @@ enum disp_hrt_usage {
 	DISP_OPENING,
 };
 
+enum MTK_CONNECTOR_PROP {
+	CONNECTOR_PROP_CAPS_BLOB_ID,
+	CONNECTOR_PROP_MAX,
+};
+
+
 struct mtk_drm_private {
 	struct drm_device *drm;
 	struct device *dma_dev;
@@ -158,7 +164,7 @@ struct mtk_drm_private {
 
 	/* property */
 	struct drm_property *crtc_property[MAX_CRTC][CRTC_PROP_MAX];
-
+	struct drm_property *connector_property[MAX_CONNECTOR][CONNECTOR_PROP_MAX];
 	struct mtk_ddp_fb_info fb_info;
 
 	struct list_head lyeblob_head;
