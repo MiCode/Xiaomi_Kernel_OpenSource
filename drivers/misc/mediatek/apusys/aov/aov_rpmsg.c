@@ -50,8 +50,6 @@ int aov_rpmsg_send(uint32_t param)
 	atomic_set(&rpmsg_ctx->param, param);
 	complete(&rpmsg_ctx->notify_tx_apu);
 
-	pr_debug_ratelimited("%s ---\n", __func__);
-
 	return 0;
 }
 
@@ -87,7 +85,7 @@ static int apu_tx_thread(void *data)
 	pr_info("%s start +++\n", __func__);
 
 	while (!kthread_should_stop()) {
-		int ret = 0, retry_cnt = 10;
+		int ret = 0, retry_cnt = 20;
 		uint32_t param = 0;
 
 		wait_for_completion_interruptible_timeout(&ctx->notify_tx_apu, timeout);
@@ -116,14 +114,20 @@ static int apu_tx_thread(void *data)
 			/* send busy, retry */
 			if (ret == -EBUSY || ret == -EAGAIN) {
 				pr_info("%s: re-send ipi(retry_cnt = %d)\n", __func__, retry_cnt);
-				usleep_range(10000, 11000);
+
+				if (ret == -EAGAIN && retry_cnt > 15)
+					usleep_range(200, 500);
+				else if (ret == -EAGAIN && retry_cnt > 10)
+					usleep_range(1000, 2000);
+				else
+					usleep_range(10000, 11000);
 			}
 		} while ((ret == -EBUSY || ret == -EAGAIN) && retry_cnt-- > 0);
 
 		if (ret) {
 			pr_info("%s Failed to send ipi to apu, ret %d\n", __func__, ret);
 
-			retry_cnt = 10;
+			retry_cnt = 20;
 			do {
 				send_msg.cmd = NPU_SCP_NP_MDW;
 				send_msg.act = NPU_SCP_NP_MDW_ACK;
