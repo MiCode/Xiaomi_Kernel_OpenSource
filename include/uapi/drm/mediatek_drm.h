@@ -801,6 +801,14 @@ struct mtk_drm_wb_caps {
 	unsigned int rsz_out_max_h;
 };
 
+struct mtk_drm_conn_caps {
+	unsigned int lcm_degree;
+};
+
+struct mtk_drm_connector_caps {
+	struct mtk_drm_conn_caps conn_caps;
+};
+
 struct mtk_drm_crtc_caps {
 	struct mtk_drm_wb_caps wb_caps[MTK_DRM_DUMP_POINT_NUM];
 	unsigned int crtc_ability;
