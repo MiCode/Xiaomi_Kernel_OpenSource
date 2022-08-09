@@ -9985,6 +9985,11 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 		return -1;
 	}
 
+	/* if gce flush is form dal_show, we do not update and disconnect WDMA */
+	/* because WDMA addon path is not connected */
+	if (cb_data == cmdq_handle)
+		is_from_dal = 1;
+
 	/* apply color matrix if crtc0 is DL */
 	ccorr_config = mtk_crtc_get_color_matrix_data(crtc);
 	if (drm_crtc_index(crtc) == 0 && (!mtk_crtc_is_dc_mode(crtc)))
@@ -10012,20 +10017,18 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 		cmdq_pkt_wait_no_clear(cmdq_handle, gce_event);
 	} else if (mtk_crtc_is_frame_trigger_mode(crtc) &&
 					mtk_crtc_with_trigger_loop(crtc)) {
-		/* DL with trigger loop */
-		cmdq_pkt_set_event(cmdq_handle,
-				mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
-
+		if (mtk_crtc->is_mml && is_from_dal) {
+			/* skip trigger when racing with mml */
+		} else {
+			/* DL with trigger loop */
+			cmdq_pkt_set_event(cmdq_handle,
+					   mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+		}
 	} else {
 		/* DL without trigger loop */
 		mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0],
 			cmdq_handle, mtk_crtc->gce_obj.base);
 	}
-
-	/* if gce flush is form dal_show, we do not update and disconnect WDMA */
-	/* because WDMA addon path is not connected */
-	if (cb_data == cmdq_handle)
-		is_from_dal = 1;
 
 	if (mtk_crtc_is_dc_mode(crtc) ||
 		(state->prop_val[CRTC_PROP_OUTPUT_ENABLE] && crtc_index != 0)) {
