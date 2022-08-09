@@ -398,7 +398,8 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 			mtk_ddp_write_relaxed(comp,
 				0x800002d9, DISP_REG_DSC_OBUF, handle);
 		}
-		pad_num = (chrunk_size + 2)/3*3 - chrunk_size;
+		pad_num = (chrunk_size * (dsc_params->slice_mode + 1) + 2) / 3 * 3
+			- chrunk_size * (dsc_params->slice_mode + 1);
 		mtk_ddp_write_relaxed(comp,
 			enc_pic_width << 16 | enc_slice_width,
 			DISP_REG_DSC_ENC_WIDTH, handle);

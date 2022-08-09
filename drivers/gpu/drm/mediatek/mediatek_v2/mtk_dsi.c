@@ -1442,14 +1442,11 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 		}
 		size = (height << 16) + width;
 	} else {
-		ps_wc = (((dsc_params->chunk_size + 2) / 3) * 3);
-		if (dsc_params->slice_mode == 1)
-			ps_wc *= 2;
-
+		ps_wc = dsc_params->chunk_size * (dsc_params->slice_mode + 1);
 		SET_VAL_MASK(value, mask, ps_wc, DSI_PS_WC);
 		SET_VAL_MASK(value, mask, 5, DSI_PS_SEL);
 
-		size = (height << 16) + (ps_wc / dsi_buf_bpp);
+		size = (height << 16) + ((ps_wc + dsi_buf_bpp - 1) / dsi_buf_bpp);
 	}
 
 	writel(height, dsi->regs + DSI_VACT_NL);
@@ -1521,10 +1518,8 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 	}
 
 	if (dsc_params->enable != 0) {
-		ps_wc = (((dsc_params->chunk_size + 2) / 3) * 3);
-		if (dsc_params->slice_mode == 1)
-			ps_wc *= 2;
-		width = ps_wc / dsi_buf_bpp;
+		ps_wc = dsc_params->chunk_size * (dsc_params->slice_mode + 1);
+		width = (ps_wc + dsi_buf_bpp - 1) / dsi_buf_bpp;
 	}
 	buffer_unit = dsi->driver_data->buffer_unit;
 	sram_unit = dsi->driver_data->sram_unit;
@@ -6834,9 +6829,7 @@ void mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
 			if (dsc_params->enable == 0) {
 				ps_wc = hact * dsi_buf_bpp;
 			} else {
-				ps_wc = (((dsc_params->chunk_size + 2) / 3) * 3);
-				if (dsc_params->slice_mode == 1)
-					ps_wc *= 2;
+				ps_wc = dsc_params->chunk_size * (dsc_params->slice_mode + 1);
 			}
 
 			if (ext->params->is_cphy) {
