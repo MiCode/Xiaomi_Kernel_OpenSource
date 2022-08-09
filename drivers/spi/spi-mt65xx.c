@@ -365,6 +365,8 @@ static void mtk_spi_reset(struct mtk_spi *mdata)
 
 	reg_val = readl(mdata->base + SPI_CMD_REG);
 	reg_val &= ~SPI_CMD_RST;
+	if (mdata->dev_comp->sw_cs)
+		reg_val &= ~SPI_CMD_CS_PIN_SEL;
 	writel(reg_val, mdata->base + SPI_CMD_REG);
 }
 
