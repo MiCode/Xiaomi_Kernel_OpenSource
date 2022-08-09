@@ -8,6 +8,10 @@
 
 #include "frame_sync_def.h"
 
+#ifndef FS_UT
+#include "imgsensor-user.h"
+#endif // !FS_UT
+
 
 /*******************************************************************************
  * The Method for FrameSync Register Sensor (default pls using sensor_idx).
@@ -50,9 +54,17 @@ enum FS_HW_SYNC_GROUP_ID {
 };
 
 
+#ifdef FS_UT
 /*******************************************************************************
  * The Method for FrameSync sync type/methods.
  ******************************************************************************/
+/*
+ * !!! MUST sync/check this enum in imgsensor-user.h file. !!!
+ *     imgsensor-user.h in:
+ *         imgsensor/inc/
+ *         device/mediatek/common/kernel-headers/
+ * !!! MUST sync/check this enum in imgsensor-user.h file. !!!
+ */
 enum FS_SYNC_TYPE {
 	FS_SYNC_TYPE_NONE = 0,
 
@@ -68,6 +80,7 @@ enum FS_SYNC_TYPE {
 	FS_SYNC_TYPE_ASYNC_MODE = 1 << 8,
 };
 /******************************************************************************/
+#endif // FS_UT
 
 
 /*******************************************************************************

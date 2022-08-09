@@ -232,6 +232,9 @@ static unsigned int fs_flicker_table[FLICKER_TABLE_SIZE][2] = {
 	/* 14.6 ~ 15.3 */
 	{68493, 65359},
 
+	/* 23.6 ~ 24.3 */
+	{42372, 41152},
+
 	/* 24.6 ~ 25.3 */
 	{40650, 39525},
 
@@ -1628,6 +1631,9 @@ static long long fs_alg_sa_calc_adjust_diff_slave(
 		adjust_diff_s -= (long long)(p_para_s->stable_fl_us) * f_cell_s;
 	}
 
+	/* checking N:1, high fps slave's adjust diff should be normalize */
+	if (adjust_diff_s > ((long long)p_para_s->stable_fl_us * f_cell_s))
+		adjust_diff_s -= (long long)(p_para_s->stable_fl_us) * f_cell_s;
 
 	/* calculate suitable adjust_diff_s */
 	while (adjust_diff_s < 0) {
@@ -1708,6 +1714,10 @@ static long long fs_alg_sa_calc_adjust_diff_async(
 		/* if there are the pair, N+2 pred_fl will bigger than N+1 sensor */
 		adjust_diff_s -= (long long)(p_para_s->pure_min_fl_us) * f_cell_s;
 	}
+
+	/* checking N:1, high fps slave's adjust diff should be normalize */
+	if (adjust_diff_s > ((long long)p_para_s->stable_fl_us * f_cell_s))
+		adjust_diff_s -= (long long)(p_para_s->stable_fl_us) * f_cell_s;
 
 
 	/* TODO: for low/high FS, add a method for auto calculate complement diff */

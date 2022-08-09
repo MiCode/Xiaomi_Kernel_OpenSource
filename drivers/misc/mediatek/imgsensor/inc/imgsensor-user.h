@@ -393,6 +393,21 @@ struct mtk_n_1_mode {
 	__u8 en;
 };
 
+enum FS_SYNC_TYPE {
+	FS_SYNC_TYPE_NONE = 0,
+
+	/* below tags, chose one (default use VSYNC, mutually exclusive) */
+	FS_SYNC_TYPE_VSYNC = 1 << 1,
+	FS_SYNC_TYPE_READOUT_CENTER = 1 << 2,
+
+	/* below tags, chose one (default use LE, mutually exclusive) */
+	FS_SYNC_TYPE_LE = 1 << 3,
+	FS_SYNC_TYPE_SE = 1 << 4,
+
+	/* SA - Async mode */
+	FS_SYNC_TYPE_ASYNC_MODE = 1 << 8,
+};
+
 struct mtk_test_pattern_data {
 	__u32 Channel_R;
 	__u32 Channel_Gr;
