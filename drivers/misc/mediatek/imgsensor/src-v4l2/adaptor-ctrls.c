@@ -134,16 +134,18 @@ static void get_dispatch_gain(struct adaptor_ctx *ctx, u32 tgain, u32 *again, u3
 	u32 dig_gain_step = ctx->subctx.s_ctx.dig_gain_step;
 	u32 *ana_gain_table = ctx->subctx.s_ctx.ana_gain_table;
 	u32 ana_gain_table_size = ctx->subctx.s_ctx.ana_gain_table_size;
+	u32 ana_gain_table_cnt = 0;
 
 	if (dig_gain_step && ana_gain_table && (tgain > ana_gain_table[0])) {
-		for (i = 1; i < ana_gain_table_size; i++) {
+		ana_gain_table_cnt = (ana_gain_table_size / sizeof(ana_gain_table[0]));
+		for (i = 1; i < ana_gain_table_cnt; i++) {
 			if (ana_gain_table[i] > tgain) {
 				ag = ana_gain_table[i - 1];
 				dg = (u32) ((u64)tgain * BASE_DGAIN / ag);
 				break;
 			}
 		}
-		if (i == ana_gain_table_size) {
+		if (i == ana_gain_table_cnt) {
 			ag = ana_gain_table[i - 1];
 			dg = (u32) ((u64)tgain * BASE_DGAIN / ag);
 		}
@@ -154,7 +156,8 @@ static void get_dispatch_gain(struct adaptor_ctx *ctx, u32 tgain, u32 *again, u3
 	if (dgain)
 		*dgain = dg;
 
-	dev_info(ctx->dev, "gain(t/a/d) = %u / %u / %u\n", tgain, ag, dg);
+	dev_info(ctx->dev, "again tlb cnt = %u sz(%u), gain(t/a/d) = %u / %u / %u\n",
+		 ana_gain_table_cnt, ana_gain_table_size, tgain, ag, dg);
 }
 
 static int set_hdr_gain_tri(struct adaptor_ctx *ctx, struct mtk_hdr_gain *info)
