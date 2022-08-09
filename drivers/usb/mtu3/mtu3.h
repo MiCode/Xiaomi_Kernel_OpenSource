@@ -436,6 +436,8 @@ struct mtu3 {
 	unsigned is_gadget_ready:1;
 	unsigned async_callbacks:1;
 	int ep_slot_mode;
+
+	unsigned u3_lpm:1;
 };
 
 /* struct ssusb_offload */
