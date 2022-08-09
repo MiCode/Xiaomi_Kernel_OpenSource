@@ -47,12 +47,12 @@
   available_idle_cpu
   backlight_device_get_by_type
   backlight_device_set_brightness
+  __balance_callbacks
   balance_push_callback
   bio_endio
   bio_end_io_acct_remapped
   bio_start_io_acct
   bitmap_allocate_region
-  __balance_callbacks
   __bitmap_and
   __bitmap_clear
   bitmap_find_next_zero_area_off
@@ -2049,6 +2049,7 @@
   __tracepoint_android_vh_cpuidle_psci_enter
   __tracepoint_android_vh_cpuidle_psci_exit
   __tracepoint_android_vh_disable_thermal_cooling_stats
+  __tracepoint_android_vh_do_wake_up_sync
   __tracepoint_android_vh_ftrace_dump_buffer
   __tracepoint_android_vh_ftrace_format_check
   __tracepoint_android_vh_ftrace_oops_enter
