@@ -6249,6 +6249,9 @@ static int mtk_dsi_ddic_handler_by_gce(struct mtk_dsi *dsi,
 
 	if ((prop & MTK_LCM_DSI_CMD_PROP_ALIGN_FRAME) != 0 &&
 		(prop & MTK_LCM_DSI_CMD_PROP_READ) == 0) {
+		/* Kick idle */
+		mtk_drm_idlemgr_kick(__func__, crtc, 0);
+
 		mtk_crtc_wait_frame_done(mtk_crtc, handle,
 			DDP_FIRST_PATH, 0);
 		if (dsi_mode == 0) {
@@ -6363,9 +6366,6 @@ int mtk_lcm_dsi_ddic_handler(struct mipi_dsi_device *dsi_dev, struct cmdq_pkt *h
 		mutex_lock(&priv->commit.lock);
 		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 	}
-
-	/* Kick idle */
-	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
 	if ((prop & MTK_LCM_DSI_CMD_PROP_CMDQ) == 0 ||
 	    (IS_ERR_OR_NULL(handle) &&

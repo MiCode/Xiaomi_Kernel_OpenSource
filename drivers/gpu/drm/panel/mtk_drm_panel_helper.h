@@ -36,13 +36,6 @@ struct mtk_lcm_ops_table {
 	unsigned int size;
 };
 
-struct mtk_lcm_msync_min_fps_switch {
-	struct list_head list;
-	unsigned int fps;
-	unsigned int count;
-	u8 *data;
-};
-
 struct mtk_lcm_params_dbi {
 	unsigned int dbi_private_data;
 };
@@ -51,6 +44,7 @@ struct mtk_lcm_params_dpi {
 	unsigned int dpi_private_data;
 };
 
+#define MTK_LCM_MSYNC_MAX_FPS_COUNT (16)
 struct mtk_lcm_mode_dsi {
 /* key word */
 	unsigned int id;
@@ -63,8 +57,8 @@ struct mtk_lcm_mode_dsi {
 /* params */
 	struct drm_display_mode mode;
 	struct mtk_panel_params ext_param;
-	struct list_head msync_min_fps_switch;
-	unsigned int msync_min_fps_count;
+	int msync_set_min_fps_list[MTK_LCM_MSYNC_MAX_FPS_COUNT];
+	struct mtk_lcm_ops_table msync_set_min_fps;
 /* ops */
 	struct mtk_lcm_ops_table msync_switch_mte;
 	struct mtk_lcm_ops_table fps_switch_bfoff;
@@ -262,9 +256,9 @@ struct mtk_lcm_ops_dsi {
 	struct mtk_lcm_ops_table hbm_set_cmdq;
 
 	/* msync set min fps support*/
-	struct mtk_lcm_ops_table msync_set_min_fps;
 	struct mtk_lcm_ops_table msync_default_mte;
-	struct mtk_lcm_ops_table msync_close_mte;
+	struct mtk_lcm_ops_table msync_request_mte;
+	struct mtk_lcm_ops_table default_msync_close_mte;
 
 	unsigned int read_panelid_len;
 	struct mtk_lcm_ops_table read_panelid;
@@ -484,8 +478,7 @@ void dump_lcm_params_dpi(struct mtk_lcm_params_dpi *params,
 void dump_lcm_ops_dpi(struct mtk_lcm_ops_dpi *ops,
 		struct mtk_lcm_params_dpi *params,
 		const struct mtk_panel_cust *cust);
-void mtk_lcm_dump_all(char func, struct mtk_panel_resource *resource,
-		const struct mtk_panel_cust *cust);
+void mtk_lcm_dump_all(char func, struct mtk_panel_resource *resource);
 
 /* function: dsi ddic write
  * input: data: the data buffer

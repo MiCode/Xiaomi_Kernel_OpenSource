@@ -811,6 +811,9 @@ int load_panel_resource_from_dts(struct device_node *lcm_np,
 		}
 	}
 
+#if MTK_LCM_DEBUG_DUMP
+	mtk_lcm_dump_all(MTK_LCM_FUNC_DSI, data);
+#endif
 	return 0;
 }
 EXPORT_SYMBOL(load_panel_resource_from_dts);
@@ -1400,11 +1403,14 @@ static int mtk_lcm_create_operation_group(struct mtk_panel_para_table *group,
 	list_for_each_entry(op, &table->list, node) {
 		switch (op->type) {
 		case MTK_LCM_CMD_TYPE_WRITE_BUFFER:
+			size = op->param.buf_data.data_len;
 			if (IS_ERR_OR_NULL(op->param.buf_data.data) ||
-			    op->param.buf_data.data_len <= 0 ||
-			    op->param.buf_data.data_len >
-			    ARRAY_SIZE(group[id].para_list))
+			    size <= 0 || size > ARRAY_SIZE(group[id].para_list)) {
+				DDPPR_ERR("%s,%d, len:%u, array size:%u\n",
+					__func__, __LINE__, size,
+					ARRAY_SIZE(group[id].para_list));
 				return -EINVAL;
+			}
 			group[id].count = size;
 			memcpy(group[id].para_list, op->param.buf_data.data,
 				op->param.buf_data.data_len);
@@ -1423,18 +1429,17 @@ static int mtk_lcm_create_operation_group(struct mtk_panel_para_table *group,
 			}
 			if (op->param.buf_con_data.condition ==
 			    *(u8 *)input->condition[index].data) {
+				size = op->param.buf_con_data.data_len;
 				DDPDUMP("%s,%d, name:0x%x, condition:%u, %u\n", __func__, __LINE__,
 					op->param.buf_con_data.name,
 					op->param.buf_con_data.condition,
 					*(u8 *)input->condition[index].data);
-				if (op->param.buf_con_data.data_len >
-					ARRAY_SIZE(group[id].para_list)) {
+				if (size > ARRAY_SIZE(group[id].para_list)) {
 					DDPPR_ERR("%s, %d, invalid size, %u\n",
-						__func__, __LINE__,
-						op->param.buf_con_data.data_len);
+						__func__, __LINE__, size);
 					return -EINVAL;
 				}
-				group[id].count = op->param.buf_con_data.data_len;
+				group[id].count = size;
 				memcpy(group[id].para_list, op->param.buf_con_data.data,
 					op->param.buf_con_data.data_len);
 			}
@@ -1458,6 +1463,7 @@ static int mtk_lcm_create_operation_group(struct mtk_panel_para_table *group,
 		case MTK_LCM_CMD_TYPE_READ_CMD:
 		case MTK_LCM_CMD_TYPE_WRITE_CMD:
 		default:
+			group[id].count = 0;
 			DDPMSG("%s: not support func:%u\n", __func__, op->func);
 			return -EINVAL;
 		}
@@ -1946,7 +1952,7 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 			DDPMSG(
 				"%s/%d: stop packet tx:%u,rx:%u,ret:%d,sz:%u,cmdqsz:%u,tx_free:%d\n",
 				__func__, __LINE__, cmd->msg.tx_len, cmd->msg.rx_len,
-				ret, cmd_size, cmdq_size, cmd->msg.tx_free);
+				ret, cmd_size, cmdq_size, cmd->tx_free);
 #endif
 			if (cmd->tx_free == true &&
 				cmd->msg.tx_buf != NULL)
@@ -2370,6 +2376,7 @@ int mtk_is_lcm_read_ops(unsigned int type)
 }
 EXPORT_SYMBOL(mtk_is_lcm_read_ops);
 
+#define MTK_LCM_DDIC_LEGACY_FLOW (0)
 int mtk_panel_execute_operation(struct mipi_dsi_device *dev,
 		struct mtk_lcm_ops_table *table,
 		const struct mtk_panel_resource *panel_resource,
@@ -2378,87 +2385,93 @@ int mtk_panel_execute_operation(struct mipi_dsi_device *dev,
 		unsigned int prop, const char *master)
 {
 	struct mtk_lcm_ops_data *op = NULL, *op_end = NULL;
-	char owner[MTK_LCM_NAME_LENGTH] = { 0 };
-	char func_name[MTK_LCM_NAME_LENGTH] = { 0 };
-	char type_name[MTK_LCM_NAME_LENGTH] = { 0 };
 	int ret = 0, i = 0;
-
-	if (IS_ERR_OR_NULL(master))
-		ret = snprintf(&owner[0], MTK_LCM_NAME_LENGTH - 1, "unknown");
-	else
-		ret = snprintf(&owner[0], MTK_LCM_NAME_LENGTH - 1, master);
-	if (ret < 0 || ret >= MTK_LCM_NAME_LENGTH)
-		DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
-	ret = 0;
 
 	if (IS_ERR_OR_NULL(dev) || IS_ERR_OR_NULL(table) ||
 	    table->size == 0 || table->size >= MTK_PANEL_TABLE_OPS_COUNT) {
-		DDPINFO("%s: \"%s\" is empty, size:%u\n",
-			__func__, owner, table->size);
+		DDPINFO("%s: \"%s\" is empty, size:%u\n", __func__,
+			master == NULL ? "unknown" : master,
+			table->size);
 		return 0;
 	}
 
-	DDPDUMP("%s, %d, owner:%s, size:%u\n",
-		__func__, __LINE__, owner, table->size);
+#if MTK_LCM_DEBUG_DUMP
+	DDPMSG("%s, %d, master:%s, size:%u\n",
+		__func__, __LINE__,
+		master == NULL ? "unknown" : master, table->size);
+#endif
 	list_for_each_entry(op, &table->list, node) {
 		if (IS_ERR_OR_NULL(op)) {
-			DDPMSG("%s: invalid %s-op[%d]\n",
-				__func__, owner, i);
+			DDPMSG("%s: invalid %s-op[%d]\n", __func__,
+				master == NULL ? "unknown" : master, i);
 			ret = -EINVAL;
 			break;
 		}
 
-		mtk_get_func_name(op->func, &func_name[0]);
 		if (op->func != MTK_LCM_FUNC_DSI) {
-			DDPMSG("%s, %d, not support %s-op[%d]:%s-%d\n",
-				__func__, __LINE__, owner, i, func_name, op->func);
+			DDPMSG("%s, %d, not support %s-op[%d]:%d\n",
+				__func__, __LINE__,
+				master == NULL ? "unknown" : master,
+				i, op->func);
 			return -EINVAL;
 		}
 
-		mtk_get_type_name(op->type, &type_name[0]);
 #if MTK_LCM_DEBUG_DUMP
-		dump_lcm_ops_func(op, NULL, i, __func__);
+		if (master != NULL &&
+			strcmp(master, "msync_request_mte") == 0)
+			dump_lcm_ops_func(op, NULL, i, master);
 #endif
 
 		if (op->type > MTK_LCM_UTIL_TYPE_START &&
-		    op->type < MTK_LCM_UTIL_TYPE_END)
+		    op->type < MTK_LCM_UTIL_TYPE_END) {
 			ret = mtk_execute_func_util(op);
-		else if (op->type > MTK_LCM_CMD_TYPE_START &&
-		    op->type < MTK_LCM_CMD_TYPE_END) {
-#ifdef USE_LEGACY_FLOW
-			ret = mtk_execute_func_ddic_cmd(dev, op, input);
-#else
-			op_end = NULL;
-			ret = mtk_execute_func_ddic_package(dev, handle, table,
-					input, handler_cb, prop, &op, &op_end);
-			if (ret >= 0 && op_end != NULL) {
 #if MTK_LCM_DEBUG_DUMP
-				DDPMSG("%s, %d, finished %s-op[%d:0x%lx-%d:0x%lx] end:0x%x\n",
-					__func__, __LINE__, owner, i,
-					(unsigned long)op, i + ret - 1,
-					(unsigned long)op_end, op_end->type);
+			DDPMSG("%s, %d, ret:%d\n", __func__, __LINE__, ret);
 #endif
-				i = i + ret - 1;
-				ret = 0;
-				op = op_end;
-			} else if (op_end == NULL) {
-				DDPPR_ERR("%s, %d, not support %s-op[%d] cmd:%s-0x%x\n",
-					__func__, __LINE__, owner, i, type_name, op->type);
-				ret = -EFAULT;
-			} else if (ret < 0) {
-				DDPPR_ERR(
-					"%s, %d, failed to execute %s-op[%d] cmd:%s-0x%x, ret:%d\n",
-					__func__, __LINE__, owner, i, type_name, op->type, ret);
+		} else if (op->type > MTK_LCM_CMD_TYPE_START &&
+		    op->type < MTK_LCM_CMD_TYPE_END) {
+			if (MTK_LCM_DDIC_LEGACY_FLOW) {
+				ret = mtk_execute_func_ddic_cmd(dev, op, input);
+			} else {
+				op_end = NULL;
+				ret = mtk_execute_func_ddic_package(dev, handle, table,
+						input, handler_cb, prop, &op, &op_end);
+				if (ret >= 0 && op_end != NULL) {
+#if MTK_LCM_DEBUG_DUMP
+					DDPMSG("%s/%d, do %s[%d:0x%lx-%d:0x%lx],end:0x%x\n",
+						__func__, __LINE__,
+						master == NULL ? "unknown" : master, i,
+						(unsigned long)op, i + ret - 1,
+						(unsigned long)op_end, op_end->type);
+#endif
+					i = i + ret - 1;
+					ret = 0;
+					op = op_end;
+				} else if (op_end == NULL) {
+					DDPPR_ERR("%s, %d, not support %s-op[%d] cmd:0x%x\n",
+						__func__, __LINE__,
+						master == NULL ? "unknown" : master, i, op->type);
+					ret = -EFAULT;
+				} else if (ret < 0) {
+					DDPPR_ERR(
+						"%s, %d, failed to execute %s-op[%d] cmd:0x%x, ret:%d\n",
+						__func__, __LINE__,
+						master == NULL ? "unknown" : master, i,
+						op->type, ret);
+				}
 			}
+		} else if (op->type > MTK_LCM_GPIO_TYPE_START &&
+			op->type < MTK_LCM_GPIO_TYPE_END) {
+#if MTK_LCM_DEBUG_DUMP
+			DDPMSG("%s-op%d, func:%u, type:%u, execute cust ops\n",
+				master == NULL ? "unknown" : master, i,
+				op->func, op->type);
 #endif
-		}
-		else if (op->type > MTK_LCM_GPIO_TYPE_START &&
-			op->type < MTK_LCM_GPIO_TYPE_END)
 			mtk_execute_func_gpio(op,
 					&panel_resource->params.dsi_params.lcm_gpio_dev,
 					panel_resource->params.dsi_params.lcm_pinctrl_name,
 					panel_resource->params.dsi_params.lcm_pinctrl_count);
-		else if (op->type > MTK_LCM_CUST_TYPE_START &&
+		} else if (op->type > MTK_LCM_CUST_TYPE_START &&
 			op->type < MTK_LCM_CUST_TYPE_END) {
 			if (IS_ERR_OR_NULL(panel_resource->cust)) {
 				DDPPR_ERR("%s, %d, no cust for cmd:%u\n",
@@ -2471,25 +2484,33 @@ int mtk_panel_execute_operation(struct mipi_dsi_device *dev,
 				return -EINVAL;
 			}
 
-			DDPDBG("%s-op%d, func:%u, type:%u, execute cust ops\n",
-				owner, i, op->func, op->type);
+#if MTK_LCM_DEBUG_DUMP
+			DDPMSG("%s-op%d, func:%u, type:%u, execute cust ops\n",
+				master == NULL ? "unknown" : master,
+				i, op->func, op->type);
+#endif
 			ret = panel_resource->cust->execute_ops(op, input);
 		} else {
+			DDPMSG("%s, %d, invalid op:0x%x\n", __func__, __LINE__, op->type);
 			ret = -EINVAL;
 		}
 
 		if (ret < 0) {
-			DDPPR_ERR("%s: %s-op[%d] func:%s/%u, type:%s/%u, failed:%d, total:%u\n",
-				__func__, owner, i, func_name, op->func,
-				type_name, op->type, ret, table->size);
+			DDPPR_ERR("%s: %s-op[%d] func:%u, type:%u, failed:%d, total:%u\n",
+				__func__, master == NULL ? "unknown" : master,
+				i, op->func, op->type, ret, table->size);
 			dump_lcm_ops_func(op, NULL, i, __func__);
 			break;
 		}
 		i++;
 	}
 
-	DDPDUMP("%s, %d, finished %s, i:%u, total:%u, ret:%d\n",
-		__func__, __LINE__, owner, i, table->size, ret);
+#if MTK_LCM_DEBUG_DUMP
+	DDPMSG("%s, %d, finished %s, i:%u, total:%u, ret:%d\n",
+		__func__, __LINE__,
+		master == NULL ? "unknown" : master,
+		i, table->size, ret);
+#endif
 	return ret;
 }
 EXPORT_SYMBOL(mtk_panel_execute_operation);
@@ -2510,8 +2531,7 @@ void dump_lcm_params_basic(struct mtk_lcm_params *params)
 	DDPDUMP("================================================\n");
 }
 
-void mtk_lcm_dump_all(char func, struct mtk_panel_resource *resource,
-		const struct mtk_panel_cust *cust)
+void mtk_lcm_dump_all(char func, struct mtk_panel_resource *resource)
 {
 	dump_lcm_params_basic(&resource->params);
 
