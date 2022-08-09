@@ -14,6 +14,17 @@ static unsigned int debug_mmqos;
 module_param(debug_mmqos, uint, 0644);
 MODULE_PARM_DESC(debug_mmqos, "activates debug mmqos");
 
+static int debug_cam_mmqos;
+module_param(debug_cam_mmqos, int, 0644);
+
+#undef dev_dbg
+#define dev_dbg(dev, fmt, arg...)		\
+	do {					\
+		if (debug_cam_mmqos >= 1)	\
+			dev_info(dev, fmt,	\
+				## arg);	\
+	} while (0)
+
 enum sv_qos_port_id {
 	sv_cqi = 0,
 	sv_imgo,

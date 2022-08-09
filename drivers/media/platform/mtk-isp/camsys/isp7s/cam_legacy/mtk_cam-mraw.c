@@ -34,6 +34,17 @@
 #include "iommu_debug.h"
 #endif
 
+static int debug_cam_mraw;
+module_param(debug_cam_mraw, int, 0644);
+
+#undef dev_dbg
+#define dev_dbg(dev, fmt, arg...)		\
+	do {					\
+		if (debug_cam_mraw >= 1)	\
+			dev_info(dev, fmt,	\
+				## arg);	\
+	} while (0)
+
 #define MTK_MRAW_STOP_HW_TIMEOUT			(33 * USEC_PER_MSEC)
 
 

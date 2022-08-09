@@ -4,6 +4,18 @@
 
 #include "mtk_cam-feature.h"
 
+static int debug_cam_feature;
+module_param(debug_cam_feature, int, 0644);
+
+#undef dev_dbg
+#define dev_dbg(dev, fmt, arg...)		\
+	do {					\
+		if (debug_cam_feature >= 1)	\
+			dev_info(dev, fmt,	\
+				## arg);	\
+	} while (0)
+
+
 bool mtk_cam_is_hsf(struct mtk_cam_ctx *ctx)
 {
 	if (!ctx->used_raw_num)

@@ -99,6 +99,17 @@ enum {
 	DEBUG_PREISP_OFF_PROCRAW,
 };
 
+static int debug_cam;
+module_param(debug_cam, int, 0644);
+
+#undef dev_dbg
+#define dev_dbg(dev, fmt, arg...)		\
+	do {					\
+		if (debug_cam >= 1)		\
+			dev_info(dev, fmt,	\
+				## arg);	\
+	} while (0)
+
 #define MTK_CAM_IMGO_W_IMG_OUT_IDX			CAM_MAX_OUTPUT_PAD
 
 #define MTK_CAM_IMGO_W_IMG_IN_R2_IDX	CAM_MAX_INPUT_PAD

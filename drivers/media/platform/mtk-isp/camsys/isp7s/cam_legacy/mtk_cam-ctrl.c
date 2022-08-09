@@ -34,6 +34,17 @@
 
 #include "frame_sync_camsys.h"
 
+static int debug_cam_ctrl;
+module_param(debug_cam_ctrl, int, 0644);
+
+#undef dev_dbg
+#define dev_dbg(dev, fmt, arg...)		\
+	do {					\
+		if (debug_cam_ctrl >= 1)	\
+			dev_info(dev, fmt,	\
+				## arg);	\
+	} while (0)
+
 #define SENSOR_SET_DEADLINE_MS  18
 #define SENSOR_SET_RESERVED_MS  7
 #define SENSOR_SET_DEADLINE_MS_60FPS  6

@@ -78,6 +78,17 @@ static int debug_user_must_raws;
 module_param(debug_user_must_raws, int, 0644);
 MODULE_PARM_DESC(debug_user_must_raws, "debug: user must raws");
 
+static int debug_cam_raw;
+module_param(debug_cam_raw, int, 0644);
+
+#undef dev_dbg
+#define dev_dbg(dev, fmt, arg...)		\
+	do {					\
+		if (debug_cam_raw >= 1)		\
+			dev_info(dev, fmt,	\
+				## arg);	\
+	} while (0)
+
 #define MTK_RAW_STOP_HW_TIMEOUT			(33)
 
 #define MTK_CAMSYS_RES_IDXMASK		0xF0

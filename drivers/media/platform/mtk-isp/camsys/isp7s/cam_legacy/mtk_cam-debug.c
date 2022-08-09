@@ -16,6 +16,18 @@
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <aee.h>
 #endif
+
+static int debug_cam_dump;
+module_param(debug_cam_dump, int, 0644);
+
+#undef dev_dbg
+#define dev_dbg(dev, fmt, arg...)		\
+	do {					\
+		if (debug_cam_dump >= 1)	\
+			dev_info(dev, fmt,	\
+				## arg);	\
+	} while (0)
+
 #define CAMSYS_DUMP_SATATE_INIT		0
 #define CAMSYS_DUMP_SATATE_READY	1
 

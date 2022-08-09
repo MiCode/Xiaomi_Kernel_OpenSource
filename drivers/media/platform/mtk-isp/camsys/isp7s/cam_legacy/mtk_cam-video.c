@@ -16,6 +16,17 @@
 #include "mtk_cam_vb2-dma-contig.h"
 #include "mtk_cam-trace.h"
 
+static int debug_cam_video;
+module_param(debug_cam_video, int, 0644);
+
+#undef dev_dbg
+#define dev_dbg(dev, fmt, arg...)		\
+	do {					\
+		if (debug_cam_video >= 1)	\
+			dev_info(dev, fmt,	\
+				## arg);	\
+	} while (0)
+
 /*
  * Note
  *	differt dma(fmt) would have different bus_size

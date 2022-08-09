@@ -40,6 +40,17 @@ static unsigned int debug_sv_fbc;
 module_param(debug_sv_fbc, uint, 0644);
 MODULE_PARM_DESC(debug_sv_fbc, "debug: sv fbc");
 
+static int debug_cam_sv;
+module_param(debug_cam_sv, int, 0644);
+
+#undef dev_dbg
+#define dev_dbg(dev, fmt, arg...)		\
+	do {					\
+		if (debug_cam_sv >= 1)	\
+			dev_info(dev, fmt,	\
+				## arg);	\
+	} while (0)
+
 static const struct of_device_id mtk_camsv_of_ids[] = {
 	{.compatible = "mediatek,camsv",},
 	{}

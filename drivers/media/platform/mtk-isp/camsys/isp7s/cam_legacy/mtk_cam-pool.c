@@ -26,6 +26,17 @@
 #include <uapi/linux/mtk_ccd_controls.h>
 #endif
 
+static int debug_cam_pool;
+module_param(debug_cam_pool, int, 0644);
+
+#undef dev_dbg
+#define dev_dbg(dev, fmt, arg...)		\
+	do {					\
+		if (debug_cam_pool >= 1)	\
+			dev_info(dev, fmt,	\
+				## arg);	\
+	} while (0)
+
 #define WORKING_BUF_SIZE	round_up(CQ_BUF_SIZE, PAGE_SIZE)
 #define MSG_BUF_SIZE		round_up(IPI_FRAME_BUF_SIZE, PAGE_SIZE)
 
