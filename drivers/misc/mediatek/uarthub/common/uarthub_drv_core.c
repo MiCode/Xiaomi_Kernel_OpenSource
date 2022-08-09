@@ -2220,7 +2220,7 @@ int uarthub_core_is_apb_bus_clk_enable(void)
 
 int uarthub_core_is_uarthub_clk_enable(void)
 {
-	int state = 0, state2 = 0;
+	int state = 0, state1 = 0, state2 = 0;
 
 	if (g_uarthub_disable == 1)
 		return 0;
@@ -2270,31 +2270,17 @@ int uarthub_core_is_uarthub_clk_enable(void)
 		return 0;
 	}
 
-	state = (UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DEV0_STA(intfhub_base_remap_addr),
-		(0x3 << 8)) >> 8);
+	state = (UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DEV0_STA(
+		intfhub_base_remap_addr), 0x3));
+	state1 = (UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DEV1_STA(
+		intfhub_base_remap_addr), 0x3));
+	state2 = (UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DEV2_STA(
+		intfhub_base_remap_addr), 0x3));
 
-	if (state != 0x3) {
-		if (g_uarthub_plat_ic_ops->uarthub_plat_get_uart_mux_info) {
-			state = g_uarthub_plat_ic_ops->uarthub_plat_get_uart_mux_info();
-			state2 = (UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DEV0_STA(
-				intfhub_base_remap_addr),
-				(0x1 << 9)) >> 9);
-			if (state != 0x2 || state2 != 1) {
-				/* the expect value is 0x2 */
-				pr_notice("[%s] UART_MUX is not 104m(0x%x) or intfhub is not ready(0x%x)\n",
-					__func__, state, state2);
-				return 0;
-			}
-		} else
-			return 0;
-	} else {
-		state = UARTHUB_REG_READ_BIT(
-			UARTHUB_INTFHUB_DEV0_STA(intfhub_base_remap_addr), 0x3);
-		if (state != 0x3) {
-			pr_notice("[%s] all host clear the trx req & with without any rx event\n",
-				__func__);
-			return 0;
-		}
+	if ((state + state1 + state2) == 0) {
+		pr_notice("[%s] all host clear the rx req\n",
+			__func__);
+		return 0;
 	}
 
 	return 1;
