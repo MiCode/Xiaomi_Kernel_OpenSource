@@ -150,7 +150,7 @@ void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
 
 	num = imgsys_dev->larbs_num - 1;
 	for (i = 0; i < num; i++)
-		mtk_smi_larb_clamp(imgsys_dev->larbs[i], 1);
+		mtk_smi_larb_clamp_and_lock(imgsys_dev->larbs[i], 1);
 
 	iowrite32(0xFFFFFFFF, (void *)(dipRegBA + SW_RST));
 	iowrite32(0xFFFFFFFF, (void *)(dip1RegBA + SW_RST));
@@ -224,7 +224,7 @@ void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
 	iowrite32(0x0, (void *)(imgsysmainRegBA + SW_RST));
 
 	for (i = 0; i < num; i++)
-		mtk_smi_larb_clamp(imgsys_dev->larbs[i], 0);
+		mtk_smi_larb_clamp_and_lock(imgsys_dev->larbs[i], 0);
 
 	pr_debug("%s: -.\n", __func__);
 }

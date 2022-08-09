@@ -9,6 +9,13 @@
 #include <linux/bitops.h>
 #include <linux/device.h>
 
+struct mtk_smi_lock {
+	spinlock_t lock;
+	unsigned long flags;
+};
+
+extern struct mtk_smi_lock smi_lock;
+
 #if IS_ENABLED(CONFIG_MTK_SMI)
 
 #define MTK_SMI_MMU_EN(port)	BIT(port)
@@ -38,7 +45,7 @@ s32 mtk_smi_dbg_hang_detect(char *user);
 void mtk_smi_add_device_link(struct device *dev, struct device *larbdev);
 void mtk_smi_init_power_off(void);
 void mtk_smi_dump_last_pd(const char *user);
-void mtk_smi_larb_clamp(struct device *larbdev, bool on);
+void mtk_smi_larb_clamp_and_lock(struct device *larbdev, bool on);
 s32 smi_sysram_enable(struct device *larbdev, const u32 master_id,
 			const bool enable, const char *user);
 s32 mtk_smi_dbg_cg_status(void);
@@ -90,7 +97,7 @@ static inline void mtk_smi_init_power_off(void) { }
 
 static inline void mtk_smi_dump_last_pd(const char *user) { }
 
-static inline void mtk_smi_larb_clamp(struct device *larbdev, bool on) { }
+static inline void mtk_smi_larb_clamp_and_lock(struct device *larbdev, bool on) { }
 
 static inline
 s32 smi_sysram_enable(struct device *larbdev, const u32 master_id,

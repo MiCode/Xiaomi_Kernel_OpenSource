@@ -118,6 +118,9 @@ struct mtk_smi_reg_pair {
 	u32	value;
 };
 
+struct mtk_smi_lock smi_lock;
+EXPORT_SYMBOL(smi_lock);
+
 enum mtk_smi_gen {
 	MTK_SMI_GEN1,
 	MTK_SMI_GEN2,
@@ -2503,7 +2506,8 @@ out:
 	return NOTIFY_OK;
 }
 
-void mtk_smi_larb_clamp(struct device *larbdev, bool on)
+static bool is_p2_lock;
+void mtk_smi_larb_clamp_and_lock(struct device *larbdev, bool on)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(larbdev);
 	int i;
@@ -2527,8 +2531,15 @@ void mtk_smi_larb_clamp(struct device *larbdev, bool on)
 					readl(common->base + SMI_CLAMP_EN));
 		}
 	}
+	if (!is_p2_lock && on) {
+		spin_lock_irqsave(&smi_lock.lock, smi_lock.flags);
+		is_p2_lock = true;
+	} else if (is_p2_lock && !on) {
+		spin_unlock_irqrestore(&smi_lock.lock, smi_lock.flags);
+		is_p2_lock = false;
+	}
 }
-EXPORT_SYMBOL_GPL(mtk_smi_larb_clamp);
+EXPORT_SYMBOL_GPL(mtk_smi_larb_clamp_and_lock);
 
 static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 {
@@ -3353,7 +3364,7 @@ static int mtk_smi_common_probe(struct platform_device *pdev)
 			pm_runtime_put_sync(dev);
 		}
 	}
-
+	spin_lock_init(&smi_lock.lock);
 	is_mpu_violation(dev, false);
 	return 0;
 }

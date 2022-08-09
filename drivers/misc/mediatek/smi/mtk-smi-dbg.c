@@ -390,7 +390,6 @@ struct mtk_smi_dbg {
 	u64			exec;
 	u8			frame;
 	struct notifier_block suspend_nb;
-	spinlock_t lock;
 };
 static struct mtk_smi_dbg	*gsmi;
 static u32 smi_force_on;
@@ -1070,7 +1069,6 @@ static int __init mtk_smi_dbg_init(void)
 		return -ENOMEM;
 	gsmi = smi;
 
-	spin_lock_init(&smi->lock);
 	smi->fs = debugfs_create_file(
 		DRV_NAME, 0444, NULL, smi, &mtk_smi_dbg_fops);
 	if (IS_ERR(smi->fs))
@@ -1284,7 +1282,6 @@ s32 mtk_smi_dbg_hang_detect(char *user)
 {
 	struct mtk_smi_dbg	*smi = gsmi;
 	s32			i, j, ret, PRINT_NR = 1, is_busy = 0, is_hang = 0;
-	unsigned long flags;
 
 	pr_info("%s: check caller:%s\n", __func__, user);
 
@@ -1305,7 +1302,7 @@ s32 mtk_smi_dbg_hang_detect(char *user)
 	raw_notifier_call_chain(&smi_notifier_list, 0, user);
 
 	/*start to monitor bw and check ostd*/
-	spin_lock_irqsave(&smi->lock, flags);
+	spin_lock_irqsave(&smi_lock.lock, smi_lock.flags);
 
 	smi_hang_detect_bw_monitor(true);
 	is_busy |= smi_bus_ostd_check(smi->comm);
@@ -1334,7 +1331,7 @@ s32 mtk_smi_dbg_hang_detect(char *user)
 	smi_hang_detect_bw_monitor(false);
 	is_hang = smi_bus_hang_check(smi->comm);
 
-	spin_unlock_irqrestore(&smi->lock, flags);
+	spin_unlock_irqrestore(&smi_lock.lock, smi_lock.flags);
 
 	/* notify to CCF to disable trace dump */
 	mtk_clk_notify(NULL, NULL, NULL, 0, 0, 0, CLK_EVT_TRIGGER_TRACE_DUMP);
