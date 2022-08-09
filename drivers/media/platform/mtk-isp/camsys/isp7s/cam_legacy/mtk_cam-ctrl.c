@@ -1291,6 +1291,7 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 	int is_mstream_last_exposure = 0;
 	struct mtk_cam_scen scen;
 
+	mtk_cam_scen_init(&scen);
 	if (!mtk_cam_s_data_get_scen(&scen, s_data)) {
 		dev_dbg(sensor_ctrl->ctx->cam->dev,
 			 "%s:%d: can't get scen from s_data(%d):%p\n",
@@ -4507,6 +4508,8 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 	int i;
 	int switch_type;
 	struct mtk_cam_scen scen;
+
+	mtk_cam_scen_init(&scen);
 
 	if (mtk_cam_ctx_has_raw(ctx) &&
 	    mtk_cam_scen_is_sensor_stagger(&ctx->pipe->scen_active) &&

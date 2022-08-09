@@ -616,7 +616,8 @@ mtk_cam_req_get_num_s_data(struct mtk_cam_request *req, int pipe_id)
  * For example, request-based set fmt and selection.
  */
 static inline struct mtk_cam_request_stream_data*
-mtk_cam_req_get_s_data_no_chk(struct mtk_cam_request *req, int pipe_id, int idx)
+mtk_cam_req_get_s_data_no_chk(struct mtk_cam_request *req,
+			      unsigned int pipe_id, unsigned int idx)
 {
 	return &req->p_data[pipe_id].s_data[idx];
 }
@@ -751,6 +752,9 @@ static inline int
 mtk_cam_s_data_get_vbuf_idx(struct mtk_cam_request_stream_data *s_data,
 			    int node_id)
 {
+	if (!s_data)
+		return -1;
+
 	/**
 	 * pipe_id is unsigned int and MTKCAM_SUBDEV_RAW_START is 0,
 	 * "unsigned int >= 0" is always true which is not allowed by coverity
@@ -776,7 +780,7 @@ mtk_cam_s_data_set_vbuf(struct mtk_cam_request_stream_data *s_data,
 			int node_id)
 {
 	int idx = mtk_cam_s_data_get_vbuf_idx(s_data, node_id);
-	if (idx >= 0) {
+	if (idx >= 0 && s_data) {
 		if (s_data->bufs[idx])  /* double enque */
 			return -1;
 		s_data->bufs[idx] = buf;
@@ -791,7 +795,7 @@ mtk_cam_s_data_get_vbuf(struct mtk_cam_request_stream_data *s_data, int node_id)
 {
 	int idx = mtk_cam_s_data_get_vbuf_idx(s_data, node_id);
 
-	if (idx >= 0)
+	if (idx >= 0 && s_data)
 		return s_data->bufs[idx];
 
 	return NULL;
@@ -802,7 +806,7 @@ mtk_cam_s_data_get_vfmt(struct mtk_cam_request_stream_data *s_data, int node_id)
 {
 	int idx = mtk_cam_s_data_get_vbuf_idx(s_data, node_id);
 
-	if (idx >= 0)
+	if (idx >= 0 && s_data)
 		return &s_data->vdev_fmt[idx];
 
 	return NULL;
@@ -823,7 +827,7 @@ mtk_cam_s_data_get_vsel(struct mtk_cam_request_stream_data *s_data, int node_id)
 {
 	int idx = mtk_cam_s_data_get_vbuf_idx(s_data, node_id);
 
-	if (idx >= 0)
+	if (idx >= 0 && s_data)
 		return &s_data->vdev_selection[idx];
 
 	return NULL;
@@ -834,7 +838,7 @@ mtk_cam_s_data_reset_vbuf(struct mtk_cam_request_stream_data *s_data, int node_i
 {
 	int idx = mtk_cam_s_data_get_vbuf_idx(s_data, node_id);
 
-	if (idx >= 0)
+	if (idx >= 0 && s_data)
 		s_data->bufs[idx] = NULL;
 }
 
@@ -1034,7 +1038,7 @@ void mtk_cam_s_data_update_timestamp(struct mtk_cam_buffer *buf,
 
 int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 			      unsigned int dequeued_frame_seq_no,
-			      int pipe_id);
+			      unsigned int pipe_id);
 
 void mtk_cam_dev_job_done(struct mtk_cam_request_stream_data *s_data_pipe,
 			  enum vb2_buffer_state state);

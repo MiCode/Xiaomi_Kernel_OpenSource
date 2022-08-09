@@ -1843,8 +1843,8 @@ int mtk_cam_vidioc_querycap(struct file *file, void *fh,
 
 	strscpy(cap->driver, dev_driver_string(cam->dev), sizeof(cap->driver));
 	strscpy(cap->card, dev_driver_string(cam->dev), sizeof(cap->card));
-	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:%s",
-		 dev_name(cam->dev));
+	snprintf_safe(cap->bus_info, sizeof(cap->bus_info), "platform:%s",
+		      dev_name(cam->dev));
 
 	return 0;
 }

@@ -2352,6 +2352,7 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 
 	/* roughly set vb to 100 lines for safety in dc mdoe */
 	vblank = mtk_cam_hw_mode_is_dc(res->hw_mode) ? 100 : res->vblank;
+	memset(&calc, 0, sizeof(calc));
 
 	calc.mipi_pixel_rate = (s64)(in_w + res->hblank) * (in_h + res->vblank)
 		* res->interval.denominator / res->interval.numerator;
@@ -6523,8 +6524,8 @@ static int mtk_raw_pipeline_register(unsigned int id, struct device *dev,
 	sd->entity.function = MEDIA_ENT_F_PROC_VIDEO_PIXEL_FORMATTER;
 	sd->entity.ops = &mtk_cam_media_entity_ops;
 	sd->flags = V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS;
-	snprintf(sd->name, sizeof(sd->name),
-		 "%s-%d", dev_driver_string(dev), pipe->id);
+	snprintf_safe(sd->name, sizeof(sd->name),
+		      "%s-%d", dev_driver_string(dev), pipe->id);
 	v4l2_set_subdevdata(sd, pipe);
 	mtk_raw_pipeline_ctrl_setup(pipe);
 	dev_info(dev, "%s: %s\n", __func__, sd->name);

@@ -300,6 +300,9 @@ static void __mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, struct mtk_raw_device
 	struct raw_mmqos *raw_qos = NULL;
 	unsigned long fps_peak;
 
+	memset(&fi, 0, sizeof(fi));
+	memset(&sd_fmt, 0, sizeof(sd_fmt));
+
 	CALL_PLAT_V4L2(get_mmqos_port, &raw_qos);
 
 	memset(&sd_fmt, 0, sizeof(sd_fmt));
@@ -1133,7 +1136,8 @@ void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx)
 #endif
 	}
 
-	mtk_cam_qos_sv_bw_reset(ctx);
+	if (ctx->sv_dev)
+		mtk_cam_qos_sv_bw_reset(ctx);
 
 	for (i = 0; i < ctx->used_mraw_num; i++) {
 		for (j = 0; j < mraw_qos_port_num; j++) {

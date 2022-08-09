@@ -876,7 +876,7 @@ void mtk_cam_get_timestamp(struct mtk_cam_ctx *ctx,
 
 int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 			      unsigned int dequeued_frame_seq_no,
-			      int pipe_id)
+			      unsigned int pipe_id)
 {
 	struct mtk_cam_request *req, *req_prev, *req_next;
 	struct mtk_cam_request_stream_data *s_data, *s_data_pipe, *s_data_mstream, *s_data_next;
@@ -2679,12 +2679,21 @@ static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 					&cam->sv.pipelines[pipe_id - MTKCAM_SUBDEV_CAMSV_START];
 				sd = &sv_pipeline->subdev;
 				ctx = mtk_cam_find_ctx(cam, &sd->entity);
-				ctx_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+				if (ctx) {
+					ctx_stream_data =
+						mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+				} else {
+					ctx_stream_data = NULL;
+					dev_info(cam->dev,
+						 "%s:sv find ctx failed\n",
+						 __func__);
+				}
 
 				mtk_cam_req_set_sv_vfmt(cam, sv_pipeline, stream_data);
 				for (pad = MTK_CAMSV_SINK_BEGIN;
 					 pad < MTK_CAMSV_PIPELINE_PADS_NUM; pad++)
-					if (stream_data->pad_fmt_update & (1 << pad)) {
+					if (stream_data->pad_fmt_update & (1 << pad)
+					    && ctx_stream_data) {
 						ctx_stream_data->flags |=
 							(ctx_stream_data->frame_seq_no > 1) ?
 							MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE : 0;
@@ -2697,9 +2706,18 @@ static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 				sd = &cam->mraw.pipelines[
 					pipe_id - MTKCAM_SUBDEV_MRAW_START].subdev;
 				ctx = mtk_cam_find_ctx(cam, &sd->entity);
-				ctx_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+				if (ctx) {
+					ctx_stream_data =
+						mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+				} else {
+					ctx_stream_data = NULL;
+					dev_info(cam->dev,
+						 "%s:mraw find ctx failed\n",
+						 __func__);
+				}
 
-				if (stream_data->pad_fmt_update & (1 << MTK_MRAW_SINK)) {
+				if (stream_data->pad_fmt_update & (1 << MTK_MRAW_SINK)
+				    && ctx_stream_data) {
 					ctx_stream_data->flags |=
 						(ctx_stream_data->frame_seq_no > 1) ?
 						MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE : 0;
@@ -4119,6 +4137,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 
 	dev_dbg(cam->dev, "update request:%s\n", req->req.debug_str);
 
+	mtk_cam_scen_init(&scen);
 	mtk_cam_req_set_fmt(cam, req);
 
 	list_for_each_entry_safe(obj, obj_prev, &req->req.objects, list) {
@@ -5205,9 +5224,9 @@ int mtk_cam_collect_link_change(struct mtk_raw_pipeline *pipe,
 {
 	char warn_desc[48];
 
-	snprintf(warn_desc, 48, "%s(%p/%p/%p)",
-		 pipe->subdev.name, pipe->req_sensor_new,
-		 pipe->req_seninf_old, pipe->req_seninf_new);
+	snprintf_safe(warn_desc, 48, "%s(%p/%p/%p)",
+		      pipe->subdev.name, pipe->req_sensor_new,
+		      pipe->req_seninf_old, pipe->req_seninf_new);
 	if (pipe->req_sensor_new || pipe->req_seninf_old || pipe->req_seninf_new) {
 		pr_info("%s:%s:prev link change has not been queued:%s\n",
 			__func__, pipe->subdev.name, warn_desc);
@@ -5251,11 +5270,11 @@ int mtk_cam_req_save_link_change(struct mtk_raw_pipeline *pipe,
 			pipe->req_seninf_old = NULL;
 			pipe->req_seninf_new = NULL;
 		} else {
-			snprintf(warn_desc, 48,
-				 "%s:%s:param's can't be null:sensor_n(%p)/seninf_o(%p)/seninf_n(%p)",
-				 pipe->subdev.name, cam_req->req.debug_str,
-				 pipe->req_sensor_new, pipe->req_seninf_old,
-				 pipe->req_seninf_new);
+			snprintf_safe(warn_desc, 48,
+				      "%s:%s:param's can't be null:sensor_n(%p)/seninf_o(%p)/seninf_n(%p)",
+				      pipe->subdev.name, cam_req->req.debug_str,
+				      pipe->req_sensor_new, pipe->req_seninf_old,
+				      pipe->req_seninf_new);
 			dev_info(pipe->subdev.v4l2_dev->dev,
 				 "%s:%s\n", __func__, warn_desc);
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
@@ -5754,6 +5773,7 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 		return -EINVAL;
 	}
 
+	mtk_cam_scen_init(&scen);
 	if (!mtk_cam_s_data_get_scen(&scen, s_data)) {
 		dev_info(dev,
 			 "%s:%d: can't get scen from s_data(%d):%p\n",
@@ -7400,6 +7420,10 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 
 	/* reset tag info. and must be after raw selected done */
 	ctx->sv_dev = mtk_cam_get_used_sv_dev(ctx);
+	if (!ctx->sv_dev) {
+		dev_info(dev, "%s: get sv_dev failed\n", __func__);
+		return -EINVAL;
+	}
 	s_raw_pipe_data->used_tag_cnt = 0;
 	s_raw_pipe_data->enabled_sv_tags = 0;
 	mtk_cam_sv_reset_tag_info(s_raw_pipe_data->tag_info);
@@ -7845,6 +7869,10 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 	/* reset tag info. and must be after raw selected done */
 	ctx->pipe->enabled_sv_tags = 0;
 	ctx->sv_dev = mtk_cam_get_used_sv_dev(ctx);
+	if (!ctx->sv_dev) {
+		dev_info(dev, "%s: get sv_dev failed\n", __func__);
+		return -EINVAL;
+	}
 	ctx->sv_dev->used_tag_cnt = 0;
 	ctx->sv_dev->enabled_tags = 0;
 	mtk_cam_sv_reset_tag_info(ctx->sv_dev->tag_info);
@@ -8216,7 +8244,7 @@ static int isp_composer_init(struct mtk_cam_ctx *ctx, unsigned int pipe_id)
 	if (ipi_id < 0)
 		return -EINVAL;
 
-	snprintf(msg->name, RPMSG_NAME_SIZE, "mtk-camsys\%d", ipi_id - 1);
+	snprintf_safe(msg->name, RPMSG_NAME_SIZE, "mtk-camsys\%d", ipi_id - 1);
 	msg->src = ipi_id;
 	ctx->rpmsg_dev = mtk_create_client_msgdevice(rpmsg_subdev, msg);
 	if (!ctx->rpmsg_dev)
@@ -9318,8 +9346,8 @@ static int mtk_cam_master_bind(struct device *dev)
 	media_dev->dev = cam_dev->dev;
 	strscpy(media_dev->model, dev_driver_string(dev),
 		sizeof(media_dev->model));
-	snprintf(media_dev->bus_info, sizeof(media_dev->bus_info),
-		 "platform:%s", dev_name(dev));
+	snprintf_safe(media_dev->bus_info, sizeof(media_dev->bus_info),
+		      "platform:%s", dev_name(dev));
 	media_dev->hw_revision = 0;
 	media_dev->ops = &mtk_cam_dev_ops;
 	media_device_init(media_dev);
@@ -9508,7 +9536,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 	unsigned int int_en, dequeued_frame_seq_no;
 	int vf_en, sof_count;
 	int pipe_id;
-	int idx;
+	unsigned int idx;
 	struct device *dev;
 	struct mtk_camsv_device *camsv_dev;
 	struct mtk_mraw_device *mraw_dev;
@@ -9723,7 +9751,7 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 	u64 cost_time_ms, timer_expires_ms;
 	int sof_count = 0, is_vf_on = 0;
 	int enabled_watchdog_pipe;
-	int idx;
+	unsigned int idx;
 	int i;
 	unsigned long flags;
 
