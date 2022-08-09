@@ -7367,14 +7367,16 @@ void DVP_ScheduleWork(struct work_struct *data)
 }
 static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId)
 {
-	unsigned int DvsStatus, DvpStatus;
+	unsigned int DvsStatus = 0, DvpStatus = 0;
 	bool bResulst = MFALSE;
 	bool isDvpDone = MFALSE;
 	pid_t ProcessID;
 	unsigned int p = 0;
 
-	DvsStatus = DPE_RD32(DVS_CTRL_STATUS0_REG);	/* DVS Status */
-	DvpStatus = DPE_RD32(DVP_CTRL_STATUS0_REG);	/* DVP Status */
+	if (DPEInfo.UserCount > 0) {
+		DvsStatus = DPE_RD32(DVS_CTRL_STATUS0_REG);	/* DVS Status */
+		DvpStatus = DPE_RD32(DVP_CTRL_STATUS0_REG);	/* DVP Status */
+	}
 
 	if ((DvsStatus == 0) || (DvpStatus == 0))
 		LOG_INF("DPE Read status fail, IRQ, DvsStatus: 0x%08x, DvpStatus: 0x%08x\n",
@@ -7459,14 +7461,16 @@ static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId)
 }
 static irqreturn_t ISP_Irq_DVS(signed int Irq, void *DeviceId)
 {
-	unsigned int DvsStatus, DvpStatus;
+	unsigned int DvsStatus = 0, DvpStatus = 0;
 	bool bResulst = MFALSE;
 	bool isDvsDone = MFALSE;
 	pid_t ProcessID;
 	unsigned int p = 0;
 
-	DvsStatus = DPE_RD32(DVS_CTRL_STATUS0_REG);	/* DVS Status */
-	DvpStatus = DPE_RD32(DVP_CTRL_STATUS0_REG);	/* DVP Status */
+	if (DPEInfo.UserCount > 0) {
+		DvsStatus = DPE_RD32(DVS_CTRL_STATUS0_REG);	/* DVS Status */
+		DvpStatus = DPE_RD32(DVP_CTRL_STATUS0_REG);	/* DVP Status */
+	}
 
 	if ((DvsStatus == 0) || (DvpStatus == 0))
 		LOG_INF("DPE Read status fail, IRQ, DvsStatus: 0x%08x, DvpStatus: 0x%08x\n",
