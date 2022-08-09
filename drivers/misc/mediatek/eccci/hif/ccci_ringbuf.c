@@ -137,30 +137,21 @@ struct ccci_ringbuf *ccci_create_ringbuf(unsigned char *buf,
 	struct ccci_ringbuf *ringbuf = NULL;
 
 	buflen = CCCI_RINGBUF_CTL_LEN + rx_size + tx_size;
-	CCCI_NORMAL_LOG(0, TAG,
-	"crb:buf=0x%p, buf_size=%d,buflen=%d,rx_size=%d,tx_size=%d,ctr_len=%zu\n",
-	buf, buf_size, buflen, rx_size, tx_size, CCCI_RINGBUF_CTL_LEN);
 	if (buf_size < buflen)
 		return NULL;
 	memset_io(buf, 0x0, buflen);
+
 	/*set ccif header */
 	*((unsigned int *)buf) = CCCI_RBF_HEADER;
 	*((unsigned int *)(buf + sizeof(unsigned int)))
 		= CCCI_RBF_HEADER;
-	CCCI_NORMAL_LOG(0, TAG,
-		"crb:Header(0x%llx)=0x%x %x\n", (u64)buf,
-		*((unsigned int *)buf),
-		*((unsigned int *)(buf + sizeof(unsigned int))));
+
 	/*set ccif footer */
 	*((unsigned int *)(buf + buflen - sizeof(unsigned int)))
 		= CCCI_RBF_FOOTER;
 	*((unsigned int *)(buf + buflen - 2 * sizeof(unsigned int)))
 		= CCCI_RBF_FOOTER;
-	CCCI_NORMAL_LOG(0, TAG,
-		"crb:Footer(0x%llx)=0x%x %x\n",
-		(u64)(buf + buflen - sizeof(int)),
-		*((unsigned int *)(buf + buflen - sizeof(unsigned int))),
-		*((unsigned int *)(buf + buflen - 2 * sizeof(unsigned int))));
+
 	buf += sizeof(int) * 2;
 	ringbuf = (struct ccci_ringbuf *)buf;
 	ringbuf->rx_control.length = rx_size;
@@ -169,7 +160,7 @@ struct ccci_ringbuf *ccci_create_ringbuf(unsigned char *buf,
 	ringbuf->tx_control.length = tx_size;
 	ringbuf->tx_control.read = 0;
 	ringbuf->tx_control.write = 0;
-	CCCI_NORMAL_LOG(0, TAG, "crb:rbf=0x%llx\n", (u64)ringbuf);
+
 	return ringbuf;
 }
 
