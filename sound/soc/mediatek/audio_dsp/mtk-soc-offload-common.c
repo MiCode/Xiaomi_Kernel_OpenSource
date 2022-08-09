@@ -597,6 +597,11 @@ static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg)
 		return;
 	}
 
+	if (afe_offload_block.state == OFFLOAD_STATE_INIT) {
+		pr_info("%s state == OFFLOAD_STATE_INIT\n", __func__);
+		return;
+	}
+
 	id = get_dspdaiid_by_dspscene(ipi_msg->task_scene);
 	if (id < 0)
 		return;
