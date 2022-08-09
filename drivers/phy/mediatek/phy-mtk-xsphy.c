@@ -2068,7 +2068,7 @@ static int mtk_phy_jtag_init(struct phy *phy)
 	writel(tmp, pbase + XSP_USBPHYACR4);
 
 	tmp = readl(pbase + XSP_USBPHYACR6);
-	tmp &= 0xff7ffff;
+	tmp &= 0xf67ffff;
 	writel(tmp, pbase + XSP_USBPHYACR6);
 
 	tmp = readl(pbase + XSP_USBPHYACR0);
