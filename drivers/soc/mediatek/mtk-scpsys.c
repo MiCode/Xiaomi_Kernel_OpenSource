@@ -4,7 +4,6 @@
  */
 #include <linux/clk.h>
 #include <linux/init.h>
-#include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
 #include <linux/module.h>
@@ -113,8 +112,6 @@ static const char *bus_list[BUS_TYPE_NUM] = {
 };
 
 static bool scpsys_init_flag;
-static int hwv_irq;
-static bool hwv_timeout;
 static BLOCKING_NOTIFIER_HEAD(scpsys_notifier_list);
 
 int register_scpsys_notifier(struct notifier_block *nb)
@@ -1035,9 +1032,6 @@ static int scpsys_hwv_power_on(struct generic_pm_domain *genpd)
 	if (ret < 0)
 		goto err_hwv_done;
 
-	if (hwv_timeout)
-		goto err_hwv_done;
-
 	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
 
 	return 0;
@@ -1098,9 +1092,6 @@ static int scpsys_hwv_power_off(struct generic_pm_domain *genpd)
 	ret = readx_poll_timeout_atomic(mtk_hwv_is_disable_done, scpd, tmp, tmp > 0,
 			MTK_POLL_DELAY_US, MTK_POLL_100MS_TIMEOUT);
 	if (ret < 0)
-		goto err_hwv_done;
-
-	if (hwv_timeout)
 		goto err_hwv_done;
 
 	scpsys_clk_disable(scpd->clk, MAX_CLKS);
@@ -1223,37 +1214,6 @@ static unsigned int mtk_pd_get_performance(struct generic_pm_domain *genpd,
 					   struct dev_pm_opp *opp)
 {
 	return dev_pm_opp_get_level(opp);
-}
-
-static irqreturn_t hwv_irq_handler(int irq, void *dev_id)
-{
-	disable_irq_nosync(irq);
-
-	if (likely(irq == hwv_irq))
-		hwv_timeout = true;
-
-	return IRQ_HANDLED;
-}
-
-static void mtk_scpsys_hwv_irq_init(struct platform_device *pdev)
-{
-	int ret;
-
-	hwv_irq = platform_get_irq_byname(pdev, "hwv_irq");
-	if (hwv_irq < 0) {
-		pr_notice("[scpsys] get hwv irq is not support\n");
-	} else {
-		ret = request_irq(hwv_irq, hwv_irq_handler, IRQF_TRIGGER_NONE, "HWV IRQ", NULL);
-		if (ret < 0) {
-			pr_notice("[scpsys]hwv require irq fail %d %d\n",
-				hwv_irq, ret);
-		} else {
-			ret = enable_irq_wake(hwv_irq);
-			if (ret < 0)
-				pr_notice("[scpsys]hwv wake fail:%d,%d\n",
-					hwv_irq, ret);
-		}
-	}
 }
 
 static int mtk_pd_get_regmap(struct platform_device *pdev, struct regmap **regmap,
@@ -1414,8 +1374,6 @@ struct scp *init_scp(struct platform_device *pdev,
 				mtk_pd_get_performance;
 		}
 	}
-
-	mtk_scpsys_hwv_irq_init(pdev);
 
 	return scp;
 }
