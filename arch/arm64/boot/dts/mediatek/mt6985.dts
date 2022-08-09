@@ -3584,6 +3584,7 @@
 			peri-wakeup-sta = <0x11036054>;
 			uart_line = <3>;
 			hub-baud = <12000000>;
+			uarthub_support;
 		};
 
 		mtk_leds: mtk_leds {
