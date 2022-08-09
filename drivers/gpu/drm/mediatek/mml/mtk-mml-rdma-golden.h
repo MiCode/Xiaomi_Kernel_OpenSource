@@ -214,6 +214,19 @@ static const struct golden_setting th_yuv420_mt6983[] = {
 #define MT6985_YV12_4K_URGENT_2		(19 << 16 | 15)
 #define MT6985_YV12_4K_ULTRA_2		(27 << 16 | 23)
 #define MT6985_YV12_4K_PREULTRA_2	(35 << 16 | 31)
+/* 4K60 AFBC 4 plane 1 bpp */
+#define MT6985_AFBC_4K_URGENT		(315 << 16 | 252)
+#define MT6985_AFBC_4K_ULTRA		(441 << 16 | 378)
+#define MT6985_AFBC_4K_PREULTRA		(567 << 16 | 504)
+#define MT6985_AFBC_4K_URGENT_1		(0 << 16 | 0)
+#define MT6985_AFBC_4K_ULTRA_1		(0 << 16 | 0)
+#define MT6985_AFBC_4K_PREULTRA_1	(0 << 16 | 0)
+#define MT6985_AFBC_4K_URGENT_2		(2 << 16 | 1)
+#define MT6985_AFBC_4K_ULTRA_2		(3 << 16 | 2)
+#define MT6985_AFBC_4K_PREULTRA_2	(4 << 16 | 3)
+#define MT6985_AFBC_4K_URGENT_3		(0 << 16 | 0)
+#define MT6985_AFBC_4K_ULTRA_3		(0 << 16 | 0)
+#define MT6985_AFBC_4K_PREULTRA_3	(0 << 16 | 0)
 /* 4K60 HYFBC 4 plane 1 bpp */
 #define MT6985_HYFBC_4K_URGENT		(78 << 16 | 63)
 #define MT6985_HYFBC_4K_ULTRA		(110 << 16 | 94)
@@ -253,6 +266,19 @@ static const struct golden_setting th_yuv420_mt6983[] = {
 #define MT6985_YV12_2K_URGENT_2		(20 << 16 | 16)
 #define MT6985_YV12_2K_ULTRA_2		(28 << 16 | 24)
 #define MT6985_YV12_2K_PREULTRA_2	(37 << 16 | 32)
+/* 2K120 AFBC 4 plane 1 bpp*/
+#define MT6985_AFBC_2K_URGENT		(329 << 16 | 263)
+#define MT6985_AFBC_2K_ULTRA		(461 << 16 | 395)
+#define MT6985_AFBC_2K_PREULTRA		(593 << 16 | 527)
+#define MT6985_AFBC_2K_URGENT_1		(0 << 16 | 0)
+#define MT6985_AFBC_2K_ULTRA_1		(0 << 16 | 0)
+#define MT6985_AFBC_2K_PREULTRA_1	(0 << 16 | 0)
+#define MT6985_AFBC_2K_URGENT_2		(1 << 16 | 0)
+#define MT6985_AFBC_2K_ULTRA_2		(1 << 16 | 0)
+#define MT6985_AFBC_2K_PREULTRA_2	(2 << 16 | 1)
+#define MT6985_AFBC_2K_URGENT_3		(0 << 16 | 0)
+#define MT6985_AFBC_2K_ULTRA_3		(0 << 16 | 0)
+#define MT6985_AFBC_2K_PREULTRA_3	(0 << 16 | 0)
 /* 2K120 HYFBC 4 plane 1 bpp*/
 #define MT6985_HYFBC_2K_URGENT		(82 << 16 | 65)
 #define MT6985_HYFBC_2K_ULTRA		(115 << 16 | 98)
@@ -292,6 +318,19 @@ static const struct golden_setting th_yuv420_mt6983[] = {
 #define MT6985_YV12_FHD_URGENT_2	(15 << 16 | 11)
 #define MT6985_YV12_FHD_ULTRA_2		(21 << 16 | 17)
 #define MT6985_YV12_FHD_PREULTRA_2	(27 << 16 | 23)
+/* FHD120 AFBC 4 plane 1 bpp*/
+#define MT6985_AFBC_FHD_URGENT		(231 << 16 | 185)
+#define MT6985_AFBC_FHD_ULTRA		(324 << 16 | 278)
+#define MT6985_AFBC_FHD_PREULTRA	(417 << 16 | 370)
+#define MT6985_AFBC_FHD_URGENT_1	(0 << 16 | 0)
+#define MT6985_AFBC_FHD_ULTRA_1		(0 << 16 | 0)
+#define MT6985_AFBC_FHD_PREULTRA_1	(0 << 16 | 0)
+#define MT6985_AFBC_FHD_URGENT_2	(1 << 16 | 0)
+#define MT6985_AFBC_FHD_ULTRA_2		(1 << 16 | 0)
+#define MT6985_AFBC_FHD_PREULTRA_2	(2 << 16 | 1)
+#define MT6985_AFBC_FHD_URGENT_3	(0 << 16 | 0)
+#define MT6985_AFBC_FHD_ULTRA_3		(0 << 16 | 0)
+#define MT6985_AFBC_FHD_PREULTRA_3	(0 << 16 | 0)
 /* FHD120 HYFBC 4 plane 1 bpp*/
 #define MT6985_HYFBC_FHD_URGENT		(57 << 16 | 46)
 #define MT6985_HYFBC_FHD_ULTRA		(81 << 16 | 69)
@@ -465,6 +504,75 @@ static const struct golden_setting th_yv12_mt6985[] = {
 				.urgent		= MT6985_YV12_4K_URGENT_2,
 			},
 
+		},
+	},
+};
+
+static const struct golden_setting th_afbc_mt6985[] = {
+	{
+		.pixel = GOLDEN_PIXEL_FHD,
+		.plane = {
+			{
+				.preultra	= MT6985_AFBC_FHD_PREULTRA,
+				.ultra		= MT6985_AFBC_FHD_ULTRA,
+				.urgent		= MT6985_AFBC_FHD_URGENT,
+			}, {
+				.preultra	= MT6985_AFBC_FHD_PREULTRA_1,
+				.ultra		= MT6985_AFBC_FHD_ULTRA_1,
+				.urgent		= MT6985_AFBC_FHD_URGENT_1,
+			}, {
+				.preultra	= MT6985_AFBC_FHD_PREULTRA_2,
+				.ultra		= MT6985_AFBC_FHD_ULTRA_2,
+				.urgent		= MT6985_AFBC_FHD_URGENT_2,
+			}, {
+				.preultra	= MT6985_AFBC_FHD_PREULTRA_3,
+				.ultra		= MT6985_AFBC_FHD_ULTRA_3,
+				.urgent		= MT6985_AFBC_FHD_URGENT_3,
+			},
+
+		},
+	}, {
+		.pixel = GOLDEN_PIXEL_2K,
+		.plane = {
+			{
+				.preultra	= MT6985_AFBC_2K_PREULTRA,
+				.ultra		= MT6985_AFBC_2K_ULTRA,
+				.urgent		= MT6985_AFBC_2K_URGENT,
+			}, {
+				.preultra	= MT6985_AFBC_2K_PREULTRA_1,
+				.ultra		= MT6985_AFBC_2K_ULTRA_1,
+				.urgent		= MT6985_AFBC_2K_URGENT_1,
+			}, {
+				.preultra	= MT6985_AFBC_2K_PREULTRA_2,
+				.ultra		= MT6985_AFBC_2K_ULTRA_2,
+				.urgent		= MT6985_AFBC_2K_URGENT_2,
+			}, {
+				.preultra	= MT6985_AFBC_2K_PREULTRA_3,
+				.ultra		= MT6985_AFBC_2K_ULTRA_3,
+				.urgent		= MT6985_AFBC_2K_URGENT_3,
+			},
+
+		},
+	}, {
+		.pixel = GOLDEN_PIXEL_4K,
+		.plane = {
+			{
+				.preultra	= MT6985_AFBC_4K_PREULTRA,
+				.ultra		= MT6985_AFBC_4K_ULTRA,
+				.urgent		= MT6985_AFBC_4K_URGENT,
+			}, {
+				.preultra	= MT6985_AFBC_4K_PREULTRA_1,
+				.ultra		= MT6985_AFBC_4K_ULTRA_1,
+				.urgent		= MT6985_AFBC_4K_URGENT_1,
+			}, {
+				.preultra	= MT6985_AFBC_4K_PREULTRA_2,
+				.ultra		= MT6985_AFBC_4K_ULTRA_2,
+				.urgent		= MT6985_AFBC_4K_URGENT_2,
+			}, {
+				.preultra	= MT6985_AFBC_4K_PREULTRA_3,
+				.ultra		= MT6985_AFBC_4K_ULTRA_3,
+				.urgent		= MT6985_AFBC_4K_URGENT_3,
+			},
 		},
 	},
 };

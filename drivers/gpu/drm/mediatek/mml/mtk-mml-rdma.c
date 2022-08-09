@@ -413,6 +413,7 @@ enum rdma_golden_fmt {
 	GOLDEN_FMT_YUV420,
 	GOLDEN_FMT_YV12,
 	GOLDEN_FMT_HYFBC,
+	GOLDEN_FMT_AFBC,
 	GOLDEN_FMT_TOTAL
 };
 
@@ -452,6 +453,10 @@ static const struct rdma_data mt6983_rdma_data = {
 			.cnt = ARRAY_SIZE(th_yv12_mt6985),
 			.settings = th_yv12_mt6985,
 		},
+		[GOLDEN_FMT_AFBC] = {
+			.cnt = ARRAY_SIZE(th_afbc_mt6985),
+			.settings = th_afbc_mt6985,
+		},
 	},
 };
 
@@ -482,6 +487,10 @@ static const struct rdma_data mt6895_rdma0_data = {
 			.cnt = ARRAY_SIZE(th_yv12_mt6985),
 			.settings = th_yv12_mt6985,
 		},
+		[GOLDEN_FMT_AFBC] = {
+			.cnt = ARRAY_SIZE(th_afbc_mt6985),
+			.settings = th_afbc_mt6985,
+		},
 	},
 };
 
@@ -505,6 +514,10 @@ static const struct rdma_data mt6895_rdma1_data = {
 		[GOLDEN_FMT_YV12] = {
 			.cnt = ARRAY_SIZE(th_yv12_mt6985),
 			.settings = th_yv12_mt6985,
+		},
+		[GOLDEN_FMT_AFBC] = {
+			.cnt = ARRAY_SIZE(th_afbc_mt6985),
+			.settings = th_afbc_mt6985,
 		},
 	},
 };
@@ -534,6 +547,10 @@ static const struct rdma_data mt6985_rdma_data = {
 			.cnt = ARRAY_SIZE(th_hyfbc_mt6985),
 			.settings = th_hyfbc_mt6985,
 		},
+		[GOLDEN_FMT_AFBC] = {
+			.cnt = ARRAY_SIZE(th_afbc_mt6985),
+			.settings = th_afbc_mt6985,
+		},
 	},
 };
 
@@ -556,6 +573,10 @@ static const struct rdma_data mt6886_rdma_data = {
 		[GOLDEN_FMT_YV12] = {
 			.cnt = ARRAY_SIZE(th_yv12_mt6985),
 			.settings = th_yv12_mt6985,
+		},
+		[GOLDEN_FMT_AFBC] = {
+			.cnt = ARRAY_SIZE(th_afbc_mt6985),
+			.settings = th_afbc_mt6985,
 		},
 		[GOLDEN_FMT_HYFBC] = {
 			.cnt = ARRAY_SIZE(th_hyfbc_mt6985),
@@ -1153,15 +1174,19 @@ static void rdma_select_threshold_hrt(struct mml_comp_rdma *rdma,
 
 	if (MML_FMT_HYFBC(format)) {
 		golden = &rdma->data->golden[GOLDEN_FMT_HYFBC];
+	} else if (MML_FMT_AFBC(format)) {
+		golden = &rdma->data->golden[GOLDEN_FMT_AFBC];
 	} else if (plane == 1) {
 		if (MML_FMT_BITS_PER_PIXEL(format) >= 32)
 			golden = &rdma->data->golden[GOLDEN_FMT_ARGB];
 		else
 			golden = &rdma->data->golden[GOLDEN_FMT_RGB];
+	} else if (plane == 2) {
+		golden = &rdma->data->golden[GOLDEN_FMT_YUV420];
 	} else if (plane == 3) {
 		golden = &rdma->data->golden[GOLDEN_FMT_YV12];
 	} else {
-		golden = &rdma->data->golden[GOLDEN_FMT_YUV420];
+		golden = &rdma->data->golden[GOLDEN_FMT_ARGB];
 	}
 
 	for (idx = 0; idx < golden->cnt - 1; idx++)
