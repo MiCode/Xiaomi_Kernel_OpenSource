@@ -1225,5 +1225,8 @@ int is_system_heap_dmabuf(const struct dma_buf *dmabuf)
 }
 EXPORT_SYMBOL_GPL(is_system_heap_dmabuf);
 
+hang_dump_cb hang_dump_proc;
+EXPORT_SYMBOL_GPL(hang_dump_proc);
+
 module_init(system_heap_create);
 MODULE_LICENSE("GPL v2");

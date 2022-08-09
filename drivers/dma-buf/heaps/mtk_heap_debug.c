@@ -39,6 +39,11 @@
 #include "mtk_heap_priv.h"
 #include "mtk_heap.h"
 
+#if IS_ENABLED(CONFIG_MTK_HANG_DETECT)
+#include <hang_detect.h>
+#endif
+#include <mt-plat/mrdump.h>
+
 /* debug flags */
 int vma_dump_enable;
 int dmabuf_rb_check;
@@ -231,6 +236,43 @@ struct heap_status_s debug_heap_list[] = {
 	{"mtk_sapu_engine_shm_region-aligned", NULL, 0},
 };
 #define _DEBUG_HEAP_CNT_  (ARRAY_SIZE(debug_heap_list))
+
+#if IS_ENABLED(CONFIG_MTK_HANG_DETECT) && \
+	IS_ENABLED(CONFIG_MTK_HANG_DETECT_DB) && \
+	IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+
+#define MAX_STRING_SIZE 256
+#define MAX_HANG_INFO_SIZE (512*1024)
+static char *Hang_Info_In_Dma;
+static int Hang_Info_Size_In_Dma;
+static int MaxHangInfoSize = MAX_HANG_INFO_SIZE;
+
+static void mtk_dmabuf_dump_heap(struct dma_heap *heap,
+				 struct seq_file *s,
+				 int flag);
+
+static void hang_dmabuf_dump(const char *fmt, ...)
+{
+	unsigned long len;
+	va_list ap;
+
+	if (!Hang_Info_In_Dma || (Hang_Info_Size_In_Dma + MAX_STRING_SIZE) >=
+			(unsigned long)MaxHangInfoSize)
+		return;
+
+	va_start(ap, fmt);
+	len = vscnprintf(&Hang_Info_In_Dma[Hang_Info_Size_In_Dma],
+			 MAX_STRING_SIZE, fmt, ap);
+	va_end(ap);
+	Hang_Info_Size_In_Dma += len;
+}
+
+static void mtk_dmabuf_dump_for_hang(void)
+{
+	mtk_dmabuf_dump_heap(NULL, HANG_DMABUF_FILE_TAG, HEAP_DUMP_OOM);
+}
+
+#endif
 
 static inline struct dump_fd_data *
 fd_const_to_dump_fd_data(const struct fd_const *d)
@@ -1844,6 +1886,25 @@ static int __init mtk_dma_heap_debug(void)
 		return ret;
 	}
 
+#if IS_ENABLED(CONFIG_MTK_HANG_DETECT) && \
+		IS_ENABLED(CONFIG_MTK_HANG_DETECT_DB) && \
+		IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+
+	Hang_Info_In_Dma = kzalloc(MAX_HANG_INFO_SIZE, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(Hang_Info_In_Dma)) {
+		pr_info("%s Hang_Info_In_Dma kmalloc fail\n", __func__);
+		Hang_Info_In_Dma = NULL;
+		return 0;
+	}
+
+	mrdump_mini_add_extra_file((unsigned long)Hang_Info_In_Dma,
+				   __pa_nodebug(Hang_Info_In_Dma),
+				   MaxHangInfoSize, "DMA_HEAP");
+
+	hang_dump_proc = hang_dmabuf_dump;
+	register_hang_callback(mtk_dmabuf_dump_for_hang);
+#endif
+
 	return 0;
 }
 
@@ -1857,8 +1918,16 @@ static void __exit mtk_dma_heap_debug_exit(void)
 			pr_info("unregister_oom_notifier failed:%d\n", ret);
 	}
 
-	dma_buf_uninit_procfs();
+#if IS_ENABLED(CONFIG_MTK_HANG_DETECT) && \
+		IS_ENABLED(CONFIG_MTK_HANG_DETECT_DB) && \
+		IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 
+	if (Hang_Info_In_Dma != NULL)
+		unregister_hang_callback(mtk_dmabuf_dump_for_hang);
+
+#endif
+
+	dma_buf_uninit_procfs();
 }
 module_init(mtk_dma_heap_debug);
 module_exit(mtk_dma_heap_debug_exit);

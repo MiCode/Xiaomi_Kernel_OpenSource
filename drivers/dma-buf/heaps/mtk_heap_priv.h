@@ -25,12 +25,20 @@
 #define HEAP_DUMP_DEC_1_REF       (1 << 4)
 #define HEAP_DUMP_OOM             (1 << 5)
 
-#define dmabuf_dump(file, fmt, args...)                \
-	do {                                           \
-		if (file)                              \
-			seq_printf(file, fmt, ##args); \
-		else                                   \
-			pr_info(fmt, ##args);          \
+#define HANG_DMABUF_FILE_TAG	((void *)0x1)
+typedef void (*hang_dump_cb)(const char *fmt, ...);
+extern hang_dump_cb hang_dump_proc;
+
+#define dmabuf_dump(file, fmt, args...)                         \
+	do {                                                    \
+		if (file == HANG_DMABUF_FILE_TAG) {             \
+			if (hang_dump_proc != NULL)             \
+				hang_dump_proc(fmt, ##args);    \
+		}                                               \
+		else if (file)                                  \
+			seq_printf(file, fmt, ##args);          \
+		else                                            \
+			pr_info(fmt, ##args);                   \
 	} while (0)
 
 /* mtk_heap private info, used for dump */
