@@ -84,6 +84,7 @@
 #endif
 
 #define MAX_POLLING_CNT 8
+#define LOG_BUF_SIZE 30
 
 #define MTK_UART_HUB_BAUD 12000000
 #define UART_DUMP_RECORE_NUM 10
@@ -155,7 +156,7 @@ enum {
 	MTK_UART_FC_HW,
 };
 
-unsigned int uart_reg_buf[24];
+unsigned int uart_reg_buf[LOG_BUF_SIZE];
 
 static struct mtk8250_reg_data peri_wakeup = {0};
 
@@ -354,6 +355,10 @@ static int mtk8250_uart_rx_dma(struct uart_8250_port *up)
 
 static void mtk_save_uart_reg(struct uart_8250_port *up, unsigned int *reg_buf)
 {
+	unsigned long flags;
+	unsigned int EFR;
+
+	spin_lock_irqsave(&up->port.lock, flags);
 	reg_buf[0] = serial_in(up, UART_LCR);
 	serial_out(up, MTK_UART_FEATURE_SEL, 0x01);
 	reg_buf[1] = serial_in(up, MTK_UART_HIGHS);
@@ -380,6 +385,13 @@ static void mtk_save_uart_reg(struct uart_8250_port *up, unsigned int *reg_buf)
 	reg_buf[21] = serial_in(up, UART_IIR);
 	reg_buf[22] = serial_in(up, UART_LSR);
 	reg_buf[23] = serial_in(up, MTK_UART_DMA_EN);
+	serial_out(up, MTK_UART_FEATURE_SEL, 0x01);
+	EFR = serial_in(up, MTK_UART_EFR);
+	serial_out(up, MTK_UART_FEATURE_SEL, ((EFR)|(1<<4)));
+	reg_buf[24] = serial_in(up, UART_MCR);
+	serial_out(up, MTK_UART_FEATURE_SEL, EFR);
+	serial_out(up, MTK_UART_FEATURE_SEL, 0x00);
+	spin_unlock_irqrestore(&up->port.lock, flags);
 }
 
 void mtk8250_data_dump(struct mtk8250_data *data)
@@ -431,9 +443,9 @@ int mtk8250_uart_dump(struct tty_struct *tty)
 	struct uart_port *port = NULL;
 	struct uart_8250_port *up = NULL;
 	struct mtk8250_data *data = NULL;
-	unsigned int uart_reg_buf[24];
-	unsigned int apdma_rx_reg_buf[24];
-	unsigned int apdma_tx_reg_buf[24];
+	unsigned int uart_reg_buf[LOG_BUF_SIZE];
+	unsigned int apdma_rx_reg_buf[LOG_BUF_SIZE];
+	unsigned int apdma_tx_reg_buf[LOG_BUF_SIZE];
 
 	if (tty == NULL) {
 		pr_info("[%s] para error. tty is NULL\n", __func__);
@@ -467,9 +479,9 @@ int mtk8250_uart_dump(struct tty_struct *tty)
 		return -EINVAL;
 	}
 
-	memset(uart_reg_buf, 0, 24);
-	memset(apdma_rx_reg_buf, 0, 24);
-	memset(apdma_tx_reg_buf, 0, 24);
+	memset(uart_reg_buf, 0, LOG_BUF_SIZE);
+	memset(apdma_rx_reg_buf, 0, LOG_BUF_SIZE);
+	memset(apdma_tx_reg_buf, 0, LOG_BUF_SIZE);
 	mtk_save_uart_reg(up, uart_reg_buf);
 
 #ifdef CONFIG_SERIAL_8250_DMA
@@ -495,12 +507,12 @@ int mtk8250_uart_dump(struct tty_struct *tty)
 		uart_reg_buf[8], uart_reg_buf[9], uart_reg_buf[10]);
 	pr_info("[%s] 0x60=0x%x,0x64=0x%x,0x68=0x%x,0x6c=0x%x,\n"
 		"0x70=0x%x,0x74=0x%x,0x78=0x%x,0x7c=0x%x,0x80=0x%x,\n"
-		"ier=0x%x,iir=0x%x, LSR=0x%x, DMA_EN=0x%x\n",
+		"ier=0x%x,iir=0x%x, LSR=0x%x, DMA_EN=0x%x, MCR=0x%x\n",
 		__func__, uart_reg_buf[11], uart_reg_buf[12], uart_reg_buf[13],
 		uart_reg_buf[14], uart_reg_buf[15], uart_reg_buf[16],
 		uart_reg_buf[17], uart_reg_buf[18], uart_reg_buf[19],
 		uart_reg_buf[20], uart_reg_buf[21], uart_reg_buf[22],
-		uart_reg_buf[23]);
+		uart_reg_buf[23], uart_reg_buf[24]);
 #ifdef CONFIG_SERIAL_8250_DMA
 	pr_info("[apdma_rx] int_flag=0x%x,int_en=0x%x,en=0x%x,flush=0x%x,addr=0x%x,\n"
 		"len=0x%x,thre=0x%x,wpt=0x%x,rpt=0x%x,int_buf_size=0x%x\n"
@@ -532,10 +544,37 @@ void mtk8250_uart_start_record(struct tty_struct *tty)
 	struct uart_state *state = NULL;
 	struct uart_port *port = NULL;
 	struct uart_8250_port *up = NULL;
+	struct mtk8250_data *data = NULL;
 
+	if (tty == NULL) {
+		pr_info("[%s] para error. tty is NULL\n", __func__);
+		return;
+	}
 	state = tty->driver_data;
+	if (state == NULL) {
+		pr_info("[%s] para error. state is NULL\n", __func__);
+		return;
+	}
 	port = state->uart_port;
+	if (port == NULL) {
+		pr_info("[%s] para error. port is NULL\n", __func__);
+		return;
+	}
 	up = up_to_u8250p(port);
+	if (up == NULL) {
+		pr_info("[%s] para error. up is NULL\n", __func__);
+		return;
+	}
+	data = port->private_data;
+	if (data == NULL) {
+		pr_info("[%s] para error. data is NULL\n", __func__);
+		return;
+	}
+	if (data->clk_count == 0) {
+		pr_info("[%s] para error. clk_count = %d, clk close, please open ttys[%d]\n",
+			__func__, data->clk_count, data->line);
+		return;
+	}
 
 	mtk_save_uart_reg(up, uart_reg_buf);
 
@@ -544,6 +583,11 @@ void mtk8250_uart_start_record(struct tty_struct *tty)
 #endif
 
 #ifdef CONFIG_SERIAL_8250_DMA
+	if ((up->dma == NULL) || (up->dma->rxchan == NULL) ||
+		(up->dma->txchan == NULL)) {
+		pr_info("[%s] para error. up->dma,rx,tx is NULL\n", __func__);
+		return;
+	}
 	mtk8250_uart_apdma_start_record(up->dma->rxchan);
 	mtk8250_uart_apdma_start_record(up->dma->txchan);
 #endif
@@ -557,7 +601,7 @@ void mtk8250_uart_end_record(struct tty_struct *tty)
 	struct uart_port *port = NULL;
 	struct uart_8250_port *up = NULL;
 	struct mtk8250_data *data = NULL;
-	unsigned int uart_dbg_reg[24];
+	unsigned int uart_dbg_reg[LOG_BUF_SIZE];
 
 	if (tty == NULL) {
 		pr_info("[%s] para error. tty is NULL\n", __func__);
@@ -592,16 +636,20 @@ void mtk8250_uart_end_record(struct tty_struct *tty)
 	mtk_save_uart_reg(up, uart_dbg_reg);
 
 	pr_info("[%s] start 0x60=0x%x,0x64=0x%x,0x68=0x%x,0x6c=0x%x,\n"
-		"0x70=0x%x,0x74=0x%x,0x78=0x%x,0x7c=0x%x,0x80=0x%x,\n",
+		"0x70=0x%x,0x74=0x%x,0x78=0x%x,0x7c=0x%x,0x80=0x%x,LSR=0x%x,\n"
+		"DMA_EN=0x%x,MCR=0x%x\n",
 		__func__, uart_reg_buf[11], uart_reg_buf[12], uart_reg_buf[13],
 		uart_reg_buf[14], uart_reg_buf[15], uart_reg_buf[16],
-		uart_reg_buf[17], uart_reg_buf[18], uart_reg_buf[19]);
+		uart_reg_buf[17], uart_reg_buf[18], uart_reg_buf[19],
+		uart_reg_buf[22], uart_reg_buf[23], uart_reg_buf[24]);
 
 	pr_info("[%s] end 0x60=0x%x,0x64=0x%x,0x68=0x%x,0x6c=0x%x,\n"
-		"0x70=0x%x,0x74=0x%x,0x78=0x%x,0x7c=0x%x,0x80=0x%x,\n",
+		"0x70=0x%x,0x74=0x%x,0x78=0x%x,0x7c=0x%x,0x80=0x%x,,LSR=0x%x,\n"
+		"DMA_EN=0x%x,MCR=0x%x\n",
 		__func__, uart_dbg_reg[11], uart_dbg_reg[12], uart_dbg_reg[13],
 		uart_dbg_reg[14], uart_dbg_reg[15], uart_dbg_reg[16],
-		uart_dbg_reg[17], uart_dbg_reg[18], uart_dbg_reg[19]);
+		uart_dbg_reg[17], uart_dbg_reg[18], uart_dbg_reg[19],
+		uart_dbg_reg[22], uart_dbg_reg[23], uart_dbg_reg[24]);
 
 #if IS_ENABLED(CONFIG_MTK_UARTHUB)
 	KERNEL_UARTHUB_debug_dump_tx_rx_count("mtk8250_uarthub", DUMP1);
