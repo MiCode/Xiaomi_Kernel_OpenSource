@@ -250,7 +250,7 @@ static void fillin_buf_dma(struct mml_frame_data *data, void *dmabuf, u32 size,
 
 static bool mml_test_check_data_valid(struct mml_frame_data *data)
 {
-	if (!(data->width >= 64 && data->height <= 8192)) {
+	if (!(data->width >= 64 && data->width <= 8192)) {
 		mml_err("%s width not valid %u", __func__, data->width);
 		return false;
 	}
