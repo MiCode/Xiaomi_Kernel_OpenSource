@@ -851,7 +851,8 @@ static void ufs_mtk_trace_vh_send_command(void *data, struct ufs_hba *hba, struc
 		ufs_mtk_biolog_check(1);
 	}
 #endif
-	/* something wrong, trigger error dump */
+
+	/* Something wrong, trigger error dump and recovery */
 	if ((hba->curr_dev_pwr_mode == UFS_SLEEP_PWR_MODE) &&
 		(cmd->cmnd[0] != START_STOP)) {
 		dev_err(hba->dev, "Device suspend and send cmd:0x%x in lun:%d",
@@ -875,11 +876,17 @@ static void ufs_mtk_trace_vh_send_command(void *data, struct ufs_hba *hba, struc
 				link->consumer->power.runtime_error,
 				link->consumer->power.usage_count,
 				link->consumer->power.last_busy);
+
+			/*
+			 * If consumer is active, wakeup supplier and increase
+			 * rpm_active, this is same as rpm_get_suppliers doing.
+			 */
+			if (link->consumer->power.runtime_status ==
+				RPM_ACTIVE) {
+				pm_runtime_get_sync(link->supplier);
+				refcount_inc(&link->rpm_active);
+			}
 		}
-
-		ufs_mtk_dbg_dump(100);
-
-		BUG_ON(1);
 	}
 }
 
