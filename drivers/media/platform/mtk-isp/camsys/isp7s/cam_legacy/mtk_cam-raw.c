@@ -2338,6 +2338,7 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 	int ret;
 	int hwn_limit_min, hwn_limit_max;
 	int rgb_2raw = 0;
+	s64 vblank = 0;
 
 	if (mtk_cam_scen_is_rgbw_enabled(&res->scen)) {
 		/* only 2raw 1pass*/
@@ -2349,11 +2350,14 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 		hwn_limit_max = res->hwn_limit_max;
 	}
 
+	/* roughly set vb to 100 lines for safety in dc mdoe */
+	vblank = mtk_cam_hw_mode_is_dc(res->hw_mode) ? 100 : res->vblank;
+
 	calc.mipi_pixel_rate = (s64)(in_w + res->hblank) * (in_h + res->vblank)
 		* res->interval.denominator / res->interval.numerator;
 	calc.line_time = 1000000000L
 		* res->interval.numerator / res->interval.denominator
-		/ (in_h + res->vblank);
+		/ (in_h + vblank);
 	calc.width = in_w;
 	calc.height = in_h;
 	calc.bin_en = (res->bin_limit >= 1) ? 1:0;
