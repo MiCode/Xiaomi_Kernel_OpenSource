@@ -126,6 +126,9 @@ EXPORT_SYMBOL(skip_poll_sleep);
 bool gce_in_vcp;
 EXPORT_SYMBOL(gce_in_vcp);
 
+bool cpr_not_support_cookie;
+EXPORT_SYMBOL(cpr_not_support_cookie);
+
 bool append_by_event;
 EXPORT_SYMBOL(append_by_event);
 
@@ -2286,6 +2289,9 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	if (!of_property_read_bool(dev->of_node, "cmdq-log-perf-off"))
 		cmdq_util_log_feature_set(NULL, CMDQ_LOG_FEAT_PERF);
+
+	if (of_property_read_bool(dev->of_node, "cpr-not-support-cookie"))
+		cpr_not_support_cookie = true;
 
 	if (of_property_read_bool(dev->of_node, "append-by-event"))
 		append_by_event = true;
