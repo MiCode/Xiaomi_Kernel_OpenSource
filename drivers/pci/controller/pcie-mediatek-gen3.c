@@ -31,6 +31,7 @@
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 
 #include "../pci.h"
+#include "../../misc/mediatek/clkbuf/v1/inc/mtk_clkbuf_ctl.h"
 
 #define PEXTP_PWRCTL_0			0x40
 #define PCIE_HW_MTCMOS_EN_P0		BIT(0)
@@ -410,6 +411,9 @@ static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 		writel_relaxed(val, port->base + PCIE_ASPM_CTRL);
 
 		mtk_pcie_mt6985_fixup();
+
+		/* Software enable BBCK2 */
+		clk_buf_voter_ctrl_by_id(7, SW_FPM);
 	}
 
 	/* Mask all INTx interrupts */
@@ -419,7 +423,7 @@ static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 
 	/* DVFSRC voltage request state */
 	val = readl_relaxed(port->base + PCIE_MISC_CTRL_REG);
-	val |= PCIE_DVFS_REQ_FORCE_ON | PCIE_MAC_SLP_DIS;
+	val |= PCIE_DVFS_REQ_FORCE_ON;
 	if (!port->dvfs_req_en) {
 		val &= ~PCIE_DVFS_REQ_FORCE_ON;
 		val |= PCIE_DVFS_REQ_FORCE_OFF;
@@ -1074,6 +1078,9 @@ static void mtk_pcie_power_down(struct mtk_pcie_port *port)
 		writel_relaxed(PEXTP_SW_MAC1_PHY1_BIT,
 			       port->pextpcfg + PEXTP_SW_RST_SET_OFFSET);
 	}
+
+	/* BBCK2 is controlled by itself hardware mode */
+	clk_buf_voter_ctrl_by_id(7, HW);
 }
 
 static int mtk_pcie_setup(struct mtk_pcie_port *port)
@@ -1390,10 +1397,6 @@ static int __maybe_unused mtk_pcie_suspend_noirq(struct device *dev)
 		val = readl_relaxed(port->base + PCIE_ISTATUS_PM);
 		dev_info(port->dev, "pcie L1SS_pm=%#x\n", val);
 
-		val = readl_relaxed(port->base + PCIE_MISC_CTRL_REG);
-		val &= ~PCIE_MAC_SLP_DIS;
-		writel_relaxed(val, port->base + PCIE_MISC_CTRL_REG);
-
 		if (port->port_num == 0) {
 			dev_info(port->dev, "PCIe HW MODE BIT=%#x\n",
 				 readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_0));
@@ -1404,6 +1407,9 @@ static int __maybe_unused mtk_pcie_suspend_noirq(struct device *dev)
 			val |= PCIE_HW_MTCMOS_EN_P1;
 			writel_relaxed(val, port->pextpcfg + PEXTP_PWRCTL_1);
 		}
+
+		/* BBCK2 is controlled by itself hardware mode */
+		clk_buf_voter_ctrl_by_id(7, HW);
 	} else {
 		/* Trigger link to L2 state */
 		err = mtk_pcie_turn_off_link(port);
@@ -1434,6 +1440,9 @@ static int __maybe_unused mtk_pcie_resume_noirq(struct device *dev)
 	u32 val;
 
 	if (port->suspend_mode == LINK_STATE_L12) {
+		/* Software enable BBCK2 */
+		clk_buf_voter_ctrl_by_id(7, SW_FPM);
+
 		if (port->port_num == 0) {
 			dev_info(port->dev, "PCIe HW MODE BIT=%#x\n",
 				 readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_0));
@@ -1457,10 +1466,6 @@ static int __maybe_unused mtk_pcie_resume_noirq(struct device *dev)
 			iounmap(vlpcfg_base);
 			return err;
 		}
-
-		val = readl_relaxed(port->base + PCIE_MISC_CTRL_REG);
-		val |= PCIE_MAC_SLP_DIS;
-		writel_relaxed(val, port->base + PCIE_MISC_CTRL_REG);
 
 		iounmap(vlpcfg_base);
 	} else {
