@@ -167,10 +167,20 @@ static int mtk_usb_extcon_psy_init(struct mtk_extcon_info *extcon)
 	int ret = 0;
 	struct device *dev = extcon->dev;
 
+	if (!of_property_read_bool(dev->of_node, "charger")) {
+		ret = -EINVAL;
+		goto fail;
+	}
+
 	extcon->usb_psy = devm_power_supply_get_by_phandle(dev, "charger");
 	if (IS_ERR_OR_NULL(extcon->usb_psy)) {
-		dev_err(dev, "fail to get usb_psy\n");
-		return -EINVAL;
+		/* try to get by name */
+		extcon->usb_psy = power_supply_get_by_name("primary_chg");
+		if (IS_ERR_OR_NULL(extcon->usb_psy)) {
+			dev_err(dev, "fail to get usb_psy\n");
+			ret = -EINVAL;
+			goto fail;
+		}
 	}
 
 	INIT_DELAYED_WORK(&extcon->wq_psy, mtk_usb_extcon_psy_detector);
@@ -179,7 +189,7 @@ static int mtk_usb_extcon_psy_init(struct mtk_extcon_info *extcon)
 	ret = power_supply_reg_notifier(&extcon->psy_nb);
 	if (ret)
 		dev_err(dev, "fail to register notifer\n");
-
+fail:
 	return ret;
 }
 
@@ -227,6 +237,44 @@ static int mtk_usb_extcon_set_vbus(struct mtk_extcon_info *extcon,
 	extcon->vbus_on = is_on;
 
 	return 0;
+}
+
+static int mtk_usb_extcon_vbus_init(struct mtk_extcon_info *extcon)
+{
+	int ret = 0;
+	struct device *dev = extcon->dev;
+
+	if (!of_property_read_bool(dev->of_node, "vbus-supply")) {
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	extcon->vbus =  devm_regulator_get_exclusive(dev, "vbus");
+	if (IS_ERR(extcon->vbus)) {
+		/* try to get by name */
+		extcon->vbus =  devm_regulator_get_exclusive(dev, "usb-otg-vbus");
+		if (IS_ERR(extcon->vbus)) {
+			dev_err(dev, "failed to get vbus\n");
+			ret = PTR_ERR(extcon->vbus);
+			extcon->vbus = NULL;
+			goto fail;
+		}
+	}
+
+	/* sync vbus state */
+	extcon->vbus_on = regulator_is_enabled(extcon->vbus);
+	dev_info(dev, "vbus is %s\n", extcon->vbus_on ? "on" : "off");
+
+	if (!of_property_read_u32(dev->of_node, "vbus-voltage",
+				&extcon->vbus_vol))
+		dev_info(dev, "vbus-voltage=%d", extcon->vbus_vol);
+
+	if (!of_property_read_u32(dev->of_node, "vbus-current",
+				&extcon->vbus_cur))
+		dev_info(dev, "vbus-current=%d", extcon->vbus_cur);
+
+fail:
+	return ret;
 }
 
 #if IS_ENABLED(CONFIG_TCPC_CLASS)
@@ -433,25 +481,9 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 		extcon->c_role = USB_ROLE_NONE;
 
 	/* vbus */
-	extcon->vbus = devm_regulator_get(dev, "vbus");
-	if (IS_ERR(extcon->vbus)) {
-		dev_err(dev, "failed to get vbus\n");
-		return PTR_ERR(extcon->vbus);
-	}
-
-	/* sync vbus state */
-	if (extcon->vbus) {
-		extcon->vbus_on = regulator_is_enabled(extcon->vbus);
-		dev_info(dev, "vbus is %s\n", extcon->vbus_on ? "on" : "off");
-
-	if (!of_property_read_u32(dev->of_node, "vbus-voltage",
-					&extcon->vbus_vol))
-		dev_info(dev, "vbus-voltage=%d", extcon->vbus_vol);
-
-	if (!of_property_read_u32(dev->of_node, "vbus-current",
-					&extcon->vbus_cur))
-		dev_info(dev, "vbus-current=%d", extcon->vbus_cur);
-	}
+	ret = mtk_usb_extcon_vbus_init(extcon);
+	if (ret < 0)
+		dev_err(dev, "failed to init vbus\n");
 
 	extcon->bypss_typec_sink =
 		of_property_read_bool(dev->of_node,
