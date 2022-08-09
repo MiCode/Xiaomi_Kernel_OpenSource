@@ -470,7 +470,7 @@ static bool mtk_cam_res_raw_mask_chk(struct device *dev,
 			 __func__, raw_must_selected, raw_available);
 		if (res_user->raw_res.raws_max_num > 2 || res_user->raw_res.raws_max_num < 1) {
 			dev_info(dev,
-				 "%s: raws_max_num(%s) is not allowed, reset it to 2\n",
+				 "%s: raws_max_num(%d) is not allowed, reset it to 2\n",
 				 __func__, res_user->raw_res.raws_max_num);
 			res_user->raw_res.raws_max_num = 2;
 		}

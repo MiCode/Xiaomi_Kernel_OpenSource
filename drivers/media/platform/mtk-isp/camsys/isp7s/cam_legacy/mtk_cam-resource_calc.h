@@ -331,8 +331,8 @@ static inline int mtk_raw_find_combination(struct mtk_cam_res_calc *c,
 {
 	static const step_fn_t policy[] = {
 		step_next_pixel_mode,
-		step_next_opp,
-		step_next_raw_num
+		step_next_raw_num,
+		step_next_opp
 	};
 
 	stepper->min_opp_idx = _get_min_opp_idx(stepper);
