@@ -304,15 +304,23 @@ static int region_base_free(struct secure_heap_region *sec_heap, struct mtk_sec_
 			atomic64_read(&sec_heap->total_size));
 
 	if (!atomic64_read(&sec_heap->total_size)) {
-		if (sec_heap->heap_mapped) {
-			dma_unmap_sgtable(sec_heap->heap_dev, sec_heap->region_table,
-					  DMA_BIDIRECTIONAL, DMA_ATTR_SKIP_CPU_SYNC);
-			sec_heap->heap_mapped = false;
+		mutex_lock(&sec_heap->heap_lock);
+		if (sec_heap->heap_filled && sec_heap->region_table) {
+			if (sec_heap->heap_mapped) {
+				dma_unmap_sgtable(sec_heap->heap_dev,
+						  sec_heap->region_table,
+						  DMA_BIDIRECTIONAL,
+						  DMA_ATTR_SKIP_CPU_SYNC);
+				sec_heap->heap_mapped = false;
+			}
+			sg_free_table(sec_heap->region_table);
+			kfree(sec_heap->region_table);
+			sec_heap->region_table = NULL;
+			sec_heap->heap_filled = false;
+			pr_debug("%s: all secure memory already free, unmap heap_region iova\n",
+				 __func__);
 		}
-		sg_free_table(sec_heap->region_table);
-		kfree(sec_heap->region_table);
-		sec_heap->heap_filled = false;
-		pr_debug("%s: all secure memory already free, unmap heap_region iova\n", __func__);
+		mutex_unlock(&sec_heap->heap_lock);
 	}
 
 	pr_debug("%s done, [%s] size:0x%lx, total_size:0x%lx\n",
@@ -814,7 +822,7 @@ static int fill_heap_sgtable(struct secure_heap_region *sec_heap,
 	mutex_lock(&sec_heap->heap_lock);
 	if (sec_heap->heap_filled) {
 		mutex_unlock(&sec_heap->heap_lock);
-		pr_info("%s, %s already filled\n", __func__, dma_heap_get_name(buffer->heap));
+		pr_debug("%s, %s already filled\n", __func__, dma_heap_get_name(buffer->heap));
 		return 0;
 	}
 
