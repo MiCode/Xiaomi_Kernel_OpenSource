@@ -726,6 +726,12 @@ static inline void mtk_arch_set_freq_scale_gearless(struct cpufreq_policy *polic
 void mtk_cpufreq_fast_switch(void *data, struct cpufreq_policy *policy,
 		unsigned int *target_freq, unsigned int old_target_freq)
 {
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[2];
+
+	ts[0] = sched_clock();
+#endif
+
 	if (trace_sugov_ext_gear_state_enabled())
 		trace_sugov_ext_gear_state(per_cpu(gear_id, policy->cpu),
 			pd_get_freq_opp(policy->cpu, *target_freq));
@@ -738,6 +744,15 @@ void mtk_cpufreq_fast_switch(void *data, struct cpufreq_policy *policy,
 
 	if (is_gearless_support())
 		mtk_arch_set_freq_scale_gearless(policy, target_freq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+
+	if (ts[1] - ts[0] > 500000ULL) {
+		printk_deferred("%s duration %llu, ts[0]=%llu, ts[1]=%llu\n",
+				__func__, ts[1] - ts[0], ts[0], ts[1]);
+
+	}
+#endif
 }
 
 void mtk_arch_set_freq_scale(void *data, const struct cpumask *cpus,
@@ -746,6 +761,11 @@ void mtk_arch_set_freq_scale(void *data, const struct cpumask *cpus,
 	int cpu = cpumask_first(cpus);
 	unsigned long cap, max_cap;
 	struct cpufreq_policy *policy;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[2];
+
+	ts[0] = sched_clock();
+#endif
 
 	policy = cpufreq_cpu_get(cpu);
 	if (policy) {
@@ -755,6 +775,15 @@ void mtk_arch_set_freq_scale(void *data, const struct cpumask *cpus,
 	cap = pd_get_freq_util(cpu, freq);
 	max_cap = pd_get_freq_util(cpu, max);
 	*scale = SCHED_CAPACITY_SCALE * cap / max_cap;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+
+	if (ts[1] - ts[0] > 500000ULL) {
+		printk_deferred("%s duration %llu, ts[0]=%llu, ts[1]=%llu\n",
+				__func__, ts[1] - ts[0], ts[0], ts[1]);
+
+	}
+#endif
 }
 
 unsigned int util_scale = 1280;
