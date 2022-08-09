@@ -2045,6 +2045,11 @@ static void wrot_debug_dump(struct mml_comp *comp)
 	u32 i;
 
 	mml_err("wrot component %u dump:", comp->id);
+	value[0] = readl(base + VIDO_CTRL);
+	value[1] = readl(base + VIDO_IN_SIZE);
+	value[2] = readl(base + VIDO_TAR_SIZE);
+	mml_err("shadow status VIDO_CTRL %#010x VIDO_IN_SIZE %#010x VIDO_TAR_SIZE %#010x",
+		value[0], value[1], value[2]);
 
 	/* Enable shadow read working */
 	shadow_ctrl = readl(base + VIDO_SHADOW_CTRL);
