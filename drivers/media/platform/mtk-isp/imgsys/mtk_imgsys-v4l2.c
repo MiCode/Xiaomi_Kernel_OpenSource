@@ -2218,7 +2218,7 @@ static int mtk_imgsys_video_device_v4l2_register(struct mtk_imgsys_pipe *pipe,
 
 	video_set_drvdata(vdev, pipe);
 
-	ret = video_register_device(vdev, VFL_TYPE_VIDEO, -1);
+	ret = video_register_device(vdev, VFL_TYPE_VIDEO, 6);
 	if (ret) {
 		dev_info(pipe->imgsys_dev->dev,
 			"failed to register video device (%d)\n", ret);
