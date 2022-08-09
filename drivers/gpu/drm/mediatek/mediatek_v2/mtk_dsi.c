@@ -7303,11 +7303,8 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 	} else if (fps_chg_index & MODE_DSI_VFP) {
 		DDPINFO("%s, change VFP\n", __func__);
 
-		cmdq_pkt_clear_event(handle,
-				mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
-
 		cmdq_pkt_wait_no_clear(handle,
-			mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
+			mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
 		comp = mtk_ddp_comp_request_output(mtk_crtc);
 
 		if (!comp) {
