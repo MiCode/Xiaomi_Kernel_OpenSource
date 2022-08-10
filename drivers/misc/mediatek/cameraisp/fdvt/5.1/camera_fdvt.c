@@ -1069,6 +1069,19 @@ void *aie_get_va(struct dma_buf *my_dma_buf)
 	return buf_ptr;
 }
 
+int aie_result_dmabuf2fd(void)
+{
+	int file_desp = 0;
+
+	file_desp = dma_buf_fd(fdvt_sec_dma.FDResultBuf_MVA.dmabuf, O_CLOEXEC);
+
+	if (file_desp < 0) {
+		log_err("[ERR]fd_buffer: %x", file_desp);
+		return -EFAULT;
+	}
+	return file_desp;
+}
+
 static void aie_free_dmabuf(struct imem_buf_info *bufinfo)
 {
 	if (bufinfo->dmabuf) {
@@ -3176,6 +3189,7 @@ static long FDVT_ioctl(struct file *pFile,
 	unsigned long flags;
 	struct FDVT_REQUEST_STRUCT *request;
 	spinlock_t *spinlock_lrq_ptr; /* spinlock for irq */
+	int fd_buffer = 0;
 
 	spinlock_lrq_ptr = &fdvt_info.spinlock_irq[FDVT_IRQ_TYPE_INT_FDVT_ST];
 
@@ -3529,11 +3543,13 @@ static long FDVT_ioctl(struct file *pFile,
 				request->fdvt_frame_status
 					[request->frame_rd_idx]) {
 				if (request->frame_config[request->frame_rd_idx].FDVT_IS_SECURE &&
-		  request->frame_config[request->frame_rd_idx].FDVT_METADATA_TO_GCE.SecMemType == 1)
-					copy_to_user(
-					request->frame_config[request->frame_rd_idx].FDVT_IMG_Y_VA,
-					fdvt_sec_dma.FDResultBuf_MVA.va,
-	request->frame_config[request->frame_rd_idx].FDVT_METADATA_TO_GCE.FDResultBufSize);
+		request->frame_config[request->frame_rd_idx].FDVT_METADATA_TO_GCE.SecMemType == 1) {
+					fd_buffer = aie_result_dmabuf2fd();
+					request->frame_config[request->frame_rd_idx].FDVT_IMG_Y_FD =
+							fd_buffer; /*ResultMVA_FD*/
+				}
+
+
 				memcpy(&fdvt_FdvtConfig,
 				       &request->frame_config
 						[request->frame_rd_idx],
@@ -3623,11 +3639,12 @@ static long FDVT_ioctl(struct file *pFile,
 						== FDVT_FRAME_STATUS_FINISHED) {
 					if (request->frame_config
 					    [request->frame_rd_idx].FDVT_IS_SECURE &&
-		request->frame_config[request->frame_rd_idx]. FDVT_METADATA_TO_GCE.SecMemType == 1)
-						copy_to_user(
-				(void *)request->frame_config[request->frame_rd_idx].FDVT_IMG_Y_VA,
-				fdvt_sec_dma.FDResultBuf_MVA.va,
-	request->frame_config[request->frame_rd_idx].FDVT_METADATA_TO_GCE.FDResultBufSize);
+	       request->frame_config[request->frame_rd_idx]. FDVT_METADATA_TO_GCE.SecMemType == 1) {
+						fd_buffer = aie_result_dmabuf2fd();
+						request->frame_config
+				[request->frame_rd_idx].FDVT_IMG_Y_FD = fd_buffer; /*ResultMVA_FD*/
+					}
+
 					memcpy(&fdvt_deq_req
 						.frame_config[idx],
 						&request->frame_config
