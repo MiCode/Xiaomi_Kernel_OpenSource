@@ -1173,7 +1173,7 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, bool is_check_ts)
 		if (mtk_cam_mraw_is_vf_on(mraw_dev) &&
 			(buf_entry->s_data->req->pipe_used &
 			(1 << ctx->mraw_pipe[i]->id)) && is_check_ts) {
-			if (buf_entry->is_stagger == 0) {
+			if (buf_entry->is_stagger == 1 && STAGGER_CQ_LAST_SOF == 0) {
 				if ((buf_entry->ts_mraw == 0) ||
 					((buf_entry->ts_mraw < buf_entry->ts_raw) &&
 					((buf_entry->ts_raw - buf_entry->ts_mraw) > 3000000))) {
