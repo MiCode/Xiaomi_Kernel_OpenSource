@@ -544,7 +544,7 @@ static int panel_ata_check(struct drm_panel *panel)
 {
 	struct lcm *ctx = panel_to_lcm(panel);
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
-	unsigned char data[3];
+	unsigned char data[3] = {0, 0, 0};
 	unsigned char id[3] = {0x00, 0x80, 0x00};
 	ssize_t ret;
 
