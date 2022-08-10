@@ -68,6 +68,8 @@ struct mtk_ccd {
 	struct rproc_subdev *rpmsg_subdev;
 	struct ccd_master_status master_status;
 	struct mtk_ccd_memory *ccd_memory;
+
+	struct mutex *ccd_open_mutex;
 };
 
 /**
