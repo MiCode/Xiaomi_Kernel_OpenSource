@@ -986,10 +986,12 @@ STOP_SCAN:
 
 		if (mtk_cam_s_data_set_buf_state(s_data_pipe, buf_state)) {
 			/* handle vb2_buffer_done */
+			dev_dbg(ctx->cam->dev,
+				"%s:%s:pipe(%d) return request",
+				__func__, req->req.debug_str, pipe_id);
 			if (mtk_cam_req_put(req, pipe_id))
 				dev_dbg(ctx->cam->dev,
-					"%s:%s:pipe(%d) return request",
-					__func__, req->req.debug_str, pipe_id);
+				"%s return request put success", __func__);
 		}
 	}
 
