@@ -484,7 +484,8 @@ int mtk_drm_idlemgr_init(struct drm_crtc *crtc, int index)
 
 	wake_up_process(idlemgr->idlemgr_task);
 
-	snprintf(name, LEN, "dis_ki-%d", index);
+	if (snprintf(name, LEN, "dis_ki-%d", index) < 0)
+		DDPPR_ERR("%s:%d snprintf fail\n", __func__, __LINE__);
 	idlemgr->kick_task =
 		kthread_create(mtk_drm_async_kick_idlemgr_thread, crtc, name);
 	init_waitqueue_head(&idlemgr->kick_wq);
