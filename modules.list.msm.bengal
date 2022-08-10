@@ -45,6 +45,7 @@ pinctrl-khaje.ko
 pinctrl-bengal.ko
 qnoc-bengal.ko
 ns.ko
+nvmem_qfprom.ko
 nvmem_qcom-spmi-sdam.ko
 phy-qcom-ufs.ko
 phy-qcom-ufs-qmp-v4-khaje.ko
@@ -72,3 +73,7 @@ ufs_qcom.ko
 arm_smmu.ko
 mem-offline.ko
 sdhci-msm.ko
+msm_rtb.ko
+rproc_qcom_common.ko
+qcom_glink_spss.ko
+usbpd.ko
