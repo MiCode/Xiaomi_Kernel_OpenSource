@@ -37,6 +37,10 @@
 #include <linux/sched/clock.h>
 #endif
 
+#ifdef CONFIG_ALARMTIMER_DEBUG
+#include <asm/current.h>
+#endif
+
 
 /**
  * struct alarm_base - Alarm timer bases
@@ -174,7 +178,8 @@ static void alarmtimer_enqueue(struct alarm_base *base, struct alarm *alarm)
 #ifdef CONFIG_ALARMTIMER_DEBUG
 	if (__ratelimit(&ratelimit)) {
 		ratelimit.begin = jiffies;
-		pr_notice("%s, %lld\n", __func__, alarm->node.expires);
+		pr_notice("[%d:%s], %s, %lld\n", current->pid, current->comm,
+			__func__, alarm->node.expires);
 	}
 #endif
 	timerqueue_add(&base->timerqueue, &alarm->node);

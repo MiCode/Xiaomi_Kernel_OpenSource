@@ -183,5 +183,13 @@ config MTK_TICK_BROADCAST_DEBUG
 	  Say Y in eng/userdebug build.
 	  If unsure, say N.
 
+config ALARMTIMER_DEBUG
+	bool "alarmtimer Debug"
+	help
+	  This option enables alarmtimer debug log. The log can get
+	  the alarm which be set before suspend, and get the name of
+	  user which set the alarm. Open the option if you need the
+	  information.
+
 endmenu
 endif
