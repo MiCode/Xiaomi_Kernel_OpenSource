@@ -139,23 +139,18 @@ int mt6789_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 	unsigned int rate = runtime->rate;
 	int fs;
 	int ret = 0;
-
-	if (!in_interrupt())
-		dev_info(afe->dev,
-			 "%s(), %s cmd %d, irq_id %d, is_afe_need_triggered %d, no_period_wakeup %d\n",
-			 __func__, memif->data->name, cmd, irq_id,
-			 is_afe_need_triggered(memif),
-			 runtime->no_period_wakeup);
+	unsigned int value = 0;
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 		if (is_afe_need_triggered(memif)) {
 			ret = mtk_memif_set_enable(afe, id);
+			regmap_read(afe->regmap, memif->data->enable_reg, &value);
 			if (ret) {
 				dev_err(afe->dev,
 					"%s(), error, id %d, memif enable, ret %d\n",
 					__func__, id, ret);
-				return ret;
+				break;
 			}
 		}
 
@@ -178,8 +173,10 @@ int mt6789_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 
 		/* set irq fs */
 		fs = afe->irq_fs(substream, runtime->rate);
-		if (fs < 0)
-			return -EINVAL;
+		if (fs < 0) {
+			ret = -EINVAL;
+			break;
+		}
 
 		mtk_regmap_update_bits(afe->regmap, irq_data->irq_fs_reg,
 				   irq_data->irq_fs_maskbit,
@@ -188,7 +185,7 @@ int mt6789_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		if (!runtime->no_period_wakeup)
 			mtk_irq_set_enable(afe, irq_data, id);
 
-		return 0;
+		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 		if (afe_priv->xrun_assert[id] > 0) {
@@ -205,6 +202,7 @@ int mt6789_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 
 		if (is_afe_need_triggered(memif)) {
 			ret = mtk_memif_set_disable(afe, id);
+			regmap_read(afe->regmap, memif->data->enable_reg, &value);
 			if (ret) {
 				dev_err(afe->dev,
 					"%s(), error, id %d, memif enable, ret %d\n",
@@ -220,11 +218,19 @@ int mt6789_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 			regmap_write(afe->regmap, irq_data->irq_clr_reg,
 				     1 << irq_data->irq_clr_shift);
 		}
-
-		return ret;
+		break;
 	default:
-		return -EINVAL;
+		ret = -EINVAL;
 	}
+
+	if (!in_interrupt())
+		dev_info(afe->dev,
+			 "%s, %s cmd %d, irq %d, need_triggered %d, wakeup %d enable: 0x%x, bit_banding = %d\n",
+			 __func__, memif->data->name, cmd, irq_id,
+			 is_afe_need_triggered(memif),
+			 runtime->no_period_wakeup, value, afe->is_memif_bit_banding);
+
+	return ret;
 }
 
 static int mt6789_memif_fs(struct snd_pcm_substream *substream,
