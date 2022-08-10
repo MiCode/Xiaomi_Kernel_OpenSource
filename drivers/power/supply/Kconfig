@@ -188,6 +188,15 @@ config BATTERY_MT6359P
 	  battery information , It issues interrupt when trigger
 	  threshold is met.
 
+config BATTERY_MM8013
+	tristate "MM8013 gauge ic support"
+	default m
+	help
+	  Say Y to enable support for MM8013 gauge driver.
+	  it measure battery current and temperature to provide
+	  battery information, It issues interrupt when trigger
+	  threshold is met.
+
 config BATTERY_PMU
 	tristate "Apple PMU battery"
 	depends on PPC32 && ADB_PMU
