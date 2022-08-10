@@ -156,8 +156,9 @@ static int lcm_unprepare(struct drm_panel *panel)
 	if (!ctx->prepared)
 		return 0;
 
-	lcm_dsi_write(ctx, TYPE_DCS, sleep_in, 1);
 	lcm_dsi_write(ctx, TYPE_DCS, disp_off, 1);
+	msleep(20);
+	lcm_dsi_write(ctx, TYPE_DCS, sleep_in, 1);
 	msleep(120);
 	gpiod_direction_output(ctx->tp_1v8_en, 0);//1.8v
 	msleep(20);
@@ -180,17 +181,17 @@ static int lcm_prepare(struct drm_panel *panel)
 		return 0;
 
 	gpiod_direction_output(ctx->switch_en, 0);
-	msleep(20);
+	usleep_range(10 * 1000, 15 * 1000);
 	gpiod_direction_output(ctx->tp_1v8_en, 1);//1.8v
-	msleep(20);
+	usleep_range(10 * 1000, 15 * 1000);
 	gpiod_direction_output(ctx->mt6373_io11, 1);//3.3v
 
 	gpiod_direction_output(ctx->reset_gpio, 1);
-	msleep(20);
+	usleep_range(5 * 1000, 5 * 1000);
 	gpiod_direction_output(ctx->reset_gpio, 0);
-	msleep(20);
+	usleep_range(15 * 1000, 15 * 1000);
 	gpiod_direction_output(ctx->reset_gpio, 1);
-	msleep(60);
+	usleep_range(60 * 1000, 60 * 1000);
 
 	lcm_panel_init(ctx);
 
