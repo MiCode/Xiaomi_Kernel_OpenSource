@@ -5094,7 +5094,7 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 	rop.reg = false;
 	rop.idx = var2;
 
-	if (crtc_id > 1) {
+	if (crtc_id == 2) {
 		DDPPR_ERR("%s:%d invalid crtc:%ld\n",
 			__func__, __LINE__, crtc_id);
 		return;
@@ -5231,6 +5231,9 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 			else
 				cmdq_pkt_wfe(cmdq_handle,
 					 mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
+		} else {
+			cmdq_pkt_wfe(cmdq_handle,
+			     mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
 		}
 
 		/* sw workaround to fix gce hw bug */
@@ -7202,7 +7205,8 @@ static void mtk_drm_crtc_release_fence(struct drm_crtc *crtc)
 
 	/* release present fence */
 	if (MTK_SESSION_TYPE(session_id) == MTK_SESSION_PRIMARY ||
-			MTK_SESSION_TYPE(session_id) == MTK_SESSION_EXTERNAL) {
+			MTK_SESSION_TYPE(session_id) == MTK_SESSION_EXTERNAL ||
+			MTK_SESSION_TYPE(session_id) == MTK_SESSION_SP) {
 		mtk_drm_suspend_release_present_fence(crtc->dev->dev, id);
 		mtk_drm_suspend_release_sf_present_fence(crtc->dev->dev, id);
 	}
@@ -10705,6 +10709,8 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		mtk_crtc->layer_nr = EXTERNAL_INPUT_LAYER_NR;
 	else if (pipe == 2)
 		mtk_crtc->layer_nr = MEMORY_INPUT_LAYER_NR;
+	else if (pipe == 3)
+		mtk_crtc->layer_nr = SP_INPUT_LAYER_NR;
 
 	mutex_init(&mtk_crtc->lock);
 	mutex_init(&mtk_crtc->cwb_lock);
@@ -12526,6 +12532,8 @@ char *mtk_crtc_index_spy(int crtc_index)
 		return "E";
 	case 2:
 		return "M";
+	case 3:
+		return "N";
 	default:
 		return "Unknown";
 	}

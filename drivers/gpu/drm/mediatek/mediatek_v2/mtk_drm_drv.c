@@ -438,7 +438,7 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 	struct drm_plane_state *old_plane_state;
 	struct drm_crtc *crtc = NULL;
 	struct drm_crtc_state *old_crtc_state;
-	int i;
+	int i, j;
 	struct mtk_rect dst_layer_roi = {0};
 	struct mtk_rect dst_total_roi[MAX_CRTC] = {0};
 	struct mtk_rect src_layer_roi = {0};
@@ -446,7 +446,7 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 	bool rsz_enable[MAX_CRTC] = {false};
 	struct mtk_plane_comp_state comp_state[MAX_CRTC][OVL_LAYER_NR] = {0};
 
-	for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, i) {
+	for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, j) {
 		struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
 		for (i = 0 ; i < mtk_crtc->layer_nr; i++) {
@@ -476,8 +476,10 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 			idx = i;
 		else if (i < (OVL_LAYER_NR + EXTERNAL_INPUT_LAYER_NR))
 			idx = i - OVL_LAYER_NR;
-		else
+		else if (i < (OVL_LAYER_NR + EXTERNAL_INPUT_LAYER_NR + SP_INPUT_LAYER_NR))
 			idx = i - (OVL_LAYER_NR + EXTERNAL_INPUT_LAYER_NR);
+		else
+			idx = i - (OVL_LAYER_NR + EXTERNAL_INPUT_LAYER_NR + SP_INPUT_LAYER_NR);
 
 		if (comp_state[drm_crtc_index(crtc)][idx].layer_caps
 			& MTK_DISP_RSZ_LAYER) {
@@ -1858,8 +1860,11 @@ static const enum mtk_ddp_comp_id mt6983_mtk_ddp_ext_dp[] = {
 };
 
 static const enum mtk_ddp_comp_id mt6983_mtk_ddp_ext_dsi[] = {
-	DDP_COMPONENT_OVL2_2L_NWCG,
-	DDP_COMPONENT_OVL2_2L_NWCG_VIRTUAL0, DDP_COMPONENT_RDMA3,
+	DDP_COMPONENT_OVL0_2L_NWCG,
+	DDP_COMPONENT_OVL0_2L_NWCG_VIRTUAL0, DDP_COMPONENT_RDMA1,
+	DDP_COMPONENT_TV0_VIRTUAL,
+	DDP_COMPONENT_DLO_ASYNC2, DDP_COMPONENT_DLI_ASYNC6,
+	DDP_COMPONENT_MERGE1,
 	DDP_COMPONENT_MAIN1_VIRTUAL,
 	DDP_COMPONENT_DSI1,
 };
@@ -3272,6 +3277,7 @@ static const struct mtk_mmsys_driver_data mt6983_mmsys_driver_data = {
 	.ext_path_data = &mt6983_mtk_ext_path_data,
 	.ext_alter_path_data = &mt6983_mtk_ext_dsi_path_data,
 	.third_path_data = &mt6983_mtk_third_path_data,
+	.fourth_path_data = &mt6983_mtk_ext_dsi_path_data,
 	.fake_eng_data = &mt6983_fake_eng_data,
 	.mmsys_id = MMSYS_MT6983,
 	.mode_tb = mt6983_mode_tb,
@@ -4347,6 +4353,9 @@ int mtk_drm_get_info_ioctl(struct drm_device *dev, void *data,
 		return ret;
 	} else if (s_type == MTK_SESSION_MEMORY) {
 		return ret;
+	} else if (s_type == MTK_SESSION_SP) {
+		ret = mtk_drm_get_panel_info(dev, info, 3);
+		return ret;
 	}
 	DDPPR_ERR("invalid session type:0x%08x\n", info->session_id);
 
@@ -4588,6 +4597,10 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 			goto err_component_unbind;
 
 		ret = mtk_drm_crtc_create(drm, private->data->third_path_data);
+		if (ret < 0)
+			goto err_component_unbind;
+
+		ret = mtk_drm_crtc_create(drm, private->data->fourth_path_data);
 		if (ret < 0)
 			goto err_component_unbind;
 	}

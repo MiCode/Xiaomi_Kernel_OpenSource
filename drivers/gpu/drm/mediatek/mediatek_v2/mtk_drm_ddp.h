@@ -115,10 +115,10 @@ struct mtk_mmsys_reg_data {
 	const unsigned int *dispsys_map;
 };
 
-#define MT6983_DUMMY_REG_CNT 56
+#define MT6983_DUMMY_REG_CNT 61
 extern struct dummy_mapping mt6983_dispsys_dummy_register[MT6983_DUMMY_REG_CNT];
 
-#define MT6879_DUMMY_REG_CNT 48
+#define MT6879_DUMMY_REG_CNT 53
 extern struct dummy_mapping mt6879_dispsys_dummy_register[MT6879_DUMMY_REG_CNT];
 
 

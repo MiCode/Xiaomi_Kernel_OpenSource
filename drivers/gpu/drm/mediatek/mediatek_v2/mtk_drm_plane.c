@@ -39,8 +39,10 @@ unsigned int to_crtc_plane_index(unsigned int plane_index)
 		return plane_index;
 	else if (plane_index < (OVL_LAYER_NR + EXTERNAL_INPUT_LAYER_NR))
 		return plane_index - OVL_LAYER_NR;
-	else if (plane_index < MAX_PLANE_NR)
+	else if (plane_index < (OVL_LAYER_NR + EXTERNAL_INPUT_LAYER_NR + MEMORY_INPUT_LAYER_NR))
 		return plane_index - OVL_LAYER_NR - EXTERNAL_INPUT_LAYER_NR;
+	else if (plane_index < MAX_PLANE_NR)
+		return plane_index - OVL_LAYER_NR - EXTERNAL_INPUT_LAYER_NR - MEMORY_INPUT_LAYER_NR;
 	else
 		return 0;
 }
