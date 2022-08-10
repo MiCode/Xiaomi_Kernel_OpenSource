@@ -241,6 +241,7 @@ struct aal_frame_data {
 	struct mml_reuse_offset offs_curve[AAL_LABEL_CNT];
 	bool is_aal_need_readback;
 	bool config_success;
+	bool relay_mode;
 };
 
 static inline struct aal_frame_data *aal_frm_data(struct mml_comp_config *ccfg)
@@ -270,13 +271,18 @@ static s32 aal_buf_prepare(struct mml_comp *comp, struct mml_task *task,
 {
 	struct mml_frame_config *cfg = task->config;
 	struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
+	struct mml_comp_aal *aal = comp_to_aal(comp);
+	struct aal_frame_data *aal_frm = aal_frm_data(ccfg);
 	s32 ret = 0;
 
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s engine_id[%d] en_dre[%d]", __func__, comp->id,
 		   dest->pq_config.en_dre);
 
-	if (dest->pq_config.en_dre)
+	aal_frm->relay_mode = (!(dest->pq_config.en_dre) ||
+		dest->crop.r.width < aal->data->min_tile_width);
+
+	if (!(aal_frm->relay_mode))
 		ret = mml_pq_set_comp_config(task);
 
 	mml_pq_trace_ex_end();
@@ -402,7 +408,7 @@ static s32 aal_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s engine_id[%d] en_dre[%d]", __func__, comp->id, dest->pq_config.en_dre);
-	if (!dest->pq_config.en_dre || dest->crop.r.width < aal->data->min_tile_width) {
+	if (aal_frm->relay_mode) {
 		/* relay mode */
 		aal_relay(pkt, base_pa, 0x1);
 		goto exit;
@@ -531,7 +537,7 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_write(pkt, NULL, base_pa + AAL_OUTPUT_SIZE,
 		(aal_output_w << 16) + aal_output_h, U32_MAX);
 
-	if (!dest->pq_config.en_dre)
+	if (aal_frm->relay_mode)
 		goto exit;
 
 	if (!idx) {
@@ -867,12 +873,13 @@ static s32 aal_config_post(struct mml_comp *comp, struct mml_task *task,
 {
 	struct mml_frame_dest *dest = &task->config->info.dest[ccfg->node->out_idx];
 	struct mml_comp_aal *aal = comp_to_aal(comp);
+	struct aal_frame_data *aal_frm = aal_frm_data(ccfg);
 	bool vcp = aal->data->vcp_readback;
 
 	mml_pq_msg("%s start engine_id[%d] en_dre[%d]", __func__, comp->id,
 			dest->pq_config.en_dre);
 
-	if (!dest->pq_config.en_dre)
+	if (aal_frm->relay_mode)
 		goto exit;
 
 	if (vcp)
@@ -900,7 +907,7 @@ static s32 aal_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s engine_id[%d] en_dre[%d] config_success[%d]", __func__, comp->id,
 			dest->pq_config.en_dre, aal_frm->config_success);
-	if (!dest->pq_config.en_dre)
+	if (aal_frm->relay_mode)
 		goto exit;
 
 	ret = mml_pq_get_comp_config_result(task, AAL_WAIT_TIMEOUT_MS);
@@ -952,7 +959,7 @@ static s32 aal_config_repost(struct mml_comp *comp, struct mml_task *task,
 	mml_pq_msg("%s engine_id[%d] en_dre[%d]", __func__, comp->id,
 			dest->pq_config.en_dre);
 
-	if (!dest->pq_config.en_dre)
+	if (aal_frm->relay_mode)
 		goto exit;
 
 	if (vcp) {
