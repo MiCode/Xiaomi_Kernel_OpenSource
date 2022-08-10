@@ -2969,7 +2969,7 @@ static int mtk_dsi_connector_get_property(struct drm_connector *connector,
 	struct mtk_dsi *dsi = connector_to_dsi(connector);
 	int i;
 
-	for (i = 0; i < PLANE_PROP_MAX; i++) {
+	for (i = 0; i < CONNECTOR_PROP_MAX; i++) {
 		if (dsi->connector_property[i] == property) {
 			*val = dsi->prop_val[i];
 			DDPINFO("get property:%s %lld\n", property->name, *val);
