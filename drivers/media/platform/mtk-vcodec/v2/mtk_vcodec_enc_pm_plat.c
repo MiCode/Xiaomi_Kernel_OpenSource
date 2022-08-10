@@ -38,8 +38,8 @@ static bool mtk_enc_tput_init(struct mtk_vcodec_dev *dev)
 	const int bw_item_num = 2;
 	int i, larb_cnt, ret;
 	struct platform_device *pdev;
-	u32 nmin, nmax;
-	s32 offset;
+	u32 nmin = 0, nmax = 0;
+	s32 offset = 0;
 
 	pdev = dev->plat_dev;
 	larb_cnt = 0;
