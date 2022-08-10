@@ -151,7 +151,7 @@ static struct sleep_stats *a_subsystem_stats;
 /* System sleep stats before and after suspend */
 static struct sleep_stats *b_system_stats;
 static struct sleep_stats *a_system_stats;
-bool ddr_freq_update;
+static bool ddr_freq_update;
 static DEFINE_MUTEX(sleep_stats_mutex);
 
 static int stats_data_open(struct inode *inode, struct file *file)
