@@ -1635,6 +1635,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		goto err;
 
 	if (oldcard) {
+		trace_android_vh_mmc_ffu_update_cid(host, oldcard, cid);
 		if (memcmp(cid, oldcard->raw_cid, sizeof(cid)) != 0) {
 			pr_debug("%s: Perhaps the card was replaced\n",
 				mmc_hostname(host));

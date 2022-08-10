@@ -44,6 +44,9 @@ DECLARE_HOOK(android_vh_sdhci_get_cd,
 DECLARE_HOOK(android_vh_mmc_gpio_cd_irqt,
 	TP_PROTO(struct mmc_host *host, bool *allow),
 	TP_ARGS(host, allow));
+DECLARE_HOOK(android_vh_mmc_ffu_update_cid,
+	TP_PROTO(struct mmc_host *host, struct mmc_card *card, u32 *cid),
+	TP_ARGS(host, card, cid));
 
 DECLARE_RESTRICTED_HOOK(android_rvh_mmc_cache_card_properties,
 	TP_PROTO(struct mmc_host *host),
