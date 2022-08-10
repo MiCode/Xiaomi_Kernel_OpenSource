@@ -239,7 +239,7 @@ static int lcm_enable(struct drm_panel *panel)
 #define PLL_CLOCK (450)
 
 static const struct drm_display_mode default_mode = {
-	.clock			= 335340,
+	.clock			= 771138,
 	.hdisplay		= HACT,
 	.hsync_start	= HACT + HFP,
 	.hsync_end		= HACT + HFP + HSA,
