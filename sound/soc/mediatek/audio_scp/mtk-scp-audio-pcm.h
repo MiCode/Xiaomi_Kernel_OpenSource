@@ -44,4 +44,7 @@ void scp_aud_ipi_handler(struct mtk_scp_audio_base *scp_aud,
 int get_scene_by_daiid(int id);
 int mtk_get_ipi_buf_scene_rv(void);
 int send_task_sharemem_to_scp(struct mtk_scp_audio_base *scp_audio, int daiid);
+int scp_audio_pcm_recover_event(struct notifier_block *this,
+				  unsigned long event,
+				  void *ptr);
 #endif

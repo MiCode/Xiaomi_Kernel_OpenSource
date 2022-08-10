@@ -133,9 +133,6 @@ int mtk_scp_audio_init_mem(void)
 		 paddr,
 		 vaddr,
 		 task_base->msg_dtoa_share_buf.size);
-
-	send_task_sharemem_to_scp(scp_audio, SCP_AUD_TASK_SPK_PROCESS_ID);
-
 	dev_info(scp_audio->dev,
 		 "%s(), scp reserve mem pa=0x%llx, va=0x%llx, size=0x%llx\n",
 		 __func__,
@@ -338,7 +335,7 @@ int scp_audio_dram_release(struct device *dev)
 	scp_audio->dram_resource_counter--;
 
 	if (scp_audio->dram_resource_counter < 0) {
-		dev_warn(dev, "%s(), dsp_dram_resource_counter %d\n",
+		dev_info(dev, "%s(), scp_audio_dram_resource_counter %d\n",
 			 __func__, scp_audio->dram_resource_counter);
 		scp_audio->dram_resource_counter = 0;
 	}

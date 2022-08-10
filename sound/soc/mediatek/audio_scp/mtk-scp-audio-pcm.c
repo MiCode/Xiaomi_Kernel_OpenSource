@@ -51,7 +51,6 @@ int scp_audio_dai_register(struct platform_device *pdev, struct mtk_scp_audio_ba
 	return 0;
 };
 
-
 int scp_set_audio_afe(struct mtk_base_afe *afe)
 {
 	audio_afe = afe;
@@ -188,7 +187,7 @@ int mtk_scp_audio_ipi_send(int task_scene, int data_type, int ack_type,
 	memset((void *)&ipi_msg, 0, sizeof(struct ipi_msg_t));
 
 	if (!is_audio_task_dsp_ready(task_scene)) {
-		pr_info("%s(), is_adsp_ready send false\n", __func__);
+		pr_info("%s(), is_scp_ready send false\n", __func__);
 		return -1;
 	}
 
@@ -249,7 +248,7 @@ int send_task_sharemem_to_scp(struct mtk_scp_audio_base *scp_audio, int daiid)
 		return -1;
 	}
 
-	/* send share message to adsp side */
+	/* send share message to scp side */
 	memcpy((void *)task_base->ipi_payload_buf,
 	       (void *)&task_base->msg_atod_share_buf,
 	       sizeof(struct audio_dsp_dram));
@@ -402,17 +401,15 @@ int afe_pcm_ipi_to_scp(int command, struct snd_pcm_substream *substream,
 	switch (command) {
 	case AUDIO_DSP_TASK_PCM_HWPARAM:
 	case AUDIO_DSP_TASK_PCM_PREPARE:
+		/* send to task with hw_param information, buffer and pcm attribute
+		 * or send to task with prepare status
+		 */
+
 		set_aud_buf_attr(audio_hwbuf,
 				 substream,
 				 params,
 				 memif->irq_usage,
 				 dai);
-
-		send_task_sharemem_to_scp(get_scp_audio_base(), daiid);
-
-		/* send to task with hw_param information, buffer and pcm attribute
-		 * or send to task with prepare status
-		 */
 		ret = mtk_scp_audio_ipi_send(get_scene_by_daiid(daiid),
 				       AUDIO_IPI_PAYLOAD,
 				       AUDIO_IPI_MSG_NEED_ACK,
@@ -445,6 +442,41 @@ int afe_pcm_ipi_to_scp(int command, struct snd_pcm_substream *substream,
 	return ret;
 }
 EXPORT_SYMBOL_GPL(afe_pcm_ipi_to_scp);
+
+int mtk_reinit_scp_audio(void)
+{
+	int ret = 0, scene = 0, daiid = 0;
+
+	for (daiid = 0; daiid < SCP_AUD_TASK_DAI_NUM; daiid++) {
+		send_task_sharemem_to_scp(get_scp_audio_base(), daiid);
+		scene = get_scene_by_daiid(daiid);
+		ret = mtk_scp_audio_ipi_send(scene, AUDIO_IPI_MSG_ONLY,
+					     AUDIO_IPI_MSG_BYPASS_ACK,
+					     AUDIO_DSP_TASK_RESET,
+					     0, 0, NULL);
+		pr_info("%s scene = %d\n", __func__, scene);
+	}
+	return 0;
+}
+
+int scp_audio_pcm_recover_event(struct notifier_block *this,
+				  unsigned long event,
+				  void *ptr)
+{
+	switch (event) {
+	case SCP_EVENT_READY: {
+		pr_info("%s(), SCP_EVENT_READY\n", __func__);
+		mtk_reinit_scp_audio();
+		rv_standby_flag = 0;
+		break;
+	}
+	case SCP_EVENT_STOP:
+		rv_standby_flag = 1;
+		pr_info("%s(), SCP_EVENT_STOP\n", __func__);
+		break;
+	}
+	return NOTIFY_DONE;
+}
 
 void init_scp_spk_process_enable(int enable_flag)
 {
@@ -1112,7 +1144,7 @@ static int mtk_scp_audio_pcm_copy(struct snd_soc_component *component,
 	}
 
 	if (is_audio_task_dsp_ready(TASK_SCENE_RV_SPK_PROCESS) == false) { //TODO not fix
-		pr_info("%s(), dsp not ready", __func__);
+		pr_info("%s(), scp not ready", __func__);
 		return -1;
 	}
 
@@ -1353,7 +1385,7 @@ void scp_aud_ipi_handler(struct mtk_scp_audio_base *scp_aud,
 		return;
 
 	if (!is_audio_task_dsp_ready(ipi_msg->task_scene)) {
-		pr_info("%s(), is_adsp_ready send false\n", __func__);
+		pr_info("%s(), is_scp_ready send false\n", __func__);
 		return;
 	}
 
@@ -1389,7 +1421,7 @@ void scp_audio_pcm_ipi_recv(struct ipi_msg_t *ipi_msg)
 	}
 
 	if (!is_audio_task_dsp_ready(ipi_msg->task_scene)) {
-		pr_info("%s(), is_adsp_ready send false\n", __func__);
+		pr_info("%s(), is_scp_ready send false\n", __func__);
 		return;
 	}
 
@@ -1436,7 +1468,7 @@ static snd_pcm_uframes_t mtk_scp_audio_pcm_pointer_dl
 		return 0;
 	}
 #ifdef DEBUG_VERBOSE
-	dump_rbuf_s("-mtk_dsphw_pcm_pointer_dl", &task_base->ring_buf);
+	dump_rbuf_s("-mtk_scphw_pcm_pointer_dl", &task_base->ring_buf);
 #endif
 
 	/* handle for underflow */

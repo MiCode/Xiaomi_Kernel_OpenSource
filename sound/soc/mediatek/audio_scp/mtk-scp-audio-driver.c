@@ -72,9 +72,11 @@ static int scp_user_event_notify(struct notifier_block *nb,
 
 	switch (event) {
 	case SCP_EVENT_STOP:
+		pr_info("%s(), SCP_EVENT_STOP\n", __func__);
 		ret = kobject_uevent(&dev->kobj, KOBJ_OFFLINE);
 		break;
 	case SCP_EVENT_READY:
+		pr_info("%s(), SCP_EVENT_READY\n", __func__);
 		ret = kobject_uevent(&dev->kobj, KOBJ_ONLINE);
 		break;
 	default:
@@ -92,6 +94,9 @@ struct notifier_block scp_uevent_notifier = {
 	.notifier_call = scp_user_event_notify,
 };
 
+static struct notifier_block scp_audio_recover_notifier = {
+	.notifier_call = scp_audio_pcm_recover_event,
+};
 
 static int scp_audio_dev_probe(struct platform_device *pdev)
 {
@@ -158,6 +163,7 @@ static int scp_audio_dev_probe(struct platform_device *pdev)
 		return -1;
 	}
 
+	scp_A_register_notify(&scp_audio_recover_notifier);
 	scp_A_register_notify(&scp_uevent_notifier);
 
 	pr_info("%s done, ret:%d\n", __func__, ret);
