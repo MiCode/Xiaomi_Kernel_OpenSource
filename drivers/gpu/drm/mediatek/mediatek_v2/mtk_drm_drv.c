@@ -4504,9 +4504,11 @@ size_t mtk_gce_get_dummy_table(unsigned int mmsys_id,
 {
 	size_t size = 0;
 
-	if ((mmsys_id == MMSYS_MT6983) ||
-		(mmsys_id == MMSYS_MT6895)) {
+	if (mmsys_id == MMSYS_MT6983) {
 		*table = mt6983_dispsys_dummy_register;
+		size = MT6983_DUMMY_REG_CNT;
+	} else if (mmsys_id == MMSYS_MT6895) {
+		*table = mt6895_dispsys_dummy_register;
 		size = MT6983_DUMMY_REG_CNT;
 	} else if (mmsys_id == MMSYS_MT6879) {
 		*table = mt6879_dispsys_dummy_register;
