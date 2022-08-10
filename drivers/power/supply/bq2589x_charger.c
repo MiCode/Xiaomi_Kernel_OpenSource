@@ -199,6 +199,7 @@ static int bq2589x_disable_otg(struct bq2589x *bq)
 	return bq2589x_update_bits(bq, BQ2589X_REG_03,
 				   BQ2589X_OTG_CONFIG_MASK, val);
 }
+#if 0
 
 static int bq2589x_enable_hvdcp(struct bq2589x *bq)
 {
@@ -210,6 +211,8 @@ static int bq2589x_enable_hvdcp(struct bq2589x *bq)
 	return ret;
 }
 //EXPORT_SYMBOL_GPL(bq2589x_enable_hvdcp);
+
+#endif
 
 static int bq2589x_disable_hvdcp(struct bq2589x *bq)
 {
@@ -1053,15 +1056,14 @@ static void bq2589x_read_byte_work(struct work_struct *work)
 {
 	int ret;
 	u8 reg_val;
-	bool prev_pg;
+	bool prev_pg = 0;
 	bool prev_sc_pd;
-	int prev_chg_type = POWER_SUPPLY_TYPE_UNKNOWN;
 	struct bq2589x *bq = container_of(work, struct bq2589x, read_byte_work.work);
 
 	pr_info("%s:%d: start\n", __func__, __LINE__);
 
 	prev_pg = bq->power_good;
-	Charger_Detect_Init();
+
 	if (bq->part_no == pn_data[PN_SC89890H]) {
 		ret = bq2589x_read_byte(bq, BQ2589X_REG_11, &reg_val);
 		if (ret)
@@ -1081,9 +1083,32 @@ static void bq2589x_read_byte_work(struct work_struct *work)
 		pr_info("%s 0x0B = %X, bq->power_good = %d, prev_pg = %d\n",__func__, reg_val, bq->power_good, prev_pg);
 		bq2589x_dump_regs(bq);
 	}
-	Charger_Detect_Release();
-	pr_info("%s:%d: bq->power_good (%d)\n", __func__, __LINE__, bq->power_good );
+	pr_info("%s: %d: bq->power_good(%d), prev_pg(%d)\n", __func__, __LINE__, bq->power_good, prev_pg);
 
+	if (!prev_pg && bq->power_good) {
+		pr_err("%s, plug in\n", __func__);
+		ret = bq2589x_get_usb_type(bq, &bq->psy_usb_type);
+		if (bq->psy_desc.type != POWER_SUPPLY_TYPE_USB_DCP) {
+			Charger_Detect_Release();
+			bq->dpdm = 0;
+		}
+	} else if (prev_pg && !(bq->power_good)) {
+		pr_err("%s, plug out\n", __func__);
+		bq->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
+		bq->psy_usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
+	} else if (prev_pg == bq->power_good) {
+		pr_err("%s, plug not change\n", __func__);
+		goto out;
+	}
+
+	if (bq->dpdm && (bq->psy_desc.type != POWER_SUPPLY_TYPE_USB_DCP)) {
+		bq->dpdm = 0;
+		Charger_Detect_Release();
+	}
+
+out:
+	power_supply_changed(bq->psy);
+	pr_info("%s: bq->psy_desc.type(%d), bq->psy_usb_type(%d)\n", __func__, bq->psy_desc.type, bq->psy_usb_type);
 #if 0
 	pr_info("%s bq->power_good %d  prev_pg %d\n",__func__, bq->power_good, prev_pg);
 	if (bq->part_no == pn_data[PN_SC89890H]) {
@@ -1113,7 +1138,7 @@ static void bq2589x_read_byte_work(struct work_struct *work)
 		}
 
 	}
-#endif
+
 	if (bq->part_no == pn_data[PN_SC89890H] && !prev_sc_pd && bq->sc_power_good) {
 		prev_chg_type = bq->psy_desc.type;
 		ret = bq2589x_get_usb_type(bq, &bq->psy_usb_type);
@@ -1122,7 +1147,7 @@ static void bq2589x_read_byte_work(struct work_struct *work)
 		if (bq->psy_desc.type == POWER_SUPPLY_TYPE_USB_DCP) {
 			if (prev_chg_type != POWER_SUPPLY_TYPE_USB_DCP) {
 				bq2589x_enable_hvdcp(bq);
-				bq2589x_force_dpdm(bq);
+				//bq2589x_force_dpdm(bq);
 			}
 		}
 	} else if (bq->part_no != pn_data[PN_SC89890H]) {
@@ -1134,9 +1159,13 @@ static void bq2589x_read_byte_work(struct work_struct *work)
 			}
 		}
 	}
+
+	if (bq->psy_desc.type != POWER_SUPPLY_TYPE_USB_DCP)
+		Charger_Detect_Release();
+
 	power_supply_changed(bq->psy);
 	pr_info("%s:%d: psy_desc.type(%d)\n", __func__, __LINE__, bq->psy_desc.type);
-
+#endif
 	return;
 }
 
@@ -1175,6 +1204,8 @@ static int bq2589x_init_device(struct bq2589x *bq)
 {
 	int ret;
 
+	bq->attach = 0;
+	bq->power_good = 0;
 	bq2589x_disable_watchdog_timer(bq);
 
     if (bq->part_no == pn_data[PN_SC89890H]) {
@@ -1802,11 +1833,22 @@ static int bq2589x_chg_set_property(struct power_supply *psy,
 				   const union power_supply_propval *val)
 {
 	int ret = 0;
+	int prev_attach;
+
 	struct bq2589x *bq = power_supply_get_drvdata(psy);
 	mt_dbg(bq->dev, "psp=%d\n", psp);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		 bq2589x_force_dpdm(bq);
+		prev_attach = bq->attach;
+		bq->attach = val->intval;
+		if (!prev_attach && bq->attach) {
+			Charger_Detect_Init();
+			bq2589x_force_dpdm(bq);
+			bq->dpdm = 1;
+		} else if (prev_attach && !(bq->attach)) {
+			schedule_delayed_work(&(bq->read_byte_work), 0);
+		}
+		pr_info("%s, bq->attach(%d), prev_attach(%d)\n", __func__, bq->attach, prev_attach);
 		break;
 	case POWER_SUPPLY_PROP_STATUS:
               ret = val->intval ? bq2589x_enable_charger(bq) : bq2589x_disable_charger(bq);
@@ -2074,11 +2116,9 @@ static int bq2589x_charger_probe(struct i2c_client *client,
 		pr_info("Failed to init device\n");
 		return ret;
 	}
+
 	bq2589x_register_interrupt(bq);
 	INIT_DELAYED_WORK(&bq->read_byte_work, bq2589x_read_byte_work);
-	bq2589x_force_dpdm(bq);
-	schedule_delayed_work(&(bq->read_byte_work), 0);
-
 	bq->chg_dev = charger_device_register(bq->chg_dev_name,
 					      &client->dev, bq,
 					      &bq2589x_chg_ops,

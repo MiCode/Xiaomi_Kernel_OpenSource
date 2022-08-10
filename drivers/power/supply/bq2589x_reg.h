@@ -450,10 +450,12 @@ struct bq2589x {
 	int otg_en2_pin;
 	int otg_sgm6111_pin;
 	int otg_ocflag_pin;
+	int attach;
 	struct mutex i2c_rw_lock;
 
 	bool charge_enabled;	/* Register bit status */
 	bool power_good;
+	bool dpdm;
 	bool sc_power_good;
 	bool slj_power_good;
 
