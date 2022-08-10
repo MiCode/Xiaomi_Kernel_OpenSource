@@ -1117,8 +1117,10 @@ static int mtk_hp_enable(struct mt6358_priv *priv)
 #endif
 	dev_info(priv->dev, "+%s()\n", __func__);
 
-	/* Pull-down HPL/R to AVSS28_AUD */
-	hp_pull_down(priv, true);
+	if (!priv->pull_down_stay_enable) {
+		/* Pull-down HPL/R to AVSS28_AUD */
+		hp_pull_down(priv, true);
+	}
 	/* release HP CMFB gate rstb */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON4,
 			   0x1 << 6, 0x1 << 6);
@@ -1343,8 +1345,11 @@ static int mtk_hp_disable(struct mt6358_priv *priv)
 	/* Set HP CMFB gate rstb */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON4,
 			   0x1 << 6, 0x0);
-	/* disable Pull-down HPL/R to AVSS28_AUD */
-	hp_pull_down(priv, false);
+
+	if (!priv->pull_down_stay_enable) {
+		/* disable Pull-down HPL/R to AVSS28_AUD */
+		hp_pull_down(priv, false);
+	}
 
 	return 0;
 }
@@ -1378,8 +1383,10 @@ static int mtk_hp_spk_enable(struct mt6358_priv *priv)
 #endif
 	dev_info(priv->dev, "+%s()\n", __func__);
 
-	/* Pull-down HPL/R to AVSS28_AUD */
-	hp_pull_down(priv, true);
+	if (!priv->pull_down_stay_enable) {
+		/* Pull-down HPL/R to AVSS28_AUD */
+		hp_pull_down(priv, true);
+	}
 	/* release HP CMFB gate rstb */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON4,
 			0x1 << 6, 0x1 << 6);
@@ -1649,9 +1656,11 @@ static int mtk_hp_spk_disable(struct mt6358_priv *priv)
 	/* Set HP CMFB gate rstb */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON4,
 			0x1 << 6, 0x0);
-	/* disable Pull-down HPL/R to AVSS28_AUD */
-	hp_pull_down(priv, false);
 
+	if (!priv->pull_down_stay_enable) {
+		/* disable Pull-down HPL/R to AVSS28_AUD */
+		hp_pull_down(priv, false);
+	}
 	return 0;
 }
 
@@ -1687,8 +1696,11 @@ static int mtk_hp_dual_spk_enable(struct mt6358_priv *priv)
 #endif
 	dev_info(priv->dev, "+%s()\n", __func__);
 
-	/* Pull-down HPL/R to AVSS28_AUD */
-	hp_pull_down(priv, true);
+	if (!priv->pull_down_stay_enable) {
+		/* Pull-down HPL/R to AVSS28_AUD */
+		hp_pull_down(priv, true);
+	}
+
 	/* release HP CMFB gate rstb */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON4,
 			0x1 << 6, 0x1 << 6);
@@ -1965,8 +1977,11 @@ static int mtk_hp_dual_spk_disable(struct mt6358_priv *priv)
 	/* Set HP CMFB gate rstb */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON4,
 			0x1 << 6, 0x0);
-	/* disable Pull-down HPL/R to AVSS28_AUD */
-	hp_pull_down(priv, false);
+
+	if (!priv->pull_down_stay_enable) {
+		/* disable Pull-down HPL/R to AVSS28_AUD */
+		hp_pull_down(priv, false);
+	}
 
 	return 0;
 }
@@ -4164,8 +4179,10 @@ static void start_trim_hardware(struct mt6358_priv *priv, bool buffer_on)
 	/* Enable AUDGLB */
 	mt6358_set_aud_global_bias(priv, true);
 
-	/* Pull-down HPL/R to AVSS30_AUD */
-	hp_pull_down(priv, true);
+	if (!priv->pull_down_stay_enable) {
+		/* Pull-down HPL/R to AVSS30_AUD */
+		hp_pull_down(priv, true);
+	}
 
 	/* release HP CMFB gate rstb */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON4,
@@ -4441,8 +4458,10 @@ static void stop_trim_hardware(struct mt6358_priv *priv)
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON4,
 			   0x1 << 6, 0x0);
 
-	/* Disable Pull-down HPL/R to AVSS30_AUD  */
-	hp_pull_down(priv, false);
+	if (!priv->pull_down_stay_enable) {
+		/* Disable Pull-down HPL/R to AVSS30_AUD  */
+		hp_pull_down(priv, false);
+	}
 
 	/* disable AUDGLB */
 	mt6358_set_aud_global_bias(priv, false);
@@ -4465,8 +4484,10 @@ static void start_trim_hardware_with_lo(struct mt6358_priv *priv,
 	/* Enable AUDGLB */
 	mt6358_set_aud_global_bias(priv, true);
 
-	/* Pull-down HPL/R to AVSS30_AUD */
-	hp_pull_down(priv, true);
+	if (!priv->pull_down_stay_enable) {
+		/* Pull-down HPL/R to AVSS30_AUD */
+		hp_pull_down(priv, true);
+	}
 
 	/* release HP CMFB gate rstb */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON4,
@@ -4790,9 +4811,10 @@ static void stop_trim_hardware_with_lo(struct mt6358_priv *priv)
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON4,
 			   0x1 << 6, 0x0);
 
-	/* Disable Pull-down HPL/R to AVSS30_AUD  */
-	hp_pull_down(priv, false);
-
+	if (!priv->pull_down_stay_enable) {
+		/* Disable Pull-down HPL/R to AVSS30_AUD  */
+		hp_pull_down(priv, false);
+	}
 	/* disable AUDGLB */
 	mt6358_set_aud_global_bias(priv, false);
 
@@ -5850,6 +5872,9 @@ static int dc_trim_thread(void *arg)
 {
 	struct mt6358_priv *priv = arg;
 
+	if (priv->pull_down_stay_enable)
+		hp_pull_down(priv, true);
+
 	get_hp_trim_offset(priv, false);
 #if IS_ENABLED(CONFIG_SND_SOC_MT6366_ACCDET) || IS_ENABLED(CONFIG_SND_SOC_MT6358_ACCDET)
 	mt6358_accdet_late_init(0);
@@ -6269,8 +6294,10 @@ static int mt6358_rcv_mic_set(struct snd_kcontrol *kcontrol,
 	/* Disable audio globe bias */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON13,
 			   0x1 << 4, 0x0);
-	/* Pull-down HPL/R to AVSS28_AUD */
-	hp_pull_down(priv, true);
+	if (!priv->pull_down_stay_enable) {
+		/* Pull-down HPL/R to AVSS28_AUD */
+		hp_pull_down(priv, true);
+	}
 	/* release HP CMFB gate rstb */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON4,
 			   0x1 << 6, 0x1 << 6);
@@ -7733,6 +7760,17 @@ static int mt6358_parse_dt(struct mt6358_priv *priv)
 				__func__, ret);
 
 		return ret;
+	}
+
+	/* get priv->pull_down_stay_enable flag */
+	ret = of_property_read_u32(dev->of_node,
+				   "mtk_pull_down_stay_enable",
+				   &priv->pull_down_stay_enable);
+	if (ret) {
+		priv->pull_down_stay_enable = 0;
+		dev_info(dev,
+			"%s(), get pull_down_stay_enable fail, default 0\n",
+			__func__);
 	}
 
 	return 0;
