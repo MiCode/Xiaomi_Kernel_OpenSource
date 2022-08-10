@@ -2150,7 +2150,8 @@ int mtk_cam_sv_dev_config(
 		camsv_dev->pipeline->exp_order = exp_order;
 		camsv_dev->sof_count = 0;
 	} else {
-		dev_sv = mtk_cam_find_sv_dev(cam, ctx->used_sv_dev[idx]);
+		user_ctl_idx = idx % MAX_SV_PIPES_PER_STREAM;
+		dev_sv = mtk_cam_find_sv_dev(cam, ctx->used_sv_dev[user_ctl_idx]);
 		if (dev_sv == NULL) {
 			dev_dbg(dev, "config camsv device not found\n");
 			return -EINVAL;
