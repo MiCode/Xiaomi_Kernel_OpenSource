@@ -14373,7 +14373,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			wd,sbu_ph_ubound1_c2c = <3150>;	/* mV */
 			wd,sbu_ph_ubound2_c2c = <3800>;	/* mV */
 			wd,sbu_aud_ubound = <1600>;	/* mV */
-			pd-data {
+			mt6375_pd_data: pd-data {
 				pd,vid = <0x29cf>;
 				pd,pid = <0x6375>;
 				pd,source-cap-ext = <0x637529cf 0x00000000 0x00000000
@@ -14432,7 +14432,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 				};
 			};
 
-			dpm_caps {
+			mt6375_dpm_caps: dpm_caps {
 				local_dr_power;
 				local_dr_data;
 				// local_ext_power;
@@ -14475,7 +14475,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					//pin_assignment,mode_d;
 					//pin_assignment,mode_e;
 				};
-				dfp_d {
+				mt6375_dfp_d: dfp_d {
 					/* Only support mode C & D */
 					//pin_assignment,mode_a;
 					//pin_assignment,mode_b;
