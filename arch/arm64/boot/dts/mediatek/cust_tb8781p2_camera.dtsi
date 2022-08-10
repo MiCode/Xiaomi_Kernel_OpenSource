@@ -138,6 +138,7 @@
 	status = "okay";
 	cam0_enable_sensor = "hi1339_mipi_raw ov13b10main_mipi_raw";
 	cam1_enable_sensor = "s5k4h7front_mipi_raw sc800cs_mipi_raw";
+	mtk_custom_project = "tb8781p2_64";
 };
 /* CAMERA GPIO end */
 
