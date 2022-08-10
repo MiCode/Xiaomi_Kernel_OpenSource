@@ -1321,21 +1321,25 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 			mtk_crtc->is_mml = true;
 			mtk_plane_state->mml_mode = MML_MODE_RACING;
 
-			// release previous mml_cfg
-			if (mtk_plane_state->mml_cfg)
-				mtk_free_mml_submit(mtk_plane_state->mml_cfg);
 			mtk_plane_state->mml_cfg = submit_pq;
-
 			// release previous mml_cfg
 			if (mtk_crtc->mml_cfg)
 				mtk_free_mml_submit(mtk_crtc->mml_cfg);
 			mtk_crtc->mml_cfg = submit_kernel;
+			// release previous mml_cfg_pq
+			if (mtk_crtc->mml_cfg_pq)
+				mtk_free_mml_submit(mtk_crtc->mml_cfg_pq);
+
 			mtk_crtc->mml_cfg_pq = submit_pq;
 
 			crtc_state->mml_dst_roi.x = mtk_plane_state->base.dst.x1;
 			crtc_state->mml_dst_roi.y = mtk_plane_state->base.dst.y1;
 			crtc_state->mml_dst_roi.width = submit_pq->info.dest[0].compose.width;
 			crtc_state->mml_dst_roi.height = submit_pq->info.dest[0].compose.height;
+		} else {
+			DDPMSG("%s free submit_kernel and submit_pq\n", __func__);
+			mtk_free_mml_submit(submit_kernel);
+			mtk_free_mml_submit(submit_pq);
 		}
 	}
 

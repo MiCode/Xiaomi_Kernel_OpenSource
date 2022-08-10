@@ -2699,6 +2699,7 @@ static void mtk_crtc_free_sram(struct mtk_drm_crtc *mtk_crtc)
 	DDPMSG("%s address:0x%x size:0x%lx\n", __func__, sram->paddr, sram->size);
 	slbc_power_off(sram);
 	slbc_release(sram);
+	kfree(sram);
 	mtk_crtc->mml_ir_sram.data = NULL;
 	DRM_MMP_MARK(sram_free, (unsigned long)sram->paddr, sram->size);
 }
@@ -4671,6 +4672,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		list_for_each_entry_safe(entry, tmp, &mtk_crtc->mml_ir_sram.list.head, head) {
 			if (cb_data->hrt_idx > entry->hrt_idx) {
 				list_del_init(&entry->head);
+				kfree(&entry->head);
 				kref_put(&mtk_crtc->mml_ir_sram.ref, mtk_crtc_mml_clean);
 			}
 		}
@@ -6370,6 +6372,7 @@ skip:
 		mutex_lock(&mtk_crtc->mml_ir_sram.lock);
 		list_for_each_entry_safe(entry, tmp, &mtk_crtc->mml_ir_sram.list.head, head) {
 			list_del_init(&entry->head);
+			kfree(&entry->head);
 		}
 		mtk_crtc_free_sram(mtk_crtc);
 		refcount_set(&mtk_crtc->mml_ir_sram.ref.refcount, 0);
