@@ -175,6 +175,7 @@ void mtk_mipi_tx_set_bits(struct mtk_mipi_tx *mipi_tx, u32 offset, u32 bits);
 void mtk_mipi_tx_update_bits(struct mtk_mipi_tx *mipi_tx, u32 offset,
 		u32 mask, u32 data);
 unsigned int _dsi_get_pcw(unsigned long data_rate, unsigned int pcw_ratio);
+unsigned int _dsi_get_pcw_khz(unsigned long data_rate_khz, unsigned int pcw_ratio);
 void backup_mipitx_impedance(struct mtk_mipi_tx *mipi_tx);
 void refill_mipitx_impedance(struct mtk_mipi_tx *mipi_tx);
 #endif

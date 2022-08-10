@@ -1260,7 +1260,7 @@ static int mtk_mipi_tx_pll_prepare_mt6789(struct clk_hw *hw)
 {
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
 	unsigned int txdiv, txdiv0, txdiv1, tmp;
-	u32 rate;
+	u32 rate, rate_khz;
 
 	if (mipi_tx == NULL)
 		return -EINVAL;
@@ -1274,6 +1274,8 @@ static int mtk_mipi_tx_pll_prepare_mt6789(struct clk_hw *hw)
 
 	rate = (mipi_tx->data_rate_adpt) ? mipi_tx->data_rate_adpt :
 			mipi_tx->data_rate / 1000000;
+	rate_khz = (mipi_tx->data_rate_adpt) ? mipi_tx->data_rate_adpt * 1000 :
+			mipi_tx->data_rate / 1000;
 
 	DDPINFO(
 		"prepare: %u MHz, mipi_tx->data_rate_adpt: %d MHz, mipi_tx->data_rate : %d MHz\n",
@@ -1330,7 +1332,7 @@ static int mtk_mipi_tx_pll_prepare_mt6789(struct clk_hw *hw)
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_PWR,
 				FLD_AD_DSI_PLL_SDM_ISO_EN, 0);
 
-	tmp = _dsi_get_pcw(rate, txdiv);
+	tmp = _dsi_get_pcw_khz(rate_khz, txdiv);
 	writel(tmp, mipi_tx->regs + MIPITX_PLL_CON0);
 
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON1,

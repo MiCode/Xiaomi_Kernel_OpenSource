@@ -397,6 +397,8 @@ struct msync_cmd_table {
 struct mtk_panel_params {
 	unsigned int pll_clk;
 	unsigned int data_rate;
+	//either pll_clk or data_rate must be set, event if data_rate_khz is set
+	unsigned int data_rate_khz; //only used in exact value for fps
 	struct mtk_dsi_phy_timcon phy_timcon;
 	unsigned int vfp_low_power;
 	struct dynamic_mipi_params dyn;

@@ -1111,6 +1111,32 @@ unsigned int _dsi_get_pcw(unsigned long data_rate,
 	return tmp;
 }
 
+unsigned int _dsi_get_pcw_khz(unsigned long data_rate_khz,
+	unsigned int pcw_ratio)
+{
+	unsigned int pcw, tmp, pcw_floor;
+	u32 clk_26m = 26000;
+
+	/**
+	 * PCW bit 24~30 = floor(pcw)
+	 * PCW bit 16~23 = (pcw - floor(pcw))*256
+	 * PCW bit 8~15 = (pcw*256 - floor(pcw)*256)*256
+	 * PCW bit 0~7 = (pcw*256*256 - floor(pcw)*256*256)*256
+	 */
+	if (data_rate_khz == (data_rate_khz / 1000 * 1000)) {
+		pr_info("[%s]Error: this function only used for khz, used _dsi_get_pcw!!\n");
+		return _dsi_get_pcw(data_rate_khz / 1000, pcw_ratio);
+	}
+
+	pcw = data_rate_khz * pcw_ratio / clk_26m;
+	pcw_floor = data_rate_khz * pcw_ratio % clk_26m;
+	tmp = ((pcw & 0xFF) << 24) | (((256 * pcw_floor / clk_26m) & 0xFF) << 16) |
+		(((256 * (256 * pcw_floor % clk_26m) / clk_26m) & 0xFF) << 8) |
+		((256 * (256 * (256 * pcw_floor % clk_26m) % clk_26m) / clk_26m) & 0xFF);
+
+	return tmp;
+}
+
 static int mtk_mipi_tx_pll_prepare_mt6779(struct clk_hw *hw)
 {
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);

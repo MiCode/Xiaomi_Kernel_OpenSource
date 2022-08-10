@@ -1043,6 +1043,9 @@ static int mtk_dsi_set_data_rate(struct mtk_dsi *dsi)
 	/* Store DSI data rate in MHz */
 	dsi->data_rate = data_rate;
 
+	if (dsi->ext && dsi->ext->params->data_rate_khz)
+		mipi_tx_rate = dsi->ext->params->data_rate_khz * 1000;
+
 	DDPDBG("set mipitx's data rate: %lu Hz\n", mipi_tx_rate);
 
 	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)

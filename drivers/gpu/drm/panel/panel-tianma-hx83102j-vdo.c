@@ -34,6 +34,7 @@
 #include "../../../misc/mediatek/gate_ic/gate_i2c.h"
 
 #include "ktz8866.h"
+#define CHANGE_FPS_EN 0
 
 /* enable this to check panel self -bist pattern */
 /* #define PANEL_BIST_PATTERN */
@@ -412,6 +413,7 @@ static const struct drm_display_mode default_mode = {
 	.vtotal = 2000 + 208 + 8 + 12,//VBP
 };
 
+#if CHANGE_FPS_EN
 static const struct drm_display_mode performance_mode_30hz = {
 	.clock = 370431,
 	.hdisplay = 1200,
@@ -419,9 +421,9 @@ static const struct drm_display_mode performance_mode_30hz = {
 	.hsync_end = 1200 + 52 + 20,//HSA
 	.htotal = 1200 + 52 + 20 + 40,//HBP
 	.vdisplay = 2000,
-	.vsync_start = 2000 + 208,//VFP
-	.vsync_end = 2000 + 208 + 8,//VSA
-	.vtotal = 2000 + 208 + 8 + 12,//VBP
+	.vsync_start = 2000 + 6892,//VFP
+	.vsync_end = 2000 + 6892 + 8,//VSA
+	.vtotal = 2000 + 6892 + 8 + 12,//VBP
 };
 
 static const struct drm_display_mode performance_mode_60hz = {
@@ -431,34 +433,20 @@ static const struct drm_display_mode performance_mode_60hz = {
 	.hsync_end = 1200 + 52 + 20,//HSA
 	.htotal = 1200 + 52 + 20 + 40,//HBP
 	.vdisplay = 2000,
-	.vsync_start = 2000 + 208,//VFP
-	.vsync_end = 2000 + 208 + 8,//VSA
-	.vtotal = 2000 + 208 + 8 + 12,//VBP
+	.vsync_start = 2000 + 2436,//VFP
+	.vsync_end = 2000 + 2436 + 8,//VSA
+	.vtotal = 2000 + 2436 + 8 + 12,//VBP
 };
+#endif
 
 #if defined(CONFIG_MTK_PANEL_EXT)
 static struct mtk_panel_params ext_params = {
-	.pll_clk = 490,
-	.vfp_low_power = 4180,
+	.vfp_low_power = 208,
 	.cust_esd_check = 0,
 	.esd_check_enable = 0,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
 	},
-	.ssc_enable = 1,
-	.lane_swap_en = 0,
-	.lane_swap[0][MIPITX_PHY_LANE_0] = MIPITX_PHY_LANE_0,
-	.lane_swap[0][MIPITX_PHY_LANE_1] = MIPITX_PHY_LANE_1,
-	.lane_swap[0][MIPITX_PHY_LANE_2] = MIPITX_PHY_LANE_3,
-	.lane_swap[0][MIPITX_PHY_LANE_3] = MIPITX_PHY_LANE_2,
-	.lane_swap[0][MIPITX_PHY_LANE_CK] = MIPITX_PHY_LANE_CK,
-	.lane_swap[0][MIPITX_PHY_LANE_RX] = MIPITX_PHY_LANE_0,
-	.lane_swap[1][MIPITX_PHY_LANE_0] = MIPITX_PHY_LANE_0,
-	.lane_swap[1][MIPITX_PHY_LANE_1] = MIPITX_PHY_LANE_1,
-	.lane_swap[1][MIPITX_PHY_LANE_2] = MIPITX_PHY_LANE_3,
-	.lane_swap[1][MIPITX_PHY_LANE_3] = MIPITX_PHY_LANE_2,
-	.lane_swap[1][MIPITX_PHY_LANE_CK] = MIPITX_PHY_LANE_CK,
-	.lane_swap[1][MIPITX_PHY_LANE_RX] = MIPITX_PHY_LANE_0,
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
 		.enable = 1,
@@ -494,56 +482,100 @@ static struct mtk_panel_params ext_params = {
 		.rc_quant_incr_limit1 = 11,
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
+		.rc_buf_thresh[0] = 14,
+		.rc_buf_thresh[1] = 28,
+		.rc_buf_thresh[2] = 42,
+		.rc_buf_thresh[3] = 56,
+		.rc_buf_thresh[4] = 70,
+		.rc_buf_thresh[5] = 84,
+		.rc_buf_thresh[6] = 98,
+		.rc_buf_thresh[7] = 105,
+		.rc_buf_thresh[8] = 112,
+		.rc_buf_thresh[9] = 119,
+		.rc_buf_thresh[10] = 121,
+		.rc_buf_thresh[11] = 123,
+		.rc_buf_thresh[12] = 125,
+		.rc_buf_thresh[13] = 126,
+		.rc_range_parameters[0].range_min_qp = 0,
+		.rc_range_parameters[0].range_max_qp = 4,
+		.rc_range_parameters[0].range_bpg_offset = 2,
+		.rc_range_parameters[1].range_min_qp = 0,
+		.rc_range_parameters[1].range_max_qp = 4,
+		.rc_range_parameters[1].range_bpg_offset = 0,
+		.rc_range_parameters[2].range_min_qp = 1,
+		.rc_range_parameters[2].range_max_qp = 5,
+		.rc_range_parameters[2].range_bpg_offset = 0,
+		.rc_range_parameters[3].range_min_qp = 1,
+		.rc_range_parameters[3].range_max_qp = 6,
+		.rc_range_parameters[3].range_bpg_offset = -2,
+		.rc_range_parameters[4].range_min_qp = 3,
+		.rc_range_parameters[4].range_max_qp = 7,
+		.rc_range_parameters[4].range_bpg_offset = -4,
+		.rc_range_parameters[5].range_min_qp = 3,
+		.rc_range_parameters[5].range_max_qp = 7,
+		.rc_range_parameters[5].range_bpg_offset = -6,
+		.rc_range_parameters[6].range_min_qp = 3,
+		.rc_range_parameters[6].range_max_qp = 7,
+		.rc_range_parameters[6].range_bpg_offset = -8,
+		.rc_range_parameters[7].range_min_qp = 3,
+		.rc_range_parameters[7].range_max_qp = 8,
+		.rc_range_parameters[7].range_bpg_offset = -8,
+		.rc_range_parameters[8].range_min_qp = 3,
+		.rc_range_parameters[8].range_max_qp = 9,
+		.rc_range_parameters[8].range_bpg_offset = -8,
+		.rc_range_parameters[9].range_min_qp = 3,
+		.rc_range_parameters[9].range_max_qp = 10,
+		.rc_range_parameters[9].range_bpg_offset = -10,
+		.rc_range_parameters[10].range_min_qp = 5,
+		.rc_range_parameters[10].range_max_qp = 11,
+		.rc_range_parameters[10].range_bpg_offset = -10,
+		.rc_range_parameters[11].range_min_qp = 5,
+		.rc_range_parameters[11].range_max_qp = 12,
+		.rc_range_parameters[11].range_bpg_offset = -12,
+		.rc_range_parameters[12].range_min_qp = 5,
+		.rc_range_parameters[12].range_max_qp = 13,
+		.rc_range_parameters[12].range_bpg_offset = -12,
+		.rc_range_parameters[13].range_min_qp = 7,
+		.rc_range_parameters[13].range_max_qp = 13,
+		.rc_range_parameters[13].range_bpg_offset = -12,
+		.rc_range_parameters[14].range_min_qp = 13,
+		.rc_range_parameters[14].range_max_qp = 13,
+		.rc_range_parameters[14].range_bpg_offset = -12
 		},
-	.data_rate = 980,
+	.data_rate = 943,
+	.data_rate_khz = 943307,
 	.lfr_enable = 0,
-	.lfr_minimum_fps = 60,
+	.lfr_minimum_fps = 120,
 	.dyn_fps = {
 		.switch_en = 0,
 		.vact_timing_fps = 120,
-	//	.dfps_cmd_table[0] = {0, 2, {0xFF, 0x25} },
-	//	.dfps_cmd_table[1] = {0, 2, {0xFB, 0x01} },
-	//	.dfps_cmd_table[2] = {0, 2, {0x18, 0x21} },
-		/*switch page for esd check*/
-	//	.dfps_cmd_table[3] = {0, 2, {0xFF, 0x10} },
-	//	.dfps_cmd_table[4] = {0, 2, {0xFB, 0x01} },
+		.dfps_cmd_table[0] = {0, 2, {0xb9, 0x83} },
+		.dfps_cmd_table[1] = {0, 2, {0xe2, 0x10} },
+		.dfps_cmd_table[2] = {0, 2, {0xb9, 0x00} },
 	},
 	/* following MIPI hopping parameter might cause screen mess */
 	.dyn = {
 		.switch_en = 1,
-		.pll_clk = 490,
-	//	.vfp_lp_dyn = 4178,
-	//	.hfp = 76,
-	//	.vfp = 2575,
+		.vfp = 208,
 	},
 	.corner_pattern_height = ROUND_CORNER_H_TOP,
 	.corner_pattern_tp_size = sizeof(top_rc_pattern),
 	.corner_pattern_lt_addr = (void *)top_rc_pattern,
 	.rotate = 1,
+	.phy_timcon = {
+		.hs_trail = 0x0B,
+		.clk_hs_post = 0x0F,
+	},
 };
 
+#if CHANGE_FPS_EN
 static struct mtk_panel_params ext_params_30hz = {
-	.pll_clk = 411,
-	.vfp_low_power = 2528,
+	.vfp_low_power = 6892,
 	.cust_esd_check = 0,
 	.esd_check_enable = 0,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
 	},
-	.ssc_enable = 1,
-	.lane_swap_en = 0,
-	.lane_swap[0][MIPITX_PHY_LANE_0] = MIPITX_PHY_LANE_0,
-	.lane_swap[0][MIPITX_PHY_LANE_1] = MIPITX_PHY_LANE_1,
-	.lane_swap[0][MIPITX_PHY_LANE_2] = MIPITX_PHY_LANE_3,
-	.lane_swap[0][MIPITX_PHY_LANE_3] = MIPITX_PHY_LANE_2,
-	.lane_swap[0][MIPITX_PHY_LANE_CK] = MIPITX_PHY_LANE_CK,
-	.lane_swap[0][MIPITX_PHY_LANE_RX] = MIPITX_PHY_LANE_0,
-	.lane_swap[1][MIPITX_PHY_LANE_0] = MIPITX_PHY_LANE_0,
-	.lane_swap[1][MIPITX_PHY_LANE_1] = MIPITX_PHY_LANE_1,
-	.lane_swap[1][MIPITX_PHY_LANE_2] = MIPITX_PHY_LANE_3,
-	.lane_swap[1][MIPITX_PHY_LANE_3] = MIPITX_PHY_LANE_2,
-	.lane_swap[1][MIPITX_PHY_LANE_CK] = MIPITX_PHY_LANE_CK,
-	.lane_swap[1][MIPITX_PHY_LANE_RX] = MIPITX_PHY_LANE_0,
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
 		.enable = 1,
@@ -579,56 +611,99 @@ static struct mtk_panel_params ext_params_30hz = {
 		.rc_quant_incr_limit1 = 11,
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
+		.rc_buf_thresh[0] = 14,
+		.rc_buf_thresh[1] = 28,
+		.rc_buf_thresh[2] = 42,
+		.rc_buf_thresh[3] = 56,
+		.rc_buf_thresh[4] = 70,
+		.rc_buf_thresh[5] = 84,
+		.rc_buf_thresh[6] = 98,
+		.rc_buf_thresh[7] = 105,
+		.rc_buf_thresh[8] = 112,
+		.rc_buf_thresh[9] = 119,
+		.rc_buf_thresh[10] = 121,
+		.rc_buf_thresh[11] = 123,
+		.rc_buf_thresh[12] = 125,
+		.rc_buf_thresh[13] = 126,
+		.rc_range_parameters[0].range_min_qp = 0,
+		.rc_range_parameters[0].range_max_qp = 4,
+		.rc_range_parameters[0].range_bpg_offset = 2,
+		.rc_range_parameters[1].range_min_qp = 0,
+		.rc_range_parameters[1].range_max_qp = 4,
+		.rc_range_parameters[1].range_bpg_offset = 0,
+		.rc_range_parameters[2].range_min_qp = 1,
+		.rc_range_parameters[2].range_max_qp = 5,
+		.rc_range_parameters[2].range_bpg_offset = 0,
+		.rc_range_parameters[3].range_min_qp = 1,
+		.rc_range_parameters[3].range_max_qp = 6,
+		.rc_range_parameters[3].range_bpg_offset = -2,
+		.rc_range_parameters[4].range_min_qp = 3,
+		.rc_range_parameters[4].range_max_qp = 7,
+		.rc_range_parameters[4].range_bpg_offset = -4,
+		.rc_range_parameters[5].range_min_qp = 3,
+		.rc_range_parameters[5].range_max_qp = 7,
+		.rc_range_parameters[5].range_bpg_offset = -6,
+		.rc_range_parameters[6].range_min_qp = 3,
+		.rc_range_parameters[6].range_max_qp = 7,
+		.rc_range_parameters[6].range_bpg_offset = -8,
+		.rc_range_parameters[7].range_min_qp = 3,
+		.rc_range_parameters[7].range_max_qp = 8,
+		.rc_range_parameters[7].range_bpg_offset = -8,
+		.rc_range_parameters[8].range_min_qp = 3,
+		.rc_range_parameters[8].range_max_qp = 9,
+		.rc_range_parameters[8].range_bpg_offset = -8,
+		.rc_range_parameters[9].range_min_qp = 3,
+		.rc_range_parameters[9].range_max_qp = 10,
+		.rc_range_parameters[9].range_bpg_offset = -10,
+		.rc_range_parameters[10].range_min_qp = 5,
+		.rc_range_parameters[10].range_max_qp = 11,
+		.rc_range_parameters[10].range_bpg_offset = -10,
+		.rc_range_parameters[11].range_min_qp = 5,
+		.rc_range_parameters[11].range_max_qp = 12,
+		.rc_range_parameters[11].range_bpg_offset = -12,
+		.rc_range_parameters[12].range_min_qp = 5,
+		.rc_range_parameters[12].range_max_qp = 13,
+		.rc_range_parameters[12].range_bpg_offset = -12,
+		.rc_range_parameters[13].range_min_qp = 7,
+		.rc_range_parameters[13].range_max_qp = 13,
+		.rc_range_parameters[13].range_bpg_offset = -12,
+		.rc_range_parameters[14].range_min_qp = 13,
+		.rc_range_parameters[14].range_max_qp = 13,
+		.rc_range_parameters[14].range_bpg_offset = -12
 		},
-	.data_rate = 903,
+	.data_rate = 943,
+	.data_rate_khz = 943307,
 	.lfr_enable = 0,
-	.lfr_minimum_fps = 60,
+	.lfr_minimum_fps = 30,
 	.dyn_fps = {
 		.switch_en = 0,
-		.vact_timing_fps = 120,
-		//.dfps_cmd_table[0] = {0, 2, {0xFF, 0x25} },
-		//.dfps_cmd_table[1] = {0, 2, {0xFB, 0x01} },
-		//.dfps_cmd_table[2] = {0, 2, {0x18, 0x20} },
-		/*switch page for esd check*/
-		//.dfps_cmd_table[3] = {0, 2, {0xFF, 0x10} },
-		//.dfps_cmd_table[4] = {0, 2, {0xFB, 0x01} },
+		.vact_timing_fps = 30,
+		.dfps_cmd_table[0] = {0, 2, {0xb9, 0x83} },
+		.dfps_cmd_table[1] = {0, 2, {0xe2, 0x10} },
+		.dfps_cmd_table[2] = {0, 2, {0xb9, 0x00} },
 	},
 	/* following MIPI hopping parameter might cause screen mess */
 	.dyn = {
 		.switch_en = 1,
-		.pll_clk = 411,
-	//	.vfp_lp_dyn = 2528,
-	//	.hfp = 76,
-	//	.vfp = 905,
+		.vfp = 6892,
 	},
 	.corner_pattern_height = ROUND_CORNER_H_TOP,
 	.corner_pattern_tp_size = sizeof(top_rc_pattern),
 	.corner_pattern_lt_addr = (void *)top_rc_pattern,
 	.rotate = 1,
+	.phy_timcon = {
+		.hs_trail = 0x0B,
+		.clk_hs_post = 0x0F,
+	},
 };
 
 static struct mtk_panel_params ext_params_60hz = {
-	.pll_clk = 411,
 	.vfp_low_power = 2528,
 	.cust_esd_check = 0,
 	.esd_check_enable = 0,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
 	},
-	.ssc_enable = 1,
-	.lane_swap_en = 0,
-	.lane_swap[0][MIPITX_PHY_LANE_0] = MIPITX_PHY_LANE_0,
-	.lane_swap[0][MIPITX_PHY_LANE_1] = MIPITX_PHY_LANE_1,
-	.lane_swap[0][MIPITX_PHY_LANE_2] = MIPITX_PHY_LANE_3,
-	.lane_swap[0][MIPITX_PHY_LANE_3] = MIPITX_PHY_LANE_2,
-	.lane_swap[0][MIPITX_PHY_LANE_CK] = MIPITX_PHY_LANE_CK,
-	.lane_swap[0][MIPITX_PHY_LANE_RX] = MIPITX_PHY_LANE_0,
-	.lane_swap[1][MIPITX_PHY_LANE_0] = MIPITX_PHY_LANE_0,
-	.lane_swap[1][MIPITX_PHY_LANE_1] = MIPITX_PHY_LANE_1,
-	.lane_swap[1][MIPITX_PHY_LANE_2] = MIPITX_PHY_LANE_3,
-	.lane_swap[1][MIPITX_PHY_LANE_3] = MIPITX_PHY_LANE_2,
-	.lane_swap[1][MIPITX_PHY_LANE_CK] = MIPITX_PHY_LANE_CK,
-	.lane_swap[1][MIPITX_PHY_LANE_RX] = MIPITX_PHY_LANE_0,
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
 		.enable = 1,
@@ -664,33 +739,93 @@ static struct mtk_panel_params ext_params_60hz = {
 		.rc_quant_incr_limit1 = 11,
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
+
+		.rc_buf_thresh[0] = 14,
+		.rc_buf_thresh[1] = 28,
+		.rc_buf_thresh[2] = 42,
+		.rc_buf_thresh[3] = 56,
+		.rc_buf_thresh[4] = 70,
+		.rc_buf_thresh[5] = 84,
+		.rc_buf_thresh[6] = 98,
+		.rc_buf_thresh[7] = 105,
+		.rc_buf_thresh[8] = 112,
+		.rc_buf_thresh[9] = 119,
+		.rc_buf_thresh[10] = 121,
+		.rc_buf_thresh[11] = 123,
+		.rc_buf_thresh[12] = 125,
+		.rc_buf_thresh[13] = 126,
+		.rc_range_parameters[0].range_min_qp = 0,
+		.rc_range_parameters[0].range_max_qp = 4,
+		.rc_range_parameters[0].range_bpg_offset = 2,
+		.rc_range_parameters[1].range_min_qp = 0,
+		.rc_range_parameters[1].range_max_qp = 4,
+		.rc_range_parameters[1].range_bpg_offset = 0,
+		.rc_range_parameters[2].range_min_qp = 1,
+		.rc_range_parameters[2].range_max_qp = 5,
+		.rc_range_parameters[2].range_bpg_offset = 0,
+		.rc_range_parameters[3].range_min_qp = 1,
+		.rc_range_parameters[3].range_max_qp = 6,
+		.rc_range_parameters[3].range_bpg_offset = -2,
+		.rc_range_parameters[4].range_min_qp = 3,
+		.rc_range_parameters[4].range_max_qp = 7,
+		.rc_range_parameters[4].range_bpg_offset = -4,
+		.rc_range_parameters[5].range_min_qp = 3,
+		.rc_range_parameters[5].range_max_qp = 7,
+		.rc_range_parameters[5].range_bpg_offset = -6,
+		.rc_range_parameters[6].range_min_qp = 3,
+		.rc_range_parameters[6].range_max_qp = 7,
+		.rc_range_parameters[6].range_bpg_offset = -8,
+		.rc_range_parameters[7].range_min_qp = 3,
+		.rc_range_parameters[7].range_max_qp = 8,
+		.rc_range_parameters[7].range_bpg_offset = -8,
+		.rc_range_parameters[8].range_min_qp = 3,
+		.rc_range_parameters[8].range_max_qp = 9,
+		.rc_range_parameters[8].range_bpg_offset = -8,
+		.rc_range_parameters[9].range_min_qp = 3,
+		.rc_range_parameters[9].range_max_qp = 10,
+		.rc_range_parameters[9].range_bpg_offset = -10,
+		.rc_range_parameters[10].range_min_qp = 5,
+		.rc_range_parameters[10].range_max_qp = 11,
+		.rc_range_parameters[10].range_bpg_offset = -10,
+		.rc_range_parameters[11].range_min_qp = 5,
+		.rc_range_parameters[11].range_max_qp = 12,
+		.rc_range_parameters[11].range_bpg_offset = -12,
+		.rc_range_parameters[12].range_min_qp = 5,
+		.rc_range_parameters[12].range_max_qp = 13,
+		.rc_range_parameters[12].range_bpg_offset = -12,
+		.rc_range_parameters[13].range_min_qp = 7,
+		.rc_range_parameters[13].range_max_qp = 13,
+		.rc_range_parameters[13].range_bpg_offset = -12,
+		.rc_range_parameters[14].range_min_qp = 13,
+		.rc_range_parameters[14].range_max_qp = 13,
+		.rc_range_parameters[14].range_bpg_offset = -12,
 		},
-	.data_rate = 903,
+	.data_rate = 943,
+	.data_rate_khz = 943307,
 	.lfr_enable = 0,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
 		.switch_en = 1,
 		.vact_timing_fps = 60,
-	//	.dfps_cmd_table[0] = {0, 2, {0xFF, 0x25} },
-	//	.dfps_cmd_table[1] = {0, 2, {0xFB, 0x01} },
-	//	.dfps_cmd_table[2] = {0, 2, {0x18, 0x22} },
-		/*switch page for esd check*/
-	//	.dfps_cmd_table[3] = {0, 2, {0xFF, 0x10} },
-	//	.dfps_cmd_table[4] = {0, 2, {0xFB, 0x01} },
+		.dfps_cmd_table[0] = {0, 2, {0xb9, 0x83} },
+		.dfps_cmd_table[1] = {0, 2, {0xe2, 0x10} },
+		.dfps_cmd_table[2] = {0, 2, {0xb9, 0x00} },
 	},
 	/* following MIPI hopping parameter might cause screen mess */
 	.dyn = {
 		.switch_en = 1,
-		.pll_clk = 411,
-	//	.vfp_lp_dyn = 2528,
-	//	.hfp = 76,
-	//	.vfp = 82,
+		.vfp = 2436,
 	},
 	.corner_pattern_height = ROUND_CORNER_H_TOP,
 	.corner_pattern_tp_size = sizeof(top_rc_pattern),
 	.corner_pattern_lt_addr = (void *)top_rc_pattern,
 	.rotate = 1,
+	.phy_timcon = {
+		.hs_trail = 0x0B,
+		.clk_hs_post = 0x0F,
+	},
 };
+#endif
 
 static int panel_ata_check(struct drm_panel *panel)
 {
@@ -742,10 +877,12 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 	pr_info("drm_mode_vrefresh(m) =%d", drm_mode_vrefresh(m));
 	if (ext && m && drm_mode_vrefresh(m) == 120)
 		ext->params = &ext_params;
+#if CHANGE_FPS_EN
 	else if (ext && m && drm_mode_vrefresh(m) == 30)
 		ext->params = &ext_params_30hz;
 	else if (ext && m && drm_mode_vrefresh(m) == 60)
 		ext->params = &ext_params_60hz;
+#endif
 	else
 		ret = 1;
 
@@ -807,8 +944,10 @@ static int tianma_get_modes(struct drm_panel *panel,
 					struct drm_connector *connector)
 {
 	struct drm_display_mode *mode;
+#if CHANGE_FPS_EN
 	struct drm_display_mode *mode2;
 	struct drm_display_mode *mode3;
+#endif
 
 	mode = drm_mode_duplicate(connector->dev, &default_mode);
 	if (!mode) {
@@ -821,7 +960,7 @@ static int tianma_get_modes(struct drm_panel *panel,
 	drm_mode_set_name(mode);
 	mode->type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
 	drm_mode_probed_add(connector, mode);
-
+#if CHANGE_FPS_EN
 	mode2 = drm_mode_duplicate(connector->dev, &performance_mode_30hz);
 	if (!mode2) {
 		dev_info(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
@@ -845,7 +984,7 @@ static int tianma_get_modes(struct drm_panel *panel,
 	drm_mode_set_name(mode3);
 	mode3->type = DRM_MODE_TYPE_DRIVER;
 	drm_mode_probed_add(connector, mode3);
-
+#endif
 	connector->display_info.width_mm = 70;
 	connector->display_info.height_mm = 152;
 
@@ -913,8 +1052,10 @@ static int tianma_probe(struct mipi_dsi_device *dsi)
 		value = 0;
 	else {
 		ext_params.round_corner_en = value;
+#if CHANGE_FPS_EN
 		ext_params_30hz.round_corner_en = value;
 		ext_params_60hz.round_corner_en = value;
+#endif
 	}
 
 	backlight = of_parse_phandle(dev->of_node, "backlight", 0);
