@@ -3715,14 +3715,15 @@ void mtk_dp_fake_plugin(unsigned int status, unsigned int bpc)
 
 void mtk_dp_HPDInterruptSet(int bstatus)
 {
-
 	if (g_mtk_dp == NULL) {
 		DPTXERR("%s: dp not initial\n", __func__);
 		return;
 	}
-	DPTXMSG("%s\n", __func__);
-	DDPFUNC("status:%d[2:DISCONNECT, 4:CONNECT, 8:IRQ] Power:%d\n",
-		bstatus, g_mtk_dp->bPowerOn);
+
+	DPTXMSG("%s, status:%d[2:DISCONNECT, 4:CONNECT, 8:IRQ] Power:%d, uevent=%d\n",
+		__func__, bstatus, g_mtk_dp->bPowerOn, g_mtk_dp->bUeventToHwc);
+	DDPFUNC("%s, status:%d[2:DISCONNECT, 4:CONNECT, 8:IRQ] Power:%d, uevent=%d\n",
+		__func__, bstatus, g_mtk_dp->bPowerOn, g_mtk_dp->bUeventToHwc);
 
 	if ((bstatus == HPD_CONNECT && !g_mtk_dp->bPowerOn)
 		|| (bstatus == HPD_DISCONNECT && g_mtk_dp->bPowerOn)
@@ -3738,6 +3739,13 @@ void mtk_dp_HPDInterruptSet(int bstatus)
 
 		mdrv_DPTx_USBC_HPD_Event(bstatus);
 		return;
+	}
+
+	if (bstatus == HPD_CONNECT && g_mtk_dp->bPowerOn &&
+		g_mtk_dp->bUeventToHwc) {
+		DPTXMSG("force send uevent\n");
+		mtk_dp_hotplug_uevent(1);
+		g_mtk_dp->bUeventToHwc = false;
 	}
 }
 
