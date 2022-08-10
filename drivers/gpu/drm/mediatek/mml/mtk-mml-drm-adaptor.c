@@ -42,6 +42,7 @@ struct mml_drm_ctx {
 	struct mutex config_mutex;
 	struct mml_dev *mml;
 	const struct mml_task_ops *task_ops;
+	const struct mml_config_ops *cfg_ops;
 	atomic_t job_serial;
 	struct workqueue_struct *wq_config[MML_PIPE_CNT];
 	struct workqueue_struct *wq_destroy;
@@ -395,6 +396,7 @@ static struct mml_frame_config *frame_config_create(
 	cfg->ctx = ctx;
 	cfg->mml = ctx->mml;
 	cfg->task_ops = ctx->task_ops;
+	cfg->cfg_ops = ctx->cfg_ops;
 	cfg->ctx_kt_done = &ctx->kt_done;
 	INIT_WORK(&cfg->work_destroy, frame_config_destroy_work);
 	kref_init(&cfg->ref);
@@ -814,6 +816,8 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 			}
 			task->config = cfg;
 			task->state = MML_TASK_DUPLICATE;
+			/* add more count for new task create */
+			kref_get(&cfg->ref);
 		}
 	} else {
 		cfg = frame_config_create(ctx, &submit->info);
@@ -842,14 +846,14 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 			cfg->disp_hrt = frame_calc_layer_hrt(ctx, &submit->info,
 				cfg->layer_w, cfg->layer_h);
 		}
+
+		/* add more count for new task create */
+		kref_get(&cfg->ref);
 	}
 
 	/* maintain racing ref count for easy query mode */
 	if (cfg->info.mode == MML_MODE_RACING)
 		atomic_inc(&ctx->racing_cnt);
-
-	/* add more count for new task create */
-	kref_get(&cfg->ref);
 
 	/* make sure id unique and cached last */
 	task->job.jobid = atomic_inc_return(&ctx->job_serial);
@@ -1087,6 +1091,21 @@ const static struct mml_task_ops drm_task_ops = {
 	.kt_setsched = kt_setsched,
 };
 
+static void config_get(struct mml_frame_config *cfg)
+{
+	kref_get(&cfg->ref);
+}
+
+static void config_put(struct mml_frame_config *cfg)
+{
+	kref_put(&cfg->ref, frame_config_queue_destroy);
+}
+
+static const struct mml_config_ops drm_config_ops = {
+	.get = config_get,
+	.put = config_put,
+};
+
 static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml,
 					  struct mml_drm_param *disp)
 {
@@ -1113,6 +1132,7 @@ static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml,
 	mutex_init(&ctx->config_mutex);
 	ctx->mml = mml;
 	ctx->task_ops = &drm_task_ops;
+	ctx->cfg_ops = &drm_config_ops;
 	ctx->wq_destroy = alloc_ordered_workqueue("mml_destroy", 0, 0);
 	ctx->disp_dual = disp->dual;
 	ctx->disp_vdo = disp->vdo_mode;
