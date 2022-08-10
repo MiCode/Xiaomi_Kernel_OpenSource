@@ -1117,15 +1117,7 @@ static inline bool skb_unref(struct sk_buff *skb)
 }
 
 void kfree_skb_reason(struct sk_buff *skb, enum skb_drop_reason reason);
-
-/**
- *	kfree_skb - free an sk_buff with 'NOT_SPECIFIED' reason
- *	@skb: buffer to free
- */
-static inline void kfree_skb(struct sk_buff *skb)
-{
-	kfree_skb_reason(skb, SKB_DROP_REASON_NOT_SPECIFIED);
-}
+void kfree_skb(struct sk_buff *skb);
 
 void skb_release_head_state(struct sk_buff *skb);
 void kfree_skb_list(struct sk_buff *segs);
