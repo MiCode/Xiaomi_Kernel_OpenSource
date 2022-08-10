@@ -1629,8 +1629,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		}
 	}
 
-	if (comp->mtk_crtc)
-		params = mtk_drm_get_lcm_ext_params(&comp->mtk_crtc->base);
+	params = mtk_drm_get_lcm_ext_params(&comp->mtk_crtc->base);
 	if (params && params->rotate == MTK_PANEL_ROTATE_180)
 		rotate = 1;
 
@@ -1814,8 +1813,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		_ovl_common_config(comp, idx, state, handle);
 	}
 
-	if (comp->mtk_crtc)
-		params = mtk_drm_get_lcm_ext_params(&comp->mtk_crtc->base);
+	params = mtk_drm_get_lcm_ext_params(&comp->mtk_crtc->base);
 	if (params && params->rotate == MTK_PANEL_ROTATE_180)
 		rotate = 1;
 
@@ -2040,8 +2038,7 @@ static bool compr_l_config_PVRIC_V4_1(struct mtk_ddp_comp *comp,
 		return 0;
 	}
 
-	if (comp->mtk_crtc)
-		params = mtk_drm_get_lcm_ext_params(&comp->mtk_crtc->base);
+	params = mtk_drm_get_lcm_ext_params(&comp->mtk_crtc->base);
 	if (params && params->rotate == MTK_PANEL_ROTATE_180)
 		rotate = 1;
 
@@ -2344,8 +2341,7 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 		return 0;
 	}
 
-	if (comp->mtk_crtc)
-		params = mtk_drm_get_lcm_ext_params(&comp->mtk_crtc->base);
+	params = mtk_drm_get_lcm_ext_params(&comp->mtk_crtc->base);
 	if (params && params->rotate == MTK_PANEL_ROTATE_180)
 		rotate = 1;
 
@@ -2635,8 +2631,7 @@ bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 		fmt, Bpp,
 		compress);
 
-	if (comp->mtk_crtc)
-		params = mtk_drm_get_lcm_ext_params(&comp->mtk_crtc->base);
+	params = mtk_drm_get_lcm_ext_params(&comp->mtk_crtc->base);
 	if (params && params->rotate == MTK_PANEL_ROTATE_180)
 		rotate = 1;
 
@@ -2946,8 +2941,7 @@ mtk_ovl_addon_rsz_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 		int bg_w, bg_h;
 		struct mtk_panel_params *params = NULL;
 
-		if (comp->mtk_crtc)
-			params = mtk_drm_get_lcm_ext_params(&comp->mtk_crtc->base);
+		params = mtk_drm_get_lcm_ext_params(&comp->mtk_crtc->base);
 		if (params && params->rotate == MTK_PANEL_ROTATE_180) {
 			_get_bg_roi(comp, &bg_h, &bg_w);
 			lc_y = bg_h - lc_h - lc_y;
