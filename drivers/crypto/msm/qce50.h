@@ -194,7 +194,7 @@ struct ce_bam_info {
 	uint32_t			ce_device;
 	uint32_t			ce_hw_instance;
 	uint32_t			bam_ee;
-	unsigned int			pipe_pair_index[QCE_OFFLOAD_OPER_LAST];
+	int				pipe_pair_index[QCE_OFFLOAD_OPER_LAST];
 	unsigned int			src_pipe_index[QCE_OFFLOAD_OPER_LAST];
 	unsigned int			dest_pipe_index[QCE_OFFLOAD_OPER_LAST];
 	unsigned long			bam_handle;

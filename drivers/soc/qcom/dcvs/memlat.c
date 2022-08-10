@@ -837,6 +837,8 @@ static void calculate_sampling_stats(void)
 			if (delta->grp_ctrs[grp][MISS_IDX])
 				stats->spm[grp] /=
 					delta->grp_ctrs[grp][MISS_IDX];
+			else
+				stats->spm[grp] = 0;
 			if (!memlat_grp->grp_ev_ids[WB_IDX]
 					|| !memlat_grp->grp_ev_ids[ACC_IDX])
 				stats->wb_pct[grp] = 0;
@@ -923,13 +925,12 @@ static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 			ipm_diff = mon->ipm_ceil - stats->ipm[hw];
 			max_cpufreq_scaled = stats->freq_mhz;
 
-			if (mon->enable_spm_voting)
+			if (mon->enable_spm_voting && stats->freq_mhz >= SPM_CPU_FREQ_IGN)
 				max_spm = max(stats->spm[hw], max_spm);
 
 			if (mon->freq_scale_pct && stats->freq_mhz &&
 			    (stats->freq_mhz < mon->freq_scale_limit_mhz) &&
-			    (stats->fe_stall_pct >= mon->fe_stall_floor ||
-			     stats->be_stall_pct >= mon->be_stall_floor)) {
+			    (stats->be_stall_pct >= mon->be_stall_floor)) {
 				max_cpufreq_scaled += (stats->freq_mhz * ipm_diff *
 					mon->freq_scale_pct) / (mon->ipm_ceil * 100);
 				max_cpufreq_scaled = min(mon->freq_scale_limit_mhz,

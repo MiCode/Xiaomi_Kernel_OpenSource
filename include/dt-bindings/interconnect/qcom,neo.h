@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ *
  */
 
 #ifndef __DT_BINDINGS_INTERCONNECT_QCOM_NEO_H
@@ -21,38 +23,40 @@
 #define MASTER_CAMNOC_HF				12
 #define MASTER_CAMNOC_ICP				13
 #define MASTER_CAMNOC_SF				14
-#define MASTER_GEM_NOC_CNOC				15
-#define MASTER_GEM_NOC_PCIE_SNOC				16
-#define MASTER_GFX3D				17
-#define MASTER_LPASS_ANOC				18
-#define MASTER_LSR				19
-#define MASTER_MDP				20
-#define MASTER_CNOC_MNOC_CFG				21
-#define MASTER_MNOC_HF_MEM_NOC				22
-#define MASTER_MNOC_SF_MEM_NOC				23
-#define MASTER_COMPUTE_NOC				24
-#define MASTER_ANOC_PCIE_GEM_NOC				25
-#define MASTER_SNOC_CFG				26
-#define MASTER_SNOC_GC_MEM_NOC				27
-#define MASTER_SNOC_SF_MEM_NOC				28
-#define MASTER_VIDEO				29
-#define MASTER_VIDEO_CV_PROC				30
-#define MASTER_VIDEO_PROC				31
-#define MASTER_VIDEO_V_PROC				32
-#define MASTER_QUP_CORE_0				33
-#define MASTER_QUP_CORE_1				34
-#define MASTER_CRYPTO				35
-#define MASTER_LPASS_PROC				36
-#define MASTER_CDSP_PROC				37
-#define MASTER_PIMEM				38
-#define MASTER_WLAN_Q6				39
-#define MASTER_GIC				40
-#define MASTER_PCIE_0				41
-#define MASTER_PCIE_1				42
-#define MASTER_QDSS_ETR				43
-#define MASTER_QDSS_ETR_1				44
-#define MASTER_SDCC_1				45
-#define MASTER_USB3_0				46
+#define MASTER_CNOC_DATAPATH				15
+#define MASTER_GEM_NOC_CNOC				16
+#define MASTER_GEM_NOC_PCIE_SNOC				17
+#define MASTER_GFX3D				18
+#define MASTER_LPASS_ANOC				19
+#define MASTER_LSR				20
+#define MASTER_MDP				21
+#define MASTER_CNOC_MNOC_CFG				22
+#define MASTER_MNOC_HF_MEM_NOC				23
+#define MASTER_MNOC_SF_MEM_NOC				24
+#define MASTER_COMPUTE_NOC				25
+#define MASTER_ANOC_PCIE_GEM_NOC				26
+#define MASTER_SNOC_CFG				27
+#define MASTER_SNOC_GC_MEM_NOC				28
+#define MASTER_SNOC_SF_MEM_NOC				29
+#define MASTER_VIDEO				30
+#define MASTER_VIDEO_CV_PROC				31
+#define MASTER_VIDEO_PROC				32
+#define MASTER_VIDEO_V_PROC				33
+#define MASTER_QUP_CORE_0				34
+#define MASTER_QUP_CORE_1				35
+#define MASTER_CRYPTO				36
+#define MASTER_LPASS_PROC				37
+#define MASTER_CDSP_PROC				38
+#define MASTER_PIMEM				39
+#define MASTER_WLAN_Q6				40
+#define MASTER_GIC				41
+#define MASTER_PCIE_0				42
+#define MASTER_PCIE_1				43
+#define MASTER_QDSS_DAP				44
+#define MASTER_QDSS_ETR				45
+#define MASTER_QDSS_ETR_1				46
+#define MASTER_SDCC_1				47
+#define MASTER_USB3_0				48
 #define SLAVE_EBI1				512
 #define SLAVE_AHB2PHY_SOUTH				513
 #define SLAVE_AOSS				514

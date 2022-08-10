@@ -42,8 +42,6 @@ enum synx_core_id {
 #define SYNX_HWSPIN_TIMEOUT            500
 #define SYNX_HWSPIN_ID                 10
 
-#define SYNX_HWSPIN_BITMAP             0
-
 /* internal signal states */
 #define SYNX_STATE_INVALID             0
 #define SYNX_STATE_ACTIVE              1
@@ -263,5 +261,12 @@ int synx_global_merge(u32 *idx_list, u32 num_list, u32 p_idx);
  * @return SYNX_SUCCESS on success. Negative error on failure.
  */
 int synx_global_recover(enum synx_core_id id);
+
+/**
+ * synx_global_clean_cdsp_mem - Release handles created/used by CDSP
+ *
+ * @return SYNX_SUCCESS on success. Negative error on failure.
+ */
+int synx_global_clean_cdsp_mem(void);
 
 #endif /* __SYNX_SHARED_MEM_H__ */

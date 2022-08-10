@@ -324,6 +324,81 @@ static int do_pending_cancel(struct geni_i2c_dev *gi2c)
 	return timeout;
 }
 
+static void geni_i2c_dma_err(struct geni_i2c_dev *gi2c, u32 dma_status, bool type)
+{
+	I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+				"%s: %s status:0x%x\n",
+				__func__, (type ? "DMA-RX" : "DMA-TX"), dma_status);
+
+	/* here checking tx status bits for tx and rx, because bits common
+	 * for tx and rx
+	 */
+	if (dma_status & TX_SBE)
+		I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+			"%s: AHB master bus error during DMA transaction\n", __func__);
+	if (dma_status & TX_GENI_CANCEL_IRQ)
+		I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+			"%s: GENI Cancel Interrupt Status\n", __func__);
+	if (dma_status & TX_GENI_CMD_FAILURE)
+		I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+			"%s: GENI cmd failure\n", __func__);
+}
+
+static void handle_dma_xfer(u32 dma_tx_status, u32 dma_rx_status, struct geni_i2c_dev *gi2c)
+{
+
+	if (dma_tx_status) {
+		geni_write_reg(dma_tx_status, gi2c->base, SE_DMA_TX_IRQ_CLR);
+		if (dma_tx_status & DMA_TX_ERROR_STATUS) {
+			geni_i2c_dma_err(gi2c, dma_tx_status, 0);
+			gi2c->cmd_done = true;
+			goto exit;
+		} else if (dma_tx_status & TX_RESET_DONE) {
+			I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+				"%s: Tx Reset done. DMA_TX_IRQ_STAT:0x%x\n",
+				__func__, dma_tx_status);
+				gi2c->cmd_done = true;
+			goto exit;
+		} else if (dma_tx_status & TX_DMA_DONE) {
+			I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+				"%s: DMA done.\n", __func__);
+				gi2c->cmd_done = true;
+		}
+	}
+
+	if (dma_rx_status) {
+		u32 dma_rx_len = geni_read_reg(gi2c->base, SE_DMA_RX_LEN);
+		u32 dma_rx_len_in =  geni_read_reg(gi2c->base, SE_DMA_RX_LEN_IN);
+		u32 rx_rem_bytes;
+
+		geni_write_reg(dma_rx_status, gi2c->base, SE_DMA_RX_IRQ_CLR);
+		if (dma_rx_status & DMA_RX_ERROR_STATUS) {
+			geni_i2c_dma_err(gi2c, dma_rx_status, 1);
+			gi2c->cmd_done = true;
+			goto exit;
+		} else if (dma_rx_status & RX_RESET_DONE) {
+			I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+				"%s: Rx Reset done. DMA_RX_IRQ_STAT:0x%x\n",
+				__func__, dma_rx_status);
+			gi2c->cmd_done = true;
+			goto exit;
+		} else if (dma_rx_status & RX_DMA_DONE) {
+			I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+				"%s: DMA done.\n", __func__);
+			gi2c->cmd_done = true;
+			if (dma_rx_len != dma_rx_len_in) {
+				rx_rem_bytes = dma_rx_len - dma_rx_len_in;
+				I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+				"%s:Data Mismatch, rx_rem:%d, tx_irq_sts:0x%x rx_irq_sts:0x%x\n",
+				__func__, rx_rem_bytes, dma_tx_status, dma_rx_status);
+				geni_se_dump_dbg_regs(&gi2c->i2c_rsc, gi2c->base, gi2c->ipcl);
+			}
+		}
+	}
+exit:
+	return;
+}
+
 static int geni_i2c_prepare(struct geni_i2c_dev *gi2c)
 {
 	if (gi2c->se_mode == UNINITIALIZED) {
@@ -450,18 +525,9 @@ irqret:
 		writel_relaxed(m_stat, gi2c->base + SE_GENI_M_IRQ_CLEAR);
 
 	if (dma) {
-		if (dm_tx_st)
-			writel_relaxed(dm_tx_st, gi2c->base +
-				       SE_DMA_TX_IRQ_CLR);
-
-		if (dm_rx_st)
-			writel_relaxed(dm_rx_st, gi2c->base +
-				       SE_DMA_RX_IRQ_CLR);
+		handle_dma_xfer(dm_tx_st, dm_rx_st, gi2c);
 		/* Ensure all writes are done before returning from ISR. */
 		wmb();
-
-		if ((dm_tx_st & TX_DMA_DONE) || (dm_rx_st & RX_DMA_DONE))
-			gi2c->cmd_done = true;
 	}
 
 	else if (m_stat & M_CMD_DONE_EN)
@@ -1246,17 +1312,6 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 			reinit_completion(&gi2c->xfer);
 			geni_cancel_m_cmd(gi2c->base);
 			timeout = wait_for_completion_timeout(&gi2c->xfer, HZ);
-			if (!timeout) {
-				I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
-					"Cancel failed\n");
-				reinit_completion(&gi2c->xfer);
-				geni_abort_m_cmd(gi2c->base);
-				timeout =
-				wait_for_completion_timeout(&gi2c->xfer, HZ);
-				if (!timeout)
-					I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
-					"Abort failed\n");
-			}
 		}
 		gi2c->cur_wr = 0;
 		gi2c->cur_rd = 0;
@@ -1277,6 +1332,19 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 					      msgs[i].len);
 			i2c_put_dma_safe_msg_buf(dma_buf, &msgs[i], !gi2c->err);
 		}
+
+		if (gi2c->err && (!timeout)) {
+			I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
+				"Cancel failed\n");
+			reinit_completion(&gi2c->xfer);
+			geni_abort_m_cmd(gi2c->base);
+			timeout =
+			wait_for_completion_timeout(&gi2c->xfer, HZ);
+			if (!timeout)
+				GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
+				"Abort failed\n");
+		}
+
 		ret = gi2c->err;
 		if (gi2c->err) {
 			I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,

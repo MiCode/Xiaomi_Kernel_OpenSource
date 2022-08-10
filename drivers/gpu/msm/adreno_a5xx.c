@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk/qcom.h>
@@ -1396,10 +1397,10 @@ static int a5xx_start(struct adreno_device *adreno_dev)
 
 	/* Program the GMEM VA range for the UCHE path */
 	kgsl_regwrite(device, A5XX_UCHE_GMEM_RANGE_MIN_LO,
-			adreno_dev->gpucore->gmem_base);
+			adreno_dev->uche_gmem_base);
 	kgsl_regwrite(device, A5XX_UCHE_GMEM_RANGE_MIN_HI, 0x0);
 	kgsl_regwrite(device, A5XX_UCHE_GMEM_RANGE_MAX_LO,
-			adreno_dev->gpucore->gmem_base +
+			adreno_dev->uche_gmem_base +
 			adreno_dev->gpucore->gmem_size - 1);
 	kgsl_regwrite(device, A5XX_UCHE_GMEM_RANGE_MAX_HI, 0x0);
 

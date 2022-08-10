@@ -3,6 +3,7 @@
  * drivers/mmc/host/sdhci-msm.c - Qualcomm SDHCI Platform driver
  *
  * Copyright (c) 2013-2014,2020-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -523,6 +524,7 @@ struct sdhci_msm_host {
 	void *sdhci_msm_ipc_log_ctx;
 	bool dbg_en;
 	bool err_occurred;
+	bool crash_on_err;
 };
 
 static struct sdhci_msm_host *sdhci_slot[2];
@@ -1916,6 +1918,9 @@ static bool sdhci_msm_populate_pdata(struct device *dev,
 
 	msm_host->dll_lock_bist_fail_wa =
 		of_property_read_bool(np, "qcom,dll_lock_bist_fail_wa");
+
+	msm_host->crash_on_err =
+		of_property_read_bool(np, "qcom,enable_crash_on_err");
 
 	if (sdhci_msm_dt_parse_hsr_info(dev, msm_host))
 		goto out;
@@ -3941,6 +3946,8 @@ static void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 				debug_reg[i+2], debug_reg[i+3]);
 
 	msm_host->dbg_en = false;
+
+	BUG_ON(msm_host->crash_on_err);
 }
 
 static const struct sdhci_msm_variant_ops mci_var_ops = {
@@ -4541,6 +4548,38 @@ static ssize_t dbg_state_show(struct device *dev,
 
 static DEVICE_ATTR_RW(dbg_state);
 
+static ssize_t crash_on_err_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", !!msm_host->crash_on_err);
+}
+
+static ssize_t crash_on_err_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	bool v;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EACCES;
+
+	if (kstrtobool(buf, &v))
+		return -EINVAL;
+
+	msm_host->crash_on_err = v;
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(crash_on_err);
+
 static ssize_t err_state_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
@@ -4558,6 +4597,7 @@ static DEVICE_ATTR_RO(err_state);
 
 static struct attribute *sdhci_msm_sysfs_attrs[] = {
 	&dev_attr_dbg_state.attr,
+	&dev_attr_crash_on_err.attr,
 	&dev_attr_err_state.attr,
 	NULL
 };

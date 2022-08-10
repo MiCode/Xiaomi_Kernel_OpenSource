@@ -47,6 +47,7 @@ void ipclite_hwlock_reset(enum ipcmem_host_type core_id)
 		hwspin_unlock_raw(ipclite->hwlock);
 	}
 }
+EXPORT_SYMBOL(ipclite_hwlock_reset);
 
 static void ipclite_hw_mutex_acquire(void)
 {

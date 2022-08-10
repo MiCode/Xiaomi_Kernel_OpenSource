@@ -1630,7 +1630,7 @@ static struct clk_branch gcc_gpu_snoc_dvm_gfx_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_gpu_snoc_dvm_gfx_clk",
 			.flags = CLK_DONT_HOLD_STATE,
-			.ops = &clk_branch2_ops,
+			.ops = &clk_branch2_aon_ops,
 		},
 	},
 };

@@ -86,7 +86,7 @@ module_param(qmi_timeout, ulong, 0600);
 #endif
 
 #define ICNSS_RECOVERY_TIMEOUT		60000
-#define ICNSS_CAL_TIMEOUT		15000
+#define ICNSS_CAL_TIMEOUT		40000
 
 static struct icnss_priv *penv;
 static struct work_struct wpss_loader;
@@ -499,6 +499,8 @@ static int icnss_send_smp2p(struct icnss_priv *priv,
 					     icnss_smp2p_str[smp2p_entry]);
 				if (!test_bit(ICNSS_FW_DOWN, &priv->state))
 					ICNSS_ASSERT(0);
+				else
+					ret = -ETIMEDOUT;
 			}
 		}
 	}
@@ -2320,13 +2322,13 @@ static void icnss_pdr_notifier_cb(int state, char *service_path, void *priv_cb)
 			}
 		}
 		clear_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
-		icnss_driver_event_post(priv, ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
-					ICNSS_EVENT_SYNC, event_data);
-
 		if (event_data->crashed)
 			mod_timer(&priv->recovery_timer,
 				  jiffies +
 				  msecs_to_jiffies(ICNSS_RECOVERY_TIMEOUT));
+
+		icnss_driver_event_post(priv, ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
+					ICNSS_EVENT_SYNC, event_data);
 		break;
 	case SERVREG_SERVICE_STATE_UP:
 		clear_bit(ICNSS_FW_DOWN, &priv->state);

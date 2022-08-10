@@ -941,6 +941,7 @@ struct synx_coredata *synx_util_import_object(struct synx_import_params *params)
 	if (synx_data->handle != params->h_synx) {
 		pr_err("[sess: %u] stale import handle %d\n",
 			ex_client->id, params->h_synx);
+		synx_obj = NULL;
 		goto fail;
 	}
 

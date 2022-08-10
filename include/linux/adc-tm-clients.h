@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __QCOM_ADC_TM_H_CLIENTS__
@@ -10,6 +10,7 @@
 #include <linux/types.h>
 
 struct adc_tm_chip;
+struct adc5_chip;
 
 /**
  * enum adc_tm_state - This lets the client know whether the threshold
@@ -93,6 +94,28 @@ static inline int32_t adc_tm_channel_measure(
 { return -ENXIO; }
 static inline int32_t adc_tm_disable_chan_meas(
 					struct adc_tm_chip *chip,
+					struct adc_tm_param *param)
+{ return -ENXIO; }
+
+#endif
+
+#if IS_ENABLED(CONFIG_QCOM_SPMI_ADC5_GEN3)
+struct adc5_chip *get_adc_tm_gen3(struct device *dev, const char *name);
+int32_t adc_tm_channel_measure_gen3(struct adc5_chip *chip,
+					struct adc_tm_param *param);
+int32_t adc_tm_disable_chan_meas_gen3(struct adc5_chip *chip,
+					struct adc_tm_param *param);
+#else
+static inline struct adc5_chip *get_adc_tm_gen3(
+	struct device *dev, const char *name)
+{ return ERR_PTR(-ENXIO); }
+
+static inline int32_t adc_tm_channel_measure_gen3(
+					struct adc5_chip *chip,
+					struct adc_tm_param *param)
+{ return -ENXIO; }
+static inline int32_t adc_tm_disable_chan_meas_gen3(
+					struct adc5_chip *chip,
 					struct adc_tm_param *param)
 { return -ENXIO; }
 

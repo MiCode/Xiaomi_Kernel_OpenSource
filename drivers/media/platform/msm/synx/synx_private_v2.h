@@ -204,6 +204,12 @@ struct synx_native {
 	DECLARE_BITMAP(bitmap, SYNX_MAX_OBJS);
 };
 
+struct synx_cdsp_ssr {
+	u64 ssrcnt;
+	void *handle;
+	struct notifier_block nb;
+};
+
 struct synx_device {
 	struct cdev cdev;
 	dev_t dev;
@@ -216,6 +222,7 @@ struct synx_device {
 	struct dentry *debugfs_root;
 	struct list_head error_list;
 	struct mutex error_lock;
+	struct synx_cdsp_ssr cdsp_ssr;
 };
 
 int synx_signal_core(struct synx_coredata *synx_obj,

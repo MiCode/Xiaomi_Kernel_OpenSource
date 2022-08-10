@@ -597,16 +597,16 @@ void a6xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_UCHE_WRITE_THRU_BASE_HI, 0x0001ffff);
 
 	/*
-	 * Some A6xx targets no longer use a programmed GMEM base address
-	 * so only write the registers if a non zero address is given
-	 * in the GPU list
+	 * Some A6xx targets no longer use a programmed UCHE GMEM base
+	 * address, so only write the registers if this address is
+	 * non-zero.
 	 */
-	if (adreno_dev->gpucore->gmem_base) {
+	if (adreno_dev->uche_gmem_base) {
 		kgsl_regwrite(device, A6XX_UCHE_GMEM_RANGE_MIN_LO,
-				adreno_dev->gpucore->gmem_base);
+				adreno_dev->uche_gmem_base);
 		kgsl_regwrite(device, A6XX_UCHE_GMEM_RANGE_MIN_HI, 0x0);
 		kgsl_regwrite(device, A6XX_UCHE_GMEM_RANGE_MAX_LO,
-				adreno_dev->gpucore->gmem_base +
+				adreno_dev->uche_gmem_base +
 				adreno_dev->gpucore->gmem_size - 1);
 		kgsl_regwrite(device, A6XX_UCHE_GMEM_RANGE_MAX_HI, 0x0);
 	}
@@ -765,11 +765,6 @@ void a6xx_start(struct adreno_device *adreno_dev)
 	a6xx_llc_configure_gpumv_scid(adreno_dev);
 
 	a6xx_llc_enable_overrides(adreno_dev);
-
-	if (adreno_is_a662(adreno_dev))
-		kgsl_regrmw(device, A6XX_GBIF_CX_CONFIG, 0x3c0,
-			FIELD_PREP(GENMASK(7, 6), 0x1) |
-			FIELD_PREP(GENMASK(9, 8), 0x1));
 
 	if (adreno_is_a660(adreno_dev)) {
 		kgsl_regwrite(device, A6XX_CP_CHICKEN_DBG, 0x1);

@@ -676,6 +676,11 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 	if (!plat_priv)
 		return -ENODEV;
 
+	if (test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
+		cnss_pr_err("Reboot is in progress, ignore FW ready\n");
+		return -EINVAL;
+	}
+
 	cnss_pr_dbg("Processing FW Init Done..\n");
 	del_timer(&plat_priv->fw_boot_timer);
 	set_bit(CNSS_FW_READY, &plat_priv->driver_state);
@@ -3429,7 +3434,9 @@ static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 		cnss_pr_err("QMI IPC connection call back register failed, err = %d\n",
 			    ret);
 
-	plat_priv->sram_dump = kcalloc(SRAM_DUMP_SIZE, 1, GFP_KERNEL);
+	if (plat_priv->device_id == QCA6490_DEVICE_ID &&
+	    cnss_get_host_build_type() == QMI_HOST_BUILD_TYPE_PRIMARY_V01)
+		plat_priv->sram_dump = kcalloc(SRAM_DUMP_SIZE, 1, GFP_KERNEL);
 
 	return 0;
 }

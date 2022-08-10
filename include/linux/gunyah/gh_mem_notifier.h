@@ -33,14 +33,14 @@ void *gh_mem_notifier_register(enum gh_mem_notifier_tag tag,
 			       void *data);
 void gh_mem_notifier_unregister(void *cookie);
 #else
-static void *gh_mem_notifier_register(enum gh_mem_notifier_tag tag,
+static inline void *gh_mem_notifier_register(enum gh_mem_notifier_tag tag,
 				      gh_mem_notifier_handler notif_handler,
 				      void *data)
 {
 	return ERR_PTR(-ENOTSUPP);
 }
 
-static void gh_mem_notifier_unregister(void *cookie)
+static inline void gh_mem_notifier_unregister(void *cookie)
 {
 }
 #endif

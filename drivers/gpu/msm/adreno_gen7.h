@@ -23,6 +23,7 @@ struct gen7_snapshot_block_list;
 extern const struct adreno_power_ops gen7_gmu_power_ops;
 extern const struct adreno_power_ops gen7_hwsched_power_ops;
 extern const struct adreno_perfcounters adreno_gen7_perfcounters;
+extern const struct adreno_perfcounters adreno_gen7_6_0_perfcounters;
 
 struct gen7_gpudev {
 	struct adreno_gpudev base;
@@ -112,6 +113,8 @@ struct adreno_gen7_core {
 	 * BIT[15:21] - Throttle level 3 (optional)
 	 */
 	u32 bcl_data;
+	/** @fast_bus_hint: Whether or not to increase IB vote on high ddr stall */
+	bool fast_bus_hint;
 };
 
 /**

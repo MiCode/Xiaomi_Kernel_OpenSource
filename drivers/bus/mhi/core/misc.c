@@ -1390,6 +1390,18 @@ int mhi_process_misc_bw_ev_ring(struct mhi_controller *mhi_cntrl,
 	spin_lock_bh(&mhi_event->lock);
 	dev_rp = mhi_to_virtual(ev_ring, er_ctxt->rp);
 
+	/**
+	 * Check the ev ring local pointer is same as ctxt pointer
+	 * if both are same do not process ev ring.
+	 */
+	if (ev_ring->rp == dev_rp) {
+		MHI_VERB("Ignore received BW event:0x%llx ev_ring RP:0x%llx\n",
+			 dev_rp->ptr,
+			 (u64)mhi_to_physical(ev_ring, ev_ring->rp));
+		spin_unlock_bh(&mhi_event->lock);
+		return 0;
+	}
+
 	/* if rp points to base, we need to wrap it around */
 	if (dev_rp == ev_ring->base)
 		dev_rp = ev_ring->base + ev_ring->len;

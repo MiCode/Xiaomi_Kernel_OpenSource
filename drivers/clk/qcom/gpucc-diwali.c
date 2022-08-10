@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -418,19 +419,6 @@ static struct clk_branch gpu_cc_cx_gmu_clk = {
 	},
 };
 
-static struct clk_branch gpu_cc_cx_snoc_dvm_clk = {
-	.halt_reg = 0x9130,
-	.halt_check = BRANCH_HALT_VOTED,
-	.clkr = {
-		.enable_reg = 0x9130,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gpu_cc_cx_snoc_dvm_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gpu_cc_cxo_aon_clk = {
 	.halt_reg = 0x9004,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -609,7 +597,6 @@ static struct clk_regmap *gpu_cc_diwali_clocks[] = {
 	[GPU_CC_CRC_AHB_CLK] = &gpu_cc_crc_ahb_clk.clkr,
 	[GPU_CC_CX_FF_CLK] = &gpu_cc_cx_ff_clk.clkr,
 	[GPU_CC_CX_GMU_CLK] = &gpu_cc_cx_gmu_clk.clkr,
-	[GPU_CC_CX_SNOC_DVM_CLK] = &gpu_cc_cx_snoc_dvm_clk.clkr,
 	[GPU_CC_CXO_AON_CLK] = &gpu_cc_cxo_aon_clk.clkr,
 	[GPU_CC_CXO_CLK] = &gpu_cc_cxo_clk.clkr,
 	[GPU_CC_DEMET_CLK] = &gpu_cc_demet_clk.clkr,
@@ -642,6 +629,7 @@ static const struct qcom_reset_map gpu_cc_diwali_resets[] = {
 	[GPUCC_GPU_CC_GMU_BCR] = { 0x9314 },
 	[GPUCC_GPU_CC_GX_BCR] = { 0x9058 },
 	[GPUCC_GPU_CC_XO_BCR] = { 0x9000 },
+	[GPUCC_GPU_CC_FREQUENCY_LIMITER_IRQ_CLEAR] = { 0x9538, 0 },
 };
 
 static const struct regmap_config gpu_cc_diwali_regmap_config = {
@@ -679,6 +667,8 @@ static int gpu_cc_diwali_probe(struct platform_device *pdev)
 
 	clk_lucid_evo_pll_configure(&gpu_cc_pll0, regmap, &gpu_cc_pll0_config);
 	clk_lucid_evo_pll_configure(&gpu_cc_pll1, regmap, &gpu_cc_pll1_config);
+
+	regmap_write(regmap, 0x9534, 0x0);
 
 	ret = qcom_cc_really_probe(pdev, &gpu_cc_diwali_desc, regmap);
 	if (ret) {

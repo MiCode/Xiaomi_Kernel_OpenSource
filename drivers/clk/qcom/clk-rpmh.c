@@ -608,6 +608,27 @@ static const struct clk_rpmh_desc clk_rpmh_neo = {
 	.num_clks = ARRAY_SIZE(neo_rpmh_clocks),
 };
 
+DEFINE_CLK_RPMH_VRM(anorak, rf_clk1, rf_clk1_ao, "clka1", 1);
+DEFINE_CLK_RPMH_VRM(anorak, ln_bb_clk7, ln_bb_clk7_ao, "clka7", 2);
+DEFINE_CLK_RPMH_VRM(anorak, ln_bb_clk8, ln_bb_clk8_ao, "clka8", 2);
+
+static struct clk_hw *anorak_rpmh_clocks[] = {
+	[RPMH_CXO_CLK]		= &waipio_bi_tcxo.hw,
+	[RPMH_CXO_CLK_A]	= &waipio_bi_tcxo_ao.hw,
+	[RPMH_LN_BB_CLK7]	= &anorak_ln_bb_clk7.hw,
+	[RPMH_LN_BB_CLK7_A]	= &anorak_ln_bb_clk7_ao.hw,
+	[RPMH_LN_BB_CLK8]	= &anorak_ln_bb_clk8.hw,
+	[RPMH_LN_BB_CLK8_A]	= &anorak_ln_bb_clk8_ao.hw,
+	[RPMH_RF_CLK1]		= &anorak_rf_clk1.hw,
+	[RPMH_RF_CLK1_A]	= &anorak_rf_clk1_ao.hw,
+	[RPMH_IPA_CLK]		= &lahaina_ipa.hw,
+};
+
+static const struct clk_rpmh_desc clk_rpmh_anorak = {
+	.clks = anorak_rpmh_clocks,
+	.num_clks = ARRAY_SIZE(anorak_rpmh_clocks),
+};
+
 DEFINE_CLK_RPMH_ARC(sdxlemur, bi_tcxo, bi_tcxo_ao, "xo.lvl", 0x3, 4);
 DEFINE_CLK_RPMH_VRM(sdxlemur, ln_bb_clk1, ln_bb_clk1_ao, "lnbclka1", 4);
 DEFINE_CLK_RPMH_BCM(sdxlemur, qpic_clk, "QP0");
@@ -761,6 +782,7 @@ static const struct of_device_id clk_rpmh_match_table[] = {
 	{ .compatible = "qcom,diwali-rpmh-clk", .data = &clk_rpmh_diwali},
 	{ .compatible = "qcom,neo-rpmh-clk", .data = &clk_rpmh_neo},
 	{ .compatible = "qcom,parrot-rpmh-clk", .data = &clk_rpmh_parrot},
+	{ .compatible = "qcom,anorak-rpmh-clk", .data = &clk_rpmh_anorak},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, clk_rpmh_match_table);

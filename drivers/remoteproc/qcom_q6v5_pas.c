@@ -391,10 +391,12 @@ static int adsp_start(struct rproc *rproc)
 		goto disable_aggre2_clk;
 
 	scm_pas_enable_bw();
+	trace_rproc_qcom_event(dev_name(adsp->dev), "Q6_auth_reset", "enter");
 	ret = qcom_scm_pas_auth_and_reset(adsp->pas_id);
 	if (ret)
 		panic("Panicking, auth and reset failed for remoteproc %s\n", rproc->name);
 	scm_pas_disable_bw();
+	trace_rproc_qcom_event(dev_name(adsp->dev), "Q6_auth_reset", "exit");
 
 	if (!timeout_disabled) {
 		ret = qcom_q6v5_wait_for_start(&adsp->q6v5, msecs_to_jiffies(5000));
@@ -828,6 +830,7 @@ static int adsp_probe(struct platform_device *pdev)
 		goto detach_proxy_pds;
 	}
 
+	qcom_sysmon_register_ssr_subdev(adsp->sysmon, &adsp->ssr_subdev.subdev);
 	ret = device_create_file(adsp->dev, &dev_attr_txn_id);
 	if (ret)
 		goto remove_subdevs;

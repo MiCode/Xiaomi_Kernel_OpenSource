@@ -1,3 +1,4 @@
+qcom_cpu_vendor_hooks.ko
 qcom_ipc_logging.ko
 ns.ko
 qrtr.ko

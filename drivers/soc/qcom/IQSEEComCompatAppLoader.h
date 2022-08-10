@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0-only
  *
  * Copyright (c) 2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
-#include "smcinvoke_object.h"
+#include <soc/qcom/smcinvoke_object.h>
 
 #define IQSEEComCompatAppLoader_ERROR_INVALID_BUFFER INT32_C(10)
 #define IQSEEComCompatAppLoader_ERROR_PIL_ROLLBACK_FAILURE INT32_C(11)

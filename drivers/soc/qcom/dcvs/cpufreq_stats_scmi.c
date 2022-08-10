@@ -76,7 +76,7 @@ struct stats_info {
 
 struct stats_info *pinfo;
 
-u32 get_num_opps_for_clkdom(u32 clkdom)
+static u32 get_num_opps_for_clkdom(u32 clkdom)
 {
 	u32 dom_data_off;
 	void __iomem *dom_data;
@@ -89,7 +89,7 @@ u32 get_num_opps_for_clkdom(u32 clkdom)
 	return readl_relaxed(dom_data) & 0xFF;
 }
 
-u32 get_freq_at_idx_for_clkdom(u32 clkdom, u32 idx)
+static u32 get_freq_at_idx_for_clkdom(u32 clkdom, u32 idx)
 {
 	u32 dom_data_off;
 	void __iomem *dom_data;
@@ -109,7 +109,7 @@ static ssize_t stats_get(struct file *file, char __user *user_buf, size_t count,
 			 loff_t *ppos)
 {
 	u16 clkdom, num_lvl, i;
-	u32 match_old, match_new;
+	u32 match_old = 0, match_new = 0;
 	ssize_t r, bytes = 0;
 	u64 *vals;
 	void __iomem *dom_data;
@@ -135,7 +135,11 @@ static ssize_t stats_get(struct file *file, char __user *user_buf, size_t count,
 
 	// allocate temporary variables
 	vals = kcalloc(num_lvl, sizeof(u64), GFP_KERNEL);
+	if (!vals)
+		return -ENOMEM;
 	str = kcalloc(1, 4096, GFP_KERNEL);
+	if (!str)
+		return -ENOMEM;
 
 	// which offset within each perf_lvl entry
 	if (entry->entry == usage)
@@ -222,7 +226,7 @@ static int scmi_cpufreq_stats_create_fs_entries(struct device *dev)
 
 
 
-int qcom_cpufreq_stats_init(struct scmi_handle *handle)
+static int qcom_cpufreq_stats_init(struct scmi_handle *handle)
 {
 	u32 stats_signature;
 	u16 num_clkdom = 0, revision, num_lvl = 0;
@@ -231,7 +235,7 @@ int qcom_cpufreq_stats_init(struct scmi_handle *handle)
 
 	ret = ops->cpufreq_stats_info_get(ph, &prot_attr);
 	if (ret) {
-		pr_err("SCMI CPUFREQ Stats CPUFREQSTATS_GET_MEM_INFO error\n");
+		pr_err("SCMI CPUFREQ Stats CPUFREQSTATS_GET_MEM_INFO error: %d\n", ret);
 		return ret;
 	}
 
@@ -274,8 +278,10 @@ int qcom_cpufreq_stats_init(struct scmi_handle *handle)
 			return -EPERM;
 		}
 		pinfo->num_clkdom = num_clkdom;
+	} else {
+		pr_err("SCMI cpufreq stats length is zero\n");
+		return -EPERM;
 	}
-
 	// allocate structures for each clkdom/entry pair
 	pinfo->entries = kcalloc(num_clkdom * ENTRY_MAX,
 				 sizeof(struct clkdom_entry), GFP_KERNEL);

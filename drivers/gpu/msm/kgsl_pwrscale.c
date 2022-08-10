@@ -32,6 +32,18 @@ static struct xstats last_xstats;
 static struct devfreq_dev_status last_status = { .private_data = &last_xstats };
 
 /*
+ * kgsl_pwrscale_fast_bus_hint - enable fast_bus_hint feature in
+ * adreno_tz governer
+ * @on: boolean flag to ON/OFF fast_bus_hint
+ *
+ * Called when fast_bus_hint feature should be enabled.
+ */
+void kgsl_pwrscale_fast_bus_hint(bool on)
+{
+	adreno_tz_data.fast_bus_hint = on;
+}
+
+/*
  * kgsl_pwrscale_sleep - notify governor that device is going off
  * @device: The device
  *
@@ -320,6 +332,7 @@ int kgsl_devfreq_get_dev_status(struct device *dev,
 	 * to be (re)used by kgsl_busmon_get_dev_status()
 	 */
 	if (pwrctrl->bus_control) {
+		struct kgsl_pwrlevel *pwrlevel;
 		struct xstats *last_b =
 			(struct xstats *)last_status.private_data;
 
@@ -331,12 +344,8 @@ int kgsl_devfreq_get_dev_status(struct device *dev,
 		last_b->ram_wait = device->pwrscale.accum_stats.ram_wait;
 		last_b->buslevel = device->pwrctrl.cur_buslevel;
 
-		if (pwrscale->avoid_ddr_stall) {
-			struct kgsl_pwrlevel *pwrlevel;
-
-			pwrlevel = &pwrctrl->pwrlevels[pwrctrl->min_pwrlevel];
-			last_b->gpu_minfreq = pwrlevel->gpu_freq;
-		}
+		pwrlevel = &pwrctrl->pwrlevels[pwrctrl->min_pwrlevel];
+		last_b->gpu_minfreq = pwrlevel->gpu_freq;
 	}
 
 	kgsl_pwrctrl_busy_time(device, stat->total_time, stat->busy_time);
@@ -678,8 +687,6 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 	struct devfreq *devfreq;
 	struct msm_adreno_extended_profile *gpu_profile;
 	int i, ret;
-
-	adreno_tz_data.avoid_ddr_stall = pwrscale->avoid_ddr_stall;
 
 	gpu_profile = &pwrscale->gpu_profile;
 	gpu_profile->private_data = &adreno_tz_data;

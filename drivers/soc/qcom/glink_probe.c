@@ -13,6 +13,7 @@
 #include <linux/rpmsg/qcom_glink.h>
 #include <linux/rpmsg.h>
 #include <linux/ipc_logging.h>
+#include <trace/events/rproc_qcom.h>
 
 #define GLINK_PROBE_LOG_PAGE_CNT 4
 static void *glink_ilc;
@@ -52,15 +53,20 @@ static int glink_probe_ssr_cb(struct notifier_block *this,
 
 	switch (code) {
 	case SUBSYS_AFTER_POWERUP:
+		trace_rproc_qcom_event(dev_name(einfo->dev),
+				"QCOM_SSR_AFTER_POWERUP", "glink_probe_ssr-enter");
 		einfo->register_fn(einfo);
 		break;
 	case SUBSYS_AFTER_SHUTDOWN:
+		trace_rproc_qcom_event(dev_name(einfo->dev),
+				"QCOM_SSR_AFTER_SHUTDOWN", "glink_probe_ssr-enter");
 		einfo->unregister_fn(einfo);
 		break;
 	default:
 		break;
 	}
 
+	trace_rproc_qcom_event(dev_name(einfo->dev), "glink_probe_ssr", "exit");
 	return NOTIFY_DONE;
 }
 

@@ -165,6 +165,7 @@ void gen7_load_rsc_ucode(struct adreno_device *adreno_dev)
 {
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
 	void __iomem *rscc = gmu->rscc_virt;
+	unsigned int seq_offset = GEN7_RSCC_SEQ_MEM_0_DRV0;
 
 	/* Disable SDE clock gating */
 	_regwrite(rscc, GEN7_GPU_RSCC_RSC_STATUS0_DRV0, BIT(24));
@@ -183,12 +184,15 @@ void gen7_load_rsc_ucode(struct adreno_device *adreno_dev)
 	_regwrite(rscc, GEN7_RSCC_PDC_MATCH_VALUE_LO, 0x4510);
 	_regwrite(rscc, GEN7_RSCC_PDC_MATCH_VALUE_HI, 0x4514);
 
+	if (adreno_is_gen7_6_0(adreno_dev))
+		seq_offset = GEN7_6_0_RSCC_SEQ_MEM_0_DRV0;
+
 	/* Load RSC sequencer uCode for sleep and wakeup */
-	_regwrite(rscc, GEN7_RSCC_SEQ_MEM_0_DRV0, 0xeaaae5a0);
-	_regwrite(rscc, GEN7_RSCC_SEQ_MEM_0_DRV0 + 1, 0xe1a1ebab);
-	_regwrite(rscc, GEN7_RSCC_SEQ_MEM_0_DRV0 + 2, 0xa2e0a581);
-	_regwrite(rscc, GEN7_RSCC_SEQ_MEM_0_DRV0 + 3, 0xecac82e2);
-	_regwrite(rscc, GEN7_RSCC_SEQ_MEM_0_DRV0 + 4, 0x0020edad);
+	_regwrite(rscc, seq_offset, 0xeaaae5a0);
+	_regwrite(rscc, seq_offset + 1, 0xe1a1ebab);
+	_regwrite(rscc, seq_offset + 2, 0xa2e0a581);
+	_regwrite(rscc, seq_offset + 3, 0xecac82e2);
+	_regwrite(rscc, seq_offset + 4, 0x0020edad);
 }
 
 int gen7_load_pdc_ucode(struct adreno_device *adreno_dev)
@@ -637,16 +641,28 @@ static int gen7_gmu_hfi_start_msg(struct adreno_device *adreno_dev)
 static int gen7_complete_rpmh_votes(struct gen7_gmu_device *gmu,
 		u32 timeout)
 {
+	struct adreno_device *adreno_dev = gen7_gmu_to_adreno(gmu);
 	int ret = 0;
 
-	ret |= gen7_timed_poll_check_rscc(gmu, GEN7_RSCC_TCS0_DRV0_STATUS,
-			BIT(0), timeout, BIT(0));
-	ret |= gen7_timed_poll_check_rscc(gmu, GEN7_RSCC_TCS1_DRV0_STATUS,
-			BIT(0), timeout, BIT(0));
-	ret |= gen7_timed_poll_check_rscc(gmu, GEN7_RSCC_TCS2_DRV0_STATUS,
-			BIT(0), timeout, BIT(0));
-	ret |= gen7_timed_poll_check_rscc(gmu, GEN7_RSCC_TCS3_DRV0_STATUS,
-			BIT(0), timeout, BIT(0));
+	if (adreno_is_gen7_6_0(adreno_dev)) {
+		ret |= gen7_timed_poll_check_rscc(gmu, GEN7_6_0_RSCC_TCS0_DRV0_STATUS,
+				BIT(0), timeout, BIT(0));
+		ret |= gen7_timed_poll_check_rscc(gmu, GEN7_6_0_RSCC_TCS1_DRV0_STATUS,
+				BIT(0), timeout, BIT(0));
+		ret |= gen7_timed_poll_check_rscc(gmu, GEN7_6_0_RSCC_TCS2_DRV0_STATUS,
+				BIT(0), timeout, BIT(0));
+		ret |= gen7_timed_poll_check_rscc(gmu, GEN7_6_0_RSCC_TCS3_DRV0_STATUS,
+				BIT(0), timeout, BIT(0));
+	} else {
+		ret |= gen7_timed_poll_check_rscc(gmu, GEN7_RSCC_TCS0_DRV0_STATUS,
+				BIT(0), timeout, BIT(0));
+		ret |= gen7_timed_poll_check_rscc(gmu, GEN7_RSCC_TCS1_DRV0_STATUS,
+				BIT(0), timeout, BIT(0));
+		ret |= gen7_timed_poll_check_rscc(gmu, GEN7_RSCC_TCS2_DRV0_STATUS,
+				BIT(0), timeout, BIT(0));
+		ret |= gen7_timed_poll_check_rscc(gmu, GEN7_RSCC_TCS3_DRV0_STATUS,
+				BIT(0), timeout, BIT(0));
+	}
 
 	if (ret)
 		dev_err(&gmu->pdev->dev, "RPMH votes timedout: %d\n", ret);
@@ -870,6 +886,8 @@ void gen7_gmu_register_config(struct adreno_device *adreno_dev)
 
 	/* Pass chipid to GMU FW, must happen before starting GMU */
 	gmu_core_regwrite(device, GEN7_GMU_GENERAL_10,
+			adreno_is_gen7_6_0(adreno_dev) ?
+			ADRENO_GMU_REV(ADRENO_GPUREV(adreno_dev)) :
 			ADRENO_GMU_CHIPID(adreno_dev->chipid));
 
 	/* Log size is encoded in (number of 4K units - 1) */
