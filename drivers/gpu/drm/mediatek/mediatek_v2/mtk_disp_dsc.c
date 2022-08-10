@@ -104,7 +104,7 @@
 #define DSC_BYPASS_SHADOW	BIT(1)
 #define DSC_READ_WORKING	BIT(2)
 #define MT6983_DISP_REG_SHADOW_CTRL		0x0228
-#define DISP_REG_DSC1_OFFSET	0x0400
+#define DISP_REG_DSC1_OFFSET        0x0400
 
 /**
  * struct mtk_disp_dsc - DISP_DSC driver structure
@@ -1139,24 +1139,38 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 void mtk_dsc_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
-	int i;
+	int i, id = 0, offset = 0;
 
-	DDPDUMP("== %s REGS:0x%llx ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
-
-	DDPDUMP("(0x000)DSC_START=0x%x\n", readl(baddr + DISP_REG_DSC_CON));
-	DDPDUMP("(0x020)DSC_SLICE_WIDTH=0x%x\n",
+DUMP:
+	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa + offset);
+	DDPDUMP("(0x%03x)DSC_START=0x%x\n", offset + DISP_REG_DSC_CON,
+		readl(baddr + DISP_REG_DSC_CON));
+	DDPDUMP("(0x%03x)DSC_SLICE_WIDTH=0x%x\n", offset + DISP_REG_DSC_SLICE_W,
 		readl(baddr + DISP_REG_DSC_SLICE_W));
-	DDPDUMP("(0x024)DSC_SLICE_HIGHT=0x%x\n",
+	DDPDUMP("(0x%03x)DSC_SLICE_HIGHT=0x%x\n", offset + DISP_REG_DSC_SLICE_H,
 		readl(baddr + DISP_REG_DSC_SLICE_H));
-	DDPDUMP("(0x018)DSC_WIDTH=0x%x\n", readl(baddr + DISP_REG_DSC_PIC_W));
-	DDPDUMP("(0x01C)DSC_HEIGHT=0x%x\n", readl(baddr + DISP_REG_DSC_PIC_H));
-	DDPDUMP("(0x200)DSC_SHADOW=0x%x\n",
+	DDPDUMP("(0x%03x)DSC_WIDTH=0x%x\n", offset + DISP_REG_DSC_PIC_W,
+		readl(baddr + DISP_REG_DSC_PIC_W));
+	DDPDUMP("(0x%03x)DSC_HEIGHT=0x%x\n", offset + DISP_REG_DSC_PIC_H,
+		readl(baddr + DISP_REG_DSC_PIC_H));
+	DDPDUMP("(0x%03x)DSC_SHADOW=0x%x\n", offset + DISP_REG_DSC_SHADOW,
 		readl(baddr + DISP_REG_DSC_SHADOW));
 	DDPDUMP("-- Start dump dsc registers --\n");
 	for (i = 0; i < 204; i += 16) {
-		DDPDUMP("DSC+%x: 0x%x 0x%x 0x%x 0x%x\n", i, readl(baddr + i),
+		DDPDUMP("DSC+0x%03x: 0x%x 0x%x 0x%x 0x%x\n", offset + i, readl(baddr + i),
 			 readl(baddr + i + 0x4), readl(baddr + i + 0x8),
 			 readl(baddr + i + 0xc));
+	}
+
+	if (id > 0)
+		return;
+
+	if (comp->mtk_crtc && comp->mtk_crtc->is_dual_pipe &&
+	    comp->mtk_crtc->panel_ext->params->output_mode == MTK_PANEL_DUAL_PORT) {
+		id = 1;
+		offset = DISP_REG_DSC1_OFFSET;
+		baddr += offset;
+		goto DUMP;
 	}
 }
 

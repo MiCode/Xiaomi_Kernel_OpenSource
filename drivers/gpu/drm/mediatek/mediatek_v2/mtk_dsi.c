@@ -3400,6 +3400,8 @@ int mtk_dsi_dump(struct mtk_ddp_comp *comp)
 
 	mtk_mipi_tx_dump(dsi->phy);
 
+	if (dsi->slave_dsi)
+		mtk_dsi_dump(&dsi->slave_dsi->ddp_comp);
 	return 0;
 }
 

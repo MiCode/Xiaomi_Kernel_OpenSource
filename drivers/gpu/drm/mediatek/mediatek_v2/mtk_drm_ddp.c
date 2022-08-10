@@ -556,6 +556,7 @@
 	#define DISP_WDMA0_SEL_IN_FROM_DISP_SPR0      0x2
 
 #define MT6983_DISP_MAIN0_SEL_IN	0xF78
+	#define DISP_MAIN0_SEL_IN_FROM_DISP_DLI_ASYNC1		  0x0
 	#define DISP_MAIN0_SEL_IN_FROM_DISP_PQ0_SOUT_SEL	  0x1
 	#define DISP_MAIN0_SEL_IN_FROM_DISP_DSC_WRAP0_MOUT_EN	0x3
 	#define DISP_MAIN0_SEL_IN_FROM_DISP_RDMA1_SOUT_SEL		0x4
@@ -11285,6 +11286,7 @@ static void mtk_ddp_ext_insert_dual_pipe(struct mtk_drm_crtc *mtk_crtc,
 void mtk_ddp_insert_dsc_prim_MT6983(struct mtk_drm_crtc *mtk_crtc,
 	struct cmdq_pkt *handle)
 {
+	struct mtk_panel_params *panel_ext;
 	unsigned int addr, value;
 
 	/* DISP_PQ0_SOUT -> DISP_DSC_WRAP0_L_SEL */
@@ -11323,6 +11325,31 @@ void mtk_ddp_insert_dsc_prim_MT6983(struct mtk_drm_crtc *mtk_crtc,
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 
+	panel_ext = mtk_drm_get_lcm_ext_params(&mtk_crtc->base);
+	/*DSC_WARP0-> DSI1*/
+	if (panel_ext && panel_ext->output_mode == MTK_PANEL_DUAL_PORT) {
+		/* DISP1_DLI_ASYNC1 to DISP_MAIN0_SEL */
+		addr = MT6983_DISP_MAIN0_SEL_IN;
+		value = DISP_MAIN0_SEL_IN_FROM_DISP_DLI_ASYNC1;
+		cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+			       mtk_crtc->side_config_regs_pa + addr, value, ~0);
+
+		/* DISP_MAIN0_SEL to DSI */
+		addr = MT6983_DISP_MAIN0_SOUT_SEL;
+		value = DISP_MAIN0_SOUT_SEL_TO_DISP_DSI0_SEL_IN;
+		cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+			       mtk_crtc->side_config_regs_pa + addr, value, ~0);
+
+		addr = MT6983_DISP_DSI0_SEL_IN;
+		value = DISP_DSI0_SEL_IN_FROM_DISP_MAIN0_SOUT_SEL;
+		cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+			       mtk_crtc->side_config_regs_pa + addr, value, ~0);
+
+		mtk_disp_mutex_add_comp_with_cmdq(mtk_crtc, DDP_COMPONENT_DLO_ASYNC1,
+				mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base), handle, 0);
+		mtk_disp_mutex_add_comp_with_cmdq(mtk_crtc, DDP_COMPONENT_DLI_ASYNC5,
+				mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base), handle, 0);
+	}
 }
 
 void mtk_ddp_remove_dsc_prim_MT6983(struct mtk_drm_crtc *mtk_crtc,
@@ -11798,6 +11825,7 @@ void mtk_disp_mutex_add_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 				       struct cmdq_pkt *handle,
 				       unsigned int mutex_id)
 {
+	struct mtk_panel_params *panel_ext = mtk_drm_get_lcm_ext_params(&mtk_crtc->base);
 	struct mtk_disp_mutex *mutex = NULL;
 	struct mtk_ddp *ddp = NULL;
 	unsigned int reg;
@@ -11857,6 +11885,14 @@ void mtk_disp_mutex_add_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 								  mutex->id),
 				       ddp->data->mutex_mod[id],
 				       ddp->data->mutex_mod[id]);
+			if (panel_ext && panel_ext->output_mode == MTK_PANEL_DUAL_PORT &&
+			    id == DDP_COMPONENT_DSC0) {
+				cmdq_pkt_write(handle, mtk_crtc->gce_obj.base, regs_pa +
+					       DISP_REG_MUTEX_MOD(ddp->data, mutex->id),
+					       MT6983_MUTEX_MOD0_DISP_DSC1,
+					       MT6983_MUTEX_MOD0_DISP_DSC1);
+				DDPINFO("mutex_add_comp /w cmdq mutex%d add DSC1\n", mutex->id);
+			}
 		} else {
 			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 				       regs_pa +
