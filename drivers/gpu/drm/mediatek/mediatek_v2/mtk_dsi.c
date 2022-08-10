@@ -309,6 +309,10 @@
 #define T_HS_ZERO (15)
 #define DA_HS_SYNC (1)
 
+static struct mtk_drm_property mtk_connector_property[CONNECTOR_PROP_MAX] = {
+	{DRM_MODE_PROP_ATOMIC, "PANEL_ID", 0, UINT_MAX, 0},
+};
+
 #define NS_TO_CYCLE(n, c) ((n) / (c))
 
 #define CEILING(n, s) ((n) + ((s) - ((n) % (s))))
@@ -803,6 +807,10 @@ static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 
 	if (mtk_crtc && mtk_crtc->base.dev)
 		priv = mtk_crtc->base.dev->dev_private;
+	else if (dsi->encoder.dev)
+		priv = dsi->encoder.dev->dev_private;
+	else
+		return 0;
 
 	if (priv && priv->data &&
 		(priv->data->mmsys_id == MMSYS_MT6983 ||
@@ -927,6 +935,12 @@ static int mtk_dsi_set_LFR(struct mtk_dsi *dsi, struct mtk_ddp_comp *comp,
 		return 0;
 	}
 	crtc = dsi->encoder.crtc;
+
+	if (crtc == NULL) {
+		dev_info(dsi->dev, "set LFR crtc is null\n");
+		return 0;
+	}
+
 	mtk_crtc = to_mtk_crtc(crtc);
 	refresh_rate =
 		drm_mode_vrefresh(&mtk_crtc->base.state->adjusted_mode);
@@ -1084,9 +1098,7 @@ void mtk_dsi_config_null_packet(struct mtk_dsi *dsi)
 
 static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 {
-	struct mtk_drm_private *priv = dsi->is_slave ?
-		dsi->master_dsi->ddp_comp.mtk_crtc->base.dev->dev_private
-		: dsi->ddp_comp.mtk_crtc->base.dev->dev_private;
+	struct mtk_drm_private *priv = NULL;
 	struct device *dev = dsi->dev;
 	int ret;
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(dsi->phy);
@@ -1096,6 +1108,12 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 		if (++dsi->clk_refcnt != 1)
 			return 0;
 	}
+	if (dsi->encoder.dev)
+		priv = dsi->encoder.dev->dev_private;
+	else if (dsi->is_slave && dsi->master_dsi->encoder.dev)
+		priv = dsi->master_dsi->encoder.dev->dev_private;
+	else
+		return -1;
 
 	ret = mtk_dsi_set_data_rate(dsi);
 	if (ret < 0) {
@@ -2050,13 +2068,15 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				(atomic_read(&mtk_crtc->d_te.te_switched) != 1)) {
 			struct mtk_drm_private *priv = NULL;
 
-			if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0) {
+			if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0 ||
+				dsi->ddp_comp.id == DDP_COMPONENT_DSI1) {
 				unsigned long long ext_te_time = sched_clock();
 
 				lcm_fps_ctx_update(ext_te_time, 0, 0);
 			}
 
-			if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0 &&
+			if ((dsi->ddp_comp.id == DDP_COMPONENT_DSI0 ||
+				dsi->ddp_comp.id == DDP_COMPONENT_DSI1) &&
 				mtk_dsi_is_cmd_mode(&dsi->ddp_comp) && mtk_crtc) {
 				atomic_set(&mtk_crtc->flush_count, 0);
 				mtk_crtc->pf_time = ktime_get();
@@ -2897,6 +2917,69 @@ mtk_dsi_connector_detect(struct drm_connector *connector, bool force)
 	return connector_status_connected;
 }
 
+static void mtk_dsi_attach_property(struct drm_device *drm, struct mtk_dsi *dsi)
+{
+	struct drm_property *prop = NULL;
+	static struct drm_property *mtk_prop[CONNECTOR_PROP_MAX];
+	struct mtk_drm_property *connector_prop = NULL;
+	int i;
+	static int num;
+
+	if (num == 0) {
+		for (i = 0; i < CONNECTOR_PROP_MAX; i++) {
+			connector_prop = &(mtk_connector_property[i]);
+			mtk_prop[i] = drm_property_create_range(
+				drm, connector_prop->flags, connector_prop->name,
+				connector_prop->min, connector_prop->max);
+			if (!mtk_prop[i]) {
+				DDPINFO("fail to create property:%s\n",
+					  connector_prop->name);
+				return;
+			}
+			DDPINFO("create property:%s, flags:0x%x\n",
+				connector_prop->name, mtk_prop[i]->flags);
+		}
+		num++;
+	}
+
+	for (i = 0; i < CONNECTOR_PROP_MAX; i++) {
+		prop = dsi->connector_property[i];
+		connector_prop = &(mtk_connector_property[i]);
+		if (!prop) {
+			prop = mtk_prop[i];
+			dsi->connector_property[i] = prop;
+			drm_object_attach_property(&dsi->conn.base, prop,
+						   connector_prop->val);
+		}
+	}
+}
+
+static int mtk_dsi_connector_set_property(struct drm_connector *connector,
+				   struct drm_connector_state *state,
+				   struct drm_property *property,
+				   uint64_t val)
+{
+	return 0;
+}
+static int mtk_dsi_connector_get_property(struct drm_connector *connector,
+				   const struct drm_connector_state *state,
+				   struct drm_property *property,
+				   uint64_t *val)
+{
+	struct mtk_dsi *dsi = connector_to_dsi(connector);
+	int i;
+
+	for (i = 0; i < PLANE_PROP_MAX; i++) {
+		if (dsi->connector_property[i] == property) {
+			*val = dsi->prop_val[i];
+			DDPINFO("get property:%s %lld\n", property->name, *val);
+			return 0;
+		}
+	}
+
+	return -EINVAL;
+}
+
 static int mtk_dsi_connector_get_modes(struct drm_connector *connector)
 {
 	struct mtk_dsi *dsi = connector_to_dsi(connector);
@@ -2947,6 +3030,8 @@ static const struct drm_connector_funcs mtk_dsi_connector_funcs = {
 	.reset = drm_atomic_helper_connector_reset,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
+	.atomic_set_property = mtk_dsi_connector_set_property,
+	.atomic_get_property = mtk_dsi_connector_get_property,
 };
 
 static const struct drm_connector_helper_funcs mtk_dsi_conn_helper_funcs = {
@@ -2996,6 +3081,8 @@ static int mtk_dsi_create_conn_enc(struct drm_device *drm, struct mtk_dsi *dsi)
 {
 	int ret;
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
+	int possible_crtcs = 0;
+	int panel_id = 0;
 
 	ret = drm_encoder_init(drm, &dsi->encoder, &mtk_dsi_encoder_funcs,
 			       DRM_MODE_ENCODER_DSI, NULL);
@@ -3009,7 +3096,15 @@ static int mtk_dsi_create_conn_enc(struct drm_device *drm, struct mtk_dsi *dsi)
 	 * Currently display data paths are statically assigned to a crtc each.
 	 * crtc 0 is OVL0 -> COLOR0 -> AAL -> OD -> RDMA0 -> UFOE -> DSI0
 	 */
-	if (comp && comp->id == DDP_COMPONENT_DSI0)
+	if (of_property_read_u32(dsi->dev->of_node, "possible_crtcs", &possible_crtcs))
+		possible_crtcs = 0;
+	if (of_property_read_u32(dsi->dev->of_node, "panel_id", &panel_id))
+		panel_id = 0;
+	DDPMSG("%s possible_crtcs=%d, panel_id=%d\n", __func__, possible_crtcs, panel_id);
+
+	if (possible_crtcs != 0)
+		dsi->encoder.possible_crtcs = possible_crtcs;
+	else if (comp && comp->id == DDP_COMPONENT_DSI0)
 		dsi->encoder.possible_crtcs = BIT(0);
 	else
 		dsi->encoder.possible_crtcs = BIT(1);
@@ -3022,6 +3117,9 @@ static int mtk_dsi_create_conn_enc(struct drm_device *drm, struct mtk_dsi *dsi)
 		if (ret)
 			goto err_encoder_cleanup;
 	}
+
+	mtk_dsi_attach_property(drm, dsi);
+	dsi->prop_val[CONNECTOR_PROP_PANEL_ID] = panel_id;
 
 	return 0;
 
@@ -3889,6 +3987,14 @@ static int mtk_dsi_is_busy(struct mtk_ddp_comp *comp)
 	return ret;
 }
 
+enum mtk_ddp_comp_id mtk_dsi_get_comp_id(struct drm_connector *c)
+{
+	struct mtk_dsi *dsi = container_of(c, struct mtk_dsi, conn);
+
+	DDPINFO("%s id=%d\n", __func__, dsi->ddp_comp.id);
+	return dsi->ddp_comp.id;
+}
+
 bool mtk_dsi_is_cmd_mode(struct mtk_ddp_comp *comp)
 {
 	struct mtk_dsi *dsi;
@@ -4142,9 +4248,9 @@ static void mtk_dsi_clk_change(struct mtk_dsi *dsi, int en)
 
 	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
 		cmdq_pkt_clear_event(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
+			mtk_crtc->gce_obj.event[EVENT_DSI_SOF]);
 		cmdq_pkt_wait_no_clear(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
+			mtk_crtc->gce_obj.event[EVENT_DSI_SOF]);
 		if (mod_vfp) {
 			mtk_dsi_porch_setting(comp, cmdq_handle,
 				DSI_VFP, dsi->vfp);
@@ -6651,10 +6757,10 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 		DDPINFO("%s, change VFP\n", __func__);
 
 		cmdq_pkt_clear_event(handle,
-				mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
+				mtk_crtc->gce_obj.event[EVENT_DSI_SOF]);
 
 		cmdq_pkt_wait_no_clear(handle,
-			mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
+			mtk_crtc->gce_obj.event[EVENT_DSI_SOF]);
 		comp = mtk_ddp_comp_request_output(mtk_crtc);
 
 		if (!comp) {
@@ -6758,7 +6864,8 @@ static irqreturn_t dsi_te1_irq_handler(int irq, void *data)
 	if (IS_ERR_OR_NULL(dsi))
 		return IRQ_NONE;
 
-	if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0) {
+	if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0 ||
+		dsi->ddp_comp.id == DDP_COMPONENT_DSI1) {
 		unsigned long long ext_te_time = sched_clock();
 
 		lcm_fps_ctx_update(ext_te_time, 0, 0);
@@ -7037,9 +7144,9 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		if (panel_ext && panel_ext->params &&
 			panel_ext->params->wait_sof_before_dec_vfp) {
 			cmdq_pkt_clear_event(handle,
-				crtc->gce_obj.event[EVENT_DSI0_SOF]);
+				crtc->gce_obj.event[EVENT_DSI_SOF]);
 			cmdq_pkt_wait_no_clear(handle,
-				crtc->gce_obj.event[EVENT_DSI0_SOF]);
+				crtc->gce_obj.event[EVENT_DSI_SOF]);
 		}
 		mtk_dsi_porch_setting(comp, handle, DSI_VFP,
 					vfront_porch);

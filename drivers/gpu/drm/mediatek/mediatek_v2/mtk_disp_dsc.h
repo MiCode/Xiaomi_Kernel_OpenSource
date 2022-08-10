@@ -11,6 +11,7 @@ struct mtk_disp_dsc_data {
 	bool need_bypass_shadow;
 	bool need_obuf_sw;
 	bool dsi_buffer;
+	unsigned int shadow_ctrl_reg;
 };
 
 #endif

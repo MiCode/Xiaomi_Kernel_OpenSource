@@ -459,7 +459,7 @@ enum CRTC_GCE_EVENT_TYPE {
 	EVENT_WDMA1_EOF,
 	EVENT_STREAM_BLOCK,
 	EVENT_CABC_EOF,
-	EVENT_DSI0_SOF,
+	EVENT_DSI_SOF,
 	/*Msync 2.0*/
 	EVENT_SYNC_TOKEN_VFP_PERIOD,
 	EVENT_GPIO_TE1,
@@ -841,6 +841,7 @@ struct mtk_drm_crtc {
 
 	atomic_t force_high_step;
 	int force_high_enabled;
+	bool is_dsc_output_swap;
 };
 
 struct mtk_crtc_state {
@@ -1088,4 +1089,5 @@ int mtk_drm_ioctl_set_pq_caps(struct drm_device *dev, void *data,
 void mtk_crtc_prepare_instr(struct drm_crtc *crtc);
 unsigned int check_dsi_underrun_event(void);
 void clear_dsi_underrun_event(void);
+void mtk_crtc_update_gce_event(struct mtk_drm_crtc *mtk_crtc);
 #endif /* MTK_DRM_CRTC_H */

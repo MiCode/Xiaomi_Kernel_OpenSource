@@ -131,6 +131,13 @@ int mtk_session_set_mode(struct drm_device *dev, unsigned int session_mode)
 	DDPMSG("%s from %u to %u\n", __func__,
 		private->session_mode, session_mode);
 
+	if (of_property_read_bool(private->mmsys_dev->of_node,
+				"enable_output_int_switch")) {
+		DDPMSG("%s ignore set mode because of output switch\n", __func__);
+		private->session_mode = session_mode;
+		goto success;
+	}
+
 	if (mtk_drm_helper_get_opt(private->helper_opt,
 		MTK_DRM_OPT_VDS_PATH_SWITCH) &&
 		(private->session_mode == MTK_DRM_SESSION_DOUBLE_DL) &&

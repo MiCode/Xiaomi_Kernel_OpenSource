@@ -35,6 +35,7 @@
 	#define DSC_RELAY BIT(5)
 	#define DSC_EMPTY_FLAG_SEL REG_FLD_MSB_LSB(15, 14)
 	#define DSC_UFOE_SEL BIT(16)
+	#define DSC_OUTPUT_SWAP BIT(18)
 	#define CON_FLD_DSC_EN		REG_FLD_MSB_LSB(0, 0)
 	#define CON_FLD_DISP_DSC_BYPASS		REG_FLD_MSB_LSB(4, 4)
 
@@ -103,8 +104,8 @@
 #define DSC_FORCE_COMMIT	BIT(0)
 #define DSC_BYPASS_SHADOW	BIT(1)
 #define DSC_READ_WORKING	BIT(2)
-#define MT6983_DISP_REG_SHADOW_CTRL		0x0228
 #define DISP_REG_DSC1_OFFSET        0x0400
+#define DISP_REG_SHADOW_CTRL(module)	((module)->data->shadow_ctrl_reg)
 
 /**
  * struct mtk_disp_dsc - DISP_DSC driver structure
@@ -225,27 +226,15 @@ static void mtk_dsc_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 static void mtk_dsc_prepare(struct mtk_ddp_comp *comp)
 {
 	struct mtk_disp_dsc *dsc = comp_to_dsc(comp);
-	struct drm_crtc *crtc = &(comp->mtk_crtc->base);
-	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
 	mtk_ddp_comp_clk_prepare(comp);
 
 	/* Bypass shadow register and read shadow register */
 	if (dsc->data->need_bypass_shadow) {
-		if (priv->data->mmsys_id == MMSYS_MT6983 ||
-			priv->data->mmsys_id == MMSYS_MT6895) {
-			mtk_ddp_write_mask_cpu(comp, DSC_BYPASS_SHADOW,
-				MT6983_DISP_REG_SHADOW_CTRL, DSC_BYPASS_SHADOW);
-			mtk_ddp_write_mask_cpu(comp, DSC_BYPASS_SHADOW,
-				MT6983_DISP_REG_SHADOW_CTRL +
-				DISP_REG_DSC1_OFFSET, DSC_BYPASS_SHADOW);
-		} else {
-			mtk_ddp_write_mask_cpu(comp, DSC_BYPASS_SHADOW,
-				DISP_REG_DSC_SHADOW, DSC_BYPASS_SHADOW);
-			mtk_ddp_write_mask_cpu(comp, DSC_BYPASS_SHADOW,
-				DISP_REG_DSC_SHADOW + DISP_REG_DSC1_OFFSET,
-				DSC_BYPASS_SHADOW);
-		}
+		mtk_ddp_write_mask_cpu(comp, DSC_BYPASS_SHADOW,
+			DISP_REG_SHADOW_CTRL(dsc), DSC_BYPASS_SHADOW);
+		mtk_ddp_write_mask_cpu(comp, DSC_BYPASS_SHADOW,
+			DISP_REG_SHADOW_CTRL(dsc) + DISP_REG_DSC1_OFFSET, DSC_BYPASS_SHADOW);
 	}
 }
 
@@ -857,6 +846,8 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 			else
 				dsc_con |= DSC_IN_SRC_SEL;
 		}
+		if (comp->mtk_crtc->is_dsc_output_swap)
+			dsc_con |= DSC_OUTPUT_SWAP;
 
 		mtk_ddp_write_relaxed(comp,
 			dsc_con, DISP_REG_DSC_CON, handle);
@@ -1128,7 +1119,15 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 		/*enable dsc relay mode*/
 		mtk_ddp_write_mask(comp, DSC_RELAY, DISP_REG_DSC_CON,
 				DSC_RELAY, handle);
-		dsc->enable = false;
+		mtk_ddp_write_relaxed(comp, cfg->w, DISP_REG_DSC_PIC_W, handle);
+		mtk_ddp_write_relaxed(comp, (cfg->h - 1), DISP_REG_DSC_PIC_H, handle);
+		mtk_ddp_write_relaxed(comp, cfg->w, DISP_REG_DSC_SLICE_W, handle);
+		mtk_ddp_write_relaxed(comp, (cfg->h - 1), DISP_REG_DSC_SLICE_H, handle);
+
+		if (comp->mtk_crtc->is_dsc_output_swap)
+			mtk_ddp_write_mask(comp, DSC_OUTPUT_SWAP, DISP_REG_DSC_CON,
+				DSC_OUTPUT_SWAP, handle);
+		dsc->enable = true;    /*need to enable dsc in relay mode*/
 	}
 	if (comp->mtk_crtc->is_dual_pipe &&
 		comp->mtk_crtc->panel_ext->params->output_mode
@@ -1304,6 +1303,7 @@ static const struct mtk_disp_dsc_data mt6885_dsc_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = false,
 	.dsi_buffer = false,
+	.shadow_ctrl_reg = 0x0200,
 };
 
 static const struct mtk_disp_dsc_data mt6983_dsc_driver_data = {
@@ -1311,6 +1311,7 @@ static const struct mtk_disp_dsc_data mt6983_dsc_driver_data = {
 	.need_bypass_shadow = false,
 	.need_obuf_sw = true,
 	.dsi_buffer = true,
+	.shadow_ctrl_reg = 0x0228,
 };
 
 static const struct mtk_disp_dsc_data mt6895_dsc_driver_data = {
@@ -1318,30 +1319,35 @@ static const struct mtk_disp_dsc_data mt6895_dsc_driver_data = {
 	.need_bypass_shadow = false,
 	.need_obuf_sw = false,
 	.dsi_buffer = true,
+	.shadow_ctrl_reg = 0x0228,
 };
 
 static const struct mtk_disp_dsc_data mt6873_dsc_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
 	.dsi_buffer = false,
+	.shadow_ctrl_reg = 0x0200,
 };
 
 static const struct mtk_disp_dsc_data mt6853_dsc_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
 	.dsi_buffer = false,
+	.shadow_ctrl_reg = 0x0200,
 };
 
 static const struct mtk_disp_dsc_data mt6879_dsc_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.dsi_buffer = true,
+	.shadow_ctrl_reg = 0x0200,
 };
 
 static const struct mtk_disp_dsc_data mt6855_dsc_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.dsi_buffer = false,
+	.shadow_ctrl_reg = 0x0200,
 };
 
 static const struct of_device_id mtk_disp_dsc_driver_dt_match[] = {

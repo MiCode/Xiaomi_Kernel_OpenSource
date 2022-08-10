@@ -24,6 +24,11 @@
 #include "mtk-cmdq-ext.h"
 #endif
 
+enum MTK_CONNECTOR_PROP {
+	CONNECTOR_PROP_PANEL_ID,
+	CONNECTOR_PROP_MAX,
+};
+
 struct t_condition_wq {
 	wait_queue_head_t wq;
 	atomic_t condition;
@@ -116,6 +121,10 @@ struct mtk_dsi {
 	unsigned int data_phy_cycle;
 	/* for Panel Master dcs read/write */
 	struct mipi_dsi_device *dev_for_PM;
+	/* property */
+	struct drm_property *connector_property[CONNECTOR_PROP_MAX];
+	unsigned int prop_val[CONNECTOR_PROP_MAX];
+
 };
 
 s32 mtk_dsi_poll_for_idle(struct mtk_dsi *dsi, struct cmdq_pkt *handle);

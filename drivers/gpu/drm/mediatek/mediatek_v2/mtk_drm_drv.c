@@ -24,6 +24,7 @@
 #include <linux/kmemleak.h>
 #include <uapi/linux/sched/types.h>
 #include <drm/drm_auth.h>
+#include <drm/drm_print.h>
 
 #include "drm_internal.h"
 #include "mtk_drm_crtc.h"
@@ -1802,6 +1803,26 @@ static const enum mtk_ddp_comp_id mt6983_mtk_ddp_main[] = {
 #endif
 };
 
+static const enum mtk_ddp_comp_id mt6983_mtk_ddp_main_minor[] = {
+	DDP_COMPONENT_OVL0_2L, /*DDP_COMPONENT_OVL1_2L,*/
+	DDP_COMPONENT_OVL0, DDP_COMPONENT_OVL0_VIRTUAL0,
+	DDP_COMPONENT_OVL0_VIRTUAL1, DDP_COMPONENT_RDMA0,
+	DDP_COMPONENT_TDSHP0,    DDP_COMPONENT_COLOR0,
+	DDP_COMPONENT_CCORR0,    DDP_COMPONENT_CCORR1,
+	DDP_COMPONENT_C3D0,      DDP_COMPONENT_DMDP_AAL0,
+	DDP_COMPONENT_AAL0,      DDP_COMPONENT_GAMMA0,
+	DDP_COMPONENT_POSTMASK0, DDP_COMPONENT_DITHER0,
+	DDP_COMPONENT_CM0,       DDP_COMPONENT_SPR0,
+	DDP_COMPONENT_PQ0_VIRTUAL, DDP_COMPONENT_DSC0,
+	DDP_COMPONENT_DLO_ASYNC1, DDP_COMPONENT_DLI_ASYNC5,
+	DDP_COMPONENT_MAIN1_VIRTUAL,
+	DDP_COMPONENT_DSI1,      DDP_COMPONENT_PWM0,
+#ifndef DRM_BYPASS_PQ
+	/* the chist connect by customer config*/
+	DDP_COMPONENT_CHIST0,    DDP_COMPONENT_CHIST1,
+#endif
+};
+
 static const enum mtk_ddp_comp_id mt6983_mtk_ddp_dual_main[] = {
 	/* Can't enable dual pipe with bypass PQ */
 	DDP_COMPONENT_OVL2_2L, /*DDP_COMPONENT_OVL3_2L,*/
@@ -2684,6 +2705,9 @@ static const struct mtk_crtc_path_data mt6983_mtk_main_path_data = {
 	.dual_path_len[0] = ARRAY_SIZE(mt6983_mtk_ddp_dual_main),
 	.wb_path[DDP_MAJOR] = mt6983_mtk_ddp_main_wb_path,
 	.wb_path_len[DDP_MAJOR] = ARRAY_SIZE(mt6983_mtk_ddp_main_wb_path),
+	.path[DDP_MINOR][0] = mt6983_mtk_ddp_main_minor,
+	.path_len[DDP_MINOR][0] = ARRAY_SIZE(mt6983_mtk_ddp_main_minor),
+	.path_req_hrt[DDP_MINOR][0] = true,
 	.addon_data = mt6983_addon_main,
 	.addon_data_dual = mt6983_addon_main_dual,
 };
@@ -5504,7 +5528,7 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	PanelMaster_probe();
 	DDPINFO("%s+\n", __func__);
 
-	//drm_debug = 0x2; /* DRIVER messages */
+	//drm_debug = 0x1F; /* DRIVER messages */
 	private = devm_kzalloc(dev, sizeof(*private), GFP_KERNEL);
 	if (!private)
 		return -ENOMEM;
