@@ -1915,6 +1915,8 @@ static int dispatch_gles_range(struct drm_mtk_layering_info *disp_info,
 
 		hrt_disp_num--;
 		for (disp_idx = HRT_DISP_TYPE_NUM - 1; disp_idx >= 0; disp_idx--) {
+			if (disp_info->layer_num[disp_idx] <= 0)
+				continue;
 			if (!has_hrt_limit(disp_info, disp_idx))
 				continue;
 			valid_ovl_cnt =
@@ -2060,8 +2062,7 @@ static int check_disp_info(struct drm_mtk_layering_info *disp_info)
 		}
 
 		if ((ghead < 0 && gtail >= 0) || (gtail < 0 && ghead >= 0) || (gtail < ghead) ||
-		    (gtail >= layer_num)) {
-			dump_disp_info(disp_info, DISP_DEBUG_LEVEL_ERR);
+		    (layer_num > 0 && gtail >= layer_num)) {
 			DDPPR_ERR("[HRT] gles invalid, disp:%d, head:%d, tail:%d\n", disp_idx,
 				  disp_info->gles_head[disp_idx], disp_info->gles_tail[disp_idx]);
 			return -1;
