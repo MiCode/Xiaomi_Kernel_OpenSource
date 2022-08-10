@@ -1364,7 +1364,7 @@ static int __init himax_common_init(void)
 static void __exit himax_common_exit(void)
 {
 	if (spi) {
-		spi_unregister_device(spi);
+		I("API_spi_uunregister_device(spi) has been removed\n");
 		spi = NULL;
 	}
 	spi_unregister_driver(&himax_common_driver);
