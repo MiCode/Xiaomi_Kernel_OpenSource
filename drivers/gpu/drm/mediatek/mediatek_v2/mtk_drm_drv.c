@@ -910,7 +910,8 @@ static void mtk_atomic_doze_preparation(struct drm_device *dev,
 			continue;
 		}
 
-		mtk_atomit_doze_update_pq(crtc, 0, old_state->crtcs[i].old_state->active);
+		if (old_state && old_state->crtcs[i].old_state)
+			mtk_atomit_doze_update_pq(crtc, 0, old_state->crtcs[i].old_state->active);
 
 		mtk_atomic_doze_update_dsi_state(dev, crtc, 1);
 
@@ -938,7 +939,8 @@ static void mtk_atomic_doze_finish(struct drm_device *dev,
 
 		mtk_atomic_doze_update_dsi_state(dev, crtc, 0);
 
-		mtk_atomit_doze_update_pq(crtc, 1, old_state->crtcs[i].old_state->active);
+		if (old_state && old_state->crtcs[i].old_state)
+			mtk_atomit_doze_update_pq(crtc, 1, old_state->crtcs[i].old_state->active);
 	}
 }
 
