@@ -5949,6 +5949,11 @@ unsigned int mtk_dsi_get_line_time(struct mtk_drm_crtc *mtk_crtc,
 	dsi->ext = find_panel_ext(dsi->panel);
 	data_rate = mtk_dsi_default_rate(dsi);
 
+	if (data_rate == 0) {
+		DDPINFO("%s get default data_rate fail\n", __func__);
+		return 0;
+	}
+
 	ps_wc = mtk_dsi_get_ps_wc(mtk_crtc, dsi);
 
 	if (dsi->ext->params->is_cphy) {
