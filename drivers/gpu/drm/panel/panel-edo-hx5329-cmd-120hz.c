@@ -372,10 +372,10 @@ static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb, void *handle,
 	if (!cb)
 		return -1;
 
-	if (level > 255)
-		level = 255;
+	if (level > 1023)
+		level = 1023;
 
-	level_mapping = level * 0x1FFF / 255;
+	level_mapping = level * 0x1FFF / 1023;
 	pr_info("%s backlight = %d, mapping to 0x%x\n", __func__, level, level_mapping);
 
 	bl_tb0[1] = (u8)((level_mapping >> 8) & 0x1F);
