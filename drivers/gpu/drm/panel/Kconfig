@@ -208,6 +208,28 @@ config DRM_PANEL_NOVATEK_NT35510
 	  around the Novatek NT35510 display controller, such as some
 	  Hydis panels.
 
+config DRM_PANEL_K6983V1_64_REF_FHD_CMD
+	tristate "Alpha k6983v1_64_ref amoled FHD+ cmd panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for k6983v1_64_ref
+	  FHDFLUS(1080*2550) panel.
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
+config DRM_PANEL_K6983V1_64_REF_WQHD_CMD
+	tristate "Alpha k6983v1_64_ref amoled WQHD cmd panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for k6983v1_64_ref
+	  WQHD(2296*2000) panel.
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
 config DRM_PANEL_SAMSUNG_ANA6705_CMD
 	tristate "ANA6705 amoled WQHD cmd mode panel"
 	depends on OF

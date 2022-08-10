@@ -57,6 +57,11 @@ obj-$(CONFIG_DRM_PANEL_TPO_TPG110) += panel-tpo-tpg110.o
 obj-$(CONFIG_DRM_PANEL_TRULY_NT35597_WQXGA) += panel-truly-nt35597.o
 obj-$(CONFIG_DRM_PANEL_VISIONOX_RM69299) += panel-visionox-rm69299.o
 obj-$(CONFIG_DRM_PANEL_XINPENG_XPP055C272) += panel-xinpeng-xpp055c272.o
+ifneq ($(wildcard $(srctree)/$(src)/k6983v1_64_ref),)
+obj-$(CONFIG_DRM_PANEL_K6983V1_64_REF_FHD_CMD) += k6983v1_64_ref/panel-k6983v1-64-ref-fhd-cmd.o
+obj-$(CONFIG_DRM_PANEL_K6983V1_64_REF_WQHD_CMD) += k6983v1_64_ref/panel-k6983v1-64-ref-wqhd-cmd.o
+endif
+
 obj-$(CONFIG_DRM_PANEL_SAMSUNG_ANA6705_CMD) += panel-samsung-ana6705-cmd.o
 obj-$(CONFIG_DRM_PANEL_SAMSUNG_ANA6705_CMD_FHDP) += panel-samsung-ana6705-cmd-fhdp.o
 obj-$(CONFIG_DRM_PANEL_HX_NT37701_DPHY_CMD) += panel-hx-nt37701-dphy-cmd.o
