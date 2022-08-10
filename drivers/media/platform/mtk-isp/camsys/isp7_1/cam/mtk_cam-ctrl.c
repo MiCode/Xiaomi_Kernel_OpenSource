@@ -4637,9 +4637,13 @@ static void mtk_camsys_camsv_frame_start(struct mtk_camsv_device *camsv_dev,
 }
 
 static void mtk_camsys_mraw_frame_start(struct mtk_mraw_device *mraw_dev,
-	struct mtk_cam_ctx *ctx, unsigned int dequeued_frame_seq_no, u64 ts_ns)
+	struct mtk_cam_ctx *ctx, struct mtk_camsys_irq_info *irq_info)
 {
 	int mraw_dev_index;
+	unsigned int dequeued_frame_seq_no = irq_info->frame_idx_inner;
+	u64 ts_ns = irq_info->ts_ns;
+	int write_cnt = irq_info->write_cnt;
+	int fbc_cnt = irq_info->fbc_cnt;
 
 	/* touch watchdog */
 	if (watchdog_scenario(ctx))
@@ -4655,6 +4659,10 @@ static void mtk_camsys_mraw_frame_start(struct mtk_mraw_device *mraw_dev,
 
 	mtk_cam_mraw_apply_next_buffer(ctx,
 		mraw_dev->id + MTKCAM_SUBDEV_MRAW_START, ts_ns);
+
+	mraw_check_fbc_no_deque(ctx, mraw_dev, fbc_cnt,
+		write_cnt, dequeued_frame_seq_no);
+
 }
 
 static bool mtk_camsys_is_all_cq_done(struct mtk_cam_ctx *ctx,
@@ -4838,8 +4846,7 @@ static int mtk_camsys_event_handle_mraw(struct mtk_cam_device *cam,
 	}
 	/* mraw's SOF */
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START))
-		mtk_camsys_mraw_frame_start(mraw_dev, ctx,
-			irq_info->frame_idx_inner, irq_info->ts_ns);
+		mtk_camsys_mraw_frame_start(mraw_dev, ctx, irq_info);
 	/* mraw's CQ done */
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
 		if (mtk_camsys_is_all_cq_done(ctx, stream_id)) {

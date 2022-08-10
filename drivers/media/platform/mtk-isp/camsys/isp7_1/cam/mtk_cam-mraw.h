@@ -249,6 +249,10 @@ struct mtk_mraw_device {
 	unsigned int frame_wait_to_process;
 	struct notifier_block notifier_blk;
 	unsigned int is_enqueued;
+	u64 fbc_iszero_cnt;
+	u64 last_wcnt;
+	u64 wcnt_no_dup_cnt;
+	unsigned int is_fbc_cnt_zero_happen;
 };
 
 struct mtk_mraw {
@@ -317,6 +321,9 @@ void mtk_cam_mraw_get_mbn_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 	unsigned int *width, unsigned int *height);
 void mtk_cam_mraw_get_cpi_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 	unsigned int *width, unsigned int *height);
+void mraw_check_fbc_no_deque(struct mtk_cam_ctx *ctx,
+	struct mtk_mraw_device *mraw_dev,
+	int fbc_cnt, int write_cnt, unsigned int dequeued_frame_seq_no);
 
 extern struct platform_driver mtk_cam_mraw_driver;
 
