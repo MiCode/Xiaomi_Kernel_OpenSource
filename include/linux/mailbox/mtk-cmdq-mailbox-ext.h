@@ -33,7 +33,7 @@ void cmdq_controller_set_fp(struct cmdq_util_controller_fp *cust_cmdq_util);
 #define CMDQ_PREDUMP_MS(timeout_ms)	\
 	((timeout_ms == CMDQ_NO_TIMEOUT) ? CMDQ_PREDUMP_DEFAULT_MS : timeout_ms / 5)
 
-#define CMDQ_THR_MAX_COUNT		24
+#define CMDQ_THR_MAX_COUNT		32
 
 #define CMDQ_INST_SIZE			8 /* instruction is 64-bit */
 #define CMDQ_SUBSYS_SHIFT		16
