@@ -14,7 +14,7 @@
 #define ACTIVE_CHANNEL			0x1
 
 #define IPCMEM_TOC_SIZE			(4*1024)
-#define MAX_CHANNEL_SIGNALS		4
+#define MAX_CHANNEL_SIGNALS		5
 
 #define MAX_PARTITION_COUNT		7	/*7 partitions other than global partition*/
 
@@ -22,6 +22,7 @@
 #define IPCLITE_MEM_INIT_SIGNAL 1
 #define IPCLITE_VERSION_SIGNAL  2
 #define IPCLITE_TEST_SIGNAL		3
+#define IPCLITE_SSR_SIGNAL		4
 
 /** Flag definitions for the entries */
 #define IPCMEM_TOC_ENTRY_FLAGS_ENABLE_READ_PROTECTION   (0x01)
@@ -38,11 +39,22 @@
 /* Timeout (ms) for the trylock of remote spinlocks */
 #define HWSPINLOCK_TIMEOUT	1000
 
+#define CHANNEL_INACTIVE		0
+#define CHANNEL_ACTIVATE_IN_PROGRESS    1
+#define CHANNEL_ACTIVE			2
+
+#define CONFIGURED_CORE		1
+
 /*IPCMEM Structure Definitions*/
 
 struct ipclite_features {
 	uint32_t global_atomic_support;
 	uint32_t version_finalised;
+};
+
+struct ipclite_recover {
+	uint32_t global_atomic_hwlock_owner;
+	uint32_t configured_core[IPCMEM_NUM_HOSTS];
 };
 
 struct ipcmem_partition_header {
@@ -77,7 +89,7 @@ struct ipcmem_toc {
 	/* as ipcmem is 4k and if host number increases */
 	/* it would create problems*/
 	struct ipclite_features ipclite_features;
-	uint32_t global_atomic_hwlock_owner;
+	struct ipclite_recover recovery;
 };
 
 struct ipcmem_region {
@@ -202,7 +214,7 @@ const struct ipcmem_toc_entry ipcmem_toc_partition_entries[] = {
 	  IPCMEM_TOC_ENTRY_FLAGS_ENABLE_RW_PROTECTION,
 	  IPCMEM_APPS,
 	  IPCMEM_CDSP,
-	  1,
+	  CHANNEL_INACTIVE,
 	},
 	/* APPS<->CVP (EVA) partition. */
 	{
@@ -211,7 +223,7 @@ const struct ipcmem_toc_entry ipcmem_toc_partition_entries[] = {
 	  IPCMEM_TOC_ENTRY_FLAGS_ENABLE_RW_PROTECTION,
 	  IPCMEM_APPS,
 	  IPCMEM_CVP,
-	  1,
+	  CHANNEL_INACTIVE,
 	},
 	/* APPS<->VPU partition. */
 	{
@@ -220,7 +232,7 @@ const struct ipcmem_toc_entry ipcmem_toc_partition_entries[] = {
 	  IPCMEM_TOC_ENTRY_FLAGS_ENABLE_RW_PROTECTION,
 	  IPCMEM_APPS,
 	  IPCMEM_VPU,
-	  1,
+	  CHANNEL_INACTIVE,
 	},
 	/* CDSP<->CVP (EVA) partition. */
 	{
@@ -229,7 +241,7 @@ const struct ipcmem_toc_entry ipcmem_toc_partition_entries[] = {
 	  IPCMEM_TOC_ENTRY_FLAGS_ENABLE_RW_PROTECTION,
 	  IPCMEM_CDSP,
 	  IPCMEM_CVP,
-	  1,
+	  CHANNEL_INACTIVE,
 	},
 	/* CDSP<->VPU partition. */
 	{
@@ -238,7 +250,7 @@ const struct ipcmem_toc_entry ipcmem_toc_partition_entries[] = {
 	  IPCMEM_TOC_ENTRY_FLAGS_ENABLE_RW_PROTECTION,
 	  IPCMEM_CDSP,
 	  IPCMEM_VPU,
-	  1,
+	  CHANNEL_INACTIVE,
 	},
 	/* VPU<->CVP (EVA) partition. */
 	{
@@ -247,7 +259,7 @@ const struct ipcmem_toc_entry ipcmem_toc_partition_entries[] = {
 	  IPCMEM_TOC_ENTRY_FLAGS_ENABLE_RW_PROTECTION,
 	  IPCMEM_VPU,
 	  IPCMEM_CVP,
-	  1,
+	  CHANNEL_INACTIVE,
 	},
 	/* APPS<->APPS partition. */
 	{
@@ -256,7 +268,7 @@ const struct ipcmem_toc_entry ipcmem_toc_partition_entries[] = {
 	  IPCMEM_TOC_ENTRY_FLAGS_ENABLE_RW_PROTECTION,
 	  IPCMEM_APPS,
 	  IPCMEM_APPS,
-	  1,
+	  CHANNEL_INACTIVE,
 	}
 	/* Last entry uses invalid hosts and no protections to signify the end. */
 	/* {
