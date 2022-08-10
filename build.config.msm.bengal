@@ -5,7 +5,7 @@
 
 ################################################################################
 ## Variant setup
-MSM_ARCH=khaje
+MSM_ARCH=bengal
 VARIANTS=(consolidate gki)
 [ -z "${VARIANT}" ] && VARIANT=consolidate
 
