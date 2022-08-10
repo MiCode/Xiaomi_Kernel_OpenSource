@@ -11452,6 +11452,102 @@ void mtk_ddp_remove_dsc_prim_MT6983(struct mtk_drm_crtc *mtk_crtc,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 }
 
+void mtk_ddp_insert_dsc_ext_MT6983(struct mtk_drm_crtc *mtk_crtc,
+	struct cmdq_pkt *handle)
+{
+	unsigned int addr, value;
+
+	/* DISP_RDMA1_SOUT -> DISP_RDMA1_POS_SEL */
+	addr = MT6983_DISP_RDMA1_SOUT_SEL;
+	value = DISP_RDMA1_SOUT_SEL_TO_DISP_RDMA1_POS_SEL_IN;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->side_config_regs_pa + addr, value, ~0);
+
+	addr = MT6983_DISP_RDMA1_POS_SEL_IN;
+	value = DISP_RDMA1_POS_SEL_IN_FROM_DISP_RDMA1_SOUT_SEL;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->side_config_regs_pa + addr, value, ~0);
+
+	/* DISP_TV0_SOUT -> DISP_DSC_WRAP0_L_SEL */
+	addr = MT6983_DISP_TV0_SOUT_SEL;
+	value = DISP_TV0_SOUT_SEL_TO_DISP_DSC_WRAP0_L_SEL_IN;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->side_config_regs_pa + addr, value, value);
+
+	addr = MT6983_DISP_DSC_WRAP0_L_SEL_IN;
+	value = DISP_DSC_WRAP0_L_SEL_IN_FROM_DISP_TV0_SOUT_SEL;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->side_config_regs_pa + addr, value, ~0);
+
+	/* DISP_DSC_WRAP0_MOUT -> DISP_MAIN0_SEL */
+	addr = MT6983_DISP_DSC_WRAP0_MOUT_EN;
+	value = DISP_DSC_WRAP0_MOUT_EN_TO_DISP_MAIN0_SEL_IN;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->side_config_regs_pa + addr, value, value);
+
+	addr = MT6983_DISP_MAIN0_SEL_IN;
+	value = DISP_MAIN0_SEL_IN_FROM_DISP_DSC_WRAP0_MOUT_EN;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->side_config_regs_pa + addr, value, ~0);
+
+	if (!mtk_crtc->is_dual_pipe)
+		return;
+
+	/* DLI_ASYNC2 to  DISP_DSC_WRAP0_R_SEL */
+	addr = MT6983_DISP_DLI2_SOUT_SEL;
+	value = DISP_DLI2_SOUT_SEL_TO_DISP_DSC_WRAP0_R_SEL_IN;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->side_config_regs_pa + addr, value, ~0);
+
+	addr = MT6983_DISP_DSC_WRAP0_R_SEL_IN;
+	value = DISP_DSC_WRAP0_R_SEL_IN_FROM_DISP_DLI2_SOUT_SEL;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->side_config_regs_pa + addr, value, ~0);
+
+}
+
+void mtk_ddp_remove_dsc_ext_MT6983(struct mtk_drm_crtc *mtk_crtc,
+	struct cmdq_pkt *handle)
+{
+	unsigned int addr, value;
+
+	/* DISP_RDMA1_SOUT -> DISP_RDMA1_POS_SEL */
+	addr = MT6983_DISP_RDMA1_SOUT_SEL;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->side_config_regs_pa + addr, value, ~0);
+
+	addr = MT6983_DISP_RDMA1_POS_SEL_IN;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->side_config_regs_pa + addr, value, ~0);
+
+	/* DISP_TV0_SOUT -> DISP_DSC_WRAP0_L_SEL */
+	addr = MT6983_DISP_TV0_SOUT_SEL;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->side_config_regs_pa + addr, value, value);
+
+	addr = MT6983_DISP_DSC_WRAP0_L_SEL_IN;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+		       mtk_crtc->side_config_regs_pa + addr, value, ~0);
+
+	if (!mtk_crtc->is_dual_pipe)
+		return;
+
+	/* DLI_ASYNC2 to  DISP_DSC_WRAP0_R_SEL */
+	addr = MT6983_DISP_DLI2_SOUT_SEL;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+			   mtk_crtc->side_config_regs_pa + addr, value, ~0);
+
+	addr = MT6983_DISP_DSC_WRAP0_R_SEL_IN;
+	value = 0;
+	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+			   mtk_crtc->side_config_regs_pa + addr, value, ~0);
+}
+
 void mtk_ddp_insert_dsc_prim_MT6895(struct mtk_drm_crtc *mtk_crtc,
 	struct cmdq_pkt *handle)
 {
@@ -11652,13 +11748,17 @@ void mtk_ddp_dual_pipe_dump(struct mtk_drm_crtc *mtk_crtc)
 void mtk_ddp_connect_dual_pipe_path(struct mtk_drm_crtc *mtk_crtc,
 	struct mtk_disp_mutex *mutex)
 {
-	if (drm_crtc_index(&mtk_crtc->base) == 1) {
+	struct mtk_ddp_comp *output_comp;
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (drm_crtc_index(&mtk_crtc->base) == 1 &&
+	    output_comp && mtk_ddp_comp_get_type(output_comp->id) == MTK_DP_INTF) {
 		//to do: dp in 6983 4k60 can use merge, only 8k30 must use dsc
 		if (drm_mode_vrefresh(&(&mtk_crtc->base)->state->adjusted_mode) == 60)
 			mtk_ddp_ext_dual_pipe_dsc(mtk_crtc, mutex);
 		else
 			mtk_ddp_ext_insert_dual_pipe(mtk_crtc, mutex);
-	} else if (drm_crtc_index(&mtk_crtc->base) == 0) {
+	} else {
 		unsigned int i, j;
 		struct mtk_ddp_comp *comp;
 		struct mtk_ddp_comp **ddp_comp;

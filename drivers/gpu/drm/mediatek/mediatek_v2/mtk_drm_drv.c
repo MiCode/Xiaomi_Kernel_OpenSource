@@ -1869,6 +1869,13 @@ static const enum mtk_ddp_comp_id mt6983_mtk_ddp_ext_dsi[] = {
 	DDP_COMPONENT_DSI1,
 };
 
+static const enum mtk_ddp_comp_id mt6983_mtk_ddp_ext_dsi_adpt[] = {
+	DDP_COMPONENT_OVL2_2L_NWCG,
+	DDP_COMPONENT_OVL2_2L_NWCG_VIRTUAL0, DDP_COMPONENT_RDMA3,
+	DDP_COMPONENT_MAIN1_VIRTUAL,
+	DDP_COMPONENT_DSI1,
+};
+
 static const enum mtk_ddp_comp_id mt6983_dual_data_ext[] = {
 	DDP_COMPONENT_OVL0_2L_NWCG,
 	DDP_COMPONENT_OVL0_2L_NWCG_VIRTUAL0, DDP_COMPONENT_RDMA1,
@@ -2731,6 +2738,15 @@ static const struct mtk_crtc_path_data mt6983_mtk_ext_dsi_path_data = {
 	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6983_mtk_ddp_ext_dsi),
 	.path_req_hrt[DDP_MAJOR][0] = true,
 	.addon_data = mt6983_addon_ext,
+//	.dual_path[0] = mt6983_dual_data_ext,
+//	.dual_path_len[0] = ARRAY_SIZE(mt6983_dual_data_ext),
+};
+
+static const struct mtk_crtc_path_data mt6983_mtk_ext_dsi_adpt_path_data = {
+	.path[DDP_MAJOR][0] = mt6983_mtk_ddp_ext_dsi_adpt,
+	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6983_mtk_ddp_ext_dsi_adpt),
+	.path_req_hrt[DDP_MAJOR][0] = true,
+	.addon_data = mt6983_addon_ext,
 	.dual_path[0] = mt6983_dual_data_ext,
 	.dual_path_len[0] = ARRAY_SIZE(mt6983_dual_data_ext),
 };
@@ -3275,7 +3291,7 @@ static const struct mtk_mmsys_driver_data mt6885_mmsys_driver_data = {
 static const struct mtk_mmsys_driver_data mt6983_mmsys_driver_data = {
 	.main_path_data = &mt6983_mtk_main_path_data,
 	.ext_path_data = &mt6983_mtk_ext_path_data,
-	.ext_alter_path_data = &mt6983_mtk_ext_dsi_path_data,
+	.ext_alter_path_data = &mt6983_mtk_ext_dsi_adpt_path_data,
 	.third_path_data = &mt6983_mtk_third_path_data,
 	.fourth_path_data = &mt6983_mtk_ext_dsi_path_data,
 	.fake_eng_data = &mt6983_fake_eng_data,

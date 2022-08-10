@@ -915,6 +915,7 @@ void mtk_crtc_wait_frame_done(struct mtk_drm_crtc *mtk_crtc,
 			      int clear_event);
 
 struct mtk_ddp_comp *mtk_ddp_comp_request_output(struct mtk_drm_crtc *mtk_crtc);
+struct mtk_ddp_comp *mtk_ddp_comp_request_first(struct mtk_drm_crtc *mtk_crtc);
 
 /* get fence */
 int mtk_drm_crtc_getfence_ioctl(struct drm_device *dev, void *data,

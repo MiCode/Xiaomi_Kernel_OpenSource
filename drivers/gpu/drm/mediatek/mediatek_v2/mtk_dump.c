@@ -114,6 +114,7 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 		mtk_spr_dump(comp);
 		break;
 	case DDP_COMPONENT_DSC0:
+	case DDP_COMPONENT_DSC1:
 		mtk_dsc_dump(comp);
 		break;
 	case DDP_COMPONENT_MERGE0:

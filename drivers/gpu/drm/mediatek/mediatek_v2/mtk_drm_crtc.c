@@ -363,7 +363,11 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 	}
 
 	if (panel_ext && panel_ext->dsc_params.enable) {
-		comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
+		/* TODO: DSC comp not hardcode */
+		if (crtc_id == 0)
+			comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
+		else
+			comp = priv->ddp_comp[DDP_COMPONENT_DSC1];
 		mtk_dump_reg(comp);
 	}
 }
@@ -553,6 +557,19 @@ struct mtk_ddp_comp *mtk_ddp_comp_request_output(struct mtk_drm_crtc *mtk_crtc)
 		comp, mtk_crtc, i,
 		j)
 		if (mtk_ddp_comp_is_output(comp))
+			return comp;
+
+	/* This CRTC does not contain output comp */
+	return NULL;
+}
+
+struct mtk_ddp_comp *mtk_ddp_comp_request_first(struct mtk_drm_crtc *mtk_crtc)
+{
+	struct mtk_ddp_comp *comp;
+	int i, j;
+
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+		if (comp && mtk_ddp_comp_get_type(comp->id != MTK_DISP_VIRTUAL))
 			return comp;
 
 	/* This CRTC does not contain output comp */
@@ -1235,6 +1252,7 @@ bool mtk_crtc_is_dual_pipe(struct drm_crtc *crtc)
 	struct mtk_panel_params *panel_ext =
 		mtk_drm_get_lcm_ext_params(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
 	if ((drm_crtc_index(crtc) == 0) &&
 		panel_ext &&
@@ -1250,12 +1268,13 @@ bool mtk_crtc_is_dual_pipe(struct drm_crtc *crtc)
 	}
 
 
-	if ((drm_crtc_index(crtc) == 0) &&
-		mtk_drm_helper_get_opt(priv->helper_opt,
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
 			    MTK_DRM_OPT_PRIM_DUAL_PIPE) &&
 		panel_ext &&
 		panel_ext->output_mode == MTK_PANEL_DSC_SINGLE_PORT &&
-		panel_ext->dsc_params.slice_mode == 1) {
+		panel_ext->dsc_params.slice_mode == 1 &&
+		mtk_crtc->path_data->dual_path_len[0] != 0) {
+		/* dual_path should exist */
 		return true;
 	}
 
@@ -1331,10 +1350,8 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 				comp = priv->ddp_comp[DDP_COMPONENT_MERGE1];
 				mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i][j] = comp;
 				comp->mtk_crtc = mtk_crtc;
-				}
-			continue;
-
-
+				continue;
+			}
 		}
 		comp = priv->ddp_comp[comp_id];
 		mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i][j] = comp;
@@ -1535,7 +1552,11 @@ void mtk_crtc_ddp_prepare(struct mtk_drm_crtc *mtk_crtc)
 		}
 	}
 	if (panel_ext && panel_ext->dsc_params.enable) {
-		comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
+		/* TODO: DSC comp not hardcode */
+		if (drm_crtc_index(crtc) == 0)
+			comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
+		else
+			comp = priv->ddp_comp[DDP_COMPONENT_DSC1];
 		mtk_ddp_comp_clk_prepare(comp);
 	}
 	if (mtk_crtc->is_dual_pipe) {
@@ -1598,7 +1619,11 @@ void mtk_crtc_ddp_unprepare(struct mtk_drm_crtc *mtk_crtc)
 		}
 	}
 	if (panel_ext && panel_ext->dsc_params.enable) {
-		comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
+		/* TODO: DSC comp not hardcode */
+		if (drm_crtc_index(crtc) == 0)
+			comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
+		else
+			comp = priv->ddp_comp[DDP_COMPONENT_DSC1];
 		mtk_ddp_comp_clk_unprepare(comp);
 	}
 
@@ -3327,8 +3352,11 @@ void mtk_crtc_mode_switch_config(struct mtk_drm_crtc *mtk_crtc,
 
 	if (panel_ext && panel_ext->dsc_params.enable) {
 		struct mtk_ddp_comp *dsc_comp;
-
-		dsc_comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
+		/* TODO: DSC comp not hardcode */
+		if (drm_crtc_index(crtc) == 0)
+			dsc_comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
+		else
+			dsc_comp = priv->ddp_comp[DDP_COMPONENT_DSC1];
 		dsc_comp->mtk_crtc = mtk_crtc;
 
 		DDPDBG("%s:%s\n", __func__, mtk_dump_comp_str(dsc_comp));
@@ -5497,7 +5525,11 @@ static void mtk_crtc_addon_connector_disconnect(struct drm_crtc *crtc,
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 
 	if (panel_ext && panel_ext->dsc_params.enable) {
-		dsc_comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
+		/* TODO: DSC comp not hardcode */
+		if (drm_crtc_index(crtc) == 0)
+			dsc_comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
+		else
+			dsc_comp = priv->ddp_comp[DDP_COMPONENT_DSC1];
 
 		switch (priv->data->mmsys_id) {
 		case MMSYS_MT6789:
@@ -5507,7 +5539,10 @@ static void mtk_crtc_addon_connector_disconnect(struct drm_crtc *crtc,
 			mtk_ddp_remove_dsc_prim_MT6885(mtk_crtc, handle);
 			break;
 		case MMSYS_MT6983:
-			mtk_ddp_remove_dsc_prim_MT6983(mtk_crtc, handle);
+			if (drm_crtc_index(crtc) == 0)
+				mtk_ddp_remove_dsc_prim_MT6983(mtk_crtc, handle);
+			else
+				mtk_ddp_remove_dsc_ext_MT6983(mtk_crtc, handle);
 			break;
 		case MMSYS_MT6895:
 			mtk_ddp_remove_dsc_prim_MT6895(mtk_crtc, handle);
@@ -5567,7 +5602,11 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 	if (panel_ext && panel_ext->dsc_params.enable) {
 		struct mtk_ddp_config cfg;
 
-		dsc_comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
+		/* TODO: DSC comp not hardcode */
+		if (drm_crtc_index(crtc) == 0)
+			dsc_comp = priv->ddp_comp[DDP_COMPONENT_DSC0];
+		else
+			dsc_comp = priv->ddp_comp[DDP_COMPONENT_DSC1];
 
 		cfg.w = crtc->state->adjusted_mode.hdisplay;
 		cfg.h = crtc->state->adjusted_mode.vdisplay;
@@ -5607,7 +5646,10 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 			mtk_ddp_insert_dsc_prim_MT6885(mtk_crtc, handle);
 			break;
 		case MMSYS_MT6983:
-			mtk_ddp_insert_dsc_prim_MT6983(mtk_crtc, handle);
+			if (drm_crtc_index(crtc) == 0)
+				mtk_ddp_insert_dsc_prim_MT6983(mtk_crtc, handle);
+			else
+				mtk_ddp_insert_dsc_ext_MT6983(mtk_crtc, handle);
 			break;
 		case MMSYS_MT6873:
 			mtk_ddp_insert_dsc_prim_MT6873(mtk_crtc, handle);
