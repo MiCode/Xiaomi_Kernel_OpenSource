@@ -3683,7 +3683,7 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 	unsigned int update_y = 0;
 
 	//TODO: FIXME need used current avail mode index,but how can get it?
-	if (mtk_crtc->avail_modes) {
+	if (mtk_crtc && mtk_crtc->avail_modes) {
 		update_x = (ext->params->output_mode == MTK_PANEL_DUAL_PORT) ?
 			mtk_crtc->avail_modes[0].hdisplay / 2 - 1
 			: mtk_crtc->avail_modes[0].hdisplay - 1;
