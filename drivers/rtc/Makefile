@@ -5,6 +5,9 @@
 
 ccflags-$(CONFIG_RTC_DEBUG)	:= -DDEBUG
 
+# common include path
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
+
 obj-$(CONFIG_RTC_LIB)		+= lib.o
 obj-$(CONFIG_RTC_SYSTOHC)	+= systohc.o
 obj-$(CONFIG_RTC_CLASS)		+= rtc-core.o

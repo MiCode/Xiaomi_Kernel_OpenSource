@@ -12,6 +12,8 @@
 #define SUPPORT_EOSC_CALI
 #define SUPPORT_PWR_OFF_ALARM
 
+#define HWID                    MT6685_HWCID_L
+
 /* we map HW YEA 0 (2000) to 1968 not 1970 because 2000 is the leap year */
 #define RTC_MIN_YEAR            1968
 #define RTC_BASE_YEAR           1900
@@ -68,6 +70,7 @@
 #define RTC_WRTGR                       0x42
 #define RTC_CON                         0x44
 #define RTC_INT_CNT_L                   0x48
+#define RTC_SPAR_MACRO                  0x58
 
 #define RTC_TC_SEC_MASK                 0x3f
 #define RTC_TC_MIN_MASK                 0x3f
@@ -146,9 +149,16 @@
 #define TOP_DIG_WPK_H                   MT6685_TOP_DIG_WPK_H
 #define DIG_WPK_KEY_H_MASK      (MT6685_DIG_WPK_KEY_H_MASK << MT6685_DIG_WPK_KEY_H_SHIFT)
 
+#define RG_RTC_MCLK_PDN                 MT6685_SCK_TOP_CKPDN_CON0_L
+#define RG_RTC_MCLK_PDN_STA_MASK        MT6685_RG_RTC_MCLK_PDN_MASK
+#define RG_RTC_MCLK_PDN_STA_SHIFT       MT6685_RG_RTC_MCLK_PDN_SHIFT
+
 #define RG_RTC_MCLK_PDN_SET             MT6685_SCK_TOP_CKPDN_CON0_L_SET
 #define RG_RTC_MCLK_PDN_CLR             MT6685_SCK_TOP_CKPDN_CON0_L_CLR
 #define RG_RTC_MCLK_PDN_MASK    (MT6685_RG_RTC_MCLK_PDN_MASK << MT6685_RG_RTC_MCLK_PDN_SHIFT)
+
+#define SPAR_PROT_STAT_MASK             MT6685_RTC_SPAR_PROT_STAT_MASK
+#define SPAR_PROT_STAT_SHIFT            MT6685_RTC_SPAR_PROT_STAT_SHIFT
 
 /*SCK_TOP rtc interrupt*/
 #define SCK_TOP_INT_CON0                MT6685_SCK_TOP_INT_CON0
@@ -234,6 +244,38 @@ enum boot_mode_t {
 struct mtk_rtc_data {
 	u32         wrtgr;
 	u32			unlock_version;
+};
+
+static const char *rtc_time_reg_name[RTC_OFFSET_COUNT] = {
+	[0] = "SEC",
+	[1] = "MIN",
+	[2] = "HOUR",
+	[3] = "DOM",
+	[4] = "DOW",
+	[5] = "MTH",
+	[6] = "YEAR",
+};
+
+enum rtc_time_mask {
+	SEC_MASK,
+	MIN_MASK,
+	HOU_MASK,
+	DOM_MASK,
+	DOW_MASK,
+	MTH_MASK,
+	YEA_MASK,
+	MASK_COUNT
+
+};
+
+static char rtc_time_mask[MASK_COUNT] = {
+	[SEC_MASK] = 0x3f,
+	[MIN_MASK] = 0x3f,
+	[HOU_MASK] = 0x1f,
+	[DOM_MASK] = 0x1f,
+	[DOW_MASK] = 0x7,
+	[MTH_MASK] = 0xf,
+	[YEA_MASK] = 0x7f
 };
 
 struct mt6685_rtc {

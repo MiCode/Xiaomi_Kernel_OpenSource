@@ -7,6 +7,7 @@
 #define _MT6685_HW_H_
 
 #define MT6685_REG_BASE                  ((unsigned int)(0x0))
+#define MT6685_HWCID_L                   (MT6685_REG_BASE+0x8)
 #define MT6685_TOP_CON                   (MT6685_REG_BASE+0x18)
 #define MT6685_TOP_CKPDN_CON0            (MT6685_REG_BASE+0x10b)
 #define MT6685_TOP_CKPDN_CON0_SET        (MT6685_REG_BASE+0x10c)
