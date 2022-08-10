@@ -21,6 +21,8 @@
 #include "mux_switch.h"
 #endif
 
+#define CHECK_HPD_DELAY 2000
+
 struct ps5170 {
 	struct device *dev;
 	struct i2c_client *i2c;
@@ -33,12 +35,18 @@ struct ps5170 {
 	struct typec_mux_state *dp_state;
 	struct tcp_notify dp_data;
 	int mode;
+	int hdp_state;
+	bool dp_sw_connect;
 
 	struct work_struct set_usb_work;
 	struct work_struct set_dp_work;
+	struct delayed_work check_wk;
 
 	enum typec_orientation orientation;
+	struct work_struct reconfig_dp_work;
 
+	uint8_t pin_assign;
+	u8 polarity;
 	atomic_t in_sleep;
 };
 
@@ -115,6 +123,9 @@ static int ps5170_set_conf(struct ps5170 *ps, u8 new_conf, u8 polarity)
 	ps5170_init(ps);
 	mdelay(20);
 
+	ps->pin_assign = new_conf;
+	ps->polarity = polarity;
+
 	switch (new_conf) {
 	case 2:
 		/* DP Only mode 4-lane set orientation*/
@@ -172,6 +183,7 @@ static void ps5170_switch_set_work(struct work_struct *data)
 		i2c_smbus_write_byte_data(ps->i2c, 0x40, 0x80);
 		if (ps->disable)
 			pinctrl_select_state(ps->pinctrl, ps->disable);
+		ps->pin_assign = 0;
 		break;
 	case TYPEC_ORIENTATION_NORMAL:
 		/* switch cc1 side */
@@ -221,6 +233,17 @@ static int ps5170_switch_set(struct typec_switch *sw,
  * 32 Pin Assignment F 2-lans
  */
 
+static void ps5170_reconfig_dp_work(struct work_struct *data)
+{
+	struct ps5170 *ps = container_of(data, struct ps5170, reconfig_dp_work);
+
+	dev_info(ps->dev, "Reconfig DP channel, pin_assign = %d, polarity = %d.\n"
+				, ps->pin_assign, ps->polarity);
+
+	ps5170_set_conf(ps, ps->pin_assign, ps->polarity);
+
+}
+
 static void ps5170_mux_set_work(struct work_struct *data)
 {
 
@@ -244,6 +267,12 @@ static void ps5170_mux_set_work(struct work_struct *data)
 	}
 
 	if (ps->mode == TCP_NOTIFY_AMA_DP_STATE) {
+
+		if (!dp_data.ama_dp_state.active) {
+			dev_info(ps->dev, "%s Not active\n", __func__);
+			return;
+		}
+
 		switch (dp_data.ama_dp_state.pin_assignment) {
 		case 4:
 		case 16:
@@ -257,21 +286,35 @@ static void ps5170_mux_set_work(struct work_struct *data)
 			dev_info(ps->dev, "%s Pin Assignment not support\n", __func__);
 			break;
 		}
+
+		ps->hdp_state = 0;
+		schedule_delayed_work(&ps->check_wk, msecs_to_jiffies(CHECK_HPD_DELAY));
 	} else if (ps->mode == TCP_NOTIFY_AMA_DP_HPD_STATE) {
 		uint8_t irq = dp_data.ama_dp_hpd_state.irq;
 		uint8_t state = dp_data.ama_dp_hpd_state.state;
 
 		dev_info(ps->dev, "TCP_NOTIFY_AMA_DP_HPD_STATE irq:%x state:%x\n",
 			irq, state);
+
+		ps->hdp_state = state;
+
 		/* Call DP API */
 		dev_info(ps->dev, "[%s][%d]\n", __func__, __LINE__);
 		if (state) {
-			if (irq)
+			if (irq) {
+				if (ps->dp_sw_connect == false) {
+					dev_info(ps->dev, "Force connect\n");
+					mtk_dp_SWInterruptSet(0x4);
+					ps->dp_sw_connect = true;
+				}
 				mtk_dp_SWInterruptSet(0x8);
-			else
+			} else {
 				mtk_dp_SWInterruptSet(0x4);
+				ps->dp_sw_connect = true;
+			}
 		} else {
 			mtk_dp_SWInterruptSet(0x2);
+			ps->dp_sw_connect = false;
 		}
 	} else if (ps->mode == TCP_NOTIFY_TYPEC_STATE) {
 		if ((dp_data.typec_state.old_state == TYPEC_ATTACHED_SRC ||
@@ -280,6 +323,7 @@ static void ps5170_mux_set_work(struct work_struct *data)
 			/* Call DP Event API Ready */
 			dev_info(ps->dev, "Plug Out\n");
 			mtk_dp_SWInterruptSet(0x2);
+			ps->dp_sw_connect = false;
 			ps5170_set_conf(ps, 0, 0);
 		}
 	}
@@ -356,6 +400,17 @@ static int ps5170_pinctrl_init(struct ps5170 *ps)
 	return ret;
 }
 
+static void check_hpd(struct work_struct *work)
+{
+	struct delayed_work *check_wk = to_delayed_work(work);
+	struct ps5170 *ps = container_of(check_wk, struct ps5170, check_wk);
+
+	if (ps->hdp_state == 0) {
+		dev_info(ps->dev, "%s: force hpd\n", __func__);
+		mtk_dp_SWInterruptSet(0x4);
+	}
+}
+
 static int ps5170_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
@@ -370,6 +425,8 @@ static int ps5170_probe(struct i2c_client *client)
 
 	ps->i2c = client;
 	ps->dev = dev;
+	ps->dp_sw_connect = false;
+	ps->pin_assign = 0;
 
 	atomic_set(&ps->in_sleep, 0);
 
@@ -417,6 +474,8 @@ static int ps5170_probe(struct i2c_client *client)
 
 	INIT_WORK(&ps->set_usb_work, ps5170_switch_set_work);
 	INIT_WORK(&ps->set_dp_work, ps5170_mux_set_work);
+	INIT_WORK(&ps->reconfig_dp_work, ps5170_reconfig_dp_work);
+	INIT_DEFERRABLE_WORK(&ps->check_wk, check_hpd);
 
 	/* switch off after init done */
 	ps5170_switch_set(ps->sw, TYPEC_ORIENTATION_NONE);
@@ -471,8 +530,13 @@ static int ps5170_resume_noirq(struct device *dev)
 
 	atomic_set(&data->in_sleep, 0);
 
-	/* pull high en pin to enter normal mode */
-	pinctrl_select_state(data->pinctrl, data->enable);
+	if (data->pin_assign) {
+		schedule_work(&data->reconfig_dp_work);
+	} else {
+		/* pull high en pin to enter normal mode */
+		pinctrl_select_state(data->pinctrl, data->enable);
+	}
+
 	return 0;
 }
 
