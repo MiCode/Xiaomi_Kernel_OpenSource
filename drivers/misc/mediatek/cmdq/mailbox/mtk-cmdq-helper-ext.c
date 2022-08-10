@@ -334,12 +334,10 @@ void cmdq_vcp_enable(bool en)
 
 			vcp_register_feature_ex(GCE_FEATURE_ID);
 			atomic_inc(&vcp.vcp_power);
-			mutex_unlock(&vcp.vcp_mutex);
-			cmdq_msg("[VCP] power on VCP");
 			cmdq_vcp_is_ready();
+			cmdq_msg("[VCP] power on VCP");
 			writel(CMDQ_PACK_IOVA(buf_pa), vcp.mminfra_base + MMINFRA_MBIST_DELSEL10);
 #endif
-			return;
 		}
 	} else {
 		if (atomic_dec_return(&vcp.vcp_usage) == 0)
