@@ -235,7 +235,7 @@ static void set_max_framerate(UINT16 framerate, kal_bool min_framelength_en)
  * GLOBALS AFFECTED
  *
  *************************************************************************/
-static void set_shutter(kal_uint16 shutter)
+static void set_shutter(kal_uint32 shutter)
 {
 	kal_uint16 realtime_fps = 0;
 
@@ -329,13 +329,17 @@ static kal_uint16 set_gain(kal_uint16 gain)
 
 	reg_gain = gain2reg(gain);
 
-	for (gain_index = SC800CS_LY_SENSOR_GAIN_MAX_VALID_INDEX - 1; gain_index >= 0; gain_index--)
+	for ((gain_index = SC800CS_LY_SENSOR_GAIN_MAX_VALID_INDEX - 1) &&
+			SC800CS_LY_SENSOR_GAIN_MAX_VALID_INDEX >= 1; gain_index >= 0; gain_index--)
 		if (reg_gain >= SC800CS_LY_AGC_Param[gain_index][0])
 			break;
-
-	write_cmos_sensor(0x3e09, SC800CS_LY_AGC_Param[gain_index][1]);
-	temp_gain = reg_gain * SC800CS_LY_SENSOR_BASE_GAIN / SC800CS_LY_AGC_Param[gain_index][0];
-	write_cmos_sensor(0x3e07, (temp_gain >> 3) & 0xff);
+	if (gain_index) {
+		write_cmos_sensor(0x3e09, SC800CS_LY_AGC_Param[gain_index][1]);
+		temp_gain =
+			reg_gain *
+				SC800CS_LY_SENSOR_BASE_GAIN / SC800CS_LY_AGC_Param[gain_index][0];
+		write_cmos_sensor(0x3e07, (temp_gain >> 3) & 0xff);
+	}
 	LOG_INF("SC800CS_LY_AGC_Param[gain_index][1] = 0x%x, temp_gain = 0x%x, reg_gain = %d, gain = %d\n",
 		SC800CS_LY_AGC_Param[gain_index][1], temp_gain, reg_gain, gain);
 
