@@ -571,6 +571,10 @@ int pd_core_init(struct tcpc_device *tcpc)
 #if CONFIG_RECV_BAT_ABSENT_NOTIFY
 	INIT_WORK(&pd_port->fg_bat_work, fg_bat_absent_work);
 #endif /* CONFIG_RECV_BAT_ABSENT_NOTIFY */
+#if IS_ENABLED(CONFIG_WAIT_TX_RETRY_DONE)
+	init_completion(&pd_port->tx_done);
+	complete_all(&pd_port->tx_done);
+#endif /* CONFIG_WAIT_TX_RETRY_DONE */
 
 	PE_INFO("%s\n", __func__);
 	return 0;

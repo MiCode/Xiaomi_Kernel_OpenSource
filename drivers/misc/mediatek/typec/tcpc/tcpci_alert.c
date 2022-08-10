@@ -205,6 +205,10 @@ static int tcpci_alert_tx_success(struct tcpc_device *tcpc)
 	tcpc->pd_transmit_state = PD_TX_STATE_GOOD_CRC;
 	mutex_unlock(&tcpc->access_lock);
 
+#if IS_ENABLED(CONFIG_WAIT_TX_RETRY_DONE)
+	complete(&tcpc->pd_port.tx_done);
+#endif /* CONFIG_WAIT_TX_RETRY_DONE */
+
 	if (tx_state == PD_TX_STATE_WAIT_CRC_VDM)
 		pd_put_vdm_event(tcpc, &evt, false);
 	else
@@ -225,6 +229,10 @@ static int tcpci_alert_tx_failed(struct tcpc_device *tcpc)
 	tx_state = tcpc->pd_transmit_state;
 	tcpc->pd_transmit_state = PD_TX_STATE_NO_GOOD_CRC;
 	mutex_unlock(&tcpc->access_lock);
+
+#if IS_ENABLED(CONFIG_WAIT_TX_RETRY_DONE)
+	complete(&tcpc->pd_port.tx_done);
+#endif /* CONFIG_WAIT_TX_RETRY_DONE */
 
 	if (tx_state == PD_TX_STATE_WAIT_CRC_VDM)
 		vdm_put_hw_event(tcpc, PD_HW_TX_FAILED);
@@ -248,6 +256,9 @@ static int tcpci_alert_tx_discard(struct tcpc_device *tcpc)
 	mutex_unlock(&tcpc->access_lock);
 
 	TCPC_INFO("Discard\n");
+#if IS_ENABLED(CONFIG_WAIT_TX_RETRY_DONE)
+	complete(&tcpc->pd_port.tx_done);
+#endif /* CONFIG_WAIT_TX_RETRY_DONE */
 
 	if (tx_state == PD_TX_STATE_WAIT_CRC_VDM)
 		pd_put_last_vdm_event(tcpc);
@@ -408,11 +419,17 @@ static inline bool tcpci_check_hard_reset_complete(
 {
 	if ((alert_status & TCPC_REG_ALERT_HRESET_SUCCESS)
 			== TCPC_REG_ALERT_HRESET_SUCCESS) {
+#if IS_ENABLED(CONFIG_WAIT_TX_RETRY_DONE)
+		complete(&tcpc->pd_port.tx_done);
+#endif /* CONFIG_WAIT_TX_RETRY_DONE */
 		pd_put_sent_hard_reset_event(tcpc);
 		return true;
 	}
 
 	if (alert_status & TCPC_REG_ALERT_TX_DISCARDED) {
+#if IS_ENABLED(CONFIG_WAIT_TX_RETRY_DONE)
+		complete(&tcpc->pd_port.tx_done);
+#endif /* CONFIG_WAIT_TX_RETRY_DONE */
 		TCPC_INFO("HResetFailed\n");
 		tcpci_transmit(tcpc, TCPC_TX_HARD_RESET, 0, NULL);
 		return false;

@@ -253,6 +253,7 @@ struct mt6375_tcpc_data {
 	struct iio_channel *adc_iio;
 	int irq;
 	u16 did;
+	u16 curr_irq_mask;
 
 	atomic_t wd_protect_retry;
 
@@ -622,6 +623,7 @@ static int mt6375_init_alert_mask(struct mt6375_tcpc_data *ddata)
 
 	mask |= TCPC_REG_ALERT_FAULT;
 	ret = mt6375_write16(ddata, TCPC_V10_REG_ALERT_MASK, mask);
+	ddata->curr_irq_mask = mask;
 	if (ret < 0)
 		return ret;
 	return 0;
@@ -644,6 +646,7 @@ static int mt6375_enable_force_discharge(struct mt6375_tcpc_data *ddata,
 #if CONFIG_TCPC_VSAFE0V_DETECT_IC
 static int mt6375_enable_vsafe0v_detect(struct mt6375_tcpc_data *ddata, bool en)
 {
+	MT6375_DBGINFO("%s: en = %d\n", __func__, en);
 	return (en ? mt6375_set_bits : mt6375_clr_bits)
 		(ddata, MT6375_REG_MTMASK1, MT6375_MSK_VBUS80);
 }
@@ -1602,19 +1605,16 @@ static int mt6375_set_alert_mask(struct tcpc_device *tcpc, u32 mask)
 	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
 
 	MT6375_DBGINFO("%s: mask = 0x%04x\n", __func__, mask);
+	ddata->curr_irq_mask = mask;
 	return mt6375_write16(ddata, TCPC_V10_REG_ALERT_MASK, mask);
 }
 
 static int mt6375_get_alert_mask(struct tcpc_device *tcpc, u32 *mask)
 {
-	int ret;
-	u16 data;
 	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
 
-	ret = mt6375_read16(ddata, TCPC_V10_REG_ALERT_MASK, &data);
-	if (ret < 0)
-		return ret;
-	*mask = data;
+	*mask = ddata->curr_irq_mask;
+	MT6375_DBGINFO("%s: mask = 0x%04x\n", __func__, *mask);
 	return 0;
 }
 
@@ -1856,6 +1856,7 @@ static int mt6375_set_low_power_mode(struct tcpc_device *tcpc, bool en,
 	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
 
 	if (en) {
+		tcpci_set_otp_fwen(tcpc, false);
 		data = MT6375_MSK_LPWR_EN;
 #if CONFIG_TYPEC_CAP_NORP_SRC
 		data |= MT6375_MSK_VBUSDET_EN;
@@ -1941,6 +1942,14 @@ static int mt6375_transmit(struct tcpc_device *tcpc,
 	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
 	long long t1 = 0, t2 = 0;
 
+#if IS_ENABLED(CONFIG_WAIT_TX_RETRY_DONE)
+	if (!tcpc->pd_port.tx_done.done) {
+		MT6375_INFO("wait tx_done start\n");
+		ret = wait_for_completion_timeout(&tcpc->pd_port.tx_done, msecs_to_jiffies(10));
+		MT6375_INFO("wait tx_done end, ret = %d\n", ret);
+	}
+	reinit_completion(&tcpc->pd_port.tx_done);
+#endif /* CONFIG_WAIT_TX_RETRY_DONE */
 	MT6375_INFO("%s ++\n", __func__);
 	t1 = local_clock();
 	if (type < TCPC_TX_HARD_RESET) {
@@ -2403,6 +2412,7 @@ static int mt6375_tcpc_init_irq(struct mt6375_tcpc_data *ddata)
 	mt6375_bulk_write(ddata, MT6375_REG_MTINT1, mt6375_vend_alert_clearall,
 			  ARRAY_SIZE(mt6375_vend_alert_clearall));
 	mt6375_write16(ddata, TCPC_V10_REG_ALERT_MASK, 0);
+	ddata->curr_irq_mask = 0;
 	mt6375_write16(ddata, TCPC_V10_REG_ALERT, 0xFFFF);
 
 	kthread_init_worker(&ddata->irq_worker);
@@ -2429,6 +2439,7 @@ static int mt6375_tcpc_init_irq(struct mt6375_tcpc_data *ddata)
 		dev_err(ddata->dev, "failed to request irq %d\n", ddata->irq);
 		return ret;
 	}
+	device_init_wakeup(ddata->dev, true);
 	return 0;
 }
 
