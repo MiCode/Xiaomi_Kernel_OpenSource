@@ -557,7 +557,7 @@ bool mtk_ddp_comp_is_output(struct mtk_ddp_comp *comp)
 
 bool mtk_ddp_comp_is_output_by_id(enum mtk_ddp_comp_id id)
 {
-	if (id < 0 || id >= DDP_COMPONENT_ID_MAX)
+	if (id >= DDP_COMPONENT_ID_MAX)
 		return false;
 
 	return mtk_ddp_matches[id].is_output;
