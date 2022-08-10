@@ -6434,8 +6434,8 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 			image_time = DIV_ROUND_UP(ps_wc, dsi->lanes);
 
 		line_time = mtk_dsi_get_line_time(mtk_crtc, dsi);
-
-		bw_base = bw_base * image_time / line_time;
+		if (line_time > 0)
+			bw_base = bw_base * image_time / line_time;
 		DDPDBG("%s, image_time=%d, line_time=%d\n",
 			__func__, image_time, line_time);
 	}
@@ -6508,8 +6508,8 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 			image_time = DIV_ROUND_UP(ps_wc, dsi->lanes);
 
 		line_time = mtk_dsi_get_line_time(mtk_crtc, dsi);
-
-		bw_base = bw_base * image_time / line_time;
+		if (line_time > 0)
+			bw_base = bw_base * image_time / line_time;
 	}
 
 	DDPMSG("%s Frame Bw:%llu\n", __func__, bw_base);
