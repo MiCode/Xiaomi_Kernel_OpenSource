@@ -2428,8 +2428,11 @@ int ufs_mtk_pltfrm_suspend(struct device *dev)
 		goto out;
 	}
 
-	if (ufshcd_is_auto_hibern8_supported(hba))
+	if (ufshcd_is_auto_hibern8_supported(hba)) {
+		ufshcd_hold(hba, false);
 		ufs_mtk_auto_hibern8_disable(hba);
+		ufshcd_release(hba);
+	}
 
 	ret = ufshcd_pltfrm_suspend(dev);
 
@@ -2488,8 +2491,11 @@ int ufs_mtk_pltfrm_runtime_suspend(struct device *dev)
 		ufsf_suspend(ufsf);
 #endif
 
-	if (ufshcd_is_auto_hibern8_supported(hba))
+	if (ufshcd_is_auto_hibern8_supported(hba)) {
+		ufshcd_hold(hba, false);
 		ufs_mtk_auto_hibern8_disable(hba);
+		ufshcd_release(hba);
+	}
 
 	ret = ufshcd_pltfrm_runtime_suspend(dev);
 
