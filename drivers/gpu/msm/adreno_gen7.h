@@ -116,7 +116,7 @@ struct adreno_gen7_core {
 	/** @fast_bus_hint: Whether or not to increase IB vote on high ddr stall */
 	bool fast_bus_hint;
 	/** @qos_value: GPU qos value to set for each RB. */
-	u32 *qos_value;
+	const u32 *qos_value;
 };
 
 /**
