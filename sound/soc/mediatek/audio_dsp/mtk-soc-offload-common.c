@@ -531,7 +531,7 @@ static int mtk_compr_offload_mmap(struct snd_soc_component *component,
 	return 0;
 }
 
-static void mtk_dsp_mp3_dl_handler(struct mtk_base_dsp *dsp,
+static int mtk_dsp_mp3_dl_handler(struct mtk_base_dsp *dsp,
 				   struct ipi_msg_t *ipi_msg, int id)
 {
 	/* get dsp_mem */
@@ -540,6 +540,9 @@ static void mtk_dsp_mp3_dl_handler(struct mtk_base_dsp *dsp,
 	struct ringbuf_bridge *buf_bridge =
 		&(dsp->dsp_mem[ID].adsp_buf.aud_buffer.buf_bridge);
 	char *readidx = NULL;
+	spinlock_t *ringbuf_lock = &dsp_mem->ringbuf_lock;
+	unsigned long flags = 0;
+	int ret = 0;
 
 #ifdef DEBUG_VERBOSE
 	dump_rbuf_s(__func__, &dsp->dsp_mem[id].ring_buf);
@@ -547,23 +550,35 @@ static void mtk_dsp_mp3_dl_handler(struct mtk_base_dsp *dsp,
 		 ipi_msg->msg_id, ipi_msg->param1, ipi_msg->param2);
 #endif
 	if (ipi_msg->data_type == AUDIO_IPI_PAYLOAD) {
-		memcpy((void *)&dsp_mem->adsp_buf,
+		struct audio_hw_buffer bufTemp;
+		struct ringbuf_bridge *bufTmp_bridge;
+
+		memcpy((void *)&bufTemp,
 		       (void *)dsp_mem->msg_dtoa_share_buf.vir_addr,
 		       sizeof(struct audio_hw_buffer));
+		bufTmp_bridge = &(bufTemp.aud_buffer.buf_bridge);
+
 		ringbuf->pWrite = (char *)ringbuf_writebk;
 		buf_bridge->pWrite = ringbufbridge_writebk;
+		buf_bridge->pRead = buf_bridge->pBufBase +
+				    (bufTmp_bridge->pRead - bufTmp_bridge->pBufBase);
+
 		readidx = ringbuf->pBufBase +
-			  (buf_bridge->pRead - buf_bridge->pBufBase);
+			  (bufTmp_bridge->pRead - bufTmp_bridge->pBufBase);
 		if (readidx != ringbuf->pRead) {
-			sync_ringbuf_readidx(
-				&dsp_mem->ring_buf,
-				&dsp_mem->adsp_buf.aud_buffer.buf_bridge);
+			spin_lock_irqsave(ringbuf_lock, flags);
+			sync_ringbuf_readidx(&dsp_mem->ring_buf,
+					     &dsp_mem->adsp_buf.aud_buffer.buf_bridge);
+			spin_unlock_irqrestore(ringbuf_lock, flags);
 			pr_debug("%s update read ptr!", __func__);
+			return ret;
 		}
+		pr_debug("%s no need to update read ptr!", __func__);
 	}
 #ifdef DEBUG_VERBOSE
 	dump_rbuf_s(__func__, &dsp->dsp_mem[id].ring_buf);
 #endif
+	return -1;
 }
 
 static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg)
@@ -571,6 +586,7 @@ static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg)
 	struct mtk_base_dsp *dsp =
 		(struct mtk_base_dsp *)get_ipi_recv_private();
 	int id = 0;
+	int retval = 0;
 
 	if (ipi_msg == NULL) {
 		pr_info("%s ipi_msg == NULL\n", __func__);
@@ -588,10 +604,12 @@ static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg)
 
 	switch (ipi_msg->msg_id) {
 	case AUDIO_DSP_TASK_IRQDL:
-		mtk_dsp_mp3_dl_handler(dsp, ipi_msg, id);
-		offloadservice_setwriteblocked(false);
-		offloadservice_releasewriteblocked();
-		afe_offload_service.needdata = true;
+		retval = mtk_dsp_mp3_dl_handler(dsp, ipi_msg, id);
+		if (!retval) {
+			offloadservice_setwriteblocked(false);
+			offloadservice_releasewriteblocked();
+			afe_offload_service.needdata = true;
+		}
 		break;
 	case OFFLOAD_PCMCONSUMED:
 		afe_offload_block.copied_total = ipi_msg->param1;
@@ -653,6 +671,9 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 	struct ringbuf_bridge *buf_bridge =
 		&(dsp->dsp_mem[ID].adsp_buf.aud_buffer.buf_bridge);
 	struct audio_dsp_dram *dsp_dram;
+	struct mtk_base_dsp_mem *dsp_mem = &dsp->dsp_mem[ID];
+	spinlock_t *ringbuf_lock = &dsp_mem->ringbuf_lock;
+	unsigned long flags = 0;
 
 	dsp_dram = &dsp->dsp_mem[ID].msg_atod_share_buf;
 	copy_size = count;
@@ -667,7 +688,9 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 
 	if (availsize >= copy_size) {
 		RingBuf_copyFromUserLinear(ringbuf, buf, copy_size);
+		spin_lock_irqsave(ringbuf_lock, flags);
 		RingBuf_Bridge_update_writeptr(buf_bridge, copy_size);
+		spin_unlock_irqrestore(ringbuf_lock, flags);
 		afe_offload_block.transferred += count;
 		ringbuf_writebk = (unsigned long)ringbuf->pWrite;
 		ringbufbridge_writebk = buf_bridge->pWrite;
