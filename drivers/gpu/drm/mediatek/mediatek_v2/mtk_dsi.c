@@ -4185,9 +4185,11 @@ static void mtk_dsi_clk_change(struct mtk_dsi *dsi, int en)
 		cmdq_pkt_wait_no_clear(cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
 
-		mtk_dsi_phy_timconfig(dsi, cmdq_handle);
-		if (dsi->slave_dsi)
-			mtk_dsi_phy_timconfig(dsi->slave_dsi, cmdq_handle);
+		if (dsi->data_rate) {
+			mtk_dsi_phy_timconfig(dsi, cmdq_handle);
+			if (dsi->slave_dsi)
+				mtk_dsi_phy_timconfig(dsi->slave_dsi, cmdq_handle);
+		}
 
 		if (mod_hfp) {
 			mtk_dsi_porch_setting(comp, cmdq_handle, DSI_HFP,
