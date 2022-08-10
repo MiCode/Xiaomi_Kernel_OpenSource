@@ -586,9 +586,11 @@ ssize_t port_dev_write(struct file *file, const char __user *buf,
 		return actual_count;
 
  err_out:
-		CCCI_NORMAL_LOG(md_id, CHAR,
-			"write error done on %s, l=%zu r=%d\n",
-			port->name, actual_count, ret);
+		if ((ret != -ETXTBSY) && (ret != -ENODEV)) {
+			CCCI_NORMAL_LOG(md_id, CHAR,
+				"write error done on %s, l=%zu r=%d\n",
+				port->name, actual_count, ret);
+		}
 		ccci_free_skb(skb);
 		return ret;
 	}
