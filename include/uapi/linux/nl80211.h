@@ -4982,6 +4982,7 @@ enum nl80211_bss_scan_width {
  *	Contains a nested array of signal strength attributes (u8, dBm),
  *	using the nesting index as the antenna number.
  * @NL80211_BSS_FREQUENCY_OFFSET: frequency offset in KHz
+ * @NL80211_BSS_MLO_LINK_ID: MLO link ID of the BSS (u8).
  * @__NL80211_BSS_AFTER_LAST: internal
  * @NL80211_BSS_MAX: highest BSS attribute
  */
@@ -5017,6 +5018,14 @@ enum nl80211_bss {
 	__NL80211_BSS_AFTER_LAST,
 	NL80211_BSS_MAX = __NL80211_BSS_AFTER_LAST - 1
 };
+
+/*
+ * These are temporary definitions that will become permanent when the UAPI
+ * changes lands into linux.git tree. These attributes must not be used in
+ * production until the UAPI change lands into linux.git tree.
+ */
+
+#define NL80211_BSS_MLO_LINK_ID NL80211_BSS_RESERVED_DO_NOT_USE_1
 
 /**
  * enum nl80211_bss_status - BSS "status"

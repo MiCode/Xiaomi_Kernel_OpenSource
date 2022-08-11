@@ -261,9 +261,17 @@ static int qmi_sensor_set_trips(void *data, int low, int high)
 	return ret;
 }
 
+static int qmi_sensor_tz_change_mode(void *data, enum thermal_device_mode mode)
+{
+	struct qmi_sensor *qmi_sens = (struct qmi_sensor *)data;
+
+	return qti_tz_change_mode(qmi_sens->tz_dev, mode);
+}
+
 static struct thermal_zone_of_device_ops qmi_sensor_ops = {
 	.get_temp = qmi_sensor_read,
 	.set_trips = qmi_sensor_set_trips,
+	.change_mode = qmi_sensor_tz_change_mode,
 };
 
 static struct qmi_msg_handler handlers[] = {
@@ -293,7 +301,6 @@ static int qmi_register_sensor_device(struct qmi_sensor *qmi_sens)
 		qmi_sens->tz_dev = NULL;
 		return ret;
 	}
-	qti_update_tz_ops(qmi_sens->tz_dev, true);
 
 	pr_debug("Sensor register success for %s\n", qmi_sens->qmi_name);
 	return 0;
@@ -474,7 +481,6 @@ static void qmi_ts_cleanup(void)
 			if (qmi_sens->tz_dev) {
 				thermal_zone_of_sensor_unregister(
 				qmi_sens->dev, qmi_sens->tz_dev);
-				qti_update_tz_ops(qmi_sens->tz_dev, false);
 				qmi_sens->tz_dev = NULL;
 			}
 

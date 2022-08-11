@@ -2126,6 +2126,9 @@
   __ubsan_handle_cfi_check_fail_abort
   uclamp_eff_value
   __udelay
+  ufshcd_add_command_trace
+  ufshcd_clk_scaling_start_busy
+  ufshcd_clk_scaling_update_busy
   ufshcd_delay_us
   ufshcd_dme_configure_adapt
   ufshcd_dme_get_attr
@@ -2133,6 +2136,7 @@
   ufshcd_dump_regs
   ufshcd_fixup_dev_quirks
   ufshcd_get_pwr_dev_param
+  ufshcd_get_vreg
   ufshcd_hba_enable
   ufshcd_hba_stop
   ufshcd_init_pwr_dev_param
@@ -2140,6 +2144,7 @@
   ufshcd_make_hba_operational
   ufshcd_pltfrm_init
   ufshcd_pltfrm_shutdown
+  ufshcd_populate_vreg
   ufshcd_query_attr
   ufshcd_query_descriptor_retry
   ufshcd_query_flag
@@ -2151,6 +2156,7 @@
   ufshcd_suspend_prepare
   ufshcd_system_resume
   ufshcd_system_suspend
+  ufshcd_transfer_rsp_status
   ufshcd_uic_change_pwr_mode
   ufshcd_uic_hibern8_exit
   ufshcd_update_evt_hist

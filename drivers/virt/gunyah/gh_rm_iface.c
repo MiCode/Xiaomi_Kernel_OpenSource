@@ -8,12 +8,16 @@
 #include <linux/slab.h>
 #include <linux/limits.h>
 #include <linux/module.h>
+#include <linux/vmalloc.h>
 
 #include <linux/gunyah/gh_msgq.h>
 #include <linux/gunyah/gh_common.h>
 #include <linux/mm.h>
 
+#define CREATE_TRACE_POINTS
+
 #include "gh_rm_drv_private.h"
+#include <trace/events/gunyah.h>
 
 #define GH_RM_MEM_RELEASE_VALID_FLAGS GH_RM_MEM_RELEASE_CLEAR
 #define GH_RM_MEM_RECLAIM_VALID_FLAGS GH_RM_MEM_RECLAIM_CLEAR
@@ -1743,8 +1747,16 @@ static int gh_rm_mem_release_helper(u32 fn_id, gh_memparcel_handle_t handle,
  */
 int gh_rm_mem_release(gh_memparcel_handle_t handle, u8 flags)
 {
-	return gh_rm_mem_release_helper(GH_RM_RPC_MSG_ID_CALL_MEM_RELEASE,
-					handle, flags);
+	int ret;
+
+	trace_gh_rm_mem_release(handle, flags);
+
+	ret = gh_rm_mem_release_helper(GH_RM_RPC_MSG_ID_CALL_MEM_RELEASE,
+				       handle, flags);
+
+	trace_gh_rm_mem_call_return(handle, ret);
+
+	return ret;
 }
 EXPORT_SYMBOL(gh_rm_mem_release);
 
@@ -1761,10 +1773,175 @@ EXPORT_SYMBOL(gh_rm_mem_release);
  */
 int gh_rm_mem_reclaim(gh_memparcel_handle_t handle, u8 flags)
 {
-	return gh_rm_mem_release_helper(GH_RM_RPC_MSG_ID_CALL_MEM_RECLAIM,
-					handle, flags);
+	int ret;
+
+	trace_gh_rm_mem_reclaim(handle, flags);
+
+	ret = gh_rm_mem_release_helper(GH_RM_RPC_MSG_ID_CALL_MEM_RECLAIM,
+				       handle, flags);
+
+	trace_gh_rm_mem_call_return(handle, ret);
+
+	return ret;
 }
 EXPORT_SYMBOL(gh_rm_mem_reclaim);
+
+static void gh_sgl_fragment_release(struct gh_sgl_fragment *gather)
+{
+	struct gh_sgl_frag_entry *entry, *tmp;
+
+	list_for_each_entry_safe(entry, tmp, &gather->list, list) {
+		list_del(&entry->list);
+		kfree(entry->sgl_desc);
+		kfree(entry);
+	}
+
+	kfree(gather);
+}
+
+static struct gh_sgl_fragment *gh_sgl_fragment_init(void)
+{
+	struct gh_sgl_fragment *gather;
+
+	gather = kzalloc(sizeof(*gather), GFP_KERNEL);
+	if (!gather)
+		return NULL;
+
+	INIT_LIST_HEAD(&gather->list);
+
+	return gather;
+}
+
+static int gh_sgl_fragment_append(struct gh_sgl_fragment *gather,
+				struct gh_sgl_desc *sgl_desc)
+{
+	struct gh_sgl_frag_entry *entry;
+
+	/* Check for overflow */
+	if (sgl_desc->n_sgl_entries > (U16_MAX - gather->n_sgl_entries)) {
+		pr_err("%s: Too many sgl_entries\n", __func__);
+		return -EINVAL;
+	}
+
+	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+	if (!entry)
+		return -ENOMEM;
+
+	entry->sgl_desc = sgl_desc;
+
+	list_add(&entry->list, &gather->list);
+	gather->n_sgl_entries += sgl_desc->n_sgl_entries;
+	return 0;
+}
+
+static struct gh_sgl_desc *gh_sgl_fragment_combine(struct gh_sgl_fragment *gather)
+{
+	size_t size;
+	struct gh_sgl_desc *sgl_desc;
+	struct gh_sgl_frag_entry *entry, *tmp;
+	struct gh_sgl_entry *p;
+
+	size = offsetof(struct gh_sgl_desc, sgl_entries[gather->n_sgl_entries]);
+	sgl_desc = kvmalloc(size, GFP_KERNEL);
+	if (!sgl_desc)
+		return ERR_PTR(-ENOMEM);
+
+	p = sgl_desc->sgl_entries;
+	list_for_each_entry_safe(entry, tmp, &gather->list, list) {
+		memcpy(p, entry->sgl_desc->sgl_entries,
+		       entry->sgl_desc->n_sgl_entries * sizeof(*p));
+		p += entry->sgl_desc->n_sgl_entries;
+
+		list_del(&entry->list);
+		kfree(entry->sgl_desc);
+		kfree(entry);
+	}
+
+	sgl_desc->n_sgl_entries = gather->n_sgl_entries;
+	gather->n_sgl_entries = 0;
+
+	return sgl_desc;
+}
+
+static int gh_rm_mem_accept_check_resp(struct gh_mem_accept_resp_payload *resp,
+					size_t size, bool has_sgl)
+{
+	size_t expected_size;
+
+	if (has_sgl)
+		expected_size = 0;
+	else if (size < sizeof(*resp))
+		expected_size = sizeof(*resp);
+	else
+		expected_size = sizeof(*resp) +
+				resp->n_sgl_entries * sizeof(struct gh_sgl_entry);
+
+	if (size == expected_size)
+		return 0;
+
+	pr_err("%s Invalid response size: 0x%zx, expected 0x%zx\n",
+				__func__, size, expected_size);
+	return -EINVAL;
+}
+
+static struct gh_mem_accept_req_payload_hdr *
+gh_rm_mem_accept_prepare_request(gh_memparcel_handle_t handle, u8 mem_type,
+				 u8 trans_type, u8 flags, gh_label_t label,
+				 struct gh_acl_desc *acl_desc,
+				 struct gh_sgl_desc *sgl_desc,
+				 struct gh_mem_attr_desc *mem_attr_desc,
+				 u16 map_vmid, size_t *req_payload_size)
+{
+	void *req_buf;
+	struct gh_mem_accept_req_payload_hdr *req_payload_hdr;
+	u16 req_sgl_entries = 0, req_mem_attr_entries = 0;
+	u32 req_acl_entries = 0;
+	u32 fn_id = GH_RM_RPC_MSG_ID_CALL_MEM_ACCEPT;
+
+	if ((mem_type != GH_RM_MEM_TYPE_NORMAL &&
+	     mem_type != GH_RM_MEM_TYPE_IO) ||
+	    (trans_type != GH_RM_TRANS_TYPE_DONATE &&
+	     trans_type != GH_RM_TRANS_TYPE_LEND &&
+	     trans_type != GH_RM_TRANS_TYPE_SHARE) ||
+	    (flags & ~GH_RM_MEM_ACCEPT_VALID_FLAGS) ||
+	    (sgl_desc && sgl_desc->n_sgl_entries > GH_RM_MEM_MAX_SGL_ENTRIES))
+		return ERR_PTR(-EINVAL);
+
+	if (flags & GH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS &&
+	    (!acl_desc || !acl_desc->n_acl_entries) &&
+	    (!mem_attr_desc || !mem_attr_desc->n_mem_attr_entries))
+		return ERR_PTR(-EINVAL);
+
+	if (flags & GH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS) {
+		if (acl_desc)
+			req_acl_entries = acl_desc->n_acl_entries;
+		if (mem_attr_desc)
+			req_mem_attr_entries =
+				mem_attr_desc->n_mem_attr_entries;
+	}
+
+	if (sgl_desc)
+		req_sgl_entries = sgl_desc->n_sgl_entries;
+
+	req_buf = gh_rm_alloc_mem_request_buf(fn_id, req_acl_entries,
+					      req_sgl_entries,
+					      req_mem_attr_entries,
+					      req_payload_size);
+	if (IS_ERR(req_buf))
+		return req_buf;
+
+	req_payload_hdr = req_buf;
+	req_payload_hdr->memparcel_handle = handle;
+	req_payload_hdr->mem_type = mem_type;
+	req_payload_hdr->trans_type = trans_type;
+	req_payload_hdr->flags = flags;
+	if (flags & GH_RM_MEM_ACCEPT_VALIDATE_LABEL)
+		req_payload_hdr->validate_label = label;
+	gh_rm_populate_mem_request(req_buf, fn_id, acl_desc, sgl_desc, map_vmid,
+				   mem_attr_desc);
+
+	return req_payload_hdr;
+}
 
 /**
  * gh_rm_mem_accept: Accept a handle representing memory. This results in
@@ -1797,6 +1974,9 @@ EXPORT_SYMBOL(gh_rm_mem_reclaim);
  * value will be a pointer to a newly allocated SG-List. After the SG-List is
  * no longer needed, the caller must free the table. On a failure, a negative
  * number will be returned.
+ *
+ * If a sgl_desc is to be returned, hypervisor may return it in fragments,
+ * and multiple calls are needed to obtain the full value.
  */
 struct gh_sgl_desc *gh_rm_mem_accept(gh_memparcel_handle_t handle, u8 mem_type,
 				     u8 trans_type, u8 flags, gh_label_t label,
@@ -1805,84 +1985,100 @@ struct gh_sgl_desc *gh_rm_mem_accept(gh_memparcel_handle_t handle, u8 mem_type,
 				     struct gh_mem_attr_desc *mem_attr_desc,
 				     u16 map_vmid)
 {
-	struct gh_mem_accept_req_payload_hdr *req_payload_hdr;
-	struct gh_sgl_desc *ret_sgl;
+	struct gh_mem_accept_req_payload_hdr *req_payload;
 	struct gh_mem_accept_resp_payload *resp_payload;
-	void *req_buf;
 	size_t req_payload_size, resp_payload_size;
-	u16 req_sgl_entries = 0, req_mem_attr_entries = 0;
-	u32 req_acl_entries = 0;
-	int gh_ret;
 	u32 fn_id = GH_RM_RPC_MSG_ID_CALL_MEM_ACCEPT;
+	struct gh_sgl_fragment *gather;
+	bool accept_in_progress = false;
+	bool multi_call;
+	int ret, gh_ret;
 
-	if ((mem_type != GH_RM_MEM_TYPE_NORMAL &&
-	     mem_type != GH_RM_MEM_TYPE_IO) ||
-	    (trans_type != GH_RM_TRANS_TYPE_DONATE &&
-	     trans_type != GH_RM_TRANS_TYPE_LEND &&
-	     trans_type != GH_RM_TRANS_TYPE_SHARE) ||
-	    (flags & ~GH_RM_MEM_ACCEPT_VALID_FLAGS))
-		return ERR_PTR(-EINVAL);
+	trace_gh_rm_mem_accept(mem_type, flags, label, acl_desc, sgl_desc,
+			       mem_attr_desc, &handle, map_vmid, trans_type);
 
-	if (flags & GH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS &&
-	    (!acl_desc || !acl_desc->n_acl_entries) &&
-	    (!mem_attr_desc || !mem_attr_desc->n_mem_attr_entries))
-		return ERR_PTR(-EINVAL);
+	req_payload = gh_rm_mem_accept_prepare_request(handle, mem_type, trans_type, flags,
+						label, acl_desc, sgl_desc, mem_attr_desc,
+						map_vmid, &req_payload_size);
+	if (IS_ERR(req_payload))
+		return ERR_CAST(req_payload);
 
-	if (flags & GH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS) {
-		if (acl_desc)
-			req_acl_entries = acl_desc->n_acl_entries;
-		if (mem_attr_desc)
-			req_mem_attr_entries =
-				mem_attr_desc->n_mem_attr_entries;
-	}
-
-	if (sgl_desc)
-		req_sgl_entries = sgl_desc->n_sgl_entries;
-
-	req_buf = gh_rm_alloc_mem_request_buf(fn_id, req_acl_entries,
-					      req_sgl_entries,
-					      req_mem_attr_entries,
-					      &req_payload_size);
-	if (IS_ERR(req_buf))
-		return req_buf;
-
-	req_payload_hdr = req_buf;
-	req_payload_hdr->memparcel_handle = handle;
-	req_payload_hdr->mem_type = mem_type;
-	req_payload_hdr->trans_type = trans_type;
-	req_payload_hdr->flags = flags;
-	if (flags & GH_RM_MEM_ACCEPT_VALIDATE_LABEL)
-		req_payload_hdr->validate_label = label;
-	gh_rm_populate_mem_request(req_buf, fn_id, acl_desc, sgl_desc, map_vmid,
-				   mem_attr_desc);
-
-	resp_payload = gh_rm_call(fn_id, req_buf, req_payload_size,
-				  &resp_payload_size, &gh_ret);
-	if (gh_ret || IS_ERR(resp_payload)) {
-		ret_sgl = ERR_CAST(resp_payload);
-		pr_err("%s failed with error: %d\n", __func__,
-		       PTR_ERR(resp_payload));
-		goto err_rm_call;
-	}
-
-
-	if (sgl_desc) {
-		ret_sgl = sgl_desc;
+	/* Send DONE flag only after all sgl_desc fragments are received */
+	if (flags & GH_RM_MEM_ACCEPT_MAP_IPA_CONTIGUOUS || sgl_desc) {
+		multi_call = false;
 	} else {
-		size_t size;
+		req_payload->flags &= ~GH_RM_MEM_ACCEPT_DONE;
+		multi_call = true;
+	}
 
-		size = offsetof(struct gh_sgl_desc, sgl_entries[resp_payload->n_sgl_entries]);
-		ret_sgl = kvmalloc(size, GFP_KERNEL);
-		if (!ret_sgl)
-			ret_sgl = ERR_PTR(-ENOMEM);
+	gather = gh_sgl_fragment_init();
+	if (!gather) {
+		ret = -ENOMEM;
+		goto err_gather_init;
+	}
 
-		memcpy(ret_sgl, resp_payload, size);
+	do {
+		resp_payload = gh_rm_call(fn_id, req_payload, req_payload_size,
+					  &resp_payload_size, &gh_ret);
+		if (gh_ret || IS_ERR(resp_payload)) {
+			ret = PTR_ERR(resp_payload);
+			pr_err("%s failed with error: %d\n", __func__, ret);
+			goto err_rm_call;
+		}
+		accept_in_progress = true;
+
+		if (gh_rm_mem_accept_check_resp(resp_payload, resp_payload_size, !!sgl_desc)) {
+			ret = -EINVAL;
+			goto err_rm_call;
+		}
+
+		/* Expected when !!sgl_desc */
+		if (!resp_payload_size) {
+			kfree(resp_payload);
+			break;
+		}
+
+		if (gh_sgl_fragment_append(gather, (struct gh_sgl_desc *)resp_payload)) {
+			ret = -ENOMEM;
+			kfree(resp_payload);
+			goto err_rm_call;
+		}
+	} while (resp_payload->flags & GH_MEM_ACCEPT_RESP_INCOMPLETE);
+
+	if (multi_call && flags & GH_RM_MEM_ACCEPT_DONE) {
+		req_payload->flags |= GH_RM_MEM_ACCEPT_DONE;
+
+		resp_payload = gh_rm_call(fn_id, req_payload, req_payload_size,
+					  &resp_payload_size, &gh_ret);
+		if (gh_ret || IS_ERR(resp_payload)) {
+			ret = PTR_ERR(resp_payload);
+			pr_err("%s failed with error: %d\n", __func__, ret);
+			goto err_rm_call;
+		}
 		kfree(resp_payload);
 	}
 
+	if (!sgl_desc) {
+		sgl_desc = gh_sgl_fragment_combine(gather);
+		if (IS_ERR(sgl_desc)) {
+			ret = PTR_ERR(sgl_desc);
+			goto err_rm_call;
+		}
+	}
+	gh_sgl_fragment_release(gather);
+	kfree(req_payload);
+	trace_gh_rm_mem_accept_reply(sgl_desc);
+	return sgl_desc;
+
 err_rm_call:
-	kfree(req_buf);
-	return ret_sgl;
+	if (accept_in_progress)
+		gh_rm_mem_release(handle, 0);
+	gh_sgl_fragment_release(gather);
+err_gather_init:
+	kfree(req_payload);
+
+	trace_gh_rm_mem_accept_reply(ERR_PTR(ret));
+	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL(gh_rm_mem_accept);
 
@@ -2068,9 +2264,18 @@ int gh_rm_mem_share(u8 mem_type, u8 flags, gh_label_t label,
 		    struct gh_mem_attr_desc *mem_attr_desc,
 		    gh_memparcel_handle_t *handle)
 {
-	return gh_rm_mem_share_lend_helper(GH_RM_RPC_MSG_ID_CALL_MEM_SHARE,
-					   mem_type, flags, label, acl_desc,
-					   sgl_desc, mem_attr_desc, handle);
+	int ret;
+
+	trace_gh_rm_mem_share(mem_type, flags, label, acl_desc, sgl_desc,
+			      mem_attr_desc, handle, 0, SHARE);
+
+	ret = gh_rm_mem_share_lend_helper(GH_RM_RPC_MSG_ID_CALL_MEM_SHARE,
+					  mem_type, flags, label, acl_desc,
+					  sgl_desc, mem_attr_desc, handle);
+
+	trace_gh_rm_mem_call_return(*handle, ret);
+
+	return ret;
 }
 EXPORT_SYMBOL(gh_rm_mem_share);
 
@@ -2099,9 +2304,18 @@ int gh_rm_mem_lend(u8 mem_type, u8 flags, gh_label_t label,
 		   struct gh_mem_attr_desc *mem_attr_desc,
 		   gh_memparcel_handle_t *handle)
 {
-	return gh_rm_mem_share_lend_helper(GH_RM_RPC_MSG_ID_CALL_MEM_LEND,
-					   mem_type, flags, label, acl_desc,
-					   sgl_desc, mem_attr_desc, handle);
+	int ret;
+
+	trace_gh_rm_mem_lend(mem_type, flags, label, acl_desc, sgl_desc,
+			     mem_attr_desc, handle, 0, LEND);
+
+	ret = gh_rm_mem_share_lend_helper(GH_RM_RPC_MSG_ID_CALL_MEM_LEND,
+					  mem_type, flags, label, acl_desc,
+					  sgl_desc, mem_attr_desc, handle);
+
+	trace_gh_rm_mem_call_return(*handle, ret);
+
+	return ret;
 }
 EXPORT_SYMBOL(gh_rm_mem_lend);
 
@@ -2139,10 +2353,10 @@ int gh_rm_mem_donate(u8 mem_type, u8 flags, gh_label_t label,
 		   struct gh_mem_attr_desc *mem_attr_desc,
 		   gh_memparcel_handle_t *handle)
 {
-	if (sgl_desc->n_sgl_entries != 1) {
-		pr_err("%s: Physically contiguous memory required\n", __func__);
-		return -EINVAL;
-	}
+	int ret;
+
+	trace_gh_rm_mem_donate(mem_type, flags, label, acl_desc, sgl_desc,
+			       mem_attr_desc, handle, 0, DONATE);
 
 	if (acl_desc->n_acl_entries != 1) {
 		pr_err("%s: Donate requires single destination VM\n", __func__);
@@ -2161,9 +2375,13 @@ int gh_rm_mem_donate(u8 mem_type, u8 flags, gh_label_t label,
 		return -EINVAL;
 	}
 
-	return gh_rm_mem_share_lend_helper(GH_RM_RPC_MSG_ID_CALL_MEM_DONATE,
-					   mem_type, flags, label, acl_desc,
-					   sgl_desc, mem_attr_desc, handle);
+	ret = gh_rm_mem_share_lend_helper(GH_RM_RPC_MSG_ID_CALL_MEM_DONATE,
+					  mem_type, flags, label, acl_desc,
+					  sgl_desc, mem_attr_desc, handle);
+
+	trace_gh_rm_mem_call_return(*handle, ret);
+
+	return ret;
 }
 EXPORT_SYMBOL(gh_rm_mem_donate);
 
@@ -2196,6 +2414,8 @@ int gh_rm_mem_notify(gh_memparcel_handle_t handle, u8 flags,
 	size_t resp_size;
 	unsigned int i;
 	int ret = 0, gh_ret;
+
+	trace_gh_rm_mem_notify(handle, flags, mem_info_tag, vmid_desc);
 
 	if ((flags & ~GH_RM_MEM_NOTIFY_VALID_FLAGS) ||
 	    ((flags & GH_RM_MEM_NOTIFY_RECIPIENT_SHARED) && (!vmid_desc ||

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -680,6 +681,25 @@ static const struct clk_rpmh_desc clk_rpmh_cinder = {
 	.num_clks = ARRAY_SIZE(cinder_rpmh_clocks),
 };
 
+DEFINE_CLK_RPMH_ARC(sdxpinn, bi_tcxo, bi_tcxo_ao, "xo.lvl", 0x3, 4);
+
+static struct clk_hw *sdxpinn_rpmh_clocks[] = {
+	[RPMH_CXO_CLK]		= &sdxpinn_bi_tcxo.hw,
+	[RPMH_CXO_CLK_A]	= &sdxpinn_bi_tcxo_ao.hw,
+	[RPMH_RF_CLK1]		= &sdm845_rf_clk1.hw,
+	[RPMH_RF_CLK1_A]	= &sdm845_rf_clk1_ao.hw,
+	[RPMH_RF_CLK2]		= &sdm845_rf_clk2.hw,
+	[RPMH_RF_CLK2_A]	= &sdm845_rf_clk2_ao.hw,
+	[RPMH_RF_CLK3]		= &sdm845_rf_clk3.hw,
+	[RPMH_RF_CLK3_A]	= &sdm845_rf_clk3_ao.hw,
+	[RPMH_QPIC_CLK]		= &sdx55_qpic_clk.hw,
+};
+
+static const struct clk_rpmh_desc clk_rpmh_sdxpinn = {
+	.clks = sdxpinn_rpmh_clocks,
+	.num_clks = ARRAY_SIZE(sdxpinn_rpmh_clocks),
+};
+
 static struct clk_hw *of_clk_rpmh_hw_get(struct of_phandle_args *clkspec,
 					 void *data)
 {
@@ -784,6 +804,7 @@ static const struct of_device_id clk_rpmh_match_table[] = {
 	{ .compatible = "qcom,sc7280-rpmh-clk", .data = &clk_rpmh_sc7280},
 	{ .compatible = "qcom,kalama-rpmh-clk", .data = &clk_rpmh_kalama},
 	{ .compatible = "qcom,cinder-rpmh-clk", .data = &clk_rpmh_cinder},
+	{ .compatible = "qcom,sdxpinn-rpmh-clk", .data = &clk_rpmh_sdxpinn},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, clk_rpmh_match_table);

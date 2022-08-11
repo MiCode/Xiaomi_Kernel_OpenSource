@@ -180,8 +180,14 @@ config QCOM_LLCC_PERFMON
 	  performance events.
 
 config QCOM_MDT_LOADER
-	tristate
+	tristate "Qualcomm Technologies, Inc. MDT Loader driver"
 	select QCOM_SCM
+	help
+	  This option is used to enable mdt_loader driver which can be used
+	  to load image files of certain subsystems into memory, authenticate
+	  and bring it out of reset.
+
+	  Say yes to support this driver.
 
 config QCOM_OCMEM
 	tristate "Qualcomm On Chip Memory (OCMEM) driver"
@@ -732,6 +738,66 @@ config QCOM_SYSMON_SUBSYSTEM_STATS
 	  SMEM region for each DSP subsystem which is updated periodically
 	  by the respective subsystems.
 
+config MSM_SLATECOM
+	tristate "Provide APIs to communicate with Slate chipset"
+	help
+		SLATECOM is a thin layer above SPI. It is used within a SoC for
+		communication between G-Link/slate_com_dev and Slate processor over SPI.
+		This handle the interrupts raised by BG and notify the G-link with
+		interrupt event and event data.
+
+config MSM_SLATECOM_INTERFACE
+	tristate "Driver support for Slate Communication"
+	depends on MSM_SLATECOM
+	help
+		Create a slate_com_dev device node for user space communication.
+		Single user space client can open device node for communication
+		from hardware. Hardware will provide access to read
+		registers and read/write AHB memory in the device.
+
+config MSM_SLATERSB
+        tristate "Provide support for rsb events on Slate"
+        help
+          SLATERSB communicates to SLATE over rpmsg driver for RSB configuration
+          and enable/disable on device power state change.Add slate rsb driver
+          which is use to configure rsb on slate.Slate rsb driver uses glink
+          to communicate with slate
+
+config MSM_SLATERSB_RPMSG
+        tristate "Provide support for slate events to RSB"
+        depends on MSM_SLATERSB
+        help
+          SLATERSB-RPMSG informs SLATERSB driver if GLINK channel has been
+          opened by remote processor. It doesn't maintain state machine
+          and is probed when SLATE opens channel and removed when the
+          channel is closed by remote processor.
+
+config MSM_SEB
+        tristate "Provide APIs to send and receive events from Slate chipset"
+        help
+          SEB(Slate event bridge) communicates to Slate over rpmsg driver to
+          send or receive events from Slate. The button events received from
+          Slate are send to input framework. The driver provides functionality
+          for a client to register a callback to receive events from a group.
+
+config MSM_SEB_RPMSG
+        tristate "Provide support for slate event GLINK channel"
+        depends on MSM_SEB
+        help
+          SEB_RPMSG informs SEB driver if GLINK channel has been
+          opened by remote processor. It doesn't maintain state machine
+          and is probed when Slate opens channel and removed when the
+          channel is closed by remote processor.
+
+config MSM_SLATECOM_EVENT
+        tristate "provide support for slate sensor event Communication"
+        depends on MSM_SEB
+        help
+         Create a slate_com_event device node for user space communication.
+         This event driver register for AON event bridge to receive sensor
+         up and down and notifies upper layer HAL about sensor stataus
+         through uevent via netlink socket.
+
 config QCOM_APR
 	tristate "Qualcomm APR Bus (Asynchronous Packet Router)"
 	depends on ARCH_QCOM || COMPILE_TEST
@@ -946,7 +1012,7 @@ config MSM_PERFORMANCE
 
 config QCOM_MINIDUMP
 	tristate "QCOM Minidump Support"
-	depends on QCOM_SMEM
+	depends on QCOM_SMEM || ARCH_QTI_VM
 	help
 	  This enables minidump feature. It allows various clients to
 	  register to dump their state at system bad state (panic/WDT,etc.,).

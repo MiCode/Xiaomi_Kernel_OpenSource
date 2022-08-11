@@ -71,6 +71,9 @@
 #define MHI_DEV_CH_CLOSE_TIMEOUT_MAX	5100
 #define MHI_DEV_CH_CLOSE_TIMEOUT_COUNT	200
 
+#define IGNORE_CH_SIZE 2
+int ignore_ch_channel[IGNORE_CH_SIZE] = {2, 3};
+
 uint32_t bhi_imgtxdb;
 enum mhi_msg_level mhi_msg_lvl = MHI_MSG_ERROR;
 enum mhi_msg_level mhi_ipc_msg_lvl = MHI_MSG_VERBOSE;
@@ -103,6 +106,18 @@ static DECLARE_COMPLETION(read_from_host);
 static DECLARE_COMPLETION(write_to_host);
 static DECLARE_COMPLETION(transfer_host_to_device);
 static DECLARE_COMPLETION(transfer_device_to_host);
+
+bool check_ignore_ch_list(int ch_id)
+{
+	int i = 0;
+
+	for ( ; i < IGNORE_CH_SIZE; i++) {
+		if (ch_id == ignore_ch_channel[i])
+			return true;
+	}
+
+	return false;
+}
 
 /*
  * mhi_dev_ring_cache_completion_cb () - Call back function called
@@ -153,7 +168,7 @@ void mhi_dev_read_from_host_mhi_dma(struct mhi_dev *mhi, struct mhi_addr *transf
 	}
 
 	mhi_log(MHI_MSG_VERBOSE,
-		"device 0x%llx <<-- host 0x%llx, size %d\n",
+		"Async: device 0x%llx <<-- host 0x%llx, size %d\n",
 		transfer->phy_addr, host_addr_pa,
 		(int) transfer->size);
 
@@ -196,10 +211,6 @@ void mhi_dev_write_to_host_mhi_dma(struct mhi_dev *mhi, struct mhi_addr *transfe
 		host_addr_pa = transfer->host_pa | bit_40;
 	}
 
-	mhi_log(MHI_MSG_VERBOSE,
-		"device 0x%llx --> host 0x%llx, size %d\n",
-		(uint64_t) mhi->cache_dma_handle, host_addr_pa,
-		(int) transfer->size);
 	if (tr_type == MHI_DEV_DMA_ASYNC) {
 		/*
 		 * Event read pointer memory and MSI buf are dma_alloc_coherent
@@ -230,7 +241,10 @@ void mhi_dev_write_to_host_mhi_dma(struct mhi_dev *mhi, struct mhi_addr *transfe
 		} else {
 			cb_func = ereq->msi_cb;
 		}
-
+		mhi_log(MHI_MSG_VERBOSE,
+				"Async: device 0x%llx --> host 0x%llx, size %d\n",
+				(uint64_t) dma, host_addr_pa,
+				(int) transfer->size);
 		rc = mhi_dma_async_memcpy(host_addr_pa,
 				(uint64_t)dma,
 				(int) transfer->size,
@@ -246,6 +260,10 @@ void mhi_dev_write_to_host_mhi_dma(struct mhi_dev *mhi, struct mhi_addr *transfe
 		memcpy(mhi->dma_cache, transfer->virt_addr,
 				transfer->size);
 
+		mhi_log(MHI_MSG_VERBOSE,
+				"Sync: device 0x%llx --> host 0x%llx, size %d\n",
+				(uint64_t) mhi->cache_dma_handle, host_addr_pa,
+				(int) transfer->size);
 		rc = mhi_dma_sync_memcpy(host_addr_pa,
 				(u64) mhi->cache_dma_handle,
 				(int) transfer->size,
@@ -369,7 +387,6 @@ static void mhi_dev_event_msi_cb(void *req)
 	struct event_req *ereq = req;
 	struct mhi_dev_channel *ch;
 	struct mhi_dev *mhi;
-	unsigned long flags;
 
 	if (!ereq) {
 		mhi_log(MHI_MSG_WARNING,
@@ -394,7 +411,7 @@ static void mhi_dev_event_msi_cb(void *req)
 	if (ch->evt_buf_wp == ch->evt_buf_size)
 		ch->evt_buf_wp = 0;
 	/* Return the event req to the list */
-	spin_lock_irqsave(&mhi->lock, flags);
+	mutex_lock(&ch->ch_lock);
 	if (ch->curr_ereq == NULL)
 		ch->curr_ereq = ereq;
 	else {
@@ -402,7 +419,7 @@ static void mhi_dev_event_msi_cb(void *req)
 			ereq->is_stale = false;
 		list_add_tail(&ereq->list, &ch->event_req_buffers);
 	}
-	spin_unlock_irqrestore(&mhi->lock, flags);
+	mutex_unlock(&ch->ch_lock);
 }
 
 static void msi_trigger_completion_cb(void *data)
@@ -642,7 +659,6 @@ static int mhi_dev_flush_transfer_completion_events(struct mhi_dev *mhi,
 		struct mhi_dev_channel *ch)
 {
 	int rc = 0;
-	unsigned long flags;
 	struct event_req *flush_ereq;
 
 	do {
@@ -660,15 +676,12 @@ static int mhi_dev_flush_transfer_completion_events(struct mhi_dev *mhi,
 			break;
 		}
 
-		spin_lock_irqsave(&mhi->lock, flags);
 		if (list_empty(&ch->flush_event_req_buffers)) {
-			spin_unlock_irqrestore(&mhi->lock, flags);
 			break;
 		}
 		flush_ereq = container_of(ch->flush_event_req_buffers.next,
 					struct event_req, list);
 		list_del_init(&flush_ereq->list);
-		spin_unlock_irqrestore(&mhi->lock, flags);
 
 		if (ch->flush_req_cnt++ >= U32_MAX)
 			ch->flush_req_cnt = 0;
@@ -734,7 +747,6 @@ static int mhi_dev_queue_transfer_completion(struct mhi_req *mreq, bool *flush)
 {
 	union mhi_dev_ring_element_type *compl_ev;
 	struct mhi_dev_channel *ch = mreq->client->channel;
-	unsigned long flags;
 
 	if (mhi_dev_is_full_compl_evt_buf(ch) || ch->curr_ereq == NULL) {
 		mhi_log(MHI_MSG_VERBOSE, "Ran out of %s\n",
@@ -806,7 +818,6 @@ static int mhi_dev_queue_transfer_completion(struct mhi_req *mreq, bool *flush)
 			ch->curr_ereq->context = ch;
 
 			/* Move current event req to flush list*/
-			spin_lock_irqsave(&mhi_ctx->lock, flags);
 			list_add_tail(&ch->curr_ereq->list,
 				&ch->flush_event_req_buffers);
 
@@ -823,7 +834,6 @@ static int mhi_dev_queue_transfer_completion(struct mhi_req *mreq, bool *flush)
 						"evt req buffers empty\n");
 				ch->curr_ereq = NULL;
 			}
-			spin_unlock_irqrestore(&mhi_ctx->lock, flags);
 		}
 		return 0;
 	}
@@ -860,10 +870,9 @@ int mhi_transfer_host_to_device_mhi_dma(void *dev, uint64_t host_pa, uint32_t le
 		host_addr_pa = host_pa | bit_40;
 	}
 
-	mhi_log(MHI_MSG_VERBOSE, "device 0x%llx <-- host 0x%llx, size %d\n",
-		(uint64_t) mhi->read_dma_handle, host_addr_pa, (int) len);
-
 	if (mreq->mode == DMA_SYNC) {
+		mhi_log(MHI_MSG_VERBOSE, "Sync: device 0x%llx <-- host 0x%llx, size %d\n",
+				(uint64_t) mhi->read_dma_handle, host_addr_pa, (int) len);
 		rc = mhi_dma_sync_memcpy((u64) mhi->read_dma_handle,
 				host_addr_pa,
 				len,
@@ -894,7 +903,8 @@ int mhi_transfer_host_to_device_mhi_dma(void *dev, uint64_t host_pa, uint32_t le
 				ch->ch_id, rc);
 			return rc;
 		}
-
+		mhi_log(MHI_MSG_VERBOSE, "Async: device 0x%llx <-- host 0x%llx, size %d\n",
+				mreq->dma, host_addr_pa, (int) len);
 		rc = mhi_dma_async_memcpy(mreq->dma, host_addr_pa,
 				(int) len,
 				mhi->mhi_dma_fun_params,
@@ -943,12 +953,13 @@ int mhi_transfer_device_to_host_mhi_dma(uint64_t host_addr, void *dev, uint32_t 
 	} else {
 		host_addr_pa = host_addr | bit_40;
 	}
-	mhi_log(MHI_MSG_VERBOSE, "device 0x%llx ---> host 0x%llx, size %d\n",
-				(uint64_t) mhi->write_dma_handle,
-				host_addr_pa, (int) len);
 
 	if (req->mode == DMA_SYNC) {
 		memcpy(mhi->write_handle, dev, len);
+		mhi_log(MHI_MSG_VERBOSE,
+				"Sync: device 0x%llx ---> host 0x%llx, size %d\n",
+				(uint64_t) mhi->write_dma_handle,
+				host_addr_pa, (int) len);
 		return mhi_dma_sync_memcpy(host_addr_pa,
 				(u64) mhi->write_dma_handle,
 				(int) len,
@@ -971,7 +982,10 @@ int mhi_transfer_device_to_host_mhi_dma(uint64_t host_addr, void *dev, uint32_t 
 			pr_err("Failed to queue completion: %d\n", rc);
 			return rc;
 		}
-
+		mhi_log(MHI_MSG_VERBOSE,
+				"Async: device 0x%llx ---> host 0x%llx, size %d\n",
+				(uint64_t) req->dma,
+				host_addr_pa, (int) len);
 		rc = mhi_dma_async_memcpy(host_addr_pa,
 				(uint64_t) req->dma,
 				(int) len,
@@ -1911,7 +1925,6 @@ static void mhi_dev_process_reset_cmd(struct mhi_dev *mhi, int ch_id)
 	struct mhi_dev_channel *ch;
 	struct mhi_addr host_addr;
 	struct event_req *itr, *tmp;
-	unsigned long flags;
 
 	rc = mhi_dev_mmio_disable_chdb_a7(mhi, ch_id);
 	if (rc) {
@@ -1933,14 +1946,12 @@ static void mhi_dev_process_reset_cmd(struct mhi_dev *mhi, int ch_id)
 	 * reset. Otherwise, those stale events may get flushed along with a
 	 * valid event in the next flush operation.
 	 */
-	spin_lock_irqsave(&mhi_ctx->lock, flags);
 	if (!list_empty(&ch->flush_event_req_buffers)) {
 		list_for_each_entry_safe(itr, tmp, &ch->flush_event_req_buffers, list) {
 			list_del(&itr->list);
 			list_add_tail(&itr->list, &ch->event_req_buffers);
 		}
 	}
-	spin_unlock_irqrestore(&mhi_ctx->lock, flags);
 
 	/* hard stop and set the channel to stop */
 	mhi->ch_ctx_cache[ch_id].ch_state =
@@ -2024,9 +2035,9 @@ static int mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 		 * RP may not have been updated. Check channel context to see
 		 * if channel is in disabled state and ignore it
 		 */
-		if (mhi->ch_ctx_cache[ch_id].ch_state == MHI_DEV_CH_STATE_DISABLED) {
+		if (mhi->is_flashless && check_ignore_ch_list(ch_id)) {
 			mhi_log(MHI_MSG_ERROR,
-				"Ignoring start cmd, ch:%d is disabled\n", ch_id);
+				"Ignoring start cmd, ch:%d is in ignore list\n", ch_id);
 			return 0;
 		}
 
@@ -2203,9 +2214,9 @@ send_undef_completion_event:
 			 * RP may not have been updated. Check channel context to see
 			 * if channel is in disabled state and ignore it
 			 */
-			if (mhi->ch_ctx_cache[ch_id].ch_state == MHI_DEV_CH_STATE_DISABLED) {
+			if (mhi->is_flashless && check_ignore_ch_list(ch_id)) {
 				mhi_log(MHI_MSG_ERROR,
-					"Ignoring reset cmd, ch:%d is disabled\n", ch_id);
+					"Ignoring reset cmd, ch:%d is in ignore list\n", ch_id);
 				return 0;
 			}
 
@@ -2552,7 +2563,7 @@ static void mhi_dev_transfer_completion_cb(void *mreq)
 	ch = &mhi_ctx->ch[req->chan];
 
 	dma_unmap_single(&mhi_ctx->pdev->dev, req->dma,
-		req->len, DMA_FROM_DEVICE);
+		req->transfer_len, DMA_FROM_DEVICE);
 
 	if (mhi_ctx->ch_ctx_cache[ch->ch_id].ch_type ==
 		MHI_DEV_CH_TYPE_INBOUND_CHANNEL) {

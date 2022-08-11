@@ -2950,17 +2950,18 @@ static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport)
 			UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev,
 			"%s.Reset done.  0x%x.\n", __func__, dma_rx_status);
 			ret = true;
-			goto exit;
 		}
 
 		if (dma_rx_status & UART_DMA_RX_ERRS) {
-			if (dma_rx_status & UART_DMA_RX_PARITY_ERR)
+			if (dma_rx_status & UART_DMA_RX_PARITY_ERR) {
 				uport->icount.parity++;
+				msm_geni_update_uart_error_code(msm_port,
+					UART_ERROR_RX_PARITY_ERROR);
+			}
 			UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev,
 				"%s.Rx Errors.  0x%x parity:%d\n",
 					__func__, dma_rx_status,
 					uport->icount.parity);
-			msm_geni_update_uart_error_code(msm_port, UART_ERROR_RX_PARITY_ERROR);
 			drop_rx = true;
 		} else if (dma_rx_status & UART_DMA_RX_BREAK) {
 			uport->icount.brk++;
@@ -3003,7 +3004,6 @@ static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport)
 	if (s_irq_status & (S_CMD_CANCEL_EN | S_CMD_ABORT_EN))
 		ret = true;
 
-exit:
 	spin_unlock_irqrestore(&msm_port->rx_lock, lock_flags);
 	return ret;
 }
@@ -4252,6 +4252,10 @@ static int msm_geni_serial_read_dtsi(struct platform_device *pdev,
 
 	dev_port->se.dev = &pdev->dev;
 	dev_port->se.wrapper = dev_get_drvdata(pdev->dev.parent);
+	if (!dev_port->se.wrapper) {
+		dev_err(&pdev->dev, "SE Wrapper is NULL, deferring probe\n");
+		return -EPROBE_DEFER;
+	}
 	dev_port->se.clk = devm_clk_get(&pdev->dev, "se-clk");
 
 	if (IS_ERR(dev_port->se.clk)) {

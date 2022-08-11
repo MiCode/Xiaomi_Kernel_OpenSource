@@ -27,3 +27,5 @@ obj-${CONFIG_QTI_SDPM_CLOCK_MONITOR} += sdpm_clk.o
 obj-$(CONFIG_QTI_THERMALZONE_CONFIG_DEBUG) += thermal_config.o
 obj-$(CONFIG_THERMAL_TSENS_LEGACY)	+= msm-tsens-driver.o
 msm-tsens-driver-y			+= msm-tsens.o tsens2xxx.o tsens-dbg.o
+obj-$(CONFIG_QTI_LMH_CPU_VDD_COOLING_DEVICE) += lmh_cpu_vdd_cdev.o
+obj-$(CONFIG_QTI_CX_IPEAK_COOLING_DEVICE) += cx_ipeak_cdev.o

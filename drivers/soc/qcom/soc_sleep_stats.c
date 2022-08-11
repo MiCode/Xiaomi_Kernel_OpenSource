@@ -17,6 +17,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/seq_file.h>
+#include <linux/slab.h>
 #include <linux/string.h>
 
 #include <linux/soc/qcom/smem.h>
@@ -32,7 +33,6 @@
 
 #define DDR_STATS_MAGIC_KEY	0xA1157A75
 #define DDR_STATS_MAX_NUM_MODES	0x14
-#define MAX_DRV			18
 #define MAX_MSG_LEN		35
 #define DRV_ABSENT		0xdeaddead
 #define DRV_INVALID		0xffffdead
@@ -82,6 +82,7 @@ struct stats_entry {
 struct stats_prv_data {
 	const struct stats_config *config;
 	void __iomem *reg;
+	u32 drv_max;
 };
 
 struct sleep_stats {
@@ -103,6 +104,7 @@ struct ddr_stats_g_data {
 	void __iomem *ddr_reg;
 	u32 freq_count;
 	u32 entry_count;
+	u32 drv_max;
 	struct mutex ddr_stats_lock;
 	struct mbox_chan *stats_mbox_ch;
 	struct mbox_client stats_mbox_cl;
@@ -359,7 +361,7 @@ EXPORT_SYMBOL(ddr_stats_get_residency);
 
 int ddr_stats_get_ss_count(void)
 {
-	return ddr_gdata->read_vote_info ? MAX_DRV : -EOPNOTSUPP;
+	return ddr_gdata->read_vote_info ? ddr_gdata->drv_max : -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(ddr_stats_get_ss_count);
 
@@ -369,14 +371,19 @@ int ddr_stats_get_ss_vote_info(int ss_count,
 	char buf[MAX_MSG_LEN] = {};
 	struct qmp_pkt pkt;
 	void __iomem *reg;
-	u32 vote_offset, val[MAX_DRV];
+	u32 vote_offset, *val;
 	int ret, i;
 
-	if (!vote_info || !(ss_count == MAX_DRV) || !ddr_gdata)
+	if (!vote_info || (ddr_gdata->drv_max == -EINVAL) ||
+			!(ss_count == ddr_gdata->drv_max) || !ddr_gdata)
 		return -ENODEV;
 
 	if (!ddr_gdata->read_vote_info)
 		return -EOPNOTSUPP;
+
+	val = kcalloc(ddr_gdata->drv_max, sizeof(u32), GFP_KERNEL);
+	if (!val)
+		return -ENOMEM;
 
 	mutex_lock(&ddr_gdata->ddr_stats_lock);
 	ret = scnprintf(buf, MAX_MSG_LEN, "{class: ddr, res: drvs_ddr_votes}");
@@ -387,6 +394,7 @@ int ddr_stats_get_ss_vote_info(int ss_count,
 	if (ret < 0) {
 		pr_err("Error sending mbox message: %d\n", ret);
 		mutex_unlock(&ddr_gdata->ddr_stats_lock);
+		kfree(val);
 		return ret;
 	}
 
@@ -411,6 +419,8 @@ int ddr_stats_get_ss_vote_info(int ss_count,
 	}
 
 	mutex_unlock(&ddr_gdata->ddr_stats_lock);
+
+	kfree(val);
 	return 0;
 
 }
@@ -494,7 +504,7 @@ static int soc_sleep_stats_probe(struct platform_device *pdev)
 #endif
 	const struct stats_config *config;
 	struct stats_prv_data *prv_data;
-	int i;
+	int i, ret;
 #if IS_ENABLED(CONFIG_MSM_QMP)
 	u32 name;
 	void __iomem *reg;
@@ -543,6 +553,10 @@ static int soc_sleep_stats_probe(struct platform_device *pdev)
 	if (!ddr_reg)
 		return -ENOMEM;
 
+	ret = of_property_read_u32(pdev->dev.of_node, "qcom,drv-max", &prv_data->drv_max);
+	if (ret < 0)
+		prv_data->drv_max = -EINVAL;
+
 #if IS_ENABLED(CONFIG_MSM_QMP)
 	ddr_gdata = devm_kzalloc(&pdev->dev, sizeof(*ddr_gdata), GFP_KERNEL);
 	if (!ddr_gdata)
@@ -579,6 +593,7 @@ static int soc_sleep_stats_probe(struct platform_device *pdev)
 	if (IS_ERR(ddr_gdata->stats_mbox_ch))
 		goto skip_ddr_stats;
 
+	ddr_gdata->drv_max = prv_data->drv_max;
 	ddr_gdata->read_vote_info = true;
 #endif
 

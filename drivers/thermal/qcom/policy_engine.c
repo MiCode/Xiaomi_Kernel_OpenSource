@@ -34,6 +34,13 @@ struct pe_sensor_data {
 	struct mutex			mutex;
 };
 
+static int pe_sensor_tz_change_mode(void *data, enum thermal_device_mode mode)
+{
+	struct pe_sensor_data *pe_sens = (struct pe_sensor_data *)data;
+
+	return qti_tz_change_mode(pe_sens->tz_dev, mode);
+}
+
 static int pe_sensor_get_trend(void *data, int trip, enum thermal_trend *trend)
 {
 	struct pe_sensor_data *pe_sens = (struct pe_sensor_data *)data;
@@ -98,6 +105,7 @@ static struct thermal_zone_of_device_ops pe_sensor_ops = {
 	.get_temp = pe_sensor_read,
 	.set_trips = pe_sensor_set_trips,
 	.get_trend = pe_sensor_get_trend,
+	.change_mode = pe_sensor_tz_change_mode,
 };
 
 static irqreturn_t pe_handle_irq(int irq, void *data)
@@ -169,7 +177,6 @@ static int pe_sens_device_probe(struct platform_device *pdev)
 		pe_sens->tz_dev = NULL;
 		return ret;
 	}
-	qti_update_tz_ops(pe_sens->tz_dev, true);
 
 	writel_relaxed(PE_INTR_CFG, pe_sens->regmap + PE_INT_ENABLE_OFFSET);
 	writel_relaxed(PE_INTR_CLEAR, pe_sens->regmap + PE_INT_STATUS_OFFSET);
@@ -197,7 +204,6 @@ static int pe_sens_device_remove(struct platform_device *pdev)
 		(struct pe_sensor_data *)dev_get_drvdata(&pdev->dev);
 
 	thermal_zone_of_sensor_unregister(pe_sens->dev, pe_sens->tz_dev);
-	qti_update_tz_ops(pe_sens->tz_dev, false);
 
 	return 0;
 }

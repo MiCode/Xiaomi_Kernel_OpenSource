@@ -600,6 +600,25 @@ static int check_shadow_size(int nr_vcpus, size_t shadow_size)
 	return 0;
 }
 
+static void drain_shadow_vcpus(struct shadow_vcpu_state *shadow_vcpus,
+			       unsigned int nr_vcpus,
+			       struct kvm_hyp_memcache *mc)
+{
+	int i;
+
+	for (i = 0; i < nr_vcpus; i++) {
+		struct kvm_vcpu *shadow_vcpu = &shadow_vcpus[i].vcpu;
+		struct kvm_hyp_memcache *vcpu_mc = &shadow_vcpu->arch.pkvm_memcache;
+		void *addr;
+
+		while (vcpu_mc->nr_pages) {
+			addr = pop_hyp_memcache(vcpu_mc, hyp_phys_to_virt);
+			push_hyp_memcache(mc, addr, hyp_virt_to_phys);
+			WARN_ON(__pkvm_hyp_donate_host(hyp_virt_to_pfn(addr), 1));
+		}
+	}
+}
+
 /*
  * Initialize the shadow copy of the protected VM state using the memory
  * donated by the host.
@@ -753,6 +772,7 @@ int __pkvm_teardown_shadow(int shadow_handle)
 	/* Reclaim guest pages, and page-table pages */
 	mc = &vm->host_kvm->arch.pkvm.teardown_mc;
 	reclaim_guest_pages(vm, mc);
+	drain_shadow_vcpus(vm->shadow_vcpus, vm->created_vcpus, mc);
 	unpin_host_vcpus(vm->shadow_vcpus, vm->created_vcpus);
 
 	/* Push the metadata pages to the teardown memcache */

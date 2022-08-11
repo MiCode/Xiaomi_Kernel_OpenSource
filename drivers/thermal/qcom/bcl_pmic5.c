@@ -466,6 +466,15 @@ static struct thermal_zone_params vbat_tzp = {
 	.offset = 0
 };
 
+
+static int bcl_tz_change_mode(void *data, enum thermal_device_mode mode)
+{
+	struct bcl_peripheral_data *bat_data =
+		(struct bcl_peripheral_data *)data;
+
+	return qti_tz_change_mode(bat_data->tz_dev, mode);
+}
+
 static int bcl_get_trend(void *data, int trip, enum thermal_trend *trend)
 {
 	struct bcl_peripheral_data *bat_data =
@@ -789,6 +798,7 @@ static void bcl_lvl_init(struct platform_device *pdev,
 	lbat->ops.get_temp = bcl_read_lbat;
 	lbat->ops.set_trips = bcl_set_lbat;
 	lbat->ops.get_trend = bcl_get_trend;
+	lbat->ops.change_mode = bcl_tz_change_mode;
 
 	lbat->tz_dev = thermal_zone_of_sensor_register(&pdev->dev,
 				type, lbat, &lbat->ops);
@@ -800,7 +810,6 @@ static void bcl_lvl_init(struct platform_device *pdev,
 		return;
 	}
 	thermal_zone_device_update(lbat->tz_dev, THERMAL_DEVICE_UP);
-	qti_update_tz_ops(lbat->tz_dev, true);
 }
 
 static void bcl_probe_lvls(struct platform_device *pdev,
@@ -858,7 +867,6 @@ static int bcl_remove(struct platform_device *pdev)
 			continue;
 		thermal_zone_of_sensor_unregister(&pdev->dev,
 				bcl_perph->param[i].tz_dev);
-		qti_update_tz_ops(bcl_perph->param[i].tz_dev, false);
 	}
 
 	return 0;

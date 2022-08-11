@@ -973,6 +973,13 @@ static int tsens_get_trend(void *data, int trip, enum thermal_trend *trend)
 	return -ENOTSUPP;
 }
 
+static int tsens_tz_change_mode(void *data, enum thermal_device_mode mode)
+{
+	struct tsens_sensor *s = data;
+
+	return qti_tz_change_mode(s->tzd, mode);
+}
+
 static int  __maybe_unused tsens_suspend(struct device *dev)
 {
 	struct tsens_priv *priv = dev_get_drvdata(dev);
@@ -1032,6 +1039,7 @@ static const struct thermal_zone_of_device_ops tsens_of_ops = {
 	.get_temp = tsens_get_temp,
 	.get_trend = tsens_get_trend,
 	.set_trips = tsens_set_trips,
+	.change_mode = tsens_tz_change_mode,
 };
 
 static int tsens_register_irq(struct tsens_priv *priv, char *irqname,
@@ -1090,7 +1098,6 @@ static int tsens_register(struct tsens_priv *priv)
 		priv->sensor[i].tzd = tzd;
 		if (priv->ops->enable)
 			priv->ops->enable(priv, i);
-		qti_update_tz_ops(tzd, true);
 	}
 
 	/* VER_0 require to set MIN and MAX THRESH
@@ -1195,16 +1202,12 @@ static int tsens_probe(struct platform_device *pdev)
 static int tsens_remove(struct platform_device *pdev)
 {
 	struct tsens_priv *priv = platform_get_drvdata(pdev);
-	int i;
 
 	debugfs_remove_recursive(priv->debug_root);
 	tsens_disable_irq(priv);
 	if (priv->ops->disable)
 		priv->ops->disable(priv);
 
-	for (i = 0; i < priv->num_sensors; i++)
-		if (priv->sensor[i].tzd)
-			qti_update_tz_ops(priv->sensor[i].tzd, false);
 	return 0;
 }
 

@@ -73,6 +73,7 @@
 
 #define CORE_DDR_CAL_EN		BIT(0)
 #define CORE_FLL_CYCLE_CNT	BIT(18)
+#define CORE_LOW_FREQ_MODE	BIT(19)
 #define CORE_DLL_CLOCK_DISABLE	BIT(21)
 
 #define DLL_USR_CTL_POR_VAL	0x10800
@@ -496,6 +497,7 @@ struct sdhci_msm_host {
 	u32 ice_clk_rate;
 	bool uses_tassadar_dll;
 	bool uses_level_shifter;
+	bool dll_lock_bist_fail_wa;
 	u32 dll_config;
 	u32 ddr_config;
 	u16 last_cmd;
@@ -840,13 +842,13 @@ static int msm_init_cm_dll(struct sdhci_host *host,
 	struct mmc_host *mmc = host->mmc;
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	struct mmc_ios curr_ios = mmc->ios;
 	int wait_cnt = 50;
 	int rc = 0;
 	unsigned long flags, dll_clock = 0;
 	u32 ddr_cfg_offset, core_vendor_spec;
 	const struct sdhci_msm_offset *msm_offset =
 					msm_host->offset;
-
 
 	dll_clock = sdhci_msm_get_sup_clk_rate(host, host->clock);
 	spin_lock_irqsave(&host->lock, flags);
@@ -951,6 +953,15 @@ static int msm_init_cm_dll(struct sdhci_host *host,
 				msm_offset->core_dll_config_2)
 				& ~(0xFF << 10)) | (mclk_freq << 10)),
 				host->ioaddr + msm_offset->core_dll_config_2);
+		}
+
+		if (msm_host->dll_lock_bist_fail_wa &&
+			(curr_ios.timing == MMC_TIMING_UHS_SDR104 ||
+				!mmc_card_is_removable(mmc))) {
+			writel_relaxed((readl_relaxed(host->ioaddr +
+				msm_offset->core_dll_config_2)
+				| CORE_LOW_FREQ_MODE), host->ioaddr +
+				msm_offset->core_dll_config_2);
 		}
 		/* wait for 5us before enabling DLL clock */
 		udelay(5);
@@ -1875,6 +1886,9 @@ static bool sdhci_msm_populate_pdata(struct device *dev,
 
 	msm_host->uses_level_shifter =
 		of_property_read_bool(np, "qcom,uses_level_shifter");
+
+	msm_host->dll_lock_bist_fail_wa =
+		of_property_read_bool(np, "qcom,dll_lock_bist_fail_wa");
 
 	if (sdhci_msm_dt_parse_hsr_info(dev, msm_host))
 		goto out;
@@ -2988,12 +3002,22 @@ static void sdhci_msm_set_timeout(struct sdhci_host *host, struct mmc_command *c
 {
 	u32 count, start = 15;
 
+	/*
+	 * Qcom SoC hardware data timeout value was calculated
+	 * using 4 * MCLK * 2^(count + 13). where MCLK = 1 / host->clock.
+	 */
+
+	host->timeout_clk = host->mmc->actual_clock ?
+				host->mmc->actual_clock / 1000 :
+				host->clock / 1000;
+	host->timeout_clk /= 4;
+
 	__sdhci_set_timeout(host, cmd);
 	count = sdhci_readb(host, SDHCI_TIMEOUT_CONTROL);
+
 	/*
 	 * Update software timeout value if its value is less than hardware data
-	 * timeout value. Qcom SoC hardware data timeout value was calculated
-	 * using 4 * MCLK * 2^(count + 13). where MCLK = 1 / host->clock.
+	 * timeout value.
 	 */
 	if (cmd && cmd->data && host->clock > 400000 &&
 	    host->clock <= 50000000 &&
@@ -3131,8 +3155,6 @@ static void sdhci_msm_registers_save(struct sdhci_host *host)
 		msm_offset->core_dll_config_2);
 	msm_host->regs_restore.dll_config = readl_relaxed(host->ioaddr +
 		msm_offset->core_dll_config);
-	msm_host->regs_restore.dll_config2 = readl_relaxed(host->ioaddr +
-		msm_offset->core_dll_config_2);
 	msm_host->regs_restore.dll_config3 = readl_relaxed(host->ioaddr +
 		msm_offset->core_dll_config_3);
 	msm_host->regs_restore.dll_usr_ctl = readl_relaxed(host->ioaddr +
@@ -3214,10 +3236,12 @@ static void sdhci_msm_registers_restore(struct sdhci_host *host)
 		cqhci_writel(cq_host, msm_host->cqe_regs.cqe_vendor_cfg1,
 				CQHCI_VENDOR_CFG1);
 
-	if (((ios.timing == MMC_TIMING_MMC_HS400) ||
+	if ((ios.timing == MMC_TIMING_UHS_SDR50 &&
+		host->flags & SDHCI_SDR50_NEEDS_TUNING) ||
+		(((ios.timing == MMC_TIMING_MMC_HS400) ||
 			(ios.timing == MMC_TIMING_MMC_HS200) ||
 			(ios.timing == MMC_TIMING_UHS_SDR104))
-			&& (ios.clock > CORE_FREQ_100MHZ)) {
+			&& (ios.clock > CORE_FREQ_100MHZ))) {
 		writel_relaxed(msm_host->regs_restore.dll_config2,
 			host->ioaddr + msm_offset->core_dll_config_2);
 		writel_relaxed(msm_host->regs_restore.dll_config3,

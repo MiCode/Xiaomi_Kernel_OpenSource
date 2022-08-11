@@ -175,6 +175,7 @@ struct geni_i2c_dev {
 	bool first_xfer_done; /* for le-vm doing lock/unlock, after first xfer initiated. */
 	bool gpi_reset;
 	bool is_i2c_hub;
+	bool prev_cancel_pending; //Halt cancel till IOS in good state
 };
 
 static struct geni_i2c_dev *gi2c_dev_dbg[MAX_SE];
@@ -356,6 +357,43 @@ static void geni_i2c_err(struct geni_i2c_dev *gi2c, int err)
 	geni_i2c_se_dump_dbg_regs(&gi2c->i2c_rsc, gi2c->base, gi2c->ipcl);
 err_ret:
 	gi2c->err = gi2c_log[err].err;
+}
+
+static int do_pending_cancel(struct geni_i2c_dev *gi2c)
+{
+	int timeout = 0;
+	u32 geni_ios = 0;
+
+	geni_ios = geni_read_reg(gi2c->base, SE_GENI_IOS);
+	if ((geni_ios & 0x3) != 0x3) {
+		I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+			"%s: Can't do pending cancel, IOS bad state: 0x%x\n",
+			__func__, geni_ios);
+		return -EINVAL;
+	}
+
+	if (gi2c->se_mode == GSI_ONLY) {
+		dmaengine_terminate_all(gi2c->tx_c);
+		gi2c->cfg_sent = 0;
+	} else {
+		reinit_completion(&gi2c->xfer);
+		geni_se_cancel_m_cmd(&gi2c->i2c_rsc);
+		timeout = wait_for_completion_timeout(&gi2c->xfer, HZ);
+		if (!timeout) {
+			I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+				"%s:Pending Cancel failed\n", __func__);
+			reinit_completion(&gi2c->xfer);
+			geni_se_abort_m_cmd(&gi2c->i2c_rsc);
+			timeout = wait_for_completion_timeout(&gi2c->xfer, HZ);
+			if (!timeout)
+				I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+					"%s:Abort failed\n", __func__);
+		}
+	}
+	gi2c->prev_cancel_pending = false;
+	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+		"%s: Pending Cancel done\n", __func__);
+	return timeout;
 }
 
 static int geni_i2c_prepare(struct geni_i2c_dev *gi2c)
@@ -1046,6 +1084,8 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 		timeout = wait_for_completion_timeout(&gi2c->xfer,
 						gi2c->xfer_timeout);
 		if (!timeout) {
+			u32 geni_ios = 0;
+
 			I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
 				"I2C gsi xfer timeout:%u flags:%d addr:0x%x\n",
 				gi2c->xfer_timeout, gi2c->cur->flags,
@@ -1053,6 +1093,15 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 			geni_i2c_se_dump_dbg_regs(&gi2c->i2c_rsc, gi2c->base,
 						gi2c->ipcl);
 			gi2c->err = -ETIMEDOUT;
+
+			/* WAR: Set flag to mark cancel pending if IOS stuck */
+			geni_ios = geni_read_reg(gi2c->base, SE_GENI_IOS);
+			if ((geni_ios & 0x3) != 0x3) { //SCL:b'1, SDA:b'0
+				I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
+					"%s: IO lines not in good state\n", __func__);
+					gi2c->prev_cancel_pending = true;
+					goto geni_i2c_gsi_cancel_pending;
+			}
 		}
 geni_i2c_err_prep_sg:
 		if (gi2c->err) {
@@ -1075,6 +1124,7 @@ geni_i2c_err_prep_sg:
 			/* Resend cfg tre for every new message on shared se */
 			gi2c->cfg_sent = 0;
 
+geni_i2c_gsi_cancel_pending:
 		if (msgs[i].flags & I2C_M_RD)
 			geni_se_common_iommu_unmap_buf(rx_dev, &gi2c->rx_ph,
 				msgs[i].len, DMA_FROM_DEVICE);
@@ -1119,6 +1169,13 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 			pm_runtime_set_suspended(gi2c->dev);
 			return ret;
 		}
+	}
+
+	// WAR : Complete previous pending cancel cmd
+	if (gi2c->prev_cancel_pending) {
+		ret = do_pending_cancel(gi2c);
+		if (ret)
+			return ret; //Don't perform xfer is cancel failed
 	}
 
 	geni_ios = geni_read_reg(gi2c->base, SE_GENI_IOS);
@@ -1265,9 +1322,21 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 		timeout = wait_for_completion_timeout(&gi2c->xfer,
 						gi2c->xfer_timeout);
 		if (!timeout) {
+			u32 geni_ios = 0;
+
 			I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
 				"I2C xfer timeout: %d\n", gi2c->xfer_timeout);
 			geni_i2c_err(gi2c, GENI_TIMEOUT);
+
+			/* WAR: Set flag to mark cancel pending if IOS bad */
+			geni_ios = geni_read_reg(gi2c->base, SE_GENI_IOS);
+			if ((geni_ios & 0x3) != 0x3) { //SCL:b'1, SDA:b'0
+				I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+					"%s: IO lines not in good state: 0x%x\n",
+					__func__, geni_ios);
+				gi2c->prev_cancel_pending = true;
+				goto geni_i2c_txn_ret;
+			}
 		}
 
 		if (gi2c->err) {
@@ -1390,6 +1459,11 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	gi2c->i2c_rsc.wrapper = dev_get_drvdata(dev->parent);
 	gi2c->i2c_rsc.base = gi2c->base;
 	gi2c->wrapper_dev = dev->parent;
+
+	if (!gi2c->i2c_rsc.wrapper) {
+		dev_err(&pdev->dev, "SE Wrapper is NULL, deferring probe\n");
+		return -EPROBE_DEFER;
+	}
 
 	if (of_property_read_u32(pdev->dev.of_node, "qcom,clk-freq-out",
 				&gi2c->clk_freq_out))
@@ -1627,7 +1701,7 @@ static int geni_i2c_runtime_resume(struct device *dev)
 
 		ret = geni_i2c_prepare(gi2c);
 		if (ret) {
-			dev_err(gi2c->dev, "I2C prepare failed\n");
+			dev_err(gi2c->dev, "I2C prepare failed: %d\n", ret);
 			return ret;
 		}
 
@@ -1646,7 +1720,7 @@ static int geni_i2c_runtime_resume(struct device *dev)
 		 */
 		ret = geni_i2c_prepare(gi2c);
 		if (ret) {
-			dev_err(gi2c->dev, "I2C prepare failed\n");
+			dev_err(gi2c->dev, "I2C prepare failed:%d\n", ret);
 			return ret;
 		}
 

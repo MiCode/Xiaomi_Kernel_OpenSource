@@ -16,6 +16,7 @@
 #include <linux/suspend.h>
 #include "tsens2xxx.h"
 #include "../thermal_core.h"
+#include "thermal_zone_internal.h"
 
 LIST_HEAD(tsens_device_list);
 
@@ -43,6 +44,13 @@ static int tsens_set_trip_temp(void *data, int low_temp, int high_temp)
 		return tmdev->ops->set_trips(s, low_temp, high_temp);
 
 	return 0;
+}
+
+static int tsens_tz_change_mode(void *data, enum thermal_device_mode mode)
+{
+	struct tsens_sensor *s = data;
+
+	return qti_tz_change_mode(s->tzd, mode);
 }
 
 static int tsens_init(struct tsens_device *tmdev)
@@ -127,6 +135,7 @@ MODULE_DEVICE_TABLE(of, tsens_table);
 static struct thermal_zone_of_device_ops tsens_tm_thermal_zone_ops = {
 	.get_temp = tsens_get_temp,
 	.set_trips = tsens_set_trip_temp,
+	.change_mode = tsens_tz_change_mode,
 };
 
 static struct thermal_zone_of_device_ops tsens_tm_min_thermal_zone_ops = {

@@ -15,7 +15,9 @@
 #include <linux/init.h>
 #include <linux/device.h>
 #include <linux/dma-direct.h>
+#include <linux/dma-iommu.h>
 #include <linux/dma-map-ops.h>
+#include <linux/dma-mapping-fast.h>
 #include <linux/highmem.h>
 #include <linux/memblock.h>
 #include <linux/slab.h>
@@ -2210,7 +2212,8 @@ static const struct dma_map_ops *arm_get_iommu_dma_map_ops(bool coherent)
 	return coherent ? &iommu_coherent_ops : &iommu_ops;
 }
 
-static bool arm_setup_iommu_dma_ops(struct device *dev, u64 dma_base, u64 size,
+static bool __maybe_unused
+arm_setup_iommu_dma_ops(struct device *dev, u64 dma_base, u64 size,
 				    const struct iommu_ops *iommu)
 {
 	struct dma_iommu_mapping *mapping;
@@ -2248,7 +2251,8 @@ static void arm_teardown_iommu_dma_ops(struct device *dev)
 
 #else
 
-static bool arm_setup_iommu_dma_ops(struct device *dev, u64 dma_base, u64 size,
+static bool __maybe_unused
+arm_setup_iommu_dma_ops(struct device *dev, u64 dma_base, u64 size,
 				    const struct iommu_ops *iommu)
 {
 	return false;
@@ -2266,7 +2270,7 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 	const struct dma_map_ops *dma_ops;
 
 	dev->archdata.dma_coherent = coherent;
-#ifdef CONFIG_SWIOTLB
+#if defined(CONFIG_SWIOTLB) || defined(CONFIG_IOMMU_DMA)
 	dev->dma_coherent = coherent;
 #endif
 
@@ -2278,12 +2282,15 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 	if (dev->dma_ops)
 		return;
 
-	if (arm_setup_iommu_dma_ops(dev, dma_base, size, iommu))
-		dma_ops = arm_get_iommu_dma_map_ops(coherent);
-	else
-		dma_ops = arm_get_dma_map_ops(coherent);
+	if (iommu) {
+		iommu_setup_dma_ops(dev, dma_base, dma_base + size - 1);
+		fast_smmu_setup_dma_ops(dev, dma_base, dma_base + size - 1);
+	}
 
-	set_dma_ops(dev, dma_ops);
+	if (!dev->dma_ops) {
+		dma_ops = arm_get_dma_map_ops(coherent);
+		set_dma_ops(dev, dma_ops);
+	}
 
 #ifdef CONFIG_XEN
 	if (xen_initial_domain())
@@ -2302,7 +2309,7 @@ void arch_teardown_dma_ops(struct device *dev)
 	set_dma_ops(dev, NULL);
 }
 
-#ifdef CONFIG_SWIOTLB
+#if defined(CONFIG_SWIOTLB) || defined(CONFIG_IOMMU_DMA)
 void arch_sync_dma_for_device(phys_addr_t paddr, size_t size,
 		enum dma_data_direction dir)
 {
@@ -2316,7 +2323,9 @@ void arch_sync_dma_for_cpu(phys_addr_t paddr, size_t size,
 	__dma_page_dev_to_cpu(phys_to_page(paddr), paddr & (PAGE_SIZE - 1),
 			      size, dir);
 }
+#endif
 
+#ifdef CONFIG_SWIOTLB
 void *arch_dma_alloc(struct device *dev, size_t size, dma_addr_t *dma_handle,
 		gfp_t gfp, unsigned long attrs)
 {
@@ -2331,3 +2340,10 @@ void arch_dma_free(struct device *dev, size_t size, void *cpu_addr,
 	__arm_dma_free(dev, size, cpu_addr, dma_handle, attrs, false);
 }
 #endif /* CONFIG_SWIOTLB */
+
+#ifdef CONFIG_IOMMU_DMA
+void arch_dma_prep_coherent(struct page *page, size_t size)
+{
+	__dma_page_cpu_to_dev(page, 0, size, DMA_BIDIRECTIONAL);
+}
+#endif /* CONFIG_IOMMU_DMA */

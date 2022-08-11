@@ -126,14 +126,4 @@ config GH_GUEST_POPS
           one, it'll emulate a power key press action by sending an input
           notification to user-space.
 
-config GH_VIRTIO_BACKEND
-        tristate "Gunyah Virtio Backend driver"
-        depends on GH_RM_DRV
-        help
-          This driver helps an application that implements a virtio backend
-          driver to communicate with its frontend counterpart in a guest OS
-          running on top of Gunyah hypervisor. One device node per virtual
-          machine is created for all backend devices of the VM. Say y or m here
-          to enable.  If unsure, say n.
-
 endif
