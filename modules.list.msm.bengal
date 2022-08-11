@@ -1,3 +1,4 @@
+msm_rtb.ko
 smp2p.ko
 qcom-apcs-ipc-mailbox.ko
 glink_probe.ko
