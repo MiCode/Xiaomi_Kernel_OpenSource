@@ -1067,6 +1067,19 @@ static void clk_trion_pll_disable(struct clk_hw *hw)
 	regmap_update_bits(regmap, PLL_MODE(pll), PLL_RESET_N, PLL_RESET_N);
 }
 
+static unsigned long alpha_pll_adjust_calc_rate(u64 prate, u32 l, u32 frac,
+		u32 alpha_width)
+{
+	uint64_t tmp;
+
+	frac = 100 - DIV_ROUND_UP_ULL((frac * 100), BIT(alpha_width));
+
+	tmp = frac * prate;
+	do_div(tmp, 100);
+
+	return (l * prate) - tmp;
+}
+
 static unsigned long
 clk_trion_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
@@ -1076,7 +1089,11 @@ clk_trion_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 	regmap_read(pll->clkr.regmap, PLL_L_VAL(pll), &l);
 	regmap_read(pll->clkr.regmap, PLL_ALPHA_VAL(pll), &frac);
 
-	return alpha_pll_calc_rate(parent_rate, l, frac, alpha_width);
+	if (frac & BIT(15))
+		return alpha_pll_adjust_calc_rate(parent_rate, l, frac,
+				alpha_width);
+	else
+		return alpha_pll_calc_rate(parent_rate, l, frac, alpha_width);
 }
 
 static void clk_alpha_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
@@ -2581,19 +2598,6 @@ static int clk_zonda_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	/* Wait for PLL output to stabilize */
 	udelay(100);
 	return 0;
-}
-
-static unsigned long alpha_pll_adjust_calc_rate(u64 prate, u32 l, u32 frac,
-		u32 alpha_width)
-{
-	uint64_t tmp;
-
-	frac = 100 - DIV_ROUND_UP_ULL((frac * 100), BIT(alpha_width));
-
-	tmp = frac * prate;
-	do_div(tmp, 100);
-
-	return (l * prate) - tmp;
 }
 
 static unsigned long
