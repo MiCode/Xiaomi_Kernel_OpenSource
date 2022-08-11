@@ -26,6 +26,7 @@
 #include <linux/of.h>
 #include <linux/reset.h>
 #include <linux/clk/qcom.h>
+#include <linux/nvmem-consumer.h>
 
 #include "sdhci-pltfm.h"
 #include "cqhci.h"
@@ -185,6 +186,7 @@
 #define CQHCI_VENDOR_DIS_RST_ON_CQ_EN	(0x3 << 13)
 
 #define SDHCI_CMD_FLAGS_MASK	0xff
+#define	SDHCI_BOOT_DEVICE	0x0
 
 struct sdhci_msm_offset {
 	u32 core_hc_mode;
@@ -4538,6 +4540,31 @@ static void sdhci_msm_set_caps(struct sdhci_msm_host *msm_host)
 	msm_host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_NEED_RSP_BUSY;
 }
 
+static u32 is_bootdevice_sdhci = SDHCI_BOOT_DEVICE;
+
+static int sdhci_qcom_read_boot_config(struct platform_device *pdev)
+{
+	u32 *buf;
+	size_t len;
+	struct nvmem_cell *cell;
+
+	cell = nvmem_cell_get(&pdev->dev, "boot_conf");
+	if (IS_ERR(cell))
+		return -EINVAL;
+
+	buf = nvmem_cell_read(cell, &len);
+	if (IS_ERR(buf))
+		return -EINVAL;
+
+	is_bootdevice_sdhci = (*buf) >> 1 & 0x1f;
+	dev_info(&pdev->dev, "boot_config val = %x is_bootdevice_sdhci = %x\n",
+			*buf, is_bootdevice_sdhci);
+	kfree(buf);
+	nvmem_cell_put(cell);
+
+	return is_bootdevice_sdhci;
+}
+
 static int sdhci_msm_probe(struct platform_device *pdev)
 {
 	struct sdhci_host *host;
@@ -4550,8 +4577,13 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	u8 core_major;
 	const struct sdhci_msm_offset *msm_offset;
 	const struct sdhci_msm_variant_info *var_info;
-	struct device_node *node = pdev->dev.of_node;
 	struct device *dev = &pdev->dev;
+	struct device_node *node = dev->of_node;
+
+	if (of_property_read_bool(node, "non-removable") && sdhci_qcom_read_boot_config(pdev)) {
+		dev_err(dev, "SDHCI is not boot dev.\n");
+		return 0;
+	}
 
 	host = sdhci_pltfm_init(pdev, &sdhci_msm_pdata, sizeof(*msm_host));
 	if (IS_ERR(host))
@@ -4907,13 +4939,26 @@ pltfm_free:
 
 static int sdhci_msm_remove(struct platform_device *pdev)
 {
-	struct sdhci_host *host = platform_get_drvdata(pdev);
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
-	struct sdhci_msm_qos_req *r = msm_host->sdhci_qos;
+	struct sdhci_host *host;
+	struct sdhci_pltfm_host *pltfm_host;
+	struct sdhci_msm_host *msm_host;
+	struct sdhci_msm_qos_req *r;
 	struct qos_cpu_group *qcg;
+	struct device_node *np = pdev->dev.of_node;
 	int i;
-	int dead = (readl_relaxed(host->ioaddr + SDHCI_INT_STATUS) ==
+	int dead;
+
+	if (of_property_read_bool(np, "non-removable") && is_bootdevice_sdhci) {
+		dev_err(&pdev->dev, "SDHCI is not boot dev.\n");
+		return 0;
+	}
+
+	host = platform_get_drvdata(pdev);
+	pltfm_host = sdhci_priv(host);
+	msm_host = sdhci_pltfm_priv(pltfm_host);
+	r = msm_host->sdhci_qos;
+
+	dead = (readl_relaxed(host->ioaddr + SDHCI_INT_STATUS) ==
 		    0xffffffff);
 
 	sdhci_remove_host(host, dead);
@@ -5020,10 +5065,22 @@ static int sdhci_msm_suspend_late(struct device *dev)
 	return 0;
 }
 
+static int sdhci_msm_wrapper_suspend_late(struct device *dev)
+{
+	struct device_node *np = dev->of_node;
+
+	if (of_property_read_bool(np, "non-removable") && is_bootdevice_sdhci) {
+		dev_info(dev, "SDHCI is not boot dev.\n");
+		return 0;
+	}
+
+	return sdhci_msm_suspend_late(dev);
+}
+
 static const struct dev_pm_ops sdhci_msm_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
 				pm_runtime_force_resume)
-	SET_LATE_SYSTEM_SLEEP_PM_OPS(sdhci_msm_suspend_late, NULL)
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(sdhci_msm_wrapper_suspend_late, NULL)
 	SET_RUNTIME_PM_OPS(sdhci_msm_runtime_suspend,
 			   sdhci_msm_runtime_resume,
 			   NULL)
