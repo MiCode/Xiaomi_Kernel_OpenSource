@@ -1,5 +1,6 @@
 virtio_mmio.ko
 virtio_blk.ko
+virtio_console.ko
 qcom-scm.ko
 secure_buffer.ko
 mem_buf.ko
