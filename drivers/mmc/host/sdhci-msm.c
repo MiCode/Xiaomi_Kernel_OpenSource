@@ -2935,7 +2935,7 @@ sdhci_msm_ice_resume(struct sdhci_msm_host *msm_host)
 
 void sdhci_msm_ice_disable(struct sdhci_msm_host *msm_host)
 {
-	return 0;
+	return;
 }
 #endif /* !CONFIG_MMC_CRYPTO */
 
