@@ -113,8 +113,7 @@ struct ddr_stats_g_data {
 struct ddr_stats_g_data *ddr_gdata;
 #endif
 
-bool ddr_freq_update;
-ktime_t send_msg_time;
+static bool ddr_freq_update;
 
 static void print_sleep_stats(struct seq_file *s, struct sleep_stats *stat)
 {
@@ -270,6 +269,8 @@ static int ddr_stats_show(struct seq_file *s, void *d)
 DEFINE_SHOW_ATTRIBUTE(ddr_stats);
 
 #if IS_ENABLED(CONFIG_MSM_QMP)
+static ktime_t send_msg_time;
+
 int ddr_stats_freq_sync_send_msg(void)
 {
 	char buf[MAX_MSG_LEN] = {};
