@@ -82,7 +82,6 @@
 | mocha-kk-oss | Mi Pad | Android KK | tegra-19r15.1-android-4.4 | [mocha-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/mocha-kk-oss) |
 | mojito-r-oss | Redmi Note 10 | Android R | LA.UM.9.1.r1-07700-SMxxx0.0 | [mojito-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/mojito-r-oss) |
 | merlin-r-oss | Redmi 10X 4G, Redmi 9 and POCO M2 | Android R | MTK | [merlin-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/merlin-r-oss) | 
-| munch-s-oss | Redmi K40S | Android S | LA.UM.9.12.r1-13300-SMxx50.QSSI12.0-1 | [munch-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/munch-s-oss) |
 | nabu-r-oss | Xiaomi Pad 5 | Android R | LA.UM.9.1.r1-07000-SMxxx0.0 | [nabu-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/nabu-r-oss) |
 | nitrogen-o-oss | MI MAX3,Mi Note 3 | Android O | LA.UM.6.2.r1-07400-sdm660.0 | [nitrogen-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/nitrogen-o-oss) |
 | nitrogen-p-oss | MI MAX3,MI 8Lite | Android P | LA.UM.7.2.r1-05200-sdm660.0 | [nitrogen-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/nitrogen-p-oss) |
