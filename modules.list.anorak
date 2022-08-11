@@ -54,10 +54,12 @@ socinfo.ko
 msm_qmp.ko
 qcom_aoss.ko
 ns.ko
+phy-generic.ko
 phy-qcom-ufs.ko
 phy-qcom-ufs-qrbtc-sdm845.ko
 ufs_qcom.ko
 phy-qcom-ufs-qmp-v4-parrot.ko
+phy-qcom-ufs-qmp-v4-anarok.ko
 cqhci.ko
 sdhci-msm.ko
 rpmh-regulator.ko
