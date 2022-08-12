@@ -63,6 +63,7 @@
   downgrade_write
   down_read
   down_write
+  do_traversal_all_lruvec
   finish_wait
   flush_dcache_page
   flush_work
@@ -155,6 +156,7 @@
   __num_online_cpus
   page_endio
   __page_file_index
+  __page_mapcount
   page_mapping
   param_ops_uint
   __per_cpu_offset
@@ -252,6 +254,13 @@
   __traceiter_android_vh_futex_sleep_start
   __traceiter_android_vh_irqtime_account_process_tick
   __traceiter_android_vh_page_referenced_check_bypass
+  __traceiter_android_vh_page_should_be_protected
+  __traceiter_android_vh_mark_page_accessed
+  __traceiter_android_vh_show_mapcount_pages
+  __traceiter_android_vh_do_traversal_lruvec
+  __traceiter_android_vh_update_page_mapcount
+  __traceiter_android_vh_add_page_to_lrulist
+  __traceiter_android_vh_del_page_from_lrulist
   __traceiter_android_vh_pcplist_add_cma_pages_bypass
   __traceiter_android_vh_print_slabinfo_header
   __traceiter_android_vh_rwsem_wake_finish
@@ -288,6 +297,13 @@
   __tracepoint_android_vh_futex_sleep_start
   __tracepoint_android_vh_irqtime_account_process_tick
   __tracepoint_android_vh_page_referenced_check_bypass
+  __tracepoint_android_vh_page_should_be_protected
+  __tracepoint_android_vh_mark_page_accessed
+  __tracepoint_android_vh_show_mapcount_pages
+  __tracepoint_android_vh_do_traversal_lruvec
+  __tracepoint_android_vh_update_page_mapcount
+  __tracepoint_android_vh_add_page_to_lrulist
+  __tracepoint_android_vh_del_page_from_lrulist
   __tracepoint_android_vh_pcplist_add_cma_pages_bypass
   __tracepoint_android_vh_print_slabinfo_header
   __tracepoint_android_vh_rwsem_wake_finish
