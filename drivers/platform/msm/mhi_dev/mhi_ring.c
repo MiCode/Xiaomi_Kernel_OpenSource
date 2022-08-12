@@ -411,7 +411,7 @@ static int mhi_dev_ring_alloc_msi_buf(struct mhi_dev_ring *ring)
 		return 0;
 	}
 
-	ring->msi_buffer.buf = dma_alloc_coherent(&ring->mhi_dev->pdev->dev,
+	ring->msi_buffer.buf = dma_alloc_coherent(&ring->mhi_dev->mhi_hw_ctx->pdev->dev,
 				sizeof(u32),
 				&ring->msi_buffer.dma_addr,
 				GFP_KERNEL);
@@ -446,7 +446,7 @@ int mhi_ring_start(struct mhi_dev_ring *ring, union mhi_dev_ring_ctx *ctx,
 					ring->ring_ctx->generic.wp);
 
 	if (!ring->ring_cache) {
-		ring->ring_cache = dma_alloc_coherent(mhi->dev,
+		ring->ring_cache = dma_alloc_coherent(mhi->mhi_hw_ctx->dev,
 				ring->ring_size *
 				sizeof(union mhi_dev_ring_element_type),
 				&ring->ring_cache_dma_handle,
@@ -460,7 +460,7 @@ int mhi_ring_start(struct mhi_dev_ring *ring, union mhi_dev_ring_ctx *ctx,
 
 	if (ring->type == RING_TYPE_ER) {
 		if (!ring->evt_rp_cache) {
-			ring->evt_rp_cache = dma_alloc_coherent(mhi->dev,
+			ring->evt_rp_cache = dma_alloc_coherent(mhi->mhi_hw_ctx->dev,
 				sizeof(uint64_t) * ring->ring_size,
 				&ring->evt_rp_cache_dma_handle,
 				GFP_KERNEL);
@@ -472,7 +472,7 @@ int mhi_ring_start(struct mhi_dev_ring *ring, union mhi_dev_ring_ctx *ctx,
 			}
 		}
 		if (!ring->msi_buf) {
-			ring->msi_buf = dma_alloc_coherent(mhi->dev,
+			ring->msi_buf = dma_alloc_coherent(mhi->mhi_hw_ctx->dev,
 				sizeof(uint32_t),
 				&ring->msi_buf_dma_handle,
 				GFP_KERNEL);
@@ -525,14 +525,14 @@ int mhi_ring_start(struct mhi_dev_ring *ring, union mhi_dev_ring_ctx *ctx,
 	return rc;
 
 cleanup:
-	dma_free_coherent(mhi->dev,
+	dma_free_coherent(mhi->mhi_hw_ctx->dev,
 		ring->ring_size *
 		sizeof(union mhi_dev_ring_element_type),
 		ring->ring_cache,
 		ring->ring_cache_dma_handle);
 	ring->ring_cache = NULL;
 	if (ring->evt_rp_cache) {
-		dma_free_coherent(mhi->dev,
+		dma_free_coherent(mhi->mhi_hw_ctx->dev,
 			sizeof(uint64_t) * ring->ring_size,
 			ring->evt_rp_cache,
 			ring->evt_rp_cache_dma_handle);

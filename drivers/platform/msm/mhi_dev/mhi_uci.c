@@ -1630,7 +1630,7 @@ void mhi_uci_chan_state_notify(struct mhi_dev *mhi,
 		return;
 	}
 
-	rc = kobject_uevent_env(&mhi->dev->kobj, KOBJ_CHANGE, buf);
+	rc = kobject_uevent_env(&mhi->mhi_hw_ctx->dev->kobj, KOBJ_CHANGE, buf);
 	if (rc)
 		uci_log(UCI_DBG_ERROR,
 				"Sending uevent failed for chan %d\n", ch_id);
