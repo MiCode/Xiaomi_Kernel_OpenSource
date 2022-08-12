@@ -611,6 +611,7 @@ static const struct clk_rpmh_desc clk_rpmh_neo = {
 DEFINE_CLK_RPMH_VRM(anorak, rf_clk1, rf_clk1_ao, "clka1", 1);
 DEFINE_CLK_RPMH_VRM(anorak, ln_bb_clk7, ln_bb_clk7_ao, "clka7", 2);
 DEFINE_CLK_RPMH_VRM(anorak, ln_bb_clk8, ln_bb_clk8_ao, "clka8", 2);
+DEFINE_CLK_RPMH_VRM(anorak, ln_bb_clk9, ln_bb_clk9_ao, "clka9", 2);
 
 static struct clk_hw *anorak_rpmh_clocks[] = {
 	[RPMH_CXO_CLK]		= &waipio_bi_tcxo.hw,
@@ -619,6 +620,8 @@ static struct clk_hw *anorak_rpmh_clocks[] = {
 	[RPMH_LN_BB_CLK7_A]	= &anorak_ln_bb_clk7_ao.hw,
 	[RPMH_LN_BB_CLK8]	= &anorak_ln_bb_clk8.hw,
 	[RPMH_LN_BB_CLK8_A]	= &anorak_ln_bb_clk8_ao.hw,
+	[RPMH_LN_BB_CLK9]	= &anorak_ln_bb_clk9.hw,
+	[RPMH_LN_BB_CLK9_A]	= &anorak_ln_bb_clk9_ao.hw,
 	[RPMH_RF_CLK1]		= &anorak_rf_clk1.hw,
 	[RPMH_RF_CLK1_A]	= &anorak_rf_clk1_ao.hw,
 	[RPMH_IPA_CLK]		= &lahaina_ipa.hw,
