@@ -2304,3 +2304,53 @@ void adreno_hwsched_trigger_hw_fence_cpu(struct adreno_device *adreno_dev,
 	msm_hw_fence_trigger_signal(kfence->hw_fence_handle, IPCC_CLIENT_GPU,
 		IPCC_CLIENT_APSS, 0);
 }
+
+int adreno_hwsched_wait_ack_completion(struct adreno_device *adreno_dev,
+	struct device *dev, struct pending_cmd *ack,
+	void (*process_msgq)(struct adreno_device *adreno_dev))
+{
+	int rc;
+	/* Only allow a single log in a second */
+	static DEFINE_RATELIMIT_STATE(_rs, HZ, 1);
+	static u32 unprocessed, processed;
+	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	u64 start, end;
+
+	start = gpudev->read_alwayson(adreno_dev);
+	rc = wait_for_completion_timeout(&ack->complete,
+		msecs_to_jiffies(HFI_RSP_TIMEOUT));
+	/*
+	 * A non-zero return value means the completion is complete, whereas zero indicates
+	 * timeout
+	 */
+	if (rc) {
+		/*
+		 * If an ack goes unprocessed, keep track of processed and unprocessed acks
+		 * because we may not log each unprocessed ack due to ratelimiting
+		 */
+		if (unprocessed)
+			processed++;
+		return 0;
+	}
+
+	/*
+	 * It is possible the ack came, but due to HLOS latencies in processing hfi interrupt
+	 * and/or the f2h daemon, the ack isn't processed yet. Hence, process the msgq one last
+	 * time.
+	 */
+	process_msgq(adreno_dev);
+	end = gpudev->read_alwayson(adreno_dev);
+	if (completion_done(&ack->complete)) {
+		unprocessed++;
+		if (__ratelimit(&_rs))
+			dev_err(dev, "Ack unprocessed for id:%d sequence=%d count=%d/%d ticks=%llu/%llu\n",
+				MSG_HDR_GET_ID(ack->sent_hdr), MSG_HDR_GET_SEQNUM(ack->sent_hdr),
+				unprocessed, processed, start, end);
+		return 0;
+	}
+
+	dev_err(dev, "Ack timeout for id:%d sequence=%d ticks=%llu/%llu\n",
+		MSG_HDR_GET_ID(ack->sent_hdr), MSG_HDR_GET_SEQNUM(ack->sent_hdr), start, end);
+	gmu_core_fault_snapshot(KGSL_DEVICE(adreno_dev));
+	return -ETIMEDOUT;
+}

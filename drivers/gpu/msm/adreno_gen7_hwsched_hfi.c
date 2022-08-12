@@ -561,16 +561,19 @@ static void process_ctx_bad(struct adreno_device *adreno_dev)
 	adreno_hwsched_fault(adreno_dev, ADRENO_HARD_FAULT);
 }
 
-void gen7_hwsched_process_msgq(struct adreno_device *adreno_dev)
+static void gen7_hwsched_process_msgq(struct adreno_device *adreno_dev)
 {
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
+	struct gen7_hwsched_hfi *hw_hfi = to_gen7_hwsched_hfi(adreno_dev);
 	u32 rcvd[MAX_RCVD_SIZE], next_hdr;
+
+	mutex_lock(&hw_hfi->msgq_mutex);
 
 	for (;;) {
 		next_hdr = peek_next_header(gmu, HFI_MSG_ID);
 
 		if (!next_hdr)
-			return;
+			break;
 
 		if (MSG_HDR_GET_ID(next_hdr) == F2H_MSG_CONTEXT_BAD) {
 			gen7_hfi_queue_read(gmu, HFI_MSG_ID,
@@ -594,6 +597,7 @@ void gen7_hwsched_process_msgq(struct adreno_device *adreno_dev)
 			adreno_hwsched_trigger(adreno_dev);
 		}
 	}
+	mutex_unlock(&hw_hfi->msgq_mutex);
 }
 
 static void process_log_block(struct adreno_device *adreno_dev, void *data)
@@ -694,26 +698,6 @@ static irqreturn_t gen7_hwsched_hfi_handler(int irq, void *data)
 
 #define HFI_IRQ_MSGQ_MASK BIT(0)
 
-static int wait_ack_completion(struct adreno_device *adreno_dev,
-		struct pending_cmd *ack)
-{
-	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
-	int rc;
-
-	rc = wait_for_completion_timeout(&ack->complete,
-		HFI_RSP_TIMEOUT);
-	if (!rc) {
-		dev_err(&gmu->pdev->dev,
-			"Ack timeout for id:%d sequence=%d\n",
-			MSG_HDR_GET_ID(ack->sent_hdr),
-			MSG_HDR_GET_SEQNUM(ack->sent_hdr));
-		gmu_core_fault_snapshot(KGSL_DEVICE(adreno_dev));
-		return -ETIMEDOUT;
-	}
-
-	return 0;
-}
-
 static int check_ack_failure(struct adreno_device *adreno_dev,
 	struct pending_cmd *ack)
 {
@@ -747,7 +731,8 @@ int gen7_hfi_send_cmd_async(struct adreno_device *adreno_dev, void *data)
 	if (rc)
 		goto done;
 
-	rc = wait_ack_completion(adreno_dev, &pending_ack);
+	rc = adreno_hwsched_wait_ack_completion(adreno_dev, &gmu->pdev->dev, &pending_ack,
+		gen7_hwsched_process_msgq);
 	if (rc)
 		goto done;
 
@@ -1261,7 +1246,8 @@ u32 gen7_hwsched_hfi_get_value(struct adreno_device *adreno_dev, u32 prop)
 	if (rc)
 		goto done;
 
-	rc = wait_ack_completion(adreno_dev, &pending_ack);
+	rc = adreno_hwsched_wait_ack_completion(adreno_dev, &gmu->pdev->dev, &pending_ack,
+		gen7_hwsched_process_msgq);
 
 done:
 	del_waiter(hfi, &pending_ack);
@@ -1607,6 +1593,8 @@ int gen7_hwsched_hfi_probe(struct adreno_device *adreno_dev)
 	INIT_LIST_HEAD(&hw_hfi->msglist);
 
 	init_waitqueue_head(&hw_hfi->f2h_wq);
+
+	mutex_init(&hw_hfi->msgq_mutex);
 
 	return 0;
 }
@@ -2010,7 +1998,8 @@ static int gen7_send_hw_fence_hfi(struct adreno_device *adreno_dev,
 	if (ret)
 		goto done;
 
-	ret = wait_ack_completion(adreno_dev, &pending_ack);
+	ret = adreno_hwsched_wait_ack_completion(adreno_dev, &gmu->pdev->dev, &pending_ack,
+		gen7_hwsched_process_msgq);
 	if (ret)
 		goto done;
 
