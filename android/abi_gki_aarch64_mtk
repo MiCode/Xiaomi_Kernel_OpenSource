@@ -1941,6 +1941,7 @@
   trace_event_reg
   trace_handle_return
   __traceiter_android_rvh_after_enqueue_task
+  __traceiter_android_rvh_audio_usb_offload_disconnect
   __traceiter_android_rvh_can_migrate_task
   __traceiter_android_rvh_commit_creds
   __traceiter_android_rvh_cpu_overutilized
