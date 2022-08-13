@@ -256,7 +256,7 @@ static inline bool _walt_can_migrate_task(struct task_struct *p, int dst_cpu,
 			return false;
 	} else if (!to_higher) {
 		if (!task_fits_max(p, dst_cpu) &&
-			wrq->walt_stats.nr_big_tasks < 2)
+			walt_big_tasks(task_cpu(p)) < 2)
 			return false;
 	}
 
@@ -588,7 +588,7 @@ static int walt_lb_find_busiest_from_lower_cap_cpu(int dst_cpu, const cpumask_t 
 
 		/* active migration is allowed only to idle cpu */
 		if (cpu_rq(i)->cfs.h_nr_running < 2 &&
-			(!wrq->walt_stats.nr_big_tasks || !treat_dst_idle))
+			(!walt_big_tasks(i) || !treat_dst_idle))
 			continue;
 
 		if (!walt_rotation_enabled && !cpu_overutilized(i) &&
@@ -600,7 +600,7 @@ static int walt_lb_find_busiest_from_lower_cap_cpu(int dst_cpu, const cpumask_t 
 
 		busiest_util = util;
 		busiest_cpu = i;
-		busy_nr_big_tasks = wrq->walt_stats.nr_big_tasks;
+		busy_nr_big_tasks = walt_big_tasks(i);
 	}
 
 	if (!walt_rotation_enabled && !busy_nr_big_tasks &&
@@ -787,9 +787,7 @@ static bool should_help_min_cap(int this_cpu)
 		return false;
 
 	for_each_cpu(cpu, &cpu_array[0][0]) {
-		struct walt_rq *wrq = (struct walt_rq *) cpu_rq(cpu)->android_vendor_data1;
-
-		if (wrq->walt_stats.nr_big_tasks)
+		if (walt_big_tasks(cpu))
 			return true;
 	}
 
