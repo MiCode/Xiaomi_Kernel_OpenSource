@@ -172,7 +172,7 @@ fi
 if [[ "${PREPARE_SYSTEM_DLKM}" == "1"  && ! -z "${SYSTEM_DLKM_MODULES_LIST}" ]]; then
   {
     awk -F'/' '{print $NF}' ${SYSTEM_DLKM_MODULES_LIST}
-    cat ${MODULES_LIST}
+    [ -f "${MODULES_LIST}" ] && cat "${MODULES_LIST}"
   } > ${COMBINED_MODULE_LIST}
 fi
 
