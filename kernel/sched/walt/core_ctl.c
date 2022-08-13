@@ -993,6 +993,9 @@ static bool eval_need_32bit(struct cluster_data *cluster)
 	}
 
 unlock:
+	trace_core_ctl_eval_need_32bit(cluster->first_cpu, last_need, new_need,
+				cluster->active_32bit_cpus, adj_now, adj_possible,
+				adj_now && adj_possible, cluster->need_ts);
 	spin_unlock_irqrestore(&state_lock, flags);
 
 	return adj_now && adj_possible;
