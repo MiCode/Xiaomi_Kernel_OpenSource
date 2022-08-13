@@ -1918,6 +1918,7 @@
   syscon_regmap_lookup_by_phandle
   sysctl_sched_features
   sysctl_vals
+  sysctl_vals_new
   sysfs_add_file_to_group
   sysfs_add_link_to_group
   sysfs_create_bin_file
