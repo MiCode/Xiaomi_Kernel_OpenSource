@@ -453,7 +453,7 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		if (ret < 0)
 			dev_info(aov_dev->dev, "%s: failed to send cmd(%d)\n", __func__, cmd);
 	} else {
-		dev_info(aov_dev->dev, "%s: aov is not inited(%d)\n", __func__, cmd);
+		dev_dbg(aov_dev->dev, "%s: aov is not inited(%d)\n", __func__, cmd);
 		ret = -EBUSY;
 	}
 

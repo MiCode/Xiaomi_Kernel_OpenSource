@@ -358,9 +358,8 @@ static int mtk_aov_remove(struct platform_device *pdev)
 static int aov_runtime_suspend(struct device *dev)
 {
 	struct mtk_aov *aov_dev = dev_get_drvdata(dev);
-	//int i, ret;
 
-	dev_info(aov_dev->dev, "%s runtime suspend+\n", __func__);
+	dev_dbg(aov_dev->dev, "%s runtime suspend+\n", __func__);
 
 #if AOV_WAIT_POWER_ACK
 	(void)aov_core_send_cmd(aov_dev, AOV_SCP_CMD_PWR_OFF, NULL, 0, true);
@@ -368,7 +367,7 @@ static int aov_runtime_suspend(struct device *dev)
 	(void)aov_core_send_cmd(aov_dev, AOV_SCP_CMD_PWR_OFF, NULL, 0, false);
 #endif  // AOV_WAIT_POWER_ACK
 
-	dev_info(aov_dev->dev, "%s runtime suspend-\n", __func__);
+	dev_dbg(aov_dev->dev, "%s runtime suspend-\n", __func__);
 
 	return 0;
 }
@@ -377,7 +376,7 @@ static int aov_runtime_resume(struct device *dev)
 {
 	struct mtk_aov *aov_dev = dev_get_drvdata(dev);
 
-	dev_info(aov_dev->dev, "%s runtime resume+\n", __func__);
+	dev_dbg(aov_dev->dev, "%s runtime resume+\n", __func__);
 
 #if AOV_WAIT_POWER_ACK
 	(void)aov_core_send_cmd(aov_dev, AOV_SCP_CMD_PWR_ON, NULL, 0, true);
@@ -385,7 +384,7 @@ static int aov_runtime_resume(struct device *dev)
 	(void)aov_core_send_cmd(aov_dev, AOV_SCP_CMD_PWR_ON, NULL, 0, false);
 #endif  // AOV_WAIT_POWER_ACK
 
-	dev_info(aov_dev->dev, "%s runtime resume-\n", __func__);
+	dev_dbg(aov_dev->dev, "%s runtime resume-\n", __func__);
 
 	return 0;
 }
