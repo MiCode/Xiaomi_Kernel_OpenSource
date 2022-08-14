@@ -6083,6 +6083,8 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 				cmdq_pkt_wait_te(cmdq_handle, mtk_crtc);
 				if (cur_fps != 60 && mtk_drm_helper_get_opt(priv->helper_opt,
 						MTK_DRM_OPT_PRE_TE)) {
+					if (priv->data->mmsys_id == MMSYS_MT6985)
+						mtk_oddmr_ddren(cmdq_handle, crtc, 1);
 					mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0], cmdq_handle,
 					mtk_crtc->gce_obj.base);
 				}
@@ -6093,6 +6095,8 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 						mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_PRETE]);
 					cmdq_pkt_wfe(cmdq_handle,
 						mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_PRETE]);
+					if (priv->data->mmsys_id == MMSYS_MT6985)
+						mtk_oddmr_ddren(cmdq_handle, crtc, 1);
 					mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0], cmdq_handle,
 						mtk_crtc->gce_obj.base);
 				} else {
@@ -6117,6 +6121,8 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 			cmdq_pkt_wfe(cmdq_handle,
 					mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_TE]);
 		} else {
+			if (priv->data->mmsys_id == MMSYS_MT6985)
+				mtk_oddmr_ddren(cmdq_handle, crtc, 1);
 			mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0], cmdq_handle,
 						   mtk_crtc->gce_obj.base);
 		}
@@ -6158,6 +6164,8 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 
 		cmdq_pkt_set_event(cmdq_handle,
 				   mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+		if (priv->data->mmsys_id == MMSYS_MT6985)
+			mtk_oddmr_ddren(cmdq_handle, crtc, 0);
 	} else {
 		mtk_disp_mutex_submit_sof(mtk_crtc->mutex[0]);
 		if (crtc_id == 0) {
