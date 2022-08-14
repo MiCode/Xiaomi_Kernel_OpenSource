@@ -577,8 +577,8 @@
 
 	sensor2: sensor2@10 {
 		compatible = "mediatek,imgsensor";
-		sensor-names = "imx766_mipi_raw",
-				"imx709_mipi_raw",
+		sensor-names = "imx709_mipi_raw",
+				"imx766_mipi_raw",
 				"imx866_mipi_raw";
 		reg = <0x10>;
 		#thermal-sensor-cells = <0>;
