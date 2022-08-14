@@ -3951,10 +3951,8 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 			return;
 		}
 
-		if (type == EXPOSURE_CHANGE_2_to_1 || type == EXPOSURE_CHANGE_3_to_1
-			|| type == EXPOSURE_CHANGE_1_to_2 || type == EXPOSURE_CHANGE_1_to_3) {
+		if (type == EXPOSURE_CHANGE_2_to_1 || type == EXPOSURE_CHANGE_3_to_1)
 			mtk_camsys_exp_switch_cam_mux(raw_dev, ctx, req_stream_data);
-		}
 
 		if (req_stream_data->state.estate >= E_STATE_SENSOR ||
 			!ctx->sensor) {

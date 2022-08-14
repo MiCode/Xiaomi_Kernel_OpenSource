@@ -1072,7 +1072,7 @@ STOP_SCAN:
 				s_data->frame_seq_no, s_data->timestamp,
 				ctx->stream_id);
 		} else if (s_data->state.estate == E_STATE_DONE_MISMATCH) {
-			buf_state = VB2_BUF_STATE_ERROR;
+			buf_state = VB2_BUF_STATE_DONE;
 			dev_dbg(ctx->cam->dev,
 				"%s:%s:pipe(%d) seq:%d, state done mismatch",
 				__func__, req->req.debug_str, pipe_id,
@@ -2786,6 +2786,12 @@ static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 	raw_pipe->sensor_mode_update = 0;
 	scen_pre = raw_pipe->user_res.raw_res.scen;
 	mtk_cam_req_ctrl_setup(raw_pipe, req);
+
+	/* for stagger 1exp config */
+	if (mtk_cam_scen_is_stagger_types(&scen_pre) &&
+		s_data->frame_seq_no == 1) {
+		scen_pre.scen.normal.exp_num = scen_pre.scen.normal.max_exp_num;
+	}
 
 	/* use raw_res.feature as raw_fut_pre (feature setup before re-streamon)*/
 	if (req->ctx_link_update & (1 << raw_pipe->id)) {
@@ -8903,10 +8909,11 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		if (mtk_cam_scen_is_sensor_stagger(scen_active)) {
 			if (mtk_cam_hw_is_otf(ctx)) {
 				int seninf_pad;
+				int max_exp_num = mtk_cam_scen_get_max_exp_num(scen_active);
 
-				if (mtk_cam_scen_is_2_exp(scen_active))
+				if (max_exp_num == 2)
 					seninf_pad = PAD_SRC_RAW1;
-				else if (mtk_cam_scen_is_3_exp(scen_active))
+				else if (max_exp_num == 3)
 					seninf_pad = PAD_SRC_RAW2;
 				else
 					seninf_pad = PAD_SRC_RAW0;
