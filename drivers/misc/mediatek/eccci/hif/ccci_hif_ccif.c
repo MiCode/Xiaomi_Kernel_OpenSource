@@ -556,6 +556,17 @@ static void md_ccif_sram_rx_work(struct work_struct *work)
 	}
 }
 
+static void ccif_queue_status_notify_work(struct work_struct *work)
+{
+	struct md_ccif_ctrl *md_ctrl =
+		container_of(work, struct md_ccif_ctrl, ccif_status_notify_work);
+
+	if (md_ctrl)
+		md_ctrl->traffic_info.latest_q_rx_time[AP_MD_CCB_WAKEUP] = local_clock();
+
+	ccci_port_queue_status_notify(CCIF_HIF_ID, AP_MD_CCB_WAKEUP, -1, RX_IRQ);
+}
+
 static int ccif_check_flow_ctrl(struct md_ccif_ctrl *md_ctrl,
 	struct md_ccif_queue *queue, struct ccci_ringbuf *rx_buf)
 {
@@ -1049,7 +1060,7 @@ static void md_ccif_launch_work(struct md_ccif_ctrl *md_ctrl)
 		md_ctrl->traffic_info.latest_ccb_isr_time
 			= local_clock();
 #endif
-		ccci_port_queue_status_notify(CCIF_HIF_ID, AP_MD_CCB_WAKEUP, -1, RX_IRQ);
+		schedule_work(&md_ctrl->ccif_status_notify_work);
 	}
 	for (i = 0; i < QUEUE_NUM; i++) {
 		if (md_ctrl->channel_id & (1 << (i + D2H_RINGQ0))) {
@@ -2010,6 +2021,7 @@ int ccci_ccif_hif_init(struct platform_device *pdev, unsigned char hif_id)
 	}
 	/* ccif_ctrl = md_ctrl; */
 	INIT_WORK(&md_ctrl->ccif_sram_work, md_ccif_sram_rx_work);
+	INIT_WORK(&md_ctrl->ccif_status_notify_work, ccif_queue_status_notify_work);
 
 	timer_setup(&md_ctrl->traffic_monitor, md_ccif_traffic_monitor_func, 0);
 	md_ctrl->heart_beat_counter = 0;

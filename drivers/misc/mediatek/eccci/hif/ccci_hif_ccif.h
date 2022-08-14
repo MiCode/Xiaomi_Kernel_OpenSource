@@ -102,6 +102,7 @@ struct md_ccif_ctrl {
 	unsigned int sram_size;
 	struct ccif_sram_layout *ccif_sram_layout;
 	struct work_struct ccif_sram_work;
+	struct work_struct ccif_status_notify_work;
 	struct timer_list bus_timeout_timer;
 	void __iomem *ccif_ap_base;
 	void __iomem *ccif_md_base;
