@@ -17,8 +17,8 @@ enum freq_level {
 };
 
 enum freq_value {
-	LOW_FREQ_VALUE = 80,
-	MEDIUM_FREQ_VALUE = 200,
+	LOW_FREQ_VALUE = 150,
+	MEDIUM_FREQ_VALUE = 300,
 	HIGH_FREQ_VALUE = 700,
 };
 

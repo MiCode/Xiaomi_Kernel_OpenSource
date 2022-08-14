@@ -34,6 +34,41 @@ static struct sensor_freq_tb sensor_freq_table[] = {
 		.freq_level = MEDIUM,
 		.core_id = 0,
 	},
+	{
+		.sensor_type = SENSOR_TYPE_GYROSCOPE_UNCALIBRATED,
+		.freq_level = MEDIUM,
+		.core_id = 0,
+	},
+	{
+		.sensor_type = SENSOR_TYPE_ORIENTATION,
+		.freq_level = MEDIUM,
+		.core_id = 0,
+	},
+	{
+		.sensor_type = SENSOR_TYPE_GRAVITY,
+		.freq_level = MEDIUM,
+		.core_id = 0,
+	},
+	{
+		.sensor_type = SENSOR_TYPE_LINEAR_ACCELERATION,
+		.freq_level = MEDIUM,
+		.core_id = 0,
+	},
+	{
+		.sensor_type = SENSOR_TYPE_ROTATION_VECTOR,
+		.freq_level = MEDIUM,
+		.core_id = 0,
+	},
+	{
+		.sensor_type = SENSOR_TYPE_GAME_ROTATION_VECTOR,
+		.freq_level = MEDIUM,
+		.core_id = 0,
+	},
+	{
+		.sensor_type = SENSOR_TYPE_GEOMAGNETIC_ROTATION_VECTOR,
+		.freq_level = MEDIUM,
+		.core_id = 0,
+	},
 };
 
 static int freq_tb_bitmap_set(uint8_t sensor_type)
