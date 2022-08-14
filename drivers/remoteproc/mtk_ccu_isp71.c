@@ -38,6 +38,7 @@
 #define CCU_SET_MMQOS
 /* #define CCU1_DEVICE */
 #define MTK_CCU_MB_RX_TIMEOUT_SPEC    1000  /* 10ms */
+#define ERROR_DESC_LEN	80
 
 #define MTK_CCU_TAG "[ccu_rproc]"
 #define LOG_DBG(format, args...) \
@@ -458,6 +459,7 @@ static int mtk_ccu_stop(struct rproc *rproc)
 	ret = mtk_ccu_rproc_ipc_send(ccu->pdev, MTK_CCU_FEATURE_SYSCTRL,
 		3, NULL, 0);
 
+	mtk_ccu_rproc_ipc_uninit(ccu);
 	mtk_ccu_sw_hw_reset(ccu);
 
 	ccu->disirq = true;
@@ -607,8 +609,6 @@ ccu_elf_load_segments(struct rproc *rproc, const struct firmware *fw)
 	return ret;
 }
 #endif
-
-#define ERROR_DESC_LEN	80
 
 static int mtk_ccu_load(struct rproc *rproc, const struct firmware *fw)
 {
