@@ -2677,6 +2677,7 @@ static void mt6375_shutdown(struct platform_device *pdev)
 
 	if (ddata->irq) {
 		disable_irq(ddata->irq);
+		kthread_flush_worker(&ddata->irq_worker);
 		kthread_stop(ddata->irq_worker_task);
 	}
 
