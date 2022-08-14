@@ -7690,7 +7690,7 @@ static int mt_dcc_clk_connect(struct snd_soc_dapm_widget *source,
 static const struct snd_soc_dapm_route mt6338_dapm_routes[] = {
 	/* Capture */
 	{"AIFTX_Supply", NULL, "UL_GPIO"},
-	/* {"AIFTX_Supply", NULL, "KEY"}, */
+	{"AIFTX_Supply", NULL, "KEY"},
 	{"AIFTX_Supply", NULL, "CLK_BUF"},
 	{"AIFTX_Supply", NULL, "AUDGLB"},
 	{"AIFTX_Supply", NULL, "CLKSQ Audio"},
@@ -7861,7 +7861,7 @@ static const struct snd_soc_dapm_route mt6338_dapm_routes[] = {
 
 	/* DL Supply */
 	{"DL Power Supply", NULL, "DL_GPIO"},
-	/* {"DL Power Supply", NULL, "KEY"}, */
+	{"DL Power Supply", NULL, "KEY"},
 	{"DL Power Supply", NULL, "CLK_BUF"},
 	/* {"DL Power Supply", NULL, "vaud18"}, */
 	{"DL Power Supply", NULL, "NCP_CK"},
@@ -10400,7 +10400,9 @@ static const struct snd_kcontrol_new mt6338_snd_misc_controls[] = {
 
 static void keylock_set(struct mt6338_priv *priv)
 {
-/*
+	regmap_write(priv->regmap, MT6338_DA_INTF_STTING1, 0x6d);
+	regmap_write(priv->regmap, MT6338_TOP_CON, 0x4);
+
 	regmap_write(priv->regmap, MT6338_TOP_DIG_WPK, 0x0);
 	regmap_write(priv->regmap, MT6338_TOP_DIG_WPK_H, 0x0);
 	regmap_write(priv->regmap, MT6338_TOP_TMA_KEY_H, 0x0);
@@ -10409,7 +10411,7 @@ static void keylock_set(struct mt6338_priv *priv)
 	regmap_write(priv->regmap, MT6338_PSC_WPK_H, 0x0);
 	regmap_write(priv->regmap, MT6338_HK_TOP_WKEY_L, 0x0);
 	regmap_write(priv->regmap, MT6338_HK_TOP_WKEY_H, 0x0);
-*/
+
 }
 
 static void keylock_reset(struct mt6338_priv *priv)
@@ -10423,6 +10425,9 @@ static void keylock_reset(struct mt6338_priv *priv)
 	regmap_write(priv->regmap, MT6338_PSC_WPK_H, 0x47);
 	regmap_write(priv->regmap, MT6338_HK_TOP_WKEY_L, 0x38);
 	regmap_write(priv->regmap, MT6338_HK_TOP_WKEY_H, 0x63);
+
+	regmap_write(priv->regmap, MT6338_TOP_CON, 0x7);
+	regmap_write(priv->regmap, MT6338_DA_INTF_STTING1, 0x76);
 }
 
 static void codec_gpio_init(struct mt6338_priv *priv)
