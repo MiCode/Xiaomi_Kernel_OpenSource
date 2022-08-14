@@ -1144,7 +1144,7 @@ static ssize_t mt_scp_dvfs_sleep_proc_write(
 		}
 	} else if (!strcmp(cmd, "dbg_core")) {
 		dbg_core = (enum scp_core_enum) slp_cmd;
-		if (dbg_core < SCP_MAX_CORE_NUM)
+		if (dbg_core < SCP_MAX_CORE_NUM && dbg_core < dvfs.core_nums)
 			dvfs.cur_dbg_core = dbg_core;
 	} else {
 		pr_notice("[%s]: invalid command: %s\n", __func__, cmd);
@@ -2676,6 +2676,7 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 	/* do ulposc calibration */
 	mt_scp_dvfs_do_ulposc_cali_process();
 	kfree(dvfs.ulposc_hw.cali_configs);
+	dvfs.ulposc_hw.cali_configs = NULL;
 
 	scp_suspend_lock = wakeup_source_register(NULL, "scp wakelock");
 
