@@ -220,7 +220,8 @@ void vdec_decode_prepare(void *ctx_prepare,
 	mtk_vcodec_set_curr_ctx(ctx->dev, ctx, hw_id);
 	if (!ctx->dev->dec_always_on[hw_id]) {
 		mtk_vcodec_dec_clock_on(&ctx->dev->pm, hw_id);
-		if (ctx->dec_params.operating_rate >= MTK_VDEC_ALWAYS_ON_OP_RATE) {
+		if (ctx->dec_params.operating_rate >= MTK_VDEC_ALWAYS_ON_OP_RATE ||
+		    mtk_vdec_is_highest_freq(ctx)) {
 			ctx->power_type[hw_id] = VDEC_POWER_ALWAYS;
 			ctx->dev->dec_always_on[hw_id] = true;
 		}
