@@ -845,6 +845,30 @@ static int slbc_request_cache(struct slbc_data *d)
 	return ret;
 }
 
+static int slbc_request_status(struct slbc_data *d)
+{
+	int ret = 0;
+	int uid = d->uid;
+	int sid;
+	struct slbc_config *config;
+
+	/* slbc_debug_log("%s: TP_BUFFER\n", __func__); */
+
+	if (uid <= UID_ZERO || uid > UID_MAX)
+		d->config = NULL;
+	else {
+		sid = slbc_get_sid_by_uid((enum slbc_uid)uid);
+		if (sid != SID_NOT_FOUND) {
+			d->sid = sid;
+			d->config = &p_config[sid];
+			config = (struct slbc_config *)d->config;
+			ret = _slbc_buffer_status_scmi(d);
+		}
+	}
+
+	return ret;
+}
+
 static int slbc_request_buffer(struct slbc_data *d)
 {
 	int ret = 0;
@@ -1022,6 +1046,19 @@ static int slbc_request_acp(void *ptr)
 	return ret;
 }
 
+int slbc_status(struct slbc_data *d)
+{
+	int ret = 0;
+
+	if ((d->type) == TP_BUFFER)
+		ret = slbc_request_status(d);
+
+	pr_info("#@# %s(%d) uid 0x%x ret %d\n",
+			__func__, __LINE__, d->uid, ret);
+
+	return ret;
+}
+
 int slbc_request(struct slbc_data *d)
 {
 	int ret = 0;
@@ -1048,6 +1085,8 @@ int slbc_request(struct slbc_data *d)
 
 	if (!ret) {
 #if IS_ENABLED(CONFIG_MTK_SLBC_IPI)
+		uid_ref[d->uid] = slbc_read_debug_sram(d->sid);
+		d->ref = uid_ref[d->uid];
 		slbc_ref = slbc_sram_read(SLBC_REF);
 #else
 		slbc_ref++;
@@ -1191,6 +1230,8 @@ int slbc_release(struct slbc_data *d)
 
 	if (!ret) {
 #if IS_ENABLED(CONFIG_MTK_SLBC_IPI)
+		uid_ref[d->uid] = slbc_read_debug_sram(d->sid);
+		d->ref = uid_ref[d->uid];
 		slbc_ref = slbc_sram_read(SLBC_REF);
 #else
 		slbc_ref--;
@@ -1642,6 +1683,7 @@ static int slbc_create_debug_fs(void)
 }
 
 static struct slbc_common_ops common_ops = {
+	.slbc_status = slbc_status,
 	.slbc_request = slbc_request,
 	.slbc_release = slbc_release,
 	.slbc_power_on = slbc_power_on,
