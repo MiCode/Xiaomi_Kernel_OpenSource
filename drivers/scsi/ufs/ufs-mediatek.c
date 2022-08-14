@@ -2246,6 +2246,34 @@ static void ufs_mtk_dev_vreg_set_lpm(struct ufs_hba *hba, bool lpm)
 	}
 }
 
+static int ufs_mtk_suspend_check(struct ufs_hba *hba)
+{
+	struct device_link *link;
+	int err = 0;
+	static bool bypass;
+
+	/* Once wl_device can suspend, no need check anymore */
+	if (bypass)
+		goto out;
+
+	list_for_each_entry(link,
+		&hba->sdev_ufs_device->sdev_gendev.links.consumers,
+		s_node) {
+
+		/* If consumer is active, stop supplier enter suspend. */
+		if (link->consumer->power.runtime_status == RPM_ACTIVE) {
+			err = -EBUSY;
+			goto out;
+		}
+	}
+
+	bypass = true;
+
+out:
+
+	return err;
+}
+
 static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op,
 	enum ufs_notify_change_status status)
 {
@@ -2253,6 +2281,10 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op,
 	struct arm_smccc_res res;
 
 	if (status == PRE_CHANGE) {
+		err = ufs_mtk_suspend_check(hba);
+		if (err)
+			return err;
+
 		if (!ufshcd_is_auto_hibern8_supported(hba))
 			return 0;
 		ufs_mtk_auto_hibern8_disable(hba);
