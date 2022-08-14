@@ -568,6 +568,14 @@ static struct mtk_panel_params ext_params = {
 		.request_te_tb = {
 
 			/* Request-TE level */
+
+			.rte_te_level[0] = {
+				.level_id = 1,
+				.level_fps = 120,
+				.max_fps = 120,
+				.min_fps = 60,
+			},
+/*
 			.rte_te_level[0] = {
 				.level_id = 1,
 				.level_fps = 90,
@@ -580,6 +588,7 @@ static struct mtk_panel_params ext_params = {
 				.max_fps = 120,
 				.min_fps = 90,
 			},
+*/
 		},
 	},
 	.lp_perline_en = 1,
@@ -654,6 +663,14 @@ static struct mtk_panel_params ext_params_90hz = {
 		.request_te_tb = {
 
 			/* Request-TE level */
+
+			.rte_te_level[0] = {
+					.level_id = 1,
+					.level_fps = 120,
+					.max_fps = 120,
+					.min_fps = 60,
+			},
+/*
 			.rte_te_level[0] = {
 					.level_id = 1,
 					.level_fps = 90,
@@ -666,6 +683,7 @@ static struct mtk_panel_params ext_params_90hz = {
 					.max_fps = 120,
 					.min_fps = 90,
 			},
+*/
 		},
 	},
 	.lp_perline_en = 1,
@@ -741,6 +759,14 @@ static struct mtk_panel_params ext_params_120hz = {
 		.request_te_tb = {
 
 			/* Request-TE level */
+
+			.rte_te_level[0] = {
+				.level_id = 1,
+				.level_fps = 120,
+				.max_fps = 120,
+				.min_fps = 60,
+			},
+/*
 			.rte_te_level[0] = {
 				.level_id = 1,
 				.level_fps = 90,
@@ -753,6 +779,7 @@ static struct mtk_panel_params ext_params_120hz = {
 				.max_fps = 120,
 				.min_fps = 90,
 			},
+*/
 		},
 	},
 	.lp_perline_en = 1,
@@ -1160,7 +1187,7 @@ struct panel_desc {
 
 static int lcm_get_modes(struct drm_panel *panel, struct drm_connector *connector)
 {
-	struct drm_display_mode *mode0, *mode1, *mode2;
+	struct drm_display_mode *mode0, *mode1/*, *mode2*/;
 
 	mode0 = drm_mode_duplicate(connector->dev, &default_mode);
 	if (!mode0) {
@@ -1173,6 +1200,7 @@ static int lcm_get_modes(struct drm_panel *panel, struct drm_connector *connecto
 	mode0->type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
 	drm_mode_probed_add(connector, mode0);
 
+	/*
 	mode2 = drm_mode_duplicate(connector->dev, &middle_mode);
 	if (!mode2) {
 		dev_err(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
@@ -1183,7 +1211,7 @@ static int lcm_get_modes(struct drm_panel *panel, struct drm_connector *connecto
 	drm_mode_set_name(mode2);
 	mode2->type = DRM_MODE_TYPE_DRIVER;
 	drm_mode_probed_add(connector, mode2);
-
+	*/
 	mode1 = drm_mode_duplicate(connector->dev, &performence_mode);
 	if (!mode1) {
 		dev_err(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
