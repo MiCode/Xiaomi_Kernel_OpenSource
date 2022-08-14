@@ -1278,6 +1278,30 @@ int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd, int pad_id)
 int mtk_cam_seninf_get_vsync_order(struct v4l2_subdev *sd)
 {
 	/* todo: 0: bayer first 1: w first */
+	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
+	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
+	struct seninf_vc *vc;
+	int i = 0;
+
+	for (i = 0; i < vcinfo->cnt; i++) {
+		vc = &vcinfo->vc[i];
+
+		switch (vc->out_pad) {
+		case PAD_SRC_RAW0:
+		case PAD_SRC_RAW1:
+		case PAD_SRC_RAW2:
+			return MTKCAM_IPI_ORDER_BAYER_FIRST;
+
+		case PAD_SRC_RAW_W0:
+		case PAD_SRC_RAW_W1:
+		case PAD_SRC_RAW_W2:
+			return MTKCAM_IPI_ORDER_W_FIRST;
+
+		default:
+			break;
+		}
+	}
+
 	return MTKCAM_IPI_ORDER_BAYER_FIRST;
 }
 
