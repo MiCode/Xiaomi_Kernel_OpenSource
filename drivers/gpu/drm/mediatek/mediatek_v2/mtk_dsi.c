@@ -2096,6 +2096,13 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 						cnt = 0;
 					}
 					cnt++;
+				} else if (panel_ext && panel_ext->params->skip_vblank) {
+					skip_vblank = panel_ext->params->skip_vblank;
+					if (cnt % skip_vblank == 0) {
+						mtk_crtc_vblank_irq(&mtk_crtc->base);
+						cnt = 0;
+					}
+					cnt++;
 				} else
 					mtk_crtc_vblank_irq(&mtk_crtc->base);
 			}
