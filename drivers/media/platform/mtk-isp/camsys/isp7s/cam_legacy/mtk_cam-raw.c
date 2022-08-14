@@ -2271,6 +2271,7 @@ void stream_on(struct mtk_raw_device *dev, int on)
 			mtk_cam_set_topdebug_rdyreq(dev->dev, dev->base, dev->yuv_base,
 				TG_OVERRUN);
 			dev->overrun_debug_dump_cnt = 0;
+			dev->grab_err_cnt = 0;
 			enable_tg_db(dev, 0);
 			enable_tg_db(dev, 1);
 			toggle_db(dev);
@@ -2589,6 +2590,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	if (irq_status & SW_PASS1_DON_ST) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_DONE;
 		raw_dev->overrun_debug_dump_cnt = 0;
+		raw_dev->grab_err_cnt = 0;
 	}
 	/* Frame start */
 	if (irq_status & SOF_INT_ST || dcif_status & DCIF_LAST_SOF_INT_ST) {
@@ -2714,6 +2716,7 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,
 {
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_request_stream_data *s_data;
+#ifdef DEBUG_TG_FULL_SEL
 	int val, val2;
 	unsigned int inner_val, tg_full_sel;
 
@@ -2727,6 +2730,7 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,
 	val2 = val2 | TG_CMOS_RDY_SEL;
 	writel_relaxed(val2, raw_dev->base + REG_TG_SEN_MODE);
 	wmb(); /* TBC */
+#endif
 
 	dev_info_ratelimited(raw_dev->dev,
 		"%d Grab_Err [Outter] TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN VSEOL_SUB:%x/%x %x/%x %x/%x %x\n",
@@ -2758,10 +2762,11 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,
 	s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, dequeued_frame_seq_no);
 	if (s_data) {
 		mtk_cam_debug_seninf_dump(s_data);
-		tg_full_sel = ((inner_val & TG_FULLSEL_BIT_MASK) >> 15);
-		dev_info(raw_dev->dev, "tg_full_sel 0x%x\n", __func__, tg_full_sel);
-		mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_CHK_DEQUEUE_FAILED,
-				"Camsys: TG Grab Err", false);
+
+		if (raw_dev->grab_err_cnt)
+			mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_CHK_DEQUEUE_FAILED,
+					"TG Grab Err", false);
+		raw_dev->grab_err_cnt = 1;
 	} else {
 		dev_info(raw_dev->dev,
 			 "%s: req(%d) can't be found for seninf dump\n",
@@ -2806,6 +2811,7 @@ static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 {
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_request_stream_data *s_data;
+#ifdef DEBUG_TG_FULL_SEL
 	int val, val2;
 	unsigned int inner_val, tg_full_sel;
 
@@ -2820,6 +2826,7 @@ static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 	val2 = val2 | TG_CMOS_RDY_SEL;
 	writel_relaxed(val2, raw_dev->base + REG_TG_SEN_MODE);
 	wmb(); /* for dbg dump register */
+#endif
 
 	dev_info(raw_dev->dev,
 		 "%d Overrun_Err [Outter] TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN:%x/%x %x/%x %x/%x\n",
@@ -2885,9 +2892,6 @@ static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 		 */
 		if (0 && raw_dev->sof_count > 3)
 			mtk_cam_debug_seninf_dump(s_data);
-
-		tg_full_sel = ((inner_val & TG_FULLSEL_BIT_MASK) >> 15);
-		dev_info(raw_dev->dev, "tg_full_sel 0x%x:\n", __func__, tg_full_sel);
 
 		mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_CHK_DEQUEUE_FAILED,
 				"Camsys: TG Overrun Err", true);
