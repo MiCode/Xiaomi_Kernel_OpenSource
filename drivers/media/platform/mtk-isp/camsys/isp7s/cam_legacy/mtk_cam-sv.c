@@ -1461,21 +1461,18 @@ int mtk_cam_sv_central_common_disable(struct mtk_camsv_device *dev)
 {
 	int ret = 0;
 
-	if (CAMSV_READ_BITS(dev->base + REG_CAMSVCENTRAL_VF_CON,
-			CAMSVCENTRAL_VF_CON, VFDATA_EN))
-		CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_VF_CON,
-			CAMSVCENTRAL_VF_CON, VFDATA_EN, 0);
+	/* must disable cmos before disable vf, otherwise, tf may occur */
+	CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_SEN_MODE,
+		CAMSVCENTRAL_SEN_MODE, CMOS_EN, 0);
+
+	CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_VF_CON,
+		CAMSVCENTRAL_VF_CON, VFDATA_EN, 0);
 
 	mtk_cam_sv_toggle_tg_db(dev);
 
 	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_DONE_STATUS_EN, 0);
 	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_ERR_STATUS_EN, 0);
 	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_SOF_STATUS_EN, 0);
-
-	if (CAMSV_READ_BITS(dev->base + REG_CAMSVCENTRAL_SEN_MODE,
-			CAMSVCENTRAL_SEN_MODE, CMOS_EN))
-		CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_SEN_MODE,
-			CAMSVCENTRAL_SEN_MODE, CMOS_EN, 0);
 
 	sv_reset(dev);
 	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_DMA_EN_IMG, 0);
@@ -1546,11 +1543,10 @@ void mtk_cam_sv_vf_reset(struct mtk_cam_ctx *ctx,
 }
 
 bool mtk_cam_sv_is_zero_fbc_cnt(struct mtk_cam_ctx *ctx,
-	unsigned int pipe_id)
+	unsigned int tag_idx)
 {
 	bool result = false;
 	struct mtk_camsv_device *camsv_dev;
-	unsigned int tag_idx;
 
 	camsv_dev = mtk_cam_get_used_sv_dev(ctx);
 	if (!camsv_dev) {
@@ -1558,7 +1554,6 @@ bool mtk_cam_sv_is_zero_fbc_cnt(struct mtk_cam_ctx *ctx,
 		__func__);
 		return result;
 	}
-	tag_idx = mtk_cam_get_sv_tag_index(ctx, pipe_id);
 
 	if (CAMSV_READ_BITS(camsv_dev->base +
 			REG_CAMSVCENTRAL_FBC1_TAG1 + CAMSVCENTRAL_FBC1_TAG_SHIFT * tag_idx,

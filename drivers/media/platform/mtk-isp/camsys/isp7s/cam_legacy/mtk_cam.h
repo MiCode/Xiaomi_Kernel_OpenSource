@@ -42,6 +42,7 @@
 #define CCD_READY 1
 
 #define PURE_RAW_WITH_SV 0
+#define PURE_RAW_WITH_SV_DONE_CHECK 0
 
 #define MAX_STAGGER_EXP_AMOUNT 3
 
@@ -1094,7 +1095,7 @@ int get_second_sv_tag_idx(struct mtk_cam_ctx *ctx, unsigned int exp_no, bool is_
 int get_last_sv_tag_idx(struct mtk_cam_ctx *ctx, unsigned int exp_no, bool is_w);
 
 unsigned int mtk_cam_get_sv_mapped_tag_order(
-	int hw_scen, int exp_no, int tag);
+	int hw_scen, int exp_no, int tag_idx);
 
 unsigned int get_master_raw_id(unsigned int num_raw_drivers,
 									  unsigned int enabled_raw);
