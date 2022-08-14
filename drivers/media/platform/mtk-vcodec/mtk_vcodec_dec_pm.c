@@ -185,15 +185,54 @@ void mtk_vcodec_dec_pw_off(struct mtk_vcodec_pm *pm)
 	}
 }
 
+static void mtk_vdec_hw_break_vld_top_dump(
+	void __iomem *vld_top_addr, char *debug_str)
+{
+	int vld_top_offset[7] = {33, 41, 50, 51, 64, 65, 94};
+	int idx, off[7], cnt;
+	unsigned long val[7];
+
+	if (vld_top_addr > 0) {
+		for (idx = 0; idx < 7; idx++) {
+			off[idx] = vld_top_offset[idx];
+			val[idx] = readl(vld_top_addr + (off[idx] << 2));
+		}
+		mtk_v4l2_err("[DEBUG][%s] 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx",
+			debug_str,
+			off[0] << 2, off[0], val[0],
+			off[1] << 2, off[1], val[1],
+			off[2] << 2, off[2], val[2],
+			off[3] << 2, off[3], val[3],
+			off[4] << 2, off[4], val[4],
+			off[5] << 2, off[5], val[5],
+			off[6] << 2, off[6], val[6]);
+		for (idx = 68; idx <= 112; idx += 5) {
+			for (cnt = 0; cnt < 5; cnt++) {
+				off[cnt] = idx + cnt;
+				val[cnt] = readl(vld_top_addr + (off[cnt] << 2));
+			}
+			mtk_v4l2_err("[DEBUG][%s] 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx, 0x%x(%d) = 0x%lx",
+				debug_str,
+				off[0] << 2, off[0], val[0],
+				off[1] << 2, off[1], val[1],
+				off[2] << 2, off[2], val[2],
+				off[3] << 2, off[3], val[3],
+				off[4] << 2, off[4], val[4]);
+		}
+	}
+}
+
 static void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 {
 	u32 cg_status = 0, ufo_cg_status = 0;
 	void __iomem *vdec_misc_addr = dev->dec_reg_base[VDEC_MISC];
 	void __iomem *vdec_vld_addr = dev->dec_reg_base[VDEC_VLD];
+	void __iomem *vdec_vld_top_addr = dev->dec_reg_base[VDEC_VLD] + 0x800;
 	void __iomem *vdec_gcon_addr = dev->dec_reg_base[VDEC_SYS];
 	void __iomem *vdec_ufo_addr = dev->dec_reg_base[VDEC_BASE] + 0x800;
 	void __iomem *vdec_lat_misc_addr = dev->dec_reg_base[VDEC_LAT_MISC];
 	void __iomem *vdec_lat_vld_addr = dev->dec_reg_base[VDEC_LAT_VLD];
+	void __iomem *vdec_lat_vld_top_addr = dev->dec_reg_base[VDEC_LAT_VLD] + 0x800;
 	struct mtk_vcodec_ctx *ctx = NULL;
 	int misc_offset[4] = {64, 66, 67, 65};
 
@@ -267,6 +306,8 @@ static void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 				if (timeout == 20000)
 					timeout = 1000000;
 				else if (timeout == 1000000) {
+					mtk_vdec_hw_break_vld_top_dump(
+						vdec_vld_top_addr, "VLD_TOP");
 					mtk_smi_dbg_hang_detect("VDEC_CORE");
 					/* v4l2_aee_print(
 					 *    "%s %p codec:0x%08x(%c%c%c%c) hw break timeout\n",
@@ -332,6 +373,8 @@ static void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 				if (timeout == 20000)
 					timeout = 1000000;
 				else if (timeout == 1000000) {
+					mtk_vdec_hw_break_vld_top_dump(
+						vdec_lat_vld_top_addr, "LAT_VLD_TOP");
 					mtk_smi_dbg_hang_detect("VDEC_LAT");
 					/* v4l2_aee_print(
 					 *    "%s %p codec:0x%08x(%c%c%c%c) hw %d break timeout\n",
