@@ -881,6 +881,9 @@ void sv_reset(struct mtk_camsv_device *dev)
 
 	dev_dbg(dev->dev, "%s camsv_id:%d\n", __func__, dev->id);
 
+	/* disable dma dcm before do dma reset */
+	writel(1, dev->base + REG_CAMSVCENTRAL_DCM_DIS);
+
 	writel(0, dev->base_dma + REG_CAMSVDMATOP_SW_RST_CTL);
 	writel(1, dev->base_dma + REG_CAMSVDMATOP_SW_RST_CTL);
 	wmb(); /* make sure committed */
@@ -902,6 +905,9 @@ void sv_reset(struct mtk_camsv_device *dev)
 		mtk_smi_dbg_hang_detect("camsys-camsv");
 		goto RESET_FAILURE;
 	}
+
+	/* enable dma dcm after dma is idle */
+	writel(0, dev->base + REG_CAMSVCENTRAL_DCM_DIS);
 
 	writel(0, dev->base + REG_CAMSVCENTRAL_SW_CTL);
 	writel(1, dev->base + REG_CAMSVCENTRAL_SW_CTL);
