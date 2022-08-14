@@ -1450,12 +1450,14 @@ static int dbg_slbc_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "outer %x\n", slbc_outer);
 
 	for (i = 0; i < UID_MAX; i++) {
+		struct slbc_data d;
+
+		d.uid = i;
+		d.type  = TP_BUFFER;
 		sid = slbc_get_sid_by_uid(i);
-		test_d.uid = i;
-		test_d.type  = TP_BUFFER;
 		if (sid != SID_NOT_FOUND)
 			seq_printf(m, "uid_ref %s %x, slbc_activate_status %d\n",
-					slbc_uid_str[i], uid_ref[i], slbc_activate_status(&test_d));
+					slbc_uid_str[i], uid_ref[i], slbc_activate_status(&d));
 	}
 
 	mutex_lock(&slbc_ops_lock);
