@@ -18,9 +18,7 @@
 #include "mtk-base-dsp.h"
 #include "mtk-dsp-common.h"
 
-#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
 #include <adsp_helper.h>
-#endif
 //#define DEBUG_VERBOSE
 
 #include "mtk-sp-spk-amp.h"
@@ -476,7 +474,7 @@ int mtk_dsp_deregister_feature(int id)
 int wait_dsp_ready(void)
 {
 	/* should not call this in atomic or interrupt level */
-	if (!wait_event_timeout(waitq, adsp_standby_flag == 0,
+	if (!wait_event_timeout(waitq, adsp_standby_flag == 0 && is_adsp_ready(ADSP_A_ID),
 				msecs_to_jiffies(200)))
 		return -EBUSY;
 
