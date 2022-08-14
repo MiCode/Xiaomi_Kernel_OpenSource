@@ -15,8 +15,6 @@
 
 #include "clk-mtk.h"
 #include "clk-mux.h"
-#include "clk-fmeter.h"
-#include "clk-mt6985-fmeter.h"
 
 static bool is_registered;
 
@@ -293,7 +291,6 @@ static int __mtk_clk_mux_set_parent_lock(struct clk_hw *hw, u8 index, bool setcl
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
 	u32 mask = GENMASK(mux->data->mux_width - 1, 0);
 	u32 val = 0, orig = 0;
-	u32 freq1, freq2, freq3, freq4;
 	int i = 0;
 	unsigned long flags = 0;
 
@@ -344,12 +341,6 @@ static int __mtk_clk_mux_set_parent_lock(struct clk_hw *hw, u8 index, bool setcl
 	return 0;
 
 set_parent_fail:
-	freq1 = mt_get_fmeter_freq(FM_MMPLL2_CK, ABIST_CK2);
-	freq2 = mt_get_fmeter_freq(FM_UNIVPLL2_CK, ABIST_CK2);
-	freq3 = mt_get_fmeter_freq(FM_MAINPLL2_CK, ABIST_CK2);
-	freq4 = mt_get_fmeter_freq(FM_VENC_CK, CKGEN_CK2);
-	pr_notice("(%d %d %d %d)khz\n", freq1, freq2, freq3, freq4);
-
 	pr_notice("cksta: 0x%x mux: 0x%x(%d)\n", val, orig, index);
 	mtk_clk_notify(mux->regmap, NULL, clk_hw_get_name(hw),
 		mux->data->mux_ofs, 0, 0, CLK_EVT_SET_PARENT_TIMEOUT);
