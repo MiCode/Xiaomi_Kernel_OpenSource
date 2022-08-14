@@ -7807,7 +7807,9 @@
 				"MTK_DRM_OPT_MML_IR",
 				"MTK_DRM_OPT_DUAL_TE",
 				"MTK_DRM_OPT_VIRTUAL_DISP",
-				"MTK_DRM_OPT_RES_SWITCH";
+				"MTK_DRM_OPT_RES_SWITCH",
+				"MTK_DRM_OPT_OVL_BW_MONITOR",
+				"MTK_DRM_OPT_GPU_CACHE";
 
 			helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
 				<1>, /*MTK_DRM_OPT_USE_CMDQ*/
@@ -7860,7 +7862,9 @@
 				<1>, /*MTK_DRM_OPT_MML_IR*/
 				<0>, /*MTK_DRM_OPT_DUAL_TE*/
 				<1>, /*MTK_DRM_OPT_VIRTUAL_DISP*/
-				<0>; /*MTK_DRM_OPT_RES_SWITCH*/
+				<0>, /*MTK_DRM_OPT_RES_SWITCH*/
+				<1>, /*MTK_DRM_OPT_OVL_BW_MONITOR*/
+				<0>; /*MTK_DRM_OPT_GPU_CACHE*/
 		};
 
 		disp_mutex0: disp_mutex@14001000 {
