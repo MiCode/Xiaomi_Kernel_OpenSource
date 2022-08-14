@@ -267,6 +267,7 @@ static void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 				if (timeout == 20000)
 					timeout = 1000000;
 				else if (timeout == 1000000) {
+					mtk_smi_dbg_hang_detect("VDEC_CORE");
 					/* v4l2_aee_print(
 					 *    "%s %p codec:0x%08x(%c%c%c%c) hw break timeout\n",
 					 *    __func__, ctx, fourcc,
@@ -331,6 +332,7 @@ static void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 				if (timeout == 20000)
 					timeout = 1000000;
 				else if (timeout == 1000000) {
+					mtk_smi_dbg_hang_detect("VDEC_LAT");
 					/* v4l2_aee_print(
 					 *    "%s %p codec:0x%08x(%c%c%c%c) hw %d break timeout\n",
 					 *    __func__, ctx, fourcc,
