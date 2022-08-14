@@ -193,14 +193,12 @@ bool lpm_plat_is_cluster_off(int cpu)
 
 static int __lpm_cpuhp_notify_enter(unsigned int type, unsigned int cpu)
 {
-	pr_info("[name:lpm][p] lpm_cpuhp_notify_enter, type: %u cpu: %u\n", type, cpu);
 	cpuidle_pause_and_lock();
 	return 0;
 }
 
 static int __lpm_cpuhp_notify_leave(unsigned int type, unsigned int cpu)
 {
-	pr_info("[name:lpm][p] lpm_cpuhp_notify_leave, type: %u cpu: %u\n", type, cpu);
 	lpm_dev_set_cpus_off();
 	lpm_dev_get_cpus_online();
 	cpuidle_resume_and_unlock();
