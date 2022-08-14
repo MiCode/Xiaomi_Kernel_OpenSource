@@ -9499,7 +9499,7 @@
 
 		irq-remain = <&edge_keypad>,
 				<&level_btif_tx &level_btif_rx &level_bt>,
-				<&level_usb_host>,
+				<&level_usb_host &level_ufshci>,
 				<&level_apusys_rv_mbox0 &level_apusys_rv_mbox1>;
 
 		resource-ctrl = <&bus26m &infra &syspll>,
@@ -9549,6 +9549,10 @@
 			};
 			level_usb_host: level_usb_host {
 				target = <&usb_host>;
+				value = <0 0 0 0>;
+			};
+			level_ufshci: level_ufshci {
+				target = <&ufshci>;
 				value = <0 0 0 0>;
 			};
 			level_apusys_rv_mbox0: level-apusys-rv-mbox0 {
