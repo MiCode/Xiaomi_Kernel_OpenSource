@@ -3156,7 +3156,6 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
 				"___DRV=[T:0x%lx,R:0x%lx]",
-				def_tag, ((tag == NULL) ? "null" : tag),
 				gpio_base_addr.tx_drv.gpio_value, gpio_base_addr.rx_drv.gpio_value);
 
 			pr_info("%s\n", dmp_info_buf);
