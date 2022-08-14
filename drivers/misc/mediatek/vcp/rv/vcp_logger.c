@@ -254,15 +254,14 @@ ssize_t vcp_A_log_read(char __user *data, size_t len)
 				msg.cmd = VCP_LOGGER_IPI_FLUSH;
 				mtk_ipi_send(&vcp_ipidev, IPI_OUT_LOGGER_CTRL,
 					0, &msg, sizeof(msg)/MBOX_SLOT_SIZE, 0);
-			}
 
-			/* wait w_ptr updated or sync 10ms  */
-			while (w_pos == VCP_A_buf_info->w_pos && retrytimes > 0) {
-				retrytimes--;
-				udelay(100);
+				/* wait w_ptr updated or sync 10ms  */
+				while (w_pos == VCP_A_buf_info->w_pos && retrytimes > 0) {
+					retrytimes--;
+					udelay(100);
+				}
+				w_pos = VCP_A_buf_info->w_pos;
 			}
-			w_pos = VCP_A_buf_info->w_pos;
-
 			/* dump full logger buffer start from w_pos + 1 */
 			r_pos_debug = (w_pos >= DRAM_BUF_LEN) ?  0 : (w_pos+1);
 			log_ctl_debug = 0;

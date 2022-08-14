@@ -683,9 +683,16 @@ static void vcp_err_info_handler(int id, void *prdata, void *data,
  */
 void trigger_vcp_halt(enum vcp_core_id id)
 {
+	int j;
+
 	if (mmup_enable_count() && vcp_ready[id]) {
 		/* trigger halt isr, force vcp enter wfi */
+		pr_notice("[VCP] %s VCP EE coredump...\n", __func__);
 		writel(B_GIPC4_SETCLR_0, R_GIPC_IN_SET);
+		for (j = 0; j < NUM_FEATURE_ID; j++)
+			if (feature_table[j].enable)
+				pr_info("[VCP] Active feature id %d cnt\n",
+					j, feature_table[j].enable);
 	}
 }
 EXPORT_SYMBOL_GPL(trigger_vcp_halt);
@@ -865,13 +872,13 @@ int vcp_disable_pm_clk(enum feature_id id)
 		mutex_unlock(&vcp_A_notify_mutex);
 
 		vcp_disable_irqs();
+		flush_workqueue(vcp_workqueue);
 		vcp_ready[VCP_A_ID] = 0;
 
 		/* trigger halt isr, force vcp enter wfi */
 		writel(B_GIPC4_SETCLR_1, R_GIPC_IN_SET);
 		wait_vcp_ready_to_reboot();
 
-		flush_workqueue(vcp_workqueue);
 #if VCP_LOGGER_ENABLE
 		vcp_logger_uninit();
 		flush_workqueue(vcp_logger_workqueue);
@@ -927,13 +934,13 @@ static int vcp_pm_event(struct notifier_block *notifier
 #endif
 			waitCnt = vcp_wait_ready_sync(RTOS_FEATURE_ID);
 			vcp_disable_irqs();
+			flush_workqueue(vcp_workqueue);
 			vcp_ready[VCP_A_ID] = 0;
 
 			/* trigger halt isr, force vcp enter wfi */
 			writel(B_GIPC4_SETCLR_1, R_GIPC_IN_SET);
 			wait_vcp_ready_to_reboot();
 
-			flush_workqueue(vcp_workqueue);
 #if VCP_LOGGER_ENABLE
 			vcp_logger_uninit();
 			flush_workqueue(vcp_logger_workqueue);
