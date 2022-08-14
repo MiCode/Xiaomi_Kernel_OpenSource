@@ -1221,7 +1221,7 @@ static void disp_aal_dre3_config(struct mtk_ddp_comp *comp,
 		dre_alg_mode = 0;
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		dre3_pa + DISP_AAL_CFG_MAIN,
-		dre_alg_mode << 4, 1 << 4);
+		(0x0 << 3) | (dre_alg_mode << 4), (1 << 3) | (1 << 4));
 
 if (comp->mtk_crtc->is_dual_pipe) {
 	if (comp->id == DDP_COMPONENT_AAL0)
@@ -2020,14 +2020,6 @@ static void disp_aal_dre3_irq_handle(struct mtk_ddp_comp *comp)
 			AALIRQ_LOG("[SRAM] when idle, operate SRAM in (EOF) comp id:%d ", comp->id);
 			disp_aal_update_dre3_sram(comp, false);
 		}
-		AALIRQ_LOG("[SRAM] clean dre_config in (EOF)  comp->id = %d", comp->id);
-		if (comp->mtk_crtc->is_dual_pipe) {
-			if (comp->id == DDP_COMPONENT_AAL0)
-				atomic_set(&g_aal_dre_config, 0);
-			else if (comp->id == DDP_COMPONENT_AAL1)
-				atomic_set(&g_aal1_dre_config, 0);
-		} else
-			atomic_set(&g_aal_dre_config, 0);
 	}
 }
 
@@ -3038,7 +3030,7 @@ static void mtk_aal_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 			dre_alg_mode = 0;
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			dre3_pa + DISP_AAL_CFG_MAIN,
-			dre_alg_mode << 4, 1 << 4);
+			(0x0 << 3) | (dre_alg_mode << 4), (1 << 3) | (1 << 4));
 	}
 	AALFLOW_LOG("\n");
 	basic_cmdq_write(handle, comp, DISP_AAL_EN, 0x1, ~0);
@@ -3546,6 +3538,15 @@ void disp_aal_on_end_of_frame(struct mtk_ddp_comp *comp)
 		disp_aal_dre3_irq_handle(comp);
 	else
 		disp_aal_single_pipe_hist_update(comp);
+
+	AALIRQ_LOG("[SRAM] clean dre_config in (EOF)  comp->id = %d", comp->id);
+	if (comp->mtk_crtc->is_dual_pipe) {
+		if (comp->id == DDP_COMPONENT_AAL0)
+			atomic_set(&g_aal_dre_config, 0);
+		else if (comp->id == DDP_COMPONENT_AAL1)
+			atomic_set(&g_aal1_dre_config, 0);
+	} else
+		atomic_set(&g_aal_dre_config, 0);
 }
 
 static void disp_aal_wait_sof_irq(void)
@@ -4292,8 +4293,11 @@ int mtk_drm_ioctl_aal_set_trigger_state(struct drm_device *dev, void *data,
 		AALFLOW_LOG("dre change to open!\n");
 
 		spin_lock_irqsave(&g_aal_hist_lock, flags);
-		if ((g_aal_fo->mtk_dre30_support) && (!gDre30Enabled))
+		if ((g_aal_fo->mtk_dre30_support) && (!gDre30Enabled)) {
 			gDre30Enabled = true;
+			// need flip sram to get local histogram
+			mtk_crtc_user_cmd(g_aal_data->crtc, default_comp, FLIP_SRAM, NULL);
+		}
 		spin_unlock_irqrestore(&g_aal_hist_lock, flags);
 
 		trigger_state->dre3_krn_flag = gDre30Enabled ? 1 : 0;
