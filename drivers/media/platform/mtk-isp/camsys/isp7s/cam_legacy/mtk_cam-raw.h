@@ -428,6 +428,8 @@ int mtk_cam_get_subsample_ratio(int raw_feature);
 
 void subsample_enable(struct mtk_raw_device *dev);
 
+void scq_stag_mode_enable(struct mtk_raw_device *dev, int en);
+
 void stagger_enable(struct mtk_raw_device *dev);
 
 void stagger_disable(struct mtk_raw_device *dev);

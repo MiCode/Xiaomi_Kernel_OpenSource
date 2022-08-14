@@ -3977,7 +3977,6 @@ static void mtk_camsys_raw_m2m_trigger(struct mtk_raw_device *raw_dev,
 				   struct mtk_cam_ctx *ctx,
 				   unsigned int frame_seq_no_outer)
 {
-
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
 	struct mtk_camsys_ctrl_state *state_entry;
 	struct mtk_cam_request *req;
@@ -4031,8 +4030,9 @@ static void mtk_camsys_raw_m2m_trigger(struct mtk_raw_device *raw_dev,
 							req_stream_data->frame_seq_no);
 						toggle_db(raw_dev);
 					}
-					if (mtk_cam_scen_is_stagger_m2m(scen) &&
-					    scen->scen.normal.exp_num != 1) {
+					if ((mtk_cam_scen_is_stagger_m2m(scen) &&
+					    scen->scen.normal.exp_num != 1) ||
+						mtk_cam_scen_is_rgbw_enabled(scen)) {
 						trigger_rawi(raw_dev, ctx,
 							MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER);
 					} else if (apu_info->is_update &&

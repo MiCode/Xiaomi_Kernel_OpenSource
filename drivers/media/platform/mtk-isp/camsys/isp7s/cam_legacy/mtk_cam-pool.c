@@ -739,9 +739,11 @@ int mtk_cam_get_internl_buf_num(int user_reserved_exp_num,
 	if (mtk_cam_scen_is_time_shared(scen))
 		buf_require = max(buf_require, CAM_IMG_BUF_NUM);
 
-	/* worst case, 2exp: 2camsv+2rawi */
 	if (mtk_cam_hw_mode_is_dc(hw_mode))
-		buf_require = max(buf_require, 4);
+		buf_require = max(buf_require, exp_no * 2);
+
+	if (mtk_cam_scen_is_rgbw_supported(scen))
+		buf_require *= 2; // bayer + w
 
 	return buf_require;
 }

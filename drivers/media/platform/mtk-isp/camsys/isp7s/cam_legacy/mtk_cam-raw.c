@@ -2004,31 +2004,45 @@ int mtk_cam_get_subsample_ratio(int raw_feature)
 	return sub_ratio;
 }
 
-void stagger_enable(struct mtk_raw_device *dev)
+void scq_stag_mode_enable(struct mtk_raw_device *dev, int enable)
 {
 	u32 val;
 
 	val = readl_relaxed(dev->base + REG_CQ_EN);
-	writel_relaxed(val | SCQ_STAGGER_MODE, dev->base + REG_CQ_EN);
+
+	if (enable)
+		writel_relaxed(val | SCQ_STAGGER_MODE, dev->base + REG_CQ_EN);
+	else
+		writel_relaxed(val & (~SCQ_STAGGER_MODE), dev->base + REG_CQ_EN);
+
 	wmb(); /* TBC */
+
+	dev_dbg(dev->dev, "%s: raw-%d en = %d\n",
+		__func__, dev->id, enable);
+}
+
+void stagger_enable(struct mtk_raw_device *dev)
+{
+	u32 val = readl_relaxed(dev->base + REG_CQ_EN);
+
+	scq_stag_mode_enable(dev, 1);
 	dev->stagger_en = 1;
+
 	dev_dbg(dev->dev, "%s - CQ_EN:0x%x->0x%x, TG_PATH_CFG:0x%x, TG_DCIF:0x%x, TG_SEN:0x%x\n",
 		__func__, val,
 			readl_relaxed(dev->base + REG_CQ_EN),
 			readl_relaxed(dev->base + REG_TG_PATH_CFG),
 			readl_relaxed(dev->base + REG_TG_DCIF_CTL),
 			readl_relaxed(dev->base + REG_TG_SEN_MODE));
-
 }
 
 void stagger_disable(struct mtk_raw_device *dev)
 {
-	u32 val;
+	u32 val = readl_relaxed(dev->base + REG_CQ_EN);
 
-	val = readl_relaxed(dev->base + REG_CQ_EN);
-	writel_relaxed(val & (~SCQ_STAGGER_MODE), dev->base + REG_CQ_EN);
-	wmb(); /* TBC */
+	scq_stag_mode_enable(dev, 0);
 	dev->stagger_en = 0;
+
 	dev_dbg(dev->dev, "%s - CQ_EN:0x%x->0x%x, TG_PATH_CFG:0x%x, TG_DCIF:0x%x, TG_SEN:0x%x\n",
 		__func__,
 			val,

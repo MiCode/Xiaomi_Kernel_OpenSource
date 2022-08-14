@@ -780,6 +780,80 @@ static void update_hw_mapping(struct mtk_cam_ctx *ctx,
 	config_param->n_maps = 1;
 }
 
+static int update_scen_param(struct mtk_cam_ctx *ctx,
+	struct mtkcam_ipi_config_param *config_param, struct mtk_cam_scen *scen)
+{
+	struct device *dev = ctx->cam->dev;
+
+	if (mtk_cam_scen_is_mstream_types(scen)) {
+		config_param->sw_feature = MTKCAM_IPI_SW_FEATURE_VHDR;
+		switch (scen->scen.mstream.type) {
+		case MTK_CAM_MSTREAM_SE_NE:
+			config_param->exp_order = MTKCAM_IPI_ORDER_SE_NE;
+			break;
+		case MTK_CAM_MSTREAM_NE_SE:
+		default:
+			config_param->exp_order = MTKCAM_IPI_ORDER_NE_SE;
+			break;
+		}
+	} else if (mtk_cam_scen_is_stagger_types(scen)) {
+		config_param->sw_feature = MTKCAM_IPI_SW_FEATURE_VHDR;
+		switch (scen->scen.normal.exp_order) {
+		case MTK_CAM_EXP_SE_LE:
+			config_param->exp_order = MTKCAM_IPI_ORDER_SE_NE;
+			break;
+		case MTK_CAM_EXP_LE_SE:
+		default:
+			config_param->exp_order = MTKCAM_IPI_ORDER_NE_SE;
+			break;
+		}
+	} else {
+		config_param->sw_feature = MTKCAM_IPI_SW_FEATURE_NORMAL;
+		config_param->exp_order = MTKCAM_IPI_ORDER_NE_SE;
+	}
+	dev_dbg(dev, "%s sw_feature:%d exp_order %d", __func__,
+			config_param->sw_feature, config_param->exp_order);
+
+	if (mtk_cam_scen_is_rgbw_enabled(scen)) {
+		if (ctx->generic_buf.size < MTK_CAM_CACI_TABLE_SIZE) {
+			int ret =
+				mtk_cam_generic_buf_alloc(ctx, MTK_CAM_CACI_TABLE_SIZE);
+
+			if (ret) {
+				dev_info(dev, "generic buf alloc failed\n");
+				return -EINVAL;
+			}
+
+			// for w path CAC table, must be 0 filled
+			memset_io(ctx->generic_buf.va, 0, ctx->generic_buf.size);
+		}
+
+		config_param->w_cac_table.iova = ctx->generic_buf.iova;
+		config_param->w_cac_table.size = ctx->generic_buf.size;
+
+		dev_dbg(dev, "generic buf: iova(0x%8x) size(%d)\n",
+				  config_param->w_cac_table.iova,
+				  config_param->w_cac_table.size);
+
+		// frame order
+		switch (scen->scen.normal.frame_order) {
+		case MTK_CAM_FRAME_BAYER_W:
+			config_param->frame_order = MTKCAM_IPI_ORDER_BAYER_FIRST;
+			break;
+		case MTK_CAM_FRAME_W_BAYER:
+		default:
+			config_param->frame_order = MTKCAM_IPI_ORDER_W_FIRST;
+			break;
+		}
+	}
+
+	// vsync order
+	config_param->vsync_order =
+		mtk_cam_seninf_get_vsync_order(ctx->seninf);
+
+	return 0;
+}
+
 static void mtk_cam_req_works_clean(struct mtk_cam_request_stream_data *s_data)
 {
 	struct mtk_cam_ctx *ctx = mtk_cam_s_data_get_ctx(s_data);
@@ -3835,11 +3909,12 @@ mtk_cam_config_raw_img_in_rawi2(struct mtk_cam_request_stream_data *s_data,
 	struct mtk_cam_request *req;
 	struct mtk_cam_video_device *node;
 	struct mtkcam_ipi_frame_param *frame_param;
-	struct mtkcam_ipi_img_input *in_fmt;
+	struct mtkcam_ipi_img_input *in_fmt, *in_fmt_w;
 	struct vb2_buffer *vb;
 	const struct v4l2_format *cfg_fmt;
 	struct mtk_cam_scen *scen;
 	int ret;
+	bool is_rgbw, buf_updated = false;
 
 	ctx = mtk_cam_s_data_get_ctx(s_data);
 	cam = ctx->cam;
@@ -3849,6 +3924,7 @@ mtk_cam_config_raw_img_in_rawi2(struct mtk_cam_request_stream_data *s_data,
 	vb = &buf->vbb.vb2_buf;
 	node = mtk_cam_vbq_to_vdev(buf->vbb.vb2_buf.vb2_queue);
 	in_fmt = &frame_param->img_ins[node->desc.id - MTK_RAW_RAWI_2_IN];
+	is_rgbw = mtk_cam_scen_is_rgbw_enabled(scen);
 
 	cfg_fmt = mtk_cam_s_data_get_vfmt(s_data, node->desc.id);
 	if (!cfg_fmt) {
@@ -3870,30 +3946,47 @@ mtk_cam_config_raw_img_in_rawi2(struct mtk_cam_request_stream_data *s_data,
 				MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER;
 			frame_param->raw_param.exposure_num =
 				mtk_cam_scen_get_exp_num(scen);
+			buf_updated = true;
 		} else if (mtk_cam_scen_is_mstream_m2m(scen) &&
 			   scen->scen.mstream.type != MTK_CAM_MSTREAM_1_EXPOSURE) {
 			mtk_cam_hdr_buf_update(vb, MSTREAM_M2M,
 					       req, node->uid.pipe_id,
 					       scen, cfg_fmt);
-		} else {
-			/* ODT HDR 1exp */
+			buf_updated = true;
+		}
+	}
+
+	if (!buf_updated) {
+		// 1 exp
+		if (!is_rgbw) {
 			in_fmt->buf[0].iova = buf->daddr;
 			frame_param->raw_param.hardware_scenario =
 				MTKCAM_IPI_HW_PATH_OFFLINE;
+			in_fmt->uid.pipe_id = node->uid.pipe_id;
+			in_fmt->uid.id = node->desc.dma_port;
+		} else {
+			in_fmt = &frame_param->img_ins[
+				MTKCAM_IPI_RAW_RAWI_5 - MTKCAM_IPI_RAW_RAWI_2];
+			in_fmt->buf[0].iova = buf->daddr;
+			in_fmt->uid.pipe_id = node->uid.pipe_id;
+			in_fmt->uid.id = MTKCAM_IPI_RAW_RAWI_5;
 
-			// TODO: RGBW ODT
+			in_fmt_w = &frame_param->img_ins[MTK_CAM_IMGO_W_IMG_IN_R5_IDX];
+			in_fmt_w->buf[0].iova = buf->daddr +
+				cfg_fmt->fmt.pix_mp.plane_fmt[0].sizeimage;
+			in_fmt_w->uid.id = MTKCAM_IPI_RAW_RAWI_5_W;
+			in_fmt_w->uid.pipe_id = node->uid.pipe_id;
+
+			frame_param->raw_param.hardware_scenario =
+				MTKCAM_IPI_HW_PATH_OFFLINE_RGBW;
 		}
 	} else {
-		in_fmt->buf[0].iova = buf->daddr;
-		frame_param->raw_param.hardware_scenario =
-			MTKCAM_IPI_HW_PATH_OFFLINE;
-
-		// TODO: RGBW ODT
+		in_fmt->uid.pipe_id = node->uid.pipe_id;
+		in_fmt->uid.id = node->desc.dma_port;
 	}
 
-	in_fmt->uid.pipe_id = node->uid.pipe_id;
-	in_fmt->uid.id = node->desc.dma_port;
-	ret = config_img_in_fmt(cam, node, cfg_fmt, in_fmt);
+	ret = config_img_in_fmt(cam, node, cfg_fmt, in_fmt) ||
+		  (in_fmt_w && config_img_in_fmt(cam, node, cfg_fmt, in_fmt_w));
 	if (ret)
 		return ret;
 
@@ -4341,7 +4434,10 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 			check_mstream_buffer(cam, ctx, req);
 
 		if (mtk_cam_scen_is_rgbw_enabled(&scen)) {
-			if (mtk_cam_hw_mode_is_dc(ctx->pipe->hw_mode_pending))
+			if (mtk_cam_scen_is_odt(&scen))
+				req_stream_data->frame_params.raw_param.hardware_scenario =
+					MTKCAM_IPI_HW_PATH_OFFLINE_RGBW;
+			else if (mtk_cam_hw_mode_is_dc(ctx->pipe->hw_mode_pending))
 				req_stream_data->frame_params.raw_param.hardware_scenario =
 					MTKCAM_IPI_HW_PATH_DC_RGBW;
 			else
@@ -7607,34 +7703,9 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 	}
 
 	update_hw_mapping(ctx, &config_param);
-	if (mtk_cam_scen_is_mstream_types(scen)) {
-		config_param.sw_feature = MTKCAM_IPI_SW_FEATURE_VHDR;
-		switch (scen->scen.mstream.type) {
-		case MTK_CAM_MSTREAM_SE_NE:
-			config_param.exp_order = MTKCAM_IPI_ORDER_SE_NE;
-			break;
-		case MTK_CAM_MSTREAM_NE_SE:
-		default:
-			config_param.exp_order = MTKCAM_IPI_ORDER_NE_SE;
-			break;
-		}
-	} else if (mtk_cam_scen_is_stagger_types(scen)) {
-		config_param.sw_feature = MTKCAM_IPI_SW_FEATURE_VHDR;
-		switch (scen->scen.normal.exp_order) {
-		case MTK_CAM_EXP_SE_LE:
-			config_param.exp_order = MTKCAM_IPI_ORDER_SE_NE;
-			break;
-		case MTK_CAM_EXP_LE_SE:
-		default:
-			config_param.exp_order = MTKCAM_IPI_ORDER_NE_SE;
-			break;
-		}
-	} else {
-		config_param.sw_feature = MTKCAM_IPI_SW_FEATURE_NORMAL;
-		config_param.exp_order = MTKCAM_IPI_ORDER_NE_SE;
-	}
-	dev_dbg(dev, "%s sw_feature:%d exp_order %d", __func__,
-			config_param.sw_feature, config_param.exp_order);
+	ret = update_scen_param(ctx, &config_param, scen);
+	if (ret)
+		return ret;
 
 	dev_raw = mtk_cam_find_raw_dev(cam, s_raw_pipe_data->enabled_raw);
 	if (!dev_raw) {
@@ -8127,67 +8198,9 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 	}
 
 	update_hw_mapping(ctx, &config_param);
-	if (mtk_cam_scen_is_mstream_types(scen_active)) {
-		config_param.sw_feature = MTKCAM_IPI_SW_FEATURE_VHDR;
-		switch (scen_active->scen.mstream.type) {
-		case MTK_CAM_MSTREAM_SE_NE:
-			config_param.exp_order = MTKCAM_IPI_ORDER_SE_NE;
-			break;
-		case MTK_CAM_MSTREAM_NE_SE:
-		default:
-			config_param.exp_order = MTKCAM_IPI_ORDER_NE_SE;
-			break;
-		}
-	} else if (mtk_cam_scen_is_stagger_types(scen_active)) {
-		config_param.sw_feature = MTKCAM_IPI_SW_FEATURE_VHDR;
-		switch (scen_active->scen.normal.exp_order) {
-		case MTK_CAM_EXP_SE_LE:
-			config_param.exp_order = MTKCAM_IPI_ORDER_SE_NE;
-			break;
-		case MTK_CAM_EXP_LE_SE:
-		default:
-			config_param.exp_order = MTKCAM_IPI_ORDER_NE_SE;
-			break;
-		}
-	} else {
-		config_param.sw_feature = MTKCAM_IPI_SW_FEATURE_NORMAL;
-		config_param.exp_order = MTKCAM_IPI_ORDER_NE_SE;
-	}
-	dev_dbg(dev, "%s sw_feature:%d exp_order %d", __func__,
-			config_param.sw_feature, config_param.exp_order);
-
-	if (mtk_cam_scen_is_rgbw_enabled(scen_active)) {
-		if ((ctx->generic_buf.size < MTK_CAM_CACI_TABLE_SIZE) &&
-			 mtk_cam_generic_buf_alloc(ctx, MTK_CAM_CACI_TABLE_SIZE)) {
-			dev_info(dev, "generic buf alloc failed\n");
-			return -EINVAL;
-		}
-
-		// for w path CAC table, must be 0 filled
-		memset(ctx->generic_buf.va, 0, ctx->generic_buf.size);
-
-		config_param.w_cac_table.iova = ctx->generic_buf.iova;
-		config_param.w_cac_table.size = ctx->generic_buf.size;
-
-		dev_dbg(dev, "generic buf: iova(0x%8x) size(%d)\n",
-				  config_param.w_cac_table.iova,
-				  config_param.w_cac_table.size);
-
-		// frame order
-		switch (scen_active->scen.normal.frame_order) {
-		case MTK_CAM_FRAME_BAYER_W:
-			config_param.frame_order = MTKCAM_IPI_ORDER_BAYER_FIRST;
-			break;
-		case MTK_CAM_FRAME_W_BAYER:
-		default:
-			config_param.frame_order = MTKCAM_IPI_ORDER_W_FIRST;
-			break;
-		}
-
-		// vsync order
-		config_param.vsync_order =
-			mtk_cam_seninf_get_vsync_order(ctx->seninf);
-	}
+	ret = update_scen_param(ctx, &config_param, scen_active);
+	if (ret)
+		return ret;
 
 	dev_raw = mtk_cam_find_raw_dev(cam, ctx->used_raw_dev);
 	if (!dev_raw) {
@@ -8897,6 +8910,21 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			if (mtk_cam_scen_is_sensor_stagger(scen_active) &&
 			    mtk_cam_scen_get_exp_num(scen_active) > 1)
 				stagger_enable(raw_dev);
+
+			if (mtk_cam_scen_is_rgbw_enabled(scen_active)) {
+				struct mtk_raw_device *w_raw_dev =
+					get_slave_raw_dev(cam, ctx->pipe);
+
+				scq_stag_mode_enable(raw_dev, 1);
+				if (w_raw_dev)
+					scq_stag_mode_enable(w_raw_dev, 1);
+				else {
+					dev_info(cam->dev, "Error: W path raw not found\n");
+					scq_stag_mode_enable(raw_dev, 0);
+					goto fail_img_buf_release;
+				}
+			}
+
 			/* Sub sample */
 			if (mtk_cam_scen_is_subsample(scen_active))
 				subsample_enable(raw_dev);
@@ -9031,6 +9059,21 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			if (mtk_cam_scen_is_sensor_stagger(scen_active) &&
 			    mtk_cam_scen_get_exp_num(scen_active))
 				stagger_enable(raw_dev);
+
+			if (mtk_cam_scen_is_rgbw_enabled(scen_active)) {
+				struct mtk_raw_device *w_raw_dev =
+					get_slave_raw_dev(cam, ctx->pipe);
+
+				scq_stag_mode_enable(raw_dev, 1);
+				if (w_raw_dev)
+					scq_stag_mode_enable(w_raw_dev, 1);
+				else {
+					dev_info(cam->dev, "Error: W path raw not found\n");
+					scq_stag_mode_enable(raw_dev, 0);
+					goto fail_img_buf_release;
+				}
+			}
+
 			/* Sub sample */
 			if (mtk_cam_scen_is_subsample(scen_active))
 				subsample_enable(raw_dev);

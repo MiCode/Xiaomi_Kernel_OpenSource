@@ -916,6 +916,11 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 			case MTKCAM_IPI_RAW_RAWI_5_W:
 				slave_raw_dmas |= 1ULL << MTKCAM_IPI_RAW_RAWI_5;
 				break;
+			case MTKCAM_IPI_RAW_META_STATS_CFG:
+			case MTKCAM_IPI_RAW_META_STATS_0:
+			case MTKCAM_IPI_RAW_META_STATS_1:
+				slave_raw_dmas |= 1ULL << i;
+				break;
 			default:
 				break;
 			}

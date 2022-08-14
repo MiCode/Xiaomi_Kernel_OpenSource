@@ -36,8 +36,8 @@
 #define MRAW_WORKING_BUF_NUM 64
 #define IPI_FRAME_BUF_SIZE ALIGN(sizeof(struct mtkcam_ipi_frame_param), SZ_1K)
 
-/* for time-sharing camsv working buffer, (1inner+2backendprogramming+3backup)*/
-#define CAM_IMG_BUF_NUM (6)
+/* for RGBW 2DOL DC mode (4inner+4backendprogramming) */
+#define CAM_IMG_BUF_NUM (8)
 
 #define CCD_READY 1
 
