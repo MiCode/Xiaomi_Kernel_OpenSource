@@ -431,17 +431,6 @@ static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 		val |= PCIE_P2_EXIT_BY_CLKREQ | PCIE_P2_IDLE_TIME(8);
 		writel_relaxed(val, port->base + PCIE_ASPM_CTRL);
 
-		/* PCIe read completion timeout is adjusted to 4ms */
-		val = PCIE_CFG_FORCE_BYTE_EN | PCIE_CFG_BYTE_EN(0xf) |
-		      PCIE_CFG_HEADER(0, 0);
-		writel_relaxed(val, port->base + PCIE_CFGNUM_REG);
-		val = readl_relaxed(port->base + PCIE_CONF_DEV2_CTL_STS);
-		val &= ~PCIE_DCR2_CPL_TO;
-		val |= PCIE_CPL_TIMEOUT_4MS;
-		writel_relaxed(val, port->base + PCIE_CONF_DEV2_CTL_STS);
-		pr_info("PCIe RC control 2 register=%#x",
-			readl_relaxed(port->base + PCIE_CONF_DEV2_CTL_STS));
-
 		mtk_pcie_mt6985_fixup();
 
 		/* Software enable BBCK2 */
@@ -490,6 +479,19 @@ static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 	}
 
 	mtk_pcie_enable_msi(port);
+
+	if (port->pextpcfg) {
+		/* PCIe read completion timeout is adjusted to 4ms */
+		val = PCIE_CFG_FORCE_BYTE_EN | PCIE_CFG_BYTE_EN(0xf) |
+		      PCIE_CFG_HEADER(0, 0);
+		writel_relaxed(val, port->base + PCIE_CFGNUM_REG);
+		val = readl_relaxed(port->base + PCIE_CONF_DEV2_CTL_STS);
+		val &= ~PCIE_DCR2_CPL_TO;
+		val |= PCIE_CPL_TIMEOUT_4MS;
+		writel_relaxed(val, port->base + PCIE_CONF_DEV2_CTL_STS);
+		pr_info("PCIe RC control 2 register=%#x",
+			readl_relaxed(port->base + PCIE_CONF_DEV2_CTL_STS));
+	}
 
 	/* Set PCIe translation windows */
 	resource_list_for_each_entry(entry, &host->windows) {
