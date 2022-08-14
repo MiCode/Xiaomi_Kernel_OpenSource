@@ -1815,6 +1815,18 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 			    RG_DPHY_RX_LD2_HS_TRAIL_EN, hs_trail_en);
 		SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
 			    RG_DPHY_RX_LD3_HS_TRAIL_EN, hs_trail_en);
+
+		/* Enable rx_deskew and disable rx_deskew delay for lane 0~3 */
+		SENINF_BITS(base, DPHY_RX_DESKEW_CTRL,
+				RG_DPHY_RX_DESKEW_EN, 1);
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE0_CTRL,
+				DPHY_RX_DESKEW_L0_DELAY_EN, 0);
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE1_CTRL,
+				DPHY_RX_DESKEW_L1_DELAY_EN, 0);
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE2_CTRL,
+				DPHY_RX_DESKEW_L2_DELAY_EN, 0);
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE3_CTRL,
+				DPHY_RX_DESKEW_L3_DELAY_EN, 0);
 	} else {
 		SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 			    RG_DPHY_RX_LD0_HS_TRAIL_EN, 0);
