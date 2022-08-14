@@ -996,7 +996,7 @@ static ssize_t vtskin_info_store(struct kobject *kobj,
 	return count;
 }
 
-static int catm_p[2];
+static int catm_p[3];
 
 static ssize_t catm_p_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
