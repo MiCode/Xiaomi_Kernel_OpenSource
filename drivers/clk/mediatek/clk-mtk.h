@@ -22,6 +22,8 @@
 #define MTK_HWV_PREPARE_TMROUT		(200000)
 #define MTK_HWV_DONE_TMROUT		(500000)
 #define MTK_HWV_STA_TMROUT		(100000)
+#define MTK_WAIT_SET_PARENT_CNT		(1000)
+#define MTK_WAIT_SET_PARENT_US		(1)
 
 struct clk;
 struct clk_onecell_data;
@@ -39,6 +41,7 @@ enum clk_evt_type {
 	CLK_EVT_CLK_TRACE = 4,
 	CLK_EVT_TRIGGER_TRACE_DUMP = 5,
 	CLK_EVT_IPI_CG_TIMEOUT = 6,
+	CLK_EVT_SET_PARENT_TIMEOUT = 7,
 	CLK_EVT_NUM,
 };
 
@@ -314,5 +317,7 @@ extern int mtk_clk_notify(struct regmap *regmap, struct regmap *hwv_regmap,
 		const char *name, u32 ofs, u32 id, u32 shift, int event_type);
 extern void mtk_clk_register_ipi_callback(struct ipi_callbacks *clk_cb);
 extern struct ipi_callbacks *mtk_clk_get_ipi_cb(void);
+extern int mtk_hwv_pll_on(struct clk_hw *hw);
+extern void mtk_hwv_pll_off(struct clk_hw *hw);
 
 #endif /* __DRV_CLK_MTK_H */

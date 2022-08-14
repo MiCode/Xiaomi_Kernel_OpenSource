@@ -61,7 +61,10 @@ enum chk_sys_id {
 	cpu_ll = 50,
 	cpu_bl = 51,
 	ptp = 52,
-	chk_sys_num = 53,
+	hwv_wrt = 53,
+	hwv = 54,
+	hwv_ext = 55,
+	chk_sys_num = 56,
 };
 
 enum chk_pd_id {

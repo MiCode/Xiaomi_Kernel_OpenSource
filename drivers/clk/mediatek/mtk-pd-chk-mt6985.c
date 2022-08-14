@@ -754,7 +754,7 @@ static void debug_dump(unsigned int id, unsigned int pwr_sta)
 	if (id >= MT6985_CHK_PD_NUM)
 		return;
 
-	release_hwv_secure();
+	release_mt6985_hwv_secure();
 
 	set_subsys_reg_dump_mt6985(debug_dump_id);
 

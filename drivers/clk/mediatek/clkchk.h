@@ -87,7 +87,7 @@ struct clkchk_ops {
 	void (*dump_hwv_history)(struct regmap *regmap, u32 id);
 	void (*get_bus_reg)(void);
 	void (*dump_bus_reg)(struct regmap *regmap, u32 ofs);
-	void (*dump_hwv_pll_reg)(struct regmap *regmap, u32 shift);
+	void (*dump_pll_reg)(bool bug_on);
 	bool (*is_cg_chk_pwr_on)(void);
 	void (*trace_clk_event)(const char *name, unsigned int clk_sta);
 	void (*trigger_trace_dump)(unsigned int enable);

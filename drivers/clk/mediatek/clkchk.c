@@ -547,6 +547,14 @@ int mtk_clk_check_muxes(void)
 }
 EXPORT_SYMBOL_GPL(mtk_clk_check_muxes);
 
+static void clkchk_dump_pll_reg(bool bug_on)
+{
+	if (clkchk_ops == NULL || clkchk_ops->dump_pll_reg == NULL)
+		return;
+
+	clkchk_ops->dump_pll_reg(bug_on);
+}
+
 static int clk_chk_dev_pm_suspend(struct device *dev)
 {
 	struct provider_clk *pvdck = get_all_provider_clks();
@@ -554,6 +562,8 @@ static int clk_chk_dev_pm_suspend(struct device *dev)
 	if (check_pll_off()) {
 		for (; pvdck->ck != NULL; pvdck++)
 			dump_enabled_clks(pvdck);
+
+		clkchk_dump_pll_reg(false);
 
 		if (is_pll_chk_bug_on() || pdchk_get_bug_on_stat())
 			BUG_ON(1);
@@ -600,14 +610,6 @@ static void clkchk_dump_bus_reg(struct regmap *regmap, u32 ofs)
 		return;
 
 	clkchk_ops->dump_bus_reg(regmap, ofs);
-}
-
-static void clkchk_dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
-{
-	if (clkchk_ops == NULL || clkchk_ops->dump_hwv_pll_reg == NULL)
-		return;
-
-	clkchk_ops->dump_hwv_pll_reg(regmap, shift);
 }
 
 static bool clkchk_is_cg_chk_pwr_on(void)
@@ -667,13 +669,16 @@ static int clkchk_evt_handling(struct notifier_block *nb,
 		clkchk_get_bus_reg();
 		break;
 	case CLK_EVT_HWV_PLL_TIMEOUT:
-		clkchk_dump_hwv_pll_reg(clkd->hwv_regmap, clkd->shift);
+		clkchk_dump_pll_reg(true);
 		break;
 	case CLK_EVT_CLK_TRACE:
 		clkchk_trace_clk_event(clkd->name, clkd->id);
 		break;
 	case CLK_EVT_TRIGGER_TRACE_DUMP:
 		clkchk_trigger_trace_dump(clkd->id);
+		break;
+	case CLK_EVT_SET_PARENT_TIMEOUT:
+		clkchk_dump_bus_reg(clkd->regmap, clkd->ofs);
 		break;
 	default:
 		pr_notice("cannot get flags identify\n");

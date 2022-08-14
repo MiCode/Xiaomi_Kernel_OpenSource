@@ -494,6 +494,18 @@ err_hwv_prepare:
 	return;
 }
 
+int mtk_hwv_pll_on(struct clk_hw *hw)
+{
+	return mtk_hwv_pll_prepare(hw);
+}
+EXPORT_SYMBOL_GPL(mtk_hwv_pll_on);
+
+void mtk_hwv_pll_off(struct clk_hw *hw)
+{
+	mtk_hwv_pll_unprepare(hw);
+}
+EXPORT_SYMBOL_GPL(mtk_hwv_pll_off);
+
 static const struct clk_ops mtk_pll_ops = {
 	.is_prepared	= mtk_pll_is_prepared,
 	.prepare	= mtk_pll_prepare,

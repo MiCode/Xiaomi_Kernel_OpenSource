@@ -227,6 +227,7 @@ static struct regbase rb[] = {
 	[hwv_wrt] = REGBASE_V(0x10321000, hwv_wrt, PD_NULL, CLK_NULL),
 	[hwv] = REGBASE_V(0x10320000, hwv, PD_NULL, CLK_NULL),
 	[hwv_ext] = REGBASE_V(0x10321000, hwv_ext, PD_NULL, CLK_NULL),
+	[pmsr] = REGBASE_V(0x1000f000, pmsr, PD_NULL, CLK_NULL),
 	{},
 };
 
@@ -254,6 +255,9 @@ static struct regname rn[] = {
 	REGNAME(top, 0x0150, CLK_CFG_20),
 	REGNAME(top, 0x0160, CLK_CFG_21),
 	REGNAME(top, 0x01f0, CLK_CFG_30),
+	REGNAME(top, 0x0230, CKSTA),
+	REGNAME(top, 0x0234, CKSTA1),
+	REGNAME(top, 0x0238, CKSTA2),
 	REGNAME(top, 0x0320, CLK_AUDDIV_0),
 	REGNAME(top, 0x0850, CKSYS2_CLK_CFG_4),
 	REGNAME(top, 0x0860, CKSYS2_CLK_CFG_5),
@@ -268,6 +272,9 @@ static struct regname rn[] = {
 	REGNAME(top, 0x0334, CLK_AUDDIV_3),
 	REGNAME(top, 0x0338, CLK_AUDDIV_4),
 	REGNAME(top, 0x033C, CLK_AUDDIV_5),
+	REGNAME(top, 0x0A30, CKSYS2_CKSTA),
+	REGNAME(top, 0x0A34, CKSYS2_CKSTA1),
+	REGNAME(top, 0x0A38, CKSYS2_CKSTA2),
 	REGNAME(top, 0x240, CLK_MISC_CFG_0),
 	REGNAME(top, 0x0, CLK_MODE),
 	/* INFRACFG_AO register */
@@ -610,7 +617,10 @@ static struct regname rn[] = {
 	/* HWV register */
 	REGNAME(hwv_wrt, 0x055C, HWV_DOMAIN_KEY),
 	REGNAME(hwv, 0x0190, HW_CCF_AP_PLL_SET),
+	REGNAME(hwv, 0x0590, HW_CCF_MD_PLL_SET),
+	REGNAME(hwv, 0x0790, HW_CCF_GPU_PLL_SET),
 	REGNAME(hwv, 0x0990, HW_CCF_SSPM_PLL_SET),
+	REGNAME(hwv, 0x0B90, HW_CCF_APU_PLL_SET),
 	REGNAME(hwv, 0x0F90, HW_CCF_MMUP_PLL_SET),
 	REGNAME(hwv_ext, 0x0390, HW_CCF_SCP_PLL_SET),
 	REGNAME(hwv_ext, 0x0400, HW_CCF_PLL_ENABLE),
@@ -661,6 +671,9 @@ static struct regname rn[] = {
 	REGNAME(hwv_ext, 0x0F7C, HWV_DATA_HISTORY_14),
 	REGNAME(hwv_ext, 0x0F70, HWV_DATA_HISTORY_15),
 	REGNAME(hwv_ext, 0x0F84, HWV_IDX_POINTER),
+	/* pmsr register */
+	REGNAME(pmsr, 0x0000, SMAP_CON0),
+	REGNAME(pmsr, 0x0468, SMAP_CLK_GATING_MASK),
 	{},
 };
 
@@ -698,11 +711,11 @@ static void set_mt6985_reg_value(u32 id, u32 ofs, u32 val)
 	clk_writel(rb[id].virt + ofs, val);
 }
 
-void release_hwv_secure(void)
+void release_mt6985_hwv_secure(void)
 {
 	set_mt6985_reg_value(hwv_wrt, HWV_DOMAIN_KEY, HWV_SECURE_KEY);
 }
-EXPORT_SYMBOL_GPL(release_hwv_secure);
+EXPORT_SYMBOL_GPL(release_mt6985_hwv_secure);
 
 /*
  * clkchk pwr_data
@@ -1051,7 +1064,7 @@ static enum chk_sys_id devapc_dump_id[] = {
 
 static void devapc_dump(void)
 {
-	release_hwv_secure();
+	release_mt6985_hwv_secure();
 	set_subsys_reg_dump_mt6985(devapc_dump_id);
 	get_subsys_reg_dump_mt6985();
 
@@ -1062,7 +1075,7 @@ static void devapc_dump(void)
 static void serror_dump(void)
 {
 	if (trace_dump_flag) {
-		release_hwv_secure();
+		release_mt6985_hwv_secure();
 		set_subsys_reg_dump_mt6985(devapc_dump_id);
 		get_subsys_reg_dump_mt6985();
 
@@ -1135,7 +1148,7 @@ static void dump_hwv_history(struct regmap *regmap, u32 id)
 	u32 set[XPU_NUM] = {0}, sta = 0, set_sta = 0, clr_sta = 0, en = 0, done = 0;
 	int i;
 
-	release_hwv_secure();
+	release_mt6985_hwv_secure();
 	set_subsys_reg_dump_mt6985(history_dump_id);
 
 	if (regmap != NULL) {
@@ -1164,6 +1177,9 @@ static void dump_hwv_history(struct regmap *regmap, u32 id)
 }
 
 static enum chk_sys_id bus_dump_id[] = {
+	top,
+	apmixed,
+	pmsr,
 	chk_sys_num,
 };
 
@@ -1182,7 +1198,7 @@ static void dump_bus_reg(struct regmap *regmap, u32 ofs)
 	BUG_ON(1);
 }
 
-static enum chk_sys_id hwv_pll_dump_id[] = {
+static enum chk_sys_id pll_dump_id[] = {
 	apmixed,
 	top,
 	hwv,
@@ -1190,15 +1206,16 @@ static enum chk_sys_id hwv_pll_dump_id[] = {
 	chk_sys_num,
 };
 
-static void dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
+static void dump_pll_reg(bool bug_on)
 {
-	release_hwv_secure();
-	set_subsys_reg_dump_mt6985(hwv_pll_dump_id);
+	release_mt6985_hwv_secure();
+	set_subsys_reg_dump_mt6985(pll_dump_id);
 	get_subsys_reg_dump_mt6985();
 
-	mdelay(100);
-
-	BUG_ON(1);
+	if (bug_on) {
+		mdelay(100);
+		BUG_ON(1);
+	}
 }
 
 static void check_hwv_irq_sta(void)
@@ -1212,7 +1229,7 @@ static void check_hwv_irq_sta(void)
 		dump_bus_reg(NULL, 0);
 	}
 	if ((irq_sta & HWV_INT_PLL_TRIGGER) == HWV_INT_PLL_TRIGGER)
-		dump_hwv_pll_reg(NULL, 0);
+		dump_pll_reg(true);
 }
 
 /*
@@ -1235,7 +1252,7 @@ static struct clkchk_ops clkchk_mt6985_ops = {
 	.dump_hwv_history = dump_hwv_history,
 	.get_bus_reg = get_bus_reg,
 	.dump_bus_reg = dump_bus_reg,
-	.dump_hwv_pll_reg = dump_hwv_pll_reg,
+	.dump_pll_reg = dump_pll_reg,
 	.trace_clk_event = trace_clk_event,
 	.trigger_trace_dump = trigger_trace_dump,
 	.check_hwv_irq_sta = check_hwv_irq_sta,

@@ -33,20 +33,30 @@
 #define HWV_IDX_POINTER			0x1F84
 #define HWV_DOMAIN_KEY			0x155C
 #define HWV_SECURE_KEY			0x10907
-#define HWV_CG_SET(id)			(0x0 + (id * 0x8))
+#define HWV_CG_SET(xpu, id)		((0x200 * (xpu)) + (id * 0x8))
 #define HWV_CG_STA(id)			(0x1800 + (id * 0x4))
 #define HWV_CG_EN(id)			(0x1900 + (id * 0x4))
 #define HWV_CG_SET_STA(id)		(0x1A00 + (id * 0x4))
 #define HWV_CG_CLR_STA(id)		(0x1B00 + (id * 0x4))
 #define HWV_CG_DONE(id)			(0x1C00 + (id * 0x4))
 
-#define HWV_PLL_SET			(0x190)
-#define HWV_PLL_CLR			(0x194)
-#define HWV_PLL_EN			(0x1400)
-#define HWV_PLL_STA			(0x1404)
-#define HWV_PLL_DONE			(0x140C)
-#define HWV_PLL_SET_STA			(0x1464)
-#define HWV_PLL_CLR_STA			(0x1468)
+/* xpu*/
+enum {
+	APMCU = 0,
+	MD,
+	SSPM,
+	MMUP,
+	SCP,
+	XPU_NUM,
+};
+
+static u32 xpu_id[XPU_NUM] = {
+	[APMCU] = 0,
+	[MD] = 2,
+	[SSPM] = 4,
+	[MMUP] = 7,
+	[SCP] = 9,
+};
 
 /*
  * clkchk dump_regs
@@ -109,6 +119,9 @@ static struct regbase rb[] = {
 	[cpu_ll] = REGBASE_V(0xc030400, cpu_ll, PD_NULL, CLK_NULL),
 	[cpu_bl] = REGBASE_V(0xc030800, cpu_bl, PD_NULL, CLK_NULL),
 	[ptp] = REGBASE_V(0xc034000, ptp, PD_NULL, CLK_NULL),
+	[hwv_wrt] = REGBASE_V(0x10321000, hwv_wrt, PD_NULL, CLK_NULL),
+	[hwv] = REGBASE_V(0x10320000, hwv, PD_NULL, CLK_NULL),
+	[hwv_ext] = REGBASE_V(0x10321000, hwv_ext, PD_NULL, CLK_NULL),
 	{},
 };
 
@@ -403,6 +416,60 @@ static struct regname rn[] = {
 	REGNAME(ptp, 0xc, PTPPLL_CON1),
 	REGNAME(ptp, 0x10, PTPPLL_CON2),
 	REGNAME(ptp, 0x14, PTPPLL_CON3),
+	/* HWV register */
+	REGNAME(hwv_wrt, 0x055C, HWV_DOMAIN_KEY),
+	REGNAME(hwv, 0x0190, HW_CCF_AP_PLL_SET),
+	REGNAME(hwv, 0x0990, HW_CCF_SSPM_PLL_SET),
+	REGNAME(hwv, 0x0F90, HW_CCF_MMUP_PLL_SET),
+	REGNAME(hwv_ext, 0x0390, HW_CCF_SCP_PLL_SET),
+	REGNAME(hwv_ext, 0x0400, HW_CCF_PLL_ENABLE),
+	REGNAME(hwv_ext, 0x0404, HW_CCF_PLL_STA),
+	REGNAME(hwv_ext, 0x040C, HW_CCF_PLL_DONE),
+	REGNAME(hwv_ext, 0x0464, HW_CCF_PLL_SET_STA),
+	REGNAME(hwv_ext, 0x0468, HW_CCF_PLL_CLR_STA),
+	REGNAME(hwv, 0x0198, HW_CCF_AP_MTCMOS_SET),
+	REGNAME(hwv, 0x0998, HW_CCF_SSPM_MTCMOS_SET),
+	REGNAME(hwv, 0x0F98, HW_CCF_MMUP_MTCMOS_SET),
+	REGNAME(hwv_ext, 0x0398, HW_CCF_SCP_MTCMOS_SET),
+	REGNAME(hwv_ext, 0x0410, HW_CCF_MTCMOS_ENABLE),
+	REGNAME(hwv_ext, 0x0414, HW_CCF_MTCMOS_STA),
+	REGNAME(hwv_ext, 0x041C, HW_CCF_MTCMOS_DONE),
+	REGNAME(hwv_ext, 0x046C, HW_CCF_MTCMOS_SET_STA),
+	REGNAME(hwv_ext, 0x0470, HW_CCF_MTCMOS_CLR_STA),
+	REGNAME(hwv_ext, 0x0500, HW_CCF_IRQ_STATUS),
+	REGNAME(hwv_ext, 0x0F04, HWV_ADDR_HISTORY_0),
+	REGNAME(hwv_ext, 0x0F08, HWV_ADDR_HISTORY_1),
+	REGNAME(hwv_ext, 0x0F0C, HWV_ADDR_HISTORY_2),
+	REGNAME(hwv_ext, 0x0F10, HWV_ADDR_HISTORY_3),
+	REGNAME(hwv_ext, 0x0F14, HWV_ADDR_HISTORY_4),
+	REGNAME(hwv_ext, 0x0F18, HWV_ADDR_HISTORY_5),
+	REGNAME(hwv_ext, 0x0F1C, HWV_ADDR_HISTORY_6),
+	REGNAME(hwv_ext, 0x0F20, HWV_ADDR_HISTORY_7),
+	REGNAME(hwv_ext, 0x0F24, HWV_ADDR_HISTORY_8),
+	REGNAME(hwv_ext, 0x0F28, HWV_ADDR_HISTORY_9),
+	REGNAME(hwv_ext, 0x0F2C, HWV_ADDR_HISTORY_10),
+	REGNAME(hwv_ext, 0x0F30, HWV_ADDR_HISTORY_11),
+	REGNAME(hwv_ext, 0x0F34, HWV_ADDR_HISTORY_12),
+	REGNAME(hwv_ext, 0x0F38, HWV_ADDR_HISTORY_13),
+	REGNAME(hwv_ext, 0x0F3C, HWV_ADDR_HISTORY_14),
+	REGNAME(hwv_ext, 0x0F40, HWV_ADDR_HISTORY_15),
+	REGNAME(hwv_ext, 0x0F44, HWV_DATA_HISTORY_0),
+	REGNAME(hwv_ext, 0x0F48, HWV_DATA_HISTORY_1),
+	REGNAME(hwv_ext, 0x0F4C, HWV_DATA_HISTORY_2),
+	REGNAME(hwv_ext, 0x0F50, HWV_DATA_HISTORY_3),
+	REGNAME(hwv_ext, 0x0F54, HWV_DATA_HISTORY_4),
+	REGNAME(hwv_ext, 0x0F58, HWV_DATA_HISTORY_5),
+	REGNAME(hwv_ext, 0x0F5C, HWV_DATA_HISTORY_6),
+	REGNAME(hwv_ext, 0x0F60, HWV_DATA_HISTORY_7),
+	REGNAME(hwv_ext, 0x0F64, HWV_DATA_HISTORY_8),
+	REGNAME(hwv_ext, 0x0F68, HWV_DATA_HISTORY_9),
+	REGNAME(hwv_ext, 0x0F6C, HWV_DATA_HISTORY_10),
+	REGNAME(hwv_ext, 0x0F70, HWV_DATA_HISTORY_11),
+	REGNAME(hwv_ext, 0x0F74, HWV_DATA_HISTORY_12),
+	REGNAME(hwv_ext, 0x0F78, HWV_DATA_HISTORY_13),
+	REGNAME(hwv_ext, 0x0F7C, HWV_DATA_HISTORY_14),
+	REGNAME(hwv_ext, 0x0F70, HWV_DATA_HISTORY_15),
+	REGNAME(hwv_ext, 0x0F84, HWV_IDX_POINTER),
 	{},
 };
 
@@ -431,6 +498,20 @@ u32 get_mt6886_reg_value(u32 id, u32 ofs)
 	return clk_readl(rb[id].virt + ofs);
 }
 EXPORT_SYMBOL_GPL(get_mt6886_reg_value);
+
+static void set_mt6886_reg_value(u32 id, u32 ofs, u32 val)
+{
+	if (id >= chk_sys_num)
+		return;
+
+	clk_writel(rb[id].virt + ofs, val);
+}
+
+void release_mt6886_hwv_secure(void)
+{
+	set_mt6886_reg_value(hwv_wrt, HWV_DOMAIN_KEY, HWV_SECURE_KEY);
+}
+EXPORT_SYMBOL_GPL(release_mt6886_hwv_secure);
 
 /*
  * clkchk pwr_data
@@ -793,33 +874,45 @@ static bool is_pll_chk_bug_on(void)
 	return false;
 }
 
+static enum chk_sys_id history_dump_id[] = {
+	top,
+	apmixed,
+	hwv,
+	hwv_ext,
+	chk_sys_num,
+};
+
 static void dump_hwv_history(struct regmap *regmap, u32 id)
 {
-	u32 addr[16] = {0}, val[16] = {0};
-	u32 idx = 0, set = 0, sta = 0, set_sta = 0, clr_sta = 0, en = 0, done = 0;
+	u32 set[XPU_NUM] = {0}, sta = 0, set_sta = 0, clr_sta = 0, en = 0, done = 0;
 	int i;
 
-	regmap_write(regmap, HWV_DOMAIN_KEY, HWV_SECURE_KEY);
-	regmap_read(regmap, HWV_CG_SET(id), &set);
-	regmap_read(regmap, HWV_CG_STA(id), &sta);
-	regmap_read(regmap, HWV_CG_SET_STA(id), &set_sta);
-	regmap_read(regmap, HWV_CG_CLR_STA(id), &clr_sta);
-	regmap_read(regmap, HWV_CG_EN(id), &en);
-	regmap_read(regmap, HWV_CG_DONE(id), &done);
+	release_mt6886_hwv_secure();
+	set_subsys_reg_dump_mt6886(history_dump_id);
 
-	for (i = 0; i < 16; i++) {
-		regmap_read(regmap, HWV_ADDR_HISTORY_0 + (0x4 * i), addr + i);
-		regmap_read(regmap, HWV_DATA_HISTORY_0 + (0x4 * i), val + i);
+	if (regmap != NULL) {
+		for (i = 0; i < XPU_NUM; i++)
+			regmap_read(regmap, HWV_CG_SET(xpu_id[i], id), &set[i]);
+
+		regmap_read(regmap, HWV_CG_STA(id), &sta);
+		regmap_read(regmap, HWV_CG_SET_STA(id), &set_sta);
+		regmap_read(regmap, HWV_CG_CLR_STA(id), &clr_sta);
+		regmap_read(regmap, HWV_CG_EN(id), &en);
+		regmap_read(regmap, HWV_CG_DONE(id), &done);
+
+
+		for (i = 0; i < XPU_NUM; i++)
+			pr_notice("set: (%x)%x", HWV_CG_SET(xpu_id[i], id), set[i]);
+		pr_notice("[%d] (%x)%x, (%x)%x, (%x)%x, (%x)%x, (%x)%x\n",
+				id,
+				HWV_CG_STA(id), sta,
+				HWV_CG_SET_STA(id), set_sta,
+				HWV_CG_CLR_STA(id), clr_sta,
+				HWV_CG_EN(id), en,
+				HWV_CG_DONE(id), done);
 	}
-	regmap_read(regmap, HWV_IDX_POINTER, &idx);
-	pr_notice("idx: 0x%x\n", val);
-	pr_notice("[%d](%x)%x, (%x)%x, (%x)%x, (%x)%x, (%x)%x, (%x)%x\n",
-			id, HWV_CG_SET(id), set, HWV_CG_STA(id), sta,
-			HWV_CG_SET_STA(id), set_sta, HWV_CG_CLR_STA(id), clr_sta,
-			HWV_CG_EN(id), en, HWV_CG_DONE(id), done);
 
-	for (i = 0; i < 16; i++)
-		pr_notice("[%d]addr: 0x%x, data: 0x%x\n", i, addr[i], val[i]);
+	get_subsys_reg_dump_mt6886();
 }
 
 static enum chk_sys_id bus_dump_id[] = {
@@ -842,41 +935,21 @@ static void dump_bus_reg(struct regmap *regmap, u32 ofs)
 	BUG_ON(1);
 }
 
-static enum chk_sys_id hwv_pll_dump_id[] = {
+static enum chk_sys_id pll_dump_id[] = {
 	apmixed,
 	chk_sys_num,
 };
 
-static void dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
+static void dump_pll_reg(bool bug_on)
 {
-	u32 val[7] = { 0 };
-
-	regmap_read(regmap, HWV_PLL_SET, &val[0]);
-	regmap_read(regmap, HWV_PLL_CLR, &val[1]);
-	regmap_read(regmap, HWV_PLL_STA, &val[2]);
-	regmap_read(regmap, HWV_PLL_EN, &val[3]);
-	regmap_read(regmap, HWV_PLL_DONE, &val[4]);
-	regmap_read(regmap, HWV_PLL_SET_STA, &val[5]);
-	regmap_read(regmap, HWV_PLL_CLR_STA, &val[6]);
-
-	set_subsys_reg_dump_mt6886(hwv_pll_dump_id);
-
-	regmap_write(regmap, HWV_DOMAIN_KEY, HWV_SECURE_KEY);
-
-	pr_notice("[%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x, [%x]%x\n",
-			HWV_PLL_SET, val[0],
-			HWV_PLL_CLR, val[1],
-			HWV_PLL_STA, val[2],
-			HWV_PLL_EN, val[3],
-			HWV_PLL_DONE, val[4],
-			HWV_PLL_SET_STA, val[5],
-			HWV_PLL_CLR_STA, val[6]);
-
+	release_mt6886_hwv_secure();
+	set_subsys_reg_dump_mt6886(pll_dump_id);
 	get_subsys_reg_dump_mt6886();
 
-	mdelay(100);
-
-	BUG_ON(1);
+	if (bug_on) {
+		mdelay(100);
+		BUG_ON(1);
+	}
 }
 
 /*
@@ -899,7 +972,7 @@ static struct clkchk_ops clkchk_mt6886_ops = {
 	.dump_hwv_history = dump_hwv_history,
 	.get_bus_reg = get_bus_reg,
 	.dump_bus_reg = dump_bus_reg,
-	.dump_hwv_pll_reg = dump_hwv_pll_reg,
+	.dump_pll_reg = dump_pll_reg,
 };
 
 static int clk_chk_mt6886_probe(struct platform_device *pdev)
