@@ -1106,7 +1106,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 1709,
 		.delay_frame = 3,
 		.csi_param = {
-			.cphy_settle = 73,
+			.cphy_settle = 68,
 		},
 	},
 	{
@@ -1153,7 +1153,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 826,
 		.delay_frame = 3,
 		.csi_param = {
-			.cphy_settle = 65,
+			.cphy_settle = 64,
 		},
 	},
 	{
@@ -1390,7 +1390,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 826,
 		.delay_frame = 3,
 		.csi_param = {
-			.cphy_settle = 65,
+			.cphy_settle = 71,
 		},
 	},
 	{
@@ -1437,7 +1437,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 751,
 		.delay_frame = 3,
 		.csi_param = {
-			.cphy_settle = 65,
+			.cphy_settle = 71,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_Gb,
 		.ana_gain_max = BASEGAIN * 16,
@@ -1486,7 +1486,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 826,
 		.delay_frame = 3,
 		.csi_param = {
-			.cphy_settle = 65,
+			.cphy_settle = 64,
 		},
 	},
 	{
@@ -1533,7 +1533,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 2826,
 		.delay_frame = 3,
 		.csi_param = {
-			.cphy_settle = 65,
+			.cphy_settle = 64,
 		},
 	},
 	{
@@ -1579,7 +1579,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 826,
 		.delay_frame = 3,
 		.csi_param = {
-			.cphy_settle = 65,
+			.cphy_settle = 64,
 		},
 	},
 };
