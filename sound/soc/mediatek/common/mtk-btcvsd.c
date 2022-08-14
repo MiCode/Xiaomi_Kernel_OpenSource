@@ -134,7 +134,7 @@ struct mtk_btcvsd_snd {
 
 	unsigned int irq_disabled:1;
 	unsigned int bypass_bt_access:1;
-	unsigned int isMblockSupport;
+	unsigned int is_mblock_support:1;
 
 	spinlock_t tx_lock;	/* spinlock for bt tx stream control */
 	spinlock_t rx_lock;	/* spinlock for bt rx stream control */
@@ -356,7 +356,8 @@ static int btcvsd_bytes_to_frame(struct snd_pcm_substream *substream,
 static void mtk_btcvsd_snd_data_transfer(enum bt_sco_direct dir,
 					 u8 *src, u8 *dst,
 					 unsigned int blk_size,
-					 unsigned int blk_num)
+					 unsigned int blk_num,
+					 bool is_mblock_support)
 {
 	unsigned int i, j;
 
@@ -376,7 +377,7 @@ static void mtk_btcvsd_snd_data_transfer(enum bt_sco_direct dir,
 
 			if (dir == BT_SCO_DIRECT_BT2ARM)
 				src_16++;
-			else
+			else if (!is_mblock_support)
 				dst_16++;
 		}
 	}
@@ -427,7 +428,8 @@ static int btcvsd_tx_clean_buffer(struct mtk_btcvsd_snd *bt)
 	mtk_btcvsd_snd_data_transfer(BT_SCO_DIRECT_ARM2BT,
 				     bt->tx->temp_packet_buf, dst,
 				     bt->tx->buffer_info.packet_length,
-				     bt->tx->buffer_info.packet_num);
+				     bt->tx->buffer_info.packet_num,
+				     bt->is_mblock_support);
 
 	spin_unlock_irqrestore(&bt->tx_lock, flags);
 	bt->write_tx = 1;
@@ -467,7 +469,7 @@ static int mtk_btcvsd_read_from_bt(struct mtk_btcvsd_snd *bt,
 
 	mtk_btcvsd_snd_data_transfer(BT_SCO_DIRECT_BT2ARM, src,
 				     bt->rx->temp_packet_buf, packet_length,
-				     packet_num);
+				     packet_num, bt->is_mblock_support);
 
 	spin_lock_irqsave(&bt->rx_lock, flags);
 	for (i = 0; i < blk_size; i++) {
@@ -536,15 +538,15 @@ static int mtk_btcvsd_write_to_bt(struct mtk_btcvsd_snd *bt,
 	codec_id = (*bt->bt_reg_ctl >> 25) & 3;
 	if ((!bt->tx->mute) &&
 	    ((codec_id == 0) || codec_id == bt->band + 1)) {
-		if (bt->isMblockSupport) {
+		if (bt->is_mblock_support) {
 			/* set mblock as dst */
 			dst = (u8 *)((unsigned long)(bt->mblock_info->base_vaddr) +
 				(unsigned long)(bt->mblock_info->write_idx));
 		}
 		mtk_btcvsd_snd_data_transfer(BT_SCO_DIRECT_ARM2BT,
 					    bt->tx->temp_packet_buf, dst,
-					    packet_length, packet_num);
-		if (bt->isMblockSupport) {
+					    packet_length, packet_num, bt->is_mblock_support);
+		if (bt->is_mblock_support) {
 			/* call TFA read from mblock and write to BT SRAM */
 			struct arm_smccc_res res;
 
@@ -662,11 +664,13 @@ static irqreturn_t mtk_btcvsd_snd_irq_handler(int irq_id, void *dev)
 		mtk_btcvsd_snd_data_transfer(BT_SCO_DIRECT_BT2ARM, src,
 					     bt->tx->temp_packet_buf,
 					     packet_length,
-					     packet_num);
+					     packet_num,
+					     bt->is_mblock_support);
 		mtk_btcvsd_snd_data_transfer(BT_SCO_DIRECT_ARM2BT,
 					     bt->tx->temp_packet_buf, dst,
 					     packet_length,
-					     packet_num);
+					     packet_num,
+					     bt->is_mblock_support);
 		bt->rx->rw_cnt++;
 		bt->tx->rw_cnt++;
 	}
@@ -733,7 +737,7 @@ static irqreturn_t mtk_btcvsd_snd_irq_handler(int irq_id, void *dev)
 			dev_warn(bt->dev, "%s(), tx->xrun 1\n", __func__);
 		}
 	}
-	if (bt->isMblockSupport) {
+	if (bt->is_mblock_support) {
 		arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
 			MTK_AUDIO_SMC_OP_BTCVSD_UPDATE_CTRL_CLEAR,
 			0, 0, 0, 0, 0, 0, &res);
@@ -742,7 +746,7 @@ static irqreturn_t mtk_btcvsd_snd_irq_handler(int irq_id, void *dev)
 	}
 
 	if (bt->tx->state == BT_SCO_STATE_IDLE || bt->write_tx == 0) {
-		if (bt->isMblockSupport) {
+		if (bt->is_mblock_support) {
 			arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
 				MTK_AUDIO_SMC_OP_BTCVSD_UPDATE_CTRL_UNDERFLOW,
 				0, 0, 0, 0, 0, 0, &res);
@@ -767,7 +771,7 @@ static irqreturn_t mtk_btcvsd_snd_irq_handler(int irq_id, void *dev)
 
 	return IRQ_HANDLED;
 irq_handler_exit:
-	if (bt->isMblockSupport) {
+	if (bt->is_mblock_support) {
 		arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
 			MTK_AUDIO_SMC_OP_BTCVSD_UPDATE_CTRL_UNDERFLOW,
 			0, 0, 0, 0, 0, 0, &res);
@@ -1475,7 +1479,7 @@ static int mtk_btcvsd_snd_probe(struct platform_device *pdev)
 	struct mtk_btcvsd_snd *btcvsd;
 	struct device *dev = &pdev->dev;
 	u32 disable_write_silence = 0;
-	unsigned int isMblockSupport = 0;
+	unsigned int is_mblock_support = 0;
 	unsigned int enable_secure_write = 0;
 
 	/* init btcvsd private data */
@@ -1579,9 +1583,9 @@ static int mtk_btcvsd_snd_probe(struct platform_device *pdev)
 			, __func__, ret);
 	} else if (enable_secure_write) {
 		/* init mblock for tx data secure write */
-		isMblockSupport =
+		is_mblock_support =
 			(mtk_btcvsd_mblock_init(btcvsd->mblock_info) == 0) ? 1 : 0;
-		pr_info("%s isMblockSupport: 0x%x\n", __func__, isMblockSupport);
+		pr_info("%s is_mblock_support: 0x%x\n", __func__, is_mblock_support);
 	}
 
 	btcvsd->infra_misc_offset = offset[0];
@@ -1597,7 +1601,7 @@ static int mtk_btcvsd_snd_probe(struct platform_device *pdev)
 	btcvsd->bt_reg_ctl = btcvsd->bt_pkv_base +
 			     btcvsd->cvsd_packet_indicator;
 	btcvsd->disable_write_silence = (u8) disable_write_silence;
-	btcvsd->isMblockSupport = isMblockSupport;
+	btcvsd->is_mblock_support = is_mblock_support;
 
 	/* init state */
 	mtk_btcvsd_snd_set_state(btcvsd, btcvsd->tx, BT_SCO_STATE_IDLE);
