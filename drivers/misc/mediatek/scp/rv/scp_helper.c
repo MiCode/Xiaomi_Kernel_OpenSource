@@ -2354,7 +2354,7 @@ static bool scp_resource_dump_init(struct platform_device *pdev)
 
 	for (i = 0; i < (scp_resource_dump_info.scp_regulator_cnt); i++) {
 		ret = snprintf(buf, 10, "vscp%d", i);
-		if (ret < 0 || ret >= 10) {
+		if (ret >= 10) {
 			pr_notice("[%s]: Error: vscp name len: %d\n", __func__, ret);
 			return false;
 		}
