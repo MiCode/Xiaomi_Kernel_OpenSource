@@ -953,6 +953,37 @@ static void mtk_ovl_disable_vblank(struct mtk_ddp_comp *comp,
 static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			  enum mtk_ddp_io_cmd io_cmd, void *params);
 
+static void mtk_ovl_all_layer_off(struct mtk_ddp_comp *comp,
+	struct cmdq_pkt *handle, int keep_first_layer)
+{
+	int i;
+	unsigned int phy_layer0_on = 0;
+
+	/* In 6779 we need to set DISP_OVL_FORCE_RELAY_MODE */
+
+	/* To make sure the OVL_SRC_CON register keep the same value
+	 * as readl while writing the new value in GCE. This function should
+	 * only used in driver probe.
+	 */
+	if (keep_first_layer)
+		phy_layer0_on = readl(comp->regs + DISP_REG_OVL_SRC_CON) & 0x1;
+	if (phy_layer0_on)
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_OVL_SRC_CON, 0x1, ~0);
+	else
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_OVL_SRC_CON,
+			       DISP_OVL_FORCE_RELAY_MODE, ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_REG_OVL_DATAPATH_EXT_CON, 0, ~0);
+
+	for (i = phy_layer0_on ? 1 : 0; i < OVL_PHY_LAYER_NR; i++)
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_OVL_RDMA_CTRL(i), 0,
+			       ~0);
+}
+
 static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
 	unsigned int val;
@@ -1016,6 +1047,8 @@ static void mtk_ovl_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 			comp->regs_pa + DISP_REG_OVL_INTSTA, 0, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_RST, 0, ~0);
+
+	mtk_ovl_all_layer_off(comp, handle, 0);
 
 	comp->qos_bw = 0;
 	comp->qos_bw_other = 0;
@@ -3162,37 +3195,6 @@ static int mtk_ovl_golden_setting(struct mtk_ddp_comp *comp,
 		       regval, 0x3 << 18);
 
 	return 0;
-}
-
-static void mtk_ovl_all_layer_off(struct mtk_ddp_comp *comp,
-	struct cmdq_pkt *handle, int keep_first_layer)
-{
-	int i;
-	unsigned int phy_layer0_on = 0;
-
-	/* In 6779 we need to set DISP_OVL_FORCE_RELAY_MODE */
-
-	/* To make sure the OVL_SRC_CON register keep the same value
-	 * as readl while writing the new value in GCE. This function should
-	 * only used in driver probe.
-	 */
-	if (keep_first_layer)
-		phy_layer0_on = readl(comp->regs + DISP_REG_OVL_SRC_CON) & 0x1;
-	if (phy_layer0_on)
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_REG_OVL_SRC_CON, 0x1, ~0);
-	else
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_REG_OVL_SRC_CON,
-			       DISP_OVL_FORCE_RELAY_MODE, ~0);
-
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		       comp->regs_pa + DISP_REG_OVL_DATAPATH_EXT_CON, 0, ~0);
-
-	for (i = phy_layer0_on ? 1 : 0; i < OVL_PHY_LAYER_NR; i++)
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_REG_OVL_RDMA_CTRL(i), 0,
-			       ~0);
 }
 
 static dma_addr_t read_phy_layer_addr(struct mtk_ddp_comp *comp, int id)
