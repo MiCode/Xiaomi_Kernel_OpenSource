@@ -112,11 +112,13 @@ static s32 dequeue_msg(struct mml_pq_chan *chan,
 
 	if (!temp) {
 		mml_pq_err("%s temp is null", __func__);
+		mml_pq_trace_ex_end();
 		return -ENOENT;
 	}
 
 	if (unlikely(!atomic_read(&temp->queued))) {
 		mml_pq_log("%s sub_task not queued", __func__);
+		mml_pq_trace_ex_end();
 		return -EFAULT;
 	}
 
@@ -1070,6 +1072,7 @@ static void handle_tile_init_result(struct mml_pq_chan *chan,
 	if (unlikely(ret)) {
 		mml_pq_err("finish tile sub_task failed!: %d id: %d", ret,
 			job->result_job_id);
+		mml_pq_trace_ex_end();
 		return;
 	}
 
@@ -1153,27 +1156,35 @@ static int mml_pq_tile_init_ioctl(unsigned long data)
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s called", __func__);
 	user_job = (struct mml_pq_tile_init_job *)data;
-	if (unlikely(!user_job))
+	if (unlikely(!user_job)) {
+		mml_pq_trace_ex_end();
 		return -EINVAL;
+	}
 
 	job = kmalloc(sizeof(*job), GFP_KERNEL);
-	if (unlikely(!job))
+	if (unlikely(!job)) {
+		mml_pq_trace_ex_end();
 		return -ENOMEM;
+	}
 
 	ret = copy_from_user(job, user_job, sizeof(*job));
 	if (unlikely(ret)) {
 		mml_pq_err("copy_from_user failed: %d", ret);
 		kfree(job);
+		mml_pq_trace_ex_end();
 		return -EINVAL;
 	}
 	mml_pq_msg("%s result_job_id[%d]", __func__, job->result_job_id);
 	if (job->result_job_id)
 		handle_tile_init_result(chan, job);
 	kfree(job);
+	mml_pq_trace_ex_end();
 
+	mml_pq_trace_ex_begin("%s start wait sub_task", __func__);
 	new_sub_task = wait_next_sub_task(chan);
 	if (!new_sub_task) {
 		mml_pq_msg("%s Get sub task failed", __func__);
+		mml_pq_trace_ex_end();
 		return -ERESTARTSYS;
 	}
 
@@ -1234,6 +1245,7 @@ static void handle_comp_config_result(struct mml_pq_chan *chan,
 	if (unlikely(ret)) {
 		mml_pq_err("finish comp sub_task failed!: %d id: %d", ret,
 			job->result_job_id);
+		mml_pq_trace_ex_end();
 		return;
 	}
 	mml_pq_msg("%s end %d task=%p sub_task->id[%d]", __func__, ret,
@@ -1408,17 +1420,22 @@ static int mml_pq_comp_config_ioctl(unsigned long data)
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s called", __func__);
 	user_job = (struct mml_pq_comp_config_job *)data;
-	if (unlikely(!user_job))
+	if (unlikely(!user_job)) {
+		mml_pq_trace_ex_end();
 		return -EINVAL;
+	}
 
 	job = kmalloc(sizeof(*job), GFP_KERNEL);
-	if (unlikely(!job))
+	if (unlikely(!job)) {
+		mml_pq_trace_ex_end();
 		return -ENOMEM;
+	}
 
 	ret = copy_from_user(job, user_job, sizeof(*job));
 	if (unlikely(ret)) {
 		mml_pq_err("copy_from_user failed: %d", ret);
 		kfree(job);
+		mml_pq_trace_ex_end();
 		return -EINVAL;
 	}
 	mml_pq_msg("%s new_job_id[%d] result_job_id[%d]", __func__,
@@ -1427,10 +1444,13 @@ static int mml_pq_comp_config_ioctl(unsigned long data)
 	if (job->result_job_id)
 		handle_comp_config_result(chan, job);
 	kfree(job);
+	mml_pq_trace_ex_end();
 
+	mml_pq_trace_ex_begin("%s start wait sub_task", __func__);
 	new_sub_task = wait_next_sub_task(chan);
 	if (!new_sub_task) {
 		mml_pq_msg("%s Get sub task failed", __func__);
+		mml_pq_trace_ex_end();
 		return -ERESTARTSYS;
 	}
 
