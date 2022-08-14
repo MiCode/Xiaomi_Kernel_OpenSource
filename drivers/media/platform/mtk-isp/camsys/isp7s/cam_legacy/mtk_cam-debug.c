@@ -967,6 +967,7 @@ static void mtk_cam_exception_work(struct work_struct *work)
 	if (dbg_work->smi_dump)
 		mtk_smi_dbg_hang_detect("camsys");
 
+	mtk_cam_event_error(ctx->pipe, title_desc);
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	aee_kernel_exception_api(__FILE__, __LINE__, DB_OPT_DEFAULT, title_desc,
 			       warn_desc);
@@ -1226,7 +1227,7 @@ mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_request_stream_data *s_data,
 			 s_data->frame_seq_no,
 			 s_data->state.estate, irq_info->ts_ns / 1000);
 		mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_DEQUEUE_FAILED,
-				 "No P1 done", false);
+				 "Camsys: No P1 done", false);
 	} else if (s_data->no_frame_done_cnt > frame_no_update_limit &&
 		s_data->dbg_work.dump_flags != 0)
 		dev_info(ctx->cam->dev,

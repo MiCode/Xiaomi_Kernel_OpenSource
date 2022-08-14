@@ -5242,9 +5242,10 @@ int mtk_cam_collect_link_change(struct mtk_raw_pipeline *pipe,
 		pr_info("%s:%s:prev link change has not been queued:%s\n",
 			__func__, pipe->subdev.name, warn_desc);
 
+		mtk_cam_event_error(pipe, "Camsys: prev link change has not been");
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 		aee_kernel_exception_api(__FILE__, __LINE__, DB_OPT_DEFAULT,
-				       "prev link change has not been",
+				       "Camsys: prev link change has not been",
 				       warn_desc);
 #else
 		WARN_ON(1);
@@ -5288,9 +5289,10 @@ int mtk_cam_req_save_link_change(struct mtk_raw_pipeline *pipe,
 				      pipe->req_seninf_new);
 			dev_info(pipe->subdev.v4l2_dev->dev,
 				 "%s:%s\n", __func__, warn_desc);
+			mtk_cam_event_error(pipe, "Camsys: invalid link setup param");
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 			aee_kernel_exception_api(__FILE__, __LINE__, DB_OPT_DEFAULT,
-					       "invalid link setup param",
+					       "Camsys: invalid link setup param",
 					       warn_desc);
 #else
 			WARN_ON(1);
@@ -5848,7 +5850,7 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 	if (ipi_msg->ack_data.ret) {
 		mtk_cam_req_dump(s_data,
 			MTK_CAM_REQ_DUMP_DEQUEUE_FAILED,
-			"Camsys compose error", false);
+			"Camsys: compose error", false);
 		spin_unlock(&ctx->using_buffer_list.lock);
 		return -EINVAL;
 	}
@@ -9542,9 +9544,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 	struct mtk_raw_device *raw;
 	struct mtk_cam_watchdog_data *watchdog_data;
 	u64 watchdog_cnt;
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	u64 watchdog_dump_cnt, watchdog_timeout_cnt;
-#endif
 	int timeout;
 	static u64 last_vsync_count;
 	bool is_abnormal_vsync = false;
@@ -9664,7 +9664,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 			atomic_set(&watchdog_data->watchdog_cnt, 0);
 			atomic_inc(&watchdog_data->watchdog_dump_cnt);
 			atomic_set(&watchdog_data->watchdog_dumped, 0);
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+
 			if (!(is_raw_subdev(pipe_id)))
 				return;
 			watchdog_dump_cnt = atomic_read(
@@ -9679,17 +9679,29 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 						raw->vsync_count,
 						atomic_read(&raw->vf_en),
 						int_en);
-					if (int_en == 0 && ctx->composed_frame_seq_no)
+					if (int_en == 0 && ctx->composed_frame_seq_no) {
+						mtk_cam_event_error(ctx->pipe,
+								    "Camsys: 1st CQ done timeout");
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 						aee_kernel_exception_api(
 							__FILE__, __LINE__, DB_OPT_DEFAULT,
 							"Camsys: 1st CQ done timeout",
 							"watchdog timeout");
-					else
+#else
+						WARN_ON(1);
+#endif
+					} else {
+						mtk_cam_event_error(ctx->pipe,
+								    "Camsys: Vsync timeout");
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 						aee_kernel_exception_api(
 							__FILE__, __LINE__, DB_OPT_DEFAULT,
 							"Camsys: Vsync timeout",
 							"watchdog timeout");
-
+#else
+						WARN_ON(1);
+#endif
+					}
 				} else if (atomic_read(&raw->vf_en) == 0) {
 					dev_info(ctx->cam->dev,
 						"vsync count(%d), frame inner index(%d) INT_EN(0x%x)\n",
@@ -9698,11 +9710,15 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 							raw->base_inner + REG_FRAME_SEQ_NUM),
 						readl_relaxed(
 							raw->base + REG_CTL_RAW_INT_EN));
-
+					mtk_cam_event_error(ctx->pipe,
+							    "Camsys: VF timeout");
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 					aee_kernel_exception_api(
 						__FILE__, __LINE__, DB_OPT_DEFAULT,
 						"Camsys: VF timeout", "watchdog timeout");
-
+#else
+					WARN_ON(1);
+#endif
 				} else if (atomic_read(&raw->vf_en) == 1 &&
 					raw->overrun_debug_dump_cnt == 0) {
 					dev_info(ctx->cam->dev,
@@ -9735,13 +9751,17 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 							REG_CTL_RAW_MOD5_RDY_STAT),
 						readl_relaxed(raw->base +
 							REG_CTL_RAW_MOD6_RDY_STAT));
-
+					mtk_cam_event_error(ctx->pipe,
+							    "Camsys: SOF timeout");
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 					aee_kernel_exception_api(
 						__FILE__, __LINE__, DB_OPT_DEFAULT,
 						"Camsys: SOF timeout", "watchdog timeout");
+#else
+					WARN_ON(1);
+#endif
 				}
 			}
-#endif
 		} else {
 			dev_info(ctx->cam->dev,
 				"%s:ctx/pipe_id(%d/%d): not timeout, for long exp watchdog count(%d) (+%lldms)\n",
@@ -9846,7 +9866,7 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 				 * Nth time of running the watchdog timer.
 				 */
 				if (watchdog_dump_cnt < 4) {
-					dev_info_ratelimited(ctx->cam->dev, "%s:ctx/pipe_id(%d/%d): timeout! VF(%d) raw vsync count(%d) sof count(%d) watchdog_cnt(%d)(+%llddms)\n",
+					dev_info_ratelimited(ctx->cam->dev, "%s:ctx/pipe_id(%d/%d): timeout! VF(%d) raw vsync count(%d) sof count(%d) watchdog_cnt(%d)(+%lldms)\n",
 						__func__, ctx->stream_id, i, is_vf_on,
 						raw->vsync_count, sof_count, watchdog_cnt,
 						watchdog_data->watchdog_time_diff_ns/1000000);

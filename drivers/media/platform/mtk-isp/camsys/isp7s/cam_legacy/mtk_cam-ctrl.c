@@ -102,6 +102,19 @@ void mtk_cam_event_sensor_trigger(struct mtk_raw_pipeline *pipeline,
 	v4l2_event_queue(pipeline->subdev.devnode, &event);
 }
 
+void mtk_cam_event_error(struct mtk_raw_pipeline *pipeline, char *msg)
+{
+	struct v4l2_event event = {
+		.type = V4L2_EVENT_ERROR,
+	};
+	memcpy(event.u.data, msg, strlen(msg) < 64 ? strlen(msg) : 64);
+
+	if (pipeline)
+		v4l2_event_queue(pipeline->subdev.devnode, &event);
+	else
+		pr_info("%s: get raw_pipeline failed", __func__);
+}
+
 static void mtk_cam_sv_event_eos(struct mtk_camsv_pipeline *pipeline)
 {
 	struct v4l2_event event = {
@@ -3000,8 +3013,10 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 			}
 
 			if (trigger_raw_switch) {
-				mtk_cam_req_dump(req_stream_data, MTK_CAM_REQ_DUMP_DEQUEUE_FAILED,
-						 "No P1 done before raw switch", false);
+				mtk_cam_req_dump(req_stream_data,
+						 MTK_CAM_REQ_DUMP_DEQUEUE_FAILED,
+						 "Camsys: No P1 done before raw switch",
+						 false);
 				s_data_next = mtk_cam_req_get_s_data(req_next, ctx->stream_id, 0);
 				mtk_camsys_raw_change_pipeline(ctx, &ctx->sensor_ctrl, s_data_next);
 			}

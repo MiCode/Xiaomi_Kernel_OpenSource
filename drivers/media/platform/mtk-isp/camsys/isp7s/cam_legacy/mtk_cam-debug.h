@@ -214,6 +214,10 @@ static inline struct mtk_cam_debug_fs *mtk_cam_get_debugfs(void)
 static inline int mtk_cam_req_dump(struct mtk_cam_request_stream_data *s_data,
 				   unsigned int dump_flag, char *desc, bool smi_dump)
 {
+	struct mtk_cam_ctx *ctx = mtk_cam_s_data_get_ctx(s_data);
+
+	if (ctx)
+		mtk_cam_event_error(ctx->pipe, desc);
 	return 0;
 }
 

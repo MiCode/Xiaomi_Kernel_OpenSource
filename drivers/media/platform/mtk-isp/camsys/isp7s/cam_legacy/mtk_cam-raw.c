@@ -760,10 +760,13 @@ static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 				       &pipeline->res_config,
 				       "s_ctrl", true);
 	if (ret) {
+		mtk_cam_event_error(pipeline, "Camsys: set resource failed");
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 		aee_kernel_exception_api(__FILE__, __LINE__, DB_OPT_DEFAULT,
 				       "Camsys: set resource failed",
 				       "mtk_cam_raw_try_res_ctrl failed");
+#else
+		WARN_ON(1);
 #endif
 		return -EINVAL;
 	}
@@ -2726,7 +2729,7 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,
 		tg_full_sel = ((inner_val & TG_FULLSEL_BIT_MASK) >> 15);
 		dev_info(raw_dev->dev, "tg_full_sel 0x%x\n", __func__, tg_full_sel);
 		mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_CHK_DEQUEUE_FAILED,
-				"TG Grab Err", false);
+				"Camsys: TG Grab Err", false);
 	} else {
 		dev_info(raw_dev->dev,
 			 "%s: req(%d) can't be found for seninf dump\n",
@@ -2855,7 +2858,7 @@ static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 		dev_info(raw_dev->dev, "tg_full_sel 0x%x:\n", __func__, tg_full_sel);
 
 		mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_CHK_DEQUEUE_FAILED,
-				"TG Overrun Err", true);
+				"Camsys: TG Overrun Err", true);
 	} else {
 		dev_info(raw_dev->dev, "%s: req(%d) can't be found for dump\n",
 			__func__, dequeued_frame_seq_no);
@@ -3099,6 +3102,8 @@ static int mtk_raw_sd_subscribe_event(struct v4l2_subdev *subdev,
 	case V4L2_EVENT_ESD_RECOVERY:
 		return v4l2_event_subscribe(fh, sub, 0, NULL);
 	case V4L2_EVENT_REQUEST_SENSOR_TRIGGER:
+		return v4l2_event_subscribe(fh, sub, 0, NULL);
+	case V4L2_EVENT_ERROR:
 		return v4l2_event_subscribe(fh, sub, 0, NULL);
 
 	default:
@@ -7487,7 +7492,8 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 	}
 	dev_info(dev, "=================== [CAMSYS M4U] Dump End ====================\n");
 	if (s_data)
-		mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_DEQUEUE_FAILED, "M4U TF", false);
+		mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_DEQUEUE_FAILED,
+				 "Camsys: M4U TF", false);
 	else
 		dev_info(raw_dev->dev, "s_data is null\n");
 

@@ -211,6 +211,8 @@ void mtk_cam_event_sensor_trigger(struct mtk_raw_pipeline *pipeline,
 void mtk_cam_event_esd_recovery(struct mtk_raw_pipeline *pipeline,
 				     unsigned int frame_seq_no);
 
+void mtk_cam_event_error(struct mtk_raw_pipeline *pipeline, char *msg);
+
 int mtk_cam_extisp_prepare_meta(struct mtk_cam_ctx *ctx, int pad_src);
 void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 	struct mtk_camsys_irq_info *irq_info);
