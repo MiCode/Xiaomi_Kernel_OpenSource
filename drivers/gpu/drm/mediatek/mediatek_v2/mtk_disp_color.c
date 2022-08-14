@@ -2257,12 +2257,31 @@ static bool color_get_MDP_RDMA0_REG(struct resource *res)
 	return true;
 }
 
+static bool color_get_MML_HDR0_REG(struct resource *res)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mml-tuning-mml_hdr0");
+	rc = of_address_to_resource(node, 0, res);
+
+	// check if fail to get reg.
+	if (rc) {
+		DDPINFO("Fail to get MML_HDR0 REG\n");
+		return false;
+	}
+
+	DDPDBG("MML_HDR0 REG: 0x%llx ~ 0x%llx\n", res->start, res->end);
+
+	return true;
+}
+
 static bool color_get_MDP_HDR0_REG(struct resource *res)
 {
 	int rc = 0;
 	struct device_node *node = NULL;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_hdr0");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp-tuning-mdp_hdr0");
 	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
@@ -2314,12 +2333,31 @@ static bool color_get_MDP_COLOR0_REG(struct resource *res)
 	return true;
 }
 
+static bool color_get_MML_AAL0_REG(struct resource *res)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mml-tuning-mml_aal0");
+	rc = of_address_to_resource(node, 0, res);
+
+	// check if fail to get reg.
+	if (rc) {
+		DDPINFO("Fail to get MML_AAL0 REG\n");
+		return false;
+	}
+
+	DDPDBG("MML_AAL0 REG: 0x%llx ~ 0x%llx\n", res->start, res->end);
+
+	return true;
+}
+
 static bool color_get_MDP_AAL0_REG(struct resource *res)
 {
 	int rc = 0;
 	struct device_node *node = NULL;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_aal0");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp-tuning-mdp_aal0");
 	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
@@ -2332,6 +2370,7 @@ static bool color_get_MDP_AAL0_REG(struct resource *res)
 
 	return true;
 }
+
 static bool color_get_DISP_COLOR1_REG(struct resource *res)
 {
 	int rc = 0;
@@ -2604,6 +2643,12 @@ static int color_is_reg_addr_valid(struct mtk_ddp_comp *comp,
 		return 2;
 	}
 
+	if (color_get_MML_HDR0_REG(&res) &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=MML_HDR0\n", addr);
+		return 2;
+	}
+
 	if (color_get_MDP_COLOR0_REG(&res) &&
 		addr >= res.start && addr < res.end) {
 		DDPDBG("addr=0x%lx, module=MDP_COLOR0\n", addr);
@@ -2620,6 +2665,12 @@ static int color_is_reg_addr_valid(struct mtk_ddp_comp *comp,
 	if (color_get_MDP_AAL0_REG(&res) &&
 		addr >= res.start && addr < res.end) {
 		DDPDBG("addr=0x%lx, module=MDP_AAL0\n", addr);
+		return 2;
+	}
+
+	if (color_get_MML_AAL0_REG(&res) &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=MML_AAL0\n", addr);
 		return 2;
 	}
 
@@ -2793,6 +2844,18 @@ int mtk_drm_ioctl_read_sw_reg(struct drm_device *dev, void *data,
 	case SWREG_DISP_TDSHP_BASE_ADDRESS:
 		{
 			ret = disp_tdshp_comp->regs_pa;
+			break;
+		}
+	case SWREG_MML_HDR_BASE_ADDRESS:
+		{
+			if (color_get_MML_HDR0_REG(&res))
+				ret = res.start;
+			break;
+		}
+	case SWREG_MML_AAL_BASE_ADDRESS:
+		{
+			if (color_get_MML_AAL0_REG(&res))
+				ret = res.start;
 			break;
 		}
 	case SWREG_MML_TDSHP_BASE_ADDRESS:
