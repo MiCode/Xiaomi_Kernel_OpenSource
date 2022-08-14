@@ -1201,7 +1201,7 @@ void mtk_spr_dump(struct mtk_ddp_comp *comp)
 	}
 
 	if (spr->data && spr->data->version == MTK_SPR_V2)
-		num = 0xde8;
+		num = 0x50;
 	else
 		num = 0x350;
 
@@ -1210,6 +1210,17 @@ void mtk_spr_dump(struct mtk_ddp_comp *comp)
 		DDPDUMP("0x%x: 0x%08x 0x%08x 0x%08x 0x%08x\n", i,
 			readl(baddr + i), readl(baddr + i + 0x4),
 			readl(baddr + i + 0x8), readl(baddr + i + 0xc));
+	}
+
+	if (spr->data && spr->data->version == MTK_SPR_V2) {
+		for (i = 0xa0; i < 0xd0; i += 16) {
+			DDPDUMP("0x%x: 0x%08x 0x%08x 0x%08x 0x%08x\n", i,
+				readl(baddr + i), readl(baddr + i + 0x4),
+				readl(baddr + i + 0x8), readl(baddr + i + 0xc));
+		}
+		DDPDUMP("0x%x: 0x%08x 0x%08x 0x%08x 0x%08x\n", 0xd70,
+			readl(baddr + 0xd70), readl(baddr + 0xd70 + 0x4),
+			readl(baddr + 0xd70 + 0x8), readl(baddr + 0xd70 + 0xc));
 	}
 }
 
