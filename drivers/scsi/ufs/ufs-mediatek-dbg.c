@@ -715,7 +715,7 @@ static void ufs_mtk_dbg_print_utp_event(char **buff, unsigned long *size,
 		cmd_hist[ptr].cmd.utp.intr,
 		cmd_hist[ptr].cmd.utp.crypt_en,
 		cmd_hist[ptr].cmd.utp.crypt_keyslot,
-		cmd_hist[ptr].cmd.utp.lba >> 3,
+		cmd_hist[ptr].cmd.utp.lba,
 		cmd_hist[ptr].cmd.utp.transfer_len,
 		cmd_hist[ptr].duration
 		);
