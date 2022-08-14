@@ -56,7 +56,6 @@ struct mmdvfs_debug {
 	void *pwr_base;
 	void *user_base;
 	u32 use_v3_pwr;
-	struct clk *aov_clk;
 };
 
 static struct mmdvfs_debug *g_mmdvfs;
@@ -274,11 +273,6 @@ static int mmdvfs_v3_debug_thread(void *data)
 
 	if (g_mmdvfs->use_v3_pwr & (1 << PWR_MMDVFS_VMM))
 		mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VMM, -1);
-	if (g_mmdvfs->aov_clk) {
-		ret = clk_set_rate(g_mmdvfs->aov_clk, 1);
-		if (ret)
-			MMDVFS_DBG("clk_set_rate failed:%d", ret);
-	}
 
 	g_mmdvfs->pwr_base = mtk_mmdvfs_vcp_get_base(&pa);
 	g_mmdvfs->user_base = g_mmdvfs->pwr_base + MMDVFS_RECORD_BASE_OFFSET;
@@ -508,22 +502,6 @@ static struct kernel_param_ops mmdvfs_debug_set_ftrace_ops = {
 module_param_cb(ftrace, &mmdvfs_debug_set_ftrace_ops, NULL, 0644);
 MODULE_PARM_DESC(ftrace, "mmdvfs ftrace log");
 
-
-void mtk_mmdvfs_debug_ulposc_enable(const bool enable)
-{
-	int ret = 0;
-
-	if (!g_mmdvfs)
-		return;
-	if (g_mmdvfs->aov_clk) {
-		ret = clk_set_rate(g_mmdvfs->aov_clk, enable ? 0 : 1);
-		if (ret)
-			MMDVFS_DBG("clk_set_rate failed:%d", ret);
-		MMDVFS_DBG("enable=%d", enable);
-	}
-}
-EXPORT_SYMBOL_GPL(mtk_mmdvfs_debug_ulposc_enable);
-
 static int mmdvfs_debug_probe(struct platform_device *pdev)
 {
 	struct proc_dir_entry *dir, *proc;
@@ -597,10 +575,6 @@ static int mmdvfs_debug_probe(struct platform_device *pdev)
 			g_mmdvfs->release_step0, ret);
 
 	/* MMDVFS_DBG_VER3 */
-	g_mmdvfs->aov_clk = devm_clk_get(g_mmdvfs->dev, "aov_clk");
-	if (IS_ERR(g_mmdvfs->aov_clk))
-		g_mmdvfs->aov_clk = NULL;
-
 	ret = of_property_read_u32(g_mmdvfs->dev->of_node,
 		"use-v3-pwr", &g_mmdvfs->use_v3_pwr);
 
