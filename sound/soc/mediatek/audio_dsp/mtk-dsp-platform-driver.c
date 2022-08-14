@@ -1394,8 +1394,8 @@ static int audio_send_reset_event(void)
 			(i == TASK_SCENE_VOIP) ||
 			(i == TASK_SCENE_PRIMARY) ||
 			(i == TASK_SCENE_FAST) ||
-			(i == TASK_SCENE_CAPTURE_UL1) ||
-			(i == TASK_SCENE_CAPTURE_RAW)) {
+			(i == TASK_SCENE_CAPTURE_RAW) ||
+			(i == TASK_SCENE_UL_PROCESS)) {
 			ret = mtk_scp_ipi_send(i, AUDIO_IPI_MSG_ONLY,
 			AUDIO_IPI_MSG_BYPASS_ACK, AUDIO_DSP_TASK_RESET,
 			ADSP_EVENT_READY, 0, NULL);
