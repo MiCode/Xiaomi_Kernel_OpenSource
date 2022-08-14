@@ -25,7 +25,7 @@
 #define MML_IR_HEIGHT		480
 #define MML_IR_MIN		(MML_IR_WIDTH * MML_IR_HEIGHT)
 #define MML_IR_RSZ_MIN_RATIO	375	/* resize must lower than this ratio */
-#define MML_IR_OUT_MIN_W	640
+#define MML_IR_OUT_MIN_W	784	/* wqhd 1440/2+64=784 */
 
 #define MML_IR_MAX_OPP		1	/* use OPP index 0(229Mhz) 1(273Mhz) */
 

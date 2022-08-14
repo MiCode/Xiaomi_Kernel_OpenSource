@@ -1146,7 +1146,7 @@ static void sys_unprepare(struct mtk_ddp_comp *ddp_comp)
 	mml_mmp(addon_unprepare, MMPROFILE_FLAG_PULSE, 0, 0);
 
 	if (IS_ERR_OR_NULL(ctx)) {
-		mml_log("%s fail to get mml ctx", __func__);
+		mml_msg("%s fail to get mml ctx", __func__);
 		return;
 	}
 
