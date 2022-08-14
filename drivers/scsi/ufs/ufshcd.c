@@ -4053,28 +4053,6 @@ static int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 		goto out;
 	}
 
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	if (cmd->command == UIC_CMD_DME_HIBER_ENTER ||
-		cmd->command == UIC_CMD_DME_HIBER_EXIT) {
-		/* HW should complete in 64 ms */
-		ktime_t timeout = ktime_add_ms(ktime_get(), 64);
-		bool is_timedout = false;
-
-		while (!(ufshcd_readl(hba, REG_INTERRUPT_STATUS) &
-			UFSHCD_UIC_HIBERN8_MASK)) {
-			if (ktime_after(ktime_get(), timeout)) {
-				is_timedout = true;
-				break;
-			}
-		}
-
-		dev_err(hba->dev, "ufs mh8 %s %s!\n",
-				(cmd->command == UIC_CMD_DME_HIBER_ENTER) ?
-			"enter" : "exit",
-			(is_timedout) ? "timeout" : "success");
-	}
-#endif
-
 	if (!wait_for_completion_timeout(hba->uic_async_done,
 					 msecs_to_jiffies(UIC_CMD_TIMEOUT))) {
 		dev_err(hba->dev,
