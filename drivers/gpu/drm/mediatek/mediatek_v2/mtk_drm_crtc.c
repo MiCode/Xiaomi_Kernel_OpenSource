@@ -2138,8 +2138,7 @@ int get_addon_path_wait_event(struct drm_crtc *crtc,
 	return -EINVAL;
 }
 
-void mtk_crtc_wb_addon_wait_event(
-	struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
+int mtk_crtc_wb_addon_get_event(struct drm_crtc *crtc)
 {
 	int i;
 	const struct mtk_addon_scenario_data *addon_data;
@@ -2151,7 +2150,7 @@ void mtk_crtc_wb_addon_wait_event(
 	int gce_event;
 
 	if (index != 0 || mtk_crtc_is_dc_mode(crtc))
-		return;
+		return -EINVAL;
 
 	if (state->prop_val[CRTC_PROP_OUTPUT_SCENARIO] == 0)
 		scn = WDMA_WRITE_BACK_OVL;
@@ -2160,7 +2159,7 @@ void mtk_crtc_wb_addon_wait_event(
 
 	addon_data = mtk_addon_get_scenario_data(__func__, crtc, scn);
 	if (!addon_data)
-		return;
+		return -EINVAL;
 
 	for (i = 0; i < addon_data->module_num; i++) {
 		addon_module = &addon_data->module_data[i];
@@ -2169,8 +2168,9 @@ void mtk_crtc_wb_addon_wait_event(
 		gce_event = get_addon_path_wait_event(crtc, path_data);
 		if (gce_event < 0)
 			continue;
-		cmdq_pkt_wfe(cmdq_handle, gce_event);
+		return gce_event;
 	}
+	return -EINVAL;
 }
 
 void _mtk_crtc_wb_addon_module_disconnect(
@@ -9970,7 +9970,7 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
 	struct disp_ccorr_config *ccorr_config = NULL;
-	int is_from_dal = 0;
+	int is_from_dal = 0, event = 0;
 	int crtc_index = drm_crtc_index(crtc);
 	struct cmdq_pkt *handle;
 	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_CFG];
@@ -10046,10 +10046,6 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 			mtk_crtc_backup_color_matrix_data(crtc, ccorr_config,
 							cmdq_handle);
 #endif
-	} else if (state->prop_val[CRTC_PROP_OUTPUT_ENABLE] &&
-		crtc_index == 0 && !is_from_dal) {
-		/* For DL write-back path */
-		cmdq_pkt_clear_event(cmdq_handle, mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]);
 	}
 
 #ifdef MTK_DRM_CMDQ_ASYNC
@@ -10071,8 +10067,10 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 		&& crtc_index == 0 && !is_from_dal) {
 		wb_cb_data = kmalloc(sizeof(*wb_cb_data), GFP_KERNEL);
 
+		event = mtk_crtc_wb_addon_get_event(crtc);
 		mtk_crtc_pkt_create(&handle, crtc, client);
-		mtk_crtc_wb_addon_wait_event(crtc, handle);
+		cmdq_pkt_clear_event(handle, event);
+		cmdq_pkt_wfe(handle, event);
 		_mtk_crtc_wb_addon_module_disconnect(crtc, mtk_crtc->ddp_mode, handle);
 
 		wb_cb_data->cmdq_handle = handle;
@@ -11002,6 +11000,7 @@ static void mtk_crtc_get_event_name(struct mtk_drm_crtc *mtk_crtc, char *buf,
 	case EVENT_OVLSYS_WDMA0_EOF:
 		len = snprintf(buf, buf_len, "disp_ovlsys_wdma0_eof%d",
 				drm_crtc_index(&mtk_crtc->base));
+		break;
 	case EVENT_OVLSYS1_WDMA0_EOF:
 		len = snprintf(buf, buf_len, "disp_ovlsys_wdma2_eof%d",
 			       drm_crtc_index(&mtk_crtc->base));
