@@ -111,6 +111,7 @@ enum gpufreq_config_target {
 	CONFIG_IPS              = 11,
 	CONFIG_OCL_TIMESTAMP    = 12,
 	CONFIG_FAKE_MTCMOS_CTRL = 13,
+	CONFIG_MCUETM_CLK       = 14,
 };
 
 enum gpufreq_config_value {

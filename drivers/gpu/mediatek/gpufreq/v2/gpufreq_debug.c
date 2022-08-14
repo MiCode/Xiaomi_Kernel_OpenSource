@@ -764,6 +764,12 @@ static ssize_t mfgsys_config_proc_write(struct file *file,
 				val = FEAT_DISABLE;
 			else if (sysfs_streq(input_val, "get"))
 				val = IPS_VMIN_GET;
+		} else if (sysfs_streq(input_target, "mcuetm_clk")) {
+			target = CONFIG_MCUETM_CLK;
+			if (sysfs_streq(input_val, "enable"))
+				val = FEAT_ENABLE;
+			else if (sysfs_streq(input_val, "disable"))
+				val = FEAT_DISABLE;
 		}
 
 		/* set to mfgsys if valid */
