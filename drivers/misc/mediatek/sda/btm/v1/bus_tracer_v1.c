@@ -432,21 +432,11 @@ static ssize_t tracer_dbgfs_etb_read(struct file *file, char __user *buf, size_t
 void enable_etb_for_gpu_mcu(void)
 {
 	unsigned int i = 0, ret = 0;
-	struct device_node *node;
-	void __iomem *mfg_top_config_base = NULL;
 
 	if (!plt->tracer) {
 		pr_notice("%s:%d:[ETB] plt->tracer == NULL\n", __func__, __LINE__);
 		return;
 	}
-
-	node = of_find_compatible_node(NULL, NULL, "mediatek,gpufreq");
-	if (!node) {
-		pr_notice("%s:%d:[ETB] can't find compatible node\n", __func__, __LINE__);
-		return;
-	}
-
-	mfg_top_config_base = of_iomap(node, 0);
 
 	for (i = 0; i <= plt->num_tracer - 1; ++i) {
 		if (!plt->tracer[i].enabled)
@@ -471,11 +461,6 @@ void enable_etb_for_gpu_mcu(void)
 
 	/* enable ETB for Cotrex-M7 */
 	enable_etb_cm7(plt->etb_base);
-
-	/* enable tracer: enable pwr_on_atb for GPU MCU */
-	writel(0x2, mfg_top_config_base + CM7_PWR_ON_ATB);
-	pr_notice("%s:%d:[ETB]: pwr_on_atb\n", __func__, __LINE__);
-	dsb(sy);
 }
 EXPORT_SYMBOL(enable_etb_for_gpu_mcu);
 

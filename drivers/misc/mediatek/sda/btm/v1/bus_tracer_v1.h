@@ -112,9 +112,6 @@
 #define CORESIGHT_LAR		0xfb0
 #define CORESIGHT_UNLOCK        0xc5acce55
 
-/* enable pwr_on_atb */
-#define CM7_PWR_ON_ATB		0x8
-
 static inline void CS_LOCK(void __iomem *addr)
 {
 	do {
