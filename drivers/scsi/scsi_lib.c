@@ -2391,6 +2391,9 @@ static void scsi_evt_emit(struct scsi_device *sdev, struct scsi_event *evt)
 		break;
 	case SDEV_EVT_POWER_ON_RESET_OCCURRED:
 		envp[idx++] = "SDEV_UA=POWER_ON_RESET_OCCURRED";
+#if IS_ENABLED(CONFIG_MTK_FIX_SCSI_THREAD_RACING_UPDATE)
+		wait_event(sdev->host->host_wait, sdev->sdev_gendev.kobj.parent != NULL);
+#endif
 		break;
 	default:
 		/* do nothing */
