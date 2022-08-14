@@ -117,6 +117,15 @@ int scp_awake_lock(void *_scp_id)
 
 	if (ret == -1) {
 		pr_notice("%s: awake %s fail..\n", __func__, core_id);
+		scp_reousrce_dump();
+		/*
+		 * Based on SCP DE suggestion, force PLL CG enable in order to avoid
+		 * be disabled by others.
+		 */
+		if (scp_dvfs_feature_enable()) {
+			pr_notice("[SCP]%s: Enable PLL\n", __func__);
+			scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
+		}
 #if SCP_RECOVERY_SUPPORT
 
 		if (scp_set_reset_status() == RESET_STATUS_STOP) {
@@ -220,6 +229,15 @@ int scp_awake_unlock(void *_scp_id)
 
 	if (ret == -1) {
 		pr_notice("%s: awake %s fail..\n", __func__, core_id);
+		scp_reousrce_dump();
+		/*
+		 * Based on SCP DE suggestion, force PLL CG enable in order to avoid
+		 * be disabled by others.
+		 */
+		if (scp_dvfs_feature_enable()) {
+			pr_notice("[SCP]%s: Enable PLL\n", __func__);
+			scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
+		}
 		WARN_ON(1);
 #if SCP_RECOVERY_SUPPORT
 		if (scp_set_reset_status() == RESET_STATUS_STOP) {

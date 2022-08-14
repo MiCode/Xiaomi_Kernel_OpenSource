@@ -14,6 +14,7 @@
 #include "scp_reg.h"
 #include "scp_feature_define.h"
 #include "scp.h"
+#include <linux/regulator/consumer.h>
 
 #define ROUNDUP(a, b)		        (((a) + ((b)-1)) & ~((b)-1))
 
@@ -25,6 +26,7 @@
 #define SCP_RTOS_START		(0x800)
 
 #define SCP_DRAM_MAPSIZE	(0x100000)
+#define SCP_MAX_REGULATOR_NUM	(10)
 
 /* scp dvfs return status flag */
 #define SET_PLL_FAIL		(1)
@@ -172,6 +174,20 @@ struct scp_region_info_st {
 	uint32_t ap_params_start;
 };
 
+struct scp_reg_dump_st {
+	uint32_t addr;
+	uint32_t size;
+};
+
+struct scp_resource_dump_info_st {
+	uint32_t en;
+	struct regulator *scp_regulator[SCP_MAX_REGULATOR_NUM];
+	uint32_t scp_regulator_cnt;
+	struct scp_reg_dump_st *dump_regs;
+	uint32_t regs_cell;
+	uint32_t dump_regs_cnt;
+};
+
 /* scp device attribute */
 extern struct device_attribute dev_attr_scp_A_mobile_log_UT;
 extern struct device_attribute dev_attr_scp_A_logger_wakeup_AP;
@@ -218,6 +234,7 @@ extern phys_addr_t scp_mem_base_virt;
 extern phys_addr_t scp_mem_size;
 extern atomic_t scp_reset_status;
 
+extern struct scp_resource_dump_info_st scp_resource_dump_info;
 extern bool mbox_check_send_table(unsigned int id);
 extern bool mbox_check_recv_table(unsigned int id);
 extern void mbox_setup_pin_table(int mbox);
@@ -237,6 +254,7 @@ extern void scp_enable_sram(void);
 extern int scp_sys_full_reset(void);
 extern void scp_reset_awake_counts(void);
 extern void scp_awake_init(void);
+extern void scp_reousrce_dump(void);
 
 #if SCP_RECOVERY_SUPPORT
 extern unsigned int scp_reset_by_cmd;

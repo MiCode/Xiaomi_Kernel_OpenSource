@@ -136,6 +136,8 @@ static struct scp_work_struct scp_A_notify_work;
 
 static unsigned int scp_timeout_times;
 
+struct scp_resource_dump_info_st scp_resource_dump_info;
+
 static DEFINE_MUTEX(scp_A_notify_mutex);
 static DEFINE_MUTEX(scp_feature_mutex);
 static DEFINE_MUTEX(scp_register_sensor_mutex);
@@ -1774,6 +1776,8 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	if (scp_dvfs_feature_enable())
 		scp_resource_req(SCP_REQ_26M);
 
+	/* dump scp related resource information */
+	scp_reousrce_dump();
 
 	/* print_clk and scp_aed before pll enable to keep ori CLK_SEL */
 	print_clk_registers();
@@ -2254,6 +2258,138 @@ static bool scp_ipi_table_init(struct mtk_mbox_device *scp_mboxdev, struct platf
 	return true;
 }
 
+void scp_reousrce_dump(void)
+{
+	u32 i, idx;
+	int cur_uv;
+	void __iomem *scp_resource_regdump_virt;
+
+	pr_notice("[SCP]%s\n", __func__);
+	if ((scp_resource_dump_info.en) == 1) {
+		for (i = 0; i < (scp_resource_dump_info.scp_regulator_cnt); i++) {
+			cur_uv =
+				regulator_get_voltage(scp_resource_dump_info.scp_regulator[i]);
+			pr_notice("[SCP] regulator[%d]=%d\n", i, cur_uv);
+		}
+
+		for (i = 0; i < (scp_resource_dump_info.dump_regs_cnt); i++) {
+			scp_resource_regdump_virt =
+				ioremap(scp_resource_dump_info.dump_regs[i].addr,
+						scp_resource_dump_info.dump_regs[i].size);
+			for (idx = 0; idx < scp_resource_dump_info.dump_regs[i].size ; idx += 4) {
+				pr_notice("[SCP] reg[0x%x] = 0x%x\n",
+						(scp_resource_dump_info.dump_regs[i].addr) + idx,
+						readl(scp_resource_regdump_virt + idx));
+			}
+		}
+	} else {
+		pr_notice("[SCP] resource dump disable\n");
+	}
+}
+
+static bool scp_resource_dump_init(struct platform_device *pdev)
+{
+	const char *scp_resource_dump_flag = NULL;
+	u32 i, ret;
+	char buf[10];
+
+	if (!of_property_read_string(pdev->dev.of_node, "scp-resource-dump",
+				&scp_resource_dump_flag)) {
+		if (!strncmp(scp_resource_dump_flag, "enable", strlen("enable"))) {
+			pr_notice("[SCP] scp resource dump enabled\n");
+			scp_resource_dump_info.en = 1;
+		} else {
+			pr_notice("[SCP] scp resource dump disable\n");
+			scp_resource_dump_info.en = 0;
+			return true;
+		}
+	} else {
+		pr_notice("[SCP] scp resource dump not support\n");
+		scp_resource_dump_info.en = 0;
+		return true;
+	}
+
+	ret = of_property_read_u32(pdev->dev.of_node, "scp-supply-num",
+			&scp_resource_dump_info.scp_regulator_cnt);
+	if (ret) {
+		pr_notice("[SCP] VSCP is not defined.\n");
+		scp_resource_dump_info.scp_regulator_cnt = 0;
+		return false;
+	}
+
+	ret = of_property_read_u32(pdev->dev.of_node, "scp-resource-reg-dump-cell",
+			&scp_resource_dump_info.regs_cell);
+	if (ret) {
+		pr_notice("[SCP] dump regs cell not defined.\n",
+				scp_resource_dump_info.regs_cell);
+		return false;
+	}
+
+	scp_resource_dump_info.dump_regs_cnt = of_property_count_u32_elems(
+			pdev->dev.of_node, "scp-resource-reg-dump")
+		/ (scp_resource_dump_info.regs_cell);
+
+	if (scp_resource_dump_info.dump_regs_cnt <= 0) {
+		pr_notice("[SCP] scp-resource-reg-dump not found\n");
+		return false;
+	}
+
+	/* alloc and init send table */
+	pr_notice("[SCP] regulor_cnts = %d\n",
+			scp_resource_dump_info.scp_regulator_cnt);
+	pr_notice("[SCP] dump_regs_cnt = %d\n",
+			scp_resource_dump_info.dump_regs_cnt);
+
+	if ((scp_resource_dump_info.scp_regulator_cnt) > SCP_MAX_REGULATOR_NUM) {
+		pr_notice("[SCP] Error: Regulator cnt %d too much\n",
+				(scp_resource_dump_info.scp_regulator_cnt));
+		return false;
+	}
+
+
+	/* alloc and reg dump table */
+	scp_resource_dump_info.dump_regs =
+		vzalloc(sizeof(struct scp_reg_dump_st)*
+				(scp_resource_dump_info.dump_regs_cnt));
+
+	for (i = 0; i < (scp_resource_dump_info.scp_regulator_cnt); i++) {
+		ret = snprintf(buf, 10, "vscp%d", i);
+		if (ret < 0 || ret >= 10) {
+			pr_notice("[%s]: Error: vscp name len: %d\n", __func__, ret);
+			return false;
+		}
+
+		scp_resource_dump_info.scp_regulator[i] =
+			devm_regulator_get_optional(&pdev->dev, buf);
+		if (!IS_ERR(scp_resource_dump_info.scp_regulator[i])
+				&& scp_resource_dump_info.scp_regulator[i]) {
+			pr_notice("[SCP] regulator used for %s was found\n", buf);
+		} else {
+			pr_notice("[SCP] Error: regulator used for %s was not found\n", buf);
+			return false;
+		}
+	}
+
+	for (i = 0; i < (scp_resource_dump_info.dump_regs_cnt); i++) {
+		ret = of_property_read_u32_index(pdev->dev.of_node,
+				"scp-resource-reg-dump",
+				i * (scp_resource_dump_info.regs_cell),
+				&scp_resource_dump_info.dump_regs[i].addr);
+
+		ret = of_property_read_u32_index(pdev->dev.of_node,
+				"scp-resource-reg-dump",
+				(i * (scp_resource_dump_info.regs_cell))+1,
+				&scp_resource_dump_info.dump_regs[i].size);
+	}
+	for (i = 0; i < (scp_resource_dump_info.dump_regs_cnt); i++) {
+		pr_notice("[SCP] dump reg[%d] = 0x%x, size = 0x%x\n", i,
+				scp_resource_dump_info.dump_regs[i].addr,
+				scp_resource_dump_info.dump_regs[i].size);
+	}
+
+	return true;
+}
+
 static int scp_device_probe(struct platform_device *pdev)
 {
 	int ret = 0, i = 0;
@@ -2487,6 +2623,9 @@ static int scp_device_probe(struct platform_device *pdev)
 				      SCP_IPI_COUNT);
 	if (ret)
 		pr_notice("[SCP] ipi_dev_register fail, ret %d\n", ret);
+
+	if (!scp_resource_dump_init(pdev))
+		return -ENODEV;
 
 #if SCP_RESERVED_MEM && defined(CONFIG_OF)
 
