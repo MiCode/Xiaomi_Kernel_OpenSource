@@ -212,6 +212,7 @@ static int mt6338_auxadc_read_raw(struct iio_dev *indio_dev,
 	int ret;
 	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 5);
 
+	ratelimit_set_flags(&ratelimit, RATELIMIT_MSG_ON_RELEASE);
 	if (chan->channel == AUXADC_CHIP_TEMP)
 		regmap_update_bits(adc_dev->regmap, MT6338_RG_TSENS_EN_ADDR,
 				   0x1 << MT6338_RG_TSENS_EN_SHIFT,
