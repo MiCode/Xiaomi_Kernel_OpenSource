@@ -660,6 +660,7 @@ static struct mtk_panel_params ext_params_90hz = {
 		.para_list[0] = 0x1c,
 	},
 	.is_support_od = true,
+	.lp_perline_en = 1,
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
 		.enable = 1,
