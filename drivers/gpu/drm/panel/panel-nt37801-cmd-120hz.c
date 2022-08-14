@@ -434,6 +434,18 @@ static const struct drm_display_mode default_mode = {
 	.vtotal = FRAME_HEIGHT + 10 + 2 + 16,
 };
 
+static const struct drm_display_mode mode_90 = {
+	.clock = 447401,
+	.hdisplay = FRAME_WIDTH,
+	.hsync_start = FRAME_WIDTH + 40,
+	.hsync_end = FRAME_WIDTH + 40 + 20,
+	.htotal = FRAME_WIDTH + 40 + 20 + 40,
+	.vdisplay = FRAME_HEIGHT,
+	.vsync_start = FRAME_HEIGHT + 10,
+	.vsync_end = FRAME_HEIGHT + 10 + 2,
+	.vtotal = FRAME_HEIGHT + 10 + 2 + 16,
+};
+
 static const struct drm_display_mode mode_60 = {
 	.clock = 298267,
 	.hdisplay = FRAME_WIDTH,
@@ -633,6 +645,55 @@ static struct mtk_panel_params ext_params = {
 	.data_rate = 1500,
 };
 
+static struct mtk_panel_params ext_params_90hz = {
+	.pll_clk = 750,
+	.cust_esd_check = 0,
+	.esd_check_enable = 1,
+	.lcm_esd_check_table[0] = {
+		.cmd = 0x0a,
+		.count = 1,
+		.para_list[0] = 0x1c,
+	},
+	.is_support_od = true,
+	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
+	.dsc_params = {
+		.enable = 1,
+		.ver = 17,
+		.slice_mode = 1,
+		.rgb_swap = 0,
+		.dsc_cfg = 34,
+		.rct_on = 1,
+		.bit_per_channel = 8,
+		.dsc_line_buf_depth = 9,
+		.bp_enable = 1,
+		.bit_per_pixel = 128,
+		.pic_height = FRAME_HEIGHT,
+		.pic_width = FRAME_WIDTH,
+		.slice_height = 40,
+		.slice_width = (FRAME_WIDTH/2),
+		.chunk_size = 720,
+		.xmit_delay = 512,
+		.dec_delay = 646,
+		.scale_value = 32,
+		.increment_interval = 1082,
+		.decrement_interval = 10,
+		.line_bpg_offset = 13,
+		.nfl_bpg_offset = 683,
+		.slice_bpg_offset = 489,
+		.initial_offset = 6144,
+		.final_offset = 4336,
+		.flatness_minqp = 3,
+		.flatness_maxqp = 12,
+		.rc_model_size = 8192,
+		.rc_edge_factor = 6,
+		.rc_quant_incr_limit0 = 11,
+		.rc_quant_incr_limit1 = 11,
+		.rc_tgt_offset_hi = 3,
+		.rc_tgt_offset_lo = 3,
+		},
+	.data_rate = 1500,
+};
+
 static struct mtk_panel_params ext_params_60hz = {
 	.pll_clk = 750,
 	.cust_esd_check = 0,
@@ -707,7 +768,9 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 	if (drm_mode_vrefresh(m) == 120) {
 		ext_params.skip_vblank = 0;
 		ext->params = &ext_params;
-	} else if (drm_mode_vrefresh(m) == 60)
+	} else if (drm_mode_vrefresh(m) == 90)
+		ext->params = &ext_params_90hz;
+	else if (drm_mode_vrefresh(m) == 60)
 		ext->params = &ext_params_60hz;
 	else if (drm_mode_vrefresh(m) == 30) {
 		ext_params.skip_vblank = 4;
@@ -729,6 +792,13 @@ static void mode_switch_to_120(struct drm_panel *panel)
 	struct lcm *ctx = panel_to_lcm(panel);
 
 	lcm_dcs_write_seq_static(ctx, 0x2F, 0x00);
+}
+
+static void mode_switch_to_90(struct drm_panel *panel)
+{
+	struct lcm *ctx = panel_to_lcm(panel);
+
+	lcm_dcs_write_seq_static(ctx, 0x2F, 0x01);
 }
 
 static void mode_switch_to_60(struct drm_panel *panel)
@@ -790,6 +860,8 @@ static int mode_switch(struct drm_panel *panel,
 
 	if (drm_mode_vrefresh(m) == 120)
 		mode_switch_to_120(panel);
+	else if (drm_mode_vrefresh(m) == 90)
+		mode_switch_to_90(panel);
 	else if (drm_mode_vrefresh(m) == 60)
 		mode_switch_to_60(panel);
 	else if (drm_mode_vrefresh(m) == 30)
@@ -838,6 +910,7 @@ struct panel_desc {
 static int lcm_get_modes(struct drm_panel *panel, struct drm_connector *connector)
 {
 	struct drm_display_mode *mode;
+	struct drm_display_mode *mode1;
 	struct drm_display_mode *mode2;
 	struct drm_display_mode *mode3;
 	struct drm_display_mode *mode4;
@@ -854,6 +927,14 @@ static int lcm_get_modes(struct drm_panel *panel, struct drm_connector *connecto
 	drm_mode_set_name(mode);
 	mode->type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
 	drm_mode_probed_add(connector, mode);
+
+	mode1 = drm_mode_duplicate(connector->dev, &mode_90);
+	if (!mode1)
+		return -ENOMEM;
+
+	drm_mode_set_name(mode1);
+	mode1->type = DRM_MODE_TYPE_DRIVER;
+	drm_mode_probed_add(connector, mode1);
 
 	mode2 = drm_mode_duplicate(connector->dev, &mode_60);
 	if (!mode2) {
