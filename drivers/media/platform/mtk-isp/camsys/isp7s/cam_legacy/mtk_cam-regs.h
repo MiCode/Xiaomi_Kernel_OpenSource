@@ -76,8 +76,6 @@
 							CQ_MAIN_TRIG_DLY_ST |\
 							CQ_SUB_CODE_ERR_ST |\
 							CQ_SUB_VS_ERR_ST	 |\
-							CQ_MAX_START_DLY_ERR_INT_ST |\
-							CQ_MAX_START_DLY_SMALL_INT_ST |\
 							DMA_ERR_ST)
 
 /* IRQ Debug Mask */
@@ -86,9 +84,7 @@
 							CQ_MAIN_VS_ERR_ST	 |\
 							CQ_MAIN_TRIG_DLY_ST |\
 							CQ_SUB_CODE_ERR_ST |\
-							CQ_SUB_VS_ERR_ST |\
-							CQ_MAX_START_DLY_ERR_INT_ST |\
-							CQ_MAX_START_DLY_SMALL_INT_ST)
+							CQ_SUB_VS_ERR_ST)
 
 /* camsys */
 #define REG_CG_CON				0x0000

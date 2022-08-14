@@ -2237,8 +2237,7 @@ void stream_on(struct mtk_raw_device *dev, int on)
 			dev_info(dev->dev, "VF on - REG_TG_TIME_STAMP_CNT val:%d fps(30x):%d\n",
 			val, fps_ratio);
 			if (mtk_cam_scen_is_sensor_stagger(scen_active))
-				writel_relaxed(SCQ_DEADLINE_MS * 3 * 1000 * SCQ_DEFAULT_CLK_RATE /
-				(val * 2) / fps_ratio, dev->base + REG_SCQ_START_PERIOD);
+				writel_relaxed(0xffffffff, dev->base + REG_SCQ_START_PERIOD);
 			else
 				writel_relaxed(SCQ_DEADLINE_MS * 1000 * SCQ_DEFAULT_CLK_RATE /
 				(val * 2) / fps_ratio, dev->base + REG_SCQ_START_PERIOD);
