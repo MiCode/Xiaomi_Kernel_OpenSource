@@ -10270,7 +10270,7 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		*addr = MT6985_OVL_BLEND_CROSSBAR3_MOUT_EN;
 		value = DISP_OVL2_2L_TO_DLO_RELAY6;
 	} else if ((cur == DDP_COMPONENT_OVL7_2L &&
-		next == DDP_COMPONENT_OVLSYS_WDMA2)) {
+		next == DDP_COMPONENT_OVL7_2L_VIRTUAL0)) {
 		/* CRTC2 - CON2*/
 		*addr = MT6985_OVL_BLEND_CROSSBAR3_MOUT_EN;
 		value = DISP_OVL3_2L_TO_WDMA0;
@@ -16633,6 +16633,9 @@ void ovlsys_config_dump_reg_mt6985(void __iomem *config_regs)
 	for (off = 0x200; off <= 0x230; off += 0x10)
 		mtk_serial_dump_reg(config_regs, off, 4);
 
+	for (off = 0x300; off <= 0x308; off += 0x10)
+		mtk_serial_dump_reg(config_regs, off, 3);
+
 	for (off = 0x500; off <= 0x550; off += 0x10)
 		mtk_serial_dump_reg(config_regs, off, 4);
 
@@ -16666,6 +16669,9 @@ void mmsys_config_dump_reg_mt6985(void __iomem *config_regs)
 
 	for (off = 0x200; off <= 0x230; off += 0x10)
 		mtk_serial_dump_reg(config_regs, off, 4);
+
+	for (off = 0x300; off <= 0x308; off += 0x10)
+		mtk_serial_dump_reg(config_regs, off, 3);
 
 	for (off = 0x500; off <= 0x550; off += 0x10)
 		mtk_serial_dump_reg(config_regs, off, 4);

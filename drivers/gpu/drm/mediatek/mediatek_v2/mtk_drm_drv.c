@@ -2080,6 +2080,7 @@ static const enum mtk_ddp_comp_id mt6985_mtk_ddp_mem_dp_w_tdshp[] = {
 
 static const enum mtk_ddp_comp_id mt6985_mtk_ddp_mem_dp_wo_tdshp[] = {
 	DDP_COMPONENT_OVL7_2L,
+	DDP_COMPONENT_OVL7_2L_VIRTUAL0,
 	DDP_COMPONENT_OVLSYS_WDMA2,
 };
 
@@ -5447,15 +5448,17 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 			goto err_component_unbind;
 
 		if (of_property_read_u32(private->mmsys_dev->of_node,
-			"condition_num", &condition_num)) {
-			DDPMSG("CRTC2 condition_num is %d\n", condition_num);
+			"condition-num", &condition_num)) {
+			DDPINFO("CRTC2 condition_num is 0, NO condition_num in dts\n");
+			ret = mtk_drm_crtc_create(drm, private->data->third_path_data);
+		} else {
+			DDPDBG("CRTC2 condition_num is %d\n", condition_num);
 			if (condition_num == 2)
 				ret = mtk_drm_crtc_create(drm,
 					private->data->third_path_data_wo_tdshp);
 			else
 				ret = mtk_drm_crtc_create(drm, private->data->third_path_data);
-		} else
-			ret = mtk_drm_crtc_create(drm, private->data->third_path_data);
+		}
 		if (ret < 0)
 			goto err_component_unbind;
 		/*TODO: Need to check path rule*/
