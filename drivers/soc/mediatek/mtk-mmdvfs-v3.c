@@ -600,10 +600,12 @@ static int mmdvfs_set_vcp_init(void)
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&mmdvfs_vcp_ipi_data;
 	MMDVFS_DBG("ret:%d slot:%#x ack:%hhu", ret, slot, slot.ack);
 
-	if (clk_en_cnt == clk_en_cnt_expected)
-		return 0;
-
 	mutex_lock(&mmdvfs_clkmux_mutex);
+	if (clk_en_cnt == clk_en_cnt_expected) {
+		mutex_unlock(&mmdvfs_clkmux_mutex);
+		return 0;
+	}
+
 	for (i = 0; i < 32; i++) {
 		if ((clk_en_cnt & (1 << i)) == (clk_en_cnt_expected & (1 << i)))
 			continue;
@@ -1076,14 +1078,16 @@ static int mtk_mmdvfs_clk_ctrl(const u8 clk_idx, const bool enable)
 		return ret;
 	}
 
-	/* do not send IPI if clk never enable before */
-	if (!enable && (clk_en_cnt & (1 << clk_idx)) != (1 << clk_idx))
-		return 0;
-
 	if (is_vcp_suspending_ex())
 		return 0;
 
 	mutex_lock(&mmdvfs_clkmux_mutex);
+	/* do not send IPI if clk never enable before */
+	if (!enable && (clk_en_cnt & (1 << clk_idx)) != (1 << clk_idx)) {
+		mutex_unlock(&mmdvfs_clkmux_mutex);
+		return 0;
+	}
+
 	if (enable)
 		clk_en_cnt_expected |= 1 << clk_idx;
 	else
