@@ -3021,7 +3021,7 @@ static void mtk_ovl_connect(struct mtk_ddp_comp *comp,
 				       DISP_OVL_BGCLR_IN_SEL);
 	else
 		mtk_ddp_cpu_mask_write(comp, DISP_REG_OVL_DATAPATH_CON,
-				       DISP_OVL_BGCLR_IN_SEL, 0);
+				       0, DISP_OVL_BGCLR_IN_SEL);
 }
 
 void mtk_ovl_cal_golden_setting(struct mtk_ddp_config *cfg,
