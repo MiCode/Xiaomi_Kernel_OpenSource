@@ -143,13 +143,13 @@
 #define HALT1_EN		0x3
 #define HALT2_EN		0x3
 /* raw_a/yuv_a */
-#define HALT5_EN		0xF90
+#define HALT5_EN		0xF92
 #define HALT6_EN		0x6F
 /* raw_b/yuv_b */
-#define HALT7_EN		0xF90
+#define HALT7_EN		0xF92
 #define HALT8_EN		0x6F
 /* raw_c/yuv_c */
-#define HALT9_EN		0xF90
+#define HALT9_EN		0xF92
 #define HALT10_EN		0x6F
 /* camsv_c/d/e/f */
 #define HALT13_EN		0xFF
