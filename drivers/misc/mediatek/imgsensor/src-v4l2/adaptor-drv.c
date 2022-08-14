@@ -1267,11 +1267,19 @@ static ssize_t debug_sensor_mode_ops_store(struct device *dev,
 	case AOV_MODE_CTRL_OPS_MONTION_DETECTION_CTRL:
 		ctx->subctx.sensor_mode_ops = val;
 		break;
-	case AOV_MODE_CTRL_OPS_DEBUG_LOG_ENABLE_CTRL:
-		ctx->subctx.sensor_debug_log_enable = true;
+	case AOV_MODE_CTRL_OPS_SENSING_UT_ON_SCP:
+		// true for default aov sensing mode streaming control on scp
+		ctx->subctx.sensor_debug_sensing_ut_on_scp = true;
 		break;
-	case AOV_MODE_CTRL_OPS_DEBUG_LOG_DISABLE_CTRL:
-		ctx->subctx.sensor_debug_log_enable = false;
+	case AOV_MODE_CTRL_OPS_SENSING_UT_ON_APMCU:
+		// flase for default aov sensing mode streaming control on apmcu side
+		ctx->subctx.sensor_debug_sensing_ut_on_scp = false;
+		break;
+	case AOV_MODE_CTRL_OPS_DPHY_GLOBAL_TIMING_CONTINUOUS_CLK:
+		ctx->subctx.sensor_debug_dphy_global_timing_continuous_clk = true;
+		break;
+	case AOV_MODE_CTRL_OPS_DPHY_GLOBAL_TIMING_NON_CONTINUOUS_CLK:
+		ctx->subctx.sensor_debug_dphy_global_timing_continuous_clk = false;
 		break;
 	default:
 		dev_info(dev, "Wrong command parameter number (%u)\n", val);

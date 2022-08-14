@@ -10,12 +10,16 @@
 #include "imgsensor-user.h"
 #include "adaptor-def.h"
 
-#define DEBUG_LOG(ctx, ...) do {\
-	imgsensor_info.sd = i2c_get_clientdata(ctx->i2c_client); \
-	imgsensor_info.adaptor_ctx_ = to_ctx(imgsensor_info.sd);\
-	if (unlikely(*((imgsensor_info.adaptor_ctx_)->sensor_debug_flag)))\
-		LOG_INF(__VA_ARGS__);\
-	} while (0)
+#define DEBUG_LOG(ctx, ...) do { \
+	if (ctx->i2c_client) \
+		imgsensor_info.sd = i2c_get_clientdata(ctx->i2c_client); \
+	if (imgsensor_info.sd) \
+		imgsensor_info.adaptor_ctx_ = to_ctx(imgsensor_info.sd); \
+	if ((imgsensor_info.adaptor_ctx_) \
+		&& unlikely(*((imgsensor_info.adaptor_ctx_)->sensor_debug_flag))) { \
+		LOG_INF(__VA_ARGS__); \
+	} \
+} while (0)
 
 /* def V4L2_MBUS_CSI2_IS_USER_DEFINED_DATA */
 #define IMGSENSOR_VC_ROUTING
@@ -77,8 +81,10 @@ enum {
 enum AOV_MODE_CTRL_OPS {
 	AOV_MODE_CTRL_OPS_SENSING_CTRL = 0,
 	AOV_MODE_CTRL_OPS_MONTION_DETECTION_CTRL,
-	AOV_MODE_CTRL_OPS_DEBUG_LOG_ENABLE_CTRL,
-	AOV_MODE_CTRL_OPS_DEBUG_LOG_DISABLE_CTRL,
+	AOV_MODE_CTRL_OPS_SENSING_UT_ON_SCP,
+	AOV_MODE_CTRL_OPS_SENSING_UT_ON_APMCU,
+	AOV_MODE_CTRL_OPS_DPHY_GLOBAL_TIMING_CONTINUOUS_CLK,
+	AOV_MODE_CTRL_OPS_DPHY_GLOBAL_TIMING_NON_CONTINUOUS_CLK,
 	AOV_MODE_CTRL_OPS_MAX_NUM,
 };
 
@@ -333,7 +339,8 @@ struct subdrv_ctx {
 	struct subdrv_static_ctx s_ctx;
 	u32 aov_csi_clk;	/* aov switch csi clk param */
 	unsigned int sensor_mode_ops;
-	bool sensor_debug_log_enable;
+	bool sensor_debug_sensing_ut_on_scp;
+	bool sensor_debug_dphy_global_timing_continuous_clk;
 };
 
 struct subdrv_feature_control {

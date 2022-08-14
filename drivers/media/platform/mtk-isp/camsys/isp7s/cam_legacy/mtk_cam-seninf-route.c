@@ -1896,7 +1896,7 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 		g_aov_param.vc.mux = 5;
 		g_aov_param.vc.mux_vr = 33;
 		g_aov_param.vc.cam = 33;
-		g_aov_param.vc.pixel_mode = 0;
+		g_aov_param.vc.pixel_mode = 3;
 		g_aov_param.camtg = 33;
 	}
 

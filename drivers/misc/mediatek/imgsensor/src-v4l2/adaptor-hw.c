@@ -143,6 +143,15 @@ static int set_reg(struct adaptor_ctx *ctx, void *data, int val)
 	struct regulator *reg;
 
 	idx = (unsigned long long)data;
+
+	// re-get reg everytime due to pmic limitation
+	ctx->regulator[idx] = devm_regulator_get_optional(ctx->dev, reg_names[idx]);
+	if (IS_ERR(ctx->regulator[idx])) {
+		ctx->regulator[idx] = NULL;
+		dev_dbg(ctx->dev, "no reg %s\n", reg_names[idx]);
+		return -EINVAL;
+	}
+
 	reg = ctx->regulator[idx];
 #if IMGSENSOR_LOG_MORE
 	dev_info(ctx->dev, "[%s]+ idx(%llu),val(%d)\n", __func__, idx, val);
@@ -191,6 +200,8 @@ static int unset_reg(struct adaptor_ctx *ctx, void *data, int val)
 			reg_names[idx], ret);
 		return ret;
 	}
+	// always put reg due to pmic limitation
+	devm_regulator_put(ctx->regulator[idx]);
 #if IMGSENSOR_LOG_MORE
 	dev_info(ctx->dev,
 		"[%s]- disable(%s),ret(%llu)(correct)\n",

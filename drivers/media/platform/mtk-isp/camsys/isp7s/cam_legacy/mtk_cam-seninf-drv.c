@@ -647,7 +647,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 
 	core->seninf_vsync_debug_flag = &seninf_vsync_debug;
 
-	core->aov_csi_clk_switch_flag = CSI_CLK_242;
+	core->aov_csi_clk_switch_flag = CSI_CLK_130;
 	core->aov_abnormal_deinit_flag = 0;
 	core->aov_abnormal_deinit_usr_fd_kill_flag = 0;
 	core->aov_abnormal_init_flag = 0;
