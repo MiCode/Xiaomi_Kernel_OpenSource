@@ -73,6 +73,8 @@ static struct task_struct **thread_array;
 
 static bool Hang_first_done;
 static bool hd_detect_enabled;
+static bool hd_hang_trace;
+static bool hd_hang_poll;
 static bool hd_zygote_stopped;
 static int hd_timeout = 0x7fffffff;
 static int hang_detect_counter = 0x7fffffff;
@@ -90,6 +92,8 @@ struct list_hang_callback {
 	struct rw_semaphore rwsem;
 };
 static struct list_hang_callback hc_list;
+
+wait_queue_head_t hang_wait;
 
 DECLARE_WAIT_QUEUE_HEAD(dump_bt_start_wait);
 DECLARE_WAIT_QUEUE_HEAD(dump_bt_done_wait);
@@ -551,7 +555,15 @@ static int monitor_hang_release(struct inode *inode, struct file *filp)
 static unsigned int monitor_hang_poll(struct file *file,
 		struct poll_table_struct *ptable)
 {
-	return 0;
+	unsigned int mask = 0;
+
+	hd_hang_poll = true;
+	poll_wait(file, &hang_wait, ptable);
+	if ((hd_detect_enabled == 1) && (hd_hang_trace == true)) {
+		mask |= POLLIN;
+		hd_hang_trace = false;
+	}
+	return mask;
 }
 
 static ssize_t monitor_hang_read(struct file *filp, char __user *buf,
@@ -1487,7 +1499,6 @@ static void show_task_backtrace(void)
 {
 	struct task_struct *p, *system_server_task = NULL;
 	struct task_struct *monkey_task = NULL;
-	struct task_struct *aee_aed_task = NULL;
 	struct task_info task_info_arr[MAX_NR_SPECIAL_PROCESS];
 	int i = 0, task_array_idx = 0;
 	int size_special_process = ARRAY_SIZE(special_process);
@@ -1519,8 +1530,6 @@ static void show_task_backtrace(void)
 				system_server_task = p;
 			if (strstr(p->comm, "monkey"))
 				monkey_task = p;
-			if (!strcmp(p->comm, "aee_aed"))
-				aee_aed_task = p;
 		}
 		/* specify process, need dump maps file and native backtrace */
 		if (!first_dump_blocked && (task_array_idx < MAX_NR_SPECIAL_PROCESS)) {
@@ -1568,8 +1577,6 @@ static void show_task_backtrace(void)
 	}
 	log_hang_info("dump backtrace end: %llu\n", local_clock());
 	if (Hang_first_done == false) {
-		if (aee_aed_task)
-			send_sig(SIGUSR1, aee_aed_task, 1);
 		if (system_server_task)
 			send_sig(SIGQUIT, system_server_task, 1);
 		if (monkey_task)
@@ -1712,6 +1719,10 @@ static int hang_detect_thread(void *arg)
 		if (hd_detect_enabled && check_white_list())
 #endif
 		{
+			if (hd_hang_poll && (hang_detect_counter == 2)) {
+				hd_hang_trace = true;
+				wake_up(&hang_wait);
+			}
 
 			if (hang_detect_counter <= 0) {
 #ifdef CONFIG_MTK_HANG_DETECT_DB
@@ -1834,6 +1845,7 @@ static int __init monitor_hang_init(void)
 	if (thread_array == NULL)
 		return 1;
 
+	init_waitqueue_head(&hang_wait);
 	err = misc_register(&Hang_Monitor_dev);
 	if (unlikely(err)) {
 		pr_notice("failed to register Hang_Monitor_dev device!\n");
