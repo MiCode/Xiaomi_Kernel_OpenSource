@@ -2648,6 +2648,28 @@ static void process_dbg_opt(const char *opt)
 		mtk_crtc->fake_layer.fake_layer_mask = mask;
 
 		DDPINFO("fake_layer:0x%x enable\n", mask);
+	}	else if (!strncmp(opt, "DSI_TIMCON:", 11)) {
+		unsigned int mask;
+		unsigned int offset;
+		struct drm_crtc *crtc;
+		int ret = 0;
+
+		ret = sscanf(opt, "DSI_TIMCON:0x%x,0x%x\n", &offset, &mask);
+		if (ret != 2) {
+			DDPPR_ERR("%d error to parse cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+				typeof(*crtc), head);
+		if (!crtc) {
+			DDPPR_ERR("find crtc fail\n");
+			return;
+		}
+		debug_dsi(crtc, offset, mask);
+
+		DDPINFO("offset:0x%x,mask:0x%x\n", offset, mask);
 	} else if (!strncmp(opt, "mipi_ccci:", 10)) {
 		unsigned int en, ret;
 

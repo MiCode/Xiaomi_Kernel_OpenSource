@@ -9807,4 +9807,16 @@ done:
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 	return ret;
 }
+void debug_dsi(struct drm_crtc *crtc, unsigned int offset, unsigned int mask)
+{
+	struct mtk_dsi *dsi = NULL;
+
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		return;
+	}
+	dsi = pm_get_mtk_dsi(crtc);
+
+	writel(mask, dsi->regs + offset);
+}
 /* ******************* end PanelMaster ***************** */

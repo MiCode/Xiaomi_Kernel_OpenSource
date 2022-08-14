@@ -1087,8 +1087,8 @@ static int lcm_enable(struct drm_panel *panel)
 #define VACT_FHD (2412)
 #define PLL_CLOCK_FHD_120 (488)
 #define PLL_CLOCK_FHD_90 (380)
-#define PLL_CLOCK_FHD_72 (310)
-#define PLL_CLOCK_FHD_60 (260)
+#define PLL_CLOCK_FHD_72 (380)
+#define PLL_CLOCK_FHD_60 (380)
 
 static struct drm_display_mode fhd_120_mode = {
 	.clock		= 336168, //120Hz
