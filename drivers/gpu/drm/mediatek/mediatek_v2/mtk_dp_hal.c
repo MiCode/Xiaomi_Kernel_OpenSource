@@ -1797,6 +1797,17 @@ void mhal_DPTx_ISR(struct mtk_dp *mtk_dp)
 
 void mhal_DPTx_EnableFEC(struct mtk_dp *mtk_dp, bool bENABLE)
 {
+	enum mtk_mmsys_id id = MMSYS_MT6985;
+
+	if (mtk_dp->priv && mtk_dp->priv->data)
+		id = mtk_dp->priv->data->mmsys_id;
+
+	if (id == MMSYS_MT6985) {
+		DPTXFUNC("force disable Fec\n");
+		msWriteByteMask(mtk_dp, REG_3540_DP_TRANS_P0, 0, BIT(0));
+		return;
+	}
+
 	DPTXFUNC("Fec enable=%d\n", bENABLE);
 	if (bENABLE)
 		msWriteByteMask(mtk_dp, REG_3540_DP_TRANS_P0, BIT(0), BIT(0));
