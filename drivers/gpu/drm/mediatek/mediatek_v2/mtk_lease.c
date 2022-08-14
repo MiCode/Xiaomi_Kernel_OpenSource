@@ -69,12 +69,12 @@ int mtk_drm_get_lease_info_ioctl(struct drm_device *dev, void *data,
 
 	/* get lease fd */
 	fd = get_unused_fd_flags(O_CLOEXEC);
-	fd_install(fd, lease_file);
 	if (fd <= 0) {
 		DDPPR_ERR("%s can't get lease fd %d\n", __func__, fd);
 		mutex_unlock(&lease_mutex);
 		return -EBADF;
 	}
+	fd_install(fd, lease_file);
 	get_file(lease_file);
 	*ret_fd = fd;
 

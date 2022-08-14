@@ -1005,6 +1005,12 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 
 	mode_id = get_mode_enum(get_mode_by_id(connector, mode));
 	DDPMSG("%s mode_id=%d\n", __func__, mode_id);
+
+	if (mode_id < 0) {
+		pr_info("%s, mode_id is less than 0\n", __func__);
+		return -1;
+	}
+
 	ext->params = &ext_params[mode_id];
 
 	return 0;

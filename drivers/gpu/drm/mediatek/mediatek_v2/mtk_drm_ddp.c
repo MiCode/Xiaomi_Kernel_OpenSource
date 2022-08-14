@@ -10491,11 +10491,6 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		/* COMP_OUT_CROSSBAR */
 		*addr = MT6985_COMP_OUT_CROSSBAR6_MOUT_EN;
 		value = DISP_DLI_RELAY5_TO_MERGE0_1;
-	} else if ((cur == DDP_COMPONENT_COMP0_OUT_CB6 &&
-		next == DDP_COMPONENT_MERGE0)) {
-		/* COMP_OUT_CROSSBAR */
-		*addr = MT6985_COMP_OUT_CROSSBAR6_MOUT_EN;
-		value = DISP_DLI_RELAY5_TO_MERGE0_1;
 	} else if ((cur == DDP_COMPONENT_COMP1_OUT_CB0 &&
 		next == DDP_COMPONENT_MERGE1_OUT_CB0)) {
 		/* COMP_OUT_CROSSBAR */

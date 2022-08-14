@@ -536,7 +536,7 @@ mtk_gem_prime_import_sg_table(struct drm_device *dev,
 			      struct dma_buf_attachment *attach,
 			      struct sg_table *sg)
 {
-	struct mtk_drm_gem_obj *mtk_gem;
+	struct mtk_drm_gem_obj *mtk_gem = NULL;
 #ifdef IF_ZERO
 	int ret;
 	struct scatterlist *s;

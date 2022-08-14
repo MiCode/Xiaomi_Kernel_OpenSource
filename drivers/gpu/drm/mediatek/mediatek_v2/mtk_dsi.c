@@ -943,7 +943,7 @@ static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 			break;
 		}
 
-		if (spr_params->enable == 1 && spr_params->relay == 0
+		if (spr_params && spr_params->enable == 1 && spr_params->relay == 0
 			&& disp_spr_bypass == 0) {
 			switch (dsi->ext->params->spr_output_mode) {
 			case MTK_PANEL_PACKED_SPR_8_BITS:
@@ -2529,14 +2529,15 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
 	unsigned int mode_id = mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX];
 	unsigned int mode_chg_index = 0;
-	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_drm_private *priv = (crtc && crtc->dev)
+		? crtc->dev->dev_private : NULL;
 	unsigned int crtc_idx;
 
 	DDPINFO("%s +\n", __func__);
 
 	if (crtc && mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SPHRT)) {
 		crtc_idx = drm_crtc_index(crtc);
-		if (priv->usage[crtc_idx] == DISP_OPENING) {
+		if (priv && priv->usage[crtc_idx] == DISP_OPENING) {
 			DDPINFO("%s %d skip due to still opening\n", __func__, crtc_idx);
 			return;
 		}
@@ -2577,7 +2578,7 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 		mode_chg_index = mtk_crtc->mode_change_index;
 
 		/* add for ESD recovery */
-		if (!mtk_drm_helper_get_opt(priv->helper_opt,
+		if (priv && !mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_RES_SWITCH)
 			&& (mode_id != 0)
 			&& (mtk_dsi_is_cmd_mode(&dsi->ddp_comp) ||
@@ -7065,12 +7066,12 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
 		//vdo mode
-		bw_base = vact * hact * vrefresh * 4 / 1000;
-		bw_base = bw_base * vtotal / vact;
-		bw_base = bw_base / 1000;
+		bw_base = (unsigned long long) vact * hact * vrefresh * 4 / 1000;
+		bw_base =  bw_base * vtotal / vact;
+		bw_base =  bw_base / 1000;
 	} else {
 		//cmd mode
-		bw_base = data_rate * dsi->lanes * compress_rate * 4;
+		bw_base = (unsigned long long) data_rate * dsi->lanes * compress_rate * 4;
 		bw_base = bw_base / bpp / 100;
 
 		if (dsi->driver_data->dsi_buffer) {
@@ -7138,7 +7139,8 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
 		//vdo mode
-		bw_base = mode->vdisplay * mode->hdisplay * vrefresh * 4 / 1000;
+		bw_base = (unsigned long long) mode->vdisplay
+		* mode->hdisplay * vrefresh * 4 / 1000;
 		bw_base = bw_base * mode->vtotal / mode->vdisplay;
 		bw_base = bw_base / 1000;
 	} else {
@@ -7763,6 +7765,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		/*leave idle need keep msync status*/
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
 					   MTK_DRM_OPT_MSYNC2_0)
+			&& panel_ext && panel_ext->params
 			&& panel_ext->params->msync2_enable) {
 			if (state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] != 0) {
 				DDPDBG("[Msync]%s,%d\n", __func__, __LINE__);

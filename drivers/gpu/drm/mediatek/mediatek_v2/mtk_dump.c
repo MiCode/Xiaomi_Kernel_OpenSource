@@ -233,6 +233,7 @@ int mtk_dump_analysis(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_MERGE0:
 	case DDP_COMPONENT_MERGE1:
 		mtk_merge_analysis(comp);
+		break;
 	case DDP_COMPONENT_CHIST0:
 	case DDP_COMPONENT_CHIST1:
 		mtk_chist_analysis(comp);
@@ -240,6 +241,7 @@ int mtk_dump_analysis(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_ODDMR0:
 	case DDP_COMPONENT_ODDMR1:
 		mtk_oddmr_analysis(comp);
+		break;
 	default:
 		return 0;
 	}
@@ -251,7 +253,8 @@ int mtk_dump_analysis(struct mtk_ddp_comp *comp)
 void mtk_serial_dump_reg(void __iomem *base, unsigned int offset,
 			 unsigned int num)
 {
-	unsigned int i = 0, s = 0, l = 0;
+	unsigned int i = 0;
+	int s = 0, l = 0;
 	char buf[SERIAL_REG_MAX];
 
 	if (num > 4)
@@ -262,6 +265,7 @@ void mtk_serial_dump_reg(void __iomem *base, unsigned int offset,
 		/* Handle snprintf() error*/
 		return;
 	}
+
 	for (i = 0; i < num; i++) {
 		s = snprintf(buf + l, SERIAL_REG_MAX, "0x%08x ",
 			     readl(base + offset + i * 0x4));
@@ -279,7 +283,8 @@ void mtk_serial_dump_reg(void __iomem *base, unsigned int offset,
 void mtk_cust_dump_reg(void __iomem *base, int off1, int off2, int off3,
 		       int off4)
 {
-	unsigned int i = 0, s = 0, l = 0;
+	unsigned int i = 0;
+	int s = 0, l = 0;
 	int off[] = {off1, off2, off3, off4};
 	char buf[CUST_REG_MAX];
 
@@ -292,6 +297,7 @@ void mtk_cust_dump_reg(void __iomem *base, int off1, int off2, int off3,
 			/* Handle snprintf() error */
 			return;
 		}
+
 		l += s;
 	}
 
