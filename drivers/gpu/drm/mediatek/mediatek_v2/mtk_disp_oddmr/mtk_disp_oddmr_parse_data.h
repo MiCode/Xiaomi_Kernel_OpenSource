@@ -95,7 +95,7 @@ struct mtk_oddmr_od_basic_info {
 };
 struct mtk_oddmr_od_param {
 	struct mtk_oddmr_od_basic_info od_basic_info;
-	struct mtk_oddmr_od_table *od_tables;
+	struct mtk_oddmr_od_table *od_tables[OD_TABLE_MAX];
 	uint32_t valid_table;
 	int valid_table_cnt;
 };
@@ -156,7 +156,7 @@ struct mtk_oddmr_dmr_basic_info {
 
 struct mtk_oddmr_dmr_param {
 	struct mtk_oddmr_dmr_basic_info dmr_basic_info;
-	struct mtk_oddmr_dmr_table *dmr_tables;
+	struct mtk_oddmr_dmr_table *dmr_tables[DMR_TABLE_MAX];
 	uint32_t valid_table;
 	int valid_table_cnt;
 };

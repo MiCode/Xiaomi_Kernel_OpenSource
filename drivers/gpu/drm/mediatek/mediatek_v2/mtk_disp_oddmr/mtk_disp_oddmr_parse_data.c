@@ -114,7 +114,7 @@ static uint32_t mtk_oddmr_parse_dmr_table_basic_info(int table_idx, uint8_t *dat
 	uint32_t size;
 
 	size = sizeof(struct mtk_oddmr_dmr_table_basic_info);
-	tmp = &g_dmr_param.dmr_tables[table_idx].table_basic_info;
+	tmp = &g_dmr_param.dmr_tables[table_idx]->table_basic_info;
 	memcpy(tmp, data, size);
 	return size;
 }
@@ -124,7 +124,7 @@ static uint32_t mtk_oddmr_parse_od_table_basic_info(int table_idx, uint8_t *data
 	uint32_t size;
 
 	size = sizeof(struct mtk_oddmr_od_table_basic_info);
-	tmp = &g_od_param.od_tables[table_idx].table_basic_info;
+	tmp = &g_od_param.od_tables[table_idx]->table_basic_info;
 	memcpy(tmp, data, size);
 	return size;
 }
@@ -137,8 +137,8 @@ static uint32_t mtk_oddmr_parse_od_table_gain(int table_idx, uint8_t *data, uint
 {
 	void *buffer_alloc;
 
-	if (g_od_param.od_tables != NULL &&
-		g_od_param.od_tables[table_idx].gain_table_raw == NULL) {
+	if (g_od_param.od_tables[table_idx] != NULL &&
+		g_od_param.od_tables[table_idx]->gain_table_raw == NULL) {
 #ifndef APP_DEBUG
 		buffer_alloc = kzalloc(len, GFP_KERNEL);
 #else
@@ -148,8 +148,8 @@ static uint32_t mtk_oddmr_parse_od_table_gain(int table_idx, uint8_t *data, uint
 			DDPINFO("%s:%d, param buffer alloc fail\n", __func__, __LINE__);
 			return 0;
 		}
-		g_od_param.od_tables[table_idx].gain_table_raw = buffer_alloc;
-		memcpy(g_od_param.od_tables[table_idx].gain_table_raw, data, len);
+		g_od_param.od_tables[table_idx]->gain_table_raw = buffer_alloc;
+		memcpy(g_od_param.od_tables[table_idx]->gain_table_raw, data, len);
 	} else {
 		len = 0;
 	}
@@ -164,9 +164,9 @@ static uint32_t mtk_oddmr_parse_od_table_bl_gain(int table_idx, uint8_t *data, u
 {
 	void *tmp;
 
-	g_od_param.od_tables[table_idx].bl_cnt = *(uint32_t *)data;
+	g_od_param.od_tables[table_idx]->bl_cnt = *(uint32_t *)data;
 	data += 4;
-	tmp = g_od_param.od_tables[table_idx].bl_table;
+	tmp = g_od_param.od_tables[table_idx]->bl_table;
 	if (len > 4)
 		memcpy(tmp, data, len - 4);
 	return len;
@@ -180,9 +180,9 @@ static uint32_t mtk_oddmr_parse_od_table_fps_gain(int table_idx, uint8_t *data, 
 {
 	void *tmp;
 
-	g_od_param.od_tables[table_idx].fps_cnt = *(uint32_t *)data;
+	g_od_param.od_tables[table_idx]->fps_cnt = *(uint32_t *)data;
 	data += 4;
-	tmp = g_od_param.od_tables[table_idx].fps_table;
+	tmp = g_od_param.od_tables[table_idx]->fps_table;
 	if (len > 4)
 		memcpy(tmp, data, len - 4);
 	return len;
@@ -193,9 +193,9 @@ static uint32_t mtk_oddmr_parse_dmr_table_fps_gain(int table_idx, uint8_t *data,
 {
 	void *tmp;
 
-	g_dmr_param.dmr_tables[table_idx].fps_cnt = *(uint32_t *)data;
+	g_dmr_param.dmr_tables[table_idx]->fps_cnt = *(uint32_t *)data;
 	data += 4;
-	tmp = g_dmr_param.dmr_tables[table_idx].fps_table;
+	tmp = g_dmr_param.dmr_tables[table_idx]->fps_table;
 	if (len > 4)
 		memcpy(tmp, data, len - 4);
 	return len;
@@ -205,9 +205,9 @@ static uint32_t mtk_oddmr_parse_dmr_table_bl_gain(int table_idx, uint8_t *data, 
 {
 	void *tmp;
 
-	g_dmr_param.dmr_tables[table_idx].bl_cnt = *(uint32_t *)data;
+	g_dmr_param.dmr_tables[table_idx]->bl_cnt = *(uint32_t *)data;
 	data += 4;
-	tmp = g_dmr_param.dmr_tables[table_idx].bl_table;
+	tmp = g_dmr_param.dmr_tables[table_idx]->bl_table;
 
 	if (len > 4)
 		memcpy(tmp, data, len - 4);
@@ -366,7 +366,7 @@ static int _mtk_oddmr_load_param(struct mtk_drm_oddmr_param *param)
 					data_type_id == ODDMR_DMR_TABLE) {
 				/* p is now pointing to sub data_body */
 				tmp_size = mtk_oddmr_parse_table_pq(table_idx, p, tmp_size,
-						&g_dmr_param.dmr_tables[table_idx].pq_common);
+						&g_dmr_param.dmr_tables[table_idx]->pq_common);
 				if (tmp_size == 0) {
 					ret = -EFAULT;
 					goto fail;
@@ -375,7 +375,7 @@ static int _mtk_oddmr_load_param(struct mtk_drm_oddmr_param *param)
 					data_type_id == ODDMR_DMR_TABLE) {
 				/* p is now pointing to sub data_body */
 				tmp_size = mtk_oddmr_parse_table_pq(table_idx, p, tmp_size,
-						&g_dmr_param.dmr_tables[table_idx].pq_single_pipe);
+						&g_dmr_param.dmr_tables[table_idx]->pq_single_pipe);
 				if (tmp_size == 0) {
 					ret = -EFAULT;
 					goto fail;
@@ -384,7 +384,7 @@ static int _mtk_oddmr_load_param(struct mtk_drm_oddmr_param *param)
 					data_type_id == ODDMR_DMR_TABLE) {
 				/* p is now pointing to sub data_body */
 				tmp_size = mtk_oddmr_parse_raw_table(table_idx, p, tmp_size,
-					&g_dmr_param.dmr_tables[table_idx].raw_table_single);
+					&g_dmr_param.dmr_tables[table_idx]->raw_table_single);
 				if (tmp_size == 0) {
 					DDPINFO("%s:%d, table%d 0x%x size error,size %d\n",
 							__func__, __LINE__,
@@ -396,7 +396,7 @@ static int _mtk_oddmr_load_param(struct mtk_drm_oddmr_param *param)
 					data_type_id == ODDMR_DMR_TABLE) {
 				/* p is now pointing to sub data_body */
 				tmp_size = mtk_oddmr_parse_table_pq(table_idx, p, tmp_size,
-						&g_dmr_param.dmr_tables[table_idx].pq_left_pipe);
+						&g_dmr_param.dmr_tables[table_idx]->pq_left_pipe);
 				if (tmp_size == 0) {
 					ret = -EFAULT;
 					goto fail;
@@ -405,7 +405,7 @@ static int _mtk_oddmr_load_param(struct mtk_drm_oddmr_param *param)
 					data_type_id == ODDMR_DMR_TABLE) {
 				/* p is now pointing to sub data_body */
 				tmp_size = mtk_oddmr_parse_raw_table(table_idx, p, tmp_size,
-						&g_dmr_param.dmr_tables[table_idx].raw_table_left);
+						&g_dmr_param.dmr_tables[table_idx]->raw_table_left);
 				if (tmp_size == 0) {
 					DDPINFO("%s:%d, table%d 0x%x size error,size %d\n",
 							__func__, __LINE__,
@@ -417,7 +417,7 @@ static int _mtk_oddmr_load_param(struct mtk_drm_oddmr_param *param)
 					data_type_id == ODDMR_DMR_TABLE) {
 				/* p is now pointing to sub data_body */
 				tmp_size = mtk_oddmr_parse_table_pq(table_idx, p, tmp_size,
-						&g_dmr_param.dmr_tables[table_idx].pq_right_pipe);
+						&g_dmr_param.dmr_tables[table_idx]->pq_right_pipe);
 				if (tmp_size == 0) {
 					ret = -EFAULT;
 					goto fail;
@@ -426,7 +426,7 @@ static int _mtk_oddmr_load_param(struct mtk_drm_oddmr_param *param)
 					data_type_id == ODDMR_DMR_TABLE) {
 				/* p is now pointing to sub data_body */
 				tmp_size = mtk_oddmr_parse_raw_table(table_idx, p, tmp_size,
-						&g_dmr_param.dmr_tables[table_idx].raw_table_right);
+					&g_dmr_param.dmr_tables[table_idx]->raw_table_right);
 				if (tmp_size == 0) {
 					DDPINFO("%s:%d, table%d 0x%x size error,size %d\n",
 							__func__, __LINE__,
@@ -468,7 +468,7 @@ static int _mtk_oddmr_load_param(struct mtk_drm_oddmr_param *param)
 					data_type_id == ODDMR_OD_TABLE) {
 				/* p is now pointing to sub data_body */
 				tmp_size = mtk_oddmr_parse_table_pq(table_idx, p, tmp_size,
-						&g_od_param.od_tables[table_idx].pq_od);
+						&g_od_param.od_tables[table_idx]->pq_od);
 				if (tmp_size == 0) {
 					ret = -EFAULT;
 					goto fail;
@@ -514,7 +514,7 @@ static int _mtk_oddmr_load_param(struct mtk_drm_oddmr_param *param)
 			} else if (sub_head_id == OD_TABLE_DATA && data_type_id == ODDMR_OD_TABLE) {
 				/* p is now pointing to sub data_body */
 				tmp_size = mtk_oddmr_parse_raw_table(table_idx, p, tmp_size,
-						&g_od_param.od_tables[table_idx].raw_table);
+						&g_od_param.od_tables[table_idx]->raw_table);
 				if (tmp_size == 0) {
 					DDPINFO("%s:%d, table%d 0x%x size error,size %d\n",
 							__func__, __LINE__,
@@ -574,12 +574,22 @@ int mtk_oddmr_load_param(struct mtk_disp_oddmr *priv, struct mtk_drm_oddmr_param
 		}
 		ret = _mtk_oddmr_load_param(param);
 		if (ret >= 0) {
-			if (g_dmr_param.dmr_tables != NULL) {
-				kfree(g_dmr_param.dmr_tables);
-				g_dmr_param.dmr_tables = NULL;
-			}
-			size_alloc = g_dmr_param.dmr_basic_info.basic_param.table_cnt *
-				sizeof(struct mtk_oddmr_dmr_table);
+			is_dmr_basic_info_loaded = 1;
+			DDPINFO("%s:%d, dmr basic info load success\n", __func__, __LINE__);
+		}
+		break;
+	case ODDMR_DMR_TABLE:
+		table_idx = param->head_id >> 16 & 0xFF;
+		if (table_idx >= DMR_TABLE_MAX ||
+				table_idx >= g_dmr_param.dmr_basic_info.basic_param.table_cnt) {
+			DDPINFO("%s:%d, table_idx %d is invalid\n",
+					__func__, __LINE__, table_idx);
+			return -EFAULT;
+		}
+		size_alloc = sizeof(struct mtk_oddmr_dmr_table);
+		if (g_dmr_param.dmr_tables[table_idx] == NULL) {
+			DDPINFO("%s:%d, dmr_table%d is NULL\n",
+					table_idx, __func__, __LINE__);
 #ifndef APP_DEBUG
 			data = kzalloc(size_alloc, GFP_KERNEL);
 #else
@@ -591,23 +601,9 @@ int mtk_oddmr_load_param(struct mtk_disp_oddmr *priv, struct mtk_drm_oddmr_param
 						__func__, __LINE__);
 				return -EFAULT;
 			}
-			g_dmr_param.dmr_tables = data;
-			is_dmr_basic_info_loaded = 1;
-			DDPINFO("%s:%d, dmr basic info load success\n", __func__, __LINE__);
-		}
-		break;
-	case ODDMR_DMR_TABLE:
-		if (g_dmr_param.dmr_tables == NULL) {
-			DDPINFO("%s:%d, dmr_tables is NULL\n",
-					__func__, __LINE__);
-			return -EFAULT;
-		}
-		table_idx = param->head_id >> 16 & 0xFF;
-		if (table_idx >= DMR_TABLE_MAX ||
-				table_idx >= g_dmr_param.dmr_basic_info.basic_param.table_cnt) {
-			DDPINFO("%s:%d, table_idx %d is invalid\n",
-					__func__, __LINE__, table_idx);
-			return -EFAULT;
+			g_dmr_param.dmr_tables[table_idx] = data;
+		} else {
+			memset(g_dmr_param.dmr_tables[table_idx], 0, size_alloc);
 		}
 		priv->dmr_state = ODDMR_INVALID;
 		ret = _mtk_oddmr_load_param(param);
@@ -628,34 +624,11 @@ int mtk_oddmr_load_param(struct mtk_disp_oddmr *priv, struct mtk_drm_oddmr_param
 		}
 		ret = _mtk_oddmr_load_param(param);
 		if (ret >= 0) {
-			if (g_od_param.od_tables != NULL) {
-				kfree(g_od_param.od_tables);
-				g_od_param.od_tables = NULL;
-			}
-			size_alloc = g_od_param.od_basic_info.basic_param.table_cnt *
-				sizeof(struct mtk_oddmr_od_table);
-#ifndef APP_DEBUG
-			data = kzalloc(size_alloc, GFP_KERNEL);
-#else
-			data = malloc(size_alloc);
-#endif
-			memset(data, 0, size_alloc);
-			if (!data) {
-				DDPINFO("%s:%d, param buffer alloc fail\n",
-						__func__, __LINE__);
-				return -EFAULT;
-			}
-			g_od_param.od_tables = data;
 			is_od_basic_info_loaded = 1;
 			DDPINFO("%s:%d, od basic info load success\n", __func__, __LINE__);
 		}
 		break;
 	case ODDMR_OD_TABLE:
-		if (g_od_param.od_tables == NULL) {
-			DDPINFO("%s:%d, od_tables is NULL\n",
-					__func__, __LINE__);
-			return -EFAULT;
-		}
 		table_idx = param->head_id >> 16 & 0xFF;
 		if (table_idx >= OD_TABLE_MAX ||
 				table_idx >= g_od_param.od_basic_info.basic_param.table_cnt) {
@@ -664,6 +637,25 @@ int mtk_oddmr_load_param(struct mtk_disp_oddmr *priv, struct mtk_drm_oddmr_param
 			return -EFAULT;
 		}
 		priv->od_state = ODDMR_INVALID;
+		size_alloc = sizeof(struct mtk_oddmr_od_table);
+		if (g_od_param.od_tables[table_idx] == NULL) {
+			DDPINFO("%s:%d, od_table%d is NULL\n",
+					table_idx, __func__, __LINE__);
+#ifndef APP_DEBUG
+			data = kzalloc(size_alloc, GFP_KERNEL);
+#else
+			data = malloc(size_alloc);
+			memset(data, 0, size_alloc);
+#endif
+			if (!data) {
+				DDPINFO("%s:%d, param buffer alloc fail\n",
+						__func__, __LINE__);
+				return -EFAULT;
+			}
+			g_od_param.od_tables[table_idx] = data;
+		} else {
+			memset(g_od_param.od_tables[table_idx], 0, size_alloc);
+		}
 		ret = _mtk_oddmr_load_param(param);
 		if (ret == 0) {
 			if (0 == (g_od_param.valid_table & (1 << table_idx)))

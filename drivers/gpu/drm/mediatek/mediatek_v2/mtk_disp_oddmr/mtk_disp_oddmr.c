@@ -1229,7 +1229,7 @@ static void mtk_oddmr_config(struct mtk_ddp_comp *comp,
 
 static void mtk_oddmr_dump_od_table(int table_idx)
 {
-	struct mtk_oddmr_od_table *table = &g_od_param.od_tables[table_idx];
+	struct mtk_oddmr_od_table *table = g_od_param.od_tables[table_idx];
 	struct mtk_oddmr_od_table_basic_info *info = &table->table_basic_info;
 	int i;
 
@@ -1274,7 +1274,7 @@ static void mtk_oddmr_dump_od_param(void)
 
 static void mtk_oddmr_dump_dmr_table(int table_idx)
 {
-	struct mtk_oddmr_dmr_table *table = &g_dmr_param.dmr_tables[table_idx];
+	struct mtk_oddmr_dmr_table *table = g_dmr_param.dmr_tables[table_idx];
 	struct mtk_oddmr_dmr_table_basic_info *info = &table->table_basic_info;
 	int i;
 
@@ -1627,10 +1627,10 @@ static int mtk_oddmr_od_init_sram(struct mtk_ddp_comp *comp,
 		DDPPR_ERR("%s table %d is invalid\n", __func__, table_idx);
 		return -EFAULT;
 	}
-	table = &g_od_param.od_tables[table_idx];
-	param_pq = g_od_param.od_tables[table_idx].pq_od.param;
-	raw_table = g_od_param.od_tables[table_idx].raw_table.value;
-	table_size = g_od_param.od_tables[table_idx].raw_table.size;
+	table = g_od_param.od_tables[table_idx];
+	param_pq = table->pq_od.param;
+	raw_table = table->raw_table.value;
+	table_size = table->raw_table.size;
 	raw_idx = 0;
 	if (table_size < 33 * 33 * 3) {
 		DDPPR_ERR("%s table%d size %u is too small\n", __func__, table_idx, table_size);
@@ -1704,8 +1704,8 @@ static int _mtk_oddmr_od_table_lookup(struct mtk_oddmr_timing *cur_timing)
 
 	for (idx = 0; idx < cnts; idx++) {
 		if ((IS_TABLE_VALID(idx, g_od_param.valid_table)) &&
-				(fps >= g_od_param.od_tables[idx].table_basic_info.min_fps) &&
-				(fps <= g_od_param.od_tables[idx].table_basic_info.max_fps))
+				(fps >= g_od_param.od_tables[idx]->table_basic_info.min_fps) &&
+				(fps <= g_od_param.od_tables[idx]->table_basic_info.max_fps))
 			break;
 	}
 	if ((idx == cnts) ||
@@ -1734,15 +1734,15 @@ static int mtk_oddmr_od_table_lookup(struct mtk_disp_oddmr *priv,
 	tmp1_table_idx = priv->od_data.od_sram_table_idx[!tmp_sram_idx];
 	/* best stay at current table */
 	if ((IS_TABLE_VALID(tmp_table_idx, g_od_param.valid_table)) &&
-	(cur_timing->vrefresh >= g_od_param.od_tables[tmp_table_idx].table_basic_info.min_fps) &&
-	(cur_timing->vrefresh <= g_od_param.od_tables[tmp_table_idx].table_basic_info.max_fps)) {
+	(cur_timing->vrefresh >= g_od_param.od_tables[tmp_table_idx]->table_basic_info.min_fps) &&
+	(cur_timing->vrefresh <= g_od_param.od_tables[tmp_table_idx]->table_basic_info.max_fps)) {
 		*table_idx = tmp_table_idx;
 		return 0;
 	}
 	/* second best just flip sram */
 	if ((IS_TABLE_VALID(tmp1_table_idx, g_od_param.valid_table)) &&
-	(cur_timing->vrefresh >= g_od_param.od_tables[tmp1_table_idx].table_basic_info.min_fps) &&
-	(cur_timing->vrefresh <= g_od_param.od_tables[tmp1_table_idx].table_basic_info.max_fps)) {
+	(cur_timing->vrefresh >= g_od_param.od_tables[tmp1_table_idx]->table_basic_info.min_fps) &&
+	(cur_timing->vrefresh <= g_od_param.od_tables[tmp1_table_idx]->table_basic_info.max_fps)) {
 		*table_idx = tmp1_table_idx;
 		return 1;
 	}
@@ -1813,13 +1813,13 @@ static int mtk_oddmr_od_gain_lookup(uint32_t fps, uint32_t dbv, int table_idx, u
 		DDPPR_ERR("%s table%d is invalid\n", __func__, table_idx);
 	}
 	/*fps*/
-	cnt = g_od_param.od_tables[table_idx].fps_cnt;
-	fps_gain_table = g_od_param.od_tables[table_idx].fps_table;
+	cnt = g_od_param.od_tables[table_idx]->fps_cnt;
+	fps_gain_table = g_od_param.od_tables[table_idx]->fps_table;
 	tmp_item = (int)fps;
 	result_fps = mtk_oddmr_common_gain_lookup(tmp_item, fps_gain_table, cnt);
 	/* dbv */
-	cnt = g_od_param.od_tables[table_idx].bl_cnt;
-	bl_gain_table = g_od_param.od_tables[table_idx].bl_table;
+	cnt = g_od_param.od_tables[table_idx]->bl_cnt;
+	bl_gain_table = g_od_param.od_tables[table_idx]->bl_table;
 	tmp_item = (int)dbv;
 	result_dbv = mtk_oddmr_common_gain_lookup(tmp_item, bl_gain_table, cnt);
 	/* TODO algo for fps + dbv*/
@@ -1973,10 +1973,10 @@ static int mtk_oddmr_dmr_alloc_table_dual(int table_idx)
 	if (IS_TABLE_VALID(table_idx, g_dmr_param.valid_table)) {
 		if (default_comp->mtk_crtc->is_dual_pipe) {
 			/* non secure */
-			size_l = g_dmr_param.dmr_tables[table_idx].raw_table_left.size;
-			size_r = g_dmr_param.dmr_tables[table_idx].raw_table_right.size;
-			addr_l = g_dmr_param.dmr_tables[table_idx].raw_table_left.value;
-			addr_r = g_dmr_param.dmr_tables[table_idx].raw_table_right.value;
+			size_l = g_dmr_param.dmr_tables[table_idx]->raw_table_left.size;
+			size_r = g_dmr_param.dmr_tables[table_idx]->raw_table_right.size;
+			addr_l = g_dmr_param.dmr_tables[table_idx]->raw_table_left.value;
+			addr_r = g_dmr_param.dmr_tables[table_idx]->raw_table_right.value;
 			mtk_oddmr_dmr_free_table(default_comp);
 			mtk_oddmr_dmr_free_table(oddmr1_default_comp);
 			g_oddmr_priv->dmr_data.mura_table = mtk_oddmr_load_buffer(
@@ -1985,8 +1985,8 @@ static int mtk_oddmr_dmr_alloc_table_dual(int table_idx)
 					&default_comp->mtk_crtc->base, size_r, addr_r, false);
 		} else {
 			/* non secure */
-			size_l = g_dmr_param.dmr_tables[table_idx].raw_table_single.size;
-			addr_l = g_dmr_param.dmr_tables[table_idx].raw_table_single.value;
+			size_l = g_dmr_param.dmr_tables[table_idx]->raw_table_single.size;
+			addr_l = g_dmr_param.dmr_tables[table_idx]->raw_table_single.value;
 			mtk_oddmr_dmr_free_table(default_comp);
 			g_oddmr_priv->dmr_data.mura_table = mtk_oddmr_load_buffer(
 					&default_comp->mtk_crtc->base, size_l, addr_l, false);
@@ -2018,12 +2018,12 @@ static int mtk_oddmr_dmr_set_table_dual(struct cmdq_pkt *pkg, int table_idx)
 		DDPPR_ERR("%s dmr table%d is invalid\n", __func__, table_idx);
 		return -EFAULT;
 	}
-	width = g_dmr_param.dmr_tables[table_idx].table_basic_info.width;
-	height = g_dmr_param.dmr_tables[table_idx].table_basic_info.height;
-	param = g_dmr_param.dmr_tables[table_idx].pq_common.param;
-	cnt = g_dmr_param.dmr_tables[table_idx].pq_common.counts;
+	width = g_dmr_param.dmr_tables[table_idx]->table_basic_info.width;
+	height = g_dmr_param.dmr_tables[table_idx]->table_basic_info.height;
+	param = g_dmr_param.dmr_tables[table_idx]->pq_common.param;
+	cnt = g_dmr_param.dmr_tables[table_idx]->pq_common.counts;
 	mtk_oddmr_set_pq(default_comp, pkg,
-			&g_dmr_param.dmr_tables[table_idx].pq_common);
+			&g_dmr_param.dmr_tables[table_idx]->pq_common);
 	addr = g_oddmr_priv->dmr_data.mura_table->dma_addr;
 	mtk_oddmr_write(default_comp, addr >> 4, DISP_ODDMR_DMR_UDMA_CTR_4, pkg);
 	mtk_oddmr_write(default_comp, addr >> 20, DISP_ODDMR_DMR_UDMA_CTR_5, pkg);
@@ -2031,7 +2031,7 @@ static int mtk_oddmr_dmr_set_table_dual(struct cmdq_pkt *pkg, int table_idx)
 	atomic_set(&g_oddmr_priv->dmr_data.cur_table_idx, table_idx);
 	if (default_comp->mtk_crtc->is_dual_pipe) {
 		mtk_oddmr_set_pq(oddmr1_default_comp, pkg,
-				&g_dmr_param.dmr_tables[table_idx].pq_common);
+				&g_dmr_param.dmr_tables[table_idx]->pq_common);
 		addr = g_oddmr1_priv->dmr_data.mura_table->dma_addr;
 		mtk_oddmr_write(oddmr1_default_comp, addr >> 4, DISP_ODDMR_DMR_UDMA_CTR_4, pkg);
 		mtk_oddmr_write(oddmr1_default_comp, addr >> 20, DISP_ODDMR_DMR_UDMA_CTR_5, pkg);
@@ -2040,14 +2040,14 @@ static int mtk_oddmr_dmr_set_table_dual(struct cmdq_pkt *pkg, int table_idx)
 		mtk_oddmr_write(default_comp, width / 2 + tile_overhead,
 			DISP_ODDMR_REG_DMR_PANEL_WIDTH, pkg);
 		mtk_oddmr_set_pq(default_comp, pkg,
-				&g_dmr_param.dmr_tables[table_idx].pq_left_pipe);
+				&g_dmr_param.dmr_tables[table_idx]->pq_left_pipe);
 		mtk_oddmr_set_pq(oddmr1_default_comp, pkg,
-				&g_dmr_param.dmr_tables[table_idx].pq_right_pipe);
+				&g_dmr_param.dmr_tables[table_idx]->pq_right_pipe);
 		mtk_oddmr_set_crop_dual(pkg, width, height, tile_overhead);
 		atomic_set(&g_oddmr1_priv->dmr_data.cur_table_idx, table_idx);
 	} else {
 		mtk_oddmr_set_pq(default_comp, pkg,
-				&g_dmr_param.dmr_tables[table_idx].pq_single_pipe);
+				&g_dmr_param.dmr_tables[table_idx]->pq_single_pipe);
 		mtk_oddmr_write(default_comp, 1, DISP_ODDMR_TOP_CRP_BYPSS, pkg);
 	}
 	return 0;
@@ -2091,10 +2091,10 @@ static int mtk_oddmr_dmr_fps_gain_lookup(int table_idx, struct mtk_oddmr_dmr_fps
 	ODDMRAPI_LOG("+\n");
 	if (!IS_TABLE_VALID(table_idx, g_dmr_param.valid_table))
 		return -1;
-	cnt = g_dmr_param.dmr_tables[table_idx].fps_cnt;
+	cnt = g_dmr_param.dmr_tables[table_idx]->fps_cnt;
 	if (cnt > DMR_GAIN_MAX)
 		cnt = DMR_GAIN_MAX;
-	gain_table = &g_dmr_param.dmr_tables[table_idx].fps_table[0];
+	gain_table = g_dmr_param.dmr_tables[table_idx]->fps_table;
 	tmp_item = (int)weight->fps;
 	if (tmp_item <= gain_table[0].fps) {
 		DDPPR_ERR("%s fps %u outof range (%u, %u)\n", __func__, tmp_item,
@@ -2150,8 +2150,8 @@ static int mtk_oddmr_dmr_bl_gain_lookup(uint32_t dbv, int table_idx, uint32_t *w
 		return -1;
 	}
 	tmp_item = (int)dbv;
-	bl_gain_table = g_dmr_param.dmr_tables[table_idx].bl_table;
-	cnt = g_dmr_param.dmr_tables[table_idx].bl_cnt;
+	bl_gain_table = g_dmr_param.dmr_tables[table_idx]->bl_table;
+	cnt = g_dmr_param.dmr_tables[table_idx]->bl_cnt;
 	result = mtk_oddmr_common_gain_lookup(tmp_item, bl_gain_table, cnt);
 	*weight = (uint32_t)result;
 	return 0;
@@ -2171,8 +2171,8 @@ static int mtk_oddmr_dmr_table_lookup(struct mtk_disp_oddmr *priv,
 	if ((IS_TABLE_VALID(table_idx, g_dmr_param.valid_table)) &&
 	(((new_timing->mode_chg_index & MODE_DSI_RES) == 0) ||
 	(resolution_switch_mode == 0)) &&
-	(new_timing->vrefresh >= g_dmr_param.dmr_tables[table_idx].table_basic_info.min_fps) &&
-	(new_timing->vrefresh <= g_dmr_param.dmr_tables[table_idx].table_basic_info.max_fps)) {
+	(new_timing->vrefresh >= g_dmr_param.dmr_tables[table_idx]->table_basic_info.min_fps) &&
+	(new_timing->vrefresh <= g_dmr_param.dmr_tables[table_idx]->table_basic_info.max_fps)) {
 		return table_idx;
 	}
 	for (table_idx = 0;
@@ -2181,21 +2181,21 @@ static int mtk_oddmr_dmr_table_lookup(struct mtk_disp_oddmr *priv,
 			continue;
 		/* ddic res switch */
 		if (resolution_switch_mode) {
-			width = g_dmr_param.dmr_tables[table_idx].table_basic_info.width;
-			height = g_dmr_param.dmr_tables[table_idx].table_basic_info.height;
+			width = g_dmr_param.dmr_tables[table_idx]->table_basic_info.width;
+			height = g_dmr_param.dmr_tables[table_idx]->table_basic_info.height;
 			if ((new_timing->hdisplay == width) &&
 				(new_timing->vdisplay == height) &&
 				(new_timing->vrefresh >=
-				g_dmr_param.dmr_tables[table_idx].table_basic_info.min_fps) &&
+				g_dmr_param.dmr_tables[table_idx]->table_basic_info.min_fps) &&
 				(new_timing->vrefresh <=
-				g_dmr_param.dmr_tables[table_idx].table_basic_info.max_fps))
+				g_dmr_param.dmr_tables[table_idx]->table_basic_info.max_fps))
 				return table_idx;
 		} else {
 			/* AP res switch */
 			if ((new_timing->vrefresh >=
-				g_dmr_param.dmr_tables[table_idx].table_basic_info.min_fps) &&
+				g_dmr_param.dmr_tables[table_idx]->table_basic_info.min_fps) &&
 				(new_timing->vrefresh <=
-				g_dmr_param.dmr_tables[table_idx].table_basic_info.max_fps))
+				g_dmr_param.dmr_tables[table_idx]->table_basic_info.max_fps))
 				return table_idx;
 		}
 	}
@@ -2251,7 +2251,7 @@ static void mtk_oddmr_od_flip(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle
 	mtk_oddmr_write_mask(comp, value, DISP_ODDMR_OD_SRAM_CTRL_0, mask, handle);
 	/* od pq */
 	if (IS_TABLE_VALID(table_idx, g_od_param.valid_table))
-		mtk_oddmr_set_pq(comp, handle, &g_od_param.od_tables[table_idx].pq_od);
+		mtk_oddmr_set_pq(comp, handle, &g_od_param.od_tables[table_idx]->pq_od);
 }
 
 static void mtk_oddmr_set_od_weight(struct mtk_ddp_comp *comp, uint32_t weight,
