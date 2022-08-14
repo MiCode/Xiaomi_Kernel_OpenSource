@@ -169,7 +169,17 @@ static void mtk8250_clear_wakeup(void)
 	void __iomem *peri_remap_wakeup_sta = NULL;
 
 	peri_remap_wakeup = ioremap(peri_wakeup.addr, 0x10);
+	if (!peri_remap_wakeup) {
+		pr_notice("[%s] peri_remap_wakeup(%x) ioremap fail\n",
+			__func__, peri_wakeup.addr);
+		return;
+	}
 	peri_remap_wakeup_sta = ioremap(peri_wakeup.addr_sta, 0x10);
+	if (!peri_remap_wakeup_sta) {
+		pr_notice("[%s] peri_remap_wakeup_sta(%x) ioremap fail\n",
+			__func__, peri_wakeup.addr_sta);
+		return;
+	}
 
 	UART_REG_WRITE(peri_remap_wakeup,
 		((UART_REG_READ(peri_remap_wakeup)
