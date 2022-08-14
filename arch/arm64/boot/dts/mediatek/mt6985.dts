@@ -3582,9 +3582,11 @@
 			peri-clock-con = <0x11036020 0xF00 0x800>;  /*UART ClOCK SEL*/
 			peri-wakeup = <0x11036050 0x3 0x3 0x1>;   /*reg* mask* val* toggal*/
 			peri-wakeup-sta = <0x11036054>;
+			peri-reset = <0x11036000>;
+			peri-reset-set = <0x11036004 0x80000 0x80000>;	/*reg* mask* val*/
+			peri-reset-clr = <0x11036008 0x80000 0x80000>;	/*reg* mask* val*/
 			uart_line = <3>;
 			hub-baud = <12000000>;
-			uarthub_support;
 		};
 
 		mtk_leds: mtk_leds {
