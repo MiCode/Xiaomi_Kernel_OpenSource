@@ -163,8 +163,15 @@ unsigned long pd_get_freq_opp_legacy(int cpu, unsigned long freq)
 
 	i = per_cpu(gear_id, cpu);
 	pd_info = &pd_capacity_tbl[i];
+
+	if (freq <= pd_info->freq_min)
+		return pd_info->freq_opp_map_legacy[pd_info->nr_freq_opp_map - 1];
+
 	idx = map_freq_idx_by_tbl(pd_info, freq);
-	return pd_info->freq_opp_map_legacy[idx];
+	if (freq > pd_get_opp_freq_legacy(cpu, pd_info->freq_opp_map_legacy[idx] + 1))
+		return pd_info->freq_opp_map_legacy[idx];
+	else
+		return pd_info->freq_opp_map_legacy[idx] + 1;
 }
 EXPORT_SYMBOL_GPL(pd_get_freq_opp_legacy);
 
