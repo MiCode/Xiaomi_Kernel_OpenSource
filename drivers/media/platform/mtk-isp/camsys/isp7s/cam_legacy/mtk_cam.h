@@ -93,6 +93,9 @@ struct mtk_raw_pipeline;
 /* The raw switching is pending and waiting for the composed cq */
 #define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_SWITCH_BACKEND_DELAYED	BIT(10)
 
+/* composed error case, buf_entry was not in composed/processing buf list */
+#define MTK_CAM_REQ_S_DATA_FLAG_COMPOMSED_ERROR	BIT(11)
+
 #define v4l2_subdev_format_request_fd(x) x->reserved[0]
 
 struct mtk_cam_working_buf {

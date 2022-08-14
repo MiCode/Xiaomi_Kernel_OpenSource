@@ -680,7 +680,15 @@ static bool finish_cq_buf(struct mtk_cam_request_stream_data *req_stream_data)
 		spin_unlock(&ctx->processing_buffer_list.lock);
 		return false;
 	}
-
+	/* check if composed error case */
+	if (req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_COMPOMSED_ERROR) {
+		dev_info(ctx->cam->dev,
+			 "%s:%s:ctx(%d):req(%d):working_buf is composed error case\n", __func__,
+			req_stream_data->req->req.debug_str, ctx->stream_id,
+			req_stream_data->frame_seq_no);
+		spin_unlock(&ctx->processing_buffer_list.lock);
+		return false;
+	}
 	list_del(&cq_buf_entry->list_entry);
 	mtk_cam_s_data_reset_wbuf(req_stream_data);
 	ctx->processing_buffer_list.cnt--;
@@ -5848,6 +5856,7 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 			MTK_CAM_REQ_DUMP_DEQUEUE_FAILED,
 			"Camsys: compose error", false);
 		spin_unlock(&ctx->using_buffer_list.lock);
+		s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_COMPOMSED_ERROR;
 		return -EINVAL;
 	}
 
