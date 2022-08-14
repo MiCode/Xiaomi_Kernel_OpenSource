@@ -268,12 +268,14 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 	/* get exp_cnt */
 	ret = g_stagger_info(ctx, ctx->cur_mode->id, &info);
 	if (!ret) {
-#if IMGSENSOR_LOG_MORE
-		dev_info(ctx->dev, "scenario_exp_cnt: %u, ae_exp_count: %u\n",
-			info.count,
-			exp_count);
-#endif
-		exp_count = (info.count < exp_count) ? info.count : exp_count;
+		/* non-stagger mode, the info count would be 0, it's same as 1 */
+		if (info.count == 0)
+			info.count = 1;
+		if (info.count != exp_count) {
+			dev_info(ctx->dev, "warn: scenario_exp_cnt=%u, but ae_exp_count=%u\n",
+				 info.count, exp_count);
+			exp_count = info.count;
+		}
 	}
 	switch (exp_count) {
 	case 3:
