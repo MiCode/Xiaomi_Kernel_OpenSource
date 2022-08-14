@@ -50,6 +50,8 @@ static u32 bkrs_reg_pa;
 #define MMINFRA_BASE		0x1e800000
 
 #define MMINFRA_CG_CON0		0x100
+#define MMINFRA_DBG_SEL		0x300
+#define MMINFRA_MODULE_DBG	0xf4
 #define GCED_CG_BIT			BIT(0)
 #define GCEM_CG_BIT			BIT(1)
 #define SMI_CG_BIT			BIT(2)
@@ -337,6 +339,22 @@ static struct kernel_param_ops mminfra_ut_ops = {
 module_param_cb(mminfra_ut, &mminfra_ut_ops, NULL, 0644);
 MODULE_PARM_DESC(mminfra_ut, "mminfra ut");
 
+#define MMINFRA_GALS_NR	(6)
+static void mminfra_gals_dump(void)
+{
+	u32 i;
+	u32 mux_setting[MMINFRA_GALS_NR] = {0x11, 0x12, 0x13, 0x14, 0x15, 0x16};
+
+	for (i = 0; i < MMINFRA_GALS_NR; i++) {
+		writel(mux_setting[i], dbg->mminfra_base + MMINFRA_DBG_SEL);
+		pr_notice("%s: %#x=%#x, %#x=%#x\n", __func__,
+			MMINFRA_BASE + MMINFRA_DBG_SEL,
+			readl(dbg->mminfra_base + MMINFRA_DBG_SEL),
+			MMINFRA_BASE + MMINFRA_MODULE_DBG,
+			readl(dbg->mminfra_base + MMINFRA_MODULE_DBG));
+	}
+
+}
 
 int mtk_mminfra_dbg_hang_detect(const char *user)
 {
@@ -380,6 +398,7 @@ int mtk_mminfra_dbg_hang_detect(const char *user)
 		pr_notice("%s: ret:%d buf size:%d\n", __func__, ret, LINK_MAX - len);
 	dev_info(dev, "%s\n", buf);
 
+	mminfra_gals_dump();
 	pm_runtime_put(dbg->comm_dev);
 	return 0;
 }
