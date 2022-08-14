@@ -281,8 +281,10 @@ void task_check_for_rotation(struct rq *src_rq)
 			return;
 		}
 
-		if (cpu_paused(src_cpu) || cpu_paused(dst_cpu))
+		if (cpu_paused(src_cpu) || cpu_paused(dst_cpu)) {
+			double_rq_unlock(src_rq, dst_rq);
 			return;
+		}
 
 		if (!src_rq->active_balance && !dst_rq->active_balance) {
 			src_rq->active_balance = 1;
