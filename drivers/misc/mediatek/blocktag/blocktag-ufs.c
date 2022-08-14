@@ -109,8 +109,6 @@ int mtk_btag_pidlog_add_ufs(bool write, __u32 total_len, __u32 top_len,
 
 void ufs_mtk_biolog_clk_gating(bool clk_on)
 {
-	if (!clk_on)
-		mtk_btag_earaio_boost(clk_on);
 }
 EXPORT_SYMBOL_GPL(ufs_mtk_biolog_clk_gating);
 

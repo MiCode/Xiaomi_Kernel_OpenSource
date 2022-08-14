@@ -70,6 +70,8 @@ static void mtk_btag_eara_start_collect(void)
 
 static void mtk_btag_eara_stop_collect(void)
 {
+	mtk_btag_earaio_boost(false);
+
 	WARN_ON(!mutex_is_locked(&eara_ioctl_lock));
 }
 
@@ -135,7 +137,7 @@ static long mtk_btag_eara_ioctl(struct file *filp,
 		break;
 	case EARA_COLLECT:
 		if (eara_ioctl_copy_from_user(msgKM, msgUM,
-					sizeof(struct _EARA_IOCTL_PACKAGE))) {
+				sizeof(struct _EARA_IOCTL_PACKAGE))) {
 			ret = -EFAULT;
 			goto ret_ioctl;
 		}
@@ -317,6 +319,7 @@ static bool mtk_btag_earaio_send_uevt(bool boost)
 }
 
 #define EARAIO_UEVT_THRESHOLD_PAGES ((32 * 1024 * 1024) >> 12)
+//#define EARAIO_UEVT_THRESHOLD_PAGES ((1 * 1024 * 1024) >> 12)
 static int __mtk_btag_earaio_boost(bool boost)
 {
 	int changed = 0;
@@ -331,6 +334,7 @@ static int __mtk_btag_earaio_boost(bool boost)
 			changed = mtk_btag_earaio_send_uevt(true);
 	} else {
 		changed = mtk_btag_earaio_send_uevt(false);
+		changed = 1;
 	}
 
 	if (changed)
