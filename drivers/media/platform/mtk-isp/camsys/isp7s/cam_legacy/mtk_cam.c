@@ -907,7 +907,7 @@ void *mtk_cam_get_vbuf_va(struct mtk_cam_ctx *ctx,
 	return vaddr;
 }
 
-void mtk_cam_get_timestamp(struct mtk_cam_ctx *ctx,
+int mtk_cam_get_timestamp(struct mtk_cam_ctx *ctx,
 		struct mtk_cam_request_stream_data *s_data)
 {
 	struct mtk_cam_buffer *buf;
@@ -927,7 +927,7 @@ void mtk_cam_get_timestamp(struct mtk_cam_ctx *ctx,
 		dev_info(ctx->cam->dev,
 			 "ctx(%d): can't get MTK_RAW_META_OUT_0 buf from req(%d)\n",
 			 ctx->stream_id, s_data->frame_seq_no);
-		return;
+		return -1;
 	}
 
 	vb = &buf->vbb.vb2_buf;
@@ -935,7 +935,7 @@ void mtk_cam_get_timestamp(struct mtk_cam_ctx *ctx,
 		dev_info(ctx->cam->dev,
 			 "%s:ctx(%d): can't get vb2 buf\n",
 			 __func__, ctx->stream_id);
-		return;
+		return -1;
 	}
 
 	vaddr = vb2_plane_vaddr(&buf->vbb.vb2_buf, 0);
@@ -943,7 +943,7 @@ void mtk_cam_get_timestamp(struct mtk_cam_ctx *ctx,
 		dev_info(ctx->cam->dev,
 			 "%s:ctx(%d): can't get plane_vadd\n",
 			 __func__, ctx->stream_id);
-		return;
+		return -1;
 	}
 
 	if ((s_data->working_buf->buffer.va == (void *)NULL) ||
@@ -951,11 +951,19 @@ void mtk_cam_get_timestamp(struct mtk_cam_ctx *ctx,
 		dev_info(ctx->cam->dev,
 			 "%s:ctx(%d): can't get working_buf\n",
 			 __func__, ctx->stream_id);
-		return;
+		return -1;
 	}
 
 	fho_va = (u32 *)(s_data->working_buf->buffer.va +
 		s_data->working_buf->buffer.size - 64 * (subsample + 1));
+
+	if (*fho_va == 0) {
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d):pipe(%d):seq(%d) get empty fho\n",
+			 __func__, ctx->stream_id, s_data->pipe_id,
+			 s_data->frame_seq_no);
+		return -1;
+	}
 
 	pTimestamp = vaddr + GET_PLAT_V4L2(timestamp_buffer_ofst);
 	for (i = 0; i < (subsample + 1); i++) {
@@ -971,6 +979,8 @@ void mtk_cam_get_timestamp(struct mtk_cam_ctx *ctx,
 			*(pTimestamp + i*2), *(pTimestamp + i*2 + 1),
 			*(fho_va + i*16), *(fho_va + i*16 + 1));
 	}
+
+	return 0;
 }
 
 int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
@@ -988,6 +998,7 @@ int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 	bool del_job;
 	bool chk_sensor_change;
 	bool unreliable = false;
+	int timestamp_error = 0;
 	void *vaddr = NULL;
 	struct mtk_ae_debug_data ae_data;
 	int frame_seq_next;
@@ -1095,7 +1106,7 @@ STOP_SCAN:
 			s_data_mstream = NULL;
 
 		if (is_raw_subdev(pipe_id)) {
-			mtk_cam_get_timestamp(ctx, s_data);
+			timestamp_error = mtk_cam_get_timestamp(ctx, s_data);
 			mtk_cam_req_dbg_works_clean(s_data);
 			mtk_cam_req_works_clean(s_data);
 
@@ -1180,6 +1191,14 @@ STOP_SCAN:
 				"%s:%s:pipe(%d) seq:%d, done success",
 				__func__, req->req.debug_str, pipe_id,
 				s_data->frame_seq_no);
+		}
+
+		if (timestamp_error) {
+			dev_info(ctx->cam->dev,
+				"%s:%s:pipe(%d) seq:%d, ctx:%d timestamp_error\n",
+				__func__, req->req.debug_str, pipe_id,
+				s_data->frame_seq_no, ctx->stream_id);
+			buf_state = VB2_BUF_STATE_ERROR;
 		}
 
 		if (mtk_cam_s_data_set_buf_state(s_data_pipe, buf_state)) {
