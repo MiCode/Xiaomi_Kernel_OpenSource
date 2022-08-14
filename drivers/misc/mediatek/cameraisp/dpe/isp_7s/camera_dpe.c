@@ -7342,13 +7342,14 @@ void DPE_ScheduleWork(struct work_struct *data)
 	if (DPE_DBG_DBGLOG & DPEInfo.DebugMask)
 		LOG_INF("- E.");
 
-	dpe_request_handler_isp7s(&dpe_reqs_dvs,
-			&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
+	if (DPEInfo.UserCount > 0) {
+		dpe_request_handler_isp7s(&dpe_reqs_dvs,
+				&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
 
 
-	if (!dpe_request_running_isp7s(&dpe_reqs_dvs))
-		LOG_INF("[%s]no more requests", __func__);
-
+		if (!dpe_request_running_isp7s(&dpe_reqs_dvs))
+			LOG_INF("[%s]no more requests", __func__);
+	}
 }
 
 void DVP_ScheduleWork(struct work_struct *data)
@@ -7357,13 +7358,14 @@ void DVP_ScheduleWork(struct work_struct *data)
 	if (DPE_DBG_DBGLOG & DPEInfo.DebugMask)
 		LOG_INF("- E.");
 
-	dpe_request_handler_isp7s(&dpe_reqs_dvp,
-			&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
+	if (DPEInfo.UserCount > 0) {
+		dpe_request_handler_isp7s(&dpe_reqs_dvp,
+				&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
 
 
-	if (!dpe_request_running_isp7s(&dpe_reqs_dvp))
-		LOG_INF("[%s]no more requests", __func__);
-
+		if (!dpe_request_running_isp7s(&dpe_reqs_dvp))
+			LOG_INF("[%s]no more requests", __func__);
+	}
 }
 static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId)
 {
@@ -7376,6 +7378,9 @@ static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId)
 	if (DPEInfo.UserCount > 0) {
 		DvsStatus = DPE_RD32(DVS_CTRL_STATUS0_REG);	/* DVS Status */
 		DvpStatus = DPE_RD32(DVP_CTRL_STATUS0_REG);	/* DVP Status */
+	} else {
+		LOG_INF("DPE Power not Enable\n");
+		return IRQ_HANDLED;
 	}
 
 	if ((DvsStatus == 0) || (DvpStatus == 0))
@@ -7470,6 +7475,9 @@ static irqreturn_t ISP_Irq_DVS(signed int Irq, void *DeviceId)
 	if (DPEInfo.UserCount > 0) {
 		DvsStatus = DPE_RD32(DVS_CTRL_STATUS0_REG);	/* DVS Status */
 		DvpStatus = DPE_RD32(DVP_CTRL_STATUS0_REG);	/* DVP Status */
+	} else {
+		LOG_INF("DPE Power not Enable\n");
+		return IRQ_HANDLED;
 	}
 
 	if ((DvsStatus == 0) || (DvpStatus == 0))
@@ -7553,6 +7561,7 @@ static irqreturn_t ISP_Irq_DVS(signed int Irq, void *DeviceId)
 //#endif
 	return IRQ_HANDLED;
 }
+
 static void ISP_TaskletFunc_DVP(unsigned long data)
 {
 	IRQ_LOG_PRINTER(DPE_IRQ_TYPE_INT_DVP_ST, m_CurrentPPB, _LOG_DBG);
