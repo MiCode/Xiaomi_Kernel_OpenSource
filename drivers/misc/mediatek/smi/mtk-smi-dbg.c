@@ -366,6 +366,7 @@ enum smi_bus_type {
 	SMI_LARB = 0,
 	SMI_COMMON,
 	SMI_SUB_COMMON,
+	SMI_RSI,
 };
 
 struct mtk_smi_dbg_init_setting {
@@ -381,6 +382,7 @@ struct mtk_smi_dbg_init_setting {
 struct mtk_smi_dbg {
 	bool			probe;
 	struct dentry		*fs;
+	struct dentry		*sta_fs;
 	struct mtk_smi_dbg_node	larb[MTK_SMI_NR_MAX];
 	struct mtk_smi_dbg_node	comm[MTK_SMI_NR_MAX];
 	struct mtk_smi_dbg_node	rsi[MTK_SMI_NR_MAX];
@@ -468,6 +470,109 @@ static void mtk_smi_dbg_print(struct mtk_smi_dbg *smi, const bool larb,
 		pm_runtime_put(node.dev);
 	}
 }
+
+static void mtk_smi_dbg_print_debugfs(struct seq_file *seq, u8 bus_type, const u32 id)
+{
+	struct mtk_smi_dbg	*smi = gsmi;
+	const char		*name;
+	struct mtk_smi_dbg_node	node;
+	char	buf[LINK_MAX + 1] = {0};
+	u32	val, regs_nr, comm_id = 0;
+	s32	i, len, ret = 0;
+	bool	dump_with = false;
+
+	node = (bus_type == SMI_LARB) ? smi->larb[id] :
+		((bus_type == SMI_RSI) ? smi->rsi[id] : smi->comm[id]);
+	name = (bus_type == SMI_LARB) ? "LARB" : ((bus_type == SMI_RSI) ? "RSI" : "COMM");
+	regs_nr = node.regs_nr;
+
+	if (!node.dev || !node.va)
+		return;
+
+	if (bus_type != SMI_RSI) {
+		ret = pm_runtime_get_if_in_use(node.dev);
+		if (ret)
+			seq_printf(seq, "%s:===== %s%u rpm:%d =====\n"
+				, dev_name(node.dev), name, id, ret);
+	} else
+		seq_printf(seq, "%s:===== %s%u =====\n", dev_name(node.dev), name, id);
+	if (ret <= 0 || (bus_type == SMI_RSI)) {
+		if (of_property_read_u32(node.dev->of_node,
+			"mediatek,dump-with-comm", &comm_id))
+			return;
+		if (pm_runtime_get_if_in_use(smi->comm[comm_id].dev) <= 0)
+			return;
+		dump_with = true;
+	}
+
+	for (i = 0, len = 0; i < regs_nr; i++) {
+		val = readl_relaxed(node.va + node.regs[i]);
+		if (!val)
+			continue;
+
+		ret = snprintf(buf + len, LINK_MAX - len, " %#x=%#x,",
+			node.regs[i], val);
+		if (ret < 0 || ret >= LINK_MAX - len) {
+			ret = snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+			if (ret < 0)
+				dev_notice(node.dev, "smi dbg print error:%d\n", ret);
+
+			seq_printf(seq, "%s:%s\n", dev_name(node.dev), buf);
+
+			len = 0;
+			memset(buf, '\0', sizeof(char) * ARRAY_SIZE(buf));
+			ret = snprintf(buf + len, LINK_MAX - len, " %#x=%#x,",
+				node.regs[i], val);
+			if (ret < 0)
+				dev_notice(node.dev, "smi dbg print error:%d\n", ret);
+		}
+		len += ret;
+	}
+	ret = snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+	if (ret < 0)
+		dev_notice(node.dev, "smi dbg print error:%d\n", ret);
+
+	seq_printf(seq, "%s:%s\n", dev_name(node.dev), buf);
+
+	if (dump_with) {
+		pm_runtime_put(smi->comm[comm_id].dev);
+		return;
+	}
+	pm_runtime_put(node.dev);
+}
+
+static int smi_bus_status_print(struct seq_file *seq, void *data)
+{
+	int i, j, PRINT_NR = 5;
+	struct mtk_smi_dbg	*smi = gsmi;
+
+	seq_puts(seq, "dump SMI bus status\n");
+	for (j = 0; j < PRINT_NR; j++) {
+		for (i = 0; i < ARRAY_SIZE(smi->larb); i++)
+			mtk_smi_dbg_print_debugfs(seq, SMI_LARB, i);
+
+		for (i = 0; i < ARRAY_SIZE(smi->comm); i++)
+			mtk_smi_dbg_print_debugfs(seq, SMI_COMMON, i);
+
+		for (i = 0; i < ARRAY_SIZE(smi->rsi); i++)
+			mtk_smi_dbg_print_debugfs(seq, SMI_RSI, i);
+	}
+
+	return 0;
+}
+
+static int smi_bus_status_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, smi_bus_status_print, inode->i_private);
+}
+
+static const struct file_operations smi_bus_status_fops = {
+	.owner = THIS_MODULE,
+	.open = smi_bus_status_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
 
 static void mtk_smi_dbg_hang_detect_single(
 	struct mtk_smi_dbg *smi, const bool larb, const u32 id)
@@ -1063,16 +1168,39 @@ DEFINE_SIMPLE_ATTRIBUTE(
 static int __init mtk_smi_dbg_init(void)
 {
 	struct mtk_smi_dbg	*smi;
+	struct dentry	*dir;
+	bool exists = false;
 
 	smi = kzalloc(sizeof(*smi), GFP_KERNEL);
 	if (!smi)
 		return -ENOMEM;
 	gsmi = smi;
 
+	dir = debugfs_lookup("smi", NULL);
+	if (!dir) {
+		dir = debugfs_create_dir("smi", NULL);
+		if (!dir) {
+			pr_notice("debugfs_create_dir smi failed");
+			return -EINVAL;
+		}
+	} else
+		exists = true;
+
+	smi->sta_fs = debugfs_create_file(
+		"smi-status", 0444, dir, smi, &smi_bus_status_fops);
+	if (IS_ERR(smi->sta_fs)) {
+		pr_notice("debugfs_create_file smi-status failed:%ld",
+			PTR_ERR(smi->sta_fs));
+		return PTR_ERR(smi->sta_fs);
+	}
+
 	smi->fs = debugfs_create_file(
 		DRV_NAME, 0444, NULL, smi, &mtk_smi_dbg_fops);
 	if (IS_ERR(smi->fs))
 		return PTR_ERR(smi->fs);
+
+	if (exists)
+		dput(dir);
 
 	if (!mtk_smi_dbg_probe(smi))
 		smi->probe = true;
