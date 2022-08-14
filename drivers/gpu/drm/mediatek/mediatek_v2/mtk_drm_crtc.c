@@ -1458,12 +1458,82 @@ bool mtk_crtc_is_dual_pipe(struct drm_crtc *crtc)
 	return false;
 }
 
+void mtk_crtc_prepare_dual_pipe_path(struct device *dev, struct mtk_drm_private *priv,
+	struct mtk_drm_crtc *mtk_crtc)
+{
+	int i, j;
+	enum mtk_ddp_comp_id comp_id;
+	struct mtk_ddp_comp *comp;
+
+	for (i = 0; i < DDP_PATH_NR; i++) {
+		mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i] =
+			mtk_crtc->path_data->dual_ovl_path_len[i];
+		mtk_crtc->dual_pipe_ddp_ctx.ovl_comp[i] = devm_kmalloc_array(
+			dev, mtk_crtc->path_data->dual_ovl_path_len[i],
+			sizeof(struct mtk_ddp_comp *), GFP_KERNEL);
+		mtk_crtc->dual_pipe_ddp_ctx.ddp_comp_nr[i] =
+			mtk_crtc->path_data->dual_path_len[i];
+		mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i] = devm_kmalloc_array(
+			dev, mtk_crtc->path_data->dual_path_len[i],
+			sizeof(struct mtk_ddp_comp *), GFP_KERNEL);
+		DDPDBG("i:%d,com_nr:%d,path_len:%d\n",
+			i, mtk_crtc->dual_pipe_ddp_ctx.ddp_comp_nr[i],
+			mtk_crtc->path_data->dual_path_len[i]);
+	}
+
+	for_each_comp_id_in_dual_pipe(comp_id, mtk_crtc->path_data, i, j) {
+		DDPDBG("prepare comp id in dual pipe %s, type=%d\n",
+				mtk_dump_comp_str_id(comp_id),
+				mtk_ddp_comp_get_type(comp_id));
+		if (comp_id < 0) {
+			DDPPR_ERR("%s: Invalid comp_id:%d\n", __func__, comp_id);
+			return;
+		}
+		if (mtk_ddp_comp_get_type(comp_id) == MTK_DISP_VIRTUAL ||
+			mtk_ddp_comp_get_type(comp_id) == MTK_DISP_PWM) {
+			struct mtk_ddp_comp *comp;
+
+			comp = kzalloc(sizeof(*comp), GFP_KERNEL);
+			if (!comp) {
+				DDPPR_ERR("%s allocate comp fail\n", __func__);
+				return;
+			}
+			comp->id = comp_id;
+			if (mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i] &&
+					j < mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i]) {
+				mtk_crtc->dual_pipe_ddp_ctx.ovl_comp[i][j] = comp;
+			} else {
+			/* shift comp_idx from global idx to local idx for ddp_comp array */
+				unsigned int ovl_comp_nr;
+
+				ovl_comp_nr = mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i];
+				mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i]
+					[j - ovl_comp_nr] = comp;
+			}
+			continue;
+		}
+
+		comp = priv->ddp_comp[comp_id];
+		if (!comp) {
+			DDPPR_ERR("%s: Invalid comp_id:%d\n", __func__, comp_id);
+			return;
+		}
+
+		if (mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i] &&
+				j < mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i])
+			mtk_crtc->dual_pipe_ddp_ctx.ovl_comp[i][j] = comp;
+		else
+			/* shift comp_idx from global idx to local idx for ddp_comp array */
+			mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i]
+				[j - mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i]] = comp;
+	}
+}
+
 void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 {
 	int i, j;
 	enum mtk_ddp_comp_id comp_id;
 	struct mtk_ddp_comp *comp;
-	struct device *dev = mtk_crtc->base.dev->dev;
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	int en = 1;
@@ -1494,42 +1564,9 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 		return;
 	}
 
-	for (j = 0; j < DDP_SECOND_PATH; j++) {
-		mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[j] =
-			mtk_crtc->path_data->dual_ovl_path_len[j];
-		mtk_crtc->dual_pipe_ddp_ctx.ovl_comp[j] = devm_kmalloc_array(
-			dev, mtk_crtc->path_data->dual_ovl_path_len[j],
-			sizeof(struct mtk_ddp_comp *), GFP_KERNEL);
-		mtk_crtc->dual_pipe_ddp_ctx.ddp_comp_nr[j] =
-			mtk_crtc->path_data->dual_path_len[j];
-		mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[j] = devm_kmalloc_array(
-			dev, mtk_crtc->path_data->dual_path_len[j],
-			sizeof(struct mtk_ddp_comp *), GFP_KERNEL);
-		DDPDBG("j:%d,com_nr:%d,path_len:%d\n",
-			j, mtk_crtc->dual_pipe_ddp_ctx.ddp_comp_nr[j],
-			mtk_crtc->path_data->dual_path_len[j]);
-	}
-
 	for_each_comp_id_in_dual_pipe(comp_id, mtk_crtc->path_data, i, j) {
-		DDPDBG("prepare comp id in dual pipe %s, type=%d\n",
-				mtk_dump_comp_str_id(comp_id), mtk_ddp_comp_get_type(comp_id));
-		if (comp_id < 0) {
-			DDPPR_ERR("%s: Invalid comp_id:%d\n", __func__, comp_id);
-			return;
-		}
 		if (mtk_ddp_comp_get_type(comp_id) == MTK_DISP_VIRTUAL ||
 			mtk_ddp_comp_get_type(comp_id) == MTK_DISP_PWM) {
-			struct mtk_ddp_comp *comp;
-
-			comp = kzalloc(sizeof(*comp), GFP_KERNEL);
-			comp->id = comp_id;
-			if (mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i] &&
-					j < mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i])
-				mtk_crtc->dual_pipe_ddp_ctx.ovl_comp[i][j] = comp;
-			else
-				/* shift comp_idx from global idx to local idx for ddp_comp array */
-				mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i]
-					[j - mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i]] = comp;
 			continue;
 		} else if (mtk_ddp_comp_get_type(comp_id) == MTK_DISP_DSC) {
 			/*4k 30 use DISP_MERGE1, 4k 60 use DSC*/
@@ -1552,13 +1589,10 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 			continue;
 		}
 		comp = priv->ddp_comp[comp_id];
-		if (mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i] &&
-				j < mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i])
-			mtk_crtc->dual_pipe_ddp_ctx.ovl_comp[i][j] = comp;
-		else
-			/* shift comp_idx from global idx to local idx for ddp_comp array */
-			mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i]
-				[j - mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[i]] = comp;
+		if (!comp) {
+			DDPPR_ERR("%s: Invalid comp_id:%d\n", __func__, comp_id);
+			return;
+		}
 		comp->mtk_crtc = mtk_crtc;
 	}
 	comp = mtk_ddp_comp_request_output(mtk_crtc);
@@ -11832,6 +11866,8 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 			mtk_crtc->ddp_ctx[p_mode].ddp_comp[i]
 				[j - mtk_crtc->ddp_ctx[p_mode].ovl_comp_nr[i]] = comp;
 	}
+
+	mtk_crtc_prepare_dual_pipe_path(dev, priv, mtk_crtc);
 
 	for_each_wb_comp_id_in_path_data(comp_id, path_data, i, p_mode) {
 		struct mtk_ddp_comp *comp;
