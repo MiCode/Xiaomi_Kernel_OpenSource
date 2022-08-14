@@ -360,6 +360,22 @@ static void kwdt_time_sync(void)
 		(unsigned int)(tv_android.tv_nsec / 1000));
 }
 
+static const int irq_to_ipi_type(int irq)
+{
+	struct irq_desc **ipi_desc = ipi_desc_get();
+	struct irq_desc *desc = irq_to_desc(irq);
+	int nr_ipi = nr_ipi_get();
+	int i = 0;
+
+	if (!ipi_desc || !desc)
+		return -1;
+
+	for (i = 0; i < nr_ipi; i++)
+		if (ipi_desc[i] == desc)
+			return i;
+	return -1;
+}
+
 static void show_irq_count(void)
 {
 #define MAX_IRQ_NUM 1024
@@ -400,8 +416,22 @@ static void show_irq_count(void)
 		count = data_race(*per_cpu_ptr(desc->kstat_irqs, unkick_cpu));
 		if (count == irq_counts[irq])
 			continue;
-		scnprintf(msg, sizeof(msg), "%3d:%s +%d(%d)\n", irq,
-			desc->action ? desc->action->name : NULL, count - irq_counts[irq], count);
+
+		if (desc->action && desc->action->name) {
+			const char *irq_name = desc->action->name;
+
+			if (!strcmp(irq_name, "IPI"))
+				scnprintf(msg, sizeof(msg), "%3d:%s%d +%d(%d)\n",
+						irq, irq_name, irq_to_ipi_type(irq),
+						count - irq_counts[irq], count);
+			else
+				scnprintf(msg, sizeof(msg), "%3d:%s +%d(%d)\n",
+						irq, irq_name, count - irq_counts[irq], count);
+		} else {
+			scnprintf(msg, sizeof(msg), "%3d:%s +%d(%d)\n", irq,
+					"NULL", count - irq_counts[irq], count);
+		}
+
 		aee_sram_fiq_log(msg);
 	}
 	aee_sram_fiq_log("\n");
