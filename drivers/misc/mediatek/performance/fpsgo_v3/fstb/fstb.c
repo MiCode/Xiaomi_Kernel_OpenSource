@@ -298,7 +298,6 @@ static struct FSTB_FRAME_INFO *add_new_frame_info(int pid, unsigned long long bu
 	new_frame_info->weighted_gpu_time_end = 0;
 	new_frame_info->quantile_cpu_time = -1;
 	new_frame_info->quantile_gpu_time = -1;
-	new_frame_info->new_info = 1;
 	new_frame_info->fps_raise_flag = 0;
 	new_frame_info->vote_i = 0;
 	new_frame_info->render_idle_cnt = 0;
@@ -734,7 +733,7 @@ static int get_gpu_frame_time(struct FSTB_FRAME_INFO *iter)
 	} else
 		ret = -1;
 
-	fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid, ret,
+	fpsgo_systrace_c_fstb(iter->pid, iter->bufid, ret,
 			"quantile_weighted_gpu_time");
 	return ret;
 
@@ -1222,7 +1221,7 @@ static long long get_cpu_frame_time(struct FSTB_FRAME_INFO *iter)
 	} else
 		ret = -1;
 
-	fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid, ret,
+	fpsgo_systrace_c_fstb(iter->pid, iter->bufid, ret,
 		"quantile_weighted_cpu_time");
 	return ret;
 
@@ -1879,15 +1878,6 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 				eara_fps = *target_fps * 1000;
 			}
 		}
-
-		if (total_time > 1000000ULL + iter->gblock_time &&
-				iter->gblock_time > 1000000ULL) {
-			fpsgo_systrace_c_fstb(pid, iter->bufid,
-					iter->gblock_time, "gblock_time");
-			total_time -= iter->gblock_time;
-		}
-
-		iter->gblock_time = 0ULL;
 
 		v_c_time = total_time;
 

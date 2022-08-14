@@ -45,8 +45,6 @@ struct FSTB_FRAME_INFO {
 	int target_fps_margin_gpu_dbnc_b;
 	int queue_fps;
 	unsigned long long bufid;
-	int in_list;
-	int new_info;
 	int target_fps_diff;
 	int target_fps_notifying;
 	int sbe_state; /*0: free run, 1: max_fps*/
@@ -73,8 +71,6 @@ struct FSTB_FRAME_INFO {
 	int quantile_cpu_time;
 	int quantile_gpu_time;
 
-	unsigned long long gblock_b;
-	unsigned long long gblock_time;
 	int fps_raise_flag;
 	int render_idle_cnt;
 	int hwui_flag;

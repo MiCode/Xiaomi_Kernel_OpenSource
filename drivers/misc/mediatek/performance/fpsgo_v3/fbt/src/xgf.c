@@ -868,14 +868,25 @@ out:
 static void xgf_render_dep_reset(struct xgf_render *render)
 {
 	int i, total;
+	struct xgf_render_dep *xrd;
 
 	if (render->xrd_arr_idx < 0 || render->xrd_arr_idx > MAX_DEP_PATH_NUM)
 		total = MAX_DEP_PATH_NUM;
 	else
 		total = render->xrd_arr_idx;
 
-	for (i = 0; i < total; i++)
-		render->xrd_arr[i].xdt_arr_idx = 0;
+	for (i = 0; i < total; i++) {
+		xrd = &render->xrd_arr[i];
+		xrd->xdt_arr_idx = 0;
+		xrd->finish_flag = 0;
+		xrd->track_tid = 0;
+		xrd->track_ts = 0;
+		xrd->raw_head_index = 0;
+		xrd->raw_head_ts = 0;
+		xrd->raw_tail_index = 0;
+		xrd->raw_tail_ts = 0;
+		xrd->specific_flag = 0;
+	}
 
 	render->xrd_arr_idx = 0;
 	render->l_num = 0;
