@@ -5724,16 +5724,6 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 	}
 	spin_unlock(&ctx->streaming_lock);
 
-	if (mtk_cam_ctx_has_raw(ctx) &&
-	    mtk_cam_scen_is_m2m(&ctx->pipe->scen_active)) {
-		if (ipi_msg->cookie.frame_no > 1) {
-			/* do nothing */
-			dev_dbg(dev, "[M2M] wait_for_completion +\n");
-			wait_for_completion(&ctx->m2m_complete);
-			dev_dbg(dev, "[M2M] wait_for_completion -\n");
-		}
-	}
-
 	spin_lock(&ctx->using_buffer_list.lock);
 
 	ctx->composed_frame_seq_no = ipi_msg->cookie.frame_no;
@@ -5894,12 +5884,25 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 		0 : ipi_msg->ack_data.frame_result.camsv[0].size;
 
 	if (mtk_cam_scen_is_m2m(&scen)) {
+		struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
+		struct mtk_camsys_ctrl_state *state_temp;
+		bool allow_m2m_trigger = true;
+
+		/* List state-queue status*/
+		spin_lock(&sensor_ctrl->camsys_state_lock);
+		list_for_each_entry(state_temp, &sensor_ctrl->camsys_state_list,
+				    state_element) {
+			if (state_temp->estate >= E_STATE_CQ)
+				allow_m2m_trigger = false;
+		}
+		spin_unlock(&sensor_ctrl->camsys_state_lock);
+
 		/* here do nothing */
 		spin_lock(&ctx->composed_buffer_list.lock);
 		dev_dbg(dev, "%s ctx->composed_buffer_list.cnt %d\n", __func__,
 			ctx->composed_buffer_list.cnt);
 
-		if (ctx->composed_buffer_list.cnt == 0)
+		if (allow_m2m_trigger && ctx->composed_buffer_list.cnt == 0)
 			is_m2m_apply_cq = true;
 
 		spin_unlock(&ctx->composed_buffer_list.lock);
@@ -8358,7 +8361,6 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 	atomic_set(&ctx->running_s_data_cnt, 0);
 	mutex_init(&ctx->sensor_switch_op_lock);
 	init_completion(&ctx->session_complete);
-	init_completion(&ctx->m2m_complete);
 
 	is_first_ctx = !cam->composer_cnt;
 	if (is_first_ctx) {
@@ -8584,11 +8586,6 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 			dev_info(cam->dev, "%s:ctx(%d): complete timeout\n",
 			__func__, ctx->stream_id);
 	}
-
-	/* For M2M feature, signal all waiters */
-	if (mtk_cam_ctx_has_raw(ctx) &&
-		mtk_cam_scen_is_m2m(&ctx->pipe->scen_active))
-		complete_all(&ctx->m2m_complete);
 
 	if (!cam->streaming_ctx) {
 		struct v4l2_subdev *sd;

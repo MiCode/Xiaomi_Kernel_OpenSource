@@ -2825,7 +2825,6 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 		dequeue_cnt = mtk_cam_dequeue_req_frame(ctx,
 				dequeued_frame_seq_no, ctx->stream_id);
 	}
-	complete(&ctx->m2m_complete);
 
 	/* apply next composed buffer */
 	spin_lock(&ctx->composed_buffer_list.lock);
@@ -2874,20 +2873,18 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 			buf_entry->cq_desc_offset,
 			buf_entry->sub_cq_desc_size,
 			buf_entry->sub_cq_desc_offset);
-		/* Transit state from Sensor -> CQ */
-		if (ctx->sensor) {
-			state_transition(state_sensor, E_STATE_SENSOR, E_STATE_CQ);
 
-			dev_dbg(raw_dev->dev,
-			"M2M apply_cq [ctx:%d-#%d], CQ-%d, composed:%d, cq_addr:0x%x\n",
-			ctx->stream_id, dequeued_frame_seq_no, req_stream_data->frame_seq_no,
-			ctx->composed_frame_seq_no, base_addr);
+		state_transition(state_sensor, E_STATE_SENSOR, E_STATE_CQ);
 
-			dev_dbg(raw_dev->dev,
-			"M2M apply_cq: composed_buffer_list.cnt:%d time:%lld, monotime:%lld\n",
-			ctx->composed_buffer_list.cnt, req_stream_data->timestamp,
-			req_stream_data->timestamp_mono);
-		}
+		dev_dbg(raw_dev->dev,
+		"M2M apply_cq [ctx:%d-#%d], CQ-%d, composed:%d, cq_addr:0x%x\n",
+		ctx->stream_id, dequeued_frame_seq_no, req_stream_data->frame_seq_no,
+		ctx->composed_frame_seq_no, base_addr);
+
+		dev_dbg(raw_dev->dev,
+		"M2M apply_cq: composed_buffer_list.cnt:%d time:%lld, monotime:%lld\n",
+		ctx->composed_buffer_list.cnt, req_stream_data->timestamp,
+		req_stream_data->timestamp_mono);
 	}
 
 	if (dequeue_cnt) {

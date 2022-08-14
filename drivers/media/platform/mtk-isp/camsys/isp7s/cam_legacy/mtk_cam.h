@@ -458,7 +458,6 @@ struct mtk_cam_ctx {
 	struct workqueue_struct *cmdq_wq;
 
 	struct completion session_complete;
-	struct completion m2m_complete;
 	int session_created;
 	struct work_struct session_work;
 	struct work_struct cmdq_work;
