@@ -134,7 +134,6 @@ struct mtk8250_data {
 	int			rx_wakeup_irq;
 	unsigned int   support_hub;
 	unsigned int   hub_baud;
-	bool is_uarthub_port;
 	struct mutex uart_mutex;
 };
 
@@ -150,6 +149,15 @@ struct mtk8250_reg_data {
 	unsigned int addr_sta;
 };
 
+struct mtk8250_reset_data {
+	unsigned int addr;
+	unsigned int addr_set;
+	unsigned int mask_set;
+	unsigned int val_set;
+	unsigned int addr_clr;
+	unsigned int mask_clr;
+	unsigned int val_clr;
+};
 /* flow control mode */
 enum {
 	MTK_UART_FC_NONE,
@@ -161,6 +169,8 @@ unsigned int uart_reg_buf[LOG_BUF_SIZE];
 
 static struct mtk8250_reg_data peri_wakeup = {0};
 struct mtk8250_info_dump rx_record;
+
+static struct mtk8250_reset_data peri_reset = {0};
 
 static void mtk8250_clear_wakeup(void)
 {
@@ -196,6 +206,51 @@ static void mtk8250_clear_wakeup(void)
 
 	if (peri_remap_wakeup_sta)
 		iounmap(peri_remap_wakeup_sta);
+}
+
+static void mtk8250_reset_peri(void)
+{
+	void __iomem *peri_remap_reset = NULL;
+	void __iomem *peri_remap_reset_set = NULL;
+	void __iomem *peri_remap_reset_clr = NULL;
+
+	peri_remap_reset = ioremap(peri_reset.addr, 0x10);
+	if (!peri_remap_reset) {
+		pr_notice("[%s] peri_reset(%x) ioremap fail\n",
+				__func__, peri_reset.addr);
+		return;
+	}
+	peri_remap_reset_set = ioremap(peri_reset.addr_set, 0x10);
+	if (!peri_remap_reset_set) {
+		pr_notice("[%s] peri_reset.addr_set(%x) ioremap fail\n",
+				__func__, peri_reset.addr_set);
+		return;
+	}
+	peri_remap_reset_clr = ioremap(peri_reset.addr_clr, 0x10);
+	if (!peri_remap_reset_clr) {
+		pr_notice("[%s] peri_reset.addr_clr(%x) ioremap fail\n",
+				__func__, peri_reset.addr_clr);
+		return;
+	}
+
+	UART_REG_WRITE(peri_remap_reset_set,
+		((UART_REG_READ(peri_remap_reset)
+			& (~peri_reset.mask_set)) | peri_reset.val_set));
+	pr_info("%s peri_reset begin:0x%x\n", __func__, (UART_REG_READ(peri_remap_reset)));
+
+	UART_REG_WRITE(peri_remap_reset_clr,
+		((UART_REG_READ(peri_remap_reset)
+			& (~peri_reset.mask_clr)) | peri_reset.val_clr));
+	pr_info("%s peri_reset end:0x%x\n", __func__, (UART_REG_READ(peri_remap_reset)));
+
+	if (peri_remap_reset)
+		iounmap(peri_remap_reset);
+
+	if (peri_remap_reset_set)
+		iounmap(peri_remap_reset_set);
+
+	if (peri_remap_reset_clr)
+		iounmap(peri_remap_reset_clr);
 }
 
 #if IS_ENABLED(CONFIG_MTK_UARTHUB)
@@ -513,8 +568,8 @@ int mtk8250_uart_dump(struct tty_struct *tty)
 		ret = -EINVAL;
 		goto err_unlock_exit;
 	}
-	if (!((data->support_hub == 1) && (data->is_uarthub_port))) {
-		pr_info("%s: not support uarthub or current port is not hub port\n", __func__);
+	if (data->support_hub != 1) {
+		pr_info("%s: current port is not hub port\n", __func__);
 		ret = -EINVAL;
 		goto err_unlock_exit;
 	}
@@ -739,7 +794,7 @@ static void mtk8250_dma_rx_complete(void *param)
 
 	mtk8250_uart_get_apdma_rpt(dma->rxchan, &(data->rx_pos));
 
-	if ((data->support_hub == 1) && (data->is_uarthub_port)) {
+	if (data->support_hub == 1) {
 		idx = (unsigned int)(rx_record.rec_total % UART_DUMP_RECORE_NUM);
 		rx_record.rec_total++;
 		rx_record.rec[idx].trans_len = total;
@@ -756,7 +811,7 @@ static void mtk8250_dma_rx_complete(void *param)
 	data->rx_pos += copied;
 
 #ifdef CONFIG_UART_DATA_RECORD
-	if ((data->support_hub == 1) && (data->is_uarthub_port)) {
+	if (data->support_hub == 1) {
 		if (total <= UART_DUMP_BUF_LEN)
 			memcpy(rx_record.rec[idx].rec_buf, ptr, cnt);
 		else
@@ -768,7 +823,7 @@ static void mtk8250_dma_rx_complete(void *param)
 	if ((copied == cnt) && (total > cnt)) {
 		ptr = (unsigned char *)(dma->rx_buf);
 #ifdef CONFIG_UART_DATA_RECORD
-	if ((data->support_hub == 1) && (data->is_uarthub_port)) {
+	if (data->support_hub == 1) {
 		if (total <= UART_DUMP_BUF_LEN)
 			memcpy(rx_record.rec[idx].rec_buf + cnt, ptr, total - cnt);
 		else
@@ -782,7 +837,7 @@ static void mtk8250_dma_rx_complete(void *param)
 		copied += copied_sec;
 	}
 
-	if ((data->support_hub == 1) && (data->is_uarthub_port))
+	if (data->support_hub == 1)
 		rx_record.rec[idx].r_copied = copied;
 
 	up->port.icount.rx += copied;
@@ -872,6 +927,7 @@ static int mtk8250_startup(struct uart_port *port)
 
 #if defined(KERNEL_UARTHUB_open)
 	if (data->support_hub == 1) {
+		mtk8250_reset_peri();
 		pr_info("open uarthub if it is supported.\n");
 		/*open UARTHUB*/
 		KERNEL_UARTHUB_open();
@@ -1384,10 +1440,56 @@ static int mtk8250_probe_of(struct platform_device *pdev, struct uart_port *p,
 			return -1;
 		}
 
-		data->is_uarthub_port = of_property_read_bool(pdev->dev.of_node, "uarthub_support");
-		pr_notice("[%s] data->is_uarthub_port: %d\n", __func__, data->is_uarthub_port);
-	}
+		/*parse reset*/
+		index = of_property_read_u32_index(pdev->dev.of_node,
+			"peri-reset-set", 0, &peri_reset.addr_set);
+		if (index) {
+			pr_notice("[%s] get peri-reset-set.addr_set fail\n", __func__);
+			return -1;
+		}
 
+		index = of_property_read_u32_index(pdev->dev.of_node,
+			"peri-reset-set", 1, &peri_reset.mask_set);
+		if (index) {
+			pr_notice("[%s] get peri-reset-set.mask_set fail\n", __func__);
+			return -1;
+		}
+
+		index = of_property_read_u32_index(pdev->dev.of_node,
+			"peri-reset-set", 2, &peri_reset.val_set);
+		if (index) {
+			pr_notice("[%s] get peri-reset-set.val_set fail\n", __func__);
+			return -1;
+		}
+
+		index = of_property_read_u32_index(pdev->dev.of_node,
+			"peri-reset-clr", 0, &peri_reset.addr_clr);
+		if (index) {
+			pr_notice("[%s] get peri-reset-clr.addr_clr fail\n", __func__);
+			return -1;
+		}
+
+		index = of_property_read_u32_index(pdev->dev.of_node,
+			"peri-reset-clr", 1, &peri_reset.mask_clr);
+		if (index) {
+			pr_notice("[%s] get peri-reset-clr.mask_clr fail\n", __func__);
+			return -1;
+		}
+
+		index = of_property_read_u32_index(pdev->dev.of_node,
+			"peri-reset-clr", 2, &peri_reset.val_clr);
+		if (index) {
+			pr_notice("[%s] get peri-reset-clr.val_clr fail\n", __func__);
+			return -1;
+		}
+
+		index = of_property_read_u32_index(pdev->dev.of_node,
+			"peri-reset", 0, &peri_reset.addr);
+		if (index) {
+			pr_notice("[%s] get peri-reset.addr fail\n", __func__);
+			return -1;
+		}
+	}
 	return 0;
 }
 #endif
