@@ -247,7 +247,6 @@ static int gcc_down_step;
 static int gcc_fps_margin;
 static int gcc_up_sec_pct;
 static int gcc_down_sec_pct;
-static int gcc_gpu_bound_loading;
 static int gcc_gpu_bound_time;
 static int gcc_cpu_unknown_sleep;
 static int gcc_check_quota_trend;
@@ -320,7 +319,6 @@ module_param(gcc_down_step, int, 0644);
 module_param(gcc_fps_margin, int, 0644);
 module_param(gcc_up_sec_pct, int, 0644);
 module_param(gcc_down_sec_pct, int, 0644);
-module_param(gcc_gpu_bound_loading, int, 0644);
 module_param(gcc_gpu_bound_time, int, 0644);
 module_param(gcc_cpu_unknown_sleep, int, 0644);
 module_param(gcc_check_quota_trend, int, 0644);
@@ -3615,8 +3613,8 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 
 int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 		int target_fps, int fps_margin, unsigned long long t_Q2Q,
-		unsigned int gpu_loading, int blc_wt,
-		long long t_cpu, int target_fpks, int max_iso_cap, int cooler_on,
+		int blc_wt, long long t_cpu, int target_fpks,
+		int max_iso_cap, int cooler_on,
 		int pid, struct fpsgo_boost_attr *attr)
 {
 	int gcc_fps_margin_final = attr->gcc_fps_margin_by_pid;
@@ -3730,13 +3728,6 @@ check_boost:
 		if (gcc_check_quota_trend &&
 			boost_info->gcc_quota < quota) {
 			ret += 3;
-			goto done;
-		}
-
-		if (weight_t_gpu == -1 && gpu_loading > gcc_gpu_bound_loading) {
-			ret += 4;
-			boost_info->correction = boost_info->correction < 0 ?
-				0 : boost_info->correction;
 			goto done;
 		}
 
@@ -3972,15 +3963,13 @@ static int fbt_boost_policy(
 
 	if (gcc_enable_active && (!gcc_hwui_hint ||
 			thread_info->hwui != RENDER_INFO_HWUI_TYPE)) {
-		unsigned int gpu_loading;
 		int gcc_boost;
 
-		mtk_get_gpu_loading(&gpu_loading);
 		gcc_boost = fbt_eva_gcc(
 				boost_info,
 				target_fps, fps_margin, thread_info->Q2Q_time,
-				gpu_loading, blc_wt, t_cpu_cur,
-				target_fpks, limit_max_cap, cooler_on, pid, &(thread_info->attr));
+				blc_wt, t_cpu_cur, target_fpks,
+				limit_max_cap, cooler_on, pid, &(thread_info->attr));
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->gcc_count, "gcc_count");
 		fpsgo_systrace_c_fbt(pid, buffer_id, gcc_boost, "gcc_boost");
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->correction, "correction");
@@ -3996,7 +3985,6 @@ static int fbt_boost_policy(
 				blc_wt_m = clamp((int)blc_wt_m + boost_info->correction, 1, 100);
 			}
 		}
-		fpsgo_systrace_c_fbt(pid, buffer_id, gpu_loading, "gpu_loading");
 
 	}
 
@@ -7569,7 +7557,6 @@ int __init fbt_cpu_init(void)
 	gcc_fps_margin = DEFAULT_GCC_FPS_MARGIN;
 	gcc_up_sec_pct = DEFAULT_GCC_UP_SEC_PCT;
 	gcc_down_sec_pct = DEFAULT_GCC_DOWN_SEC_PCT;
-	gcc_gpu_bound_loading = DEFAULT_GCC_GPU_BOUND_LOADING;
 	gcc_gpu_bound_time = DEFAULT_GCC_GPU_BOUND_TIME;
 	gcc_cpu_unknown_sleep = DEFAULT_GCC_CPU_UNKNOWN_SLEEP;
 	gcc_check_quota_trend = DEFAULT_GCC_CHECK_QUOTA_TREND;
