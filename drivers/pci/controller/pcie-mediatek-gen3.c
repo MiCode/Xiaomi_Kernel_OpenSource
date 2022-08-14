@@ -33,8 +33,8 @@
 #include "../pci.h"
 #include "../../misc/mediatek/clkbuf/v1/inc/mtk_clkbuf_ctl.h"
 
-#define PCIE_BASIC_STATUS		0x18
-
+/* pextp register, CG,HW mode */
+#define PCIE_PEXTP_CG_0			0x14
 #define PEXTP_PWRCTL_0			0x40
 #define PCIE_HW_MTCMOS_EN_P0		BIT(0)
 #define PEXTP_PWRCTL_1			0x44
@@ -55,6 +55,8 @@
 #define PEXTP_SW_RST_PHY1_BIT		BIT(9)
 #define PEXTP_SW_MAC1_PHY1_BIT \
 	(PEXTP_SW_RST_MAC1_BIT | PEXTP_SW_RST_PHY1_BIT)
+
+#define PCIE_BASIC_STATUS		0x18
 
 #define PCIE_SETTING_REG		0x80
 #define PCIE_PCI_IDS_1			0x9c
@@ -117,6 +119,9 @@
 #define PCIE_MSI_GRP2_SET_OFFSET	0xDC0
 #define PCIE_MSI_GRPX_PER_SET_OFFSET	4
 #define PCIE_MSI_GRP3_SET_OFFSET	0xDE0
+
+#define PCIE_AXI0_ERR_ADDR_L		0xe00
+#define PCIE_AXI0_ERR_INFO		0xe08
 
 #define PCIE_ICMD_PM_REG		0x198
 #define PCIE_TURN_OFF_LINK		BIT(4)
@@ -1301,6 +1306,12 @@ u32 mtk_pcie_dump_link_info(int port)
 		return 0;
 	}
 
+	/* Check the sleep protect ready */
+	val = readl_relaxed(pcie_port->vlpcfg_base + PCIE_VLP_AXI_PROTECT_STA);
+	val &= PCIE_MAC0_SLP_READY_MASK;
+	if (val)
+		return 0;
+
 	val = readl_relaxed(pcie_port->base + PCIE_LTSSM_STATUS_REG);
 	ret_val |= PCIE_LTSSM_STATE(val);
 	val = readl_relaxed(pcie_port->base + PCIE_LINK_STATUS_REG);
@@ -1308,11 +1319,18 @@ u32 mtk_pcie_dump_link_info(int port)
 	val = readl_relaxed(pcie_port->base + PCIE_INT_STATUS_REG);
 	ret_val |= (val >> 12) & BIT(6);
 
-	pr_info("ltssm reg: %#x, link sta: %#x, power sta: %#x, IP basic sta:%#x\n",
+	pr_info("ltssm reg:%#x, link sta:%#x, power sta:%#x, IP basic sta:%#x, int sta:%#x, axi err add:%#x, axi err info:%#x\n",
 		readl_relaxed(pcie_port->base + PCIE_LTSSM_STATUS_REG),
 		readl_relaxed(pcie_port->base + PCIE_LINK_STATUS_REG),
 		readl_relaxed(pcie_port->base + PCIE_ISTATUS_PM),
-		readl_relaxed(pcie_port->base + PCIE_BASIC_STATUS));
+		readl_relaxed(pcie_port->base + PCIE_BASIC_STATUS),
+		readl_relaxed(pcie_port->base + PCIE_INT_STATUS_REG),
+		readl_relaxed(pcie_port->base + PCIE_AXI0_ERR_ADDR_L),
+		readl_relaxed(pcie_port->base + PCIE_AXI0_ERR_INFO));
+	pr_info("clock gate:%#x, PCIe HW MODE BIT:%#x, Modem HW MODE BIT:%#x\n",
+		readl_relaxed(pcie_port->pextpcfg + PCIE_PEXTP_CG_0),
+		readl_relaxed(pcie_port->pextpcfg + PEXTP_PWRCTL_0),
+		readl_relaxed(pcie_port->pextpcfg + PEXTP_RSV_0));
 
 	return ret_val;
 }
