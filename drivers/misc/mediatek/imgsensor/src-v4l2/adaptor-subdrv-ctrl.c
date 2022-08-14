@@ -76,6 +76,10 @@ static void dump_i2c_buf(struct subdrv_ctx *ctx)
 		num = snprintf(strptr, remind,
 			       "[0x%04x]",
 			       ctx->_i2c_data[i]);
+
+		if (num < 0)
+			DRV_LOG(ctx, "snprintf return negative at line %d\n", __LINE__);
+
 		i++;
 		remind -= num;
 		strptr += num;
@@ -846,6 +850,7 @@ void set_multi_dig_gain(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt)
 	switch (exp_cnt) {
 	case 1:
 		rg_gains[0] = gains[0];
+		break;
 	case 2:
 		rg_gains[0] = gains[0];
 		rg_gains[2] = gains[1];
