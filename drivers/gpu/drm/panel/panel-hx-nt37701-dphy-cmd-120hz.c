@@ -35,6 +35,19 @@ static atomic_t current_backlight;
 static int current_fps = 60;
 #define ENABLE_DSC 1
 
+static struct mtk_panel_para_table bl_tb0[] = {
+		{3, { 0x51, 0x0f, 0xff}},
+	};
+
+static struct mtk_panel_para_table bl_elvss_tb[] = {
+		{3, { 0x51, 0x0f, 0xff}},
+		{2, { 0x83, 0xff}},
+	};
+
+static struct mtk_panel_para_table elvss_tb[] = {
+		{2, { 0x83, 0xff}},
+	};
+
 struct lcm {
 	struct device *dev;
 	struct drm_panel panel;
@@ -595,6 +608,45 @@ static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb, void *handle,
 	return 0;
 }
 
+static int lcm_set_bl_elvss_cmdq(void *dsi, dcs_grp_write_gce cb, void *handle,
+				 struct mtk_bl_ext_config *bl_ext_config)
+{
+	int pulses;
+
+	if (!cb)
+		return -1;
+
+	pulses = bl_ext_config->elvss_pn;
+
+	if ((bl_ext_config->cfg_flag & (0x1<<SET_BACKLIGHT_LEVEL)) &&
+			(bl_ext_config->cfg_flag & (0x1<<SET_ELVSS_PN))) {
+		pr_info("%s backlight = -%d\n", __func__, bl_ext_config->backlight_level);
+		bl_elvss_tb[0].para_list[1] = (bl_ext_config->backlight_level >> 8) & 0xf;
+		bl_elvss_tb[0].para_list[2] = (bl_ext_config->backlight_level) & 0xFF;
+		atomic_set(&current_backlight, bl_ext_config->backlight_level);
+		pr_info("%s elvss = -%d\n", __func__, pulses);
+		bl_elvss_tb[1].para_list[1] = (u8)((1<<7)|pulses);
+
+		cb(dsi, handle, bl_elvss_tb, ARRAY_SIZE(bl_elvss_tb));
+	} else if ((bl_ext_config->cfg_flag & (0x1<<SET_BACKLIGHT_LEVEL))) {
+
+		pr_info("%s backlight = -%d\n", __func__, bl_ext_config->backlight_level);
+		bl_tb0[0].para_list[1] = (bl_ext_config->backlight_level >> 8) & 0xf;
+		bl_tb0[0].para_list[2] = (bl_ext_config->backlight_level) & 0xFF;
+		atomic_set(&current_backlight, bl_ext_config->backlight_level);
+		cb(dsi, handle, bl_tb0, ARRAY_SIZE(bl_tb0));
+	} else if ((bl_ext_config->cfg_flag & (0x1<<SET_ELVSS_PN))) {
+
+		pr_info("%s elvss = -%d\n", __func__, pulses);
+		elvss_tb[0].para_list[1] = (u8)((1<<7)|pulses);
+		cb(dsi, handle, elvss_tb, ARRAY_SIZE(elvss_tb));
+
+	}
+
+	return 0;
+}
+
+
 static int panel_ext_reset(struct drm_panel *panel, int on)
 {
 	struct lcm *ctx = panel_to_lcm(panel);
@@ -684,6 +736,7 @@ static int mode_switch(struct drm_panel *panel,
 static struct mtk_panel_funcs ext_funcs = {
 	.reset = panel_ext_reset,
 	.set_backlight_cmdq = lcm_setbacklight_cmdq,
+	.set_bl_elvss_cmdq = lcm_set_bl_elvss_cmdq,
 	.ata_check = panel_ata_check,
 	.ext_param_set = mtk_panel_ext_param_set,
 	.mode_switch = mode_switch,

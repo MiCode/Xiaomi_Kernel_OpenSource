@@ -537,12 +537,7 @@ static int lcm_set_bl_elvss_cmdq(void *dsi, dcs_grp_write_gce cb, void *handle,
 	if (!cb)
 		return -1;
 
-	if (bl_ext_config->elvss_pn < 1)
-		pulses = 1;
-	else if (bl_ext_config->elvss_pn > 41)
-		pulses = 41;
-	else
-		pulses = bl_ext_config->elvss_pn;
+	pulses = bl_ext_config->elvss_pn;
 
 	if ((bl_ext_config->cfg_flag & (0x1<<SET_BACKLIGHT_LEVEL)) &&
 			(bl_ext_config->cfg_flag & (0x1<<SET_ELVSS_PN))) {
