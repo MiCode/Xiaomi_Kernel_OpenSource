@@ -36,6 +36,8 @@
 #include "mrdump_helper.h"
 #include "mrdump_private.h"
 #include <linux/smp.h>
+#include <linux/irq.h>
+#include <linux/irqdesc.h>
 
 void sysrq_sched_debug_show_at_AEE(void);
 
