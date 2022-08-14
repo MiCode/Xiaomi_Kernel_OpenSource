@@ -25,6 +25,7 @@ ccflags-y += -I$(srctree)/include/linux/soc/mediatek
 mtk_aov-objs := \
 	mtk-aov-drv.o	\
 	mtk-aov-core.o \
+	mtk-aov-trace.o \
 	mtk-aov-queue.o \
 	mtk-aie-model.o \
 	alloc/tlsf/tlsf_alloc.o

@@ -1,16 +1,21 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2019 MediaTek Inc.
+ *
+ * Author: ChenHung Yang <chenhung.yang@mediatek.com>
  */
 
 #include <linux/of_platform.h>
 #include <linux/module.h>
 #include <linux/suspend.h>
+
 #include "mtk-aov-config.h"
 #include "mtk-aov-drv.h"
 #include "mtk-aov-core.h"
 #include "mtk-aov-aee.h"
 #include "mtk-aov-data.h"
+#include "mtk-aov-trace.h"
+
 #include "mtk-vmm-notifier.h"
 #include "mtk_mmdvfs.h"
 
@@ -51,7 +56,9 @@ int mtk_aov_notify(struct platform_device *pdev, uint32_t notify, uint32_t statu
 	struct aov_notify info;
 	int ret;
 
+	AOV_TRACE_FORCE_BEGIN("AOV query device");
 	aov_dev = query_aov_dev(pdev);
+	AOV_TRACE_FORCE_END();
 	if (aov_dev == NULL) {
 		dev_info(&pdev->dev, "%s: invalid aov device\n", __func__);
 		return -EIO;
@@ -59,10 +66,13 @@ int mtk_aov_notify(struct platform_device *pdev, uint32_t notify, uint32_t statu
 
 	info.notify = notify;
 	info.status = status;
+
+	AOV_TRACE_FORCE_BEGIN("AOV cmd notify");
 	ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_NOTIFY,
 		(void *)&info, sizeof(struct aov_notify), true);
+	AOV_TRACE_FORCE_END();
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(mtk_aov_notify);
 
@@ -105,8 +115,11 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		dev_info(aov_dev->dev, "AOV init+\n");
 		vmm_isp_ctrl_notify(1);
 		mtk_mmdvfs_aov_enable(1);
+
+		AOV_TRACE_FORCE_BEGIN("AOV init");
 		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_INIT,
 			(void *)arg, sizeof(struct aov_user), true);
+		AOV_TRACE_END();
 		if (ret < 0) {
 			vmm_isp_ctrl_notify(0);
 			mtk_mmdvfs_aov_enable(0);
@@ -117,22 +130,37 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 	}
 	case AOV_DEV_SENSOR_ON:
 		dev_info(aov_dev->dev, "AOV sensor on\n+");
+
+		AOV_TRACE_FORCE_BEGIN("AOV sensor on");
 		ret = aov_core_notify(aov_dev, (void *)arg, true);
+		AOV_TRACE_FORCE_END();
+
 		dev_info(aov_dev->dev, "AOV sensor on(%d)\n+", ret);
 		break;
 	case AOV_DEV_SENSOR_OFF:
 		dev_info(aov_dev->dev, "AOV sensor off\n+");
+
+		AOV_TRACE_FORCE_BEGIN("AOV sensor off");
 		ret = aov_core_notify(aov_dev, (void *)arg, true);
+		AOV_TRACE_FORCE_END();
+
 		dev_info(aov_dev->dev, "AOV sensor off(%d)\n+", ret);
 		break;
 	case AOV_DEV_DQEVENT:
 		dev_dbg(aov_dev->dev, "AOV dqevent+\n");
+
+		AOV_TRACE_FORCE_BEGIN("AOV dqevent");
 		ret = aov_core_copy(aov_dev, (struct aov_dqevent *)arg);
+		AOV_TRACE_FORCE_END();
+
 		dev_dbg(aov_dev->dev, "AOV dqevent-(%d)\n", ret);
 		break;
-	case AOV_DEV_DEINIT: {
+	case AOV_DEV_DEINIT:
 		dev_info(aov_dev->dev, "AOV deinit+\n");
+
+		AOV_TRACE_FORCE_BEGIN("AOV deinit");
 		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_DEINIT, NULL, 0, true);
+		AOV_TRACE_FORCE_END();
 		if (ret >= 0) {
 			dev_info(aov_dev->dev, "AOV disable vmm+\n");
 			vmm_isp_ctrl_notify(0);
@@ -141,7 +169,6 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		}
 		dev_info(aov_dev->dev, "AOV deinit-(%d)\n", ret);
 		break;
-	}
 	default:
 		dev_info(aov_dev->dev, "Unknown AOV control code(%d)\n", cmd);
 		return -EINVAL;

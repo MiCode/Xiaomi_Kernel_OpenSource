@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2019 MediaTek Inc.
+ *
+ * Author: ChenHung Yang <chenhung.yang@mediatek.com>
  */
 
 #include <linux/wait.h>
@@ -15,6 +17,7 @@
 #include "mtk-aov-drv.h"
 #include "mtk-aov-core.h"
 #include "mtk-aov-data.h"
+#include "mtk-aov-trace.h"
 
 #include "slbc_ops.h"
 #include "scp.h"
@@ -70,12 +73,15 @@ static int ipi_receive(unsigned int id, void *unused,
 	struct aov_event *event;
 	void *buffer;
 
+	AOV_TRACE_BEGIN("AOV Recv IPI");
+
 	aov_ready = atomic_read(&(core_info->aov_ready));
 
 	dev_dbg(aov_dev->dev, "%s: receive id(%d), len(%d), ready(%d)\n",
 		__func__, id, len, aov_ready);
 
 	if (aov_ready == 0) {
+		AOV_TRACE_END();
 		dev_info(aov_dev->dev, "%s: aov is not started", __func__);
 		return 0;
 	}
@@ -102,8 +108,18 @@ static int ipi_receive(unsigned int id, void *unused,
 
 		buffer = buffer_acquire(core_info);
 		if (buffer == NULL) {
+#if AOV_FORCE_SKIP_MODE
+			buffer = queue_pop(&(core_info->queue));
+			if (buffer == NULL) {
+				AOV_TRACE_END();
+				dev_info(aov_dev->dev, "%s: failed to discard event\n", __func__);
+				return 0;
+			}
+#else
+			AOV_TRACE_END();
 			dev_info(aov_dev->dev, "%s: failed to acquire message\n", __func__);
 			return 0;
+#endif  // AOV_FORCE_SKIP_MODE
 		}
 
 		memcpy(buffer, (void *)event, sizeof(struct aov_event));
@@ -111,6 +127,8 @@ static int ipi_receive(unsigned int id, void *unused,
 		queue_push(&(core_info->queue), buffer);
 		wake_up_interruptible(&core_info->poll_wq);
 	}
+
+	AOV_TRACE_END();
 
 	return 0;
 }
@@ -132,6 +150,8 @@ static int send_cmd_internal(struct aov_core *core_info,
 	packet.buffer  = buffer;
 	packet.length  = length;
 
+	AOV_TRACE_BEGIN("AOV Send Cmd");
+
 	retry = 0;
 	do {
 		if (wait) {
@@ -139,10 +159,12 @@ static int send_cmd_internal(struct aov_core *core_info,
 			ret = wait_event_interruptible_timeout(core_info->scp_queue,
 				((scp_ready = atomic_read(&(core_info->scp_ready))) == 2), timeout);
 			if (ret == 0) {
+				AOV_TRACE_END();
 				dev_info(aov_dev->dev, "%s: send cmd(%d/%d) timeout!\n",
 					__func__, cmd, scp_ready);
 				return -EIO;
 			} else if (-ERESTARTSYS == ret) {
+				AOV_TRACE_END();
 				dev_info(aov_dev->dev, "%s: send cmd(%d/%d) interrupted !\n",
 					__func__, cmd, scp_ready);
 				return -ERESTARTSYS;
@@ -165,8 +187,10 @@ static int send_cmd_internal(struct aov_core *core_info,
 			break;
 		}
 		if (ret == IPI_PIN_BUSY) {
-			if (retry++ >= 1000)
+			if (retry++ >= 100) {
+				AOV_TRACE_END();
 				return -EBUSY;
+			}
 			if (retry % 100 == 0)
 				usleep_range(1000, 2000);
 		} else if (ack) {
@@ -188,6 +212,8 @@ static int send_cmd_internal(struct aov_core *core_info,
 			}
 		}
 	} while (ret == IPI_PIN_BUSY);
+
+	AOV_TRACE_END();
 
 	return 0;
 }
@@ -216,13 +242,17 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 				return -EIO;
 			}
 
+			AOV_TRACE_BEGIN("AOV Alloc Init");
 			spin_lock_irqsave(&core_info->buf_lock, flag);
 			buf = tlsf_malloc(&(core_info->alloc), sizeof(struct aov_init));
 			spin_unlock_irqrestore(&core_info->buf_lock, flag);
+			AOV_TRACE_END();
 		} else {
+			AOV_TRACE_BEGIN("AOV Alloc Buffer");
 			spin_lock_irqsave(&core_info->buf_lock, flag);
 			buf = tlsf_malloc(&(core_info->alloc), len);
 			spin_unlock_irqrestore(&core_info->buf_lock, flag);
+			AOV_TRACE_END();
 		}
 		if (buf) {
 			if (cmd == AOV_SCP_CMD_INIT) {
@@ -299,7 +329,9 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 				dev_dbg(aov_dev->dev,
 					"mtk_cam_seninf_aov_runtime_suspend(%d)+\n",
 					core_info->sensor_id);
+				AOV_TRACE_BEGIN("AOV Seninf Suspend");
 				ret = mtk_cam_seninf_aov_runtime_suspend(core_info->sensor_id);
+				AOV_TRACE_END();
 				if (ret < 0)
 					dev_info(aov_dev->dev,
 					"mtk_cam_seninf_aov_runtime_suspend(%d) fail, ret: %d\n",
@@ -309,7 +341,9 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 					core_info->sensor_id);
 
 				dev_dbg(aov_dev->dev, "mtk_aie_aov_memcpy+\n");
+				AOV_TRACE_BEGIN("AOV Copy AIE");
 				mtk_aie_aov_memcpy((void *)&(init->aie_info));
+				AOV_TRACE_END();
 				dev_dbg(aov_dev->dev, "mtk_aie_aov_memcpy-\n");
 
 				/* debug use
@@ -349,7 +383,9 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 
 		slb.uid = UID_AOV_DC;
 		slb.type = TP_BUFFER;
+		AOV_TRACE_BEGIN("AOV Alloc SLB");
 		ret = slbc_request(&slb);
+		AOV_TRACE_END();
 		if (ret < 0) {
 			dev_info(aov_dev->dev, "%s: failed to allocate slb buffer", __func__);
 			return ret;
@@ -427,7 +463,9 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 
 		slb.uid = UID_AOV_DC;
 		slb.type = TP_BUFFER;
+		AOV_TRACE_BEGIN("AOV Release SLB");
 		ret = slbc_release(&slb);
+		AOV_TRACE_END();
 		if (ret < 0) {
 			dev_info(aov_dev->dev, "failed to release slb buffer");
 			return ret;
@@ -443,7 +481,9 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 
 			slb.uid = UID_AOV_DC;
 			slb.type = TP_BUFFER;
+			AOV_TRACE_BEGIN("AOV Release SLB");
 			ret = slbc_release(&slb);
+			AOV_TRACE_END();
 			if (ret < 0)
 				dev_info(aov_dev->dev, "%s: failed to release slb buffer\n",
 					__func__);
@@ -451,16 +491,20 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 #endif  // AOV_SLB_ALLOC_FREE
 	} else if (cmd == AOV_SCP_CMD_NOTIFY) {
 		// Free aov_notify buffer
+		AOV_TRACE_BEGIN("AOV Free Buffer");
 		spin_lock_irqsave(&core_info->buf_lock, flag);
 		tlsf_free(&(core_info->alloc), buf);
 		spin_unlock_irqrestore(&core_info->buf_lock, flag);
+		AOV_TRACE_END();
 	} else if (cmd == AOV_SCP_CMD_DEINIT) {
 		atomic_set(&(core_info->aov_ready), 0);
 
 		// Free aov_init buffer
+		AOV_TRACE_BEGIN("AOV Free Init");
 		spin_lock_irqsave(&core_info->buf_lock, flag);
 		tlsf_free(&(core_info->alloc), core_info->aov_init);
 		spin_unlock_irqrestore(&core_info->buf_lock, flag);
+		AOV_TRACE_END();
 
 		// Reset queue to empty
 		while (!queue_empty(&(core_info->queue))) {
@@ -580,7 +624,7 @@ static int scp_state_notify(struct notifier_block *this,
 		if (atomic_read(&(core_info->aov_ready))) {
 			dev_info(aov_dev->dev, "%s: recovery aov session+\n", __func__);
 
-		  init = core_info->aov_init;
+			init = core_info->aov_init;
 			if (init) {
 				buffer =
 					core_info->buf_pa + (((uint8_t *)init) - core_info->buf_va);
@@ -1125,7 +1169,9 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 
 			slb.uid = UID_AOV_DC;
 			slb.type = TP_BUFFER;
+			AOV_TRACE_BEGIN("AOV Force Release SLB");
 			ret = slbc_release(&slb);
+			AOV_TRACE_END();
 			if (ret < 0)
 				dev_info(aov_dev->dev, "%s: failed to release slb buffer\n",
 					__func__);
