@@ -17,6 +17,11 @@
 #define V4L2_EVENT_REQUEST_SENSOR_TRIGGER  (V4L2_EVENT_PRIVATE_START + 4)
 #define V4L2_EVENT_ERROR  (V4L2_EVENT_PRIVATE_START + 5)
 
+struct mtk_cam_event_sensor_trigger {
+	__u32	tg_cnt;
+	__u32	reserved[15];
+};
+
 
 #define V4L2_PIX_FMT_MTISP_SBGGR10  v4l2_fourcc('M', 'B', 'B', 'A')
 #define V4L2_PIX_FMT_MTISP_SGBRG10  v4l2_fourcc('M', 'B', 'G', 'A')

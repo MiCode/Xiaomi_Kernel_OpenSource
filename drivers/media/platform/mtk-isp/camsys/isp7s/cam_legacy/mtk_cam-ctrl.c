@@ -93,12 +93,17 @@ void mtk_cam_event_esd_recovery(struct mtk_raw_pipeline *pipeline,
 	v4l2_event_queue(pipeline->subdev.devnode, &event);
 }
 void mtk_cam_event_sensor_trigger(struct mtk_raw_pipeline *pipeline,
-				     unsigned int frame_seq_no)
+				     unsigned int frame_seq_no, unsigned int tg_cnt)
 {
+	struct mtk_cam_event_sensor_trigger data = {
+		.tg_cnt = tg_cnt,
+	};
 	struct v4l2_event event = {
 		.type = V4L2_EVENT_REQUEST_SENSOR_TRIGGER,
 		.u.frame_sync.frame_sequence = frame_seq_no,
 	};
+	memcpy(event.u.data, &data, 4);
+	// pr_info("preisp sensor event trigger:(%d)\n", (__u32)event.u.data[0]);
 	v4l2_event_queue(pipeline->subdev.devnode, &event);
 }
 
@@ -1393,7 +1398,7 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 			/* event only at preisp enable */
 			if (mtk_cam_scen_is_ext_isp(&scen))
 				mtk_cam_event_sensor_trigger(ctx->pipe,
-						s_data->frame_seq_no);
+					s_data->frame_seq_no, ctx->sv_dev->tg_cnt);
 			v4l2_ctrl_request_setup(&req->req,
 						s_data->sensor->ctrl_handler);
 			if (raw_dev)
