@@ -8983,17 +8983,25 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			if (ret)
 				goto fail_img_buf_release;
 		}
-
-		/* must be called after all pipes' set_pixel/set_camtg done */
-		ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 1);
-		if (ret) {
-			dev_info(cam->dev, "failed to stream on seninf %s:%d\n",
-				 ctx->seninf->name, ret);
-			goto fail_img_buf_release;
+		if (mtk_cam_scen_is_ext_isp(scen_active))
+			dev_info(cam->dev, "not to stream on seninf %s for preisp mode\n",
+					 ctx->seninf->name);
+		else {
+			/* must be called after all pipes' set_pixel/set_camtg done */
+			ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 1);
+			if (ret) {
+				dev_info(cam->dev, "failed to stream on seninf %s:%d\n",
+					 ctx->seninf->name, ret);
+				goto fail_img_buf_release;
+			}
 		}
 	} else {
+		spin_lock(&ctx->processing_buffer_list.lock);
 		ctx->processing_buffer_list.cnt = 0;
+		spin_unlock(&ctx->processing_buffer_list.lock);
+		spin_lock(&ctx->composed_buffer_list.lock);
 		ctx->composed_buffer_list.cnt = 0;
+		spin_unlock(&ctx->composed_buffer_list.lock);
 		dev_dbg(cam->dev, "[M2M] reset processing_buffer_list.cnt & composed_buffer_list.cnt\n");
 	}
 
@@ -9222,11 +9230,16 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 
 	/* stream off seninf in non-m2m scenario including camsv/mraw only case */
 	if (!scen_active || !mtk_cam_scen_is_m2m(scen_active)) {
-		ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 0);
-		if (ret) {
-			dev_info(cam->dev, "failed to stream off %s:%d\n",
-				 ctx->seninf->name, ret);
-			return -EPERM;
+		if (mtk_cam_scen_is_ext_isp(scen_active))
+			dev_info(cam->dev, "not to stream off seninf %s for preisp mode\n",
+					 ctx->seninf->name);
+		else {
+			ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 0);
+			if (ret) {
+				dev_info(cam->dev, "failed to stream off %s:%d\n",
+					 ctx->seninf->name, ret);
+				return -EPERM;
+			}
 		}
 	}
 
@@ -10024,8 +10037,6 @@ static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
 
 	ctx->used_raw_num = 0;
 	ctx->used_raw_dev = 0;
-	ctx->processing_buffer_list.cnt = 0;
-	ctx->composed_buffer_list.cnt = 0;
 	ctx->is_first_cq_done = 0;
 	ctx->cq_done_status = 0;
 	ctx->session_created = 0;
@@ -10078,6 +10089,12 @@ static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
 	spin_lock_init(&ctx->processing_img_buffer_list.lock);
 	spin_lock_init(&ctx->watchdog_pipe_lock);
 	mutex_init(&ctx->cleanup_lock);
+	spin_lock(&ctx->processing_buffer_list.lock);
+	ctx->processing_buffer_list.cnt = 0;
+	spin_unlock(&ctx->processing_buffer_list.lock);
+	spin_lock(&ctx->composed_buffer_list.lock);
+	ctx->composed_buffer_list.cnt = 0;
+	spin_unlock(&ctx->composed_buffer_list.lock);
 	mtk_ctx_watchdog_init(ctx);
 }
 

@@ -4946,11 +4946,12 @@ static int mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 	is_rgbw = mtk_cam_scen_is_rgbw_enabled(&raw_dev->pipeline->scen_active);
 
 	if (mtk_cam_scen_is_ext_isp(&ctx->pipe->scen_active)) {
-		dev_info(raw_dev->dev, "ts=%lu irq_type %d, req:%d/%d\n",
+		dev_info(raw_dev->dev, "ts=%lu irq_type %d, req:%d/%d, cnt:%d/%d\n",
 		irq_info->ts_ns / 1000,
 		irq_info->irq_type,
 		irq_info->frame_idx_inner,
-		irq_info->frame_idx);
+		irq_info->frame_idx,
+		raw_dev->tg_count, raw_dev->sof_count);
 	}
 
 	/* trace for FPS tool */
@@ -5197,6 +5198,15 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 		return -1;
 	}
 	ctx = &cam->ctxs[camsv_dev->ctx_stream_id];
+	if (mtk_cam_scen_is_ext_isp(&ctx->pipe->scen_active)) {
+		dev_info(camsv_dev->dev, "ts=%lu irq_type %d, req:%d/%d, cnt:%d/%d, done_group:0x%x\n",
+		irq_info->ts_ns / 1000,
+		irq_info->irq_type,
+		irq_info->frame_idx_inner,
+		irq_info->frame_idx,
+		camsv_dev->tg_cnt, camsv_dev->sof_count,
+		irq_info->done_groups);
+	}
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE)) {
 		for (group_idx = 0; group_idx < MAX_SV_HW_GROUPS; group_idx++) {
 			if (!(irq_info->done_groups & (1 << group_idx)))
@@ -5204,6 +5214,8 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 			for (tag_idx = 0; tag_idx < MAX_SV_HW_TAGS; tag_idx++) {
 				if (camsv_dev->active_group_info[group_idx] & (1 << tag_idx)) {
 					hw_scen = camsv_dev->tag_info[tag_idx].hw_scen;
+					dev_info(camsv_dev->dev, "group_idx:%d, tag_idx:%d, hw_scen:%d\n",
+						group_idx, tag_idx, hw_scen);
 					if (hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO)
 						mtk_camsv_special_hw_scenario_handler(cam,
 						camsv_dev, irq_info, hw_scen, tag_idx);
@@ -5323,6 +5335,8 @@ int mtk_camsv_special_hw_scenario_handler(struct mtk_cam_device *cam,
 	ctx = cam->ctxs + camsv_dev->ctx_stream_id;
 	if (hw_scen & (1 << MTKCAM_SV_SPECIAL_SCENARIO_EXT_ISP)) {
 		int seninf_padidx = camsv_dev->tag_info[tag_idx].seninf_padidx;
+		dev_info(camsv_dev->dev, "seninf_padidx:%d, component:%d",
+			seninf_padidx, ctx->component_dequeued_frame_seq_no);
 		/* raw/yuv pipeline frame start from camsv engine */
 		if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START)) {
 			/* preisp frame start */
@@ -6035,7 +6049,7 @@ void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 			dev_info(cam->dev, "mraw apply all buffers failed");
 		state_transition(state_sensor, E_STATE_EXTISP_SENSOR,
 				 E_STATE_EXTISP_SV_OUTER);
-		stream_data->state.sof_cnt_key = ctx->sv_dev->sof_count;//ctx->sv_dev->tg_cnt;
+		stream_data->state.sof_cnt_key = ctx->sv_dev->tg_cnt;
 		dev_info(cam->dev, "[%s-ENQ-SV] ctx:%d/req:%d s:0x%x, cnt:%d/%d, key:%d\n",
 		__func__, ctx->stream_id, stream_data->frame_seq_no, state_sensor->estate,
 		ctx->sv_dev->tg_cnt, ctx->sv_dev->sof_count, stream_data->state.sof_cnt_key);
@@ -6118,7 +6132,7 @@ int mtk_camsys_extisp_state_handle(struct mtk_raw_device *raw_dev,
 				state_out = state_temp;
 			}
 			if (state_temp->estate == E_STATE_EXTISP_SV_OUTER &&
-				stream_data->state.sof_cnt_key == raw_dev->sof_count)
+				stream_data->state.sof_cnt_key == raw_dev->tg_count)
 				if (!state_sv)
 					state_sv = state_temp;
 			dev_dbg(ctx->cam->dev,

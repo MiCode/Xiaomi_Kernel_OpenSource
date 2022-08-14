@@ -2511,7 +2511,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	fbc_fho_ctl2 =
 		readl_relaxed(REG_FBC_CTL2(raw_dev->base + FBC_R1A_BASE, 1));
 	tg_cnt = readl_relaxed(raw_dev->base + REG_TG_INTER_ST);
-	tg_cnt = (tg_cnt & 0xff0000) >> 16;
+	tg_cnt = (tg_cnt & 0xff000000) >> 24;
 	err_status = irq_status & INT_ST_MASK_CAM_ERR;
 
 	if (unlikely(debug_raw))
