@@ -996,6 +996,43 @@ static ssize_t vtskin_info_store(struct kobject *kobj,
 	return count;
 }
 
+static int catm_p[2];
+
+static ssize_t catm_p_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d, %d, %d\n",
+		catm_p[0],
+		catm_p[1],
+		catm_p[2]);
+
+	return len;
+}
+
+static ssize_t catm_p_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	char cmd[10];
+	int p0, p1, p2;
+
+	if (sscanf(buf, "%5s %d %d %d", cmd, &p0, &p1, &p2)
+		== 4) {
+		if (strncmp(cmd, "CATM", 4) == 0) {
+			catm_p[0] = p0;
+			catm_p[1] = p1;
+			catm_p[2] = p2;
+
+			return count;
+		}
+	}
+
+	pr_info("[thermal_ttj] invalid input\n");
+
+	return -EINVAL;
+}
+
 static struct kobj_attribute ttj_attr = __ATTR_RW(ttj);
 static struct kobj_attribute power_budget_attr = __ATTR_RW(power_budget);
 static struct kobj_attribute cpu_info_attr = __ATTR_RO(cpu_info);
@@ -1021,6 +1058,7 @@ static struct kobj_attribute min_throttle_freq_attr =
 	__ATTR_RW(min_throttle_freq);
 static struct kobj_attribute sports_mode_attr = __ATTR_RW(sports_mode);
 static struct kobj_attribute vtskin_info_attr = __ATTR_RW(vtskin_info);
+static struct kobj_attribute catm_p_attr = __ATTR_RW(catm_p);
 
 
 static struct attribute *thermal_attrs[] = {
@@ -1048,6 +1086,7 @@ static struct attribute *thermal_attrs[] = {
 	&min_throttle_freq_attr.attr,
 	&sports_mode_attr.attr,
 	&vtskin_info_attr.attr,
+	&catm_p_attr.attr,
 	NULL
 };
 static struct attribute_group thermal_attr_group = {
