@@ -31,6 +31,8 @@
 #include "../mtk_drm_fb.h"
 #include "mtk_disp_oddmr.h"
 #include "mtk_disp_oddmr_parse_data.h"
+#include "mtk_disp_oddmr_tuning.h"
+
 /* ODDMR TOP */
 #define DISP_ODDMR_TOP_CTR_2 0x0008
 #define REG_VS_RE_GEN REG_FLD_MSB_LSB(1, 1)
@@ -1811,6 +1813,7 @@ static int mtk_oddmr_od_gain_lookup(uint32_t fps, uint32_t dbv, int table_idx, u
 	if (!IS_TABLE_VALID(table_idx, g_od_param.valid_table)) {
 		*weight = 0;
 		DDPPR_ERR("%s table%d is invalid\n", __func__, table_idx);
+		return -EFAULT;
 	}
 	/*fps*/
 	cnt = g_od_param.od_tables[table_idx]->fps_cnt;
@@ -2147,7 +2150,7 @@ static int mtk_oddmr_dmr_bl_gain_lookup(uint32_t dbv, int table_idx, uint32_t *w
 
 	if (!IS_TABLE_VALID(table_idx, g_dmr_param.valid_table)) {
 		*weight = 0;
-		return -1;
+		return -EFAULT;
 	}
 	tmp_item = (int)dbv;
 	bl_gain_table = g_dmr_param.dmr_tables[table_idx]->bl_table;
@@ -2240,7 +2243,7 @@ static void mtk_oddmr_od_flip(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle
 	ODDMRAPI_LOG("+\n");
 	//flip
 	priv->od_data.od_sram_read_sel = !priv->od_data.od_sram_read_sel;
-	table_idx = priv->od_data.od_sram_table_idx[priv->od_data.od_sram_read_sel];
+	table_idx = priv->od_data.od_sram_table_idx[!!priv->od_data.od_sram_read_sel];
 	r_sel = priv->od_data.od_sram_read_sel;
 	w_sel = !r_sel;
 	value = 0;
@@ -2545,6 +2548,42 @@ static void mtk_oddmr_od_init_end_dual(struct mtk_ddp_comp *comp, struct cmdq_pk
 		mtk_oddmr_od_init_end(oddmr1_default_comp, handle);
 }
 
+static void mtk_oddmr_od_tuning_write_sram(struct mtk_ddp_comp *comp,
+	struct cmdq_pkt *handle, struct mtk_oddmr_od_tuning_sram *tuning_data)
+{
+	uint32_t channel, sram, idx, val, ctl;
+	uint32_t value = 0, mask = 0, tmp_r_sel = 0, tmp_w_sel = 0;
+
+	channel = tuning_data->channel;
+	sram = tuning_data->sram;
+	idx = tuning_data->idx;
+	val = tuning_data->value;
+
+	ctl = mtk_oddmr_read(comp, DISP_ODDMR_OD_SRAM_CTRL_0);
+
+	tmp_r_sel = (ctl & 0x20) >> 5;
+	tmp_w_sel = tmp_r_sel;
+	value = 0;
+	mask = 0;
+	SET_VAL_MASK(value, mask, 1 << (channel + 1), REG_WBGR_OD_SRAM_IO_EN);
+	SET_VAL_MASK(value, mask, 0, REG_AUTO_SRAM_ADR_INC_EN);
+	SET_VAL_MASK(value, mask, tmp_w_sel, REG_OD_SRAM_WRITE_SEL);
+	SET_VAL_MASK(value, mask, tmp_r_sel, REG_OD_SRAM_READ_SEL);
+	mtk_oddmr_write_mask(comp, value, DISP_ODDMR_OD_SRAM_CTRL_0, mask, handle);
+	mtk_oddmr_write(comp, val,
+		(DISP_ODDMR_OD_SRAM_CTRL_2 + 12 * (sram - 1)), handle);
+	mtk_oddmr_write(comp, 0x8000 | (idx & 0x1FF),
+		(DISP_ODDMR_OD_SRAM_CTRL_1 + 12 * (sram - 1)), handle);
+	mtk_oddmr_write_mask(comp, ctl, DISP_ODDMR_OD_SRAM_CTRL_0, 0xFFFFFFFF, handle);
+}
+
+static void mtk_oddmr_od_tuning_write_sram_dual(struct mtk_ddp_comp *comp,
+	struct cmdq_pkt *handle, struct mtk_oddmr_od_tuning_sram *tuning_data)
+{
+	mtk_oddmr_od_tuning_write_sram(default_comp, handle, tuning_data);
+	if (comp->mtk_crtc->is_dual_pipe)
+		mtk_oddmr_od_tuning_write_sram(oddmr1_default_comp, handle, tuning_data);
+}
 /* all oddmr user cmd use handle dualpipe itself because it is not drm atomic */
 static int mtk_oddmr_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		uint32_t cmd, void *data)
@@ -2593,6 +2632,17 @@ static int mtk_oddmr_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle
 	case ODDMR_CMD_EOF_CHECK_TRIGGER:
 	{
 		cmdq_pkt_set_event(handle, comp->mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+		break;
+	}
+	case ODDMR_CMD_OD_TUNING_WRITE_SRAM:
+	{
+		struct mtk_oddmr_od_tuning_sram *tuning_data = data;
+
+		if (tuning_data == NULL) {
+			ODDMRFLOW_LOG("tuning data is NULL\n", cmd);
+			return -EFAULT;
+		}
+		mtk_oddmr_od_tuning_write_sram_dual(comp, handle, tuning_data);
 		break;
 	}
 	default:
@@ -3177,6 +3227,240 @@ static int mtk_oddmr_dmr_enable(struct drm_device *dev, bool en)
 	return ret;
 }
 
+static int mtk_oddmr_od_sram_read(struct mtk_ddp_comp *comp, int table_idx,
+			struct mtk_oddmr_sw_reg *sw_reg, struct mtk_oddmr_od_param *pparam)
+{
+	struct mtk_oddmr_od_table *table;
+	uint8_t *raw_table;
+	uint32_t table_size, map_id, *val;
+	int idx;
+
+	if (!IS_TABLE_VALID(table_idx, pparam->valid_table)) {
+		ODDMRFLOW_LOG("table %d is invalid\n", table_idx);
+		return -EFAULT;
+	}
+	table = pparam->od_tables[table_idx];
+	raw_table = table->raw_table.value;
+	table_size = table->raw_table.size;
+
+	map_id = (sw_reg->reg & 0xFFFF) / 4;
+	val = &sw_reg->val;
+	idx = map_id - OD_TABLE_B_SRAM1_START;
+	if (idx >= table_size) {
+		ODDMRFLOW_LOG("table%d idx %d outof size %d\n", table_idx, idx, table_size);
+		return -EFAULT;
+	}
+	*val = raw_table[idx];
+	ODDMRAPI_LOG("map_id 0x%x table_idx %d, idx %d val %u\n", map_id, table_idx, idx, *val);
+	return 0;
+}
+
+static int mtk_oddmr_od_sram_write(struct mtk_ddp_comp *comp, int table_idx,
+			struct mtk_oddmr_sw_reg *sw_reg, struct mtk_oddmr_od_param *pparam)
+{
+	struct mtk_oddmr_od_table *table;
+	uint8_t *raw_table;
+	uint32_t table_size, map_id, val;
+	int idx, ret = 0;
+	struct mtk_oddmr_od_tuning_sram tuning_data = {0};
+
+	if (!IS_TABLE_VALID(table_idx, pparam->valid_table)) {
+		ODDMRFLOW_LOG("table %d is invalid\n", table_idx);
+		return -EFAULT;
+	}
+	table = pparam->od_tables[table_idx];
+	raw_table = table->raw_table.value;
+	table_size = table->raw_table.size;
+
+	map_id = (sw_reg->reg & 0xFFFF) / 4;
+	val = sw_reg->val;
+	idx = map_id - OD_TABLE_B_SRAM1_START;
+	if (idx >= table_size) {
+		ODDMRFLOW_LOG("table%d idx %d outof size %d\n", table_idx, idx, table_size);
+		return -EFAULT;
+	}
+	//raw_table[idx] = val;
+	/* B:0-bit1, G:1-bit2, R:2-bit3*/
+	if (map_id >= OD_TABLE_B_SRAM1_START && map_id <= OD_TABLE_B_SRAM1_END) {
+		tuning_data.channel = 0;
+		tuning_data.sram = 1;
+		tuning_data.idx = map_id - OD_TABLE_B_SRAM1_START;
+	} else if (map_id >= OD_TABLE_B_SRAM2_START && map_id <= OD_TABLE_B_SRAM2_END) {
+		tuning_data.channel = 0;
+		tuning_data.sram = 2;
+		tuning_data.idx = map_id - OD_TABLE_B_SRAM2_START;
+	} else if (map_id >= OD_TABLE_B_SRAM3_START && map_id <= OD_TABLE_B_SRAM3_END) {
+		tuning_data.channel = 0;
+		tuning_data.sram = 3;
+		tuning_data.idx = map_id - OD_TABLE_B_SRAM3_START;
+	} else if (map_id >= OD_TABLE_B_SRAM4_START && map_id <= OD_TABLE_B_SRAM4_END) {
+		tuning_data.channel = 0;
+		tuning_data.sram = 4;
+		tuning_data.idx = map_id - OD_TABLE_B_SRAM4_START;
+	} else if (map_id >= OD_TABLE_G_SRAM1_START && map_id <= OD_TABLE_G_SRAM1_END) {
+		tuning_data.channel = 1;
+		tuning_data.sram = 1;
+		tuning_data.idx = map_id - OD_TABLE_G_SRAM1_START;
+	} else if (map_id >= OD_TABLE_G_SRAM2_START && map_id <= OD_TABLE_G_SRAM2_END) {
+		tuning_data.channel = 1;
+		tuning_data.sram = 2;
+		tuning_data.idx = map_id - OD_TABLE_G_SRAM2_START;
+	} else if (map_id >= OD_TABLE_G_SRAM3_START && map_id <= OD_TABLE_G_SRAM3_END) {
+		tuning_data.channel = 1;
+		tuning_data.sram = 3;
+		tuning_data.idx = map_id - OD_TABLE_G_SRAM3_START;
+	} else if (map_id >= OD_TABLE_G_SRAM4_START && map_id <= OD_TABLE_G_SRAM4_END) {
+		tuning_data.channel = 1;
+		tuning_data.sram = 4;
+		tuning_data.idx = map_id - OD_TABLE_G_SRAM4_START;
+	} else if (map_id >= OD_TABLE_R_SRAM1_START && map_id <= OD_TABLE_R_SRAM1_END) {
+		tuning_data.channel = 2;
+		tuning_data.sram = 1;
+		tuning_data.idx = map_id - OD_TABLE_R_SRAM1_START;
+	} else if (map_id >= OD_TABLE_R_SRAM2_START && map_id <= OD_TABLE_R_SRAM2_END) {
+		tuning_data.channel = 2;
+		tuning_data.sram = 2;
+		tuning_data.idx = map_id - OD_TABLE_R_SRAM2_START;
+	} else if (map_id >= OD_TABLE_R_SRAM3_START && map_id <= OD_TABLE_R_SRAM3_END) {
+		tuning_data.channel = 2;
+		tuning_data.sram = 3;
+		tuning_data.idx = map_id - OD_TABLE_R_SRAM3_START;
+	} else if (map_id >= OD_TABLE_R_SRAM4_START && map_id <= OD_TABLE_R_SRAM4_END) {
+		tuning_data.channel = 2;
+		tuning_data.sram = 4;
+		tuning_data.idx = map_id - OD_TABLE_R_SRAM4_START;
+	} else {
+		ODDMRFLOW_LOG("map_id 0x%x outof bound\n", map_id);
+		return -EFAULT;
+	}
+	tuning_data.value = val;
+
+	ret = mtk_crtc_user_cmd(&comp->mtk_crtc->base, comp,
+		ODDMR_CMD_OD_TUNING_WRITE_SRAM, &tuning_data);
+	if (ret == 1)
+		ret = -EFAULT;
+	ODDMRAPI_LOG("ret %d map_id:0x%x(%u,%u,%u,%u)\n", ret, map_id,
+		tuning_data.channel, tuning_data.sram, tuning_data.idx, tuning_data.value);
+	return ret;
+}
+
+static int mtk_oddmr_od_status_read(struct mtk_ddp_comp *comp, int table_idx,
+			struct mtk_oddmr_sw_reg *sw_reg, struct mtk_oddmr_timing *timing)
+{
+	uint32_t map_id, *val;
+	int ret = 0;
+
+	map_id = (sw_reg->reg & 0xFFFF) / 4;
+	val = &sw_reg->val;
+	switch (map_id) {
+	case OD_CURRENT_TABLE:
+		*val = table_idx;
+		break;
+	case OD_CURRENT_BL:
+		*val = timing->bl_level;
+		break;
+	case OD_CURRENT_FPS:
+		*val = timing->vrefresh;
+		break;
+	case OD_CURRENT_HDISPLAY:
+		*val = timing->hdisplay;
+		break;
+	case OD_CURRENT_VDISPLAY:
+		*val = timing->vdisplay;
+		break;
+	default:
+		ret = -EFAULT;
+		break;
+	}
+	ODDMRAPI_LOG("map_id 0x%x, %d\n", map_id, *val);
+	return ret;
+}
+
+static int mtk_oddmr_od_read_sw_reg(struct mtk_ddp_comp *comp, struct mtk_drm_oddmr_ctl *ctl_data,
+			struct mtk_oddmr_od_param *pparam)
+{
+	int ret, table_idx;
+	struct mtk_oddmr_sw_reg sw_reg;
+	uint32_t map_id;
+	struct mtk_disp_oddmr *priv;
+
+	if (ctl_data == NULL ||
+		ctl_data->data == NULL ||
+		ctl_data->size != sizeof(struct mtk_oddmr_sw_reg)) {
+		ODDMRFLOW_LOG("ctl_data is invalid\n");
+		return -EFAULT;
+	}
+	if (comp == NULL || pparam == NULL) {
+		ODDMRFLOW_LOG("comp,pparam is NULL\n");
+		return -EFAULT;
+	}
+	if (copy_from_user(&sw_reg, ctl_data->data, ctl_data->size)) {
+		ODDMRFLOW_LOG("copy_from_user fail\n");
+		ret = -EFAULT;
+		goto out;
+	}
+	priv = comp_to_oddmr(comp);
+	table_idx = priv->od_data.od_sram_table_idx[!!priv->od_data.od_sram_read_sel];
+	if (!IS_TABLE_VALID(table_idx, pparam->valid_table)) {
+		ODDMRFLOW_LOG("table %d is invalid\n", table_idx);
+		return -EFAULT;
+	}
+	map_id = (sw_reg.reg & 0xFFFF) / 4;
+	if (map_id >= OD_TABLE_B_SRAM1_START && map_id <= OD_TABLE_R_SRAM4_END)
+		ret = mtk_oddmr_od_sram_read(comp, table_idx, &sw_reg, pparam);
+	else if (map_id <= OD_CURRENT_VDISPLAY)
+		ret = mtk_oddmr_od_status_read(comp, table_idx, &sw_reg, &g_oddmr_current_timing);
+	else
+		ret = mtk_oddmr_od_tuning_read(comp, table_idx, &sw_reg, pparam);
+	if (copy_to_user(ctl_data->data, &sw_reg, ctl_data->size)) {
+		ODDMRFLOW_LOG("copy_to_user fail\n");
+		ret = -EFAULT;
+		goto out;
+	}
+	ODDMRFLOW_LOG("reg 0x%x 0x%x 0x%x+\n", sw_reg.reg, sw_reg.val, ctl_data->size);
+out:
+	return ret;
+}
+
+static int mtk_oddmr_od_write_sw_reg(struct mtk_ddp_comp *comp, struct mtk_drm_oddmr_ctl *ctl_data,
+			struct mtk_oddmr_od_param *pparam)
+{
+	int ret, table_idx;
+	struct mtk_oddmr_sw_reg sw_reg;
+	uint32_t map_id;
+	struct mtk_disp_oddmr *priv;
+
+	if (ctl_data == NULL ||
+		ctl_data->data == NULL ||
+		ctl_data->size != sizeof(struct mtk_oddmr_sw_reg)) {
+		ODDMRFLOW_LOG("ctl_data is invalid\n");
+		return -EFAULT;
+	}
+	if (comp == NULL || pparam == NULL) {
+		ODDMRFLOW_LOG("comp,pparam is NULL\n");
+		return -EFAULT;
+	}
+	if (copy_from_user(&sw_reg, ctl_data->data, ctl_data->size)) {
+		ODDMRFLOW_LOG("copy_from_user fail\n");
+		ret = -EFAULT;
+		goto out;
+	}
+	ODDMRFLOW_LOG("reg 0x%x val 0x%x+\n", sw_reg.reg, sw_reg.val);
+	priv = comp_to_oddmr(comp);
+	table_idx = priv->od_data.od_sram_table_idx[!!priv->od_data.od_sram_read_sel];
+	if (!IS_TABLE_VALID(table_idx, pparam->valid_table)) {
+		ODDMRFLOW_LOG("table %d is invalid\n", table_idx);
+		return -EFAULT;
+	}
+	map_id = (sw_reg.reg & 0xFFFF) / 4;
+	if (map_id >= OD_TABLE_B_SRAM1_START && map_id <= OD_TABLE_R_SRAM4_END)
+		ret = mtk_oddmr_od_sram_write(comp, table_idx, &sw_reg, pparam);
+	else
+		ret = mtk_oddmr_od_tuning_write(comp, table_idx, &sw_reg, pparam);
+out:
+	return ret;
+}
+
 /* all oddmr ioctl use handle dualpipe itself because it is not int drm atomic flow */
 int mtk_drm_ioctl_oddmr_ctl(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
@@ -3208,6 +3492,12 @@ int mtk_drm_ioctl_oddmr_ctl(struct drm_device *dev, void *data,
 	case MTK_DRM_ODDMR_DMR_DISABLE:
 		ret = mtk_oddmr_dmr_enable(dev, 0);
 		break;
+	case MTK_DRM_ODDMR_OD_READ_SW_REG:
+		ret = mtk_oddmr_od_read_sw_reg(default_comp, param, &g_od_param);
+		break;
+	case MTK_DRM_ODDMR_OD_WRITE_SW_REG:
+		ret = mtk_oddmr_od_write_sw_reg(default_comp, param, &g_od_param);
+		break;
 	default:
 		ODDMRFLOW_LOG("cmd %d is invalid\n", param->cmd);
 		ret = -EINVAL;
@@ -3216,6 +3506,7 @@ int mtk_drm_ioctl_oddmr_ctl(struct drm_device *dev, void *data,
 	ODDMRFLOW_LOG("cmd %d ret %d\n", param->cmd, ret);
 	return ret;
 }
+
 int mtk_drm_ioctl_oddmr_load_param(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
 {

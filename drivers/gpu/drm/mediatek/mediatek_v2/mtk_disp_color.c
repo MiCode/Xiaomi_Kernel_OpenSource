@@ -2503,6 +2503,25 @@ static bool color_get_DISP_DMDP_AAL_REG(struct resource *res)
 	return true;
 }
 
+static bool color_get_DISP1_ODDMR0_REG(struct resource *res)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,disp1_oddmr0");
+	rc = of_address_to_resource(node, 0, res);
+
+	// check if fail to get reg.
+	if (rc)	{
+		DDPINFO("Fail to get disp1_oddmr0 REG\n");
+		return false;
+	}
+
+	DDPDBG("disp1_oddmr0 REG: 0x%llx ~ 0x%llx\n", res->start, res->end);
+
+	return true;
+}
+
 static int get_tuning_reg_table_idx_and_offset(struct mtk_ddp_comp *comp,
 	unsigned long addr, unsigned int *offset)
 {
@@ -3330,10 +3349,15 @@ static int mtk_color_user_cmd(struct mtk_ddp_comp *comp,
 						pa1 = res.start + offset;
 					else if (color_get_DISP_CCORR1_REG(&res))
 						pa1 =  res.start + offset;
-
 				} else if (tablet_index == TUNING_DISP_MDP_AAL) {
 					if (color_get_DISP_DMDP_AAL_REG(&res))
 						pa1 =  res.start + offset;
+				} else if (tablet_index == TUNING_DISP_ODDMR_TOP) {
+					if (color_get_DISP1_ODDMR0_REG(&res))
+						pa1 =  res.start + offset;
+				} else if (tablet_index == TUNING_DISP_ODDMR_OD) {
+					if (color_get_DISP1_ODDMR0_REG(&res))
+						pa1 =  res.start + offset + 0x1000;
 				}
 				if (pa) {
 					cmdq_pkt_write(handle, comp->cmdq_base,
@@ -3675,7 +3699,7 @@ static const struct mtk_disp_color_data mt6985_color_driver_data = {
 	.support_color30 = true,
 	.reg_table = {0x14008000, 0x14004000, 0x14002000, 0x1400E000,
 			0x14009000, 0x14005000, 0x14018000, 0x14003000,
-			0x1400F000},
+			0x1400F000, 0x14013000, 0x14014000},
 	.color_window = 0x40185E57,
 	.support_shadow = false,
 	.need_bypass_shadow = true,
