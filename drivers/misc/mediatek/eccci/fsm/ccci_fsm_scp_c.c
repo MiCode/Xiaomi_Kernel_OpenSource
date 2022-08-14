@@ -16,6 +16,7 @@
 #include "ccci_common_config.h"
 #include "ccci_fsm_internal.h"
 #include "md_sys1_platform.h"
+#include "modem_secure_base.h"
 
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 #include "scp_ipi.h"
@@ -168,6 +169,14 @@ static int scp_set_clk_cg(unsigned int on)
 	return 0;
 }
 
+void ccci_notify_atf_set_scpmem(void)
+{
+	struct arm_smccc_res res = {0};
+
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, SCP_CLK_SET_DONE,
+		0, 0, 0, 0, 0, 0, &res);
+	CCCI_NORMAL_LOG(MD_SYS1, FSM, "%s [done] res = 0x%llX\n", __func__, res.a0);
+}
 static void ccci_scp_md_state_sync_work(struct work_struct *work)
 {
 	int ret = 0;
@@ -204,6 +213,7 @@ static void ccci_scp_md_state_sync_work(struct work_struct *work)
 				break;
 			}
 
+			ccci_notify_atf_set_scpmem();
 			ret = ccci_port_send_msg_to_md(CCCI_SYSTEM_TX,
 			CCISM_SHM_INIT, 0, 1);
 			if (ret < 0)
