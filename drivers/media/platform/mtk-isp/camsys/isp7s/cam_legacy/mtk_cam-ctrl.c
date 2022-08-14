@@ -112,7 +112,12 @@ void mtk_cam_event_error(struct mtk_raw_pipeline *pipeline, char *msg)
 	struct v4l2_event event = {
 		.type = V4L2_EVENT_ERROR,
 	};
-	memcpy(event.u.data, msg, strlen(msg) < 64 ? strlen(msg) : 64);
+	if (strlen(msg) < 64) {
+		memcpy(event.u.data, msg, strlen(msg));
+	} else {
+		memcpy(event.u.data, msg, 63);
+		event.u.data[63] = '\0';
+	}
 
 	if (pipeline)
 		v4l2_event_queue(pipeline->subdev.devnode, &event);

@@ -252,7 +252,7 @@ static unsigned long _get_contiguous_size(struct sg_table *sgt)
 	unsigned long size = 0;
 
 	for_each_sgtable_dma_sg(sgt, s, i) {
-		if (sg_dma_address(s) != expected)
+		if (!s || sg_dma_address(s) != expected)
 			break;
 		expected += sg_dma_len(s);
 		size += sg_dma_len(s);
@@ -437,13 +437,20 @@ void mtk_cam_img_working_buf_pool_release(struct mtk_cam_ctx *ctx)
 
 void mtk_cam_user_img_working_buf_pool_release(struct mtk_cam_ctx *ctx)
 {
-	dev_info(ctx->cam->dev,
-		 "%s:ctx(%d): deattach/unmap user memory(%d,%d), sz(%zu), daddr(%pad)\n",
-		 __func__, ctx->stream_id,
-		 ctx->pipe->pre_alloc_mem.bufs[0].fd,
-		 ctx->pipe->pre_alloc_mem.bufs[0].length,
-		 ctx->img_buf_pool.pre_alloc_img_buf.size,
-		 &ctx->img_buf_pool.pre_alloc_img_buf.daddr);
+	if (ctx->pipe)
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d): deattach/unmap user memory(%d,%d), sz(%zu), daddr(%pad)\n",
+			 __func__, ctx->stream_id,
+			 ctx->pipe->pre_alloc_mem.bufs[0].fd,
+			 ctx->pipe->pre_alloc_mem.bufs[0].length,
+			 ctx->img_buf_pool.pre_alloc_img_buf.size,
+			 &ctx->img_buf_pool.pre_alloc_img_buf.daddr);
+	else
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d): deattach/unmap user memory sz(%zu), daddr(%pad)\n",
+			 __func__, ctx->stream_id,
+			 ctx->img_buf_pool.pre_alloc_img_buf.size,
+			 &ctx->img_buf_pool.pre_alloc_img_buf.daddr);
 	mtk_cam_user_buf_deattach_unmap(&ctx->img_buf_pool.pre_alloc_img_buf);
 	ctx->img_buf_pool.pre_alloc_img_buf.daddr = 0;
 	ctx->img_buf_pool.pre_alloc_img_buf.size = 0;
@@ -606,12 +613,16 @@ int mtk_cam_sv_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 void
 mtk_cam_sv_working_buf_put(struct mtk_camsv_working_buf_entry *buf_entry)
 {
-	struct mtk_cam_ctx *ctx = buf_entry->ctx;
-
-	dev_dbg(ctx->cam->dev, "%s:ctx(%d):s\n", __func__, ctx->stream_id);
+	struct mtk_cam_ctx *ctx;
 
 	if (!buf_entry)
 		return;
+
+	ctx = buf_entry->ctx;
+	if (!ctx)
+		return;
+
+	dev_dbg(ctx->cam->dev, "%s:ctx(%d):s\n", __func__, ctx->stream_id);
 
 	spin_lock(&ctx->buf_pool.sv_freelist.lock);
 	list_add_tail(&buf_entry->list_entry,
