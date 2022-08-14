@@ -56,6 +56,8 @@ struct dma_buf *mtk_cam_dmabuf_alloc(struct mtk_cam_ctx *ctx, unsigned int size)
 
 	dbuf = dma_heap_buffer_alloc(heap_type, size,
 		O_CLOEXEC | O_RDWR, DMA_HEAP_VALID_HEAP_FLAGS);
+
+	dma_heap_put(heap_type);
 	if (IS_ERR(dbuf)) {
 		dev_info(cam->dev, "region-based hsf buffer allocation fail\n");
 		return NULL;
