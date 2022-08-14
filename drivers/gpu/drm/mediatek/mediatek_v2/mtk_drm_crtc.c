@@ -1065,7 +1065,7 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level,
 	if ((cfg_flag & (0x1<<SET_BACKLIGHT_LEVEL)) && !(cfg_flag & (0x1<<SET_ELVSS_PN))) {
 
 		DDPINFO("%s cfg_flag = %d,level=%d\n", __func__, cfg_flag, level);
-		if (comp->funcs && comp->funcs->io_cmd)
+		if (comp && comp->funcs && comp->funcs->io_cmd)
 			comp->funcs->io_cmd(comp, cmdq_handle, DSI_SET_BL, &level);
 
 	} else {
@@ -1075,7 +1075,7 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level,
 		bl_ext_config.backlight_level = level;
 		bl_ext_config.elvss_pn = panel_ext_param;
 
-		if (comp->funcs && comp->funcs->io_cmd)
+		if (comp && comp->funcs && comp->funcs->io_cmd)
 			comp->funcs->io_cmd(comp, cmdq_handle, DSI_SET_BL_ELVSS, &bl_ext_config);
 
 	}
@@ -2066,7 +2066,7 @@ static void mml_addon_module_disconnect(struct drm_crtc *crtc,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *output_comp;
 	struct mtk_rect ovl_roi = {0, 0, w, h};
-	int i = 0;
+	unsigned int i = 0;
 	const struct mtk_addon_module_data *m[] = {addon_module, addon_module_dual};
 
 	addon_config->addon_mml_config.config_type.type = ADDON_DISCONNECT;
@@ -4109,11 +4109,17 @@ bool mtk_crtc_with_event_loop(struct drm_crtc *crtc)
 
 bool mtk_crtc_is_frame_trigger_mode(struct drm_crtc *crtc)
 {
-	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_drm_private *priv = (crtc->dev && crtc->dev->dev_private) ?
+		crtc->dev->dev_private : NULL;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	int crtc_id = drm_crtc_index(crtc);
 	struct mtk_ddp_comp *comp = NULL;
 	int i;
+
+	if (!priv) {
+		DDPPR_ERR("%s, Cannot find priv\n", __func__);
+		return false;
+	}
 
 	if (crtc_id == 0)
 		return mtk_dsi_is_cmd_mode(priv->ddp_comp[DDP_COMPONENT_DSI0]);
@@ -7187,10 +7193,10 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
 	if (crtc_id == 0) {
 		mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
-		cmdq_pkt_flush(cmdq_handle);
-		if (cmdq_handle != NULL)
+		if (cmdq_handle != NULL) {
+			cmdq_pkt_flush(cmdq_handle);
 			cmdq_pkt_destroy(cmdq_handle);
-		else
+		} else
 			DDPPR_ERR("%s %d null cmdq_handle\n", __func__, __LINE__);
 	}
 
@@ -7252,10 +7258,10 @@ skip:
 		mutex_unlock(&mtk_crtc->mml_ir_sram.lock);
 	}
 
-	cmdq_pkt_flush(cmdq_handle);
-	if (cmdq_handle != NULL)
+	if (cmdq_handle != NULL) {
+		cmdq_pkt_flush(cmdq_handle);
 		cmdq_pkt_destroy(cmdq_handle);
-	else
+	} else
 		DDPPR_ERR("%s %d null cmdq_handle\n", __func__, __LINE__);
 
 	/* 4. Set QOS BW to 0 */
@@ -11128,10 +11134,6 @@ void mtk_gce_backup_slot_init(struct mtk_drm_crtc *mtk_crtc)
 	int i;
 
 	mmsys_id = mtk_get_mmsys_id(crtc);
-	if ((mmsys_id != MMSYS_MT6983) &&
-		(mmsys_id != MMSYS_MT6895) &&
-		(mmsys_id != MMSYS_MT6879))
-		return;
 
 	if ((mmsys_id == MMSYS_MT6983) ||
 		(mmsys_id == MMSYS_MT6895)) {
@@ -11162,19 +11164,6 @@ unsigned int *mtk_get_gce_backup_slot_va(struct mtk_drm_crtc *mtk_crtc,
 	}
 
 	mmsys_id = mtk_get_mmsys_id(crtc);
-	if ((mmsys_id != MMSYS_MT6983) &&
-		(mmsys_id != MMSYS_MT6895) &&
-		(mmsys_id != MMSYS_MT6879)) {
-		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
-
-		if (cmdq_buf == NULL) {
-			DDPPR_ERR("%s invalid cmdq_buffer\n", __func__);
-			return NULL;
-		}
-
-		return (cmdq_buf->va_base + slot_index);
-	}
-
 	idx = slot_index / sizeof(unsigned int);
 
 	if ((mmsys_id == MMSYS_MT6983) ||
@@ -11184,8 +11173,16 @@ unsigned int *mtk_get_gce_backup_slot_va(struct mtk_drm_crtc *mtk_crtc,
 	} else if (mmsys_id == MMSYS_MT6879) {
 		table = mt6879_dispsys_dummy_register;
 		size = MT6879_DUMMY_REG_CNT;
-	} else
-		return 0;
+	} else {
+		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+
+		if (cmdq_buf == NULL) {
+			DDPPR_ERR("%s invalid cmdq_buffer\n", __func__);
+			return NULL;
+		}
+
+		return (cmdq_buf->va_base + slot_index);
+	}
 
 	if (idx < size) {
 		offset = table[idx].offset;
@@ -11216,19 +11213,6 @@ dma_addr_t mtk_get_gce_backup_slot_pa(struct mtk_drm_crtc *mtk_crtc,
 	}
 
 	mmsys_id = mtk_get_mmsys_id(crtc);
-	if ((mmsys_id != MMSYS_MT6983) &&
-		(mmsys_id != MMSYS_MT6895) &&
-		(mmsys_id != MMSYS_MT6879)) {
-		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
-
-		if (cmdq_buf == NULL) {
-			DDPPR_ERR("%s invalid cmdq_buffer\n", __func__);
-			return 0;
-		}
-
-		return (cmdq_buf->pa_base + slot_index);
-	}
-
 	idx = slot_index / sizeof(unsigned int);
 
 	if ((mmsys_id == MMSYS_MT6983) ||
@@ -11238,8 +11222,16 @@ dma_addr_t mtk_get_gce_backup_slot_pa(struct mtk_drm_crtc *mtk_crtc,
 	} else if (mmsys_id == MMSYS_MT6879) {
 		table = mt6879_dispsys_dummy_register;
 		size = MT6879_DUMMY_REG_CNT;
-	} else
-		return 0;
+	} else {
+		struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
+
+		if (cmdq_buf == NULL) {
+			DDPPR_ERR("%s invalid cmdq_buffer\n", __func__);
+			return 0;
+		}
+
+		return (cmdq_buf->pa_base + slot_index);
+	}
 
 	if (idx < size) {
 		offset = table[idx].offset;
@@ -12117,7 +12109,7 @@ int check_msync_config_info(struct msync_parameter_table *config)
 	unsigned int msync_level_num = config->msync_level_num;
 	struct msync_level_table *level_tb = config->level_tb;
 	int i = 0;
-	struct msync_level_table check_level_tb[MSYNC_MAX_LEVEL];
+	struct msync_level_table check_level_tb[MSYNC_MAX_LEVEL] = {};
 
 	DDPMSG("%s:%d +++\n", __func__, __LINE__);
 	if (!level_tb) {
@@ -14013,7 +14005,7 @@ bool mtk_drm_get_hdr_property(void)
 }
 
 /********************** Legacy DRM API *****************************/
-int mtk_drm_format_plane_cpp(uint32_t format, int plane)
+int mtk_drm_format_plane_cpp(uint32_t format, unsigned int plane)
 {
 	const struct drm_format_info *info;
 

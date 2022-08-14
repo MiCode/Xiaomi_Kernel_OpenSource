@@ -1888,6 +1888,10 @@ static s32 mtk_dsi_poll_for_idle(struct mtk_dsi *dsi, struct cmdq_pkt *handle)
 	unsigned int loop_cnt = 0;
 	s32 tmp;
 
+	if (!dsi) {
+		DDPPR_ERR("%s no dsi\n", __func__);
+		return 0;
+	}
 #ifndef DRM_CMDQ_DISABLE
 	if (handle) {
 		mtk_dsi_cmdq_poll(&dsi->ddp_comp, handle,
@@ -7405,10 +7409,12 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 
 		if (!comp) {
 			DDPPR_ERR("ddp comp is NULL\n");
+			cmdq_pkt_destroy(cb_data->cmdq_handle);
+			kfree(cb_data);
 			return;
 		}
 
-		if (dsi->mipi_hopping_sta) {
+		if (dsi->mipi_hopping_sta && dsi->ext) {
 			DDPINFO("%s,mipi_clk_change_sta\n", __func__);
 			vfp = dsi->ext->params->dyn.vfp;
 		} else
@@ -7772,7 +7778,8 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 		DDPINFO("vfront_porch=%d\n", vfront_porch);
 
-		if (panel_ext->params->wait_sof_before_dec_vfp) {
+		if (panel_ext && panel_ext->params
+			&& panel_ext->params->wait_sof_before_dec_vfp) {
 			cmdq_pkt_clear_event(handle,
 				crtc->gce_obj.event[EVENT_DSI0_SOF]);
 			cmdq_pkt_wait_no_clear(handle,
@@ -7804,10 +7811,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		mode = (struct drm_display_mode **)params;
 		list_for_each_entry_safe(max_mode, next, &dsi->conn.modes, head) {
 
-			if (max_mode == NULL)
-				break;
-
-			if (drm_mode_vrefresh(max_mode) > vrefresh) {
+			if (max_mode && (drm_mode_vrefresh(max_mode) > vrefresh)) {
 				vrefresh = drm_mode_vrefresh(max_mode);
 				*mode = max_mode;
 			}

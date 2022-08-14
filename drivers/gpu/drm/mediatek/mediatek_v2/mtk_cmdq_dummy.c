@@ -212,7 +212,12 @@ struct cmdq_pkt *cmdq_pkt_create(struct cmdq_client *client)
 
 void cmdq_pkt_destroy(struct cmdq_pkt *pkt)
 {
-	struct cmdq_client *client = pkt->cl;
+	struct cmdq_client *client = NULL;
+
+	if (!pkt)
+		return;
+
+	client = pkt->cl;
 
 	if (client)
 		mutex_lock(&client->chan_mutex);

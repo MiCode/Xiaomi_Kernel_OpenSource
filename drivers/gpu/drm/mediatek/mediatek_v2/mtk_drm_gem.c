@@ -98,6 +98,8 @@ static struct sg_table *mtk_gem_vmap_pa(struct mtk_drm_gem_obj *mtk_gem,
 
 	sgt = kzalloc(sizeof(*sgt), GFP_KERNEL);
 	if (!sgt) {
+		kfree(pages);
+		vunmap(va_align);
 		DDPPR_ERR("sgt creation failed\n");
 		return NULL;
 	}
@@ -106,6 +108,7 @@ static struct sg_table *mtk_gem_vmap_pa(struct mtk_drm_gem_obj *mtk_gem,
 
 	if (ret < 0) {
 		DDPPR_ERR("sg_alloc_table_from_pages failed with ret %d\n", ret);
+		kfree(pages);
 		kfree(sgt);
 		vunmap(va_align);
 		return NULL;
@@ -264,7 +267,7 @@ struct mtk_drm_gem_obj *mtk_drm_gem_create_from_heap(struct drm_device *dev,
 	struct dma_buf *dma_buf;
 	struct dma_buf_attachment *attach;
 	struct sg_table *sgt;
-	struct dma_buf_map map;
+	struct dma_buf_map map = {};
 	int ret;
 
 	mtk_gem = mtk_drm_gem_init(dev, size);
@@ -546,13 +549,19 @@ mtk_gem_prime_import_sg_table(struct drm_device *dev,
 			dev,
 			attach,
 			sg);
-	mtk_gem = mtk_drm_gem_init(dev, attach->dmabuf->size);
+	if (attach && attach->dmabuf)
+		mtk_gem = mtk_drm_gem_init(dev, attach->dmabuf->size);
 
 	if (IS_ERR(mtk_gem)) {
 		DDPPR_ERR("%s:%d mtk_gem error:0x%p\n",
 				__func__, __LINE__,
 				mtk_gem);
 		return ERR_PTR(PTR_ERR(mtk_gem));
+	} else if (!mtk_gem) {
+		DDPPR_ERR("%s:%d mtk_gem error:0x%p\n",
+				__func__, __LINE__,
+				mtk_gem);
+		return ERR_PTR(-ENOMEM);
 	}
 
 #ifdef IF_ZERO
@@ -854,6 +863,9 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 		return -EINVAL;
 	}
 
+	if (!submit_user)
+		return -EFAULT;
+
 	submit_kernel = kzalloc(sizeof(struct mml_submit), GFP_KERNEL);
 	memcpy(submit_kernel, submit_user, sizeof(struct mml_submit));
 	submit_kernel->job = kzalloc(sizeof(struct mml_job), GFP_KERNEL);
@@ -902,7 +914,7 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 			DDPMSG("submit failed: %d\n", ret);
 	}
 
-	if (submit_user && submit_user->job) {
+	if (submit_user->job) {
 		ret = copy_to_user(submit_user->job, submit_kernel->job, sizeof(struct mml_job));
 		if (ret)
 			DDPMSG("[%s][%d][%d] copy_to_user fail\n", __func__, __LINE__, ret);

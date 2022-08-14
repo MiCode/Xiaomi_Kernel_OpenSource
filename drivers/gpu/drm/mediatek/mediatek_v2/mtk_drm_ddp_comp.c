@@ -1122,11 +1122,15 @@ void mtk_ddp_comp_pm_disable(struct mtk_ddp_comp *comp)
 static void mtk_ddp_comp_larb_get(struct mtk_ddp_comp *comp,
 	struct device *larb_dev)
 {
+	int ret = -1;
+
 	if (!larb_dev)
 		return;
 
 #ifdef MTK_SMI_CLK_CTRL
-	mtk_smi_larb_get(larb_dev);
+	ret = mtk_smi_larb_get(larb_dev);
+	if (ret)
+		DDPPR_ERR("mtk_smi_larb_get failed:%s\n", ret);
 #else
 	pm_runtime_get_sync(comp->dev);
 #endif
@@ -1228,7 +1232,7 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp, struct cmdq_pkt *handl
 
 	if (of_address_to_resource(larb_dev->of_node, 0, &res) != 0) {
 		dev_err(comp->dev, "Missing reg in %s node\n",
-			comp->larb_dev->of_node->full_name);
+			larb_dev->of_node->full_name);
 		return;
 	}
 

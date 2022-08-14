@@ -1133,7 +1133,7 @@ void mtk_crtc_stop_for_pm(struct mtk_drm_crtc *mtk_crtc, bool need_wait);
 bool mtk_crtc_frame_buffer_existed(void);
 
 /* ********************* Legacy DRM API **************************** */
-int mtk_drm_format_plane_cpp(uint32_t format, int plane);
+int mtk_drm_format_plane_cpp(uint32_t format, unsigned int plane);
 
 int mtk_drm_switch_te(struct drm_crtc *crtc, int te_num, bool need_lock);
 int mtk_drm_ioctl_get_pq_caps(struct drm_device *dev, void *data,

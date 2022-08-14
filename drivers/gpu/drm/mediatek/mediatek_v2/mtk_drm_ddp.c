@@ -9670,14 +9670,6 @@ static int mtk_ddp_sout_sel_MT6885(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_DP_INTF0) {
 		*addr = MT6885_DISP_DSC_WRAP_SOUT_SEL;
 		value = DISP_DSC_WRAP_SOUT_TO_DISP_DP_WRAP_SEL;
-	} else if (cur == DDP_COMPONENT_CCORR1 &&
-		next == DDP_COMPONENT_DMDP_AAL1) {
-		*addr = MT6885_DISP_CCORR1_SOUT_SEL;
-		value = DISP_CCORR1_SOUT_SEL_TO_DISP_MDP_AAL5_SEL;
-	} else if (cur == DDP_COMPONENT_DMDP_AAL1 &&
-		next == DDP_COMPONENT_AAL1) {
-		*addr = MT6885_DISP_MDP_AAL5_SOUT_SEL;
-		value = DISP_MDP_AAL5_SOUT_SEL_TO_DISP_AAL1_SEL;
 	} else {
 		value = -1;
 	}
@@ -10654,11 +10646,6 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		/* PQ_OUT_CROSSBAR */
 		*addr = MT6985_PQ_OUT_CROSSBAR0_MOUT_EN;
 		value = DISP_DITHER0_TO_PANEL_COMP_OUT_CROSSBAR1;
-	} else if ((cur == DDP_COMPONENT_PANEL0_COMP_OUT_CB1 &&
-		next == DDP_COMPONENT_COMP0_OUT_CB3)) {
-		/* PANEL_COMP_OUT_CROSSBAR */
-		*addr = MT6985_PANEL_COMP_OUT_CROSSBAR1_MOUT_EN;
-		value = DISP_PQ_OUT_CROSSBAR1_TO_COMP_OUT_CROSSBAR3;
 	} else if ((cur == DDP_COMPONENT_COMP0_OUT_CB3 &&
 		next == DDP_COMPONENT_MERGE0_OUT_CB0)) {
 		/* COMP_OUT_CROSSBAR */
@@ -10845,16 +10832,6 @@ static int mtk_ddp_mout_en_MT6895(const struct mtk_mmsys_reg_data *data,
 		*addr = MT6895_DISP_RSZ0_MOUT_EN;
 		value = MT6895_DISP_RSZ0_MOUT_EN_TO_DISP_RSZ0_MAIN_OVL_SOUT_SEL;
 	/* for mt6895 rsz path */
-	} else if ((cur == DDP_COMPONENT_OVL1_2L && next == DDP_COMPONENT_OVL1_2L_VIRTUAL0) ||
-		(cur == DDP_COMPONENT_OVL3_2L && next == DDP_COMPONENT_OVL3_2L_VIRTUAL0)) {
-		*addr = MT6895_MMSYS_OVL_CON;
-		value = MT6895_DISP_OVL1_2L_TO_DISP_OVL1_2L_BLENDOUT_MOUT;
-	} else if ((cur == DDP_COMPONENT_OVL1_2L_VIRTUAL0 &&
-		next == DDP_COMPONENT_RSZ0) ||
-		(cur == DDP_COMPONENT_OVL3_2L_VIRTUAL0 &&
-		next == DDP_COMPONENT_RSZ1)) {
-		*addr = MT6895_DISP_OVL1_2L_BLEND_MOUT_EN;
-		value = DISP_OVL1_2L_BLEND_MOUT_EN_TO_DISP_RSZ0_SEL_IN;
 	} else if ((cur == DDP_COMPONENT_OVL0_2L_NWCG_VIRTUAL0 &&
 		next == DDP_COMPONENT_RDMA1) ||
 		(cur == DDP_COMPONENT_OVL2_2L_NWCG_VIRTUAL0 &&
@@ -14065,7 +14042,6 @@ static void mtk_ddp_ext_remove_dual_pipe_MT6985(struct mtk_drm_crtc *mtk_crtc,
 
 	/* DDP_COMPONENT_DLI_ASYNC8 -> DDP_COMPONENT_PQ1_OUT_CB4 */
 	addr = MT6985_PQ_IN_CROSSBAR2_MOUT_EN;
-	value = DISP_DLI_RELAY2_TO_PQ_OUT_CROSSBAR4;
 	value = 0;
 	writel_relaxed(value, side_config_regs + addr);
 
@@ -16850,7 +16826,8 @@ void mmsys_config_dump_reg_mt6873(void __iomem *config_regs)
  */
 void mmsys_config_dump_analysis_mt6885(void __iomem *config_regs)
 {
-	unsigned int idx = 0, bit = 0, len = 0;
+	unsigned int idx = 0, bit = 0;
+	int len = 0;
 	unsigned int reg = 0;
 	char clock_on[512] = {'\0'};
 	char *pos = NULL;
@@ -16965,7 +16942,8 @@ void mmsys_config_dump_analysis_mt6885(void __iomem *config_regs)
 
 void mmsys_config_dump_analysis_mt6983(void __iomem *config_regs)
 {
-	unsigned int idx = 0, bit = 0, len = 0;
+	unsigned int idx = 0, bit = 0;
+	int len = 0;
 	unsigned int reg = 0;
 	char clock_on[512] = {'\0'};
 	char *pos = NULL;
@@ -17401,7 +17379,8 @@ void ovlsys_config_dump_analysis_mt6985(void __iomem *config_regs)
 /* mt6886 is the same as mt6895 */
 void mmsys_config_dump_analysis_mt6895(void __iomem *config_regs)
 {
-	unsigned int idx = 0, bit = 0, len = 0;
+	unsigned int idx = 0, bit = 0;
+	int len = 0;
 	unsigned int reg = 0;
 	char clock_on[512] = {'\0'};
 	char *pos = NULL;
@@ -17874,7 +17853,8 @@ void mmsys_config_dump_analysis_mt6853(void __iomem *config_regs)
 
 void mmsys_config_dump_analysis_mt6833(void __iomem *config_regs)
 {
-	unsigned int i = 0, len = 0;
+	unsigned int i = 0;
+	int len = 0;
 	unsigned int reg = 0;
 	char clock_on[512] = {'\0'};
 	char *pos = NULL;

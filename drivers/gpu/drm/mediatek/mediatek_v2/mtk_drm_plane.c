@@ -35,7 +35,7 @@ static const u32 formats[] = {
 
 unsigned int to_crtc_plane_index(unsigned int plane_index)
 {
-	if ((plane_index >= 0) && (plane_index < OVL_LAYER_NR))
+	if (plane_index < OVL_LAYER_NR)
 		return plane_index;
 	else if (plane_index < (OVL_LAYER_NR + EXTERNAL_INPUT_LAYER_NR))
 		return plane_index - OVL_LAYER_NR;
@@ -527,7 +527,8 @@ static void mtk_plane_atomic_disable(struct drm_plane *plane,
 	struct drm_plane_state *old_state = drm_atomic_get_old_plane_state(state,
 									   plane);
 	struct mtk_drm_private *priv = plane->dev->dev_private;
-	struct drm_crtc *crtc = old_state->crtc;
+	struct drm_crtc *crtc = (old_state && old_state->crtc) ?
+		old_state->crtc : NULL;
 	unsigned int crtc_index;
 
 	mtk_plane_state->pending.enable = false;

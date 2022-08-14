@@ -357,7 +357,7 @@ static void mtk_atomic_rsz_calc_dual_params(
 	u32 tile_in_len[2] = {0};
 	u32 tile_out_len[2] = {0};
 	u32 out_x[2] = {0};
-	bool is_dual = true;
+	bool is_dual = false;
 	int width = crtc->state->adjusted_mode.hdisplay;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *output_comp;
@@ -4633,8 +4633,9 @@ int lcm_fps_ctx_init(struct drm_crtc *crtc)
 	unsigned int index;
 
 	if (!crtc || crtc->index >= MAX_CRTC) {
-		DDPPR_ERR("%s:invalid crtc:%d\n",
-			  __func__, crtc->base.id);
+		if (crtc)
+			DDPPR_ERR("%s:invalid crtc:%d\n",
+				__func__, crtc->base.id);
 		return -EINVAL;
 	}
 	index = crtc->index;
@@ -6518,8 +6519,11 @@ static int mtk_drm_probe(struct platform_device *pdev)
 		disp_helper_set_stage(DISP_HELPER_STAGE_BRING_UP);
 
 	ranges = of_get_property(dev->of_node, "dma-ranges", &len);
-	if (ranges)
-		dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
+	if (ranges) {
+		ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
+		if (ret)
+			DDPPR_ERR("Failed to set_coherent_mask: %d\n", ret);
+	}
 
 	ret = of_property_read_u32(dev->of_node,
 				"dispsys_num", &dispsys_num);
