@@ -610,7 +610,7 @@ int tmem_query_gz_handle_to_pa(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 	ret = KREE_CreateSession(TZ_TA_SECMEM_UUID, &session);
 	if (ret != TZ_RESULT_SUCCESS) {
 		pr_info("KREE_CreateSession error, ret = %x\n", ret);
-		return ret;
+		return TMEM_MTEE_QUERY_PA_FAIL;
 	}
 
 	p[0].value.a = *gz_handle;
