@@ -1927,16 +1927,6 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 
 		/* if the prio of this runqueue changed, try again */
 		if (double_lock_balance(rq, lowest_rq)) {
-#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
-			lowest_rq->android_vendor_data1[5] =
-				lowest_rq->android_vendor_data1[5] << 6;
-			lowest_rq->android_vendor_data1[5] =
-				lowest_rq->android_vendor_data1[5] + 16;
-			lowest_rq->android_vendor_data1[6] =
-				lowest_rq->android_vendor_data1[6] << 6;
-			lowest_rq->android_vendor_data1[6] =
-				lowest_rq->android_vendor_data1[6] + (rq->cpu);
-#endif
 			/*
 			 * We had to unlock the run queue. In
 			 * the mean time, task could have
@@ -1950,16 +1940,6 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 				     !task_on_rq_queued(task))) {
 
 				double_unlock_balance(rq, lowest_rq);
-#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
-				lowest_rq->android_vendor_data1[5] =
-					lowest_rq->android_vendor_data1[5] << 6;
-				lowest_rq->android_vendor_data1[5] =
-					lowest_rq->android_vendor_data1[5] + 17;
-				lowest_rq->android_vendor_data1[6] =
-					lowest_rq->android_vendor_data1[6] << 6;
-				lowest_rq->android_vendor_data1[6] =
-					lowest_rq->android_vendor_data1[6] + (rq->cpu);
-#endif
 				lowest_rq = NULL;
 				break;
 			}
@@ -1971,16 +1951,6 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 
 		/* try again */
 		double_unlock_balance(rq, lowest_rq);
-#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
-		lowest_rq->android_vendor_data1[5] =
-			lowest_rq->android_vendor_data1[5] << 6;
-		lowest_rq->android_vendor_data1[5] =
-			lowest_rq->android_vendor_data1[5] + 18;
-		lowest_rq->android_vendor_data1[6] =
-			lowest_rq->android_vendor_data1[6] << 6;
-		lowest_rq->android_vendor_data1[6] =
-			lowest_rq->android_vendor_data1[6] + (rq->cpu);
-#endif
 		lowest_rq = NULL;
 	}
 
@@ -2068,23 +2038,9 @@ retry:
 		push_task = get_push_task(rq);
 		if (push_task) {
 			raw_spin_rq_unlock(rq);
-#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
-			rq->android_vendor_data1[5] = rq->android_vendor_data1[5] << 6;
-			rq->android_vendor_data1[5] = rq->android_vendor_data1[5] + 8;
-			rq->android_vendor_data1[6] = rq->android_vendor_data1[6] << 6;
-			rq->android_vendor_data1[6] =
-				rq->android_vendor_data1[6] + (rq->cpu);
-#endif
 			stop_one_cpu_nowait(rq->cpu, push_cpu_stop,
 					    push_task, &rq->push_work);
 			raw_spin_rq_lock(rq);
-#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
-			rq->android_vendor_data1[5] = rq->android_vendor_data1[5] << 6;
-			rq->android_vendor_data1[5] = rq->android_vendor_data1[5] + 9;
-			rq->android_vendor_data1[6] = rq->android_vendor_data1[6] << 6;
-			rq->android_vendor_data1[6] =
-				rq->android_vendor_data1[6] + (rq->cpu);
-#endif
 		}
 
 		return 0;
@@ -2138,13 +2094,6 @@ retry:
 	ret = 1;
 
 	double_unlock_balance(rq, lowest_rq);
-
-#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
-	lowest_rq->android_vendor_data1[5] = lowest_rq->android_vendor_data1[5] << 6;
-	lowest_rq->android_vendor_data1[5] = lowest_rq->android_vendor_data1[5] + 19;
-	lowest_rq->android_vendor_data1[6] = lowest_rq->android_vendor_data1[6] << 6;
-	lowest_rq->android_vendor_data1[6] = lowest_rq->android_vendor_data1[6] + (rq->cpu);
-#endif
 out:
 	put_task_struct(next_task);
 

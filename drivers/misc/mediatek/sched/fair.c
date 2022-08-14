@@ -906,13 +906,7 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 	 */
 	rq_unpin_lock(this_rq, rf);
 	raw_spin_rq_unlock(this_rq);
-#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
-	this_rq->android_vendor_data1[5] = this_rq->android_vendor_data1[5] << 6;
-	this_rq->android_vendor_data1[5] = this_rq->android_vendor_data1[5] + 26;
-	this_rq->android_vendor_data1[6] = this_rq->android_vendor_data1[6] << 6;
-	this_rq->android_vendor_data1[6] =
-		this_rq->android_vendor_data1[6] + (this_rq->cpu);
-#endif
+
 	this_cpu = this_rq->cpu;
 	for_each_cpu(cpu, cpu_active_mask) {
 		if (cpu == this_cpu)
@@ -920,23 +914,9 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 
 		src_rq = cpu_rq(cpu);
 		rq_lock_irqsave(src_rq, &src_rf);
-#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
-		src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] << 6;
-		src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] + 27;
-		src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] << 6;
-		src_rq->android_vendor_data1[6] =
-			src_rq->android_vendor_data1[6] + (this_rq->cpu);
-#endif
 		update_rq_clock(src_rq);
 		if (src_rq->active_balance) {
 			rq_unlock_irqrestore(src_rq, &src_rf);
-#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
-		src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] << 6;
-		src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] + 28;
-		src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] << 6;
-		src_rq->android_vendor_data1[6] =
-			src_rq->android_vendor_data1[6] + (this_rq->cpu);
-#endif
 			continue;
 		}
 		if (src_rq->misfit_task_load > misfit_load &&
@@ -959,26 +939,13 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 
 		if (src_rq->nr_running <= 1) {
 			rq_unlock_irqrestore(src_rq, &src_rf);
-#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
-			src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] << 6;
-			src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] + 29;
-			src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] << 6;
-			src_rq->android_vendor_data1[6] =
-				src_rq->android_vendor_data1[6] + (this_rq->cpu);
-#endif
 			continue;
 		}
 
 		p = detach_a_hint_task(src_rq, this_cpu);
 
 		rq_unlock_irqrestore(src_rq, &src_rf);
-#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
-		src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] << 6;
-		src_rq->android_vendor_data1[5] = src_rq->android_vendor_data1[5] + 30;
-		src_rq->android_vendor_data1[6] = src_rq->android_vendor_data1[6] << 6;
-		src_rq->android_vendor_data1[6] =
-			src_rq->android_vendor_data1[6] + (this_rq->cpu);
-#endif
+
 		if (p) {
 			trace_sched_force_migrate(p, this_cpu, MIGR_IDLE_BALANCE);
 			attach_one_task(this_rq, p);
@@ -996,13 +963,6 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 	if (best_running_task)
 		put_task_struct(best_running_task);
 	raw_spin_rq_lock(this_rq);
-#if IS_ENABLED(CONFIG_MTK_SCHED_DEBUG)
-	this_rq->android_vendor_data1[5] = this_rq->android_vendor_data1[5] << 6;
-	this_rq->android_vendor_data1[5] = this_rq->android_vendor_data1[5] + 31;
-	this_rq->android_vendor_data1[6] = this_rq->android_vendor_data1[6] << 6;
-	this_rq->android_vendor_data1[6] =
-		this_rq->android_vendor_data1[6] + (this_rq->cpu);
-#endif
 	/*
 	 * While browsing the domains, we released the rq lock, a task could
 	 * have been enqueued in the meantime. Since we're not going idle,
