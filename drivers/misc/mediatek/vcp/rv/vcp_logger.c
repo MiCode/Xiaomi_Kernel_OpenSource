@@ -106,7 +106,7 @@ static DEFINE_SPINLOCK(vcp_A_log_buf_spinlock);
 static struct vcp_work_struct vcp_logger_notify_work[VCP_CORE_TOTAL];
 
 /*vcp last log info*/
-#define LAST_LOG_BUF_SIZE  4095
+#define LAST_LOG_BUF_SIZE  15360
 static struct VCP_LOG_INFO last_log_info;
 
 static char *vcp_A_last_log;
@@ -558,8 +558,8 @@ DEVICE_ATTR_RW(vcp_A_logger_wakeup_AP);
 static ssize_t vcp_A_get_last_log_show(struct device *kobj,
 		struct device_attribute *attr, char *buf)
 {
-	vcp_A_get_last_log(last_log_info.vcp_log_buf_maxlen);
-	return sprintf(buf, "vcp_log_buf_maxlen=%u, log=%s\n",
+	vcp_A_get_last_log(PAGE_SIZE - 32);
+	return snprintf(buf, PAGE_SIZE, "vcp_log_buf_maxlen=%u, log=%s\n",
 			last_log_info.vcp_log_buf_maxlen,
 			vcp_A_last_log ? vcp_A_last_log : "");
 }

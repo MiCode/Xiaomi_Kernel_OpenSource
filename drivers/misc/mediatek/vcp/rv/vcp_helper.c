@@ -691,7 +691,7 @@ void trigger_vcp_halt(enum vcp_core_id id)
 		writel(B_GIPC4_SETCLR_0, R_GIPC_IN_SET);
 		for (j = 0; j < NUM_FEATURE_ID; j++)
 			if (feature_table[j].enable)
-				pr_info("[VCP] Active feature id %d cnt\n",
+				pr_info("[VCP] Active feature id %d cnt %d\n",
 					j, feature_table[j].enable);
 	}
 }
@@ -774,7 +774,7 @@ uint32_t vcp_wait_ready_sync(enum feature_id id)
 			vcp_dump_last_regs(1);
 			for (j = 0; j < NUM_FEATURE_ID; j++)
 				if (feature_table[j].enable)
-					pr_info("[VCP] Active feature id %d cnt\n",
+					pr_info("[VCP] Active feature id %d cnt %d\n",
 						j, feature_table[j].enable);
 			/* mtk_smi_dbg_hang_detect("VCP"); */
 			if (vcp_ee_enable)
