@@ -755,7 +755,7 @@ int cfg80211_mlme_mgmt_tx(struct cfg80211_registered_device *rdev,
 			return -EINVAL;
 	}
 
-	/* Transmit the Action frame as requested by user space */
+	/* Transmit the management frame as requested by user space */
 	return rdev_mgmt_tx(rdev, wdev, params, cookie);
 }
 
@@ -947,9 +947,6 @@ void cfg80211_cac_event(struct net_device *netdev,
 	trace_cfg80211_cac_event(netdev, event);
 
 	if (WARN_ON(!wdev->cac_started && event != NL80211_RADAR_CAC_STARTED))
-		return;
-
-	if (WARN_ON(!wdev->links[0].ap.chandef.chan))
 		return;
 
 	switch (event) {

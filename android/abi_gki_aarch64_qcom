@@ -10,6 +10,7 @@
   add_wait_queue
   aes_encrypt
   aes_expandkey
+  alarm_expires_remaining
   alloc_anon_inode
   alloc_chrdev_region
   alloc_io_pgtable_ops
@@ -826,6 +827,8 @@
   idr_preload
   idr_remove
   idr_replace
+  iio_channel_get
+  iio_channel_release
   iio_read_channel_processed
   iio_write_channel_raw
   import_iovec
@@ -874,6 +877,7 @@
   iommu_device_sysfs_add
   iommu_device_sysfs_remove
   iommu_device_unregister
+  iommu_dma_enable_best_fit_algo
   iommu_dma_get_resv_regions
   iommu_domain_alloc
   iommu_domain_free
@@ -1607,6 +1611,7 @@
   regulator_enable
   regulator_force_disable
   regulator_get
+  regulator_get_drvdata
   regulator_get_mode
   regulator_get_voltage
   regulator_get_voltage_rdev
