@@ -24,6 +24,8 @@
 #include "imgsensor-user.h"
 #include "mtk_cam-seninf-ca.h"
 
+#include "mtk_cam-defs.h"
+
 #define to_std_fmt_code(code) \
 	((code) & 0xFFFF)
 
@@ -1271,6 +1273,12 @@ int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd, int pad_id)
 	}
 
 	return ret;
+}
+
+int mtk_cam_seninf_get_vsync_order(struct v4l2_subdev *sd)
+{
+	/* todo: 0: bayer first 1: w first */
+	return MTKCAM_IPI_ORDER_BAYER_FIRST;
 }
 
 int mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg)

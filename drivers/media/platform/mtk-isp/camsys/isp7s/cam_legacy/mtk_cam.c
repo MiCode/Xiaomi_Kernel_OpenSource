@@ -8183,6 +8183,10 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 			config_param.frame_order = MTKCAM_IPI_ORDER_W_FIRST;
 			break;
 		}
+
+		// vsync order
+		config_param.vsync_order =
+			mtk_cam_seninf_get_vsync_order(ctx->seninf);
 	}
 
 	dev_raw = mtk_cam_find_raw_dev(cam, ctx->used_raw_dev);
