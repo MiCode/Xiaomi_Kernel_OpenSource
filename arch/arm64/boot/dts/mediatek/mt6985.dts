@@ -9055,6 +9055,20 @@
 			     <0x003c00>, /* regdump */
 			     <0x000400>, /* trace buffer */
 			     <0x100000>; /* dram */
+
+		scp-resource-dump = "enable";   /* enable dump scp related resource */
+		/* regulator */
+		scp-supply-num = <3>;	/* total number of scp related regulator */
+		vscp0-supply = <&mt6363_vbuck4>;
+		vscp1-supply = <&mt6363_vsram_apu>;
+		vscp2-supply = <&mt6363_vs3>;
+
+		/* dump register */
+		/* cell means register info (address,size), not total reg num */
+		scp-resource-reg-dump-cell = <2>;
+		scp-resource-reg-dump = <0x1C013008 0x4>,
+			<0x1C001908 0x4>,
+			<0x1C001818 0x4>;
 	};
 
 	scp_clk_ctrl: scp-clk-ctrl@1c721000 {
