@@ -350,26 +350,26 @@ static int mt6886_apu_power_init(struct mtk_apu *apu)
 
 
 	/* apu iommu 0 */
-	np = of_parse_phandle(dev->of_node, "apu_iommu0", 0);
+	np = of_parse_phandle(dev->of_node, "apu-iommu0", 0);
 	if (!np) {
-		dev_info(dev, "failed to parse apu_iommu0 node\n");
+		dev_info(dev, "failed to parse apu-iommu0 node\n");
 		return -EINVAL;
 	}
 
 	if (!of_device_is_available(np)) {
-		dev_info(dev, "unable to find apu_iommu0 node\n");
+		dev_info(dev, "unable to find apu-iommu0 node\n");
 		of_node_put(np);
 		return -ENODEV;
 	}
 
 	pdev = of_find_device_by_node(np);
 	if (!pdev) {
-		dev_info(dev, "apu_iommu0 is not ready yet\n");
+		dev_info(dev, "apu-iommu0 is not ready yet\n");
 		of_node_put(np);
 		return -EPROBE_DEFER;
 	}
 
-	dev_info(dev, "%s: get apu_iommu0 device, name=%s\n", __func__, pdev->name);
+	dev_info(dev, "%s: get apu-iommu0 device, name=%s\n", __func__, pdev->name);
 
 	apu->apu_iommu0 = &pdev->dev;
 	of_node_put(np);
