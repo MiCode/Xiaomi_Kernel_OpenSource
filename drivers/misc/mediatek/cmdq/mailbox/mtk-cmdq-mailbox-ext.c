@@ -254,6 +254,7 @@ struct cmdq {
 	bool			prebuilt_enable;
 	struct cmdq_client	*prebuilt_clt;
 	struct cmdq_client	*hw_trace_clt;
+	struct mutex mbox_mutex;
 };
 
 struct gce_plat {
@@ -2324,6 +2325,8 @@ static int cmdq_probe(struct platform_device *pdev)
 		cmdq->clock_timer = NULL;
 	}
 
+	mutex_init(&cmdq->mbox_mutex);
+
 	node = of_parse_phandle(dev->of_node, "mediatek,smi", 0);
 	if (!node)
 		cmdq_msg("failed to get mediatek,smi");
@@ -2480,11 +2483,16 @@ void cmdq_mbox_enable(void *chan)
 	struct cmdq_thread *thread;
 	s32 usage, i, ret, thd_usage;
 
+	mutex_lock(&cmdq->mbox_mutex);
+
 	usage = atomic_read(&cmdq->usage);
 	if (cmdq->suspended) {
 		cmdq_err("hwid:%u usage:%d suspended:%d not enable",
 			cmdq->hwid, usage, cmdq->suspended);
+		cmdq_util_aee("CMDQ", "hwid:%u usage:%d suspended:%d not enable",
+			cmdq->hwid, usage, cmdq->suspended);
 		WARN_ON(1);
+		mutex_unlock(&cmdq->mbox_mutex);
 		return;
 	}
 
@@ -2495,7 +2503,10 @@ void cmdq_mbox_enable(void *chan)
 	if (i == ARRAY_SIZE(cmdq->thread)) {
 		cmdq_err("hwid:%u usage:%d idx:%d wrong chan:%p",
 			cmdq->hwid, usage, i, chan);
+		cmdq_util_aee("CMDQ", "hwid:%u usage:%d idx:%d wrong chan:%p",
+			cmdq->hwid, usage, i, chan);
 		WARN_ON(1);
+		mutex_unlock(&cmdq->mbox_mutex);
 		return;
 	}
 	cmdq_log("%s: hwid:%hu usage:%d idx:%d usage:%d", __func__,
@@ -2566,6 +2577,7 @@ void cmdq_mbox_enable(void *chan)
 		thread = &cmdq->thread[i];
 		thread->mbox_en = sched_clock();
 	}
+	mutex_unlock(&cmdq->mbox_mutex);
 }
 EXPORT_SYMBOL(cmdq_mbox_enable);
 
@@ -2576,11 +2588,16 @@ void cmdq_mbox_disable(void *chan)
 	struct cmdq_thread *thread;
 	s32 usage, i;
 
+	mutex_lock(&cmdq->mbox_mutex);
+
 	usage = atomic_read(&cmdq->usage);
 	if (cmdq->suspended) {
 		cmdq_err("hwid:%u usage:%d suspended:%d not enable",
 			cmdq->hwid, usage, cmdq->suspended);
+		cmdq_util_aee("CMDQ", "hwid:%u usage:%d suspended:%d not enable",
+			cmdq->hwid, usage, cmdq->suspended);
 		WARN_ON(1);
+		mutex_unlock(&cmdq->mbox_mutex);
 		return;
 	}
 
@@ -2591,7 +2608,10 @@ void cmdq_mbox_disable(void *chan)
 	if (i == ARRAY_SIZE(cmdq->thread)) {
 		cmdq_err("hwid:%u usage:%d idx:%d wrong chan:%p",
 			cmdq->hwid, usage, i, chan);
+		cmdq_util_aee("CMDQ", "hwid:%u usage:%d idx:%d wrong chan:%p",
+			cmdq->hwid, usage, i, chan);
 		WARN_ON(1);
+		mutex_unlock(&cmdq->mbox_mutex);
 		return;
 	}
 	cmdq_log("%s: hwid:%u usage:%d idx:%d usage:%d", __func__,
@@ -2616,6 +2636,8 @@ void cmdq_mbox_disable(void *chan)
 
 	if (usage <= 0) {
 		cmdq_err("hwid:%u usage:%d cannot below zero",
+			cmdq->hwid, usage);
+		cmdq_util_aee("CMDQ", "hwid:%u usage:%d cannot below zero",
 			cmdq->hwid, usage);
 		WARN_ON(1);
 	} else if (usage == 1) {
@@ -2653,6 +2675,7 @@ void cmdq_mbox_disable(void *chan)
 		pm_runtime_put_sync(cmdq->mbox.dev);
 	}
 	atomic_dec(&cmdq->usage);
+	mutex_unlock(&cmdq->mbox_mutex);
 }
 EXPORT_SYMBOL(cmdq_mbox_disable);
 

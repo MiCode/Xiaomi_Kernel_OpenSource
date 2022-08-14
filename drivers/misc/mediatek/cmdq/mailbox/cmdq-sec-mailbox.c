@@ -164,6 +164,7 @@ struct cmdq_sec {
 	struct cmdq_sec_context		*context;
 	struct iwcCmdqCancelTask_t	cancel;
 	struct cmdq_mmp_event		mmp;
+	struct mutex mbox_mutex;
 };
 static atomic_t cmdq_path_res = ATOMIC_INIT(0);
 static atomic_t cmdq_path_res_mtee = ATOMIC_INIT(0);
@@ -259,11 +260,14 @@ void cmdq_sec_mbox_enable(void *chan)
 		typeof(*cmdq), mbox);
 	s32 usage, i, ret;
 
+	mutex_lock(&cmdq->mbox_mutex);
+
 	usage = atomic_read(&cmdq->usage);
 	if (cmdq->suspended) {
 		cmdq_err("hwid:%u usage:%d suspended:%d not enable",
 			cmdq->hwid, usage, cmdq->suspended);
 		WARN_ON(1);
+		mutex_unlock(&cmdq->mbox_mutex);
 		return;
 	}
 
@@ -275,6 +279,7 @@ void cmdq_sec_mbox_enable(void *chan)
 		cmdq_err("hwid:%u usage:%d idx:%d wrong chan:%p",
 			cmdq->hwid, usage, i, chan);
 		WARN_ON(1);
+		mutex_unlock(&cmdq->mbox_mutex);
 		return;
 	}
 
@@ -300,6 +305,8 @@ void cmdq_sec_mbox_enable(void *chan)
 			cmdq_err("hwid:%hu usage:%d gce clock not enable",
 				cmdq->hwid, usage);
 	}
+
+	mutex_unlock(&cmdq->mbox_mutex);
 }
 EXPORT_SYMBOL(cmdq_sec_mbox_enable);
 
@@ -309,11 +316,14 @@ void cmdq_sec_mbox_disable(void *chan)
 		typeof(*cmdq), mbox);
 	s32 usage, i;
 
+	mutex_lock(&cmdq->mbox_mutex);
+
 	usage = atomic_read(&cmdq->usage);
 	if (cmdq->suspended) {
 		cmdq_err("hwid:%u usage:%d suspended:%d not enable",
 			cmdq->hwid, usage, cmdq->suspended);
 		WARN_ON(1);
+		mutex_unlock(&cmdq->mbox_mutex);
 		return;
 	}
 
@@ -325,6 +335,7 @@ void cmdq_sec_mbox_disable(void *chan)
 		cmdq_err("hwid:%u usage:%d idx:%d wrong chan:%p",
 			cmdq->hwid, usage, i, chan);
 		WARN_ON(1);
+		mutex_unlock(&cmdq->mbox_mutex);
 		return;
 	}
 
@@ -362,6 +373,7 @@ void cmdq_sec_mbox_disable(void *chan)
 				cmdq->hwid, usage);
 		pm_runtime_put_sync(cmdq->mbox.dev);
 	}
+	mutex_unlock(&cmdq->mbox_mutex);
 }
 EXPORT_SYMBOL(cmdq_sec_mbox_disable);
 
@@ -1809,6 +1821,8 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 		cmdq_err("gce devm_clk_get failed:%ld", PTR_ERR(cmdq->clock));
 		cmdq->clock = NULL;
 	}
+
+	mutex_init(&cmdq->mbox_mutex);
 
 	cmdq->mbox.chans = devm_kcalloc(&pdev->dev, CMDQ_THR_MAX_COUNT,
 		sizeof(*cmdq->mbox.chans), GFP_KERNEL);
