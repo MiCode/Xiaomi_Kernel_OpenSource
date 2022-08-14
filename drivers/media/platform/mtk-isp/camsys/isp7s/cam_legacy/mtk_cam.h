@@ -288,6 +288,9 @@ struct mtk_cam_request_stream_data {
 	int req_id;
 	/* apu */
 	struct mtk_cam_apu_info apu_info;  /* check is_update */
+#if PURE_RAW_WITH_SV
+	int pure_raw_sv_tag_idx;
+#endif
 };
 
 struct mtk_cam_req_pipe {
@@ -371,10 +374,6 @@ struct mtk_cam_request {
 
 	int enqeued_buf_cnt;  // no racing issue
 	atomic_t done_buf_cnt;
-
-#if PURE_RAW_WITH_SV
-	int pure_raw_sv_tag_idx;
-#endif
 };
 
 struct mtk_cam_working_buf_pool {
@@ -963,9 +962,10 @@ static inline struct device *mtk_cam_find_raw_dev(struct mtk_cam_device *cam,
 	return NULL;
 }
 #if PURE_RAW_WITH_SV
-static inline bool mtk_cam_req_is_pure_raw_with_sv(struct mtk_cam_request *req)
+static inline bool
+mtk_cam_s_data_is_pure_raw_with_sv(struct mtk_cam_request_stream_data *s_data)
 {
-	return req && req->pure_raw_sv_tag_idx >= 0;
+	return s_data && s_data->pure_raw_sv_tag_idx >= 0;
 }
 
 static inline bool mtk_cam_ctx_support_pure_raw_with_sv(struct mtk_cam_ctx *ctx)

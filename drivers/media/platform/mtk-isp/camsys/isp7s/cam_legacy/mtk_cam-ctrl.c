@@ -5582,9 +5582,12 @@ static void mtk_camsv_pure_raw_done_work(struct work_struct *work)
 	struct mtk_cam_req_work *frame_done_work = (struct mtk_cam_req_work *)work;
 	struct mtk_cam_request_stream_data *s_data_raw;
 	struct mtk_cam_request_stream_data *s_data_ctx;
+	struct mtk_cam_request_stream_data *s_data_temp;
+	struct mtk_cam_request_stream_data *deq_s_data[18];
 	struct mtk_cam_ctx *ctx;
-	struct mtk_cam_request *req;
+	struct mtk_cam_request *req, *req_prev;
 	struct mtk_cam_buffer *buf;
+	unsigned int s_data_cnt, handled_cnt;
 
 	/**
 	 * 1. find s_data_raw.
@@ -5592,6 +5595,7 @@ static void mtk_camsv_pure_raw_done_work(struct work_struct *work)
 	 * 3. mark done
 	 */
 
+	/* current s_data */
 	s_data_raw = mtk_cam_req_work_get_s_data(frame_done_work);
 
 	ctx = mtk_cam_s_data_get_ctx(s_data_raw);
@@ -5601,48 +5605,78 @@ static void mtk_camsv_pure_raw_done_work(struct work_struct *work)
 		return;
 	}
 
-	req = mtk_cam_get_req(ctx, s_data_raw->frame_seq_no);
-	if (!req) {
-		dev_info(ctx->cam->dev, "%s: get req failed, seq(%d)",
-			__func__, s_data_raw->frame_seq_no);
-		return;
-	}
+	/* find all previous imgo and finish them */
+	s_data_cnt = 0;
+	mutex_lock(&ctx->cleanup_lock);
+	spin_lock(&ctx->cam->running_job_lock);
+	list_for_each_entry_safe(req, req_prev, &ctx->cam->running_job_list, list) {
+		if (!(req->pipe_used & (1 << ctx->pipe->id)))
+			continue;
 
-	s_data_ctx = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
-	if (!s_data_ctx) {
+		s_data_temp = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+		if (!s_data_temp)
+			continue;
+
+		if (s_data_temp->frame_seq_no > s_data_raw->frame_seq_no)
+			goto STOP_SCAN;
+
+		deq_s_data[s_data_cnt++] = s_data_temp;
+		if (s_data_cnt >= 18)
+			goto STOP_SCAN;
+	}
+STOP_SCAN:
+	spin_unlock(&ctx->cam->running_job_lock);
+
+	for (handled_cnt = 0; handled_cnt < s_data_cnt; handled_cnt++) {
+		s_data_temp = deq_s_data[handled_cnt];
+		req = mtk_cam_get_req(ctx, s_data_temp->frame_seq_no);
+		if (!req) {
+			dev_info(ctx->cam->dev, "%s: get req failed, seq(%d)",
+				__func__, s_data_temp->frame_seq_no);
+			continue;
+		}
+
+		s_data_ctx = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+		if (!s_data_ctx) {
+			dev_info(ctx->cam->dev,
+				"%s:%s:ctx-%d:s_data(%d) not found!\n",
+				__func__, req->req.debug_str,
+				ctx->stream_id, s_data_temp->frame_seq_no);
+			continue;
+		}
+
+		/* mark imgo done and release buf */
+		buf = mtk_cam_s_data_get_vbuf(s_data_temp, MTK_RAW_MAIN_STREAM_OUT);
+		if (!buf) {
+			dev_info(ctx->cam->dev,
+				"%s:%s:ctx-%d: can't get MTK_RAW_MAIN_STREAM_OUT, seq(%d)\n",
+				__func__, req->req.debug_str, ctx->stream_id,
+				s_data_temp->frame_seq_no);
+			continue;
+		}
+
+		/* clean the stream data for req reinit case */
+		mtk_cam_s_data_reset_vbuf(s_data_temp, MTK_RAW_MAIN_STREAM_OUT);
+
+		/* Update the timestamp for the buffer*/
+		mtk_cam_s_data_update_timestamp(buf, s_data_ctx);
+
+		/* TODO: mstream, unreliable */
+		if (s_data_temp->frame_seq_no < s_data_raw->frame_seq_no)
+			buf->final_state = VB2_BUF_STATE_ERROR;
+		else
+			buf->final_state = VB2_BUF_STATE_DONE;
+
+		/* access request before done */
 		dev_info(ctx->cam->dev,
-			 "%s:%s:ctx-%d:s_data(%d) not found!\n",
-			 __func__, req->req.debug_str,
-			 ctx->stream_id, s_data_raw->frame_seq_no);
-		return;
+			"%s:%s:ctx-%d: seq(%d) done\n",
+			__func__, req->req.debug_str, ctx->stream_id,
+			s_data_temp->frame_seq_no);
+
+		/* Let user get the buffer */
+		mtk_cam_mark_vbuf_done(req, buf);
 	}
-
-	/* mark imgo done and release buf */
-	buf = mtk_cam_s_data_get_vbuf(s_data_raw, MTK_RAW_MAIN_STREAM_OUT);
-	if (!buf) {
-		dev_info(ctx->cam->dev,
-			 "%s:%s:ctx-%d: can't get MTK_RAW_MAIN_STREAM_OUT, seq(%d)\n",
-			 __func__, req->req.debug_str, ctx->stream_id,
-			 s_data_raw->frame_seq_no);
-		return;
-	}
-
-	/* clean the stream data for req reinit case */
-	mtk_cam_s_data_reset_vbuf(s_data_raw, MTK_RAW_MAIN_STREAM_OUT);
-
-	/* Update the timestamp for the buffer*/
-	mtk_cam_s_data_update_timestamp(buf, s_data_ctx);
-
-	/* access request before done */
-	dev_info(ctx->cam->dev,
-		"%s:%s:ctx-%d: seq(%d) done\n",
-		__func__, req->req.debug_str, ctx->stream_id,
-		s_data_raw->frame_seq_no);
-
-	/* Let user get the buffer */
-	/* TODO: mstream, unreliable */
-	buf->final_state = VB2_BUF_STATE_DONE;
-	mtk_cam_mark_vbuf_done(req, buf);
+	mutex_unlock(&ctx->cleanup_lock);
 }
 
 int mtk_camsv_pure_raw_scenario_handler(struct mtk_cam_ctx *ctx,
@@ -5651,7 +5685,6 @@ int mtk_camsv_pure_raw_scenario_handler(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *s_data_raw;
 	struct mtk_cam_req_work *frame_done_work;
-	int i;
 
 	/**
 	 * 1. find the master raw s_data (the request is valid until all
@@ -5672,30 +5705,25 @@ int mtk_camsv_pure_raw_scenario_handler(struct mtk_cam_ctx *ctx,
 		return -1;
 	}
 
-	if (!mtk_cam_req_is_pure_raw_with_sv(req)) {
-		dev_dbg(ctx->cam->dev, "%s: req w/o pure raw dump\n", __func__);
-		return 0;
-	}
-
-	if (req->pure_raw_sv_tag_idx != tag_idx) {
-		dev_dbg(ctx->cam->dev, "%s: tag index mismatch(seq_no:%d/tag_idx:%d)",
-			__func__, frame_seq_no, tag_idx);
-		return 0;
-	}
-
-	s_data_raw = NULL;
-	for (i = MTKCAM_SUBDEV_RAW_0; i < MTKCAM_SUBDEV_RAW_END; i++) {
-		/* there one raw subdev used in one streaming */
-		if (req->pipe_used & 1 << i) {
-			s_data_raw = mtk_cam_req_get_s_data(req, i, 0);
-			break;
-		}
-	}
-
+	if (ctx->pipe)
+		s_data_raw = mtk_cam_req_get_s_data(req, ctx->pipe->id, 0);
+	else
+		s_data_raw = NULL;
 	if (!s_data_raw) {
 		dev_info(ctx->cam->dev, "%s:%s: get s_data_raw failed, seq(%d)",
 			__func__, req->req.debug_str, frame_seq_no);
 		return -1;
+	}
+
+	if (!mtk_cam_s_data_is_pure_raw_with_sv(s_data_raw)) {
+		dev_dbg(ctx->cam->dev, "%s: req w/o pure raw dump\n", __func__);
+		return 0;
+	}
+
+	if (s_data_raw->pure_raw_sv_tag_idx != tag_idx) {
+		dev_dbg(ctx->cam->dev, "%s: tag index mismatch(seq_no:%d/tag_idx:%d)",
+			__func__, frame_seq_no, tag_idx);
+		return 0;
 	}
 
 	if (frame_seq_no != s_data_raw->frame_seq_no)

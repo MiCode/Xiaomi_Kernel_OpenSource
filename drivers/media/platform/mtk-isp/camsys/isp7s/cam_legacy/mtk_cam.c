@@ -446,6 +446,7 @@ int mtk_cam_mark_vbuf_done(struct mtk_cam_request *req,
 	struct mtk_cam_device *cam;
 	struct mtk_cam_video_device *node;
 	int current_buf_cnt;
+	int p, i;
 	bool is_last_buf;
 
 	if (!req) {
@@ -464,13 +465,21 @@ int mtk_cam_mark_vbuf_done(struct mtk_cam_request *req,
 	is_last_buf = (current_buf_cnt == req->enqeued_buf_cnt);
 
 	dev_dbg(cam->dev,
-		"%s:%s: %s complete, cnt(%d/%d), is_last_buf(%d)\n",
-		__func__, req->req.debug_str, node->desc.name,
+		"%s:%s: %s complete(%d), cnt(%d/%d), is_last_buf(%d)\n",
+		__func__, req->req.debug_str, node->desc.name, buf->final_state,
 		current_buf_cnt, req->enqeued_buf_cnt, is_last_buf);
 
 	/* to handle cleanup case, pipe buffers need release immediately */
-	if (is_last_buf)
+	if (is_last_buf) {
+		/* clean the req_stream_data being used right after request reinit */
+		for (p = 0; p < cam->max_stream_num; p++) {
+			if (req->pipe_used & (1 << p)) {
+				for (i = 0; i < req->p_data[p].s_data_num; i++)
+					mtk_cam_req_pipe_s_data_clean(req, p, i);
+			}
+		}
 		mtk_cam_remove_req_from_running(cam, req);
+	}
 
 	vb2_buffer_done(&buf->vbb.vb2_buf, buf->final_state);
 
@@ -527,7 +536,7 @@ static void mtk_cam_req_return_pipe_buffers(struct mtk_cam_request *req,
 		 * therefore, MTK_RAW_MAIN_STREAM_OUT needs to be handled if
 		 * it exist
 		 */
-		if (mtk_cam_req_is_pure_raw_with_sv(req) &&
+		if (mtk_cam_s_data_is_pure_raw_with_sv(s_data_pipe) &&
 		    (i == MTK_RAW_MAIN_STREAM_OUT)) {
 			// debug only
 			dev_dbg(cam->dev,
@@ -544,9 +553,6 @@ static void mtk_cam_req_return_pipe_buffers(struct mtk_cam_request *req,
 		/* clean the stream data for req reinit case */
 		mtk_cam_s_data_reset_vbuf(s_data_pipe, i);
 	}
-
-	/* clean the req_stream_data being used right after request reinit */
-	mtk_cam_req_pipe_s_data_clean(req, pipe_id, index);
 
 	buf_state = atomic_read(&s_data_pipe->buf_state);
 	if (buf_state == -1)
@@ -1374,7 +1380,7 @@ STOP_SCAN:
 		atomic_set(&s_data->meta1_done_work.is_queued, 1);
 
 #if PURE_RAW_WITH_SV_DONE_CHECK
-		if (mtk_cam_req_is_pure_raw_with_sv(req)) {
+		if (mtk_cam_s_data_is_pure_raw_with_sv(s_data)) {
 			if (atomic_read(&s_data->pure_raw_done_work.is_queued)) {
 				cancel_work_sync(&s_data->pure_raw_done_work.work);
 				dev_info(cam->dev,
@@ -3475,7 +3481,7 @@ int mtk_cam_hdr_buf_update(struct vb2_buffer *vb,
 						.size = sizeimage;
 				} else {
 #if PURE_RAW_WITH_SV
-					if (mtk_cam_req_is_pure_raw_with_sv(req))
+					if (mtk_cam_s_data_is_pure_raw_with_sv(req_stream_data))
 						frame_param->camsv_param[0][SVTAG_2]
 							.camsv_img_outputs[0].buf[0][0].iova =
 							buf->daddr + data_offset;
@@ -3521,7 +3527,7 @@ int mtk_cam_hdr_buf_update(struct vb2_buffer *vb,
 					}
 				} else {
 #if PURE_RAW_WITH_SV
-					if (mtk_cam_req_is_pure_raw_with_sv(req)) {
+					if (mtk_cam_s_data_is_pure_raw_with_sv(req_stream_data)) {
 						frame_param->camsv_param[0][SVTAG_2]
 							.camsv_img_outputs[0].buf[0][0].iova =
 							buf->daddr + data_offset;
@@ -3665,7 +3671,7 @@ static int mtk_cam_config_raw_img_out_imgo(struct mtk_cam_request_stream_data *s
 	}
 	pixelformat = cfg_fmt->fmt.pix_mp.pixelformat;
 #if PURE_RAW_WITH_SV
-	if (mtk_cam_req_is_pure_raw_with_sv(req)) {
+	if (mtk_cam_s_data_is_pure_raw_with_sv(s_data)) {
 		frame_param->camsv_param[0][SVTAG_2]
 			.camsv_img_outputs[0].buf[0][0].iova = buf->daddr;
 		frame_param->camsv_param[0][SVTAG_2]
@@ -3913,7 +3919,7 @@ mtk_cam_config_raw_img_fmt(struct mtk_cam_request_stream_data *s_data,
 
 #if PURE_RAW_WITH_SV
 		if (node->desc.dma_port == MTKCAM_IPI_RAW_IMGO &&
-			mtk_cam_req_is_pure_raw_with_sv(req)) {
+			mtk_cam_s_data_is_pure_raw_with_sv(s_data)) {
 			/* update camsv's frame parameter */
 			mtk_cam_fill_sv_frame_param(ctx, frame_param, SVTAG_2, img_out->fmt,
 				frame_param->camsv_param[0][SVTAG_2]
@@ -4390,7 +4396,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 			break;
 		case MTKCAM_IPI_RAW_IMGO:
 #if PURE_RAW_WITH_SV
-			req->pure_raw_sv_tag_idx =
+			req_stream_data->pure_raw_sv_tag_idx =
 				mtk_cam_config_raw_path(req_stream_data, buf);
 			ret = mtk_cam_config_raw_img_out_imgo(req_stream_data, buf);
 			if (ret)
@@ -4715,6 +4721,9 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 	req_stream_data->index = s_data_index;
 	req_stream_data->req_id = 0;
 	req_stream_data->feature.scen = NULL;
+#if PURE_RAW_WITH_SV
+	req_stream_data->pure_raw_sv_tag_idx = -1;
+#endif
 	atomic_set(&req_stream_data->buf_state, -1);
 	memset(&req_stream_data->apu_info, 0,
 		sizeof(req_stream_data->apu_info));
@@ -5321,9 +5330,6 @@ static void mtk_cam_req_init(struct mtk_cam_request *cam_req)
 	/* reset buffer count */
 	cam_req->enqeued_buf_cnt = 0;
 	atomic_set(&cam_req->done_buf_cnt, 0);
-#if PURE_RAW_WITH_SV
-	cam_req->pure_raw_sv_tag_idx = -1;
-#endif
 }
 
 static void mtk_cam_req_queue(struct media_request *req)
