@@ -3706,6 +3706,7 @@ int mtk_vcodec_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 	venc_dma_contig_memops.attach_dmabuf = mtk_venc_dc_attach_dmabuf;
 	src_vq->mem_ops         = &venc_dma_contig_memops;
 	mtk_v4l2_debug(4, "src_vq use vb2_dma_contig_memops");
+	src_vq->bidirectional = 1;
 	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	src_vq->lock            = &ctx->q_mutex;
 	src_vq->allow_zero_bytesused = 1;
@@ -3722,6 +3723,7 @@ int mtk_vcodec_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->ops             = &mtk_venc_vb2_ops;
 	dst_vq->mem_ops         = &venc_dma_contig_memops;
 	mtk_v4l2_debug(4, "dst_vq use venc_dma_contig_memops");
+	dst_vq->bidirectional = 1;
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	dst_vq->lock            = &ctx->q_mutex;
 	dst_vq->allow_zero_bytesused = 1;
