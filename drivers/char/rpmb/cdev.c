@@ -145,7 +145,7 @@ static int rpmb_cmd_copy_to_user(struct rpmb_ioc_cmd __user *ucmd,
  * Return: 0 on success, <0 on error
  */
 static long rpmb_ioctl_seq_cmd(struct rpmb_dev *rdev,
-			       struct rpmb_ioc_seq_cmd __user *ptr)
+			       struct rpmb_ioc_seq_cmd __user *ptr, u8 region)
 {
 	__u64 ncmds;
 	struct rpmb_cmd *cmds;
@@ -179,7 +179,7 @@ static long rpmb_ioctl_seq_cmd(struct rpmb_dev *rdev,
 			goto out;
 	}
 
-	ret = rpmb_cmd_seq(rdev, cmds, ncmds);
+	ret = rpmb_cmd_seq(rdev, cmds, ncmds, region);
 	if (ret)
 		goto out;
 
@@ -231,7 +231,7 @@ static long rpmb_ioctl_req_cmd(struct rpmb_dev *rdev,
 	if (ret)
 		goto out;
 
-	ret = rpmb_cmd_req(rdev, &rpmbd);
+	ret = rpmb_cmd_req(rdev, &rpmbd, 0);
 	if (ret)
 		goto out;
 

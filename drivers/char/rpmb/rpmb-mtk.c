@@ -551,7 +551,7 @@ static int rpmb_req_get_wc_ufs(u8 *keybytes, u32 *wc, u8 *frame)
 		#ifdef __RPMB_KERNEL_NL_SUPPORT
 		ret = nl_rpmb_cmd_req(&rpmbdata);
 		#else
-		ret = rpmb_cmd_req(rawdev_ufs_rpmb, &rpmbdata);
+		ret = rpmb_cmd_req(rawdev_ufs_rpmb, &rpmbdata, 0);
 		#endif
 
 		if (ret) {
@@ -670,7 +670,7 @@ static int rpmb_req_read_data_ufs(u8 *frame, u32 blk_cnt)
 	#ifdef __RPMB_KERNEL_NL_SUPPORT
 	ret = nl_rpmb_cmd_req(&rpmbdata);
 	#else
-	ret = rpmb_cmd_req(rawdev_ufs_rpmb, &rpmbdata);
+	ret = rpmb_cmd_req(rawdev_ufs_rpmb, &rpmbdata, 0);
 	#endif
 
 	if (ret)
@@ -733,7 +733,7 @@ static int rpmb_req_write_data_ufs(u8 *frame, u32 blk_cnt)
 	#ifdef __RPMB_KERNEL_NL_SUPPORT
 	ret = nl_rpmb_cmd_req(&rpmbdata);
 	#else
-	ret = rpmb_cmd_req(rawdev_ufs_rpmb, &rpmbdata);
+	ret = rpmb_cmd_req(rawdev_ufs_rpmb, &rpmbdata, 0);
 	#endif
 
 	if (ret)
@@ -760,7 +760,7 @@ out:
 	return ret;
 }
 
-int rpmb_req_program_key_ufs(u8 *frame, u32 blk_cnt)
+int rpmb_req_program_key_ufs(u8 *frame, u32 blk_cnt, u8 region)
 {
 	struct rpmb_data data;
 	struct rpmb_dev *rawdev_ufs_rpmb;
@@ -785,7 +785,7 @@ int rpmb_req_program_key_ufs(u8 *frame, u32 blk_cnt)
 	data.icmd.nframes = 1;
 	data.icmd.frames = (struct rpmb_frame *)frame;
 
-	ret = rpmb_cmd_req(rawdev_ufs_rpmb, &data);
+	ret = rpmb_cmd_req(rawdev_ufs_rpmb, &data, region);
 
 	if (ret)
 		MSG(ERR, "%s: rpmb_cmd_req IO error, ret %d (0x%x)\n",
@@ -795,7 +795,8 @@ int rpmb_req_program_key_ufs(u8 *frame, u32 blk_cnt)
 	 * Microtrust TEE will check write counter in the first frame,
 	 * thus we copy response frame to the first frame.
 	 */
-	memcpy(frame, data.ocmd.frames, 512);
+	if (region == 0)
+		memcpy(frame, data.ocmd.frames, 512);
 
 	if (data.ocmd.frames->result) {
 		MSG(ERR, "%s, result error!!! (%x)\n", __func__,
@@ -988,7 +989,7 @@ static int rpmb_req_ioctl_write_data_ufs(struct rpmb_ioc_param *param)
 		#ifdef __RPMB_KERNEL_NL_SUPPORT
 		ret = nl_rpmb_cmd_req(&rpmbdata);
 		#else
-		ret = rpmb_cmd_req(rawdev_ufs_rpmb, &rpmbdata);
+		ret = rpmb_cmd_req(rawdev_ufs_rpmb, &rpmbdata, 0);
 		#endif
 
 		if (ret) {
@@ -1163,7 +1164,7 @@ static int rpmb_req_ioctl_read_data_ufs(struct rpmb_ioc_param *param)
 		#ifdef __RPMB_KERNEL_NL_SUPPORT
 		ret = nl_rpmb_cmd_req(&rpmbdata);
 		#else
-		ret = rpmb_cmd_req(rawdev_ufs_rpmb, &rpmbdata);
+		ret = rpmb_cmd_req(rawdev_ufs_rpmb, &rpmbdata, 0);
 		#endif
 
 		if (ret) {
@@ -1311,7 +1312,11 @@ static enum mc_result rpmb_gp_execute_ufs(u32 cmdId)
 		MSG(INFO, "%s: DCI_RPMB_CMD_PROGRAM_KEY.\n", __func__);
 		rpmb_dump_frame(rpmb_gp_dci->request.frame);
 
-		ret = rpmb_req_program_key_ufs(rpmb_gp_dci->request.frame, 1);
+		/* program both region 0 and region 1 key */
+		ret = rpmb_req_program_key_ufs(rpmb_gp_dci->request.frame,
+			1, 1);
+		ret = rpmb_req_program_key_ufs(rpmb_gp_dci->request.frame,
+			1, 0);
 
 		break;
 

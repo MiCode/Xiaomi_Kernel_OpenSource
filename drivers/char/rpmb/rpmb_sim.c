@@ -494,7 +494,7 @@ static int rpmb_sim_read(struct rpmb_sim_dev *rsdev,
 }
 
 static int rpmb_sim_cmd_seq(struct device *dev,
-			    struct rpmb_cmd *cmds, u32 ncmds)
+			    struct rpmb_cmd *cmds, u32 ncmds, u8 region)
 {
 	struct rpmb_sim_dev *rsdev;
 	int i;

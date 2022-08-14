@@ -142,7 +142,8 @@ struct rpmb_data {
  * @reliable_wr_cnt: number of sectors that can be written in one access
  */
 struct rpmb_ops {
-	int (*cmd_seq)(struct device *dev, struct rpmb_cmd *cmds, u32 ncmds);
+	int (*cmd_seq)(struct device *dev, struct rpmb_cmd *cmds, u32 ncmds,
+		u8 region);
 	enum rpmb_type type;
 	const u8 *dev_id;
 	size_t dev_id_len;
@@ -177,8 +178,9 @@ struct rpmb_dev *rpmb_dev_find_device(void *data,
 				      int (*match)(struct device *dev,
 						   const void *data));
 int rpmb_dev_unregister(struct device *dev);
-int rpmb_cmd_seq(struct rpmb_dev *rdev, struct rpmb_cmd *cmds, u32 ncmds);
-int rpmb_cmd_req(struct rpmb_dev *rdev, struct rpmb_data *data);
+int rpmb_cmd_seq(struct rpmb_dev *rdev, struct rpmb_cmd *cmds, u32 ncmds,
+	u8 region);
+int rpmb_cmd_req(struct rpmb_dev *rdev, struct rpmb_data *data, u8 region);
 
 #else
 static inline struct rpmb_dev *rpmb_dev_get(struct rpmb_dev *rdev)
@@ -216,7 +218,8 @@ static inline int rpmb_cmd_seq(struct rpmb_dev *rdev,
 	return 0;
 }
 
-static inline int rpmb_cmd_req(struct rpmb_dev *rdev, struct rpmb_data *data)
+static inline int rpmb_cmd_req(struct rpmb_dev *rdev, struct rpmb_data *data,
+	 u8 region)
 {
 	return 0;
 }

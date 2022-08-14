@@ -1097,7 +1097,7 @@ static u32 ufs_mtk_get_ufs_hci_version(struct ufs_hba *hba)
 #define SEC_PROTOCOL_TIMEOUT msecs_to_jiffies(30000)
 
 int ufs_mtk_rpmb_security_out(struct scsi_device *sdev,
-			 struct rpmb_frame *frames, u32 cnt)
+			 struct rpmb_frame *frames, u32 cnt, u8 region)
 {
 	struct scsi_sense_hdr sshdr = {0};
 	u32 trans_len = cnt * sizeof(struct rpmb_frame);
@@ -1108,7 +1108,7 @@ int ufs_mtk_rpmb_security_out(struct scsi_device *sdev,
 	memset(cmd, 0, SEC_PROTOCOL_CMD_SIZE);
 	cmd[0] = SECURITY_PROTOCOL_OUT;
 	cmd[1] = SEC_PROTOCOL_UFS;
-	put_unaligned_be16(SEC_SPECIFIC_UFS_RPMB, cmd + 2);
+	put_unaligned_be16((region << 8) | SEC_SPECIFIC_UFS_RPMB, cmd + 2);
 	cmd[4] = 0;                              /* inc_512 bit 7 set to 0 */
 	put_unaligned_be32(trans_len, cmd + 6);  /* transfer length */
 
@@ -1138,7 +1138,7 @@ retry:
 }
 
 int ufs_mtk_rpmb_security_in(struct scsi_device *sdev,
-			struct rpmb_frame *frames, u32 cnt)
+			struct rpmb_frame *frames, u32 cnt, u8 region)
 {
 	struct scsi_sense_hdr sshdr = {0};
 	u32 alloc_len = cnt * sizeof(struct rpmb_frame);
@@ -1149,7 +1149,7 @@ int ufs_mtk_rpmb_security_in(struct scsi_device *sdev,
 	memset(cmd, 0, SEC_PROTOCOL_CMD_SIZE);
 	cmd[0] = SECURITY_PROTOCOL_IN;
 	cmd[1] = SEC_PROTOCOL_UFS;
-	put_unaligned_be16(SEC_SPECIFIC_UFS_RPMB, cmd + 2);
+	put_unaligned_be16((region << 8) | SEC_SPECIFIC_UFS_RPMB, cmd + 2);
 	cmd[4] = 0;                             /* inc_512 bit 7 set to 0 */
 	put_unaligned_be32(alloc_len, cmd + 6); /* allocation length */
 
@@ -1179,7 +1179,7 @@ retry:
 }
 
 static int ufs_mtk_rpmb_cmd_seq(struct device *dev,
-			       struct rpmb_cmd *cmds, u32 ncmds)
+			       struct rpmb_cmd *cmds, u32 ncmds, u8 region)
 {
 	unsigned long flags;
 	struct ufs_hba *hba = dev_get_drvdata(dev);
@@ -1219,10 +1219,10 @@ static int ufs_mtk_rpmb_cmd_seq(struct device *dev,
 		cmd = &cmds[i];
 		if (cmd->flags & RPMB_F_WRITE)
 			ret = ufs_mtk_rpmb_security_out(sdev, cmd->frames,
-						       cmd->nframes);
+						       cmd->nframes, region);
 		else
 			ret = ufs_mtk_rpmb_security_in(sdev, cmd->frames,
-						      cmd->nframes);
+						      cmd->nframes, region);
 	}
 
 	/* Allow device to be runtime suspended */

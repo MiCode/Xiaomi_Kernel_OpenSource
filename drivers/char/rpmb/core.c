@@ -153,7 +153,8 @@ static void rpmb_cmd_fixup(struct rpmb_dev *rdev,
  *         -EOPNOTSUPP if device doesn't support the requested operation
  *         < 0 if the operation fails
  */
-int rpmb_cmd_seq(struct rpmb_dev *rdev, struct rpmb_cmd *cmds, u32 ncmds)
+int rpmb_cmd_seq(struct rpmb_dev *rdev, struct rpmb_cmd *cmds, u32 ncmds,
+	u8 region)
 {
 	int err;
 
@@ -164,7 +165,7 @@ int rpmb_cmd_seq(struct rpmb_dev *rdev, struct rpmb_cmd *cmds, u32 ncmds)
 	err = -EOPNOTSUPP;
 	if (rdev->ops && rdev->ops->cmd_seq) {
 		rpmb_cmd_fixup(rdev, cmds, ncmds);
-		err = rdev->ops->cmd_seq(rdev->dev.parent, cmds, ncmds);
+		err = rdev->ops->cmd_seq(rdev->dev.parent, cmds, ncmds, region);
 	}
 	mutex_unlock(&rdev->lock);
 	return err;
@@ -215,7 +216,7 @@ static void rpmb_dump_frame(u8 *data_frame)
  *         -EOPNOTSUPP if device doesn't support the requested operation
  *         < 0 if the operation fails
  */
-int rpmb_cmd_req(struct rpmb_dev *rdev, struct rpmb_data *rpmbd)
+int rpmb_cmd_req(struct rpmb_dev *rdev, struct rpmb_data *rpmbd, u8 region)
 {
 	struct rpmb_cmd cmd[3];
 	struct rpmb_frame *res_frame;
@@ -275,7 +276,7 @@ int rpmb_cmd_req(struct rpmb_dev *rdev, struct rpmb_data *rpmbd)
 	}
 
 	mutex_lock(&rdev->lock);
-	ret = rdev->ops->cmd_seq(rdev->dev.parent, cmd, ncmds);
+	ret = rdev->ops->cmd_seq(rdev->dev.parent, cmd, ncmds, region);
 	mutex_unlock(&rdev->lock);
 #ifdef RPMB_DEBUG
 	rpmb_dump_frame((u8 *)(rpmbd->ocmd.frames));
