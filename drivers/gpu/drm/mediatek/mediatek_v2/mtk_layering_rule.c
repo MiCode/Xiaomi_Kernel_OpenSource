@@ -488,6 +488,9 @@ void mtk_layering_rule_init(struct drm_device *dev)
 	mtk_set_layering_opt(LYE_OPT_SPHRT,
 			     mtk_drm_helper_get_opt(private->helper_opt,
 						    MTK_DRM_OPT_SPHRT));
+	mtk_set_layering_opt(LYE_OPT_SPDA_OVL_SWITCH,
+			     mtk_drm_helper_get_opt(private->helper_opt,
+						    MTK_DRM_OPT_SDPA_OVL_SWITCH));
 
 	if (get_layering_opt(LYE_OPT_RPO)) {
 		const struct mtk_addon_scenario_data *addon_data;
@@ -685,6 +688,9 @@ void mtk_update_layering_opt_by_disp_opt(enum MTK_DRM_HELPER_OPT opt, int value)
 		break;
 	case MTK_DRM_OPT_SPHRT:
 		mtk_set_layering_opt(LYE_OPT_SPHRT, value);
+		break;
+	case MTK_DRM_OPT_SDPA_OVL_SWITCH:
+		mtk_set_layering_opt(LYE_OPT_SPDA_OVL_SWITCH, value);
 		break;
 	default:
 		break;

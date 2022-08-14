@@ -71,6 +71,7 @@ static struct {
 	{LYE_OPT_OVL_BW_MONITOR, 0, "LYE_OPT_OVL_BW_MONITOR"},
 	{LYE_OPT_GPU_CACHE, 0, "LYE_OPT_GPU_CACHE"},
 	{LYE_OPT_SPHRT, 0, "LYE_OPT_SPHRT"},
+	{LYE_OPT_SPDA_OVL_SWITCH, 0, "LYE_OPT_SPDA_OVL_SWITCH"},
 };
 
 struct debug_gles_range {
