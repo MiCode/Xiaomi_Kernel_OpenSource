@@ -643,6 +643,11 @@ static struct mtk_panel_params ext_params = {
 		.rc_tgt_offset_lo = 3,
 		},
 	.data_rate = 1500,
+	/* following MIPI hopping parameter might cause screen mess */
+	.dyn = {
+		.switch_en = 1,
+		.pll_clk = 751,
+	},
 };
 
 static struct mtk_panel_params ext_params_90hz = {
@@ -692,6 +697,11 @@ static struct mtk_panel_params ext_params_90hz = {
 		.rc_tgt_offset_lo = 3,
 		},
 	.data_rate = 1500,
+	/* following MIPI hopping parameter might cause screen mess */
+	.dyn = {
+		.switch_en = 1,
+		.pll_clk = 751,
+	},
 };
 
 static struct mtk_panel_params ext_params_60hz = {
@@ -742,6 +752,11 @@ static struct mtk_panel_params ext_params_60hz = {
 		.rc_tgt_offset_lo = 3,
 		},
 	.data_rate = 1500,
+	/* following MIPI hopping parameter might cause screen mess */
+	.dyn = {
+		.switch_en = 1,
+		.pll_clk = 751,
+	},
 };
 
 struct drm_display_mode *get_mode_by_id(struct drm_connector *connector,
