@@ -341,6 +341,8 @@ unsigned int mtk_cam_get_sv_tag_index(struct mtk_cam_ctx *ctx,
 int mtk_cam_sv_dev_pertag_write_rcnt(
 	struct mtk_camsv_device *camsv_dev,
 	unsigned int tag_idx);
+void mtk_cam_sv_vf_reset(struct mtk_cam_ctx *ctx,
+	struct mtk_camsv_device *dev);
 bool mtk_cam_sv_is_zero_fbc_cnt(struct mtk_cam_ctx *ctx, unsigned int pipe_id);
 void mtk_cam_sv_check_fbc_cnt(struct mtk_camsv_device *camsv_dev,
 	unsigned int tag_idx);

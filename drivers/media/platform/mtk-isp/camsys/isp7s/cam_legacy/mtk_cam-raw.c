@@ -1071,6 +1071,14 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 			 __func__, pipeline->id, pipeline->subdev.entity.stream_count,
 			 pipeline->sensor_mode_update);
 		break;
+	case V4L2_CID_MTK_CAM_CAMSYS_VF_RESET:
+		if (mtk_cam_scen_is_ext_isp(&pipeline->scen_active))
+			mtk_cam_extisp_vf_reset(pipeline);
+		else
+			dev_info(dev,
+				"%s:pipe(%d) CAMSYS_VF_RESET not supported scen_active.id:0x%x\n",
+				__func__, pipeline->id, pipeline->scen_active.id);
+		break;
 	case V4L2_CID_MTK_CAM_TG_FLASH_CFG:
 		ret = mtk_cam_tg_flash_s_ctrl(ctrl);
 		break;
@@ -1244,6 +1252,17 @@ static const struct v4l2_ctrl_config raw_path = {
 	.max = 7,
 	.step = 1,
 	.def = 1,
+};
+
+static const struct v4l2_ctrl_config vf_reset = {
+	.ops = &cam_ctrl_ops,
+	.id = V4L2_CID_MTK_CAM_CAMSYS_VF_RESET,
+	.name = "VF reset",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.min = 0,
+	.max = 100,
+	.step = 1,
+	.def = 0,
 };
 
 static const struct v4l2_ctrl_config frame_sync_id = {
@@ -3400,6 +3419,45 @@ int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
 	 */
 
 	return 0;
+}
+
+void mtk_cam_raw_vf_reset(struct mtk_cam_ctx *ctx,
+	struct mtk_raw_device *dev)
+{
+	int val, chk_val;
+
+	val = readl_relaxed(dev->base + REG_TG_VF_CON);
+	val &= ~TG_VFDATA_EN;
+	writel(val, dev->base + REG_TG_VF_CON);
+	wmb(); /* TBC */
+
+	enable_tg_db(dev, 0);
+	if (readx_poll_timeout(readl, dev->base_inner + REG_TG_VF_CON,
+		chk_val, chk_val == val,
+		1 /* sleep, us */,
+		3000 /* timeout, us*/) < 0) {
+		dev_info(dev->dev, "%s: wait vf off timeout: TG_VF_CON 0x%x\n",
+				 __func__, chk_val);
+	}
+	enable_tg_db(dev, 1);
+	dev_info(dev->dev, "preisp raw_vf_reset vf_en off");
+
+	val = readl_relaxed(dev->base + REG_TG_VF_CON);
+	val |= TG_VFDATA_EN;
+	writel_relaxed(val, dev->base + REG_TG_VF_CON);
+	wmb(); /* TBC */
+	enable_tg_db(dev, 0);
+	if (readx_poll_timeout(readl, dev->base_inner + REG_TG_VF_CON,
+		chk_val, chk_val == val,
+		1 /* sleep, us */,
+		3000 /* timeout, us*/) < 0) {
+		dev_info(dev->dev, "%s: wait vf on timeout: TG_VF_CON 0x%x\n",
+				 __func__, chk_val);
+	}
+	enable_tg_db(dev, 1);
+	dev_info(dev->dev, "preisp raw_vf_reset vf_en on");
+
+	dev_info(dev->dev, "preisp raw_vf_reset");
 }
 
 static int mtk_raw_sd_s_stream(struct v4l2_subdev *sd, int enable)
@@ -6475,6 +6533,10 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
 
+	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &vf_reset, NULL);
+	if (ctrl)
+		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
+			       V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &frame_sync_id, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |

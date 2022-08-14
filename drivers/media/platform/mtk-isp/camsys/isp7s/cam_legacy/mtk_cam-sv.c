@@ -1528,6 +1528,22 @@ int mtk_cam_sv_dev_pertag_write_rcnt(struct mtk_camsv_device *camsv_dev,
 
 	return ret;
 }
+void mtk_cam_sv_vf_reset(struct mtk_cam_ctx *ctx,
+	struct mtk_camsv_device *dev)
+{
+	if (CAMSV_READ_BITS(dev->base + REG_CAMSVCENTRAL_VF_CON,
+			CAMSVCENTRAL_VF_CON, VFDATA_EN)) {
+		CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_VF_CON,
+			CAMSVCENTRAL_VF_CON, VFDATA_EN, 0);
+		mtk_cam_sv_toggle_tg_db(dev);
+		dev_info(dev->dev, "preisp sv_vf_reset vf_en off");
+		CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_VF_CON,
+			CAMSVCENTRAL_VF_CON, VFDATA_EN, 1);
+		mtk_cam_sv_toggle_tg_db(dev);
+		dev_info(dev->dev, "preisp sv_vf_reset vf_en on");
+	}
+	dev_info(dev->dev, "preisp sv_vf_reset");
+}
 
 bool mtk_cam_sv_is_zero_fbc_cnt(struct mtk_cam_ctx *ctx,
 	unsigned int pipe_id)

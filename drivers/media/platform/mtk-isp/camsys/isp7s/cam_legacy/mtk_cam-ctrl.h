@@ -227,6 +227,7 @@ void mtk_cam_extisp_handle_sv_tstamp(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_request_stream_data *s_data, struct mtk_camsys_irq_info *irq_info);
 void mtk_cam_extisp_handle_raw_tstamp(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_request_stream_data *s_data, struct mtk_camsys_irq_info *irq_info);
+void mtk_cam_extisp_vf_reset(struct mtk_raw_pipeline *pipe);
 void mtk_cam_state_add_wo_sensor(struct mtk_cam_ctx *ctx);
 void mtk_cam_state_del_wo_sensor(struct mtk_cam_ctx *ctx,
 							struct mtk_cam_request *req);

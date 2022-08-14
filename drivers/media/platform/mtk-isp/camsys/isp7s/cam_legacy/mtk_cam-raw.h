@@ -422,7 +422,8 @@ void mtk_raw_unregister_entities(struct mtk_raw *raw);
 
 int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
 		       struct mtkcam_ipi_input_param *cfg_in_param);
-
+void mtk_cam_raw_vf_reset(struct mtk_cam_ctx *ctx,
+	struct mtk_raw_device *dev);
 int mtk_cam_raw_get_subsample_ratio(struct mtk_cam_scen *scen);
 
 int mtk_cam_get_subsample_ratio(int raw_feature);

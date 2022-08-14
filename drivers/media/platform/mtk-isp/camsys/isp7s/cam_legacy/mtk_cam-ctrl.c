@@ -6452,6 +6452,31 @@ void mtk_cam_extisp_handle_raw_tstamp(struct mtk_cam_ctx *ctx,
 		stream_data->preisp_meta_ts[1],
 		stream_data->preisp_meta_ts[2]);
 }
+void mtk_cam_extisp_vf_reset(struct mtk_raw_pipeline *pipe)
+{
+	struct mtk_raw_device *raw_dev = NULL;
+	struct mtk_camsv_device *camsv_dev = NULL;
+	struct mtk_cam_ctx *ctx = NULL;
+	struct mtk_cam_device *cam = NULL;
+	int i;
+
+	for (i = MTKCAM_SUBDEV_RAW_0; i < ARRAY_SIZE(pipe->raw->devs); i++)
+		if (pipe->enabled_raw & (1 << i)) {
+			raw_dev = dev_get_drvdata(pipe->raw->devs[i]);
+			break;
+		}
+	if (raw_dev) {
+		ctx = mtk_cam_find_ctx(raw_dev->cam, &pipe->subdev.entity);
+		if (ctx) {
+			cam = ctx->cam;
+			mtk_cam_raw_vf_reset(ctx, raw_dev);
+			raw_dev->sof_count = 0;
+			camsv_dev = ctx->sv_dev;
+			mtk_cam_sv_vf_reset(ctx, camsv_dev);
+			camsv_dev->sof_count = 0;
+		}
+	}
+}
 
 void mtk_cam_state_add_wo_sensor(struct mtk_cam_ctx *ctx)
 {
