@@ -1274,6 +1274,7 @@ EXPORT_SYMBOL(mtk_pcie_remove_port);
  * @port: The port number which EP use
  * @ret_val: bit[4:0]: LTSSM state (PCIe MAC offset 0x150 bit[28:24])
  *           bit[5]: DL_UP state (PCIe MAC offset 0x154 bit[8])
+ *           bit[6]: Completion timeout status (PCIe MAC offset 0x184 bit[18])
  */
 u32 mtk_pcie_dump_link_info(int port)
 {
@@ -1304,6 +1305,8 @@ u32 mtk_pcie_dump_link_info(int port)
 	ret_val |= PCIE_LTSSM_STATE(val);
 	val = readl_relaxed(pcie_port->base + PCIE_LINK_STATUS_REG);
 	ret_val |= (val >> 3) & BIT(5);
+	val = readl_relaxed(pcie_port->base + PCIE_INT_STATUS_REG);
+	ret_val |= (val >> 12) & BIT(6);
 
 	pr_info("ltssm reg: %#x, link sta: %#x, power sta: %#x, IP basic sta:%#x\n",
 		readl_relaxed(pcie_port->base + PCIE_LTSSM_STATUS_REG),
