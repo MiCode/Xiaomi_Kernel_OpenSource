@@ -12015,10 +12015,6 @@
 			opp-microvolt = <700000>;
 		};
 		opp-6 {
-			opp-hz = /bits/ 64 <546000001>;
-			opp-microvolt = <750000>;
-		};
-		opp-7 {
 			opp-hz = /bits/ 64 <880000000>;
 			opp-microvolt = <850000>;
 		};
@@ -12052,10 +12048,6 @@
 		};
 		opp-6 {
 			opp-hz = /bits/ 64 <688000001>;
-			opp-microvolt = <750000>;
-		};
-		opp-7 {
-			opp-hz = /bits/ 64 <688000002>;
 			opp-microvolt = <850000>;
 		};
 	};
@@ -12088,10 +12080,6 @@
 		};
 		opp-6 {
 			opp-hz = /bits/ 64 <660000001>;
-			opp-microvolt = <750000>;
-		};
-		opp-7 {
-			opp-hz = /bits/ 64 <660000002>;
 			opp-microvolt = <850000>;
 		};
 	};
@@ -12125,10 +12113,6 @@
 		opp-6 {
 			opp-hz = /bits/ 64 <7>;
 			opp-microvolt = <7>;
-		};
-		opp-7 {
-			opp-hz = /bits/ 64 <8>;
-			opp-microvolt = <8>;
 		};
 	};
 
@@ -12195,8 +12179,6 @@
 		force-step0 = <1>; /* 0:opp0,  1:opp1, ... */
 		release-step0 = <1>; /* 0:disable,  1:enable */
 		use-v3-pwr = <2>; /* OR operation of (1 << PWR_MMDVFS_XXX) */
-		clocks = <&mmdvfs_clk CLK_MMDVFS_AOV>;
-		clock-names = "aov_clk";
 	};
 
 	mmdvfs-v3-start {
