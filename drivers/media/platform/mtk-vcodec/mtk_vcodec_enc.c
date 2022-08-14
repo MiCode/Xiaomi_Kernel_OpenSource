@@ -174,6 +174,11 @@ void mtk_enc_put_buf(struct mtk_vcodec_ctx *ctx)
 	struct mtk_video_enc_buf *bs_info, *frm_info;
 	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
 	struct vb2_buffer *dst_buf;
+	struct venc_inst *inst;
+
+	inst = (struct venc_inst *)(ctx->drv_handle);
+	if (inst != NULL && inst->vcu_inst.abort)
+		return;
 
 	mutex_lock(&ctx->buf_lock);
 	do {
