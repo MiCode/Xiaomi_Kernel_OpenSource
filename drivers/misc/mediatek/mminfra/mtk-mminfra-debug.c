@@ -359,7 +359,7 @@ int mtk_mminfra_dbg_hang_detect(const char *user)
 		ret = snprintf(buf + len, LINK_MAX - len, " %#x=%#x,",
 			offset, val);
 		if (ret < 0 || ret >= LINK_MAX - len) {
-			snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+			ret = snprintf(buf + len, LINK_MAX - len, "%c", '\0');
 			if (ret < 0 || ret >= LINK_MAX - len)
 				pr_notice("%s: ret:%d buf size:%d\n",
 					__func__, ret, LINK_MAX - len);
