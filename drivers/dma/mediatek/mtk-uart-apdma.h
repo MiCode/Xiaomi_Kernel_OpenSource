@@ -11,11 +11,13 @@
 #define KERNEL_mtk_uart_rx_setting   mtk_uart_rx_setting
 #define KERNEL_mtk_uart_apdma_start_record  mtk_uart_apdma_start_record
 #define KERNEL_mtk_uart_apdma_end_record	mtk_uart_apdma_end_record
+#define KERNEL_mtk_uart_get_apdma_rpt	mtk_uart_get_apdma_rpt
 
 void mtk_save_uart_apdma_reg(struct dma_chan *chan, unsigned int *reg_buf);
 void mtk_uart_apdma_data_dump(struct dma_chan *chan);
 void mtk_uart_rx_setting(struct dma_chan *chan, int copied, int total);
 void mtk_uart_apdma_start_record(struct dma_chan *chan);
 void mtk_uart_apdma_end_record(struct dma_chan *chan);
+void mtk_uart_get_apdma_rpt(struct dma_chan *chan, unsigned int *rpt);
 
 #endif /* MTK_UART_APDMA_H */

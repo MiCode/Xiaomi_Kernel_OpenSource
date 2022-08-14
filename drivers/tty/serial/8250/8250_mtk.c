@@ -373,6 +373,13 @@ static int mtk8250_uart_rx_dma(struct uart_8250_port *up)
 	serial_out(up, UART_IER, 0);
 	return 0;
 }
+
+static void mtk8250_uart_get_apdma_rpt(struct dma_chan *chan, unsigned int *rpt)
+{
+	#if defined(KERNEL_mtk_uart_get_apdma_rpt)
+		KERNEL_mtk_uart_get_apdma_rpt(chan, rpt);
+	#endif
+}
 #endif
 
 static void mtk_save_uart_reg(struct uart_8250_port *up, unsigned int *reg_buf)
@@ -716,7 +723,7 @@ static void mtk8250_dma_rx_complete(void *param)
 	struct mtk8250_data *data = up->port.private_data;
 	struct tty_port *tty_port = &up->port.state->port;
 	struct dma_tx_state state;
-	int copied, total, cnt;
+	int copied, total, cnt, copied_sec;
 	unsigned char *ptr;
 	unsigned long flags;
 	unsigned int idx = 0;
@@ -729,6 +736,8 @@ static void mtk8250_dma_rx_complete(void *param)
 	dmaengine_tx_status(dma->rxchan, dma->rx_cookie, &state);
 	total = dma->rx_size - state.residue;
 	cnt = total;
+
+	mtk8250_uart_get_apdma_rpt(dma->rxchan, &(data->rx_pos));
 
 	if ((data->support_hub == 1) && (data->is_uarthub_port)) {
 		idx = (unsigned int)(rx_record.rec_total % UART_DUMP_RECORE_NUM);
@@ -744,7 +753,7 @@ static void mtk8250_dma_rx_complete(void *param)
 
 	ptr = (unsigned char *)(data->rx_pos + dma->rx_buf);
 	copied = tty_insert_flip_string(tty_port, ptr, cnt);
-	data->rx_pos += cnt;
+	data->rx_pos += copied;
 
 #ifdef CONFIG_UART_DATA_RECORD
 	if ((data->support_hub == 1) && (data->is_uarthub_port)) {
@@ -768,8 +777,9 @@ static void mtk8250_dma_rx_complete(void *param)
 	}
 #endif
 		cnt = total - cnt;
-		copied += tty_insert_flip_string(tty_port, ptr, cnt);
-		data->rx_pos = cnt;
+		copied_sec = tty_insert_flip_string(tty_port, ptr, cnt);
+		data->rx_pos = copied_sec;
+		copied += copied_sec;
 	}
 
 	if ((data->support_hub == 1) && (data->is_uarthub_port))

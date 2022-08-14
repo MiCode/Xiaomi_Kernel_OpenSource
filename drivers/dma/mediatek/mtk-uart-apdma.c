@@ -123,6 +123,7 @@ struct mtk_chan {
 	unsigned int irq_wg;
 	unsigned int rx_status;
 	unsigned int rec_idx;
+	unsigned int cur_rpt;
 	unsigned long long rec_total;
 	unsigned int start_record_wpt;
 	unsigned int start_record_rpt;
@@ -292,6 +293,15 @@ void mtk_uart_rx_setting(struct dma_chan *chan, int copied, int total)
 
 }
 EXPORT_SYMBOL(mtk_uart_rx_setting);
+
+void mtk_uart_get_apdma_rpt(struct dma_chan *chan, unsigned int *rpt)
+{
+	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
+
+	*rpt = c->cur_rpt & VFF_RING_SIZE;
+
+}
+EXPORT_SYMBOL(mtk_uart_get_apdma_rpt);
 
 static void mtk_uart_apdma_start_tx(struct mtk_chan *c)
 {
@@ -483,6 +493,7 @@ static void mtk_uart_apdma_rx_handler(struct mtk_chan *c)
 
 	c->rx_status = d->avail_len - cnt;
 	c->irq_wg = wg;
+	c->cur_rpt = rg;
 
 	idx = (unsigned int)(c->rec_idx % UART_RECORD_COUNT);
 	c->rec_idx++;
