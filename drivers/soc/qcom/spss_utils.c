@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /*
@@ -73,6 +74,11 @@ static bool is_ssr_disabled;
 
 #define CMAC_SIZE_IN_BYTES (128/8) /* 128 bit = 16 bytes */
 #define CMAC_SIZE_IN_DWORDS (CMAC_SIZE_IN_BYTES/sizeof(u32)) /* 4 dwords */
+
+/* MCP code size register holds size divided by a factor
+ * To get the actual size, need to multiply by the same factor
+ */
+#define MCP_SIZE_MUL_FACTOR (4)
 
 static u32 pil_addr;
 static u32 pil_size;
@@ -571,9 +577,15 @@ static long spss_utils_ioctl(struct file *file,
 			return -EINVAL;
 		}
 		ret = spss_wait_for_event(req);
-		copy_to_user((void __user *)arg, data, size);
 		if (ret < 0)
 			return ret;
+
+		ret = copy_to_user((void __user *)arg, data, size);
+		if (ret) {
+			pr_err("cmd [0x%x] copy_to_user failed - %d\n", cmd, ret);
+			return ret;
+		}
+
 		break;
 
 	case SPSS_IOC_SIGNAL_EVENT:
@@ -583,9 +595,15 @@ static long spss_utils_ioctl(struct file *file,
 			return -EINVAL;
 		}
 		ret = spss_signal_event(req);
-		copy_to_user((void __user *)arg, data, size);
 		if (ret < 0)
 			return ret;
+
+		ret = copy_to_user((void __user *)arg, data, size);
+		if (ret) {
+			pr_err("cmd [0x%x] copy_to_user failed - %d\n", cmd, ret);
+			return ret;
+		}
+
 		break;
 
 	case SPSS_IOC_IS_EVENT_SIGNALED:
@@ -595,9 +613,15 @@ static long spss_utils_ioctl(struct file *file,
 			return -EINVAL;
 		}
 		ret = spss_is_event_signaled(req);
-		copy_to_user((void __user *)arg, data, size);
 		if (ret < 0)
 			return ret;
+
+		ret = copy_to_user((void __user *)arg, data, size);
+		if (ret) {
+			pr_err("cmd [0x%x] copy_to_user failed - %d\n", cmd, ret);
+			return ret;
+		}
+
 		break;
 
 	case SPSS_IOC_SET_SSR_STATE:
@@ -723,14 +747,10 @@ static int get_pil_size(phys_addr_t base_addr)
 	pil_size = readl_relaxed(spss_code_size_reg);
 	iounmap(spss_code_size_reg);
 
-	/* Since there are only 20 bits in the code size register, if the size is 1MB
-	 * or bigger then the register is set to 1MB-1, which isn't 4KB aligned, so
-	 * it's corrected below to 1MB
+	/* Multiply the value read from code size register by factor
+	 * to get the actual size (see MCP_SIZE_MUL_FACTOR documentation)
 	 */
-	if (pil_size == SZ_1M - 1) {
-		pr_warn("pil_size is corrected to 1MB\n");
-		pil_size = SZ_1M;
-	}
+	pil_size *= MCP_SIZE_MUL_FACTOR;
 
 	if (pil_size % SZ_4K) {
 		pr_err("pil_size [0x%08x] is not 4K aligned.\n", pil_size);
