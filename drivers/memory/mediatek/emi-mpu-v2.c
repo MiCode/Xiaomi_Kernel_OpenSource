@@ -149,18 +149,22 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 	void __iomem *emi_cen_base;
 	void __iomem *miu_mpu_base;
 	void __iomem *miu_kp_base;
-	unsigned int emi_id, i;
-	ssize_t msg_len;
+	unsigned int emi_id, i, north_debug_counter, south_debug_counter;
+	ssize_t msg_len, debug_len;
 	int nr_vio, prefetch;
 	bool violation, miu_violation, miu_kp_violation, miu_mpu_violation;
 	irqreturn_t irqret;
 	const unsigned int hp_mask = 0x600000;
 	char md_str[MTK_EMI_MAX_CMD_LEN + 13] = {'\0'};
+	char debug_str[MTK_EMI_MAX_CMD_LEN + 1] = {'\0'};
 	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 3);
 
 	nr_vio = 0;
 	msg_len = 0;
 	prefetch = 0;
+	debug_len = 0;
+	north_debug_counter = 0;
+	south_debug_counter = 0;
 
 	for (emi_id = 0; emi_id < mpu->emi_cen_cnt; emi_id++) {
 		violation = false;
@@ -172,6 +176,13 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 		for (i = 0; i < mpu->dump_cnt; i++) {
 			dump_reg[i].value = readl(
 				emi_cen_base + dump_reg[i].offset);
+			if (debug_len < MTK_EMI_MAX_CMD_LEN)
+				debug_len += scnprintf(debug_str + debug_len,
+				MTK_EMI_MAX_CMD_LEN - debug_len,
+				"%s(%d),%s(%x),%s(%x);\n",
+				"emi", emi_id,
+				"off", dump_reg[i].offset,
+				"val", dump_reg[i].value);
 			if (dump_reg[i].value)
 				violation = true;
 		}
@@ -195,9 +206,13 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 			for (i = 0; i < mpu->miumpu_dump_cnt; i++) {
 				miumpu_dump_reg[i].value = readl(
 				miu_mpu_base + miumpu_dump_reg[i].offset);
-
-				if (miumpu_dump_reg[i].value)
+				if (miumpu_dump_reg[i].value) {
 					miu_mpu_violation = true;
+					if (emi_id == 0)
+						north_debug_counter++;
+					else
+						south_debug_counter++;
+				}
 			}
 
 			miu_kp_violation = false;
@@ -325,6 +340,10 @@ clear_violation:
 	}
 
 	if (nr_vio) {
+		/* for debug purpose to check smpu violation log is same as emimpu reg */
+		if (north_debug_counter == 1 || south_debug_counter == 1)
+			if (__ratelimit(&ratelimit))
+				pr_info("%s: %s", __func__, debug_str);
 		printk_deferred("%s: %s", __func__, mpu->vio_msg);
 		mpu->in_msg_dump = 1;
 		schedule_work(&emimpu_work);
