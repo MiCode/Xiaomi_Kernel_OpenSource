@@ -73,7 +73,6 @@ endif
 
 #$(CAM_MODULE)-objs += mtk_cam-procdbg.o
 
-include $(src)/mtk_csi_phy_2_0/sub_drv.mk
 include $(src)/mtk_csi_phy_3_0/sub_drv.mk
 
 PLATFORM_PATH = $(srctree)/$(src)

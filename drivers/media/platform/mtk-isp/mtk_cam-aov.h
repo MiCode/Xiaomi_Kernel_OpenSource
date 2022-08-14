@@ -6,6 +6,16 @@
 #ifndef __MTK_CAM_AOV_H
 #define __MTK_CAM_AOV_H
 
+#define MAX_DEST_NUM 4
+
+struct seninf_vc_out_dest {
+	u8 mux; // allocated per group
+	u8 mux_vr; // allocated per group
+	u8 cam; // assigned by cam driver
+	u8 tag; // assigned by cam driver
+	u8 cam_type; // assigned by cam driver
+};
+
 struct seninf_vc {
 	u8 vc;
 	u8 dt;
@@ -13,11 +23,8 @@ struct seninf_vc {
 	u8 out_pad;
 	u8 pixel_mode;
 	u8 group;
-	u8 mux; // allocated per group
-	u8 mux_vr; // allocated per group
-	u8 cam; // assigned by cam driver
-	u8 tag; // assigned by cam driver
-	u8 cam_type; // assigned by cam driver
+	u8 dest_cnt;
+	struct seninf_vc_out_dest dest[MAX_DEST_NUM];
 	u8 enable;
 	u16 exp_hsize;
 	u16 exp_vsize;

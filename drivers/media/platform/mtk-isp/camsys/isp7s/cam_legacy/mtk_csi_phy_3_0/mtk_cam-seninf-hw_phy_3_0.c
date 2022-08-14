@@ -1122,13 +1122,13 @@ static int mtk_cam_seninf_set_mux_vc_split(struct seninf_ctx *ctx,
 		break;
 	}
 
-#if LOG_MORE
+//#if LOG_MORE
 	dev_info(ctx->dev,
 		"%s: set mux %d vc split for tag %d vc %d SEL0(0x%x), SEL1(0x%x)\n",
 		__func__, mux, tag, vc,
 		SENINF_READ_REG(pSeninf_mux, SENINF_MUX_VC_SEL0),
 		SENINF_READ_REG(pSeninf_mux, SENINF_MUX_VC_SEL1));
-#endif
+//#endif
 
 	return 0;
 }
@@ -3130,19 +3130,23 @@ static int mtk_cam_seninf_reset(struct seninf_ctx *ctx, int seninfIdx)
 
 static int mtk_cam_seninf_set_idle(struct seninf_ctx *ctx)
 {
-	int i;
+	int i, j;
 	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
 	struct seninf_vc *vc;
 
 	for (i = 0; i < vcinfo->cnt; i++) {
 		vc = &vcinfo->vc[i];
 		if (vc->enable) {
-			mtk_cam_seninf_disable_mux(ctx, vc->mux);
-			mtk_cam_seninf_disable_cammux(ctx, vc->cam);
+			for (j = 0; j < vc->dest_cnt; j++) {
+				mtk_cam_seninf_disable_mux(ctx, vc->dest[j].mux);
+				mtk_cam_seninf_disable_cammux(ctx, vc->dest[j].cam);
+			}
+			vc->dest_cnt = 0;
 		}
 	}
 	for (i = 0; i < PAD_MAXCNT; i++)
-		ctx->pad2cam[i] = 0xff;
+		for (j = 0; j < MAX_DEST_NUM; j++)
+			ctx->pad2cam[i][j] = 0xff;
 #if LOG_MORE
 	dev_info(ctx->dev, "%s release all mux & cam mux set all pd2cam to 0xff\n", __func__);
 #endif
@@ -3220,10 +3224,11 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 				   struct device_attribute *attr,
 		char *buf)
 {
-	int i, len;
+	int i, j, len;
 	struct seninf_core *core;
 	struct seninf_ctx *ctx;
 	struct seninf_vc *vc;
+	struct seninf_vc_out_dest *dest;
 	struct media_link *link;
 	struct media_pad *pad;
 	struct mtk_cam_seninf_mux_meter meter;
@@ -3304,57 +3309,64 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 
 		for (i = 0; i < ctx->vcinfo.cnt; i++) {
 			vc = &ctx->vcinfo.vc[i];
-			pmux = ctx->reg_if_mux[vc->mux];
-			if (vc->cam < _seninf_ops->cam_mux_num)
-				pcammux = ctx->reg_if_cam_mux_pcsr[vc->cam];
-			else
-				pcammux = NULL;
-			SHOW(buf, len,
-			     "[%d] vc 0x%x dt 0x%x mux %d cam %d\n",
-				i, vc->vc, vc->dt, vc->mux, vc->cam);
-			SHOW(buf, len,
-			     "\tmux[%d] en %d src %d irq_stat 0x%x\n",
-				vc->mux,
-				mtk_cam_seninf_is_mux_used(ctx, vc->mux),
-				mtk_cam_seninf_get_top_mux_ctrl(ctx, vc->mux),
-				SENINF_READ_REG(pmux, SENINF_MUX_IRQ_STATUS));
-			SHOW(buf, len, "\t\tfifo_overrun_cnt : <%d>\n",
-				ctx->fifo_overrun_cnt);
-			if (pcammux) {
-				SHOW(buf, len,
-				     "\tcam[%d] en %d src %d exp 0x%x res 0x%x err 0x%x irq_stat 0x%x\n",
-				     vc->cam,
-				     _seninf_ops->_is_cammux_used(ctx, vc->cam),
-				     _seninf_ops->_get_cammux_ctrl(ctx, vc->cam),
-				     mtk_cam_seninf_get_cammux_exp(ctx, vc->cam),
-				     mtk_cam_seninf_get_cammux_res(ctx, vc->cam),
-				     mtk_cam_seninf_get_cammux_err(ctx, vc->cam),
-				     SENINF_READ_REG(pcammux, SENINF_CAM_MUX_PCSR_IRQ_STATUS));
-			}
-			SHOW(buf, len, "\t\tsize_err_cnt : <%d>\n",
-				ctx->size_err_cnt);
 
-			if (vc->feature == VC_RAW_DATA ||
-				vc->feature == VC_STAGGER_NE ||
-				vc->feature == VC_STAGGER_ME ||
-				vc->feature == VC_STAGGER_SE) {
-				mtk_cam_seninf_get_mux_meter(ctx,
-							     vc->mux, &meter);
-				SHOW(buf, len, "\t--- mux meter ---\n");
-				SHOW(buf, len, "\twidth %d height %d\n",
-				     meter.width, meter.height);
-				SHOW(buf, len, "\th_valid %d, h_blank %d\n",
-				     meter.h_valid, meter.h_blank);
-				SHOW(buf, len, "\tv_valid %d, v_blank %d\n",
-				     meter.v_valid, meter.v_blank);
-				SHOW(buf, len, "\tmipi_pixel_rate %lld\n",
-				     meter.mipi_pixel_rate);
-				SHOW(buf, len, "\tv_blank %lld us\n",
-				     meter.vb_in_us);
-				SHOW(buf, len, "\th_blank %lld us\n",
-				     meter.hb_in_us);
-				SHOW(buf, len, "\tline_time %lld us\n",
-				     meter.line_time_in_us);
+			for (j = 0; j < vc->dest_cnt; j++) {
+				dest = &vc->dest[j];
+				pmux = ctx->reg_if_mux[dest->mux];
+				if (dest->cam < _seninf_ops->cam_mux_num)
+					pcammux = ctx->reg_if_cam_mux_pcsr[dest->cam];
+				else
+					pcammux = NULL;
+				SHOW(buf, len,
+				     "[%d] vc 0x%x dt 0x%x mux %d cam %d\n",
+					i, vc->vc, vc->dt, dest->mux, dest->cam);
+				SHOW(buf, len,
+				     "\tmux[%d] en %d src %d irq_stat 0x%x\n",
+					dest->mux,
+					mtk_cam_seninf_is_mux_used(ctx, dest->mux),
+					mtk_cam_seninf_get_top_mux_ctrl(ctx, dest->mux),
+					SENINF_READ_REG(pmux, SENINF_MUX_IRQ_STATUS));
+				SHOW(buf, len, "\t\tfifo_overrun_cnt : <%d>\n",
+					ctx->fifo_overrun_cnt);
+				if (pcammux) {
+					SHOW(buf, len,
+					     "\tcam[%d] en %d src %d exp 0x%x res 0x%x err 0x%x irq_stat 0x%x\n",
+					     dest->cam,
+					     _seninf_ops->_is_cammux_used(ctx, dest->cam),
+					     _seninf_ops->_get_cammux_ctrl(ctx, dest->cam),
+					     mtk_cam_seninf_get_cammux_exp(ctx, dest->cam),
+					     mtk_cam_seninf_get_cammux_res(ctx, dest->cam),
+					     mtk_cam_seninf_get_cammux_err(ctx, dest->cam),
+					     SENINF_READ_REG(pcammux,
+							SENINF_CAM_MUX_PCSR_IRQ_STATUS));
+					SENINF_WRITE_REG(pcammux,
+						SENINF_CAM_MUX_PCSR_IRQ_STATUS, 0x103);
+				}
+				SHOW(buf, len, "\t\tsize_err_cnt : <%d>\n",
+					ctx->size_err_cnt);
+
+				if (vc->feature == VC_RAW_DATA ||
+					vc->feature == VC_STAGGER_NE ||
+					vc->feature == VC_STAGGER_ME ||
+					vc->feature == VC_STAGGER_SE) {
+					mtk_cam_seninf_get_mux_meter(ctx,
+								     dest->mux, &meter);
+					SHOW(buf, len, "\t--- mux meter ---\n");
+					SHOW(buf, len, "\twidth %d height %d\n",
+					     meter.width, meter.height);
+					SHOW(buf, len, "\th_valid %d, h_blank %d\n",
+					     meter.h_valid, meter.h_blank);
+					SHOW(buf, len, "\tv_valid %d, v_blank %d\n",
+					     meter.v_valid, meter.v_blank);
+					SHOW(buf, len, "\tmipi_pixel_rate %lld\n",
+					     meter.mipi_pixel_rate);
+					SHOW(buf, len, "\tv_blank %lld us\n",
+					     meter.vb_in_us);
+					SHOW(buf, len, "\th_blank %lld us\n",
+					     meter.hb_in_us);
+					SHOW(buf, len, "\tline_time %lld us\n",
+					     meter.line_time_in_us);
+				}
 			}
 		}
 	}
@@ -3385,7 +3397,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	unsigned long total_delay = 0;
 	unsigned long long enabled = 0;
 	int ret = 0;
-	int j, i;
+	int j, i, k;
 	unsigned long debug_ft = FT_30_FPS * SCAN_TIME;	// FIXME
 	unsigned long debug_vb = 3 * SCAN_TIME;	// FIXME
 	enum CSI_PORT csi_port = CSI_PORT_0;
@@ -3488,23 +3500,26 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	/* clear cam mux irq */
 	for (j = 0; j < ctx->vcinfo.cnt; j++) {
 		if (ctx->vcinfo.vc[j].enable) {
-			unsigned int used_cammux = ctx->vcinfo.vc[j].cam;
+			for (k = 0; k < ctx->vcinfo.vc[j].dest_cnt; k++) {
+				unsigned int used_cammux = ctx->vcinfo.vc[j].dest[k].cam;
 
-			for (i = 0; i < _seninf_ops->cam_mux_num; i++) {
-				if ((used_cammux == i) && ((enabled >> i) & 1)) {
-					u32 res, irq_st;
+				for (i = 0; i < _seninf_ops->cam_mux_num; i++) {
+					if ((used_cammux == i) && ((enabled >> i) & 1)) {
+						u32 res, irq_st;
 
-					res = SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
-							SENINF_CAM_MUX_PCSR_CHK_RES);
-					irq_st = SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
-							SENINF_CAM_MUX_PCSR_IRQ_STATUS);
-					SENINF_WRITE_REG(ctx->reg_if_cam_mux_pcsr[i],
+						res = SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+								SENINF_CAM_MUX_PCSR_CHK_RES);
+						irq_st = SENINF_READ_REG(
+								ctx->reg_if_cam_mux_pcsr[i],
+								SENINF_CAM_MUX_PCSR_IRQ_STATUS);
+						SENINF_WRITE_REG(ctx->reg_if_cam_mux_pcsr[i],
 							SENINF_CAM_MUX_PCSR_IRQ_STATUS, 0x103);
-					dev_info(ctx->dev,
-						"before clear cam mux%u recSize = 0x%x, irq = 0x%x|0x%x",
-						i, res, irq_st,
-						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
-							SENINF_CAM_MUX_PCSR_IRQ_STATUS));
+						dev_info(ctx->dev,
+							"before clear cam mux%u recSize = 0x%x, irq = 0x%x|0x%x",
+							i, res, irq_st,
+							SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+								SENINF_CAM_MUX_PCSR_IRQ_STATUS));
+					}
 				}
 			}
 		}
@@ -3605,42 +3620,50 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	/* check SENINF_CAM_MUX size */
 	for (j = 0; j < ctx->vcinfo.cnt; j++) {
 		if (ctx->vcinfo.vc[j].enable) {
-			for (i = 0; i < _seninf_ops->cam_mux_num; i++) {
-				unsigned int used_cammux = ctx->vcinfo.vc[j].cam;
+			for (k = 0; k < ctx->vcinfo.vc[j].dest_cnt; k++) {
+				for (i = 0; i < _seninf_ops->cam_mux_num; i++) {
+					unsigned int used_cammux = ctx->vcinfo.vc[j].dest[k].cam;
 
-				if ((used_cammux == i) && ((enabled >> i) & 1)) {
+					if ((used_cammux == i) && ((enabled >> i) & 1)) {
 
-					SENINF_BITS(ctx->reg_if_cam_mux_pcsr[i],
-						    SENINF_CAM_MUX_PCSR_OPT,
-						    RG_SENINF_CAM_MUX_PCSR_TAG_VC_DT_PAGE_SEL, 0);
-					tag_03_vc = SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
-								SENINF_CAM_MUX_PCSR_TAG_VC_SEL);
-					tag_03_dt = SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
-								SENINF_CAM_MUX_PCSR_TAG_DT_SEL);
-					SENINF_BITS(ctx->reg_if_cam_mux_pcsr[i],
-						    SENINF_CAM_MUX_PCSR_OPT,
-						    RG_SENINF_CAM_MUX_PCSR_TAG_VC_DT_PAGE_SEL, 1);
-					tag_47_vc = SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
-								SENINF_CAM_MUX_PCSR_TAG_VC_SEL);
-					tag_47_dt = SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
-								SENINF_CAM_MUX_PCSR_TAG_DT_SEL);
+						SENINF_BITS(ctx->reg_if_cam_mux_pcsr[i],
+							SENINF_CAM_MUX_PCSR_OPT,
+							RG_SENINF_CAM_MUX_PCSR_TAG_VC_DT_PAGE_SEL,
+							0);
+						tag_03_vc = SENINF_READ_REG(
+							ctx->reg_if_cam_mux_pcsr[i],
+							SENINF_CAM_MUX_PCSR_TAG_VC_SEL);
+						tag_03_dt = SENINF_READ_REG(
+							ctx->reg_if_cam_mux_pcsr[i],
+							SENINF_CAM_MUX_PCSR_TAG_DT_SEL);
+						SENINF_BITS(ctx->reg_if_cam_mux_pcsr[i],
+							SENINF_CAM_MUX_PCSR_OPT,
+							RG_SENINF_CAM_MUX_PCSR_TAG_VC_DT_PAGE_SEL,
+							1);
+						tag_47_vc = SENINF_READ_REG(
+							ctx->reg_if_cam_mux_pcsr[i],
+							SENINF_CAM_MUX_PCSR_TAG_VC_SEL);
+						tag_47_dt = SENINF_READ_REG(
+							ctx->reg_if_cam_mux_pcsr[i],
+							SENINF_CAM_MUX_PCSR_TAG_DT_SEL);
 
-					dev_info(ctx->dev,
-					"cam_mux_%d CTRL(0x%x) RES(0x%x) EXP(0x%x) ERR(0x%x) OPT(0x%x) IRQ(0x%x) tag03(0x%x/0x%x), tag47(0x%x/0x%x)\n",
-					i,
-					SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+						dev_info(ctx->dev,
+						"cam_mux_%d CTRL(0x%x) RES(0x%x) EXP(0x%x) ERR(0x%x) OPT(0x%x) IRQ(0x%x) tag03(0x%x/0x%x), tag47(0x%x/0x%x)\n",
+						i,
+						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
 								SENINF_CAM_MUX_PCSR_CTRL),
-					SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
 								SENINF_CAM_MUX_PCSR_CHK_RES),
-					SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
 								SENINF_CAM_MUX_PCSR_CHK_CTL),
-					SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
 								SENINF_CAM_MUX_PCSR_CHK_ERR_RES),
-					SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
 								SENINF_CAM_MUX_PCSR_OPT),
-					SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
 								SENINF_CAM_MUX_PCSR_IRQ_STATUS),
-					tag_03_vc, tag_03_dt, tag_47_vc, tag_47_dt);
+						tag_03_vc, tag_03_dt, tag_47_vc, tag_47_dt);
+					}
 				}
 			}
 		}
@@ -3655,7 +3678,7 @@ static ssize_t mtk_cam_seninf_show_err_status(struct device *dev,
 				   struct device_attribute *attr,
 		char *buf)
 {
-	int i, len;
+	int i, k, len;
 	struct seninf_core *core;
 	struct seninf_ctx *ctx;
 	struct seninf_vc *vc;
@@ -3690,14 +3713,17 @@ static ssize_t mtk_cam_seninf_show_err_status(struct device *dev,
 
 		for (i = 0; i < ctx->vcinfo.cnt; i++) {
 			vc = &ctx->vcinfo.vc[i];
-			pmux = ctx->reg_if_mux[vc->mux];
-			SHOW(buf, len,
-			     "[%d] vc 0x%x dt 0x%x mux %d cam %d\n",
-				i, vc->vc, vc->dt, vc->mux, vc->cam);
-			SHOW(buf, len, "\tfifo_overrun error flag : <%d>",
-				ctx->fifo_overrun_flag);
-			SHOW(buf, len, "\tsize_err error flag : <%d>\n",
-				ctx->size_err_flag);
+			for (k = 0; k < vc->dest_cnt; i++) {
+				pmux = ctx->reg_if_mux[vc->dest[k].mux];
+				SHOW(buf, len,
+				     "[%d] vc 0x%x dt 0x%x mux %d cam %d\n",
+					i, vc->vc, vc->dt,
+					vc->dest[k].mux, vc->dest[k].cam);
+				SHOW(buf, len, "\tfifo_overrun error flag : <%d>",
+					ctx->fifo_overrun_flag);
+				SHOW(buf, len, "\tsize_err error flag : <%d>\n",
+					ctx->size_err_flag);
+			}
 		}
 	}
 
@@ -3716,7 +3742,7 @@ static int mtk_cam_seninf_irq_handler(int irq, void *data)
 	struct seninf_ctx *ctx_;
 	struct seninf_vc *vc;
 	void *csi2, *pmux, *pSeninf_cam_mux_pcsr;
-	int i;
+	int i, j;
 	unsigned int csiIrq_tmp;
 	unsigned int muxIrq_tmp;
 	unsigned int camIrq_tmp;
@@ -3794,39 +3820,41 @@ static int mtk_cam_seninf_irq_handler(int irq, void *data)
 
 			for (i = 0; i < ctx_->vcinfo.cnt; i++) {
 				vc = &ctx_->vcinfo.vc[i];
-				pmux = ctx_->reg_if_mux[vc->mux];
-				pSeninf_cam_mux_pcsr =
-					ctx_->reg_if_cam_mux_pcsr[vc->cam];
-				muxIrq_tmp = SENINF_READ_REG(
-					     pmux,
-					     SENINF_MUX_IRQ_STATUS);
-				camIrq_tmp = SENINF_READ_REG(
-					     pSeninf_cam_mux_pcsr,
-					     SENINF_CAM_MUX_PCSR_CHK_ERR_RES);
-
-				if (muxIrq_tmp) {
-					SENINF_WRITE_REG(
-					pmux,
-					SENINF_MUX_IRQ_STATUS,
-					0xffffffff);
+				for (j = 0; j < vc->dest_cnt; j++) {
+					pmux = ctx_->reg_if_mux[vc->dest[j].mux];
+					pSeninf_cam_mux_pcsr =
+						ctx_->reg_if_cam_mux_pcsr[vc->dest[j].cam];
 					muxIrq_tmp = SENINF_READ_REG(
 						     pmux,
 						     SENINF_MUX_IRQ_STATUS);
+					camIrq_tmp = SENINF_READ_REG(
+						     pSeninf_cam_mux_pcsr,
+						     SENINF_CAM_MUX_PCSR_CHK_ERR_RES);
+
+					if (muxIrq_tmp) {
+						SENINF_WRITE_REG(
+						pmux,
+						SENINF_MUX_IRQ_STATUS,
+						0xffffffff);
+						muxIrq_tmp = SENINF_READ_REG(
+							     pmux,
+							     SENINF_MUX_IRQ_STATUS);
+					}
+					if (camIrq_tmp) {
+						SENINF_WRITE_REG(
+						pSeninf_cam_mux_pcsr,
+						SENINF_CAM_MUX_PCSR_CHK_ERR_RES,
+						0xffffffff);
+						camIrq_tmp =
+						SENINF_READ_REG(
+						pSeninf_cam_mux_pcsr,
+						SENINF_CAM_MUX_PCSR_CHK_ERR_RES);
+					}
+					if (muxIrq_tmp & (0x1 << 0))
+						ctx_->fifo_overrun_cnt++;
+					if (camIrq_tmp)
+						ctx_->size_err_cnt++;
 				}
-				if (camIrq_tmp) {
-					SENINF_WRITE_REG(
-					pSeninf_cam_mux_pcsr,
-					SENINF_CAM_MUX_PCSR_CHK_ERR_RES,
-					0xffffffff);
-					camIrq_tmp =
-					SENINF_READ_REG(
-					pSeninf_cam_mux_pcsr,
-					SENINF_CAM_MUX_PCSR_CHK_ERR_RES);
-				}
-				if (muxIrq_tmp & (0x1 << 0))
-					ctx_->fifo_overrun_cnt++;
-				if (camIrq_tmp)
-					ctx_->size_err_cnt++;
 			}
 
 			if ((ctx_->data_not_enough_cnt) >= (core->detection_cnt) ||
@@ -3973,7 +4001,9 @@ static int mtk_cam_seninf_set_cam_mux_dyn_en(
 
 	SENINF_BITS(pSeninf_cam_mux_gcsr,
 		    SENINF_CAM_MUX_GCSR_DYN_CTRL, RG_SENINF_CAM_MUX_DYN_SKIP_CURR_EN, enable);
+#if LOG_MORE
 	dev_info(ctx->dev, "%s skip curr_en enbled. cam_mux %d\n", __func__, cam_mux);
+#endif
 
 	if ((cam_mux >= 0) && (cam_mux <= 31)) {
 		if (index == 0) {
@@ -4185,7 +4215,7 @@ static void update_vsync_irq_en_flag(struct seninf_ctx *ctx)
 
 static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
 {
-	int i;
+	int i, j;
 	void *base = ctx->reg_ana_dphy_top[(unsigned int)ctx->port];
 	void *csi2 = ctx->reg_if_csi2[(unsigned int)ctx->seninfIdx];
 	void *pmux, *pcammux, *p_gcammux;
@@ -4267,9 +4297,11 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
 			return 0;
 		for (i = 0; i < ctx->vcinfo.cnt; i++) {
 			vc = &ctx->vcinfo.vc[i];
-			pmux = ctx->reg_if_mux[vc->mux];
-			SENINF_WRITE_REG(pmux, SENINF_MUX_IRQ_STATUS,
-					val & 0xFFFFFFFF);
+			for (j = 0; j < vc->dest_cnt; j++) {
+				pmux = ctx->reg_if_mux[vc->dest[j].mux];
+				SENINF_WRITE_REG(pmux, SENINF_MUX_IRQ_STATUS,
+						 val & 0xFFFFFFFF);
+			}
 		}
 		break;
 	case REG_KEY_CAMMUX_IRQ_STAT:
@@ -4277,10 +4309,12 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u32 val)
 			return 0;
 		for (i = 0; i < ctx->vcinfo.cnt; i++) {
 			vc = &ctx->vcinfo.vc[i];
-			pcammux = ctx->reg_if_cam_mux_pcsr[vc->cam];
-			SENINF_WRITE_REG(pcammux,
-					SENINF_CAM_MUX_PCSR_IRQ_STATUS,
-					val & 0xFFFFFFFF);
+			for (j = 0; j < vc->dest_cnt; j++) {
+				pcammux = ctx->reg_if_cam_mux_pcsr[vc->dest[j].cam];
+				SENINF_WRITE_REG(pcammux,
+						 SENINF_CAM_MUX_PCSR_IRQ_STATUS,
+						 val & 0xFFFFFFFF);
+			}
 		}
 		break;
 	case REG_KEY_CAMMUX_VSYNC_IRQ_EN:

@@ -160,8 +160,8 @@ struct seninf_ctx {
 	unsigned int is_secure:1;
 	unsigned int SecInfo_addr;
 	int seninfIdx;
-	int pad2cam[PAD_MAXCNT];
-	int pad_tag_id[PAD_MAXCNT];
+	int pad2cam[PAD_MAXCNT][MAX_DEST_NUM];
+	int pad_tag_id[PAD_MAXCNT][MAX_DEST_NUM];
 
 	/* remote sensor */
 	struct v4l2_subdev *sensor_sd;
@@ -229,6 +229,9 @@ struct seninf_ctx {
 	unsigned int size_err_flag;
 	unsigned int dbg_timeout;
 	unsigned int dbg_last_dump_req;
+
+	/* cammux switch debug element */
+	struct mtk_cam_seninf_mux_param *dbg_chmux_param;
 };
 
 #endif

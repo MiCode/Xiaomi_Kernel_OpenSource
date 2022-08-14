@@ -116,21 +116,119 @@ enum REG_OPS_CMD {
 	REG_OPS_CMD_MAX_NUM,
 };
 
+static int parse_debug_csi_port(char *csi_str)
+{
+	char csi_names[20];
+	int csi_port = -1;
+	int ret, i;
+
+	if (!csi_str)
+		return -1;
+
+	for (i = 0; i < CSI_PORT_MAX_NUM; i++) {
+		memset(csi_names, 0, ARRAY_SIZE(csi_names));
+		ret = snprintf(csi_names, 10, "csi-%s", csi_port_names[i]);
+		if (ret < 0)
+			break;
+
+		if (!strcasecmp(csi_str, csi_names)) {
+			csi_port = i;
+			break;
+		}
+	}
+
+	return csi_port;
+}
+
+static void dbg_deinit_chmux(struct seninf_ctx *ctx)
+{
+	if (!ctx)
+		return;
+
+	if (ctx->dbg_chmux_param) {
+		kfree(ctx->dbg_chmux_param->settings);
+		ctx->dbg_chmux_param->settings = NULL;
+		ctx->dbg_chmux_param->num = 0;
+
+		kfree(ctx->dbg_chmux_param);
+		ctx->dbg_chmux_param = NULL;
+	}
+}
+
+static void dbg_init_chmux(struct seninf_ctx *ctx)
+{
+	if (!ctx)
+		return;
+
+	dbg_deinit_chmux(ctx);
+
+	ctx->dbg_chmux_param = kzalloc(sizeof(struct mtk_cam_seninf_mux_param),
+				       GFP_KERNEL);
+}
+
+static void dbg_commit_chmux(struct seninf_ctx *ctx)
+{
+	if (!ctx)
+		return;
+
+	if (ctx->dbg_chmux_param)
+		mtk_cam_seninf_streaming_mux_change(ctx->dbg_chmux_param);
+}
+
+static void dbg_set_camtg(struct seninf_ctx *ctx, int pad_id, int camtg, int tag_id)
+{
+	int num = 0;
+	struct mtk_cam_seninf_mux_setting *old_settings, *new_settings;
+
+	if (!ctx)
+		return;
+
+	if (ctx->dbg_chmux_param) {
+		num = ctx->dbg_chmux_param->num + 1;
+		if (num < 1) {
+			dev_info(ctx->dev, "error: of dbg setting num %d\n", num);
+			return;
+		}
+
+		new_settings = kzalloc(sizeof(struct mtk_cam_seninf_mux_setting) * num,
+				       GFP_KERNEL);
+		if (!new_settings)
+			return;
+
+		old_settings = ctx->dbg_chmux_param->settings;
+		if (old_settings) {
+			memcpy(new_settings, old_settings,
+			       sizeof(struct mtk_cam_seninf_mux_setting) * (num - 1));
+			kfree(old_settings);
+		}
+
+		new_settings[num - 1].seninf = &ctx->subdev;
+		new_settings[num - 1].enable = 1;
+		new_settings[num - 1].source = pad_id;
+		new_settings[num - 1].camtg = camtg;
+		new_settings[num - 1].tag_id = tag_id;
+
+		ctx->dbg_chmux_param->settings = new_settings;
+		ctx->dbg_chmux_param->num += 1;
+	} else {
+		mtk_cam_seninf_set_camtg_camsv(&ctx->subdev,
+					       pad_id, camtg, tag_id);
+	}
+}
+
 static ssize_t debug_ops_store(struct device *dev,
 			   struct device_attribute *attr,
 			   const char *buf, size_t count)
 {
-	char delim[] = " ";
-	char csi_names[20];
+	char delim[] = "\n\t\r\x0a\x0d ";
 	char *token = NULL;
 	char *sbuf = kzalloc(sizeof(char) * (count + 1), GFP_KERNEL);
 	char *s = sbuf;
-	int ret, i;
+	int ret, i, csi_port;
 	unsigned int num_para = 0;
 	char *arg[REG_OPS_CMD_MAX_NUM];
 	struct seninf_core *core = dev_get_drvdata(dev);
 	struct seninf_ctx *ctx, *seninf_ctx = NULL;
-	int csi_port = -1;
 	int rg_idx = -1;
 	u32 val, pad_id, camtg, tag_id;
 
@@ -149,12 +247,17 @@ static ssize_t debug_ops_store(struct device *dev,
 		token = strsep(&s, delim);
 	}
 
-	if (num_para != REG_OPS_CMD_MAX_NUM) {
+	if (num_para < (REG_OPS_CMD_ID + 1)) {
 		dev_info(dev, "Wrong command parameter number\n");
 		goto ERR_DEBUG_OPS_STORE;
 	}
 
 	if (strncmp("SET_REG", arg[REG_OPS_CMD_ID], sizeof("SET_REG")) == 0) {
+		if (num_para != (REG_OPS_CMD_VAL + 1)) {
+			dev_info(dev, "Wrong command parameter number\n");
+			goto ERR_DEBUG_OPS_STORE;
+		}
+
 		for (i = 0; i < REG_KEY_MAX_NUM; i++) {
 			if (!strcasecmp(arg[REG_OPS_CMD_RG], set_reg_names[i]))
 				rg_idx = i;
@@ -166,17 +269,7 @@ static ssize_t debug_ops_store(struct device *dev,
 		if (ret)
 			goto ERR_DEBUG_OPS_STORE;
 
-		for (i = 0; i < CSI_PORT_MAX_NUM; i++) {
-			memset(csi_names, 0, ARRAY_SIZE(csi_names));
-			ret = snprintf(csi_names, 10, "csi-%s", csi_port_names[i]);
-			if (ret < 0) {
-				dev_info(dev, "fail to snprintf\n");
-				goto ERR_DEBUG_OPS_STORE;
-			}
-			if (!strcasecmp(arg[REG_OPS_CMD_CSI], csi_names))
-				csi_port = i;
-		}
-
+		csi_port = parse_debug_csi_port(arg[REG_OPS_CMD_CSI]);
 		if (csi_port < 0)
 			goto ERR_DEBUG_OPS_STORE;
 
@@ -189,18 +282,60 @@ static ssize_t debug_ops_store(struct device *dev,
 		}
 
 		mutex_unlock(&core->mutex);
-	} else if (strncmp("SET_CAMTG", arg[REG_OPS_CMD_ID], sizeof("SET_CAMTG")) == 0) {
-		for (i = 0; i < CSI_PORT_MAX_NUM; i++) {
-			memset(csi_names, 0, ARRAY_SIZE(csi_names));
-			ret = snprintf(csi_names, 10, "csi-%s", csi_port_names[i]);
-			if (ret < 0) {
-				dev_info(dev, "fail to snprintf\n");
-				goto ERR_DEBUG_OPS_STORE;
-			}
-			if (!strcasecmp(arg[REG_OPS_CMD_CSI], csi_names))
-				csi_port = i;
+	} else if (strncmp("CHMUX_BEGIN", arg[REG_OPS_CMD_ID], sizeof("CHMUX_BEGIN")) == 0) {
+		if (num_para != (REG_OPS_CMD_CSI + 1)) {
+			dev_info(dev, "Wrong command parameter number\n");
+			goto ERR_DEBUG_OPS_STORE;
 		}
 
+		csi_port = parse_debug_csi_port(arg[REG_OPS_CMD_CSI]);
+		if (csi_port < 0)
+			goto ERR_DEBUG_OPS_STORE;
+
+		// set call
+		mutex_lock(&core->mutex);
+		list_for_each_entry(ctx, &core->list, list) {
+			if (csi_port == ctx->port) {
+				seninf_ctx = ctx;
+				break;
+			}
+		}
+		mutex_unlock(&core->mutex);
+
+		dev_info(dev, "seninf_ctx != NULL?  %d\n", (seninf_ctx != NULL));
+
+		dbg_init_chmux(seninf_ctx);
+
+	} else if (strncmp("CHMUX_END", arg[REG_OPS_CMD_ID], sizeof("CHMUX_END")) == 0) {
+		if (num_para != (REG_OPS_CMD_CSI + 1)) {
+			dev_info(dev, "Wrong command parameter number\n");
+			goto ERR_DEBUG_OPS_STORE;
+		}
+
+		csi_port = parse_debug_csi_port(arg[REG_OPS_CMD_CSI]);
+		if (csi_port < 0)
+			goto ERR_DEBUG_OPS_STORE;
+
+		// set call
+		mutex_lock(&core->mutex);
+		list_for_each_entry(ctx, &core->list, list) {
+			if (csi_port == ctx->port) {
+				seninf_ctx = ctx;
+				break;
+			}
+		}
+		mutex_unlock(&core->mutex);
+
+		dbg_commit_chmux(seninf_ctx);
+		dbg_deinit_chmux(seninf_ctx);
+
+	} else if (strncmp("SET_CAMTG", arg[REG_OPS_CMD_ID], sizeof("SET_CAMTG")) == 0) {
+		if (num_para != (REG_OPS_CMD_TAG + 1)) {
+			dev_info(dev, "Wrong command parameter number\n");
+			goto ERR_DEBUG_OPS_STORE;
+		}
+
+		csi_port = parse_debug_csi_port(arg[REG_OPS_CMD_CSI]);
 		if (csi_port < 0)
 			goto ERR_DEBUG_OPS_STORE;
 
@@ -216,7 +351,7 @@ static ssize_t debug_ops_store(struct device *dev,
 		if (ret)
 			goto ERR_DEBUG_OPS_STORE;
 
-		// reg call
+		// set call
 		mutex_lock(&core->mutex);
 		list_for_each_entry(ctx, &core->list, list) {
 			if (csi_port == ctx->port) {
@@ -226,10 +361,8 @@ static ssize_t debug_ops_store(struct device *dev,
 		}
 		mutex_unlock(&core->mutex);
 
-		if (seninf_ctx) {
-			mtk_cam_seninf_set_camtg_camsv(&seninf_ctx->subdev,
-						pad_id, camtg, tag_id);
-		}
+		if (seninf_ctx)
+			dbg_set_camtg(seninf_ctx, pad_id, camtg, tag_id);
 	}
 
 ERR_DEBUG_OPS_STORE:
@@ -545,14 +678,17 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 	}
 	for (i = 0; i < SENINF_PHY_VER_NUM; i++) {
 		if (!strcasecmp(ver, csi_phy_versions[i])) {
-			if (i == SENINF_PHY_2_0)
-				g_seninf_ops = &mtk_csi_phy_2_0;
-			else
-				g_seninf_ops = &mtk_csi_phy_3_0;
+			// No support phy 2.0
+			//if (i == SENINF_PHY_2_0)
+			//	g_seninf_ops = &mtk_csi_phy_2_0;
+			//else
+			//	g_seninf_ops = &mtk_csi_phy_3_0;
 
-			dev_info(dev, "%s: mtk_csi_phy_2_0 = 0x%x mtk_csi_phy_3_0 = 0x%x\n",
-			__func__,
-			&mtk_csi_phy_2_0, &mtk_csi_phy_3_0);
+			//dev_info(dev, "%s: mtk_csi_phy_2_0 = 0x%x mtk_csi_phy_3_0 = 0x%x\n",
+			//__func__,
+			//&mtk_csi_phy_2_0, &mtk_csi_phy_3_0);
+
+			g_seninf_ops = &mtk_csi_phy_3_0;
 
 			dev_info(dev, "%s: mtk_csi_phy_ver = %s i = %d 0x%x ret = %d\n",
 			__func__,
@@ -953,16 +1089,17 @@ static int set_aov_test_model_param(struct seninf_ctx *ctx,
 		g_aov_param.isp_freq = ISP_CLK_LOW;
 
 		for (i = 0; i < vc_used; ++i) {
-			vc[i]->cam = 33;
 			vc[i]->enable = 1;
-
-			vc[i]->mux = 5;
 			vc[i]->pixel_mode = 2;
-			vc[i]->mux_vr = 33;
+
+			vc[i]->dest_cnt = 1;
+			vc[i]->dest[0].cam = 33;
+			vc[i]->dest[0].mux = 5;
+			vc[i]->dest[0].mux_vr = 33;
 
 			dev_info(ctx->dev,
 				"test mode mux %d, cam %d, pixel mode %d, vc = %d, dt = 0x%x\n",
-				vc[i]->mux, vc[i]->cam, vc[i]->pixel_mode,
+				vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->pixel_mode,
 				vc[i]->vc, vc[i]->dt);
 
 			g_aov_param.height = 480;
@@ -1048,28 +1185,29 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 			seninf_dfs_set(ctx, dfs->freqs[dfs->cnt - 1]);
 
 		for (i = 0; i < vc_used; ++i) {
-			vc[i]->cam = ctx->pad2cam[vc[i]->out_pad];
+			vc[i]->dest_cnt = 1;
+			vc[i]->dest[0].cam = ctx->pad2cam[vc[i]->out_pad][0];
 			vc[i]->enable = 1;
 
-			if (mux_by_camtype[vc[i]->cam_type]) {
-				mux = mux_by_camtype[vc[i]->cam_type];
+			if (mux_by_camtype[vc[i]->dest[0].cam_type]) {
+				mux = mux_by_camtype[vc[i]->dest[0].cam_type];
 			} else {
 				mux = mtk_cam_seninf_mux_get_by_type(ctx,
-					     cammux2camtype(ctx, vc[i]->cam));
-				mux_by_camtype[vc[i]->cam_type] = mux;
+					     cammux2camtype(ctx, vc[i]->dest[0].cam));
+				mux_by_camtype[vc[i]->dest[0].cam_type] = mux;
 			}
 			if (!mux)
 				return -EBUSY;
 
-			vc[i]->mux = mux->idx;
+			vc[i]->dest[0].mux = mux->idx;
 
 			dev_info(ctx->dev,
 				"test mode mux %d, cam %d, pixel mode %d, vc = %d, dt = 0x%x\n",
-				vc[i]->mux, vc[i]->cam, vc[i]->pixel_mode,
+				vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->pixel_mode,
 				vc[i]->vc, vc[i]->dt);
 
 			g_seninf_ops->_set_test_model(ctx,
-					vc[i]->mux, vc[i]->cam, vc[i]->pixel_mode,
+					vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->pixel_mode,
 					vc_dt_filter, i, vc[i]->vc, vc[i]->dt);
 
 			if (vc[i]->out_pad == PAD_SRC_PDAF0)
@@ -2154,7 +2292,7 @@ err_free_handler:
 
 static int register_subdev(struct seninf_ctx *ctx, struct v4l2_device *v4l2_dev)
 {
-	int i, ret;
+	int i, j, ret;
 	struct v4l2_subdev *sd = &ctx->subdev;
 	struct device *dev = ctx->dev;
 	struct media_pad *pads = ctx->pads;
@@ -2190,7 +2328,8 @@ static int register_subdev(struct seninf_ctx *ctx, struct v4l2_device *v4l2_dev)
 		pads[i].flags = MEDIA_PAD_FL_SOURCE;
 
 	for (i = 0; i < PAD_MAXCNT; i++)
-		ctx->pad2cam[i] = 0xff;
+		for (j = 0; j < MAX_DEST_NUM; j++)
+			ctx->pad2cam[i][j] = 0xff;
 
 	ret = media_entity_pads_init(&sd->entity, PAD_MAXCNT, pads);
 	if (ret < 0) {
@@ -2285,6 +2424,7 @@ static int seninf_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&ctx->list_mux);
 	INIT_LIST_HEAD(&ctx->list_cam_mux);
 	memset(ctx->mux_by, 0, sizeof(ctx->mux_by));
+	ctx->dbg_chmux_param = NULL;
 
 	ctx->open_refcnt = 0;
 	mutex_init(&ctx->mutex);
