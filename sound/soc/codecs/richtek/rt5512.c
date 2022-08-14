@@ -17,6 +17,7 @@
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include <linux/pm_runtime.h>
+#include <linux/pm_qos.h>
 
 #include "rt5512.h"
 
@@ -112,6 +113,7 @@ struct rt5512_chip {
 	u16 chip_rev;
 	u8 bst_mode;
 	u8 dev_cnt;
+	struct pm_qos_request rt5512_qos_request;
 };
 
 #if GENERIC_DEBUGFS
@@ -402,9 +404,12 @@ static int rt5512_codec_classd_event(struct snd_soc_dapm_widget *w,
 						     0x0600);
 		*/
 		dev_info(component->dev, "Amp on\n");
+		cpu_latency_qos_update_request(&chip->rt5512_qos_request,
+					       PM_QOS_DEFAULT_VALUE);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		dev_info(component->dev, "Amp off\n");
+		cpu_latency_qos_update_request(&chip->rt5512_qos_request, 150);
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 		ret = richtek_spm_classdev_trigger_ampoff(&chip->spm);
 		if (ret < 0)
@@ -1133,6 +1138,9 @@ int rt5512_i2c_probe(struct i2c_client *client,
 	pm_runtime_enable(chip->dev);
 
 	dev_set_name(chip->dev, "RT5512_MT_%d", chip->dev_cnt);
+	/* register qos to prevent deep idle during transfer */
+	cpu_latency_qos_add_request(&chip->rt5512_qos_request,
+				    PM_QOS_DEFAULT_VALUE);
 	ret = rt5512_component_register(chip);
 	dev_info(chip->dev, "%s end, ret = %d\n", __func__, ret);
 	if (ret == 0) {
@@ -1169,6 +1177,8 @@ static int __maybe_unused rt5512_i2c_runtime_suspend(struct device *dev)
 	dev_info(dev, "enter low power mode\n");
 	ret = regmap_write_bits(chip->regmap, RT5512_REG_SYSTEM_CTRL,
 				0xffff, 0x0001);
+	cpu_latency_qos_update_request(&chip->rt5512_qos_request,
+				       PM_QOS_DEFAULT_VALUE);
 	if (ret < 0)
 		dev_err(dev, "%s ret = %d\n", __func__, ret);
 	return 0;
@@ -1179,6 +1189,8 @@ static int __maybe_unused rt5512_i2c_runtime_resume(struct device *dev)
 	struct rt5512_chip *chip = dev_get_drvdata(dev);
 	int ret = 0;
 
+	/* update qos to prevent deep idle during transfer */
+	cpu_latency_qos_update_request(&chip->rt5512_qos_request, 150);
 	dev_info(dev, "exit low power mode\n");
 	ret = regmap_write_bits(chip->regmap,
 		RT5512_REG_SYSTEM_CTRL, 0xffff, 0x0000);
