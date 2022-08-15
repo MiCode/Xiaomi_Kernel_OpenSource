@@ -532,12 +532,7 @@ static inline void mmu_notifier_subscriptions_destroy(struct mm_struct *mm)
 		__mmu_notifier_subscriptions_destroy(mm);
 
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
-	if (!in_atomic()) {
-		percpu_free_rwsem(mm->mmu_notifier_lock);
-		kfree(mm->mmu_notifier_lock);
-	} else {
-		percpu_rwsem_async_destroy(mm->mmu_notifier_lock);
-	}
+	percpu_rwsem_async_destroy(mm->mmu_notifier_lock);
 #endif
 }
 
