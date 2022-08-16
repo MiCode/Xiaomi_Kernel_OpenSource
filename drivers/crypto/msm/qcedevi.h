@@ -66,6 +66,9 @@ struct qcedev_async_req {
 	};
 	struct qcedev_handle			*handle;
 	int					err;
+	wait_queue_head_t			wait_q;
+	uint16_t				state;
+	bool					timed_out;
 };
 
 /**********************************************************************
