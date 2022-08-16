@@ -160,7 +160,7 @@ bool qcom_va_md_enabled(void)
 }
 EXPORT_SYMBOL(qcom_va_md_enabled);
 
-int qcom_va_md_register(char *name, struct notifier_block *nb)
+int qcom_va_md_register(const char *name, struct notifier_block *nb)
 {
 	int ret = 0;
 	struct va_md_s_data *va_md_s_data;
@@ -235,7 +235,7 @@ out:
 }
 EXPORT_SYMBOL(qcom_va_md_register);
 
-int qcom_va_md_unregister(char *name, struct notifier_block *nb)
+int qcom_va_md_unregister(const char *name, struct notifier_block *nb)
 {
 	struct va_md_s_data *va_md_s_data;
 	struct notifier_block_list *nbl, *tmpnbl;
