@@ -566,6 +566,7 @@ static struct qmi_msg_handler qmi_memshare_handlers[] = {
 		.decoded_size = sizeof(struct mem_query_size_req_msg_v01),
 		.fn = handle_query_size_req,
 	},
+	{}
 };
 
 int memshare_alloc(struct device *dev,
