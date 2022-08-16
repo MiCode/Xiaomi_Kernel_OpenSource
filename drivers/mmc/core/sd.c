@@ -1520,6 +1520,7 @@ retry:
 		mmc_set_clock(host, mmc_sd_get_max_clock(card));
 
 		trace_android_vh_mmc_sd_update_cmdline_timing(card, &err);
+		trace_android_rvh_mmc_sd_cmdline_timing(card, &err);
 		if (err)
 			goto free_card;
 
@@ -1536,6 +1537,7 @@ retry:
 		}
 
 		trace_android_vh_mmc_sd_update_dataline_timing(card, &err);
+		trace_android_rvh_mmc_sd_dataline_timing(card, &err);
 		if (err)
 			goto free_card;
 	}
