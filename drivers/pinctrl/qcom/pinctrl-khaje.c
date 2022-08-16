@@ -1541,6 +1541,19 @@ static const int khaje_reserved_gpios[] = {
 	0, 1, 2, 3, 14, 15, 16, 17, -1
 };
 
+static const struct msm_gpio_wakeirq_map khaje_mpm_map[] = {
+	{0, 84}, {3, 75}, {4, 16}, {6, 59}, {8, 63}, {11, 17}, {13, 18},
+	{14, 51}, {17, 20}, {18, 52}, {19, 53}, {24, 6}, {25, 71},
+	{27, 73}, {28, 41}, {31, 27}, {32, 54}, {33, 55}, {34, 56},
+	{35, 57}, {36, 58}, {39, 28}, {46, 29}, {62, 60}, {63, 61},
+	{64, 62}, {65, 30}, {66, 31}, {67, 32}, {69, 33}, {70, 34},
+	{71, 19}, {80, 21}, {81, 38}, {83, 9}, {84, 39}, {85, 40},
+	{86, 19}, {87, 42}, {88, 43}, {89, 45}, {91, 74}, {93, 46},
+	{94, 47}, {95, 48}, {96, 49}, {97, 50}, {99, 64}, {102, 65},
+	{103, 66}, {104, 67}, {105, 69}, {106, 14}, {107, 7}, {109, 37},
+	{112, 25},
+};
+
 static const struct msm_pinctrl_soc_data khaje_pinctrl = {
 	.pins = khaje_pins,
 	.npins = ARRAY_SIZE(khaje_pins),
@@ -1550,6 +1563,8 @@ static const struct msm_pinctrl_soc_data khaje_pinctrl = {
 	.ngroups = ARRAY_SIZE(khaje_groups),
 	.reserved_gpios = khaje_reserved_gpios,
 	.ngpios = 114,
+	.wakeirq_map = khaje_mpm_map,
+	.nwakeirq_map = ARRAY_SIZE(khaje_mpm_map),
 };
 
 static int khaje_pinctrl_probe(struct platform_device *pdev)
