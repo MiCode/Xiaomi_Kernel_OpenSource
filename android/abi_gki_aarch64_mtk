@@ -2101,6 +2101,7 @@
   tty_driver_flush_buffer
   tty_flip_buffer_push
   tty_insert_flip_string_fixed_flag
+  tty_ldisc_flush
   tty_register_ldisc
   tty_set_termios
   tty_termios_baud_rate
