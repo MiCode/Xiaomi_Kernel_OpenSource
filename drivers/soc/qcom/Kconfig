@@ -838,6 +838,18 @@ config QTI_PMIC_PON_LOG
 	  some Qualcomm Technologies, Inc. PMIC devices.  This driver is useful
 	  when debugging unexpected power-off scenarios.
 
+config QTI_PMIC_LPM
+        tristate "QTI PMIC LPM support"
+        depends on MFD_SPMI_PMIC
+        help
+          Say Y here to enable the Qualcomm Technologies, Inc. low power mode
+          driver which reports the entry and exit of PMIC's low power modes
+          DeepSleep/Hibernate/TWM to a companion chip through the SDAM
+          interface.
+
+          To compile this driver as a module, choose M here: the
+          module will be called qti-pmic-lpm.
+
 config MSM_BOOT_STATS
 	tristate "Use MSM boot stats reporting"
 	help
