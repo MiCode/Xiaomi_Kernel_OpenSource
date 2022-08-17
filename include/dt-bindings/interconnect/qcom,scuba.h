@@ -30,11 +30,12 @@
 #define MASTER_QDSS_BAM				21
 #define MASTER_QPIC				22
 #define MASTER_QUP_0				23
-#define MASTER_IPA				24
-#define MASTER_QDSS_ETR				25
-#define MASTER_SDCC_1				26
-#define MASTER_SDCC_2				27
-#define MASTER_USB3				28
+#define CNOC_SNOC_MAS				24
+#define MASTER_IPA				25
+#define MASTER_QDSS_ETR				26
+#define MASTER_SDCC_1				27
+#define MASTER_SDCC_2				28
+#define MASTER_USB3				29
 #define SLAVE_EBI_CH0				512
 #define BIMC_SNOC_SLV				513
 #define SLAVE_QUP_CORE_0				514
@@ -57,7 +58,7 @@
 #define SLAVE_DISPLAY_THROTTLE_CFG				531
 #define SLAVE_GPU_CFG				532
 #define SLAVE_GPU_THROTTLE_CFG				533
-#define SLAVE_HWKM_CORE				534
+#define SLAVE_HWKM				534
 #define SLAVE_IMEM_CFG				535
 #define SLAVE_IPA_CFG				536
 #define SLAVE_LPASS				537
@@ -67,7 +68,7 @@
 #define SLAVE_CNOC_MSS				541
 #define SLAVE_PDM				542
 #define SLAVE_PIMEM_CFG				543
-#define SLAVE_PKA_CORE				544
+#define SLAVE_PKA_WRAPPER_CFG				544
 #define SLAVE_PMIC_ARB				545
 #define SLAVE_QDSS_CFG				546
 #define SLAVE_QM_CFG				547
@@ -85,7 +86,7 @@
 #define SLAVE_VENUS_CFG				559
 #define SLAVE_VENUS_THROTTLE_CFG				560
 #define SLAVE_VSENSE_CTRL_CFG				561
-#define SLAVE_SERVICE_CNOC				562
+#define CNOC_SNOC_SLV				562
 #define SLAVE_SNOC_BIMC_NRT				563
 #define SLAVE_SNOC_BIMC_RT				564
 #define SLAVE_APPSS				565
@@ -97,5 +98,7 @@
 #define SLAVE_QDSS_STM				571
 #define SLAVE_TCU				572
 #define SLAVE_ANOC_SNOC				573
+#define SLAVE_PRNG				574
+#define SLAVE_SERVICE_CNOC			575
 
 #endif
