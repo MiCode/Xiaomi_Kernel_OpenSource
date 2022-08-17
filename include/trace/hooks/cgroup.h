@@ -9,6 +9,7 @@
 
 #ifndef __GENKSYMS__
 struct cgroup_taskset;
+struct cgroup_subsys;
 #else
 /* struct cgroup_taskset */
 #include <../kernel/cgroup/cgroup-internal.h>
