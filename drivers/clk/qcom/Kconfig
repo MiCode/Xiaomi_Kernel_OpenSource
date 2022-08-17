@@ -909,4 +909,13 @@ config SDX_GCC_PINN
 	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
 	  USB, SD/eMMC, PCIe, etc.
 
+config SM_GCC_SCUBA
+	tristate "SCUBA Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc
+	  SCUBA devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI,
+	  I2C, USB, UFS, SD/eMMC, encode/decode, Camera, Video etc.
+
 endif
