@@ -193,6 +193,7 @@
   _raw_write_unlock
   __rcu_read_lock
   __rcu_read_unlock
+  reclaim_pages
   __register_blkdev
   register_reboot_notifier
   register_shrinker
@@ -252,12 +253,17 @@
   __traceiter_android_vh_drain_all_pages_bypass
   __traceiter_android_vh_exit_signal
   __traceiter_android_vh_futex_sleep_start
+  __traceiter_android_vh_handle_failed_page_trylock
   __traceiter_android_vh_irqtime_account_process_tick
   __traceiter_android_vh_page_referenced_check_bypass
   __traceiter_android_vh_page_should_be_protected
+  __traceiter_android_vh_page_trylock_set
+  __traceiter_android_vh_page_trylock_clear
+  __traceiter_android_vh_page_trylock_get_result
   __traceiter_android_vh_mark_page_accessed
   __traceiter_android_vh_show_mapcount_pages
   __traceiter_android_vh_do_traversal_lruvec
+  __traceiter_android_vh_do_page_trylock
   __traceiter_android_vh_update_page_mapcount
   __traceiter_android_vh_add_page_to_lrulist
   __traceiter_android_vh_del_page_from_lrulist
@@ -295,12 +301,17 @@
   __tracepoint_android_vh_drain_all_pages_bypass
   __tracepoint_android_vh_exit_signal
   __tracepoint_android_vh_futex_sleep_start
+  __tracepoint_android_vh_handle_failed_page_trylock
   __tracepoint_android_vh_irqtime_account_process_tick
   __tracepoint_android_vh_page_referenced_check_bypass
   __tracepoint_android_vh_page_should_be_protected
+  __tracepoint_android_vh_page_trylock_set
+  __tracepoint_android_vh_page_trylock_clear
+  __tracepoint_android_vh_page_trylock_get_result
   __tracepoint_android_vh_mark_page_accessed
   __tracepoint_android_vh_show_mapcount_pages
   __tracepoint_android_vh_do_traversal_lruvec
+  __tracepoint_android_vh_do_page_trylock
   __tracepoint_android_vh_update_page_mapcount
   __tracepoint_android_vh_add_page_to_lrulist
   __tracepoint_android_vh_del_page_from_lrulist
