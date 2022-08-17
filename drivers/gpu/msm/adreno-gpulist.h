@@ -1798,6 +1798,10 @@ static const struct kgsl_regmap_list gen7_3_0_gbif_regs[] = {
 	{ GEN7_RBBM_GBIF_CLIENT_QOS_CNTL, 0x00000003 },
 };
 
+static const u32 gen7_6_0_gbif_client_qos_values[KGSL_PRIORITY_MAX_RB_LEVELS] = {
+	0x03230323,
+};
+
 static const struct kgsl_regmap_list gen7_0_0_hwcg_regs[] = {
 	{ GEN7_RBBM_CLOCK_CNTL_SP0, 0x02222222 },
 	{ GEN7_RBBM_CLOCK_CNTL2_SP0, 0x02022222 },
@@ -2171,6 +2175,7 @@ static const struct adreno_gen7_core adreno_gpu_core_gen7_6_0 = {
 	.gmu_hub_clk_freq = 200000000,
 	.bcl_data = 1,
 	.gen7_snapshot_block_list = &gen7_6_0_snapshot_block_list,
+	.qos_value = gen7_6_0_gbif_client_qos_values,
 };
 
 static const struct adreno_gpu_core *adreno_gpulist[] = {
