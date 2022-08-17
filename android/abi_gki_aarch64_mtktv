@@ -731,6 +731,7 @@
   __iio_device_register
   iio_device_unregister
   iio_read_channel_processed
+  iio_read_channel_scale
   inc_zone_page_state
   in_egroup_p
   inet_csk_get_port
