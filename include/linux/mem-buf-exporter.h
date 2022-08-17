@@ -26,6 +26,7 @@ struct mem_buf_vmperm;
 struct mem_buf_dma_buf_ops {
 	struct mem_buf_vmperm *(*lookup)(struct dma_buf *dmabuf);
 	int (*attach)(struct dma_buf *dmabuf, struct dma_buf_attachment *a);
+	bool (*uncached)(struct dma_buf *dmabuf);
 	struct dma_buf_ops dma_ops;
 };
 
