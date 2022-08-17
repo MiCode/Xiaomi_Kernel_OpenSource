@@ -1103,7 +1103,7 @@ static int enable_preemption(struct adreno_device *adreno_dev)
 	 * Bits[31:4] contain the timeout in ms
 	 */
 	return a6xx_hfi_send_set_value(adreno_dev, HFI_VALUE_BIN_TIME, 1,
-			FIELD_PREP(GENMASK(31, 4), 3000) |
+			FIELD_PREP(GENMASK(31, 4), ADRENO_PREEMPT_TIMEOUT) |
 			FIELD_PREP(GENMASK(3, 0), 0xf));
 }
 
