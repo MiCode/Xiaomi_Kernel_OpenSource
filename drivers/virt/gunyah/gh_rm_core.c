@@ -337,8 +337,7 @@ static void gh_rm_validate_notif(struct work_struct *work)
 	srcu_notifier_call_chain(&gh_rm_notifier, notification, payload);
 err:
 	kfree(payload);
-	if (connection)
-		kfree(connection);
+	kfree(connection);
 	kfree(validate_work);
 }
 
