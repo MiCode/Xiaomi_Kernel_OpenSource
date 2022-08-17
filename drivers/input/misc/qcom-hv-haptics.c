@@ -2419,9 +2419,6 @@ static int haptics_load_periodic_effect(struct haptics_chip *chip,
 		return -EINVAL;
 	}
 
-	dev_dbg(chip->dev, "upload %s effect %d, vmax=%d\n", primitive ? "primitive" : "predefined",
-			effects[i].id, play->vmax_mv);
-
 	mutex_lock(&chip->play.lock);
 	if (chip->play.in_calibration) {
 		dev_err(chip->dev, "calibration in progress, ignore playing predefined effect\n");
@@ -2430,6 +2427,9 @@ static int haptics_load_periodic_effect(struct haptics_chip *chip,
 	}
 
 	play->vmax_mv = (magnitude * effects[i].vmax_mv) / 0x7fff;
+	dev_dbg(chip->dev, "upload %s effect %d, vmax=%d\n", primitive ? "primitive" : "predefined",
+			effects[i].id, play->vmax_mv);
+
 	rc = haptics_load_predefined_effect(chip, &effects[i]);
 	if (rc < 0) {
 		dev_err(chip->dev, "Play predefined effect%d failed, rc=%d\n",
