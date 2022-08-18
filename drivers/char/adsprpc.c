@@ -992,7 +992,8 @@ static int fastrpc_minidump_add_region(struct fastrpc_mmap *map)
 		ret_val = msm_minidump_add_region(&md_entry);
 		if (ret_val < 0) {
 			ADSPRPC_ERR(
-			"Failed to add/update CMA to Minidump for phys: 0x%llx, size: %zu, md_index %d, md_entry.name %s\n",
+			"Failed to add/update with err %d CMA to Minidump for phys: 0x%llx, size: %zu, md_index %d, md_entry.name %s\n",
+			ret_val,
 			map->phys,
 			map->size, md_index,
 			md_entry.name);
@@ -1027,8 +1028,8 @@ static int fastrpc_minidump_remove_region(struct fastrpc_mmap *map)
 		err = msm_minidump_remove_region(&md_entry);
 		if (err < 0) {
 			ADSPRPC_ERR(
-				"Failed to remove CMA from Minidump for phys: 0x%llx, size: %zu index = %d\n",
-				 map->phys, map->size, map->frpc_md_index);
+				"Failed to remove CMA with err %d from Minidump for phys: 0x%llx, size: %zu index = %d\n",
+				 err, map->phys, map->size, map->frpc_md_index);
 		} else {
 			reset_unique_index(map->frpc_md_index);
 			map->frpc_md_index = -1;
