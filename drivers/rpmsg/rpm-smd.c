@@ -30,6 +30,7 @@
 #include <linux/types.h>
 #include <soc/qcom/rpm-notifier.h>
 #include <soc/qcom/rpm-smd.h>
+#include <soc/qcom/mpm.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/trace_rpm_smd.h>
@@ -1493,7 +1494,8 @@ static int msm_rpm_enter_sleep(void)
 		if (ret)
 			smd_mask_receive_interrupt(false, NULL);
 	}
-	return ret;
+
+	return msm_mpm_enter_sleep(&cpumask);
 }
 
 /**

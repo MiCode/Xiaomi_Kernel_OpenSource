@@ -48,10 +48,17 @@
 #define GPIO_NO_WAKE_IRQ	~0U
 #define MPM_NO_PARENT_IRQ	~0U
 
+#define MPM_CNTCVAL_LO	0x30
+#define MPM_CNTCVAL_HI	0x34
+#define MPM_CNTV_CTL	0x3c
+
+#define MPM_ARCH_TIMER_CTRL_ENABLE		(1 << 0)
+
 struct msm_mpm_device_data {
 	struct device *dev;
 	void __iomem *mpm_request_reg_base;
 	void __iomem *mpm_ipc_reg;
+	void __iomem *timer_frame_reg;
 	irq_hw_number_t ipc_irq;
 	struct irq_domain *gic_chip_domain;
 	struct irq_domain *gpio_chip_domain;
@@ -417,11 +424,27 @@ static inline void msm_mpm_send_interrupt(void)
 	wmb();
 }
 
+static inline void msm_mpm_timer_write(void)
+{
+	u32 lo = ~0U, hi = ~0U, ctrl;
+
+	ctrl = readl_relaxed_no_log(msm_mpm_dev_data.timer_frame_reg + MPM_CNTV_CTL);
+	if (ctrl & MPM_ARCH_TIMER_CTRL_ENABLE) {
+		lo = readl_relaxed_no_log(msm_mpm_dev_data.timer_frame_reg + MPM_CNTCVAL_LO);
+		hi = readl_relaxed_no_log(msm_mpm_dev_data.timer_frame_reg + MPM_CNTCVAL_HI);
+	}
+
+	writel_relaxed(lo, msm_mpm_dev_data.mpm_request_reg_base);
+	writel_relaxed(hi, msm_mpm_dev_data.mpm_request_reg_base + 0x4);
+}
+
 int msm_mpm_enter_sleep(struct cpumask *cpumask)
 {
 	int i = 0;
 	struct irq_chip *irq_chip;
 	struct irq_data *irq_data;
+
+	msm_mpm_timer_write();
 
 	for (i = 0; i < QCOM_MPM_REG_WIDTH; i++)
 		msm_mpm_write(MPM_REG_STATUS, i, 0);
@@ -489,28 +512,41 @@ static int msm_mpm_init(struct device_node *node)
 
 	index = of_property_match_string(node, "reg-names", "vmpm");
 	if (index < 0) {
-		ret = -EADDRNOTAVAIL;
+		ret = -EINVAL;
 		goto reg_base_err;
 	}
 
 	dev->mpm_request_reg_base = of_iomap(node, index);
 	if (!dev->mpm_request_reg_base) {
 		pr_err("Unable to iomap\n");
-		ret = -EADDRNOTAVAIL;
+		ret = -ENXIO;
 		goto reg_base_err;
 	}
 
 	index = of_property_match_string(node, "reg-names", "ipc");
 	if (index < 0) {
-		ret = -EADDRNOTAVAIL;
+		ret = -EINVAL;
 		goto reg_base_err;
 	}
 
 	dev->mpm_ipc_reg = of_iomap(node, index);
 	if (!dev->mpm_ipc_reg) {
 		pr_err("Unable to iomap IPC register\n");
-		ret = -EADDRNOTAVAIL;
+		ret = -ENXIO;
 		goto ipc_reg_err;
+	}
+
+	index = of_property_match_string(node, "reg-names", "timer");
+	if (index < 0) {
+		ret = -EINVAL;
+		goto reg_base_err;
+	}
+
+	dev->timer_frame_reg = of_iomap(node, index);
+	if (!dev->timer_frame_reg) {
+		pr_err("Unable to iomap\n");
+		ret = -ENXIO;
+		goto reg_base_err;
 	}
 
 	irq = of_irq_get(node, 0);
