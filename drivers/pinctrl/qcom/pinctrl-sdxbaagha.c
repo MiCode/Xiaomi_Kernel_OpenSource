@@ -1610,6 +1610,20 @@ static const struct msm_pingroup sdxbaagha_groups[] = {
 static struct pinctrl_qup sdxbaagha_qup_regs[] = {
 };
 
+static const struct msm_gpio_wakeirq_map sdxbaagha_pdc_map[] = {
+	{ 2, 83 }, { 4, 59 }, { 5, 107 }, { 6, 112 }, { 7, 119 },
+	{ 10, 52 }, { 11, 73 }, { 12, 74 }, { 13, 75 }, { 14, 76 },
+	{ 16, 81 }, { 17, 82 }, { 18, 80 }, { 19, 100 }, { 21, 88 },
+	{ 23, 84 }, { 24, 85 }, { 25, 97 }, { 26, 86 }, { 27, 102 },
+	{ 35, 103 }, { 43, 90 }, { 46, 104 }, { 47, 89 }, { 48, 105 },
+	{ 50, 101 }, { 52, 109 }, { 54, 110 }, { 55, 111 }, { 60, 113 },
+	{ 63, 115 }, { 64, 116 }, { 65, 57 }, { 66, 117 }, { 69, 118 },
+	{ 73, 120 }, { 74, 121 }, { 77, 122 }, { 80, 124 }, { 81, 125 },
+	{ 83, 127 }, { 84, 93 }, { 85, 128 }, { 86, 129 }, { 87, 70 },
+	{ 96, 68 }, { 98, 50 }, { 99, 67 }, { 100, 51 }, { 101, 53 },
+	{ 103, 98 }, { 104, 91 }, { 105, 69 }, { 106, 55 }, { 107, 56 },
+};
+
 static const struct msm_pinctrl_soc_data sdxbaagha_pinctrl = {
 	.pins = sdxbaagha_pins,
 	.npins = ARRAY_SIZE(sdxbaagha_pins),
@@ -1620,6 +1634,8 @@ static const struct msm_pinctrl_soc_data sdxbaagha_pinctrl = {
 	.ngpios = 110,
 	.qup_regs = sdxbaagha_qup_regs,
 	.nqup_regs = ARRAY_SIZE(sdxbaagha_qup_regs),
+	.wakeirq_map = sdxbaagha_pdc_map,
+	.nwakeirq_map = ARRAY_SIZE(sdxbaagha_pdc_map),
 };
 
 static int sdxbaagha_pinctrl_probe(struct platform_device *pdev)
