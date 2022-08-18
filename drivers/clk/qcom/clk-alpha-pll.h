@@ -209,4 +209,6 @@ int clk_rivian_evo_pll_configure(struct clk_alpha_pll *pll,
 				const struct alpha_pll_config *config);
 #define clk_rivian_ole_pll_configure clk_rivian_evo_pll_configure
 
+void clk_huayra_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
+				const struct alpha_pll_config *config);
 #endif
