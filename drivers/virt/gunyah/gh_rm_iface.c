@@ -428,10 +428,6 @@ struct gh_vm_status *gh_rm_vm_get_status(gh_vmid_t vmid)
 		err = PTR_ERR(resp_payload);
 		pr_err("%s: Failed to call VM_GET_STATE: %d\n",
 			__func__, err);
-		if (resp_payload) {
-			gh_vm_status = ERR_PTR(err);
-			goto out;
-		}
 		return ERR_PTR(err);
 	}
 
