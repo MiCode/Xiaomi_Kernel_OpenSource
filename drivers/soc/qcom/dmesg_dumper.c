@@ -19,7 +19,6 @@
 
 #define DDUMP_DBL_MASK	0x1
 #define LOG_LINE_MAX	1024
-#define DDUMP_BUFFER_OFFSET	sizeof(size_t)
 #define DDUMP_PROFS_NAME	"vmkmsg"
 #define DDUMP_WAIT_WAKEIRQ_TIMEOUT	msecs_to_jiffies(1000)
 
@@ -37,6 +36,19 @@ struct qcom_dmesg_dumper {
 	void *rx_dbl;
 	struct completion ddump_completion;
 	struct wakeup_source *wakeup_source;
+};
+
+/**
+ * struct ddump_shm_hdr - the header of share memory
+ * and be used to record some information
+ * @user_buf_len: The userspace buffer size PVM provide
+ * @svm_dump_len: The actual log length SVM dump
+ * @svm_is_suspend: Indicate SVM is in suspend mode or not
+ */
+struct ddump_shm_hdr {
+	size_t user_buf_len;
+	size_t svm_dump_len;
+	bool svm_is_suspend;
 };
 
 static void qcom_ddump_to_shm(struct kmsg_dumper *dumper,
@@ -220,27 +232,24 @@ static int qcom_ddump_rm_cb(struct notifier_block *nb, unsigned long cmd,
 	return NOTIFY_DONE;
 }
 
-static bool qcom_ddump_alive_log_to_shm(struct kmsg_dumper *dumper, size_t count)
+static size_t qcom_ddump_alive_log_to_shm(struct kmsg_dumper *dumper, size_t count)
 {
 	struct qcom_dmesg_dumper *qdd = container_of(dumper,
 					struct qcom_dmesg_dumper, dump);
-	size_t line_len;
-	size_t total_len = 0;
-	size_t max_len = qdd->size - LOG_LINE_MAX - DDUMP_BUFFER_OFFSET;
-	char *shm_offset;
-	bool ret = false;
+	size_t total_len, line_len, max_len;
+	void *shm_offset;
 
-	while ((total_len < max_len) && (total_len < count - LOG_LINE_MAX)) {
-		shm_offset = qdd->base + total_len + DDUMP_BUFFER_OFFSET;
-		if (kmsg_dump_get_line(&qdd->iter, true, shm_offset, LOG_LINE_MAX, &line_len)) {
-			total_len = total_len + line_len;
-		} else {
-			ret = true;
-			break;
-		}
+	max_len = qdd->size - LOG_LINE_MAX - sizeof(struct ddump_shm_hdr);
+	shm_offset = qdd->base + sizeof(struct ddump_shm_hdr);
+	total_len = 0;
+	while ((total_len < max_len) &&
+		   (total_len < count - LOG_LINE_MAX) &&
+		   kmsg_dump_get_line(&qdd->iter, true, shm_offset, LOG_LINE_MAX, &line_len)) {
+		shm_offset = shm_offset + line_len;
+		total_len = total_len + line_len;
 	}
-	memcpy(qdd->base, &total_len, sizeof(size_t));
-	return ret;
+
+	return total_len;
 }
 
 static inline int qcom_ddump_gh_kick(struct qcom_dmesg_dumper *qdd)
@@ -258,11 +267,12 @@ static inline int qcom_ddump_gh_kick(struct qcom_dmesg_dumper *qdd)
 static void qcom_ddump_gh_cb(int irq, void *data)
 {
 	struct qcom_dmesg_dumper *qdd;
+	struct ddump_shm_hdr *hdr;
 	gh_dbl_flags_t dbl_mask = DDUMP_DBL_MASK;
-	size_t count;
-	bool kmsg_end;
+	size_t len;
 
 	qdd = data;
+	hdr = qdd->base;
 	gh_dbl_read_and_clean(qdd->rx_dbl, &dbl_mask, GH_DBL_NONBLOCK);
 
 	if (qdd->primary_vm) {
@@ -270,10 +280,10 @@ static void qcom_ddump_gh_cb(int irq, void *data)
 	} else {
 		/* avoid system enter suspend */
 		pm_wakeup_ws_event(qdd->wakeup_source, 2000, true);
-		memcpy(&count, qdd->base, sizeof(count));
-		kmsg_end = qcom_ddump_alive_log_to_shm(&qdd->dump, count);
+		len = qcom_ddump_alive_log_to_shm(&qdd->dump, hdr->user_buf_len);
+		hdr->svm_dump_len = len;
 		qcom_ddump_gh_kick(qdd);
-		if (kmsg_end)
+		if (len == 0)
 			pm_wakeup_ws_event(qdd->wakeup_source, 0, true);
 	}
 }
@@ -282,15 +292,23 @@ static ssize_t qcom_ddump_vmkmsg_read(struct file *file, char __user *buf,
 			 size_t count, loff_t *ppos)
 {
 	struct qcom_dmesg_dumper *qdd = PDE_DATA(file_inode(file));
+	struct ddump_shm_hdr *hdr = qdd->base;
 	int ret;
-	size_t len;
 
 	if (count < LOG_LINE_MAX) {
 		dev_err(qdd->dev, "user buffer size should greater than %d\n", LOG_LINE_MAX);
 		return -EINVAL;
 	}
 
-	memcpy(qdd->base, &count, sizeof(count));
+	/**
+	 * If SVM is in suspend mode and the log size more than 1k byte,
+	 * we think SVM has log need to be read. Otherwise, we think the
+	 * log is only suspend log that we need skip the unnecessary log.
+	 */
+	if (hdr->svm_is_suspend && hdr->svm_dump_len < 1024)
+		return 0;
+
+	hdr->user_buf_len = count;
 	qcom_ddump_gh_kick(qdd);
 	ret = wait_for_completion_timeout(&qdd->ddump_completion, DDUMP_WAIT_WAKEIRQ_TIMEOUT);
 	if (!ret) {
@@ -298,21 +316,18 @@ static ssize_t qcom_ddump_vmkmsg_read(struct file *file, char __user *buf,
 		return -ETIMEDOUT;
 	}
 
-	memcpy(&len, qdd->base, sizeof(len));
-	if (len > count) {
+	if (hdr->svm_dump_len > count) {
 		dev_err(qdd->dev, "can not read the correct length of svm kmsg\n");
 		return -EINVAL;
 	}
 
-	if (len == 0)
-		return 0;
-
-	if (copy_to_user(buf, qdd->base + DDUMP_BUFFER_OFFSET, len)) {
+	if (hdr->svm_dump_len &&
+		copy_to_user(buf, qdd->base + sizeof(*hdr), hdr->svm_dump_len)) {
 		dev_err(qdd->dev, "copy_to_user fail\n");
 		return -EFAULT;
 	}
 
-	return len;
+	return hdr->svm_dump_len;
 }
 
 static const struct proc_ops ddump_proc_ops = {
@@ -324,12 +339,13 @@ static int qcom_ddump_alive_log_probe(struct qcom_dmesg_dumper *qdd)
 {
 	struct device *dev = qdd->dev;
 	struct proc_dir_entry *dent;
+	struct ddump_shm_hdr *hdr;
 	enum gh_dbl_label dbl_label;
 	struct resource *res;
 	size_t shm_min_size;
 	int ret;
 
-	shm_min_size = LOG_LINE_MAX + DDUMP_BUFFER_OFFSET;
+	shm_min_size = LOG_LINE_MAX + sizeof(struct ddump_shm_hdr);
 	if (qdd->size < shm_min_size) {
 		dev_err(dev, "Shared memory size should greater than %d\n", shm_min_size);
 		return -EINVAL;
@@ -378,6 +394,10 @@ static int qcom_ddump_alive_log_probe(struct qcom_dmesg_dumper *qdd)
 			ret = -ENOMEM;
 			goto err_unregister_rx_dbl;
 		}
+
+		/* init share memory header */
+		hdr = qdd->base;
+		hdr->svm_is_suspend = false;
 	}
 
 	return 0;
@@ -485,6 +505,35 @@ static int qcom_ddump_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_ARCH_QTI_VM
+static int qcom_ddump_suspend(struct platform_device *pdev,
+				pm_message_t state)
+{
+	struct qcom_dmesg_dumper *qdd = platform_get_drvdata(pdev);
+	struct ddump_shm_hdr *hdr = qdd->base;
+	u64 seq_backup;
+	size_t len;
+
+	hdr->svm_is_suspend = true;
+	seq_backup = qdd->iter.cur_seq;
+	len = qcom_ddump_alive_log_to_shm(&qdd->dump, qdd->size);
+	hdr->svm_dump_len = len;
+	qdd->iter.cur_seq = seq_backup;
+
+	return 0;
+}
+
+static int qcom_ddump_resume(struct platform_device *pdev)
+{
+	struct qcom_dmesg_dumper *qdd = platform_get_drvdata(pdev);
+	struct ddump_shm_hdr *hdr = qdd->base;
+
+	hdr->svm_is_suspend = false;
+
+	return 0;
+}
+#endif
+
 static const struct of_device_id ddump_match_table[] = {
 	{ .compatible = "qcom,dmesg-dump" },
 	{}
@@ -497,6 +546,10 @@ static struct platform_driver ddump_driver = {
 	 },
 	.probe = qcom_ddump_probe,
 	.remove = qcom_ddump_remove,
+#ifdef CONFIG_ARCH_QTI_VM
+	.suspend = qcom_ddump_suspend,
+	.resume = qcom_ddump_resume,
+#endif
 };
 
 static int __init qcom_ddump_init(void)
