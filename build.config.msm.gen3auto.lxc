@@ -1,0 +1,30 @@
+################################################################################
+## Inheriting configs from ACK
+. ${ROOT_DIR}/msm-kernel/build.config.common
+. ${ROOT_DIR}/msm-kernel/build.config.aarch64
+
+################################################################################
+## Variant setup
+MSM_ARCH=gen3auto
+VARIANTS=(perf_defconfig debug_defconfig)
+[ -z "${VARIANT}" ] && VARIANT=debug_defconfig
+
+BOOT_IMAGE_HEADER_VERSION=2
+BASE_ADDRESS=0x80000000
+BUILD_BOOT_IMG=1
+SKIP_VENDOR_BOOT=1
+PAGE_SIZE=4096
+DTB_IMG_CREATE=1
+PREFERRED_USERSPACE=le
+TRIM_UNUSED_MODULES=1
+
+[ -z "${DT_OVERLAY_SUPPORT}" ] && DT_OVERLAY_SUPPORT=1
+
+if [ "${KERNEL_CMDLINE_CONSOLE_AUTO}" != "0" ]; then
+	KERNEL_VENDOR_CMDLINE+=' console=ttyMSM0,115200n8 earlycon=qcom_geni,0xa90000 qcom_geni_serial.con_enabled=1 '
+fi
+
+################################################################################
+## Inheriting MSM configs
+. ${KERNEL_DIR}/build.config.msm.common
+. ${KERNEL_DIR}/build.config.msm.auto

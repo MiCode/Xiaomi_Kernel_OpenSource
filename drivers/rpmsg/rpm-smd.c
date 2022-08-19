@@ -1,37 +1,35 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/types.h>
-#include <linux/bug.h>
 #include <linux/completion.h>
-#include <linux/delay.h>
-#include <linux/init.h>
-#include <linux/interrupt.h>
-#include <linux/io.h>
+#include <linux/device.h>
 #include <linux/irq.h>
 #include <linux/list.h>
+#include <linux/kernel.h>
+#include <linux/list.h>
+#include <linux/module.h>
 #include <linux/mutex.h>
-#include <linux/of_address.h>
-#include <linux/spinlock.h>
-#include <linux/string.h>
-#include <linux/device.h>
 #include <linux/notifier.h>
-#include <linux/slab.h>
-#include <linux/workqueue.h>
-#include <linux/platform_device.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
+#include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
+#include <linux/pm_domain.h>
 #include <linux/rbtree.h>
+#include <linux/rpmsg.h>
+#include <linux/slab.h>
+#include <linux/spinlock.h>
+#include <linux/string.h>
+#include <linux/types.h>
 #include <soc/qcom/rpm-notifier.h>
 #include <soc/qcom/rpm-smd.h>
-#include <linux/rpmsg.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/trace_rpm_smd.h>
@@ -106,6 +104,7 @@ struct qcom_smd_rpm {
 	struct completion ack;
 	struct mutex lock;
 	int ack_status;
+	struct notifier_block genpd_nb;
 };
 
 struct qcom_smd_rpm *rpm;
@@ -705,7 +704,7 @@ static struct msm_rpm_driver_data msm_rpm_data = {
 	.smd_open = COMPLETION_INITIALIZER(msm_rpm_data.smd_open),
 };
 
-static int msm_rpm_flush_requests(bool print)
+static int msm_rpm_flush_requests(void)
 {
 	struct rb_node *t;
 	int ret;
@@ -1474,9 +1473,11 @@ static int smd_mask_receive_interrupt(bool mask,
  * During power collapse, the rpm driver disables the SMD interrupts to make
  * sure that the interrupt doesn't wakes us from sleep.
  */
-int msm_rpm_enter_sleep(bool print, const struct cpumask *cpumask)
+static int msm_rpm_enter_sleep(void)
 {
 	int ret = 0;
+	struct cpumask cpumask;
+	unsigned int cpu = 0;
 
 	if (standalone)
 		return 0;
@@ -1484,23 +1485,23 @@ int msm_rpm_enter_sleep(bool print, const struct cpumask *cpumask)
 	if (probe_status)
 		return 0;
 
-	ret = smd_mask_receive_interrupt(true, cpumask);
+	cpumask_copy(&cpumask, cpumask_of(cpu));
+
+	ret = smd_mask_receive_interrupt(true, &cpumask);
 	if (!ret) {
-		ret = msm_rpm_flush_requests(print);
+		ret = msm_rpm_flush_requests();
 		if (ret)
 			smd_mask_receive_interrupt(false, NULL);
 	}
 	return ret;
 }
-EXPORT_SYMBOL(msm_rpm_enter_sleep);
 
 /**
  * When the system resumes from power collapse, the SMD interrupt disabled by
  * enter function has to reenabled to continue processing SMD message.
  */
-void msm_rpm_exit_sleep(void)
+static void msm_rpm_exit_sleep(void)
 {
-
 	if (standalone)
 		return;
 
@@ -1509,7 +1510,24 @@ void msm_rpm_exit_sleep(void)
 
 	smd_mask_receive_interrupt(false, NULL);
 }
-EXPORT_SYMBOL(msm_rpm_exit_sleep);
+
+static int rpm_smd_power_cb(struct notifier_block *nb, unsigned long action, void *d)
+{
+	switch (action) {
+	case GENPD_NOTIFY_OFF:
+		if (msm_rpm_waiting_for_ack())
+			return NOTIFY_BAD;
+		if (msm_rpm_enter_sleep())
+			return NOTIFY_BAD;
+
+		break;
+	case GENPD_NOTIFY_ON:
+		msm_rpm_exit_sleep();
+		break;
+	}
+
+	return NOTIFY_OK;
+}
 
 static int qcom_smd_rpm_callback(struct rpmsg_device *rpdev, void *ptr,
 				int size, void *priv, u32 addr)
@@ -1553,6 +1571,7 @@ static int qcom_smd_rpm_probe(struct rpmsg_device *rpdev)
 {
 	char *key = NULL;
 	struct device_node *p;
+	struct platform_device *rpm_device;
 	int ret = 0;
 	int irq;
 	void __iomem *reg_base;
@@ -1562,6 +1581,13 @@ static int qcom_smd_rpm_probe(struct rpmsg_device *rpdev)
 	if (!p) {
 		pr_err("Unable to find rpm-smd\n");
 		probe_status = -ENODEV;
+		goto fail;
+	}
+
+	rpm_device = of_find_device_by_node(p);
+	if (!rpm_device) {
+		probe_status = -ENODEV;
+		pr_err(" Unable to get rpm device structure\n");
 		goto fail;
 	}
 
@@ -1602,6 +1628,15 @@ static int qcom_smd_rpm_probe(struct rpmsg_device *rpdev)
 	priv_rpm = *rpm;
 	rpm->irq = irq;
 
+	pm_runtime_enable(&rpm_device->dev);
+	rpm->genpd_nb.notifier_call = rpm_smd_power_cb;
+	ret = dev_pm_genpd_add_notifier(&rpm_device->dev, &rpm->genpd_nb);
+	if (ret) {
+		pm_runtime_disable(&rpm_device->dev);
+		probe_status = ret;
+		goto fail;
+	}
+
 	mutex_init(&rpm->lock);
 	init_completion(&rpm->ack);
 	spin_lock_init(&msm_rpm_data.smd_lock_write);
@@ -1631,6 +1666,25 @@ static struct rpmsg_driver qcom_smd_rpm_driver = {
 	},
 };
 
+static int rpm_driver_probe(struct platform_device *pdev)
+{
+	return 0;
+}
+
+static const struct of_device_id rpm_of_match[] = {
+	{ .compatible = "qcom,rpm-smd" },
+	{},
+};
+
+struct platform_driver rpm_driver = {
+	.probe = rpm_driver_probe,
+	.driver  = {
+		.name   = "rpm-smd",
+		.of_match_table = rpm_of_match,
+		.suppress_bind_attrs = true,
+	},
+};
+
 int __init msm_rpm_driver_init(void)
 {
 	unsigned int ret = 0;
@@ -1638,6 +1692,8 @@ int __init msm_rpm_driver_init(void)
 	ret = register_rpmsg_driver(&qcom_smd_rpm_driver);
 	if (ret)
 		pr_err("register_rpmsg_driver: failed with err %d\n", ret);
+
+	platform_driver_register(&rpm_driver);
 
 	return ret;
 }

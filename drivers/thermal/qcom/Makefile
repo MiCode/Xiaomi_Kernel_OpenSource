@@ -29,3 +29,6 @@ obj-$(CONFIG_THERMAL_TSENS_LEGACY)	+= msm-tsens-driver.o
 msm-tsens-driver-y			+= msm-tsens.o tsens2xxx.o tsens-dbg.o
 obj-$(CONFIG_QTI_LMH_CPU_VDD_COOLING_DEVICE) += lmh_cpu_vdd_cdev.o
 obj-$(CONFIG_QTI_CX_IPEAK_COOLING_DEVICE) += cx_ipeak_cdev.o
+obj-$(CONFIG_REGULATOR_COOLING_DEVICE) += regulator_cdev.o
+obj-$(CONFIG_QTI_QMI_SENSOR) += qti_qmi_sensor.o
+qti_qmi_sensor-y += thermal_sensor_service_v01.o qmi_sensors.o
