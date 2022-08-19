@@ -4337,6 +4337,9 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		break;
 	case FASTRPC_INIT_CREATE:
 		err = fastrpc_init_create_dynamic_process(fl, uproc);
+		if (err)
+			goto bail;
+		VERIFY(err, 0 == (err = fastrpc_device_create(fl)));
 		break;
 	case FASTRPC_INIT_CREATE_STATIC:
 		err = fastrpc_init_create_static_process(fl, init);
@@ -4348,9 +4351,6 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 	if (err)
 		goto bail;
 	fl->dsp_proc_init = 1;
-	VERIFY(err, 0 == (err = fastrpc_device_create(fl)));
-	if (err)
-		goto bail;
 bail:
 	return err;
 }
