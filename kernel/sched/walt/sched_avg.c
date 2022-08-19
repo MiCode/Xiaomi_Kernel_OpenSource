@@ -95,7 +95,7 @@ struct sched_avg_stats *sched_get_nr_running_avg(void)
 		tmp_nr = div64_u64((tmp_nr * 100), period);
 
 		tmp_misfit = per_cpu(nr_big_prod_sum, cpu);
-		tmp_misfit += walt_big_tasks(cpu) * diff;
+		tmp_misfit += walt_big_64bit_tasks(cpu) * diff;
 		tmp_misfit = div64_u64((tmp_misfit * 100), period);
 
 		/*

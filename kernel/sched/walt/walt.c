@@ -512,6 +512,13 @@ unsigned int walt_big_tasks(int cpu)
 {
 	struct walt_rq *wrq = (struct walt_rq *) cpu_rq(cpu)->android_vendor_data1;
 
+	return wrq->walt_stats.nr_big_tasks + wrq->walt_stats.nr_32bit_big_tasks;
+}
+
+unsigned int walt_big_64bit_tasks(int cpu)
+{
+	struct walt_rq *wrq = (struct walt_rq *) cpu_rq(cpu)->android_vendor_data1;
+
 	return wrq->walt_stats.nr_big_tasks;
 }
 
@@ -3932,6 +3939,7 @@ static void walt_sched_init_rq(struct rq *rq)
 	wrq->prev_window_size = sched_ravg_window;
 	wrq->window_start = 0;
 	wrq->walt_stats.nr_big_tasks = 0;
+	wrq->walt_stats.nr_32bit_big_tasks = 0;
 	wrq->walt_flags = 0;
 	wrq->avg_irqload = 0;
 	wrq->prev_irq_time = 0;
@@ -4010,8 +4018,12 @@ static void inc_rq_walt_stats(struct rq *rq, struct task_struct *p)
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
-	if (wts->misfit)
-		wrq->walt_stats.nr_big_tasks++;
+	if (wts->misfit) {
+		if (!is_compat_thread(task_thread_info(p)))
+			wrq->walt_stats.nr_big_tasks++;
+		else
+			wrq->walt_stats.nr_32bit_big_tasks++;
+	}
 
 	wts->rtg_high_prio = task_rtg_high_prio(p);
 	if (wts->rtg_high_prio)
@@ -4023,13 +4035,18 @@ static void dec_rq_walt_stats(struct rq *rq, struct task_struct *p)
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
-	if (wts->misfit)
-		wrq->walt_stats.nr_big_tasks--;
+	if (wts->misfit) {
+		if (!is_compat_thread(task_thread_info(p)))
+			wrq->walt_stats.nr_big_tasks--;
+		else
+			wrq->walt_stats.nr_32bit_big_tasks--;
+	}
 
 	if (wts->rtg_high_prio)
 		wrq->walt_stats.nr_rtg_high_prio_tasks--;
 
 	BUG_ON(wrq->walt_stats.nr_big_tasks < 0);
+	BUG_ON(wrq->walt_stats.nr_32bit_big_tasks < 0);
 }
 
 static void android_rvh_wake_up_new_task(void *unused, struct task_struct *new)
@@ -4280,8 +4297,13 @@ static void android_rvh_update_misfit_status(void *unused, struct task_struct *p
 	if (change) {
 		sched_update_nr_prod(rq->cpu, 0);
 		wts->misfit = misfit;
-		wrq->walt_stats.nr_big_tasks += change;
+		if (!is_compat_thread(task_thread_info(p)))
+			wrq->walt_stats.nr_big_tasks += change;
+		else
+			wrq->walt_stats.nr_32bit_big_tasks += change;
+
 		BUG_ON(wrq->walt_stats.nr_big_tasks < 0);
+		BUG_ON(wrq->walt_stats.nr_32bit_big_tasks < 0);
 	}
 }
 

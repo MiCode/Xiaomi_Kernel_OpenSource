@@ -67,6 +67,7 @@ struct walt_cpu_load {
 
 struct walt_sched_stats {
 	int		nr_big_tasks;
+	int		nr_32bit_big_tasks;
 	u64		cumulative_runnable_avg_scaled;
 	u64		pred_demands_sum_scaled;
 	unsigned int	nr_rtg_high_prio_tasks;
@@ -156,6 +157,7 @@ extern cpumask_t __read_mostly **cpu_array;
 extern int cpu_l2_sibling[WALT_NR_CPUS];
 extern void sched_update_nr_prod(int cpu, int enq);
 extern unsigned int walt_big_tasks(int cpu);
+extern unsigned int walt_big_64bit_tasks(int cpu);
 extern void walt_rotation_checkpoint(int nr_big);
 extern void walt_fill_ta_data(struct core_ctl_notif_data *data);
 extern int sched_set_group_id(struct task_struct *p, unsigned int group_id);
