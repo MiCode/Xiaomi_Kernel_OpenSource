@@ -77,10 +77,6 @@
 
 #define MAX_RETRY 3
 
-#define SLATE_WAKEUP_INTR_RECEIVED					\
-	((g_slave_status_auto_clear_reg & OK_TO_SLEEP_CLEARED) &&	\
-	 (g_slav_status_reg & SLAVE_STATUS_READY))
-
 /* Define IPC Logging Macros */
 #define LOG_PAGES_CNT 2
 static void *slatecom_ipc_log;
@@ -1643,7 +1639,7 @@ static int slatecom_pm_prepare(struct device *dev)
 	atomic_set(&slate_is_runtime_suspend, 0);
 
 	SLATECOM_INFO("reg write status: %d\n", ret);
-	return (SLATE_WAKEUP_INTR_RECEIVED) ? -ECANCELED : 0;
+	return ret;
 }
 
 static irqreturn_t slate_irq_tasklet_hndlr_during_suspend(int irq, void *device)
