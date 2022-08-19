@@ -375,8 +375,8 @@ int ddr_stats_get_ss_vote_info(int ss_count,
 	u32 vote_offset, *val;
 	int ret, i;
 
-	if (!vote_info || (ddr_gdata->drv_max == -EINVAL) ||
-			!(ss_count == ddr_gdata->drv_max) || !ddr_gdata)
+	if (!vote_info || !ddr_gdata || (ddr_gdata->drv_max == -EINVAL) ||
+			!(ss_count == ddr_gdata->drv_max))
 		return -ENODEV;
 
 	if (!ddr_gdata->read_vote_info)
