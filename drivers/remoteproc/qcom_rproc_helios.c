@@ -303,7 +303,6 @@ static long helios_tzapp_comm(struct qcom_helios *pbd,
 {
 	int32_t ret = 0;
 	struct Object helios_app_obj = {NULL, NULL};
-	size_t rsp_len = 0;
 
 	pr_debug("command id = %d\n", req->tzapp_helios_cmd);
 	ret = get_helios_app_object(&helios_app_obj);
@@ -333,8 +332,7 @@ static long helios_tzapp_comm(struct qcom_helios *pbd,
 		pbd->cmd_status = helios_app_collect_ramdump(
 				helios_app_obj,
 				(void *)req,
-				sizeof(struct tzapp_helios_req),
-				&rsp_len);
+				sizeof(struct tzapp_helios_req));
 		break;
 
 	case HELIOS_RPROC_RESTART:
