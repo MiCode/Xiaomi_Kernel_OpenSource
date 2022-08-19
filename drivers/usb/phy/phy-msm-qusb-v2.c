@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -430,8 +430,8 @@ static void qusb_phy_get_tune1_param(struct qusb_phy *qphy)
 	bit_mask = (bit_mask << qphy->efuse_num_of_bits) - 1;
 
 	/*
-	 * For 8nm zero is treated as a valid efuse value and driver
-	 * should program the tune1 reg based on efuse value
+	 * if efuse reg is updated (i.e non-zero) then use it to program
+	 * tune parameters
 	 */
 	qphy->tune_val = readl_relaxed(qphy->efuse_reg);
 	pr_debug("%s(): bit_mask:%d efuse based tune1 value:%d\n",
@@ -440,8 +440,10 @@ static void qusb_phy_get_tune1_param(struct qusb_phy *qphy)
 	qphy->tune_val = TUNE_VAL_MASK(qphy->tune_val,
 				qphy->efuse_bit_pos, bit_mask);
 	reg = readb_relaxed(qphy->base + qphy->phy_reg[PORT_TUNE1]);
-	reg = reg & 0x0f;
-	reg |= (qphy->tune_val << 4);
+	if (qphy->tune_val) {
+		reg = reg & 0x0f;
+		reg |= (qphy->tune_val << 4);
+	}
 
 	qphy->tune_val = reg;
 }
@@ -519,7 +521,8 @@ static void qusb_phy_host_init(struct usb_phy *phy)
 			qphy->host_init_seq_len, 0);
 
 	if (qphy->efuse_reg) {
-		qusb_phy_get_tune1_param(qphy);
+		if (!qphy->tune_val)
+			qusb_phy_get_tune1_param(qphy);
 	} else {
 		/* For non fused chips we need to write the TUNE1 param as
 		 * specified in DT otherwise we will end up writing 0 to
@@ -620,7 +623,8 @@ static int qusb_phy_init(struct usb_phy *phy)
 		qusb_phy_write_seq(qphy->base, qphy->qusb_phy_init_seq,
 				qphy->init_seq_len, 0);
 	if (qphy->efuse_reg) {
-		qusb_phy_get_tune1_param(qphy);
+		if (!qphy->tune_val)
+			qusb_phy_get_tune1_param(qphy);
 
 		pr_debug("%s(): Programming TUNE1 parameter as:%x\n", __func__,
 				qphy->tune_val);

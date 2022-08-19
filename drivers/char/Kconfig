@@ -608,6 +608,11 @@ config ADI
 	  and SSM (Silicon Secured Memory).  Intended consumers of this
 	  driver include crash and makedumpfile.
 
+config XLOGCHAR
+	tristate "xlogchar driver"
+	help
+	  Implements a high performance log driver
+          
 config RB5_FAN_CONTROLLER
 	tristate "RB5 fan controller driver support"
 	help

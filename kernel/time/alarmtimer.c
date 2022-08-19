@@ -30,11 +30,11 @@
 #include <linux/compat.h>
 #include <linux/module.h>
 
+
 #include "posix-timers.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/alarmtimer.h>
-
 /**
  * struct alarm_base - Alarm timer bases
  * @lock:		Lock for syncrhonized access to the base
@@ -64,6 +64,7 @@ static struct wakeup_source *ws;
 static struct rtc_timer		rtctimer;
 static struct rtc_device	*rtcdev;
 static DEFINE_SPINLOCK(rtcdev_lock);
+bool alarm_fired;
 
 /**
  * alarmtimer_get_rtcdev - Return selected rtcdevice

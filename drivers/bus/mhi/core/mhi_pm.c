@@ -676,6 +676,7 @@ static void mhi_pm_disable_transition(struct mhi_controller *mhi_cntrl,
 				  sfr_info->dma_addr);
 		sfr_info->buf_addr = NULL;
 	}
+	
 
 	mutex_lock(&mhi_cntrl->pm_mutex);
 

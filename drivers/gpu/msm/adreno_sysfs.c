@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/sysfs.h>
@@ -323,6 +324,31 @@ static int _acd_store(struct adreno_device *adreno_dev, unsigned int val)
 	return gmu_core_acd_set(device, val);
 }
 
+static unsigned int _perfcounter_show(struct adreno_device *adreno_dev)
+{
+	return adreno_dev->perfcounter;
+}
+
+static int _perfcounter_store(struct adreno_device *adreno_dev,
+		unsigned int val)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	if (adreno_dev->perfcounter == val)
+		return 0;
+
+	mutex_lock(&device->mutex);
+
+	/* Power down the GPU before changing the state */
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
+	adreno_dev->perfcounter = val;
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
+
+	mutex_unlock(&device->mutex);
+
+	return 0;
+}
+
 static ssize_t _sysfs_store_u32(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t count)
@@ -416,6 +442,7 @@ static ADRENO_SYSFS_BOOL(throttling);
 static ADRENO_SYSFS_BOOL(ifpc);
 static ADRENO_SYSFS_RO_U32(ifpc_count);
 static ADRENO_SYSFS_BOOL(acd);
+static ADRENO_SYSFS_BOOL(perfcounter);
 
 
 static const struct attribute *_attr_list[] = {
@@ -439,6 +466,7 @@ static const struct attribute *_attr_list[] = {
 	&adreno_attr_ifpc_count.attr.attr,
 	&adreno_attr_preempt_count.attr.attr,
 	&adreno_attr_acd.attr.attr,
+	&adreno_attr_perfcounter.attr.attr,
 	NULL,
 };
 
@@ -465,7 +493,14 @@ void adreno_sysfs_close(struct adreno_device *adreno_dev)
 int adreno_sysfs_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int ret;
 
-	return sysfs_create_files(&device->dev->kobj, _attr_list);
+	ret = sysfs_create_files(&device->dev->kobj, _attr_list);
+
+	/* Notify userspace */
+	if (!ret)
+		kobject_uevent(&device->dev->kobj, KOBJ_ADD);
+
+	return ret;
 }
 

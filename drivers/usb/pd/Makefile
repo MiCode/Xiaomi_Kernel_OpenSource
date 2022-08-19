@@ -4,4 +4,5 @@
 #
 
 obj-$(CONFIG_USB_PD_POLICY)	+= policy_engine.o
+obj-$(CONFIG_USB_PD_POLICY_MUNCH)	+= policy_engine_munch.o
 obj-$(CONFIG_QPNP_USB_PDPHY)	+= qpnp-pdphy.o

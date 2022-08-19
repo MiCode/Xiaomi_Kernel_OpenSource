@@ -65,7 +65,7 @@ enum plug_orientation {
 	ORIENTATION_CC2,
 };
 
-#if IS_ENABLED(CONFIG_USB_PD_POLICY)
+#if IS_ENABLED(CONFIG_USB_PD_POLICY) || IS_ENABLED(CONFIG_USB_PD_POLICY_MUNCH)
 /*
  * Obtains an instance of usbpd from a DT phandle
  */

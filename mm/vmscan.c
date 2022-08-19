@@ -56,6 +56,7 @@
 
 #include <linux/swapops.h>
 #include <linux/balloon_compaction.h>
+#include <linux/rtmm.h>
 
 #include "internal.h"
 
@@ -2364,6 +2365,10 @@ static void get_scan_count(struct lruvec *lruvec, struct mem_cgroup *memcg,
 		goto out;
 	}
 
+	if (unlikely(rtmm_reclaim(current->comm))) {
+		swappiness = rtmm_reclaim_swappiness();
+	}
+
 	/*
 	 * Global reclaim will swap to prevent OOM even with no
 	 * swappiness, but memcg users want to use this knob to
@@ -2439,7 +2444,7 @@ static void get_scan_count(struct lruvec *lruvec, struct mem_cgroup *memcg,
 	 */
 	if (!IS_ENABLED(CONFIG_BALANCE_ANON_FILE_RECLAIM) &&
 	    !inactive_list_is_low(lruvec, true, sc, false) &&
-	    lruvec_lru_size(lruvec, LRU_INACTIVE_FILE, sc->reclaim_idx) >> sc->priority) {
+	    lruvec_lru_size(lruvec, LRU_INACTIVE_FILE, sc->reclaim_idx) >> sc->priority && (swappiness != 200)) {
 		scan_balance = SCAN_FILE;
 		goto out;
 	}
@@ -4100,6 +4105,44 @@ unsigned long shrink_all_memory(unsigned long nr_to_reclaim)
 }
 #endif /* CONFIG_HIBERNATION */
 
+#ifdef CONFIG_RTMM
+/*
+  * reclaim anon/file pages from global lru
+  *
+  * TODO: merge with shrink_all_memory()??
+  */
+unsigned long reclaim_global(unsigned long nr_to_reclaim)
+{
+	struct reclaim_state reclaim_state;
+	struct scan_control sc = {
+		.nr_to_reclaim = max(nr_to_reclaim, SWAP_CLUSTER_MAX),
+		.gfp_mask = GFP_HIGHUSER_MOVABLE,
+		.reclaim_idx = MAX_NR_ZONES - 1,
+		.order = 0,
+		.priority = DEF_PRIORITY,
+		.may_writepage = 1,
+		.may_unmap = 1,
+		.may_swap = 1,
+	};
+	struct zonelist *zonelist = node_zonelist(numa_node_id(), sc.gfp_mask);
+	struct task_struct *p = current;
+	unsigned long nr_reclaimed;
+
+	p->flags |= PF_MEMALLOC;
+	fs_reclaim_acquire(sc.gfp_mask);
+	reclaim_state.reclaimed_slab = 0;
+	p->reclaim_state = &reclaim_state;
+
+	nr_reclaimed = do_try_to_free_pages(zonelist, &sc);
+
+	p->reclaim_state = NULL;
+	fs_reclaim_release(sc.gfp_mask);
+	p->flags &= ~PF_MEMALLOC;
+
+	return nr_reclaimed;
+}
+#endif
+
 /* It's optimal to keep kswapds on the same CPUs as their memory, but
    not required for correctness.  So if the last cpu in a node goes
    away, we get changed to run anywhere: as the first one comes back,
@@ -4494,3 +4537,37 @@ void check_move_unevictable_pages(struct page **pages, int nr_pages)
 	}
 }
 #endif /* CONFIG_SHMEM */
+
+#ifdef CONFIG_CAM_RECLAIM
+unsigned long cam_reclaim_global(unsigned long nr_to_reclaim, int reclaim_type)
+{
+        struct reclaim_state reclaim_state;
+        struct scan_control sc = {
+                .nr_to_reclaim = max(nr_to_reclaim, SWAP_CLUSTER_MAX),
+                .gfp_mask = GFP_HIGHUSER_MOVABLE,
+                .reclaim_idx = MAX_NR_ZONES - 1,
+                .order = 0,
+                .priority = DEF_PRIORITY,
+                .may_writepage = !!(reclaim_type & 4),
+                .may_unmap = !!(reclaim_type & 1),
+                .may_swap = !!(reclaim_type & 2),
+                .target_mem_cgroup = NULL,
+                .nodemask = NULL,
+        };
+        struct zonelist *zonelist = node_zonelist(numa_node_id(), sc.gfp_mask);
+        struct task_struct *p = current;
+        unsigned long nr_reclaimed;
+
+        fs_reclaim_acquire(sc.gfp_mask);
+        reclaim_state.reclaimed_slab = 0;
+        p->reclaim_state = &reclaim_state;
+
+        nr_reclaimed = do_try_to_free_pages(zonelist, &sc);
+
+        p->reclaim_state = NULL;
+        fs_reclaim_release(sc.gfp_mask);
+
+        return nr_reclaimed;
+}
+#endif
+

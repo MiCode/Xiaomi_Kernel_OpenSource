@@ -35,6 +35,8 @@
 #include <linux/log2.h>
 #include <linux/bitmap.h>
 
+#include <linux/pinctrl/pinctrl_mi.h>
+
 #include "../core.h"
 #include "../pinconf.h"
 #include "pinctrl-msm.h"
@@ -487,6 +489,19 @@ static int msm_gpio_get(struct gpio_chip *chip, unsigned offset)
 	return !!(val & BIT(g->in_bit));
 }
 
+///xiaomi add
+void __iomem *msm_gpio_regadd_get(unsigned offset)
+{
+	const struct msm_pingroup *g;
+	struct msm_pinctrl *pctrl = gpiochip_get_data(&msm_pinctrl_data->chip);
+
+	g = &pctrl->soc->groups[offset];
+
+	return (pctrl->regs + g->io_reg);
+}
+EXPORT_SYMBOL(msm_gpio_regadd_get);
+///xiaomi add
+
 static void msm_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 {
 	const struct msm_pingroup *g;
@@ -571,8 +586,16 @@ static void msm_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 	unsigned gpio = chip->base;
 	unsigned i;
 
-	for (i = 0; i < chip->ngpio; i++, gpio++)
+	for (i = 0; i < chip->ngpio; i++, gpio++) {
+		/**
+		 * bypass NFC SPI GPIO: 28-31 is NFC SE SPI
+		 * bypass FP SPI GPIO: 40-43 is FP SPI
+		 */
+		if ((i >= 28 && i <= 31) || (i >= 40 && i <= 43)) {
+			continue;
+		}
 		msm_gpio_dbg_show_one(s, NULL, chip, i, gpio);
+	}
 }
 
 #else

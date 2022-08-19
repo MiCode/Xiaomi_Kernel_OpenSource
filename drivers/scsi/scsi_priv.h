@@ -194,4 +194,13 @@ static inline void scsi_dh_release_device(struct scsi_device *sdev) { }
 
 #define SCSI_DEVICE_BLOCK_MAX_TIMEOUT	600	/* units in seconds */
 
+#ifndef MI_MEMORY_SYSFS_DEF
+int scsi_hr_inquiry(struct scsi_device *sdev, char *hr_inq, int len);
+
+int scsi_sdr(struct scsi_device *sdev, char *sdr, int len);
+
+int scsi_osv(struct scsi_device *sdev, char *osv, int len);
+
+int scsi_mhr(struct scsi_device *sdev, char *sdr, int len);
+#endif /* MI_MEMORY_SYSFS_DEF */
 #endif /* _SCSI_PRIV_H */

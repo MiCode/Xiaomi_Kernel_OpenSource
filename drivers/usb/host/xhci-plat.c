@@ -314,12 +314,12 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	}
 
 	hcd_to_bus(xhci->shared_hcd)->skip_resume = true;
+
 	if (device_property_read_bool(&pdev->dev,
 				"ignore-wakeup-src-in-hostmode")) {
 		hcd_to_bus(hcd)->skip_resume = false;
 		hcd_to_bus(xhci->shared_hcd)->skip_resume = false;
 	}
-
 	/* imod_interval is the interrupt moderation value in nanoseconds. */
 	xhci->imod_interval = 40000;
 
@@ -408,7 +408,6 @@ static int xhci_plat_remove(struct platform_device *dev)
 	struct clk *reg_clk = xhci->reg_clk;
 	struct usb_hcd *shared_hcd = xhci->shared_hcd;
 
-	pm_runtime_get_sync(&dev->dev);
 	xhci->xhc_state |= XHCI_STATE_REMOVING;
 
 	device_remove_file(&dev->dev, &dev_attr_config_imod);
@@ -423,9 +422,8 @@ static int xhci_plat_remove(struct platform_device *dev)
 	clk_disable_unprepare(reg_clk);
 	usb_put_hcd(hcd);
 
-	pm_runtime_disable(&dev->dev);
-	pm_runtime_put_noidle(&dev->dev);
 	pm_runtime_set_suspended(&dev->dev);
+	pm_runtime_disable(&dev->dev);
 
 	return 0;
 }

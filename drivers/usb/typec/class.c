@@ -1378,8 +1378,11 @@ void typec_set_pwr_opmode(struct typec_port *port,
 {
 	struct device *partner_dev;
 
-	if ((port->pwr_opmode == opmode) || (opmode < TYPEC_PWR_MODE_USB) ||
-						(opmode > TYPEC_PWR_MODE_MAX))
+	if (port->pwr_opmode == opmode)
+		return;
+
+	pr_err("%s pwr opmode:%d\n", __func__, opmode);
+	if (opmode > TYPEC_PWR_MODE_PD)
 		return;
 
 	port->pwr_opmode = opmode;

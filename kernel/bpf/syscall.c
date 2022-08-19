@@ -2376,6 +2376,31 @@ out:
 	return err;
 }
 
+static int bpf_get_comm_hash(union bpf_attr *attr)
+{
+	void __user *uhash = u64_to_user_ptr(attr->hash);
+	int pid = attr->pid;
+	struct task_struct *p_task = NULL;
+	const char *str;
+	int c;
+	u64 hash = 5381;
+
+	rcu_read_lock();
+	p_task = find_task_by_pid_ns(pid, &init_pid_ns);
+	if (p_task) {
+		get_task_struct(p_task);
+		str = p_task->comm;
+		while ((c = *str++))
+			hash = ((hash << 5) + hash) + c;
+		put_task_struct(p_task);
+	}
+	rcu_read_unlock();
+
+	if (copy_to_user(uhash, &hash, sizeof(hash)) != 0)
+		return -EFAULT;
+	return 0;
+}
+
 SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, size)
 {
 	union bpf_attr attr;
@@ -2463,6 +2488,9 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf_attr __user *, uattr, unsigned int, siz
 		break;
 	case BPF_TASK_FD_QUERY:
 		err = bpf_task_fd_query(&attr, uattr);
+		break;
+	case BPF_GET_COMM_HASH:
+		err = bpf_get_comm_hash(&attr);
 		break;
 	default:
 		err = -EINVAL;

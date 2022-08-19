@@ -11,6 +11,7 @@ struct qdss_buf_tbl_lst {
 	unsigned char *buf;
 	struct qdss_request *usb_req;
 	atomic_t available;
+	atomic_t used;
 };
 
 struct qdss_mhi_buf_tbl_t {

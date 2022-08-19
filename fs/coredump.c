@@ -201,8 +201,11 @@ static int format_corename(struct core_name *cn, struct coredump_params *cprm)
 		return -ENOMEM;
 	cn->corename[0] = '\0';
 
-	if (ispipe)
+	if (ispipe) {
 		++pat_ptr;
+		if (!(*pat_ptr))
+			return -ENOMEM;
+	}
 
 	/* Repeat as long as we have more pattern to process and more output
 	   space */

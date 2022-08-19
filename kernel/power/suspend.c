@@ -28,6 +28,7 @@
 #include <linux/suspend.h>
 #include <linux/syscore_ops.h>
 #include <linux/swait.h>
+#include <linux/rtc.h>
 #include <linux/ftrace.h>
 #include <trace/events/power.h>
 #include <linux/compiler.h>
@@ -398,6 +399,7 @@ void __weak arch_suspend_enable_irqs(void)
  *
  * This function should be called after devices have been suspended.
  */
+
 static int suspend_enter(suspend_state_t state, bool *wakeup)
 {
 	int error, last_dev;
@@ -639,6 +641,7 @@ int pm_suspend(suspend_state_t state)
 		suspend_stats.success++;
 	}
 	pr_info("suspend exit\n");
+
 	return error;
 }
 EXPORT_SYMBOL(pm_suspend);

@@ -400,13 +400,12 @@ static int qcom_ipcc_probe(struct platform_device *pdev)
 	}
 
 	ret = devm_request_irq(&pdev->dev, proto_data->irq, qcom_ipcc_irq_fn,
-				IRQF_TRIGGER_HIGH, name, proto_data);
+				IRQF_NO_SUSPEND | IRQF_TRIGGER_HIGH, name, proto_data);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Failed to register the irq: %d\n", ret);
 		goto err_req_irq;
 	}
 
-	enable_irq_wake(proto_data->irq);
 	platform_set_drvdata(pdev, proto_data);
 	register_syscore_ops(&msm_ipcc_pm_ops);
 

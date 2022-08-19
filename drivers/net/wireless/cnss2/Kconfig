@@ -19,6 +19,13 @@ config CNSS2_DEBUG
 	  features, enabling kernel panic for certain cases to aid the
 	  debugging, and enabling any other debug mechanisms.
 
+config WIFI_THREE_ANTENNA
+	bool "CNSS2 Platform Driver for Wi-Fi Three Antenna"
+	depends on CNSS2
+	help
+	  This option is to enable CNSS2 platform driver to support wifi
+	  three antenna.
+
 config CNSS2_QMI
 	bool "CNSS2 Platform Driver QMI support"
 	select CNSS_QMI_SVC

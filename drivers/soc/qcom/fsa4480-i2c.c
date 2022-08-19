@@ -147,8 +147,8 @@ static int fsa4480_usbc_analog_setup_switches(struct fsa4480_priv *fsa_priv)
 			__func__, rc);
 		goto done;
 	}
-	dev_dbg(dev, "%s: setting GPIOs active = %d\n",
-		__func__, mode.intval != POWER_SUPPLY_TYPEC_NONE);
+	dev_info(dev, "%s: setting GPIOs active = %d, mode.intval = %d\n",
+		__func__, mode.intval != POWER_SUPPLY_TYPEC_NONE, mode.intval);
 
 	switch (mode.intval) {
 	/* add all modes FSA should notify for in here */
@@ -311,7 +311,7 @@ int fsa4480_switch_event(struct device_node *node,
 		else
 			switch_control = 0x7;
 		fsa4480_usbc_update_settings(fsa_priv, switch_control, 0x9F);
-		break;
+		return 1;
 	case FSA_USBC_ORIENTATION_CC1:
 		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
 		return fsa4480_validate_display_port_settings(fsa_priv);
@@ -356,7 +356,9 @@ static int fsa4480_probe(struct i2c_client *i2c,
 {
 	struct fsa4480_priv *fsa_priv;
 	int rc = 0;
-
+#ifdef CONFIG_TARGET_PRODUCT_MUNCH
+	union power_supply_propval mode;
+#endif
 	fsa_priv = devm_kzalloc(&i2c->dev, sizeof(*fsa_priv),
 				GFP_KERNEL);
 	if (!fsa_priv)
@@ -407,6 +409,18 @@ static int fsa4480_probe(struct i2c_client *i2c,
 		((fsa_priv->fsa4480_notifier).rwsem);
 	fsa_priv->fsa4480_notifier.head = NULL;
 
+#ifdef CONFIG_TARGET_PRODUCT_MUNCH
+	/* set usbc_mode initial value */
+	rc = power_supply_get_property(fsa_priv->usb_psy,
+			POWER_SUPPLY_PROP_TYPEC_MODE, &mode);
+	if (rc) {
+		dev_err(fsa_priv->dev, "%s: Uable to read USB TYPEC_MODE during probe: %d\n",
+				__func__, rc);
+	} else {
+		atomic_set(&(fsa_priv->usbc_mode), mode.intval);
+		dev_info(fsa_priv->dev, "%s: set usbc_mode to %d\n", __func__, fsa_priv->usbc_mode.counter);
+	}
+#endif
 	return 0;
 
 err_supply:

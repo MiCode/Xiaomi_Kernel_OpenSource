@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -24,7 +24,6 @@
 #include <linux/regulator/machine.h>
 #include <linux/usb/phy.h>
 #include <linux/reset.h>
-#include <linux/power_supply.h>
 
 #define QUSB2PHY_PLL_PWR_CTL		0x18
 #define REF_BUF_EN			BIT(0)
@@ -112,7 +111,6 @@
 #define QUSB2PHY_3P3_VOL_MAX		3200000 /* uV */
 #define QUSB2PHY_3P3_HPM_LOAD		30000	/* uA */
 
-#define SOC_THRESHOLD_LEVEL		45
 #define QUSB2PHY_REFCLK_ENABLE		BIT(0)
 
 #define HSTX_TRIMSIZE			4
@@ -155,7 +153,6 @@ struct qusb_phy {
 	struct regulator	*vdda33;
 	struct regulator	*vdda18;
 	int			vdd_levels[3]; /* none, low, high */
-	int			vdda33_levels[3]; /* low, min, max */
 	int			init_seq_len;
 	int			*qusb_phy_init_seq;
 	u32			major_rev;
@@ -172,10 +169,7 @@ struct qusb_phy {
 	bool			ulpi_mode;
 	bool			dpdm_enable;
 	bool			is_se_clk;
-	bool			low_soc;
 
-	struct notifier_block	psy_nb;
-	struct work_struct	soc_eval_work;
 	struct regulator_desc	dpdm_rdesc;
 	struct regulator_dev	*dpdm_rdev;
 
@@ -186,7 +180,6 @@ struct qusb_phy {
 	bool			vbus_active;
 	bool			id_state;
 	struct power_supply	*usb_psy;
-	struct power_supply	*batt_psy;
 	struct delayed_work	port_det_w;
 	enum port_state		port_state;
 	unsigned int		dcd_timeout;
@@ -272,34 +265,6 @@ static int qusb_phy_config_vdd(struct qusb_phy *qphy, int high)
 	return ret;
 }
 
-static int qusb_read_battery_soc(struct qusb_phy *qphy, int *soc_val)
-{
-	union power_supply_propval val = {0,};
-	int ret = 0;
-
-	if (!qphy->batt_psy) {
-		qphy->batt_psy = power_supply_get_by_name("battery");
-		if (!qphy->batt_psy) {
-			dev_err(qphy->phy.dev, "Could not get battery psy\n");
-			return -ENODEV;
-		}
-	}
-
-	if (qphy->batt_psy) {
-		ret = power_supply_get_property(qphy->batt_psy,
-				POWER_SUPPLY_PROP_CAPACITY, &val);
-		if (ret) {
-			dev_err(qphy->phy.dev,
-					"battery SoC read error\n");
-			return ret;
-		}
-	*soc_val = val.intval;
-	}
-
-	dev_dbg(qphy->phy.dev, "soc:%d\n", *soc_val);
-	return ret;
-}
-
 static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on)
 {
 	int ret = 0;
@@ -349,9 +314,8 @@ static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on)
 		goto disable_vdda18;
 	}
 
-	ret = regulator_set_voltage(qphy->vdda33, qphy->vdda33_levels[1],
-						qphy->vdda33_levels[2]);
-
+	ret = regulator_set_voltage(qphy->vdda33, QUSB2PHY_3P3_VOL_MIN,
+						QUSB2PHY_3P3_VOL_MAX);
 	if (ret) {
 		dev_err(qphy->phy.dev,
 				"Unable to set voltage for vdda33:%d\n", ret);
@@ -505,25 +469,10 @@ static void qusb_phy_write_seq(void __iomem *base, u32 *seq, int cnt,
 	}
 }
 
-static void qusb_phy_reset(struct qusb_phy *qphy)
-{
-	int ret = 0;
-
-	ret = reset_control_assert(qphy->phy_reset);
-	if (ret)
-		dev_err(qphy->phy.dev, "%s: phy_reset assert failed\n",
-				__func__);
-	usleep_range(100, 150);
-	ret = reset_control_deassert(qphy->phy_reset);
-	if (ret)
-		dev_err(qphy->phy.dev, "%s: phy_reset deassert failed\n",
-				__func__);
-}
-
 static int qusb_phy_init(struct usb_phy *phy)
 {
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
-	int reset_val = 0;
+	int ret, reset_val = 0;
 	u8 reg;
 	bool pll_lock_fail = false;
 
@@ -552,7 +501,13 @@ static int qusb_phy_init(struct usb_phy *phy)
 	}
 
 	/* Perform phy reset */
-	qusb_phy_reset(qphy);
+	ret = reset_control_assert(qphy->phy_reset);
+	if (ret)
+		dev_err(phy->dev, "%s: phy_reset assert failed\n", __func__);
+	usleep_range(100, 150);
+	ret = reset_control_deassert(qphy->phy_reset);
+	if (ret)
+		dev_err(phy->dev, "%s: phy_reset deassert failed\n", __func__);
 
 	/* Disable the PHY */
 	if (qphy->major_rev < 2)
@@ -671,57 +626,6 @@ static int qusb_phy_init(struct usb_phy *phy)
 		dev_err(phy->dev, "QUSB PHY PLL LOCK fails:%x\n", reg);
 
 	return 0;
-}
-
-static int qusb_phy_battery_supply_cb(struct notifier_block *nb,
-					unsigned long event, void *data)
-{
-	struct qusb_phy *qphy = container_of(nb, struct qusb_phy, psy_nb);
-	int soc_val = 0;
-
-	if (event != PSY_EVENT_PROP_CHANGED)
-		return NOTIFY_OK;
-
-	if (qusb_read_battery_soc(qphy, &soc_val) < 0) {
-		dev_err(qphy->phy.dev, "%s unable to read battery SoC\n",
-				__func__);
-		return NOTIFY_OK;
-	}
-
-	if (soc_val < SOC_THRESHOLD_LEVEL && !qphy->low_soc) {
-		/* Reduce voltage to be set to 2.9V for low SoC */
-		qphy->vdda33_levels[1] = qphy->vdda33_levels[0];
-		qphy->vdda33_levels[2] = qphy->vdda33_levels[0];
-		qphy->low_soc = true;
-		queue_work(system_freezable_wq, &qphy->soc_eval_work);
-		return NOTIFY_OK;
-	}
-
-	if (soc_val > SOC_THRESHOLD_LEVEL && qphy->low_soc) {
-		/* Reset voltage to be set to default for normal SoC */
-		qphy->vdda33_levels[1] = QUSB2PHY_3P3_VOL_MIN;
-		qphy->vdda33_levels[2] = QUSB2PHY_3P3_VOL_MAX;
-		qphy->low_soc = false;
-		queue_work(system_freezable_wq, &qphy->soc_eval_work);
-	}
-	return NOTIFY_OK;
-}
-
-static void qusb_phy_evaluate_soc(struct work_struct *work)
-{
-	struct qusb_phy *qphy =
-			container_of(work, struct qusb_phy, soc_eval_work);
-	int ret = 0;
-
-	dev_dbg(qphy->phy.dev, "%s setting min voltage for vdda33 as %d\n",
-				__func__, qphy->vdda33_levels[1]);
-	ret = regulator_set_voltage(qphy->vdda33, qphy->vdda33_levels[1],
-						  qphy->vdda33_levels[2]);
-	if (ret) {
-		dev_err(qphy->phy.dev,
-			"%s unable to set voltage for vdda33, ret = %d\n",
-			__func__, ret);
-	}
 }
 
 static void qusb_phy_shutdown(struct usb_phy *phy)
@@ -916,7 +820,15 @@ static int qusb_phy_drive_dp_pulse(struct usb_phy *phy,
 	}
 	qusb_phy_gdsc(qphy, true);
 	qusb_phy_enable_clocks(qphy, true);
-	qusb_phy_reset(qphy);
+
+	ret = reset_control_assert(qphy->phy_reset);
+	if (ret)
+		dev_err(qphy->phy.dev, "phyassert failed\n");
+	usleep_range(100, 150);
+	ret = reset_control_deassert(qphy->phy_reset);
+	if (ret)
+		dev_err(qphy->phy.dev, "deassert failed\n");
+
 	/* Configure PHY to enable control on DP/DM lines */
 	writel_relaxed(CLAMP_N_EN | FREEZIO_N | POWER_DOWN,
 				qphy->base + QUSB2PHY_PORT_POWERDOWN);
@@ -1003,7 +915,13 @@ static int qusb_phy_dpdm_regulator_enable(struct regulator_dev *rdev)
 			qusb_phy_enable_clocks(qphy, true);
 
 			dev_dbg(qphy->phy.dev, "RESET QUSB PHY\n");
-			qusb_phy_reset(qphy);
+			ret = reset_control_assert(qphy->phy_reset);
+			if (ret)
+				dev_err(qphy->phy.dev, "phyassert failed\n");
+			usleep_range(100, 150);
+			ret = reset_control_deassert(qphy->phy_reset);
+			if (ret)
+				dev_err(qphy->phy.dev, "deassert failed\n");
 
 			/*
 			 * Phy in non-driving mode leaves Dp and Dm
@@ -1051,13 +969,6 @@ static int qusb_phy_dpdm_regulator_disable(struct regulator_dev *rdev)
 		if (!qphy->cable_connected)
 			qusb_phy_clear_tcsr_clamp(qphy, false);
 
-		/*
-		 * Phy reset is needed in case multiple instances
-		 * of HSPHY exists with shared power supplies. This
-		 * reset is to bring out the PHY from high-Z state
-		 * and avoid extra current consumption.
-		 */
-		qusb_phy_reset(qphy);
 		ret = qusb_phy_enable_power(qphy, false);
 		if (ret < 0) {
 			dev_dbg(qphy->phy.dev,
@@ -1393,7 +1304,18 @@ static int qusb_phy_prepare_chg_det(struct qusb_phy *qphy)
 
 static void qusb_phy_unprepare_chg_det(struct qusb_phy *qphy)
 {
-	qusb_phy_reset(qphy);
+	int ret;
+
+	ret = reset_control_assert(qphy->phy_reset);
+	if (ret)
+		dev_err(qphy->phy.dev, "phyassert failed\n");
+
+	usleep_range(100, 150);
+
+	ret = reset_control_deassert(qphy->phy_reset);
+	if (ret)
+		dev_err(qphy->phy.dev, "deassert failed\n");
+
 	qusb_phy_enable_clocks(qphy, false);
 	qusb_phy_clear_tcsr_clamp(qphy, false);
 	qusb_phy_enable_power(qphy, false);
@@ -1874,30 +1796,9 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	qphy->vdda33_levels[1] = QUSB2PHY_3P3_VOL_MIN;
-	qphy->vdda33_levels[2] = QUSB2PHY_3P3_VOL_MAX;
-	ret = of_property_read_u32(dev->of_node,
-			"qcom,vdda33-voltage-level",
-			(u32 *)&qphy->vdda33_levels[0]);
-	if (!ret) {
-		INIT_WORK(&qphy->soc_eval_work, qusb_phy_evaluate_soc);
-		/* Register notifier to change gain based on state of charge */
-		qphy->psy_nb.notifier_call = qusb_phy_battery_supply_cb;
-		ret = power_supply_reg_notifier(&qphy->psy_nb);
-		if (ret) {
-			dev_dbg(qphy->phy.dev,
-					"%s: could not register pwr supply notifier\n",
-					__func__);
-			goto remove_phy;
-		}
-		qphy->low_soc = false;
-		qusb_phy_battery_supply_cb(&qphy->psy_nb,
-				PSY_EVENT_PROP_CHANGED, NULL);
-	}
-
 	ret = qusb_phy_regulator_init(qphy);
 	if (ret)
-		goto unreg_notifier_and_put_batt_psy;
+		usb_remove_phy(&qphy->phy);
 
 	/* de-assert clamp dig n to reduce leakage on 1p8 upon boot up */
 	qusb_phy_clear_tcsr_clamp(qphy, true);
@@ -1937,14 +1838,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	}
 
 	qusb_phy_create_debugfs(qphy);
-	return 0;
 
-unreg_notifier_and_put_batt_psy:
-	power_supply_unreg_notifier(&qphy->psy_nb);
-	if (qphy->batt_psy)
-		power_supply_put(qphy->batt_psy);
-remove_phy:
-	usb_remove_phy(&qphy->phy);
 	return ret;
 }
 
@@ -1952,11 +1846,6 @@ static int qusb_phy_remove(struct platform_device *pdev)
 {
 	struct qusb_phy *qphy = platform_get_drvdata(pdev);
 
-	power_supply_unreg_notifier(&qphy->psy_nb);
-	if (qphy->batt_psy)
-		power_supply_put(qphy->batt_psy);
-	if (qphy->usb_psy)
-		power_supply_put(qphy->usb_psy);
 	debugfs_remove_recursive(qphy->root);
 	usb_remove_phy(&qphy->phy);
 	qphy->cable_connected = false;

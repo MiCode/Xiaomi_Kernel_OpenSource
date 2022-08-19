@@ -2129,7 +2129,6 @@ static void cpuset_fork(struct task_struct *task)
 {
 	if (task_css_is_root(task, cpuset_cgrp_id))
 		return;
-
 	set_cpus_allowed_ptr(task, &current->cpus_allowed);
 	task->mems_allowed = current->mems_allowed;
 }
@@ -2472,6 +2471,17 @@ void cpuset_cpus_allowed(struct task_struct *tsk, struct cpumask *pmask)
 	guarantee_online_cpus(task_cs(tsk), pmask);
 	rcu_read_unlock();
 	spin_unlock_irqrestore(&callback_lock, flags);
+}
+
+/**
+*Allows the child process of the RT or other threads whose affinity has been
+*modified to inherit the affinity of its scheduling group.
+**/
+void cpuset_cpus_allowed_mi(struct task_struct *tsk)
+{
+    rcu_read_lock();
+    sched_setaffinity(tsk->pid,task_cs(tsk)->cpus_allowed);
+    rcu_read_unlock();
 }
 
 /**

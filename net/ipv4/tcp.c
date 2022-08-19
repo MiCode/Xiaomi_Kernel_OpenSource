@@ -3222,6 +3222,7 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
 	info->tcpi_pmtu = icsk->icsk_pmtu_cookie;
 	info->tcpi_rcv_ssthresh = tp->rcv_ssthresh;
 	info->tcpi_rtt = tp->srtt_us >> 3;
+	info->tcpi_seq_rtt = tp->seq_rtt_us >> 3;
 	info->tcpi_rttvar = tp->mdev_us >> 2;
 	info->tcpi_snd_ssthresh = tp->snd_ssthresh;
 	info->tcpi_advmss = tp->advmss;

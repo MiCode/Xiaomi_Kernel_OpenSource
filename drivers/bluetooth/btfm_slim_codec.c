@@ -215,6 +215,7 @@ static int btfm_slim_dai_prepare(struct snd_pcm_substream *substream,
 		BTFMSLIM_ERR("channel opened without closing, return success");
 		ret = 0;
 	}
+
 	return ret;
 }
 

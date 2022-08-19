@@ -65,6 +65,36 @@ static void delayacct_end(raw_spinlock_t *lock, u64 *start, u64 *total,
 	}
 }
 
+static void delayacct_end_binder(raw_spinlock_t *lock, u64 *start, u64 *total,
+			  u32 *count)
+{
+	s64 ns = ktime_get_ns() - *start;
+	unsigned long flags;
+
+	if ((ns >> 13) > 0) {
+		raw_spin_lock_irqsave(lock, flags);
+		*total += ns;
+		if (count != NULL)
+			(*count)++;
+		raw_spin_unlock_irqrestore(lock, flags);
+	}
+}
+
+static void delayacct_end_slowpath(raw_spinlock_t *lock, u64 *start, u64 *total,
+			  u32 *count)
+{
+	s64 ns = ktime_get_ns() - *start;
+	unsigned long flags;
+
+	if ((ns >> 13) > 0) {
+		raw_spin_lock_irqsave(lock, flags);
+		*total += ns;
+		if (count != NULL)
+			(*count)++;
+		raw_spin_unlock_irqrestore(lock, flags);
+	}
+}
+
 void __delayacct_blkio_start(void)
 {
 	current->delays->blkio_start = ktime_get_ns();
@@ -183,4 +213,33 @@ void __delayacct_thrashing_end(void)
 		      &current->delays->thrashing_start,
 		      &current->delays->thrashing_delay,
 		      &current->delays->thrashing_count);
+}
+
+void __delayacct_binder_start(void)
+{
+	current->delays->binder_start = ktime_get_ns();
+}
+
+void __delayacct_binder_end(void)
+{
+	if (ktime_get_ns() != current->delays->binder_start)
+	delayacct_end_binder(
+		&current->delays->lock,
+		&current->delays->binder_start,
+		&current->delays->binder_delay,
+		&current->delays->binder_count);
+}
+
+void __delayacct_slowpath_start(void)
+{
+	current->delays->mem_sp_start = ktime_get_ns();
+}
+
+void __delayacct_slowpath_end(void)
+{
+	if (ktime_get_ns() != current->delays->mem_sp_start)
+		delayacct_end_slowpath(&current->delays->lock,
+				&current->delays->mem_sp_start,
+				&current->delays->mem_sp_delay,
+				NULL);
 }

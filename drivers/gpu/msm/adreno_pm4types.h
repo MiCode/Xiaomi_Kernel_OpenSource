@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2002,2007-2018,2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef __ADRENO_PM4TYPES_H
 #define __ADRENO_PM4TYPES_H
@@ -46,6 +47,9 @@
 
 /* switches SMMU pagetable, used on a5xx only */
 #define CP_SMMU_TABLE_UPDATE 0x53
+
+/* Designate command streams to be executed before/after state restore */
+#define CP_SET_AMBLE		0x55
 
 /*  Set internal CP registers, used to indicate context save data addresses */
 #define CP_SET_PSEUDO_REGISTER      0x56
@@ -153,6 +157,9 @@
 #define CP_LOADSTATE_NUMOFUNITS_SHIFT 0x00000016
 #define CP_LOADSTATE_STATETYPE_SHIFT 0x00000000
 #define CP_LOADSTATE_EXTSRCADDR_SHIFT 0x00000002
+
+/* Used to define amble type in SET_AMBLE packet to execute during preemption */
+#define CP_KMD_AMBLE_TYPE 3
 
 static inline uint pm4_calc_odd_parity_bit(uint val)
 {

@@ -50,6 +50,10 @@ config MSMB_CAMERA_DEBUG
        and postprocessing drivers.
        Enable printk() debug for msm camera 2.0.
 
+config OIS_POST_INIT_MODE
+        bool "use ois post init mode command"
+        default n
+
 if MSMB_CAMERA
        source "drivers/media/platform/msm/camera_v2/Kconfig"
 endif # MSMB_CAMERA

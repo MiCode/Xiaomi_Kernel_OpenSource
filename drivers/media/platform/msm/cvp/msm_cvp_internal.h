@@ -344,6 +344,7 @@ struct msm_cvp_fence_thread_data {
 	unsigned int device_id;
 	struct cvp_kmd_hfi_fence_packet in_fence_pkt;
 	unsigned int arg_type;
+	struct work_struct work;    //xiaomi add
 };
 
 extern struct msm_cvp_drv *cvp_driver;

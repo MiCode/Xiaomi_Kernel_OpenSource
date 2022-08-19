@@ -477,7 +477,7 @@ int commit_creds(struct cred *new)
 	alter_cred_subscribers(new, 2);
 	if (new->user != old->user)
 		atomic_inc(&new->user->processes);
-	rcu_assign_pointer(task->real_cred, new);
+	rcu_assign_pointer(task->real_cred, new);	
 	rcu_assign_pointer(task->cred, new);
 	if (new->user != old->user)
 		atomic_dec(&old->user->processes);
