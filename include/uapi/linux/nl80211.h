@@ -1506,8 +1506,9 @@ enum nl80211_commands {
 
 	NL80211_CMD_ASSOC_COMEBACK,
 
-	NL80211_CMD_RESERVED_DO_NOT_USE_1 = 148,
-	NL80211_CMD_RESERVED_DO_NOT_USE_2 = 149,
+	NL80211_CMD_ADD_LINK,
+	NL80211_CMD_REMOVE_LINK,
+
 	NL80211_CMD_RESERVED_DO_NOT_USE_3 = 150,
 	NL80211_CMD_RESERVED_DO_NOT_USE_4 = 151,
 	NL80211_CMD_RESERVED_DO_NOT_USE_5 = 152,
@@ -1523,17 +1524,6 @@ enum nl80211_commands {
 	__NL80211_CMD_AFTER_LAST,
 	NL80211_CMD_MAX = __NL80211_CMD_AFTER_LAST - 1
 };
-
-/*
- * These are temporary definitions that will become permanent when the UAPI
- * changes lands into linux.git tree. These attributes must not be used in
- * production until the UAPI change lands into linux.git tree.
- */
-
-/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?id=7b0a0e3c3a88260b6fcb017e49f198463aa62ed1 */
-#define NL80211_CMD_ADD_LINK NL80211_CMD_RESERVED_DO_NOT_USE_1
-#define NL80211_CMD_REMOVE_LINK NL80211_CMD_RESERVED_DO_NOT_USE_2
-
 
 /*
  * Allow user space programs to use #ifdef on new commands by defining them
@@ -3242,11 +3232,14 @@ enum nl80211_attrs {
 
 	NL80211_ATTR_DISABLE_EHT,
 
-	NL80211_ATTR_RESERVED_DO_NOT_USE_1 = 312,
-	NL80211_ATTR_RESERVED_DO_NOT_USE_2 = 313,
-	NL80211_ATTR_RESERVED_DO_NOT_USE_3 = 314,
-	NL80211_ATTR_RESERVED_DO_NOT_USE_4 = 315,
-	NL80211_ATTR_RESERVED_DO_NOT_USE_5 = 316,
+	NL80211_ATTR_MLO_LINKS,
+	NL80211_ATTR_MLO_LINK_ID,
+	NL80211_ATTR_MLD_ADDR,
+
+	NL80211_ATTR_MLO_SUPPORT,
+
+	NL80211_ATTR_MAX_NUM_AKM_SUITES,
+
 	NL80211_ATTR_RESERVED_DO_NOT_USE_6 = 317,
 	NL80211_ATTR_RESERVED_DO_NOT_USE_7 = 318,
 	NL80211_ATTR_RESERVED_DO_NOT_USE_8 = 319,
@@ -3274,25 +3267,6 @@ enum nl80211_attrs {
 	NUM_NL80211_ATTR = __NL80211_ATTR_AFTER_LAST,
 	NL80211_ATTR_MAX = __NL80211_ATTR_AFTER_LAST - 1
 };
-
-/*
- * These are temporary definitions that will become permanent when the UAPI
- * changes lands into linux.git tree. These attributes must not be used in
- * production until the UAPI change lands into linux.git tree.
- */
-
-/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?id=7b0a0e3c3a88260b6fcb017e49f198463aa62ed1 */
-#define NL80211_ATTR_MLO_LINKS NL80211_ATTR_RESERVED_DO_NOT_USE_1
-#define NL80211_ATTR_MLO_LINK_ID NL80211_ATTR_RESERVED_DO_NOT_USE_2
-
-/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?id=d648c23024bd01333acd2fd5e34bcde0ffb66b16 */
-#define NL80211_ATTR_MLD_ADDR NL80211_ATTR_RESERVED_DO_NOT_USE_3
-
-/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?id=efbabc11650040c64884ff3019b88c7bcc0ceb1d */
-#define NL80211_ATTR_MLO_SUPPORT NL80211_ATTR_RESERVED_DO_NOT_USE_4
-
-/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?id=ecad3b0b99bff7247a11f8c7cb19ac9b0cb28b09 */
-#define NL80211_ATTR_MAX_NUM_AKM_SUITES NL80211_ATTR_RESERVED_DO_NOT_USE_5
 
 /* source-level API compatibility */
 #define NL80211_ATTR_SCAN_GENERATION NL80211_ATTR_GENERATION
@@ -5016,7 +4990,7 @@ enum nl80211_bss {
 	NL80211_BSS_PARENT_BSSID,
 	NL80211_BSS_CHAIN_SIGNAL,
 	NL80211_BSS_FREQUENCY_OFFSET,
-	NL80211_BSS_RESERVED_DO_NOT_USE_1 = 21,
+	NL80211_BSS_MLO_LINK_ID,
 	NL80211_BSS_RESERVED_DO_NOT_USE_2 = 22,
 	NL80211_BSS_RESERVED_DO_NOT_USE_3 = 23,
 	NL80211_BSS_RESERVED_DO_NOT_USE_4 = 24,
@@ -5026,14 +5000,6 @@ enum nl80211_bss {
 	__NL80211_BSS_AFTER_LAST,
 	NL80211_BSS_MAX = __NL80211_BSS_AFTER_LAST - 1
 };
-
-/*
- * These are temporary definitions that will become permanent when the UAPI
- * changes lands into linux.git tree. These attributes must not be used in
- * production until the UAPI change lands into linux.git tree.
- */
-
-#define NL80211_BSS_MLO_LINK_ID NL80211_BSS_RESERVED_DO_NOT_USE_1
 
 /**
  * enum nl80211_bss_status - BSS "status"
