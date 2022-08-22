@@ -19,6 +19,9 @@ qcom_wdt_core.ko
 icc-rpmh.ko
 qcom_ipc_logging.ko
 qcom-pdc.ko
+qcom_tsens.ko
+thermal_pause.ko
+cpu_hotplug.ko
 arm_smmu.ko
 cmd-db.ko
 gh_msgq.ko
@@ -81,3 +84,4 @@ hwkm.ko
 ufshcd-crypto-qti.ko
 tmecom-intf.ko
 cqhci-crypto-qti.ko
+bcl_pmic5.ko
