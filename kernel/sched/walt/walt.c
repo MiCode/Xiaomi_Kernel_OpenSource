@@ -4112,10 +4112,21 @@ static void dec_rq_walt_stats(struct rq *rq, struct task_struct *p)
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	if (wts->misfit) {
-		if (!is_compat_thread(task_thread_info(p)))
+		if (!is_compat_thread(task_thread_info(p))) {
 			wrq->walt_stats.nr_big_tasks--;
-		else
-			wrq->walt_stats.nr_32bit_big_tasks--;
+		} else {
+			/*
+			 * A 32bit task could have become misfit while
+			 * still a 64bit task in execve. When the task
+			 * is dequeued it may or may not be in execve,
+			 * but it will no longer be a 64bit task.
+			 */
+			if (wrq->walt_stats.nr_32bit_big_tasks == 0 &&
+			    wrq->walt_stats.nr_big_tasks > 0)
+				wrq->walt_stats.nr_big_tasks--;
+			else
+				wrq->walt_stats.nr_32bit_big_tasks--;
+		}
 	}
 
 	if (wts->rtg_high_prio)
