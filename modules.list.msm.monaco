@@ -52,3 +52,6 @@ rpm-smd.ko
 rpm-smd-regulator.ko
 proxy-consumer.ko
 qti-fixed-regulator.ko
+icc-rpm.ko
+qnoc-qos-rpm.ko
+qnoc-monaco.ko
