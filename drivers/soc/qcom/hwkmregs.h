@@ -136,4 +136,10 @@
 #define RSP_FIFO_UNDERFLOW			4
 #define CMD_FIFO_UNDERFLOW			5
 
+#define MINOR_VERSION_OFFSET			16
+#define MINOR_VERSION_BITS_MASK			0x110000
+
+unsigned int qti_hwkm_get_reg_data(void __iomem *ice_hwkm_mmio,
+					u32 reg, u32 offset, u32 mask,
+					enum hwkm_destination dest);
 #endif /* __QTI_HARDWARE_KEY_MANAGER_REGS_H_ */

@@ -16,8 +16,9 @@
 
 #include "crypto-qti-ice-regs.h"
 #include "crypto-qti-platform.h"
+#include "hwkmregs.h"
 
-#define KEYMANAGER_ICE_MAP_SLOT(slot)	((slot * 2) + 10)
+#define KEYMANAGER_ICE_MAP_SLOT(slot, offset)	((slot * 2) + offset)
 
 union crypto_cfg {
 	__le32 regval[2];
@@ -31,6 +32,7 @@ union crypto_cfg {
 };
 
 static bool qti_hwkm_init_done;
+int offset;
 
 static void print_key(const struct blk_crypto_key *key,
 				unsigned int slot)
@@ -124,7 +126,7 @@ int crypto_qti_program_key(const struct ice_mmio_data *mmio_data,
 			   const struct blk_crypto_key *key, unsigned int slot,
 			   unsigned int data_unit_mask, int capid)
 {
-	int err = 0;
+	int err = 0, minor_version = 0;
 	union crypto_cfg cfg;
 
 	if ((key->size) <= RAW_SECRET_SIZE) {
@@ -139,6 +141,13 @@ int crypto_qti_program_key(const struct ice_mmio_data *mmio_data,
 			return -EINVAL;
 		}
 		qti_hwkm_init_done = true;
+
+		minor_version = qti_hwkm_get_reg_data(mmio_data->ice_hwkm_mmio,
+						QTI_HWKM_ICE_RG_IPCAT_VERSION, MINOR_VERSION_OFFSET,
+						MINOR_VERSION_BITS_MASK, ICE_SLAVE);
+
+		pr_debug("HWKM version is %d.\n", minor_version);
+		offset = (minor_version < 1) ? 10 : 0;
 	}
 
 	memset(&cfg, 0, sizeof(cfg));
@@ -156,7 +165,7 @@ int crypto_qti_program_key(const struct ice_mmio_data *mmio_data,
 	 * TZ unwraps the derivation key, derives a 512 bit XTS key
 	 * and wraps it with the TP Key. It then unwraps to the ICE slot.
 	 */
-	err = crypto_qti_program_hwkm_tz(key, KEYMANAGER_ICE_MAP_SLOT(slot));
+	err = crypto_qti_program_hwkm_tz(key, KEYMANAGER_ICE_MAP_SLOT(slot, offset));
 	if (err) {
 		pr_err("%s: Error programming hwkm keyblob , err = %d\n",
 								__func__, err);
@@ -182,7 +191,7 @@ int crypto_qti_invalidate_key(const struct ice_mmio_data *mmio_data,
 		return 0;
 
 	/* Clear key from ICE keyslot */
-	err = crypto_qti_hwkm_evict_slot(KEYMANAGER_ICE_MAP_SLOT(slot));
+	err = crypto_qti_hwkm_evict_slot(KEYMANAGER_ICE_MAP_SLOT(slot, offset));
 	if (err)
 		pr_err("%s: Error with key clear %d, slot %d\n", __func__, err, slot);
 
