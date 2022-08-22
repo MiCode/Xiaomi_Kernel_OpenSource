@@ -1108,6 +1108,7 @@
   __traceiter_android_vh_atomic_remove_fb
   __traceiter_android_vh_audio_usb_offload_connect
   __traceiter_android_vh_audio_usb_offload_ep_action
+  __traceiter_android_vh_audio_usb_offload_suspend
   __traceiter_android_vh_audio_usb_offload_synctype
   __traceiter_android_vh_binder_restore_priority
   __traceiter_android_vh_binder_set_priority
@@ -1194,6 +1195,7 @@
   __tracepoint_android_vh_atomic_remove_fb
   __tracepoint_android_vh_audio_usb_offload_connect
   __tracepoint_android_vh_audio_usb_offload_ep_action
+  __tracepoint_android_vh_audio_usb_offload_suspend
   __tracepoint_android_vh_audio_usb_offload_synctype
   __tracepoint_android_vh_binder_restore_priority
   __tracepoint_android_vh_binder_set_priority
