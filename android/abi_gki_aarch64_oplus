@@ -382,6 +382,7 @@
   __traceiter_android_vh_mem_cgroup_free
   __traceiter_android_vh_mem_cgroup_id_remove
   __traceiter_android_vh_meminfo_proc_show
+  __traceiter_android_vh_modify_thermal_cpu_get_power
   __traceiter_android_vh_mutex_init
   __traceiter_android_vh_page_referenced_check_bypass
   __traceiter_android_vh_page_should_be_protected
@@ -444,6 +445,7 @@
   __tracepoint_android_vh_mem_cgroup_free
   __tracepoint_android_vh_mem_cgroup_id_remove
   __tracepoint_android_vh_meminfo_proc_show
+  __tracepoint_android_vh_modify_thermal_cpu_get_power
   __tracepoint_android_vh_mutex_init
   __tracepoint_android_vh_page_referenced_check_bypass
   __tracepoint_android_vh_page_should_be_protected
