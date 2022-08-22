@@ -107,17 +107,16 @@ struct drm_gem_shmem_object {
 	container_of(obj, struct drm_gem_shmem_object, base)
 
 struct drm_gem_shmem_object *drm_gem_shmem_create(struct drm_device *dev, size_t size);
-void drm_gem_shmem_free(struct drm_gem_shmem_object *shmem);
+void drm_gem_shmem_free_object(struct drm_gem_object *obj);
 
 int drm_gem_shmem_get_pages(struct drm_gem_shmem_object *shmem);
 void drm_gem_shmem_put_pages(struct drm_gem_shmem_object *shmem);
-int drm_gem_shmem_pin(struct drm_gem_shmem_object *shmem);
-void drm_gem_shmem_unpin(struct drm_gem_shmem_object *shmem);
-int drm_gem_shmem_vmap(struct drm_gem_shmem_object *shmem, struct dma_buf_map *map);
-void drm_gem_shmem_vunmap(struct drm_gem_shmem_object *shmem, struct dma_buf_map *map);
-int drm_gem_shmem_mmap(struct drm_gem_shmem_object *shmem, struct vm_area_struct *vma);
+int drm_gem_shmem_pin(struct drm_gem_object *obj);
+void drm_gem_shmem_unpin(struct drm_gem_object *obj);
+int drm_gem_shmem_vmap(struct drm_gem_object *obj, struct dma_buf_map *map);
+void drm_gem_shmem_vunmap(struct drm_gem_object *obj, struct dma_buf_map *map);
 
-int drm_gem_shmem_madvise(struct drm_gem_shmem_object *shmem, int madv);
+int drm_gem_shmem_madvise(struct drm_gem_object *obj, int madv);
 
 static inline bool drm_gem_shmem_is_purgeable(struct drm_gem_shmem_object *shmem)
 {
@@ -126,31 +125,33 @@ static inline bool drm_gem_shmem_is_purgeable(struct drm_gem_shmem_object *shmem
 		!shmem->base.dma_buf && !shmem->base.import_attach;
 }
 
-void drm_gem_shmem_purge_locked(struct drm_gem_shmem_object *shmem);
-bool drm_gem_shmem_purge(struct drm_gem_shmem_object *shmem);
+void drm_gem_shmem_purge_locked(struct drm_gem_object *obj);
+bool drm_gem_shmem_purge(struct drm_gem_object *obj);
 
-struct sg_table *drm_gem_shmem_get_sg_table(struct drm_gem_shmem_object *shmem);
-struct sg_table *drm_gem_shmem_get_pages_sgt(struct drm_gem_shmem_object *shmem);
+int drm_gem_shmem_dumb_create(struct drm_file *file, struct drm_device *dev,
+			      struct drm_mode_create_dumb *args);
 
-void drm_gem_shmem_print_info(const struct drm_gem_shmem_object *shmem,
-			      struct drm_printer *p, unsigned int indent);
+int drm_gem_shmem_mmap(struct drm_gem_object *obj, struct vm_area_struct *vma);
+
+void drm_gem_shmem_print_info(struct drm_printer *p, unsigned int indent,
+			      const struct drm_gem_object *obj);
+
+struct sg_table *drm_gem_shmem_get_sg_table(struct drm_gem_object *obj);
 
 /*
  * GEM object functions
  */
 
 /**
- * drm_gem_shmem_object_free - GEM object function for drm_gem_shmem_free()
+ * drm_gem_shmem_object_free - GEM object function for drm_gem_shmem_free_object()
  * @obj: GEM object to free
  *
- * This function wraps drm_gem_shmem_free(). Drivers that employ the shmem helpers
+ * This function wraps drm_gem_shmem_free_object(). Drivers that employ the shmem helpers
  * should use it as their &drm_gem_object_funcs.free handler.
  */
 static inline void drm_gem_shmem_object_free(struct drm_gem_object *obj)
 {
-	struct drm_gem_shmem_object *shmem = to_drm_gem_shmem_obj(obj);
-
-	drm_gem_shmem_free(shmem);
+	drm_gem_shmem_free_object(obj);
 }
 
 /**
@@ -165,9 +166,7 @@ static inline void drm_gem_shmem_object_free(struct drm_gem_object *obj)
 static inline void drm_gem_shmem_object_print_info(struct drm_printer *p, unsigned int indent,
 						   const struct drm_gem_object *obj)
 {
-	const struct drm_gem_shmem_object *shmem = to_drm_gem_shmem_obj(obj);
-
-	drm_gem_shmem_print_info(shmem, p, indent);
+	drm_gem_shmem_print_info(p, indent, obj);
 }
 
 /**
@@ -179,9 +178,7 @@ static inline void drm_gem_shmem_object_print_info(struct drm_printer *p, unsign
  */
 static inline int drm_gem_shmem_object_pin(struct drm_gem_object *obj)
 {
-	struct drm_gem_shmem_object *shmem = to_drm_gem_shmem_obj(obj);
-
-	return drm_gem_shmem_pin(shmem);
+	return drm_gem_shmem_pin(obj);
 }
 
 /**
@@ -193,9 +190,7 @@ static inline int drm_gem_shmem_object_pin(struct drm_gem_object *obj)
  */
 static inline void drm_gem_shmem_object_unpin(struct drm_gem_object *obj)
 {
-	struct drm_gem_shmem_object *shmem = to_drm_gem_shmem_obj(obj);
-
-	drm_gem_shmem_unpin(shmem);
+	drm_gem_shmem_unpin(obj);
 }
 
 /**
@@ -210,9 +205,7 @@ static inline void drm_gem_shmem_object_unpin(struct drm_gem_object *obj)
  */
 static inline struct sg_table *drm_gem_shmem_object_get_sg_table(struct drm_gem_object *obj)
 {
-	struct drm_gem_shmem_object *shmem = to_drm_gem_shmem_obj(obj);
-
-	return drm_gem_shmem_get_sg_table(shmem);
+	return drm_gem_shmem_get_sg_table(obj);
 }
 
 /*
@@ -228,9 +221,7 @@ static inline struct sg_table *drm_gem_shmem_object_get_sg_table(struct drm_gem_
  */
 static inline int drm_gem_shmem_object_vmap(struct drm_gem_object *obj, struct dma_buf_map *map)
 {
-	struct drm_gem_shmem_object *shmem = to_drm_gem_shmem_obj(obj);
-
-	return drm_gem_shmem_vmap(shmem, map);
+	return drm_gem_shmem_vmap(obj, map);
 }
 
 /*
@@ -243,9 +234,7 @@ static inline int drm_gem_shmem_object_vmap(struct drm_gem_object *obj, struct d
  */
 static inline void drm_gem_shmem_object_vunmap(struct drm_gem_object *obj, struct dma_buf_map *map)
 {
-	struct drm_gem_shmem_object *shmem = to_drm_gem_shmem_obj(obj);
-
-	drm_gem_shmem_vunmap(shmem, map);
+	drm_gem_shmem_vunmap(obj, map);
 }
 
 /**
@@ -261,9 +250,7 @@ static inline void drm_gem_shmem_object_vunmap(struct drm_gem_object *obj, struc
  */
 static inline int drm_gem_shmem_object_mmap(struct drm_gem_object *obj, struct vm_area_struct *vma)
 {
-	struct drm_gem_shmem_object *shmem = to_drm_gem_shmem_obj(obj);
-
-	return drm_gem_shmem_mmap(shmem, vma);
+	return drm_gem_shmem_mmap(obj, vma);
 }
 
 /*
@@ -274,8 +261,8 @@ struct drm_gem_object *
 drm_gem_shmem_prime_import_sg_table(struct drm_device *dev,
 				    struct dma_buf_attachment *attach,
 				    struct sg_table *sgt);
-int drm_gem_shmem_dumb_create(struct drm_file *file, struct drm_device *dev,
-			      struct drm_mode_create_dumb *args);
+
+struct sg_table *drm_gem_shmem_get_pages_sgt(struct drm_gem_object *obj);
 
 /**
  * DRM_GEM_SHMEM_DRIVER_OPS - Default shmem GEM operations

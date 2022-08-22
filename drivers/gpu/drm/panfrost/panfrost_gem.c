@@ -49,7 +49,7 @@ static void panfrost_gem_free_object(struct drm_gem_object *obj)
 		kvfree(bo->sgts);
 	}
 
-	drm_gem_shmem_free(&bo->base);
+	drm_gem_shmem_free_object(obj);
 }
 
 struct panfrost_gem_mapping *
@@ -187,12 +187,10 @@ void panfrost_gem_close(struct drm_gem_object *obj, struct drm_file *file_priv)
 
 static int panfrost_gem_pin(struct drm_gem_object *obj)
 {
-	struct panfrost_gem_object *bo = to_panfrost_bo(obj);
-
-	if (bo->is_heap)
+	if (to_panfrost_bo(obj)->is_heap)
 		return -EINVAL;
 
-	return drm_gem_shmem_pin(&bo->base);
+	return drm_gem_shmem_pin(obj);
 }
 
 static const struct drm_gem_object_funcs panfrost_gem_funcs = {
