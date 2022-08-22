@@ -63,13 +63,41 @@
 #define  FLASH_LED_STROBE_CFG_SHIFT		4
 #define  FLASH_LED_HW_SW_STROBE_SEL		BIT(2)
 #define  FLASH_LED_STROBE_SEL_SHIFT		2
+#define  FLASH_LED_STROBE_TRIGGER		BIT(1)
+#define  FLASH_LED_STROBE_POLARITY		BIT(0)
 
 #define FLASH_EN_LED_CTRL			0x4E
 #define  FLASH_LED_ENABLE(id)			BIT(id)
 #define  FLASH_LED_DISABLE			0
 
+#define FLASH_LED_HDRM_WINDOW			0x4F
+#define  FLASH_LED_HI_LO_WIN_MASK		GENMASK(1, 0)
+
+#define FLASH_LED_HDRM_PRGM			0x50
+#define  FLASH_LED_HDRM_CTRL_MODE_MASK		GENMASK(5, 4)
+#define  FLASH_LED_VOLTAGE_MASK			GENMASK(2, 0)
+
+#define FLASH_LED_WARMUP_DELAY			0x55
+#define  FLASH_LED_WARMUP_DELAY_MASK		GENMASK(1, 0)
+
+#define FLASH_LED_ISC_DELAY			0x56
+#define  FLASH_LED_ISC_DELAY_MASK		GENMASK(1, 0)
+
+#define FLASH_LED_RGLR_RAMP_RATE		0x58
+#define  FLASH_LED_RAMP_UP_STEP_MASK		GENMASK(6, 4)
+#define  FLASH_LED_RAMP_DN_STEP_MASK		GENMASK(2, 0)
+
+#define FLASH_LED_ALT_RAMP_DN_RATE		0x59
+#define  FLASH_LED_ALTERNATE_DN_STEP_MASK	GENMASK(1, 0)
+
+#define FLASH_LED_STROBE_DEBOUNCE		0x5A
+#define  FLASH_LED_STROBE_DEBOUNCE_TIME_MASK	GENMASK(1, 0)
+
 #define FLASH_LED_MITIGATION_SW			0x65
 #define  FLASH_LED_LMH_MITIGATION_SW_EN		BIT(0)
+
+#define FLASH_LED_MULTI_STROBE_CTRL		0x67
+#define  FLASH_LED_FLASH_ONCE_ONLY		BIT(0)
 
 #define FLASH_LED_THERMAL_OTST2_CFG1		0x78
 #define FLASH_LED_THERMAL_OTST1_CFG1		0x7A
@@ -77,6 +105,11 @@
 #define  FLASH_LED_V1_OTST1_THRSH_MIN		0x13
 #define  FLASH_LED_V2_OTST1_THRSH_MIN		0x10
 #define  FLASH_LED_OTST2_THRSH_MIN		0x30
+
+#define FLASH_LED_FAST_RAMPUP_CTRL		0x90
+#define  FLASH_LED_FAST_RAMPUP_MODE		BIT(4)
+#define  FLASH_LED_SMART_FAST_RAMPUP_MODE	BIT(1)
+#define  FLASH_LED_EN_BOB_VDN_RMP_UP_DN		BIT(0)
 
 #define MAX_IRES_LEVELS				2
 #define IRES_12P5_MAX_CURR_MA			1500
@@ -1672,6 +1705,69 @@ static int register_flash_device(struct qti_flash_led *led,
 	return 0;
 }
 
+struct flash_led_register {
+	u16 address;
+	u8 value;
+	u8 mask;
+};
+
+static const struct flash_led_register ext_setup_reg_list[] = {
+	{ FLASH_LED_IRESOLUTION, 0x01, FLASH_LED_IRESOLUTION_MASK(0) },
+	{ FLASH_LED_STROBE_CTRL(0), FLASH_LED_HW_SW_STROBE_SEL
+		| FLASH_LED_STROBE_TRIGGER | FLASH_LED_STROBE_POLARITY, GENMASK(7, 0) },
+	{ FLASH_LED_HDRM_WINDOW, 0x0, FLASH_LED_HI_LO_WIN_MASK },
+	{ FLASH_LED_HDRM_PRGM, 0x20, FLASH_LED_HDRM_CTRL_MODE_MASK | FLASH_LED_VOLTAGE_MASK },
+	{ FLASH_LED_WARMUP_DELAY, 0x0, FLASH_LED_WARMUP_DELAY_MASK },
+	{ FLASH_LED_ISC_DELAY, 0x0, FLASH_LED_ISC_DELAY_MASK },
+	{ FLASH_LED_RGLR_RAMP_RATE, 0x0, FLASH_LED_RAMP_UP_STEP_MASK |
+			FLASH_LED_RAMP_DN_STEP_MASK },
+	{ FLASH_LED_ALT_RAMP_DN_RATE, 0x0, FLASH_LED_ALTERNATE_DN_STEP_MASK },
+	{ FLASH_LED_STROBE_DEBOUNCE, 0x0, FLASH_LED_STROBE_DEBOUNCE_TIME_MASK },
+	{ FLASH_LED_MULTI_STROBE_CTRL, 0x0, FLASH_LED_FLASH_ONCE_ONLY },
+	{ FLASH_LED_FAST_RAMPUP_CTRL, 0x13, FLASH_LED_FAST_RAMPUP_MODE |
+			FLASH_LED_SMART_FAST_RAMPUP_MODE | FLASH_LED_EN_BOB_VDN_RMP_UP_DN },
+	{ FLASH_EN_LED_CTRL, 0x1, FLASH_LED_ENABLE(0) },
+	{ FLASH_ENABLE_CONTROL, FLASH_MODULE_ENABLE, FLASH_MODULE_ENABLE },
+};
+
+static int qti_flash_led_external_setup(struct qti_flash_led *led,
+				struct device_node *node)
+{
+	int rc, i;
+	u32 reg;
+	u8 val;
+
+	rc = of_property_read_u32(node, "reg", &reg);
+	if (rc < 0) {
+		pr_err("Failed to find reg in node %s, rc = %d\n",
+			node->full_name, rc);
+		return rc;
+	}
+	led->base = reg;
+
+	val = timeout_to_code(SAFETY_TIMER_MIN_TIMEOUT_MS)
+		& ~FLASH_LED_SAFETY_TIMER_EN;
+	rc = qti_flash_led_write(led, FLASH_LED_SAFETY_TIMER(0),
+		&val, 1);
+	if (rc < 0)
+		return rc;
+
+	rc = qti_flash_led_masked_write(led,
+		FLASH_LED_ITARGET(0), FLASH_LED_ITARGET_MASK,
+		current_to_code(80, IRES_5P0_UA));
+	if (rc < 0)
+		return rc;
+
+	for (i = 0; i < ARRAY_SIZE(ext_setup_reg_list); i++) {
+		rc = qti_flash_led_masked_write(led, ext_setup_reg_list[i].address,
+				ext_setup_reg_list[i].mask, ext_setup_reg_list[i].value);
+		if (rc < 0)
+			return rc;
+	}
+
+	return rc;
+}
+
 static int qti_flash_led_register_device(struct qti_flash_led *led,
 				struct device_node *node)
 {
@@ -1840,6 +1936,15 @@ static int qti_flash_led_probe(struct platform_device *pdev)
 	}
 
 	led->pdev = pdev;
+
+	if (of_property_read_bool(node, "qcom,external-led")) {
+		rc = qti_flash_led_external_setup(led, node);
+		if (rc < 0)
+			pr_err("Failed to configure HW-controlled LED device rc=%d\n", rc);
+
+		return rc;
+	}
+
 	spin_lock_init(&led->lock);
 
 	rc = qti_flash_led_register_device(led, node);
