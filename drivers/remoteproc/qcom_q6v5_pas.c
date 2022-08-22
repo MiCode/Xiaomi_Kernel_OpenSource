@@ -599,11 +599,8 @@ begin_attach:
 	if (ret < 0)
 		goto unscale_bus;
 
-	if (!adsp->q6v5.rmb_base ||
-	    !readl_relaxed(adsp->q6v5.rmb_base + RMB_BOOT_WAIT_REG)) {
-		dev_err(adsp->dev, "Remote proc is not ready to attach\n");
-		adsp_stop(rproc);
-		ret = -EBUSY;
+	if (!adsp->q6v5.rmb_base) {
+		dev_err(adsp->dev, "Remote proc cannot be late attached\n");
 		goto disable_active_pds;
 	}
 
@@ -670,7 +667,8 @@ unscale_bus:
 disable_irqs:
 	qcom_q6v5_unprepare(&adsp->q6v5);
 
-	return ret;
+	/* attempt to normally boot rproc if we can't late attach */
+	return adsp_start(rproc);
 }
 
 static void *adsp_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iomem)
