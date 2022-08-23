@@ -51,6 +51,7 @@
   congestion_wait
   contig_page_data
   copy_from_kernel_nofault
+  cpufreq_update_util_data
   cpu_hwcap_keys
   __cpu_online_mask
   __cpu_possible_mask
@@ -370,8 +371,10 @@
   __traceiter_android_vh_do_page_trylock
   __traceiter_android_vh_do_traversal_lruvec
   __traceiter_android_vh_drain_all_pages_bypass
+  __traceiter_android_vh_dup_task_struct
   __traceiter_android_vh_exit_mm
   __traceiter_android_vh_exit_signal
+  __traceiter_android_vh_free_task
   __traceiter_android_vh_futex_sleep_start
   __traceiter_android_vh_handle_failed_page_trylock
   __traceiter_android_vh_irqtime_account_process_tick
@@ -437,8 +440,10 @@
   __tracepoint_android_vh_do_page_trylock
   __tracepoint_android_vh_do_traversal_lruvec
   __tracepoint_android_vh_drain_all_pages_bypass
+  __tracepoint_android_vh_dup_task_struct
   __tracepoint_android_vh_exit_mm
   __tracepoint_android_vh_exit_signal
+  __tracepoint_android_vh_free_task
   __tracepoint_android_vh_futex_sleep_start
   __tracepoint_android_vh_handle_failed_page_trylock
   __tracepoint_android_vh_irqtime_account_process_tick
