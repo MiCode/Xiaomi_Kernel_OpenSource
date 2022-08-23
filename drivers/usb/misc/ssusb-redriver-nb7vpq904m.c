@@ -14,6 +14,7 @@
 #include <linux/usb/ucsi_glink.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/of_gpio.h>
+#include <linux/regulator/consumer.h>
 #include <linux/usb/redriver.h>
 
 /* priority: INT_MAX >= x >= 0 */
@@ -78,6 +79,7 @@ struct ssusb_redriver {
 	struct device		*dev;
 	struct regmap		*regmap;
 	struct i2c_client	*client;
+	struct regulator	*vdd;
 
 	int orientation_gpio;
 	enum plug_orientation typec_orientation;
@@ -763,6 +765,19 @@ static int redriver_i2c_probe(struct i2c_client *client,
 		return ret;
 	}
 
+	redriver->vdd = devm_regulator_get_optional(&client->dev, "vdd");
+	if (IS_ERR(redriver->vdd)) {
+		ret = PTR_ERR(redriver->vdd);
+		redriver->vdd = NULL;
+		if (ret != -ENODEV)
+			dev_err(&client->dev, "Failed to get vdd regulator %d\n", ret);
+	}
+	if (redriver->vdd) {
+		ret = regulator_enable(redriver->vdd);
+		if (ret)
+			dev_err(&client->dev, "Failed to enable vdd regulator %d\n", ret);
+	}
+
 	INIT_WORK(&redriver->pullup_work, redriver_gadget_pullup_work);
 	INIT_WORK(&redriver->host_work, redriver_host_work);
 
@@ -790,6 +805,9 @@ static int redriver_i2c_remove(struct i2c_client *client)
 	unregister_ucsi_glink_notifier(&redriver->ucsi_nb);
 	redriver->work_ongoing = false;
 	destroy_workqueue(redriver->pullup_wq);
+
+	if (redriver->vdd)
+		regulator_disable(redriver->vdd);
 
 	return 0;
 }
