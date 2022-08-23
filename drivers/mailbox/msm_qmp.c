@@ -36,13 +36,16 @@
 #define MSG_RAM_ALIGN_BYTES 3
 
 #define QMP_IPC_LOG_PAGE_CNT 2
-#define QMP_INFO(ctxt, x, ...)						  \
-	ipc_log_string(ctxt, "[%s]: "x, __func__, ##__VA_ARGS__)
+#define QMP_INFO(ctxt, x, ...)						    \
+	ipc_log_string(ctxt, "[%d]: %s: "x, task_pid_nr(current),	    \
+		       __func__, ##__VA_ARGS__)
 
 #define QMP_ERR(ctxt, x, ...)						    \
 do {									    \
-	printk_ratelimited("%s[%s]: "x, KERN_ERR, __func__, ##__VA_ARGS__); \
-	ipc_log_string(ctxt, "%s[%s]: "x, "", __func__, ##__VA_ARGS__);	    \
+	printk_ratelimited("%s[%d]: %s: "x, KERN_ERR, task_pid_nr(current), \
+			   __func__, ##__VA_ARGS__);			    \
+	ipc_log_string(ctxt, "%s[%d]: %s: "x, "", task_pid_nr(current),     \
+		       __func__, ##__VA_ARGS__);			    \
 } while (0)
 
 #ifdef CONFIG_QMP_DEBUGFS_CLIENT
