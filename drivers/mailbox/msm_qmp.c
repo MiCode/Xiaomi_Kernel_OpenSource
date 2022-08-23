@@ -778,16 +778,21 @@ static void qmp_shim_shutdown(struct mbox_chan *chan) { }
 static void qmp_shim_worker(struct work_struct *work)
 {
 	struct qmp_mbox *mbox = container_of(work, struct qmp_mbox, tx_work);
+	struct qmp_device *mdev = mbox->mdev;
 	struct qmp_pkt *pkt = &mbox->tx_pkt;
 	int rc;
 
+	QMP_INFO(mdev->ilc, "Calling qmp_send msg:%s\n", pkt->data);
 	rc = qmp_send(mbox->mdev->qmp, pkt->data, pkt->size);
+	QMP_INFO(mdev->ilc, "Calling txdone rc:%d\n", rc);
 	mbox_chan_txdone(&mbox->ctrl.chans[mbox->idx_in_flight], rc);
+	QMP_INFO(mdev->ilc, "Exiting txdone\n");
 }
 
 static int qmp_shim_send_data(struct mbox_chan *chan, void *data)
 {
 	struct qmp_mbox *mbox = chan->con_priv;
+	struct qmp_device *mdev = mbox->mdev;
 	struct qmp_pkt *pkt = (struct qmp_pkt *)data;
 	int i;
 
@@ -806,6 +811,7 @@ static int qmp_shim_send_data(struct mbox_chan *chan, void *data)
 
 	mbox->tx_pkt.size = pkt->size;
 	memcpy(mbox->tx_pkt.data, pkt->data, pkt->size);
+	QMP_INFO(mdev->ilc, "scheduling worker to send msg:%s\n", pkt->data);
 	schedule_work(&mbox->tx_work);
 	return 0;
 }
