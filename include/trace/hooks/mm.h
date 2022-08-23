@@ -118,6 +118,9 @@ DECLARE_HOOK(android_vh_page_should_be_protected,
 DECLARE_HOOK(android_vh_mark_page_accessed,
 	TP_PROTO(struct page *page),
 	TP_ARGS(page));
+DECLARE_HOOK(android_vh_page_cache_forced_ra,
+	TP_PROTO(struct readahead_control *ractl, unsigned long req_count, bool *do_forced_ra),
+	TP_ARGS(ractl, req_count, do_forced_ra));
 
 #endif /* _TRACE_HOOK_MM_H */
 
