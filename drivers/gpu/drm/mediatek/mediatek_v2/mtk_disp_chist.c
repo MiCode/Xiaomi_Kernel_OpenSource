@@ -788,6 +788,9 @@ static void mtk_chist_config(struct mtk_ddp_comp *comp,
 				   comp->regs_pa + DISP_CHIST_SHADOW_CTRL,
 				   0x1, ~0);
 
+	if (comp->id != DDP_COMPONENT_CHIST0 &&
+		comp->id != DDP_COMPONENT_CHIST1)
+		return;
 	// default by pass chist
 	mtk_chist_bypass(comp, 1, handle);
 	if (comp->id == DDP_COMPONENT_CHIST0
