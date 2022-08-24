@@ -359,7 +359,7 @@ static void set_shutter(kal_uint32 shutter)
 }
 
 static void set_shutter_frame_length(
-				kal_uint16 shutter, kal_uint16 frame_length)
+				kal_uint32 shutter, kal_uint16 frame_length)
 {
 	unsigned long flags;
 	kal_uint16 realtime_fps = 0;
