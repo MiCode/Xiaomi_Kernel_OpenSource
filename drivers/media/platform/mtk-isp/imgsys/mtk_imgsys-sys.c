@@ -2355,10 +2355,13 @@ void mtk_imgsys_hw_enqueue(struct mtk_imgsys_dev *imgsys_dev,
 		if (!is_batch_mode(req))
 			mtk_imgsys_std_ipi_params_config(req);
 #else
+#ifdef DESC_SUPPORT
 		if (is_desc_mode(req))
 			mtk_imgsys_desc_ipi_params_config(req);
 		else
 			mtk_imgsys_std_ipi_params_config(req);
+#endif
+		mtk_imgsys_std_ipi_params_config(req);
 #endif
 	}
 
