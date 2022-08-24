@@ -151,4 +151,5 @@
 | ysl-p-oss | Redmi S2 | Android P | LA.UM.7.6.r1-03900-89xx.0 | [ysl-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ysl-p-oss) |
 | zeus-s-oss | Mi 12, Mi 12 Pro | Android S | LA.VENDOR.1.0.r1-09100-r1.0.r1 | [zeus-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/zeus-s-oss) |
 
-小米招聘内推码: NTAN9Lv ,欢迎大家投递简历
+![image](https://user-images.githubusercontent.com/58464055/186303598-ad1363e1-c426-4ed7-9d78-ad4c1030bbd1.png)
+
