@@ -80,3 +80,8 @@ cqhci-crypto-qti.ko
 crypto-qti-tz.ko
 crypto-qti-common.ko
 ufshcd-crypto-qti.ko
+slim-qcom-ngd-ctrl.ko
+bam_dma.ko
+pdr_interface.ko
+qmi_helpers.ko
+slimbus.ko
