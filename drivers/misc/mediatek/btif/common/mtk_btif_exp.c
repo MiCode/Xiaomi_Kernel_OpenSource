@@ -305,10 +305,8 @@ int mtk_wcn_btif_dpidle_ctrl(unsigned long u_id,
 
 	if (en_flag == BTIF_DPIDLE_DISABLE)
 		i_ret = btif_exit_dpidle(p_btif);
-	else {
+	else
 		i_ret = btif_enter_dpidle(p_btif);
-		BTIF_INFO_FUNC("enter deep idle\n");
-	}
 
 	return i_ret;
 }
