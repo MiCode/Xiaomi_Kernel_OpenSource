@@ -188,6 +188,5 @@ config FPGA_EARLY_PORTING
 	  Say Y here if you are doing FPGA early porting.
 	  If unsure, say N
 
-source "drivers/misc/mediatek/imgsensor/src/isp6s/camera_ldo/Kconfig"
 
 endmenu # Misc

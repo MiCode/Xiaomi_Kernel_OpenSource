@@ -32,11 +32,10 @@ char * const imgsensor_hw_id_names[] = {
 	"mclk",
 	"regulator",
 	"gpio"
-	#ifdef SUPPORT_WL2868
-	,"wl2868"
-	#endif
 };
-
+char * const imgsensor_prj_names[] = {
+	"tb8781p2_64"
+};
 enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 {
 	struct IMGSENSOR_HW_SENSOR_POWER      *psensor_pwr;
@@ -45,17 +44,33 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 	unsigned int i, j, len;
 	char str_prop_name[LENGTH_FOR_SNPRINTF];
 	const char *pin_hw_id_name;
+	const char *prj_name;
+	unsigned int custlen = 0;
 	struct device_node *of_node
 		= of_find_compatible_node(NULL, NULL, "mediatek,imgsensor");
 	int ret_snprintf = 0;
 
 	mutex_init(&phw->common.pinctrl_mutex);
 
+	memset(str_prop_name, 0, sizeof(str_prop_name));
+	snprintf(str_prop_name, sizeof(str_prop_name),
+			"mtk_custom_project");
+	if (of_property_read_string(
+			of_node, str_prop_name,
+			&prj_name) == 0) {
+		custlen = strlen(prj_name);
+	}
 	/* update the imgsensor_custom_cfg by dts */
 	for (i = 0; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
 		PK_DBG("IMGSENSOR_SENSOR_IDX: %d\n", i);
 
-		pcust_pwr_cfg = imgsensor_custom_config;
+		if (custlen != 0 && strncmp(prj_name, imgsensor_prj_names[0], custlen)
+			== 0) {
+			pcust_pwr_cfg = imgsensor_mt8781_config;
+		} else {
+			pcust_pwr_cfg = imgsensor_custom_config;
+		}
+
 
 		while (pcust_pwr_cfg->sensor_idx != i &&
 		       pcust_pwr_cfg->sensor_idx != IMGSENSOR_SENSOR_IDX_NONE)
@@ -153,7 +168,12 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 	for (i = 0; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
 		psensor_pwr = &phw->sensor_pwr[i];
 
-		pcust_pwr_cfg = imgsensor_custom_config;
+		if (custlen != 0 && strncmp(prj_name, imgsensor_prj_names[0], custlen)
+			== 0) {
+			pcust_pwr_cfg = imgsensor_mt8781_config;
+		} else {
+			pcust_pwr_cfg = imgsensor_custom_config;
+		}
 
 		while (pcust_pwr_cfg->sensor_idx != i &&
 		       pcust_pwr_cfg->sensor_idx != IMGSENSOR_SENSOR_IDX_NONE)

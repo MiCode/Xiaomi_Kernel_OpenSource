@@ -6,13 +6,6 @@ MTK_PLATFORM := isp6s
 MTK_SENSOR_PROJECT :=
 MTK_DERIVED_PLATFORM :=
 
-CUSTOM_SENSOR :=  $(findstring ov13b10main_mipi_raw, $(subst ",,$(CONFIG_CUSTOM_KERNEL_IMGSENSOR)))
-
-ifneq ($(CUSTOM_SENSOR), ov13b10main_mipi_raw)
-MTK_SENSOR_PROJECT := $(subst ",,$(CONFIG_MTK_SENSOR_PROJECT))
-KBUILD_CFLAGS += -DSUPPORT_WL2868
-obj-$(CONFIG_HQ_CAMERA_LDO) += camera_ldo/
-endif
 
 IMGSENSOR_DRIVER_PATH := $(srctree)/drivers/misc/mediatek/imgsensor/src
 COMMON_VERSION := v1_1
