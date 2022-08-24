@@ -333,7 +333,7 @@ static kal_uint16 set_gain(kal_uint16 gain)
 			SC800CS_LY_SENSOR_GAIN_MAX_VALID_INDEX >= 1; gain_index >= 0; gain_index--)
 		if (reg_gain >= SC800CS_LY_AGC_Param[gain_index][0])
 			break;
-	if (gain_index) {
+	if (gain_index >= 0) {
 		write_cmos_sensor(0x3e09, SC800CS_LY_AGC_Param[gain_index][1]);
 		temp_gain =
 			reg_gain *
