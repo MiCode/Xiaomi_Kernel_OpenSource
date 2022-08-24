@@ -1845,9 +1845,11 @@ int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx, bool is_check_ts)
 		}
 		buf_entry = list_first_entry(&ctx->sv_using_buffer_list[i].list,
 				struct mtk_camsv_working_buf_entry, list_entry);
+
+#if STAGGER_CQ_LAST_SOF == 0
 		if (mtk_cam_sv_is_vf_on(camsv_dev) &&
 			(ctx->used_raw_num != 0) && is_check_ts) {
-			if (buf_entry->is_stagger == 1 && STAGGER_CQ_LAST_SOF == 0) {
+			if (buf_entry->is_stagger == 1) {
 				if ((buf_entry->ts_sv == 0) ||
 					((buf_entry->ts_sv < buf_entry->ts_raw) &&
 					((buf_entry->ts_raw - buf_entry->ts_sv) > 10000000))) {
@@ -1860,6 +1862,7 @@ int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx, bool is_check_ts)
 				}
 			}
 		}
+#endif
 		list_del(&buf_entry->list_entry);
 		ctx->sv_using_buffer_list[i].cnt--;
 		spin_unlock(&ctx->sv_using_buffer_list[i].lock);

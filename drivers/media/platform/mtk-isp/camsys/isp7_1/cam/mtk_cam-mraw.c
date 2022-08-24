@@ -1170,10 +1170,11 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, bool is_check_ts)
 		buf_entry = list_first_entry(&ctx->mraw_composed_buffer_list[i].list,
 							struct mtk_mraw_working_buf_entry,
 							list_entry);
+#if STAGGER_CQ_LAST_SOF == 0
 		if (mtk_cam_mraw_is_vf_on(mraw_dev) &&
 			(buf_entry->s_data->req->pipe_used &
 			(1 << ctx->mraw_pipe[i]->id)) && is_check_ts) {
-			if (buf_entry->is_stagger == 1 && STAGGER_CQ_LAST_SOF == 0) {
+			if (buf_entry->is_stagger == 1) {
 				if ((buf_entry->ts_mraw == 0) ||
 					((buf_entry->ts_mraw < buf_entry->ts_raw) &&
 					((buf_entry->ts_raw - buf_entry->ts_mraw) > 3000000))) {
@@ -1186,6 +1187,7 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, bool is_check_ts)
 				}
 			}
 		}
+#endif
 		list_del(&buf_entry->list_entry);
 		ctx->mraw_composed_buffer_list[i].cnt--;
 		spin_unlock(&ctx->mraw_composed_buffer_list[i].lock);
