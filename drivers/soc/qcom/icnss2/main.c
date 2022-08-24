@@ -86,10 +86,12 @@ module_param(qmi_timeout, ulong, 0600);
 #endif
 
 #define ICNSS_RECOVERY_TIMEOUT		60000
+#define ICNSS_WPSS_SSR_TIMEOUT          5000
 #define ICNSS_CAL_TIMEOUT		40000
 
 static struct icnss_priv *penv;
 static struct work_struct wpss_loader;
+static struct work_struct wpss_ssr_work;
 uint64_t dynamic_feature_mask = ICNSS_DEFAULT_FEATURE_MASK;
 
 #define ICNSS_EVENT_PENDING			2989
@@ -526,6 +528,10 @@ static irqreturn_t fw_crash_indication_handler(int irq, void *ctx)
 	struct icnss_uevent_fw_down_data fw_down_data = {0};
 
 	icnss_pr_err("Received early crash indication from FW\n");
+
+	if (priv->wpss_self_recovery_enabled)
+		mod_timer(&priv->wpss_ssr_timer,
+			  jiffies + msecs_to_jiffies(ICNSS_WPSS_SSR_TIMEOUT));
 
 	if (priv) {
 		set_bit(ICNSS_FW_DOWN, &priv->state);
@@ -1748,6 +1754,19 @@ static int icnss_subsys_restart_level(struct icnss_priv *priv, void *data)
 	return ret;
 }
 
+static void icnss_wpss_self_recovery(struct work_struct *wpss_load_work)
+{
+	int ret;
+	struct icnss_priv *priv = icnss_get_plat_priv();
+
+	rproc_shutdown(priv->rproc);
+	ret = rproc_boot(priv->rproc);
+	if (ret) {
+		icnss_pr_err("Failed to self recover wpss rproc, ret: %d", ret);
+		rproc_put(priv->rproc);
+	}
+}
+
 static void icnss_driver_event_work(struct work_struct *work)
 {
 	struct icnss_priv *priv =
@@ -2051,6 +2070,9 @@ static int icnss_wpss_notifier_nb(struct notifier_block *nb,
 
 	if (code != QCOM_SSR_BEFORE_SHUTDOWN)
 		goto out;
+
+	if (priv->wpss_self_recovery_enabled)
+		del_timer(&priv->wpss_ssr_timer);
 
 	priv->is_ssr = true;
 
@@ -4256,6 +4278,10 @@ static void icnss_read_device_configs(struct icnss_priv *priv)
 				  "wlan-ipa-disabled")) {
 		set_bit(ICNSS_IPA_DISABLED, &priv->device_config);
 	}
+
+	if (of_property_read_bool(priv->pdev->dev.of_node,
+				  "qcom,wpss-self-recovery"))
+		priv->wpss_self_recovery_enabled = true;
 }
 
 static inline void icnss_runtime_pm_init(struct icnss_priv *priv)
@@ -4434,6 +4460,12 @@ static int icnss_probe(struct platform_device *pdev)
 	timer_setup(&priv->recovery_timer,
 		    icnss_recovery_timeout_hdlr, 0);
 
+	if (priv->wpss_self_recovery_enabled) {
+		INIT_WORK(&wpss_ssr_work, icnss_wpss_self_recovery);
+		timer_setup(&priv->wpss_ssr_timer,
+			    icnss_wpss_ssr_timeout_hdlr, 0);
+	}
+
 	INIT_LIST_HEAD(&priv->icnss_tcdev_list);
 
 	if (priv->pon_gpio_control) {
@@ -4481,6 +4513,9 @@ static int icnss_remove(struct platform_device *pdev)
 	icnss_pr_info("Removing driver: state: 0x%lx\n", priv->state);
 
 	del_timer(&priv->recovery_timer);
+
+	if (priv->wpss_self_recovery_enabled)
+		del_timer(&priv->wpss_ssr_timer);
 
 	device_init_wakeup(&priv->pdev->dev, false);
 
@@ -4541,6 +4576,15 @@ void icnss_recovery_timeout_hdlr(struct timer_list *t)
 
 	icnss_pr_err("Timeout waiting for FW Ready 0x%lx\n", priv->state);
 	ICNSS_ASSERT(0);
+}
+
+void icnss_wpss_ssr_timeout_hdlr(struct timer_list *t)
+{
+	struct icnss_priv *priv = from_timer(priv, t, wpss_ssr_timer);
+
+	icnss_pr_err("Timeout waiting for WPSS SSR notification 0x%lx\n",
+		      priv->state);
+	schedule_work(&wpss_ssr_work);
 }
 
 #ifdef CONFIG_PM_SLEEP

@@ -78,6 +78,47 @@ static void synx_global_print_data(
 				func, i, synx_g_obj->parents[i]);
 }
 
+int synx_global_dump_shared_memory(void)
+{
+	int rc = SYNX_SUCCESS, idx;
+	unsigned long flags;
+	struct synx_global_coredata *synx_g_obj;
+
+	if (!synx_gmem.table)
+		return -SYNX_INVALID;
+
+	/* Print bitmap memory*/
+	for (idx = 0; idx < SHRD_MEM_DUMP_NUM_BMAP_WORDS; idx++) {
+		rc = synx_gmem_lock(idx, &flags);
+
+		if (rc)
+			return rc;
+
+		dprintk(SYNX_VERB, "%s: idx %d, bitmap value %d",
+		__func__, idx, synx_gmem.bitmap[idx]);
+
+		synx_gmem_unlock(idx, &flags);
+	}
+
+	/* Print table memory*/
+	for (idx = 0;
+		idx < SHRD_MEM_DUMP_NUM_BMAP_WORDS * sizeof(u32) * NUM_CHAR_BIT;
+		idx++) {
+		rc = synx_gmem_lock(idx, &flags);
+
+		if (rc)
+			return rc;
+
+		dprintk(SYNX_VERB, "%s: idx %d\n", __func__, idx);
+
+		synx_g_obj = &synx_gmem.table[idx];
+		synx_global_print_data(synx_g_obj, __func__);
+
+		synx_gmem_unlock(idx, &flags);
+	}
+	return rc;
+}
+
 static int synx_gmem_init(void)
 {
 	if (!synx_gmem.table)

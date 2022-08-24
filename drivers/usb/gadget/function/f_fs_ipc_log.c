@@ -88,6 +88,7 @@ enum ffs_os_desc_type {
 	ipc_log_string(context, "%s: " fmt,  func, ##__VA_ARGS__)
 
 #define MAX_IPC_INSTANCES 9
+#define FFS_MINIDUMP 0x10000
 
 /* per-probe private data */
 struct kprobe_data {
@@ -149,7 +150,7 @@ static void create_ipc_context_work(struct work_struct *w)
 	}
 
 	strlcat(ipcname, ipc_w->dev_name, sizeof(ipcname));
-	ctx = ipc_log_context_create(10, ipcname, 0);
+	ctx = ipc_log_context_create(10, ipcname, FFS_MINIDUMP);
 	if (IS_ERR_OR_NULL(ctx)) {
 		pr_err("%s: Could not create IPC log context for device %s\n",
 			__func__, ipc_w->dev_name);

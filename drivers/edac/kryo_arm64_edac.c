@@ -36,6 +36,7 @@
 
 #define QCOM_CPU_PART_KRYO6XX_SILVER_V1 0xD05
 #define QCOM_CPU_PART_KRYO6XX_GOLDPLUS 0xD44
+#define QCOM_CPU_PART_KRYO6XX_GOLDPRIME 0xD4B
 
 #define L1_GOLD_IC_BIT 0x1
 #define L1_GOLD_DC_BIT 0x4
@@ -292,6 +293,7 @@ static void kryo_parse_l1_l2_cache_error(u64 errxstatus, u64 errxmisc,
 	case QCOM_CPU_PART_KRYO4XX_GOLD:
 	case QCOM_CPU_PART_KRYO5XX_GOLD:
 	case QCOM_CPU_PART_KRYO6XX_GOLDPLUS:
+	case QCOM_CPU_PART_KRYO6XX_GOLDPRIME:
 		switch (KRYO_ERRXMISC_LVL_GOLD(errxmisc)) {
 		case L1_GOLD_DC_BIT:
 		case L1_GOLD_IC_BIT:

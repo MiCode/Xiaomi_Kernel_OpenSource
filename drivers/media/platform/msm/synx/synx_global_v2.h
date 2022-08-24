@@ -38,6 +38,9 @@ enum synx_core_id {
 
 #define SYNX_HANDLE_INDEX_MASK         ((1UL<<SYNX_HANDLE_INDEX_BITS)-1)
 
+#define SHRD_MEM_DUMP_NUM_BMAP_WORDS   10
+#define NUM_CHAR_BIT                   8
+
 /* spin lock timeout (ms) */
 #define SYNX_HWSPIN_TIMEOUT            500
 #define SYNX_HWSPIN_ID                 10
@@ -268,5 +271,14 @@ int synx_global_recover(enum synx_core_id id);
  * @return SYNX_SUCCESS on success. Negative error on failure.
  */
 int synx_global_clean_cdsp_mem(void);
+
+/**
+ * synx_global_dump_shared_memory - Prints the top entries of
+ * bitmap and table in global shared memory.
+ *
+ * @return SYNX_SUCCESS on success. Negative error on failure.
+ */
+
+int synx_global_dump_shared_memory(void);
 
 #endif /* __SYNX_SHARED_MEM_H__ */

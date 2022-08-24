@@ -21,6 +21,8 @@
 #include "reset.h"
 #include "vdd-level.h"
 
+#define DISP_CC_MISC_CMD        0xF000
+
 static DEFINE_VDD_REGULATORS(vdd_mm, VDD_NOMINAL + 1, 1, vdd_corner);
 static DEFINE_VDD_REGULATORS(vdd_mxa, VDD_NOMINAL + 1, 1, vdd_corner);
 
@@ -1910,6 +1912,9 @@ static int disp_cc_neo_probe(struct platform_device *pdev)
 
 	clk_lucid_ole_pll_configure(&disp_cc_pll0, regmap, &disp_cc_pll0_config);
 	clk_lucid_ole_pll_configure(&disp_cc_pll1, regmap, &disp_cc_pll1_config);
+
+	/* Enable clock gating for MDP clocks */
+	regmap_update_bits(regmap, DISP_CC_MISC_CMD, 0x10, 0x10);
 
 	/*
 	 * Keep clocks always enabled:

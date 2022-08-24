@@ -21,6 +21,8 @@ static const struct msm_pinctrl_soc_data anorak_pinctrl = {
 	.ngpios = 225,
 	.qup_regs = anorak_qup_regs,
 	.nqup_regs = ARRAY_SIZE(anorak_qup_regs),
+	.wakeirq_map = anorak_pdc_map,
+	.nwakeirq_map = ARRAY_SIZE(anorak_pdc_map),
 };
 
 static int anorak_pinctrl_probe(struct platform_device *pdev)

@@ -43,14 +43,8 @@ static ssize_t synx_table_read(struct file *file,
 {
 	struct synx_device *dev = file->private_data;
 	struct error_node *err_node, *err_node_tmp;
-	struct synx_client *client = NULL;
-	struct synx_handle_coredata *synx_data;
-	struct synx_coredata *synx_obj;
 	char *dbuf, *cur, *end;
-
-	int i = 0;
-	int j = 0;
-	int status = SYNX_STATE_INVALID;
+	int rc = SYNX_SUCCESS;
 	ssize_t len = 0;
 
 	dbuf = kzalloc(MAX_DBG_BUF_SIZE, GFP_KERNEL);
@@ -76,59 +70,11 @@ static ssize_t synx_table_read(struct file *file,
 		cur += scnprintf(cur, end - cur, "|   Bound   |");
 	cur += scnprintf(cur, end - cur, "\n");
 
-	spin_lock_bh(&dev->native->metadata_map_lock);
-	hash_for_each(synx_dev->native->client_metadata_map,
-		i, client, node) {
+	rc = synx_global_dump_shared_memory();
+	if (rc) {
 		cur += scnprintf(cur, end - cur,
-			"=============== session %08u ===============\n",
-			client->id);
-		cur += scnprintf(cur, end - cur,
-			"session name ::: %s\n",
-			client->name);
-		spin_lock_bh(&client->handle_map_lock);
-		hash_for_each(client->handle_map, j, synx_data, node) {
-			synx_obj = synx_util_obtain_object(synx_data);
-
-			if (synx_columns & NAME_COLUMN)
-				cur += scnprintf(cur, end - cur,
-					"|%10s|", synx_obj->name);
-			if (synx_columns & ID_COLUMN)
-				cur += scnprintf(cur, end - cur,
-					"|%10u|", synx_data->key);
-			if (synx_columns & STATE_COLUMN) {
-				status =
-					synx_util_get_object_status(synx_obj);
-				cur += scnprintf(cur, end - cur,
-					"|%10d|", status);
-			}
-			if (synx_columns & FENCE_COLUMN)
-				cur += scnprintf(cur, end - cur,
-					"|%pK|", synx_obj->fence);
-			if (synx_columns & COREDATA_COLUMN)
-				cur += scnprintf(cur, end - cur,
-					"|%pK|", synx_obj);
-			if (synx_columns & GLOBAL_COLUMN)
-				cur += scnprintf(cur, end - cur,
-					"|%10u|", synx_obj->global_idx);
-			if (synx_columns & BOUND_COLUMN)
-				cur += scnprintf(cur, end - cur,
-					"|%11d|", synx_obj->num_bound_synxs);
-			if ((synx_columns & BOUND_COLUMN) &&
-				(synx_obj->num_bound_synxs > 0)) {
-				cur += scnprintf(
-					cur, end - cur, "\nBound synx: ");
-				populate_bound_rows(synx_obj,
-					cur,
-					end);
-			}
-			cur += scnprintf(cur, end - cur, "\n");
-			synx_util_put_object(synx_obj);
-		}
-		spin_unlock_bh(&client->handle_map_lock);
-		cur += scnprintf(cur, end - cur,
-			"\n================================================\n\n");
+			"Err %d: Failed to dump global shared mem\n", rc);
 	}
-	spin_unlock_bh(&synx_dev->native->metadata_map_lock);
 
 	if (synx_columns & ERROR_CODES && !list_empty(
 		&dev->error_list)) {

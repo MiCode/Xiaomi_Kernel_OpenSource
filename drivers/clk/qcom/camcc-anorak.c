@@ -1594,7 +1594,6 @@ static struct clk_rcg2 cam_cc_sleep_clk_src = {
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_6,
 	.freq_tbl = ftbl_cam_cc_sleep_clk_src,
-	.enable_safe_config = true,
 	.clkr.hw.init = &(const struct clk_init_data){
 		.name = "cam_cc_sleep_clk_src",
 		.parent_data = cam_cc_parent_data_6,

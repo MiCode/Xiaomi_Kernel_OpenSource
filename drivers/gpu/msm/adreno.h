@@ -27,8 +27,11 @@
 #define SET_PSEUDO_NON_PRIV_SAVE_ADDR 3
 /* Used to inform CP where to save preemption counter data at the time of switch out */
 #define SET_PSEUDO_COUNTER 4
+
 /* Index to preemption scratch buffer to store KMD postamble */
 #define KMD_POSTAMBLE_IDX 100
+/* Index to preemption scratch buffer to store current QOS value */
+#define QOS_VALUE_IDX KGSL_PRIORITY_MAX_RB_LEVELS
 
 /* ADRENO_DEVICE - Given a kgsl_device return the adreno device struct */
 #define ADRENO_DEVICE(device) \
@@ -237,8 +240,10 @@ struct adreno_gpudev;
 /* Time to allow preemption to complete (in ms) */
 #define ADRENO_PREEMPT_TIMEOUT 10000
 
+#define PREEMPT_SCRATCH_OFFSET(id) (id * sizeof(u64))
+
 #define PREEMPT_SCRATCH_ADDR(dev, id) \
-	((dev)->preempt.scratch->gpuaddr + (id * sizeof(u64)))
+	((dev)->preempt.scratch->gpuaddr + PREEMPT_SCRATCH_OFFSET(id))
 
 /**
  * enum adreno_preempt_states

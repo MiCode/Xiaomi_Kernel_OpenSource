@@ -502,6 +502,8 @@ struct icnss_priv {
 	u32 pof_pinctrl_owners;
 	bool pon_in_progress;
 	struct timer_list recovery_timer;
+	struct timer_list wpss_ssr_timer;
+	bool wpss_self_recovery_enabled;
 };
 
 struct icnss_reg_info {
@@ -532,5 +534,6 @@ int icnss_aop_mbox_init(struct icnss_priv *priv);
 struct icnss_priv *icnss_get_plat_priv(void);
 int icnss_get_pinctrl(struct icnss_priv *priv);
 void icnss_recovery_timeout_hdlr(struct timer_list *t);
+void icnss_wpss_ssr_timeout_hdlr(struct timer_list *t);
 #endif
 
