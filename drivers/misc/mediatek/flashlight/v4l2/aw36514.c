@@ -540,6 +540,11 @@ static int aw36514_init_controls(struct aw36514_flash *flash,
 	if (hdl->error)
 		return hdl->error;
 
+	if (led_no < 0 || led_no >= AW36514_LED_MAX) {
+		pr_info("led_no error\n");
+		return -1;
+	}
+
 	flash->subdev_led[led_no].ctrl_handler = hdl;
 	return 0;
 }
@@ -559,6 +564,8 @@ static void aw36514_v4l2_i2c_subdev_init(struct v4l2_subdev *sd,
 		struct i2c_client *client,
 		const struct v4l2_subdev_ops *ops)
 {
+	int ret = 0;
+
 	v4l2_subdev_init(sd, ops);
 	sd->flags |= V4L2_SUBDEV_FL_IS_I2C;
 	/* the owner is the same as the i2c_client's driver owner */
@@ -568,9 +575,11 @@ static void aw36514_v4l2_i2c_subdev_init(struct v4l2_subdev *sd,
 	v4l2_set_subdevdata(sd, client);
 	i2c_set_clientdata(client, sd);
 	/* initialize name */
-	snprintf(sd->name, sizeof(sd->name), "%s %d-%04x",
+	ret = snprintf(sd->name, sizeof(sd->name), "%s %d-%04x",
 		client->dev.driver->name, i2c_adapter_id(client->adapter),
 		client->addr);
+	if (ret < 0)
+		pr_info("snprintf failed\n");
 }
 
 static int aw36514_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
@@ -609,6 +618,11 @@ static int aw36514_subdev_init(struct aw36514_flash *flash,
 	struct device_node *np = flash->dev->of_node, *child;
 	const char *fled_name = "flash";
 	int rval;
+
+	if (led_no < 0 || led_no >= AW36514_LED_MAX) {
+		pr_info("led_no error\n");
+		return -1;
+	}
 
 	FLASH_AW36514_LOG("%s %d", __func__, led_no);
 
@@ -813,8 +827,6 @@ static int aw36514_cooling_set_cur_state(struct thermal_cooling_device *cdev,
 	/* Request state should be less than max_state */
 	if (state > flash->max_state)
 		state = flash->max_state;
-	if (state < 0)
-		state = 0;
 
 	if (flash->target_state == state)
 		return 0;

@@ -266,7 +266,7 @@ static void set_max_framerate(struct subdrv_ctx *ctx,UINT16 framerate, kal_bool 
 	set_dummy(ctx);
 }
 
-static void write_shutter(struct subdrv_ctx *ctx, kal_uint16 shutter)
+static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 {
 	kal_uint16 realtime_fps = 0;
 
@@ -328,7 +328,7 @@ static void set_shutter(struct subdrv_ctx *ctx, kal_uint16 shutter)
 }
 
 static void set_shutter_frame_length(struct subdrv_ctx *ctx,
-				kal_uint16 shutter, kal_uint16 frame_length)
+				kal_uint32 shutter, kal_uint16 frame_length)
 {
 	kal_uint16 realtime_fps = 0;
 	kal_int32 dummy_line = 0;
@@ -2163,10 +2163,10 @@ static kal_uint32 get_sensor_temperature(struct subdrv_ctx *ctx)
 	if (temperature < 0xc000)
 		temperature_convert = temperature / 256;
 	else
-		temperature_convert = 192 - temperature / 256;
+		temperature_convert = 191 - temperature / 256;
 
-	if (temperature_convert > 192)
-		temperature_convert = 192;
+	if (temperature_convert > 191)
+		temperature_convert = 191;
 	else if (temperature_convert < -64)
 		temperature_convert = -64;
 
