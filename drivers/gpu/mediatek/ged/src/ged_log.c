@@ -206,7 +206,12 @@ GED_ERROR __ged_log_buf_vprint(struct GED_LOG_BUF *psGEDLogBuf,
 	buf_n = psGEDLogBuf->i32BufferSize - psGEDLogBuf->i32BufferCurrent;
 	len = vsnprintf(psGEDLogBuf->pcBuffer + psGEDLogBuf->i32BufferCurrent,
 		buf_n, fmt, args);
-
+	// To avoid when pcBuffer[-x] == 10('\n') tampered with 0.
+	if (len <= 0) {
+		spin_unlock_irqrestore(&psGEDLogBuf->sSpinLock,
+			psGEDLogBuf->ulIRQFlags);
+		return GED_OK;
+	}
 	/* if 'len' >= 'buf_n', the resulting string is truncated.
 	 * let 'len' be a safe number
 	 */
