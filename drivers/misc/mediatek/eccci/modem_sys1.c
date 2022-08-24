@@ -255,26 +255,28 @@ int md_fsm_exp_info(int md_id, unsigned int channel_id)
 	md = ccci_md_get_modem_by_id(md_id);
 	if (!md)
 		return 0;
+
+	md_info = (struct md_sys1_info *)md->private_data;
 	if (channel_id & (1 << D2H_EXCEPTION_INIT)) {
 		ccci_fsm_recv_md_interrupt(md->index, MD_IRQ_CCIF_EX);
+		md_info->channel_id = channel_id & ~(1 << D2H_EXCEPTION_INIT);
 		return 0;
 	}
-	md_info = (struct md_sys1_info *)md->private_data;
-	md_info->channel_id = channel_id;
-
-	if (md_info->channel_id & (1<<AP_MD_PEER_WAKEUP))
+	if (channel_id & (1<<AP_MD_PEER_WAKEUP)) {
 		__pm_wakeup_event(md_info->peer_wake_lock,
 			jiffies_to_msecs(HZ));
-	if (md_info->channel_id & (1<<AP_MD_SEQ_ERROR)) {
+		channel_id &= ~(1 << AP_MD_PEER_WAKEUP);
+	}
+	if (channel_id & (1<<AP_MD_SEQ_ERROR)) {
 		CCCI_ERROR_LOG(md->index, TAG, "MD check seq fail\n");
 		md->ops->dump_info(md, DUMP_FLAG_CCIF, NULL, 0);
+		channel_id &= ~(1 << AP_MD_SEQ_ERROR);
 	}
-
-	if (md_info->channel_id & (1 << D2H_EXCEPTION_INIT)) {
+	if (channel_id & (1 << D2H_EXCEPTION_INIT)) {
 		/* do not disable IRQ, as CCB still needs it */
 		ccci_fsm_recv_md_interrupt(md->index, MD_IRQ_CCIF_EX);
 	}
-
+	md_info->channel_id |= channel_id;
 	return 0;
 }
 EXPORT_SYMBOL(md_fsm_exp_info);
