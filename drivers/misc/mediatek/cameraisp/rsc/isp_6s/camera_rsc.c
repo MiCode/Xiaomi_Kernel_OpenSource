@@ -2229,6 +2229,7 @@ static long RSC_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		}
 	case RSC_ENQUE_REQ:
 		{
+			mutex_lock(&gRscMutex);
 			if (copy_from_user(&rsc_RscReq, (void *)Param,
 					sizeof(struct RSC_Request)) == 0) {
 				LOG_DBG("RSC_ENQNUE_NUM:%d, pid:%d\n",
@@ -2251,8 +2252,6 @@ static long RSC_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					Ret = -EFAULT;
 					goto EXIT;
 				}
-
-				mutex_lock(&gRscMutex);
 
 				spin_lock_irqsave(
 				&(RSCInfo.SpinLockIrq[RSC_IRQ_TYPE_INT_RSC_ST]),
@@ -2278,13 +2277,13 @@ static long RSC_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					&(RSCInfo
 					.SpinLockIrq[RSC_IRQ_TYPE_INT_RSC_ST]));
 				}
-				mutex_unlock(&gRscMutex);
+
 			} else {
 				LOG_ERR(
 				"RSC_ENQUE_REQ copy_from_user failed\n");
 				Ret = -EFAULT;
 			}
-
+			mutex_unlock(&gRscMutex);
 			break;
 		}
 	case RSC_DEQUE_NUM:
