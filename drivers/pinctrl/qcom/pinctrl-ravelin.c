@@ -21,6 +21,8 @@ static const struct msm_pinctrl_soc_data ravelin_pinctrl = {
 	.groups = ravelin_groups,
 	.ngroups = ARRAY_SIZE(ravelin_groups),
 	.ngpios = 137,
+	.wakeirq_map = ravelin_pdc_map,
+	.nwakeirq_map = ARRAY_SIZE(ravelin_pdc_map),
 };
 
 static const struct msm_pinctrl_soc_data ravelin_vm_pinctrl = {
