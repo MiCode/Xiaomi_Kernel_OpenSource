@@ -7708,12 +7708,6 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		mtk_cam_extisp_sv_stream(ctx, 0);
 	}
 
-       /* reset dvfs/qos */
-	if (ctx->used_raw_num) {
-		mtk_cam_dvfs_update_clk(ctx->cam);
-		mtk_cam_qos_bw_reset(ctx, enabled_sv);
-	}
-
 	if (ctx->used_raw_num) {
 		if (ctx->pipe && ctx->pipe->enabled_raw & MTKCAM_SUBDEV_RAW_MASK)
 			ret = v4l2_subdev_call(&ctx->pipe->subdev, video, s_stream, 0);
@@ -7749,6 +7743,12 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 
 	if (ctx->img_buf_pool.working_img_buf_size > 0)
 		mtk_cam_img_working_buf_pool_release(ctx);
+
+	/* reset dvfs/qos */
+	if (ctx->used_raw_num) {
+		mtk_cam_dvfs_update_clk(ctx->cam);
+		mtk_cam_qos_bw_reset(ctx, enabled_sv);
+	}
 
 	mtk_camsys_ctrl_stop(ctx);
 
