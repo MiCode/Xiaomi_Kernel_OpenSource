@@ -3869,7 +3869,14 @@ err_encoder_init:
 static void mtk_dp_unbind(struct device *dev, struct device *master,
 		void *data)
 {
+	struct mtk_dp *mtk_dp = dev_get_drvdata(dev);
+
 	DPTXFUNC();
+
+	drm_encoder_cleanup(&mtk_dp->enc);
+	/* Skip connector cleanup if creation was delegated to the bridge */
+	if (mtk_dp->conn.dev)
+		drm_connector_cleanup(&mtk_dp->conn);
 }
 
 static const struct component_ops mtk_dp_component_ops = {

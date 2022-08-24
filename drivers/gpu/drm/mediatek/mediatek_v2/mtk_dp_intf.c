@@ -341,10 +341,7 @@ static void mtk_dp_intf_mask(struct mtk_dp_intf *dp_intf, u32 offset,
 
 static void mtk_dp_intf_destroy_conn_enc(struct mtk_dp_intf *dp_intf)
 {
-	drm_encoder_cleanup(&dp_intf->encoder);
-	/* Skip connector cleanup if creation was delegated to the bridge */
-	if (dp_intf->conn.dev)
-		drm_connector_cleanup(&dp_intf->conn);
+	DDPFUNC();
 }
 
 static void mtk_dp_intf_start(struct mtk_ddp_comp *comp,
