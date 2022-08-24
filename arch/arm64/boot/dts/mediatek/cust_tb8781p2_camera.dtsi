@@ -122,22 +122,32 @@
 	pinctrl-13 = <&camera_pins_cam1_mclk_6ma>;
 	pinctrl-14 = <&camera_pins_cam1_mclk_8ma>;
 
+	/* main (wide)*/
+	cam0_vcamd-supply = <&wl2868c_ldo1>;
+	cam0_vcamaf-supply = <&wl2868c_ldo3>;
+	cam0_vcamio-supply = <&wl2868c_ldo5>;
+	cam0_vcama-supply = <&wl2868c_ldo6>;
+
+	/* front*/
+	cam1_vcamd-supply = <&wl2868c_ldo2>;
+	cam1_vcama-supply = <&wl2868c_ldo4>;
+	cam1_vcamio-supply = <&wl2868c_ldo5>;
+
 
 	cam0_pin_mclk = "mclk";
 	cam0_pin_rst = "gpio";
-	cam0_pin_vcama = "wl2868";
-	cam0_pin_vcamio = "wl2868";
-	cam0_pin_vcamd = "wl2868";
-	cam0_pin_vcama1 = "wl2868";
+	cam0_pin_vcama = "regulator";
+	cam0_pin_vcamio = "regulator";
+	cam0_pin_vcamd = "regulator";
+	cam0_pin_vcamaf = "regulator";
 	cam1_pin_mclk = "mclk";
 	cam1_pin_rst = "gpio";
-	cam1_pin_vcama = "wl2868";
-	cam1_pin_vcamio = "wl2868";
-	cam1_pin_vcamd = "wl2868";
-	cam1_pin_vcama1 = "wl2868";
-	status = "okay";
+	cam1_pin_vcama = "regulator";
+	cam1_pin_vcamio = "regulator";
+	cam1_pin_vcamd = "regulator";
 	cam0_enable_sensor = "hi1339_mipi_raw ov13b10main_mipi_raw";
 	cam1_enable_sensor = "s5k4h7front_mipi_raw sc800cs_mipi_raw";
+	status = "okay";
 	mtk_custom_project = "tb8781p2_64";
 };
 /* CAMERA GPIO end */
