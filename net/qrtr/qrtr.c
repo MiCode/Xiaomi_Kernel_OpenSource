@@ -1390,6 +1390,7 @@ static void qrtr_fwd_del_proc(struct qrtr_node *src, unsigned int nid)
 	struct qrtr_node *dst;
 	struct sk_buff *skb;
 
+	down_read(&qrtr_epts_lock);
 	list_for_each_entry(dst, &qrtr_all_epts, item) {
 		if (!qrtr_must_forward(src, dst, QRTR_TYPE_DEL_PROC))
 			continue;
@@ -1407,6 +1408,7 @@ static void qrtr_fwd_del_proc(struct qrtr_node *src, unsigned int nid)
 		to.sq_node = dst->nid;
 		qrtr_node_enqueue(dst, skb, QRTR_TYPE_DEL_PROC, &from, &to, 0);
 	}
+	up_read(&qrtr_epts_lock);
 }
 
 /**
