@@ -4627,9 +4627,11 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 		if (ret < 0)
 			goto err_component_unbind;
 
-		ret = mtk_drm_crtc_create(drm, private->data->fourth_path_data);
-		if (ret < 0)
-			goto err_component_unbind;
+		if (of_property_read_bool(private->mmsys_dev->of_node, "enable_fourth_path")) {
+			ret = mtk_drm_crtc_create(drm, private->data->fourth_path_data);
+			if (ret < 0)
+				goto err_component_unbind;
+		}
 	}
 
 	/* Use OVL device for all DMA memory allocations */
