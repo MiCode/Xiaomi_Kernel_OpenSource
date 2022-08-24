@@ -69,10 +69,9 @@ enum helios_tz_commands {
 
 /* tzapp bg request.*/
 struct tzapp_helios_req {
-	uint8_t tzapp_helios_cmd;
-	uint8_t padding[3];
-	u32 address_fw;
-	size_t size_fw;
+	uint64_t address_fw;
+	uint64_t size_fw;
+	uint32_t tzapp_helios_cmd;
 } __attribute__((__packed__));
 
 /* tzapp bg response.*/
