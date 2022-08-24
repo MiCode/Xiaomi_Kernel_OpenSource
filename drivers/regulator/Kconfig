@@ -1427,5 +1427,14 @@ config REGULATOR_MT6895_ALPHA_SUPPORT
 	  Set Y or M to select this feature for specific platform-mt6895,
 	  and set N to disable.
 
+config REGULATOR_WL2868C
+	tristate "TI TPS65218 Power regulators"
+	depends on MFD_TPS65218 && OF
+	help
+	  This driver supports TPS65218 voltage regulator chips. TPS65218
+	  provides six step-down converters and one general-purpose LDO
+	  voltage regulators. It supports software based voltage control
+	  for different voltage domains
+
 endif
 
