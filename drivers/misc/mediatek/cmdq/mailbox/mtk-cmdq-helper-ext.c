@@ -328,6 +328,13 @@ void cmdq_vcp_enable(bool en)
 	if (en) {
 		if (atomic_inc_return(&vcp.vcp_usage) == 1)
 			del_timer(&vcp.vcp_timer);
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+		if (!is_vcp_ready_ex(VCP_A_ID) && (atomic_read(&vcp.vcp_power) > 0)) {
+			vcp_deregister_feature_ex(GCE_FEATURE_ID);
+			atomic_dec(&vcp.vcp_power);
+			cmdq_msg("[VCP] checking vcp is not ready, retry power on vcp");
+		}
+#endif
 		if (atomic_read(&vcp.vcp_power) <= 0) {
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 			dma_addr_t buf_pa = vcp_get_reserve_mem_phys_ex(GCE_MEM_ID);
