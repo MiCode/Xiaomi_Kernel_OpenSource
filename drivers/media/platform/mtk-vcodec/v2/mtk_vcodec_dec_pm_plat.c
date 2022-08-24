@@ -36,9 +36,9 @@ static bool mtk_dec_tput_init(struct mtk_vcodec_dev *dev)
 	const int op_item_num = 9;
 	const int tp_item_num = 4;
 	const int bw_item_num = 2;
-	struct platform_device *pdev;
-	int i, j, larb_cnt, ret;
-	u32 nmin, nmax, cnt;
+	struct platform_device *pdev = NULL;
+	int i = 0, j = 0, larb_cnt = 0, ret = 0;
+	u32 nmin = 0, nmax = 0, cnt = 0;
 
 	pdev = dev->plat_dev;
 	larb_cnt = 0;
