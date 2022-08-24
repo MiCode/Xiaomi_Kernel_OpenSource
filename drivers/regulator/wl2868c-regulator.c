@@ -260,13 +260,15 @@ static int wl2868c_regulator_init(struct wl2868c *chip)
 				"Failed to write init voltage register\n");
 		return ret;
 	}
+
 	ret = regmap_bulk_read(chip->regmap,
 				ldo_regs[WL2868C_MAX_REGULATORS - 1],
 				       vsel_range, 1);
-,
-
-
-
+	if (ret < 0) {
+		dev_info(chip->dev,
+				"Failed to read register\n");
+		return ret;
+	}
 
 	ret = regmap_write(chip->regmap, WL2868C_LDO_EN, 0x80);
 	if (ret < 0) {
