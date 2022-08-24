@@ -62,6 +62,7 @@ struct adsp_data {
 	bool has_aggre2_clk;
 	bool auto_boot;
 	bool dma_phys_below_32b;
+	bool needs_dsm_mem_setup;
 
 	char **active_pd_names;
 	char **proxy_pd_names;
@@ -598,11 +599,8 @@ begin_attach:
 	if (ret < 0)
 		goto unscale_bus;
 
-	if (!adsp->q6v5.rmb_base ||
-	    !readl_relaxed(adsp->q6v5.rmb_base + RMB_BOOT_WAIT_REG)) {
-		dev_err(adsp->dev, "Remote proc is not ready to attach\n");
-		adsp_stop(rproc);
-		ret = -EBUSY;
+	if (!adsp->q6v5.rmb_base) {
+		dev_err(adsp->dev, "Remote proc cannot be late attached\n");
 		goto disable_active_pds;
 	}
 
@@ -669,7 +667,8 @@ unscale_bus:
 disable_irqs:
 	qcom_q6v5_unprepare(&adsp->q6v5);
 
-	return ret;
+	/* attempt to normally boot rproc if we can't late attach */
+	return adsp_start(rproc);
 }
 
 static void *adsp_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iomem)
@@ -992,7 +991,8 @@ static int adsp_probe(struct platform_device *pdev)
 	if (ret < 0 && ret != -EINVAL)
 		return ret;
 
-	if (!mpss_dsm_mem_setup && !strcmp(fw_name, "modem.mdt")) {
+	if (desc->needs_dsm_mem_setup && !mpss_dsm_mem_setup &&
+			!strcmp(fw_name, "modem.mdt")) {
 		ret = setup_mpss_dsm_mem(pdev);
 		if (ret) {
 			dev_err(&pdev->dev, "failed to setup mpss dsm mem\n");
@@ -1412,6 +1412,7 @@ static const struct adsp_data kalama_mpss_resource = {
 	.uses_elf64 = true,
 	.has_aggre2_clk = false,
 	.auto_boot = false,
+	.needs_dsm_mem_setup = true,
 	.ssr_name = "mpss",
 	.sysmon_name = "modem",
 	.qmp_name = "modem",
