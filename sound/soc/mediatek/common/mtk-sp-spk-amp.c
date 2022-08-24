@@ -72,6 +72,12 @@ static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
 		.codec_name = "tfa98xx",
 	},
 #endif /* CONFIG_SND_SOC_TFA9874 */
+#if IS_ENABLED(CONFIG_SND_SOC_FS1894U)
+	[MTK_SPK_FOURSEMI_FS18XX] = {
+		.codec_dai_name = "fs16xx-aif",
+		.codec_name = "fs16xx",
+	}
+#endif /* CONFIG_SND_SOC_FS1894U */
 };
 
 static int mtk_spk_i2c_probe(struct i2c_client *client,
