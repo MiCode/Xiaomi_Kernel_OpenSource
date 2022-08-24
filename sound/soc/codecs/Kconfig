@@ -213,6 +213,8 @@ config SND_SOC_ALL_CODECS
         imply SND_SOC_AA006
 	imply SND_SOC_BB007
 	imply SND_SOC_TFA9879
+	imply SND_SOC_FS1894U
+	imply SND_SOC_AD10
 	imply SND_SOC_TLV320ADCX140
 	imply SND_SOC_TLV320AIC23_I2C
 	imply SND_SOC_TLV320AIC23_SPI
@@ -1393,6 +1395,21 @@ config SND_SOC_AA006
 config SND_SOC_TFA9879
 	tristate "NXP Semiconductors TFA9879 amplifier"
 	depends on I2C
+
+config SND_SOC_FS1894U
+	tristate "FourSemi fs16xx Codec Driver"
+	depends on I2C
+#	default y
+	help
+	  for FourSemi True Smart Amplifier.
+
+config SND_SOC_AD10
+	tristate "Support AD10 driver"
+	depends on I2C
+	help
+	  This option enables support for AD10 boards.
+	  Speaker amp use FourSemi FS1894 codec,
+	  This only using on special project phone.
 
 config SND_SOC_BB007
 	tristate "Support BB007 driver"
