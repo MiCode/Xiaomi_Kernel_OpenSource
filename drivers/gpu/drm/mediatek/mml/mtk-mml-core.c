@@ -1205,6 +1205,7 @@ static void core_taskdump(struct mml_task *task, u32 pipe, int err)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	int cnt;
+	u32 i;
 
 	if (err == -EBUSY) {
 		/* inline rotate case self trigger, mark mmp and do nothing */
@@ -1231,7 +1232,11 @@ static void core_taskdump(struct mml_task *task, u32 pipe, int err)
 	mml_record_dump(task->config->mml);
 	mml_err("error dump %d end", cnt);
 
-	call_dbg_op(path->mmlsys, reset, task->config, pipe);
+	for (i = 0; i < path->node_cnt; i++) {
+		struct mml_comp *comp = path->nodes[i].comp;
+
+		call_dbg_op(comp, reset, task->config, pipe);
+	}
 
 	mml_err("error %d engine reset end", cnt);
 	mml_cmdq_err = 0;

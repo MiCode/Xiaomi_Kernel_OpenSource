@@ -1230,8 +1230,19 @@ static void aal_debug_dump(struct mml_comp *comp)
 		value[7], value[8]);
 }
 
+static void aal_reset(struct mml_comp *comp, struct mml_frame_config *cfg, u32 pipe)
+{
+	const struct mml_topology_path *path = cfg->path[pipe];
+	struct mml_comp_aal *aal = comp_to_aal(comp);
+	bool vcp = aal->data->vcp_readback;
+
+	if (vcp)
+		cmdq_clear_event(path->clt->chan, aal->event_vcp_readback_done);
+}
+
 static const struct mml_comp_debug_ops aal_debug_ops = {
 	.dump = &aal_debug_dump,
+	.reset = &aal_reset,
 };
 
 static int mml_bind(struct device *dev, struct device *master, void *data)
