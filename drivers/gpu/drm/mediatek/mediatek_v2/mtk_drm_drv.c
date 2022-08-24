@@ -1226,7 +1226,6 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 	unsigned int fps = drm_mode_vrefresh(&mtk_crtc->base.state->adjusted_mode);
 	unsigned int vtotal = mtk_crtc->base.state->adjusted_mode.vtotal;
 	unsigned int line_time = 0;
-	struct mtk_ddp_comp *comp;
 
 	submit_user = (struct mml_submit *)
 		(mtk_plane_state->prop_val[PLANE_PROP_MML_SUBMIT]);
@@ -1297,16 +1296,17 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 		mml_drm_split_info(submit_kernel, submit_pq);
 
 		// calculate line time, unit:ns
-		if (!mtk_crtc_is_frame_trigger_mode(mtk_plane_state->crtc)) {
-			// vdo mode
-			line_time = (1000000000 / fps) / vtotal;
-		} else {
-			// cmd mode
-			comp = mtk_ddp_comp_request_output(mtk_crtc);
+		if (mtk_crtc_is_frame_trigger_mode(mtk_plane_state->crtc)) {
+			struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
+
+			if (mtk_crtc->mml_ir_state == MML_IR_IDLE)
+				mtk_drm_idlemgr_kick(__func__, mtk_plane_state->crtc, false);
+
 			if (comp)
-				mtk_ddp_comp_io_cmd(comp, NULL,
-							DSI_GET_CMD_MODE_LINE_TIME, &line_time);
-		}
+				mtk_ddp_comp_io_cmd(comp, NULL, DSI_GET_CMD_MODE_LINE_TIME,
+						&line_time);
+		} else
+			line_time = (1000000000 / fps) / vtotal;
 		// calculate act time
 		submit_kernel->info.act_time = line_time * submit_pq->info.dest[0].data.height;
 		DDPINFO("%s fps=%d vtotal=%d line_time=%d dest_height=%d act_time=%d\n", __func__,
@@ -1368,9 +1368,9 @@ static void mtk_atomic_mml(struct drm_device *dev,
 	}
 
 	mtk_crtc = to_mtk_crtc(crtc);
-	last_is_mml = mtk_crtc->is_mml;
+
+	last_is_mml = (mtk_crtc->mml_ir_state == MML_IR_IDLE) ? false : mtk_crtc->is_mml;
 	mtk_crtc->is_mml = false;
-	mtk_crtc->mml_ir_state = NOT_MML_IR;
 
 	for_each_old_plane_in_state(state, plane, old_plane_state, i) {
 		plane_state = plane->state;
@@ -1383,13 +1383,6 @@ static void mtk_atomic_mml(struct drm_device *dev,
 		}
 	}
 
-	if (!last_is_mml && mtk_crtc->is_mml)
-		mtk_crtc->mml_ir_state = MML_IR_ENTERING;
-	else if (last_is_mml && mtk_crtc->is_mml)
-		mtk_crtc->mml_ir_state = MML_IR_RACING;
-	else if (last_is_mml && !mtk_crtc->is_mml)
-		mtk_crtc->mml_ir_state = MML_IR_LEAVING;
-
 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
 		struct mtk_crtc_state *s = to_mtk_crtc_state(new_crtc_state);
 
@@ -1400,7 +1393,19 @@ static void mtk_atomic_mml(struct drm_device *dev,
 				DDPMSG("%s:%d clear MML scn after suspend\n", __func__, __LINE__);
 			}
 		}
+		/* if resume from ir idle, the old addon should not be disconnect again */
+		if (mtk_crtc->mml_ir_state == MML_IR_IDLE)
+			s->lye_state.scn[i] = NONE;
 	}
+
+	if (!last_is_mml && mtk_crtc->is_mml)
+		mtk_crtc->mml_ir_state = MML_IR_ENTERING;
+	else if (last_is_mml && mtk_crtc->is_mml)
+		mtk_crtc->mml_ir_state = MML_IR_RACING;
+	else if (last_is_mml && !mtk_crtc->is_mml)
+		mtk_crtc->mml_ir_state = MML_IR_LEAVING;
+	else
+		mtk_crtc->mml_ir_state = NOT_MML_IR;
 }
 
 static void mtk_set_first_config(struct drm_device *dev,

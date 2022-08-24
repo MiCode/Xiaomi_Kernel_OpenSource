@@ -5592,7 +5592,7 @@ void mtk_crtc_disconnect_addon_module(struct drm_crtc *crtc)
 	cmdq_pkt_destroy(handle);
 }
 
-static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
+void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 	struct cmdq_pkt *handle)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -5603,6 +5603,15 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 
 	if (panel_ext && panel_ext->dsc_params.enable) {
 		struct mtk_ddp_config cfg;
+		bool flush = false;
+		struct cmdq_pkt *_handle = NULL;
+
+		if (handle) {
+			_handle = handle;
+		} else {
+			mtk_crtc_pkt_create(&_handle, crtc, mtk_crtc->gce_obj.client[CLIENT_CFG]);
+			flush = true;
+		}
 
 		/* TODO: DSC comp not hardcode */
 		if (drm_crtc_index(crtc) == 0)
@@ -5680,6 +5689,11 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 
 		mtk_ddp_comp_config(dsc_comp, &cfg, handle);
 		mtk_ddp_comp_start(dsc_comp, handle);
+
+		if (flush) {
+			cmdq_pkt_flush(_handle);
+			cmdq_pkt_destroy(_handle);
+		}
 	}
 
 }
@@ -6091,6 +6105,12 @@ void mtk_crtc_check_trigger(struct mtk_drm_crtc *mtk_crtc, bool delay,
 		goto err;
 	}
 
+	if (mtk_crtc->is_mml) {
+		DDPINFO("%s:%d, skip check trigger when MML IR\n", __func__, __LINE__);
+		CRTC_MMP_MARK(index, kick_trigger, 0, 4);
+		goto err;
+	}
+
 	panel_ext = mtk_crtc->panel_ext;
 	mtk_state = to_mtk_crtc_state(crtc->state);
 	if (mtk_crtc_is_frame_trigger_mode(crtc) &&
@@ -6103,7 +6123,7 @@ void mtk_crtc_check_trigger(struct mtk_drm_crtc *mtk_crtc, bool delay,
 	if (delay) {
 		/* implicit way make sure wait queue was initiated */
 		if (unlikely(&mtk_crtc->trigger_delay_task == NULL)) {
-			CRTC_MMP_MARK(index, kick_trigger, 0, 4);
+			CRTC_MMP_MARK(index, kick_trigger, 0, 5);
 			goto err;
 		}
 		atomic_set(&mtk_crtc->trig_delay_act, 1);
@@ -6111,7 +6131,7 @@ void mtk_crtc_check_trigger(struct mtk_drm_crtc *mtk_crtc, bool delay,
 	} else {
 		/* implicit way make sure wait queue was initiated */
 		if (unlikely(&mtk_crtc->trigger_event_task == NULL)) {
-			CRTC_MMP_MARK(index, kick_trigger, 0, 5);
+			CRTC_MMP_MARK(index, kick_trigger, 0, 6);
 			goto err;
 		}
 		atomic_set(&mtk_crtc->trig_event_act, 1);
@@ -9036,6 +9056,11 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 		return -1;
 	}
 
+	/* if gce flush is form dal_show, we do not update and disconnect WDMA */
+	/* because WDMA addon path is not connected */
+	if (cb_data == cmdq_handle)
+		is_from_dal = 1;
+
 	/* apply color matrix if crtc0 is DL */
 	ccorr_config = mtk_crtc_get_color_matrix_data(crtc);
 	if (drm_crtc_index(crtc) == 0 && (!mtk_crtc_is_dc_mode(crtc)))
@@ -9063,20 +9088,19 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 		cmdq_pkt_wait_no_clear(cmdq_handle, gce_event);
 	} else if (mtk_crtc_is_frame_trigger_mode(crtc) &&
 					mtk_crtc_with_trigger_loop(crtc)) {
-		/* DL with trigger loop */
-		cmdq_pkt_set_event(cmdq_handle,
-				mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+		if (mtk_crtc->is_mml && is_from_dal) {
+			/* skip trigger when racing with mml */
+		} else {
+			/* DL with trigger loop */
+			cmdq_pkt_set_event(cmdq_handle,
+					mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+		}
 
 	} else {
 		/* DL without trigger loop */
 		mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0],
 			cmdq_handle, mtk_crtc->gce_obj.base);
 	}
-
-	/* if gce flush is form dal_show, we do not update and disconnect WDMA */
-	/* because WDMA addon path is not connected */
-	if (cb_data == cmdq_handle)
-		is_from_dal = 1;
 
 	if (mtk_crtc_is_dc_mode(crtc) ||
 		(state->prop_val[CRTC_PROP_OUTPUT_ENABLE] && crtc_index != 0)) {
@@ -9690,8 +9714,10 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	}
 
 	/* need to check mml is submit done */
-	if (mtk_crtc->is_mml)
+	if (mtk_crtc->is_mml) {
 		mtk_drm_wait_mml_submit_done(&(mtk_crtc->mml_cb));
+		mtk_drm_idlemgr_kick(__func__, crtc, false); /* update kick timestamp */
+	}
 
 #ifndef DRM_CMDQ_DISABLE
 #ifdef MTK_DRM_CMDQ_ASYNC

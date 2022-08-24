@@ -499,7 +499,8 @@ enum MML_IR_STATE {
 	NOT_MML_IR,
 	MML_IR_ENTERING,
 	MML_IR_RACING,
-	MML_IR_LEAVING
+	MML_IR_LEAVING,
+	MML_IR_IDLE,
 };
 
 struct mtk_crtc_path_data {
@@ -904,6 +905,8 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 			       struct mtk_plane_state *state);
 void mtk_drm_crtc_plane_disable(struct drm_crtc *crtc, struct drm_plane *plane,
 			       struct mtk_plane_state *state);
+void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc, struct cmdq_pkt *handle);
+
 
 
 void mtk_drm_crtc_dump(struct drm_crtc *crtc);
