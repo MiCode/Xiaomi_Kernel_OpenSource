@@ -121,7 +121,14 @@ DECLARE_HOOK(android_vh_mark_page_accessed,
 DECLARE_HOOK(android_vh_page_cache_forced_ra,
 	TP_PROTO(struct readahead_control *ractl, unsigned long req_count, bool *do_forced_ra),
 	TP_ARGS(ractl, req_count, do_forced_ra));
-
+DECLARE_HOOK(android_vh_alloc_pages_reclaim_bypass,
+	TP_PROTO(gfp_t gfp_mask, int order, int alloc_flags,
+	int migratetype, struct page **page),
+	TP_ARGS(gfp_mask, order, alloc_flags, migratetype, page));
+DECLARE_HOOK(android_vh_alloc_pages_failure_bypass,
+	TP_PROTO(gfp_t gfp_mask, int order, int alloc_flags,
+	int migratetype, struct page **page),
+	TP_ARGS(gfp_mask, order, alloc_flags, migratetype, page));
 #endif /* _TRACE_HOOK_MM_H */
 
 /* This part must be outside protection */
