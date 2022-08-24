@@ -1200,12 +1200,13 @@ static DEVICE_ATTR_RW(debug_i2c_ops);
 
 static int imgsensor_probe(struct i2c_client *client)
 {
+
 	struct device *dev = &client->dev;
 	struct device_node *endpoint;
 	struct adaptor_ctx *ctx;
 	int ret;
 	int forbid_index;
-
+	dev_info(dev, "imgsensor_probe success\n");
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
@@ -1395,7 +1396,6 @@ static struct i2c_driver imgsensor_i2c_driver = {
 static int __init adaptor_drv_init(void)
 {
 	i2c_add_driver(&imgsensor_i2c_driver);
-
 	return 0;
 }
 

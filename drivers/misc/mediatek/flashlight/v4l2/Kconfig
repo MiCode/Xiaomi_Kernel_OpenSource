@@ -43,3 +43,13 @@ config MTK_VIDEO_KTD2687
 	  flash, torch LEDs.
 
 	  Say M here if you want to compile this driver as a module.
+config MTK_VIDEO_AW36514
+	tristate "KTD2687 dual flash driver support"
+	depends on I2C && VIDEO_V4L2 && MEDIA_CONTROLLER
+	depends on MEDIA_CAMERA_SUPPORT
+	select REGMAP_I2C
+	help
+	  This is a driver for the ktd2687 dual flash controllers. It controls
+	  flash, torch LEDs.
+
+	  Say M here if you want to compile this driver as a module.

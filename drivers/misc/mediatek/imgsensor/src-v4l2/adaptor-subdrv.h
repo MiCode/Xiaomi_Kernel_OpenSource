@@ -173,6 +173,15 @@ struct subdrv_entry {
 	__val; \
 })
 
+#define subdrv_i2c_rd_u8_reg8(subctx, reg) \
+ ({ \
+        u8 __val = 0xff; \
+        adaptor_i2c_rd_u8_reg8(subctx->i2c_client, \
+            subctx->i2c_write_id >> 1, reg, &__val); \
+        __val; \
+})
+
+
 #define subdrv_i2c_rd_u16(subctx, reg) \
 ({ \
 	u16 __val = 0xffff; \
@@ -184,6 +193,11 @@ struct subdrv_entry {
 #define subdrv_i2c_wr_u8(subctx, reg, val) \
 	adaptor_i2c_wr_u8(subctx->i2c_client, \
 		subctx->i2c_write_id >> 1, reg, val)
+
+#define subdrv_i2c_wr_u8_reg8(subctx, reg, val) \
+	adaptor_i2c_wr_u8_reg8(subctx->i2c_client, \
+		subctx->i2c_write_id >> 1, reg, val)
+
 
 #define subdrv_i2c_wr_u16(subctx, reg, val) \
 	adaptor_i2c_wr_u16(subctx->i2c_client, \
