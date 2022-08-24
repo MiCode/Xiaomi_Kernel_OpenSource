@@ -143,9 +143,18 @@ def get_gki_denyfile():
     # get denyfile
     cmd = options.tool_chain + "llvm-dwarfdump --debug-info "+ options.google_vmlinux \
     + " | grep \"DW_AT_decl_file\" | awk 'BEGIN {FS=\"\\\"\"} {print $2}' | sed 's/" \
-    + restr + "\///' | sort | uniq > " + options.checker_out + "file/tmp/gki_denyfiles.txt"
+    + restr + "\///' | sort | uniq > " + options.checker_out + "file/tmp/tmp_gki_denyfiles.txt"
     print(cmd)
     os.system(cmd)
+    tmp_list = []
+    with open(options.checker_out + "file/tmp/tmp_gki_denyfiles.txt", "r") as t:
+        for x in t:
+            tmp_list.append(os.path.normpath(x))
+    tmp_list.sort()
+    f = open(options.checker_out + "file/tmp/gki_denyfiles.txt", "w")
+    for x in tmp_list:
+        f.write(x)
+    f.close()
 
 '''
 # TODO report info, current not use
