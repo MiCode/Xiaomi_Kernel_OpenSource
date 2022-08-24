@@ -76,3 +76,8 @@ msm_rtb.ko
 rproc_qcom_common.ko
 qcom_glink_spss.ko
 usbpd.ko
+slim-qcom-ngd-ctrl.ko
+bam_dma.ko
+pdr_interface.ko
+qmi_helpers.ko
+slimbus.ko
