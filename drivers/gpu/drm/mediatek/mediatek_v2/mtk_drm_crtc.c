@@ -2699,9 +2699,9 @@ static void mtk_crtc_free_sram(struct mtk_drm_crtc *mtk_crtc)
 	DDPMSG("%s address:0x%x size:0x%lx\n", __func__, sram->paddr, sram->size);
 	slbc_power_off(sram);
 	slbc_release(sram);
-	kfree(sram);
 	mtk_crtc->mml_ir_sram.data = NULL;
 	DRM_MMP_MARK(sram_free, (unsigned long)sram->paddr, sram->size);
+	kfree(sram);
 }
 
 static void mtk_crtc_mml_clean(struct kref *kref)
