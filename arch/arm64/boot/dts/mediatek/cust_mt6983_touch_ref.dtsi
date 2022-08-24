@@ -1,0 +1,127 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+
+/* TOUCH start */
+&i2c1 {
+	clock-frequency = <400000>;
+	pinctrl-names = "main_default", "main_ts_int_active",
+		"main_ts_reset_active", "main_ts_int_suspend",
+		"main_ts_reset_suspend";
+	pinctrl-0 = <&main_pins_default>;
+	pinctrl-1 = <&main_ts_int_active>;
+	Pinctrl-2 = <&main_ts_reset_active>;
+	pinctrl-3 = <&main_ts_int_suspend>;
+	pinctrl-4 = <&main_ts_reset_suspend>;
+	pinctrl-5 = <&main_ts_i2c_mode>;
+	focaltech@38 {
+		compatible = "focaltech,fts3881";
+		reg = <0x38> ;
+		interrupt-parent = <&pio>;
+		focaltech,iovdd-gpio = <&pio 145 0x0>;
+		focaltech,avdd-gpio = <&pio 154 0x0>;
+		focaltech,reset-gpio = <&pio 3 0x0>;
+		interrupts = <8 IRQ_TYPE_EDGE_FALLING 8 0>;
+		focaltech,irq-gpio = <&pio 8 0x0>;
+		focaltech,max-touch-number = <10>;
+		focaltech,display-coords =  <0 0 2296 2000>;
+		focaltech,double-tp;
+		status = "okay";
+	};
+};
+
+&i2c0 {
+	pinctrl-names = "sub_default", "sub_ts_int_active",
+		"sub_ts_reset_active", "sub_ts_int_suspend",
+		"sub_ts_reset_suspend", "sub_ts_i2c_mode";
+	pinctrl-0 = <&sub_pins_default>;
+	pinctrl-1 = <&sub_ts_int_active>;
+	pinctrl-2 = <&sub_ts_reset_active>;
+	pinctrl-3 = <&sub_ts_int_suspend>;
+	pinctrl-4 = <&sub_ts_reset_suspend>;
+	pinctrl-5 = <&sub_ts_i2c_mode>;
+	focaltech@38 {
+		compatible = "focaltech,fts";
+		reg = <0x38>;
+		vtouch-supply = <&mt6373_vtp>;
+		interrupt-parent = <&pio>;
+		focaltech,reset-gpio = <&pio 2 0x0>;
+		interrupts = <4 IRQ_TYPE_EDGE_FALLING 4 0>;
+		focaltech,irq-gpio = <&pio 4 0x0>;
+		focaltech,max-touch-number = <10>;
+		focaltech,display-coords =  <0 0 1080 2550>;
+		status = "okay";
+	};
+};
+
+&pio {
+	/* main CTP gpio config */
+	main_pins_default: main_eintdefault {
+	};
+	main_ts_int_active: main_int_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+			input-enable;
+		};
+	};
+	main_ts_reset_active: main_reset_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			output-high;
+		};
+	};
+	main_ts_int_suspend: main_int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+			output-low;
+		};
+	};
+	main_ts_reset_suspend: main_reset_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			output-low;
+		};
+	};
+	main_ts_i2c_mode: main_i2cmode_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO173__FUNC_SCL1>,
+				<PINMUX_GPIO174__FUNC_SDA1>;
+		};
+	};
+
+	/* sub CTP gpio config */
+	sub_pins_default: sub_eintdefault {
+	};
+	sub_ts_int_active: sub_int_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO4__FUNC_GPIO4>;
+			input-enable;
+		};
+	};
+	sub_ts_reset_active: sub_reset_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO2__FUNC_GPIO2>;
+			output-high;
+		};
+	};
+	sub_ts_int_suspend: sub_int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO4__FUNC_GPIO4>;
+			output-low;
+		};
+	};
+	sub_ts_reset_suspend: sub_reset_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO2__FUNC_GPIO2>;
+			output-low;
+		};
+	};
+	sub_ts_i2c_mode: sub_i2cmode_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO78__FUNC_SCL0>,
+				<PINMUX_GPIO79__FUNC_SDA0>;
+		};
+	};
+};
+/* TOUCH end */
