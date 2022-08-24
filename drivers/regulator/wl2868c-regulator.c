@@ -303,10 +303,8 @@ static int wl2868c_i2c_probe(struct i2c_client *client,
 		{WL2868C_SEQ_STATUS, 0x00},
 	};
 	chip = devm_kzalloc(dev, sizeof(struct wl2868c), GFP_KERNEL);
-	if (!chip) {
-		dev_info(chip->dev, "wl2868c probe Memory error...\n");
+	if (!chip)
 		return -ENOMEM;
-	}
 
 	dev_info(chip->dev, "wl2868c probe Enter...\n");
 
