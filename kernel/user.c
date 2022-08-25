@@ -98,11 +98,12 @@ static struct hlist_head uidhash_table[UIDHASH_SZ];
 static DEFINE_SPINLOCK(uidhash_lock);
 
 /* root_user.__count is 1, for init task cred */
-struct user_struct root_user = {
-	.__count	= REFCOUNT_INIT(1),
-	.uid		= GLOBAL_ROOT_UID,
-	.ratelimit	= RATELIMIT_STATE_INIT(root_user.ratelimit, 0, 0),
+struct ext_user_struct ext_root_user = {
+	.user.__count	= REFCOUNT_INIT(1),
+	.user.uid	= GLOBAL_ROOT_UID,
+	.user.ratelimit	= RATELIMIT_STATE_INIT(root_user.ratelimit, 0, 0),
 };
+struct user_struct *root_user = &ext_root_user.user;
 
 /*
  * These routines must be called with the uidhash spinlock held!
@@ -154,11 +155,14 @@ static void user_epoll_free(struct user_struct *up)
 static void free_user(struct user_struct *up, unsigned long flags)
 	__releases(&uidhash_lock)
 {
+	struct ext_user_struct *ext_user;
+
+	ext_user = container_of(up, struct ext_user_struct, user);
 	trace_android_vh_free_user(up);
 	uid_hash_remove(up);
 	spin_unlock_irqrestore(&uidhash_lock, flags);
 	user_epoll_free(up);
-	kmem_cache_free(uid_cachep, up);
+	kmem_cache_free(uid_cachep, ext_user);
 }
 
 /*
@@ -195,16 +199,18 @@ struct user_struct *alloc_uid(kuid_t uid)
 {
 	struct hlist_head *hashent = uidhashentry(uid);
 	struct user_struct *up, *new;
+	struct ext_user_struct *ext_user;
 
 	spin_lock_irq(&uidhash_lock);
 	up = uid_hash_find(uid, hashent);
 	spin_unlock_irq(&uidhash_lock);
 
 	if (!up) {
-		new = kmem_cache_zalloc(uid_cachep, GFP_KERNEL);
-		if (!new)
+		ext_user = kmem_cache_zalloc(uid_cachep, GFP_KERNEL);
+		if (!ext_user)
 			return NULL;
 
+		new = &ext_user->user;
 		new->uid = uid;
 		refcount_set(&new->__count, 1);
 		trace_android_vh_alloc_uid(new);
@@ -238,18 +244,18 @@ static int __init uid_cache_init(void)
 {
 	int n;
 
-	uid_cachep = kmem_cache_create("uid_cache", sizeof(struct user_struct),
+	uid_cachep = kmem_cache_create("uid_cache", sizeof(struct ext_user_struct),
 			0, SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
 
 	for(n = 0; n < UIDHASH_SZ; ++n)
 		INIT_HLIST_HEAD(uidhash_table + n);
 
-	if (user_epoll_alloc(&root_user))
+	if (user_epoll_alloc(root_user))
 		panic("root_user epoll percpu counter alloc failed");
 
 	/* Insert the root user immediately (init already runs as root) */
 	spin_lock_irq(&uidhash_lock);
-	uid_hash_insert(&root_user, uidhashentry(GLOBAL_ROOT_UID));
+	uid_hash_insert(root_user, uidhashentry(GLOBAL_ROOT_UID));
 	spin_unlock_irq(&uidhash_lock);
 
 	return 0;
