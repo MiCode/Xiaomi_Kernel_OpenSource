@@ -133,6 +133,7 @@
   io_schedule
   ip6_local_out
   ip6_route_me_harder
+  ip_local_deliver
   ip_local_out
   ip_route_me_harder
   iput
@@ -487,6 +488,7 @@
   unlock_page
   unregister_blkdev
   unregister_memory_notifier
+  unregister_net_sysctl_table
   unregister_reboot_notifier
   unregister_shrinker
   unregister_sysctl_table
