@@ -74,6 +74,7 @@
   blk_mq_alloc_request_hctx
   blk_mq_complete_request_remote
   blk_mq_delay_kick_requeue_list
+  blk_mq_free_request
   blk_mq_freeze_queue_wait
   blk_mq_freeze_queue_wait_timeout
   blk_mq_pci_map_queues
