@@ -40,6 +40,9 @@ enum android_debug_symbol {
 	ADS_SYSCTL_LEGACY_VA_LAYOUT,
 #endif
 	ADS_SHOW_MEM,
+#if !defined (__GENKSYMS__) && defined(CONFIG_ARM64)
+	ADS_PUT_TASK_STACK,
+#endif
 	ADS_END
 };
 
