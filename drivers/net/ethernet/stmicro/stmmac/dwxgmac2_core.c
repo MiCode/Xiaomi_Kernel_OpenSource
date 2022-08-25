@@ -1032,6 +1032,11 @@ static int dwxgmac3_rxp_config(void __iomem *ioaddr,
 		entry->in_hw = false;
 	}
 
+	/* Specify that we are updating FRP instruction table */
+	val = readl(ioaddr + XGMAC_MTL_RXP_IACC_CTRL_ST);
+	val &= ~XGMAC_ACCSEL;
+	writel(val, ioaddr + XGMAC_MTL_RXP_IACC_CTRL_ST);
+
 	/* Update entries by reverse order */
 	while (1) {
 		entry = dwxgmac3_rxp_get_next_entry(entries, count, curr_prio);
@@ -1065,9 +1070,6 @@ static int dwxgmac3_rxp_config(void __iomem *ioaddr,
 		}
 	}
 
-	if (!nve)
-		goto re_enable;
-
 	/* Update all pass entry */
 	for (i = 0; i < count; i++) {
 		entry = &entries[i];
@@ -1080,6 +1082,9 @@ static int dwxgmac3_rxp_config(void __iomem *ioaddr,
 
 		entry->table_pos = nve++;
 	}
+
+	if (!nve)
+		goto re_enable;
 
 	/* Assume n. of parsable entries == n. of valid entries */
 	val = (nve << 16) & XGMAC_NPE;
