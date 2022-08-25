@@ -180,6 +180,8 @@
   __traceiter_android_vh_scheduler_tick
   __tracepoint_android_vh_scheduler_tick
   jiffies_64
+  free_uid
+  find_user
 
 #required by migt.ko
   __traceiter_android_rvh_after_enqueue_task
