@@ -4013,17 +4013,44 @@ walt_dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 				      -(s64)wts->pred_demand_scaled);
 }
 
+static void adjust_misfit_task_accounting(struct walt_rq *wrq, struct task_struct *p, int adj)
+{
+	while (adj) {
+		if (adj > 0) {
+			if (!is_compat_thread(task_thread_info(p)))
+				wrq->walt_stats.nr_big_tasks++;
+			else
+				wrq->walt_stats.nr_32bit_big_tasks++;
+			adj--;
+		} else if (adj < 0) {
+			if (!is_compat_thread(task_thread_info(p))) {
+				if (wrq->walt_stats.nr_big_tasks == 0 &&
+				    wrq->walt_stats.nr_32bit_big_tasks > 0)
+					wrq->walt_stats.nr_32bit_big_tasks--;
+				else
+					wrq->walt_stats.nr_big_tasks--;
+			} else {
+				if (wrq->walt_stats.nr_32bit_big_tasks == 0 &&
+				    wrq->walt_stats.nr_big_tasks > 0)
+					wrq->walt_stats.nr_big_tasks--;
+				else
+					wrq->walt_stats.nr_32bit_big_tasks--;
+			}
+			adj++;
+		}
+	}
+
+	BUG_ON(wrq->walt_stats.nr_big_tasks < 0);
+	BUG_ON(wrq->walt_stats.nr_32bit_big_tasks < 0);
+}
+
 static void inc_rq_walt_stats(struct rq *rq, struct task_struct *p)
 {
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
-	if (wts->misfit) {
-		if (!is_compat_thread(task_thread_info(p)))
-			wrq->walt_stats.nr_big_tasks++;
-		else
-			wrq->walt_stats.nr_32bit_big_tasks++;
-	}
+	if (wts->misfit)
+		adjust_misfit_task_accounting(wrq, p, 1);
 
 	wts->rtg_high_prio = task_rtg_high_prio(p);
 	if (wts->rtg_high_prio)
@@ -4035,29 +4062,11 @@ static void dec_rq_walt_stats(struct rq *rq, struct task_struct *p)
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
-	if (wts->misfit) {
-		if (!is_compat_thread(task_thread_info(p))) {
-			wrq->walt_stats.nr_big_tasks--;
-		} else {
-			/*
-			 * A 32bit task could have become misfit while
-			 * still a 64bit task in execve. When the task
-			 * is dequeued it may or may not be in execve,
-			 * but it will no longer be a 64bit task.
-			 */
-			if (wrq->walt_stats.nr_32bit_big_tasks == 0 &&
-			    wrq->walt_stats.nr_big_tasks > 0)
-				wrq->walt_stats.nr_big_tasks--;
-			else
-				wrq->walt_stats.nr_32bit_big_tasks--;
-		}
-	}
+	if (wts->misfit)
+		adjust_misfit_task_accounting(wrq, p, -1);
 
 	if (wts->rtg_high_prio)
 		wrq->walt_stats.nr_rtg_high_prio_tasks--;
-
-	BUG_ON(wrq->walt_stats.nr_big_tasks < 0);
-	BUG_ON(wrq->walt_stats.nr_32bit_big_tasks < 0);
 }
 
 static void android_rvh_wake_up_new_task(void *unused, struct task_struct *new)
@@ -4312,13 +4321,8 @@ static void android_rvh_update_misfit_status(void *unused, struct task_struct *p
 	if (change) {
 		sched_update_nr_prod(rq->cpu, 0);
 		wts->misfit = misfit;
-		if (!is_compat_thread(task_thread_info(p)))
-			wrq->walt_stats.nr_big_tasks += change;
-		else
-			wrq->walt_stats.nr_32bit_big_tasks += change;
 
-		BUG_ON(wrq->walt_stats.nr_big_tasks < 0);
-		BUG_ON(wrq->walt_stats.nr_32bit_big_tasks < 0);
+		adjust_misfit_task_accounting(wrq, p, change);
 	}
 }
 
