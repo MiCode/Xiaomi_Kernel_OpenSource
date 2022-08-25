@@ -206,6 +206,24 @@ int synx_global_init_coredata(u32 h_synx)
 	if (rc)
 		return rc;
 	synx_g_obj = &synx_gmem.table[idx];
+	if (synx_g_obj->status != 0 || synx_g_obj->refcount != 0 ||
+		synx_g_obj->subscribers != 0 || synx_g_obj->handle != 0 ||
+		synx_g_obj->parents[0] != 0) {
+		dprintk(SYNX_ERR,
+				"entry not cleared for idx %u,\n"
+				"synx_g_obj->status %d,\n"
+				"synx_g_obj->refcount %d,\n"
+				"synx_g_obj->subscribers %d,\n"
+				"synx_g_obj->handle %u,\n"
+				"synx_g_obj->parents[0] %d\n",
+				idx, synx_g_obj->status,
+				synx_g_obj->refcount,
+				synx_g_obj->subscribers,
+				synx_g_obj->handle,
+				synx_g_obj->parents[0]);
+		synx_gmem_unlock(idx, &flags);
+		return -SYNX_INVALID;
+	}
 	memset(synx_g_obj, 0, sizeof(*synx_g_obj));
 	/* set status to active */
 	synx_g_obj->status = SYNX_STATE_ACTIVE;
