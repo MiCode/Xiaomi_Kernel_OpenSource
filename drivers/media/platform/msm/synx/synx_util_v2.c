@@ -873,7 +873,6 @@ static void synx_util_cleanup_fence(
 			if (synx_util_get_object_status_locked(synx_obj) ==
 				SYNX_STATE_ACTIVE) {
 				signal_cb->synx_obj = NULL;
-				signal_cb->handle = synx_obj->global_idx;
 				synx_obj->signal_cb =  NULL;
 				/*
 				 * release reference held by signal cb and
