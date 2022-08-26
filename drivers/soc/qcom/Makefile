@@ -34,6 +34,7 @@ obj-$(CONFIG_QCOM_MEM_HOOKS) += mem-hooks.o
 obj-$(CONFIG_QCOM_MEM_BUF) += mem_buf/
 obj-$(CONFIG_QCOM_SOCINFO)	+= socinfo.o
 obj-$(CONFIG_QCOM_SOC_SLEEP_STATS)	+= soc_sleep_stats.o
+obj-$(CONFIG_QTI_RPM_STATS_LOG) += rpm_master_stat.o
 obj-$(CONFIG_QCOM_CDSP_RM) += cdsprm.o
 obj-$(CONFIG_QCOM_SYSMON_SUBSYSTEM_STATS) += sysmon_subsystem_stats.o
 obj-$(CONFIG_QCOM_WDT_CORE) += qcom_wdt_core.o
