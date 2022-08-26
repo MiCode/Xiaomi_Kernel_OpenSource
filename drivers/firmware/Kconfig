@@ -216,6 +216,16 @@ config QCOM_SCM_DOWNLOAD_MODE_DEFAULT
 
 	  Say Y here to enable "download mode" by default.
 
+config QCOM_SCM_QCPE
+	bool "Para-Virtualized Secure Channel Manager (SCM) support over QCPE"
+	depends on QCOM_SCM && MSM_HAB
+	default n
+	help
+	  To enable Secure Channel Mananger(SCM) support for SoC
+	  in virtualized Linux, where SCM backend is QCPE (QCOM Protected
+	  environment). The SCM channel will use QCOM HAB interface for
+	  front-end to back-end communication.
+
 config QTEE_SHM_BRIDGE
 	bool "QTI TEE shared memory bridge"
 	depends on QCOM_SCM
