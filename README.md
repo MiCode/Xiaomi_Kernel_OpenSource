@@ -150,7 +150,7 @@
 | ysl-o-oss | Redmi S2 | Android O | LA.UM.6.6.r1-06200-89xx.0 | [ysl-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ysl-o-oss) |
 | ysl-p-oss | Redmi S2 | Android P | LA.UM.7.6.r1-03900-89xx.0 | [ysl-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ysl-p-oss) |
 | zeus-s-oss | Mi 12, Mi 12 Pro | Android S | LA.VENDOR.1.0.r1-09100-r1.0.r1 | [zeus-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/zeus-s-oss) |
-
+| munch-s-oss | Redmi K40S | Android S | LA.UM.9.12.r1-13300-SMxx50.QSSI12.0-1 | [munch-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/munch-s-oss) |
 公告： 小米内核组招聘（官方）
 ![image](https://user-images.githubusercontent.com/58464055/186303598-ad1363e1-c426-4ed7-9d78-ad4c1030bbd1.png)
 
