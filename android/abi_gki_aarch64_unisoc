@@ -1656,8 +1656,6 @@
   mempool_destroy
   mempool_free
   mempool_free_slab
-  nf_ct_get_tuplepr
-  nf_ct_invert_tuple
   param_ops_int
   prandom_u32
   proc_create_net_data
@@ -1781,20 +1779,14 @@
   _totalram_pages
   __traceiter_android_rvh_report_bug
   __traceiter_android_rvh_tk_based_time_sync
-  __traceiter_android_vh_ipi_stop
   __traceiter_android_vh_printk_caller
   __traceiter_android_vh_printk_caller_id
   __traceiter_android_vh_printk_ext_header
   __traceiter_android_vh_regmap_update
-  __traceiter_clock_set_rate
   trace_output_call
-  __tracepoint_android_rvh_effective_cpu_util
-  __tracepoint_android_rvh_psci_cpu_suspend
-  __tracepoint_android_rvh_psci_tos_resident_on
   __tracepoint_android_rvh_report_bug
   __tracepoint_android_rvh_tk_based_time_sync
   __tracepoint_android_vh_dma_buf_release
-  __tracepoint_android_vh_ipi_stop
   __tracepoint_android_vh_printk_caller
   __tracepoint_android_vh_printk_caller_id
   __tracepoint_android_vh_printk_ext_header
@@ -2306,8 +2298,6 @@
   ipv6_find_hdr
   kstrtouint_from_user
   __local_bh_enable_ip
-  nf_conntrack_destroy
-  nf_conntrack_find_get
   proc_dointvec
   register_netdevice_notifier
   register_net_sysctl
@@ -2947,7 +2937,6 @@
   nla_put_64bit
   nla_put
   nla_put_nohdr
-  nla_strscpy
   register_inet6addr_notifier
   register_inetaddr_notifier
   register_netdevice
