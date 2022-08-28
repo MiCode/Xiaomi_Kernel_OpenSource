@@ -106,34 +106,6 @@ static struct clk_alpha_pll_postdiv gpll0_out_even = {
 	},
 };
 
-static struct clk_alpha_pll gpll1 = {
-	.offset = 0x1000,
-	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
-	.clkr = {
-		.enable_reg = 0x79000,
-		.enable_mask = BIT(1),
-		.hw.init = &(struct clk_init_data){
-			.name = "gpll1",
-			.parent_data = &(const struct clk_parent_data){
-				.fw_name = "bi_tcxo",
-			},
-			.num_parents = 1,
-			.ops = &clk_alpha_pll_fixed_lucid_evo_ops,
-		},
-		.vdd_data = {
-			.vdd_class = &vdd_cx,
-			.num_rate_max = VDD_NUM,
-			.rate_max = (unsigned long[VDD_NUM]) {
-				[VDD_LOWER_D1] = 500000000,
-				[VDD_LOWER] = 615000000,
-				[VDD_LOW] = 1066000000,
-				[VDD_LOW_L1] = 1500000000,
-				[VDD_NOMINAL] = 1800000000,
-				[VDD_HIGH] = 2000000000},
-		},
-	},
-};
-
 static const struct alpha_pll_config gpll10_config = {
 	.l = 0x1E,
 	.cal_l = 0x44,
@@ -2315,7 +2287,7 @@ static struct clk_branch gcc_gpu_gpll0_div_clk_src = {
 
 static struct clk_branch gcc_gpu_memnoc_gfx_clk = {
 	.halt_reg = 0x3600c,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_VOTED,
 	.hwcg_reg = 0x3600c,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -2323,6 +2295,7 @@ static struct clk_branch gcc_gpu_memnoc_gfx_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_gpu_memnoc_gfx_clk",
+			.flags = CLK_DONT_HOLD_STATE,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -3117,7 +3090,6 @@ static struct clk_regmap *gcc_monaco_clocks[] = {
 	[GCC_VIDEO_XO_CLK] = &gcc_video_xo_clk.clkr,
 	[GPLL0] = &gpll0.clkr,
 	[GPLL0_OUT_EVEN] = &gpll0_out_even.clkr,
-	[GPLL1] = &gpll1.clkr,
 	[GPLL10] = &gpll10.clkr,
 	[GPLL3] = &gpll3.clkr,
 	[GPLL3_OUT_EVEN] = &gpll3_out_even.clkr,
