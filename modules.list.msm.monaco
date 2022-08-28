@@ -62,3 +62,5 @@ clk-qcom.ko
 gdsc-regulator.ko
 qcom-cpufreq-hw.ko
 dispcc-monaco.ko
+cqhci.ko
+sdhci-msm.ko
