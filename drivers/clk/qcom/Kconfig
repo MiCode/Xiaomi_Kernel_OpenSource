@@ -936,4 +936,13 @@ config SDW_GPUCC_MONACO
 	  Say Y if you want to support graphics controller devices and
 	  functionality such as 3D graphics.
 
+config SDW_DISPCC_MONACO
+	tristate "MONACO Display Clock Controller"
+	depends on SDW_GCC_MONACO
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc.
+	  MONACO devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
 endif
