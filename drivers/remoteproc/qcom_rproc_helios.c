@@ -696,9 +696,7 @@ static void helios_coredump(struct rproc *rproc)
 		dev_err(helios->dev,
 				"%s: Failed to create shm bridge. ret=[%d]\n",
 				__func__, ret);
-		dma_free_attrs(helios->dev, size, region,
-			start_addr, DMA_ATTR_SKIP_ZEROING);
-		return;
+		goto dma_free;
 	}
 
 	helios_tz_req.tzapp_helios_cmd = HELIOS_RPROC_RAMDUMP;
@@ -708,21 +706,23 @@ static void helios_coredump(struct rproc *rproc)
 	ret = helios_tzapp_comm(helios, &helios_tz_req);
 	if (ret || helios->cmd_status) {
 		dev_err(helios->dev, "%s: Helios Ramdump collection failed\n", __func__);
-		return;
+		goto exit;
 	}
 
 	pr_debug("Add coredump segment!\n");
 	ret = rproc_coredump_add_custom_segment(rproc, start_addr, size, &dumpfn, region);
 	if (ret) {
 		dev_err(helios->dev, "failed to add rproc segment: %d\n", ret);
-		qtee_shmbridge_deregister(shm_bridge_handle);
 		rproc_coredump_cleanup(helios->rproc);
-		return;
+		goto exit;
 	}
 
+	/* Prepare coredump file */
 	rproc_coredump(rproc);
 
+exit:
 	qtee_shmbridge_deregister(shm_bridge_handle);
+dma_free:
 	dma_free_attrs(helios->dev, size, region,
 			   start_addr, DMA_ATTR_SKIP_ZEROING);
 }
