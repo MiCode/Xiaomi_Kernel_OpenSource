@@ -58,6 +58,7 @@ msm_qmp.ko
 socinfo.ko
 stub-regulator.ko
 msm-geni-se.ko
+nvmem_qfprom.ko
 cqhci.ko
 sdhci-msm.ko
 phy-qcom-ufs.ko
