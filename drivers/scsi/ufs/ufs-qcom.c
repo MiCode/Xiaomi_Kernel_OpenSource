@@ -43,6 +43,7 @@
 #define MAX_PROP_SIZE		   32
 #define VDDP_REF_CLK_MIN_UV        1200000
 #define VDDP_REF_CLK_MAX_UV        1200000
+#define VCCQ_DEFAULT_1_2V	1200000
 
 #define UFS_QCOM_LOAD_MON_DLY_MS 30
 
@@ -1432,7 +1433,18 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op,
 
 	if (!err && ufs_qcom_is_link_off(hba) && host->device_reset)
 		ufs_qcom_device_reset_ctrl(hba, true);
+	else if (err)
+		goto out;
 
+	if (host->vccq_lpm_uV && !ufs_qcom_is_ufs_dev_active(hba) &&
+		ufs_qcom_is_link_hibern8(hba)) {
+		err = regulator_set_voltage(hba->vreg_info.vccq->reg,
+			host->vccq_lpm_uV, host->vccq_lpm_uV);
+		if (err)
+			ufs_qcom_msg(ERR, hba->dev, "%s:vccq set %duV failed\n",
+				__func__, host->vccq_lpm_uV);
+	}
+out:
 	ufs_qcom_log_str(host, "&,%d,%d,%d,%d,%d,%d\n",
 			pm_op, hba->rpm_lvl, hba->spm_lvl, hba->uic_link_state,
 			hba->curr_dev_pwr_mode, err);
@@ -1457,12 +1469,20 @@ static int ufs_qcom_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 	err = ufs_qcom_enable_lane_clks(host);
 	if (err)
-		return err;
+		goto out;
 
+	if (host->vccq_lpm_uV) {
+		err = regulator_set_voltage(hba->vreg_info.vccq->reg,
+			VCCQ_DEFAULT_1_2V, VCCQ_DEFAULT_1_2V);
+		if (err)
+			ufs_qcom_msg(ERR, hba->dev, "%s:vccq set 1.2V failed\n",
+				__func__);
+	}
+out:
 	ufs_qcom_log_str(host, "$,%d,%d,%d,%d,%d,%d\n",
 			pm_op, hba->rpm_lvl, hba->spm_lvl, hba->uic_link_state,
 			hba->curr_dev_pwr_mode, err);
-	return 0;
+	return err;
 }
 
 static int ufs_qcom_get_bus_vote(struct ufs_qcom_host *host,
@@ -4134,6 +4154,7 @@ static void ufs_qcom_parse_lpm(struct ufs_qcom_host *host)
 	if (host->disable_lpm)
 		ufs_qcom_msg(INFO, host->hba->dev, "(%s) All LPM is disabled\n",
 			 __func__);
+	of_property_read_u32(node, "qcom,vccq-lpm-uV", &host->vccq_lpm_uV);
 }
 
 /**
