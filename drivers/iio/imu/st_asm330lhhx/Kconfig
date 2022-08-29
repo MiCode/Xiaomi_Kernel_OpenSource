@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config IIO_ST_ASM330LHHX
+	tristate "STMicroelectronics ASM330LHHX sensor"
+	depends on (I2C || SPI)
+	select IIO_BUFFER
+	select IIO_KFIFO_BUF
+	select IIO_ST_ASM330LHHX_I2C if (I2C)
+	select IIO_ST_ASM330LHHX_SPI if (SPI_MASTER)
+	help
+	  Say yes here to build support for STMicroelectronics ASM330LHHX imu
+	  sensor.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called st_asm330lhhx.
+
+config IIO_ST_ASM330LHHX_I2C
+	tristate
+	depends on IIO_ST_ASM330LHHX
+
+config IIO_ST_ASM330LHHX_SPI
+	tristate
+	depends on IIO_ST_ASM330LHHX
+
+config IIO_ST_ASM330LHHX_MLC
+	bool "Enable machine learning core"
+	depends on IIO_ST_ASM330LHHX
+	help
+	  Enable loading MLC binary internal for hw machine learning core
+
+config IIO_ST_ASM330LHHX_MLC_PRELOAD
+	bool "Preload some examples on MLC/FSM core"
+	depends on IIO_ST_ASM330LHHX_MLC
+	help
+	  Preload some examples on machine learning core and finite state machine
+	  The examples code are hardcoded in to the driver.
+
+config IIO_ST_ASM330LHHX_MAY_WAKEUP
+	bool "Enable wake-up irq"
+	depends on IIO_ST_ASM330LHHX
+	help
+	  Enable wake-up irq on interrupt line
