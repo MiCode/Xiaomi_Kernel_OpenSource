@@ -287,9 +287,8 @@ static int qce_crypto_config(struct qce_device *pce_dev,
 
 static void qce_enable_clock_gating(struct qce_device *pce_dev)
 {
-	writel_relaxed(0x1, pce_dev->iobase + CRYPTO_PWR_CTRL);
-	//Write memory barrier
-	wmb();
+	/* This feature might cause some HW issues, noop till resolved. */
+	return;
 }
 
 /*
