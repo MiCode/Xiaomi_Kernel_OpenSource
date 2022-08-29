@@ -331,11 +331,12 @@ int ese_cold_reset_ioctl(struct nfc_dev *nfc_dev, unsigned long arg)
 		pr_debug("ese cmd is %d\n", cold_reset_arg->sub_cmd);
 
 	ret = nfc_dev->cold_reset.status;
+
 err:
 	kfree(nfc_dev->cold_reset.cmd_buf);
+	nfc_dev->cold_reset.cmd_buf = NULL;
 	kfree(cold_reset_arg);
 	cold_reset_arg = NULL;
-	nfc_dev->cold_reset.cmd_buf = NULL;
 
 	return ret;
 }
