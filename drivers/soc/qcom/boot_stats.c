@@ -38,7 +38,6 @@
 struct boot_stats {
 	uint32_t bootloader_start;
 	uint32_t bootloader_end;
-	uint32_t bootloader_display;
 	uint32_t bootloader_load_kernel;
 #ifdef CONFIG_MSM_BOOT_TIME_MARKER
 	uint32_t bootloader_load_kernel_start;
@@ -439,8 +438,6 @@ static void print_boot_stats(void)
 		readl_relaxed(&boot_stats->bootloader_start));
 	pr_info("KPI: Bootloader end count = %u\n",
 		readl_relaxed(&boot_stats->bootloader_end));
-	pr_info("KPI: Bootloader display count = %u\n",
-		readl_relaxed(&boot_stats->bootloader_display));
 	pr_info("KPI: Bootloader load kernel count = %u\n",
 		readl_relaxed(&boot_stats->bootloader_load_kernel));
 	pr_info("KPI: Kernel MPM timestamp = %u\n",
