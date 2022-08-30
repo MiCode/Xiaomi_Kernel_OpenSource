@@ -1,6 +1,7 @@
 msm_rtb.ko
 smp2p.ko
 qcom-apcs-ipc-mailbox.ko
+qcom-mpm.ko
 glink_probe.ko
 qcom_glink_rpm.ko
 qcom_glink_smem.ko
@@ -19,11 +20,9 @@ gcc-khaje.ko
 qcom-cpufreq-hw.ko
 qcom_ipcc.ko
 qcom_ipc_logging.ko
-qcom-pdc.ko
 qcom-cpufreq-hw.ko
 clk-dummy.ko
 clk-qcom.ko
-cmd-db.ko
 cqhci.ko
 dcc_v2.ko
 debug-regulator.ko
