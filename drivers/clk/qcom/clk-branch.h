@@ -24,8 +24,11 @@
 struct clk_branch {
 	u32	hwcg_reg;
 	u32	halt_reg;
+	u32	sreg_enable_reg;
 	u8	hwcg_bit;
 	u8	halt_bit;
+	u32	sreg_core_ack_bit;
+	u32	sreg_periph_ack_bit;
 	u8	halt_check;
 #define BRANCH_VOTED			BIT(7) /* Delay on disable */
 #define BRANCH_HALT			0 /* pol: 1 = halt */
@@ -45,6 +48,7 @@ extern const struct clk_ops clk_branch2_hw_ctl_ops;
 extern const struct clk_ops clk_branch_simple_ops;
 extern const struct clk_ops clk_branch2_aon_ops;
 extern const struct clk_ops clk_branch2_force_off_ops;
+extern const struct clk_ops clk_branch2_sreg_ops;
 
 #define to_clk_branch(_hw) \
 	container_of(to_clk_regmap(_hw), struct clk_branch, clkr)
