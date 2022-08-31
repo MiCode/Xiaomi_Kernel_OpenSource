@@ -6,11 +6,14 @@
 
 #if !defined(_TRACE_HOOK_FTRACE_DUMP_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_HOOK_FTRACE_DUMP_H
+#include <trace/hooks/vendor_hooks.h>
 
+#ifdef __GENKSYMS__
 #include <linux/trace_seq.h>
 #include <linux/trace_events.h>
+#endif
 
-#include <trace/hooks/vendor_hooks.h>
+struct trace_seq;
 
 #if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
 

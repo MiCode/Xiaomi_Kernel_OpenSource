@@ -6,14 +6,18 @@
 #if !defined(_TRACE_HOOK_MMC_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_HOOK_MMC_H
 #include <trace/hooks/vendor_hooks.h>
-/* struct blk_mq_queue_data */
+
+#ifdef __GENKSYMS__
 #include <linux/blk-mq.h>
-/* struct mmc_host */
 #include <linux/mmc/host.h>
-/* struct mmc_card */
 #include <linux/mmc/card.h>
-/* struct sdhci_host */
 #include "../../drivers/mmc/host/sdhci.h"
+#endif
+
+struct blk_mq_queue_data;
+struct mmc_host;
+struct mmc_card;
+struct sdhci_host;
 
 /*
  * Following tracepoints are not exported in tracefs and provide a

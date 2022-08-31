@@ -7,13 +7,13 @@
 #if !defined(_TRACE_HOOK_RPROC_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_HOOK_RPROC_H
 
-/* struct rproc */
-#include <linux/remoteproc.h>
-
 #include <trace/hooks/vendor_hooks.h>
 
-/* struct rproc */
+#ifdef __GENKSYMS__
 #include <linux/remoteproc.h>
+#endif
+
+struct rproc;
 
 /* When recovery succeeds */
 DECLARE_HOOK(android_vh_rproc_recovery,

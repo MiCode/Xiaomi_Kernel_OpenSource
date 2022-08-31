@@ -13,6 +13,7 @@
 /* needed for KMI stability */
 #include <../kernel/cgroup/cgroup-internal.h>
 #endif
+
 DECLARE_RESTRICTED_HOOK(android_rvh_select_task_rq_fair,
 	TP_PROTO(struct task_struct *p, int prev_cpu, int sd_flag, int wake_flags, int *new_cpu),
 	TP_ARGS(p, prev_cpu, sd_flag, wake_flags, new_cpu), 1);

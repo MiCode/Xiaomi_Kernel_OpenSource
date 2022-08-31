@@ -16,15 +16,19 @@
 #if !defined(_TRACE_HOOK_MM_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_HOOK_MM_H
 
-#include <linux/types.h>
+#include <trace/hooks/vendor_hooks.h>
 
+#ifdef __GENKSYMS__
+#include <linux/types.h>
 #include <linux/mm.h>
 #include <linux/oom.h>
-#include <trace/hooks/vendor_hooks.h>
 #include <linux/rwsem.h>
-
-/* struct slabinfo */
 #include <../mm/slab.h>
+#endif
+
+struct oom_control;
+struct slabinfo;
+
 DECLARE_RESTRICTED_HOOK(android_rvh_set_skip_swapcache_flags,
 			TP_PROTO(gfp_t *flags),
 			TP_ARGS(flags), 1);
