@@ -17,6 +17,10 @@
 #include "step-chg-jeita.h"
 #include "battery-profile-loader.h"
 
+#ifdef CONFIG_QPNP_SMBLITE
+#include "smblite-remote-bms.h"
+#endif
+
 #define STEP_CHG_VOTER		"STEP_CHG_VOTER"
 #define JEITA_VOTER		"JEITA_VOTER"
 #define JEITA_FCC_SCALE_VOTER	"JEITA_FCC_SCALE_VOTER"
@@ -58,6 +62,7 @@ struct step_chg_info {
 	bool			batt_missing;
 	bool			taper_fcc;
 	bool			jeita_fcc_scaling;
+	bool			fg_remote;
 	int			jeita_fcc_index;
 	int			jeita_fv_index;
 	int			step_index;
@@ -118,6 +123,9 @@ static bool is_bms_available(struct step_chg_info *chip)
 {
 	int rc = 0;
 	struct iio_channel **iio_list;
+
+	if (chip->fg_remote)
+		return true;
 
 	if (IS_ERR(chip->iio_chan_list_qg))
 		return false;
@@ -256,6 +264,40 @@ clean:
 	return rc;
 }
 
+#ifdef CONFIG_QPNP_SMBLITE
+static int step_chg_read_remote_fg_prop(struct step_chg_info *chip, int iio_chan, int *val)
+{
+	int rc = 0;
+
+	switch (iio_chan) {
+	case STEP_QG_RESISTANCE_ID:
+		iio_chan = SMB5_QG_RESISTANCE_ID;
+		break;
+	case STEP_QG_VOLTAGE_NOW:
+		iio_chan = SMB5_QG_VOLTAGE_NOW;
+		break;
+	case STEP_QG_TEMP:
+		iio_chan = SMB5_QG_TEMP;
+		break;
+	default:
+		pr_err("iio_chan %d is not support\n", iio_chan);
+		return -EOPNOTSUPP;
+	}
+
+	rc = remote_bms_get_prop(iio_chan, val, BMS_GLINK);
+	if ((rc < 0) && (rc != -EAGAIN))
+		pr_err("Couldn't get prop from remote bms, rc = %d channel = %d\n",
+			rc, iio_chan);
+
+	return (rc < 0) ? rc : 0;
+}
+#else
+static int step_chg_read_remote_fg_prop(struct step_chg_info *chip, int iio_chan, int *val)
+{
+	return 0;
+}
+#endif
+
 static int step_chg_read_iio_prop(struct step_chg_info *chip,
 		enum iio_type type, int iio_chan, int *val)
 {
@@ -269,6 +311,9 @@ static int step_chg_read_iio_prop(struct step_chg_info *chip,
 		iio_chan_list = &chip->iio_chans[iio_chan];
 		break;
 	case QG:
+		if (chip->fg_remote)
+			return step_chg_read_remote_fg_prop(chip, iio_chan, val);
+
 		if (IS_ERR_OR_NULL(chip->iio_chan_list_qg))
 			return -ENODEV;
 		iio_chan_list = chip->iio_chan_list_qg[iio_chan];
@@ -303,6 +348,8 @@ static int get_step_chg_jeita_setting_from_profile(struct step_chg_info *chip)
 		pr_err("Get battery data node failed\n");
 		return -EINVAL;
 	}
+
+	chip->fg_remote = of_property_read_bool(chip->dev->of_node, "qcom,remote-fg");
 
 	if (!is_bms_available(chip))
 		return -ENODEV;
