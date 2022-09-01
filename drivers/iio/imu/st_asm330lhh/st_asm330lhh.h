@@ -14,6 +14,9 @@
 #include <linux/device.h>
 #include <linux/iio/iio.h>
 #include <linux/delay.h>
+#include <linux/input.h>
+#include <linux/ktime.h>
+#include <linux/slab.h>
 
 #define ST_ASM330LHH_REVISION			"2.0.1"
 #define ST_ASM330LHH_PATCH			"4"
@@ -23,7 +26,7 @@
 	"-"						\
 	ST_ASM330LHH_PATCH
 
-#define ST_ASM330LHH_MAX_ODR 			833
+#define ST_ASM330LHH_MAX_ODR			833
 #define ST_ASM330LHH_ODR_LIST_SIZE		8
 #define ST_ASM330LHH_ODR_EXPAND(odr, uodr)	((odr * 1000000) + uodr)
 
@@ -31,7 +34,7 @@
 
 #define ST_ASM330LHH_DEFAULT_XL_FS_INDEX	2
 #define ST_ASM330LHH_DEFAULT_XL_ODR_INDEX	1
-#define ST_ASM330LHH_DEFAULT_G_FS_INDEX		2
+#define ST_ASM330LHH_DEFAULT_G_FS_INDEX		3
 #define ST_ASM330LHH_DEFAULT_G_ODR_INDEX	1
 #define ST_ASM330LHH_DEFAULT_T_FS_INDEX		0
 #define ST_ASM330LHH_DEFAULT_T_ODR_INDEX	1
@@ -120,7 +123,8 @@
 
 /* Temperature in uC */
 #define ST_ASM330LHH_TEMP_GAIN			256
-#define ST_ASM330LHH_TEMP_FS_GAIN		1000000 / ST_ASM330LHH_TEMP_GAIN
+#define ST_ASM330LHH_TEMP_FS_GAIN		(1000000 / \
+						ST_ASM330LHH_TEMP_GAIN)
 #define ST_ASM330LHH_TEMP_OFFSET		6400
 
 /* FIFO simple size and depth */
@@ -167,6 +171,16 @@ static const struct iio_event_spec st_asm330lhh_flush_event = {
 
 #define ST_ASM330LHH_RX_MAX_LENGTH	64
 #define ST_ASM330LHH_TX_MAX_LENGTH	16
+
+#ifdef CONFIG_ENABLE_ASM_ACC_GYRO_BUFFERING
+#define ASM_MAXSAMPLE        4000
+#define G_MAX                    23920640
+struct asm_sample {
+	int xyz[3];
+	unsigned int tsec;
+	unsigned long long tnsec;
+};
+#endif
 
 struct st_asm330lhh_transfer_buffer {
 	u8 rx_buf[ST_ASM330LHH_RX_MAX_LENGTH];
@@ -228,9 +242,9 @@ struct st_asm330lhh_fs {
 	u8 val;
 };
 
-#define ST_ASM330LHH_FS_LIST_SIZE		5
+#define ST_ASM330LHH_FS_LIST_SIZE		6
 #define ST_ASM330LHH_FS_ACC_LIST_SIZE		4
-#define ST_ASM330LHH_FS_GYRO_LIST_SIZE		5
+#define ST_ASM330LHH_FS_GYRO_LIST_SIZE		6
 #define ST_ASM330LHH_FS_TEMP_LIST_SIZE		1
 
 /**
@@ -248,6 +262,7 @@ struct st_asm330lhh_fs_table_entry {
 #define ST_ASM330LHH_ACC_FS_8G_GAIN	IIO_G_TO_M_S_2(244)
 #define ST_ASM330LHH_ACC_FS_16G_GAIN	IIO_G_TO_M_S_2(488)
 
+#define ST_ASM330LHH_GYRO_FS_125_GAIN	IIO_DEGREE_TO_RAD(4375)
 #define ST_ASM330LHH_GYRO_FS_250_GAIN	IIO_DEGREE_TO_RAD(8750)
 #define ST_ASM330LHH_GYRO_FS_500_GAIN	IIO_DEGREE_TO_RAD(17500)
 #define ST_ASM330LHH_GYRO_FS_1000_GAIN	IIO_DEGREE_TO_RAD(35000)
@@ -300,6 +315,19 @@ struct st_asm330lhh_sensor {
 	u16 max_watermark;
 	u16 watermark;
 	s64 last_fifo_timestamp;
+#ifdef CONFIG_ENABLE_ASM_ACC_GYRO_BUFFERING
+	bool read_boot_sample;
+	int bufsample_cnt;
+	bool buffer_asm_samples;
+	struct kmem_cache *asm_cachepool;
+	struct asm_sample *asm_samplist[ASM_MAXSAMPLE];
+	ktime_t timestamp;
+	int max_buffer_time;
+	struct input_dev *buf_dev;
+	int report_evt_cnt;
+	struct mutex sensor_buff;
+	bool enable;
+#endif
 };
 
 /**
@@ -352,8 +380,12 @@ struct st_asm330lhh_hw {
 
 	const struct st_asm330lhh_transfer_function *tf;
 	struct st_asm330lhh_transfer_buffer tb;
-
+	struct regulator *vdd;
+	struct regulator *vio;
 	struct iio_mount_matrix orientation;
+	int enable_gpio;
+	bool asm330_hrtimer;
+	struct hrtimer st_asm330lhh_hrtimer;
 };
 
 extern const struct dev_pm_ops st_asm330lhh_pm_ops;
@@ -384,8 +416,8 @@ static inline int st_asm330lhh_write_atomic(struct st_asm330lhh_hw *hw, u8 addr,
 
 int __st_asm330lhh_write_with_mask(struct st_asm330lhh_hw *hw, u8 addr, u8 mask,
 				 u8 val);
-static inline int st_asm330lhh_write_with_mask(struct st_asm330lhh_hw *hw, u8 addr,
-					     u8 mask, u8 val)
+static inline int st_asm330lhh_write_with_mask(struct st_asm330lhh_hw *hw,
+		u8 addr, u8 mask, u8 val)
 {
 	int err;
 
@@ -400,14 +432,6 @@ static inline bool st_asm330lhh_is_fifo_enabled(struct st_asm330lhh_hw *hw)
 {
 	return hw->enable_mask & (BIT(ST_ASM330LHH_ID_GYRO) |
 				  BIT(ST_ASM330LHH_ID_ACC));
-}
-
-static inline s64 st_asm330lhh_get_time_ns(void)
-{
-	struct timespec ts;
-
-	get_monotonic_boottime(&ts);
-	return timespec_to_ns(&ts);
 }
 
 int st_asm330lhh_probe(struct device *dev, int irq,
@@ -436,4 +460,11 @@ int __st_asm330lhh_set_sensor_batching_odr(struct st_asm330lhh_sensor *sensor,
 					   bool enable);
 int st_asm330lhh_update_batching(struct iio_dev *iio_dev, bool enable);
 int st_asm330lhh_reset_hwts(struct st_asm330lhh_hw *hw);
+int st_asm330lhh_update_fifo(struct iio_dev *iio_dev, bool enable);
+int asm330_check_acc_gyro_early_buff_enable_flag(
+		struct st_asm330lhh_sensor *sensor);
+int asm330_check_sensor_enable_flag(
+		struct st_asm330lhh_sensor *sensor, bool enable);
+void st_asm330lhh_set_cpu_idle_state(bool value);
+void st_asm330lhh_hrtimer_reset(struct st_asm330lhh_hw *hw, s64 irq_delta_ts);
 #endif /* ST_ASM330LHH_H */
