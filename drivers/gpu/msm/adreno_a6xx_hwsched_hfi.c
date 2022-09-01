@@ -1186,10 +1186,10 @@ static int hfi_f2h_main(void *arg)
 	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
 
 	while (!kthread_should_stop()) {
-		wait_event_interruptible(hfi->f2h_wq, !kthread_should_stop() &&
-			!(is_queue_empty(adreno_dev, HFI_MSG_ID) &&
+		wait_event_interruptible(hfi->f2h_wq, kthread_should_stop() ||
+			(!(is_queue_empty(adreno_dev, HFI_MSG_ID) &&
 			is_queue_empty(adreno_dev, HFI_DBG_ID)) &&
-			(hfi->irq_mask & HFI_IRQ_MSGQ_MASK));
+			(hfi->irq_mask & HFI_IRQ_MSGQ_MASK)));
 
 		if (kthread_should_stop())
 			break;
