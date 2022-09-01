@@ -1938,6 +1938,7 @@ static int qti_can_probe(struct spi_device *spi)
 
 free_irq:
 	free_irq(spi->irq, priv_data);
+	unregister_pm_notifier(&priv_data->qti_can_pm_nb);
 unregister_candev:
 	for (i = 0; i < priv_data->max_can_channels; i++)
 		unregister_candev(priv_data->netdev[i]);
