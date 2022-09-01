@@ -40,6 +40,7 @@
 #define HELIOS_STATUS_READ_SIZE (0x07)
 #define HELIOS_RESET_BIT BIT(26)
 #define HELIOS_SPI_ACCESS_BLOCKED (0xDEADBEEF)
+#define HELIOS_SPI_ACCESS_INVALID (0xDEADD00D)
 #define HELIOS_AHB_RESUME_REG (0x200E1800)
 
 #define HELIOS_SPI_MAX_WORDS (0x3FFFFFFD)
@@ -594,6 +595,7 @@ static void helios_irq_tasklet_hndlr_l(void)
 	fifo_size_reg = irq_buf[6];
 
 	if ((slave_to_host_cmd != HELIOS_SPI_ACCESS_BLOCKED) &&
+		(slave_to_host_cmd != HELIOS_SPI_ACCESS_INVALID) &&
 		(slave_to_host_cmd & HELIOS_RESET_BIT)) {
 		send_helios_reset_notification();
 		//helioscom_set_spi_state(HELIOSCOM_SPI_BUSY);
