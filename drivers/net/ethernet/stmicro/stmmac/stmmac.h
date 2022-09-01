@@ -330,6 +330,7 @@ struct stmmac_priv {
 	struct bpf_prog *xdp_prog;
 
 	bool phy_irq_enabled;
+	bool en_wol;
 };
 
 enum stmmac_state {
