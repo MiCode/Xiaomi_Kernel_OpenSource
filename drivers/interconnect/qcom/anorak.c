@@ -1796,6 +1796,25 @@ static struct qcom_icc_node qns_mem_noc_hf_disp = {
 	.links = { MASTER_MNOC_HF_MEM_NOC_DISP },
 };
 
+static struct qcom_icc_node master_ddr_rt = {
+	.name = "master_ddr_rt",
+	.id = MASTER_DDR_RT,
+	.channels = 4,
+	.buswidth = 4,
+	.noc_ops = &qcom_qnoc4_ops,
+	.num_links = 1,
+	.links = { SLAVE_DDR_RT },
+};
+
+static struct qcom_icc_node slv_ddr_rt = {
+	.name = "slv_ddr_rt",
+	.id = SLAVE_DDR_RT,
+	.channels = 4,
+	.buswidth = 4,
+	.noc_ops = &qcom_qnoc4_ops,
+	.num_links = 0,
+};
+
 static struct qcom_icc_bcm bcm_acv = {
 	.name = "ACV",
 	.voter_idx = 0,
@@ -1858,6 +1877,13 @@ static struct qcom_icc_bcm bcm_mc0 = {
 	.keepalive = true,
 	.num_nodes = 1,
 	.nodes = { &ebi },
+};
+
+static struct qcom_icc_bcm bcm_mc4 = {
+	.name = "MC4",
+	.voter_idx = 0,
+	.num_nodes = 1,
+	.nodes = { &slv_ddr_rt },
 };
 
 static struct qcom_icc_bcm bcm_mm0 = {
@@ -2227,6 +2253,7 @@ static struct qcom_icc_desc anorak_lpass_ag_noc = {
 static struct qcom_icc_bcm *mc_virt_bcms[] = {
 	&bcm_acv,
 	&bcm_mc0,
+	&bcm_mc4,
 	&bcm_acv_disp,
 	&bcm_mc0_disp,
 };
@@ -2236,6 +2263,8 @@ static struct qcom_icc_node *mc_virt_nodes[] = {
 	[SLAVE_EBI1] = &ebi,
 	[MASTER_LLCC_DISP] = &llcc_mc_disp,
 	[SLAVE_EBI1_DISP] = &ebi_disp,
+	[MASTER_DDR_RT] = &master_ddr_rt,
+	[SLAVE_DDR_RT] = &slv_ddr_rt,
 };
 
 static char *mc_virt_voters[] = {

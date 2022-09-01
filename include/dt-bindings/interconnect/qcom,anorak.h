@@ -62,6 +62,7 @@
 #define MASTER_SDCC_2				53
 #define MASTER_UFS_MEM				54
 #define MASTER_USB3_0				55
+#define MASTER_DDR_RT				56
 #define SLAVE_EBI1				512
 #define SLAVE_AHB2PHY_SOUTH				513
 #define SLAVE_AHB2PHY_NORTH				514
@@ -133,6 +134,7 @@
 #define SLAVE_SERVICE_SNOC				580
 #define SLAVE_QDSS_STM				581
 #define SLAVE_TCU				582
+#define SLAVE_DDR_RT				583
 #define MASTER_LLCC_DISP				1000
 #define MASTER_MDP0_DISP				1001
 #define MASTER_MDP1_DISP				1002
