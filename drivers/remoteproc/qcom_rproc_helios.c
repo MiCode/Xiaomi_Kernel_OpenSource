@@ -52,6 +52,7 @@
 #define HELIOS_RAMDUMP_SZ SZ_4M
 
 uint32_t helios_app_uid = 286;
+static struct workqueue_struct *helios_reset_wq;
 
 /* tzapp command list.*/
 enum helios_tz_commands {
@@ -135,6 +136,7 @@ struct qcom_helios {
 	int ssctl_id;
 
 	struct notifier_block reboot_nb;
+	struct work_struct reset_handler;
 
 	phys_addr_t address_fw;
 	size_t size_fw;
@@ -152,16 +154,72 @@ struct qcom_helios {
 	size_t region_size;
 };
 
+static void helios_reset_handler_work(struct work_struct *work)
+{
+	struct qcom_helios *helios = container_of(work, struct qcom_helios, reset_handler);
+	struct rproc *helios_rproc = helios->rproc;
+	bool recovery_status = helios_rproc->recovery_disabled;
+
+	pr_debug("Handle reset\n");
+
+	/* Disable recovery to trigger shutdown sequence to power off Helios */
+	mutex_lock(&helios_rproc->lock);
+	if (helios_rproc->state == RPROC_CRASHED ||
+			helios_rproc->state == RPROC_OFFLINE) {
+		mutex_unlock(&helios_rproc->lock);
+		return;
+	}
+	helios_rproc->recovery_disabled = true;
+	mutex_unlock(&helios_rproc->lock);
+
+	/* Shutdown helios */
+	rproc_shutdown(helios_rproc);
+
+	/* Power up and load image again on Helios */
+	rproc_boot(helios_rproc);
+
+	/* Restore the recovery value */
+	mutex_lock(&helios_rproc->lock);
+	helios_rproc->recovery_disabled = recovery_status;
+	mutex_unlock(&helios_rproc->lock);
+}
+
 /* Callback function registered with helioscom which triggers restart flow */
-static void helios_crash_handler(void *handle, void *priv)
+static void helios_crash_handler(void *handle, void *priv,
+		enum helioscom_reset_type reset_type)
 {
 	struct rproc *helios_rproc = (struct rproc *)priv;
+	struct qcom_helios *helios = (struct qcom_helios *)helios_rproc->priv;
 
-	/* If recovery is disabled, then cause kernel panic on Helios crash. */
-	BUG_ON(helios_rproc->recovery_disabled);
+	dev_err(helios->dev, "%s: Reset type:[%d]\n", __func__, reset_type);
 
-	pr_debug("Helios is crashed! Starting recovery...\n");
-	rproc_report_crash(helios_rproc, RPROC_FATAL_ERROR);
+	switch (reset_type) {
+
+	case HELIOSCOM_OEM_PROV_PASS:
+	case HELIOSCOM_OEM_PROV_FAIL:
+		/* Reset Helios when OEM provisioning passes */
+		dev_err(helios->dev, "%s: OEM Provision [%s]! Reset Helios.\n",
+				__func__, (reset_type == HELIOSCOM_OEM_PROV_PASS) ?
+				"successful" : "failed");
+		if (helios_reset_wq)
+			queue_work(helios_reset_wq, &helios->reset_handler);
+		break;
+
+	case HELIOSCOM_HELIOS_CRASH:
+		dev_err(helios->dev, "%s: Helios reset failure type:[%d]\n",
+				__func__, reset_type);
+		/* Trigger Aurora crash if recovery is disabled */
+		BUG_ON(helios_rproc->recovery_disabled);
+
+		/* If recovery is enabled, go for recovery path */
+		pr_debug("Helios is crashed! Starting recovery...\n");
+		rproc_report_crash(helios_rproc, RPROC_FATAL_ERROR);
+		break;
+
+	default:
+		dev_err(helios->dev, "%s: Invalid reset type.\n", __func__);
+		break;
+	}
 }
 
 /**
@@ -956,14 +1014,29 @@ static int rproc_helios_driver_probe(struct platform_device *pdev)
 	helios->reboot_nb.notifier_call = helios_reboot_notify;
 	register_reboot_notifier(&helios->reboot_nb);
 
+	helios_reset_wq = alloc_workqueue("helios_reset_wq",
+						WQ_UNBOUND | WQ_FREEZABLE, 0);
+	if (!helios_reset_wq) {
+		dev_err(helios->dev, "%s: creation of helios_reset_wq failed\n",
+				__func__);
+		goto unregister_notify;
+	}
+
+	/* Initialize work queue for reset handler */
+	INIT_WORK(&helios->reset_handler, helios_reset_handler_work);
+
 	/* Register with rproc */
 	ret = rproc_add(rproc);
 	if (ret)
-		goto free_rproc;
+		goto destroy_wq;
 
 	pr_debug("Helios probe is completed\n");
 	return 0;
 
+destroy_wq:
+	destroy_workqueue(helios_reset_wq);
+unregister_notify:
+	unregister_reboot_notifier(&helios->reboot_nb);
 free_rproc:
 	rproc_free(rproc);
 
@@ -974,6 +1047,8 @@ static int rproc_helios_driver_remove(struct platform_device *pdev)
 {
 	struct qcom_helios *helios = platform_get_drvdata(pdev);
 
+	if (helios_reset_wq)
+		destroy_workqueue(helios_reset_wq);
 	unregister_reboot_notifier(&helios->reboot_nb);
 	rproc_del(helios->rproc);
 	rproc_free(helios->rproc);

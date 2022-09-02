@@ -74,6 +74,10 @@
 #define HELIOS_PAUSE_REQ		BIT(15)
 #define HELIOS_RESUME_IND	BIT(16)
 
+/* Slave OEM Status */
+#define SLAVE_OEM_STATUS_PASS   (0x1)
+#define SLAVE_OEM_STATUS_FAIL   (0x2)
+
 #define SPI_FREQ_1MHZ	1000000
 #define SPI_FREQ_40MHZ	40000000
 
@@ -135,7 +139,8 @@ struct cb_data {
 struct cb_reset_data {
 	void *priv;
 	void *handle;
-	void (*helioscom_reset_notification_cb)(void *handle, void *priv);
+	void (*helioscom_reset_notification_cb)(void *handle, void *priv,
+			enum helioscom_reset_type reset_type);
 };
 
 struct helios_context {
@@ -220,15 +225,17 @@ static void send_input_events(struct work_struct *work)
 	}
 }
 
-static int send_helios_reset_notification(void)
+static int send_helios_reset_notification(enum helioscom_reset_type reset_type)
 {
-	HELIOSCOM_ERR("%s Helios reset received\n", __func__);
+	HELIOSCOM_ERR("%s Helios reset received type:[%d]\n", __func__, reset_type);
 	if (!pil_reset_cb) {
 		HELIOSCOM_ERR("%s PIL call back not registered\n", __func__);
 		return -EINVAL;
 	}
-	pil_reset_cb->helioscom_reset_notification_cb(pil_reset_cb->handle, pil_reset_cb->priv);
-	HELIOSCOM_ERR("%s Helios reset notification sent to PIL\n", __func__);
+	pil_reset_cb->helioscom_reset_notification_cb(pil_reset_cb->handle,
+			pil_reset_cb->priv, reset_type);
+	HELIOSCOM_ERR("%s Helios reset notification:[%d] sent to PIL\n", __func__,
+		reset_type);
 	return 0;
 }
 
@@ -541,7 +548,10 @@ static void send_back_notification(uint32_t slav_status_reg,
 		oem_provisioning_status = slav_status_reg & (BIT(23) | BIT(24));
 		oem_provisioning_status = ((oem_provisioning_status<<7)>>30);
 		HELIOSCOM_ERR("Helios OEM prov. status 0x%x\n", oem_provisioning_status);
-
+		if (oem_provisioning_status == SLAVE_OEM_STATUS_PASS)
+			send_helios_reset_notification(HELIOSCOM_OEM_PROV_PASS);
+		else if (oem_provisioning_status == SLAVE_OEM_STATUS_FAIL)
+			send_helios_reset_notification(HELIOSCOM_OEM_PROV_FAIL);
 	}
 
 	if (master_fifo_used > 0) {
@@ -597,7 +607,7 @@ static void helios_irq_tasklet_hndlr_l(void)
 	if ((slave_to_host_cmd != HELIOS_SPI_ACCESS_BLOCKED) &&
 		(slave_to_host_cmd != HELIOS_SPI_ACCESS_INVALID) &&
 		(slave_to_host_cmd & HELIOS_RESET_BIT)) {
-		send_helios_reset_notification();
+		send_helios_reset_notification(HELIOSCOM_HELIOS_CRASH);
 		//helioscom_set_spi_state(HELIOSCOM_SPI_BUSY);
 		return;
 	}

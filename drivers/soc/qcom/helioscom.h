@@ -56,6 +56,14 @@ enum helioscom_event_type {
 	HELIOSCOM_EVENT_ERROR_UNKNOWN,
 };
 
+enum helioscom_reset_type {
+	/*HELIOSCOM reset request type*/
+	HELIOSCOM_HELIOS_CRASH = 0,
+	HELIOSCOM_HELIOS_STUCK = 1,
+	HELIOSCOM_OEM_PROV_PASS = 2,
+	HELIOSCOM_OEM_PROV_FAIL = 3,
+};
+
 /* Event specific data */
 union helioscom_event_data_type {
 	uint32_t unused;
@@ -97,7 +105,8 @@ struct helioscom_reset_config_type {
 	void		*priv;
 
 	/* Notification callbacks to notify the HELIOS events */
-	void (*helioscom_reset_notification_cb)(void *handle, void *priv);
+	void (*helioscom_reset_notification_cb)(void *handle, void *priv,
+			enum helioscom_reset_type reset_type);
 };
 
 /**
