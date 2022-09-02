@@ -4552,12 +4552,17 @@ static int sdhci_qcom_read_boot_config(struct platform_device *pdev)
 	struct nvmem_cell *cell;
 
 	cell = nvmem_cell_get(&pdev->dev, "boot_conf");
-	if (IS_ERR(cell))
-		return -EINVAL;
+	if (IS_ERR(cell)) {
+		dev_warn(&pdev->dev, "nvmem cell get failed\n");
+		return 0;
+	}
 
 	buf = nvmem_cell_read(cell, &len);
-	if (IS_ERR(buf))
-		return -EINVAL;
+	if (IS_ERR(buf)) {
+		dev_warn(&pdev->dev, "nvmem cell read failed\n");
+		nvmem_cell_put(cell);
+		return 0;
+	}
 
 	is_bootdevice_sdhci = (*buf) >> 1 & 0x1f;
 	dev_info(&pdev->dev, "boot_config val = %x is_bootdevice_sdhci = %x\n",
