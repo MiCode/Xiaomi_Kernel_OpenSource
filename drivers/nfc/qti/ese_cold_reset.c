@@ -28,7 +28,8 @@ static int send_ese_cmd(struct nfc_dev *nfc_dev)
 				"cannot send ese cmd as NFCC powered off\n");
 		return -ENODEV;
 	}
-
+	if (nfc_dev->cold_reset.cmd_buf == NULL)
+		return -EFAULT;
 	ret = nfc_dev->nfc_write(nfc_dev, nfc_dev->cold_reset.cmd_buf,
 						nfc_dev->cold_reset.cmd_len,
 						MAX_RETRY_COUNT);
