@@ -4980,6 +4980,7 @@ enum nl80211_bss_scan_width {
  *	using the nesting index as the antenna number.
  * @NL80211_BSS_FREQUENCY_OFFSET: frequency offset in KHz
  * @NL80211_BSS_MLO_LINK_ID: MLO link ID of the BSS (u8).
+ * @NL80211_BSS_MLD_ADDR: MLD address of this BSS if connected to it.
  * @__NL80211_BSS_AFTER_LAST: internal
  * @NL80211_BSS_MAX: highest BSS attribute
  */
@@ -5006,7 +5007,7 @@ enum nl80211_bss {
 	NL80211_BSS_CHAIN_SIGNAL,
 	NL80211_BSS_FREQUENCY_OFFSET,
 	NL80211_BSS_MLO_LINK_ID,
-	NL80211_BSS_RESERVED_DO_NOT_USE_2 = 22,
+	NL80211_BSS_MLD_ADDR,
 	NL80211_BSS_RESERVED_DO_NOT_USE_3 = 23,
 	NL80211_BSS_RESERVED_DO_NOT_USE_4 = 24,
 	NL80211_BSS_RESERVED_DO_NOT_USE_5 = 25,
