@@ -1503,12 +1503,18 @@ static int sdhci_msm_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	struct sdhci_host *host = mmc_priv(mmc);
 	int tuning_seq_cnt = 10;
 	u8 phase, tuned_phases[16], tuned_phase_cnt = 0;
-	int rc;
+	int rc = 0;
 	u32 config;
 	struct mmc_ios ios = host->mmc->ios;
+	u32 core_vendor_spec;
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
-	const struct sdhci_msm_offset *msm_offset = msm_host->offset;
+	const struct sdhci_msm_offset *msm_offset =
+					sdhci_priv_msm_offset(host);
+
+	core_vendor_spec = readl_relaxed(host->ioaddr +
+					msm_offset->core_vendor_spec);
+
 
 	if (!sdhci_msm_is_tuning_needed(host)) {
 		msm_host->use_cdr = false;
@@ -1551,18 +1557,23 @@ static int sdhci_msm_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		host->flags &= ~SDHCI_HS400_TUNING;
 	}
 
+	/* Make sure that PWRSAVE bit is set to '0' during tuning */
+	writel_relaxed((core_vendor_spec & ~CORE_CLK_PWRSAVE),
+			host->ioaddr +
+			msm_offset->core_vendor_spec);
+
 retry:
 	/* First of all reset the tuning block */
 	rc = msm_init_cm_dll(host, DLL_INIT_NORMAL);
 	if (rc)
-		return rc;
+		goto out;
 
 	phase = 0;
 	do {
 		/* Set the phase in delay line hw block */
 		rc = msm_config_cm_dll_phase(host, phase);
 		if (rc)
-			return rc;
+			goto out;
 
 		rc = mmc_send_tuning(mmc, opcode, NULL);
 		if (!rc) {
@@ -1593,7 +1604,7 @@ retry:
 		rc = msm_find_most_appropriate_phase(host, tuned_phases,
 						     tuned_phase_cnt);
 		if (rc < 0)
-			return rc;
+			goto out;
 		else
 			phase = rc;
 
@@ -1603,7 +1614,7 @@ retry:
 		 */
 		rc = msm_config_cm_dll_phase(host, phase);
 		if (rc)
-			return rc;
+			goto out;
 		msm_host->saved_tuning_phase = phase;
 		dev_dbg(mmc_dev(mmc), "%s: Setting the tuning phase to %d\n",
 			 mmc_hostname(mmc), phase);
@@ -1618,6 +1629,16 @@ retry:
 
 	if (!rc)
 		msm_host->tuning_done = true;
+out:
+
+	/* Set PWRSAVE bit to '1' after completion of tuning as needed */
+	if (core_vendor_spec & CORE_CLK_PWRSAVE) {
+		writel_relaxed((readl_relaxed(host->ioaddr +
+			msm_offset->core_vendor_spec)
+			| CORE_CLK_PWRSAVE), host->ioaddr +
+			msm_offset->core_vendor_spec);
+	}
+
 	return rc;
 }
 
