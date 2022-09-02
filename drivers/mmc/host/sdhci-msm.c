@@ -486,6 +486,7 @@ struct sdhci_msm_host {
 	u32 pm_qos_delay;
 	bool cqhci_offset_changed;
 	bool reg_store;
+	bool vbias_skip_wa;
 	struct reset_control *core_reset;
 	bool pltfm_init_done;
 	bool core_3_0v_support;
@@ -519,6 +520,7 @@ static int sdhci_msm_dt_get_array(struct device *dev, const char *prop_name,
 static unsigned int sdhci_msm_get_sup_clk_rate(struct sdhci_host *host,
 				u32 req_clk);
 static void sdhci_msm_dump_pwr_ctrl_regs(struct sdhci_host *host);
+static void sdhci_msm_vbias_bypass_wa(struct sdhci_host *host);
 
 static const struct sdhci_msm_offset *sdhci_priv_msm_offset(struct sdhci_host *host)
 {
@@ -1933,6 +1935,9 @@ static bool sdhci_msm_populate_pdata(struct device *dev,
 		}
 	}
 
+	msm_host->vbias_skip_wa =
+		of_property_read_bool(np, "qcom,vbias-skip-wa");
+
 	sdhci_msm_parse_reset_data(dev, msm_host);
 
 	return false;
@@ -2429,6 +2434,46 @@ static int sdhci_msm_set_vdd_io_vol(struct sdhci_msm_host *msm_host,
 	return ret;
 }
 
+static void sdhci_msm_vbias_bypass_wa(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	const struct sdhci_msm_offset *msm_host_offset =
+					msm_host->offset;
+	struct mmc_host *mmc = host->mmc;
+	u32 config;
+	int card_detect = 0;
+
+	if (mmc->ops->get_cd)
+		card_detect = mmc->ops->get_cd(mmc);
+
+	config = readl_relaxed(host->ioaddr +
+			msm_host_offset->core_vendor_spec);
+
+	/*
+	 * Following cases are covered.
+	 * 1. Card Probe
+	 * 2. Card suspend
+	 * 3. Card Resume
+	 * 4. Card remove
+	 */
+	if ((mmc->card == NULL) && card_detect &&
+		(mmc->ios.power_mode == MMC_POWER_UP))
+		config &= ~CORE_IO_PAD_PWR_SWITCH;
+	else if (mmc->card && card_detect &&
+			(mmc->ios.power_mode == MMC_POWER_OFF))
+		config |= CORE_IO_PAD_PWR_SWITCH;
+	else if (mmc->card && card_detect &&
+			(mmc->ios.power_mode == MMC_POWER_UP))
+		config &= ~CORE_IO_PAD_PWR_SWITCH;
+	else if (mmc->card == NULL && !card_detect &&
+			(mmc->ios.power_mode == MMC_POWER_OFF))
+		config |= CORE_IO_PAD_PWR_SWITCH;
+
+	writel_relaxed(config, host->ioaddr +
+				msm_host_offset->core_vendor_spec);
+}
+
 static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -2583,11 +2628,15 @@ static void sdhci_msm_handle_pwr_irq(struct sdhci_host *host, int irq)
 		new_config = config;
 
 		if ((io_level & REQ_IO_HIGH) &&
-				(msm_host->caps_0 & CORE_3_0V_SUPPORT))
-			new_config &= ~CORE_IO_PAD_PWR_SWITCH;
-		else if ((io_level & REQ_IO_LOW) ||
-				(msm_host->caps_0 & CORE_1_8V_SUPPORT))
+				(msm_host->caps_0 & CORE_3_0V_SUPPORT)) {
+			if (msm_host->vbias_skip_wa)
+				sdhci_msm_vbias_bypass_wa(host);
+			else
+				new_config &= ~CORE_IO_PAD_PWR_SWITCH;
+		} else if ((io_level & REQ_IO_LOW) ||
+				(msm_host->caps_0 & CORE_1_8V_SUPPORT)) {
 			new_config |= CORE_IO_PAD_PWR_SWITCH;
+		}
 
 		if (config ^ new_config)
 			writel_relaxed(new_config, host->ioaddr +
