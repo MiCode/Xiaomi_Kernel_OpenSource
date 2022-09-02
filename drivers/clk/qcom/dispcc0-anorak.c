@@ -1710,7 +1710,7 @@ static struct clk_branch mdss_0_disp_cc_mdss_rscc_ahb_clk = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
+			.ops = &clk_branch2_aon_ops,
 		},
 	},
 };
