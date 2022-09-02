@@ -37,5 +37,6 @@
 #define IPCC_CLIENT_TME			23
 #define IPCC_CLIENT_WPSS		24
 #define IPCC_CLIENT_MAX			25 /* Used by driver only */
-
+#define IPCC_CLIENT_GPDSP0		31
+#define IPCC_CLIENT_GPDSP1		32
 #endif
