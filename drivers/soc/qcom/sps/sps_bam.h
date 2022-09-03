@@ -220,6 +220,9 @@ struct sps_bam {
 
 	/* Desc cache pointers */
 	u8 *desc_cache_pointers[BAM_MAX_PIPES];
+
+	/* ISR behavior */
+	bool no_serve_irq;
 };
 
 /**
@@ -583,6 +586,24 @@ int sps_bam_pipe_get_unused_desc_num(struct sps_bam *dev, u32 pipe_index,
  * Return: 0 on success, negative value on error
  */
 int sps_bam_check_irq(struct sps_bam *dev);
+
+/*
+ * sps_bam_enable_all_irqs - Enable all IRQs of a BAM
+ * @dev - pointer to BAM device descriptor
+ *
+ * This function enables all irqs of a BAM and its pipes.
+ *
+ */
+void sps_bam_enable_all_irqs(struct sps_bam *dev);
+
+/*
+ * sps_bam_disable_all_irqs - Disable all IRQs of a BAM
+ * @dev - pointer to BAM device descriptor
+ *
+ * This function disables all irqs of a BAM and its pipes.
+ *
+ */
+void sps_bam_disable_all_irqs(struct sps_bam *dev);
 
 /*
  * sps_bam_pipe_pending_desc - checking pending descriptor.
