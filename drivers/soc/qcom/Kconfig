@@ -886,6 +886,19 @@ config QTI_GPLAF_SCMI_CLIENT
 	  driver, and interface driver will use this handle to communicate
 	  with RIMPS GPLAF.
 
+config QTI_SHARED_RAIL_CLIENT
+    tristate "Qualcomm Technologies, Inc. SCMI client driver for SHARED RAIL"
+	depends on MSM_PERFORMANCE && QTI_SCMI_SHARED_RAIL_PROTOCOL
+	help
+	  SCMI client driver registers itself with SCMI framework for SHARED RAIL
+	  vendor protocol, and also registers with the shared rail interface driver
+	  msm_performance.
+
+	  This driver delivers the Shared Rail vendor protocal handle to interface
+	  driver. Interface driver will use this handle to communicate with Shared
+	  Rail and provide sysfs nodes to enable/disable L3 and Silver Core frequency
+	  boost.
+
 config QCOM_SUBSYSTEM_SLEEP_STATS
 	tristate "Qualcomm Technologies, Inc. Subsystem sleep stats driver"
 	depends on QCOM_SMEM
