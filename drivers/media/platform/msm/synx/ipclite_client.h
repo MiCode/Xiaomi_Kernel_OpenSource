@@ -27,6 +27,11 @@ enum ipcmem_host_type {
 	IPCMEM_INVALID_HOST =  0xFF,				  /**< Invalid processor */
 };
 
+/**
+ * IPCLite return codes
+ */
+#define IPCLITE_EINCHAN				9 /**< Inactive Channel */
+
 struct global_region_info {
 	void *virt_base;
 	uint32_t size;
@@ -84,13 +89,13 @@ int32_t ipclite_register_test_client(IPCLite_Client cb_func_ptr, void *priv);
 int32_t get_global_partition_info(struct global_region_info *global_ipcmem);
 
 /**
- * ipclite_hwlock_reset() - Resets the lock if the lock is currently held by core_id
+ * ipclite_recover() - Recovers the ipclite if any core goes for SSR
  *
- * core_id	: takes the core id of which the lock needs to be resetted.
+ * core_id	: takes the core id of the core which went to SSR.
  *
  * @return None.
  */
-void ipclite_hwlock_reset(enum ipcmem_host_type core_id);
+void ipclite_recover(enum ipcmem_host_type core_id);
 
 /**
  * ipclite_atomic_init_u32() - Initializes the global memory with uint32_t value.
