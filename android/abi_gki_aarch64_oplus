@@ -446,7 +446,7 @@
   __tracepoint_android_vh_build_sched_domains
   __tracepoint_android_vh_cache_show
   __tracepoint_android_vh_cma_drain_all_pages_bypass
-  __traceiter_android_vh_cpufreq_acct_update_power
+  __tracepoint_android_vh_cpufreq_acct_update_power
   __tracepoint_android_vh_del_page_from_lrulist
   __tracepoint_android_vh_do_futex
   __tracepoint_android_vh_do_page_trylock
