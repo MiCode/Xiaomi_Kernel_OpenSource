@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/init.h>
@@ -30,6 +31,7 @@
 #include <linux/scmi_protocol.h>
 #include <linux/scmi_plh.h>
 #include <linux/scmi_gplaf.h>
+#include <linux/scmi_shared_rail.h>
 #include <trace/events/power.h>
 
 #define POLL_INT 25
@@ -155,7 +157,16 @@ static ssize_t get_dplh_log_level(struct kobject *kobj,
 static ssize_t set_dplh_log_level(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf,
 	size_t count);
-
+static ssize_t get_l3_boost(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf);
+static ssize_t set_l3_boost(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf,
+	size_t count);
+static ssize_t get_silver_core_boost(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf);
+static ssize_t set_silver_core_boost(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf,
+	size_t count);
 
 static struct kobj_attribute cpu_min_freq_attr =
 	__ATTR(cpu_min_freq, 0644, get_cpu_min_freq, set_cpu_min_freq);
@@ -192,6 +203,10 @@ static struct kobj_attribute dplh_notif_attr =
 	__ATTR(dplh_notif, 0644, get_dplh_notif, set_dplh_notif);
 static struct kobj_attribute dplh_log_level_attr =
 	__ATTR(dplh_log_level, 0644, get_dplh_log_level, set_dplh_log_level);
+static struct kobj_attribute l3_boost_attr =
+	__ATTR(l3_boost, 0644, get_l3_boost, set_l3_boost);
+static struct kobj_attribute silver_core_boost_attr =
+	__ATTR(silver_core_boost, 0644, get_silver_core_boost, set_silver_core_boost);
 
 static struct attribute *param_attrs[] = {
 	&cpu_min_freq_attr.attr,
@@ -211,6 +226,8 @@ static struct attribute *param_attrs[] = {
 	&gplaf_health_attr.attr,
 	&dplh_notif_attr.attr,
 	&dplh_log_level_attr.attr,
+	&l3_boost_attr.attr,
+	&silver_core_boost_attr.attr,
 	NULL,
 };
 
@@ -1944,6 +1961,87 @@ static ssize_t set_dplh_notif(struct kobject *kobj,
 	return count;
 }
 
+static struct scmi_protocol_handle *shared_rail_handle;
+static const struct scmi_shared_rail_vendor_ops *shared_rail_ops;
+int cpucp_scmi_shared_rail_boost_init(struct scmi_device *sdev)
+{
+	int ret = 0;
+
+	shared_rail_ops = sdev->handle->devm_get_protocol(sdev,
+				SCMI_PROTOCOL_SHARED_RAIL, &shared_rail_handle);
+	if (!shared_rail_ops)
+		return -ENODEV;
+
+	return ret;
+}
+EXPORT_SYMBOL(cpucp_scmi_shared_rail_boost_init);
+
+static int l3_data;
+static ssize_t get_l3_boost(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", l3_data);
+}
+
+static ssize_t set_l3_boost(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int ret, data_backup;
+
+	if (!shared_rail_handle || !shared_rail_ops) {
+		pr_err("shared_rail scmi handle or vendor ops null\n");
+		return -EINVAL;
+	}
+
+	data_backup = l3_data;
+	ret = sscanf(buf, "%du", &l3_data);
+	if (ret < 0) {
+		pr_err("shared_rail getting new data, ret=%d\n", ret);
+		return ret;
+	}
+
+	ret = shared_rail_ops->set_shared_rail_boost(shared_rail_handle, l3_data, L3_BOOST);
+	if (ret < 0) {
+		l3_data = data_backup;
+		pr_err("shared_rail setting new data failed, ret=%d\n", ret);
+		return ret;
+	}
+	return count;
+}
+
+static int silver_core_data;
+static ssize_t get_silver_core_boost(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", silver_core_data);
+}
+
+static ssize_t set_silver_core_boost(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int ret, data_backup;
+
+	if (!shared_rail_handle || !shared_rail_ops) {
+		pr_err("shared_rail scmi handle or vendor ops null\n");
+		return -EINVAL;
+	}
+
+	data_backup = silver_core_data;
+	ret = sscanf(buf, "%du", &silver_core_data);
+	if (ret < 0) {
+		pr_err("shared_rail getting new data, ret=%d\n", ret);
+		return ret;
+	}
+
+	ret = shared_rail_ops->set_shared_rail_boost(shared_rail_handle,
+						silver_core_data, SILVER_CORE_BOOST);
+	if (ret < 0) {
+		silver_core_data = data_backup;
+		pr_err("shared_rail setting new data failed, ret=%d\n", ret);
+		return ret;
+	}
+	return count;
+}
 
 static int __init msm_performance_init(void)
 {
