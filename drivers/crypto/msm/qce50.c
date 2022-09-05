@@ -285,6 +285,12 @@ static int qce_crypto_config(struct qce_device *pce_dev,
 	return 0;
 }
 
+static void qce_enable_clock_gating(struct qce_device *pce_dev)
+{
+	/* This feature might cause some HW issues, noop till resolved. */
+	return;
+}
+
 /*
  * IV counter mask is be set based on the values sent through the offload ioctl
  * calls. Currently for offload operations, it is 64 bytes of mask for AES CTR,
@@ -2376,6 +2382,8 @@ int qce_manage_timeout(void *handle, int req_info)
 
 	if (qce_sps_pipe_reset(pce_dev, op))
 		pr_err("%s: pipe reset failed\n", __func__);
+
+	qce_enable_clock_gating(pce_dev);
 
 	if (_qce_unlock_other_pipes(pce_dev, req_info))
 		pr_err("%s: fail unlock other pipes\n", __func__);
@@ -5335,6 +5343,7 @@ static int _qce_resume(void *handle)
 			pr_err("Producer cb registration failed rc = %d\n",
 								rc);
 	}
+	qce_enable_clock_gating(pce_dev);
 
 	return rc;
 }
@@ -6621,6 +6630,7 @@ void *qce_open(struct platform_device *pdev, int *rc)
 	pce_dev->dev_no = pcedev_no;
 	pcedev_no++;
 	pce_dev->owner = QCE_OWNER_NONE;
+	qce_enable_clock_gating(pce_dev);
 	mutex_unlock(&qce_iomap_mutex);
 	return pce_dev;
 err:
