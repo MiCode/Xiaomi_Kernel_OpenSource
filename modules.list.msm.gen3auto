@@ -4,6 +4,7 @@ iommu-logger.ko
 llcc-qcom.ko
 mem_buf.ko
 mem_buf_dev.ko
+mem_buf_msgq.ko
 minidump.ko
 msm_qmp.ko
 msm_dma_iommu_mapping.ko
@@ -44,6 +45,8 @@ clk-dummy.ko
 gdsc-regulator.ko
 gcc-sm8150.ko
 gcc-sc8180x.ko
+gh_msgq.ko
+gh_rm_drv.ko
 camcc-sc8180x.ko
 camcc-sm8150.ko
 dispcc-sm8250.ko
