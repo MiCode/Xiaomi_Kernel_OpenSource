@@ -406,11 +406,13 @@
   __traceiter_android_vh_record_rtmutex_lock_starttime
   __traceiter_android_vh_record_rwsem_lock_starttime
   __traceiter_android_vh_record_percpu_rwsem_lock_starttime
+  __traceiter_android_vh_rmqueue
   __traceiter_android_vh_rwsem_wake_finish
   __traceiter_android_vh_sched_show_task
   __traceiter_android_vh_sched_stat_runtime_rt
   __traceiter_android_vh_show_mapcount_pages
   __traceiter_android_vh_sync_txn_recvd
+  __traceiter_android_vh_tune_inactive_ratio
   __traceiter_android_vh_tune_scan_type
   __traceiter_android_vh_tune_swappiness
   __traceiter_android_vh_update_page_mapcount
@@ -484,9 +486,11 @@
   __tracepoint_android_vh_record_rtmutex_lock_starttime
   __tracepoint_android_vh_record_rwsem_lock_starttime
   __tracepoint_android_vh_record_percpu_rwsem_lock_starttime
+  __tracepoint_android_vh_rmqueue
   __tracepoint_android_vh_sched_stat_runtime_rt
   __tracepoint_android_vh_show_mapcount_pages
   __tracepoint_android_vh_sync_txn_recvd
+  __tracepoint_android_vh_tune_inactive_ratio
   __tracepoint_android_vh_tune_scan_type
   __tracepoint_android_vh_tune_swappiness
   __tracepoint_android_vh_update_page_mapcount
