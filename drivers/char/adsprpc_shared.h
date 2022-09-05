@@ -950,9 +950,10 @@ struct fastrpc_mmap {
 	int refs;
 	uintptr_t raddr;
 	int secure;
-	/* Minidump unique index */
-	int frpc_md_index;
+	bool is_persistent;			/* the map is persistenet across sessions */
+	int frpc_md_index;			/* Minidump unique index */
 	uintptr_t attr;
+	bool in_use;				/* Indicates if persistent map is in use*/
 	struct timespec64 map_start_time;
 	struct timespec64 map_end_time;
 	/* Mapping for fastrpc shell */

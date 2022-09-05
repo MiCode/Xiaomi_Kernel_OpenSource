@@ -630,7 +630,7 @@ static int fastrpc_minidump_remove_region(struct fastrpc_mmap *map)
 			map->frpc_md_index = -1;
 		}
 	} else {
-		ADSPRPC_ERR("mini-dump enabled with invalid unique id: %d\n", map->frpc_md_index);
+		ADSPRPC_WARN("mini-dump enabled with invalid unique id: %d\n", map->frpc_md_index);
 	}
 	return err;
 }
@@ -876,7 +876,7 @@ static int fastrpc_mmap_remove(struct fastrpc_file *fl, int fd, uintptr_t va,
 	hlist_for_each_entry_safe(map, n, &me->maps, hn) {
 		if ((fd < 0 || map->fd == fd) && map->raddr == va &&
 			map->raddr + map->len == va + len &&
-			map->refs == 1 &&
+			map->refs == 1 && !map->is_persistent &&
 			/* Skip unmap if it is fastrpc shell memory */
 			!map->is_filemap) {
 			match = map;
@@ -933,7 +933,7 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 				map->flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
 		spin_lock_irqsave(&me->hlock, irq_flags);
 		map->refs--;
-		if (!map->refs)
+		if (!map->refs && !map->is_persistent)
 			hlist_del_init(&map->hn);
 		spin_unlock_irqrestore(&me->hlock, irq_flags);
 		if (map->refs > 0) {
@@ -941,6 +941,11 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 				"multiple references for remote heap size %zu va 0x%lx ref count is %d\n",
 				map->size, map->va, map->refs);
 			return;
+		}
+		if (map->is_persistent && map->in_use) {
+			spin_lock(&me->hlock);
+			map->in_use = false;
+			spin_unlock(&me->hlock);
 		}
 	} else {
 		map->refs--;
@@ -958,11 +963,11 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 			return;
 		}
 
-		if (msm_minidump_enabled()) {
+		if (msm_minidump_enabled() && !map->is_persistent)
 			err = fastrpc_minidump_remove_region(map);
-		}
-		trace_fastrpc_dma_free(-1, map->phys, map->size);
-		if (map->phys) {
+
+		if (map->phys && !map->is_persistent) {
+			trace_fastrpc_dma_free(-1, map->phys, map->size);
 			dma_free_attrs(me->dev, map->size, (void *)map->va,
 			(dma_addr_t)map->phys, (unsigned long)map->attr);
 		}
@@ -1010,11 +1015,33 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 			dma_buf_put(map->buf);
 	}
 bail:
-	kfree(map);
+	if (!map->is_persistent)
+		kfree(map);
 }
 
 static int fastrpc_session_alloc(struct fastrpc_channel_ctx *chan, int secure,
 			int sharedcb, struct fastrpc_session_ctx **session);
+
+static inline bool fastrpc_get_persistent_map(size_t len, struct fastrpc_mmap **pers_map)
+{
+	struct fastrpc_apps *me = &gfa;
+	struct fastrpc_mmap *map = NULL;
+	struct hlist_node *n = NULL;
+	bool found = false;
+
+	spin_lock(&me->hlock);
+	hlist_for_each_entry_safe(map, n, &me->maps, hn) {
+		if (len == map->len &&
+			map->is_persistent && !map->in_use) {
+			*pers_map = map;
+			map->in_use = true;
+			found = true;
+			break;
+		}
+	}
+	spin_unlock(&me->hlock);
+	return found;
+}
 
 static int fastrpc_mmap_create_remote_heap(struct fastrpc_file *fl,
 		struct fastrpc_mmap *map, size_t len, int mflags)
@@ -3852,19 +3879,24 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 
 	if (!fl->trusted_vm && (!me->staticpd_flags && !me->legacy_remote_heap)) {
 		inbuf.pageslen = 1;
-		mutex_lock(&fl->map_mutex);
-		err = fastrpc_mmap_create(fl, -1, NULL, 0, init->mem,
-			 init->memlen, ADSP_MMAP_REMOTE_HEAP_ADDR, &mem);
-		mutex_unlock(&fl->map_mutex);
-		if (err)
-			goto bail;
+		if (!fastrpc_get_persistent_map(init->memlen, &mem)) {
+			mutex_lock(&fl->map_mutex);
+			err = fastrpc_mmap_create(fl, -1, NULL, 0, init->mem,
+				 init->memlen, ADSP_MMAP_REMOTE_HEAP_ADDR, &mem);
+			mutex_unlock(&fl->map_mutex);
+			if (err)
+				goto bail;
+			spin_lock(&me->hlock);
+			mem->in_use = true;
+			spin_unlock(&me->hlock);
+		}
 		phys = mem->phys;
 		size = mem->size;
 		/*
 		 * If remote-heap VMIDs are defined in DTSI, then do
 		 * hyp_assign from HLOS to those VMs (LPASS, ADSP).
 		 */
-		if (rhvm->vmid && mem->refs == 1 && size) {
+		if (rhvm->vmid && mem && !mem->is_persistent && mem->refs == 1 && size) {
 			err = hyp_assign_phys(phys, (uint64_t)size,
 				hlosvm, 1,
 				rhvm->vmid, rhvm->vmperm, rhvm->vmcount);
@@ -3878,6 +3910,7 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 			rh_hyp_done = 1;
 		}
 		me->staticpd_flags = 1;
+		mem->is_persistent = true;
 	}
 
 	/*
@@ -3927,9 +3960,9 @@ bail:
 					"rh hyp unassign failed with %d for phys 0x%llx of size %zu\n",
 					hyp_err, phys, size);
 		}
-	mutex_lock(&fl->map_mutex);
-	fastrpc_mmap_free(mem, 0);
-	mutex_unlock(&fl->map_mutex);
+		mutex_lock(&fl->map_mutex);
+		fastrpc_mmap_free(mem, 0);
+		mutex_unlock(&fl->map_mutex);
 	}
 	return err;
 }
@@ -4582,6 +4615,11 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked)
 		spin_lock_irqsave(&me->hlock, irq_flags);
 		hlist_for_each_entry_safe(map, n, &me->maps, hn) {
 			match = map;
+			if (map->is_persistent) {
+				map->in_use = false;
+				match = NULL;
+				continue;
+			}
 			hlist_del_init(&map->hn);
 			break;
 		}
@@ -4734,8 +4772,10 @@ int fastrpc_internal_munmap(struct fastrpc_file *fl,
 		err = -EINVAL;
 		goto bail;
 	}
-	VERIFY(err, !(err = fastrpc_munmap_on_dsp(fl, map->raddr,
-			map->phys, map->size, map->flags)));
+	if (!map->is_persistent) {
+		VERIFY(err, !(err = fastrpc_munmap_on_dsp(fl, map->raddr,
+				map->phys, map->size, map->flags)));
+	}
 	if (err)
 		goto bail;
 	mutex_lock(&fl->map_mutex);
