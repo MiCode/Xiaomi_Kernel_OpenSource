@@ -754,6 +754,7 @@ int synx_global_recover(enum synx_core_id core_id)
 	bool clear_idx[SYNX_GLOBAL_MAX_OBJS] = {false};
 	bool update;
 
+	dprintk(SYNX_WARN, "Subsystem restart for core_id: %d\n", core_id);
 	if (!synx_gmem.table)
 		return -SYNX_NOMEM;
 
