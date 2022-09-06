@@ -402,6 +402,7 @@ struct submission_info {
  * @sop: AO ticks when GPU started procssing this submission
  * @eop: AO ticks when GPU finished this submission
  * @retired_on_gmu: AO ticks when GMU retired this submission
+ * @active: Number AO of ticks taken by GPU to complete the command
  */
 struct retire_info {
 	int inflight;
@@ -414,6 +415,7 @@ struct retire_info {
 	u64 sop;
 	u64 eop;
 	u64 retired_on_gmu;
+	u64 active;
 };
 
 long kgsl_ioctl_device_getproperty(struct kgsl_device_private *dev_priv,

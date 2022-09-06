@@ -148,6 +148,7 @@ static void log_profiling_info(struct adreno_device *adreno_dev, u32 *rcvd)
 	struct hfi_ts_retire_cmd *cmd = (struct hfi_ts_retire_cmd *)rcvd;
 	struct kgsl_context *context;
 	struct retire_info info = {0};
+	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
 
 	context = kgsl_context_get(KGSL_DEVICE(adreno_dev), cmd->ctxt_id);
 	if (context == NULL)
@@ -159,6 +160,10 @@ static void log_profiling_info(struct adreno_device *adreno_dev, u32 *rcvd)
 	info.submitted_to_rb = cmd->submitted_to_rb;
 	info.sop = cmd->sop;
 	info.eop = cmd->eop;
+	if (GMU_VER_MINOR(gmu->ver.hfi) < 4)
+		info.active = cmd->eop - cmd->sop;
+	else
+		info.active = cmd->active;
 	info.retired_on_gmu = cmd->retired_on_gmu;
 
 	trace_adreno_cmdbatch_retired(context, &info, 0, 0, 0);
