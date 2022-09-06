@@ -2384,11 +2384,17 @@ static int geni_i3c_probe(struct platform_device *pdev)
 	ret = i3c_master_register(&gi3c->ctrlr, &pdev->dev,
 		&geni_i3c_master_ops, false);
 	if (ret) {
-		I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
-			"I3C master registration failed=%d, continue\n", ret);
-
-		/* NOTE : This may fail on 7E NACK, but should return 0 */
-		ret = 0;
+		if (ret == -ENOTCONN) {
+			I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
+				"Pass I3C master register failure=%d\n", ret);
+			/* NOTE : This may fail on 7E NACK, but should return 0 */
+			ret = 0;
+		} else {
+			I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
+				 "I3C master registration failed=%d\n", ret);
+			/* Except NACK, rest of the errors should fail the Probe */
+			goto cleanup_icc_init;
+		}
 	}
 	I3C_LOG_ERR(gi3c->ipcl, false, gi3c->se.dev,
 		"I3C bus freq:%ld, I2C bus fres:%ld\n",
