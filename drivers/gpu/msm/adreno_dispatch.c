@@ -2213,7 +2213,8 @@ static void _print_recovery(struct kgsl_device *device,
 }
 
 static void cmdobj_profile_ticks(struct adreno_device *adreno_dev,
-	struct kgsl_drawobj_cmd *cmdobj, uint64_t *start, uint64_t *retire)
+	struct kgsl_drawobj_cmd *cmdobj, uint64_t *start, uint64_t *retire,
+	uint64_t *active)
 {
 	void *ptr = adreno_dev->profile_buffer->hostptr;
 	struct adreno_drawobj_profile_entry *entry;
@@ -2225,6 +2226,10 @@ static void cmdobj_profile_ticks(struct adreno_device *adreno_dev,
 	rmb();
 	*start = entry->started;
 	*retire = entry->retired;
+	if (ADRENO_GPUREV(adreno_dev) < 600)
+		*active = entry->retired - entry->started;
+	else
+		*active = entry->ctx_end - entry->ctx_start;
 }
 
 static void retire_cmdobj(struct adreno_device *adreno_dev,
@@ -2235,7 +2240,7 @@ static void retire_cmdobj(struct adreno_device *adreno_dev,
 	struct adreno_context *drawctxt = ADRENO_CONTEXT(drawobj->context);
 	struct adreno_ringbuffer *rb = drawctxt->rb;
 	struct kgsl_context *context = drawobj->context;
-	uint64_t start = 0, end = 0;
+	uint64_t start = 0, end = 0, active = 0;
 	struct retire_info info = {0};
 
 	if (cmdobj->fault_recovery != 0) {
@@ -2244,7 +2249,7 @@ static void retire_cmdobj(struct adreno_device *adreno_dev,
 	}
 
 	if (test_bit(CMDOBJ_PROFILE, &cmdobj->priv))
-		cmdobj_profile_ticks(adreno_dev, cmdobj, &start, &end);
+		cmdobj_profile_ticks(adreno_dev, cmdobj, &start, &end, &active);
 
 	info.inflight = (int)dispatcher->inflight;
 	info.rb_id = rb->id;
@@ -2252,6 +2257,7 @@ static void retire_cmdobj(struct adreno_device *adreno_dev,
 	info.timestamp = drawobj->timestamp;
 	info.sop = start;
 	info.eop = end;
+	info.active = active;
 
 	msm_perf_events_update(MSM_PERF_GFX, MSM_PERF_RETIRED,
 			       pid_nr(context->proc_priv->pid),
