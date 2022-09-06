@@ -1017,4 +1017,31 @@ config SA_VIDEOCC_LEMANS
 	  Say Y if you want to support video devices and functionality such as
 	  video encode/decode.
 
+config SA_GPUCC_LEMANS
+	tristate "LEMANS Graphics Clock Controllers"
+	select SA_GCC_LEMANS
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc
+	  LEMANS devices.
+	  Say Y if you want to support graphics controller devices and
+	  functionality such as 3D graphics.
+
+config SA_DISPCC_LEMANS
+	tristate "LEMANS Display Clock Controllers"
+	select SA_GCC_LEMANS
+	help
+	  Support for the display clock controller 0 and 1 on Qualcomm Technologies, Inc.
+	  LEMANS devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
+config SA_DEBUGCC_LEMANS
+	tristate "Lemans Debug Clock Controller"
+	depends on SA_GCC_LEMANS
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  LEMANS devices.
+	  Say Y if you want to support the debug clocks such as
+	  clock measurement functionality.
+
 endif
