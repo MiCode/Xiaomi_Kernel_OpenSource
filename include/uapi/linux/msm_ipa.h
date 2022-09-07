@@ -2782,6 +2782,7 @@ struct ipa_msg_meta {
  * struct ipa_wlan_msg - To hold information about wlan client
  * @name: name of the wlan interface
  * @mac_addr: mac address of wlan client
+ * @if_index: netdev interface index
  *
  * wlan drivers need to pass name of wlan iface and mac address of
  * wlan client along with ipa_wlan_event, whenever a wlan client is
@@ -2790,6 +2791,7 @@ struct ipa_msg_meta {
 struct ipa_wlan_msg {
 	char name[IPA_RESOURCE_NAME_MAX];
 	uint8_t mac_addr[IPA_MAC_ADDR_SIZE];
+	int16_t if_index;
 };
 
 /**
