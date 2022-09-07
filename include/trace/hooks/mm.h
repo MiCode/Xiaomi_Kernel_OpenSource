@@ -1,4 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0 */
+#ifdef PROTECT_TRACE_INCLUDE_PATH
+#undef PROTECT_TRACE_INCLUDE_PATH
+
+#include <trace/hooks/save_incpath.h>
+#include <trace/hooks/mm.h>
+#include <trace/hooks/restore_incpath.h>
+
+#else /* PROTECT_TRACE_INCLUDE_PATH */
+
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM mm
 
@@ -87,6 +96,12 @@ DECLARE_HOOK(android_vh_include_reserved_zone,
 DECLARE_HOOK(android_vh_show_mem,
 	TP_PROTO(unsigned int filter, nodemask_t *nodemask),
 	TP_ARGS(filter, nodemask));
+DECLARE_HOOK(android_vh_alloc_pages_slowpath_begin,
+	     TP_PROTO(gfp_t gfp_mask, unsigned int order, unsigned long *pdata),
+	     TP_ARGS(gfp_mask, order, pdata));
+DECLARE_HOOK(android_vh_alloc_pages_slowpath_end,
+	     TP_PROTO(gfp_t gfp_mask, unsigned int order, unsigned long data),
+	     TP_ARGS(gfp_mask, order, data));
 struct dirty_throttle_control;
 DECLARE_HOOK(android_vh_mm_dirty_limits,
 	TP_PROTO(struct dirty_throttle_control *const gdtc, bool strictlimit,
@@ -138,6 +153,28 @@ DECLARE_HOOK(android_vh_drain_all_pages_bypass,
 		int migratetype, unsigned long did_some_progress,
 		bool *bypass),
 	TP_ARGS(gfp_mask, order, alloc_flags, migratetype, did_some_progress, bypass));
+DECLARE_HOOK(android_vh_update_page_mapcount,
+	TP_PROTO(struct page *page, bool inc_size, bool compound,
+			bool *first_mapping, bool *success),
+	TP_ARGS(page, inc_size, compound, first_mapping, success));
+DECLARE_HOOK(android_vh_add_page_to_lrulist,
+	TP_PROTO(struct page *page, bool compound, enum lru_list lru),
+	TP_ARGS(page, compound, lru));
+DECLARE_HOOK(android_vh_del_page_from_lrulist,
+	TP_PROTO(struct page *page, bool compound, enum lru_list lru),
+	TP_ARGS(page, compound, lru));
+DECLARE_HOOK(android_vh_show_mapcount_pages,
+	TP_PROTO(void *unused),
+	TP_ARGS(unused));
+DECLARE_HOOK(android_vh_do_traversal_lruvec,
+	TP_PROTO(struct lruvec *lruvec),
+	TP_ARGS(lruvec));
+DECLARE_HOOK(android_vh_page_should_be_protected,
+	TP_PROTO(struct page *page, bool *should_protect),
+	TP_ARGS(page, should_protect));
+DECLARE_HOOK(android_vh_mark_page_accessed,
+	TP_PROTO(struct page *page),
+	TP_ARGS(page));
 DECLARE_HOOK(android_vh_cma_drain_all_pages_bypass,
 	TP_PROTO(unsigned int migratetype, bool *bypass),
 	TP_ARGS(migratetype, bypass));
@@ -218,9 +255,14 @@ DECLARE_HOOK(android_vh_free_pages,
 DECLARE_HOOK(android_vh_set_shmem_page_flag,
 	TP_PROTO(struct page *page),
 	TP_ARGS(page));
+DECLARE_HOOK(android_vh_remove_vmalloc_stack,
+	TP_PROTO(struct vm_struct *vm),
+	TP_ARGS(vm));
 /* macro versions of hooks are no longer required */
 
 #endif /* _TRACE_HOOK_MM_H */
 
 /* This part must be outside protection */
 #include <trace/define_trace.h>
+
+#endif /* PROTECT_TRACE_INCLUDE_PATH */
