@@ -647,14 +647,23 @@ static int qrtr_node_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 	int rc = -ENODEV;
 	int confirm_rx;
 
+	mutex_lock(&node->ep_lock);
 	if (!atomic_read(&node->hello_sent) && type != QRTR_TYPE_HELLO) {
 		kfree_skb(skb);
+		mutex_unlock(&node->ep_lock);
 		return rc;
 	}
+
 	if (atomic_read(&node->hello_sent) && type == QRTR_TYPE_HELLO) {
 		kfree_skb(skb);
+		mutex_unlock(&node->ep_lock);
 		return 0;
 	}
+
+	if (!atomic_read(&node->hello_sent) && type == QRTR_TYPE_HELLO)
+		atomic_inc(&node->hello_sent);
+
+	mutex_unlock(&node->ep_lock);
 
 	/* If sk is null, this is a forwarded packet and should not wait */
 	if (!skb->sk) {
@@ -688,6 +697,8 @@ static int qrtr_node_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 	if (rc) {
 		pr_err("%s: failed to pad size %lu to %lu rc:%d\n", __func__,
 		       len, ALIGN(len, 4) + sizeof(*hdr), rc);
+		if (type == QRTR_TYPE_HELLO)
+			atomic_dec(&node->hello_sent);
 		return rc;
 	}
 
@@ -702,11 +713,10 @@ static int qrtr_node_enqueue(struct qrtr_node *node, struct sk_buff *skb,
 	 * confirm_rx flag if we dropped this one */
 	if (rc && confirm_rx)
 		qrtr_tx_flow_failed(node, to->sq_node, to->sq_port);
-	if (type == QRTR_TYPE_HELLO) {
-		if (!rc)
-			atomic_inc(&node->hello_sent);
-		else
-			kthread_queue_work(&node->kworker, &node->say_hello);
+
+	if (rc && type == QRTR_TYPE_HELLO) {
+		atomic_dec(&node->hello_sent);
+		kthread_queue_work(&node->kworker, &node->say_hello);
 	}
 
 	return rc;
@@ -1543,18 +1553,6 @@ static int __qrtr_bind(struct socket *sock,
 		qrtr_reset_ports();
 	spin_unlock_irqrestore(&qrtr_port_lock, flags);
 
-
-	if (port == QRTR_PORT_CTRL) {
-		struct qrtr_node *node;
-
-		down_write(&qrtr_epts_lock);
-		list_for_each_entry(node, &qrtr_all_epts, item) {
-			atomic_set(&node->hello_sent, 0);
-			atomic_set(&node->hello_rcvd, 0);
-		}
-		up_write(&qrtr_epts_lock);
-	}
-
 	/* unbind previous, if any */
 	if (!zapped)
 		qrtr_port_remove(ipc);
@@ -2015,6 +2013,16 @@ static int qrtr_release(struct socket *sock)
 	lock_sock(sk);
 
 	ipc = qrtr_sk(sk);
+	if (ipc->us.sq_port == QRTR_PORT_CTRL) {
+		struct qrtr_node *node;
+
+		down_write(&qrtr_epts_lock);
+		list_for_each_entry(node, &qrtr_all_epts, item) {
+			atomic_set(&node->hello_sent, 0);
+			atomic_set(&node->hello_rcvd, 0);
+		}
+		up_write(&qrtr_epts_lock);
+	}
 	sk->sk_shutdown = SHUTDOWN_MASK;
 	if (!sock_flag(sk, SOCK_DEAD))
 		sk->sk_state_change(sk);

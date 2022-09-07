@@ -235,7 +235,8 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	 * Update the bus before the GPU clock to prevent underrun during
 	 * frequency increases.
 	 */
-	kgsl_bus_update(device, KGSL_BUS_VOTE_ON);
+	if (new_level < old_level)
+		kgsl_bus_update(device, KGSL_BUS_VOTE_ON);
 
 	pwrlevel = &pwr->pwrlevels[pwr->active_pwrlevel];
 	/* Change register settings if any  BEFORE pwrlevel change*/
@@ -249,6 +250,10 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 			pwr->pwrlevels[old_level].gpu_freq);
 
 	trace_gpu_frequency(pwrlevel->gpu_freq/1000, 0);
+
+	/*  Update the bus after GPU clock decreases. */
+	if (new_level > old_level)
+		kgsl_bus_update(device, KGSL_BUS_VOTE_ON);
 
 	/*
 	 * Some targets do not support the bandwidth requirement of

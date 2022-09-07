@@ -49,20 +49,15 @@ helios_app_transfer_and_authenticate_fw(struct Object self,
 }
 
 static inline int32_t
-helios_app_collect_ramdump(struct Object self, void *ramdump_ptr,
-		size_t ramdump_len, size_t *ramdump_lenout)
+helios_app_collect_ramdump(struct Object self, const void *ramdump_ptr,
+		size_t ramdump_len)
 {
-	int32_t result;
 	union ObjectArg arg[1] = {{{0, 0}}};
 
-	arg[0].b = (struct ObjectBuf) { ramdump_ptr, ramdump_len * 1 };
+	arg[0].bi = (struct ObjectBufIn) { ramdump_ptr, ramdump_len * 1 };
 
-	result = Object_invoke(self, COLLECT_RAMDUMP, arg,
-			ObjectCounts_pack(0, 1, 0, 0));
-
-	*ramdump_lenout = arg[0].b.size / 1;
-
-	return result;
+	return Object_invoke(self, COLLECT_RAMDUMP, arg,
+			ObjectCounts_pack(1, 0, 0, 0));
 }
 
 static inline int32_t

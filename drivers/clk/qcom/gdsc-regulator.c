@@ -21,6 +21,7 @@
 #include <linux/regmap.h>
 #include <linux/reset.h>
 #include <linux/mfd/syscon.h>
+#include <linux/interconnect.h>
 
 #include "../../regulator/internal.h"
 #include "gdsc-debug.h"
@@ -71,6 +72,7 @@ struct gdsc {
 	struct collapse_vote	collapse_vote;
 	struct clk		**clocks;
 	struct reset_control	**reset_clocks;
+	struct icc_path		**paths;
 	bool			toggle_logic;
 	bool			retain_ff_enable;
 	bool			resets_asserted;
@@ -87,6 +89,7 @@ struct gdsc {
 	int			sw_reset_count;
 	int			collapse_count;
 	int			clk_ctrl_count;
+	int			path_count;
 	u32			gds_timeout;
 	bool			skip_disable_before_enable;
 };
@@ -227,6 +230,14 @@ static int gdsc_enable(struct regulator_dev *rdev)
 		gdsc_clk_ctrl(sc, true);
 
 	if (sc->toggle_logic) {
+		for (i = 0; i < sc->path_count; i++) {
+			ret = icc_set_bw(sc->paths[i], 1, 1);
+			if (ret) {
+				dev_err(&rdev->dev, "Failed to vote BW for %d, ret=%d\n", i, ret);
+				return ret;
+			}
+		}
+
 		if (sc->sw_reset_count) {
 			for (i = 0; i < sc->sw_reset_count; i++)
 				regmap_set_bits(sc->sw_resets[i], REG_OFFSET,
@@ -445,6 +456,13 @@ static int gdsc_disable(struct regulator_dev *rdev)
 			regmap_write(sc->domain_addr, REG_OFFSET, regval);
 		}
 
+		for (i = 0; i < sc->path_count; i++) {
+			ret = icc_set_bw(sc->paths[i], 0, 0);
+			if (ret) {
+				dev_err(&rdev->dev, "Failed to unvote BW for %d: %d\n", i, ret);
+				return ret;
+			}
+		}
 	} else {
 		for (i = sc->reset_count - 1; i >= 0; i--)
 			reset_control_assert(sc->reset_clocks[i]);
@@ -750,6 +768,16 @@ static int gdsc_parse_dt_data(struct gdsc *sc, struct device *dev,
 		return sc->clock_count;
 	}
 
+	sc->path_count = of_property_count_strings(dev->of_node,
+						   "interconnect-names");
+	if (sc->path_count == -EINVAL) {
+		sc->path_count = 0;
+	} else if (sc->path_count < 0) {
+		dev_err(dev, "Failed to get interconnect names, ret=%d\n",
+			sc->path_count);
+		return sc->path_count;
+	}
+
 	sc->root_en = of_property_read_bool(dev->of_node,
 						"qcom,enable-root-clk");
 	sc->force_root_en = of_property_read_bool(dev->of_node,
@@ -863,6 +891,26 @@ static int gdsc_get_resources(struct gdsc *sc, struct platform_device *pdev)
 
 		if (!strcmp(clock_name, "core_root_clk"))
 			sc->root_clk_idx = i;
+	}
+
+	sc->paths = devm_kcalloc(dev, sc->path_count, sizeof(*sc->paths), GFP_KERNEL);
+	if (sc->path_count && !sc->paths)
+		return -ENOMEM;
+
+	for (i = 0; i < sc->path_count; i++) {
+		const char *name;
+
+		of_property_read_string_index(dev->of_node, "interconnect-names", i,
+					      &name);
+
+		sc->paths[i] = of_icc_get(dev, name);
+		if (IS_ERR(sc->paths[i])) {
+			ret = PTR_ERR(sc->paths[i]);
+			if (ret != -EPROBE_DEFER)
+				dev_err(dev, "Failed to get path %s, ret=%d\n",
+					name, ret);
+			return ret;
+		}
 	}
 
 	if ((sc->root_en || sc->force_root_en) && (sc->root_clk_idx == -1)) {

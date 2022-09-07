@@ -264,6 +264,14 @@ struct mem_buf_vmperm *to_mem_buf_vmperm(struct dma_buf *dmabuf)
 }
 EXPORT_SYMBOL(to_mem_buf_vmperm);
 
+static bool mem_buf_uncached(struct dma_buf *dmabuf)
+{
+	struct mem_buf_dma_buf_ops *ops;
+
+	ops = container_of(dmabuf->ops, struct mem_buf_dma_buf_ops, dma_ops);
+	return ops->uncached(dmabuf);
+}
+
 int mem_buf_dma_buf_set_destructor(struct dma_buf *buf,
 				   mem_buf_dma_buf_destructor dtor,
 				   void *dtor_data)
@@ -339,14 +347,22 @@ EXPORT_SYMBOL(mem_buf_vmperm_unpin);
  * We allow mapping to iommu regardless of permissions.
  * Caller must have previously called mem_buf_vmperm_pin
  */
-bool mem_buf_vmperm_can_cmo(struct mem_buf_vmperm *vmperm)
+static bool _mem_buf_vmperm_can_cmo(struct mem_buf_vmperm *vmperm)
 {
 	u32 perms = PERM_READ | PERM_WRITE;
 	bool ret = false;
 
-	mutex_lock(&vmperm->lock);
 	if (((vmperm->current_vm_perms & perms) == perms) && vmperm->mapcount)
 		ret = true;
+	return ret;
+}
+
+bool mem_buf_vmperm_can_cmo(struct mem_buf_vmperm *vmperm)
+{
+	bool ret;
+
+	mutex_lock(&vmperm->lock);
+	ret = _mem_buf_vmperm_can_cmo(vmperm);
 	mutex_unlock(&vmperm->lock);
 	return ret;
 }
@@ -492,8 +508,10 @@ static int mem_buf_lend_internal(struct dma_buf *dmabuf,
 	 * whether they require cache maintenance prior to caling this function
 	 * for backwards compatibility with ion we will always do CMO.
 	 */
-	dma_map_sgtable(mem_buf_dev, vmperm->sgt, DMA_TO_DEVICE, 0);
-	dma_unmap_sgtable(mem_buf_dev, vmperm->sgt, DMA_TO_DEVICE, 0);
+	if (!mem_buf_uncached(dmabuf) && _mem_buf_vmperm_can_cmo(vmperm)) {
+		dma_map_sgtable(mem_buf_dev, vmperm->sgt, DMA_TO_DEVICE, 0);
+		dma_unmap_sgtable(mem_buf_dev, vmperm->sgt, DMA_TO_DEVICE, 0);
+	}
 
 	ret = mem_buf_vmperm_resize(vmperm, arg->nr_acl_entries);
 	if (ret)

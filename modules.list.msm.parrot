@@ -7,6 +7,7 @@ clk-qcom.ko
 deferred-free-helper.ko
 dispcc-parrot.ko
 gcc-parrot.ko
+gcc-ravelin.ko
 gdsc-regulator.ko
 pinctrl-parrot.ko
 pinctrl-ravelin.ko
@@ -18,6 +19,9 @@ qcom_wdt_core.ko
 icc-rpmh.ko
 qcom_ipc_logging.ko
 qcom-pdc.ko
+qcom_tsens.ko
+thermal_pause.ko
+cpu_hotplug.ko
 arm_smmu.ko
 cmd-db.ko
 gh_msgq.ko
@@ -54,6 +58,7 @@ msm_qmp.ko
 socinfo.ko
 stub-regulator.ko
 msm-geni-se.ko
+nvmem_qfprom.ko
 cqhci.ko
 sdhci-msm.ko
 phy-qcom-ufs.ko
@@ -80,3 +85,4 @@ hwkm.ko
 ufshcd-crypto-qti.ko
 tmecom-intf.ko
 cqhci-crypto-qti.ko
+bcl_pmic5.ko

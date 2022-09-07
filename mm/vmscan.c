@@ -1564,36 +1564,6 @@ unsigned int reclaim_clean_pages_from_list(struct zone *zone,
 	return nr_reclaimed;
 }
 
-int reclaim_pages_from_list(struct list_head *page_list)
-{
-	struct scan_control sc = {
-		.gfp_mask = GFP_KERNEL,
-		.priority = DEF_PRIORITY,
-		.may_writepage = 1,
-		.may_unmap = 1,
-		.may_swap = 1,
-	};
-	unsigned long nr_reclaimed;
-	struct reclaim_stat dummy_stat;
-	struct page *page;
-
-	list_for_each_entry(page, page_list, lru)
-		ClearPageActive(page);
-
-	nr_reclaimed = shrink_page_list(page_list, NULL, &sc,
-				&dummy_stat, false);
-	while (!list_empty(page_list)) {
-
-		page = lru_to_page(page_list);
-		list_del(&page->lru);
-		dec_node_page_state(page, NR_ISOLATED_ANON +
-				page_is_file_lru(page));
-		putback_lru_page(page);
-	}
-
-	return nr_reclaimed;
-}
-
 /*
  * Attempt to remove the specified page from its LRU.  Only take this page
  * if it is of the appropriate PageActive status.  Pages which are being
@@ -2270,11 +2240,16 @@ static bool inactive_is_low(struct lruvec *lruvec, enum lru_list inactive_lru)
 	unsigned long inactive, active;
 	unsigned long inactive_ratio;
 	unsigned long gb;
+	bool skip = false;
 
 	inactive = lruvec_page_state(lruvec, NR_LRU_BASE + inactive_lru);
 	active = lruvec_page_state(lruvec, NR_LRU_BASE + active_lru);
 
 	gb = (inactive + active) >> (30 - PAGE_SHIFT);
+	trace_android_vh_inactive_is_low(gb, &inactive_ratio, inactive_lru, &skip);
+	if (skip)
+		goto out;
+
 	if (gb)
 		inactive_ratio = int_sqrt(10 * gb);
 	else
@@ -2282,6 +2257,7 @@ static bool inactive_is_low(struct lruvec *lruvec, enum lru_list inactive_lru)
 
 	trace_android_vh_tune_inactive_ratio(&inactive_ratio, is_file_lru(inactive_lru));
 
+out:
 	return inactive * inactive_ratio < active;
 }
 
@@ -3079,6 +3055,7 @@ static void snapshot_refaults(struct mem_cgroup *target_memcg, pg_data_t *pgdat)
 	target_lruvec->refaults[0] = refaults;
 	refaults = lruvec_page_state(target_lruvec, WORKINGSET_ACTIVATE_FILE);
 	target_lruvec->refaults[1] = refaults;
+	trace_android_vh_snapshot_refaults(target_lruvec);
 }
 
 /*

@@ -27,6 +27,7 @@ obj-$(CONFIG_REGULATOR_COOLING_DEVICE) += regulator_cdev.o
 obj-$(CONFIG_QTI_RPM_SMD_COOLING_DEVICE) += rpm_smd_cooling_device.o
 obj-$(CONFIG_QTI_LIMITS_ISENSE_CDSP) += msm_isense_cdsp.o
 obj-$(CONFIG_QTI_DDR_COOLING_DEVICE) += ddr_cdev.o
+obj-$(CONFIG_MAX31760_FAN_CONTROLLER) += max31760_fan.o
 obj-$(CONFIG_QTI_USERSPACE_CDEV) += qti_userspace_cdev.o
 obj-$(CONFIG_QTI_CPUFREQ_CDEV) += qti_cpufreq_cdev.o
 obj-$(CONFIG_QTI_DEVFREQ_CDEV) += qti_devfreq_cdev.o

@@ -12,6 +12,7 @@
 
 #define ISL97900_DRIVER_NAME		"isl97900-driver"
 #define ISL97900_MAX_REG		0x29
+#define ISL97900_LED_STATUS		0x01
 #define ISL97900_ENABLE_CONTROL		0x02
 #define ISL97900_LED_R_LSB		0x13
 #define ISL97900_LED_G_LSB		0x14
@@ -261,10 +262,34 @@ static ssize_t blue_led_store(struct device *dev,
 
 static DEVICE_ATTR_RW(blue_led);
 
+static ssize_t led_status_show(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	int rc;
+	u32 led_status;
+	struct isl97900_priv *priv;
+
+	priv = (struct isl97900_priv *)i2c_get_clientdata(client);
+
+	if (!priv || !priv->regmap)
+		return -EINVAL;
+
+	rc = regmap_read(priv->regmap, ISL97900_LED_STATUS, &led_status);
+	if (rc)
+		led_status = 0;
+
+	return scnprintf(buf, 10, "%d\n", (led_status & 0x01));
+}
+
+static DEVICE_ATTR_RO(led_status);
+
 static struct attribute *isl97900_attrs[] = {
 	&dev_attr_red_led.attr,
 	&dev_attr_green_led.attr,
 	&dev_attr_blue_led.attr,
+	&dev_attr_led_status.attr,
 	NULL
 };
 

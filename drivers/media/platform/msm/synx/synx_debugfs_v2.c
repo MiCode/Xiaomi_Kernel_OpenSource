@@ -23,7 +23,7 @@ int synx_columns = NAME_COLUMN | ID_COLUMN |
 EXPORT_SYMBOL(synx_columns);
 
 int synx_debug = SYNX_ERR | SYNX_WARN |
-	SYNX_INFO | SYNX_DBG;
+	SYNX_INFO;
 EXPORT_SYMBOL(synx_debug);
 
 void populate_bound_rows(

@@ -28,7 +28,8 @@ static int send_ese_cmd(struct nfc_dev *nfc_dev)
 				"cannot send ese cmd as NFCC powered off\n");
 		return -ENODEV;
 	}
-
+	if (nfc_dev->cold_reset.cmd_buf == NULL)
+		return -EFAULT;
 	ret = nfc_dev->nfc_write(nfc_dev, nfc_dev->cold_reset.cmd_buf,
 						nfc_dev->cold_reset.cmd_len,
 						MAX_RETRY_COUNT);
@@ -52,6 +53,13 @@ int read_cold_reset_rsp(struct nfc_dev *nfc_dev, char *header)
 	int ret = -EPERM;
 	struct cold_reset *cold_rst = &nfc_dev->cold_reset;
 	char *rsp_buf = NULL;
+
+	if (cold_rst->rsp_len < COLD_RESET_RSP_LEN) {
+		dev_err(nfc_dev->nfc_device,
+			"%s: received cold reset rsp buffer length is invalid\n",
+			__func__);
+		return -EINVAL;
+	}
 
 	rsp_buf = kzalloc(cold_rst->rsp_len, GFP_DMA | GFP_KERNEL);
 	if (!rsp_buf)

@@ -66,7 +66,7 @@ static inline bool qti_hwkm_testb(void __iomem *ice_hwkm_mmio, u32 reg, u8 nr,
 	return true;
 }
 
-static inline unsigned int qti_hwkm_get_reg_data(void __iomem *ice_hwkm_mmio,
+unsigned int qti_hwkm_get_reg_data(void __iomem *ice_hwkm_mmio,
 						 u32 reg, u32 offset, u32 mask,
 						 enum hwkm_destination dest)
 {
@@ -75,6 +75,7 @@ static inline unsigned int qti_hwkm_get_reg_data(void __iomem *ice_hwkm_mmio,
 	val = qti_hwkm_readl(ice_hwkm_mmio, reg, dest);
 	return ((val & mask) >> offset);
 }
+EXPORT_SYMBOL(qti_hwkm_get_reg_data);
 
 static void print_err_info(struct tme_ext_err_info *err)
 {

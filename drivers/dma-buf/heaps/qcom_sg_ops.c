@@ -519,9 +519,17 @@ static struct mem_buf_vmperm *qcom_sg_lookup_vmperm(struct dma_buf *dmabuf)
 	return buffer->vmperm;
 }
 
+static bool qcom_sg_uncached(struct dma_buf *dmabuf)
+{
+	struct qcom_sg_buffer *buffer = dmabuf->priv;
+
+	return buffer->uncached;
+}
+
 struct mem_buf_dma_buf_ops qcom_sg_buf_ops = {
 	.attach = qcom_sg_attach,
 	.lookup = qcom_sg_lookup_vmperm,
+	.uncached = qcom_sg_uncached,
 	.dma_ops = {
 		.attach = NULL, /* Will be set by mem_buf_dma_buf_export */
 		.detach = qcom_sg_detach,
