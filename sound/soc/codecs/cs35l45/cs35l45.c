@@ -45,6 +45,62 @@ struct cs35l45_mixer_cache {
 	unsigned int val;
 };
 
+static int mt_cirrus_tdm_snd_hw_params(struct snd_pcm_substream *substream,
+				       struct snd_pcm_hw_params *params,
+				       struct snd_soc_dai *dai)
+{
+	int ret = 0;
+	unsigned int slot_width = 32; //TDM_SLOT_WIDTH_BITS = 32
+	unsigned int slots;
+	unsigned int slot_mask, rate, clk_freq;
+	/* Calculate slots and clk */
+	rate = params_rate(params);
+	//slots = 4; //TDM_MAX_SLOTS = 4
+	slots = params_channels(params);
+	slot_mask = 0x0000FFFF >> (16 - slots);
+	clk_freq = rate * slot_width * slots;
+	pr_info("%s: rate=%d, clk_freq=%d\n", __func__, rate, clk_freq);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		pr_info("%s: name=: %s\n", __func__, dai->name);
+		ret = snd_soc_dai_set_tdm_slot(dai,
+					       slot_mask, slot_mask,
+					       slots, slot_width);
+		if (ret < 0) {
+			pr_info("%s: failed to set tdm rx slot, err:%d\n",
+				__func__, ret);
+			goto end;
+		}
+		ret = snd_soc_dai_set_fmt(dai,
+					  SND_SOC_DAIFMT_DSP_A |
+					  SND_SOC_DAIFMT_CBS_CFS |
+					  SND_SOC_DAIFMT_NB_NF);
+		if (ret != 0) {
+			pr_info("%s: Failed to set %s's fmt: ret = %d\n",
+				dai->name, ret);
+			return ret;
+		}
+		pr_info("%s: clk_freq: %d\n", __func__, clk_freq);
+
+		ret = snd_soc_component_set_sysclk(
+						   dai->component, 0, 0,
+						   clk_freq,
+						   SND_SOC_CLOCK_IN);
+		if (ret < 0)
+			pr_info("%s: set sysclk failed, err:%d\n",
+				__func__, ret);
+	} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		/* TODO: Nothing to do here? */
+		pr_info("%s: SNDRV_PCM_STREAM_CAPTURE, Do nothing.\n", __func__);
+	} else {
+		ret = -EINVAL;
+		pr_info("%s: invalid use case, err:%d\n",
+			__func__, ret);
+		goto end;
+	}
+end:
+	return ret;
+}
+
 static int cs35l45_supported_devid(struct cs35l45_private *cs35l45)
 {
 	unsigned int dev_id, rev_id, rel_id, otp_id;
@@ -1198,6 +1254,9 @@ static int cs35l45_dai_hw_params(struct snd_pcm_substream *substream,
 		{0x00000040,			0x00000000},
 		{0x00000044,			0x00000000},
 	};
+
+	/*SET etdm for smartpa*/
+	mt_cirrus_tdm_snd_hw_params(substream, params, dai);
 
 	switch (params_rate(params)) {
 	case 8000:
