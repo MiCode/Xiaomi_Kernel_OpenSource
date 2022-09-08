@@ -172,7 +172,7 @@
 			rcupdate.rcu_expedited=1 transparent_hugepage=never \
 			8250.nr_uarts=2 \
 			vmalloc=400M swiotlb=noforce \
-			firmware_class.path=/vendor/firmware pelt=8";
+			firmware_class.path=/vendor/firmware";
 		kaslr-seed = <0 0>;
 	};
 
