@@ -470,6 +470,10 @@ SND_SOC_DAILINK_DEFS(playback9,
 	DAILINK_COMP_ARRAY(COMP_CPU("DL9")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+SND_SOC_DAILINK_DEFS(playback11,
+	DAILINK_COMP_ARRAY(COMP_CPU("DL11")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(capture1,
 	DAILINK_COMP_ARRAY(COMP_CPU("UL1")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
@@ -500,6 +504,14 @@ SND_SOC_DAILINK_DEFS(capture7,
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(capture8,
 	DAILINK_COMP_ARRAY(COMP_CPU("UL8")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+SND_SOC_DAILINK_DEFS(capture10,
+	DAILINK_COMP_ARRAY(COMP_CPU("UL10")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+SND_SOC_DAILINK_DEFS(capture11,
+	DAILINK_COMP_ARRAY(COMP_CPU("UL11")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(capture_mono_1,
@@ -654,6 +666,14 @@ SND_SOC_DAILINK_DEFS(tdm,
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(tdm_dptx,
 	DAILINK_COMP_ARRAY(COMP_CPU("TDM_DPTX")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+SND_SOC_DAILINK_DEFS(etdm_in,
+	DAILINK_COMP_ARRAY(COMP_CPU("ETDMIN")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+SND_SOC_DAILINK_DEFS(etdm_out,
+	DAILINK_COMP_ARRAY(COMP_CPU("ETDMOUT")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 
@@ -859,6 +879,15 @@ static struct snd_soc_dai_link mt6983_mt6338_dai_links[] = {
 		SND_SOC_DAILINK_REG(playback9),
 	},
 	{
+		.name = "Playback_11",
+		.stream_name = "Playback_11",
+		.trigger = {SND_SOC_DPCM_TRIGGER_PRE,
+			    SND_SOC_DPCM_TRIGGER_PRE},
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		SND_SOC_DAILINK_REG(playback11),
+	},
+	{
 		.name = "Capture_1",
 		.stream_name = "Capture_1",
 		.trigger = {SND_SOC_DPCM_TRIGGER_PRE,
@@ -929,6 +958,24 @@ static struct snd_soc_dai_link mt6983_mt6338_dai_links[] = {
 		.dynamic = 1,
 		.dpcm_capture = 1,
 		SND_SOC_DAILINK_REG(capture8),
+	},
+	{
+		.name = "Capture_10",
+		.stream_name = "Capture_10",
+		.trigger = {SND_SOC_DPCM_TRIGGER_PRE,
+			    SND_SOC_DPCM_TRIGGER_PRE},
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		SND_SOC_DAILINK_REG(capture10),
+	},
+	{
+		.name = "Capture_11",
+		.stream_name = "Capture_11",
+		.trigger = {SND_SOC_DPCM_TRIGGER_PRE,
+			    SND_SOC_DPCM_TRIGGER_PRE},
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		SND_SOC_DAILINK_REG(capture11),
 	},
 	{
 		.name = "Capture_Mono_1",
@@ -1284,6 +1331,20 @@ static struct snd_soc_dai_link mt6983_mt6338_dai_links[] = {
 		.dpcm_playback = 1,
 		.ignore_suspend = 1,
 		SND_SOC_DAILINK_REG(tdm_dptx),
+	},
+	{
+		.name = "ETDMIN",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.ignore_suspend = 1,
+		SND_SOC_DAILINK_REG(etdm_in),
+	},
+	{
+		.name = "ETDMOUT",
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.ignore_suspend = 1,
+		SND_SOC_DAILINK_REG(etdm_out),
 	},
 	/* dummy BE for ul memif to record from dl memif */
 	{

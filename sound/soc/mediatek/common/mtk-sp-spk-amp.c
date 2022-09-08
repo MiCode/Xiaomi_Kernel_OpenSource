@@ -78,6 +78,14 @@ static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
 		.codec_name = "fs16xx",
 	}
 #endif /* CONFIG_SND_SOC_FS1894U */
+
+#if IS_ENABLED(CONFIG_SND_SOC_CS35L45)
+	[MTK_SPK_CIRRUS_CS35L45] = {
+		.codec_dai_name = "cs35l45",
+		.codec_name = "cs35l45",
+	},
+#endif /* CONFIG_SND_SOC_CS35L45 */
+
 };
 
 static int mtk_spk_i2c_probe(struct i2c_client *client,
@@ -218,6 +226,11 @@ int mtk_spk_update_info(struct snd_soc_card *card,
 			dai_link->name = MTK_SPK_NAME;
 			dai_link->codecs->name = NULL;
 			dai_link->codecs->dai_name = NULL;
+		} else if (i2s_out_dai_link_idx < 0 &&
+			   strcmp(dai_link->cpus->dai_name, "ETDMOUT") == 0 &&
+			   mtk_spk_i2s_out == MTK_SPK_ETDM_OUT) {
+			i2s_out_dai_link_idx = i;
+			dai_link->name = MTK_SPK_NAME;
 		}
 
 		if (i2s_in_dai_link_idx < 0 &&
@@ -234,6 +247,11 @@ int mtk_spk_update_info(struct snd_soc_card *card,
 			dai_link->name = MTK_SPK_REF_NAME;
 			dai_link->codecs->name = NULL;
 			dai_link->codecs->dai_name = NULL;
+		} else if (i2s_in_dai_link_idx < 0 &&
+			   strcmp(dai_link->cpus->dai_name, "ETDMIN") == 0 &&
+			   (mtk_spk_i2s_in == MTK_SPK_ETDM_IN)) {
+			i2s_in_dai_link_idx = i;
+			dai_link->name = MTK_SPK_REF_NAME;
 		}
 
 		if (i2s_out_dai_link_idx >= 0 && i2s_in_dai_link_idx >= 0)

@@ -48,6 +48,10 @@ static struct audio_gpio_attr aud_gpios[MT6983_AFE_GPIO_GPIO_NUM] = {
 	[MT6983_AFE_GPIO_I2S8_ON] = {"aud_gpio_i2s8_on", false, NULL},
 	[MT6983_AFE_GPIO_I2S9_OFF] = {"aud_gpio_i2s9_off", false, NULL},
 	[MT6983_AFE_GPIO_I2S9_ON] = {"aud_gpio_i2s9_on", false, NULL},
+	[MT6983_AFE_GPIO_ETDMIN_OFF] = {"aud_gpio_etdmin_off", false, NULL},
+	[MT6983_AFE_GPIO_ETDMIN_ON] = {"aud_gpio_etdmin_on", false, NULL},
+	[MT6983_AFE_GPIO_ETDMOUT_OFF] = {"aud_gpio_etdmout_off", false, NULL},
+	[MT6983_AFE_GPIO_ETDMOUT_ON] = {"aud_gpio_etdmout_on", false, NULL},
 	[MT6983_AFE_GPIO_VOW_DAT_OFF] = {"vow_dat_miso_off", false, NULL},
 	[MT6983_AFE_GPIO_VOW_DAT_ON] = {"vow_dat_miso_on", false, NULL},
 	[MT6983_AFE_GPIO_VOW_CLK_OFF] = {"vow_clk_miso_off", false, NULL},
@@ -207,6 +211,18 @@ int mt6983_afe_gpio_request(struct mtk_base_afe *afe, bool enable,
 			mt6983_afe_gpio_select(afe, MT6983_AFE_GPIO_I2S9_ON);
 		else
 			mt6983_afe_gpio_select(afe, MT6983_AFE_GPIO_I2S9_OFF);
+		break;
+	case MT6983_DAI_ETDMIN:
+		if (enable)
+			mt6983_afe_gpio_select(afe, MT6983_AFE_GPIO_ETDMIN_ON);
+		else
+			mt6983_afe_gpio_select(afe, MT6983_AFE_GPIO_ETDMIN_OFF);
+		break;
+	case MT6983_DAI_ETDMOUT:
+		if (enable)
+			mt6983_afe_gpio_select(afe, MT6983_AFE_GPIO_ETDMOUT_ON);
+		else
+			mt6983_afe_gpio_select(afe, MT6983_AFE_GPIO_ETDMOUT_OFF);
 		break;
 	case MT6983_DAI_VOW:
 		if (enable) {

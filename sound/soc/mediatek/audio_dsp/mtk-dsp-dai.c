@@ -79,7 +79,7 @@ static struct snd_soc_dai_driver mtk_dai_dsp_driver[] = {
 		.playback = {
 				.stream_name = "DSP_Playback_Playback",
 				.channels_min = 1,
-				.channels_max = 2,
+				.channels_max = 4,
 				.rates = MTK_I2S_RATES,
 				.formats = MTK_I2S_FORMATS,
 			},

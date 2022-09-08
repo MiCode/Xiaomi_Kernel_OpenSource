@@ -48,6 +48,9 @@ enum {
 	MT6983_MEMIF_AWB,
 	MT6983_MEMIF_AWB2,
 	MT6983_MEMIF_HDMI,
+	MT6983_MEMIF_DL11,
+	MT6983_MEMIF_VUL8,
+	MT6983_MEMIF_VUL9,
 	MT6983_MEMIF_NUM,
 	MT6983_DAI_ADDA = MT6983_MEMIF_NUM,
 	MT6983_DAI_ADDA_CH34,
@@ -90,6 +93,8 @@ enum {
 	MT6983_DAI_HOSTLESS_UL3,
 	MT6983_DAI_HOSTLESS_UL6,
 	MT6983_DAI_HOSTLESS_DSP_DL,
+	MT6983_DAI_ETDMIN,
+	MT6983_DAI_ETDMOUT,
 	MT6983_DAI_NUM,
 };
 
@@ -156,6 +161,8 @@ enum {
 	MT6983_I2S7_MCK,
 	MT6983_I2S8_MCK,
 	MT6983_I2S9_MCK,
+	MT6983_ETDMIN_MCK,
+	MT6983_ETDMOUT_MCK,
 	MT6983_MCK_NUM,
 };
 
@@ -235,6 +242,7 @@ int mt6983_dai_hw_gain_register(struct mtk_base_afe *afe);
 int mt6983_dai_src_register(struct mtk_base_afe *afe);
 int mt6983_dai_pcm_register(struct mtk_base_afe *afe);
 int mt6983_dai_tdm_register(struct mtk_base_afe *afe);
+int mt6983_dai_etdm_register(struct mtk_base_afe *afe);
 
 int mt6983_dai_hostless_register(struct mtk_base_afe *afe);
 

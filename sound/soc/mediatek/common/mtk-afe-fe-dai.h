@@ -14,6 +14,7 @@ struct mtk_base_afe;
 struct mtk_base_afe_memif;
 struct mtk_base_irq_data;
 
+int mtk_get_channel_value(void);
 int mtk_regmap_update_bits(struct regmap *map, int reg,
 		       unsigned int mask,
 		       unsigned int val, int shift);

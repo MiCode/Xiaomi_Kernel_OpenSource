@@ -202,7 +202,7 @@
 /* CLK_AUDDIV_5 */
 #define APLL12_CK_DIV_ETDM_OUT1_SFT        0
 #define APLL12_CK_DIV_ETDM_OUT1_MASK       0xff
-#define APLL12_CK_DIV_ETDM_OUT1_MASK_SFT   s(0xff << 0)
+#define APLL12_CK_DIV_ETDM_OUT1_MASK_SFT   (0xff << 0)
 
 /* AUD_TOP_CFG */
 #define AUD_TOP_CFG_SFT                    0
