@@ -1672,7 +1672,7 @@ static int accdet_get_dts_data(void)
 {
 	int ret = 0;
 	struct device_node *node = NULL;
-	int pwm_deb[8] = {0};
+	int pwm_deb[15] = {0};
 	int three_key[4] = {0};
 	u32 tmp = 0;
 
