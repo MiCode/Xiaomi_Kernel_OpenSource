@@ -190,6 +190,8 @@ static int mtk_mraw_sd_subscribe_event(struct v4l2_subdev *subdev,
 		return v4l2_event_subscribe(fh, sub, 0, NULL);
 	case V4L2_EVENT_REQUEST_DRAINED:
 		return v4l2_event_subscribe(fh, sub, 0, NULL);
+	case V4L2_EVENT_EOS:
+		return v4l2_event_subscribe(fh, sub, 0, NULL);
 	default:
 		return -EINVAL;
 	}

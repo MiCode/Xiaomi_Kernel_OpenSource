@@ -4593,11 +4593,8 @@ static void mtk_camsys_camsv_frame_start(struct mtk_camsv_device *camsv_dev,
 	mtk_cam_sv_event_frame_sync(camsv_dev, dequeued_frame_seq_no);
 
 	/* check frame done */
-	if (ctx->stream_id >= MTKCAM_SUBDEV_CAMSV_START &&
-		ctx->stream_id < MTKCAM_SUBDEV_CAMSV_END) {
-		mtk_camsys_camsv_check_frame_done(ctx, dequeued_frame_seq_no,
-			ctx->stream_id);
-	}
+	mtk_camsys_camsv_check_frame_done(ctx, dequeued_frame_seq_no,
+		camsv_dev->id + MTKCAM_SUBDEV_CAMSV_START);
 
 	if (ctx->sensor &&
 		(ctx->stream_id >= MTKCAM_SUBDEV_CAMSV_START &&
