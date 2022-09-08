@@ -6776,6 +6776,21 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 			kfree(cb_data);
 			return;
 		}
+		if (dsi && dsi->ext && dsi->ext->params
+			&& dsi->ext->params->change_fps_by_vfp_send_cmd) {
+			cmdq_pkt_wfe(handle,
+				     mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+			/*1.1 send cmd: stop vdo mode*/
+			mtk_dsi_stop_vdo_mode(dsi, handle);
+			/* for crtc first enable,dyn fps fail*/
+			if (dsi->data_rate == 0) {
+				dsi->data_rate = mtk_dsi_default_rate(dsi);
+				mtk_mipi_tx_pll_rate_set_adpt(dsi->phy, dsi->data_rate);
+
+				if (dsi->data_rate)
+					mtk_dsi_phy_timconfig(dsi, NULL);
+			}
+		}
 
 		if (dsi && dsi->ext && dsi->ext->params
 			&& dsi->mipi_hopping_sta) {
@@ -6813,7 +6828,27 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 			}
 	    }
 
+		if (dsi && dsi->ext && dsi->ext->params
+					&& dsi->ext->params->change_fps_by_vfp_send_cmd)
+			mtk_dsi_calc_vdo_timing(dsi);
+
 		mtk_dsi_porch_setting(comp, handle, DSI_VFP, vfp);
+		if (dsi && dsi->ext && dsi->ext->params
+			&& dsi->ext->params->change_fps_by_vfp_send_cmd) {
+			/*1.2 send cmd: send cmd*/
+			mtk_dsi_send_switch_cmd(dsi, handle, mtk_crtc, src_mode,
+						drm_mode_vrefresh(&adjusted_mode));
+			/*1.3 send cmd: start vdo mode*/
+			mtk_dsi_start_vdo_mode(comp, handle);
+			/*clear EOF
+			 * avoid config continue after we trigger vdo mode
+			 */
+			cmdq_pkt_clear_event(handle,
+				     mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+			/*1.3 send cmd: trigger*/
+			mtk_disp_mutex_trigger(comp->mtk_crtc->mutex[0], handle);
+			mtk_dsi_trigger(comp, handle);
+		}
 	}
 
 	if (mtk_drm_helper_get_opt(priv->helper_opt,

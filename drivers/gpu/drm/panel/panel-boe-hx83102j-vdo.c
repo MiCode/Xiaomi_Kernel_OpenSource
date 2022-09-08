@@ -150,20 +150,21 @@ static void boe_panel_init(struct boe *ctx)
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 
 	boe_dcs_write_seq_static(ctx, 0xB9, 0x83, 0x10, 0x21, 0x55, 0x00);
-	boe_dcs_write_seq_static(ctx, 0xB1, 0x2C, 0xB3, 0xB3, 0x2F, 0xEF, 0x43, 0xE1, 0x50, 0x36,
-	0x36, 0x36, 0x36, 0x1A, 0x8B, 0x11, 0x65, 0x00, 0x88, 0xFA, 0xFF, 0xFF, 0x8F, 0xFF, 0x08,
-	0x9A, 0x33);
-	boe_dcs_write_seq_static(ctx, 0xB2, 0x00, 0x47, 0xB0, 0xD0, 0x00, 0x12, 0xC4, 0x3C, 0x36,
-	0x32, 0x30, 0x10, 0x00, 0x88, 0xF5);
-	boe_dcs_write_seq_static(ctx, 0xB4, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x49, 0x3F, 0x7C,
-	0x70, 0x01, 0x49);
+	boe_dcs_write_seq_static(ctx, 0xB1, 0x2C, 0xB3, 0xB3, 0x2F, 0xEF, 0x43, 0xE1,
+		0x50, 0x36, 0x36, 0x36, 0x36, 0x1A, 0x8B, 0x11,
+		0x65, 0x00, 0x88, 0xFA, 0xFF, 0xFF, 0x8F, 0xFF,
+		0x08, 0x9A, 0x33);
+	boe_dcs_write_seq_static(ctx, 0xB2, 0x00, 0x47, 0xB0, 0xD0, 0x00, 0x12, 0xC4,
+		0x3C, 0x36, 0x32, 0x30, 0x10, 0x00, 0x88, 0xF5);
+	boe_dcs_write_seq_static(ctx, 0xB4, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x49,
+		0x3F, 0x7C, 0x70, 0x01, 0x49);
 	boe_dcs_write_seq_static(ctx, 0xE9, 0xCD);
 	boe_dcs_write_seq_static(ctx, 0xBA, 0x84);
 	boe_dcs_write_seq_static(ctx, 0xE9, 0x3F);
 	boe_dcs_write_seq_static(ctx, 0xBC, 0x1B, 0x04);
 	boe_dcs_write_seq_static(ctx, 0xBE, 0x20);
-	boe_dcs_write_seq_static(ctx, 0xC0, 0x3A, 0x3A, 0x22, 0x11, 0x22, 0xA0, 0x61, 0x08, 0xF5,
-	0x03);
+	boe_dcs_write_seq_static(ctx, 0xC0, 0x3A, 0x3A, 0x22, 0x11, 0x22, 0xA0, 0x61,
+		0x08, 0xF5, 0x03);
 	boe_dcs_write_seq_static(ctx, 0xE9, 0xCC);
 	boe_dcs_write_seq_static(ctx, 0xC7, 0x80);
 	boe_dcs_write_seq_static(ctx, 0xE9, 0x3F);
@@ -176,61 +177,80 @@ static void boe_panel_init(struct boe *ctx)
 	boe_dcs_write_seq_static(ctx, 0xD0, 0x03);
 	boe_dcs_write_seq_static(ctx, 0xE9, 0x3F);
 	boe_dcs_write_seq_static(ctx, 0xD1, 0x37, 0x06, 0x00, 0x02, 0x04, 0x0C, 0xFF);
-	boe_dcs_write_seq_static(ctx, 0xD3, 0x06, 0x00, 0x00, 0x00, 0x40, 0x04, 0x08, 0x04, 0x08,
-	0x37, 0x47, 0x64, 0x4B, 0x11, 0x11, 0x03, 0x03, 0x32, 0x10, 0x0C, 0x00, 0x0C, 0x32, 0x10,
-	0x08, 0x00, 0x08, 0x32, 0x17, 0xE7, 0x07, 0xE7, 0x00, 0x00);
-	boe_dcs_write_seq_static(ctx, 0xD5, 0x24, 0x24, 0x24, 0x24, 0x07, 0x06, 0x07, 0x06, 0x05,
-	0x04, 0x05, 0x04, 0x03, 0x02, 0x03, 0x02, 0x01, 0x00, 0x01, 0x00, 0x21, 0x20, 0x21, 0x20,
-	0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x1F, 0x1F, 0x1F, 0x1F, 0x1E, 0x1E, 0x1E,
-	0x1E, 0x18, 0x18, 0x18, 0x18);
-	boe_dcs_write_seq_static(ctx, 0xD8, 0xAA, 0xAA, 0xAA, 0xAA, 0xFA, 0xA0, 0xAA, 0xAA, 0xAA,
-	0xAA, 0xFA, 0xA0);
-	boe_dcs_write_seq_static(ctx, 0xE0, 0x00, 0x04, 0x0E, 0x14, 0x1D, 0x31, 0x4C, 0x55, 0x5F,
-	0x5D, 0x7A, 0x81, 0x88, 0x97, 0x95, 0x9D, 0xA4, 0xB5, 0xB2, 0x57, 0x5D, 0x67, 0x73, 0x00,
-	0x04, 0x0E, 0x14, 0x1D, 0x31, 0x4C, 0x55, 0x5F, 0x5D, 0x7A, 0x81, 0x88, 0x97, 0x95, 0x9D,
-	0xA4, 0xB5, 0xB2, 0x57, 0x5D, 0x67, 0x73);
-	boe_dcs_write_seq_static(ctx, 0xE7, 0x28, 0x08, 0x08, 0x3B, 0x3F, 0x49, 0x03, 0xC4, 0x48,
-	0x14, 0x14, 0x00, 0x00, 0x00, 0x00, 0x12, 0x05, 0x02, 0x02, 0x08, 0x33, 0x03, 0x84);
-	boe_dcs_write_seq_static(ctx, 0xE1, 0x12, 0x00, 0x00, 0x89, 0x30, 0x80, 0x07, 0xD0, 0x02,
-	0x58, 0x00, 0x14, 0x02, 0x58, 0x02, 0x58, 0x02, 0x00, 0x02, 0x2C, 0x00, 0x20, 0x02, 0x02,
-	0x00, 0x08, 0x00, 0x0C, 0x05, 0x0E, 0x04, 0x94, 0x18, 0x00, 0x10, 0xF0, 0x03, 0x0C, 0x20,
-	0x00, 0x06, 0x0B, 0x0B, 0x33, 0x0E, 0x1C, 0x2A, 0x38, 0x46, 0x54, 0x62, 0x69, 0x70, 0x77,
-	0x79, 0x7B, 0x7D, 0x7E, 0x01, 0x02, 0x01, 0x00, 0x09);
+	boe_dcs_write_seq_static(ctx, 0xD3, 0x06, 0x00, 0x00, 0x00, 0x40, 0x04, 0x08,
+		0x04, 0x08, 0x37, 0x47, 0x64, 0x4B, 0x11, 0x11,
+		0x03, 0x03, 0x32, 0x10, 0x0C, 0x00, 0x0C, 0x32,
+		0x10, 0x08, 0x00, 0x08, 0x32, 0x17, 0xE7, 0x07,
+		0xE7, 0x00, 0x00);
+	boe_dcs_write_seq_static(ctx, 0xD5, 0x24, 0x24, 0x24, 0x24, 0x07, 0x06, 0x07,
+		0x06, 0x05, 0x04, 0x05, 0x04, 0x03, 0x02, 0x03,
+		0x02, 0x01, 0x00, 0x01, 0x00, 0x21, 0x20, 0x21,
+		0x20, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18,
+		0x18, 0x1F, 0x1F, 0x1F, 0x1F, 0x1E, 0x1E, 0x1E,
+		0x1E, 0x18, 0x18, 0x18, 0x18);
+	boe_dcs_write_seq_static(ctx, 0xD8, 0xAA, 0xAA, 0xAA, 0xAA, 0xFA, 0xA0, 0xAA,
+		0xAA, 0xAA, 0xAA, 0xFA, 0xA0);
+	boe_dcs_write_seq_static(ctx, 0xE0, 0x00, 0x04, 0x0D, 0x15, 0x1D, 0x32, 0x4F,
+		0x58, 0x62, 0x5F, 0x7D, 0x85, 0x8A, 0x9A, 0x9A,
+		0x9E, 0xA5, 0xB6, 0xB2, 0x56, 0x5E, 0x67, 0x73,
+		0x00, 0x04, 0x0D, 0x15, 0x1D, 0x32, 0x4F, 0x58,
+		0x62, 0x5F, 0x7D, 0x85, 0x8A, 0x9A, 0x9A, 0x9E,
+		0xA5, 0xB6, 0xB2, 0x56, 0x5E, 0x67, 0x73);
+	boe_dcs_write_seq_static(ctx, 0xE7, 0x28, 0x08, 0x08, 0x3B, 0x3F, 0x49, 0x03,
+		0xC4, 0x48, 0x14, 0x14, 0x00, 0x00, 0x00, 0x00,
+		0x12, 0x05, 0x02, 0x02, 0x08, 0x33, 0x03, 0x84);
+	boe_dcs_write_seq_static(ctx, 0xE1, 0x12, 0x00, 0x00, 0x89, 0x30, 0x80, 0x07,
+		0xD0, 0x02, 0x58, 0x00, 0x05, 0x02, 0x58, 0x02,
+		0x58, 0x02, 0x00, 0x02, 0x2C, 0x00, 0x20, 0x00,
+		0x75, 0x00, 0x08, 0x00, 0x0C, 0x18, 0x00, 0x12,
+		0x4E, 0x18, 0x00, 0x10, 0xF0, 0x03, 0x0C, 0x20,
+		0x00, 0x06, 0x0B, 0x0B, 0x33, 0x0E, 0x1C, 0x2A,
+		0x38, 0x46, 0x54, 0x62, 0x69, 0x70, 0x77, 0x79,
+		0x7B, 0x7D, 0x7E, 0x01, 0x02, 0x01, 0x00, 0x09);
 	boe_dcs_write_seq_static(ctx, 0xBD, 0x01);
-	boe_dcs_write_seq_static(ctx, 0xE1, 0x40, 0x09, 0xBE, 0x19, 0xFC, 0x19, 0xFA, 0x19, 0xF8,
-	0x1A, 0x38, 0x1A, 0x78, 0x1A, 0xB6, 0x2A, 0xF6, 0x2B, 0x34, 0x2B, 0x74, 0x3B, 0x74, 0x6B,
-	0x74);
+	boe_dcs_write_seq_static(ctx, 0xE1, 0x40, 0x09, 0xBE, 0x19, 0xFC, 0x19, 0xFA,
+		0x19, 0xF8, 0x1A, 0x38, 0x1A, 0x78, 0x1A, 0xB6,
+		0x2A, 0xF6, 0x2B, 0x34, 0x2B, 0x74, 0x3B, 0x74, 0x6B, 0x74);
 	boe_dcs_write_seq_static(ctx, 0xB1, 0x01, 0xBF, 0x11);
 	boe_dcs_write_seq_static(ctx, 0xCB, 0x86);
 	boe_dcs_write_seq_static(ctx, 0xD2, 0xF0);
 	boe_dcs_write_seq_static(ctx, 0xE9, 0xC9);
 	boe_dcs_write_seq_static(ctx, 0xD3, 0x84);
 	boe_dcs_write_seq_static(ctx, 0xE9, 0x3F);
-	boe_dcs_write_seq_static(ctx, 0xD8, 0xFF, 0xFF, 0xFA, 0xAF, 0xFF, 0xA0, 0xFF, 0xFF, 0xFA,
-	0xAF, 0xFF, 0xA0, 0xFF, 0xFF, 0xFA, 0xAF, 0xFF, 0xA0, 0xFF, 0xFF, 0xFA, 0xAF, 0xFF, 0xA0,
-	0xFF, 0xFF, 0xFA, 0xAF, 0xFF, 0xA0, 0xFF, 0xFF, 0xFA, 0xAF, 0xFF, 0xA0);
-	boe_dcs_write_seq_static(ctx, 0xE2, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x4D, 0x43, 0x7C,
-	0x70, 0x04, 0x68, 0x01, 0x4D, 0x01, 0x00, 0x20, 0x01, 0x03, 0x00, 0x00, 0x0F, 0x0F, 0x0F,
-	0x0F, 0x00, 0x00, 0x00, 0x1F, 0x0E, 0x0E, 0x32, 0x3C, 0x4C, 0x04, 0xFE, 0x4C, 0x14, 0x14,
-	0x00, 0x00, 0xBF, 0x01, 0x33, 0x47, 0x33, 0x48, 0x00, 0x20, 0x4D, 0x00, 0x36, 0x00, 0x07,
-	0x0B, 0x00);
-	boe_dcs_write_seq_static(ctx, 0xE7, 0x02, 0x00, 0xBC, 0x01, 0x14, 0x07, 0xAA, 0x08, 0xA0,
-	0x04, 0x00);
+	boe_dcs_write_seq_static(ctx, 0xD8, 0xFF, 0xFF, 0xFA, 0xAF, 0xFF, 0xA0, 0xFF,
+		0xFF, 0xFA, 0xAF, 0xFF, 0xA0, 0xFF, 0xFF, 0xFA,
+		0xAF, 0xFF, 0xA0, 0xFF, 0xFF, 0xFA, 0xAF, 0xFF,
+		0xA0, 0xFF, 0xFF, 0xFA, 0xAF, 0xFF, 0xA0, 0xFF,
+		0xFF, 0xFA, 0xAF, 0xFF, 0xA0);
+	boe_dcs_write_seq_static(ctx, 0xE2, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x4D,
+		0x43, 0x7C, 0x70, 0x04, 0x68, 0x01, 0x4D, 0x01,
+		0x00, 0x20, 0x01, 0x03, 0x00, 0x00, 0x0F, 0x0F,
+		0x0F, 0x0F, 0x00, 0x00, 0x00, 0x1F, 0x0E, 0x0E,
+		0x32, 0x3C, 0x4C, 0x04, 0xFE, 0x4C, 0x14, 0x14,
+		0x00, 0x00, 0xBF, 0x01, 0x33, 0x47, 0x33, 0x48,
+		0x00, 0x20, 0x4D, 0x00, 0x36, 0x00, 0x07, 0x0B, 0x00);
+	boe_dcs_write_seq_static(ctx, 0xE7, 0x02, 0x00, 0xBC, 0x01, 0x14, 0x07, 0xAA,
+		0x08, 0xA0, 0x04, 0x00);
 	boe_dcs_write_seq_static(ctx, 0xBD, 0x02);
-	boe_dcs_write_seq_static(ctx, 0xD8, 0xFF, 0xFF, 0xFA, 0xAF, 0xFF, 0xA0, 0xFF, 0xFF, 0xFA,
-	0xAF, 0xFF, 0xA0);
-	boe_dcs_write_seq_static(ctx, 0xE2, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x4B, 0x41, 0x7C,
-	0x70, 0x04, 0x68, 0x01, 0x4B, 0x01, 0x00, 0x20, 0x01, 0x03, 0x00, 0x00, 0x0F, 0x0F, 0x0F,
-	0x0F, 0x00, 0x00, 0x00, 0x25, 0x1C, 0x1C, 0x38, 0x40, 0x4B, 0x02, 0xE8, 0x8B, 0x14, 0x14,
-	0x00, 0x00, 0xC9, 0x01, 0x33, 0x47, 0x33, 0x48, 0x00, 0x20, 0x4B, 0x00, 0x36, 0x00, 0x07,
-	0x0B, 0x00);
-	boe_dcs_write_seq_static(ctx, 0xE7, 0xFE, 0x03, 0xFE, 0x03, 0xFE, 0x03, 0x02, 0x02, 0x02,
-	0x25, 0x00, 0x25, 0x81, 0x02, 0x40, 0x00, 0x20, 0x49, 0x04, 0x03, 0x02, 0x01, 0x00, 0x00,
-	0x00, 0x00, 0x01, 0x00);
+	boe_dcs_write_seq_static(ctx, 0xD8, 0xFF, 0xFF, 0xFA, 0xAF, 0xFF, 0xA0, 0xFF,
+		0xFF, 0xFA, 0xAF, 0xFF, 0xA0);
+	boe_dcs_write_seq_static(ctx, 0xE2, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x4B,
+		0x41, 0x7C, 0x70, 0x04, 0x68, 0x01, 0x4B, 0x01,
+		0x00, 0x20, 0x01, 0x03, 0x00, 0x00, 0x0F, 0x0F,
+		0x0F, 0x0F, 0x00, 0x00, 0x00, 0x25, 0x1C, 0x1C,
+		0x38, 0x40, 0x4B, 0x02, 0xE8, 0x8B, 0x14, 0x14,
+		0x00, 0x00, 0xC9, 0x01, 0x33, 0x47, 0x33, 0x48,
+		0x00, 0x20, 0x4B, 0x00, 0x36, 0x00, 0x07, 0x0B, 0x00);
+	boe_dcs_write_seq_static(ctx, 0xE7, 0xFE, 0x03, 0xFE, 0x03, 0xFE, 0x03, 0x02,
+		0x02, 0x02, 0x25, 0x00, 0x25, 0x81, 0x02, 0x40,
+		0x00, 0x20, 0x49, 0x04, 0x03, 0x02, 0x01, 0x00,
+		0x00, 0x00, 0x00, 0x01, 0x00);
 	boe_dcs_write_seq_static(ctx, 0xBD, 0x03);
-	boe_dcs_write_seq_static(ctx, 0xD8, 0xAA, 0xAA, 0xAA, 0xAA, 0xFA, 0xA0, 0xAA, 0xAA, 0xAA,
-	0xAA, 0xFA, 0xA0, 0xFF, 0xFF, 0xFA, 0xAF, 0xFF, 0xA0, 0xFF, 0xFF, 0xFA, 0xAF, 0xFF, 0xA0,
-	0x55, 0x55, 0x55, 0x55, 0x55, 0x50, 0x55, 0x55, 0x55, 0x55, 0x55, 0x50);
+	boe_dcs_write_seq_static(ctx, 0xD8, 0xAA, 0xAA, 0xAA, 0xAA, 0xFA, 0xA0, 0xAA,
+		0xAA, 0xAA, 0xAA, 0xFA, 0xA0, 0xFF, 0xFF, 0xFA,
+		0xAF, 0xFF, 0xA0, 0xFF, 0xFF, 0xFA, 0xAF, 0xFF,
+		0xA0, 0x55, 0x55, 0x55, 0x55, 0x55, 0x50, 0x55,
+		0x55, 0x55, 0x55, 0x55, 0x50);
 	boe_dcs_write_seq_static(ctx, 0xE1, 0x01);
 	boe_dcs_write_seq_static(ctx, 0xBD, 0x00);
 	boe_dcs_write_seq_static(ctx, 0xE9, 0xC4);
@@ -243,29 +263,39 @@ static void boe_panel_init(struct boe *ctx)
 	boe_dcs_write_seq_static(ctx, 0xBD, 0x00);
 	boe_dcs_write_seq_static(ctx, 0xC1, 0x01);
 	boe_dcs_write_seq_static(ctx, 0xBD, 0x03);
-	boe_dcs_write_seq_static(ctx, 0xC1, 0x00, 0x04, 0x08, 0x0C, 0x10, 0x14, 0x18, 0x1C, 0x20,
-	0x24, 0x28, 0x2C, 0x30, 0x34, 0x38, 0x3D, 0x41, 0x44, 0x48, 0x4C, 0x54, 0x5C, 0x63, 0x6C,
-	0x74, 0x7C, 0x84, 0x8B, 0x93, 0x9C, 0xA3, 0xAB, 0xB4, 0xBB, 0xC3, 0xCC, 0xD4, 0xDC, 0xE4,
-	0xEB, 0xF3, 0xF8, 0xF9, 0xFB, 0xFE, 0xFF, 0x01, 0x55, 0x96, 0xAC, 0x34, 0x4D, 0x67, 0xCF,
-	0x7E, 0x45, 0x9D, 0x00);
+	boe_dcs_write_seq_static(ctx, 0xC1, 0x00, 0x04, 0x08, 0x0B, 0x10, 0x14, 0x18,
+		0x1C, 0x20, 0x24, 0x28, 0x2C, 0x30, 0x34, 0x39,
+		0x3E, 0x43, 0x47, 0x4B, 0x4F, 0x56, 0x5D, 0x65,
+		0x6D, 0x74, 0x7C, 0x84, 0x8B, 0x94, 0x9C, 0xA4,
+		0xAB, 0xB4, 0xBB, 0xC3, 0xCB, 0xD2, 0xDA, 0xE3,
+		0xEB, 0xF3, 0xF7, 0xF9, 0xFB, 0xFD, 0xFF, 0x07,
+		0x05, 0x92, 0x64, 0x69, 0xB0, 0x03, 0x63, 0x14,
+		0xF4, 0x6F, 0xC0);
 	boe_dcs_write_seq_static(ctx, 0xBD, 0x02);
-	boe_dcs_write_seq_static(ctx, 0xC1, 0x00, 0x04, 0x08, 0x0C, 0x10, 0x14, 0x18, 0x1C, 0x20,
-	0x24, 0x28, 0x2C, 0x30, 0x34, 0x38, 0x3D, 0x41, 0x44, 0x48, 0x4C, 0x54, 0x5C, 0x63, 0x6C,
-	0x74, 0x7C, 0x84, 0x8B, 0x93, 0x9C, 0xA3, 0xAB, 0xB4, 0xBB, 0xC3, 0xCC, 0xD4, 0xDC, 0xE4,
-	0xEC, 0xF4, 0xF8, 0xFA, 0xFC, 0xFE, 0xFF, 0x01, 0x55, 0x96, 0xAC, 0x34, 0x4D, 0x67, 0xCF,
-	0x7E, 0x45, 0x55, 0x00);
+	boe_dcs_write_seq_static(ctx, 0xC1, 0x00, 0x03, 0x08, 0x0B, 0x10, 0x14, 0x18,
+		0x1C, 0x20, 0x24, 0x28, 0x2C, 0x30, 0x34, 0x39,
+		0x3E, 0x43, 0x47, 0x4B, 0x4F, 0x56, 0x5D, 0x65,
+		0x6D, 0x74, 0x7C, 0x84, 0x8C, 0x94, 0x9D, 0xA4,
+		0xAC, 0xB4, 0xBB, 0xC3, 0xCC, 0xD4, 0xDC, 0xE4,
+		0xEC, 0xF4, 0xF8, 0xFA, 0xFC, 0xFE, 0xFF, 0x17,
+		0x05, 0x92, 0x64, 0x69, 0xB0, 0xFA, 0xC5, 0x69,
+		0x05, 0x04, 0x00);
 	boe_dcs_write_seq_static(ctx, 0xBD, 0x01);
-	boe_dcs_write_seq_static(ctx, 0xC1, 0x00, 0x04, 0x08, 0x0C, 0x10, 0x14, 0x18, 0x1C, 0x20,
-	0x24, 0x28, 0x2C, 0x30, 0x34, 0x38, 0x3D, 0x41, 0x44, 0x48, 0x4C, 0x54, 0x5C, 0x63, 0x6C,
-	0x74, 0x7C, 0x84, 0x8B, 0x93, 0x9C, 0xA3, 0xAB, 0xB4, 0xBB, 0xC3, 0xCC, 0xD4, 0xDC, 0xE4,
-	0xEC, 0xF4, 0xF8, 0xFA, 0xFC, 0xFE, 0xFF, 0x01, 0x55, 0x96, 0xAC, 0x34, 0x4D, 0x67, 0xCF,
-	0x7E, 0x45, 0x55, 0x00);
+	boe_dcs_write_seq_static(ctx, 0xC1, 0x00, 0x04, 0x08, 0x0B, 0x10, 0x14, 0x18,
+		0x1C, 0x20, 0x24, 0x28, 0x2C, 0x30, 0x34, 0x39,
+		0x3E, 0x43, 0x47, 0x4B, 0x4F, 0x56, 0x5D, 0x65,
+		0x6D, 0x74, 0x7C, 0x84, 0x8C, 0x94, 0x9D, 0xA4,
+		0xAC, 0xB4, 0xBB, 0xC3, 0xCC, 0xD4, 0xDC, 0xE4,
+		0xEC, 0xF4, 0xF8, 0xFA, 0xFC, 0xFE, 0xFF, 0x17,
+		0x05, 0x92, 0x64, 0x69, 0xB0, 0xFA, 0xC5, 0x69,
+		0x05, 0x04, 0x00);
 	boe_dcs_write_seq_static(ctx, 0xBD, 0x00);
 	boe_dcs_write_seq_static(ctx, 0x51, 0x00, 0x00);
 	boe_dcs_write_seq_static(ctx, 0x53, 0x2C);
 	boe_dcs_write_seq_static(ctx, 0xC9, 0x00, 0x1E, 0x13, 0x88, 0x01);
-	boe_dcs_write_seq_static(ctx, 0x5E, 0x00, 0x30);
+	//boe_dcs_write_seq_static(ctx, 0x5E, 0x00, 0x30);
 	boe_dcs_write_seq_static(ctx, 0x35, 0x00);
+	boe_dcs_write_seq_static(ctx, 0xB9, 0x00);
 	boe_dcs_write_seq_static(ctx, 0x11, 0x00);
 	msleep(120);
 	boe_dcs_write_seq_static(ctx, 0x29, 0x00);
@@ -302,20 +332,21 @@ static int boe_unprepare(struct drm_panel *panel)
 		return 0;
 
 	boe_dcs_write_seq_static(ctx, MIPI_DCS_SET_DISPLAY_OFF);
-	msleep(50);
+	msleep(60);
 	boe_dcs_write_seq_static(ctx, MIPI_DCS_ENTER_SLEEP_MODE);
-	msleep(150);
+	msleep(100);
 
 #ifdef HIMAX_WAKE_UP
 	if (wake_flag_drm == 0) {
-		ctx->reset_gpio = devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
-		gpiod_set_value(ctx->reset_gpio, 0);
-		devm_gpiod_put(ctx->dev, ctx->reset_gpio);
+		boe_dcs_write_seq_static(ctx, 0xB9, 0x83, 0x10, 0x21, 0x55, 0x00);
+		boe_dcs_write_seq_static(ctx, 0xB1, 0x2D);
+		msleep(20);
 	}
 #else
 	ctx->reset_gpio = devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
 	gpiod_set_value(ctx->reset_gpio, 0);
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
+#endif
 
 	ctx->bias_neg =
 		devm_gpiod_get_index(ctx->dev, "bias", 1, GPIOD_OUT_HIGH);
@@ -329,16 +360,11 @@ static int boe_unprepare(struct drm_panel *panel)
 	gpiod_set_value(ctx->bias_pos, 0);
 	devm_gpiod_put(ctx->dev, ctx->bias_pos);
 
-#ifdef HIMAX_WAKE_UP
-	if (wake_flag_drm == 0)
-		lcd_set_bl_bias_reg(ctx->dev, 0);
-#else
-		lcd_set_bl_bias_reg(ctx->dev, 0);
-#endif
+	lcd_set_bl_bias_reg(ctx->dev, 0);
 
 	ctx->error = 0;
 	ctx->prepared = false;
-#endif
+
 	return 0;
 }
 
@@ -351,15 +377,6 @@ static int boe_prepare(struct drm_panel *panel)
 	if (ctx->prepared)
 		return 0;
 
-	// lcd reset H -> L -> L
-	//ctx->reset_gpio = devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
-	//gpiod_set_value(ctx->reset_gpio, 1);
-	//usleep_range(10000, 10001);
-	//gpiod_set_value(ctx->reset_gpio, 0);
-	//msleep(20);
-	//gpiod_set_value(ctx->reset_gpio, 1);
-	//devm_gpiod_put(ctx->dev, ctx->reset_gpio);
-	// end
 	ctx->bias_pos =
 		devm_gpiod_get_index(ctx->dev, "bias", 0, GPIOD_OUT_HIGH);
 	gpiod_set_value(ctx->bias_pos, 1);
@@ -371,16 +388,9 @@ static int boe_prepare(struct drm_panel *panel)
 	gpiod_set_value(ctx->bias_neg, 1);
 	devm_gpiod_put(ctx->dev, ctx->bias_neg);
 
-#ifdef HIMAX_WAKE_UP
-	if (wake_flag_drm == 0)
-		lcd_set_bl_bias_reg(ctx->dev, 1);
-#else
-		lcd_set_bl_bias_reg(ctx->dev, 1);
-#endif
-#ifndef BYPASSI2C
-//	_lcm_i2c_write_bytes(0x0, 0xf);
-//	_lcm_i2c_write_bytes(0x1, 0xf);
-#endif
+	lcd_set_bl_bias_reg(ctx->dev, 1);
+
+//	himax_rst_gpio_high();
 	boe_panel_init(ctx);
 
 	ret = ctx->error;
@@ -420,51 +430,48 @@ static int boe_enable(struct drm_panel *panel)
 }
 
 static const struct drm_display_mode default_mode = {
-	.clock = 370506,
+	.clock = 352928,
 	.hdisplay = 1200,
 	.hsync_start = 1200 + 60,//HFP
 	.hsync_end = 1200 + 60 + 20,//HSA
-	.htotal = 1200 + 60 + 20 + 40,//HBP
+	.htotal = 1200 + 60 + 20 + 46,//HBP
 	.vdisplay = 2000,
-	.vsync_start = 2000 + 92,//VFP
-	.vsync_end = 2000 + 92 + 8,//VSA
-	.vtotal = 2000 + 92 + 8 + 12,//VBP
+	.vsync_start = 2000 + 198,//VFP
+	.vsync_end = 2000 + 198 + 8,//VSA
+	.vtotal = 2000 + 198 + 8 + 12,//VBP
 };
 
-static const struct drm_display_mode performance_mode_90hz = {
-	.clock = 370431,
+static const struct drm_display_mode performance_mode_30hz = {
+	.clock = 352928,
 	.hdisplay = 1200,
 	.hsync_start = 1200 + 60,//HFP
 	.hsync_end = 1200 + 60 + 20,//HSA
-	.htotal = 1200 + 60 + 20 + 40,//HBP
+	.htotal = 1200 + 60 + 20 + 46,//HBP
 	.vdisplay = 2000,
-	.vsync_start = 2400 + 92,//VFP
-	.vsync_end = 2400 + 92 + 8,//VSA
-	.vtotal = 2400 + 92 + 8 + 12,//VBP
+	.vsync_start = 2000 + 6852,//VFP
+	.vsync_end = 2000 + 6852 + 8,//VSA
+	.vtotal = 2000 + 6852 + 8 + 12,//VBP
 };
 
-static const struct drm_display_mode performance_mode_120hz = {
-	.clock = 370506,
+static const struct drm_display_mode performance_mode_60hz = {
+	.clock = 352928,
 	.hdisplay = 1200,
 	.hsync_start = 1200 + 60,//HFP
 	.hsync_end = 1200 + 60 + 20,//HSA
-	.htotal = 1200 + 60 + 20 + 40,//HBP
+	.htotal = 1200 + 60 + 20 + 46,//HBP
 	.vdisplay = 2000,
-	.vsync_start = 2000 + 92,//VFP
-	.vsync_end = 2000 + 92 + 8,//VSA
-	.vtotal = 2000 + 92 + 8 + 12,//VBP
+	.vsync_start = 2000 + 2416,//VFP
+	.vsync_end = 2000 + 2416 + 8,//VSA
+	.vtotal = 2000 + 2416 + 8 + 12,//VBP
 };
 
 #if defined(CONFIG_MTK_PANEL_EXT)
 static struct mtk_panel_params ext_params = {
-	.pll_clk = 502,
-	.vfp_low_power = 4180,
+	.change_fps_by_vfp_send_cmd = 1,
+	.vfp_low_power = 198,
 	.cust_esd_check = 0,
-	.esd_check_enable = 0,
-	.lcm_esd_check_table[0] = {
-		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
-	},
-	.ssc_enable = 1,
+	.esd_check_enable = 1,
+	.ssc_enable = 0,
 	.lane_swap_en = 0,
 	.lane_swap[0][MIPITX_PHY_LANE_0] = MIPITX_PHY_LANE_0,
 	.lane_swap[0][MIPITX_PHY_LANE_1] = MIPITX_PHY_LANE_1,
@@ -492,17 +499,17 @@ static struct mtk_panel_params ext_params = {
 		.bit_per_pixel = 128,
 		.pic_height = 2000,
 		.pic_width = 1200,
-		.slice_height = 20,
+		.slice_height = 5,
 		.slice_width = 600,
 		.chunk_size = 600,
 		.xmit_delay = 512,
 		.dec_delay = 556,
 		.scale_value = 32,
-		.increment_interval = 514,
+		.increment_interval = 117,
 		.decrement_interval = 8,
 		.line_bpg_offset = 12,
-		.nfl_bpg_offset = 1294,
-		.slice_bpg_offset = 1172,
+		.nfl_bpg_offset = 6144,
+		.slice_bpg_offset = 4686,
 		.initial_offset = 6144,
 		.final_offset = 4336,
 		.flatness_minqp = 3,
@@ -513,27 +520,80 @@ static struct mtk_panel_params ext_params = {
 		.rc_quant_incr_limit1 = 11,
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
-		},
-	.data_rate = 951,
+		.rc_buf_thresh[0] = 14,
+		.rc_buf_thresh[1] = 28,
+		.rc_buf_thresh[2] = 42,
+		.rc_buf_thresh[3] = 56,
+		.rc_buf_thresh[4] = 70,
+		.rc_buf_thresh[5] = 84,
+		.rc_buf_thresh[6] = 98,
+		.rc_buf_thresh[7] = 105,
+		.rc_buf_thresh[8] = 112,
+		.rc_buf_thresh[9] = 119,
+		.rc_buf_thresh[10] = 121,
+		.rc_buf_thresh[11] = 123,
+		.rc_buf_thresh[12] = 125,
+		.rc_buf_thresh[13] = 126,
+		.rc_range_parameters[0].range_min_qp = 0,
+		.rc_range_parameters[0].range_max_qp = 4,
+		.rc_range_parameters[0].range_bpg_offset = 2,
+		.rc_range_parameters[1].range_min_qp = 0,
+		.rc_range_parameters[1].range_max_qp = 4,
+		.rc_range_parameters[1].range_bpg_offset = 0,
+		.rc_range_parameters[2].range_min_qp = 1,
+		.rc_range_parameters[2].range_max_qp = 5,
+		.rc_range_parameters[2].range_bpg_offset = 0,
+		.rc_range_parameters[3].range_min_qp = 1,
+		.rc_range_parameters[3].range_max_qp = 6,
+		.rc_range_parameters[3].range_bpg_offset = -2,
+		.rc_range_parameters[4].range_min_qp = 3,
+		.rc_range_parameters[4].range_max_qp = 7,
+		.rc_range_parameters[4].range_bpg_offset = -4,
+		.rc_range_parameters[5].range_min_qp = 3,
+		.rc_range_parameters[5].range_max_qp = 7,
+		.rc_range_parameters[5].range_bpg_offset = -6,
+		.rc_range_parameters[6].range_min_qp = 3,
+		.rc_range_parameters[6].range_max_qp = 7,
+		.rc_range_parameters[6].range_bpg_offset = -8,
+		.rc_range_parameters[7].range_min_qp = 3,
+		.rc_range_parameters[7].range_max_qp = 8,
+		.rc_range_parameters[7].range_bpg_offset = -8,
+		.rc_range_parameters[8].range_min_qp = 3,
+		.rc_range_parameters[8].range_max_qp = 9,
+		.rc_range_parameters[8].range_bpg_offset = -8,
+		.rc_range_parameters[9].range_min_qp = 3,
+		.rc_range_parameters[9].range_max_qp = 10,
+		.rc_range_parameters[9].range_bpg_offset = -10,
+		.rc_range_parameters[10].range_min_qp = 5,
+		.rc_range_parameters[10].range_max_qp = 11,
+		.rc_range_parameters[10].range_bpg_offset = -10,
+		.rc_range_parameters[11].range_min_qp = 5,
+		.rc_range_parameters[11].range_max_qp = 12,
+		.rc_range_parameters[11].range_bpg_offset = -12,
+		.rc_range_parameters[12].range_min_qp = 5,
+		.rc_range_parameters[12].range_max_qp = 13,
+		.rc_range_parameters[12].range_bpg_offset = -12,
+		.rc_range_parameters[13].range_min_qp = 7,
+		.rc_range_parameters[13].range_max_qp = 13,
+		.rc_range_parameters[13].range_bpg_offset = -12,
+		.rc_range_parameters[14].range_min_qp = 13,
+		.rc_range_parameters[14].range_max_qp = 13,
+		.rc_range_parameters[14].range_bpg_offset = -12
+	},
+	.data_rate_khz = 960298,
+	.data_rate = 960,
 	.lfr_enable = 0,
 	.lfr_minimum_fps = 120,
 	.dyn_fps = {
 		.switch_en = 1,
 		.vact_timing_fps = 120,
-		.dfps_cmd_table[0] = {0, 2, {0xE2, 0x00} },
-	//	.dfps_cmd_table[0] = {0, 2, {0xFF, 0x25} },
-	//	.dfps_cmd_table[1] = {0, 2, {0xFB, 0x01} },
-	//	.dfps_cmd_table[2] = {0, 2, {0x18, 0x21} },
-		/*switch page for esd check*/
-	//	.dfps_cmd_table[3] = {0, 2, {0xFF, 0x10} },
-	//	.dfps_cmd_table[4] = {0, 2, {0xFB, 0x01} },
+		.dfps_cmd_table[0] = {0, 4, {0xB9, 0x83, 0x10, 0x21} },
+		.dfps_cmd_table[1] = {0, 2, {0xE2, 0x00} },
+		.dfps_cmd_table[2] = {0, 2, {0xB9, 0x00} },
 	},
 	/* following MIPI hopping parameter might cause screen mess */
 	.dyn = {
 		.switch_en = 1,
-	//	.pll_clk = 502,
-	//	.vfp_lp_dyn = 4178,
-	//	.hfp = 76,
 		.vfp = 198,
 	},
 	.corner_pattern_height = ROUND_CORNER_H_TOP,
@@ -542,15 +602,12 @@ static struct mtk_panel_params ext_params = {
 	.rotate = 1,
 };
 
-static struct mtk_panel_params ext_params_90hz = {
-	.pll_clk = 510,
-	.vfp_low_power = 2528,
+static struct mtk_panel_params ext_params_30hz = {
+	.change_fps_by_vfp_send_cmd = 1,
+	.vfp_low_power = 6852,
 	.cust_esd_check = 0,
-	.esd_check_enable = 0,
-	.lcm_esd_check_table[0] = {
-		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
-	},
-	.ssc_enable = 1,
+	.esd_check_enable = 1,
+	.ssc_enable = 0,
 	.lane_swap_en = 0,
 	.lane_swap[0][MIPITX_PHY_LANE_0] = MIPITX_PHY_LANE_0,
 	.lane_swap[0][MIPITX_PHY_LANE_1] = MIPITX_PHY_LANE_1,
@@ -566,8 +623,8 @@ static struct mtk_panel_params ext_params_90hz = {
 	.lane_swap[1][MIPITX_PHY_LANE_RX] = MIPITX_PHY_LANE_0,
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
-		.enable = 0,
-		.ver = 17,
+		.enable = 1,
+		.ver = 18,
 		.slice_mode = 1,
 		.rgb_swap = 0,
 		.dsc_cfg = 34,
@@ -578,17 +635,17 @@ static struct mtk_panel_params ext_params_90hz = {
 		.bit_per_pixel = 128,
 		.pic_height = 2000,
 		.pic_width = 1200,
-		.slice_height = 20,
+		.slice_height = 5,
 		.slice_width = 600,
 		.chunk_size = 600,
 		.xmit_delay = 512,
 		.dec_delay = 556,
 		.scale_value = 32,
-		.increment_interval = 514,
+		.increment_interval = 117,
 		.decrement_interval = 8,
 		.line_bpg_offset = 12,
-		.nfl_bpg_offset = 1294,
-		.slice_bpg_offset = 1172,
+		.nfl_bpg_offset = 6144,
+		.slice_bpg_offset = 4686,
 		.initial_offset = 6144,
 		.final_offset = 4336,
 		.flatness_minqp = 3,
@@ -599,27 +656,81 @@ static struct mtk_panel_params ext_params_90hz = {
 		.rc_quant_incr_limit1 = 11,
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
-		},
-	.data_rate = 1020,
+		.rc_buf_thresh[0] = 14,
+		.rc_buf_thresh[1] = 28,
+		.rc_buf_thresh[2] = 42,
+		.rc_buf_thresh[3] = 56,
+		.rc_buf_thresh[4] = 70,
+		.rc_buf_thresh[5] = 84,
+		.rc_buf_thresh[6] = 98,
+		.rc_buf_thresh[7] = 105,
+		.rc_buf_thresh[8] = 112,
+		.rc_buf_thresh[9] = 119,
+		.rc_buf_thresh[10] = 121,
+		.rc_buf_thresh[11] = 123,
+		.rc_buf_thresh[12] = 125,
+		.rc_buf_thresh[13] = 126,
+		.rc_range_parameters[0].range_min_qp = 0,
+		.rc_range_parameters[0].range_max_qp = 4,
+		.rc_range_parameters[0].range_bpg_offset = 2,
+		.rc_range_parameters[1].range_min_qp = 0,
+		.rc_range_parameters[1].range_max_qp = 4,
+		.rc_range_parameters[1].range_bpg_offset = 0,
+		.rc_range_parameters[2].range_min_qp = 1,
+		.rc_range_parameters[2].range_max_qp = 5,
+		.rc_range_parameters[2].range_bpg_offset = 0,
+		.rc_range_parameters[3].range_min_qp = 1,
+		.rc_range_parameters[3].range_max_qp = 6,
+		.rc_range_parameters[3].range_bpg_offset = -2,
+		.rc_range_parameters[4].range_min_qp = 3,
+		.rc_range_parameters[4].range_max_qp = 7,
+		.rc_range_parameters[4].range_bpg_offset = -4,
+		.rc_range_parameters[5].range_min_qp = 3,
+		.rc_range_parameters[5].range_max_qp = 7,
+		.rc_range_parameters[5].range_bpg_offset = -6,
+		.rc_range_parameters[6].range_min_qp = 3,
+		.rc_range_parameters[6].range_max_qp = 7,
+		.rc_range_parameters[6].range_bpg_offset = -8,
+		.rc_range_parameters[7].range_min_qp = 3,
+		.rc_range_parameters[7].range_max_qp = 8,
+		.rc_range_parameters[7].range_bpg_offset = -8,
+		.rc_range_parameters[8].range_min_qp = 3,
+		.rc_range_parameters[8].range_max_qp = 9,
+		.rc_range_parameters[8].range_bpg_offset = -8,
+		.rc_range_parameters[9].range_min_qp = 3,
+		.rc_range_parameters[9].range_max_qp = 10,
+		.rc_range_parameters[9].range_bpg_offset = -10,
+		.rc_range_parameters[10].range_min_qp = 5,
+		.rc_range_parameters[10].range_max_qp = 11,
+		.rc_range_parameters[10].range_bpg_offset = -10,
+		.rc_range_parameters[11].range_min_qp = 5,
+		.rc_range_parameters[11].range_max_qp = 12,
+		.rc_range_parameters[11].range_bpg_offset = -12,
+		.rc_range_parameters[12].range_min_qp = 5,
+		.rc_range_parameters[12].range_max_qp = 13,
+		.rc_range_parameters[12].range_bpg_offset = -12,
+		.rc_range_parameters[13].range_min_qp = 7,
+		.rc_range_parameters[13].range_max_qp = 13,
+		.rc_range_parameters[13].range_bpg_offset = -12,
+		.rc_range_parameters[14].range_min_qp = 13,
+		.rc_range_parameters[14].range_max_qp = 13,
+		.rc_range_parameters[14].range_bpg_offset = -12
+	},
+	.data_rate_khz = 960298,
+	.data_rate = 960,
 	.lfr_enable = 0,
-	.lfr_minimum_fps = 60,
+	.lfr_minimum_fps = 30,
 	.dyn_fps = {
-		.switch_en = 0,
-		.vact_timing_fps = 120,
-		//.dfps_cmd_table[0] = {0, 2, {0xFF, 0x25} },
-		//.dfps_cmd_table[1] = {0, 2, {0xFB, 0x01} },
-		//.dfps_cmd_table[2] = {0, 2, {0x18, 0x20} },
-		/*switch page for esd check*/
-		//.dfps_cmd_table[3] = {0, 2, {0xFF, 0x10} },
-		//.dfps_cmd_table[4] = {0, 2, {0xFB, 0x01} },
+		.switch_en = 1,
+		.vact_timing_fps = 30,
+		.dfps_cmd_table[0] = {0, 4, {0xB9, 0x83, 0x10, 0x21} },
+		.dfps_cmd_table[1] = {0, 2, {0xE2, 0x20} },
+		.dfps_cmd_table[2] = {0, 2, {0xB9, 0x00} },
 	},
 	/* following MIPI hopping parameter might cause screen mess */
 	.dyn = {
 		.switch_en = 1,
-		.pll_clk = 415,
-	//	.vfp_lp_dyn = 2528,
-	//	.hfp = 76,
-	//	.vfp = 905,
+		.vfp = 6852,
 	},
 	.corner_pattern_height = ROUND_CORNER_H_TOP,
 	.corner_pattern_tp_size = sizeof(top_rc_pattern),
@@ -627,15 +738,12 @@ static struct mtk_panel_params ext_params_90hz = {
 	.rotate = 1,
 };
 
-static struct mtk_panel_params ext_params_120hz = {
-	.pll_clk = 510,
-	.vfp_low_power = 2528,
+static struct mtk_panel_params ext_params_60hz = {
+	.change_fps_by_vfp_send_cmd = 1,
+	.vfp_low_power = 2416,
 	.cust_esd_check = 0,
-	.esd_check_enable = 0,
-	.lcm_esd_check_table[0] = {
-		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
-	},
-	.ssc_enable = 1,
+	.esd_check_enable = 1,
+	.ssc_enable = 0,
 	.lane_swap_en = 0,
 	.lane_swap[0][MIPITX_PHY_LANE_0] = MIPITX_PHY_LANE_0,
 	.lane_swap[0][MIPITX_PHY_LANE_1] = MIPITX_PHY_LANE_1,
@@ -651,8 +759,8 @@ static struct mtk_panel_params ext_params_120hz = {
 	.lane_swap[1][MIPITX_PHY_LANE_RX] = MIPITX_PHY_LANE_0,
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
-		.enable = 0,
-		.ver = 17,
+		.enable = 1,
+		.ver = 18,
 		.slice_mode = 1,
 		.rgb_swap = 0,
 		.dsc_cfg = 34,
@@ -663,17 +771,17 @@ static struct mtk_panel_params ext_params_120hz = {
 		.bit_per_pixel = 128,
 		.pic_height = 2000,
 		.pic_width = 1200,
-		.slice_height = 20,
+		.slice_height = 5,
 		.slice_width = 600,
 		.chunk_size = 600,
 		.xmit_delay = 512,
 		.dec_delay = 556,
 		.scale_value = 32,
-		.increment_interval = 514,
+		.increment_interval = 117,
 		.decrement_interval = 8,
 		.line_bpg_offset = 12,
-		.nfl_bpg_offset = 1294,
-		.slice_bpg_offset = 1172,
+		.nfl_bpg_offset = 6144,
+		.slice_bpg_offset = 4686,
 		.initial_offset = 6144,
 		.final_offset = 4336,
 		.flatness_minqp = 3,
@@ -684,27 +792,81 @@ static struct mtk_panel_params ext_params_120hz = {
 		.rc_quant_incr_limit1 = 11,
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
-		},
-	.data_rate = 1020,
+		.rc_buf_thresh[0] = 14,
+		.rc_buf_thresh[1] = 28,
+		.rc_buf_thresh[2] = 42,
+		.rc_buf_thresh[3] = 56,
+		.rc_buf_thresh[4] = 70,
+		.rc_buf_thresh[5] = 84,
+		.rc_buf_thresh[6] = 98,
+		.rc_buf_thresh[7] = 105,
+		.rc_buf_thresh[8] = 112,
+		.rc_buf_thresh[9] = 119,
+		.rc_buf_thresh[10] = 121,
+		.rc_buf_thresh[11] = 123,
+		.rc_buf_thresh[12] = 125,
+		.rc_buf_thresh[13] = 126,
+		.rc_range_parameters[0].range_min_qp = 0,
+		.rc_range_parameters[0].range_max_qp = 4,
+		.rc_range_parameters[0].range_bpg_offset = 2,
+		.rc_range_parameters[1].range_min_qp = 0,
+		.rc_range_parameters[1].range_max_qp = 4,
+		.rc_range_parameters[1].range_bpg_offset = 0,
+		.rc_range_parameters[2].range_min_qp = 1,
+		.rc_range_parameters[2].range_max_qp = 5,
+		.rc_range_parameters[2].range_bpg_offset = 0,
+		.rc_range_parameters[3].range_min_qp = 1,
+		.rc_range_parameters[3].range_max_qp = 6,
+		.rc_range_parameters[3].range_bpg_offset = -2,
+		.rc_range_parameters[4].range_min_qp = 3,
+		.rc_range_parameters[4].range_max_qp = 7,
+		.rc_range_parameters[4].range_bpg_offset = -4,
+		.rc_range_parameters[5].range_min_qp = 3,
+		.rc_range_parameters[5].range_max_qp = 7,
+		.rc_range_parameters[5].range_bpg_offset = -6,
+		.rc_range_parameters[6].range_min_qp = 3,
+		.rc_range_parameters[6].range_max_qp = 7,
+		.rc_range_parameters[6].range_bpg_offset = -8,
+		.rc_range_parameters[7].range_min_qp = 3,
+		.rc_range_parameters[7].range_max_qp = 8,
+		.rc_range_parameters[7].range_bpg_offset = -8,
+		.rc_range_parameters[8].range_min_qp = 3,
+		.rc_range_parameters[8].range_max_qp = 9,
+		.rc_range_parameters[8].range_bpg_offset = -8,
+		.rc_range_parameters[9].range_min_qp = 3,
+		.rc_range_parameters[9].range_max_qp = 10,
+		.rc_range_parameters[9].range_bpg_offset = -10,
+		.rc_range_parameters[10].range_min_qp = 5,
+		.rc_range_parameters[10].range_max_qp = 11,
+		.rc_range_parameters[10].range_bpg_offset = -10,
+		.rc_range_parameters[11].range_min_qp = 5,
+		.rc_range_parameters[11].range_max_qp = 12,
+		.rc_range_parameters[11].range_bpg_offset = -12,
+		.rc_range_parameters[12].range_min_qp = 5,
+		.rc_range_parameters[12].range_max_qp = 13,
+		.rc_range_parameters[12].range_bpg_offset = -12,
+		.rc_range_parameters[13].range_min_qp = 7,
+		.rc_range_parameters[13].range_max_qp = 13,
+		.rc_range_parameters[13].range_bpg_offset = -12,
+		.rc_range_parameters[14].range_min_qp = 13,
+		.rc_range_parameters[14].range_max_qp = 13,
+		.rc_range_parameters[14].range_bpg_offset = -12
+	},
+	.data_rate_khz = 960298,
+	.data_rate = 960,
 	.lfr_enable = 0,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
 		.switch_en = 1,
-		.vact_timing_fps = 120,
-	//	.dfps_cmd_table[0] = {0, 2, {0xFF, 0x25} },
-	//	.dfps_cmd_table[1] = {0, 2, {0xFB, 0x01} },
-	//	.dfps_cmd_table[2] = {0, 2, {0x18, 0x22} },
-		/*switch page for esd check*/
-	//	.dfps_cmd_table[3] = {0, 2, {0xFF, 0x10} },
-	//	.dfps_cmd_table[4] = {0, 2, {0xFB, 0x01} },
+		.vact_timing_fps = 60,
+		.dfps_cmd_table[0] = {0, 4, {0xB9, 0x83, 0x10, 0x21} },
+		.dfps_cmd_table[1] = {0, 2, {0xE2, 0x10} },
+		.dfps_cmd_table[2] = {0, 2, {0xB9, 0x00} },
 	},
 	/* following MIPI hopping parameter might cause screen mess */
 	.dyn = {
 		.switch_en = 1,
-		.pll_clk = 415,
-	//	.vfp_lp_dyn = 2528,
-	//	.hfp = 76,
-	//	.vfp = 82,
+		.vfp = 2416,
 	},
 	.corner_pattern_height = ROUND_CORNER_H_TOP,
 	.corner_pattern_tp_size = sizeof(top_rc_pattern),
@@ -758,48 +920,14 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 	int ret = 0;
 	struct drm_display_mode *m = get_mode_by_id_hfp(connector, mode);
 
-	if (ext && m && drm_mode_vrefresh(m) == 60)
+	if (ext && m && drm_mode_vrefresh(m) == 120)
 		ext->params = &ext_params;
-	else if (ext && m && drm_mode_vrefresh(m) == 90)
-		ext->params = &ext_params_90hz;
-	else if (ext && m && drm_mode_vrefresh(m) == 120)
-		ext->params = &ext_params_120hz;
+	else if (ext && m && drm_mode_vrefresh(m) == 30)
+		ext->params = &ext_params_30hz;
+	else if (ext && m && drm_mode_vrefresh(m) == 60)
+		ext->params = &ext_params_60hz;
 	else
 		ret = 1;
-
-	return ret;
-}
-
-static void mode_switch_to_60(struct drm_panel *panel)
-{
-	//struct boe *ctx = panel_to_boe(panel);
-	// panel_to_boe(panel);
-
-	pr_info("%s\n", __func__);
-
-//	boe_dcs_write_seq_static(ctx, 0xFF, 0x25);
-//	boe_dcs_write_seq_static(ctx, 0xFB, 0x01);
-//	boe_dcs_write_seq_static(ctx, 0x18, 0x21);
-//	boe_dcs_write_seq_static(ctx, 0xFF, 0x10);
-//	boe_dcs_write_seq_static(ctx, 0xFB, 0x01);
-}
-static int mode_switch(struct drm_panel *panel,
-		struct drm_connector *connector, unsigned int cur_mode,
-		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage)
-{
-	int ret = 0;
-	//struct drm_display_mode *m = get_mode_by_id_hfp(connector, dst_mode);
-
-	pr_info("%s cur_mode = %d dst_mode %d\n", __func__, cur_mode, dst_mode);
-
-//	if (drm_mode_vrefresh(m) == 60) { /* 60 switch to 120 */
-		mode_switch_to_60(panel);
-//	} else if (drm_mode_vrefresh(m) == 90) { /* 1200 switch to 60 */
-//		mode_switch_to_90(panel);
-//	} else if (drm_mode_vrefresh(m) == 120) { /* 1200 switch to 60 */
-//		mode_switch_to_120(panel);
-//	else
-//		ret = 1;
 
 	return ret;
 }
@@ -820,7 +948,6 @@ static struct mtk_panel_funcs ext_funcs = {
 	.reset = panel_ext_reset,
 	.set_backlight_cmdq = boe_setbacklight_cmdq,
 	.ext_param_set = mtk_panel_ext_param_set,
-	.mode_switch = mode_switch,
 	.ata_check = panel_ata_check,
 };
 #endif
@@ -874,11 +1001,11 @@ static int boe_get_modes(struct drm_panel *panel,
 	mode->type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
 	drm_mode_probed_add(connector, mode);
 
-	mode2 = drm_mode_duplicate(connector->dev, &performance_mode_90hz);
+	mode2 = drm_mode_duplicate(connector->dev, &performance_mode_30hz);
 	if (!mode2) {
 		dev_info(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
-			 performance_mode_90hz.hdisplay, performance_mode_90hz.vdisplay,
-			 drm_mode_vrefresh(&performance_mode_90hz));
+			 performance_mode_30hz.hdisplay, performance_mode_30hz.vdisplay,
+			 drm_mode_vrefresh(&performance_mode_30hz));
 		return -ENOMEM;
 	}
 
@@ -886,11 +1013,11 @@ static int boe_get_modes(struct drm_panel *panel,
 	mode2->type = DRM_MODE_TYPE_DRIVER;
 	drm_mode_probed_add(connector, mode2);
 
-	mode3 = drm_mode_duplicate(connector->dev, &performance_mode_120hz);
+	mode3 = drm_mode_duplicate(connector->dev, &performance_mode_60hz);
 	if (!mode3) {
 		dev_info(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
-			 performance_mode_120hz.hdisplay, performance_mode_120hz.vdisplay,
-			 drm_mode_vrefresh(&performance_mode_120hz));
+			 performance_mode_60hz.hdisplay, performance_mode_60hz.vdisplay,
+			 drm_mode_vrefresh(&performance_mode_60hz));
 		return -ENOMEM;
 	}
 
@@ -898,8 +1025,8 @@ static int boe_get_modes(struct drm_panel *panel,
 	mode3->type = DRM_MODE_TYPE_DRIVER;
 	drm_mode_probed_add(connector, mode3);
 
-	connector->display_info.width_mm = 70;
-	connector->display_info.height_mm = 152;
+	connector->display_info.width_mm = 150;
+	connector->display_info.height_mm = 249;
 
 	return 1;
 }
@@ -965,8 +1092,8 @@ static int boe_probe(struct mipi_dsi_device *dsi)
 		value = 0;
 	else {
 		ext_params.round_corner_en = value;
-		ext_params_90hz.round_corner_en = value;
-		ext_params_120hz.round_corner_en = value;
+		ext_params_30hz.round_corner_en = value;
+		ext_params_60hz.round_corner_en = value;
 	}
 
 	backlight = of_parse_phandle(dev->of_node, "backlight", 0);

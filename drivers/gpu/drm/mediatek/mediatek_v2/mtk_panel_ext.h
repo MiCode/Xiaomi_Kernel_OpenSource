@@ -395,6 +395,7 @@ struct msync_cmd_table {
 };
 
 struct mtk_panel_params {
+	unsigned int change_fps_by_vfp_send_cmd;
 	unsigned int pll_clk;
 	unsigned int data_rate;
 	//either pll_clk or data_rate must be set, event if data_rate_khz is set
