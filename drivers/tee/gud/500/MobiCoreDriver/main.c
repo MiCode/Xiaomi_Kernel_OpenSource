@@ -92,6 +92,7 @@ bool is_mobicore_ready(void)
 {
 	return mobicore_ready;
 }
+EXPORT_SYMBOL(is_mobicore_ready);
 
 int kasnprintf(struct kasnprintf_buf *buf, const char *fmt, ...)
 {
