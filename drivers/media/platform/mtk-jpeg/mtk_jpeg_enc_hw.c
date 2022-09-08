@@ -111,10 +111,10 @@ void mtk_jpeg_set_enc_dst(struct mtk_jpeg_ctx *ctx, void __iomem *base,
 	if (support_34bit)
 		writel(dma_addr >> 32, base + JPEG_ENC_DEST_ADDR0_EXT);
 #endif
-	writel((dma_addr + (size - ctx->dst_offset)) & ~0xf, base + JPEG_ENC_STALL_ADDR0);
+	writel((dma_addr + size) & ~0xf, base + JPEG_ENC_STALL_ADDR0);
 #ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
 	if (support_34bit)
-		writel(((dma_addr + (size - ctx->dst_offset))>>32),
+		writel(((dma_addr + size)>>32),
 			base + JPEG_ENC_STALL_ADDR0_EXT);
 #endif
 }
