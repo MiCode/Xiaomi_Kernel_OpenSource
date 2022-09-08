@@ -201,6 +201,8 @@ struct vcp_status_fp vcp_helper_fp = {
 	.vcp_register_feature		= vcp_register_feature,
 	.vcp_deregister_feature		= vcp_deregister_feature,
 	.is_vcp_ready				= is_vcp_ready,
+	.vcp_A_register_notify		= vcp_A_register_notify,
+	.vcp_A_unregister_notify	= vcp_A_unregister_notify,
 };
 
 #undef pr_debug

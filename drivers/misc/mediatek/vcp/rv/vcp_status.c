@@ -74,6 +74,22 @@ unsigned int is_vcp_ready_ex(enum vcp_core_id id)
 }
 EXPORT_SYMBOL_GPL(is_vcp_ready_ex);
 
+void vcp_A_register_notify_ex(struct notifier_block *nb)
+{
+	if (!vcp_fp || !vcp_fp->vcp_A_register_notify)
+		return;
+	vcp_fp->vcp_A_register_notify(nb);
+}
+EXPORT_SYMBOL_GPL(vcp_A_register_notify_ex);
+
+void vcp_A_unregister_notify_ex(struct notifier_block *nb)
+{
+	if (!vcp_fp || !vcp_fp->vcp_A_unregister_notify)
+		return;
+	vcp_fp->vcp_A_unregister_notify(nb);
+}
+EXPORT_SYMBOL_GPL(vcp_A_unregister_notify_ex);
+
 static void __exit mtk_vcp_status_exit(void)
 {
 }
