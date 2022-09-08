@@ -267,9 +267,6 @@ static int wl2864c_regulator_init(struct wl2864c *chip)
 		ret = regmap_bulk_read(chip->regmap, ldo_regs[id],
 				       vsel_range, 1);
 
-		dev_info(chip->dev, "%s: LDO%d[%s], default value:0x%x",
-			__func__, (id+1), chip->rdesc[id]->name, vsel_range[0]);
-
 		if (ret < 0) {
 			dev_info(chip->dev,
 				"Failed to read the ldo register\n");
