@@ -70,12 +70,20 @@ static int extdev_io_read(struct extdev_io_device *extdev, char *buf)
 		return ret;
 	data = extdev->data_buffer;
 	cnt = snprintf(buf + cnt, 256, "0x");
-	for (i = 0; i < extdev->size; i++)
+	if (cnt >= 256)
+		goto err;
+	for (i = 0; i < extdev->size; i++) {
 		cnt += snprintf(buf + cnt, 256, "%02x,", *(data + i));
+		if (cnt >= 256)
+			goto err;
+	}
 	cnt += snprintf(buf + cnt, 256, "\n");
 	if (cnt >= 256)
-		pr_notice("%s: the string is been truncated\n", __func__);
+		goto err;
 	return ret;
+err:
+	pr_notice("%s: the string is been truncated\n", __func__);
+	return -EINVAL;
 }
 
 static int extdev_io_write(struct extdev_io_device *extdev, const char *buf_internal, size_t cnt)
