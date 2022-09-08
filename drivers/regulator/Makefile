@@ -174,6 +174,7 @@ obj-$(CONFIG_REGULATOR_WM8400) += wm8400-regulator.o
 obj-$(CONFIG_REGULATOR_WM8994) += wm8994-regulator.o
 obj-$(CONFIG_REGULATOR_WL2868C) += wl2868c-regulator.o
 obj-$(CONFIG_REGULATOR_WL2864C) += wl2864c-regulator.o
+obj-$(CONFIG_REGULATOR_FAN53870) += fan53870-ldo.o
 
 
 ifneq ($(wildcard $(srctree)/$(src)/k6983v1_64_alpha),)

@@ -1462,4 +1462,13 @@ config REGULATOR_WL2864C
 	  GPIO block is internally LDO1 voltage. If LDO1 voltage output disabled,
 	  GPIO cannot be used to drive output high. It need to pay more
 	  attention on the usage.
+
+config REGULATOR_FAN53870
+	tristate "Richtek WL2868C regulator driver is fan53870"
+	help
+	  Select MT8781p3 wifi REGULATOR Platform is fan53870.
+	  It includes 7 LDOs. To compile this dirver for used camera.
+	  Set Y or M to select this feature for specific fan53870,
+	  and set N to disable.
+
 endif
