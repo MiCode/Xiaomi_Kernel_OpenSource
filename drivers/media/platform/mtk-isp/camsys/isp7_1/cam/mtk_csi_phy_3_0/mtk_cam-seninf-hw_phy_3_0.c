@@ -441,7 +441,7 @@ static int mtk_cam_seninf_set_top_mux_ctrl(struct seninf_ctx *ctx,
 		dev_info(ctx->dev, "invalid mux_idx %d\n", mux_idx);
 		return -EINVAL;
 	}
-#if LOG_MORE
+// #if LOG_MORE
 	dev_info(ctx->dev,
 		"TOP_MUX_CTRL_0(0x%x) TOP_MUX_CTRL_1(0x%x) TOP_MUX_CTRL_2(0x%x) TOP_MUX_CTRL_3(0x%x) TOP_MUX_CTRL_4(0x%x) TOP_MUX_CTRL_5(0x%x)\n",
 		SENINF_READ_REG(pSeninf, SENINF_TOP_MUX_CTRL_0),
@@ -450,7 +450,7 @@ static int mtk_cam_seninf_set_top_mux_ctrl(struct seninf_ctx *ctx,
 		SENINF_READ_REG(pSeninf, SENINF_TOP_MUX_CTRL_3),
 		SENINF_READ_REG(pSeninf, SENINF_TOP_MUX_CTRL_4),
 		SENINF_READ_REG(pSeninf, SENINF_TOP_MUX_CTRL_5));
-#endif
+// #endif
 	return 0;
 }
 
