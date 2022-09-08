@@ -354,79 +354,6 @@ static void fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
 static void rollover_cpu_window(struct rq *rq, bool full_window);
 static void rollover_top_tasks(struct rq *rq, bool full_window);
 
-/* walt_find_cluster_packing_cpu - Return a packing_cpu choice common for this cluster.
- * @start_cpu:  The cpu from the cluster to choose from
- *
- * If the cluster has a 32bit capable cpu return it regardless
- * of whether it is halted or not.
- *
- * If the cluster does not have a 32 bit capable cpu, find the
- * first unhalted, active cpu in this cluster.
- */
-int walt_find_cluster_packing_cpu(int start_cpu)
-{
-	struct rq *rq = cpu_rq(start_cpu);
-	struct walt_rq *wrq = (struct walt_rq *)rq->android_vendor_data1;
-	struct walt_sched_cluster *cluster = wrq->cluster;
-	cpumask_t unhalted_cpus;
-	cpumask_t cluster_32bit_cpus;
-
-	/* find all 32 bit capable cpus in this cluster */
-	cpumask_and(&cluster_32bit_cpus, &cluster->cpus, system_32bit_el0_cpumask());
-
-	/* pack 32 bit and 64 bit tasks on the same cpu, if possible */
-	if (cpumask_weight(&cluster_32bit_cpus) > 0)
-		return cpumask_first(&cluster_32bit_cpus);
-
-	/* find all unhalted active cpus */
-	cpumask_andnot(&unhalted_cpus, cpu_active_mask, cpu_halt_mask);
-
-	/* find all unhalted active cpus in this cluster */
-	cpumask_and(&unhalted_cpus, &unhalted_cpus, &cluster->cpus);
-
-	/* return the first found unhalted, active cpu, in this cluster */
-	return cpumask_first(&unhalted_cpus);
-}
-
-/* for cfs and rt, determine if packing_cpu should be used */
-bool walt_choose_packing_cpu(int packing_cpu, struct task_struct *p)
-{
-	struct rq *rq;
-	struct walt_rq *wrq;
-	struct walt_sched_cluster *cluster;
-
-	/* packing cpu must be a valid cpu for runqueue lookup */
-	if (packing_cpu >= nr_cpu_ids)
-		return false;
-
-	rq = cpu_rq(packing_cpu);
-	wrq = (struct walt_rq *)rq->android_vendor_data1;
-	cluster = wrq->cluster;
-
-	/* if idle_enough feature is not enabled */
-	if (!sysctl_sched_idle_enough)
-		return false;
-
-	/* if cpu is not allowed for this task */
-	if (!cpumask_test_cpu(packing_cpu, p->cpus_ptr))
-		return false;
-
-	/* if cluster util is high */
-	if (sched_get_cluster_util_pct(cluster) >= sysctl_sched_cluster_util_thres_pct)
-		return false;
-
-	/* if cpu utilization is high */
-	if (cpu_util(packing_cpu) >= sysctl_sched_idle_enough)
-		return false;
-
-	/* don't pack big tasks */
-	if (task_util(p) >= sysctl_sched_idle_enough)
-		return false;
-
-	/* the packing cpu can be used, so pack! */
-	return true;
-}
-
 /*
  * Demand aggregation for frequency purpose:
  *
@@ -537,7 +464,7 @@ static void update_task_cpu_cycles(struct task_struct *p, int cpu,
 
 static inline bool is_ed_enabled(void)
 {
-	return (walt_rotation_enabled || (boost_policy != SCHED_BOOST_NONE));
+	return (boost_policy != SCHED_BOOST_NONE);
 }
 
 static inline bool is_ed_task(struct task_struct *p, u64 wallclock)
@@ -582,6 +509,13 @@ static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int even
  * Return total number of tasks "eligible" to run on higher capacity cpus
  */
 unsigned int walt_big_tasks(int cpu)
+{
+	struct walt_rq *wrq = (struct walt_rq *) cpu_rq(cpu)->android_vendor_data1;
+
+	return wrq->walt_stats.nr_big_tasks + wrq->walt_stats.nr_32bit_big_tasks;
+}
+
+unsigned int walt_big_64bit_tasks(int cpu)
 {
 	struct walt_rq *wrq = (struct walt_rq *) cpu_rq(cpu)->android_vendor_data1;
 
@@ -657,12 +591,6 @@ static inline u64 freq_policy_load(struct rq *rq, unsigned int *reason)
 	u64 load, tt_load = 0, kload = 0;
 	struct task_struct *cpu_ksoftirqd = per_cpu(ksoftirqd, cpu_of(rq));
 
-	if (wrq->ed_task != NULL) {
-		load = sched_ravg_window;
-		*reason = CPUFREQ_REASON_EARLY_DET;
-		goto done;
-	}
-
 	if (sched_freq_aggr_en) {
 		load = wrq->prev_runnable_sum + aggr_grp_load;
 		*reason = CPUFREQ_REASON_FREQ_AGR;
@@ -694,7 +622,6 @@ static inline u64 freq_policy_load(struct rq *rq, unsigned int *reason)
 		*reason = CPUFREQ_REASON_SUH;
 	}
 
-done:
 	trace_sched_load_to_gov(rq, aggr_grp_load, tt_load, sched_freq_aggr_en,
 				load, 0, walt_rotation_enabled,
 				sysctl_sched_user_hint, wrq, *reason);
@@ -732,6 +659,11 @@ __cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load, unsigned int *rea
 		walt_load->pl = pl;
 		walt_load->ws = walt_load_reported_window;
 		walt_load->rtgb_active = rtgb_active;
+		walt_load->big_task_rotation = walt_rotation_enabled;
+		if (wrq->ed_task)
+			walt_load->ed_active = true;
+		else
+			walt_load->ed_active = false;
 	}
 
 	return (util >= capacity) ? capacity : util;
@@ -4008,6 +3940,7 @@ static void walt_sched_init_rq(struct rq *rq)
 	wrq->prev_window_size = sched_ravg_window;
 	wrq->window_start = 0;
 	wrq->walt_stats.nr_big_tasks = 0;
+	wrq->walt_stats.nr_32bit_big_tasks = 0;
 	wrq->walt_flags = 0;
 	wrq->avg_irqload = 0;
 	wrq->prev_irq_time = 0;
@@ -4081,13 +4014,44 @@ walt_dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 				      -(s64)wts->pred_demand_scaled);
 }
 
+static void adjust_misfit_task_accounting(struct walt_rq *wrq, struct task_struct *p, int adj)
+{
+	while (adj) {
+		if (adj > 0) {
+			if (!is_compat_thread(task_thread_info(p)))
+				wrq->walt_stats.nr_big_tasks++;
+			else
+				wrq->walt_stats.nr_32bit_big_tasks++;
+			adj--;
+		} else if (adj < 0) {
+			if (!is_compat_thread(task_thread_info(p))) {
+				if (wrq->walt_stats.nr_big_tasks == 0 &&
+				    wrq->walt_stats.nr_32bit_big_tasks > 0)
+					wrq->walt_stats.nr_32bit_big_tasks--;
+				else
+					wrq->walt_stats.nr_big_tasks--;
+			} else {
+				if (wrq->walt_stats.nr_32bit_big_tasks == 0 &&
+				    wrq->walt_stats.nr_big_tasks > 0)
+					wrq->walt_stats.nr_big_tasks--;
+				else
+					wrq->walt_stats.nr_32bit_big_tasks--;
+			}
+			adj++;
+		}
+	}
+
+	BUG_ON(wrq->walt_stats.nr_big_tasks < 0);
+	BUG_ON(wrq->walt_stats.nr_32bit_big_tasks < 0);
+}
+
 static void inc_rq_walt_stats(struct rq *rq, struct task_struct *p)
 {
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	if (wts->misfit)
-		wrq->walt_stats.nr_big_tasks++;
+		adjust_misfit_task_accounting(wrq, p, 1);
 
 	wts->rtg_high_prio = task_rtg_high_prio(p);
 	if (wts->rtg_high_prio)
@@ -4100,12 +4064,10 @@ static void dec_rq_walt_stats(struct rq *rq, struct task_struct *p)
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	if (wts->misfit)
-		wrq->walt_stats.nr_big_tasks--;
+		adjust_misfit_task_accounting(wrq, p, -1);
 
 	if (wts->rtg_high_prio)
 		wrq->walt_stats.nr_rtg_high_prio_tasks--;
-
-	BUG_ON(wrq->walt_stats.nr_big_tasks < 0);
 }
 
 static void android_rvh_wake_up_new_task(void *unused, struct task_struct *new)
@@ -4222,12 +4184,16 @@ static void android_rvh_enqueue_task(void *unused, struct rq *rq, struct task_st
 {
 	u64 wallclock;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
+	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	bool double_enqueue = false;
 
 	if (unlikely(walt_disabled))
 		return;
 
 	lockdep_assert_held(&rq->__lock);
+
+	if (!is_per_cpu_kthread(p))
+		wrq->enqueue_counter++;
 
 	if (p->cpu != cpu_of(rq))
 		WALT_BUG(WALT_BUG_UPSTREAM, p, "enqueuing on rq %d when task->cpu is %d\n",
@@ -4267,6 +4233,10 @@ static void android_rvh_enqueue_task(void *unused, struct rq *rq, struct task_st
 
 	if (!double_enqueue)
 		walt_inc_cumulative_runnable_avg(rq, p);
+
+	if ((flags & ENQUEUE_WAKEUP) && do_pl_notif(rq))
+		waltgov_run_callback(rq, WALT_CPUFREQ_PL);
+
 	trace_sched_enq_deq_task(p, 1, cpumask_bits(p->cpus_ptr)[0], is_mvp(wts));
 }
 
@@ -4352,8 +4322,8 @@ static void android_rvh_update_misfit_status(void *unused, struct task_struct *p
 	if (change) {
 		sched_update_nr_prod(rq->cpu, 0);
 		wts->misfit = misfit;
-		wrq->walt_stats.nr_big_tasks += change;
-		BUG_ON(wrq->walt_stats.nr_big_tasks < 0);
+
+		adjust_misfit_task_accounting(wrq, p, change);
 	}
 }
 
@@ -4383,20 +4353,6 @@ static void android_rvh_try_to_wake_up(void *unused, struct task_struct *p)
 	if (update_preferred_cluster(grp, p, old_load, false))
 		set_preferred_cluster(grp);
 	rcu_read_unlock();
-}
-
-static void android_rvh_try_to_wake_up_success(void *unused, struct task_struct *p)
-{
-	unsigned long flags;
-	int cpu = p->cpu;
-
-	if (unlikely(walt_disabled))
-		return;
-
-	raw_spin_lock_irqsave(&cpu_rq(cpu)->__lock, flags);
-	if (do_pl_notif(cpu_rq(cpu)))
-		waltgov_run_callback(cpu_rq(cpu), WALT_CPUFREQ_PL);
-	raw_spin_unlock_irqrestore(&cpu_rq(cpu)->__lock, flags);
 }
 
 static u64 tick_sched_clock;
@@ -4570,7 +4526,6 @@ static void register_walt_hooks(void)
 	register_trace_android_rvh_after_enqueue_task(android_rvh_enqueue_task, NULL);
 	register_trace_android_rvh_after_dequeue_task(android_rvh_dequeue_task, NULL);
 	register_trace_android_rvh_try_to_wake_up(android_rvh_try_to_wake_up, NULL);
-	register_trace_android_rvh_try_to_wake_up_success(android_rvh_try_to_wake_up_success, NULL);
 	register_trace_android_rvh_tick_entry(android_rvh_tick_entry, NULL);
 	register_trace_android_vh_scheduler_tick(android_vh_scheduler_tick, NULL);
 	register_trace_android_rvh_schedule(android_rvh_schedule, NULL);

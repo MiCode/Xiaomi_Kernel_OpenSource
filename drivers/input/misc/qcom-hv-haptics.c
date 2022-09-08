@@ -140,6 +140,12 @@
 
 #define HAP_CFG_DRV_DUTY_CFG_REG		0x60
 #define ADT_DRV_DUTY_EN_BIT			BIT(7)
+#define ADT_BRK_DUTY_EN_BIT			BIT(6)
+#define DRV_DUTY_MASK				GENMASK(5, 3)
+#define DRV_DUTY_62P5_PCT			2
+#define DRV_DUTY_SHIFT				3
+#define BRK_DUTY_MASK				GENMASK(2, 0)
+#define BRK_DUTY_75_PCT			6
 
 #define HAP_CFG_ADT_DRV_DUTY_CFG_REG		0x61
 #define HAP_CFG_ZX_WIND_CFG_REG			0x62
@@ -149,6 +155,7 @@
 #define AUTORES_EN_DLY_MASK			GENMASK(5, 2)
 #define AUTORES_EN_DLY(cycles)			((cycles) * 2)
 #define AUTORES_EN_DLY_6_CYCLES			AUTORES_EN_DLY(6)
+#define AUTORES_EN_DLY_7_CYCLES			AUTORES_EN_DLY(7)
 #define AUTORES_EN_DLY_SHIFT			2
 #define AUTORES_ERR_WINDOW_MASK			GENMASK(1, 0)
 #define AUTORES_ERR_WINDOW_12P5_PERCENT		0x0
@@ -1540,6 +1547,40 @@ static int haptics_open_loop_drive_config(struct haptics_chip *chip, bool en)
 	return 0;
 }
 
+static int haptics_module_enable(struct haptics_chip *chip, bool enable)
+{
+	u8 val;
+	int rc;
+
+	val = enable ? HAPTICS_EN_BIT : 0;
+	rc = haptics_write(chip, chip->cfg_addr_base,
+		HAP_CFG_EN_CTL_REG, &val, 1);
+	if (rc < 0)
+		return rc;
+
+	dev_dbg(chip->dev, "haptics module %s\n",
+		enable ? "enabled" : "disabled");
+	return 0;
+}
+
+static int haptics_toggle_module_enable(struct haptics_chip *chip)
+{
+	int rc;
+
+	/*
+	 * Updating HAPTICS_EN would vote hBoost enable status. Add 100us
+	 * delay before updating HAPTICS_EN for hBoost to have enough time
+	 * to handle its power transition.
+	 */
+	usleep_range(100, 101);
+	rc = haptics_module_enable(chip, false);
+	if (rc < 0)
+		return rc;
+
+	usleep_range(100, 101);
+	return haptics_module_enable(chip, true);
+}
+
 #define BOOST_VREG_OFF_DELAY_SECONDS	2
 static int haptics_enable_play(struct haptics_chip *chip, bool en)
 {
@@ -1936,40 +1977,6 @@ static void haptics_fifo_empty_irq_config(struct haptics_chip *chip,
 		disable_irq_nosync(chip->fifo_empty_irq);
 		chip->fifo_empty_irq_en = false;
 	}
-}
-
-static int haptics_module_enable(struct haptics_chip *chip, bool enable)
-{
-	u8 val;
-	int rc;
-
-	val = enable ? HAPTICS_EN_BIT : 0;
-	rc = haptics_write(chip, chip->cfg_addr_base,
-		HAP_CFG_EN_CTL_REG, &val, 1);
-	if (rc < 0)
-		return rc;
-
-	dev_dbg(chip->dev, "haptics module %s\n",
-			enable ? "enabled" : "disabled");
-	return 0;
-}
-
-static int haptics_toggle_module_enable(struct haptics_chip *chip)
-{
-	int rc;
-
-	/*
-	 * Updating HAPTICS_EN would vote hBoost enable status. Add 100us
-	 * delay before updating HAPTICS_EN for hBoost to have enough time
-	 * to handle its power transition.
-	 */
-	usleep_range(100, 101);
-	rc = haptics_module_enable(chip, false);
-	if (rc < 0)
-		return rc;
-
-	usleep_range(100, 101);
-	return haptics_module_enable(chip, true);
 }
 
 static int haptics_set_fifo(struct haptics_chip *chip, struct fifo_cfg *fifo)
@@ -2410,9 +2417,6 @@ static int haptics_load_periodic_effect(struct haptics_chip *chip,
 		return -EINVAL;
 	}
 
-	dev_dbg(chip->dev, "upload %s effect %d, vmax=%d\n", primitive ? "primitive" : "predefined",
-			effects[i].id, play->vmax_mv);
-
 	mutex_lock(&chip->play.lock);
 	if (chip->play.in_calibration) {
 		dev_err(chip->dev, "calibration in progress, ignore playing predefined effect\n");
@@ -2421,6 +2425,9 @@ static int haptics_load_periodic_effect(struct haptics_chip *chip,
 	}
 
 	play->vmax_mv = (magnitude * effects[i].vmax_mv) / 0x7fff;
+	dev_dbg(chip->dev, "upload %s effect %d, vmax=%d\n", primitive ? "primitive" : "predefined",
+			effects[i].id, play->vmax_mv);
+
 	rc = haptics_load_predefined_effect(chip, &effects[i]);
 	if (rc < 0) {
 		dev_err(chip->dev, "Play predefined effect%d failed, rc=%d\n",
@@ -5072,7 +5079,7 @@ restore:
 static int haptics_detect_lra_frequency(struct haptics_chip *chip)
 {
 	int rc;
-	u8 autores_cfg, amplitude;
+	u8 autores_cfg, drv_duty_cfg, amplitude, mask, val;
 	u32 vmax_mv = chip->config.vmax_mv;
 
 	rc = haptics_read(chip, chip->cfg_addr_base,
@@ -5082,16 +5089,38 @@ static int haptics_detect_lra_frequency(struct haptics_chip *chip)
 		return rc;
 	}
 
+	rc = haptics_read(chip, chip->cfg_addr_base,
+			HAP_CFG_DRV_DUTY_CFG_REG, &drv_duty_cfg, 1);
+	if (rc < 0) {
+		dev_err(chip->dev, "Read DRV_DUTY_CFG failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (chip->hw_type == HAP525_HV)
+		val = AUTORES_EN_DLY_7_CYCLES << AUTORES_EN_DLY_SHIFT|
+			AUTORES_ERR_WINDOW_25_PERCENT | AUTORES_EN_BIT;
+	else
+		val = AUTORES_EN_DLY_6_CYCLES << AUTORES_EN_DLY_SHIFT|
+			AUTORES_ERR_WINDOW_50_PERCENT | AUTORES_EN_BIT;
+
 	rc = haptics_masked_write(chip, chip->cfg_addr_base,
 			HAP_CFG_AUTORES_CFG_REG, AUTORES_EN_BIT |
 			AUTORES_EN_DLY_MASK | AUTORES_ERR_WINDOW_MASK,
-			AUTORES_EN_DLY_6_CYCLES << AUTORES_EN_DLY_SHIFT
-			| AUTORES_ERR_WINDOW_50_PERCENT | AUTORES_EN_BIT);
+			val);
 	if (rc < 0)
 		return rc;
 
+	if (chip->hw_type == HAP525_HV) {
+		mask = ADT_DRV_DUTY_EN_BIT | ADT_BRK_DUTY_EN_BIT |
+			DRV_DUTY_MASK | BRK_DUTY_MASK;
+		val = DRV_DUTY_62P5_PCT << DRV_DUTY_SHIFT | BRK_DUTY_75_PCT;
+	} else {
+		mask = ADT_DRV_DUTY_EN_BIT;
+		val = 0;
+	}
+
 	rc = haptics_masked_write(chip, chip->cfg_addr_base,
-			HAP_CFG_DRV_DUTY_CFG_REG, ADT_DRV_DUTY_EN_BIT, 0);
+			HAP_CFG_DRV_DUTY_CFG_REG, mask, val);
 	if (rc < 0)
 		goto restore;
 
@@ -5150,9 +5179,8 @@ restore:
 	if (rc < 0)
 		return rc;
 
-	rc = haptics_masked_write(chip, chip->cfg_addr_base,
-			HAP_CFG_DRV_DUTY_CFG_REG, ADT_DRV_DUTY_EN_BIT,
-			ADT_DRV_DUTY_EN_BIT);
+	rc = haptics_write(chip, chip->cfg_addr_base,
+			HAP_CFG_DRV_DUTY_CFG_REG, &drv_duty_cfg, 1);
 
 	return rc;
 }
@@ -5649,6 +5677,15 @@ static int haptics_restore(struct device *dev)
 	return haptics_module_enable(chip, true);
 }
 
+static void haptics_shutdown(struct platform_device *pdev)
+{
+	struct haptics_chip *chip = platform_get_drvdata(pdev);
+
+	haptics_suspend_config(chip->dev);
+
+	haptics_ds_suspend_config(chip->dev);
+}
+
 static const struct dev_pm_ops haptics_pm_ops = {
 	.suspend = haptics_suspend,
 	.resume = haptics_resume,
@@ -5676,6 +5713,7 @@ static struct platform_driver haptics_driver = {
 		.pm		= &haptics_pm_ops,
 	},
 	.probe		= haptics_probe,
+	.shutdown	= haptics_shutdown,
 	.remove		= haptics_remove,
 };
 module_platform_driver(haptics_driver);

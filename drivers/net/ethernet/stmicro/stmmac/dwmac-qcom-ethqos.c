@@ -146,6 +146,12 @@ inline void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos)
 
 static unsigned char dev_addr[ETH_ALEN] = {
 	0, 0x55, 0x7b, 0xb5, 0x7d, 0xf7};
+
+void *ipc_stmmac_log_ctxt;
+void *ipc_stmmac_log_ctxt_low;
+int stmmac_enable_ipc_low;
+#define MAX_PROC_SIZE 1024
+char tmp_buff[MAX_PROC_SIZE];
 static struct ip_params pparams = {"", "", "", ""};
 
 static inline unsigned int dwmac_qcom_get_eth_type(unsigned char *buf)
@@ -724,6 +730,9 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 		else if (ethqos->emac_ver == EMAC_HW_v2_1_1)
 			rgmii_updatel(ethqos, SDCC_DDR_CONFIG_PRG_RCLK_DLY,
 				      130, SDCC_HC_REG_DDR_CONFIG);
+		else if (ethqos->emac_ver == EMAC_HW_v2_3_1)
+			rgmii_updatel(ethqos, SDCC_DDR_CONFIG_PRG_RCLK_DLY,
+				      104, SDCC_HC_REG_DDR_CONFIG);
 		else
 			rgmii_updatel(ethqos, SDCC_DDR_CONFIG_PRG_RCLK_DLY,
 				      57, SDCC_HC_REG_DDR_CONFIG);
@@ -762,7 +771,8 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 			      0, RGMII_IO_MACRO_CONFIG2);
 		if (ethqos->emac_ver == EMAC_HW_v2_3_2_RG ||
 		    ethqos->emac_ver == EMAC_HW_v2_1_2 ||
-			ethqos->emac_ver == EMAC_HW_v2_1_1)
+			ethqos->emac_ver == EMAC_HW_v2_1_1 ||
+			ethqos->emac_ver == EMAC_HW_v2_3_1)
 			rgmii_updatel(ethqos, RGMII_CONFIG2_RX_PROG_SWAP,
 				      RGMII_CONFIG2_RX_PROG_SWAP,
 				      RGMII_IO_MACRO_CONFIG2);
@@ -1521,10 +1531,52 @@ static const struct file_operations fops_rgmii_reg_dump = {
 	.llseek = default_llseek,
 };
 
+static ssize_t write_ipc_stmmac_log_ctxt_low(struct file *file,
+					     const char __user *buf,
+					     size_t count, loff_t *data)
+{
+	int tmp = 0;
+
+	if (count > MAX_PROC_SIZE)
+		count = MAX_PROC_SIZE;
+	if (copy_from_user(tmp_buff, buf, count))
+		return -EFAULT;
+	if (sscanf(tmp_buff, "%du", &tmp) < 0) {
+		pr_err("sscanf failed\n");
+	} else {
+		if (tmp) {
+			if (!ipc_stmmac_log_ctxt_low) {
+				ipc_stmmac_log_ctxt_low =
+				ipc_log_context_create(IPCLOG_STATE_PAGES,
+						       "stmmac_low", 0);
+			}
+			if (!ipc_stmmac_log_ctxt_low) {
+				pr_err("failed to create ipc stmmac low context\n");
+				return -EFAULT;
+			}
+		} else {
+			if (ipc_stmmac_log_ctxt_low)
+				ipc_log_context_destroy(ipc_stmmac_log_ctxt_low);
+			ipc_stmmac_log_ctxt_low = NULL;
+		}
+	}
+
+	stmmac_enable_ipc_low = tmp;
+	return count;
+}
+
+static const struct file_operations fops_ipc_stmmac_log_low = {
+	.write = write_ipc_stmmac_log_ctxt_low,
+	.open = simple_open,
+	.owner = THIS_MODULE,
+	.llseek = default_llseek,
+};
+
 static int ethqos_create_debugfs(struct qcom_ethqos        *ethqos)
 {
 	static struct dentry *phy_reg_dump;
 	static struct dentry *rgmii_reg_dump;
+	static struct dentry *ipc_stmmac_log_low;
 
 	if (!ethqos) {
 		ETHQOSERR("Null Param %s\n", __func__);
@@ -1554,6 +1606,15 @@ static int ethqos_create_debugfs(struct qcom_ethqos        *ethqos)
 		goto fail;
 	}
 	return 0;
+
+	ipc_stmmac_log_low = debugfs_create_file("ipc_stmmac_log_low", 0220,
+						 ethqos->debugfs_dir, ethqos,
+						 &fops_ipc_stmmac_log_low);
+	if (!ipc_stmmac_log_low || IS_ERR(ipc_stmmac_log_low)) {
+		ETHQOSERR("Cannot create debugfs ipc_stmmac_log_low %d\n",
+			  (long)ipc_stmmac_log_low);
+		goto fail;
+	}
 
 fail:
 	debugfs_remove_recursive(ethqos->debugfs_dir);
@@ -1776,6 +1837,11 @@ static int qcom_ethqos_remove(struct platform_device *pdev)
 	int ret;
 	struct stmmac_priv *priv;
 
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,emac-smmu-embedded")) {
+		of_platform_depopulate(&pdev->dev);
+		return 0;
+	}
+
 	ethqos = get_stmmac_bsp_priv(&pdev->dev);
 	if (!ethqos)
 		return -ENODEV;
@@ -1793,6 +1859,9 @@ static int qcom_ethqos_remove(struct platform_device *pdev)
 
 	emac_emb_smmu_exit();
 	ethqos_disable_regulators(ethqos);
+
+	platform_set_drvdata(pdev, NULL);
+	of_platform_depopulate(&pdev->dev);
 
 	return ret;
 }
@@ -1894,6 +1963,11 @@ static void __exit qcom_ethqos_exit_module(void)
 
 	platform_driver_unregister(&qcom_ethqos_driver);
 
+	if (!ipc_stmmac_log_ctxt_low)
+		ipc_log_context_destroy(ipc_stmmac_log_ctxt_low);
+
+	ipc_stmmac_log_ctxt = NULL;
+	ipc_stmmac_log_ctxt_low = NULL;
 	ETHQOSINFO("\n");
 }
 

@@ -59,6 +59,8 @@ struct walt_cpu_load {
 	unsigned long	pl;
 	bool		rtgb_active;
 	u64		ws;
+	bool		ed_active;
+	bool		big_task_rotation;
 };
 
 #define DECLARE_BITMAP_ARRAY(name, nr, bits) \
@@ -66,6 +68,7 @@ struct walt_cpu_load {
 
 struct walt_sched_stats {
 	int		nr_big_tasks;
+	int		nr_32bit_big_tasks;
 	u64		cumulative_runnable_avg_scaled;
 	u64		pred_demands_sum_scaled;
 	unsigned int	nr_rtg_high_prio_tasks;
@@ -124,6 +127,7 @@ struct walt_rq {
 	struct list_head	mvp_tasks;
 	int                     num_mvp_tasks;
 	u64			latest_clock;
+	u32			enqueue_counter;
 };
 
 struct walt_sched_cluster {
@@ -154,6 +158,7 @@ extern cpumask_t __read_mostly **cpu_array;
 extern int cpu_l2_sibling[WALT_NR_CPUS];
 extern void sched_update_nr_prod(int cpu, int enq);
 extern unsigned int walt_big_tasks(int cpu);
+extern unsigned int walt_big_64bit_tasks(int cpu);
 extern void walt_rotation_checkpoint(int nr_big);
 extern void walt_fill_ta_data(struct core_ctl_notif_data *data);
 extern int sched_set_group_id(struct task_struct *p, unsigned int group_id);
@@ -216,6 +221,15 @@ extern unsigned int sysctl_sched_user_hint;
 extern unsigned int sysctl_sched_conservative_pl;
 extern unsigned int sysctl_sched_hyst_min_coloc_ns;
 extern unsigned int sysctl_sched_long_running_rt_task_ms;
+extern unsigned int sysctl_ed_boost_pct;
+extern unsigned int sysctl_em_inflate_pct;
+extern unsigned int sysctl_em_inflate_thres;
+
+extern int cpufreq_walt_set_adaptive_freq(unsigned int cpu, unsigned int adaptive_low_freq,
+					  unsigned int adaptive_high_freq);
+extern int cpufreq_walt_get_adaptive_freq(unsigned int cpu, unsigned int *adaptive_low_freq,
+					  unsigned int *adaptive_high_freq);
+extern int cpufreq_walt_reset_adaptive_freq(unsigned int cpu);
 
 #define WALT_MANY_WAKEUP_DEFAULT 1000
 extern unsigned int sysctl_sched_many_wakeup_threshold;
@@ -304,6 +318,7 @@ extern unsigned int sched_lib_mask_force;
 #define WALT_CPUFREQ_BOOST_UPDATE	0x20
 
 #define CPUFREQ_REASON_LOAD		0
+#define CPUFREQ_REASON_BTR		0x1
 #define CPUFREQ_REASON_PL		0x2
 #define CPUFREQ_REASON_EARLY_DET	0x4
 #define CPUFREQ_REASON_RTG_BOOST	0x8
@@ -737,6 +752,15 @@ static inline unsigned int walt_nr_rtg_high_prio(int cpu)
 	return wrq->walt_stats.nr_rtg_high_prio_tasks;
 }
 
+static inline bool task_in_related_thread_group(struct task_struct *p)
+{
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
+
+	return (rcu_access_pointer(wts->grp) != NULL);
+}
+
+extern unsigned int sysctl_sched_early_up[MAX_MARGIN_LEVELS];
+extern unsigned int sysctl_sched_early_down[MAX_MARGIN_LEVELS];
 static inline bool task_fits_capacity(struct task_struct *p,
 					long capacity,
 					int cpu)
@@ -748,19 +772,25 @@ static inline bool task_fits_capacity(struct task_struct *p,
 	/*
 	 * Derive upmigration/downmigrate margin wrt the src/dest CPU.
 	 */
-	if (src_wrq->cluster->id > dst_wrq->cluster->id)
+	if (src_wrq->cluster->id > dst_wrq->cluster->id) {
 		margin = sched_capacity_margin_down[cpu];
-	else
+		if (task_in_related_thread_group(p)) {
+			if (is_min_cluster_cpu(cpu))
+				margin = sysctl_sched_early_down[0];
+			else if (!is_max_cluster_cpu(cpu))
+				margin = sysctl_sched_early_down[1];
+		}
+	} else {
 		margin = sched_capacity_margin_up[task_cpu(p)];
+		if (task_in_related_thread_group(p)) {
+			if (is_min_cluster_cpu(task_cpu(p)))
+				margin = sysctl_sched_early_up[0];
+			else if (!is_max_cluster_cpu(task_cpu(p)))
+				margin = sysctl_sched_early_up[1];
+		}
+	}
 
 	return capacity * 1024 > uclamp_task_util(p) * margin;
-}
-
-static inline bool task_in_related_thread_group(struct task_struct *p)
-{
-	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
-
-	return (rcu_access_pointer(wts->grp) != NULL);
 }
 
 static inline bool task_fits_max(struct task_struct *p, int cpu)
@@ -963,6 +993,74 @@ bool walt_halt_check_last(int cpu);
 extern struct cpumask __cpu_halt_mask;
 #define cpu_halt_mask ((struct cpumask *)&__cpu_halt_mask)
 #define cpu_halted(cpu) cpumask_test_cpu((cpu), cpu_halt_mask)
+
+/* walt_find_and_choose_cluster_packing_cpu - Return a packing_cpu choice common for this cluster.
+ * @start_cpu:  The cpu from the cluster to choose from
+ *
+ * If the cluster has a 32bit capable cpu return it regardless
+ * of whether it is halted or not.
+ *
+ * If the cluster does not have a 32 bit capable cpu, find the
+ * first unhalted, active cpu in this cluster.
+ *
+ * Returns -1 if packing_cpu if not found or is unsuitable to be packed on  to
+ * Returns a valid cpu number if packing_cpu is found and is useable
+ */
+static inline int walt_find_and_choose_cluster_packing_cpu(int start_cpu, struct task_struct *p)
+{
+	struct rq *rq = cpu_rq(start_cpu);
+	struct walt_rq *wrq = (struct walt_rq *)rq->android_vendor_data1;
+	struct walt_sched_cluster *cluster = wrq->cluster;
+	cpumask_t unhalted_cpus;
+	int packing_cpu;
+
+	/* if idle_enough feature is not enabled */
+	if (!sysctl_sched_idle_enough)
+		return -1;
+	if (!sysctl_sched_cluster_util_thres_pct)
+		return -1;
+
+
+	/* find all unhalted active cpus */
+	cpumask_andnot(&unhalted_cpus, cpu_active_mask, cpu_halt_mask);
+
+	/* find all unhalted active cpus in this cluster */
+	cpumask_and(&unhalted_cpus, &unhalted_cpus, &cluster->cpus);
+
+	if (is_compat_thread(task_thread_info(p)))
+		/* try to find a packing cpu within 32 bit subset */
+		cpumask_and(&unhalted_cpus, &unhalted_cpus, system_32bit_el0_cpumask());
+
+	/* return the first found unhalted, active cpu, in this cluster */
+	packing_cpu = cpumask_first(&unhalted_cpus);
+
+	/* packing cpu must be a valid cpu for runqueue lookup */
+	if (packing_cpu >= nr_cpu_ids)
+		return -1;
+
+	/* if cpu is not allowed for this task */
+	if (!cpumask_test_cpu(packing_cpu, p->cpus_ptr))
+		return -1;
+
+	/* if cluster util is high */
+	if (sched_get_cluster_util_pct(cluster) >= sysctl_sched_cluster_util_thres_pct)
+		return -1;
+
+	/* if cpu utilization is high */
+	if (cpu_util(packing_cpu) >= sysctl_sched_idle_enough)
+		return -1;
+
+	/* don't pack big tasks */
+	if (task_util(p) >= sysctl_sched_idle_enough)
+		return -1;
+
+	/* don't pack if running at a freq higher than 43.9pct of its fmax */
+	if (arch_scale_freq_capacity(packing_cpu) > 450)
+		return -1;
+
+	/* the packing cpu can be used, so pack! */
+	return packing_cpu;
+}
 
 extern void walt_task_dump(struct task_struct *p);
 extern void walt_rq_dump(int cpu);

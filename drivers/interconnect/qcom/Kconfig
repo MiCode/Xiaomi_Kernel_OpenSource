@@ -187,6 +187,18 @@ config INTERCONNECT_QCOM_SM8350
 	  This is a driver for the Qualcomm Network-on-Chip on SM8350-based
 	  platforms.
 
+config INTERCONNECT_QCOM_SCUBA
+	tristate "SCUBA interconnect driver"
+	depends on INTERCONNECT_QCOM
+	depends on MSM_RPM_SMD
+	select INTERCONNECT_QCOM_RPM
+	select INTERCONNECT_QCOM_QOS_RPM
+	help
+	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
+	  on scuba-based platforms. The interconnect provider collects and
+	  aggreagates the cosumer bandwidth requests to satisfy constraints
+	  placed on Network-on-Chip performance states.
+
 config INTERCONNECT_QCOM_WAIPIO
 	tristate "WAIPIO interconnect driver"
 	depends on INTERCONNECT_QCOM

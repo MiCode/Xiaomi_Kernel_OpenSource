@@ -539,6 +539,14 @@ config QCOM_SOC_SLEEP_STATS
 	  various SoC level low power modes statistics and export to debugfs
 	  interface.
 
+config QTI_RPM_STATS_LOG
+	tristate "Qualcomm Technologies, Inc. (QTI) RPM Stats Driver"
+	help
+	  This option enables a driver which reads RPM messages from a shared
+	  memory location. These messages provide statistical information about
+	  the low power modes that subsystem enters. The drivers outputs the
+	  message via a debugfs node.
+
 config QCOM_ADSP_SLEEPMON
 	tristate "ADSP sleep monitor"
 	depends on QCOM_SMEM
@@ -837,6 +845,18 @@ config QTI_PMIC_PON_LOG
 	  information out of a binary log stored in the SDAM memory found on
 	  some Qualcomm Technologies, Inc. PMIC devices.  This driver is useful
 	  when debugging unexpected power-off scenarios.
+
+config QTI_PMIC_LPM
+        tristate "QTI PMIC LPM support"
+        depends on MFD_SPMI_PMIC
+        help
+          Say Y here to enable the Qualcomm Technologies, Inc. low power mode
+          driver which reports the entry and exit of PMIC's low power modes
+          DeepSleep/Hibernate/TWM to a companion chip through the SDAM
+          interface.
+
+          To compile this driver as a module, choose M here: the
+          module will be called qti-pmic-lpm.
 
 config MSM_BOOT_STATS
 	tristate "Use MSM boot stats reporting"

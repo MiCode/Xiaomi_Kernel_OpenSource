@@ -273,6 +273,7 @@ struct mhi_config {
 #define MHI_MASK_ROWS_CH_EV_DB		4
 #define TRB_MAX_DATA_SIZE		8192
 #define MHI_CTRL_STATE			100
+#define MHI_MAX_NUM_INSTANCES		16
 
 /* maximum transfer completion events buffer */
 #define NUM_TR_EVENTS_DEFAULT			128
@@ -521,8 +522,6 @@ struct mhi_dev_channel {
 
 /* Structure device for mhi dev */
 struct mhi_dev {
-	struct platform_device		*pdev;
-	struct device			*dev;
 	/*MHI device details*/
 	struct mhi_dma_function_params mhi_dma_fun_params;
 
@@ -587,13 +586,6 @@ struct mhi_dev {
 	struct work_struct		ring_init_cb_work;
 	struct work_struct		re_init;
 
-	/* EP PCIe registration */
-	struct workqueue_struct		*pcie_event_wq;
-	struct ep_pcie_register_event	event_reg;
-	u32                             ifc_id;
-	struct ep_pcie_hw               *phandle;
-	struct work_struct		pcie_event;
-
 	atomic_t			write_active;
 	atomic_t			is_suspended;
 	atomic_t			mhi_dev_wake;
@@ -608,16 +600,6 @@ struct mhi_dev {
 	void				*write_handle;
 	/* Physical scratch buffer for writing control data to the host */
 	dma_addr_t			cache_dma_handle;
-	/*
-	 * Physical scratch buffer address used when picking host data
-	 * from the host used in mhi_read()
-	 */
-	dma_addr_t			read_dma_handle;
-	/*
-	 * Physical scratch buffer address used when writing to the host
-	 * region from device used in mhi_write()
-	 */
-	dma_addr_t			write_dma_handle;
 	bool				mhi_dma_ready;
 
 	/* Use  PCI eDMA for data transfer */
@@ -631,6 +613,9 @@ struct mhi_dev {
 
 	bool				is_flashless;
 
+	bool				mhi_has_smmu;
+
+	bool				is_mhi_pf;
 
 	/* iATU is required to map control and data region */
 	bool				config_iatu;
@@ -653,9 +638,14 @@ struct mhi_dev {
 
 	/* Registered client callback list */
 	struct list_head		client_cb_list;
-	/* Tx, Rx DMA channels */
-	struct dma_chan			*tx_dma_chan;
-	struct dma_chan			*rx_dma_chan;
+
+	/* EP PCIe registration */
+	struct workqueue_struct		*pcie_event_wq;
+	struct work_struct		pcie_event;
+
+	struct mhi_dev_ctx		*mhi_hw_ctx;
+	struct mhi_sm_dev		*mhi_sm_ctx;
+	int				vf_id;
 
 	int (*device_to_host)(uint64_t dst_pa, void *src, uint32_t len,
 				struct mhi_dev *mhi, struct mhi_req *req);
@@ -669,10 +659,43 @@ struct mhi_dev {
 
 	void (*read_from_host)(struct mhi_dev *mhi,
 				struct mhi_addr *mhi_transfer);
-
-	struct kobj_uevent_env		kobj_env;
 };
 
+/* Structure device for mhi dev */
+struct mhi_dev_ctx {
+	struct platform_device		*pdev;
+	struct device			*dev;
+
+	struct ep_pcie_register_event	event_reg;
+	u32				ifc_id;
+	struct ep_pcie_hw		*phandle;
+	struct mhi_dev			*mhi_dev[MHI_MAX_NUM_INSTANCES];
+
+	/*
+	 * Physical scratch buffer address used when picking host data
+	 * from the host used in mhi_read()
+	 */
+	dma_addr_t			read_dma_handle;
+	/*
+	 * Physical scratch buffer address used when writing to the host
+	 * region from device used in mhi_write()
+	 */
+	dma_addr_t			write_dma_handle;
+
+	/* Tx, Rx DMA channels */
+	struct dma_chan			*tx_dma_chan;
+	struct dma_chan			*rx_dma_chan;
+
+	struct kobj_uevent_env		kobj_env;
+	struct ep_pcie_notify		*notify;
+	struct mhi_dma_ops		mhi_dma_fun_ops;
+};
+
+enum mhi_id {
+	MHI_DEV_PHY_FUN,
+	MHI_DEV_VIRT_0,
+	MHI_DEV_VIRT_1,
+};
 
 enum mhi_msg_level {
 	MHI_MSG_VERBOSE = 0x0,
@@ -1168,5 +1191,6 @@ void mhi_uci_chan_state_notify_all(struct mhi_dev *mhi,
 void mhi_uci_chan_state_notify(struct mhi_dev *mhi,
 		enum mhi_client_channel ch_id, enum mhi_ctrl_info ch_state);
 
-void mhi_dev_pm_relax(void);
+void mhi_dev_pm_relax(struct mhi_dev *mhi_ctx);
+void mhi_dev_resume_init_with_link_up(struct ep_pcie_notify *notify);
 #endif /* _MHI_H */

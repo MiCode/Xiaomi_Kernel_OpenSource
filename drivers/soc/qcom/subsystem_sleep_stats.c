@@ -151,7 +151,7 @@ static struct sleep_stats *a_subsystem_stats;
 /* System sleep stats before and after suspend */
 static struct sleep_stats *b_system_stats;
 static struct sleep_stats *a_system_stats;
-bool ddr_freq_update;
+static bool ddr_freq_update;
 static DEFINE_MUTEX(sleep_stats_mutex);
 
 static int stats_data_open(struct inode *inode, struct file *file)
@@ -458,9 +458,17 @@ static int subsystem_stats_probe(struct platform_device *pdev)
 
 	stats_data->config = devm_kcalloc(&pdev->dev, config->num_records,
 				sizeof(struct stats_config *), GFP_KERNEL);
+	if (!stats_data->config) {
+		ret = -ENOMEM;
+		goto fail;
+	}
 
 	stats_data->reg = devm_kcalloc(&pdev->dev, config->num_records, sizeof(void __iomem *),
 				GFP_KERNEL);
+	if (!stats_data->reg) {
+		ret = -ENOMEM;
+		goto fail;
+	}
 
 	for (i = 0; i < config->num_records; i++) {
 		stats_data->config[i] = config;
@@ -495,14 +503,32 @@ static int subsystem_stats_probe(struct platform_device *pdev)
 
 	subsystem_stats_debug_on = false;
 	b_subsystem_stats = devm_kcalloc(&pdev->dev, ARRAY_SIZE(subsystem_stats),
-						sizeof(struct sleep_stats), GFP_KERNEL);
+					 sizeof(struct sleep_stats), GFP_KERNEL);
+	if (!b_subsystem_stats) {
+		ret = -ENOMEM;
+		goto fail;
+	}
+
 	a_subsystem_stats = devm_kcalloc(&pdev->dev, ARRAY_SIZE(subsystem_stats),
-						sizeof(struct sleep_stats), GFP_KERNEL);
+					 sizeof(struct sleep_stats), GFP_KERNEL);
+	if (!a_subsystem_stats) {
+		ret = -ENOMEM;
+		goto fail;
+	}
 
 	b_system_stats = devm_kcalloc(&pdev->dev, ARRAY_SIZE(system_stats),
-						sizeof(struct sleep_stats), GFP_KERNEL);
+				      sizeof(struct sleep_stats), GFP_KERNEL);
+	if (!b_system_stats) {
+		ret = -ENOMEM;
+		goto fail;
+	}
+
 	a_system_stats = devm_kcalloc(&pdev->dev, ARRAY_SIZE(system_stats),
-						sizeof(struct sleep_stats), GFP_KERNEL);
+				      sizeof(struct sleep_stats), GFP_KERNEL);
+	if (!a_system_stats) {
+		ret = -ENOMEM;
+		goto fail;
+	}
 
 	ddr_freq_update = of_property_read_bool(pdev->dev.of_node,
 							"ddr-freq-update");

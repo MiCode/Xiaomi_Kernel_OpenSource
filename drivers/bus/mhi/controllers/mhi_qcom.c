@@ -175,7 +175,7 @@ static const struct mhi_channel_config modem_qcom_sdx65_mhi_channels[] = {
 			      false, false, 0, 0),
 };
 
-static const struct mhi_event_config modem_qcom_sdx65_mhi_events[] = {
+static struct mhi_event_config modem_qcom_sdx65_mhi_events[] = {
 	MHI_EVENT_CONFIG(0, 1, MHI_ER_CTRL, 64, 0,
 			 MHI_ER_PRIORITY_HI_NOSLEEP, MHI_DB_BRST_DISABLE, false,
 			 false, false, 0),
@@ -885,6 +885,83 @@ static struct dev_pm_domain mhi_qcom_pm_domain = {
 		}
 };
 
+#ifdef CONFIG_MHI_BUS_DEBUG
+
+#define MHI_QCOM_DEBUG_LEVEL MHI_MSG_LVL_VERBOSE
+
+static struct dentry *mhi_qcom_debugfs;
+
+static int mhi_qcom_debugfs_debug_mode_show(struct seq_file *m, void *d)
+{
+	seq_printf(m, "%s\n", TO_MHI_DEBUG_MODE_STR(debug_mode));
+
+	return 0;
+}
+
+static ssize_t mhi_qcom_debugfs_debug_mode_write(struct file *file,
+						 const char __user *ubuf,
+						 size_t count, loff_t *ppos)
+{
+	struct seq_file *m = file->private_data;
+	u32 input;
+
+	if (kstrtou32_from_user(ubuf, count, 0, &input))
+		return -EINVAL;
+
+	if (input >= MHI_DEBUG_MODE_MAX)
+		return -EINVAL;
+
+	debug_mode = input;
+
+	seq_printf(m, "Changed debug mode to: %s\n",
+		   TO_MHI_DEBUG_MODE_STR(debug_mode));
+
+	return count;
+}
+
+static int mhi_qcom_debugfs_debug_mode_open(struct inode *inode, struct file *p)
+{
+	return single_open(p, mhi_qcom_debugfs_debug_mode_show,
+			   inode->i_private);
+}
+
+static const struct file_operations debugfs_debug_mode_fops = {
+	.open = mhi_qcom_debugfs_debug_mode_open,
+	.write = mhi_qcom_debugfs_debug_mode_write,
+	.release = single_release,
+	.read = seq_read,
+};
+
+void mhi_qcom_debugfs_init(void)
+{
+	mhi_qcom_debugfs = debugfs_create_dir("mhi_qcom", NULL);
+
+	debugfs_create_file("debug_mode", 0644, mhi_qcom_debugfs, NULL,
+			    &debugfs_debug_mode_fops);
+}
+
+void mhi_qcom_debugfs_exit(void)
+{
+	debugfs_remove_recursive(mhi_qcom_debugfs);
+	mhi_qcom_debugfs = NULL;
+}
+
+#else
+
+#define MHI_QCOM_DEBUG_LEVEL MHI_MSG_LVL_ERROR
+
+static inline void mhi_qcom_debugfs_init(void)
+{
+
+}
+
+static inline void mhi_qcom_debugfs_exit(void)
+{
+
+}
+
+#endif
+
 static int mhi_qcom_register_controller(struct mhi_controller *mhi_cntrl,
 					struct mhi_qcom_priv *mhi_priv)
 {
@@ -1150,83 +1227,6 @@ static const struct dev_pm_ops pm_ops = {
 			   mhi_runtime_idle)
 	SET_SYSTEM_SLEEP_PM_OPS(mhi_system_suspend, mhi_system_resume)
 };
-
-#ifdef CONFIG_MHI_BUS_DEBUG
-
-#define MHI_QCOM_DEBUG_LEVEL MHI_MSG_LVL_VERBOSE
-
-static struct dentry *mhi_qcom_debugfs;
-
-static int mhi_qcom_debugfs_debug_mode_show(struct seq_file *m, void *d)
-{
-	seq_printf(m, "%s\n", TO_MHI_DEBUG_MODE_STR(debug_mode));
-
-	return 0;
-}
-
-static ssize_t mhi_qcom_debugfs_debug_mode_write(struct file *file,
-						 const char __user *ubuf,
-						 size_t count, loff_t *ppos)
-{
-	struct seq_file *m = file->private_data;
-	u32 input;
-
-	if (kstrtou32_from_user(ubuf, count, 0, &input))
-		return -EINVAL;
-
-	if (input >= MHI_DEBUG_MODE_MAX)
-		return -EINVAL;
-
-	debug_mode = input;
-
-	seq_printf(m, "Changed debug mode to: %s\n",
-		   TO_MHI_DEBUG_MODE_STR(debug_mode));
-
-	return count;
-}
-
-static int mhi_qcom_debugfs_debug_mode_open(struct inode *inode, struct file *p)
-{
-	return single_open(p, mhi_qcom_debugfs_debug_mode_show,
-			   inode->i_private);
-}
-
-static const struct file_operations debugfs_debug_mode_fops = {
-	.open = mhi_qcom_debugfs_debug_mode_open,
-	.write = mhi_qcom_debugfs_debug_mode_write,
-	.release = single_release,
-	.read = seq_read,
-};
-
-void mhi_qcom_debugfs_init(void)
-{
-	mhi_qcom_debugfs = debugfs_create_dir("mhi_qcom", NULL);
-
-	debugfs_create_file("debug_mode", 0644, mhi_qcom_debugfs, NULL,
-			    &debugfs_debug_mode_fops);
-}
-
-void mhi_qcom_debugfs_exit(void)
-{
-	debugfs_remove_recursive(mhi_qcom_debugfs);
-	mhi_qcom_debugfs = NULL;
-}
-
-#else
-
-#define MHI_QCOM_DEBUG_LEVEL MHI_MSG_LVL_ERROR
-
-static inline void mhi_qcom_debugfs_init(void)
-{
-
-}
-
-static inline void mhi_qcom_debugfs_exit(void)
-{
-
-}
-
-#endif
 
 static struct pci_driver mhi_pcie_driver = {
 	.name = "mhi",

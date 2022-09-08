@@ -881,6 +881,9 @@ static int vote_clock_on(struct uart_port *uport)
 	int usage_count;
 	int ret = 0;
 
+	UART_LOG_DBG(port->ipc_log_pwr, uport->dev,
+		     "Enter %s:%s ioctl_count:%d\n",
+		     __func__, current->comm, port->ioctl_count);
 	ret = msm_geni_serial_power_on(uport);
 	if (ret) {
 		dev_err(uport->dev, "Failed to vote clock on\n");
@@ -889,9 +892,9 @@ static int vote_clock_on(struct uart_port *uport)
 	port->ioctl_count++;
 	usage_count = atomic_read(&uport->dev->power.usage_count);
 	UART_LOG_DBG(port->ipc_log_pwr, uport->dev,
-		"%s :%s ioctl:%d usage_count:%d edge-Count:%d\n",
-		__func__, current->comm, port->ioctl_count,
-		usage_count, port->edge_count);
+		     "Exit %s:%s ioctl_count:%d usage_count:%d edge_count:%d\n",
+		     __func__, current->comm, port->ioctl_count, usage_count,
+		     port->edge_count);
 	return 0;
 }
 
@@ -901,6 +904,9 @@ static int vote_clock_off(struct uart_port *uport)
 	int usage_count;
 	int ret = 0;
 
+	UART_LOG_DBG(port->ipc_log_pwr, uport->dev,
+		     "Enter %s:%s ioctl_count:%d\n",
+		     __func__, current->comm, port->ioctl_count);
 	if (!pm_runtime_enabled(uport->dev)) {
 		dev_err(uport->dev, "RPM not available.Can't enable clocks\n");
 		return -EPERM;
@@ -921,8 +927,10 @@ static int vote_clock_off(struct uart_port *uport)
 	port->ioctl_count--;
 	msm_geni_serial_power_off(uport);
 	usage_count = atomic_read(&uport->dev->power.usage_count);
-	UART_LOG_DBG(port->ipc_log_pwr, uport->dev, "%s:%s ioctl:%d usage_count:%d\n",
-		__func__, current->comm, port->ioctl_count, usage_count);
+	UART_LOG_DBG(port->ipc_log_pwr, uport->dev,
+		     "Exit %s:%s ioctl_count:%d usage_count:%d edge_count:%d\n",
+		     __func__, current->comm, port->ioctl_count, usage_count,
+		     port->edge_count);
 	return 0;
 };
 
@@ -933,6 +941,8 @@ static int msm_geni_serial_ioctl(struct uart_port *uport, unsigned int cmd,
 	int ret = -ENOIOCTLCMD;
 	enum uart_error_code uart_error;
 
+	UART_LOG_DBG(port->ipc_log_misc, uport->dev,
+		     "%s:%s cmd 0x%x\n", __func__, current->comm, cmd);
 	if (port->pm_auto_suspend_disable)
 		return ret;
 

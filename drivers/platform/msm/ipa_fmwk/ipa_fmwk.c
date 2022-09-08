@@ -320,6 +320,35 @@ struct ipa_fmwk_contex {
 
 	bool (*ipa_wdi_is_tx1_used)(void);
 
+	int (*ipa_wdi_get_capabilities)(struct ipa_wdi_capabilities_out_params *out);
+
+	int (*ipa_wdi_init_per_inst)(struct ipa_wdi_init_in_params *in,
+		struct ipa_wdi_init_out_params *out);
+
+	int (*ipa_wdi_cleanup_per_inst)(u32 hdl);
+
+	int (*ipa_wdi_reg_intf_per_inst)(
+		struct ipa_wdi_reg_intf_in_params *in);
+
+	int (*ipa_wdi_dereg_intf_per_inst)(const char *netdev_name, u32 hdl);
+
+	int (*ipa_wdi_conn_pipes_per_inst)(struct ipa_wdi_conn_in_params *in,
+		struct ipa_wdi_conn_out_params *out);
+
+	int (*ipa_wdi_disconn_pipes_per_inst)(u32 hdl);
+
+	int (*ipa_wdi_enable_pipes_per_inst)(u32 hdl);
+
+	int (*ipa_wdi_disable_pipes_per_inst)(u32 hdl);
+
+	int (*ipa_wdi_set_perf_profile_per_inst)(u32 hdl, struct ipa_wdi_perf_profile *profile);
+
+	int (*ipa_wdi_create_smmu_mapping_per_inst)(u32 hdl, u32 num_buffers,
+		struct ipa_wdi_buffer_info *info);
+
+	int (*ipa_wdi_release_smmu_mapping_per_inst)(u32 hdl, u32 num_buffers,
+		struct ipa_wdi_buffer_info *info);
+
 	/* ipa_gsb APIs*/
 	int (*ipa_bridge_init)(struct ipa_bridge_init_params *params, u32 *hdl);
 
@@ -1293,7 +1322,19 @@ int ipa_fmwk_register_ipa_wdi3(const struct ipa_wdi3_data *in)
 		|| ipa_fmwk_ctx->ipa_wdi_get_stats
 		|| ipa_fmwk_ctx->ipa_wdi_sw_stats
 		|| ipa_fmwk_ctx->ipa_get_wdi_version
-		|| ipa_fmwk_ctx->ipa_wdi_is_tx1_used) {
+		|| ipa_fmwk_ctx->ipa_wdi_is_tx1_used
+		|| ipa_fmwk_ctx->ipa_wdi_get_capabilities
+		|| ipa_fmwk_ctx->ipa_wdi_init_per_inst
+		|| ipa_fmwk_ctx->ipa_wdi_cleanup_per_inst
+		|| ipa_fmwk_ctx->ipa_wdi_reg_intf_per_inst
+		|| ipa_fmwk_ctx->ipa_wdi_dereg_intf_per_inst
+		|| ipa_fmwk_ctx->ipa_wdi_conn_pipes_per_inst
+		|| ipa_fmwk_ctx->ipa_wdi_disconn_pipes_per_inst
+		|| ipa_fmwk_ctx->ipa_wdi_enable_pipes_per_inst
+		|| ipa_fmwk_ctx->ipa_wdi_disable_pipes_per_inst
+		|| ipa_fmwk_ctx->ipa_wdi_set_perf_profile_per_inst
+		|| ipa_fmwk_ctx->ipa_wdi_create_smmu_mapping_per_inst
+		|| ipa_fmwk_ctx->ipa_wdi_release_smmu_mapping_per_inst) {
 		pr_err("ipa_wdi3 APIs were already initialized\n");
 		return -EPERM;
 	}
@@ -1316,7 +1357,26 @@ int ipa_fmwk_register_ipa_wdi3(const struct ipa_wdi3_data *in)
 	ipa_fmwk_ctx->ipa_wdi_sw_stats = in->ipa_wdi_sw_stats;
 	ipa_fmwk_ctx->ipa_get_wdi_version = in->ipa_get_wdi_version;
 	ipa_fmwk_ctx->ipa_wdi_is_tx1_used = in->ipa_wdi_is_tx1_used;
-
+	ipa_fmwk_ctx->ipa_wdi_get_capabilities = in->ipa_wdi_get_capabilities;
+	ipa_fmwk_ctx->ipa_wdi_init_per_inst = in->ipa_wdi_init_per_inst;
+	ipa_fmwk_ctx->ipa_wdi_cleanup_per_inst = in->ipa_wdi_cleanup_per_inst;
+	ipa_fmwk_ctx->ipa_wdi_reg_intf_per_inst = in->ipa_wdi_reg_intf_per_inst;
+	ipa_fmwk_ctx->ipa_wdi_dereg_intf_per_inst =
+		in->ipa_wdi_dereg_intf_per_inst;
+	ipa_fmwk_ctx->ipa_wdi_conn_pipes_per_inst =
+		in->ipa_wdi_conn_pipes_per_inst;
+	ipa_fmwk_ctx->ipa_wdi_disconn_pipes_per_inst =
+		in->ipa_wdi_disconn_pipes_per_inst;
+	ipa_fmwk_ctx->ipa_wdi_enable_pipes_per_inst =
+		in->ipa_wdi_enable_pipes_per_inst;
+	ipa_fmwk_ctx->ipa_wdi_disable_pipes_per_inst =
+		in->ipa_wdi_disable_pipes_per_inst;
+	ipa_fmwk_ctx->ipa_wdi_set_perf_profile_per_inst =
+		in->ipa_wdi_set_perf_profile_per_inst;
+	ipa_fmwk_ctx->ipa_wdi_create_smmu_mapping_per_inst =
+		in->ipa_wdi_create_smmu_mapping_per_inst;
+	ipa_fmwk_ctx->ipa_wdi_release_smmu_mapping_per_inst =
+		in->ipa_wdi_release_smmu_mapping_per_inst;
 	pr_info("ipa_wdi3 registered successfully\n");
 
 	return 0;
@@ -1465,6 +1525,139 @@ int ipa_wdi_release_smmu_mapping(u32 num_buffers,
 	return ret;
 }
 EXPORT_SYMBOL(ipa_wdi_release_smmu_mapping);
+
+int ipa_wdi_get_capabilities(struct ipa_wdi_capabilities_out_params *out)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_wdi_get_capabilities, out);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wdi_get_capabilities);
+
+int ipa_wdi_init_per_inst(struct ipa_wdi_init_in_params *in,
+	struct ipa_wdi_init_out_params *out)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_wdi_init_per_inst,
+		in, out);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wdi_init_per_inst);
+
+int ipa_wdi_cleanup_per_inst(u32 hdl)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_wdi_cleanup_per_inst, hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wdi_cleanup_per_inst);
+
+int ipa_wdi_reg_intf_per_inst(
+	struct ipa_wdi_reg_intf_in_params *in)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_wdi_reg_intf_per_inst,
+		in);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wdi_reg_intf_per_inst);
+
+int ipa_wdi_dereg_intf_per_inst(const char *netdev_name, u32 hdl)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_wdi_dereg_intf_per_inst,
+		netdev_name, hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wdi_dereg_intf_per_inst);
+
+int ipa_wdi_conn_pipes_per_inst(struct ipa_wdi_conn_in_params *in,
+	struct ipa_wdi_conn_out_params *out)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_wdi_conn_pipes_per_inst,
+		in, out);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wdi_conn_pipes_per_inst);
+
+int ipa_wdi_disconn_pipes_per_inst(u32 hdl)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_wdi_disconn_pipes_per_inst, hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wdi_disconn_pipes_per_inst);
+
+int ipa_wdi_enable_pipes_per_inst(u32 hdl)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_wdi_enable_pipes_per_inst, hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wdi_enable_pipes_per_inst);
+
+int ipa_wdi_disable_pipes_per_inst(u32 hdl)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_wdi_disable_pipes_per_inst, hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wdi_disable_pipes_per_inst);
+
+int ipa_wdi_set_perf_profile_per_inst(u32 hdl,
+	struct ipa_wdi_perf_profile *profile)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_wdi_set_perf_profile_per_inst,
+		hdl, profile);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wdi_set_perf_profile_per_inst);
+
+int ipa_wdi_create_smmu_mapping_per_inst(u32 hdl, u32 num_buffers,
+	struct ipa_wdi_buffer_info *info)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN_DP(ipa_wdi_create_smmu_mapping_per_inst,
+		hdl, num_buffers, info);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wdi_create_smmu_mapping_per_inst);
+
+int ipa_wdi_release_smmu_mapping_per_inst(u32 hdl, u32 num_buffers,
+	struct ipa_wdi_buffer_info *info)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN_DP(ipa_wdi_release_smmu_mapping_per_inst,
+		hdl, num_buffers, info);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wdi_release_smmu_mapping_per_inst);
 
 int ipa_wdi_get_stats(struct IpaHwStatsWDIInfoData_t *stats)
 {

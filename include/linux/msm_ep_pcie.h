@@ -35,6 +35,7 @@ enum ep_pcie_event {
 	EP_PCIE_EVENT_MMIO_WRITE = 0x80,
 	EP_PCIE_EVENT_L1SUB_TIMEOUT = 0x100,
 	EP_PCIE_EVENT_L1SUB_TIMEOUT_EXIT = 0x200,
+	EP_PCIE_EVENT_LINKUP_VF = 0x400,
 };
 
 enum ep_pcie_irq_event {
@@ -74,6 +75,7 @@ struct ep_pcie_notify {
 	void *user;
 	void *data;
 	u32 options;
+	u32 vf_id;
 };
 
 struct ep_pcie_register_event {
@@ -119,14 +121,15 @@ struct ep_pcie_hw {
 	int (*deregister_event)(void);
 	enum ep_pcie_link_status (*get_linkstatus)(void);
 	int (*config_outbound_iatu)(struct ep_pcie_iatu entries[],
-				u32 num_entries);
-	int (*get_msi_config)(struct ep_pcie_msi_config *cfg);
-	int (*trigger_msi)(u32 idx);
+				u32 num_entries, u32 vf_id);
+	int (*get_msi_config)(struct ep_pcie_msi_config *cfg, u32 vf_id);
+	int (*trigger_msi)(u32 idx, u32 vf_id);
 	int (*wakeup_host)(enum ep_pcie_event event);
 	int (*enable_endpoint)(enum ep_pcie_options opt);
 	int (*disable_endpoint)(void);
 	int (*config_db_routing)(struct ep_pcie_db_config chdb_cfg,
-				struct ep_pcie_db_config erdb_cfg);
+				struct ep_pcie_db_config erdb_cfg,
+				u32 vf_id);
 	int (*mask_irq_event)(enum ep_pcie_irq_event event,
 				bool enable);
 	int (*configure_inactivity_timer)(struct ep_pcie_inactivity *param);
@@ -212,7 +215,8 @@ enum ep_pcie_link_status ep_pcie_get_linkstatus(struct ep_pcie_hw *phandle);
  */
 int ep_pcie_config_outbound_iatu(struct ep_pcie_hw *phandle,
 				struct ep_pcie_iatu entries[],
-				u32 num_entries);
+				u32 num_entries,
+				u32 vf_id);
 
 /*
  * ep_pcie_get_msi_config - get MSI config info.
@@ -224,7 +228,7 @@ int ep_pcie_config_outbound_iatu(struct ep_pcie_hw *phandle,
  * Return: 0 on success, negative value on error
  */
 int ep_pcie_get_msi_config(struct ep_pcie_hw *phandle,
-				struct ep_pcie_msi_config *cfg);
+				struct ep_pcie_msi_config *cfg, u32 vf_id);
 
 /*
  * ep_pcie_trigger_msi - trigger an MSI.
@@ -236,7 +240,7 @@ int ep_pcie_get_msi_config(struct ep_pcie_hw *phandle,
  *
  * Return: 0 on success, negative value on error
  */
-int ep_pcie_trigger_msi(struct ep_pcie_hw *phandle, u32 idx);
+int ep_pcie_trigger_msi(struct ep_pcie_hw *phandle, u32 idx, u32 vf_id);
 
 /*
  * ep_pcie_wakeup_host - wake up the host.
@@ -284,7 +288,8 @@ int ep_pcie_disable_endpoint(struct ep_pcie_hw *phandle);
  */
 int ep_pcie_config_db_routing(struct ep_pcie_hw *phandle,
 				struct ep_pcie_db_config chdb_cfg,
-				struct ep_pcie_db_config erdb_cfg);
+				struct ep_pcie_db_config erdb_cfg,
+				u32 vf_id);
 
 /*
  * ep_pcie_mask_irq_event - enable and disable IRQ event.

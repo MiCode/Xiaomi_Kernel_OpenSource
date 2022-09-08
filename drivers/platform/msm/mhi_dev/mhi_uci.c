@@ -1329,7 +1329,7 @@ static int __mhi_uci_client_read(struct uci_client *uci_handle,
 {
 	int ret_val = 0;
 
-	do {
+	while (!uci_handle->pkt_loc) {
 		if (!mhi_uci_are_channels_connected(uci_handle)) {
 			uci_log(UCI_DBG_ERROR,
 				"%s:Channels are not connected\n", __func__);
@@ -1374,7 +1374,7 @@ static int __mhi_uci_client_read(struct uci_client *uci_handle,
 				uci_handle->in_chan);
 			break;
 		}
-	} while (!uci_handle->pkt_loc);
+	}
 
 	return ret_val;
 }
@@ -1630,7 +1630,7 @@ void mhi_uci_chan_state_notify(struct mhi_dev *mhi,
 		return;
 	}
 
-	rc = kobject_uevent_env(&mhi->dev->kobj, KOBJ_CHANGE, buf);
+	rc = kobject_uevent_env(&mhi->mhi_hw_ctx->dev->kobj, KOBJ_CHANGE, buf);
 	if (rc)
 		uci_log(UCI_DBG_ERROR,
 				"Sending uevent failed for chan %d\n", ch_id);

@@ -1006,8 +1006,8 @@ static void uaudio_dev_release(struct kref *kref)
 
 	uaudio_dbg("for dev %pK\n", dev);
 
-	atomic_set(&dev->in_use, 0);
 	uaudio_event_ring_cleanup_free(dev);
+	atomic_set(&dev->in_use, 0);
 	wake_up(&dev->disconnect_wq);
 }
 

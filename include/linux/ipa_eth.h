@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _IPA_ETH_H_
@@ -72,10 +73,13 @@ enum ipa_eth_pipe_direction {
  *
  * @bar_addr: bar PA to access NTN register
  * @tail_ptr_offs: tail ptr offset
+ * @ioc_mod_threshold: Descriptors # per interrupt request from
+ * NTN3 HW via descriptor bit as part of the protocol.
  */
 struct ipa_eth_ntn_setup_info {
 	phys_addr_t bar_addr;
 	phys_addr_t tail_ptr_offs;
+	uint16_t ioc_mod_threshold;
 };
 
 /**

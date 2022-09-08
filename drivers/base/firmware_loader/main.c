@@ -518,6 +518,19 @@ static int firmware_param_path_set(const char *val, const struct kernel_param *k
 	return 0;
 }
 
+static int firmware_param_path_get(char *buffer, const struct kernel_param *kp)
+{
+	int count = 0, i;
+
+	for (i = 0; i < CUSTOM_FW_PATH_COUNT; i++) {
+		if (strlen(fw_path_para[i]) != 0)
+			count += scnprintf(buffer + count, PATH_SIZE, "%s%s", fw_path_para[i], ",");
+	}
+
+	buffer[count - 1] = '\0';
+
+	return count - 1;
+}
 /*
  * Typical usage is that passing 'firmware_class.path=/vendor,/firwmare_mnt'
  * from kernel command line because firmware_class is generally built in
@@ -527,8 +540,9 @@ static int firmware_param_path_set(const char *val, const struct kernel_param *k
 
 static const struct kernel_param_ops firmware_param_ops = {
 	.set = firmware_param_path_set,
+	.get = firmware_param_path_get,
 };
-module_param_cb(path, &firmware_param_ops, NULL, 0200);
+module_param_cb(path, &firmware_param_ops, NULL, 0644);
 MODULE_PARM_DESC(path, "customized firmware image search path with a higher priority than default path");
 
 static int

@@ -134,9 +134,11 @@ enum {
 	HW_PLATFORM_RCM = 21,
 	HW_PLATFORM_STP = 23,
 	HW_PLATFORM_SBC = 24,
+	HW_PLATFORM_ADP = 25,
 	HW_PLATFORM_HDK = 31,
 	HW_PLATFORM_ATP = 33,
 	HW_PLATFORM_IDP = 34,
+	HW_PLATFORM_X100 = 39,
 	HW_PLATFORM_INVALID
 };
 
@@ -157,9 +159,11 @@ static const char * const hw_platform[] = {
 	[HW_PLATFORM_DTV] = "DTV",
 	[HW_PLATFORM_STP] = "STP",
 	[HW_PLATFORM_SBC] = "SBC",
+	[HW_PLATFORM_ADP] = "ADP",
 	[HW_PLATFORM_HDK] = "HDK",
 	[HW_PLATFORM_ATP] = "ATP",
 	[HW_PLATFORM_IDP] = "IDP",
+	[HW_PLATFORM_X100] = "X100",
 };
 
 enum {
@@ -927,6 +931,12 @@ static const struct soc_id soc_id[] = {
 	{ 539, "CINDERRU"},
 	{ 545, "CINDERDU"},
 	{ 570, "SDXBAAGHA"},
+	{ 587, "CINDERDU_1010"},
+	{ 588, "CINDERRU_1032"},
+	{ 589, "CINDERRU_1052"},
+	{ 590, "CINDERRU_1062"},
+	{ 600, "SG_KALAMA"},
+	{ 601, "SG_KALAMAP"},
 };
 
 static struct qcom_socinfo *qsocinfo;

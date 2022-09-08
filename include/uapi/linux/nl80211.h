@@ -377,14 +377,22 @@
  *	the non-transmitting interfaces are deleted as well.
  *
  * @NL80211_CMD_GET_KEY: Get sequence counter information for a key specified
- *	by %NL80211_ATTR_KEY_IDX and/or %NL80211_ATTR_MAC.
+ *	by %NL80211_ATTR_KEY_IDX and/or %NL80211_ATTR_MAC. %NL80211_ATTR_MAC
+ *	represents peer's MLD address for MLO pairwise key. For MLO group key,
+ *	the link is identified by %NL80211_ATTR_MLO_LINK_ID.
  * @NL80211_CMD_SET_KEY: Set key attributes %NL80211_ATTR_KEY_DEFAULT,
  *	%NL80211_ATTR_KEY_DEFAULT_MGMT, or %NL80211_ATTR_KEY_THRESHOLD.
+ *	For MLO connection, the link to set default key is identified by
+ *	%NL80211_ATTR_MLO_LINK_ID.
  * @NL80211_CMD_NEW_KEY: add a key with given %NL80211_ATTR_KEY_DATA,
  *	%NL80211_ATTR_KEY_IDX, %NL80211_ATTR_MAC, %NL80211_ATTR_KEY_CIPHER,
- *	and %NL80211_ATTR_KEY_SEQ attributes.
+ *	and %NL80211_ATTR_KEY_SEQ attributes. %NL80211_ATTR_MAC represents
+ *	peer's MLD address for MLO pairwise key. The link to add MLO
+ *	group key is identified by %NL80211_ATTR_MLO_LINK_ID.
  * @NL80211_CMD_DEL_KEY: delete a key identified by %NL80211_ATTR_KEY_IDX
- *	or %NL80211_ATTR_MAC.
+ *	or %NL80211_ATTR_MAC. %NL80211_ATTR_MAC represents peer's MLD address
+ *	for MLO pairwise key. The link to delete group key is identified by
+ *	%NL80211_ATTR_MLO_LINK_ID.
  *
  * @NL80211_CMD_GET_BEACON: (not used)
  * @NL80211_CMD_SET_BEACON: change the beacon on an access point interface
@@ -1498,8 +1506,9 @@ enum nl80211_commands {
 
 	NL80211_CMD_ASSOC_COMEBACK,
 
-	NL80211_CMD_RESERVED_DO_NOT_USE_1 = 148,
-	NL80211_CMD_RESERVED_DO_NOT_USE_2 = 149,
+	NL80211_CMD_ADD_LINK,
+	NL80211_CMD_REMOVE_LINK,
+
 	NL80211_CMD_RESERVED_DO_NOT_USE_3 = 150,
 	NL80211_CMD_RESERVED_DO_NOT_USE_4 = 151,
 	NL80211_CMD_RESERVED_DO_NOT_USE_5 = 152,
@@ -1515,17 +1524,6 @@ enum nl80211_commands {
 	__NL80211_CMD_AFTER_LAST,
 	NL80211_CMD_MAX = __NL80211_CMD_AFTER_LAST - 1
 };
-
-/*
- * These are temporary definitions that will become permanent when the UAPI
- * change is accepted upstream. This will not be used in production until the
- * UAPI change lands upstream
- */
-
-/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?h=mld&id=a353a99fb75e5c1c3b15050e9efaab1997350862 */
-#define NL80211_CMD_ADD_LINK NL80211_CMD_RESERVED_DO_NOT_USE_1
-#define NL80211_CMD_REMOVE_LINK NL80211_CMD_RESERVED_DO_NOT_USE_2
-
 
 /*
  * Allow user space programs to use #ifdef on new commands by defining them
@@ -3234,11 +3232,14 @@ enum nl80211_attrs {
 
 	NL80211_ATTR_DISABLE_EHT,
 
-	NL80211_ATTR_RESERVED_DO_NOT_USE_1 = 312,
-	NL80211_ATTR_RESERVED_DO_NOT_USE_2 = 313,
-	NL80211_ATTR_RESERVED_DO_NOT_USE_3 = 314,
-	NL80211_ATTR_RESERVED_DO_NOT_USE_4 = 315,
-	NL80211_ATTR_RESERVED_DO_NOT_USE_5 = 316,
+	NL80211_ATTR_MLO_LINKS,
+	NL80211_ATTR_MLO_LINK_ID,
+	NL80211_ATTR_MLD_ADDR,
+
+	NL80211_ATTR_MLO_SUPPORT,
+
+	NL80211_ATTR_MAX_NUM_AKM_SUITES,
+
 	NL80211_ATTR_RESERVED_DO_NOT_USE_6 = 317,
 	NL80211_ATTR_RESERVED_DO_NOT_USE_7 = 318,
 	NL80211_ATTR_RESERVED_DO_NOT_USE_8 = 319,
@@ -3266,25 +3267,6 @@ enum nl80211_attrs {
 	NUM_NL80211_ATTR = __NL80211_ATTR_AFTER_LAST,
 	NL80211_ATTR_MAX = __NL80211_ATTR_AFTER_LAST - 1
 };
-
-/*
- * These are temporary definitions that will become permanent when the UAPI
- * change is accepted upstream. This will not be used in production until the
- * UAPI change lands upstream
- */
-
-/* Link: https://lore.kernel.org/linux-wireless/1653312358-12321-1-git-send-email-quic_vjakkam@quicinc.com/ */
-#define NL80211_ATTR_MAX_NUM_AKM_SUITES NL80211_ATTR_RESERVED_DO_NOT_USE_1
-
-/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?h=mld&id=a353a99fb75e5c1c3b15050e9efaab1997350862 */
-#define NL80211_ATTR_MLO_LINKS NL80211_ATTR_RESERVED_DO_NOT_USE_2
-#define NL80211_ATTR_MLO_LINK_ID NL80211_ATTR_RESERVED_DO_NOT_USE_3
-
-/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?h=mld&id=e35626979423cadc21bd4a68d4aa14eaeccbbd59 */
-#define NL80211_ATTR_MLD_ADDR NL80211_ATTR_RESERVED_DO_NOT_USE_4
-
-/* Link: https://lore.kernel.org/linux-wireless/1654679797-7740-1-git-send-email-quic_vjakkam@quicinc.com/ */
-#define NL80211_ATTR_MLO_SUPPORT NL80211_ATTR_RESERVED_DO_NOT_USE_5
 
 /* source-level API compatibility */
 #define NL80211_ATTR_SCAN_GENERATION NL80211_ATTR_GENERATION
@@ -5008,7 +4990,7 @@ enum nl80211_bss {
 	NL80211_BSS_PARENT_BSSID,
 	NL80211_BSS_CHAIN_SIGNAL,
 	NL80211_BSS_FREQUENCY_OFFSET,
-	NL80211_BSS_RESERVED_DO_NOT_USE_1 = 21,
+	NL80211_BSS_MLO_LINK_ID,
 	NL80211_BSS_RESERVED_DO_NOT_USE_2 = 22,
 	NL80211_BSS_RESERVED_DO_NOT_USE_3 = 23,
 	NL80211_BSS_RESERVED_DO_NOT_USE_4 = 24,
@@ -5018,14 +5000,6 @@ enum nl80211_bss {
 	__NL80211_BSS_AFTER_LAST,
 	NL80211_BSS_MAX = __NL80211_BSS_AFTER_LAST - 1
 };
-
-/*
- * These are temporary definitions that will become permanent when the UAPI
- * changes lands into linux.git tree. These attributes must not be used in
- * production until the UAPI change lands into linux.git tree.
- */
-
-#define NL80211_BSS_MLO_LINK_ID NL80211_BSS_RESERVED_DO_NOT_USE_1
 
 /**
  * enum nl80211_bss_status - BSS "status"

@@ -485,10 +485,14 @@ enum sdxbaagha_functions {
 	msm_mux_qup0_se2_l4,
 	msm_mux_qup0_se2_l5,
 	msm_mux_qup0_se2_l6,
-	msm_mux_qup0_se3_l0,
-	msm_mux_qup0_se3_l1,
-	msm_mux_qup0_se3_l2,
-	msm_mux_qup0_se3_l3,
+	msm_mux_qup0_se3_l0_mira,
+	msm_mux_qup0_se3_l0_mirb,
+	msm_mux_qup0_se3_l1_mira,
+	msm_mux_qup0_se3_l1_mirb,
+	msm_mux_qup0_se3_l2_mira,
+	msm_mux_qup0_se3_l2_mirb,
+	msm_mux_qup0_se3_l3_mira,
+	msm_mux_qup0_se3_l3_mirb,
 	msm_mux_qup0_se3_l4,
 	msm_mux_qup0_se3_l5,
 	msm_mux_qup0_se3_l6,
@@ -991,17 +995,29 @@ static const char * const qup0_se2_l5_groups[] = {
 static const char * const qup0_se2_l6_groups[] = {
 	"gpio14",
 };
-static const char * const qup0_se3_l0_groups[] = {
-	"gpio14", "gpio16",
+static const char * const qup0_se3_l0_mira_groups[] = {
+	"gpio16",
 };
-static const char * const qup0_se3_l1_groups[] = {
-	"gpio15", "gpio17",
+static const char * const qup0_se3_l0_mirb_groups[] = {
+	"gpio14",
 };
-static const char * const qup0_se3_l2_groups[] = {
-	"gpio8", "gpio12",
+static const char * const qup0_se3_l1_mira_groups[] = {
+	"gpio17",
 };
-static const char * const qup0_se3_l3_groups[] = {
-	"gpio9", "gpio13",
+static const char * const qup0_se3_l1_mirb_groups[] = {
+	"gpio15",
+};
+static const char * const qup0_se3_l2_mira_groups[] = {
+	"gpio8",
+};
+static const char * const qup0_se3_l2_mirb_groups[] = {
+	"gpio12",
+};
+static const char * const qup0_se3_l3_mira_groups[] = {
+	"gpio9",
+};
+static const char * const qup0_se3_l3_mirb_groups[] = {
+	"gpio13",
 };
 static const char * const qup0_se3_l4_groups[] = {
 	"gpio92",
@@ -1331,10 +1347,14 @@ static const struct msm_function sdxbaagha_functions[] = {
 	FUNCTION(qup0_se2_l4),
 	FUNCTION(qup0_se2_l5),
 	FUNCTION(qup0_se2_l6),
-	FUNCTION(qup0_se3_l0),
-	FUNCTION(qup0_se3_l1),
-	FUNCTION(qup0_se3_l2),
-	FUNCTION(qup0_se3_l3),
+	FUNCTION(qup0_se3_l0_mira),
+	FUNCTION(qup0_se3_l0_mirb),
+	FUNCTION(qup0_se3_l1_mira),
+	FUNCTION(qup0_se3_l1_mirb),
+	FUNCTION(qup0_se3_l2_mira),
+	FUNCTION(qup0_se3_l2_mirb),
+	FUNCTION(qup0_se3_l3_mira),
+	FUNCTION(qup0_se3_l3_mirb),
 	FUNCTION(qup0_se3_l4),
 	FUNCTION(qup0_se3_l5),
 	FUNCTION(qup0_se3_l6),
@@ -1421,28 +1441,28 @@ static const struct msm_pingroup sdxbaagha_groups[] = {
 		       qdss_gpio_tracedata1, etdac_calib_data6, NA, NA, NA, NA, 0x6E000, 4),
 	[7] = PINGROUP(7, qup0_se2_l2, char_exec_release, NA,
 		       qdss_gpio_tracedata0, etdac_calib_data7, NA, NA, NA, NA, 0x6E000, 5),
-	[8] = PINGROUP(8, qup0_se3_l2, NA, qdss_gpio_traceclk,
+	[8] = PINGROUP(8, qup0_se3_l2_mira, NA, qdss_gpio_traceclk,
 		       etdac_calib_data8, NA, NA, NA, NA, NA, 0x6E000, 6),
-	[9] = PINGROUP(9, qup0_se3_l3, NA, qdss_gpio_tracectl,
+	[9] = PINGROUP(9, qup0_se3_l3_mira, NA, qdss_gpio_tracectl,
 		       etdac_calib_data9, atest_usb2_atereset, NA, NA, NA, NA, 0x6E000, 7),
 	[10] = PINGROUP(10, qup0_se4_l0, NA, etdac_calib_data10, NA, NA, NA,
 			NA, NA, NA, 0x6E000, 8),
 	[11] = PINGROUP(11, qup0_se4_l1, NA, etdac_calib_data11, NA, NA, NA,
 			NA, NA, NA, 0x6E000, 9),
-	[12] = PINGROUP(12, mi2s0_ws, qup0_se3_l2, NA, qdss_gpio_tracedata12,
+	[12] = PINGROUP(12, mi2s0_ws, qup0_se3_l2_mirb, NA, qdss_gpio_tracedata12,
 			etdac_calib_data12, NA, NA, NA, NA, 0x6E000, 10),
-	[13] = PINGROUP(13, mi2s0_data0, qup0_se3_l3, NA,
+	[13] = PINGROUP(13, mi2s0_data0, qup0_se3_l3_mirb, NA,
 			qdss_gpio_tracedata13, etdac_calib_data13, NA, NA, NA,
 			NA, 0x6E000, 11),
-	[14] = PINGROUP(14, mi2s0_data1, qup0_se3_l0, qup0_se0_l6, qup0_se1_l6,
+	[14] = PINGROUP(14, mi2s0_data1, qup0_se3_l0_mirb, qup0_se0_l6, qup0_se1_l6,
 			qup0_se2_l6, qup0_se3_l6, qup0_se4_l6, NA,
 			qdss_gpio_tracedata14, 0x6E000, 12),
-	[15] = PINGROUP(15, mi2s0_sck, qup0_se3_l1, NA, qdss_gpio_tracedata15,
+	[15] = PINGROUP(15, mi2s0_sck, qup0_se3_l1_mirb, NA, qdss_gpio_tracedata15,
 			etdac_calib_data15, NA, NA, NA, NA, 0x6E000, 13),
-	[16] = PINGROUP(16, mi2s1_ws, qup0_se3_l0, qdss_cti_trig1,
+	[16] = PINGROUP(16, mi2s1_ws, qup0_se3_l0_mira, qdss_cti_trig1,
 			qdss_cti_trig0, NA, qdss_gpio_tracedata8,
 			etdac_calib_data16, NA, NA, 0x6E000, 14),
-	[17] = PINGROUP(17, mi2s1_data0, qup0_se3_l1, qdss_cti_trig1,
+	[17] = PINGROUP(17, mi2s1_data0, qup0_se3_l1_mira, qdss_cti_trig1,
 			qdss_cti_trig0, NA, qdss_gpio_tracedata9,
 			etdac_calib_data17, NA, NA, 0x6E000, 15),
 	[18] = PINGROUP(18, mi2s1_data1, qup0_se0_l0, NA, NA,
@@ -1590,6 +1610,20 @@ static const struct msm_pingroup sdxbaagha_groups[] = {
 static struct pinctrl_qup sdxbaagha_qup_regs[] = {
 };
 
+static const struct msm_gpio_wakeirq_map sdxbaagha_pdc_map[] = {
+	{ 2, 83 }, { 4, 59 }, { 5, 107 }, { 6, 112 }, { 7, 119 },
+	{ 10, 52 }, { 11, 73 }, { 12, 74 }, { 13, 75 }, { 14, 76 },
+	{ 16, 81 }, { 17, 82 }, { 18, 80 }, { 19, 100 }, { 21, 88 },
+	{ 23, 84 }, { 24, 85 }, { 25, 97 }, { 26, 86 }, { 27, 102 },
+	{ 35, 103 }, { 43, 90 }, { 46, 104 }, { 47, 89 }, { 48, 105 },
+	{ 50, 101 }, { 52, 109 }, { 54, 110 }, { 55, 111 }, { 60, 113 },
+	{ 63, 115 }, { 64, 116 }, { 65, 57 }, { 66, 117 }, { 69, 118 },
+	{ 73, 120 }, { 74, 121 }, { 77, 122 }, { 80, 124 }, { 81, 125 },
+	{ 83, 127 }, { 84, 93 }, { 85, 128 }, { 86, 129 }, { 87, 70 },
+	{ 96, 68 }, { 98, 50 }, { 99, 67 }, { 100, 51 }, { 101, 53 },
+	{ 103, 98 }, { 104, 91 }, { 105, 69 }, { 106, 55 }, { 107, 56 },
+};
+
 static const struct msm_pinctrl_soc_data sdxbaagha_pinctrl = {
 	.pins = sdxbaagha_pins,
 	.npins = ARRAY_SIZE(sdxbaagha_pins),
@@ -1600,6 +1634,8 @@ static const struct msm_pinctrl_soc_data sdxbaagha_pinctrl = {
 	.ngpios = 110,
 	.qup_regs = sdxbaagha_qup_regs,
 	.nqup_regs = ARRAY_SIZE(sdxbaagha_qup_regs),
+	.wakeirq_map = sdxbaagha_pdc_map,
+	.nwakeirq_map = ARRAY_SIZE(sdxbaagha_pdc_map),
 };
 
 static int sdxbaagha_pinctrl_probe(struct platform_device *pdev)

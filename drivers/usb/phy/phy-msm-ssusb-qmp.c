@@ -104,7 +104,6 @@ enum qmp_phy_type {
 struct qmp_reg_val {
 	u32 offset;
 	u32 val;
-	u32 delay;
 };
 
 struct msm_ssphy_qmp {
@@ -138,7 +137,7 @@ struct msm_ssphy_qmp {
 	bool			in_suspend;
 	u32			*phy_reg; /* revision based offset */
 	int			reg_offset_cnt;
-	u32			*qmp_phy_init_seq;
+	struct qmp_reg_val	*qmp_phy_init_seq;
 	int			init_seq_len;
 	enum qmp_phy_type	phy_type;
 };
@@ -357,21 +356,18 @@ put_gdsc:
 	return rc < 0 ? rc : 0;
 }
 
-static int configure_phy_regs(struct usb_phy *uphy,
-				const struct qmp_reg_val *reg)
+static int configure_phy_regs(struct msm_ssphy_qmp *phy)
 {
-	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
-					phy);
+	struct qmp_reg_val *reg = phy->qmp_phy_init_seq;
+	int i;
 
 	if (!reg) {
-		dev_err(uphy->dev, "NULL PHY configuration\n");
+		dev_err(phy->phy.dev, "NULL PHY configuration\n");
 		return -EINVAL;
 	}
 
-	while (reg->offset != -1) {
+	for (i = 0; i < phy->init_seq_len; i++) {
 		writel_relaxed(reg->val, phy->base + reg->offset);
-		if (reg->delay)
-			usleep_range(reg->delay, reg->delay + 10);
 		reg++;
 	}
 	return 0;
@@ -497,7 +493,6 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 					phy);
 	int ret;
 	unsigned int init_timeout_usec = INIT_MAX_TIME_USEC;
-	const struct qmp_reg_val *reg = NULL;
 
 	dev_dbg(uphy->dev, "Initializing QMP phy\n");
 
@@ -527,10 +522,8 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	/* power up PHY */
 	usb_qmp_powerup_phy(phy);
 
-	reg = (struct qmp_reg_val *)phy->qmp_phy_init_seq;
-
 	/* Main configuration */
-	ret = configure_phy_regs(uphy, reg);
+	ret = configure_phy_regs(phy);
 	if (ret) {
 		dev_err(uphy->dev, "Failed the main PHY configuration\n");
 		goto fail;
@@ -927,7 +920,7 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	struct msm_ssphy_qmp *phy;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-	int ret = 0, size = 0, len;
+	int ret = 0, size = 0, size1 = 0, len;
 
 	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
 	if (!phy)
@@ -1047,15 +1040,27 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 			return -EINVAL;
 		}
 
-		phy->qmp_phy_init_seq = devm_kzalloc(dev, size, GFP_KERNEL);
+		of_get_property(dev->of_node, "qcom,qmp-phy-override-seq", &size1);
+		if (size1 % sizeof(*phy->qmp_phy_init_seq)) {
+			dev_err(dev, "invalid override seq len\n");
+			return -EINVAL;
+		}
+
+		len = size + size1;
+		phy->qmp_phy_init_seq = devm_kzalloc(dev, len, GFP_KERNEL);
 		if (!phy->qmp_phy_init_seq)
 			return -ENOMEM;
 
-		phy->init_seq_len = (size / sizeof(*phy->qmp_phy_init_seq));
+		phy->init_seq_len = (len / sizeof(*phy->qmp_phy_init_seq));
 		of_property_read_u32_array(dev->of_node,
 				"qcom,qmp-phy-init-seq",
-				phy->qmp_phy_init_seq,
-				phy->init_seq_len);
+				(u32 *)phy->qmp_phy_init_seq,
+				size / sizeof(u32));
+
+		of_property_read_u32_array(dev->of_node,
+				"qcom,qmp-phy-override-seq",
+				(u32 *)((char *)phy->qmp_phy_init_seq + size),
+				size1 / sizeof(u32));
 	} else {
 		dev_err(dev, "error need qmp-phy-init-seq\n");
 		return -EINVAL;

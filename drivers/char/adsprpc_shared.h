@@ -483,6 +483,7 @@ enum dsp_map_flags {
 
 enum fastrpc_control_type {
 	FASTRPC_CONTROL_LATENCY		=	1,
+	/* Share SMMU context bank */
 	FASTRPC_CONTROL_SMMU		=	2,
 	FASTRPC_CONTROL_KALLOC		=	3,
 	FASTRPC_CONTROL_WAKELOCK	=	4,
@@ -509,6 +510,10 @@ struct fastrpc_ctrl_pm {
 	uint32_t timeout;	/* timeout(in ms) for PM to keep system awake */
 };
 
+struct fastrpc_ctrl_smmu {
+	uint32_t sharedcb;  /* Set to SMMU share context bank */
+};
+
 struct fastrpc_ioctl_control {
 	uint32_t req;
 	union {
@@ -516,6 +521,7 @@ struct fastrpc_ioctl_control {
 		struct fastrpc_ctrl_kalloc kalloc;
 		struct fastrpc_ctrl_wakelock wp;
 		struct fastrpc_ctrl_pm pm;
+		struct fastrpc_ctrl_smmu smmu;
 	};
 };
 
@@ -829,6 +835,7 @@ struct fastrpc_smmu {
 	int faults;
 	int secure;
 	int coherent;
+	int sharedcb;
 };
 
 struct fastrpc_session_ctx {
@@ -865,6 +872,7 @@ struct fastrpc_channel_ctx {
 	struct mutex smd_mutex;
 	uint64_t sesscount;
 	uint64_t ssrcount;
+	int in_hib;
 	void *handle;
 	uint64_t prevssrcount;
 	int issubsystemup;
@@ -1019,6 +1027,7 @@ struct fastrpc_file {
 	char *servloc_name;
 	int file_close;
 	int dsp_proc_init;
+	int sharedcb;
 	struct fastrpc_apps *apps;
 	struct dentry *debugfs_file;
 	struct dev_pm_qos_request *dev_pm_qos_req;

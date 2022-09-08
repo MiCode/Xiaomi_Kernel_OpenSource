@@ -30,6 +30,7 @@
 #include <linux/types.h>
 #include <soc/qcom/rpm-notifier.h>
 #include <soc/qcom/rpm-smd.h>
+#include <soc/qcom/mpm.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/trace_rpm_smd.h>
@@ -1493,7 +1494,8 @@ static int msm_rpm_enter_sleep(void)
 		if (ret)
 			smd_mask_receive_interrupt(false, NULL);
 	}
-	return ret;
+
+	return msm_mpm_enter_sleep(&cpumask);
 }
 
 /**
@@ -1628,13 +1630,15 @@ static int qcom_smd_rpm_probe(struct rpmsg_device *rpdev)
 	priv_rpm = *rpm;
 	rpm->irq = irq;
 
-	pm_runtime_enable(&rpm_device->dev);
-	rpm->genpd_nb.notifier_call = rpm_smd_power_cb;
-	ret = dev_pm_genpd_add_notifier(&rpm_device->dev, &rpm->genpd_nb);
-	if (ret) {
-		pm_runtime_disable(&rpm_device->dev);
-		probe_status = ret;
-		goto fail;
+	if (of_find_property(p, "power-domains", NULL)) {
+		pm_runtime_enable(&rpm_device->dev);
+		rpm->genpd_nb.notifier_call = rpm_smd_power_cb;
+		ret = dev_pm_genpd_add_notifier(&rpm_device->dev, &rpm->genpd_nb);
+		if (ret) {
+			pm_runtime_disable(&rpm_device->dev);
+			probe_status = ret;
+			goto fail;
+		}
 	}
 
 	mutex_init(&rpm->lock);

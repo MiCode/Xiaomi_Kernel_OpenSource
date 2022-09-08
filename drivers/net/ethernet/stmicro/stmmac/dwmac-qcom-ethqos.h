@@ -16,29 +16,72 @@
 #include <linux/uaccess.h>
 #include <linux/ipc_logging.h>
 
-#define QCOM_ETH_QOS_MAC_ADDR_LEN 6
-#define QCOM_ETH_QOS_MAC_ADDR_STR_LEN 18
+#define QCOM_ETH_QOS_MAC_ADDR_LEN
+#define QCOM_ETH_QOS_MAC_ADDR_STR_LEN
 
+extern void *ipc_stmmac_log_ctxt;
+extern void *ipc_stmmac_log_ctxt_low;
 extern void *ipc_emac_log_ctxt;
 
 #define IPCLOG_STATE_PAGES 50
+#define IPC_RATELIMIT_BURST 1
 #define __FILENAME__ (strrchr(__FILE__, '/') ? \
 		strrchr(__FILE__, '/') + 1 : __FILE__)
 
 #define DRV_NAME "qcom-ethqos"
 #define ETHQOSDBG(fmt, args...) \
-	pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+do {\
+	pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
+	if (ipc_stmmac_log_ctxt) { \
+		ipc_log_string(ipc_stmmac_log_ctxt, \
+		"%s: %s[%u]:[stmmac] DEBUG:" fmt, __FILENAME__,\
+		__func__, __LINE__, ## args); \
+	} \
+} while (0)
 #define ETHQOSERR(fmt, args...) \
 do {\
 	pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
-	if (ipc_emac_log_ctxt) { \
-		ipc_log_string(ipc_emac_log_ctxt, \
-		"%s: %s[%u]:[emac] ERROR:" fmt, __FILENAME__,\
+	if (ipc_stmmac_log_ctxt) { \
+		ipc_log_string(ipc_stmmac_log_ctxt, \
+		"%s: %s[%u]:[stmmac] ERROR:" fmt, __FILENAME__,\
 		__func__, __LINE__, ## args); \
 	} \
 } while (0)
 #define ETHQOSINFO(fmt, args...) \
-	pr_info(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
+do {\
+	pr_info(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args);\
+	if (ipc_stmmac_log_ctxt) { \
+		ipc_log_string(ipc_stmmac_log_ctxt, \
+		"%s: %s[%u]:[stmmac] INFO:" fmt, __FILENAME__,\
+		__func__, __LINE__, ## args); \
+	} \
+} while (0)
+
+#define IPC_LOW(fmt, args...) \
+do {\
+	if (ipc_stmmac_log_ctxt_low) { \
+		ipc_log_string(ipc_stmmac_log_ctxt_low, \
+		"%s: %s[%u]:[stmmac] DEBUG:" fmt, __FILENAME__, \
+		__func__, __LINE__, ## args); \
+	} \
+} while (0)
+
+/* Printing one error message in 5 seconds if multiple error messages
+ * are coming back to back.
+ */
+#define pr_err_ratelimited_ipc(fmt, ...) \
+	printk_ratelimited_ipc(KERN_ERR pr_fmt(fmt), ##__VA_ARGS__)
+#define printk_ratelimited_ipc(fmt, ...) \
+({ \
+	static DEFINE_RATELIMIT_STATE(_rs, DEFAULT_RATELIMIT_INTERVAL, \
+				       IPC_RATELIMIT_BURST); \
+	if (__ratelimit(&_rs)) \
+		pr_err(fmt, ##__VA_ARGS__); \
+})
+#define IPCERR_RL(fmt, args...) \
+	pr_err_ratelimited_ipc(DRV_NAME " %s:%d " fmt, __func__,\
+	__LINE__, ## args)
+
 #define RGMII_IO_MACRO_CONFIG		0x0
 #define SDCC_HC_REG_DLL_CONFIG		0x4
 #define SDCC_HC_REG_DDR_CONFIG		0xC
@@ -214,7 +257,6 @@ struct pps_info {
 };
 
 struct ip_params {
-	unsigned char mac_addr[QCOM_ETH_QOS_MAC_ADDR_LEN];
 	bool is_valid_mac_addr;
 	char link_speed[32];
 	bool is_valid_link_speed;
@@ -224,6 +266,7 @@ struct ip_params {
 	char ipv6_addr_str[48];
 	struct in6_ifreq ipv6_addr;
 	bool is_valid_ipv6_addr;
+	unsigned char mac_addr[QCOM_ETH_QOS_MAC_ADDR_LEN];
 };
 
 int ethqos_init_reqgulators(struct qcom_ethqos *ethqos);

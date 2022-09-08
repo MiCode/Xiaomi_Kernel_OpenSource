@@ -16,6 +16,8 @@
 #include "ep_pcie_com.h"
 #include "ep_pcie_phy.h"
 
+#define PCIE_PHYSICAL_DEVICE 0
+
 static struct dentry *dent_ep_pcie;
 static struct dentry *dfile_case;
 static struct ep_pcie_dev_t *dev;
@@ -284,7 +286,7 @@ static ssize_t ep_pcie_cmd_debug(struct file *file,
 	char str[MAX_MSG_LEN];
 	unsigned int testcase = 0;
 	struct ep_pcie_msi_config msi_cfg;
-	int i;
+	int i, vf_id = PCIE_PHYSICAL_DEVICE;
 	struct ep_pcie_hw *phandle = NULL;
 	struct ep_pcie_iatu entries[2] = {
 		{0x80000000, 0xbe7fffff, 0, 0},
@@ -336,23 +338,23 @@ static ssize_t ep_pcie_cmd_debug(struct file *file,
 		ep_pcie_disable_endpoint(phandle);
 		break;
 	case 9: /* check MSI */
-		ep_pcie_get_msi_config(phandle, &msi_cfg);
+		ep_pcie_get_msi_config(phandle, &msi_cfg, vf_id);
 		break;
 	case 10: /* trigger MSI */
-		ep_pcie_trigger_msi(phandle, 0);
+		ep_pcie_trigger_msi(phandle, 0, vf_id);
 		break;
 	case 11: /* indicate the status of PCIe link */
 		EP_PCIE_DBG_FS("\nPCIe: link status is %d\n\n",
 			ep_pcie_get_linkstatus(phandle));
 		break;
 	case 12: /* configure outbound iATU */
-		ep_pcie_config_outbound_iatu(phandle, entries, 2);
+		ep_pcie_config_outbound_iatu(phandle, entries, 2, vf_id);
 		break;
 	case 13: /* wake up the host */
 		ep_pcie_wakeup_host(phandle, EP_PCIE_EVENT_PM_D3_HOT);
 		break;
-	case 14: /* Configure routing of doorbells */
-		ep_pcie_config_db_routing(phandle, chdb_cfg, erdb_cfg);
+	case 14: /* Configure routing of doorbells of physical MHI*/
+		ep_pcie_config_db_routing(phandle, chdb_cfg, erdb_cfg, vf_id);
 		break;
 	case 21: /* write D3 */
 		EP_PCIE_DBG_FS("\nPCIe Testcase %d: write D3 to EP\n\n",
