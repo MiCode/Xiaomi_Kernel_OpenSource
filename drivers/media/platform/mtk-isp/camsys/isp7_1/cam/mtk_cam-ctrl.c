@@ -2533,10 +2533,8 @@ static void mtk_cam_mstream_frame_sync(struct mtk_raw_device *raw_dev,
 
 	if (s_data)
 		req = s_data->req;
-	else {
-		dev_info(ctx->cam->dev, "[%s] s_data is null\n", __func__);
-		return;
-	}
+	else
+		dev_info(ctx->cam->dev, "[%s] s_data is null , and mstream continue\n", __func__);
 
 	if (req) {
 		ctx->trigger_next_drain = false;
