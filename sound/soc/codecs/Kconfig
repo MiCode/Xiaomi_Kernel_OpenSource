@@ -1848,6 +1848,9 @@ config SND_SOC_MT6338_ACCDET
 	  detection mechanism. Select N if you don't
 	  have jack on board.
 
+config SND_SOC_CS35L45
+	tristate "cirrus Semiconductors cs35l45 amplifier"
+
 config SND_SOC_MT6351
 	tristate "MediaTek MT6351 Codec"
 
