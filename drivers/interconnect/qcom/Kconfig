@@ -260,6 +260,7 @@ config INTERCONNECT_QCOM_LEMANS
 	depends on QCOM_RPMH && QCOM_COMMAND_DB && OF
 	select INTERCONNECT_QCOM_BCM_VOTER
 	select INTERCONNECT_QCOM_RPMH
+	select INTERCONNECT_QCOM_QOS
 	help
 	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
 	  on lemans-based platforms. The interconnect provider collects and
