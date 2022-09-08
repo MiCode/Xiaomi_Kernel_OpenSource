@@ -565,6 +565,11 @@ static int mtk_afe_etdm_apll_connect(struct snd_soc_dapm_widget *source,
 	int apll = 0;
 
 	etdm_priv = get_etdm_priv_by_name(afe, w->name);
+	if (etdm_priv == NULL) {
+		dev_err(afe->dev, "%s() error: get etdm_priv returns null\n",
+			__func__);
+		return 0;
+	}
 
 	/* which apll */
 	cur_apll = mt6983_get_apll_by_name(afe, source->name);
