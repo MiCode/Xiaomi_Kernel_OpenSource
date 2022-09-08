@@ -73,16 +73,16 @@ void __gpudfd_config_dfd(unsigned int enable)
 		writel(MFG_DFD_CON_9_ENABLE, MFG_DFD_CON_9);
 		writel(MFG_DFD_CON_10_ENABLE, MFG_DFD_CON_10);
 		writel(MFG_DFD_CON_11_ENABLE, MFG_DFD_CON_11);
-		GPUFREQ_LOGI("[GPU_DFD]: before setting DRM_MFG_REG = 0x%x",
+		GPUFREQ_LOGD("[GPU_DFD]: before setting DRM_MFG_REG = 0x%x",
 			readl(g_drm_debug_base + 0x60));
 		if ((readl(g_drm_debug_base + 0x60) & 0x1) != 0x1) {
 			writel(0x77000000, g_drm_debug_base + 0x60);
-			GPUFREQ_LOGI("[GPU_DFD]: after disable DRM_MFG_REG = 0x%x",
+			GPUFREQ_LOGD("[GPU_DFD]: after disable DRM_MFG_REG = 0x%x",
 			readl(g_drm_debug_base + 0x60));
 			udelay(10);
 			writel(0x77000001, g_drm_debug_base + 0x60);
 		}
-		GPUFREQ_LOGI("[GPU_DFD]: after setting DRM_MFG_REG = 0x%x",
+		GPUFREQ_LOGD("[GPU_DFD]: after setting DRM_MFG_REG = 0x%x",
 			readl(g_drm_debug_base + 0x60));
 	} else {
 		writel(MFG_DFD_CON_0_DISABLE, MFG_DFD_CON_0);
