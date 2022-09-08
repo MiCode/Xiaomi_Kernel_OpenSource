@@ -12,7 +12,7 @@
 #include <linux/extdev_io_class.h>
 
 #define PREALLOC_RBUFFER_SIZE	(32)
-#define PREALLOC_WBUFFER_SIZE	(1000)
+#define PREALLOC_WBUFFER_SIZE	(512)
 
 static struct class *extdev_io_class;
 

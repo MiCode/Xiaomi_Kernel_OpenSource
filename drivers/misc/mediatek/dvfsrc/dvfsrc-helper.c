@@ -107,6 +107,7 @@ static void dvfsrc_setup_opp_table(struct mtk_dvfsrc *dvfsrc)
 			&ares);
 		if (!ares.a0)
 			opp->dram_khz = ares.a1;
+
 	}
 }
 
@@ -932,6 +933,43 @@ static const struct dvfsrc_debug_data mt6879_data = {
 	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6879_desc),
 };
 
+static struct dvfsrc_opp dvfsrc_opp_mt6768[] = {
+	{0, 0, 0, 0},
+	{1, 0, 0, 0},
+	{1, 0, 0, 0},
+	{2, 0, 0, 0},
+	{2, 1, 0, 0},
+	{2, 0, 0, 0},
+	{2, 1, 0, 0},
+	{2, 1, 0, 0},
+	{3, 1, 0, 0},
+	{3, 2, 0, 0},
+	{3, 1, 0, 0},
+	{3, 2, 0, 0},
+	{3, 1, 0, 0},
+	{3, 2, 0, 0},
+	{3, 2, 0, 0},
+	{3, 2, 0, 0},
+};
+
+static struct dvfsrc_opp_desc dvfsrc_opp_mt6768_desc[] = {
+	MT_DVFSRC_OPP(4, 3, dvfsrc_opp_mt6768),
+};
+
+static const struct dvfsrc_debug_data mt6768_data = {
+	.version = 0x6768,
+	.config = &mt6768_dvfsrc_config,
+	.opps_desc = dvfsrc_opp_mt6768_desc,
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_MET_MT6768)
+	.qos = &mt6768_qos_config,
+#endif
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_MET_MT6765)
+	.qos = &mt6765_qos_config,
+#endif
+	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6768_desc),
+};
+/* MT6765 will share driver data of MT6768 due to same IP */
+
 static const struct of_device_id dvfsrc_helper_of_match[] = {
 	{
 		.compatible = "mediatek,mt6789-dvfsrc",
@@ -966,6 +1004,12 @@ static const struct of_device_id dvfsrc_helper_of_match[] = {
 	}, {
 		.compatible = "mediatek,mt6855-dvfsrc",
 		.data = &mt6855_data,
+	}, {
+		.compatible = "mediatek,mt6768-dvfsrc",
+		.data = &mt6768_data,
+	}, {
+		.compatible = "mediatek,mt6765-dvfsrc",
+		.data = &mt6768_data,
 	}, {
 		/* sentinel */
 	},
@@ -1017,6 +1061,9 @@ static int mtk_dvfsrc_helper_probe(struct platform_device *pdev)
 		dev_info(dev, "dvfsrc opp setting fail\n");
 		return ret;
 	}
+
+	if (dvfsrc->dvd->qos)
+		dvfsrc->dvd->qos->qos_dvfsrc_init(dvfsrc);
 
 	ret = mtk_dvfsrc_debug_setting(dvfsrc);
 	if (ret) {
@@ -1078,6 +1125,7 @@ static int __init mtk_dvfsrc_helper_init(void)
 		return ret;
 	}
 #endif
+
 	return 0;
 }
 late_initcall_sync(mtk_dvfsrc_helper_init)

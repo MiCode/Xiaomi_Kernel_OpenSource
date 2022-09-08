@@ -17,6 +17,11 @@
 
 #include "mtk_drm_assert.h"
 
+#ifdef CONFIG_MTK_FB_MMDVFS_SUPPORT
+#include <linux/interconnect.h>
+extern u32 *disp_perfs;
+#endif
+
 #define CRTC_NUM		3
 static struct drm_crtc *dev_crtc;
 /* add for mm qos */
@@ -223,7 +228,18 @@ int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
 		}
 	}
 
+#ifdef CONFIG_MTK_FB_MMDVFS_SUPPORT
+	if (tmp == 0)
+		icc_set_bw(priv->hrt_bw_request, 0, disp_perfs[HRT_LEVEL_LEVEL2]);
+	else if (tmp > 0 && tmp <= 3500)
+		icc_set_bw(priv->hrt_bw_request, 0, disp_perfs[HRT_LEVEL_LEVEL1]);
+	else if (tmp > 3500)
+		icc_set_bw(priv->hrt_bw_request, 0, disp_perfs[HRT_LEVEL_LEVEL0]);
+	else
+		icc_set_bw(priv->hrt_bw_request, 0, disp_perfs[HRT_LEVEL_LEVEL2]);
+#else
 	mtk_icc_set_bw(priv->hrt_bw_request, 0, MBps_to_icc(tmp));
+#endif
 	DRM_MMP_MARK(hrt_bw, 0, tmp);
 	DDPINFO("set HRT bw %u\n", tmp);
 

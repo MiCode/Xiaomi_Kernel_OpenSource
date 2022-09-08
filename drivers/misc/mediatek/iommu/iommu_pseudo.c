@@ -5,16 +5,17 @@
 
 #define pr_fmt(fmt)    "mtk_iommu: pseudo " fmt
 
+#include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <dt-bindings/memory/mtk-memory-port.h>
+#include "iommu_pseudo.h"
 
 #if IS_ENABLED(CONFIG_MTK_ENABLE_GENIEZONE)
 #include <linux/list.h>
 #include <soc/mediatek/smi.h>
 #include "iommu_gz_sec.h"
-#include "iommu_pseudo.h"
 
 #define M4U_L2_ENABLE	1
 

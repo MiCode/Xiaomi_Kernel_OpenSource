@@ -76,7 +76,7 @@ int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
 
 	node = of_parse_phandle(dev->of_node, "mediatek,larbs", 0);
 	if (!node) {
-		mtk_v4l2_err("no mediatek,larb found");
+		mtk_v4l2_err("no mediatek,larbs found");
 		return -1;
 	}
 	for (larb_index = 0; larb_index < MTK_VENC_MAX_LARB_COUNT; larb_index++) {

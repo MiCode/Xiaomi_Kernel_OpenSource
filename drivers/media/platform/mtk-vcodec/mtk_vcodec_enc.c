@@ -40,7 +40,6 @@ static unsigned int default_out_fmt_idx;
 static unsigned int default_cap_fmt_idx;
 static struct vb2_mem_ops venc_dma_contig_memops;
 static struct vb2_mem_ops venc_sec_dma_contig_memops;
-
 inline unsigned int log2_enc(__u32 value)
 {
 	unsigned int x = 0;
@@ -109,49 +108,53 @@ static bool mtk_venc_is_vcu(void)
 
 static void set_venc_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_id_t id)
 {
-	struct venc_enc_param enc_prm;
+	struct venc_enc_param *enc_prm = NULL;
 
-	memset(&enc_prm, 0, sizeof(enc_prm));
-	memset(enc_prm.set_vcp_buf, '\0', 1024);
+	enc_prm = kzalloc(sizeof(*enc_prm), GFP_KERNEL);
+	if (!enc_prm)
+		return;
 
 	if (id == VENC_SET_PROP_MEM_ID) {
 
-		sprintf(enc_prm.set_vcp_buf, "%s", mtk_venc_property);
-		mtk_v4l2_debug(3, "[%d] mtk_venc_property %s", ctx->id, enc_prm.set_vcp_buf);
+		sprintf(enc_prm->set_vcp_buf, "%s", mtk_venc_property);
+		mtk_v4l2_debug(3, "[%d] mtk_venc_property %s", ctx->id, enc_prm->set_vcp_buf);
 		mtk_v4l2_debug(3, "[%d] mtk_venc_property_prev %s",
 					ctx->id, mtk_venc_property_prev);
 
 		// set vcp log every time
-		if (/* strcmp(mtk_venc_property_prev, enc_prm.set_vcp_buf) != 0 && */
-			strlen(enc_prm.set_vcp_buf) != 0) {
+		if (/* strcmp(mtk_venc_property_prev, enc_prm->set_vcp_buf) != 0 && */
+			strlen(enc_prm->set_vcp_buf) != 0) {
 
 			if (venc_if_set_param(ctx,
 				VENC_SET_PARAM_PROPERTY,
-				&enc_prm) != 0) {
+				enc_prm) != 0) {
 				mtk_v4l2_err("Error!! Cannot set venc property");
-				return;
+				goto err_set_vcp_data;
 			}
-			strcpy(mtk_venc_property_prev, enc_prm.set_vcp_buf);
+			strcpy(mtk_venc_property_prev, enc_prm->set_vcp_buf);
 		}
 	} else if (id == VENC_VCP_LOG_INFO_ID) {
 
-		sprintf(enc_prm.set_vcp_buf, "%s", mtk_venc_vcp_log);
-		mtk_v4l2_debug(3, "[%d] mtk_venc_vcp_log %s", ctx->id, enc_prm.set_vcp_buf);
+		sprintf(enc_prm->set_vcp_buf, "%s", mtk_venc_vcp_log);
+		mtk_v4l2_debug(3, "[%d] mtk_venc_vcp_log %s", ctx->id, enc_prm->set_vcp_buf);
 		mtk_v4l2_debug(3, "[%d] mtk_venc_vcp_log_prev %s", ctx->id, mtk_venc_vcp_log_prev);
 
 		// set vcp log every time
-		if (/* strcmp(mtk_venc_vcp_log_prev, enc_prm.set_vcp_buf) != 0 && */
-			strlen(enc_prm.set_vcp_buf) != 0) {
+		if (/* strcmp(mtk_venc_vcp_log_prev, enc_prm->set_vcp_buf) != 0 && */
+			strlen(enc_prm->set_vcp_buf) != 0) {
 
 			if (venc_if_set_param(ctx,
 				VENC_SET_PARAM_VCP_LOG_INFO,
-				&enc_prm) != 0) {
+				enc_prm) != 0) {
 				mtk_v4l2_err("Error!! Cannot set venc vcp log info");
-				return;
+				goto err_set_vcp_data;
 			}
-			strcpy(mtk_venc_vcp_log_prev, enc_prm.set_vcp_buf);
+			strcpy(mtk_venc_vcp_log_prev, enc_prm->set_vcp_buf);
 		}
 	}
+
+err_set_vcp_data:
+	kfree(enc_prm);
 }
 static void get_supported_format(struct mtk_vcodec_ctx *ctx)
 {
@@ -457,10 +460,9 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		if (p->scenario == 3 || p->scenario == 1) {
 			src_vq = v4l2_m2m_get_vq(ctx->m2m_ctx,
 				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+			src_vq->mem_ops = &venc_dma_contig_memops;
 			if (ctx->enc_params.svp_mode && is_disable_map_sec() && mtk_venc_is_vcu())
 				src_vq->mem_ops = &venc_sec_dma_contig_memops;
-			else
-				src_vq->mem_ops = &venc_dma_contig_memops;
 		}
 		break;
 	case V4L2_CID_MPEG_MTK_ENCODE_NONREFP:
@@ -2123,7 +2125,7 @@ static void vb2ops_venc_buf_queue(struct vb2_buffer *vb)
 static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct mtk_vcodec_ctx *ctx = vb2_get_drv_priv(q);
-	struct venc_enc_param param;
+	struct venc_enc_param *param = NULL;
 	int ret;
 	int i;
 
@@ -2145,20 +2147,23 @@ static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 			return 0;
 	}
 
-	memset(&param, 0, sizeof(param));
-	mtk_venc_set_param(ctx, &param);
-	ret = venc_if_set_param(ctx, VENC_SET_PARAM_ENC, &param);
+	param = kzalloc(sizeof(*param), GFP_KERNEL);
+	if (!param)
+		return -ENOMEM;
+
+	mtk_venc_set_param(ctx, param);
+	ret = venc_if_set_param(ctx, VENC_SET_PARAM_ENC, param);
 
 	mtk_v4l2_debug(0,
 	"fmt 0x%x, P/L %d/%d, w/h %d/%d, buf %d/%d, fps/bps %d/%d(%d), gop %d, ip# %d opr %d async %d grid size %d/%d b#%d, slbc %d maxqp %d minqp %d",
-	param.input_yuv_fmt, param.profile,
-	param.level, param.width, param.height,
-	param.buf_width, param.buf_height,
-	param.frm_rate, param.bitrate, param.bitratemode,
-	param.gop_size, param.intra_period,
-	param.operationrate, ctx->async_mode,
-	(param.heif_grid_size>>16), param.heif_grid_size&0xffff,
-	param.num_b_frame, param.slbc_ready, param.max_qp, param.min_qp);
+	param->input_yuv_fmt, param->profile,
+	param->level, param->width, param->height,
+	param->buf_width, param->buf_height,
+	param->frm_rate, param->bitrate, param->bitratemode,
+	param->gop_size, param->intra_period,
+	param->operationrate, ctx->async_mode,
+	(param->heif_grid_size>>16), param->heif_grid_size&0xffff,
+	param->num_b_frame, param->slbc_ready, param->max_qp, param->min_qp);
 
 	if (ret) {
 		mtk_v4l2_err("venc_if_set_param failed=%d", ret);
@@ -2208,6 +2213,7 @@ err_set_param:
 					VB2_BUF_STATE_QUEUED);
 		}
 	}
+	kfree(param);
 
 	return ret;
 }
@@ -2367,54 +2373,57 @@ static int mtk_venc_encode_header(void *priv)
 
 static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 {
-	struct venc_enc_param enc_prm;
+	struct venc_enc_param *enc_prm = NULL;
 	struct vb2_v4l2_buffer *vb2_v4l2 = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
 	struct mtk_video_enc_buf *mtk_buf =
 		container_of(vb2_v4l2, struct mtk_video_enc_buf, vb);
 
 	int ret = 0;
 
-	memset(&enc_prm, 0, sizeof(enc_prm));
 	if (mtk_buf->param_change == MTK_ENCODE_PARAM_NONE)
 		return 0;
 
+	enc_prm = kzalloc(sizeof(*enc_prm), GFP_KERNEL);
+	if (!enc_prm)
+		return -ENOMEM;
+
 	if (mtk_buf->param_change & MTK_ENCODE_PARAM_BITRATE) {
-		enc_prm.bitrate = mtk_buf->enc_params.bitrate;
+		enc_prm->bitrate = mtk_buf->enc_params.bitrate;
 		mtk_v4l2_debug(1, "[%d] id=%d, change param br=%d",
 			       ctx->id,
 			       mtk_buf->vb.vb2_buf.index,
-			       enc_prm.bitrate);
+			       enc_prm->bitrate);
 		ret |= venc_if_set_param(ctx,
 					 VENC_SET_PARAM_ADJUST_BITRATE,
-					 &enc_prm);
+					 enc_prm);
 	}
 	if (mtk_buf->param_change & MTK_ENCODE_PARAM_SEC_ENCODE) {
-		enc_prm.svp_mode = mtk_buf->enc_params.svp_mode;
+		enc_prm->svp_mode = mtk_buf->enc_params.svp_mode;
 		mtk_v4l2_debug(0, "[%d] change param svp=%d",
 				ctx->id,
-				enc_prm.svp_mode);
+				enc_prm->svp_mode);
 		ret |= venc_if_set_param(ctx,
 					 VENC_SET_PARAM_SEC_MODE,
-					 &enc_prm);
+					 enc_prm);
 	}
 	if (!ret && mtk_buf->param_change & MTK_ENCODE_PARAM_FRAMERATE) {
-		enc_prm.frm_rate = mtk_buf->enc_params.framerate_num /
+		enc_prm->frm_rate = mtk_buf->enc_params.framerate_num /
 				   mtk_buf->enc_params.framerate_denom;
 		mtk_v4l2_debug(1, "[%d] id=%d, change param fr=%d",
 			       ctx->id,
 			       mtk_buf->vb.vb2_buf.index,
-			       enc_prm.frm_rate);
+			       enc_prm->frm_rate);
 		ret |= venc_if_set_param(ctx,
 					 VENC_SET_PARAM_ADJUST_FRAMERATE,
-					 &enc_prm);
+					 enc_prm);
 	}
 	if (!ret && mtk_buf->param_change & MTK_ENCODE_PARAM_GOP_SIZE) {
-		enc_prm.gop_size = mtk_buf->enc_params.gop_size;
+		enc_prm->gop_size = mtk_buf->enc_params.gop_size;
 		mtk_v4l2_debug(1, "change param intra period=%d",
-			       enc_prm.gop_size);
+			       enc_prm->gop_size);
 		ret |= venc_if_set_param(ctx,
 					 VENC_SET_PARAM_GOP_SIZE,
-					 &enc_prm);
+					 enc_prm);
 	}
 	if (!ret && mtk_buf->param_change & MTK_ENCODE_PARAM_FORCE_INTRA) {
 		mtk_v4l2_debug(1, "[%d] id=%d, change param force I=%d",
@@ -2428,11 +2437,11 @@ static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 	}
 
 	if (!ret && mtk_buf->param_change & MTK_ENCODE_PARAM_SCENARIO) {
-		enc_prm.scenario = mtk_buf->enc_params.scenario;
+		enc_prm->scenario = mtk_buf->enc_params.scenario;
 		if (mtk_buf->enc_params.scenario)
 			ret |= venc_if_set_param(ctx,
 						 VENC_SET_PARAM_SCENARIO,
-						 &enc_prm);
+						 enc_prm);
 		mtk_v4l2_debug(0, "[%d] idx=%d, change param scenario=%d async_mode=%d",
 			       ctx->id,
 			       mtk_buf->vb.vb2_buf.index,
@@ -2441,207 +2450,209 @@ static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 	}
 
 	if (!ret && mtk_buf->param_change & MTK_ENCODE_PARAM_NONREFP) {
-		enc_prm.nonrefp = mtk_buf->enc_params.nonrefp;
+		enc_prm->nonrefp = mtk_buf->enc_params.nonrefp;
 		mtk_v4l2_debug(1, "[%d] idx=%d, change param nonref=%d",
 			       ctx->id,
 			       mtk_buf->vb.vb2_buf.index,
 			       mtk_buf->enc_params.nonrefp);
 		ret |= venc_if_set_param(ctx,
 					 VENC_SET_PARAM_NONREFP,
-					 &enc_prm);
+					 enc_prm);
 	}
 
 	if (!ret && mtk_buf->param_change & MTK_ENCODE_PARAM_NONREFPFREQ) {
-		enc_prm.nonrefpfreq = mtk_buf->enc_params.nonrefpfreq;
+		enc_prm->nonrefpfreq = mtk_buf->enc_params.nonrefpfreq;
 		mtk_v4l2_debug(1, "[%d] idx=%d, change param nonrefpfreq=%d",
 			       ctx->id, mtk_buf->vb.vb2_buf.index,
 			       mtk_buf->enc_params.nonrefpfreq);
 		ret |= venc_if_set_param(
-				ctx, VENC_SET_PARAM_NONREFPFREQ, &enc_prm);
+				ctx, VENC_SET_PARAM_NONREFPFREQ, enc_prm);
 	}
 
 	if (!ret &&
 	mtk_buf->param_change & MTK_ENCODE_PARAM_DETECTED_FRAMERATE) {
-		enc_prm.detectframerate = mtk_buf->enc_params.detectframerate;
+		enc_prm->detectframerate = mtk_buf->enc_params.detectframerate;
 		mtk_v4l2_debug(1, "[%d] idx=%d, change param detectfr=%d",
 				ctx->id,
 				mtk_buf->vb.vb2_buf.index,
 				mtk_buf->enc_params.detectframerate);
 		ret |= venc_if_set_param(ctx,
 					VENC_SET_PARAM_DETECTED_FRAMERATE,
-					&enc_prm);
+					enc_prm);
 	}
 
 	if (!ret &&
 	mtk_buf->param_change & MTK_ENCODE_PARAM_RFS_ON) {
-		enc_prm.rfs = mtk_buf->enc_params.rfs;
+		enc_prm->rfs = mtk_buf->enc_params.rfs;
 		mtk_v4l2_debug(1, "[%d] idx=%d, change param rfs=%d",
 				ctx->id,
 				mtk_buf->vb.vb2_buf.index,
 				mtk_buf->enc_params.rfs);
 		ret |= venc_if_set_param(ctx,
 					VENC_SET_PARAM_RFS_ON,
-					&enc_prm);
+					enc_prm);
 	}
 
 	if (!ret &&
 	mtk_buf->param_change & MTK_ENCODE_PARAM_PREPEND_SPSPPS_TO_IDR) {
-		enc_prm.prependheader = mtk_buf->enc_params.prependheader;
+		enc_prm->prependheader = mtk_buf->enc_params.prependheader;
 		mtk_v4l2_debug(1, "[%d] idx=%d, prepend spspps idr=%d",
 				ctx->id,
 				mtk_buf->vb.vb2_buf.index,
 				mtk_buf->enc_params.prependheader);
 		ret |= venc_if_set_param(ctx,
 					VENC_SET_PARAM_PREPEND_SPSPPS_TO_IDR,
-					&enc_prm);
+					enc_prm);
 	}
 
 	if (!ret &&
 	mtk_buf->param_change & MTK_ENCODE_PARAM_OPERATION_RATE) {
-		enc_prm.operationrate = mtk_buf->enc_params.operationrate;
+		enc_prm->operationrate = mtk_buf->enc_params.operationrate;
 		mtk_v4l2_debug(1, "[%d] idx=%d, operationrate=%d",
 				ctx->id,
 				mtk_buf->vb.vb2_buf.index,
 				mtk_buf->enc_params.operationrate);
 		ret |= venc_if_set_param(ctx,
 					VENC_SET_PARAM_OPERATION_RATE,
-					&enc_prm);
+					enc_prm);
 	}
 
 	if (!ret &&
 	mtk_buf->param_change & MTK_ENCODE_PARAM_BITRATE_MODE) {
-		enc_prm.bitratemode = mtk_buf->enc_params.bitratemode;
+		enc_prm->bitratemode = mtk_buf->enc_params.bitratemode;
 		mtk_v4l2_debug(1, "[%d] idx=%d, bitratemode=%d",
 				ctx->id,
 				mtk_buf->vb.vb2_buf.index,
 				mtk_buf->enc_params.bitratemode);
 		ret |= venc_if_set_param(ctx,
 					VENC_SET_PARAM_BITRATE_MODE,
-					&enc_prm);
+					enc_prm);
 	}
 
 	if (!ret &&
 	mtk_buf->param_change & MTK_ENCODE_PARAM_ROI_ON) {
-		enc_prm.roion = mtk_buf->enc_params.roion;
+		enc_prm->roion = mtk_buf->enc_params.roion;
 		mtk_v4l2_debug(1, "[%d] idx=%d, roion=%d",
 				ctx->id,
 				mtk_buf->vb.vb2_buf.index,
 				mtk_buf->enc_params.roion);
 		ret |= venc_if_set_param(ctx,
 					VENC_SET_PARAM_ROI_ON,
-					&enc_prm);
+					enc_prm);
 	}
 
 	if (!ret &&
 	mtk_buf->param_change & MTK_ENCODE_PARAM_GRID_SIZE) {
-		enc_prm.heif_grid_size = mtk_buf->enc_params.heif_grid_size;
+		enc_prm->heif_grid_size = mtk_buf->enc_params.heif_grid_size;
 		mtk_v4l2_err("[%d] idx=%d, heif_grid_size=%d",
 				ctx->id,
 				mtk_buf->vb.vb2_buf.index,
 				mtk_buf->enc_params.heif_grid_size);
 		ret |= venc_if_set_param(ctx,
 					VENC_SET_PARAM_HEIF_GRID_SIZE,
-					&enc_prm);
+					enc_prm);
 	}
 
 	if (!ret &&
 	mtk_buf->param_change & MTK_ENCODE_PARAM_COLOR_DESC) {
 		// avoid much copies
-		enc_prm.color_desc = &mtk_buf->enc_params.color_desc;
+		enc_prm->color_desc = &mtk_buf->enc_params.color_desc;
 		mtk_v4l2_err("[%d] idx=%d, color_primaries=%d range=%d",
 				ctx->id,
 				mtk_buf->vb.vb2_buf.index,
-				enc_prm.color_desc->color_primaries,
-				enc_prm.color_desc->full_range);
+				enc_prm->color_desc->color_primaries,
+				enc_prm->color_desc->full_range);
 		ret |= venc_if_set_param(ctx,
 					VENC_SET_PARAM_COLOR_DESC,
-					&enc_prm);
+					enc_prm);
 	}
 
 	if (!ret &&
 	mtk_buf->param_change & MTK_ENCODE_PARAM_TSVC) {
-		enc_prm.tsvc = mtk_buf->enc_params.tsvc;
+		enc_prm->tsvc = mtk_buf->enc_params.tsvc;
 		mtk_v4l2_debug(1, "[%d] idx=%d, tsvc=%d",
 				ctx->id,
 				mtk_buf->vb.vb2_buf.index,
 				mtk_buf->enc_params.tsvc);
 		ret |= venc_if_set_param(ctx,
 					VENC_SET_PARAM_TSVC,
-					&enc_prm);
+					enc_prm);
 	}
 
 	if (!ret && mtk_buf->param_change & MTK_ENCODE_PARAM_HIGHQUALITY) {
-		enc_prm.highquality = mtk_buf->enc_params.highquality;
+		enc_prm->highquality = mtk_buf->enc_params.highquality;
 		mtk_v4l2_debug(1, "[%d] idx=%d, enable highquality=%d",
 				ctx->id,
 				mtk_buf->vb.vb2_buf.index,
 				mtk_buf->enc_params.highquality);
 		ret |= venc_if_set_param(ctx,
 					VENC_SET_PARAM_ENABLE_HIGHQUALITY,
-					&enc_prm);
+					enc_prm);
 	}
 
 	if (!ret &&
 	mtk_buf->param_change & MTK_ENCODE_PARAM_MAXQP) {
-		enc_prm.max_qp = mtk_buf->enc_params.max_qp;
+		enc_prm->max_qp = mtk_buf->enc_params.max_qp;
 		mtk_v4l2_debug(1, "[%d] idx=%d, max_qp=%d",
 				ctx->id,
 				mtk_buf->vb.vb2_buf.index,
 				mtk_buf->enc_params.max_qp);
 		ret |= venc_if_set_param(ctx,
 					VENC_SET_PARAM_ADJUST_MAX_QP,
-					&enc_prm);
+					enc_prm);
 	}
 
 	if (!ret &&
 	mtk_buf->param_change & MTK_ENCODE_PARAM_MINQP) {
-		enc_prm.min_qp = mtk_buf->enc_params.min_qp;
+		enc_prm->min_qp = mtk_buf->enc_params.min_qp;
 		mtk_v4l2_debug(1, "[%d] idx=%d, min_qp=%d",
 				ctx->id,
 				mtk_buf->vb.vb2_buf.index,
 				mtk_buf->enc_params.min_qp);
 		ret |= venc_if_set_param(ctx,
 					VENC_SET_PARAM_ADJUST_MIN_QP,
-					&enc_prm);
+					enc_prm);
 	}
 
 	if (!ret &&
 	mtk_buf->param_change & MTK_ENCODE_PARAM_IP_QPDELTA) {
-		enc_prm.ip_qpdelta = mtk_buf->enc_params.ip_qpdelta;
+		enc_prm->ip_qpdelta = mtk_buf->enc_params.ip_qpdelta;
 		mtk_v4l2_debug(1, "[%d] idx=%d, ip_qpdelta=%d",
 				ctx->id,
 				mtk_buf->vb.vb2_buf.index,
 				mtk_buf->enc_params.ip_qpdelta);
 		ret |= venc_if_set_param(ctx,
 					VENC_SET_PARAM_ADJUST_I_P_QP_DELTA,
-					&enc_prm);
+					enc_prm);
 	}
 
 	if (!ret &&
 	mtk_buf->param_change & MTK_ENCODE_PARAM_FRAMELVLQP) {
-		enc_prm.framelvl_qp = mtk_buf->enc_params.framelvl_qp;
+		enc_prm->framelvl_qp = mtk_buf->enc_params.framelvl_qp;
 		mtk_v4l2_debug(1, "[%d] idx=%d, framelvl_qp=%d",
 				ctx->id,
 				mtk_buf->vb.vb2_buf.index,
 				mtk_buf->enc_params.framelvl_qp);
 		ret |= venc_if_set_param(ctx,
 					VENC_SET_PARAM_ADJUST_FRAME_LEVEL_QP,
-					&enc_prm);
+					enc_prm);
 	}
 
 	if (!ret &&
 	mtk_buf->param_change & MTK_ENCODE_PARAM_DUMMY_NAL) {
-		enc_prm.dummynal = mtk_buf->enc_params.dummynal;
+		enc_prm->dummynal = mtk_buf->enc_params.dummynal;
 		mtk_v4l2_debug(1, "[%d] idx=%d, tsvc=%d",
 				ctx->id,
 				mtk_buf->vb.vb2_buf.index,
 				mtk_buf->enc_params.dummynal);
 		ret |= venc_if_set_param(ctx,
 					VENC_SET_PARAM_ENABLE_DUMMY_NAL,
-					&enc_prm);
+					enc_prm);
 	}
 
 	mtk_buf->param_change = MTK_ENCODE_PARAM_NONE;
+
+	kfree(enc_prm);
 
 	if (ret) {
 		ctx->state = MTK_STATE_ABORT;

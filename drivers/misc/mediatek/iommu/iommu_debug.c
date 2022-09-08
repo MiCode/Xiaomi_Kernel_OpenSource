@@ -74,6 +74,10 @@ static struct iova_buf_list iova_list = {.init_flag = ATOMIC_INIT(0)};
 	} while (0)
 #endif
 
+#define M4U0_PORT_INIT(name, slave, larb, port)  {\
+		name, 0, slave, larb, port, (((larb)<<7)|((port)<<2)),\
+}
+
 #define MM_IOMMU_PORT_INIT(name, m4u_id, larb_id, tf_larb, port_id)  {\
 	name, m4u_id, larb_id, port_id, (((tf_larb)<<7)|((port_id)<<2)), 1\
 }
@@ -156,6 +160,138 @@ static struct peri_iommu_data mt6983_peri_iommu_data[PERI_IOMMU_NUM] = {
 		.id = PERI_IOMMU_M7,
 		.bus_id = 7,
 	},
+};
+
+
+static const struct mtk_iommu_port iommu_port_mt6765[] = {
+	/*Larb0 */
+	M4U0_PORT_INIT("DISP_OVL0", 0, 0, 0),
+	M4U0_PORT_INIT("DISP_2L_OVL0_LARB0", 0, 0, 1),
+	M4U0_PORT_INIT("DISP_RDMA0", 0, 0, 2),
+	M4U0_PORT_INIT("DISP_WDMA0", 0, 0, 3),
+	M4U0_PORT_INIT("MDP_RDMA0", 0, 0, 4),
+	M4U0_PORT_INIT("MDP_WDMA0", 0, 0, 5),
+	M4U0_PORT_INIT("MDP_WROT0", 0, 0, 6),
+	M4U0_PORT_INIT("DISP_FAKE0", 0, 0, 7),
+	/*Larb1 */
+	M4U0_PORT_INIT("VENC_RCPU", 0, 1, 0),
+	M4U0_PORT_INIT("VENC_REC", 0, 1, 1),
+	M4U0_PORT_INIT("VENC_BSDMA", 0, 1, 2),
+	M4U0_PORT_INIT("VENC_SV_COMV", 0, 1, 3),
+	M4U0_PORT_INIT("VENC_RD_COMV", 0, 1, 4),
+	M4U0_PORT_INIT("JPGENC_RDMA", 0, 1, 5),
+	M4U0_PORT_INIT("JPGENC_BSDMA", 0, 1, 6),
+	M4U0_PORT_INIT("VENC_CUR_LUMA", 0, 1, 7),
+	M4U0_PORT_INIT("VENC_CUR_CHROMA", 0, 1, 8),
+	M4U0_PORT_INIT("VENC_REF_LUMA", 0, 1, 9),
+	M4U0_PORT_INIT("VENC_REF_CHROMA", 0, 1, 10),
+	/*Larb2 */
+	M4U0_PORT_INIT("CAM_IMGI", 0, 2, 0),
+	M4U0_PORT_INIT("CAM_IMG2O", 0, 2, 1),
+	M4U0_PORT_INIT("CAM_IMG3O", 0, 2, 2),
+	M4U0_PORT_INIT("CAM_VIPI", 0, 2, 3),
+	M4U0_PORT_INIT("CAM_LCEI", 0, 2, 4),
+	M4U0_PORT_INIT("CAM_FD_RP", 0, 2, 5),
+	M4U0_PORT_INIT("CAM_FD_WR", 0, 2, 6),
+	M4U0_PORT_INIT("CAM_FD_RB", 0, 2, 7),
+	M4U0_PORT_INIT("CAM_DPE_RDMA", 0, 2, 8),
+	M4U0_PORT_INIT("CAM_DPE_WDMA", 0, 2, 9),
+	M4U0_PORT_INIT("CAM_RSC_RDMA0", 0, 2, 10),
+	M4U0_PORT_INIT("CAM_RSC_WDMA", 0, 2, 11),
+	/*Larb3 */
+	M4U0_PORT_INIT("CAM_IMGO", 0, 3, 0),
+	M4U0_PORT_INIT("CAM_RRZO", 0, 3, 1),
+	M4U0_PORT_INIT("CAM_AAO", 0, 3, 2),
+	M4U0_PORT_INIT("CAM_AFO", 0, 3, 3),
+	M4U0_PORT_INIT("CAM_LSCI0", 0, 3, 4),
+	M4U0_PORT_INIT("CAM_LSCI1", 0, 3, 5),
+	M4U0_PORT_INIT("CAM_PDO", 0, 3, 6),
+	M4U0_PORT_INIT("CAM_BPCI", 0, 3, 7),
+	M4U0_PORT_INIT("CAM_LCSO", 0, 3, 8),
+	M4U0_PORT_INIT("CAM_RSSO_A", 0, 3, 9),
+	M4U0_PORT_INIT("CAM_RSSO_B", 0, 3, 10),
+	M4U0_PORT_INIT("CAM_UFEO", 0, 3, 11),
+	M4U0_PORT_INIT("CAM_SOCO", 0, 3, 12),
+	M4U0_PORT_INIT("CAM_SOC1", 0, 3, 13),
+	M4U0_PORT_INIT("CAM_SOC2", 0, 3, 14),
+	M4U0_PORT_INIT("CAM_CCUI", 0, 3, 15),
+	M4U0_PORT_INIT("CAM_CCUO", 0, 3, 16),
+	M4U0_PORT_INIT("CAM_CACI", 0, 3, 17),
+	M4U0_PORT_INIT("CAM_RAWI_A", 0, 3, 18),
+	M4U0_PORT_INIT("CAM_RAWI_B", 0, 3, 19),
+	M4U0_PORT_INIT("CAM_CCUG", 0, 3, 20),
+
+	M4U0_PORT_INIT("UNKNOWN", 0, 0, 0)
+};
+static const struct mtk_iommu_port iommu_port_mt6768[] = {
+	/*Larb0 */
+	M4U0_PORT_INIT("DISP_OVL0", 0, 0, 0),
+	M4U0_PORT_INIT("DISP_2L_OVL0_LARB0", 0, 0, 1),
+	M4U0_PORT_INIT("DISP_RDMA0", 0, 0, 2),
+	M4U0_PORT_INIT("DISP_WDMA0", 0, 0, 3),
+	M4U0_PORT_INIT("MDP_RDMA0", 0, 0, 4),
+	M4U0_PORT_INIT("MDP_WDMA0", 0, 0, 5),
+	M4U0_PORT_INIT("MDP_WROT0", 0, 0, 6),
+	M4U0_PORT_INIT("DISP_FAKE0", 0, 0, 7),
+	/*Larb1 */
+	M4U0_PORT_INIT("VDEC_MC", 0, 1, 0),
+	M4U0_PORT_INIT("VDEC_PP", 0, 1, 1),
+	M4U0_PORT_INIT("VDEC_VLD", 0, 1, 2),
+	M4U0_PORT_INIT("VDEC_VLD2", 0, 1, 3),
+	M4U0_PORT_INIT("VDEC_AVC_MV", 0, 1, 4),
+	M4U0_PORT_INIT("VDEC_PRED_RD", 0, 1, 5),
+	M4U0_PORT_INIT("VDEC_PRED_WR", 0, 1, 6),
+	M4U0_PORT_INIT("VDEC_PPWRAP", 0, 1, 7),
+	M4U0_PORT_INIT("VDEC_TILE", 0, 1, 8),
+	/*Larb2 */
+	M4U0_PORT_INIT("CAM_IMGI", 0, 2, 0),
+	M4U0_PORT_INIT("CAM_IMG2O", 0, 2, 1),
+	M4U0_PORT_INIT("CAM_IMG3O", 0, 2, 2),
+	M4U0_PORT_INIT("CAM_VIPI", 0, 2, 3),
+	M4U0_PORT_INIT("CAM_LCEI", 0, 2, 4),
+	M4U0_PORT_INIT("CAM_FD_RP", 0, 2, 5),
+	M4U0_PORT_INIT("CAM_FD_WR", 0, 2, 6),
+	M4U0_PORT_INIT("CAM_FD_RB", 0, 2, 7),
+	M4U0_PORT_INIT("CAM_DPE_RDMA", 0, 2, 8),
+	M4U0_PORT_INIT("CAM_DPE_WDMA", 0, 2, 9),
+	M4U0_PORT_INIT("CAM_RSC_RDMA", 0, 2, 10),
+	M4U0_PORT_INIT("CAM_RSC_WDMA", 0, 2, 11),
+	/*Larb3 */
+	M4U0_PORT_INIT("CAM_IMGO", 0, 3, 0),
+	M4U0_PORT_INIT("CAM_RRZO", 0, 3, 1),
+	M4U0_PORT_INIT("CAM_AAO", 0, 3, 2),
+	M4U0_PORT_INIT("CAM_AFO", 0, 3, 3),
+	M4U0_PORT_INIT("CAM_LSCI0", 0, 3, 4),
+	M4U0_PORT_INIT("CAM_LSCI1", 0, 3, 5),
+	M4U0_PORT_INIT("CAM_PDO", 0, 3, 6),
+	M4U0_PORT_INIT("CAM_BPCI", 0, 3, 7),
+	M4U0_PORT_INIT("CAM_LCSO", 0, 3, 8),
+	M4U0_PORT_INIT("CAM_RSSO_A", 0, 3, 9),
+	M4U0_PORT_INIT("CAM_RSSO_B", 0, 3, 10),
+	M4U0_PORT_INIT("CAM_UFEO", 0, 3, 11),
+	M4U0_PORT_INIT("CAM_SOCO", 0, 3, 12),
+	M4U0_PORT_INIT("CAM_SOC1", 0, 3, 13),
+	M4U0_PORT_INIT("CAM_SOC2", 0, 3, 14),
+	M4U0_PORT_INIT("CAM_CCUI", 0, 3, 15),
+	M4U0_PORT_INIT("CAM_CCUO", 0, 3, 16),
+	M4U0_PORT_INIT("CAM_CACI", 0, 3, 17),
+	M4U0_PORT_INIT("CAM_RAWI_A", 0, 3, 18),
+	M4U0_PORT_INIT("CAM_RAWI_B", 0, 3, 19),
+	M4U0_PORT_INIT("CAM_CCUG", 0, 3, 20),
+	/*Larb4 */
+	M4U0_PORT_INIT("VENC_RCPU", 0, 4, 0),
+	M4U0_PORT_INIT("VENC_REC", 0, 4, 1),
+	M4U0_PORT_INIT("VENC_BSDMA", 0, 4, 2),
+	M4U0_PORT_INIT("VENC_SV_COMV", 0, 4, 3),
+	M4U0_PORT_INIT("VENC_RD_COMV", 0, 4, 4),
+	M4U0_PORT_INIT("JPGENC_RDMA", 0, 4, 5),
+	M4U0_PORT_INIT("JPGENC_BSDMA", 0, 4, 6),
+	M4U0_PORT_INIT("VENC_CUR_LUMA", 0, 4, 7),
+	M4U0_PORT_INIT("VENC_CUR_CHROMA", 0, 4, 8),
+	M4U0_PORT_INIT("VENC_REF_LUMA", 0, 4, 9),
+	M4U0_PORT_INIT("VENC_REF_CHROMA", 0, 4, 10),
+
+	M4U0_PORT_INIT("UNKNOWN", 0, 0, 0)
 };
 
 static const struct mtk_iommu_port iommu_port_mt6779[] = {
@@ -3469,8 +3605,11 @@ struct iova_count_list {
 
 static struct iova_count_list count_list = {};
 
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
 static void mtk_iommu_iova_trace(int event, dma_addr_t iova, size_t size,
 				u32 tab_id, struct device *dev);
+#endif
+
 static void mtk_iommu_iova_alloc_dump_top(struct seq_file *s,
 				struct device *dev);
 static void mtk_iommu_iova_alloc_dump(struct seq_file *s, struct device *dev);
@@ -3518,7 +3657,9 @@ void mtk_iova_map(int tab_id, u64 iova, size_t size)
 	list_add(&iova_buf->list_node, &map_list.head[id]);
 	spin_unlock_irqrestore(&map_list.lock, flags);
 
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
 	mtk_iommu_iova_trace(IOMMU_MAP, iova, size, tab_id, NULL);
+#endif
 }
 EXPORT_SYMBOL_GPL(mtk_iova_map);
 
@@ -3555,7 +3696,9 @@ void mtk_iova_unmap(int tab_id, u64 iova, size_t size)
 		pr_info("%s time:%llu\n", __func__, (end_t - start_t));
 	spin_unlock_irqrestore(&map_list.lock, flags);
 
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
 	mtk_iommu_iova_trace(IOMMU_UNMAP, iova, size, tab_id, NULL);
+#endif
 }
 EXPORT_SYMBOL_GPL(mtk_iova_unmap);
 
@@ -4249,6 +4392,7 @@ static void mtk_iommu_trace_rec_write(int event,
 	spin_unlock_irqrestore(&iommu_globals.lock, flags);
 }
 
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
 static void mtk_iommu_iova_trace(int event, dma_addr_t iova, size_t size,
 				u32 tab_id, struct device *dev)
 {
@@ -4261,6 +4405,7 @@ static void mtk_iommu_iova_trace(int event, dma_addr_t iova, size_t size,
 
 	mtk_iommu_trace_rec_write(event, (unsigned long) iova, size, tab_id, dev);
 }
+#endif
 
 void mtk_iommu_tlb_sync_trace(u64 iova, size_t size, int iommu_ids)
 {
@@ -4543,7 +4688,9 @@ static void mtk_iova_dbg_alloc(struct device *dev, struct iova_domain *iovad,
 	list_add(&iova_buf->list_node, &iova_list.head);
 	spin_unlock(&iova_list.lock);
 
-	mtk_iommu_iova_trace(IOMMU_ALLOC, iova, size, tab_id, dev);
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
+	mtk_iommu_iova_trace(IOMMU_ALLOC, iova, size, iova_buf->tab_id, dev);
+#endif
 }
 
 static void mtk_iova_dbg_free(struct iova_domain *iovad, dma_addr_t iova, size_t size)
@@ -4569,7 +4716,9 @@ static void mtk_iova_dbg_free(struct iova_domain *iovad, dma_addr_t iova, size_t
 		pr_warn("%s warnning, iova is not find, iova:0x%lx\n",
 			__func__, (unsigned long)iova);
 
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
 	mtk_iommu_iova_trace(IOMMU_FREE, iova, size, tab_id, dev);
+#endif
 }
 
 /* all code inside alloc_iova_hook can't be scheduled! */
@@ -4644,6 +4793,16 @@ static int mt6983_tf_is_gce_videoup(u32 port_tf, u32 vld_tf)
 	       FIELD_GET(GENMASK(1, 0), vld_tf);
 
 }
+
+static const struct mtk_m4u_plat_data mt6765_data = {
+	.port_list[MM_IOMMU] = iommu_port_mt6765,
+	.port_nr[MM_IOMMU]   = ARRAY_SIZE(iommu_port_mt6765),
+};
+
+static const struct mtk_m4u_plat_data mt6768_data = {
+	.port_list[MM_IOMMU] = iommu_port_mt6768,
+	.port_nr[MM_IOMMU]   = ARRAY_SIZE(iommu_port_mt6768),
+};
 
 static const struct mtk_m4u_plat_data mt6779_data = {
 	.port_list[MM_IOMMU] = iommu_port_mt6779,
@@ -4734,6 +4893,8 @@ static const struct mtk_m4u_plat_data mt6895_data = {
 };
 
 static const struct of_device_id mtk_m4u_dbg_of_ids[] = {
+	{ .compatible = "mediatek,mt6765-iommu-debug", .data = &mt6765_data},
+	{ .compatible = "mediatek,mt6768-iommu-debug", .data = &mt6768_data},
 	{ .compatible = "mediatek,mt6779-iommu-debug", .data = &mt6779_data},
 	{ .compatible = "mediatek,mt6789-iommu-debug", .data = &mt6789_data},
 	{ .compatible = "mediatek,mt6833-iommu-debug", .data = &mt6833_data},

@@ -85,3 +85,27 @@ config INTERCONNECT_MTK_MMQOS_MT6789
 	select INTERCONNECT_MTK_MMQOS_COMMON
 	help
 	  Support MT6789 multimedia QoS.
+
+config INTERCONNECT_MTK_MMQOS_MT6768
+	tristate "Mediatek MT6768 MMQoS interconnect driver"
+	depends on INTERCONNECT_MTK
+	depends on MTK_SMI
+	select INTERCONNECT_MTK_MMQOS_COMMON
+	help
+	  Support MT6768 multimedia QoS.
+
+config INTERCONNECT_MTK_MMQOS_MT6765
+	tristate "Mediatek MT6765 MMQoS interconnect driver"
+	depends on INTERCONNECT_MTK
+	depends on MTK_SMI
+	select INTERCONNECT_MTK_MMQOS_COMMON
+	help
+	  Support MT6765 multimedia QoS.
+
+config INTERCONNECT_MTK_MMQOS_MT6833
+	tristate "Mediatek MT6833 MMQoS interconnect driver"
+	depends on INTERCONNECT_MTK
+	depends on MTK_SMI
+	select INTERCONNECT_MTK_MMQOS_COMMON
+	help
+	  Support MT6833 multimedia QoS.

@@ -1,0 +1,15 @@
+config MTK_SPM
+	tristate "MTK SPM"
+	help
+	  This kernel config can be used to enable MTK QOS FRAMEWORK.
+	  When enabling this option, BW Limiter and BW Bound Detector
+	  will be enabled and set EMI hardware.
+	  If unsure, say N.
+
+config MTK_SPM_V0
+	tristate "MTK SPM V0"
+	help
+	  This kernel config can be used to enable MTK SPM V0
+	  for MT6765.
+
+	  If unsure, say N.

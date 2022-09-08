@@ -38,6 +38,7 @@
 #define I2C_I3C_EN			(1 << 15)
 #define I2C_HFIFO_UNLOCK		(1 << 15)
 #define I2C_HFIFO_NINTH_BIT		(2 << 8)
+#define I2C_HHS_SAMPLE_CNT_DIV		(1 << 9)
 #define I2C_HFIFO_MASTER_CODE		0x0008
 #define I2C_DCM_DISABLE			0x0000
 #define I2C_IO_CONFIG_OPEN_DRAIN	0x0003
@@ -250,6 +251,7 @@ struct mtk_i2c_compatible {
 	unsigned char max_dma_support;
 	unsigned char slave_addr_ver;
 	unsigned char fifo_size;
+	unsigned char need_add_hhs_div;
 };
 
 struct mtk_i2c_ac_timing {
@@ -451,6 +453,38 @@ static const struct mtk_i2c_compatible mt8192_compat = {
 	.max_dma_support = 36,
 };
 
+static const struct mtk_i2c_compatible mt6765_compat = {
+	.regs = mt_i2c_regs_v2,
+	.pmic_i2c = 0,
+	.dcm = 0,
+	.auto_restart = 1,
+	.aux_len_reg = 1,
+	.timing_adjust = 1,
+	.dma_sync = 1,
+	.ltiming_adjust = 1,
+	.dma_ver = 0,
+	.apdma_sync = 1,
+	.max_dma_support = 36,
+	.fifo_size = 8,
+	.need_add_hhs_div = 0,
+};
+
+static const struct mtk_i2c_compatible mt6768_compat = {
+	.regs = mt_i2c_regs_v2,
+	.pmic_i2c = 0,
+	.dcm = 0,
+	.auto_restart = 1,
+	.aux_len_reg = 1,
+	.timing_adjust = 1,
+	.dma_sync = 1,
+	.ltiming_adjust = 1,
+	.dma_ver = 0,
+	.apdma_sync = 1,
+	.max_dma_support = 36,
+	.fifo_size = 8,
+	.need_add_hhs_div = 1,
+};
+
 static const struct mtk_i2c_compatible mt6873_compat = {
 	.regs = mt_i2c_regs_v2,
 	.pmic_i2c = 0,
@@ -509,6 +543,8 @@ static const struct of_device_id mtk_i2c_of_match[] = {
 	{ .compatible = "mediatek,mt8173-i2c", .data = &mt8173_compat },
 	{ .compatible = "mediatek,mt8183-i2c", .data = &mt8183_compat },
 	{ .compatible = "mediatek,mt8192-i2c", .data = &mt8192_compat },
+	{ .compatible = "mediatek,mt6765-i2c", .data = &mt6765_compat },
+	{ .compatible = "mediatek,mt6768-i2c", .data = &mt6768_compat },
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_i2c_of_match);
@@ -771,6 +807,9 @@ static int mtk_i2c_check_ac_timing(struct mtk_i2c *i2c,
 			i2c->ac_timing.hs = I2C_TIME_DEFAULT_VALUE |
 				I2C_TIME_HS_SPEED_VALUE | (sample_cnt << 12) |
 				(high_cnt << 8);
+			/* Add hs smaple cnt div to make data correct */
+			if (i2c->dev_comp->need_add_hhs_div == 1)
+				i2c->ac_timing.hs |= I2C_HHS_SAMPLE_CNT_DIV;
 			i2c->ac_timing.ltiming &= ~GENMASK(15, 9);
 			i2c->ac_timing.ltiming |= (sample_cnt << 12) |
 				(low_cnt << 9);

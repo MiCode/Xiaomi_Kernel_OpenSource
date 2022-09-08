@@ -73,10 +73,12 @@ extern u64 fb_timeout;
 extern u64 lb_timeout;
 
 extern unsigned int ged_is_fdvfs_support(void);
+#if defined(MTK_GPU_EB_SUPPORT)
 extern void mtk_gpueb_dvfs_commit(unsigned long ui32NewFreqID,
 	GED_DVFS_COMMIT_TYPE eCommitType, int *pbCommited);
 extern int mtk_gpueb_sysram_batch_read(int max_read_count,
 	char *batch_string, int batch_str_size);
+#endif
 
 /* set core_mask to DDK */
 extern int (*ged_dvfs_set_gpu_core_mask_fp)(u64 core_mask);

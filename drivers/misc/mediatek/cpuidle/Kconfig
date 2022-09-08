@@ -1,0 +1,7 @@
+config MEDIATEK_CPUIDLE
+	tristate "Mediatek cpu idle driver"
+	help
+	  This kernel config can buiding mediatek cpu idle driver
+	  This driver can support the device to enter idle mode to
+	  save power consumption.
+          If unsure, say N.

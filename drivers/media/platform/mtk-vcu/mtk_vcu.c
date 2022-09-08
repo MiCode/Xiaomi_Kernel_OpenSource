@@ -36,9 +36,7 @@
 #include <linux/signal.h>
 #include <trace/events/signal.h>
 #include <linux/string.h>
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 #include "cmdq-sec.h"
-#endif
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU)
 #include <linux/iommu.h>
@@ -107,6 +105,11 @@
 #define MAP_SHMEM_MM_END        (MAP_SHMEM_MM_BASE + MAP_SHMEM_MM_RANGE)
 #define MAP_SHMEM_MM_CACHEABLE_END (MAP_SHMEM_MM_CACHEABLE_BASE \
 + MAP_SHMEM_MM_RANGE)
+
+#define MAP_TYPE_NONE 0
+#define MAP_TYPE_SHMEM_MM 1
+#define MAP_TYPE_SHMEM_MM_CACHEABLE 2
+#define MAP_TYPE_SHMEM_MM_PA 3
 
 struct mtk_vcu *vcu_ptr;
 static char *vcodec_param_string = "";
@@ -1203,7 +1206,6 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 	cmdq_pkt_destroy(buff->pkt_ptr);
 }
 
-
 static void vcu_gce_pkt_destroy(struct cmdq_cb_data data)
 {
 	struct cmdq_pkt *pkt = (struct cmdq_pkt *)data.data;
@@ -1254,7 +1256,8 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 	int i, j, ret;
 	unsigned char *user_data_addr = NULL;
 	struct gce_callback_data buff;
-	struct cmdq_pkt *pkt_ptr, *pkt;
+	struct cmdq_pkt *pkt_ptr;
+	struct cmdq_pkt *pkt;
 	struct cmdq_client *cl;
 	struct gce_cmds *cmds;
 	unsigned int suspend_block_cnt = 0;
@@ -1371,7 +1374,6 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 			} else {
 				if (vcu->clt_venc_sec[0] != NULL)
 					cmdq_sec_mbox_enable(vcu->clt_venc_sec[0]->chan);
-
 				if (vcu->clt_venc[1] != NULL)
 					cmdq_mbox_enable(vcu->clt_venc[1]->chan);
 			}
@@ -1502,7 +1504,6 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 				cmds->mask[i], vcu->gce_gpr[core_id],
 				cmds->dma_offset[i], cmds->dma_size[i]);
 		}
-
 	} else {
 		for (i = 0; i < cmds->cmd_cnt; i++) {
 			vcu_set_gce_cmd(pkt_ptr, vcu, j, gce_order, q, cmds->cmd[i],
@@ -2163,6 +2164,63 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 		return -EINVAL;
 	}
 
+	// Second hanlde MM base or MM_CACHEABLE_BASE for 32bit project
+	if (vcu_queue->map_buf_type == MAP_TYPE_SHMEM_MM ||
+			vcu_queue->map_buf_type == MAP_TYPE_SHMEM_MM_CACHEABLE) {
+		mem_buff_data.iova = (vcu_ptr->iommu_padding) ?
+			(pa_start | 0x100000000UL) : pa_start;
+		mem_buff_data.len = length;
+		src_vb = NULL;
+		dst_vb = NULL;
+		if (strcmp(current->comm, "vdec_srv") == 0) {
+			src_vb = vcu_dev->curr_src_vb[VCU_VDEC];
+			dst_vb = vcu_dev->curr_dst_vb[VCU_VDEC];
+		} else if (strcmp(current->comm, "venc_srv") == 0) {
+			src_vb = vcu_dev->curr_src_vb[VCU_VENC];
+			dst_vb = vcu_dev->curr_dst_vb[VCU_VENC];
+		}
+
+		ret = mtk_vcu_set_buffer(vcu_queue, &mem_buff_data,
+			src_vb, dst_vb);
+		if (!IS_ERR_OR_NULL(ret)) {
+			vcu_dbg_log("[VCU] mtk_vcu_buf_vm_mmap mem_priv %lx iova %llx\n",
+				 (unsigned long)ret, pa_start);
+
+			vma->vm_ops = &mtk_vcu_buf_vm_ops;
+			vma->vm_private_data = ret;
+			vma->vm_file = file;
+		}
+#if IS_ENABLED(CONFIG_MTK_IOMMU)
+		while (length > 0) {
+			vma->vm_pgoff = iommu_iova_to_phys(io_domain,
+				(vcu_ptr->iommu_padding) ?
+				((pa_start + pos) | 0x100000000UL) :
+				(pa_start + pos));
+			if (vma->vm_pgoff == 0) {
+				dev_info(vcu_dev->dev, "[VCU] iommu_iova_to_phys fail vcu_ptr->iommu_padding = %d pa_start = 0x%lx\n",
+					vcu_ptr->iommu_padding, pa_start);
+				return -EINVAL;
+			}
+			vma->vm_pgoff >>= PAGE_SHIFT;
+			if (vcu_queue->map_buf_type == MAP_TYPE_SHMEM_MM) {
+				vma->vm_page_prot =
+					pgprot_writecombine(vma->vm_page_prot);
+			}
+			if (remap_pfn_range(vma, start, vma->vm_pgoff,
+				PAGE_SIZE, vma->vm_page_prot) == true)
+				return -EAGAIN;
+
+			start += PAGE_SIZE;
+			pos += PAGE_SIZE;
+			if (length > PAGE_SIZE)
+				length -= PAGE_SIZE;
+			else
+				length = 0;
+		}
+		return 0;
+#endif
+	}
+
 	/*only vcud need this case*/
 	if (pa_start < MAP_PA_BASE_1GB) {
 		if (vcu_check_reg_base(vcu_dev, pa_start, length) == 0) {
@@ -2273,6 +2331,7 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 	struct device *dev;
 	struct share_obj share_buff_data;
 	struct mem_obj mem_buff_data;
+	struct map_obj mem_map_data;
 	struct mtk_vcu_queue *vcu_queue =
 		(struct mtk_vcu_queue *)file->private_data;
 
@@ -2303,6 +2362,18 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case VCU_GET_LOG_OBJECT:
 		ret = vcu_log_get(vcu_dev, arg);
+		break;
+	case VCU_SET_MMAP_TYPE:
+		user_data_addr = (unsigned char *)arg;
+		ret = (long)copy_from_user(&mem_map_data, user_data_addr,
+			(unsigned long)sizeof(struct map_obj));
+		if (ret != 0L) {
+			pr_info("[VCU] %s(%d) Copy data from user failed!\n",
+			       __func__, __LINE__);
+			return -EINVAL;
+		}
+		vcu_queue->map_buf_type = mem_map_data.map_type;
+		vcu_dbg_log("[VCU] set map_buf_type: %d\n", vcu_queue->map_buf_type);
 		break;
 	case VCU_MVA_ALLOCATION:
 	case VCU_UBE_MVA_ALLOCATION:
@@ -2540,6 +2611,7 @@ static long mtk_vcu_unlocked_compat_ioctl(struct file *file, unsigned int cmd,
 	case VCU_GET_DISP_MAPPED_IOVA:
 	case VCU_CLEAR_DISP_MAPPED_IOVA:
 	case VCU_GET_DISP_WDMA_Y_ADDR:
+	case COMPAT_VCU_SET_MMAP_TYPE:
 		share_data32 = compat_ptr((uint32_t)arg);
 		ret = file->f_op->unlocked_ioctl(file,
 			cmd, (unsigned long)share_data32);

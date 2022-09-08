@@ -1,0 +1,15 @@
+config MTK_UNIFIED_POWER
+	tristate "MediaTek unified power Module"
+	help
+	  This driver Describes the Standard for measuring power.
+	  Those leakage (mw) are calculated by Efuse value and ATE Voltage.
+	  Select "y" if you want to enable this features.
+	  Select "n" if unsure.
+
+config MTK_EEM_READY
+	def_bool y
+	depends on MTK_EEM
+	help
+	  This driver depends PPM
+	  Select "y" if you want to enable this features.
+	  Select "n" if unsure.

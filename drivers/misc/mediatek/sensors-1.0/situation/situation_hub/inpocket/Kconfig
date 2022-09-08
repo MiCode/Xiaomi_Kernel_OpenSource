@@ -1,0 +1,8 @@
+
+config MTK_INPKHUB
+	bool "inpocket for MediaTek package"
+	help
+	  A in pocket is a device,
+	  usually portable
+	  and electronic or electromechanical,
+	  that detect device's position.

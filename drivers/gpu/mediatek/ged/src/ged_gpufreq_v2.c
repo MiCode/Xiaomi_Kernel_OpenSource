@@ -430,11 +430,13 @@ int ged_gpufreq_commit(int oppidx, int commit_type, int *bCommited)
 			}
 		}
 
+#if defined(MTK_GPU_EB_SUPPORT)
 		/* scaling freq first than scaling shader cores*/
 		if (ged_is_fdvfs_support())
 			mtk_gpueb_dvfs_dcs_commit(oppidx_tar, commit_type,
 				 g_virtual_table[oppidx].freq);
 		else
+#endif
 			ged_dvfs_gpu_freq_commit_fp(oppidx_tar, commit_type, bCommited);
 
 		dcs_set_core_mask(core_mask_tar, core_num_tar);
@@ -445,9 +447,11 @@ int ged_gpufreq_commit(int oppidx, int commit_type, int *bCommited)
 			gpufreq_get_freq_by_idx(TARGET_DEFAULT, oppidx)
 			: g_working_table[oppidx].freq;
 
+#if defined(MTK_GPU_EB_SUPPORT)
 		if (ged_is_fdvfs_support())
 			mtk_gpueb_dvfs_dcs_commit(oppidx, commit_type, freq);
 		else
+#endif
 			ged_dvfs_gpu_freq_commit_fp(oppidx, commit_type, bCommited);
 	}
 

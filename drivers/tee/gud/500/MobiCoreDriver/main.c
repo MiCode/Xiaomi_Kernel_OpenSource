@@ -575,6 +575,13 @@ static int mobicore_probe(struct platform_device *pdev)
 #ifdef MOBICORE_COMPONENT_BUILD_TAG
 	mc_dev_info("MobiCore %s", MOBICORE_COMPONENT_BUILD_TAG);
 #endif
+
+	ret = of_property_read_u32(g_ctx.mcd->of_node,
+				   "trustonic,real-drv", &g_ctx.real_drv);
+	if (ret || !g_ctx.real_drv) {
+		mc_dev_info("MobiCore dummy driver");
+		return 0;
+	}
 	/* Hardware does not support ARM TrustZone -> Cannot continue! */
 	if (protocol_is_be() && !has_security_extensions()) {
 		ret = -ENODEV;

@@ -237,6 +237,7 @@ static long eara_ioctl(struct file *filp,
 	return eara_ioctl_impl(filp, cmd, arg, NULL);
 }
 
+#if IS_ENABLED(CONFIG_COMPAT)
 static long eara_compat_ioctl(struct file *filp,
 		unsigned int cmd, unsigned long arg)
 {
@@ -295,10 +296,13 @@ static long eara_compat_ioctl(struct file *filp,
 unlock_and_return:
 	return ret;
 }
+#endif
 
 static const struct proc_ops eara_Fops = {
 	.proc_ioctl = eara_ioctl,
+#if IS_ENABLED(CONFIG_COMPAT)
 	.proc_compat_ioctl = eara_compat_ioctl,
+#endif
 	.proc_open = eara_open,
 	.proc_read = seq_read,
 	.proc_lseek = seq_lseek,
@@ -478,7 +482,9 @@ static long eas_ioctl(struct file *filp,
 
 static const struct proc_ops eas_Fops = {
 	.proc_ioctl = eas_ioctl,
+#if IS_ENABLED(CONFIG_COMPAT)
 	.proc_compat_ioctl = eas_ioctl,
+#endif
 	.proc_open = eas_open,
 	.proc_read = seq_read,
 	.proc_lseek = seq_lseek,
@@ -600,6 +606,7 @@ static long xgff_ioctl(struct file *filp,
 	return xgff_ioctl_impl(filp, cmd, arg, NULL);
 }
 
+#if IS_ENABLED(CONFIG_COMPAT)
 static long xgff_compat_ioctl(struct file *filp,
 		unsigned int cmd, unsigned long arg)
 {
@@ -638,10 +645,13 @@ static long xgff_compat_ioctl(struct file *filp,
 unlock_and_return:
 	return ret;
 }
+#endif
 
 static const struct proc_ops xgff_Fops = {
 	.proc_ioctl = xgff_ioctl,
+#if IS_ENABLED(CONFIG_COMPAT)
 	.proc_compat_ioctl = xgff_compat_ioctl,
+#endif
 	.proc_open = xgff_open,
 	.proc_read = seq_read,
 	.proc_lseek = seq_lseek,
@@ -805,7 +815,9 @@ ret_ioctl:
 }
 
 static const struct proc_ops Fops = {
+#if IS_ENABLED(CONFIG_COMPAT)
 	.proc_compat_ioctl = device_ioctl,
+#endif
 	.proc_ioctl = device_ioctl,
 	.proc_open = device_open,
 	.proc_read = seq_read,

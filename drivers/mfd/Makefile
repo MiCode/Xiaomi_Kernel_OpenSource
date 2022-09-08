@@ -249,6 +249,7 @@ obj-$(CONFIG_INTEL_SOC_PMIC_CHTWC)	+= intel_soc_pmic_chtwc.o
 obj-$(CONFIG_INTEL_SOC_PMIC_CHTDC_TI)	+= intel_soc_pmic_chtdc_ti.o
 obj-$(CONFIG_MFD_MT6338)	+= mt6338-core.o
 obj-$(CONFIG_MFD_MT6360)	+= mt6360-core.o
+obj-$(CONFIG_MFD_MT6370)	+= mt6370-core.o
 obj-$(CONFIG_MFD_MT6362)	+= mt6362-core.o
 obj-$(CONFIG_MFD_MT6375)	+= mt6375.o
 mt6397-objs			:= mt6397-core.o mt6397-irq.o mt6358-irq.o

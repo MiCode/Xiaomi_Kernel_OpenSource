@@ -103,6 +103,10 @@ int mrdump_ka_init(void *vaddr)
 	return 0;
 }
 
+#ifndef __aarch64__
+#define kimage_voffset 0
+#endif
+
 static void mrdump_ka_work_func(struct work_struct *work)
 {
 	struct kernel_all_info *dbg_kinfo;
@@ -598,6 +602,31 @@ unsigned long aee_get_kallsyms_addresses(void)
 }
 
 unsigned long aee_get_kti_addresses(void)
+{
+	return (unsigned long)kallsyms_token_index;
+}
+
+unsigned long aee_get_kn_off(void)
+{
+	return (unsigned long)kallsyms_names;
+}
+
+unsigned long aee_get_kns_off(void)
+{
+	return (unsigned long)kallsyms_num_syms;
+}
+
+unsigned long aee_get_km_off(void)
+{
+	return (unsigned long)kallsyms_markers;
+}
+
+unsigned long aee_get_ktt_off(void)
+{
+	return (unsigned long)kallsyms_token_table;
+}
+
+unsigned long aee_get_kti_off(void)
 {
 	return (unsigned long)kallsyms_token_index;
 }

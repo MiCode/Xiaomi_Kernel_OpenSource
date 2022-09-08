@@ -2410,8 +2410,10 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	if (!of_parse_phandle_with_args(
 		dev->of_node, "iommus", "#iommu-cells", 0, &args)) {
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 		mtk_iommu_register_fault_callback(
 			args.args[0], cmdq_iommu_fault_callback, cmdq, false);
+#endif
 	}
 	return 0;
 }
@@ -2644,6 +2646,17 @@ s32 cmdq_mbox_set_hw_id(void *cmdq_mbox)
 		return -EINVAL;
 	cmdq->hwid = (u8)cmdq_util_get_hw_id(cmdq->base_pa);
 	cmdq_util_prebuilt_set_client(cmdq->hwid, cmdq->prebuilt_clt);
+	return 0;
+}
+
+s32 cmdq_mbox_reset_hw_id(void *cmdq_mbox)
+{
+	struct cmdq *cmdq = cmdq_mbox;
+
+	if (!cmdq)
+		return -EINVAL;
+	cmdq_util_prebuilt_set_client(cmdq->hwid, NULL);
+	cmdq->hwid = 0;
 	return 0;
 }
 

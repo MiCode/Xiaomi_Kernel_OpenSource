@@ -860,7 +860,7 @@ void show_thread_info(struct task_struct *p, bool dump_bt)
 		(unsigned long)task_thread_info(p)->flags,
 		p->tgid);
 
-#if IS_ENABLED(CONFIG_SMP)
+#if IS_ENABLED(CONFIG_THREAD_INFO_IN_TASK)
 	log_hang_info("%d ", p->cpu);
 	hang_log("%d ", p->cpu);
 #endif

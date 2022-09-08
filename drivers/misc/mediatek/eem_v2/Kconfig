@@ -1,0 +1,8 @@
+config MTK_PTPOD_LEGACY
+	tristate "MediaTek Performance Thermal Power OverDrive for legacy chip"
+	help
+	  This driver calculate the minimum voltage of specified frequency
+	  by efuse data and get the temperature from thermal to make up the voltage.
+	  Select "y" if you want to enable this features.
+	  Select "n" if unsure.
+

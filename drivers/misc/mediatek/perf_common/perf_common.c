@@ -250,6 +250,15 @@ static int __init init_perf_common(void)
 	init_perf_freq_tracker();
 #endif
 
+	/* register tracepoint of scheduler_tick */
+	ret = register_trace_android_vh_scheduler_tick(perf_common, NULL);
+	if (ret) {
+		pr_info("%s: register hooks failed, returned %d\n", TAG, ret);
+		goto register_failed;
+	}
+	perf_common_init = 1;
+	atomic_set(&perf_in_progress, 0);
+
 	/* get cpufreq driver base address */
 	dn = of_find_node_by_name(NULL, "cpuhvfs");
 	if (!dn) {
@@ -279,21 +288,15 @@ static int __init init_perf_common(void)
 		pr_info("%s: find csram base failed\n", TAG);
 		goto get_base_failed;
 	}
-
-	/* register tracepoint of scheduler_tick */
-	ret = register_trace_android_vh_scheduler_tick(perf_common, NULL);
-	if (ret) {
-		pr_info("%s: register hooks failed, returned %d\n", TAG, ret);
-		goto register_failed;
-	}
-	perf_common_init = 1;
-	atomic_set(&perf_in_progress, 0);
 	return ret;
 
+get_base_failed:
+#if IS_ENABLED(CONFIG_MEDIATEK_CPU_DVFS)
+	return 0;
+#endif
+	exit_cpufreq_table();
 register_failed:
 	unregister_trace_android_vh_scheduler_tick(perf_common, NULL);
-get_base_failed:
-	exit_cpufreq_table();
 out:
 	cleanup_perf_common_sysfs();
 	return ret;

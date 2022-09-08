@@ -342,10 +342,12 @@ unsigned long long get_current_time_ms(void)
 static int is_dmabuf_from_dma_heap(const struct dma_buf *dmabuf)
 {
 	if (is_mtk_mm_heap_dmabuf(dmabuf) ||
-	    is_system_heap_dmabuf(dmabuf) ||
-	    is_mtk_sec_heap_dmabuf(dmabuf))
+	    is_system_heap_dmabuf(dmabuf))
 		return 1;
-
+#if IS_ENABLED(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)
+	if (is_mtk_sec_heap_dmabuf(dmabuf))
+		return 1;
+#endif
 	return 0;
 }
 

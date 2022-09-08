@@ -1,0 +1,15 @@
+config MTK_VIDEOCODEC_DRIVER
+	tristate "MediaTek VideoCodec Driver"
+	help
+	  VideoCodec driver is used to support
+	  Video Playback/Video
+	  Recording/Video related features...
+	  which is using MTK solution
+
+config MTK_VIDEOCODEC_MT6765
+	bool "MediaTek MT6765 VideoCodec Driver"
+	help
+	  VideoCodec driver is used to support
+	  Video Playback/Video
+	  Recording/Video related features...
+	  which is using MTK solution

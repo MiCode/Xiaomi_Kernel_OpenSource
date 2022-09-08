@@ -34,6 +34,8 @@ struct mtk_dvfsrc_met {
 
 extern const struct dvfsrc_met_config mt6873_met_config;
 extern const struct dvfsrc_met_config mt6983_met_config;
+extern const struct dvfsrc_met_config mt6768_met_config;
+extern const struct dvfsrc_met_config mt6765_met_config;
 
 #endif
 

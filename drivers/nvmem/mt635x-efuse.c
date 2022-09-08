@@ -266,7 +266,7 @@ static int mt635x_efuse_probe(struct platform_device *pdev)
 		mutex_destroy(&efuse->lock);
 		return PTR_ERR(nvmem);
 	}
-
+	pr_info("%s done\n", __func__);
 	return 0;
 }
 
@@ -293,6 +293,9 @@ static const struct efuse_chip_data mt6368_efuse_data = {
 
 static const struct of_device_id mt635x_efuse_of_match[] = {
 	{
+		.compatible = "mediatek,mt6357-efuse",
+		.data = &mt6359p_efuse_data
+	}, {
 		.compatible = "mediatek,mt6358-efuse",
 		.data = &mt6359p_efuse_data
 	}, {

@@ -14,6 +14,7 @@
 
 #include "inc/tcpci.h"
 #include "inc/tcpci_typec.h"
+#include <asm/div64.h>
 
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #include "inc/tcpci_event.h"
@@ -188,7 +189,7 @@ static int tcpci_alert_power_status_changed(struct tcpc_device *tcpc)
 static int tcpci_alert_tx_success(struct tcpc_device *tcpc)
 {
 	uint8_t tx_state;
-
+	uint64_t temp = 0;
 	struct pd_event evt = {
 		.event_type = PD_EVT_CTRL_MSG,
 		.msg = PD_CTRL_GOOD_CRC,
@@ -198,7 +199,9 @@ static int tcpci_alert_tx_success(struct tcpc_device *tcpc)
 	mutex_lock(&tcpc->access_lock);
 #if PD_DYNAMIC_SENDER_RESPONSE
 	tcpc->t[1] = local_clock();
-	tcpc->tx_time_diff = (tcpc->t[1] - tcpc->t[0]) / NSEC_PER_USEC;
+	temp = tcpc->t[1] - tcpc->t[0];
+	do_div(temp, NSEC_PER_USEC);
+	tcpc->tx_time_diff = (uint32_t)temp;
 	pd_dbg_info("%s, diff = %d\n", __func__, tcpc->tx_time_diff);
 #endif /* PD_DYNAMIC_SENDER_RESPONSE */
 	tx_state = tcpc->pd_transmit_state;

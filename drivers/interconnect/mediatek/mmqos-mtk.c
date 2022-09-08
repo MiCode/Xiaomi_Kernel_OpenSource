@@ -19,8 +19,24 @@
 #include "mtk_iommu.h"
 #include "mmqos-mtk.h"
 #include "mtk_qos_bound.h"
+/* Compatible with 32bit division and mold operation */
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
+#define DO_COMMON_DIV(x, base) ((x) / (base))
+#else
+#define DO_COMMON_DIV(x, base) ({                   \
+	__typeof__(x) result = 0;                   \
+	if (sizeof(x) < sizeof(uint64_t))           \
+		result = ((x) / (base));            \
+	else {                                      \
+		uint64_t __x = (x);                 \
+		do_div(__x, (base));                \
+		result = __x;                       \
+	}                                           \
+	result;                                     \
+})
+#endif
 #define SHIFT_ROUND(a, b)	((((a) - 1) >> (b)) + 1)
-#define icc_to_MBps(x)	((x) / 1000)
+#define icc_to_MBps(x)	DO_COMMON_DIV((x), 1000)
 #define MASK_8(a) ((a) & 0xff)
 #define MULTIPLY_RATIO(value) ((value)*1000)
 
@@ -82,6 +98,16 @@ static u32 chn_srt_r_bw[MMQOS_MAX_COMM_NUM][MMQOS_COMM_CHANNEL_NUM] = {};
 static u32 chn_hrt_w_bw[MMQOS_MAX_COMM_NUM][MMQOS_COMM_CHANNEL_NUM] = {};
 static u32 chn_srt_w_bw[MMQOS_MAX_COMM_NUM][MMQOS_COMM_CHANNEL_NUM] = {};
 
+#if !IS_ENABLED(CONFIG_MTK_DRAMC)
+/*
+ * TODO dummy implementation, remove this if dram ready
+ */
+unsigned int mtk_dramc_get_ddr_type(void)
+{
+	return 0;
+}
+#endif
+
 static void mmqos_update_comm_bw(struct device *dev,
 	u32 comm_port, u32 freq, u64 mix_bw, u64 bw_peak, bool qos_bound, bool max_bwl)
 {
@@ -91,7 +117,7 @@ static void mmqos_update_comm_bw(struct device *dev,
 	if (!freq || !dev)
 		return;
 	if (mix_bw)
-		comm_bw = (mix_bw << 8) / freq;
+		comm_bw = DO_COMMON_DIV((mix_bw << 8), freq);
 	if (max_bwl)
 		comm_bw = 0xfff;
 	if (comm_bw)
@@ -194,9 +220,9 @@ static void set_comm_icc_bw(struct common_node *comm_node)
 		mutex_lock(&comm_port_node->bw_lock);
 		avg_bw += comm_port_node->latest_avg_bw;
 		if (comm_port_node->hrt_type < HRT_TYPE_NUM) {
-			normalize_peak_bw = MULTIPLY_RATIO(comm_port_node->latest_peak_bw)
-						/ mtk_mmqos_get_hrt_ratio(
-						comm_port_node->hrt_type);
+			normalize_peak_bw =
+				DO_COMMON_DIV(MULTIPLY_RATIO(comm_port_node->latest_peak_bw),
+				mtk_mmqos_get_hrt_ratio(comm_port_node->hrt_type));
 			peak_bw += normalize_peak_bw;
 		}
 		mutex_unlock(&comm_port_node->bw_lock);

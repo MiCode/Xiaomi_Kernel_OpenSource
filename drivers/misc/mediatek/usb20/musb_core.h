@@ -493,7 +493,7 @@ struct musb {
 	/* host suspend */
 	bool host_suspend;
 	bool usb_connected;
-
+	u32 mtk_usb_phy_offset;
 	unsigned is_gadget_ready:1;
 	unsigned async_callbacks:1;
 };

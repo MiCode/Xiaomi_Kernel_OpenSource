@@ -116,7 +116,11 @@ static bool mtk_vdec_is_vcu(void)
 
 static void set_vdec_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_id_t id)
 {
-	char tmp_buf[1024] = "";
+	char *tmp_buf = NULL;
+
+	tmp_buf = kzalloc(1024, GFP_KERNEL);
+	if (!tmp_buf)
+		return;
 
 	if (id == VDEC_SET_PROP_MEM_ID) {
 
@@ -133,7 +137,7 @@ static void set_vdec_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_i
 				SET_PARAM_VDEC_PROPERTY,
 				tmp_buf)  != 0) {
 				mtk_v4l2_err("Error!! Cannot set vdec property");
-				return;
+				goto err_set_vcp_data;
 			}
 			strcpy(mtk_vdec_property_prev, tmp_buf);
 		}
@@ -151,13 +155,16 @@ static void set_vdec_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_i
 				SET_PARAM_VDEC_VCP_LOG_INFO,
 				tmp_buf)  != 0) {
 				mtk_v4l2_err("Error!! Cannot set vdec vcp log info");
-				return;
+				goto err_set_vcp_data;
 			}
 			strcpy(mtk_vdec_vcp_log_prev, tmp_buf);
 		}
 	} else {
 		mtk_v4l2_err("[%d] id not support %d", ctx->id, id);
 	}
+
+err_set_vcp_data:
+	kfree(tmp_buf);
 }
 
 static void get_supported_format(struct mtk_vcodec_ctx *ctx)
@@ -3443,6 +3450,7 @@ int mtk_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 		vdec_sec_dma_contig_memops.map_dmabuf   = mtk_vdec_sec_dc_map_dmabuf;
 		vdec_sec_dma_contig_memops.unmap_dmabuf = mtk_vdec_sec_dc_unmap_dmabuf;
 	}
+
 	src_vq->mem_ops         = &vdec_dma_contig_memops;
 	if (ctx->dec_params.svp_mode && is_disable_map_sec() && mtk_vdec_is_vcu())
 		src_vq->mem_ops = &vdec_sec_dma_contig_memops;

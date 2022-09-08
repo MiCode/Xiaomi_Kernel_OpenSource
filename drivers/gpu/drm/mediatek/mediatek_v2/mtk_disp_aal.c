@@ -366,7 +366,8 @@ static unsigned long timevaldiff(struct timespec64 *starttime,
 	unsigned long msec;
 
 	msec = (finishtime->tv_sec-starttime->tv_sec)*1000;
-	msec += (finishtime->tv_nsec-starttime->tv_nsec) / NSEC_PER_USEC / 1000;
+	msec += DO_COMMON_DIV(DO_COMMON_DIV((finishtime->tv_nsec-starttime->tv_nsec),
+		NSEC_PER_USEC), 1000);
 
 	return msec;
 }
@@ -379,8 +380,8 @@ static void disp_aal_notify_backlight_log(int bl_1024)
 	unsigned long tusec;
 
 	ktime_get_ts64(&aal_time);
-	tsec = (unsigned long)aal_time.tv_sec % 100;
-	tusec = (unsigned long)aal_time.tv_nsec / NSEC_PER_USEC / 1000;
+	tsec = (unsigned long)DO_COMMMON_MOD(aal_time.tv_sec, 100);
+	tusec = (unsigned long)DO_COMMON_DIV(DO_COMMON_DIV(aal_time.tv_nsec, NSEC_PER_USEC), 1000);
 
 	diff_mesc = timevaldiff(&g_aal_log_prevtime, &aal_time);
 	if (!debug_api_log)
@@ -1418,7 +1419,7 @@ int disp_aal_set_param(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	//For 120Hz rotation issue
 	ktime_get_ts64(&end);
 	time_use = (end.tv_sec-start.tv_sec) * 1000000
-		+ (end.tv_nsec-start.tv_nsec) / NSEC_PER_USEC;
+		+ DO_COMMON_DIV((end.tv_nsec-start.tv_nsec), NSEC_PER_USEC);
 	//pr_notice("set_param time_use is %lu us\n",time_use);
 	// tbd. to be fixd
 	if (time_use < 260) {
@@ -2938,6 +2939,26 @@ static int mtk_disp_aal_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct mtk_disp_aal_data mt6765_aal_driver_data = {
+	.support_shadow     = false,
+	.need_bypass_shadow = false,
+	.aal_dre_hist_start = 1024,
+	.aal_dre_hist_end   = 4092,
+	.aal_dre_gain_start = 4096,
+	.aal_dre_gain_end   = 6268,
+	.bitShift = 16,
+};
+
+static const struct mtk_disp_aal_data mt6768_aal_driver_data = {
+	.support_shadow     = false,
+	.need_bypass_shadow = false,
+	.aal_dre_hist_start = 1024,
+	.aal_dre_hist_end   = 4092,
+	.aal_dre_gain_start = 4096,
+	.aal_dre_gain_end   = 6268,
+	.bitShift = 16,
+};
+
 static const struct mtk_disp_aal_data mt6885_aal_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = false,
@@ -3019,6 +3040,10 @@ static const struct mtk_disp_aal_data mt6855_aal_driver_data = {
 };
 
 static const struct of_device_id mtk_disp_aal_driver_dt_match[] = {
+	{ .compatible = "mediatek,mt6765-disp-aal",
+	  .data = &mt6765_aal_driver_data},
+	{ .compatible = "mediatek,mt6768-disp-aal",
+	  .data = &mt6768_aal_driver_data},
 	{ .compatible = "mediatek,mt6789-disp-aal",
 	  .data = &mt6789_aal_driver_data},
 	{ .compatible = "mediatek,mt6885-disp-aal",

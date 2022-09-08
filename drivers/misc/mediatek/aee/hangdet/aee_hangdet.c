@@ -324,7 +324,9 @@ static void kwdt_dump_func(void)
 
 	for_each_process_thread(g, t) {
 		if (!strcmp(t->comm, "watchdogd")) {
+#if IS_ENABLED(CONFIG_ARM64)
 			pr_info("watchdogd on CPU %d\n", t->cpu);
+#endif
 			sched_show_task(t);
 			break;
 		}
@@ -358,7 +360,7 @@ static void aee_dump_timer_func(struct timer_list *t)
 {
 	spin_lock(&lock);
 
-	if (sched_clock() - aee_dump_timer_t < CHG_TMO_DLY_SEC * 1000000000) {
+	if (sched_clock() - aee_dump_timer_t < CHG_TMO_DLY_SEC * 1000000000ULL) {
 		g_change_tmo = 0;
 		aee_dump_timer_t = 0;
 		spin_unlock(&lock);
@@ -366,13 +368,13 @@ static void aee_dump_timer_func(struct timer_list *t)
 	}
 
 	if ((sched_clock() > all_k_timer_t) &&
-	    (sched_clock() - all_k_timer_t) < (CHG_TMO_DLY_SEC + 1) * 1000000000) {
+	    (sched_clock() - all_k_timer_t) < (CHG_TMO_DLY_SEC + 1) * 1000000000ULL) {
 		g_change_tmo = 0;
 		aee_dump_timer_t = 0;
 		spin_unlock(&lock);
 		return;
 	} else if ((all_k_timer_t > sched_clock()) &&
-	    (ULLONG_MAX - all_k_timer_t + sched_clock()) < (CHG_TMO_DLY_SEC + 1) * 1000000000) {
+	    (ULLONG_MAX - all_k_timer_t + sched_clock()) < (CHG_TMO_DLY_SEC + 1) * 1000000000ULL) {
 		g_change_tmo = 0;
 		aee_dump_timer_t = 0;
 		spin_unlock(&lock);
@@ -404,11 +406,22 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	unsigned int dump_timeout = 0, r_counter = DEFAULT_INTERVAL;
 	int i = 0;
 
+	unsigned long long val = 0;
+	unsigned long long lastsuspend_t_tmp = lastsuspend_t;
+	unsigned long long lastresume_t_tmp = lastresume_t;
+	unsigned long long lastsuspend_syst_tmp = lastsuspend_syst;
+	unsigned long long lastresume_syst_tmp = lastresume_syst;
+
+	val = do_div(lastsuspend_t_tmp, 1000000);
+	val = do_div(lastsuspend_syst_tmp, 1000000);
+	val = do_div(lastresume_t_tmp, 1000000);
+	val = do_div(lastresume_syst_tmp, 1000000);
+
 	if (toprgu_base && (ioread32(toprgu_base + WDT_MODE) & WDT_MODE_EN))
 		r_counter = ioread32(toprgu_base + WDT_COUNTER) / (32 * 1024);
 
 	if (aee_dump_timer_t && ((sched_clock() - aee_dump_timer_t) >
-	    (CHG_TMO_DLY_SEC + 5) * 1000000000)) {
+	    (CHG_TMO_DLY_SEC + 5) * 1000000000ULL)) {
 		if (!aee_dump_timer_c) {
 			aee_dump_timer_c = 1;
 			snprintf(msg_buf, WK_MAX_MSG_SIZE, "wdtk-et %s %d cpu=%d o_k=%d\n",
@@ -451,13 +464,15 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	}
 
 	wk_tsk_kick_time[cpu] = sched_clock();
+
 	snprintf(msg_buf, WK_MAX_MSG_SIZE,
 	 "[wdk-c] cpu=%d o_k=%d lbit=0x%x cbit=0x%x,%x,%d,%d,%lld,%x,%ld,%ld,%ld,%ld,[%lld,%ld] %d\n",
 	 cpu, original_kicker, local_bit, get_check_bit(),
 	 (local_bit ^ get_check_bit()) & get_check_bit(), lasthpg_cpu,
-	 lasthpg_act, lasthpg_t, atomic_read(&plug_mask), lastsuspend_t / 1000000,
-	 lastsuspend_syst / 1000000, lastresume_t / 1000000, lastresume_syst / 1000000,
+	 lasthpg_act, lasthpg_t, atomic_read(&plug_mask), lastsuspend_t_tmp,
+	 lastsuspend_syst_tmp, lastresume_t_tmp, lastresume_syst_tmp,
 	 wk_tsk_kick_time[cpu], curInterval, r_counter);
+
 
 	if ((local_bit & get_check_bit()) == get_check_bit()) {
 		all_k_timer_t = sched_clock();

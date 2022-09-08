@@ -284,7 +284,11 @@ static inline void __gpufreq_abort(enum gpufreq_exception except_type,
 {
 	va_list args;
 	int cx = 0;
+#ifdef __aarch64__
 	char tmp_string[1024];
+#else
+	char tmp_string[512];
+#endif
 
 	va_start(args, exception_string);
 	cx = vsnprintf(tmp_string, sizeof(tmp_string), exception_string, args);

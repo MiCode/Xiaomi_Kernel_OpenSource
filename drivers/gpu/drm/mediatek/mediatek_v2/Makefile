@@ -79,8 +79,12 @@ obj-$(CONFIG_DRM_MEDIATEK) += mtk_sync.o
 
 obj-$(CONFIG_DRM_MEDIATEK) += mtk_panel_ext.o
 obj-$(CONFIG_DRM_MEDIATEK) += mtk_disp_notify.o
-obj-$(CONFIG_DRM_MEDIATEK) += mtk_aod_scp.o
 
+ifneq ($(CONFIG_MTK_TINYSYS_SCP_SUPPORT),)
+ifeq ($(CONFIG_MTK_TINYSYS_SCP_CM4_SUPPORT),)
+obj-$(CONFIG_DRM_MEDIATEK) += mtk_aod_scp.o
+endif
+endif
 obj-$(CONFIG_DRM_MEDIATEK) += mtk_disp_sec.o
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include/

@@ -620,20 +620,32 @@ void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 		g_sb_param.gain[gain_b] = gain[gain_b];
 
 		if (g_gamma_data_mode == HW_8BIT) {
-			struct DISP_GAMMA_LUT_T data;
+			struct DISP_GAMMA_LUT_T *data;
 
-			calculateGammaLut(&data);
+			data = kmalloc(sizeof(struct DISP_GAMMA_LUT_T),
+				GFP_KERNEL);
+			if (data == NULL) {
+				DDPPR_ERR("%s: no memory\n", __func__);
+				return;
+			}
+			calculateGammaLut(data);
 			mtk_crtc_user_cmd(crtc, default_comp,
-				SET_GAMMALUT, (void *)&data);
-		}
-
-		if (g_gamma_data_mode == HW_12BIT_MODE_8BIT ||
+				SET_GAMMALUT, (void *)data);
+			kfree(data);
+		} else if (g_gamma_data_mode == HW_12BIT_MODE_8BIT ||
 			g_gamma_data_mode == HW_12BIT_MODE_12BIT) {
-			struct DISP_GAMMA_12BIT_LUT_T data;
+			struct DISP_GAMMA_12BIT_LUT_T *data;
 
-			calculateGamma12bitLut(&data);
+			data = kmalloc(sizeof(struct DISP_GAMMA_12BIT_LUT_T),
+				GFP_KERNEL);
+			if (data == NULL) {
+				DDPPR_ERR("%s: no memory\n", __func__);
+				return;
+			}
+			calculateGamma12bitLut(data);
 			mtk_crtc_user_cmd(crtc, default_comp,
-				SET_12BIT_GAMMALUT, (void *)&data);
+				SET_12BIT_GAMMALUT, (void *)data);
+			kfree(data);
 		}
 
 		mtk_leds_brightness_set("lcd-backlight", bl);
@@ -941,6 +953,8 @@ static int mtk_disp_gamma_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id mtk_disp_gamma_driver_dt_match[] = {
+	{ .compatible = "mediatek,mt6765-disp-gamma",},
+	{ .compatible = "mediatek,mt6768-disp-gamma",},
 	{ .compatible = "mediatek,mt6779-disp-gamma",},
 	{ .compatible = "mediatek,mt6789-disp-gamma",},
 	{ .compatible = "mediatek,mt6885-disp-gamma",},

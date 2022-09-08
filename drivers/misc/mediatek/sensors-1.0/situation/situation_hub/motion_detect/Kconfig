@@ -1,0 +1,8 @@
+
+config MTK_MOTION_DETECT_HUB
+	bool "motion detect hub for MediaTek package"
+	help
+	  A motion detection is a device,
+	  usually portable
+	  and electronic or electromechanical,
+	  that detect device is moved.

@@ -18,6 +18,13 @@ enum mmqos_log_hrt_level {
 	log_hrt_bw = 0,
 };
 
+#if !IS_ENABLED(CONFIG_MTK_MMDVFS)
+/*
+ * TODO dummy implementation, remove this if mmdvfs ready
+ */
+void mtk_mmdvfs_debug_release_step0(void) {}
+#endif
+
 s32 mtk_mmqos_get_avail_hrt_bw(enum hrt_type type)
 {
 	u32 i, used_bw = 0;

@@ -484,7 +484,7 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	DDPINFO("%s:%d en%d,pitch%d,fmt:%s\n",
 		__func__, __LINE__, (unsigned int)state->pending.enable,
 		state->pending.pitch, drm_get_format_name(state->pending.format, &format_name));
-	DDPINFO("addr:0x%llx,x%d,y%d,width%d,height%d\n",
+	DDPINFO("addr:0x%lx,x%d,y%d,width%d,height%d\n",
 		state->pending.addr, state->pending.dst_x,
 		state->pending.dst_y, state->pending.width,
 		state->pending.height);

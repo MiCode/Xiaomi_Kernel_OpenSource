@@ -1,0 +1,16 @@
+config MTK_CPUHOTPLUG
+	tristate "MediaTek CPU hotplug driver"
+	help
+	  This kernel config can be used to enable cpu hotplug driver.
+          When this config is turned on, the CPU switch in suspend state
+          will be supported.
+	  	Select "y" if you want to enable this features.
+	  	Select "n" if unsure.
+
+config MTK_PPM_READY
+	tristate "This driver depends PPM"
+	depends on MTK_PPM
+	help
+	  This driver depends PPM
+	  Select "y" if you want to enable this features.
+	  Select "n" if unsure.

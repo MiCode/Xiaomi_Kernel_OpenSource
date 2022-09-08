@@ -44,6 +44,8 @@ struct mtk_iommu_suspend_reg {
 enum mtk_iommu_plat {
 	M4U_MT2701,
 	M4U_MT2712,
+	M4U_MT6765,
+	M4U_MT6768,
 	M4U_MT6779,
 	M4U_MT6789,
 	M4U_MT6833,
@@ -157,7 +159,12 @@ struct mtk_iommu_data {
 	phys_addr_t			protect_base; /* protect memory base */
 	struct mtk_iommu_suspend_reg	reg;
 	struct mtk_iommu_domain		*m4u_dom;
+#ifdef CONFIG_ARM64
 	struct iommu_group		*m4u_group[MTK_IOMMU_GROUP_MAX];
+	struct dma_iommu_mapping	*mapping; /* For mtk_iommu_v1.c */
+#else
+	struct dma_iommu_mapping	*mapping[MTK_IOMMU_GROUP_MAX];
+#endif
 	bool                            enable_4GB;
 	spinlock_t			tlb_lock; /* lock for tlb range flush */
 
@@ -165,7 +172,6 @@ struct mtk_iommu_data {
 	const struct mtk_iommu_plat_data *plat_data;
 	struct device			*smicomm_dev;
 
-	struct dma_iommu_mapping	*mapping; /* For mtk_iommu_v1.c */
 
 	int				isr_cnt;
 	unsigned long			first_jiffies;

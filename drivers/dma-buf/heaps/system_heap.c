@@ -413,12 +413,26 @@ static int system_heap_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 static void *system_heap_do_vmap(struct system_heap_buffer *buffer)
 {
 	struct sg_table *table = &buffer->sg_table;
-	int npages = PAGE_ALIGN(buffer->len) / PAGE_SIZE;
-	struct page **pages = vmalloc(sizeof(struct page *) * npages);
+	int npages = 0;
+	struct page **pages = NULL;
 	struct page **tmp = pages;
 	struct sg_page_iter piter;
 	pgprot_t pgprot = PAGE_KERNEL;
 	void *vaddr;
+
+	/*
+	 * in 32bit project compile the arithmetic division, the "/" will
+	 * cause the __aeabi_uldivmod error.
+	 *
+	 * use DO_DMA_BUFFER_COMMON_DIV and DO_DMA_BUFFER_COMMON_MOD to
+	 * intead "/".
+	 *
+	 * original code is
+	 * int npages = PAGE_ALIGN(buffer->len) / PAGE_SIZE;
+	 */
+	npages = DO_DMA_BUFFER_COMMON_DIV(PAGE_ALIGN(buffer->len), PAGE_SIZE);
+	pages = vmalloc(sizeof(struct page *) * npages);
+	tmp = pages;
 
 	if (!pages)
 		return ERR_PTR(-ENOMEM);
@@ -534,9 +548,21 @@ static void system_heap_buf_free(struct deferred_freelist_item *item,
 static void mtk_mm_heap_dma_buf_release(struct dma_buf *dmabuf)
 {
 	struct system_heap_buffer *buffer = dmabuf->priv;
-	int npages = PAGE_ALIGN(buffer->len) / PAGE_SIZE;
+	int npages = 0;
 	int i, j;
 	unsigned long buf_len = buffer->len;
+
+	/*
+	 * in 32bit project compile the arithmetic division, the "/" will
+	 * cause the __aeabi_uldivmod error.
+	 *
+	 * use DO_DMA_BUFFER_COMMON_DIV and DO_DMA_BUFFER_COMMON_MOD to
+	 * intead "/".
+	 *
+	 * original code is
+	 * int npages = PAGE_ALIGN(buffer->len) / PAGE_SIZE;
+	 */
+	npages = DO_DMA_BUFFER_COMMON_DIV(PAGE_ALIGN(buffer->len), PAGE_SIZE);
 
 	spin_lock(&dmabuf->name_lock);
 	pr_debug("%s: inode:%lu, size:%lu, name:%s\n", __func__,
@@ -579,8 +605,20 @@ static void mtk_mm_heap_dma_buf_release(struct dma_buf *dmabuf)
 static void system_heap_dma_buf_release(struct dma_buf *dmabuf)
 {
 	struct system_heap_buffer *buffer = dmabuf->priv;
-	int npages = PAGE_ALIGN(buffer->len) / PAGE_SIZE;
 	unsigned long buf_len = buffer->len;
+	int npages = 0;
+
+	/*
+	 * in 32bit project compile the arithmetic division, the "/" will
+	 * cause the __aeabi_uldivmod error.
+	 *
+	 * use DO_DMA_BUFFER_COMMON_DIV and DO_DMA_BUFFER_COMMON_MOD to
+	 * intead "/".
+	 *
+	 * original code is
+	 * int npages = PAGE_ALIGN(buffer->len) / PAGE_SIZE;
+	 */
+	npages = DO_DMA_BUFFER_COMMON_DIV(PAGE_ALIGN(buffer->len), PAGE_SIZE);
 
 	dmabuf_release_check(dmabuf);
 
@@ -672,7 +710,17 @@ static struct dma_buf *system_heap_do_allocate(struct dma_heap *heap,
 	int i, ret = -ENOMEM;
 	struct task_struct *task = current->group_leader;
 
-	if (len / PAGE_SIZE > totalram_pages()) {
+	/*
+	 * in 32bit project compile the arithmetic division, the "/" will
+	 * cause the __aeabi_uldivmod error.
+	 *
+	 * use DO_DMA_BUFFER_COMMON_DIV and DO_DMA_BUFFER_COMMON_MOD to
+	 * intead "/".
+	 *
+	 * original code is
+	 * if (len / PAGE_SIZE > totalram_pages()) {
+	 */
+	if (DO_DMA_BUFFER_COMMON_DIV(len, PAGE_SIZE) > totalram_pages()) {
 		pr_info("%s error: len %ld is more than %ld\n",
 			__func__, len, totalram_pages() * PAGE_SIZE);
 		return ERR_PTR(-ENOMEM);
@@ -725,7 +773,18 @@ static struct dma_buf *system_heap_do_allocate(struct dma_heap *heap,
 	get_task_comm(buffer->tid_name, current);
 	buffer->pid = task_pid_nr(task);
 	buffer->tid = task_pid_nr(current);
-	buffer->ts  = sched_clock() / 1000;
+
+	/*
+	 * in 32bit project compile the arithmetic division, the "/" will
+	 * cause the __aeabi_uldivmod error.
+	 *
+	 * use DO_DMA_BUFFER_COMMON_DIV and DO_DMA_BUFFER_COMMON_MOD to
+	 * intead "/".
+	 *
+	 * original code is
+	 * buffer->ts  = sched_clock() / 1000;
+	 */
+	buffer->ts  = DO_DMA_BUFFER_COMMON_DIV(sched_clock(), 1000);
 	buffer->show = system_buf_priv_dump;
 
 	/* create the dmabuf */
@@ -1047,3 +1106,4 @@ EXPORT_SYMBOL_GPL(is_system_heap_dmabuf);
 
 module_init(system_heap_create);
 MODULE_LICENSE("GPL v2");
+

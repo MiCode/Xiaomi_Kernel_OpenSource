@@ -11,6 +11,23 @@
 #include "cmdq_helper_ext.h"
 #include <linux/types.h>
 
+/* Compatibility with 32-bit shift operation */
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
+#define DO_SHIFT_RIGHT(x, n) ({     \
+	(n) < (8 * sizeof(u64)) ? (x) >> (n) : 0;	\
+})
+#define DO_SHIFT_LEFT(x, n) ({      \
+	(n) < (8 * sizeof(u64)) ? (x) << (n) : 0;	\
+})
+#else
+#define DO_SHIFT_RIGHT(x, n) ({     \
+	(n) < (8 * sizeof(u32)) ? (x) >> (n) : 0;	\
+})
+#define DO_SHIFT_LEFT(x, n) ({      \
+	(n) < (8 * sizeof(u32)) ? (x) << (n) : 0;	\
+})
+#endif
+
 extern struct cmdqMDPFuncStruct mdp_funcs;
 extern int gCmdqRdmaPrebuiltSupport;
 

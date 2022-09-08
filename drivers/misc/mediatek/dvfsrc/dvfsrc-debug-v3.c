@@ -754,7 +754,7 @@ static u64 dvfsrc_query_dvfs_time(struct mtk_dvfsrc *dvfsrc)
 	time_2 = time_2 << 32;
 	time_2 = dvfsrc_read(dvfsrc, DVFSRC_RECORD_0, offset + 0x0) + time_2;
 
-	dvfs_time_us = (time_1 - time_2) / 13;
+	dvfs_time_us = div_u64((time_1 - time_2), 13);
 
 	return dvfs_time_us;
 }

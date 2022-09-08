@@ -53,10 +53,7 @@ static int ext_id_tuning(struct drm_device *dev,
 static unsigned int roll_gpu_for_idle;
 static int g_emi_bound_table[HRT_LEVEL_NUM];
 
-#define RSZ_TILE_LENGTH 1440
-#define RSZ_IN_MAX_HEIGHT 4096
 #define DISP_RSZ_LAYER_NUM 2
-
 #define DISP_MML_LAYER_LIMIT 1
 
 static struct {
@@ -482,7 +479,11 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 
 static void dump_disp_trace(struct drm_mtk_layering_info *disp_info)
 {
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
 #define LEN 1000
+#else
+#define LEN 896
+#endif
 	int i, j;
 	struct drm_mtk_layer_config *c;
 	char msg[LEN];
@@ -1219,7 +1220,8 @@ static int get_hrt_disp_num(struct drm_mtk_layering_info *disp_info)
 static int get_layer_weight(int disp_idx,
 			    struct drm_mtk_layer_config *layer_info)
 {
-	int bpp, weight;
+	int bpp;
+	u64 weight;
 
 	if (layer_info)
 		bpp = mtk_get_format_bpp(layer_info->src_fmt);
@@ -1272,7 +1274,7 @@ void calc_mml_ir_layer_weight(struct drm_mtk_layering_info *disp_info,
 	dst_size = mml_info->dest[0].data.width * mml_info->dest[0].data.height;
 
 	if (src_size && dst_size)
-		*overlap_w = ((uint64_t)((uint64_t)*overlap_w) * src_size) / dst_size;
+		*overlap_w = DO_COMMON_DIV(((uint64_t)((uint64_t)*overlap_w) * src_size), dst_size);
 	DDPINFO("%s:%d overlap_w:%d, src:%u, dst:%u\n",
 		__func__, __LINE__, *overlap_w, src_size, dst_size);
 }
@@ -2520,6 +2522,7 @@ static int RPO_rule(struct drm_crtc *crtc,
 	struct mtk_rect dst_roi = {0};
 	unsigned int disp_w, disp_h;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *private = crtc->dev->dev_private;
 	struct drm_display_mode *mode;
 	int rsz_idx = -1;
 	int i = 0;
@@ -2609,8 +2612,9 @@ static int RPO_rule(struct drm_crtc *crtc,
 						dst_roi.x, dst_roi.width, disp_w))
 			break;
 
-		if (src_roi.width > RSZ_TILE_LENGTH ||
-		    src_roi.height > RSZ_IN_MAX_HEIGHT)
+		/* Check the tile length and in max height of RSZ */
+		if (src_roi.width > private->rsz_in_max[0] ||
+		    src_roi.height > private->rsz_in_max[1])
 			break;
 
 		c->layer_caps |= MTK_DISP_RSZ_LAYER;
@@ -2688,7 +2692,8 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev, struct drm_crtc 
 		// mode set to mml decouple mode if mmclk level need to be increased
 		ratio = (mml_info->src.width * mml_info->src.height) * 100 /
 			(mml_info->dest[0].data.width * mml_info->dest[0].data.height);
-		mmclk = ratio * mtk_drm_get_freq(&mtk_crtc->base, __func__) / 100;
+		mmclk = DO_COMMON_DIV(ratio * mtk_drm_get_freq(&mtk_crtc->base, __func__),
+				100);
 
 		if (mmclk > mtk_drm_get_mmclk(&mtk_crtc->base, __func__))
 			mml_info->mode = MML_MODE_MML_DECOUPLE;

@@ -1,0 +1,8 @@
+
+config MTK_DEVICE_ORIENTATION_HUB
+	bool "device orientation hub for MediaTek package"
+	help
+	  A device orientation is a device,
+	  usually portable and
+	  electronic or electromechanical,
+	  that detect device's orientation.

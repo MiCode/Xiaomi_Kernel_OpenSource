@@ -622,8 +622,8 @@ static int __probe_v1(struct platform_device *pdev)
 		return -ENOMEM;
 
 	size = size >> 2;
-	ret = of_property_read_variable_u32_array(pdev->dev.of_node,
-			"irq_config", (u32 *)parity_irq_config, size, size);
+	ret = of_property_read_u32_array(pdev->dev.of_node,
+			"irq_config", (u32 *)parity_irq_config, size);
 	if (ret) {
 		dev_err(&pdev->dev, "No irq_config\n");
 		return -ENXIO;

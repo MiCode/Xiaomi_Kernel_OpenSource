@@ -19,6 +19,7 @@
 #include <linux/sched_clock.h>
 
 #ifdef SUPPORT_EOSC_CALI
+#include <linux/mfd/mt6357/registers.h>
 #include <linux/mfd/mt6359p/registers.h>
 #endif
 
@@ -63,6 +64,11 @@ static const struct reg_field mtk_rtc_spare_reg_fields[SPARE_RG_MAX] = {
 };
 
 #ifdef SUPPORT_EOSC_CALI
+static const struct reg_field mt6357_cali_reg_fields[CALI_FILED_MAX] = {
+	[RTC_EOSC32_CK_PDN]	= REG_FIELD(MT6357_SCK_TOP_CKPDN_CON0, 2, 2),
+	[EOSC_CALI_TD]		= REG_FIELD(MT6357_EOSC_CALI_CON0, 5, 7),
+};
+
 static const struct reg_field mt6359_cali_reg_fields[CALI_FILED_MAX] = {
 	[RTC_EOSC32_CK_PDN]	= REG_FIELD(MT6359P_SCK_TOP_CKPDN_CON0, 2, 2),
 	[EOSC_CALI_TD]		= REG_FIELD(MT6359P_RTC_AL_DOW, 5, 7),
@@ -107,7 +113,8 @@ static void mtk_rtc_enable_k_eosc(struct device *dev)
 		regmap_field_write(rtc->cali[EOSC_CALI_TD], td);
 	}
 
-	if (rtc->data->eosc_cali_version == EOSC_CALI_MT6359P_SERIES)
+	if (rtc->data->eosc_cali_version == EOSC_CALI_MT6359P_SERIES ||
+		rtc->data->eosc_cali_version == EOSC_CALI_MT6357_SERIES)
 		regmap_field_write(rtc->cali[RTC_K_EOSC_RSV], EOSC_SOL_2);
 
 	mtk_rtc_write_trigger(rtc);
@@ -1165,6 +1172,15 @@ static const struct mtk_rtc_data mt6358_rtc_data = {
 	.spare_reg_fields	= mtk_rtc_spare_reg_fields,
 };
 
+static const struct mtk_rtc_data mt6357_rtc_data = {
+	.wrtgr = RTC_WRTGR_MT6358,
+	.spare_reg_fields = mtk_rtc_spare_reg_fields,
+#ifdef SUPPORT_EOSC_CALI
+	.cali_reg_fields	= mt6357_cali_reg_fields,
+	.eosc_cali_version	= EOSC_CALI_MT6357_SERIES,
+#endif
+};
+
 static const struct mtk_rtc_data mt6397_rtc_data = {
 	.wrtgr			= RTC_WRTGR_MT6397,
 	.alarm_sta_clr_bit	= RTC_BBPU_CLR,
@@ -1183,6 +1199,7 @@ static const struct mtk_rtc_data mt6359p_rtc_data = {
 static const struct of_device_id mt6397_rtc_of_match[] = {
 	{ .compatible = "mediatek,mt6323-rtc", .data = &mt6397_rtc_data },
 	{ .compatible = "mediatek,mt6358-rtc", .data = &mt6358_rtc_data },
+	{ .compatible = "mediatek,mt6357-rtc", .data = &mt6357_rtc_data },
 	{ .compatible = "mediatek,mt6359p-rtc", .data = &mt6359p_rtc_data },
 	{ .compatible = "mediatek,mt6397-rtc", .data = &mt6397_rtc_data },
 	{ }

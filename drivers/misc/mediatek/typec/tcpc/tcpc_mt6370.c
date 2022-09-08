@@ -55,9 +55,6 @@ struct mt6370_chip {
 	struct wakeup_source *irq_wake_lock;
 	struct wakeup_source *i2c_wake_lock;
 
-	atomic_t poll_count;
-	struct delayed_work	poll_work;
-
 	int irq_gpio;
 	int irq;
 	int chip_id;
@@ -500,19 +497,6 @@ static int mt6370_init_mt_mask(struct tcpc_device *tcpc)
 	return mt6370_i2c_write8(tcpc, MT6370_REG_MT_MASK, mt_mask);
 }
 
-static inline void mt6370_poll_ctrl(struct mt6370_chip *chip)
-{
-	cancel_delayed_work_sync(&chip->poll_work);
-
-	if (atomic_read(&chip->poll_count) == 0) {
-		atomic_inc(&chip->poll_count);
-		cpu_idle_poll_ctrl(true);
-	}
-
-	schedule_delayed_work(
-		&chip->poll_work, msecs_to_jiffies(40));
-}
-
 static void mt6370_irq_work_handler(struct kthread_work *work)
 {
 	struct mt6370_chip *chip =
@@ -520,7 +504,6 @@ static void mt6370_irq_work_handler(struct kthread_work *work)
 	int regval = 0;
 	int gpio_val;
 
-	mt6370_poll_ctrl(chip);
 	/* make sure I2C bus had resumed */
 	tcpci_lock_typec(chip->tcpc);
 
@@ -540,15 +523,6 @@ static void mt6370_irq_work_handler(struct kthread_work *work)
 #if DEBUG_GPIO
 	gpio_set_value(DEBUG_GPIO, 1);
 #endif
-}
-
-static void mt6370_poll_work(struct work_struct *work)
-{
-	struct mt6370_chip *chip = container_of(
-		work, struct mt6370_chip, poll_work.work);
-
-	if (atomic_dec_and_test(&chip->poll_count))
-		cpu_idle_poll_ctrl(false);
 }
 
 static irqreturn_t mt6370_intr_handler(int irq, void *data)
@@ -1614,7 +1588,6 @@ static int mt6370_i2c_probe(struct i2c_client *client,
 	sema_init(&chip->io_lock, 1);
 	sema_init(&chip->suspend_lock, 1);
 	i2c_set_clientdata(client, chip);
-	INIT_DELAYED_WORK(&chip->poll_work, mt6370_poll_work);
 	chip->irq_wake_lock =
 		wakeup_source_register(chip->dev, "mt6370_irq_wake_lock");
 	chip->i2c_wake_lock =
@@ -1659,8 +1632,6 @@ static int mt6370_i2c_remove(struct i2c_client *client)
 	struct mt6370_chip *chip = i2c_get_clientdata(client);
 
 	if (chip) {
-		cancel_delayed_work_sync(&chip->poll_work);
-
 		tcpc_device_unregister(chip->dev, chip->tcpc);
 		mt6370_regmap_deinit(chip);
 	}

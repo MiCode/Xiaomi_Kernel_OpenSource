@@ -660,7 +660,8 @@ static void cmdq_test_mbox_write_dma_cpr(
 	for (i = 0; i < cnt; i++) {
 		cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX3, pattern + i);
 		cmdq_pkt_assign_command(pkt, CMDQ_CPR_STRAT_ID + i * 2, (u32)dma_pa + i * 4);
-		cmdq_pkt_assign_command(pkt, CMDQ_CPR_STRAT_ID + i * 2 + 1, (u32)(dma_pa >> 32));
+		cmdq_pkt_assign_command(pkt, CMDQ_CPR_STRAT_ID + i * 2 + 1,
+			(u32)DO_SHIFT_RIGHT(dma_pa, 32));
 		cmdq_pkt_write_reg_indriect(pkt, CMDQ_CPR_STRAT_ID + CMDQ_CPR64 + i,
 			CMDQ_THR_SPR_IDX3, U32_MAX);
 		*(dma_va + i) = 0xdead0000 + i;
@@ -1854,9 +1855,22 @@ static int cmdq_test_remove(struct platform_device *pdev)
 {
 	struct cmdq_test *test = (struct cmdq_test *)platform_get_drvdata(pdev);
 
-	cmdq_mbox_destroy(test->clt);
-	cmdq_mbox_destroy(test->loop);
-	cmdq_mbox_destroy(test->sec);
+	cmdq_msg("%s entry ++");
+
+	if (test->clt)
+		cmdq_mbox_destroy(test->clt);
+	else
+		cmdq_err("%s: test->clt:0x%p", __func__, test->clt);
+	if (test->loop)
+		cmdq_mbox_destroy(test->loop);
+	else
+		cmdq_err("%s: test->loop:0x%p", __func__, test->loop);
+	if (test->sec)
+		cmdq_mbox_destroy(test->sec);
+	else
+		cmdq_err("%s: test->sec:0x%p", __func__, test->sec);
+
+	cmdq_msg("%s leave --");
 	return 0;
 }
 

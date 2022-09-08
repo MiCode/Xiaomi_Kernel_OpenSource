@@ -44,6 +44,8 @@
 static struct dcxo_hw *dcxo;
 
 static struct dcxo_hw *dcxos[CLKBUF_PMIC_ID_MAX] = {
+	[MT6357] = &mt6357_dcxo,
+	[MT6358] = &mt6358_dcxo,
 	[MT6359P] = &mt6359p_dcxo,
 	[MT6366] = &mt6366_dcxo,
 	[MT6685] = &mt6685_dcxo,

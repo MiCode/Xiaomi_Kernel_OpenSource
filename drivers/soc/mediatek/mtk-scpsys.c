@@ -459,7 +459,11 @@ static int scpsys_bus_protect_disable(struct scp_domain *scpd, unsigned int inde
 			map = semi;
 		else
 			continue;
-
+		if (map == NULL) {
+			pr_err("%s pd-domain:%s bp.type:%d index= %d map is NULL please check\n",
+				__func__, scpd->data->name, bp.type, i);
+			return -1;
+		}
 		if (index != (MAX_STEPS - 1)) {
 			unsigned int val = 0, val2 = 0;
 

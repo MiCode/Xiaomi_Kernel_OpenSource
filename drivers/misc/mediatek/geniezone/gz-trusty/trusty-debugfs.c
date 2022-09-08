@@ -164,6 +164,7 @@ static ssize_t gz_concurrent_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t n)
 {
 	unsigned long tmp = 0;
+	uint32_t rem = 0;
 
 	if (!buf)
 		return -EINVAL;
@@ -210,8 +211,8 @@ static ssize_t gz_concurrent_store(struct device *dev,
 		cpu[0] = 5;
 		cpu[1] = 6;
 	} else {
-		cpu[0] = (tmp / 10) & (num_possible_cpus() - 1);
-		cpu[1] = (tmp % 10) & (num_possible_cpus() - 1);
+		cpu[0] = div_u64_rem(tmp, 10, &rem) & (num_possible_cpus() - 1);
+		cpu[1] = rem & (num_possible_cpus() - 1);
 	}
 
 	if (IS_ERR(trusty_task))

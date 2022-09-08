@@ -1193,6 +1193,9 @@ static int mt6833_mt6359_dev_probe(struct platform_device *pdev)
 	if (ret)
 		dev_err(&pdev->dev, "%s snd_soc_register_card fail %d\n",
 			__func__, ret);
+	else
+		dev_err(&pdev->dev, "%s snd_soc_register_card pass %d\n",
+			__func__, ret);
 	return ret;
 }
 

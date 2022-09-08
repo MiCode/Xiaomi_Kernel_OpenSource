@@ -73,6 +73,7 @@ struct vcu_page_info {
  * @mem_ops:    the file operation of memory allocated
  * @bufs:       store the information of allocated buffers
  * @map_buf_pa: store map pa and it's flag
+ * @map_buf_type the type of mmap, 0: reserved; 1: MM_BASE; 2: MM_CACHEABLE_BASE; 3: PA_BASE
  */
 struct mtk_vcu_queue {
 	void *vcu;
@@ -86,6 +87,7 @@ struct mtk_vcu_queue {
 	uint64_t map_buf_pa;
 	struct vcu_pa_pages pa_pages;
 	int enable_vcu_dbg_log;
+	uint32_t map_buf_type;
 };
 
 /**

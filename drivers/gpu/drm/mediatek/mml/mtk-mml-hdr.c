@@ -634,7 +634,7 @@ static void hdr_readback_cmdq(struct mml_comp *comp, struct mml_task *task,
 	/* readback to this pa */
 	mml_assign(pkt, idx_out, (u32)pa,
 		reuse, cache, &hdr_frm->labels[HDR_POLLGPR_0]);
-	mml_assign(pkt, idx_out + 1, (u32)(pa >> 32),
+	mml_assign(pkt, idx_out + 1, (u32)DO_SHIFT_RIGHT(pa, 32),
 		reuse, cache, &hdr_frm->labels[HDR_POLLGPR_1]);
 
 	/* counter init to 0 */
@@ -829,7 +829,7 @@ static s32 hdr_config_repost(struct mml_comp *comp, struct mml_task *task,
 		mml_update(reuse, hdr_frm->labels[HDR_POLLGPR_0],
 			(u32)task->pq_task->hdr_hist[pipe]->pa);
 		mml_update(reuse, hdr_frm->labels[HDR_POLLGPR_1],
-			(u32)(task->pq_task->hdr_hist[pipe]->pa >> 32));
+			(u32)DO_SHIFT_RIGHT(task->pq_task->hdr_hist[pipe]->pa, 32));
 
 		begin_pa = cmdq_pkt_get_pa_by_offset(pkt, hdr_frm->begin_offset);
 		condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, hdr_frm->condi_offset);

@@ -1,6 +1,5 @@
 config VIDEO_MEDIATEK_VCODEC_V1
 	bool "Specify Mediatek Video Vcodec Platform V1"
-	depends on MTK_LOW_POWER_MODULE
 	help
 	  Select MediaTek Video Vcodec Platform V1
 	  v1 folder is dvfs setting for policy 1
@@ -9,7 +8,6 @@ config VIDEO_MEDIATEK_VCODEC_V1
 
 config VIDEO_MEDIATEK_VCODEC_V2
 	bool "Specify Mediatek Video Vcodec Platform V2"
-	depends on MTK_LOW_POWER_MODULE
 	help
 	  Select MediaTek Video Vcodec Platform V2
 	  v2 folder is dvfs setting for policy 2

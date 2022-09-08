@@ -48,11 +48,12 @@
 #endif /* MTK_GPU_BM_2 */
 #include <ged_dcs.h>
 
-#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+/*#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 #include "mtk_drm_arr.h"
 #else
 #include "disp_arr.h"
 #endif
+*/
 
 #ifdef MTK_GED_KPI
 
@@ -1140,6 +1141,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			struct list_head *psList = &psHead->sList;
 			int time_spent;
 			static int gpu_freq_pre;
+			unsigned long long temp;
 
 			list_for_each_prev_safe(psListEntry, psListEntryTemp,
 			psList) {
@@ -1206,11 +1208,12 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 
 				psKPI->gpu_done_interval = psHead->last_TimeStamp2 -
 					psHead->pre_TimeStamp2;
-				psKPI->cpu_gpu_info.gpu.t_gpu_real =
-					((unsigned long long)
+				temp = ((unsigned long long)
 					(psHead->last_TimeStamp2
 					- psHead->pre_TimeStamp2))
-					* psKPI->gpu_loading / 100U;
+					* psKPI->gpu_loading;
+				do_div(temp, 100U);
+				psKPI->cpu_gpu_info.gpu.t_gpu_real = temp;
 
 				psKPI->cpu_gpu_info.gpu.limit_upper =
 					ged_get_cur_limiter_ceil();
@@ -1262,6 +1265,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 						psHead->t_gpu_latest =
 						time_spent;
 
+#if defined(MTK_GPU_EB_SUPPORT)
 					if (ged_is_fdvfs_support() &&
 						psTimeStamp->pid != pid_sf &&
 						psTimeStamp->pid != pid_sysui) {
@@ -1271,6 +1275,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 						ged_log_perf_trace_counter("eb_coef",
 							(long long)g_eb_coef, 5566, 0, 0);
 					}
+#endif
 					use_gpu_completion_time = 0;
 				} else {
 					/* previous commit type is loading-based or fallback */
@@ -1302,11 +1307,15 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			if (psTimeStamp->pid != pid_sf && psTimeStamp->pid != pid_sysui) {
 				if (main_head == psHead && !g_force_gpu_dvfs_fallback) {
 					psKPI->cpu_gpu_info.gpu.gpu_dvfs |= (0x8000);
+#if defined(MTK_GPU_EB_SUPPORT)
 					if (ged_is_fdvfs_support())
 						mtk_gpueb_dvfs_set_frame_base_dvfs(1);
+#endif
 				} else {
+#if defined(MTK_GPU_EB_SUPPORT)
 					if (ged_is_fdvfs_support())
 						mtk_gpueb_dvfs_set_frame_base_dvfs(0);
+#endif
 				}
 			}
 
@@ -1320,11 +1329,11 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					/* Frame based & main head*/
 					ged_set_policy_state(1);
 					if (g_frame_target_mode) {
+						temp = (u64)g_frame_target_time;
+						do_div(temp, 10);
 						ged_set_backup_timer_timeout(
-							psKPI->t_gpu_target *
-							(u64)g_frame_target_time  / 10);
-						fb_timeout = psKPI->t_gpu_target *
-							(u64)g_frame_target_time  / 10;
+							psKPI->t_gpu_target * temp);
+						fb_timeout = psKPI->t_gpu_target * temp;
 					} else {
 						ged_set_backup_timer_timeout(g_frame_target_time
 						* GED_KPI_MSEC_DIVIDER);
@@ -1753,11 +1762,13 @@ void ged_kpi_gpu_3d_fence_sync_cb(struct dma_fence *sFence,
 		qos_get_frame_nr());
 #endif /* MTK_GPU_BM_2 */
 
+#if defined(MTK_GPU_EB_SUPPORT)
 	// Hint frame boundary
 	if (g_ged_gpueb_support &&
 		(!ged_kpi_check_if_fallback_mode() && !g_force_gpu_dvfs_fallback)
 			&& psMonitor->pid != pid_sf && psMonitor->pid != pid_sysui)
 		g_eb_workload = mtk_gpueb_dvfs_set_frame_done();
+#endif
 
 	ged_kpi_time2(psMonitor->pid, psMonitor->ullWdnd,
 		psMonitor->i32FrameID);
@@ -2029,11 +2040,12 @@ GED_ERROR ged_kpi_system_init(void)
 		return GED_ERROR_FAIL;
 	}
 
-#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+/*#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 	drm_register_fps_chg_callback(ged_dfrc_fps_limit_cb);
 #elif IS_ENABLED(CONFIG_MTK_HIGH_FRAME_RATE)
 	disp_register_fps_chg_callback(ged_dfrc_fps_limit_cb);
 #endif
+*/
 
 	g_psWorkQueue =
 		alloc_ordered_workqueue("ged_kpi",
@@ -2065,11 +2077,12 @@ void ged_kpi_system_exit(void)
 		ged_kpi_iterator_delete_func, NULL);
 	spin_unlock_irqrestore(&gs_hashtableLock, ulIRQFlags);
 	destroy_workqueue(g_psWorkQueue);
-#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+/*#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 	drm_unregister_fps_chg_callback(ged_dfrc_fps_limit_cb);
 #elif IS_ENABLED(CONFIG_MTK_HIGH_FRAME_RATE)
 	disp_unregister_fps_chg_callback(ged_dfrc_fps_limit_cb);
 #endif
+*/
 	ged_thread_destroy(ghThread);
 #ifndef GED_BUFFER_LOG_DISABLE
 	ged_log_buf_free(ghLogBuf_KPI);

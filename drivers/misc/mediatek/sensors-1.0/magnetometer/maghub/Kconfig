@@ -1,0 +1,8 @@
+
+config MTK_MAGHUB
+	bool "maghub for MediaTek package"
+	help
+	  It support different maghub sensor.
+	  If this option is set,
+	  it will support
+	  sensorhub gyroscope.

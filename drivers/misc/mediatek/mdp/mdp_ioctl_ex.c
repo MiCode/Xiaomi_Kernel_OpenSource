@@ -360,7 +360,7 @@ static s32 translate_meta(struct op_meta *meta,
 			reg_addr_msb = cmdq_mdp_get_hw_reg_msb(meta->engine, meta->offset);
 			if (reg_addr_msb) {
 				status = cmdq_op_write_reg_ex(
-					handle, cmd_buf, reg_addr_msb, mva >> 32, ~0);
+					handle, cmd_buf, reg_addr_msb, DO_SHIFT_RIGHT(mva, 32), ~0);
 			} else {
 				CMDQ_ERR("%s: op:%u, get reg_addr_msb fail, eng:%d, offset 0x%x\n",
 					__func__, meta->op, meta->engine, meta->offset);
@@ -414,7 +414,7 @@ static s32 translate_meta(struct op_meta *meta,
 
 			/* check platform support LSB/MSB or not */
 			if (gMdpRegMSBSupport) {
-				src_base_msb = mva >> 32;
+				src_base_msb = DO_SHIFT_RIGHT(mva, 32);
 				src_base_lsb = mva & U32_MAX;
 			} else {
 				src_base_msb = 0;

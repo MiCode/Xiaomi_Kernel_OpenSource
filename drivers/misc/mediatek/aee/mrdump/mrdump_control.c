@@ -43,6 +43,7 @@ static struct attribute_group attr_group = {
 
 #endif
 
+#if IS_ENABLED(CONFIG_ARM64)
 static inline u64 read_tcr_el1_t1sz(void)
 {
 	return (read_sysreg(tcr_el1) & TCR_T1SZ_MASK) >> TCR_T1SZ_OFFSET;
@@ -52,6 +53,7 @@ static inline u64 read_kernel_pac_mask(void)
 {
 	return system_supports_address_auth() ? ptrauth_kernel_pac_mask() : 0;
 }
+#endif
 
 #if IS_ENABLED(CONFIG_KALLSYMS)
 #if !IS_ENABLED(CONFIG_KALLSYMS_BASE_RELATIVE)
@@ -187,8 +189,10 @@ __init void mrdump_cblock_init(const struct mrdump_params *mparams)
 	machdesc_p = &mrdump_cblock->machdesc;
 	machdesc_p->nr_cpus = nr_cpu_ids;
 	machdesc_p->page_offset = (uint64_t)PAGE_OFFSET;
+#if IS_ENABLED(CONFIG_ARM64)
 	machdesc_p->tcr_el1_t1sz = (uint64_t)read_tcr_el1_t1sz();
 	machdesc_p->kernel_pac_mask = (uint64_t)read_kernel_pac_mask();
+#endif
 #if defined(KIMAGE_VADDR)
 	machdesc_p->kimage_vaddr = KIMAGE_VADDR;
 #endif

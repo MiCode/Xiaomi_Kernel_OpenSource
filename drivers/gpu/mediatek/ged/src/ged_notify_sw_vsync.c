@@ -106,10 +106,13 @@ u64 ged_get_fallback_time(void)
 
 	if (g_fallback_mode == 0)
 		temp = g_fallback_time * GED_KPI_MSEC_DIVIDER;
-	else if (g_fallback_mode == 1)
-		temp = fb_timeout * g_fallback_time / 10;
-	else if (g_fallback_mode == 2)
-		temp = lb_timeout * g_fallback_time / 10;
+	else if (g_fallback_mode == 1) {
+		temp = fb_timeout * g_fallback_time;
+		do_div(temp, 10);
+	} else if (g_fallback_mode == 2) {
+		temp = lb_timeout * g_fallback_time;
+		do_div(temp, 10);
+	}
 	return temp;
 }
 int ged_get_policy_state(void)

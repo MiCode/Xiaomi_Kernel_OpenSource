@@ -230,7 +230,7 @@ static ulong trusty_std_call_helper(struct device *dev, ulong smcnr,
 static void trusty_std_call_cpu_idle(struct trusty_state *s)
 {
 	int ret;
-	unsigned long timeout = HZ / 5; /* 200 ms */
+	unsigned long timeout = div_u64(HZ, 5); /* 200 ms */
 
 	ret = wait_for_completion_timeout(&s->cpu_idle_completion, timeout);
 	if (!ret) {

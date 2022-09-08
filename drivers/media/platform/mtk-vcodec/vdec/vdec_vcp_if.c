@@ -834,6 +834,7 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 	return NOTIFY_DONE;
 }
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 void vdec_vcp_probe(struct mtk_vcodec_dev *dev)
 {
 	int ret;
@@ -860,6 +861,7 @@ void vdec_vcp_probe(struct mtk_vcodec_dev *dev)
 
 	mtk_v4l2_debug_leave();
 }
+#endif
 
 static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 {

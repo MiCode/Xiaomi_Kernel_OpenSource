@@ -12,3 +12,4 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/vcp/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/iommu
 ccflags-y += -I$(srctree)/drivers/dma-buf/heaps
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox

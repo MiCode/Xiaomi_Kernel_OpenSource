@@ -53,7 +53,7 @@ void qos_bound_enable(int enable)
 	qos_ipi_d.u.qos_bound_enable.enable = enable;
 	bound = (struct qos_bound *)
 			sspm_sbuf_get(qos_ipi_to_sspm_command(&qos_ipi_d, 2));
-	smp_mb(); /* init bound before flag enabled */
+
 #elif defined(MTK_SCMI)
 	struct qos_ipi_data qos_ipi_d;
 	int ack;
@@ -70,12 +70,14 @@ void qos_bound_enable(int enable)
 		return;
 	}
 	bound = (struct qos_bound *)sspm_sbuf_get(ack);
+#endif
+
 	if (bound == NULL) {
 		pr_info("mtk_qos: sspm_sbuf_get fail\n");
 		return;
 	}
 	smp_mb(); /* init bound before flag enabled */
-#endif
+
 	if (bound->ver == QOS_BOUND_VER_TAG) {
 		qos_bound_apu = (unsigned short *)(bound);
 		qos_bound_apu += (sizeof(struct qos_bound)/sizeof(unsigned short));

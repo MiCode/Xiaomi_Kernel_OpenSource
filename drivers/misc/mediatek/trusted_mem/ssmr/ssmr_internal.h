@@ -339,8 +339,6 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 };
 /* clang-format on */
 
-extern void show_pte(struct mm_struct *mm, unsigned long addr);
-
 struct SSMR_HEAP_INFO {
 	unsigned int heap_id;
 	char heap_name[NAME_SIZE];

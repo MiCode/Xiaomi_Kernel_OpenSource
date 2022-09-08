@@ -10,7 +10,11 @@
 
 //#include "fpsgo_type.h"
 
+#if IS_ENABLED(CONFIG_ARM64)
 #define FPSGO_SYSFS_MAX_BUFF_SIZE 1024
+#else
+#define FPSGO_SYSFS_MAX_BUFF_SIZE 512
+#endif
 
 #define KOBJ_ATTR_RW(_name)	\
 	struct kobj_attribute kobj_attr_##_name =	\

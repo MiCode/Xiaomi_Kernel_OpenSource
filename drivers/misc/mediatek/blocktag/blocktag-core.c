@@ -1551,7 +1551,8 @@ int mtk_btag_mictx_get_data(
 		mictx->req.w.size_top >>= 12;
 
 		top = mictx->req.r.size_top + mictx->req.w.size_top;
-		top = top * 100 / (mictx->req.r.size + mictx->req.w.size);
+		top = top * 100;
+		do_div(top, (mictx->req.r.size + mictx->req.w.size));
 	} else {
 		top = 0;
 	}

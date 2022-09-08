@@ -2080,7 +2080,8 @@ static void mdp_parse_opp(struct platform_device *pdev, const char *ref,
 
 		/* available freq is stored in speeds[index] */
 		of_property_read_u64(child_np, "opp-hz", &freq);
-		speeds[index] = freq/1000000;
+		do_div(freq, 1000000);
+		speeds[index] = freq;
 
 		/* available voltage is stored in volts[i]*/
 		of_property_read_u32(child_np, "opp-microvolt", &volt);
@@ -3387,7 +3388,7 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	 */
 	cmdq_pkt_assign_command(pkt, idx_addr, hist_sram_start);
 	cmdq_pkt_assign_command(pkt, idx_out_spr, (u32)pa);
-	cmdq_pkt_assign_command(pkt, idx_out + 1, (u32)(pa >> 32));
+	cmdq_pkt_assign_command(pkt, idx_out + 1, (u32)DO_SHIFT_RIGHT(pa, 32));
 
 	/* loop again here */
 	begin_pa = cmdq_pkt_get_curr_buf_pa(pkt);

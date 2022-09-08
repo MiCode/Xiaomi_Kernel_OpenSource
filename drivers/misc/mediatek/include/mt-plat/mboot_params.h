@@ -8,6 +8,7 @@
 
 #include <linux/console.h>
 #include <linux/pstore.h>
+#include <linux/seq_file.h>
 
 enum AEE_FIQ_STEP_NUM {
 	AEE_FIQ_STEP_COMMON_DIE_START = 64,

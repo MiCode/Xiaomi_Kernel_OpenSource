@@ -52,7 +52,7 @@ void cmdq_helper_set_fp(struct cmdq_util_helper_fp *cust_cmdq_util);
 #define CMDQ_EVENT_MAX			0x3FF
 #define SUBSYS_NO_SUPPORT		99
 
-#define GCE_CPR_COUNT			1312
+/* #define GCE_CPR_COUNT			1312 */
 #define CMDQ_CPR_STRAT_ID		0x8000
 #define CMDQ_CPR_TPR_MASK		0x8000
 #define CMDQ_CPR_DISP_CNT		0x8001

@@ -323,10 +323,11 @@ bool ged_dvfs_cal_gpu_utilization_ex(unsigned int *pui32Loading,
 		memcpy((void *)&g_Util_Ex, (void *)Util_Ex,
 			sizeof(struct GpuUtilization_Ex));
 
+#if defined(MTK_GPU_EB_SUPPORT)
 		if (g_ged_gpueb_support)
 			mtk_gpueb_dvfs_set_feedback_info(
 				0, g_Util_Ex, 0);
-
+#endif
 		if (pui32Loading) {
 			ged_log_perf_trace_counter("gpu_loading",
 				(long long)*pui32Loading,
@@ -414,12 +415,12 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 			}
 		}
 
+#if defined(MTK_GPU_EB_SUPPORT)
 		if (ged_is_fdvfs_support()
 			&& is_fb_dvfs_triggered && is_fdvfs_enable()) {
 			memset(batch_freq, 0, sizeof(batch_freq));
 			avg_freq = mtk_gpueb_sysram_batch_read(BATCH_MAX_READ_COUNT,
 						batch_freq, BATCH_STR_SIZE);
-
 			ged_log_perf_trace_batch_counter("gpu_freq",
 				(long long)(avg_freq),
 				5566, 0, 0, batch_freq);
@@ -431,7 +432,9 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 			Frequency__(((long long)avg_freq) * 1000,
 			((long long)avg_freq) * 1000);
 #endif /* CONFIG_MTK_GPUFREQ_V2 */
-		} else {
+		} else
+#endif
+		{
 			ged_log_perf_trace_counter("gpu_freq",
 				(long long)(ged_get_cur_freq() / 1000), 5566, 0, 0);
 
@@ -972,9 +975,11 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 	Policy__Frame_based__GPU_Time__Detail((t_gpu_done_interval * 100),
 		(t_gpu_active * 100), (t_gpu_3d * 100));
 
+#if defined(MTK_GPU_EB_SUPPORT)
 	// Hint target frame time w/z headroom
 	if (ged_is_fdvfs_support())
 		mtk_gpueb_dvfs_set_taget_frame_time(t_gpu_target, gx_fb_dvfs_margin);
+#endif
 
 	/* compute AP workload */
 	gpu_freq_pre = ged_get_cur_freq() >> 10;
@@ -1851,14 +1856,17 @@ static void ged_set_fastdvfs_mode(unsigned int u32ModeValue)
 {
 	mutex_lock(&gsDVFSLock);
 	g_fastdvfs_mode = u32ModeValue;
+#if defined(MTK_GPU_EB_SUPPORT)
 	mtk_gpueb_dvfs_set_mode(g_fastdvfs_mode);
+#endif
 	mutex_unlock(&gsDVFSLock);
 }
 
 static unsigned int ged_get_fastdvfs_mode(void)
 {
+#if defined(MTK_GPU_EB_SUPPORT)
 	mtk_gpueb_dvfs_get_mode(&g_fastdvfs_mode);
-
+#endif
 	return g_fastdvfs_mode;
 }
 

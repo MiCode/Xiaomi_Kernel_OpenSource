@@ -1277,7 +1277,7 @@ void cmdq_pkt_reuse_jump(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse)
 
 void cmdq_pkt_reuse_value(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse)
 {
-	*reuse->va = (*reuse->va & GENMASK(63, 32)) | reuse->val;
+	*reuse->va = (*reuse->va & GENMASK_ULL(63, 32)) | reuse->val;
 }
 
 void cmdq_pkt_reuse_buf_va(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse,

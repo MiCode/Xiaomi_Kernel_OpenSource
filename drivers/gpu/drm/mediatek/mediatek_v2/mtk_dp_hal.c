@@ -1529,7 +1529,7 @@ UINT8 mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, BYTE ubCmd,
 		}
 
 		if (uAuxIrqStatus & AUX_400US_TIMEOUT_IRQ_AUX_TX_P0_FLDMASK) {
-			udelay(AUX_NO_REPLY_WAIT_TIME);
+			usleep_range(AUX_NO_REPLY_WAIT_TIME, AUX_NO_REPLY_WAIT_TIME);
 			DPTXMSG("(AUX Read)HW Timeout 400us irq");
 			break;
 		}
@@ -1648,7 +1648,7 @@ UINT8 mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
 		}
 
 		if (uAuxIrqStatus & AUX_400US_TIMEOUT_IRQ_AUX_TX_P0_FLDMASK) {
-			udelay(AUX_NO_REPLY_WAIT_TIME);
+			usleep_range(AUX_NO_REPLY_WAIT_TIME, AUX_NO_REPLY_WAIT_TIME);
 			DPTXMSG("(AUX write)HW Timeout 400us irq");
 			break;
 		}

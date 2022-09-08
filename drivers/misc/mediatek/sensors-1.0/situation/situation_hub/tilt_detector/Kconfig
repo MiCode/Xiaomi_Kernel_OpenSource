@@ -1,0 +1,8 @@
+
+config MTK_TILTDETECTHUB
+	bool "tiltdetecthub for MediaTek package"
+	help
+	  A tilt detect is a device,
+	  usually portable and electronic
+	  or electromechanical,
+	  that detect device is picked up with 35 degree.

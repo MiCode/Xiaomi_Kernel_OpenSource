@@ -165,6 +165,7 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_RT1015P
 	imply SND_SOC_RT1305
 	imply SND_SOC_RT1308
+	imply SND_SOC_RT5509
 	imply SND_SOC_RT5512
 	imply SND_SOC_RT5514
 	imply SND_SOC_RT5616
@@ -1132,6 +1133,16 @@ config SND_SOC_RT1308_SDW
 	depends on I2C && SOUNDWIRE
 	select REGMAP_SOUNDWIRE
 
+config SND_SOC_RT5509
+	tristate "Richtek RT5509 speaker amplifier"
+	depends on I2C
+	select MTK_SUBPMIC_MISC
+	help
+	  Config of RT5509. It is a Smart power
+	  amplifier which contain speaker protection,
+	  multi-band DRC, equalizer function. It would
+	  be set to yes if device with RT5509 on it.
+
 config SND_SOC_RT5512
 	tristate "Mediatek RT5512 speaker amplifier"
 	depends on I2C
@@ -1838,6 +1849,23 @@ config SND_SOC_MT6338
 	  three ADC for uplink path(MICs), and
 	  three DAC for downlink path(handset,
 	  headset, lineout).
+
+config SND_SOC_MT6358_ACCDET
+	tristate "MediaTek MT6358 ACCDET driver"
+	depends on MFD_MT6397
+	help
+	  ACCDET means Accessory Detection technology,
+	  MediaTek develop it for ASoC codec soc-jack
+	  detection mechanism. Select N if you don't
+	  have jack on board.
+
+config SND_SOC_MT6357_ACCDET
+	tristate "MediaTek MT6357 ACCDET driver"
+	default MFD_MT6397
+	help
+	  ACCDET means Accessory Detection technology, MediaTek develop it
+	  for ASoC codec soc-jack detection mechanism.
+	  Select N if you don't have jack on board.
 
 config SND_SOC_MT6338_ACCDET
 	tristate "MediaTek MT6338 ACCDET driver"

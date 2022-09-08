@@ -3535,6 +3535,30 @@ static const struct mtk_disp_color_data mt2701_color_driver_data = {
 	.need_bypass_shadow = false,
 };
 
+#define DISP_COLOR_START_MT6765 0x0c00
+static const struct mtk_disp_color_data mt6765_color_driver_data = {
+	.color_offset = DISP_COLOR_START_MT6765,
+	.support_color21 = true,
+	.support_color30 = true,
+	.reg_table = {0x1400E000, 0x1400F000, 0x14001000,
+			0x14011000, 0x14012000},
+	.color_window = 0x40185E57,
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+};
+
+#define DISP_COLOR_START_MT6768 0x0c00
+static const struct mtk_disp_color_data mt6768_color_driver_data = {
+	.color_offset = DISP_COLOR_START_MT6768,
+	.support_color21 = true,
+	.support_color30 = true,
+	.reg_table = {0x1400E000, 0x1400F000, 0x14001000,
+			0x14011000, 0x14012000},
+	.color_window = 0x40185E57,
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+};
+
 static const struct mtk_disp_color_data mt6779_color_driver_data = {
 	.color_offset = DISP_COLOR_START_MT6779,
 	.support_color21 = true,
@@ -3646,6 +3670,10 @@ static const struct mtk_disp_color_data mt6855_color_driver_data = {
 static const struct of_device_id mtk_disp_color_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-color",
 	 .data = &mt2701_color_driver_data},
+	{.compatible = "mediatek,mt6765-disp-color",
+	 .data = &mt6765_color_driver_data},
+	{.compatible = "mediatek,mt6768-disp-color",
+	 .data = &mt6768_color_driver_data},
 	{.compatible = "mediatek,mt6779-disp-color",
 	 .data = &mt6779_color_driver_data},
 	{.compatible = "mediatek,mt6789-disp-color",

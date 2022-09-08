@@ -185,6 +185,9 @@ u32 teec_initialize_context(const char *name, struct teec_context *context)
 
 	mc_dev_devel("== %s() ==============", __func__);
 
+	if (!g_ctx.real_drv)
+		return TEEC_ERROR_NOT_IMPLEMENTED;
+
 	if (!context) {
 		mc_dev_devel("context is NULL");
 		return TEEC_ERROR_BAD_PARAMETERS;
@@ -217,6 +220,9 @@ EXPORT_SYMBOL(teec_initialize_context);
 void teec_finalize_context(struct teec_context *context)
 {
 	mc_dev_devel("== %s() ==============", __func__);
+
+	if (!g_ctx.real_drv)
+		return;
 
 	/* The parameter context MUST point to an initialized TEE Context */
 	if (!context) {
@@ -255,6 +261,10 @@ u32 teec_open_session(struct teec_context *context,
 	int ret = 0, timeout;
 
 	mc_dev_devel("== %s() ==============", __func__);
+
+	if (!g_ctx.real_drv)
+		return TEEC_ERROR_NOT_IMPLEMENTED;
+
 	gp_ret.value = TEEC_SUCCESS;
 	if (return_origin)
 		*return_origin = TEEC_ORIGIN_API;
@@ -337,6 +347,9 @@ u32 teec_invoke_command(struct teec_session *session,
 
 	mc_dev_devel("== %s() ==============", __func__);
 
+	if (!g_ctx.real_drv)
+		return TEEC_ERROR_NOT_IMPLEMENTED;
+
 	gp_ret.value = TEEC_SUCCESS;
 	if (return_origin)
 		*return_origin = TEEC_ORIGIN_API;
@@ -387,6 +400,9 @@ void teec_close_session(struct teec_session *session)
 
 	mc_dev_devel("== %s() ==============", __func__);
 
+	if (!g_ctx.real_drv)
+		return;
+
 	/* The implementation MUST do nothing if session is NULL */
 	if (!session) {
 		mc_dev_devel("session is NULL");
@@ -423,6 +439,9 @@ u32 teec_register_shared_memory(struct teec_context *context,
 	int ret = 0;
 
 	mc_dev_devel("== %s() ==============", __func__);
+
+	if (!g_ctx.real_drv)
+		return TEEC_ERROR_NOT_IMPLEMENTED;
 
 	/* The parameter context MUST point to an initialized TEE Context */
 	if (!context) {
@@ -480,6 +499,9 @@ u32 teec_allocate_shared_memory(struct teec_context *context,
 	/* No connection to "context"? */
 	mc_dev_devel("== %s() ==============", __func__);
 
+	if (!g_ctx.real_drv)
+		return TEEC_ERROR_NOT_IMPLEMENTED;
+
 	/* The parameter context MUST point to an initialized TEE Context */
 	if (!context) {
 		mc_dev_devel("context is NULL");
@@ -533,6 +555,9 @@ void teec_release_shared_memory(struct teec_shared_memory *shared_mem)
 	/* No connection to "context"? */
 	mc_dev_devel("== %s() ==============", __func__);
 
+	if (!g_ctx.real_drv)
+		return;
+
 	/* The implementation MUST do nothing if shared_mem is NULL */
 	if (!shared_mem) {
 		mc_dev_devel("shared_mem is NULL");
@@ -564,6 +589,9 @@ void teec_request_cancellation(struct teec_operation *operation)
 	int ret;
 
 	mc_dev_devel("== %s() ==============", __func__);
+
+	if (!g_ctx.real_drv)
+		return;
 
 	ret = wait_event_interruptible(operations_wq, operation->started);
 	if (ret == -ERESTARTSYS) {

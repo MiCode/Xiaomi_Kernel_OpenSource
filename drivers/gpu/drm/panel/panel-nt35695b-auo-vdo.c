@@ -29,7 +29,7 @@
 #endif
 
 #ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
-#include "../mediatek/mtk_corner_pattern/mtk_data_hw_roundedpattern.h"
+#include "../mediatek/mediatek_v2/mtk_corner_pattern/mtk_data_hw_roundedpattern.h"
 #endif
 
 struct lcm {
@@ -200,6 +200,15 @@ static int lcm_panel_bias_disable(void)
 }
 #endif
 
+static void udelay_panel(unsigned int del)
+{
+	unsigned int count = del / 1000;
+
+	while (count--)
+		udelay(1000);
+	udelay(del % 1000);
+}
+
 static void lcm_panel_init(struct lcm *ctx)
 {
 	ctx->reset_gpio =
@@ -211,11 +220,11 @@ static void lcm_panel_init(struct lcm *ctx)
 	}
 	gpiod_set_value(ctx->reset_gpio, 0);
 	gpiod_set_value(ctx->reset_gpio, 1);
-	udelay(1 * 1000);
+	udelay_panel(1 * 1000);
 	gpiod_set_value(ctx->reset_gpio, 0);
-	udelay(10 * 1000);
+	udelay_panel(10 * 1000);
 	gpiod_set_value(ctx->reset_gpio, 1);
-	udelay(10 * 1000);
+	udelay_panel(10 * 1000);
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 
 	lcm_dcs_write_seq_static(ctx, 0xFF, 0x24);
@@ -805,7 +814,7 @@ static int lcm_unprepare(struct drm_panel *panel)
 	gpiod_set_value(ctx->bias_neg, 0);
 	devm_gpiod_put(ctx->dev, ctx->bias_neg);
 
-	udelay(1000);
+	udelay_panel(1000);
 
 	ctx->bias_pos = devm_gpiod_get_index(ctx->dev,
 		"bias", 0, GPIOD_OUT_HIGH);
@@ -843,7 +852,7 @@ static int lcm_prepare(struct drm_panel *panel)
 	gpiod_set_value(ctx->bias_pos, 1);
 	devm_gpiod_put(ctx->dev, ctx->bias_pos);
 
-	udelay(2000);
+	udelay_panel(2000);
 
 	ctx->bias_neg = devm_gpiod_get_index(ctx->dev,
 		"bias", 1, GPIOD_OUT_HIGH);
@@ -1105,6 +1114,7 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 	int ret;
 	struct device_node *dsi_node, *remote_node = NULL, *endpoint = NULL;
 
+	pr_info("%s+\n", __func__);
 	dsi_node = of_get_parent(dev->of_node);
 	if (dsi_node) {
 		endpoint = of_graph_get_next_endpoint(dsi_node, NULL);

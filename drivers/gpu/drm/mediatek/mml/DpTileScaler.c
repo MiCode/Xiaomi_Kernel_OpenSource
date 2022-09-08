@@ -38,7 +38,7 @@ void backward_4_taps(s32 outTileStart,
     if (startTemp < (s64)1 * precision) {
         *inTileStart = 0;
     } else {
-        startTemp = startTemp / precision - 1;
+	startTemp = DO_COMMON_DIV(startTemp, precision) - 1;
         if (!(startTemp & 0x1) || inAlignment == 1)
             *inTileStart = (s32)startTemp;
         else  /* must be even */
@@ -50,7 +50,7 @@ void backward_4_taps(s32 outTileStart,
         *inTileEnd = inMaxEnd;
     } else {
         /* due to ceiling in forward */
-        endTemp = endTemp / precision;
+	endTemp = DO_COMMON_DIV(endTemp, precision);
         if (endTemp & 0x1 || inAlignment == 1)
             *inTileEnd = (s32)endTemp;
         else
@@ -94,7 +94,7 @@ void forward_4_taps(s32 inTileStart,
     } else {
         startTemp = (s64)(inTileStart + 1) * precision - (s64)cropOffset * precision - cropSubpixel;
 
-        outTemp = (s32)(startTemp / coeffStep);
+	outTemp = (s32)DO_COMMON_DIV(startTemp, coeffStep);
         if ((s64)outTemp * coeffStep < startTemp)  /* ceiling be careful with value smaller than zero */
             outTemp = outTemp + 1;
 
@@ -112,7 +112,7 @@ void forward_4_taps(s32 inTileStart,
     } else {
         endTemp = (s64)(inTileEnd - 1) * precision - (s64)cropOffset * precision - cropSubpixel;
 
-        outTemp = (s32)(endTemp / coeffStep);
+	outTemp = (s32)DO_COMMON_DIV(endTemp, coeffStep);
         if ((s64)outTemp * coeffStep == endTemp)
             outTemp = outTemp - 1;
 
@@ -136,7 +136,7 @@ void forward_4_taps(s32 inTileStart,
     /* Cal bias & offset by fxied backward_out_pos_start */
     subTemp = (s64)offsetCalStart * coeffStep + (s64)cropOffset * precision + cropSubpixel - (s64)inTileStart * precision;
 
-    *lumaOffset = (s32)(subTemp / precision);
+	*lumaOffset = (s32)DO_COMMON_DIV(subTemp, precision);
     *lumaSubpixel = (s32)(subTemp - precision * *lumaOffset);
 
     if (outAlignment == 1)  /* YUV444 */
@@ -190,9 +190,9 @@ void backward_6_taps(s32 outTileStart,
         *inTileStart = 0;
     } else {
 #if TILE_SCALER_NEGATIVE_OFFSET
-        startTemp = startTemp / precision - 3;
+	startTemp = DO_COMMON_DIV(startTemp, precision) - 3;
 #else
-        startTemp = startTemp / precision - 2;
+	startTemp = DO_COMMON_DIV(startTemp, precision) - 2;
 #endif
         if (!(startTemp & 0x1) || inAlignment == 1)
             *inTileStart = (s32)startTemp;
@@ -209,7 +209,7 @@ void backward_6_taps(s32 outTileStart,
         *inTileEnd = inMaxEnd;
     } else {
         /* due to ceiling in forward */
-        endTemp = endTemp / precision;
+	endTemp = DO_COMMON_DIV(endTemp, precision);
         if (endTemp & 0x1 || inAlignment == 1)
             *inTileEnd = (s32)endTemp;
         else
@@ -257,7 +257,7 @@ void forward_6_taps(s32 inTileStart,
         startTemp = (s64)(inTileStart + 2) * precision - (s64)cropOffset * precision - cropSubpixel;
 #endif
 
-        outTemp = (s32)(startTemp / coeffStep);
+	outTemp = (s32)DO_COMMON_DIV(startTemp, coeffStep);
         if ((s64)outTemp * coeffStep < startTemp)  /* ceiling be careful with value smaller than zero */
             outTemp = outTemp + 1;
 
@@ -279,7 +279,7 @@ void forward_6_taps(s32 inTileStart,
         endTemp = (s64)(inTileEnd - 2) * precision - (s64)cropOffset * precision - cropSubpixel;
 #endif
 
-        outTemp = (s32)(endTemp / coeffStep);
+	outTemp = (s32)DO_COMMON_DIV(endTemp, coeffStep);
         if ((s64)outTemp * coeffStep == endTemp)
             outTemp = outTemp - 1;
 
@@ -303,7 +303,7 @@ void forward_6_taps(s32 inTileStart,
     /* Cal bias & offset by fxied backward_out_pos_start */
     subTemp = (s64)offsetCalStart * coeffStep + (s64)cropOffset * precision + cropSubpixel - (s64)inTileStart * precision;
 
-    *lumaOffset = (s32)(subTemp / precision);
+	*lumaOffset = (s32)DO_COMMON_DIV(subTemp, precision);
     *lumaSubpixel = (s32)(subTemp - precision * *lumaOffset);
 
 #if TILE_SCALER_NEGATIVE_OFFSET
@@ -369,7 +369,7 @@ void backward_src_acc(s32 outTileStart,
     if (startTemp * 2 + coeffStep <= precision) {
         *inTileStart = 0;
     } else {
-        inTemp = (s32)((startTemp * 2 + coeffStep - precision) / (2 * coeffStep));
+	inTemp = (s32)DO_COMMON_DIV((startTemp * 2 + coeffStep - precision), (2 * coeffStep));
         if (!(inTemp & 0x1) || inAlignment == 1)
             *inTileStart = inTemp;
         else  /* must be even */
@@ -380,7 +380,7 @@ void backward_src_acc(s32 outTileStart,
     if (endTemp * 2 + coeffStep + precision >= (s64)2 * coeffStep * inMaxEnd) {
         *inTileEnd = inMaxEnd;
     } else {
-        inTemp = (s32)((endTemp * 2 + coeffStep + precision) / (2 * coeffStep));
+	inTemp = (s32)DO_COMMON_DIV((endTemp * 2 + coeffStep + precision), (2 * coeffStep));
         if ((s64)inTemp * 2 * coeffStep == (s64)2 * endTemp + coeffStep + precision)
             inTemp = inTemp - 1;
 
@@ -432,7 +432,7 @@ void forward_src_acc(s32 inTileStart,
     } else {
         startTemp = (s64)inTileStart * coeffStep - ((u32)coeffStep >> 1) - (s64)cropOffset * coeffStep - cropSubpixel;
 
-        outTemp = (s32)((startTemp * 2 + precision) / (2 * precision));
+	outTemp = (s32)DO_COMMON_DIV((startTemp * 2 + precision), (2 * precision));
         if ((s64)outTemp * 2 * precision < startTemp * 2 + precision)  /* ceiling be careful with value smaller than zero */
             outTemp = outTemp + 1;
 
@@ -450,7 +450,7 @@ void forward_src_acc(s32 inTileStart,
     } else {
         endTemp = (s64)inTileEnd * coeffStep + ((u32)coeffStep >> 1) - (s64)cropOffset * coeffStep - cropSubpixel;
 
-        outTemp = (s32)((endTemp * 2 - precision) / (2 * precision));
+	outTemp = (s32)DO_COMMON_DIV((endTemp * 2 - precision), (2 * precision));
         if (outTemp & 0x1 || outAlignment == 1)
             *outTileEnd = outTemp;
         else
@@ -471,7 +471,7 @@ void forward_src_acc(s32 inTileStart,
     /* cal bias & offset by fxied backward_out_pos_start */
     subTemp = (s64)offsetCalStart * precision + (s64)cropOffset * coeffStep + cropSubpixel - (s64)inTileStart * coeffStep;
 
-    *lumaOffset = (s32)(subTemp / precision);
+	*lumaOffset = (s32)DO_COMMON_DIV(subTemp, precision);
     *chromaOffset = *lumaOffset;
     *lumaSubpixel = (s32)(subTemp - precision * *lumaOffset);
     *chromaSubpixel = *lumaSubpixel;
@@ -523,9 +523,9 @@ void backward_cub_acc(s32 outTileStart,
         *inTileStart = 0;
     } else {
 #if TILE_SCALER_6N_TAP_CUB_ACC
-        outTemp = (s32)((startTemp - 3 * precision) / coeffStep);
+	outTemp = (s32)DO_COMMON_DIV((startTemp - 3 * precision), coeffStep);
 #else
-        outTemp = (s32)((startTemp - 2 * precision) / coeffStep);
+	outTemp = (s32)DO_COMMON_DIV((startTemp - 2 * precision), coeffStep);
 #endif
         if (!(outTemp & 0x1) || inAlignment == 1)
             *inTileStart = outTemp;
@@ -544,10 +544,10 @@ void backward_cub_acc(s32 outTileStart,
     }
     else {
 #if TILE_SCALER_6N_TAP_CUB_ACC
-        outTemp = (s32)((endTemp + coeffStep + 3 * precision) / coeffStep);
+	outTemp = (s32)DO_COMMON_DIV((endTemp + coeffStep + 3 * precision), coeffStep);
         if ((s64)outTemp * coeffStep == endTemp + coeffStep + 3 * precision)
 #else
-        outTemp = (s32)((endTemp + coeffStep + 2 * precision) / coeffStep);
+	outTemp = (s32)DO_COMMON_DIV((endTemp + coeffStep + 2 * precision), coeffStep);
         if ((s64)outTemp * coeffStep == endTemp + coeffStep + 2 * precision)
 #endif
         {
@@ -601,7 +601,7 @@ void forward_cub_acc(s32 inTileStart,
     } else {
         startTemp = (s64)inTileStart * coeffStep - (s64)cropOffset * coeffStep - cropSubpixel;
 
-        outTemp = (s32)(startTemp / precision);
+	outTemp = (s32)DO_COMMON_DIV(startTemp, precision);
         if ((s64)outTemp * precision < startTemp)  /* ceiling be careful with value smaller than zero */
             outTemp = outTemp + 1;
 
@@ -625,9 +625,9 @@ void forward_cub_acc(s32 inTileStart,
         endTemp = (s64)inTileEnd * coeffStep - (s64)cropOffset * coeffStep - cropSubpixel;
 
 #if TILE_SCALER_6N_TAP_CUB_ACC
-        outTemp = (s32)(endTemp / precision - 3);
+	outTemp = (s32)DO_COMMON_DIV(endTemp, precision - 3);
 #else
-        outTemp = (s32)(endTemp / precision - 2);
+	outTemp = (s32)DO_COMMON_DIV(endTemp, precision - 2);
 #endif
         if (outTemp & 0x1 || outAlignment == 1)
             *outTileEnd = outTemp;
@@ -649,7 +649,7 @@ void forward_cub_acc(s32 inTileStart,
     /* Cal bias & offset by fxied backward_out_pos_start */
     subTemp = (s64)offsetCalStart * precision + (s64)cropOffset * coeffStep + cropSubpixel - (s64)inTileStart * coeffStep;
 
-    *lumaOffset = (s32)(subTemp / precision);
+	*lumaOffset = (s32)DO_COMMON_DIV(subTemp, precision);
     *chromaOffset = *lumaOffset;
     *lumaSubpixel = (s32)(subTemp - *lumaOffset * precision);
     *chromaSubpixel = *lumaSubpixel;

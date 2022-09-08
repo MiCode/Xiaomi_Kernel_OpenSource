@@ -422,7 +422,9 @@ ret_ioctl:
 
 static const struct proc_ops earasys_fops = {
 	.proc_ioctl = earasys_ioctl,
+#if IS_ENABLED(CONFIG_COMPAT)
 	.proc_compat_ioctl = earasys_ioctl,
+#endif
 	.proc_open = earasys_open,
 	.proc_read = seq_read,
 	.proc_lseek = seq_lseek,

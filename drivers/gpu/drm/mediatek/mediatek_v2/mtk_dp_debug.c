@@ -224,16 +224,16 @@ static ssize_t mtk_dp_debug_read(struct file *file, char __user *ubuf,
 	int ret = 0;
 	char *buffer;
 
-	buffer = kmalloc(PAGE_SIZE/8, GFP_KERNEL);
+	buffer = kmalloc(PAGE_SIZE / 8, GFP_KERNEL);
 	if (!buffer)
 		return -ENOMEM;
 
 	switch (g_infoIndex) {
 	case DP_INFO_HDCP:
-		ret = mtk_dp_hdcp_getInfo(buffer, PAGE_SIZE/8);
+		ret = mtk_dp_hdcp_getInfo(buffer, PAGE_SIZE / 8);
 		break;
 	case DP_INFO_PHY:
-		ret = mtk_dp_phy_getInfo(buffer, PAGE_SIZE/8);
+		ret = mtk_dp_phy_getInfo(buffer, PAGE_SIZE / 8);
 		break;
 	default:
 		DPTXERR("Invalid inedx!");

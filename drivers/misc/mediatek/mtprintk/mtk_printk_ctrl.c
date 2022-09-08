@@ -3,6 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+#include <asm/div64.h>
 #include <linux/proc_fs.h>
 #include <linux/sched.h>
 #include <linux/printk.h>
@@ -117,13 +118,16 @@ void mt_print_much_log(void)
 	unsigned long long t1 = 0;
 	unsigned long long t2 = 0;
 	unsigned long print_num = 0;
+	unsigned long long result = 0;
 
 	t1 = sched_clock();
 	pr_info("printk debug log: start time: %lld.\n", t1);
 
 	for (;;) {
 		t2 = sched_clock();
-		if ((t2 - t1) / 1000000 > 10 * 1000)
+		result = t2 - t1;
+		do_div(result, 1000000);
+		if (result > 10 * 1000)
 			break;
 		pr_info("printk debug log: the %ld line, time: %lld.\n",
 			print_num++, t2);
@@ -192,6 +196,7 @@ static int logmuch_dump_thread(void *arg)
 	unsigned long long old = 0;
 	unsigned long long now = 0;
 	unsigned long long period = 0;
+	unsigned long long mod = 0;
 #if IS_ENABLED(CONFIG_MTK_PRINTK_DEBUG)
 	unsigned long long printk_irq_t0 = 0;
 	unsigned long long printk_irq_t1 = 0;
@@ -227,7 +232,8 @@ static int logmuch_dump_thread(void *arg)
 		log_count = dumper.next_seq - last_seq;
 		period = now - old;
 		do_div(period, 1000000);
-		if (period / 100 * detect_count < log_count * 10) {
+		do_div(period, 100);
+		if (period * detect_count < log_count * 10) {
 			pr_info("log_much detect.\n");
 			if (log_much == NULL)
 				break;
@@ -237,9 +243,10 @@ static int logmuch_dump_thread(void *arg)
 			kmsg_dump_get_buffer(&dumper, true, (char *)log_much,
 								 log_much_len, &len);
 			memset(aee_str, 0, 63);
+			mod = do_div(period, 10);
 			add_len = scnprintf(aee_str, 63,
 					"Printk too much: >%d L/s, L: %llu, S: %llu.%03lu\n",
-					detect_count, log_count, period/1000, period%1000);
+					detect_count, log_count, period, mod);
 			aee_kernel_warning_api(__FILE__, __LINE__,
 					DB_OPT_PRINTK_TOO_MUCH | DB_OPT_DUMMY_DUMP,
 					aee_str, "Need to shrink kernel log");

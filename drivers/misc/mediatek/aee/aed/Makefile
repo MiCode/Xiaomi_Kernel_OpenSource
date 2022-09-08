@@ -23,4 +23,4 @@ aee_aed-y	+= \
 	slog.o \
 	reboot-reason.o
 
-obj-$(CONFIG_MTK_AEE_FEATURE)	+= aee_rs.o
+obj-$(CONFIG_DRM_MEDIATEK)	+= aee_rs.o

@@ -16,6 +16,51 @@
 //#include <linux/interconnect-provider.h>
 #include "mtk-interconnect.h"
 
+/* Compatibility with 32-bit shift operation */
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
+#define DO_SHIFT_RIGHT(x, n) ({     \
+	(n) < (8 * sizeof(u64)) ? (x) >> (n) : 0;	\
+})
+#define DO_SHIFT_LEFT(x, n) ({      \
+	(n) < (8 * sizeof(u64)) ? (x) << (n) : 0;	\
+})
+#else
+#define DO_SHIFT_RIGHT(x, n) ({     \
+	(n) < (8 * sizeof(u32)) ? (x) >> (n) : 0;	\
+})
+#define DO_SHIFT_LEFT(x, n) ({      \
+	(n) < (8 * sizeof(u32)) ? (x) << (n) : 0;	\
+})
+#endif
+
+/* Compatible with 32bit division and mold operation */
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
+#define DO_COMMON_DIV(x, base) ((x) / (base))
+#define DO_COMMMON_MOD(x, base) ((x) % (base))
+#else
+#define DO_COMMON_DIV(x, base) ({                   \
+	uint64_t result = 0;                        \
+	if (sizeof(x) < sizeof(uint64_t))           \
+		result = ((x) / (base));            \
+	else {                                      \
+		uint64_t __x = (x);                 \
+		do_div(__x, (base));                \
+		result = __x;                       \
+	}                                           \
+	result;                                     \
+})
+#define DO_COMMMON_MOD(x, base) ({                  \
+	uint32_t result = 0;                        \
+	if (sizeof(x) < sizeof(uint64_t))           \
+		result = ((x) % (base));            \
+	else {                                      \
+		uint64_t __x = (x);                 \
+		result = do_div(__x, (base));       \
+	}                                           \
+	result;                                     \
+})
+#endif
+
 struct device;
 struct device_node;
 struct drm_crtc;
@@ -808,6 +853,10 @@ void mtk_ddp_comp_clk_prepare(struct mtk_ddp_comp *comp);
 void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp);
 void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 			       struct cmdq_pkt *handle);
+void mt6765_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
+			    struct cmdq_pkt *handle, void *data);
+void mt6768_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
+			    struct cmdq_pkt *handle, void *data);
 void mt6779_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
 void mt6885_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,

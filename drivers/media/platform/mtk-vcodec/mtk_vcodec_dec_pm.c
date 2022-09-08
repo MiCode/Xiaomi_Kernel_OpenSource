@@ -34,6 +34,7 @@ extern void vdec_dump_mem_buf(unsigned long h_vdec);
 void mtk_dec_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
 	ctx->input_driven = 0;
+	ctx->user_lock_hw = 1;
 }
 
 int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
@@ -61,6 +62,11 @@ int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
 	}
 
 	// parse "mediatek,larbs"
+	node = of_parse_phandle(pdev->dev.of_node, "mediatek,larbs", 0);
+	if (!node) {
+		mtk_v4l2_err("no mediatek,larbs found");
+		return -1;
+	}
 	for (larb_index = 0; larb_index < MTK_VDEC_MAX_LARB_COUNT; larb_index++) {
 		node = of_parse_phandle(pdev->dev.of_node, "mediatek,larbs", larb_index);
 		if (!node)
@@ -559,6 +565,7 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 #endif
 }
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 static void mtk_vdec_dump_addr_reg(
 	struct mtk_vcodec_dev *dev, int hw_id, enum mtk_dec_dump_addr_type type)
 {
@@ -786,7 +793,6 @@ static void mtk_vdec_dump_addr_reg(
 	spin_unlock_irqrestore(&dev->dec_power_lock[hw_id], flags);
 }
 
-#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 static int mtk_vdec_translation_fault_callback(
 	int port, dma_addr_t mva, void *data)
 {
@@ -882,6 +888,7 @@ static int mtk_vdec_translation_fault_callback(
 static int mtk_vdec_uP_translation_fault_callback(
 	int port, dma_addr_t mva, void *data)
 {
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	struct mtk_vcodec_dev *dev = (struct mtk_vcodec_dev *)data;
 	struct mtk_vcodec_ctx *ctx, *dec_ctx[MTK_VDEC_HW_NUM];
 	u32 dec_fourcc[MTK_VDEC_HW_NUM];
@@ -921,7 +928,6 @@ static int mtk_vdec_uP_translation_fault_callback(
 		dec_ctx_id[MTK_VDEC_CORE], dec_codec_name[MTK_VDEC_CORE],
 		dec_fourcc[MTK_VDEC_CORE], vdec_hw_ipm);
 
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	mtk_v4l2_err("dec working buffer:");
 	mutex_lock(&dev->ctx_mutex);
 	list_for_each_safe(list_ptr, tmp, &dev->ctx_list) {

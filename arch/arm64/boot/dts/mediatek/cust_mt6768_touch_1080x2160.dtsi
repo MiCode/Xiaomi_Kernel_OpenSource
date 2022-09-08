@@ -1,0 +1,130 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ *
+ */
+
+/* TOUCH start */
+&i2c0 {
+	clock-frequency = <400000>;
+	pinctrl-names = "default", "ts_int_active",
+		"ts_reset_active", "ts_int_suspend",
+		"ts_reset_suspend", "ts_i2c_mode",
+		"ts_eint_high";
+	pinctrl-0 = <&ctp_pins_default>;
+	pinctrl-1 = <&ctp_ts_int_active>;
+	pinctrl-2 = <&ctp_ts_reset_active>;
+	pinctrl-3 = <&ctp_ts_int_suspend>;
+	pinctrl-4 = <&ctp_ts_reset_suspend>;
+	pinctrl-5 = <&ctp_ts_i2c_mode>;
+	pinctrl-6 = <&ctp_ts_int_as_gpio>;
+
+	gt1151@14 {
+		compatible = "goodix,gt1151";
+		reg = <0x14>;
+		status = "okay";
+	};
+
+	gt9886@5d {
+		compatible = "goodix,gt9886";
+		reg = <0x5d>;
+		status = "okay";
+		interrupt-parent = <&pio>;
+		interrupts = <1 IRQ_TYPE_EDGE_FALLING 1 0>;
+		vtouch-supply = <&mt_pmic_vldo28_ldo_reg>;
+		goodix,reset-gpio = <&pio 23 0x0>;
+		goodix,irq-gpio = <&pio 1 0x0>;
+		goodix,irq-flags = <2>; /* 1:rising, 2:falling;*/
+		goodix,panel-max-id = <10>;
+		goodix,panel-max-x = <1080>;
+		goodix,panel-max-y = <2160>;
+		goodix,panel-max-w = <256>;
+		goodix,panel-max-p = <256>;
+		goodix,input-max-x = <1080>;
+		goodix,input-max-y = <2160>;
+		goodix,panel-key-map = <158 172 217>; /*BACK,HOMEPAGE,SEARCH*/
+		goodix,power-on-delay-us = <10000>; /*10ms*/
+		goodix,power-off-delay-us = <5000>;
+		goodix,firmware-version = "6785ae";
+		goodix,config-version = "6785v99";
+		/*goodix,swap-axis;*/
+		/*goodix,x2x;*/
+		/*goodix,y2y;*/
+		goodix,pen-enable;
+		goodix,key-of-pen = <331 332>;/*BTN_STYLUS, BTN_STYLUS2*/
+		tpd-filter-enable = <0>;
+		tpd-filter-pixel-density = <161>;
+		tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
+		tpd-filter-custom-speed = <0 0 0>;
+	};
+
+};
+
+&touch {
+	tpd-resolution = <1080 2160>;
+	lcm-resolution = <1080 2160>;
+	tpd-cfg-version = "config19";
+	tpd-max-touch-num = <10>;
+	interrupt-parent = <&pio>;
+	interrupts = <1 IRQ_TYPE_EDGE_FALLING 1 0>;
+	goodix,eint-gpio = <&pio 1 0x0>;
+	goodix,reset-gpio = <&pio 23 0x0>;
+	vtouch-supply = <&mt_pmic_vldo28_ldo_reg>;
+
+	/* Rotate cord when open blew lables */
+	/*goodix,x2x;*/
+	/*goodix,y2y;*/
+
+	tpd-filter-enable = <0>;
+	tpd-filter-pixel-density = <168>;
+	tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
+	tpd-filter-custom-speed = <0 0 0>;
+	status = "okay";
+};
+
+&pio {
+	ctp_pins_default: eintdefault {
+	};
+	ctp_ts_int_active: int_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
+			input-enable;
+			bias-pill-up = <MTK_PUPD_SET_R1R0_11>;
+		};
+	};
+	ctp_ts_reset_active: reset_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO23__FUNC_GPIO23>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	ctp_ts_int_suspend: int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	ctp_ts_reset_suspend: reset_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO23__FUNC_GPIO23>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	ctp_ts_i2c_mode: i2cmode_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO82__FUNC_SDA0>,
+				<PINMUX_GPIO83__FUNC_SCL0>;
+		};
+	};
+	ctp_ts_int_as_gpio: int_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+};
+/* TOUCH end */

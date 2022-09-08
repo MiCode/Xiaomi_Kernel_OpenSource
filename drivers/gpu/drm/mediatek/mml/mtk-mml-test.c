@@ -116,6 +116,7 @@ struct test_case_op {
 	void (*run)(struct mml_test *test, struct mml_test_case *cur);
 };
 
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
 static void check_fence(int32_t fd, const char *func)
 {
 	struct dma_fence *fence = sync_file_get_fence(fd);
@@ -134,6 +135,7 @@ static void check_fence(int32_t fd, const char *func)
 	dma_fence_put(fence);
 	put_unused_fd(fd);
 }
+#endif
 
 #define mml_afbc_align(p) (((p + 31) >> 5) << 5)
 
@@ -177,6 +179,7 @@ static void case_general_submit(struct mml_test *test,
 	struct mml_test_case *cur,
 	void (*setup)(struct mml_submit *task, struct mml_test_case *cur))
 {
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
 	struct platform_device *mml_pdev;
 	struct mml_drm_ctx *mml_ctx;
 	struct mml_job job = {};
@@ -303,6 +306,7 @@ static void case_general_submit(struct mml_test *test,
 	else
 		mml_err("fail to put ctx");
 	mml_log("%s end", __func__);
+#endif
 }
 
 /* case_config_rgb/case_run_general

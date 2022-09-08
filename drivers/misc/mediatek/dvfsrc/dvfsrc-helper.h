@@ -59,6 +59,7 @@ struct dvfsrc_debug_data {
 	u32 version;
 	struct dvfsrc_opp_desc *opps_desc;
 	const struct dvfsrc_config *config;
+	const struct dvfsrc_qos_config *qos;
 	bool spm_stamp_en;
 };
 
@@ -103,5 +104,9 @@ extern const struct dvfsrc_config mt6873_dvfsrc_config;
 extern const struct dvfsrc_config mt6893_dvfsrc_config;
 extern const struct dvfsrc_config mt6877_dvfsrc_config;
 extern const struct dvfsrc_config mt6983_dvfsrc_config;
+extern const struct dvfsrc_config mt6768_dvfsrc_config;
+extern const struct dvfsrc_config mt6765_dvfsrc_config;
+extern const struct dvfsrc_qos_config mt6768_qos_config;
+extern const struct dvfsrc_qos_config mt6765_qos_config;
 #endif
 

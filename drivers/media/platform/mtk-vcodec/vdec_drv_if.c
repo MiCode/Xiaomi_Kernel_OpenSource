@@ -24,9 +24,9 @@ const struct vdec_common_if *get_dec_vcu_if(void);
 const struct vdec_common_if *get_dec_vcp_if(void);
 #endif
 
-
 static const struct vdec_common_if * get_data_path_ptr(void)
 {
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	if (VCU_FPTR(vcu_get_plat_device)) {
 		if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER))
 			return get_dec_vcp_if();
@@ -34,6 +34,12 @@ static const struct vdec_common_if * get_data_path_ptr(void)
 			return get_dec_vcu_if();
 	} else
 		return get_dec_vcp_if();
+#endif
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
+	if (VCU_FPTR(vcu_get_plat_device))
+		return get_dec_vcu_if();
+#endif
+	return NULL;
 }
 
 int vdec_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
@@ -67,6 +73,9 @@ int vdec_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
 
 	if (ctx->dec_if == NULL)
 		return -EINVAL;
+
+	if (!ctx->user_lock_hw)
+		vdec_decode_prepare(ctx, MTK_VDEC_CORE);
 
 	ret = ctx->dec_if->init(ctx, &ctx->drv_handle);
 
@@ -174,6 +183,9 @@ void vdec_if_deinit(struct mtk_vcodec_ctx *ctx)
 		return;
 
 	ctx->dec_if->deinit(ctx->drv_handle);
+
+	if (!ctx->user_lock_hw)
+		vdec_decode_unprepare(ctx, MTK_VDEC_CORE);
 
 	ctx->drv_handle = 0;
 }

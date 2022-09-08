@@ -499,6 +499,7 @@ struct mtk_vcodec_ctx {
 	enum vdec_input_driven_mode input_driven;
 
 	/* for user lock HW case release check */
+	int user_lock_hw;
 	struct mutex hw_status;
 	int hw_locked[MTK_VDEC_HW_NUM];
 	int core_locked[MTK_VENC_HW_NUM];

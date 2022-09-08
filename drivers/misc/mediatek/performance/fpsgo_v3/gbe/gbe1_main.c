@@ -375,19 +375,27 @@ static ssize_t gbe_enable1_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	char acBuffer[GBE_SYSFS_MAX_BUFF_SIZE];
+	char *acBuffer;
 	int arg;
 	int val = 0;
+
+	acBuffer = kcalloc(GBE_SYSFS_MAX_BUFF_SIZE, sizeof(char),
+				GFP_KERNEL);
+	if (!acBuffer)
+		return -ENOMEM;
 
 	if ((count > 0) && (count < GBE_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, GBE_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0)
 				val = arg;
-			else
+			else {
+				kfree(acBuffer);
 				return count;
+			}
 		}
 	}
 
+	kfree(acBuffer);
 	enable_gbe(val);
 
 	return count;
@@ -400,9 +408,14 @@ static ssize_t gbe_boost_list1_show(struct kobject *kobj,
 	char *buf)
 {
 	struct GBE_BOOST_LIST *gbe_list_iter = NULL;
-	char temp[GBE_SYSFS_MAX_BUFF_SIZE] = "";
+	char *temp;
 	int pos = 0;
 	int length;
+
+	temp = kcalloc(GBE_SYSFS_MAX_BUFF_SIZE, sizeof(char),
+				GFP_KERNEL);
+	if (!temp)
+		return -ENOMEM;
 
 	length = scnprintf(temp + pos, GBE_SYSFS_MAX_BUFF_SIZE - pos,
 			"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
@@ -430,17 +443,25 @@ static ssize_t gbe_boost_list1_show(struct kobject *kobj,
 		pos += length;
 	}
 
-	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+	length = scnprintf(buf, PAGE_SIZE, "%s", temp);
+	kfree(temp);
+
+	return length;
 }
 
 static ssize_t gbe_boost_list1_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	char acBuffer[GBE_SYSFS_MAX_BUFF_SIZE];
+	char *acBuffer;
 	int ret = count;
 	char proc_name[16], thrd_name[16];
 	unsigned long long runtime_thrs;
+
+	acBuffer = kcalloc(GBE_SYSFS_MAX_BUFF_SIZE, sizeof(char),
+				GFP_KERNEL);
+	if (!acBuffer)
+		return -ENOMEM;
 
 	if ((count > 0) && (count < GBE_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, GBE_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
@@ -459,6 +480,7 @@ static ssize_t gbe_boost_list1_store(struct kobject *kobj,
 	}
 
 err:
+	kfree(acBuffer);
 	return ret;
 }
 

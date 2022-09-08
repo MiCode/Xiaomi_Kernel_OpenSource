@@ -415,6 +415,7 @@ u32 calc_freq(struct vcodec_inst *inst, struct mtk_vcodec_dev *dev)
 
 			if (inst->priority < 0) {
 				inst->op_rate = 30;
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 				if (inst->codec_fmt == 808996950) {
 					/* performance class WA for VP8 */
 					inst->op_rate = 60;
@@ -423,6 +424,7 @@ u32 calc_freq(struct vcodec_inst *inst, struct mtk_vcodec_dev *dev)
 					(inst->width * inst->height <= 1920 * 1088)) {
 					inst->op_rate = 174;
 				}
+#endif
 			} else
 				inst->op_rate = dflt_op_rate;
 

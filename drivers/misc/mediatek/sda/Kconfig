@@ -40,6 +40,16 @@ config MTK_IRQ_DBG
 	  Enable this to get the interrupt related APIs for
 	  debugging only.
 
+config MTK_IRQ_DBG_LEGACY
+	tristate "MediaTek IRQ dbg driver"
+	help
+	  This selects the device driver for the interrupt
+	  debug module. The module provides APIs of irq debug
+	  in the Mediatek SoC with sysirq.
+
+	  Enable this to get the interrupt related APIs for
+	  debugging only.
+
 config MTK_DBGTOP
 	tristate "MTK DBGTOP driver"
 	help

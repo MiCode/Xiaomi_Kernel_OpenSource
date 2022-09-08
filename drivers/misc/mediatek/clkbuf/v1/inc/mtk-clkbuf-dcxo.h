@@ -118,5 +118,6 @@ int clkbuf_dcxo_set_heater(bool on);
 extern struct dcxo_hw mt6359p_dcxo;
 extern struct dcxo_hw mt6685_dcxo;
 extern struct dcxo_hw mt6366_dcxo;
-
+extern struct dcxo_hw mt6358_dcxo;
+extern struct dcxo_hw mt6357_dcxo;
 #endif /* CLKBUF_DCXO_H */

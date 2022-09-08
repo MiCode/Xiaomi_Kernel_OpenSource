@@ -76,6 +76,26 @@
 
 #define MT6873_SODI_REQ_VAL_ALL                   REG_FLD_MSB_LSB(13, 12)
 
+#define MT6765_HRT_URGENT_CTL_SEL_ALL             REG_FLD_MSB_LSB(7, 0)
+	#define MT6765_HRT_URGENT_CTL_SEL_RDMA0       REG_FLD_MSB_LSB(0, 0)
+	#define MT6765_HRT_URGENT_CTL_SEL_WDMA0       REG_FLD_MSB_LSB(2, 2)
+	#define MT6765_HRT_URGENT_CTL_SEL_DSI0        REG_FLD_MSB_LSB(5, 5)
+
+#define MT6765_HRT_URGENT_CTL_VAL_ALL             REG_FLD_MSB_LSB(15, 8)
+	#define MT6765_HRT_URGENT_CTL_VAL_RDMA0       REG_FLD_MSB_LSB(8, 8)
+	#define MT6765_HRT_URGENT_CTL_VAL_WDMA0       REG_FLD_MSB_LSB(10, 10)
+	#define MT6765_HRT_URGENT_CTL_VAL_DSI0        REG_FLD_MSB_LSB(13, 13)
+
+#define MT6768_HRT_URGENT_CTL_SEL_ALL             REG_FLD_MSB_LSB(7, 0)
+	#define MT6768_HRT_URGENT_CTL_SEL_RDMA0       REG_FLD_MSB_LSB(0, 0)
+	#define MT6768_HRT_URGENT_CTL_SEL_WDMA0       REG_FLD_MSB_LSB(2, 2)
+	#define MT6768_HRT_URGENT_CTL_SEL_DSI0        REG_FLD_MSB_LSB(5, 5)
+
+#define MT6768_HRT_URGENT_CTL_VAL_ALL             REG_FLD_MSB_LSB(15, 8)
+	#define MT6768_HRT_URGENT_CTL_VAL_RDMA0       REG_FLD_MSB_LSB(8, 8)
+	#define MT6768_HRT_URGENT_CTL_VAL_WDMA0       REG_FLD_MSB_LSB(10, 10)
+	#define MT6768_HRT_URGENT_CTL_VAL_DSI0        REG_FLD_MSB_LSB(13, 13)
+
 #define MT6879_DVFS_HALT_MASK_SEL_ALL             REG_FLD_MSB_LSB(21, 16)
 	#define MT6879_DVFS_HALT_MASK_SEL_RDMA0       REG_FLD_MSB_LSB(16, 16)
 	#define MT6879_DVFS_HALT_MASK_SEL_RDMA1       REG_FLD_MSB_LSB(17, 17)
@@ -484,7 +504,7 @@ void mtk_irq_time_handle(struct work_struct *data)
 
 	mtk_dprec_logger_pr(DPREC_LOGGER_STATUS, "%s > %d us, [%d]:\n",
 		mtk_dump_comp_str_id(mtk_irq_work->comp_id),
-		MTK_IRQ_TS_THRESHOLD/1000, mtk_irq_work->number);
+		DO_COMMON_DIV(MTK_IRQ_TS_THRESHOLD, 1000), mtk_irq_work->number);
 	for (i = 0; i < MTK_IRQ_TS_MAX && mtk_irq_work->irq_time[i].line != 0; i++)
 		mtk_dprec_logger_pr(DPREC_LOGGER_STATUS, "[%d]%llu ns\n",
 		mtk_irq_work->irq_time[i].line, mtk_irq_work->irq_time[i].ts);
@@ -984,6 +1004,132 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 				0x1);
 
 		index++;
+	}
+}
+
+void mt6765_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
+			    struct cmdq_pkt *handle, void *data)
+{
+	struct mtk_drm_private *priv = drm->dev_private;
+	unsigned int sodi_req_val = 0, sodi_req_mask = 0;
+	unsigned int emi_req_val = 0, emi_req_mask = 0;
+	bool en = *((bool *)data);
+
+	if (id == DDP_COMPONENT_ID_MAX) { /* config when top clk on */
+		if (!en)
+			return;
+
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					0, SODI_REQ_SEL_ALL);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					0, SODI_REQ_VAL_ALL);
+
+		/* apply sodi hrt with rdma fifo*/
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_HRT_FIFO_SEL_DISP0_PD_MODE);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_HRT_FIFO_SEL_DISP0_CG_MODE);
+
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_REQ_SEL_RDMA0_PD_MODE);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_REQ_VAL_RDMA0_PD_MODE);
+
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0xFF, MT6765_HRT_URGENT_CTL_SEL_ALL);
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0, MT6765_HRT_URGENT_CTL_VAL_ALL);
+	} else if (id == DDP_COMPONENT_RDMA0) {
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!en),
+					SODI_REQ_SEL_RDMA0_CG_MODE);
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+					MT6765_HRT_URGENT_CTL_SEL_RDMA0);
+	} else if (id == DDP_COMPONENT_WDMA0) {
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+					MT6765_HRT_URGENT_CTL_SEL_WDMA0);
+	} else
+		return;
+
+	if (handle == NULL) {
+		unsigned int v;
+
+		v = (readl(priv->config_regs + MMSYS_SODI_REQ_MASK)
+			& (~sodi_req_mask));
+		v += (sodi_req_val & sodi_req_mask);
+		writel_relaxed(v, priv->config_regs + MMSYS_SODI_REQ_MASK);
+
+		v = (readl(priv->config_regs +  MMSYS_EMI_REQ_CTL)
+			& (~emi_req_mask));
+		v += (emi_req_val & emi_req_mask);
+		writel_relaxed(v, priv->config_regs +  MMSYS_EMI_REQ_CTL);
+	} else {
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_EMI_REQ_CTL, emi_req_val, emi_req_mask);
+	}
+}
+
+void mt6768_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
+			    struct cmdq_pkt *handle, void *data)
+{
+	struct mtk_drm_private *priv = drm->dev_private;
+	unsigned int sodi_req_val = 0, sodi_req_mask = 0;
+	unsigned int emi_req_val = 0, emi_req_mask = 0;
+	bool en = *((bool *)data);
+
+	if (id == DDP_COMPONENT_ID_MAX) { /* config when top clk on */
+		if (!en)
+			return;
+
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					0, SODI_REQ_SEL_ALL);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					0, SODI_REQ_VAL_ALL);
+
+		/* apply sodi hrt with rdma fifo*/
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_HRT_FIFO_SEL_DISP0_PD_MODE);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_HRT_FIFO_SEL_DISP0_CG_MODE);
+
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_REQ_SEL_RDMA0_PD_MODE);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_REQ_VAL_RDMA0_PD_MODE);
+
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0xFF, MT6768_HRT_URGENT_CTL_SEL_ALL);
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0, MT6768_HRT_URGENT_CTL_VAL_ALL);
+	} else if (id == DDP_COMPONENT_RDMA0) {
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!en),
+					SODI_REQ_SEL_RDMA0_CG_MODE);
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+					MT6768_HRT_URGENT_CTL_SEL_RDMA0);
+	} else if (id == DDP_COMPONENT_WDMA0) {
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+					MT6768_HRT_URGENT_CTL_SEL_WDMA0);
+	} else
+		return;
+
+	if (handle == NULL) {
+		unsigned int v;
+
+		v = (readl(priv->config_regs + MMSYS_SODI_REQ_MASK)
+			& (~sodi_req_mask));
+		v += (sodi_req_val & sodi_req_mask);
+		writel_relaxed(v, priv->config_regs + MMSYS_SODI_REQ_MASK);
+
+		v = (readl(priv->config_regs +  MMSYS_EMI_REQ_CTL)
+			& (~emi_req_mask));
+		v += (emi_req_val & emi_req_mask);
+		writel_relaxed(v, priv->config_regs +  MMSYS_EMI_REQ_CTL);
+	} else {
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_EMI_REQ_CTL, emi_req_val, emi_req_mask);
 	}
 }
 

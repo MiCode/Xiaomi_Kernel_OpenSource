@@ -1431,7 +1431,7 @@ static void write_phy_layer_addr_cmdq(struct mtk_ddp_comp *comp,
 	if (ovl->data->is_support_34bits)
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_ADDR_MSB(id),
-			       (addr >> 32), 0xf);
+			       DO_SHIFT_RIGHT(addr, 32), 0xf);
 }
 
 static void write_ext_layer_addr_cmdq(struct mtk_ddp_comp *comp,
@@ -1447,7 +1447,7 @@ static void write_ext_layer_addr_cmdq(struct mtk_ddp_comp *comp,
 	if (ovl->data->is_support_34bits)
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_EL_ADDR_MSB(id),
-			       (addr >> 32), 0xf);
+			       DO_SHIFT_RIGHT(addr, 32), 0xf);
 }
 
 static void write_phy_layer_hdr_addr_cmdq(struct mtk_ddp_comp *comp,
@@ -1463,7 +1463,7 @@ static void write_phy_layer_hdr_addr_cmdq(struct mtk_ddp_comp *comp,
 	if (ovl->data->is_support_34bits)
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_ADDR_MSB(id),
-			       ((addr >> 32) << 8), 0xf00);
+			       (DO_SHIFT_RIGHT(addr, 32) << 8), 0xf00);
 }
 
 static void write_ext_layer_hdr_addr_cmdq(struct mtk_ddp_comp *comp,
@@ -2931,6 +2931,8 @@ mtk_ovl_addon_rsz_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 			 enum mtk_ddp_comp_id next, struct mtk_rect rsz_src_roi,
 			 struct mtk_rect rsz_dst_roi, struct cmdq_pkt *handle)
 {
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
+
 	if (prev == DDP_COMPONENT_RSZ0 ||
 		prev == DDP_COMPONENT_RSZ1 ||
 		prev == DDP_COMPONENT_Y2R0 ||
@@ -2975,6 +2977,18 @@ mtk_ovl_addon_rsz_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 			       rsz_src_roi.height << 16 | rsz_src_roi.width,
 			       ~0);
 		_store_bg_roi(comp, rsz_src_roi.height, rsz_src_roi.width);
+	}
+	if (priv->data->mmsys_id == MMSYS_MT6768 || priv->data->mmsys_id == MMSYS_MT6765) {
+		struct mtk_ddp_comp *comp_ovl0 = priv->ddp_comp[DDP_COMPONENT_OVL0];
+		static char init_ovl0 = true;
+
+		/* Since the OVL was swapped after LK to kernel, */
+		/* the OVL needs to be reinitialized. */
+		if (init_ovl0) {
+			/* vol0 layer0 off */
+			mtk_ovl_layer_off(comp_ovl0, 0, 0, handle);
+			init_ovl0 = false;
+		}
 	}
 }
 
@@ -3212,7 +3226,7 @@ static dma_addr_t read_phy_layer_addr(struct mtk_ddp_comp *comp, int id)
 
 	if (ovl->data->is_support_34bits) {
 		layer_addr = readl(comp->regs + DISP_REG_OVL_ADDR_MSB(id));
-		layer_addr = ((layer_addr & 0xf) << 32);
+		layer_addr = DO_SHIFT_LEFT((layer_addr & 0xf), 32);
 	}
 
 	layer_addr += readl(comp->regs + DISP_REG_OVL_ADDR(ovl, id));
@@ -3227,7 +3241,7 @@ static dma_addr_t read_ext_layer_addr(struct mtk_ddp_comp *comp, int id)
 
 	if (ovl->data->is_support_34bits) {
 		layer_addr = readl(comp->regs + DISP_REG_OVL_EL_ADDR_MSB(id));
-		layer_addr = ((layer_addr & 0xf) << 32);
+		layer_addr = DO_SHIFT_LEFT((layer_addr & 0xf), 32);
 	}
 
 	layer_addr += readl(comp->regs + DISP_REG_OVL_EL_ADDR(ovl, id));
@@ -4294,7 +4308,9 @@ static int mtk_disp_ovl_probe(struct platform_device *pdev)
 		dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
 
 	writel(0, priv->ddp_comp.regs + DISP_REG_OVL_INTSTA);
+	dsb(sy);
 	writel(0, priv->ddp_comp.regs + DISP_REG_OVL_INTEN);
+	dsb(sy);
 	ret = devm_request_irq(dev, irq, mtk_disp_ovl_irq_handler,
 			       IRQF_TRIGGER_NONE | IRQF_SHARED, dev_name(dev),
 			       priv);
@@ -4339,6 +4355,58 @@ static const struct mtk_disp_ovl_data mt2701_ovl_driver_data = {
 	.need_bypass_shadow = false,
 	.is_support_34bits = false,
 	.source_bpc = 8,
+};
+
+static const struct compress_info compr_info_mt6765  = {
+	.name = "AFBC_V1_2_MTK_1",
+	.l_config = &compr_l_config_AFBC_V1_2,
+};
+
+const struct mtk_disp_ovl_data mt6765_ovl_driver_data = {
+	.addr = DISP_REG_OVL_ADDR_BASE,
+	.el_addr_offset = 0x04,
+	.el_hdr_addr = 0xfd0,
+	.el_hdr_addr_offset = 0x08,
+	.fmt_rgb565_is_0 = true,
+	.fmt_uyvy = 4U << 12,
+	.fmt_yuyv = 5U << 12,
+	.compr_info = &compr_info_mt6765,
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.preultra_th_dc = 0x3ff,
+	.fifo_size = 192,
+	.issue_req_th_dl = 127,
+	.issue_req_th_dc = 15,
+	.issue_req_th_urg_dl = 63,
+	.issue_req_th_urg_dc = 15,
+	.greq_num_dl = 0x7777,
+	.is_support_34bits = false,
+};
+
+static const struct compress_info compr_info_mt6768  = {
+	.name = "AFBC_V1_2_MTK_1",
+	.l_config = &compr_l_config_AFBC_V1_2,
+};
+
+const struct mtk_disp_ovl_data mt6768_ovl_driver_data = {
+	.addr = DISP_REG_OVL_ADDR_BASE,
+	.el_addr_offset = 0x04,
+	.el_hdr_addr = 0xfd0,
+	.el_hdr_addr_offset = 0x08,
+	.fmt_rgb565_is_0 = true,
+	.fmt_uyvy = 4U << 12,
+	.fmt_yuyv = 5U << 12,
+	.compr_info = &compr_info_mt6768,
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.preultra_th_dc = 0x3ff,
+	.fifo_size = 192,
+	.issue_req_th_dl = 127,
+	.issue_req_th_dc = 15,
+	.issue_req_th_urg_dl = 63,
+	.issue_req_th_urg_dc = 15,
+	.greq_num_dl = 0x7777,
+	.is_support_34bits = false,
 };
 
 static const struct compress_info compr_info_mt6779  = {
@@ -4602,6 +4670,10 @@ static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
 static const struct of_device_id mtk_disp_ovl_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-ovl",
 	 .data = &mt2701_ovl_driver_data},
+	{.compatible = "mediatek,mt6765-disp-ovl",
+	 .data = &mt6765_ovl_driver_data},
+	{.compatible = "mediatek,mt6768-disp-ovl",
+	 .data = &mt6768_ovl_driver_data},
 	{.compatible = "mediatek,mt6779-disp-ovl",
 	 .data = &mt6779_ovl_driver_data},
 	{.compatible = "mediatek,mt8173-disp-ovl",

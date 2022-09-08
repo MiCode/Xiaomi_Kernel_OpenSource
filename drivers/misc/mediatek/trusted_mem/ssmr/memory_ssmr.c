@@ -482,7 +482,8 @@ int ssmr_init(struct platform_device *pdev)
 	int i;
 
 	ssmr_dev = &pdev->dev;
-	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
+	//pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
+	pdev->dev.coherent_dma_mask = ~0UL;
 
 	/* setup secure feature size */
 	setup_feature_size();

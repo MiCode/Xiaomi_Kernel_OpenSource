@@ -2372,6 +2372,7 @@ int musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 	struct musb *musb;
 	struct musb_hdrc_platform_data *plat = dev->platform_data;
 	struct usb_hcd *hcd;
+	struct device_node *np = dev->parent->of_node;
 
 	/* resolve CR ALPS01823375 */
 	u8 u8_busperf3 = 0;
@@ -2392,6 +2393,11 @@ int musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 		status = -ENOMEM;
 		goto fail0;
 	}
+
+	status = of_property_read_u32(np, "usb_phy_offset", &musb->mtk_usb_phy_offset);
+	if (status)
+		musb->mtk_usb_phy_offset = 0x300;
+	DBG(0, "musb->mtk_usb_phy_offset : 0x%x\n", musb->mtk_usb_phy_offset);
 
 	mtk_musb = musb;
 	sema_init(&musb->musb_lock, 1);
@@ -4574,6 +4580,8 @@ static const struct of_device_id apusb_of_ids[] = {
 	{.compatible = "mediatek,mt6789-usb20",},
 	{.compatible = "mediatek,mt6855-usb20",},
 	{.compatible = "mediatek,mt6833-usb20",},
+	{.compatible = "mediatek,mt6768-usb20",},
+	{.compatible = "mediatek,mt6765-usb20",},
 	{},
 };
 MODULE_DEVICE_TABLE(of, apusb_of_ids);

@@ -120,6 +120,7 @@ struct cmdq_util_platform_fp *cmdq_platform;
 void cmdq_util_set_fp(struct cmdq_util_platform_fp *cust_cmdq_platform)
 {
 	s32 i;
+
 	if (!cust_cmdq_platform) {
 		cmdq_err("%s cmdq_util_platform_fp is NULL ", __func__);
 		return;
@@ -133,6 +134,23 @@ void cmdq_util_set_fp(struct cmdq_util_platform_fp *cust_cmdq_platform)
 		cmdq_mbox_set_hw_id(util.cmdq_mbox[i]);
 }
 EXPORT_SYMBOL(cmdq_util_set_fp);
+
+void cmdq_util_reset_fp(struct cmdq_util_platform_fp *cust_cmdq_platform)
+{
+	s32 i;
+
+	if (!cust_cmdq_platform) {
+		cmdq_err("%s cmdq_util_platform_fp is NULL ", __func__);
+		return;
+	}
+	controller_fp.thread_ddr_module = NULL;
+	helper_fp.hw_name = NULL;
+	helper_fp.event_module_dispatch = NULL;
+	helper_fp.thread_module_dispatch = NULL;
+	for (i = 0; i < util.mbox_cnt; i++)
+		cmdq_mbox_reset_hw_id(util.cmdq_mbox[i]);
+}
+EXPORT_SYMBOL(cmdq_util_reset_fp);
 
 const char *cmdq_util_event_module_dispatch(phys_addr_t gce_pa, const u16 event, s32 thread)
 {
@@ -298,8 +316,8 @@ static int cmdq_util_status_print(struct seq_file *seq, void *data)
 static int cmdq_util_record_print(struct seq_file *seq, void *data)
 {
 	struct cmdq_record *rec;
-	u32 acq_time, irq_time, begin_wait, exec_time, total_time, hw_time;
-	u64 submit_sec;
+	u32 acq_time, irq_time, begin_wait, exec_time, total_time;
+	u64 submit_sec, hw_time;
 	unsigned long submit_rem, hw_time_rem;
 	s32 i, idx;
 

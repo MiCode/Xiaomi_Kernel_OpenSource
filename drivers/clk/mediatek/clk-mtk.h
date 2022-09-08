@@ -291,7 +291,11 @@ void mtk_register_reset_controller(struct device_node *np,
 void mtk_register_reset_controller_set_clr(struct device_node *np,
 	unsigned int num_regs, int regofs);
 
+#if IS_ENABLED(CONFIG_MEDIATEK_FHCTL_V1)
+extern bool (*mtk_fh_set_rate)(int pll_id, unsigned long dds, int postdiv);
+#else
 extern bool (*mtk_fh_set_rate)(const char *name, unsigned long dds, int postdiv);
+#endif
 
 struct mtk_clk_desc {
 	const struct mtk_gate *clks;

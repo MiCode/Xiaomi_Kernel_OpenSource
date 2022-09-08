@@ -243,7 +243,15 @@ static const struct dvfsrc_met_data mt6855_data = {
 	.version = 0x6855,
 };
 
+static const struct dvfsrc_met_data mt6768_data = {
+	.met = &mt6768_met_config,
+	.version = 0x6768,
+};
 
+static const struct dvfsrc_met_data mt6765_data = {
+	.met = &mt6768_met_config,
+	.version = 0x6765,
+};
 static const struct of_device_id dvfsrc_met_of_match[] = {
 #if IS_ENABLED(CONFIG_MTK_DVFSRC_MET_MT6873)
 	{
@@ -279,6 +287,18 @@ static const struct of_device_id dvfsrc_met_of_match[] = {
 	}, {
 		.compatible = "mediatek,mt6855-dvfsrc",
 		.data = &mt6855_data,
+	},
+#endif
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_MET_MT6768)
+	{
+		.compatible = "mediatek,mt6768-dvfsrc",
+		.data = &mt6768_data,
+	},
+#endif
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_MET_MT6765)
+	{
+		.compatible = "mediatek,mt6765-dvfsrc",
+		.data = &mt6765_data,
 	},
 #endif
 	{

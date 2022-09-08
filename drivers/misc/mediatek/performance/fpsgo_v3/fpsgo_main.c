@@ -744,7 +744,7 @@ static void fpsgo_cpu_frequency_tracer(void *ignore, unsigned int frequency, uns
 
 	if (policy) {
 		fpsgo_notify_cpufreq(cluster, frequency);
-		cpufreq_cpu_put(policy);
+		//cpufreq_cpu_put(policy);
 	}
 }
 

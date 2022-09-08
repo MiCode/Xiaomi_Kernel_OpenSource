@@ -5,6 +5,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/qos/
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 subdir-ccflags-y += -I$(srctree)/drivers/scsi/ufs
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cpufreq_v2/inc/
 
 obj-$(CONFIG_MTK_PERF_COMMON) += mtk_perf_common.o
 mtk_perf_common-y += perf_common.o

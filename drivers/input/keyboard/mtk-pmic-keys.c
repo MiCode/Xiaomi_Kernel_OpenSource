@@ -17,10 +17,24 @@
 #include <linux/mfd/mt6359p/registers.h>
 #include <linux/mfd/mt6363/registers.h>
 #include <linux/mfd/mt6397/registers.h>
+#include <linux/mfd/mt6358/core.h>
 #include <linux/mfd/mt6363/core.h>
 #include <linux/mfd/mt6366/core.h>
 #include <linux/mfd/mt6397/core.h>
+#include <linux/mfd/mt6357/registers.h>
+#include <linux/mfd/mt6357/core.h>
 
+/* 6358 pmic define */
+#define MT6358_TOPSTATUS			(0x28)
+#define MT6358_PSC_TOP_INT_CON0			(0x910)
+#define MT6358_TOP_RST_MISC			(0x14c)
+#define MT6358_PWRKEY_DEB_MASK			1
+#define MT6358_HOMEKEY_DEB_MASK			3
+#define MT6358_RG_INT_EN_HOMEKEY_MASK           1
+#define MT6358_RG_INT_EN_PWRKEY_MASK            0
+#define MT6358_PWRKEY_RST_SHIFT                 9
+#define MT6358_HOMEKEY_RST_SHIFT                8
+#define MT6358_RST_DU_SHIFT                     12
 
 #define MT6366_TOPSTATUS			(0x28)
 #define MT6366_PSC_TOP_INT_CON0			(0x910)
@@ -53,7 +67,9 @@
 #define RST_PWRKEY_HOME2_MODE			2
 #define RST_PWRKEY_HOME_HOME2_MODE		3
 #define INVALID_VALUE				0
-
+#define MT6357_PWRKEY_RST_SHIFT			9
+#define MT6357_HOMEKEY_RST_SHIFT		8
+#define MT6357_RST_DU_SHIFT			12
 struct mtk_pmic_keys_regs {
 	u32 deb_reg;
 	u32 deb_mask;
@@ -154,6 +170,42 @@ static const struct mtk_pmic_regs mt6366_regs = {
 	.pwrkey_rst_shift = MT6366_PWRKEY_RST_SHIFT,
 	.homekey_rst_shift = MT6366_HOMEKEY_RST_SHIFT,
 	.rst_du_shift = MT6366_RST_DU_SHIFT,
+};
+
+static const struct mtk_pmic_regs mt6357_regs = {
+	.keys_regs[MTK_PMIC_PWRKEY_INDEX] =
+		MTK_PMIC_KEYS_REGS(MT6357_TOPSTATUS,
+		MT6357_PWRKEY_DEB_MASK,
+		MT6357_PSC_TOP_INT_CON0,
+		MT6357_RG_INT_EN_PWRKEY_MASK),
+	.keys_regs[MTK_PMIC_HOMEKEY_INDEX] =
+		MTK_PMIC_KEYS_REGS(MT6357_TOPSTATUS,
+		MT6357_HOMEKEY_DEB_MASK,
+		MT6357_PSC_TOP_INT_CON0,
+		MT6357_RG_INT_EN_HOMEKEY_MASK),
+	.release_irq = true,
+	.pmic_rst_reg = MT6357_TOP_RST_MISC,
+	.pwrkey_rst_shift = MT6357_PWRKEY_RST_SHIFT,
+	.homekey_rst_shift = MT6357_HOMEKEY_RST_SHIFT,
+	.rst_du_shift = MT6357_RST_DU_SHIFT,
+};
+
+static const struct mtk_pmic_regs mt6358_regs = {
+	.keys_regs[MTK_PMIC_PWRKEY_INDEX] =
+		MTK_PMIC_KEYS_REGS(MT6358_TOPSTATUS,
+		MT6358_PWRKEY_DEB_MASK,
+		MT6358_PSC_TOP_INT_CON0,
+		MT6358_RG_INT_EN_PWRKEY_MASK),
+	.keys_regs[MTK_PMIC_HOMEKEY_INDEX] =
+		MTK_PMIC_KEYS_REGS(MT6358_TOPSTATUS,
+		MT6358_HOMEKEY_DEB_MASK,
+		MT6358_PSC_TOP_INT_CON0,
+		MT6358_RG_INT_EN_HOMEKEY_MASK),
+	.release_irq = true,
+	.pmic_rst_reg = MT6358_TOP_RST_MISC,
+	.pwrkey_rst_shift = MT6358_PWRKEY_RST_SHIFT,
+	.homekey_rst_shift = MT6358_HOMEKEY_RST_SHIFT,
+	.rst_du_shift = MT6358_RST_DU_SHIFT,
 };
 
 struct mtk_pmic_keys_info {
@@ -364,6 +416,12 @@ static const struct of_device_id of_mtk_pmic_keys_match_tbl[] = {
 	},  {
 		.compatible = "mediatek,mt6366-keys",
 		.data = &mt6366_regs,
+	}, {
+		.compatible = "mediatek,mt6358-keys",
+		.data = &mt6358_regs,
+	}, {
+		.compatible = "mediatek,mt6357-keys",
+		.data = &mt6357_regs,
 	}, {
 		/* sentinel */
 	}

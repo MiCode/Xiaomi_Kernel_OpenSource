@@ -192,13 +192,17 @@ GED_ERROR __ged_log_buf_vprint(struct GED_LOG_BUF *psGEDLogBuf,
 	if (attrs & GED_LOG_ATTR_TIME_TPT) {
 		struct timespec64 time;
 		unsigned long local_time;
+		unsigned long long temp = 0;
+
 
 		ktime_get_real_ts64(&time);
 		local_time = (u32)(time.tv_sec - (sys_tz.tz_minuteswest * 60));
 
 		curline->tattrs = GED_LOG_ATTR_TIME_TPT;
 		curline->time = local_time;
-		curline->time_usec = (unsigned int)(time.tv_nsec / 1000);
+		temp = time.tv_nsec;
+		do_div(temp, 1000);
+		curline->time_usec = (unsigned int)temp;
 		curline->pid = current->tgid;
 		curline->tid = current->pid;
 	}

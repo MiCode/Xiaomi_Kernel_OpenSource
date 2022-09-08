@@ -20,11 +20,13 @@
  * Driver provides read function for user-space debug apps getting log
  */
 
+#include <asm/arch_timer.h>
 #include <linux/platform_device.h>
 #include <gz-trusty/smcall.h>
 #include <gz-trusty/trusty.h>
 #include <linux/notifier.h>
 #include <linux/slab.h>
+#include <linux/math64.h>
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/log2.h>
@@ -751,7 +753,7 @@ static int trusty_gz_send_ktime(struct platform_device *pdev)
 	current_ktime = sched_clock();
 	current_cnt = __arch_counter_get_cntvct();
 
-	diff_all = current_cnt - (13 * current_ktime)/1000;
+	diff_all = current_cnt - div_u64((13 * current_ktime), 1000);
 	diff_msb = (diff_all >> 32);
 	diff_lsb = (diff_all & U32_MAX);
 

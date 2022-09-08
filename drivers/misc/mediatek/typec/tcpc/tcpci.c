@@ -9,6 +9,7 @@
 #include <linux/time.h>
 #include <linux/slab.h>
 #include <linux/sched/clock.h>
+#include <asm/div64.h>
 
 #define TCPC_NOTIFY_OVERTIME	(20) /* ms */
 
@@ -36,7 +37,8 @@ static void tcp_notify_func(struct work_struct *work)
 	begin = local_clock();
 	srcu_notifier_call_chain(&tcpc->evt_nh[type], state, tcp_noti);
 	end = local_clock();
-	timeval = (end - begin) / NSEC_PER_USEC;
+	timeval = end - begin;
+	do_div(timeval, NSEC_PER_USEC);
 	PD_BUG_ON(timeval > (TCPC_NOTIFY_OVERTIME * 1000));
 #else
 	srcu_notifier_call_chain(&tcpc->evt_nh[type], state, tcp_noti);
@@ -70,11 +72,14 @@ static int tcpc_check_notify_time(struct tcpc_device *tcpc,
 #if CONFIG_PD_BEGUG_ON
 	struct timeval begin, end;
 	int timeval = 0;
+	uint64_t temp = 0;
 
 	do_gettimeofday(&begin);
 	ret = srcu_notifier_call_chain(&tcpc->evt_nh[type], state, tcp_noti);
 	do_gettimeofday(&end);
-	timeval = (timeval_to_ns(end) - timeval_to_ns(begin))/1000/1000;
+	temp = timeval_to_ns(end) - timeval_to_ns(begin);
+	do_div(temp, 1000 * 1000);
+	timeval = (int)temp;
 	PD_BUG_ON(timeval > TCPC_NOTIFY_OVERTIME);
 #else
 	ret = srcu_notifier_call_chain(&tcpc->evt_nh[type], state, tcp_noti);

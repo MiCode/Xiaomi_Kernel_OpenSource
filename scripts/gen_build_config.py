@@ -74,10 +74,13 @@ def main(**args):
     else:
         project_defconfig_name = '%s_defconfig' % (project)
     defconfig_dir = ''
+    kernel_arch = ''
     if os.path.exists('%s/arch/arm/configs/%s' % (abs_kernel_dir, project_defconfig_name)):
-        defconfig_dir = 'arch/arm/comfigs'
+        defconfig_dir = 'arch/arm/configs'
+        kernel_arch = 'arm'
     elif os.path.exists('%s/arch/arm64/configs/%s' % (abs_kernel_dir, project_defconfig_name)):
         defconfig_dir = 'arch/arm64/configs'
+        kernel_arch = 'arm64'
     else:
         print 'Error: cannot find project defconfig file under ' + abs_kernel_dir
         sys.exit(2)
@@ -181,6 +184,8 @@ def main(**args):
     file_handle = open(gen_build_config, 'w')
     kernel_dir_line = 'KERNEL_DIR=%s' % (kernel_dir)
     file_handle.write(kernel_dir_line + '\n')
+    kernel_arch_line = 'KERNEL_ARCH=%s' % (kernel_arch)
+    file_handle.write(kernel_arch_line + '\n')
     rel_gen_build_config_dir = 'REL_GEN_BUILD_CONFIG_DIR=`./${KERNEL_DIR}/scripts/get_rel_path.sh %s ${ROOT_DIR}`' % (gen_build_config_dir)
     file_handle.write(rel_gen_build_config_dir + '\n')
     kernel_build_mode_cmds = 'KERNEL_BUILD_MODE=%s' % (build_mode)
@@ -198,9 +203,11 @@ def main(**args):
     file_handle.write('fi\n')
     build_config_fragments = 'BUILD_CONFIG_FRAGMENTS="${BUILD_CONFIG_FRAGMENTS} ${REL_GEN_BUILD_CONFIG_DIR}/%s' % (os.path.basename(gen_build_config_mtk))
     file_handle.write(build_config_fragments + '"\n')
-    file_handle.write('if [ "x${ENABLE_GKI_CHECKER}" == "xtrue" ] || [ -d "${ROOT_DIR}/../vendor/mediatek/internal" ] && [ "${KERNEL_BUILD_MODE}" == "user" ]; then\n')
-    file_handle.write('  BUILD_CONFIG_FRAGMENTS="${BUILD_CONFIG_FRAGMENTS} ${KERNEL_DIR}/build.config.mtk.check_gki"\n')
-    file_handle.write('  ADDITIONAL_HOST_TOOLS="${ADDITIONAL_HOST_TOOLS} diff"\n')
+    file_handle.write('if [ "x${KERNEL_ARCH}" == "xarm64" ]; then\n')
+    file_handle.write('  if [ "x${ENABLE_GKI_CHECKER}" == "xtrue" ] || [ -d "${ROOT_DIR}/../vendor/mediatek/internal" ] && [ "${KERNEL_BUILD_MODE}" == "user" ]; then\n')
+    file_handle.write('    BUILD_CONFIG_FRAGMENTS="${BUILD_CONFIG_FRAGMENTS} ${KERNEL_DIR}/build.config.mtk.check_gki"\n')
+    file_handle.write('    ADDITIONAL_HOST_TOOLS="${ADDITIONAL_HOST_TOOLS} diff"\n')
+    file_handle.write('  fi\n')
     file_handle.write('fi\n')
     if kernel_build_config_overlays:
         build_config_fragments = 'BUILD_CONFIG_FRAGMENTS="${BUILD_CONFIG_FRAGMENTS} %s"' % (kernel_build_config_overlays)

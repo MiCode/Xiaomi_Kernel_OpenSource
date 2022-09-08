@@ -2743,7 +2743,7 @@ DWORD getTimeDiff(DWORD dwPreTime)
 
 DWORD getSystemTime(void)
 {
-	DWORD tms = (DWORD)((sched_clock() / 1000000) % 1000000);
+	DWORD tms = (DWORD)(DO_COMMMON_MOD(DO_COMMON_DIV(sched_clock(), 1000000), 1000000));
 	return tms;
 }
 

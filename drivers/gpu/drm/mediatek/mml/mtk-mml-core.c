@@ -18,7 +18,11 @@
 #include "mtk-mml-pq-core.h"
 #include "mtk-mml-mmp.h"
 
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
 #define MML_TRACE_MSG_LEN	1024
+#else
+#define MML_TRACE_MSG_LEN	896
+#endif
 
 int mtk_mml_msg;
 EXPORT_SYMBOL(mtk_mml_msg);
@@ -1035,7 +1039,7 @@ static void core_taskdone_kt_work(struct kthread_work *work)
 static void core_taskdone(struct work_struct *work)
 {
 	struct mml_task *task = container_of(work, struct mml_task, wq_work_done);
-	u32 *perf, hw_time = 0;
+	u32 *perf; u64 hw_time = 0;
 
 	mml_trace_begin("%s", __func__);
 
@@ -1797,7 +1801,7 @@ void mml_update_array(struct mml_task_reuse *reuse,
 	struct cmdq_reuse *label = &reuse->labels[reuses->offs[reuse_idx].label_idx];
 	u64 *va = label->va + reuses->offs[reuse_idx].offset * off_idx;
 
-	*va = (*va & GENMASK(63, 32)) | value;
+	*va = (*va & GENMASK_ULL(63, 32)) | value;
 }
 
 noinline int tracing_mark_write(char *fmt, ...)

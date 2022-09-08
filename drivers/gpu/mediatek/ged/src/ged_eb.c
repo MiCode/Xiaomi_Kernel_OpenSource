@@ -145,6 +145,7 @@ int ged_to_fdvfs_command(unsigned int cmd, struct fdvfs_ipi_data *ipi_data)
 	case GPUFDVFS_IPI_SET_TARGET_FRAME_TIME:
 	case GPUFDVFS_IPI_SET_FEEDBACK_INFO:
 	case GPUFDVFS_IPI_SET_MODE:
+
 	case GPUFDVFS_IPI_SET_GED_READY:
 		ret = mtk_ipi_send_compl(get_gpueb_ipidev(),
 			g_fast_dvfs_ipi_channel,
@@ -862,7 +863,6 @@ void fdvfs_init(void)
 
 			return;
 		}
-
 		mtk_ipi_register(get_gpueb_ipidev(), g_fast_dvfs_ipi_channel,
 			NULL, NULL, (void *)&fdvfs_ipi_rcv_msg);
 	}
@@ -875,10 +875,8 @@ void fdvfs_init(void)
 
 			return;
 		}
-
 		mtk_ipi_register(get_gpueb_ipidev(), g_fdvfs_event_ipi_channel,
 				(void *)fast_dvfs_eb_event_handler, NULL, &fdvfs_event_ipi_rcv_msg);
-
 		g_psEBWorkQueue =
 			alloc_ordered_workqueue("ged_eb",
 				WQ_FREEZABLE | WQ_MEM_RECLAIM);

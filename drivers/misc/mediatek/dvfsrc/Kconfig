@@ -25,3 +25,21 @@ config MTK_DVFSRC_MET_MT6873
 	  When enable this option, it support reporting current vcore dvfs info to
 	  MET system for performance and power tuning.
 	  If unsure, say N.
+
+config MTK_DVFSRC_MET_MT6768
+	tristate "MTK DVFSRC MET for MT6768"
+	select MTK_DVFSRC_MET
+	help
+	  This kernel config can be used to enable MT6768 DVFSRC MET support.
+	  When enable this option, it support reporting current vcore dvfs info to
+	  MET system for performance and power tuning.
+	  If unsure, say N.
+
+config MTK_DVFSRC_MET_MT6765
+	tristate "MTK DVFSRC MET for MT6765"
+	select MTK_DVFSRC_MET
+	help
+	  This kernel config can be used to enable MT6765 DVFSRC MET support.
+	  When enable this option, it support reporting current vcore dvfs info to
+	  MET system for performance and power tuning.
+	  If unsure, say N.

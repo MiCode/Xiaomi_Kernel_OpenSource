@@ -1397,7 +1397,7 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 
 		/* Set 10bit UFO mode */
 		if (MML_FMT_10BIT_PACKED(src->format) && rdma_frm->enable_ufo)
-			src_offset_wp = (src_offset_0 << 2) / 5;
+			src_offset_wp = DO_COMMON_DIV((src_offset_0 << 2), 5);
 
 		/* Set U pixel offset */
 		src_offset_1 = ((in_xs >> rdma_frm->hor_shift_uv) *

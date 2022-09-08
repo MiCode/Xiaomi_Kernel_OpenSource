@@ -1,0 +1,10 @@
+config CUSTOM_KERNEL_SITUATION
+	bool "mediatek situation sensor tag"
+	help
+	  Kernel space support situation sensor driver.
+	  If the platform is supported for gesture, this
+	  configuration should be configured, and the situation
+	  driver configuration should be configured as well.
+
+source "drivers/misc/mediatek/sensors-1.0/situation/situation_hub/Kconfig"
+

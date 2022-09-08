@@ -10,6 +10,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
-
+ifeq ($(CONFIG_MTK_TINYSYS_SCP_CM4_SUPPORT), y)
+obj-y += cm4/
+else
 obj-y += rv/
-
+endif

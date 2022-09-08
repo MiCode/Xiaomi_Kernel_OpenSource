@@ -542,11 +542,13 @@ static int ged_pdrv_probe(struct platform_device *pdev)
 		goto ERROR;
 	}
 
+#if defined(MTK_GPU_EB_SUPPORT)
 	if (g_ged_gpueb_support) {
 		fastdvfs_proc_init();
 		fdvfs_init();
 		GED_LOGI("@%s: fdvfs init done\n", __func__);
 	}
+#endif
 
 	err = check_afs_config();
 	if (unlikely(err != GED_OK)) {
@@ -679,10 +681,12 @@ static int ged_pdrv_remove(struct platform_device *pdev)
 	ghLogBuf_DVFS = 0;
 #endif
 
+#if defined(MTK_GPU_EB_SUPPORT)
 	if (g_ged_gpueb_support) {
 		fastdvfs_proc_exit();
 		fdvfs_exit();
 	}
+#endif
 
 	ged_log_buf_free(ghLogBuf_ftrace);
 	ghLogBuf_ftrace = 0;

@@ -17,6 +17,7 @@ cpufreq_sugov_ext-y += common.o
 subdir-ccflags-y += -I$(srctree)/kernel/
 subdir-ccflags-y += -I$(srctree)/drivers/thermal/mediatek
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sched/
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/upower
 
 obj-$(CONFIG_MTK_CORE_CTL) += mtk_core_ctl.o
 mtk_core_ctl-y += core_ctl/sched_avg.o

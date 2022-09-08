@@ -16,9 +16,11 @@
 #include <linux/interrupt.h>
 #include <soc/mediatek/dramc.h>
 #include <linux/bug.h>
+#include <linux/regulator/consumer.h>
 
 static struct platform_device *dramc_pdev;
 static struct platform_driver dramc_drv;
+static struct regulator *reg_vdram2;
 
 static int mr4_v1_init(struct platform_device *pdev,
 	struct mr4_dev_t *mr4_dev_ptr)
@@ -33,6 +35,35 @@ static int mr4_v1_init(struct platform_device *pdev,
 
 	return ret;
 }
+
+static int fmeter_v0_init(struct platform_device *pdev,
+	struct fmeter_dev_t *fmeter_dev_ptr)
+{
+	struct device_node *dramc_node = pdev->dev.of_node;
+	int ret;
+
+	fmeter_dev_ptr->version = 0;
+
+	ret = of_property_read_u32(dramc_node,
+		"crystal_freq", &(fmeter_dev_ptr->crystal_freq));
+	ret |= of_property_read_u32(dramc_node,
+		"shu_of", &(fmeter_dev_ptr->shu_of));
+	ret |= of_property_read_u32_array(dramc_node,
+		"shu_lv", (unsigned int *)&(fmeter_dev_ptr->shu_lv), 3);
+	ret |= of_property_read_u32_array(dramc_node,
+		"pll_id", (unsigned int *)&(fmeter_dev_ptr->pll_id), 3);
+	ret |= of_property_read_u32_array(dramc_node,
+		"sdmpcw", (unsigned int *)(fmeter_dev_ptr->sdmpcw), 6);
+	ret |= of_property_read_u32_array(dramc_node,
+		"prediv", (unsigned int *)(fmeter_dev_ptr->prediv), 6);
+	ret |= of_property_read_u32_array(dramc_node,
+		"posdiv", (unsigned int *)(fmeter_dev_ptr->posdiv), 6);
+	ret |= of_property_read_u32_array(dramc_node,
+		"ckdiv4", (unsigned int *)(fmeter_dev_ptr->ckdiv4), 6);
+
+	return ret;
+}
+
 
 static int fmeter_v1_init(struct platform_device *pdev,
 	struct fmeter_dev_t *fmeter_dev_ptr)
@@ -142,10 +173,11 @@ static int dramc_probe(struct platform_device *pdev)
 {
 	struct device_node *dramc_node = pdev->dev.of_node;
 	struct dramc_dev_t *dramc_dev_ptr;
+	unsigned int vdram2_enable;
 	unsigned int mr4_version;
 	unsigned int fmeter_version;
 	struct resource *res;
-	unsigned int i, size;
+	unsigned int i, size, retval;
 	int ret;
 
 	pr_info("%s: module probe.\n", __func__);
@@ -155,14 +187,12 @@ static int dramc_probe(struct platform_device *pdev)
 
 	if (!dramc_dev_ptr)
 		return -ENOMEM;
-
 	ret = of_property_read_u32(dramc_node,
 		"dram_type", &(dramc_dev_ptr->dram_type));
 	if (ret) {
 		pr_info("%s: get dram_type fail\n", __func__);
 		return -EINVAL;
 	}
-
 	ret = of_property_read_u32(dramc_node,
 		"support_ch_cnt", &(dramc_dev_ptr->support_ch_cnt));
 	if (ret) {
@@ -224,6 +254,27 @@ static int dramc_probe(struct platform_device *pdev)
 		"mr_cnt", dramc_dev_ptr->mr_cnt,
 		"freq_cnt", dramc_dev_ptr->freq_cnt,
 		"mr4", (dramc_dev_ptr->mr4_dev_ptr) ? "true" : "false");
+
+	/*for vdram2 regulator*/
+	ret = of_property_read_u32(
+		dramc_node, "vdram2_enable", &vdram2_enable);
+	if (ret)
+		pr_info("%s: no need enable vdram2\n", __func__);
+	else if (vdram2_enable && (TYPE_LPDDR4X == dramc_dev_ptr->dram_type)) {
+		reg_vdram2 = regulator_get(&pdev->dev, "vdram2");
+		if (!IS_ERR(reg_vdram2)) {
+			retval = regulator_enable(reg_vdram2);
+			if (retval < 0) {
+				pr_info("regulator_enable vdram2 failed: %d\n", retval);
+				return -EINVAL;
+			}
+		} else {
+			pr_info("regulator_get vdram2 failed\n");
+			reg_vdram2 = NULL;
+			return -EINVAL;
+		}
+		pr_info("regulator_enable vdram2 success: %d\n", retval);
+	}
 
 	size = sizeof(unsigned int) * dramc_dev_ptr->rk_cnt;
 	dramc_dev_ptr->rk_size = devm_kmalloc(&pdev->dev, size, GFP_KERNEL);
@@ -337,20 +388,31 @@ static int dramc_probe(struct platform_device *pdev)
 	}
 	pr_info("%s: fmeter_version(%d)\n", __func__, fmeter_version);
 
-	if (fmeter_version == 1) {
-		dramc_dev_ptr->fmeter_dev_ptr = devm_kmalloc(&pdev->dev,
-			sizeof(struct fmeter_dev_t), GFP_KERNEL);
-		if (!(dramc_dev_ptr->fmeter_dev_ptr)) {
-			pr_info("%s: memory  alloc fail\n", __func__);
-			return -ENOMEM;
-		}
-		ret = fmeter_v1_init(pdev, dramc_dev_ptr->fmeter_dev_ptr);
+	dramc_dev_ptr->fmeter_dev_ptr = devm_kmalloc(&pdev->dev,
+		sizeof(struct fmeter_dev_t), GFP_KERNEL);
+	if (!(dramc_dev_ptr->fmeter_dev_ptr)) {
+		pr_info("%s: memory  alloc fail\n", __func__);
+		return -ENOMEM;
+	}
+	switch (fmeter_version) {
+	case 0:
+		ret = fmeter_v0_init(pdev, dramc_dev_ptr->fmeter_dev_ptr);
 		if (ret) {
-			pr_info("%s: fmeter_init fail\n", __func__);
+			pr_err("%s: fmeter_v0_init fail\n", __func__);
 			return -EINVAL;
 		}
-	} else
+		break;
+	case 1:
+		ret = fmeter_v1_init(pdev, dramc_dev_ptr->fmeter_dev_ptr);
+		if (ret) {
+			pr_info("%s: fmeter_v1_init fail\n", __func__);
+			return -EINVAL;
+		}
+		break;
+	default:
+		devm_kfree(&pdev->dev, dramc_dev_ptr->fmeter_dev_ptr);
 		dramc_dev_ptr->fmeter_dev_ptr = NULL;
+	}
 
 	ret = driver_create_file(
 		pdev->dev.driver, &driver_attr_binning_test);
@@ -414,6 +476,28 @@ int mtk_dramc_get_steps_freq(unsigned int step)
 }
 EXPORT_SYMBOL(mtk_dramc_get_steps_freq);
 
+static unsigned int decode_freq_v0(unsigned int vco_freq)
+{
+	switch (vco_freq) {
+	case 3588:
+		return 3600;
+	case 3198:
+		return 3200;
+	case 2392:
+		return 2400;
+	case 1859:
+		return 1866;
+	case 1599:
+		return 1600;
+	case 1534:
+		return 1534;
+	case 1196:
+		return 1200;
+	}
+
+	return vco_freq;
+}
+
 static unsigned int decode_freq(unsigned int vco_freq)
 {
 	switch (vco_freq) {
@@ -451,6 +535,59 @@ static unsigned int decode_freq(unsigned int vco_freq)
 	}
 
 	return vco_freq;
+}
+
+static unsigned int fmeter_v0(struct dramc_dev_t *dramc_dev_ptr)
+{
+	struct fmeter_dev_t *fmeter_dev_ptr =
+		(struct fmeter_dev_t *)dramc_dev_ptr->fmeter_dev_ptr;
+	unsigned int shu_lv_val;
+	unsigned int pll_id_val;
+	unsigned int sdmpcw_val;
+	unsigned int prediv_val;
+	unsigned int posdiv_val;
+	unsigned int ckdiv4_val;
+	unsigned int offset;
+	unsigned int vco_freq;
+
+	shu_lv_val = (readl(dramc_dev_ptr->dramc_chn_base_ao[0] +
+		fmeter_dev_ptr->shu_lv.offset) &
+		fmeter_dev_ptr->shu_lv.mask) >>
+		fmeter_dev_ptr->shu_lv.shift;
+
+	pll_id_val = (readl(dramc_dev_ptr->ddrphy_chn_base_ao[0] +
+		fmeter_dev_ptr->pll_id.offset) &
+		fmeter_dev_ptr->pll_id.mask) >>
+		fmeter_dev_ptr->pll_id.shift;
+
+	offset = fmeter_dev_ptr->sdmpcw[pll_id_val].offset +
+		fmeter_dev_ptr->shu_of * shu_lv_val;
+	sdmpcw_val = (readl(dramc_dev_ptr->ddrphy_chn_base_ao[0] + offset) &
+		fmeter_dev_ptr->sdmpcw[pll_id_val].mask) >>
+		fmeter_dev_ptr->sdmpcw[pll_id_val].shift;
+
+	offset = fmeter_dev_ptr->prediv[pll_id_val].offset +
+		fmeter_dev_ptr->shu_of * shu_lv_val;
+	prediv_val = (readl(dramc_dev_ptr->ddrphy_chn_base_ao[0] + offset) &
+		fmeter_dev_ptr->prediv[pll_id_val].mask) >>
+		fmeter_dev_ptr->prediv[pll_id_val].shift;
+
+	offset = fmeter_dev_ptr->posdiv[pll_id_val].offset +
+		fmeter_dev_ptr->shu_of * shu_lv_val;
+	posdiv_val = (readl(dramc_dev_ptr->ddrphy_chn_base_ao[0] + offset) &
+		fmeter_dev_ptr->posdiv[pll_id_val].mask) >>
+		fmeter_dev_ptr->posdiv[pll_id_val].shift;
+
+	offset = fmeter_dev_ptr->ckdiv4[pll_id_val].offset +
+		fmeter_dev_ptr->shu_of * shu_lv_val;
+	ckdiv4_val = (readl(dramc_dev_ptr->ddrphy_chn_base_ao[0] + offset) &
+		fmeter_dev_ptr->ckdiv4[pll_id_val].mask) >>
+		fmeter_dev_ptr->ckdiv4[pll_id_val].shift;
+
+	vco_freq = ((fmeter_dev_ptr->crystal_freq >> prediv_val) * (sdmpcw_val >> 8))
+		>> posdiv_val >> ckdiv4_val;
+
+	return decode_freq_v0(vco_freq);
 }
 
 static unsigned int fmeter_v1(struct dramc_dev_t *dramc_dev_ptr)
@@ -574,8 +711,14 @@ unsigned int mtk_dramc_get_data_rate(void)
 	if (!fmeter_dev_ptr)
 		return 0;
 
-	if (fmeter_dev_ptr->version == 1)
+	switch (fmeter_dev_ptr->version) {
+	case 0:
+		return fmeter_v0(dramc_dev_ptr);
+	case 1:
 		return fmeter_v1(dramc_dev_ptr);
+	default:
+		return 0;
+	}
 
 	return 0;
 }

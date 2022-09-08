@@ -4798,13 +4798,21 @@ void fg_update_sw_iavg(struct mtk_battery *gm)
 	dtime = ktime_sub(ctime, gm->sw_iavg_time);
 	diff = ktime_to_timespec64(dtime);
 
-	bm_debug("[%s]diff time:%ld\n",
-		__func__,
-		diff.tv_sec);
+	bm_debug("[%s]diff time:%ld\n", __func__, diff.tv_sec);
 	if (diff.tv_sec >= 60) {
 		fg_coulomb = gauge_get_int_property(GAUGE_PROP_COULOMB);
+#if defined(__LP64__) || defined(_LP64)
 		gm->sw_iavg = (fg_coulomb - gm->sw_iavg_car)
 			* 3600 / diff.tv_sec;
+#else
+		if (diff.tv_sec < 65535)
+			gm->sw_iavg = (fg_coulomb - gm->sw_iavg_car)
+			* 3600 / (int)(diff.tv_sec);
+		else {
+			gm->sw_iavg = 0;
+			bm_err("[%s]diff.tv_sec:%d\n", __func__, diff.tv_sec);
+		}
+#endif
 		gm->sw_iavg_time = ctime;
 		gm->sw_iavg_car = fg_coulomb;
 		version = gauge_get_int_property(GAUGE_PROP_HW_VERSION);

@@ -75,6 +75,50 @@ struct emimpu_dbg_cb {
 	struct emimpu_dbg_cb *next_dbg_cb;
 };
 
+#if IS_ENABLED(CONFIG_MTK_EMI_LEGACY)
+struct emicen_dev_t {
+	unsigned int emi_cen_cnt;
+	unsigned int ch_cnt;
+	unsigned int rk_cnt;
+	unsigned long long *rk_size;
+	void __iomem **emi_cen_base;
+	void __iomem **emi_chn_base;
+};
+
+struct emimpu_dev_t {
+	unsigned int region_cnt;
+	unsigned int domain_cnt;
+	unsigned int addr_align;
+	unsigned long long dram_start;
+	unsigned long long dram_end;
+	unsigned int dump_cnt;
+	unsigned int clear_reg_cnt;
+	unsigned int clear_md_reg_cnt;
+	unsigned int emi_cen_cnt;
+	struct reg_info_t *dump_reg;
+	struct reg_info_t *clear_reg;
+	struct reg_info_t *clear_md_reg;
+	void __iomem **emi_cen_base;
+	void __iomem **emi_mpu_base;
+	char *violation_msg;
+	unsigned int in_msg_dump;
+	unsigned int show_region;
+	unsigned int ctrl_intf;
+	struct emimpu_region_t *ap_rg_info;
+	struct emimpu_dbg_cb *dbg_cb_list;
+};
+
+struct emiisu_dev_t {
+	unsigned int buf_size;
+	void __iomem *buf_addr;
+	void __iomem *ver_addr;
+	void __iomem *con_addr;
+	struct dentry *dump_dir;
+	struct dentry *dump_buf;
+	unsigned int ctrl_intf;
+};
+#endif
+
 /* mtk emicen api */
 unsigned int mtk_emicen_get_ch_cnt(void);
 unsigned int mtk_emicen_get_rk_cnt(void);
@@ -96,12 +140,24 @@ int mtk_emimpu_lock_region(struct emimpu_region_t *rg_info, bool lock);
 int mtk_emimpu_set_protection(struct emimpu_region_t *rg_info);
 int mtk_emimpu_free_region(struct emimpu_region_t *rg_info);
 int mtk_emimpu_clear_protection(struct emimpu_region_t *rg_info);
+
+#if IS_ENABLED(CONFIG_MTK_EMI_LEGACY)
+int mtk_emimpu_prehandle_register(irqreturn_t (*bypass_func)
+	(unsigned int emi_id, struct reg_info_t *dump, unsigned int leng));
+int mtk_emimpu_postclear_register(void (*clear_func)
+	(unsigned int emi_id));
+int mtk_emimpu_md_handling_register(void (*md_handling_func)
+	(unsigned int emi_id, struct reg_info_t *dump, unsigned int leng));
+int mtk_emimpu_debugdump_register(void (*debug_func)(void));
+int mtk_emimpu_register_callback(irqreturn_t (*debug_dump)
+	(unsigned int emi_id, struct reg_info_t *dump, unsigned int len));
+#else
 int mtk_emimpu_prehandle_register(emimpu_pre_handler bypass_func);
 int mtk_emimpu_postclear_register(emimpu_post_clear clear_func);
 int mtk_emimpu_md_handling_register(emimpu_md_handler md_handling_func);
 int mtk_emimpu_debugdump_register(emimpu_debug_dump debug_func);
 int mtk_emimpu_iommu_handling_register(emimpu_iommu_handler iommu_handling_func);
 void mtk_clear_md_violation(void);
+#endif
 
 #endif /* __EMI_H__ */
-

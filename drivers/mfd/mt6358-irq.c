@@ -3,6 +3,8 @@
 // Copyright (c) 2020 MediaTek Inc.
 
 #include <linux/interrupt.h>
+#include <linux/mfd/mt6357/core.h>
+#include <linux/mfd/mt6357/registers.h>
 #include <linux/mfd/mt6358/core.h>
 #include <linux/mfd/mt6358/registers.h>
 #include <linux/mfd/mt6359p/core.h>
@@ -18,6 +20,17 @@
 #include <linux/wakeup_reason.h>
 
 #define MTK_PMIC_REG_WIDTH 16
+
+static struct irq_top_t mt6357_ints[] = {
+	MT6357_TOP_GEN(BUCK),
+	MT6357_TOP_GEN(LDO),
+	MT6357_TOP_GEN(PSC),
+	MT6357_TOP_GEN(SCK),
+	MT6357_TOP_GEN(BM),
+	MT6357_TOP_GEN(HK),
+	MT6357_TOP_GEN(AUD),
+	MT6357_TOP_GEN(MISC),
+};
 
 static struct irq_top_t mt6358_ints[] = {
 	MT6358_TOP_GEN(BUCK),
@@ -50,6 +63,14 @@ static struct irq_top_t mt6366_ints[] = {
 	MT6366_TOP_GEN(HK),
 	MT6366_TOP_GEN(AUD),
 	MT6366_TOP_GEN(MISC),
+};
+
+
+static struct pmic_irq_data mt6357_irqd = {
+	.num_top = ARRAY_SIZE(mt6357_ints),
+	.num_pmic_irqs = MT6357_IRQ_NR,
+	.top_int_status_reg = MT6357_TOP_INT_STATUS0,
+	.pmic_ints = mt6357_ints,
 };
 
 static struct pmic_irq_data mt6358_irqd = {
@@ -238,6 +259,10 @@ int mt6358_irq_init(struct mt6397_chip *chip)
 	struct pmic_irq_data *irqd;
 
 	switch (chip->chip_id) {
+	case MT6357_CHIP_ID:
+		chip->irq_data = &mt6357_irqd;
+		break;
+
 	case MT6358_CHIP_ID:
 		chip->irq_data = &mt6358_irqd;
 		break;

@@ -22,7 +22,7 @@
 #include <linux/uaccess.h>
 #include <linux/delay.h>
 #include <linux/cpufreq.h>
-
+#if IS_ENABLED(CONFIG_MTK_LEAKAGE_AWARE_TEMP)
 #define __LKG_PROCFS__ 1
 #define __LKG_DEBUG__ 0
 
@@ -274,7 +274,18 @@ int mtk_static_power_init(void)
 	return ret;
 
 }
+#else
+unsigned int mtk_get_leakage(unsigned int cpu, unsigned int opp, unsigned int temperature)
+{
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_get_leakage);
 
+int mtk_static_power_init(void)
+{
+	return 0;
+}
+#endif
 
 MODULE_DESCRIPTION("MTK static power Platform Driver v0.1.1");
 MODULE_AUTHOR("Chienwei Chang <chiewei.chang@mediatek.com>");

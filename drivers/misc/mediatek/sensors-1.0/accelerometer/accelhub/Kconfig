@@ -1,0 +1,9 @@
+
+config MTK_ACCELHUB
+	bool "accelhub for MediaTek package"
+	help
+	  It support different accelerometer sensor.
+	  If this option is set,
+	  it will support
+	  sensorhub Accelerometer.
+

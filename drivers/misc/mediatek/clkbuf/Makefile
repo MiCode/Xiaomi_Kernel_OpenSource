@@ -34,6 +34,8 @@ clkbuf-$(CONFIG_MTK_CLKBUF_V1) += v1/src/mtk-clkbuf-dcxo.o
 clkbuf-$(CONFIG_MTK_CLKBUF_V1) += v1/src/mtk-clkbuf-dcxo-6359p.o
 clkbuf-$(CONFIG_MTK_CLKBUF_V1) += v1/src/mtk-clkbuf-dcxo-6685.o
 clkbuf-$(CONFIG_MTK_CLKBUF_V1) += v1/src/mtk-clkbuf-dcxo-6366.o
+clkbuf-$(CONFIG_MTK_CLKBUF_V1) += v1/src/mtk-clkbuf-dcxo-6358.o
+clkbuf-$(CONFIG_MTK_CLKBUF_V1) += v1/src/mtk-clkbuf-dcxo-6357.o
 
 clkbuf-$(CONFIG_MTK_CLKBUF_V1) += v1/src/mtk-srclken-rc-hw.o
 clkbuf-$(CONFIG_MTK_CLKBUF_V1) += v1/src/mtk-srclken-rc-hw-v1.o

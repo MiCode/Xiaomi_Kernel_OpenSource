@@ -407,15 +407,6 @@ static void audio_boost_work(struct work_struct *work_struct)
 	USB_BOOST_NOTICE("audio_boost, end of work\n");
 }
 
-static void vh_sound_usb_support_cpu_suspend(void *unused,
-	struct usb_device *udev, int direction, bool *is_support)
-{
-	USB_BOOST_DBG("%s enter\n", __func__);
-
-	update_time_audio();
-	audio_boost_inst.request_func(0);
-}
-
 static void default_setting(void)
 {
 	usb_boost_set_para_and_arg(TYPE_CPU_FREQ, cpu_freq_dft_para,
@@ -811,6 +802,15 @@ static void mtu3_req_complete_boost(void *unused, struct mtu3_request *mreq)
 	default:
 		break;
 	}
+}
+
+static void vh_sound_usb_support_cpu_suspend(void *unused,
+	struct usb_device *udev, int direction, bool *is_support)
+{
+	USB_BOOST_DBG("%s enter\n", __func__);
+
+	update_time_audio();
+	audio_boost_inst.request_func(0);
 }
 
 static int mtu3_trace_init(void)

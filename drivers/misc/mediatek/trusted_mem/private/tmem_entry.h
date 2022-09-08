@@ -35,8 +35,13 @@ int tmem_core_regmgr_offline(enum TRUSTED_MEM_TYPE mem_type);
 bool tmem_core_is_device_registered(enum TRUSTED_MEM_TYPE mem_type);
 u32 tmem_core_get_min_chunk_size(enum TRUSTED_MEM_TYPE mem_type);
 u32 tmem_core_get_max_pool_size(enum TRUSTED_MEM_TYPE mem_type);
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
 bool tmem_core_get_region_info(enum TRUSTED_MEM_TYPE mem_type, u64 *pa,
 			       u32 *size);
+#else
+bool tmem_core_get_region_info(enum TRUSTED_MEM_TYPE mem_type, u32 *pa, // for 32bit
+			       u32 *size);
+#endif
 int tmem_query_gz_handle_to_pa(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 			u32 size, u32 *refcount, u32 *gz_handle,
 			u8 *owner, u32 id, u32 clean, uint64_t *phy_addr);

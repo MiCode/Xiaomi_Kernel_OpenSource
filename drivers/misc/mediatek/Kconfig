@@ -11,6 +11,7 @@ source "drivers/misc/mediatek/cm_mgr/Kconfig"
 source "drivers/misc/mediatek/mcupm/Kconfig"
 source "drivers/misc/mediatek/dvfsrc/Kconfig"
 source "drivers/misc/mediatek/dcm/Kconfig"
+source "drivers/misc/mediatek/dcm_v1/Kconfig"
 source "drivers/misc/mediatek/qos/Kconfig"
 source "drivers/misc/mediatek/srclken_rc/Kconfig"
 source "drivers/misc/mediatek/lpm/Kconfig"
@@ -21,11 +22,37 @@ source "drivers/misc/mediatek/pmic_protect/Kconfig"
 source "drivers/misc/mediatek/cpufreq_v1/Kconfig"
 source "drivers/misc/mediatek/cpufreq_lite/Kconfig"
 source "drivers/misc/mediatek/eemgpu/Kconfig"
+source "drivers/misc/mediatek/eem_v2/Kconfig"
 source "drivers/misc/mediatek/leakage_table/Kconfig"
-source "drivers/misc/mediatek/mdpm/Kconfig"
 source "drivers/misc/mediatek/pbm/Kconfig"
+source "drivers/misc/mediatek/mdpm/Kconfig"
+source "drivers/misc/mediatek/mdpm_v1/Kconfig"
 source "drivers/misc/mediatek/pmsr/Kconfig"
 source "drivers/misc/mediatek/timer/Kconfig"
+source "drivers/misc/mediatek/cpufreq_v2/Kconfig"
+source "drivers/misc/mediatek/cpuidle/Kconfig"
+source "drivers/misc/mediatek/mcdi/Kconfig"
+source "drivers/misc/mediatek/cpuhotplug/Kconfig"
+source "drivers/misc/mediatek/upower/Kconfig"
+source "drivers/misc/mediatek/leakage_table_v2/Kconfig"
+source "drivers/misc/mediatek/spm/Kconfig"
+
+config MTK_PLAT_POWER_MT6768
+	tristate "Platform power specified macro"
+	help
+	  This macro is used to distinguish the platform dependent parts
+	  from those power related features.
+	  If the macro is enabled, compile the mt6768 related code.
+	  If unsure, say N.
+
+config MTK_PLAT_POWER_MT6765
+	tristate "Platform power specified macro"
+	help
+	  This macro is used to distinguish the platform dependent parts
+	  from those power related features.
+	  If the macro is enabled, compile the mt6765 related code.
+	  If unsure, say N.
+
 endmenu # Power
 
 menu "MultiMedia, Display, Camera"
@@ -190,3 +217,33 @@ config FPGA_EARLY_PORTING
 
 
 endmenu # Misc
+
+menu "PPM V3"
+config MTK_PPM_V3
+        tristate "MTK PPM V3"
+        help
+          Used for PPM V3 to build in order,
+          moved from base/power.
+          Say Y here if you need to build PPM V3.
+          If unsure, say N
+endmenu # PPM
+
+menu "Sensors"
+
+config MTK_SENSOR_ARCHITECTURE
+	string "MTK SENSOR ARCHITECTURE"
+	default "dummy"
+	help
+	  Sensor config for sensor architecture in project.
+	  Please set 1.0/2.0/3.0 etc if you want to support sensor
+	  with mediatek sensor architecture.
+	  If unsure, set dummy.
+
+source "drivers/misc/mediatek/sensors-1.0/Kconfig"
+source "drivers/misc/mediatek/sensor/Kconfig"
+endmenu # Sensors
+
+menu "MultiMedia, Display, Camera related configs"
+source "drivers/misc/mediatek/videocodec/Kconfig"
+endmenu # MultiMedia, Display, Camera related configs
+

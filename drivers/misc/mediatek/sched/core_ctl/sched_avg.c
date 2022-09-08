@@ -288,7 +288,11 @@ static void sched_avg_deferred_func(struct work_struct *work)
 }
 static DECLARE_WORK(sched_avg_deferred_work, sched_avg_deferred_func);
 
+#if IS_ENABLED(CONFIG_ARM64)
 #define DEFERRED_WORK_DEBOUNCE_TIME	(5 * NSEC_PER_SEC)
+#else
+#define DEFERRED_WORK_DEBOUNCE_TIME	(5LL * NSEC_PER_SEC)
+#endif
 static void reset_over_thre_deferred(u64 curr_time)
 {
 	static s64 deferred_work_last_update;

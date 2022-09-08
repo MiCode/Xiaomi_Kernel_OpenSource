@@ -737,7 +737,7 @@ static void aal_readback_cmdq(struct mml_comp *comp, struct mml_task *task,
 
 	mml_assign(pkt, idx_out, (u32)pa,
 		reuse, cache, &aal_frm->labels[AAL_POLLGPR_0]);
-	mml_assign(pkt, idx_out + 1, (u32)(pa >> 32),
+	mml_assign(pkt, idx_out + 1, (u32)DO_SHIFT_RIGHT(pa, 32),
 		reuse, cache, &aal_frm->labels[AAL_POLLGPR_1]);
 
 	/* loop again here */
@@ -1006,8 +1006,7 @@ static s32 aal_config_repost(struct mml_comp *comp, struct mml_task *task,
 		mml_update(reuse, aal_frm->labels[AAL_POLLGPR_0],
 			(u32)task->pq_task->aal_hist[pipe]->pa);
 		mml_update(reuse, aal_frm->labels[AAL_POLLGPR_1],
-			(u32)(task->pq_task->aal_hist[pipe]->pa >> 32));
-
+			(u32)DO_SHIFT_RIGHT(task->pq_task->aal_hist[pipe]->pa, 32));
 		begin_pa = cmdq_pkt_get_pa_by_offset(pkt, aal_frm->begin_offset);
 		condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, aal_frm->condi_offset);
 		if (unlikely(!condi_inst)) {

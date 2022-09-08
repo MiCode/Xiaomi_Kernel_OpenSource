@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 
+obj-$(CONFIG_MTK_TINYSYS_SSPM_V0) += v0/
+obj-$(CONFIG_MTK_TINYSYS_SSPM_V1) += v1/
 obj-$(CONFIG_MTK_TINYSYS_SSPM_V2) += v2/
 obj-$(CONFIG_MTK_TINYSYS_SSPM_V3) += v3/
 

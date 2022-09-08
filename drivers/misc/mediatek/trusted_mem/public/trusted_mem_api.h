@@ -50,8 +50,13 @@ int trusted_mem_api_unref(enum TRUSTED_MEM_REQ_TYPE mem_type, u32 sec_handle,
 int trusted_mem_api_query_pa(enum TRUSTED_MEM_REQ_TYPE mem_type, u32 alignment,
 			      u32 size, u32 *refcount, u32 *gz_handle,
 			      u8 *owner, u32 id, u32 clean, uint64_t *phy_addr);
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
 bool trusted_mem_api_get_region_info(enum TRUSTED_MEM_REQ_TYPE mem_type,
 				     u64 *pa, u32 *size);
+#else
+bool trusted_mem_api_get_region_info(enum TRUSTED_MEM_REQ_TYPE mem_type,
+				     u32 *pa, u32 *size);  //for 32bit
+#endif
 enum TRUSTED_MEM_REQ_TYPE trusted_mem_api_get_page_replace(
 				  enum TRUSTED_MEM_REQ_TYPE mem_type);
 #endif

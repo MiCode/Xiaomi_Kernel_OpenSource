@@ -1,0 +1,7 @@
+config MEDIATEK_MCDI
+	tristate "Mediatek Multi-Core Deep Idle driver"
+	help
+	  This kernel config can be used to enable mcdi driver.
+	  When enable this option, It can Support CPU to enter
+	  sleep mode
+          If unsure, say N.

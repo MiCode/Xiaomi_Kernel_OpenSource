@@ -437,6 +437,11 @@ void mtk_addon_connect_between(struct drm_crtc *crtc, unsigned int ddp_mode,
 	mtk_ddp_add_comp_to_path_with_cmdq(
 		mtk_crtc, path_data->path[path_data->path_len - 1],
 		next_attach_comp_id, cmdq_handle);
+	if (priv->data->mmsys_id == MMSYS_MT6768 || priv->data->mmsys_id == MMSYS_MT6765) {
+		mtk_ddp_add_comp_to_path_with_cmdq(
+			mtk_crtc, DDP_COMPONENT_OVL0,
+			DDP_COMPONENT_RDMA0, cmdq_handle);
+	}
 
 	/* 4. config module */
 	/* config attach comp */
@@ -549,15 +554,25 @@ void mtk_addon_disconnect_between(
 	mtk_ddp_remove_comp_from_path_with_cmdq(
 		mtk_crtc, path_data->path[path_data->path_len - 1],
 		next_attach_comp_id, cmdq_handle);
+	if (priv->data->mmsys_id == MMSYS_MT6768 || priv->data->mmsys_id == MMSYS_MT6765) {
+		mtk_ddp_remove_comp_from_path_with_cmdq(
+			mtk_crtc, DDP_COMPONENT_OVL0,
+			DDP_COMPONENT_OVL0_2L, cmdq_handle);
+		mtk_ddp_remove_comp_from_path_with_cmdq(
+			mtk_crtc, DDP_COMPONENT_OVL0_2L,
+			DDP_COMPONENT_RDMA0, cmdq_handle);
+	}
 
 	/* 3. disconnect subpath and remove mutex */
 	mtk_addon_path_disconnect_and_remove_mutex(crtc, ddp_mode, module_data,
 						   cmdq_handle);
 
 	/* 4. connect original path*/
-	mtk_crtc_connect_path_between_component(crtc, ddp_mode, attach_comp_id,
-						next_attach_comp_id,
-						cmdq_handle);
+	if (priv->data->mmsys_id != MMSYS_MT6768 || priv->data->mmsys_id == MMSYS_MT6765) {
+		mtk_crtc_connect_path_between_component(crtc, ddp_mode, attach_comp_id,
+							next_attach_comp_id,
+							cmdq_handle);
+	}
 
 	/* 5. config module*/
 	/* config attach comp */

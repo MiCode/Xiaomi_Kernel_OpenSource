@@ -56,6 +56,15 @@
 #define GET_M4U_PORT 0x1F
 #define MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH 128
 
+/* If it is 64bit use __pa_nodebug, otherwise use __pa_symbol_nodebug or __pa */
+#ifndef __pa_nodebug
+#ifdef __pa_symbol_nodebug
+#define __pa_nodebug __pa_symbol_nodebug
+#else
+#define __pa_nodebug __pa
+#endif
+#endif
+
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 static struct dentry *mtkfb_dbgfs;
 #endif
@@ -202,7 +211,7 @@ static unsigned long long get_current_time_us(void)
 	return time;
 
 	ktime_get_ts64(&t);
-	return (t.tv_sec & 0xFFF) * 1000000 + t.tv_nsec / NSEC_PER_USEC;
+	return (t.tv_sec & 0xFFF) * 1000000 + DO_COMMON_DIV(t.tv_nsec, NSEC_PER_USEC);
 }
 
 static char *_logger_pr_type_spy(enum DPREC_LOGGER_PR_TYPE type)
@@ -358,7 +367,7 @@ int mtk_dprec_logger_pr(unsigned int type, char *fmt, ...)
 
 		rem_nsec = do_div(time, 1000000000);
 		n += snprintf(buf + n, len - n, "[%5lu.%06lu]",
-			      (unsigned long)time, rem_nsec / 1000);
+			      (unsigned long)time, DO_COMMON_DIV(rem_nsec, 1000));
 
 		va_start(args, fmt);
 		n += vscnprintf(buf + n, len - n, fmt, args);

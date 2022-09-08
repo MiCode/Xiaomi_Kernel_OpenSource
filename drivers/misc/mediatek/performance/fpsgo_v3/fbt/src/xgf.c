@@ -2467,7 +2467,11 @@ static char *xgf_strcat(char *dest, const char *src,
 
 static void xgf_log_trace(const char *fmt, ...)
 {
+#if IS_ENABLED(CONFIG_ARM64)
 	char log[1024];
+#else
+	char log[512];
+#endif
 	va_list args;
 	int len;
 
@@ -2477,8 +2481,13 @@ static void xgf_log_trace(const char *fmt, ...)
 	va_start(args, fmt);
 	len = vsnprintf(log, sizeof(log), fmt, args);
 
+#if IS_ENABLED(CONFIG_ARM64)
 	if (unlikely(len == 1024))
 		log[1023] = '\0';
+#else
+	if (unlikely(len == 512))
+		log[511] = '\0';
+#endif
 	va_end(args);
 	trace_printk(log);
 }

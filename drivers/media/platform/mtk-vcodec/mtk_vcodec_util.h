@@ -13,9 +13,11 @@
 #include <linux/dma-direction.h>
 #include <linux/mtk_vcu_controls.h>
 #include "vcodec_ipi_msg.h"
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+// include vcp header to make build pass even if CONFIG_MTK_TINYSYS_VCP_SUPPORT is off
+// dynamic to switch vcp or vcu path by "mtk_vcodec_vcp"
+//#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 #include "vcp_helper.h"
-#endif
+//#endif
 #if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 #include "mtk_vcu.h"
 #endif
@@ -269,5 +271,7 @@ int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev,
 
 void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val,
 	enum mtk_vcodec_log_index log_index);
+
+long long div_64(long long a, long long b);
 
 #endif /* _MTK_VCODEC_UTIL_H_ */

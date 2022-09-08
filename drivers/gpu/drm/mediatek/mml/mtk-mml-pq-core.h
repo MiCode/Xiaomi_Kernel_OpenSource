@@ -27,6 +27,34 @@
 #define TOTAL_RB_BUF_NUM (MML_PQ_RB_ENGINE*MML_PIPE_CNT*MAX_ENG_RB_BUF)
 #define INVALID_OFFSET_ADDR (4096*TOTAL_RB_BUF_NUM)
 
+/* Compatible with 32bit division and mold operation */
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
+#define DO_COMMON_DIV(x, base) ((x) / (base))
+#define DO_COMMMON_MOD(x, base) ((x) % (base))
+#else
+#define DO_COMMON_DIV(x, base) ({                   \
+	uint64_t result = 0;                        \
+	if (sizeof(x) < sizeof(uint64_t))           \
+		result = ((x) / (base));            \
+	else {                                      \
+		uint64_t __x = (x);                 \
+		do_div(__x, (base));                \
+		result = __x;                       \
+	}                                           \
+	result;                                     \
+})
+#define DO_COMMMON_MOD(x, base) ({                  \
+	uint32_t result = 0;                        \
+	if (sizeof(x) < sizeof(uint64_t))           \
+		result = ((x) % (base));            \
+	else {                                      \
+		uint64_t __x = (x);                 \
+		result = do_div(__x, (base));       \
+	}                                           \
+	result;                                     \
+})
+#endif
+
 #define MML_PQ_RSZ_TOTAL_REG (24)
 #define AAL_MAX_REG_NUM (116)
 #define HDR_MAX_REG_NUM (115)

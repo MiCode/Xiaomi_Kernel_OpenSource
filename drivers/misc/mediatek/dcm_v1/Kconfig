@@ -1,0 +1,15 @@
+config MEDIATEK_DCM_COMMON
+	tristate "Mediatek DCM COMMON"
+	help
+	  For Mediatek Dynamic Clock Management control. Provid a common interface to
+	  adjust dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to use.
+	  Select "n" if you are not sure.
+
+config MEDIATEK_DCM_MT6768
+	tristate "Mediatek MT6768 DCM control"
+	help
+	  For Mediatek MT6768 Dynamic Clock Management HW control. Only enable when you
+	  neet to change mt6768 dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to change mt6768 dcm setting.
+	  Select "n" if you do not need to change

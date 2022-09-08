@@ -1400,15 +1400,30 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	int bhr_local;
 	int cluster = 0;
 	int max_cap = 100;
-	struct fpsgo_loading dep_need_set[MAX_DEP_NUM];
 	int temp_size_need_set = 0;
-
-
-	if (!uclamp_boost_enable)
+#if IS_ENABLED(CONFIG_ARM64)
+	struct fpsgo_loading dep_need_set[MAX_DEP_NUM];
+#else
+	struct fpsgo_loading *dep_need_set = kmalloc(sizeof(struct fpsgo_loading)
+					* MAX_DEP_NUM, GFP_KERNEL);
+	if (!dep_need_set)
 		return;
+#endif
 
-	if (!thr)
+
+	if (!uclamp_boost_enable) {
+#if !IS_ENABLED(CONFIG_ARM64)
+		kfree(dep_need_set);
+#endif
 		return;
+	}
+
+	if (!thr) {
+#if !IS_ENABLED(CONFIG_ARM64)
+		kfree(dep_need_set);
+#endif
+		return;
+	}
 
 	if (!min_cap) {
 		fbt_clear_min_cap(thr);
@@ -1416,6 +1431,9 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			0,	"perf idx");
 		fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
 			100,	"perf_idx_max");
+#if !IS_ENABLED(CONFIG_ARM64)
+		kfree(dep_need_set);
+#endif
 		return;
 	}
 
@@ -1426,6 +1444,9 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 				ret, "fail dep-list");
 			fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
 				0, "fail dep-list");
+#if !IS_ENABLED(CONFIG_ARM64)
+			kfree(dep_need_set);
+#endif
 			return;
 		}
 		bhr_opp_local = bhr_opp;
@@ -1439,13 +1460,20 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	}
 
 	size = thr->dep_valid_size;
-	if (!size || !thr->dep_arr)
+	if (!size || !thr->dep_arr) {
+#if !IS_ENABLED(CONFIG_ARM64)
+		kfree(dep_need_set);
+#endif
 		return;
+	}
 
 	clus_opp =
 		kcalloc(cluster_num, sizeof(int), GFP_KERNEL);
 	if (!clus_opp) {
 		FPSGO_LOGE("ERROR OOM %d\n", __LINE__);
+#if !IS_ENABLED(CONFIG_ARM64)
+		kfree(dep_need_set);
+#endif
 		return;
 	}
 
@@ -1454,6 +1482,9 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	if (!clus_floor_freq) {
 		kfree(clus_opp);
 		FPSGO_LOGE("ERROR OOM %d\n", __LINE__);
+#if !IS_ENABLED(CONFIG_ARM64)
+		kfree(dep_need_set);
+#endif
 		return;
 	}
 
@@ -1495,8 +1526,12 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 
 	dep_str = kcalloc(size + 1, MAX_PID_DIGIT * sizeof(char),
 				GFP_KERNEL);
-	if (!dep_str)
+	if (!dep_str) {
+#if !IS_ENABLED(CONFIG_ARM64)
+		kfree(dep_need_set);
+#endif
 		return;
+	}
 
 	if (thr->pid == max_blc_pid && thr->buffer_id == max_blc_buffer_id)
 		size_final = size;
@@ -1589,7 +1624,9 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 		min_cap,	"perf idx");
 	fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
 		max_cap,	"perf_idx_max");
-
+#if !IS_ENABLED(CONFIG_ARM64)
+	kfree(dep_need_set);
+#endif
 }
 
 static int fbt_get_target_cluster(unsigned int blc_wt)
@@ -2617,11 +2654,21 @@ static void fbt_set_limit(int cur_pid, unsigned int blc_wt,
 	int final_blc_pid = pid;
 	unsigned long long final_blc_buffer_id = buffer_id;
 	int final_blc_dep_num = dep_num;
+#if IS_ENABLED(CONFIG_ARM64)
 	struct fpsgo_loading final_blc_dep[MAX_DEP_NUM];
+#else
+	struct fpsgo_loading *final_blc_dep = kmalloc(sizeof(struct fpsgo_loading)
+							* MAX_DEP_NUM, GFP_KERNEL);
+	if (!final_blc_dep)
+		return;
+#endif
 
 	if (!(blc_wt > max_blc ||
 		(pid == max_blc_pid && buffer_id == max_blc_buffer_id))) {
 		fbt_clear_state(thread_info);
+#if !IS_ENABLED(CONFIG_ARM64)
+	kfree(final_blc_dep);
+#endif
 		return;
 	}
 
@@ -2641,7 +2688,14 @@ static void fbt_set_limit(int cur_pid, unsigned int blc_wt,
 		int temp_blc_pid = 0;
 		unsigned long long temp_blc_buffer_id = 0;
 		int temp_blc_dep_num = 0;
+#if IS_ENABLED(CONFIG_ARM64)
 		struct fpsgo_loading temp_blc_dep[MAX_DEP_NUM];
+#else
+		struct fpsgo_loading *temp_blc_dep = kmalloc(sizeof(struct fpsgo_loading)
+							* MAX_DEP_NUM, GFP_KERNEL);
+		if (!temp_blc_dep)
+			return;
+#endif
 
 		fbt_find_ex_max_blc(pid, buffer_id, &temp_blc,
 				&temp_blc_pid, &temp_blc_buffer_id,
@@ -2658,9 +2712,14 @@ static void fbt_set_limit(int cur_pid, unsigned int blc_wt,
 			final_blc_dep_num = temp_blc_dep_num;
 			memcpy(final_blc_dep, temp_blc_dep,
 				temp_blc_dep_num * sizeof(struct fpsgo_loading));
-
+#if !IS_ENABLED(CONFIG_ARM64)
+			kfree(temp_blc_dep);
+#endif
 			goto EXIT;
 		}
+#if !IS_ENABLED(CONFIG_ARM64)
+		kfree(temp_blc_dep);
+#endif
 	}
 
 	fbt_check_cm_limit(thread_info, runtime);
@@ -2711,6 +2770,9 @@ EXIT2:
 
 	if (jatm_notify_fp)
 		jatm_notify_fp(0);
+#if !IS_ENABLED(CONFIG_ARM64)
+	kfree(final_blc_dep);
+#endif
 }
 
 static unsigned int fbt_get_max_userlimit_freq(void)
@@ -2864,13 +2926,18 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 {
 	int rm_idx, new_idx, first_idx;
 	long long target_time = div64_s64(1000000000, target_fpks + gcc_fps_margin * 10);
+#if IS_ENABLED(CONFIG_ARM64)
 	int window_cnt;
+	long long std_square = 0;
+#else
+	unsigned long long window_cnt;
+	unsigned long long std_square = 0;
+#endif
 	int s32_t_Q2Q = nsec_to_usec(t_Q2Q_ns);
 	int s32_t_enq_len = nsec_to_usec(t_enq_len_ns);
 	int s32_t_deq_len = nsec_to_usec(t_deq_len_ns);
 	int s32_tmp_deq_len;
 	int avg = 0, i, quota_adj = 0, qr_quota = 0;
-	long long std_square = 0;
 	int s32_target_time;
 
 	if (!gcc_fps_margin && target_fps == 60)
@@ -3035,7 +3102,11 @@ int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 		long long t_cpu, int target_fpks, int max_iso_cap, int cooler_on, int pid)
 {
 	long long target_time = div64_s64(1000000000, target_fpks + gcc_fps_margin * 10);
+#if IS_ENABLED(CONFIG_ARM64)
 	int gcc_down_window, gcc_up_window;
+#else
+	unsigned long long gcc_down_window, gcc_up_window;
+#endif
 	int quota = INT_MAX;
 	int weight_t_gpu = boost_info->quantile_gpu_time > 0 ?
 		nsec_to_usec(boost_info->quantile_gpu_time) : -1;
@@ -3490,7 +3561,14 @@ static void fbt_check_max_blc_locked(int pid)
 	int temp_blc_pid = 0;
 	unsigned long long temp_blc_buffer_id = 0;
 	int temp_blc_dep_num = 0;
+#if IS_ENABLED(CONFIG_ARM64)
 	struct fpsgo_loading temp_blc_dep[MAX_DEP_NUM];
+#else
+	struct fpsgo_loading *temp_blc_dep = kmalloc(sizeof(struct fpsgo_loading)
+						* MAX_DEP_NUM, GFP_KERNEL);
+	if (!temp_blc_dep)
+		return;
+#endif
 
 	fbt_find_max_blc(&temp_blc, &temp_blc_pid,
 		&temp_blc_buffer_id, &temp_blc_dep_num, temp_blc_dep);
@@ -3532,6 +3610,9 @@ static void fbt_check_max_blc_locked(int pid)
 	} else
 		fbt_set_limit(pid, max_blc, max_blc_pid, max_blc_buffer_id,
 			max_blc_dep_num, max_blc_dep, NULL, 0);
+#if !IS_ENABLED(CONFIG_ARM64)
+	kfree(temp_blc_dep);
+#endif
 }
 
 static int fbt_overest_loading(int blc_wt, unsigned long long running_time,

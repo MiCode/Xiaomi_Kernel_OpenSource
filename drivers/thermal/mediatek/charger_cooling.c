@@ -97,7 +97,8 @@ static int cooling_state_to_charger_limit_v1(struct charger_cooling_device *chg)
 		pr_info("Couldn't get chg_psy\n");
 		return ret;
 	}
-	prop_bat_chr.intval = master_charger_state_to_current_limit[chg->target_state];
+	//prop_bat_chr.intval = master_charger_state_to_current_limit[chg->target_state];
+	prop_bat_chr.intval = -1;
 
 	ret = power_supply_set_property(chg->chg_psy,
 		POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
@@ -159,6 +160,10 @@ static int cooling_state_to_charger_limit_v1(struct charger_cooling_device *chg)
 }
 
 
+static const struct charger_cooling_platform_data mt6370_pdata = {
+	.state_to_charger_limit = cooling_state_to_charger_limit_v1,
+};
+
 static const struct charger_cooling_platform_data mt6360_pdata = {
 	.state_to_charger_limit = cooling_state_to_charger_limit_v1,
 };
@@ -168,6 +173,10 @@ static const struct charger_cooling_platform_data mt6375_pdata = {
 };
 
 static const struct of_device_id charger_cooling_of_match[] = {
+	{
+		.compatible = "mediatek,mt6370-charger-cooler",
+		.data = (void *)&mt6370_pdata,
+	},
 	{
 		.compatible = "mediatek,mt6360-charger-cooler",
 		.data = (void *)&mt6360_pdata,

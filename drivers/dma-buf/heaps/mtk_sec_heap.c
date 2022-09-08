@@ -1055,7 +1055,6 @@ static void init_buffer_info(struct dma_heap *heap,
 			     struct mtk_sec_heap_buffer *buffer)
 {
 	struct task_struct *task = current->group_leader;
-
 	INIT_LIST_HEAD(&buffer->attachments);
 	mutex_init(&buffer->lock);
 	mutex_init(&buffer->map_lock);
@@ -1064,7 +1063,18 @@ static void init_buffer_info(struct dma_heap *heap,
 	get_task_comm(buffer->tid_name, current);
 	buffer->pid = task_pid_nr(task);
 	buffer->tid = task_pid_nr(current);
-	buffer->ts  = sched_clock() / 1000;
+
+	/*
+	 * in 32bit project compile the arithmetic division, the "/" will
+	 * cause the __aeabi_uldivmod error.
+	 *
+	 * use DO_DMA_BUFFER_COMMON_DIV and DO_DMA_BUFFER_COMMON_MOD to
+	 * intead "/".
+	 *
+	 * original code is
+	 * buffer->ts  = sched_clock() / 1000;
+	 */
+	buffer->ts  = DO_DMA_BUFFER_COMMON_DIV(sched_clock(), 1000);
 }
 
 static struct dma_buf *alloc_dmabuf(struct dma_heap *heap, struct mtk_sec_heap_buffer *buffer,

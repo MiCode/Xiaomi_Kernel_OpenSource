@@ -20,7 +20,9 @@ u32 dmabuf_to_secure_handle(const struct dma_buf *dmabuf);
 
 int is_system_heap_dmabuf(const struct dma_buf *dmabuf);
 int is_mtk_mm_heap_dmabuf(const struct dma_buf *dmabuf);
+#if IS_ENABLED(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)
 int is_mtk_sec_heap_dmabuf(const struct dma_buf *dmabuf);
+#endif
 
 long mtk_dma_buf_set_name(struct dma_buf *dmabuf, const char *buf);
 
@@ -31,5 +33,36 @@ long mtk_dma_buf_set_name(struct dma_buf *dmabuf, const char *buf);
  * returns >0 means valid iomm_sec_id, -1 means error
  */
 int dmabuf_to_sec_id(const struct dma_buf *dmabuf, u32 *sec_hdl);
+
+/*
+ * in 32bit project compile the arithmetic division, the "/" will
+ * cause the __aeabi_uldivmod error.
+ *
+ * use DO_DMA_BUFFER_COMMON_DIV and DO_DMA_BUFFER_COMMON_MOD to
+ * intead "/".
+ *
+ */
+#define DO_DMA_BUFFER_COMMON_DIV(x, base)({ \
+	unsigned long result = 0; \
+	if (sizeof(x) < sizeof(uint64_t)) \
+		result = (x / base); \
+	else { \
+		uint64_t _source = (x); \
+		do_div(_source, base); \
+		result = _source; \
+	} \
+	result; \
+})
+
+#define DO_DMA_BUFFER_COMMON_MOD(x, base)({ \
+	unsigned long result = 0; \
+	if (sizeof(x) < sizeof(uint64_t)) \
+		result = (x % base); \
+	else { \
+		uint64_t _source = (x); \
+		result = do_div(_source, base); \
+	} \
+	result; \
+})
 
 #endif /* _MTK_DMABUFHEAP_DEBUG_H */

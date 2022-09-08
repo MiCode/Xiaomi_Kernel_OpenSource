@@ -313,7 +313,7 @@ static struct mtk_drm_property mtk_connector_property[CONNECTOR_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "PANEL_ID", 0, UINT_MAX, 0},
 };
 
-#define NS_TO_CYCLE(n, c) ((n) / (c))
+#define NS_TO_CYCLE(n, c) DO_COMMON_DIV((n), (c))
 
 #define CEILING(n, s) ((n) + ((s) - ((n) % (s))))
 
@@ -6412,13 +6412,13 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 	bw_base = vact * hact * vrefresh * 4 / 1000;
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
 		if (vact)
-			bw_base = bw_base * vtotal / vact;
+			bw_base = DO_COMMON_DIV(bw_base * vtotal, vact);
 		else
-			bw_base = (unsigned long long)vtotal * hact * vrefresh * 4 / 1000;
-		bw_base = bw_base / 1000;
+			bw_base = DO_COMMON_DIV((unsigned long long)vtotal * hact * vrefresh * 4, 1000);
+		bw_base = DO_COMMON_DIV(bw_base, 1000);
 	} else {
 		bw_base = data_rate * dsi->lanes * compress_rate * 4;
-		bw_base = bw_base / bpp / 100;
+		bw_base = DO_COMMON_DIV(DO_COMMON_DIV(bw_base, bpp), 100);
 	}
 
 	DDPDBG("%s Frame Bw:%llu, bpp:%d\n", __func__, bw_base, bpp);
@@ -6435,7 +6435,7 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 
 		line_time = mtk_dsi_get_line_time(mtk_crtc, dsi);
 		if (line_time > 0)
-			bw_base = bw_base * image_time / line_time;
+			bw_base = DO_COMMON_DIV(bw_base * image_time, line_time);
 		DDPDBG("%s, image_time=%d, line_time=%d\n",
 			__func__, image_time, line_time);
 	}
@@ -6486,13 +6486,16 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 			DDPMSG("panel_params is null\n");
 	}
 
-	bw_base = (unsigned long long)mode->vdisplay * mode->hdisplay * vrefresh * 4 / 1000;
+
+	bw_base = DO_COMMON_DIV((unsigned long long)mode->vdisplay * mode->hdisplay * vrefresh * 4, 1000);
+
+
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
-		bw_base = bw_base * mode->vtotal / mode->vdisplay;
-		bw_base = bw_base / 1000;
+		bw_base = DO_COMMON_DIV(bw_base * mode->vtotal, mode->vdisplay);
+		bw_base = DO_COMMON_DIV(bw_base, 1000);
 	} else {
 		bw_base = (unsigned long long)data_rate * dsi->lanes * compress_rate * 4;
-		bw_base = bw_base / bpp / 100;
+		bw_base = DO_COMMON_DIV(DO_COMMON_DIV(bw_base, bpp), 100);
 	}
 
 	DDPDBG("%s Frame Bw:%llu, mode_idx:%d, bpp:%d\n", __func__, bw_base, mode_idx, bpp);
@@ -6509,7 +6512,7 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 
 		line_time = mtk_dsi_get_line_time(mtk_crtc, dsi);
 		if (line_time > 0)
-			bw_base = bw_base * image_time / line_time;
+			bw_base = DO_COMMON_DIV(bw_base * image_time, line_time);
 	}
 
 	DDPMSG("%s Frame Bw:%llu\n", __func__, bw_base);
@@ -7899,6 +7902,46 @@ static const struct mtk_dsi_driver_data mt8173_dsi_driver_data = {
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
 
+const struct mtk_dsi_driver_data mt6765_dsi_driver_data = {
+	.reg_cmdq0_ofs = 0x200,
+	.reg_cmdq1_ofs = 0x204,
+	.reg_vm_cmd_con_ofs = 0x130,
+	.reg_vm_cmd_data0_ofs = 0x134,
+	.reg_vm_cmd_data10_ofs = 0x180,
+	.reg_vm_cmd_data20_ofs = 0x1a0,
+	.reg_vm_cmd_data30_ofs = 0x1b0,
+	.poll_for_idle = mtk_dsi_poll_for_idle,
+	.irq_handler = mtk_dsi_irq_status,
+	.esd_eint_compat = "mediatek, DSI_TE-eint",
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.need_wait_fifo = true,
+	.dsi_buffer = false,
+	.dsi_new_trail = false,
+	.max_vfp = 0,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
+};
+
+const struct mtk_dsi_driver_data mt6768_dsi_driver_data = {
+	.reg_cmdq0_ofs = 0x200,
+	.reg_cmdq1_ofs = 0x204,
+	.reg_vm_cmd_con_ofs = 0x130,
+	.reg_vm_cmd_data0_ofs = 0x134,
+	.reg_vm_cmd_data10_ofs = 0x180,
+	.reg_vm_cmd_data20_ofs = 0x1a0,
+	.reg_vm_cmd_data30_ofs = 0x1b0,
+	.poll_for_idle = mtk_dsi_poll_for_idle,
+	.irq_handler = mtk_dsi_irq_status,
+	.esd_eint_compat = "mediatek, DSI_TE-eint",
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.need_wait_fifo = true,
+	.dsi_buffer = false,
+	.dsi_new_trail = false,
+	.max_vfp = 0,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
+};
+
 static const struct mtk_dsi_driver_data mt6779_dsi_driver_data = {
 	.reg_cmdq0_ofs = 0x200,
 	.reg_cmdq1_ofs = 0x204,
@@ -8098,6 +8141,8 @@ static const struct mtk_dsi_driver_data mt2701_dsi_driver_data = {
 
 static const struct of_device_id mtk_dsi_of_match[] = {
 	{.compatible = "mediatek,mt2701-dsi", .data = &mt2701_dsi_driver_data},
+	{.compatible = "mediatek,mt6765-dsi", .data = &mt6765_dsi_driver_data},
+	{.compatible = "mediatek,mt6768-dsi", .data = &mt6768_dsi_driver_data},
 	{.compatible = "mediatek,mt6779-dsi", .data = &mt6779_dsi_driver_data},
 	{.compatible = "mediatek,mt8173-dsi", .data = &mt8173_dsi_driver_data},
 	{.compatible = "mediatek,mt6885-dsi", .data = &mt6885_dsi_driver_data},

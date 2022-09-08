@@ -427,10 +427,8 @@ static int gauge_coulomb_thread(void *arg)
 		end = ktime_get_boottime();
 		duraction = end - start;
 
-		bm_debug(
-			"%s time:%d ms\n",
-			__func__,
-			(int)(duraction / 1000000));
+		bm_debug("%s time:%d ms\n", __func__,
+			(int)(div_s64(duraction, 1000000)));
 	}
 
 	return 0;

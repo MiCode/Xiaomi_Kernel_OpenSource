@@ -116,11 +116,15 @@ config COMMON_CLK_MT2712_VENCSYS
 	  This driver supports MediaTek MT2712 vencsys clocks.
 
 config COMMON_CLK_MT6765
-       bool "Clock driver for MediaTek MT6765"
-       depends on (ARCH_MEDIATEK && ARM64) || COMPILE_TEST
-       select COMMON_CLK_MEDIATEK
-       help
-         This driver supports MediaTek MT6765 basic clocks.
+	tristate "Clock driver for MediaTek MT6765"
+	depends on ARM || ARM64 || COMPILE_TEST
+	select COMMON_CLK_MEDIATEK
+	default MACH_MT6765
+	help
+	  This driver supports MediaTek MT6765 basic clocks,
+	  which is used to control basic clock output.
+	  If you wish to use clock resources from the MT6765 SOC,
+	  say Y. Otherwise, say N.
 
 config COMMON_CLK_MT6765_AUDIOSYS
        bool "Clock driver for MediaTek MT6765 audiosys"
@@ -199,6 +203,17 @@ config COMMON_CLK_MT6765_MIPI2BSYS
        depends on COMMON_CLK_MT6765
        help
          This driver supports MediaTek MT6765 mipi2bsys clocks.
+
+config COMMON_CLK_MT6768
+	tristate "Clock driver for MediaTek MT6768"
+	depends on ARM64 || ARM || COMPILE_TEST
+	select COMMON_CLK_MEDIATEK
+	default MACH_MT6768
+	help
+	  This driver supports MediaTek MT6853 basic clocks,
+	  which is used to control basic clock output.
+	  If you wish to use clock resources from the MT6853 SOC,
+	  say Y. Otherwise, say N.
 
 config COMMON_CLK_MT6779
 	bool "Clock driver for MediaTek MT6779"
@@ -1834,6 +1849,14 @@ config COMMON_CLK_MTK_FREQ_HOPPING_DEBUG
 	  say Y to use debugfs interface to control
 	  Freqhopping.
 	  Otherwise, say N
+
+config MEDIATEK_FHCTL_V1
+	tristate "Mediatek Frequency Hopping driver"
+	help
+	  FREQHOPPING driver support for MediaTek SOC
+	  If you want to use MediaTek FREQHOPPING driver,
+	  say Y or M here.
+	  If unsure, say N.
 
 config COMMON_CLK_MTK_FREQ_HOPPING_SUBSYS
 	bool "Mediatek Frequency Hopping controlled by subsys"

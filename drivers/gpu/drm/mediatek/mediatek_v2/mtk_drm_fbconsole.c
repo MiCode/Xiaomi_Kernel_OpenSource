@@ -11,6 +11,7 @@
 
 #include "mtk_drm_fbconsole.h"
 #include "mtk_log.h"
+#include "mtk_drm_ddp_comp.h"
 
 /* ------------------------------------------------------------------------- */
 
@@ -168,7 +169,7 @@ static void _mfc_scroll_up(struct MFC_CONTEXT *ctxt)
 	const UINT32 bg_color =
 		MAKE_TWO_RGB565_COLOR(MFC_BG_COLOR, MFC_BG_COLOR);
 	UINT32 *ptr = (UINT32 *)MFC_ROW_LAST;
-	int i = MFC_ROW_SIZE / sizeof(UINT32);
+	int i = DO_COMMON_DIV(MFC_ROW_SIZE, sizeof(UINT32));
 
 	memcpy(MFC_ROW_FIRST, MFC_ROW_SECOND, MFC_SCROLL_SIZE);
 

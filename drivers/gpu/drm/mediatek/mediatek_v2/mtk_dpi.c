@@ -452,7 +452,7 @@ static int mtk_dpi_set_display_mode(struct mtk_dpi *dpi,
 	clk_set_rate(dpi->tvd_clk, pll_rate);
 	pll_rate = clk_get_rate(dpi->tvd_clk);
 
-	pix_rate = pll_rate / factor;
+	pix_rate = DO_COMMON_DIV(pll_rate, factor);
 	clk_set_rate(dpi->pixel_clk, pix_rate);
 	pix_rate = clk_get_rate(dpi->pixel_clk);
 

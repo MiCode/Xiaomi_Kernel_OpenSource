@@ -12,6 +12,23 @@
 #include <mt-plat/aee.h>
 #endif
 
+/* Compatibility with 32-bit shift operation */
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
+#define DO_SHIFT_RIGHT(x, n) ({     \
+	(n) < (8 * sizeof(u64)) ? (x) >> (n) : 0;	\
+})
+#define DO_SHIFT_LEFT(x, n) ({      \
+	(n) < (8 * sizeof(u64)) ? (x) << (n) : 0;	\
+})
+#else
+#define DO_SHIFT_RIGHT(x, n) ({     \
+	(n) < (8 * sizeof(u32)) ? (x) >> (n) : 0;	\
+})
+#define DO_SHIFT_LEFT(x, n) ({      \
+	(n) < (8 * sizeof(u32)) ? (x) << (n) : 0;	\
+})
+#endif
+
 enum {
 	CMDQ_LOG_FEAT_SECURE,
 	CMDQ_LOG_FEAT_PERF,
@@ -154,6 +171,7 @@ struct cmdq_util_platform_fp {
 };
 
 void cmdq_util_set_fp(struct cmdq_util_platform_fp *cust_cmdq_platform);
+void cmdq_util_reset_fp(struct cmdq_util_platform_fp *cust_cmdq_platform);
 const char *cmdq_util_event_module_dispatch(phys_addr_t gce_pa, const u16 event, s32 thread);
 const char *cmdq_util_thread_module_dispatch(phys_addr_t gce_pa, s32 thread);
 u32 cmdq_util_get_hw_id(u32 pa);

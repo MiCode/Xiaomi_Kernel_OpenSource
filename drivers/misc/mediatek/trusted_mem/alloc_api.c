@@ -148,11 +148,19 @@ int trusted_mem_api_unref(enum TRUSTED_MEM_REQ_TYPE req_mem_type, u32 sec_handle
 }
 EXPORT_SYMBOL(trusted_mem_api_unref);
 
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
 bool trusted_mem_api_get_region_info(enum TRUSTED_MEM_REQ_TYPE mem_type,
 				     u64 *pa, u32 *size)
 {
 	return tmem_core_get_region_info(get_mem_type(mem_type), pa, size);
 }
+#else
+bool trusted_mem_api_get_region_info(enum TRUSTED_MEM_REQ_TYPE mem_type,
+				     u32 *pa, u32 *size) // for 32bit
+{
+	return tmem_core_get_region_info(get_mem_type(mem_type), pa, size);
+}
+#endif
 EXPORT_SYMBOL(trusted_mem_api_get_region_info);
 
 int trusted_mem_api_query_pa(enum TRUSTED_MEM_REQ_TYPE mem_type, u32 alignment,

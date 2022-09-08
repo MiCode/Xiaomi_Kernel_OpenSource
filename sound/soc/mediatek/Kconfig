@@ -69,6 +69,29 @@ config SND_SOC_MT6797_MT6351
 	  Select Y if you have such device.
 	  If unsure select "N".
 
+config SND_SOC_MT6768
+	tristate "ASoC support for Mediatek MT6768 chip"
+	depends on ARCH_MEDIATEK
+	select SND_SOC_MEDIATEK
+	select SND_SOC_MTK_SRAM
+	select SND_SOC_MTK_SMART_PHONE
+	select DMA_SHARED_BUFFER
+	help
+	  This adds ASoC driver for Mediatek MT6768 boards
+	  that can be used with other codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config SND_SOC_MT6768_MT6358
+	tristate "ASoc Audio driver for MT6768 with MT6358 codec"
+	depends on SND_SOC_MT6768
+	select SND_SOC_MT6358
+	help
+	  This adds ASoC driver for Mediatek MT6789 boards
+	  with the MT6358 codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
 config SND_SOC_MT6789
 	tristate "ASoC support for Mediatek MT6789 chip"
 	depends on ARCH_MEDIATEK
@@ -405,6 +428,28 @@ config MTK_ULTRASND_PROXIMITY
 	  emulate physical proximity sensor. Using
 	  IPI interface to communicate with SCP side and
 	  be controlled by sensor hal.
+
+config MTK_SND_SOC_NEW_ARCH
+	bool "Support new audio architecture"
+	help
+	  If you say Y, enable MTK_SND_SOC_NEW_ARCH.
+	  Only enable this when you use refactored audio driver architecture.
+	  If new chip after mt6757, we will enable this config.
+	  Audio driver refactor to common folder and platform folder.
+
+config SND_SOC_CODEC_MT6357
+	tristate "ASoc Audio driver for MT6357 codec"
+	help
+	  This adds ASoC driver for Mediatek boards
+	  with the MT6357 codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
+config SND_SOC_MT6765
+	tristate "ASoC support for Mediatek MT6765 chip"
+	help
+	  This adds ASoC driver for Mediatek MT6765 boards
+	  that can be used with other codecs.
 
 config MTK_SCP_AUDIO
 	tristate "ASoC support for Mediatek scp audio chip"

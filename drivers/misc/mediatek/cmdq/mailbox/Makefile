@@ -69,3 +69,12 @@ endif
 ifneq ($(wildcard $(srctree)/$(src)/cmdq-platform-mt6789.c),)
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-platform-mt6789.o
 endif
+
+ifneq ($(wildcard $(srctree)/$(src)/cmdq-platform-mt6768.c),)
+obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-platform-mt6768.o
+endif
+
+ifneq ($(wildcard $(srctree)/$(src)/cmdq-platform-mt6765.c),)
+obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-platform-mt6765.o
+endif
+

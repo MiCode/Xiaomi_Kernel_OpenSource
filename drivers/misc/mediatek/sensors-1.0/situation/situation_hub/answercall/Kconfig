@@ -1,0 +1,8 @@
+
+config MTK_ANSWER_CALL_HUB
+	bool "glghub for MediaTek package"
+	help
+	  A answer call is a device,
+	  usually portable and electronic
+	  or electromechanical,
+	  that detect answer call a person takes.

@@ -35,6 +35,7 @@
 
 int disp_met_set(void *data, u64 val);
 
+#define DO_DIV_ROUND_UP(n, d) DO_COMMON_DIV(((n) + (d) - 1), (d))
 #define DISP_REG_RDMA_INT_ENABLE 0x0000
 #define DISP_REG_RDMA_INT_STATUS 0x0004
 #define RDMA_TARGET_LINE_INT BIT(5)
@@ -160,8 +161,8 @@ int disp_met_set(void *data, u64 val);
 #define FIFO_CON_FLD_FIFO_PSEUDO_SIZE	REG_FLD_MSB_LSB(29, 16)
 #define FIFO_CON_FLD_FIFO_UNDERFLOW_EN	REG_FLD_MSB_LSB(31, 31)
 #define RDMA_FIFO_UNDERFLOW_EN BIT(31)
-#define RDMA_FIFO_PSEUDO_SIZE(bytes) (((bytes) / 16UL) << 16)
-#define RDMA_OUTPUT_VALID_FIFO_THRESHOLD(bytes) ((bytes) / 16)
+#define RDMA_FIFO_PSEUDO_SIZE(bytes) (DO_COMMON_DIV((bytes), 16UL) << 16)
+#define RDMA_OUTPUT_VALID_FIFO_THRESHOLD(bytes) DO_COMMON_DIV((bytes), 16)
 #define RDMA_FIFO_SIZE(module) ((module)->data->fifo_size)
 
 #define MATRIX_INT_MTX_SEL_DEFAULT 0x000000
@@ -653,7 +654,7 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	}
 
 	if (comp->mtk_crtc->is_dual_pipe)
-		width /= 2;
+		width = DO_COMMON_DIV(width, 2);
 
 	switch (cfg->bpc) {
 	case 8:
@@ -692,9 +693,9 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	/* RDMA golden setting calculation */
 	/* DISP_RDMA_MEM_GMC_SETTING_0 */
 	gs[GS_RDMA_PRE_ULTRA_TH_LOW] =
-		DIV_ROUND_UP(consume_rate * (pre_ultra_low_us), FP);
+		DO_DIV_ROUND_UP(consume_rate * (pre_ultra_low_us), FP);
 	gs[GS_RDMA_PRE_ULTRA_TH_HIGH] =
-		DIV_ROUND_UP(consume_rate * (pre_ultra_high_us), FP);
+		DO_DIV_ROUND_UP(consume_rate * (pre_ultra_high_us), FP);
 	if (gsc->is_vdo_mode) {
 		gs[GS_RDMA_VALID_TH_FORCE_PRE_ULTRA] = 0;
 		gs[GS_RDMA_VDE_FORCE_PRE_ULTRA] = 1;
@@ -705,7 +706,7 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 
 	/* DISP_RDMA_MEM_GMC_SETTING_1 */
 	gs[GS_RDMA_ULTRA_TH_LOW] =
-		DIV_ROUND_UP(consume_rate * (ultra_low_us), FP);
+		DO_DIV_ROUND_UP(consume_rate * (ultra_low_us), FP);
 	gs[GS_RDMA_ULTRA_TH_HIGH] = gs[GS_RDMA_PRE_ULTRA_TH_LOW];
 	if (gsc->is_vdo_mode)
 		gs[GS_RDMA_VALID_TH_BLOCK_ULTRA] = 0;
@@ -746,8 +747,8 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 
 	/* DISP_RDMA_THRESHOLD_FOR_SODI */
 	gs[GS_RDMA_TH_LOW_FOR_SODI] =
-		DIV_ROUND_UP(consume_rate * (ultra_low_us + 50), FP);
-	gs[GS_RDMA_TH_HIGH_FOR_SODI] = DIV_ROUND_UP(
+		DO_DIV_ROUND_UP(consume_rate * (ultra_low_us + 50), FP);
+	gs[GS_RDMA_TH_HIGH_FOR_SODI] = DO_DIV_ROUND_UP(
 		gs[GS_RDMA_FIFO_SIZE] * FP - (fill_rate - consume_rate) * 12,
 		FP);
 	if (gs[GS_RDMA_TH_HIGH_FOR_SODI] < gs[GS_RDMA_PRE_ULTRA_TH_HIGH])
@@ -765,31 +766,31 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 
 	/* DISP_RDMA_DVFS_SETTING_PREULTRA */
 	gs[GS_RDMA_DVFS_PRE_ULTRA_TH_LOW] =
-		DIV_ROUND_UP(consume_rate * (pre_ultra_low_us + 40), FP);
+		DO_DIV_ROUND_UP(consume_rate * (pre_ultra_low_us + 40), FP);
 	gs[GS_RDMA_DVFS_PRE_ULTRA_TH_HIGH] =
-		DIV_ROUND_UP(consume_rate * (pre_ultra_high_us + 40), FP);
+		DO_DIV_ROUND_UP(consume_rate * (pre_ultra_high_us + 40), FP);
 
 	/* DISP_RDMA_DVFS_SETTING_ULTRA */
 	gs[GS_RDMA_DVFS_ULTRA_TH_LOW] =
-		DIV_ROUND_UP(consume_rate * (ultra_low_us + 40), FP);
+		DO_DIV_ROUND_UP(consume_rate * (ultra_low_us + 40), FP);
 	gs[GS_RDMA_DVFS_ULTRA_TH_HIGH] = gs[GS_RDMA_DVFS_PRE_ULTRA_TH_LOW];
 
 	/* DISP_RDMA_LEAVE_DRS_SETTING */
 	gs[GS_RDMA_IS_DRS_STATUS_TH_LOW] =
-		DIV_ROUND_UP(consume_rate * (pre_ultra_low_us + 20), FP);
+		DO_DIV_ROUND_UP(consume_rate * (pre_ultra_low_us + 20), FP);
 	gs[GS_RDMA_IS_DRS_STATUS_TH_HIGH] =
-		DIV_ROUND_UP(consume_rate * (pre_ultra_low_us + 20), FP);
+		DO_DIV_ROUND_UP(consume_rate * (pre_ultra_low_us + 20), FP);
 
 	/* DISP_RDMA_ENTER_DRS_SETTING */
 	gs[GS_RDMA_NOT_DRS_STATUS_TH_LOW] =
-		DIV_ROUND_UP(consume_rate * (ultra_high_us + 40), FP);
+		DO_DIV_ROUND_UP(consume_rate * (ultra_high_us + 40), FP);
 	gs[GS_RDMA_NOT_DRS_STATUS_TH_HIGH] =
-		DIV_ROUND_UP(consume_rate * (ultra_high_us + 40), FP);
+		DO_DIV_ROUND_UP(consume_rate * (ultra_high_us + 40), FP);
 
 	/* DISP_RDMA_MEM_GMC_SETTING_3 */
-	gs[GS_RDMA_URGENT_TH_LOW] = DIV_ROUND_UP(consume_rate *
+	gs[GS_RDMA_URGENT_TH_LOW] = DO_DIV_ROUND_UP(consume_rate *
 		urgent_low_us, FP);
-	gs[GS_RDMA_URGENT_TH_HIGH] = DIV_ROUND_UP(consume_rate *
+	gs[GS_RDMA_URGENT_TH_HIGH] = DO_DIV_ROUND_UP(consume_rate *
 		urgent_high_us, FP);
 
 	/* DISP_RDMA_GREQ_URG_NUM_SEL */
@@ -935,7 +936,7 @@ static void mtk_rdma_write_mem_start_addr_cmdq(struct mtk_ddp_comp *comp,
 			handle);
 
 	if (rdma->data->is_support_34bits)
-		mtk_ddp_write_relaxed(comp, (addr >> 32),
+		mtk_ddp_write_relaxed(comp, DO_SHIFT_RIGHT(addr, 32),
 			DISP_REG_RDMA_MEM_START_ADDR_MSB, handle);
 }
 
@@ -1010,15 +1011,16 @@ static void mtk_rdma_config(struct mtk_ddp_comp *comp,
 
 static dma_addr_t mtk_rdma_read_mem_start_addr(struct mtk_ddp_comp *comp)
 {
-	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
-	void __iomem *baddr = comp->regs;
 	dma_addr_t addr = 0;
+	void __iomem *baddr = comp->regs;
+
+	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
+
 
 	if (rdma->data->is_support_34bits) {
 		addr = readl(DISP_REG_RDMA_MEM_START_ADDR_MSB + baddr);
-		addr = (addr << 32);
+		addr = DO_SHIFT_LEFT(addr, 32);
 	}
-
 	addr += readl(DISP_REG_RDMA_MEM_START_ADDR + baddr);
 
 	return addr;
@@ -1633,7 +1635,9 @@ static int mtk_disp_rdma_probe(struct platform_device *pdev)
 
 	/* Disable and clear pending interrupts */
 	writel(0x0, priv->ddp_comp.regs + DISP_REG_RDMA_INT_STATUS);
+	dsb(sy);
 	writel(0x0, priv->ddp_comp.regs + DISP_REG_RDMA_INT_ENABLE);
+	dsb(sy);
 
 	ret = devm_request_irq(dev, irq, mtk_disp_rdma_irq_handler,
 			       IRQF_TRIGGER_NONE | IRQF_SHARED, dev_name(dev),
@@ -1682,6 +1686,40 @@ static const struct mtk_disp_rdma_data mt2701_rdma_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.has_greq_urg_num = true,
+};
+
+const struct mtk_disp_rdma_data mt6765_rdma_driver_data = {
+	.fifo_size = SZ_1K * 6,
+	.pre_ultra_low_us = 117,
+	.pre_ultra_high_us = 160,
+	.ultra_low_us = 87,
+	.ultra_high_us = 3,
+	.urgent_low_us = 43,
+	.urgent_high_us = 79,
+	.sodi_config = mt6765_mtk_sodi_config,
+	.shadow_update_reg = 0x00bc,
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.has_greq_urg_num = false,
+	.is_support_34bits = false,
+	.dsi_buffer = false,
+};
+
+const struct mtk_disp_rdma_data mt6768_rdma_driver_data = {
+	.fifo_size = SZ_1K * 6,
+	.pre_ultra_low_us = 117,
+	.pre_ultra_high_us = 160,
+	.ultra_low_us = 87,
+	.ultra_high_us = 3,
+	.urgent_low_us = 43,
+	.urgent_high_us = 79,
+	.sodi_config = mt6768_mtk_sodi_config,
+	.shadow_update_reg = 0x00bc,
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.has_greq_urg_num = false,
+	.is_support_34bits = false,
+	.dsi_buffer = false,
 };
 
 static const struct mtk_disp_rdma_data mt6779_rdma_driver_data = {
@@ -1840,6 +1878,10 @@ static const struct mtk_disp_rdma_data mt6855_rdma_driver_data = {
 static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-rdma",
 	 .data = &mt2701_rdma_driver_data},
+	{.compatible = "mediatek,mt6765-disp-rdma",
+	 .data = &mt6765_rdma_driver_data},
+	{.compatible = "mediatek,mt6768-disp-rdma",
+	 .data = &mt6768_rdma_driver_data},
 	{.compatible = "mediatek,mt6779-disp-rdma",
 	 .data = &mt6779_rdma_driver_data},
 	{.compatible = "mediatek,mt8173-disp-rdma",

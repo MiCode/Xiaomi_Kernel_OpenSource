@@ -737,6 +737,24 @@ void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val,
 }
 EXPORT_SYMBOL_GPL(mtk_vcodec_set_log);
 
+long long div_64(long long a, long long b)
+{
+#if IS_ENABLED(CONFIG_64BIT)
+	return (a/b);
+#else
+	uint32_t rem = 0;
+	uint64_t dividend, divisor;
+
+	dividend = (a >= 0) ? a : (-a);
+	divisor = (b >= 0) ? b : (-b);
+	rem = do_div(dividend, divisor);
+	a = ((a < 0) ^ (b < 0)) ?
+		(0LL - (long long)dividend) :
+		(long long)dividend;
+	return a;
+#endif
+}
+EXPORT_SYMBOL_GPL(div_64);
 
 MODULE_LICENSE("GPL v2");
 
