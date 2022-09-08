@@ -990,6 +990,7 @@ static irqreturn_t mtk_disp_chist_irq_handler(int irq, void *dev_id)
 {
 	irqreturn_t ret = IRQ_NONE;
 	unsigned int intsta = 0;
+	unsigned long flags;
 	struct mtk_disp_chist *priv = dev_id;
 	struct mtk_ddp_comp *comp = NULL;
 
@@ -1000,6 +1001,13 @@ static irqreturn_t mtk_disp_chist_irq_handler(int irq, void *dev_id)
 	if (IS_ERR_OR_NULL(comp))
 		return ret;
 
+	spin_lock_irqsave(&g_chist_clock_lock, flags);
+	if (atomic_read(&g_chist_is_clock_on[index_of_chist(comp->id)]) != 1) {
+		DDPINFO("%s, chist clk is off\n", __func__);
+		spin_unlock_irqrestore(&g_chist_clock_lock, flags);
+		return ret;
+	}
+
 	intsta = readl(comp->regs + DISP_CHIST_INSTA);
 	if (intsta & 0x2) {
 		// Clear irq
@@ -1007,6 +1015,7 @@ static irqreturn_t mtk_disp_chist_irq_handler(int irq, void *dev_id)
 		atomic_set(&(g_chist_get_irq[index_of_chist(comp->id)]), 1);
 		wake_up_interruptible(&g_chist_get_irq_wq);
 	}
+	spin_unlock_irqrestore(&g_chist_clock_lock, flags);
 	ret = IRQ_HANDLED;
 	return ret;
 }
