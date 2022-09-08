@@ -836,6 +836,14 @@ struct fastrpc_smmu {
 	int secure;
 	int coherent;
 	int sharedcb;
+	/* gen pool for QRTR */
+	struct gen_pool *frpc_genpool;
+	/* fastrpc gen pool buffer */
+	struct fastrpc_buf *frpc_genpool_buf;
+	/* fastrpc gen pool buffer fixed IOVA */
+	unsigned long genpool_iova;
+	/* fastrpc gen pool buffer size */
+	size_t genpool_size;
 };
 
 struct fastrpc_session_ctx {

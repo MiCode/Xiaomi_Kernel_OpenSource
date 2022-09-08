@@ -54,6 +54,7 @@
 #include <linux/soc/qcom/qmi.h>
 #include <linux/mem-buf.h>
 #include <asm/arch_timer.h>
+#include <linux/genalloc.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/fastrpc.h>
@@ -7103,10 +7104,13 @@ static const struct of_device_id fastrpc_match_table[] = {
 
 static int fastrpc_cb_probe(struct device *dev)
 {
-	struct fastrpc_channel_ctx *chan;
-	struct fastrpc_session_ctx *sess;
+	struct fastrpc_channel_ctx *chan = NULL;
+	struct fastrpc_session_ctx *sess = NULL;
 	struct of_phandle_args iommuspec;
 	struct fastrpc_apps *me = &gfa;
+	struct fastrpc_buf *buf = NULL;
+	struct gen_pool *gen_pool = NULL;
+	struct iommu_domain *domain = NULL;
 	const char *name;
 	int err = 0, cid = -1, i = 0;
 	u32 sharedcb_count = 0, j = 0;
@@ -7185,6 +7189,79 @@ static int fastrpc_cb_probe(struct device *dev)
 			}
 		}
 	}
+	if (of_get_property(dev->of_node, "qrtr-gen-pool", NULL) != NULL) {
+		u32 frpc_gen_addr_pool[2] = {0, 0};
+		struct sg_table sgt;
+
+		err = of_property_read_u32_array(dev->of_node, "frpc-gen-addr-pool",
+							frpc_gen_addr_pool, 2);
+		if (err) {
+			pr_err("Error: adsprpc: %s: parsing frpc-gen-addr-pool arguments failed for %s with err %d\n",
+					__func__, dev_name(dev), err);
+			goto bail;
+		}
+		sess->smmu.genpool_iova = frpc_gen_addr_pool[0];
+		sess->smmu.genpool_size = frpc_gen_addr_pool[1];
+
+		VERIFY(err, NULL != (buf = kzalloc(sizeof(*buf), GFP_KERNEL)));
+		if (err) {
+			err = -ENOMEM;
+			ADSPRPC_ERR(
+				"allocation failed for size 0x%zx\n", sizeof(*buf));
+			goto bail;
+		}
+		INIT_HLIST_NODE(&buf->hn);
+		buf->virt = NULL;
+		buf->phys = 0;
+		buf->size = frpc_gen_addr_pool[1];
+		buf->dma_attr = DMA_ATTR_DELAYED_UNMAP | DMA_ATTR_NO_KERNEL_MAPPING;
+		/* Allocate memory for adding to genpool */
+		buf->virt = dma_alloc_attrs(sess->smmu.dev, buf->size,
+						(dma_addr_t *)&buf->phys,
+						GFP_KERNEL, buf->dma_attr);
+		if (IS_ERR_OR_NULL(buf->virt)) {
+			ADSPRPC_ERR(
+				"dma_alloc_attrs failed for size 0x%zx, returned %pK\n",
+				buf->size, buf->virt);
+			err = -ENOBUFS;
+			goto dma_alloc_bail;
+		}
+		err = dma_get_sgtable_attrs(sess->smmu.dev, &sgt, buf->virt,
+					buf->phys, buf->size, buf->dma_attr);
+		if (err) {
+			ADSPRPC_ERR("dma_get_sgtable_attrs failed with err %d", err);
+			goto iommu_map_bail;
+		}
+		domain = iommu_get_domain_for_dev(sess->smmu.dev);
+		if (!domain) {
+			ADSPRPC_ERR("iommu_get_domain_for_dev failed ");
+			goto iommu_map_bail;
+		}
+		/* Map the allocated memory with fixed IOVA and is shared to remote subsystem */
+		err = iommu_map_sg(domain, frpc_gen_addr_pool[0], sgt.sgl,
+					sgt.nents, IOMMU_READ | IOMMU_WRITE);
+		if (err < 0) {
+			ADSPRPC_ERR("iommu_map_sg failed with err %d", err);
+			goto iommu_map_bail;
+		}
+		/* Create genpool using SMMU device */
+		gen_pool = devm_gen_pool_create(sess->smmu.dev, 0,
+						NUMA_NO_NODE, NULL);
+		if (IS_ERR(gen_pool)) {
+			err = PTR_ERR(gen_pool);
+			ADSPRPC_ERR("devm_gen_pool_create failed with err %d", err);
+			goto genpool_create_bail;
+		}
+		/* Add allocated memory to genpool */
+		err = gen_pool_add_virt(gen_pool, (unsigned long)buf->virt,
+					buf->phys, buf->size, NUMA_NO_NODE);
+		if (err) {
+			ADSPRPC_ERR("gen_pool_add_virt failed with err %d", err);
+			goto genpool_add_bail;
+		}
+		sess->smmu.frpc_genpool = gen_pool;
+		sess->smmu.frpc_genpool_buf = buf;
+	}
 
 	chan->sesscount++;
 	if (debugfs_root && !debugfs_global_file) {
@@ -7197,6 +7274,17 @@ static int fastrpc_cb_probe(struct device *dev)
 		}
 	}
 bail:
+	return err;
+genpool_add_bail:
+	gen_pool_destroy(gen_pool);
+genpool_create_bail:
+	iommu_unmap(domain, sess->smmu.genpool_iova,
+				sess->smmu.genpool_size);
+iommu_map_bail:
+	dma_free_attrs(sess->smmu.dev, buf->size, buf->virt,
+				buf->phys, buf->dma_attr);
+dma_alloc_bail:
+	kfree(buf);
 	return err;
 }
 
@@ -7496,6 +7584,35 @@ bail:
 	return err;
 }
 
+/*
+ * Function to free fastrpc genpool buffer
+ */
+static void fastrpc_genpool_free(struct fastrpc_session_ctx *sess)
+{
+	struct fastrpc_buf *buf = NULL;
+	struct iommu_domain *domain = NULL;
+
+	if (!sess)
+		goto bail;
+	buf = sess->smmu.frpc_genpool_buf;
+	if (sess->smmu.frpc_genpool) {
+		gen_pool_destroy(sess->smmu.frpc_genpool);
+		sess->smmu.frpc_genpool = NULL;
+	}
+	if (buf && sess->smmu.dev) {
+		domain = iommu_get_domain_for_dev(sess->smmu.dev);
+		iommu_unmap(domain, sess->smmu.genpool_iova,
+					sess->smmu.genpool_size);
+		if (buf->phys)
+			dma_free_attrs(sess->smmu.dev, buf->size, buf->virt,
+					buf->phys, buf->dma_attr);
+		kfree(buf);
+		sess->smmu.frpc_genpool_buf = NULL;
+	}
+bail:
+	return;
+}
+
 static void fastrpc_deinit(void)
 {
 	struct fastrpc_channel_ctx *chan = gcinfo;
@@ -7505,7 +7622,7 @@ static void fastrpc_deinit(void)
 	for (i = 0; i < NUM_CHANNELS; i++, chan++) {
 		for (j = 0; j < NUM_SESSIONS; j++) {
 			struct fastrpc_session_ctx *sess = &chan->session[j];
-
+			fastrpc_genpool_free(sess);
 			if (sess->smmu.dev)
 				sess->smmu.dev = NULL;
 		}
