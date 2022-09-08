@@ -76,7 +76,7 @@ static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
 	[MTK_SPK_FOURSEMI_FS18XX] = {
 		.codec_dai_name = "fs16xx-aif",
 		.codec_name = "fs16xx",
-	}
+	},
 #endif /* CONFIG_SND_SOC_FS1894U */
 
 #if IS_ENABLED(CONFIG_SND_SOC_CS35L45)
