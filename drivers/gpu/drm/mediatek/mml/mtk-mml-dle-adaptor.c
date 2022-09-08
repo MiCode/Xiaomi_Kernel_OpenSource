@@ -203,16 +203,17 @@ static struct mml_frame_config *frame_config_create(
 	return cfg;
 }
 
-static void frame_buf_to_task_buf(struct mml_file_buf *fbuf,
+static s32 frame_buf_to_task_buf(struct mml_file_buf *fbuf,
 				  struct mml_buffer *user_buf,
 				  const char *name)
 {
 	u8 i;
+	s32 ret = 0;
 
 	if (user_buf->use_dma)
 		mml_buf_get(fbuf, user_buf->dmabuf, user_buf->cnt, name);
 	else
-		mml_buf_get_fd(fbuf, user_buf->fd, user_buf->cnt, name);
+		ret = mml_buf_get_fd(fbuf, user_buf->fd, user_buf->cnt, name);
 
 	/* also copy size for later use */
 	for (i = 0; i < user_buf->cnt; i++)
@@ -220,6 +221,8 @@ static void frame_buf_to_task_buf(struct mml_file_buf *fbuf,
 	fbuf->cnt = user_buf->cnt;
 	fbuf->flush = user_buf->flush;
 	fbuf->invalid = user_buf->invalid;
+
+	return ret;
 }
 
 static void task_move_to_running(struct mml_task *task)
@@ -594,12 +597,22 @@ s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
 
 	/* copy per-frame info */
 	task->ctx = ctx;
-	frame_buf_to_task_buf(&task->buf.src, &submit->buffer.src, "mml_rdma");
+	result = frame_buf_to_task_buf(&task->buf.src, &submit->buffer.src, "mml_rdma");
+	if (result) {
+		mml_err("[dle]%s get dma buf fail", __func__);
+		goto err_buf_exit;
+	}
+
 	task->buf.dest_cnt = submit->buffer.dest_cnt;
-	for (i = 0; i < submit->buffer.dest_cnt; i++)
-		frame_buf_to_task_buf(&task->buf.dest[i],
+	for (i = 0; i < submit->buffer.dest_cnt; i++) {
+		result = frame_buf_to_task_buf(&task->buf.dest[i],
 				      &submit->buffer.dest[i],
 				      "mml_wrot");
+		if (result) {
+			mml_err("[dle]%s get dma buf fail", __func__);
+			goto err_buf_exit;
+		}
+	}
 
 	/* no fence for dle task */
 	task->job.fence = -1;
@@ -621,10 +634,11 @@ s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
 	mml_core_config_task(cfg, task);
 
 	mml_trace_end();
-	return 0;
+	return result;
 
 err_unlock_exit:
 	mutex_unlock(&ctx->config_mutex);
+err_buf_exit:
 	mml_trace_end();
 	mml_log("%s fail result %d", __func__, result);
 	return result;
