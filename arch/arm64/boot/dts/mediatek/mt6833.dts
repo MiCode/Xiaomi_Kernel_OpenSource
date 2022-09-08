@@ -2082,6 +2082,24 @@
 		};
 	};
 
+	cqdma-controller@10212000 {
+		compatible = "mediatek,mt6765-cqdma";
+		reg = <0 0x10212000 0 0x80>,
+			<0 0x10212100 0 0x80>,
+			<0 0x10212200 0 0x80>,
+			<0 0x10212300 0 0x80>;
+		interrupts = <GIC_SPI 154 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 155 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 156 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 157 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&infracfg_ao_clk CLK_IFRAO_CQ_DMA>;
+		clock-names = "cqdma";
+		dma-channel-mask = <63>;
+		dma-channels = <4>;
+		dma-requests = <10>;
+		#dma-cells = <1>;
+	};
+
 	ufshci: ufshci@11270000 {
 		compatible = "mediatek,mt8183-ufshci";
 		reg = <0 0x11270000 0 0x2300>;
