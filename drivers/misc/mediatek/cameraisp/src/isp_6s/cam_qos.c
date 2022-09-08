@@ -21,7 +21,7 @@
 
 #include "mtk-interconnect.h"
 #include "inc/cam_qos.h"
-#include "inc/cam_common.h"
+#include "cam_common.h"
 
 #define CONFIG_MTK_QOS_SUPPORT_ENABLE
 //#define EP_STAGE

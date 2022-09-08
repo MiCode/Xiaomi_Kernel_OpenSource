@@ -4,7 +4,7 @@
  */
 
 /******************************************************************************
- * cam_common.h - isp6s common kernel platform header
+ * cam_common.h - common kernel platform header
  *
  * DESCRIPTION:
  *     This header file provides the Platform-dependent macros. Suggest to add
@@ -14,15 +14,34 @@
  *
  ******************************************************************************/
 
+/* ========== */
 #define IS_MT6893(id) ((id) == 0x6893)
 #define IS_MT6885(id) ((id) == 0x6885)
 #define IS_MT6877(id) ((id) == 0x6877)
 #define IS_MT6873(id) ((id) == 0x6873)
 #define IS_MT6855(id) ((id) == 0x6855)
 #define IS_MT6853(id) ((id) == 0x6853)
+#define IS_MT6835(id) ((id) == 0x6835)
 #define IS_MT6833(id) ((id) == 0x6833)
 #define IS_MT6781(id) ((id) == 0x6781)
 #define IS_MT6789(id) ((id) == 0x6789)
+
+/* ========== */
+#define IS_MT6779(id) ((id) == 0x6779)
+
+/* ========== */
+#define IS_MT6785(id) ((id) == 0x6785)
+
+/* ========== */
+#define IS_MT6768(id) ((id) == 0x6768)
+#define IS_MT6765(id) ((id) == 0x6765)
+
+/* ========== */
+#define IS_MT6761(id) ((id) == 0x6761)
+#define IS_MT6739(id) ((id) == 0x6739)
+
+/* ========== */
+#define IS_MT6580(id) ((id) == 0x6580)
 
 
 /* =============================================================================
@@ -39,8 +58,9 @@
 				IS_MT6877(id) ||	\
 				IS_MT6855(id) ||	\
 				IS_MT6853(id) ||	\
+				IS_MT6835(id) ||	\
 				IS_MT6833(id) ||	\
-				IS_MT6781(id) ||    \
+				IS_MT6781(id) ||	\
 				IS_MT6789(id))
 
 
@@ -70,8 +90,9 @@
 			IS_MT6877(id) ||	\
 			IS_MT6855(id) ||	\
 			IS_MT6853(id) ||	\
+			IS_MT6835(id) ||	\
 			IS_MT6833(id) ||	\
-			IS_MT6781(id) ||    \
+			IS_MT6781(id) ||	\
 			IS_MT6789(id))
 
 
@@ -116,12 +137,12 @@
 
 
 /* =============================================================================
- * The camera of mt6893/mt6853 uses 2 slave_common, For mtk_icc_get() API,
+ * The camera of mt6893/mt6885 uses 2 slave_common, For mtk_icc_get() API,
  *   Larb13/16/18 must use slave_common(0);
  *   Larb14/17 must use slave_common(1).
  * This information is described in the dts node, "iommu[X]".
  *
- * So, mt6893/mt6855 camera needs the 2nd slave common id.
+ * So, mt6893/mt6885 camera needs the 2nd slave common id.
  * For other platforms, the camera only uses single iommu. No need to use
  * SLAVE_COMMON(1).
  */
@@ -164,12 +185,28 @@
 				platform_id = 0x6855;				\
 			else if (strncmp(platform_id_str, "mt6853", 6) == 0)	\
 				platform_id = 0x6853;				\
+			else if (strncmp(platform_id_str, "mt6835", 6) == 0)	\
+				platform_id = 0x6835;				\
 			else if (strncmp(platform_id_str, "mt6833", 6) == 0)	\
 				platform_id = 0x6833;				\
 			else if (strncmp(platform_id_str, "mt6781", 6) == 0)	\
 				platform_id = 0x6781;				\
 			else if (strncmp(platform_id_str, "mt6789", 6) == 0)	\
 				platform_id = 0x6789;				\
+			else if (strncmp(platform_id_str, "mt6779", 6) == 0)	\
+				platform_id = 0x6779;				\
+			else if (strncmp(platform_id_str, "mt6785", 6) == 0)	\
+				platform_id = 0x6785;				\
+			else if (strncmp(platform_id_str, "mt6768", 6) == 0)	\
+				platform_id = 0x6768;				\
+			else if (strncmp(platform_id_str, "mt6765", 6) == 0)	\
+				platform_id = 0x6765;				\
+			else if (strncmp(platform_id_str, "mt6761", 6) == 0)	\
+				platform_id = 0x6761;				\
+			else if (strncmp(platform_id_str, "mt6739", 6) == 0)	\
+				platform_id = 0x6739;				\
+			else if (strncmp(platform_id_str, "mt6580", 6) == 0)	\
+				platform_id = 0x6580;				\
 		}								\
 	}									\
 	platform_id;								\

@@ -90,7 +90,7 @@
 
 #include "inc/cam_qos.h"
 #include "inc/camera_isp.h"
-#include "inc/cam_common.h"
+#include "cam_common.h"
 
 #ifdef ENABLE_TIMESYNC_HANDLE
 #include <archcounter_timesync.h>
