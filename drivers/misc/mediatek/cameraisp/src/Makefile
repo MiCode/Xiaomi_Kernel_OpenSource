@@ -13,4 +13,4 @@
 
 
 obj-y += isp_6s/
-
+obj-y += isp_4/
