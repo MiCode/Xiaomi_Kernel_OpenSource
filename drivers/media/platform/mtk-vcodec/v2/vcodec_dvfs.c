@@ -353,6 +353,21 @@ u32 match_avail_freq(struct mtk_vcodec_dev *dev, int codec_type, u32 freq)
 	return match_freq;
 }
 
+u32 get_inst_count_by_codec(struct mtk_vcodec_dev *dev, u32 codec_fmt)
+{
+	struct list_head *item;
+	struct vcodec_inst *inst;
+	u32 codec_instance_count = 0;
+
+	list_for_each(item, &dev->vdec_dvfs_inst) {
+		inst = list_entry(item, struct vcodec_inst, list);
+		if (inst && inst->codec_fmt == codec_fmt)
+			codec_instance_count++;
+	}
+	mtk_v4l2_debug(6, "[VDVFS] codec(%u) has %u intances",  codec_fmt, codec_instance_count);
+	return codec_instance_count;
+}
+
 /**
  * Calculate single instance freqency.
  * inst: target instance
@@ -375,8 +390,9 @@ u32 calc_freq(struct vcodec_inst *inst, struct mtk_vcodec_dev *dev)
 				inst->width, inst->height, inst->op_rate, perf->cy_per_mb_1);
 		} else
 			freq = 100000000;
-		/* AV1 boost for 720P180 test */
-		if (((inst->priority > 0 && inst->op_rate <= 0) || inst->op_rate >= 135) &&
+		/* AV1 boost for 720P180 and 6*720P30(multi instances) test */
+		if (((inst->priority > 0 && inst->op_rate <= 0) || inst->op_rate >= 135 ||
+		get_inst_count_by_codec(dev, 808539713) >= 6) &&
 		perf != 0 && inst->codec_fmt == 808539713 &&
 		(inst->width * inst->height <= 1280 * 736)) {
 
