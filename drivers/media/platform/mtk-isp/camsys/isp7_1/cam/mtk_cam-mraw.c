@@ -1208,7 +1208,7 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, bool is_check_ts)
 		} else {
 			if (watchdog_scenario(ctx))
 				mtk_ctx_watchdog_stop(ctx,
-					mraw_dev->id + MTKCAM_SUBDEV_MRAW_START);
+					mraw_dev->id + MTKCAM_SUBDEV_MRAW_START, 0);
 			mtk_cam_mraw_vf_on(mraw_dev, 0);
 		}
 	}
@@ -1263,7 +1263,7 @@ int mtk_cam_mraw_apply_next_buffer(struct mtk_cam_ctx *ctx,
 			} else {
 				if (watchdog_scenario(ctx))
 					mtk_ctx_watchdog_stop(ctx,
-						mraw_dev->id + MTKCAM_SUBDEV_MRAW_START);
+						mraw_dev->id + MTKCAM_SUBDEV_MRAW_START, 0);
 				mtk_cam_mraw_vf_on(mraw_dev, 0);
 			}
 			break;
@@ -1901,7 +1901,7 @@ int mtk_cam_mraw_dev_stream_on(
 		mraw_dev->is_enqueued = 0;
 		if (watchdog_scenario(ctx))
 			mtk_ctx_watchdog_stop(ctx,
-				mraw_dev->id + MTKCAM_SUBDEV_MRAW_START);
+				mraw_dev->id + MTKCAM_SUBDEV_MRAW_START, 1);
 
 		ret = mtk_cam_mraw_top_disable(mraw_dev) ||
 			mtk_cam_mraw_cq_disable(mraw_dev) ||

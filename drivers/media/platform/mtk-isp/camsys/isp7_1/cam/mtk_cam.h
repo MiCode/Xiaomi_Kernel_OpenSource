@@ -896,7 +896,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx);
 bool watchdog_scenario(struct mtk_cam_ctx *ctx);
 void mtk_ctx_watchdog_kick(struct mtk_cam_ctx *ctx, int pipe_id);
 void mtk_ctx_watchdog_start(struct mtk_cam_ctx *ctx, int timeout_cnt, int pipe_id);
-void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx, int pipe_id);
+void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx, int pipe_id, int ctx_streamoff);
 
 int mtk_cam_call_seninf_set_pixelmode(struct mtk_cam_ctx *ctx,
 				      struct v4l2_subdev *sd,

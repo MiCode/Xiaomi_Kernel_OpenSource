@@ -1782,7 +1782,7 @@ void mtk_cam_sv_apply_frame_setting(
 	} else {
 		mtk_cam_sv_vf_on(camsv_dev, 0);
 		if (watchdog_scenario(ctx))
-			mtk_ctx_watchdog_stop(ctx, s_data->pipe_id);
+			mtk_ctx_watchdog_stop(ctx, s_data->pipe_id, 0);
 	}
 }
 
@@ -2248,7 +2248,7 @@ int mtk_cam_sv_dev_stream_on(
 		if (watchdog_scenario(ctx) &&
 			!(hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO))
 			mtk_ctx_watchdog_stop(ctx,
-				camsv_dev->id + MTKCAM_SUBDEV_CAMSV_START);
+				camsv_dev->id + MTKCAM_SUBDEV_CAMSV_START, 1);
 
 		ret = mtk_cam_sv_top_disable(camsv_dev) ||
 			mtk_cam_sv_fbc_disable(camsv_dev) ||
