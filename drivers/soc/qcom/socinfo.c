@@ -922,6 +922,7 @@ static const struct soc_id soc_id[] = {
 	{ 471, "QMP_SCUBA" },
 	{ 473, "QCM_SCUBA" },
 	{ 474, "QCS_SCUBA" },
+	{ 481, "KONA-IOT" },
 	{ 482, "WAIPIOP" },
 	{ 486, "MONACO" },
 	{ 517, "MONACOP" },
