@@ -35,6 +35,10 @@
 #include <gpufreq_mt6768.h>
 #include <mtk_gpu_utility.h>
 
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+#include <linux/nvmem-consumer.h>
+#endif
+
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 #include <mtk_battery_oc_throttling.h>
 #endif
@@ -2688,13 +2692,13 @@ static int __gpufreq_init_segment_id(struct platform_device *pdev)
 {
 	unsigned int efuse_id = 0;
 	unsigned int segment_id = 0;
-#ifdef CONFIG_MTK_DEVINFO
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
 	struct nvmem_cell *efuse_cell;
 	unsigned int *efuse_buf;
 	size_t efuse_len;
 #endif
 
-#ifdef CONFIG_MTK_DEVINFO
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
 	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
 	if (IS_ERR(efuse_cell)) {
 		GPUFREQ_LOGE("@%s: cannot get efuse_segment_cell\n", __func__);
