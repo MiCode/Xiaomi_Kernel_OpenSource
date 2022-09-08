@@ -821,17 +821,23 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 	}
 
 	/* initialize different GPU time */
+	// unit: ns -> us
+	t_gpu_done_interval /= 1000;
+	t_gpu_target /= 1000;
 	if (force_fallback == 2) {
 		// do not use loading as this is the first FB after LB
-		t_gpu_active = t_gpu_done_interval / 100000;
-		t_gpu_3d = t_gpu_done_interval / 100000;
+		t_gpu_active = t_gpu_done_interval;
+		t_gpu_3d = t_gpu_done_interval;
 	} else {
 		ged_get_gpu_utli_ex(&util_ex);
-		t_gpu_active = t_gpu_done_interval * util_ex.util_active / (100 * 100000);
-		t_gpu_3d = t_gpu_done_interval * util_ex.util_3d / (100 * 100000);
+		t_gpu_active = t_gpu_done_interval * util_ex.util_active / 100;
+		t_gpu_3d = t_gpu_done_interval * util_ex.util_3d / 100;
 	}
-	t_gpu_done_interval /= 100000;
-	t_gpu_target /= 100000;
+	// unit: us -> 100*us
+	t_gpu_done_interval /= 100;
+	t_gpu_target /= 100;
+	t_gpu_active /= 100;
+	t_gpu_3d /= 100;
 
 	t_gpu = t_gpu_active;
 
