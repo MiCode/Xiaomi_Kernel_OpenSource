@@ -27,7 +27,6 @@
 #include <linux/reset.h>
 #include <linux/ipc_logging.h>
 #include <linux/clk/qcom.h>
-
 #include "sdhci-pltfm.h"
 #include "cqhci.h"
 #include "../core/core.h"
@@ -4141,7 +4140,6 @@ static inline void sdhci_msm_get_of_property(struct platform_device *pdev,
 
 	of_property_read_u32(node, "qcom,dll-config", &msm_host->dll_config);
 }
-
 
 static void sdhci_msm_clkgate_bus_delayed_work(struct work_struct *work)
 {
