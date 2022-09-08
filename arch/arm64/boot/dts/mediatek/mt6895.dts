@@ -10790,7 +10790,8 @@
 			<0 0x10042000 0 0x1000>,  /* NTH_EMI_AO_DEBUG_CTRL */
 			<0 0x11f10000 0 0x1000>,  /* EFUSE */
 			<0 0x13fb9c00 0 0x100>,   /* MFG_CPE_CONTROL */
-			<0 0x13fb6000 0 0x1000>;  /* MFG_CPE_SENSOR */
+			<0 0x13fb6000 0 0x1000>,  /* MFG_CPE_SENSOR */
+			<0 0x1000d000 0 0x1000>;  /* DRM_DEBUG_BASE */
 		reg-names =
 			"mfg_pll",
 			"mfgsc_pll",
@@ -10808,7 +10809,8 @@
 			"nth_emi_ao_debug_ctrl",
 			"efuse",
 			"mfg_cpe_control",
-			"mfg_cpe_sensor";
+			"mfg_cpe_sensor",
+			"drm_debug_base";
 		power-domains =
 			<&scpsys MT6895_POWER_DOMAIN_MFG1>,
 			<&scpsys MT6895_POWER_DOMAIN_MFG2>,
