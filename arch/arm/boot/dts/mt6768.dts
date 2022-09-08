@@ -4878,6 +4878,8 @@ cma=64M transparent_hugepage=never";
 	imgsys_config: imgsys_config@15020000 {
 		compatible = "mediatek,imgsys","syscon";
 		reg = <0 0x15020000 0 0x1000>;
+		mediatek,larb = <&smi_larb2 &smi_larb3>;
+
 		power-domains =
 			<&scpsys MT6768_POWER_DOMAIN_DISP>,
 			<&scpsys MT6768_POWER_DOMAIN_ISP>,
@@ -4907,12 +4909,12 @@ cma=64M transparent_hugepage=never";
 	dip1@15022000 {
 		compatible = "mediatek,dip1";
 		reg = <0 0x15022000 0 0x3000>;
-		interrupts = <GIC_SPI 270 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 270 IRQ_TYPE_LEVEL_LOW 0>;
 	};
 	fdvt@1502b000 {
 		compatible = "mediatek,fdvt";
 		reg = <0 0x1502b000 0 0x1000>;
-		interrupts = <GIC_SPI 273 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 273 IRQ_TYPE_LEVEL_LOW 0>;
 		clocks = <&imgsys CLK_IMG_FDVT>;
 		clock-names = "FD_CLK_IMG_FDVT";
 	};
@@ -4920,7 +4922,7 @@ cma=64M transparent_hugepage=never";
 	dpe@15028000 {
 		compatible = "mediatek,dpe";
 		reg = <0 0x15028000 0 0x1000>;
-		interrupts = <GIC_SPI 271 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 271 IRQ_TYPE_LEVEL_LOW 0>;
 		clocks = <&imgsys CLK_IMG_DPE>;
 		clock-names = "DPE_CG_IMG_DPE";
 	};
@@ -5197,6 +5199,49 @@ cma=64M transparent_hugepage=never";
 		#clock-cells = <1>;
 	};
 
+	cam_mem {
+		compatible = "mediatek,cam_mem";
+		mediatek,platform = "mt6768";
+		dma-ranges = <0x0 0x0 0x0 0x0 0x0 0x80000000>;
+
+		iommus = /* LARB2 */
+			<&iommu M4U_PORT_CAM_IMGI>,
+			<&iommu M4U_PORT_CAM_IMG2O>,
+			<&iommu M4U_PORT_CAM_IMG3O>,
+			<&iommu M4U_PORT_CAM_VIPI>,
+			<&iommu M4U_PORT_CAM_LCEI>,
+			<&iommu M4U_PORT_CAM_FD_RP>,
+			<&iommu M4U_PORT_CAM_FD_WR>,
+			<&iommu M4U_PORT_CAM_FD_RB>,
+			<&iommu M4U_PORT_CAM_DPE_RDMA>,
+			<&iommu M4U_PORT_CAM_DPE_WDMA>,
+			<&iommu M4U_PORT_CAM_RSC_RDMA>,
+			<&iommu M4U_PORT_CAM_RSC_WDMA>,
+
+			/* LARB3 */
+			<&iommu M4U_PORT_CAM_IMGO>,
+			<&iommu M4U_PORT_CAM_RRZO>,
+			<&iommu M4U_PORT_CAM_AAO>,
+			<&iommu M4U_PORT_CAM_AFO>,
+			<&iommu M4U_PORT_CAM_LSCI0>,
+			<&iommu M4U_PORT_CAM_LSCI1>,
+			<&iommu M4U_PORT_CAM_PDO>,
+			<&iommu M4U_PORT_CAM_BPCI>,
+			<&iommu M4U_PORT_CAM_LCSO>,
+			<&iommu M4U_PORT_CAM_RSSO_A>,
+			<&iommu M4U_PORT_CAM_RSSO_B>,
+			<&iommu M4U_PORT_CAM_UFEO>,
+			<&iommu M4U_PORT_CAM_SOC0>,
+			<&iommu M4U_PORT_CAM_SOC1>,
+			<&iommu M4U_PORT_CAM_SOC2>,
+			<&iommu M4U_PORT_CAM_CCUI>,
+			<&iommu M4U_PORT_CAM_CCUO>,
+			<&iommu M4U_PORT_CAM_CACI>,
+			<&iommu M4U_PORT_CAM_RAWI_A>,
+			<&iommu M4U_PORT_CAM_RAWI_B>,
+			<&iommu M4U_PORT_CAM_CCUG>;
+		};
+
 	camsys1: camsysisp@1a000000  {
 		compatible = "mediatek,camsys", "syscon";
 		reg = <0 0x1a000000  0 0x1000>;
@@ -5218,19 +5263,19 @@ cma=64M transparent_hugepage=never";
 	cam1@1a003000 {
 		compatible = "mediatek,cam1";
 		reg = <0 0x1a003000 0 0x1000>;
-		interrupts = <GIC_SPI 250 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 250 IRQ_TYPE_LEVEL_LOW 0>;
 	};
 
 	cam2@1a004000  {
 		compatible = "mediatek,cam2";
 		reg = <0 0x1a004000  0 0x1000>;
-		interrupts = <GIC_SPI 251 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 251 IRQ_TYPE_LEVEL_LOW 0>;
 	};
 
 	cam3@1a005000 {
 		compatible = "mediatek,cam3";
 		reg = <0 0x1a005000 0 0x1000>;
-		interrupts = <GIC_SPI 252 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 252 IRQ_TYPE_LEVEL_LOW 0>;
 	};
 
 	cam_set@1a00b000 {
@@ -5384,31 +5429,31 @@ cma=64M transparent_hugepage=never";
 	camsv1@1a050000 {
 		compatible = "mediatek,camsv1";
 		reg = <0 0x1a050000 0 0x1000>;
-		interrupts = <GIC_SPI 258 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 258 IRQ_TYPE_LEVEL_LOW 0>;
 	};
 
 	camsv2@1a051000 {
 		compatible = "mediatek,camsv2";
 		reg = <0 0x1a051000 0 0x1000>;
-		interrupts = <GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 259 IRQ_TYPE_LEVEL_LOW 0>;
 	};
 
 	camsv3@1a052000 {
 		compatible = "mediatek,camsv3";
 		reg = <0 0x1a052000 0 0x1000>;
-		interrupts = <GIC_SPI 256 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 256 IRQ_TYPE_LEVEL_LOW 0>;
 	};
 
 	camsv4@1a053000 {
 		compatible = "mediatek,camsv4";
 		reg = <0 0x1a053000 0 0x1000>;
-		interrupts = <GIC_SPI 257 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 257 IRQ_TYPE_LEVEL_LOW 0>;
 	};
 
 	ccu@1a0b1000 {
 		compatible = "mediatek,ccu";
 		reg = <0 0x1a0b1000 0 0x10000>;
-		interrupts = <GIC_SPI 261 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 261 IRQ_TYPE_LEVEL_LOW 0>;
 		power-domains = <&scpsys MT6768_POWER_DOMAIN_CAM>;
 		clocks = <&camsys CLK_CAM_CCU>;
 		clock-names = "CCU_CLK_CAM_CCU";
