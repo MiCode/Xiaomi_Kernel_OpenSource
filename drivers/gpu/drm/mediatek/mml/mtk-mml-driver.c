@@ -160,7 +160,7 @@ static void mml_qos_init(struct mml_dev *mml)
 	i = 0;
 	while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(dev, &freq))) {
 		/* available freq from table, store in MHz */
-		tp->opp_speeds[i] = (u32)div_u64(freq, 1000000);
+		tp->opp_speeds[i] = (u32)div_u64(freq, 1000000) - 5;
 		tp->opp_volts[i] = dev_pm_opp_get_voltage(opp);
 		tp->freq_max = tp->opp_speeds[i];
 		mml_log("mml opp %u: %uMHz\t%d",
@@ -186,12 +186,14 @@ u32 mml_qos_update_tput(struct mml_dev *mml)
 	}
 
 	for (i = 0; i < tp->opp_cnt; i++) {
-		if (tput <= tp->opp_speeds[i])
+		if (tput < tp->opp_speeds[i])
 			break;
 	}
 	i = min(i, tp->opp_cnt - 1);
 	volt = tp->opp_volts[i];
+	mml_trace_begin("mml_volt_%u", volt);
 	ret = regulator_set_voltage(tp->reg, volt, INT_MAX);
+	mml_trace_end();
 	if (ret)
 		mml_err("%s fail to set volt %d", __func__, volt);
 	else
@@ -688,7 +690,9 @@ void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
 	/* store for debug log */
 	task->pipe[ccfg->pipe].bandwidth = max(bandwidth,
 		task->pipe[ccfg->pipe].bandwidth);
+	mml_trace_begin("mml_bw_%u_%u", bandwidth, hrt_bw);
 	mtk_icc_set_bw(comp->icc_path, MBps_to_icc(bandwidth), hrt_bw);
+	mml_trace_end();
 
 	mml_msg_qos("%s comp %u %s qos bw %u(%u) by throughput %u pixel %u size %u%s",
 		__func__, comp->id, comp->name, bandwidth, hrt_bw / 1000,

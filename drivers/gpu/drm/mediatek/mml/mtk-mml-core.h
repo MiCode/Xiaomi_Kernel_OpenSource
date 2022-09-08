@@ -324,6 +324,7 @@ struct mml_frame_config {
 
 	/* tile */
 	struct mml_tile_output *tile_output[MML_PIPE_CNT];
+	struct timespec64 dvfs_boost_time;
 };
 
 struct mml_dma_buf {
