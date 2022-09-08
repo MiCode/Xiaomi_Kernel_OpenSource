@@ -1272,6 +1272,7 @@ void mtk_imgsys_mmdvfs_init(struct mtk_imgsys_dev *imgsys_dev)
 	dvfs_info->cur_volt = 0;
 	dvfs_info->vss_task_cnt = 0;
 	dvfs_info->smvr_task_cnt = 0;
+	dvfs_info->stream_4k60_task_cnt = 0;
 
 }
 
@@ -1643,6 +1644,7 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 	unsigned long freq = 0;
 	#if IMGSYS_DVFS_ENABLE
 	unsigned long pixel_max = 0, pixel_total_max = 0;
+	unsigned long last_pixel_sz = 0;
 	/* struct timeval curr_time; */
 	u64 ts_fps = 0;
 	#endif
@@ -1659,7 +1661,8 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 	fps = frm_info->fps;
 	/* fps = (batch_num)?(frm_info->fps*batch_num):frm_info->fps; */
 	bw_exe = fps;
-	hw_comb = frm_info->user_info[0].hw_comb;
+	hw_comb = frm_info->user_info[frm_num-1].hw_comb;
+	last_pixel_sz = frm_info->user_info[frm_num-1].pixel_bw;
 
 	/* Calculate DVFS*/
 	if (fps != 0) {
@@ -1691,10 +1694,23 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 					pixel_total_max = dvfs_info->pixel_size[g_idx];
 			}
 
+			// Check task for streaming 4K60
+			if (((hw_comb & (IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)) ==
+				(IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP))
+				&& (last_pixel_sz > IMGSYS_QOS_4K_SIZE)
+				&& (fps == 60)) {
+				dvfs_info->stream_4k60_task_cnt++;
+			}
+
 			if (batch_num > 1) {
 				dvfs_info->smvr_task_cnt++;
 				if (pixel_total_max < IMGSYS_SMVR_FREQ_FLOOR)
 					freq = IMGSYS_SMVR_FREQ_FLOOR;
+				else
+					freq = pixel_total_max;
+			} else if (dvfs_info->stream_4k60_task_cnt != 0) {
+				if (pixel_total_max < IMGSYS_4K60_FREQ_FLOOR)
+					freq = IMGSYS_4K60_FREQ_FLOOR;
 				else
 					freq = pixel_total_max;
 			} else if (dvfs_info->smvr_task_cnt == 0)
@@ -1718,10 +1734,23 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 					pixel_total_max = dvfs_info->pixel_size[g_idx];
 			}
 
+			// Check task for streaming 4K60
+			if (((hw_comb & (IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)) ==
+				(IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP))
+				&& (last_pixel_sz > IMGSYS_QOS_4K_SIZE)
+				&& (fps == 60)) {
+				dvfs_info->stream_4k60_task_cnt--;
+			}
+
 			if (batch_num > 1) {
 				dvfs_info->smvr_task_cnt--;
 				if (pixel_total_max < IMGSYS_SMVR_FREQ_FLOOR)
 					freq = IMGSYS_SMVR_FREQ_FLOOR;
+				else
+					freq = pixel_total_max;
+			} else if (dvfs_info->stream_4k60_task_cnt != 0) {
+				if (pixel_total_max < IMGSYS_4K60_FREQ_FLOOR)
+					freq = IMGSYS_4K60_FREQ_FLOOR;
 				else
 					freq = pixel_total_max;
 			} else if (dvfs_info->smvr_task_cnt == 0)
@@ -1748,9 +1777,10 @@ void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 
 	if (imgsys_dvfs_dbg_enable())
 		dev_info(qos_info->dev,
-		"[%s] isSet(%d) fps(%d/%d) batchNum(%d) bw_exe(%d) vss(%d) smvr(%d) freq(%lld/%lld) local_pix_sz(%lld/%lld/%lld/%lld) global_pix_sz(%lld/%lld/%lld/%lld)\n",
+		"[%s] isSet(%d) fps(%d/%d) batchNum(%d) bw_exe(%d) vss(%d) smvr(%d) 4k60(%d) freq(%lld/%lld) local_pix_sz(%lld/%lld/%lld/%lld) global_pix_sz(%lld/%lld/%lld/%lld)\n",
 		__func__, isSet, fps, frm_info->fps, batch_num, bw_exe,
-		dvfs_info->vss_task_cnt, dvfs_info->smvr_task_cnt, freq, dvfs_info->freq,
+		dvfs_info->vss_task_cnt, dvfs_info->smvr_task_cnt, dvfs_info->stream_4k60_task_cnt,
+		freq, dvfs_info->freq,
 		pixel_size[0], pixel_size[1], pixel_size[2], pixel_max,
 		dvfs_info->pixel_size[0], dvfs_info->pixel_size[1],
 		dvfs_info->pixel_size[2], pixel_total_max
