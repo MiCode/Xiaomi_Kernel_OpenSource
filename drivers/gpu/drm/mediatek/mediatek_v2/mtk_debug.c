@@ -412,14 +412,13 @@ int mtkfb_set_backlight_level(unsigned int level)
 		return -EINVAL;
 	}
 
-	/* this debug cmd only for crtc0 */
-	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
-				typeof(*crtc), head);
-	if (IS_ERR_OR_NULL(crtc)) {
-		DDPPR_ERR("%s failed to find crtc\n", __func__);
-		return -EINVAL;
+	drm_for_each_crtc(crtc, drm_dev) {
+		if (IS_ERR_OR_NULL(crtc)) {
+			DDPINFO("%s failed to find crtc\n", __func__);
+			return -EINVAL;
+		}
+		ret = mtk_drm_setbacklight(crtc, level);
 	}
-	ret = mtk_drm_setbacklight(crtc, level);
 
 	return ret;
 }

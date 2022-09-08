@@ -870,7 +870,7 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 		return -EINVAL;
 	}
 
-	if (!comp) {
+	if (!(comp && mtk_ddp_comp_get_type(comp->id) == MTK_DSI)) {
 		DDPINFO("%s no output comp\n", __func__);
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		CRTC_MMP_EVENT_END(index, backlight, 0, 1);
