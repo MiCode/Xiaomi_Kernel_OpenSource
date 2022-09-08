@@ -235,10 +235,11 @@ enum boot_mode_t {
 #endif
 
 struct mtk_rtc_data {
-	u32                     wrtgr;
-	const struct reg_field *spare_reg_fields;
+	u32			wrtgr;
+	u8			alarm_sta_clr_bit;
+	const struct reg_field	*spare_reg_fields;
 #ifdef SUPPORT_EOSC_CALI
-	const struct reg_field *cali_reg_fields;
+	const struct reg_field	*cali_reg_fields;
 	u32			eosc_cali_version;
 #endif
 };
