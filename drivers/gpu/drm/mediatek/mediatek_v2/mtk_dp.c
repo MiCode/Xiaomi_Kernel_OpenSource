@@ -3761,6 +3761,11 @@ void mtk_dp_SWInterruptSet(int bstatus)
 	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
 		return;
 
+	if (g_mtk_dp == NULL) {
+		DPTXERR("%s: dp not initial\n", __func__);
+		return;
+	}
+
 	mutex_lock(&dp_lock);
 
 	if ((bstatus == HPD_DISCONNECT && g_mtk_dp->bPowerOn)
