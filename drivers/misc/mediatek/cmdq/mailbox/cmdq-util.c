@@ -316,8 +316,8 @@ static int cmdq_util_status_print(struct seq_file *seq, void *data)
 static int cmdq_util_record_print(struct seq_file *seq, void *data)
 {
 	struct cmdq_record *rec;
-	u32 acq_time, irq_time, begin_wait, exec_time, total_time;
-	u64 submit_sec, hw_time;
+	u32 acq_time, irq_time, begin_wait, exec_time, total_time, hw_time;
+	u64 submit_sec;
 	unsigned long submit_rem, hw_time_rem;
 	s32 i, idx;
 
