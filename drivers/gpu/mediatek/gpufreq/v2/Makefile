@@ -21,6 +21,7 @@ ccflags-y += -I$(srctree)/drivers/clk/mediatek/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/power_throttling/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/pbm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/aee/aed/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 
 ccflags-y += \
 	-Wno-unused-variable \
@@ -69,7 +70,8 @@ mtk_gpufreq_mt6893-y := \
 mtk_gpufreq_mt6895-y := \
 	gpufreq_history_common.o \
 	gpuppm.o \
-	gpufreq_mt6895.o
+	gpufreq_mt6895.o \
+	gpudfd_mt6895.o
 
 mtk_gpufreq_mt6983-y := \
 	gpufreq_history_common.o \

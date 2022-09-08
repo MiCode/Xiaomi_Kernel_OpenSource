@@ -35,7 +35,7 @@
 #include <gpuppm.h>
 #include <gpufreq_common.h>
 #include <gpufreq_mt6895.h>
-//#include <gpudfd_mt6895.h>
+#include <gpudfd_mt6895.h>
 #include <mtk_gpu_utility.h>
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
@@ -5155,6 +5155,13 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 		goto done;
 	}
 
+	/* init gpu dfd*/
+	ret = gpudfd_init(pdev);
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to init gpudfd (%d)", ret);
+		goto done;
+	}
+
 	/* init pmic regulator */
 	ret = __gpufreq_init_pmic(pdev);
 	if (unlikely(ret)) {
@@ -5244,13 +5251,6 @@ register_fp:
 		GPUFREQ_LOGE("fail to init gpuppm (%d)", ret);
 		goto done;
 	}
-
-	/* init gpu dfd*/
-	//ret = gpudfd_init(pdev);
-	//if (unlikely(ret)) {
-	//	GPUFREQ_LOGE("fail to init gpudfd (%d)", ret);
-	//	goto done;
-	//}
 
 	GPUFREQ_LOGI("gpufreq platform driver probe done");
 
