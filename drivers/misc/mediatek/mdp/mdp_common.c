@@ -925,6 +925,10 @@ static s32 cmdq_mdp_consume_handle(void)
 	bool acquired = false;
 	struct CmdqCBkStruct *callback = cmdq_core_get_group_cb();
 	bool secure_run = false;
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	struct ContextStruct *ctx;
+	u32 task_cnt;
+#endif
 
 	/* operation for tasks_wait list need task mutex */
 	mutex_lock(&mdp_task_mutex);
@@ -953,6 +957,20 @@ static s32 cmdq_mdp_consume_handle(void)
 				handle->secData.is_secure ? "true" : "false");
 			break;
 		}
+
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+		if (handle->secData.is_secure) {
+			ctx = cmdq_core_get_context();
+			task_cnt = ctx->thread[(u32)cmdq_mdp_get_sec_thread()].handle_count;
+			/* sec thread and more than 4 task -> queue the task */
+			if (task_cnt + 1 > CMDQ_MAX_TASK_CNT_ON_THREAD) {
+				mutex_unlock(&mdp_thread_mutex);
+				CMDQ_ERR("%s drop new task since there will be more than %d\n",
+					__func__, CMDQ_MAX_TASK_CNT_ON_THREAD);
+				break;
+			}
+		}
+#endif
 
 		handle->thread = cmdq_mdp_find_free_thread(handle);
 		if (handle->thread == CMDQ_INVALID_THREAD) {
