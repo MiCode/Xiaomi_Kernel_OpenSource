@@ -110,7 +110,7 @@
 			};
 			imp {
 				channel = <AUXADC_IMP>;
-				resistance-ratio = <7 2>;
+				resistance-ratio = <3 1>;
 				avg-num = <128>;
 			};
 			imix_r {
