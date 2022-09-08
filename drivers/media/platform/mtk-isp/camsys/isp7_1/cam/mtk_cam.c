@@ -4869,7 +4869,8 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 		}
 
 		/* mmqos update */
-		mtk_cam_qos_bw_calc(ctx, s_data->raw_dmas, false);
+		mtk_cam_qos_bw_calc(ctx, s_data->raw_dmas,
+			ctx->composed_frame_seq_no == 1);
 
 		apply_cq(raw_dev, 1, buf_entry->buffer.iova,
 			 buf_entry->cq_desc_size,
@@ -7708,6 +7709,12 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		mtk_cam_extisp_sv_stream(ctx, 0);
 	}
 
+	/* reset dvfs/qos */
+	if (ctx->used_raw_num) {
+		mtk_cam_dvfs_update_clk(ctx->cam);
+		mtk_cam_qos_bw_reset(ctx, enabled_sv);
+	}
+
 	if (ctx->used_raw_num) {
 		if (ctx->pipe && ctx->pipe->enabled_raw & MTKCAM_SUBDEV_RAW_MASK)
 			ret = v4l2_subdev_call(&ctx->pipe->subdev, video, s_stream, 0);
@@ -7743,12 +7750,6 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 
 	if (ctx->img_buf_pool.working_img_buf_size > 0)
 		mtk_cam_img_working_buf_pool_release(ctx);
-
-	/* reset dvfs/qos */
-	if (ctx->used_raw_num) {
-		mtk_cam_dvfs_update_clk(ctx->cam);
-		mtk_cam_qos_bw_reset(ctx, enabled_sv);
-	}
 
 	mtk_camsys_ctrl_stop(ctx);
 
