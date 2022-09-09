@@ -1051,7 +1051,7 @@ static int haptics_get_closeloop_lra_period(
 
 	rc_clk_cal = ((val[0] & CAL_RC_CLK_MASK) >> CAL_RC_CLK_SHIFT);
 	/* read auto resonance calibration result */
-	if (in_boot && (chip->hw_type == HAP520)) {
+	if (in_boot && ((chip->hw_type == HAP520) || (chip->hw_type == HAP520_MV))) {
 		if (chip->hap_cfg_nvmem == NULL) {
 			dev_dbg(chip->dev, "nvmem device for hap_cfg is not defined\n");
 			return -EINVAL;
@@ -2390,9 +2390,6 @@ static int haptics_load_periodic_effect(struct haptics_chip *chip,
 	}
 
 	mutex_lock(&chip->play.lock);
-	dev_dbg(chip->dev, "upload effect %d, vmax_mv=%d\n",
-			chip->effects[i].id, play->vmax_mv);
-
 	if (chip->play.in_calibration) {
 		dev_err(chip->dev, "calibration in progress, ignore playing predefined effect\n");
 		rc = -EBUSY;
@@ -2400,6 +2397,7 @@ static int haptics_load_periodic_effect(struct haptics_chip *chip,
 	}
 
 	play->vmax_mv = (magnitude * chip->effects[i].vmax_mv) / 0x7fff;
+	dev_dbg(chip->dev, "upload effect %d, vmax_mv=%d\n", chip->effects[i].id, play->vmax_mv);
 	rc = haptics_load_predefined_effect(chip, &chip->effects[i]);
 	if (rc < 0) {
 		dev_err(chip->dev, "Play predefined effect%d failed, rc=%d\n",
