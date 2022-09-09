@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef UFS_QCOM_H_
@@ -547,6 +548,10 @@ struct ufs_qcom_host {
 	struct device_node *np;
 	int chosen_algo;
 	struct ufs_clk_info *ref_clki;
+	atomic_t hi_pri_en;
+	atomic_t therm_mitigation;
+	cpumask_t perf_mask;
+	cpumask_t def_mask;
 };
 
 static inline u32
