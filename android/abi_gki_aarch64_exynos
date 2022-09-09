@@ -627,6 +627,7 @@
   drm_gem_dmabuf_release
   drm_gem_dmabuf_vmap
   drm_gem_dmabuf_vunmap
+  drm_gem_fb_begin_cpu_access
   drm_gem_fb_create_handle
   drm_gem_fb_destroy
   drm_gem_handle_create
@@ -751,6 +752,7 @@
   drm_universal_plane_init
   drm_vblank_init
   drm_wait_one_vblank
+  drm_writeback_cleanup_job
   drm_writeback_connector_init
   drm_writeback_queue_job
   drm_writeback_signal_completion
@@ -775,6 +777,7 @@
   _find_first_bit
   _find_first_zero_bit
   _find_next_bit
+  find_task_by_vpid
   find_vpid
   finish_wait
   firmware_request_nowarn
@@ -1813,6 +1816,7 @@
   system_freezable_wq
   system_freezing_cnt
   system_highpri_wq
+  system_long_wq
   system_power_efficient_wq
   system_state
   system_unbound_wq
