@@ -852,6 +852,7 @@ static void kgsl_iommu_map_global(struct kgsl_mmu *mmu,
 			return;
 
 		memdesc->gpuaddr = mmu->defaultpagetable->global_base + offset;
+		memdesc->pagetable = mmu->defaultpagetable;
 	}
 
 	kgsl_iommu_default_map(mmu->defaultpagetable, memdesc);
