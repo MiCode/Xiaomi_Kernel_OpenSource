@@ -27,6 +27,11 @@
 #include <linux/uaccess.h>
 #include <linux/qpnp/qpnp-pbs.h>
 
+#include <linux/soc/qcom/battery_charger.h>
+
+#define CREATE_TRACE_POINTS
+#include <trace/events/qcom_haptics.h>
+
 /* status register definitions in HAPTICS_CFG module */
 #define HAP_CFG_REVISION2_REG			0x01
 #define HAP_CFG_V1				0x1
@@ -61,6 +66,10 @@
 #define SC_FLAG_BIT				BIT(2)
 #define AUTO_RES_ERROR_BIT			BIT(1)
 #define HPRW_RDY_FAULT_BIT			BIT(0)
+
+/* Only for HAP525_HV */
+#define HAP_CFG_REAL_TIME_LRA_IMPEDANCE_REG	0x0E
+#define LRA_IMPEDANCE_MOHMS_LSB			250
 
 #define HAP_CFG_INT_RT_STS_REG			0x10
 #define FIFO_EMPTY_BIT				BIT(1)
@@ -150,6 +159,15 @@
 #define EN_HW_RECOVERY_BIT			BIT(1)
 #define SW_ERR_DRV_FREQ_BIT			BIT(0)
 
+#define HAP_CFG_ISC_CFG_REG			0x65
+#define ILIM_CC_EN_BIT				BIT(7)
+/* Following bits are only for HAP525_HV */
+#define EN_SC_DET_P_HAP525_HV_BIT		BIT(6)
+#define EN_SC_DET_N_HAP525_HV_BIT		BIT(5)
+#define EN_IMP_DET_HAP525_HV_BIT		BIT(4)
+#define ILIM_PULSE_DENSITY_MASK			GENMASK(3, 2)
+#define ILIM_DENSITY_8_OVER_64_CYCLES		0
+
 #define HAP_CFG_FAULT_CLR_REG			0x66
 #define SC_CLR_BIT				BIT(2)
 #define AUTO_RES_ERR_CLR_BIT			BIT(1)
@@ -161,6 +179,7 @@
 #define VMAX_HDRM_MAX_MV			6350
 
 #define HAP_CFG_VSET_CFG_REG			0x68
+#define FORCE_VSET_ACK_BIT			BIT(1) /* This is only for HAP525_HV */
 #define FORCE_VREG_RDY_BIT			BIT(0)
 
 #define HAP_CFG_MOD_STATUS_SEL_REG		0x70
@@ -173,6 +192,16 @@
 #define CAL_RC_CLK_AUTO_VAL			1
 #define CAL_RC_CLK_MANUAL_VAL			2
 
+/* For HAP520_MV and HAP525_HV */
+#define HAP_CFG_ISC_CFG2_REG			0x77
+#define EN_SC_DET_P_HAP520_MV_BIT		BIT(6)
+#define EN_SC_DET_N_HAP520_MV_BIT		BIT(5)
+#define ISC_THRESH_HAP520_MV_MASK		GENMASK(2, 0)
+#define ISC_THRESH_HAP520_MV_140MA		0x01
+#define ISC_THRESH_HAP525_HV_MASK		GENMASK(4, 0)
+#define ISC_THRESH_HAP525_HV_125MA		0x11
+#define ISC_THRESH_HAP525_HV_250MA		0x12
+
 /* These registers are only applicable for HAP520_MV */
 #define HAP_CFG_HW_CONFIG_REG			0x0D
 #define HV_HAP_DRIVER_BIT			BIT(1)
@@ -184,6 +213,13 @@
 
 #define HAP_CFG_VHPWR_REG			0x84
 #define VHPWR_STEP_MV				32
+
+/* Only for HAP525_HV */
+#define HAP_CFG_RT_LRA_IMPD_MEAS_CFG_REG	0xA4
+#define LRA_IMPEDANCE_MEAS_EN_BIT		BIT(7)
+#define LRA_IMPEDANCE_MEAS_CURRENT_SEL_BIT	BIT(0)
+#define CURRENT_SEL_VAL_125MA			0
+#define CURRENT_SEL_VAL_250MA			1
 
 /* version register definitions for HAPTICS_PATTERN module */
 #define HAP_PTN_REVISION2_REG			0x01
@@ -256,6 +292,7 @@
 #define HAP_BOOST_REVISION2			0x01
 #define HAP_BOOST_V0P0				0x0000
 #define HAP_BOOST_V0P1				0x0001
+#define HAP_BOOST_V0P2				0x0002
 
 #define HAP_BOOST_STATUS4_REG			0x0B
 #define BOOST_DTEST1_STATUS_BIT			BIT(0)
@@ -270,6 +307,11 @@
 
 #define HAP_BOOST_CLAMP_REG			0x70
 #define CLAMP_5V_BIT				BIT(0)
+
+/* haptics SDAM registers offset definition */
+#define HAP_STATUS_DATA_MSB_SDAM_OFFSET		0x46
+#define HAP_LRA_NOMINAL_OHM_SDAM_OFFSET		0x75
+#define HAP_LRA_DETECTED_OHM_SDAM_OFFSET	0x76
 
 /* constant parameters */
 #define SAMPLES_PER_PATTERN			8
@@ -287,6 +329,7 @@
 /* below definitions are only for HAP525_HV */
 #define MMAP_NUM_BYTES				2048
 #define MMAP_FIFO_MIN_SIZE			640
+#define FIFO_PRGM_INIT_SIZE			320
 
 #define is_between(val, min, max)	\
 	(((min) <= (max)) && ((min) <= (val)) && ((val) <= (max)))
@@ -513,11 +556,13 @@ struct haptics_hw_config {
 	u32			lra_min_mohms;
 	u32			lra_max_mohms;
 	u32			lra_open_mohms;
+	u32			lra_measured_mohms;
 	u32			preload_effect;
 	u32			fifo_empty_thresh;
 	u16			rc_clk_cal_count;
 	enum drv_sig_shape	drv_wf;
 	bool			is_erm;
+	bool			measure_lra_impedance;
 };
 
 struct custom_fifo_data {
@@ -544,12 +589,14 @@ struct haptics_chip {
 	struct class			hap_class;
 	struct regulator		*hpwr_vreg;
 	struct hrtimer			hbst_off_timer;
+	struct notifier_block		hboost_nb;
 	int				fifo_empty_irq;
 	u32				hpwr_voltage_mv;
 	u32				effects_count;
 	u32				cfg_addr_base;
 	u32				ptn_addr_base;
 	u32				hbst_addr_base;
+	u32				clamped_vmax_mv;
 	u32				wa_flags;
 	u8				cfg_revision;
 	u8				ptn_revision;
@@ -655,7 +702,7 @@ static int haptics_read(struct haptics_chip *chip,
 
 	rc = regmap_bulk_read(chip->regmap, addr, val, length);
 	if (rc < 0)
-		dev_err(chip->dev, "read addr %d failed, rc=%d\n", addr, rc);
+		dev_err(chip->dev, "read addr %#x failed, rc=%d\n", addr, rc);
 
 	return rc;
 }
@@ -668,7 +715,7 @@ static int haptics_write(struct haptics_chip *chip,
 
 	rc = regmap_bulk_write(chip->regmap, addr, val, length);
 	if (rc < 0)
-		dev_err(chip->dev, "write addr %d failed, rc=%d\n", addr, rc);
+		dev_err(chip->dev, "write addr %#x failed, rc=%d\n", addr, rc);
 
 	return rc;
 }
@@ -681,7 +728,7 @@ static int haptics_masked_write(struct haptics_chip *chip,
 
 	regmap_update_bits(chip->regmap, addr, mask, val);
 	if (rc < 0)
-		dev_err(chip->dev, "update addr %d failed, rc=%d\n", addr, rc);
+		dev_err(chip->dev, "update addr %#x failed, rc=%d\n", addr, rc);
 
 	return rc;
 }
@@ -914,6 +961,17 @@ static int haptics_get_status_data(struct haptics_chip *chip,
 {
 	int rc;
 	u8 mod_sel_val[2];
+	const char *hap_status_name[BRAKE_CAL_SCALAR + 1] = {
+		"CAL_TLRA_CL_STS",
+		"T_WIND_STS",
+		"T_WIND_STS_PREV",
+		"LAST_GOOD_TLRA_CL_STS",
+		"TLRA_CL_ERR_STS",
+		"HAP_DRV_STS",
+		"RNAT_RCAL_INT",
+		"BRAKE_CAL_SCALAR",
+	};
+	const char *name;
 
 	mod_sel_val[0] = sel & 0xff;
 	mod_sel_val[1] = (sel >> 8) & 0xff;
@@ -932,8 +990,15 @@ static int haptics_get_status_data(struct haptics_chip *chip,
 	if (rc < 0)
 		return rc;
 
-	dev_dbg(chip->dev, "Get status data[%x] = (%#x, %#x)\n",
-			sel, data[0], data[1]);
+	if (sel <= BRAKE_CAL_SCALAR)
+		name = hap_status_name[sel];
+	else if (sel == CLAMPED_DUTY_CYCLE_STS)
+		name = "CLAMPED_DUTY_CYCLE_STS";
+	else if (sel == FIFO_REAL_TIME_STS)
+		name = "FIFO_REAL_TIME_STS";
+
+	dev_dbg(chip->dev, "Get status data[%s] = (%#x, %#x)\n", name, data[0], data[1]);
+	trace_qcom_haptics_status(name, data[0], data[1]);
 	return 0;
 }
 
@@ -959,9 +1024,6 @@ static int haptics_adjust_lra_period(struct haptics_chip *chip, u32 *t_lra_us)
 	return 0;
 }
 
-/* The offset of SDAM register which saves STATUS_DATA_MSB value */
-#define HAP_STATUS_DATA_MSB_SDAM_OFFSET		0x46
-
 /* constant definitions for calculating TLRA */
 #define TLRA_AUTO_RES_ERR_NO_CAL_STEP_PSEC	1667000
 #define TLRA_AUTO_RES_NO_CAL_STEP_PSEC		3333000
@@ -969,6 +1031,8 @@ static int haptics_adjust_lra_period(struct haptics_chip *chip, u32 *t_lra_us)
 	((chip->wa_flags & SLEEP_CLK_32K_SCALE) ? 1627700 : 1666667)
 #define TLRA_AUTO_RES_AUTO_CAL_STEP_PSEC	\
 	((chip->wa_flags & SLEEP_CLK_32K_SCALE) ? 813850 : 833333)
+#define SLEEP_CLK_CAL_DIVIDER			\
+	((chip->wa_flags & SLEEP_CLK_32K_SCALE) ? 600 : 586)
 static int haptics_get_closeloop_lra_period(
 		struct haptics_chip *chip, bool in_boot)
 {
@@ -1060,10 +1124,10 @@ static int haptics_get_closeloop_lra_period(
 		if (!config->t_lra_us || !config->cl_t_lra_us)
 			return -EINVAL;
 		/*
-		 * RC_CLK_CAL_COUNT = 600 * (CAL_TLRA_OL / TLRA_OL)
-		 *		* (600 / 586) * (CL_T_TLRA_US / OL_T_LRA_US)
+		 * RC_CLK_CAL_COUNT = SLEEP_CLK_CAL_DIVIDER * (CAL_TLRA_OL / TLRA_OL)
+		 *		* (SLEEP_CLK_CAL_DIVIDER / 586) * (CL_T_TLRA_US / OL_T_LRA_US)
 		 */
-		tmp = 360000;
+		tmp = SLEEP_CLK_CAL_DIVIDER * SLEEP_CLK_CAL_DIVIDER;
 		tmp *= cal_tlra_cl_sts * config->cl_t_lra_us;
 		tmp = div_u64(tmp, tlra_ol);
 		tmp = div_u64(tmp, 586);
@@ -1098,10 +1162,10 @@ static int haptics_get_closeloop_lra_period(
 
 		/*
 		 * RC_CLK_CAL_COUNT =
-		 *	600 * (CAL_TLRA_CL_STS_AUTO_CAL / LAST_GOOD_TLRA_CL_STS)
-		 *		* (600 / 293) * (CL_T_TLRA_US / OL_T_LRA_US)
+		 *	SLEEP_CLK_CAL_DIVIDER * (CAL_TLRA_CL_STS_AUTO_CAL / LAST_GOOD_TLRA_CL_STS)
+		 *		* (SLEEP_CLK_CAL_DIVIDER / 293) * (CL_T_TLRA_US / OL_T_LRA_US)
 		 */
-		tmp = 360000;
+		tmp = SLEEP_CLK_CAL_DIVIDER * SLEEP_CLK_CAL_DIVIDER;
 		tmp *= cal_tlra_cl_sts * config->cl_t_lra_us;
 		tmp = div_u64(tmp, last_good_tlra_cl_sts);
 		tmp = div_u64(tmp, 293);
@@ -1124,10 +1188,13 @@ static int haptics_set_vmax_mv(struct haptics_chip *chip, u32 vmax_mv)
 	u8 val, vmax_step;
 
 	if (vmax_mv > chip->max_vmax_mv) {
-		dev_err(chip->dev, "vmax (%d) exceed the max value: %d\n",
+		dev_dbg(chip->dev, "vmax (%d) exceed the max value: %d\n",
 					vmax_mv, chip->max_vmax_mv);
-		return -EINVAL;
+		vmax_mv = chip->max_vmax_mv;
 	}
+
+	if (vmax_mv > chip->clamped_vmax_mv)
+		vmax_mv = chip->clamped_vmax_mv;
 
 	if (chip->clamp_at_5v && (vmax_mv > CLAMPED_VMAX_MV))
 		vmax_mv = CLAMPED_VMAX_MV;
@@ -1208,6 +1275,31 @@ static int haptics_set_direct_play(struct haptics_chip *chip, u8 amplitude)
 	return rc;
 }
 
+static bool is_boost_vreg_enabled_in_open_loop(struct haptics_chip *chip)
+{
+	int rc;
+	u8 val;
+
+	if (is_haptics_external_powered(chip))
+		return false;
+
+	rc = haptics_read(chip, chip->hbst_addr_base, HAP_BOOST_VREG_EN_REG, &val, 1);
+	if (rc < 0)
+		return false;
+
+	chip->hboost_enabled = (val & VREG_EN_BIT);
+	rc = haptics_read(chip, chip->hbst_addr_base, HAP_BOOST_HW_CTRL_FOLLOW_REG, &val, 1);
+	if (rc < 0)
+		return false;
+
+	if (!(val & FOLLOW_HW_EN_BIT) && chip->hboost_enabled) {
+		dev_dbg(chip->dev, "HBoost is enabled in open loop condition\n");
+		return true;
+	}
+
+	return false;
+}
+
 #define PBS_ARG_REG				0x42
 #define HAP_VREG_ON_VAL				0x1
 #define HAP_VREG_OFF_VAL			0x2
@@ -1226,6 +1318,12 @@ static int haptics_boost_vreg_enable(struct haptics_chip *chip, bool en)
 
 	if (chip->hap_cfg_nvmem == NULL) {
 		dev_dbg(chip->dev, "nvmem device for hap_cfg is not defined\n");
+		return 0;
+	}
+
+	if (is_boost_vreg_enabled_in_open_loop(chip)) {
+		dev_dbg(chip->dev, "Ignore %s hBoost while it's enabled in open-loop mode\n",
+				en ? "enabling" : "disabling");
 		return 0;
 	}
 
@@ -1265,28 +1363,6 @@ static bool is_swr_play_enabled(struct haptics_chip *chip)
 
 	if ((val[1] & HAP_DRV_PATTERN_SRC_STATUS_MASK) == SWR)
 		return true;
-
-	return false;
-}
-
-static bool is_boost_vreg_enabled_in_open_loop(struct haptics_chip *chip)
-{
-	int rc;
-	u8 val;
-
-	if (is_haptics_external_powered(chip))
-		return false;
-
-	rc = haptics_read(chip, chip->hbst_addr_base,
-			HAP_BOOST_HW_CTRL_FOLLOW_REG, &val, 1);
-	if (!rc && !(val & FOLLOW_HW_EN_BIT)) {
-		rc = haptics_read(chip, chip->hbst_addr_base,
-				HAP_BOOST_VREG_EN_REG, &val, 1);
-		if (!rc && (val & VREG_EN_BIT)) {
-			dev_dbg(chip->dev, "HBoost is enabled in open loop condition\n");
-			return true;
-		}
-	}
 
 	return false;
 }
@@ -1399,20 +1475,35 @@ static int haptics_enable_hpwr_vreg(struct haptics_chip *chip, bool en)
 	return 0;
 }
 
+static int haptics_force_vreg_ready(struct haptics_chip *chip, bool ready)
+{
+	u8 mask;
+
+	mask = FORCE_VREG_RDY_BIT;
+	if (chip->hw_type == HAP525_HV)
+		mask |= FORCE_VSET_ACK_BIT;
+
+	return haptics_masked_write(chip, chip->cfg_addr_base,
+			HAP_CFG_VSET_CFG_REG, mask, ready ? mask : 0);
+}
+
 static int haptics_open_loop_drive_config(struct haptics_chip *chip, bool en)
 {
 	int rc = 0;
 	u8 val;
 
 	if ((is_boost_vreg_enabled_in_open_loop(chip) ||
-			chip->hboost_enabled ||
-			is_haptics_external_powered(chip)) && en) {
-		/* Force VREG_RDY */
-		rc = haptics_masked_write(chip, chip->cfg_addr_base,
-				HAP_CFG_VSET_CFG_REG, FORCE_VREG_RDY_BIT,
-				FORCE_VREG_RDY_BIT);
-		if (rc < 0)
-			return rc;
+			chip->hboost_enabled || is_haptics_external_powered(chip)) && en) {
+		/*
+		 * Only set force-VREG-ready here if hBoost is not used by charger firmware.
+		 * In the case of charger firmware enabling hBoost, force-VREG-ready will be
+		 * set/reset based on the VMAX_CLAMP notification.
+		 */
+		if (chip->clamped_vmax_mv == MAX_HV_VMAX_MV) {
+			rc = haptics_force_vreg_ready(chip, true);
+			if (rc < 0)
+				return rc;
+		}
 
 		/* Toggle RC_CLK_CAL_EN if it's in auto mode */
 		rc = haptics_read(chip, chip->cfg_addr_base,
@@ -1439,13 +1530,18 @@ static int haptics_open_loop_drive_config(struct haptics_chip *chip, bool en)
 
 			dev_dbg(chip->dev, "Toggle CAL_EN in open-loop-VREG playing\n");
 		}
-	} else if (!is_haptics_external_powered(chip)) {
-		rc = haptics_masked_write(chip, chip->cfg_addr_base,
-				HAP_CFG_VSET_CFG_REG,
-				FORCE_VREG_RDY_BIT, 0);
+	} else if (!is_haptics_external_powered(chip) &&
+			(chip->clamped_vmax_mv == MAX_HV_VMAX_MV)) {
+		/*
+		 * Reset force-VREG-ready only when hBoost is not
+		 * used by charger firmware.
+		 */
+		rc = haptics_force_vreg_ready(chip, false);
+		if (rc < 0)
+			return rc;
 	}
 
-	return rc;
+	return 0;
 }
 
 #define BOOST_VREG_OFF_DELAY_SECONDS	2
@@ -1499,6 +1595,8 @@ static int haptics_enable_play(struct haptics_chip *chip, bool en)
 					HRTIMER_MODE_REL);
 		}
 	}
+
+	trace_qcom_haptics_play(en);
 	return rc;
 }
 
@@ -1651,7 +1749,7 @@ static int haptics_update_memory_data(struct haptics_chip *chip,
 }
 
 static int haptics_update_fifo_samples(struct haptics_chip *chip,
-					u8 *samples, u32 length)
+					u8 *samples, u32 length, bool refill)
 {
 	int rc;
 	u8 val;
@@ -1661,7 +1759,7 @@ static int haptics_update_fifo_samples(struct haptics_chip *chip,
 		return -EINVAL;
 	}
 
-	if (chip->hw_type == HAP525_HV) {
+	if (chip->hw_type == HAP525_HV && !refill) {
 		val = MEM_FLUSH_RELOAD_BIT;
 		rc = haptics_write(chip, chip->ptn_addr_base,
 				HAP_PTN_MEM_OP_ACCESS_REG, &val, 1);
@@ -1716,6 +1814,7 @@ static int haptics_get_fifo_fill_status(struct haptics_chip *chip, u32 *fill)
 {
 	int rc;
 	u8 val[2], fill_status_mask;
+	u32 filled, available;
 	bool empty = false, full = false;
 
 	rc = haptics_get_status_data(chip, FIFO_REAL_TIME_STS, val);
@@ -1738,11 +1837,15 @@ static int haptics_get_fifo_fill_status(struct haptics_chip *chip, u32 *fill)
 		return -EINVAL;
 	}
 
-	*fill = ((val[0] & fill_status_mask) << 8) | val[1];
+	filled = ((val[0] & fill_status_mask) << 8) | val[1];
 	empty = !!(val[0] & FIFO_EMPTY_FLAG_BIT);
 	full = !!(val[0] & FIFO_FULL_FLAG_BIT);
+	available = get_max_fifo_samples(chip) - filled;
 
-	dev_dbg(chip->dev, "filled=%d, full=%d, empty=%d\n", *fill, full, empty);
+	dev_dbg(chip->dev, "filled=%u, available=%u, full=%d, empty=%d\n",
+			filled, available, full, empty);
+	trace_qcom_haptics_fifo_hw_status(filled, available, full, empty);
+	*fill = filled;
 	return 0;
 }
 
@@ -1911,11 +2014,12 @@ static int haptics_set_fifo(struct haptics_chip *chip, struct fifo_cfg *fifo)
 		return available;
 
 	num = min_t(u32, available, num);
+	num = min_t(u32, num, FIFO_PRGM_INIT_SIZE);
 	/* Keep the FIFO programming 4-byte aligned if FIFO refilling is needed */
 	if ((num < fifo->num_s) && (num % HAP_PTN_FIFO_DIN_NUM))
 		num = round_down(num, HAP_PTN_FIFO_DIN_NUM);
 
-	rc = haptics_update_fifo_samples(chip, fifo->samples, num);
+	rc = haptics_update_fifo_samples(chip, fifo->samples, num, false);
 	if (rc < 0) {
 		dev_err(chip->dev, "write FIFO samples failed, rc=%d\n", rc);
 		return rc;
@@ -1923,6 +2027,7 @@ static int haptics_set_fifo(struct haptics_chip *chip, struct fifo_cfg *fifo)
 
 	atomic_set(&status->is_busy, 1);
 	status->samples_written = num;
+	trace_qcom_haptics_fifo_prgm_status(fifo->num_s, status->samples_written, num);
 	if (num == fifo->num_s) {
 		fifo_thresh = 0;
 		atomic_set(&status->written_done, 1);
@@ -2919,7 +3024,7 @@ static int haptics_init_vmax_config(struct haptics_chip *chip)
 
 	chip->is_hv_haptics = true;
 	chip->max_vmax_mv = MAX_VMAX_MV;
-	if (chip->hw_type == HAP520_MV) {
+	if (chip->hw_type == HAP520_MV || chip->hw_type == HAP525_HV) {
 		rc = haptics_read(chip, chip->cfg_addr_base,
 			HAP_CFG_HW_CONFIG_REG, &val, 1);
 		if (rc < 0)
@@ -2930,6 +3035,8 @@ static int haptics_init_vmax_config(struct haptics_chip *chip)
 					MAX_HV_VMAX_MV : MAX_MV_VMAX_MV;
 	}
 
+	/* Set the initial clamped vmax value when hBoost is used by charger firmware */
+	chip->clamped_vmax_mv = MAX_HV_VMAX_MV;
 	/* Config VMAX */
 	return haptics_set_vmax_mv(chip, chip->config.vmax_mv);
 }
@@ -2942,7 +3049,10 @@ static int haptics_config_wa(struct haptics_chip *chip)
 			TOGGLE_EN_TO_FLUSH_FIFO | RECOVER_SWR_SLAVE;
 		break;
 	case HAP520_MV:
+		break;
 	case HAP525_HV:
+		if (chip->hbst_revision == HAP_BOOST_V0P1)
+			chip->wa_flags |= SW_CTRL_HBST;
 		break;
 	default:
 		dev_err(chip->dev, "HW type %d does not match\n",
@@ -3061,7 +3171,7 @@ static irqreturn_t fifo_empty_irq_handler(int irq, void *data)
 		else
 			num = samples_left;
 
-		rc = haptics_update_fifo_samples(chip, samples, num);
+		rc = haptics_update_fifo_samples(chip, samples, num, true);
 		if (rc < 0) {
 			dev_err(chip->dev, "Update FIFO samples failed, rc=%d\n",
 					rc);
@@ -3069,6 +3179,7 @@ static irqreturn_t fifo_empty_irq_handler(int irq, void *data)
 		}
 
 		status->samples_written += num;
+		trace_qcom_haptics_fifo_prgm_status(fifo->num_s, status->samples_written, num);
 		if (status->samples_written == fifo->num_s) {
 			dev_dbg(chip->dev, "FIFO programming is done\n");
 			atomic_set(&chip->play.fifo_status.written_done, 1);
@@ -3756,177 +3867,169 @@ exit:
 }
 #endif
 
-static int haptics_parse_per_effect_dt(struct haptics_chip *chip,
+static int haptics_parse_effect_pattern_data(struct haptics_chip *chip,
 		struct device_node *node, struct haptics_effect *effect)
 {
 	struct haptics_hw_config *config = &chip->config;
 	u32 data[SAMPLES_PER_PATTERN * 3];
 	int rc, tmp, i;
 
-	if (!effect)
-		return -EINVAL;
-
-	rc = of_property_read_u32(node, "qcom,effect-id", &effect->id);
-	if (rc < 0) {
-		dev_err(chip->dev, "Read qcom,effect-id failed, rc=%d\n",
-				rc);
-		return rc;
-	}
-
-	effect->vmax_mv = config->vmax_mv;
-	rc = of_property_read_u32(node, "qcom,wf-vmax-mv", &tmp);
-	if (rc < 0)
-		dev_dbg(chip->dev, "Read qcom,wf-vmax-mv failed, rc=%d\n",
-				rc);
-	else
-		effect->vmax_mv = tmp;
-
-	if (effect->vmax_mv > MAX_VMAX_MV) {
-		dev_err(chip->dev, "qcom,wf-vmax-mv (%d) exceed the max value: %d\n",
-				effect->vmax_mv, MAX_VMAX_MV);
-		return -EINVAL;
-	}
-
 	effect->t_lra_us = config->t_lra_us;
 	tmp = of_property_count_elems_of_size(node,
 			"qcom,wf-pattern-data", sizeof(u32));
+	if (tmp <= 0) {
+		dev_dbg(chip->dev, "qcom,wf-pattern-data is not defined properly for effect %d\n",
+				effect->id);
+		return 0;
+	}
+
 	if (tmp > SAMPLES_PER_PATTERN * 3) {
 		dev_err(chip->dev, "Pattern src can only play 8 samples at max\n");
 		return -EINVAL;
 	}
 
-	if (tmp > 0) {
-		effect->pattern = devm_kzalloc(chip->dev,
-				sizeof(*effect->pattern), GFP_KERNEL);
-		if (!effect->pattern)
-			return -ENOMEM;
+	effect->pattern = devm_kzalloc(chip->dev,
+			sizeof(*effect->pattern), GFP_KERNEL);
+	if (!effect->pattern)
+		return -ENOMEM;
 
-		rc = of_property_read_u32_array(node,
-				"qcom,wf-pattern-data", data, tmp);
-		if (rc < 0) {
-			dev_err(chip->dev, "Read wf-pattern-data failed, rc=%d\n",
-					rc);
-			return rc;
+	rc = of_property_read_u32_array(node,
+			"qcom,wf-pattern-data", data, tmp);
+	if (rc < 0) {
+		dev_err(chip->dev, "Read wf-pattern-data failed, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	for (i = 0; i < tmp / 3; i++) {
+		if (data[3 * i] > 0x1ff || data[3 * i + 1] > T_LRA_X_8
+				|| data[3 * i + 2] > 1) {
+			dev_err(chip->dev, "allowed tuples: [amplitude(<= 0x1ff) period(<=6(T_LRA_X_8)) f_lra_x2(0,1)]\n");
+			return -EINVAL;
 		}
 
-		for (i = 0; i < tmp / 3; i++) {
-			if (data[3 * i] > 0x1ff || data[3 * i + 1] > T_LRA_X_8
-					|| data[3 * i + 2] > 1) {
-				dev_err(chip->dev, "allowed tuples: [amplitude(<= 0x1ff) period(<=6(T_LRA_X_8)) f_lra_x2(0,1)]\n");
-				return -EINVAL;
-			}
+		effect->pattern->samples[i].amplitude =
+			(u16)data[3 * i];
+		effect->pattern->samples[i].period =
+			(enum s_period)data[3 * i + 1];
+		effect->pattern->samples[i].f_lra_x2 =
+			(bool)data[3 * i + 2];
+	}
 
-			effect->pattern->samples[i].amplitude =
-				(u16)data[3 * i];
-			effect->pattern->samples[i].period =
-				(enum s_period)data[3 * i + 1];
-			effect->pattern->samples[i].f_lra_x2 =
-				(bool)data[3 * i + 2];
-		}
-
-		effect->pattern->preload = of_property_read_bool(node,
-				"qcom,wf-pattern-preload");
-		/*
-		 * Use PATTERN1 src by default, effect with preloaded
-		 * pattern will use PATTERN2 by default and only the
-		 * 1st preloaded pattern will be served.
-		 */
-		effect->src = PATTERN1;
-		if (effect->pattern->preload) {
-			if (config->preload_effect != -EINVAL) {
-				dev_err(chip->dev, "effect %d has been defined as preloaded\n",
-						config->preload_effect);
-				effect->pattern->preload = false;
-			} else {
-				config->preload_effect = effect->id;
-				effect->src = PATTERN2;
-			}
+	effect->pattern->preload = of_property_read_bool(node,
+			"qcom,wf-pattern-preload");
+	/*
+	 * Use PATTERN1 src by default, effect with preloaded
+	 * pattern will use PATTERN2 by default and only the
+	 * 1st preloaded pattern will be served.
+	 */
+	effect->src = PATTERN1;
+	if (effect->pattern->preload) {
+		if (config->preload_effect != -EINVAL) {
+			dev_err(chip->dev, "effect %d has been defined as preloaded\n",
+					config->preload_effect);
+			effect->pattern->preload = false;
+		} else {
+			config->preload_effect = effect->id;
+			effect->src = PATTERN2;
 		}
 	}
 
-	tmp = of_property_count_u8_elems(node, "qcom,wf-fifo-data");
-	if (tmp > 0) {
-		effect->fifo = devm_kzalloc(chip->dev,
-				sizeof(*effect->fifo), GFP_KERNEL);
-		if (!effect->fifo)
-			return -ENOMEM;
+	if (config->is_erm)
+		effect->pattern->play_rate_us = DEFAULT_ERM_PLAY_RATE_US;
+	else
+		effect->pattern->play_rate_us = config->t_lra_us;
 
-		effect->fifo->samples = devm_kcalloc(chip->dev,
-				tmp, sizeof(u8), GFP_KERNEL);
-		if (!effect->fifo->samples)
-			return -ENOMEM;
+	rc = of_property_read_u32(node, "qcom,wf-pattern-period-us", &tmp);
+	if (rc < 0)
+		dev_dbg(chip->dev, "Read qcom,wf-pattern-period-us failed, rc=%d\n",
+				rc);
+	else
+		effect->pattern->play_rate_us = tmp;
 
-		rc = of_property_read_u8_array(node, "qcom,wf-fifo-data",
-				effect->fifo->samples, tmp);
-		if (rc < 0) {
-			dev_err(chip->dev, "Read wf-fifo-data failed, rc=%d\n",
-					rc);
-			return rc;
-		}
-
-		effect->fifo->num_s = tmp;
-	}
-
-	if (!effect->pattern && !effect->fifo) {
-		dev_err(chip->dev, "no pattern specified for effect %d\n",
-				effect->id);
+	if (effect->pattern->play_rate_us > TLRA_MAX_US) {
+		dev_err(chip->dev, "qcom,wf-pattern-period-us (%d) exceed the max value: %d\n",
+				effect->pattern->play_rate_us,
+				TLRA_MAX_US);
 		return -EINVAL;
 	}
 
-	if (effect->pattern) {
-		if (config->is_erm)
-			effect->pattern->play_rate_us =
-				DEFAULT_ERM_PLAY_RATE_US;
-		else
-			effect->pattern->play_rate_us = config->t_lra_us;
-
-		rc = of_property_read_u32(node, "qcom,wf-pattern-period-us",
-					&tmp);
-		if (rc < 0)
-			dev_dbg(chip->dev, "Read qcom,wf-pattern-period-us failed, rc=%d\n",
-					rc);
-		else
-			effect->pattern->play_rate_us = tmp;
-
-		if (effect->pattern->play_rate_us > TLRA_MAX_US) {
-			dev_err(chip->dev, "qcom,wf-pattern-period-us (%d) exceed the max value: %d\n",
-					effect->pattern->play_rate_us,
-					TLRA_MAX_US);
-			return -EINVAL;
-		}
-
-		effect->pattern->play_length_us =
-			get_pattern_play_length_us(effect->pattern);
-		if (effect->pattern->play_length_us == -EINVAL) {
-			dev_err(chip->dev, "get pattern play length failed\n");
-			return -EINVAL;
-		}
-
-		if (effect->fifo)
-			dev_dbg(chip->dev, "Ignore FIFO data if pattern is specified!\n");
-
-	} else if (effect->fifo) {
-		effect->fifo->period_per_s = T_LRA;
-		rc = of_property_read_u32(node, "qcom,wf-fifo-period", &tmp);
-		if (tmp > F_48KHZ) {
-			dev_err(chip->dev, "FIFO playing period %d is not supported\n",
-					tmp);
-			return -EINVAL;
-		} else if (!rc) {
-			effect->fifo->period_per_s = tmp;
-		}
-
-		effect->fifo->play_length_us =
-			get_fifo_play_length_us(effect->fifo, config->t_lra_us);
-		if (effect->fifo->play_length_us == -EINVAL) {
-			dev_err(chip->dev, "get fifo play length failed\n");
-			return -EINVAL;
-		}
-
-		effect->src = FIFO;
-		effect->fifo->preload = of_property_read_bool(node,
-						"qcom,wf-fifo-preload");
+	effect->pattern->play_length_us = get_pattern_play_length_us(effect->pattern);
+	if (effect->pattern->play_length_us == -EINVAL) {
+		dev_err(chip->dev, "get pattern play length failed\n");
+		return -EINVAL;
 	}
+
+	return 0;
+}
+
+static int haptics_parse_effect_fifo_data(struct haptics_chip *chip,
+		struct device_node *node, struct haptics_effect *effect)
+{
+	struct haptics_hw_config *config = &chip->config;
+	int rc, tmp;
+
+	if (effect->pattern) {
+		dev_dbg(chip->dev, "ignore parsing FIFO effect when pattern effect is present\n");
+		return 0;
+	}
+
+	tmp = of_property_count_u8_elems(node, "qcom,wf-fifo-data");
+	if (tmp <= 0) {
+		dev_dbg(chip->dev, "qcom,wf-fifo-data is not defined properly for effect %d\n",
+				effect->id);
+		return 0;
+	}
+
+	effect->fifo = devm_kzalloc(chip->dev,
+			sizeof(*effect->fifo), GFP_KERNEL);
+	if (!effect->fifo)
+		return -ENOMEM;
+
+	effect->fifo->samples = devm_kcalloc(chip->dev,
+			tmp, sizeof(u8), GFP_KERNEL);
+	if (!effect->fifo->samples)
+		return -ENOMEM;
+
+	rc = of_property_read_u8_array(node, "qcom,wf-fifo-data",
+			effect->fifo->samples, tmp);
+	if (rc < 0) {
+		dev_err(chip->dev, "Read wf-fifo-data failed, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	effect->fifo->num_s = tmp;
+	effect->fifo->period_per_s = T_LRA;
+	rc = of_property_read_u32(node, "qcom,wf-fifo-period", &tmp);
+	if (rc < 0) {
+		dev_err(chip->dev, "Get qcom,wf-fifo-period failed, rc=%d\n", rc);
+		return rc;
+	} else if (tmp > F_48KHZ) {
+		dev_err(chip->dev, "FIFO playing period %d is not supported\n",
+				tmp);
+		return -EINVAL;
+	}
+
+	effect->fifo->period_per_s = tmp;
+	effect->fifo->play_length_us =
+		get_fifo_play_length_us(effect->fifo, config->t_lra_us);
+	if (effect->fifo->play_length_us == -EINVAL) {
+		dev_err(chip->dev, "get fifo play length failed\n");
+		return -EINVAL;
+	}
+
+	effect->src = FIFO;
+	effect->fifo->preload = of_property_read_bool(node,
+					"qcom,wf-fifo-preload");
+	return 0;
+}
+
+static int haptics_parse_effect_brake_data(struct haptics_chip *chip,
+		struct device_node *node, struct haptics_effect *effect)
+{
+	struct haptics_hw_config *config = &chip->config;
+	int rc, tmp;
 
 	effect->brake = devm_kzalloc(chip->dev,
 			sizeof(*effect->brake), GFP_KERNEL);
@@ -3981,12 +4084,66 @@ static int haptics_parse_per_effect_dt(struct haptics_chip *chip,
 	effect->brake->play_length_us =
 		get_brake_play_length_us(effect->brake, config->t_lra_us);
 
-	if (config->is_erm)
-		return 0;
+	return 0;
+}
 
-	/* LRA specific per-effect settings are parsed below */
-	effect->auto_res_disable = of_property_read_bool(node,
-			"qcom,wf-auto-res-disable");
+static int haptics_parse_per_effect_dt(struct haptics_chip *chip,
+		struct device_node *node, struct haptics_effect *effect)
+{
+	struct haptics_hw_config *config = &chip->config;
+	int rc, tmp;
+
+	if (!effect)
+		return -EINVAL;
+
+	rc = of_property_read_u32(node, "qcom,effect-id", &effect->id);
+	if (rc < 0) {
+		dev_err(chip->dev, "read qcom,effect-id failed, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	effect->vmax_mv = config->vmax_mv;
+	rc = of_property_read_u32(node, "qcom,wf-vmax-mv", &tmp);
+	if (rc < 0)
+		dev_dbg(chip->dev, "read qcom,wf-vmax-mv failed, rc=%d\n",
+				rc);
+	else
+		effect->vmax_mv = tmp;
+
+	if (effect->vmax_mv > MAX_VMAX_MV) {
+		dev_err(chip->dev, "qcom,wf-vmax-mv (%d) exceed the max value: %d\n",
+				effect->vmax_mv, MAX_VMAX_MV);
+		return -EINVAL;
+	}
+
+	rc = haptics_parse_effect_pattern_data(chip, node, effect);
+	if (rc < 0) {
+		dev_err(chip->dev, "parse effect PATTERN data failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = haptics_parse_effect_fifo_data(chip, node, effect);
+	if (rc < 0) {
+		dev_err(chip->dev, "parse effect FIFO data failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (!effect->pattern && !effect->fifo) {
+		dev_err(chip->dev, "no pattern specified for effect %d\n",
+				effect->id);
+		return -EINVAL;
+	}
+
+	rc = haptics_parse_effect_brake_data(chip, node, effect);
+	if (rc < 0) {
+		dev_err(chip->dev, "parse effect brake data failed, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (!config->is_erm)
+		effect->auto_res_disable = of_property_read_bool(node,
+				"qcom,wf-auto-res-disable");
 
 	return 0;
 }
@@ -4076,6 +4233,10 @@ static int haptics_parse_lra_dt(struct haptics_chip *chip)
 			return -EINVAL;
 		}
 	}
+
+	if (chip->hw_type == HAP525_HV)
+		config->measure_lra_impedance = of_property_read_bool(node,
+				"qcom,rt-imp-detect");
 
 	return 0;
 }
@@ -4469,23 +4630,162 @@ static int haptics_pbs_trigger_isc_config(struct haptics_chip *chip)
 }
 
 #define MAX_SWEEP_STEPS		5
-#define MAX_IMPEDANCE_MOHM	40000
-#define MIN_ISC_MA		250
 #define MIN_DUTY_MILLI_PCT	0
 #define MAX_DUTY_MILLI_PCT	100000
 #define LRA_CONFIG_REGS		3
 static u32 get_lra_impedance_capable_max(struct haptics_chip *chip)
 {
-	u32 mohms = MAX_IMPEDANCE_MOHM;
+	u32 mohms;
+	u32 max_vmax_mv, min_isc_ma;
 
-	if (chip->clamp_at_5v)
-		mohms = MAX_IMPEDANCE_MOHM / 2;
+	switch (chip->hw_type) {
+	case HAP520:
+		min_isc_ma = 250;
+		if (chip->clamp_at_5v)
+			max_vmax_mv = 5000;
+		else
+			max_vmax_mv = 10000;
+		break;
+	case HAP520_MV:
+		max_vmax_mv = 5000;
+		min_isc_ma = 140;
+		break;
+	case HAP525_HV:
+		if (chip->clamp_at_5v) {
+			max_vmax_mv = 5000;
+			min_isc_ma = 125;
+		} else {
+			max_vmax_mv = 10000;
+			min_isc_ma = 250;
+		}
+		break;
+	default:
+		return 0;
+	}
 
+	mohms = (max_vmax_mv * 1000) / min_isc_ma;
 	if (is_haptics_external_powered(chip))
-		mohms = (chip->hpwr_voltage_mv * 1000) / MIN_ISC_MA;
+		mohms = (chip->hpwr_voltage_mv * 1000) / min_isc_ma;
 
 	dev_dbg(chip->dev, "LRA impedance capable max: %u mohms\n", mohms);
 	return mohms;
+}
+
+#define RT_IMPD_DET_VMAX_DEFAULT_MV		4500
+static int haptics_measure_realtime_lra_impedance(struct haptics_chip *chip)
+{
+	int rc;
+	u8 val, current_sel;
+	u32 vmax_mv, nominal_ohm, current_ma, vmax_margin_mv;
+	struct pattern_cfg pattern = {
+		.samples = {
+			    {0xff, T_LRA, false},
+			    {0, 0, 0},
+			    {0, 0, 0},
+			    {0, 0, 0},
+			    {0, 0, 0},
+			    {0, 0, 0},
+			    {0, 0, 0},
+			    {0, 0, 0},
+			   },
+		.play_rate_us = chip->config.t_lra_us + 2000, /* drive off resonance of the LRA */
+		.play_length_us = chip->config.t_lra_us + 2000, /* drive it at least 1 cycle */
+		.preload = false,
+	};
+
+	/* calculate Vmax according to nominal resistance */
+	vmax_mv = RT_IMPD_DET_VMAX_DEFAULT_MV;
+	current_sel = chip->clamp_at_5v ? CURRENT_SEL_VAL_125MA : CURRENT_SEL_VAL_250MA;
+	if (chip->hap_cfg_nvmem != NULL) {
+		rc = nvmem_device_read(chip->hap_cfg_nvmem,
+				HAP_LRA_NOMINAL_OHM_SDAM_OFFSET, 1, &val);
+		if (!rc && val) {
+			nominal_ohm = val;
+			/*
+			 * use 250mA current_sel when nominal impedance is lower than 15 Ohms
+			 * and use 125mA detection when nominal impedance is higher than 40 Ohms
+			 */
+			if (nominal_ohm < 15)
+				current_sel = CURRENT_SEL_VAL_250MA;
+			else if (nominal_ohm > 40)
+				current_sel = CURRENT_SEL_VAL_125MA;
+
+			/*
+			 * give 8 Ohms margin (1000mV / 125mA, or 2000mV / 250mA) for wider
+			 * detectability
+			 */
+			if (current_sel == CURRENT_SEL_VAL_125MA) {
+				current_ma = 125;
+				vmax_margin_mv = 1000;
+			} else {
+				current_ma = 250;
+				vmax_margin_mv = 2000;
+			}
+
+			vmax_mv = max(vmax_mv, nominal_ohm * current_ma + vmax_margin_mv);
+		}
+	}
+
+	dev_dbg(chip->dev, "Set %u mV Vmax for impedance detection\n", vmax_mv);
+	rc = haptics_set_vmax_mv(chip, vmax_mv);
+	if (rc < 0)
+		return rc;
+
+	/* set current for imp_det comparator and enable it */
+	val = LRA_IMPEDANCE_MEAS_EN_BIT | current_sel;
+	rc = haptics_masked_write(chip, chip->cfg_addr_base,
+			HAP_CFG_RT_LRA_IMPD_MEAS_CFG_REG,
+			LRA_IMPEDANCE_MEAS_EN_BIT |
+			LRA_IMPEDANCE_MEAS_CURRENT_SEL_BIT, val);
+	if (rc < 0)
+		return rc;
+
+	/* disconnect imp_det comparator to avoid it impact SC behavior */
+	rc = haptics_masked_write(chip, chip->cfg_addr_base,
+			HAP_CFG_ISC_CFG_REG, EN_IMP_DET_HAP525_HV_BIT, 0);
+	if (rc < 0)
+		goto restore;
+
+	/* play 1 drive cycle using PATTERN1 source */
+	rc = haptics_set_pattern(chip, &pattern, PATTERN1);
+	if (rc < 0)
+		goto restore;
+
+	chip->play.pattern_src = PATTERN1;
+	rc = haptics_enable_play(chip, true);
+	if (rc < 0)
+		goto restore;
+
+	usleep_range(pattern.play_length_us, pattern.play_length_us + 1);
+
+	rc = haptics_enable_play(chip, false);
+	if (rc < 0)
+		goto restore;
+
+	/* read the measured LRA impedance */
+	rc = haptics_read(chip, chip->cfg_addr_base,
+			HAP_CFG_REAL_TIME_LRA_IMPEDANCE_REG, &val, 1);
+	if (rc < 0)
+		goto restore;
+
+	chip->config.lra_measured_mohms = val * LRA_IMPEDANCE_MOHMS_LSB;
+	dev_dbg(chip->dev, "measured LRA impedance: %u mohm",
+			chip->config.lra_measured_mohms);
+	/* store the detected LRA impedance into SDAM for future usage */
+	if (chip->hap_cfg_nvmem != NULL) {
+		rc = nvmem_device_write(chip->hap_cfg_nvmem, HAP_LRA_DETECTED_OHM_SDAM_OFFSET, 1,
+				&chip->config.lra_measured_mohms);
+		if (rc < 0)
+			dev_err(chip->dev, "write measured impedance value into SDAM failed, rc=%d\n",
+					rc);
+	}
+restore:
+	if (rc < 0)
+		dev_err(chip->dev, "measure LRA impedance failed, rc=%d\n", rc);
+
+	return haptics_masked_write(chip, chip->cfg_addr_base,
+			HAP_CFG_RT_LRA_IMPD_MEAS_CFG_REG,
+			LRA_IMPEDANCE_MEAS_EN_BIT, 0);
 }
 
 static int haptics_detect_lra_impedance(struct haptics_chip *chip)
@@ -4497,7 +4797,7 @@ static int haptics_detect_lra_impedance(struct haptics_chip *chip)
 		{ HAP_CFG_VMAX_HDRM_REG, 0x00 },
 	};
 	struct haptics_reg_info backup[LRA_CONFIG_REGS];
-	u8 val;
+	u8 val, cfg1, cfg2, reg1, reg2, mask1, mask2, val1, val2;
 	u32 duty_milli_pct, low_milli_pct, high_milli_pct;
 	u32 amplitude, lra_min_mohms, lra_max_mohms, capability_mohms;
 
@@ -4510,10 +4810,61 @@ static int haptics_detect_lra_impedance(struct haptics_chip *chip)
 			return rc;
 	}
 
-	/* Trigger PBS to config 250mA ISC setting */
-	rc = haptics_pbs_trigger_isc_config(chip);
-	if (rc < 0)
-		return rc;
+	if (chip->hw_type == HAP520) {
+		/* Trigger PBS to config 250mA ISC setting */
+		rc = haptics_pbs_trigger_isc_config(chip);
+		if (rc < 0)
+			return rc;
+	} else {
+		 /* Config ISC_CFG settings for LRA impedance_detection */
+		switch (chip->hw_type) {
+		case HAP520_MV:
+			reg1 = HAP_CFG_ISC_CFG_REG;
+			mask1 = ILIM_CC_EN_BIT;
+			val1 = ILIM_CC_EN_BIT;
+			reg2 = HAP_CFG_ISC_CFG2_REG;
+			mask2 = EN_SC_DET_P_HAP520_MV_BIT |
+				EN_SC_DET_N_HAP520_MV_BIT |
+				ISC_THRESH_HAP520_MV_MASK;
+			val2 = EN_SC_DET_P_HAP520_MV_BIT|
+				EN_SC_DET_N_HAP520_MV_BIT|
+				ISC_THRESH_HAP520_MV_140MA;
+			break;
+		case HAP525_HV:
+			reg1 = HAP_CFG_ISC_CFG_REG;
+			mask1 = EN_SC_DET_P_HAP525_HV_BIT | EN_SC_DET_N_HAP525_HV_BIT |
+				EN_IMP_DET_HAP525_HV_BIT | ILIM_PULSE_DENSITY_MASK;
+			val1 = EN_IMP_DET_HAP525_HV_BIT |
+				FIELD_PREP(ILIM_PULSE_DENSITY_MASK, ILIM_DENSITY_8_OVER_64_CYCLES);
+			reg2 = HAP_CFG_RT_LRA_IMPD_MEAS_CFG_REG;
+			mask2 = LRA_IMPEDANCE_MEAS_EN_BIT | LRA_IMPEDANCE_MEAS_CURRENT_SEL_BIT;
+			val2 = chip->clamp_at_5v ? CURRENT_SEL_VAL_125MA : CURRENT_SEL_VAL_250MA;
+			val2 |= LRA_IMPEDANCE_MEAS_EN_BIT;
+			break;
+		default:
+			dev_err(chip->dev, "unsupported HW type: %d\n",
+					chip->hw_type);
+			return -EOPNOTSUPP;
+		}
+
+		 /* save ISC_CFG default settings */
+		rc = haptics_read(chip, chip->cfg_addr_base, reg1, &cfg1, 1);
+		if (rc < 0)
+			return rc;
+
+		rc = haptics_read(chip, chip->cfg_addr_base, reg2, &cfg2, 1);
+		if (rc < 0)
+			return rc;
+
+		/* update ISC_CFG settings for the detection */
+		rc = haptics_masked_write(chip, chip->cfg_addr_base, reg1, mask1, val1);
+		if (rc < 0)
+			return rc;
+
+		rc = haptics_masked_write(chip, chip->cfg_addr_base, reg2, mask2, val2);
+		if (rc < 0)
+			goto restore;
+	}
 
 	/* Set square drive waveform, 10V Vmax, no HDRM */
 	for (i = 0; i < LRA_CONFIG_REGS; i++) {
@@ -4590,10 +4941,21 @@ restore:
 	if (rc < 0)
 		return rc;
 
-	/* Trigger PBS to restore 1500mA ISC setting */
-	rc = haptics_pbs_trigger_isc_config(chip);
-	if (rc < 0)
-		return rc;
+	if (chip->hw_type == HAP520) {
+		/* Trigger PBS to restore 1500mA ISC setting */
+		rc = haptics_pbs_trigger_isc_config(chip);
+		if (rc < 0)
+			return rc;
+	} else {
+		/* restore ISC_CFG settings to default */
+		rc = haptics_write(chip, chip->cfg_addr_base, reg1, &cfg1, 1);
+		if (rc < 0)
+			return rc;
+
+		rc = haptics_write(chip, chip->cfg_addr_base, reg2, &cfg2, 1);
+		if (rc < 0)
+			return rc;
+	}
 
 	/* Restore driver waveform, Vmax, HDRM settings */
 	for (i = 0; i < LRA_CONFIG_REGS; i++) {
@@ -4727,7 +5089,10 @@ static int haptics_start_lra_calibrate(struct haptics_chip *chip)
 
 	/* Sleep at least 4ms to stabilize the LRA from frequency detection */
 	usleep_range(4000, 5000);
-	rc = haptics_detect_lra_impedance(chip);
+	if (chip->config.measure_lra_impedance)
+		rc = haptics_measure_realtime_lra_impedance(chip);
+	else
+		rc = haptics_detect_lra_impedance(chip);
 	if (rc < 0) {
 		dev_err(chip->dev, "Detect LRA impedance failed, rc=%d\n", rc);
 		goto unlock;
@@ -4781,6 +5146,10 @@ static ssize_t lra_impedance_show(struct class *c,
 	struct haptics_chip *chip = container_of(c,
 			struct haptics_chip, hap_class);
 
+	if (chip->config.measure_lra_impedance)
+		return scnprintf(buf, PAGE_SIZE, "measured %u mohms\n",
+				chip->config.lra_measured_mohms);
+
 	if (chip->config.lra_min_mohms == 0 && chip->config.lra_max_mohms == 0)
 		return -EINVAL;
 	else if (chip->config.lra_min_mohms == 0)
@@ -4824,6 +5193,35 @@ static bool is_swr_supported(struct haptics_chip *chip)
 		return false;
 
 	return true;
+}
+
+static int haptics_boost_notifier(struct notifier_block *nb, unsigned long event, void *val)
+{
+	struct haptics_chip *chip = container_of(nb, struct haptics_chip, hboost_nb);
+	u32 vmax_mv;
+	int rc;
+
+	switch (event) {
+	case VMAX_CLAMP:
+		vmax_mv = *(u32 *)val;
+		if (vmax_mv > MAX_HV_VMAX_MV) {
+			dev_err(chip->dev, "voted Vmax (%u mV) is higher than maximum (%u mV)\n",
+					vmax_mv, MAX_HV_VMAX_MV);
+			return -EINVAL;
+		}
+
+		chip->clamped_vmax_mv = vmax_mv;
+		dev_dbg(chip->dev, "Vmax is clamped at %u mV to support hBoost concurrency\n",
+				vmax_mv);
+		rc = haptics_force_vreg_ready(chip, vmax_mv == MAX_HV_VMAX_MV ? false : true);
+		if (rc < 0)
+			return rc;
+		break;
+	default:
+		break;
+	}
+
+	return 0;
 }
 
 static int haptics_probe(struct platform_device *pdev)
@@ -4937,6 +5335,8 @@ static int haptics_probe(struct platform_device *pdev)
 		goto destroy_ff;
 	}
 
+	chip->hboost_nb.notifier_call = haptics_boost_notifier;
+	register_hboost_event_notifier(&chip->hboost_nb);
 #ifdef CONFIG_DEBUG_FS
 	rc = haptics_create_debugfs(chip);
 	if (rc < 0)
@@ -4955,6 +5355,7 @@ static int haptics_remove(struct platform_device *pdev)
 	if (chip->pbs_node)
 		of_node_put(chip->pbs_node);
 
+	unregister_hboost_event_notifier(&chip->hboost_nb);
 	class_unregister(&chip->hap_class);
 #ifdef CONFIG_DEBUG_FS
 	debugfs_remove_recursive(chip->debugfs_dir);
