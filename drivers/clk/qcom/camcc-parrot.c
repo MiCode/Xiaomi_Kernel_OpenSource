@@ -831,8 +831,8 @@ static struct clk_rcg2 cam_cc_icp_clk_src = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_mclk0_clk_src[] = {
-	F(19200000, P_CAM_CC_PLL2_OUT_EVEN, 2, 2, 25),
-	F(24000000, P_CAM_CC_PLL2_OUT_EVEN, 2, 1, 10),
+	F(19200000, P_CAM_CC_PLL2_OUT_MAIN, 1, 1, 50),
+	F(24000000, P_CAM_CC_PLL2_OUT_MAIN, 10, 1, 4),
 	F(64000000, P_CAM_CC_PLL2_OUT_MAIN, 15, 0, 0),
 	{ }
 };
