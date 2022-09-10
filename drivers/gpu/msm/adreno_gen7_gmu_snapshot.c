@@ -279,6 +279,13 @@ void gen7_gmu_snapshot(struct adreno_device *adreno_dev,
 	if (device->gmu_fault)
 		gen7_gmu_send_nmi(adreno_dev, false);
 
+	/*
+	 * Dump external register first to have GPUCC and other external
+	 * register in snapshot to analyze the system state even in partial
+	 * snapshot dump
+	 */
+	gen7_snapshot_external_core_regs(device, snapshot);
+
 	gen7_gmu_device_snapshot(device, snapshot);
 
 	gen7_snapshot(adreno_dev, snapshot);
