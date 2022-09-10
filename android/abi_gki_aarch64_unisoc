@@ -3080,6 +3080,10 @@
   irq_work_queue
   kobject_init_and_add
 
+# required by unisoc_ursp.ko
+  raw_notifier_chain_unregister
+  sock_i_uid
+
 # required by usb-storage.ko
   blk_queue_bounce_limit
   blk_queue_max_hw_sectors
