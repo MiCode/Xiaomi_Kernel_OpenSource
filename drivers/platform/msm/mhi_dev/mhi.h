@@ -686,7 +686,6 @@ struct mhi_dev_ctx {
 	struct dma_chan			*tx_dma_chan;
 	struct dma_chan			*rx_dma_chan;
 
-	struct kobj_uevent_env		kobj_env;
 	struct ep_pcie_notify		*notify;
 	struct mhi_dma_ops		mhi_dma_fun_ops;
 };
