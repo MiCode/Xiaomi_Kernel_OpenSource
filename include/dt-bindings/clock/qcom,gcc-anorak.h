@@ -198,6 +198,8 @@
 #define GCC_UFS_PHY_ICE_CORE_HW_CTL_CLK				188
 #define GCC_UFS_PHY_PHY_AUX_HW_CTL_CLK				189
 #define GCC_UFS_PHY_UNIPRO_CORE_HW_CTL_CLK			190
+#define GCC_EDP_0_CLKREF_EN					191
+#define GCC_EDP_1_CLKREF_EN					192
 
 /* GCC resets */
 #define GCC_CAMERA_BCR						0
