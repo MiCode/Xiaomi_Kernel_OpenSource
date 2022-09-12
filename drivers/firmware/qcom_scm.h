@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2010-2015,2019,2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef __QCOM_SCM_INT_H
 #define __QCOM_SCM_INT_H
@@ -226,6 +227,7 @@ extern int scm_legacy_call(struct device *dev, const struct qcom_scm_desc *desc,
 #define QCOM_SCM_MP_CP_FEAT_ID			0x0c
 
 extern void __qcom_scm_init(void);
+extern void __qcom_scm_qcpe_exit(void);
 
 /* common error codes */
 #define QCOM_SCM_V2_EBUSY	-12
