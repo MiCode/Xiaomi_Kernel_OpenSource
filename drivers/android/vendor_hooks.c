@@ -7,9 +7,35 @@
  */
 
 #ifndef __GENKSYMS__
-#include <../kernel/printk/printk_ringbuffer.h>
 #include <uapi/linux/android/binder.h>
+#include <uapi/linux/hdreg.h>
+#include <linux/bpf.h>
+#include <linux/bpf_verifier.h>
+#include <linux/coredump.h>
+#include <linux/fileattr.h>
+#include <linux/fsverity.h>
+#include <linux/igmp.h>
+#include <linux/ipc_namespace.h>
+#include <linux/mtd/mtd.h>
+#include <linux/pr.h>
+#include <linux/skmsg.h>
+#include <linux/statfs.h>
+#include <linux/time_namespace.h>
 #include <linux/timekeeper_internal.h>
+#include <linux/zlib.h>
+#include <net/ip6_fib.h>
+#include <net/ip_tunnels.h>
+#include <net/macsec.h>
+#include <net/ioam6.h>
+#include <net/netfilter/nf_flow_table.h>
+#include <net/smc.h>
+#include <net/tc_act/tc_gate.h>
+#include <../fs/mount.h>
+#include <../kernel/audit.h>
+#include <../kernel/locking/mutex.h>
+#include <../net/can/af_can.h>
+#include <../net/tipc/bearer.h>
+#include <../kernel/printk/printk_ringbuffer.h>
 #endif
 
 #define CREATE_TRACE_POINTS
