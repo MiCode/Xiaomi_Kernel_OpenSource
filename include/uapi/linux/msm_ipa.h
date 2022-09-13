@@ -150,7 +150,7 @@
 /**
  * max size of the header to be inserted
  */
-#define IPA_HDR_MAX_SIZE 64
+#define IPA_HDR_MAX_SIZE 255
 
 /**
  * max size of the name of the resource (routing table, header)
