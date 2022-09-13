@@ -76,3 +76,7 @@ msm_rtb.ko
 rproc_qcom_common.ko
 qcom_glink_spss.ko
 usbpd.ko
+cqhci-crypto-qti.ko
+crypto-qti-tz.ko
+crypto-qti-common.ko
+ufshcd-crypto-qti.ko
