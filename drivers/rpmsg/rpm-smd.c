@@ -1693,11 +1693,11 @@ int __init msm_rpm_driver_init(void)
 {
 	unsigned int ret = 0;
 
+	platform_driver_register(&rpm_driver);
+
 	ret = register_rpmsg_driver(&qcom_smd_rpm_driver);
 	if (ret)
 		pr_err("register_rpmsg_driver: failed with err %d\n", ret);
-
-	platform_driver_register(&rpm_driver);
 
 	return ret;
 }
