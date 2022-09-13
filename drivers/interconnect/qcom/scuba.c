@@ -1466,8 +1466,6 @@ static void qnoc_sync_state(struct device *dev)
 	}
 
 	mutex_unlock(&probe_list_lock);
-
-	pr_err("SCUBA ICC Sync State done\n");
 }
 
 static struct platform_driver qnoc_driver = {
