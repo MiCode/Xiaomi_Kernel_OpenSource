@@ -30,8 +30,6 @@
 #include <linux/soc/qcom/smem_state.h>
 #include <linux/soc/qcom/qcom_aoss.h>
 #include <soc/qcom/secure_buffer.h>
-
-#define CREATE_TRACE_POINTS
 #include <trace/events/rproc_qcom.h>
 
 #include "qcom_common.h"
