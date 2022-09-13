@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef __RPROC_QCOM_COMMON_H__
 #define __RPROC_QCOM_COMMON_H__
@@ -107,7 +108,8 @@ static inline uint32_t qcom_sysmon_get_txn_id(struct qcom_sysmon *sysmon)
 	return 0;
 }
 
-int qcom_sysmon_get_reason(struct qcom_sysmon *sysmon, char *buf, size_t len)
+static inline int qcom_sysmon_get_reason(struct qcom_sysmon *sysmon,
+					char *buf, size_t len)
 {
 	return -ENODEV;
 }
