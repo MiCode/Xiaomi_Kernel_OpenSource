@@ -284,3 +284,15 @@
   __tracepoint_android_vh_freq_qos_add_request
   __tracepoint_android_rvh_dequeue_task_fair
   __tracepoint_android_rvh_entity_tick
+
+#required by binder_prio module
+  __traceiter_android_vh_binder_priority_skip
+  __tracepoint_android_vh_binder_priority_skip
+
+#required by mi_mempool.ko module
+  __traceiter_android_vh_mmput
+  __tracepoint_android_vh_mmput
+  __traceiter_android_vh_alloc_pages_reclaim_bypass
+  __tracepoint_android_vh_alloc_pages_reclaim_bypass
+  __traceiter_android_vh_alloc_pages_failure_bypass
+  __tracepoint_android_vh_alloc_pages_failure_bypass
