@@ -1757,6 +1757,8 @@
   of_machine_is_compatible
   of_property_read_variable_u64_array
   param_ops_byte
+  pin_user_pages
+  pin_user_pages_remote
   rb_erase
   rb_first
   rb_insert_color
@@ -1799,6 +1801,7 @@
   tracepoint_probe_unregister
   trace_print_array_seq
   trace_print_flags_seq
+  unpin_user_page
   vmalloc_user
   vmf_insert_pfn_prot
   ww_mutex_lock
