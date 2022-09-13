@@ -64,3 +64,7 @@ qcom-cpufreq-hw.ko
 dispcc-monaco.ko
 cqhci.ko
 sdhci-msm.ko
+qcom-spmi-pmic.ko
+spmi-pmic-arb.ko
+regmap-spmi.ko
+spmi.ko
