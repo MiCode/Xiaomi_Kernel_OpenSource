@@ -1488,6 +1488,7 @@
 
 # required by cqhci.ko
   devm_blk_ksm_init
+  sdhci_cqe_enable
   sdhci_cqe_disable
   sdhci_cqe_irq
 
