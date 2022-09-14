@@ -1060,4 +1060,15 @@ config SDX_GCC_BAAGHA
 	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
 	  USB, SD/eMMC, PCIe, etc.
 
+config SA_DEBUGCC_410M
+	tristate "SA410M Debug Clock Controller"
+	select MFD_SYSCON
+	depends on COMMON_CLK_QCOM
+	depends on SA_GCC_410M
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SA410M devices.
+	  Say Y if you want to support the debug clocks such as
+	  clock measurement functionality.
+
 endif
