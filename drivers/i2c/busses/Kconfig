@@ -933,6 +933,18 @@ config I2C_MSM_GENI
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-msm-geni.
 
+config I2C_SLAVE_QCOM
+	tristate "Qualcomm Technologies Inc.'s I2C Slave"
+	depends on ARCH_QCOM || COMPILE_TEST
+	default n
+	help
+	  This driver supports I2C slave mode on the Qualcomm Technologies,
+	  Inc.'s SoCs. If you say yes to this option, support will be
+	  included for the built-in I2C slave interface on the QTI SoCs.
+
+          This driver can also be built as a module.  If so, the module
+          will be called i2c-slave.
+
 config I2C_QUP
 	tristate "Qualcomm QUP based I2C controller"
 	depends on ARCH_QCOM || COMPILE_TEST
