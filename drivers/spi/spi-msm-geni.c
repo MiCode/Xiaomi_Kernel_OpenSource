@@ -2388,6 +2388,13 @@ static int spi_geni_gpi_suspend_resume(struct spi_geni_master *geni_mas, bool is
 	 */
 	if (geni_mas->tx) {
 		if (is_suspend) {
+			/* For deep sleep need to restore the config similar to the probe,
+			 * hence using MSM_GPI_DEEP_SLEEP_INIT flag, in gpi_resume it wil
+			 * do similar to the probe. After this we should set this flag to
+			 * MSM_GPI_DEFAULT, means gpi probe state is restored.
+			 */
+			if (geni_mas->is_deep_sleep)
+				geni_mas->tx_event.cmd = MSM_GPI_DEEP_SLEEP_INIT;
 			tx_ret = dmaengine_pause(geni_mas->tx);
 		} else {
 			/* For deep sleep need to restore the config similar to the probe,
@@ -2587,6 +2594,13 @@ static int spi_geni_suspend(struct device *dev)
 			    __func__, ret);
 		return ret;
 	}
+#ifdef CONFIG_DEEPSLEEP
+	if (pm_suspend_via_firmware()) {
+		SPI_LOG_ERR(geni_mas->ipc, true, dev,
+			    "%s:DEEP SLEEP EXIT", __func__);
+		geni_mas->is_deep_sleep = true;
+	}
+#endif
 
 	if (!pm_runtime_status_suspended(dev)) {
 		if (list_empty(&spi->queue) && !spi->cur_msg) {
@@ -2606,13 +2620,6 @@ static int spi_geni_suspend(struct device *dev)
 		}
 	}
 
-#ifdef CONFIG_DEEPSLEEP
-	if (pm_suspend_via_firmware()) {
-		SPI_LOG_ERR(geni_mas->ipc, true, dev,
-			    "%s:DEEP SLEEP EXIT", __func__);
-		geni_mas->is_deep_sleep = true;
-	}
-#endif
 	return ret;
 }
 #else
