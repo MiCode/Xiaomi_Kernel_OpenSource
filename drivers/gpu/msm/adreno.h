@@ -217,11 +217,12 @@ enum adreno_gpurev {
 	ADRENO_REV_A662 = 662,
 	ADRENO_REV_A680 = 680,
 	/*
-	 * Gen7 and higher version numbers may exceed 1 digit
+	 * Version numbers may exceed 1 digit
 	 * Bits 16-23: Major
 	 * Bits 8-15: Minor
 	 * Bits 0-7: Patch id
 	 */
+	ADRENO_REV_GEN6_3_26_0 = 0x032600,
 	ADRENO_REV_GEN7_0_0 = 0x070000,
 	ADRENO_REV_GEN7_0_1 = 0x070001,
 	ADRENO_REV_GEN7_4_0 = 0x070400,
@@ -1119,6 +1120,7 @@ ADRENO_TARGET(a662, ADRENO_REV_A662)
 ADRENO_TARGET(a640, ADRENO_REV_A640)
 ADRENO_TARGET(a650, ADRENO_REV_A650)
 ADRENO_TARGET(a680, ADRENO_REV_A680)
+ADRENO_TARGET(gen6_3_26_0, ADRENO_REV_GEN6_3_26_0)
 
 /* A635 is derived from A660 and shares same logic */
 static inline int adreno_is_a660(struct adreno_device *adreno_dev)
@@ -1179,6 +1181,13 @@ static inline int adreno_is_a620(struct adreno_device *adreno_dev)
 	unsigned int rev = ADRENO_GPUREV(adreno_dev);
 
 	return (rev == ADRENO_REV_A620 || rev == ADRENO_REV_A621);
+}
+
+static inline int adreno_is_a612_family(struct adreno_device *adreno_dev)
+{
+	unsigned int rev = ADRENO_GPUREV(adreno_dev);
+
+	return (rev == ADRENO_REV_A612 || rev == ADRENO_REV_GEN6_3_26_0);
 }
 
 static inline int adreno_is_a640v2(struct adreno_device *adreno_dev)

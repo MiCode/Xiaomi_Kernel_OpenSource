@@ -1779,6 +1779,30 @@ static const struct adreno_a6xx_core adreno_gpu_core_a662 = {
 	.ctxt_record_size = 2496 * 1024,
 };
 
+static const struct adreno_a6xx_core adreno_gpu_core_gen6_3_26_0 = {
+	.base = {
+		DEFINE_ADRENO_REV(ADRENO_REV_GEN6_3_26_0, ANY_ID, ANY_ID, ANY_ID, ANY_ID),
+		.compatible = "qcom,adreno-gpu-gen6-3-26-0",
+		.features = ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT,
+		.gpudev = &adreno_a6xx_gpudev,
+		.perfcounters = &adreno_a6xx_legacy_perfcounters,
+		.uche_gmem_alignment = SZ_1M,
+		.gmem_size = (SZ_128K + SZ_4K),
+		.bus_width = 32,
+		.snapshot_size = SZ_2M,
+	},
+	.prim_fifo_threshold = 0x00080000,
+	.sqefw_name = "a630_sqe.fw",
+	.zap_name = "gen6_3_26_0_zap",
+	.hwcg = a612_hwcg_regs,
+	.hwcg_count = ARRAY_SIZE(a612_hwcg_regs),
+	.vbif = a640_vbif_regs,
+	.vbif_count = ARRAY_SIZE(a640_vbif_regs),
+	.hang_detect_cycles = 0x3fffff,
+	.protected_regs = a630_protected_regs,
+	.highest_bank_bit = 15,
+};
+
 extern const struct gen7_snapshot_block_list gen7_0_0_snapshot_block_list;
 extern const struct gen7_snapshot_block_list gen7_3_0_snapshot_block_list;
 
@@ -2216,6 +2240,7 @@ static const struct adreno_gpu_core *adreno_gpulist[] = {
 	&adreno_gpu_core_a616.base,
 	&adreno_gpu_core_a610.base,
 	&adreno_gpu_core_a660_shima.base,
+	&adreno_gpu_core_gen6_3_26_0.base,
 	&adreno_gpu_core_gen7_0_0.base,
 	&adreno_gpu_core_gen7_0_1.base,
 	&adreno_gpu_core_a662.base,

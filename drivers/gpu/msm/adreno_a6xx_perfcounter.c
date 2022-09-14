@@ -975,7 +975,7 @@ static const struct adreno_perfcount_group a6xx_hwsched_perfcounter_groups
 		NULL),
 };
 
-/* a610, a612, a616, a618 and a619 do not have the GMU registers.
+/* a610, a612, gen6_3_26_0, a616, a618 and a619 do not have the GMU registers.
  * a605, a608, a615, a630, a640 and a680 don't have enough room in the
  * CP_PROTECT registers so the GMU counters are not accessible
  */
