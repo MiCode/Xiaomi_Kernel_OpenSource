@@ -1926,7 +1926,7 @@ MODULE_DEVICE_TABLE(of, lt9611uxc_match_table);
 
 static struct i2c_driver lt9611uxc_driver = {
 	.driver = {
-		.name = "lt9611uxc",
+		.name = "lt-lt9611uxc",
 		.of_match_table = lt9611uxc_match_table,
 	},
 	.probe = lt9611uxc_probe,
