@@ -4974,13 +4974,9 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 
 	kgsl_device_events_remove(device);
 
-	kgsl_mmu_close(device);
-
-	/*
-	 * This needs to come after the MMU close so we can be sure all the
-	 * pagetables have been freed
-	 */
 	kgsl_free_globals(device);
+
+	kgsl_mmu_close(device);
 
 	kgsl_pwrctrl_close(device);
 

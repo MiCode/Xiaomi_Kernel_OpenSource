@@ -1353,9 +1353,6 @@ void kgsl_unmap_and_put_gpuaddr(struct kgsl_memdesc *memdesc)
 	if (!memdesc->size || !memdesc->gpuaddr)
 		return;
 
-	if (WARN_ON(kgsl_memdesc_is_global(memdesc)))
-		return;
-
 	/*
 	 * Don't release the GPU address if the memory fails to unmap because
 	 * the IOMMU driver will BUG later if we reallocated the address and
@@ -1382,6 +1379,7 @@ static const struct kgsl_memdesc_ops kgsl_contiguous_ops = {
 static const struct kgsl_memdesc_ops kgsl_secure_system_ops = {
 	.free = kgsl_free_secure_system_pages,
 	/* FIXME: Make sure vmflags / vmfault does the right thing here */
+	.put_gpuaddr = kgsl_unmap_and_put_gpuaddr,
 };
 
 static const struct kgsl_memdesc_ops kgsl_secure_page_ops = {

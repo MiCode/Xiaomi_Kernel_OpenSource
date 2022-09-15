@@ -839,6 +839,7 @@ static void kgsl_iommu_map_global(struct kgsl_mmu *mmu,
 
 	if (memdesc->flags & KGSL_MEMFLAGS_SECURE) {
 		kgsl_iommu_map_secure_global(mmu, memdesc);
+		memdesc->priv |= KGSL_MEMDESC_MAPPED;
 		return;
 	}
 
@@ -855,6 +856,7 @@ static void kgsl_iommu_map_global(struct kgsl_mmu *mmu,
 	}
 
 	kgsl_iommu_default_map(mmu->defaultpagetable, memdesc);
+	memdesc->priv |= KGSL_MEMDESC_MAPPED;
 }
 
 /* Print the mem entry for the pagefault debugging */
@@ -2468,18 +2470,8 @@ int kgsl_iommu_probe(struct kgsl_device *device)
 	of_node_put(node);
 
 	/* Map any globals that might have been created early */
-	list_for_each_entry(md, &device->globals, node) {
-
-		if (md->memdesc.flags & KGSL_MEMFLAGS_SECURE) {
-			if (IS_ERR_OR_NULL(mmu->securepagetable))
-				continue;
-
-			kgsl_iommu_secure_map(mmu->securepagetable,
-				&md->memdesc);
-		} else
-			kgsl_iommu_default_map(mmu->defaultpagetable,
-				&md->memdesc);
-	}
+	list_for_each_entry(md, &device->globals, node)
+		kgsl_iommu_map_global(mmu, &md->memdesc, 0);
 
 	/* QDSS is supported only when QCOM_KGSL_QDSS_STM is enabled */
 	if (IS_ENABLED(CONFIG_QCOM_KGSL_QDSS_STM))
