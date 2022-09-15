@@ -1,4 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0 */
+#ifdef PROTECT_TRACE_INCLUDE_PATH
+#undef PROTECT_TRACE_INCLUDE_PATH
+
+#include <trace/hooks/save_incpath.h>
+#include <trace/hooks/mm.h>
+#include <trace/hooks/restore_incpath.h>
+
+#else /* PROTECT_TRACE_INCLUDE_PATH */
+
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM mm
 
@@ -82,8 +91,32 @@ DECLARE_HOOK(android_vh_mem_cgroup_css_offline,
 DECLARE_HOOK(android_vh_vmpressure,
 	TP_PROTO(struct mem_cgroup *memcg, bool *bypass),
 	TP_ARGS(memcg, bypass));
+DECLARE_HOOK(android_vh_update_page_mapcount,
+	TP_PROTO(struct page *page, bool inc_size, bool compound,
+			bool *first_mapping, bool *success),
+	TP_ARGS(page, inc_size, compound, first_mapping, success));
+DECLARE_HOOK(android_vh_add_page_to_lrulist,
+	TP_PROTO(struct page *page, bool compound, enum lru_list lru),
+	TP_ARGS(page, compound, lru));
+DECLARE_HOOK(android_vh_del_page_from_lrulist,
+	TP_PROTO(struct page *page, bool compound, enum lru_list lru),
+	TP_ARGS(page, compound, lru));
+DECLARE_HOOK(android_vh_show_mapcount_pages,
+	TP_PROTO(void *unused),
+	TP_ARGS(unused));
+DECLARE_HOOK(android_vh_do_traversal_lruvec,
+	TP_PROTO(struct lruvec *lruvec),
+	TP_ARGS(lruvec));
+DECLARE_HOOK(android_vh_page_should_be_protected,
+	TP_PROTO(struct page *page, bool *should_protect),
+	TP_ARGS(page, should_protect));
+DECLARE_HOOK(android_vh_mark_page_accessed,
+	TP_PROTO(struct page *page),
+	TP_ARGS(page));
 
 #endif /* _TRACE_HOOK_MM_H */
 
 /* This part must be outside protection */
 #include <trace/define_trace.h>
+
+#endif /* PROTECT_TRACE_INCLUDE_PATH */

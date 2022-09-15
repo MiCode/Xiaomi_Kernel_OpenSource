@@ -8388,6 +8388,7 @@ void cfg80211_ch_switch_notify(struct net_device *dev,
  * cfg80211_ch_switch_started_notify - notify channel switch start
  * @dev: the device on which the channel switch started
  * @chandef: the future channel definition
+ * @link_id: the link ID for MLO, must be 0 for non-MLO
  * @count: the number of TBTTs until the channel switch happens
  * @quiet: whether or not immediate quiet was requested by the AP
  *
@@ -8397,7 +8398,8 @@ void cfg80211_ch_switch_notify(struct net_device *dev,
  */
 void cfg80211_ch_switch_started_notify(struct net_device *dev,
 				       struct cfg80211_chan_def *chandef,
-				       u8 count, bool quiet);
+				       unsigned int link_id, u8 count,
+				       bool quiet);
 
 /**
  * ieee80211_operating_class_to_band - convert operating class to band
