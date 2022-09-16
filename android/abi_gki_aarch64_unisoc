@@ -1491,8 +1491,8 @@
 
 # required by cqhci.ko
   devm_blk_ksm_init
-  sdhci_cqe_enable
   sdhci_cqe_disable
+  sdhci_cqe_enable
   sdhci_cqe_irq
 
 # required by dns_resolver.ko
@@ -2244,6 +2244,7 @@
 # required by sdhci-sprd.ko
   clk_round_rate
   mmc_free_host
+  mmc_get_ext_csd
   mmc_of_parse
   mmc_regulator_set_ocr
   mmc_regulator_set_vqmmc
