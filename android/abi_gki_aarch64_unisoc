@@ -349,6 +349,9 @@
   extcon_get_edev_by_phandle
   extcon_get_extcon_dev
   extcon_get_state
+  extcon_set_property
+  extcon_set_property_capability
+  extcon_set_state
   fb_mode_option
   _find_first_bit
   __find_get_block
