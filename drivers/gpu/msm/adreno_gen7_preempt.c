@@ -479,11 +479,10 @@ void gen7_preemption_prepare_postamble(struct adreno_device *adreno_dev)
 	}
 
 	/*
-	 * Reserve 5 more dwords in preemption scratch buffer for dynamic QOS
+	 * Reserve 4 more dwords in preemption scratch buffer for dynamic QOS
 	 * control feature.
 	 */
 	if (gen7_core->qos_value) {
-		postamble[count++] = cp_type7_packet(CP_WAIT_FOR_IDLE, 0);
 		postamble[count++] = cp_type7_packet(CP_MEM_TO_REG, 3);
 		postamble[count++] = GEN7_RBBM_GBIF_CLIENT_QOS_CNTL;
 		postamble[count++] = lower_32_bits(PREEMPT_SCRATCH_ADDR(adreno_dev, QOS_VALUE_IDX));
