@@ -2121,23 +2121,20 @@ static int spi_geni_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int spi_geni_gpi_pause_resume(struct spi_geni_master *geni_mas, bool flag)
+static int spi_geni_gpi_pause_resume(struct spi_geni_master *geni_mas, bool is_suspend)
 {
-	int tx_ret = 0, rx_ret = 0;
+	int tx_ret = 0;
 
-	if ((geni_mas->tx != NULL) && (geni_mas->rx != NULL)) {
-		if (flag) {
+	if (geni_mas->tx) {
+		if (is_suspend)
 			tx_ret = dmaengine_pause(geni_mas->tx);
-			rx_ret = dmaengine_pause(geni_mas->rx);
-		} else {
+		else
 			tx_ret = dmaengine_resume(geni_mas->tx);
-			rx_ret = dmaengine_resume(geni_mas->rx);
-		}
 
-		if (tx_ret || rx_ret) {
+		if (tx_ret) {
 			SPI_LOG_ERR(geni_mas->ipc, true, geni_mas->dev,
-			"%s failed: tx:%d rx:%d flag:%d\n",
-			__func__, tx_ret, rx_ret, flag);
+			"%s failed: tx:%d status:%d\n",
+			__func__, tx_ret, is_suspend);
 			return -EINVAL;
 		}
 	}
