@@ -1785,6 +1785,7 @@
   _totalram_pages
   __traceiter_android_rvh_report_bug
   __traceiter_android_rvh_tk_based_time_sync
+  __traceiter_android_vh_dma_buf_release
   __traceiter_android_vh_printk_caller
   __traceiter_android_vh_printk_caller_id
   __traceiter_android_vh_printk_ext_header
