@@ -3213,6 +3213,8 @@ struct ipa_tether_device_info {
  */
 enum ipa_vlan_ifaces {
 	IPA_VLAN_IF_ETH,
+	IPA_VLAN_IF_ETH0,
+	IPA_VLAN_IF_ETH1,
 	IPA_VLAN_IF_RNDIS,
 	IPA_VLAN_IF_ECM
 };
