@@ -386,6 +386,7 @@ struct anx7625_data {
 	u8 display_timing_valid;
 	struct drm_bridge bridge;
 	struct mipi_dsi_device *dsi;
+	u32 channel;
 };
 
 #endif  /* __ANX7625_H__ */
