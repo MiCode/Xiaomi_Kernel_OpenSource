@@ -91,6 +91,7 @@ static int msm_sdexpress_vreg_disable(struct msm_sdexpress_reg_data *vreg)
 					__func__, vreg->name, ret);
 			return ret;
 		}
+		vreg->is_enabled = false;
 
 		/* Set min. voltage level to 0 */
 		return msm_sdexpress_vreg_set_voltage(vreg, 0, vreg->high_vol_level);
