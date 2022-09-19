@@ -17,6 +17,7 @@
 #include <linux/igmp.h>
 #include <linux/ipc_namespace.h>
 #include <linux/mtd/mtd.h>
+#include <linux/pagemap.h>
 #include <linux/pr.h>
 #include <linux/skmsg.h>
 #include <linux/statfs.h>
@@ -62,7 +63,9 @@
 #include <trace/hooks/preemptirq.h>
 #include <trace/hooks/ftrace_dump.h>
 #include <trace/hooks/ufshcd.h>
+#ifdef __GENKSYMS__
 #include <trace/hooks/block.h>
+#endif
 #include <trace/hooks/cgroup.h>
 #include <trace/hooks/sys.h>
 #include <trace/hooks/iommu.h>
@@ -75,7 +78,9 @@
 #include <trace/hooks/creds.h>
 #include <trace/hooks/memory.h>
 #include <trace/hooks/module.h>
+#ifdef __GENKSYMS__
 #include <trace/hooks/selinux.h>
+#endif
 #include <trace/hooks/syscall_check.h>
 #include <trace/hooks/logbuf.h>
 #include <trace/hooks/remoteproc.h>
@@ -252,7 +257,6 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_set_memory_rw);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_set_module_permit_before_init);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_set_module_permit_after_init);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_oom_check_panic);
-EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_selinux_is_initialized);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_check_mmap_file);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_check_file_open);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_check_bpf_syscall);
@@ -320,8 +324,6 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_dma_buf_release);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_dmabuf_heap_flags_validation);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_pass_input_event);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mmc_check_status);
-EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_blk_alloc_rqs);
-EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_blk_rq_ctx_init);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mmap_region);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_try_to_unmap_one);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_shrink_node_memcgs);
@@ -394,3 +396,9 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alloc_pages_failure_bypass);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cpufreq_acct_update_power);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rmqueue);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_tune_inactive_ratio);
+
+/*
+ * For type visibility
+ */
+const struct readahead_control *GKI_struct_readahead_control;
+EXPORT_SYMBOL_GPL(GKI_struct_readahead_control);
