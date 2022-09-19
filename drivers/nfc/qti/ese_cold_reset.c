@@ -167,6 +167,7 @@ int ese_cold_reset_ioctl(struct nfc_dev *nfc_dev, unsigned long arg)
 	if (!cold_reset_arg)
 		return -ENOMEM;
 
+	mutex_lock(&nfc_dev->write_mutex);
 	ret = copy_struct_from_user(cold_reset_arg,
 				sizeof(struct ese_cold_reset_arg),
 				u64_to_user_ptr(ioctl_arg.buf),
@@ -332,11 +333,14 @@ int ese_cold_reset_ioctl(struct nfc_dev *nfc_dev, unsigned long arg)
 		pr_debug("ese cmd is %d\n", cold_reset_arg->sub_cmd);
 
 	ret = nfc_dev->cold_reset.status;
+
 err:
 	kfree(nfc_dev->cold_reset.cmd_buf);
+	nfc_dev->cold_reset.cmd_buf = NULL;
 	kfree(cold_reset_arg);
 	cold_reset_arg = NULL;
-	nfc_dev->cold_reset.cmd_buf = NULL;
+
+	mutex_unlock(&nfc_dev->write_mutex);
 
 	return ret;
 }
