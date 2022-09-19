@@ -2382,3 +2382,13 @@
   xsk_tx_peek_desc
   xsk_tx_release
   xsk_uses_need_wakeup
+  mmc_set_clock
+  mmc_execute_tuning
+  mmc_set_bus_mode
+  mmc_set_timing
+  mmc_set_bus_width
+  mmc_retune_release
+  __mmc_poll_for_busy
+  mmc_select_card
+  mmc_prepare_busy_cmd
+  mmc_retune_hold
