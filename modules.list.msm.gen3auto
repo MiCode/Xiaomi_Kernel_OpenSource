@@ -66,3 +66,4 @@ crypto-qti-common.ko
 ufshcd-crypto-qti.ko
 crypto-qti-tz.ko
 qcom_logbuf_vh.ko
+mem-hooks.ko
