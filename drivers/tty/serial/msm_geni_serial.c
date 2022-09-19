@@ -4052,8 +4052,10 @@ static void msm_geni_serial_init_gsi(struct uart_port *uport)
 {
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
 
+	msm_geni_serial_resources_on(msm_port);
 	msm_port->gsi_mode = geni_read_reg(uport->membase,
 					   GENI_IF_DISABLE_RO) & FIFO_IF_DISABLE;
+	msm_geni_serial_resources_off(msm_port);
 	dev_info(uport->dev, "gsi_mode:%d\n", msm_port->gsi_mode);
 	if (msm_port->gsi_mode) {
 		msm_port->gsi = devm_kzalloc(uport->dev, sizeof(*msm_port->gsi),
@@ -4083,14 +4085,7 @@ static int msm_geni_serial_get_ver_info(struct uart_port *uport)
 		/* By default Enable clk divider value */
 		msm_port->ser_clk_cfg = 0x21;
 
-		ret = geni_icc_enable(&msm_port->se);
-		if (ret) {
-			UART_LOG_DBG(msm_port->ipc_log_misc, msm_port->uport.dev,
-				"%s: Error %d geni_icc_enable failed\n", __func__, ret);
-			return ret;
-		}
-		geni_se_common_clks_on(msm_port->serial_rsc.se_clk,
-			msm_port->serial_rsc.m_ahb_clk, msm_port->serial_rsc.s_ahb_clk);
+		msm_geni_serial_resources_on(msm_port);
 		msm_geni_enable_disable_se_clk(uport, true);
 	}
 
@@ -4124,15 +4119,7 @@ static int msm_geni_serial_get_ver_info(struct uart_port *uport)
 exit_ver_info:
 	if (!msm_port->is_console) {
 		msm_geni_enable_disable_se_clk(uport, false);
-		geni_se_common_clks_off(msm_port->serial_rsc.se_clk,
-			msm_port->serial_rsc.m_ahb_clk, msm_port->serial_rsc.s_ahb_clk);
-
-		ret = geni_icc_disable(&msm_port->se);
-		if (ret) {
-			UART_LOG_DBG(msm_port->ipc_log_misc, msm_port->uport.dev,
-				"%s: Error %d geni_icc_disable failed\n", __func__, ret);
-			return ret;
-		}
+		msm_geni_serial_resources_off(msm_port);
 	}
 
 	return invalid_fw_err ? invalid_fw_err : ret;
