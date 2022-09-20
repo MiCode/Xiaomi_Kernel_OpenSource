@@ -1607,6 +1607,7 @@ static int slatecom_pm_prepare(struct device *dev)
 	struct slate_spi_priv *slate_spi = spi_get_drvdata(s_dev);
 	int ret = 0;
 
+	g_slave_status_auto_clear_reg = 0;
 	clnt_handle.slate_spi = slate_spi;
 
 	if (!(g_slav_status_reg & BIT(31))) {
