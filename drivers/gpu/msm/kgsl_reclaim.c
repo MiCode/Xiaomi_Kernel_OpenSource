@@ -386,7 +386,7 @@ void kgsl_reclaim_proc_private_init(struct kgsl_process_private *process)
 	atomic_set(&process->unpinned_page_count, 0);
 }
 
-int kgsl_reclaim_init(void)
+int kgsl_reclaim_start(void)
 {
 	int ret;
 
@@ -394,14 +394,26 @@ int kgsl_reclaim_init(void)
 	ret = register_shrinker(&kgsl_reclaim_shrinker);
 	if (ret)
 		pr_err("kgsl: reclaim: Failed to register shrinker\n");
-	else
-		INIT_WORK(&reclaim_work, kgsl_reclaim_background_work);
 
 	return ret;
+}
+
+int kgsl_reclaim_init(void)
+{
+	int ret = kgsl_reclaim_start();
+
+	if (ret)
+		return ret;
+
+	INIT_WORK(&reclaim_work, kgsl_reclaim_background_work);
+
+	return 0;
 }
 
 void kgsl_reclaim_close(void)
 {
 	/* Unregister shrinker */
 	unregister_shrinker(&kgsl_reclaim_shrinker);
+
+	cancel_work_sync(&reclaim_work);
 }
