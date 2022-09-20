@@ -1146,8 +1146,24 @@ struct kgsl_drawobj_cmd *kgsl_drawobj_cmd_create(struct kgsl_device *device,
 	INIT_LIST_HEAD(&cmdobj->memlist);
 	cmdobj->requeue_cnt = 0;
 
-	if (type & CMDOBJ_TYPE)
-		atomic_inc(&context->proc_priv->cmd_count);
+	if (!(type & CMDOBJ_TYPE))
+		return cmdobj;
+
+	atomic_inc(&context->proc_priv->cmd_count);
+	spin_lock(&device->proc_period_lock);
+	if (!__test_and_set_bit(KGSL_PROCESS_STATS_GPU_BUSY,
+				&device->flags)) {
+		mod_timer(&device->proc_period_timer,
+			  jiffies + msecs_to_jiffies(KGSL_PROC_GPU_WORK_PERIOD_MS));
+		device->gpu_period.begin = ktime_get_ns();
+	}
+
+	/* Take a refcount here and put it back in kgsl_process_gpu_work_timer() */
+	if (!__test_and_set_bit(KGSL_PROCESS_STATS_GPU_BUSY,
+				&context->proc_priv->flags))
+		kgsl_process_private_get(context->proc_priv);
+
+	spin_unlock(&device->proc_period_lock);
 
 	return cmdobj;
 }
