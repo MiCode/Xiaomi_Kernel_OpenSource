@@ -273,10 +273,13 @@ int qmp_send(struct qmp *qmp, const void *data, size_t len)
 		/* Clear message from buffer */
 		AOSS_INFO("timed out clearing msg: %.*s\n", len, (char *)data);
 		writel(0, qmp->msgram + qmp->offset);
+	} else if (time_left < 0) {
+		dev_err(qmp->dev, "wait error %d\n", time_left);
+		ret = time_left;
 	} else {
+		AOSS_INFO("ack: %.*s\n", len, (char *)data);
 		ret = 0;
 	}
-	AOSS_INFO("ack: %.*s\n", len, (char *)data);
 
 	mutex_unlock(&qmp->tx_lock);
 
