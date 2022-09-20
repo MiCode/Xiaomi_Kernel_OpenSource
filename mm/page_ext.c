@@ -7,6 +7,7 @@
 #include <linux/vmalloc.h>
 #include <linux/kmemleak.h>
 #include <linux/page_owner.h>
+#include <linux/page_pinner.h>
 #include <linux/page_idle.h>
 
 /*
@@ -74,6 +75,9 @@ static struct page_ext_operations *page_ext_ops[] = {
 #endif
 #if defined(CONFIG_PAGE_IDLE_FLAG) && !defined(CONFIG_64BIT)
 	&page_idle_ops,
+#endif
+#ifdef CONFIG_PAGE_PINNER
+	&page_pinner_ops,
 #endif
 };
 
