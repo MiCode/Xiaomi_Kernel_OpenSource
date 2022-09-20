@@ -1451,6 +1451,33 @@ static struct clk_regmap_mux ecpri_cc_emac_synce_cmux_clk_src = {
 	},
 };
 
+static struct clk_dummy ecpri_cc_emac_synce_cmux_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "ecpri_cc_emac_synce_cmux_clk",
+		.parent_hws = (const struct clk_hw*[]){
+			&ecpri_cc_emac_synce_cmux_clk_src.clkr.hw,
+		},
+		.num_parents = 1,
+		.flags = CLK_SET_RATE_PARENT,
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_regmap_div ecpri_cc_emac_synce_div_clk_src = {
+	.reg = 0xc000,
+	.shift = 0,
+	.width = 4,
+	.clkr.hw.init = &(const struct clk_init_data) {
+		.name = "ecpri_cc_emac_synce_div_clk_src",
+		.parent_hws = (const struct clk_hw*[]){
+			&ecpri_cc_emac_synce_cmux_clk.hw,
+		},
+		.num_parents = 1,
+		.ops = &clk_regmap_div_ops,
+	},
+};
+
 static const struct freq_tbl ftbl_ecpri_cc_ecpri_clk_src[] = {
 	F(466500000, P_GCC_ECPRI_CC_GPLL5_OUT_EVEN, 1, 0, 0),
 	{ }
@@ -4023,8 +4050,13 @@ static struct clk_regmap *ecpri_cc_cinder_clocks[] = {
 	[ECPRI_CC_PHY4_LANE3_TX_CLK] = &ecpri_cc_phy4_lane3_tx_clk.clkr,
 	[ECPRI_CC_PHY4_LANE3_TX_CLK_SRC] = &ecpri_cc_phy4_lane3_tx_clk_src.clkr,
 	[ECPRI_CC_EMAC_SYNCE_CMUX_CLK_SRC] = &ecpri_cc_emac_synce_cmux_clk_src.clkr,
+	[ECPRI_CC_EMAC_SYNCE_DIV_CLK_SRC] = &ecpri_cc_emac_synce_div_clk_src.clkr,
 	[ECPRI_CC_PLL0] = &ecpri_cc_pll0.clkr,
 	[ECPRI_CC_PLL1] = &ecpri_cc_pll1.clkr,
+};
+
+static struct clk_hw *ecpri_cc_cinder_hws[] = {
+	[ECPRI_CC_EMAC_SYNCE_CMUX_CLK] = &ecpri_cc_emac_synce_cmux_clk.hw,
 };
 
 static const struct qcom_reset_map ecpri_cc_cinder_resets[] = {
@@ -4036,6 +4068,7 @@ static const struct qcom_reset_map ecpri_cc_cinder_resets[] = {
 	[ECPRI_CC_CLK_CTL_TOP_ECPRI_CC_ETH_WRAPPER_TOP_BCR] = { 0x8104 },
 	[ECPRI_CC_CLK_CTL_TOP_ECPRI_CC_MODEM_BCR] = { 0xe000 },
 	[ECPRI_CC_CLK_CTL_TOP_ECPRI_CC_NOC_BCR] = { 0xf000 },
+	[ECPRI_CC_CLK_CTL_TOP_ECPRI_CC_EMAC_SYNCE_ACGCR] = { 0x1c004 },
 };
 
 static const struct regmap_config ecpri_cc_cinder_regmap_config = {
@@ -4050,6 +4083,8 @@ static const struct qcom_cc_desc ecpri_cc_cinder_desc = {
 	.config = &ecpri_cc_cinder_regmap_config,
 	.clks = ecpri_cc_cinder_clocks,
 	.num_clks = ARRAY_SIZE(ecpri_cc_cinder_clocks),
+	.clk_hws = ecpri_cc_cinder_hws,
+	.num_clk_hws = ARRAY_SIZE(ecpri_cc_cinder_hws),
 	.resets = ecpri_cc_cinder_resets,
 	.num_resets = ARRAY_SIZE(ecpri_cc_cinder_resets),
 	.clk_regulators = ecpri_cc_cinder_regulators,

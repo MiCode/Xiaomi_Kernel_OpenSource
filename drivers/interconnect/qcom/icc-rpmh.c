@@ -441,12 +441,6 @@ int qcom_icc_rpmh_probe(struct platform_device *pdev)
 	for (i = 0; i < qp->num_bcms; i++)
 		qcom_icc_bcm_init(qp, qp->bcms[i], dev);
 
-	if (!qp->skip_qos) {
-		ret = enable_qos_deps(qp);
-		if (ret)
-			return ret;
-	}
-
 	for (i = 0; i < num_nodes; i++) {
 		qn = qnodes[i];
 		if (!qn)
@@ -470,14 +464,13 @@ int qcom_icc_rpmh_probe(struct platform_device *pdev)
 		data->nodes[i] = node;
 	}
 
-	if (!qp->skip_qos)
-		disable_qos_deps(qp);
-
 	data->num_nodes = num_nodes;
 
-	ret = qcom_icc_rpmh_configure_qos(qp);
-	if (ret)
-		goto err;
+	if (!qp->skip_qos) {
+		ret = qcom_icc_rpmh_configure_qos(qp);
+		if (ret)
+			goto err;
+	}
 
 	platform_set_drvdata(pdev, qp);
 

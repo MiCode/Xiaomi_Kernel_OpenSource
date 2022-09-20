@@ -36,13 +36,16 @@
 #define MSG_RAM_ALIGN_BYTES 3
 
 #define QMP_IPC_LOG_PAGE_CNT 2
-#define QMP_INFO(ctxt, x, ...)						  \
-	ipc_log_string(ctxt, "[%s]: "x, __func__, ##__VA_ARGS__)
+#define QMP_INFO(ctxt, x, ...)						    \
+	ipc_log_string(ctxt, "[%d]: %s: "x, task_pid_nr(current),	    \
+		       __func__, ##__VA_ARGS__)
 
 #define QMP_ERR(ctxt, x, ...)						    \
 do {									    \
-	printk_ratelimited("%s[%s]: "x, KERN_ERR, __func__, ##__VA_ARGS__); \
-	ipc_log_string(ctxt, "%s[%s]: "x, "", __func__, ##__VA_ARGS__);	    \
+	printk_ratelimited("%s[%d]: %s: "x, KERN_ERR, task_pid_nr(current), \
+			   __func__, ##__VA_ARGS__);			    \
+	ipc_log_string(ctxt, "%s[%d]: %s: "x, "", task_pid_nr(current),     \
+		       __func__, ##__VA_ARGS__);			    \
 } while (0)
 
 #ifdef CONFIG_QMP_DEBUGFS_CLIENT
@@ -134,6 +137,7 @@ struct qmp_core_version {
  * @mcore_mbox_offset:	Offset of mcore mbox from the msgram start
  * @mcore_mbox_size:	Size of the mcore mbox
  * @rx_pkt:		buffer to pass to client, holds copied data from mailbox
+ * @tx_pkt:		Each mbox channel gets a pending tx entry
  * @version:		Version and features received during link negotiation
  * @local_state:	Current state of the mailbox protocol
  * @state_lock:		Serialize mailbox state changes
@@ -157,7 +161,7 @@ struct qmp_mbox {
 	u32 mcore_mbox_offset;
 	u32 mcore_mbox_size;
 	struct qmp_pkt rx_pkt;
-	struct qmp_pkt tx_pkt;
+	struct qmp_pkt *tx_pkt;
 	struct work_struct tx_work;
 
 	struct qmp_core_version version;
@@ -169,6 +173,7 @@ struct qmp_mbox {
 	struct completion ch_complete;
 	struct delayed_work dwork;
 	struct qmp_device *mdev;
+	bool suspend_flag;
 };
 
 /**
@@ -206,6 +211,7 @@ struct qmp_device {
 	struct qmp *qmp;
 
 	void *ilc;
+	bool early_boot;
 };
 
 /**
@@ -381,7 +387,7 @@ static int qmp_send_data(struct mbox_chan *chan, void *data)
 	u32 size;
 	int i;
 
-	if (!mbox || !data || mbox->local_state != CHANNEL_CONNECTED)
+	if (!mbox || !data || !completion_done(&mbox->ch_complete))
 		return -EINVAL;
 
 	mdev = mbox->mdev;
@@ -557,9 +563,8 @@ static void __qmp_rx_worker(struct qmp_mbox *mbox)
 		}
 		init_mcore_state(mbox);
 		mbox->local_state = LINK_NEGOTIATION;
-		mbox->rx_pkt.data = devm_kzalloc(mdev->dev,
-						 desc.ucore.mailbox_size,
-						 GFP_KERNEL);
+		mbox->rx_pkt.data = kzalloc(desc.ucore.mailbox_size,
+					    GFP_KERNEL);
 		if (!mbox->rx_pkt.data) {
 			QMP_ERR(mdev->ilc, "Failed to allocate rx pkt\n");
 			break;
@@ -576,6 +581,16 @@ static void __qmp_rx_worker(struct qmp_mbox *mbox)
 		mbox->local_state = LINK_CONNECTED;
 		complete_all(&mbox->link_complete);
 		QMP_INFO(mdev->ilc, "Set to link connected\n");
+		/*
+		 * If link connection happened after hibernation
+		 * manualy trigger the channel open procedure since client
+		 * won't try to re-open the channel
+		 */
+		if (mbox->suspend_flag) {
+			set_mcore_ch(mbox, QMP_MBOX_CH_CONNECTED);
+			mbox->local_state = LOCAL_CONNECTING;
+			send_irq(mbox->mdev);
+		}
 		break;
 	case LINK_CONNECTED:
 		if (desc.ucore.ch_state == desc.ucore.ch_state_ack) {
@@ -775,17 +790,43 @@ static void qmp_shim_shutdown(struct mbox_chan *chan) { }
 static void qmp_shim_worker(struct work_struct *work)
 {
 	struct qmp_mbox *mbox = container_of(work, struct qmp_mbox, tx_work);
-	struct qmp_pkt *pkt = &mbox->tx_pkt;
+	struct qmp_device *mdev = mbox->mdev;
+	unsigned long flags;
+	bool send;
 	int rc;
+	int i;
 
-	rc = qmp_send(mbox->mdev->qmp, pkt->data, pkt->size);
-	mbox_chan_txdone(&mbox->ctrl.chans[mbox->idx_in_flight], rc);
+	for (i = 0; i < mbox->ctrl.num_chans; i++) {
+		struct qmp_pkt *pkt = &mbox->tx_pkt[i];
+
+		spin_lock_irqsave(&mbox->tx_lock, flags);
+		send = pkt->size;
+		spin_unlock_irqrestore(&mbox->tx_lock, flags);
+
+		if (!send)
+			continue;
+
+		QMP_INFO(mdev->ilc, "Calling qmp_send msg:%s\n", pkt->data);
+		rc = qmp_send(mbox->mdev->qmp, pkt->data, pkt->size);
+
+		spin_lock_irqsave(&mbox->tx_lock, flags);
+		pkt->size = 0;
+		spin_unlock_irqrestore(&mbox->tx_lock, flags);
+
+		QMP_INFO(mdev->ilc, "Calling txdone rc:%d\n", rc);
+		mbox_chan_txdone(&mbox->ctrl.chans[i], rc);
+		QMP_INFO(mdev->ilc, "Exiting txdone\n");
+	}
 }
 
 static int qmp_shim_send_data(struct mbox_chan *chan, void *data)
 {
 	struct qmp_mbox *mbox = chan->con_priv;
+	struct qmp_device *mdev = mbox->mdev;
 	struct qmp_pkt *pkt = (struct qmp_pkt *)data;
+	struct qmp_pkt *defer_pkt;
+	unsigned long flags;
+	int idx = -1;
 	int i;
 
 	if (!mbox || !mbox->mdev || !data)
@@ -794,16 +835,32 @@ static int qmp_shim_send_data(struct mbox_chan *chan, void *data)
 	if (pkt->size > SZ_4K)
 		return -EINVAL;
 
+	spin_lock_irqsave(&mbox->tx_lock, flags);
 	for (i = 0; i < mbox->ctrl.num_chans; i++) {
 		if (chan == &mbox->ctrl.chans[i]) {
-			mbox->idx_in_flight = i;
+			idx = i;
 			break;
 		}
 	}
+	if (idx < 0 || idx >= mbox->ctrl.num_chans) {
+		spin_unlock_irqrestore(&mbox->tx_lock, flags);
+		return -EINVAL;
+	}
 
-	mbox->tx_pkt.size = pkt->size;
-	memcpy(mbox->tx_pkt.data, pkt->data, pkt->size);
+	defer_pkt = &mbox->tx_pkt[idx];
+
+	/* Mailbox framework should only have one packet in flight per client */
+	if (defer_pkt->size) {
+		QMP_ERR(mdev->ilc, "dropping msg:%s\n", pkt->data);
+		spin_unlock_irqrestore(&mbox->tx_lock, flags);
+		return -EINVAL;
+	}
+
+	defer_pkt->size = pkt->size;
+	memcpy(defer_pkt->data, pkt->data, pkt->size);
+	QMP_INFO(mdev->ilc, "scheduling worker to send msg:%s\n", pkt->data);
 	schedule_work(&mbox->tx_work);
+	spin_unlock_irqrestore(&mbox->tx_lock, flags);
 	return 0;
 }
 
@@ -887,6 +944,7 @@ static int qmp_mbox_init(struct device_node *n, struct qmp_device *mdev)
 	mbox->tx_sent = false;
 	mbox->num_assigned = 0;
 	INIT_DELAYED_WORK(&mbox->dwork, qmp_notify_timeout);
+	mbox->suspend_flag = false;
 
 	mdev_add_mbox(mdev, mbox);
 	return 0;
@@ -945,18 +1003,26 @@ static int qmp_shim_init(struct platform_device *pdev, struct qmp_device *mdev)
 	if (!mbox)
 		return -ENOMEM;
 
-	mbox->tx_pkt.data = devm_kzalloc(mdev->dev, SZ_4K, GFP_KERNEL);
-	if (!mbox->tx_pkt.data)
-		return -ENOMEM;
-
 	num_chans = get_mbox_num_chans(pdev->dev.of_node);
 	mbox->rx_disabled = (num_chans > 1) ? true : false;
 	chans = devm_kzalloc(mdev->dev, sizeof(*chans) * num_chans, GFP_KERNEL);
 	if (!chans)
 		return -ENOMEM;
 
-	for (i = 0; i < num_chans; i++)
+	mbox->tx_pkt = devm_kzalloc(mdev->dev,
+				    sizeof(struct qmp_pkt) * num_chans,
+				    GFP_KERNEL);
+	if (!mbox->tx_pkt)
+		return -ENOMEM;
+
+	for (i = 0; i < num_chans; i++) {
+		struct qmp_pkt *pkt = &mbox->tx_pkt[i];
+
 		chans[i].con_priv = mbox;
+		pkt->data = devm_kzalloc(mdev->dev, SZ_4K, GFP_KERNEL);
+		if (!pkt->data)
+			return -ENOMEM;
+	}
 
 	mbox->ctrl.dev = mdev->dev;
 	mbox->ctrl.ops = &qmp_mbox_shim_ops;
@@ -966,6 +1032,7 @@ static int qmp_shim_init(struct platform_device *pdev, struct qmp_device *mdev)
 	mbox->ctrl.txdone_poll = false;
 	mbox->ctrl.of_xlate = qmp_mbox_of_xlate;
 
+	spin_lock_init(&mbox->tx_lock);
 	mutex_init(&mbox->state_lock);
 	mbox->num_assigned = 0;
 	mbox->mdev = mdev;
@@ -1071,6 +1138,7 @@ static int qmp_mbox_remove(struct platform_device *pdev)
 
 	list_for_each_entry(mbox, &mdev->mboxes, list) {
 		mbox_controller_unregister(&mbox->ctrl);
+		kfree(mbox->rx_pkt.data);
 	}
 	return 0;
 }
@@ -1098,6 +1166,8 @@ static int qmp_mbox_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	dev_set_drvdata(&pdev->dev, mdev);
+
 	mdev->ilc = ipc_log_context_create(QMP_IPC_LOG_PAGE_CNT, mdev->name, 0);
 
 	ret = devm_request_threaded_irq(&pdev->dev, mdev->rx_irq_line,
@@ -1120,10 +1190,46 @@ static int qmp_mbox_probe(struct platform_device *pdev)
 		list_for_each_entry(mbox, &mdev->mboxes, list) {
 			__qmp_rx_worker(mbox);
 		}
+		mdev->early_boot = true;
 	}
 
 	return 0;
 }
+
+static int qmp_mbox_freeze(struct device *dev)
+{
+	return 0;
+}
+
+static int qmp_mbox_restore(struct device *dev)
+{
+	struct qmp_device *mdev = dev_get_drvdata(dev);
+	struct qmp_mbox *mbox;
+
+	list_for_each_entry(mbox, &mdev->mboxes, list) {
+		mbox->local_state = LINK_DISCONNECTED;
+		init_completion(&mbox->link_complete);
+		init_completion(&mbox->ch_complete);
+		mbox->tx_sent = false;
+		/*
+		 * set suspend flag to indicate self channel open is required
+		 * after restore operation
+		 */
+		mbox->suspend_flag = true;
+		/* Release rx packet buffer */
+		kfree(mbox->rx_pkt.data);
+		mbox->rx_pkt.data = NULL;
+		if (mdev->early_boot)
+			__qmp_rx_worker(mbox);
+	}
+
+	return 0;
+}
+
+static const struct dev_pm_ops qmp_mbox_pm_ops = {
+	.freeze_late = qmp_mbox_freeze,
+	.restore_early = qmp_mbox_restore,
+};
 
 static const struct of_device_id qmp_mbox_dt_match[] = {
 	{ .compatible = "qcom,qmp-mbox" },
@@ -1134,6 +1240,7 @@ static struct platform_driver qmp_mbox_driver = {
 	.driver = {
 		.name = "qmp_mbox",
 		.of_match_table = qmp_mbox_dt_match,
+		.pm = &qmp_mbox_pm_ops,
 	},
 	.probe = qmp_mbox_probe,
 	.remove = qmp_mbox_remove,

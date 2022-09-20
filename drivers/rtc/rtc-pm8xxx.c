@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -618,6 +618,9 @@ static int pm8xxx_rtc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Register RTC device failed\n");
 		return rc;
 	}
+
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,disable-alarm-wakeup"))
+		device_set_wakeup_capable(&pdev->dev, false);
 
 	return pm8xxx_rtc_init_alarm(rtc_dd);
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/bitops.h>
@@ -1296,6 +1297,8 @@ static int adc5_probe(struct platform_device *pdev)
 			return -ENODEV;
 		}
 	}
+
+	platform_set_drvdata(pdev, adc);
 
 	init_completion(&adc->complete);
 	mutex_init(&adc->lock);

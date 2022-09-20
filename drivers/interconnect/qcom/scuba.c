@@ -1113,7 +1113,7 @@ static struct qcom_icc_node qns_anoc_snoc = {
 	.channels = 1,
 	.buswidth = 16,
 	.mas_rpm_id = -1,
-	.slv_rpm_id = ICBID_MASTER_A0NOC_SNOC,
+	.slv_rpm_id = ICBID_SLAVE_A0NOC_SNOC,
 	.num_links = 1,
 	.links = { MASTER_ANOC_SNOC },
 };
@@ -1466,8 +1466,6 @@ static void qnoc_sync_state(struct device *dev)
 	}
 
 	mutex_unlock(&probe_list_lock);
-
-	pr_err("SCUBA ICC Sync State done\n");
 }
 
 static struct platform_driver qnoc_driver = {

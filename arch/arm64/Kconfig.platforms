@@ -248,6 +248,13 @@ config ARCH_WAIPIO
 	  WAIPIO chipset. If you do not wish to build a kernel that
 	  runs on this chipset or if you are unsure, say 'N' here.
 
+config ARCH_BENGAL
+	bool "Enable Support for Qualcomm Technologies, Inc. BENGAL"
+	depends on ARCH_QCOM
+	help
+	  This enables support for the BENGAL chipset. If you do not
+	  wish to build a kernel that runs on this chipset, say 'N' here.
+
 config ARCH_KHAJE
 	bool "Enable Support for Qualcomm Technologies, Inc. KHAJE"
 	depends on ARCH_QCOM

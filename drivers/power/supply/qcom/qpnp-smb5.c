@@ -1519,6 +1519,9 @@ static int smb5_configure_typec(struct smb_charger *chg)
 			dev_err(chg->dev, "Couldn't enable TYPEC rc=%d\n", rc);
 			return rc;
 		}
+
+		/*delay after enabling typeC*/
+		msleep(100);
 	}
 
 	smblib_apsd_enable(chg, true);

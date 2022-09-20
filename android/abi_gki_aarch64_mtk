@@ -29,6 +29,10 @@
   __arch_copy_to_user
   arch_freq_scale
   arch_timer_read_counter
+  arm_smccc_1_1_get_conduit
+  arm_smccc_1_2_hvc
+  arm_smccc_1_2_smc
+  arm_smccc_get_version
   arm64_const_caps_ready
   arm64_use_ng_mappings
   __arm_smccc_hvc
@@ -317,6 +321,7 @@
   device_init_wakeup
   device_link_add
   device_link_remove
+  device_match_any
   device_node_to_regmap
   device_property_present
   device_property_read_string
@@ -1936,6 +1941,7 @@
   trace_event_reg
   trace_handle_return
   __traceiter_android_rvh_after_enqueue_task
+  __traceiter_android_rvh_audio_usb_offload_disconnect
   __traceiter_android_rvh_can_migrate_task
   __traceiter_android_rvh_commit_creds
   __traceiter_android_rvh_cpu_overutilized
@@ -1991,6 +1997,7 @@
   __traceiter_android_vh_rwsem_init
   __traceiter_android_vh_rwsem_wake
   __traceiter_android_vh_rwsem_write_finished
+  __traceiter_android_vh_sched_pelt_multiplier
   __traceiter_android_vh_scheduler_tick
   __traceiter_android_vh_set_memory_nx
   __traceiter_android_vh_set_memory_rw
@@ -2066,6 +2073,7 @@
   __tracepoint_android_vh_rwsem_init
   __tracepoint_android_vh_rwsem_wake
   __tracepoint_android_vh_rwsem_write_finished
+  __tracepoint_android_vh_sched_pelt_multiplier
   __tracepoint_android_vh_scheduler_tick
   __tracepoint_android_vh_set_memory_nx
   __tracepoint_android_vh_set_memory_rw

@@ -1340,6 +1340,7 @@ static int geni_i3c_master_priv_xfers
 	for (i = 0; i < nxfers; i++) {
 		bool stall = (i < (nxfers - 1));
 		struct i3c_xfer_params xfer = { GENI_SE_FIFO };
+		xfer.mode = xfers[i].len > 64 ? GENI_SE_DMA : GENI_SE_FIFO;
 
 		xfer.m_param  = (stall ? STOP_STRETCH : 0);
 		xfer.m_param |= ((dev->info.dyn_addr & I3C_ADDR_MASK)
@@ -2072,9 +2073,10 @@ static int i3c_geni_rsrcs_init(struct geni_i3c_dev *gi3c,
 		gi3c->maxdevs = 1;
 	}
 
+	//1.GENI_TO_CORE  2.CPU_TO_GENI  3.GENI_TO_DDR
 	ret = geni_se_common_resources_init(&gi3c->se,
-			GENI_DEFAULT_BW, GENI_DEFAULT_BW,
-			Bps_to_icc(gi3c->clk_src_freq) * I3C_DDR_VOTE_FACTOR);
+			I3C_CORE2X_VOTE, APPS_PROC_TO_QUP_VOTE,
+			(DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
 	if (ret) {
 		I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev,
 				"geni_se_common_resources_init Failed:%d\n", ret);
@@ -2384,11 +2386,17 @@ static int geni_i3c_probe(struct platform_device *pdev)
 	ret = i3c_master_register(&gi3c->ctrlr, &pdev->dev,
 		&geni_i3c_master_ops, false);
 	if (ret) {
-		I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
-			"I3C master registration failed=%d, continue\n", ret);
-
-		/* NOTE : This may fail on 7E NACK, but should return 0 */
-		ret = 0;
+		if (ret == -ENOTCONN) {
+			I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
+				"Pass I3C master register failure=%d\n", ret);
+			/* NOTE : This may fail on 7E NACK, but should return 0 */
+			ret = 0;
+		} else {
+			I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
+				 "I3C master registration failed=%d\n", ret);
+			/* Except NACK, rest of the errors should fail the Probe */
+			goto cleanup_icc_init;
+		}
 	}
 	I3C_LOG_ERR(gi3c->ipcl, false, gi3c->se.dev,
 		"I3C bus freq:%ld, I2C bus fres:%ld\n",

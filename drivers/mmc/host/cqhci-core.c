@@ -818,7 +818,6 @@ irqreturn_t cqhci_irq(struct mmc_host *mmc, u32 intmask, int cmd_error,
 	struct cqhci_host *cq_host = mmc->cqe_private;
 
 	status = cqhci_readl(cq_host, CQHCI_IS);
-	cqhci_writel(cq_host, status, CQHCI_IS);
 
 	pr_debug("%s: cqhci: IRQ status: 0x%08x\n", mmc_hostname(mmc), status);
 
@@ -830,7 +829,14 @@ irqreturn_t cqhci_irq(struct mmc_host *mmc, u32 intmask, int cmd_error,
 			mmc_debugfs_err_stats_inc(mmc, MMC_ERR_CMDQ_GCE);
 		if (status & CQHCI_IS_ICCE)
 			mmc_debugfs_err_stats_inc(mmc, MMC_ERR_CMDQ_ICCE);
+		pr_err("%s: cqhci: error IRQ status: 0x%08x cmd error %d data error %d\n",
+				mmc_hostname(mmc), status, cmd_error, data_error);
+		cqhci_dumpregs(cq_host);
+		cqhci_writel(cq_host, status, CQHCI_IS);
 		cqhci_error_irq(mmc, status, cmd_error, data_error);
+	} else {
+		 /* Clear interrupt */
+		cqhci_writel(cq_host, status, CQHCI_IS);
 	}
 
 	if (status & CQHCI_IS_TCC) {

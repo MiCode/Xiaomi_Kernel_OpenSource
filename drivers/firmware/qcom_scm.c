@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2010,2015,2019,2021 The Linux Foundation. All rights reserved.
  * Copyright (C) 2015 Linaro Ltd.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #define pr_fmt(fmt)     "qcom-scm: %s: " fmt, __func__
 
@@ -2837,6 +2838,9 @@ static int qcom_scm_probe(struct platform_device *pdev)
 		}
 	}
 
+#if IS_ENABLED(CONFIG_QCOM_SCM_QCPE)
+	__qcom_scm_init();
+#endif
 	__get_convention();
 
 	scm->restart_nb.notifier_call = qcom_scm_do_restart;
@@ -2919,6 +2923,9 @@ subsys_initcall(qcom_scm_init);
 #if IS_MODULE(CONFIG_QCOM_SCM)
 static void __exit qcom_scm_exit(void)
 {
+#if IS_ENABLED(CONFIG_QCOM_SCM_QCPE)
+	__qcom_scm_qcpe_exit();
+#endif
 	platform_driver_unregister(&qcom_scm_driver);
 	qtee_shmbridge_driver_exit();
 }

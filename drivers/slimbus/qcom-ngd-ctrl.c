@@ -223,6 +223,7 @@ struct qcom_slim_ngd_ctrl {
 	void *ipc_slimbus_log_err;
 	unsigned int irq;
 	bool irq_disabled;
+	bool capability_timeout;
 };
 
 enum slimbus_mode_enum_type_v01 {
@@ -608,6 +609,12 @@ static void qcom_slim_ngd_tx_msg_dma_cb(void *args)
 	struct qcom_slim_ngd_ctrl *ctrl = desc->ctrl;
 	unsigned long flags;
 
+	/* Return if capability exchange is not successful due to timeout */
+	if (ctrl->capability_timeout) {
+		ctrl->capability_timeout = false;
+		SLIM_WARN(ctrl, "Timedout due to delayed interrupt\n");
+		return;
+	}
 	spin_lock_irqsave(&ctrl->tx_buf_lock, flags);
 
 	if (desc->comp) {
@@ -1061,11 +1068,12 @@ static int qcom_slim_ngd_xfer_msg(struct slim_controller *sctrl,
 		return ret;
 	}
 
-	timeout = wait_for_completion_timeout(&tx_sent, HZ);
+	timeout = wait_for_completion_timeout(&tx_sent, 2*HZ);
 	if (!timeout) {
 		SLIM_WARN(ctrl, "TX timed out:MC:0x%x,mt:0x%x", txn->mc,
 					txn->mt);
 		mutex_unlock(&ctrl->tx_lock);
+		ctrl->capability_timeout = true;
 		return -ETIMEDOUT;
 	}
 
@@ -1611,6 +1619,11 @@ static int qcom_slim_ngd_runtime_resume(struct device *dev)
 			ctrl->state = QCOM_SLIM_NGD_CTRL_ASLEEP;
 		else
 			SLIM_WARN(ctrl, "HW wakeup attempt during SSR\n");
+
+		SLIM_WARN(ctrl, "%s Power up request failed, try resume again\n",
+			  __func__);
+		qcom_slim_ngd_disable_irq(ctrl);
+		ret = -EAGAIN;
 	} else {
 		ctrl->state = QCOM_SLIM_NGD_CTRL_AWAKE;
 	}
@@ -1618,7 +1631,7 @@ static int qcom_slim_ngd_runtime_resume(struct device *dev)
 	mutex_unlock(&ctrl->suspend_resume_lock);
 	SLIM_INFO(ctrl, "Slim runtime resume: ret %d irq_disabled %d\n",
 			ret, ctrl->irq_disabled);
-	return 0;
+	return ret;
 }
 
 static int qcom_slim_ngd_enable(struct qcom_slim_ngd_ctrl *ctrl, bool enable)
