@@ -17,6 +17,7 @@
 #include <linux/regmap.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
+#include <linux/qcom_scm.h>
 #include <linux/soc/qcom/llcc-qcom.h>
 
 #define ACTIVATE                      BIT(0)
@@ -910,7 +911,7 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 	struct platform_device *llcc_edac;
 	const struct qcom_llcc_config *cfg;
 	const struct llcc_slice_config *llcc_cfg;
-	void __iomem *ch_reg = NULL;
+	struct resource *ch_res = NULL;
 	u32 sz, max_banks, ch_reg_sz, ch_reg_off, ch_num;
 
 	drv_data = devm_kzalloc(dev, sizeof(*drv_data), GFP_KERNEL);
@@ -969,8 +970,8 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	ch_reg = devm_platform_ioremap_resource_byname(pdev, "multi_ch_reg");
-	if (!IS_ERR(ch_reg)) {
+	ch_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "multi_ch_reg");
+	if (ch_res) {
 		if (of_property_read_u32_index(dev->of_node, "multi-ch-off", 1, &ch_reg_sz)) {
 			dev_err(&pdev->dev,
 				"Couldn't get size of multi channel feature register\n");
@@ -981,15 +982,16 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 		if (of_property_read_u32(dev->of_node, "multi-ch-off", &ch_reg_off))
 			ch_reg_off = 0;
 
-		ch_num = readl_relaxed(ch_reg);
+		if (qcom_scm_io_readl(ch_res->start, &ch_num)) {
+			dev_err(&pdev->dev, "Couldn't access multi channel feature register\n");
+			ret = -EINVAL;
+		}
+
 		ch_num = (ch_num >> ch_reg_off) & ((1 << ch_reg_sz) - 1);
 
 		drv_data->cfg_index = ch_num;
 		llcc_cfg = cfg[ch_num].sct_data;
 		sz = cfg[ch_num].size;
-
-		devm_iounmap(dev, ch_reg);
-		ch_reg = NULL;
 	} else {
 		llcc_cfg = cfg->sct_data;
 		sz = cfg->size;
