@@ -172,7 +172,7 @@
   __tracepoint_android_vh_binder_trans
   __tracepoint_android_vh_binder_reply
   __tracepoint_android_vh_binder_alloc_new_buf_locked
-
+  freezer_cgrp_subsys
 
 #required by mi_sched.ko
   __traceiter_android_vh_free_task
@@ -180,6 +180,8 @@
   __traceiter_android_vh_scheduler_tick
   __tracepoint_android_vh_scheduler_tick
   jiffies_64
+  free_uid
+  find_user
 
 #required by migt.ko
   __traceiter_android_rvh_after_enqueue_task
@@ -214,6 +216,10 @@
   __tracepoint_binder_txn_latency_free
 
 #required by reclaim module
+  __traceiter_android_vh_tune_scan_type
+  __tracepoint_android_vh_tune_scan_type
+  __traceiter_android_vh_tune_swappiness
+  __tracepoint_android_vh_tune_swappiness
 
 #required by msm_drm.ko module
   drm_get_connector_type_name
@@ -221,7 +227,6 @@
 #required by mi_gamekey.ko module
   gpio_request_array
 
-#extend_reclaim.ko
 
 #required by xm_power_debug.ko module
   wakeup_sources_read_lock
@@ -240,7 +245,7 @@
   __tracepoint_irq_handler_entry
   __traceiter_irq_handler_entry
 
-#required by msm_rtb.ko module
+#required by ax88796b.ko module
   phy_resolve_aneg_linkmode
 
 #required by metis.ko module
@@ -261,3 +266,33 @@
   __tracepoint_android_rvh_set_cpus_allowed_comm
   __tracepoint_android_rvh_dequeue_task
   cpuset_cpus_allowed
+
+#required by perf_helper.ko
+  try_to_free_mem_cgroup_pages
+
+#required by debug_ext.ko
+  of_find_all_nodes
+
+#required by mi_freqwdg.ko
+  __traceiter_android_vh_freq_qos_remove_request
+  __traceiter_android_vh_freq_qos_update_request
+  __traceiter_android_vh_freq_qos_add_request
+  __traceiter_android_rvh_entity_tick
+  __traceiter_android_rvh_dequeue_task_fair
+  __tracepoint_android_vh_freq_qos_remove_request
+  __tracepoint_android_vh_freq_qos_update_request
+  __tracepoint_android_vh_freq_qos_add_request
+  __tracepoint_android_rvh_dequeue_task_fair
+  __tracepoint_android_rvh_entity_tick
+
+#required by binder_prio module
+  __traceiter_android_vh_binder_priority_skip
+  __tracepoint_android_vh_binder_priority_skip
+
+#required by mi_mempool.ko module
+  __traceiter_android_vh_mmput
+  __tracepoint_android_vh_mmput
+  __traceiter_android_vh_alloc_pages_reclaim_bypass
+  __tracepoint_android_vh_alloc_pages_reclaim_bypass
+  __traceiter_android_vh_alloc_pages_failure_bypass
+  __tracepoint_android_vh_alloc_pages_failure_bypass
