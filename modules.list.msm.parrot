@@ -15,6 +15,7 @@ qcom-cpufreq-hw.ko
 sched-walt.ko
 sched-walt-debug.ko
 qnoc-parrot.ko
+qnoc-ravelin.ko
 qcom_wdt_core.ko
 icc-rpmh.ko
 qcom_ipc_logging.ko
