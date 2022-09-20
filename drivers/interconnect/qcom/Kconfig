@@ -246,6 +246,15 @@ config INTERCONNECT_QCOM_BENGAL
 	  aggreagates the cosumer bandwidth requests to satisfy constraints
 	  placed on Network-on-Chip performance states.
 
+config INTERCONNECT_QCOM_SA410M
+	tristate "SA410M interconnect driver"
+	depends on INTERCONNECT_QCOM
+	help
+	  This is a driver for the Qualcomm Technologies, Inc. Network-on-Chip
+	  on sa410m-based platforms. The interconnect provider collects and
+	  aggreagates the cosumer bandwidth requests to satisfy constraints
+	  placed on Network-on-Chip performance states.
+
 config INTERCONNECT_QCOM_DEBUG
 	tristate "QCOM-specific interconnect debug features"
 	depends on INTERCONNECT_QCOM
