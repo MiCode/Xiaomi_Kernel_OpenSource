@@ -1486,6 +1486,8 @@ static int llcc_perfmon_probe(struct platform_device *pdev)
 		llcc_priv->version = REV_2;
 	else if ((val & MAJOR_VER_MASK) == LLCC_VERSION_3)
 		llcc_priv->version = REV_2;
+	else if ((val & MAJOR_VER_MASK) == LLCC_VERSION_4)
+		llcc_priv->version = REV_2;
 	pr_info("Revision <%x.%x.%x>, %d MEMORY CNTRLRS connected with LLCC\n",
 			MAJOR_REV_NO(val), BRANCH_NO(val), MINOR_NO(val),
 			llcc_priv->num_mc);
