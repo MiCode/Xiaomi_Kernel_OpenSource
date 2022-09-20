@@ -9,3 +9,4 @@ obj-$(CONFIG_SMB1398_CHARGER)           += qcom-smb1398-charger.o
 qcom-smb1398-charger-y += smb1398-charger.o pmic-voter.o
 obj-$(CONFIG_SMB1355_SLAVE_CHARGER)	+= qcom-smb1355-charger.o
 qcom-smb1355-charger-y += smb1355-charger.o pmic-voter.o
+obj-$(CONFIG_SMB23X_CHARGER)   += smb23x-charger.o
