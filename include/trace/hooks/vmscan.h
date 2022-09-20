@@ -28,12 +28,21 @@ DECLARE_RESTRICTED_HOOK(android_rvh_set_balance_anon_file_reclaim,
 DECLARE_HOOK(android_vh_page_referenced_check_bypass,
 	TP_PROTO(struct page *page, unsigned long nr_to_scan, int lru, bool *bypass),
 	TP_ARGS(page, nr_to_scan, lru, bypass));
+DECLARE_HOOK(android_vh_page_trylock_get_result,
+	TP_PROTO(struct page *page, bool *trylock_fail),
+	TP_ARGS(page, trylock_fail));
+DECLARE_HOOK(android_vh_handle_failed_page_trylock,
+	TP_PROTO(struct list_head *page_list),
+	TP_ARGS(page_list));
+DECLARE_HOOK(android_vh_page_trylock_set,
+	TP_PROTO(struct page *page),
+	TP_ARGS(page));
+DECLARE_HOOK(android_vh_page_trylock_clear,
+	TP_PROTO(struct page *page),
+	TP_ARGS(page));
 DECLARE_HOOK(android_vh_shrink_node_memcgs,
 	TP_PROTO(struct mem_cgroup *memcg, bool *skip),
 	TP_ARGS(memcg, skip));
-DECLARE_HOOK(android_vh_tune_memcg_scan_type,
-	TP_PROTO(struct mem_cgroup *memcg, char *scan_type),
-	TP_ARGS(memcg, scan_type));
 DECLARE_HOOK(android_vh_inactive_is_low,
 	TP_PROTO(unsigned long gb, unsigned long *inactive_ratio,
 		enum lru_list inactive_lru, bool *skip),
