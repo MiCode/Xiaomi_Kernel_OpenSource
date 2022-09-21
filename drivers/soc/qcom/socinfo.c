@@ -165,6 +165,16 @@ static const char * const hw_platform_isku[] = {
 	[SKU_Y7 & SKU_INT_MASK] = "Y7",
 };
 
+enum {
+	PLATFORM_OEM_VARIANT_QC = 0x0,
+	PLATFORM_OEM_VARIANT_OEM,
+};
+
+static const char * const hw_platform_oem_variant[] = {
+	[PLATFORM_OEM_VARIANT_QC] = "QC",
+	[PLATFORM_OEM_VARIANT_OEM] = "OEM",
+};
+
 /* Socinfo SMEM item structure */
 static struct socinfo {
 	__le32 fmt;
@@ -216,6 +226,8 @@ static struct socinfo {
 	__le32  nproduct_code;
 	__le32  npartnamemap_offset;
 	__le32  nnum_partname_mapping;
+	/* Version 17 */
+	__le32 hw_plat_oem_variant;
 } *socinfo;
 
 /* sysfs attributes */
@@ -435,6 +447,13 @@ static uint32_t socinfo_get_nproduct_code(void)
 		(socinfo_format >= SOCINFO_VERSION(0, 16) ?
 			le32_to_cpu(socinfo->nproduct_code) : 0)
 		: 0;
+}
+
+/* Version 17 */
+static uint32_t socinfo_get_platform_oem_variant(void)
+{
+	return (socinfo && socinfo_format >= SOCINFO_VERSION(0, 17)) ?
+			le32_to_cpu(socinfo->hw_plat_oem_variant) : 0;
 }
 
 /* Version 2 */
@@ -796,6 +815,34 @@ msm_get_esku(struct device *dev,
 }
 ATTR_DEFINE(esku);
 
+/* Version 17 */
+static ssize_t
+msm_get_platform_oem_variant_id(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	uint32_t hw_oem_variant;
+
+	hw_oem_variant = socinfo_get_platform_oem_variant();
+	return scnprintf(buf, PAGE_SIZE, "%u\n", hw_oem_variant);
+}
+ATTR_DEFINE(platform_oem_variant_id);
+
+static ssize_t
+msm_get_platform_oem_variant(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	uint32_t hw_oem_variant;
+
+	hw_oem_variant = socinfo_get_platform_oem_variant();
+	if (hw_oem_variant != PLATFORM_OEM_VARIANT_QC)
+		hw_oem_variant = PLATFORM_OEM_VARIANT_OEM;
+
+	return scnprintf(buf, PAGE_SIZE, "%-.32s\n", hw_platform_oem_variant[hw_oem_variant]);
+}
+ATTR_DEFINE(platform_oem_variant);
+
 struct qcom_socinfo {
 	struct soc_device *soc_dev;
 	struct soc_device_attribute attr;
@@ -1150,6 +1197,10 @@ static void socinfo_populate_sysfs(struct qcom_socinfo *qcom_socinfo)
 	int i = 0;
 
 	switch (socinfo_format) {
+	case SOCINFO_VERSION(0, 17):
+		msm_custom_socinfo_attrs[i++] = &dev_attr_platform_oem_variant_id.attr;
+		msm_custom_socinfo_attrs[i++] = &dev_attr_platform_oem_variant.attr;
+		fallthrough;
 	case SOCINFO_VERSION(0, 16):
 		msm_custom_socinfo_attrs[i++] = &dev_attr_sku.attr;
 		msm_custom_socinfo_attrs[i++] = &dev_attr_esku.attr;
@@ -1421,6 +1472,30 @@ static void socinfo_print(void)
 			sku ? sku : "Unknown");
 		break;
 
+	case SOCINFO_VERSION(0, 17):
+		pr_info("v%u.%u, id=%u, ver=%u.%u, raw_id=%u, raw_ver=%u, hw_plat=%u, hw_plat_ver=%u\n accessory_chip=%u, hw_plat_subtype=%u, pmic_model=%u, pmic_die_revision=%u foundry_id=%u serial_number=%u num_pmics=%u chip_family=0x%x raw_device_family=0x%x raw_device_number=0x%x nproduct_id=0x%x num_clusters=0x%x ncluster_array_offset=0x%x nmodem_supported=0x%x sku=%s hw_plat_oem_variant=%u\n",
+			f_maj, f_min, socinfo->id, v_maj, v_min,
+			socinfo->raw_id, socinfo->raw_ver,
+			socinfo->hw_plat,
+			socinfo->plat_ver,
+			socinfo->accessory_chip,
+			socinfo->hw_plat_subtype,
+			socinfo->pmic_model,
+			socinfo->pmic_die_rev,
+			socinfo->foundry_id,
+			socinfo->serial_num,
+			socinfo->num_pmics,
+			socinfo->chip_family,
+			socinfo->raw_device_family,
+			socinfo->raw_device_num,
+			socinfo->nproduct_id,
+			socinfo->num_clusters,
+			socinfo->ncluster_array_offset,
+			socinfo->nmodem_supported,
+			sku ? sku : "Unknown",
+			socinfo->hw_plat_oem_variant);
+		break;
+
 	default:
 		pr_err("Unknown format found: v%u.%u\n", f_maj, f_min);
 		break;
@@ -1452,6 +1527,17 @@ const char *socinfo_get_id_string(void)
 	return socinfo_machine(id);
 }
 EXPORT_SYMBOL(socinfo_get_id_string);
+
+int socinfo_get_oem_variant_id(void)
+{
+	if (socinfo_format < SOCINFO_VERSION(0, 17)) {
+		pr_warn("socinfo: oem_variant is not supported by bootloaders\n");
+		return -EINVAL;
+	}
+
+	return socinfo_get_platform_oem_variant();
+}
+EXPORT_SYMBOL(socinfo_get_oem_variant_id);
 
 static int qcom_socinfo_probe(struct platform_device *pdev)
 {
