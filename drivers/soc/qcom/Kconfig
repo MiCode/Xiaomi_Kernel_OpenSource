@@ -29,6 +29,7 @@ config QCOM_COMMAND_DB
 config QCOM_CPUSS_SLEEP_STATS
 	tristate "Qualcomm Technologies, Inc. (QTI) CPUSS sleep stats driver"
 	depends on DEBUG_FS
+	depends on QCOM_SCM
 	help
 	 Qualcomm Technologies, Inc. (QTI) CPUSS sleep stats driver to get
 	 hardware LPM counts and residency for particular core/cluster
