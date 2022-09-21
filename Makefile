@@ -1317,6 +1317,8 @@ PHONY += archheaders archscripts
 hdr-inst := -f $(srctree)/scripts/Makefile.headersinst obj
 
 techpack-dirs := $(shell find $(srctree)/techpack -maxdepth 1 -mindepth 1 -type d -not -name ".*")
+techpack-dirs := $(shell find $(srctree)/techpack -maxdepth 1 -mindepth 1 -type d -not -name ".*" -not -name "camera-venus" -not -name "camera-odin" -not -name "camera-haydn" -not -name "camera-qcom" -not -name "camera-lisa" -not -name "camera-vili")
+techpack-dirs += $(shell find $(srctree)/techpack -maxdepth 1 -mindepth 1 -type l -name camera)
 techpack-dirs := $(subst $(srctree)/,,$(techpack-dirs))
 
 PHONY += headers

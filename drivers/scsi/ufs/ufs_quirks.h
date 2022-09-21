@@ -174,4 +174,6 @@ struct ufs_dev_fix {
  */
 #define UFS_DEVICE_QUIRK_DELAY_AFTER_LPM        (1 << 11)
 
+#define UFS_DEVICE_QUIRK_LIMIT_NUM_LANES_TX     (1 << 16)
+
 #endif /* UFS_QUIRKS_H_ */

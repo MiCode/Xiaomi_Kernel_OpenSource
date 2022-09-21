@@ -1,0 +1,28 @@
+#
+# Fingerprint driver configuration
+#
+config FINGERPRINT_FP_VREG_CONTROL
+    bool "fingerprint fp_vdd_reg regulator control"
+    default n
+	---help---
+	  Say Y here to enable fp_vdd_vreg regulator by device driver
+
+config FINGERPRINT_SET_VREG_CONTROL
+	bool "Goodix FOD Fingerprint K9B sensor"
+	default n
+	help
+		Goodix FOD Fingerprint K9B sensor
+
+menuconfig INPUT_FINGERPRINT
+	bool "Fingerprints"
+	help
+	  Say Y here, and a list of supported fingerprints will be displayed.
+	  This option doesn't affect the kernel.
+
+	  If unsure, say Y.
+
+if INPUT_FINGERPRINT
+
+source "drivers/input/fingerprint/goodix_fod/Kconfig"
+
+endif

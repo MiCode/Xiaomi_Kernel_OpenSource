@@ -411,10 +411,8 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq)
 		val = __secure_tz_update_entry3(level, priv->bin.total_time,
 			priv->bin.busy_time, context_count, priv);
 	}
-
 	priv->bin.total_time = 0;
 	priv->bin.busy_time = 0;
-
 	/*
 	 * If the decision is to move to a different level, make sure the GPU
 	 * frequency changes.
@@ -507,7 +505,6 @@ static int tz_start(struct devfreq *devfreq)
 
 	for (i = 0; adreno_tz_attr_list[i] != NULL; i++)
 		device_create_file(&devfreq->dev, adreno_tz_attr_list[i]);
-
 	return kgsl_devfreq_add_notifier(devfreq->dev.parent, &priv->nb);
 }
 

@@ -1,0 +1,80 @@
+#
+# Synaptics TCM touchscreen driver configuration
+#
+config TOUCHSCREEN_SYNAPTICS_TCM_S3908P_L9
+	tristate "synaptics s3908 Touchscreen"
+	default n
+	depends on SPI_MASTER
+	help
+	  Say Y here if you have synaptics series SPI touchscreen.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here.
+
+
+config TOUCHSCREEN_SYNAPTICS_TCM_SPI
+	tristate "synaptics spi support"
+	default n
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_S3908P_L9
+	help
+	  Say Y here to enable debug tools
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here.
+
+config TOUCHSCREEN_SYNAPTICS_TCM_CORE
+	tristate "Synaptics TCM core module"
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_S3908P_L9
+	help
+	  Say Y here to enable core functionality.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_tcm_core.
+
+config TOUCHSCREEN_SYNAPTICS_TCM_REFLASH
+	tristate "Synaptics reflash tools support"
+	default n
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_S3908P_L9
+	help
+	  Say Y here to enable debug tools
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here.
+
+config TOUCHSCREEN_SYNAPTICS_TCM_TESTING
+	tristate "Synaptics test tools support"
+	default n
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_S3908P_L9
+	help
+	  Say Y here to enable debug tools
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here.
+
+config TOUCHSCREEN_SYNAPTICS_TCM_DEVICE
+	tristate "Synaptics device support"
+	default n
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_S3908P_L9
+	help
+	  Say Y here to enable debug tools
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here.
+
+config TOUCHSCREEN_SYNAPTICS_TCM_DIAGNOSTIC
+	tristate "Synaptics diagnostic tools support"
+	default n
+	depends on TOUCHSCREEN_SYNAPTICS_TCM_S3908P_L9
+	help
+	  Say Y here to enable debug tools
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here.

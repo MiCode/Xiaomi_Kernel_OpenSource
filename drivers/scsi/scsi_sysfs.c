@@ -25,6 +25,7 @@
 
 #include "scsi_priv.h"
 #include "scsi_logging.h"
+#include "ufs/ufshcd.h"
 
 static struct device_type scsi_dev_type;
 

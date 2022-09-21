@@ -2908,7 +2908,6 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	p->wts.iowaited			= false;
 #endif
 	INIT_LIST_HEAD(&p->se.group_node);
-
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	p->se.cfs_rq			= NULL;
 #endif
@@ -5706,11 +5705,11 @@ long sched_setaffinity(pid_t pid, const struct cpumask *in_mask)
 	retval = security_task_setscheduler(p);
 	if (retval)
 		goto out_free_new_mask;
-
-
+	
 	cpuset_cpus_allowed(p, cpus_allowed);
 	cpumask_and(new_mask, in_mask, cpus_allowed);
 
+	trace_sched_setaffinity(pid, in_mask);
 	/*
 	 * Since bandwidth control happens on root_domain basis,
 	 * if admission test is enabled, we only admit -deadline

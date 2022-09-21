@@ -1,4 +1,4 @@
-[abi_symbol_list]
+[abi_whitelist]
 # required by cs35l41_dlkm.ko
   regmap_async_complete
   regmap_multi_reg_write
@@ -43,6 +43,8 @@
   wakeup_source_remove
   wakeup_source_add
   wakeup_source_create
+  mipi_dsi_dcs_read
+  mipi_dsi_dcs_write
 
 # required by exfat.ko
   block_write_full_page
@@ -105,5 +107,27 @@
   utf8s_to_utf16s
   write_inode_now
 
+# required by goodix_core.ko
+  filp_close
+  filp_open
+  strncat
+  single_open_size
+  input_mt_sync_frame
+
+# required by sr100.ko
+  spi_bus_type
 # required by incrementalfs.ko
   revert_creds
+
+# required by aw8697-haptic.ko
+i2c_smbus_read_byte_data
+i2c_smbus_write_byte_data
+
+# required by aw882xx_dlkm.ko
+class_remove_file_ns
+class_create_file_ns
+class_remove_file
+class_create_file
+
+# required by synaptics_tcm_testing.ko
+__kernel_write

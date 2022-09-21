@@ -53,11 +53,15 @@ static irqreturn_t i2c_irq_handler(int irq, void *dev_id)
 {
 	struct nfc_dev *nfc_dev = dev_id;
 	struct i2c_dev *i2c_dev = &nfc_dev->i2c_dev;
+	unsigned long flags;
 
 	if (device_may_wakeup(&i2c_dev->client->dev))
 		pm_wakeup_event(&i2c_dev->client->dev, WAKEUP_SRC_TIMEOUT);
 
 	i2c_disable_irq(nfc_dev);
+	spin_lock_irqsave(&i2c_dev->irq_enabled_lock, flags);
+	i2c_dev->count_irq++;
+	spin_unlock_irqrestore(&i2c_dev->irq_enabled_lock, flags);
 	wake_up(&nfc_dev->read_wq);
 
 	return IRQ_HANDLED;
@@ -276,7 +280,7 @@ int nfc_i2c_dev_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	struct platform_gpio nfc_gpio;
 	struct platform_ldo nfc_ldo;
 
-	pr_debug("%s: enter\n", __func__);
+	pr_info("%s: enter\n", __func__);
 
 	//retrieve details of gpios from dt
 
@@ -418,6 +422,7 @@ int nfc_i2c_dev_remove(struct i2c_client *client)
 		return ret;
 	}
 
+	pr_warn("%s: set VEN to LOW\n", __func__);
 	gpio_set_value(nfc_dev->gpio.ven, 0);
 	// HW dependent delay before LDO goes into LPM mode
 	usleep_range(10000, 10100);
@@ -526,6 +531,7 @@ static int __init nfc_i2c_dev_init(void)
 {
 	int ret = 0;
 
+	pr_info("Loading NFC I2C driver\n");
 	ret = i2c_add_driver(&nfc_i2c_dev_driver);
 	if (ret != 0)
 		pr_err("NFC I2C add driver error ret %d\n", ret);
@@ -536,7 +542,7 @@ module_init(nfc_i2c_dev_init);
 
 static void __exit nfc_i2c_dev_exit(void)
 {
-	pr_debug("Unloading NFC I2C driver\n");
+	pr_info("Unloading NFC I2C driver\n");
 	i2c_del_driver(&nfc_i2c_dev_driver);
 }
 

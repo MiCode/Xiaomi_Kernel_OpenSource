@@ -1655,6 +1655,21 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 
 	dev_dbg(&pdev->dev, "Probed Qualcomm pinctrl driver\n");
 
+#ifdef CONFIG_PINCTRL_SM7325
+	return 0;
+#endif
+
+#ifdef CONFIG_PINCTRL_RENOIR
+	pr_err("Disable GPIO151, 202  wakeup\n");
+	msm_gpio_mpm_wake_set(151, false);
+	msm_gpio_mpm_wake_set(202, false);
+#else
+	pr_err("Disable GPIO151, 200, 202 wakeup\n");
+	msm_gpio_mpm_wake_set(151, false);
+	msm_gpio_mpm_wake_set(200, false);
+	msm_gpio_mpm_wake_set(202, false);
+#endif
+
 	return 0;
 }
 EXPORT_SYMBOL(msm_pinctrl_probe);

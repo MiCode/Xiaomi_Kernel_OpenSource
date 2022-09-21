@@ -2186,6 +2186,7 @@ void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 	trace_sched_update_task_ravg_mini(p, rq, event, wallclock, irqtime,
 				&rq->wrq.grp_time);
 
+
 done:
 	p->wts.mark_start = wallclock;
 
@@ -3548,7 +3549,6 @@ void walt_irq_work(struct irq_work *irq_work)
 			if (is_asym_migration && cpumask_test_cpu(cpu,
 							&freq_match_cpus))
 				flag |= SCHED_CPUFREQ_INTERCLUSTER_MIG;
-
 			if (i == num_cpus)
 				cpufreq_update_util(cpu_rq(cpu), flag);
 			else

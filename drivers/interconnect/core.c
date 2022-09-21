@@ -492,8 +492,8 @@ int icc_set_bw(struct icc_path *path, u32 avg_bw, u32 peak_bw)
 
 	if (!path || !path->num_nodes)
 		return 0;
-
-	mutex_lock(&icc_lock);
+	if(!oops_in_progress)
+		mutex_lock(&icc_lock);
 
 	old_avg = path->reqs[0].avg_bw;
 	old_peak = path->reqs[0].peak_bw;
@@ -525,7 +525,8 @@ int icc_set_bw(struct icc_path *path, u32 avg_bw, u32 peak_bw)
 		apply_constraints(path);
 	}
 
-	mutex_unlock(&icc_lock);
+	if(!oops_in_progress)
+		mutex_unlock(&icc_lock);
 
 	trace_icc_set_bw_end(path, ret);
 

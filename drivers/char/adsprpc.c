@@ -39,6 +39,7 @@
 #include <linux/dma-contiguous.h>
 #include <linux/cma.h>
 #include <linux/iommu.h>
+#include <linux/dma-iommu.h>
 #include <linux/sort.h>
 #include <linux/cred.h>
 #include <linux/msm_dma_iommu_mapping.h>
@@ -1445,8 +1446,8 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 				dma_buf_attach(map->buf, me->dev)));
 		if (err) {
 			ADSPRPC_ERR(
-				"dma_buf_attach for fd %d failed to map buffer on SMMU device %s ret %ld\n",
-				fd, dev_name(me->dev), PTR_ERR(map->attach));
+				"dma_buf_attach for fd %d for len 0x%zx failed to map buffer on SMMU device %s ret %ld\n",
+				fd, len, dev_name(me->dev), PTR_ERR(map->attach));
 			err = -EFAULT;
 			goto bail;
 		}
@@ -1457,8 +1458,8 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 				DMA_BIDIRECTIONAL)));
 		if (err) {
 			ADSPRPC_ERR(
-				"dma_buf_map_attachment for fd %d failed on device %s ret %ld\n",
-				fd, dev_name(me->dev), PTR_ERR(map->table));
+				"dma_buf_map_attachment for fd %d for len 0x%zx failed on device %s ret %ld\n",
+				fd, len, dev_name(me->dev), PTR_ERR(map->table));
 			err = -EFAULT;
 			goto bail;
 		}
@@ -1529,8 +1530,8 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 				dma_buf_attach(map->buf, sess->smmu.dev)));
 		if (err) {
 			ADSPRPC_ERR(
-				"dma_buf_attach for fd %d failed to map buffer on SMMU device %s ret %ld\n",
-				fd, dev_name(sess->smmu.dev),
+				"dma_buf_attach for fd %d failed for len 0x%zx to map buffer on SMMU device %s ret %ld\n",
+				fd, len, dev_name(sess->smmu.dev),
 				PTR_ERR(map->attach));
 			err = -EFAULT;
 			goto bail;
@@ -1552,8 +1553,8 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 				DMA_BIDIRECTIONAL)));
 		if (err) {
 			ADSPRPC_ERR(
-				"dma_buf_map_attachment for fd %d failed on device %s ret %ld\n",
-				fd, dev_name(sess->smmu.dev),
+				"dma_buf_map_attachment for fd %d failed for len 0x%zx on device %s ret %ld\n",
+				fd, len, dev_name(sess->smmu.dev),
 				PTR_ERR(map->table));
 			err = -EFAULT;
 			goto bail;
@@ -2466,7 +2467,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 					&ctx->maps[i]);
 		if (err) {
 			for (j = bufs; j < i; j++)
-				fastrpc_mmap_free(ctx->maps[j], 0);
+			fastrpc_mmap_free(ctx->maps[j], 0);
 			mutex_unlock(&ctx->fl->map_mutex);
 			goto bail;
 		}
@@ -6444,6 +6445,8 @@ static int fastrpc_cb_probe(struct device *dev)
 					__func__, dev_name(dev), err);
 		goto bail;
 	}
+	/* Enabling best fit to see if memory alloc failures occur*/
+	iommu_dma_enable_best_fit_algo(dev);
 	sess = &chan->session[chan->sesscount];
 	sess->used = 0;
 #if IS_ENABLED(CONFIG_ADSPRPC_QGKI)

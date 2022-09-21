@@ -20,6 +20,8 @@ struct i2c_dev {
 	spinlock_t irq_enabled_lock;
 	// NFC_IRQ wake-up state
 	bool irq_wake_up;
+	// NFC_IRQ Count
+	unsigned int count_irq;
 };
 long nfc_i2c_dev_ioctl(struct file *pfile, unsigned int cmd, unsigned long arg);
 int nfc_i2c_dev_probe(struct i2c_client *client,

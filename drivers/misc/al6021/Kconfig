@@ -1,0 +1,9 @@
+config ISPV2_AL6021
+	tristate "ispv2 AL6021"
+	help
+	  Say Y here if you want to enable support altek AL6021
+	  in your system.
+
+	  If not, say N.
+
+	  To compile this driver as a module, choose M here.

@@ -35,8 +35,11 @@
 
 #define I2C_MODULE_NAME "synaptics_tcm_i2c"
 #define SPI_MODULE_NAME "synaptics_tcm_spi"
+#define SYNAP_MAX_STR_LABLE_LEN 32
 
 struct syna_tcm_board_data {
+	char avdd_name[SYNAP_MAX_STR_LABLE_LEN];
+	char iovdd_name[SYNAP_MAX_STR_LABLE_LEN];
 	bool x_flip;
 	bool y_flip;
 	bool swap_axes;

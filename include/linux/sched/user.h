@@ -7,7 +7,6 @@
 #include <linux/refcount.h>
 #include <linux/ratelimit.h>
 #include <linux/android_kabi.h>
-
 /*
  * Some day this will be a full-fledged user tracking system..
  */
@@ -32,6 +31,7 @@ struct user_struct {
 	/* Hash table maintenance information */
 	struct hlist_node uidhash_node;
 	kuid_t uid;
+
 
 #if defined(CONFIG_PERF_EVENTS) || defined(CONFIG_BPF_SYSCALL) || \
     defined(CONFIG_NET) || defined(CONFIG_IO_URING)
