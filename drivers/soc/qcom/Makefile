@@ -109,6 +109,7 @@ obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
 endif
 obj-$(CONFIG_QTI_SYS_PM_VX) += sys_pm_vx.o
 obj-$(CONFIG_ICNSS2) += icnss2/
+obj-$(CONFIG_DEBUG_POLICY_STATUS) += dp_status.o
 obj-$(CONFIG_QTI_PLH_SCMI_CLIENT) += plh_scmi.o
 obj-$(CONFIG_QCOM_SYSMON_SUBSYSTEM_STATS) += sysmon_subsystem_stats.o
 obj-$(CONFIG_QTI_HW_MEMLAT_SCMI_CLIENT)	+= memlat_scmi.o

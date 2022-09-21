@@ -3210,13 +3210,6 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 		return PTR_ERR(ops);
 	else if (!ops)
 		return -EINVAL;
-
-	if (!IS_ENABLED(CONFIG_ARM_SMMU_SKIP_MAP_POWER_ON)) {
-		ret = arm_smmu_domain_power_on(domain, smmu_domain->smmu);
-		if (ret)
-			return ret;
-	}
-
 	iova = arm_smmu_mask_iova(smmu_domain, iova);
 	arm_smmu_secure_domain_lock(smmu_domain);
 	arm_smmu_rpm_get(smmu);
@@ -3245,9 +3238,6 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 		arm_smmu_release_prealloc_memory(smmu_domain, &nonsecure_pool);
 
 	}
-
-	if (!IS_ENABLED(CONFIG_ARM_SMMU_SKIP_MAP_POWER_ON))
-		arm_smmu_domain_power_off(domain, smmu_domain->smmu);
 
 	arm_smmu_assign_table(smmu_domain);
 	arm_smmu_secure_domain_unlock(smmu_domain);
@@ -3299,6 +3289,7 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	arm_smmu_rpm_get(smmu);
 	spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 	ret = ops->unmap(ops, iova, size, gather);
+	arm_smmu_deferred_flush(smmu_domain);
 	spin_unlock_irqrestore(&smmu_domain->cb_lock, flags);
 	arm_smmu_rpm_put(smmu);
 
@@ -3375,12 +3366,6 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 		return 0;
 	iova = arm_smmu_mask_iova(smmu_domain, iova);
 
-	if (!IS_ENABLED(CONFIG_ARM_SMMU_SKIP_MAP_POWER_ON)) {
-		ret = arm_smmu_domain_power_on(domain, smmu_domain->smmu);
-		if (ret)
-			return ret;
-	}
-
 	arm_smmu_secure_domain_lock(smmu_domain);
 
 	__saved_iova_start = iova;
@@ -3416,6 +3401,7 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 			spin_lock_irqsave(&smmu_domain->cb_lock, flags);
 			list_splice_init(&nonsecure_pool,
 					 &smmu_domain->nonsecure_pool);
+			arm_smmu_deferred_flush(smmu_domain);
 			ret = pgtbl_info->map_sg(ops, iova, sg_start,
 						 idx_end - idx_start, prot,
 						 &size);
@@ -3440,9 +3426,6 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	}
 
 out:
-	if (!IS_ENABLED(CONFIG_ARM_SMMU_SKIP_MAP_POWER_ON))
-		arm_smmu_domain_power_off(domain, smmu_domain->smmu);
-
 	arm_smmu_assign_table(smmu_domain);
 	arm_smmu_secure_domain_unlock(smmu_domain);
 

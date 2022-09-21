@@ -17,6 +17,7 @@
 #include <linux/devfreq.h>
 #include <linux/cpu.h>
 #include <linux/blk-mq.h>
+#include <linux/bitfield.h>
 
 #include "ufshcd.h"
 #include "ufshcd-pltfrm.h"
@@ -73,6 +74,7 @@ struct ufs_qcom_dev_params {
 };
 
 static struct ufs_qcom_host *ufs_qcom_hosts[MAX_UFS_QCOM_HOSTS];
+extern int in_panic;
 
 static void ufs_qcom_get_default_testbus_cfg(struct ufs_qcom_host *host);
 static int ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(struct ufs_hba *hba,
@@ -494,6 +496,16 @@ static int ufs_qcom_phy_power_on(struct ufs_hba *hba)
 	int ret = 0;
 
 	mutex_lock(&host->phy_mutex);
+	if (hba->curr_dev_pwr_mode == UFS_POWERDOWN_PWR_MODE &&
+		hba->clk_gating.state != CLKS_ON) {
+		ret = -1;
+		dev_err(hba->dev, "%s: host shutdown %d\n",
+			__func__, ret);
+
+		mutex_unlock(&host->phy_mutex);
+
+		return ret;
+	}
 	if (!host->is_phy_pwr_on) {
 		ret = phy_power_on(phy);
 		if (ret) {
@@ -1609,8 +1621,12 @@ static void ufs_qcom_dev_ref_clk_ctrl(struct ufs_qcom_host *host, bool enable)
 		 * device ref_clk is stable for a given time before the hibern8
 		 * exit command.
 		 */
-		if (enable)
-			usleep_range(50, 60);
+		if (enable) {
+			if (!oops_in_progress)
+				usleep_range(50, 60);
+			else
+				udelay(50);
+		}
 
 		host->is_dev_ref_clk_enabled = enable;
 	}
@@ -1843,7 +1859,7 @@ static int ufs_qcom_apply_dev_quirks(struct ufs_hba *hba)
 	unsigned long flags;
 	int err = 0;
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	ufs_spin_lock_irqsave(hba->host->host_lock, flags);
 	/* Set the rpm auto suspend delay to 3s */
 	hba->host->hostt->rpm_autosuspend_delay = UFS_QCOM_AUTO_SUSPEND_DELAY;
 	/* Set the default auto-hiberate idle timer value to 5ms */
@@ -1851,7 +1867,7 @@ static int ufs_qcom_apply_dev_quirks(struct ufs_hba *hba)
 		    FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 3);
 	/* Set the clock gating delay to performance mode */
 	hba->clk_gating.delay_ms = UFS_QCOM_CLK_GATING_DELAY_MS_PERF;
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	if (hba->dev_quirks & UFS_DEVICE_QUIRK_HOST_PA_SAVECONFIGTIME)
 		err = ufs_qcom_quirk_host_pa_saveconfigtime(hba);
@@ -2995,9 +3011,9 @@ static int ufs_qcom_clk_scale_up_post_change(struct ufs_hba *hba)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	ufs_spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->clk_gating.delay_ms = UFS_QCOM_CLK_GATING_DELAY_MS_PERF;
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	return 0;
 }
@@ -3037,9 +3053,9 @@ static int ufs_qcom_clk_scale_down_post_change(struct ufs_hba *hba)
 	u32 curr_freq = 0;
 	unsigned long flags;
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	ufs_spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->clk_gating.delay_ms = UFS_QCOM_CLK_GATING_DELAY_MS_PWR_SAVE;
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	if (!ufs_qcom_cap_qunipro(host))
 		return 0;
@@ -3224,7 +3240,7 @@ int ufs_qcom_testbus_config(struct ufs_qcom_host *host)
 	if (!host)
 		return -EINVAL;
 	hba = host->hba;
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	ufs_spin_lock_irqsave(hba->host->host_lock, flags);
 	if (!ufs_qcom_testbus_cfg_is_ok(host))
 		return -EPERM;
 
@@ -3286,7 +3302,7 @@ int ufs_qcom_testbus_config(struct ufs_qcom_host *host)
 	}
 	mask <<= offset;
 
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 	ufshcd_rmwl(host->hba, TEST_BUS_SEL,
 		    (u32)host->testbus.select_major << 19,
 		    REG_UFS_CFG1);
@@ -3389,13 +3405,25 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 	ufs_qcom_print_hw_debug_reg_all(hba, NULL, ufs_qcom_dump_regs_wrapper);
 
 	if (in_task()) {
-		usleep_range(1000, 1100);
+		if (!oops_in_progress)
+			usleep_range(1000, 1100);
+		else
+			udelay(1000);
 		ufs_qcom_testbus_read(hba);
-		usleep_range(1000, 1100);
+		if (!oops_in_progress)
+			usleep_range(1000, 1100);
+		else
+			udelay(1000);
 		ufs_qcom_print_unipro_testbus(hba);
-		usleep_range(1000, 1100);
+		if (!oops_in_progress)
+			usleep_range(1000, 1100);
+		else
+			udelay(1000);
 		ufs_qcom_print_utp_hci_testbus(hba);
-		usleep_range(1000, 1100);
+		if (!oops_in_progress)
+			usleep_range(1000, 1100);
+		else
+			udelay(1000);
 		ufs_qcom_phy_dbg_register_dump(phy);
 		ufshcd_print_fsm_state(hba);
 	}
@@ -3619,7 +3647,7 @@ static unsigned int ufs_qcom_gec(struct ufs_hba *hba,
 	unsigned long flags;
 	int i, cnt_err = 0;
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
+	ufs_spin_lock_irqsave(hba->host->host_lock, flags);
 	for (i = 0; i < UFS_ERR_REG_HIST_LENGTH; i++) {
 		int p = (i + err_hist->pos) % UFS_ERR_REG_HIST_LENGTH;
 
@@ -3631,7 +3659,7 @@ static unsigned int ufs_qcom_gec(struct ufs_hba *hba,
 		++cnt_err;
 	}
 
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	ufs_spin_unlock_irqrestore(hba->host->host_lock, flags);
 	return cnt_err;
 }
 

@@ -1688,6 +1688,9 @@ static int geni_se_iommu_probe(struct device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+extern bool is_early_cons_enabled;
+#endif
 static int geni_se_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -1775,7 +1778,6 @@ static int geni_se_probe(struct platform_device *pdev)
 #if IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE)
 	geni_se_dev->wrapper_rsc.wrapper_dev = dev;
 	geni_se_dev->wrapper_rsc.ctrl_dev = dev;
-
 	ret = geni_se_resources_init(&geni_se_dev->wrapper_rsc,
 					UART_CONSOLE_CORE2X_VOTE,
 					(DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
@@ -1786,10 +1788,38 @@ static int geni_se_probe(struct platform_device *pdev)
 
 	ret = geni_se_add_ab_ib(geni_se_dev, &geni_se_dev->wrapper_rsc);
 	if (ret) {
-		dev_err(dev, "%s: Error %d during bus_bw_update\n", __func__,
+		dev_err(dev, "%s: Error %d during geni_se_add_ab_ib\n", __func__,
 				ret);
 		return ret;
 	}
+
+	ret = geni_se_rmv_ab_ib(geni_se_dev, &geni_se_dev->wrapper_rsc);
+	if (ret) {
+		dev_err(dev, "%s: Error %d during geni_se_rmv_ab_ib\n", __func__,
+				ret);
+		return ret;
+	}
+
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+	if (!is_early_cons_enabled) {
+		pr_info("is_early_cons_enabled not true\n");
+	}
+	else {
+		ret = geni_se_add_ab_ib(geni_se_dev, &geni_se_dev->wrapper_rsc);
+		if (ret) {
+			dev_err(dev, "%s: Error %d during geni_se_add_ab_ib\n",
+				       	__func__, ret);
+			return ret;
+		}
+	}
+#else
+	ret = geni_se_add_ab_ib(geni_se_dev, &geni_se_dev->wrapper_rsc);
+	if (ret) {
+		dev_err(dev, "%s: Error %d during geni_se_add_ab_ib\n", __func__,
+				ret);
+		return ret;
+	}
+#endif
 #endif
 
 	ret = of_platform_populate(dev->of_node, geni_se_dt_match, NULL, dev);

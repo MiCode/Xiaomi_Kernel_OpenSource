@@ -506,9 +506,39 @@ void f2fs_balance_fs(struct f2fs_sb_info *sbi, bool need)
 	 * dir/node pages without enough free segments.
 	 */
 	if (has_not_enough_free_secs(sbi, 0, 0)) {
-		down_write(&sbi->gc_lock);
-		f2fs_gc(sbi, false, false, NULL_SEGNO);
+		if (test_opt(sbi, GC_MERGE) && sbi->gc_thread &&
+					sbi->gc_thread->f2fs_gc_task) {
+			DEFINE_WAIT(wait);
+
+			prepare_to_wait(&sbi->gc_thread->fggc_wq, &wait,
+						TASK_UNINTERRUPTIBLE);
+			wake_up(&sbi->gc_thread->gc_wait_queue_head);
+			io_schedule();
+			finish_wait(&sbi->gc_thread->fggc_wq, &wait);
+		} else {
+			down_write(&sbi->gc_lock);
+			f2fs_gc(sbi, false, false, NULL_SEGNO);
+		}
 	}
+}
+
+static inline bool excess_dirty_threshold(struct f2fs_sb_info *sbi)
+{
+	int factor = rwsem_is_locked(&sbi->cp_rwsem) ? 3 : 2;
+	unsigned int dents = get_pages(sbi, F2FS_DIRTY_DENTS);
+	unsigned int qdata = get_pages(sbi, F2FS_DIRTY_QDATA);
+	unsigned int nodes = get_pages(sbi, F2FS_DIRTY_NODES);
+	unsigned int meta = get_pages(sbi, F2FS_DIRTY_META);
+	unsigned int imeta = get_pages(sbi, F2FS_DIRTY_IMETA);
+	unsigned int threshold = sbi->blocks_per_seg * factor *
+					DEFAULT_DIRTY_THRESHOLD;
+	unsigned int global_threshold = threshold * 3 / 2;
+
+	if (dents >= threshold || qdata >= threshold ||
+		nodes >= threshold || meta >= threshold ||
+		imeta >= threshold)
+		return true;
+	return dents + qdata + nodes + meta + imeta >  global_threshold;
 }
 
 void f2fs_balance_fs_bg(struct f2fs_sb_info *sbi, bool from_bg)
@@ -529,31 +559,38 @@ void f2fs_balance_fs_bg(struct f2fs_sb_info *sbi, bool from_bg)
 	else
 		f2fs_build_free_nids(sbi, false, false);
 
-	if (!is_idle(sbi, REQ_TIME) &&
-		(!excess_dirty_nats(sbi) && !excess_dirty_nodes(sbi)))
+	if (excess_dirty_nats(sbi) || excess_dirty_threshold(sbi) ||
+		excess_prefree_segs(sbi) || !f2fs_space_for_roll_forward(sbi))
+		goto do_sync;
+
+	/* there is background inflight IO or foreground operation recently */
+	if (is_inflight_io(sbi, REQ_TIME) ||
+		(!f2fs_time_over(sbi, REQ_TIME) && rwsem_is_locked(&sbi->cp_rwsem)))
 		return;
 
+	/* exceed periodical checkpoint timeout threshold */
+	if (f2fs_time_over(sbi, CP_TIME))
+		goto do_sync;
+
 	/* checkpoint is the only way to shrink partial cached entries */
-	if (!f2fs_available_free_memory(sbi, NAT_ENTRIES) ||
-			!f2fs_available_free_memory(sbi, INO_ENTRIES) ||
-			excess_prefree_segs(sbi) ||
-			excess_dirty_nats(sbi) ||
-			excess_dirty_nodes(sbi) ||
-			f2fs_time_over(sbi, CP_TIME)) {
-		if (test_opt(sbi, DATA_FLUSH) && from_bg) {
-			struct blk_plug plug;
+	if (f2fs_available_free_memory(sbi, NAT_ENTRIES) ||
+		f2fs_available_free_memory(sbi, INO_ENTRIES))
+		return;
 
-			mutex_lock(&sbi->flush_lock);
+do_sync:
+	if (test_opt(sbi, DATA_FLUSH) && from_bg) {
+		struct blk_plug plug;
 
-			blk_start_plug(&plug);
-			f2fs_sync_dirty_inodes(sbi, FILE_INODE);
-			blk_finish_plug(&plug);
+		mutex_lock(&sbi->flush_lock);
 
-			mutex_unlock(&sbi->flush_lock);
-		}
-		f2fs_sync_fs(sbi->sb, true);
-		stat_inc_bg_cp_count(sbi->stat_info);
+		blk_start_plug(&plug);
+		f2fs_sync_dirty_inodes(sbi, FILE_INODE);
+		blk_finish_plug(&plug);
+
+		mutex_unlock(&sbi->flush_lock);
 	}
+	f2fs_sync_fs(sbi->sb, true);
+	stat_inc_bg_cp_count(sbi->stat_info);
 }
 
 static int __submit_flush_wait(struct f2fs_sb_info *sbi,
@@ -603,8 +640,6 @@ repeat:
 	if (kthread_should_stop())
 		return 0;
 
-	sb_start_intwrite(sbi->sb);
-
 	if (!llist_empty(&fcc->issue_list)) {
 		struct flush_cmd *cmd, *next;
 		int ret;
@@ -624,8 +659,6 @@ repeat:
 		}
 		fcc->dispatch_list = NULL;
 	}
-
-	sb_end_intwrite(sbi->sb);
 
 	wait_event_interruptible(*q,
 		kthread_should_stop() || !llist_empty(&fcc->issue_list));
@@ -1072,6 +1105,8 @@ static void __init_discard_policy(struct f2fs_sb_info *sbi,
 				struct discard_policy *dpolicy,
 				int discard_type, unsigned int granularity)
 {
+	struct discard_cmd_control *dcc = SM_I(sbi)->dcc_info;
+
 	/* common policy */
 	dpolicy->type = discard_type;
 	dpolicy->sync = true;
@@ -1091,7 +1126,9 @@ static void __init_discard_policy(struct f2fs_sb_info *sbi,
 		dpolicy->ordered = true;
 		if (utilization(sbi) > DEF_DISCARD_URGENT_UTIL) {
 			dpolicy->granularity = 1;
-			dpolicy->max_interval = DEF_MIN_DISCARD_ISSUE_TIME;
+			if (atomic_read(&dcc->discard_cmd_cnt))
+				dpolicy->max_interval =
+					DEF_MIN_DISCARD_ISSUE_TIME;
 		}
 	} else if (discard_type == DPOLICY_FORCE) {
 		dpolicy->min_interval = DEF_MIN_DISCARD_ISSUE_TIME;
@@ -1707,8 +1744,15 @@ static int issue_discard_thread(void *data)
 	set_freezable();
 
 	do {
-		__init_discard_policy(sbi, &dpolicy, DPOLICY_BG,
-					dcc->discard_granularity);
+		if (sbi->gc_mode == GC_URGENT ||
+			!f2fs_available_free_memory(sbi, DISCARD_CACHE))
+			__init_discard_policy(sbi, &dpolicy, DPOLICY_FORCE, 1);
+		else
+			__init_discard_policy(sbi, &dpolicy, DPOLICY_BG,
+						dcc->discard_granularity);
+
+		if (!atomic_read(&dcc->discard_cmd_cnt))
+		       wait_ms = dpolicy.max_interval;
 
 		wait_event_interruptible_timeout(*q,
 				kthread_should_stop() || freezing(current) ||
@@ -1732,10 +1776,6 @@ static int issue_discard_thread(void *data)
 			wait_ms = dpolicy.max_interval;
 			continue;
 		}
-
-		if (sbi->gc_mode == GC_URGENT ||
-			!f2fs_available_free_memory(sbi, DISCARD_CACHE))
-			__init_discard_policy(sbi, &dpolicy, DPOLICY_FORCE, 1);
 
 		sb_start_intwrite(sbi->sb);
 

@@ -480,6 +480,8 @@ struct mmc_host {
 #if defined(CONFIG_SDC_QTI)
 #define MMC_CAP2_CLK_SCALE      (1 << 28)       /* Allow dynamic clk scaling */
 #endif
+/* use max discard ignoring max_busy_timeout parameter */
+#define MMC_CAP2_MAX_DISCARD_SIZE	(1 << 31)
 
 	int			fixed_drv_type;	/* fixed driver type for non-removable media */
 

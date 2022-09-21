@@ -1131,8 +1131,8 @@ config QCOM_WDOG_BITE_EARLY_PANIC
 config QCOM_WATCHDOG_BARK_TIME
 	depends on QCOM_WDT_CORE
 	int "Qualcomm Technologies, Inc. Watchdog bark time in ms"
-	default 11000
-	range 11000 11000
+	default 20000
+	range 20000 20000
 	help
 	  The amount of time, in milliseconds, that should elapse after
 	  a watchdog timer reset before a bark interrupt is sent from the
@@ -1141,8 +1141,8 @@ config QCOM_WATCHDOG_BARK_TIME
 config QCOM_WATCHDOG_PET_TIME
 	depends on QCOM_WDT_CORE
 	int "Qualcomm Technologies, Inc. Watchdog pet time in ms"
-	default 9360
-	range 9360 9360
+	default 15000
+	range 15000 15000
 	help
 	  The amount of time, in milliseconds, that should elapse before
 	  a watchdog pet is initiated to reset the watchdog timer to 0.
@@ -1357,6 +1357,11 @@ config SDX_EXT_IPC
       If unsure, say N.
 
 source "drivers/soc/qcom/icnss2/Kconfig"
+config DEBUG_POLICY_STATUS
+	bool "read debug policy status"
+	default n
+	help
+	  This driver read debug policy status using Qualcomm scm_call2 interface
 
 source "drivers/soc/qcom/gnsssirf/Kconfig"
 endmenu

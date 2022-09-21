@@ -565,7 +565,7 @@ static int icnss_setup_dms_mac(struct icnss_priv *priv)
 		}
 		if (!priv->dms.nv_mac_not_prov && !priv->dms.mac_valid) {
 			icnss_pr_err("Unable to get MAC from DMS after retries\n");
-			ICNSS_ASSERT(0);
+			//ICNSS_ASSERT(0);
 			return -EINVAL;
 		}
 	}

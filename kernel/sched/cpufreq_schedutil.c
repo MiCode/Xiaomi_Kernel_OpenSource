@@ -296,13 +296,13 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 	struct cpufreq_policy *policy = sg_policy->policy;
 	unsigned int freq = arch_scale_freq_invariant() ?
 				policy->cpuinfo.max_freq : policy->cur;
-	unsigned long next_freq = 0;
 
-	trace_android_vh_map_util_freq(util, freq, max, &next_freq);
-	if (next_freq)
-		freq = next_freq;
-	else
-		freq = map_util_freq(util, freq, max);
+    unsigned long next_freq = 0;
+        trace_android_vh_map_util_freq(util, freq, max, &next_freq);
+        if (next_freq)
+                freq = next_freq;
+        else
+                freq = map_util_freq(util, freq, max);
 
 	trace_sugov_next_freq(policy->cpu, util, max, freq);
 	if (freq == sg_policy->cached_raw_freq && !sg_policy->need_freq_update)

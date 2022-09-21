@@ -36,8 +36,22 @@ enum memcg_stat_item {
 	MEMCG_SOCK,
 	/* XXX: why are these zone and not node counters? */
 	MEMCG_KERNEL_STACK_KB,
+#ifdef CONFIG_MIMISC_MC
+	MEMCG_ION,
+	MEMCG_GPU,
+	MEMCG_MISC,
+#endif
 	MEMCG_NR_STAT,
 };
+
+#ifdef CONFIG_MIMISC_MC
+enum memcg_misc_type {
+	MEMCG_ION_TYPE,
+	MEMCG_GPU_TYPE,
+	MEMCG_MISC_TYPE,
+	MEMCG_NR_MISC_TYPE,
+};
+#endif
 
 enum memcg_memory_event {
 	MEMCG_LOW,
@@ -219,6 +233,11 @@ struct mem_cgroup {
 	struct page_counter memsw;
 	struct page_counter kmem;
 	struct page_counter tcpmem;
+
+#ifdef CONFIG_MIMISC_MC
+	/* XIAOMI special kernel misc counters */
+	struct page_counter misc[MEMCG_NR_MISC_TYPE];
+#endif
 
 	/* Upper bound of normal memory consumption range */
 	unsigned long high;
@@ -1488,5 +1507,67 @@ static inline struct mem_cgroup *mem_cgroup_from_obj(void *p)
 }
 
 #endif /* CONFIG_MEMCG_KMEM */
+
+
+#ifdef CONFIG_MIMISC_MC
+int __memcg_misc_charge(struct page *page, gfp_t gfp, unsigned int nr_pages,
+				enum memcg_misc_type type);
+void __memcg_misc_uncharge(struct page *page, unsigned int nr_pages,
+				enum memcg_misc_type type);
+int __memcg_misc_charge_memcg(struct page *page, gfp_t gfp, unsigned int nr_pages,
+				struct mem_cgroup *memcg,enum memcg_misc_type type);
+void __memcg_misc_uncharge_memcg(struct mem_cgroup *memcg,unsigned int nr_pages,
+				enum memcg_misc_type type);
+int __memcg_misc_charge_id(struct page *page, gfp_t gfp, unsigned int nr_pages,
+				enum memcg_misc_type type, unsigned int id);
+
+extern struct static_key_false memcg_misc_enabled_key;
+
+static inline bool memcg_misc_enabled(void)
+{
+	return static_branch_unlikely(&memcg_misc_enabled_key);
+}
+
+static inline int memcg_misc_charge(struct page *page, gfp_t gfp,
+					unsigned int nr_pages, enum memcg_misc_type type)
+{
+	if (memcg_misc_enabled())
+		return __memcg_misc_charge(page, gfp, nr_pages, type);
+	return 0;
+}
+
+static inline void memcg_misc_uncharge(struct page *page, unsigned int nr_pages,
+					enum memcg_misc_type type)
+{
+	if (memcg_misc_enabled())
+		__memcg_misc_uncharge(page, nr_pages, type);
+}
+
+static inline int memcg_misc_charge_memcg(struct page *page, gfp_t gfp,
+					unsigned int nr_pages, struct mem_cgroup *memcg,
+					enum memcg_misc_type type)
+{
+	if (memcg_misc_enabled())
+		return __memcg_misc_charge_memcg(page, gfp, nr_pages, memcg, type);
+	return 0;
+}
+
+static inline void memcg_misc_uncharge_memcg(struct page *page,
+					unsigned int nr_pages, struct mem_cgroup *memcg,
+					enum memcg_misc_type type)
+{
+	if (memcg_misc_enabled())
+		__memcg_misc_uncharge_memcg(memcg, nr_pages, type);
+}
+
+static inline int memcg_misc_charge_id(struct page *page, gfp_t gfp,
+					unsigned int nr_pages, enum memcg_misc_type type, unsigned int id)
+{
+	if (memcg_misc_enabled())
+		return __memcg_misc_charge_id(page, gfp, nr_pages, type, id);
+	return 0;
+}
+
+#endif /* CONFIG_MIMISC_MC */
 
 #endif /* _LINUX_MEMCONTROL_H */

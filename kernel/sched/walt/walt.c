@@ -2186,6 +2186,7 @@ void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 	trace_sched_update_task_ravg_mini(p, rq, event, wallclock, irqtime,
 				&rq->wrq.grp_time);
 
+
 done:
 	p->wts.mark_start = wallclock;
 

@@ -160,6 +160,7 @@ gpumem_mapped_show(struct kgsl_process_private *priv,
 				int type, char *buf)
 {
 	return scnprintf(buf, PAGE_SIZE, "%lld\n",
+
 			atomic64_read(&priv->gpumem_mapped));
 }
 

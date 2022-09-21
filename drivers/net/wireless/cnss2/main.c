@@ -19,6 +19,7 @@
 #include "bus.h"
 #include "debug.h"
 #include "genl.h"
+#include "pci.h"
 
 #define CNSS_DUMP_FORMAT_VER		0x11
 #define CNSS_DUMP_FORMAT_VER_V2		0x22
@@ -555,7 +556,7 @@ static int cnss_setup_dms_mac(struct cnss_plat_data *plat_priv)
 		}
 		if (!plat_priv->dms.nv_mac_not_prov && !plat_priv->dms.mac_valid) {
 			cnss_pr_err("Unable to get MAC from DMS after retries\n");
-			CNSS_ASSERT(0);
+			//CNSS_ASSERT(0);
 			return -EINVAL;
 		}
 	}
@@ -2865,6 +2866,27 @@ static ssize_t hw_trace_override_store(struct device *dev,
 	return count;
 }
 
+static ssize_t data_stall_store(struct device *dev,
+                              struct device_attribute *attr,
+                              const char *buf, size_t count)
+{
+	int data_stall = 0;
+	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
+	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
+
+	if (!pci_priv) {
+		cnss_pr_err("pci_priv is NULL\n");
+		return -ENODEV;
+	}
+	if (sscanf(buf, "%du", &data_stall) != 1)
+		return -EINVAL;
+
+	cnss_pr_err("Wlan data_stall event reason is %d\n",
+		    data_stall);
+	cnss_force_fw_assert(&pci_priv->pci_dev->dev);
+	return count;
+}
+
 static DEVICE_ATTR_WO(fs_ready);
 static DEVICE_ATTR_WO(shutdown);
 static DEVICE_ATTR_WO(recovery);
@@ -2873,6 +2895,7 @@ static DEVICE_ATTR_WO(qdss_trace_start);
 static DEVICE_ATTR_WO(qdss_trace_stop);
 static DEVICE_ATTR_WO(qdss_conf_download);
 static DEVICE_ATTR_WO(hw_trace_override);
+static DEVICE_ATTR_WO(data_stall);
 
 static struct attribute *cnss_attrs[] = {
 	&dev_attr_fs_ready.attr,
@@ -2883,6 +2906,7 @@ static struct attribute *cnss_attrs[] = {
 	&dev_attr_qdss_trace_stop.attr,
 	&dev_attr_qdss_conf_download.attr,
 	&dev_attr_hw_trace_override.attr,
+	&dev_attr_data_stall.attr,
 	NULL,
 };
 

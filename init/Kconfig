@@ -464,6 +464,12 @@ config SCHED_WALT
 	used to guide task placement as well as task frequency requirements
 	for cpufreq governors.
 
+config MIMISC_MC
+	bool "mi misc memory group"
+	default n
+	---help---
+	  Acct ion/gpu misc memory to memory cgroup
+
 config BSD_PROCESS_ACCT
 	bool "BSD Process Accounting"
 	depends on MULTIUSER
@@ -1091,6 +1097,12 @@ config SOCK_CGROUP_DATA
 	default n
 
 endif # CGROUPS
+
+config PERF_HUMANTASK
+	bool "enable feature humantask"
+	default n
+	help
+	  support switch on/off of sched humantask.
 
 menuconfig NAMESPACES
 	bool "Namespaces support" if EXPERT

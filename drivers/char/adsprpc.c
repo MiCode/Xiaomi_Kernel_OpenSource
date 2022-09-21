@@ -2466,7 +2466,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 					&ctx->maps[i]);
 		if (err) {
 			for (j = bufs; j < i; j++)
-				fastrpc_mmap_free(ctx->maps[j], 0);
+			fastrpc_mmap_free(ctx->maps[j], 0);
 			mutex_unlock(&ctx->fl->map_mutex);
 			goto bail;
 		}

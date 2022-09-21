@@ -486,9 +486,12 @@ int commit_creds(struct cred *new)
 		atomic_inc(&new->user->processes);
 	rcu_assign_pointer(task->real_cred, new);
 	rcu_assign_pointer(task->cred, new);
+
 	if (new->user != old->user)
 		atomic_dec(&old->user->processes);
+
 	alter_cred_subscribers(old, -2);
+
 
 	/* send notifications */
 	if (!uid_eq(new->uid,   old->uid)  ||

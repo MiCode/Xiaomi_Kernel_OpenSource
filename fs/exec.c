@@ -63,6 +63,7 @@
 #include <linux/oom.h>
 #include <linux/compat.h>
 #include <linux/vmalloc.h>
+#include <linux/sched.h>
 
 #include <linux/uaccess.h>
 #include <asm/mmu_context.h>
@@ -1255,7 +1256,30 @@ EXPORT_SYMBOL_GPL(__get_task_comm);
 
 void __set_task_comm(struct task_struct *tsk, const char *buf, bool exec)
 {
+
+#ifdef CONFIG_PERF_HUMANTASK
+	struct task_struct *parent = find_task_by_vpid(tsk->tgid);
+	char *tmpbuf = kmalloc(128, GFP_KERNEL);
+#endif
 	task_lock(tsk);
+#ifdef CONFIG_PERF_HUMANTASK
+	if (!strcmp(buf, "com.miui.home")) {
+		tsk->human_task = MAX_LEVER+1 ;
+	}
+	if (!strcmp(parent->comm, "system_server")) {
+		if (!strcmp(buf, "InputDispatcher") || !strcmp(buf, "InputReader")) {
+			tsk->human_task = MAX_LEVER+1 ;
+		} else if (tmpbuf) {
+			memset(tmpbuf, 0, 128);
+			snprintf(tmpbuf, sizeof(tmpbuf), "Binder:%d_%X", tsk->tgid, 1);
+			//binder/ProcessState.cpp
+			if (!strcmp(tmpbuf, buf))
+				tsk->human_task = 1;
+		}
+	}
+	if (tmpbuf)
+		kfree(tmpbuf);
+#endif
 	trace_task_rename(tsk, buf);
 	strlcpy(tsk->comm, buf, sizeof(tsk->comm));
 	task_unlock(tsk);

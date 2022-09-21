@@ -17,6 +17,11 @@
 #include "ucsi.h"
 #include "trace.h"
 
+#undef dev_dbg
+#undef pr_debug
+#define pr_debug pr_err
+#define dev_dbg dev_err
+
 /*
  * UCSI_TIMEOUT_MS - PPM communication timeout
  *
@@ -719,11 +724,6 @@ static int ucsi_dr_swap(struct typec_port *port, enum typec_data_role role)
 
 	mutex_lock(&con->lock);
 
-	if (!con->partner) {
-		ret = -ENOTCONN;
-		goto out_unlock;
-	}
-
 	partner_type = UCSI_CONSTAT_PARTNER_TYPE(con->status.flags);
 	if ((partner_type == UCSI_CONSTAT_PARTNER_TYPE_DFP &&
 	     role == TYPEC_DEVICE) ||
@@ -767,6 +767,7 @@ static int ucsi_pr_swap(struct typec_port *port, enum typec_role role)
 	if (cur_role == role)
 		goto out_unlock;
 
+	pr_info("num = %d\n", con->num);
 	command = UCSI_SET_PDR | UCSI_CONNECTOR_NUMBER(con->num);
 	command |= UCSI_SET_PDR_ROLE(role);
 	command |= UCSI_SET_PDR_ACCEPT_ROLE_SWAPS;
