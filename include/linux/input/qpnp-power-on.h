@@ -73,11 +73,6 @@ int qpnp_pon_modem_pwr_off(enum pon_power_off_type type);
 
 #else
 
-static int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
-{
-	return -ENODEV;
-}
-
 static inline int qpnp_pon_is_warm_reset(void)
 {
 	return -ENODEV;
