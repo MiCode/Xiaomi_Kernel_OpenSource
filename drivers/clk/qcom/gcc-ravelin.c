@@ -2983,6 +2983,9 @@ static int gcc_ravelin_probe(struct platform_device *pdev)
 	/* Ignore the PMU clock disable signal for gcc_venus_ctl_axi_clk */
 	regmap_update_bits(regmap, gcc_venus_ctl_axi_clk.clkr.enable_reg, BIT(21), BIT(21));
 
+	regmap_update_bits(regmap, 0x36010, BIT(20), BIT(20));
+	regmap_update_bits(regmap, 0x36014, BIT(20), BIT(20));
+
 	clk_lucid_evo_pll_configure(&gcc_gpll3, regmap, &gcc_gpll3_config);
 
 	ret = qcom_cc_register_rcg_dfs(regmap, gcc_dfs_clocks,
