@@ -27,6 +27,7 @@
 #define SDEXPRESS_VREG_VDD2_DEFAULT_UV 1800000 /* uV */
 #define SDEXPRESS_VREG_DEFAULT_MIN_LOAD_UA 0 /* uA */
 #define SDEXPRESS_VREG_DEFAULT_MAX_LODA_UA 600000 /* uA */
+#define PCIE_ENUMERATE_RETRY 3 /* retries upon msm_pcie_enumerate() failure */
 
 /*
  * This structure keeps information per regulator
