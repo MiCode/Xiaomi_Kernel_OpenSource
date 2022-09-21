@@ -96,6 +96,7 @@ struct ssusb_redriver {
 
 	u8	gen_dev_val;
 	bool	lane_channel_swap;
+	bool	vdd_enable;
 
 	struct workqueue_struct *pullup_wq;
 	struct work_struct	pullup_work;
@@ -132,6 +133,22 @@ static int redriver_i2c_reg_set(struct ssusb_redriver *redriver,
 	}
 
 	dev_dbg(redriver->dev, "writing reg 0x%02x=0x%02x\n", reg, val);
+
+	return 0;
+}
+
+static int redriver_vdd_enable(struct ssusb_redriver *redriver, bool on)
+{
+	if (!redriver->vdd || redriver->op_mode != OP_MODE_NONE)
+		return 0;
+
+	if (on && !redriver->vdd_enable) {
+		redriver->vdd_enable = true;
+		return regulator_enable(redriver->vdd);
+	} else if (!on && redriver->vdd_enable) {
+		redriver->vdd_enable = false;
+		return regulator_disable(redriver->vdd);
+	}
 
 	return 0;
 }
@@ -509,12 +526,16 @@ static int ssusb_redriver_ucsi_notifier(struct notifier_block *nb,
 			"CC1" : "CC2");
 	}
 
+	redriver_vdd_enable(redriver, true);
+
 	ret = ssusb_redriver_channel_update(redriver);
 	if (ret) {
 		dev_dbg(redriver->dev, "i2c bus may not resume(%d)\n", ret);
 		return NOTIFY_DONE;
 	}
 	ssusb_redriver_gen_dev_set(redriver);
+
+	redriver_vdd_enable(redriver, false);
 
 	return NOTIFY_OK;
 }
@@ -543,6 +564,8 @@ int redriver_notify_connect(struct device_node *node, enum plug_orientation orie
 	} else if (redriver->op_mode == OP_MODE_NONE) {
 		ssusb_redriver_read_orientation(redriver);
 	}
+
+	redriver_vdd_enable(redriver, true);
 
 	if (redriver->op_mode == OP_MODE_NONE)
 		redriver->op_mode = OP_MODE_USB;
@@ -582,6 +605,8 @@ int redriver_notify_disconnect(struct device_node *node)
 
 	redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG, 0);
 
+	redriver_vdd_enable(redriver, false);
+
 	return 0;
 }
 EXPORT_SYMBOL(redriver_notify_disconnect);
@@ -596,6 +621,8 @@ int redriver_release_usb_lanes(struct device_node *node)
 
 	if (redriver->op_mode == OP_MODE_DP)
 		return 0;
+
+	redriver_vdd_enable(redriver, true);
 
 	dev_dbg(redriver->dev, "display notify 4 lane mode\n");
 	redriver->op_mode = OP_MODE_DP;
@@ -772,11 +799,6 @@ static int redriver_i2c_probe(struct i2c_client *client,
 		if (ret != -ENODEV)
 			dev_err(&client->dev, "Failed to get vdd regulator %d\n", ret);
 	}
-	if (redriver->vdd) {
-		ret = regulator_enable(redriver->vdd);
-		if (ret)
-			dev_err(&client->dev, "Failed to enable vdd regulator %d\n", ret);
-	}
 
 	INIT_WORK(&redriver->pullup_work, redriver_gadget_pullup_work);
 	INIT_WORK(&redriver->host_work, redriver_host_work);
@@ -786,6 +808,16 @@ static int redriver_i2c_probe(struct i2c_client *client,
 
 	redriver->op_mode = OP_MODE_NONE;
 	ssusb_redriver_gen_dev_set(redriver);
+	/* when private vdd present and change to none mode, it can simply disable vdd regulator,
+	 * but to keep things simple and avoid if/else operation, keep one same rule as,
+	 * allow original register write operation then control vdd regulator.
+	 * also it will keep consistent behavior if it still need vdd control when multiple
+	 * clients share the same vdd regulator.
+	 */
+	if (redriver->vdd) {
+		redriver->vdd_enable = false;
+		regulator_disable(redriver->vdd);
+	}
 
 	ssusb_redriver_orientation_gpio_init(redriver);
 
