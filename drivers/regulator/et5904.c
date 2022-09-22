@@ -178,17 +178,20 @@ static int et5904_i2c_probe(struct i2c_client *i2c,
 		preg_desc = et5904_regulators9;
 		break;
 	default:
-		dev_info(&i2c->dev, "UnSupported I2C-[%d]\n",  i2cid);
+		dev_info(&i2c->dev, "UnSupported I2C-[%d]\n", i2cid);
+		preg_desc = NULL;
 		break;
 	}
 	pr_info("%s-%d\n", __func__, __LINE__);
 	config.dev = &i2c->dev;
 	config.init_data = NULL;
 
+	if (preg_desc == NULL) {
+		dev_info(&i2c->dev, "ET5904 Regulator description init failed\n");
+		return -1;
+	}
 	for (i = 0; i < ARRAY_SIZE(et5904_regulators1); i++) {
-		rdev = devm_regulator_register(&i2c->dev,
-					       &preg_desc[i],
-					       &config);
+		rdev = devm_regulator_register(&i2c->dev, &preg_desc[i], &config);
 		if (IS_ERR(rdev)) {
 			ret = PTR_ERR(rdev);
 			dev_info(&i2c->dev, "Failed to register %s: %d\n",
