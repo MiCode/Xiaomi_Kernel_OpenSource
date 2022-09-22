@@ -2716,6 +2716,11 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev, struct drm_crtc 
 			mode = MML_MODE_MML_DECOUPLE;
 	}
 
+	if (l_rule_info->litepq && (mode == MML_MODE_MDP_DECOUPLE)) {
+		DDPDBG("%s litepq primary disable MDP\n", __func__);
+		mode = MML_MODE_NOT_SUPPORT;
+	}
+
 	switch (mode) {
 	case MML_MODE_NOT_SUPPORT:
 		ret = MTK_MML_DISP_NOT_SUPPORT;
@@ -2765,14 +2770,15 @@ static void check_is_mml_layer(const int disp_idx,
 	struct mtk_drm_crtc *mtk_crtc = NULL;
 	struct drm_mtk_layer_config *c = NULL;
 	int i = 0;
-	const enum MTK_LAYERING_CAPS mml_mask =
-	    (MTK_MML_DISP_DIRECT_LINK_LAYER | MTK_MML_DISP_DIRECT_DECOUPLE_LAYER |
-	     MTK_MML_DISP_DECOUPLE_LAYER | MTK_MML_DISP_MDP_LAYER);
-	enum MTK_LAYERING_CAPS mml_capacity = mml_mask;
+	enum MTK_LAYERING_CAPS mml_capacity = DISP_MML_CAPS_MASK;
 	static bool last_is_ir;
 	bool curr_is_ir = false;
 
 	if (!dev || !disp_info || !scn_decision_flag)
+		return;
+
+	/* MML support only for primary display */
+	if (disp_idx != 0)
 		return;
 
 	drm_for_each_crtc(crtc, dev)
@@ -2806,9 +2812,11 @@ static void check_is_mml_layer(const int disp_idx,
 		}
 
 		/* If more than 1 MML layer, support only IR+GPU, DC+MDP */
-		if (mml_mask & c->layer_caps) {
+		if (mtk_has_layer_cap(c, DISP_MML_CAPS_MASK)) {
 			if (mml_capacity & c->layer_caps) {
-				if (MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
+				if (l_rule_info->litepq) {
+					mml_capacity = 0;
+				} else if (MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
 					mml_capacity = 0;
 					curr_is_ir = true;
 				} else if (MTK_MML_DISP_DIRECT_LINK_LAYER & c->layer_caps) {
@@ -2816,12 +2824,12 @@ static void check_is_mml_layer(const int disp_idx,
 				} else {
 					mml_capacity &= ~(MTK_MML_DISP_DIRECT_DECOUPLE_LAYER |
 							 MTK_MML_DISP_DIRECT_LINK_LAYER);
-					mml_capacity &= ~(mml_mask & c->layer_caps);
+					mml_capacity &= ~(DISP_MML_CAPS_MASK & c->layer_caps);
 				}
 			} else {
 				DDPINFO("%s capacity exhausted %x -> %x\n", __func__,
-					c->layer_caps & mml_mask, mml_capacity);
-				c->layer_caps &= ~mml_mask;
+					c->layer_caps & DISP_MML_CAPS_MASK, mml_capacity);
+				c->layer_caps &= ~DISP_MML_CAPS_MASK;
 				c->layer_caps |=
 				    (mml_capacity ? mml_capacity : MTK_MML_DISP_NOT_SUPPORT);
 			}
@@ -2830,8 +2838,12 @@ static void check_is_mml_layer(const int disp_idx,
 		/* Frame[N-1](IR) Frame[N](DC) is not allowed */
 		if ((MTK_MML_DISP_DECOUPLE_LAYER & c->layer_caps) && last_is_ir) {
 			c->layer_caps &= ~MTK_MML_DISP_DECOUPLE_LAYER;
-			c->layer_caps |= MTK_MML_DISP_MDP_LAYER;
-			DDPMSG("%s hrt_idx:%d last is IR, set MML_DC to MDP\n", __func__, hrt_idx);
+			if (l_rule_info->litepq)
+				c->layer_caps |= MTK_MML_DISP_NOT_SUPPORT;
+			else
+				c->layer_caps |= MTK_MML_DISP_MDP_LAYER;
+			DDPMSG("%s hrt_idx:%d last is IR, set MML_DC to %s\n", __func__, hrt_idx,
+			       l_rule_info->litepq ? "GPU" : "MDP");
 		}
 
 		if (MTK_MML_DISP_DIRECT_LINK_LAYER & c->layer_caps ||
@@ -2869,7 +2881,7 @@ static void check_is_mml_layer(const int disp_idx,
 		/* Scan gles range, bottom up */
 		for (i = disp_info->gles_head[disp_idx]; i <= disp_info->gles_tail[disp_idx]; ++i) {
 			c = &disp_info->input_config[disp_idx][i];
-			if (!(mml_mask & c->layer_caps)) {
+			if (!(DISP_MML_CAPS_MASK & c->layer_caps)) {
 				adjusted_gles_head = i;
 				break;
 			}
@@ -2878,7 +2890,7 @@ static void check_is_mml_layer(const int disp_idx,
 		/* Scan gles range, top down */
 		for (i = disp_info->gles_tail[disp_idx]; i >= disp_info->gles_head[disp_idx]; --i) {
 			c = &disp_info->input_config[disp_idx][i];
-			if (!(mml_mask & c->layer_caps)) {
+			if (!(DISP_MML_CAPS_MASK & c->layer_caps)) {
 				adjusted_gles_tail = i;
 				break;
 			}
