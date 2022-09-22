@@ -128,8 +128,9 @@ aliases {
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			iommus = <&iommu M4U_PORT_DISP_2L_OVL0_LARB0>;
 			clocks = <&mmsys_config CLK_MM_F26M_HRTWT>,
+				<&mmsys_config CLK_MM_IMG_DL_RELAY>,
 				   <&topckgen CLK_TOP_DISP_PWM_SEL>;
-			clock-num = <2>;
+			clock-num = <3>;
 #if 0
 			fake-engine = <&smi_larb0 M4U_LARB0_PORT4>,
 				<&smi_larb1 M4U_LARB1_PORT4>;
