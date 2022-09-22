@@ -33,6 +33,18 @@
 #include "../mediatek/mediatek_v2/mtk_corner_pattern/mtk_data_hw_roundedpattern.h"
 #endif
 
+#define HFP (40)
+#define HSA (10)
+#define HBP (20)
+#define VFP (20)
+#define VSA (2)
+#define VBP (8)
+#define VAC (2160)
+#define HAC (1080)
+static u32 fake_heigh = 2160;
+static u32 fake_width = 1080;
+static bool need_fake_resolution;
+
 struct lcm {
 	struct device *dev;
 	struct drm_panel panel;
@@ -500,18 +512,34 @@ static int lcm_enable(struct drm_panel *panel)
 	return 0;
 }
 
-static const struct drm_display_mode default_mode = {
+static struct drm_display_mode default_mode = {
 	.clock = 151110,
-	.hdisplay = 1080,
-	.hsync_start = 1080 + 40,
-	.hsync_end = 1080 + 40 + 10,
-	.htotal = 1080 + 40 + 10 + 20,
-	.vdisplay = 2160,
-	.vsync_start = 2160 + 20,
-	.vsync_end = 2160 + 20 + 2,
-	.vtotal = 2160 + 20 + 2 + 8,
+	.hdisplay = HAC,
+	.hsync_start = HAC + HFP,
+	.hsync_end = HAC + HFP + HSA,
+	.htotal = HAC + HFP + HSA + HBP,
+	.vdisplay = VAC,
+	.vsync_start = VAC + VFP,
+	.vsync_end = VAC + VFP + VSA,
+	.vtotal = VAC + VFP + VSA + VBP,
 	//.vrefresh = 60,
 };
+
+static void change_drm_disp_mode_params(struct drm_display_mode *mode)
+{
+	if (fake_heigh > 0 && fake_heigh < VAC) {
+		mode->vdisplay = fake_heigh;
+		mode->vsync_start = fake_heigh + VFP;
+		mode->vsync_end = fake_heigh + VFP + VSA;
+		mode->vtotal = fake_heigh + VFP + VSA + VBP;
+	}
+	if (fake_width > 0 && fake_width < HAC) {
+		mode->hdisplay = fake_width;
+		mode->hsync_start = fake_width + HFP;
+		mode->hsync_end = fake_width + HFP + HSA;
+		mode->htotal = fake_width + HFP + HSA + HBP;
+	}
+}
 
 #if defined(CONFIG_MTK_PANEL_EXT)
 static int panel_ext_reset(struct drm_panel *panel, int on)
@@ -573,6 +601,16 @@ static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
 	return 0;
 }
 
+static int lcm_get_virtual_heigh(void)
+{
+	return VAC;
+}
+
+static int lcm_get_virtual_width(void)
+{
+	return HAC;
+}
+
 static struct mtk_panel_params ext_params = {
 	.pll_clk = 525,
 	.vfp_low_power = 750,
@@ -589,6 +627,8 @@ static struct mtk_panel_funcs ext_funcs = {
 	.reset = panel_ext_reset,
 	.set_backlight_cmdq = lcm_setbacklight_cmdq,
 	.ata_check = panel_ata_check,
+	.get_virtual_heigh = lcm_get_virtual_heigh,
+	.get_virtual_width = lcm_get_virtual_width,
 };
 #endif
 
@@ -615,9 +655,11 @@ static int lcm_get_modes(struct drm_panel *panel, struct drm_connector *connecto
 {
 	struct drm_display_mode *mode;
 
+	if (need_fake_resolution)
+		change_drm_disp_mode_params(&default_mode);
 	mode = drm_mode_duplicate(connector->dev, &default_mode);
 	if (!mode) {
-		dev_err(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
+		dev_info(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
 			default_mode.hdisplay, default_mode.vdisplay,
 			drm_mode_vrefresh(&default_mode));
 		return -ENOMEM;
@@ -640,6 +682,26 @@ static const struct drm_panel_funcs lcm_drm_funcs = {
 	.enable = lcm_enable,
 	.get_modes = lcm_get_modes,
 };
+
+static void check_is_need_fake_resolution(struct device *dev)
+{
+	unsigned int ret = 0;
+
+	ret = of_property_read_u32(dev->of_node, "fake_heigh", &fake_heigh);
+	if (ret) {
+		need_fake_resolution = false;
+		return;
+	}
+	ret = of_property_read_u32(dev->of_node, "fake_width", &fake_width);
+	if (ret) {
+		need_fake_resolution = false;
+		return;
+	}
+	if (fake_heigh > 0 && fake_heigh < VAC && fake_width > 0 && fake_width < HAC)
+		need_fake_resolution = true;
+	else
+		need_fake_resolution = false;
+}
 
 static int lcm_probe(struct mipi_dsi_device *dsi)
 {
@@ -739,7 +801,7 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 	if (ret < 0)
 		return ret;
 #endif
-
+	check_is_need_fake_resolution(dev);
 	pr_info("%s-\n", __func__);
 
 	return ret;
