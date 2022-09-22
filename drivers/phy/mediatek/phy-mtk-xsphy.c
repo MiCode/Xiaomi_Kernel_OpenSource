@@ -40,6 +40,17 @@
 #define SSPXTP_SIFSLV_DIG_LN_DAIF	0x300
 #define SSPXTP_SIFSLV_PHYA_LN		0x400
 
+#define XSP_MISC_REG0		((SSUSB_SIFSLV_MISC) + 0x00)
+#define MR0_RG_MISC_TIMER_1US		GENMASK(15, 8)
+#define MR0_RG_MISC_TIMER_1US_VAL(x)	((0xff & (x)) << 8)
+#define MR0_RG_MISC_STABLE_TIME		GENMASK(23, 16)
+#define MR0_RG_MISC_STABLE_TIME_VAL(x)	((0xff & (x)) << 16)
+#define MR0_RG_MISC_BANDGAP_STABLE_TIME		GENMASK(31, 24)
+#define MR0_RG_MISC_BANDGAP_STABLE_TIME_VAL(x)	((0xff & (x)) << 24)
+
+#define XSP_MISC_REG1		((SSUSB_SIFSLV_MISC) + 0x04)
+#define MR1_RG_MISC_PLL_STABLE_SEL	BIT(16)
+
 #define XSP_U2FREQ_FMCR0	((SSUSB_SIFSLV_U2FREQ) + 0x00)
 #define P2F_RG_FREQDET_EN	BIT(24)
 #define P2F_RG_CYCLECNT		GENMASK(23, 0)
@@ -100,6 +111,10 @@
 #define XSP_USBPHYA_RESERVEA	((SSUSB_SIFSLV_U2PHY_COM) + 0x034)
 #define P2ARA_RG_TERM_CAL		GENMASK(11, 8)
 #define P2ARA_RG_TERM_CAL_VAL(x)	((0xf & (x)) << 8)
+
+#define XSP_U2PHYDCR1		((SSUSB_SIFSLV_U2PHY_COM) + 0x064)
+#define P2C_RG_USB20_SW_PLLMODE	GENMASK(19, 18)
+#define P2C_RG_USB20_SW_PLLMODE_VAL(x)	((0x3 & (x)) << 18)
 
 #define XSP_U2PHYDTM0		((SSUSB_SIFSLV_U2PHY_COM) + 0x068)
 #define P2D_FORCE_UART_EN		BIT(26)
@@ -261,6 +276,13 @@ enum mtk_xsphy_jtag_version {
 	XSP_JTAG_V2,
 };
 
+enum mtk_xsphy_u2_lpm_parameter {
+	PHY_PLL_TIMER_COUNT = 0,
+	PHY_PLL_STABLE_TIME,
+	PHY_PLL_BANDGAP_TIME,
+	PHY_PLL_PARA_CNT,
+};
+
 enum mtk_phy_efuse {
 	INTR_CAL = 0,
 	TERM_CAL,
@@ -301,6 +323,9 @@ struct xsphy_instance {
 	int eye_term_host;
 	int rev6_host;
 	struct proc_dir_entry *phy_root;
+	/* u2 lpm */
+	bool lpm_quirk;
+	u32 lpm_para[PHY_PLL_PARA_CNT];
 };
 
 struct mtk_xsphy {
@@ -1068,6 +1093,51 @@ static void u2_phy_slew_rate_calibrate(struct mtk_xsphy *xsphy,
 	writel(tmp, pbase + XSP_USBPHYACR5);
 }
 
+static void u2_phy_lpm_pll_set(struct mtk_xsphy *xsphy,
+	struct xsphy_instance *inst)
+{
+	void __iomem *pbase = inst->port_base;
+	u32 index = inst->index;
+	u32 tmp;
+
+	if (!inst->lpm_quirk)
+		return;
+
+	/* enable SW PLL mode */
+	tmp = readl(pbase + XSP_U2PHYDCR1);
+	tmp &= ~P2C_RG_USB20_SW_PLLMODE;
+	tmp |= P2C_RG_USB20_SW_PLLMODE_VAL(0x1);
+	writel(tmp, pbase + XSP_U2PHYDCR1);
+
+	/* enable HW count PLL time */
+	tmp = readl(pbase + XSP_MISC_REG1);
+	tmp |= MR1_RG_MISC_PLL_STABLE_SEL;
+	writel(tmp, pbase + XSP_MISC_REG1);
+
+	/* set 1us time count value */
+	tmp = readl(pbase + XSP_MISC_REG0);
+	tmp &= ~MR0_RG_MISC_TIMER_1US;
+	tmp |= MR0_RG_MISC_TIMER_1US_VAL
+		(inst->lpm_para[PHY_PLL_TIMER_COUNT]);
+	writel(tmp, pbase + XSP_MISC_REG0);
+
+	/* set pll stable time */
+	tmp = readl(pbase + XSP_MISC_REG0);
+	tmp &= ~MR0_RG_MISC_STABLE_TIME;
+	tmp |= MR0_RG_MISC_STABLE_TIME_VAL
+		(inst->lpm_para[PHY_PLL_STABLE_TIME]);
+	writel(tmp, pbase + XSP_MISC_REG0);
+
+	/* set pll bandgap stable time */
+	tmp = readl(pbase + XSP_MISC_REG0);
+	tmp &= ~MR0_RG_MISC_BANDGAP_STABLE_TIME;
+	tmp |= MR0_RG_MISC_BANDGAP_STABLE_TIME_VAL
+		(inst->lpm_para[PHY_PLL_BANDGAP_TIME]);
+	writel(tmp, pbase + XSP_MISC_REG0);
+
+	dev_info(xsphy->dev, "%s(%d)\n", __func__, index);
+}
+
 static void u2_phy_instance_init(struct mtk_xsphy *xsphy,
 				 struct xsphy_instance *inst)
 {
@@ -1152,6 +1222,8 @@ static void u2_phy_instance_power_on(struct mtk_xsphy *xsphy,
 	writel(tmp, pbase + XSP_USBPHYACR6);
 
 	udelay(800);
+
+	u2_phy_lpm_pll_set(xsphy, inst);
 
 	dev_info(xsphy->dev, "%s(%d)\n", __func__, index);
 }
@@ -1398,6 +1470,9 @@ static void phy_parse_property(struct mtk_xsphy *xsphy,
 					 &inst->eye_term_host);
 		device_property_read_u32(dev, "mediatek,rev6-host",
 				 &inst->rev6_host);
+		if (!device_property_read_u32_array(dev, "mediatek,lpm-parameter",
+			inst->lpm_para, PHY_PLL_PARA_CNT))
+			inst->lpm_quirk = true;
 		dev_dbg(dev, "intr:%d, term_cal, src:%d, vrt:%d, term:%d\n",
 			inst->efuse_intr, inst->efuse_term_cal, inst->eye_src,
 			inst->eye_vrt, inst->eye_term);
