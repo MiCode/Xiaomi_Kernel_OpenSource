@@ -388,6 +388,23 @@ config MTK_IOMMU
 
 	  If unsure, say N here.
 
+config MTK_IOMMU_ARM32
+	tristate "MTK IOMMU Support"
+	depends on ARM
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	select ARM_DMA_USE_IOMMU
+	select IOMMU_API
+	select IOMMU_IO_PGTABLE_ARMV7S
+	select MEMORY
+	select MTK_SMI
+	help
+	  it used for 32bit project.
+	  Support for the M4U on certain Mediatek SOCs. M4U is MultiMedia
+	  Memory Management Unit. This option enables remapping of DMA memory
+	  accesses for the multimedia subsystem.
+
+	  If unsure, say N here.
+
 config MTK_IOMMU_V1
 	bool "MTK IOMMU Version 1 (M4U gen1) Support"
 	depends on ARM
