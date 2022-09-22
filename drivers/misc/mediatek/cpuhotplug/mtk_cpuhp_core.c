@@ -59,9 +59,9 @@ static void arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
 
 	cpumask_clear(cpus);
 	for_each_possible_cpu(cpu) {
-		struct cputopo_arm *cpu_topo = &cpu_topology[cpu];
+		struct cpu_topology *cpu_topo = &cpu_topology[cpu];
 
-		if (cpu_topo->socket_id == cluster_id)
+		if (cpu_topo->package_id == cluster_id)
 			cpumask_set_cpu(cpu, cpus);
 	}
 }
