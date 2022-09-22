@@ -368,9 +368,9 @@ static long AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 
 				if (g_EnableTimer == 0) {
 					/* Start Timer */
-					hrtimer_start(&ois_timer,
-						      ktime_set(0, 50000000),
-						      HRTIMER_MODE_REL);
+					/* hrtimer_start(&ois_timer, */
+						      /* ktime_set(0, 50000000), */
+						      /* HRTIMER_MODE_REL); */
 					g_EnableTimer = 1;
 				}
 			}
@@ -462,7 +462,7 @@ static int AF_Release(struct inode *a_pstInode, struct file *a_pstFile)
 
 	/* OIS/EIS Timer & Workqueue */
 	/* Cancel Timer */
-	hrtimer_cancel(&ois_timer);
+	/* hrtimer_cancel(&ois_timer); */
 
 	/* flush work queue */
 	flush_work(&ois_work);
