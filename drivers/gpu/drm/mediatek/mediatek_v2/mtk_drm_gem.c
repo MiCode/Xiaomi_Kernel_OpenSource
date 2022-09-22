@@ -750,7 +750,7 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 	struct mml_submit *submit_user = (struct mml_submit *)data;
 	struct mtk_drm_private *priv = dev->dev_private;
 	struct mml_drm_ctx *mml_ctx = NULL;
-	struct mml_submit* submit_kernel;
+	struct mml_submit *submit_kernel;
 	struct drm_crtc *crtc;
 
 	DDPINFO("%s:%d +\n", __func__, __LINE__);
@@ -760,44 +760,53 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 		return -EINVAL;
 	}
 
+	if (!submit_user)
+		return -EFAULT;
+
 	submit_kernel = kzalloc(sizeof(struct mml_submit), GFP_KERNEL);
 	if (!submit_kernel) {
-		DDPPR_ERR("%s:%d submit_kernel alloc fail\n", __func__, __LINE__);
-		return -EINVAL;
+		DDPMSG("[%s][%d][%d] kzalloc fail\n", __func__, __LINE__, ret);
+		return -EFAULT;
 	}
+
 	memcpy(submit_kernel, submit_user, sizeof(struct mml_submit));
 	submit_kernel->job = kzalloc(sizeof(struct mml_job), GFP_KERNEL);
 	if (!submit_kernel->job) {
-		DDPPR_ERR("%s:%d submit_kernel job alloc fail\n", __func__, __LINE__);
-		kfree(submit_kernel);
-		return -EINVAL;
+		ret = -EFAULT;
+		DDPMSG("[%s][%d][%d] kzalloc fail\n", __func__, __LINE__, ret);
+		goto err_handle_create;
 	}
 
-	if (submit_user && submit_user->job) {
-		if (copy_from_user(submit_kernel->job, submit_user->job, sizeof(struct mml_job)))
-			DDPPR_ERR("%s:%d copy_from_user fail\n", __func__, __LINE__);
-	} else {
-		DDPMSG("mtk_drm_ioctl_mml_gem_submit submit_user->job is null\n");
-	}
+	if (submit_user->job) {
+		ret = copy_from_user(submit_kernel->job, submit_user->job, sizeof(struct mml_job));
+		if (ret) {
+			DDPMSG("[%s][%d][%d] copy_from_user fail\n", __func__, __LINE__, ret);
+			goto err_handle_create;
+		}
+	} else
+		DDPMSG("[%s] submit_user->job is null\n", __func__);
 
-	for (i = 0; i < MML_MAX_OUTPUTS; i++)
-	{
-		if (submit_user && submit_user->pq_param[i]) {
-			submit_kernel->pq_param[i] = kzalloc(sizeof(struct mml_pq_param), GFP_KERNEL);
+	for (i = 0; i < MML_MAX_OUTPUTS; i++) {
+		if (submit_user->pq_param[i]) {
+			submit_kernel->pq_param[i] =
+				kzalloc(sizeof(struct mml_pq_param), GFP_KERNEL);
 			if (!submit_kernel->pq_param[i]) {
-				DDPPR_ERR("%s:%d pq_param[%d]  alloc fail\n",
-					 __func__, __LINE__, i);
-				kfree(submit_kernel->job);
-				kfree(submit_kernel);
-				return -EINVAL;
+				ret = -EFAULT;
+				DDPMSG("[%s][%d][%d] kzalloc fail\n", __func__, __LINE__, ret);
+				goto err_handle_create;
 			}
-			if (copy_from_user(submit_kernel->pq_param[i], submit_user->pq_param[i],
-					sizeof(struct mml_pq_param)))
-				DDPPR_ERR("%s:%d copy_from_user fail\n", __func__, __LINE__);
+
+			ret = copy_from_user(submit_kernel->pq_param[i], submit_user->pq_param[i],
+				sizeof(struct mml_pq_param));
+			if (ret) {
+				DDPMSG("[%s][%d][%d] copy_from_user fail\n",
+				__func__, __LINE__, ret);
+				goto err_handle_create;
+			}
 			//copy_from_user(submit_kernel->pq_param[i]->gralloc_extra_handle,
 			//	submit_user->pq_param[i]->gralloc_extra_handle, sizeof(void *));
 		} else {
-			DDPMSG("mtk_drm_ioctl_mml_gem_submit submit_user->pq_param[i] is null\n");
+			DDPMSG("%s submit_user->pq_param[i] is null\n", __func__);
 		}
 	}
 
@@ -817,19 +826,19 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 		DDPINFO("%s:%d mml_drm_submit - ret:%d, job(id,fence):(%d,%d)\n",
 			__func__, __LINE__, ret,
 			submit_kernel->job->jobid, submit_kernel->job->fence);
-		if (ret) {
+		if (ret)
 			DDPMSG("submit failed: %d\n", ret);
-		}
 	}
 
-	if (submit_user && submit_user->job) {
-		if (copy_to_user(submit_user->job, submit_kernel->job, sizeof(struct mml_job)))
-			DDPPR_ERR("%s:%d copy_to_user fail\n", __func__, __LINE__);
+	if (submit_user->job) {
+		ret = copy_to_user(submit_user->job, submit_kernel->job, sizeof(struct mml_job));
+		if (ret)
+			DDPMSG("[%s][%d][%d] copy_to_user fail\n", __func__, __LINE__, ret);
 	}
 
-	for (i = 0; i < MML_MAX_OUTPUTS; i++)
-	{
-		if (submit_user && submit_user->pq_param[i])
+err_handle_create:
+	for (i = 0; i < MML_MAX_OUTPUTS; i++) {
+		if (submit_kernel->pq_param[i])
 			kfree(submit_kernel->pq_param[i]);
 	}
 	kfree(submit_kernel->job);
