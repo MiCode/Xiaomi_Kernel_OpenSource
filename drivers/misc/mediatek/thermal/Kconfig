@@ -1,0 +1,31 @@
+config MTK_LEGACY_THERMAL
+	tristate "Use MTK legacy thermal code"
+	help
+	  Upstream thermal code and legacy thermal
+	  code are not compatiable. As a result,
+	  add a new switch MTK_LEGACY_THERMAL to replace
+	  CONFIG_THERMAL for MTK legacy thermal code.
+
+config MTK_THERMAL_PA_VIA_ATCMD
+	tristate "Thermal switch for query modem RF temp"
+	help
+	  Internal switch for thermal management
+	  to query modem RF temperature
+	  via AT command.
+	  (RIL sockets)
+
+config MTK_LEGACY_THERMAL_PLATFORM
+	string "chip name"
+	help
+	  To separate platform codes for legacy thermal
+	  drivers. Config platform name for your
+	  selection. It's used for legacy thermal
+	  drivers only.
+
+config MTK_LEGACY_PLATFORM
+	string "chip name"
+	help
+	  To separate platform codes for legacy thermal
+	  drivers. Config platform name for your
+	  selection. It's used for legacy thermal
+	  drivers only.

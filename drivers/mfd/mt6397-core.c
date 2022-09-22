@@ -436,6 +436,18 @@ static const struct mfd_cell mt6357_devs[] = {
 
 static const struct mfd_cell mt6358_devs[] = {
 	{
+		.name = "mtk_ts_pmic",
+		.of_compatible = "mediatek,mtk_ts_pmic"
+	}, {
+		.name = "mt6358_ts_buck1",
+		.of_compatible = "mediatek,mt6358_ts_buck1"
+	}, {
+		.name = "mt6358_ts_buck2",
+		.of_compatible = "mediatek,mt6358_ts_buck2"
+	},  {
+		.name = "mt6358_ts_buck3",
+		.of_compatible = "mediatek,mt6358_ts_buck3"
+	}, {
 		.name = "mt6358-regulator",
 		.of_compatible = "mediatek,mt6358-regulator"
 	}, {

@@ -36,6 +36,7 @@ source "drivers/misc/mediatek/cpuhotplug/Kconfig"
 source "drivers/misc/mediatek/upower/Kconfig"
 source "drivers/misc/mediatek/leakage_table_v2/Kconfig"
 source "drivers/misc/mediatek/spm/Kconfig"
+source "drivers/misc/mediatek/thermal/Kconfig"
 
 config MTK_PLAT_POWER_MT6768
 	tristate "Platform power specified macro"
