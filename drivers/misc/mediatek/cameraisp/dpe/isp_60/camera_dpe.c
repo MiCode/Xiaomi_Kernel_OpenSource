@@ -4570,14 +4570,14 @@ static signed int DPE_probe(struct platform_device *pDev)
 /* parse hardware event */
 //dvs_event_id = cmdq_dev_get_event(&pDev->dev, "EVENT_IPE_DVS_DONE");
 		of_property_read_u32(pDev->dev.of_node,
-				"EVENT_IPE_DVS_DONE",
+				"event_ipe_dvs_done",
 				&dvs_event_id);
 		LOG_INF("[Debug]dvs_event_id %d\n", dvs_event_id);
 	} else if (nr_DPE_devs == 2) {
 /* parse hardware event */
-//dvp_event_id = cmdq_dev_get_event(&pDev->dev, "EVENT_IPE_DVP_DONE");
+//dvp_event_id = cmdq_dev_get_event(&pDev->dev, "event_ipe_dvp_done");
 		of_property_read_u32(pDev->dev.of_node,
-				"EVENT_IPE_DVP_DONE",
+				"event_ipe_dvp_done",
 				&dvp_event_id);
 		LOG_INF("[Debug]dvp_event_id %d\n", dvp_event_id);
 	}
