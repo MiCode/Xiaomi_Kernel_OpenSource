@@ -1480,7 +1480,6 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 		dsi->master_dsi->ddp_comp.mtk_crtc
 		: dsi->ddp_comp.mtk_crtc;
 	u32 dsi_buf_bpp = mtk_get_dsi_buf_bpp(dsi);
-	u32 every_line = 1;
 
 	if (!dsi->is_slave) {
 		width = mtk_dsi_get_virtual_width(dsi, dsi->encoder.crtc);
@@ -1492,55 +1491,42 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 				dsi->master_dsi->encoder.crtc);
 	}
 
-	if (dsc_params->enable != 0) {
-		ps_wc = (((dsc_params->chunk_size + 2) / 3) * 3);
-		if (dsc_params->slice_mode == 1)
-			ps_wc *= 2;
-	}
+	if (dsc_params->enable)
+		ps_wc = dsc_params->chunk_size * (dsc_params->slice_mode + 1);
+	else
+		ps_wc = width * dsi_buf_bpp;
 
 	if (dsi->is_slave || dsi->slave_dsi)
 		width /= 2;
 
-	if (!ext->params->lp_perline_en &&
-		mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
-#ifndef CONFIG_FPGA_EARLY_PORTING
-		every_line = 0;
-#endif
-	}
-
-	if (every_line != 0 &&
-	    mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
-		if (dsc_params->enable != 0) {
+	if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+		// cmd mode
+		if (ext->params->lp_perline_en) {
+		// LP mode per line  => enables DSI wait data every line in command mode
+			mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
+						DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
 			if ((ps_wc % 9) == 0)
 				rw_times = (ps_wc / 9) * height;
 			else
 				rw_times = (ps_wc / 9 + 1) * height;
 		} else {
-			if ((width * dsi_buf_bpp % 9) == 0)
-				rw_times = (width * dsi_buf_bpp / 9) * height;
-			else
-				rw_times = (width * dsi_buf_bpp / 9 + 1) * height;
-		}
-	} else {
-		if (dsc_params->enable != 0) {
+			mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
+						0);
 			if ((ps_wc * height % 9) == 0)
 				rw_times = ps_wc * height / 9;
 			else
 				rw_times = ps_wc * height / 9 + 1;
-		} else {
-			if ((width * height * dsi_buf_bpp % 9) == 0)
-				rw_times = width * height * dsi_buf_bpp / 9;
-			else
-				rw_times = width * height * dsi_buf_bpp / 9 + 1;
 		}
-	}
 
-	if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
-		if (dsi->ext->params->is_cphy) {
+		if (dsi->ext->params->is_cphy)
 			tmp = 25 * dsi->data_rate * 2 * dsi->lanes / 7 / 18;
-		} else {
+		else
 			tmp = 25 * dsi->data_rate * dsi->lanes / 8 / 18;
-		}
+	} else {
+		if ((ps_wc * height % 9) == 0)
+			rw_times = ps_wc * height / 9;
+		else
+			rw_times = ps_wc * height / 9 + 1;
 	}
 
 	DDPINFO(
@@ -1555,7 +1541,7 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 	/* enable ultra signal between SOF to VACT */
 	mtk_dsi_mask(dsi, DSI_RESERVED, DSI_VDE_BLOCK_ULTRA, 0);
 
-	fill_rate = mmsys_clk * 3 / 18;
+	fill_rate = mmsys_clk * ps_wc / width / 18;
 	tmp = readl(dsi->regs + DSI_BUF_CON1) >> 16;
 
 	if (dsi->ext->params->is_cphy) {
@@ -3801,7 +3787,7 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 		/* TODO: avoid hardcode: 0xF0 register offset  */
 		if (mtk_crtc && mtk_crtc->base.dev
 			&& mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
-			if (!ext->params->lp_perline_en) {
+			if (ext->params->lp_perline_en == 0) {
 #ifdef CONFIG_FPGA_EARLY_PORTING
 				cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x10,
 						DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
@@ -3812,14 +3798,6 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 							dsi->slave_dsi->ddp_comp.regs_pa + 0x10,
 							DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
 							DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
-#else
-				cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x10,
-						0, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
-				if (dsi->slave_dsi
-					&& ext->params->lcm_cmd_if == MTK_PANEL_DUAL_PORT)
-					cmdq_pkt_write(handle, dsi->slave_dsi->ddp_comp.cmdq_base,
-						dsi->slave_dsi->ddp_comp.regs_pa + 0x10,
-						0, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
 #endif
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + DSI_CMD_TYPE1_HS,
@@ -3921,10 +3899,6 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 					dsi->slave_dsi->ddp_comp.regs_pa + DSI_CON_CTRL,
 					DSI_DUAL_EN, DSI_DUAL_EN);
 			}
-			cmdq_pkt_write(handle, comp->cmdq_base,
-					   comp->regs_pa + DSI_START, 0, ~0);
-			cmdq_pkt_write(handle, comp->cmdq_base,
-					   comp->regs_pa + DSI_START, 1, ~0);
 		} else {
 			pr_info("run no update area!\n");
 
@@ -3954,11 +3928,15 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 					dsi->slave_dsi->ddp_comp.regs_pa + DSI_CON_CTRL,
 					DSI_DUAL_EN, DSI_DUAL_EN);
 			}
-			cmdq_pkt_write(handle, comp->cmdq_base,
-				       comp->regs_pa + DSI_START, 0, ~0);
-			cmdq_pkt_write(handle, comp->cmdq_base,
-				       comp->regs_pa + DSI_START, 1, ~0);
 		}
+		cmdq_pkt_write(handle, comp->cmdq_base,
+				   comp->regs_pa + DSI_CON_CTRL, 1, 1);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+				   comp->regs_pa + DSI_CON_CTRL, 0, 1);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+				   comp->regs_pa + DSI_START, 0, ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+				   comp->regs_pa + DSI_START, 1, ~0);
 		break;
 	case MTK_TRIG_FLAG_EOF:
 		mtk_dsi_poll_for_idle(dsi, handle);
@@ -5925,11 +5903,8 @@ unsigned int mtk_dsi_get_ps_wc(struct mtk_drm_crtc *mtk_crtc,
 		} else {
 			ps_wc = hact * dsi_buf_bpp;
 		}
-	} else {
-		ps_wc = (((dsc_params->chunk_size + 2) / 3) * 3);
-		if (dsc_params->slice_mode == 1)
-			ps_wc *= 2;
-	}
+	} else
+		ps_wc = dsc_params->chunk_size * (dsc_params->slice_mode + 1);
 
 	return ps_wc;
 }
