@@ -617,8 +617,8 @@ cma=64M transparent_hugepage=never";
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <495>;
 			#cooling-cells = <2>;
-		/*	cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,*/
-		/*		<&idledram &idlesyspll &idlebus26m &SUSPEND>;*/
+			cpu-idle-states = <&standby &MCDI_CPU &MCDI_CLUSTER>,
+				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
 		};
 
 		cpu1: cpu@001 {
@@ -631,7 +631,7 @@ cma=64M transparent_hugepage=never";
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <495>;
 			#cooling-cells = <2>;
-			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+			cpu-idle-states = <&standby &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
 		};
 
@@ -645,7 +645,7 @@ cma=64M transparent_hugepage=never";
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <495>;
 			#cooling-cells = <2>;
-			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+			cpu-idle-states = <&standby &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
 		};
 
@@ -659,7 +659,7 @@ cma=64M transparent_hugepage=never";
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <495>;
 			#cooling-cells = <2>;
-			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+			cpu-idle-states = <&standby &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
 		};
 
@@ -673,7 +673,7 @@ cma=64M transparent_hugepage=never";
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <495>;
 			#cooling-cells = <2>;
-			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+			cpu-idle-states = <&standby &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
 		};
 
@@ -687,7 +687,7 @@ cma=64M transparent_hugepage=never";
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <495>;
 			#cooling-cells = <2>;
-			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+			cpu-idle-states = <&standby &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
 		};
 
@@ -701,7 +701,7 @@ cma=64M transparent_hugepage=never";
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1024>;
 			#cooling-cells = <2>;
-			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+			cpu-idle-states = <&standby &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
 		};
 
@@ -715,7 +715,7 @@ cma=64M transparent_hugepage=never";
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1024>;
 			#cooling-cells = <2>;
-			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+			cpu-idle-states = <&standby &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
 		};
 
@@ -760,10 +760,10 @@ cma=64M transparent_hugepage=never";
 		idle-states {
 			entry-method = "arm,psci";
 
-			STANDBY: standby {
+			standby:standby{
 				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x00000001>;
-				entry-latency-us = <600>;
+				entry-latency-us = <3000000000>;
 				exit-latency-us = <600>;
 				min-residency-us = <1200>;
 				local-timer-stop;
@@ -772,7 +772,7 @@ cma=64M transparent_hugepage=never";
 			MCDI_CPU: mcdi-cpu {
 				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x00010001>;
-				entry-latency-us = <600>;
+				entry-latency-us = <3000000000>;
 				exit-latency-us = <600>;
 				min-residency-us = <1200>;
 				local-timer-stop;
@@ -781,7 +781,7 @@ cma=64M transparent_hugepage=never";
 			MCDI_CLUSTER: mcdi-cluster {
 				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x01010001>;
-				entry-latency-us = <600>;
+				entry-latency-us = <3000000000>;
 				exit-latency-us = <600>;
 				min-residency-us = <1200>;
 				local-timer-stop;
@@ -790,7 +790,7 @@ cma=64M transparent_hugepage=never";
 			idledram: idledram {
 				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x01010002>;
-				entry-latency-us = <800>;
+				entry-latency-us = <3000000000>;
 				exit-latency-us = <1000>;
 				min-residency-us = <2000>;
 				local-timer-stop;
@@ -800,7 +800,7 @@ cma=64M transparent_hugepage=never";
 			idlesyspll: idlesyspll {
 				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x01010003>;
-				entry-latency-us = <800>;
+				entry-latency-us = <3000000000>;
 				exit-latency-us = <1000>;
 				min-residency-us = <2000>;
 				local-timer-stop;
@@ -810,7 +810,7 @@ cma=64M transparent_hugepage=never";
 			idlebus26m: idlebus26m {
 				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x01010004>;
-				entry-latency-us = <800>;
+				entry-latency-us = <3000000000>;
 				exit-latency-us = <1000>;
 				min-residency-us = <2000>;
 				local-timer-stop;
@@ -820,7 +820,7 @@ cma=64M transparent_hugepage=never";
 			SUSPEND: suspend {
 				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x01010005>;
-				entry-latency-us = <800>;
+				entry-latency-us = <3000000000>;
 				exit-latency-us = <1000>;
 				min-residency-us = <2000>;
 				local-timer-stop;
