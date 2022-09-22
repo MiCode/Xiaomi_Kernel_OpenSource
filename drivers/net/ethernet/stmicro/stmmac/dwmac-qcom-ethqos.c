@@ -1188,14 +1188,16 @@ static void qcom_ethqos_phy_suspend_clks(struct qcom_ethqos *ethqos)
 
 	ethqos_update_rgmii_clk_and_bus_cfg(ethqos, 0);
 
-	if (priv->plat->stmmac_clk)
-		clk_disable_unprepare(priv->plat->stmmac_clk);
+	if (ethqos->phy_wol_supported) {
+		if (priv->plat->stmmac_clk)
+			clk_disable_unprepare(priv->plat->stmmac_clk);
 
-	if (priv->plat->pclk)
-		clk_disable_unprepare(priv->plat->pclk);
+		if (priv->plat->pclk)
+			clk_disable_unprepare(priv->plat->pclk);
 
-	if (priv->plat->clk_ptp_ref)
-		clk_disable_unprepare(priv->plat->clk_ptp_ref);
+		if (priv->plat->clk_ptp_ref)
+			clk_disable_unprepare(priv->plat->clk_ptp_ref);
+	}
 
 	if (ethqos->rgmii_clk)
 		clk_disable_unprepare(ethqos->rgmii_clk);
@@ -1225,14 +1227,16 @@ static void qcom_ethqos_phy_resume_clks(struct qcom_ethqos *ethqos)
 
 	ETHQOSINFO("Enter\n");
 
-	if (priv->plat->stmmac_clk)
-		clk_prepare_enable(priv->plat->stmmac_clk);
+	if (ethqos->phy_wol_supported) {
+		if (priv->plat->stmmac_clk)
+			clk_prepare_enable(priv->plat->stmmac_clk);
 
-	if (priv->plat->pclk)
-		clk_prepare_enable(priv->plat->pclk);
+		if (priv->plat->pclk)
+			clk_prepare_enable(priv->plat->pclk);
 
-	if (priv->plat->clk_ptp_ref)
-		clk_prepare_enable(priv->plat->clk_ptp_ref);
+		if (priv->plat->clk_ptp_ref)
+			clk_prepare_enable(priv->plat->clk_ptp_ref);
+	}
 
 	if (ethqos->rgmii_clk)
 		clk_prepare_enable(ethqos->rgmii_clk);
@@ -1737,7 +1741,6 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		plat_dat->has_c22_mdio_probe_capability = 1;
 	else
 		plat_dat->has_c22_mdio_probe_capability = 0;
-	plat_dat->pmt = 1;
 	plat_dat->tso_en = of_property_read_bool(np, "snps,tso");
 	plat_dat->handle_prv_ioctl = ethqos_handle_prv_ioctl;
 	plat_dat->request_phy_wol = qcom_ethqos_request_phy_wol;
