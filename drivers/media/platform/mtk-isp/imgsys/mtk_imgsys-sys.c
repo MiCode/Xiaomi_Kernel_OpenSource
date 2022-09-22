@@ -1430,6 +1430,7 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	struct list_head *head = NULL;
 	struct list_head *temp = NULL;
 	bool reqfd_find = false;
+	int total_framenum = 0;
 
 	if (!data) {
 		WARN_ONCE(!data, "%s: failed due to NULL data\n", __func__);
@@ -1443,6 +1444,20 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	swbuf_data = (struct img_sw_buffer *)data;
 	gce_virt = mtk_hcp_get_gce_mem_virt(imgsys_dev->scp_pdev);
 	swfrm_info = (struct swfrm_info_t *)(gce_virt + (swbuf_data->offset));
+
+	if (!gce_virt) {
+		pr_info("%s: invalid gce_virt(%p)\n",
+			__func__, gce_virt);
+		return;
+	}
+
+	if ((swbuf_data->offset < 0) ||
+		(swbuf_data->offset > mtk_hcp_get_gce_mem_size(imgsys_dev->scp_pdev))) {
+		pr_info("%s: invalid swbuf_data->offset(%d), max(%d)\n",
+			__func__, swbuf_data->offset,
+			mtk_hcp_get_gce_mem_size(imgsys_dev->scp_pdev));
+		return;
+	}
 
 	if (!swfrm_info) {
 		pr_info("%s: invalid swfrm_info\n", __func__);
@@ -1565,7 +1580,29 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	swfrm_info->total_taskcnt = 0;
 	swfrm_info->chan_id = 0;
 	swfrm_info->fail_isHWhang = -1;
-	for (i = 0 ; i < swfrm_info->total_frmnum ; i++) {
+	total_framenum = swfrm_info->total_frmnum;
+	if (swfrm_info->batchnum > 1) {
+		if ((total_framenum < 0) || (total_framenum > TIME_MAX)) {
+			dev_info(imgsys_dev->dev,
+				"%s:unexpected total_framenum (%d -> %d), batchnum(%d) MAX (%d/%d)\n",
+				__func__, swfrm_info->total_frmnum,
+				total_framenum,
+				swfrm_info->batchnum,
+				TMAX, TIME_MAX);
+			return;
+		}
+	} else {
+		if ((total_framenum < 0) || (total_framenum > TMAX)) {
+			dev_info(imgsys_dev->dev,
+				"%s:unexpected total_framenum (%d -> %d), batchnum(%d) MAX (%d/%d)\n",
+				__func__, swfrm_info->total_frmnum,
+				total_framenum,
+				swfrm_info->batchnum,
+				TMAX, TIME_MAX);
+			return;
+		}
+	}
+	for (i = 0 ; i < total_framenum ; i++) {
 		swfrm_info->user_info[i].g_swbuf = gce_virt + (swfrm_info->user_info[i].sw_goft);
 		swfrm_info->user_info[i].bw_swbuf = gce_virt + (swfrm_info->user_info[i].sw_bwoft);
 	}

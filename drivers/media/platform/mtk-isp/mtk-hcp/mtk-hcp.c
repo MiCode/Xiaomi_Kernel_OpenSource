@@ -1057,6 +1057,22 @@ void *mtk_hcp_get_gce_mem_virt(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(mtk_hcp_get_gce_mem_virt);
 
+phys_addr_t mtk_hcp_get_gce_mem_size(struct platform_device *pdev)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	phys_addr_t mem_sz;
+
+	if (!hcp_dev->data->get_gce_mem_size) {
+		dev_info(&pdev->dev, "%s: not supported\n", __func__);
+		return 0;
+	}
+
+	mem_sz = hcp_dev->data->get_gce_mem_size();
+
+	return mem_sz;
+}
+EXPORT_SYMBOL(mtk_hcp_get_gce_mem_size);
+
 int mtk_hcp_get_gce_buffer(struct platform_device *pdev)
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
