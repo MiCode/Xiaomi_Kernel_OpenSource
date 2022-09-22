@@ -1404,6 +1404,7 @@
 				mediatek,eye-vrt = <2>;
 				mediatek,eye-vrt-host = <2>;
 				mediatek,discth= <0xb>;
+				mediatek,lpm-parameter = <0x19 0x1e 0x1e>;
 			};
 
 			u3port0: usb3-phy0@11e43000 {
@@ -1433,6 +1434,7 @@
 				mediatek,eye-vrt = <2>;
 				mediatek,eye-vrt-host = <2>;
 				mediatek,discth= <0xb>;
+				mediatek,lpm-parameter = <0x19 0x1e 0x1e>;
 			};
 		};
 
