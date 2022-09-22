@@ -125,6 +125,8 @@ config MTK_MTEE_MULTI_CHUNK_SUPPORT
 config MTK_TRUSTED_MEMORY_SUBSYSTEM
 	tristate "MTK Trusted Memory Subsystem Support"
 	default m
+	depends on MTK_PROT_MEM_SUPPORT || MTK_SECURE_MEM_SUPPORT || \
+			   MTK_MTEE_MULTI_CHUNK_SUPPORT || MTK_GZ_KREE
 	select CMA
 	select DMA_CMA
 	help
