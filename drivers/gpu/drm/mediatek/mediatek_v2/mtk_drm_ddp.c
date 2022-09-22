@@ -12630,7 +12630,6 @@ void mtk_ddp_insert_dsc_prim_MT6983(struct mtk_drm_crtc *mtk_crtc,
 	struct mtk_panel_params *panel_ext;
 	unsigned int addr, value;
 
-	mtk_crtc->is_dsc_output_swap = false;
 	/* DISP_PQ0_SOUT -> DISP_DSC_WRAP0_L_SEL */
 	addr = MT6983_DISP_PQ0_SOUT_SEL;
 	value = DISP_PQ0_SOUT_SEL_TO_DISP_DSC_WRAP0_L_SEL_IN;

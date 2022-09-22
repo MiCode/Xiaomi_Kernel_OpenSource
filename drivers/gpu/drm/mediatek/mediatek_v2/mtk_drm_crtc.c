@@ -6443,6 +6443,9 @@ void mtk_crtc_disconnect_default_path(struct mtk_drm_crtc *mtk_crtc)
 			ddp_comp[j]->id, ddp_comp[j + 1]->id);
 	}
 
+	/* reset dsc output_swap state */
+	mtk_crtc->is_dsc_output_swap = false;
+
 	if (mtk_crtc_is_dc_mode(crtc)) {
 		for_each_comp_in_crtc_target_path(comp, mtk_crtc, i,
 						  DDP_FIRST_PATH)
