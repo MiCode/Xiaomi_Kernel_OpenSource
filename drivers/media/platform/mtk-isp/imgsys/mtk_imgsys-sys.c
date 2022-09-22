@@ -2025,6 +2025,8 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 			"%s: imgsys_quick_onoff_enable(%d)\n",
 			__func__, imgsys_quick_onoff_enable());
 
+	INIT_LIST_HEAD(&imgsys_dev->imgsys_pipe[0].pipe_job_pending_list);
+
 #if MTK_CM4_SUPPORT
 	struct img_ipi_param ipi_param;
 
