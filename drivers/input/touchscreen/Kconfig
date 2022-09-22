@@ -12,8 +12,6 @@ menuconfig INPUT_TOUCHSCREEN
 
 if INPUT_TOUCHSCREEN
 
-source "drivers/input/touchscreen/GT9966/Kconfig"
-
 config TOUCHSCREEN_PROPERTIES
 	def_tristate INPUT
 	depends on INPUT
@@ -1383,6 +1381,7 @@ config TOUCHSCREEN_HIMAX_CHIPSET
           If unsure, say N.
 
 source "drivers/input/touchscreen/hxchipset/Kconfig"
+source "drivers/input/touchscreen/GT9966/Kconfig"
 
 endif
 
