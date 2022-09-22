@@ -795,7 +795,17 @@ static struct platform_driver mt6397_driver = {
 	.id_table = mt6397_id,
 };
 
+
+
+#if IS_BUILTIN(CONFIG_MFD_MT6397)
+static int __init mt6397_driver_init(void)
+{
+	return platform_driver_register(&mt6397_driver);
+}
+arch_initcall(mt6397_driver_init);
+#else
 module_platform_driver(mt6397_driver);
+#endif
 
 MODULE_AUTHOR("Flora Fu, MediaTek");
 MODULE_DESCRIPTION("Driver for MediaTek MT6397 PMIC");

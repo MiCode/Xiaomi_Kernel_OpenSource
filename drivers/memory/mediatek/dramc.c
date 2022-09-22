@@ -817,8 +817,12 @@ static int __init dramc_drv_init(void)
 
 	return ret;
 }
-
+#if IS_BUILTIN(CONFIG_MTK_DRAMC)
+subsys_initcall(dramc_drv_init);
+#else
 module_init(dramc_drv_init);
+#endif
+
 
 MODULE_AUTHOR("Mediatek Corporation");
 MODULE_DESCRIPTION("MediaTek DRAMC Driver");

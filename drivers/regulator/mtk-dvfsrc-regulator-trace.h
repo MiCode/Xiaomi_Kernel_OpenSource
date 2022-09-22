@@ -15,7 +15,7 @@
 
 #define TPS(x)  tracepoint_string(x)
 
-DECLARE_EVENT_CLASS(mtk_pm_qos_request,
+DECLARE_EVENT_CLASS(mtk_pm_qos_request_regulator,
 
 	TP_PROTO(int mtk_pm_qos_class, s32 value, const char *owner),
 
@@ -39,7 +39,7 @@ DECLARE_EVENT_CLASS(mtk_pm_qos_request,
 		   __entry->owner)
 );
 
-DEFINE_EVENT(mtk_pm_qos_request, mtk_pm_qos_update_request,
+DEFINE_EVENT(mtk_pm_qos_request_regulator, mtk_pm_qos_update_request_regulator,
 
 	TP_PROTO(int mtk_pm_qos_class, s32 value, const char *owner),
 

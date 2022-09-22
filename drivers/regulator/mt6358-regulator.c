@@ -927,7 +927,16 @@ static struct platform_driver mt6358_regulator_driver = {
 	.probe = mt6358_regulator_probe,
 	.id_table = mt6358_platform_ids,
 };
+
+#if IS_BUILTIN(CONFIG_REGULATOR_MT6358)
+static int __init mt6358_regulator_init(void)
+{
+	return platform_driver_register(&mt6358_regulator_driver);
+}
+subsys_initcall(mt6358_regulator_init);
+#else
 module_platform_driver(mt6358_regulator_driver);
+#endif
 
 MODULE_AUTHOR("Hsin-Hsiung Wang <hsin-hsiung.wang@mediatek.com>");
 MODULE_DESCRIPTION("Regulator Driver for MediaTek MT6358 PMIC");

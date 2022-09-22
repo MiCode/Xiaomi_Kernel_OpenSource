@@ -171,7 +171,7 @@ int ged_bridge_gpu_hint_to_cpu(
 		struct GED_BRIDGE_OUT_GPU_HINT_TO_CPU *out)
 {
 	int ret = 0;
-#ifdef CONFIG_MTK_FPSGO_V3
+#if defined(CONFIG_MTK_FPSGO_V3) && IS_MODULE(CONFIG_MTK_GPU_SUPPORT)
 	ret = fpsgo_notify_gpu_block(in->tid, in->i32BridgeFD, in->hint);
 #endif
 	out->eError = GED_OK;

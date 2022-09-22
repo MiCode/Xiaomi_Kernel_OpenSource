@@ -157,8 +157,11 @@ enum {
 	SPM_RESOURCE_USER_SCP,
 	NF_SPM_RESOURCE_USER
 };
+#if IS_BUILTIN(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
+static bool spm_resource_req(unsigned int user, unsigned int req_mask) {return true; }
+#else
 bool spm_resource_req(unsigned int user, unsigned int req_mask) {return true; }
-
+#endif
 /*
  * memory copy to scp sram
  * @param trg: trg address

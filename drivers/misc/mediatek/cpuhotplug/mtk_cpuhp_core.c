@@ -30,8 +30,11 @@ static int arch_get_nr_clusters(void)
 	__arch_nr_clusters = max_id + 1;
 	return __arch_nr_clusters;
 }
-
+#if IS_BUILTIN(CONFIG_MTK_CPUHOTPLUG)
+static int arch_get_cluster_id(unsigned int cpu)
+#else
 int arch_get_cluster_id(unsigned int cpu)
+#endif
 {
 	struct cpu_topology *cpu_topo = &cpu_topology[cpu];
 

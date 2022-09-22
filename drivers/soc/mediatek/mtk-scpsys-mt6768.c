@@ -288,6 +288,13 @@ static struct platform_driver mt6768_scpsys_drv = {
 		.of_match_table = of_match_ptr(of_scpsys_match_tbl),
 	},
 };
-
+#if IS_BUILTIN(CONFIG_MTK_SCPSYS)
+static int __init mt6768_scpsys_drv_init(void)
+{
+	return platform_driver_register(&mt6768_scpsys_drv);
+}
+subsys_initcall(mt6768_scpsys_drv_init);
+#else
 module_platform_driver(mt6768_scpsys_drv);
+#endif
 MODULE_LICENSE("GPL");

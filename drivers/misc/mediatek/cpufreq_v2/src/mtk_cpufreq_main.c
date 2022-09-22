@@ -1391,9 +1391,13 @@ static struct cpufreq_driver _mt_cpufreq_driver = {
 };
 
 
-
+#if IS_BUILTIN(CONFIG_MEDIATEK_CPU_DVFS)
+int mtk_cpufreq_frequency_table_cpuinfo(struct cpufreq_policy *policy,
+				    struct cpufreq_frequency_table *table)
+#else
 int cpufreq_frequency_table_cpuinfo(struct cpufreq_policy *policy,
 				    struct cpufreq_frequency_table *table)
+#endif
 {
 	struct cpufreq_frequency_table *pos;
 	unsigned int min_freq = ~0;
@@ -1924,7 +1928,11 @@ static void __exit _mt_cpufreq_pdrv_exit(void)
 #endif
 }
 
+#if IS_BUILTIN(CONFIG_MEDIATEK_CPU_DVFS)
+late_initcall(_mt_cpufreq_pdrv_init);
+#else
 module_init(_mt_cpufreq_pdrv_init);
+#endif
 module_exit(_mt_cpufreq_pdrv_exit);
 
 MODULE_LICENSE("GPL");

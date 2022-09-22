@@ -158,7 +158,7 @@ static cputime64_t get_iowait_time(int cpu)
 }
 
 #else
-
+#if !IS_BUILTIN(CONFIG_MTK_LEGACY_THERMAL)
 u64 get_idle_time(struct kernel_cpustat *kcs, int cpu)
 {
 	u64 idle, idle_usecs = -1ULL;
@@ -174,7 +174,7 @@ u64 get_idle_time(struct kernel_cpustat *kcs, int cpu)
 
 	return idle;
 }
-
+#endif
 static u64 get_iowait_time(struct kernel_cpustat *kcs, int cpu)
 {
 	u64 iowait, iowait_usecs = -1ULL;

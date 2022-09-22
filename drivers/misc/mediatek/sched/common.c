@@ -13,6 +13,7 @@ MODULE_LICENSE("GPL");
  *
  * Return: 1 if the CPU is currently idle. 0 otherwise.
  */
+#if !IS_BUILTIN(CONFIG_MTK_SCHEDULER)
 int idle_cpu(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
@@ -30,6 +31,7 @@ int idle_cpu(int cpu)
 
 	return 1;
 }
+#endif
 
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
 /**

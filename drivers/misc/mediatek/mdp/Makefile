@@ -63,6 +63,9 @@ endif
 obj-$(CONFIG_MTK_MDP) += cmdq_helper_inf.o
 obj-$(CONFIG_MTK_MDP_MT6873) += mdp_drv_mt6873.o
 obj-$(CONFIG_MTK_MDP_MT6853) += mdp_drv_mt6853.o
+ifeq ($(CONFIG_MTK_MDP), y)
+obj-$(CONFIG_MTK_MDP_MT6768) += mdp_drv_mt6768.o
+else
 ifneq ($(wildcard $(srctree)/$(src)/mdp_mt6893.c),)
 obj-$(CONFIG_MTK_MDP) += mdp_drv_mt6893.o
 endif
@@ -96,6 +99,7 @@ endif
 
 ifneq ($(wildcard $(srctree)/$(src)/mdp_mt6765.c),)
 obj-$(CONFIG_MTK_MDP) += mdp_drv_mt6765.o
+endif
 endif
 
 mdp_drv_mt6873-objs := mdp_drv.o mdp_mt6873.o

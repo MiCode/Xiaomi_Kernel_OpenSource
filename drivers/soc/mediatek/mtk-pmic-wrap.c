@@ -2788,7 +2788,16 @@ static struct platform_driver pwrap_drv = {
 	.probe = pwrap_probe,
 };
 
+#if IS_BUILTIN(CONFIG_MTK_PMIC_WRAP)
+static int __init pwrap_drv_init(void)
+{
+	return platform_driver_register(&pwrap_drv);
+}
+postcore_initcall(pwrap_drv_init);
+#else
 module_platform_driver(pwrap_drv);
+#endif
+
 
 MODULE_AUTHOR("Flora Fu, MediaTek");
 MODULE_DESCRIPTION("MediaTek MT8135 PMIC Wrapper Driver");

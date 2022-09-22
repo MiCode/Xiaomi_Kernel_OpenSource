@@ -572,8 +572,15 @@ static struct platform_driver mt6577_auxadc_driver = {
 	.probe	= mt6577_auxadc_probe,
 	.remove	= mt6577_auxadc_remove,
 };
+#if IS_BUILTIN(CONFIG_MEDIATEK_MT6577_AUXADC)
+static int __init mt6577_auxadc_init(void)
+{
+	return platform_driver_register(&mt6577_auxadc_driver);
+}
+rootfs_initcall(mt6577_auxadc_init);
+#else
 module_platform_driver(mt6577_auxadc_driver);
-
+#endif
 MODULE_AUTHOR("Zhiyong Tao <zhiyong.tao@mediatek.com>");
 MODULE_DESCRIPTION("MTK AUXADC Device Driver");
 MODULE_LICENSE("GPL v2");

@@ -707,21 +707,21 @@ struct msdc_host {
 /* we take it as bad sd when the bad sd condition occurs
  * out of tolerance
  */
-u32 bad_sd_tolerance[BAD_SD_DETECTER_COUNT] = {10};
+static u32 bad_sd_tolerance[BAD_SD_DETECTER_COUNT] = {10};
 
 /* bad sd condition occur times
  */
-u32 bad_sd_detecter[BAD_SD_DETECTER_COUNT] = {0};
+static u32 bad_sd_detecter[BAD_SD_DETECTER_COUNT] = {0};
 
 /* bad sd condition occur times will reset to zero by self
  * when reach the forget time (when set to 0, means not
  * reset to 0 by self), unit:s
  */
-u32 bad_sd_forget[BAD_SD_DETECTER_COUNT] = {3};
+static u32 bad_sd_forget[BAD_SD_DETECTER_COUNT] = {3};
 
 /* the latest occur time of the bad sd condition,
  * unit: clock
  */
-unsigned long bad_sd_timer[BAD_SD_DETECTER_COUNT] = {0};
+static unsigned long bad_sd_timer[BAD_SD_DETECTER_COUNT] = {0};
 
 #endif  /* _MTK_MMC_H_ */

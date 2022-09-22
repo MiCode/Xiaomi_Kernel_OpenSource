@@ -4915,6 +4915,13 @@ static struct platform_driver mtk_m4u_dbg_drv = {
 		.of_match_table = of_match_ptr(mtk_m4u_dbg_of_ids),
 	}
 };
-
+#if IS_BUILTIN(CONFIG_MTK_IOMMU_MISC_DBG)
+static int __init mtk_m4u_dbg_init(void)
+{
+	return platform_driver_register(&mtk_m4u_dbg_drv);
+}
+fs_initcall(mtk_m4u_dbg_init);
+#else
 module_platform_driver(mtk_m4u_dbg_drv);
+#endif
 MODULE_LICENSE("GPL v2");

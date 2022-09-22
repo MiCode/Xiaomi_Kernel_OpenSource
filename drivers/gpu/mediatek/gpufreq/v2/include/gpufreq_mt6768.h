@@ -92,7 +92,7 @@
 #define GPU_SHADER_PRESENT_2 \
 	(MFG2_SHADER_STACK0 | MFG3_SHADER_STACK1)
 
-struct gpufreq_core_mask_info g_core_mask_table[] = {
+struct gpufreq_core_mask_info g_core_mask_table_6768[] = {
 	{2, GPU_SHADER_PRESENT_2},
 	{1, GPU_SHADER_PRESENT_1},
 };

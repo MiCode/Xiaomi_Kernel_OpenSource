@@ -441,7 +441,11 @@ static void __exit platform_cm_mgr_exit(void)
 	pr_info("[CM_MGR] platform-cm_mgr Exit.\n");
 }
 
+#if IS_BUILTIN(CONFIG_MTK_CM_MGR_MT6768)
+late_initcall(platform_cm_mgr_init);
+#else
 subsys_initcall(platform_cm_mgr_init);
+#endif
 module_exit(platform_cm_mgr_exit);
 
 MODULE_DESCRIPTION("Mediatek cm_mgr driver");

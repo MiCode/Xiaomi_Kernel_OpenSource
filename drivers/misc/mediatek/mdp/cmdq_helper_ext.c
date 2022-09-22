@@ -4822,7 +4822,7 @@ unsigned long cmdq_get_tracing_mark(void)
 	return tracing_mark_write_addr;
 }
 
-noinline int tracing_mark_write(char *fmt, ...)
+noinline int tracing_mark_write_cmdq(char *fmt, ...)
 {
 #if IS_ENABLED(CONFIG_TRACING)
 	char buf[TRACE_MSG_LEN];

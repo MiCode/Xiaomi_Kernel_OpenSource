@@ -74,7 +74,8 @@ static int regulator_trace_consumers(struct regulator_dev *rdev, int qos_class)
 	list_for_each_entry(regulator, &rdev->consumer_list, list) {
 		voltage = &regulator->voltage[PM_SUSPEND_ON];
 		devname = regulator->dev ? dev_name(regulator->dev) : "deviceless";
-		trace_mtk_pm_qos_update_request(qos_class, voltage->min_uV / 1000, devname);
+		trace_mtk_pm_qos_update_request_regulator(qos_class,
+			voltage->min_uV / 1000, devname);
 	}
 	return 0;
 }

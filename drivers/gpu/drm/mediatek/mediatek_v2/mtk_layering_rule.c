@@ -15,10 +15,11 @@
 #include <linux/of_irq.h>
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
-
+/*
 #if defined(CONFIG_MTK_DRAMC)
 #include "mtk_dramc.h"
 #endif
+*/
 #include "mtk_layering_rule.h"
 #include "mtk_log.h"
 #include "mtk_rect.h"

@@ -1563,8 +1563,11 @@ static int __init mtk_dvfsrc_init(void)
 {
 	return platform_driver_register(&mtk_dvfsrc_driver);
 }
+#if IS_BUILTIN(CONFIG_MTK_DVFSRC)
+module_init(mtk_dvfsrc_init);
+#else
 subsys_initcall(mtk_dvfsrc_init);
-
+#endif
 static void __exit mtk_dvfsrc_exit(void)
 {
 	platform_driver_unregister(&mtk_dvfsrc_driver);

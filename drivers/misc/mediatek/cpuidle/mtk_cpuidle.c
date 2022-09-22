@@ -365,8 +365,11 @@ static int mtk_cpuidle_init(void)
 static void mtk_cpuidle_exit(void)
 {
 }
-
+#if IS_BUILTIN(CONFIG_MEDIATEK_CPUIDLE)
+device_initcall_sync(mtk_cpuidle_init);
+#else
 module_init(mtk_cpuidle_init);
+#endif
 module_exit(mtk_cpuidle_exit);
 MODULE_DESCRIPTION("MTK CPU IDLE Platform Driver v0.1.1");
 MODULE_AUTHOR("C Cheng <C.Cheng@mediatek.com>");

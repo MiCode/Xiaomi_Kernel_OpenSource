@@ -62,6 +62,10 @@
 #endif
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+#include <linux/nvmem-consumer.h>
+#endif
+
 /**
  * ===============================================
  * Local Function Declaration
@@ -3289,8 +3293,11 @@ static void __exit __gpufreq_exit(void)
 {
 	platform_driver_unregister(&g_gpufreq_pdrv);
 }
-
+#if IS_BUILTIN(CONFIG_MTK_GPU_MT6768_SUPPORT)
+rootfs_initcall(__gpufreq_init);
+#else
 module_init(__gpufreq_init);
+#endif
 module_exit(__gpufreq_exit);
 
 MODULE_DEVICE_TABLE(of, g_gpufreq_of_match);

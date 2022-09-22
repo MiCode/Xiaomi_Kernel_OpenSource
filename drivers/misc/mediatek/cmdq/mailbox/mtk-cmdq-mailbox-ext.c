@@ -3022,6 +3022,9 @@ void cmdq_set_outpin_event(struct cmdq_client *cl, bool ena)
 }
 EXPORT_SYMBOL(cmdq_set_outpin_event);
 
+#if IS_BUILTIN(CONFIG_MTK_CMDQ_MBOX_EXT)
+arch_initcall(cmdq_drv_init);
+#else
 module_init(cmdq_drv_init);
-
+#endif
 MODULE_LICENSE("GPL v2");

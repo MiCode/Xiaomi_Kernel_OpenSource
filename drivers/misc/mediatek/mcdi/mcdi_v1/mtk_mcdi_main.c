@@ -873,7 +873,12 @@ static int mcdi_init(void)
 static void mcdi_exit(void)
 {
 }
+#if IS_BUILTIN(CONFIG_MEDIATEK_MCDI)
+late_initcall(mcdi_init);
+#else
 module_init(mcdi_init);
+#endif
+
 module_exit(mcdi_exit);
 MODULE_DESCRIPTION("MTK MCDI Platform Driver v0.1.1");
 MODULE_AUTHOR("C Cheng <C.Cheng@mediatek.com>");

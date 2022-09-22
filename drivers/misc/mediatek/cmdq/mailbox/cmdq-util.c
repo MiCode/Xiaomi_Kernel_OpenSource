@@ -104,7 +104,7 @@ static DEFINE_MUTEX(cmdq_dump_mutex);
 struct cmdq_util_controller_fp controller_fp = {
 	.track_ctrl = cmdq_util_track_ctrl,
 };
-struct cmdq_util_helper_fp helper_fp = {
+static struct cmdq_util_helper_fp helper_fp = {
 	.is_feature_en = cmdq_util_is_feature_en,
 	.dump_lock = cmdq_util_dump_lock,
 	.dump_unlock = cmdq_util_dump_unlock,

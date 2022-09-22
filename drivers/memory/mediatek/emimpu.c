@@ -1129,8 +1129,11 @@ static void __exit emimpu_drv_exit(void)
 {
 	platform_driver_unregister(&emimpu_drv);
 }
-
+#if IS_BUILTIN(CONFIG_MTK_EMI_LEGACY)
+arch_initcall_sync(emimpu_drv_init);
+#else
 module_init(emimpu_drv_init);
+#endif
 module_exit(emimpu_drv_exit);
 
 MODULE_DESCRIPTION("MediaTek EMIMPU Driver v0.1");

@@ -263,6 +263,8 @@ obj-$(CONFIG_COMMON_CLK_MT8516) += clk-mt8516.o
 obj-$(CONFIG_COMMON_CLK_MT8516_AUDSYS) += clk-mt8516-aud.o
 ifeq ($(CONFIG_MEDIATEK_FHCTL_V1),m)
 obj-$(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING) += fhctl_v1/
+else ifeq ($(CONFIG_MEDIATEK_FHCTL_V1),y)
+obj-$(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING) += fhctl_v1/
 else
 obj-$(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING) += fhctl.o
 fhctl-y += clk-fhctl.o

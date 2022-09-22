@@ -14,7 +14,7 @@ obj-$(CONFIG_OF_IOMMU)	+= of_iommu.o
 obj-$(CONFIG_MSM_IOMMU) += msm_iommu.o
 obj-$(CONFIG_IPMMU_VMSA) += ipmmu-vmsa.o
 obj-$(CONFIG_IRQ_REMAP) += irq_remapping.o
-ifeq ($(CONFIG_MTK_IOMMU_ARM32),m)
+ifneq ($(filter m y, $(CONFIG_MTK_IOMMU_ARM32)),)
 obj-$(CONFIG_MTK_IOMMU_ARM32) += mtk_iommu_arm32.o
 else
 obj-$(CONFIG_MTK_IOMMU) += mtk_iommu.o

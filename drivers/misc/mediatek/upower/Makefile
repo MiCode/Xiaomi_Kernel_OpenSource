@@ -21,7 +21,7 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/cpufreq_v2/
 
 
-ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), m)
+ifneq ($(filter m y, $(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)),)
 ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_V0)),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v0/
 else ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_V1)),)
