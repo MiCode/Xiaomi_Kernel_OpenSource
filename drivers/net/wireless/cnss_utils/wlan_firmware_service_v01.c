@@ -625,7 +625,7 @@ static struct qmi_elem_info wlfw_host_mlo_chip_info_s_v01_ei[] = {
 static struct qmi_elem_info wlfw_pmu_param_v01_ei[] = {
 	{
 		.data_type      = QMI_UNSIGNED_1_BYTE,
-		.elem_len       = 32,
+		.elem_len       = QMI_WLFW_PMU_PIN_NAME_MAX_LEN_V01,
 		.elem_size      = sizeof(u8),
 		.array_type       = STATIC_ARRAY,
 		.tlv_type       = 0,
@@ -1355,6 +1355,26 @@ struct qmi_elem_info wlfw_wlan_mode_req_msg_v01_ei[] = {
 					   xo_cal_data),
 	},
 	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x12,
+		.offset         = offsetof(struct
+					   wlfw_wlan_mode_req_msg_v01,
+					   wlan_en_delay_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u32),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x12,
+		.offset         = offsetof(struct
+					   wlfw_wlan_mode_req_msg_v01,
+					   wlan_en_delay),
+	},
+	{
 		.data_type      = QMI_EOTI,
 		.array_type       = NO_ARRAY,
 		.tlv_type       = QMI_COMMON_TLV_TYPE,
@@ -2044,6 +2064,46 @@ struct qmi_elem_info wlfw_cap_resp_msg_v01_ei[] = {
 					   wlfw_cap_resp_msg_v01,
 					   ol_cpr_cfg),
 		.ei_array      = wlfw_pmu_cfg_v01_ei,
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x23,
+		.offset         = offsetof(struct
+					   wlfw_cap_resp_msg_v01,
+					   regdb_mandatory_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_1_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x23,
+		.offset         = offsetof(struct
+					   wlfw_cap_resp_msg_v01,
+					   regdb_mandatory),
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x24,
+		.offset         = offsetof(struct
+					   wlfw_cap_resp_msg_v01,
+					   regdb_support_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_1_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x24,
+		.offset         = offsetof(struct
+					   wlfw_cap_resp_msg_v01,
+					   regdb_support),
 	},
 	{
 		.data_type      = QMI_EOTI,
@@ -4365,6 +4425,26 @@ struct qmi_elem_info wlfw_qdss_trace_mem_info_req_msg_v01_ei[] = {
 					   wlfw_qdss_trace_mem_info_req_msg_v01,
 					   mem_seg),
 		.ei_array      = wlfw_mem_seg_resp_s_v01_ei,
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(struct
+					   wlfw_qdss_trace_mem_info_req_msg_v01,
+					   end_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_1_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(struct
+					   wlfw_qdss_trace_mem_info_req_msg_v01,
+					   end),
 	},
 	{
 		.data_type      = QMI_EOTI,

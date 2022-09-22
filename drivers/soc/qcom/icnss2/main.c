@@ -3294,6 +3294,7 @@ int icnss_wlan_enable(struct device *dev, struct icnss_wlan_enable_cfg *config,
 		      const char *host_version)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
+	int temp = 0;
 
 	if (test_bit(ICNSS_FW_DOWN, &priv->state) ||
 	    !test_bit(ICNSS_FW_READY, &priv->state)) {
@@ -3311,6 +3312,14 @@ int icnss_wlan_enable(struct device *dev, struct icnss_wlan_enable_cfg *config,
 	if (priv->wpss_supported &&
 	    !priv->dms.nv_mac_not_prov && !priv->dms.mac_valid)
 		icnss_setup_dms_mac(priv);
+
+	if (priv->device_id == WCN6750_DEVICE_ID) {
+		if (!icnss_get_temperature(priv, &temp)) {
+			icnss_pr_dbg("Temperature: %d\n", temp);
+			if (temp < WLAN_EN_TEMP_THRESHOLD)
+				icnss_set_wlan_en_delay(priv);
+		}
+	}
 
 	return icnss_send_wlan_enable_to_fw(priv, config, mode, host_version);
 }
