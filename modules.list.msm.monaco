@@ -4,7 +4,6 @@ glink_probe.ko
 qcom_glink_rpm.ko
 qcom_glink_smem.ko
 rpm-smd.ko
-smd-rpm.ko
 qcom_smd.ko
 qcom_glink.ko
 qcom_ipc_logging.ko
@@ -12,6 +11,7 @@ ns.ko
 qrtr.ko
 qcom_wdt_core.ko
 qcom_soc_wdt.ko
+qcom-mpm.ko
 pinctrl-msm.ko
 pinctrl-monaco.ko
 qcom_cpu_vendor_hooks.ko
