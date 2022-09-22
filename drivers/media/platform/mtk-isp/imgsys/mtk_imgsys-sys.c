@@ -1451,7 +1451,7 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 		return;
 	}
 
-	if ((swbuf_data->offset < 0) ||
+	if (((int)(swbuf_data->offset) < 0) ||
 		(swbuf_data->offset > mtk_hcp_get_gce_mem_size(imgsys_dev->scp_pdev))) {
 		pr_info("%s: invalid swbuf_data->offset(%d), max(%d)\n",
 			__func__, swbuf_data->offset,
