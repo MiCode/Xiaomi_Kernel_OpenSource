@@ -408,7 +408,7 @@
   __traceiter_android_vh_record_mutex_lock_starttime
   __traceiter_android_vh_record_rtmutex_lock_starttime
   __traceiter_android_vh_record_rwsem_lock_starttime
-  __traceiter_android_vh_record_percpu_rwsem_lock_starttime
+  __traceiter_android_vh_record_pcpu_rwsem_starttime
   __traceiter_android_vh_rmqueue
   __traceiter_android_vh_rwsem_wake_finish
   __traceiter_android_vh_sched_show_task
@@ -491,7 +491,7 @@
   __tracepoint_android_vh_record_mutex_lock_starttime
   __tracepoint_android_vh_record_rtmutex_lock_starttime
   __tracepoint_android_vh_record_rwsem_lock_starttime
-  __tracepoint_android_vh_record_percpu_rwsem_lock_starttime
+  __tracepoint_android_vh_record_pcpu_rwsem_starttime
   __tracepoint_android_vh_rmqueue
   __tracepoint_android_vh_sched_stat_runtime_rt
   __tracepoint_android_vh_show_mapcount_pages
