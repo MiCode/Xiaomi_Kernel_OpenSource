@@ -15,15 +15,15 @@ ccflags-y += -I$(srctree)/drivers/iommu \
 
 ccflags-$(CONFIG_DEBUG_FS) += -DCMDQ_MMPROFILE_SUPPORT
 
-ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),m)
+ifneq ($(filter y m, $(CONFIG_MICROTRUST_TEE_SUPPORT)),)
 include $(srctree)/drivers/tee/teei/Makefile.include
 endif
 
-ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),m)
+ifneq ($(filter y m, $(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
 include $(srctree)/drivers/tee/gud/Makefile.include
 endif
 
-ifeq ($(CONFIG_MTK_GZ_TZ_SYSTEM),m)
+ifneq ($(filter y m, $(CONFIG_MTK_GZ_TZ_SYSTEM)),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
 ccflags-y += -DCMDQ_SECURE_MTEE_SUPPORT
 
