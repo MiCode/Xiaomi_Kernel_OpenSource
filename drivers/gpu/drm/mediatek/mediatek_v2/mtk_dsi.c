@@ -7081,7 +7081,7 @@ static void mtk_dsi_get_panels_info(struct mtk_dsi *dsi, struct mtk_drm_panels_i
 
 	drm_for_each_encoder(encoder, dev) {
 		struct mtk_dsi *mtk_dsi;
-		char *panel_name;
+		char *panel_name = NULL;
 
 		DDPDBG("connector name %s id %d, type %d possible crtc %x\n",
 			encoder->name, encoder->base.id, encoder->encoder_type,
