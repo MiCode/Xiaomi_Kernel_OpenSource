@@ -37,6 +37,7 @@ _aarch64_additional_kmi_symbol_lists = [
     "android/abi_gki_aarch64_pixel",
     "android/abi_gki_aarch64_qcom",
     "android/abi_gki_aarch64_sunxi",
+    "android/abi_gki_aarch64_type_visibility",
     "android/abi_gki_aarch64_unisoc",
     "android/abi_gki_aarch64_virtual_device",
     "android/abi_gki_aarch64_virtual_device_removed",

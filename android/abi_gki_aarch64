@@ -1,10 +1,5 @@
 [abi_symbol_list]
 
-# for visibility
-  GKI_struct_selinux_state
-  GKI_struct_readahead_control
-  GKI_struct_blk_mq_alloc_data
-
 # commonly used symbols
   arm64_const_caps_ready
   __cpuhp_remove_state
