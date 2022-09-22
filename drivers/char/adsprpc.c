@@ -4521,8 +4521,6 @@ static int fastrpc_munmap_on_dsp_rh(struct fastrpc_file *fl, uint64_t phys,
 		goto bail;
 	}
 
-	if (fl == NULL)
-		goto bail;
 	tgid = fl->tgid;
 	ra[0].buf.pv = (void *)&tgid;
 	ra[0].buf.len = sizeof(tgid);
@@ -7758,70 +7756,6 @@ static int fastrpc_hibernation_notifier(struct notifier_block *nb,
 static struct notifier_block fastrpc_notif_block = {
 	.notifier_call = fastrpc_hibernation_notifier,
 };
-
-static int fastrpc_hibernation_restore(struct device *dev)
-{
-	int err = 0;
-	struct fastrpc_apps *me = &gfa;
-	struct smq_phy_page range;
-	struct device_node *ion_node, *node;
-	struct platform_device *ion_pdev;
-	struct cma *cma;
-	uint32_t val;
-
-	if (!hibernation)
-		return 0;
-
-	if (of_device_is_compatible(dev->of_node,
-					"qcom,msm-adsprpc-mem-region")) {
-		me->dev = dev;
-		range.addr = 0;
-		ion_node = of_find_compatible_node(NULL, NULL, "qcom,msm-ion");
-		if (ion_node) {
-			for_each_available_child_of_node(ion_node, node) {
-				if (of_property_read_u32(node, "reg", &val))
-					continue;
-				if (val != ION_ADSP_HEAP_ID)
-					continue;
-				ion_pdev = of_find_device_by_node(node);
-				if (!ion_pdev)
-					break;
-				cma = dev_get_cma_area(&ion_pdev->dev);
-				if (cma) {
-					range.addr = cma_get_base(cma);
-					range.size = (size_t)cma_get_size(cma);
-				}
-				break;
-			}
-		}
-		if (range.addr && !of_property_read_bool(dev->of_node,
-							 "restrict-access")) {
-			int srcVM[1] = {VMID_HLOS};
-			int destVM[4] = {VMID_HLOS, VMID_MSS_MSA, VMID_SSC_Q6,
-						VMID_ADSP_Q6};
-			int destVMperm[4] = {PERM_READ | PERM_WRITE | PERM_EXEC,
-				PERM_READ | PERM_WRITE | PERM_EXEC,
-				PERM_READ | PERM_WRITE | PERM_EXEC,
-				PERM_READ | PERM_WRITE | PERM_EXEC,
-				};
-
-			VERIFY(err, !hyp_assign_phys(range.addr, range.size,
-					srcVM, 1, destVM, destVMperm, 4));
-			if (err)
-				return err;
-			me->range.addr = range.addr;
-			me->range.size = range.size;
-		}
-	}
-	return err;
-}
-
-#else
-
-static int fastrpc_hibernation_restore(struct device *dev)
-{
-	return 0;
-}
 #endif
 
 #ifdef CONFIG_PM_SLEEP
@@ -7842,15 +7776,11 @@ static int fastrpc_restore(struct device *dev)
 {
 	struct fastrpc_apps *me = &gfa;
 	int cid;
-	int err = 0;
 
 	pr_info("adsprpc: restore enter\n");
 	for (cid = 0; cid < NUM_CHANNELS; cid++)
 		me->channel[cid].in_hib = 1;
 
-	err = fastrpc_hibernation_restore(dev);
-	if (err)
-		return err;
 	pr_info("adsprpc: restore exit\n");
 	return 0;
 }
