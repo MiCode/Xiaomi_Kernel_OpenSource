@@ -537,15 +537,9 @@ struct ISP_IRQ_ERR_WAN_CNT_STRUCT {
 };
 
 static int FirstUnusedIrqUserKey = 1;
-#define USERKEY_USERNAME_STR_LEN 128
 
-struct UserKeyInfo {
-	/* name for the user that register a userKey */
-	char userName[USERKEY_USERNAME_STR_LEN];
-	int userKey; /* the user key for that user */
-};
 /* array for recording the user name for a specific user key */
-static struct UserKeyInfo IrqUserKey_UserInfo[IRQ_USER_NUM_MAX];
+static struct ISP_REGISTER_USERKEY_STRUCT IrqUserKey_UserInfo[IRQ_USER_NUM_MAX];
 
 struct ISP_IRQ_INFO_STRUCT {
 	/* Add an extra index for status type -> signal or dma */
@@ -3468,7 +3462,7 @@ static int ISP_REGISTER_IRQ_USERKEY(char *userName)
 			       sizeof(IrqUserKey_UserInfo[i].userName));
 
 			strncpy((void *)IrqUserKey_UserInfo[i].userName,
-				userName, USERKEY_USERNAME_STR_LEN - 1);
+				userName, USERKEY_STR_LEN - 1);
 
 			IrqUserKey_UserInfo[i].userKey = FirstUnusedIrqUserKey;
 			key = FirstUnusedIrqUserKey;
@@ -6135,7 +6129,7 @@ static int ISP_open(struct inode *pInode, struct file *pFile)
 		FirstUnusedIrqUserKey = 1;
 
 		strncpy((void *)IrqUserKey_UserInfo[i].userName,
-			"DefaultUserNametoAllocMem", USERKEY_USERNAME_STR_LEN);
+			"DefaultUserNametoAllocMem", USERKEY_STR_LEN);
 
 		IrqUserKey_UserInfo[i].userKey = -1;
 	}
@@ -6334,7 +6328,7 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 		FirstUnusedIrqUserKey = 1;
 
 		strncpy((void *)IrqUserKey_UserInfo[i].userName,
-			"DefaultUserNametoAllocMem", USERKEY_USERNAME_STR_LEN);
+			"DefaultUserNametoAllocMem", USERKEY_STR_LEN);
 
 		IrqUserKey_UserInfo[i].userKey = -1;
 	}
