@@ -273,6 +273,32 @@ static atomic_t init_once_flag = ATOMIC_INIT(0);
 
 static int mtk_iommu_hw_init(const struct mtk_iommu_data *data);
 
+#ifndef	CONFIG_ARM64
+/*
+ * the code is to use of_phandle_iterator_args, but because the CONFIG_MTK_IOMMU = m
+ * leading of_phandle_iterator_args build error. (CONFIG_MTK_IOMMU = y lead other build error)
+ * So, the temp solution is porting the of_phandle_iterator_args as of_phandle_iterator_args_2
+ *
+ * TO_DO:
+ * next action is aim to use a new function to replance the of_phandle_iterator_args
+ *
+ */
+static int of_phandle_iterator_args_2(struct of_phandle_iterator *it,
+			     uint32_t *args,
+			     int size)
+{
+	int i, count;
+
+	count = it->cur_count;
+
+	if (WARN_ON(size < count))
+		count = size;
+	for (i = 0; i < count; i++)
+		args[i] = be32_to_cpup(it->cur++);
+	return count;
+}
+#endif
+
 #define MTK_IOMMU_TLB_ADDR(iova) ({					\
 	dma_addr_t _addr = iova;					\
 	((lower_32_bits(_addr) & GENMASK(31, 12)) | upper_32_bits(_addr));\
@@ -1872,7 +1898,7 @@ static struct iommu_device *mtk_iommu_probe_device(struct device *dev)
 
 	of_for_each_phandle(&it, err, dev->of_node, "iommus",
 			"#iommu-cells", -1) {
-		int count = of_phandle_iterator_args(&it, iommu_spec.args,
+		int count = of_phandle_iterator_args_2(&it, iommu_spec.args,
 					MAX_PHANDLE_ARGS);
 		iommu_spec.np = of_node_get(it.node);
 		iommu_spec.args_count = count;
