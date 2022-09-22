@@ -3,12 +3,16 @@
  * Copyright (C) 2015 MediaTek Inc.
  */
 
+#include <asm/cacheflush.h>
+#include <asm/stacktrace.h>
+#include <asm/traps.h>
 #include <linux/cdev.h>
 #include <linux/debug_locks.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/fs.h>
 #include <linux/hardirq.h>
+#include <linux/highmem.h>
 #include <linux/init.h>
 #include <linux/jiffies.h>
 #include <linux/kthread.h>
@@ -32,11 +36,7 @@
 #include <linux/vmalloc.h>
 #include <linux/wait.h>
 #include <linux/workqueue.h>
-#include <asm/stacktrace.h>
-#include <asm/traps.h>
 #include <uapi/linux/sched/types.h>
-#include <linux/highmem.h>
-#include <asm/cacheflush.h>
 
 #include <mt-plat/aee.h>
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
@@ -790,14 +790,10 @@ void trigger_hang_db(void)
 static void get_kernel_bt(struct task_struct *tsk)
 {
 	unsigned long stacks[32];
-	int nr_entries;
+	unsigned int  nr_entries;
 	int i;
 
-#ifndef __aarch64__
-	nr_entries = stack_trace_save_tsk(tsk, stacks, ARRAY_SIZE(stacks), 0);
-#else
 	nr_entries = hang_kernel_trace(tsk, stacks, ARRAY_SIZE(stacks));
-#endif
 	for (i = 0; i < nr_entries; i++) {
 		log_hang_info("<%lx> %pS\n", (long)stacks[i],
 				(void *)stacks[i]);
