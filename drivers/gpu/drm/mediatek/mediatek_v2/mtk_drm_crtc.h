@@ -229,7 +229,7 @@ enum DISP_PMQOS_SLOT {
 
 #define for_each_comp_in_target_ddp_mode_bound(comp, mtk_crtc, __i, __j,       \
 					       ddp_mode, offset)               \
-	for ((__i) = 0; (__i) < DDP_PATH_NR; (__i)++)                          \
+	for ((__i) = 0; (__i) < DDP_PATH_NR && ddp_mode < DDP_MODE_NR; (__i)++)\
 		for ((__j) = 0;                         \
 			(offset) <                          \
 			(mtk_crtc)->ddp_ctx[ddp_mode].ddp_comp_nr[__i] &&  \
@@ -255,6 +255,7 @@ enum DISP_PMQOS_SLOT {
 
 #define for_each_comp_in_crtc_target_path(comp, mtk_crtc, __i, ddp_path)       \
 	for ((__i) = 0;                           \
+		mtk_crtc->ddp_mode < DDP_MODE_NR &&   \
 		(__i) <                               \
 		(mtk_crtc)->ddp_ctx[mtk_crtc->ddp_mode]  \
 		.ddp_comp_nr[(ddp_path)] &&           \
@@ -266,7 +267,7 @@ enum DISP_PMQOS_SLOT {
 		for_each_if(comp)
 
 #define for_each_comp_in_crtc_target_mode(comp, mtk_crtc, __i, __j, ddp_mode)  \
-	for ((__i) = 0; (__i) < DDP_PATH_NR; (__i)++)                          \
+	for ((__i) = 0; (__i) < DDP_PATH_NR && ddp_mode < DDP_MODE_NR; (__i)++)\
 		for ((__j) = 0;                       \
 			(__j) <                           \
 			(mtk_crtc)->ddp_ctx[ddp_mode].ddp_comp_nr[__i] &&  \
@@ -277,7 +278,8 @@ enum DISP_PMQOS_SLOT {
 			for_each_if(comp)
 
 #define for_each_comp_in_crtc_path_reverse(comp, mtk_crtc, __i, __j)           \
-	for ((__i) = DDP_PATH_NR - 1; (__i) >= 0; (__i)--)                     \
+	for ((__i) = DDP_PATH_NR - 1;                                          \
+	     (__i) >= 0 && mtk_crtc->ddp_mode < DDP_MODE_NR; (__i)--)          \
 		for ((__j) =                          \
 			(mtk_crtc)->ddp_ctx[mtk_crtc->ddp_mode]   \
 			.ddp_comp_nr[__i] -               \
