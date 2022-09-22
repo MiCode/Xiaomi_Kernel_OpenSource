@@ -790,7 +790,7 @@ static int mtk_dai_etdm_hw_params(struct snd_pcm_substream *substream,
 	/* 3: pad top 5: no pad top */
 	regmap_update_bits(afe->regmap, ETDM_IN1_CON1,
 			   REG_INITIAL_POINT_MASK_SFT,
-			   0x5 << REG_INITIAL_POINT_SFT);
+			   0x3 << REG_INITIAL_POINT_SFT);
 	regmap_update_bits(afe->regmap, ETDM_IN1_CON1,
 			   REG_LRCK_RESET_MASK_SFT,
 			   0x1 << REG_LRCK_RESET_SFT);

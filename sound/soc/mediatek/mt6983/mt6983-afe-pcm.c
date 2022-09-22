@@ -1568,6 +1568,8 @@ static const struct snd_kcontrol_new memif_ul2_ch1_mix[] = {
 				    I_SRC_3_OUT_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("GAIN1_OUT_CH1", AFE_CONN5,
 				    I_GAIN1_OUT_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("ETDM_CH1", AFE_CONN5_1,
+				    I_ETDM_IN_CH1, 1, 0),
 };
 
 static const struct snd_kcontrol_new memif_ul2_ch2_mix[] = {
@@ -1603,6 +1605,8 @@ static const struct snd_kcontrol_new memif_ul2_ch2_mix[] = {
 				    I_SRC_3_OUT_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("GAIN1_OUT_CH2", AFE_CONN6,
 				    I_GAIN1_OUT_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("ETDM_CH2", AFE_CONN6_1,
+				    I_ETDM_IN_CH2, 1, 0),
 };
 
 static const struct snd_kcontrol_new memif_ul3_ch1_mix[] = {
@@ -2162,6 +2166,8 @@ static const struct snd_soc_dapm_route mt6983_memif_routes[] = {
 	{"UL2_CH2", "I2S0_CH2", "I2S0"},
 	{"UL2_CH1", "I2S2_CH1", "I2S2"},
 	{"UL2_CH2", "I2S2_CH2", "I2S2"},
+	{"UL2_CH1", "ETDM_CH1", "ETDM Capture"},
+	{"UL2_CH2", "ETDM_CH2", "ETDM Capture"},
 
 	{"UL2_CH1", "PCM_1_CAP_CH1", "PCM 1 Capture"},
 	{"UL2_CH2", "PCM_1_CAP_CH1", "PCM 1 Capture"},

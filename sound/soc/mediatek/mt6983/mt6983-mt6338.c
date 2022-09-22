@@ -55,7 +55,9 @@ static const char *const
 				     MTK_SPK_TINYCONN_I2S_8_STR,
 				     MTK_SPK_TINYCONN_I2S_9_STR,
 				     MTK_SPK_ETDM_OUT_STR,
-				     MTK_SPK_ETDM_IN_STR};
+				     MTK_SPK_ETDM_IN_STR,
+				     MTK_SPK_TINYCONN_ETDM_OUT_STR,
+				     MTK_SPK_TINYCONN_ETDM_IN_STR};
 
 static const struct soc_enum mt6983_spk_type_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mt6983_spk_type_str),
