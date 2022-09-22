@@ -11,7 +11,8 @@
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
-
+#include <linux/irq.h>
+#include <linux/irqdesc.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
@@ -39,6 +40,17 @@ enum MTK_SPM_CIRQ_SMC_CALL {
 	MTK_SPM_IRQ_SMC_MASK_RESTORE,
 	MTK_SPM_IRQ_SMC_SET_PENDING
 };
+
+static inline unsigned int virq_to_hwirq(unsigned int virq)
+{
+	struct irq_desc *desc;
+	unsigned int hwirq;
+
+	desc = irq_to_desc(virq);
+	WARN_ON(!desc);
+	hwirq = desc ? desc->irq_data.hwirq : 0;
+	return hwirq;
+}
 
 char __attribute__((weak)) *spm_vcorefs_dump_dvfs_regs(char *p)
 {
@@ -117,16 +129,18 @@ static void mtk_spm_get_edge_trigger_irq(void)
 static void mtk_spm_unmask_edge_trig_irqs_for_cirq(void)
 {
 	int i;
+	unsigned int hwirq = 0;
 	struct arm_smccc_res smc_res;
 	for (i = 0; i < IRQ_NUMBER; i++) {
 		if (edge_trig_irqs[i]) {
 			/* unmask edge trigger irqs */
 			//mt_irq_unmask_for_sleep_ex(edge_trig_irqs[i]);
-			pr_info("[SPM] start to unmask edge trigger irq: %d\n",
-					edge_trig_irqs[i]);
+			hwirq = virq_to_hwirq(edge_trig_irqs[i]);
+			pr_info("[SPM] start to unmask edge trigger irq: %d, hwirq: %d\n",
+					edge_trig_irqs[i], hwirq);
 			arm_smccc_smc(MTK_SIP_MTK_LPM_CONTROL,
 				MTK_SPM_IRQ_SMC_UNMASK_FOR_SLEEP_EX,
-				edge_trig_irqs[i], 0, 0, 0, 0, 0, &smc_res);
+				hwirq, 0, 0, 0, 0, 0, &smc_res);
 			if (smc_res.a0)
 				pr_info("[SPM] fail to unmask edge trigger irq: %d, ret=0x%lx\n",
 					edge_trig_irqs[i], smc_res.a0);
@@ -139,6 +153,7 @@ static int cpu_pm_callback_wakeup_src_restore(
 	struct notifier_block *self, unsigned long cmd, void *v)
 {
 	int i;
+	unsigned int hwirq = 0;
 	struct arm_smccc_res smc_res;
 	/* Note: cmd will be CPU_PM_ENTER/CPU_PM_EXIT/CPU_PM_ENTER_FAILED.
 	 * Set edge trigger interrupt pending only in case CPU_PM_EXIT
@@ -147,9 +162,12 @@ static int cpu_pm_callback_wakeup_src_restore(
 		for (i = 0; i < IRQ_NUMBER; i++) {
 			if (spm_read(SPM_SW_RSV_0) & list[i].wakesrc)
 				//mt_irq_set_pending(edge_trig_irqs[i]);
+				hwirq = virq_to_hwirq(edge_trig_irqs[i]);
+				pr_info("[SPM] start to pending edge trigger irq: %d, hwirq: %d\n",
+					edge_trig_irqs[i], hwirq);
 				arm_smccc_smc(MTK_SIP_MTK_LPM_CONTROL,
 					MTK_SPM_IRQ_SMC_SET_PENDING,
-					0, 0, 0, 0, 0, 0, &smc_res);
+					hwirq, 0, 0, 0, 0, 0, &smc_res);
 				if (smc_res.a0)
 					pr_info("[SPM] fail to set edge irq pending: %d, ret=0x%lx\n",
 						edge_trig_irqs[i], smc_res.a0);
@@ -173,6 +191,7 @@ static unsigned int spm_irq_0;
 void mtk_spm_irq_backup(void)
 {
 	struct arm_smccc_res smc_res;
+	unsigned int hwirq = 0;
 //#if IS_ENABLED(CONFIG_MTK_GIC_V3_EXT)
 	spm_in_idle = true;
 	//mt_irq_mask_all(&irq_mask);
@@ -182,9 +201,10 @@ void mtk_spm_irq_backup(void)
 	if (smc_res.a0)
 		pr_info("[SPM] fail to mask all trigger irqs, ret=0x%lx\n", smc_res.a0);
 	//mt_irq_unmask_for_sleep_ex(spm_irq_0);
-	pr_info("[SPM] start to unmask spm irq 0\n");
+	hwirq = virq_to_hwirq(spm_irq_0);
+	pr_info("[SPM] start to unmask spm irq 0: %d, hwirq: %d\n", spm_irq_0, hwirq);
 	arm_smccc_smc(MTK_SIP_MTK_LPM_CONTROL, MTK_SPM_IRQ_SMC_UNMASK_FOR_SLEEP_EX,
-		spm_irq_0, 0, 0, 0, 0, 0, &smc_res);
+		hwirq, 0, 0, 0, 0, 0, &smc_res);
 	if (smc_res.a0)
 		pr_info("[SPM] fail to unmask spm irq 0, ret=0x%lx\n", smc_res.a0);
 	mtk_spm_unmask_edge_trig_irqs_for_cirq();
