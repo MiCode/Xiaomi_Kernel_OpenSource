@@ -210,6 +210,7 @@ int mtk_wcn_cmb_stub_query_ctrl(void)
 	} else
 		return bridge.thermal_query_cb();
 }
+EXPORT_SYMBOL(mtk_wcn_cmb_stub_query_ctrl);
 
 int mtk_wcn_cmb_stub_trigger_assert(void)
 {
