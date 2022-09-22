@@ -6339,7 +6339,7 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
 
 	if (crtc_id == 2) {
 		int gce_event =
-			get_path_wait_event(mtk_crtc, mtk_crtc->ddp_mode);
+			get_path_wait_event(mtk_crtc, (enum CRTC_DDP_PATH) mtk_crtc->ddp_mode);
 
 		if (gce_event > 0)
 			cmdq_pkt_wait_no_clear(cmdq_handle, gce_event);
@@ -6568,7 +6568,7 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc, bool skip_esd)
 					__get_golden_setting_context(mtk_crtc);
 		struct cmdq_pkt *cmdq_handle;
 		int gce_event =
-			get_path_wait_event(mtk_crtc, mtk_crtc->ddp_mode);
+			get_path_wait_event(mtk_crtc, (enum CRTC_DDP_PATH) mtk_crtc->ddp_mode);
 
 		ctx->is_dc = 1;
 
@@ -9161,7 +9161,7 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	if (mtk_crtc_is_dc_mode(crtc) ||
 		(state->prop_val[CRTC_PROP_OUTPUT_ENABLE] && crtc_index != 0)) {
 		int gce_event =
-			get_path_wait_event(mtk_crtc, mtk_crtc->ddp_mode);
+			get_path_wait_event(mtk_crtc, (enum CRTC_DDP_PATH) mtk_crtc->ddp_mode);
 
 		mtk_crtc_wb_comp_config(crtc, cmdq_handle);
 
@@ -11849,7 +11849,7 @@ static int __mtk_crtc_composition_wb(
 
 	DDPINFO("%s\n", __func__);
 
-	gce_event = get_path_wait_event(mtk_crtc, mtk_crtc->ddp_mode);
+	gce_event = get_path_wait_event(mtk_crtc, (enum CRTC_DDP_PATH) mtk_crtc->ddp_mode);
 	mtk_crtc_pkt_create(&cmdq_handle, crtc,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
 	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
