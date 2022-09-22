@@ -123,7 +123,7 @@ struct msync_parameter_table {
 /* PQ */
 #define C_TUN_IDX 19 /* COLOR_TUNING_INDEX */
 #define COLOR_TUNING_INDEX 19
-#define THSHP_TUNING_INDEX 24
+#define THSHP_TUNING_INDEX 27
 #define THSHP_PARAM_MAX 146 /* TDSHP_3_0 */
 #define PARTIAL_Y_INDEX 22
 #define GLOBAL_SAT_SIZE 22
