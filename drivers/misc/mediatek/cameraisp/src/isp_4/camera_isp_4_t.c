@@ -7370,14 +7370,18 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				break;
 			}
 
-			for (; lv < ispclks.clklevelcnt; lv++) {
-			/* Save clk from low to high */
-				ispclks.clklevel[lv] = freq_steps[lv];
-				pr_debug("DFS Clk level[%d]:%d\n",
-					lv, ispclks.clklevel[lv]);
-			}
+			if (ispclks.clklevelcnt == 0) {
+				LOG_NOTICE("Warn: wrong api or mmdvfs not rdy? do nothing.\n");
+			} else {
+				for (; lv < ispclks.clklevelcnt; lv++) {
+				/* Save clk from low to high */
+					ispclks.clklevel[lv] = freq_steps[lv];
+					pr_debug("DFS Clk level[%d]:%d\n",
+						lv, ispclks.clklevel[lv]);
+				}
 
-			target_clk = ispclks.clklevel[ispclks.clklevelcnt - 1];
+				target_clk = ispclks.clklevel[ispclks.clklevelcnt - 1];
+			}
 
 			if (copy_to_user((void *)Param, &ispclks,
 			    sizeof(struct ISP_CLK_INFO)) != 0) {
