@@ -20,7 +20,7 @@
 
 #include <mtk_iommu.h>
 
-#ifdef CONFIG_MTK_PSEUDO_M4U
+#if IS_ENABLED(CONFIG_MTK_PSEUDO_M4U)
 #include <mach/mt_iommu.h>
 #include "mach/pseudo_m4u.h"
 #include "smi_port.h"
@@ -137,7 +137,7 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 	struct mtk_vcodec_pm *pm = &ctx->dev->pm;
 	int ret;
 	int i, larb_port_num, larb_id;
-#ifdef CONFIG_MTK_PSEUDO_M4U
+#if IS_ENABLED(CONFIG_MTK_PSEUDO_M4U)
 	struct M4U_PORT_STRUCT port;
 #endif
 	int larb_index;
@@ -224,7 +224,7 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 
 	time_check_end(MTK_FMT_ENC, core_id, 50);
 
-#ifdef CONFIG_MTK_PSEUDO_M4U
+#if IS_ENABLED(CONFIG_MTK_PSEUDO_M4U)
 	time_check_start(MTK_FMT_ENC, core_id);
 	if (core_id == MTK_VENC_CORE_0) {
 		larb_port_num = SMI_LARB7_PORT_NUM;

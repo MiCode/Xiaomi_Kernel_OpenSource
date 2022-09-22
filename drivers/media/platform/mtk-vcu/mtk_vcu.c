@@ -60,7 +60,7 @@
 #define CAM_PATH                "/dev/camd"
 #define VCU_DEVNAME             "vcu"
 
-#ifdef CONFIG_MTK_ENG_BUILD
+#if IS_ENABLED(CONFIG_MTK_ENG_BUILD)
 #define IPI_TIMEOUT_MS          16000U
 #else
 #define IPI_TIMEOUT_MS          5000U

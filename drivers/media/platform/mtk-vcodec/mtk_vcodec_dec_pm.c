@@ -17,7 +17,7 @@
 #include "mtk_vcodec_util.h"
 #include "mtk_vcu.h"
 
-#ifdef CONFIG_MTK_PSEUDO_M4U
+#if IS_ENABLED(CONFIG_MTK_PSEUDO_M4U)
 #include <mach/mt_iommu.h>
 #include "mach/pseudo_m4u.h"
 #include "smi_port.h"
@@ -347,7 +347,7 @@ static void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 {
 
-#ifdef CONFIG_MTK_PSEUDO_M4U
+#if IS_ENABLED(CONFIG_MTK_PSEUDO_M4U)
 	int i, larb_port_num, larb_id;
 	struct M4U_PORT_STRUCT port;
 #endif
@@ -449,7 +449,7 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 	time_check_end(MTK_FMT_DEC, hw_id, 50);
 #endif
 
-#ifdef CONFIG_MTK_PSEUDO_M4U
+#if IS_ENABLED(CONFIG_MTK_PSEUDO_M4U)
 	time_check_start(MTK_FMT_DEC, hw_id);
 	if (hw_id == MTK_VDEC_CORE) {
 		larb_port_num = SMI_LARB4_PORT_NUM;

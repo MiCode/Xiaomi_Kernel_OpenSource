@@ -170,7 +170,7 @@ extern int mtk_vdec_sw_mem_sec;
 
 #endif
 
-#ifdef CONFIG_MTK_AEE_FEATURE
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #define v4l2_aee_print(string, args...) do {\
 	char vcu_name[100];\
 	int ret;\

@@ -11,7 +11,7 @@
 #include <linux/fdtable.h>
 #include <linux/platform_device.h>
 
-#ifdef CONFIG_MTK_AEE_FEATURE
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #define vcu_aee_print(string, args...) do {\
 	char vcu_name[100];\
 	int ret;\
