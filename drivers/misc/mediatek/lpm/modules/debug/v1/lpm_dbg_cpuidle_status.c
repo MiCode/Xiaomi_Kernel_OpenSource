@@ -376,6 +376,7 @@ void mtk_cpuidle_state_enable(bool en)
 				&state_info, "mtk_cpuidle_state_enable");
 		if (IS_ERR(task)) {
 			pr_info("[name:mtk_lpm][P] mtk_cpuidle_state_enable failed\n");
+			cpuidle_resume_and_unlock();
 			return;
 		}
 		kthread_bind(task, cpu);
