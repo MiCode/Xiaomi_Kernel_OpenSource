@@ -6254,7 +6254,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 	int i;
 
-	struct ISP_CLK_INFO ispclks;
+	struct ISP_CLK_INFO ispclks = {};
 	unsigned int lv = 0;
 	/*  */
 	if (pFile->private_data == NULL) {
@@ -7251,7 +7251,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 	case ISP_TRANSFOR_CCU_REG:
 		{
-			uint32_t hwTickCnt_ccu_direct[2];
+			uint32_t hwTickCnt_ccu_direct[2] = {};
 
 			unsigned int globaltime[2];
 			unsigned long long reg_trans_Time;
@@ -7388,7 +7388,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		break;
 	case ISP_GET_CUR_ISP_CLOCK:
 		{
-			struct ISP_GET_CLK_INFO getclk;
+			struct ISP_GET_CLK_INFO getclk = {};
 #ifdef P1_HELP
 			// k69v1_64_k510 FIXME:
 			getclk.curClk =
