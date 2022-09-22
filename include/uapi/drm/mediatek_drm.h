@@ -487,6 +487,7 @@ struct DISP_DITHER_PARAM {
 #define DRM_MTK_SET_PQ_CAPS 0x55
 
 #define DRM_MTK_AIBLD_CV_MODE 0x58
+#define DRM_MTK_GET_PANELS_INFO 0x5a
 
 /* C3D */
 #define DISP_C3D_1DLUT_SIZE 32
@@ -982,6 +983,15 @@ struct mtk_drm_pq_caps_info {
 	struct drm_mtk_ccorr_caps ccorr_caps;
 };
 
+#define GET_PANELS_STR_LEN 64
+struct mtk_drm_panels_info {
+	int connector_cnt;
+	int default_connector_id;
+	unsigned int *connector_obj_id;
+	char **panel_name;
+	unsigned int *panel_id;
+};
+
 #define DRM_IOCTL_MTK_GEM_CREATE	DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_GEM_CREATE, struct drm_mtk_gem_create)
 
@@ -1083,6 +1093,9 @@ struct mtk_drm_pq_caps_info {
 
 #define DRM_IOCTL_MTK_GET_LCM_INDEX    DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_GET_LCM_INDEX, unsigned int)
+
+#define DRM_IOCTL_MTK_GET_PANELS_INFO   DRM_IOWR(DRM_COMMAND_BASE + \
+		DRM_MTK_GET_PANELS_INFO, struct mtk_drm_panels_info)
 
 #define DRM_IOCTL_MTK_SUPPORT_COLOR_TRANSFORM     DRM_IOWR(DRM_COMMAND_BASE + \
 		DRM_MTK_SUPPORT_COLOR_TRANSFORM, struct DISP_COLOR_TRANSFORM)
