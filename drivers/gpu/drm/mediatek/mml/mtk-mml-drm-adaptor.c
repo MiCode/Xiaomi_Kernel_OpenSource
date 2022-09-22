@@ -875,10 +875,17 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 
 	/* copy per-frame info */
 	task->ctx = ctx;
-	task->end_time.tv_sec =
-		submit->end.sec - cfg->dvfs_boost_time.tv_sec;
-	task->end_time.tv_nsec =
-		submit->end.nsec - cfg->dvfs_boost_time.tv_nsec;
+	if (submit->end.nsec >= cfg->dvfs_boost_time.tv_nsec) {
+		task->end_time.tv_sec =
+			submit->end.sec - cfg->dvfs_boost_time.tv_sec;
+		task->end_time.tv_nsec =
+			submit->end.nsec - cfg->dvfs_boost_time.tv_nsec;
+	} else {
+		task->end_time.tv_sec =
+			submit->end.sec - cfg->dvfs_boost_time.tv_sec - 1;
+		task->end_time.tv_nsec =
+			1000000000 + submit->end.nsec - cfg->dvfs_boost_time.tv_nsec;
+	}
 	/* give default time if empty */
 	frame_check_end_time(&task->end_time);
 
