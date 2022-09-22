@@ -27,7 +27,7 @@
 	non-removable;
 	supports-cqe;
 	dvfsrc-vcore-supply = <&dvfsrc_vcore>;
-	req-vcore = <650000>;
+	req-vcore = <700000>;
 };
 
 &pio {
