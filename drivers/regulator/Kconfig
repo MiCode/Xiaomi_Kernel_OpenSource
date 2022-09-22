@@ -1454,6 +1454,14 @@ config REGULATOR_WL2868C
 	  GPIO cannot be used to drive output high. It need to pay more
 	  attention on the usage.
 
+config REGULATOR_ALPHA_FOLDABLE_SUPPORT_ET5904
+	tristate "Specify Alpha REGULATOR Platform is mt6983 foldable"
+	help
+	  Select Alpha Foldable REGULATOR Platform is mt6983.
+	  To compile this dirver for used display.
+	  Set Y or M to select this feature for specific platform-mt6983,
+	  and set N to disable
+
 config REGULATOR_WL2864C
 	tristate "Richtek WL2864C regulator driver"
 	help
