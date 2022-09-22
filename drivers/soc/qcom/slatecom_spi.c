@@ -436,12 +436,8 @@ EXPORT_SYMBOL(slatecom_slatedown_handler);
 static void parse_fifo(uint8_t *data, union slatecom_event_data_type *event_data)
 {
 	uint16_t p_len;
-	uint8_t sub_id;
-	uint32_t evnt_tm;
 	uint16_t event_id;
 	void *evnt_data;
-	struct event *evnt;
-	struct event_list *data_list;
 
 	while (*data != '\0') {
 
@@ -450,23 +446,7 @@ static void parse_fifo(uint8_t *data, union slatecom_event_data_type *event_data
 		p_len = *((uint16_t *) data);
 		data = data + HED_EVENT_SIZE_LEN;
 
-		if (event_id == 0xFFFE) {
-
-			sub_id = *data;
-			evnt_tm = *((uint32_t *)(data+1));
-
-			evnt = kmalloc(sizeof(*evnt), GFP_KERNEL);
-			evnt->sub_id = sub_id;
-			evnt->evnt_tm = evnt_tm;
-			evnt->evnt_data =
-				*(int16_t *)(data + HED_EVENT_DATA_STRT_LEN);
-
-			data_list = kmalloc(sizeof(*data_list), GFP_KERNEL);
-			data_list->evnt = evnt;
-			spin_lock(&lst_setup_lock);
-			list_add_tail(&data_list->list, &pr_lst_hd);
-			spin_unlock(&lst_setup_lock);
-		} else if (event_id == 0x0001) {
+		if (event_id == 0x0001) {
 			evnt_data = kmalloc(p_len, GFP_KERNEL);
 			if (evnt_data != NULL) {
 				memcpy(evnt_data, data, p_len);
@@ -476,7 +456,11 @@ static void parse_fifo(uint8_t *data, union slatecom_event_data_type *event_data
 				send_event(SLATECOM_EVENT_TO_MASTER_FIFO_USED,
 						event_data);
 			}
+		} else if (event_id == 0xc8) {
+			data = data + 12;
+			pr_err("Packet Received = 0x%X, len = %u\n", event_id, p_len);
 		}
+
 		data = data + p_len;
 	}
 	if (!list_empty(&pr_lst_hd))
