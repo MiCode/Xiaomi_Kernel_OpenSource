@@ -238,6 +238,7 @@ struct dsc_rc_range_parameters {
 
 struct mtk_panel_dsc_params {
 	unsigned int enable;
+	unsigned int dual_dsc_enable;
 	unsigned int ver; /* [7:4] major [3:0] minor */
 	unsigned int slice_mode;
 	unsigned int rgb_swap;

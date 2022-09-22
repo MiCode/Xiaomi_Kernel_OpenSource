@@ -202,6 +202,7 @@ int mtk_dump_analysis(struct mtk_ddp_comp *comp)
 		mtk_spr_analysis(comp);
 		break;
 	case DDP_COMPONENT_DSC0:
+	case DDP_COMPONENT_DSC1:
 		mtk_dsc_analysis(comp);
 		break;
 	case DDP_COMPONENT_MERGE0:

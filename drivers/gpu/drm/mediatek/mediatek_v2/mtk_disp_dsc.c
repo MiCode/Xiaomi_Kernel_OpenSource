@@ -196,7 +196,8 @@ static void mtk_dsc_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 				DSC_EN, handle);
 
 		if (comp->mtk_crtc->is_dual_pipe &&
-		comp->mtk_crtc->panel_ext->params->output_mode
+			!comp->mtk_crtc->panel_ext->params->dsc_params.dual_dsc_enable &&
+			comp->mtk_crtc->panel_ext->params->output_mode
 				== MTK_PANEL_DUAL_PORT) {
 			mtk_ddp_write_mask(comp, DSC_EN, DISP_REG_DSC_CON + DISP_REG_DSC1_OFFSET,
 					DSC_EN, handle);
@@ -214,6 +215,7 @@ static void mtk_dsc_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 
 	if (comp->mtk_crtc && comp->mtk_crtc->panel_ext &&
 		comp->mtk_crtc->is_dual_pipe &&
+		!comp->mtk_crtc->panel_ext->params->dsc_params.dual_dsc_enable &&
 		comp->mtk_crtc->panel_ext->params->output_mode
 				== MTK_PANEL_DUAL_PORT)
 		mtk_ddp_write_mask(comp, 0x0, DISP_REG_DSC_CON +
@@ -329,10 +331,7 @@ static void mtk_dsc1_config(struct mtk_ddp_comp *comp,
 	if (!comp->mtk_crtc || (!comp->mtk_crtc->panel_ext
 				&& !comp->mtk_crtc->is_dual_pipe))
 		return;
-	dsc_params =
-	 &comp->mtk_crtc->panel_ext->params->dsc_params;
 //	mtk_dsc_default_setting();
-
 
 	dsc_params = &comp->mtk_crtc->panel_ext->params->dsc_params;
 	spr_params = &comp->mtk_crtc->panel_ext->params->spr_params;
@@ -417,7 +416,7 @@ static void mtk_dsc1_config(struct mtk_ddp_comp *comp,
 		else
 			dsc_con = 0x0080;
 		dsc_con |= DSC_UFOE_SEL;
-		if (comp->mtk_crtc->is_dual_pipe) {
+		if (comp->mtk_crtc->is_dual_pipe && !dsc_params->dual_dsc_enable) {
 			if (comp->mtk_crtc->panel_ext->params->output_mode
 				== MTK_PANEL_DUAL_PORT)
 				dsc_con |= DSC_DUAL_INOUT;
@@ -752,8 +751,6 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 	if (!comp->mtk_crtc || (!comp->mtk_crtc->panel_ext
 				&& !comp->mtk_crtc->is_dual_pipe))
 		return;
-	dsc_params =
-	 &comp->mtk_crtc->panel_ext->params->dsc_params;
 //	mtk_dsc_default_setting();
 
 
@@ -839,7 +836,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 		else
 			dsc_con = 0x0080;
 		dsc_con |= DSC_UFOE_SEL;
-		if (comp->mtk_crtc->is_dual_pipe) {
+		if (comp->mtk_crtc->is_dual_pipe && !dsc_params->dual_dsc_enable) {
 			if (comp->mtk_crtc->panel_ext->params->output_mode
 				== MTK_PANEL_DUAL_PORT)
 				dsc_con |= DSC_DUAL_INOUT;
@@ -1113,7 +1110,6 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 				DISP_REG_DSC_PPS19, handle);
 		}
 #endif
-
 		dsc->enable = true;
 	} else {
 		/*enable dsc relay mode*/
@@ -1129,9 +1125,10 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 				DSC_OUTPUT_SWAP, handle);
 		dsc->enable = true;    /*need to enable dsc in relay mode*/
 	}
+
 	if (comp->mtk_crtc->is_dual_pipe &&
-		comp->mtk_crtc->panel_ext->params->output_mode
-				== MTK_PANEL_DUAL_PORT)
+	    comp->mtk_crtc->panel_ext->params->output_mode == MTK_PANEL_DUAL_PORT &&
+	    !dsc_params->dual_dsc_enable)
 		mtk_dsc1_config(comp, cfg, handle);
 }
 
@@ -1155,7 +1152,7 @@ DUMP:
 	DDPDUMP("(0x%03x)DSC_SHADOW=0x%x\n", offset + DISP_REG_DSC_SHADOW,
 		readl(baddr + DISP_REG_DSC_SHADOW));
 	DDPDUMP("-- Start dump dsc registers --\n");
-	for (i = 0; i < 204; i += 16) {
+	for (i = 0; i < 0x200; i += 16) {
 		DDPDUMP("DSC+0x%03x: 0x%x 0x%x 0x%x 0x%x\n", offset + i, readl(baddr + i),
 			 readl(baddr + i + 0x4), readl(baddr + i + 0x8),
 			 readl(baddr + i + 0xc));
