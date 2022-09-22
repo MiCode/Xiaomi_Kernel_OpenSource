@@ -804,7 +804,12 @@ static ssize_t gt9896s_ts_reg_rw_store(struct device *dev,
 	/* get addr */
 	pos = (char *)buf;
 	pos += 2;
-	token = strsep(&pos, ":");
+	if (strstr(pos, ":") != NULL)
+		token = strsep(&pos, ":");
+	else {
+		ts_err("string must contain ':'\n");
+		goto err_out;
+	}
 	if (!token) {
 		ts_err("invalid address info\n");
 		goto err_out;
@@ -818,7 +823,12 @@ static ssize_t gt9896s_ts_reg_rw_store(struct device *dev,
 	}
 
 	/* get length */
-	token = strsep(&pos, ":");
+	if (strstr(pos, ":") != NULL)
+		token = strsep(&pos, ":");
+	else {
+		ts_err("string must contain ':'\n");
+		goto err_out;
+	}
 	if (!token) {
 		ts_err("invalid length info\n");
 		goto err_out;
