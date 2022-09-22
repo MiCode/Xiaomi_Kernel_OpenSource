@@ -30,7 +30,11 @@
 #include "mtk_disp_pmqos.h"
 #include "slbc_ops.h"
 
+#if IS_ENABLED(CONFIG_ARM64)
 #define MAX_CRTC 4
+#else
+#define MAX_CRTC 3
+#endif
 #define OVL_LAYER_NR 12L
 #define OVL_PHY_LAYER_NR 4L
 #define RDMA_LAYER_NR 1UL

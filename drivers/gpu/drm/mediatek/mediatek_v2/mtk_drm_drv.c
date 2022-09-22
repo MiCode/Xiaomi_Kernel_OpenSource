@@ -452,18 +452,7 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 	struct mtk_rect src_layer_roi = {0};
 	struct mtk_rect src_total_roi[MAX_CRTC] = {0};
 	bool rsz_enable[MAX_CRTC] = {false};
-#if IS_ENABLED(CONFIG_ARM64)
 	struct mtk_plane_comp_state comp_state[MAX_CRTC][OVL_LAYER_NR] = {0};
-#else
-	struct mtk_plane_comp_state **comp_state;
-
-	comp_state = vmalloc(MAX_CRTC * OVL_LAYER_NR * sizeof(struct mtk_plane_comp_state));
-	if (!comp_state) {
-		DDPMSG("error:comp_state is NULL\n");
-		return;
-	}
-	memset(comp_state, 0, MAX_CRTC * OVL_LAYER_NR * sizeof(struct mtk_plane_comp_state));
-#endif
 
 	for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, j) {
 		struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -584,9 +573,6 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 			dst_total_roi[i].y, dst_total_roi[i].width,
 			dst_total_roi[i].height);
 	}
-#if !IS_ENABLED(CONFIG_ARM64)
-	vfree(comp_state);
-#endif
 }
 
 static void
