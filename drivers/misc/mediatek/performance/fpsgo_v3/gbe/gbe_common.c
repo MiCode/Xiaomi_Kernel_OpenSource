@@ -261,25 +261,32 @@ static ssize_t gbe_cpu_0_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = 0;
-	char acBuffer[GBE_SYSFS_MAX_BUFF_SIZE];
+	char *acBuffer;
 	int arg;
+
+	acBuffer = kcalloc(GBE_SYSFS_MAX_BUFF_SIZE, sizeof(char),
+				GFP_KERNEL);
+	if (!acBuffer)
+		return -ENOMEM;
 
 	if ((count > 0) && (count < GBE_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, GBE_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0)
 				val = arg;
 			else
-				return count;
+				goto err;
 		}
 	}
 
 	if (val < 0)
-		return count;
+		goto err;
 
 	mutex_lock(&gbe_lock);
 	cpu_user_0 = val;
 	mutex_unlock(&gbe_lock);
 
+err:
+	kfree(acBuffer);
 	return count;
 }
 static KOBJ_ATTR_RW(gbe_cpu_0);
@@ -296,25 +303,32 @@ static ssize_t gbe_cpu_1_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = 0;
-	char acBuffer[GBE_SYSFS_MAX_BUFF_SIZE];
+	char *acBuffer;
 	int arg;
+
+	acBuffer = kcalloc(GBE_SYSFS_MAX_BUFF_SIZE, sizeof(char),
+				GFP_KERNEL);
+	if (!acBuffer)
+		return -ENOMEM;
 
 	if ((count > 0) && (count < GBE_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, GBE_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0)
 				val = arg;
 			else
-				return count;
+				goto err;
 		}
 	}
 
 	if (val < 0)
-		return count;
+		goto err;
 
 	mutex_lock(&gbe_lock);
 	cpu_user_1 = val;
 	mutex_unlock(&gbe_lock);
 
+err:
+	kfree(acBuffer);
 	return count;
 }
 static KOBJ_ATTR_RW(gbe_cpu_1);
@@ -331,25 +345,32 @@ static ssize_t gbe_cpu_2_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = 0;
-	char acBuffer[GBE_SYSFS_MAX_BUFF_SIZE];
+	char *acBuffer;
 	int arg;
+
+	acBuffer = kcalloc(GBE_SYSFS_MAX_BUFF_SIZE, sizeof(char),
+				GFP_KERNEL);
+	if (!acBuffer)
+		return -ENOMEM;
 
 	if ((count > 0) && (count < GBE_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, GBE_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0)
 				val = arg;
 			else
-				return count;
+				goto err;
 		}
 	}
 
 	if (val < 0)
-		return count;
+		goto err;
 
 	mutex_lock(&gbe_lock);
 	cpu_user_2 = val;
 	mutex_unlock(&gbe_lock);
 
+err:
+	kfree(acBuffer);
 	return count;
 }
 static KOBJ_ATTR_RW(gbe_cpu_2);
