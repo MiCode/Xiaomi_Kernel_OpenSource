@@ -1066,6 +1066,7 @@ static int cam_mem_probe(struct platform_device *pDev)
 {
 	int Ret = 0;
 	struct device *dev = NULL;
+	unsigned int bit_mask_val = 0;
 
 	LOG_NOTICE("+\n");
 
@@ -1086,9 +1087,17 @@ static int cam_mem_probe(struct platform_device *pDev)
 
 	CamMem_get_larb(pDev);
 
-	if (dma_set_mask_and_coherent(&pDev->dev, DMA_BIT_MASK(34)))
-		LOG_NOTICE("%s: No suitable DMA available\n",
-			pDev->dev.of_node->name);
+#if IS_ENABLED(CONFIG_ARM64)
+	bit_mask_val = 34;
+#else
+	bit_mask_val = 31;
+#endif
+	if (dma_set_mask_and_coherent(&pDev->dev, DMA_BIT_MASK(bit_mask_val)))
+		LOG_NOTICE("%s: No suitable DMA available, DMA_BIT_MASK(%d)\n",
+			pDev->dev.of_node->name, bit_mask_val);
+	else
+		LOG_INF("dma_set_mask_and_coherent(%s, DMA_BIT_MASK(%d))\n",
+			pDev->dev.of_node->name, bit_mask_val);
 
 	/* Create class register */
 	pCamMemClass = class_create(THIS_MODULE, "CamMemDrv");
