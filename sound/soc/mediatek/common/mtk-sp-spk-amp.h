@@ -89,6 +89,7 @@ int mtk_spk_get_type(void);
 extern void mtk_spk_set_type(int spk_type);
 int mtk_spk_get_i2s_out_type(void);
 int mtk_spk_get_i2s_in_type(void);
+unsigned int mtk_get_spk_out_ch(void);
 int mtk_ext_spk_get_status(void);
 void mtk_ext_spk_enable(int enable);
 int mtk_spk_update_info(struct snd_soc_card *card,

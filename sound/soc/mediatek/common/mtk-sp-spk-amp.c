@@ -44,6 +44,7 @@
 
 static unsigned int mtk_spk_type;
 static int mtk_spk_i2s_out = MTK_SPK_I2S_3, mtk_spk_i2s_in = MTK_SPK_I2S_0;
+static unsigned int mtk_spk_out_ch;
 static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
 	[MTK_SPK_NOT_SMARTPA] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
@@ -153,6 +154,12 @@ int mtk_spk_get_i2s_in_type(void)
 }
 EXPORT_SYMBOL(mtk_spk_get_i2s_in_type);
 
+unsigned int mtk_get_spk_out_ch(void)
+{
+	return mtk_spk_out_ch;
+}
+EXPORT_SYMBOL(mtk_get_spk_out_ch);
+
 int mtk_ext_spk_get_status(void)
 {
 #ifdef CONFIG_SND_SOC_AW87339
@@ -183,6 +190,13 @@ int mtk_spk_update_info(struct snd_soc_card *card,
 
 	if (mtk_spk_type == MTK_SPK_NOT_SMARTPA)
 		goto BYPASS_UPDATE;
+
+	/*get etdm ch out*/
+	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,spk-out-ch", &mtk_spk_out_ch);
+	if (ret) {
+		dev_info(&pdev->dev, "%s() failed to read mediatek,spk-out-ch\n", __func__);
+		mtk_spk_out_ch = 0;
+	}
 
 	/* get spk i2s set */
 	ret = of_property_read_u32_array(pdev->dev.of_node, "mediatek,spk-i2s",

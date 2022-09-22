@@ -385,6 +385,24 @@ static int mt6983_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+static int mt6983_etdm_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+				      struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *channels = hw_param_interval(params,
+							  SNDRV_PCM_HW_PARAM_CHANNELS);
+	unsigned int etdm_output = mtk_get_spk_out_ch();
+
+	if (etdm_output != 0) {
+		dev_info(rtd->dev, "%s(), fix format to 32bit/%d ch\n", __func__, etdm_output);
+		/* fix BE etdm format to 32bit, clean param mask first */
+		snd_mask_reset_range(hw_param_mask(params, SNDRV_PCM_HW_PARAM_FORMAT),
+				     0, SNDRV_PCM_FORMAT_LAST);
+		params_set_format(params, SNDRV_PCM_FORMAT_S32_LE);
+		channels->min = channels->max = etdm_output;
+	}
+	return 0;
+}
+
 #if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
 static const struct snd_pcm_hardware mt6983_mt6338_vow_hardware = {
 	.info = (SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED |
@@ -1348,6 +1366,7 @@ static struct snd_soc_dai_link mt6983_mt6338_dai_links[] = {
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.ignore_suspend = 1,
+		.be_hw_params_fixup = mt6983_etdm_hw_params_fixup,
 		SND_SOC_DAILINK_REG(etdm_in),
 	},
 	{
@@ -1355,6 +1374,7 @@ static struct snd_soc_dai_link mt6983_mt6338_dai_links[] = {
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.ignore_suspend = 1,
+		.be_hw_params_fixup = mt6983_etdm_hw_params_fixup,
 		SND_SOC_DAILINK_REG(etdm_out),
 	},
 	/* dummy BE for ul memif to record from dl memif */
