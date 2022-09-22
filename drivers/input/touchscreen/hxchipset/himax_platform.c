@@ -40,7 +40,7 @@ int himax_dev_set(struct himax_ts_data *ts)
 		return ret;
 	}
 
-	ts->input_dev->name = "himax-touchscreen";
+	ts->input_dev->name = "mtk-tpd";
 
 	if (!ic_data->HX_STYLUS_FUNC)
 		goto skip_stylus_operation;
