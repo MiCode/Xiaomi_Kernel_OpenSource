@@ -112,6 +112,7 @@ enum battery_property {
 	BAT_PROP_INIT_DONE,
 	BAT_PROP_FG_RESET,
 	BAT_PROP_LOG_LEVEL,
+	BAT_PROP_TEMP_TH_GAP,
 };
 
 struct battery_data {

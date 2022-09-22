@@ -16,7 +16,7 @@ int set_kernel_soc(struct mtk_battery *gm, int _soc)
 
 void set_fg_bat_tmp_c_gap(int tmp)
 {
-	battery_set_property(BAT_PROP_UISOC, tmp);
+	battery_set_property(BAT_PROP_TEMP_TH_GAP, tmp);
 }
 
 void set_fg_time(struct mtk_battery *gm, int _time)
@@ -24,12 +24,16 @@ void set_fg_time(struct mtk_battery *gm, int _time)
 	struct timespec64 tmp_time_now, end_time;
 	ktime_t ktime, time_now;
 
-	time_now = ktime_get_boottime();
-	tmp_time_now = ktime_to_timespec64(time_now);
-	end_time.tv_sec = tmp_time_now.tv_sec + _time;
+	if (_time != 0 && _time > 0) {
+		time_now = ktime_get_boottime();
+		tmp_time_now = ktime_to_timespec64(time_now);
+		end_time.tv_sec = tmp_time_now.tv_sec + _time;
 
-	ktime = ktime_set(end_time.tv_sec, end_time.tv_nsec);
-	alarm_start(&gm->tracking_timer, ktime);
+		ktime = ktime_set(end_time.tv_sec, end_time.tv_nsec);
+		alarm_start(&gm->tracking_timer, ktime);
+	} else {
+		alarm_cancel(&gm->tracking_timer);
+	}
 }
 
 int get_d0_c_soc_cust(struct mtk_battery *gm, int value)
@@ -1642,7 +1646,10 @@ void fgr_time_handler(struct mtk_battery *gm)
 				algo->low_tracking_enable = 0;
 			}
 		}
-	} else
+	}
+	if (algo->low_tracking_enable)
+		set_fg_time(gm, gm->fg_cust_data.discharge_tracking_time);
+	else
 		set_fg_time(gm, 0);
 }
 
