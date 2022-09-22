@@ -30,10 +30,10 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
 		SENSOR_DRVNAME_OV13B10MAIN_MIPI_RAW,
 		{
 			{RST, Vol_Low, 1},
-			{AVDD, Vol_2800, 0},
+			{AVDD, Vol_2900, 0},
 			{DVDD, Vol_1200, 0},
 			{DOVDD, Vol_1800, 1},
-			{AFVDD, Vol_2800, 0},
+			{AFVDD, Vol_2900, 0},
 			{RST, Vol_High, 5},
 			{SensorMCLK, Vol_High, 1},
 		},
