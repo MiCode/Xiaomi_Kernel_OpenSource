@@ -1211,31 +1211,78 @@ static int fbt_get_dep_list(struct render_info *thr)
 	int pid;
 	int count = 0;
 	int ret_size;
-	struct fpsgo_loading dep_new[MAX_DEP_NUM],
-		dep_only_old[MAX_DEP_NUM], dep_old_need_reset[MAX_DEP_NUM];
 	int i;
 	int temp_size_only_old = 0, temp_size_old_need_reset = 0;
+#if IS_ENABLED(CONFIG_ARM64)
+	struct fpsgo_loading dep_new[MAX_DEP_NUM],
+		dep_only_old[MAX_DEP_NUM], dep_old_need_reset[MAX_DEP_NUM];
+#else
+	struct fpsgo_loading *dep_new = NULL;
+	struct fpsgo_loading *dep_only_old = NULL;
+	struct fpsgo_loading *dep_old_need_reset = NULL;
+
+	dep_new = kmalloc(sizeof(struct fpsgo_loading)
+				* MAX_DEP_NUM, GFP_KERNEL);
+	if (!dep_new)
+		return -1;
+	dep_only_old  = kmalloc(sizeof(struct fpsgo_loading)
+				* MAX_DEP_NUM, GFP_KERNEL);
+	if (!dep_only_old) {
+		kfree(dep_new);
+		return -1;
+	}
+	dep_old_need_reset = kmalloc(sizeof(struct fpsgo_loading)
+				* MAX_DEP_NUM, GFP_KERNEL);
+	if (!dep_old_need_reset) {
+		kfree(dep_new);
+		kfree(dep_only_old);
+		return -1;
+	}
+#endif
 
 	memset(dep_new, 0,
 		MAX_DEP_NUM * sizeof(struct fpsgo_loading));
 
-	if (!thr)
+	if (!thr) {
+#if !IS_ENABLED(CONFIG_ARM64)
+		kfree(dep_new);
+		kfree(dep_only_old);
+		kfree(dep_old_need_reset);
+#endif
 		return 1;
+	}
 
 	pid = thr->pid;
-	if (!pid)
+	if (!pid) {
+#if !IS_ENABLED(CONFIG_ARM64)
+		kfree(dep_new);
+		kfree(dep_only_old);
+		kfree(dep_old_need_reset);
+#endif
 		return 2;
-
+	}
 	count = fpsgo_fbt2xgf_get_dep_list_num(pid, thr->buffer_id);
-	if (count <= 0)
+	if (count <= 0) {
+#if !IS_ENABLED(CONFIG_ARM64)
+		kfree(dep_new);
+		kfree(dep_only_old);
+		kfree(dep_old_need_reset);
+#endif
 		return 3;
+	}
 	count = clamp(count, 1, MAX_DEP_NUM);
 
 	ret_size = fpsgo_fbt2xgf_get_dep_list(pid, count,
 		dep_new, thr->buffer_id);
 
-	if (ret_size == 0 || ret_size != count)
+	if (ret_size == 0 || ret_size != count) {
+#if !IS_ENABLED(CONFIG_ARM64)
+		kfree(dep_new);
+		kfree(dep_only_old);
+		kfree(dep_old_need_reset);
+#endif
 		return 4;
+	}
 
 	fbt_dep_list_filter(dep_new, count);
 	sort(dep_new, count, sizeof(struct fpsgo_loading), __cmp1, NULL);
@@ -1277,6 +1324,11 @@ static int fbt_get_dep_list(struct render_info *thr)
 				sizeof(struct fpsgo_loading));
 		if (thr->dep_arr == NULL) {
 			thr->dep_valid_size = 0;
+#if !IS_ENABLED(CONFIG_ARM64)
+			kfree(dep_new);
+			kfree(dep_only_old);
+			kfree(dep_old_need_reset);
+#endif
 			return 5;
 		}
 	}
@@ -1286,7 +1338,11 @@ static int fbt_get_dep_list(struct render_info *thr)
 		MAX_DEP_NUM * sizeof(struct fpsgo_loading));
 	memcpy(thr->dep_arr, dep_new,
 		thr->dep_valid_size * sizeof(struct fpsgo_loading));
-
+#if !IS_ENABLED(CONFIG_ARM64)
+	kfree(dep_new);
+	kfree(dep_only_old);
+	kfree(dep_old_need_reset);
+#endif
 	return 0;
 }
 
@@ -1300,11 +1356,21 @@ static void fbt_clear_dep_list(struct fpsgo_loading *pdep)
 static void fbt_clear_min_cap(struct render_info *thr)
 {
 	int i;
-	struct fpsgo_loading dep_need_set[MAX_DEP_NUM];
 	int temp_size_need_set = 0;
-
-	if (!thr || !thr->dep_arr)
+#if IS_ENABLED(CONFIG_ARM64)
+	struct fpsgo_loading dep_need_set[MAX_DEP_NUM];
+#else
+	struct fpsgo_loading *dep_need_set = kmalloc(sizeof(struct fpsgo_loading)
+					* MAX_DEP_NUM, GFP_KERNEL);
+	if (!dep_need_set)
 		return;
+#endif
+	if (!thr || !thr->dep_arr) {
+#if !IS_ENABLED(CONFIG_ARM64)
+		kfree(dep_need_set);
+#endif
+		return;
+	}
 
 	if ((thr->pid == max_blc_pid && thr->buffer_id == max_blc_buffer_id))
 		for (i = 0; i < thr->dep_valid_size; i++)
@@ -1325,6 +1391,9 @@ static void fbt_clear_min_cap(struct render_info *thr)
 		for (i = 0; i < temp_size_need_set; i++)
 			fbt_reset_task_setting(&dep_need_set[i], 1);
 	}
+#if !IS_ENABLED(CONFIG_ARM64)
+	kfree(dep_need_set);
+#endif
 }
 
 static int fbt_is_light_loading(int loading)
@@ -2932,6 +3001,7 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 #else
 	unsigned long long window_cnt;
 	unsigned long long std_square = 0;
+	unsigned long long temp_quota_raw, temp_quota_rem;
 #endif
 	int s32_t_Q2Q = nsec_to_usec(t_Q2Q_ns);
 	int s32_t_enq_len = nsec_to_usec(t_enq_len_ns);
@@ -2979,10 +3049,23 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	if (new_idx >= QUOTA_MAX_SIZE)
 		new_idx -= QUOTA_MAX_SIZE;
 
-	if (boost_info->enq_avg * 100 > s32_target_time * gcc_enq_bound_thrs)
+	if (boost_info->enq_avg * 100 > s32_target_time * gcc_enq_bound_thrs) {
+#if IS_ENABLED(CONFIG_ARM64)
 		boost_info->quota_raw[new_idx] = target_time * gcc_enq_bound_quota / 100;
-	else if (s32_tmp_deq_len * 100 > s32_target_time * gcc_deq_bound_thrs)
+#else
+		temp_quota_raw = target_time * gcc_enq_bound_quota;
+		do_div(temp_quota_raw, 100);
+		boost_info->quota_raw[new_idx] = temp_quota_raw;
+#endif
+	} else if (s32_tmp_deq_len * 100 > s32_target_time * gcc_deq_bound_thrs) {
+#if IS_ENABLED(CONFIG_ARM64)
 		boost_info->quota_raw[new_idx] = target_time * gcc_deq_bound_quota / 100;
+#else
+		temp_quota_raw = target_time * gcc_deq_bound_quota;
+		do_div(temp_quota_raw, 100);
+		boost_info->quota_raw[new_idx] = temp_quota_raw;
+#endif
+	}
 	else
 		boost_info->quota_raw[new_idx] = target_time - s32_t_Q2Q;
 
@@ -3040,10 +3123,16 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 				(long long)gcc_std_filter * (long long)gcc_std_filter * std_square
 				|| boost_info->quota_raw[i] > -s32_target_time)
 				quota_adj += boost_info->quota_raw[i];
-
+#if IS_ENABLED(CONFIG_ARM64)
 			qr_quota += (boost_info->quota_raw[i] < -s32_target_time) ?
 				boost_info->quota_raw[i] % s32_target_time :
 				boost_info->quota_raw[i];
+#else
+			temp_quota_raw = boost_info->quota_raw[i];
+			temp_quota_rem = do_div(temp_quota_raw, s32_target_time);
+			qr_quota += (boost_info->quota_raw[i] < -s32_target_time) ?
+					temp_quota_rem : boost_info->quota_raw[i];
+#endif
 		}
 	} else {
 		for (i = first_idx; i < QUOTA_MAX_SIZE ; i++) {
@@ -3052,10 +3141,16 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 				(long long)gcc_std_filter * (long long)gcc_std_filter * std_square
 				|| boost_info->quota_raw[i] > -s32_target_time)
 				quota_adj += boost_info->quota_raw[i];
-
+#if IS_ENABLED(CONFIG_ARM64)
 			qr_quota += (boost_info->quota_raw[i] < -s32_target_time) ?
 				boost_info->quota_raw[i] % s32_target_time :
 				boost_info->quota_raw[i];
+#else
+			temp_quota_raw = boost_info->quota_raw[i];
+			temp_quota_rem = do_div(temp_quota_raw, s32_target_time);
+			qr_quota += (boost_info->quota_raw[i] < -s32_target_time) ?
+					temp_quota_rem : boost_info->quota_raw[i];
+#endif
 		}
 		for (i = 0; i <= new_idx ; i++) {
 			if ((boost_info->quota_raw[i] - (long long)avg) *
@@ -3063,10 +3158,16 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 				(long long)gcc_std_filter * (long long)gcc_std_filter * std_square
 				|| boost_info->quota_raw[i] > -s32_target_time)
 				quota_adj += boost_info->quota_raw[i];
-
+#if IS_ENABLED(CONFIG_ARM64)
 			qr_quota += (boost_info->quota_raw[i] < -s32_target_time) ?
 				boost_info->quota_raw[i] % s32_target_time :
 				boost_info->quota_raw[i];
+#else
+			temp_quota_raw = boost_info->quota_raw[i];
+			temp_quota_rem = do_div(temp_quota_raw, s32_target_time);
+			qr_quota += (boost_info->quota_raw[i] < -s32_target_time) ?
+				temp_quota_rem : boost_info->quota_raw[i];
+#endif
 		}
 	}
 
@@ -3106,6 +3207,8 @@ int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 	int gcc_down_window, gcc_up_window;
 #else
 	unsigned long long gcc_down_window, gcc_up_window;
+	unsigned long long temp_gcc_count_up, temp_gcc_count_down;
+	unsigned long long temp_rem_up, temp_rem_down;
 #endif
 	int quota = INT_MAX;
 	int weight_t_gpu = boost_info->quantile_gpu_time > 0 ?
@@ -3147,10 +3250,16 @@ int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 	} else {
 		boost_info->gcc_count++;
 	}
-
+#if IS_ENABLED(CONFIG_ARM64)
 	if ((boost_info->gcc_count) % gcc_up_window == 0 &&
 		(boost_info->gcc_count) % gcc_down_window == 0) {
-
+#else
+	temp_gcc_count_up = boost_info->gcc_count;
+	temp_gcc_count_down = boost_info->gcc_count;
+	temp_rem_up = do_div(temp_gcc_count_up, gcc_up_window);
+	temp_rem_down = do_div(temp_gcc_count_down, gcc_down_window);
+	if (temp_rem_up == 0 && temp_rem_down == 0) {
+#endif
 		ret = 100;
 
 		quota = boost_info->quota_adj;
@@ -3164,7 +3273,13 @@ int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 	}
 
 check_deboost:
+#if IS_ENABLED(CONFIG_ARM64)
 	if ((boost_info->gcc_count) % gcc_down_window == 0) {
+#else
+	temp_gcc_count_down = boost_info->gcc_count;
+	temp_rem_down = do_div(temp_gcc_count_down, gcc_down_window);
+	if (temp_rem_down == 0) {
+#endif
 		ret += 10;
 
 		quota = boost_info->quota_adj;
@@ -3191,7 +3306,13 @@ check_deboost:
 	}
 
 check_boost:
+#if IS_ENABLED(CONFIG_ARM64)
 	if ((boost_info->gcc_count) % gcc_up_window == 0) {
+#else
+	temp_gcc_count_up = boost_info->gcc_count;
+	temp_rem_up = do_div(temp_gcc_count_up, gcc_up_window);
+	if (temp_rem_up == 0) {
+#endif
 		ret += 20;
 
 		quota = boost_info->quota_adj;
@@ -3234,7 +3355,6 @@ check_boost:
 
 		boost_info->correction += gcc_up_step;
 	}
-
 done:
 
 	if (quota != INT_MAX)
@@ -3336,10 +3456,12 @@ static int fbt_boost_policy(
 		new_aa = div64_s64(new_aa, t_Q2Q);
 		aa = new_aa;
 		temp_blc = new_aa;
+
 		if (t2 > t_Q2Q && aa_retarget)
 			do_div(temp_blc, (unsigned int)t_Q2Q);
 		else
 			do_div(temp_blc, (unsigned int)t2);
+
 		blc_wt = (unsigned int)temp_blc;
 	} else {
 		temp_blc = aa;
