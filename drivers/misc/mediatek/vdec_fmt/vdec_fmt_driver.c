@@ -633,6 +633,11 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 			mutex_unlock(&fmt->mux_fmt);
 			return -EINVAL;
 		}
+		if ((FMT_GET32(fmt->map_base[0].va + 0x30) & 0x20000) == 0) {
+			fmt_debug(0, "fmt_clock_on: RDMA0(0x%lx) 0x%x",
+				(fmt->map_base[0].base + 0x30),
+				(FMT_GET32(fmt->map_base[0].va + 0x30)));
+		}
 	}
 	atomic_inc(&fmt->gce_job_cnt[identifier]);
 	mutex_unlock(&fmt->mux_fmt);
