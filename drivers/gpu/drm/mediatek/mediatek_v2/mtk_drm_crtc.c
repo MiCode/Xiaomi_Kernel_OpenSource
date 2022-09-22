@@ -880,7 +880,7 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		CRTC_MMP_EVENT_END(index, backlight, 0, 0);
 
-		return -EINVAL;
+		return 0;
 	}
 
 	if (!(comp && mtk_ddp_comp_get_type(comp->id) == MTK_DSI)) {
@@ -888,7 +888,7 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		CRTC_MMP_EVENT_END(index, backlight, 0, 1);
 
-		return -EINVAL;
+		return 0;
 	}
 
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);

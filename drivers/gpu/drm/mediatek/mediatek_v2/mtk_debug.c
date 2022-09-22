@@ -426,8 +426,11 @@ int mtkfb_set_backlight_level(unsigned int level)
 			DDPINFO("%s failed to find crtc\n", __func__);
 			return -EINVAL;
 		}
-		ret = mtk_drm_setbacklight(crtc, level);
+		ret |= mtk_drm_setbacklight(crtc, level);
+		DDPDBG("%s-%d,crtc%d ret=%d\n", __func__, __LINE__,
+				drm_crtc_index(crtc), ret);
 	}
+	DDPINFO("%s-%d, ret=%d\n", __func__, __LINE__, ret);
 
 	return ret;
 }
