@@ -352,6 +352,9 @@ static int cqhci_enable(struct mmc_host *mmc, struct mmc_card *card)
 
 	__cqhci_enable(cq_host);
 
+	if (cq_host->ops->enhanced_strobe_mask)
+		cq_host->ops->enhanced_strobe_mask(mmc, true);
+
 	cq_host->enabled = true;
 
 #ifdef DEBUG
@@ -405,6 +408,9 @@ static void cqhci_disable(struct mmc_host *mmc)
 	cqhci_off(mmc);
 
 	__cqhci_disable(cq_host);
+
+	if (cq_host->ops->enhanced_strobe_mask)
+		cq_host->ops->enhanced_strobe_mask(mmc, false);
 
 	dmam_free_coherent(mmc_dev(mmc), cq_host->data_size,
 			   cq_host->trans_desc_base,
