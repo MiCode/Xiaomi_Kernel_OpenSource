@@ -914,10 +914,20 @@ int ISP_SetPMQOS(
 	case E_CLK_UPDATE:
 	{
 		unsigned long freq = 0;
+#ifndef CONFIG_ARM64
+		unsigned long long freq64 = 0;
+#endif
 
 		freq = (*(u32 *)pvalue) * 1000000; /* MHz to Hz */
 		mtk_dfs_update(freq);
+
+#ifndef CONFIG_ARM64
+		freq64 = freq;
+		do_div(freq64, 1000000); /* Hz to MHz*/
+		freq = (unsigned long)freq64;
+#else
 		do_div(freq, 1000000); /* Hz to MHz*/
+#endif
 		target_clk = (u32)freq;
 		LOG_INF("DFS Set clock :(%d, %d) MHz\n", *pvalue, target_clk);
 	}
@@ -962,10 +972,21 @@ int ISP_SetPMQOS(
 				LOG_INF("Error: kcalloc speeds(%d) failed\n", num_available);
 		}
 		if (speeds) {
+#ifndef CONFIG_ARM64
+			u64 speed_64 = 0;
+
+			for (i = 0; i < num_available; i++) {
+				speed_64 = speeds[i];
+				do_div(speed_64, 1000000); /* Hz to MHz */
+				speeds[i] = (u32)speed_64;
+				pvalue[i] = speeds[i];
+			}
+#else
 			for (i = 0; i < num_available; i++) {
 				do_div(speeds[i], 1000000); /* Hz to MHz */
 				pvalue[i] = speeds[i];
 			}
+#endif
 			kfree(speeds);
 		}
 
@@ -997,15 +1018,27 @@ int ISP_SetPMQOS(
 		}
 		break;
 	case E_CLK_CUR:
+	{
 #ifdef EP_PMQOS
 		pvalue[0] = (unsigned int)target_clk;
+#else
+#ifndef CONFIG_ARM64
+		u64 pvalue64 = 0;
+
+		pvalue[0] = mtk_dfs_cur();
+		/* Hz to MHz */
+		pvalue64 = pvalue[0];
+		do_div(pvalue64, 1000000);
+		pvalue[0] = pvalue64;
 #else
 		pvalue[0] = mtk_dfs_cur();
 		/* Hz to MHz */
 		do_div(pvalue[0], 1000000);
 #endif
+#endif
 		pvalue[1] = (unsigned int)target_clk;
 		LOG_INF("cur clk:%d MHz,tar clk:%d MHz\n", pvalue[0], pvalue[1]);
+	}
 		break;
 	case E_QOS_UNKNOWN:
 	default:
@@ -1075,25 +1108,46 @@ int SV_SetPMQOS(
 	case E_CLK_UPDATE:
 	{
 		unsigned long freq;
+#ifndef CONFIG_ARM64
+		unsigned long long freq64 = 0;
+#endif
 
 		freq = (*(u32 *)pvalue) * 1000000; // MHz to Hz
 		LOG_INF("E_CLK_UPDATE %d MHz\n", *pvalue);
 		mtk_dfs_update(freq);
+#ifndef CONFIG_ARM64
+		freq64 = freq;
+		do_div(freq64, 1000000); // Hz to MHz
+		freq = freq64;
+#else
 		do_div(freq, 1000000); // Hz to MHz
+#endif
 		target_clk = (u32)freq;
 		LOG_INF("DFS Set clock :%d MHz\n", target_clk);
 	}
 		break;
 	case E_CLK_CUR:
+	{
 #ifdef EP_PMQOS
 		pvalue[0] = (unsigned int)target_clk;
+#else
+#ifndef CONFIG_ARM64
+		u64 pvalue64 = 0;
+
+		pvalue[0] = mtk_dfs_cur();
+		/* Hz to MHz */
+		pvalue64 = pvalue[0];
+		do_div(pvalue64, 1000000);
+		pvalue[0] = pvalue64;
 #else
 		pvalue[0] = mtk_dfs_cur();
 		/* Hz to MHz */
 		do_div(pvalue[0], 1000000);
 #endif
+#endif
 		pvalue[1] = (unsigned int)target_clk;
 		LOG_INF("cur clk:%d MHz,tar clk:%d MHz\n", pvalue[0], pvalue[1]);
+	}
 		break;
 	case E_CLK_SUPPORTED:
 	{
@@ -1131,10 +1185,21 @@ int SV_SetPMQOS(
 				LOG_INF("Error: kcalloc speeds(%d) failed\n", num_available);
 		}
 		if (speeds) {
+#ifndef CONFIG_ARM64
+			u64 speed64;
+
+			for (i = 0; i < num_available; i++) {
+				speed64 = speeds[i];
+				do_div(speed64, 1000000); /* Hz to MHz */
+				speeds[i] = speed64;
+				pvalue[i] = speeds[i];
+			}
+#else
 			for (i = 0; i < num_available; i++) {
 				do_div(speeds[i], 1000000); /* Hz to MHz */
 				pvalue[i] = speeds[i];
 			}
+#endif
 			kfree(speeds);
 		}
 		if (num_available > 0)
