@@ -60,7 +60,7 @@ struct mtk_heap_dev_info {
 };
 
 /* common function */
-void dmabuf_release_check(const struct dma_buf *dmabuf)
+static inline void dmabuf_release_check(const struct dma_buf *dmabuf)
 {
 	dma_addr_t iova = 0x0;
 	const char *device_name = NULL;
