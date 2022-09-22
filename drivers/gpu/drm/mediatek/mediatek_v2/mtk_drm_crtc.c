@@ -12379,10 +12379,10 @@ int mtk_crtc_get_mutex_id(struct drm_crtc *crtc, unsigned int ddp_mode,
 			  find_comp, ddp_mode, crtc_id);
 		return -1;
 	}
-
-	if (mtk_crtc_with_sub_path(crtc, ddp_mode) && find == 0)
-		has_connector = false;
-
+	if (ddp_mode < DDP_MODE_NR) {
+		if (mtk_crtc_with_sub_path(crtc, ddp_mode) && find == 0)
+			has_connector = false;
+	}
 	switch (crtc_id) {
 	case 0:
 		if (has_connector)

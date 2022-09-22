@@ -195,8 +195,10 @@ int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
 	tmp = bw;
 
 	for (i = 0; i < DDP_PATH_NR; i++) {
-		if (!(mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode].req_hrt[i]))
-			continue;
+		if (mtk_crtc->ddp_mode < DDP_MODE_NR) {
+			if (!(mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode].req_hrt[i]))
+				continue;
+		}
 		for_each_comp_in_crtc_target_path(comp, mtk_crtc, j, i) {
 			ret |= mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_HRT_BW,
 						   &tmp);
