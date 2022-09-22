@@ -54,3 +54,21 @@ config MTK_FB_MMDVFS_SUPPORT
        help
          If HRT hardware is not in the platform, then support for
          MMDVFS needs to be added through software.
+
+config LCM_HEIGHT
+	string "define LCM HEIGHT size"
+	default "1920"
+	help
+	  To set LCM resolution height size.
+	  This define is in ProjectConfig.mk.
+	  LCM height can be set 1024/1920/680 etc.
+	  If you want to change LCM height, please define it in ProjectConfig.mk.
+
+config LCM_WIDTH
+	string "LCM width size"
+	default "1080"
+	help
+	  To set LCM resolution width size.
+	  This define is in ProjectConfig.mk.
+	  LCM width can be set 1080/480/400 etc.
+	  If you want to change LCM width, please define it in ProjectConfig.mk.
