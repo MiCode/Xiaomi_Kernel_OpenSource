@@ -1099,7 +1099,7 @@ int imgsys_cmdq_parser(struct swfrm_info_t *frm_info, struct cmdq_pkt *pkt,
 				cmd->u.address, cmd->u.mask, 0xFFFF, CMDQ_GPR_R03+thd_idx);
 			break;
 		case IMGSYS_CMD_WAIT:
-			if ((cmd->u.event < 0) || (cmd->u.event >= IMGSYS_CMDQ_EVENT_MAX)) {
+			if (cmd->u.event >= IMGSYS_CMDQ_EVENT_MAX) {
 				pr_info(
 					"%s: [ERROR] WAIT event(%d) index is over maximum(%d) with action(%d)!\n",
 					__func__, cmd->u.event, IMGSYS_CMDQ_EVENT_MAX,
@@ -1131,7 +1131,7 @@ int imgsys_cmdq_parser(struct swfrm_info_t *frm_info, struct cmdq_pkt *pkt,
 					__func__, cmd->u.action);
 			break;
 		case IMGSYS_CMD_UPDATE:
-			if ((cmd->u.event < 0) || (cmd->u.event >= IMGSYS_CMDQ_EVENT_MAX)) {
+			if (cmd->u.event >= IMGSYS_CMDQ_EVENT_MAX) {
 				pr_info(
 					"%s: [ERROR] UPDATE event(%d) index is over maximum(%d) with action(%d)!\n",
 					__func__, cmd->u.event, IMGSYS_CMDQ_EVENT_MAX,
@@ -1163,7 +1163,7 @@ int imgsys_cmdq_parser(struct swfrm_info_t *frm_info, struct cmdq_pkt *pkt,
 					__func__, cmd->u.action);
 			break;
 		case IMGSYS_CMD_ACQUIRE:
-			if ((cmd->u.event < 0) || (cmd->u.event >= IMGSYS_CMDQ_EVENT_MAX)) {
+			if (cmd->u.event >= IMGSYS_CMDQ_EVENT_MAX) {
 				pr_info(
 					"%s: [ERROR] ACQUIRE event(%d) index is over maximum(%d) with action(%d)!\n",
 					__func__, cmd->u.event, IMGSYS_CMDQ_EVENT_MAX,
