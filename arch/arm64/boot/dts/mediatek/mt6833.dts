@@ -2031,10 +2031,11 @@
 		compatible = "goodix,touch";
 	};
 
-	/* Microtrust SW IRQ number 87(119 - 32) ~ 88(120 - 32) */
+	/* Microtrust SW IRQ number 85(117) ~ 90(122) */
 	utos: utos {
 		compatible = "microtrust,utos";
-		interrupts = <GIC_SPI 88 IRQ_TYPE_EDGE_RISING 0>;
+		interrupts = <GIC_SPI 85 IRQ_TYPE_EDGE_RISING 0>,
+				<GIC_SPI 86 IRQ_TYPE_EDGE_RISING 0>;
 	};
 
 	utos_tester {
