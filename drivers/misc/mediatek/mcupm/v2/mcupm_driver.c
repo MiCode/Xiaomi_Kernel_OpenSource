@@ -16,6 +16,11 @@
 #include "mcupm_ipi_table.h"
 #include "mcupm_timesync.h"
 
+#if IS_ENABLED(CONFIG_MTK_EMI)
+#include <soc/mediatek/emi.h>
+#include "mcupm_emi_mpu.h"
+#endif
+
 #ifdef CONFIG_OF_RESERVED_MEM
 #include <linux/of_reserved_mem.h>
 #define MCUPM_MEM_RESERVED_KEY "mediatek,reserve-memory-mcupm_share"
@@ -89,6 +94,11 @@ static int mtk_ipi_init(struct platform_device *pdev)
 static phys_addr_t mcupm_mem_base_phys;
 static phys_addr_t mcupm_mem_base_virt;
 static phys_addr_t mcupm_mem_size;
+
+#if IS_ENABLED(CONFIG_MTK_EMI)
+static unsigned long long mcupm_start;
+static unsigned long long mcupm_end;
+#endif
 
 #ifdef CONFIG_OF_RESERVED_MEM
 static struct mcupm_reserve_mblock mcupm_reserve_mblock[NUMS_MCUPM_MEM_ID] = {
@@ -457,6 +467,39 @@ int mcupm_thread(void *data)
 
 	return 0;
 }
+#if IS_ENABLED(CONFIG_MTK_EMI)
+static void mcupm_set_emi_mpu(phys_addr_t base, phys_addr_t size)
+{
+	mcupm_start = base;
+	mcupm_end = base + size - 1;
+}
+
+static void mcupm_lock_emi_mpu(void)
+{
+	if (mcupm_mem_size > 0)
+		mcupm_set_emi_mpu(mcupm_mem_base_phys, mcupm_mem_size);
+}
+
+static int mcupm_init_emi_mpu(void)
+{
+	struct emimpu_region_t rg_info;
+
+	mtk_emimpu_init_region(&rg_info, MUCPM_MPU_REGION_ID);
+
+	mtk_emimpu_set_addr(&rg_info, mcupm_start, mcupm_end);
+
+	mtk_emimpu_set_apc(&rg_info, 0, MTK_EMIMPU_NO_PROTECTION);
+
+	mtk_emimpu_set_apc(&rg_info, MUCPM_MPU_DOMAIN_ID,
+						MTK_EMIMPU_NO_PROTECTION);
+
+	mtk_emimpu_set_protection(&rg_info);
+
+	mtk_emimpu_free_region(&rg_info);
+
+	return 0;
+}
+#endif
 
 static int mcupm_device_probe(struct platform_device *pdev)
 {
@@ -497,6 +540,14 @@ static int mcupm_device_probe(struct platform_device *pdev)
 		spin_lock_init(&mcupm_mbox_lock[i]);
 
 	pr_info("MCUPM is ready to service IPI\n");
+
+#if IS_ENABLED(CONFIG_MTK_EMI)
+	if (has_reserved_memory == true) {
+		mcupm_lock_emi_mpu();
+		mcupm_init_emi_mpu();
+	} else
+		pr_debug("[MCUPM] no need to set emi mpu\n");
+#endif
 
 	ret = mcupm_plt_module_init();
 	if (ret) {
