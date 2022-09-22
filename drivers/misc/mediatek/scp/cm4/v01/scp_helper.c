@@ -2123,7 +2123,7 @@ static void __exit scp_exit(void)
 }
 
 #if ENABLE_SCP_EMI_PROTECTION
-#ifndef CONFIG_MTK_EMI_LEGACY
+#if !IS_ENABLED(CONFIG_MTK_EMI_LEGACY)
 static int __init scp_late_init(void)
 {
 	pr_notice("[SCP] %s\n", __func__);
@@ -2136,7 +2136,7 @@ static int __init scp_late_init(void)
 device_initcall_sync(scp_init);
 module_exit(scp_exit);
 #if ENABLE_SCP_EMI_PROTECTION
-#ifndef CONFIG_MTK_EMI_LEGACY
+#if !IS_ENABLED(CONFIG_MTK_EMI_LEGACY)
 late_initcall(scp_late_init);
 #endif
 #endif
