@@ -510,8 +510,11 @@ int mcdi_governor_select(int cpu, int cluster_idx)
 	ktime_t delta_next;
 	unsigned long val;
 
-	if (!is_mcdi_working())
+	rcu_idle_exit();
+	if (!is_mcdi_working()) {
+		rcu_idle_enter();
 		return MCDI_STATE_WFI;
+	}
 
 	if (boot_time_check != 1) {
 		get_monotonic_boottime(&uptime);
@@ -522,13 +525,15 @@ int mcdi_governor_select(int cpu, int cluster_idx)
 			mcdi_ap_ready();
 			pr_info("MCDI bootup check: PASS\n");
 		} else {
+			rcu_idle_enter();
 			return MCDI_STATE_WFI;
 		}
 	}
 
-	if (!mcdi_usage_cpu_valid(cpu))
+	if (!mcdi_usage_cpu_valid(cpu)) {
+		rcu_idle_enter();
 		return MCDI_STATE_WFI;
-
+	}
 	spin_lock_irqsave(&mcdi_gov_spin_lock, flags);
 
 	/* Need to update first for last core check */
@@ -586,6 +591,7 @@ int mcdi_governor_select(int cpu, int cluster_idx)
 			last_core_token = -1;
 
 			spin_unlock_irqrestore(&mcdi_gov_spin_lock, flags);
+
 		}
 
 		if (tbl->states[MCDI_STATE_CLUSTER_OFF].exit_latency
@@ -600,7 +606,7 @@ int mcdi_governor_select(int cpu, int cluster_idx)
 			select_state = MCDI_STATE_CPU_OFF;
 		}
 	}
-
+	rcu_idle_enter();
 	return select_state;
 }
 
@@ -610,6 +616,7 @@ void mcdi_governor_reflect(int cpu, int state)
 	int cluster_idx = cluster_idx_get(cpu);
 	struct mcdi_status *mcdi_sta = NULL;
 
+	rcu_idle_exit();
 	mcdi_cpc_reflect(cpu, last_core_token);
 
 	/* decrease MCDI num (MCUSYS/cluster) */
@@ -643,6 +650,7 @@ void mcdi_governor_reflect(int cpu, int state)
 		release_cluster_last_core_prot();
 
 	mcdi_cancel_timer(cpu);
+	rcu_idle_enter();
 }
 
 void mcdi_avail_cpu_cluster_update(void)
@@ -859,7 +867,7 @@ void idle_refcnt_inc(void)
 {
 	unsigned long flags;
 	bool enter = false;
-
+	rcu_idle_exit();
 	spin_lock_irqsave(&all_cpu_idle_spin_lock, flags);
 
 	all_cpu_idle_data.refcnt++;
@@ -870,7 +878,7 @@ void idle_refcnt_inc(void)
 	}
 
 	spin_unlock_irqrestore(&all_cpu_idle_spin_lock, flags);
-
+	rcu_idle_enter();
 	/* if (enter) */
 		/* trace_all_cpu_idle_rcuidle(1); */
 }
@@ -882,7 +890,7 @@ void idle_refcnt_dec(void)
 	unsigned long long this_dur;
 	unsigned long long temp;
 	bool leave = false;
-
+	rcu_idle_exit();
 	spin_lock_irqsave(&all_cpu_idle_spin_lock, flags);
 
 	all_cpu_idle_data.refcnt--;
@@ -910,7 +918,7 @@ void idle_refcnt_dec(void)
 	}
 
 	spin_unlock_irqrestore(&all_cpu_idle_spin_lock, flags);
-
+	rcu_idle_enter();
 	/* if (leave) */
 		/* trace_all_cpu_idle_rcuidle(0); */
 }
