@@ -2292,14 +2292,17 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 			/* enable the device ref clock for HS mode*/
 			if (ufshcd_is_hs_mode(&hba->pwr_info))
 				ufs_qcom_dev_ref_clk_ctrl(host, true);
-			/* Device ref clk should be enabled before Unipro clock */
-			err = clk_prepare_enable(host->ref_clki->clk);
-			if (!err)
-				host->ref_clki->enabled = on;
-			else
-				ufs_qcom_msg(ERR, hba->dev,
-					"%s: Fail dev-ref-clk enabled, ret=%d\n",
-					__func__, err);
+
+			if (!host->ref_clki->enabled) {
+				/* Device ref clk should be enabled before Unipro clock */
+				err = clk_prepare_enable(host->ref_clki->clk);
+				if (!err)
+					host->ref_clki->enabled = on;
+				else
+					ufs_qcom_msg(ERR, hba->dev,
+						"%s: Fail dev-ref-clk enabled, ret=%d\n",
+						__func__, err);
+			}
 		} else {
 			if (!ufs_qcom_is_link_active(hba)) {
 				/*
