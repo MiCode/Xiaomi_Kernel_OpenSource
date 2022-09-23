@@ -33,7 +33,7 @@
 
 #define DDR_STATS_MAGIC_KEY	0xA1157A75
 #define DDR_STATS_MAX_NUM_MODES	0x14
-#define MAX_MSG_LEN		35
+#define MAX_MSG_LEN		40
 #define DRV_ABSENT		0xdeaddead
 #define DRV_INVALID		0xffffdead
 #define VOTE_MASK		0x3fff
