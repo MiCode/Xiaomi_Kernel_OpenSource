@@ -29,6 +29,7 @@
 struct oom_control;
 struct slabinfo;
 struct track;
+struct address_space;
 
 DECLARE_RESTRICTED_HOOK(android_rvh_set_skip_swapcache_flags,
 			TP_PROTO(gfp_t *flags),
@@ -36,6 +37,9 @@ DECLARE_RESTRICTED_HOOK(android_rvh_set_skip_swapcache_flags,
 DECLARE_RESTRICTED_HOOK(android_rvh_set_gfp_zone_flags,
 			TP_PROTO(gfp_t *flags),
 			TP_ARGS(flags), 1);
+DECLARE_RESTRICTED_HOOK(android_rvh_update_readahead_gfp_mask,
+			TP_PROTO(struct address_space *mapping, gfp_t *flags),
+			TP_ARGS(mapping, flags), 2);
 DECLARE_RESTRICTED_HOOK(android_rvh_set_readahead_gfp_mask,
 			TP_PROTO(gfp_t *flags),
 			TP_ARGS(flags), 1);
