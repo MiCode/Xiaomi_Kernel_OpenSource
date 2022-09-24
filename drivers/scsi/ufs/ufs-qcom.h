@@ -548,6 +548,7 @@ struct ufs_qcom_host {
 	struct device_node *np;
 	int chosen_algo;
 	struct ufs_clk_info *ref_clki;
+	struct ufs_clk_info *core_unipro_clki;
 	atomic_t hi_pri_en;
 	atomic_t therm_mitigation;
 	cpumask_t perf_mask;

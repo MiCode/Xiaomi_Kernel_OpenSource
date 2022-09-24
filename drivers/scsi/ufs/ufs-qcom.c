@@ -2282,19 +2282,8 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 			err = ufs_qcom_set_bus_vote(hba, true);
 			if (ufs_qcom_is_link_hibern8(hba))
 				ufs_qcom_phy_set_src_clk_h8_exit(phy);
-			err = ufs_qcom_phy_power_on(hba);
-			if (err) {
-				ufs_qcom_msg(ERR, hba->dev, "%s: phy power on failed, ret = %d\n",
-						 __func__, err);
-				return err;
-			}
-
-			/* enable the device ref clock for HS mode*/
-			if (ufshcd_is_hs_mode(&hba->pwr_info))
-				ufs_qcom_dev_ref_clk_ctrl(host, true);
 
 			if (!host->ref_clki->enabled) {
-				/* Device ref clk should be enabled before Unipro clock */
 				err = clk_prepare_enable(host->ref_clki->clk);
 				if (!err)
 					host->ref_clki->enabled = on;
@@ -2302,22 +2291,23 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 					ufs_qcom_msg(ERR, hba->dev,
 						"%s: Fail dev-ref-clk enabled, ret=%d\n",
 						__func__, err);
+				}
+
+			if (!host->core_unipro_clki->enabled) {
+				err = clk_prepare_enable(host->core_unipro_clki->clk);
+				if (!err)
+					host->core_unipro_clki->enabled = on;
+				else
+					ufs_qcom_msg(ERR, hba->dev,
+						"%s: Fail core-unipro-clk enabled, ret=%d\n",
+						__func__, err);
 			}
+
 		} else {
 			if (!ufs_qcom_is_link_active(hba)) {
-				/*
-				 * Dont turn off dev ref-clk before unipro clk.
-				 * Setting ref_clki state to requested state of
-				 * 'on' would prevent toggling of this clock by
-				 * ufshcd core. Refer ufshcd_setup_clocks()
-				 */
-				host->ref_clki->enabled = on;
-			}
-		}
-		break;
-	case POST_CHANGE:
-		if (!on) {
-			if (!ufs_qcom_is_link_active(hba)) {
+				clk_disable_unprepare(host->core_unipro_clki->clk);
+				host->core_unipro_clki->enabled = on;
+
 				err = ufs_qcom_phy_power_off(hba);
 				if (err) {
 					ufs_qcom_msg(ERR, hba->dev,
@@ -2326,15 +2316,30 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 					return err;
 				}
 				ufs_qcom_dev_ref_clk_ctrl(host, false);
-				/* ref_clk state is already changed in PRE_CHANGE */
+
 				clk_disable_unprepare(host->ref_clki->clk);
+				host->ref_clki->enabled = on;
 			}
+		}
+		break;
+	case POST_CHANGE:
+		if (!on) {
 			if (ufs_qcom_is_link_hibern8(hba))
 				ufs_qcom_phy_set_src_clk_h8_enter(phy);
 			err = ufs_qcom_set_bus_vote(hba, false);
 			if (err)
 				return err;
 			err = ufs_qcom_unvote_qos_all(hba);
+		} else {
+			err = ufs_qcom_phy_power_on(hba);
+			if (err) {
+				ufs_qcom_msg(ERR, hba->dev, "%s: phy power on failed, ret = %d\n",
+						 __func__, err);
+				return err;
+			}
+
+			if (ufshcd_is_hs_mode(&hba->pwr_info))
+				ufs_qcom_dev_ref_clk_ctrl(host, true);
 		}
 		if (!err)
 			atomic_set(&host->clks_on, on);
@@ -3482,9 +3487,10 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	}
 
 	list_for_each_entry(clki, &hba->clk_list_head, list) {
-		if (!strcmp(clki->name, "core_clk_unipro"))
+		if (!strcmp(clki->name, "core_clk_unipro")) {
 			clki->keep_link_active = true;
-		else if (!strcmp(clki->name, "ref_clk"))
+			host->core_unipro_clki = clki;
+		} else if (!strcmp(clki->name, "ref_clk"))
 			host->ref_clki = clki;
 	}
 
