@@ -4272,6 +4272,8 @@ int cnss_get_soc_info(struct device *dev, struct cnss_soc_info *info)
 	       sizeof(info->device_version));
 	memcpy(&info->dev_mem_info, &plat_priv->dev_mem_info,
 	       sizeof(info->dev_mem_info));
+	memcpy(&info->fw_build_id, &plat_priv->fw_build_id,
+	       sizeof(info->fw_build_id));
 
 	return 0;
 }
