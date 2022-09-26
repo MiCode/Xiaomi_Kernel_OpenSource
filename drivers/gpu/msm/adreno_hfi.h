@@ -274,7 +274,7 @@ static const char * const hfi_memkind_strings[] = {
 /* Host can access */
 #define HFI_MEMFLAG_HOST_ACC		BIT(8)
 
-/* Host initializes the buffer */
+/* Host initializes(zero-init) the buffer */
 #define HFI_MEMFLAG_HOST_INIT		BIT(9)
 
 /* Gfx buffer needs to be secure */
