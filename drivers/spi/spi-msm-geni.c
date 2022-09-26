@@ -20,6 +20,7 @@
 #include <linux/msm_gpi.h>
 #include <linux/spi/spi.h>
 #include <linux/pinctrl/consumer.h>
+#include <soc/qcom/boot_stats.h>
 
 #define SPI_NUM_CHIPSELECT	(4)
 #define SPI_XFER_TIMEOUT_MS	(250)
@@ -2041,6 +2042,7 @@ static int spi_geni_probe(struct platform_device *pdev)
 	bool rt_pri, slave_en;
 	struct device *dev = &pdev->dev;
 	struct geni_se *spi_rsc;
+	char boot_marker[40];
 
 	slave_en  = of_property_read_bool(pdev->dev.of_node,
 			 "qcom,slv-ctrl");
@@ -2054,6 +2056,10 @@ static int spi_geni_probe(struct platform_device *pdev)
 
 	if (slave_en)
 		spi->slave_abort = spi_slv_abort;
+
+	snprintf(boot_marker, sizeof(boot_marker),
+			"M - DRIVER GENI_SPI Init");
+	place_marker(boot_marker);
 
 	platform_set_drvdata(pdev, spi);
 	geni_mas = spi_master_get_devdata(spi);
@@ -2306,6 +2312,10 @@ static int spi_geni_probe(struct platform_device *pdev)
 			&dev_attr_spi_slave_state.attr);
 
 	dev_info(&pdev->dev, "%s: completed %d\n", __func__, ret);
+	snprintf(boot_marker, sizeof(boot_marker),
+			"M - DRIVER GENI_SPI_%d Ready", spi->bus_num);
+	place_marker(boot_marker);
+
 	return ret;
 spi_geni_probe_err:
 	dev_info(&pdev->dev, "%s: ret:%d\n", __func__, ret);
