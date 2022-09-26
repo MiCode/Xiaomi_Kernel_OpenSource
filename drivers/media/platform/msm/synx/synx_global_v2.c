@@ -348,6 +348,28 @@ int synx_global_set_subscribed_core(u32 idx, enum synx_core_id id)
 	return SYNX_SUCCESS;
 }
 
+int synx_global_clear_subscribed_core(u32 idx, enum synx_core_id id)
+{
+	int rc;
+	unsigned long flags;
+	struct synx_global_coredata *synx_g_obj;
+
+	if (!synx_gmem.table)
+		return -SYNX_NOMEM;
+
+	if (id >= SYNX_CORE_MAX || !synx_is_valid_idx(idx))
+		return -SYNX_INVALID;
+
+	rc = synx_gmem_lock(idx, &flags);
+	if (rc)
+		return rc;
+	synx_g_obj = &synx_gmem.table[idx];
+	synx_g_obj->subscribers &= ~(1UL << id);
+	synx_gmem_unlock(idx, &flags);
+
+	return SYNX_SUCCESS;
+}
+
 u32 synx_global_get_parents_num(u32 idx)
 {
 	int rc;
