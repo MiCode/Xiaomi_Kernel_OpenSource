@@ -198,23 +198,25 @@ void md_dump_slabinfo(struct seq_buf *m)
 	slab_caches = (struct list_head *)android_debug_symbol(ADS_SLAB_CACHES);
 	slab_mutex = (struct mutex *) android_debug_symbol(ADS_SLAB_MUTEX);
 
+	if (!mutex_trylock(slab_mutex))
+		return;
+
 	/* print_slabinfo_header */
-		seq_buf_printf(m,
-				"# name            <active_objs> <num_objs> <objsize> <objperslab> <pagesperslab>");
-		seq_buf_printf(m,
-				" : tunables <limit> <batchcount> <sharedfactor>");
-		seq_buf_printf(m,
-				" : slabdata <active_slabs> <num_slabs> <sharedavail>");
-	#ifdef CONFIG_DEBUG_SLAB
-		seq_buf_printf(m,
-				" : globalstat <listallocs> <maxobjs> <grown> <reaped> <error> <maxfreeable> <nodeallocs> <remotefrees> <alienoverflow>");
-		seq_buf_printf(m,
-				" : cpustat <allochit> <allocmiss> <freehit> <freemiss>");
-	#endif
-		seq_buf_printf(m, "\n");
+	seq_buf_printf(m,
+			"# name            <active_objs> <num_objs> <objsize> <objperslab> <pagesperslab>");
+	seq_buf_printf(m,
+			" : tunables <limit> <batchcount> <sharedfactor>");
+	seq_buf_printf(m,
+			" : slabdata <active_slabs> <num_slabs> <sharedavail>");
+#ifdef CONFIG_DEBUG_SLAB
+	seq_buf_printf(m,
+			" : globalstat <listallocs> <maxobjs> <grown> <reaped> <error> <maxfreeable> <nodeallocs> <remotefrees> <alienoverflow>");
+	seq_buf_printf(m,
+			" : cpustat <allochit> <allocmiss> <freehit> <freemiss>");
+#endif
+	seq_buf_printf(m, "\n");
 
 	/* Loop through all slabs */
-	mutex_lock(slab_mutex);
 	list_for_each_entry(s, slab_caches, list) {
 		memset(&sinfo, 0, sizeof(sinfo));
 		get_slabinfo(s, &sinfo);
@@ -230,6 +232,7 @@ void md_dump_slabinfo(struct seq_buf *m)
 		slabinfo_stats(m, s);
 		seq_buf_printf(m, "\n");
 	}
+
 	mutex_unlock(slab_mutex);
 }
 #endif
