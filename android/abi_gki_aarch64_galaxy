@@ -116,7 +116,9 @@
   usb_deregister_dev
   usb_find_interface
   usb_hid_driver
+  usbnet_cdc_unbind
   usbnet_defer_kevent
+  usbnet_generic_cdc_bind
   usb_poison_anchored_urbs
   usb_register_dev
   usb_set_device_state
