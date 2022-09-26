@@ -1,0 +1,4 @@
+[abi_symbol_list]
+#required by codec module
+  snd_soc_component_enable_pin
+  snd_soc_component_get_pin_status
