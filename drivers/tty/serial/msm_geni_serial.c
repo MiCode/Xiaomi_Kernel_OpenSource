@@ -32,6 +32,7 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/dma-mapping.h>
 #include <uapi/linux/msm_geni_serial.h>
+#include <soc/qcom/boot_stats.h>
 
 static bool con_enabled = IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE_DEFAULT_ENABLED);
 
@@ -4349,6 +4350,7 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	struct uart_driver *drv;
 	const struct of_device_id *id;
 	bool is_console = false;
+	char boot_marker[40];
 
 	id = of_match_device(msm_geni_device_tbl, &pdev->dev);
 	if (!id) {
@@ -4375,6 +4377,11 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		line = pdev->id;
 	}
 
+	if (!(drv->cons)) {
+		snprintf(boot_marker, sizeof(boot_marker),
+			 "M - DRIVER GENI_HS_UART_%d Init", line);
+		place_marker(boot_marker);
+	}
 	is_console = (drv->cons ? true : false);
 	dev_port = get_port_from_line(line, is_console);
 	dev_port->is_console = is_console;
@@ -4488,6 +4495,11 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	if (ret)
 		dev_err(&pdev->dev, "Failed to register uart_port: %d\n", ret);
 
+	if (!is_console) {
+		snprintf(boot_marker, sizeof(boot_marker),
+			 "M - DRIVER GENI_HS_UART_%d Ready", line);
+		place_marker(boot_marker);
+	}
 exit_geni_serial_probe:
 	UART_LOG_DBG(dev_port->ipc_log_misc, &pdev->dev, "%s: ret:%d\n",
 		__func__, ret);
