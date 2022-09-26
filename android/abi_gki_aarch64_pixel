@@ -890,6 +890,7 @@
   iommu_device_sysfs_remove
   iommu_device_unlink
   iommu_device_unregister
+  iommu_dma_enable_best_fit_algo
   iommu_domain_alloc
   iommu_domain_free
   iommu_fwspec_add_ids
