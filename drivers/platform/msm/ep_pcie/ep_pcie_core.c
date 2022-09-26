@@ -3559,13 +3559,23 @@ int ep_pcie_core_config_db_routing(struct ep_pcie_db_config chdb_cfg,
 				PCIE20_PARF_MHI_IPA_EDB_TARGET_LOWER,
 				erdb_cfg.tgt_addr);
 	} else {
-		ep_pcie_write_reg(ep_pcie_dev.parf, PCIE20_PARF_MHI_IPA_DBS_VF(n), dbs);
-		ep_pcie_write_reg(ep_pcie_dev.parf,
-				PCIE20_PARF_MHI_IPA_CDB_VF_TARGET_LOWER(n),
-				chdb_cfg.tgt_addr);
-		ep_pcie_write_reg(ep_pcie_dev.parf,
-				PCIE20_PARF_MHI_IPA_EDB_VF_TARGET_LOWER(n),
-				erdb_cfg.tgt_addr);
+		if (ep_pcie_dev.db_fwd_off_varied) {
+			ep_pcie_write_reg(ep_pcie_dev.parf, PCIE20_PARF_MHI_IPA_DBS_VF(n), dbs);
+			ep_pcie_write_reg(ep_pcie_dev.parf,
+					PCIE20_PARF_MHI_IPA_CDB_VF_TARGET_LOWER(n),
+					chdb_cfg.tgt_addr);
+			ep_pcie_write_reg(ep_pcie_dev.parf,
+					PCIE20_PARF_MHI_IPA_EDB_VF_TARGET_LOWER(n),
+					erdb_cfg.tgt_addr);
+		} else {
+			ep_pcie_write_reg(ep_pcie_dev.parf, PCIE20_PARF_MHI_IPA_DBS_V1_VF(n), dbs);
+			ep_pcie_write_reg(ep_pcie_dev.parf,
+					PCIE20_PARF_MHI_IPA_CDB_V1_VF_TARGET_LOWER(n),
+					chdb_cfg.tgt_addr);
+			ep_pcie_write_reg(ep_pcie_dev.parf,
+					PCIE20_PARF_MHI_IPA_EDB_V1_VF_TARGET_LOWER(n),
+					erdb_cfg.tgt_addr);
+		}
 	}
 
 	EP_PCIE_DBG(&ep_pcie_dev,
@@ -3806,6 +3816,10 @@ static int ep_pcie_probe(struct platform_device *pdev)
 				"qcom,aoss-rst-clr");
 	EP_PCIE_DBG(&ep_pcie_dev,
 		"PCIe V%d: AOSS reset for perst needed\n", ep_pcie_dev.rev);
+
+	ep_pcie_dev.db_fwd_off_varied = of_property_read_bool(
+						(&pdev->dev)->of_node,
+						"qcom,db-fwd-off-varied");
 
 	ep_pcie_dev.rev = 1711211;
 	ep_pcie_dev.pdev = pdev;
