@@ -176,8 +176,11 @@ int mhi_init_irq_setup(struct mhi_controller *mhi_cntrl)
 				   mhi_intvec_threaded_handler,
 				   irq_flags,
 				   "bhi", mhi_cntrl);
-	if (ret)
+	if (ret) {
+		MHI_ERR(dev, "error requesting to irq:%d, ret=%d\n",
+			mhi_cntrl->irq[0], ret);
 		return ret;
+	}
 
 	for (i = 0; i < mhi_cntrl->total_ev_rings; i++, mhi_event++) {
 		if (mhi_event->offload_ev)
