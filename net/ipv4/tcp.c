@@ -281,8 +281,6 @@
 #include <asm/ioctls.h>
 #include <net/busy_poll.h>
 
-#include <trace/hooks/ipv4.h>
-
 /* Track pending CMSGs. */
 enum {
 	TCP_CMSG_INQ = 1,
@@ -1211,7 +1209,6 @@ int tcp_sendmsg_locked(struct sock *sk, struct msghdr *msg, size_t size)
 	bool zc = false;
 	long timeo;
 
-	trace_android_rvh_tcp_sendmsg_locked(sk, size);
 	flags = msg->msg_flags;
 
 	if (flags & MSG_ZEROCOPY && size && sock_flag(sk, SOCK_ZEROCOPY)) {
@@ -2519,7 +2516,6 @@ found_fin_ok:
 		break;
 	} while (len > 0);
 
-	trace_android_rvh_tcp_recvmsg_stat(sk, copied);
 	/* According to UNIX98, msg_name/msg_namelen are ignored
 	 * on connected socket. I was just happy when found this 8) --ANK
 	 */
@@ -2548,7 +2544,6 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,
 
 	if (unlikely(flags & MSG_ERRQUEUE))
 		return inet_recv_error(sk, msg, len, addr_len);
-	trace_android_rvh_tcp_recvmsg(sk);
 
 	if (sk_can_busy_loop(sk) &&
 	    skb_queue_empty_lockless(&sk->sk_receive_queue) &&
