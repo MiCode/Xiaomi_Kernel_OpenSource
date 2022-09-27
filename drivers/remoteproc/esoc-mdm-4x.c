@@ -1156,6 +1156,41 @@ static int lemur_setup_hw(struct mdm_ctrl *mdm, const struct mdm_ops *ops,
 	return ret;
 }
 
+static int pinn_setup_hw(struct mdm_ctrl *mdm, const struct mdm_ops *ops,
+			  struct platform_device *pdev)
+{
+	int ret;
+	struct esoc_clink *esoc;
+
+	/* Same configuration as that of sdx75, except for the name */
+	esoc = devm_kzalloc(&pdev->dev, sizeof(*esoc), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(esoc)) {
+		dev_err(&pdev->dev, "cannot allocate esoc device\n");
+		return PTR_ERR(esoc);
+	}
+
+	esoc->name = PINN_LABEL;
+	esoc->link_name = PINN_PCIE;
+	esoc->sysmon_name = PINN_LABEL;
+
+	ret = sdx_setup_hw(mdm, ops, pdev, esoc);
+	if (ret) {
+		dev_err(mdm->dev, "Hardware setup failed for pinn\n");
+		esoc_mdm_log("Hardware setup failed for pinn\n");
+		return ret;
+	}
+
+	ret = lemur_setup_regulators(mdm);
+	if (ret) {
+		dev_err(mdm->dev, "Failed to setup regulators: %d\n", ret);
+		esoc_mdm_log("Failed to setup regulators: %d\n", ret);
+	}
+
+	esoc_mdm_log("Hardware setup done for pinn\n");
+
+	return ret;
+}
+
 static struct esoc_clink_ops mdm_cops = {
 	.cmd_exe = mdm_cmd_exe,
 	.get_status = mdm_get_status,
@@ -1187,6 +1222,12 @@ static struct mdm_ops lemur_ops = {
 	.pon_ops = &sdx50m_pon_ops,
 };
 
+static struct mdm_ops pinn_ops = {
+	.clink_ops = &mdm_cops,
+	.config_hw = pinn_setup_hw,
+	.pon_ops = &sdx50m_pon_ops,
+};
+
 static const struct of_device_id mdm_dt_match[] = {
 	{ .compatible = "qcom,ext-mdm9x55",
 		.data = &mdm9x55_ops, },
@@ -1196,6 +1237,8 @@ static const struct of_device_id mdm_dt_match[] = {
 		.data = &sdx55m_ops, },
 	{ .compatible = "qcom,ext-lemur",
 		.data = &lemur_ops, },
+	{ .compatible = "qcom,ext-pinn",
+		.data = &pinn_ops, },
 	{},
 };
 MODULE_DEVICE_TABLE(of, mdm_dt_match);
