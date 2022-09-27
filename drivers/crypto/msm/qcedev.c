@@ -800,6 +800,7 @@ static int submit_req(struct qcedev_async_req *qcedev_areq,
 				podev->lock,
 				msecs_to_jiffies(MAX_REQUEST_TIME)) == 0) {
 				pr_err("%s: request timed out\n", __func__);
+				spin_unlock_irqrestore(&podev->lock, flags);
 				return qcedev_areq->err;
 			}
 		}
@@ -837,14 +838,17 @@ static int submit_req(struct qcedev_async_req *qcedev_areq,
 		pr_err("%s: wait timed out, req info = %d\n", __func__,
 					current_req_info);
 		print_sts = true;
+		spin_lock_irqsave(&podev->lock, flags);
 		qcedev_check_crypto_status(qcedev_areq, podev->qce, print_sts);
 		qcedev_areq->timed_out = true;
 		ret = qce_manage_timeout(podev->qce, current_req_info);
 		if (ret) {
 			pr_err("%s: error during manage timeout\n", __func__);
 			qcedev_areq->err = -EIO;
+			spin_unlock_irqrestore(&podev->lock, flags);
 			return qcedev_areq->err;
 		}
+		spin_unlock_irqrestore(&podev->lock, flags);
 		tasklet_schedule(&podev->done_tasklet);
 		if (qcedev_areq->offload_cipher_op_req.err !=
 						QCEDEV_OFFLOAD_NO_ERROR)
