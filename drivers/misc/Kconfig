@@ -510,6 +510,15 @@ config HISI_HIKEY_USB
 	  switching between the dual-role USB-C port and the USB-A host ports
 	  using only one USB controller.
 
+config KINECTICS_XR_NORDIC
+	tristate "Nordic Misc driver support in XR Reference devices"
+	help
+	   This driver supports Nordic Chip in XR Reference devices.
+	   This driver interfaces with SoC to Nordic chip over SPI and contains
+	   code to power up the Nordic chip and initializes SPI interface. Also,
+	   this also parses the gpios and interrupts from device tree and sets
+	   the gpios and interrupt handler for handling the interrupt.
+
 source "drivers/misc/rtimd-i2c/Kconfig"
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
