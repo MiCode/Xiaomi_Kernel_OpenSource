@@ -135,7 +135,7 @@ static void msm_sdexpress_deenumerate_card(struct msm_sdexpress_info *info)
 
 static void msm_sdexpress_enumerate_card(struct msm_sdexpress_info *info)
 {
-	int rc;
+	int rc, retry_count = 0;
 	unsigned long timeout;
 	struct msm_sdexpress_reg_data *vreg;
 
@@ -153,7 +153,7 @@ static void msm_sdexpress_enumerate_card(struct msm_sdexpress_info *info)
 	 * CMD (pull up to be provided on PCB)
 	 * CLKREQ
 	 */
-
+retry:
 	/* Enable vdd1 regulator */
 	vreg = info->vreg_data->vdd1_data;
 	rc = msm_sdexpress_setup_vreg(info, vreg, true);
@@ -198,6 +198,22 @@ static void msm_sdexpress_enumerate_card(struct msm_sdexpress_info *info)
 
 	if (!rc)
 		rc = msm_pcie_enumerate(info->pci_nvme_instance);
+
+	/*
+	 * sometimes on few platforms, pcie enumerate may fail on first call.
+	 * As there is no harm for a retry, go for it.
+	 */
+	if (rc) {
+		while (retry_count++ < PCIE_ENUMERATE_RETRY) {
+			vreg = info->vreg_data->vdd1_data;
+			msm_sdexpress_vreg_disable(vreg);
+
+			vreg = info->vreg_data->vdd2_data;
+			msm_sdexpress_vreg_disable(vreg);
+			mdelay(5);
+			goto retry;
+		}
+	}
 
 	if (!rc)
 		pr_info("%s: Card enumerated successfully\n", __func__);
