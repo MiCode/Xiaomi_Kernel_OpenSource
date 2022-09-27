@@ -127,10 +127,8 @@ void md_dump_meminfo(struct seq_buf *m)
 		    global_node_page_state(NR_WRITEBACK_TEMP));
 	seq_buf_printf(m, "VmallocTotal:   %8lu kB\n",
 		   (unsigned long)VMALLOC_TOTAL >> 10);
-	show_val_kb(m, "VmallocUsed: ",
-			*(unsigned long *)android_debug_symbol(ADS_VMALLOC_NR_PAGES));
-	show_val_kb(m, "Percpu:         ",
-			*(unsigned long *)android_debug_symbol(ADS_PCPU_NR_PAGES));
+	show_val_kb(m, "VmallocUsed: ", vmalloc_nr_pages());
+	show_val_kb(m, "Percpu:         ", pcpu_nr_pages());
 
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	show_val_kb(m, "AnonHugePages:  ",
@@ -690,7 +688,7 @@ static ssize_t page_owner_call_site_write(struct file *file,
 	if (!call_site)
 		return -ENOMEM;
 
-	strscpy(call_site->name, buf, strlen(call_site->name));
+	strscpy(call_site->name, buf, sizeof(call_site->name));
 	spin_lock_irqsave(&accounted_call_site_lock, flags);
 	list_add_tail(&call_site->list, &accounted_call_site_list);
 	spin_unlock_irqrestore(&accounted_call_site_lock, flags);
