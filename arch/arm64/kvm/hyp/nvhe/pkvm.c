@@ -414,6 +414,15 @@ static int set_host_vcpus(struct shadow_vcpu_state *shadow_vcpus, int nr_vcpus,
 	return 0;
 }
 
+static int init_ptrauth(struct kvm_vcpu *shadow_vcpu)
+{
+	int ret = 0;
+	if (test_bit(KVM_ARM_VCPU_PTRAUTH_ADDRESS, shadow_vcpu->arch.features) ||
+	    test_bit(KVM_ARM_VCPU_PTRAUTH_GENERIC, shadow_vcpu->arch.features))
+		ret = kvm_vcpu_enable_ptrauth(shadow_vcpu);
+	return ret;
+}
+
 static int init_shadow_structs(struct kvm *kvm, struct kvm_shadow_vm *vm,
 			       struct kvm_vcpu **vcpu_array, int nr_vcpus)
 {
@@ -435,6 +444,10 @@ static int init_shadow_structs(struct kvm *kvm, struct kvm_shadow_vm *vm,
 		shadow_vcpu->vcpu_idx = i;
 
 		ret = copy_features(shadow_vcpu, host_vcpu);
+		if (ret)
+			return ret;
+
+		ret = init_ptrauth(shadow_vcpu);
 		if (ret)
 			return ret;
 
@@ -851,14 +864,7 @@ void pkvm_reset_vcpu(struct kvm_vcpu *vcpu)
 
 	WARN_ON(!reset_state->reset);
 
-	if (test_bit(KVM_ARM_VCPU_PTRAUTH_ADDRESS, vcpu->arch.features) ||
-	    test_bit(KVM_ARM_VCPU_PTRAUTH_GENERIC, vcpu->arch.features)) {
-		/*
-		 * This call should not fail since we've already checked for
-		 * feature support on initialization.
-		 */
-		WARN_ON(kvm_vcpu_enable_ptrauth(vcpu));
-	}
+	init_ptrauth(vcpu);
 
 	/* Reset core registers */
 	memset(vcpu_gp_regs(vcpu), 0, sizeof(*vcpu_gp_regs(vcpu)));
