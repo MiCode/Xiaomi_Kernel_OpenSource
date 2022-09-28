@@ -149,7 +149,6 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_usb_phy_cfg_ahb2phy_clk",
 	"gcc_xo_div4_clk",
 	"mc_cc_debug_mux",
-	"measure_only_apcs_clk",
 	"measure_only_gcc_ahb_pcie_link_clk",
 	"measure_only_gcc_xo_pcie_link_clk",
 	"measure_only_ipa_2x_clk",
@@ -249,7 +248,6 @@ static int gcc_debug_mux_sels[] = {
 	0x40,		/* gcc_usb_phy_cfg_ahb2phy_clk */
 	0x74,		/* gcc_xo_div4_clk */
 	0x77,		/* mc_cc_debug_mux */
-	0x89,		/* measure_only_apcs_clk */
 	0x71,		/* measure_only_gcc_ahb_pcie_link_clk */
 	0x72,		/* measure_only_gcc_xo_pcie_link_clk */
 	0xC8,		/* measure_only_ipa_2x_clk */
@@ -299,14 +297,6 @@ static struct mux_regmap_names mux_list[] = {
 	{ .mux = &mc_cc_debug_mux, .regmap_name = "qcom,mccc" },
 	{ .mux = &apss_cc_debug_mux, .regmap_name = "qcom,apsscc" },
 	{ .mux = &gcc_debug_mux, .regmap_name = "qcom,gcc" },
-};
-
-static struct clk_dummy measure_only_apcs_clk = {
-	.rrate = 1000,
-	.hw.init = &(const struct clk_init_data){
-		.name = "measure_only_apcs_clk",
-		.ops = &clk_dummy_ops,
-	},
 };
 
 static struct clk_dummy measure_only_apcs_l3_post_acd_clk = {
@@ -406,7 +396,6 @@ static struct clk_dummy measure_only_usb3_phy_wrapper_gcc_usb30_pipe_clk = {
 };
 
 static struct clk_hw *debugcc_sdxpinn_hws[] = {
-	&measure_only_apcs_clk.hw,
 	&measure_only_apcs_l3_post_acd_clk.hw,
 	&measure_only_apcs_silver_post_acd_clk.hw,
 	&measure_only_gcc_ahb_pcie_link_clk.hw,
