@@ -22,6 +22,7 @@
 #include <linux/oom.h>
 #include <linux/tracepoint.h>
 #include <trace/hooks/vendor_hooks.h>
+#include <linux/rwsem.h>
 
 #ifdef __GENKSYMS__
 struct slabinfo;
@@ -148,6 +149,10 @@ DECLARE_HOOK(android_vh_mmap_region,
 DECLARE_HOOK(android_vh_try_to_unmap_one,
 	TP_PROTO(struct vm_area_struct *vma, struct page *page, unsigned long addr, bool ret),
 	TP_ARGS(vma, page, addr, ret));
+DECLARE_HOOK(android_vh_do_page_trylock,
+	TP_PROTO(struct page *page, struct rw_semaphore *sem,
+		bool *got_lock, bool *success),
+	TP_ARGS(page, sem, got_lock, success));
 DECLARE_HOOK(android_vh_drain_all_pages_bypass,
 	TP_PROTO(gfp_t gfp_mask, unsigned int order, unsigned long alloc_flags,
 		int migratetype, unsigned long did_some_progress,
@@ -184,9 +189,6 @@ DECLARE_HOOK(android_vh_pcplist_add_cma_pages_bypass,
 DECLARE_HOOK(android_vh_subpage_dma_contig_alloc,
 	TP_PROTO(bool *allow_subpage_alloc, struct device *dev, size_t *size),
 	TP_ARGS(allow_subpage_alloc, dev, size));
-DECLARE_HOOK(android_vh_ra_tuning_max_page,
-	TP_PROTO(struct readahead_control *ractl, unsigned long *max_page),
-	TP_ARGS(ractl, max_page));
 DECLARE_HOOK(android_vh_handle_pte_fault_end,
 	TP_PROTO(struct vm_fault *vmf, unsigned long highest_memmap_pfn),
 	TP_ARGS(vmf, highest_memmap_pfn));
@@ -258,6 +260,14 @@ DECLARE_HOOK(android_vh_set_shmem_page_flag,
 DECLARE_HOOK(android_vh_remove_vmalloc_stack,
 	TP_PROTO(struct vm_struct *vm),
 	TP_ARGS(vm));
+DECLARE_HOOK(android_vh_alloc_pages_reclaim_bypass,
+	TP_PROTO(gfp_t gfp_mask, int order, int alloc_flags,
+	int migratetype, struct page **page),
+	TP_ARGS(gfp_mask, order, alloc_flags, migratetype, page));
+DECLARE_HOOK(android_vh_alloc_pages_failure_bypass,
+	TP_PROTO(gfp_t gfp_mask, int order, int alloc_flags,
+	int migratetype, struct page **page),
+	TP_ARGS(gfp_mask, order, alloc_flags, migratetype, page));
 /* macro versions of hooks are no longer required */
 
 #endif /* _TRACE_HOOK_MM_H */
