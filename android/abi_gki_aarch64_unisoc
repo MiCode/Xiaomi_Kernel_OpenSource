@@ -332,6 +332,7 @@
   drm_poll
   drm_read
   drm_release
+  drm_send_event_timestamp_locked
   drm_syncobj_find
   drm_syncobj_find_fence
   drm_syncobj_free

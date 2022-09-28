@@ -1,5 +1,4 @@
 [abi_symbol_list]
-
 # commonly used symbols
   arm64_const_caps_ready
   __cpuhp_remove_state
