@@ -335,3 +335,12 @@ config POWER_RESET_QCOM_VM
 	 restart driver.
 
 endif
+
+config PM_SILENT_MODE
+	bool "Silent Mode PM operations"
+	default n
+	help
+	  This feature is enabled when silent mode is needed in the system.
+	  PM sysfs nodes under:
+	  /sys/power/pm_kernelsilentmode is used to indicate the state of the
+	  commandline value parsed and set as part of startup.
