@@ -20,6 +20,7 @@ u64 dmabuf_to_secure_handle(const struct dma_buf *dmabuf);
 int is_system_heap_dmabuf(const struct dma_buf *dmabuf);
 int is_mtk_mm_heap_dmabuf(const struct dma_buf *dmabuf);
 int is_mtk_sec_heap_dmabuf(const struct dma_buf *dmabuf);
+int is_support_secure_handle(const struct dma_buf *dmabuf);
 
 long mtk_dma_buf_set_name(struct dma_buf *dmabuf, const char *buf);
 
