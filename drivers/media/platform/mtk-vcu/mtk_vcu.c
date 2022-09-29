@@ -525,6 +525,11 @@ int vcu_ipi_register(struct platform_device *pdev,
 	struct vcu_ipi_desc *ipi_desc;
 	unsigned int i = 0;
 
+	if (IS_ERR_OR_NULL(pdev)) {
+		pr_info("[VCU] %s: Invalid pdev %p\n", __func__, pdev);
+		return -EINVAL;
+	}
+
 	if (vcu == NULL) {
 		dev_info(&pdev->dev, "vcu device in not ready\n");
 		return -EPROBE_DEFER;
@@ -564,6 +569,11 @@ int vcu_ipi_send(struct platform_device *pdev,
 	struct share_obj send_obj;
 	unsigned long timeout;
 	int ret;
+
+	if (IS_ERR_OR_NULL(pdev)) {
+		pr_info("[VCU] %s: Invalid pdev %p\n", __func__, pdev);
+		return -EINVAL;
+	}
 
 	if (id <= IPI_VCU_INIT || id >= IPI_MAX ||
 	    len > sizeof(send_obj.share_buf) || buf == NULL) {
@@ -1361,7 +1371,13 @@ static long vcu_get_disp_wdma_y_addr(struct mtk_vcu *vcu, unsigned long arg)
 int vcu_set_v4l2_callback(struct platform_device *pdev,
 	struct vcu_v4l2_callback_func *call_back)
 {
-	struct mtk_vcu *vcu = platform_get_drvdata(pdev);
+	struct mtk_vcu *vcu;
+
+	if (IS_ERR_OR_NULL(pdev) || !call_back) {
+		pr_info("[VCU] %s: Invalid pdev %p call_back %p\n", __func__, pdev, call_back);
+		return -EINVAL;
+	}
+	vcu = platform_get_drvdata(pdev);
 
 	if (call_back->enc_prepare != NULL)
 		vcu->cbf.enc_prepare = call_back->enc_prepare;
@@ -1385,7 +1401,8 @@ int vcu_get_ctx_ipi_binding_lock(struct platform_device *pdev,
 {
 	struct mtk_vcu *vcu = vcu_ptr;
 
-	*mutex = &vcu->ctx_ipi_binding[type];
+	if (mutex && vcu && type < VCU_CODEC_MAX)
+		*mutex = &vcu->ctx_ipi_binding[type];
 
 	return 0;
 }
@@ -1395,7 +1412,13 @@ int vcu_set_codec_ctx(struct platform_device *pdev,
 		 void *codec_ctx, struct vb2_buffer *src_vb,
 		 struct vb2_buffer *dst_vb, unsigned long type)
 {
-	struct mtk_vcu *vcu = platform_get_drvdata(pdev);
+	struct mtk_vcu *vcu;
+
+	if (IS_ERR_OR_NULL(pdev) || type >= VCU_CODEC_MAX) {
+		pr_info("[VCU] %s: Invalid pdev %p type %d\n", __func__, pdev, type);
+		return -EINVAL;
+	}
+	vcu = platform_get_drvdata(pdev);
 
 	vcu_dbg_log("[VCU] %s %p type %lu src_vb %p dst_vb %p\n",
 		__func__, codec_ctx, type, src_vb, dst_vb);
@@ -1411,7 +1434,13 @@ EXPORT_SYMBOL_GPL(vcu_set_codec_ctx);
 int vcu_clear_codec_ctx(struct platform_device *pdev,
 		 void *codec_ctx, unsigned long type)
 {
-	struct mtk_vcu *vcu = platform_get_drvdata(pdev);
+	struct mtk_vcu *vcu;
+
+	if (IS_ERR_OR_NULL(pdev) || type >= VCU_CODEC_MAX) {
+		pr_info("[VCU] %s: Invalid pdev %p type %d\n", __func__, pdev, type);
+		return -EINVAL;
+	}
+	vcu = platform_get_drvdata(pdev);
 
 	vcu_dbg_log("[VCU] %s %p type %lu\n", __func__, codec_ctx, type);
 
@@ -1436,8 +1465,7 @@ void *vcu_mapping_dm_addr(struct platform_device *pdev,
 	if (!IS_ERR_OR_NULL(pdev))
 		vcu = platform_get_drvdata(pdev);
 	else {
-		dev_info(&pdev->dev, "[VCU] %s: Invalid pdev %p\n",
-			__func__, pdev);
+		pr_info("[VCU] %s: Invalid pdev %p\n", __func__, pdev);
 		return NULL;
 	}
 
@@ -1461,11 +1489,17 @@ EXPORT_SYMBOL_GPL(vcu_mapping_dm_addr);
 
 struct platform_device *vcu_get_plat_device(struct platform_device *pdev)
 {
-	struct device *dev = &pdev->dev;
+	struct device *dev;
 	struct device_node *vcu_node = NULL;
 	struct platform_device *vcu_pdev = NULL;
 
-	dev_dbg(&pdev->dev, "[VCU] %s\n", __func__);
+	if (IS_ERR_OR_NULL(pdev)) {
+		pr_info("[VCU] %s: Invalid pdev %p\n", __func__, pdev);
+		return NULL;
+	}
+	dev = &pdev->dev;
+
+	dev_dbg(dev, "[VCU] %s\n", __func__);
 
 	vcu_node = of_parse_phandle(dev->of_node, "mediatek,vcu", 0);
 	if (vcu_node == NULL) {

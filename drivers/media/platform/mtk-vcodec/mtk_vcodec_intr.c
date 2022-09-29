@@ -172,14 +172,15 @@ irqreturn_t mtk_vcodec_lat_dec_irq_handler(int irq, void *priv)
 		mtk_v4l2_err("LAT ISR, core_id(%d) is not right", core_id);
 		return IRQ_HANDLED;
 	}
-	misc_index = ((core_id == MTK_VDEC_LAT) ?
-		VDEC_LAT_MISC : VDEC_LAT1_MISC);
-	vdec_misc_addr = dev->dec_reg_base[misc_index] +
-		MTK_VDEC_IRQ_CFG_REG;
 
 	ctx = mtk_vcodec_get_curr_ctx(dev, MTK_VDEC_LAT);
 	if (ctx == NULL)
 		return IRQ_HANDLED;
+
+	misc_index = ((core_id == MTK_VDEC_LAT) ?
+		VDEC_LAT_MISC : VDEC_LAT1_MISC);
+	vdec_misc_addr = dev->dec_reg_base[misc_index] +
+		MTK_VDEC_IRQ_CFG_REG;
 
 	if (ctx->dec_params.svp_mode != OPEN_TEE) {
 		/* check if HW active or not */
@@ -264,7 +265,6 @@ irqreturn_t mtk_vcodec_line_count_irq_handler(int irq,
 
 	enum mtk_vdec_hw_id core_id;
 
-
 	core_id = mtk_vdec_map_irq_to_hwid(irq);
 	if (!(core_id == MTK_VDEC_LINE_COUNT)) {
 		mtk_v4l2_err("LINE_COUNT ISR, core_id(%d) is not right",
@@ -275,6 +275,7 @@ irqreturn_t mtk_vcodec_line_count_irq_handler(int irq,
 	ctx = mtk_vcodec_get_curr_ctx(dev, core_id);
 	if (ctx == NULL)
 		return IRQ_HANDLED;
+
 	if (ctx->dec_params.svp_mode != OPEN_TEE) {
 		dec_done_status = readl(dev->dec_reg_base[VDEC_UFO_ENC] + 122 * 4);
 		ctx->irq_status = dec_done_status;
@@ -342,6 +343,11 @@ irqreturn_t mtk_vcodec_enc_irq_handler(int irq, void *priv)
 	unsigned long flags;
 	void __iomem *addr;
 
+	if (!dev) {
+		mtk_v4l2_err("dev null invalid");
+		return IRQ_NONE;
+	}
+
 	spin_lock_irqsave(&dev->irqlock, flags);
 	ctx = dev->curr_enc_ctx[0];
 	spin_unlock_irqrestore(&dev->irqlock, flags);
@@ -369,6 +375,11 @@ irqreturn_t mtk_vcodec_c1_enc_irq_handler(int irq, void *priv)
 	struct mtk_vcodec_ctx *ctx;
 	unsigned long flags;
 	void __iomem *addr;
+
+	if (!dev) {
+		mtk_v4l2_err("dev null invalid");
+		return IRQ_NONE;
+	}
 
 	spin_lock_irqsave(&dev->irqlock, flags);
 	ctx = dev->curr_enc_ctx[1];
@@ -398,6 +409,11 @@ int mtk_vcodec_dec_irq_setup(struct platform_device *pdev,
 #ifndef FPGA_INTERRUPT_API_DISABLE
 	int i = 0;
 	int ret = 0;
+
+	if (!pdev || !dev) {
+		mtk_v4l2_err("pdev %p dev %p invalid", pdev, dev);
+		return -1;
+	}
 
 	for (i = 0; i < MTK_VDEC_HW_NUM; i++) {
 		dev->dec_irq[i] = platform_get_irq(pdev, i);
@@ -435,6 +451,11 @@ int mtk_vcodec_enc_irq_setup(struct platform_device *pdev,
 	int i = 0;
 	int ret = 0;
 
+	if (!pdev || !dev) {
+		mtk_v4l2_err("pdev %p dev %p invalid", pdev, dev);
+		return -1;
+	}
+
 	for (i = 0; i < MTK_VENC_HW_NUM; i++) {
 		dev->enc_irq[i] = platform_get_irq(pdev, i);
 		if (dev->enc_irq[i] < 0) {
@@ -471,6 +492,11 @@ EXPORT_SYMBOL_GPL(mtk_vcodec_enc_irq_setup);
 void mtk_vcodec_gce_timeout_dump(void *ctx)
 {
 	struct mtk_vcodec_ctx *curr_ctx = ctx;
+
+	if (!ctx) {
+		mtk_v4l2_err("ctx null invalid");
+		return;
+	}
 
 	if (curr_ctx->type == MTK_INST_ENCODER)
 		mtk_vcodec_enc_timeout_dump(ctx);
