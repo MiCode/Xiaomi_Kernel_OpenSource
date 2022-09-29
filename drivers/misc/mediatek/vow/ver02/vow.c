@@ -3194,6 +3194,14 @@ static int vow_scp_recover_event(struct notifier_block *this,
 		if (!ret)
 			VOWDRV_DEBUG("fail: vow_service_SetCustomModel\n");
 
+		for (I = 0; I < MAX_VOW_SPEAKER_MODEL; I++) {
+			if (vowserv.vow_speaker_model[I].enabled) {
+				vow_service_SendModelStatus(
+					I, VOW_MODEL_STATUS_START);
+				VOWDRV_DEBUG("send Model start, slot%d\n", I);
+			}
+		}
+
 		/* if vow is not enable, then return */
 		if (VowDrv_GetHWStatus() != VOW_PWR_ON) {
 			vowserv.vow_recovering = false;
@@ -3228,14 +3236,6 @@ static int vow_scp_recover_event(struct notifier_block *this,
 
 		if (!vow_service_Enable())
 			VOWDRV_DEBUG("fail: vow_service_Enable\n");
-
-		for (I = 0; I < MAX_VOW_SPEAKER_MODEL; I++) {
-			if (vowserv.vow_speaker_model[I].enabled) {
-				vow_service_SendModelStatus(
-					I, VOW_MODEL_STATUS_START);
-				VOWDRV_DEBUG("send Model start, slot%d\n", I);
-			}
-		}
 
 		vowserv.vow_recovering = false;
 		break;
