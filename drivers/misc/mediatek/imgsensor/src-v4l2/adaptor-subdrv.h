@@ -249,6 +249,8 @@ struct subdrv_static_ctx {
 	u32 sensor_mode_num;
 	struct subdrv_feature_control *list;
 	u32 list_len;
+	u8 chk_s_off_sta;
+	u8 chk_s_off_end;
 
 	u32 checksum_value;
 };

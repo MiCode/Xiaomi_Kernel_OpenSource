@@ -941,7 +941,8 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 		ctx->autoflicker_en = FALSE;
 		ctx->extend_frame_length_en = 0;
 		ctx->is_seamless = 0;
-		check_stream_off(ctx);
+		if (ctx->s_ctx.chk_s_off_end)
+			check_stream_off(ctx);
 	}
 	ctx->is_streaming = enable;
 	DRV_LOG(ctx, "enable:%u\n", enable);
@@ -1691,7 +1692,8 @@ int common_control(struct subdrv_ctx *ctx,
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 		ret = ERROR_INVALID_SCENARIO_ID;
 	}
-	check_stream_off(ctx);
+	if (ctx->s_ctx.chk_s_off_sta)
+		check_stream_off(ctx);
 	update_mode_info(ctx, scenario_id);
 
 	if (ctx->s_ctx.mode[scenario_id].mode_setting_table != NULL) {

@@ -1689,6 +1689,8 @@ static struct subdrv_static_ctx static_ctx = {
 	.sensor_mode_num = ARRAY_SIZE(mode_struct),
 	.list = feature_control_list,
 	.list_len = ARRAY_SIZE(feature_control_list),
+	.chk_s_off_sta = 1,
+	.chk_s_off_end = 0,
 
 	.checksum_value = 0xD086E5A5,
 };
