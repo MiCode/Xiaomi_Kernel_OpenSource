@@ -136,10 +136,8 @@ int lpm_issuer_func(int type, const char *prefix, void *data)
 
 	_lpm_dbg_plat_ops.lpm_get_wakeup_status();
 
-	if (type == LPM_ISSUER_SUSPEND) {
-		lpm_suspend_save_sleep_info_func();
+	if (type == LPM_ISSUER_SUSPEND)
 		lpm_check_cg_pll();
-	}
 
 	if (_lpm_dbg_plat_ops.lpm_show_message)
 		return _lpm_dbg_plat_ops.lpm_show_message(
@@ -356,10 +354,15 @@ EXPORT_SYMBOL(get_md_sleep_time);
 #if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
 int is_md_sleep_info_valid(struct md_sleep_status *md_data)
 {
-	u32 guard_l = GET_GUARD_L(md_data->guard_sleep_cnt1);
-	u32 guard_h = GET_GUARD_H(md_data->guard_sleep_cnt2);
-	u32 cnt1 = GET_RECORD_CNT1(md_data->guard_sleep_cnt1);
-	u32 cnt2 = GET_RECORD_CNT2(md_data->guard_sleep_cnt2);
+	u32 guard_l, guard_h, cnt1, cnt2;
+
+	if (!md_data)
+		return 0;
+
+	guard_l = GET_GUARD_L(md_data->guard_sleep_cnt1);
+	guard_h = GET_GUARD_H(md_data->guard_sleep_cnt2);
+	cnt1 = GET_RECORD_CNT1(md_data->guard_sleep_cnt1);
+	cnt2 = GET_RECORD_CNT2(md_data->guard_sleep_cnt2);
 
 	if ((guard_l != MD_GUARD_NUMBER) || (guard_h != MD_GUARD_NUMBER))
 		return 0;

@@ -73,6 +73,7 @@ const char *wakesrc_str[32] = {
 };
 
 #define plat_mmio_read(offset)	__raw_readl(lpm_spm_base + offset)
+
 u64 ap_pd_count;
 u64 ap_slp_duration;
 u64 spm_26M_off_count;
@@ -224,68 +225,6 @@ static void dump_hw_cg_status(void)
 
 static void lpm_save_sleep_info(void)
 {
-#define AVOID_OVERFLOW (0xFFFFFFFF00000000)
-	u32 off_26M_duration;
-	u32 off_vcore_duration;
-	u32 slp_duration;
-
-	if (!lpm_spm_base)
-		return;
-
-	slp_duration = plat_mmio_read(SPM_BK_PCM_TIMER);
-	if (slp_duration == before_ap_slp_duration)
-		return;
-
-	/* Save ap off counter and duration */
-	if (ap_pd_count >= AVOID_OVERFLOW)
-		ap_pd_count = 0;
-	else
-		ap_pd_count++;
-
-	if (ap_slp_duration >= AVOID_OVERFLOW)
-		ap_slp_duration = 0;
-	else {
-		ap_slp_duration = ap_slp_duration + slp_duration;
-		before_ap_slp_duration = slp_duration;
-	}
-
-	/* Save 26M's off counter and duration */
-	if (spm_26M_off_duration >= AVOID_OVERFLOW)
-		spm_26M_off_duration = 0;
-	else {
-		off_26M_duration = plat_mmio_read(SPM_BK_VTCXO_DUR);
-		if (off_26M_duration == 0)
-			goto STAT_VCORE;
-
-		spm_26M_off_duration = spm_26M_off_duration +
-			off_26M_duration;
-	}
-
-	if (spm_26M_off_count >= AVOID_OVERFLOW)
-		spm_26M_off_count = 0;
-	else
-		spm_26M_off_count = (plat_mmio_read(SPM_SRCCLKENA_EVENT_COUNT_STA)
-					& 0xffff)
-			+ spm_26M_off_count;
-STAT_VCORE:
-	/* Save Vcore's off counter and duration */
-	if (spm_vcore_off_duration >= AVOID_OVERFLOW)
-		spm_vcore_off_duration = 0;
-	else {
-		off_vcore_duration = plat_mmio_read(SPM_SW_RSV_4);
-		if (off_vcore_duration == 0)
-			return;
-
-		spm_vcore_off_duration = spm_vcore_off_duration +
-			off_vcore_duration;
-	}
-
-	if (spm_vcore_off_count >= AVOID_OVERFLOW)
-		spm_vcore_off_count = 0;
-	else
-		spm_vcore_off_count = (plat_mmio_read(SPM_VCORE_EVENT_COUNT_STA)
-					& 0xffff)
-			+ spm_vcore_off_count;
 }
 
 static void suspend_show_detailed_wakeup_reason

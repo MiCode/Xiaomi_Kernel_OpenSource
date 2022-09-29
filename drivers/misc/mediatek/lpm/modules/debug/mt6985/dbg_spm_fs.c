@@ -699,23 +699,53 @@ static const struct mtk_lp_sysfs_op block_threshold_fops = {
 	.fs_write = block_threshold_write,
 };
 
+static const char * const mtk_lp_state_name[NUM_SPM_STAT] = {
+	"AP",
+	"26M",
+	"VCORE",
+};
+static void mtk_get_lp_info(struct lpm_dbg_lp_info *info, int type)
+{
+	unsigned int smc_id;
+	int i;
+
+	if (type == SPM_IDLE_STAT)
+		smc_id = MT_SPM_DBG_SMC_IDLE_PWR_STAT;
+	else
+		smc_id = MT_SPM_DBG_SMC_SUSPEND_PWR_STAT;
+
+	for (i = 0; i < NUM_SPM_STAT; i++) {
+		info->record[i].count = lpm_smc_spm_dbg(smc_id,
+			MT_LPM_SMC_ACT_GET, i, SPM_SLP_COUNT);
+		info->record[i].duration = lpm_smc_spm_dbg(smc_id,
+			MT_LPM_SMC_ACT_GET, i, SPM_SLP_DURATION);
+	}
+}
+
 static ssize_t system_stat_read(char *ToUserBuf, size_t sz, void *priv)
 {
 	char *p = ToUserBuf;
 	struct md_sleep_status tmp_md_data;
+	struct lpm_dbg_lp_info info;
+	int i;
 
-	mtk_dbg_spm_log("Vcore:%lld:%lld.%03lld\n26M:%lld:%lld.%03lld\nAP:%lld:%lld.%03lld\n",
-	       spm_vcore_off_count,
-	       PCM_TICK_TO_SEC(spm_vcore_off_duration),
-	       PCM_TICK_TO_SEC((spm_vcore_off_duration % PCM_32K_TICKS_PER_SEC) * 1000),
-	       spm_26M_off_count,
-	       PCM_TICK_TO_SEC(spm_26M_off_duration),
-	       PCM_TICK_TO_SEC((spm_26M_off_duration % PCM_32K_TICKS_PER_SEC) * 1000),
-	       ap_pd_count,
-	       PCM_TICK_TO_SEC(ap_slp_duration),
-	       PCM_TICK_TO_SEC((ap_slp_duration % PCM_32K_TICKS_PER_SEC) * 1000));
+	mtk_get_lp_info(&info, SPM_IDLE_STAT);
+	for (i = 0; i < NUM_SPM_STAT; i++) {
+		mtk_dbg_spm_log("Idle %s:%lld:%lld.%03lld\n",
+			mtk_lp_state_name[i], info.record[i].count,
+			PCM_TICK_TO_SEC(info.record[i].duration),
+			PCM_TICK_TO_SEC((info.record[i].duration % PCM_32K_TICKS_PER_SEC) * 1000));
+	}
 
+	mtk_get_lp_info(&info, SPM_SUSPEND_STAT);
+	for (i = 0; i < NUM_SPM_STAT; i++) {
+		mtk_dbg_spm_log("Suspend %s:%lld:%lld.%03lld\n",
+			mtk_lp_state_name[i], info.record[i].count,
+			PCM_TICK_TO_SEC(info.record[i].duration),
+			PCM_TICK_TO_SEC((info.record[i].duration % PCM_32K_TICKS_PER_SEC) * 1000));
+	}
 
+	/* get MD data */
 	get_md_sleep_time(&tmp_md_data);
 	if (is_md_sleep_info_valid(&tmp_md_data))
 		cur_md_sleep_status = tmp_md_data;

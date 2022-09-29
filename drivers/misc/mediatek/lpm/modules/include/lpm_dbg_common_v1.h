@@ -55,6 +55,28 @@ enum dbg_ctrl_enum {
 	DBG_CTRL_MAX,
 };
 
+enum MT_SPM_STAT_TYPE {
+	SPM_SLP_COUNT,
+	SPM_SLP_DURATION,
+};
+
+enum MT_SPM_STAT_SCENARIO_TYPE {
+	SPM_IDLE_STAT,
+	SPM_SUSPEND_STAT,
+};
+
+enum MT_SPM_STAT_STATE {
+	SPM_STAT_MCUSYS,
+	SPM_STAT_F26M,
+	SPM_STAT_VCORE,
+	NUM_SPM_STAT,
+};
+
+struct lpm_stat_record {
+	u64 count;
+	u64 duration;
+};
+
 /* Determine for operand bit */
 #define MTK_DUMP_LP_GOLDEN	(1 << 0L)
 #define MTK_DUMP_GPIO		(1 << 1L)
@@ -113,6 +135,10 @@ extern struct md_sleep_status before_md_sleep_status;
 extern struct md_sleep_status after_md_sleep_status;
 extern struct md_sleep_status cur_md_sleep_status;
 #endif
+
+struct lpm_dbg_lp_info {
+	struct lpm_stat_record record[NUM_SPM_STAT];
+};
 
 extern u64 spm_26M_off_count;
 extern u64 spm_26M_off_duration;
