@@ -712,6 +712,12 @@ static void fpsgo_cpu_frequency_tracer(void *ignore, unsigned int frequency, uns
 	int cpu = 0, cluster = 0;
 	struct cpufreq_policy *policy = NULL;
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[2];
+
+	ts[0] = sched_clock();
+#endif
+
 	policy = cpufreq_cpu_get(cpu_id);
 	if (!policy)
 		return;
@@ -737,6 +743,16 @@ static void fpsgo_cpu_frequency_tracer(void *ignore, unsigned int frequency, uns
 		fpsgo_notify_cpufreq(cluster, frequency);
 		cpufreq_cpu_put(policy);
 	}
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+
+	if ((ts[1] - ts[0] > 100000ULL) && in_hardirq()) {
+		printk_deferred("%s duration %llu, ts[0]=%llu, ts[1]=%llu\n",
+			__func__, ts[1] - ts[0], ts[0], ts[1]);
+	}
+#endif
+
 }
 
 struct tracepoints_table fpsgo_tracepoints[] = {
