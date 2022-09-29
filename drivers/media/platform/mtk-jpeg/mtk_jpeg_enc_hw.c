@@ -30,6 +30,11 @@ static const struct mtk_jpeg_enc_qlt mtk_jpeg_enc_quality[] = {
 	{.quality_param = 97, .hardware_value = JPEG_ENC_QUALITY_Q97},
 };
 
+void mtk_jpeg_enc_set_34bits(void __iomem *base, u32 value)
+{
+	writel(value << 1, base + 0x108);
+}
+
 void mtk_jpeg_enc_reset(void __iomem *base)
 {
 	writel(0, base + JPEG_ENC_RSTB);

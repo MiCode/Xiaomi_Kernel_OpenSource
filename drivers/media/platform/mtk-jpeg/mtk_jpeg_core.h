@@ -34,6 +34,11 @@
 
 #define MTK_JPEG_MAX_EXIF_SIZE	(64 * 1024)
 
+enum mtk_enc_dtsi_reg_idx {
+	VENC_SYS,
+	VENC_GCON,
+	NUM_MAX_VENC_REG_BASE
+};
 /**
  * enum mtk_jpeg_ctx_state - states of the context state machine
  * @MTK_JPEG_INIT:		current state is initialized
@@ -101,6 +106,7 @@ struct mtk_jpeg_dev {
 	void			*alloc_ctx;
 	struct video_device	*vdev;
 	void __iomem		*reg_base;
+	void __iomem		*gcon_base;
 	struct device		*larb;
 	struct delayed_work job_timeout_work;
 	const struct mtk_jpeg_variant *variant;
@@ -112,6 +118,7 @@ struct mtk_jpeg_dev {
 	struct clk *jpegenc_mmdvfs_clk;
 	int freq_cnt;
 	unsigned long freqs[MTK_JPEG_MAX_FREQ];
+	u32 fake34bits;
 };
 
 /**

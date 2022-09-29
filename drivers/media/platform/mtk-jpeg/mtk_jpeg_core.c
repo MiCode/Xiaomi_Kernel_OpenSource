@@ -1121,6 +1121,8 @@ static void mtk_jpeg_enc_device_run(void *priv)
 	 * Resetting the hardware every frame is to ensure that all the
 	 * registers are cleared. This is a hardware requirement.
 	 */
+	if (jpeg->gcon_base != NULL)
+		mtk_jpeg_enc_set_34bits(jpeg->gcon_base, jpeg->fake34bits);
 	mtk_jpeg_enc_reset(jpeg->reg_base);
 	mtk_jpeg_set_enc_src(ctx, jpeg->reg_base, &src_buf->vb2_buf);
 	mtk_jpeg_set_enc_dst(ctx, jpeg->reg_base, &dst_buf->vb2_buf);
@@ -1556,11 +1558,26 @@ static int mtk_jpeg_probe(struct platform_device *pdev)
 	jpeg->variant = of_device_get_match_data(jpeg->dev);
 	INIT_DELAYED_WORK(&jpeg->job_timeout_work, mtk_jpeg_job_timeout_work);
 
+	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,34bits", &jpeg->fake34bits);
+	if (ret != 0) {
+		dev_info(&pdev->dev, "default for fake34bits");
+		jpeg->fake34bits = 0;
+	}
+	dev_info(&pdev->dev, "use 34bits %d", jpeg->fake34bits);
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	jpeg->reg_base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(jpeg->reg_base)) {
 		ret = PTR_ERR(jpeg->reg_base);
 		return ret;
+	}
+
+	if (jpeg->fake34bits) {
+		res = platform_get_resource(pdev, IORESOURCE_MEM, VENC_GCON);
+		jpeg->gcon_base = devm_ioremap_resource(&pdev->dev, res);
+		if (IS_ERR(jpeg->gcon_base)) {
+			ret = PTR_ERR(jpeg->gcon_base);
+			return ret;
+		}
 	}
 
 	jpeg_irq = platform_get_irq(pdev, 0);
