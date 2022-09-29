@@ -4311,6 +4311,8 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 	} while (1);
 
 	status = cmdq_pkt_wait_complete(handle->pkt);
+	if (handle->pkt_rb)
+		status = cmdq_pkt_wait_complete(handle->pkt_rb);
 
 	if (handle->profile_exec) {
 		u32 *va = cmdq_pkt_get_perf_ret(handle->pkt);
