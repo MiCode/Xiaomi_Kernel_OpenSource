@@ -1000,6 +1000,7 @@ err_fw_prepare:
 	return ret;
 }
 
+#ifdef GOODIX_FW_SYSFS
 /*
  * goodix_sysfs_update_en_store: start fw update manually
  * @buf: '1'[001] update in blocking mode with fwdata from sysfs
@@ -1182,7 +1183,7 @@ static void goodix_fw_sysfs_remove(void)
 
 	kobject_put(fw_ctrl->kobj);
 }
-
+#endif
 
 /**
  * goodix_request_firmware - request firmware data from user space
@@ -1337,8 +1338,9 @@ int goodix_do_fw_update(struct goodix_ic_config *ic_config, int mode)
 
 int goodix_fw_update_init(struct goodix_ts_core *core_data)
 {
+#ifdef GOODIX_FW_SYSFS
 	int ret;
-
+#endif
 	if (!core_data || !core_data->hw_ops) {
 		ts_err("core_data && hw_ops cann't be null");
 		return -ENODEV;
@@ -1351,11 +1353,14 @@ int goodix_fw_update_init(struct goodix_ts_core *core_data)
 	strlcpy(goodix_fw_update_ctrl.fw_name, core_data->board_data.fw_name,
 		sizeof(goodix_fw_update_ctrl.fw_name));
 
+#ifdef GOODIX_FW_SYSFS
 	ret = goodix_fw_sysfs_init(core_data, &goodix_fw_update_ctrl);
 	if (ret) {
 		ts_err("failed create fwupate sysfs node");
 		return ret;
 	}
+#endif
+
 	if (core_data->bus->ic_type == IC_TYPE_BERLIN_A)
 		goodix_fw_update_ctrl.update_info = &update_bra;
 	else if (core_data->bus->ic_type == IC_TYPE_BERLIN_B)
@@ -1373,7 +1378,9 @@ void goodix_fw_update_uninit(void)
 		return;
 
 	mutex_lock(&goodix_fw_update_ctrl.mutex);
+#ifdef GOODIX_FW_SYSFS
 	goodix_fw_sysfs_remove();
+#endif
 	goodix_fw_update_ctrl.initialized = 0;
 	mutex_unlock(&goodix_fw_update_ctrl.mutex);
 	mutex_destroy(&goodix_fw_update_ctrl.mutex);
