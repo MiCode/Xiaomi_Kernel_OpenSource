@@ -5650,8 +5650,10 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	init_waitqueue_head(&private->repaint_data.wq);
 	INIT_LIST_HEAD(&private->repaint_data.job_queue);
 	INIT_LIST_HEAD(&private->repaint_data.job_pool);
-	for (i = 0; i < MAX_CRTC ; ++i)
+	for (i = 0; i < MAX_CRTC ; ++i) {
 		atomic_set(&private->crtc_present[i], 0);
+		atomic_set(&private->crtc_rel_present[i], 0);
+	}
 	atomic_set(&private->rollback_all, 0);
 
 #ifdef CONFIG_DRM_MEDIATEK_DEBUG_FS

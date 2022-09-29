@@ -1743,6 +1743,9 @@ void mtk_wakeup_pf_wq(void)
 {
 	struct drm_crtc *crtc;
 	struct mtk_drm_crtc *mtk_crtc;
+	unsigned int pf_idx;
+	unsigned int crtc_idx;
+	struct mtk_drm_private *drm_priv;
 
 	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
 				typeof(*crtc), head);
@@ -1750,10 +1753,16 @@ void mtk_wakeup_pf_wq(void)
 		DDPPR_ERR("find crtc fail\n");
 		return;
 	}
+	crtc_idx = drm_crtc_index(crtc);
 	mtk_crtc = to_mtk_crtc(crtc);
+	drm_priv = mtk_crtc->base.dev->dev_private;
 
-	if (mtk_crtc &&
+	if (mtk_crtc && drm_priv &&
 		mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+		pf_idx = readl(mtk_get_gce_backup_slot_va(mtk_crtc,
+			DISP_SLOT_PRESENT_FENCE(crtc_idx)));
+		atomic_set(&drm_priv->crtc_rel_present[crtc_idx], pf_idx);
+
 		atomic_set(&mtk_crtc->pf_event, 1);
 		wake_up_interruptible(&mtk_crtc->present_fence_wq);
 	}
