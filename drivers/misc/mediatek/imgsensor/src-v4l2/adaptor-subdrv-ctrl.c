@@ -404,12 +404,14 @@ void set_frame_length(struct subdrv_ctx *ctx, u16 frame_length)
 
 void set_max_framerate(struct subdrv_ctx *ctx, u16 framerate, bool min_framelength_en)
 {
-	u32 frame_length;
+	u32 frame_length = 0;
 
-	frame_length = ctx->pclk / framerate * 10 / ctx->line_length;
+	if (framerate && ctx->line_length)
+		frame_length = ctx->pclk / framerate * 10 / ctx->line_length;
 	ctx->frame_length = max(frame_length, ctx->min_frame_length);
 	ctx->frame_length = min(ctx->frame_length, ctx->s_ctx.frame_length_max);
-	ctx->current_fps = ctx->pclk / ctx->frame_length * 10 / ctx->line_length;
+	if (ctx->frame_length && ctx->line_length)
+		ctx->current_fps = ctx->pclk / ctx->frame_length * 10 / ctx->line_length;
 	if (min_framelength_en)
 		ctx->min_frame_length = ctx->frame_length;
 	DRV_LOG(ctx, "max_fps(input/output):%u/%u, min_fl_en:%u\n",
