@@ -17,6 +17,7 @@
 #include <lpm.h>
 #include <lpm_module.h>
 #include <lpm_spm_comm.h>
+#include <lpm_dbg_common_v1.h>
 #include <spm_reg.h>
 #include <pwr_ctrl.h>
 #include <mt-plat/mtk_ccci_common.h>
@@ -76,6 +77,8 @@ u64 ap_pd_count;
 u64 ap_slp_duration;
 u64 spm_26M_off_count;
 u64 spm_26M_off_duration;
+u64 spm_vcore_off_count;
+u64 spm_vcore_off_duration;
 u32 before_ap_slp_duration;
 
 struct logger_timer {
@@ -174,6 +177,7 @@ static int lpm_get_wakeup_status(void)
 
 static void dump_hw_cg_status(void)
 {
+#undef LOG_BUF_SIZE
 #define LOG_BUF_SIZE	(128)
 	char log_buf[LOG_BUF_SIZE] = { 0 };
 	unsigned int log_size = 0;
@@ -222,6 +226,7 @@ static void lpm_save_sleep_info(void)
 {
 #define AVOID_OVERFLOW (0xFFFFFFFF00000000)
 	u32 off_26M_duration;
+	u32 off_vcore_duration;
 	u32 slp_duration;
 
 	if (!lpm_spm_base)
@@ -250,7 +255,7 @@ static void lpm_save_sleep_info(void)
 	else {
 		off_26M_duration = plat_mmio_read(SPM_BK_VTCXO_DUR);
 		if (off_26M_duration == 0)
-			return;
+			goto STAT_VCORE;
 
 		spm_26M_off_duration = spm_26M_off_duration +
 			off_26M_duration;
@@ -262,6 +267,25 @@ static void lpm_save_sleep_info(void)
 		spm_26M_off_count = (plat_mmio_read(SPM_SRCCLKENA_EVENT_COUNT_STA)
 					& 0xffff)
 			+ spm_26M_off_count;
+STAT_VCORE:
+	/* Save Vcore's off counter and duration */
+	if (spm_vcore_off_duration >= AVOID_OVERFLOW)
+		spm_vcore_off_duration = 0;
+	else {
+		off_vcore_duration = plat_mmio_read(SPM_SW_RSV_4);
+		if (off_vcore_duration == 0)
+			return;
+
+		spm_vcore_off_duration = spm_vcore_off_duration +
+			off_vcore_duration;
+	}
+
+	if (spm_vcore_off_count >= AVOID_OVERFLOW)
+		spm_vcore_off_count = 0;
+	else
+		spm_vcore_off_count = (plat_mmio_read(SPM_VCORE_EVENT_COUNT_STA)
+					& 0xffff)
+			+ spm_vcore_off_count;
 }
 
 static void suspend_show_detailed_wakeup_reason
@@ -637,7 +661,7 @@ static int lpm_show_message(int type, const char *prefix, void *data)
 			PCM_TICK_TO_SEC((wakesrc->timer_out %
 				PCM_32K_TICKS_PER_SEC)
 			* 1000));
-
+		log_md_sleep_info();
 		/* Eable rcu lock checking */
 //		rcu_irq_exit_irqson();
 	} else

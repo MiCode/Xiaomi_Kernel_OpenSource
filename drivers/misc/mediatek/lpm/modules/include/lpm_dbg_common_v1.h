@@ -104,10 +104,20 @@ struct md_sleep_status {
 	u64 reserved[51]; //0x60~0x1F0
 	u64 guard_sleep_cnt2;
 };
+
+void get_md_sleep_time(struct md_sleep_status *md_data);
+int is_md_sleep_info_valid(struct md_sleep_status *md_data);
+void log_md_sleep_info(void);
+extern u32 *md_share_mem;
+extern struct md_sleep_status before_md_sleep_status;
+extern struct md_sleep_status after_md_sleep_status;
+extern struct md_sleep_status cur_md_sleep_status;
 #endif
 
 extern u64 spm_26M_off_count;
 extern u64 spm_26M_off_duration;
+extern u64 spm_vcore_off_count;
+extern u64 spm_vcore_off_duration;
 extern u64 ap_pd_count;
 extern u64 ap_slp_duration;
 extern struct spm_condition spm_cond;

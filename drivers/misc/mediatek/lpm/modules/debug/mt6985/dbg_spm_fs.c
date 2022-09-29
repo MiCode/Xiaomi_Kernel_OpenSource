@@ -699,6 +699,48 @@ static const struct mtk_lp_sysfs_op block_threshold_fops = {
 	.fs_write = block_threshold_write,
 };
 
+static ssize_t system_stat_read(char *ToUserBuf, size_t sz, void *priv)
+{
+	char *p = ToUserBuf;
+	struct md_sleep_status tmp_md_data;
+
+	mtk_dbg_spm_log("Vcore:%lld:%lld.%03lld\n26M:%lld:%lld.%03lld\nAP:%lld:%lld.%03lld\n",
+	       spm_vcore_off_count,
+	       PCM_TICK_TO_SEC(spm_vcore_off_duration),
+	       PCM_TICK_TO_SEC((spm_vcore_off_duration % PCM_32K_TICKS_PER_SEC) * 1000),
+	       spm_26M_off_count,
+	       PCM_TICK_TO_SEC(spm_26M_off_duration),
+	       PCM_TICK_TO_SEC((spm_26M_off_duration % PCM_32K_TICKS_PER_SEC) * 1000),
+	       ap_pd_count,
+	       PCM_TICK_TO_SEC(ap_slp_duration),
+	       PCM_TICK_TO_SEC((ap_slp_duration % PCM_32K_TICKS_PER_SEC) * 1000));
+
+
+	get_md_sleep_time(&tmp_md_data);
+	if (is_md_sleep_info_valid(&tmp_md_data))
+		cur_md_sleep_status = tmp_md_data;
+
+	mtk_dbg_spm_log("MD:%lld.%03lld\nMD_2G:%lld.%03lld\nMD_3G:%lld.%03lld\n",
+		cur_md_sleep_status.md_sleep_time / 1000000,
+		(cur_md_sleep_status.md_sleep_time % 1000000) / 1000,
+		cur_md_sleep_status.gsm_sleep_time / 1000000,
+		(cur_md_sleep_status.gsm_sleep_time % 1000000) / 1000,
+		cur_md_sleep_status.wcdma_sleep_time / 1000000,
+		(cur_md_sleep_status.wcdma_sleep_time % 1000000) / 1000);
+
+	mtk_dbg_spm_log("MD_4G:%lld.%03lld\nMD_5G:%lld.%03lld\n",
+		cur_md_sleep_status.lte_sleep_time / 1000000,
+		(cur_md_sleep_status.lte_sleep_time % 1000000) / 1000,
+		cur_md_sleep_status.nr_sleep_time / 1000000,
+		(cur_md_sleep_status.nr_sleep_time % 1000000) / 1000);
+
+	return p - ToUserBuf;
+}
+
+static const struct mtk_lp_sysfs_op system_stat_fops = {
+	.fs_read = system_stat_read,
+};
+
 int lpm_spm_fs_init(void)
 {
 	int r;
@@ -716,6 +758,8 @@ int lpm_spm_fs_init(void)
 			, &vsram_lp_volt_fops, NULL);
 	mtk_spm_sysfs_entry_node_add("block_threshold", 0444
 			, &block_threshold_fops, NULL);
+	mtk_spm_sysfs_entry_node_add("system_stat", 0444
+			, &system_stat_fops, NULL);
 
 	r = mtk_lp_sysfs_entry_func_create(spm_root.name,
 					   spm_root.mode, NULL,

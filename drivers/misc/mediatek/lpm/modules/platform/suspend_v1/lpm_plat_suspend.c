@@ -44,137 +44,6 @@ static struct pm_qos_request lpm_qos_request;
 
 #define S2IDLE_STATE_NAME "s2idle"
 
-#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
-u32 *share_mem;
-struct md_sleep_status before_md_sleep_status;
-struct md_sleep_status after_md_sleep_status;
-#define MD_GUARD_NUMBER 0x536C702E
-#define GET_RECORD_CNT1(n) ((n >> 32) & 0xFFFFFFFF)
-#define GET_RECORD_CNT2(n) (n & 0xFFFFFFFF)
-#define GET_GUARD_L(n) (n & 0xFFFFFFFF)
-#define GET_GUARD_H(n) ((n >> 32) & 0xFFFFFFFF)
-#endif
-
-static void get_md_sleep_time_addr(void)
-{
-	/* dump subsystem sleep info */
-#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
-	int ret;
-	u64 of_find;
-	struct device_node *mddriver = NULL;
-
-	mddriver = of_find_compatible_node(NULL, NULL, "mediatek,mddriver");
-	if (!mddriver) {
-		pr_info("mddriver not found in DTS\n");
-		return;
-	}
-
-	ret =  of_property_read_u64(mddriver, "md_low_power_addr", &of_find);
-
-	if (ret) {
-		pr_info("address not found in DTS");
-		return;
-	}
-
-	share_mem = (u32 *)ioremap_wc(of_find, 0x200);
-
-	if (share_mem == NULL) {
-		pr_info("[name:spm&][%s:%d] - No MD share mem\n",
-			 __func__, __LINE__);
-		return;
-	}
-#endif
-}
-
-#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
-static void get_md_sleep_time(struct md_sleep_status *md_data)
-{
-	if (!md_data)
-		return;
-
-	/* dump subsystem sleep info */
-	if (share_mem ==  NULL) {
-		pr_info("MD shared memory is NULL");
-	} else {
-		memset(md_data, 0, sizeof(struct md_sleep_status));
-		memcpy(md_data, share_mem, sizeof(struct md_sleep_status));
-		return;
-	}
-}
-#endif
-#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
-static int is_md_sleep_info_valid(struct md_sleep_status *md_data)
-{
-	u32 guard_l = GET_GUARD_L(md_data->guard_sleep_cnt1);
-	u32 guard_h = GET_GUARD_H(md_data->guard_sleep_cnt2);
-	u32 cnt1 = GET_RECORD_CNT1(md_data->guard_sleep_cnt1);
-	u32 cnt2 = GET_RECORD_CNT2(md_data->guard_sleep_cnt2);
-
-	if ((guard_l != MD_GUARD_NUMBER) || (guard_h != MD_GUARD_NUMBER))
-		return 0;
-
-	if (cnt1 != cnt2)
-		return 0;
-
-	return 1;
-}
-
-static void log_md_sleep_info(void)
-{
-
-#define LOG_BUF_SIZE	256
-	char log_buf[LOG_BUF_SIZE] = { 0 };
-	int log_size = 0;
-
-	if (!is_md_sleep_info_valid(&before_md_sleep_status)
-		|| !is_md_sleep_info_valid(&after_md_sleep_status)) {
-		pr_info("[name:spm&][SPM] MD sleep info. is not valid");
-		return;
-	}
-
-	if (GET_RECORD_CNT1(after_md_sleep_status.guard_sleep_cnt1)
-		== GET_RECORD_CNT1(before_md_sleep_status.guard_sleep_cnt1)) {
-		pr_info("[name:spm&][SPM] MD sleep info. is not updated");
-		return;
-	}
-
-	if (after_md_sleep_status.sleep_time >= before_md_sleep_status.sleep_time) {
-		pr_info("[name:spm&][SPM] md_slp_duration = %llu (32k)\n",
-			after_md_sleep_status.sleep_time - before_md_sleep_status.sleep_time);
-
-		log_size += scnprintf(log_buf + log_size,
-		LOG_BUF_SIZE - log_size, "[name:spm&][SPM] ");
-		log_size += scnprintf(log_buf + log_size,
-		LOG_BUF_SIZE - log_size, "MD/2G/3G/4G/5G_FR1 = ");
-		log_size += scnprintf(log_buf + log_size,
-		LOG_BUF_SIZE - log_size, "%d.%03d/%d.%03d/%d.%03d/%d.%03d/%d.%03d seconds",
-			(after_md_sleep_status.md_sleep_time -
-				before_md_sleep_status.md_sleep_time) / 1000000,
-			(after_md_sleep_status.md_sleep_time -
-				before_md_sleep_status.md_sleep_time) % 1000000 / 1000,
-			(after_md_sleep_status.gsm_sleep_time -
-				before_md_sleep_status.gsm_sleep_time) / 1000000,
-			(after_md_sleep_status.gsm_sleep_time -
-				before_md_sleep_status.gsm_sleep_time) % 1000000 / 1000,
-			(after_md_sleep_status.wcdma_sleep_time -
-				before_md_sleep_status.wcdma_sleep_time) / 1000000,
-			(after_md_sleep_status.wcdma_sleep_time -
-				before_md_sleep_status.wcdma_sleep_time) % 1000000 / 1000,
-			(after_md_sleep_status.lte_sleep_time -
-				before_md_sleep_status.lte_sleep_time) / 1000000,
-			(after_md_sleep_status.lte_sleep_time -
-				before_md_sleep_status.lte_sleep_time) % 1000000 / 1000,
-			(after_md_sleep_status.nr_sleep_time -
-				before_md_sleep_status.nr_sleep_time) / 1000000,
-			(after_md_sleep_status.nr_sleep_time -
-				before_md_sleep_status.nr_sleep_time) % 10000000 / 1000);
-
-		WARN_ON(strlen(log_buf) >= LOG_BUF_SIZE);
-		pr_info("[name:spm&][SPM] %s", log_buf);
-	}
-}
-#endif
-
 static inline int lpm_suspend_common_enter(unsigned int *susp_status)
 {
 	unsigned int status = PLAT_VCORE_LP_MODE
@@ -269,19 +138,16 @@ void lpm_suspend_s2idle_reflect(int cpu,
 {
 	if (cpumask_weight(&s2idle_cpumask) == num_online_cpus()) {
 
+#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
+		/* show md sleep status */
+		get_md_sleep_time(&after_md_sleep_status);
+#endif
 		__lpm_suspend_reflect(LPM_SUSPEND_S2IDLE,
 					 cpu, issuer);
-	pr_info("[name:spm&][%s:%d] - resume\n",
+		pr_info("[name:spm&][%s:%d] - resume\n",
 			__func__, __LINE__);
 
-#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
-	/* show md sleep status */
-	get_md_sleep_time(&after_md_sleep_status);
-	log_md_sleep_info();
-#endif
-
-	pm_system_wakeup();
-
+		pm_system_wakeup();
 	}
 	cpumask_clear_cpu(cpu, &s2idle_cpumask);
 }
@@ -466,7 +332,7 @@ int __init lpm_model_suspend_init(void)
 
 	cpumask_clear(&s2idle_cpumask);
 
-	get_md_sleep_time_addr();
+
 
 #if IS_ENABLED(CONFIG_PM)
 	ret = register_pm_notifier(&lpm_spm_suspend_pm_notifier_func);
