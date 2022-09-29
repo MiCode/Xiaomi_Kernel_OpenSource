@@ -15,12 +15,14 @@ extern void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
 unsigned long mtk_cpu_util(int cpu, unsigned long util_cfs,
 				unsigned long max, enum cpu_util_type type,
-				struct task_struct *p);
+				struct task_struct *p,
+				unsigned long min_cap, unsigned long max_cap);
 int dequeue_idle_cpu(int cpu);
 #endif
 __always_inline
 unsigned long mtk_uclamp_rq_util_with(struct rq *rq, unsigned long util,
-				  struct task_struct *p);
+				  struct task_struct *p,
+				  unsigned long min_cap, unsigned long max_cap);
 
 #if IS_ENABLED(CONFIG_RT_GROUP_SCHED)
 static inline int rt_rq_throttled(struct rt_rq *rt_rq)

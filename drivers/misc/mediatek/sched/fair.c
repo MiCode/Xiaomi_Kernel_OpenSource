@@ -200,7 +200,8 @@ static unsigned long mtk_cpu_util_next(int cpu, struct task_struct *p, int dst_c
  * return the delta energy of put task p in dst_cpu
  */
 static unsigned long
-mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
+mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd,
+		unsigned long min_cap, unsigned long max_cap)
 {
 	struct cpumask *pd_mask = perf_domain_span(pd);
 	unsigned long cpu_cap = arch_scale_cpu_capacity(cpumask_first(pd_mask));
@@ -243,7 +244,7 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 		 */
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
 		cpu_energy_util = mtk_cpu_util(cpu, util_running_base, cpu_cap,
-					       ENERGY_UTIL, NULL);
+					       ENERGY_UTIL, NULL, min_cap, max_cap);
 #else
 		cpu_energy_util = effective_cpu_util(cpu, util_running_base, cpu_cap,
 					       ENERGY_UTIL, NULL);
@@ -259,7 +260,7 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 		 */
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
 		cpu_util_base = mtk_cpu_util(cpu, util_freq_base, cpu_cap,
-					      FREQUENCY_UTIL, NULL);
+					      FREQUENCY_UTIL, NULL, min_cap, max_cap);
 #else
 		cpu_util_base = effective_cpu_util(cpu, util_freq_base, cpu_cap,
 					      FREQUENCY_UTIL, NULL);
@@ -286,7 +287,7 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 			 */
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
 			cpu_energy_util = mtk_cpu_util(cpu, util_running_cur, cpu_cap,
-					       ENERGY_UTIL, NULL);
+					       ENERGY_UTIL, NULL, min_cap, max_cap);
 #else
 			cpu_energy_util = effective_cpu_util(cpu, util_running_cur, cpu_cap,
 					       ENERGY_UTIL, NULL);
@@ -302,7 +303,7 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 			 */
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
 			cpu_util_cur = mtk_cpu_util(cpu, util_freq_cur, cpu_cap,
-					      FREQUENCY_UTIL, tsk);
+					      FREQUENCY_UTIL, tsk, min_cap, max_cap);
 #else
 			cpu_util_cur = effective_cpu_util(cpu, util_freq_cur, cpu_cap,
 					      FREQUENCY_UTIL, tsk);
@@ -461,7 +462,7 @@ static inline bool task_can_skip_idle_cpu(struct task_struct *p, bool latency_se
 }
 
 int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool latency_sensitive,
-		struct perf_domain *pd)
+		struct perf_domain *pd, unsigned long min_cap, unsigned long max_cap)
 {
 	int target_cpu = -1, cpu;
 	unsigned long cpu_util;
@@ -523,7 +524,7 @@ int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool laten
 			 * much capacity we can get out of the CPU; this is
 			 * aligned with effective_cpu_util().
 			 */
-			cpu_util = mtk_uclamp_rq_util_with(cpu_rq(cpu), util, p);
+			cpu_util = mtk_uclamp_rq_util_with(cpu_rq(cpu), util, p, min_cap, max_cap);
 			if (!fits_capacity(cpu_util, cpu_cap))
 				continue;
 
@@ -656,7 +657,8 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 	struct cpuidle_state *idle;
 	struct perf_domain *pd;
 	int select_reason = -1;
-
+	unsigned long min_cap = uclamp_eff_value(p, UCLAMP_MIN);
+	unsigned long max_cap = uclamp_eff_value(p, UCLAMP_MAX);
 
 	rcu_read_lock();
 	if (!uclamp_min_ls)
@@ -684,7 +686,8 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 	}
 
 	if (unlikely(in_interrupt())) {
-		*new_cpu = mtk_find_energy_efficient_cpu_in_interrupt(p, latency_sensitive, pd);
+		*new_cpu = mtk_find_energy_efficient_cpu_in_interrupt(p, latency_sensitive, pd,
+					min_cap, max_cap);
 		rcu_read_unlock();
 		select_reason = LB_IN_INTERRUPT;
 		goto done;
@@ -757,7 +760,7 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 			 * much capacity we can get out of the CPU; this is
 			 * aligned with effective_cpu_util().
 			 */
-			util = mtk_uclamp_rq_util_with(cpu_rq(cpu), util, p);
+			util = mtk_uclamp_rq_util_with(cpu_rq(cpu), util, p, min_cap, max_cap);
 			if (!fits_capacity(util, cpu_cap))
 				continue;
 
@@ -800,7 +803,7 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 
 		/* Evaluate the energy impact of using this CPU. */
 		if (!latency_sensitive && max_spare_cap_cpu >= 0) {
-			cur_delta = mtk_compute_energy(p, max_spare_cap_cpu, pd);
+			cur_delta = mtk_compute_energy(p, max_spare_cap_cpu, pd, min_cap, max_cap);
 			if (cur_delta <= best_delta) {
 				best_delta = cur_delta;
 				best_energy_cpu = max_spare_cap_cpu;
@@ -809,7 +812,8 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 
 		if (latency_sensitive) {
 			if (max_spare_cap_cpu_ls_idle >= 0) {
-				cur_delta = mtk_compute_energy(p, max_spare_cap_cpu_ls_idle, pd);
+				cur_delta = mtk_compute_energy(p, max_spare_cap_cpu_ls_idle, pd,
+							min_cap, max_cap);
 				if (cur_delta <= best_delta) {
 					best_delta = cur_delta;
 					best_idle_cpu = max_spare_cap_cpu_ls_idle;

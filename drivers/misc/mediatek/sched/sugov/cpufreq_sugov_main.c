@@ -203,7 +203,8 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
  */
 unsigned long mtk_cpu_util(int cpu, unsigned long util_cfs,
 				 unsigned long max, enum cpu_util_type type,
-				 struct task_struct *p)
+				 struct task_struct *p,
+				 unsigned long min_cap, unsigned long max_cap)
 {
 	unsigned long dl_util, util, irq;
 	unsigned long util_ori;
@@ -249,7 +250,7 @@ unsigned long mtk_cpu_util(int cpu, unsigned long util_cfs,
 		}
 		if (p == (struct task_struct *)UINTPTR_MAX)
 			p = NULL;
-		util = mtk_uclamp_rq_util_with(rq, util, p);
+		util = mtk_uclamp_rq_util_with(rq, util, p, min_cap, max_cap);
 		if (sbb_trigger && trace_sugov_ext_sbb_enabled())
 			trace_sugov_ext_sbb(rq->cpu, rq->android_vendor_data1[0],
 				util_ori, util);
@@ -315,7 +316,8 @@ static void sugov_get_util(struct sugov_cpu *sg_cpu)
 	sg_cpu->bw_dl = cpu_bw_dl(rq);
 
 	sg_cpu->util = mtk_cpu_util(sg_cpu->cpu, cpu_util_cfs(rq), max, FREQUENCY_UTIL,
-							(struct task_struct *)UINTPTR_MAX);
+							(struct task_struct *)UINTPTR_MAX,
+							0, SCHED_CAPACITY_SCALE);
 }
 
 /**
