@@ -887,6 +887,17 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 		uainfo->enable);
 	USB_OFFLOAD_INFO("info_idx: %d, interface: %d\n",
 			info_idx, interface);
+
+	if (uainfo->enable) {
+		if (info_idx < 0) {
+			USB_OFFLOAD_ERR("interface# %d already in use card# %d\n",
+					interface, pcm_card_num);
+			ret = -EBUSY;
+			mutex_unlock(&uodev->dev_lock);
+			goto done;
+		}
+	}
+
 	if (atomic_read(&chip->shutdown) || !subs->stream || !subs->stream->pcm
 			|| !subs->stream->chip || !subs->pcm_substream || info_idx < 0) {
 		USB_OFFLOAD_INFO("chip->shutdown:%d\n", atomic_read(&chip->shutdown));
@@ -904,16 +915,6 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 		ret = -ENODEV;
 		mutex_unlock(&uodev->dev_lock);
 		goto done;
-	}
-
-	if (uainfo->enable) {
-		if (info_idx < 0) {
-			USB_OFFLOAD_ERR("interface# %d already in use card# %d\n",
-					interface, pcm_card_num);
-			ret = -EBUSY;
-			mutex_unlock(&uodev->dev_lock);
-			goto done;
-		}
 	}
 
 	if (uainfo->service_interval_valid) {
@@ -991,7 +992,8 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 	/* wait response */
 
 done:
-	if (!uainfo->enable && ret != -EINVAL && ret != -ENODEV) {
+	if ((!uainfo->enable && ret != -EINVAL && ret != -ENODEV) ||
+		(uainfo->enable && ret == -ENODEV)) {
 		mutex_lock(&uodev->dev_lock);
 		if (info_idx >= 0) {
 			if (!uadev[pcm_card_num].info) {
@@ -1005,10 +1007,10 @@ done:
 									info);
 			USB_OFFLOAD_INFO("release resources: intf# %d card# %d\n",
 					interface, pcm_card_num);
-			}
-			if (atomic_read(&uadev[pcm_card_num].in_use))
-				kref_put(&uadev[pcm_card_num].kref, uaudio_dev_release);
-			mutex_unlock(&uodev->dev_lock);
+		}
+		if (atomic_read(&uadev[pcm_card_num].in_use))
+			kref_put(&uadev[pcm_card_num].kref, uaudio_dev_release);
+		mutex_unlock(&uodev->dev_lock);
 	}
 
 	return ret;
