@@ -700,7 +700,7 @@ int uarthub_core_dev0_is_uarthub_ready(void)
 	if (state == 1) {
 		uarthub_core_irq_clear_ctrl();
 #if UARTHUB_INFO_LOG
-		uarthub_core_debug_clk_info("3");
+		uarthub_core_debug_clk_info("HUB_DBG_SetTX_E");
 #endif
 #if INIT_UARTHUB_DEFAULT
 		if (uarthub_core_is_uarthub_clk_enable() == 1) {
@@ -978,7 +978,7 @@ int uarthub_core_dev0_set_tx_request(void)
 	}
 
 #if UARTHUB_INFO_LOG
-	uarthub_core_debug_clk_info("1");
+	uarthub_core_debug_clk_info("HUB_DBG_SetTX_B");
 #endif
 
 	UARTHUB_REG_WRITE(UARTHUB_INTFHUB_DEV0_STA_SET(intfhub_base_remap_addr), 0x2);
@@ -1003,8 +1003,10 @@ int uarthub_core_dev0_set_tx_request(void)
 		while (retry-- > 0) {
 			val = g_uarthub_plat_ic_ops->uarthub_plat_get_hwccf_univpll_on_info();
 			if (val == 1) {
+#if UARTHUB_DEBUG_LOG
 				pr_info("[%s] hw_ccf_pll on pass, retry=[%d]\n",
 					__func__, retry);
+#endif
 				break;
 			}
 			usleep_range(1000, 1100);
@@ -1018,10 +1020,6 @@ int uarthub_core_dev0_set_tx_request(void)
 				__func__, retry);
 		}
 	}
-
-#if UARTHUB_INFO_LOG
-	uarthub_core_debug_clk_info("2");
-#endif
 
 	return 0;
 }
@@ -1050,13 +1048,11 @@ int uarthub_core_dev0_set_rx_request(void)
 	}
 
 #if UARTHUB_INFO_LOG
-
 	if (g_uarthub_plat_ic_ops &&
 			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_sys_timer)
 		g_uarthub_plat_ic_ops->uarthub_plat_get_spm_sys_timer(&timer_h, &timer_l);
 
-	pr_info("[%s] g_max_dev=[%d] sys_timer=[%x][%x]\n", __func__, g_max_dev,
-					timer_h, timer_l);
+	pr_info("[%s] sys_timer=[%x][%x]\n", __func__, timer_h, timer_l);
 #endif
 
 	UARTHUB_REG_WRITE(UARTHUB_INTFHUB_DEV0_STA_SET(intfhub_base_remap_addr), 0x1);
@@ -1169,10 +1165,10 @@ int uarthub_core_dev0_clear_rx_request(void)
 	}
 
 #if UARTHUB_INFO_LOG
-	uarthub_core_debug_byte_cnt_info("1");
+	uarthub_core_debug_clk_info("HUB_DBG_ClrRX");
 #endif
 
-#if UARTHUB_INFO_LOG
+#if UARTHUB_DEBUG_LOG
 	pr_info("[%s] g_max_dev=[%d]\n", __func__, g_max_dev);
 #endif
 
@@ -1181,10 +1177,6 @@ int uarthub_core_dev0_clear_rx_request(void)
 
 	UARTHUB_REG_WRITE(UARTHUB_INTFHUB_DEV0_STA_CLR(intfhub_base_remap_addr), 0x5);
 	mutex_unlock(&g_clear_trx_req_lock);
-
-#if UARTHUB_INFO_LOG
-	uarthub_core_debug_clk_info("2");
-#endif
 
 	return 0;
 }
@@ -1463,10 +1455,6 @@ int uarthub_core_bypass_mode_ctrl(int enable)
 		UARTHUB_CLR_BIT(UARTHUB_INTFHUB_CON2(intfhub_base_remap_addr), (0x1 << 2));
 		uarthub_core_irq_clear_ctrl();
 		uarthub_core_irq_mask_ctrl(0);
-
-#if UARTHUB_INFO_LOG
-		uarthub_core_debug_info_with_tag(__func__, 1);
-#endif
 	}
 
 	return 0;
@@ -1511,6 +1499,10 @@ int uarthub_core_md_adsp_fifo_ctrl(int enable)
 				((UARTHUB_REG_READ(UARTHUB_FCR_RD(
 				dev2_base_remap_addr)) & (~(0x1))) | (0x1)));
 		}
+
+#if UARTHUB_INFO_LOG
+		uarthub_core_debug_info_with_tag(__func__, 1);
+#endif
 	}
 
 	return 0;
@@ -4032,7 +4024,6 @@ int uarthub_core_debug_clk_info_nolock(const char *tag)
 	unsigned char dmp_info_buf[DBG_LOG_LEN];
 	int dev0_sta = 0, dev1_sta = 0, dev2_sta = 0;
 	int len = 0;
-	const char *def_tag = "CLK_DBG";
 
 	if (g_uarthub_disable == 1)
 		return 0;
@@ -4040,11 +4031,15 @@ int uarthub_core_debug_clk_info_nolock(const char *tag)
 	if (!g_uarthub_plat_ic_ops)
 		return -1;
 
+	if (uarthub_core_is_apb_bus_clk_enable() == 0) {
+		pr_notice("[%s] apb bus clk disable\n", __func__);
+		return -2;
+	}
+
 	val = UARTHUB_REG_READ(UARTHUB_INTFHUB_DBG(intfhub_base_remap_addr));
 	len = 0;
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"[%s][%s] IDBG=[0x%x]", def_tag,
-		((tag == NULL) ? "null" : tag), val);
+		"[%s] IDBG=[0x%x]", ((tag == NULL) ? "null" : tag), val);
 
 	val = UARTHUB_REG_READ(UARTHUB_INTFHUB_STA0(intfhub_base_remap_addr));
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
@@ -4150,7 +4145,6 @@ int uarthub_core_debug_byte_cnt_info(const char *tag)
 
 int uarthub_core_debug_byte_cnt_info_nolock(const char *tag)
 {
-	const char *def_tag = "BCNT_DBG";
 	struct uarthub_uart_ip_debug_info debug2 = {0};
 	struct uarthub_uart_ip_debug_info debug3 = {0};
 	struct uarthub_uart_ip_debug_info debug4 = {0};
@@ -4176,7 +4170,7 @@ int uarthub_core_debug_byte_cnt_info_nolock(const char *tag)
 	val = UARTHUB_REG_READ(UARTHUB_INTFHUB_DBG(intfhub_base_remap_addr));
 	len = 0;
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"[%s][%s] IDBG=[0x%x]", def_tag, ((tag == NULL) ? "null" : tag), val);
+		"[%s] IDBG=[0x%x]", ((tag == NULL) ? "null" : tag), val);
 
 	val = UARTHUB_REG_READ(UARTHUB_INTFHUB_STA0(intfhub_base_remap_addr));
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
