@@ -42,6 +42,11 @@
 
 #include "8250.h"
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+#include <linux/sched.h>
+#include <linux/sched/clock.h>
+#endif
+
 /*
  * Configuration:
  *   share_irqs - whether we pass IRQF_SHARED to request_irq().  This option
@@ -111,9 +116,26 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id)
 	struct list_head *l, *end = NULL;
 	int pass_counter = 0, handled = 0;
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	int num = 0;
+	u64 time1 = 0;
+	u64 time2 = 0;
+	u64 time3 = 0;
+	u64 time4 = 0;
+	u64 time5 = 0;
+	u64 time6 = 0;
+	u64 THRESHOLD = 5 * 1000 * 1000;
+
+	time1 = sched_clock();
+#endif
+
 	pr_debug("%s(%d): start\n", __func__, irq);
 
 	spin_lock(&i->lock);
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	time2 = sched_clock();
+#endif
 
 	l = i->head;
 	do {
@@ -123,13 +145,25 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id)
 		up = list_entry(l, struct uart_8250_port, list);
 		port = &up->port;
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		time5 = sched_clock();
+#endif
 		if (port->handle_irq(port)) {
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+			time6 = sched_clock();
+#endif
+
 			handled = 1;
 			end = NULL;
 		} else if (end == NULL)
 			end = l;
 
 		l = l->next;
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		if (++num == 1)
+			time3 = sched_clock();
+#endif
 
 		if (l == i->head && pass_counter++ > PASS_LIMIT)
 			break;
@@ -138,6 +172,14 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id)
 	spin_unlock(&i->lock);
 
 	pr_debug("%s(%d): end\n", __func__, irq);
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	time4 = sched_clock();
+	if ((time4 - time1) > THRESHOLD)
+		pr_info("[%s],irq[%d]: num[%d], time1[%lld], 3[%lld],4[%lld], 4-1[%lld],3-1[%lld],\n"
+		"4-3[%lld],2-1[%lld], 6-5[%lld]\n",  __func__, irq, num, time1, time3, time4,
+		  time4-time1, time3-time1, time4-time3, time2-time1, time6-time5);
+#endif
 
 	return IRQ_RETVAL(handled);
 }
