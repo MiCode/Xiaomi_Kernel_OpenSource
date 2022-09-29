@@ -147,11 +147,16 @@ int ged_ge_alloc(int region_num, uint32_t *region_sizes)
 			sizeof(void *) * region_num);
 		goto err_kmalloc;
 	}
-
 	entry->region_sizes = (uint32_t *)entry->data;
 	entry->region_data = (uint32_t **)(entry->region_sizes + region_num);
-	for (i = 0; i < region_num; ++i)
+	for (i = 0; i < region_num; ++i) {
+		// check region_sizes parameter
+		if (region_sizes[i] <= 0 ||
+			region_sizes[i] > GE_MAX_REGION_SIZE) {
+			goto err_kmalloc;
+		}
 		entry->region_sizes[i] = region_sizes[i];
+	}
 
 	entry->unique_id = gen_unique_id();
 
@@ -188,10 +193,10 @@ static int valid_parameters(struct GEEntry *entry, int region_id,
 	if (region_id < 0 || region_id >= entry->region_num ||
 	u32_offset < 0 || u32_size < 0 ||
 	u32_offset * sizeof(uint32_t) > entry->region_sizes[region_id] ||
+	u32_size * sizeof(uint32_t) > entry->region_sizes[region_id] ||
 	(u32_offset + u32_size) * sizeof(uint32_t) >
 		entry->region_sizes[region_id]
 	) {
-
 		GED_PDEBUG("fail, invalid r_id %d, o %d, s %d\n",
 				region_id, u32_offset, u32_size);
 
@@ -199,7 +204,6 @@ static int valid_parameters(struct GEEntry *entry, int region_id,
 
 		return -EFAULT;
 	}
-
 	return 0;
 }
 
@@ -221,11 +225,6 @@ int ged_ge_get(int ge_fd, int region_id, int u32_offset,
 	}
 
 	entry = file->private_data;
-
-	if (region_id >= GE_ALLOC_STRUCT_NUM) {
-		err = GED_ERROR_VENDOR_NOT_SUPPORT;
-		goto err_parameter;
-	}
 
 	if (valid_parameters(entry, region_id, u32_offset, u32_size)) {
 		err = -EFAULT;
@@ -268,11 +267,6 @@ int ged_ge_set(int ge_fd, int region_id, int u32_offset,
 	}
 
 	entry = file->private_data;
-
-	if (region_id >= GE_ALLOC_STRUCT_NUM) {
-		err = GED_ERROR_VENDOR_NOT_SUPPORT;
-		goto err_parameter;
-	}
 
 	if (valid_parameters(entry, region_id, u32_offset, u32_size)) {
 		err = -EFAULT;
@@ -364,16 +358,18 @@ int ged_bridge_ge_alloc(
 
 int ged_bridge_ge_get(
 	struct GED_BRIDGE_IN_GE_GET *psGET_IN,
-	struct GED_BRIDGE_OUT_GE_GET *psGET_OUT)
+	struct GED_BRIDGE_OUT_GE_GET *psGET_OUT,
+	int output_buffer_size)
 {
-	if (psGET_IN->uint32_offset < 0 ||
-			psGET_IN->uint32_offset >= 0x20000000ULL ||
-			psGET_IN->uint32_size < 0 ||
-			psGET_IN->uint32_size >= 0x20000000ULL) {
-		pr_info("[%s] invalid offset(%d) or size(%d)",
-				__func__,
-				psGET_IN->uint32_offset,
-				psGET_IN->uint32_size);
+	// check output buffer alloc size
+	if (output_buffer_size <
+		sizeof(struct GED_BRIDGE_OUT_GE_GET) +
+		psGET_IN->uint32_size * sizeof(uint32_t)) {
+		pr_info("[%s] output_buffer_size (%d byte) < header_size + u32_size (%d byte)",
+			__func__,
+			(unsigned int)(output_buffer_size),
+			(unsigned int)(sizeof(struct GED_BRIDGE_OUT_GE_GET) +
+				(psGET_IN->uint32_size * sizeof(uint32_t))));
 		return -EFAULT;
 	}
 
@@ -388,16 +384,18 @@ int ged_bridge_ge_get(
 
 int ged_bridge_ge_set(
 	struct GED_BRIDGE_IN_GE_SET *psSET_IN,
-	struct GED_BRIDGE_OUT_GE_SET *psSET_OUT)
+	struct GED_BRIDGE_OUT_GE_SET *psSET_OUT,
+	int input_buffer_size)
 {
-	if (psSET_IN->uint32_offset < 0 ||
-			psSET_IN->uint32_offset >= 0x20000000ULL ||
-			psSET_IN->uint32_size < 0 ||
-			psSET_IN->uint32_size >= 0x20000000ULL) {
-		pr_info("[%s] invalid offset(%d) or size(%d)",
-				__func__,
-				psSET_IN->uint32_offset,
-				psSET_IN->uint32_size);
+	// check input buffer alloc size
+	if (input_buffer_size <
+		sizeof(struct GED_BRIDGE_IN_GE_SET) +
+		psSET_IN->uint32_size * sizeof(uint32_t)) {
+		pr_info("[%s] input_buffer_size (%d byte) < header_size + u32_size (%d byte)",
+			__func__,
+			(unsigned int)(input_buffer_size),
+			(unsigned int)(sizeof(struct GED_BRIDGE_IN_GE_SET) +
+				(psSET_IN->uint32_size * sizeof(uint32_t))));
 		return -EFAULT;
 	}
 

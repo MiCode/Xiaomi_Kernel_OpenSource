@@ -201,8 +201,15 @@ static long ged_dispatch(struct file *pFile,
 					psBridgePackageKM->ui32FunctionID)) {
 				inputBufferSize = sizeof(int) +
 				sizeof(uint32_t) * GE_ALLOC_STRUCT_NUM;
+				// hardcode region_num = GE_ALLOC_STRUCT_NUM,
+				// need check input buffer size
+				if (psBridgePackageKM->i32InBufferSize !=
+					inputBufferSize) {
+					GED_LOGE("Failed to regoin_num,it must be %d\n",
+						GE_ALLOC_STRUCT_NUM);
+					goto dispatch_exit;
+				}
 			}
-
 			pvIn = kmalloc(inputBufferSize, GFP_KERNEL);
 
 			if (pvIn == NULL)
@@ -223,7 +230,6 @@ static long ged_dispatch(struct file *pFile,
 			if (pvOut == NULL)
 				goto dispatch_exit;
 		}
-
 		/* Make sure that the UM will never break the KM.
 		 * Check IO size are both matched the size of IO sturct.
 		 */
@@ -307,11 +313,11 @@ static long ged_dispatch(struct file *pFile,
 			break;
 		case GED_BRIDGE_COMMAND_GE_GET:
 			VALIDATE_ARG(GE_GET, GE_GET);
-			ret = ged_bridge_ge_get(pvIn, pvOut);
+			ret = ged_bridge_ge_get(pvIn, pvOut, psBridgePackageKM->i32OutBufferSize);
 			break;
 		case GED_BRIDGE_COMMAND_GE_SET:
 			VALIDATE_ARG(GE_SET, GE_SET);
-			ret = ged_bridge_ge_set(pvIn, pvOut);
+			ret = ged_bridge_ge_set(pvIn, pvOut, psBridgePackageKM->i32InBufferSize);
 			break;
 		case GED_BRIDGE_COMMAND_GE_INFO:
 			VALIDATE_ARG(GE_INFO, GE_INFO);
@@ -371,9 +377,7 @@ ged_ioctl(struct file *pFile, unsigned int ioctlCmd, unsigned long arg)
 		GED_LOGE("Failed to ged_copy_from_user\n");
 		goto unlock_and_return;
 	}
-
 	ret = ged_dispatch(pFile, psBridgePackageKM);
-
 unlock_and_return:
 
 	return ret;
