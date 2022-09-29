@@ -940,6 +940,7 @@ int mtk_drm_crtc_enable_vblank(struct drm_crtc *crtc)
 	struct mtk_drm_private *priv = drm->dev_private;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(priv->crtc[pipe]);
 	struct mtk_ddp_comp *comp = mtk_crtc_get_comp(&mtk_crtc->base, mtk_crtc->ddp_mode, 0, 0);
+	struct mtk_panel_params *panel_params;
 
 	mtk_crtc->vblank_en = 1;
 
@@ -952,6 +953,11 @@ int mtk_drm_crtc_enable_vblank(struct drm_crtc *crtc)
 	/* We only consider CRTC0 vsync so far, need to modify to DPI, DPTX */
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_IDLE_MGR) &&
 	    drm_crtc_index(&mtk_crtc->base) == 0) {
+		panel_params = mtk_drm_get_lcm_ext_params(crtc);
+		if (panel_params && panel_params->vblank_off) {
+			mtk_crtc->vblank_en = 0;
+			return -EPERM;
+		}
 		/* The enable vblank is called in spinlock, so we create another
 		 * thread to kick idle mode for cmd mode vsync
 		 */
