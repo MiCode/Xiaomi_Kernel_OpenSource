@@ -408,6 +408,13 @@ static int ufs_mtk_setup_ref_clk(struct ufs_hba *hba, bool on)
 		reg1 = ioremap(0x112B80B0, sizeof(u32));
 		value = readl(reg1);
 		writel(value, reg1);
+
+		// R 0x112A00E0
+		reg1 = ioremap(0x112A00E0, sizeof(u32));
+		value = readl(reg1);
+
+		// R 0x112B0000
+		value = ufshcd_readl(hba, 0x0);
 	}
 #endif
 
