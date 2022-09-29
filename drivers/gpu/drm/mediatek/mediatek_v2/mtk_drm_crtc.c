@@ -6722,6 +6722,11 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 				if (mtk_crtc->pre_te_cfg.prefetch_te_en == true) {
 					if (priv->data->mmsys_id == MMSYS_MT6985)
 						mtk_oddmr_ddren(cmdq_handle, crtc, 1);
+
+					if (mtk_crtc->pre_te_cfg.merge_trigger_en == true)
+						cmdq_pkt_clear_event(cmdq_handle,
+						mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+
 					mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0], cmdq_handle,
 					mtk_crtc->gce_obj.base);
 				}
@@ -6760,6 +6765,11 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 					mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_PREFETCH_TE]);
 					if (priv->data->mmsys_id == MMSYS_MT6985)
 						mtk_oddmr_ddren(cmdq_handle, crtc, 1);
+
+					if (mtk_crtc->pre_te_cfg.merge_trigger_en == true)
+						cmdq_pkt_clear_event(cmdq_handle,
+						mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+
 					mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0], cmdq_handle,
 						mtk_crtc->gce_obj.base);
 				}
@@ -6799,6 +6809,11 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 				mtk_oddmr_ddren(cmdq_handle, crtc, 1);
 			mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle,
 						MTK_TRIG_FLAG_PRE_TRIGGER);
+
+			if (mtk_crtc->pre_te_cfg.merge_trigger_en == true)
+				cmdq_pkt_clear_event(cmdq_handle,
+					mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+
 			mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0], cmdq_handle,
 						   mtk_crtc->gce_obj.base);
 		}
