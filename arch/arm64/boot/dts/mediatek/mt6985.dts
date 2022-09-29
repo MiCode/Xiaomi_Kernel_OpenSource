@@ -9527,6 +9527,7 @@
 			 <&ovlsys1_config_clk CLK_OVL1_DISP_DLO_ASYNC5>,
 			 <&ovlsys1_config_clk CLK_OVL1_DISP_DLO_ASYNC6>;
 		clock-num = <48>;
+		condition-num = <2>;
 		operating-points-v2 = <&opp_table_disp>;
 		mmdvfs-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		lp-mmclk-freq = <218000000>;
