@@ -20,7 +20,9 @@
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
+#if IS_ENABLED(CONFIG_MTK_SMI)
 #include <soc/mediatek/smi.h>
+#endif
 
 #if IS_ENABLED(CONFIG_MTK_DEVAPC)
 #include <linux/soc/mediatek/devapc_public.h>
@@ -429,6 +431,10 @@ static irqreturn_t mminfra_irq_handler(int irq, void *data)
 	if (!aee_dump) {
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 		aee_kernel_warning("mminfra", "MMInfra bus timeout\n");
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_SMI)
+		mtk_smi_dbg_hang_detect("mminfra irq");
 #endif
 		aee_dump = true;
 	}
