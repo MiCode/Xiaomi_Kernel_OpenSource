@@ -1166,7 +1166,7 @@ void mtk_cam_qos_mraw_bw_calc(struct mtk_cam_ctx *ctx, bool force)
 	unsigned int qos_port_id;
 	unsigned int ipi_fmt;
 	int i, j, pixel_bits, plane_factor;
-	unsigned long vblank = 0, fps, PBW_MB_s = 0, ABW_MB_s = 0;
+	unsigned long vblank = 0, fps = 0, PBW_MB_s = 0, ABW_MB_s = 0;
 	unsigned int width_mbn = 0, height_mbn = 0;
 	unsigned int width_cpi = 0, height_cpi = 0;
 	unsigned long mraw_qos_bw_peak[MTK_CAM_MRAW_PORT_NUM];
