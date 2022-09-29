@@ -2580,11 +2580,23 @@ static void dpmaif_total_spd_cb(u64 total_ul_speed, u64 total_dl_speed)
 #ifdef DPMAIF_REDUCE_RX_FLUSH
 		g_rx_flush_pkt_cnt = 5;
 #endif
-	} else {  // dl tput < 300M
+	} else if (total_dl_speed > 150000000LL) {  // dl tput > 150M
 		g_alloc_skb_threshold = MAX_ALLOC_BAT_CNT;
 		g_alloc_frg_threshold = MAX_ALLOC_BAT_CNT;
 		g_alloc_skb_tbl_threshold = MAX_ALLOC_BAT_CNT;
 		g_alloc_frg_tbl_threshold = MAX_ALLOC_BAT_CNT;
+
+		if (dpmaif_ctl->support_lro == 1)
+			ccmni_set_tcp_is_need_gro(1);
+
+#ifdef DPMAIF_REDUCE_RX_FLUSH
+		g_rx_flush_pkt_cnt = 5;
+#endif
+	} else {  // dl tput < 150M
+		g_alloc_skb_threshold = MIN_ALLOC_SKB_CNT;
+		g_alloc_frg_threshold = MIN_ALLOC_FRG_CNT;
+		g_alloc_skb_tbl_threshold = MIN_ALLOC_SKB_TBL_CNT;
+		g_alloc_frg_tbl_threshold = MIN_ALLOC_FRG_TBL_CNT;
 
 		if (dpmaif_ctl->support_lro == 1)
 			ccmni_set_tcp_is_need_gro(1);
