@@ -59,5 +59,6 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_request_stream_data *s_data, bool force);
 void mtk_cam_qos_sv_bw_calc(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_request_stream_data *s_data, bool force);
+void mtk_cam_qos_mraw_bw_calc(struct mtk_cam_ctx *ctx, bool force);
 
 #endif
