@@ -268,6 +268,11 @@
 #define MIPITX_PHY_SEL3 (0x004CUL)
 #define FLD_MIPI_TX_PHY3_HSDATA_SEL (0xf << 0)
 
+#define MIPITX_D2P_RTCODE0_MT6886 (0x0100UL)
+#define MIPITX_D2N_RTCODE0_MT6886 (0x0108UL)
+#define MIPITX_D2P_RT_DEM_CODE_MT6886 (0x01C4UL)
+#define MIPITX_D2N_RT_DEM_CODE_MT6886 (0x01C8UL)
+
 /* use to reset DPHY */
 #define MIPITX_SW_CTRL_CON4 0x60
 
@@ -3463,6 +3468,8 @@ unsigned int rt_code_backup0[2][25];
 unsigned int rt_code_backup1[2][25];
 unsigned int rt_dem_code_backup0[2][5];
 unsigned int rt_dem_code_backup1[2][5];
+unsigned int rt_mt6886_code_backup[2][5];
+unsigned int rt_mt6886_dem_backup[2][5];
 #define SECOND_PHY_OFFSET  (0x10000UL)
 
 static void backup_mipitx_impedance(struct mtk_mipi_tx *mipi_tx)
@@ -3549,6 +3556,36 @@ static void backup_mipitx_impedance(struct mtk_mipi_tx *mipi_tx)
 		}
 	}
 #endif /* mipitx impedance print */
+}
+
+static void backup_mipitx_impedance_mt6886(struct mtk_mipi_tx *mipi_tx)
+{
+	unsigned int i = 0;
+	unsigned int j = 0;
+
+	DDPMSG("%s MIPI_TX\n", __func__);
+	/* backup mipitx impedance */
+	for (j = 0; j < 5; j++) {
+		rt_mt6886_code_backup[0][j] = readl(mipi_tx->regs +
+				MIPITX_D2P_RTCODE0_MT6886 + j * 0x100);
+		rt_mt6886_code_backup[1][j] = readl(mipi_tx->regs +
+				MIPITX_D2N_RTCODE0_MT6886 + j * 0x100);
+		rt_mt6886_dem_backup[0][j] = readl(mipi_tx->regs +
+				MIPITX_D2P_RT_DEM_CODE_MT6886 + j * 0x100);
+		rt_mt6886_dem_backup[1][j] = readl(mipi_tx->regs +
+				MIPITX_D2N_RT_DEM_CODE_MT6886 + j * 0x100);
+	}
+	for (i = 0; i < 5; i++) {
+		DDPMSG("[0x%08x 0x%08x 0x%08x 0x%08x]:0x%08x 0x%08x 0x%08x 0x%08x\n",
+			mipi_tx->regs + MIPITX_D2P_RTCODE0_MT6886 + i * 0x100,
+			mipi_tx->regs + MIPITX_D2N_RTCODE0_MT6886 + i * 0x100,
+			mipi_tx->regs + MIPITX_D2P_RT_DEM_CODE_MT6886 + i * 0x100,
+			mipi_tx->regs + MIPITX_D2N_RT_DEM_CODE_MT6886 + i * 0x100,
+			readl((mipi_tx->regs + MIPITX_D2P_RTCODE0_MT6886 + i * 0x100)),
+			readl((mipi_tx->regs + MIPITX_D2N_RTCODE0_MT6886 + i * 0x100)),
+			readl((mipi_tx->regs + MIPITX_D2P_RT_DEM_CODE_MT6886 + i * 0x100)),
+			readl((mipi_tx->regs + MIPITX_D2N_RT_DEM_CODE_MT6886 + i * 0x100)));
+	}
 }
 
 static void backup_mipitx_impedance_mt6983(struct mtk_mipi_tx *mipi_tx)
@@ -3709,6 +3746,37 @@ static void refill_mipitx_impedance(struct mtk_mipi_tx *mipi_tx)
 	}
 #endif /* mipitx impedance print */
 }
+
+static void refill_mipitx_impedance_mt6886(struct mtk_mipi_tx *mipi_tx)
+{
+	/* backup mipitx impedance */
+	unsigned int i = 0;
+	unsigned int j = 0;
+
+	DDPDBG("%s MIPI_TX\n", __func__);
+	for (j = 0; j < 5; j++) {
+		writel(rt_mt6886_code_backup[0][j], mipi_tx->regs +
+				MIPITX_D2P_RTCODE0_MT6886 + j * 0x100);
+		writel(rt_mt6886_code_backup[1][j], mipi_tx->regs +
+				MIPITX_D2N_RTCODE0_MT6886 + j * 0x100);
+		writel(rt_mt6886_dem_backup[0][j], mipi_tx->regs +
+				MIPITX_D2P_RT_DEM_CODE_MT6886 + j * 0x100);
+		writel(rt_mt6886_dem_backup[1][j], mipi_tx->regs +
+				MIPITX_D2N_RT_DEM_CODE_MT6886 + j * 0x100);
+	}
+	for (i = 0; i < 5; i++) {
+		DDPDBG("[0x%08x 0x%08x 0x%08x 0x%08x]:0x%08x 0x%08x 0x%08x 0x%08x\n",
+			mipi_tx->regs + MIPITX_D2P_RTCODE0_MT6886 + i * 0x100,
+			mipi_tx->regs + MIPITX_D2N_RTCODE0_MT6886 + i * 0x100,
+			mipi_tx->regs + MIPITX_D2P_RT_DEM_CODE_MT6886 + i * 0x100,
+			mipi_tx->regs + MIPITX_D2N_RT_DEM_CODE_MT6886 + i * 0x100,
+			readl((mipi_tx->regs + MIPITX_D2P_RTCODE0_MT6886 + i * 0x100)),
+			readl((mipi_tx->regs + MIPITX_D2N_RTCODE0_MT6886 + i * 0x100)),
+			readl((mipi_tx->regs + MIPITX_D2P_RT_DEM_CODE_MT6886 + i * 0x100)),
+			readl((mipi_tx->regs + MIPITX_D2N_RT_DEM_CODE_MT6886 + i * 0x100)));
+	}
+}
+
 
 static void refill_mipitx_impedance_mt6983(struct mtk_mipi_tx *mipi_tx)
 {
@@ -4135,8 +4203,8 @@ static const struct mtk_mipitx_data mt6886_mipitx_data = {
 	.pll_prepare = mtk_mipi_tx_pll_prepare_mt6886,
 	.pll_unprepare = mtk_mipi_tx_pll_unprepare_mt6983,
 	.dsi_get_pcw = _dsi_get_pcw_mt6983,
-	.backup_mipitx_impedance = backup_mipitx_impedance_mt6983,
-	.refill_mipitx_impedance = refill_mipitx_impedance_mt6983,
+	.backup_mipitx_impedance = backup_mipitx_impedance_mt6886,
+	.refill_mipitx_impedance = refill_mipitx_impedance_mt6886,
 };
 
 static const struct mtk_mipitx_data mt6983_mipitx_cphy_data = {
@@ -4246,8 +4314,8 @@ static const struct mtk_mipitx_data mt6886_mipitx_cphy_data = {
 	.pll_prepare = mtk_mipi_tx_pll_cphy_prepare_mt6886,
 	.pll_unprepare = mtk_mipi_tx_pll_cphy_unprepare_mt6983,
 	.dsi_get_pcw = _dsi_get_pcw_mt6983,
-	.backup_mipitx_impedance = backup_mipitx_impedance_mt6983,
-	.refill_mipitx_impedance = refill_mipitx_impedance_mt6983,
+	.backup_mipitx_impedance = backup_mipitx_impedance_mt6886,
+	.refill_mipitx_impedance = refill_mipitx_impedance_mt6886,
 };
 
 static const struct mtk_mipitx_data mt6873_mipitx_data = {
