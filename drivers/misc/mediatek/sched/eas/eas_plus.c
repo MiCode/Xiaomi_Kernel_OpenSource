@@ -763,46 +763,51 @@ static inline unsigned int mtk_task_cap(struct task_struct *p, int cpu,
 }
 
 #if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
+static inline
+unsigned long aligned_freq_to_legacy_freq(int cpu, unsigned long freq)
+{
+	return pd_get_opp_freq_legacy(cpu, pd_get_freq_opp_legacy(cpu, freq));
+}
+
+__always_inline
 unsigned long calc_pwr(int cpu, unsigned long task_util)
 {
 	int opp;
-	unsigned long cap;
 	struct mtk_em_perf_state *ps;
-	unsigned long dyn_pwr_eff, dyn_pwr, static_pwr, pwr;
+	unsigned long dyn_pwr, static_pwr, pwr;
 
 	ps = pd_get_util_ps(cpu, map_util_perf(task_util), &opp);
-	cap = ps->capacity;
 
-	dyn_pwr_eff = ps->pwr_eff;
-	dyn_pwr = dyn_pwr_eff * task_util;
-	static_pwr =  (mtk_get_leakage(cpu, opp, get_cpu_temp(cpu)/1000) * task_util) / cap;
+	dyn_pwr = ps->pwr_eff * task_util;
+	static_pwr = (mtk_get_leakage(cpu, opp, get_cpu_temp(cpu)/1000) * task_util) / ps->capacity;
 	pwr = dyn_pwr + static_pwr;
 
 	trace_sched_em_cpu_energy(opp,
-				pd_get_opp_freq_legacy(cpu, pd_get_freq_opp_legacy(cpu, ps->freq)),
-				dyn_pwr_eff, cpu, dyn_pwr, static_pwr);
+				aligned_freq_to_legacy_freq(cpu, ps->freq),
+				ps->pwr_eff, ps->capacity, dyn_pwr, static_pwr);
 
 	return pwr;
 }
 
+__always_inline
 unsigned long calc_pwr_eff(int cpu, unsigned long cpu_util)
 {
 	int opp;
-	unsigned long cap;
 	struct mtk_em_perf_state *ps;
-	unsigned long dyn_pwr_eff, static_pwr_eff, pwr_eff;
+	unsigned long static_pwr_eff, pwr_eff;
 
 	ps = pd_get_util_ps(cpu, map_util_perf(cpu_util), &opp);
-	cap = ps->capacity;
-	dyn_pwr_eff = ps->pwr_eff;
-	static_pwr_eff = mtk_get_leakage(cpu, opp, get_cpu_temp(cpu)/1000) / cap;
-	pwr_eff = dyn_pwr_eff + static_pwr_eff;
 
-	trace_sched_calc_pwr_eff(cpu, cpu_util, opp, cap, dyn_pwr_eff, static_pwr_eff, pwr_eff);
+	static_pwr_eff = mtk_get_leakage(cpu, opp, get_cpu_temp(cpu)/1000) / ps->capacity;
+	pwr_eff = ps->pwr_eff + static_pwr_eff;
+
+	trace_sched_calc_pwr_eff(cpu, cpu_util, opp, ps->capacity,
+				ps->pwr_eff, static_pwr_eff, pwr_eff);
 
 	return pwr_eff;
 }
 #else
+__always_inline
 unsigned long calc_pwr(int cpu, unsigned long task_util)
 {
 	return 0;
