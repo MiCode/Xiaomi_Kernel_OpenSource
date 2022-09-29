@@ -70,6 +70,7 @@ static int mdw_drv_open(struct inode *inode, struct file *filp)
 	INIT_LIST_HEAD(&mpriv->invokes);
 	atomic_set(&mpriv->active_cmds, 0);
 	idr_init(&mpriv->cmds);
+	atomic_set(&mpriv->exec_seqno, 0);
 
 	if (!atomic_read(&g_inited)) {
 		ret = mdw_dev->dev_funcs->sw_init(mdw_dev);

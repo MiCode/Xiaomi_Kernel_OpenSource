@@ -37,6 +37,7 @@
 
 #define MDW_CMD_IDR_MIN (1)
 #define MDW_CMD_IDR_MAX (64)
+#define MDW_FENCE_MAX_RINGS (64)
 
 #define MDW_ALIGN(x, align) ((x+align-1) & (~(align-1)))
 
@@ -228,6 +229,12 @@ struct mdw_device {
 	/* device functions */
 	const struct mdw_dev_func *dev_funcs;
 	void *dev_specific;
+
+	/* fence info */
+	uint64_t base_fence_ctx;
+	uint32_t num_fence_ctx;
+	unsigned long fence_ctx_mask[BITS_TO_LONGS(MDW_FENCE_MAX_RINGS)];
+	struct mutex f_mtx;
 };
 
 struct mdw_fpriv {
@@ -239,6 +246,7 @@ struct mdw_fpriv {
 	struct mdw_mem_pool cmd_buf_pool;
 	struct idr cmds;
 	atomic_t active_cmds;
+	atomic_t exec_seqno;
 
 	/* ref count for cmd/mem */
 	atomic_t active;

@@ -34,6 +34,9 @@ int mdw_dev_init(struct mdw_device *mdev)
 	INIT_LIST_HEAD(&mdev->d_cmds);
 	mutex_init(&mdev->c_mtx);
 	INIT_WORK(&mdev->c_wk, &mdw_dev_clear_cmd_func);
+	mdev->base_fence_ctx = dma_fence_context_alloc(MDW_FENCE_MAX_RINGS);
+	mdev->num_fence_ctx = MDW_FENCE_MAX_RINGS;
+	mutex_init(&mdev->f_mtx);
 
 	switch (mdev->driver_type) {
 	case MDW_DRIVER_TYPE_PLATFORM:
