@@ -105,6 +105,7 @@ static void mtk_drm_idlemgr_enter_idle_nolock(struct drm_crtc *crtc)
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_ddp_comp *output_comp;
 	int index = drm_crtc_index(crtc);
+	unsigned int idle_interval;
 	bool mode;
 
 	output_comp = priv->ddp_comp[DDP_COMPONENT_DSI0];
@@ -113,14 +114,15 @@ static void mtk_drm_idlemgr_enter_idle_nolock(struct drm_crtc *crtc)
 		return;
 
 	mode = mtk_dsi_is_cmd_mode(output_comp);
-	CRTC_MMP_EVENT_START(index, enter_idle, mode, 0);
+	idle_interval = mtk_drm_get_idle_check_interval(crtc);
+	CRTC_MMP_EVENT_START(index, enter_idle, mode, idle_interval);
 
 	if (mode)
 		mtk_drm_cmd_mode_enter_idle(crtc);
 	else
 		mtk_drm_vdo_mode_enter_idle(crtc);
 
-	CRTC_MMP_EVENT_END(index, enter_idle, mode, 0);
+	CRTC_MMP_EVENT_END(index, enter_idle, mode, idle_interval);
 }
 
 static void mtk_drm_idlemgr_leave_idle_nolock(struct drm_crtc *crtc)
