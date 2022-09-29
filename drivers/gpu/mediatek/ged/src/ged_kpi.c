@@ -1192,8 +1192,12 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			set_lb_timeout(psKPI->t_gpu_target);
 		} else {   // main producer ratio >= thresh (FB)
 			if (main_head == psHead) {   // is main head
-				if (ged_get_policy_state() ==
-						POLICY_STATE_LB) {   // previous commit is LB
+				enum gpu_dvfs_policy_state policy_state;
+
+				policy_state = ged_get_policy_state();
+				if (policy_state == POLICY_STATE_LB ||
+						policy_state == POLICY_STATE_LB_FALLBACK) {
+					// previous commit is LB
 					// cannot obtain workload of first frame, so use LB policy
 					ged_set_policy_state(POLICY_STATE_FORCE_LB);
 					force_fallback = 1;

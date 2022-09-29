@@ -70,9 +70,7 @@ static unsigned int g_ui32PreFreqID;
 static unsigned int g_bottom_freq_id;
 static unsigned int g_last_def_commit_freq_id;
 static unsigned int g_cust_upbound_freq_id;
-
 static unsigned int g_cust_boost_freq_id;
-static unsigned int g_computed_freq_id;
 
 #define LIMITER_FPSGO 0
 #define LIMITER_APIBOOST 1
@@ -854,7 +852,6 @@ GED_ERROR ged_dvfs_um_commit(unsigned long gpu_tar_freq, bool bFallback)
 	ged_log_buf_print(ghLogBuf_DVFS,
 		"[GED_K] rdy to commit (%u)", ui32NewFreqID);
 
-	g_computed_freq_id = ui32NewFreqID;
 	if (bFallback == true)
 		ged_dvfs_gpu_freq_commit(ui32NewFreqID,
 				ged_get_freq_by_idx(ui32NewFreqID),
@@ -1336,56 +1333,65 @@ static bool ged_dvfs_policy(
 		g_CommitType = MTK_GPU_DVFS_TYPE_TIMERBASED;
 	} else {
 		/* new timer-based policy */
-		int t_gpu = -1, t_gpu_complete = -1, t_gpu_uncomplete = -1;
-		int t_gpu_target = -1, t_gpu_target_hd = -1;
+		int t_gpu, t_gpu_complete, t_gpu_uncomplete,
+			t_gpu_target, t_gpu_target_hd;
+		GED_ERROR ret_risky_bq;
+		struct ged_risky_bq_info info;
+		int uncomplete_flag = 0;
+		enum gpu_dvfs_policy_state policy_state;
 
-		/* margin update */
+		/* set t_gpu via risky BQ analysis */
 		ged_kpi_update_t_gpu_latest_uncompleted();
+		ret_risky_bq = ged_kpi_timer_based_pick_riskyBQ(&info);
+		if (ret_risky_bq == GED_OK) {
+			t_gpu_complete = (int) info.completed_bq.t_gpu;
+			t_gpu_uncomplete = (int) info.uncompleted_bq.t_gpu;
+
+			// pick the largest t_gpu/t_gpu_target & set uncomplete_flag
+			t_gpu = t_gpu_uncomplete;
+			t_gpu_target = info.uncompleted_bq.t_gpu_target;
+			if (g_tb_dvfs_margin_mode & DYNAMIC_TB_PERF_MODE_MASK)
+				t_gpu_target_hd = t_gpu_target
+					* (100 - g_tb_dvfs_margin_value_min) / 100;
+			else
+				t_gpu_target_hd = t_gpu_target;
+			if (t_gpu > t_gpu_target_hd)
+				// priority #1: uncompleted frame overtime
+				uncomplete_flag = 1;
+			else {
+				// priority #2: frame with higher t_gpu/t_gpu_target ratio
+				unsigned long long risk_completed =
+					info.completed_bq.risk;
+				unsigned long long risk_uncompleted =
+					info.uncompleted_bq.risk;
+
+				if (risk_completed > risk_uncompleted) {
+					t_gpu = t_gpu_complete;
+					t_gpu_target = info.completed_bq.t_gpu_target;
+				}
+				uncomplete_flag = 0;
+			}
+		} else {
+			// risky BQ cannot be obtained, set t_gpu to default
+			t_gpu = -1;
+			t_gpu_complete = -1;
+			t_gpu_uncomplete = -1;
+			t_gpu_target = -1;
+		}
+		t_gpu_target_hd = t_gpu_target;   // set init value
+
+		/* update margin */
 		if (g_tb_dvfs_margin_mode & DYNAMIC_TB_MASK) {
 			/* dynamic margin mode */
-			GED_ERROR ret = GED_ERROR_FAIL;
-			struct ged_risky_bq_info info;
-
-			ret = ged_kpi_timer_based_pick_riskyBQ(&info);
-			if (ret == GED_OK) {
+			if (ret_risky_bq == GED_OK) {
 				static unsigned int prev_gpu_completed_count;
 				unsigned int gpu_completed_count =
 					info.total_gpu_completed_count;
-				int uncomplete_flag;
 
-				t_gpu_complete = (int) info.completed_bq.t_gpu;
-				t_gpu_uncomplete = (int) info.uncompleted_bq.t_gpu;
-
-				// pick the largest t_gpu/t_gpu_target & set uncomplete_flag
-				t_gpu = t_gpu_uncomplete;
-				t_gpu_target = info.uncompleted_bq.t_gpu_target;
+				// overwrite t_gpu_target_hd in perf mode
 				if (g_tb_dvfs_margin_mode & DYNAMIC_TB_PERF_MODE_MASK)
 					t_gpu_target_hd = t_gpu_target
 						* (100 - g_tb_dvfs_margin_value_min) / 100;
-				else
-					t_gpu_target_hd = t_gpu_target;
-				if (t_gpu > t_gpu_target_hd)
-					// priority #1: uncompleted frame overtime
-					uncomplete_flag = 1;
-				else {
-					// priority #2: frame with higher t_gpu/t_gpu_target ratio
-					unsigned long long risk_completed =
-						info.completed_bq.risk;
-					unsigned long long risk_uncompleted =
-						info.uncompleted_bq.risk;
-					if (risk_completed > risk_uncompleted) {
-						t_gpu = t_gpu_complete;
-						t_gpu_target = info.completed_bq.t_gpu_target;
-					}
-					uncomplete_flag = 0;
-				}
-
-				// set t_gpu_target_hd
-				if (g_tb_dvfs_margin_mode & DYNAMIC_TB_PERF_MODE_MASK)
-					t_gpu_target_hd = t_gpu_target
-						* (100 - g_tb_dvfs_margin_value_min) / 100;
-				else
-					t_gpu_target_hd = t_gpu_target;
 
 				// margin modifying
 				if (t_gpu > t_gpu_target_hd) {   // overtime
@@ -1417,8 +1423,24 @@ static bool ged_dvfs_policy(
 			/* fix margin mode */
 			gx_tb_dvfs_margin = g_tb_dvfs_margin_value;
 
+		// change to fallback mode if frame is overdued (only in LB)
+		policy_state = ged_get_policy_state();
+		if (policy_state == POLICY_STATE_LB ||
+				policy_state == POLICY_STATE_LB_FALLBACK) {
+			// overwrite state & timeout value set prior to ged_dvfs_run
+			if (uncomplete_flag) {
+				ged_set_policy_state(POLICY_STATE_LB_FALLBACK);
+				ged_set_backup_timer_timeout(ged_get_fallback_time());
+			} else {
+				ged_set_policy_state(POLICY_STATE_LB);
+				ged_set_backup_timer_timeout(lb_timeout);
+			}
+		}
+
 		// use fix margin in fallback mode
-		if (ged_get_policy_state() == POLICY_STATE_FALLBACK)
+		policy_state = ged_get_policy_state();
+		if (policy_state == POLICY_STATE_FB_FALLBACK ||
+				policy_state == POLICY_STATE_LB_FALLBACK)
 			gx_tb_dvfs_margin = g_tb_dvfs_margin_value;
 
 		Policy__Loading_based__Margin(g_tb_dvfs_margin_value*10,
@@ -1456,7 +1478,9 @@ static bool ged_dvfs_policy(
 		Policy__Loading_based__Bound(ultra_high, high, low, ultra_low);
 
 		/* opp control */
-		if (ged_get_policy_state() == POLICY_STATE_FALLBACK) // fallback mode
+		// use fallback window size in fallback mode
+		if (policy_state == POLICY_STATE_FB_FALLBACK ||
+				policy_state == POLICY_STATE_LB_FALLBACK)
 			window_size_ms = g_fallback_window_size;
 		ui32GPULoading = gpu_util_history_query_loading(window_size_ms * 1000);
 		loading_mode = ged_get_dvfs_loading_mode();
@@ -1471,9 +1495,10 @@ static bool ged_dvfs_policy(
 		else if (ui32GPULoading <= low)
 			i32NewFreqID += 1;
 
-		// prevent decreasing opp in fall back mode
-		if (ged_get_policy_state() == POLICY_STATE_FALLBACK
-				&& i32NewFreqID > ui32GPUFreq)
+		// prevent decreasing opp in fallback mode
+		if ((policy_state == POLICY_STATE_FB_FALLBACK ||
+				policy_state == POLICY_STATE_LB_FALLBACK) &&
+				i32NewFreqID > ui32GPUFreq)
 			i32NewFreqID = ui32GPUFreq;
 
 		ged_log_buf_print(ghLogBuf_DVFS,
@@ -1956,7 +1981,6 @@ void ged_dvfs_run(
 	GED_DVFS_COMMIT_TYPE eCommitType)
 {
 	unsigned long ui32IRQFlags;
-	unsigned int gpu_freq_pre;
 
 	mutex_lock(&gsDVFSLock);
 
@@ -2011,12 +2035,15 @@ void ged_dvfs_run(
 #endif /* GED_DVFS_UM_CAL */
 		{
 			/* timer-backup DVFS use only */
-			if (ged_dvfs_policy(gpu_loading,
-				&g_ui32FreqIDFromPolicy, t, phase,
-				ul3DFenceDoneTime, false)) {
-				gpu_freq_pre = ged_get_cur_freq();
+			if (ged_dvfs_policy(gpu_loading, &g_ui32FreqIDFromPolicy, t, phase,
+					ul3DFenceDoneTime, false)) {
+				// overwrite eCommitType in case fallback is needed in LB
+				if (ged_get_policy_state() == POLICY_STATE_LB)
+					eCommitType = GED_DVFS_LOADING_BASE_COMMIT;
+				else
+					eCommitType = GED_DVFS_FALLBACK_COMMIT;
 
-				g_computed_freq_id = g_ui32FreqIDFromPolicy;
+				// commit new frequency
 				ged_dvfs_gpu_freq_commit(g_ui32FreqIDFromPolicy,
 						ged_get_freq_by_idx(
 						g_ui32FreqIDFromPolicy),
