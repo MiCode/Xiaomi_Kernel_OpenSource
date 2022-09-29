@@ -182,8 +182,11 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 			acbs[j].size = ksubcmd->cmdbufs[j].size;
 		}
 
+		mdw_trace_begin("apumdw:dev validation|c:0x%llx type:%u",
+			c->kid, ksubcmd->info->type);
 		ret = mdw_dev_validation(mpriv, ksubcmd->info->type,
 			c, acbs, ksubcmd->info->num_cmdbufs);
+		mdw_trace_end();
 		kfree(acbs);
 		acbs = NULL;
 		if (ret) {
