@@ -2414,6 +2414,7 @@ static int mtk_venc_encode_header(void *priv)
 	struct mtk_video_enc_buf *dst_buf_info;
 	struct mtk_vcodec_mem *bs_buf;
 	struct venc_done_result enc_result;
+	bool already_put = false;
 
 	memset(&enc_result, 0, sizeof(enc_result));
 	dst_vb2_v4l2 = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
@@ -2445,15 +2446,19 @@ static int mtk_venc_encode_header(void *priv)
 	get_free_buffers(ctx, &enc_result);
 
 	if (enc_result.bs_va == 0) {
-		dst_buf->planes[0].bytesused = 0;
-		ctx->state = MTK_STATE_ABORT;
-		mtk_venc_queue_error_event(ctx);
-		v4l2_m2m_buf_done(dst_vb2_v4l2,
-				  VB2_BUF_STATE_ERROR);
-		mtk_v4l2_err("%s venc_if_encode failed=%d",
-			__func__, ret);
-		mutex_unlock(&ctx->buf_lock);
-		return -EINVAL;
+		if (dst_vb2_v4l2->vb2_buf.state != VB2_BUF_STATE_ACTIVE) {
+			already_put = true;
+			mtk_v4l2_err("dst buf already put (ret %d)", ret);
+		} else {
+			dst_buf->planes[0].bytesused = 0;
+			ctx->state = MTK_STATE_ABORT;
+			mtk_venc_queue_error_event(ctx);
+			v4l2_m2m_buf_done(dst_vb2_v4l2,
+					  VB2_BUF_STATE_ERROR);
+			mtk_v4l2_err("venc_if_encode failed=%d", ret);
+			mutex_unlock(&ctx->buf_lock);
+			return -EINVAL;
+		}
 	}
 	src_vb2_v4l2 = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
 	if (src_vb2_v4l2) {
@@ -2465,8 +2470,10 @@ static int mtk_venc_encode_header(void *priv)
 		mtk_v4l2_err("No timestamp for the header buffer.");
 
 	ctx->state = MTK_STATE_HEADER;
-	dst_buf->planes[0].bytesused = enc_result.bs_size;
-	v4l2_m2m_buf_done(dst_vb2_v4l2, VB2_BUF_STATE_DONE);
+	if (!already_put) {
+		dst_buf->planes[0].bytesused = enc_result.bs_size;
+		v4l2_m2m_buf_done(dst_vb2_v4l2, VB2_BUF_STATE_DONE);
+	}
 	mutex_unlock(&ctx->buf_lock);
 
 	return 0;
@@ -3028,7 +3035,7 @@ static void m2mops_venc_device_run(void *priv)
 	     ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_HEIF ||
 	     ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_MPEG4 ||
 	     ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc == V4L2_PIX_FMT_H263) &&
-	    (ctx->state != MTK_STATE_HEADER)) {
+	    (ctx->state == MTK_STATE_INIT)) {
 		/* encode h264 sps/pps header */
 		mtk_venc_encode_header(ctx);
 		queue_work(ctx->dev->encode_workqueue, &ctx->encode_work);
