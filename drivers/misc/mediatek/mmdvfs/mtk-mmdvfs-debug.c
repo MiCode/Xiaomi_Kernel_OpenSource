@@ -201,7 +201,7 @@ static int mmdvfs_debug_opp_show(struct seq_file *file, void *data)
 			readl(MEM_REC_USR_ID(j)), readl(MEM_REC_USR_OPP(j)));
 
 	// vmm debug
-	seq_printf(file, "VMM Efuse:%u\n", readl(MEM_VMM_EFUSE));
+	seq_printf(file, "VMM Efuse:%#x\n", readl(MEM_VMM_EFUSE));
 	for (j = 0; j < 8; j++)
 		seq_printf(file, "VMM voltage level%d:%u\n", j, readl(MEM_VMM_OPP_VOLT(j)));
 
