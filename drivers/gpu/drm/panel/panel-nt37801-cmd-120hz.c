@@ -661,6 +661,10 @@ static struct mtk_panel_params ext_params = {
 		.switch_en = 1,
 		.pll_clk = PLL_CLOCK + 1,
 	},
+	.dyn_fps = {
+		.vact_timing_fps = 120,
+	},
+
 };
 
 static struct mtk_panel_params ext_params_90hz = {
@@ -724,6 +728,9 @@ static struct mtk_panel_params ext_params_90hz = {
 		.switch_en = 1,
 		.pll_clk = PLL_CLOCK + 1,
 	},
+	.dyn_fps = {
+		.vact_timing_fps = 90,
+	},
 };
 
 static struct mtk_panel_params ext_params_60hz = {
@@ -786,6 +793,9 @@ static struct mtk_panel_params ext_params_60hz = {
 	.dyn = {
 		.switch_en = 1,
 		.pll_clk = PLL_CLOCK + 1,
+	},
+	.dyn_fps = {
+		.vact_timing_fps = 60,
 	},
 };
 

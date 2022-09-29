@@ -6389,14 +6389,17 @@ void mtk_crtc_start_event_loop(struct drm_crtc *crtc)
 			dsi_pll_check_off_offset = 0;
 	}
 
-	if (crtc && crtc->state) {
+	if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params
+		&& mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps != 0) {
+		cur_fps = mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps;
+	} else if (crtc && crtc->state) {
 		cur_fps = drm_mode_vrefresh(&crtc->state->mode);
-
-		if (cur_fps)
-			frame_time = 1000000 / cur_fps;
-
-		DDPINFO("%s: cur_fps:%d, frame_time:%d\n", __func__, cur_fps, frame_time);
 	}
+
+	if (cur_fps)
+		frame_time = 1000000 / cur_fps;
+
+	DDPINFO("%s: cur_fps:%d, frame_time:%d\n", __func__, cur_fps, frame_time);
 
 	if (frame_time <=
 		(dsi_pll_check_off_offset
