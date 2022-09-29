@@ -10744,10 +10744,10 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	}
 
 	/* need to check mml is submit done */
-	if (mtk_crtc->is_mml) {
+	if (mtk_crtc->is_mml)
 		mtk_drm_wait_mml_submit_done(&(mtk_crtc->mml_cb));
-		mtk_drm_idlemgr_kick(__func__, crtc, false); /* update kick timestamp */
-	}
+
+	mtk_drm_idlemgr_kick(__func__, crtc, false); /* update kick timestamp */
 
 #ifndef DRM_CMDQ_DISABLE
 #ifdef MTK_DRM_CMDQ_ASYNC
