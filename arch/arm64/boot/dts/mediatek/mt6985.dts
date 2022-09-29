@@ -11712,7 +11712,7 @@
 	};
 
 	disp_gamma1: disp_gamma@1420e000 {
-		compatible = "mediatek,disp_gamma0",
+		compatible = "mediatek,disp_gamma1",
 					"mediatek,mt6985-disp-gamma";
 		reg = <0 0x1420e000 0 0x1000>;
 		interrupts = <GIC_SPI 413 IRQ_TYPE_LEVEL_HIGH 0>;
