@@ -3905,6 +3905,11 @@ static int mtk_gauge_proprietary_init(struct mt6375_priv *priv)
 	regval &= FG_GAINERR_SEL_MASK;
 	priv->default_r_fg = r_fg_val[regval];
 
+	priv->unit_fgcurrent = UNIT_FGCURRENT;
+	priv->unit_charge = UNIT_CHARGE;
+	priv->unit_fg_iavg = UNIT_FG_IAVG;
+	priv->unit_fgcar_zcv = UNIT_FGCAR_ZCV;
+
 	/* Variable initialization */
 	gauge->regmap = priv->regmap;
 	gauge->pdev = to_platform_device(priv->dev);
@@ -3938,11 +3943,6 @@ static int mtk_gauge_proprietary_init(struct mt6375_priv *priv)
 static void mt6375_gauge_refactor_unit(struct mt6375_priv *priv)
 {
 	struct fuel_gauge_custom_data fg_cust_data = priv->gauge.gm->fg_cust_data;
-
-	priv->unit_fgcurrent = UNIT_FGCURRENT;
-	priv->unit_charge = UNIT_CHARGE;
-	priv->unit_fg_iavg = UNIT_FG_IAVG;
-	priv->unit_fgcar_zcv = UNIT_FGCAR_ZCV;
 
 	if (priv->gauge.hw_status.r_fg_value == 20)
 		priv->default_r_fg = 20;
