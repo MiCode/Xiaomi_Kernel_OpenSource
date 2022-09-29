@@ -487,6 +487,75 @@ done:
 	return 0;
 }
 
+int mtk_drm_esd_testing_process(struct drm_crtc *crtc, bool need_lock)
+{
+		struct mtk_drm_private *private = NULL;
+		struct mtk_drm_crtc *mtk_crtc = NULL;
+		struct mtk_drm_esd_ctx *esd_ctx = NULL;
+		int ret = 0;
+		int i = 0;
+		int recovery_flg = 0;
+
+		if (!crtc) {
+			DDPPR_ERR("%s invalid CRTC context, stop thread\n", __func__);
+			return -EINVAL;
+		}
+		private = crtc->dev->dev_private;
+		mtk_crtc = to_mtk_crtc(crtc);
+		if (!mtk_crtc) {
+			DDPPR_ERR("%s invalid mtk_crtc stop thread\n", __func__);
+			return -EINVAL;
+		}
+		esd_ctx = mtk_crtc->esd_ctx;
+		if (!mtk_crtc->esd_ctx)
+			return 1;
+		mtk_drm_trace_begin("esd");
+		if (need_lock) {
+			mutex_lock(&private->commit.lock);
+			DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+		}
+		if (!mtk_drm_is_idle(crtc))
+			atomic_set(&esd_ctx->target_time, 0);
+
+		/* 1. esd check & recovery */
+		if (!esd_ctx->chk_active && need_lock) {
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			mutex_unlock(&private->commit.lock);
+		}
+
+		i = 0; /* repeat */
+		do {
+			ret = mtk_drm_esd_check(crtc);
+			if (!ret) /* success */
+				break;
+
+			DDPPR_ERR("[ESD]esd check fail, will do esd recovery. try=%d\n", i);
+			mtk_drm_esd_recover(crtc);
+			recovery_flg = 1;
+		} while (++i < ESD_TRY_CNT);
+
+		if (ret != 0) {
+			DDPPR_ERR(
+				"[ESD]after esd recovery %d times, still fail, disable esd check\n",
+				ESD_TRY_CNT);
+			mtk_disp_esd_check_switch(crtc, false);
+			if (need_lock) {
+				DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+				mutex_unlock(&private->commit.lock);
+			}
+		} else if (recovery_flg && ret == 0) {
+			DDPPR_ERR("[ESD] esd recovery success\n");
+			recovery_flg = 0;
+		}
+		mtk_drm_trace_end();
+
+		if (need_lock) {
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			mutex_unlock(&private->commit.lock);
+		}
+		return 0;
+
+}
 static int mtk_drm_esd_check_worker_kthread(void *data)
 {
 	struct sched_param param = {.sched_priority = 87};
@@ -495,8 +564,6 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 	struct mtk_drm_crtc *mtk_crtc = NULL;
 	struct mtk_drm_esd_ctx *esd_ctx = NULL;
 	int ret = 0;
-	int i = 0;
-	int recovery_flg = 0;
 
 	sched_setscheduler(current, SCHED_RR, &param);
 
@@ -526,48 +593,7 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 			continue;
 		}
 
-		mutex_lock(&private->commit.lock);
-		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
-		mtk_drm_trace_begin("esd");
-		if (!mtk_drm_is_idle(crtc))
-			atomic_set(&esd_ctx->target_time, 0);
-
-		/* 1. esd check & recovery */
-		if (!esd_ctx->chk_active) {
-			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-			mutex_unlock(&private->commit.lock);
-			continue;
-		}
-
-		i = 0; /* repeat */
-		do {
-			ret = mtk_drm_esd_check(crtc);
-
-			if (!ret) /* success */
-				break;
-
-			DDPPR_ERR(
-				"[ESD]esd check fail, will do esd recovery. try=%d\n",
-				i);
-			mtk_drm_esd_recover(crtc);
-			recovery_flg = 1;
-		} while (++i < ESD_TRY_CNT);
-
-		if (ret != 0) {
-			DDPPR_ERR(
-				"[ESD]after esd recovery %d times, still fail, disable esd check\n",
-				ESD_TRY_CNT);
-			mtk_disp_esd_check_switch(crtc, false);
-			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-			mutex_unlock(&private->commit.lock);
-			break;
-		} else if (recovery_flg) {
-			DDPINFO("[ESD] esd recovery success\n");
-			recovery_flg = 0;
-		}
-		mtk_drm_trace_end();
-		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-		mutex_unlock(&private->commit.lock);
+		mtk_drm_esd_testing_process(crtc, true);
 
 		/* 2. other check & recovery */
 		if (kthread_should_stop())
