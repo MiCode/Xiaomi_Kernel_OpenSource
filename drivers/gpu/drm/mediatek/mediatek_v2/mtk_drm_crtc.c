@@ -8980,8 +8980,6 @@ void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
 	}
 
 	mtk_drm_crtc_enable(crtc);
-	if (mtk_crtc_is_frame_trigger_mode(crtc))
-		mtk_drm_esd_testing_process(crtc, false);
 	CRTC_MMP_EVENT_END((int) index, resume,
 			mtk_crtc->enabled, 0);
 }
