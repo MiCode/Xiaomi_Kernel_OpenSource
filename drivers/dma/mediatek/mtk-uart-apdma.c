@@ -98,6 +98,9 @@ struct uart_info {
 	unsigned char rec_buf[UART_RECORD_MAXLEN];
 	unsigned int copy_wpt_reg;
 	unsigned int vff_dbg_reg;
+	unsigned int irq_cur_cpu;
+	pid_t irq_cur_pid;
+	char irq_cur_comm[16]; /* task command name from sched.h */
 	int poll_cnt_rx;
 };
 
@@ -281,15 +284,19 @@ void mtk_uart_apdma_data_dump(struct dma_chan *chan)
 
 		ns = do_div(endtime, 1000000000);
 		dev_info(c->vc.chan.device->dev,
-			"[%s] [%s] [begin %5lu.%06lu] [elapsed time %5lu.%06lu] total=%llu,idx=%d,\n"
-			"wpt=0x%x,rpt=0x%x,len=%d,poll_cnt_rx=%d,vff_dbg=0x%x,copy_wpt=0x%x\n",
+			"[%s] [%s] [begin %5lu.%06lu] [%s time %5lu.%06lu] total=%llu,idx=%d,\n"
+			"wpt=0x%x,rpt=0x%x,len=%d,poll_cnt_rx=%d,vff_dbg=0x%x,copy_wpt=0x%x,\n"
+			"irq_handler cpu:%d, pid:%d, comm:%s\n",
 			__func__, c->dir == DMA_DEV_TO_MEM ? "dma_rx" : "dma_tx",
 			(unsigned long)endtime, ns / 1000,
+			c->dir == DMA_DEV_TO_MEM ? "rx_handler" : "elapsed",
 			(unsigned long)durationtime, elapseNs/1000,
 			c->rec_total, idx,
 			c->rec_info[idx].wpt_reg, c->rec_info[idx].rpt_reg,
 			c->rec_info[idx].trans_len, c->rec_info[idx].poll_cnt_rx,
-			c->rec_info[idx].vff_dbg_reg, c->rec_info[idx].copy_wpt_reg);
+			c->rec_info[idx].vff_dbg_reg, c->rec_info[idx].copy_wpt_reg,
+			c->rec_info[idx].irq_cur_cpu, c->rec_info[idx].irq_cur_pid,
+			c->rec_info[idx].irq_cur_comm);
 #ifdef CONFIG_UART_DMA_DATA_RECORD
 		if (len <= UART_RECORD_MAXLEN) {
 			if (len > 256)
@@ -566,7 +573,16 @@ static void mtk_uart_apdma_rx_handler(struct mtk_chan *c)
 	c->rec_info[idx].wpt_reg = wg;
 	c->rec_info[idx].rpt_reg = rg;
 	c->rec_info[idx].trans_len = cnt;
-	c->rec_info[idx].trans_duration_time = sched_clock() - c->rec_info[idx].trans_time;
+	c->rec_info[idx].trans_duration_time = sched_clock();
+	c->rec_info[idx].irq_cur_pid = current->pid;
+	memcpy(c->rec_info[idx].irq_cur_comm, current->comm,
+		sizeof(c->rec_info[idx].irq_cur_comm));
+	c->rec_info[idx].irq_cur_comm[15] = 0;
+#if defined(CONFIG_SMP) && defined(CONFIG_THREAD_INFO_IN_TASK)
+	c->rec_info[idx].irq_cur_cpu = current->cpu;
+#else
+	c->rec_info[idx].irq_cur_cpu = 0xff;
+#endif
 #ifdef CONFIG_UART_DMA_DATA_RECORD
 	if (d->vd.tx.callback_param != NULL) {
 		struct uart_8250_port *p = (struct uart_8250_port *)d->vd.tx.callback_param;

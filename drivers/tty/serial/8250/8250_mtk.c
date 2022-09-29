@@ -121,6 +121,9 @@ struct mtk8250_dump {
 	int r_copied;
 	int port_id;
 	unsigned long long tty_port_addr;
+	unsigned int cur_cpu;
+	pid_t cur_pid;
+	char cur_comm[16]; /* task command name from sched.h */
 	unsigned char rec_buf[UART_DUMP_BUF_LEN];
 };
 
@@ -488,9 +491,10 @@ void mtk8250_data_dump(void)
 			rx_record.rec_total, idx, rx_record.rec[idx].port_id, len_,
 			rx_record.rec[idx].r_rx_pos, rx_record.rec[idx].r_copied);
 
-		pr_info("[%s] [%5lu.%06lu] tty_port: %llu\n",
+		pr_info("[%s] [%5lu.%06lu] tty_port: %llu, cpu:%d, pid:%d, comm:%s\n",
 			__func__, (unsigned long)endtime, ns / 1000,
-			rx_record.rec[idx].tty_port_addr);
+			rx_record.rec[idx].tty_port_addr, rx_record.rec[idx].cur_cpu,
+			rx_record.rec[idx].cur_pid, rx_record.rec[idx].cur_comm);
 
 		if (len_ <= UART_DUMP_BUF_LEN) {
 			if (len_ > 256)
@@ -1055,7 +1059,15 @@ static void mtk8250_dma_rx_complete(void *param)
 		rx_record.rec[idx].trans_len = total;
 		rx_record.rec[idx].trans_time = sched_clock();
 		rx_record.rec[idx].r_rx_pos = data->rx_pos;
-		rx_record.rec[idx].port_id = data->line;
+		rx_record.rec[idx].cur_pid = current->pid;
+		memcpy(rx_record.rec[idx].cur_comm, current->comm,
+			sizeof(rx_record.rec[idx].cur_comm));
+		rx_record.rec[idx].cur_comm[15] = 0;
+#if defined(CONFIG_SMP) && defined(CONFIG_THREAD_INFO_IN_TASK)
+		rx_record.rec[idx].cur_cpu = current->cpu;
+#else
+		rx_record.rec[idx].cur_cpu = 0xff;
+#endif
 	}
 
 	if ((data->rx_pos + cnt) > dma->rx_size)
