@@ -13,6 +13,7 @@
 #include <linux/clkdev.h>
 #include <linux/delay.h>
 #include <linux/module.h>
+#include <mt-plat/aee.h>
 #include "clk-mtk.h"
 
 #define REG_CON0		0
@@ -33,6 +34,7 @@
 #define MTK_WAIT_HWV_PLL_PREPARE_CNT	500
 #define MTK_WAIT_HWV_PLL_PREPARE_US		1
 #define MTK_WAIT_HWV_PLL_VOTE_CNT		100
+#define MTK_WAIT_HWV_PLL_LONG_VOTE_CNT		2500
 #define MTK_WAIT_HWV_PLL_VOTE_US		2
 #define MTK_WAIT_HWV_PLL_DONE_CNT		100000
 #define MTK_WAIT_HWV_PLL_DONE_US		1
@@ -356,6 +358,7 @@ static int mtk_hwv_pll_is_unprepared_done(struct mtk_clk_pll *pll)
 
 static int mtk_hwv_pll_prepare(struct clk_hw *hw)
 {
+	bool is_trigger = false;
 	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
 	u32 val = 0, val2 = 0;
 	int i = 0;
@@ -385,12 +388,23 @@ static int mtk_hwv_pll_prepare(struct clk_hw *hw)
 			break;
 
 		udelay(MTK_WAIT_HWV_PLL_VOTE_US);
-		if (i > MTK_WAIT_HWV_PLL_VOTE_CNT)
+		if ((i > MTK_WAIT_HWV_PLL_VOTE_CNT) && (is_trigger == false)) {
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+			aee_kernel_warning("clk-pll", "pll %s prepare warning",
+					   clk_hw_get_name(hw));
+#endif
+			pr_info("pll %s: hwv warning\n",  clk_hw_get_name(hw));
+			is_trigger = true;
+		}
+
+
+		if (i > MTK_WAIT_HWV_PLL_LONG_VOTE_CNT)
 			goto err_hwv_vote;
 		i++;
 	} while (1);
 
 	i = 0;
+	is_trigger = false;
 
 	do {
 		if (mtk_hwv_pll_is_prepared_done(pll))
