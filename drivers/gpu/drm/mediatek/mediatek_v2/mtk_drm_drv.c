@@ -5322,7 +5322,6 @@ int mtk_drm_ioctl_get_all_connector_panel_info(struct drm_device *dev, void *dat
 			goto exit2;
 		}
 		for (i = 0 ; i < __panel_ctx.connector_cnt; ++i) {
-			ptr = panel_ctx->panel_name + (sizeof(void __user *) * i);
 			if (copy_to_user((void __user *)uptr[i], __panel_ctx.panel_name[i],
 					sizeof(char) * GET_PANELS_STR_LEN)) {
 				DDPPR_ERR("%s copy_to_user panel_name fail\n", __func__);
