@@ -193,7 +193,11 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 		else
 			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
 						 DDP_FIRST_PATH, 0);
-
+		cmdq_pkt_flush(cmdq_handle);
+		cmdq_pkt_destroy(cmdq_handle);
+		cmdq_handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+		cmdq_handle->err_cb.cb = esd_cmdq_timeout_cb;
+		cmdq_handle->err_cb.data = crtc;
 		cmdq_pkt_clear_event(cmdq_handle,
 				     mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
 

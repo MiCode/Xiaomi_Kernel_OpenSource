@@ -73,7 +73,7 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define INTEN_FLD_RDMA3_SMI_UNDERFLOW_INTEN REG_FLD_MSB_LSB(12, 12)
 #define INTEN_FLD_ABNORMAL_SOF REG_FLD_MSB_LSB(13, 13)
 #define INTEN_FLD_START_INTEN REG_FLD_MSB_LSB(14, 14)
-
+#define INIEN_ROI_TIMING_0 REG_FLD_MSB_LSB(15, 15)
 #define DISP_REG_OVL_INTSTA 0x0008
 #define DISP_REG_OVL_EN (0x000CUL)
 #define EN_FLD_BLOCK_EXT_ULTRA			REG_FLD_MSB_LSB(18, 18)
@@ -84,6 +84,7 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 
 #define DISP_REG_OVL_RST 0x0014
 #define DISP_REG_OVL_ROI_SIZE 0x0020
+#define OVL_ROI_TIMING_0 0x740
 #define DISP_REG_OVL_DATAPATH_CON	(0x024UL)
 #define DISP_OVL_BGCLR_IN_SEL BIT(2)
 #define DATAPATH_PQ_OUT_SEL REG_FLD_MSB_LSB(18, 16)
@@ -889,7 +890,16 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 		DDPIRQ("[IRQ] %s: reg commit!\n", mtk_dump_comp_str(ovl));
 	if (val & (1 << 1)) {
 		DDPIRQ("[IRQ] %s: frame done!\n", mtk_dump_comp_str(ovl));
+
 		dump_ovl_layer_trace(mtk_crtc, ovl);
+	}
+	if ((ovl->id == DDP_COMPONENT_OVL0_2L) && (val & (1 << 15))) {
+		DDPIRQ("[IRQ] %s: OVL target line\n", mtk_dump_comp_str(ovl));
+		DRM_MMP_MARK(ovl0, val, 3);
+		if (mtk_crtc->esd_ctx) {
+			atomic_set(&mtk_crtc->esd_ctx->target_time, 1);
+			wake_up_interruptible(&mtk_crtc->esd_ctx->check_task_wq);
+		}
 	}
 	if (val & (1 << 2)) {
 		unsigned long long aee_now_ts = sched_clock();
@@ -1103,6 +1113,12 @@ static void mtk_ovl_config(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_OVL_ROI_BGCLR, OVL_ROI_BGCLR,
 		       ~0);
+
+
+	mtk_ddp_write(comp, (cfg->h * 9) / 10,
+		OVL_ROI_TIMING_0, handle);
+
+	DDPINFO("%s -> %u\n", __func__, (cfg->h * 9) / 10);
 
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_BW_MONITOR) &&
 		(crtc_idx == 0)) {
@@ -3381,8 +3397,14 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	}
 	case IRQ_LEVEL_NORMAL: {
 		unsigned int inten;
+		struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
 
-		inten = REG_FLD_VAL(INTEN_FLD_FME_UND_INTEN, 1);
+		if (priv->data->mmsys_id == MMSYS_MT6985)
+			inten = REG_FLD_VAL(INTEN_FLD_FME_UND_INTEN, 1) |
+					REG_FLD_VAL(INTEN_FLD_FME_CPL_INTEN, 1) |
+					REG_FLD_VAL(INIEN_ROI_TIMING_0, 1);
+		else
+			inten = REG_FLD_VAL(INTEN_FLD_FME_UND_INTEN, 1);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_INTSTA, 0,
 			       ~0);
@@ -3717,6 +3739,7 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 		}
 	} else {
 		DDPDUMP("0x8f0:0x%x\n", readl(DISP_REG_OVL_SMI_2ND_CFG + baddr));
+		DDPDUMP("0x740:0x%x\n", readl(OVL_ROI_TIMING_0 + baddr));
 		/* STA, INTEN, INTSTA, EN*/
 		mtk_serial_dump_reg(baddr, 0x0, 4);
 

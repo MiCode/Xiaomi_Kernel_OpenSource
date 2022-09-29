@@ -15552,29 +15552,6 @@ void mtk_disp_mutex_submit_sof(struct mtk_disp_mutex *mutex)
 		}
 	}
 }
-void mtk_wakeup_esd_wq(struct mtk_ddp *ddp, int m_id)
-{
-	unsigned int mutex_index = 0;
-	unsigned int crtc_index = 0;
-	struct mtk_drm_crtc *mtk_crtc = NULL;
-
-	for (crtc_index = 0; crtc_index < MAX_CRTC; crtc_index++) {
-		for (mutex_index = 0; mutex_index < DDP_PATH_NR; mutex_index++) {
-			if (!ddp->mtk_crtc[crtc_index])
-				break;
-			mtk_crtc = ddp->mtk_crtc[crtc_index];
-			if (!mtk_crtc->mutex[mutex_index])
-				continue;
-			if (mtk_crtc->mutex[mutex_index]->id == m_id) {
-				if (mtk_crtc->esd_ctx) {
-					atomic_set(&mtk_crtc->esd_ctx->target_time, 1);
-					wake_up_interruptible(&mtk_crtc->esd_ctx->check_task_wq);
-					break;
-				}
-			}
-		}
-	}
-}
 static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 {
 	struct mtk_ddp *ddp = dev_id;
@@ -15583,6 +15560,7 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 	int ret = 0;
 	unsigned long long irq_debug[10] = {0};
 	static DEFINE_RATELIMIT_STATE(irq_ratelimit, 5 * HZ, 1);
+	struct mtk_drm_private *priv = ddp->mtk_crtc[0]->base.dev->dev_private;
 
 	irq_debug[0] = sched_clock();
 
@@ -15607,6 +15585,8 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 		if (val & (0x1 << (m_id + DISP_MUTEX_TOTAL))) {
 			DDPIRQ("[IRQ] mutex%d eof!\n", m_id);
 			DRM_MMP_MARK(mutex[m_id], val, 1);
+			if (priv->data->mmsys_id == MMSYS_MT6985)
+				atomic_set(&ddp->mtk_crtc[0]->esd_ctx->target_time, 0);
 #ifndef DRM_BYPASS_PQ
 			irq_debug[1] = sched_clock();
 			disp_c3d_on_end_of_frame_mutex();
@@ -15622,8 +15602,6 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 				vcp_cmd_ex(VCP_SET_DISP_SYNC);
 			}
 #endif
-			if (ddp->data->wakeup_esd_wq)
-				mtk_wakeup_esd_wq(ddp, m_id);
 			if (m_id == 0 && ddp->data->wakeup_pf_wq)
 				mtk_wakeup_pf_wq();
 			if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
