@@ -2513,7 +2513,6 @@ static int VowDrv_QueryVowEINTStatus(void)
 	spin_lock(&vowdrv_lock);
 	ret = vowserv.eint_status;
 	spin_unlock(&vowdrv_lock);
-	VOWDRV_DEBUG("%s():%d\n", __func__, ret);
 	return ret;
 }
 
@@ -2954,6 +2953,7 @@ static ssize_t VowDrv_read(struct file *fp,
 	int ret = 0;
 	unsigned int ret_data = 0;
 	int slot = 0;
+	int eint_status = 0;
 	bool dsp_inform_tx_flag = false;
 
 	VOWDRV_DEBUG("+%s()+\n", __func__);
@@ -3002,11 +3002,11 @@ static ssize_t VowDrv_read(struct file *fp,
 	}
 	slot = vow_service_SearchSpeakerModelWithKeyword(
 		  vowserv.scp_command_keywordid);
+	eint_status = VowDrv_QueryVowEINTStatus();
 	if (slot < 0) {
 		/* there is no pair id */
 		VOWDRV_DEBUG("%s(), search ID fail, not keyword event, eint=%d, exit\n",
-						__func__,
-						VowDrv_QueryVowEINTStatus());
+						__func__, eint_status);
 		vowserv.scp_command_id =  0;
 		vowserv.confidence_level = 0;
 		goto exit;
@@ -3017,7 +3017,7 @@ static ssize_t VowDrv_read(struct file *fp,
 	memset((void *)&vowserv.vow_eint_data_struct, 0,
 					sizeof(vowserv.vow_eint_data_struct));
 	vowserv.vow_eint_data_struct.id = vowserv.scp_command_id;
-	vowserv.vow_eint_data_struct.eint_status = VowDrv_QueryVowEINTStatus();
+	vowserv.vow_eint_data_struct.eint_status = eint_status;
 	vowserv.vow_eint_data_struct.data[0] = (char)vowserv.confidence_level;
 	vowserv.confidence_level = 0;
 	read_count = copy_to_user((void __user *)data,
@@ -3080,10 +3080,11 @@ static ssize_t VowDrv_read(struct file *fp,
 	}
 
 exit:
-	VOWDRV_DEBUG("+%s()-, recog id: %d, confidence_lv=%d\n",
+	VOWDRV_DEBUG("+%s()-, recog id: %d, confidence_lv=%d, eint=%d\n",
 		     __func__,
 		     vowserv.scp_command_id,
-		     vowserv.confidence_level);
+		     vowserv.confidence_level,
+		     eint_status);
 	return read_count;
 }
 
