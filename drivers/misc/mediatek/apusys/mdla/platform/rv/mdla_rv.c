@@ -455,7 +455,7 @@ int mdla_rv_init(struct platform_device *pdev)
 
 	/* backup size * core num * preempt lv */
 	mdla_plat_alloc_mem(&backup_mem, 1024 * nr_core_ids * 4);
-	mdla_plat_alloc_mem(&dbg_mem, DEFAULT_DBG_SZ);
+	mdla_plat_alloc_mem(&dbg_mem, DEFAULT_DBG_SZ + 0x1000 * nr_core_ids);
 	mdla_plat_alloc_mem(&rv_dbg_mem, DEFAULT_RV_DBG_SZ);
 
 	return 0;
