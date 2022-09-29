@@ -11,6 +11,8 @@
 #include <linux/firmware.h>
 #include <linux/device.h>
 #include <linux/dma-heap.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
+#include <linux/arm-smccc.h>
 #include "mtk_heap.h"
 #include <uapi/linux/dma-heap.h>
 #include <linux/scatterlist.h>
@@ -333,6 +335,11 @@ static const unsigned int attr_wdma_size[attr_loop_num][output_WDMA_WRA_num] = {
 	{0, 0, 0, 0} };
 static const unsigned int debug_info_sel[input_WDMA_WRA_num] = {
 	0x00000000, 0x11111111, 0x22222222, 0x33333333};
+
+enum aie_smc_control {
+	AIE_SET_DOMAIN
+};
+
 static unsigned int attr_wdma_aligned_size[attr_loop_num][output_WDMA_WRA_num];
 /* (128-bits ALIGN work-around)*/
 #define fld_blink_weight_size 6416
@@ -4223,8 +4230,11 @@ int aie_alloc_aie_buf(struct mtk_aie_dev *fd)
 {
 	int ret;
 	int err_tag = 0;
+	struct arm_smccc_res res;
 
 	aie_reset(fd);
+	arm_smccc_smc(MTK_SIP_AIE_CONTROL, AIE_SET_DOMAIN, 0,
+				0, 0, 0, 0, 0, &res);
 	memset(&fd->st_info, 0, sizeof(fd->st_info));
 	aie_init_table(fd, fd->base_para->max_pyramid_width,
 		       fd->base_para->max_pyramid_height);
