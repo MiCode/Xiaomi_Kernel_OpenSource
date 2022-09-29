@@ -2405,9 +2405,19 @@ static void dpmaif_txqs_sw_stop(void)
 static void dpmaif_rxq_stop_lro(struct dpmaif_rx_queue *rxq)
 {
 	int i;
+	struct dpmaif_bat_skb *bat_skb = NULL;
+	struct dpmaif_rx_lro_info *lro_info = &rxq->lro_info;
 
-	for (i = 0; i < rxq->lro_info.count; i++)
-		dev_kfree_skb_any(rxq->lro_info.data[i].skb);
+	CCCI_ERROR_LOG(0, TAG, "[%s] rxq%d lroinfo count: %u\n",
+			__func__, rxq->index, lro_info->count);
+
+	for (i = 0; i < lro_info->count; i++) {
+		dev_kfree_skb_any(lro_info->data[i].skb);
+
+		bat_skb = ((struct dpmaif_bat_skb *)
+					dpmaif_ctl->bat_skb->bat_pkt_addr + lro_info->data[i].bid);
+		bat_skb->skb = NULL;
+	}
 
 	rxq->lro_info.count = 0;
 }
