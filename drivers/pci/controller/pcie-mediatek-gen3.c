@@ -1380,7 +1380,7 @@ u32 mtk_pcie_dump_link_info(int port)
 	/* AXI read request error: AXI fetch error and completion timeout */
 	val = readl_relaxed(pcie_port->base + PCIE_INT_STATUS_REG);
 	if (val & PCIE_AXI_READ_ERR)
-		ret_val &= BIT(6);
+		ret_val |= BIT(6);
 
 	return ret_val;
 }
