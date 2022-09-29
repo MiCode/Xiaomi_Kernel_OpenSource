@@ -551,8 +551,10 @@ static void ufs_mtk_init_reset(struct ufs_hba *hba)
 				   "unipro_rst");
 	ufs_mtk_init_reset_control(hba, &host->crypto_reset,
 				   "crypto_rst");
+	/*
 	ufs_mtk_init_reset_control(hba, &host->mphy_reset,
 				   "mphy_rst");
+	*/
 }
 
 static int ufs_mtk_hce_enable_notify(struct ufs_hba *hba,
@@ -1241,9 +1243,6 @@ static void ufs_mtk_trace_vh_compl_command(void *data, struct ufs_hba *hba, stru
 	unsigned long outstanding_tasks;
 	struct ufsf_feature *ufsf;
 #endif
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	static bool boot_mphy_dump;
-#endif
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER) || defined(CONFIG_UFSFEATURE)
 	unsigned long *outstanding_reqs;
@@ -1257,20 +1256,6 @@ static void ufs_mtk_trace_vh_compl_command(void *data, struct ufs_hba *hba, stru
 
 	if (!cmd)
 		return;
-
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	/* record burst mode mphy status after resume ssu complete */
-	if (hba->pm_op_in_progress &&
-		(cmd->cmnd[0] == START_STOP) &&
-		(cmd->cmnd[4] == UFS_ACTIVE_PWR_MODE << 4)) {
-		ufs_mtk_mphy_record(hba, UFS_MPHY_INIT);
-
-		if (!boot_mphy_dump) {
-			ufs_mtk_mphy_dump(hba);
-			boot_mphy_dump = true;
-		}
-	}
-#endif
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER) || defined(CONFIG_UFSFEATURE)
 	ufs_mtk_get_outstanding_reqs(hba, &outstanding_reqs, &nr_tag);
@@ -2899,6 +2884,74 @@ static int ufs_mtk_pwr_change_notify(struct ufs_hba *hba,
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+static void ufs_mtk_hibern8_notify(struct ufs_hba *hba, enum uic_cmd_dme cmd,
+				    enum ufs_notify_change_status status)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	u32 val;
+	static bool boot_mphy_dump;
+
+	/* clear before hibern8 enter in suspend  */
+	if (status == PRE_CHANGE && cmd == UIC_CMD_DME_HIBER_ENTER &&
+		(hba->pm_op_in_progress)) {
+
+		if (host->mphy_base) {
+			/*
+			 * in middle of ssu sleep and hibern8 enter,
+			 * clear 2 line hw status.
+			 */
+			val = readl(host->mphy_base + 0xA800) | 0x02;
+			writel(val, host->mphy_base + 0xA800);
+			writel(val, host->mphy_base + 0xA800);
+			val = val & (~0x02);
+			writel(val, host->mphy_base + 0xA800);
+
+			val = readl(host->mphy_base + 0xA900) | 0x02;
+			writel(val, host->mphy_base + 0xA900);
+			writel(val, host->mphy_base + 0xA900);
+			val = val & (~0x02);
+			writel(val, host->mphy_base + 0xA900);
+
+			val = readl(host->mphy_base + 0xA804) | 0x02;
+			writel(val, host->mphy_base + 0xA804);
+			writel(val, host->mphy_base + 0xA804);
+			val = val & (~0x02);
+			writel(val, host->mphy_base + 0xA804);
+
+			val = readl(host->mphy_base + 0xA904) | 0x02;
+			writel(val, host->mphy_base + 0xA904);
+			writel(val, host->mphy_base + 0xA904);
+			val = val & (~0x02);
+			writel(val, host->mphy_base + 0xA904);
+
+			/* check status is already clear */
+			if (readl(host->mphy_base + 0xA808) ||
+				readl(host->mphy_base + 0xA908)) {
+
+				pr_info("%s: [%d] clear fail 0x%x 0x%x\n",
+					__func__, __LINE__,
+					readl(host->mphy_base + 0xA808),
+					readl(host->mphy_base + 0xA908)
+					);
+			}
+		}
+	}
+
+	/* record burst mode mphy status after resume exit hibern8 complete */
+	if (status == POST_CHANGE && cmd == UIC_CMD_DME_HIBER_EXIT &&
+		(hba->pm_op_in_progress)) {
+
+		ufs_mtk_mphy_record(hba, UFS_MPHY_INIT);
+
+		if (!boot_mphy_dump) {
+			ufs_mtk_mphy_dump(hba);
+			boot_mphy_dump = true;
+		}
+	}
+}
+#endif
+
 static int ufs_mtk_unipro_set_lpm(struct ufs_hba *hba, bool lpm)
 {
 	int ret;
@@ -2976,6 +3029,16 @@ static int ufs_mtk_post_link(struct ufs_hba *hba)
 {
 	/* enable unipro clock gating feature */
 	ufs_mtk_cfg_unipro_cg(hba, true);
+
+	/* 1: 0.8db, 2: 1.6db, 3: 2.5db, 4: 3.5db */
+	ufshcd_dme_peer_set(hba,
+		UIC_ARG_MIB_SEL(TX_HS_EQUALIZER_SETTING,
+			UIC_ARG_MPHY_TX_GEN_SEL_INDEX(0)),
+			4);
+	ufshcd_dme_peer_set(hba,
+		UIC_ARG_MIB_SEL(TX_HS_EQUALIZER_SETTING,
+			UIC_ARG_MPHY_TX_GEN_SEL_INDEX(1)),
+			4);
 
 	return 0;
 }
@@ -3618,6 +3681,9 @@ static const struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	.hce_enable_notify   = ufs_mtk_hce_enable_notify,
 	.link_startup_notify = ufs_mtk_link_startup_notify,
 	.pwr_change_notify   = ufs_mtk_pwr_change_notify,
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	.hibern8_notify      = ufs_mtk_hibern8_notify,
+#endif
 	.apply_dev_quirks    = ufs_mtk_apply_dev_quirks,
 	.fixup_dev_quirks    = ufs_mtk_fixup_dev_quirks,
 	.suspend             = ufs_mtk_suspend,

@@ -443,15 +443,19 @@ static void probe_ufshcd_clk_gating(void *data, const char *dev_name,
 		cmd_hist[ptr].cmd.clk_gating.arg2 =
 			readl(host->mphy_base + 0xA19C);
 		writel(0, host->mphy_base + 0x20C0);
+	} else if (state == REQ_CLKS_OFF && host->mphy_base) {
+		writel(0xC1000200, host->mphy_base + 0x20C0);
+		cmd_hist[ptr].cmd.clk_gating.arg1 =
+			readl(host->mphy_base + 0xA09C);
+		cmd_hist[ptr].cmd.clk_gating.arg2 =
+			readl(host->mphy_base + 0xA19C);
+		writel(0, host->mphy_base + 0x20C0);
 
-		/* when clock on, clear 2 line hw status */
+		/* when req clk off, clear 2 line hw status */
 		val = readl(host->mphy_base + 0xA800) | 0x02;
 		writel(val, host->mphy_base + 0xA800);
 		writel(val, host->mphy_base + 0xA800);
 		val = val & (~0x02);
-		writel(val, host->mphy_base + 0xA800);
-		val = val & ~(0x3FF << 2);
-		val = val | (0xC3 << 2);
 		writel(val, host->mphy_base + 0xA800);
 
 		val = readl(host->mphy_base + 0xA900) | 0x02;
@@ -459,17 +463,11 @@ static void probe_ufshcd_clk_gating(void *data, const char *dev_name,
 		writel(val, host->mphy_base + 0xA900);
 		val = val & (~0x02);
 		writel(val, host->mphy_base + 0xA900);
-		val = val & ~(0x3FF << 2);
-		val = val | (0xC3 << 2);
-		writel(val, host->mphy_base + 0xA900);
 
 		val = readl(host->mphy_base + 0xA804) | 0x02;
 		writel(val, host->mphy_base + 0xA804);
 		writel(val, host->mphy_base + 0xA804);
 		val = val & (~0x02);
-		writel(val, host->mphy_base + 0xA804);
-		val = val & ~(0x3FF << 2);
-		val = val | (0xC3 << 2);
 		writel(val, host->mphy_base + 0xA804);
 
 		val = readl(host->mphy_base + 0xA904) | 0x02;
@@ -477,9 +475,17 @@ static void probe_ufshcd_clk_gating(void *data, const char *dev_name,
 		writel(val, host->mphy_base + 0xA904);
 		val = val & (~0x02);
 		writel(val, host->mphy_base + 0xA904);
-		val = val & ~(0x3FF << 2);
-		val = val | (0xC3 << 2);
-		writel(val, host->mphy_base + 0xA904);
+
+		/* check status is already clear */
+		if (readl(host->mphy_base + 0xA808) ||
+			readl(host->mphy_base + 0xA908)) {
+
+			pr_info("%s: [%d] clear fail 0x%x 0x%x\n",
+				__func__, __LINE__,
+				readl(host->mphy_base + 0xA808),
+				readl(host->mphy_base + 0xA908)
+				);
+		}
 	} else {
 		cmd_hist[ptr].cmd.clk_gating.arg1 = 0;
 		cmd_hist[ptr].cmd.clk_gating.arg2 = 0;
