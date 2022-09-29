@@ -6202,6 +6202,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 				mtk_drm_crtc_mini_dump(crtc);
 				cmdq_dump_pkt(cb_data->cmdq_handle, 0, true);
 			} else {
+				cmdq_util_hw_trace_dump(0, 0);
 				mtk_drm_crtc_analysis(crtc);
 				mtk_drm_crtc_dump(crtc);
 				cmdq_dump_pkt(cb_data->cmdq_handle, 0, true);
