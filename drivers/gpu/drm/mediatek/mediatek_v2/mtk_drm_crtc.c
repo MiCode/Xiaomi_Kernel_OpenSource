@@ -4105,6 +4105,7 @@ void mtk_crtc_ovl_connect_change(struct drm_crtc *crtc, unsigned int ovl_res,
 	unsigned int comp_id, ovl_comp_idx;
 	unsigned int *comp_id_list = NULL, comp_id_nr;
 	unsigned int ddp_mode;
+	bool is_frame_mode;
 
 	if (unlikely(!crtc)) {
 		DDPPR_ERR("%s invalid CRTC\n", __func__);
@@ -4120,6 +4121,7 @@ void mtk_crtc_ovl_connect_change(struct drm_crtc *crtc, unsigned int ovl_res,
 	mtk_crtc = to_mtk_crtc(crtc);
 	ddp_mode = mtk_crtc->ddp_mode;
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	is_frame_mode = mtk_crtc_is_frame_trigger_mode(crtc);
 
 	if (mtk_crtc->ddp_ctx[ddp_mode].ovl_comp_nr[DDP_FIRST_PATH] == 0) {
 		DDPINFO("%s no valid ovl_comp\n", __func__);
@@ -4226,7 +4228,7 @@ void mtk_crtc_ovl_connect_change(struct drm_crtc *crtc, unsigned int ovl_res,
 		mtk_ddp_comp_start(comp, cmdq_handle);
 
 		mtk_disp_mutex_add_comp_with_cmdq(mtk_crtc, comp->id,
-				mtk_crtc_is_frame_trigger_mode(crtc), cmdq_handle, 0);
+				is_frame_mode, cmdq_handle, 0);
 	}
 
 	if (!mtk_crtc->is_dual_pipe)
@@ -4327,7 +4329,7 @@ void mtk_crtc_ovl_connect_change(struct drm_crtc *crtc, unsigned int ovl_res,
 		mtk_ddp_comp_start(comp, cmdq_handle);
 
 		mtk_disp_mutex_add_comp_with_cmdq(mtk_crtc, comp->id,
-				mtk_crtc_is_frame_trigger_mode(crtc), cmdq_handle, 0);
+				is_frame_mode, cmdq_handle, 0);
 	}
 
 }
