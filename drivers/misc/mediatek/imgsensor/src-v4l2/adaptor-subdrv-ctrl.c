@@ -77,8 +77,11 @@ static void dump_i2c_buf(struct subdrv_ctx *ctx)
 			       "[0x%04x]",
 			       ctx->_i2c_data[i]);
 
-		if (num < 0)
+		if (num < 0) {
 			DRV_LOG(ctx, "snprintf return negative at line %d\n", __LINE__);
+			kfree(out_str);
+			return;
+		}
 
 		i++;
 		remind -= num;
