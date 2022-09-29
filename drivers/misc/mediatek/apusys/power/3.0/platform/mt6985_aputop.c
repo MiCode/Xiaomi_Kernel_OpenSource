@@ -41,10 +41,6 @@ static struct apu_power apupw = {
 	.rcx = RPC_HW,
 };
 
-/* backup/restore opp limit */
-static uint32_t g_opp_cfg_acx0;
-static uint32_t g_opp_cfg_acx1;
-
 #if APUPW_DUMP_FROM_APMCU
 static void aputop_dump_reg(enum apupw_reg idx, uint32_t offset, uint32_t size)
 {
@@ -498,25 +494,11 @@ static int mt6985_apu_top_rm(struct platform_device *pdev)
 
 static int mt6985_apu_top_suspend(struct device *dev)
 {
-	g_opp_cfg_acx0 = apu_readl(
-			apupw.regs[apu_md32_mbox] + ACX0_LIMIT_OPP_REG);
-	g_opp_cfg_acx1 = apu_readl(
-			apupw.regs[apu_md32_mbox] + ACX1_LIMIT_OPP_REG);
-
-	pr_info("%s backup data 0x%08x 0x%08x\n", __func__,
-			g_opp_cfg_acx0, g_opp_cfg_acx1);
 	return 0;
 }
 
 static int mt6985_apu_top_resume(struct device *dev)
 {
-	pr_info("%s restore data 0x%08x 0x%08x\n", __func__,
-			g_opp_cfg_acx0, g_opp_cfg_acx1);
-
-	apu_writel(g_opp_cfg_acx0,
-			apupw.regs[apu_md32_mbox] + ACX0_LIMIT_OPP_REG);
-	apu_writel(g_opp_cfg_acx1,
-			apupw.regs[apu_md32_mbox] + ACX1_LIMIT_OPP_REG);
 	return 0;
 }
 
