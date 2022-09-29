@@ -107,6 +107,14 @@ static const struct dvfs_ref s_dl_dvfs_tbl_v7[] = { /* 6:2 for mt6855 */
 	{0LL, {-1, -1, -1, -1}, -1, 0x02, 0xFF, 0xFF, 0xFF, {-1, -1, -1, -1}},
 };
 
+static const struct dvfs_ref s_dl_dvfs_tbl_v8[] = { /* 4:3:1 for mt6985 */
+	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat, tx_done*/
+	{3000000000LL, {-1, -1, -1, -1}, -1, 0x02, 0x10, 0x20, 0x40, {0x0D, 0x0D, 0x0D, 0x0D}},
+	{1000000000LL, {-1, -1, -1, -1}, -1, 0x40, 0x10, 0x20, 0x0E, {0x70, 0x70, 0x70, 0x70}},
+	/* normal */
+	{0LL,          {-1, -1, -1, -1}, -1, 0x02, 0xFF, 0x7F, 0xFF, {-1, -1, -1, -1}},
+};
+
 /* uplink */
 static const struct dvfs_ref s_ul_dvfs_tbl_v0[] = { /* default */
 	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat, tx_done*/
@@ -164,6 +172,13 @@ static const struct dvfs_ref s_ul_dvfs_tbl_v7[] = { /* 6:2 for mt6855 */
 	{0LL,          {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0xFF, 0xFF, {-1, -1, -1, -1}},
 };
 
+static const struct dvfs_ref s_ul_dvfs_tbl_v8[] = { /* 4:3:1 for mt6985 */
+	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat, tx_done*/
+	{450000000LL, {2000000, 2000000, -1, -1}, 1, 0x02, 0x10, 0x20, 0xFF, {-1, -1, -1, -1}},
+	/* normal */
+	{0LL,          {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x0F, 0xFF, {-1, -1, -1, -1}},
+};
+
 #define QOS_PREFER_CPU_BITMAP_V0_2_6	(0xC0)
 #define QOS_PREFER_CPU_BITMAP_V1_4_4	(0xF0)
 #define QOS_PREFER_CPU_BITMAP_V2_1_3_4	(0x70)
@@ -200,6 +215,9 @@ static const struct dvfs_ref_tbl table_entry[] = {
 
 	{s_dl_dvfs_tbl_v7, s_ul_dvfs_tbl_v7, (unsigned int)ARRAY_SIZE(s_dl_dvfs_tbl_v7),
 		(unsigned int)ARRAY_SIZE(s_ul_dvfs_tbl_v7), QOS_PREFER_CPU_BITMAP_V0_2_6},
+
+	{s_dl_dvfs_tbl_v8, s_ul_dvfs_tbl_v8, (unsigned int)ARRAY_SIZE(s_dl_dvfs_tbl_v8),
+		(unsigned int)ARRAY_SIZE(s_ul_dvfs_tbl_v8), QOS_PREFER_CPU_BITMAP_V2_1_3_4},
 };
 
 static const struct dvfs_ref *s_dl_dvfs_tbl;
@@ -317,7 +335,7 @@ static inline void apply_qos_cpu_freq(void)
 static inline void apply_qos_dram_freq(void)
 {
 	const struct dvfs_ref *dl_ref, *ul_ref;
-	int dram_lvl = -1;
+	int dram_lvl;
 
 	dl_ref = &s_dl_dvfs_tbl[s_curr_dl_idx];
 	ul_ref = &s_ul_dvfs_tbl[s_curr_ul_idx];

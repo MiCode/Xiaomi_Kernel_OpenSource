@@ -106,8 +106,10 @@ struct debug_bat_alc_skb_hdr {
 	u16 cnt;
 	u16 crd;
 	u16 cwr;
-	u16 hwr;
+	u16 pre_hw_wr;
 	u16 thrd;
+	u16 hw_rd;
+	u32 pre_time;
 
 } __packed;
 

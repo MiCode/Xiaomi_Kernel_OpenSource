@@ -391,6 +391,7 @@ static int dpmaif_alloc_bat_req(int update_bat_cnt, atomic_t *paused)
 	unsigned int buf_space, buf_used, alloc_skb_threshold = g_alloc_skb_threshold;
 	int count = 0, ret = 0, request_cnt;
 	unsigned short bat_wr_idx, next_wr_idx, pre_hw_wr_idx = 0;
+	u32 pre_time = 0, total_cnt = 0;
 
 	if (g_dpmf_ver >= 3) {
 		atomic_set(&bat_req->bat_rd_idx, ccci_drv3_dl_get_bat_ridx());
@@ -417,9 +418,12 @@ static int dpmaif_alloc_bat_req(int update_bat_cnt, atomic_t *paused)
 	if (request_cnt == 0)
 		return 0;
 
+	if (g_debug_flags & DEBUG_BAT_ALC_SKB)
+		pre_time = (unsigned int)(local_clock() >> 16);
+
 	bat_wr_idx = atomic_read(&bat_req->bat_wr_idx);
 
-	while (((!paused) || (!atomic_read(paused))) && (count < request_cnt)) {
+	while (((!paused) || (!atomic_read(paused))) && (total_cnt < request_cnt)) {
 		bat_skb = (struct dpmaif_bat_skb *)bat_req->bat_pkt_addr
 					+ bat_wr_idx;
 		if (bat_skb->skb)
@@ -442,39 +446,54 @@ static int dpmaif_alloc_bat_req(int update_bat_cnt, atomic_t *paused)
 
 		bat_wr_idx = next_wr_idx;
 		count++;
+		total_cnt++;
 
-		if (update_bat_cnt && (count & 0x7F) == 0)
-			ccci_dpmaif_skb_wakeup_thread();
+		if (update_bat_cnt) {
+			if (count == 500) {
+				wmb();  /* wait write done */
+
+				if (ccci_drv_dl_add_bat_cnt(count))
+					ops.drv_dump_register(CCCI_DUMP_REGISTER);
+				count = 0;
+			}
+
+			if ((total_cnt & 0x7F) == 0)
+				ccci_dpmaif_skb_wakeup_thread();
+		}
 	}
 
 alloc_end:
-	if (count > 0) {
-		/* wait write done */
-		wmb();
-
+	if (total_cnt > 0)
 		atomic_set(&bat_req->bat_wr_idx, bat_wr_idx);
+
+	if (count > 0) {
+		wmb();  /* wait write done */
+
 		if (update_bat_cnt) {
 			if (ccci_drv_dl_add_bat_cnt(count))
 				ops.drv_dump_register(CCCI_DUMP_REGISTER);
 			ccci_dpmaif_skb_wakeup_thread();
 		}
-
-		if (g_debug_flags & DEBUG_BAT_ALC_SKB) {
-			struct debug_bat_alc_skb_hdr hdr = {0};
-
-			hdr.type = TYPE_BAT_ALC_SKB_ID;
-			hdr.time = (unsigned int)(local_clock() >> 16);
-			hdr.spc  = buf_used;
-			hdr.cnt  = count;
-			hdr.crd  = atomic_read(&bat_req->bat_rd_idx);
-			hdr.cwr  = bat_wr_idx;
-			hdr.hwr  = pre_hw_wr_idx;
-			hdr.thrd = alloc_skb_threshold;
-			ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
-		}
 	}
 
-	return ((ret < 0) ? ret : count);
+	if (total_cnt > 0 && (g_debug_flags & DEBUG_BAT_ALC_SKB)) {
+		struct debug_bat_alc_skb_hdr hdr = {0};
+
+		hdr.type = TYPE_BAT_ALC_SKB_ID;
+		hdr.time = (unsigned int)(local_clock() >> 16);
+		hdr.spc  = buf_used;
+		hdr.cnt  = total_cnt;
+		hdr.crd  = atomic_read(&bat_req->bat_rd_idx);
+		hdr.cwr  = bat_wr_idx;
+		hdr.pre_hw_wr = pre_hw_wr_idx;
+		if (g_dpmf_ver >= 3)
+			hdr.hw_rd = ccci_drv3_dl_get_bat_ridx();
+		hdr.thrd = alloc_skb_threshold;
+		hdr.pre_time = pre_time;
+		ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
+	}
+
+	return ((ret < 0) ? ret : total_cnt);
 }
 
 static inline int alloc_bat_page(
