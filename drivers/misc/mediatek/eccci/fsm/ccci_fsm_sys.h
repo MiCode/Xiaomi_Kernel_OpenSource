@@ -16,5 +16,5 @@ struct mdee_info_collect {
 void fsm_sys_mdee_info_notify(const char *buf);
 int fsm_sys_init(void);
 extern void md_cd_lock_modem_clock_src(int locked);
-extern u64 get_expected_boot_status_val(void);
+extern u32 get_expected_boot_status_val(void);
 #endif /* __CCCI_FSM_SYS_H__ */

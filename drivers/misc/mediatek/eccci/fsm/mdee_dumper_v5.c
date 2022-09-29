@@ -744,7 +744,7 @@ static void md_HS1_Fail_dump(char *ex_info, unsigned int len)
 	unsigned int ccif_sram[CCCI_EE_SIZE_CCIF_SRAM/sizeof(unsigned int)]
 	= { 0 };
 	int ret = 0;
-	u64 boot_status_val = get_expected_boot_status_val();
+	u32 boot_status_val = get_expected_boot_status_val();
 
 	ccci_md_dump_info(DUMP_MD_BOOTUP_STATUS, reg_value, 2);
 	ccci_md_dump_info(DUMP_FLAG_CCIF, ccif_sram, 0);

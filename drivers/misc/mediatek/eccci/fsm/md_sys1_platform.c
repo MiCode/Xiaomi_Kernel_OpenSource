@@ -484,7 +484,7 @@ static int md1_enable_sequencer_setting(struct ccci_modem *md)
 {
 	void __iomem *reg = NULL;
 	int count = 0;
-	u64 wait_seq_val;
+	u32 wait_seq_val;
 
 	if (!md_cd_plat_val_ptr.md_first_power_on) {
 		CCCI_NORMAL_LOG(0, TAG, "[POWER OFF]%s:md_first_power_on=%u,exit\n",
