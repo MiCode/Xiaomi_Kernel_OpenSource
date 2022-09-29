@@ -709,7 +709,7 @@
 		compatible = "mediatek,fpsgo";
 		interconnects = <&dvfsrc MT6873_MASTER_MCUSYS &dvfsrc MT6873_SLAVE_DDR_EMI>;
 		interconnect-names = "fpsgo-perf-bw";
-		required-opps = <&dvfsrc_freq_opp0>;
+		required-opps = <&dvfsrc_freq_opp1>;
 		cpu_limit = <2>;
 		gcc_enable = <1>;
 		fbt_cpu_mask = <255 128 15 127 240 112>;
