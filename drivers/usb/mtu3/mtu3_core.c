@@ -70,6 +70,14 @@ static void ep_fifo_free(struct mtu3_ep *mep)
 /* enable/disable U3D SS function */
 static inline void mtu3_ss_func_set(struct mtu3 *mtu, bool enable)
 {
+	/* update lpm setting */
+	if (mtu->u3_lpm)
+		mtu3_setbits(mtu->mac_base, U3D_LINK_POWER_CONTROL,
+			SW_U1_ACCEPT_ENABLE | SW_U2_ACCEPT_ENABLE);
+	else
+		mtu3_clrbits(mtu->mac_base, U3D_LINK_POWER_CONTROL,
+			SW_U1_ACCEPT_ENABLE | SW_U2_ACCEPT_ENABLE);
+
 	/* If usb3_en==0, LTSSM will go to SS.Disable state */
 	if (enable) {
 		/* A60931 new DTB has true type-C connector.
@@ -287,16 +295,18 @@ static void mtu3_csr_init(struct mtu3 *mtu)
 		mtu3_clrbits(mbase, U3D_LINK_POWER_CONTROL,
 				SW_U1_REQUEST_ENABLE | SW_U2_REQUEST_ENABLE);
 		/* enable accept LGO_U1/U2 link command from host */
-		if (!of_find_compatible_node(NULL, NULL, "mediatek,MT6886")) {
-			dev_info(ssusb->dev, "enable accept_lgo\n");
+		if (mtu->u3_lpm) {
 			mtu3_setbits(mbase, U3D_LINK_POWER_CONTROL,
-					SW_U1_ACCEPT_ENABLE | SW_U2_ACCEPT_ENABLE);
-			mtu3_setbits(mbase, U3D_MAC_U1_EN_CTRL,
-					ACCEPT_BMU_RX_EMPTY_HCK);
-			mtu3_setbits(mbase, U3D_MAC_U2_EN_CTRL,
-					ACCEPT_BMU_RX_EMPTY_HCK);
-		} else
+				SW_U1_ACCEPT_ENABLE | SW_U2_ACCEPT_ENABLE);
+		} else {
 			dev_info(ssusb->dev, "disable accept_lgo\n");
+			mtu3_clrbits(mbase, U3D_LINK_POWER_CONTROL,
+				SW_U1_ACCEPT_ENABLE | SW_U2_ACCEPT_ENABLE);
+		}
+		mtu3_setbits(mbase, U3D_MAC_U1_EN_CTRL,
+			ACCEPT_BMU_RX_EMPTY_HCK);
+		mtu3_setbits(mbase, U3D_MAC_U2_EN_CTRL,
+			ACCEPT_BMU_RX_EMPTY_HCK);
 		/* device responses to u3_exit from host automatically */
 		mtu3_clrbits(mbase, U3D_LTSSM_CTRL, SOFT_U3_EXIT_EN);
 		/* automatically build U2 link when U3 detect fail */
@@ -997,6 +1007,7 @@ int ssusb_gadget_init(struct ssusb_mtk *ssusb)
 	ssusb->u3d = mtu;
 	mtu->ssusb = ssusb;
 	mtu->max_speed = usb_get_maximum_speed(dev);
+	mtu->u3_lpm = !of_property_read_bool(dev->of_node, "usb3-lpm-disable");
 
 	dev_dbg(dev, "mac_base=0x%p, ippc_base=0x%p\n",
 		mtu->mac_base, mtu->ippc_base);

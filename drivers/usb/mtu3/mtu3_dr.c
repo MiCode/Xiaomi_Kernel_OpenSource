@@ -614,11 +614,42 @@ static ssize_t saving_show(struct device *dev,
 }
 static DEVICE_ATTR_RW(saving);
 
+static ssize_t u3_lpm_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
+{
+	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
+	struct mtu3 *mtu = ssusb->u3d;
+	bool enable;
+
+	if (kstrtobool(buf, &enable))
+		return -EINVAL;
+
+	if (of_property_read_bool(dev->of_node, "usb3-lpm-disable"))
+		return -EINVAL;
+
+	mtu->u3_lpm = enable ? 1 : 0;
+
+	return count;
+}
+
+static ssize_t u3_lpm_show(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
+	struct mtu3 *mtu = ssusb->u3d;
+
+	return sprintf(buf, "%d\n", mtu->u3_lpm);
+}
+static DEVICE_ATTR_RW(u3_lpm);
+
 static struct attribute *ssusb_dr_attrs[] = {
 	&dev_attr_mode.attr,
 	&dev_attr_role_mode.attr,
 	&dev_attr_max_speed.attr,
 	&dev_attr_saving.attr,
+	&dev_attr_u3_lpm.attr,
 	NULL
 };
 
