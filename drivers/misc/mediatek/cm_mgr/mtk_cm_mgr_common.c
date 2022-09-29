@@ -131,6 +131,8 @@ int cm_mgr_cpu_map_emi_opp = 1;
 int cm_mgr_cpu_map_skip_cpu_opp = 2;
 unsigned int cm_work_flag;
 
+static unsigned int cm_mgr_sspm_version;
+
 #if IS_ENABLED(CONFIG_MTK_CM_IPI)
 int get_cm_step_num(void)
 {
@@ -236,6 +238,14 @@ void cm_mgr_set_dram_opp_base(int num)
 	cm_mgr_dram_opp_base = num;
 }
 EXPORT_SYMBOL_GPL(cm_mgr_set_dram_opp_base);
+
+void cm_mgr_get_sspm_version(void)
+{
+	cm_mgr_sspm_version = cm_mgr_to_sspm_command(
+			IPI_CM_MGR_SSPM_VER | IPI_CM_MGR_SCMI_GET,
+			0);
+}
+EXPORT_SYMBOL_GPL(cm_mgr_get_sspm_version);
 
 int cm_mgr_get_num_perf(void)
 {
@@ -581,6 +591,10 @@ static ssize_t dbg_cm_mgr_show(struct kobject *kobj,
 			    cm_mgr_dram_opp_ceiling);
 	len += cm_mgr_print("cm_mgr_dram_opp_floor %d\n",
 			    cm_mgr_dram_opp_floor);
+	len += cm_mgr_print("cm_mgr_sspm_version v%d.%d.%d\n",
+			(cm_mgr_sspm_version >> 16) & 0xFF,
+			(cm_mgr_sspm_version >> 8) & 0xFF,
+			(cm_mgr_sspm_version) & 0xFF);
 #endif
 	len += cm_mgr_print("\n");
 

@@ -46,11 +46,14 @@ EXPORT_SYMBOL(cm_sspm_enable);
 unsigned int cm_mgr_to_sspm_command(unsigned int cmd, unsigned int val)
 {
 	struct cm_ipi_data cm_ipi_d;
-	unsigned int ret;
+	struct scmi_tinysys_status rvalue;
+	unsigned int ret = 0;
+	unsigned int type, type_mask = 0xF0000000;
 
-	cm_ipi_d.cmd = cmd;
+	type = cmd & type_mask;
+
+	cm_ipi_d.cmd = cmd & ~type_mask;
 	cm_ipi_d.arg = val;
-
 
 	if (cm_sspm_ready != 1) {
 		pr_info("cm ipi not ready, skip cmd=%d\n", cm_ipi_d.cmd);
@@ -59,12 +62,32 @@ unsigned int cm_mgr_to_sspm_command(unsigned int cmd, unsigned int val)
 
 	pr_info("#@# %s(%d) cmd 0x%x, arg 0x%x\n", __func__, __LINE__,
 			cm_ipi_d.cmd, cm_ipi_d.arg);
-	ret = scmi_tinysys_common_set(_tinfo->ph, scmi_cm_id,
-			cm_ipi_d.cmd, cm_ipi_d.arg, 0, 0, 0);
-	if (ret) {
-		pr_info("cm ipi cmd %d send fail, ret = %d\n",
-				cm_ipi_d.cmd, ret);
-		goto error;
+
+	switch (type) {
+	case IPI_CM_MGR_SCMI_SET:
+		ret = scmi_tinysys_common_set(_tinfo->ph, scmi_cm_id,
+				cm_ipi_d.cmd, cm_ipi_d.arg, 0, 0, 0);
+		if (ret) {
+			pr_info("cm ipi cmd %d send fail, ret = %d\n",
+					cm_ipi_d.cmd, ret);
+			goto error;
+		}
+		break;
+	case IPI_CM_MGR_SCMI_GET:
+		ret = scmi_tinysys_common_get(_tinfo->ph, scmi_cm_id,
+				cm_ipi_d.cmd, &rvalue);
+		if (ret) {
+			pr_info("cm ipi cmd %d send fail, ret = %d rvalue %d\n",
+					cm_ipi_d.cmd, ret, rvalue.r1);
+			goto error;
+		} else {
+			ret = rvalue.r1;
+		}
+		break;
+	default:
+		pr_info("#@# %s(%d) wrong cmd type(0x%x)!!!\n",
+				__func__, __LINE__, type);
+		break;
 	}
 
 	return ret;

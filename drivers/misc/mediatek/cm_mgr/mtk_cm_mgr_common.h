@@ -81,6 +81,7 @@ extern int cm_mgr_get_num_array(void);
 extern void cm_mgr_set_num_array(int num);
 extern int cm_mgr_get_dram_opp_base(void);
 extern void cm_mgr_set_dram_opp_base(int num);
+extern void cm_mgr_get_sspm_version(void);
 extern int cm_mgr_get_num_perf(void);
 extern void cm_mgr_set_num_perf(int num);
 extern int cm_mgr_get_perf_enable(void);
