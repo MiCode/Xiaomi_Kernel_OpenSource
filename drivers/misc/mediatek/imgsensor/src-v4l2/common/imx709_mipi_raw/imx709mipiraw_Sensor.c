@@ -89,9 +89,10 @@ static void set_cmos_sensor_8(struct subdrv_ctx *ctx,
 {
 	if (_size_to_write > _I2C_BUF_SIZE - 2)
 		commit_write_sensor(ctx);
-
-	_i2c_data[_size_to_write++] = reg;
-	_i2c_data[_size_to_write++] = val;
+	else {
+		_i2c_data[_size_to_write++] = reg;
+		_i2c_data[_size_to_write++] = val;
+	}
 }
 
 #if EEPROM_READY
@@ -635,6 +636,10 @@ static kal_uint32 get_exp_cnt_by_scenario(struct subdrv_ctx *ctx, kal_uint32 sce
 	kal_uint32 exp_cnt = 0, i = 0;
 	struct mtk_mbus_frame_desc frame_desc;
 
+	DEBUG_LOG(ctx, "E!\n");
+
+	memset(&frame_desc, 0, sizeof(frame_desc));
+
 	get_frame_desc(ctx, scenario, &frame_desc);
 
 	for (i = 0; i < frame_desc.num_entries; ++i) {
@@ -652,6 +657,8 @@ static kal_uint32 get_cur_exp_cnt(struct subdrv_ctx *ctx)
 {
 	kal_uint32 exp_cnt = 1;
 
+	DEBUG_LOG(ctx, "E!\n");
+
 	if (0x1 == (read_cmos_sensor_8(ctx, 0x3170) & 0x1)) { // DOL_EN
 		exp_cnt = 2;
 	}
@@ -664,6 +671,8 @@ static void imx709_get_pdaf_reg_setting(struct subdrv_ctx *ctx,
 {
 	int i, idx;
 
+	DEBUG_LOG(ctx, "E!\n");
+
 	for (i = 0; i < regNum; i++) {
 		idx = 2 * i;
 		regDa[idx + 1] = read_cmos_sensor_8(ctx, regDa[idx]);
@@ -673,6 +682,8 @@ static void imx709_get_pdaf_reg_setting(struct subdrv_ctx *ctx,
 static void imx709_set_pdaf_reg_setting(struct subdrv_ctx *ctx,
 		MUINT32 regNum, kal_uint16 *regDa)
 {
+	DEBUG_LOG(ctx, "E!\n");
+
 	imx709_table_write_cmos_sensor(ctx, regDa, regNum*2);
 }
 
@@ -696,6 +707,8 @@ static kal_uint16 read_cmos_eeprom_8(struct subdrv_ctx *ctx, kal_uint16 addr)
 {
 	kal_uint16 get_byte = 0;
 
+	DEBUG_LOG(ctx, "E!\n");
+
 	adaptor_i2c_rd_u8(ctx->i2c_client, IMX709_EEPROM_READ_ID >> 1, addr, (u8 *)&get_byte);
 	return get_byte;
 }
@@ -709,6 +722,8 @@ static void read_sensor_Cali(struct subdrv_ctx *ctx)
 #endif
 	kal_uint8 otp_data[9] = {0};
 	int i = 0;
+
+	DEBUG_LOG(ctx, "E!\n");
 
 	/*read otp data to distinguish module*/
 	otp_flag = OTP_QSC_NONE;
@@ -744,6 +759,8 @@ static void read_sensor_Cali(struct subdrv_ctx *ctx)
 
 void write_sensor_QSC(struct subdrv_ctx *ctx)
 {
+	DEBUG_LOG(ctx, "E!\n");
+
 	/* calibration tool version 3.0 -> 0x4E */
 	write_cmos_sensor_8(ctx, 0x86A9, 0x4E);
 	/* set QSC from EEPROM to sensor */
@@ -765,6 +782,8 @@ static void write_frame_len(struct subdrv_ctx *ctx, kal_uint32 fll)
 	// write_frame_len should be called inside GRP_PARAM_HOLD (0x0104)
 	// FRM_LENGTH_LINES must be multiple of 4
 	kal_uint32 exp_cnt = get_cur_exp_cnt(ctx);
+
+	DEBUG_LOG(ctx, "E!\n");
 
 	ctx->frame_length = round_up(fll / exp_cnt, 4) * exp_cnt;
 
@@ -864,6 +883,8 @@ static kal_bool set_auto_flicker(struct subdrv_ctx *ctx)
 {
 	kal_uint16 realtime_fps = 0;
 
+	DEBUG_LOG(ctx, "E!\n");
+
 	if (ctx->autoflicker_en) {
 		realtime_fps = ctx->pclk / ctx->line_length * 10
 				/ ctx->frame_length;
@@ -894,6 +915,8 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool g
 	kal_uint16 l_shift = 1;
 	kal_uint32 fineIntegTime = fine_integ_line_table[ctx->current_scenario_id];
 	int i;
+
+	DEBUG_LOG(ctx, "E!\n");
 
 	shutter = FINE_INTEG_CONVERT(shutter, fineIntegTime);
 	shutter = round_up(shutter, 4);
@@ -984,15 +1007,18 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool g
  *************************************************************************/
 static void set_shutter_w_gph(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool gph)
 {
+	DEBUG_LOG(ctx, "E!\n");
 	write_shutter(ctx, shutter, gph);
 }
 static void set_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 {
+	DEBUG_LOG(ctx, "E!\n");
 	set_shutter_w_gph(ctx, shutter, KAL_TRUE);
 }	/* set_shutter */
 
 static void set_frame_length(struct subdrv_ctx *ctx, kal_uint16 frame_length)
 {
+	DEBUG_LOG(ctx, "E!\n");
 	if (frame_length > 1)
 		ctx->frame_length = frame_length;
 	if (ctx->frame_length > imgsensor_info.max_frame_length)
@@ -1019,10 +1045,18 @@ static void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 	kal_uint32 calc_fl = 0;
 	kal_uint32 calc_fl2 = 0;
 	kal_uint32 calc_fl3 = 0;
-	kal_uint16 le, me, se;
-	kal_uint32 fineIntegTime = fine_integ_line_table[ctx->current_scenario_id];
-	kal_uint32 readoutLength = ctx->readout_length;
-	kal_uint32 readMargin = ctx->read_margin;
+	kal_uint16 le = 0;
+	kal_uint16 me = 0;
+	kal_uint16 se = 0;
+	kal_uint32 fineIntegTime = 0;
+	kal_uint32 readoutLength = 0;
+	kal_uint32 readMargin = 0;
+
+	DEBUG_LOG(ctx, "E!\n");
+
+	fineIntegTime = fine_integ_line_table[ctx->current_scenario_id];
+	readoutLength = ctx->readout_length;
+	readMargin = ctx->read_margin;
 
 	/* convert & set current available shutter value */
 	for (i = 0; i < shutter_cnt; i++) {
@@ -1124,6 +1158,8 @@ static void set_shutter_frame_length(struct subdrv_ctx *ctx,
 	kal_uint16 realtime_fps = 0;
 	kal_int32 dummy_line = 0;
 
+	DEBUG_LOG(ctx, "E!\n");
+
 	ctx->shutter = shutter;
 
 	/* 0x3500, 0x3501, 0x3502 will increase VBLANK to get exposure larger
@@ -1188,6 +1224,8 @@ static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint32 gain)
 {
 	kal_uint16 reg_gain = 0x0;
 
+	DEBUG_LOG(ctx, "E!\n");
+
 	reg_gain = 16384 - (16384 * BASEGAIN) / gain;
 
 	return (kal_uint16) reg_gain;
@@ -1212,6 +1250,8 @@ static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint32 gain)
 static kal_uint32 set_gain_w_gph(struct subdrv_ctx *ctx, kal_uint32 gain, kal_bool gph)
 {
 	kal_uint16 reg_gain, max_gain = imgsensor_info.max_gain;
+
+	DEBUG_LOG(ctx, "E!\n");
 
 	if (gain < imgsensor_info.min_gain || gain > max_gain) {
 		LOG_INF("Error gain setting");
@@ -1240,6 +1280,7 @@ static kal_uint32 set_gain_w_gph(struct subdrv_ctx *ctx, kal_uint32 gain, kal_bo
 
 static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 {
+	DEBUG_LOG(ctx, "E!\n");
 	return set_gain_w_gph(ctx, gain, KAL_TRUE);
 }	/* set_gain */
 
@@ -1247,6 +1288,8 @@ static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 static int pwr_seq_common_disable_for_mode_transition(struct adaptor_ctx *ctx)
 {
 	int ret = 0;
+
+	DEBUG_LOG(ctx, "E!\n");
 
 	// 1. set gpio
 	// mclk_driving_current_off
@@ -1300,6 +1343,8 @@ static int pwr_seq_common_disable_for_mode_transition(struct adaptor_ctx *ctx)
 static int pwr_seq_common_enable_for_mode_transition(struct adaptor_ctx *ctx)
 {
 	int ret = 0;
+
+	DEBUG_LOG(ctx, "E!\n");
 
 	// 1. set mclk
 	// 24MHz
@@ -1394,8 +1439,12 @@ static int pwr_seq_reset_view_to_sensing(struct subdrv_ctx *ctx)
 	int ret = 0;
 	struct adaptor_ctx *_adaptor_ctx = NULL;
 
-	imgsensor_info.sd = i2c_get_clientdata(ctx->i2c_client);
-	_adaptor_ctx = to_ctx(imgsensor_info.sd);
+	if (ctx->i2c_client)
+		imgsensor_info.sd = i2c_get_clientdata(ctx->i2c_client);
+	if (imgsensor_info.sd)
+		_adaptor_ctx = to_ctx(imgsensor_info.sd);
+	if (!_adaptor_ctx)
+		return -ENODEV;
 
 	/* switch viewing mode sw stand-by to hw stand-by */
 	// 1. set gpio
@@ -1463,8 +1512,12 @@ static int pwr_seq_reset_sens_to_viewing(struct subdrv_ctx *ctx)
 	int ret = 0;
 	struct adaptor_ctx *_adaptor_ctx = NULL;
 
-	imgsensor_info.sd = i2c_get_clientdata(ctx->i2c_client);
-	_adaptor_ctx = to_ctx(imgsensor_info.sd);
+	if (ctx->i2c_client)
+		imgsensor_info.sd = i2c_get_clientdata(ctx->i2c_client);
+	if (imgsensor_info.sd)
+		_adaptor_ctx = to_ctx(imgsensor_info.sd);
+	if (!_adaptor_ctx)
+		return -ENODEV;
 
 	// i2c bus scl4 on apmcu side
 	ret = pinctrl_select_state(
@@ -1563,6 +1616,8 @@ static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 {
 	int ret = 0;
 
+	DEBUG_LOG(ctx, "E!\n");
+
 	LOG_INF("streaming_enable(0=Sw Standby,1=streaming):(%d)\n", enable);
 #ifdef AOV_MODE_SENSING
 	if (ctx->sensor_mode >= IMGSENSOR_MODE_CUSTOM1 &&
@@ -1644,11 +1699,18 @@ static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 static void extend_frame_length(struct subdrv_ctx *ctx, kal_uint32 ns)
 {
 	int i;
-	kal_uint32 old_fl = ctx->frame_length;
+	kal_uint32 old_fl = 0;
 	kal_uint32 calc_fl = 0;
-	kal_uint32 readoutLength = ctx->readout_length;
-	kal_uint32 readMargin = ctx->read_margin;
-	kal_uint32 per_frame_ns = (kal_uint32)(((unsigned long long)ctx->frame_length *
+	kal_uint32 readoutLength = 0;
+	kal_uint32 readMargin = 0;
+	kal_uint32 per_frame_ns = 0;
+
+	DEBUG_LOG(ctx, "E!\n");
+
+	old_fl = ctx->frame_length;
+	readoutLength = ctx->readout_length;
+	readMargin = ctx->read_margin;
+	per_frame_ns = (kal_uint32)(((unsigned long long)ctx->frame_length *
 		(unsigned long long)ctx->line_length * 1000000000) / (unsigned long long)ctx->pclk);
 
 	/* NEED TO FIX start: support 1exp-2exp only; 3exp-?exp instead */
@@ -1685,6 +1747,8 @@ static void extend_frame_length(struct subdrv_ctx *ctx, kal_uint32 ns)
 
 static void data_rate_global_timing_phy_ctrl(struct subdrv_ctx *ctx)
 {
+	DEBUG_LOG(ctx, "E! scenario(%d)\n", ctx->sensor_mode);
+
 	// global timing phy ctrl
 	switch (ctx->sensor_mode) {
 	case IMGSENSOR_MODE_CUSTOM1:
@@ -1989,8 +2053,12 @@ static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 		kal_uint32 le, kal_uint32 me, kal_uint32 se, kal_bool gph)
 {
 	kal_uint16 exposure_cnt = 0;
-	kal_uint32 fineIntegTime = fine_integ_line_table[ctx->current_scenario_id];
+	kal_uint32 fineIntegTime = 0;
 	int i;
+
+	DEBUG_LOG(ctx, "E!\n");
+
+	fineIntegTime = fine_integ_line_table[ctx->current_scenario_id];
 
 	le = FINE_INTEG_CONVERT(le, fineIntegTime);
 	me = 0;	// imx709 only support 2EXP
@@ -2089,7 +2157,11 @@ static void hdr_write_tri_shutter(struct subdrv_ctx *ctx,
 static void hdr_write_tri_gain_w_gph(struct subdrv_ctx *ctx,
 		kal_uint32 lg, kal_uint32 mg, kal_uint32 sg, kal_bool gph)
 {
-	kal_uint16 reg_lg, reg_mg, reg_sg;
+	kal_uint16 reg_lg = 0;
+	kal_uint16 reg_mg = 0;
+	kal_uint16 reg_sg = 0;
+
+	DEBUG_LOG(ctx, "E!\n");
 
 	reg_lg = gain2reg(ctx, lg);
 	reg_mg = 0;	// imx709 only support 2EXP
@@ -2285,7 +2357,7 @@ static int open(struct subdrv_ctx *ctx)
 	kal_uint8 retry = 2;
 	kal_uint16 sensor_id = 0;
 
-	DEBUG_LOG(ctx, "for imx709 start\n", __func__);
+	DEBUG_LOG(ctx, "for imx709 start\n");
 	/* sensor have two i2c address 0x6c 0x6d & 0x21 0x20,
 	 * we should detect the module used i2c address
 	 */
@@ -2499,10 +2571,11 @@ static kal_uint32 custom1(struct subdrv_ctx *ctx,
 	struct adaptor_ctx *_adaptor_ctx = NULL;
 	int ret = 0;
 
+	DEBUG_LOG(ctx, "E!\n");
+
 	imgsensor_info.sd = i2c_get_clientdata(ctx->i2c_client);
 	_adaptor_ctx = to_ctx(imgsensor_info.sd);
 
-	DEBUG_LOG(ctx, "E!\n");
 	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM1;
 	ctx->pclk = imgsensor_info.custom1.pclk;
 	ctx->line_length = imgsensor_info.custom1.linelength;
@@ -2541,10 +2614,11 @@ static kal_uint32 custom2(struct subdrv_ctx *ctx,
 	struct adaptor_ctx *_adaptor_ctx = NULL;
 	int ret = 0;
 
+	DEBUG_LOG(ctx, "E!\n");
+
 	imgsensor_info.sd = i2c_get_clientdata(ctx->i2c_client);
 	_adaptor_ctx = to_ctx(imgsensor_info.sd);
 
-	DEBUG_LOG(ctx, "E!\n");
 	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM2;
 	ctx->pclk = imgsensor_info.custom2.pclk;
 	ctx->line_length = imgsensor_info.custom2.linelength;
@@ -2584,10 +2658,11 @@ static kal_uint32 custom3(struct subdrv_ctx *ctx,
 	struct adaptor_ctx *_adaptor_ctx = NULL;
 	int ret = 0;
 
+	DEBUG_LOG(ctx, "E!\n");
+
 	imgsensor_info.sd = i2c_get_clientdata(ctx->i2c_client);
 	_adaptor_ctx = to_ctx(imgsensor_info.sd);
 
-	DEBUG_LOG(ctx, "E!\n");
 	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM3;
 	ctx->pclk = imgsensor_info.custom3.pclk;
 	ctx->line_length = imgsensor_info.custom3.linelength;
@@ -2642,7 +2717,7 @@ static kal_uint32 custom5(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	LOG_INF("imx709:Enter %s.\n", __func__);
+	DEBUG_LOG(ctx, "E!\n");
 	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM5;
 	ctx->pclk = imgsensor_info.custom5.pclk;
 	ctx->line_length = imgsensor_info.custom5.linelength;
@@ -2660,7 +2735,7 @@ static kal_uint32 custom6(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	LOG_INF("imx709:Enter %s.\n", __func__);
+	DEBUG_LOG(ctx, "E!\n");
 	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM6;
 	ctx->pclk = imgsensor_info.custom6.pclk;
 	ctx->line_length = imgsensor_info.custom6.linelength;
@@ -2678,7 +2753,7 @@ static kal_uint32 custom7(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	LOG_INF("imx709:Enter %s.\n", __func__);
+	DEBUG_LOG(ctx, "E!\n");
 	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM7;
 	ctx->pclk = imgsensor_info.custom7.pclk;
 	ctx->line_length = imgsensor_info.custom7.linelength;
@@ -2696,7 +2771,7 @@ static kal_uint32 custom8(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	LOG_INF("imx709:Enter %s.\n", __func__);
+	DEBUG_LOG(ctx, "E!\n");
 	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM8;
 	ctx->pclk = imgsensor_info.custom8.pclk;
 	ctx->line_length = imgsensor_info.custom8.linelength;
@@ -2714,7 +2789,7 @@ static kal_uint32 custom9(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	LOG_INF("imx709:Enter %s.\n", __func__);
+	DEBUG_LOG(ctx, "E!\n");
 	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM9;
 	ctx->pclk = imgsensor_info.custom9.pclk;
 	ctx->line_length = imgsensor_info.custom9.linelength;
@@ -2732,7 +2807,7 @@ static kal_uint32 custom10(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 		MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	LOG_INF("imx709:Enter %s.\n", __func__);
+	DEBUG_LOG(ctx, "E!\n");
 	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM10;
 	ctx->pclk = imgsensor_info.custom10.pclk;
 	ctx->line_length = imgsensor_info.custom10.linelength;
@@ -2741,9 +2816,10 @@ static kal_uint32 custom10(struct subdrv_ctx *ctx,
 	ctx->readout_length = imgsensor_info.custom10.readout_length;
 	ctx->read_margin = imgsensor_info.custom10.read_margin;
 	ctx->autoflicker_en = KAL_FALSE;
-	 custom10_setting(ctx);
-	LOG_INF("imx709:Leave %s., w*h:%d x %d.\n",
-		__func__, ctx->line_length, ctx->frame_length);
+	custom10_setting(ctx);
+	DEBUG_LOG(ctx,
+		"X! w*h:(%d) x (%d)\n",
+		ctx->line_length, ctx->frame_length);
 	mdelay(8);
 
 	return ERROR_NONE;
@@ -2754,8 +2830,11 @@ static int get_resolution(struct subdrv_ctx *ctx,
 {
 	int i = 0;
 
+	DEBUG_LOG(ctx, "E!\n");
+
 	for (i = SENSOR_SCENARIO_ID_MIN; i < SENSOR_SCENARIO_ID_MAX; i++) {
-		if (i < imgsensor_info.sensor_mode_num) {
+		if (i < imgsensor_info.sensor_mode_num &&
+			i < ARRAY_SIZE(imgsensor_winsize_info)) {
 			sensor_resolution->SensorWidth[i] =
 				imgsensor_winsize_info[i].w2_tg_size;
 			sensor_resolution->SensorHeight[i] =
@@ -3335,6 +3414,8 @@ static kal_uint32 get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 static kal_uint32 get_fine_integ_line_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, MUINT32 *fine_integ_line)
 {
+	DEBUG_LOG(ctx, "E!\n");
+
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
@@ -3370,6 +3451,8 @@ static kal_uint32 get_fine_integ_line_by_scenario(struct subdrv_ctx *ctx,
 
 static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 {
+	DEBUG_LOG(ctx, "E!\n");
+
 	if (mode != ctx->test_pattern)
 		DEBUG_LOG(ctx, "mode %d -> %d\n", ctx->test_pattern, mode);
 	//1:Solid Color 2:Color bar 5:Black
@@ -3410,6 +3493,8 @@ static kal_int32 get_sensor_temperature(struct subdrv_ctx *ctx)
 {
 	UINT8 temperature = 0;
 	INT32 temperature_convert = 0;
+
+	DEBUG_LOG(ctx, "E!\n");
 
 	temperature = read_cmos_sensor_8(ctx, 0x013a);
 
