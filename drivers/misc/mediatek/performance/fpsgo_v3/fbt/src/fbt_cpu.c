@@ -1899,10 +1899,10 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 				if (thr->hwui == RENDER_INFO_HWUI_NONE
 					&& fbt_is_R_L_task(fl->pid, heaviest_pid, thr->pid))
 					fbt_set_task_policy(fl, FPSGO_TPOLICY_AFFINITY,
-									FPSGO_PREFER_B_M, 1);
+									FPSGO_PREFER_M, 1);
 				else
 					fbt_set_task_policy(fl, FPSGO_TPOLICY_AFFINITY,
-									FPSGO_PREFER_B_M, 0);
+									FPSGO_PREFER_M, 0);
 				break;
 			default:
 				if (boost_LR_final && thr->hwui == RENDER_INFO_HWUI_NONE
