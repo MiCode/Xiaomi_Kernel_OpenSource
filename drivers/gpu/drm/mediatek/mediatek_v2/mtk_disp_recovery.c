@@ -209,11 +209,6 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 		else
 			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
 						 DDP_FIRST_PATH, 1);
-		cmdq_pkt_flush(cmdq_handle);
-		cmdq_pkt_destroy(cmdq_handle);
-		cmdq_handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
-		cmdq_handle->err_cb.cb = esd_cmdq_timeout_cb;
-		cmdq_handle->err_cb.data = crtc;
 		if (mtk_crtc->msync2.msync_on) {
 			u32 vfp_early_stop = 1;
 
