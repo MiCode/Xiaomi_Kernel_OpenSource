@@ -843,7 +843,7 @@ static int mtk_gamma_user_cmd(struct mtk_ddp_comp *comp,
 			struct mtk_ddp_comp *comp_gamma1 = priv->ddp_comp[DDP_COMPONENT_GAMMA1];
 
 			cmdq_pkt_write(handle, comp_gamma1->cmdq_base,
-				comp->regs_pa + DISP_GAMMA_CFG, 0x0 << 3, 0x08);
+				comp_gamma1->regs_pa + DISP_GAMMA_CFG, 0x0 << 3, 0x08);
 
 		}
 	}
