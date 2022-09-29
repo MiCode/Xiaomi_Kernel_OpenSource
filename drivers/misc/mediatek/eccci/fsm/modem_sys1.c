@@ -458,7 +458,7 @@ static void debug_in_flight_mode(struct ccci_modem *md)
 					md->hw_info->plat_ptr->debug_reg(md, true);
 
 				CCCI_MEM_LOG_TAG(0, TAG, "MD not in sleep, dump mdl2sram\n");
-				if (md && md->hw_info && md->hw_info->md_l2sram_base) {
+				if (md->hw_info->md_l2sram_base) {
 					md_cd_lock_modem_clock_src(1);
 					ccci_util_mem_dump(CCCI_DUMP_MEM_DUMP,
 						md->hw_info->md_l2sram_base,
