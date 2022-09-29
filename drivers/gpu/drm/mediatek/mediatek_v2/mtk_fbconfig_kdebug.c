@@ -174,7 +174,13 @@ static ssize_t fbconfig_write(struct file *file,
 	return 0;
 }
 
-
+static long fbconfig_ioctl(struct file *file, unsigned int cmd,
+	unsigned long arg)
+{
+	DDPMSG("not support fbconfig!\n");
+	return 0;
+}
+#ifdef IF_ZERO
 static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 	unsigned long arg)
 {
@@ -455,6 +461,7 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 		return ret;
 	}
 }
+#endif
 
 static int fbconfig_release(struct inode *inode, struct file *file)
 {
