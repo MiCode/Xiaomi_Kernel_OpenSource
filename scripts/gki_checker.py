@@ -31,8 +31,8 @@ g_symbol_pass = True
 g_file_pass = True
 options = None
 wiki = "https://wiki.mediatek.inc/display/KernelStandardization/GKI+checker"
-checker_version = "v2.0"
-default_google_sha = "4345c3db8492caa9b2"
+checker_version = "v2.1"
+default_google_sha = "9e22c4d3ceb3"
 
 def create_compare_file(target, input_file, output_file_name):
     if target == "Config":
@@ -69,13 +69,21 @@ def compare_config(g_config_file, m_config_file):
     set_config_info = re.compile("^(-|\+)(CONFIG_\w*)=(.*)$")
     mt_info = re.compile("MT\d+|MTK|MEDIATEK")
 
-    cmd = "diff --strip-trailing-cr -EbwB --unified=0 " + g_config_file + " " + m_config_file
-    output = os.popen(cmd)
-    diff_cont = output.read()
-    output.close()
+    g_list = []
+    m_list = []
+    with open(g_config_file, "r") as g:
+        for x in g:
+            g_list.append(x)
+
+    with open(m_config_file, "r") as m:
+        for x in m:
+            m_list.append(x)
+
+    diff = difflib.unified_diff(g_list, m_list, n=0)
+    diff_cont = sorted(diff, reverse=True)
     g_config = {}
     m_config = {}
-    for line in diff_cont.splitlines():
+    for line in diff_cont:
         if line[0:3] in ("+++", "---", "@@ "):
             continue
         if line[0] in ("+", "-") and len(line) == 1:
@@ -139,7 +147,7 @@ def compare_config(g_config_file, m_config_file):
 def get_gki_denyfile():
     key_str = "out_krn/kernel-5.15"
     # remove old denyfiles.txt
-    cmd = "rm -f " + options.checker_out + "file/tmp/gki_denyfiles.txt"
+    cmd = "rm -f " + options.checker_out + "file/tmp/*gki_denyfiles.txt"
     #print(cmd)
     os.system(cmd)
     # get redount strings in file path ex. out_abi/android12-5.10/common and replace "/" as "\/" cause sed
@@ -171,69 +179,6 @@ def get_gki_denyfile():
     for x in tmp_list:
         f.write(x)
     f.close()
-
-'''
-# TODO report info, current not use
-def verify_violation(diff_cont):
-    ret = False
-    start_synx_info = re.compile('^\+(#if IS_ENABLED\(|#ifdef |#if defined\()(\w*)\)?$')
-    single_line_star = re.compile('^-\t*(else|if *\( *.*\)|else if *\( *.*\)) *$')
-    multi_line_star = re.compile('^\+\t*\}? *(else|if *\( *.*\)|else if *\( *.*\)) *\{.*$')
-    close_star = re.compile('^\+\t*\} *(else *|else if *\(.*\) *)?\{?$')
-    config_trace = False
-    # special_case = False
-    for line in diff_cont.splitlines():
-        # bypass unnecessary line info
-        if line[0:3] in ("+++", "---", "@@ "):
-            print("b:"+line)
-            continue
-        elif line[0] in ("-", "+", " ") and len(line) == 1:
-            print("b:"+line)
-            continue
-        elif line[0:4] == "diff":
-            print("b:"+line)
-            continue
-        elif line[0:5] == "index":
-            print("b:"+line)
-            continue
-
-        start_synx = start_synx_info.search(line)
-        if start_synx:
-            # print(start_synx.group(2))
-            config_trace = True
-            print("c:"+line)
-            continue
-        elif line == "+#else" or line == "+#endif":
-            config_trace = False
-            print("c:"+line)
-            continue
-
-        if config_trace:
-            if line[0] != "+":
-                print("v:"+line)
-                ret = True
-                # break
-            else:
-                print("c:"+line)
-        else:
-            # if single_line_star.search(line):
-            #     # print("n:", line)
-            #     special_case = True
-            # elif line[0] != " ":
-            if line[0] != " ":
-                # if special_case:
-                #     if multi_line_star.search(line):
-                #         print("n:", line)
-                #         continue
-                #     elif close_star.search(line):
-                #         print("n:", line)
-                #         special_case = False
-                #         continue
-                print("v:"+line)
-                ret = True
-                # break
-    return ret
-'''
 
 def get_sha(vmlinux):
     sha_default = True
@@ -277,16 +222,12 @@ def get_sha(vmlinux):
     return sha
 
 def filecompare(fileName):
-    # DO NOT change the input file order, or the verify() will be wrong
-    # return true when file context are different
-    # googlefile = google_path + fileName
-    # mtkfile = mtk_path + fileName
-    # cmd = "diff --strip-trailing-cr -EbwBu " + googlefile + " " + mtkfile
     cmd = "git diff --ignore-all-space --ignore-blank-lines " + options.ACK_SHA + " -- " + fileName
     output = os.popen(cmd)
     diff_cont = output.read()
-    output.close()
-    # if diff_cont and verify_violation(diff_cont):
+    if(output.close() != None):
+        print("\nError: WTF! Can't get AOSP file content!")
+        sys.exit("Failed")
     if diff_cont:
         print("\nError: You should Not modify " + fileName)
         gcmd = "git show " + options.ACK_SHA + ":" + fileName

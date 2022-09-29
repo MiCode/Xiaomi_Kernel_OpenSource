@@ -12,7 +12,6 @@ c CONFIG_CLANG_VERSION
 c CONFIG_CUSTOM_KERNEL_IMGSENSOR
 c CONFIG_EXT_MODULES
 c CONFIG_LEDS_MT_BRIGHTNESS_HW_CHANGED
-c CONFIG_LEDS_SGM3140
 c CONFIG_LLD_VERSION
 c CONFIG_MAC80211_HAS_RC
 c CONFIG_MAC80211_RC_DEFAULT
@@ -50,16 +49,8 @@ f drivers/scsi/scsi_scan.c
 f drivers/scsi/ufs/ufshcd.c
 f drivers/scsi/ufs/ufshcd.h
 f drivers/scsi/ufs/unipro.h
-f drivers/usb/host/xhci.c
-f drivers/usb/host/xhci.h
-f drivers/usb/host/xhci-hub.c
-f drivers/usb/host/xhci-mem.c
-f drivers/usb/host/xhci-plat.c
-f drivers/usb/host/xhci-plat.h
 f fs/coredump.c
 f fs/f2fs/checkpoint.c
-f include/../drivers/scsi/ufs/ufshcd.h
-f include/../kernel/printk/printk_ringbuffer.h
 f include/linux/dev_printk.h
 f include/linux/dynamic_debug.h
 f include/linux/printk.h
