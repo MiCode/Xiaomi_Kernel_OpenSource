@@ -2016,6 +2016,17 @@ u32 wrot_format_get(struct mml_task *task, struct mml_comp_config *ccfg)
 	return task->config->info.dest[ccfg->node->out_idx].data.format;
 }
 
+static void wrot_task_done(struct mml_comp *comp, struct mml_task *task,
+			   struct mml_comp_config *ccfg)
+{
+	if (mml_wrot_crc) {
+		task->dest_crc = readl(comp->base + VIDO_CRC_VALUE);
+
+		mml_msg("%s wrot component %u, task %p, crc %#010x",
+			__func__, comp->id, task, task->dest_crc);
+	}
+}
+
 static const struct mml_comp_hw_ops wrot_hw_ops = {
 	.pw_enable = &mml_comp_pw_enable,
 	.pw_disable = &mml_comp_pw_disable,
@@ -2025,6 +2036,7 @@ static const struct mml_comp_hw_ops wrot_hw_ops = {
 	.qos_format_get = &wrot_format_get,
 	.qos_set = &mml_comp_qos_set,
 	.qos_clear = &mml_comp_qos_clear,
+	.task_done = wrot_task_done,
 };
 
 static const char *wrot_state(u32 state)

@@ -496,6 +496,9 @@ struct mml_task {
 	/* frame dump */
 	bool dump_queued[MMLDUMPT_CNT];
 #endif
+
+	u32 src_crc;
+	u32 dest_crc;
 };
 
 struct tile_func_block;

@@ -52,6 +52,9 @@ struct mml_record {
 	u8 state;
 	u8 err;
 	u8 ref;
+
+	u32 src_crc;
+	u32 dest_crc;
 };
 
 /* 512 records
@@ -966,6 +969,8 @@ void mml_record_track(struct mml_dev *mml, struct mml_task *task)
 	record->state = task->state;
 	record->err = task->err;
 	record->ref = kref_read(&task->ref);
+	record->src_crc = task->src_crc;
+	record->dest_crc = task->dest_crc;
 
 	mml->record_idx = (mml->record_idx + 1) & MML_RECORD_NUM_MASK;
 
@@ -973,9 +978,9 @@ void mml_record_track(struct mml_dev *mml, struct mml_task *task)
 }
 
 #define REC_TITLE "Index,Job ID," \
-	"src map time,src unmap time,src,src size,plane 0,plane 1, plane 2," \
-	"dest map time,dest unmap time,dest,dest size,plane 0,plane 1, plane 2," \
-	"config job,task inst,state,ref,error,"
+	"src map time,src unmap time,src,src size,plane 0," \
+	"dest map time,dest unmap time,dest,dest size,plane 0," \
+	"config job,task inst,state,ref,error,src_crc,dest_crc"
 
 static int mml_record_print(struct seq_file *seq, void *data)
 {
@@ -993,7 +998,7 @@ static int mml_record_print(struct seq_file *seq, void *data)
 	seq_puts(seq, REC_TITLE ",\n");
 	for (i = 0; i < ARRAY_SIZE(mml->records); i++) {
 		record = &mml->records[idx];
-		seq_printf(seq, "%u,%u,%llu,%llu,%#llx,%u,%u,%u,%u,%llu,%llu,%#llx,%u,%u,%u,%u,%u,%#x,%u,%u,%s,\n",
+		seq_printf(seq, "%u,%u,%llu,%llu,%#llx,%u,%u,%llu,%llu,%#llx,%u,%u,%u,%#x,%u,%u,%s,%#010x,%#010x\n",
 			idx,
 			record->jobid,
 			record->src_iova_map_time,
@@ -1001,20 +1006,18 @@ static int mml_record_print(struct seq_file *seq, void *data)
 			record->src_iova[0],
 			record->src_size[0],
 			record->src_plane_offset[0],
-			record->src_plane_offset[1],
-			record->src_plane_offset[2],
 			record->dest_iova_map_time,
 			record->dest_iova_unmap_time,
 			record->dest_iova[0],
 			record->dest_size[0],
 			record->dest_plane_offset[0],
-			record->dest_plane_offset[1],
-			record->dest_plane_offset[2],
 			record->cfg_jobid,
 			record->task,
 			record->state,
 			record->ref,
-			record->err ? "error" : "");
+			record->err ? "error" : "",
+			record->src_crc,
+			record->dest_crc);
 		idx = (idx + 1) & MML_RECORD_NUM_MASK;
 	}
 
@@ -1038,7 +1041,7 @@ void mml_record_dump(struct mml_dev *mml)
 	mml_err(REC_TITLE);
 	for (i = 0; i < dump_count; i++) {
 		record = &mml->records[idx];
-		mml_err("%u,%u,%llu,%llu,%#llx,%u,%u,%u,%u,%llu,%llu,%#llx,%u,%u,%u,%u",
+		mml_err("%u,%u,%llu,%llu,%#llx,%u,%u,%llu,%llu,%#llx,%u,%u,%#010x,%#010x",
 			idx,
 			record->jobid,
 			record->src_iova_map_time,
@@ -1046,15 +1049,13 @@ void mml_record_dump(struct mml_dev *mml)
 			record->src_iova[0],
 			record->src_size[0],
 			record->src_plane_offset[0],
-			record->src_plane_offset[1],
-			record->src_plane_offset[2],
 			record->dest_iova_map_time,
 			record->dest_iova_unmap_time,
 			record->dest_iova[0],
 			record->dest_size[0],
 			record->dest_plane_offset[0],
-			record->dest_plane_offset[1],
-			record->dest_plane_offset[2]);
+			record->src_crc,
+			record->dest_crc);
 		idx = (idx + 1) & MML_RECORD_NUM_MASK;
 	}
 }

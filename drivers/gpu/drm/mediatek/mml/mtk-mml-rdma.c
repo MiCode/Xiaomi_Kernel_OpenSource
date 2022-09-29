@@ -1259,9 +1259,14 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		cmdq_pkt_write(pkt, NULL, base_pa + RDMA_SHADOW_CTRL, 0x1, U32_MAX);
 	}
 
-	if (mml_rdma_crc)
-		cmdq_pkt_write(pkt, NULL, base_pa + RDMA_DEBUG_CON,
-			mml_rdma_crc, U32_MAX);
+	if (mml_rdma_crc) {
+		if (MML_FMT_COMPRESS(src->format))
+			cmdq_pkt_write(pkt, NULL, base_pa + RDMA_DEBUG_CON,
+				(0x10 << 13) + 0x1, U32_MAX);
+		else
+			cmdq_pkt_write(pkt, NULL, base_pa + RDMA_DEBUG_CON,
+				0x1, U32_MAX);
+	}
 
 	rdma_color_fmt(cfg, rdma_frm);
 
@@ -1923,6 +1928,19 @@ u32 rdma_format_get(struct mml_task *task, struct mml_comp_config *ccfg)
 	return task->config->info.src.format;
 }
 
+static void rdma_task_done(struct mml_comp *comp, struct mml_task *task,
+			   struct mml_comp_config *ccfg)
+{
+	if (mml_rdma_crc) {
+		task->src_crc = MML_FMT_COMPRESS(task->config->info.src.format) ?
+			readl(comp->base + RDMA_MON_STA_0 + 27 * 8) :
+			readl(comp->base + RDMA_CHKS_EXTR);
+
+		mml_msg("%s rdma component %u, task %p, crc %#010x",
+			__func__, comp->id, task, task->src_crc);
+	}
+}
+
 static const struct mml_comp_hw_ops rdma_hw_ops = {
 	.pw_enable = &mml_comp_pw_enable,
 	.pw_disable = &mml_comp_pw_disable,
@@ -1932,6 +1950,7 @@ static const struct mml_comp_hw_ops rdma_hw_ops = {
 	.qos_format_get = &rdma_format_get,
 	.qos_set = &mml_comp_qos_set,
 	.qos_clear = &mml_comp_qos_clear,
+	.task_done = rdma_task_done,
 };
 
 static const char *rdma_state(u32 state)
@@ -1968,7 +1987,7 @@ static void rdma_debug_dump(struct mml_comp *comp)
 {
 	struct mml_comp_rdma *rdma = comp_to_rdma(comp);
 	void __iomem *base = comp->base;
-	u32 value[31];
+	u32 value[32];
 	u32 mon[29];
 	u32 state, greq;
 	u32 i;
@@ -2027,8 +2046,10 @@ static void rdma_debug_dump(struct mml_comp *comp)
 		value[29] = readl(base + RDMA_AFBC_PAYLOAD_OST);
 	}
 
-	if (mml_rdma_crc)
+	if (mml_rdma_crc) {
 		value[30] = readl(base + RDMA_CHKS_EXTR);
+		value[31] = readl(base + RDMA_DEBUG_CON);
+	}
 
 	/* mon sta from 0 ~ 28 */
 	for (i = 0; i < ARRAY_SIZE(mon); i++)
@@ -2065,8 +2086,10 @@ static void rdma_debug_dump(struct mml_comp *comp)
 			value[29]);
 	}
 
-	if (mml_rdma_crc)
-		mml_err("RDMA_CHKS_EXTR %#010x", value[30]);
+	if (mml_rdma_crc) {
+		mml_err("RDMA_CHKS_EXTR %#010x RDMA_DEBUG_CON %#010x",
+			value[30], value[31]);
+	}
 
 	for (i = 0; i < ARRAY_SIZE(mon) / 3; i++) {
 		mml_err("RDMA_MON_STA_%-2u %#010x RDMA_MON_STA_%-2u %#010x RDMA_MON_STA_%-2u %#010x",
