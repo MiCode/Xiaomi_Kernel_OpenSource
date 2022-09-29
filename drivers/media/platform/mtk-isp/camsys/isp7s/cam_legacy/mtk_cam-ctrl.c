@@ -52,8 +52,8 @@ module_param(debug_cam_ctrl, int, 0644);
 #define SENSOR_DELAY_GUARD_TIME_60FPS 16
 #define SENSOR_SET_STAGGER_DEADLINE_MS  20
 #define SENSOR_SET_STAGGER_RESERVED_MS  7
-#define SENSOR_SET_EXTISP_DEADLINE_MS  29
-#define SENSOR_SET_EXTISP_RESERVED_MS  4
+#define SENSOR_SET_EXTISP_DEADLINE_MS  18
+#define SENSOR_SET_EXTISP_RESERVED_MS  7
 
 
 #define STATE_NUM_AT_SOF 5
@@ -5353,8 +5353,6 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 			for (tag_idx = 0; tag_idx < MAX_SV_HW_TAGS; tag_idx++) {
 				if (camsv_dev->active_group_info[group_idx] & (1 << tag_idx)) {
 					hw_scen = camsv_dev->tag_info[tag_idx].hw_scen;
-					dev_info(camsv_dev->dev, "group_idx:%d, tag_idx:%d, hw_scen:%d\n",
-						group_idx, tag_idx, hw_scen);
 					if (hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO)
 						mtk_camsv_special_hw_scenario_handler(cam,
 						camsv_dev, irq_info, hw_scen, tag_idx);
@@ -5475,8 +5473,7 @@ int mtk_camsv_special_hw_scenario_handler(struct mtk_cam_device *cam,
 	ctx = cam->ctxs + camsv_dev->ctx_stream_id;
 	if (hw_scen & (1 << MTKCAM_SV_SPECIAL_SCENARIO_EXT_ISP)) {
 		int seninf_padidx = camsv_dev->tag_info[tag_idx].seninf_padidx;
-		dev_info(camsv_dev->dev, "seninf_padidx:%d, component:%d",
-			seninf_padidx, ctx->component_dequeued_frame_seq_no);
+
 		/* raw/yuv pipeline frame start from camsv engine */
 		if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START)) {
 			/* preisp frame start */
@@ -5501,27 +5498,37 @@ int mtk_camsv_special_hw_scenario_handler(struct mtk_cam_device *cam,
 			if (mtk_cam_scen_is_ext_isp(&ctx->pipe->scen_active) &&
 				seninf_padidx == PAD_SRC_GENERAL0) {
 				struct mtk_cam_buffer *buf;
+				struct mtk_cam_request *req;
 				struct mtk_cam_request_stream_data *s_data;
 
 				s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id,
 					ctx->component_dequeued_frame_seq_no);
 				if (!s_data) {
-					dev_info(ctx->cam->dev, "ctx(%d): extisp:s_data is NULL\n",
-					ctx->stream_id);
+					dev_info(ctx->cam->dev, "ctx(%d): extisp:s_data(%d) is NULL\n",
+					ctx->stream_id, ctx->component_dequeued_frame_seq_no);
+					return 0;
+				}
+				req = mtk_cam_s_data_get_req(s_data);
+				if (!req) {
+					dev_info(ctx->cam->dev, "ctx(%d): extisp:req(%d) is NULL\n",
+					ctx->stream_id, ctx->component_dequeued_frame_seq_no);
 					return 0;
 				}
 				buf = mtk_cam_s_data_get_vbuf(s_data, MTK_RAW_META_SV_OUT_0);
 				if (!buf) {
 					dev_info(ctx->cam->dev,
-						 "ctx(%d): extisp:can't get MTK_RAW_META_SV_OUT_0 buf from req(%d)\n",
+						 "ctx(%d): can't get META_SV_OUT_0 buf from req(%d)\n",
 						 ctx->stream_id, s_data->frame_seq_no);
 					return 0;
 				}
 				mtk_cam_s_data_update_timestamp(buf, s_data);
 				mtk_cam_s_data_reset_vbuf(s_data, MTK_RAW_META_SV_OUT_0);
-				vb2_buffer_done(&buf->vbb.vb2_buf, VB2_BUF_STATE_DONE);
-				dev_info(ctx->cam->dev, "%s:%s: extisp: buffer_done for 3a-stat\n",
-					__func__, s_data->frame_seq_no);
+				/* Let user get the buffer */
+				buf->final_state = VB2_BUF_STATE_DONE;
+				mtk_cam_mark_vbuf_done(req, buf);
+				dev_info(ctx->cam->dev, "%s: ctx:%d seq:%d, custom 3a done ts:%lld\n",
+					__func__, ctx->stream_id, s_data->frame_seq_no,
+					s_data->preisp_meta_ts[0]);
 			}
 		}
 		return 0;

@@ -379,7 +379,8 @@ void mtk_cam_s_data_update_timestamp(struct mtk_cam_buffer *buf,
 		case MTK_RAW_META_SV_OUT_0:
 		case MTK_RAW_META_SV_OUT_1:
 		case MTK_RAW_META_SV_OUT_2:
-			dev_info(ctx->cam->dev,
+		case MTK_RAW_META_OUT_0:
+			dev_dbg(ctx->cam->dev,
 			"%s:%s:vb sequence:%d, timestamp:%lld (mono:%d), pure/meta/proc:%lld/%lld/%lld\n",
 			__func__, node->desc.name, buf->vbb.sequence, vb->timestamp,
 			vb->vb2_queue->timestamp_flags & V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC,
