@@ -1204,6 +1204,46 @@ static int xgff_boost_startend(unsigned int startend, int group_id,
 	return 0;
 }
 
+#define FBT_CAM_SYSFS_READ(name, show, variable); \
+static ssize_t name##_show(struct kobject *kobj, \
+		struct kobj_attribute *attr, \
+		char *buf) \
+{ \
+	if ((show)) \
+		return scnprintf(buf, PAGE_SIZE, "%d\n", (variable)); \
+	else \
+		return 0; \
+}
+
+#define FBT_CAM_SYSFS_WRITE_VALUE(name, variable, min, max); \
+static ssize_t name##_store(struct kobject *kobj, \
+		struct kobj_attribute *attr, \
+		const char *buf, size_t count) \
+{ \
+	char *acBuffer = NULL; \
+	int arg; \
+\
+	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL); \
+	if (!acBuffer) \
+		goto out; \
+\
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) { \
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) { \
+			if (kstrtoint(acBuffer, 0, &arg) == 0) { \
+				if (arg >= (min) && arg <= (max)) { \
+					mutex_lock(&fbt_cam_frame_lock); \
+					(variable) = arg; \
+					mutex_unlock(&fbt_cam_frame_lock); \
+				} \
+			} \
+		} \
+	} \
+\
+out: \
+	kfree(acBuffer); \
+	return count; \
+}
+
 static ssize_t fbt_cam_uclamp_boost_enable_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -1224,8 +1264,12 @@ static ssize_t fbt_cam_gcc_enable_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	char *acBuffer = NULL;
 	int arg;
+
+	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
+	if (!acBuffer)
+		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
@@ -1234,381 +1278,87 @@ static ssize_t fbt_cam_gcc_enable_store(struct kobject *kobj,
 		}
 	}
 
+out:
+	kfree(acBuffer);
 	return count;
 }
 
 static KOBJ_ATTR_RW(fbt_cam_gcc_enable);
 
-static ssize_t fbt_cam_rescue_pct_1_show(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "%d\n", fbt_cam_rescue_pct_1);
-}
-
-static ssize_t fbt_cam_rescue_pct_1_store(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		const char *buf, size_t count)
-{
-	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
-	int arg;
-
-	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
-		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
-			if (kstrtoint(acBuffer, 0, &arg) == 0) {
-				mutex_lock(&fbt_cam_frame_lock);
-				if (arg >= 0 && arg <= 200)
-					fbt_cam_rescue_pct_1 = arg;
-				mutex_unlock(&fbt_cam_frame_lock);
-			}
-		}
-	}
-
-	return count;
-}
+FBT_CAM_SYSFS_READ(fbt_cam_rescue_pct_1, 1, fbt_cam_rescue_pct_1);
+FBT_CAM_SYSFS_WRITE_VALUE(fbt_cam_rescue_pct_1, fbt_cam_rescue_pct_1, 0, 200);
 
 static KOBJ_ATTR_RW(fbt_cam_rescue_pct_1);
 
-static ssize_t fbt_cam_rescue_f_1_show(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "%d\n", fbt_cam_rescue_f_1);
-}
-
-static ssize_t fbt_cam_rescue_f_1_store(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		const char *buf, size_t count)
-{
-	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
-	int arg;
-
-	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
-		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
-			if (kstrtoint(acBuffer, 0, &arg) == 0) {
-				mutex_lock(&fbt_cam_frame_lock);
-				if (arg >= 0 && arg <= 100)
-					fbt_cam_rescue_f_1 = arg;
-				mutex_unlock(&fbt_cam_frame_lock);
-			}
-		}
-	}
-
-	return count;
-}
+FBT_CAM_SYSFS_READ(fbt_cam_rescue_f_1, 1, fbt_cam_rescue_f_1);
+FBT_CAM_SYSFS_WRITE_VALUE(fbt_cam_rescue_f_1, fbt_cam_rescue_f_1, 0, 100);
 
 static KOBJ_ATTR_RW(fbt_cam_rescue_f_1);
 
-static ssize_t fbt_cam_rescue_pct_2_show(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "%d\n", fbt_cam_rescue_pct_2);
-}
-
-static ssize_t fbt_cam_rescue_pct_2_store(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		const char *buf, size_t count)
-{
-	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
-	int arg;
-
-	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
-		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
-			if (kstrtoint(acBuffer, 0, &arg) == 0) {
-				mutex_lock(&fbt_cam_frame_lock);
-				if (arg >= 0 && arg <= 200)
-					fbt_cam_rescue_pct_2 = arg;
-				mutex_unlock(&fbt_cam_frame_lock);
-			}
-		}
-	}
-
-	return count;
-}
+FBT_CAM_SYSFS_READ(fbt_cam_rescue_pct_2, 1, fbt_cam_rescue_pct_2);
+FBT_CAM_SYSFS_WRITE_VALUE(fbt_cam_rescue_pct_2, fbt_cam_rescue_pct_2, 0, 200);
 
 static KOBJ_ATTR_RW(fbt_cam_rescue_pct_2);
 
-static ssize_t fbt_cam_rescue_f_2_show(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "%d\n", fbt_cam_rescue_f_2);
-}
-
-static ssize_t fbt_cam_rescue_f_2_store(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		const char *buf, size_t count)
-{
-	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
-	int arg;
-
-	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
-		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
-			if (kstrtoint(acBuffer, 0, &arg) == 0) {
-				mutex_lock(&fbt_cam_frame_lock);
-				if (arg >= 0 && arg <= 100)
-					fbt_cam_rescue_f_2 = arg;
-				mutex_unlock(&fbt_cam_frame_lock);
-			}
-		}
-	}
-
-	return count;
-}
+FBT_CAM_SYSFS_READ(fbt_cam_rescue_f_2, 1, fbt_cam_rescue_f_2);
+FBT_CAM_SYSFS_WRITE_VALUE(fbt_cam_rescue_f_2, fbt_cam_rescue_f_2, 0, 100);
 
 static KOBJ_ATTR_RW(fbt_cam_rescue_f_2);
 
-static ssize_t fbt_cam_gcc_std_filter_show(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "%d\n", fbt_cam_gcc_std_filter);
-}
-
-static ssize_t fbt_cam_gcc_std_filter_store(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		const char *buf, size_t count)
-{
-	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
-	int arg;
-
-	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
-		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
-			if (kstrtoint(acBuffer, 0, &arg) == 0) {
-				mutex_lock(&fbt_cam_frame_lock);
-				if (arg >= 0 && arg < INT_MAX)
-					fbt_cam_gcc_std_filter = arg;
-				mutex_unlock(&fbt_cam_frame_lock);
-			}
-		}
-	}
-
-	return count;
-}
+FBT_CAM_SYSFS_READ(fbt_cam_gcc_std_filter, 1, fbt_cam_gcc_std_filter);
+FBT_CAM_SYSFS_WRITE_VALUE(fbt_cam_gcc_std_filter, fbt_cam_gcc_std_filter, 0, INT_MAX);
 
 static KOBJ_ATTR_RW(fbt_cam_gcc_std_filter);
 
-static ssize_t fbt_cam_gcc_history_window_show(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "%d\n", fbt_cam_gcc_history_window);
-}
-
-static ssize_t fbt_cam_gcc_history_window_store(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		const char *buf, size_t count)
-{
-	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
-	int arg;
-
-	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
-		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
-			if (kstrtoint(acBuffer, 0, &arg) == 0) {
-				mutex_lock(&fbt_cam_frame_lock);
-				if (arg >= 1 && arg < INT_MAX)
-					fbt_cam_gcc_history_window = arg;
-				mutex_unlock(&fbt_cam_frame_lock);
-			}
-		}
-	}
-
-	return count;
-}
+FBT_CAM_SYSFS_READ(fbt_cam_gcc_history_window, 1, fbt_cam_gcc_history_window);
+FBT_CAM_SYSFS_WRITE_VALUE(fbt_cam_gcc_history_window, fbt_cam_gcc_history_window, 1, INT_MAX);
 
 static KOBJ_ATTR_RW(fbt_cam_gcc_history_window);
 
-static ssize_t fbt_cam_gcc_up_check_show(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "%d\n", fbt_cam_gcc_up_check);
-}
-
-static ssize_t fbt_cam_gcc_up_check_store(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		const char *buf, size_t count)
-{
-	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
-	int arg;
-
-	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
-		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
-			if (kstrtoint(acBuffer, 0, &arg) == 0) {
-				mutex_lock(&fbt_cam_frame_lock);
-				if (arg >= 1 && arg < INT_MAX)
-					fbt_cam_gcc_up_check = arg;
-				mutex_unlock(&fbt_cam_frame_lock);
-			}
-		}
-	}
-
-	return count;
-}
+FBT_CAM_SYSFS_READ(fbt_cam_gcc_up_check, 1, fbt_cam_gcc_up_check);
+FBT_CAM_SYSFS_WRITE_VALUE(fbt_cam_gcc_up_check, fbt_cam_gcc_up_check, 1, INT_MAX);
 
 static KOBJ_ATTR_RW(fbt_cam_gcc_up_check);
 
-static ssize_t fbt_cam_gcc_up_thrs_show(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "%d\n", fbt_cam_gcc_up_thrs);
-}
-
-static ssize_t fbt_cam_gcc_up_thrs_store(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		const char *buf, size_t count)
-{
-	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
-	int arg;
-
-	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
-		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
-			if (kstrtoint(acBuffer, 0, &arg) == 0) {
-				mutex_lock(&fbt_cam_frame_lock);
-				if (arg >= 0 && arg < INT_MAX)
-					fbt_cam_gcc_up_thrs = arg;
-				mutex_unlock(&fbt_cam_frame_lock);
-			}
-		}
-	}
-
-	return count;
-}
+FBT_CAM_SYSFS_READ(fbt_cam_gcc_up_thrs, 1, fbt_cam_gcc_up_thrs);
+FBT_CAM_SYSFS_WRITE_VALUE(fbt_cam_gcc_up_thrs, fbt_cam_gcc_up_thrs, 0, INT_MAX);
 
 static KOBJ_ATTR_RW(fbt_cam_gcc_up_thrs);
 
-static ssize_t fbt_cam_gcc_up_step_show(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "%d\n", fbt_cam_gcc_up_step);
-}
-
-static ssize_t fbt_cam_gcc_up_step_store(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		const char *buf, size_t count)
-{
-	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
-	int arg;
-
-	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
-		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
-			if (kstrtoint(acBuffer, 0, &arg) == 0) {
-				mutex_lock(&fbt_cam_frame_lock);
-				if (arg >= 0 && arg < INT_MAX)
-					fbt_cam_gcc_up_step = arg;
-				mutex_unlock(&fbt_cam_frame_lock);
-			}
-		}
-	}
-
-	return count;
-}
+FBT_CAM_SYSFS_READ(fbt_cam_gcc_up_step, 1, fbt_cam_gcc_up_step);
+FBT_CAM_SYSFS_WRITE_VALUE(fbt_cam_gcc_up_step, fbt_cam_gcc_up_step, 0, INT_MAX);
 
 static KOBJ_ATTR_RW(fbt_cam_gcc_up_step);
 
-static ssize_t fbt_cam_gcc_down_check_show(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "%d\n", fbt_cam_gcc_down_check);
-}
-
-static ssize_t fbt_cam_gcc_down_check_store(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		const char *buf, size_t count)
-{
-	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
-	int arg;
-
-	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
-		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
-			if (kstrtoint(acBuffer, 0, &arg) == 0) {
-				mutex_lock(&fbt_cam_frame_lock);
-				if (arg >= 1 && arg < INT_MAX)
-					fbt_cam_gcc_down_check = arg;
-				mutex_unlock(&fbt_cam_frame_lock);
-			}
-		}
-	}
-
-	return count;
-}
+FBT_CAM_SYSFS_READ(fbt_cam_gcc_down_check, 1, fbt_cam_gcc_down_check);
+FBT_CAM_SYSFS_WRITE_VALUE(fbt_cam_gcc_down_check, fbt_cam_gcc_down_check, 1, INT_MAX);
 
 static KOBJ_ATTR_RW(fbt_cam_gcc_down_check);
 
-static ssize_t fbt_cam_gcc_down_thrs_show(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "%d\n", fbt_cam_gcc_down_thrs);
-}
-
-static ssize_t fbt_cam_gcc_down_thrs_store(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		const char *buf, size_t count)
-{
-	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
-	int arg;
-
-	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
-		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
-			if (kstrtoint(acBuffer, 0, &arg) == 0) {
-				mutex_lock(&fbt_cam_frame_lock);
-				if (arg >= 0 && arg < INT_MAX)
-					fbt_cam_gcc_down_thrs = arg;
-				mutex_unlock(&fbt_cam_frame_lock);
-			}
-		}
-	}
-
-	return count;
-}
+FBT_CAM_SYSFS_READ(fbt_cam_gcc_down_thrs, 1, fbt_cam_gcc_down_thrs);
+FBT_CAM_SYSFS_WRITE_VALUE(fbt_cam_gcc_down_thrs, fbt_cam_gcc_down_thrs, 0, INT_MAX);
 
 static KOBJ_ATTR_RW(fbt_cam_gcc_down_thrs);
 
-static ssize_t fbt_cam_gcc_down_step_show(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "%d\n", fbt_cam_gcc_down_step);
-}
-
-static ssize_t fbt_cam_gcc_down_step_store(struct kobject *kobj,
-		struct kobj_attribute *attr,
-		const char *buf, size_t count)
-{
-	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
-	int arg;
-
-	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
-		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
-			if (kstrtoint(acBuffer, 0, &arg) == 0) {
-				mutex_lock(&fbt_cam_frame_lock);
-				if (arg >= 0 && arg < INT_MAX)
-					fbt_cam_gcc_down_step = arg;
-				mutex_unlock(&fbt_cam_frame_lock);
-			}
-		}
-	}
-
-	return count;
-}
+FBT_CAM_SYSFS_READ(fbt_cam_gcc_down_step, 1, fbt_cam_gcc_down_step);
+FBT_CAM_SYSFS_WRITE_VALUE(fbt_cam_gcc_down_step, fbt_cam_gcc_down_step, 0, INT_MAX);
 
 static KOBJ_ATTR_RW(fbt_cam_gcc_down_step);
 
 static ssize_t thread_status_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
-	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
+	char *temp = NULL;
 	int pos = 0;
-	int length;
+	int length = 0;
 	struct fbt_cam_thread *iter1;
 	struct fbt_cam_group *iter2;
 	struct rb_root *rbr1, *rbr2;
 	struct rb_node *rbn1, *rbn2;
+
+	temp = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
+	if (!temp)
+		goto out;
 
 	mutex_lock(&fbt_cam_tree_lock);
 
@@ -1639,7 +1389,11 @@ static ssize_t thread_status_show(struct kobject *kobj,
 
 	mutex_unlock(&fbt_cam_tree_lock);
 
-	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+	length = scnprintf(buf, PAGE_SIZE, "%s", temp);
+
+out:
+	kfree(temp);
+	return length;
 }
 
 static KOBJ_ATTR_RO(thread_status);
