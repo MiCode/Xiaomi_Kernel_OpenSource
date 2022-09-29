@@ -4057,6 +4057,7 @@ static const struct mtk_mmsys_driver_data mt6985_mmsys_driver_data = {
 	.mmsys_id = MMSYS_MT6985,
 	.mode_tb = mt6985_mode_tb,
 	.sodi_config = mt6985_mtk_sodi_config,
+	.sodi_apsrc_config = mt6985_mtk_sodi_apsrc_config,
 	.has_smi_limitation = false,
 	.doze_ctrl_pmic = true,
 	.can_compress_rgb565 = false,

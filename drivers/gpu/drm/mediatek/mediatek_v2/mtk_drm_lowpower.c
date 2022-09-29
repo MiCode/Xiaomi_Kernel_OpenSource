@@ -563,8 +563,10 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 	/* 0. CMDQ power on */
 	cmdq_mbox_enable(mtk_crtc->gce_obj.client[CLIENT_CFG]->chan);
 
-	/* 1. power on mtcmos */
+	/* 1. power on mtcmos & init apsrc*/
 	mtk_drm_top_clk_prepare_enable(crtc->dev);
+	mtk_crtc_v_idle_apsrc_control(crtc, NULL, true, true,
+		MTK_APSRC_CRTC_DEFAULT, false);
 
 	/* 2. prepare modules would be used in this CRTC */
 	mtk_drm_idlemgr_enable_connector(crtc);

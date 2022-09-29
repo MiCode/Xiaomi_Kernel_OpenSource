@@ -568,6 +568,19 @@ enum mtk_ddp_io_cmd {
 	RSZ_GET_IN_MAX_HEIGHT,
 	DSI_GET_BPC,
 	FORCE_TRIG_CTL,
+	DSI_PLL_SWITCH_REFERENCE_CNT_CTL,
+	DSI_PLL_SWITCH_REFERENCE_CNT_GET,
+	DSI_PLL_SWITCH_ON_OFF,
+};
+
+enum mtk_ddp_comp_apsrc_crtc_id {
+	MTK_APSRC_CRTC_ID0,
+	MTK_APSRC_CRTC_ID1,
+	MTK_APSRC_CRTC_ID2,
+	MTK_APSRC_CRTC_ID3,
+	MTK_APSRC_CRTC_ID4,
+	MTK_APSRC_CRTC_FORCE_ON = 0x10,
+	MTK_APSRC_CRTC_DEFAULT = 0xFF,
 };
 
 struct golden_setting_context {
@@ -934,6 +947,11 @@ void mt6879_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
 void mt6855_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
+
+void mt6985_mtk_sodi_apsrc_config(struct drm_crtc *crtc,
+	struct cmdq_pkt *_cmdq_handle, bool reset, bool condition_check,
+	unsigned int crtc_id, bool enable);
+
 int mtk_ddp_comp_helper_get_opt(struct mtk_ddp_comp *comp,
 				enum MTK_DRM_HELPER_OPT option);
 

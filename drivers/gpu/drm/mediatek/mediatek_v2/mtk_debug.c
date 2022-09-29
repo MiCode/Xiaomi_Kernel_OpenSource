@@ -79,6 +79,8 @@ bool g_gpuc_direct_push;
 EXPORT_SYMBOL(g_gpuc_direct_push);
 bool g_ovl_bwm_debug;
 EXPORT_SYMBOL(g_ovl_bwm_debug);
+bool g_vidle_apsrc_debug;
+EXPORT_SYMBOL(g_vidle_apsrc_debug);
 bool g_profile_log;
 
 bool g_irq_log;

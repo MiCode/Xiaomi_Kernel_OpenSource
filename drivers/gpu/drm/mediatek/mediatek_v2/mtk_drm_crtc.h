@@ -479,14 +479,16 @@ enum CRTC_GCE_EVENT_TYPE {
 	EVENT_DSI0_SOF,
 	/*Msync 2.0*/
 	EVENT_SYNC_TOKEN_VFP_PERIOD,
+	EVENT_GPIO_TE0,
 	EVENT_GPIO_TE1,
 	EVENT_SYNC_TOKEN_DISP_VA_START,
 	EVENT_SYNC_TOKEN_DISP_VA_END,
 	EVENT_SYNC_TOKEN_TE,
-	EVENT_SYNC_TOKEN_PRETE,
+	EVENT_SYNC_TOKEN_PREFETCH_TE,
 	EVENT_DSI0_TARGET_LINE,
 	EVENT_OVLSYS_WDMA0_EOF,
 	EVENT_OVLSYS1_WDMA0_EOF,
+	EVENT_SYNC_TOKEN_VIDLE_POWER_ON,
 	EVENT_TYPE_MAX,
 };
 
@@ -861,6 +863,10 @@ struct mtk_drm_crtc {
 	struct cmdq_cb_data cb_data;
 	atomic_t cmdq_done;
 	wait_queue_head_t signal_fence_task_wq;
+
+	bool prefetch_te_en;
+	bool vidle_apsrc_off_en;
+	bool vidle_dsi_pll_off_en;
 
 	struct mtk_msync2 msync2;
 	struct mtk_panel_spr_params *panel_spr_params;

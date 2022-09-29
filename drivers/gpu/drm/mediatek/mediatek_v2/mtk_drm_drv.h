@@ -70,6 +70,9 @@ struct mtk_mmsys_driver_data {
 	const struct mtk_session_mode_tb *mode_tb;
 	void (*sodi_config)(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			struct cmdq_pkt *handle, void *data);
+	void (*sodi_apsrc_config)(struct drm_crtc *crtc,
+			struct cmdq_pkt *_cmdq_handle, bool first_init, bool check_reset,
+			unsigned int crtc_id, bool enable);
 	const struct mtk_fake_eng_data *fake_eng_data;
 	bool bypass_infra_ddr_control;
 	bool has_smi_limitation;
@@ -374,5 +377,7 @@ void **mtk_aod_scp_ipi_init(void);
 void mtk_free_mml_submit(struct mml_submit *temp);
 int copy_mml_submit(struct mml_submit *src, struct mml_submit *dst);
 void **mtk_drm_disp_sec_cb_init(void);
-
+void mtk_crtc_v_idle_apsrc_control(struct drm_crtc *crtc,
+	struct cmdq_pkt *_cmdq_handle, bool reset, bool condition_check,
+	unsigned int crtc_id, bool enable);
 #endif /* MTK_DRM_DRV_H */

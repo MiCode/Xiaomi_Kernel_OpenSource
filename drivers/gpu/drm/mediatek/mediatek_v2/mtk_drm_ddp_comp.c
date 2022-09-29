@@ -2181,6 +2181,257 @@ void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 	}
 }
 
+static void mt6985_mtk_sodi_apsrc_enable(struct drm_crtc *crtc,
+	struct cmdq_pkt *_cmdq_handle, unsigned int id, bool on)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	unsigned int v;
+	unsigned int val = 0, mask = 0;
+
+	if (!mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_VIDLE_APSRC_OFF))
+		return;
+
+	/* APRRC settings */
+	/*Group1~Group6*/
+	/*All group setting should be zero to vote power off*/
+	/*currently design*/
+	/*Group1 (id = 0): 0x140000F4[16:15], DISP0   <-- SW defined as CRTC0*/
+	/*Group2 (id = 1): 0x140000F4[13:12], DISP0   <-- SW defined as CRTC1*/
+	/*Group3 (id = 2): 0x142000F4[16:15], DISP1   <-- SW defined as CRTC2*/
+	/*Group4 (id = 3): 0x142000F4[13:12], DISP1   <-- SW defined as CRTC3*/
+	/*Group5 (id = 4): 0x144000F4[13:12], OVL0    <-- SW defined as CRTC4*/
+	/*Group6 (id = 5): 0x146000F4[13:12], OVL1    <-- SW defined ussed to force apsrc ON */
+#define SODI_APSRC_SW_CTL_SET_0       REG_FLD_MSB_LSB(13, 12)
+#define SODI_APSRC_SW_CTL_SET_1       REG_FLD_MSB_LSB(16, 15)
+
+	if (_cmdq_handle == NULL) {
+		switch (id) {
+		case MTK_APSRC_CRTC_ID0:
+			SET_VAL_MASK(val, mask,	3, SODI_APSRC_SW_CTL_SET_1);
+
+			v = (readl(mtk_crtc->config_regs + MMSYS_SODI_REQ_MASK)	& (~mask));
+
+			if (on)
+				v += (val & mask);
+
+			writel(v, mtk_crtc->config_regs + MMSYS_SODI_REQ_MASK);
+			break;
+		case MTK_APSRC_CRTC_ID1:
+			SET_VAL_MASK(val, mask,	3, SODI_APSRC_SW_CTL_SET_0);
+
+			v = (readl(mtk_crtc->config_regs + MMSYS_SODI_REQ_MASK)	& (~mask));
+
+			if (on)
+				v += (val & mask);
+
+			writel(v, mtk_crtc->config_regs + MMSYS_SODI_REQ_MASK);
+			break;
+		case MTK_APSRC_CRTC_ID2:
+			SET_VAL_MASK(val, mask,	3, SODI_APSRC_SW_CTL_SET_1);
+
+			v = (readl(mtk_crtc->side_config_regs + MMSYS_SODI_REQ_MASK) & (~mask));
+
+			if (on)
+				v += (val & mask);
+
+			writel(v, mtk_crtc->side_config_regs + MMSYS_SODI_REQ_MASK);
+			break;
+		case MTK_APSRC_CRTC_ID3:
+			SET_VAL_MASK(val, mask,	3, SODI_APSRC_SW_CTL_SET_0);
+
+			v = (readl(mtk_crtc->side_config_regs + MMSYS_SODI_REQ_MASK) & (~mask));
+
+			if (on)
+				v += (val & mask);
+
+			writel(v, mtk_crtc->side_config_regs + MMSYS_SODI_REQ_MASK);
+			break;
+		case MTK_APSRC_CRTC_ID4:
+			SET_VAL_MASK(val, mask,	3, SODI_APSRC_SW_CTL_SET_0);
+
+			v = (readl(mtk_crtc->ovlsys0_regs + MMSYS_SODI_REQ_MASK) & (~mask));
+
+			if (on)
+				v += (val & mask);
+
+			writel(v, mtk_crtc->ovlsys0_regs + MMSYS_SODI_REQ_MASK);
+			break;
+		case MTK_APSRC_CRTC_FORCE_ON:
+			SET_VAL_MASK(val, mask,	3, SODI_APSRC_SW_CTL_SET_0);
+
+			v = (readl(mtk_crtc->ovlsys1_regs + MMSYS_SODI_REQ_MASK) & (~mask));
+
+			if (on)
+				v += (val & mask);
+
+			writel(v, mtk_crtc->ovlsys1_regs + MMSYS_SODI_REQ_MASK);
+			break;
+		case MTK_APSRC_CRTC_DEFAULT:
+		default:/*default turn off*/
+			/*crtc0 default power on*/
+			SET_VAL_MASK(val, mask,	3, SODI_APSRC_SW_CTL_SET_1);
+			v = (readl(mtk_crtc->config_regs + MMSYS_SODI_REQ_MASK) & (~mask));
+			v += (val & mask);
+			writel(v, mtk_crtc->config_regs + MMSYS_SODI_REQ_MASK);
+
+
+			val = mask = 0;
+			SET_VAL_MASK(val, mask,	0x00, SODI_APSRC_SW_CTL_SET_0);
+			v = (readl(mtk_crtc->config_regs + MMSYS_SODI_REQ_MASK) & (~mask));
+			writel(v, mtk_crtc->config_regs + MMSYS_SODI_REQ_MASK);
+
+
+			val = mask = 0;
+			SET_VAL_MASK(val, mask,	0x00, SODI_APSRC_SW_CTL_SET_1);
+			v = (readl(mtk_crtc->side_config_regs + MMSYS_SODI_REQ_MASK) & (~mask));
+			writel(v, mtk_crtc->side_config_regs + MMSYS_SODI_REQ_MASK);
+
+			val = mask = 0;
+			SET_VAL_MASK(val, mask,	0x00, SODI_APSRC_SW_CTL_SET_0);
+			v = (readl(mtk_crtc->side_config_regs + MMSYS_SODI_REQ_MASK) & (~mask));
+			writel(v, mtk_crtc->side_config_regs + MMSYS_SODI_REQ_MASK);
+
+			val = mask = 0;
+			SET_VAL_MASK(val, mask,	0x00, SODI_APSRC_SW_CTL_SET_0);
+			v = (readl(mtk_crtc->ovlsys0_regs + MMSYS_SODI_REQ_MASK) & (~mask));
+			writel(v, mtk_crtc->ovlsys0_regs + MMSYS_SODI_REQ_MASK);
+
+			val = mask = 0;
+			SET_VAL_MASK(val, mask,	0x00, SODI_APSRC_SW_CTL_SET_0);
+			v = (readl(mtk_crtc->ovlsys1_regs + MMSYS_SODI_REQ_MASK) & (~mask));
+			writel(v, mtk_crtc->ovlsys1_regs + MMSYS_SODI_REQ_MASK);
+			break;
+		}
+
+	} else {
+		switch (id) {
+		case MTK_APSRC_CRTC_ID0:
+			if (on)
+				SET_VAL_MASK(val, mask,	3, SODI_APSRC_SW_CTL_SET_1);
+			else
+				SET_VAL_MASK(val, mask,	0x00, SODI_APSRC_SW_CTL_SET_1);
+
+			cmdq_pkt_write(_cmdq_handle, NULL,
+					mtk_crtc->config_regs_pa + MMSYS_SODI_REQ_MASK,
+					val, mask);
+			break;
+		case MTK_APSRC_CRTC_ID1:
+			if (on)
+				SET_VAL_MASK(val, mask,	3, SODI_APSRC_SW_CTL_SET_0);
+			else
+				SET_VAL_MASK(val, mask,	0x00, SODI_APSRC_SW_CTL_SET_0);
+
+			cmdq_pkt_write(_cmdq_handle, NULL,
+					mtk_crtc->config_regs_pa + MMSYS_SODI_REQ_MASK,
+					val, mask);
+			break;
+		case MTK_APSRC_CRTC_ID2:
+			if (on)
+				SET_VAL_MASK(val, mask,	3, SODI_APSRC_SW_CTL_SET_1);
+			else
+				SET_VAL_MASK(val, mask,	0x00, SODI_APSRC_SW_CTL_SET_1);
+
+			cmdq_pkt_write(_cmdq_handle, NULL,
+					mtk_crtc->side_config_regs_pa + MMSYS_SODI_REQ_MASK,
+					val, mask);
+			break;
+		case MTK_APSRC_CRTC_ID3:
+			if (on)
+				SET_VAL_MASK(val, mask,	3, SODI_APSRC_SW_CTL_SET_0);
+			else
+				SET_VAL_MASK(val, mask,	0x00, SODI_APSRC_SW_CTL_SET_0);
+
+			cmdq_pkt_write(_cmdq_handle, NULL,
+					mtk_crtc->side_config_regs_pa + MMSYS_SODI_REQ_MASK,
+					val, mask);
+			break;
+		case MTK_APSRC_CRTC_ID4:
+			if (on)
+				SET_VAL_MASK(val, mask,	3, SODI_APSRC_SW_CTL_SET_0);
+			else
+				SET_VAL_MASK(val, mask,	0x00, SODI_APSRC_SW_CTL_SET_0);
+
+			cmdq_pkt_write(_cmdq_handle, NULL,
+					mtk_crtc->ovlsys0_regs_pa + MMSYS_SODI_REQ_MASK,
+					val, mask);
+			break;
+		case MTK_APSRC_CRTC_FORCE_ON:
+			if (on)
+				SET_VAL_MASK(val, mask,	3, SODI_APSRC_SW_CTL_SET_0);
+			else
+				SET_VAL_MASK(val, mask,	0x00, SODI_APSRC_SW_CTL_SET_0);
+
+			cmdq_pkt_write(_cmdq_handle, NULL,
+					mtk_crtc->ovlsys1_regs_pa + MMSYS_SODI_REQ_MASK,
+					val, mask);
+			break;
+		case MTK_APSRC_CRTC_DEFAULT:
+		default:/*default turn off*/
+			/*crtc0 default power on*/
+			SET_VAL_MASK(val, mask,	3, SODI_APSRC_SW_CTL_SET_1);
+			cmdq_pkt_write(_cmdq_handle, NULL,
+					mtk_crtc->config_regs_pa + MMSYS_SODI_REQ_MASK,
+					val, mask);
+
+			val = mask = 0;
+			SET_VAL_MASK(val, mask,	0x00, SODI_APSRC_SW_CTL_SET_0);
+			cmdq_pkt_write(_cmdq_handle, NULL,
+					mtk_crtc->config_regs_pa + MMSYS_SODI_REQ_MASK,
+					val, mask);
+			val = mask = 0;
+			SET_VAL_MASK(val, mask,	0x00, SODI_APSRC_SW_CTL_SET_1);
+			cmdq_pkt_write(_cmdq_handle, mtk_crtc->gce_obj.base,
+					mtk_crtc->side_config_regs_pa + MMSYS_SODI_REQ_MASK,
+					val, mask);
+
+			val = mask = 0;
+			SET_VAL_MASK(val, mask,	0x00, SODI_APSRC_SW_CTL_SET_0);
+			cmdq_pkt_write(_cmdq_handle, mtk_crtc->gce_obj.base,
+					mtk_crtc->side_config_regs_pa + MMSYS_SODI_REQ_MASK,
+					val, mask);
+
+			val = mask = 0;
+			SET_VAL_MASK(val, mask,	0x00, SODI_APSRC_SW_CTL_SET_0);
+			cmdq_pkt_write(_cmdq_handle, mtk_crtc->gce_obj.base,
+					mtk_crtc->ovlsys0_regs_pa + MMSYS_SODI_REQ_MASK,
+					val, mask);
+			val = mask = 0;
+			SET_VAL_MASK(val, mask,	0x00, SODI_APSRC_SW_CTL_SET_0);
+			cmdq_pkt_write(_cmdq_handle, mtk_crtc->gce_obj.base,
+					mtk_crtc->ovlsys1_regs_pa + MMSYS_SODI_REQ_MASK,
+					val, mask);
+			break;
+		}
+	}
+}
+
+void mt6985_mtk_sodi_apsrc_config(struct drm_crtc *crtc,
+	struct cmdq_pkt *_cmdq_handle, bool reset, bool condition_check,
+	unsigned int crtc_id, bool enable)
+{
+	struct drm_crtc *crtc_local;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+
+	if (!mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_VIDLE_APSRC_OFF))
+		return;
+
+	if (reset)
+		mt6985_mtk_sodi_apsrc_enable(crtc, _cmdq_handle,
+			MTK_APSRC_CRTC_DEFAULT, true);
+
+	if (condition_check) {
+		drm_for_each_crtc(crtc_local, crtc->dev) {
+			struct mtk_drm_crtc *mtk_crtc_local = to_mtk_crtc(crtc_local);
+			unsigned int crtc_id = drm_crtc_index(&mtk_crtc_local->base);
+
+			mt6985_mtk_sodi_apsrc_enable(crtc,
+				_cmdq_handle, crtc_id, mtk_crtc_local->enabled);
+		}
+	} else if (!reset)
+		mt6985_mtk_sodi_apsrc_enable(crtc, _cmdq_handle, crtc_id, enable);
+}
+
 int mtk_ddp_comp_helper_get_opt(struct mtk_ddp_comp *comp,
 				enum MTK_DRM_HELPER_OPT option)
 {
