@@ -31,7 +31,7 @@ static int mmdvfs_v3_start_thread(void *data)
 	}
 
 	MMDVFS_DBG("disable vcp!!!!!!");
-	mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMDVFS_VCP_INIT);
+	mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMDVFS_INIT);
 	return 0;
 }
 

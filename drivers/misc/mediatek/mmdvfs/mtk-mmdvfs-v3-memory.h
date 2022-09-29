@@ -29,10 +29,11 @@ static inline void *mtk_mmdvfs_vcp_get_base(phys_addr_t *pa)
 #define MEM_AGING_CNT_USR(x)	(MEM_BASE + 0x20 + 0x4 * (x)) // CAM, IMG
 #define MEM_FRESH_CNT_USR(x)	(MEM_BASE + 0x28 + 0x4 * (x)) // CAM, IMG
 #define MEM_FORCE_OPP_PWR(x)	(MEM_BASE + 0x30 + 0x4 * (x)) // POWER_NUM
-#define MEM_VOTE_OPP_USR(x)	(MEM_BASE + 0x3C + 0x4 * (x)) // USER_NUM
+#define MEM_VOTE_OPP_PWR(x)	(MEM_BASE + 0x40 + 0x4 * (x)) // POWER_NUM
+#define MEM_VOTE_OPP_USR(x)	(MEM_BASE + 0x50 + 0x4 * (x)) // USER_NUM
 
-/* 0x80 */
-#define MEM_VMM_CEIL_ENABLE	(MEM_BASE + 0x80)
+#define MEM_VMM_CEIL_ENABLE	(MEM_BASE + 0x8C)
+/* 0x90 */
 
 #define MEM_REC_PWR_OBJ		4
 #define MEM_REC_USR_OBJ		5

@@ -44,299 +44,33 @@ static void *mmdvfs_memory_va;
 static bool mmdvfs_free_run;
 static bool mmdvfs_init_done;
 
-static u64 mmdvfs_vcp_ipi_data;
-static DEFINE_MUTEX(mmdvfs_vcp_ipi_mutex);
-
-static int log_level;
-static DEFINE_MUTEX(mmdvfs_vcp_pwr_mutex);
 static int vcp_power;
+static int vcp_pwr_usage[VCP_PWR_USR_NUM];
+static DEFINE_MUTEX(mmdvfs_vcp_pwr_mutex);
+static struct workqueue_struct *vmm_notify_wq;
 
-static struct device *cam_larb_dev;
-static DEFINE_MUTEX(mmdvfs_vmm_pwr_mutex);
-static int vmm_power;
-static int last_vote_step[PWR_MMDVFS_NUM];
-static int last_force_step[PWR_MMDVFS_NUM];
-
-static struct platform_device *ccu_pdev;
-static struct rproc *ccu_rproc;
-static DEFINE_MUTEX(mmdvfs_ccu_pwr_mutex);
-static int ccu_power;
-struct ipi_callbacks clk_cb;
-static DEFINE_MUTEX(mmdvfs_clkmux_mutex);
-static DEFINE_MUTEX(mmdvfs_avs_mutex);
-
-static int last_ccu_freq = -1;
-static unsigned int ccu_pwr_usage[CCU_PWR_USR_NUM];
-static unsigned int vcp_pwr_usage[VCP_PWR_USR_NUM];
-
+static DEFINE_MUTEX(mmdvfs_vcp_ipi_mutex);
+static struct ipi_callbacks clkmux_cb;
 static struct notifier_block vcp_ready_notifier;
 static struct notifier_block force_on_notifier;
 
-static struct workqueue_struct *vmm_notify_wq;
+static int ccu_power;
+static int ccu_pwr_usage[CCU_PWR_USR_NUM];
+static DEFINE_MUTEX(mmdvfs_ccu_pwr_mutex);
+static struct rproc *ccu_rproc;
+static struct platform_device *ccu_pdev;
 
-enum mmdvfs_log_level {
+static struct device *cam_larb_dev;
+static int vmm_power;
+static DEFINE_MUTEX(mmdvfs_vmm_pwr_mutex);
+
+enum {
+	log_pwr,
 	log_ipi,
-	log_ccf_cb,
-	log_vcp,
-	log_clk,
-	log_vmm_notify,
+	log_clk_ops,
+	log_adb,
 };
-
-static inline struct mtk_mmdvfs_clk *to_mtk_mmdvfs_clk(struct clk_hw *hw)
-{
-	return container_of(hw, struct mtk_mmdvfs_clk, clk_hw);
-}
-
-int mtk_mmdvfs_enable_ccu(bool enable, unsigned int usr_id)
-{
-
-	int ret = 0;
-
-	if (!mmdvfs_free_run) {
-		MMDVFS_DBG("mmdvfs_v3 not supported");
-		return 0;
-	}
-
-	if (!ccu_rproc) {
-		MMDVFS_ERR("there is no ccu_rproc");
-		return -EINVAL;
-	}
-
-	if (usr_id >= CCU_PWR_USR_NUM) {
-		MMDVFS_ERR("usr_id:%u >= usr_num:%u", usr_id, CCU_PWR_USR_NUM);
-		return -EINVAL;
-	}
-
-	mutex_lock(&mmdvfs_ccu_pwr_mutex);
-	if (enable) {
-		if (ccu_power == 0) {
-#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
-			ret = rproc_bootx(ccu_rproc, RPROC_UID_MMDVFS);
-#else
-			ret = rproc_boot(ccu_rproc);
-#endif
-			if (ret) {
-				MMDVFS_ERR("boot ccu rproc fail");
-				mutex_unlock(&mmdvfs_ccu_pwr_mutex);
-				return ret;
-			}
-		}
-		ccu_power++;
-		ccu_pwr_usage[usr_id]++;
-	} else {
-		if (ccu_power == 0) {
-			MMDVFS_ERR("disable ccu when ccu_power==0");
-			mutex_unlock(&mmdvfs_ccu_pwr_mutex);
-			return -EINVAL;
-		}
-		if (ccu_power == 1) {
-#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
-			rproc_shutdownx(ccu_rproc, RPROC_UID_MMDVFS);
-#else
-			rproc_shutdown(ccu_rproc);
-#endif
-		}
-		ccu_power--;
-		ccu_pwr_usage[usr_id]--;
-	}
-
-	mutex_unlock(&mmdvfs_ccu_pwr_mutex);
-
-	return ret;
-}
-EXPORT_SYMBOL_GPL(mtk_mmdvfs_enable_ccu);
-
-static void reset_ccu_power(void)
-{
-	int i;
-
-	mutex_lock(&mmdvfs_ccu_pwr_mutex);
-	if (ccu_power > 0) {
-#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
-		rproc_shutdownx(ccu_rproc, RPROC_UID_MMDVFS);
-#else
-		rproc_shutdown(ccu_rproc);
-#endif
-		ccu_power = 0;
-		for (i = 0; i < CCU_PWR_USR_NUM; i++)
-			ccu_pwr_usage[i] = 0;
-
-		MMDVFS_DBG("check ccu_power > 0 and shutdown ccu");
-	}
-
-	mutex_unlock(&mmdvfs_ccu_pwr_mutex);
-}
-
-static void check_ccu_pwr(void)
-{
-	int i;
-	bool has_error = false;
-
-	for (i = 0; i < CCU_PWR_USR_NUM; i++) {
-		if (ccu_pwr_usage[i] > 0) {
-			MMDVFS_ERR("usr:%u is not disabled usage:%u", i, ccu_pwr_usage[i]);
-			has_error = true;
-		}
-	}
-	//WARN_ON(has_error);
-}
-
-
-static int mtk_mmdvfs_enable_vmm(int enable)
-{
-	int result = 0, ret = 0;
-
-	if (!cam_larb_dev) {
-		MMDVFS_ERR("cam_larb_dev is null");
-		return -EINVAL;
-	}
-
-	mutex_lock(&mmdvfs_vmm_pwr_mutex);
-	if (enable) {
-		if (vmm_power == 0) {
-			ret = mtk_smi_larb_get(cam_larb_dev);
-			if (ret)
-				MMDVFS_ERR("mtk_smi_larb_get failed:%d", ret);
-			else
-				MMDVFS_DBG("power on vmm successfully");
-		}
-		vmm_power++;
-	} else {
-		if (vmm_power == 0) {
-			MMDVFS_ERR("power off vmm when vmm_power==0");
-			mutex_unlock(&mmdvfs_vmm_pwr_mutex);
-			return -1;
-		}
-		if (vmm_power == 1) {
-			mtk_smi_larb_put(cam_larb_dev);
-			MMDVFS_DBG("power off vmm successfully");
-		}
-		vmm_power--;
-	}
-	mutex_unlock(&mmdvfs_vmm_pwr_mutex);
-
-	return result;
-}
-
-static int set_vmm_enable(const char *val, const struct kernel_param *kp)
-{
-	int result, enable;
-
-	result = kstrtoint(val, 0, &enable);
-	if (result) {
-		MMDVFS_ERR("failed: %d", result);
-		return result;
-	}
-
-	result = mtk_mmdvfs_enable_vmm(enable);
-
-
-	return result;
-}
-
-static struct kernel_param_ops enable_vmm_ops = {
-	.set = set_vmm_enable,
-};
-module_param_cb(enable_vmm, &enable_vmm_ops, NULL, 0644);
-MODULE_PARM_DESC(enable_vmm, "enable vmm");
-
-bool mtk_is_mmdvfs_init_done(void)
-{
-	return mmdvfs_free_run ? mmdvfs_init_done : false;
-}
-EXPORT_SYMBOL_GPL(mtk_is_mmdvfs_init_done);
-
-/*
-static int reset_vcp_power(void)
-{
-	int ret = 0;
-
-	mutex_lock(&mmdvfs_vcp_pwr_mutex);
-	if (vcp_power > 0) {
-		ret = vcp_deregister_feature_ex(MMDVFS_FEATURE_ID);
-		if (ret) {
-			MMDVFS_ERR("vcp_deregister_feature failed:%d", ret);
-			mutex_unlock(&mmdvfs_vcp_pwr_mutex);
-			return ret;
-		}
-		vcp_power = 0;
-		MMDVFS_DBG("check vcp_power > 0 and power off vcp");
-	}
-	mutex_unlock(&mmdvfs_vcp_pwr_mutex);
-
-	return ret;
-}
-*/
-
-static void check_vcp_pwr(void)
-{
-	int i;
-	bool has_error = false;
-
-	for (i = 0; i < VCP_PWR_USR_NUM; i++) {
-		if (vcp_pwr_usage[i] > 0) {
-			MMDVFS_ERR("usr:%u is not disabled usage:%u", i, vcp_pwr_usage[i]);
-			has_error = true;
-		}
-	}
-	// Todo: mark it until vcp-enable API removed from mmqos
-	//WARN_ON(has_error);
-}
-
-int mtk_mmdvfs_enable_vcp(bool enable, unsigned int usr_id)
-{
-	int ret;
-
-	if (!mmdvfs_free_run) {
-		MMDVFS_DBG("mmdvfs_v3 not supported");
-		return 0;
-	}
-
-	if (is_vcp_suspending_ex())
-		return -EBUSY;
-
-	mutex_lock(&mmdvfs_vcp_pwr_mutex);
-	if (enable) {
-		if (vcp_power == 0) {
-			ret = vcp_register_feature_ex(MMDVFS_FEATURE_ID);
-			if (ret) {
-				MMDVFS_ERR("vcp_register_feature failed:%d", ret);
-				mutex_unlock(&mmdvfs_vcp_pwr_mutex);
-				return ret;
-			}
-		}
-		vcp_power++;
-		vcp_pwr_usage[usr_id]++;
-	} else {
-		if (vcp_pwr_usage[usr_id] == 0) {
-			MMDVFS_ERR("disable vcp when usr:%u vcp_pwr_usage==0", usr_id);
-			mutex_unlock(&mmdvfs_vcp_pwr_mutex);
-			return -EINVAL;
-		}
-		if (vcp_power == 0) {
-			MMDVFS_ERR("disable vcp when vcp_power==0");
-			mutex_unlock(&mmdvfs_vcp_pwr_mutex);
-			return -EINVAL;
-		}
-		if (vcp_power == 1) {
-			ret = vcp_deregister_feature_ex(MMDVFS_FEATURE_ID);
-			if (ret) {
-				MMDVFS_ERR("vcp_deregister_feature failed:%d", ret);
-				mutex_unlock(&mmdvfs_vcp_pwr_mutex);
-				return ret;
-			}
-		}
-		vcp_power--;
-		vcp_pwr_usage[usr_id]--;
-	}
-	if (log_level & 1 << log_vcp)
-		MMDVFS_DBG("enable:%d vcp_power:%d usr_id:%u usage:%u",
-			enable, vcp_power, usr_id, vcp_pwr_usage[usr_id]);
-	mutex_unlock(&mmdvfs_vcp_pwr_mutex);
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(mtk_mmdvfs_enable_vcp);
+static int log_level;
 
 void *mtk_mmdvfs_vcp_get_base(phys_addr_t *pa)
 {
@@ -346,21 +80,143 @@ void *mtk_mmdvfs_vcp_get_base(phys_addr_t *pa)
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_vcp_get_base);
 
-static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp) // ap > vcp
+bool mtk_is_mmdvfs_init_done(void)
+{
+	return mmdvfs_free_run ? mmdvfs_init_done : false;
+}
+EXPORT_SYMBOL_GPL(mtk_is_mmdvfs_init_done);
+
+int mtk_mmdvfs_enable_vcp(const bool enable, const u8 idx)
+{
+	int ret = 0;
+
+	if (!mmdvfs_free_run)
+		return 0;
+
+	if (is_vcp_suspending_ex())
+		return -EBUSY;
+
+	mutex_lock(&mmdvfs_vcp_pwr_mutex);
+	if (enable) {
+		if (!vcp_power) {
+			ret = vcp_register_feature_ex(MMDVFS_FEATURE_ID);
+			if (ret)
+				goto enable_vcp_end;
+		}
+		vcp_power += 1;
+		vcp_pwr_usage[idx] += 1;
+	} else {
+		if (!vcp_pwr_usage[idx] || !vcp_power) {
+			ret = -EINVAL;
+			goto enable_vcp_end;
+		}
+		if (vcp_power == 1) {
+			mutex_lock(&mmdvfs_vcp_ipi_mutex);
+			mutex_unlock(&mmdvfs_vcp_ipi_mutex);
+			ret = vcp_deregister_feature_ex(MMDVFS_FEATURE_ID);
+			if (ret)
+				goto enable_vcp_end;
+		}
+		vcp_pwr_usage[idx] -= 1;
+		vcp_power -= 1;
+	}
+
+enable_vcp_end:
+	if (ret || (log_level & (1 << log_pwr)))
+		MMDVFS_ERR("ret:%d enable:%d vcp_power:%d idx:%hhu usage:%d",
+			ret, enable, vcp_power, idx, vcp_pwr_usage[idx]);
+	mutex_unlock(&mmdvfs_vcp_pwr_mutex);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mtk_mmdvfs_enable_vcp);
+
+int mtk_mmdvfs_enable_ccu(const bool enable, const u8 idx)
+{
+	int ret = 0;
+
+	if (!mmdvfs_free_run || !ccu_rproc)
+		return 0;
+
+	mutex_lock(&mmdvfs_ccu_pwr_mutex);
+	if (enable) {
+		if (!ccu_power) {
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+			ret = rproc_bootx(ccu_rproc, RPROC_UID_MMDVFS);
+#else
+			ret = rproc_boot(ccu_rproc);
+#endif
+			if (ret)
+				goto enable_ccu_end;
+		}
+		ccu_power += 1;
+		ccu_pwr_usage[idx] += 1;
+	} else {
+		if (!ccu_pwr_usage[idx] || !ccu_power) {
+			ret = -EINVAL;
+			goto enable_ccu_end;
+		}
+		if (ccu_power == 1)
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+			rproc_shutdownx(ccu_rproc, RPROC_UID_MMDVFS);
+#else
+			rproc_shutdown(ccu_rproc);
+#endif
+		ccu_pwr_usage[idx] -= 1;
+		ccu_power -= 1;
+	}
+
+enable_ccu_end:
+	if (ret || (log_level & (1 << log_pwr)))
+		MMDVFS_ERR("ret:%d enable:%d ccu_power:%d idx:%hhu usage:%d",
+			ret, enable, ccu_power, idx, ccu_pwr_usage[idx]);
+	mutex_unlock(&mmdvfs_ccu_pwr_mutex);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mtk_mmdvfs_enable_ccu);
+
+static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp, u32 *data) // ap > vcp
 {
 	struct mmdvfs_ipi_data slot = {func, idx, opp};
 	int gen, ret = 0, retry = 0;
 	u32 val;
 
-	if (!mtk_is_mmdvfs_init_done())
-		return -ENODEV;
+	if (!mtk_is_mmdvfs_init_done()) {
+		MMDVFS_DBG("free_run:%d init_done:%d slot:%#llx",
+			mmdvfs_free_run, mmdvfs_init_done, *(u64 *)&slot);
+		return 0;
+	}
 
 	mutex_lock(&mmdvfs_vcp_ipi_mutex);
 	slot.ack = mmdvfs_memory_iova >> 32;
 	slot.base = (u32)mmdvfs_memory_iova;
-	mmdvfs_vcp_ipi_data = *(u64 *)&slot;
 
 	switch (func) {
+	case FUNC_CLKMUX_ENABLE:
+		val = readl(MEM_CLKMUX_ENABLE);
+		if ((opp && (val & (1 << idx))) || (!opp && !(val & (1 << idx)))) {
+			ret = -EINVAL;
+			goto ipi_send_end;
+		}
+		writel(opp ? (val | (1 << idx)) : (val & ~(1 << idx)), MEM_CLKMUX_ENABLE);
+		break;
+	case FUNC_VMM_CEIL_ENABLE:
+		writel(opp, MEM_VMM_CEIL_ENABLE);
+		break;
+	case FUNC_VMM_GENPD_NOTIFY:
+		if (idx >= VMM_USR_NUM) {
+			ret = -EINVAL;
+			goto ipi_send_end;
+		}
+		writel(opp, MEM_GENPD_ENABLE_USR(idx));
+		break;
+	case FUNC_VMM_AVS_UPDATE:
+		if (idx >= VMM_USR_NUM) {
+			ret = -EINVAL;
+			goto ipi_send_end;
+		}
+		writel(data[0], MEM_AGING_CNT_USR(idx));
+		writel(data[1], MEM_FRESH_CNT_USR(idx));
+		break;
 	case FUNC_FORCE_OPP:
 		writel(opp, MEM_FORCE_OPP_PWR(idx));
 		break;
@@ -392,151 +248,129 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp) // ap 
 			ret = IPI_COMPL_TIMEOUT;
 			goto ipi_send_end;
 		}
+		if (!is_vcp_ready_ex(VCP_A_ID)) {
+			ret = -ETIMEDOUT;
+			goto ipi_send_end;
+		}
 		udelay(10);
 	}
 	writel(val & ~readl(MEM_IPI_SYNC_DATA), MEM_IPI_SYNC_FUNC);
 
 ipi_send_end:
-	if (ret) {
-		MMDVFS_ERR("failed:%d retry:%d ready:%d slot:%#llx func:%#x unfinish",
-			ret, retry, is_vcp_ready_ex(VCP_A_ID), mmdvfs_vcp_ipi_data, val);
-		if (gen == vcp_cmd_ex(VCP_GET_GEN) && ret != -ETIMEDOUT)
+	if (ret || (log_level & (1 << log_ipi))) {
+		MMDVFS_ERR("ret:%d retry:%d ready:%d slot:%#llx vcp_power:%d unfinish func:%#x",
+			ret, retry, is_vcp_ready_ex(VCP_A_ID), *(u64 *)&slot, vcp_power,
+			readl(MEM_IPI_SYNC_FUNC));
+		if (gen == vcp_cmd_ex(VCP_GET_GEN) && ret != -ETIMEDOUT && ret)
 			vcp_cmd_ex(VCP_SET_HALT);
 	}
-
 	mutex_unlock(&mmdvfs_vcp_ipi_mutex);
 	return ret;
 }
 
-static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
-		unsigned long parent_rate)
+static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate, unsigned long parent_rate)
 {
-	struct mtk_mmdvfs_clk *mmdvfs_clk = to_mtk_mmdvfs_clk(hw);
-	u8 i, opp, level, pwr_opp = MAX_OPP, user_opp = MAX_OPP;
-	int ret = 0;
-	unsigned int img_clk = rate / 1000000UL;
+	struct mtk_mmdvfs_clk *clk = container_of(hw, typeof(*clk), clk_hw);
+	u8 opp, pwr_opp = MAX_OPP, user_opp = MAX_OPP;
+	u32 img_clk = rate / 1000000UL;
+	int i, ret;
 
-	for (i = 0; i < mmdvfs_clk->freq_num; i++)
-		if (rate <= mmdvfs_clk->freqs[i])
+	if (!mtk_is_mmdvfs_init_done())
+		return 0;
+
+	for (i = 0; i < clk->freq_num; i++)
+		if (rate <= clk->freqs[i])
 			break;
 
-	level = (i == mmdvfs_clk->freq_num) ? (i-1) : i;
-	opp = (mmdvfs_clk->freq_num - level - 1);
-	ftrace_user_opp_v3_vmm(mmdvfs_clk->user_id, opp);
-	if (log_level & 1 << log_ccf_cb)
-		MMDVFS_DBG("clk=%u user=%u freq=%lu old_opp=%d new_opp=%d",
-			mmdvfs_clk->clk_id, mmdvfs_clk->user_id, rate, mmdvfs_clk->opp, opp);
-	if (mmdvfs_clk->opp == opp)
-		return 0;
-	mmdvfs_clk->opp = opp;
+	opp = (clk->freq_num - ((i == clk->freq_num) ? (i - 1) : i) - 1);
+	ftrace_user_opp_v3_vmm(clk->user_id, opp);
+	if (log_level & (1 << log_clk_ops))
+		MMDVFS_DBG("user_id:%hhu clk_id:%hhu opp:%hhu rate:%lu opp:%hhu",
+			clk->user_id, clk->clk_id, clk->opp, rate, opp);
 
-	for (i = 0; i < mmdvfs_clk_num; i++) {
-		if (mmdvfs_clk->pwr_id == mtk_mmdvfs_clks[i].pwr_id
-			&& mtk_mmdvfs_clks[i].opp < pwr_opp)
-			pwr_opp = mtk_mmdvfs_clks[i].opp;
-	}
-
-	if (!mmdvfs_free_run) {
+	if (clk->opp == opp)
 		return 0;
-	}
-
-	if (!mtk_is_mmdvfs_init_done()) {
-		MMDVFS_DBG("mmdvfs_v3 init not ready");
-		return 0;
-	}
+	clk->opp = opp;
 
 	/* Choose max step among all users of special independence */
-	if (mmdvfs_clk->spec_type == SPEC_MMDVFS_ALONE) {
-		for (i = 0; i < mmdvfs_clk_num; i++) {
-			if (mmdvfs_clk->user_id == mtk_mmdvfs_clks[i].user_id
-				&& mtk_mmdvfs_clks[i].opp < user_opp)
+	if (clk->spec_type == SPEC_MMDVFS_ALONE) {
+		for (i = 0; i < mmdvfs_clk_num; i++)
+			if (clk->user_id == mtk_mmdvfs_clks[i].user_id &&
+				mtk_mmdvfs_clks[i].opp < user_opp)
 				user_opp = mtk_mmdvfs_clks[i].opp;
-		}
-		if (mmdvfs_free_run)
-			ret = mmdvfs_vcp_ipi_send(FUNC_VOTE_OPP, mmdvfs_clk->user_id, user_opp);
-	} else {
-		if (pwr_opp == mmdvfs_pwr_opp[mmdvfs_clk->pwr_id])
-			return 0;
-		if (mmdvfs_free_run) {
-			if (mmdvfs_clk->ipi_type == IPI_MMDVFS_CCU) {
-				if (ccu_pdev) {
-					ret = mtk_ccu_rproc_ipc_send(
-						ccu_pdev,
-						MTK_CCU_FEATURE_ISPDVFS,
-						4, /*DVFS_IMG_CLK*/
-						(void *)&img_clk, sizeof(unsigned int));
-					if (ret)
-						MMDVFS_ERR("mtk_ccu_rproc_ipc_send fail(%d)", ret);
-				}
-			} else {
-				ret = mmdvfs_vcp_ipi_send(
-					FUNC_VOTE_OPP, mmdvfs_clk->user_id, pwr_opp);
-			}
-		}
+		ret = mmdvfs_vcp_ipi_send(FUNC_VOTE_OPP, clk->user_id, user_opp, NULL);
+		goto set_rate_end;
 	}
 
-	mmdvfs_pwr_opp[mmdvfs_clk->pwr_id] = pwr_opp;
+	// spec_type != SPEC_MMDVFS_ALONE
+	for (i = 0; i < mmdvfs_clk_num; i++)
+		if (clk->pwr_id == mtk_mmdvfs_clks[i].pwr_id && mtk_mmdvfs_clks[i].opp < pwr_opp)
+			pwr_opp = mtk_mmdvfs_clks[i].opp;
+
+	if (pwr_opp == mmdvfs_pwr_opp[clk->pwr_id])
+		return 0;
+	mmdvfs_pwr_opp[clk->pwr_id] = pwr_opp;
+
+	if (clk->ipi_type == IPI_MMDVFS_CCU)
+		ret = mtk_ccu_rproc_ipc_send(
+			ccu_pdev, MTK_CCU_FEATURE_ISPDVFS, /* DVFS_IMG_CLK */ 4,
+			(void *)&img_clk, sizeof(img_clk));
+	else
+		ret = mmdvfs_vcp_ipi_send(FUNC_VOTE_OPP, clk->user_id, pwr_opp, NULL);
+
+set_rate_end:
+	if (ret || (log_level & (1 << log_clk_ops)))
+		MMDVFS_ERR(
+			"ret:%d user_id:%hhu clk_id:%hhu opp:%hhu rate:%lu opp:%hhu pwr_opp:%hhu user_opp:%hhu img_clk:%u",
+			ret, clk->user_id, clk->clk_id, clk->opp, rate, opp,
+			pwr_opp, user_opp, img_clk);
 	return 0;
 }
 
 static long mtk_mmdvfs_round_rate(struct clk_hw *hw, unsigned long rate,
 			       unsigned long *parent_rate)
 {
-	struct mtk_mmdvfs_clk *mmdvfs_clk = to_mtk_mmdvfs_clk(hw);
+	struct mtk_mmdvfs_clk *clk = container_of(hw, typeof(*clk), clk_hw);
 
-	if (log_level & 1 << log_ccf_cb)
-		MMDVFS_DBG("clk=%u rate=%lu parent_rate=%lu\n",
-			mmdvfs_clk->clk_id, rate, *parent_rate);
-
+	if (log_level & (1 << log_clk_ops))
+		MMDVFS_DBG("clk_id:%hhu opp:%hhu rate:%lu", clk->clk_id, clk->opp, rate);
 	return rate;
 }
 
 static unsigned long mtk_mmdvfs_recalc_rate(struct clk_hw *hw,
 					 unsigned long parent_rate)
 {
-	struct mtk_mmdvfs_clk *mmdvfs_clk = to_mtk_mmdvfs_clk(hw);
-	unsigned long ret;
-	u8 level;
+	struct mtk_mmdvfs_clk *clk = container_of(hw, typeof(*clk), clk_hw);
 
-	if (mmdvfs_clk->opp == MAX_OPP)
+	if (clk->opp == MAX_OPP)
 		return 0;
 
-	level = mmdvfs_clk->freq_num - mmdvfs_clk->opp - 1;
-	ret = mmdvfs_clk->freqs[level];
-	if (log_level & 1 << log_ccf_cb)
-		MMDVFS_DBG("clk=%u parent_rate=%lu freq=%lu",
-			mmdvfs_clk->clk_id, parent_rate, ret);
-	return ret;
+	if (log_level & (1 << log_clk_ops))
+		MMDVFS_DBG("clk_id:%hhu opp:%hhu rate:%lu freq:%u",
+			clk->clk_id, clk->opp, parent_rate,
+			clk->freqs[clk->freq_num - clk->opp - 1]);
+	return clk->freqs[clk->freq_num - clk->opp - 1];
 }
 
 static const struct clk_ops mtk_mmdvfs_req_ops = {
-	.set_rate = mtk_mmdvfs_set_rate,
+	.set_rate	= mtk_mmdvfs_set_rate,
 	.round_rate	= mtk_mmdvfs_round_rate,
 	.recalc_rate	= mtk_mmdvfs_recalc_rate,
 };
 
-int mtk_mmdvfs_set_avs(u16 usr_id, u32 aging_cnt, u32 fresh_cnt)
+int mtk_mmdvfs_camera_notify_from_mmqos(const bool enable)
 {
-	if (!mtk_is_mmdvfs_init_done())
-		return -1;
-
-	mutex_lock(&mmdvfs_avs_mutex);
-	writel(aging_cnt, MEM_AGING_CNT_USR(usr_id));
-	writel(fresh_cnt, MEM_FRESH_CNT_USR(usr_id));
-	mmdvfs_vcp_ipi_send(FUNC_VMM_AVS_UPDATE, MAX_OPP, MAX_OPP);
-	mutex_unlock(&mmdvfs_avs_mutex);
-
-	MMDVFS_DBG("usr_id:%hu aging_cnt:%u fresh_cnt:%u", usr_id, aging_cnt, fresh_cnt);
+	mmdvfs_vcp_ipi_send(FUNC_VMM_CEIL_ENABLE, MAX_OPP, enable ? 1 : 0, NULL);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(mtk_mmdvfs_set_avs);
+EXPORT_SYMBOL_GPL(mtk_mmdvfs_camera_notify_from_mmqos);
 
 void vmm_notify_work_func(struct work_struct *work)
 {
 	struct mmdvfs_vmm_notify_work *vmm_notify_work =
 		container_of(work, struct mmdvfs_vmm_notify_work, vmm_notify_work);
 
-	mtk_mmdvfs_enable_vcp(vmm_notify_work->enable, VCP_PWR_USR_MMDVFS_VMM_NOTIFY);
+	mtk_mmdvfs_enable_vcp(vmm_notify_work->enable, VCP_PWR_USR_MMDVFS_GENPD);
 	kfree(vmm_notify_work);
 }
 
@@ -544,93 +378,112 @@ int mtk_mmdvfs_genpd_notify(const u8 idx, const bool enable, const bool genpd_up
 {
 	struct mmdvfs_vmm_notify_work *work;
 
-	if (mtk_is_mmdvfs_init_done()) {
-		mutex_lock(&mmdvfs_avs_mutex);
-		writel(enable ? 1 : 0, MEM_GENPD_ENABLE_USR(idx));
-		mmdvfs_vcp_ipi_send(FUNC_VMM_GENPD_NOTIFY, idx, enable ? 1 : 0);
-		mutex_unlock(&mmdvfs_avs_mutex);
-	}
+	mmdvfs_vcp_ipi_send(FUNC_VMM_GENPD_NOTIFY, idx, enable ? 1 : 0, NULL);
 
-	if (!genpd_update)
+	if (!genpd_update || !vmm_notify_wq)
 		return 0;
 
-	if (!vmm_notify_wq) {
-		MMDVFS_ERR("no came notify wq");
-		return -ENODEV;
-	}
-
 	work = kzalloc(sizeof(*work), GFP_KERNEL);
-	if (!work) {
-		MMDVFS_ERR("memory allocation failed");
+	if (!work)
 		return -ENOMEM;
-	}
 
 	work->enable = enable;
 	INIT_WORK(&work->vmm_notify_work, vmm_notify_work_func);
 	queue_work(vmm_notify_wq, &work->vmm_notify_work);
-
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_genpd_notify);
 
-int mtk_mmdvfs_camera_notify_from_mmqos(const bool enable)
+int mtk_mmdvfs_set_avs(const u8 idx, const u32 aging, const u32 fresh)
 {
-	if (!mtk_is_mmdvfs_init_done()) {
-		MMDVFS_DBG("mmdvfs_v3 init not ready");
-		return 0;
-	}
+	u32 data[2] = {aging, fresh};
 
-	writel(enable ? 1 : 0, MEM_VMM_CEIL_ENABLE);
-	mmdvfs_vcp_ipi_send(FUNC_VMM_CEIL_ENABLE, enable ? 1 : 0, MAX_OPP);
-
+	mmdvfs_vcp_ipi_send(FUNC_VMM_AVS_UPDATE, idx, MAX_OPP, (u32 *)&data);
+	MMDVFS_DBG("idx:%hhu aging:%u fresh:%u", idx, aging, fresh);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(mtk_mmdvfs_camera_notify_from_mmqos);
+EXPORT_SYMBOL_GPL(mtk_mmdvfs_set_avs);
 
-int mtk_mmdvfs_v3_set_force_step(u16 pwr_idx, s16 opp)
+static int mtk_mmdvfs_enable_vmm(const bool enable)
 {
-	int *last, ret;
+	int ret = 0;
 
-	if (!mtk_is_mmdvfs_init_done()) {
-		MMDVFS_DBG("mmdvfs_v3 init not ready");
+	if (!cam_larb_dev)
 		return 0;
+
+	mutex_lock(&mmdvfs_vmm_pwr_mutex);
+	if (enable) {
+		if (!vmm_power) {
+			ret = mtk_smi_larb_get(cam_larb_dev);
+			if (ret)
+				goto enable_vmm_end;
+		}
+		vmm_power += 1;
+	} else {
+		if (!vmm_power) {
+			ret = -EINVAL;
+			goto enable_vmm_end;
+		}
+		if (vmm_power == 1)
+			mtk_smi_larb_put(cam_larb_dev);
+		vmm_power -= 1;
 	}
+
+enable_vmm_end:
+	if (ret || (log_level & (1 << log_pwr)))
+		MMDVFS_ERR("ret:%d enable:%d vmm_power:%d", ret, enable, vmm_power);
+	mutex_unlock(&mmdvfs_vmm_pwr_mutex);
+	return ret;
+}
+
+static int set_vmm_enable(const char *val, const struct kernel_param *kp)
+{
+	int enable = 0, ret;
+
+	ret = kstrtoint(val, 0, &enable);
+	if (ret) {
+		MMDVFS_ERR("failed:%d enable:%d", ret, enable);
+		return ret;
+	}
+	return mtk_mmdvfs_enable_vmm(enable);
+}
+
+static struct kernel_param_ops enable_vmm_ops = {
+	.set = set_vmm_enable,
+};
+module_param_cb(enable_vmm, &enable_vmm_ops, NULL, 0644);
+MODULE_PARM_DESC(enable_vmm, "enable vmm");
+
+int mtk_mmdvfs_v3_set_force_step(const u16 pwr_idx, const s16 opp)
+{
+	int ret;
 
 	if (pwr_idx >= PWR_MMDVFS_NUM || opp >= MAX_OPP) {
 		MMDVFS_ERR("wrong pwr_idx:%hu opp:%hd", pwr_idx, opp);
 		return -EINVAL;
 	}
 
-	last = &last_force_step[pwr_idx];
-	if (*last == opp)
-		return 0;
+	mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_FORCE);
+	if (pwr_idx == PWR_MMDVFS_VMM)
+		mtk_mmdvfs_enable_vmm(true);
 
-	if (*last == -1) {
-		mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_FORCE_STEP);
+	ret = mmdvfs_vcp_ipi_send(FUNC_FORCE_OPP, pwr_idx, opp == -1 ? MAX_OPP : opp, NULL);
 
-		if (pwr_idx == PWR_MMDVFS_VMM)
-			mtk_mmdvfs_enable_vmm(true);
-	}
+	if (pwr_idx == PWR_MMDVFS_VMM)
+		mtk_mmdvfs_enable_vmm(false);
+	mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMDVFS_FORCE);
 
-	ret = mmdvfs_vcp_ipi_send(FUNC_FORCE_OPP, pwr_idx, opp == -1 ? MAX_OPP : opp);
-
-	if (opp == -1) {
-		if (pwr_idx == PWR_MMDVFS_VMM)
-			mtk_mmdvfs_enable_vmm(false);
-
-		mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMDVFS_FORCE_STEP);
-	}
-	*last = opp;
-
+	if (log_level & (1 << log_adb))
+		MMDVFS_DBG("pwr_idx:%hu opp:%hd ret:%d", pwr_idx, opp, ret);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_v3_set_force_step);
 
 static int mmdvfs_set_force_step(const char *val, const struct kernel_param *kp)
 {
-	int ret;
 	u16 idx = 0;
 	s16 opp = 0;
+	int ret;
 
 	ret = sscanf(val, "%hu %hd", &idx, &opp);
 	if (ret != 2 || idx >= PWR_MMDVFS_NUM || opp >= MAX_OPP) {
@@ -640,9 +493,7 @@ static int mmdvfs_set_force_step(const char *val, const struct kernel_param *kp)
 
 	ret = mtk_mmdvfs_v3_set_force_step(idx, opp);
 	if (ret)
-		MMDVFS_ERR("mtk_mmdvfs_v3_set_force_step failed:%d idx:%hu opp:%hd",
-			ret, idx, opp);
-
+		MMDVFS_ERR("failed:%d idx:%hu opp:%hd", ret, idx, opp);
 	return ret;
 }
 
@@ -652,31 +503,19 @@ static struct kernel_param_ops mmdvfs_force_step_ops = {
 module_param_cb(force_step, &mmdvfs_force_step_ops, NULL, 0644);
 MODULE_PARM_DESC(force_step, "force mmdvfs to specified step");
 
-int mtk_mmdvfs_v3_set_vote_step(u16 pwr_idx, s16 opp)
+int mtk_mmdvfs_v3_set_vote_step(const u16 pwr_idx, const s16 opp)
 {
 	u32 freq = 0;
-	int i, *last, ret = 0;
-
-	if (!mtk_is_mmdvfs_init_done()) {
-		MMDVFS_DBG("mmdvfs_v3 init not ready");
-		return 0;
-	}
+	int i, ret = 0;
 
 	if (pwr_idx >= PWR_MMDVFS_NUM || opp >= MAX_OPP) {
 		MMDVFS_ERR("failed:%d pwr_idx:%hu opp:%hd", ret, pwr_idx, opp);
 		return -EINVAL;
 	}
 
-	last = &last_vote_step[pwr_idx];
-	if (*last == opp)
-		return 0;
-
-	if (*last == -1) {
-		mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_VOTE_STEP);
-
-		if (pwr_idx == PWR_MMDVFS_VMM)
-			mtk_mmdvfs_enable_vmm(true);
-	}
+	mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_VOTE);
+	if (pwr_idx == PWR_MMDVFS_VMM)
+		mtk_mmdvfs_enable_vmm(true);
 
 	for (i = mmdvfs_clk_num - 1; i >= 0; i--)
 		if (pwr_idx == mtk_mmdvfs_clks[i].pwr_id) {
@@ -689,23 +528,15 @@ int mtk_mmdvfs_v3_set_vote_step(u16 pwr_idx, s16 opp)
 			freq = (opp == -1) ? 0 : mtk_mmdvfs_clks[i].freqs[
 				mtk_mmdvfs_clks[i].freq_num - 1 - opp];
 			ret = clk_set_rate(mmdvfs_pwr_clk[pwr_idx], freq);
-			if (ret)
-				MMDVFS_ERR("clk_set_rate failed:%d pwr_idx:%hu freq:%hu",
-					ret, pwr_idx, freq);
 			break;
 		}
 
-	MMDVFS_DBG("pwr_idx:%hu clk:%p opp:%hd i:%d freq_num:%hhu freq:%u", pwr_idx,
-		mmdvfs_pwr_clk[pwr_idx], opp, i, mtk_mmdvfs_clks[i].freq_num, freq);
+	if (pwr_idx == PWR_MMDVFS_VMM)
+		mtk_mmdvfs_enable_vmm(false);
+	mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMDVFS_VOTE);
 
-	if (opp == -1) {
-		if (pwr_idx == PWR_MMDVFS_VMM)
-			mtk_mmdvfs_enable_vmm(false);
-
-		mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMDVFS_VOTE_STEP);
-	}
-	*last = opp;
-
+	if (log_level & (1 << log_adb))
+		MMDVFS_DBG("pwr_idx:%hu opp:%hd i:%d freq:%u ret:%d", pwr_idx, opp, i, freq, ret);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_v3_set_vote_step);
@@ -724,9 +555,7 @@ static int mmdvfs_set_vote_step(const char *val, const struct kernel_param *kp)
 
 	ret = mtk_mmdvfs_v3_set_vote_step(idx, opp);
 	if (ret)
-		MMDVFS_ERR("mtk_mmdvfs_v3_set_vote_step failed:%d idx:%hu opp:%hd",
-			ret, idx, opp);
-
+		MMDVFS_ERR("failed:%d idx:%hu opp:%hd", ret, idx, opp);
 	return ret;
 }
 
@@ -736,72 +565,9 @@ static struct kernel_param_ops mmdvfs_vote_step_ops = {
 module_param_cb(vote_step, &mmdvfs_vote_step_ops, NULL, 0644);
 MODULE_PARM_DESC(vote_step, "vote mmdvfs to specified step");
 
-static int mmdvfs_vcp_notifier_callback(struct notifier_block *nb, unsigned long action, void *data)
-{
-
-	switch (action) {
-	case VCP_EVENT_READY:
-		mmdvfs_vcp_ipi_send(FUNC_MMDVFS_INIT, MAX_OPP, MAX_OPP);
-		break;
-	}
-	return NOTIFY_DONE;
-}
-
-static int mmdvfs_force_on_callback(struct notifier_block *nb, unsigned long action, void *data)
-{
-	int user;
-	bool enable;
-
-	MMDVFS_DBG("force_on_callback again");
-	user = VCP_PWR_USR_SMI;
-	enable = !(action == 0);
-	MMDVFS_DBG("%s enable %d user %d\n", __func__, enable, user);
-	mtk_mmdvfs_enable_vcp(enable, user);
-
-	return NOTIFY_DONE;
-}
-
-static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
-			unsigned long pm_event, void *unused)
-{
-	int i;
-
-	switch (pm_event) {
-	case PM_HIBERNATION_PREPARE:
-		return NOTIFY_DONE;
-	case PM_RESTORE_PREPARE:
-		return NOTIFY_DONE;
-	case PM_POST_HIBERNATION:
-		return NOTIFY_DONE;
-	case PM_SUSPEND_PREPARE:
-		MMDVFS_DBG("start suspend");
-		for (i = 0; i < PWR_MMDVFS_NUM; i++) {
-			if (last_vote_step[i] != -1)
-				mtk_mmdvfs_v3_set_vote_step(i, -1);
-			if (last_force_step[i] != -1)
-				mtk_mmdvfs_v3_set_force_step(i, -1);
-		}
-		check_ccu_pwr();
-		check_vcp_pwr();
-		//enable_aoc_iso(true);
-		reset_ccu_power();
-		//reset_vcp_power();
-		return NOTIFY_DONE;
-	case PM_POST_SUSPEND:
-		return NOTIFY_DONE;
-	}
-	return NOTIFY_OK;
-}
-
-static struct notifier_block lpm_spm_suspend_pm_notifier_func = {
-	.notifier_call = lpm_spm_suspend_pm_event,
-	.priority = 0,
-};
-
 int mmdvfs_set_ccu_ipi(const char *val, const struct kernel_param *kp)
 {
-	int freq = 0;
-	int ret, retry = 0;
+	int freq = 0, ret, retry = 0;
 
 	ret = kstrtou32(val, 0, &freq);
 	if (ret) {
@@ -809,40 +575,27 @@ int mmdvfs_set_ccu_ipi(const char *val, const struct kernel_param *kp)
 		return ret;
 	}
 
-	if (ccu_pdev) {
-		if (last_ccu_freq < 0 && freq >= 0) {
-			mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_CCU_TEST);
-			mtk_mmdvfs_enable_ccu(true, CCU_PWR_USR_MMDVFS_CCU_TEST);
-			while (!is_vcp_ready_ex(VCP_A_ID)) {
-				if (++retry > 100) {
-					MMDVFS_ERR("VCP_A_ID:%d not ready", VCP_A_ID);
-					return -ETIMEDOUT;
-				}
-				usleep_range(1000, 2000);
-			}
-		}
+	if (!ccu_pdev)
+		return 0;
 
-		last_ccu_freq = freq;
-
-		if (freq < 0) {
-			mtk_mmdvfs_enable_ccu(false, CCU_PWR_USR_MMDVFS_CCU_TEST);
-			mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMDVFS_CCU_TEST);
-			return 0;
+	mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_CCU);
+	while (!is_vcp_ready_ex(VCP_A_ID)) {
+		if (++retry > 100) {
+			MMDVFS_ERR("VCP_A_ID:%d not ready", VCP_A_ID);
+			return -ETIMEDOUT;
 		}
-		ret = mtk_ccu_rproc_ipc_send(
-			ccu_pdev,
-			MTK_CCU_FEATURE_ISPDVFS,
-			4, /*DVFS_IMG_CLK*/
-			(void *)&freq, sizeof(unsigned int));
-		if (ret)
-			MMDVFS_ERR("mtk_ccu_rproc_ipc_send fail(%d)", ret);
-		else
-			MMDVFS_DBG("mtk_ccu_rproc_ipc_send freq:%u done", freq);
-	} else {
-		MMDVFS_DBG("ccu_pdev is not ready");
+		usleep_range(1000, 2000);
 	}
 
-	return 0;
+	mtk_mmdvfs_enable_ccu(true, CCU_PWR_USR_MMDVFS);
+	ret = mtk_ccu_rproc_ipc_send(ccu_pdev, MTK_CCU_FEATURE_ISPDVFS, /* DVFS_IMG_CLK */ 4,
+		(void *)&freq, sizeof(freq));
+	mtk_mmdvfs_enable_ccu(false, CCU_PWR_USR_MMDVFS);
+	mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMDVFS_CCU);
+
+	if (log_level & (1 << log_adb))
+		MMDVFS_DBG("ret:%d freq:%d", ret, freq);
+	return ret;
 }
 
 static struct kernel_param_ops mmdvfs_ccu_ipi_ops = {
@@ -851,54 +604,12 @@ static struct kernel_param_ops mmdvfs_ccu_ipi_ops = {
 module_param_cb(ccu_ipi_test, &mmdvfs_ccu_ipi_ops, NULL, 0644);
 MODULE_PARM_DESC(ccu_ipi_test, "trigger ccu ipi test");
 
-static int mtk_mmdvfs_clk_ctrl(const u8 clk_idx, const bool enable)
-{
-	u32 val;
-
-	if (is_vcp_suspending_ex() || !mtk_is_mmdvfs_init_done())
-		return 0;
-
-	mutex_lock(&mmdvfs_clkmux_mutex);
-	val = readl(MEM_CLKMUX_ENABLE);
-	if (enable) {
-		if (val & (1 << clk_idx)) {
-			MMDVFS_DBG("CLKMUX:%#x clk_idx:%hhu enable:%d skip", val, clk_idx, enable);
-			mutex_unlock(&mmdvfs_clkmux_mutex);
-			return 0;
-		}
-		writel(val | (1 << clk_idx), MEM_CLKMUX_ENABLE);
-	} else {
-		if (!(val & (1 << clk_idx))) {
-			MMDVFS_DBG("CLKMUX:%#x clk_idx:%hhu enable:%d skip", val, clk_idx, enable);
-			mutex_unlock(&mmdvfs_clkmux_mutex);
-			return 0;
-		}
-		writel(val & ~(1 << clk_idx), MEM_CLKMUX_ENABLE);
-	}
-
-	mmdvfs_vcp_ipi_send(FUNC_CLKMUX_ENABLE, clk_idx, enable);
-	mutex_unlock(&mmdvfs_clkmux_mutex);
-	return 0;
-}
-
-static int mtk_mmdvfs_clk_enable(const u8 clk_idx)
-{
-	return mtk_mmdvfs_clk_ctrl(clk_idx, true);
-}
-
-static int mtk_mmdvfs_clk_disable(const u8 clk_idx)
-{
-	return mtk_mmdvfs_clk_ctrl(clk_idx, false);
-}
-
 int mmdvfs_get_vcp_log(char *buf, const struct kernel_param *kp)
 {
 	int len = 0, ret;
 
-	if (!mtk_is_mmdvfs_init_done()) {
-		MMDVFS_DBG("mmdvfs_v3 init not ready");
+	if (!mtk_is_mmdvfs_init_done())
 		return 0;
-	}
 
 	ret = readl(MEM_LOG_FLAG);
 	len += snprintf(buf + len, PAGE_SIZE - len, "MEM_LOG_FLAG:%#x", ret);
@@ -910,10 +621,8 @@ int mmdvfs_set_vcp_log(const char *val, const struct kernel_param *kp)
 	u32 log = 0;
 	int ret;
 
-	if (!mtk_is_mmdvfs_init_done()) {
-		MMDVFS_DBG("mmdvfs_v3 init not ready");
+	if (!mtk_is_mmdvfs_init_done())
 		return 0;
-	}
 
 	ret = kstrtou32(val, 0, &log);
 	if (ret || log >= (1 << LOG_NUM)) {
@@ -935,19 +644,88 @@ MODULE_PARM_DESC(vcp_log, "mmdvfs vcp log");
 module_param(log_level, uint, 0644);
 MODULE_PARM_DESC(log_level, "mmdvfs log level");
 
-static const struct of_device_id of_match_mmdvfs_v3[] = {
-	{
-		.compatible = "mediatek,mtk-mmdvfs-v3",
-	}, {}
+static inline void mmdvfs_reset_ccu(void)
+{
+	int i;
+
+	mutex_lock(&mmdvfs_ccu_pwr_mutex);
+	for (i = 0; i < CCU_PWR_USR_NUM; i++) {
+		if (ccu_pwr_usage[i])
+			MMDVFS_ERR("i:%d usage:%d not disable", i, ccu_pwr_usage[i]);
+		ccu_pwr_usage[i] = 0;
+	}
+
+	if (ccu_power) {
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+		rproc_shutdownx(ccu_rproc, RPROC_UID_MMDVFS);
+#else
+		rproc_shutdown(ccu_rproc);
+#endif
+		ccu_power = 0;
+	}
+	mutex_unlock(&mmdvfs_ccu_pwr_mutex);
+}
+
+static inline void mmdvfs_reset_vcp(void)
+{
+	int i;
+
+	mutex_lock(&mmdvfs_vcp_pwr_mutex);
+	for (i = 0; i < VCP_PWR_USR_NUM; i++) {
+		if (vcp_pwr_usage[i])
+			MMDVFS_ERR("i:%d usage:%d not disable", i, vcp_pwr_usage[i]);
+		vcp_pwr_usage[i] = 0;
+	}
+#ifdef RESET_VCP
+	if (vcp_power) {
+		ret = vcp_deregister_feature_ex(MMDVFS_FEATURE_ID);
+		if (ret)
+			MMDVFS_ERR("failed:%d vcp_power:%d", ret, vcp_power);
+		vcp_power = 0;
+	}
+#endif
+	mutex_unlock(&mmdvfs_vcp_pwr_mutex);
+}
+
+static int mmdvfs_pm_notifier(struct notifier_block *notifier, unsigned long pm_event, void *unused)
+{
+	switch (pm_event) {
+	case PM_SUSPEND_PREPARE:
+		mmdvfs_reset_ccu();
+		mmdvfs_reset_vcp();
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block mmdvfs_pm_notifier_block = {
+	.notifier_call = mmdvfs_pm_notifier,
+	.priority = 0,
 };
+
+static int mmdvfs_vcp_notifier_callback(struct notifier_block *nb, unsigned long action, void *data)
+{
+	switch (action) {
+	case VCP_EVENT_READY:
+		mmdvfs_vcp_ipi_send(FUNC_MMDVFS_INIT, MAX_OPP, MAX_OPP, NULL);
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
+static int mmdvfs_force_on_callback(struct notifier_block *nb, unsigned long action, void *data)
+{
+	mtk_mmdvfs_enable_vcp(!(action == 0), VCP_PWR_USR_SMI);
+	return NOTIFY_DONE;
+}
 
 static int mmdvfs_vcp_init_thread(void *data)
 {
 	static struct mtk_ipi_device *vcp_ipi_dev;
 	struct iommu_domain *domain;
-	int retry = 0;
+	int i, retry = 0;
 
-	while (mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_VCP_INIT)) {
+	while (mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_INIT)) {
 		if (++retry > 100) {
 			MMDVFS_ERR("vcp is not powered on yet");
 			return -ETIMEDOUT;
@@ -979,6 +757,14 @@ static int mmdvfs_vcp_init_thread(void *data)
 		mmdvfs_memory_pa = iommu_iova_to_phys(domain, mmdvfs_memory_iova);
 	mmdvfs_memory_va = (void *)vcp_get_reserve_mem_virt_ex(MMDVFS_MEM_ID);
 
+	writel_relaxed(mmdvfs_free_run ? 1 : 0, MEM_FREERUN);
+	for (i = 0; i < PWR_MMDVFS_NUM; i++) {
+		writel_relaxed(MAX_OPP, MEM_FORCE_OPP_PWR(i));
+		writel_relaxed(MAX_OPP, MEM_VOTE_OPP_PWR(i));
+	}
+	for (i = 0; i < USER_NUM; i++)
+		writel_relaxed(MAX_OPP, MEM_VOTE_OPP_USR(i));
+
 	mmdvfs_init_done = true;
 	MMDVFS_DBG("iova:%pa pa:%pa va:%#llx init_done:%d",
 		&mmdvfs_memory_iova, &mmdvfs_memory_pa, mmdvfs_memory_va, mmdvfs_init_done);
@@ -986,48 +772,67 @@ static int mmdvfs_vcp_init_thread(void *data)
 	vcp_ready_notifier.notifier_call = mmdvfs_vcp_notifier_callback;
 	vcp_A_register_notify_ex(&vcp_ready_notifier);
 
+	force_on_notifier.notifier_call = mmdvfs_force_on_callback;
+	mtk_smi_dbg_register_force_on_notifier(&force_on_notifier);
 	return 0;
 }
 
 static int mmdvfs_ccu_init_thread(void *data)
 {
+	struct device_node *node = (struct device_node *)data, *ccu_node;
 	phandle handle;
-	struct device_node *node = (struct device_node *) data;
-	struct device_node *rproc_np = NULL;
-	int ret = 0, retry = 0;
+	int retry = 0;
 
-	ret = of_property_read_u32(node, "mediatek,ccu-rproc", &handle);
-	if (ret < 0) {
-		MMDVFS_DBG("get CCU phandle fail");
-		return ret;
+	if (of_property_read_u32(node, "mediatek,ccu-rproc", &handle) < 0) {
+		MMDVFS_ERR("get ccu phandle failed");
+		return -EINVAL;
 	}
 
-	rproc_np = of_find_node_by_phandle(handle);
-	if (rproc_np) {
-		ccu_pdev = of_find_device_by_node(rproc_np);
-		if (!ccu_pdev) {
-			MMDVFS_ERR("find ccu rproc pdev fail");
-			ret = -EINVAL;
-			goto error_handle;
-		}
-
-		while (!(ccu_rproc = rproc_get_by_phandle(handle))) {
-			if (++retry > 100) {
-				MMDVFS_ERR("rproc_get_by_phandle fail");
-				return -ETIMEDOUT;
-			}
-			ssleep(1);
-		}
-
-		of_node_put(rproc_np);
-		MMDVFS_DBG("get ccu proc pdev successfully\n");
+	ccu_node = of_find_node_by_phandle(handle);
+	if (!ccu_node) {
+		MMDVFS_ERR("find ccu node failed");
+		return -EINVAL;
 	}
-	return ret;
-error_handle:
-	of_node_put(rproc_np);
 
-	return ret;
+	ccu_pdev = of_find_device_by_node(ccu_node);
+	if (!ccu_pdev)
+		goto ccu_init_end;
+
+	while (!(ccu_rproc = rproc_get_by_phandle(handle))) {
+		if (++retry > 100)
+			goto ccu_init_end;
+		ssleep(1);
+	}
+
+ccu_init_end:
+	MMDVFS_DBG("ccu_pdev:%p ccu_rproc:%p", ccu_pdev, ccu_rproc);
+	of_node_put(ccu_node);
+	return 0;
 }
+
+static int mtk_mmdvfs_clk_enable(const u8 clk_idx)
+{
+	if (is_vcp_suspending_ex() || !mtk_is_mmdvfs_init_done())
+		return 0;
+
+	mmdvfs_vcp_ipi_send(FUNC_CLKMUX_ENABLE, clk_idx, true, NULL);
+	return 0;
+}
+
+static int mtk_mmdvfs_clk_disable(const u8 clk_idx)
+{
+	if (is_vcp_suspending_ex() || !mtk_is_mmdvfs_init_done())
+		return 0;
+
+	mmdvfs_vcp_ipi_send(FUNC_CLKMUX_ENABLE, clk_idx, false, NULL);
+	return 0;
+}
+
+static const struct of_device_id of_match_mmdvfs_v3[] = {
+	{
+		.compatible = "mediatek,mtk-mmdvfs-v3",
+	}, {}
+};
 
 static int mmdvfs_v3_probe(struct platform_device *pdev)
 {
@@ -1141,35 +946,26 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 			mmdvfs_pwr_clk[i] = clk;
 	}
 
+	vmm_notify_wq = create_singlethread_workqueue("vmm_notify_wq");
+	clkmux_cb.clk_enable = mtk_mmdvfs_clk_enable;
+	clkmux_cb.clk_disable = mtk_mmdvfs_clk_disable;
+	mtk_clk_register_ipi_callback(&clkmux_cb);
+
+	if (of_property_read_bool(node, "mmdvfs-free-run"))
+		mmdvfs_free_run = true;
+
+	kthr_vcp = kthread_run(mmdvfs_vcp_init_thread, NULL, "mmdvfs-vcp");
+	kthr_ccu = kthread_run(mmdvfs_ccu_init_thread, node, "mmdvfs-ccu");
+
 	larbnode = of_parse_phandle(pdev->dev.of_node, "mediatek,larbs", 0);
 	if (larbnode) {
 		larbdev = of_find_device_by_node(larbnode);
 		if (larbdev) {
 			cam_larb_dev = &larbdev->dev;
-			register_pm_notifier(&lpm_spm_suspend_pm_notifier_func);
+			register_pm_notifier(&mmdvfs_pm_notifier_block);
 		}
 		of_node_put(larbnode);
 	}
-
-	clk_cb.clk_enable = mtk_mmdvfs_clk_enable;
-	clk_cb.clk_disable = mtk_mmdvfs_clk_disable;
-	mtk_clk_register_ipi_callback(&clk_cb);
-
-	if (of_property_read_bool(node, "mmdvfs-free-run"))
-		mmdvfs_free_run = true;
-
-	for (i = 0; i < PWR_MMDVFS_NUM; i++) {
-		last_vote_step[i] = -1;
-		last_force_step[i] = -1;
-	}
-
-	kthr_vcp = kthread_run(mmdvfs_vcp_init_thread, NULL, "mmdvfs-vcp");
-	kthr_ccu = kthread_run(mmdvfs_ccu_init_thread, node, "mmdvfs-ccu");
-
-	vmm_notify_wq = create_singlethread_workqueue("vmm_notify_wq");
-
-	force_on_notifier.notifier_call = mmdvfs_force_on_callback;
-	mtk_smi_dbg_register_force_on_notifier(&force_on_notifier);
 	return ret;
 }
 
