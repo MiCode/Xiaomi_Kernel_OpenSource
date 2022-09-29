@@ -27,6 +27,8 @@
 #define REG_UFS_MPHYCTRL            0x2200
 #define REG_UFS_MTK_IP_VER          0x2240
 #define REG_UFS_REJECT_MON          0x22AC
+#define REG_UFS_AH8E_MON            0x22B0
+#define REG_UFS_AH8X_MON            0x22B4
 #define REG_UFS_DEBUG_SEL           0x22C0
 #define REG_UFS_PROBE               0x22C8
 #define REG_UFS_DEBUG_SEL_B0        0x22D0

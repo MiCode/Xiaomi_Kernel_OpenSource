@@ -2343,7 +2343,7 @@ static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
 
 	/* Dump ufshci register 0x2200 ~ 0x22AC */
 	ufshcd_dump_regs(hba, REG_UFS_MPHYCTRL,
-			 REG_UFS_REJECT_MON - REG_UFS_MPHYCTRL + 4,
+			 REG_UFS_AH8X_MON - REG_UFS_MPHYCTRL + 4,
 			 "MPHY Ctrl (0x2200): ");
 
 	/* Direct debugging information to REG_MTK_PROBE */
