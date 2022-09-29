@@ -3064,7 +3064,7 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 #ifdef CONFIG_SCHED_DEBUG
 	unsigned int state = READ_ONCE(p->__state);
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	u64 ts[7];
+	u64 ts[7] = {0};
 
 	ts[0] = sched_clock();
 #endif
@@ -3629,10 +3629,23 @@ ttwu_stat(struct task_struct *p, int cpu, int wake_flags)
 static void ttwu_do_wakeup(struct rq *rq, struct task_struct *p, int wake_flags,
 			   struct rq_flags *rf)
 {
-	check_preempt_curr(rq, p, wake_flags);
-	WRITE_ONCE(p->__state, TASK_RUNNING);
-	trace_sched_wakeup(p);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[6] = {0};
 
+	ts[0] = sched_clock();
+#endif
+	check_preempt_curr(rq, p, wake_flags);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+#endif
+	WRITE_ONCE(p->__state, TASK_RUNNING);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[2] = sched_clock();
+#endif
+	trace_sched_wakeup(p);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[3] = sched_clock();
+#endif
 #ifdef CONFIG_SMP
 	if (p->sched_class->task_woken) {
 		/*
@@ -3643,7 +3656,9 @@ static void ttwu_do_wakeup(struct rq *rq, struct task_struct *p, int wake_flags,
 		p->sched_class->task_woken(rq, p);
 		rq_repin_lock(rq, rf);
 	}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[4] = sched_clock();
+#endif
 	if (rq->idle_stamp) {
 		u64 delta = rq_clock(rq) - rq->idle_stamp;
 		u64 max = 2*rq->max_idle_balance_cost;
@@ -3659,6 +3674,19 @@ static void ttwu_do_wakeup(struct rq *rq, struct task_struct *p, int wake_flags,
 		rq->idle_stamp = 0;
 	}
 #endif
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[5] = sched_clock();
+
+	if ((ts[5] - ts[0] > 2000000ULL) && in_hardirq()) {
+		int i;
+
+		printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__, ts[5] - ts[0], ts[0]);
+		for (i = 0; i < 5; i++) {
+			printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
+					__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
+		}
+	}
+#endif
 }
 
 static void
@@ -3666,15 +3694,26 @@ ttwu_do_activate(struct rq *rq, struct task_struct *p, int wake_flags,
 		 struct rq_flags *rf)
 {
 	int en_flags = ENQUEUE_WAKEUP | ENQUEUE_NOCLOCK;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[7] = {0};
+
+	ts[0] = sched_clock();
+#endif
 
 	if (wake_flags & WF_SYNC)
 		en_flags |= ENQUEUE_WAKEUP_SYNC;
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+#endif
 	lockdep_assert_rq_held(rq);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[2] = sched_clock();
+#endif
 	if (p->sched_contributes_to_load)
 		rq->nr_uninterruptible--;
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[3] = sched_clock();
+#endif
 #ifdef CONFIG_SMP
 	if (wake_flags & WF_MIGRATED)
 		en_flags |= ENQUEUE_MIGRATED;
@@ -3684,9 +3723,27 @@ ttwu_do_activate(struct rq *rq, struct task_struct *p, int wake_flags,
 		delayacct_blkio_end(p);
 		atomic_dec(&task_rq(p)->nr_iowait);
 	}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[4] = sched_clock();
+#endif
 	activate_task(rq, p, en_flags);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[5] = sched_clock();
+#endif
 	ttwu_do_wakeup(rq, p, wake_flags, rf);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[6] = sched_clock();
+
+	if ((ts[6] - ts[0] > 3000000ULL) && in_hardirq()) {
+		int i;
+
+		printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__, ts[6] - ts[0], ts[0]);
+		for (i = 0; i < 6; i++) {
+			printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
+					__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
+		}
+	}
+#endif
 }
 
 /*
@@ -3739,20 +3796,32 @@ void sched_ttwu_pending(void *arg)
 	struct rq *rq = this_rq();
 	struct task_struct *p, *t;
 	struct rq_flags rf;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[6] = {0};
+#endif
 
 	if (!llist)
 		return;
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[0] = sched_clock();
+#endif
 	/*
 	 * rq::ttwu_pending racy indication of out-standing wakeups.
 	 * Races such that false-negatives are possible, since they
 	 * are shorter lived that false-positives would be.
 	 */
 	WRITE_ONCE(rq->ttwu_pending, 0);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+#endif
 	rq_lock_irqsave(rq, &rf);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[2] = sched_clock();
+#endif
 	update_rq_clock(rq);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[3] = sched_clock();
+#endif
 	llist_for_each_entry_safe(p, t, llist, wake_entry.llist) {
 		if (WARN_ON_ONCE(p->on_cpu))
 			smp_cond_load_acquire(&p->on_cpu, !VAL);
@@ -3762,8 +3831,25 @@ void sched_ttwu_pending(void *arg)
 
 		ttwu_do_activate(rq, p, p->sched_remote_wakeup ? WF_MIGRATED : 0, &rf);
 	}
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[4] = sched_clock();
+#endif
 
 	rq_unlock_irqrestore(rq, &rf);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[5] = sched_clock();
+
+	if ((ts[5] - ts[0] > 4000000ULL) && in_hardirq()) {
+		int i;
+
+		printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__, ts[5] - ts[0], ts[0]);
+		for (i = 0; i < 5; i++) {
+			printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
+					__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
+		}
+	}
+#endif
+
 }
 
 void send_call_function_single_ipi(int cpu)
@@ -4070,7 +4156,7 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	unsigned long flags;
 	int cpu, success = 0;
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	u64 ts[14];
+	u64 ts[14] = {0};
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
@@ -5450,35 +5536,87 @@ void scheduler_tick(void)
 	struct rq_flags rf;
 	unsigned long thermal_pressure;
 	u64 resched_latency;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[16] = {0};
+
+	ts[0] = sched_clock();
+#endif
 
 	arch_scale_freq_tick();
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+#endif
 	sched_clock_tick();
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[2] = sched_clock();
+#endif
 	rq_lock(rq, &rf);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[3] = sched_clock();
+#endif
 	update_rq_clock(rq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[4] = sched_clock();
+#endif
 	trace_android_rvh_tick_entry(rq);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[5] = sched_clock();
+#endif
 	thermal_pressure = arch_scale_thermal_pressure(cpu_of(rq));
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[6] = sched_clock();
+#endif
 	update_thermal_load_avg(rq_clock_thermal(rq), rq, thermal_pressure);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[7] = sched_clock();
+#endif
 	curr->sched_class->task_tick(rq, curr, 0);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[8] = sched_clock();
+#endif
 	if (sched_feat(LATENCY_WARN))
 		resched_latency = cpu_resched_latency(rq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[9] = sched_clock();
+#endif
 	calc_global_load_tick(rq);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[10] = sched_clock();
+#endif
 	rq_unlock(rq, &rf);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[11] = sched_clock();
+#endif
 	if (sched_feat(LATENCY_WARN) && resched_latency)
 		resched_latency_warn(cpu, resched_latency);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[12] = sched_clock();
+#endif
 	perf_event_task_tick();
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[13] = sched_clock();
+#endif
 #ifdef CONFIG_SMP
 	rq->idle_balance = idle_cpu(cpu);
 	trigger_load_balance(rq);
 #endif
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[14] = sched_clock();
+#endif
 	trace_android_vh_scheduler_tick(rq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[15] = sched_clock();
+
+	if ((ts[15] - ts[0] > 5000000ULL) && in_hardirq()) {
+		int i;
+
+		printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__, ts[15] - ts[0], ts[0]);
+		for (i = 0; i < 15; i++) {
+			printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
+					__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
+		}
+	}
+#endif
 }
 
 #ifdef CONFIG_NO_HZ_FULL

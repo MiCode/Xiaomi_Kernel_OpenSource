@@ -72,6 +72,7 @@ f kernel/printk/printk.c
 f kernel/printk/printk_ringbuffer.c
 f kernel/printk/printk_ringbuffer.h
 f kernel/sched/core.c
+f kernel/sched/rt.c
 f kernel/signal.c
 f kernel/smp.c
 f kernel/time/alarmtimer.c

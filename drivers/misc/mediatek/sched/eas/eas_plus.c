@@ -415,6 +415,11 @@ void mtk_tick_entry(void *data, struct rq *rq)
 	unsigned int freq_thermal;
 	unsigned long max_capacity, capacity;
 	u32 opp_ceiling;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[4] = {0};
+
+	ts[0] = sched_clock();
+#endif
 
 	if (rq->curr->android_vendor_data1[5] || is_busy_tick_boost_all()) {
 		if (rq->android_vendor_data1[0])
@@ -428,7 +433,9 @@ void mtk_tick_entry(void *data, struct rq *rq)
 #if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
 	update_thermal_headroom(this_cpu);
 #endif
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+#endif
 	pd = em_cpu_get(this_cpu);
 	if (!pd)
 		return;
@@ -438,7 +445,9 @@ void mtk_tick_entry(void *data, struct rq *rq)
 
 	gear_id = topology_physical_package_id(this_cpu);
 	offset = gear_id << 2;
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[2] = sched_clock();
+#endif
 	opp_ceiling = ioread32(base + offset);
 	opp_idx = pd->nr_perf_states - opp_ceiling - 1;
 	freq_thermal = pd->table[opp_idx].frequency;
@@ -449,6 +458,19 @@ void mtk_tick_entry(void *data, struct rq *rq)
 	arch_set_thermal_pressure(to_cpumask(pd->cpus), max_capacity - capacity);
 
 	trace_sched_frequency_limits(this_cpu, freq_thermal);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[3] = sched_clock();
+
+	if ((ts[3] - ts[0] > 500000ULL) && in_hardirq()) {
+		int i;
+
+		printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__, ts[3] - ts[0], ts[0]);
+		for (i = 0; i < 3; i++) {
+			printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
+					__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
+		}
+	}
+#endif
 }
 
 /*
@@ -563,6 +585,11 @@ void check_for_migration(struct task_struct *p)
 	int new_cpu = -1, better_idle_cpu = -1;
 	int cpu = task_cpu(p);
 	struct rq *rq = cpu_rq(cpu);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[16] = {0};
+
+	ts[0] = sched_clock();
+#endif
 
 	if (rq->misfit_task_load) {
 		struct em_perf_domain *pd;
@@ -574,41 +601,108 @@ void check_for_migration(struct task_struct *p)
 			return;
 
 		pd = em_cpu_get(cpu);
-		if (!pd)
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[1] = sched_clock();
+#endif
+		if (!pd) {
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+			if ((ts[1] - ts[0] > 200000ULL) && in_hardirq()) {
+				printk_deferred("%s duration %llu, ts[0]=%llu, ts[1]=%llu\n",
+						__func__, ts[1] - ts[0], ts[0], ts[1]);
+			}
+#endif
 			return;
+		}
 
 		thre_idx = (pd->nr_perf_states >> 3) - 1;
 		if (thre_idx >= 0)
 			thre = pd->table[thre_idx].frequency;
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[2] = sched_clock();
+#endif
 		policy = cpufreq_cpu_get(cpu);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[3] = sched_clock();
+#endif
 		if (policy) {
 			opp_curr = policy->cur;
 			cpufreq_cpu_put(policy);
 		}
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[4] = sched_clock();
+#endif
+		if (opp_curr <= thre) {
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+			if ((ts[4] - ts[0] > 200000ULL) && in_hardirq()) {
+				int i;
 
-		if (opp_curr <= thre)
+				printk_deferred("%s duration %llu, ts[0]=%llu\n",
+						__func__, ts[4] - ts[0], ts[0]);
+				for (i = 0; i < 4; i++) {
+					printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
+						__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
+				}
+			}
+#endif
 			return;
+		}
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[5] = sched_clock();
+#endif
 
 		raw_spin_lock(&migration_lock);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[6] = sched_clock();
+#endif
 		raw_spin_lock(&p->pi_lock);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[7] = sched_clock();
+#endif
 		new_cpu = p->sched_class->select_task_rq(p, cpu, WF_TTWU);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[8] = sched_clock();
+#endif
 		raw_spin_unlock(&p->pi_lock);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[9] = sched_clock();
+#endif
 		if ((new_cpu < 0) ||
 			(capacity_orig_of(new_cpu) <= capacity_orig_of(cpu)))
 			better_idle_cpu = select_bigger_idle_cpu(p);
 		if (better_idle_cpu >= 0)
 			new_cpu = better_idle_cpu;
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[10] = sched_clock();
+#endif
 		if (new_cpu < 0) {
 			raw_spin_unlock(&migration_lock);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+			if ((ts[10] - ts[0] > 500000ULL) && in_hardirq()) {
+				int i;
+
+				printk_deferred("%s duration %llu, ts[0]=%llu\n",
+						__func__, ts[10] - ts[0], ts[0]);
+				for (i = 0; i < 10; i++) {
+					printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
+						__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
+				}
+			}
+#endif
 			return;
 		}
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[11] = sched_clock();
+#endif
 		if ((better_idle_cpu >= 0) ||
 			(capacity_orig_of(new_cpu) > capacity_orig_of(cpu))) {
 			raw_spin_unlock(&migration_lock);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+			ts[12] = sched_clock();
+#endif
 			migrate_running_task(new_cpu, p, rq, MIGR_TICK_PULL_MISFIT_RUNNING);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+			ts[13] = sched_clock();
+#endif
 		} else {
 #if IS_ENABLED(CONFIG_MTK_SCHED_BIG_TASK_ROTATE)
 			int thre_rot = 0, thre_rot_idx = 0;
@@ -617,13 +711,31 @@ void check_for_migration(struct task_struct *p)
 			if (thre_rot_idx >= 0)
 				thre_rot = pd->table[thre_rot_idx].frequency;
 
-			if (opp_curr > thre_rot)
+			if (opp_curr > thre_rot) {
 				task_check_for_rotation(rq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+				ts[14] = sched_clock();
+#endif
+			}
 
 #endif
 			raw_spin_unlock(&migration_lock);
 		}
 	}
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[15] = sched_clock();
+
+	if ((ts[15] - ts[0] > 500000ULL) && in_hardirq()) {
+		int i;
+
+		printk_deferred("%s duration %llu, ts[0]=%llu\n",
+				__func__, ts[15] - ts[0], ts[0]);
+		for (i = 0; i < 15; i++) {
+			printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
+					__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
+		}
+	}
+#endif
 }
 
 void hook_scheduler_tick(void *data, struct rq *rq)
@@ -637,22 +749,52 @@ void mtk_hook_after_enqueue_task(void *data, struct rq *rq,
 {
 	struct update_util_data *fdata;
 	bool should_update = false;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[5] = {0};
 
+	ts[0] = sched_clock();
+#endif
 #if IS_ENABLED(CONFIG_MTK_SCHED_BIG_TASK_ROTATE)
 	rotat_after_enqueue_task(data, rq, p);
 #endif
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+#endif
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
-	if (rq->nr_running != 1)
+	if (rq->nr_running != 1) {
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		if ((ts[1] - ts[0] > 500000ULL) && in_hardirq()) {
+			printk_deferred("%s duration %llu, ts[0]=%llu, ts[1]=%llu\n",
+					__func__, ts[1] - ts[0], ts[0], ts[1]);
+		}
+#endif
 		return;
-
+	}
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[2] = sched_clock();
+#endif
 	fdata = rcu_dereference_sched(*per_cpu_ptr(&cpufreq_update_util_data,
 							  cpu_of(rq)));
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[3] = sched_clock();
+#endif
 	if (fdata) {
 		should_update = !check_freq_update_for_time(fdata, rq_clock(rq));
 		if (should_update)
 			fdata->func(fdata, rq_clock(rq), 0);
+	}
+#endif
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[4] = sched_clock();
+
+	if ((ts[4] - ts[0] > 500000ULL) && in_hardirq()) {
+		int i;
+
+		printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__, ts[4] - ts[0], ts[0]);
+		for (i = 0; i < 4; i++) {
+			printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
+					__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
+		}
 	}
 #endif
 }
