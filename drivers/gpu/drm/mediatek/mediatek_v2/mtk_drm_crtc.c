@@ -1935,10 +1935,9 @@ static int mtk_crtc_get_dc_fb_size(struct drm_crtc *crtc)
 static void mtk_crtc_cwb_set_sec(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_plane_comp_state *comp_state;
 	struct mtk_cwb_info *cwb_info;
+	struct drm_framebuffer *fb;
 	int i;
-	uint32_t layer_caps;
 
 	cwb_info = mtk_crtc->cwb_info;
 
@@ -1948,15 +1947,10 @@ static void mtk_crtc_cwb_set_sec(struct drm_crtc *crtc)
 	cwb_info->is_sec = false;
 	for (i = 0; i < mtk_crtc->layer_nr; i++) {
 		struct drm_plane *plane = &mtk_crtc->planes[i].base;
-		struct mtk_plane_state *plane_state;
 
-		plane_state = to_mtk_plane_state(plane->state);
-		comp_state = &(plane_state->comp_state);
-		layer_caps = comp_state->layer_caps;
-
-		if (layer_caps & MTK_LAYERING_OVL_ONLY) {
-			DDPDBG("[capture] plane%d has secure content, layer_caps:%d!!",
-				i, layer_caps);
+		fb = plane->state->fb;
+		if (mtk_drm_fb_is_secure(fb)) {
+			DDPDBG("[capture] plane%d has secure content !!", i);
 			cwb_info->is_sec = true;
 		}
 	}
@@ -2752,7 +2746,7 @@ _mtk_crtc_cwb_addon_module_connect(
 					src_roi_r;
 				addon_config.addon_wdma_config.wdma_dst_roi =
 					dst_roi_r;
-				addon_config.addon_wdma_config.addr += r_buff_off * 3;
+				addon_config.addon_wdma_config.addr += r_buff_off * Bpp;
 				/* connect right pipe */
 				mtk_addon_connect_after(crtc, ddp_mode, addon_module,
 							  &addon_config, cmdq_handle);
@@ -3233,7 +3227,7 @@ static unsigned int dual_comp_map_mt6985(unsigned int comp_id)
 		ret = DDP_COMPONENT_AAL1;
 		break;
 	case DDP_COMPONENT_WDMA0:
-		ret = DDP_COMPONENT_WDMA2;
+		ret = DDP_COMPONENT_WDMA1;
 		break;
 	default:
 		DDPMSG("unknown comp %u for %s\n", comp_id, __func__);
