@@ -374,12 +374,13 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 
 	/* for pd_opp_capacity is scaled based on maximum scale 1024, so cost = pwr_eff * 1024 */
 	if (trace_sched_em_cpu_energy_enabled())
-		trace_sched_em_cpu_energy(opp, freq_legacy, pwr_eff, scale_cpu,
-				dyn_pwr, static_pwr);
+		trace_sched_em_cpu_energy(opp, freq_legacy, "pwr_eff", pwr_eff,
+			scale_cpu, dyn_pwr, static_pwr);
 #else
 	dyn_pwr = (ps->cost * sum_util / scale_cpu);
 	if (trace_sched_em_cpu_energy_enabled())
-		trace_sched_em_cpu_energy(opp, freq, ps->cost, scale_cpu, dyn_pwr, static_pwr);
+		trace_sched_em_cpu_energy(opp, freq, "ps->cost", ps->cost,
+			scale_cpu, dyn_pwr, static_pwr);
 #endif
 
 	energy = dyn_pwr + static_pwr;
@@ -733,7 +734,7 @@ unsigned long calc_pwr(int cpu, unsigned long task_util)
 
 	if (trace_sched_em_cpu_energy_enabled())
 		trace_sched_em_cpu_energy(opp,
-				aligned_freq_to_legacy_freq(cpu, ps->freq),
+				aligned_freq_to_legacy_freq(cpu, ps->freq), "pwr_eff",
 				ps->pwr_eff, ps->capacity, dyn_pwr, static_pwr);
 
 	return pwr;

@@ -81,14 +81,15 @@ TRACE_EVENT(sched_leakage,
 
 TRACE_EVENT(sched_em_cpu_energy,
 
-	TP_PROTO(int idx, unsigned long freq, unsigned long cost, unsigned long scale_cpu,
-		unsigned long dyn_pwr, unsigned long static_pwr),
+	TP_PROTO(int idx, unsigned long freq, const char *cost_type, unsigned long cost,
+		unsigned long scale_cpu, unsigned long dyn_pwr, unsigned long static_pwr),
 
-	TP_ARGS(idx, freq, cost, scale_cpu, dyn_pwr, static_pwr),
+	TP_ARGS(idx, freq, cost_type, cost, scale_cpu, dyn_pwr, static_pwr),
 
 	TP_STRUCT__entry(
 		__field(int, idx)
 		__field(unsigned long, freq)
+		__string(cost_type, cost_type)
 		__field(unsigned long, cost)
 		__field(unsigned long, scale_cpu)
 		__field(unsigned long, dyn_pwr)
@@ -98,28 +99,21 @@ TRACE_EVENT(sched_em_cpu_energy,
 	TP_fast_assign(
 		__entry->idx        = idx;
 		__entry->freq       = freq;
+		__assign_str(cost_type, cost_type);
 		__entry->cost       = cost;
 		__entry->scale_cpu  = scale_cpu;
 		__entry->dyn_pwr    = dyn_pwr;
 		__entry->static_pwr = static_pwr;
 		),
-#if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
-	TP_printk("idx=%d freq=%lu pwr_eff=%lu scale_cpu=%lu dyn_pwr=%lu static_pwr=%lu",
+
+	TP_printk("idx=%d freq=%lu %s=%lu scale_cpu=%lu dyn_pwr=%lu static_pwr=%lu",
 		__entry->idx,
 		__entry->freq,
+		__get_str(cost_type),
 		__entry->cost,
 		__entry->scale_cpu,
 		__entry->dyn_pwr,
 		__entry->static_pwr)
-#else
-	TP_printk("idx=%d freq=%lu ps->cost=%lu scale_cpu=%lu dyn_pwr=%lu static_pwr=%lu",
-		__entry->idx,
-		__entry->freq,
-		__entry->cost,
-		__entry->scale_cpu,
-		__entry->dyn_pwr,
-		__entry->static_pwr)
-#endif
 );
 
 TRACE_EVENT(sched_calc_pwr_eff,
