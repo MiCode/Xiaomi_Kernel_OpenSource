@@ -62,7 +62,26 @@ union CAMSVCQ_CQ_EN {
 	} Bits;
 	unsigned int Raw;
 };
-
+#define REG_CAMSVCQ_CQ_SUB_EN						0x0160
+union CAMSVCQ_CQ_SUB_EN {
+	struct {
+		unsigned int CAMSVCQ_CQ_SUB_APB_2T           :  1;
+		unsigned int CAMSVCQ_CQ_SUB_DROP_FRAME_EN    :  1;
+		unsigned int CAMSVCQ_CQ_SUB_SOF_SEL          :  1;
+		unsigned int rsv_3                           :  1;
+		unsigned int CAMSVCQ_CQ_SUB_DB_EN            :  1;
+		unsigned int rsv_5                           :  3;
+		unsigned int CAMSVCQ_CQ_SUB_DB_LOAD_MODE     :  1;
+		unsigned int rsv_9                           :  3;
+		unsigned int CAMSVCQ_SCQ_SUB_STAGGER_MODE    :  1;
+		unsigned int rsv_13                          :  3;
+		unsigned int CAMSVCQ_CQ_SUB_RESET            :  1;
+		unsigned int rsv_17                          : 11;
+		unsigned int CAMSVCQ_CQ_SUB_DBG_SEL          :  1;
+		unsigned int rsv_29                          :  3;
+	} Bits;
+	unsigned int Raw;
+};
 #define REG_CAMSVCQ_CQ_SUB_THR0_DESC_SIZE_2			0x0188
 union CAMSVCQ_CQ_SUB_THR0_DESC_SIZE_2 {
 	struct {
@@ -217,6 +236,7 @@ union CAMSVCENTRAL_ERR_CTL {
 #define REG_CAMSVCENTRAL_SW_CTL					0x01D0
 #define REG_CAMSVDMATOP_SW_RST_CTL              0x0020
 #define REG_CAMSVCENTRAL_DCM_DIS				0x007C
+#define REG_CAMSVCQTOP_SW_RST_CTL				0x0010
 
 /* TAGS */
 #define REG_CAMSVCENTRAL_LAST_TAG				0x01C8

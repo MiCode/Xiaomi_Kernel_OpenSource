@@ -876,7 +876,7 @@ static int push_msgfifo(struct mtk_camsv_device *dev,
 
 void sv_reset(struct mtk_camsv_device *dev)
 {
-	int dma_sw_ctl;
+	int dma_sw_ctl, cq_dma_sw_ctl;
 	int ret;
 
 	dev_dbg(dev->dev, "%s camsv_id:%d\n", __func__, dev->id);
@@ -911,6 +911,42 @@ void sv_reset(struct mtk_camsv_device *dev)
 	writel(0, dev->base_dma + REG_CAMSVDMATOP_SW_RST_CTL);
 	writel(0, dev->base + REG_CAMSVCENTRAL_SW_CTL);
 	wmb(); /* make sure committed */
+
+	/* reset cq dma */
+	writel(0, dev->base_scq + REG_CAMSVCQTOP_SW_RST_CTL);
+	writel(1, dev->base_scq + REG_CAMSVCQTOP_SW_RST_CTL);
+	wmb(); /* make sure committed */
+
+	ret = readx_poll_timeout(readl, dev->base_scq + REG_CAMSVCQTOP_SW_RST_CTL,
+				cq_dma_sw_ctl,
+				cq_dma_sw_ctl & 0x2,
+				1 /* delay, us */,
+				100000 /* timeout, us */);
+	if (ret < 0) {
+		dev_info(dev->dev, "%s: timeout\n", __func__);
+
+		dev_info(dev->dev,
+			 "tg_sen_mode: 0x%x, cq_dma_sw_ctl:0x%x, frame_no:0x%x\n",
+			 readl(dev->base + REG_CAMSVCENTRAL_SEN_MODE),
+			 readl(dev->base_scq + REG_CAMSVCQTOP_SW_RST_CTL),
+			 readl(dev->base + REG_CAMSVCENTRAL_FRAME_SEQ_NO)
+			);
+		mtk_smi_dbg_hang_detect("camsys-camsv");
+		goto RESET_FAILURE;
+	}
+	writel(0, dev->base_scq + REG_CAMSVCQTOP_SW_RST_CTL);
+	wmb(); /* make sure committed */
+
+	/* reset cq */
+	CAMSV_WRITE_BITS(dev->base_scq + REG_CAMSVCQ_CQ_EN,
+		CAMSVCQ_CQ_EN, CAMSVCQ_CQ_RESET, 1);
+	CAMSV_WRITE_BITS(dev->base_scq + REG_CAMSVCQ_CQ_SUB_EN,
+		CAMSVCQ_CQ_SUB_EN, CAMSVCQ_CQ_SUB_RESET, 1);
+	CAMSV_WRITE_BITS(dev->base_scq + REG_CAMSVCQ_CQ_SUB_EN,
+		CAMSVCQ_CQ_SUB_EN, CAMSVCQ_CQ_SUB_RESET, 0);
+	CAMSV_WRITE_BITS(dev->base_scq + REG_CAMSVCQ_CQ_EN,
+		CAMSVCQ_CQ_EN, CAMSVCQ_CQ_RESET, 0);
+
 
 RESET_FAILURE:
 	return;
