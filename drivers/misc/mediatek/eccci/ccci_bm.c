@@ -7,6 +7,7 @@
 #include <linux/wait.h>
 #include <linux/sched/clock.h> /* local_clock() */
 #include <linux/delay.h>
+#include <linux/kmemleak.h>
 #include <linux/module.h>
 #include <linux/stacktrace.h>
 
@@ -295,10 +296,13 @@ static inline struct sk_buff *__alloc_skb_from_kernel(int size, gfp_t gfp_mask)
 		skb = __dev_alloc_skb(SKB_1_5K, gfp_mask);
 	else if (size > 0)
 		skb = __dev_alloc_skb(SKB_16, gfp_mask);
+	kmemleak_ignore(skb);
 	if (!skb)
 		CCCI_ERROR_LOG(-1, BM,
 			"%ps alloc skb from kernel fail, size=%d\n",
 			__builtin_return_address(0), size);
+	else
+		kmemleak_ignore(skb->head);
 	return skb;
 }
 
@@ -360,7 +364,6 @@ void ccci_skb_queue_init(struct ccci_skb_queue *queue, unsigned int skb_size,
 		for (i = 0; i < queue->max_len; i++) {
 			struct sk_buff *skb =
 				__alloc_skb_from_kernel(skb_size, GFP_KERNEL);
-
 			if (skb != NULL)
 				skb_queue_tail(&queue->skb_list, skb);
 		}
