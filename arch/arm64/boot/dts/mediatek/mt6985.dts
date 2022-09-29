@@ -9332,7 +9332,7 @@
 		compatible = "mediatek,mtk-swpm";
 		pmu-boundary-num = <0>;
 		pmu-dsu-support = <1>;
-		pmu-dsu-type = <11>;
+		pmu-dsu-type = <10>;
 	};
 
 	gps: gps@18c00000 {
