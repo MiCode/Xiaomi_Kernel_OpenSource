@@ -1063,6 +1063,11 @@ void mtk_cam_qos_sv_bw_calc(struct mtk_cam_ctx *ctx,
 			vblank = v4l2_ctrl_g_ctrl(ctrl);
 	}
 
+	if (!ctx->sv_dev) {
+		dev_info(cam->dev, "[%s] camsv device is NULL\n", __func__);
+		return;
+	}
+
 	for (i = SVTAG_START; i < SVTAG_END; i++) {
 		if (!(ctx->sv_dev->enabled_tags & (1 << i)))
 			continue;
