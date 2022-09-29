@@ -62,6 +62,62 @@ static void buffer_release(struct aov_core *core_info, void *data)
 	spin_unlock_irqrestore(&core_info->event_lock, flag);
 }
 
+static int copy_event_data(struct mtk_aov *aov_dev,
+		struct aov_event *event)
+{
+	struct aov_core *core_info = &aov_dev->core_info;
+	uint32_t debug_mode;
+	void *buffer;
+
+	AOV_TRACE_BEGIN("AOV Copy Event");
+
+	if (event == NULL) {
+		AOV_TRACE_END();
+		return -EINVAL;
+	}
+
+	buffer = buffer_acquire(core_info);
+	if (buffer == NULL) {
+#if AOV_FORCE_SKIP_MODE
+		buffer = queue_pop(&(core_info->queue));
+		if (buffer == NULL) {
+			AOV_TRACE_END();
+			dev_info(aov_dev->dev, "%s: failed to discard event\n", __func__);
+			return -ENOMEM;
+		}
+#else
+		AOV_TRACE_END();
+		dev_info(aov_dev->dev, "%s: failed to acquire message\n", __func__);
+		return -ENOMEM;
+#endif  // AOV_FORCE_SKIP_MODE
+	}
+
+	debug_mode = atomic_read(&(core_info->debug_mode));
+	if (debug_mode == AOV_DEBUG_MODE_NDD) {
+		// Copy yuvo1/yuvo2/imgo and etc.
+		memcpy(buffer, (void *)event, sizeof(struct aov_event));
+#if AOV_EVENT_COPY_IMG
+	} else {
+		// Only copy yuvo1/yuvo2/aie/apu out
+		memcpy(buffer, (void *)event, offsetof(struct aov_event, imgo_width));
+	}
+#else
+	} else if (debug_mode == AOV_DEBUG_MODE_DUMP) {
+		// Only copy yuvo1/yuvo2/aie/apu out
+		memcpy(buffer, (void *)event, offsetof(struct aov_event, imgo_width));
+	} else {
+		// Only copy aie/apu output
+		memcpy(buffer, (void *)event, offsetof(struct aov_event, yuvo1_width));
+	}
+#endif  // AOV_EVENT_COPY_IMG
+
+	(void)queue_push(&(core_info->queue), buffer);
+
+	AOV_TRACE_END();
+
+	return 0;
+}
+
 static int ipi_receive(unsigned int id, void *unused,
 		void *data, unsigned int len)
 {
@@ -70,7 +126,10 @@ static int ipi_receive(unsigned int id, void *unused,
 	uint32_t aov_session;
 	struct packet *packet;
 	struct aov_event *event;
-	void *buffer;
+
+#if AOV_EVENT_COPY_RECV
+	int ret;
+#endif  // AOV_EVENT_COPY_RECV
 
 	AOV_TRACE_BEGIN("AOV Recv IPI");
 
@@ -104,26 +163,15 @@ static int ipi_receive(unsigned int id, void *unused,
 			return 0;
 		}
 
-		buffer = buffer_acquire(core_info);
-		if (buffer == NULL) {
-#if AOV_FORCE_SKIP_MODE
-			buffer = queue_pop(&(core_info->queue));
-			if (buffer == NULL) {
-				AOV_TRACE_END();
-				dev_info(aov_dev->dev, "%s: failed to discard event\n", __func__);
-				return 0;
-			}
+#if AOV_EVENT_COPY_RECV
+		ret = copy_event_data(aov_dev, event);
+		if (ret >= 0)
+			wake_up_interruptible(&core_info->poll_wq);
 #else
-			AOV_TRACE_END();
-			dev_info(aov_dev->dev, "%s: failed to acquire message\n", __func__);
-			return 0;
-#endif  // AOV_FORCE_SKIP_MODE
-		}
-
-		memcpy(buffer, (void *)event, sizeof(struct aov_event));
-
-		queue_push(&(core_info->queue), buffer);
+		(void)queue_pop(&(core_info->event));
+		(void)queue_push(&(core_info->event), event);
 		wake_up_interruptible(&core_info->poll_wq);
+#endif  // #if AOV_EVENT_COPY_RECV
 	}
 
 	AOV_TRACE_END();
@@ -415,6 +463,9 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 			return -ENOMEM;
 		}
 
+		// Init event to receive event
+		queue_init(&(core_info->event));
+
 		// Init queue to receive event
 		queue_init(&(core_info->queue));
 
@@ -517,12 +568,15 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		AOV_TRACE_END();
 
 		// Reset queue to empty
+		while (!queue_empty(&(core_info->event)))
+			(void)queue_pop(&(core_info->event));
+
+		// Reset queue to empty
 		while (!queue_empty(&(core_info->queue))) {
 			buf = queue_pop(&(core_info->queue));
 			if (buf)
 				buffer_release(core_info, buf);
 		}
-
 		queue_deinit(&(core_info->queue));
 
 		dev_dbg(aov_dev->dev, "mtk_cam_seninf_aov_runtime_resume(%d/%d)+\n",
@@ -831,66 +885,6 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 	debug_mode = atomic_read(&(core_info->debug_mode));
 	if ((event->detect_mode) || (debug_mode == AOV_DEBUG_MODE_DUMP) ||
 		(debug_mode == AOV_DEBUG_MODE_NDD)) {
-		// Setup yuvo1 stride
-		put_user(event->yuvo1_width, (uint32_t *)((uintptr_t)dequeue +
-			offsetof(struct aov_dqevent, yuvo1_width)));
-
-		put_user(event->yuvo1_height, (uint32_t *)((uintptr_t)dequeue +
-			offsetof(struct aov_dqevent, yuvo1_height)));
-
-		put_user(event->yuvo1_format, (uint32_t *)((uintptr_t)dequeue +
-			offsetof(struct aov_dqevent, yuvo1_format)));
-
-		put_user(event->yuvo1_stride, (uint32_t *)((uintptr_t)dequeue +
-			offsetof(struct aov_dqevent, yuvo1_stride)));
-
-		// Copy yuvo1 buffer output
-		get_user(buffer, (void **)((uintptr_t)dequeue +
-			offsetof(struct aov_dqevent, yuvo1_output)));
-
-		dev_dbg(aov_dev->dev, "%s: copy yuvo1 output from(%x) to(%x) size(%d)\n",
-				__func__, ALIGN16(&(event->yuvo1_output[0])),
-				buffer, AOV_MAX_YUVO1_OUTPUT);
-
-		ret = copy_to_user((void *)buffer,
-			ALIGN16(&(event->yuvo1_output[0])), AOV_MAX_YUVO1_OUTPUT);
-		if (ret) {
-			buffer_release(core_info, event);
-			dev_info(aov_dev->dev,
-				"%s: failed to copy yuvo1 output(%d)\n", __func__, ret);
-			return -EFAULT;
-		}
-
-		// Setup yuvo2 stride
-		put_user(event->yuvo2_width, (uint32_t *)((uintptr_t)dequeue +
-			offsetof(struct aov_dqevent, yuvo2_width)));
-
-		put_user(event->yuvo2_height, (uint32_t *)((uintptr_t)dequeue +
-			offsetof(struct aov_dqevent, yuvo2_height)));
-
-		put_user(event->yuvo2_format, (uint32_t *)((uintptr_t)dequeue +
-			offsetof(struct aov_dqevent, yuvo2_format)));
-
-		put_user(event->yuvo2_stride, (uint32_t *)((uintptr_t)dequeue +
-			offsetof(struct aov_dqevent, yuvo2_stride)));
-
-		// Copy yuvo2 buffer output
-		get_user(buffer, (void **)((uintptr_t)dequeue +
-			offsetof(struct aov_dqevent, yuvo2_output)));
-
-		dev_dbg(aov_dev->dev, "%s: copy yuvo1 output from(%x) to(%x) size(%d)\n",
-				__func__, ALIGN16(&(event->yuvo2_output[0])),
-				buffer, AOV_MAX_YUVO2_OUTPUT);
-
-		ret = copy_to_user((void *)buffer,
-			ALIGN16(&(event->yuvo2_output[0])), AOV_MAX_YUVO2_OUTPUT);
-		if (ret) {
-			buffer_release(core_info, event);
-			dev_info(aov_dev->dev,
-				"%s: failed to copy yuvo2 output(%d)\n", __func__, ret);
-			return -EFAULT;
-		}
-
 		// Setup aie output size
 		put_user(event->aie_size, (uint32_t *)((uintptr_t)dequeue +
 			offsetof(struct aov_dqevent, aie_size)));
@@ -947,6 +941,73 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 				buffer_release(core_info, event);
 				dev_info(aov_dev->dev,
 					"%s: failed to copy apu output(%d)", __func__, ret);
+				return -EFAULT;
+			}
+		}
+
+#if AOV_EVENT_COPY_IMG
+		if (1) {
+#else
+		if ((debug_mode == AOV_DEBUG_MODE_DUMP) ||
+				(debug_mode == AOV_DEBUG_MODE_NDD)) {
+#endif  // AOV_EVENT_COPY_IMG
+			// Setup yuvo1 stride
+			put_user(event->yuvo1_width, (uint32_t *)((uintptr_t)dequeue +
+				offsetof(struct aov_dqevent, yuvo1_width)));
+
+			put_user(event->yuvo1_height, (uint32_t *)((uintptr_t)dequeue +
+				offsetof(struct aov_dqevent, yuvo1_height)));
+
+			put_user(event->yuvo1_format, (uint32_t *)((uintptr_t)dequeue +
+				offsetof(struct aov_dqevent, yuvo1_format)));
+
+			put_user(event->yuvo1_stride, (uint32_t *)((uintptr_t)dequeue +
+				offsetof(struct aov_dqevent, yuvo1_stride)));
+
+			// Copy yuvo1 buffer output
+			get_user(buffer, (void **)((uintptr_t)dequeue +
+				offsetof(struct aov_dqevent, yuvo1_output)));
+
+			dev_dbg(aov_dev->dev, "%s: copy yuvo1 output from(%x) to(%x) size(%d)\n",
+					__func__, ALIGN16(&(event->yuvo1_output[0])),
+					buffer, AOV_MAX_YUVO1_OUTPUT);
+
+			ret = copy_to_user((void *)buffer,
+				ALIGN16(&(event->yuvo1_output[0])), AOV_MAX_YUVO1_OUTPUT);
+			if (ret) {
+				buffer_release(core_info, event);
+				dev_info(aov_dev->dev,
+					"%s: failed to copy yuvo1 output(%d)\n", __func__, ret);
+				return -EFAULT;
+			}
+
+			// Setup yuvo2 stride
+			put_user(event->yuvo2_width, (uint32_t *)((uintptr_t)dequeue +
+				offsetof(struct aov_dqevent, yuvo2_width)));
+
+			put_user(event->yuvo2_height, (uint32_t *)((uintptr_t)dequeue +
+				offsetof(struct aov_dqevent, yuvo2_height)));
+
+			put_user(event->yuvo2_format, (uint32_t *)((uintptr_t)dequeue +
+				offsetof(struct aov_dqevent, yuvo2_format)));
+
+			put_user(event->yuvo2_stride, (uint32_t *)((uintptr_t)dequeue +
+				offsetof(struct aov_dqevent, yuvo2_stride)));
+
+			// Copy yuvo2 buffer output
+			get_user(buffer, (void **)((uintptr_t)dequeue +
+				offsetof(struct aov_dqevent, yuvo2_output)));
+
+			dev_dbg(aov_dev->dev, "%s: copy yuvo1 output from(%x) to(%x) size(%d)\n",
+				__func__, ALIGN16(&(event->yuvo2_output[0])),
+				buffer, AOV_MAX_YUVO2_OUTPUT);
+
+			ret = copy_to_user((void *)buffer,
+				ALIGN16(&(event->yuvo2_output[0])), AOV_MAX_YUVO2_OUTPUT);
+			if (ret) {
+				buffer_release(core_info, event);
+				dev_info(aov_dev->dev,
+					"%s: failed to copy yuvo2 output(%d)\n", __func__, ret);
 				return -EFAULT;
 			}
 		}
@@ -1119,6 +1180,11 @@ int aov_core_poll(struct mtk_aov *aov_dev, struct file *file,
 {
 	struct aov_core *core_info = &aov_dev->core_info;
 
+#if !AOV_EVENT_COPY_RECV
+	struct aov_event *event;
+	int ret;
+#endif  // !AOV_EVENT_COPY_RECV
+
 	dev_dbg(aov_dev->dev, "%s: poll start+\n", __func__);
 
 	if (aov_dev->op_mode == 0) {
@@ -1126,17 +1192,35 @@ int aov_core_poll(struct mtk_aov *aov_dev, struct file *file,
 		return 0;
 	}
 
+#if AOV_EVENT_COPY_RECV
 	if (!queue_empty(&(core_info->queue))) {
 		dev_dbg(aov_dev->dev, "%s: poll start-: %d\n", __func__, POLLPRI);
 		return POLLPRI;
 	}
+#else
+	event = queue_pop(&(core_info->event));
+	if (event != NULL) {
+		ret = copy_event_data(aov_dev, event);
+		if (ret >= 0)
+			return POLLPRI;
+	}
+#endif  // AOV_EVENT_COPY_RECV
 
 	poll_wait(file, &core_info->poll_wq, wait);
 
+#if AOV_EVENT_COPY_RECV
 	if (!queue_empty(&(core_info->queue))) {
 		dev_dbg(aov_dev->dev, "%s: poll start-: %d\n", __func__, POLLPRI);
 		return POLLPRI;
 	}
+#else
+	event = queue_pop(&(core_info->event));
+	if (event != NULL) {
+		ret = copy_event_data(aov_dev, event);
+		if (ret >= 0)
+			return POLLPRI;
+	}
+#endif  // AOV_EVENT_COPY_RECV
 
 	dev_dbg(aov_dev->dev, "%s: poll start-: 0\n", __func__);
 
@@ -1197,6 +1281,11 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 			spin_unlock_irqrestore(&core_info->buf_lock, flag);
 			dev_info(aov_dev->dev, "aov force free init-");
 		}
+
+		// Reset event to empty
+		while (!queue_empty(&(core_info->event)))
+			(void)queue_pop(&(core_info->event));
+		queue_deinit(&(core_info->event));
 
 		// Reset queue to empty
 		while (!queue_empty(&(core_info->queue))) {

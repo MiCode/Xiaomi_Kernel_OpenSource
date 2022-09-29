@@ -61,6 +61,7 @@ struct aov_core {
 	atomic_t ack_cmd[AOV_SCP_CMD_MAX];
 
 	wait_queue_head_t poll_wq;
+	struct queue event;
 	struct queue queue;
 };
 

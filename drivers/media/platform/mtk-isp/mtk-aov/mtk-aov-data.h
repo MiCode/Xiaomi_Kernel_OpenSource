@@ -62,7 +62,7 @@
 #define AOV_MAX_AAO_OUTPUT        (158 * 1024)
 #define AOV_MAX_AAHO_OUTPUT       (1 * 1024)
 #define AOV_MAX_META_OUTPUT       (6 * 1024)
-#define AOV_MAX_AWB_OUTPUT        (2 * 1024)
+#define AOV_MAX_AWB_OUTPUT        (1 * 1024)
 
 #define AOV_MAX_SENSOR_COUNT      (64)
 
@@ -81,6 +81,13 @@ struct aov_dqevent {
 	uint32_t frame_mode;
 	uint32_t detect_mode;
 
+	// for object detection
+	uint32_t aie_size;
+	void *aie_output;
+
+	uint32_t apu_size;
+	void *apu_output;
+
 	// for general debug
 	uint32_t yuvo1_width;
 	uint32_t yuvo1_height;
@@ -93,12 +100,6 @@ struct aov_dqevent {
 	uint32_t yuvo2_format;
 	uint32_t yuvo2_stride;
 	void *yuvo2_output;
-
-	uint32_t aie_size;
-	void *aie_output;
-
-	uint32_t apu_size;
-	void *apu_output;
 
 	// for NDD debug mode
 	uint32_t imgo_width;
@@ -129,6 +130,13 @@ struct aov_event {
 	uint32_t frame_mode;
 	uint32_t detect_mode;
 
+	// for object detection
+	uint32_t aie_size;
+	uint8_t aie_output[AOV_MAX_AIE_OUTPUT];
+
+	uint32_t apu_size;
+	uint8_t apu_output[AOV_MAX_APU_OUTPUT];
+
 	// for general debug
 	uint32_t yuvo1_width;
 	uint32_t yuvo1_height;
@@ -141,12 +149,6 @@ struct aov_event {
 	uint32_t yuvo2_format;
 	uint32_t yuvo2_stride;
 	uint8_t yuvo2_output[AOV_MAX_YUVO2_OUTPUT];
-
-	uint32_t aie_size;
-	uint8_t aie_output[AOV_MAX_AIE_OUTPUT];
-
-	uint32_t apu_size;
-	uint8_t apu_output[AOV_MAX_APU_OUTPUT];
 
 	// for NDD debug mode
 	uint32_t imgo_width;

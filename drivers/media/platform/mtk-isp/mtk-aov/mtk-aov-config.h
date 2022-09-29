@@ -10,6 +10,8 @@
 
 #define AOV_DEVICE_NAME     "mtk_aov"
 #define AOV_EVENT_IN_PLACE  (0)
+#define AOV_EVENT_COPY_RECV (0)
+#define AOV_EVENT_COPY_IMG  (1)
 #define AOV_WAIT_POWER_ACK  (1)
 #define AOV_SLB_ALLOC_FREE  (0)
 #define AOV_FORCE_SKIP_MODE (1)
