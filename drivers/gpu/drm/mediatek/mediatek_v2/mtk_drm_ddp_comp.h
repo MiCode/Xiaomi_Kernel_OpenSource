@@ -465,6 +465,7 @@ enum mtk_ddp_comp_id {
 struct mtk_ddp_comp;
 struct cmdq_pkt;
 enum mtk_ddp_comp_trigger_flag {
+	MTK_TRIG_FLAG_PRE_TRIGGER,
 	MTK_TRIG_FLAG_TRIGGER,
 	MTK_TRIG_FLAG_EOF,
 	MTK_TRIG_FLAG_LAYER_REC,
