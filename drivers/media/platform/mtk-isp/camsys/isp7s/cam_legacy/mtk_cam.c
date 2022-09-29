@@ -7162,6 +7162,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 				if (!switch_sensor &&
 				    ctx->sensor && MTK_CAM_INITIAL_REQ_SYNC == 0 &&
 					(mtk_cam_scen_is_sensor_normal(scen) ||
+					 mtk_cam_scen_is_sensor_stagger(scen) ||
 					 req_stream_data->frame_params.raw_param.hardware_scenario
 					 == MTKCAM_IPI_HW_PATH_DC_STAGGER) &&
 					req_stream_data->frame_seq_no == 2) {
