@@ -1465,8 +1465,7 @@ static GED_ERROR ged_kpi_push_timestamp(
 		if (eTimeStampType == GED_TIMESTAMP_TYPE_2) {
 			spin_lock_irqsave(&gsGpuUtilLock, ui32IRQFlags);
 
-			if (!g_force_gpu_dvfs_fallback
-				&& pid != pid_sysui && pid != pid_sf) {
+			if (!ged_kpi_get_fallback_mode() && pid != pid_sf) {
 				struct GpuUtilization_Ex util_ex;
 				ged_kpi_trigger_fb_dvfs();
 				ged_dvfs_cal_gpu_utilization_ex(
