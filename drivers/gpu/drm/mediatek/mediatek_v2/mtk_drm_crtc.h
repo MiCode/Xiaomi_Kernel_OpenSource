@@ -888,6 +888,9 @@ struct mtk_drm_crtc {
 	enum PF_TS_TYPE pf_ts_type;
 	struct list_head lyeblob_head;
 	unsigned long long last_aee_trigger_ts;
+
+	atomic_t force_high_step;
+	int force_high_enabled;
 };
 
 struct mtk_crtc_state {

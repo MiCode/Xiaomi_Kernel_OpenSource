@@ -325,6 +325,11 @@ void mtk_drm_mmdvfs_init(struct device *dev)
 		DDPPR_ERR("%s, get mmdvfs-dvfsrc-vcore failed\n", __func__);
 }
 
+unsigned int mtk_drm_get_mmclk_step_size(void)
+{
+	return step_size;
+}
+
 void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level, bool lp_mode,
 			const char *caller)
 {

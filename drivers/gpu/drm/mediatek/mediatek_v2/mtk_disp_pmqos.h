@@ -44,6 +44,7 @@ void mtk_drm_pan_disp_set_hrt_bw(struct drm_crtc *crtc, const char *caller);
 int __mtk_disp_pmqos_slot_look_up(int comp_id, int mode);
 int mtk_disp_hrt_cond_init(struct drm_crtc *crtc);
 void mtk_drm_mmdvfs_init(struct device *dev);
+unsigned int mtk_drm_get_mmclk_step_size(void);
 void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level, bool lp_mode,
 			const char *caller);
 void mtk_drm_set_mmclk_by_pixclk(struct drm_crtc *crtc, unsigned int pixclk,

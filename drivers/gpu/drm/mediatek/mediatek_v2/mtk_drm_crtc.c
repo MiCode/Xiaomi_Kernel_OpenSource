@@ -3461,6 +3461,30 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 	DDPINFO("%s bw=%d, last_hrt_req=%d, overlap=%d\n",
 			__func__, bw, mtk_crtc->qos_ctx->last_hrt_req, frame_weight);
 
+	if (atomic_read(&mtk_crtc->force_high_step) == 1) {
+		unsigned int step_size = mtk_drm_get_mmclk_step_size();
+
+		if (!mtk_crtc->force_high_enabled) {
+			DDPMSG("start SET MMCLK step 0\n");
+			/* set MMCLK highest step for next 2048 frame */
+			mtk_crtc->force_high_enabled = 2048;
+		}
+		mtk_crtc->force_high_enabled--;
+
+		if (mtk_crtc->force_high_enabled > 0) {
+			mtk_drm_set_mmclk(crtc, step_size - 1, false, __func__);
+		} else {
+			int en = 1;
+
+			output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+			if (output_comp)
+				mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE, &en);
+			atomic_set(&mtk_crtc->force_high_step, 0);
+		}
+	} else {
+		mtk_crtc->force_high_enabled = 0;
+	}
+
 	if (priv->data->has_smi_limitation && lyeblob_ids) {
 		output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 
@@ -7354,6 +7378,7 @@ skip:
 			(mtk_crtc_is_frame_trigger_mode(crtc)))
 		mtk_crtc_stop_event_loop(crtc);
 
+	atomic_set(&mtk_crtc->force_high_step, 0);
 	DDPINFO("%s:%d -\n", __func__, __LINE__);
 #endif
 }
@@ -12122,6 +12147,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	mtk_crtc->sf_pf_release_thread =
 				kthread_run(mtk_drm_sf_pf_release_thread,
 					    mtk_crtc, "sf_pf_release_thread");
+	atomic_set(&mtk_crtc->force_high_step, 0);
 
 	INIT_LIST_HEAD(&mtk_crtc->lyeblob_head);
 
