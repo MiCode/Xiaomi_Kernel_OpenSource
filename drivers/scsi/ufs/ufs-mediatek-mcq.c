@@ -211,7 +211,6 @@ static irqreturn_t ufs_mtk_mcq_cq_ring_handler(struct ufs_hba *hba, int hwq)
 	dma_addr_t ucdl_dma_addr;
 	u8 tag_offset;
 	u32 mcq_cqe_ocs;
-	unsigned long flags;
 	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
 
 	q = &hba_priv->mcq_q_cfg.cq[hwq];
@@ -225,9 +224,7 @@ static irqreturn_t ufs_mtk_mcq_cq_ring_handler(struct ufs_hba *hba, int hwq)
 		mcq_cqe_ocs = (le32_to_cpu(entry->dword_4) & UTRD_OCS_MASK);
 		lrb->utr_descriptor_ptr->header.dword_2 = cpu_to_le32(mcq_cqe_ocs);
 		ufs_mtk_inc_cq_head(hba, q);
-		spin_lock_irqsave(&hba->outstanding_lock, flags);
-		__clear_bit(tag_offset, hba_priv->outstanding_mcq_reqs);
-		spin_unlock_irqrestore(&hba->outstanding_lock, flags);
+		clear_bit(tag_offset, hba_priv->outstanding_mcq_reqs);
 		ufs_mtk_transfer_req_compl_handler(hba, false, tag_offset);
 	}
 
@@ -353,7 +350,7 @@ static void ufs_mtk_mcq_send_hw_cmd(struct ufs_hba *hba, unsigned int task_tag)
 		goto finalize;
 	}
 
-	__set_bit(task_tag, hba_priv->outstanding_mcq_reqs);
+	set_bit(task_tag, hba_priv->outstanding_mcq_reqs);
 
 	/* Copy the modified UTRD to the corresponding SQ entry */
 	memcpy(sq_ptr->tail, lrbp->utr_descriptor_ptr, SQE_SIZE);
