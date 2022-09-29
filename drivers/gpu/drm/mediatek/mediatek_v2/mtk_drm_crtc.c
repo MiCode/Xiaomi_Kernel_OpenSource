@@ -1015,6 +1015,7 @@ static void mtk_drm_crtc_destroy_state(struct drm_crtc *crtc,
 	s = to_mtk_crtc_state(state);
 
 	__drm_atomic_helper_crtc_destroy_state(state);
+	DDPINFO("destroy/free crtc_state, 0x%llx\n", (u64)state);
 	kfree(s);
 }
 
@@ -6148,8 +6149,8 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		return;
 	}
 
-	DDPINFO("crtc_state:%x, atomic_state:%x, crtc:%x, pf:%u\n",
-		crtc_state, atomic_state, crtc, cb_data->pres_fence_idx);
+	DDPINFO("crtc_state:0x%llx, atomic_state:%x, crtc:%x, pf:%u\n",
+		(u64)crtc_state, atomic_state, crtc, cb_data->pres_fence_idx);
 
 	session_id = mtk_get_session_id(crtc);
 
