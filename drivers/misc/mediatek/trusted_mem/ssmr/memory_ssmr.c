@@ -29,6 +29,7 @@
 #include <linux/sizes.h>
 #include <linux/dma-direct.h>
 #include <linux/kallsyms.h>
+#include <linux/kmemleak.h>
 #include <asm/cacheflush.h>
 #include "ssmr_internal.h"
 
@@ -318,6 +319,12 @@ static int ssmr_dma_alloc(struct SSMR_Feature *feature, phys_addr_t *pa,
 		return -1;
 	}
 
+	/*
+	 * kmemleak scan secure memory(stage2 is unmapping), so that ignore
+	 * the cma space in order not to scan stage2 unmapping space
+	 */
+	kmemleak_ignore_phys(*pa);
+
 	return 0;
 }
 
@@ -369,6 +376,12 @@ static int ssmr_cma_alloc(struct SSMR_Feature *feature, phys_addr_t *pa,
 
 	if (size)
 		*size = feature->req_size;
+
+	/*
+	 * kmemleak scan secure memory(stage2 is unmapping), so that ignore
+	 * the cma space in order not to scan stage2 unmapping space
+	 */
+	kmemleak_ignore_phys(*pa);
 
 	return 0;
 }
