@@ -787,6 +787,9 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 		return;
 	}
 
+	if (swfrminfo_cb->is_lastfrm)
+		*(req->req_stat) = *(req->req_stat) + 1;
+
 	IMGSYS_SYSTRACE_BEGIN("ReqFd:%d Own:%s\n", req->tstate.req_fd,
 							((char *)&swfrminfo_cb->frm_owner));
 
@@ -1381,6 +1384,8 @@ static void imgsys_runner_func(void *data)
 	 */
 	frm_info = (struct swfrm_info_t *)(work->req_sbuf_kva);
 	frm_info->is_sent = true;
+	if (frm_info->is_lastfrm)
+		*(req->req_stat) = *(req->req_stat) + 1;
 	/*
 	 * Call MDP/GCE API to do HW excecution
 	 * Pass the framejob to MDP driver
@@ -1409,6 +1414,10 @@ static void imgsys_runner_func(void *data)
 		dev_info(imgsys_dev->dev,
 			"%s: imgsys_cmdq_sendtask fail(%d)\n", __func__, ret);
 	}
+
+	if (frm_info->is_lastfrm)
+		*(req->req_stat) = *(req->req_stat) + 1;
+
 	put_gce_work(work);
 	mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev);
 }
@@ -1545,6 +1554,10 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 		WARN_ONCE(!req, "%s: frame_no(%d) is lost\n", __func__, job_id);
 		return;
 	}
+
+	if (swfrm_info->is_lastfrm)
+		*(req->req_stat) = *(req->req_stat) + 1;
+
 	IMGSYS_SYSTRACE_BEGIN("MWFrame:#%d MWReq:#%d ReqFd:%d owner:%s subfrm_idx:%d\n",
 			swfrm_info->frame_no, swfrm_info->request_no, req->tstate.req_fd,
 		((char *)&swfrm_info->frm_owner), swfrm_info->user_info[0].subfrm_idx);
@@ -1717,6 +1730,9 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	gwork->req_sbuf_kva = (void *)swfrm_info;
 	gwork->work.run = imgsys_runner_func;
 	imgsys_queue_add(&imgsys_dev->runnerque, &gwork->work);
+	if (swfrm_info->is_lastfrm)
+		*(req->req_stat) = *(req->req_stat) + 1;
+
 	IMGSYS_SYSTRACE_END();
 
 }
@@ -1775,33 +1791,10 @@ static void imgsys_aee_handler(void *data, unsigned int len, void *priv)
 static void imgsys_set_smvr(struct mtk_imgsys_request *req,
 					struct img_ipi_param *ipi)
 {
-	struct mtk_imgsys_dev_buffer *devbuf;
-	bool smvr = false;
-	int b;
-
 	if (!req || !ipi)
 		return;
 
-	b = is_singledev_mode(req);
-	if (!b)
-		devbuf = req->buf_map[MTK_IMGSYS_VIDEO_NODE_CTRLMETA_OUT];
-	else
-		devbuf = req->buf_map[b];
-
-	switch (devbuf->dev_fmt->format) {
-	case V4L2_META_FMT_MTISP_DESC_NORM:
-	case V4L2_META_FMT_MTISP_SDNORM:
-		smvr = false;
-		break;
-	case V4L2_META_FMT_MTISP_DESC:
-	case V4L2_META_FMT_MTISP_SD:
-		smvr = true;
-		break;
-	default:
-		pr_info("%s unknown format\n", __func__);
-	}
-
-	ipi->smvr_mode = smvr;
+	ipi->smvr_mode = mtk_imgsys_is_smvr(req);
 }
 
 static void imgsys_sd_share_buffer(struct mtk_imgsys_request *req,

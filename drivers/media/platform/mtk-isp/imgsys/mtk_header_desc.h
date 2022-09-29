@@ -144,6 +144,7 @@ struct singlenode_desc {
 	struct header_desc	dmas[IMG_MAX_HW_DMAS];
 	struct header_desc	tuning_meta;
 	struct header_desc	ctrl_meta;
+	__u64 req_state;
 };
 
 struct singlenode_desc_norm {
@@ -151,6 +152,7 @@ struct singlenode_desc_norm {
 	struct header_desc_norm	dmas[IMG_MAX_HW_DMAS];
 	struct header_desc_norm	tuning_meta;
 	struct header_desc_norm	ctrl_meta;
+	__u64 req_state;
 };
 
 #define V4L2_META_FMT_MTISP_DESC   v4l2_fourcc('M', 'T', 'f', 'd')

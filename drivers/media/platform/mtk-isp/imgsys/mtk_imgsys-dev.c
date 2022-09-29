@@ -24,6 +24,11 @@ struct fd_kva_list_t fd_kva_info_list = {
 
 unsigned int nodes_num;
 
+#define	MTK_IMGSYS_VIDEO_NODE_SIGDEV_NORM_OUT	(nodes_num - 1)
+#define	MTK_IMGSYS_VIDEO_NODE_SIGDEV_OUT	    (nodes_num - 2)
+#define	MTK_IMGSYS_VIDEO_NODE_CTRLMETA_OUT	    (nodes_num - 3)
+#define	MTK_IMGSYS_VIDEO_NODE_TUNING_OUT	    (nodes_num - 4)
+
 int mtk_imgsys_pipe_init(struct mtk_imgsys_dev *imgsys_dev,
 				struct mtk_imgsys_pipe *pipe,
 				const struct mtk_imgsys_pipe_desc *setting)
@@ -522,6 +527,33 @@ int is_singledev_mode(struct mtk_imgsys_request *req)
 		ret = MTK_IMGSYS_VIDEO_NODE_SIGDEV_NORM_OUT;
 
 	return ret;
+}
+
+bool mtk_imgsys_is_smvr(struct mtk_imgsys_request *req)
+{
+	struct mtk_imgsys_dev_buffer *devbuf = NULL;
+	int b = is_singledev_mode(req);
+	bool is_smvr = false;
+
+	if (!b)
+		devbuf = req->buf_map[MTK_IMGSYS_VIDEO_NODE_CTRLMETA_OUT];
+	else
+		devbuf = req->buf_map[b];
+
+	switch (devbuf->dev_fmt->format) {
+	default:
+	case V4L2_META_FMT_MTISP_DESC_NORM:
+	case V4L2_META_FMT_MTISP_SDNORM:
+		is_smvr = false;
+		break;
+	case V4L2_META_FMT_MTISP_DESC:
+	case V4L2_META_FMT_MTISP_SD:
+		is_smvr = true;
+		break;
+		pr_info("%s unknown format\n", __func__);
+	}
+
+	return is_smvr;
 }
 
 bool is_desc_fmt(const struct mtk_imgsys_dev_format *dev_fmt)
@@ -1183,6 +1215,7 @@ void mtk_imgsys_desc_map_iova(struct mtk_imgsys_request *req)
 		}
 
 		desc_dma = (void *)buf_dma->va_daddr[0];
+
 		mtk_imgsys_desc_set(pipe, desc_dma, desc, need_iova, buf_dma);
 	}
 	e = ktime_get_boottime_ns()/1000;
@@ -1215,10 +1248,12 @@ void mtk_imgsys_sd_desc_map_iova(struct mtk_imgsys_request *req)
 	default:
 	case V4L2_META_FMT_MTISP_SD:
 		desc_sd = (struct singlenode_desc *)buf_sd->va_daddr[0];
+		req->req_stat = &desc_sd->req_state;
 		break;
 	case V4L2_META_FMT_MTISP_SDNORM:
 		desc_sd_norm =
 			(struct singlenode_desc_norm *)buf_sd->va_daddr[0];
+		req->req_stat = &desc_sd_norm->req_state;
 		break;
 	}
 

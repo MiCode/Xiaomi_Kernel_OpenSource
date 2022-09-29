@@ -61,12 +61,6 @@
 
 #define MTK_IMGSYS_LOG_LENGTH			256
 
-extern unsigned int nodes_num;
-
-#define	MTK_IMGSYS_VIDEO_NODE_SIGDEV_NORM_OUT	(nodes_num - 1)
-#define	MTK_IMGSYS_VIDEO_NODE_SIGDEV_OUT	(nodes_num - 2)
-#define	MTK_IMGSYS_VIDEO_NODE_CTRLMETA_OUT	(nodes_num - 3)
-#define	MTK_IMGSYS_VIDEO_NODE_TUNING_OUT	(nodes_num - 4)
 
 
 enum imgsys_user_state {
@@ -463,6 +457,7 @@ struct mtk_imgsys_request {
 	atomic_t buf_count;
 	atomic_t swfrm_cnt;
 	struct mtk_imgsys_time_state tstate;
+	u64 *req_stat;
 #ifdef BATCH_MODE_V3
 	// V3 added {
 	/* Batch mode unprocessed_count */
@@ -547,6 +542,8 @@ void mtk_imgsys_pipe_load_default_fmt(struct mtk_imgsys_pipe *pipe,
 bool is_desc_mode(struct mtk_imgsys_request *req);
 
 int is_singledev_mode(struct mtk_imgsys_request *req);
+
+bool mtk_imgsys_is_smvr(struct mtk_imgsys_request *req);
 
 bool is_desc_fmt(const struct mtk_imgsys_dev_format *dev_fmt);
 
