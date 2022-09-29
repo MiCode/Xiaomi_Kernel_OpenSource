@@ -12540,11 +12540,12 @@ void mtk_ddp_add_comp_to_path(struct mtk_drm_crtc *mtk_crtc,
 
 
 	if (comp->funcs && comp->funcs->connect)
-		comp->funcs->connect(comp, prev, next);
+		comp->funcs->connect(comp, NULL, prev, next);
 }
 
 void mtk_ddp_add_comp_to_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 					enum mtk_ddp_comp_id cur,
+					enum mtk_ddp_comp_id prev,
 					enum mtk_ddp_comp_id next,
 					struct cmdq_pkt *handle)
 {
@@ -12554,6 +12555,7 @@ void mtk_ddp_add_comp_to_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 	const struct mtk_mmsys_reg_data *reg_data = mtk_crtc->mmsys_reg_data;
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 	resource_size_t config_regs_pa = mtk_crtc->config_regs_pa;
+	struct mtk_ddp_comp *comp;
 
 	switch (priv->data->mmsys_id) {
 	case MMSYS_MT2701:
@@ -12894,6 +12896,9 @@ void mtk_ddp_add_comp_to_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 			__func__, priv->data->mmsys_id);
 		break;
 	}
+	comp = priv->ddp_comp[cur];
+	if (comp && comp->funcs && comp->funcs->connect)
+		comp->funcs->connect(comp, handle, prev, next);
 }
 
 void mtk_ddp_remove_comp_from_path(struct mtk_drm_crtc *mtk_crtc,

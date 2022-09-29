@@ -12939,17 +12939,25 @@ static void mtk_crtc_connect_single_path_cmdq(struct drm_crtc *crtc,
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *comp;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < __mtk_crtc_path_len(mtk_crtc, ddp_mode, path_idx) - 1; ++i) {
 		struct mtk_ddp_comp *temp_comp;
+		unsigned int prev_id;
+
+		if (i == 0) {
+			prev_id = DDP_COMPONENT_ID_MAX;
+		} else {
+			comp = mtk_crtc_get_comp(crtc, ddp_mode, path_idx, i - 1);
+			prev_id = comp->id;
+		}
 
 		comp = mtk_crtc_get_comp(crtc, ddp_mode, path_idx, i);
 		temp_comp = mtk_crtc_get_comp(crtc, ddp_mode, path_idx, i + 1);
 
 		if (comp && temp_comp)
 			mtk_ddp_add_comp_to_path_with_cmdq(
-				mtk_crtc, comp->id, temp_comp->id, cmdq_handle);
+				mtk_crtc, comp->id, prev_id, temp_comp->id, cmdq_handle);
 		else {
 			DDPPR_ERR("%s, comp or temp_comp is NULL\n", __func__);
 			break;
@@ -13042,14 +13050,21 @@ static void mtk_crtc_create_wb_path_cmdq(struct drm_crtc *crtc,
 	struct mtk_drm_gem_obj *mtk_gem;
 	struct mtk_ddp_comp *comp;
 	dma_addr_t addr;
-	int i;
+	unsigned int i;
 
 	ddp_ctx = &mtk_crtc->ddp_ctx[ddp_mode];
-	for (i = 0; i < ddp_ctx->wb_comp_nr - 1; i++)
-		mtk_ddp_add_comp_to_path_with_cmdq(
-			mtk_crtc, ddp_ctx->wb_comp[i]->id,
-			ddp_ctx->wb_comp[i + 1]->id, cmdq_handle);
+	for (i = 0; i < ddp_ctx->wb_comp_nr - 1; i++) {
+		unsigned int prev_id;
 
+		if (i == 0)
+			prev_id = DDP_COMPONENT_ID_MAX;
+		else
+			prev_id = ddp_ctx->wb_comp[i - 1]->id;
+
+		mtk_ddp_add_comp_to_path_with_cmdq(
+			mtk_crtc, ddp_ctx->wb_comp[i]->id, prev_id,
+			ddp_ctx->wb_comp[i + 1]->id, cmdq_handle);
+	}
 	for (i = 0; i < ddp_ctx->wb_comp_nr; i++)
 		mtk_disp_mutex_add_comp_with_cmdq(
 			mtk_crtc, ddp_ctx->wb_comp[i]->id,
@@ -13537,7 +13552,7 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 
 			/* Connect cur path components */
 			mtk_ddp_add_comp_to_path_with_cmdq(
-				mtk_crtc, DDP_COMPONENT_OVL0_2L,
+				mtk_crtc, DDP_COMPONENT_OVL0_2L, DDP_COMPONENT_ID_MAX,
 				DDP_COMPONENT_OVL0, cmdq_handle);
 			mtk_disp_mutex_add_comp_with_cmdq(
 				mtk_crtc, DDP_COMPONENT_OVL0_2L,
@@ -13831,12 +13846,19 @@ void mtk_crtc_connect_path_between_component(struct drm_crtc *crtc,
 
 		if (find_idx > -1 && j > find_idx && j > 0) {
 			struct mtk_ddp_comp *temp_comp;
+			unsigned int prev_id;
 
+			if (j < 2) {
+				prev_id = DDP_COMPONENT_ID_MAX;
+			} else {
+				temp_comp = mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, i, j - 2);
+				prev_id = temp_comp->id;
+			}
 			temp_comp = mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, i, j - 1);
 
 			if (temp_comp)
 				mtk_ddp_add_comp_to_path_with_cmdq(
-					mtk_crtc, temp_comp->id,
+					mtk_crtc, temp_comp->id, prev_id,
 					comp->id, cmdq_handle);
 			else {
 				DDPPR_ERR("%s, temp_comp is NULL\n", __func__);
@@ -13865,10 +13887,17 @@ void mtk_crtc_connect_path_between_component(struct drm_crtc *crtc,
 
 		if (find_idx > -1 && j > find_idx) {
 			struct mtk_ddp_comp *temp_comp;
+			unsigned int prev_id;
 
+			if (j < 2) {
+				prev_id = DDP_COMPONENT_ID_MAX;
+			} else {
+				temp_comp = mtk_crtc_get_dual_comp(crtc, i, j - 2);
+				prev_id = temp_comp->id;
+			}
 			temp_comp = mtk_crtc_get_dual_comp(crtc, i, j - 1);
 			mtk_ddp_add_comp_to_path_with_cmdq(
-					mtk_crtc, temp_comp->id,
+					mtk_crtc, temp_comp->id, prev_id,
 					comp->id, cmdq_handle);
 
 			if (comp->id != next)

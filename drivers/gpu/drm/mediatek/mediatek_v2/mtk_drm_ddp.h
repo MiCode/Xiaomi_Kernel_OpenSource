@@ -92,6 +92,7 @@ void mtk_ddp_add_comp_to_path(struct mtk_drm_crtc *mtk_crtc,
 			      enum mtk_ddp_comp_id next);
 void mtk_ddp_add_comp_to_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 					enum mtk_ddp_comp_id cur,
+					enum mtk_ddp_comp_id prev,
 					enum mtk_ddp_comp_id next,
 					struct cmdq_pkt *handle);
 void mtk_ddp_remove_comp_from_path(struct mtk_drm_crtc *mtk_crtc,

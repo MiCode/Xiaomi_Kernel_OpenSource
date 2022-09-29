@@ -445,7 +445,7 @@ mtk_addon_path_connect_and_add_mutex(struct drm_crtc *crtc,
 				     const struct mtk_addon_module_data *module,
 				     struct cmdq_pkt *cmdq_handle)
 {
-	int i;
+	unsigned int i;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	int mutex_id =
 		mtk_crtc_get_mutex_id(crtc, ddp_mode, module->attach_comp);
@@ -458,7 +458,13 @@ mtk_addon_path_connect_and_add_mutex(struct drm_crtc *crtc,
 	}
 
 	for (i = 0; i < path_data->path_len - 1; i++) {
-		mtk_ddp_add_comp_to_path_with_cmdq(mtk_crtc, path_data->path[i],
+		unsigned int prev_id;
+
+		if (i == 0)
+			prev_id = DDP_COMPONENT_ID_MAX;
+		else
+			prev_id = path_data->path[i - 1];
+		mtk_ddp_add_comp_to_path_with_cmdq(mtk_crtc, path_data->path[i], prev_id,
 						   path_data->path[i + 1],
 						   cmdq_handle);
 		mtk_disp_mutex_add_comp_with_cmdq(
@@ -516,7 +522,7 @@ void mtk_addon_connect_between(struct drm_crtc *crtc, unsigned int ddp_mode,
 	const struct mtk_addon_path_data *path_data =
 		mtk_addon_module_get_path(module_data->module);
 	int i, j;
-	unsigned int addon_idx;
+	unsigned int addon_idx, prev_id;
 
 	attach_comp_id =
 		mtk_crtc_find_comp(crtc, ddp_mode, module_data->attach_comp);
@@ -550,16 +556,20 @@ void mtk_addon_connect_between(struct drm_crtc *crtc, unsigned int ddp_mode,
 					     cmdq_handle);
 
 	/* 3. add subpath to main path */
-	mtk_ddp_add_comp_to_path_with_cmdq(mtk_crtc, attach_comp_id,
+	prev_comp_id = mtk_crtc_find_prev_comp(crtc, ddp_mode, attach_comp_id);
+	mtk_ddp_add_comp_to_path_with_cmdq(mtk_crtc, attach_comp_id, prev_comp_id,
 					   path_data->path[0], cmdq_handle);
+	if (path_data->path_len < 2)
+		prev_id = DDP_COMPONENT_ID_MAX;
+	else
+		prev_id = path_data->path[path_data->path_len - 2];
 	mtk_ddp_add_comp_to_path_with_cmdq(
-		mtk_crtc, path_data->path[path_data->path_len - 1],
+		mtk_crtc, path_data->path[path_data->path_len - 1], prev_id,
 		next_attach_comp_id, cmdq_handle);
 
 	/* 4. config module */
 	/* config attach comp */
 	comp = priv->ddp_comp[attach_comp_id];
-	prev_comp_id = mtk_crtc_find_prev_comp(crtc, ddp_mode, attach_comp_id);
 	cur_comp_id = comp->id;
 	next_comp_id = path_data->path[0];
 	for (i = 0; i < path_data->path_len; i++)
@@ -698,7 +708,7 @@ void mtk_addon_connect_before(struct drm_crtc *crtc, unsigned int ddp_mode,
 	const struct mtk_addon_path_data *path_data =
 		mtk_addon_module_get_path(module_data->module);
 	int i, j;
-	unsigned int addon_idx;
+	unsigned int addon_idx, prev_id;
 
 	next_attach_comp_id =
 		mtk_crtc_find_comp(crtc, ddp_mode, module_data->attach_comp);
@@ -721,8 +731,12 @@ void mtk_addon_connect_before(struct drm_crtc *crtc, unsigned int ddp_mode,
 					     cmdq_handle);
 
 	/* 2. add subpath to main path */
+	if (path_data->path_len < 2)
+		prev_id = DDP_COMPONENT_ID_MAX;
+	else
+		prev_id = path_data->path[path_data->path_len - 2];
 	mtk_ddp_add_comp_to_path_with_cmdq(
-		mtk_crtc, path_data->path[path_data->path_len - 1],
+		mtk_crtc, path_data->path[path_data->path_len - 1], prev_id,
 		next_attach_comp_id, cmdq_handle);
 
 	/* 3. config module */
@@ -864,7 +878,7 @@ void mtk_addon_connect_after(struct drm_crtc *crtc, unsigned int ddp_mode,
 
 	/* 2. add subpath to main path */
 	mtk_ddp_add_comp_to_path_with_cmdq(
-		mtk_crtc, path_attach_id, path_data->path[0],
+		mtk_crtc, path_attach_id, prev_attach_comp_id, path_data->path[0],
 		cmdq_handle);
 
 	/* 3. config module */
@@ -986,7 +1000,7 @@ void mtk_addon_connect_embed(struct drm_crtc *crtc, unsigned int ddp_mode,
 	const struct mtk_addon_path_data *path_data =
 	    mtk_addon_module_get_path(module_data->module);
 	int i, j;
-	unsigned int addon_idx;
+	unsigned int addon_idx, prev_id;
 
 	attach_comp_id = mtk_crtc_find_comp(crtc, ddp_mode, module_data->attach_comp);
 	if (attach_comp_id == -1 || attach_comp_id >= DDP_COMPONENT_ID_MAX) {
@@ -1001,15 +1015,19 @@ void mtk_addon_connect_embed(struct drm_crtc *crtc, unsigned int ddp_mode,
 	mtk_addon_path_connect_and_add_mutex(crtc, ddp_mode, module_data, cmdq_handle);
 
 	/* 2. embed subpath into attached comp */
-	mtk_ddp_add_comp_to_path_with_cmdq(mtk_crtc, attach_comp_id, path_data->path[0],
-					   cmdq_handle);
+	prev_comp_id = path_data->path[path_data->path_len - 1];
+	mtk_ddp_add_comp_to_path_with_cmdq(mtk_crtc, attach_comp_id, prev_comp_id,
+			path_data->path[0], cmdq_handle);
+	if (path_data->path_len < 2)
+		prev_id = DDP_COMPONENT_ID_MAX;
+	else
+		prev_id = path_data->path[path_data->path_len - 2];
 	mtk_ddp_add_comp_to_path_with_cmdq(mtk_crtc, path_data->path[path_data->path_len - 1],
-					   attach_comp_id, cmdq_handle);
+			prev_id, attach_comp_id, cmdq_handle);
 
 	/* 3. config module */
 	/* 3.1 config attached comp */
 	comp = priv->ddp_comp[attach_comp_id];
-	prev_comp_id = path_data->path[path_data->path_len - 1];
 	cur_comp_id = comp->id;
 	next_comp_id = -1;
 	for (i = 0; i < path_data->path_len; i++)

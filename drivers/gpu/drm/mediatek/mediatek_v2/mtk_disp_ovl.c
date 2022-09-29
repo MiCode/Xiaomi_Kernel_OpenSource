@@ -3313,7 +3313,7 @@ static void mtk_ovl_config_begin(struct mtk_ddp_comp *comp, struct cmdq_pkt *han
 	}
 }
 
-static void mtk_ovl_connect(struct mtk_ddp_comp *comp,
+static void mtk_ovl_connect(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			    enum mtk_ddp_comp_id prev,
 			    enum mtk_ddp_comp_id next)
 {
@@ -3321,13 +3321,25 @@ static void mtk_ovl_connect(struct mtk_ddp_comp *comp,
 		prev == DDP_COMPONENT_OVL1 || prev == DDP_COMPONENT_OVL1_2L ||
 		prev == DDP_COMPONENT_OVL2_2L || prev == DDP_COMPONENT_OVL3_2L ||
 		prev == DDP_COMPONENT_OVL4_2L || prev == DDP_COMPONENT_OVL5_2L ||
-		prev == DDP_COMPONENT_OVL6_2L)
-		mtk_ddp_cpu_mask_write(comp, DISP_REG_OVL_DATAPATH_CON,
+		prev == DDP_COMPONENT_OVL6_2L) {
+		if (handle == NULL)
+			mtk_ddp_cpu_mask_write(comp, DISP_REG_OVL_DATAPATH_CON,
 				       DISP_OVL_BGCLR_IN_SEL,
 				       DISP_OVL_BGCLR_IN_SEL);
-	else
-		mtk_ddp_cpu_mask_write(comp, DISP_REG_OVL_DATAPATH_CON,
+		else
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				       comp->regs_pa + DISP_REG_OVL_DATAPATH_CON,
+				       DISP_OVL_BGCLR_IN_SEL,
+				       DISP_OVL_BGCLR_IN_SEL);
+	} else {
+		if (handle == NULL)
+			mtk_ddp_cpu_mask_write(comp, DISP_REG_OVL_DATAPATH_CON,
 				       0, DISP_OVL_BGCLR_IN_SEL);
+		else
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				       comp->regs_pa + DISP_REG_OVL_DATAPATH_CON,
+				       0, DISP_OVL_BGCLR_IN_SEL);
+	}
 }
 
 void mtk_ovl_cal_golden_setting(struct mtk_ddp_config *cfg,
