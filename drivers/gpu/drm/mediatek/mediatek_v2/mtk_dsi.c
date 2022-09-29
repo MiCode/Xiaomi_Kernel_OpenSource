@@ -2563,7 +2563,7 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 
 	DDPINFO("%s +\n", __func__);
 
-	if (crtc && mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SPHRT)) {
+	if (crtc && priv && mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SPHRT)) {
 		crtc_idx = drm_crtc_index(crtc);
 		if (priv && priv->usage[crtc_idx] == DISP_OPENING) {
 			DDPINFO("%s %d skip due to still opening\n", __func__, crtc_idx);
