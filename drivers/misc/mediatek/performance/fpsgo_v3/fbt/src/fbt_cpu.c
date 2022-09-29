@@ -407,17 +407,27 @@ static struct fbt_sjerk sjerk;
 static struct workqueue_struct *wq_jerk;
 
 /* for recording CPU capacity when CPU freq. changed cb is called. */
-static int lastest_ts[LOADING_CNT];
-static int prev_cb_ts[LOADING_CNT];
+static unsigned long long lastest_ts[LOADING_CNT];
+static unsigned long long prev_cb_ts[LOADING_CNT];
 static unsigned int lastest_obv[LOADING_CNT];
 static unsigned int *lastest_obv_cl[LOADING_CNT];
 static unsigned int *lastest_is_cl_isolated[LOADING_CNT];
 static unsigned int lastest_idx;
-static int last_cb_ts;
+static unsigned long long last_cb_ts;
 
 static unsigned long long sbe_rescuing_frame_id;
 
 static struct rb_root cam_dep_thread_tree;
+
+
+static unsigned long long nsec_to_100usec_ull(unsigned long long nsec)
+{
+	unsigned long long husec;
+
+	husec = div64_u64(nsec, (unsigned long long)NSEC_PER_HUSEC);
+
+	return husec;
+}
 
 static int nsec_to_100usec(unsigned long long nsec)
 {
@@ -2057,9 +2067,9 @@ void fbt_set_render_boost_attr(struct render_info *thr)
 
 void fbt_set_render_last_cb(struct render_info *thr, unsigned long long ts_ns)
 {
-	int new_ts_100us;
+	unsigned long long new_ts_100us;
 
-	new_ts_100us = nsec_to_100usec(ts_ns);
+	new_ts_100us = nsec_to_100usec_ull(ts_ns);
 	thr->render_last_cb_ts = new_ts_100us;
 	fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
 		thr->render_last_cb_ts, "render_last_cb_ts");
@@ -4168,21 +4178,18 @@ EXIT:
 	return blc_wt;
 }
 
-static unsigned long long fbt_est_loading(int cur_ts,
-		int last_ts, unsigned int obv)
+static unsigned long long fbt_est_loading(unsigned long long cur_ts,
+		unsigned long long last_ts, unsigned int obv)
 {
-	int duration;
+	unsigned long long duration;
 
 	if (obv <= 0)
-		return 0;
-
-	if (last_ts <= 0 || cur_ts <= 0)
 		return 0;
 
 	if (cur_ts > last_ts) {
 		duration = cur_ts - last_ts;
 
-		return (unsigned long long)duration * (unsigned long long)obv;
+		return duration * (unsigned long long)obv;
 	}
 
 	return 0;
@@ -4267,7 +4274,7 @@ static int fbt_overest_loading(int blc_wt, unsigned long long running_time,
 	return FPSGO_ADJ_NONE;
 }
 
-static void fpsgo_update_cpufreq_to_now(int new_ts_100us)
+static void fpsgo_update_cpufreq_to_now(unsigned long long new_ts_100us)
 {
 	unsigned long spinlock_flag_freq, spinlock_flag_loading;
 	unsigned int curr_obv = 0U;
@@ -4302,7 +4309,7 @@ static void fpsgo_update_cpufreq_to_now(int new_ts_100us)
 		lastest_obv[idx] = curr_obv;
 		lastest_idx = idx;
 
-		xgf_trace("[%s] idx=%d, prev_cb_ts=%d, lastest_ts=%d, last_obv=%u",
+		xgf_trace("[%s] idx=%d, prev_cb_ts=%llu, lastest_ts=%llu, last_obv=%u",
 			__func__, idx, prev_cb_ts[idx], lastest_ts[idx], lastest_obv[idx]);
 
 		if (lastest_obv_cl[idx] == NULL || lastest_is_cl_isolated[idx] == NULL)
@@ -4323,15 +4330,15 @@ out:
 	kfree(cpu_cl_obv);
 }
 
-static int fbt_get_loading_exp(int pid, unsigned long long buffer_id, int thr_last_cb_ts,
-	unsigned long long *loading, int ts_100us)
+static int fbt_get_loading_exp(int pid, unsigned long long buffer_id,
+	unsigned long long thr_last_cb_ts, unsigned long long *loading, unsigned long long ts_100us)
 {
 	int i, ret = 0;
 	unsigned long spinlock_flag_freq, spinlock_flag_loading;
 	unsigned long long loading_result = 0U;
-	int prev_ts, next_ts, new_ts_100us;
-	int render_last_cb_ts, freq_last_cb_ts;
-	int *cpu_freq_ts_prev, *cpu_freq_ts_next;
+	unsigned long long prev_ts, next_ts, new_ts_100us;
+	unsigned long long render_last_cb_ts, freq_last_cb_ts;
+	unsigned long long *cpu_freq_ts_prev, *cpu_freq_ts_next;
 	unsigned int cpy_current_obv;
 	unsigned int *cpu_obv;
 
@@ -4339,8 +4346,8 @@ static int fbt_get_loading_exp(int pid, unsigned long long buffer_id, int thr_la
 
 	fpsgo_update_cpufreq_to_now(new_ts_100us);
 
-	cpu_freq_ts_prev = kcalloc(LOADING_CNT, sizeof(int), GFP_KERNEL);
-	cpu_freq_ts_next = kcalloc(LOADING_CNT, sizeof(int), GFP_KERNEL);
+	cpu_freq_ts_prev = kcalloc(LOADING_CNT, sizeof(unsigned long long), GFP_KERNEL);
+	cpu_freq_ts_next = kcalloc(LOADING_CNT, sizeof(unsigned long long), GFP_KERNEL);
 	cpu_obv = kcalloc(LOADING_CNT, sizeof(unsigned int), GFP_KERNEL);
 	if (!cpu_freq_ts_prev || !cpu_freq_ts_next || !cpu_obv) {
 		fpsgo_main_trace("[%s] ERROR OOM\n", __func__);
@@ -4354,18 +4361,18 @@ static int fbt_get_loading_exp(int pid, unsigned long long buffer_id, int thr_la
 
 	spin_lock_irqsave(&loading_slock, spinlock_flag_loading);
 	freq_last_cb_ts = last_cb_ts;
-	memcpy(cpu_freq_ts_prev, prev_cb_ts, LOADING_CNT * sizeof(int));
-	memcpy(cpu_freq_ts_next, lastest_ts, LOADING_CNT * sizeof(int));
+	memcpy(cpu_freq_ts_prev, prev_cb_ts, LOADING_CNT * sizeof(unsigned long long));
+	memcpy(cpu_freq_ts_next, lastest_ts, LOADING_CNT * sizeof(unsigned long long));
 	memcpy(cpu_obv, lastest_obv, LOADING_CNT * sizeof(unsigned int));
 	spin_unlock_irqrestore(&loading_slock, spinlock_flag_loading);
 
 	render_last_cb_ts = thr_last_cb_ts;
 	(*loading) = 0;
 
-	xgf_trace("[FBT][%s]pid=%d, bufferid=%llu, render_cb_ts=%d, ts=%d",
+	xgf_trace("[FBT][%s]pid=%d, bufferid=%llu, render_cb_ts=%llu, ts=%llu",
 		__func__, pid, buffer_id, render_last_cb_ts, new_ts_100us);
 
-	if (render_last_cb_ts <= 0) {
+	if (render_last_cb_ts > new_ts_100us) {
 		xgf_trace("[FBT][%s]pid=%d, bufferid=%llu new frame!",
 		__func__, pid, buffer_id);
 		goto out;
@@ -4375,7 +4382,7 @@ static int fbt_get_loading_exp(int pid, unsigned long long buffer_id, int thr_la
 	if (freq_last_cb_ts < new_ts_100us && freq_last_cb_ts >= render_last_cb_ts) {
 		loading_result = fbt_est_loading(new_ts_100us, freq_last_cb_ts, cpy_current_obv);
 		(*loading) += loading_result;
-		xgf_trace("[FBT][%s]pid=%d, freq_last_cb_ts=%d, current_obv=%u, loading=%llu",
+		xgf_trace("[FBT][%s]pid=%d, freq_last_cb_ts=%llu, current_obv=%u, loading=%llu",
 		__func__, pid, freq_last_cb_ts, cpy_current_obv, loading_result);
 	}
 
@@ -4403,7 +4410,7 @@ static int fbt_get_loading_exp(int pid, unsigned long long buffer_id, int thr_la
 		if (prev_ts && next_ts) {
 			loading_result = fbt_est_loading(next_ts, prev_ts, cpu_obv[i]);
 			(*loading) += loading_result;
-			xgf_trace("[%s]i=%d, prevts=%d, nextts=%d, obv=%u, loading=%llu, acc=%llu",
+			xgf_trace("[%s]i=%d, prevts=%llu,nextts=%llu,obv=%u,loading=%llu,acc=%llu",
 			__func__, i, prev_ts, next_ts, cpu_obv[i], loading_result, (*loading));
 		}
 	}
@@ -4415,15 +4422,16 @@ out:
 }
 
 
-static int fbt_get_cl_loading_exp(int pid, unsigned long long buffer_id, int thr_last_cb_ts,
-	unsigned long long *loading_cl, int ts_100us, int cid)
+static int fbt_get_cl_loading_exp(int pid, unsigned long long buffer_id,
+	unsigned long long thr_last_cb_ts, unsigned long long *loading_cl,
+	unsigned long long ts_100us, int cid)
 {
 	int i, ret = 0;
 	unsigned long spinlock_flag_freq, spinlock_flag_loading;
 	unsigned long long loading_result = 0U;
-	int prev_ts, next_ts, new_ts_100us;
-	int render_last_cb_ts, freq_last_cb_ts;
-	int *cpu_freq_ts_prev, *cpu_freq_ts_next;
+	unsigned long long prev_ts, next_ts, new_ts_100us;
+	unsigned long long render_last_cb_ts, freq_last_cb_ts;
+	unsigned long long *cpu_freq_ts_prev, *cpu_freq_ts_next;
 	unsigned int *cpu_obv, *cpu_isolated, cpy_current_cl_obv;
 
 	new_ts_100us = ts_100us;
@@ -4436,8 +4444,8 @@ static int fbt_get_cl_loading_exp(int pid, unsigned long long buffer_id, int thr
 		goto out;
 	}
 
-	cpu_freq_ts_prev = kcalloc(LOADING_CNT, sizeof(int), GFP_KERNEL);
-	cpu_freq_ts_next = kcalloc(LOADING_CNT, sizeof(int), GFP_KERNEL);
+	cpu_freq_ts_prev = kcalloc(LOADING_CNT, sizeof(unsigned long long), GFP_KERNEL);
+	cpu_freq_ts_next = kcalloc(LOADING_CNT, sizeof(unsigned long long), GFP_KERNEL);
 	cpu_obv = kcalloc(LOADING_CNT, sizeof(unsigned int), GFP_KERNEL);
 	cpu_isolated = kcalloc(LOADING_CNT, sizeof(unsigned int), GFP_KERNEL);
 	if (!cpu_freq_ts_prev || !cpu_freq_ts_next || !cpu_obv || !cpu_isolated) {
@@ -4452,8 +4460,8 @@ static int fbt_get_cl_loading_exp(int pid, unsigned long long buffer_id, int thr
 
 	spin_lock_irqsave(&loading_slock, spinlock_flag_loading);
 	freq_last_cb_ts = last_cb_ts;
-	memcpy(cpu_freq_ts_prev, prev_cb_ts, LOADING_CNT * sizeof(int));
-	memcpy(cpu_freq_ts_next, lastest_ts, LOADING_CNT * sizeof(int));
+	memcpy(cpu_freq_ts_prev, prev_cb_ts, LOADING_CNT * sizeof(unsigned long long));
+	memcpy(cpu_freq_ts_next, lastest_ts, LOADING_CNT * sizeof(unsigned long long));
 	for (i = 0; i < LOADING_CNT; i++) {
 		if (lastest_obv_cl[i] == NULL || lastest_is_cl_isolated[i] == NULL) {
 			ret = 1;
@@ -4468,7 +4476,7 @@ static int fbt_get_cl_loading_exp(int pid, unsigned long long buffer_id, int thr
 	render_last_cb_ts = thr_last_cb_ts;
 	(*loading_cl) = 0;
 
-	xgf_trace("[FBT][%s]pid=%d, bufferid=%llu, render_cb_ts=%d, ts=%d",
+	xgf_trace("[FBT][%s]pid=%d, bufferid=%llu, render_cb_ts=%llu, ts=%llu",
 		__func__, pid, buffer_id, render_last_cb_ts, new_ts_100us);
 
 	if (!render_last_cb_ts) {
@@ -4480,7 +4488,7 @@ static int fbt_get_cl_loading_exp(int pid, unsigned long long buffer_id, int thr
 	if (freq_last_cb_ts < new_ts_100us && freq_last_cb_ts >= render_last_cb_ts) {
 		loading_result = fbt_est_loading(new_ts_100us, freq_last_cb_ts, cpy_current_cl_obv);
 		(*loading_cl) += loading_result;
-		xgf_trace("[FBT][%s]pid=%d, freq_last_cb_ts=%d, current_cl_obv=%u, loading=%llu",
+		xgf_trace("[FBT][%s]pid=%d, freq_last_cb_ts=%llu, current_cl_obv=%u, loading=%llu",
 			__func__, pid, freq_last_cb_ts, cpy_current_cl_obv, loading_result);
 	}
 
@@ -4507,7 +4515,7 @@ static int fbt_get_cl_loading_exp(int pid, unsigned long long buffer_id, int thr
 		if (prev_ts && next_ts) {
 			loading_result = fbt_est_loading(next_ts, prev_ts, cpu_obv[i]);
 			(*loading_cl) += loading_result;
-			xgf_trace("[%s]i=%d, prevts=%d, nextts=%d, obv=%u, loading=%llu, acc=%llu",
+			xgf_trace("[%s]i=%d, prevts=%llu,nextts=%llu,obv=%u,loading=%llu,acc=%llu",
 				__func__, i, prev_ts, next_ts, cpu_obv[i], loading_result,
 				(*loading_cl));
 		}
@@ -4523,7 +4531,8 @@ out:
 static unsigned long long fbt_adjust_loading_exp(struct render_info *thr,
 	unsigned long long ts, int adjust)
 {
-	int new_ts_100us, ret = 0, i;
+	int ret = 0, i;
+	unsigned long long new_ts_100us;
 	unsigned long long loading = 0L;
 	unsigned long long *loading_cl;
 	unsigned long long loading_result = 0U;
@@ -4537,7 +4546,7 @@ static unsigned long long fbt_adjust_loading_exp(struct render_info *thr,
 		goto out;
 	}
 
-	new_ts_100us = nsec_to_100usec(ts);
+	new_ts_100us = nsec_to_100usec_ull(ts);
 	ret = fbt_get_loading_exp(thr->pid, thr->buffer_id, thr->render_last_cb_ts,
 		&loading, new_ts_100us);
 	fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id, loading, "q2q_loading");
@@ -4563,7 +4572,7 @@ static unsigned long long fbt_adjust_loading_exp(struct render_info *thr,
 
 SKIP:
 	thr->render_last_cb_ts = new_ts_100us;
-	xgf_trace("[FBT][%s] render_last_cb_ts=%d", __func__, thr->render_last_cb_ts);
+	xgf_trace("[FBT][%s] render_last_cb_ts=%llu", __func__, thr->render_last_cb_ts);
 
 	if (adjust != FPSGO_ADJ_NONE) {
 		loading_result = 0;
@@ -5698,9 +5707,9 @@ struct xgf_thread_loading fbt_xgff_list_loading_add(int pid,
 	unsigned long long buffer_id, unsigned long long ts)
 {
 	struct xgf_thread_loading obj;
-	int new_ts;
+	unsigned long long new_ts;
 
-	new_ts = nsec_to_100usec(ts);
+	new_ts = nsec_to_100usec_ull(ts);
 	obj.pid = pid;
 	obj.buffer_id = buffer_id;
 	obj.loading = 0;
@@ -5715,10 +5724,10 @@ long fbt_xgff_get_loading_by_cluster(struct xgf_thread_loading *ploading, unsign
 	unsigned int prefer_cluster, int skip, long *area)
 {
 	int i;
-	int new_ts_100us, ret = 0;
+	unsigned long long new_ts_100us, ret = 0;
 	unsigned long long loading = 0L;
 
-	new_ts_100us = nsec_to_100usec(ts);
+	new_ts_100us = nsec_to_100usec_ull(ts);
 
 	if (skip)
 		goto out;

@@ -235,7 +235,7 @@ struct render_info {
 	int hwui;
 	int sbe_control_flag;
 	int control_pid_flag;
-	int render_last_cb_ts;
+	unsigned long long render_last_cb_ts;
 
 	/*render queue/dequeue/frame time info*/
 	unsigned long long t_enqueue_start;

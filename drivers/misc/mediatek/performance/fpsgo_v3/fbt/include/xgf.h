@@ -183,7 +183,7 @@ struct xgf_thread_loading {
 	int pid;
 	unsigned long long buffer_id;
 	unsigned long long loading;
-	int last_cb_ts;
+	unsigned long long last_cb_ts;
 };
 
 struct xgff_runtime {
