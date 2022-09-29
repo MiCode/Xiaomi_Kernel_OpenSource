@@ -12858,8 +12858,13 @@ static void mtk_crtc_connect_single_path_cmdq(struct drm_crtc *crtc,
 		comp = mtk_crtc_get_comp(crtc, ddp_mode, path_idx, i);
 		temp_comp = mtk_crtc_get_comp(crtc, ddp_mode, path_idx, i + 1);
 
-		mtk_ddp_add_comp_to_path_with_cmdq(
-			mtk_crtc, comp->id, temp_comp->id, cmdq_handle);
+		if (comp && temp_comp)
+			mtk_ddp_add_comp_to_path_with_cmdq(
+				mtk_crtc, comp->id, temp_comp->id, cmdq_handle);
+		else {
+			DDPPR_ERR("%s, comp or temp_comp is NULL\n", __func__);
+			break;
+		}
 	}
 	for_each_comp_in_crtc_target_mode_path(comp, mtk_crtc, i, ddp_mode, path_idx)
 		mtk_disp_mutex_add_comp_with_cmdq(
@@ -13703,9 +13708,14 @@ void mtk_crtc_disconnect_path_between_component(struct drm_crtc *crtc,
 
 			temp_comp = mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, i, j - 1);
 
-			mtk_ddp_remove_comp_from_path_with_cmdq(
-				mtk_crtc, temp_comp->id,
-				comp->id, cmdq_handle);
+			if (temp_comp)
+				mtk_ddp_remove_comp_from_path_with_cmdq(
+					mtk_crtc, temp_comp->id,
+					comp->id, cmdq_handle);
+			else {
+				DDPPR_ERR("%s, temp_comp is NULL\n", __func__);
+				break;
+			}
 
 			if (comp->id != next)
 				mtk_disp_mutex_remove_comp_with_cmdq(
@@ -13770,9 +13780,15 @@ void mtk_crtc_connect_path_between_component(struct drm_crtc *crtc,
 			struct mtk_ddp_comp *temp_comp;
 
 			temp_comp = mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, i, j - 1);
-			mtk_ddp_add_comp_to_path_with_cmdq(
-				mtk_crtc, temp_comp->id,
-				comp->id, cmdq_handle);
+
+			if (temp_comp)
+				mtk_ddp_add_comp_to_path_with_cmdq(
+					mtk_crtc, temp_comp->id,
+					comp->id, cmdq_handle);
+			else {
+				DDPPR_ERR("%s, temp_comp is NULL\n", __func__);
+				break;
+			}
 
 			if (comp->id != next)
 				mtk_disp_mutex_add_comp_with_cmdq(
