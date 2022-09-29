@@ -12,6 +12,7 @@
 #include <linux/proc_fs.h>
 #include <linux/spinlock.h>
 #include <linux/suspend.h>
+#include <linux/sched/clock.h>
 #include <trace/events/power.h>
 #include <linux/tracepoint.h>
 #include <linux/kallsyms.h>
@@ -628,6 +629,12 @@ static void pbm_cpu_frequency_tracer(void *ignore, unsigned int frequency, unsig
 	struct cpu_pbm_policy *pbm_policy;
 	unsigned int cpu, num_cpus, freq;
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[2];
+
+	ts[0] = sched_clock();
+#endif
+
 	policy = cpufreq_cpu_get(cpu_id);
 	if (!policy)
 		return;
@@ -649,6 +656,14 @@ static void pbm_cpu_frequency_tracer(void *ignore, unsigned int frequency, unsig
 	}
 
 	cpufreq_cpu_put(policy);
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+	if ((ts[1] - ts[0] > 200000ULL) && in_hardirq()) {
+		printk_deferred("%s duration %llu, ts[0]=%llu, ts[1]=%llu\n",
+			__func__, ts[1] - ts[0], ts[0], ts[1]);
+	}
+#endif
 }
 
 struct tracepoints_table pbm_tracepoints[] = {
