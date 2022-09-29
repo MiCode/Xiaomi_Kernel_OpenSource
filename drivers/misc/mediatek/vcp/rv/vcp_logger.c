@@ -235,6 +235,7 @@ ssize_t vcp_A_log_read(char __user *data, size_t len)
 	char *buf;
 	unsigned int retrytimes = VCP_IPI_RETRY_TIMES;
 	struct vcp_logger_ctrl_msg msg;
+	int ret;
 
 	if (!driver_init_done || !VCP_A_log_ctl->enable)
 		return 0;
@@ -253,15 +254,17 @@ ssize_t vcp_A_log_read(char __user *data, size_t len)
 		if (log_ctl_debug) {
 			if (is_vcp_ready(VCP_A_ID)) {
 				msg.cmd = VCP_LOGGER_IPI_FLUSH;
-				mtk_ipi_send(&vcp_ipidev, IPI_OUT_LOGGER_CTRL,
+				ret = mtk_ipi_send(&vcp_ipidev, IPI_OUT_LOGGER_CTRL,
 					0, &msg, sizeof(msg)/MBOX_SLOT_SIZE, 0);
 
-				/* wait w_ptr updated or sync 10ms  */
-				while (w_pos == VCP_A_buf_info->w_pos && retrytimes > 0) {
-					retrytimes--;
-					udelay(100);
+				if (ret == IPI_ACTION_DONE) {
+					/* wait w_ptr updated or sync 10ms  */
+					while (w_pos == VCP_A_buf_info->w_pos && retrytimes > 0) {
+						retrytimes--;
+						udelay(100);
+					}
+					w_pos = VCP_A_buf_info->w_pos;
 				}
-				w_pos = VCP_A_buf_info->w_pos;
 			}
 			/* dump full logger buffer start from w_pos + 1 */
 			r_pos_debug = (w_pos >= DRAM_BUF_LEN) ?  0 : (w_pos+1);
