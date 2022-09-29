@@ -2058,9 +2058,9 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			if ((dsi_underrun_trigger == 1 && priv &&
 				mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_DSI_UNDERRUN_AEE)) && trigger_aee) {
-				DDPAEE("[IRQ] %s:buffer underrun. TS: 0x%08llx\n",
+				DDPAEE("[IRQ] %s:buffer underrun. TS: 0x%08x\n",
 					mtk_dump_comp_str(&dsi->ddp_comp),
-					arch_timer_read_counter());
+					(u32)arch_timer_read_counter());
 				mtk_crtc->last_aee_trigger_ts = aee_now_ts;
 			}
 
@@ -3059,9 +3059,15 @@ static void mtk_drm_connector_attach_property(struct drm_connector *conn)
 	struct drm_property *prop;
 	static struct drm_property *mtk_connector_prop[CONNECTOR_PROP_MAX];
 	struct mtk_drm_property *conn_prop;
-	int index = conn->index;
+	unsigned int index = conn->index;
 	int i;
 	static int num;
+
+	if (index >= MAX_CONNECTOR) {
+		DDPPR_ERR("%s:%d index:%d > MAX_CONNECTOR\n",
+				__func__, __LINE__, index);
+		return;
+	}
 
 	DDPINFO("%s:%d conn:%d\n", __func__, __LINE__, index);
 
