@@ -454,6 +454,31 @@ static struct kernel_param_ops enable_vmm_ops = {
 module_param_cb(enable_vmm, &enable_vmm_ops, NULL, 0644);
 MODULE_PARM_DESC(enable_vmm, "enable vmm");
 
+int mmdvfs_vmm_ceil_step(const char *val, const struct kernel_param *kp)
+{
+	int result;
+	bool enable;
+
+	result = kstrtobool(val, &enable);
+	if (result) {
+		MMDVFS_DBG("fail ret:%d\n", result);
+		return result;
+	}
+
+	MMDVFS_DBG("enable:%u start", enable);
+	mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMQOS);
+	mtk_mmdvfs_camera_notify_from_mmqos(enable);
+	mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMQOS);
+	MMDVFS_DBG("enable:%u end", enable);
+	return 0;
+}
+
+static struct kernel_param_ops mmdvfs_vmm_ceil_ops = {
+	.set = mmdvfs_vmm_ceil_step,
+};
+module_param_cb(vmm_ceil, &mmdvfs_vmm_ceil_ops, NULL, 0644);
+MODULE_PARM_DESC(vmm_ceil, "enable vmm ceiling");
+
 int mtk_mmdvfs_v3_set_force_step(const u16 pwr_idx, const s16 opp)
 {
 	int ret;
