@@ -34,11 +34,20 @@
 #include "mtk-hcp_kernelfence.h"
 
 struct fence_list *fence_info_list;
+int hcp_kernel_fence_dbg_en;
+module_param(hcp_kernel_fence_dbg_en, int, 0644);
 
+bool hcp_kernel_fence_ts_dbg_enable(void)
+{
+	return hcp_kernel_fence_dbg_en;
+}
 
 static const char *dma_fence_get_name(struct dma_fence *fence)
 {
-	return "imgsys-dma-fence";
+	struct fence_info *f_entry =
+		container_of(fence, struct fence_info, kFence);
+	pr_info("imgsys get driver name\n");
+	return f_entry->name;
 }
 
 static void dma_fence_cb_release(struct dma_fence *fence)
@@ -46,7 +55,7 @@ static void dma_fence_cb_release(struct dma_fence *fence)
 	struct fence_info *f_entry;
 	struct fence_info *f_entry_temp;
 
-	pr_debug("release fence callback +\n");
+	pr_info("release fence callback +\n");
 	/* look up used fence entry */
 	mutex_lock(&fence_info_list->fence_lock);
 	list_for_each_entry_safe(f_entry, f_entry_temp, &fence_info_list->list, fence_entry) {
@@ -59,12 +68,14 @@ static void dma_fence_cb_release(struct dma_fence *fence)
 	}
 	pr_debug("release fence callback -\n");
 	mutex_unlock(&fence_info_list->fence_lock);
-	pr_debug("release fence callback -1\n");
+	pr_info("release fence callback -1\n");
 }
+
 
 static const struct dma_fence_ops fence_ops = {
 	.get_driver_name = dma_fence_get_name,
 	.get_timeline_name = dma_fence_get_name,
+	.wait = dma_fence_default_wait,
 	.release = dma_fence_cb_release,
 };
 
@@ -73,6 +84,11 @@ static int mtk_hcp_acquire_KernelFence(unsigned int *fds, int fd_num)
 	int i;
 	struct fence_info *f_entry;
 	struct sync_file *sync_file;
+
+	if (fd_num > 3) {
+		pr_info("fd num over the limit\n");
+		return -EINVAL;
+	}
 
 	/*create new fence*/
 	mutex_lock(&fence_info_list->fence_lock);
@@ -86,11 +102,19 @@ static int mtk_hcp_acquire_KernelFence(unsigned int *fds, int fd_num)
 			return -EINVAL;
 		}
 		fds[i] = get_unused_fd_flags(O_CLOEXEC);
-		pr_debug("imgsys_fw-fence-fd(%d)\n", fds[i]);
+		pr_info("imgsys_fw-fence-fd(%d)\n", fds[i]);
 		if (fds[i] > 0) {
 			fd_install(fds[i], sync_file->file);
 			f_entry->use_fence = 1;
 			f_entry->fd = fds[i];
+			f_entry->tgid = task_tgid_nr(current);
+			if (snprintf(f_entry->name, sizeof(f_entry->name),
+				"imgsys-%d-%d", f_entry->tgid, f_entry->fd) <= 0)
+				pr_info("imgsys_fw set fence name fail\n");
+			if (hcp_kernel_fence_ts_dbg_enable())
+				pr_info("acquire fence:%s-tgid(%d)\n", f_entry->name,
+					f_entry->tgid);
+
 		}
 		list_add_tail(&f_entry->fence_entry, &fence_info_list->list);
 	}
@@ -105,6 +129,10 @@ static int mtk_hcp_release_KernelFence(unsigned int *fds, int fd_num)
 	struct fence_info *f_entry_temp;
 
 	pr_debug("set release fence flag\n");
+	if (fd_num > 3) {
+		pr_info("fd num over the limit\n");
+		return -EINVAL;
+	}
 	mutex_lock(&fence_info_list->fence_lock);
 	for (i = 0; i < fd_num; i++) {
 		/* look up used fence entry */
@@ -116,7 +144,6 @@ static int mtk_hcp_release_KernelFence(unsigned int *fds, int fd_num)
 						i, fds[i], &f_entry->kFence);
 				f_entry->release_fence = 1;
 				mutex_unlock(&fence_info_list->fence_lock);
-				dma_fence_put(&f_entry->kFence);
 				break;
 			}
 		}
@@ -145,14 +172,36 @@ EXPORT_SYMBOL(mtk_hcp_init_KernelFence);
 
 int mtk_hcp_uninit_KernelFence(void)
 {
-	pr_info("imgsys_fw-fence uninit");
+	struct fence_info *f_entry;
+	struct fence_info *f_entry_temp;
+
+	if (hcp_kernel_fence_ts_dbg_enable())
+		pr_info("imgsys_fw-fence uninit+");
 	if (list_empty(&fence_info_list->list)) {
-		pr_info("imgsys_fw-list empty");
+		if (hcp_kernel_fence_ts_dbg_enable())
+			pr_info("imgsys_fw-list empty");
 		mutex_destroy(&fence_info_list->fence_lock);
 		kfree(fence_info_list);
-	} else
-		pr_info("imgsys_fw-list not empty");
-
+	} else {
+		if (hcp_kernel_fence_ts_dbg_enable())
+			pr_info("imgsys_fw-list not empty");
+		/* look up used fence entry */
+		mutex_lock(&fence_info_list->fence_lock);
+		list_for_each_entry_safe(f_entry, f_entry_temp, &fence_info_list->list,
+			fence_entry) {
+			/* free fence */
+			list_del(&f_entry->fence_entry);
+		}
+		mutex_unlock(&fence_info_list->fence_lock);
+		if (list_empty(&fence_info_list->list)) {
+			if (hcp_kernel_fence_ts_dbg_enable())
+				pr_info("imgsys_fw-list clean");
+			mutex_destroy(&fence_info_list->fence_lock);
+			kfree(fence_info_list);
+		}
+	}
+	if (hcp_kernel_fence_ts_dbg_enable())
+		pr_info("imgsys_fw-fence uninit-");
 	return 0;
 }
 EXPORT_SYMBOL(mtk_hcp_uninit_KernelFence);

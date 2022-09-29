@@ -18,6 +18,8 @@ struct fence_info {
 	unsigned int use_fence;
 	unsigned int release_fence;
 	unsigned int fd;
+	pid_t tgid;
+	char name[32];
 	spinlock_t lock;
 };
 
