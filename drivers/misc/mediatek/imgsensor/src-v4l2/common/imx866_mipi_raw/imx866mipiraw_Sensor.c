@@ -428,17 +428,17 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[11] = {
 };
 
 static MUINT32 fine_integ_line_table[11] = {
-	826,	//mode 0
-	826,	//mode 1
-	826,	//mode 2
-	2555,	//mode 3
-	826,	//mode 4
-	413,	//mode 5
-	826,	//mode 6
-	502,	//mode 7
-	2826,	//mode 8
-	2826,	//mode 9
-	826,	//mode 10
+	335,	//mode 0
+	335,	//mode 1
+	335,	//mode 2
+	876,	//mode 3
+	335,	//mode 4
+	335,	//mode 5
+	335,	//mode 6
+	335,	//mode 7
+	335,	//mode 8
+	335,	//mode 9
+	335,	//mode 10
 };
 
 static MUINT32 exposure_step_table[11] = {
