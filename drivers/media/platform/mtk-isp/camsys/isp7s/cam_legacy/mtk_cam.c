@@ -2776,6 +2776,16 @@ static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 							 stream_data->seninf_fmt.format.height,
 							 stream_data->seninf_fmt.format.code);
 					}
+
+					/* update qos flag */
+					if (stream_data->pad_fmt[pad].format.width*
+					    stream_data->pad_fmt[pad].format.height > w*h) {
+						stream_data->flags |=
+						    MTK_CAM_REQ_S_DATA_FLAG_QOS_FORCE_INC;
+					} else {
+						stream_data->flags |=
+						    MTK_CAM_REQ_S_DATA_FLAG_QOS_FORCE_DEC;
+					}
 				}
 
 				/* Set MEDIA_PAD_FL_SINK pad's fmt */

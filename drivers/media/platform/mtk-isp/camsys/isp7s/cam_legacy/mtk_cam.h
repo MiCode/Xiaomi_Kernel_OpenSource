@@ -105,6 +105,10 @@ struct mtk_raw_pipeline;
 /* subsample 1 full frame mode change between preview and record */
 #define MTK_CAM_REQ_S_DATA_FLAG_SUBSPL_MODE_UDPATE	BIT(13)
 
+/* QOS update */
+#define MTK_CAM_REQ_S_DATA_FLAG_QOS_FORCE_INC	BIT(14)
+#define MTK_CAM_REQ_S_DATA_FLAG_QOS_FORCE_DEC	BIT(15)
+
 #define v4l2_subdev_format_request_fd(x) x->reserved[0]
 
 struct mtk_cam_working_buf {
