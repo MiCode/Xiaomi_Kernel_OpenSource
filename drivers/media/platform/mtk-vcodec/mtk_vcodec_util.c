@@ -192,7 +192,7 @@ void mtk_vcodec_set_curr_ctx(struct mtk_vcodec_dev *dev,
 {
 	unsigned long flags;
 
-	if (dev == NULL || ctx == NULL || hw_id >= MTK_VDEC_HW_NUM) {
+	if (dev == NULL || hw_id >= MTK_VDEC_HW_NUM) {
 		mtk_v4l2_err("Invalid arguments, dev=0x%x, ctx=0x%x, hw_id=%d", dev, ctx, hw_id);
 		return;
 	}
