@@ -26,6 +26,7 @@
 #include "vcp_reg.h"
 #include "vcp_status.h"
 
+#include "mtk-mmdvfs-v3-memory.h"
 #include "mtk-mmdvfs-ftrace.h"
 
 #include "../../misc/mediatek/smi/mtk-smi-dbg.h"
@@ -36,26 +37,18 @@ static struct mtk_mmdvfs_clk *mtk_mmdvfs_clks;
 static u8 mmdvfs_pwr_opp[PWR_MMDVFS_NUM];
 static struct clk *mmdvfs_pwr_clk[PWR_MMDVFS_NUM];
 
-#define MMDVFS_VCP_IPI_DATA_OFFSET 0xffc
-static void *mmdvfs_vcp_ipi_data_base;
+static phys_addr_t mmdvfs_memory_iova;
+static phys_addr_t mmdvfs_memory_pa;
+static void *mmdvfs_memory_va;
+
 static u64 mmdvfs_vcp_ipi_data;
 static DEFINE_MUTEX(mmdvfs_vcp_ipi_mutex);
-static DEFINE_MUTEX(mmdvfs_vcp_ipi_base_mutex);
-
-#define MMDVFS_VB_ENABLE_OFFSET 0xff4
-#define MMDVFS_AGING_ENABLE_OFFSET 0xff8
-static void *mmdvfs_vb_enable_base;
-static void *mmdvfs_aging_enable_base;
-
-#define MMDVFS_VMM_CEIL_ENABLE_OFFSET 0xff0
-static void *mmdvfs_vmm_ceil_enable_base;
 
 static int log_level;
 static bool mmdvfs_init_done;
 static DEFINE_MUTEX(mmdvfs_vcp_pwr_mutex);
 static int vcp_power;
 
-static phys_addr_t mmdvfs_vcp_base;
 static bool mmdvfs_free_run;
 
 static struct device *cam_larb_dev;
@@ -352,83 +345,11 @@ EXPORT_SYMBOL_GPL(mtk_mmdvfs_enable_vcp);
 
 void *mtk_mmdvfs_vcp_get_base(phys_addr_t *pa)
 {
-	struct mtk_ipi_device *vcp_ipi_dev = vcp_get_ipidev();
-	phys_addr_t va = vcp_get_reserve_mem_virt_ex(MMDVFS_MEM_ID);
-	struct iommu_domain *domain;
-
-	if (!mmdvfs_free_run || !va) {
-		MMDVFS_DBG("mmdvfs_v3 not supported");
-		return NULL;
-	}
-
-	domain = iommu_get_domain_for_dev(&vcp_ipi_dev->mrpdev->pdev->dev);
-	if (domain) {
-		*pa = iommu_iova_to_phys(
-			domain, vcp_get_reserve_mem_phys_ex(MMDVFS_MEM_ID));
-	} else {
-		MMDVFS_ERR("domain is null");
-		return NULL;
-	}
-
-	return (void *)va;
+	if (pa)
+		*pa = mmdvfs_memory_pa;
+	return mmdvfs_memory_va;
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_vcp_get_base);
-
-static inline bool mmdvfs_vcp_ipi_base_get(void)
-{
-	phys_addr_t pa = 0ULL;
-	static bool flags;
-
-	mutex_lock(&mmdvfs_vcp_ipi_base_mutex);
-	if (flags) {
-		mutex_unlock(&mmdvfs_vcp_ipi_base_mutex);
-		return mmdvfs_vcp_ipi_data_base ? true : false;
-	}
-
-	if (!mmdvfs_vcp_base) // iova
-		mmdvfs_vcp_base = vcp_get_reserve_mem_phys_ex(MMDVFS_MEM_ID);
-
-	if (!mmdvfs_vcp_ipi_data_base) // va
-		mmdvfs_vcp_ipi_data_base = mtk_mmdvfs_vcp_get_base(&pa);
-
-	MMDVFS_DBG("pa:%pa iova:%pa va:%#llx offset:%#x",
-		&pa, &mmdvfs_vcp_base, mmdvfs_vcp_ipi_data_base,
-		MMDVFS_VCP_IPI_DATA_OFFSET);
-
-	if (!mmdvfs_aging_enable_base && mmdvfs_vcp_ipi_data_base)
-		mmdvfs_aging_enable_base = mmdvfs_vcp_ipi_data_base + MMDVFS_AGING_ENABLE_OFFSET;
-
-	if (!mmdvfs_vb_enable_base && mmdvfs_vcp_ipi_data_base)
-		mmdvfs_vb_enable_base = mmdvfs_vcp_ipi_data_base + MMDVFS_VB_ENABLE_OFFSET;
-
-	if (!mmdvfs_vmm_ceil_enable_base)
-		mmdvfs_vmm_ceil_enable_base =
-			mmdvfs_vcp_ipi_data_base + MMDVFS_VMM_CEIL_ENABLE_OFFSET;
-
-	if (mmdvfs_vcp_ipi_data_base)
-		mmdvfs_vcp_ipi_data_base += MMDVFS_VCP_IPI_DATA_OFFSET;
-
-	flags = true;
-	mutex_unlock(&mmdvfs_vcp_ipi_base_mutex);
-	return mmdvfs_vcp_ipi_data_base ? true : false;
-}
-
-static inline u64 mmdvfs_update_vcp_ipi_data(const u64 slot)
-{
-	u32 val;
-
-	if (!mmdvfs_vcp_ipi_base_get())
-		return slot;
-
-	val = readl(mmdvfs_vcp_ipi_data_base);
-	mmdvfs_vcp_ipi_data = (mmdvfs_vcp_ipi_data & GENMASK(63, 32)) | (u32)val;
-
-	if (log_level & (1 << log_ipi))
-		MMDVFS_DBG("base:%#llx val:%#x data:%#llx",
-			mmdvfs_vcp_ipi_data_base, val, mmdvfs_vcp_ipi_data);
-
-	return mmdvfs_vcp_ipi_data;
-}
 
 static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 	const u8 ack) // ap > vcp
@@ -453,19 +374,12 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 		usleep_range(1000, 2000);
 	}
 
-	if (!mmdvfs_vcp_ipi_base_get()) {
-		MMDVFS_DBG("get failed va:%#llx", mmdvfs_vcp_ipi_data_base);
-		return -ENOMEM;
-	}
-
-	if (mmdvfs_vcp_base && ack == MAX_OPP) {
-		slot.ack = mmdvfs_vcp_base >> 32;
-		slot.base = (u32)mmdvfs_vcp_base;
-	}
+	slot.ack = mmdvfs_memory_iova >> 32;
+	slot.base = (u32)mmdvfs_memory_iova;
 
 	mutex_lock(&mmdvfs_vcp_ipi_mutex);
 	mmdvfs_vcp_ipi_data = *(u64 *)(unsigned long *)&slot;
-	writel(data, mmdvfs_vcp_ipi_data_base);
+	writel(data, MEM_IPI_SYNC_DATA);
 
 	gen = vcp_cmd_ex(VCP_GET_GEN);
 	ret = mtk_ipi_send(vcp_get_ipidev(), IPI_OUT_MMDVFS, IPI_SEND_WAIT,
@@ -479,7 +393,7 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 	}
 
 	retry = 0;
-	while ((mmdvfs_update_vcp_ipi_data(data) & 0xff) == func) {
+	while (!(readl(MEM_IPI_SYNC_DATA) & (1 << func))) {
 		if (++retry > 10000) {
 			ret = IPI_COMPL_TIMEOUT;
 			MMDVFS_ERR("ipi ack timeout:%d slot:%#llx data:%#llx",
@@ -675,13 +589,12 @@ EXPORT_SYMBOL_GPL(mtk_mmdvfs_camera_notify);
 
 int mtk_mmdvfs_camera_notify_from_mmqos(const bool enable)
 {
-
-	if (!mmdvfs_vmm_ceil_enable_base) {
-		MMDVFS_ERR("mmdvfs_vmm_ceil_enable_base is NULL");
-		return -EINVAL;
+	if (!mtk_is_mmdvfs_init_done()) {
+		MMDVFS_DBG("mmdvfs_v3 init not ready");
+		return 0;
 	}
 
-	writel(enable ? 1 : 0, mmdvfs_vmm_ceil_enable_base);
+	writel(enable ? 1 : 0, MEM_VMM_CEIL_ENABLE);
 	if (is_vcp_ready_ex(VCP_A_ID))
 		mmdvfs_set_vcp_init();
 
@@ -867,43 +780,6 @@ static int mmdvfs_force_on_callback(struct notifier_block *nb, unsigned long act
 
 	return NOTIFY_DONE;
 }
-
-static int mmdvfs_set_vmm_init(const char *val, const struct kernel_param *kp)
-{
-	int ret;
-	unsigned int bin, aging;
-
-	ret = sscanf(val, "%u %u", &bin, &aging);
-	if (ret != 2) {
-		MMDVFS_ERR("input failed:%d val:%s", ret, val);
-		return -EINVAL;
-	}
-
-	if (!mmdvfs_vb_enable_base) {
-		MMDVFS_ERR("mmdvfs_vb_enable_base is NULL");
-		return ret;
-	}
-
-	if (!mmdvfs_aging_enable_base) {
-		MMDVFS_ERR("mmdvfs_aging_enable_base is NULL");
-		return ret;
-	}
-
-	writel(bin, mmdvfs_vb_enable_base);
-	writel(aging, mmdvfs_aging_enable_base);
-	mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VMM, 0);
-	mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VMM, -1);
-
-	MMDVFS_DBG("ret:%d bin:%u aging:%u", ret, bin, aging);
-
-	return ret;
-}
-
-static struct kernel_param_ops mmdvfs_vmm_init_ops = {
-	.set = mmdvfs_set_vmm_init,
-};
-module_param_cb(vmm_init, &mmdvfs_vmm_init_ops, NULL, 0644);
-MODULE_PARM_DESC(vmm_init, "set vmm initialization");
 
 static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 			unsigned long pm_event, void *unused)
@@ -1222,7 +1098,8 @@ static const struct of_device_id of_match_mmdvfs_v3[] = {
 static int mmdvfs_vcp_init_thread(void *data)
 {
 	static struct mtk_ipi_device *vcp_ipi_dev;
-	int ret = 0, retry = 0;
+	struct iommu_domain *domain;
+	int retry = 0;
 
 	while (mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_VCP_INIT)) {
 		if (++retry > 100) {
@@ -1250,12 +1127,20 @@ static int mmdvfs_vcp_init_thread(void *data)
 		ssleep(1);
 	}
 
+	mmdvfs_memory_iova = vcp_get_reserve_mem_phys_ex(MMDVFS_MEM_ID);
+	domain = iommu_get_domain_for_dev(&vcp_ipi_dev->mrpdev->pdev->dev);
+	if (domain)
+		mmdvfs_memory_pa = iommu_iova_to_phys(domain, mmdvfs_memory_iova);
+	mmdvfs_memory_va = (void *)vcp_get_reserve_mem_virt_ex(MMDVFS_MEM_ID);
+
+	mmdvfs_init_done = true;
+	MMDVFS_DBG("iova:%pa pa:%pa va:%#llx init_done:%d",
+		&mmdvfs_memory_iova, &mmdvfs_memory_pa, mmdvfs_memory_va, mmdvfs_init_done);
+
 	vcp_ready_notifier.notifier_call = mmdvfs_vcp_notifier_callback;
 	vcp_A_register_notify_ex(&vcp_ready_notifier);
 
-	mmdvfs_init_done = true;
-	MMDVFS_DBG("mmdvfs_init_done:%d", mmdvfs_init_done);
-	return ret;
+	return 0;
 }
 
 static int mmdvfs_ccu_init_thread(void *data)

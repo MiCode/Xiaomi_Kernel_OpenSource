@@ -18,6 +18,7 @@
 #include <soc/mediatek/mmdvfs_v3.h>
 #include <mt-plat/mrdump.h>
 
+#include "mtk-mmdvfs-v3-memory.h"
 #include "mtk-mmdvfs-ftrace.h"
 
 #define MMDVFS_DBG_VER1	BIT(0)
@@ -25,11 +26,6 @@
 
 #define MMDVFS_DBG(fmt, args...) \
 	pr_notice("[mmdvfs_dbg][dbg]%s: "fmt"\n", __func__, ##args)
-
-#define MMDVFS_RECORD_PWR_OBJ	(4)
-#define MMDVFS_RECORD_USER_OBJ	(5)
-#define MMDVFS_RECORD_NUM	(16)
-#define MMDVFS_RECORD_BASE_OFFSET	(0x800)
 
 struct mmdvfs_record {
 	u64 sec;
@@ -50,11 +46,9 @@ struct mmdvfs_debug {
 
 	spinlock_t lock;
 	u8 rec_cnt;
-	struct mmdvfs_record rec[MMDVFS_RECORD_NUM];
+	struct mmdvfs_record rec[MEM_REC_CNT_MAX];
 
 	/* MMDVFS_DBG_VER3 */
-	void *pwr_base;
-	void *user_base;
 	u32 use_v3_pwr;
 };
 
@@ -151,9 +145,8 @@ static void mmdvfs_debug_record_opp(const u8 opp)
 
 static int mmdvfs_debug_opp_show(struct seq_file *file, void *data)
 {
-	unsigned long pwr_cnt, user_cnt, pwr_mem[MMDVFS_RECORD_PWR_OBJ],
-		user_mem[MMDVFS_RECORD_USER_OBJ], flags;
-	s32 i, j;
+	unsigned long flags;
+	u32 i, j;
 
 	/* MMDVFS_DBG_VER1 */
 	seq_puts(file, "VER1: mux controlled by vcore regulator:\n");
@@ -174,56 +167,38 @@ static int mmdvfs_debug_opp_show(struct seq_file *file, void *data)
 	spin_unlock_irqrestore(&g_mmdvfs->lock, flags);
 
 	/* MMDVFS_DBG_VER3 */
-	if (!g_mmdvfs->pwr_base)
+	if (!MEM_BASE)
 		return 0;
 
 	seq_puts(file, "VER3: mux controlled by vcp:\n");
 
-	//power opp
-	pwr_cnt = readl(g_mmdvfs->pwr_base);
-	MMDVFS_DBG("pwr_cnt:%lu", pwr_cnt);
-	if (readl(g_mmdvfs->pwr_base + (((pwr_cnt + 1) * MMDVFS_RECORD_PWR_OBJ) << 2)))
-		for (i = pwr_cnt; i < MMDVFS_RECORD_NUM; i++) {
-			for (j = 0; j < ARRAY_SIZE(pwr_mem); j++)
-				pwr_mem[j] = readl(g_mmdvfs->pwr_base + (((i + 1) *
-					MMDVFS_RECORD_PWR_OBJ + j) << 2));
+	// power opp
+	i = readl(MEM_REC_PWR_CNT) % MEM_REC_CNT_MAX;
+	if (readl(MEM_REC_PWR_SEC(i)))
+		for (j = i; j < MEM_REC_CNT_MAX; j++)
+			seq_printf(file, "[%5u.%3u] pwr:%u opp:%u\n",
+				readl(MEM_REC_PWR_SEC(j)), readl(MEM_REC_PWR_NSEC(j)),
+				readl(MEM_REC_PWR_ID(j)), readl(MEM_REC_PWR_OPP(j)));
 
-			seq_printf(file, "[%5lu.%3lu] pwr:%lu opp:%lu\n",
-				pwr_mem[0], pwr_mem[1], pwr_mem[2], pwr_mem[3]);
-		}
+	for (j = 0; j < i; j++)
+		seq_printf(file, "[%5u.%3u] pwr:%u opp:%u\n",
+			readl(MEM_REC_PWR_SEC(j)), readl(MEM_REC_PWR_NSEC(j)),
+			readl(MEM_REC_PWR_ID(j)), readl(MEM_REC_PWR_OPP(j)));
 
-	for (i = 0; i < pwr_cnt; i++) {
-		for (j = 0; j < ARRAY_SIZE(pwr_mem); j++)
-			pwr_mem[j] = readl(g_mmdvfs->pwr_base + (((i + 1) *
-				MMDVFS_RECORD_PWR_OBJ + j) << 2));
+	// user opp
+	i = readl(MEM_REC_USR_CNT) % MEM_REC_CNT_MAX;
+	if (readl(MEM_REC_USR_SEC(i)))
+		for (j = i; j < MEM_REC_CNT_MAX; j++)
+			seq_printf(file, "[%5u.%3u] pwr:%u usr:%u opp:%u\n",
+				readl(MEM_REC_USR_SEC(j)), readl(MEM_REC_USR_NSEC(j)),
+				readl(MEM_REC_USR_PWR(j)),
+				readl(MEM_REC_USR_ID(j)), readl(MEM_REC_USR_OPP(j)));
 
-		seq_printf(file, "[%5lu.%3lu] pwr:%lu opp:%lu\n",
-			pwr_mem[0], pwr_mem[1], pwr_mem[2], pwr_mem[3]);
-	}
-
-	//user opp
-	if (!g_mmdvfs->user_base)
-		return 0;
-	user_cnt = readl(g_mmdvfs->user_base);
-	MMDVFS_DBG("user_cnt:%lu", user_cnt);
-	if (readl(g_mmdvfs->user_base + (((user_cnt + 1) * MMDVFS_RECORD_USER_OBJ) << 2)))
-		for (i = user_cnt; i < MMDVFS_RECORD_NUM; i++) {
-			for (j = 0; j < ARRAY_SIZE(user_mem); j++)
-				user_mem[j] = readl(g_mmdvfs->user_base + (((i + 1) *
-					MMDVFS_RECORD_USER_OBJ + j) << 2));
-
-			seq_printf(file, "[%5lu.%3lu] pwr:%lu user:%lu opp:%lu\n",
-				user_mem[0], user_mem[1], user_mem[2], user_mem[3], user_mem[4]);
-		}
-
-	for (i = 0; i < user_cnt; i++) {
-		for (j = 0; j < ARRAY_SIZE(user_mem); j++)
-			user_mem[j] = readl(g_mmdvfs->user_base + (((i + 1) *
-				MMDVFS_RECORD_USER_OBJ + j) << 2));
-
-		seq_printf(file, "[%5lu.%3lu] pwr:%lu user:%lu opp:%lu\n",
-			user_mem[0], user_mem[1], user_mem[2], user_mem[3], user_mem[4]);
-	}
+	for (j = 0; j < i; j++)
+		seq_printf(file, "[%5u.%3u] pwr:%u usr:%u opp:%u\n",
+			readl(MEM_REC_USR_SEC(j)), readl(MEM_REC_USR_NSEC(j)),
+			readl(MEM_REC_USR_PWR(j)),
+			readl(MEM_REC_USR_ID(j)), readl(MEM_REC_USR_OPP(j)));
 
 	return 0;
 }
@@ -249,14 +224,22 @@ EXPORT_SYMBOL_GPL(mtk_is_mmdvfs_v3_debug_init_done);
 static int mmdvfs_v3_debug_thread(void *data)
 {
 	phys_addr_t pa = 0ULL;
+	unsigned long va;
 	int ret = 0, retry = 0;
 
 	while (!mtk_is_mmdvfs_init_done()) {
 		if (++retry > 100) {
 			MMDVFS_DBG("mmdvfs_v3 init not ready");
-			goto err;
+			goto init_done;
 		}
 		ssleep(2);
+	}
+
+	va = (unsigned long)(unsigned long *)mtk_mmdvfs_vcp_get_base(&pa);
+	if (va && pa) {
+		ret = mrdump_mini_add_extra_file(va, pa, PAGE_SIZE, "MMDVFS_OPP");
+		if (ret)
+			MMDVFS_DBG("failed:%d va:%#lx pa:pa", ret, va, &pa);
 	}
 
 	if (g_mmdvfs->use_v3_pwr & (1 << PWR_MMDVFS_VCORE))
@@ -266,7 +249,7 @@ static int mmdvfs_v3_debug_thread(void *data)
 		mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VMM, g_mmdvfs->force_step0);
 
 	if (!g_mmdvfs->release_step0)
-		goto err;
+		goto init_done;
 
 	if (g_mmdvfs->use_v3_pwr & (1 << PWR_MMDVFS_VCORE))
 		mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VCORE, -1);
@@ -274,20 +257,9 @@ static int mmdvfs_v3_debug_thread(void *data)
 	if (g_mmdvfs->use_v3_pwr & (1 << PWR_MMDVFS_VMM))
 		mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VMM, -1);
 
-	g_mmdvfs->pwr_base = mtk_mmdvfs_vcp_get_base(&pa);
-	g_mmdvfs->user_base = g_mmdvfs->pwr_base + MMDVFS_RECORD_BASE_OFFSET;
-
-	if (g_mmdvfs->pwr_base && pa)
-		ret = mrdump_mini_add_extra_file(
-			(unsigned long)(unsigned long *)g_mmdvfs->pwr_base,
-			pa, PAGE_SIZE, "MMDVFS_OPP");
-
-	MMDVFS_DBG("ret:%d pa:%pa pwr_base:%#llx user_base:%#llx",
-		ret, &pa, g_mmdvfs->pwr_base, g_mmdvfs->user_base);
-
-err:
+init_done:
 	mmdvfs_v3_debug_init_done = true;
-	return ret;
+	return 0;
 }
 
 static int mmdvfs_v1_dbg_ftrace_thread(void *data)
@@ -328,21 +300,9 @@ static int mmdvfs_v1_dbg_ftrace_thread(void *data)
 
 static int mmdvfs_v3_dbg_ftrace_thread(void *data)
 {
-	phys_addr_t pa = 0ULL;
-	static unsigned long old_pwr_cnt, old_user_cnt;
-	unsigned long pwr_cnt, user_cnt, pwr_mem[MMDVFS_RECORD_PWR_OBJ],
-		user_mem[MMDVFS_RECORD_USER_OBJ];
-	int ret = 0, retry = 0;
+	static u32 pwr_cnt, usr_cnt;
+	int retry = 0;
 	s32 i, j;
-
-	if (!g_mmdvfs->pwr_base) {
-		g_mmdvfs->pwr_base = mtk_mmdvfs_vcp_get_base(&pa);
-		if (!g_mmdvfs->pwr_base) {
-			ftrace_v3_ena = false;
-			MMDVFS_DBG("kthread mmdvfs-dbg-ftrace-v3 end");
-			return 0;
-		}
-	}
 
 	while (!mtk_is_mmdvfs_init_done()) {
 		if (++retry > 100) {
@@ -353,85 +313,64 @@ static int mmdvfs_v3_dbg_ftrace_thread(void *data)
 		ssleep(2);
 	}
 
-	while (!kthread_should_stop()) {
-		pwr_cnt = readl(g_mmdvfs->pwr_base);
-		if (pwr_cnt != old_pwr_cnt) {
-			if (pwr_cnt > old_pwr_cnt) {
-				for (i = old_pwr_cnt; i < pwr_cnt; i++) {
-					for (j = 0; j < ARRAY_SIZE(pwr_mem); j++)
-						pwr_mem[j] = readl(g_mmdvfs->pwr_base + (((i + 1) *
-							MMDVFS_RECORD_PWR_OBJ + j) << 2));
-					ftrace_pwr_opp_v3(pwr_mem[2], pwr_mem[3]);
-				}
-			} else {
-				for (i = old_pwr_cnt; i < MMDVFS_RECORD_NUM; i++) {
-					for (j = 0; j < ARRAY_SIZE(pwr_mem); j++)
-						pwr_mem[j] = readl(g_mmdvfs->pwr_base + (((i + 1) *
-							MMDVFS_RECORD_PWR_OBJ + j) << 2));
-					ftrace_pwr_opp_v3(pwr_mem[2], pwr_mem[3]);
-				}
-				for (i = 0; i < pwr_cnt; i++) {
-					for (j = 0; j < ARRAY_SIZE(pwr_mem); j++)
-						pwr_mem[j] = readl(g_mmdvfs->pwr_base + (((i + 1) *
-							MMDVFS_RECORD_PWR_OBJ + j) << 2));
-					ftrace_pwr_opp_v3(pwr_mem[2], pwr_mem[3]);
-				}
-			}
-			old_pwr_cnt = pwr_cnt;
-		}
+	if (!MEM_BASE) {
+		ftrace_v3_ena = false;
+		return 0;
+	}
 
-		user_cnt = readl(g_mmdvfs->user_base);
-		if (user_cnt != old_user_cnt) {
-			if (user_cnt > old_user_cnt) {
-				for (i = old_user_cnt; i < user_cnt; i++) {
-					for (j = 0; j < ARRAY_SIZE(user_mem); j++)
-						user_mem[j] = readl(g_mmdvfs->user_base +
-						(((i + 1) * MMDVFS_RECORD_USER_OBJ + j) << 2));
-					if (user_mem[2] == PWR_MMDVFS_VCORE)
-						ftrace_user_opp_v3_vcore(user_mem[3], user_mem[4]);
-					else if (user_mem[2] == PWR_MMDVFS_VMM)
-						ftrace_user_opp_v3_vmm(user_mem[3], user_mem[4]);
-					else
-						MMDVFS_DBG("[%5lu.%3lu] pwr:%lu user:%lu opp:%lu",
-							user_mem[0], user_mem[1], user_mem[2],
-							user_mem[3], user_mem[4]);
-				}
-			} else {
-				for (i = old_user_cnt; i < MMDVFS_RECORD_NUM; i++) {
-					for (j = 0; j < ARRAY_SIZE(user_mem); j++)
-						user_mem[j] = readl(g_mmdvfs->user_base +
-						(((i + 1) * MMDVFS_RECORD_USER_OBJ + j) << 2));
-					if (user_mem[2] == PWR_MMDVFS_VCORE)
-						ftrace_user_opp_v3_vcore(user_mem[3], user_mem[4]);
-					else if (user_mem[2] == PWR_MMDVFS_VMM)
-						ftrace_user_opp_v3_vmm(user_mem[3], user_mem[4]);
-					else
-						MMDVFS_DBG("[%5lu.%3lu] pwr:%lu user:%lu opp:%lu",
-							user_mem[0], user_mem[1], user_mem[2],
-							user_mem[3], user_mem[4]);
-				}
-				for (i = 0; i < user_cnt; i++) {
-					for (j = 0; j < ARRAY_SIZE(user_mem); j++)
-						user_mem[j] = readl(g_mmdvfs->user_base +
-						(((i + 1) * MMDVFS_RECORD_USER_OBJ + j) << 2));
-					if (user_mem[2] == PWR_MMDVFS_VCORE)
-						ftrace_user_opp_v3_vcore(user_mem[3], user_mem[4]);
-					else if (user_mem[2] == PWR_MMDVFS_VMM)
-						ftrace_user_opp_v3_vmm(user_mem[3], user_mem[4]);
-					else
-						MMDVFS_DBG("[%5lu.%3lu] pwr:%lu user:%lu opp:%lu",
-							user_mem[0], user_mem[1], user_mem[2],
-							user_mem[3], user_mem[4]);
-				}
-			}
-			old_user_cnt = user_cnt;
+	while (!kthread_should_stop()) {
+		// power opp
+		i = readl(MEM_REC_PWR_CNT) % MEM_REC_CNT_MAX;
+		if (pwr_cnt <= i) {
+			for (j = pwr_cnt; j < i; j++)
+				ftrace_pwr_opp_v3(readl(MEM_REC_PWR_ID(j)),
+					readl(MEM_REC_PWR_OPP(j)));
+		} else {
+			for (j = pwr_cnt; j < MEM_REC_CNT_MAX; j++)
+				ftrace_pwr_opp_v3(readl(MEM_REC_PWR_ID(j)),
+					readl(MEM_REC_PWR_OPP(j)));
+			for (j = 0; j < i; j++)
+				ftrace_pwr_opp_v3(readl(MEM_REC_PWR_ID(j)),
+					readl(MEM_REC_PWR_OPP(j)));
 		}
+		pwr_cnt = i;
+
+		// user opp
+		i = readl(MEM_REC_USR_CNT) % MEM_REC_CNT_MAX;
+		if (usr_cnt <= i) {
+			for (j = usr_cnt; j < i; j++) {
+				if (readl(MEM_REC_USR_PWR(j)) == PWR_MMDVFS_VCORE)
+					ftrace_user_opp_v3_vcore(readl(MEM_REC_USR_ID(j)),
+						readl(MEM_REC_USR_OPP(j)));
+				if (readl(MEM_REC_USR_PWR(j)) == PWR_MMDVFS_VMM)
+					ftrace_user_opp_v3_vmm(readl(MEM_REC_USR_ID(j)),
+						readl(MEM_REC_USR_OPP(j)));
+			}
+		} else {
+			for (j = usr_cnt; j < MEM_REC_CNT_MAX; j++) {
+				if (readl(MEM_REC_USR_PWR(j)) == PWR_MMDVFS_VCORE)
+					ftrace_user_opp_v3_vcore(readl(MEM_REC_USR_ID(j)),
+						readl(MEM_REC_USR_OPP(j)));
+				if (readl(MEM_REC_USR_PWR(j)) == PWR_MMDVFS_VMM)
+					ftrace_user_opp_v3_vmm(readl(MEM_REC_USR_ID(j)),
+						readl(MEM_REC_USR_OPP(j)));
+			}
+			for (j = 0; j < i; j++) {
+				if (readl(MEM_REC_USR_PWR(j)) == PWR_MMDVFS_VCORE)
+					ftrace_user_opp_v3_vcore(readl(MEM_REC_USR_ID(j)),
+						readl(MEM_REC_USR_OPP(j)));
+				if (readl(MEM_REC_USR_PWR(j)) == PWR_MMDVFS_VMM)
+					ftrace_user_opp_v3_vmm(readl(MEM_REC_USR_ID(j)),
+						readl(MEM_REC_USR_OPP(j)));
+			}
+		}
+		usr_cnt = i;
 		msleep(20);
 	}
 
 	ftrace_v3_ena = false;
 	MMDVFS_DBG("kthread mmdvfs-dbg-ftrace-v3 end");
-	return ret;
+	return 0;
 }
 
 static int mmdvfs_debug_set_ftrace(const char *val,
