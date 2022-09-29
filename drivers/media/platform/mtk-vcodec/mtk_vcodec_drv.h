@@ -236,8 +236,10 @@ enum venc_lock {
 
 enum vdec_power_type {
 	VDEC_POWER_NORMAL = 0,
+	VDEC_POWER_RELEASE,
 	VDEC_POWER_ALWAYS,
-	VDEC_POWER_RELEASE
+	VDEC_POWER_ALWAYS_OP,
+	VDEC_POWER_ALWAYS_FREQ,
 };
 
 /**
@@ -749,7 +751,7 @@ struct mtk_vcodec_dev {
 
 	struct semaphore dec_sem[MTK_VDEC_HW_NUM];
 	struct semaphore enc_sem[MTK_VENC_HW_NUM];
-	bool dec_always_on[MTK_VDEC_HW_NUM];
+	unsigned int dec_always_on[MTK_VDEC_HW_NUM]; // ref count
 
 	struct mutex dec_dvfs_mutex;
 	struct mutex enc_dvfs_mutex;

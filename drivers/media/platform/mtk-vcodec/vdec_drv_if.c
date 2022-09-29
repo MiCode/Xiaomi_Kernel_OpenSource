@@ -218,14 +218,17 @@ void vdec_decode_prepare(void *ctx_prepare,
 	mutex_lock(&ctx->hw_status);
 	ret = mtk_vdec_lock(ctx, hw_id);
 	mtk_vcodec_set_curr_ctx(ctx->dev, ctx, hw_id);
-	if (!ctx->dev->dec_always_on[hw_id]) {
+	if (ctx->dev->dec_always_on[hw_id] == 0)
 		mtk_vcodec_dec_clock_on(&ctx->dev->pm, hw_id);
-		if (ctx->dec_params.operating_rate >= MTK_VDEC_ALWAYS_ON_OP_RATE ||
-		    mtk_vdec_is_highest_freq(ctx)) {
-			ctx->power_type[hw_id] = VDEC_POWER_ALWAYS;
-			ctx->dev->dec_always_on[hw_id] = true;
-		}
+	if (ctx->power_type[hw_id] == VDEC_POWER_NORMAL) {
+		if (ctx->dec_params.operating_rate >= MTK_VDEC_ALWAYS_ON_OP_RATE)
+			ctx->power_type[hw_id] = VDEC_POWER_ALWAYS_OP;
+		if (mtk_vdec_is_highest_freq(ctx))
+			ctx->power_type[hw_id] = VDEC_POWER_ALWAYS_FREQ;
+		if (ctx->power_type[hw_id] >= VDEC_POWER_ALWAYS)
+			ctx->dev->dec_always_on[hw_id]++;
 	}
+
 	if (ret == 0 && !(mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) &&
 	    ctx->power_type[hw_id] != VDEC_POWER_RELEASE)
 		enable_irq(ctx->dev->dec_irq[hw_id]);
@@ -264,10 +267,13 @@ void vdec_decode_unprepare(void *ctx_unprepare,
 	if (!(mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) &&
 	    ctx->power_type[hw_id] != VDEC_POWER_RELEASE)
 		disable_irq(ctx->dev->dec_irq[hw_id]);
-	if (!ctx->dev->dec_always_on[hw_id] || ctx->power_type[hw_id] == VDEC_POWER_RELEASE) {
-		mtk_vcodec_dec_clock_off(&ctx->dev->pm, hw_id);
-		ctx->dev->dec_always_on[hw_id] = false;
+	if (ctx->power_type[hw_id] == VDEC_POWER_RELEASE ||
+	   (ctx->power_type[hw_id] == VDEC_POWER_ALWAYS_FREQ && !mtk_vdec_is_highest_freq(ctx))) {
+		ctx->dev->dec_always_on[hw_id]--;
+		ctx->power_type[hw_id] = VDEC_POWER_NORMAL;
 	}
+	if (ctx->dev->dec_always_on[hw_id] == 0)
+		mtk_vcodec_dec_clock_off(&ctx->dev->pm, hw_id);
 	mtk_vcodec_set_curr_ctx(ctx->dev, NULL, hw_id);
 	mtk_vdec_unlock(ctx, hw_id);
 	mutex_unlock(&ctx->hw_status);
@@ -282,7 +288,7 @@ void vdec_check_release_lock(void *ctx_check)
 
 	for (i = 0; i < MTK_VDEC_HW_NUM; i++) {
 		is_always_on = false;
-		if (ctx->power_type[i] == VDEC_POWER_ALWAYS) {
+		if (ctx->power_type[i] >= VDEC_POWER_ALWAYS) {
 			is_always_on = true;
 			ctx->power_type[i] = VDEC_POWER_RELEASE;
 			if (ctx->hw_locked[i] == 0)
