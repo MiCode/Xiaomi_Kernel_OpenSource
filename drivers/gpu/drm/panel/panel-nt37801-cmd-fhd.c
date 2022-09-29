@@ -856,6 +856,7 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 
 	if (drm_mode_vrefresh(m) == 120) {
 		ext_params.skip_vblank = 0;
+		ext_params.vblank_off = false;
 		ext->params = &ext_params;
 	} else if (drm_mode_vrefresh(m) == 90)
 		ext->params = &ext_params_90hz;
@@ -863,12 +864,15 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 		ext->params = &ext_params_60hz;
 	else if (drm_mode_vrefresh(m) == 30) {
 		ext_params.skip_vblank = 4;
+		ext_params.vblank_off = false;
 		ext->params = &ext_params;
 	} else if (drm_mode_vrefresh(m) == 24) {
 		ext_params.skip_vblank = 5;
+		ext_params.vblank_off = false;
 		ext->params = &ext_params;
 	} else if (drm_mode_vrefresh(m) == 10) {
 		ext_params.skip_vblank = 12;
+		ext_params.vblank_off = true;
 		ext->params = &ext_params;
 	} else
 		ret = 1;

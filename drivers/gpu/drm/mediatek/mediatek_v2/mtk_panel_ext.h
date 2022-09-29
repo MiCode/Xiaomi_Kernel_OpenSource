@@ -508,6 +508,7 @@ struct mtk_panel_params {
 
 	/*Msync 3.0*/
 	unsigned int skip_vblank;
+	bool vblank_off;
 };
 
 struct mtk_panel_ext {
