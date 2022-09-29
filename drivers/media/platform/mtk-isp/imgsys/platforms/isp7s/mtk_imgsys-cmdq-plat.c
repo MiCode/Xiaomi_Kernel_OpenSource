@@ -2502,7 +2502,9 @@ void mtk_imgsys_mmdvfs_mmqos_cal_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 
 			if (batch_num > 1) {
 				dvfs_info->smvr_task_cnt++;
-				if ((smvr_size >= IMGSYS_SMVR_SIZE_FLOOR2) &&
+				if (qos_info->sc_monitor == 1)
+					smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR3;
+				else if ((smvr_size >= IMGSYS_SMVR_SIZE_FLOOR2) &&
 					(fps_smvr >= IMGSYS_SMVR_FPS_FLOOR2))
 					smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR2;
 				else if ((smvr_size >= IMGSYS_SMVR_SIZE_FLOOR1) &&
@@ -2540,7 +2542,9 @@ void mtk_imgsys_mmdvfs_mmqos_cal_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 
 			if (batch_num > 1) {
 				dvfs_info->smvr_task_cnt--;
-				if ((smvr_size >= IMGSYS_SMVR_SIZE_FLOOR2) &&
+				if (qos_info->sc_monitor == 1)
+					smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR3;
+				else if ((smvr_size >= IMGSYS_SMVR_SIZE_FLOOR2) &&
 					(fps_smvr >= IMGSYS_SMVR_FPS_FLOOR2))
 					smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR2;
 				else if ((smvr_size >= IMGSYS_SMVR_SIZE_FLOOR1) &&
