@@ -379,6 +379,8 @@ struct mtk_dsi_driver_data {
 	bool need_wait_fifo;
 	const u32 buffer_unit;
 	const u32 sram_unit;
+	const u32 urgent_lo_fifo_us;
+	const u32 urgent_hi_fifo_us;
 	bool dsi_buffer;
 	u32 max_vfp;
 	void (*mmclk_by_datarate)(struct mtk_dsi *dsi,
@@ -1520,6 +1522,7 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 	u32 fill_rate;
 	u32 sodi_hi, sodi_lo;
 	u32 sram_unit, buffer_unit;
+	u32 urgent_lo_fifo_us, urgent_hi_fifo_us;
 	struct mtk_panel_ext *ext = mtk_dsi_get_panel_ext(&dsi->ddp_comp);
 	struct mtk_panel_dsc_params *dsc_params = &ext->params->dsc_params;
 	struct mtk_drm_crtc *mtk_crtc =	dsi->is_slave ?
@@ -1543,6 +1546,11 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 
 	buffer_unit = dsi->driver_data->buffer_unit;
 	sram_unit = dsi->driver_data->sram_unit;
+	urgent_lo_fifo_us = dsi->driver_data->urgent_lo_fifo_us ?
+				dsi->driver_data->urgent_lo_fifo_us : 11;
+	urgent_hi_fifo_us = dsi->driver_data->urgent_hi_fifo_us ?
+				dsi->driver_data->urgent_hi_fifo_us : 12;
+
 	if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
 		// cmd mode
 		if (ext->params->lp_perline_en) {
@@ -1594,8 +1602,8 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 		preultra_lo = 25 * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
 		ultra_hi = 25 * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
 		ultra_lo = 23 * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
-		urgent_hi = 12 * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
-		urgent_lo = 11 * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
+		urgent_hi = urgent_hi_fifo_us * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
+		urgent_lo = urgent_lo_fifo_us * dsi->data_rate * 2 * dsi->lanes / 7 / buffer_unit;
 	} else {
 		sodi_hi = tmp - (12 * (fill_rate - dsi->data_rate * dsi->lanes / 8
 				/ buffer_unit) / 10);
@@ -1605,8 +1613,8 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 		preultra_lo = 25 * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
 		ultra_hi = 25 * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
 		ultra_lo = 23 * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
-		urgent_hi = 12 * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
-		urgent_lo = 11 * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
+		urgent_hi = urgent_hi_fifo_us * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
+		urgent_lo = urgent_lo_fifo_us * dsi->data_rate * dsi->lanes / 8 / buffer_unit;
 	}
 
 	writel((sodi_hi & 0xfffff), dsi->regs + DSI_BUF_SODI_HIGH);
@@ -8893,6 +8901,8 @@ static const struct mtk_dsi_driver_data mt6985_dsi_driver_data = {
 	.dsi_buffer = true,
 	.buffer_unit = 32,
 	.sram_unit = 18,
+	.urgent_lo_fifo_us = 14,
+	.urgent_hi_fifo_us = 15,
 	.max_vfp = 0xffe,
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V2,
 };
