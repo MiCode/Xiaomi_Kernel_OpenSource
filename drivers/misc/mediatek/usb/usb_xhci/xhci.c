@@ -29,6 +29,10 @@
 
 #define	PORT_WAKE_BITS	(PORT_WKOC_E | PORT_WKDISC_E | PORT_WKCONN_E)
 
+unsigned int xhci_dev_dbg_log;
+module_param(xhci_dev_dbg_log, uint, 0644);
+MODULE_PARM_DESC(xhci_dev_dbg_log, "Enable/Disable XHCI dev_dbg log");
+
 /* Some 0.95 hardware can't handle the chain bit on a Link TRB being cleared */
 static int link_quirk;
 module_param(link_quirk, int, S_IRUGO | S_IWUSR);

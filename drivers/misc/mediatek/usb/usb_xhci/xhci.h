@@ -13,6 +13,7 @@
 #ifndef __LINUX_XHCI_HCD_H
 #define __LINUX_XHCI_HCD_H
 
+#include <linux/module.h>
 #include <linux/usb.h>
 #include <linux/timer.h>
 #include <linux/kernel.h>
@@ -1975,8 +1976,11 @@ static inline struct usb_hcd *xhci_to_hcd(struct xhci_hcd *xhci)
 	return xhci->main_hcd;
 }
 
-#define xhci_dbg(xhci, fmt, args...) \
-	dev_dbg(xhci_to_hcd(xhci)->self.controller , fmt , ## args)
+extern unsigned int xhci_dev_dbg_log;
+#define xhci_dbg(xhci, fmt, args...) do { \
+		if (xhci_dev_dbg_log) \
+			dev_dbg(xhci_to_hcd(xhci)->self.controller, fmt, ## args); \
+	} while (0)
 #define xhci_err(xhci, fmt, args...) \
 	dev_err(xhci_to_hcd(xhci)->self.controller , fmt , ## args)
 #define xhci_warn(xhci, fmt, args...) \
