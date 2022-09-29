@@ -305,8 +305,7 @@ static void disp_aal_set_interrupt(struct mtk_ddp_comp *comp, int enable)
 	}
 
 	if (enable && (atomic_read(&g_aal_force_relay) != 1 ||
-		m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS] ||
-		m_new_pq_persist_property[DISP_PQ_GAMMA_SILKY_BRIGHTNESS])) {
+		m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS])) {
 		/* Enable output frame end interrupt */
 		if (comp == NULL)
 			writel(0x2, default_comp->regs + DISP_AAL_INTEN);
@@ -456,8 +455,7 @@ void disp_aal_notify_backlight_changed(int trans_backlight, int max_backlight)
 		service_flags = AAL_SERVICE_FORCE_UPDATE;
 	} else if (atomic_read(&g_aal_is_init_regs_valid) == 0 ||
 		(atomic_read(&g_aal_force_relay) == 1 &&
-		!m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS] &&
-		!m_new_pq_persist_property[DISP_PQ_GAMMA_SILKY_BRIGHTNESS])) {
+		!m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS])) {
 		/* AAL Service is not running */
 
 		mtk_leds_brightness_set("lcd-backlight", trans_backlight,
@@ -485,7 +483,8 @@ int led_brightness_changed_event_to_aal(struct notifier_block *nb, unsigned long
 
 	switch (event) {
 	case LED_BRIGHTNESS_CHANGED:
-		if (m_new_pq_persist_property[DISP_PQ_GAMMA_SILKY_BRIGHTNESS]) {
+		if (m_new_pq_persist_property[DISP_PQ_GAMMA_SILKY_BRIGHTNESS] &&
+			(atomic_read(&g_aal_force_relay) != 1)) {
 			trans_level = led_conf->cdev.brightness;
 
 			disp_aal_notify_backlight_changed(trans_level,
@@ -3641,8 +3640,7 @@ void disp_aal_on_start_of_frame(void)
 	}
 
 	if (atomic_read(&g_aal_force_relay) == 1 &&
-		!m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS] &&
-		!m_new_pq_persist_property[DISP_PQ_GAMMA_SILKY_BRIGHTNESS])
+		!m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS])
 		return;
 	if (atomic_read(&g_aal_change_to_dre30) != 0x3)
 		return;

@@ -605,6 +605,8 @@ int mtk_drm_ioctl_c3d_eventctl(struct drm_device *dev, void *data,
 {
 	int ret = 0;
 	int *enabled = (int *)data;
+	struct mtk_drm_private *private = dev->dev_private;
+	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_C3D0];
 
 	C3DFLOW_LOG("%d\n", *enabled);
 
@@ -613,6 +615,9 @@ int mtk_drm_ioctl_c3d_eventctl(struct drm_device *dev, void *data,
 
 	if (atomic_read(&g_c3d_eventctl) == 1)
 		wake_up_interruptible(&g_c3d_get_irq_wq);
+
+	if (*enabled)
+		mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
 
 	return ret;
 }

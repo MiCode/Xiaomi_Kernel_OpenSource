@@ -35,6 +35,9 @@
 #define DMDP_AAL_R2Y_00		0x04D4
 
 #define AAL_EN BIT(0)
+
+static atomic_t g_dmdp_aal_force_relay = ATOMIC_INIT(0);
+
 static int g_dre30_support;
 struct mtk_dmdp_aal_data {
 	bool support_shadow;
@@ -86,16 +89,23 @@ static void mtk_dmdp_aal_stop(struct mtk_ddp_comp *comp,
 static void mtk_dmdp_aal_bypass(struct mtk_ddp_comp *comp, int bypass,
 	struct cmdq_pkt *handle)
 {
-	DDPINFO("%s : bypass = %d\n", __func__, bypass);
+	DDPINFO("%s : bypass = %d g_dre30_support = %d\n",
+			__func__, bypass, g_dre30_support);
 
-	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_EN,
-		       AAL_EN, ~0);
-	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_CFG,
-		       0x400003, ~0);
-	//cmdq_pkt_write(handle, comp->cmdq_base,
-	//		comp->regs_pa + DMDP_AAL_CFG_MAIN, 0, ~0);
-	//cmdq_pkt_write(handle, comp->cmdq_base,
-	//		comp->regs_pa + DMDP_AAL_DRE_BILATERAL, 0, ~0);
+	atomic_set(&g_dmdp_aal_force_relay, bypass);
+	if (g_dre30_support) {
+		if (bypass == 1) {
+			cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_EN,
+				   AAL_EN, ~0);
+			cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_CFG,
+				   0x00400003, ~0);
+		} else if (bypass == 0) {
+			cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_EN,
+				   AAL_EN, ~0);
+			cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_CFG,
+				   0x00400022, ~0);
+		}
+	}
 }
 
 static void mtk_dmdp_aal_config(struct mtk_ddp_comp *comp,
@@ -113,7 +123,7 @@ static void mtk_dmdp_aal_config(struct mtk_ddp_comp *comp,
 
 	DDPINFO("%s: 0x%08x\n", __func__, val);
 
-	if (g_dre30_support == 0)
+	if (g_dre30_support == 0 || atomic_read(&g_dmdp_aal_force_relay) == 1)
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DMDP_AAL_CFG, 1, 0x1);
 	else
@@ -132,6 +142,9 @@ static void mtk_dmdp_aal_config(struct mtk_ddp_comp *comp,
 			comp->regs_pa + DMDP_AAL_Y2R_00, 0, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DMDP_AAL_R2Y_00, 0, ~0);
+	DDPINFO("%s [comp_id:%d]: g_dmdp_aal_force_relay[%d], DMDP_AAL_CFG = 0x%08x\n",
+		__func__, comp->id, atomic_read(&g_dmdp_aal_force_relay),
+		readl(comp->regs + DMDP_AAL_CFG));
 }
 
 void mtk_dmdp_aal_first_cfg(struct mtk_ddp_comp *comp,
