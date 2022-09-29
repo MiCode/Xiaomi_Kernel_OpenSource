@@ -214,6 +214,7 @@ struct usb_offload_dev {
 	bool is_streaming;
 	bool tx_streaming;
 	bool rx_streaming;
+	bool adsp_inited;
 	struct ssusb_offload *ssusb_offload_notify;
 	struct mutex dev_lock;
 };

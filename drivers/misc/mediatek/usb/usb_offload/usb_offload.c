@@ -1584,8 +1584,9 @@ static int usb_offload_open(struct inode *ip, struct file *fp)
 	struct xhci_hcd_mtk *mtk;
 	struct xhci_hcd *xhci;
 	struct usb_device *udev;
+	struct usb_host_config *config;
 	int err = 0;
-	int i, desc_class;
+	int i, class;
 
 	USB_OFFLOAD_INFO("++\n");
 	if (!buf_dcbaa || !buf_ctx || !buf_seg) {
@@ -1623,20 +1624,22 @@ static int usb_offload_open(struct inode *ip, struct file *fp)
 
 	if (xhci->devs[1] != NULL) {
 		udev = xhci->devs[1]->udev;
-		desc_class = udev->descriptor.bDeviceClass;
-		USB_OFFLOAD_INFO("Single Device - bDeviceClass: 0x%x\n", desc_class);
+		class = udev->descriptor.bDeviceClass;
+		USB_OFFLOAD_INFO("Single Device - bDeviceClass: 0x%x\n", class);
 
-		if (desc_class == 0x00 || desc_class == 0xef) {
-			desc_class =
-				udev->config->interface[0]->cur_altsetting->desc.bInterfaceClass;
-			USB_OFFLOAD_INFO("Single Device - bInterfaceClass: 0x%x\n", desc_class);
-		}
+		if (class == 0x00 || class == 0xef) {
+			if (udev->actconfig != NULL && udev->actconfig->interface[0] != NULL) {
+				config = udev->actconfig;
+				class = config->interface[0]->cur_altsetting->desc.bInterfaceClass;
+				USB_OFFLOAD_INFO("Single Device - bInterfaceClass: 0x%x\n", class);
 
-		if (desc_class == 0x01) {
-			USB_OFFLOAD_INFO("Single UAC Device - SUPPORT USB OFFLOAD!!\n");
-			return 0;
+				if (class == 0x01) {
+					USB_OFFLOAD_INFO("Single UAC - SUPPORT USB OFFLOAD!!\n");
+					return 0;
+				}
+			}
 		}
-		USB_OFFLOAD_INFO("Single Device - Not UAC Device. NOT SUPPORT USB OFFLOAD!!\n");
+		USB_OFFLOAD_INFO("Single Device - Not UAC. NOT SUPPORT USB OFFLOAD!!\n");
 	}
 GET_OF_NODE_FAIL:
 	return -1;
@@ -1680,12 +1683,23 @@ static long usb_offload_ioctl(struct file *fp,
 			xhci_mem->xhci_data_size = 0;
 		}
 		ret = send_init_ipi_msg_to_adsp(xhci_mem);
+		if (ret)
+			uodev->adsp_inited = false;
+		else
+			uodev->adsp_inited = true;
 		kfree(xhci_mem);
 		break;
 	case USB_OFFLOAD_ENABLE_STREAM:
 	case USB_OFFLOAD_DISABLE_STREAM:
 		USB_OFFLOAD_INFO("USB_OFFLOAD_ENABLE_STREAM / USB_OFFLOAD_DISABLE_STREAM\n");
+		if (!uodev->adsp_inited) {
+			USB_OFFLOAD_ERR("ADSP NOT INITED YET!!!\n");
+			ret = -EFAULT;
+			goto fail;
+		}
+
 		if (copy_from_user(&uainfo, (void __user *)value, sizeof(uainfo))) {
+			USB_OFFLOAD_ERR("copy_from_user ERR!!!\n");
 			ret = -EFAULT;
 			goto fail;
 		}
@@ -1795,6 +1809,9 @@ static int usb_offload_probe(struct platform_device *pdev)
 		uodev->mem_id = USB_OFFLOAD_MEM_DRAM_ID;
 	}
 	uodev->is_streaming = false;
+	uodev->tx_streaming = false;
+	uodev->tx_streaming = false;
+	uodev->adsp_inited = false;
 
 	USB_OFFLOAD_INFO("default_use_sram:%d, current_mem_mode:%d, mem_id:%d\n",
 		uodev->default_use_sram, uodev->current_mem_mode, uodev->mem_id);
@@ -1836,6 +1853,8 @@ static int usb_offload_probe(struct platform_device *pdev)
 			ret = -ENOMEM;
 			goto REG_SSUSB_OFFLOAD_FAIL;
 		}
+		mutex_init(&uodev->dev_lock);
+
 		USB_OFFLOAD_INFO("Set XHCI vendor hook ops\n");
 		platform_set_drvdata(pdev, &xhci_mtk_vendor_ops);
 
