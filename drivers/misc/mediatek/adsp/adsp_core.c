@@ -483,7 +483,11 @@ int adsp_reset(void)
 	adsp_select_clock_mode(CLK_DEFAULT_INIT);
 
 	/* reload adsp */
-	adsp_smc_send(MTK_ADSP_KERNEL_OP_RELOAD, 0, 0);
+	ret = adsp_smc_send(MTK_ADSP_KERNEL_OP_RELOAD, 0, 0);
+	if (ret < 0) {
+		pr_info("%s, adsp reload fail\n", __func__);
+		return ret;
+	}
 
 	/* restart adsp */
 	for (cid = 0; cid < get_adsp_core_total(); cid++) {
