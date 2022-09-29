@@ -205,10 +205,14 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 	} else { /* VDO mode */
 		if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
 			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
-						 DDP_SECOND_PATH, 1);
+						 DDP_SECOND_PATH, 0);
 		else
 			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
-						 DDP_FIRST_PATH, 1);
+						 DDP_FIRST_PATH, 0);
+
+		cmdq_pkt_clear_event(cmdq_handle,
+				     mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+
 		if (mtk_crtc->msync2.msync_on) {
 			u32 vfp_early_stop = 1;
 
@@ -232,6 +236,9 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 		mtk_disp_mutex_trigger(mtk_crtc->mutex[0], cmdq_handle);
 		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, COMP_REG_START,
 				    NULL);
+
+		cmdq_pkt_set_event(cmdq_handle,
+				   mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
 	}
 	esd_ctx = mtk_crtc->esd_ctx;
 	esd_ctx->chk_sta = 0;
