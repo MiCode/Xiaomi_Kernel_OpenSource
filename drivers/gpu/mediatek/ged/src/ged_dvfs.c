@@ -496,18 +496,8 @@ bool ged_dvfs_cal_gpu_utilization_ex(unsigned int *pui32Loading,
 				0, g_Util_Ex, 0);
 
 		if (pui32Loading) {
-			ged_log_perf_trace_counter("gpu_loading",
-				(long long)*pui32Loading, 5566, 0, 0);
-			ged_log_perf_trace_counter("gpu_ta_loading",
-				(long long)Util_Ex->util_ta, 5566, 0, 0);
-			ged_log_perf_trace_counter("gpu_3d_loading",
-				(long long)Util_Ex->util_3d, 5566, 0, 0);
-			ged_log_perf_trace_counter("gpu_compute_loading",
-				(long long)Util_Ex->util_compute, 5566, 0, 0);
-			ged_log_perf_trace_counter("gpu_iter_loading",
-				(long long)Util_Ex->util_iter, 5566, 0, 0);
-			ged_log_perf_trace_counter("gpu_mcu_loading",
-				(long long)Util_Ex->util_mcu, 5566, 0, 0);
+			Loading__(Util_Ex->util_active, Util_Ex->util_ta, Util_Ex->util_3d,
+				Util_Ex->util_compute, Util_Ex->util_iter, Util_Ex->util_mcu);
 
 			gpu_av_loading = *pui32Loading;
 
@@ -545,6 +535,7 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 
 	int ui32CurFreqID, ui32CeilingID, ui32FloorID;
 	unsigned int cur_freq = 0;
+	enum gpu_dvfs_policy_state policy_state;
 
 	ui32CurFreqID = ged_get_cur_oppidx();
 
@@ -602,14 +593,13 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 				(long long)(avg_freq),
 				5566, 0, 0, batch_freq);
 
-			Frequency__((long long)(avg_freq * 1000),
-			gpufreq_get_cur_freq(TARGET_DEFAULT));
+			Frequency__(avg_freq*1000, gpufreq_get_cur_freq(TARGET_DEFAULT));
 		} else {
 			ged_log_perf_trace_counter("gpu_freq",
 				(long long)(ged_get_cur_freq() / 1000), 5566, 0, 0);
 
-			Frequency__((long long)(ged_get_cur_freq()),
-			gpufreq_get_cur_freq(TARGET_DEFAULT));
+			Frequency__(ged_get_cur_freq(),
+				gpufreq_get_cur_freq(TARGET_DEFAULT));
 		}
 
 		ged_log_perf_trace_counter("gpu_freq_ceil",
@@ -622,6 +612,9 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 			(long long)ged_get_cur_limiter_floor(), 5566, 0, 0);
 		ged_log_perf_trace_counter("commit_type",
 			(long long)eCommitType, 5566, 0, 0);
+
+		policy_state = ged_get_policy_state();
+		Policy__Common(eCommitType, policy_state);
 
 	}
 	return bCommited;

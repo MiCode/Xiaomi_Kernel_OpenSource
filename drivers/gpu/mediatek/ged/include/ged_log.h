@@ -90,10 +90,14 @@ noinline void Policy__Loading_based__Margin__Detail(unsigned int v1, int v2, int
 noinline void Policy__DCS(int v1, int v2);
 noinline void Policy__DCS__Detail(unsigned int v1);
 // Common
+noinline void Policy__Common(unsigned int v1, unsigned int v2);
 noinline void Policy__Common__Commit_Reason(unsigned int v1, unsigned int v2);
 noinline void Policy__Common__Commit_Reason__TID(int PID, int BQID, int count);
 // Frequency
-noinline void Frequency__(long long v1, unsigned long v2);
+noinline void Frequency__(unsigned int v1, unsigned int v2);
+// Loading
+noinline void Loading__(unsigned int v1, unsigned int v2, unsigned int v3,
+	unsigned int v4, unsigned int v5, unsigned int v6);
 
 #if defined(CONFIG_GPU_MT8167) || defined(CONFIG_GPU_MT8173) ||\
 defined(CONFIG_GPU_MT6739) || defined(CONFIG_GPU_MT6761)\

@@ -1369,6 +1369,18 @@ noinline void Policy__DCS__Detail(unsigned int v1)
 	}
 }
 
+noinline void Policy__Common(unsigned int v1, unsigned int v2)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf), "commit_type=%u, policy_state=%u\n", v1, v2);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
 noinline void Policy__Common__Commit_Reason(unsigned int v1, unsigned int v2)
 {
 	char buf[256];
@@ -1395,13 +1407,28 @@ noinline void Policy__Common__Commit_Reason__TID(int PID, int BQID, int count)
 	}
 }
 
-noinline void Frequency__(long long v1, unsigned long v2)
+noinline void Frequency__(unsigned int v1, unsigned int v2)
 {
 	char buf[256];
 	int cx;
 
 	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf), "virtual_freq=%lld, real_freq=%lu\n", v1, v2);
+		cx = snprintf(buf, sizeof(buf), "virtual=%u, real=%u\n", v1, v2);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
+noinline void Loading__(unsigned int v1, unsigned int v2, unsigned int v3,
+	unsigned int v4, unsigned int v5, unsigned int v6)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf),
+			"active=%u, tiler=%u, frag=%u, comp=%u, iter=%u, mcu=%u\n",
+			v1, v2, v3, v4, v5, v6);
 		if (cx >= 0 && cx < sizeof(buf))
 			trace_printk(buf);
 	}
