@@ -281,17 +281,52 @@ static int ufs_mtk_bind_mphy(struct ufs_hba *hba)
 	return err;
 }
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+#define PERISYS_PROTECT_EN_SET_0		0x10001C84
+#define INFRASYS_PROTECT_EN_SET_1		0x10001C54
+#define VLP_TOPAXI_PROTECTEN_SET		0x1C00C214
+#endif
+
 static int ufs_mtk_setup_ref_clk(struct ufs_hba *hba, bool on)
 {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	struct arm_smccc_res res;
 	ktime_t timeout, time_checked;
 	u32 value;
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	static void __iomem *reg1, *reg2, *reg3;
+#endif
 
 	if (host->ref_clk_enabled == on)
 		return 0;
 
 	ufs_mtk_ref_clk_notify(on, PRE_CHANGE, res);
+
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	/* Only for MT6886 debug log*/
+	if (hba->irq == 161) {
+		// PERISYS_PROTECT_EN_SET_0 [0][1][2][3][4][5] != 1
+		reg1 = ioremap(PERISYS_PROTECT_EN_SET_0, sizeof(u32));
+		// INFRASYS_PROTECT_EN_SET_1 [10]  != 1
+		reg2 = ioremap(INFRASYS_PROTECT_EN_SET_1, sizeof(u32));
+		// VLP_TOPAXI_PROTECTEN_SET [6][7][8] != 1
+		reg3 = ioremap(VLP_TOPAXI_PROTECTEN_SET, sizeof(u32));
+
+		if ((readl(reg1) & 0x3F) || (readl(reg2) & BIT(10))	||
+			(readl(reg3) & 0x1C0)) {
+			dev_err(hba->dev,
+				"Detect bus protect: %s = 0x%x, %s = 0x%x, %s = 0x%x\n",
+				"0x10001C84", readl(reg1),
+				"0x10001C54", readl(reg2),
+				"0x1C00C214", readl(reg3));
+			BUG_ON(1);
+		}
+
+		// R/W 0x112B80B0
+		value = ufshcd_readl(hba, 0x80B0);
+		ufshcd_writel(hba, value, 0x80B0);
+	}
+#endif
 
 	if (on) {
 		ufshcd_writel(hba, REFCLK_REQUEST, REG_UFS_REFCLK_CTRL);
