@@ -5878,7 +5878,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 
 		DDPDBG("%s usage_list %u\n", __func__, old_mtk_state->pending_usage_list);
 		for (i = 0 ; i < MAX_CRTC ; ++i) {
-			if (priv->usage[i] == DISP_OPENING &&
+			if (priv && priv->usage[i] == DISP_OPENING &&
 					((old_mtk_state->pending_usage_list >> i) & 0x1))
 				priv->usage[i] = DISP_ENABLE;
 		}
