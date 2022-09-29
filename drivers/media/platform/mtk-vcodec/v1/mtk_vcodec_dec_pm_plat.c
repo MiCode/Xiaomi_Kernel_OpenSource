@@ -400,13 +400,15 @@ void set_vdec_opp(struct mtk_vcodec_dev *dev, u32 freq)
 	}
 }
 
-void mtk_vdec_sync_target_freq(struct mtk_vcodec_ctx *ctx)
+void mtk_vdec_dvfs_sync_vsi_data(struct mtk_vcodec_ctx *ctx)
 {
 	struct mtk_vcodec_dev *dev = ctx->dev;
 	struct vdec_inst *inst = (struct vdec_inst *) ctx->drv_handle;
 
-	if (ctx->state != MTK_STATE_ABORT)
+	if (ctx->state != MTK_STATE_ABORT) {
 		dev->vdec_dvfs_params.target_freq = inst->vsi->target_freq;
+		ctx->dec_params.operating_rate = inst->vsi->op_rate;
+	}
 	mtk_v4l2_debug(4, "[VDVFS][VDEC] sync target_freq %d %d by ctx vsi from uP",
 		dev->vdec_dvfs_params.target_freq, inst->vsi->target_freq);
 }
@@ -612,4 +614,5 @@ void mtk_vdec_unprepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long 
 {
 	in[0] = MTK_INST_END;
 }
+
 

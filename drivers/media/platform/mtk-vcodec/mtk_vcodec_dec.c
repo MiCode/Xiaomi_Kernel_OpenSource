@@ -3567,7 +3567,7 @@ static int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 				mtk_vcodec_dec_pw_on(&ctx->dev->pm);
 			mtk_vdec_prepare_vcp_dvfs_data(ctx, vcp_dvfs_data);
 			vdec_if_set_param(ctx, SET_PARAM_MMDVFS, vcp_dvfs_data);
-			mtk_vdec_sync_target_freq(ctx);
+			mtk_vdec_dvfs_sync_vsi_data(ctx);
 			if (ctx->dev->vdec_dvfs_params.target_freq < VDEC_HIGHEST_FREQ)
 				mtk_vcodec_dec_pw_off(&ctx->dev->pm);
 		} else {
@@ -3719,7 +3719,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 			mtk_vcodec_dec_pw_on(&ctx->dev->pm);
 		mtk_vdec_unprepare_vcp_dvfs_data(ctx, vcp_dvfs_data);
 		vdec_if_set_param(ctx, SET_PARAM_MMDVFS, vcp_dvfs_data);
-		mtk_vdec_sync_target_freq(ctx);
+		mtk_vdec_dvfs_sync_vsi_data(ctx);
 		if (ctx->dev->vdec_dvfs_params.target_freq < VDEC_HIGHEST_FREQ)
 			mtk_vcodec_dec_pw_off(&ctx->dev->pm);
 		mtk_v4l2_debug(0, "[%d][VDVFS][VDEC] stop ctrl DVFS in UP (freq %d)",
