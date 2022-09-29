@@ -774,7 +774,7 @@ static int32_t mddpw_drv_get_mddp_feature(void)
 	}
 
 	if (!app->reset_cnt) {
-		MDDP_S_LOG(MDDP_LL_ERR, "%s before MD ready!\n", __func__);
+		pr_notice_once("%s before MD ready!\n", __func__);
 		app->abnormal_flags |= MDDP_ABNORMAL_WIFI_DRV_GET_FEATURE_BEFORE_MD_READY;
 	}
 	return app->feature;
@@ -794,7 +794,7 @@ static int32_t mddpw_drv_get_mddp_featset(struct mddp_feature *info)
 	}
 
 	if (!app->reset_cnt) {
-		MDDP_S_LOG(MDDP_LL_ERR, "%s before MD ready!\n", __func__);
+		pr_notice_once("%s before MD ready!\n", __func__);
 		app->abnormal_flags |= MDDP_ABNORMAL_WIFI_DRV_GET_FEATURE_BEFORE_MD_READY;
 	}
 
