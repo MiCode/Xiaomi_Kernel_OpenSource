@@ -1627,34 +1627,44 @@ void mtk_ovl_get_ovl_csc_data(struct drm_crtc *crtc,
 	struct mtk_crtc_ovl_csc_config *occ)
 {
 	int blob_id;
-	struct drm_property_blob *blob;
+	struct drm_property_blob *blob1 = NULL;
+	struct drm_property_blob *blob2 = NULL;
 
 	/* get brightness 4x4 by blob_id */
 	blob_id = mtk_plane_state->prop_val[PLANE_PROP_OVL_CSC_SET_BRIGHTNESS];
 	if (blob_id) {
-		blob = drm_property_lookup_blob(crtc->dev, blob_id);
-		if (blob && blob->data) {
-			memcpy(occ->setbrightness, blob->data, sizeof(int) * 16);
+		blob1 = drm_property_lookup_blob(crtc->dev, blob_id);
+		if (blob1 && blob1->data && blob1->length == 64) {
+			memcpy(occ->setbrightness, blob1->data, blob1->length);
 			mtk_ovl_transpose(occ->setbrightness, 4);
 			*ovl_scs_en = 1;
-		} else
+		} else {
 			DDPINFO("Cannot get ovl_csc_config: SET_BRIGHTNESS, blob: %d!\n",
 										blob_id);
-		drm_property_blob_put(blob);
+			if (blob1)
+				DDPINFO("size of blob1->data is %d\n", blob1->length);
+		}
+
+		if (blob1)
+			drm_property_blob_put(blob1);
 	}
 
 	/* get colortransform 4x4 by blob_id */
 	blob_id = mtk_plane_state->prop_val[PLANE_PROP_OVL_CSC_SET_COLORTRANSFORM];
 	if (blob_id) {
-		blob = drm_property_lookup_blob(crtc->dev, blob_id);
-		if (blob && blob->data) {
-			memcpy(occ->setcolortransform, blob->data, sizeof(int) * 16);
+		blob2 = drm_property_lookup_blob(crtc->dev, blob_id);
+		if (blob2 && blob2->data && blob2->length == 64) {
+			memcpy(occ->setcolortransform, blob2->data, blob2->length);
 			mtk_ovl_transpose(occ->setcolortransform, 4);
 			*ovl_scs_en = 1;
-		} else
+		} else {
 			DDPINFO("Cannot get ovl_csc_config: SET_COLORTRANSFORM, blob: %d!\n",
 										blob_id);
-		drm_property_blob_put(blob);
+			if (blob2)
+				DDPINFO("size of blob2->data is %d\n", blob2->length);
+		}
+		if (blob2)
+			drm_property_blob_put(blob2);
 	}
 }
 
