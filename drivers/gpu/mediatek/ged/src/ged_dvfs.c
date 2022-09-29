@@ -155,6 +155,7 @@ unsigned int pre_freq, cur_freq;
 #define GED_FB_DVFS_FERQ_DROP_RATIO_LIMIT 30
 static int is_fb_dvfs_triggered;
 static int is_fallback_mode_triggered;
+static unsigned int fallback_duration;   // unit: ms
 
 void ged_dvfs_last_and_target_cb(int t_gpu_target, int boost_accum_gpu)
 {
@@ -893,6 +894,8 @@ int gx_fb_dvfs_margin = DEFAULT_DVFS_MARGIN;/* 10-bias */
 
 #define MIN_MARGIN_INC_STEP 10 /* 1% headroom */
 
+#define MAX_FALLBACK_DURATION 50   // unit: ms
+
 // default frame-based margin mode + value is 130
 static int dvfs_margin_value = DEFAULT_DVFS_MARGIN;
 unsigned int dvfs_margin_mode = DYNAMIC_MARGIN_MODE_PERF;
@@ -1206,6 +1209,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 	ged_set_backup_timer_timeout(fb_timeout);
 	ged_cancel_backup_timer();
 	is_fb_dvfs_triggered = 0;
+	fallback_duration = 0;   // reset @ FB
 	return gpu_freq_tar;
 }
 
@@ -1327,6 +1331,8 @@ static bool ged_dvfs_policy(
 		struct ged_risky_bq_info info;
 		int uncomplete_flag = 0;
 		enum gpu_dvfs_policy_state policy_state;
+		int api_sync_flag;
+		int fallback_duration_flag;
 
 		/* set t_gpu via risky BQ analysis */
 		ged_kpi_update_t_gpu_latest_uncompleted();
@@ -1413,10 +1419,11 @@ static bool ged_dvfs_policy(
 
 		// change to fallback mode if frame is overdued (only in LB)
 		policy_state = ged_get_policy_state();
+		api_sync_flag = get_api_sync_flag();
 		if (policy_state == POLICY_STATE_LB ||
 				policy_state == POLICY_STATE_LB_FALLBACK) {
 			// overwrite state & timeout value set prior to ged_dvfs_run
-			if (uncomplete_flag || get_api_sync_flag()) {
+			if (uncomplete_flag || api_sync_flag) {
 				ged_set_policy_state(POLICY_STATE_LB_FALLBACK);
 				ged_set_backup_timer_timeout(ged_get_fallback_time());
 			} else {
@@ -1426,7 +1433,7 @@ static bool ged_dvfs_policy(
 		} else if (policy_state == POLICY_STATE_FORCE_LB ||
 				policy_state == POLICY_STATE_FORCE_LB_FALLBACK) {
 			// overwrite state & timeout value set prior to ged_dvfs_run
-			if (uncomplete_flag || get_api_sync_flag()) {
+			if (uncomplete_flag || api_sync_flag) {
 				ged_set_policy_state(POLICY_STATE_FORCE_LB_FALLBACK);
 				ged_set_backup_timer_timeout(ged_get_fallback_time());
 			} else {
@@ -1434,6 +1441,19 @@ static bool ged_dvfs_policy(
 				ged_set_backup_timer_timeout(lb_timeout);
 			}
 		}
+
+		// limit fallback state duration
+		policy_state = ged_get_policy_state();
+		if (policy_state == POLICY_STATE_LB_FALLBACK ||
+				policy_state == POLICY_STATE_FORCE_LB_FALLBACK ||
+				policy_state == POLICY_STATE_FB_FALLBACK)
+			fallback_duration += g_fallback_time;   // accumulate
+		else
+			fallback_duration = 0;   // reset @ LB & FORCE_LB
+		if (fallback_duration > MAX_FALLBACK_DURATION)
+			fallback_duration_flag = 1;   // fallback exceed maximum duration
+		else
+			fallback_duration_flag = 0;
 
 		// use fix margin in fallback mode
 		policy_state = ged_get_policy_state();
@@ -1505,7 +1525,7 @@ static bool ged_dvfs_policy(
 				policy_state == POLICY_STATE_LB_FALLBACK ||
 				policy_state == POLICY_STATE_FORCE_LB_FALLBACK) &&
 				i32NewFreqID > ui32GPUFreq) {
-			if (g_fallback_frequency_adjust)
+			if (g_fallback_frequency_adjust && !fallback_duration_flag)
 				i32NewFreqID = ui32GPUFreq;
 		}
 
