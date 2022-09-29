@@ -927,18 +927,21 @@ int uarthub_core_dev0_is_txrx_idle(int rx)
 }
 
 
-#define UARTHUB_TSK_OP_LOG_SIZE     20
 #define UARTHUB_IRQ_OP_LOG_SIZE     5
-
 #define UARTHUB_LOG_IRQ_PKT_SIZE    12
 #define UARTHUB_LOG_IRQ_IDX_ADDR(addr) (addr)
 
+#define UARTHUB_TSK_OP_LOG_SIZE     20
 #define UARTHUB_LOG_TSK_PKT_SIZE    20
 #define UARTHUB_LOG_TSK_IDX_ADDR(addr) \
 		(addr + (UARTHUB_LOG_IRQ_PKT_SIZE * UARTHUB_IRQ_OP_LOG_SIZE) + 4)
 
 #define UARTHUB_CK_CNT_ADDR(addr) \
 	(UARTHUB_LOG_TSK_IDX_ADDR(addr) + (UARTHUB_TSK_OP_LOG_SIZE * UARTHUB_LOG_TSK_PKT_SIZE) + 4)
+
+
+#define UARTHUB_LAST_CK_ON(addr) (UARTHUB_CK_CNT_ADDR(addr) + 4)
+#define UARTHUB_LAST_CK_ON_CNT(addr) (UARTHUB_LAST_CK_ON(addr) + 8)
 
 #define UARTHUB_TMP_BUF_SZ  512
 char g_buf[UARTHUB_TMP_BUF_SZ];
@@ -949,6 +952,7 @@ int uarthub_core_dump_sspm_log(void)
 	void __iomem *log_addr = NULL;
 	int i, n, used;
 	uint32_t val, irq_idx = 0, tsk_idx = 0;
+	uint32_t v1, v2, v3;
 	uint64_t t;
 	char *tmp;
 
@@ -987,7 +991,7 @@ int uarthub_core_dump_sspm_log(void)
 	for (i = 0; i < UARTHUB_TSK_OP_LOG_SIZE; i++) {
 		t = UARTHUB_REG_READ(log_addr);
 		t = t << 32 | UARTHUB_REG_READ(log_addr + 4);
-		n = snprintf(tmp + used, UARTHUB_TMP_BUF_SZ - used, "[%llu:%d-%x-%x]",
+		n = snprintf(tmp + used, UARTHUB_TMP_BUF_SZ - used, "[%llu:%x-%x-%x]",
 							t,
 							UARTHUB_REG_READ(log_addr + 8),
 							UARTHUB_REG_READ(log_addr + 12),
@@ -1007,7 +1011,17 @@ int uarthub_core_dump_sspm_log(void)
 
 	log_addr = UARTHUB_CK_CNT_ADDR(sys_sram_base_remap_addr);
 	val = UARTHUB_REG_READ(log_addr);
-	pr_info("[%s] off/on cnt=[%d][%d]", __func__, (val & 0xFFFF), (val >> 16));
+
+	log_addr = UARTHUB_LAST_CK_ON(sys_sram_base_remap_addr);
+	v1 = UARTHUB_REG_READ(log_addr);
+	v2 = UARTHUB_REG_READ(log_addr + 4);
+
+	log_addr = UARTHUB_LAST_CK_ON_CNT(sys_sram_base_remap_addr);
+	v3 = UARTHUB_REG_READ(log_addr);
+
+	pr_info("[%s] off/on cnt=[%d][%d] ckon=[%x][%x] cnt=[%x]", __func__,
+			(val & 0xFFFF), (val >> 16),
+			v1, v2, v3);
 
 	return 0;
 }
