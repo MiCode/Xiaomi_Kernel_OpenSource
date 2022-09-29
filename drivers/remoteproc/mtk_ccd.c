@@ -213,40 +213,51 @@ static long ccd_unlocked_ioctl(struct file *filp, unsigned int cmd,
 		/*  TBD: Protect by lock? */
 		ccd->master_status.state = CCD_MASTER_ACTIVE;
 
-		ret = copy_to_user(user_addr, &master_obj,
-				   sizeof(master_obj));
+		if (copy_to_user(user_addr, &master_obj, sizeof(master_obj)))
+			ret = -EFAULT;
 		break;
 	case IOCTL_CCD_MASTER_DESTROY:
 		dev_dbg(ccd->dev, "enter IOCTL_CCD_MASTER_DESTROY\n");
-		ret = copy_from_user(&master_obj, user_addr,
-				     sizeof(master_obj));
+		if (copy_from_user(&master_obj, user_addr, sizeof(master_obj))) {
+			ret = -EFAULT;
+			break;
+		}
 		/*  TBD: Protect by lock? */
 		ccd->master_status.state = master_obj.state;
 		break;
 	case IOCTL_CCD_MASTER_LISTEN:
 		ccd_master_listen(ccd, &listen_obj);
 
-		ret = copy_to_user(user_addr, &listen_obj,
-				   sizeof(struct ccd_master_listen_item));
+		if (copy_to_user(user_addr, &listen_obj,
+				 sizeof(struct ccd_master_listen_item)))
+			ret = -EFAULT;
 		break;
 	case IOCTL_CCD_WORKER_READ:
-		ret = copy_from_user(&work_obj, user_addr,
-				     sizeof(struct ccd_worker_item));
-		if (ret < 0)
+		if (copy_from_user(&work_obj, user_addr,
+				sizeof(struct ccd_worker_item))) {
+			ret = -EFAULT;
 			break;
+		}
+
 		ret = ccd_worker_read(ccd, &work_obj);
 		if (ret < 0)
 			break;
-		ret = copy_to_user(user_addr, &work_obj,
-			   sizeof(struct ccd_worker_item));
+
+		if (copy_to_user(user_addr, &work_obj,
+				 sizeof(struct ccd_worker_item)))
+			ret = -EFAULT;
 		break;
 	case IOCTL_CCD_WORKER_WRITE:
-		ret = copy_from_user(&work_obj, user_addr,
-				     sizeof(struct ccd_worker_item));
+		if (copy_from_user(&work_obj, user_addr,
+				   sizeof(struct ccd_worker_item))) {
+			ret = -EFAULT;
+			break;
+		}
 		ccd_worker_write(ccd, &work_obj);
 		break;
 	default:
 		dev_info(ccd->dev, "Unknown ioctl\n");
+		ret = -EINVAL;
 		break;
 	}
 
