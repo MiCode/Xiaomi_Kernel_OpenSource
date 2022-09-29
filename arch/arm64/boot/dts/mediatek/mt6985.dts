@@ -13941,6 +13941,11 @@
 		enable_fast_charging_indicator;
 	};
 
+	logstore: logstore {
+		enabled = <1>;
+		pmic-register = <0xa0d>;
+	};
+
 	seninf_top: seninf_top@1a00e000 {
 		compatible = "mediatek,seninf-core";
 		reg = <0 0x1a00e000 0 0x18000>,
