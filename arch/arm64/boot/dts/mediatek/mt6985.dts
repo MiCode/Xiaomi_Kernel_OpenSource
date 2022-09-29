@@ -3432,6 +3432,11 @@
 		nvmem-cell-names = "mt6373_e_data";
 	};
 
+	odm: odm {
+		compatible = "simple-bus";
+		/* reserved for overlay by odm */
+	};
+
 	soc {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -8016,11 +8021,6 @@
 			clock-names = "birsz1";
 			comp-ids = <MML_BIRSZ1>;
 			comp-names = "birsz1";
-		};
-
-		odm: odm {
-			compatible = "simple-bus";
-			/* reserved for overlay by odm */
 		};
 
 		uarthub: uarthub@11005000 {
