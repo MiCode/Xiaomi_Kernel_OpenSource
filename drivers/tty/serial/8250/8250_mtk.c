@@ -864,7 +864,7 @@ int mtk8250_uart_hub_dev0_clear_rx_request(struct tty_struct *tty)
 #endif
 
 	/*dump fifo status*/
-	mtk8250_uart_start_record(tty);
+	//mtk8250_uart_start_record(tty);
 
 	/*polling tx fifo empty*/
 	mtk8250_polling_tx_fifo_empty(tty);
@@ -873,7 +873,7 @@ int mtk8250_uart_hub_dev0_clear_rx_request(struct tty_struct *tty)
 	mtk8250_clear_fifo(tty);
 
 	/*dump fifo status*/
-	mtk8250_uart_end_record(tty);
+	//mtk8250_uart_end_record(tty);
 
 exit:
 	return ret;
