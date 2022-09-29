@@ -3795,9 +3795,8 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 		if (i == rpn0_loop_num) {
 			fd_cur_cfg[FD_IMAGE_COORD] =
 				(fd_cur_cfg[FD_IMAGE_COORD] & 0xF) |
-				(((src_crop_w * 100 /
-				   (int)fd->base_para->pyramid_width * 512 /
-				   100)
+				(((src_crop_w * 512 /
+				   (int)fd->base_para->pyramid_width)
 				  << 4) &
 				 0x7FFF0);
 			fd_cur_cfg[FD_IMAGE_COORD_XY_OFST] = 0;
@@ -3809,9 +3808,8 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 		} else if (i == rpn1_loop_num) {
 			fd_cur_cfg[FD_IMAGE_COORD] =
 				(fd_cur_cfg[FD_IMAGE_COORD] & 0xF) |
-				(((src_crop_w * 100 /
-				   (int)fd->base_para->pyramid_width * 2 * 512 /
-				   100)
+				(((src_crop_w * 512 /
+				   (int)fd->base_para->pyramid_width * 2)
 				  << 4) &
 				 0x7FFF0);
 			fd_cur_cfg[FD_IMAGE_COORD_XY_OFST] = 0;
@@ -3823,9 +3821,8 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 		} else if (i == rpn2_loop_num) {
 			fd_cur_cfg[FD_IMAGE_COORD] =
 				(fd_cur_cfg[FD_IMAGE_COORD] & 0xF) |
-				(((src_crop_w * 100 /
-				   (int)fd->base_para->pyramid_width * 4 * 512 /
-				   100)
+				(((src_crop_w * 512/
+				   (int)fd->base_para->pyramid_width * 4)
 				  << 4) &
 				 0x7FFF0);
 			fd_cur_cfg[FD_IMAGE_COORD_XY_OFST] = 0;
