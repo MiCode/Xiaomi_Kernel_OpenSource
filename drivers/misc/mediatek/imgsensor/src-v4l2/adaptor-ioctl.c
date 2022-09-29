@@ -382,7 +382,9 @@ static void vcinfo2_fill_output_format(
 		} else {
 			/* stat data */
 			vcinfo2->vc_info[i].VC_OUTPUT_FORMAT =
-				(vcinfo2->vc_info[i].VC_DataType == 0x2b) ?
+				((vcinfo2->vc_info[i].VC_DataType == 0x2b) ||
+				 (vcinfo2->vc_info[i].DT_REMAP_TO_TYPE ==
+					MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10)) ?
 				SENSOR_OUTPUT_FORMAT_RAW_B :
 				SENSOR_OUTPUT_FORMAT_RAW8_B;
 		}
