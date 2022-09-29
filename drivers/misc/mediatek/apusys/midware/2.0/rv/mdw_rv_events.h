@@ -10,13 +10,13 @@
 #include <linux/tracepoint.h>
 
 #define MDW_TAG_CMD_PRINT \
-	"%s,pid=%d,tgid=%d,uid=0x%llx,kid=0x%llx,rvid=0x%llx,"\
+	"%u,pid=%d,tgid=%d,uid=0x%llx,kid=0x%llx,rvid=0x%llx,"\
 	"num_subcmds=%u,num_cmdbufs=%u,"\
 	"priority=%u,softlimit=%u,pwr_dtime=%u,"\
 	"sc_rets=0x%llx"\
 
 TRACE_EVENT(mdw_rv_cmd,
-	TP_PROTO(bool done,
+	TP_PROTO(uint32_t status,
 		pid_t pid,
 		pid_t tgid,
 		uint64_t uid,
@@ -29,13 +29,13 @@ TRACE_EVENT(mdw_rv_cmd,
 		uint32_t pwr_dtime,
 		uint64_t sc_rets
 		),
-	TP_ARGS(done, pid, tgid, uid, kid, rvid,
+	TP_ARGS(status, pid, tgid, uid, kid, rvid,
 		num_subcmds, num_cmdbufs,
 		priority, softlimit,
 		pwr_dtime, sc_rets
 		),
 	TP_STRUCT__entry(
-		__field(bool, done)
+		__field(uint32_t, status)
 		__field(pid_t, pid)
 		__field(pid_t, tgid)
 		__field(uint64_t, uid)
@@ -49,7 +49,7 @@ TRACE_EVENT(mdw_rv_cmd,
 		__field(uint64_t, sc_rets)
 	),
 	TP_fast_assign(
-		__entry->done = done;
+		__entry->status = status;
 		__entry->pid = pid;
 		__entry->tgid = tgid;
 		__entry->uid = uid;
@@ -64,7 +64,7 @@ TRACE_EVENT(mdw_rv_cmd,
 	),
 	TP_printk(
 		MDW_TAG_CMD_PRINT,
-		__entry->done == false ? "start":"end",
+		__entry->status,
 		__entry->pid,
 		__entry->tgid,
 		__entry->uid,

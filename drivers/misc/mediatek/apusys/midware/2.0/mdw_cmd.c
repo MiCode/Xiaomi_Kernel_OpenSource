@@ -12,6 +12,7 @@
 #include "mdw_cmn.h"
 #include "mdw_mem.h"
 #include "mdw_mem_pool.h"
+#include "rv/mdw_rv_tag.h"
 
 #define mdw_cmd_show(c, f) \
 	f("cmd(0x%llx/0x%llx/0x%llx/0x%llx/%d/%u)param(%u/%u/%u/%u/"\
@@ -972,6 +973,7 @@ static int mdw_cmd_ioctl_run(struct mdw_fpriv *mpriv, union mdw_cmd_args *args)
 
 exec:
 	mutex_lock(&c->mtx);
+	mdw_cmd_trace(c, MDW_CMD_ENQUE);
 	/* get sync_file fd */
 	fd = get_unused_fd_flags(O_CLOEXEC);
 	if (fd < 0) {

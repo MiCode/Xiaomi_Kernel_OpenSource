@@ -15,6 +15,7 @@
 #include "mdw_rv.h"
 #include "mdw_rv_tag.h"
 #include "mdw_rv_events.h"
+#include "mdw_cmn.h"
 
 static struct apu_tags *mdw_rv_tags;
 
@@ -22,9 +23,25 @@ enum mdw_tag_type {
 	MDW_TAG_CMD,
 };
 
+void mdw_cmd_trace(struct mdw_cmd *c, uint32_t status)
+{
+	trace_mdw_rv_cmd(status,
+		c->pid,
+		c->tgid,
+		c->uid,
+		c->kid,
+		c->rvid,
+		c->num_subcmds,
+		c->num_cmdbufs,
+		c->priority,
+		c->softlimit,
+		c->power_dtime,
+		c->einfos->c.sc_rets);
+}
+
 /* The parameters must aligned with trace_mdw_rv_cmd() */
 static void
-probe_rv_mdw_cmd(void *data, bool done, pid_t pid, pid_t tgid,
+probe_rv_mdw_cmd(void *data, uint32_t status, pid_t pid, pid_t tgid,
 		uint64_t uid, uint64_t kid, uint64_t rvid,
 		uint32_t num_subcmds, uint32_t num_cmdbufs,
 		uint32_t priority,
@@ -38,7 +55,7 @@ probe_rv_mdw_cmd(void *data, bool done, pid_t pid, pid_t tgid,
 		return;
 
 	t.type = MDW_TAG_CMD;
-	t.d.cmd.done = done;
+	t.d.cmd.status = status;
 	t.d.cmd.pid = pid;
 	t.d.cmd.tgid = tgid;
 	t.d.cmd.uid = uid;
@@ -58,13 +75,17 @@ static void mdw_rv_tag_seq_cmd(struct seq_file *s, struct mdw_rv_tag *t)
 {
 	char status[8];
 
-	if (t->d.cmd.done) {
+	if (t->d.cmd.status == MDW_CMD_DONE) {
 		if (snprintf(status, sizeof(status)-1, "%s", "done") < 0)
 			return;
-	} else {
+	} else if (t->d.cmd.status == MDW_CMD_START) {
 		if (snprintf(status, sizeof(status)-1, "%s", "start") < 0)
 			return;
+	} else if (t->d.cmd.status == MDW_CMD_ENQUE) {
+		if (snprintf(status, sizeof(status)-1, "%s", "enque") < 0)
+			return;
 	}
+
 	seq_printf(s, "%s,", status);
 	seq_printf(s, "pid=%d,tgid=%d,uid=0x%llx,kid=0x%llx,rvid=0x%llx,",
 		t->d.cmd.pid, t->d.cmd.tgid,

@@ -9,12 +9,18 @@
 #include "mdw_rv.h"
 #define MDW_TAGS_CNT (3000)
 
+enum mdw_cmd_status {
+	MDW_CMD_ENQUE,
+	MDW_CMD_START,
+	MDW_CMD_DONE,
+};
+
 struct mdw_rv_tag {
 	int type;
 
 	union mdw_tag_data {
 		struct mdw_tag_cmd {
-			bool done;
+			uint32_t status;
 			pid_t pid;
 			pid_t tgid;
 			uint64_t uid;
@@ -34,6 +40,7 @@ struct mdw_rv_tag {
 int mdw_rv_tag_init(void);
 void mdw_rv_tag_deinit(void);
 void mdw_rv_tag_show(struct seq_file *s);
+void mdw_cmd_trace(struct mdw_cmd *c, uint32_t status);
 #else
 static inline int mdw_rv_tag_init(void)
 {
@@ -44,6 +51,9 @@ static inline void mdw_rv_tag_deinit(void)
 {
 }
 static inline void mdw_rv_tag_show(struct seq_file *s)
+{
+}
+void mdw_cmd_trace(struct mdw_cmd *c, uint32_t status)
 {
 }
 #endif

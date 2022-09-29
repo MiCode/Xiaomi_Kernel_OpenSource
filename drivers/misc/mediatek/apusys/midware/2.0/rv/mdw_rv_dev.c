@@ -15,21 +15,6 @@
 
 #define MDW_CMD_IPI_TIMEOUT (10*1000) //ms
 
-static inline void mdw_rv_dev_trace(struct mdw_rv_cmd *rc, bool done)
-{
-	trace_mdw_rv_cmd(done,
-		rc->c->pid,
-		rc->c->tgid,
-		rc->c->uid,
-		rc->c->kid,
-		rc->c->rvid,
-		rc->c->num_subcmds,
-		rc->c->num_cmdbufs,
-		rc->c->priority,
-		rc->c->softlimit,
-		rc->c->power_dtime,
-		rc->c->einfos->c.sc_rets);
-}
 
 static void mdw_rv_dev_msg_insert(struct mdw_rv_dev *mrdev,
 	struct mdw_ipi_msg_sync *s_msg)
@@ -200,8 +185,7 @@ static void mdw_rv_ipi_cmplt_cmd(struct mdw_ipi_msg_sync *s_msg)
 		mdw_drv_err("cmd(%p/0x%llx) ret(%d/0x%llx) time(%llu) pid(%d/%d)\n",
 			c->mpriv, c->kid, ret, c->einfos->c.sc_rets,
 			c->einfos->c.total_us, c->pid, c->tgid);
-
-	mdw_rv_dev_trace(rc, true);
+	mdw_cmd_trace(rc->c, MDW_CMD_DONE);
 	mrdev->cmd_funcs->done(rc, ret);
 }
 
@@ -218,12 +202,12 @@ static int mdw_rv_dev_send_cmd(struct mdw_rv_dev *mrdev, struct mdw_rv_cmd *rc)
 	rc->s_msg.msg.c.size = rc->cb->size;
 	rc->s_msg.msg.c.start_ts_ns = rc->start_ts_ns;
 	rc->s_msg.complete = mdw_rv_ipi_cmplt_cmd;
-	mdw_rv_dev_trace(rc, false);
+	mdw_cmd_trace(rc->c, MDW_CMD_START);
 
 	/* send */
 	ret = mdw_rv_dev_send_msg(mrdev, &rc->s_msg);
 	if (ret) {
-		mdw_rv_dev_trace(rc, true);
+		mdw_cmd_trace(rc->c, MDW_CMD_DONE);
 		mdw_drv_err("pid(%d) send msg fail\n", task_pid_nr(current));
 	}
 
