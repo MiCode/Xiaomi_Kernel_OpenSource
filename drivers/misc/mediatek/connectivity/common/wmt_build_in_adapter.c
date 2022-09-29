@@ -209,7 +209,7 @@ void wmt_export_platform_dbg_bridge_unregister(void)
 {
 	if (g_dbg_bridge.write_cb && g_dbg_bridge.read_cb)
 		conn_dbg_dev_deinit();
-	memset(&bridge, 0, sizeof(struct wmt_platform_dbg_bridge));
+	memset(&g_dbg_bridge, 0, sizeof(struct wmt_platform_dbg_bridge));
 }
 EXPORT_SYMBOL(wmt_export_platform_dbg_bridge_unregister);
 
