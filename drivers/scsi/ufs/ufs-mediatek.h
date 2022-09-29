@@ -37,6 +37,15 @@
 #define REG_UFS_DEBUG_SEL_B3        0x22DC
 
 /*
+ * Should define in unipro.h
+ */
+#define PA_TXHSG1SYNCLENGTH	0x1552
+#define PA_TXHSG2SYNCLENGTH	0x1554
+#define PA_TXHSG3SYNCLENGTH	0x1556
+#define PA_TXHSG4SYNCLENGTH	0x15D0
+#define PA_TXHSG5SYNCLENGTH	0x15D6
+
+/*
  * Details of UIC Errors
  */
 static const u8 *ufs_uic_err_str[] = {
