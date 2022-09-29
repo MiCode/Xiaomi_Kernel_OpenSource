@@ -536,11 +536,15 @@ static int uarthub_fb_notifier_callback(struct notifier_block *nb, unsigned long
 		if (data == MTK_DISP_BLANK_UNBLANK) {
 			pr_info("[%s] %s uarthub enter UNBLANK %s\n",
 				__func__, prefix, postfix);
+#if UARTHUB_INFO_LOG
 			uarthub_core_debug_info_with_tag_worker("UNBLANK_CB");
 			uarthub_core_dump_trx_info_loop_trigger();
+#endif
 		} else if (data == MTK_DISP_BLANK_POWERDOWN) {
+#if UARTHUB_INFO_LOG
 			uarthub_core_debug_info_with_tag_worker("POWERDOWN_CB");
 			uarthub_core_dump_trx_info_loop_trigger();
+#endif
 			pr_info("[%s] %s uarthub enter early POWERDOWN %s\n",
 				__func__, prefix, postfix);
 		} else {
@@ -944,14 +948,15 @@ int uarthub_core_dev0_is_uarthub_ready(void)
 				/* 0x40 = 0xdb, esc char */
 				UARTHUB_REG_WRITE(UARTHUB_ESCAPE_DAT(uarthub_dev_base), 0xdb);
 
+#if UARTHUB_DEBUG_LOG
 				if (i != g_max_dev)
 					pr_info("[%s] UARTHUB_DEV_%d OPEN done.\n", __func__, i);
 				else
 					pr_info("[%s] UARTHUB_DEV_CMM OPEN done.\n", __func__);
+#endif
 			}
 		}
 #endif
-		uarthub_core_debug_info_with_tag(__func__);
 	}
 
 	return (state == 1) ? 1 : 0;
@@ -1290,6 +1295,10 @@ int uarthub_core_bypass_mode_ctrl(int enable)
 		UARTHUB_CLR_BIT(UARTHUB_INTFHUB_CON2(intfhub_base_remap_addr), (0x1 << 2));
 		uarthub_core_irq_clear_ctrl();
 		uarthub_core_irq_mask_ctrl(0);
+
+#if UARTHUB_INFO_LOG
+		uarthub_core_debug_info_with_tag(__func__);
+#endif
 	}
 
 	return 0;
@@ -2197,7 +2206,7 @@ int uarthub_core_is_uarthub_clk_enable(void)
 
 int uarthub_core_debug_bt_tx_timeout(const char *tag)
 {
-	const char *def_tag = "UARTHUB_DBG_APMDA";
+	const char *def_tag = "HUB_DBG_APMDA";
 	void __iomem *ap_uart_base_remap_addr = NULL;
 	void __iomem *ap_dma_uart_3_tx_int_remap_addr = NULL;
 	struct uarthub_uart_ip_debug_info debug1 = {0};
@@ -2384,7 +2393,7 @@ int uarthub_core_debug_bt_tx_timeout(const char *tag)
 
 int uarthub_core_debug_apdma_uart_info_with_tag_ex(const char *tag, int boundary)
 {
-	const char *def_tag = "UARTHUB_DBG_APMDA";
+	const char *def_tag = "HUB_DBG_APMDA";
 	void __iomem *ap_dma_uart_3_tx_int_remap_addr = NULL;
 
 	if (g_uarthub_disable == 1)
@@ -2495,7 +2504,7 @@ static int g_bk_gpio_rx_din;
 
 int uarthub_core_debug_uart_ip_info_loop_compare_diff(void)
 {
-	const char *def_tag = "UARTHUB_DBG_LOOP";
+	const char *def_tag = "HUB_DBG_LOOP";
 	struct uarthub_uart_ip_debug_info crc_bypass = {0};
 	unsigned char dmp_info_buf[DBG_LOG_LEN];
 	struct uarthub_gpio_trx_info gpio_base_addr;
@@ -2701,7 +2710,7 @@ int uarthub_core_debug_uart_ip_info_loop_compare_diff(void)
 
 int uarthub_core_debug_uart_ip_info_loop(void)
 {
-	const char *def_tag = "UARTHUB_DBG_LOOP";
+	const char *def_tag = "HUB_DBG_LOOP";
 	struct uarthub_uart_ip_debug_info debug1 = {0};
 	struct uarthub_uart_ip_debug_info debug2 = {0};
 	struct uarthub_uart_ip_debug_info debug3 = {0};
@@ -2872,7 +2881,7 @@ int uarthub_core_debug_uart_ip_info_loop(void)
 
 int uarthub_core_debug_uart_ip_info_with_tag_ex(const char *tag, int boundary)
 {
-	const char *def_tag = "UARTHUB_DBG_UIP";
+	const char *def_tag = "HUB_DBG_UIP";
 	struct uarthub_uart_ip_debug_info debug1 = {0};
 	struct uarthub_uart_ip_debug_info debug2 = {0};
 	struct uarthub_uart_ip_debug_info debug3 = {0};
@@ -2946,7 +2955,7 @@ int uarthub_core_debug_uart_ip_info_with_tag_ex(const char *tag, int boundary)
 
 	len = 0;
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"[%s][%s] op_rx_req=[d0:%d, d1:%d, d2:%d, cmm:%d]",
+		"[%s][%s] op_rx_req=[%d-%d-%d-%d]",
 		def_tag, ((tag == NULL) ? "null" : tag),
 		(((debug5.dev0 & 0xF0) >> 4) + ((debug6.dev0 & 0x3) << 4)),
 		(((debug5.dev1 & 0xF0) >> 4) + ((debug6.dev1 & 0x3) << 4)),
@@ -2954,23 +2963,19 @@ int uarthub_core_debug_uart_ip_info_with_tag_ex(const char *tag, int boundary)
 		(((debug5.cmm & 0xF0) >> 4) + ((debug6.cmm & 0x3) << 4)));
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___ip_tx_dma=[d0:%d, d1:%d, d2:%d, cmm:%d]",
+		",ip_tx_dma=[%d-%d-%d-%d]",
 		(((debug2.dev0 & 0xF0) >> 4) + ((debug3.dev0 & 0x3) << 4)),
 		(((debug2.dev1 & 0xF0) >> 4) + ((debug3.dev1 & 0x3) << 4)),
 		(((debug2.dev2 & 0xF0) >> 4) + ((debug3.dev2 & 0x3) << 4)),
 		(((debug2.cmm & 0xF0) >> 4) + ((debug3.cmm & 0x3) << 4)));
 
-	pr_info("%s\n", dmp_info_buf);
-
-	len = 0;
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"[%s][%s] tx_woffset=[d0:%d, d1:%d, d2:%d, cmm:%d]",
-		def_tag, ((tag == NULL) ? "null" : tag),
+		",tx_woffset=[%d-%d-%d-%d]",
 		(debug4.dev0 & 0x3F), (debug4.dev1 & 0x3F),
 		(debug4.dev2 & 0x3F), (debug4.cmm & 0x3F));
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___rx_woffset=[d0:%d, d1:%d, d2:%d, cmm:%d]",
+		",rx_woffset=[%d-%d-%d-%d]",
 		(debug7.dev0 & 0x3F), (debug7.dev1 & 0x3F),
 		(debug7.dev2 & 0x3F), (debug7.cmm & 0x3F));
 
@@ -2978,7 +2983,7 @@ int uarthub_core_debug_uart_ip_info_with_tag_ex(const char *tag, int boundary)
 
 	len = 0;
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"[%s][%s] xcstate(wait_for_send_xoff)=[d0:%d, d1:%d, d2:%d, cmm:%d]",
+		"[%s][%s] xcstate(wait_for_send_xoff)=[%d-%d-%d-%d]",
 		def_tag, ((tag == NULL) ? "null" : tag),
 		((((debug1.dev0 & 0xE0) >> 5) == 1) ? 1 : 0),
 		((((debug1.dev1 & 0xE0) >> 5) == 1) ? 1 : 0),
@@ -2986,7 +2991,7 @@ int uarthub_core_debug_uart_ip_info_with_tag_ex(const char *tag, int boundary)
 		((((debug1.cmm & 0xE0) >> 5) == 1) ? 1 : 0));
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___swtxdis(detect_xoff)=[d0:%d, d1:%d, d2:%d, cmm:%d]",
+		",swtxdis(detect_xoff)=[%d-%d-%d-%d]",
 		((debug8.dev0 & 0x8) >> 3), ((debug8.dev1 & 0x8) >> 3),
 		((debug8.dev2 & 0x8) >> 3), ((debug8.cmm & 0x8) >> 3));
 
@@ -3052,7 +3057,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 	struct uarthub_gpio_trx_info gpio_base_addr;
 	unsigned char dmp_info_buf[DBG_LOG_LEN];
 	int len = 0;
-	const char *def_tag = "UARTHUB_DBG";
+	const char *def_tag = "HUB_DBG";
 
 	if (g_uarthub_disable == 1)
 		return 0;
@@ -3069,7 +3074,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 	len = 0;
 	apb_bus_clk_enable = uarthub_core_is_apb_bus_clk_enable();
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"[%s][%s] APB_BUS_CLK=[0x%x]",
+		"[%s][%s] APB_BCLK=[0x%x]",
 		def_tag, ((tag == NULL) ? "null" : tag), apb_bus_clk_enable);
 
 	if (apb_bus_clk_enable == 0) {
@@ -3084,7 +3089,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		if (val >= 0) {
 			/* the expect value is 0x0 */
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___CLK_GATING=[0x%x]", val);
+				",HUB_CG=[0x%x]", val);
 		}
 	}
 
@@ -3093,7 +3098,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		if (val >= 0) {
 			/* the expect value is 0x800 */
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___PERI_CLK=[0x%x]", val);
+				",PERI_CLK=[0x%x]", val);
 		}
 	}
 
@@ -3102,8 +3107,8 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		if (val >= 0) {
 			/* the expect value is 0x800 */
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___UART_PAD_MODE=[0x%x(%s)]",
-				val, ((val == 0) ? "UARTHUB" : "UART_PAD"));
+				",UART_PAD=[0x%x(%s)]",
+				val, ((val == 0) ? "HUB" : "UART_PAD"));
 		}
 	}
 
@@ -3111,13 +3116,13 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		val = g_uarthub_plat_ic_ops->uarthub_plat_get_spm_res_info();
 		if (val == 1) {
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___SPM_RES=[PASS]");
+				",SPM_RES=[PASS]");
 		} else if (val == 0) {
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___SPM_RES=[FAIL]");
+				",SPM_RES=[FAIL]");
 		} else {
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___SPM_RES=NULL");
+				",SPM_RES=[NULL]");
 		}
 	}
 
@@ -3126,7 +3131,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		if (val >= 0) {
 			/* the expect value is 0x1 */
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___UNIVPLL_ON=[0x%x]", val);
+				",UNIVPLL_ON=[0x%x]", val);
 		}
 	}
 
@@ -3135,7 +3140,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		if (val >= 0) {
 			/* the expect value is 0x2 */
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___UART_MUX=[0x%x]", val);
+				",UART_MUX=[0x%x]", val);
 		}
 	}
 
@@ -3146,16 +3151,13 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		if (val == 0) {
 			len = 0;
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"[%s][%s] GPIO TX_MODE=0x%lx",
+				"[%s][%s] GPIO MODE=[T:0x%lx,R:0x%lx]",
 				def_tag, ((tag == NULL) ? "null" : tag),
-				gpio_base_addr.tx_mode.gpio_value);
-
-			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___RX_MODE=0x%lx",
+				gpio_base_addr.tx_mode.gpio_value,
 				gpio_base_addr.rx_mode.gpio_value);
 
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-				"___DRV=[T:0x%lx,R:0x%lx]",
+				",DRV=[T:0x%lx,R:0x%lx]",
 				gpio_base_addr.tx_drv.gpio_value, gpio_base_addr.rx_drv.gpio_value);
 
 			pr_info("%s\n", dmp_info_buf);
@@ -3164,17 +3166,19 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 
 	len = 0;
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"[%s][%s] 0xe4,INTFHUB_LOOPBACK=[0x%x]",
+		"[%s][%s] IH_LOOPBACK(0xe4)=[0x%x]",
 		def_tag, ((tag == NULL) ? "null" : tag),
 		UARTHUB_REG_READ(UARTHUB_INTFHUB_LOOPBACK(intfhub_base_remap_addr)));
 
 	val = UARTHUB_REG_READ(UARTHUB_INTFHUB_DBG(intfhub_base_remap_addr));
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___0xf4,INTFHUB_DBG=[0x%x]", val);
+		",IH_DBG(0xf4)=[0x%x]", val);
 
 	pr_info("%s\n", dmp_info_buf);
 
-	pr_info("[%s][%s] INTFHUB_DEVx_STA=[d0(0x0):0x%x, d1(0x40):0x%x, d2(0x80):0x%x]\n",
+	len = 0;
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		"[%s][%s] IH_DEVx_STA(0x0/0x40/0x80)=[0x%x-0x%x-0x%x]",
 		def_tag, ((tag == NULL) ? "null" : tag),
 		UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV0_STA(intfhub_base_remap_addr)),
 		((g_max_dev >= 2) ? UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV1_STA(
@@ -3182,15 +3186,19 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		((g_max_dev >= 3) ? UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV2_STA(
 			intfhub_base_remap_addr)) : 0));
 
-	pr_info("[%s][%s] INTFHUB_DEVx_PKT_CNT=[d0(0x1c):0x%x, d1(0x50):0x%x, d2(0x90):0x%x]\n",
-		def_tag, ((tag == NULL) ? "null" : tag),
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		",IH_DEVx_PKT_CNT(0x1c/0x50/0x90)=[0x%x-0x%x-0x%x]",
 		UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV0_PKT_CNT(intfhub_base_remap_addr)),
 		((g_max_dev >= 2) ? UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV1_PKT_CNT(
 			intfhub_base_remap_addr)) : 0),
 		((g_max_dev >= 3) ? UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV2_PKT_CNT(
 			intfhub_base_remap_addr)) : 0));
 
-	pr_info("[%s][%s] INTFHUB_DEVx_CRC_STA=[d0(0x20):0x%x, d1(0x54):0x%x, d2(0x94):0x%x]\n",
+	pr_info("%s\n", dmp_info_buf);
+
+	len = 0;
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		"[%s][%s] IH_DEVx_CRC_STA(0x20/0x54/0x94)=[0x%x-0x%x-0x%x]",
 		def_tag, ((tag == NULL) ? "null" : tag),
 		UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV0_CRC_STA(intfhub_base_remap_addr)),
 		((g_max_dev >= 2) ? UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV1_CRC_STA(
@@ -3198,35 +3206,37 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		((g_max_dev >= 3) ? UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV2_CRC_STA(
 			intfhub_base_remap_addr)) : 0));
 
-	pr_info("[%s][%s] INTFHUB_DEVx_RX_ERR_CRC_STA=[d0(0x10):0x%x, d1(0x14):0x%x, d2(0x18):0x%x]\n",
-		def_tag, ((tag == NULL) ? "null" : tag),
+	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+		",IH_DEVx_RX_ERR_CRC_STA(0x10/0x14/0x18)=[0x%x-0x%x-0x%x]",
 		UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV0_RX_ERR_CRC_STA(intfhub_base_remap_addr)),
 		((g_max_dev >= 2) ? UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV1_RX_ERR_CRC_STA(
 			intfhub_base_remap_addr)) : 0),
 		((g_max_dev >= 3) ? UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV2_RX_ERR_CRC_STA(
 			intfhub_base_remap_addr)) : 0));
 
+	pr_info("%s\n", dmp_info_buf);
+
 	len = 0;
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"[%s][%s] 0x30,INTFHUB_DEV0_IRQ_STA=[0x%x]",
+		"[%s][%s] IH_DEV0_IRQ_STA(0x30)=[0x%x]",
 		def_tag, ((tag == NULL) ? "null" : tag),
 		UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV0_IRQ_STA(intfhub_base_remap_addr)));
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		", 0xd0,INTFHUB_IRQ_STA=[0x%x]",
+		",IFH_IRQ_STA(0xd0)=[0x%x]",
 		UARTHUB_REG_READ(UARTHUB_INTFHUB_IRQ_STA(intfhub_base_remap_addr)));
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		", 0xd8,INTFHUB_IRQ_MASK=[0x%x]",
+		",IFH_IRQ_MASK(0xd8)=[0x%x]",
 		UARTHUB_REG_READ(UARTHUB_INTFHUB_IRQ_MASK(intfhub_base_remap_addr)));
 
 	val = UARTHUB_REG_READ(UARTHUB_INTFHUB_STA0(intfhub_base_remap_addr));
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		", 0xe0,INTFHUB_STA0=[0x%x]", val);
+		",IFH_STA0(0xe0)=[0x%x]", val);
 
 	val = UARTHUB_REG_READ(UARTHUB_INTFHUB_CON2(intfhub_base_remap_addr));
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		", 0xc8,INTFHUB_CON2=[0x%x]", val);
+		",IFH_CON2(0xc8)=[0x%x]", val);
 
 	pr_info("%s\n", dmp_info_buf);
 
@@ -3239,7 +3249,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 
 	len = 0;
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"[%s][%s] 0x9c,FEATURE_SEL=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
+		"[%s][%s] FEATURE_SEL(0x9c)=[0x%x-0x%x-0x%x-0x%x]",
 		def_tag, ((tag == NULL) ? "null" : tag),
 		UARTHUB_REG_READ(UARTHUB_FEATURE_SEL(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
@@ -3249,7 +3259,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		UARTHUB_REG_READ(UARTHUB_FEATURE_SEL(cmm_base_remap_addr)));
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___0x24,HIGHSPEED=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
+		",HIGHSPEED(0x24)=[0x%x-0x%x-0x%x-0x%x]",
 		UARTHUB_REG_READ(UARTHUB_HIGHSPEED(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
 			UARTHUB_REG_READ(UARTHUB_HIGHSPEED(dev1_base_remap_addr)) : 0),
@@ -3261,7 +3271,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 
 	len = 0;
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"[%s][%s] 0x28,SAMPLE_COUNT=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
+		"[%s][%s] SAMPLE_CNT(0x28)=[0x%x-0x%x-0x%x-0x%x]",
 		def_tag, ((tag == NULL) ? "null" : tag),
 		UARTHUB_REG_READ(UARTHUB_SAMPLE_COUNT(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
@@ -3271,7 +3281,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		UARTHUB_REG_READ(UARTHUB_SAMPLE_COUNT(cmm_base_remap_addr)));
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___0x2c,SAMPLE_POINT=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
+		",SAMPLE_PT(0x2c)=[0x%x-0x%x-0x%x-0x%x]",
 		UARTHUB_REG_READ(UARTHUB_SAMPLE_POINT(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
 			UARTHUB_REG_READ(UARTHUB_SAMPLE_POINT(dev1_base_remap_addr)) : 0),
@@ -3280,7 +3290,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		UARTHUB_REG_READ(UARTHUB_SAMPLE_POINT(cmm_base_remap_addr)));
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___0x90,DLL=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
+		",DLL(0x90)=[0x%x-0x%x-0x%x-0x%x]",
 		UARTHUB_REG_READ(UARTHUB_DLL(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
 			UARTHUB_REG_READ(UARTHUB_DLL(dev1_base_remap_addr)) : 0),
@@ -3292,7 +3302,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 
 	len = 0;
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"[%s][%s] 0x54,FRACDIV_L=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
+		"[%s][%s] FRACDIV_L(0x54)=[0x%x-0x%x-0x%x-0x%x]",
 		def_tag, ((tag == NULL) ? "null" : tag),
 		UARTHUB_REG_READ(UARTHUB_FRACDIV_L(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
@@ -3302,7 +3312,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		UARTHUB_REG_READ(UARTHUB_FRACDIV_L(cmm_base_remap_addr)));
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___0x58,FRACDIV_M=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
+		",FRACDIV_M(0x58)=[0x%x-0x%x-0x%x-0x%x]",
 		UARTHUB_REG_READ(UARTHUB_FRACDIV_M(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
 			UARTHUB_REG_READ(UARTHUB_FRACDIV_M(dev1_base_remap_addr)) : 0),
@@ -3311,7 +3321,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		UARTHUB_REG_READ(UARTHUB_FRACDIV_M(cmm_base_remap_addr)));
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___0x4c,DMA_EN=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
+		",DMA_EN(0x4c)=[0x%x-0x%x-0x%x-0x%x]",
 		UARTHUB_REG_READ(UARTHUB_DMA_EN(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
 			UARTHUB_REG_READ(UARTHUB_DMA_EN(dev1_base_remap_addr)) : 0),
@@ -3323,7 +3333,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 
 	len = 0;
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"[%s][%s] 0x08,IIR_FCR=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
+		"[%s][%s] IIR_FCR(0x8)=[0x%x-0x%x-0x%x-0x%x]",
 		def_tag, ((tag == NULL) ? "null" : tag),
 		UARTHUB_REG_READ(UARTHUB_IIR_FCR(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
@@ -3333,7 +3343,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		UARTHUB_REG_READ(UARTHUB_IIR_FCR(cmm_base_remap_addr)));
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___0xc,LCR=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
+		",LCR(0xc)=[0x%x-0x%x-0x%x-0x%x]",
 		UARTHUB_REG_READ(UARTHUB_LCR(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
 			UARTHUB_REG_READ(UARTHUB_LCR(dev1_base_remap_addr)) : 0),
@@ -3342,7 +3352,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		UARTHUB_REG_READ(UARTHUB_LCR(cmm_base_remap_addr)));
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___0x98,EFR=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
+		",EFR(0x98)=[0x%x-0x%x-0x%x-0x%x]",
 		UARTHUB_REG_READ(UARTHUB_EFR(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
 			UARTHUB_REG_READ(UARTHUB_EFR(dev1_base_remap_addr)) : 0),
@@ -3354,7 +3364,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 
 	len = 0;
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"[%s][%s] 0xa0,XON1=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
+		"[%s][%s] XON1(0xa0)=[0x%x-0x%x-0x%x-0x%x]",
 		def_tag, ((tag == NULL) ? "null" : tag),
 		UARTHUB_REG_READ(UARTHUB_XON1(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
@@ -3364,7 +3374,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		UARTHUB_REG_READ(UARTHUB_XON1(cmm_base_remap_addr)));
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___0xa8,XOFF1=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
+		",XOFF1(0xa8)=[0x%x-0x%x-0x%x-0x%x]",
 		UARTHUB_REG_READ(UARTHUB_XOFF1(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
 			UARTHUB_REG_READ(UARTHUB_XOFF1(dev1_base_remap_addr)) : 0),
@@ -3373,7 +3383,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		UARTHUB_REG_READ(UARTHUB_XOFF1(cmm_base_remap_addr)));
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___0xa4,XON2=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
+		",XON2(0xa4)=[0x%x-0x%x-0x%x-0x%x]",
 		UARTHUB_REG_READ(UARTHUB_XON2(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
 			UARTHUB_REG_READ(UARTHUB_XON2(dev1_base_remap_addr)) : 0),
@@ -3382,7 +3392,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		UARTHUB_REG_READ(UARTHUB_XON2(cmm_base_remap_addr)));
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___0xac,XOFF2=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
+		",XOFF2(0xac)=[0x%x-0x%x-0x%x-0x%x]",
 		UARTHUB_REG_READ(UARTHUB_XOFF2(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
 			UARTHUB_REG_READ(UARTHUB_XOFF2(dev1_base_remap_addr)) : 0),
@@ -3394,7 +3404,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 
 	len = 0;
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"[%s][%s] 0x44,ESCAPE_EN=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
+		"[%s][%s] ESCAPE_EN(0x44)=[0x%x-0x%x-0x%x-0x%x]",
 		def_tag, ((tag == NULL) ? "null" : tag),
 		UARTHUB_REG_READ(UARTHUB_ESCAPE_EN(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
@@ -3404,7 +3414,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		UARTHUB_REG_READ(UARTHUB_ESCAPE_EN(cmm_base_remap_addr)));
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___0x40,ESCAPE_DAT=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
+		",ESCAPE_DAT(0x40)=[0x%x-0x%x-0x%x-0x%x]",
 		UARTHUB_REG_READ(UARTHUB_ESCAPE_DAT(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
 			UARTHUB_REG_READ(UARTHUB_ESCAPE_DAT(dev1_base_remap_addr)) : 0),
@@ -3416,7 +3426,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 
 	len = 0;
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"[%s][%s] 0x5c,FCR_RD=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
+		"[%s][%s] FCR_RD(0x5c)=[0x%x-0x%x-0x%x-0x%x]",
 		def_tag, ((tag == NULL) ? "null" : tag),
 		UARTHUB_REG_READ(UARTHUB_FCR_RD(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
@@ -3426,7 +3436,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		UARTHUB_REG_READ(UARTHUB_FCR_RD(cmm_base_remap_addr)));
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		", 0x10,MCR=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
+		",MCR(0x10)=[0x%x-0x%x-0x%x-0x%x]",
 		UARTHUB_REG_READ(UARTHUB_MCR(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
 			UARTHUB_REG_READ(UARTHUB_MCR(dev1_base_remap_addr)) : 0),
@@ -3435,7 +3445,7 @@ int uarthub_core_debug_info_with_tag_no_spinlock(const char *tag)
 		UARTHUB_REG_READ(UARTHUB_MCR(cmm_base_remap_addr)));
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		", 0x14,LSR=[d0:0x%x, d1:0x%x, d2:0x%x, cmm:0x%x]",
+		",LSR(0x14)=[0x%x-0x%x-0x%x-0x%x]",
 		UARTHUB_REG_READ(UARTHUB_LSR(dev0_base_remap_addr)),
 		((g_max_dev >= 2) ?
 			UARTHUB_REG_READ(UARTHUB_LSR(dev1_base_remap_addr)) : 0),
@@ -3463,11 +3473,30 @@ int uarthub_core_debug_dump_tx_rx_count(const char *tag, int trigger_point)
 	static int d1_wait_for_send_xoff;
 	static int d2_wait_for_send_xoff;
 	static int cmm_wait_for_send_xoff;
+	static int d0_detect_xoff;
+	static int d1_detect_xoff;
+	static int d2_detect_xoff;
+	static int cmm_detect_xoff;
+	static int d0_rx_bcnt;
+	static int d1_rx_bcnt;
+	static int d2_rx_bcnt;
+	static int cmm_rx_bcnt;
+	static int d0_tx_bcnt;
+	static int d1_tx_bcnt;
+	static int d2_tx_bcnt;
+	static int cmm_tx_bcnt;
 	static int pre_trigger_point = -1;
 	struct uarthub_uart_ip_debug_info pkt_cnt = {0};
 	struct uarthub_uart_ip_debug_info debug1 = {0};
+	struct uarthub_uart_ip_debug_info debug2 = {0};
+	struct uarthub_uart_ip_debug_info debug3 = {0};
+	struct uarthub_uart_ip_debug_info debug5 = {0};
+	struct uarthub_uart_ip_debug_info debug6 = {0};
+	struct uarthub_uart_ip_debug_info debug8 = {0};
 	int pkt_cnt_readable = 1, debug1_readable = 1;
-	const char *def_tag = "UARTHUB_DBG";
+	const char *def_tag = "HUB_DBG";
+	unsigned char dmp_info_buf[DBG_LOG_LEN];
+	int len = 0;
 
 	if (trigger_point != DUMP0 && trigger_point != DUMP1) {
 		pr_notice("[%s] trigger_point = %d is invalid\n", __func__, trigger_point);
@@ -3475,13 +3504,26 @@ int uarthub_core_debug_dump_tx_rx_count(const char *tag, int trigger_point)
 	}
 
 	if (trigger_point == DUMP1 && pre_trigger_point == 0) {
-		pr_info("[%s][%s], dump0, [rx cnt, tx cnt]=[%d, %d][%d, %d][%d, %d], wait_for_send_xoff=[%d, %d, %d, %d]\n",
+		len = 0;
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			"[%s][%s], dump0, pcnt=[R:%d-%d-%d,T:%d-%d-%d]",
 			def_tag, ((tag == NULL) ? "null" : tag),
-			cur_rx_pkt_cnt_d0, cur_tx_pkt_cnt_d0,
-			cur_rx_pkt_cnt_d1, cur_tx_pkt_cnt_d1,
-			cur_rx_pkt_cnt_d2, cur_tx_pkt_cnt_d2,
+			cur_rx_pkt_cnt_d0, cur_rx_pkt_cnt_d1, cur_rx_pkt_cnt_d2,
+			cur_tx_pkt_cnt_d0, cur_tx_pkt_cnt_d1, cur_tx_pkt_cnt_d2);
+
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",bcnt=[R:%d-%d-%d-%d,T:%d-%d-%d-%d]",
+			d0_rx_bcnt, d1_rx_bcnt, d2_rx_bcnt, cmm_rx_bcnt,
+			d0_tx_bcnt, d1_tx_bcnt, d2_tx_bcnt, cmm_tx_bcnt);
+
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",wsend_xoff=[%d-%d-%d-%d],det_xoff=[%d-%d-%d-%d]",
 			d0_wait_for_send_xoff, d1_wait_for_send_xoff,
-			d2_wait_for_send_xoff, cmm_wait_for_send_xoff);
+			d2_wait_for_send_xoff, cmm_wait_for_send_xoff,
+			d0_detect_xoff, d1_detect_xoff,
+			d2_detect_xoff, cmm_detect_xoff);
+
+		pr_info("%s\n", dmp_info_buf);
 	}
 
 	if (mutex_lock_killable(&g_clear_trx_req_lock))
@@ -3520,27 +3562,76 @@ int uarthub_core_debug_dump_tx_rx_count(const char *tag, int trigger_point)
 	}
 	if (debug1_readable) {
 		debug1.dev0 = UARTHUB_REG_READ(UARTHUB_DEBUG_1(dev0_base_remap_addr));
-		if (g_max_dev >= 2)
+		debug2.dev0 = UARTHUB_REG_READ(UARTHUB_DEBUG_2(dev0_base_remap_addr));
+		debug3.dev0 = UARTHUB_REG_READ(UARTHUB_DEBUG_3(dev0_base_remap_addr));
+		debug5.dev0 = UARTHUB_REG_READ(UARTHUB_DEBUG_5(dev0_base_remap_addr));
+		debug6.dev0 = UARTHUB_REG_READ(UARTHUB_DEBUG_6(dev0_base_remap_addr));
+		debug8.dev0 = UARTHUB_REG_READ(UARTHUB_DEBUG_8(dev0_base_remap_addr));
+		if (g_max_dev >= 2) {
 			debug1.dev1 = UARTHUB_REG_READ(UARTHUB_DEBUG_1(dev1_base_remap_addr));
-		if (g_max_dev >= 3)
+			debug2.dev1 = UARTHUB_REG_READ(UARTHUB_DEBUG_2(dev1_base_remap_addr));
+			debug3.dev1 = UARTHUB_REG_READ(UARTHUB_DEBUG_3(dev1_base_remap_addr));
+			debug5.dev1 = UARTHUB_REG_READ(UARTHUB_DEBUG_5(dev1_base_remap_addr));
+			debug6.dev1 = UARTHUB_REG_READ(UARTHUB_DEBUG_6(dev1_base_remap_addr));
+			debug8.dev1 = UARTHUB_REG_READ(UARTHUB_DEBUG_8(dev1_base_remap_addr));
+		}
+		if (g_max_dev >= 3) {
 			debug1.dev2 = UARTHUB_REG_READ(UARTHUB_DEBUG_1(dev2_base_remap_addr));
+			debug2.dev2 = UARTHUB_REG_READ(UARTHUB_DEBUG_2(dev2_base_remap_addr));
+			debug3.dev2 = UARTHUB_REG_READ(UARTHUB_DEBUG_3(dev2_base_remap_addr));
+			debug5.dev2 = UARTHUB_REG_READ(UARTHUB_DEBUG_5(dev2_base_remap_addr));
+			debug6.dev2 = UARTHUB_REG_READ(UARTHUB_DEBUG_6(dev2_base_remap_addr));
+			debug8.dev2 = UARTHUB_REG_READ(UARTHUB_DEBUG_8(dev2_base_remap_addr));
+		}
 		debug1.cmm = UARTHUB_REG_READ(UARTHUB_DEBUG_1(cmm_base_remap_addr));
+		debug2.cmm = UARTHUB_REG_READ(UARTHUB_DEBUG_2(cmm_base_remap_addr));
+		debug3.cmm = UARTHUB_REG_READ(UARTHUB_DEBUG_3(cmm_base_remap_addr));
+		debug5.cmm = UARTHUB_REG_READ(UARTHUB_DEBUG_5(cmm_base_remap_addr));
+		debug6.cmm = UARTHUB_REG_READ(UARTHUB_DEBUG_6(cmm_base_remap_addr));
+		debug8.cmm = UARTHUB_REG_READ(UARTHUB_DEBUG_8(cmm_base_remap_addr));
 
 		d0_wait_for_send_xoff = ((((debug1.dev0 & 0xE0) >> 5) == 1) ? 1 : 0);
 		d1_wait_for_send_xoff = ((((debug1.dev1 & 0xE0) >> 5) == 1) ? 1 : 0);
 		d2_wait_for_send_xoff = ((((debug1.dev2 & 0xE0) >> 5) == 1) ? 1 : 0);
 		cmm_wait_for_send_xoff = ((((debug1.cmm & 0xE0) >> 5) == 1) ? 1 : 0);
+
+		d0_detect_xoff = ((debug8.dev0 & 0x8) >> 3);
+		d1_detect_xoff = ((debug8.dev1 & 0x8) >> 3);
+		d2_detect_xoff = ((debug8.dev2 & 0x8) >> 3);
+		cmm_detect_xoff = ((debug8.cmm & 0x8) >> 3);
+
+		d0_rx_bcnt = (((debug5.dev0 & 0xF0) >> 4) + ((debug6.dev0 & 0x3) << 4));
+		d1_rx_bcnt = (((debug5.dev1 & 0xF0) >> 4) + ((debug6.dev1 & 0x3) << 4));
+		d2_rx_bcnt = (((debug5.dev2 & 0xF0) >> 4) + ((debug6.dev2 & 0x3) << 4));
+		cmm_rx_bcnt = (((debug5.cmm & 0xF0) >> 4) + ((debug6.cmm & 0x3) << 4));
+		d0_tx_bcnt = (((debug2.dev0 & 0xF0) >> 4) + ((debug3.dev0 & 0x3) << 4));
+		d1_tx_bcnt = (((debug2.dev1 & 0xF0) >> 4) + ((debug3.dev1 & 0x3) << 4));
+		d2_tx_bcnt = (((debug2.dev2 & 0xF0) >> 4) + ((debug3.dev2 & 0x3) << 4));
+		cmm_tx_bcnt = (((debug2.cmm & 0xF0) >> 4) + ((debug3.cmm & 0x3) << 4));
 	}
 	mutex_unlock(&g_clear_trx_req_lock);
 
 	if (trigger_point != DUMP0) {
-		pr_info("[%s][%s], dump1, [rx cnt, tx cnt]=[%d, %d][%d, %d][%d, %d], wait_for_send_xoff=[%d, %d, %d, %d]\n",
+		len = 0;
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			"[%s][%s], dump1, pcnt=[R:%d-%d-%d,T:%d-%d-%d]",
 			def_tag, ((tag == NULL) ? "null" : tag),
-			cur_rx_pkt_cnt_d0, cur_tx_pkt_cnt_d0,
-			cur_rx_pkt_cnt_d1, cur_tx_pkt_cnt_d1,
-			cur_rx_pkt_cnt_d2, cur_tx_pkt_cnt_d2,
+			cur_rx_pkt_cnt_d0, cur_rx_pkt_cnt_d1, cur_rx_pkt_cnt_d2,
+			cur_tx_pkt_cnt_d0, cur_tx_pkt_cnt_d1, cur_tx_pkt_cnt_d2);
+
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",bcnt=[R:%d-%d-%d-%d,T:%d-%d-%d-%d]",
+			d0_rx_bcnt, d1_rx_bcnt, d2_rx_bcnt, cmm_rx_bcnt,
+			d0_tx_bcnt, d1_tx_bcnt, d2_tx_bcnt, cmm_tx_bcnt);
+
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",wt_send_xoff=[%d-%d-%d-%d],det_xoff=[%d-%d-%d-%d]",
 			d0_wait_for_send_xoff, d1_wait_for_send_xoff,
-			d2_wait_for_send_xoff, cmm_wait_for_send_xoff);
+			d2_wait_for_send_xoff, cmm_wait_for_send_xoff,
+			d0_detect_xoff, d1_detect_xoff,
+			d2_detect_xoff, cmm_detect_xoff);
+
+		pr_info("%s\n", dmp_info_buf);
 	}
 
 	pre_trigger_point = trigger_point;
