@@ -14138,6 +14138,10 @@ unsigned int mtk_ddp_ovl_resource_list(struct mtk_drm_private *priv, unsigned in
 		} else {
 			/* MT6985 has 4 continue OVL comp */
 			_ovl_list = vmalloc(4 * sizeof(unsigned int));
+			if (!_ovl_list) {
+				DDPPR_ERR("%s errors with NULL _ovl_list\n", __func__);
+				return -ENOMEM;
+			}
 			_ovl_list[0] = DDP_COMPONENT_OVL0_2L;
 			_ovl_list[1] = DDP_COMPONENT_OVL1_2L;
 			_ovl_list[2] = DDP_COMPONENT_OVL2_2L;

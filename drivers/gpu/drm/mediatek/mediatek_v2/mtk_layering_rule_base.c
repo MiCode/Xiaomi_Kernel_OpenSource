@@ -2463,6 +2463,12 @@ static int mtk_lye_get_comp_id(int disp_idx, int disp_list, struct drm_device *d
 			return DDP_COMPONENT_OVL0;
 		else if (get_layering_opt(LYE_OPT_SPDA_OVL_SWITCH)) {
 			comp_id_nr = mtk_ddp_ovl_resource_list(priv, &comp_id_list);
+
+			if (comp_id_nr > DDP_COMPONENT_ID_MAX) {
+				DDPPR_ERR("%s gets invalid ovl comp_id_list\n", __func__);
+				return comp_id_nr;
+			}
+
 			if (HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
 				HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) >= layer_map_idx) {
 				temp = priv->ovl_usage[disp_idx];
@@ -2809,6 +2815,11 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 			mtk_lye_get_comp_id(disp_idx, disp_info->disp_list, drm_dev, layer_map_idx);
 		comp_state.lye_id =
 			mtk_lye_get_lye_id(disp_idx, disp_info->disp_list, drm_dev, layer_map_idx);
+
+		if (comp_state.comp_id > DDP_COMPONENT_ID_MAX) {
+			DDPPR_ERR("%s get invalid comp_id %d\n", __func__, comp_state.comp_id);
+			break;
+		}
 
 		if (is_extended_layer(layer_info)) {
 			comp_state.ext_lye_id = LYE_EXT0 + ext_cnt;
