@@ -115,10 +115,10 @@ static ssize_t cache_status_show(struct device_driver *driver, char *buf)
 	nr_err = atomic_read(&cache_parity.nr_err);
 
 	if (nr_err)
-		return snprintf(buf, PAGE_SIZE, "True, %u times (%llu ns)\n",
+		return scnprintf(buf, PAGE_SIZE, "True, %u times (%llu ns)\n",
 				nr_err, cache_parity.timestampe);
 	else
-		return snprintf(buf, PAGE_SIZE, "False\n");
+		return scnprintf(buf, PAGE_SIZE, "False\n");
 }
 
 static DRIVER_ATTR_RO(cache_status);
@@ -138,21 +138,21 @@ static void cache_parity_irq_work(struct work_struct *w)
 	n = 0;
 
 	if (cache_parity.ver == 1) {
-		n += snprintf(buf + n, PAGE_SIZE - n, "cache parity error,");
+		n += scnprintf(buf + n, PAGE_SIZE - n, "cache parity error,");
 		if (n > PAGE_SIZE)
 			goto call_aee;
 
 		for (i = 0; i < cache_parity.nr_irq; i++) {
 			if (!cache_parity.record[i].v1.is_err)
 				continue;
-			n += snprintf(buf + n, PAGE_SIZE - n, "%s:%d, %s:0x%x ",
+			n += scnprintf(buf + n, PAGE_SIZE - n, "%s:%d, %s:0x%x ",
 				"irq", cache_parity.record[i].v1.irq,
 				"status", cache_parity.record[i].v1.status);
 			if (n > PAGE_SIZE)
 				goto call_aee;
 		}
 	} else if (cache_parity.ver == 2) {
-		n += snprintf(buf + n, PAGE_SIZE - n, "ECC errors(");
+		n += scnprintf(buf + n, PAGE_SIZE - n, "ECC errors(");
 		if (n > PAGE_SIZE)
 			goto call_aee;
 
@@ -163,24 +163,24 @@ static void cache_parity_irq_work(struct work_struct *w)
 			}
 		}
 		if (status & ECC_UE_BIT)
-			n += snprintf(buf + n, PAGE_SIZE - n, "UE");
+			n += scnprintf(buf + n, PAGE_SIZE - n, "UE");
 		else if (status & ECC_CE_BIT)
-			n += snprintf(buf + n, PAGE_SIZE - n, "CE");
+			n += scnprintf(buf + n, PAGE_SIZE - n, "CE");
 		else if (status & ECC_DE_BIT)
-			n += snprintf(buf + n, PAGE_SIZE - n, "DE");
+			n += scnprintf(buf + n, PAGE_SIZE - n, "DE");
 		else
-			n += snprintf(buf + n, PAGE_SIZE - n, "NA");
+			n += scnprintf(buf + n, PAGE_SIZE - n, "NA");
 		if (n > PAGE_SIZE)
 			goto call_aee;
 
-		n += snprintf(buf + n, PAGE_SIZE - n, "),");
+		n += scnprintf(buf + n, PAGE_SIZE - n, "),");
 		if (n > PAGE_SIZE)
 			goto call_aee;
 
 		for (i = 0; i < cache_parity.nr_irq; i++) {
 			if (!cache_parity.record[i].v2.is_err)
 				continue;
-			n += snprintf(buf + n, PAGE_SIZE - n,
+			n += scnprintf(buf + n, PAGE_SIZE - n,
 				"%s:%d,%s:0x%016llx,%s:0x%016llx ",
 				"irq", cache_parity.record[i].v2.irq,
 				"misc0_el1",
@@ -191,7 +191,7 @@ static void cache_parity_irq_work(struct work_struct *w)
 				goto call_aee;
 		}
 	} else if (cache_parity.ver == 3) {
-		n += snprintf(buf + n, PAGE_SIZE - n, "ECC errors(");
+		n += scnprintf(buf + n, PAGE_SIZE - n, "ECC errors(");
 		if (n > PAGE_SIZE)
 			goto call_aee;
 
@@ -202,24 +202,24 @@ static void cache_parity_irq_work(struct work_struct *w)
 			}
 		}
 		if (status & ECC_UE_BIT)
-			n += snprintf(buf + n, PAGE_SIZE - n, "UE");
+			n += scnprintf(buf + n, PAGE_SIZE - n, "UE");
 		else if (status & ECC_CE_BIT)
-			n += snprintf(buf + n, PAGE_SIZE - n, "CE");
+			n += scnprintf(buf + n, PAGE_SIZE - n, "CE");
 		else if (status & ECC_DE_BIT)
-			n += snprintf(buf + n, PAGE_SIZE - n, "DE");
+			n += scnprintf(buf + n, PAGE_SIZE - n, "DE");
 		else
-			n += snprintf(buf + n, PAGE_SIZE - n, "NA");
+			n += scnprintf(buf + n, PAGE_SIZE - n, "NA");
 		if (n > PAGE_SIZE)
 			goto call_aee;
 
-		n += snprintf(buf + n, PAGE_SIZE - n, "),");
+		n += scnprintf(buf + n, PAGE_SIZE - n, "),");
 		if (n > PAGE_SIZE)
 			goto call_aee;
 
 		for (i = 0; i < cache_parity.nr_irq; i++) {
 			if (!cache_parity.record[i].v3.is_err)
 				continue;
-			n += snprintf(buf + n, PAGE_SIZE - n,
+			n += scnprintf(buf + n, PAGE_SIZE - n,
 				"%s:%d,%s:0x%016llx,%s:0x%016llx ",
 				"irq", cache_parity.record[i].v3.irq,
 				"misc0_el1",
@@ -230,15 +230,20 @@ static void cache_parity_irq_work(struct work_struct *w)
 				goto call_aee;
 		}
 	} else {
+		buf[0] = '\0';
 		pr_debug("Unknown Cache Error Irq\n");
 	}
 
 call_aee:
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-	aee_kernel_exception("cache parity", buf,
-				"CRDISPATCH_KEY:Cache Parity Issue");
+	/* Note: the length of message printed by aee_kernel_exception is limited by
+	 * KERNEL_REPORT_LENGTH (should be 344), if oversize, it will be cut off.
+	 */
+	aee_kernel_exception("cache parity", "%s\n%s", buf, "CRDISPATCH_KEY:Cache Parity Issue");
 #endif
 	pr_debug("CRDISPATCH_KEY:Cache Parity Issue");
+	if (!buf)
+		kfree(buf);
 }
 
 #ifdef CONFIG_ARM64
