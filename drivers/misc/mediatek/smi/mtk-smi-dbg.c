@@ -547,6 +547,8 @@ static int smi_bus_status_print(struct seq_file *seq, void *data)
 	struct mtk_smi_dbg	*smi = gsmi;
 
 	seq_puts(seq, "dump SMI bus status\n");
+
+	spin_lock_irqsave(&smi_lock.lock, smi_lock.flags);
 	for (j = 0; j < PRINT_NR; j++) {
 		for (i = 0; i < ARRAY_SIZE(smi->larb); i++)
 			mtk_smi_dbg_print_debugfs(seq, SMI_LARB, i);
@@ -557,6 +559,7 @@ static int smi_bus_status_print(struct seq_file *seq, void *data)
 		for (i = 0; i < ARRAY_SIZE(smi->rsi); i++)
 			mtk_smi_dbg_print_debugfs(seq, SMI_RSI, i);
 	}
+	spin_unlock_irqrestore(&smi_lock.lock, smi_lock.flags);
 
 	return 0;
 }
