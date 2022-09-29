@@ -1618,6 +1618,7 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 	u32 mf_clip_h;
 	u32 mf_offset_w_1;
 	u32 mf_offset_h_1;
+	u32 gmcif_con = rdma_frm->gmcif_con;
 
 	/* Following data retrieve from tile calc result */
 	u64 in_xs = tile->in.xs;
@@ -1631,9 +1632,17 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 	const u32 crop_ofst_x = tile->luma.x;
 	const u32 crop_ofst_y = tile->luma.y;
 
-	if (cfg->info.mode == MML_MODE_RACING) {
+	if (unlikely(mml_racing_urgent)) {
+		if (mml_racing_urgent == 1)
+			gmcif_con |= BIT(15);	/* URGENT_EN: always */
+		else if (mml_racing_urgent == 2)
+			gmcif_con |= BIT(13);	/* ULTRA_EN: always */
+		rdma_write(pkt, base_pa, hw_pipe, CPR_RDMA_GMCIF_CON,
+			gmcif_con, write_sec);
+		rdma_frm->ultra_off = false;
+	} else if (cfg->info.mode == MML_MODE_RACING) {
 		if (!rdma_frm->ultra_off && !rdma_check_ultra_tile(ccfg, cfg, idx)) {
-			u32 gmcif_con = rdma_frm->gmcif_con;
+			gmcif_con = rdma_frm->gmcif_con;
 
 			gmcif_con ^= BIT(13) | BIT(12);
 			rdma_write(pkt, base_pa, hw_pipe, CPR_RDMA_GMCIF_CON,
@@ -2002,7 +2011,7 @@ static void rdma_debug_dump(struct mml_comp *comp)
 {
 	struct mml_comp_rdma *rdma = comp_to_rdma(comp);
 	void __iomem *base = comp->base;
-	u32 value[32];
+	u32 value[33];
 	u32 mon[29];
 	u32 state, greq;
 	u32 i;
@@ -2060,10 +2069,11 @@ static void rdma_debug_dump(struct mml_comp *comp)
 		value[28] = readl(base + RDMA_UFO_DEC_LENGTH_BASE_C);
 		value[29] = readl(base + RDMA_AFBC_PAYLOAD_OST);
 	}
+	value[30] = readl(base + RDMA_GMCIF_CON);
 
 	if (mml_rdma_crc) {
-		value[30] = readl(base + RDMA_CHKS_EXTR);
-		value[31] = readl(base + RDMA_DEBUG_CON);
+		value[31] = readl(base + RDMA_CHKS_EXTR);
+		value[32] = readl(base + RDMA_DEBUG_CON);
 	}
 
 	/* mon sta from 0 ~ 28 */
@@ -2097,13 +2107,13 @@ static void rdma_debug_dump(struct mml_comp *comp)
 			value[25], value[26]);
 		mml_err("RDMA_UFO_DEC_LENGTH BASE_C_MSB %#010x BASE_C %#010x",
 			value[27], value[28]);
-		mml_err("RDMA_AFBC_PAYLOAD_OST %#010x",
-			value[29]);
+		mml_err("RDMA_AFBC_PAYLOAD_OST %#010x RDMA_GMCIF_CON %#010x",
+			value[29], value[30]);
 	}
 
 	if (mml_rdma_crc) {
 		mml_err("RDMA_CHKS_EXTR %#010x RDMA_DEBUG_CON %#010x",
-			value[30], value[31]);
+			value[31], value[32]);
 	}
 
 	for (i = 0; i < ARRAY_SIZE(mon) / 3; i++) {
