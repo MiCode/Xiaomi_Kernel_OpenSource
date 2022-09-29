@@ -1010,8 +1010,10 @@ static void mtk8250_shutdown(struct uart_port *port)
 #endif
 	mutex_lock(&data->uart_mutex);
 #if defined(KERNEL_UARTHUB_close)
-	if (data->support_hub == 1)
+	if (data->support_hub == 1) {
 		KERNEL_UARTHUB_close();
+		mtk8250_clear_wakeup();
+	}
 #endif
 
 	serial8250_do_shutdown(port);
