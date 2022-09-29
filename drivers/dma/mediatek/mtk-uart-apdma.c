@@ -504,10 +504,8 @@ static void mtk_uart_apdma_tx_handler(struct mtk_chan *c)
 	int idx = (unsigned int)(c->rec_idx % UART_RECORD_COUNT);
 
 	mtk_uart_apdma_write(c, VFF_INT_FLAG, VFF_TX_INT_CLR_B);
-	if (unlikely(d == NULL)) {
-		dev_info(c->vc.chan.device->dev, "TX[%d] FIX ME!", c->irq);
+	if (unlikely(d == NULL))
 		return;
-	}
 	mtk_uart_apdma_write(c, VFF_INT_EN, VFF_INT_EN_CLR_B);
 	mtk_uart_apdma_write(c, VFF_EN, VFF_EN_CLR_B);
 
@@ -536,10 +534,6 @@ static void mtk_uart_apdma_rx_handler(struct mtk_chan *c)
 
 	if (!mtk_uart_apdma_read(c, VFF_VALID_SIZE)) {
 		num++;
-		if (num % 5000 == 1) {
-			pr_info("debug: %s: VFF_VALID_SIZE[0x%x], num[%llu]\n", __func__,
-			 mtk_uart_apdma_read(c, VFF_VALID_SIZE), num);
-		}
 		return;
 	}
 	num = 0;
@@ -592,16 +586,31 @@ static irqreturn_t mtk_uart_apdma_irq_handler(int irq, void *dev_id)
 {
 	struct dma_chan *chan = (struct dma_chan *)dev_id;
 	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
+	enum dma_transfer_direction current_dir;
+	unsigned int current_irq;
+	bool dump_tx_err = false;
 	//unsigned long flags;
 
 	//spin_lock_irqsave(&c->vc.lock, flags);
 	spin_lock(&c->vc.lock);
+	current_dir = c->dir;
+	current_irq = c->irq;
 	if (c->dir == DMA_DEV_TO_MEM)
 		mtk_uart_apdma_rx_handler(c);
-	else if (c->dir == DMA_MEM_TO_DEV)
+	else if (c->dir == DMA_MEM_TO_DEV) {
+		if (unlikely(c->desc == NULL))
+			dump_tx_err = true;
 		mtk_uart_apdma_tx_handler(c);
+	}
 	//spin_unlock_irqrestore(&c->vc.lock, flags);
 	spin_unlock(&c->vc.lock);
+	if (current_dir == DMA_DEV_TO_MEM) {
+		if (num % 5000 == 2)
+			pr_info("debug: %s: VFF_VALID_SIZE=0, num[%llu]\n", __func__, num);
+	} else if (current_dir == DMA_MEM_TO_DEV) {
+		if (dump_tx_err)
+			pr_info("debug: %s: TX[%d] FIX ME!", __func__, current_irq);
+	}
 	return IRQ_HANDLED;
 }
 
