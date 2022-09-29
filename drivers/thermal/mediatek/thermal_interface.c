@@ -996,6 +996,35 @@ static ssize_t vtskin_info_store(struct kobject *kobj,
 	return count;
 }
 
+static ssize_t vtskin_temp_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+
+	len = snprintf(buf, PAGE_SIZE, "%d\n", therm_intf_read_csram_s32(VTSKIN));
+
+	return len;
+}
+
+static ssize_t vtskin_temp_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	char cmd[10];
+	int temp;
+
+	if (sscanf(buf, "%7s %d", cmd, &temp) == 2) {
+		if (strncmp(cmd, "VTSKIN", 6) == 0) {
+			therm_intf_write_csram(temp, VTSKIN);
+
+			return count;
+		}
+	}
+
+	pr_info("[thermal_vtskin_temp] invalid input\n");
+
+	return -EINVAL;
+}
+
 static int catm_p[3];
 
 static ssize_t catm_p_show(struct kobject *kobj,
@@ -1058,6 +1087,7 @@ static struct kobj_attribute min_throttle_freq_attr =
 	__ATTR_RW(min_throttle_freq);
 static struct kobj_attribute sports_mode_attr = __ATTR_RW(sports_mode);
 static struct kobj_attribute vtskin_info_attr = __ATTR_RW(vtskin_info);
+static struct kobj_attribute vtskin_temp_attr = __ATTR_RW(vtskin_temp);
 static struct kobj_attribute catm_p_attr = __ATTR_RW(catm_p);
 
 
@@ -1086,6 +1116,7 @@ static struct attribute *thermal_attrs[] = {
 	&min_throttle_freq_attr.attr,
 	&sports_mode_attr.attr,
 	&vtskin_info_attr.attr,
+	&vtskin_temp_attr.attr,
 	&catm_p_attr.attr,
 	NULL
 };
