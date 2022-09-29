@@ -37,7 +37,6 @@ enum {
 
 static unsigned int mtk_mcq_irq[UFSHCD_MAX_Q_NR];
 
-static void ufs_mtk_mcq_send_hw_cmd(struct ufs_hba *hba, unsigned int task_tag);
 static void ufs_mtk_mcq_map_tag(void *data, struct ufs_hba *hba, int index, int *tag);
 
 static void ufs_mtk_mcq_print_trs_tag(struct ufs_hba *hba, int tag, bool pr_prdt)
@@ -286,33 +285,15 @@ static irqreturn_t ufs_mtk_mcq_intr(int irq, void *__intr_info)
 	struct ufs_hba *hba = mcq_intr_info->hba;
 	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
 	int hwq;
-	unsigned long cq_is, sq_is;
 	irqreturn_t retval = IRQ_NONE;
-	unsigned long flags;
 
 	if (hba_priv->mcq_nr_intr == 0)
 		return IRQ_NONE;
 
 	hwq = mcq_intr_info->qid;
 
-	spin_lock_irqsave(&hba->outstanding_lock, flags);
-	cq_is = ufshcd_readl(hba, REG_UFS_MMIO_CQ_IS);
-	sq_is = ufshcd_readl(hba, REG_UFS_MMIO_SQ_IS);
-	spin_unlock_irqrestore(&hba->outstanding_lock, flags);
-
-	if (test_bit(hwq, &cq_is)) {
-		spin_lock_irqsave(&hba->outstanding_lock, flags);
-		ufshcd_writel(hba, (1 << hwq), REG_UFS_MMIO_CQ_IS);
-		spin_unlock_irqrestore(&hba->outstanding_lock, flags);
-		retval |= ufs_mtk_mcq_cq_ring_handler(hba, hwq);
-	}
-
-	if (test_bit(hwq, &sq_is)) {
-		spin_lock_irqsave(&hba->outstanding_lock, flags);
-		ufshcd_writel(hba, (1 << hwq), REG_UFS_MMIO_SQ_IS);
-		spin_unlock_irqrestore(&hba->outstanding_lock, flags);
-		retval |= ufs_mtk_mcq_sq_ring_handler(hba, hwq);
-	}
+	ufshcd_writel(hba, (1 << hwq), REG_UFS_MMIO_CQ_IS);
+	retval = ufs_mtk_mcq_cq_ring_handler(hba, hwq);
 
 	return retval;
 }
@@ -606,21 +587,14 @@ static void ufs_mtk_mcq_enable_intr(struct ufs_hba *hba, u32 intrs)
 
 static void ufs_mtk_mcq_make_hba_operational(void *data, struct ufs_hba *hba, int *err)
 {
-#if 0
 	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
-#endif
 	u32 reg;
-
 	*err = 0;
 
-#if 0
 	if (hba_priv->mcq_nr_intr > 0)
 		ufs_mtk_mcq_enable_intr(hba, UFSHCD_ENABLE_INTRS_MCQ_SEPARATE);
 	else
 		ufs_mtk_mcq_enable_intr(hba, UFSHCD_ENABLE_INTRS_MCQ);
-#else
-	ufs_mtk_mcq_enable_intr(hba, UFSHCD_ENABLE_INTRS_MCQ);
-#endif
 
 	ufs_mtk_mcq_enable(hba);
 
@@ -993,7 +967,7 @@ static void ufs_mtk_mcq_has_oustanding_reqs(void *data, struct ufs_hba *hba, boo
 	}
 
 	for (i = 0; i < BITMAP_TAGS_LEN; i++) {
-		if (!hba_priv->outstanding_mcq_reqs[i]) {
+		if (hba_priv->outstanding_mcq_reqs[i]) {
 			*ret = true;
 			return;
 		}

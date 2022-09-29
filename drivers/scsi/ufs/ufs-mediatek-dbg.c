@@ -163,7 +163,7 @@ static void ufs_mtk_dbg_print_info(char **buff, unsigned long *size,
 
 	if (hba_priv->is_mcq_enabled) {
 		SPREAD_PRINTF(buff, size, m,
-				  "MCQ priority enable: yes\n");
+				  "MCQ enable: yes\n");
 
 		for (i = 0; i < hba_priv->mcq_q_cfg.sq_nr; i++)
 			SPREAD_PRINTF(buff, size, m,
@@ -171,7 +171,7 @@ static void ufs_mtk_dbg_print_info(char **buff, unsigned long *size,
 					  i, hba_priv->mcq_q_cfg.sent_cmd_count[i]);
 	} else {
 		SPREAD_PRINTF(buff, size, m,
-				  "MCQ priority enable: no\n");
+				  "MCQ enable: no\n");
 	}
 
 	/* Error history */
