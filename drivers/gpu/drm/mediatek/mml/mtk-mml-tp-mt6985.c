@@ -21,11 +21,11 @@
 #define MML_IR_HEIGHT_2K	1440
 #define MML_IR_2K		(MML_IR_WIDTH_2K * MML_IR_HEIGHT_2K)
 /* hd size and pixel as lower bound */
-#define MML_IR_WIDTH		1920
-#define MML_IR_HEIGHT		1080
+#define MML_IR_WIDTH		640
+#define MML_IR_HEIGHT		480
 #define MML_IR_MIN		(MML_IR_WIDTH * MML_IR_HEIGHT)
 #define MML_IR_RSZ_MIN_RATIO	375	/* resize must lower than this ratio */
-#define MML_IR_OUT_MIN_W	1080	/* wqhd 1440/2+64=784 */
+#define MML_IR_OUT_MIN_W	784	/* wqhd 1440/2+64=784 */
 
 #define MML_IR_MAX_OPP		1	/* use OPP index 0(229Mhz) 1(273Mhz) */
 
