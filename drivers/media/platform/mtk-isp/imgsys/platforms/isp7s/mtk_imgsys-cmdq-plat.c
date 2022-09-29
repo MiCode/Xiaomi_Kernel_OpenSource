@@ -314,23 +314,19 @@ static void imgsys_cmdq_fence_done_plat7s(struct dma_fence *fence, struct dma_fe
 		return;
 	}
 
-	event_val = cmdq_get_event(imgsys_clt[thd_idx]->chan, imgsys_event[event_id].event);
+	if (imgsys_fence_dbg_enable_plat7s()) {
+		pr_info("%s: SetEvent+ with fence:0x%x,fencefd:%d,gthrd:%d,event:%d\n",
+			__func__, fence, imgsys_fence->fence_fd, thd_idx,
+			event_id);
+	}
 
-	if (event_val == 0) {
-		if (imgsys_fence_dbg_enable_plat7s()) {
-			pr_info("%s: +SetEvent with fence:0x%x,fencefd:%d,gthrd:%d,event:%d,event_val:%d\n",
-				__func__, fence, imgsys_fence->fence_fd, thd_idx,
-				event_id, event_val);
-		}
-		cmdq_set_event(imgsys_clt[thd_idx]->chan, imgsys_event[event_id].event);
-		if (imgsys_fence_dbg_enable_plat7s()) {
-			pr_info("%s: -SetEvent success with fence:0x%x,fencefd:%d,gthrd:%d,event:%d,event_val:%d\n",
-				__func__, fence, imgsys_fence->fence_fd, thd_idx,
-				event_id, event_val);
-		}
-	} else {
-		pr_info("%s: [ERROR]SetEvent fail with fence:0x%x,fencefd:%d,gthrd:%d,event:%d,event_val:%d\n",
-			__func__, fence, imgsys_fence->fence_fd, thd_idx, event_id, event_val);
+	cmdq_set_event(imgsys_clt[thd_idx]->chan, imgsys_event[event_id].event);
+
+	event_val = cmdq_get_event(imgsys_clt[thd_idx]->chan, imgsys_event[event_id].event);
+	if (imgsys_fence_dbg_enable_plat7s()) {
+		pr_info("%s: SetEvent- with fence:0x%x,fencefd:%d,gthrd:%d,event:%d,event_val:%d\n",
+			__func__, fence, imgsys_fence->fence_fd, thd_idx,
+			event_id, event_val);
 	}
 
 }
