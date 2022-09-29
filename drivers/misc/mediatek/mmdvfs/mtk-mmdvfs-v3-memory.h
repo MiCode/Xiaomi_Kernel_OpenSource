@@ -8,19 +8,17 @@
 #define _MTK_MMDVFS_V3_MEMORY_H_
 
 #if IS_ENABLED(CONFIG_MTK_MMDVFS)
-void *mmdvfs_get_vcp_base(phys_addr_t *pa);
-bool mmdvfs_is_init_done(void);
+void *mtk_mmdvfs_vcp_get_base(phys_addr_t *pa);
 #else
-static inline void *mmdvfs_get_vcp_base(phys_addr_t *pa)
+static inline void *mtk_mmdvfs_vcp_get_base(phys_addr_t *pa)
 {
 	if (pa)
 		*pa = 0;
 	return NULL;
 }
-static inline bool mmdvfs_is_init_done(void) { return false; }
 #endif
 
-#define MEM_BASE		mmdvfs_get_vcp_base(NULL)
+#define MEM_BASE		mtk_mmdvfs_vcp_get_base(NULL)
 #define MEM_LOG_FLAG		(MEM_BASE + 0x0)
 #define MEM_FREERUN		(MEM_BASE + 0x4)
 #define MEM_VSRAM_VOL		(MEM_BASE + 0x8)

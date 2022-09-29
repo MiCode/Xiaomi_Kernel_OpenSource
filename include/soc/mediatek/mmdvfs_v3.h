@@ -38,7 +38,7 @@ enum {
 };
 
 #if IS_ENABLED(CONFIG_MTK_MMDVFS)
-int mtk_mmdvfs_get_ipi_status(void);
+bool mtk_is_mmdvfs_init_done(void);
 int mtk_mmdvfs_enable_vcp(const bool enable, const u8 idx);
 int mtk_mmdvfs_enable_ccu(const bool enable, const u8 idx);
 
@@ -51,7 +51,7 @@ int mtk_mmdvfs_v3_set_vote_step(const u16 pwr_idx, const s16 opp);
 
 void mmdvfs_set_lp_mode(bool lp_mode);
 #else
-static inline int mtk_mmdvfs_get_ipi_status(void) { return 0; }
+static inline bool mtk_is_mmdvfs_init_done(void) { return false; }
 static inline int mtk_mmdvfs_enable_vcp(const bool enable, const u8 idx) { return 0; }
 static inline int mtk_mmdvfs_enable_ccu(const bool enable, const u8 idx) { return 0; }
 
