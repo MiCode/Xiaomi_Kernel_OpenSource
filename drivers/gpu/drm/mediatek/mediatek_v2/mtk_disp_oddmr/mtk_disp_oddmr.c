@@ -1846,10 +1846,9 @@ static int mtk_oddmr_common_gain_lookup(int item, void *table, uint32_t cnt)
 	tmp_item = item;
 	if (tmp_item <= gain_table[0].item) {
 		if (tmp_item != 0)
-			DDPPR_ERR("%s item %d outof range (%u, %u)\n", __func__, tmp_item,
+			ODDMRFLOW_LOG("item %d outof range (%u, %u)\n", tmp_item,
 					gain_table[0].item, gain_table[cnt - 1].item);
-		/* TODO out of range set 0 or edge */
-		result = gain_table[0].value;
+		result = 0;
 		return result;
 	}
 	for (i = 1; i < cnt; i++) {
@@ -1857,7 +1856,7 @@ static int mtk_oddmr_common_gain_lookup(int item, void *table, uint32_t cnt)
 			break;
 	}
 	if (i >= cnt) {
-		result = gain_table[cnt - 1].value;
+		result = 0;
 		ODDMRFLOW_LOG("item %u outof range (%u, %u)\n", tmp_item,
 				gain_table[0].item, gain_table[cnt - 1].item);
 	} else {
@@ -2182,9 +2181,9 @@ static int mtk_oddmr_dmr_fps_gain_lookup(int table_idx, struct mtk_oddmr_dmr_fps
 		DDPPR_ERR("%s fps %u outof range (%u, %u)\n", __func__, tmp_item,
 				gain_table[0].fps, gain_table[cnt - 1].fps);
 		//TODO out of range set 0 or edge
-		weight->beta = gain_table[0].beta;
-		weight->gain = gain_table[0].gain;
-		weight->offset = gain_table[0].offset;
+		weight->beta = 0;
+		weight->gain = 0;
+		weight->offset = 0;
 		return 0;
 	}
 	for (i = 1; i < cnt; i++) {
