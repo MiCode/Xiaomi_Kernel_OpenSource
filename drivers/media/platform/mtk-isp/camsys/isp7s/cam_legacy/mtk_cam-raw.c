@@ -3252,19 +3252,26 @@ static int mtk_raw_available_resource(struct mtk_raw *raw)
 	int res_status = 0;
 	int i, j;
 
-	for (i = 0; i < cam_dev->num_raw_drivers; i++) {
-		struct mtk_raw_pipeline *pipe = raw->pipelines + i;
+	for (i = 0; i < ARRAY_SIZE(raw->devs); i++) {
+		struct mtk_raw_pipeline *pipe;
 
-		for (j = 0; j < ARRAY_SIZE(raw->devs); j++) {
+		if (i >= cam_dev->num_raw_drivers) {
+			res_status |= 1 << i;
+			continue;
+		}
+
+		pipe = raw->pipelines + i;
+		for (j = 0; j < cam_dev->num_raw_drivers; j++) {
 			if (pipe->enabled_raw & 1 << j)
 				res_status |= 1 << j;
 		}
 	}
-	dev_dbg(raw->cam_dev, "%s raw_status:0x%x Available Engine:A/B/C:%d/%d/%d\n",
-		 __func__, res_status,
-			!(res_status & (1 << MTKCAM_SUBDEV_RAW_0)),
-			!(res_status & (1 << MTKCAM_SUBDEV_RAW_1)),
-			!(res_status & (1 << MTKCAM_SUBDEV_RAW_2)));
+	dev_dbg(raw->cam_dev,
+		"%s raw_status:0x%x Available Engine:A/B/C:%d/%d/%d\n",
+		__func__, res_status,
+		!(res_status & (1 << MTKCAM_SUBDEV_RAW_0)),
+		!(res_status & (1 << MTKCAM_SUBDEV_RAW_1)),
+		!(res_status & (1 << MTKCAM_SUBDEV_RAW_2)));
 
 	return res_status;
 }
@@ -3436,12 +3443,13 @@ int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
 	bool selected = false;
 	int m;
 
+	/* a mask, 1 menas occupied */
 	raw_status = mtk_raw_available_resource(pipe->raw);
 	if (pipe->user_res.raw_res.raws != 0) {
 		dev_info(cam->dev,
-			 "%s:pipe(%d)user selected raws(0x%x), currently available raws(0x%x)\n",
+			 "%s:pipe(%d)user selected raws(0x%x), currently occupied raws(0x%x)\n",
 			 __func__, pipe->id, pipe->user_res.raw_res.raws, raw_status);
-		raw_status = ~(pipe->user_res.raw_res.raws);
+		raw_status |= ~(pipe->user_res.raw_res.raws);
 	}
 
 	if (mtk_cam_ctx_has_raw(ctx) &&
