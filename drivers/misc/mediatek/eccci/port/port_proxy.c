@@ -394,6 +394,7 @@ READ_START:
 	skb = skb_peek(&port->rx_skb_list);
 	if (skb == NULL) {
 		ret = -EFAULT;
+		spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
 		goto exit;
 	}
 
