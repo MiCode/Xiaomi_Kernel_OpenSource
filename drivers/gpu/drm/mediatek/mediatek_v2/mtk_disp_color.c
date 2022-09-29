@@ -2741,8 +2741,13 @@ int mtk_drm_ioctl_set_color_reg(struct drm_device *dev, void *data,
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_COLOR0];
 	struct drm_crtc *crtc = private->crtc[0];
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	int ret;
 
-	return mtk_crtc_user_cmd(crtc, comp, SET_COLOR_REG, data);
+	ret = mtk_crtc_user_cmd(crtc, comp, SET_COLOR_REG, data);
+	mtk_crtc_check_trigger(mtk_crtc, true, true);
+
+	return ret;
 }
 
 int mtk_drm_ioctl_mutex_control(struct drm_device *dev, void *data,
