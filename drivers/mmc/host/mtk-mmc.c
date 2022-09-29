@@ -670,8 +670,6 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 	readl_poll_timeout(host->base + MSDC_CFG, val, (val & MSDC_CFG_CKSTB), 0, 0);
 	if (host->mclk == 0 && (mmc->caps2 & MMC_CAP2_NO_MMC)
 		&& mmc->ios.signal_voltage == MMC_SIGNAL_VOLTAGE_180) {
-		dev_info(host->dev, "[%s]:enable clk free run 1ms+ for switch to 1.8v\n",
-			__func__);
 		sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
 		usleep_range(1000, 1500);
 		sdr_clr_bits(host->base + MSDC_CFG, MSDC_CFG_CKPDN);
@@ -848,8 +846,10 @@ static int msdc_auto_cmd_done(struct msdc_host *host, int events,
 		}
 		host->need_tune = true;
 		dev_err(host->dev,
-			"%s: AUTO_CMD%d arg=%08X; rsp %08X; cmd_error=%d\n",
-			__func__, cmd->opcode, cmd->arg, rsp[0], cmd->error);
+			"%s: AUTO_CMD=%d arg=0x%X; rsp 0x%X; cmd_error=%d; "
+			"host_error= 0x%X\n",
+			__func__, cmd->opcode, cmd->arg, rsp[0], cmd->error,
+			host->error);
 	}
 	return cmd->error;
 }
@@ -884,7 +884,7 @@ static void msdc_track_cmd_data(struct msdc_host *host,
 				struct mmc_command *cmd, struct mmc_data *data)
 {
 	if (host->error)
-		dev_info(host->dev, "%s: cmd=%d arg=%08X; host->error=0x%08X\n",
+		dev_dbg(host->dev, "%s: cmd=%d arg=%08X; host->error=0x%08X\n",
 			__func__, cmd->opcode, cmd->arg, host->error);
 }
 
@@ -984,9 +984,10 @@ static bool msdc_cmd_done(struct msdc_host *host, int events,
 	if (cmd->error) {
 		host->need_tune = true;
 		dev_info(host->dev,
-				"%s: cmd=%d arg=%08X; rsp %08X; cmd_error=%d\n",
+				"%s: cmd=%d arg=0x%X; rsp 0x%X; cmd_error=%d; "
+				"host_error=0x%X\n",
 				__func__, cmd->opcode, cmd->arg, rsp[0],
-				cmd->error);
+				cmd->error, host->error);
 	}
 
 	msdc_cmd_next(host, mrq, cmd);
@@ -1008,7 +1009,6 @@ static inline bool msdc_cmd_is_ready(struct msdc_host *host,
 					!(val & SDC_STS_CMDBUSY), 1, 20000);
 	if (ret) {
 		dev_err(host->dev, "CMD bus busy detected\n");
-		host->error |= REQ_CMD_BUSY;
 		msdc_cmd_done(host, MSDC_INT_CMDTMO, mrq, cmd);
 		return false;
 	}
@@ -1019,7 +1019,6 @@ static inline bool msdc_cmd_is_ready(struct msdc_host *host,
 						!(val & SDC_STS_SDCBUSY), 1, 20000);
 		if (ret) {
 			dev_err(host->dev, "Controller busy detected\n");
-			host->error |= REQ_CMD_BUSY;
 			msdc_cmd_done(host, MSDC_INT_CMDTMO, mrq, cmd);
 			return false;
 		}
@@ -1195,10 +1194,10 @@ static bool msdc_data_xfer_done(struct msdc_host *host, u32 events,
 			else if (events & MSDC_INT_DATCRCERR)
 				data->error = -EILSEQ;
 
-			dev_info(host->dev, "%s: cmd=%d; blocks=%d",
-				__func__, mrq->cmd->opcode, data->blocks);
-			dev_info(host->dev, "data_error=%d xfer_size=%d\n",
-				(int)data->error, data->bytes_xfered);
+			dev_info(host->dev, "%s: cmd=%d; blocks=%d; "
+				"data_error=%d; xfer_size=%d; host_error=0x%X\n",
+				__func__, mrq->cmd->opcode, data->blocks,
+				(int)data->error, data->bytes_xfered, host->error);
 		}
 
 		msdc_data_xfer_next(host, mrq);
@@ -1567,7 +1566,6 @@ static void msdc_init_hw(struct msdc_host *host)
 	host->need_tune = false;
 	host->retune_times = 0;
 
-	dev_info(host->dev, "init hardware done!");
 }
 
 static void msdc_deinit_hw(struct msdc_host *host)
@@ -2154,10 +2152,13 @@ static int msdc_get_cd(struct mmc_host *mmc)
 	if (host->block_bad_card)
 		host->card_inserted = 0;
 end:
-	pr_info(
-		"%s:card status:%s block bad card<%d> trigger card event<%d>",
-		__func__, host->card_inserted ? "inserted" : "removed",
-		host->block_bad_card, mmc->trigger_card_event);
+	if (host->block_bad_card != 0 ||
+		mmc->trigger_card_event != false) {
+		pr_info(
+			"%s:card status:%s block bad card<%d> trigger card event<%d>",
+			__func__, host->card_inserted ? "inserted" : "removed",
+			host->block_bad_card, mmc->trigger_card_event);
+	}
 
 	return host->card_inserted;
 }
