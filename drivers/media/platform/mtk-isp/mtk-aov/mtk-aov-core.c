@@ -67,7 +67,6 @@ static int ipi_receive(unsigned int id, void *unused,
 {
 	struct mtk_aov *aov_dev = aov_core_get_device();
 	struct aov_core *core_info = &aov_dev->core_info;
-	uint32_t aov_ready;
 	uint32_t aov_session;
 	struct packet *packet;
 	struct aov_event *event;
@@ -75,16 +74,14 @@ static int ipi_receive(unsigned int id, void *unused,
 
 	AOV_TRACE_BEGIN("AOV Recv IPI");
 
-	aov_ready = atomic_read(&(core_info->aov_ready));
-
-	dev_dbg(aov_dev->dev, "%s: receive id(%d), len(%d), ready(%d)\n",
-		__func__, id, len, aov_ready);
-
-	if (aov_ready == 0) {
+	if (aov_dev->op_mode == 0) {
 		AOV_TRACE_END();
-		dev_info(aov_dev->dev, "%s: aov is not started", __func__);
+		dev_info(aov_dev->dev, "%s: bypass ipi receive operation", __func__);
 		return 0;
 	}
+
+	dev_dbg(aov_dev->dev, "%s: receive id(%d), len(%d)\n",
+		__func__, id, len);
 
 	packet = (struct packet *)data;
 	if (packet->command & AOV_SCP_CMD_ACK) {
@@ -101,6 +98,7 @@ static int ipi_receive(unsigned int id, void *unused,
 		aov_session = atomic_read(&(core_info->aov_session));
 
 		if (event->session != aov_session) {
+			AOV_TRACE_END();
 			dev_info(aov_dev->dev, "%s: invalid aov session mismatch(%d/%d)\n",
 				__func__, event->session, aov_session);
 			return 0;
@@ -141,14 +139,18 @@ static int send_cmd_internal(struct aov_core *core_info,
 	int retry;
 	unsigned long timeout;
 	int scp_ready;
+	int cmd_seq;
 	int ret;
 
-	dev_info(aov_dev->dev, "%s: send cmd(%d), buffer(%d), length(%d)\n",
-		__func__, cmd, buffer, length);
+	cmd_seq = atomic_add_return(1, &(core_info->cmd_seq));
 
-	packet.command = cmd;
-	packet.buffer  = buffer;
-	packet.length  = length;
+	dev_info(aov_dev->dev, "%s: send seq(%d), cmd(%d)\n",
+		__func__, cmd_seq, cmd);
+
+	packet.sequence = cmd_seq;
+	packet.command  = cmd;
+	packet.buffer   = buffer;
+	packet.length   = length;
 
 	AOV_TRACE_BEGIN("AOV Send Cmd");
 
@@ -243,15 +245,19 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 			}
 
 			AOV_TRACE_BEGIN("AOV Alloc Init");
+			dev_dbg(aov_dev->dev, "aov malloc init+");
 			spin_lock_irqsave(&core_info->buf_lock, flag);
 			buf = tlsf_malloc(&(core_info->alloc), sizeof(struct aov_init));
 			spin_unlock_irqrestore(&core_info->buf_lock, flag);
+			dev_dbg(aov_dev->dev, "aov malloc init-");
 			AOV_TRACE_END();
 		} else {
 			AOV_TRACE_BEGIN("AOV Alloc Buffer");
+			dev_dbg(aov_dev->dev, "aov malloc buffer+");
 			spin_lock_irqsave(&core_info->buf_lock, flag);
 			buf = tlsf_malloc(&(core_info->alloc), len);
 			spin_unlock_irqrestore(&core_info->buf_lock, flag);
+			dev_dbg(aov_dev->dev, "aov malloc buffer-");
 			AOV_TRACE_END();
 		}
 		if (buf) {
@@ -492,18 +498,22 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 	} else if (cmd == AOV_SCP_CMD_NOTIFY) {
 		// Free aov_notify buffer
 		AOV_TRACE_BEGIN("AOV Free Buffer");
+		dev_dbg(aov_dev->dev, "aov free buffer+");
 		spin_lock_irqsave(&core_info->buf_lock, flag);
 		tlsf_free(&(core_info->alloc), buf);
 		spin_unlock_irqrestore(&core_info->buf_lock, flag);
+		dev_dbg(aov_dev->dev, "aov free buffer-");
 		AOV_TRACE_END();
 	} else if (cmd == AOV_SCP_CMD_DEINIT) {
 		atomic_set(&(core_info->aov_ready), 0);
 
 		// Free aov_init buffer
 		AOV_TRACE_BEGIN("AOV Free Init");
+		dev_dbg(aov_dev->dev, "aov free init+");
 		spin_lock_irqsave(&core_info->buf_lock, flag);
 		tlsf_free(&(core_info->alloc), core_info->aov_init);
 		spin_unlock_irqrestore(&core_info->buf_lock, flag);
+		dev_dbg(aov_dev->dev, "aov free init-");
 		AOV_TRACE_END();
 
 		// Reset queue to empty
@@ -698,6 +708,7 @@ int aov_core_init(struct mtk_aov *aov_dev)
 	atomic_set(&(core_info->scp_ready), 0);
 	atomic_set(&(core_info->aov_session), 0);
 	atomic_set(&(core_info->aov_ready), 0);
+	atomic_set(&(core_info->cmd_seq), 0);
 
 	if (curr_dev->op_mode == 0) {
 		dev_info(aov_dev->dev, "%s: bypass init operation", __func__);
@@ -1180,9 +1191,11 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 
 		// Free aov_init buffer
 		if (core_info->aov_init) {
+			dev_info(aov_dev->dev, "aov force free init+");
 			spin_lock_irqsave(&core_info->buf_lock, flag);
 			tlsf_free(&(core_info->alloc), core_info->aov_init);
 			spin_unlock_irqrestore(&core_info->buf_lock, flag);
+			dev_info(aov_dev->dev, "aov force free init-");
 		}
 
 		// Reset queue to empty

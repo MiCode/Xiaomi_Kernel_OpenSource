@@ -284,7 +284,8 @@ struct aov_notify {
 };
 
 struct packet {
-	uint32_t session;
+	uint16_t session;
+	uint16_t sequence;
 	uint32_t command;
 	uint32_t buffer;
 	uint32_t length;
