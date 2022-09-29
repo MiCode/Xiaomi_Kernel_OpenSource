@@ -12,6 +12,7 @@
 #include <sound/pcm_params.h>
 #include <linux/module.h>
 #include <mt-plat/aee.h>
+#include "../../common/mtk-base-afe.h"
 
 
 #ifdef scp_ultra_debug
@@ -102,5 +103,13 @@ void mtk_scp_ultra_ipi_send(uint8_t data_type, /*audio_ipi_msg_data_t*/
 			    char *payload);
 void set_afe_dl_irq_target(int scp_enable);
 void set_afe_ul_irq_target(int scp_enable);
+int ultra_memif_set_enable_hw_sema(struct mtk_base_afe *afe, int afe_id);
+int ultra_memif_set_disable_hw_sema(struct mtk_base_afe *afe, int afe_id);
+int ultra_irq_set_enable_hw_sema(struct mtk_base_afe *afe,
+				 const struct mtk_base_irq_data *irq_data,
+				 int afe_id);
+int ultra_irq_set_disable_hw_sema(struct mtk_base_afe *afe,
+				  const struct mtk_base_irq_data *irq_data,
+				  int afe_id);
 #endif
 

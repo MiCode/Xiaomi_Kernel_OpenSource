@@ -100,25 +100,18 @@ static int usnd_scp_recover_event(struct notifier_block *this,
 		if (scp_ultra->usnd_state == SCP_ULTRA_STATE_START) {
 			pm_runtime_get_sync(afe->dev);
 			/* stop dl memif */
-			regmap_update_bits(afe->regmap,
-					   memif->data->enable_reg,
-					   1 << memif->data->enable_shift,
-					   0);
+			ultra_memif_set_disable_hw_sema(afe, ultra_mem->ultra_dl_memif_id);
 			/* stop ul memif */
-			regmap_update_bits(afe->regmap,
-					   memiful->data->enable_reg,
-					   1 << memiful->data->enable_shift,
-					   0);
+			ultra_memif_set_disable_hw_sema(afe, ultra_mem->ultra_ul_memif_id);
 			/* stop dl irq */
-			regmap_update_bits(afe->regmap,
-					   irq_data_dl->irq_en_reg,
-					   1 << irq_data_dl->irq_en_shift,
-					   0);
+			ultra_irq_set_disable_hw_sema(afe,
+						      irq_data_dl,
+						      ultra_mem->ultra_dl_memif_id);
 
 			/* stop ul irq */
-			regmap_update_bits(afe->regmap, irq_data_ul->irq_en_reg,
-					   1 << irq_data_ul->irq_en_shift,
-					   0);
+			ultra_irq_set_disable_hw_sema(afe,
+						      irq_data_ul,
+						      ultra_mem->ultra_ul_memif_id);
 
 			/* clear pending dl irq */
 			regmap_write(afe->regmap, irq_data_dl->irq_clr_reg,
@@ -588,10 +581,7 @@ static int mtk_scp_ultra_pcm_start(struct snd_soc_component *component,
 	// 		fs << irq_data_dl->irq_fs_shift);
 
 	/* start dl memif */
-	regmap_update_bits(afe->regmap,
-			memif->data->enable_reg,
-			1 << memif->data->enable_shift,
-			1 << memif->data->enable_shift);
+	ultra_memif_set_enable_hw_sema(afe, ultra_mem->ultra_dl_memif_id);
 
 	/* set ul irq counter */
 	counter = param_config.period_in_size;
@@ -615,15 +605,12 @@ static int mtk_scp_ultra_pcm_start(struct snd_soc_component *component,
 	// 		  fs << irq_data_ul->irq_fs_shift);
 
 	/* Start ul memif */
-	regmap_update_bits(afe->regmap,
-			   memiful->data->enable_reg,
-			   1 << memiful->data->enable_shift,
-			   1 << memiful->data->enable_shift);
+	ultra_memif_set_enable_hw_sema(afe, ultra_mem->ultra_ul_memif_id);
 
 	/* start ul irq */
-	regmap_update_bits(afe->regmap, irq_data_ul->irq_en_reg,
-			1 << irq_data_ul->irq_en_shift,
-			1 << irq_data_ul->irq_en_shift);
+	ultra_irq_set_enable_hw_sema(afe,
+				     irq_data_ul,
+				     ultra_mem->ultra_ul_memif_id);
 	return 0;
 }
 
@@ -657,25 +644,18 @@ static int mtk_scp_ultra_pcm_stop(struct snd_soc_component *component,
 	}
 
 	/* stop dl memif */
-	regmap_update_bits(afe->regmap,
-			   memif->data->enable_reg,
-			   1 << memif->data->enable_shift,
-			   0);
+	ultra_memif_set_disable_hw_sema(afe, ultra_mem->ultra_dl_memif_id);
 	/* stop ul memif */
-	regmap_update_bits(afe->regmap,
-			   memiful->data->enable_reg,
-			   1 << memiful->data->enable_shift,
-			   0);
+	ultra_memif_set_disable_hw_sema(afe, ultra_mem->ultra_ul_memif_id);
 	/* stop dl irq */
-	regmap_update_bits(afe->regmap,
-			   irq_data_dl->irq_en_reg,
-			   1 << irq_data_dl->irq_en_shift,
-			   0);
+	ultra_irq_set_disable_hw_sema(afe,
+				      irq_data_dl,
+				      ultra_mem->ultra_dl_memif_id);
 
 	/* stop ul irq */
-	regmap_update_bits(afe->regmap, irq_data_ul->irq_en_reg,
-			   1 << irq_data_ul->irq_en_shift,
-			   0);
+	ultra_irq_set_disable_hw_sema(afe,
+				      irq_data_ul,
+				      ultra_mem->ultra_ul_memif_id);
 
 	/* clear pending dl irq */
 	regmap_write(afe->regmap, irq_data_dl->irq_clr_reg,
@@ -690,6 +670,7 @@ static int mtk_scp_ultra_pcm_stop(struct snd_soc_component *component,
 	set_afe_ul_irq_target(false);
 	return 0;
 }
+
 static int mtk_scp_ultra_pcm_close(struct snd_soc_component *component,
 				   struct snd_pcm_substream *substream)
 {

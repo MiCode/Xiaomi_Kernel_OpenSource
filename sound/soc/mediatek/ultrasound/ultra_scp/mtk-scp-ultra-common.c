@@ -10,7 +10,10 @@
 #include "ultra_ipi.h"
 #include "mtk-base-afe.h"
 #include "mtk-scp-ultra.h"
+#include "mtk-afe-external.h"
 
+#define AFE_AGENT_SET_OFFSET 4
+#define AFE_AGENT_CLR_OFFSET 8
 /* don't use this directly if not necessary */
 static struct mtk_base_afe *local_scp_ultra_afe;
 static void *ipi_recv_private;
@@ -132,5 +135,193 @@ void set_afe_ul_irq_target(int scp_enable)
 		 scp_ultra->ultra_mem.ultra_ul_memif_id,
 		 irq_data->irq_ap_en_reg,
 		 irq_data->irq_scp_en_reg);
+}
+
+int ultra_memif_set_enable(struct mtk_base_afe *afe, int afe_id)
+{
+	struct mtk_base_afe_memif *memif = &afe->memif[afe_id];
+	int reg = 0;
+
+	if (memif->data->enable_shift < 0) {
+		pr_info("%s(), error, id %d, enable_shift < 0\n",
+			 __func__, afe_id);
+		return 0;
+	}
+
+	if (memif->data->enable_reg < 0) {
+		pr_info("%s(), error, id %d, enable_reg < 0\n",
+			 __func__, afe_id);
+		return 0;
+	}
+
+	if (afe->is_memif_bit_banding)
+		reg = memif->data->enable_reg + AFE_AGENT_SET_OFFSET;
+	else
+		reg = memif->data->enable_reg;
+
+	return regmap_update_bits(afe->regmap,
+				  reg,
+				  1 << memif->data->enable_shift,
+				  1 << memif->data->enable_shift);
+}
+
+int ultra_memif_set_disable(struct mtk_base_afe *afe, int afe_id)
+{
+	struct mtk_base_afe_memif *memif = &afe->memif[afe_id];
+	int reg = 0;
+	int val = 0;
+
+	if (memif->data->enable_shift < 0) {
+		pr_info("%s(), error, id %d, enable_shift < 0\n",
+			 __func__, afe_id);
+		return 0;
+	}
+
+	if (memif->data->enable_reg < 0) {
+		pr_info("%s(), error, id %d, enable_reg < 0\n",
+			 __func__, afe_id);
+		return 0;
+	}
+
+	if (afe->is_memif_bit_banding) {
+		reg = memif->data->enable_reg + AFE_AGENT_CLR_OFFSET;
+		val = 1;
+	} else {
+		reg = memif->data->enable_reg;
+		val = 0;
+	}
+
+	return regmap_update_bits(afe->regmap,
+				  reg,
+				  1 << memif->data->enable_shift,
+				  val << memif->data->enable_shift);
+}
+
+int ultra_memif_set_enable_hw_sema(struct mtk_base_afe *afe, int afe_id)
+{
+	int ret = 0;
+	int scp_sem_ret = NOTIFY_STOP;
+
+	if (!afe)
+		return -EPERM;
+
+	if (!afe->is_scp_sema_support)
+		return ultra_memif_set_enable(afe, afe_id);
+
+	if (afe->is_memif_bit_banding == 0) {
+		scp_sem_ret = notify_3way_semaphore_control(
+			NOTIFIER_SCP_3WAY_SEMAPHORE_GET, NULL);
+		if (scp_sem_ret != NOTIFY_STOP) {
+			pr_info("%s error, adsp_sem_ret[%d]\n", __func__, ret);
+			return -EBUSY;
+		}
+	}
+
+	ret = ultra_memif_set_enable(afe, afe_id);
+
+	if (afe->is_memif_bit_banding == 0) {
+		notify_3way_semaphore_control(
+			NOTIFIER_SCP_3WAY_SEMAPHORE_RELEASE, NULL);
+	}
+
+	return ret;
+}
+
+int ultra_memif_set_disable_hw_sema(struct mtk_base_afe *afe, int afe_id)
+{
+	int ret = 0;
+	int scp_sem_ret = NOTIFY_STOP;
+
+	if (!afe)
+		return -EPERM;
+
+	if (!afe->is_scp_sema_support)
+		return ultra_memif_set_disable(afe, afe_id);
+
+	if (afe->is_memif_bit_banding == 0) {
+		scp_sem_ret = notify_3way_semaphore_control(
+				NOTIFIER_SCP_3WAY_SEMAPHORE_GET, NULL);
+		if (scp_sem_ret != NOTIFY_STOP) {
+			pr_info("%s error, adsp_sem_ret[%d]\n", __func__, ret);
+			return -EBUSY;
+		}
+	}
+
+	ret = ultra_memif_set_disable(afe, afe_id);
+
+	if (afe->is_memif_bit_banding == 0) {
+		notify_3way_semaphore_control(
+			NOTIFIER_SCP_3WAY_SEMAPHORE_RELEASE, NULL);
+	}
+
+	return ret;
+}
+
+int ultra_irq_set_enable_hw_sema(struct mtk_base_afe *afe,
+				 const struct mtk_base_irq_data *irq_data,
+				 int afe_id)
+{
+	int ret = 0;
+	int scp_sem_ret = NOTIFY_STOP;
+
+	if (!afe)
+		return -ENODEV;
+	if (!irq_data)
+		return -ENODEV;
+
+	if (!afe->is_scp_sema_support)
+		return regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
+					  1 << irq_data->irq_en_shift,
+					  1 << irq_data->irq_en_shift);
+
+	scp_sem_ret =
+		notify_3way_semaphore_control(NOTIFIER_SCP_3WAY_SEMAPHORE_GET,
+					      NULL);
+	if (scp_sem_ret != NOTIFY_STOP) {
+		pr_info("%s error, scp_sem_ret[%d]\n", __func__, scp_sem_ret);
+		return -EBUSY;
+	}
+
+	regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
+			   1 << irq_data->irq_en_shift,
+			   1 << irq_data->irq_en_shift);
+	notify_3way_semaphore_control(NOTIFIER_SCP_3WAY_SEMAPHORE_RELEASE,
+				      NULL);
+
+	return ret;
+}
+
+int ultra_irq_set_disable_hw_sema(struct mtk_base_afe *afe,
+				  const struct mtk_base_irq_data *irq_data,
+				  int afe_id)
+{
+	int ret = 0;
+	int scp_sem_ret = NOTIFY_STOP;
+
+	if (!afe)
+		return -ENODEV;
+	if (!irq_data)
+		return -ENODEV;
+
+	if (!afe->is_scp_sema_support)
+		return regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
+					  1 << irq_data->irq_en_shift,
+					  0 << irq_data->irq_en_shift);
+
+	scp_sem_ret =
+		notify_3way_semaphore_control(NOTIFIER_SCP_3WAY_SEMAPHORE_GET,
+					      NULL);
+	if (scp_sem_ret != NOTIFY_STOP) {
+		pr_info("%s error, scp_sem_ret[%d]\n", __func__, scp_sem_ret);
+		return -EBUSY;
+	}
+
+	regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
+			   1 << irq_data->irq_en_shift,
+			   0 << irq_data->irq_en_shift);
+	notify_3way_semaphore_control(NOTIFIER_SCP_3WAY_SEMAPHORE_RELEASE,
+				      NULL);
+
+	return ret;
 }
 
