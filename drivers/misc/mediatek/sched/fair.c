@@ -489,8 +489,8 @@ int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool laten
 	unsigned int idle_cpus = 0;
 	long max_spare_cap = LONG_MIN, spare_cap, max_spare_cap_per_gear;
 	int max_spare_cap_cpu = -1, max_spare_cap_cpu_per_gear;
-	long sys_max_spare_cap = LONG_MIN;
-	int sys_max_spare_cap_cpu = -1;
+	long sys_max_spare_cap = LONG_MIN, idle_max_spare_cap = LONG_MIN;
+	int sys_max_spare_cap_cpu = -1, idle_max_spare_cap_cpu = -1;
 	unsigned long util;
 	bool not_in_softmask;
 	unsigned int min_exit_lat = UINT_MAX, min_exit_lat_per_gear;
@@ -543,6 +543,18 @@ int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool laten
 			}
 
 			/*
+			 * if there is no best idle cpu, then select max spare cap
+			 * and idle cpu for latency_sensitive task to avoid runnable.
+			 * Because this is just a backup option, we do not take care
+			 * of exit latency.
+			 */
+			if (latency_sensitive && idle_cpu(cpu) &&
+					spare_cap > idle_max_spare_cap) {
+				idle_max_spare_cap = spare_cap;
+				idle_max_spare_cap_cpu = cpu;
+			}
+
+			/*
 			 * Skip CPUs that cannot satisfy the capacity request.
 			 * IOW, placing the task there would make the CPU
 			 * overutilized. Take uclamp into account to see how
@@ -563,6 +575,9 @@ int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool laten
 				max_spare_cap_per_gear = spare_cap;
 				max_spare_cap_cpu_per_gear = cpu;
 			}
+
+			if (!latency_sensitive)
+				continue;
 
 			if (idle_cpu(cpu)) {
 				idle_cpus = (idle_cpus | (1 << cpu));
@@ -591,23 +606,9 @@ int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool laten
 				}
 			}
 		}
-		/* best idle (lightest sleep) cpu per gear existed */
-		if (best_idle_cpu_per_gear != -1) {
-			pwr = calc_pwr_eff(best_idle_cpu_per_gear, cpu_util);
-			if (best_idle_pwr > pwr) {
-				best_idle_pwr = pwr;
-				best_idle_cpu = best_idle_cpu_per_gear;
-				best_idle_max_spare_cap = best_idle_cpu_cap_per_gear;
-				min_exit_lat = min_exit_lat_per_gear;
-			}
-			/* if power of two cpus are identical, select larger capacity */
-			else if ((best_idle_pwr == pwr)
-				&& (best_idle_max_spare_cap < best_idle_cpu_cap_per_gear)) {
-				best_idle_cpu = best_idle_cpu_per_gear;
-				best_idle_max_spare_cap = best_idle_cpu_cap_per_gear;
-				min_exit_lat = min_exit_lat_per_gear;
-			}
-		} else if (max_spare_cap_cpu_per_gear != -1) {
+
+		/* no latency_sensitive task, select max_spare_cpu */
+		if (!latency_sensitive && max_spare_cap_cpu_per_gear >= 0) {
 			/* calculate power consumption of candidate cpu per gear */
 			pwr = calc_pwr_eff(max_spare_cap_cpu_per_gear, cpu_util);
 			/* if cpu power is better, select it as candidate */
@@ -622,24 +623,50 @@ int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool laten
 				max_spare_cap = max_spare_cap_per_gear;
 			}
 		}
+
+		/* latency_sensitive task, select best_idle_cpu (lightest sleep) */
+		if (latency_sensitive && best_idle_cpu_per_gear >= 0) {
+			pwr = calc_pwr_eff(best_idle_cpu_per_gear, cpu_util);
+			if (best_idle_pwr > pwr) {
+				best_idle_pwr = pwr;
+				best_idle_cpu = best_idle_cpu_per_gear;
+				best_idle_max_spare_cap = best_idle_cpu_cap_per_gear;
+				min_exit_lat = min_exit_lat_per_gear;
+			}
+			/* if power of two cpus are identical, select larger capacity */
+			else if ((best_idle_pwr == pwr)
+				&& (best_idle_max_spare_cap < best_idle_cpu_cap_per_gear)) {
+				best_idle_cpu = best_idle_cpu_per_gear;
+				best_idle_max_spare_cap = best_idle_cpu_cap_per_gear;
+				min_exit_lat = min_exit_lat_per_gear;
+			}
+		}
 	}
 
-	if (best_idle_cpu != -1) {
-		/* best idle cpu existed */
-		target_cpu = best_idle_cpu;
-		select_reason = LB_IRQ_BEST_IDLE;
+	if (latency_sensitive) {
+		if (best_idle_cpu >= 0) {
+			/* best idle cpu existed */
+			target_cpu = best_idle_cpu;
+			select_reason = LB_LATENCY_SENSITIVE_BEST_IDLE_CPU;
+		} else if (idle_max_spare_cap_cpu >= 0) {
+			target_cpu = idle_max_spare_cap_cpu;
+			select_reason = LB_LATENCY_SENSITIVE_IDLE_MAX_SPARE_CPU;
+		} else {
+			target_cpu = sys_max_spare_cap_cpu;
+			select_reason = LB_LATENCY_SENSITIVE_MAX_SPARE_CPU;
+		}
 		goto out;
 	}
 
 	if (max_spare_cap_cpu != -1) {
 		target_cpu = max_spare_cap_cpu;
-		select_reason = LB_IRQ_MAX_SPARE;
+		select_reason = LB_BEST_ENERGY_CPU;
 		goto out;
 	}
 	/* All cpu failed on !fit_capacity, use sys_max_spare_cap_cpu */
 	if (sys_max_spare_cap_cpu != -1) {
 		target_cpu = sys_max_spare_cap_cpu;
-		select_reason = LB_IRQ_SYS_MAX_SPARE;
+		select_reason = LB_MAX_SPARE_CPU;
 		goto out;
 	}
 
