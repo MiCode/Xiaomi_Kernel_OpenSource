@@ -505,23 +505,71 @@ static void mtk_uart_apdma_start_rx(struct mtk_chan *c)
 		dev_err(c->vc.chan.device->dev, "Enable RX fail\n");
 }
 
-static void mtk_uart_apdma_tx_handler(struct mtk_chan *c)
+/* vchan_cookie_complete use irq_thread */
+static inline void vchan_cookie_complete_thread_irq(struct virt_dma_desc *vd)
+{
+	struct virt_dma_chan *vc = to_virt_chan(vd->tx.chan);
+	dma_cookie_t cookie;
+
+	cookie = vd->tx.cookie;
+	dma_cookie_complete(&vd->tx);
+	dev_vdbg(vc->chan.device->dev, "txd %p[%x]: marked complete\n",
+		 vd, cookie);
+	list_add_tail(&vd->node, &vc->desc_completed);
+}
+
+/* vchan_complete use irq_thread */
+static irqreturn_t vchan_complete_thread_irq(int irq, void *dev_id)
+{
+	struct dma_chan *chan = (struct dma_chan *)dev_id;
+	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
+	struct mtk_uart_apdma_desc *d = c->desc;
+	struct virt_dma_chan *vc = to_virt_chan(d->vd.tx.chan);
+	struct virt_dma_desc *vd, *_vd;
+	struct dmaengine_desc_callback cb;
+	LIST_HEAD(head);
+
+	spin_lock_irq(&vc->lock);
+	list_splice_tail_init(&vc->desc_completed, &head);
+	vd = vc->cyclic;
+	if (vd) {
+		vc->cyclic = NULL;
+		dmaengine_desc_get_callback(&vd->tx, &cb);
+	} else {
+		memset(&cb, 0, sizeof(cb));
+	}
+	spin_unlock_irq(&vc->lock);
+
+	dmaengine_desc_callback_invoke(&cb, &vd->tx_result);
+
+	list_for_each_entry_safe(vd, _vd, &head, node) {
+		dmaengine_desc_get_callback(&vd->tx, &cb);
+
+		list_del(&vd->node);
+		dmaengine_desc_callback_invoke(&cb, &vd->tx_result);
+		vchan_vdesc_fini(vd);
+	}
+	return IRQ_HANDLED;
+}
+
+static int mtk_uart_apdma_tx_handler(struct mtk_chan *c)
 {
 	struct mtk_uart_apdma_desc *d = c->desc;
 	int idx = (unsigned int)(c->rec_idx % UART_RECORD_COUNT);
 
 	mtk_uart_apdma_write(c, VFF_INT_FLAG, VFF_TX_INT_CLR_B);
 	if (unlikely(d == NULL))
-		return;
+		return -EINVAL;
 	mtk_uart_apdma_write(c, VFF_INT_EN, VFF_INT_EN_CLR_B);
 	mtk_uart_apdma_write(c, VFF_EN, VFF_EN_CLR_B);
 
 	list_del(&d->vd.node);
-	vchan_cookie_complete(&d->vd);
+	vchan_cookie_complete_thread_irq(&d->vd);
 	c->rec_info[idx].trans_duration_time = sched_clock() - c->rec_info[idx].trans_time;
+	return 0;
 }
 
-static void mtk_uart_apdma_rx_handler(struct mtk_chan *c)
+static int mtk_uart_apdma_rx_handler(struct mtk_chan *c)
 {
 	struct mtk_uart_apdma_desc *d = c->desc;
 	unsigned int len, wg, rg, left_data;
@@ -541,7 +589,7 @@ static void mtk_uart_apdma_rx_handler(struct mtk_chan *c)
 
 	if (!mtk_uart_apdma_read(c, VFF_VALID_SIZE)) {
 		num++;
-		return;
+		return -EINVAL;
 	}
 	num = 0;
 	mtk_uart_apdma_write(c, VFF_EN, VFF_EN_CLR_B);
@@ -595,7 +643,8 @@ static void mtk_uart_apdma_rx_handler(struct mtk_chan *c)
 #endif
 
 	list_del(&d->vd.node);
-	vchan_cookie_complete(&d->vd);
+	vchan_cookie_complete_thread_irq(&d->vd);
+	return 0;
 }
 
 static irqreturn_t mtk_uart_apdma_irq_handler(int irq, void *dev_id)
@@ -605,6 +654,7 @@ static irqreturn_t mtk_uart_apdma_irq_handler(int irq, void *dev_id)
 	enum dma_transfer_direction current_dir;
 	unsigned int current_irq;
 	bool dump_tx_err = false;
+	int ret = -EINVAL;
 	//unsigned long flags;
 
 	//spin_lock_irqsave(&c->vc.lock, flags);
@@ -612,11 +662,11 @@ static irqreturn_t mtk_uart_apdma_irq_handler(int irq, void *dev_id)
 	current_dir = c->dir;
 	current_irq = c->irq;
 	if (c->dir == DMA_DEV_TO_MEM)
-		mtk_uart_apdma_rx_handler(c);
+		ret = mtk_uart_apdma_rx_handler(c);
 	else if (c->dir == DMA_MEM_TO_DEV) {
 		if (unlikely(c->desc == NULL))
 			dump_tx_err = true;
-		mtk_uart_apdma_tx_handler(c);
+		ret = mtk_uart_apdma_tx_handler(c);
 	}
 	//spin_unlock_irqrestore(&c->vc.lock, flags);
 	spin_unlock(&c->vc.lock);
@@ -627,7 +677,9 @@ static irqreturn_t mtk_uart_apdma_irq_handler(int irq, void *dev_id)
 		if (dump_tx_err)
 			pr_info("debug: %s: TX[%d] FIX ME!", __func__, current_irq);
 	}
-	return IRQ_HANDLED;
+	if (ret != 0)
+		return IRQ_HANDLED;
+	return IRQ_WAKE_THREAD;
 }
 
 static int mtk_uart_apdma_alloc_chan_resources(struct dma_chan *chan)
@@ -679,8 +731,9 @@ static int mtk_uart_apdma_alloc_chan_resources(struct dma_chan *chan)
 	if (ret)
 		goto err_pm;
 
-	ret = request_irq(c->irq, mtk_uart_apdma_irq_handler,
-			  IRQF_TRIGGER_NONE, KBUILD_MODNAME, chan);
+	ret = request_threaded_irq(c->irq, mtk_uart_apdma_irq_handler,
+			vchan_complete_thread_irq,
+			IRQF_TRIGGER_NONE, KBUILD_MODNAME, chan);
 	if (ret < 0) {
 		dev_err(chan->device->dev, "Can't request dma IRQ\n");
 		ret = -EINVAL;
