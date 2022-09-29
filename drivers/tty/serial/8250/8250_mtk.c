@@ -216,11 +216,12 @@ static void mtk8250_clear_wakeup(void)
 		iounmap(peri_remap_wakeup_sta);
 }
 
-static void mtk8250_reset_peri(void)
+static void mtk8250_reset_peri(struct uart_8250_port *up)
 {
 	void __iomem *peri_remap_reset = NULL;
 	void __iomem *peri_remap_reset_set = NULL;
 	void __iomem *peri_remap_reset_clr = NULL;
+	unsigned int debug_reg = 0;
 
 	peri_remap_reset = ioremap(peri_reset.addr, 0x10);
 	if (!peri_remap_reset) {
@@ -241,6 +242,12 @@ static void mtk8250_reset_peri(void)
 		return;
 	}
 
+	/*clear fifo to avoid only xoff without xon to hub*/
+	serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO | UART_FCR_CLEAR_RCVR |
+		UART_FCR_CLEAR_XMIT);
+	udelay(2);
+	debug_reg = serial_in(up, MTK_UART_DEBUG1);
+
 	UART_REG_WRITE(peri_remap_reset_set,
 		((UART_REG_READ(peri_remap_reset)
 			& (~peri_reset.mask_set)) | peri_reset.val_set));
@@ -250,6 +257,7 @@ static void mtk8250_reset_peri(void)
 		((UART_REG_READ(peri_remap_reset)
 			& (~peri_reset.mask_clr)) | peri_reset.val_clr));
 	pr_info("%s peri_reset end:0x%x\n", __func__, (UART_REG_READ(peri_remap_reset)));
+	pr_info("0x64 = [0x%x]\n", debug_reg);
 
 	if (peri_remap_reset)
 		iounmap(peri_remap_reset);
@@ -450,7 +458,7 @@ static void mtk_save_uart_reg(struct uart_8250_port *up, unsigned int *reg_buf)
 static void mtk8250_debug_regs_dump(struct uart_8250_port *up)
 {
 	mtk_save_uart_reg(up, uart_reg_buf);
-	pr_info("[%s] 0x60=0x%x,0x64=0x%x,0x68=0x%x,0x6c=0x%x,\n"
+	pr_info("[%s]\n0x60=0x%x,0x64=0x%x,0x68=0x%x,0x6c=0x%x,\n"
 		"0x70=0x%x,0x74=0x%x,0x78=0x%x,0x7c=0x%x,0x80=0x%x,\n",
 		__func__, uart_reg_buf[11], uart_reg_buf[12], uart_reg_buf[13],
 		uart_reg_buf[14], uart_reg_buf[15], uart_reg_buf[16],
@@ -1173,7 +1181,14 @@ static int mtk8250_startup(struct uart_port *port)
 
 #if defined(KERNEL_UARTHUB_open)
 	if (data->support_hub == 1) {
-		mtk8250_reset_peri();
+		pr_info("[dump before uart full reset]\n");
+		mtk8250_debug_regs_dump(up);
+
+		mtk8250_reset_peri(up);
+
+		pr_info("[dump after uart full reset]\n");
+		mtk8250_debug_regs_dump(up);
+
 		pr_info("open uarthub if it is supported.\n");
 		/*open UARTHUB*/
 		KERNEL_UARTHUB_open();
