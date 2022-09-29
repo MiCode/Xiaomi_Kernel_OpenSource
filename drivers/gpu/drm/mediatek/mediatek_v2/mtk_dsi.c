@@ -2553,9 +2553,11 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 	struct mtk_panel_ext *ext = dsi->ext;
 	bool new_doze_state = mtk_dsi_doze_state(dsi);
 	struct drm_crtc *crtc = dsi->encoder.crtc;
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
-	unsigned int mode_id = mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX];
+	struct mtk_drm_crtc *mtk_crtc = crtc ? to_mtk_crtc(crtc) : NULL;
+	struct mtk_crtc_state *mtk_state = (crtc && crtc->state) ?
+		to_mtk_crtc_state(crtc->state) : NULL;
+	unsigned int mode_id = mtk_state ?
+		mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX] : 0;
 	unsigned int mode_chg_index = 0;
 	struct mtk_drm_private *priv = (crtc && crtc->dev)
 		? crtc->dev->dev_private : NULL;
@@ -2563,7 +2565,13 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 
 	DDPINFO("%s +\n", __func__);
 
-	if (crtc && priv && mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SPHRT)) {
+	if (!mtk_crtc || !mtk_state || !priv || !crtc) {
+		DDPPR_ERR("Fail to get mtk_crtc, mtk_state, priv or crtc, %s,%d\n",
+			__FILE__, __LINE__);
+		return;
+	}
+
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SPHRT)) {
 		crtc_idx = drm_crtc_index(crtc);
 		if (priv && priv->usage[crtc_idx] == DISP_OPENING) {
 			DDPINFO("%s %d skip due to still opening\n", __func__, crtc_idx);

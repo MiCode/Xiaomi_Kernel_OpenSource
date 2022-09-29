@@ -5589,7 +5589,7 @@ static int mtk_drm_signal_fence_worker_kthread(void *data)
 
 	sched_setscheduler(current, SCHED_RR, &param);
 
-	while (1) {
+	while (!kthread_should_stop()) {
 		ret = wait_event_interruptible(
 			mtk_crtc->signal_fence_task_wq
 			, atomic_read(&mtk_crtc->cmdq_done));

@@ -1207,7 +1207,7 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 
 	if (comp->mtk_crtc)
 		index = drm_crtc_index(&comp->mtk_crtc->base);
-	CRTC_MMP_MARK(index, ddp_clk, comp->id, 0);
+	CRTC_MMP_MARK((int) index, ddp_clk, comp->id, 0);
 }
 
 void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)

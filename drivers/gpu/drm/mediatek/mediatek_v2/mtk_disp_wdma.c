@@ -511,8 +511,10 @@ static int mtk_wdma_is_busy(struct mtk_ddp_comp *comp)
 {
 	int ret, tmp;
 
+	/* wdma status can be referenced to wdma_get_state() or CODA */
 	tmp = readl(comp->regs + DISP_REG_WDMA_FLOW_CTRL_DBG);
-	ret = ((tmp & FLOW_CTRL_DBG_FLD_WDMA_STA_FLOW_CTRL) != 0x1) ? 1 : 0;
+	ret = (REG_FLD_VAL_GET(FLOW_CTRL_DBG_FLD_WDMA_STA_FLOW_CTRL,
+				tmp) != 0x1) ? 1 : 0;
 
 	DDPINFO("%s:%d is:%d regs:0x%x\n", __func__, __LINE__, ret, tmp);
 
@@ -982,6 +984,11 @@ static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
 	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
 	resource_size_t larb_ctl_dummy = 0;
 
+	if (!wdma || !wdma->data) {
+		DDPPR_ERR("Invalid address, %s,%d\n", __FILE__, __LINE__);
+		return -1;
+	}
+
 	if (fmt != DRM_FORMAT_YUV420 && fmt != DRM_FORMAT_YVU420 &&
 		fmt != DRM_FORMAT_NV12 && fmt != DRM_FORMAT_NV21)
 		return 0;
@@ -1000,7 +1007,7 @@ static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
 		has_v = 0;
 	}
 
-	if (wdma && wdma->data && wdma->data->use_larb_control_sec) {
+	if (wdma->data->use_larb_control_sec) {
 		if (wdma->data->check_wdma_sec_reg)
 			larb_ctl_dummy = wdma->data->check_wdma_sec_reg(comp);
 		if (larb_ctl_dummy) {
@@ -1014,7 +1021,7 @@ static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
 			}
 		}
 	} else {
-		if (wdma && wdma->data && wdma->data->aid_sel)
+		if (wdma->data->aid_sel)
 			aid_sel_offset = wdma->data->aid_sel(comp);
 		if (aid_sel_offset) {
 			if (sec)
