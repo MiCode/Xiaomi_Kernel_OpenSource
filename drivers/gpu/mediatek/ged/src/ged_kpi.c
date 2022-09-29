@@ -83,20 +83,23 @@
 
 struct GED_KPI_HEAD {
 	int pid;
-	int i32Count;
-	unsigned long long ullWnd;
-	unsigned long long last_TimeStamp1;
-	unsigned long long last_TimeStamp2;
-	unsigned long long last_TimeStampS;
-	unsigned long long last_TimeStampH;
-	unsigned long long pre_TimeStamp2;
+	int i32Count;   // number of KPI object still in the KPI pool
+	unsigned long long ullWnd;   // BQ ID
+	unsigned long long last_TimeStamp1;   // recent queue timestamp
+	unsigned long long last_TimeStamp2;   // recent GPU done timestamp
+	unsigned long long last_TimeStampS;   // recent acquire timestamp
+	unsigned long long last_TimeStampH;   // recent HWVSYNC timestamp
+	unsigned long long pre_TimeStamp2;   // previous GPU done timestamp
 	long long t_cpu_remained;
 	long long t_gpu_remained;
 	long long t_cpu_latest;
-	long long t_gpu_latest;
+	long long t_gpu_latest;   // recent completed GPU time
+	long long t_gpu_latest_uncompleted;   // largest uncomplete GPU time
 	struct list_head sList;
+	spinlock_t sListLock;
 	int i32QedBuffer_length;
 	int i32Gpu_uncompleted;
+	unsigned int gpu_completed_count;
 	int i32DebugQedBuffer_length;
 	int isSF;
 	int isFRR_enabled;
@@ -157,12 +160,12 @@ struct GED_KPI {
 	unsigned long  i32AcquireID;
 	unsigned long ulMask;
 	unsigned long frame_attr;
-	unsigned long long ullTimeStampD;
-	unsigned long long ullTimeStamp1;
-	unsigned long long ullTimeStamp2;
-	unsigned long long ullTimeStampP;
-	unsigned long long ullTimeStampS;
-	unsigned long long ullTimeStampH;
+	unsigned long long ullTimeStampD;   // dequeue timestamp
+	unsigned long long ullTimeStamp1;   // queue timestamp
+	unsigned long long ullTimeStamp2;   // acquire fence signaled timestamp
+	unsigned long long ullTimeStampP;   // (X) release fence signaled timestamp
+	unsigned long long ullTimeStampS;   // (* set to queue) acquire timestamp
+	unsigned long long ullTimeStampH;   // (X) HWVSYNC timestamp
 	unsigned int gpu_freq; /* in MHz*/
 	unsigned int gpu_freq_max; /* in MHz*/
 	unsigned int gpu_loading;
@@ -947,7 +950,9 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			GED_LOGD("no hashtable head for ulID: %lu", ulID);
 		else {
 			psHead->i32Count -= 1;
+			spin_lock(&psHead->sListLock);
 			list_del(&psKPI->sList);
+			spin_unlock(&psHead->sListLock);
 
 			if (psHead->i32Count < 1
 				&& (psHead->sList.next == &(psHead->sList))) {
@@ -980,6 +985,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			psHead->pid = psTimeStamp->pid;
 			psHead->ullWnd = psTimeStamp->ullWnd;
 			psHead->isSF = psTimeStamp->isSF;
+			spin_lock_init(&psHead->sListLock);
 			ged_kpi_update_TargetTimeAndTargetFps(
 				psHead,
 				g_target_fps_default,
@@ -1000,8 +1006,12 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		psKPI->ullWnd = psTimeStamp->ullWnd;
 		psKPI->i32DeQueueID = psTimeStamp->i32FrameID;
 		psKPI->isSF = psTimeStamp->isSF;
+		spin_lock(&psHead->sListLock);
 		list_add_tail(&psKPI->sList, &psHead->sList);
+		spin_unlock(&psHead->sListLock);
 		psHead->i32Count += 1;
+		psHead->i32Gpu_uncompleted++;
+		psKPI->i32Gpu_uncompleted = psHead->i32Gpu_uncompleted;
 		break;
 
 	/* queue buffer scope */
@@ -1045,8 +1055,6 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		psKPI->t_cpu_target = psHead->t_cpu_target;
 		psKPI->t_gpu_target = psHead->t_gpu_target;
 		psKPI->target_fps_margin = psHead->target_fps_margin;
-		psHead->i32Gpu_uncompleted++;
-		psKPI->i32Gpu_uncompleted = psHead->i32Gpu_uncompleted;
 		psHead->i32DebugQedBuffer_length += 1;
 		psKPI->i32DebugQedBuffer_length = psHead->i32DebugQedBuffer_length;
 		/* recording cpu time per frame & boost CPU if needed */
@@ -1145,6 +1153,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		psHead->pre_TimeStamp2 = psHead->last_TimeStamp2;
 		psHead->last_TimeStamp2 = psTimeStamp->ullTimeStamp;
 		psHead->i32Gpu_uncompleted--;
+		psHead->gpu_completed_count++;
 		psKPI->gpu_loading = psTimeStamp->i32GPUloading;
 
 		if (psKPI->gpu_loading == 0)
@@ -1909,84 +1918,124 @@ EXPORT_SYMBOL(ged_kpi_set_fw_idle);
 static GED_BOOL ged_kpi_find_riskyBQ_func(unsigned long ulID,
 	void *pvoid, void *pvParam)
 {
-	struct GED_KPI_HEAD *psHead =
-		(struct GED_KPI_HEAD *)pvoid;
-	struct GED_KPI_HEAD *psRiskyBQ =
-		(struct GED_KPI_HEAD *)pvParam;
+	struct GED_KPI_HEAD *psHead = (struct GED_KPI_HEAD *) pvoid;
+	struct ged_risky_bq_info *info = (struct ged_risky_bq_info *) pvParam;
 
-	if (psRiskyBQ && psHead
-			&& psHead->t_gpu_latest > 0
-			&& psHead->t_gpu_target > 0) {
-		int t_gpu_latest;
+	if (psHead && info &&
+			psHead->t_gpu_latest > 0 &&
+			psHead->t_gpu_target > 0) {
+		long long t_gpu_latest, t_gpu_latest_uncompleted;
 		int t_gpu_target;
-		int risk;
-		int maxRisk;
+		int uncomplete_flag;
+		unsigned long long risk_completed, risk_uncompleted,
+			max_risk_completed, max_risk_uncompleted;
 
-		/* FPSGO skip this BQ, we should skip */
-		if ((psHead->target_fps == g_target_fps_default)
-			&& (psHead->target_fps_margin
-			== GED_KPI_DEFAULT_FPS_MARGIN))
-			return GED_TRUE;
+		// aggregate GPU completed count
+		info->total_gpu_completed_count += psHead->gpu_completed_count;
 
-		t_gpu_latest = ((int)psHead->t_gpu_latest) / 1000; // ns -> ms
-		t_gpu_target = psHead->t_gpu_target / 1000;
-		risk = t_gpu_latest * 100 / t_gpu_target;
-		t_gpu_latest = ((int)psRiskyBQ->t_gpu_latest) / 1000;
-		t_gpu_target = psRiskyBQ->t_gpu_target / 1000;
-		maxRisk = (t_gpu_target > 0) ?
-			(t_gpu_latest * 100 / t_gpu_target) : 0;
+		// calculate risk factor for current BQ
+		t_gpu_latest = psHead->t_gpu_latest;
+		t_gpu_latest_uncompleted = psHead->t_gpu_latest_uncompleted;
+		t_gpu_target = psHead->t_gpu_target;
+		risk_completed = t_gpu_latest * 100 / t_gpu_target;
+		risk_uncompleted = t_gpu_latest_uncompleted * 100 / t_gpu_target;
 
-		if (risk > maxRisk)
-			*psRiskyBQ = *psHead;
+		// update most risky BQ
+		if (risk_completed > info->completed_bq.risk) {
+			info->completed_bq.t_gpu = t_gpu_latest;
+			info->completed_bq.t_gpu_target = t_gpu_target;
+			info->completed_bq.risk = risk_completed;
+			info->completed_bq.ullWnd = psHead->ullWnd;
+		}
+		if (risk_uncompleted > info->uncompleted_bq.risk) {
+			info->uncompleted_bq.t_gpu = t_gpu_latest_uncompleted;
+			info->uncompleted_bq.t_gpu_target = t_gpu_target;
+			info->uncompleted_bq.risk = risk_uncompleted;
+			info->uncompleted_bq.ullWnd = psHead->ullWnd;
+		}
 	}
 	return GED_TRUE;
 }
 /* ------------------------------------------------------------------- */
-GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real, int *pT_gpu_pipe,
-	int *pT_gpu_target, unsigned long long *pullWnd)
+GED_ERROR ged_kpi_timer_based_pick_riskyBQ(struct ged_risky_bq_info *info)
 {
 	GED_ERROR ret = GED_ERROR_FAIL;
-	struct GED_KPI_HEAD sRiskyBQ = {0};
-	unsigned int deltaTime = 0;
-	unsigned int loading = 0;
-	int i;
 	unsigned long ulIRQFlags;
 
+	memset(info, 0, sizeof(struct ged_risky_bq_info));
 	spin_lock_irqsave(&gs_hashtableLock, ulIRQFlags);
 	ged_hashtable_iterator(gs_hashtable,
-		ged_kpi_find_riskyBQ_func, (void *)&sRiskyBQ);
+		ged_kpi_find_riskyBQ_func, (void *) info);
 	spin_unlock_irqrestore(&gs_hashtableLock, ulIRQFlags);
 
-	if (sRiskyBQ.ullWnd == 0
-			|| sRiskyBQ.last_TimeStamp2 == 0
-			|| sRiskyBQ.pre_TimeStamp2 == 0
-			|| sRiskyBQ.t_gpu_latest <= 0
-			|| sRiskyBQ.t_gpu_target <= 0)
+	if (info->completed_bq.ullWnd == 0 ||
+			info->completed_bq.t_gpu <= 0 ||
+			info->completed_bq.t_gpu_target <= 0)
+		// no BQ available yet or all BQ is skipped by FPSGO
+		// uncompleted BQ is optional, so no need to check
 		return ret;
 
-	deltaTime = ((unsigned int)
-		(sRiskyBQ.last_TimeStamp2 - sRiskyBQ.pre_TimeStamp2))
-		/ 1000U; // ns -> ms
-
-	for (i = 0; i < GED_KPI_TOTAL_ITEMS; ++i) {
-		if (g_asKPI[i].ullTimeStamp2 == sRiskyBQ.last_TimeStamp2
-			&& g_asKPI[i].ullWnd == sRiskyBQ.ullWnd) {
-			loading = g_asKPI[i].gpu_loading;
-			break;
-		}
-	}
-	if (loading == 0)
-		mtk_get_gpu_loading(&loading);
-
-	*pT_gpu_real = deltaTime * loading / 100U;
-	*pT_gpu_pipe = ((int)sRiskyBQ.t_gpu_latest) / 1000; // ns -> ms
-	*pT_gpu_target = sRiskyBQ.t_gpu_target / 1000;
-	*pullWnd = sRiskyBQ.ullWnd;
+	// t_gpu unit: ns -> us
+	info->completed_bq.t_gpu /= 1000;
+	info->completed_bq.t_gpu_target /= 1000;
+	info->uncompleted_bq.t_gpu /= 1000;
+	info->uncompleted_bq.t_gpu_target /= 1000;
 	ret = GED_OK;
 
+	/* if return OK, completed BQ's t_gpu & t_gpu_target must be non-zero, but
+	 * uncompleted BQ's t_gpu & t_gpu_target may be zero
+	 */
 	return ret;
 }
-EXPORT_SYMBOL(ged_kpi_timer_based_pick_riskyBQ);
+
+static GED_BOOL ged_kpi_update_t_gpu_latest_uncompleted_fcn(unsigned long ulID,
+	void *pvoid, void *pvParam)
+{
+	struct GED_KPI_HEAD *psHead = (struct GED_KPI_HEAD *) pvoid;
+	unsigned long long current_timestamp = *((unsigned long long *) pvParam);
+	struct GED_KPI *psKPI = NULL;
+	struct list_head *psListEntry, *psListEntryTemp;
+	struct list_head *psList = &psHead->sList;
+	long long t_gpu_uncomplete = 0;
+	int i = 0;
+
+	spin_lock(&psHead->sListLock);
+	list_for_each_prev_safe(psListEntry, psListEntryTemp, psList) {
+		psKPI = list_entry(psListEntry, struct GED_KPI, sList);
+		if (psKPI && (psKPI->ulMask & GED_TIMESTAMP_TYPE_2) == 0) {
+			// only uncompleted frame has uncompleted time
+			unsigned long long ullTimeStampTemp;
+
+			// default GPU completion start time is queue
+			if ((psKPI->ulMask & GED_TIMESTAMP_TYPE_1) == 0)
+				ullTimeStampTemp = psKPI->ullTimeStampD;   // no queue yet
+			else
+				ullTimeStampTemp = psKPI->ullTimeStamp1;
+			t_gpu_uncomplete = current_timestamp - ullTimeStampTemp;
+
+			// 4/3 buffer per BQ for 120FPS/<120FPS producer
+			if (++i >= 4)
+				break;
+		}
+	}
+	spin_unlock(&psHead->sListLock);
+	psHead->t_gpu_latest_uncompleted = t_gpu_uncomplete;
+
+	return GED_TRUE;
+}
+
+void ged_kpi_update_t_gpu_latest_uncompleted(void)
+{
+	unsigned long long current_timestamp;
+	unsigned long ulIRQFlags;
+
+	current_timestamp = ged_get_time();
+	spin_lock_irqsave(&gs_hashtableLock, ulIRQFlags);
+	ged_hashtable_iterator(gs_hashtable,
+		ged_kpi_update_t_gpu_latest_uncompleted_fcn,
+		(void *) &current_timestamp);
+	spin_unlock_irqrestore(&gs_hashtableLock, ulIRQFlags);
+}
 
 /* ------------------------------------------------------------------- */
 GED_ERROR ged_kpi_query_dvfs_freq_pred(int *gpu_freq_cur

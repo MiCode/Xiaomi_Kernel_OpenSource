@@ -171,9 +171,6 @@ extern int (*mtk_get_loading_base_dvfs_step_fp)(void);
 
 extern void (*mtk_timer_base_dvfs_margin_fp)(int i32MarginValue);
 extern int (*mtk_get_timer_base_dvfs_margin_fp)(void);
-/* it is not good that ged_dvfs extern API of ged_kpi, need to refactor */
-extern GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real,
-	int *pT_gpu_pipe, int *pT_gpu_target, unsigned long long *pullWnd);
 int ged_dvfs_get_tb_dvfs_margin_cur(void);
 unsigned int ged_dvfs_get_tb_dvfs_margin_mode(void);
 

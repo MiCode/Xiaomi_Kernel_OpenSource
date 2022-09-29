@@ -55,8 +55,18 @@ void ged_kpi_set_target_FPS_margin(u64 ulID, int target_FPS,
 		int target_FPS_margin, int eara_fps_margin, int cpu_time);
 void ged_kpi_set_fw_idle(unsigned int time);
 
-GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real, int *pT_gpu_pipe,
-	int *pT_gpu_target, unsigned long long *pullWnd);
+void ged_kpi_update_t_gpu_latest_uncompleted(void);
+struct ged_risky_bq_info {
+	struct {
+		long long t_gpu;
+		int t_gpu_target;
+		unsigned long long risk;
+		unsigned long long ullWnd;
+	} completed_bq, uncompleted_bq;
+
+	unsigned int total_gpu_completed_count;
+};
+GED_ERROR ged_kpi_timer_based_pick_riskyBQ(struct ged_risky_bq_info *info);
 
 /* For Gift Usage */
 GED_ERROR ged_kpi_query_dvfs_freq_pred(int *gpu_freq_cur

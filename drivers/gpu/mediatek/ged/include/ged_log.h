@@ -81,9 +81,8 @@ noinline void Policy__Frame_based__Margin(int v1, int v2, int v3);
 noinline void Policy__Frame_based__Margin__Detail(unsigned int v1, int v2, int v3, int v4);
 // Loading-based
 noinline void Policy__Loading_based__Opp(int v1);
-noinline void Policy__Loading_based__Loading(unsigned int v1, unsigned int v2, unsigned int v3);
+noinline void Policy__Loading_based__Loading(unsigned int v1, unsigned int v2);
 noinline void Policy__Loading_based__Bound(int v1, int v2, int v3, int v4);
-noinline void Policy__Loading_based__Step(unsigned int v1, unsigned int v2, int v3, int v4);
 noinline void Policy__Loading_based__GPU_Time(int v1, int v2, int v3, int v4, int v5);
 noinline void Policy__Loading_based__Margin(int v1, int v2, int v3);
 noinline void Policy__Loading_based__Margin__Detail(unsigned int v1, int v2, int v3);

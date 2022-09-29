@@ -1234,7 +1234,7 @@ noinline void Policy__Frame_based__GPU_Time(int v1, int v2, int v3, int v4, int 
 
 	if (ged_log_perf_trace_enable) {
 		cx = snprintf(buf, sizeof(buf),
-			"t_gpu=%d, t_gpu_target=%d, t_gpu_target_hd=%d, t_gpu_real=%d, t_gpu_pipe=%d\n",
+			"cur=%d, target=%d, target_hd=%d, real=%d, pipe=%d\n",
 			v1, v2, v3, v4, v5);
 		if (cx >= 0 && cx < sizeof(buf))
 			trace_printk(buf);
@@ -1279,13 +1279,13 @@ noinline void Policy__Loading_based__Opp(int v1)
 	}
 }
 
-noinline void Policy__Loading_based__Loading(unsigned int v1, unsigned int v2, unsigned int v3)
+noinline void Policy__Loading_based__Loading(unsigned int v1, unsigned int v2)
 {
 	char buf[256];
 	int cx;
 
 	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf), "cur=%u, average=%u, mode=%d\n", v1, v2, v3);
+		cx = snprintf(buf, sizeof(buf), "cur=%u, mode=%d\n", v1, v2);
 		if (cx >= 0 && cx < sizeof(buf))
 			trace_printk(buf);
 	}
@@ -1305,20 +1305,6 @@ noinline void Policy__Loading_based__Bound(int v1, int v2, int v3, int v4)
 	}
 }
 
-noinline void Policy__Loading_based__Step(unsigned int v1, unsigned int v2, int v3, int v4)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf),
-			"up_count=%u, down_count=%u, step_limit=%d, ultra_high_step_size=%d\n",
-			v1, v2, v3, v4);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
 noinline void Policy__Loading_based__GPU_Time(int v1, int v2, int v3, int v4, int v5)
 {
 	char buf[256];
@@ -1326,7 +1312,7 @@ noinline void Policy__Loading_based__GPU_Time(int v1, int v2, int v3, int v4, in
 
 	if (ged_log_perf_trace_enable) {
 		cx = snprintf(buf, sizeof(buf),
-			"t_gpu=%d, t_gpu_target=%d, t_gpu_target_hd=%d, t_gpu_real=%d, t_gpu_pipe=%d\n",
+			"cur=%d, target=%d, target_hd=%d, complete=%d, uncomplete=%d\n",
 			v1, v2, v3, v4, v5);
 		if (cx >= 0 && cx < sizeof(buf))
 			trace_printk(buf);
@@ -1352,7 +1338,7 @@ noinline void Policy__Loading_based__Margin__Detail(unsigned int v1, int v2, int
 
 	if (ged_log_perf_trace_enable) {
 		cx = snprintf(buf, sizeof(buf),
-			"margin_mode=%u, min_margin_inc_step=%d, min_margin=%d\n",
+			"margin_mode=%u, margin_step=%d, min_margin=%d\n",
 			v1, v2, v3);
 		if (cx >= 0 && cx < sizeof(buf))
 			trace_printk(buf);

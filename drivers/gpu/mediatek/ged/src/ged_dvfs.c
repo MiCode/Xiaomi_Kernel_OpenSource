@@ -20,6 +20,7 @@
 #include <linux/sched/signal.h>
 
 #include "ged_dvfs.h"
+#include "ged_kpi.h"
 #include "ged_monitor_3D_fence.h"
 #include <ged_notify_sw_vsync.h>
 #include "ged_log.h"
@@ -193,23 +194,23 @@ static int ged_get_dvfs_loading_mode(void);
 static int ged_get_dvfs_workload_mode(void);
 
 #define GED_DVFS_TIMER_BASED_DVFS_MARGIN 30
+#define GED_DVFS_TIMER_BASED_DVFS_MARGIN_STEP 5
 static int gx_tb_dvfs_margin = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
 static int gx_tb_dvfs_margin_cur = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
 
 #define MAX_TB_DVFS_MARGIN               99
-#define MIN_TB_DVFS_MARGIN               20
-#define MIN_TB_MARGIN_INC_STEP           1
+#define MIN_TB_DVFS_MARGIN               5
 #define CONFIGURE_TIMER_BASED_MODE       0x00000000
 #define DYNAMIC_TB_MASK                  0x00000100
-#define DYNAMIC_TB_PIPE_TIME_MASK        0x00000200
+#define DYNAMIC_TB_PIPE_TIME_MASK        0x00000200   // phased out
 #define DYNAMIC_TB_PERF_MODE_MASK        0x00000400
-#define DYNAMIC_TB_FIX_TARGET_MASK       0x00000800
+#define DYNAMIC_TB_FIX_TARGET_MASK       0x00000800   // phased out
 #define TIMER_BASED_MARGIN_MASK          0x000000ff
 // default loading-based margin mode + value is 30
 static int g_tb_dvfs_margin_value = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
 static int g_tb_dvfs_margin_value_min = MIN_TB_DVFS_MARGIN;
-static unsigned int g_tb_dvfs_margin_mode = CONFIGURE_TIMER_BASED_MODE;
-static unsigned int step_margin;
+static int g_tb_dvfs_margin_step = GED_DVFS_TIMER_BASED_DVFS_MARGIN_STEP;
+static unsigned int g_tb_dvfs_margin_mode = DYNAMIC_TB_MASK | DYNAMIC_TB_PERF_MODE_MASK;
 
 static void _init_loading_ud_table(void)
 {
@@ -1251,7 +1252,6 @@ static bool ged_dvfs_policy(
 {
 	int ui32GPUFreq = ged_get_cur_oppidx();
 	unsigned int sentinalLoading = 0;
-	unsigned int ui32GPULoading_avg;
 	unsigned int window_size_ms = g_loading_slide_window_size;
 	int i32NewFreqID = (int)ui32GPUFreq;
 
@@ -1309,19 +1309,9 @@ static bool ged_dvfs_policy(
 		spin_unlock_irqrestore(&load_info_lock, ui32IRQFlags);
 	}
 
-	loading_mode = ged_get_dvfs_loading_mode();
-
-	if (ged_get_policy_state() == POLICY_STATE_FALLBACK) // fallback mode
-		window_size_ms = g_fallback_window_size;
-
-	ui32GPULoading = gpu_util_history_query_loading(window_size_ms * 1000);
-
-	ged_log_buf_print(ghLogBuf_DVFS,
-		"[GED_K] timer: loading %u", ui32GPULoading);
-
 	minfreq_idx = ged_get_min_oppidx();
-	/* conventional timer-based policy */
 	if (g_gpu_timer_based_emu) {
+		/* legacy timer-based policy */
 		if (ui32GPULoading >= 99)
 			i32NewFreqID = 0;
 		else if (ui32GPULoading <= 1)
@@ -1345,117 +1335,132 @@ static bool ged_dvfs_policy(
 
 		g_CommitType = MTK_GPU_DVFS_TYPE_TIMERBASED;
 	} else {
+		/* new timer-based policy */
+		int t_gpu = -1, t_gpu_complete = -1, t_gpu_uncomplete = -1;
+		int t_gpu_target = -1, t_gpu_target_hd = -1;
 
-	int t_gpu_real = -1;
-	int t_gpu_pipe = -1;
-	int t_gpu = -1;
-	int t_gpu_target = -1;
-	int temp = 0;
-	unsigned long long ullWnd = 0;
+		/* margin update */
+		ged_kpi_update_t_gpu_latest_uncompleted();
+		if (g_tb_dvfs_margin_mode & DYNAMIC_TB_MASK) {
+			/* dynamic margin mode */
+			GED_ERROR ret = GED_ERROR_FAIL;
+			struct ged_risky_bq_info info;
 
-	int t_gpu_target_hd = 0;
-	if (g_tb_dvfs_margin_mode & DYNAMIC_TB_MASK) {
+			ret = ged_kpi_timer_based_pick_riskyBQ(&info);
+			if (ret == GED_OK) {
+				static unsigned int prev_gpu_completed_count;
+				unsigned int gpu_completed_count =
+					info.total_gpu_completed_count;
+				int uncomplete_flag;
 
-		if (ged_kpi_timer_based_pick_riskyBQ(
-			&t_gpu_real, &t_gpu_pipe,
-			&t_gpu_target, &ullWnd) == GED_OK) {
-			t_gpu =
-				(g_tb_dvfs_margin_mode
-				& DYNAMIC_TB_PIPE_TIME_MASK) ?
-				t_gpu_pipe : t_gpu_real;
-			t_gpu_target_hd =
-				(g_tb_dvfs_margin_mode
-				& DYNAMIC_TB_FIX_TARGET_MASK) ?
-				33333 : t_gpu_target;
-			t_gpu_target_hd =
-				(g_tb_dvfs_margin_mode
-				& DYNAMIC_TB_PERF_MODE_MASK) ?
-				(t_gpu_target
-				* (100 - gx_tb_dvfs_margin) / 100)
-				: t_gpu_target_hd;
-			if (t_gpu > t_gpu_target_hd) {
-				temp = gx_tb_dvfs_margin
-					* (t_gpu - t_gpu_target_hd)
-					/ t_gpu_target_hd;
+				t_gpu_complete = (int) info.completed_bq.t_gpu;
+				t_gpu_uncomplete = (int) info.uncompleted_bq.t_gpu;
 
-				if (temp < MIN_TB_MARGIN_INC_STEP)
-					temp = MIN_TB_MARGIN_INC_STEP;
+				// pick the largest t_gpu/t_gpu_target & set uncomplete_flag
+				t_gpu = t_gpu_uncomplete;
+				t_gpu_target = info.uncompleted_bq.t_gpu_target;
+				if (g_tb_dvfs_margin_mode & DYNAMIC_TB_PERF_MODE_MASK)
+					t_gpu_target_hd = t_gpu_target
+						* (100 - g_tb_dvfs_margin_value_min) / 100;
+				else
+					t_gpu_target_hd = t_gpu_target;
+				if (t_gpu > t_gpu_target_hd)
+					// priority #1: uncompleted frame overtime
+					uncomplete_flag = 1;
+				else {
+					// priority #2: frame with higher t_gpu/t_gpu_target ratio
+					unsigned long long risk_completed =
+						info.completed_bq.risk;
+					unsigned long long risk_uncompleted =
+						info.uncompleted_bq.risk;
+					if (risk_completed > risk_uncompleted) {
+						t_gpu = t_gpu_complete;
+						t_gpu_target = info.completed_bq.t_gpu_target;
+					}
+					uncomplete_flag = 0;
+				}
 
-				gx_tb_dvfs_margin += temp;
+				// set t_gpu_target_hd
+				if (g_tb_dvfs_margin_mode & DYNAMIC_TB_PERF_MODE_MASK)
+					t_gpu_target_hd = t_gpu_target
+						* (100 - g_tb_dvfs_margin_value_min) / 100;
+				else
+					t_gpu_target_hd = t_gpu_target;
 
+				// margin modifying
+				if (t_gpu > t_gpu_target_hd) {   // overtime
+					/* increase margin flow */
+					if (uncomplete_flag)
+						// frame still not done, so keep updating margin
+						gx_tb_dvfs_margin += g_tb_dvfs_margin_step;
+					else if (gpu_completed_count != prev_gpu_completed_count)
+						// frame already done, so update once per frame done
+						gx_tb_dvfs_margin += g_tb_dvfs_margin_step;
+				} else {   // in time
+					/* decrease margin flow */
+					if (gpu_completed_count != prev_gpu_completed_count)
+						gx_tb_dvfs_margin -= g_tb_dvfs_margin_step;
+				}
+
+				// margin range clipping
 				if (gx_tb_dvfs_margin > g_tb_dvfs_margin_value)
-					gx_tb_dvfs_margin =
-					g_tb_dvfs_margin_value;
-			} else {
-				gx_tb_dvfs_margin -=
-					gx_tb_dvfs_margin
-					* (t_gpu_target_hd - t_gpu)
-					/ t_gpu_target_hd;
+					gx_tb_dvfs_margin = g_tb_dvfs_margin_value;
+				if (gx_tb_dvfs_margin < g_tb_dvfs_margin_value_min)
+					gx_tb_dvfs_margin = g_tb_dvfs_margin_value_min;
 
-				if (gx_tb_dvfs_margin <
-					g_tb_dvfs_margin_value_min)
-					gx_tb_dvfs_margin =
-						g_tb_dvfs_margin_value_min;
-			}
-		}
-	} else {
-		gx_tb_dvfs_margin = g_tb_dvfs_margin_value;
-	}
+				// update prev_gpu_completed_count for next iteration
+				prev_gpu_completed_count = gpu_completed_count;
+			} else
+				// use fix margin if risky BQ cannot be obtained
+				gx_tb_dvfs_margin = g_tb_dvfs_margin_value;
+		} else
+			/* fix margin mode */
+			gx_tb_dvfs_margin = g_tb_dvfs_margin_value;
 
-	Policy__Loading_based__Margin(g_tb_dvfs_margin_value*10,
-								  gx_tb_dvfs_margin*10,
-								  g_tb_dvfs_margin_value_min*10);
+		// use fix margin in fallback mode
+		if (ged_get_policy_state() == POLICY_STATE_FALLBACK)
+			gx_tb_dvfs_margin = g_tb_dvfs_margin_value;
 
-	Policy__Loading_based__GPU_Time(t_gpu,
-									t_gpu_target,
-									t_gpu_target_hd,
-									t_gpu_real,
-									t_gpu_pipe);
+		Policy__Loading_based__Margin(g_tb_dvfs_margin_value*10,
+			gx_tb_dvfs_margin*10, g_tb_dvfs_margin_value_min*10);
+		Policy__Loading_based__Margin__Detail(g_tb_dvfs_margin_mode,
+			g_tb_dvfs_margin_step, g_tb_dvfs_margin_value_min*10);
+		Policy__Loading_based__GPU_Time(t_gpu, t_gpu_target, t_gpu_target_hd,
+			t_gpu_complete, t_gpu_uncomplete);
 
+		/* bound update */
 		if (init == 0) {
 			init = 1;
-			gx_tb_dvfs_margin_cur
-				= gx_tb_dvfs_margin;
+			gx_tb_dvfs_margin_cur = gx_tb_dvfs_margin;
 			_init_loading_ud_table();
 		}
-
 		if (gx_tb_dvfs_margin != gx_tb_dvfs_margin_cur
 				&& gx_tb_dvfs_margin < 100
 				&& gx_tb_dvfs_margin >= 0) {
-			gx_tb_dvfs_margin_cur
-				= gx_tb_dvfs_margin;
+			gx_tb_dvfs_margin_cur = gx_tb_dvfs_margin;
 			_init_loading_ud_table();
 		}
 
-		Policy__Loading_based__Margin__Detail(
-							g_tb_dvfs_margin_mode,
-							MIN_MARGIN_INC_STEP * 10,
-							g_tb_dvfs_margin_value_min * 10);
-		ged_log_buf_print(ghLogBuf_DVFS,
-			"[GED_K][LB_DVFS] mode:0x%x, u_b:%d, l_b:%d, margin:%d, gpu_real:%d, gpu_pipe:%d, t_gpu:%d, target:%d, BQ:%llu",
-			g_tb_dvfs_margin_mode,
-			g_tb_dvfs_margin_value,
-			g_tb_dvfs_margin_value_min,
-			gx_tb_dvfs_margin_cur,
-			t_gpu_real,
-			t_gpu_pipe,
-			t_gpu,
-			t_gpu_target,
-			ullWnd);
-
-		ui32GPULoading_avg = _loading_avg(ui32GPULoading);
-		Policy__Loading_based__Loading(ui32GPULoading, ui32GPULoading_avg, loading_mode);
-
-		int ultra_high = (120 - gx_tb_dvfs_margin_cur >= 95)
-			? 95 : 120 - gx_tb_dvfs_margin_cur;
+		int ultra_high = 95;
 		int high = loading_ud_table[ui32GPUFreq].up;
 		int low = loading_ud_table[ui32GPUFreq].down;
 		int ultra_low = 20;
 		int ultra_high_step_size = (dvfs_step_mode & 0xff);
 		int ultra_low_step_size = (dvfs_step_mode & 0xff00) >> 8;
 
+		if (high > ultra_high)
+			high = ultra_high;
 		if (low < ultra_low)
 			low = ultra_low;
+
+		Policy__Loading_based__Bound(ultra_high, high, low, ultra_low);
+
+		/* opp control */
+		if (ged_get_policy_state() == POLICY_STATE_FALLBACK) // fallback mode
+			window_size_ms = g_fallback_window_size;
+		ui32GPULoading = gpu_util_history_query_loading(window_size_ms * 1000);
+		loading_mode = ged_get_dvfs_loading_mode();
+		Policy__Loading_based__Loading(ui32GPULoading, loading_mode);
 
 		if (ui32GPULoading >= ultra_high)
 			i32NewFreqID -= ultra_high_step_size;
@@ -1463,28 +1468,33 @@ static bool ged_dvfs_policy(
 			i32NewFreqID += ultra_low_step_size;
 		else if (ui32GPULoading >= high)
 			i32NewFreqID -= 1;
-		else if (ui32GPULoading_avg <= low)
+		else if (ui32GPULoading <= low)
 			i32NewFreqID += 1;
 
-		//prevent decreasing opp in fall back mode
+		// prevent decreasing opp in fall back mode
 		if (ged_get_policy_state() == POLICY_STATE_FALLBACK
 				&& i32NewFreqID > ui32GPUFreq)
 			i32NewFreqID = ui32GPUFreq;
 
-		Policy__Loading_based__Bound(ultra_high,
-									 high,
-									 low,
-									 ultra_low);
-
 		ged_log_buf_print(ghLogBuf_DVFS,
-	"[GED_K1] rdy gpu_av_loading:%u, %d(%d)-up:%d,%d, new: %d, step: 0x%x",
-				ui32GPULoading,
-				ui32GPUFreq,
-				loading_ud_table[ui32GPUFreq].freq,
-				loading_ud_table[ui32GPUFreq].up,
-				loading_ud_table[ui32GPUFreq].down,
-				i32NewFreqID,
-				dvfs_step_mode);
+			"[GED_K][LB_DVFS] mode:0x%x, u_b:%d, l_b:%d, margin:%d, complete:%d, uncomplete:%d, t_gpu:%d, target:%d",
+			g_tb_dvfs_margin_mode,
+			g_tb_dvfs_margin_value,
+			g_tb_dvfs_margin_value_min,
+			gx_tb_dvfs_margin_cur,
+			t_gpu_complete,
+			t_gpu_uncomplete,
+			t_gpu,
+			t_gpu_target);
+		ged_log_buf_print(ghLogBuf_DVFS,
+			"[GED_K1] rdy gpu_av_loading:%u, %d(%d)-up:%d,%d, new: %d, step: 0x%x",
+			ui32GPULoading,
+			ui32GPUFreq,
+			loading_ud_table[ui32GPUFreq].freq,
+			loading_ud_table[ui32GPUFreq].up,
+			loading_ud_table[ui32GPUFreq].down,
+			i32NewFreqID,
+			dvfs_step_mode);
 
 		g_CommitType = MTK_GPU_DVFS_TYPE_FALLBACK;
 	}
@@ -1805,10 +1815,12 @@ static void ged_timer_base_dvfs_margin(int i32MarginValue)
 	 * bit    10: use performance mode for dynamic timer based dvfs margin
 	 * bit    11: fix target FPS to 30 for dynamic timer based dvfs margin
 	 * bit 23~16: min margin value
+	 * bit 27~24: margin update step
 	 */
 	unsigned int mode = CONFIGURE_TIMER_BASED_MODE;
 	int value = i32MarginValue & TIMER_BASED_MARGIN_MASK;
 	int value_min = (i32MarginValue >> 16) & TIMER_BASED_MARGIN_MASK;
+	int margin_step = (i32MarginValue >> 24) & 0x0000000F;
 
 	if (i32MarginValue < 0)
 		value = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
@@ -1840,6 +1852,11 @@ static void ged_timer_base_dvfs_margin(int i32MarginValue)
 		g_tb_dvfs_margin_value_min = MIN_TB_DVFS_MARGIN;
 	else
 		g_tb_dvfs_margin_value_min = value_min;
+
+	if (margin_step == 0)
+		g_tb_dvfs_margin_step = margin_step;
+	else
+		g_tb_dvfs_margin_step = GED_DVFS_TIMER_BASED_DVFS_MARGIN_STEP;
 
 	mutex_unlock(&gsDVFSLock);
 }
