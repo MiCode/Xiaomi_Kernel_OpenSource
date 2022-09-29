@@ -118,15 +118,10 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id)
 
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	int num = 0;
-	u64 time1 = 0;
-	u64 time2 = 0;
-	u64 time3 = 0;
-	u64 time4 = 0;
-	u64 time5 = 0;
-	u64 time6 = 0;
+	u64 ts[11] = {0};
 	u64 THRESHOLD = 5 * 1000 * 1000;
 
-	time1 = sched_clock();
+	ts[0] = sched_clock();
 #endif
 
 	pr_debug("%s(%d): start\n", __func__, irq);
@@ -134,51 +129,76 @@ static irqreturn_t serial8250_interrupt(int irq, void *dev_id)
 	spin_lock(&i->lock);
 
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	time2 = sched_clock();
+	ts[1] = sched_clock();
 #endif
 
 	l = i->head;
 	do {
 		struct uart_8250_port *up;
 		struct uart_port *port;
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		num++;
+#endif
 		up = list_entry(l, struct uart_8250_port, list);
 		port = &up->port;
 
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		time5 = sched_clock();
+		if (num == 1)
+			ts[2] = sched_clock();
+		if (num == 2)
+			ts[3] = sched_clock();
 #endif
 		if (port->handle_irq(port)) {
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			time6 = sched_clock();
+			if (num == 1)
+				ts[4] = sched_clock();
+
 #endif
 
 			handled = 1;
 			end = NULL;
-		} else if (end == NULL)
-			end = l;
+		} else if (end == NULL) {
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+			if (num == 1)
+				ts[4] = sched_clock();
 
+			if (num == 2)
+				ts[5] = sched_clock();
+
+#endif
+			end = l;
+		}
 		l = l->next;
 
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		if (++num == 1)
-			time3 = sched_clock();
+		if (num == 1)
+			ts[6] = sched_clock();
+		if (num == 2)
+			ts[7] = sched_clock();
 #endif
 
 		if (l == i->head && pass_counter++ > PASS_LIMIT)
 			break;
 	} while (l != end);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[8] = sched_clock();
+#endif
 	spin_unlock(&i->lock);
 
 	pr_debug("%s(%d): end\n", __func__, irq);
 
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	time4 = sched_clock();
-	if ((time4 - time1) > THRESHOLD)
-		pr_info("[%s],irq[%d]: num[%d], time1[%lld], 3[%lld],4[%lld], 4-1[%lld],3-1[%lld],\n"
-		"4-3[%lld],2-1[%lld], 6-5[%lld]\n",  __func__, irq, num, time1, time3, time4,
-		  time4-time1, time3-time1, time4-time3, time2-time1, time6-time5);
+	ts[9] = sched_clock();
+
+	if ((ts[9] - ts[0]) > THRESHOLD) {
+		pr_info("[%s],irq[%d]: num[%d], ts[0][%lld], 1[%lld], ts[2][%lld],\n"
+			"ts[3][%lld], ts[4][%lld], ts[5][%lld], ts[6][%lld], ts[7][%lld], ts[8][%lld],\n"
+			"ts[9][%lld], ts[9]-ts[0][%lld], 1-0[%lld], ts[4]-ts[2][%lld], ts[5]-ts[3][%lld],\n"
+			"ts[9]-ts[8][%lld]\n", __func__, irq, num, ts[0], ts[1], ts[2],
+			ts[3], ts[4], ts[5], ts[6], ts[7], ts[8], ts[9],
+			ts[9]-ts[0], ts[1]-ts[0], ts[4]-ts[2], ts[5]-ts[3],
+			ts[9]-ts[8]);
+	}
 #endif
 
 	return IRQ_RETVAL(handled);

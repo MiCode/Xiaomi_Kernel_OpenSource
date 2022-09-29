@@ -51,6 +51,7 @@ f drivers/scsi/ufs/ufshcd.c
 f drivers/scsi/ufs/ufshcd.h
 f drivers/scsi/ufs/unipro.h
 f drivers/tty/serial/8250/8250_core.c
+f drivers/tty/serial/8250/8250_port.c
 f fs/coredump.c
 f fs/f2fs/checkpoint.c
 f include/linux/dev_printk.h

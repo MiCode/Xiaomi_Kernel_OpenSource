@@ -37,6 +37,11 @@
 
 #include "8250.h"
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+#include <linux/sched.h>
+#include <linux/sched/clock.h>
+#endif
+
 /* Nuvoton NPCM timeout register */
 #define UART_NPCM_TOR          7
 #define UART_NPCM_TOIE         BIT(7)  /* Timeout Interrupt Enable */
@@ -1919,11 +1924,23 @@ int serial8250_handle_irq(struct uart_port *port, unsigned int iir)
 	struct uart_8250_port *up = up_to_u8250p(port);
 	bool skip_rx = false;
 	unsigned long flags;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[9] = {0};
+	u64 THRESHOLD = 5 * 1000 * 1000;
+#endif
 
 	if (iir & UART_IIR_NO_INT)
 		return 0;
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[0] = sched_clock();
+#endif
+
 	spin_lock_irqsave(&port->lock, flags);
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[1] = sched_clock();
+#endif
 
 	status = serial_port_in(port, UART_LSR);
 
@@ -1941,16 +1958,45 @@ int serial8250_handle_irq(struct uart_port *port, unsigned int iir)
 		skip_rx = true;
 
 	if (status & (UART_LSR_DR | UART_LSR_BI) && !skip_rx) {
-		if (!up->dma || handle_rx_dma(up, iir))
+		if (!up->dma || handle_rx_dma(up, iir)) {
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+			ts[2] = sched_clock();
+#endif
 			status = serial8250_rx_chars(up, status);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+			ts[3] = sched_clock();
+#endif
+			}
 	}
 	serial8250_modem_status(up);
 	if ((!up->dma || up->dma->tx_err) && (status & UART_LSR_THRE) &&
-		(up->ier & UART_IER_THRI))
+		(up->ier & UART_IER_THRI)) {
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[4] = sched_clock();
+#endif
+
 		serial8250_tx_chars(up);
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[5] = sched_clock();
+#endif
+	}
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[6] = sched_clock();
+#endif
 	uart_unlock_and_check_sysrq_irqrestore(port, flags);
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[7] = sched_clock();
+
+	if ((ts[7] - ts[0]) > THRESHOLD)
+		pr_info("[%s]: ts0[%lld], 1[%lld], 2[%lld], 3[%lld], 1-0[%lld],\n"
+			"3-2[%lld], 3-0[%lld], 5-4[%lld], 7-0[%lld]\n", __func__,
+			ts[0], ts[1], ts[2], ts[3], ts[1]-ts[0], ts[3]-ts[2], ts[3]-ts[0],
+			ts[5]-ts[4], ts[7]-ts[0]);
+#endif
 	return 1;
 }
 EXPORT_SYMBOL_GPL(serial8250_handle_irq);
