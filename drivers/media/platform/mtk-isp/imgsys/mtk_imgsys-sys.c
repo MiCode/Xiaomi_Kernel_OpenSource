@@ -2153,7 +2153,7 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 		if (ret) {
 			dev_dbg(imgsys_dev->dev, "%s: mtk_hcp_allocate_working_buffer failed %d\n",
 				__func__, ret);
-			return -EBUSY;
+			goto err_power_off;
 		}
 
 		mtk_hcp_purge_msg(imgsys_dev->scp_pdev);
@@ -2197,14 +2197,14 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 	if (ret) {
 		dev_dbg(imgsys_dev->dev, "%s: send SCP_IPI_DIP_FRAME failed %d\n",
 			__func__, ret);
-		return -EBUSY;
+		goto err_power_off;
 	}
 
 	ret = gce_work_pool_init(imgsys_dev);
 	if (ret) {
 		dev_info(imgsys_dev->dev, "%s: gce work pool allocate failed %d\n",
 			__func__, ret);
-		return -EBUSY;
+		goto err_power_off;
 	}
 
 	imgsys_timeout_idx = 0;
@@ -2225,6 +2225,28 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 		imgsys_aee_handler, "imgsys_aee_handler", imgsys_dev);
 
 	return 0;
+
+err_power_off:
+	if (!imgsys_quick_onoff_enable()) {
+	#if DVFS_QOS_READY
+		mtk_imgsys_power_ctrl(imgsys_dev, false);
+	#else
+		pm_runtime_put_sync(imgsys_dev->dev);
+	#endif
+	} else
+		dev_info(imgsys_dev->dev,
+			"%s: imgsys_quick_onoff_enable(%d)\n",
+			__func__, imgsys_quick_onoff_enable());
+	mtk_imgsys_mod_put(imgsys_dev);
+
+	user_cnt = atomic_read(&imgsys_dev->imgsys_user_cnt);
+	if (user_cnt != 0)
+		dev_info(imgsys_dev->dev,
+			"%s: [ERROR] imgsys user count is not yet return to zero(%d)\n",
+			__func__, user_cnt);
+
+	return -EBUSY;
+
 }
 
 static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
