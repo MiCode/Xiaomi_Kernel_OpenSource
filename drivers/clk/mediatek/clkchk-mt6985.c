@@ -24,6 +24,8 @@
 
 #include "clkchk.h"
 #include "clkchk-mt6985.h"
+#include "clk-fmeter.h"
+#include "clk-mt6985-fmeter.h"
 
 #define BUG_ON_CHK_ENABLE		0
 #define CHECK_VCORE_FREQ		1
@@ -49,7 +51,6 @@
 static DEFINE_SPINLOCK(clk_trace_lock);
 static unsigned int clk_event[EVT_LEN];
 static unsigned int evt_cnt;
-static bool trace_dump_flag;
 
 /* xpu*/
 enum {
@@ -79,7 +80,25 @@ enum {
 	WPE2_DIP1_WPE_CG = 5,
 	WPE3_DIP1_LARB11_CG = 6,
 	WPE3_DIP1_WPE_CG = 7,
-	TRACE_CLK_NUM = 8,
+	IMG_FDVT_CGPDN = 8,
+	IMG_ME_CGPDN = 9,
+	IMG_MMG_CGPDN = 10,
+	IMG_LARB12_CGPDN = 11,
+	TRACE_CLK_NUM = 12,
+};
+
+enum {
+	CHK_FM_MMPLL2 = 0,
+	CHK_FM_UNIVPLL2,
+	CHK_FM_MAINPLL2,
+	CHK_FM_MMPLL,
+	CHK_FM_UNIVPLL,
+	CHK_FM_IMGPLL,
+	CHK_FM_TVDPLL,
+	CHK_FM_UFS,
+	CHK_FM_IMG1,
+	CHK_FM_IPE,
+	CHK_FM_NUM,
 };
 
 const char *imgsys_main_cgs[] = {
@@ -91,7 +110,31 @@ const char *imgsys_main_cgs[] = {
 	[WPE2_DIP1_WPE_CG] = "wpe2_dip1_wpe",
 	[WPE3_DIP1_LARB11_CG] = "wpe3_dip1_larb11",
 	[WPE3_DIP1_WPE_CG] = "wpe3_dip1_wpe",
+	[IMG_FDVT_CGPDN] = "img_fdvt",
+	[IMG_ME_CGPDN] = "img_me",
+	[IMG_MMG_CGPDN] = "img_mmg",
+	[IMG_LARB12_CGPDN] = "img_larb12",
 	[TRACE_CLK_NUM] = NULL,
+};
+
+struct clkchk_fm {
+	const char *fm_name;
+	unsigned int fm_id;
+	unsigned int fm_type;
+};
+
+struct  clkchk_fm chk_fm_list[] = {
+	[CHK_FM_MMPLL2] = {"mmpll2", FM_MMPLL2_CK, ABIST_2},
+	[CHK_FM_UNIVPLL2] = {"univpll2", FM_UNIVPLL2_CK, ABIST_2},
+	[CHK_FM_MAINPLL2] = {"mainpll2", FM_MAINPLL2_CK, ABIST_2},
+	[CHK_FM_MMPLL] = {"mmpll", FM_MMPLL_CK, ABIST},
+	[CHK_FM_UNIVPLL] = {"univpll", FM_UNIVPLL_CK, ABIST},
+	[CHK_FM_IMGPLL] = {"imgpll", FM_IMGPLL_CK, ABIST},
+	[CHK_FM_TVDPLL] = {"tvdpll", FM_TVDPLL_CK, ABIST},
+	[CHK_FM_UFS] = {"ufs sel", FM_U_CK, CKGEN},
+	[CHK_FM_IMG1] = {"img1 sel", FM_IMG1_CK_2, CKGEN_CK2},
+	[CHK_FM_IPE] = {"ipe sel", FM_IPE_CK_2, CKGEN_CK2},
+	{},
 };
 
 static void trace_clk_event(const char *name, unsigned int clk_sta)
@@ -139,14 +182,6 @@ static void dump_clk_event(void)
 				clk_event[i + 4]);
 
 	spin_unlock_irqrestore(&clk_trace_lock, flags);
-}
-
-static void trigger_trace_dump(unsigned int enable)
-{
-	if (enable)
-		trace_dump_flag = true;
-	else
-		trace_dump_flag = false;
 }
 
 /*
@@ -236,6 +271,7 @@ static struct regbase rb[] = {
 
 static struct regname rn[] = {
 	/* TOPCKGEN register */
+	REGNAME(top, 0x0000, CLK_MODE),
 	REGNAME(top, 0x0010, CLK_CFG_0),
 	REGNAME(top, 0x0020, CLK_CFG_1),
 	REGNAME(top, 0x0030, CLK_CFG_2),
@@ -255,9 +291,10 @@ static struct regname rn[] = {
 	REGNAME(top, 0x0150, CLK_CFG_20),
 	REGNAME(top, 0x0160, CLK_CFG_21),
 	REGNAME(top, 0x01f0, CLK_CFG_30),
-	REGNAME(top, 0x0230, CKSTA),
-	REGNAME(top, 0x0234, CKSTA1),
-	REGNAME(top, 0x0238, CKSTA2),
+	REGNAME(top, 0x0230, CKSTA_REG0),
+	REGNAME(top, 0x0234, CKSTA_REG1),
+	REGNAME(top, 0x0238, CKSTA_REG2),
+	REGNAME(top, 0x0240, CLK_MISC_CFG_0),
 	REGNAME(top, 0x0320, CLK_AUDDIV_0),
 	REGNAME(top, 0x0850, CKSYS2_CLK_CFG_4),
 	REGNAME(top, 0x0860, CKSYS2_CLK_CFG_5),
@@ -268,15 +305,13 @@ static struct regname rn[] = {
 	REGNAME(top, 0x0910, CKSYS2_CLK_CFG_16),
 	REGNAME(top, 0x0920, CKSYS2_CLK_CFG_17),
 	REGNAME(top, 0x0930, CKSYS2_CLK_CFG_18),
+	REGNAME(top, 0x0A30, CKSYS2_CKSTA_REG0),
+	REGNAME(top, 0x0A34, CKSYS2_CKSTA_REG1),
+	REGNAME(top, 0x0A38, CKSYS2_CKSTA_REG2),
 	REGNAME(top, 0x0328, CLK_AUDDIV_2),
 	REGNAME(top, 0x0334, CLK_AUDDIV_3),
 	REGNAME(top, 0x0338, CLK_AUDDIV_4),
 	REGNAME(top, 0x033C, CLK_AUDDIV_5),
-	REGNAME(top, 0x0A30, CKSYS2_CKSTA),
-	REGNAME(top, 0x0A34, CKSYS2_CKSTA1),
-	REGNAME(top, 0x0A38, CKSYS2_CKSTA2),
-	REGNAME(top, 0x240, CLK_MISC_CFG_0),
-	REGNAME(top, 0x0, CLK_MODE),
 	/* INFRACFG_AO register */
 	REGNAME(ifrao, 0x6C, HRE_INFRA_BUS_CTRL),
 	REGNAME(ifrao, 0x90, MODULE_CG_0),
@@ -1074,14 +1109,21 @@ static void devapc_dump(void)
 
 static void serror_dump(void)
 {
-	if (trace_dump_flag) {
-		release_mt6985_hwv_secure();
-		set_subsys_reg_dump_mt6985(devapc_dump_id);
-		get_subsys_reg_dump_mt6985();
+	u32 freq[CHK_FM_NUM];
+	int i;
 
-		dump_clk_event();
-		pdchk_dump_trace_evt();
-	}
+	for (i = 0; i < CHK_FM_NUM; i++)
+		freq[i] = mt_get_fmeter_freq(chk_fm_list[i].fm_id, chk_fm_list[i].fm_type);
+
+	release_mt6985_hwv_secure();
+	set_subsys_reg_dump_mt6985(devapc_dump_id);
+	for (i = 0; i < CHK_FM_NUM; i++)
+		pr_notice("[%s] %d khz\n", chk_fm_list[i].fm_name, freq[i]);
+
+	get_subsys_reg_dump_mt6985();
+
+	dump_clk_event();
+	pdchk_dump_trace_evt();
 }
 
 static struct devapc_vio_callbacks devapc_vio_handle = {
@@ -1265,7 +1307,6 @@ static struct clkchk_ops clkchk_mt6985_ops = {
 	.dump_bus_reg = dump_bus_reg,
 	.dump_pll_reg = dump_pll_reg,
 	.trace_clk_event = trace_clk_event,
-	.trigger_trace_dump = trigger_trace_dump,
 	.check_hwv_irq_sta = check_hwv_irq_sta,
 };
 
