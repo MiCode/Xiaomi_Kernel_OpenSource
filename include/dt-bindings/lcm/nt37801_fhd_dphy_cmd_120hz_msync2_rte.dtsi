@@ -338,14 +338,14 @@
 						lcm-params-dsi-msync_min_fps = <43>;
 						lcm-params-dsi-msync_level_num = <20>;
 						lcm-params-dsi-delay_frame_num = <2>;
-						lcm-params-dsi-multi_te_tb_count = <3>;
-						lcm-params-dsi-multi_te_level_id =
+						lcm-params-dsi-rte_tb_count = <3>;
+						lcm-params-dsi-rte_level_id =
 							<0 1 3>;
-						lcm-params-dsi-multi_te_level_fps =
+						lcm-params-dsi-rte_level_fps =
 							<60 80 120>;
-						lcm-params-dsi-multi_te_max_fps =
+						lcm-params-dsi-rte_max_fps =
 							<60 80 120>;
-						lcm-params-dsi-multi_te_min_fps =
+						lcm-params-dsi-rte_min_fps =
 							<48 60 80>;
 					};
 				};
@@ -529,14 +529,14 @@
 						lcm-params-dsi-msync_min_fps = <43>;
 						lcm-params-dsi-msync_level_num = <20>;
 						lcm-params-dsi-delay_frame_num = <2>;
-						lcm-params-dsi-multi_te_tb_count = <3>;
-						lcm-params-dsi-multi_te_level_id =
+						lcm-params-dsi-rte_tb_count = <3>;
+						lcm-params-dsi-rte_level_id =
 							<0 1 3>;
-						lcm-params-dsi-multi_te_level_fps =
+						lcm-params-dsi-rte_level_fps =
 							<60 80 120>;
-						lcm-params-dsi-multi_te_max_fps =
+						lcm-params-dsi-rte_max_fps =
 							<60 80 120>;
-						lcm-params-dsi-multi_te_min_fps =
+						lcm-params-dsi-rte_min_fps =
 							<48 60 80>;
 					};
 				};
@@ -728,14 +728,14 @@
 						lcm-params-dsi-msync_min_fps = <43>;
 						lcm-params-dsi-msync_level_num = <20>;
 						lcm-params-dsi-delay_frame_num = <2>;
-						lcm-params-dsi-multi_te_tb_count = <3>;
-						lcm-params-dsi-multi_te_level_id =
+						lcm-params-dsi-rte_tb_count = <3>;
+						lcm-params-dsi-rte_level_id =
 							<0 1 3>;
-						lcm-params-dsi-multi_te_level_fps =
+						lcm-params-dsi-rte_level_fps =
 							<60 80 120>;
-						lcm-params-dsi-multi_te_max_fps =
+						lcm-params-dsi-rte_max_fps =
 							<60 80 120>;
-						lcm-params-dsi-multi_te_min_fps =
+						lcm-params-dsi-rte_min_fps =
 							<48 60 80>;
 					};
 				};
@@ -926,14 +926,14 @@
 						lcm-params-dsi-msync_min_fps = <43>;
 						lcm-params-dsi-msync_level_num = <20>;
 						lcm-params-dsi-delay_frame_num = <2>;
-						lcm-params-dsi-multi_te_tb_count = <3>;
-						lcm-params-dsi-multi_te_level_id =
+						lcm-params-dsi-rte_tb_count = <3>;
+						lcm-params-dsi-rte_level_id =
 							<0 1 3>;
-						lcm-params-dsi-multi_te_level_fps =
+						lcm-params-dsi-rte_level_fps =
 							<60 80 120>;
-						lcm-params-dsi-multi_te_max_fps =
+						lcm-params-dsi-rte_max_fps =
 							<60 80 120>;
-						lcm-params-dsi-multi_te_min_fps =
+						lcm-params-dsi-rte_min_fps =
 							<48 60 80>;
 					};
 				};
@@ -3062,7 +3062,7 @@
 					compatible =
 						"mediatek,lcm-ops-dsi-msync-switch-mte";
 
-					msync_switch_mte_mode_list = <0 1 2 3>;
+					msync_switch_mte_mode_list = [00 01 03];
 					msync_switch_mte_default_table =
 						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
 						[F0 55 AA 52 08 00],
@@ -3143,7 +3143,7 @@
 					compatible =
 						"mediatek,lcm-ops-dsi-fps-switch-after-poweron";
 
-					fps_switch_mode_list = <0 1 2 3>;
+					fps_switch_mode_list = [00 01 02 03];
 					default_fps_switch_table =
 					/* ESD */
 						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],

@@ -139,6 +139,8 @@
 					lcm-params-dsi-lcm_index;
 					lcm-params-dsi-wait_sof_before_dec_vfp;
 					lcm-params-dsi-doze_delay;
+					lcm-params-dsi-cmd_null_pkt_en = <0>;
+					lcm-params-dsi-cmd_null_pkt_len = <105>;
 					lcm-params-dsi-lfr_enable;
 					lcm-params-dsi-lfr_minimum_fps;
 					lcm-params-dsi-msync2_enable;
@@ -404,6 +406,8 @@
 					lcm-params-dsi-lcm_index;
 					lcm-params-dsi-wait_sof_before_dec_vfp;
 					lcm-params-dsi-doze_delay;
+					lcm-params-dsi-cmd_null_pkt_en = <0>;
+					lcm-params-dsi-cmd_null_pkt_len = <105>;
 					lcm-params-dsi-lfr_enable;
 					lcm-params-dsi-lfr_minimum_fps;
 					lcm-params-dsi-msync2_enable;
@@ -592,6 +596,8 @@
 					lcm-params-dsi-lcm_index;
 					lcm-params-dsi-wait_sof_before_dec_vfp;
 					lcm-params-dsi-doze_delay;
+					lcm-params-dsi-cmd_null_pkt_en = <0>;
+					lcm-params-dsi-cmd_null_pkt_len = <105>;
 					lcm-params-dsi-lfr_enable;
 					lcm-params-dsi-lfr_minimum_fps;
 					lcm-params-dsi-msync2_enable;
