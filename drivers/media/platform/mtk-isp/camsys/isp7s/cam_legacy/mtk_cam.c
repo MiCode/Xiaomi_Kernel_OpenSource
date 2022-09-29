@@ -8534,7 +8534,8 @@ static int isp_composer_init(struct mtk_cam_ctx *ctx, unsigned int pipe_id)
 	ctx->rpmsg_dev = mtk_create_client_msgdevice(rpmsg_subdev, msg);
 	if (!ctx->rpmsg_dev)
 		return -EINVAL;
-
+	dev_info(dev, "%s create_client_msgdevice done ctx:%d, ipi_id:%d\n",
+		 __func__, ctx->stream_id, ipi_id);
 	ctx->rpmsg_dev->rpdev.ept = rpmsg_create_ept(&ctx->rpmsg_dev->rpdev,
 						     isp_composer_handler,
 						     cam, *msg);
@@ -8565,7 +8566,7 @@ static int mtk_cam_runtime_suspend(struct device *dev)
 
 static int mtk_cam_runtime_resume(struct device *dev)
 {
-	dev_dbg(dev, "- %s\n", __func__);
+	dev_info(dev, "- %s\n", __func__);
 
 	mtk_cam_timesync_init(true);
 

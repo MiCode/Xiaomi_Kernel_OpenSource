@@ -333,7 +333,7 @@ mtk_rpmsg_create_rpmsgdev(struct mtk_rpmsg_rproc_subdev *mtk_subdev,
 	rpdev->dev.of_node =
 		mtk_rpmsg_match_device_subnode(pdev->dev.of_node, info->name);
 
-	dev_dbg(&pdev->dev, "ccd msgdev addr: %d\n", rpdev->src);
+	dev_info(&pdev->dev, "ccd msgdev addr: %d\n", rpdev->src);
 
 	rpdev->dev.parent = &pdev->dev;
 	rpdev->dev.release = mtk_rpmsg_release_device;
