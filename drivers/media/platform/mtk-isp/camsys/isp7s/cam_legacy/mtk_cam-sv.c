@@ -881,9 +881,6 @@ void sv_reset(struct mtk_camsv_device *dev)
 
 	dev_dbg(dev->dev, "%s camsv_id:%d\n", __func__, dev->id);
 
-	/* disable dma dcm before do dma reset */
-	writel(1, dev->base + REG_CAMSVCENTRAL_DCM_DIS);
-
 	writel(0, dev->base_dma + REG_CAMSVDMATOP_SW_RST_CTL);
 	writel(1, dev->base_dma + REG_CAMSVDMATOP_SW_RST_CTL);
 	wmb(); /* make sure committed */
@@ -1461,9 +1458,12 @@ int mtk_cam_sv_central_common_disable(struct mtk_camsv_device *dev)
 {
 	int ret = 0;
 
-	/* must disable cmos before disable vf, otherwise, tf may occur */
+	/* disable dma dcm before do dma reset */
+	writel(1, dev->base + REG_CAMSVCENTRAL_DCM_DIS);
+
+	/* bypass tg_mode function before vf off */
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_SEN_MODE,
-		CAMSVCENTRAL_SEN_MODE, CMOS_EN, 0);
+		CAMSVCENTRAL_SEN_MODE, TG_MODE_OFF, 1);
 
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_VF_CON,
 		CAMSVCENTRAL_VF_CON, VFDATA_EN, 0);
@@ -1473,6 +1473,9 @@ int mtk_cam_sv_central_common_disable(struct mtk_camsv_device *dev)
 	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_DONE_STATUS_EN, 0);
 	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_ERR_STATUS_EN, 0);
 	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_SOF_STATUS_EN, 0);
+
+	CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_SEN_MODE,
+		CAMSVCENTRAL_SEN_MODE, CMOS_EN, 0);
 
 	sv_reset(dev);
 	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_DMA_EN_IMG, 0);
