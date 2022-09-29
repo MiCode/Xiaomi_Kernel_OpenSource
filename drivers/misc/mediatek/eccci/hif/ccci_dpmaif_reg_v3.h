@@ -322,7 +322,10 @@
 #define DPMAIF_HPC_LRO_PATH_MODE2       2
 #define DPMAIF_HPC_LRO_PATH_MODE3       3
 
-#define DPMAIF_HPC_LRO_PATH_DF          DPMAIF_HPC_LRO_PATH_MODE3
+/* disable 2RXQ, and only isr from rxq0 are allowed */
+#define DPMAIF_HPC_LRO_PATH_DF          DPMAIF_HPC_LRO_PATH_MODE2
+/* enable 2RXQ, and isr from rxq0/rxq1 are allowed */
+//#define DPMAIF_HPC_LRO_PATH_DF          DPMAIF_HPC_LRO_PATH_MODE3
 
 #define DPMAIF_HPC_ADD_MODE_DF          0
 #define DPMAIF_HPC_TOTAL_NUM            8

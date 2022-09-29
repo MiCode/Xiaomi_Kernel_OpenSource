@@ -122,6 +122,7 @@ int ccci_drv_dl_all_queue_en(bool enable);
 
 unsigned short ccci_drv2_dl_get_bat_ridx(void);
 unsigned short ccci_drv3_dl_get_bat_ridx(void);
+unsigned short ccci_drv3_dl_get_bat_widx(void);
 
 unsigned short ccci_drv2_dl_get_frg_bat_ridx(void);
 unsigned short ccci_drv3_dl_get_frg_bat_ridx(void);

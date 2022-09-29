@@ -106,6 +106,7 @@ struct debug_bat_alc_skb_hdr {
 	u16 cnt;
 	u16 crd;
 	u16 cwr;
+	u16 hwr;
 	u16 thrd;
 
 } __packed;
@@ -114,9 +115,11 @@ struct debug_bat_th_wake_hdr {
 	u8  type:5;
 	u8  qidx:3;
 	u32 time;
-	u16 need;
+	u8  need1;
+	u8  need2;
 	u16 req;
 	u16 frg;
+	u8  est;
 
 } __packed;
 

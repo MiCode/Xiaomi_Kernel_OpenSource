@@ -390,15 +390,17 @@ static int dpmaif_alloc_bat_req(int update_bat_cnt, atomic_t *paused)
 	struct dpmaif_bat_base *cur_bat;
 	unsigned int buf_space, buf_used, alloc_skb_threshold = g_alloc_skb_threshold;
 	int count = 0, ret = 0, request_cnt;
-	unsigned short bat_wr_idx, next_wr_idx;
+	unsigned short bat_wr_idx, next_wr_idx, pre_hw_wr_idx = 0;
 
-	if (g_dpmf_ver >= 3)
+	if (g_dpmf_ver >= 3) {
 		atomic_set(&bat_req->bat_rd_idx, ccci_drv3_dl_get_bat_ridx());
-	else  //version 1, 2
+		if (g_debug_flags & DEBUG_BAT_ALC_SKB)
+			pre_hw_wr_idx = ccci_drv3_dl_get_bat_widx();
+	} else  //version 1, 2
 		atomic_set(&bat_req->bat_rd_idx, ccci_drv2_dl_get_bat_ridx());
 
-	if (alloc_skb_threshold > g_max_bat_skb_cnt_for_md)
-		alloc_skb_threshold = g_max_bat_skb_cnt_for_md;
+	//if (alloc_skb_threshold > g_max_bat_skb_cnt_for_md)
+	//	alloc_skb_threshold = g_max_bat_skb_cnt_for_md;
 
 	buf_used = get_ringbuf_used_cnt(bat_req->bat_cnt,
 					atomic_read(&bat_req->bat_rd_idx),
@@ -450,24 +452,25 @@ alloc_end:
 		/* wait write done */
 		wmb();
 
-		if (g_debug_flags & DEBUG_BAT_ALC_SKB) {
-			struct debug_bat_alc_skb_hdr hdr = {0};
-
-			hdr.type = TYPE_BAT_ALC_SKB_ID;
-			hdr.time = (unsigned int)(local_clock() >> 16);
-			hdr.spc  = buf_space;
-			hdr.cnt  = count;
-			hdr.crd  = atomic_read(&bat_req->bat_rd_idx);
-			hdr.cwr  = bat_wr_idx;
-			hdr.thrd = alloc_skb_threshold;
-			ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
-		}
-
 		atomic_set(&bat_req->bat_wr_idx, bat_wr_idx);
 		if (update_bat_cnt) {
 			if (ccci_drv_dl_add_bat_cnt(count))
 				ops.drv_dump_register(CCCI_DUMP_REGISTER);
 			ccci_dpmaif_skb_wakeup_thread();
+		}
+
+		if (g_debug_flags & DEBUG_BAT_ALC_SKB) {
+			struct debug_bat_alc_skb_hdr hdr = {0};
+
+			hdr.type = TYPE_BAT_ALC_SKB_ID;
+			hdr.time = (unsigned int)(local_clock() >> 16);
+			hdr.spc  = buf_used;
+			hdr.cnt  = count;
+			hdr.crd  = atomic_read(&bat_req->bat_rd_idx);
+			hdr.cwr  = bat_wr_idx;
+			hdr.hwr  = pre_hw_wr_idx;
+			hdr.thrd = alloc_skb_threshold;
+			ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
 		}
 	}
 
@@ -594,25 +597,25 @@ alloc_end:
 		/* wait write done */
 		wmb();
 
-		if (g_debug_flags & DEBUG_BAT_ALC_FRG) {
-			struct debug_bat_alc_skb_hdr hdr = {0};
-
-			hdr.type = TYPE_BAT_ALC_FRG_ID;
-			hdr.time = (unsigned int)(local_clock() >> 16);
-			hdr.spc  = buf_space;
-			hdr.cnt  = count;
-			hdr.crd  = atomic_read(&bat_req->bat_rd_idx);
-			hdr.cwr  = bat_wr_idx;
-			hdr.thrd = alloc_frg_threshold;
-			ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
-		}
-
 		atomic_set(&bat_req->bat_wr_idx, bat_wr_idx);
 
 		if (update_bat_cnt) {
 			ccci_drv_dl_add_frg_bat_cnt(count);
 			g_use_page_tbl = 1;
 			ccci_dpmaif_skb_wakeup_thread();
+		}
+
+		if (g_debug_flags & DEBUG_BAT_ALC_FRG) {
+			struct debug_bat_alc_skb_hdr hdr = {0};
+
+			hdr.type = TYPE_BAT_ALC_FRG_ID;
+			hdr.time = (unsigned int)(local_clock() >> 16);
+			hdr.spc  = buf_used;
+			hdr.cnt  = count;
+			hdr.crd  = atomic_read(&bat_req->bat_rd_idx);
+			hdr.cwr  = bat_wr_idx;
+			hdr.thrd = alloc_frg_threshold;
+			ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
 		}
 	}
 
@@ -687,6 +690,7 @@ static void ccci_dpmaif_bat_free(void)
 static int dpmaif_rx_bat_alloc_thread(void *arg)
 {
 	int ret, ret_req, ret_frg;
+	u8 need1 = 0, est_cnt = 0;
 	struct debug_bat_th_wake_hdr hdr = {0};
 
 	dpmaif_ctl->bat_alloc_running = 1;
@@ -696,6 +700,10 @@ static int dpmaif_rx_bat_alloc_thread(void *arg)
 	while (1) {
 		ret = wait_event_interruptible(dpmaif_ctl->bat_alloc_wq,
 				atomic_read(&dpmaif_ctl->bat_need_alloc));
+
+		if (g_debug_flags & DEBUG_BAT_TH_WAKE) {
+			need1 = (u8)atomic_read(&dpmaif_ctl->bat_need_alloc);
+		}
 
 		if (atomic_read(&dpmaif_ctl->bat_paused_alloc) != BAT_ALLOC_NO_PAUSED) {
 			CCCI_ERROR_LOG(-1, TAG,
@@ -710,8 +718,10 @@ static int dpmaif_rx_bat_alloc_thread(void *arg)
 			continue;
 		}
 
-		if (ret == -ERESTARTSYS)
+		if (ret == -ERESTARTSYS) {
+			est_cnt++;
 			continue;
+		}
 
 		if (kthread_should_stop()) {
 			CCCI_ERROR_LOG(-1, TAG,
@@ -725,12 +735,15 @@ static int dpmaif_rx_bat_alloc_thread(void *arg)
 		ret_frg = dpmaif_alloc_bat_frg(1, &dpmaif_ctl->bat_paused_alloc);
 
 		if (g_debug_flags & DEBUG_BAT_TH_WAKE) {
-			hdr.type = TYPE_BAT_TH_WAKE_ID;
-			hdr.time = (unsigned int)(local_clock() >> 16);
-			hdr.need = atomic_read(&dpmaif_ctl->bat_need_alloc);
-			hdr.req  = ((ret_req < 0) ? 0 : ret_req);
-			hdr.frg  = ((ret_frg < 0) ? 0 : ret_frg);
+			hdr.type  = TYPE_BAT_TH_WAKE_ID;
+			hdr.time  = (unsigned int)(local_clock() >> 16);
+			hdr.need1 = need1;
+			hdr.need2 = atomic_read(&dpmaif_ctl->bat_need_alloc);
+			hdr.req   = ((ret_req < 0) ? 0 : ret_req);
+			hdr.frg   = ((ret_frg < 0) ? 0 : ret_frg);
+			hdr.est   = est_cnt;
 			ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
+			est_cnt = 0;
 		}
 
 		if (atomic_read(&dpmaif_ctl->bat_need_alloc) > 1)

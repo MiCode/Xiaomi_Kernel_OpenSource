@@ -2527,28 +2527,28 @@ static void dpmaif_total_spd_cb(u64 total_ul_speed, u64 total_dl_speed)
 		g_rx_flush_pkt_cnt = 60;
 #endif
 	} else if (total_dl_speed > 2000000000LL) {  // dl tput > 2G
-		g_alloc_skb_threshold = 8192;
-		g_alloc_frg_threshold = 8192;
-		g_alloc_skb_tbl_threshold = 4000;
-		g_alloc_frg_tbl_threshold = 4000;
+		g_alloc_skb_threshold = MAX_ALLOC_BAT_CNT;
+		g_alloc_frg_threshold = MAX_ALLOC_BAT_CNT;
+		g_alloc_skb_tbl_threshold = MAX_ALLOC_BAT_CNT;
+		g_alloc_frg_tbl_threshold = MAX_ALLOC_BAT_CNT;
 
 #ifdef DPMAIF_REDUCE_RX_FLUSH
 		g_rx_flush_pkt_cnt = 30;
 #endif
 	} else if (total_dl_speed > 1000000000LL) {  // dl tput > 1G
-		g_alloc_skb_threshold = 4096;
-		g_alloc_frg_threshold = 4096;
-		g_alloc_skb_tbl_threshold = 2000;
-		g_alloc_frg_tbl_threshold = 2000;
+		g_alloc_skb_threshold = MAX_ALLOC_BAT_CNT;
+		g_alloc_frg_threshold = MAX_ALLOC_BAT_CNT;
+		g_alloc_skb_tbl_threshold = MAX_ALLOC_BAT_CNT;
+		g_alloc_frg_tbl_threshold = MAX_ALLOC_BAT_CNT;
 
 #ifdef DPMAIF_REDUCE_RX_FLUSH
 		g_rx_flush_pkt_cnt = 10;
 #endif
 	} else if (total_dl_speed > 300000000LL) {  // dl tput > 300M
-		g_alloc_skb_threshold = 4096;
-		g_alloc_frg_threshold = 4096;
-		g_alloc_skb_tbl_threshold = 2000;
-		g_alloc_frg_tbl_threshold = 2000;
+		g_alloc_skb_threshold = MAX_ALLOC_BAT_CNT;
+		g_alloc_frg_threshold = MAX_ALLOC_BAT_CNT;
+		g_alloc_skb_tbl_threshold = MAX_ALLOC_BAT_CNT;
+		g_alloc_frg_tbl_threshold = MAX_ALLOC_BAT_CNT;
 
 #ifdef DPMAIF_REDUCE_RX_FLUSH
 		g_rx_flush_pkt_cnt = 5;

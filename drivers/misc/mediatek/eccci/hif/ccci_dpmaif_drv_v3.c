@@ -353,6 +353,16 @@ unsigned short ccci_drv3_dl_get_bat_ridx(void)
 	return (unsigned short)ridx;
 }
 
+unsigned short ccci_drv3_dl_get_bat_widx(void)
+{
+	unsigned int widx = 0;
+
+	widx = DPMA_READ_AO_DL_SRAM(DPMAIF_AO_DL_BAT_STA3);
+	widx = (widx & DPMAIF_DL_BAT_WRIDX_MSK);
+
+	return (unsigned short)widx;
+}
+
 unsigned short ccci_drv3_dl_get_frg_bat_ridx(void)
 {
 	unsigned int ridx = 0;
