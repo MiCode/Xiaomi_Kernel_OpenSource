@@ -13237,7 +13237,7 @@ int check_msync_config_info(struct msync_parameter_table *config)
 	unsigned int msync_level_num = config->msync_level_num;
 	struct msync_level_table *level_tb = config->level_tb;
 	int i = 0;
-	struct msync_level_table check_level_tb[MSYNC_MAX_LEVEL] = {};
+	struct msync_level_table check_level_tb[MSYNC_MAX_LEVEL];
 
 	DDPMSG("%s:%d +++\n", __func__, __LINE__);
 	if (!level_tb) {
@@ -13246,26 +13246,26 @@ int check_msync_config_info(struct msync_parameter_table *config)
 		return -EFAULT;
 	}
 
-	if (level_tb != NULL) {
-		if (copy_from_user(check_level_tb,
-					level_tb,
-					sizeof(struct msync_parameter_table) *
-					config->msync_level_num)) {
-			DDPPR_ERR("%s:%d copy failed:(0x%p,0x%p), size:%ld\n",
-					__func__, __LINE__,
-					config->level_tb,
-					level_tb,
-					sizeof(struct msync_parameter_table) *
-					config->msync_level_num);
-			return -EFAULT;
-		}
-	}
-
 	if ((msync_level_num <= 0) ||
 			(msync_level_num > MSYNC_MAX_LEVEL)) {
 		DDPPR_ERR("%s:%d The level num is error!!!\n",
 			__func__, __LINE__);
 		return -EFAULT;
+	}
+
+	if (level_tb != NULL) {
+		if (copy_from_user(check_level_tb,
+					level_tb,
+					sizeof(struct msync_level_table) *
+					msync_level_num)) {
+			DDPPR_ERR("%s:%d copy failed:(0x%p,0x%p), size:%ld\n",
+					__func__, __LINE__,
+					config->level_tb,
+					level_tb,
+					sizeof(struct msync_level_table) *
+					msync_level_num);
+			return -EFAULT;
+		}
 	}
 
 	if (check_level_tb[0].level_id != 1) {
@@ -13347,7 +13347,10 @@ int mtk_drm_get_msync_params_ioctl(struct drm_device *dev, void *data,
 		config_dst->level_tb = msync_level_tb;
 		config->msync_max_fps = config_dst->msync_max_fps;
 		config->msync_min_fps = config_dst->msync_min_fps;
-		config->msync_level_num = MSYNC_MAX_LEVEL;
+		if (config_dst->msync_level_num > MSYNC_MAX_LEVEL)
+			config->msync_level_num = MSYNC_MAX_LEVEL;
+		else
+			config->msync_level_num = config_dst->msync_level_num;
 
 		if (config_dst->level_tb != NULL) {
 			if (copy_to_user(config->level_tb,
