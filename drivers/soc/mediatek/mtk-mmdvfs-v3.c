@@ -187,7 +187,7 @@ static void check_ccu_pwr(void)
 			has_error = true;
 		}
 	}
-	WARN_ON(has_error);
+	//WARN_ON(has_error);
 }
 
 
