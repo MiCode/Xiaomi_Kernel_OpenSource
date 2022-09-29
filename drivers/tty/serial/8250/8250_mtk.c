@@ -254,6 +254,16 @@ static void mtk8250_reset_peri(void)
 }
 
 #if IS_ENABLED(CONFIG_MTK_UARTHUB)
+int mtk8250_uart_hub_get_host_fw_own_status(void)
+{
+	#if defined(KERNEL_UARTHUB_get_host_set_fw_own_status)
+		return KERNEL_UARTHUB_get_host_set_fw_own_status();
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_get_host_fw_own_status);
+
 int mtk8250_uart_hub_reset_flow_ctrl(void)
 {
 	#if defined(KERNEL_UARTHUB_reset_flow_control)
@@ -263,6 +273,66 @@ int mtk8250_uart_hub_reset_flow_ctrl(void)
 	#endif
 }
 EXPORT_SYMBOL(mtk8250_uart_hub_reset_flow_ctrl);
+
+int mtk8250_uart_hub_get_host_wakeup_status(void)
+{
+	#if defined(KERNEL_UARTHUB_get_host_wakeup_status)
+		return KERNEL_UARTHUB_get_host_wakeup_status();
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_get_host_wakeup_status);
+
+int mtk8250_uart_hub_dev0_set_tx_request(void)
+{
+	#if defined(KERNEL_UARTHUB_dev0_set_tx_request)
+		return KERNEL_UARTHUB_dev0_set_tx_request();
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_dev0_set_tx_request);
+
+int mtk8250_uart_hub_dev0_set_rx_request(void)
+{
+	#if defined(KERNEL_UARTHUB_dev0_set_rx_request)
+		return KERNEL_UARTHUB_dev0_set_rx_request();
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_dev0_set_rx_request);
+int mtk8250_uart_hub_dev0_clear_tx_request(void)
+{
+	#if defined(KERNEL_UARTHUB_dev0_clear_tx_request)
+		return KERNEL_UARTHUB_dev0_clear_tx_request();
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_dev0_clear_tx_request);
+int mtk8250_uart_hub_dev0_clear_rx_request(void)
+{
+	/*clear ap uart*/
+	mtk8250_clear_wakeup();
+
+	#if defined(KERNEL_UARTHUB_dev0_clear_rx_request)
+		return KERNEL_UARTHUB_dev0_clear_rx_request();
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_dev0_clear_rx_request);
+int mtk8250_uart_hub_get_uart_cmm_rx_count(void)
+{
+	#if defined(KERNEL_UARTHUB_get_uart_cmm_rx_count)
+		return KERNEL_UARTHUB_get_uart_cmm_rx_count();
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_get_uart_cmm_rx_count);
 
 int mtk8250_uart_hub_dump_with_tag(const char *tag)
 {
