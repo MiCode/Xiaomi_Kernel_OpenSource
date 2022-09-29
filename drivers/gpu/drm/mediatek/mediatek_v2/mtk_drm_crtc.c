@@ -2789,7 +2789,7 @@ _mtk_crtc_cwb_addon_module_connect(
 					src_roi_r;
 				addon_config.addon_wdma_config.wdma_dst_roi =
 					dst_roi_r;
-				addon_config.addon_wdma_config.addr += r_buff_off * Bpp;
+				addon_config.addon_wdma_config.addr += (u64)r_buff_off * (u64)Bpp;
 				/* connect right pipe */
 				mtk_addon_connect_after(crtc, ddp_mode, addon_module,
 							  &addon_config, cmdq_handle);
