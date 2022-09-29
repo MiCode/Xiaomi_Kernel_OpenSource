@@ -636,6 +636,7 @@ struct mtk_ddp_comp_funcs {
 			     enum mtk_ddp_comp_id next,
 			     union mtk_addon_config *addon_config,
 			     struct cmdq_pkt *handle);
+	void (*config_begin)(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle);
 	int (*io_cmd)(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		      enum mtk_ddp_io_cmd cmd, void *params);
 	int (*user_cmd)(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
@@ -819,6 +820,14 @@ mtk_ddp_comp_addon_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 			!comp->blank_mode)
 		comp->funcs->addon_config(comp, prev, next, addon_config,
 				handle);
+}
+
+static inline void
+mtk_ddp_comp_config_begin(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
+{
+	if (comp && comp->funcs && comp->funcs->config_begin &&
+			!comp->blank_mode)
+		comp->funcs->config_begin(comp, handle);
 }
 
 static inline void

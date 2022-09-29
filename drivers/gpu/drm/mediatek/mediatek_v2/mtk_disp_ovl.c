@@ -3056,6 +3056,35 @@ static void mtk_ovl_addon_config(struct mtk_ddp_comp *comp,
 	}
 }
 
+static void mtk_ovl_config_begin(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
+{
+	unsigned int crtc_idx;
+	enum addon_scenario scn;
+	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
+	struct mtk_crtc_state *mtk_crtc_state = NULL;
+
+	if (!comp->mtk_crtc)
+		return;
+
+	crtc_idx = comp->mtk_crtc->base.index;
+	if (crtc_idx != 0)
+		return;
+
+	mtk_crtc_state = to_mtk_crtc_state(comp->mtk_crtc->base.state);
+	scn = mtk_crtc_state->lye_state.scn[crtc_idx];
+
+	/* restore registers for none scn to avoid abnormal */
+	if (scn == NONE) {
+		if (ovl->data->support_pq_selfloop) {
+			_ovl_PQ_out(comp, 0, handle, false);
+			_ovl_PQ_in(comp, 0, handle);
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				       comp->regs_pa + DISP_REG_OVL_PQ_LOOP_CON, 0,
+				       DISP_OVL_PQ_OUT_SIZE_SEL);
+		}
+	}
+}
+
 static void mtk_ovl_connect(struct mtk_ddp_comp *comp,
 			    enum mtk_ddp_comp_id prev,
 			    enum mtk_ddp_comp_id next)
@@ -4212,6 +4241,7 @@ mtk_ovl_config_trigger(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkt,
 static const struct mtk_ddp_comp_funcs mtk_disp_ovl_funcs = {
 	.config = mtk_ovl_config,
 	.first_cfg = mtk_ovl_config,
+	.config_begin = mtk_ovl_config_begin,
 	.start = mtk_ovl_start,
 	.stop = mtk_ovl_stop,
 #ifdef IF_ZERO

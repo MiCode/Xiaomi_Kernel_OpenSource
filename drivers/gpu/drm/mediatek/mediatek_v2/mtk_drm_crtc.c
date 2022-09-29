@@ -9404,12 +9404,12 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 				  mtk_crtc_state->cmdq_handle);
 #endif
 
-	/* reset BW */
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
 		comp->qos_bw = 0;
 		comp->qos_bw_other = 0;
 		comp->fbdc_bw = 0;
 		comp->hrt_bw = 0;
+		mtk_ddp_comp_config_begin(comp, mtk_crtc_state->cmdq_handle);
 	}
 	if (!mtk_crtc->is_dual_pipe)
 		goto end;
@@ -9419,6 +9419,7 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 		comp->qos_bw_other = 0;
 		comp->fbdc_bw = 0;
 		comp->hrt_bw = 0;
+		mtk_ddp_comp_config_begin(comp, mtk_crtc_state->cmdq_handle);
 	}
 
 end:
