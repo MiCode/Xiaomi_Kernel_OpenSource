@@ -302,7 +302,7 @@ struct vcodec_perf *find_perf(struct vcodec_inst *inst, struct mtk_vcodec_dev *d
 	return 0;
 }
 
-u32 match_avail_freq(struct mtk_vcodec_dev *dev, int codec_type, u32 freq)
+u32 match_avail_freq(struct mtk_vcodec_dev *dev, int codec_type, u64 freq)
 {
 	int i;
 	u32 match_freq = 0;
@@ -311,7 +311,7 @@ u32 match_avail_freq(struct mtk_vcodec_dev *dev, int codec_type, u32 freq)
 		match_freq = dev->vdec_freqs[0];
 
 		for (i = 0; i < MAX_CODEC_FREQ_STEP-1; i++) {
-			mtk_v4l2_debug(8, "[VDVFS] VDEC i %d, freq %u, in_freq %u",
+			mtk_v4l2_debug(8, "[VDVFS] VDEC i %d, freq %u, in_freq %llu",
 				i, dev->vdec_freqs[i], freq);
 
 			if (dev->vdec_freqs[i] < freq)
@@ -331,7 +331,7 @@ u32 match_avail_freq(struct mtk_vcodec_dev *dev, int codec_type, u32 freq)
 		match_freq = dev->venc_freqs[0];
 
 		for (i = 0; i < MAX_CODEC_FREQ_STEP-1; i++) {
-			mtk_v4l2_debug(8, "[VDVFS] VENC i %d, freq %u, in_freq %u",
+			mtk_v4l2_debug(8, "[VDVFS] VENC i %d, freq %u, in_freq %llu",
 				i, dev->venc_freqs[i], freq);
 
 			if (dev->venc_freqs[i] < freq)

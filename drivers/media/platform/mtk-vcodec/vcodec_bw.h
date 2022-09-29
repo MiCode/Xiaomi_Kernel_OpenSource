@@ -9,7 +9,6 @@
 #include <linux/list.h>
 
 #define DEFAULT_VENC_CONFIG -1000
-#define MAX_VCODEC_FREQ 9999
 
 enum vcodec_port_type {
 	VCODEC_PORT_BITSTREAM = 0,

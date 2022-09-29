@@ -11,7 +11,7 @@
 #include "vcodec_ipi_msg.h"
 
 #define DEFAULT_VENC_CONFIG -1000
-#define MAX_VCODEC_FREQ 9999
+#define MAX_VCODEC_FREQ 4294967295
 #define MAX_OP_CNT 5
 #define WP_SCENARIO 6
 
@@ -84,7 +84,7 @@ struct vcodec_inst *get_inst(struct mtk_vcodec_ctx *ctx);
 int add_inst(struct mtk_vcodec_ctx *ctx);
 bool need_update(struct mtk_vcodec_ctx *ctx);
 bool remove_update(struct mtk_vcodec_ctx *ctx);
-u32 match_avail_freq(struct mtk_vcodec_dev *dev, int codec_type, u32 freq);
+u32 match_avail_freq(struct mtk_vcodec_dev *dev, int codec_type, u64 freq);
 void update_freq(struct mtk_vcodec_dev *dev, int codec_type);
 
 #endif

@@ -304,7 +304,7 @@ struct vcodec_perf *find_perf(struct vcodec_inst *inst, struct mtk_vcodec_dev *d
 	return 0;
 }
 
-u32 match_avail_freq(struct mtk_vcodec_dev *dev, int codec_type, u32 freq)
+u32 match_avail_freq(struct mtk_vcodec_dev *dev, int codec_type, u64 freq)
 {
 	int i;
 	u32 match_freq = 0;
@@ -313,7 +313,7 @@ u32 match_avail_freq(struct mtk_vcodec_dev *dev, int codec_type, u32 freq)
 		match_freq = dev->vdec_freqs[0];
 
 		for (i = 0; i < MAX_CODEC_FREQ_STEP-1; i++) {
-			mtk_v4l2_debug(8, "[VDVFS] VDEC i %d, freq %u, in_freq %u",
+			mtk_v4l2_debug(8, "[VDVFS] VDEC i %d, freq %u, in_freq %llu",
 				i, dev->vdec_freqs[i], freq);
 
 			if (dev->vdec_freqs[i] < freq)
@@ -333,7 +333,7 @@ u32 match_avail_freq(struct mtk_vcodec_dev *dev, int codec_type, u32 freq)
 		match_freq = dev->venc_freqs[0];
 
 		for (i = 0; i < MAX_CODEC_FREQ_STEP-1; i++) {
-			mtk_v4l2_debug(8, "[VDVFS] VENC i %d, freq %u, in_freq %u",
+			mtk_v4l2_debug(8, "[VDVFS] VENC i %d, freq %u, in_freq %llu",
 				i, dev->venc_freqs[i], freq);
 
 			if (dev->venc_freqs[i] < freq)
@@ -359,16 +359,16 @@ u32 match_avail_freq(struct mtk_vcodec_dev *dev, int codec_type, u32 freq)
  * dev: device
  * Return: hz
  */
-u32 calc_freq(struct vcodec_inst *inst, struct mtk_vcodec_dev *dev)
+u64 calc_freq(struct vcodec_inst *inst, struct mtk_vcodec_dev *dev)
 {
 	struct vcodec_perf *perf;
 	u32 dflt_op_rate;
-	u32 freq = 0;
+	u64 freq = 0;
 
 	perf = find_perf(inst, dev);
 	if (inst->codec_type == MTK_INST_DECODER) {
 		if (perf != 0) {
-			freq = inst->width * inst->height / 256 * inst->op_rate *
+			freq = (u64)inst->width * inst->height / 256 * inst->op_rate *
 				perf->cy_per_mb_1;
 
 			mtk_v4l2_debug(6, "[VDVFS] VDEC w:%u x h:%u / 256 x oprate: %d x mb %u",
@@ -387,10 +387,10 @@ u32 calc_freq(struct vcodec_inst *inst, struct mtk_vcodec_dev *dev)
 			mtk_v4l2_debug(0, "[VDVFS] VDEC w:%u x h:%u priority %d, new oprate %u",
 				inst->width, inst->height, inst->priority, inst->op_rate);
 
-			freq = inst->width * inst->height / 256 * inst->op_rate *
+			freq = (u64)inst->width * inst->height / 256 * inst->op_rate *
 				perf->cy_per_mb_1;
 
-			mtk_v4l2_debug(0, "[VDVFS] VDEC priority:%d oprate:%d, set freq = %u",
+			mtk_v4l2_debug(0, "[VDVFS] VDEC priority:%d oprate:%d, set freq = %llu",
 					inst->priority, inst->op_rate, freq);
 
 		} else if (perf != 0 && inst->op_rate <= 0) {
@@ -416,15 +416,15 @@ u32 calc_freq(struct vcodec_inst *inst, struct mtk_vcodec_dev *dev)
 			mtk_v4l2_debug(6, "[VDVFS] VDEC w:%u x h:%u priority %d, new oprate %u",
 				inst->width, inst->height, inst->priority, inst->op_rate);
 
-			freq = inst->width * inst->height / 256 * inst->op_rate *
+			freq = (u64)inst->width * inst->height / 256 * inst->op_rate *
 				perf->cy_per_mb_1;
 
-			mtk_v4l2_debug(6, "[VDVFS] VDEC priority:%d oprate:%d, set freq = %u",
+			mtk_v4l2_debug(6, "[VDVFS] VDEC priority:%d oprate:%d, set freq = %llu",
 					inst->priority, inst->op_rate, freq);
 		}
 	} else if (inst->codec_type == MTK_INST_ENCODER) {
 		if (perf != 0) {
-			freq = inst->width * inst->height / 256 * inst->op_rate;
+			freq = (u64)inst->width * inst->height / 256 * inst->op_rate;
 			if (inst->b_frame == 0)
 				freq = freq * perf->cy_per_mb_1;
 			else
@@ -444,13 +444,13 @@ u32 calc_freq(struct vcodec_inst *inst, struct mtk_vcodec_dev *dev)
 			freq = 100000000;
 
 		if (inst->op_rate <= 0) {
-			freq = dev->venc_dvfs_params.normal_max_freq;
-			mtk_v4l2_debug(6, "[VDVFS] VENC oprate: %d, set freq = %u",
+			freq = (u64)dev->venc_dvfs_params.normal_max_freq;
+			mtk_v4l2_debug(6, "[VDVFS] VENC oprate: %d, set freq = %llu",
 					inst->op_rate, freq);
 		}
 	}
 
-	mtk_v4l2_debug(6, "[VDVFS] freq = %u", freq);
+	mtk_v4l2_debug(6, "[VDVFS] freq = %llu", freq);
 	return freq;
 }
 
@@ -459,7 +459,7 @@ void update_freq(struct mtk_vcodec_dev *dev, int codec_type)
 {
 	struct list_head *item;
 	struct vcodec_inst *inst;
-	u32 freq = 0;
+	u64 freq = 0;
 	u64 freq_sum = 0;
 	u32 op_rate_sum = 0;
 	bool no_op_rate_max_freq = false;
@@ -530,7 +530,7 @@ void update_freq(struct mtk_vcodec_dev *dev, int codec_type)
 			if (freq > dev->venc_dvfs_params.normal_max_freq)
 				dev->venc_dvfs_params.allow_oc = 1;
 
-			if (inst->op_rate == 0)
+			if (inst->op_rate == 0 || inst->op_rate >= 960)
 				no_op_rate_max_freq = 1;
 
 			freq_sum += freq;
