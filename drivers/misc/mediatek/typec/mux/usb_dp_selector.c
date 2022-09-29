@@ -16,6 +16,8 @@
 #include "mux_switch.h"
 #endif
 
+#define CHECK_HPD_DELAY 2000
+
 /* MT6983 uds_V1 offset = [11]
  * MT6985 uds_V2 offset = [18] dp 4-lanes offset = [19]
  * Reserved for future platform.
@@ -34,6 +36,11 @@ struct usb_dp_selector {
 	void __iomem *selector_reg_address;
 	int uds_ver;
 	bool is_dp;
+
+	int hdp_state;
+	bool dp_sw_connect;
+	struct delayed_work check_wk;
+
 };
 
 static inline void uds_setbits(void __iomem *base, u32 bits)
@@ -134,6 +141,11 @@ static int usb_dp_selector_mux_set(struct typec_mux *mux,
 	if (state->mode == TCP_NOTIFY_AMA_DP_STATE) {
 		uds->is_dp = true;
 
+		if (!data->ama_dp_state.active) {
+			dev_info(uds->dev, "%s Not active\n", __func__);
+			return ret;
+		}
+
 		switch (data->ama_dp_state.pin_assignment) {
 		/* 4-lanes */
 		case 4:
@@ -171,22 +183,36 @@ static int usb_dp_selector_mux_set(struct typec_mux *mux,
 			dev_info(uds->dev, "%s Pin Assignment not support\n", __func__);
 			break;
 		}
+
+		uds->hdp_state = 0;
+		schedule_delayed_work(&uds->check_wk, msecs_to_jiffies(CHECK_HPD_DELAY));
 	} else if (state->mode == TCP_NOTIFY_AMA_DP_HPD_STATE) {
 		uint8_t irq = data->ama_dp_hpd_state.irq;
 		uint8_t state = data->ama_dp_hpd_state.state;
 
 		dev_info(uds->dev, "TCP_NOTIFY_AMA_DP_HPD_STATE irq:%x state:%x\n",
 			irq, state);
+
+		uds->hdp_state = state;
+
 		/* Call DP API */
 		dev_info(uds->dev, "[%s][%d]\n", __func__, __LINE__);
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 		if (state) {
-			if (irq)
+			if (irq) {
+				if (uds->dp_sw_connect == false) {
+					dev_info(uds->dev, "Force connect\n");
+					mtk_dp_SWInterruptSet(0x4);
+					uds->dp_sw_connect = true;
+				}
 				mtk_dp_SWInterruptSet(0x8);
-			else
+			} else {
 				mtk_dp_SWInterruptSet(0x4);
+				uds->dp_sw_connect = true;
+			}
 		} else {
 			mtk_dp_SWInterruptSet(0x2);
+			uds->dp_sw_connect = false;
 		}
 #endif
 	} else if (state->mode == TCP_NOTIFY_TYPEC_STATE) {
@@ -200,12 +226,25 @@ static int usb_dp_selector_mux_set(struct typec_mux *mux,
 			uds_clrbits(uds->selector_reg_address, (1 << 19));
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 			mtk_dp_SWInterruptSet(0x2);
+			uds->dp_sw_connect = false;
 			uds->is_dp = false;
 #endif
 		}
 	}
 
 	return ret;
+}
+
+static void check_hpd(struct work_struct *work)
+{
+	struct delayed_work *check_wk = to_delayed_work(work);
+	struct usb_dp_selector *uds = container_of(check_wk,
+					struct usb_dp_selector, check_wk);
+
+	if (uds->hdp_state == 0) {
+		dev_info(uds->dev, "%s: force hpd\n", __func__);
+		mtk_dp_SWInterruptSet(0x4);
+	}
 }
 
 static int usb_dp_selector_probe(struct platform_device *pdev)
@@ -237,6 +276,9 @@ static int usb_dp_selector_probe(struct platform_device *pdev)
 	}
 
 	uds->is_dp = false;
+	uds->dp_sw_connect = false;
+
+	INIT_DEFERRABLE_WORK(&uds->check_wk, check_hpd);
 
 	/* Setting Switch callback */
 	sw_desc.drvdata = uds;
