@@ -28,6 +28,9 @@
 #include <linux/soc/mediatek/devapc_public.h>
 #endif
 
+atomic_t pw_off_disable_dapc_ke;
+atomic_t md_dapc_ke_occurred;
+atomic_t en_flight_timeout;
 struct ccci_fsm_ctl *ccci_fsm_entries;
 
 static void fsm_finish_command(struct ccci_fsm_ctl *ctl,
@@ -1159,6 +1162,9 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 	ctl->last_state = ctl->curr_state;
 	ctl->curr_state = CCCI_FSM_STARTING;
 	__pm_stay_awake(ctl->wakelock);
+	atomic_set(&pw_off_disable_dapc_ke, 0);
+	atomic_set(&md_dapc_ke_occurred, 0);
+	atomic_set(&en_flight_timeout, 0);
 	/* 2. poll for critical users exit */
 	while (count < BOOT_TIMEOUT/EVENT_POLL_INTEVAL && !needforcestop) {
 		if (ccci_port_check_critical_user() == 0 ||
@@ -1306,6 +1312,8 @@ static void fsm_routine_stop(struct ccci_fsm_ctl *ctl,
 	__pm_stay_awake(ctl->wakelock);
 	ctl->last_state = ctl->curr_state;
 	ctl->curr_state = CCCI_FSM_STOPPING;
+
+	atomic_set(&pw_off_disable_dapc_ke, 1);
 	/* 2. pre-stop: polling MD for infinit sleep mode */
 	ccci_md_pre_stop(
 	cmd->flag & FSM_CMD_FLAG_FLIGHT_MODE
@@ -1362,6 +1370,10 @@ success:
 	ctl->curr_state = CCCI_FSM_GATED;
 	fsm_broadcast_state(ctl, GATED);
 	fsm_finish_command(ctl, cmd, 1);
+	if (atomic_read(&md_dapc_ke_occurred) && atomic_read(&en_flight_timeout)) {
+		CCCI_ERROR_LOG(0, FSM, "md_dapc_ke_occurred and en_flight_timeout, bug_on\n");
+		BUG_ON(1);
+	}
 }
 
 static int ccci_md_epon_set(void)
@@ -1697,9 +1709,17 @@ static enum devapc_cb_status devapc_dump_adv_cb(uint32_t vio_addr)
 		return DEVAPC_NOT_KE;
 
 	} else {
+		atomic_set(&md_dapc_ke_occurred, 1);
 		ccci_dump_md_in_devapc((char *)__func__);
 
-		return DEVAPC_OK;
+		/*
+		 * debug patch
+		 * during stop modem, if devapc occurred, don't trigger KE
+		 */
+		if (atomic_read(&pw_off_disable_dapc_ke))
+			return DEVAPC_NOT_KE;
+		else
+			return DEVAPC_OK;
 	}
 }
 

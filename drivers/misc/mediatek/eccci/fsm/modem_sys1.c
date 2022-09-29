@@ -45,6 +45,7 @@
 #include "hif/ccci_hif_cldma.h"
 //#include "hif/ccci_hif_ccif.h"
 #include "modem_sys.h"
+#include "ccci_fsm_sys.h"
 
 #define TAG "mcd"
 
@@ -385,12 +386,14 @@ static int md_cd_start(struct ccci_modem *md)
 
 static int check_power_off_en(struct ccci_modem *md)
 {
-	int smem_val;
+	int smem_val = 1;
+/*
 	struct ccci_smem_region *mdss_dbg =
 		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_MDSS_DBG);
 
 	smem_val = *((int *)((long)mdss_dbg->base_ap_view_vir +
 		md->hw_info->plat_val->offset_epof_md1));
+*/
 	CCCI_NORMAL_LOG(0, TAG, "share for power off:%x\n", smem_val);
 	if (smem_val != 0) {
 		CCCI_NORMAL_LOG(0, TAG, "[ccci]enable power off check\n");
@@ -434,9 +437,10 @@ static void debug_in_flight_mode(struct ccci_modem *md)
 	while (spm_is_md1_sleep() == 0) {
 		count--;
 		if (count == 0) {
-			if (en_power_check) {
+			if (en_power_check && atomic_read(&md_dapc_ke_occurred)) {
 				CCCI_NORMAL_LOG(0, TAG,
 				"MD is not in sleep mode, dump md status!\n");
+				atomic_set(&en_flight_timeout, 1);
 				CCCI_MEM_LOG_TAG(0, TAG,
 				"Dump MD EX log\n");
 				if (md_dbg_dump_flag &
@@ -452,7 +456,18 @@ static void debug_in_flight_mode(struct ccci_modem *md)
 				}
 				if (md->hw_info->plat_ptr->debug_reg)
 					md->hw_info->plat_ptr->debug_reg(md, true);
+
+				CCCI_MEM_LOG_TAG(0, TAG, "MD not in sleep, dump mdl2sram\n");
+				if (md && md->hw_info && md->hw_info->md_l2sram_base) {
+					md_cd_lock_modem_clock_src(1);
+					ccci_util_mem_dump(CCCI_DUMP_MEM_DUMP,
+						md->hw_info->md_l2sram_base,
+						md->hw_info->md_l2sram_size);
+					md_cd_lock_modem_clock_src(0);
+				}
+
 	/* cldma_dump_register(CLDMA_HIF_ID);*/
+/*
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 				aed_md_exception_api(
 				mdss_dbg->base_ap_view_vir,
@@ -460,6 +475,7 @@ static void debug_in_flight_mode(struct ccci_modem *md)
 				"After AP send EPOF, MD didn't go to sleep in 4 seconds.",
 				DB_OPT_DEFAULT);
 #endif
+*/
 			} else
 				md1_sleep_timeout_proc();
 			break;

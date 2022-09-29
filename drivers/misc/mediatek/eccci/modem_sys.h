@@ -203,6 +203,8 @@ extern int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long paddr,
 #if IS_ENABLED(CONFIG_MTK_IRQ_DBG)
 extern void mt_irq_dump_status(unsigned int irq);
 #endif
+extern atomic_t en_flight_timeout;
+extern atomic_t md_dapc_ke_occurred;
 
 int ccci_md_start(void);
 int ccci_md_soft_start(unsigned int sim_mode);
