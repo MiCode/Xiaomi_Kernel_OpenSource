@@ -1124,6 +1124,9 @@ static void mtk_ovl_config(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_OVL_ROI_BGCLR, OVL_ROI_BGCLR,
 		       ~0);
+	//enable sram dbg reg:0x900~0x934
+	cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DISP_REG_OVL_TRIG, 0x1000, 0x1000);
 
 
 	mtk_ddp_write(comp, (cfg->h * 9) / 10,
@@ -3848,6 +3851,10 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 		mtk_serial_dump_reg(baddr, 0x890, 4);
 		mtk_serial_dump_reg(baddr, 0x8a0, 4);
 		mtk_serial_dump_reg(baddr, 0x8b0, 4);
+		mtk_serial_dump_reg(baddr, 0x900, 4);
+		mtk_serial_dump_reg(baddr, 0x910, 4);
+		mtk_serial_dump_reg(baddr, 0x920, 4);
+		mtk_serial_dump_reg(baddr, 0x930, 4);
 
 		/* BW Monitor */
 		mtk_serial_dump_reg(baddr, 0x940, 4);
