@@ -717,12 +717,14 @@ static struct mml_path_client *core_get_path_clt(struct mml_task *task, u32 pipe
 static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 {
 	struct mml_topology_cache *tp = mml_topology_get_cache(task->config->mml);
+	struct mml_frame_config *cfg = task->config;
 	struct mml_path_client *path_clt = core_get_path_clt(task, pipe);
 	struct mml_task_pipe *task_pipe_tmp;
-	struct timespec64 curr_time;
+	struct timespec64 curr_time, dvfs_end_time;
 	u32 throughput, tput_up;
-	u32 max_pixel = task->config->cache[pipe].max_pixel;
+	u32 max_pixel = cfg->cache[pipe].max_pixel;
 	u64 duration = 0;
+	u64 boost_time = 0;
 
 	if (unlikely(!path_clt)) {
 		mml_err("%s core_get_path_clt return null", __func__);
@@ -737,7 +739,7 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 		task, pipe,
 		(u32)curr_time.tv_sec, div_u64(curr_time.tv_nsec, 1000000),
 		(u32)task->end_time.tv_sec, div_u64(task->end_time.tv_nsec, 1000000),
-		task->config->path[pipe]->clt_id);
+		cfg->path[pipe]->clt_id);
 
 	/* do not append to list and no qos/dvfs for this task */
 	if (!mml_qos)
@@ -758,7 +760,7 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 		task->submit_time = curr_time;
 
 	task->pipe[pipe].throughput = 0;
-	if (task->config->info.mode == MML_MODE_RACING) {
+	if (cfg->info.mode == MML_MODE_RACING) {
 		/* racing mode uses different calculation since start time
 		 * consistent with disp
 		 */
@@ -797,10 +799,12 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 	/* now append at tail, this order should same as cmdq exec order */
 	list_add_tail(&task->pipe[pipe].entry_clt, &path_clt->tasks);
 
-	mml_trace_begin("%u_%llu", throughput, duration);
+	boost_time = div_u64((u64)cfg->dvfs_boost_time.tv_sec * 1000000000 +
+		cfg->dvfs_boost_time.tv_nsec, 1000);
+	mml_trace_begin("%u_%llu_%llu", throughput, duration, boost_time);
 
 	path_clt->throughput = throughput;
-	tput_up = mml_qos_update_tput(task->config->mml);
+	tput_up = mml_qos_update_tput(cfg->mml);
 
 	/* note the running task not always current begin task */
 	task_pipe_tmp = list_first_entry_or_null(&path_clt->tasks,
@@ -812,6 +816,16 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 	mml_core_qos_set(task_pipe_tmp->task, pipe, throughput, tput_up);
 
 	mml_trace_end();
+
+	ktime_get_real_ts64(&dvfs_end_time);
+	cfg->dvfs_boost_time =
+		timespec64_sub(dvfs_end_time, curr_time);
+	boost_time = div_u64((u64)cfg->dvfs_boost_time.tv_sec * 1000000000 +
+		cfg->dvfs_boost_time.tv_nsec, 1000);
+	if (boost_time > 2000) {
+		cfg->dvfs_boost_time.tv_sec = 0;
+		cfg->dvfs_boost_time.tv_nsec = 2000000;
+	}
 
 	mml_msg_qos("task dvfs begin %p pipe %u throughput %u (%u) bandwidth %u pixel %u",
 		task, pipe, throughput, task_pipe_tmp->throughput,
