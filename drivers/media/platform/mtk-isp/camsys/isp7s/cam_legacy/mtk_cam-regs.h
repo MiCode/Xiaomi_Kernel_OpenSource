@@ -135,6 +135,8 @@
 #define REG_PREULTRA_HALT12_EN			0x0158
 #define REG_PREULTRA_HALT13_EN			0x015c
 
+#define REG_CAMSYS_AXI_MUX			0x0334
+
 /* camsv_a/b */
 #define HALT1_EN		0x3
 #define HALT2_EN		0x3

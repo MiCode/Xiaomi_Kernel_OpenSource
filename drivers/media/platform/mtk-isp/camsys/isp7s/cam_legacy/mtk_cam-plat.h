@@ -92,6 +92,7 @@ struct plat_v4l2_data {
 	int raw_pipeline_num;
 	int camsv_pipeline_num;
 	int mraw_pipeline_num;
+	u32 camsys_axi_mux;
 
 	unsigned int meta_major;
 	unsigned int meta_minor;

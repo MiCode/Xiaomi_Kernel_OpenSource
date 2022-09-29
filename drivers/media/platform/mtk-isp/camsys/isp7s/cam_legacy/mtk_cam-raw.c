@@ -1904,15 +1904,17 @@ void set_fifo_threshold(void __iomem *dma_base, unsigned int fifo_size)
 			dma_base + DMA_OFFSET_CON4);
 }
 
-static void init_dma_halt(struct mtk_raw_device *dev)
+static void init_camsys_settings(struct mtk_raw_device *dev)
 {
 	struct mtk_cam_device *cam_dev = dev->cam;
 	struct mtk_yuv_device *yuv_dev = get_yuv_dev(dev);
 	bool is_srt = mtk_cam_is_srt(dev->pipeline->hw_mode);
 	unsigned int reg_raw_urgent, reg_yuv_urgent;
 	unsigned int raw_urgent, yuv_urgent;
+	u32 cam_axi_mux = GET_PLAT_V4L2(camsys_axi_mux);
 
-	dev_info(dev->dev, "%s: SRT:%d\n", __func__, is_srt);
+	//set axi mux
+	writel_relaxed(cam_axi_mux, cam_dev->base + REG_CAMSYS_AXI_MUX);
 
 	//Set CQI sram size
 	set_fifo_threshold(dev->base + REG_CQI_R1_BASE, 64);
@@ -1960,6 +1962,10 @@ static void init_dma_halt(struct mtk_raw_device *dev)
 		mtk_smi_larb_ultra_dis(&dev->larb_pdev->dev, false);
 		mtk_smi_larb_ultra_dis(&yuv_dev->larb_pdev->dev, false);
 	}
+
+	wmb(); /* TBC */
+	dev_info(dev->dev, "%s: is srt:%d axi_mux:0x%x\n", __func__, is_srt,
+		readl_relaxed(cam_dev->base + REG_CAMSYS_AXI_MUX));
 }
 
 int get_fps_ratio(struct mtk_raw_device *dev)
@@ -2128,7 +2134,7 @@ void initialize(struct mtk_raw_device *dev, int is_slave)
 	dev->stagger_en = 0;
 	reset_msgfifo(dev);
 
-	init_dma_halt(dev);
+	init_camsys_settings(dev);
 
 	/* Workaround: disable FLKO error_sof: double sof error
 	 *   HW will send FLKO dma error when
