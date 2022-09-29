@@ -1580,3 +1580,15 @@ static struct kernel_param_ops smi_bw_monitor_ut_ops = {
 };
 module_param_cb(smi_bw_monitor_ut, &smi_bw_monitor_ut_ops, NULL, 0644);
 MODULE_PARM_DESC(smi_bw_monitor_ut, "smi monitor bw");
+
+int get_smi_cg_status(char *buf, const struct kernel_param *kp)
+{
+	mtk_smi_dbg_cg_status();
+	return 0;
+}
+
+static struct kernel_param_ops smi_cg_status_ops = {
+	.get = get_smi_cg_status,
+};
+module_param_cb(smi_cg_status, &smi_cg_status_ops, NULL, 0644);
+MODULE_PARM_DESC(smi_cg_status, "smi cg status");

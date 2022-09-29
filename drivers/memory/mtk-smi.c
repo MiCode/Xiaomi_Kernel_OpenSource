@@ -127,6 +127,15 @@ enum mtk_smi_gen {
 	MTK_SMI_GEN3
 };
 
+enum smi_larb7_user {
+	VENC,
+	JPEG_ENC,
+	JPEG_DEC,
+	MAX_LARB7_USER
+};
+
+atomic_t larb7_ref_cnt[MAX_LARB7_USER];
+
 struct mtk_smi_common_plat {
 	enum mtk_smi_gen gen;
 	bool             has_gals;
@@ -355,8 +364,15 @@ void mtk_smi_check_larb_ref_cnt(struct device *dev)
 
 	if (larb) {
 		ref_count = atomic_read(&larb->smi.ref_count);
-		if (ref_count > 0)
+		if (ref_count > 0) {
 			pr_notice("%s larb:%u ref_cnt=%d\n", __func__, larb->larbid, ref_count);
+			if (larb->larbid == 7)
+				pr_notice("%s VENC:%d JPEG_ENC:%d JPEG_DEC:%d",
+					__func__,
+					larb7_ref_cnt[0],
+					larb7_ref_cnt[1],
+					larb7_ref_cnt[2]);
+		}
 	}
 }
 EXPORT_SYMBOL_GPL(mtk_smi_check_larb_ref_cnt);
@@ -504,6 +520,56 @@ void mtk_smi_larb_put(struct device *larbdev)
 	pm_runtime_put_sync(larbdev);
 }
 EXPORT_SYMBOL_GPL(mtk_smi_larb_put);
+
+int mtk_smi_larb_get_ex(struct device *larbdev, int user)
+{
+	struct mtk_smi_larb *larb;
+	int ret;
+
+	if (unlikely(!larbdev))
+		return -EINVAL;
+	larb = dev_get_drvdata(larbdev);
+
+	if (unlikely(!larb))
+		return -ENODEV;
+
+	if (log_level & 1 << log_config_bit)
+		pr_info("[SMI]larb:%d get ref_count:%d user:%d\n",
+			larb->larbid, atomic_read(&larb->smi.ref_count), user);
+	if (user >= 0 && user < MAX_LARB7_USER)
+		atomic_inc(&larb7_ref_cnt[user]);
+	ret = pm_runtime_resume_and_get(larbdev);
+	if (ret < 0) {
+		dev_notice(larbdev, "Unable to enable SMI LARB%d. ret:%d user:%d\n",
+			larb->larbid, ret, user);
+		pm_runtime_put_sync(larbdev);
+	}
+
+	return (ret < 0) ? ret : 0;
+}
+EXPORT_SYMBOL_GPL(mtk_smi_larb_get_ex);
+
+void mtk_smi_larb_put_ex(struct device *larbdev, int user)
+{
+	struct mtk_smi_larb *larb;
+
+	if (unlikely(!larbdev))
+		return;
+	larb = dev_get_drvdata(larbdev);
+
+	if (unlikely(!larb))
+		return;
+
+	if (log_level & 1 << log_config_bit)
+		pr_info("[SMI]larb:%d put ref_count:%d\n",
+			larb->larbid, atomic_read(&larb->smi.ref_count));
+
+	pm_runtime_put_sync(larbdev);
+
+	if (user >= 0 && user < MAX_LARB7_USER)
+		atomic_dec(&larb7_ref_cnt[user]);
+}
+EXPORT_SYMBOL_GPL(mtk_smi_larb_put_ex);
 
 void mtk_smi_add_device_link(struct device *dev, struct device *larbdev)
 {
@@ -3368,6 +3434,10 @@ static int mtk_smi_common_probe(struct platform_device *pdev)
 	}
 	spin_lock_init(&smi_lock.lock);
 	is_mpu_violation(dev, false);
+
+	atomic_set(&larb7_ref_cnt[0], 0);
+	atomic_set(&larb7_ref_cnt[1], 0);
+	atomic_set(&larb7_ref_cnt[0], 0);
 	return 0;
 }
 
