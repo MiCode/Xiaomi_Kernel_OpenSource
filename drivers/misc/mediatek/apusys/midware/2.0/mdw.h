@@ -307,6 +307,7 @@ struct mdw_cmd {
 
 	int id;
 	struct kref ref;
+	atomic_t is_running;
 
 	uint64_t start_ts;
 	uint64_t end_ts;
@@ -363,7 +364,7 @@ int mdw_mem_ioctl(struct mdw_fpriv *mpriv, void *data);
 int mdw_cmd_ioctl(struct mdw_fpriv *mpriv, void *data);
 int mdw_util_ioctl(struct mdw_fpriv *mpriv, void *data);
 
-void mdw_cmd_put(struct mdw_cmd *c);
+void mdw_cmd_delete(struct mdw_cmd *c);
 int mdw_cmd_invoke_map(struct mdw_cmd *c, struct mdw_mem_map *map);
 void mdw_cmd_mpriv_release(struct mdw_fpriv *mpriv);
 void mdw_mem_mpriv_release(struct mdw_fpriv *mpriv);

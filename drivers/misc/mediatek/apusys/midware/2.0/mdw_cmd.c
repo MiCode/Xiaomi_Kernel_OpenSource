@@ -23,8 +23,6 @@
 	c->num_cmdbufs, c->size_cmdbufs, \
 	c->pid, c->tgid, task_pid_nr(current))
 
-static void mdw_cmd_delete(struct mdw_cmd *c);
-
 static void mdw_cmd_cmdbuf_out(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 {
 	struct mdw_subcmd_kinfo *ksubcmd = NULL;
@@ -402,7 +400,6 @@ static int mdw_fence_init(struct mdw_cmd *c, int fd)
 	if (!c->fence)
 		return -ENOMEM;
 
-	mdw_drv_debug("fence init\n");
 
 	if (snprintf(c->fence->name, sizeof(c->fence->name), "%d:%s", fd, c->comm) <= 0)
 		mdw_drv_warn("set fance name fail\n");
@@ -410,6 +407,9 @@ static int mdw_fence_init(struct mdw_cmd *c, int fd)
 	spin_lock_init(&c->fence->lock);
 	dma_fence_init(&c->fence->base_fence, &mdw_fence_ops,
 		&c->fence->lock, 0, 0);
+
+	mdw_cmd_debug("fence init, c(0x%llx) fence name(%s)\n",
+		(uint64_t)c, c->fence->name);
 
 	return ret;
 }
@@ -488,7 +488,7 @@ static void mdw_cmd_get(struct mdw_cmd *c)
 	kref_get(&c->ref);
 }
 
-static void mdw_cmd_delete(struct mdw_cmd *c)
+void mdw_cmd_delete(struct mdw_cmd *c)
 {
 	mdw_cmd_show(c, mdw_drv_debug);
 	mdw_cmd_put(c);
@@ -602,30 +602,29 @@ static int mdw_cmd_sc_sanity_check(struct mdw_cmd *c)
 static int mdw_cmd_run(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 {
 	struct mdw_device *mdev = mpriv->mdev;
+	struct dma_fence *f = &c->fence->base_fence;
 	int ret = 0;
 
 	mdw_cmd_show(c, mdw_cmd_debug);
-	mutex_lock(&c->mtx);
 
 	c->start_ts = sched_clock();
 	ret = mdev->dev_funcs->run_cmd(mpriv, c);
 	if (ret) {
 		mdw_drv_err("s(0x%llx) run cmd(0x%llx) fail(%d)\n",
 			(uint64_t) c->mpriv, c->kid, ret);
-
-		dma_fence_set_error(&c->fence->base_fence, ret);
-		dma_fence_signal(&c->fence->base_fence);
-		dma_fence_put(&c->fence->base_fence);
+		dma_fence_set_error(f, ret);
+		if (dma_fence_signal(f)) {
+			mdw_drv_warn("c(0x%llx) signal fence fail\n", (uint64_t)c);
+			if (f->ops->get_timeline_name && f->ops->get_driver_name) {
+				mdw_drv_warn(" fence name(%s-%s)\n",
+				f->ops->get_driver_name(f), f->ops->get_timeline_name(f));
+			}
+		}
+		dma_fence_put(f);
 	} else {
 		mdw_flw_debug("s(0x%llx) cmd(0x%llx) run\n",
 			(uint64_t)c->mpriv, c->kid);
 	}
-
-	mutex_unlock(&c->mtx);
-
-	/* put cmd execution ref */
-	if (ret)
-		mdw_cmd_put(c);
 
 	return ret;
 }
@@ -689,7 +688,7 @@ static int mdw_cmd_complete(struct mdw_cmd *c, int ret)
 			(uint64_t)mpriv, c->comm, c->uid, c->kid, c->rvid,
 			ret, c->einfos->c.sc_rets,
 			c->einfos->c.total_us, c->pid, c->tgid);
-		dma_fence_set_error(&c->fence->base_fence, ret);
+		dma_fence_set_error(f, ret);
 
 		if (mdw_debug_on(MDW_DBG_EXP))
 			mdw_exception("exec fail:%s:ret(%d/0x%llx)pid(%d/%d)\n",
@@ -704,9 +703,16 @@ static int mdw_cmd_complete(struct mdw_cmd *c, int ret)
 	mdw_cmd_cmdbuf_out(mpriv, c);
 
 	/* signal done */
-	dma_fence_signal(f);
-	dma_fence_put(f);
 	c->fence = NULL;
+	atomic_dec(&c->is_running);
+	if (dma_fence_signal(f)) {
+		mdw_drv_warn("c(0x%llx) signal fence fail\n", (uint64_t)c);
+		if (f->ops->get_timeline_name && f->ops->get_driver_name) {
+			mdw_drv_warn(" fence name(%s-%s)\n",
+			f->ops->get_driver_name(f), f->ops->get_timeline_name(f));
+		}
+	}
+	dma_fence_put(f);
 	atomic_dec(&mpriv->active_cmds);
 	mutex_unlock(&c->mtx);
 
@@ -726,6 +732,7 @@ static void mdw_cmd_trigger_func(struct work_struct *wk)
 {
 	struct mdw_cmd *c =
 		container_of(wk, struct mdw_cmd, t_wk);
+	int ret = 0;
 
 	if (c->wait_fence) {
 		dma_fence_wait(c->wait_fence, false);
@@ -734,7 +741,15 @@ static void mdw_cmd_trigger_func(struct work_struct *wk)
 
 	mdw_flw_debug("s(0x%llx) c(0x%llx) wait fence done, start run\n",
 		(uint64_t)c->mpriv, c->kid);
-	mdw_cmd_run(c->mpriv, c);
+	mutex_lock(&c->mtx);
+	ret = mdw_cmd_run(c->mpriv, c);
+	mutex_unlock(&c->mtx);
+
+	/* put cmd execution ref */
+	if (ret) {
+		atomic_dec(&c->is_running);
+		mdw_cmd_put(c);
+	}
 }
 
 static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
@@ -759,6 +774,7 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 	mutex_init(&c->mtx);
 	INIT_LIST_HEAD(&c->map_invokes);
 	c->mpriv = mpriv;
+	atomic_set(&c->is_running, 0);
 
 	/* setup cmd info */
 	c->pid = task_pid_nr(current);
@@ -901,7 +917,7 @@ static int mdw_cmd_ioctl_run(struct mdw_fpriv *mpriv, union mdw_cmd_args *args)
 	struct mdw_cmd_in *in = (struct mdw_cmd_in *)args;
 	struct mdw_cmd *c = NULL, *priv_c = NULL;
 	struct sync_file *sync_file = NULL;
-	int ret = 0, fd = 0, wait_fd = 0;
+	int ret = 0, fd = 0, wait_fd = 0, is_running = 0;
 
 	mdw_trace_begin("apumdw:user_run");
 
@@ -915,6 +931,13 @@ static int mdw_cmd_ioctl_run(struct mdw_fpriv *mpriv, union mdw_cmd_args *args)
 		/* no stale cmd, create cmd */
 		mdw_cmd_debug("s(0x%llx) create new\n", (uint64_t)mpriv);
 	} else if (in->op == MDW_CMD_IOCTL_RUN_STALE) {
+		is_running = atomic_read(&c->is_running);
+		if (is_running) {
+			mdw_drv_err("s(0x%llx) c(0x%llx) is running(%d), can't execute again\n",
+				(uint64_t)mpriv, (uint64_t)c, is_running);
+			ret = -ETXTBSY;
+			goto out;
+		}
 		/* run stale cmd */
 		mdw_cmd_debug("s(0x%llx) run stale(0x%llx)\n",
 			(uint64_t)mpriv, (uint64_t)c);
@@ -948,6 +971,7 @@ static int mdw_cmd_ioctl_run(struct mdw_fpriv *mpriv, union mdw_cmd_args *args)
 	}
 
 exec:
+	mutex_lock(&c->mtx);
 	/* get sync_file fd */
 	fd = get_unused_fd_flags(O_CLOEXEC);
 	if (fd < 0) {
@@ -968,6 +992,7 @@ exec:
 	}
 
 	/* get cmd execution ref */
+	atomic_inc(&c->is_running);
 	mdw_cmd_get(c);
 
 	/* check wait fence from other module */
@@ -983,8 +1008,12 @@ exec:
 		schedule_work(&c->t_wk);
 	}
 
-	if (ret)
+	if (ret) {
+		/* put cmd execution ref */
+		atomic_dec(&c->is_running);
+		mdw_cmd_put(c);
 		goto put_file;
+	}
 
 	/* assign fd */
 	fd_install(fd, sync_file->file);
@@ -996,6 +1025,7 @@ exec:
 	args->out.exec.fence = fd;
 	args->out.exec.id = c->id;
 	mdw_flw_debug("async fd(%d) id(%d)\n", fd, c->id);
+	mutex_unlock(&c->mtx);
 	goto out;
 
 put_file:
@@ -1005,6 +1035,7 @@ put_fd:
 delete_idr:
 	if (c != idr_remove(&mpriv->cmds, c->id))
 		mdw_drv_warn("remove cmd idr conflict(0x%llx/%d)\n", c->kid, c->id);
+	mutex_unlock(&c->mtx);
 delete_cmd:
 	mdw_cmd_delete(c);
 out:

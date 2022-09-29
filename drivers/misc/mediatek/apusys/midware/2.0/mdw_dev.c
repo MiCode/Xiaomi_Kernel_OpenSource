@@ -19,7 +19,7 @@ static void mdw_dev_clear_cmd_func(struct work_struct *wk)
 	list_for_each_entry_safe(c, tmp, &mdev->d_cmds, d_node) {
 		list_del(&c->d_node);
 		mpriv = c->mpriv;
-		mdw_cmd_put(c);
+		mdw_cmd_delete(c);
 	}
 	mutex_unlock(&mdev->c_mtx);
 }
