@@ -1494,16 +1494,18 @@ mtk_ovl_map_lcm_color_mode(enum mtk_drm_color_mode cm)
 /* we want CT first ==> WCG ==> bri                              */
 /* for combination:                                              */
 /* (bri 4x4 matrix) x (WCG 4x4 matrix) x (CT 4x4 matrix) x (RGB) */
-void mtk_ovl_csc_combination(bool csc_en, unsigned int csc_float_bit, s32 *csc,
+void mtk_ovl_csc_combination(bool csc_en, unsigned int ocfbn, s32 *csc,
 	struct mtk_crtc_ovl_csc_config *occ, s32 *csc_final)
 {
 	unsigned int i, j;
 	long long csc_final_temp[16] = {0};
 
 	/* debug log */
-	for (i = 0; i < 3; i++)
-		DDPDBG("WCG<%d> = <%d, %d, %d>\n", i, *(csc + i * 3 + 0),
-			*(csc + i * 3 + 1), *(csc + i * 3 + 2));
+	if (csc) {
+		for (i = 0; i < 3; i++)
+			DDPDBG("WCG<%d> = <%d, %d, %d>\n", i, *(csc + i * 3 + 0),
+				*(csc + i * 3 + 1), *(csc + i * 3 + 2));
+	}
 	for (i = 0; i < 4; i++)
 		DDPDBG("brightness<%d> = <%d, %d, %d, %d>\n", i,
 			occ->setbrightness[i * 4 + 0], occ->setbrightness[i * 4 + 1],
@@ -1513,19 +1515,19 @@ void mtk_ovl_csc_combination(bool csc_en, unsigned int csc_float_bit, s32 *csc,
 			occ->setcolortransform[i * 4 + 0], occ->setcolortransform[i * 4 + 1],
 			occ->setcolortransform[i * 4 + 2], occ->setcolortransform[i * 4 + 3]);
 
-	if (csc_en) {
+	if (csc_en && csc) {
 		/* WCG csc */
 		for (i = 0; i < 3; i++)
 			for (j = 0; j < 3; j++)
 				*(csc_final + i * 4 + j) = *(csc + i * 3 + j);
 	} else {
 		/* no WCG, set relay matrix */
-		*(csc_final + 0 * 4 + 0) = 1 << csc_float_bit;
-		*(csc_final + 1 * 4 + 1) = 1 << csc_float_bit;
-		*(csc_final + 2 * 4 + 2) = 1 << csc_float_bit;
+		*(csc_final + 0 * 4 + 0) = 1 << ocfbn;
+		*(csc_final + 1 * 4 + 1) = 1 << ocfbn;
+		*(csc_final + 2 * 4 + 2) = 1 << ocfbn;
 	}
 	/* for offset csc_combination */
-	*(csc_final + 15) = 1 << csc_float_bit;
+	*(csc_final + 15) = 1 << ocfbn;
 
 	/* debug log */
 	for (i = 0; i < 4; i++)
@@ -1551,11 +1553,11 @@ void mtk_ovl_csc_combination(bool csc_en, unsigned int csc_float_bit, s32 *csc,
 			for (j = 0; j < 4; j++)
 				if (csc_final_temp[i * 4 + j] < 0)
 					csc_final_temp[i * 4 + j] =
-						(csc_final_temp[i * 4 + j] >> csc_float_bit) |
-						(0xffffffffffffffff << (64 - csc_float_bit));
+						(csc_final_temp[i * 4 + j] >> ocfbn) |
+						(0xffffffffffffffff << (64 - ocfbn));
 				else
 					csc_final_temp[i * 4 + j] =
-						csc_final_temp[i * 4 + j] >> csc_float_bit;
+						csc_final_temp[i * 4 + j] >> ocfbn;
 		for (i = 0; i < 4; i++)
 			for (j = 0; j < 4; j++)
 				*(csc_final + i * 4 + j) = csc_final_temp[i * 4 + j];
@@ -1584,11 +1586,11 @@ void mtk_ovl_csc_combination(bool csc_en, unsigned int csc_float_bit, s32 *csc,
 			for (j = 0; j < 4; j++)
 				if (csc_final_temp[i * 4 + j] < 0)
 					csc_final_temp[i * 4 + j] =
-						(csc_final_temp[i * 4 + j] >> csc_float_bit) |
-						(0xffffffffffffffff << (64 - csc_float_bit));
+						(csc_final_temp[i * 4 + j] >> ocfbn) |
+						(0xffffffffffffffff << (64 - ocfbn));
 				else
 					csc_final_temp[i * 4 + j] =
-						csc_final_temp[i * 4 + j] >> csc_float_bit;
+						csc_final_temp[i * 4 + j] >> ocfbn;
 		for (i = 0; i < 4; i++)
 			for (j = 0; j < 4; j++)
 				*(csc_final + i * 4 + j) = csc_final_temp[i * 4 + j];
@@ -1672,25 +1674,9 @@ static int mtk_ovl_color_manage(struct mtk_ddp_comp *comp, unsigned int idx,
 	struct mtk_panel_params *params;
 	int i;
 	int ovl_csc_en_cur = 0;
-	struct mtk_crtc_ovl_csc_config occ = {
-		{
-			1 << 18, 0, 0, 0,
-			0, 1 << 18, 0, 0,
-			0, 0, 1 << 18, 0,
-			0, 0, 0, 1 << 18,
-		},
-		{
-			1 << 18, 0, 0, 0,
-			0, 1 << 18, 0, 0,
-			0, 0, 1 << 18, 0,
-			0, 0, 0, 1 << 18,
-		},
-	};
-	s32 csc_final[16] = { /* 4x4 matrix */
-		1 << 18, 0, 0, 0,
-		0, 1 << 18, 0, 0,
-		0, 0, 1 << 18, 0,
-		0, 0, 0, 1 << 18};
+	unsigned int ocfbn = 0;
+	struct mtk_crtc_ovl_csc_config occ = {0};
+	s32 csc_final[16] = {0}; /* 4x4 matrix */
 
 	if (state->comp_state.comp_id) {
 		lye_idx = state->comp_state.lye_id;
@@ -1700,6 +1686,19 @@ static int mtk_ovl_color_manage(struct mtk_ddp_comp *comp, unsigned int idx,
 
 	if (!crtc)
 		goto done;
+
+	/* init */
+	if (comp && comp->mtk_crtc) /* get ocfbn */
+		ocfbn = comp->mtk_crtc->crtc_caps.ovl_csc_bit_number;
+	if (ocfbn == 0) {
+		ocfbn = 18; /* data protect for mt6983 mt6985 */
+		DDPINFO("%s, ocfbn is 0, set to 18\n", __func__);
+	}
+	for (i = 0; i < 4; i++) { /* set matrix identity */
+		occ.setbrightness[i * 4 + i] = 1 << ocfbn;
+		occ.setcolortransform[i * 4 + i] = 1 << ocfbn;
+		csc_final[i * 4 + i] = 1 << ocfbn;
+	}
 
 	/* get brightness/layercolortransform csc */
 	mtk_ovl_get_ovl_csc_data(crtc, state, &ovl_csc_en_cur, &occ);
@@ -1732,7 +1731,7 @@ static int mtk_ovl_color_manage(struct mtk_ddp_comp *comp, unsigned int idx,
 		__func__, gamma_en, igamma_en, gamma_sel, igamma_sel);
 
 	/* csc combination */
-	mtk_ovl_csc_combination(csc_en, comp->mtk_crtc->crtc_caps.ovl_csc_bit_number,
+	mtk_ovl_csc_combination(csc_en, ocfbn,
 		csc, &occ, csc_final);
 
 done:
