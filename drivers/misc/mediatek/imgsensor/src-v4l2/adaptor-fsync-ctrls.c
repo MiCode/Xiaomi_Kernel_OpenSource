@@ -795,6 +795,27 @@ void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 }
 
 
+void notify_fsync_mgr_sync_frame(struct adaptor_ctx *ctx,
+	const unsigned int flag)
+{
+	/* not expected case */
+	if (unlikely(ctx->fsync_mgr == NULL)) {
+
+#if !defined(FORCE_DISABLE_FSYNC_MGR)
+		adaptor_logi(ctx,
+			"sidx:%d, NOTICE: notify fsync sync frame, but ctx->fsync_mgr is NULL, return\n",
+			ctx->idx);
+#endif
+
+		return;
+	}
+
+	adaptor_logd(ctx, "sidx:%d, flag:%u\n", ctx->idx, flag);
+
+	ctx->fsync_mgr->fs_sync_frame(flag);
+}
+
+
 /*******************************************************************************
  * ext ctrls
  ******************************************************************************/

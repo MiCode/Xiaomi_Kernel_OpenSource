@@ -27,6 +27,7 @@ imgsensor-objs += \
 	adaptor-i2c.o \
 	adaptor-ctrls.o \
 	adaptor-ioctl.o \
+	adaptor-command.o \
 	adaptor-common-ctrl.o \
 	adaptor-subdrv-ctrl.o \
 	adaptor-fsync-ctrls.o \

@@ -17,6 +17,7 @@
 #include "adaptor-hw.h"
 #include "adaptor-i2c.h"
 #include "adaptor-ctrls.h"
+#include "adaptor-command.h"
 #include "adaptor-fsync-ctrls.h"
 #include "adaptor-ioctl.h"
 #include "adaptor-trace.h"
@@ -976,6 +977,7 @@ error:
 static const struct v4l2_subdev_core_ops imgsensor_core_ops = {
 	.s_power = imgsensor_set_power,
 	.ioctl = adaptor_ioctl,
+	.command = adaptor_command,
 };
 
 static const struct v4l2_subdev_video_ops imgsensor_video_ops = {

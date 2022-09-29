@@ -31,6 +31,12 @@
  */
 #define V4L2_CID_USER_MTK_SENINF_BASE		(V4L2_CID_USER_MTK_CAM_BASE + 0x300)
 
+/**
+ * The base for the mediatek sensor driver commands
+ * We reserve ?? controls for this driver.
+ */
+#define V4L2_CMD_USER_MTK_SENSOR_BASE		(V4L2_CID_USER_MTK_CAM_BASE + 0x400)
+
 
 /* C A M S Y S */
 #define V4L2_CID_MTK_CAM_USED_ENGINE_LIMIT \
@@ -722,6 +728,12 @@ enum mtk_cam_sensor_pm_ops {
 	AOV_ABNORMAL_FORCE_SENSOR_PWR_OFF,
 	AOV_ABNORMAL_FORCE_SENSOR_PWR_ON,
 };
+
+
+/* imgsensor commands */
+#define V4L2_CMD_FSYNC_SYNC_FRAME_START_END \
+	(V4L2_CMD_USER_MTK_SENSOR_BASE + 1)
+
 
 /* S E N I N F */
 #define V4L2_CID_MTK_SENINF_S_STREAM \

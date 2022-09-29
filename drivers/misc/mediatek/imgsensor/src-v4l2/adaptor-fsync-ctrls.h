@@ -66,6 +66,11 @@ void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 	int do_set_exp_with_fl);
 
 
+/* this API only be used (NOT directly return) on HW senor sync pin */
+void notify_fsync_mgr_sync_frame(struct adaptor_ctx *ctx,
+	const unsigned int flag);
+
+
 /*******************************************************************************
  * ext ctrl
  ******************************************************************************/
