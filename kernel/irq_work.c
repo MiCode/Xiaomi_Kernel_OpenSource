@@ -101,7 +101,11 @@ bool irq_work_queue_on(struct irq_work *work, int cpu)
 	if (!irq_work_claim(work))
 		return false;
 
+#ifdef CONFIG_MTK_VM_DEBUG
+	kasan_record_aux_stack_noalloc(work);
+#else
 	kasan_record_aux_stack(work);
+#endif
 
 	preempt_disable();
 	if (cpu != smp_processor_id()) {
