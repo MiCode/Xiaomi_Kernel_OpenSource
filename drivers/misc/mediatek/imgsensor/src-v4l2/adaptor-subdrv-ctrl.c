@@ -666,6 +666,8 @@ void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 	default:
 		break;
 	}
+	if (ctx->s_ctx.reg_addr_exposure_lshift != PARAM_UNDEFINED)
+		set_i2c_buffer(ctx, ctx->s_ctx.reg_addr_exposure_lshift, 0);
 	for (i = 0; i < 3; i++) {
 		if (rg_shutters[i]) {
 			if (ctx->s_ctx.reg_addr_exposure[i].addr[2]) {
