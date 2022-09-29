@@ -133,10 +133,18 @@ static bool inode_io_list_move_locked(struct inode *inode,
 
 static void wb_wakeup(struct bdi_writeback *wb)
 {
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	spin_lock_irq(&wb->work_lock);
+#else
 	spin_lock_bh(&wb->work_lock);
+#endif
 	if (test_bit(WB_registered, &wb->state))
 		mod_delayed_work(bdi_wq, &wb->dwork, 0);
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	spin_unlock_irq(&wb->work_lock);
+#else
 	spin_unlock_bh(&wb->work_lock);
+#endif
 }
 
 static void finish_writeback_work(struct bdi_writeback *wb,
@@ -163,7 +171,11 @@ static void wb_queue_work(struct bdi_writeback *wb,
 	if (work->done)
 		atomic_inc(&work->done->cnt);
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	spin_lock_irq(&wb->work_lock);
+#else
 	spin_lock_bh(&wb->work_lock);
+#endif
 
 	if (test_bit(WB_registered, &wb->state)) {
 		list_add_tail(&work->list, &wb->work_list);
@@ -171,7 +183,11 @@ static void wb_queue_work(struct bdi_writeback *wb,
 	} else
 		finish_writeback_work(wb, work);
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	spin_unlock_irq(&wb->work_lock);
+#else
 	spin_unlock_bh(&wb->work_lock);
+#endif
 }
 
 /**
@@ -2099,14 +2115,21 @@ static long wb_writeback(struct bdi_writeback *wb,
 static struct wb_writeback_work *get_next_work_item(struct bdi_writeback *wb)
 {
 	struct wb_writeback_work *work = NULL;
-
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	spin_lock_irq(&wb->work_lock);
+#else
 	spin_lock_bh(&wb->work_lock);
+#endif
 	if (!list_empty(&wb->work_list)) {
 		work = list_entry(wb->work_list.next,
 				  struct wb_writeback_work, list);
 		list_del_init(&work->list);
 	}
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	spin_unlock_irq(&wb->work_lock);
+#else
 	spin_unlock_bh(&wb->work_lock);
+#endif
 	return work;
 }
 

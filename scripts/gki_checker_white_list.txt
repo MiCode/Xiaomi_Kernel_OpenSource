@@ -56,6 +56,7 @@ f drivers/tty/serial/8250/8250_port.c
 f fs/coredump.c
 f fs/f2fs/checkpoint.c
 f fs/f2fs/namei.c
+f fs/fs-writeback.c
 f include/linux/dev_printk.h
 f include/linux/dynamic_debug.h
 f include/linux/printk.h
@@ -81,6 +82,8 @@ f kernel/trace/trace.c
 f kernel/trace/trace_events.c
 f kernel/workqueue.c
 f lib/dynamic_debug.c
+f mm/backing-dev.c
+f mm/page-writeback.c
 f mm/memory.c
 f mm/mempool.c
 f net/core/rtnetlink.c

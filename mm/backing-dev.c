@@ -265,10 +265,18 @@ void wb_wakeup_delayed(struct bdi_writeback *wb)
 	unsigned long timeout;
 
 	timeout = msecs_to_jiffies(dirty_writeback_interval * 10);
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	spin_lock_irq(&wb->work_lock);
+#else
 	spin_lock_bh(&wb->work_lock);
+#endif
 	if (test_bit(WB_registered, &wb->state))
 		queue_delayed_work(bdi_wq, &wb->dwork, timeout);
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	spin_unlock_irq(&wb->work_lock);
+#else
 	spin_unlock_bh(&wb->work_lock);
+#endif
 }
 
 static void wb_update_bandwidth_workfn(struct work_struct *work)
@@ -344,12 +352,20 @@ static void cgwb_remove_from_bdi_list(struct bdi_writeback *wb);
 static void wb_shutdown(struct bdi_writeback *wb)
 {
 	/* Make sure nobody queues further work */
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	spin_lock_irq(&wb->work_lock);
+#else
 	spin_lock_bh(&wb->work_lock);
+#endif
 	if (!test_and_clear_bit(WB_registered, &wb->state)) {
 		spin_unlock_bh(&wb->work_lock);
 		return;
 	}
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	spin_unlock_irq(&wb->work_lock);
+#else
 	spin_unlock_bh(&wb->work_lock);
+#endif
 
 	cgwb_remove_from_bdi_list(wb);
 	/*
