@@ -29,6 +29,7 @@
   create_function_device
   css_next_descendant_pre
   _dev_alert
+  devm_bitmap_zalloc
   drm_edid_get_monitor_name
   drm_edid_is_valid
   elevator_alloc
@@ -113,6 +114,7 @@
   __tracepoint_irq_handler_exit
   __tracepoint_kfree_skb
   __tracepoint_workqueue_execute_start
+  usb_alloc_dev
   usb_deregister_dev
   usb_find_interface
   usb_hid_driver
