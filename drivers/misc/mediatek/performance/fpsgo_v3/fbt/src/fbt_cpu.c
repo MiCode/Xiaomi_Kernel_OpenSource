@@ -1852,6 +1852,9 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 					&& fbt_is_R_L_task(fl->pid, heaviest_pid, thr->pid)) {
 				fbt_set_task_policy(fl, FPSGO_TPOLICY_NONE,
 						FPSGO_PREFER_NONE, 1);
+			} else {
+				fbt_set_task_policy(fl, FPSGO_TPOLICY_NONE,
+						FPSGO_PREFER_NONE, 0);
 			}
 		} else {
 			if (separate_aa_final) {
