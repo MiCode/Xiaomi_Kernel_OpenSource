@@ -604,13 +604,6 @@ static void vow_service_Init(void)
 #else
 	VOWDRV_DEBUG("%s(), vow: SCP no support\n\r", __func__);
 #endif
-	vow_ipi_send(IPIMSG_VOW_GET_ALEXA_ENGINE_VER, 0, NULL,
-			 VOW_IPI_BYPASS_ACK);
-	vow_ipi_send(IPIMSG_VOW_GET_GOOGLE_ENGINE_VER, 0, NULL,
-			 VOW_IPI_BYPASS_ACK);
-	vow_ipi_send(IPIMSG_VOW_GET_GOOGLE_ARCH, 0, NULL,
-			 VOW_IPI_BYPASS_ACK);
-
 	//audio_load_task(TASK_SCENE_VOW);
 
 	if (init_flag != 1) {
@@ -686,6 +679,9 @@ static void vow_service_Init(void)
 		vowserv.google_engine_version = DEFAULT_GOOGLE_ENGINE_VER;
 		memset(vowserv.alexa_engine_version, 0, VOW_ENGINE_INFO_LENGTH_BYTE);
 	} else {
+		vow_ipi_send(IPIMSG_VOW_GET_ALEXA_ENGINE_VER, 0, NULL, VOW_IPI_BYPASS_ACK);
+		vow_ipi_send(IPIMSG_VOW_GET_GOOGLE_ENGINE_VER, 0, NULL, VOW_IPI_BYPASS_ACK);
+		vow_ipi_send(IPIMSG_VOW_GET_GOOGLE_ARCH, 0, NULL, VOW_IPI_BYPASS_ACK);
 		for (I = 0; I < MAX_VOW_SPEAKER_MODEL; I++) {
 			if ((vowserv.vow_speaker_model[I].flag > 1) ||
 			    (vowserv.vow_speaker_model[I].enabled > 1)) {
