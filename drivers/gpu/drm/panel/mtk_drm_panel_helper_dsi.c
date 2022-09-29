@@ -2639,9 +2639,10 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 				 mode_node->height, mode_node->fps);
 			if (ret < 0 || (size_t)ret >= sizeof(mode_name))
 				DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
-				mtk_lcm_dump_u32_array(mode_node->msync_set_min_fps_list,
-						mode_node->msync_set_min_fps_list_length,
-						mode_name);
+
+			mtk_lcm_dump_u32_array(mode_node->msync_set_min_fps_list,
+					mode_node->msync_set_min_fps_list_length,
+					mode_name);
 			dump_lcm_ops_table(&mode_node->msync_set_min_fps,
 					cust, mode_name);
 		}
