@@ -752,8 +752,8 @@
 					lcm-params-dsi-vscan;
 
 					/* mtk_panel_params */
-					lcm-params-dsi-pll_clock = <544>;
-					lcm-params-dsi-data_rate = <1088>;
+					lcm-params-dsi-pll_clock = <551>;
+					lcm-params-dsi-data_rate = <1102>;
 					lcm-params-dsi-vfp_for_low_power = <2528>;
 					lcm-params-dsi-ssc_enable = <1>;
 					lcm-params-dsi-ssc_range;
@@ -882,7 +882,7 @@
 						compatible =
 							"mediatek,lcm-params-dsi-dyn";
 						lcm-params-dsi-dyn_switch_en = <1>;
-						lcm-params-dsi-dyn_pll_clk = <522>;
+						lcm-params-dsi-dyn_pll_clk = <552>;
 						lcm-params-dsi-dyn_data_rate;
 						lcm-params-dsi-dyn_vsa;
 						lcm-params-dsi-dyn_vbp;
@@ -950,8 +950,8 @@
 					lcm-params-dsi-vscan;
 
 					/* mtk_panel_params */
-					lcm-params-dsi-pll_clock = <544>;
-					lcm-params-dsi-data_rate = <1088>;
+					lcm-params-dsi-pll_clock = <551>;
+					lcm-params-dsi-data_rate = <1102>;
 					lcm-params-dsi-vfp_for_low_power = <2528>;
 					lcm-params-dsi-ssc_enable = <1>;
 					lcm-params-dsi-ssc_range;
@@ -1080,7 +1080,7 @@
 						compatible =
 							"mediatek,lcm-params-dsi-dyn";
 						lcm-params-dsi-dyn_switch_en = <1>;
-						lcm-params-dsi-dyn_pll_clk = <522>;
+						lcm-params-dsi-dyn_pll_clk = <552>;
 						lcm-params-dsi-dyn_data_rate;
 						lcm-params-dsi-dyn_vsa;
 						lcm-params-dsi-dyn_vbp;
@@ -1148,8 +1148,8 @@
 					lcm-params-dsi-vscan;
 
 					/* mtk_panel_params */
-					lcm-params-dsi-pll_clock = <544>;
-					lcm-params-dsi-data_rate = <1088>;
+					lcm-params-dsi-pll_clock = <551>;
+					lcm-params-dsi-data_rate = <1102>;
 					lcm-params-dsi-vfp_for_low_power = <2528>;
 					lcm-params-dsi-ssc_enable = <1>;
 					lcm-params-dsi-ssc_range;
@@ -1278,7 +1278,7 @@
 						compatible =
 							"mediatek,lcm-params-dsi-dyn";
 						lcm-params-dsi-dyn_switch_en = <1>;
-						lcm-params-dsi-dyn_pll_clk = <522>;
+						lcm-params-dsi-dyn_pll_clk = <552>;
 						lcm-params-dsi-dyn_data_rate;
 						lcm-params-dsi-dyn_vsa;
 						lcm-params-dsi-dyn_vbp;
@@ -1848,7 +1848,7 @@
 					[MTK_LCM_PHASE_TYPE_HEX_START 02],
 						[MTK_LCM_PHASE_HEX_LK],
 						[MTK_LCM_PHASE_HEX_LK_DISPLAY_ON_DELAY],
-					[MTK_LCM_UTIL_TYPE_HEX_TDELAY 01 c8],
+					[MTK_LCM_UTIL_TYPE_HEX_TDELAY 01 78],
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 00 29],
 					[MTK_LCM_PHASE_TYPE_HEX_END 02],
 						[MTK_LCM_PHASE_HEX_LK],

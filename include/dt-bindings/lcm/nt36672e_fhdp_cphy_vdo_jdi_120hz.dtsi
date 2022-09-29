@@ -567,7 +567,7 @@
 					lcm-params-dsi-horizontal_backporch = <80>;
 					lcm-params-dsi-horizontal_frontporch = <76>;
 					lcm-params-dsi-horizontal_active_pixel = <1080>;
-					lcm-params-dsi-pixel_clock = <443290>;
+					lcm-params-dsi-pixel_clock = <437299>;
 					lcm-params-dsi-hskew;
 					lcm-params-dsi-vscan;
 
@@ -1252,17 +1252,19 @@
 					[MTK_LCM_CMD_TYPE_HEX_READ_CMD 03 00 03 04],
 					[MTK_LCM_TYPE_HEX_END];
 
-				compare_id_value_data = [00];
+				compare_id_value_data = [6E];
 				compare_id_table = [MTK_LCM_UTIL_TYPE_HEX_RESET 01 01],
 					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 0a],
 					[MTK_LCM_UTIL_TYPE_HEX_RESET 01 00],
 					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 0a],
 					[MTK_LCM_UTIL_TYPE_HEX_RESET 01 01],
 					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 0a],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 FF 20],
 					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_COUNT 01 01],
 					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM 05 00 00 01 37 00],
 					[MTK_LCM_LK_TYPE_HEX_WRITE_PARAM 00],
-					[MTK_LCM_CMD_TYPE_HEX_READ_BUFFER 03 00 01 da],
+					[MTK_LCM_CMD_TYPE_HEX_READ_BUFFER 03 00 01 3B],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 FF 10],
 					[MTK_LCM_TYPE_HEX_END];
 
 				doze_enable_start_table;
