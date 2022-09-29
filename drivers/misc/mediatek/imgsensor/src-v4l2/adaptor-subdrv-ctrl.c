@@ -939,6 +939,7 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 		ctx->autoflicker_en = FALSE;
 		ctx->extend_frame_length_en = 0;
 		ctx->is_seamless = 0;
+		check_stream_off(ctx);
 	}
 	ctx->is_streaming = enable;
 	DRV_LOG(ctx, "enable:%u\n", enable);
