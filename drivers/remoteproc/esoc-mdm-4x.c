@@ -1073,7 +1073,7 @@ err_destroy_wrkq:
 	return ret;
 }
 
-static int lemur_setup_regulators(struct mdm_ctrl *mdm)
+static int sdx_setup_regulators(struct mdm_ctrl *mdm)
 {
 	int len;
 	int i, rc;
@@ -1145,7 +1145,7 @@ static int lemur_setup_hw(struct mdm_ctrl *mdm, const struct mdm_ops *ops,
 		return ret;
 	}
 
-	ret = lemur_setup_regulators(mdm);
+	ret = sdx_setup_regulators(mdm);
 	if (ret) {
 		dev_err(mdm->dev, "Failed to setup regulators: %d\n", ret);
 		esoc_mdm_log("Failed to setup regulators: %d\n", ret);
@@ -1180,7 +1180,7 @@ static int pinn_setup_hw(struct mdm_ctrl *mdm, const struct mdm_ops *ops,
 		return ret;
 	}
 
-	ret = lemur_setup_regulators(mdm);
+	ret = sdx_setup_regulators(mdm);
 	if (ret) {
 		dev_err(mdm->dev, "Failed to setup regulators: %d\n", ret);
 		esoc_mdm_log("Failed to setup regulators: %d\n", ret);
@@ -1215,7 +1215,7 @@ static int baagha_setup_hw(struct mdm_ctrl *mdm, const struct mdm_ops *ops,
 		return ret;
 	}
 
-	ret = lemur_setup_regulators(mdm);
+	ret = sdx_setup_regulators(mdm);
 	if (ret) {
 		dev_err(mdm->dev, "Failed to setup regulators: %d\n", ret);
 		esoc_mdm_log("Failed to setup regulators: %d\n", ret);
