@@ -79,6 +79,19 @@
 				lcm-params-dsi-mode_list =
 					<0 1440 3200 120>;
 
+				/* backlight mode */
+				lcm-params-dsi-backlight-mode {
+					compatible = "mediatek,lcm-dsi-backlight-mode";
+
+					lcm-bl-compatible = "mediatek,disp-leds";
+					lcm-bl-max_brightness = <10239>;
+					lcm-bl-min_brightness = <4>;
+					lcm-bl-max_hw_brightness = <4095>;
+					lcm-bl-led_mode = <4>;
+					lcm-bl-gate_enable;
+					lcm-bl-pwm_config;
+				};
+
 				lcm-params-dsi-fps-0-1440-3200-120 {
 					compatible = "mediatek,lcm-dsi-fps-0-1440-3200-120";
 					lcm-params-dsi-voltage;
@@ -392,6 +405,13 @@
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 5F 01],
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 00],
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 26 00],
+
+					[MTK_LCM_PHASE_TYPE_HEX_START 01 MTK_LCM_PHASE_HEX_KERNEL],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 08],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_BACKLIGHT 02 01 02],
+						[03 51 0F FF],
+					[MTK_LCM_PHASE_TYPE_HEX_END 01 MTK_LCM_PHASE_HEX_KERNEL],
+
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 01 11],
 					[MTK_LCM_PHASE_TYPE_HEX_START 02],
 						[MTK_LCM_PHASE_HEX_KERNEL MTK_LCM_PHASE_HEX_LK],
@@ -413,19 +433,19 @@
 
 				lcm_update_table;
 
-				set_backlight_mask = <0xff>;
+				set_backlight_mask = <0xfff>;
 				set_backlight_cmdq_table =
 					[MTK_LCM_PHASE_TYPE_HEX_START 01 MTK_LCM_PHASE_HEX_KERNEL],
-					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 06],
-						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_BACKLIGHT 01 01],
-						[02 51 FF],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 08],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_BACKLIGHT 02 01 02],
+						[03 51 0F FF],
 					[MTK_LCM_PHASE_TYPE_HEX_END 01 MTK_LCM_PHASE_HEX_KERNEL],
 					[MTK_LCM_PHASE_TYPE_HEX_START 02],
 						[MTK_LCM_PHASE_HEX_LK],
 						[MTK_LCM_PHASE_HEX_LK_DISPLAY_ON_DELAY],
-					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 06],
-						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_BACKLIGHT 01 01],
-						[02 51 FF],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 08],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_BACKLIGHT 02 01 02],
+						[03 51 0F FF],
 					[MTK_LCM_PHASE_TYPE_HEX_END 02],
 						[MTK_LCM_PHASE_HEX_LK],
 						[MTK_LCM_PHASE_HEX_LK_DISPLAY_ON_DELAY],
