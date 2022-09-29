@@ -14,6 +14,7 @@
 #include <linux/of_platform.h>
 #include <linux/pm_qos.h>
 #include <linux/slab.h>
+#include <linux/sched/clock.h>
 
 #define LUT_MAX_ENTRIES			32U
 #define LUT_FREQ			GENMASK(11, 0)
@@ -124,6 +125,11 @@ static unsigned int mtk_cpufreq_hw_fast_switch(struct cpufreq_policy *policy,
 {
 	struct cpufreq_mtk *c = policy->driver_data;
 	unsigned int index;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[2];
+
+	ts[0] = sched_clock();
+#endif
 
 	if (policy->cached_target_freq == target_freq)
 		index = policy->cached_resolved_idx;
@@ -138,6 +144,15 @@ static unsigned int mtk_cpufreq_hw_fast_switch(struct cpufreq_policy *policy,
 		c->last_index = index;
 	} else
 		writel_relaxed(index, c->reg_bases[REG_FREQ_PERF_STATE]);
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+
+	if ((ts[1] - ts[0] > 100000ULL) && in_hardirq()) {
+		printk_deferred("%s duration %llu, ts[0]=%llu, ts[1]=%llu\n",
+			__func__, ts[1] - ts[0], ts[0], ts[1]);
+	}
+#endif
 
 	return policy->freq_table[index].frequency;
 }
