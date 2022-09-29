@@ -150,7 +150,6 @@ struct mml_sys {
 	u16 event_racing_pipe0;
 	u16 event_racing_pipe1;
 	u16 event_racing_pipe1_next;
-	u16 event_ir_eof;
 
 #ifndef MML_FPGA
 	/* for config sspm aid */
@@ -210,14 +209,17 @@ static void sys_sync_racing(struct mml_comp *comp, struct mml_task *task,
 {
 	struct mml_dev *mml = task->config->mml;
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	struct mml_frame_config *cfg = task->config;
 
 	/* synchronize disp and mml task by for MML pkt:
 	 *	set MML_READY
 	 *	wait_and_clear DISP_READY
 	 */
-	if (task->config->disp_vdo)
+	if (cfg->disp_vdo)
 		cmdq_pkt_set_event(pkt, mml_ir_get_mml_ready_event(mml));
 	cmdq_pkt_wfe(pkt, mml_ir_get_disp_ready_event(mml));
+	if (cfg->disp_vdo)
+		cmdq_pkt_clear_event(pkt, mml_ir_get_target_event(mml));
 }
 
 static void sys_config_frame_racing(struct mml_comp *comp, struct mml_task *task,
@@ -494,6 +496,8 @@ static void sys_racing_loop(struct mml_comp *comp, struct mml_task *task,
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
 	struct sys_frame_data *sys_frm = sys_frm_data(ccfg);
 	struct cmdq_operand lhs, rhs;
+	struct mml_frame_config *cfg = task->config;
+	u16 event_ir_eof = mml_ir_get_target_event(cfg->mml);
 
 	if (unlikely(mml_racing_ut == 1))
 		return;
@@ -508,8 +512,8 @@ static void sys_racing_loop(struct mml_comp *comp, struct mml_task *task,
 	/* wait display frame done before checking next, so disp driver has
 	 * chance to tell mml to entering next task.
 	 */
-	if (task->config->disp_vdo && sys->event_ir_eof)
-		cmdq_pkt_wfe(task->pkts[0], sys->event_ir_eof);
+	if (cfg->disp_vdo && event_ir_eof)
+		cmdq_pkt_wfe(task->pkts[0], event_ir_eof);
 
 	/* reserve assign inst for jump addr */
 	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX0, 0);
@@ -647,12 +651,13 @@ static void sys_reset(struct mml_comp *comp, struct mml_frame_config *cfg, u32 p
 
 	if (cfg->info.mode == MML_MODE_RACING) {
 		struct mml_sys *sys = comp_to_sys(comp);
+		u16 event_ir_eof = mml_ir_get_target_event(cfg->mml);
 
 		cmdq_clear_event(path->clt->chan, sys->event_racing_pipe0);
 		cmdq_clear_event(path->clt->chan, sys->event_racing_pipe1);
 		cmdq_clear_event(path->clt->chan, sys->event_racing_pipe1_next);
-		if (sys->event_ir_eof)
-			cmdq_clear_event(path->clt->chan, sys->event_ir_eof);
+		if (event_ir_eof)
+			cmdq_clear_event(path->clt->chan, event_ir_eof);
 	}
 }
 
@@ -1483,8 +1488,6 @@ static int mml_sys_init(struct platform_device *pdev, struct mml_sys *sys,
 			     &sys->event_racing_pipe1);
 	of_property_read_u16(dev->of_node, "event-racing-pipe1-next",
 			     &sys->event_racing_pipe1_next);
-	of_property_read_u16(dev->of_node, "event-ir-eof",
-			     &sys->event_ir_eof);
 	return 0;
 
 err_comp_add:
