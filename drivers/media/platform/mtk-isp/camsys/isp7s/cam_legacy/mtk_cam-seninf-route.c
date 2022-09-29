@@ -1224,18 +1224,18 @@ int _mtk_cam_seninf_set_camtg_with_dest_idx(struct v4l2_subdev *sd, int pad_id,
 
 				chk_is_fsync_vsync_src(ctx, pad_id);
 			}
-			dev_info(ctx->dev,
-				"%s: pad %d dest %u mux %d -> %d mux_vr %d -> %d cam %d -> %d, tag %d\n",
-				__func__, vc->out_pad, dest_set, old_mux, dest->mux,
+			seninf_logi(ctx,
+				"pad %d dest %u mux %d -> %d mux_vr %d -> %d cam %d -> %d, tag %d\n",
+				vc->out_pad, dest_set, old_mux, dest->mux,
 				old_mux_vr, dest->mux_vr, old_camtg, dest->cam, dest->tag);
 
 #ifdef SENSOR_SECURE_MTEE_SUPPORT
 		}
 #endif
 	} else {
-		dev_info(ctx->dev,
-			"%s: pad_id %d, dest %u camtg %d, ctx->streaming %d, vc_en %d, tag %d\n",
-			__func__, pad_id, dest_set, camtg, ctx->streaming, vc_en, tag_id);
+		seninf_logi(ctx,
+			"pad_id %d, dest %u camtg %d, ctx->streaming %d, vc_en %d, tag %d\n",
+			pad_id, dest_set, camtg, ctx->streaming, vc_en, tag_id);
 	}
 
 	return 0;
@@ -1500,7 +1500,7 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 				// inner next
 				g_seninf_ops->_set_cammux_next_ctrl(ctx, dest->mux_vr, dest->cam);
 
-				dev_info(ctx->dev,
+				seninf_logi(ctx,
 					"vc[%d] dest[%u] pad %d intf %d mux %d next/src mux_vr %d cam %d tag %d vc 0x%x dt 0x%x first %d\n",
 					i, j, vc->out_pad, intf, dest->mux, dest->mux_vr,
 					dest->cam, dest->tag, vc_sel, dt_sel, en_tag);
@@ -1517,7 +1517,7 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 #endif
 			} else {
 				dest->mux_vr = 0xFF;
-				dev_info(ctx->dev, "invalid camtg, vc[%d] pad %d intf %d cam %d\n",
+				seninf_logi(ctx, "invalid camtg, vc[%d] pad %d intf %d cam %d\n",
 					 i, vc->out_pad, intf, dest->cam);
 			}
 		}

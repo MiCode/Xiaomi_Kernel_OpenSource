@@ -21,6 +21,13 @@
 #define CSI_EFUSE_SET
 //#define SENINF_UT_DUMP
 
+#define seninf_logi(_ctx, format, args...) do { \
+	if ((_ctx) && (_ctx)->sensor_sd) { \
+		dev_info((_ctx)->dev, "[%s][%s] " format, \
+			(_ctx)->sensor_sd->name, __func__, ##args); \
+	} \
+} while (0)
+
 struct seninf_ctx;
 
 /* aov sensor use */

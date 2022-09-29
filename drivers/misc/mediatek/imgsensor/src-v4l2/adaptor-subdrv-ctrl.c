@@ -1526,7 +1526,7 @@ void sensor_init(struct subdrv_ctx *ctx)
 {
 	/* write init setting */
 	if (ctx->s_ctx.init_setting_table != NULL) {
-		DRV_LOG(ctx, "E: size:%u\n", ctx->s_ctx.init_setting_len);
+		DRV_LOG_MUST(ctx, "E: size:%u\n", ctx->s_ctx.init_setting_len);
 		i2c_table_write(ctx, ctx->s_ctx.init_setting_table, ctx->s_ctx.init_setting_len);
 		DRV_LOG(ctx, "X: size:%u\n", ctx->s_ctx.init_setting_len);
 	} else {
@@ -1692,7 +1692,7 @@ int common_control(struct subdrv_ctx *ctx,
 	update_mode_info(ctx, scenario_id);
 
 	if (ctx->s_ctx.mode[scenario_id].mode_setting_table != NULL) {
-		DRV_LOG(ctx, "E: sid:%u size:%u\n", scenario_id,
+		DRV_LOG_MUST(ctx, "E: sid:%u size:%u\n", scenario_id,
 			ctx->s_ctx.mode[scenario_id].mode_setting_len);
 		i2c_table_write(ctx, ctx->s_ctx.mode[scenario_id].mode_setting_table,
 			ctx->s_ctx.mode[scenario_id].mode_setting_len);

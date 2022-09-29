@@ -1196,7 +1196,7 @@ static int g_seamless_switch_scenario(struct adaptor_ctx *ctx, void *arg)
 
 	while (count < SENSOR_SCENARIO_ID_MAX &&
 		target_scenario_ids[count] != SENSOR_SCENARIO_ID_NONE) {
-		dev_info(ctx->dev, "[%s] src %u target %u\n", __func__,
+		adaptor_logd(ctx, "src %u target %u\n",
 				target->scenario_id,
 				target_scenario_ids[count]);
 		++count;

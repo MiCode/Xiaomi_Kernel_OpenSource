@@ -384,9 +384,11 @@ static int search_sensor(struct adaptor_ctx *ctx)
 			ctx->ctx_pw_seq = kmalloc_array(ctx->subdrv->pw_seq_cnt,
 					sizeof(struct subdrv_pw_seq_entry),
 					GFP_KERNEL);
-			memcpy(ctx->ctx_pw_seq, ctx->subdrv->pw_seq,
-			       ctx->subdrv->pw_seq_cnt *
-			       sizeof(struct subdrv_pw_seq_entry));
+			if (ctx->ctx_pw_seq) {
+				memcpy(ctx->ctx_pw_seq, ctx->subdrv->pw_seq,
+				       ctx->subdrv->pw_seq_cnt *
+				       sizeof(struct subdrv_pw_seq_entry));
+			}
 			return 0;
 		}
 	}
@@ -829,7 +831,7 @@ static int imgsensor_set_stream(struct v4l2_subdev *sd, int enable)
 	ctx->is_streaming = enable;
 	mutex_unlock(&ctx->mutex);
 
-	dev_info(ctx->dev, "%s: en %d\n", __func__, enable);
+	adaptor_logi(ctx, "en %d\n", enable);
 
 	return 0;
 

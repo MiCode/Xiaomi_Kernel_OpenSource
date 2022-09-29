@@ -24,6 +24,22 @@
 
 #define to_ctx(__sd) container_of(__sd, struct adaptor_ctx, sd)
 
+#define adaptor_logd(_ctx, format, args...) do { \
+	if ((_ctx) && unlikely(*((_ctx)->sensor_debug_flag))) { \
+		dev_info((_ctx)->dev, "[%s][%s][%s] " format, \
+			(_ctx)->sd.name, \
+			(_ctx)->subdrv->name, __func__, ##args); \
+	} \
+} while (0)
+
+#define adaptor_logi(_ctx, format, args...) do { \
+	if (_ctx) { \
+		dev_info((_ctx)->dev, "[%s][%s][%s] " format, \
+			(_ctx)->sd.name, \
+			(_ctx)->subdrv->name, __func__, ##args); \
+	} \
+} while (0)
+
 struct adaptor_ctx;
 static unsigned int sensor_debug;
 

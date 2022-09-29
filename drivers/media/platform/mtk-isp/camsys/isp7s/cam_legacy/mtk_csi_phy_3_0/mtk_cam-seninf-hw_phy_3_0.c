@@ -3579,7 +3579,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	}
 
 	temp = SENINF_READ_REG(base_csi, SENINF_CSI2_IRQ_STATUS);
-	dev_info(ctx->dev,
+	seninf_logi(ctx,
 		"SENINF%d_CSI2_IRQ_STATUS(0x%x)\n", ctx->seninfIdx, temp);
 	if ((temp & 0xD0) != 0)
 		ret = -2; //multi lanes sync error, crc error, ecc error
@@ -3589,7 +3589,9 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 		base_mux = ctx->reg_if_mux[j];
 		if (SENINF_READ_REG(base_mux, SENINF_MUX_CTRL_0) & 0x1) {
 			dev_info(ctx->dev,
-				"SENINF%d_MUX_CTRL0(0x%x) SENINF%d_MUX_CTRL1(0x%x) SENINF_MUX_IRQ_STATUS(0x%x) SENINF%d_MUX_SIZE(0x%x) SENINF_MUX_ERR_SIZE(0x%x) SENINF_MUX_EXP_SIZE(0x%x)\n",
+				"%sSENINF%d_MUX_CTRL0(0x%x) SENINF%d_MUX_CTRL1(0x%x) SENINF_MUX_IRQ_STATUS(0x%x) SENINF%d_MUX_SIZE(0x%x) SENINF_MUX_ERR_SIZE(0x%x) SENINF_MUX_EXP_SIZE(0x%x)\n",
+				(mtk_cam_seninf_get_top_mux_ctrl(ctx, j) == ctx->seninfIdx) ?
+				"*" : "",
 				j,
 				SENINF_READ_REG(base_mux, SENINF_MUX_CTRL_0),
 				j,
