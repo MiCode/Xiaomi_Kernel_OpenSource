@@ -649,7 +649,7 @@ static ssize_t proc_generate_adsp_write(struct file *file,
 	return 0;
 }
 
-static int test_value[3];
+static uint32_t test_value[3];
 static ssize_t proc_generate_platform_write(struct file *file,
 					const char __user *buf, size_t size,
 					loff_t *ppos)
@@ -683,11 +683,10 @@ static ssize_t proc_generate_platform_write(struct file *file,
 	if ((test_value[0] != 0x72656164) && (test_value[0] != 0x77726974))
 		return -EINVAL;
 
-
 	base = ioremap(test_value[1], 0x100);
 	if (!base) {
 		pr_notice("Couldn't map 0x%x.\n", test_value[1]);
-		return 0;
+		return -ENOMEM;
 	}
 
 	pr_info("trigger time: %lx\n", arch_timer_read_counter());
