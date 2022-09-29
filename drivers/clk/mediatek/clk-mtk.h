@@ -320,5 +320,6 @@ extern void mtk_clk_register_ipi_callback(struct ipi_callbacks *clk_cb);
 extern struct ipi_callbacks *mtk_clk_get_ipi_cb(void);
 extern int mtk_hwv_pll_on(struct clk_hw *hw);
 extern void mtk_hwv_pll_off(struct clk_hw *hw);
+extern bool mtk_hwv_pll_is_on(struct clk_hw *hw);
 
 #endif /* __DRV_CLK_MTK_H */

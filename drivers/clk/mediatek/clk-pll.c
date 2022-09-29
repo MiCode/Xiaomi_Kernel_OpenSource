@@ -520,6 +520,17 @@ void mtk_hwv_pll_off(struct clk_hw *hw)
 }
 EXPORT_SYMBOL_GPL(mtk_hwv_pll_off);
 
+bool mtk_hwv_pll_is_on(struct clk_hw *hw)
+{
+	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
+
+	if (!is_registered)
+		return 0;
+
+	return mtk_hwv_pll_is_prepared_done(pll);
+}
+EXPORT_SYMBOL_GPL(mtk_hwv_pll_is_on);
+
 static const struct clk_ops mtk_pll_ops = {
 	.is_prepared	= mtk_pll_is_prepared,
 	.prepare	= mtk_pll_prepare,

@@ -120,12 +120,6 @@ static int mtk_clk_hwv_mux_enable(struct clk_hw *hw)
 	bool is_done = false;
 	int i = 0;
 
-	if ((mux->flags & CLK_ENABLE_QUICK_SWITCH) == CLK_ENABLE_QUICK_SWITCH) {
-		/* mainpll2_d4_d2 */
-		val = mux->data->qs_shift;
-		mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, val)));
-	}
-
 	regmap_write(mux->hwv_regmap, mux->data->hwv_set_ofs,
 			BIT(mux->data->gate_shift));
 
@@ -204,12 +198,6 @@ static void mtk_clk_hwv_mux_disable(struct clk_hw *hw)
 		i++;
 	}
 
-	if ((mux->flags & CLK_ENABLE_QUICK_SWITCH) == CLK_ENABLE_QUICK_SWITCH) {
-		/* mainpll2_d4_d2 */
-		val = mux->data->qs_shift;
-		mtk_hwv_pll_off(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, val)));
-	}
-
 	return;
 
 hwv_done_fail:
@@ -232,12 +220,6 @@ static int mtk_clk_ipi_mux_enable(struct clk_hw *hw)
 	struct ipi_callbacks *cb;
 	u32 val = 0;
 	int ret = 0;
-
-	if ((mux->flags & CLK_ENABLE_QUICK_SWITCH) == CLK_ENABLE_QUICK_SWITCH) {
-		/* mainpll2_d4_d2 */
-		val = mux->data->qs_shift;
-		mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, val)));
-	}
 
 	cb = mtk_clk_get_ipi_cb();
 
@@ -278,12 +260,6 @@ static void mtk_clk_ipi_mux_disable(struct clk_hw *hw)
 		}
 	}
 
-	if ((mux->flags & CLK_ENABLE_QUICK_SWITCH) == CLK_ENABLE_QUICK_SWITCH) {
-		/* mainpll2_d4_d2 */
-		val = mux->data->qs_shift;
-		mtk_hwv_pll_off(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, val)));
-	}
-
 	return;
 
 err:
@@ -307,9 +283,11 @@ static u8 mtk_clk_mux_get_parent(struct clk_hw *hw)
 static int __mtk_clk_mux_set_parent_lock(struct clk_hw *hw, u8 index, bool setclr, bool upd)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
+	struct clk_hw *qs_hw;
 	u32 mask = GENMASK(mux->data->mux_width - 1, 0);
 	u32 val = 0, orig = 0;
 	unsigned long flags = 0;
+	bool qs_pll_need_off = false;
 
 	if (mux->lock)
 		spin_lock_irqsave(mux->lock, flags);
@@ -323,6 +301,16 @@ static int __mtk_clk_mux_set_parent_lock(struct clk_hw *hw, u8 index, bool setcl
 				| (index << mux->data->mux_shift);
 
 		if (val != orig) {
+			if ((mux->flags & CLK_ENABLE_QUICK_SWITCH) == CLK_ENABLE_QUICK_SWITCH) {
+				val = mux->data->qs_shift;
+				qs_hw = clk_hw_get_parent(clk_hw_get_parent_by_index(hw, val));
+				if (!mtk_hwv_pll_is_on(qs_hw)) {
+					/* mainpll2 enable for quick switch */
+					mtk_hwv_pll_on(qs_hw);
+					qs_pll_need_off = true;
+				}
+			}
+
 			regmap_write(mux->regmap, mux->data->clr_ofs,
 					mask << mux->data->mux_shift);
 			regmap_write(mux->regmap, mux->data->set_ofs,
@@ -332,6 +320,12 @@ static int __mtk_clk_mux_set_parent_lock(struct clk_hw *hw, u8 index, bool setcl
 		if (upd)
 			regmap_write(mux->regmap, mux->data->upd_ofs,
 					BIT(mux->data->upd_shift));
+
+		if (qs_pll_need_off && (mux->flags & CLK_ENABLE_QUICK_SWITCH)
+				== CLK_ENABLE_QUICK_SWITCH) {
+			/* mainpll2 disable for quick switch */
+			mtk_hwv_pll_off(qs_hw);
+		}
 	} else
 		regmap_update_bits(mux->regmap, mux->data->mux_ofs, mask,
 			index << mux->data->mux_shift);
