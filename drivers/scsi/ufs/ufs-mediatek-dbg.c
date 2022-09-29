@@ -441,6 +441,7 @@ static void probe_ufshcd_clk_gating(void *data, const char *dev_name,
 			readl(host->mphy_base + 0xA09C);
 		cmd_hist[ptr].cmd.clk_gating.arg2 =
 			readl(host->mphy_base + 0xA19C);
+		writel(0, host->mphy_base + 0x20C0);
 	} else {
 		cmd_hist[ptr].cmd.clk_gating.arg1 = 0;
 		cmd_hist[ptr].cmd.clk_gating.arg2 = 0;

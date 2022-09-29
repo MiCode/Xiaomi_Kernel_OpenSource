@@ -2417,6 +2417,8 @@ static void ufs_mtk_mphy_dump(struct ufs_hba *hba)
 	pr_info("%s: 0x112aA19C=0x%x\n", __func__,
 		readl(host->mphy_base + 0xA19C));
 
+	writel(0, host->mphy_base + 0x20C0);
+
 	/* Enable CK */
 	writel(readl(host->mphy_base + 0xA02C) | (0x1 << 11),
 		host->mphy_base + 0xA02C);

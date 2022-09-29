@@ -8790,8 +8790,15 @@ static int ufshcd_set_dev_pwr_mode(struct ufs_hba *hba,
 				START_STOP_TIMEOUT, 0, 0, RQF_PM, NULL);
 		if (!scsi_status_is_check_condition(ret) ||
 				!scsi_sense_valid(&sshdr) ||
-				sshdr.sense_key != UNIT_ATTENTION)
+				sshdr.sense_key != UNIT_ATTENTION) {
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+			dev_err(hba->dev,
+				"%s: ret=%d, response_code=%d, sense_key=%d\n",
+				__func__, ret, sshdr.response_code,
+				sshdr.sense_key);
+#endif
 			break;
+		}
 	}
 	if (ret) {
 		sdev_printk(KERN_WARNING, sdp,
