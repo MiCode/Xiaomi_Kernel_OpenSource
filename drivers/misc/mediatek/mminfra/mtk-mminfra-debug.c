@@ -34,6 +34,7 @@
 struct mminfra_dbg {
 	void __iomem *ctrl_base;
 	void __iomem *mminfra_base;
+	void __iomem *gce_base;
 	ssize_t ctrl_size;
 	struct device *comm_dev[MAX_SMI_COMM_NUM];
 	struct notifier_block nb;
@@ -51,10 +52,12 @@ static u32 bkrs_reg_pa;
 
 
 #define MMINFRA_BASE		0x1e800000
+#define GCE_BASE		0x1e980000
 
 #define MMINFRA_CG_CON0		0x100
 #define MMINFRA_DBG_SEL		0x300
 #define MMINFRA_MODULE_DBG	0xf4
+#define	GCE_GCTL_VALUE		0x48
 #define GCED_CG_BIT			BIT(0)
 #define GCEM_CG_BIT			BIT(1)
 #define SMI_CG_BIT			BIT(2)
@@ -221,6 +224,9 @@ static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 		}
 		iounmap(test_base);
 		pr_notice("%s: enable clk ref_cnt=%d\n", __func__, count);
+		writel(0x20002, dbg->gce_base + GCE_GCTL_VALUE);
+		pr_notice("%s: enable gce apsrc: %#x=%#x\n",
+			__func__, GCE_BASE + GCE_GCTL_VALUE, readl(dbg->gce_base + GCE_GCTL_VALUE));
 	} else if (flags == GENPD_NOTIFY_PRE_OFF) {
 		test_base = ioremap(bkrs_reg_pa, 4);
 		bk_val = readl_relaxed(test_base);
@@ -527,6 +533,7 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 	}
 
 	dbg->mminfra_base = ioremap(MMINFRA_BASE, 0x8f4);
+	dbg->gce_base = ioremap(GCE_BASE, 0x1000);
 
 	cmdq_get_mminfra_cb(is_mminfra_power_on);
 	cmdq_get_mminfra_gce_cg_cb(is_gce_cg_on);
