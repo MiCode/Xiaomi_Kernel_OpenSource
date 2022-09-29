@@ -29,15 +29,37 @@ static int hrt_ftrace_ena;
 
 static void record_hrt_bw(u32 avail_bw, u32 cam_max_bw, u32 cam_bw)
 {
-	u32 idx;
-	struct hrt_record *rec = &mmqos_hrt->hrt_rec;
+	u32 pre_idx, idx;
+	struct hrt_record *rec;
+
+	rec = &mmqos_hrt->hrt_rec;
+	mutex_lock(&rec->lock);
+	idx = rec->idx;
+	pre_idx = (idx - 1) % RECORD_NUM;
+	if (rec->avail_hrt[pre_idx] != avail_bw ||
+		rec->cam_max_hrt[pre_idx] != cam_max_bw ||
+		rec->cam_hrt[pre_idx] != cam_bw) {
+		rec->time[idx] = sched_clock();
+		rec->avail_hrt[idx] = avail_bw;
+		rec->cam_max_hrt[idx] = cam_max_bw;
+		rec->cam_hrt[idx] = cam_bw;
+		rec->idx = (idx + 1) % RECORD_NUM;
+	}
+	mutex_unlock(&rec->lock);
+}
+
+static void record_cam_hrt(u32 cam_max_bw)
+{
+	u32 pre_idx, idx;
+	struct cam_hrt_record *rec = &mmqos_hrt->cam_hrt_rec;
 
 	idx = rec->idx;
-	rec->time[idx] = sched_clock();
-	rec->avail_hrt[idx] = avail_bw;
-	rec->cam_max_hrt[idx] = cam_max_bw;
-	rec->cam_hrt[idx] = cam_bw;
-	rec->idx = (idx + 1) % RECORD_NUM;
+	pre_idx = (idx - 1) % RECORD_NUM;
+	if (rec->cam_max_hrt[pre_idx] != cam_max_bw) {
+		rec->time[idx] = sched_clock();
+		rec->cam_max_hrt[idx] = cam_max_bw;
+		rec->idx = (idx + 1) % RECORD_NUM;
+	}
 }
 
 s32 mtk_mmqos_get_avail_hrt_bw(enum hrt_type type)
@@ -76,6 +98,27 @@ s32 mtk_mmqos_get_avail_hrt_bw(enum hrt_type type)
 	return result;
 }
 EXPORT_SYMBOL_GPL(mtk_mmqos_get_avail_hrt_bw);
+
+s32 mtk_mmqos_get_cam_hrt(void)
+{
+	struct hrt_record *rec;
+	u32 idx;
+	u32 cam_max_hrt, cam_hrt;
+
+	if (!mmqos_hrt)
+		return -ENOENT;
+	rec = &mmqos_hrt->hrt_rec;
+	mutex_lock(&rec->lock);
+	if (rec->idx == 0)
+		idx = RECORD_NUM - 1;
+	else
+		idx = (rec->idx - 1) % RECORD_NUM;
+	cam_max_hrt = rec->cam_max_hrt[idx];
+	cam_hrt = rec->cam_hrt[idx];
+	mutex_unlock(&rec->lock);
+	return cam_max_hrt ? cam_max_hrt : cam_hrt;
+}
+EXPORT_SYMBOL_GPL(mtk_mmqos_get_cam_hrt);
 
 s32 mtk_mmqos_register_bw_throttle_notifier(struct notifier_block *nb)
 {
@@ -266,6 +309,7 @@ static void set_camera_max_bw(u32 bw)
 	}
 
 	mmqos_hrt->cam_max_bw = bw;
+	record_cam_hrt(bw);
 
 	if (mmqos_hrt->blocking && mmqos_hrt->cam_bw_inc) {
 		atomic_inc(&mmqos_hrt->lock_count);
@@ -336,6 +380,7 @@ void mtk_mmqos_init_hrt(struct mmqos_hrt *hrt)
 	BLOCKING_INIT_NOTIFIER_HEAD(&mmqos_hrt->hrt_bw_throttle_notifier);
 	mutex_init(&mmqos_hrt->blocking_lock);
 	init_waitqueue_head(&mmqos_hrt->hrt_wait);
+	mutex_init(&mmqos_hrt->hrt_rec.lock);
 }
 EXPORT_SYMBOL_GPL(mtk_mmqos_init_hrt);
 

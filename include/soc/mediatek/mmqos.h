@@ -38,6 +38,7 @@ s32 mtk_mmqos_hrt_scen(enum hrt_scen, bool is_start);
 s32 mtk_mmqos_system_qos_update(unsigned short qos_status);
 void mtk_mmqos_is_dualpipe_enable(bool is_enable);
 void mtk_mmqos_set_md_type(u32 md_type);
+s32 mtk_mmqos_get_cam_hrt(void);
 #else
 static inline void
 mtk_mmqos_wait_throttle_done(void) { return; }
@@ -69,6 +70,9 @@ mtk_mmqos_is_dualpipe_enable(bool is_enable) { return; }
 
 static inline void
 mtk_mmqos_set_md_type(u32 md_type) { return; }
+
+static inline s32
+mtk_mmqos_get_cam_hrt(void) { return 0; }
 #endif
 
 #endif /* MTK_MMQOS_H */

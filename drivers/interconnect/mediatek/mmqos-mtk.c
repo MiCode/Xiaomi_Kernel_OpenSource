@@ -27,6 +27,7 @@
 #define SHIFT_ROUND(a, b)	((((a) - 1) >> (b)) + 1)
 #define icc_to_MBps(x)		((x) / 1000)
 #define MASK_8(a)		((a) & 0xff)
+#define COMM_PORT_COMM_ID(a)	((a >> 8) & 0xff)
 #define MULTIPLY_RATIO(value)	((value)*1000)
 
 #define NODE_TYPE(a)		(a >> 16)
@@ -36,6 +37,7 @@
 
 #define MAX_RECORD_COMM_NUM	(2)
 #define MAX_RECORD_PORT_NUM	(9)
+#define VIRT_COMM_PORT_ID	(8)
 
 static u32 mmqos_state = MMQOS_ENABLE;
 
@@ -334,6 +336,11 @@ static void update_hrt_bw(struct mtk_mmqos *mmqos)
 				    &comm_node->comm_port_list, list) {
 			if (comm_port->hrt_type < HRT_TYPE_NUM) {
 				mutex_lock(&comm_port->bw_lock);
+				pr_notice("%s hrt_type=%d comm%d_%d l_p=%d\n", __func__,
+					comm_port->hrt_type,
+					COMM_PORT_COMM_ID(comm_port->base->icc_node->id),
+					MASK_8(comm_port->base->icc_node->id),
+					icc_to_MBps(comm_port->latest_peak_bw));
 				hrt_bw[comm_port->hrt_type] +=
 					icc_to_MBps(comm_port->latest_peak_bw);
 				mutex_unlock(&comm_port->bw_lock);
@@ -352,6 +359,11 @@ static void record_comm_port_bw(u32 comm_id, u32 port_id, u32 larb_id,
 {
 	u32 idx;
 
+	if (log_level & 1 << log_bw)
+		pr_notice("%s comm%d port%d larb%d %d %d %d %d\n", __func__,
+			comm_id, port_id, larb_id,
+			icc_to_MBps(avg_bw), icc_to_MBps(peak_bw),
+			icc_to_MBps(l_avg), icc_to_MBps(l_peak));
 	idx = comm_port_bw_rec->idx[comm_id][port_id];
 	comm_port_bw_rec->time[comm_id][port_id][idx] = sched_clock();
 	comm_port_bw_rec->larb_id[comm_id][port_id][idx] = larb_id;
@@ -435,8 +447,8 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 						comm_id, chnn_id, LARB_ID(src->id),
 						icc_to_MBps(src->avg_bw),
 						icc_to_MBps(src->peak_bw),
-						chn_srt_r_bw[comm_id][chnn_id],
-						chn_hrt_r_bw[comm_id][chnn_id]);
+						icc_to_MBps(chn_srt_r_bw[comm_id][chnn_id]),
+						icc_to_MBps(chn_hrt_r_bw[comm_id][chnn_id]));
 			}
 
 			if (mmqos_met_enabled()) {
@@ -476,6 +488,21 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 			mmqos_update_comm_ostdl(comm_port_node->larb_dev,
 				port_id, mmqos->max_ratio, src);
 
+		comm_id = COMM_PORT_COMM_ID(dst->id);
+		if (port_id != VIRT_COMM_PORT_ID)
+			chnn_id = comm_port_node->channel - 1;
+		if (log_level & 1 << log_bw)
+			pr_notice("%s comm %d port %d chnn %d larb %d %d %d latest %d %d chn %d %d %d %d\n",
+				__func__,
+				comm_id, port_id, chnn_id, LARB_ID(src->id),
+				icc_to_MBps(src->avg_bw),
+				icc_to_MBps(src->peak_bw),
+				icc_to_MBps(comm_port_node->latest_avg_bw),
+				icc_to_MBps(comm_port_node->latest_peak_bw),
+				icc_to_MBps(chn_srt_r_bw[comm_id][chnn_id]),
+				icc_to_MBps(chn_srt_w_bw[comm_id][chnn_id]),
+				icc_to_MBps(chn_hrt_r_bw[comm_id][chnn_id]),
+				icc_to_MBps(chn_hrt_w_bw[comm_id][chnn_id]));
 		record_comm_port_bw(comm_id, port_id, LARB_ID(src->id),
 			src->avg_bw, src->peak_bw,
 			comm_port_node->latest_avg_bw,
@@ -678,6 +705,18 @@ static void hrt_bw_dump(struct seq_file *file, u32 i)
 		g_hrt->hrt_rec.cam_hrt[i]);
 }
 
+static void cam_hrt_bw_dump(struct seq_file *file, u32 i)
+{
+	u64 ts;
+	u64 rem_nsec;
+
+	ts = g_hrt->cam_hrt_rec.time[i];
+	rem_nsec = do_div(ts, 1000000000);
+	seq_printf(file, "[%5lu.%06lu]     %17d\n",
+		(u64)ts, rem_nsec / 1000,
+		g_hrt->cam_hrt_rec.cam_max_hrt[i]);
+}
+
 static void comm_port_bw_full_dump(struct seq_file *file, u32 comm_id, u32 port_id)
 {
 	u32 i, start;
@@ -718,6 +757,20 @@ static void hrt_bw_full_dump(struct seq_file *file)
 
 }
 
+static void cam_hrt_bw_full_dump(struct seq_file *file)
+{
+	u32 i, start;
+	struct cam_hrt_record *rec = &g_hrt->cam_hrt_rec;
+
+	start = rec->idx;
+	for (i = start; i < RECORD_NUM; i++)
+		cam_hrt_bw_dump(file, i);
+
+	for (i = 0; i < start; i++)
+		cam_hrt_bw_dump(file, i);
+
+}
+
 static int mmqos_bw_dump(struct seq_file *file, void *data)
 {
 	u32 comm_id = 0, chnn_id = 0, port_id = 0;
@@ -725,6 +778,9 @@ static int mmqos_bw_dump(struct seq_file *file, void *data)
 	seq_printf(file, "MMQoS HRT BW Dump: %8s %8s %8s\n",
 		"avail", "cam_max", "cam_hrt");
 	hrt_bw_full_dump(file);
+
+	seq_printf(file, "MMQoS CAM HRT BW Dump:      %8s\n", "cam_max");
+	cam_hrt_bw_full_dump(file);
 
 	seq_printf(file, "MMQoS Channel BW Dump: %8s %8s %8s %8s\n",
 		"s_r", "s_w", "h_r", "h_w");

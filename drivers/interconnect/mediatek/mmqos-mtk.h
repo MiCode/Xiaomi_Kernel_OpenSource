@@ -42,6 +42,13 @@ struct hrt_record {
 	u32 avail_hrt[RECORD_NUM];
 	u32 cam_max_hrt[RECORD_NUM];
 	u32 cam_hrt[RECORD_NUM];
+	struct mutex lock;
+};
+
+struct cam_hrt_record {
+	u8 idx;
+	u64 time[RECORD_NUM];
+	u32 cam_max_hrt[RECORD_NUM];
 };
 
 struct mmqos_hrt {
@@ -63,6 +70,7 @@ struct mmqos_hrt {
 	u8 md_type;
 	u8 md_scen;
 	struct hrt_record hrt_rec;
+	struct cam_hrt_record cam_hrt_rec;
 };
 
 struct mmqos_base_node {
