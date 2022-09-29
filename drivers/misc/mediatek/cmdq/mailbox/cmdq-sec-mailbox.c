@@ -13,6 +13,7 @@
 #include <linux/pm_domain.h>
 #include <linux/sched/clock.h>
 #include <linux/timer.h>
+#include <linux/of_device.h>
 
 #include "cmdq-sec.h"
 #include "cmdq-sec-mailbox.h"
@@ -1798,9 +1799,39 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 	struct cmdq_sec *cmdq;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
+	struct platform_device *gz_pdev;
+	struct device_node *gz_node;
+	struct device_link *link;
+	unsigned int dl_flags = DL_FLAG_PM_RUNTIME |
+		DL_FLAG_AUTOREMOVE_CONSUMER | DL_FLAG_AUTOREMOVE_SUPPLIER;
 	s32 i, err;
 
 	cmdq_msg("%s", __func__);
+
+	gz_node = of_find_compatible_node(NULL, NULL, "android,trusty-virtio-v1");
+	if (!gz_node) {
+		cmdq_err("failed to get android,trusty-virtio-v1");
+		return -EINVAL;
+	}
+
+	gz_pdev = of_find_device_by_node(gz_node);
+	if (!gz_pdev) {
+		cmdq_err("failed to find gz node");
+		return -EINVAL;
+	}
+
+	link = device_link_add(dev, &gz_pdev->dev, dl_flags);
+	if (!link) {
+		cmdq_err("failed to create device link with trusty");
+		return -EINVAL;
+	}
+	if (link->status == DL_STATE_DORMANT) {
+		cmdq_err("link status %x", link->status);
+		return -EPROBE_DEFER;
+	}
+
+	cmdq_msg("Link consumer %s to supplier %s gz_node:%p flags:%#x",
+		dev_name(dev), dev_name(&gz_pdev->dev), gz_node, dl_flags);
 
 	cmdq = devm_kzalloc(&pdev->dev, sizeof(*cmdq), GFP_KERNEL);
 	if (!cmdq)
