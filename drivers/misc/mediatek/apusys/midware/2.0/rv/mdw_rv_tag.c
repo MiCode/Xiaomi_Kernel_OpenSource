@@ -73,7 +73,7 @@ probe_rv_mdw_cmd(void *data, uint32_t status, pid_t pid, pid_t tgid,
 
 static void mdw_rv_tag_seq_cmd(struct seq_file *s, struct mdw_rv_tag *t)
 {
-	char status[8];
+	char status[8] = "";
 
 	if (t->d.cmd.status == MDW_CMD_DONE) {
 		if (snprintf(status, sizeof(status)-1, "%s", "done") < 0)
