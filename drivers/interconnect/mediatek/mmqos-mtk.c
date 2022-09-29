@@ -12,6 +12,7 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/pm_opp.h>
+#include <linux/proc_fs.h>
 #include <linux/regulator/consumer.h>
 #include <linux/soc/mediatek/mtk_mmdvfs.h>
 #include <soc/mediatek/smi.h>
@@ -33,9 +34,34 @@
 #define W_BW_RATIO		(8)
 #define R_BW_RATIO		(7)
 
+#define MAX_RECORD_COMM_NUM	(2)
+#define MAX_RECORD_PORT_NUM	(9)
+
 static u32 mmqos_state = MMQOS_ENABLE;
 
 static int ftrace_ena;
+
+struct comm_port_bw_record {
+	u8 idx[MAX_RECORD_COMM_NUM][MAX_RECORD_PORT_NUM];
+	u64 time[MAX_RECORD_COMM_NUM][MAX_RECORD_PORT_NUM][RECORD_NUM];
+	u32 larb_id[MAX_RECORD_COMM_NUM][MAX_RECORD_PORT_NUM][RECORD_NUM];
+	u32 avg_bw[MAX_RECORD_COMM_NUM][MAX_RECORD_PORT_NUM][RECORD_NUM];
+	u32 peak_bw[MAX_RECORD_COMM_NUM][MAX_RECORD_PORT_NUM][RECORD_NUM];
+	u32 l_avg_bw[MAX_RECORD_COMM_NUM][MAX_RECORD_PORT_NUM][RECORD_NUM];
+	u32 l_peak_bw[MAX_RECORD_COMM_NUM][MAX_RECORD_PORT_NUM][RECORD_NUM];
+};
+
+struct chn_bw_record {
+	u8 idx[MAX_RECORD_COMM_NUM][MMQOS_COMM_CHANNEL_NUM];
+	u64 time[MAX_RECORD_COMM_NUM][MMQOS_COMM_CHANNEL_NUM][RECORD_NUM];
+	u32 srt_r_bw[MAX_RECORD_COMM_NUM][MMQOS_COMM_CHANNEL_NUM][RECORD_NUM];
+	u32 srt_w_bw[MAX_RECORD_COMM_NUM][MMQOS_COMM_CHANNEL_NUM][RECORD_NUM];
+	u32 hrt_r_bw[MAX_RECORD_COMM_NUM][MMQOS_COMM_CHANNEL_NUM][RECORD_NUM];
+	u32 hrt_w_bw[MAX_RECORD_COMM_NUM][MMQOS_COMM_CHANNEL_NUM][RECORD_NUM];
+};
+
+struct comm_port_bw_record *comm_port_bw_rec;
+struct chn_bw_record *chn_bw_rec;
 
 struct common_port_node {
 	struct mmqos_base_node *base;
@@ -71,9 +97,12 @@ struct mtk_mmqos {
 	u32 max_ratio;
 	bool dual_pipe_enable;
 	bool qos_bound; /* Todo: Set qos_bound to true if necessary */
+
+	struct proc_dir_entry *proc;
 };
 
 static struct mtk_mmqos *gmmqos;
+static struct mmqos_hrt *g_hrt;
 
 static u32 log_level;
 enum mmqos_log_level {
@@ -318,6 +347,34 @@ static void update_hrt_bw(struct mtk_mmqos *mmqos)
 
 }
 
+static void record_comm_port_bw(u32 comm_id, u32 port_id, u32 larb_id,
+	u32 avg_bw, u32 peak_bw, u32 l_avg, u32 l_peak)
+{
+	u32 idx;
+
+	idx = comm_port_bw_rec->idx[comm_id][port_id];
+	comm_port_bw_rec->time[comm_id][port_id][idx] = sched_clock();
+	comm_port_bw_rec->larb_id[comm_id][port_id][idx] = larb_id;
+	comm_port_bw_rec->avg_bw[comm_id][port_id][idx] = avg_bw;
+	comm_port_bw_rec->peak_bw[comm_id][port_id][idx] = peak_bw;
+	comm_port_bw_rec->l_avg_bw[comm_id][port_id][idx] = l_avg;
+	comm_port_bw_rec->l_peak_bw[comm_id][port_id][idx] = l_peak;
+	comm_port_bw_rec->idx[comm_id][port_id] = (idx + 1) % RECORD_NUM;
+}
+
+static void record_chn_bw(u32 comm_id, u32 chnn_id, u32 srt_r, u32 srt_w, u32 hrt_r, u32 hrt_w)
+{
+	u32 idx;
+
+	idx = chn_bw_rec->idx[comm_id][chnn_id];
+	chn_bw_rec->time[comm_id][chnn_id][idx] = sched_clock();
+	chn_bw_rec->srt_r_bw[comm_id][chnn_id][idx] = srt_r;
+	chn_bw_rec->srt_w_bw[comm_id][chnn_id][idx] = srt_w;
+	chn_bw_rec->hrt_r_bw[comm_id][chnn_id][idx] = hrt_r;
+	chn_bw_rec->hrt_w_bw[comm_id][chnn_id][idx] = hrt_w;
+	chn_bw_rec->idx[comm_id][chnn_id] = (idx + 1) % RECORD_NUM;
+}
+
 static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 {
 	struct larb_node *larb_node;
@@ -419,6 +476,16 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 			mmqos_update_comm_ostdl(comm_port_node->larb_dev,
 				port_id, mmqos->max_ratio, src);
 
+		record_comm_port_bw(comm_id, port_id, LARB_ID(src->id),
+			src->avg_bw, src->peak_bw,
+			comm_port_node->latest_avg_bw,
+			comm_port_node->latest_peak_bw);
+		record_chn_bw(comm_id, chnn_id,
+			chn_srt_r_bw[comm_id][chnn_id],
+			chn_srt_w_bw[comm_id][chnn_id],
+			chn_hrt_r_bw[comm_id][chnn_id],
+			chn_hrt_w_bw[comm_id][chnn_id]);
+
 		mutex_unlock(&comm_port_node->bw_lock);
 		break;
 	case MTK_MMQOS_NODE_LARB:
@@ -471,6 +538,7 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 				icc_to_MBps(larb_port_node->base->icc_node->avg_bw),
 				icc_to_MBps(larb_port_node->base->icc_node->peak_bw),
 				value);
+
 		if (mmqos_met_enabled()) {
 			trace_mmqos__larb_port_avg_bw(
 				MTK_M4U_TO_LARB(src->id), MTK_M4U_TO_PORT(src->id),
@@ -556,6 +624,136 @@ static struct icc_node *mtk_mmqos_xlate(
 	return ERR_PTR(-EINVAL);
 }
 
+static void comm_port_bw_dump(struct seq_file *file, u32 comm_id, u32 port_id, u32 i)
+{
+	u64 ts;
+	u64 rem_nsec;
+
+	ts = comm_port_bw_rec->time[comm_id][port_id][i];
+	rem_nsec = do_div(ts, 1000000000);
+	if (ts == 0 &&
+		comm_port_bw_rec->avg_bw[comm_id][port_id][i] == 0 &&
+		comm_port_bw_rec->peak_bw[comm_id][port_id][i] == 0 &&
+		comm_port_bw_rec->l_avg_bw[comm_id][port_id][i] == 0 &&
+		comm_port_bw_rec->l_peak_bw[comm_id][port_id][i] == 0)
+		return;
+
+	seq_printf(file, "[%5lu.%06lu] comm%d port%d larb%2d %8d %8d %8d %8d\n",
+		(u64)ts, rem_nsec / 1000,
+		comm_id, port_id,
+		comm_port_bw_rec->larb_id[comm_id][port_id][i],
+		icc_to_MBps(comm_port_bw_rec->avg_bw[comm_id][port_id][i]),
+		icc_to_MBps(comm_port_bw_rec->peak_bw[comm_id][port_id][i]),
+		icc_to_MBps(comm_port_bw_rec->l_avg_bw[comm_id][port_id][i]),
+		icc_to_MBps(comm_port_bw_rec->l_peak_bw[comm_id][port_id][i]));
+}
+
+static void chn_bw_dump(struct seq_file *file, u32 comm_id, u32 chnn_id, u32 i)
+{
+	u64 ts;
+	u64 rem_nsec;
+
+	ts = chn_bw_rec->time[comm_id][chnn_id][i];
+	rem_nsec = do_div(ts, 1000000000);
+	seq_printf(file, "[%5lu.%06lu] comm%d_%d %8d %8d %8d %8d\n",
+		(u64)ts, rem_nsec / 1000,
+		comm_id, chnn_id,
+		icc_to_MBps(chn_bw_rec->srt_r_bw[comm_id][chnn_id][i]),
+		icc_to_MBps(chn_bw_rec->srt_w_bw[comm_id][chnn_id][i]),
+		icc_to_MBps(chn_bw_rec->hrt_r_bw[comm_id][chnn_id][i]),
+		icc_to_MBps(chn_bw_rec->hrt_w_bw[comm_id][chnn_id][i]));
+}
+
+static void hrt_bw_dump(struct seq_file *file, u32 i)
+{
+	u64 ts;
+	u64 rem_nsec;
+
+	ts = g_hrt->hrt_rec.time[i];
+	rem_nsec = do_div(ts, 1000000000);
+	seq_printf(file, "[%5lu.%06lu]     %8d %8d %8d\n",
+		(u64)ts, rem_nsec / 1000,
+		g_hrt->hrt_rec.avail_hrt[i],
+		g_hrt->hrt_rec.cam_max_hrt[i],
+		g_hrt->hrt_rec.cam_hrt[i]);
+}
+
+static void comm_port_bw_full_dump(struct seq_file *file, u32 comm_id, u32 port_id)
+{
+	u32 i, start;
+
+	start = comm_port_bw_rec->idx[comm_id][port_id];
+	for (i = start; i < RECORD_NUM; i++)
+		comm_port_bw_dump(file, comm_id, port_id, i);
+
+	for (i = 0; i < start; i++)
+		comm_port_bw_dump(file, comm_id, port_id, i);
+
+}
+
+static void chn_bw_full_dump(struct seq_file *file, u32 comm_id, u32 chnn_id)
+{
+	u32 i, start;
+
+	start = chn_bw_rec->idx[comm_id][chnn_id];
+	for (i = start; i < RECORD_NUM; i++)
+		chn_bw_dump(file, comm_id, chnn_id, i);
+
+	for (i = 0; i < start; i++)
+		chn_bw_dump(file, comm_id, chnn_id, i);
+
+}
+
+static void hrt_bw_full_dump(struct seq_file *file)
+{
+	u32 i, start;
+	struct hrt_record *rec = &g_hrt->hrt_rec;
+
+	start = rec->idx;
+	for (i = start; i < RECORD_NUM; i++)
+		hrt_bw_dump(file, i);
+
+	for (i = 0; i < start; i++)
+		hrt_bw_dump(file, i);
+
+}
+
+static int mmqos_bw_dump(struct seq_file *file, void *data)
+{
+	u32 comm_id = 0, chnn_id = 0, port_id = 0;
+
+	seq_printf(file, "MMQoS HRT BW Dump: %8s %8s %8s\n",
+		"avail", "cam_max", "cam_hrt");
+	hrt_bw_full_dump(file);
+
+	seq_printf(file, "MMQoS Channel BW Dump: %8s %8s %8s %8s\n",
+		"s_r", "s_w", "h_r", "h_w");
+	for (comm_id = 0; comm_id < MAX_RECORD_COMM_NUM; comm_id++) {
+		for (chnn_id = 0; chnn_id < MMQOS_COMM_CHANNEL_NUM; chnn_id++)
+			chn_bw_full_dump(file, comm_id, chnn_id);
+	}
+
+	seq_printf(file, "MMQoS Common Port BW Dump:        %8s %8s %8s %8s\n",
+		"avg", "peak", "l_avg", "l_peak");
+	for (comm_id = 0; comm_id < MAX_RECORD_COMM_NUM; comm_id++) {
+		for (port_id = 0; port_id < MAX_RECORD_PORT_NUM; port_id++)
+			comm_port_bw_full_dump(file, comm_id, port_id);
+	}
+	return 0;
+}
+
+static int mmqos_debug_opp_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mmqos_bw_dump, inode->i_private);
+}
+
+static const struct proc_ops mmqos_debug_fops = {
+	.proc_open = mmqos_debug_opp_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
 int mtk_mmqos_probe(struct platform_device *pdev)
 {
 	struct mtk_mmqos *mmqos;
@@ -575,6 +773,7 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 	struct mmqos_hrt *hrt;
 	struct device_node *np;
 	struct platform_device *comm_pdev, *larb_pdev;
+	struct proc_dir_entry *dir, *proc;
 
 	mmqos = devm_kzalloc(&pdev->dev, sizeof(*mmqos), GFP_KERNEL);
 	if (!mmqos)
@@ -584,6 +783,16 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 	mmqos->dev = &pdev->dev;
 	smi_imu = devm_kzalloc(&pdev->dev, sizeof(*smi_imu), GFP_KERNEL);
 	if (!smi_imu)
+		return -ENOMEM;
+
+	chn_bw_rec = devm_kzalloc(&pdev->dev,
+		sizeof(*chn_bw_rec), GFP_KERNEL);
+	if (!chn_bw_rec)
+		return -ENOMEM;
+
+	comm_port_bw_rec = devm_kzalloc(&pdev->dev,
+		sizeof(*comm_port_bw_rec), GFP_KERNEL);
+	if (!comm_port_bw_rec)
 		return -ENOMEM;
 
 	of_for_each_phandle(
@@ -828,6 +1037,7 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 
 	hrt->md_scen = mmqos_desc->md_scen;
 	mtk_mmqos_init_hrt(hrt);
+	g_hrt = hrt;
 	mmqos->nb.notifier_call = update_mm_clk;
 	register_mmdvfs_notifier(&mmqos->nb);
 	ret = mtk_mmqos_register_hrt_sysfs(&pdev->dev);
@@ -835,6 +1045,18 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 		dev_notice(&pdev->dev, "sysfs create fail\n");
 	platform_set_drvdata(pdev, mmqos);
 	devm_kfree(&pdev->dev, smi_imu);
+
+	/* create proc file */
+	dir = proc_mkdir("mmqos", NULL);
+	if (IS_ERR_OR_NULL(dir))
+		pr_notice("proc_mkdir failed:%ld\n", PTR_ERR(dir));
+
+	proc = proc_create("mmqos_bw", 0444, dir, &mmqos_debug_fops);
+	if (IS_ERR_OR_NULL(proc))
+		pr_notice("proc_create failed:%ld\n", PTR_ERR(proc));
+	else
+		mmqos->proc = proc;
+
 	return 0;
 err:
 	list_for_each_entry_safe(node, temp, &mmqos->prov.nodes, node_list) {

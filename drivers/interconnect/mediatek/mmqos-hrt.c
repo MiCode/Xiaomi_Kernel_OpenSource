@@ -5,6 +5,7 @@
  */
 #include <linux/kthread.h>
 #include <linux/module.h>
+#include <linux/regulator/consumer.h>
 #include <soc/mediatek/mmdvfs_v3.h>
 #include "mmqos-mtk.h"
 #include "mtk-mmdvfs-debug.h"
@@ -25,6 +26,19 @@ enum mmqos_log_hrt_level {
 };
 
 static int hrt_ftrace_ena;
+
+static void record_hrt_bw(u32 avail_bw, u32 cam_max_bw, u32 cam_bw)
+{
+	u32 idx;
+	struct hrt_record *rec = &mmqos_hrt->hrt_rec;
+
+	idx = rec->idx;
+	rec->time[idx] = sched_clock();
+	rec->avail_hrt[idx] = avail_bw;
+	rec->cam_max_hrt[idx] = cam_max_bw;
+	rec->cam_hrt[idx] = cam_bw;
+	rec->idx = (idx + 1) % RECORD_NUM;
+}
 
 s32 mtk_mmqos_get_avail_hrt_bw(enum hrt_type type)
 {
@@ -53,6 +67,7 @@ s32 mtk_mmqos_get_avail_hrt_bw(enum hrt_type type)
 
 	result = DIVIDE_RATIO(result * mmqos_hrt->hrt_ratio[type]);
 
+	record_hrt_bw(result, mmqos_hrt->cam_max_bw, mmqos_hrt->hrt_bw[HRT_CAM]);
 	if (hrt_ftrace_ena) {
 		trace_mmqos__used_hrt_bw(HRT_NONE, mmqos_hrt->cam_max_bw);
 		trace_mmqos__avail_hrt_bw(result);

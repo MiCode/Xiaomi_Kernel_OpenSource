@@ -20,6 +20,8 @@
 #define MMQOS_MAX_DUAL_PIPE_LARB_NUM	(2)
 #define MMQOS_MAX_P2_LARB_NUM		(4)
 
+#define RECORD_NUM		(10)
+
 enum mmqos_state_level {
 	MMQOS_DISABLE = 0,
 	OSTD_ENABLE = BIT(0),
@@ -32,6 +34,14 @@ enum mmqos_state_level {
 enum {
 	MD_SCEN_NONE,
 	MD_SCEN_SUB6_EXT,
+};
+
+struct hrt_record {
+	u8 idx;
+	u64 time[RECORD_NUM];
+	u32 avail_hrt[RECORD_NUM];
+	u32 cam_max_hrt[RECORD_NUM];
+	u32 cam_hrt[RECORD_NUM];
 };
 
 struct mmqos_hrt {
@@ -52,6 +62,7 @@ struct mmqos_hrt {
 	bool in_speech;
 	u8 md_type;
 	u8 md_scen;
+	struct hrt_record hrt_rec;
 };
 
 struct mmqos_base_node {
