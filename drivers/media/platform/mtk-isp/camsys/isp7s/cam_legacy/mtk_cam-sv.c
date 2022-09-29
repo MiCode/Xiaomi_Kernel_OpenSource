@@ -873,43 +873,38 @@ static int push_msgfifo(struct mtk_camsv_device *dev,
 
 	return 0;
 }
-
 void sv_reset(struct mtk_camsv_device *dev)
 {
-	int dma_sw_ctl;
+	int cq_dma_sw_ctl;
 	int ret;
 
 	dev_dbg(dev->dev, "%s camsv_id:%d\n", __func__, dev->id);
 
-	writel(0, dev->base_dma + REG_CAMSVDMATOP_SW_RST_CTL);
-	writel(1, dev->base_dma + REG_CAMSVDMATOP_SW_RST_CTL);
+	writel(0, dev->base_scq + REG_CAMSVCQTOP_SW_RST_CTL);
+	writel(1, dev->base_scq + REG_CAMSVCQTOP_SW_RST_CTL);
 	wmb(); /* make sure committed */
 
-	ret = readx_poll_timeout(readl, dev->base_dma + REG_CAMSVDMATOP_SW_RST_CTL,
-				 dma_sw_ctl,
-				 dma_sw_ctl & 0x2,
-				 1 /* delay, us */,
-				 100000 /* timeout, us */);
+	ret = readx_poll_timeout(readl, dev->base_scq + REG_CAMSVCQTOP_SW_RST_CTL,
+				cq_dma_sw_ctl,
+				cq_dma_sw_ctl & 0x2,
+				1 /* delay, us */,
+				100000 /* timeout, us */);
 	if (ret < 0) {
 		dev_info(dev->dev, "%s: timeout\n", __func__);
 
 		dev_info(dev->dev,
-			 "tg_sen_mode: 0x%x, dma_sw_ctl:0x%x, frame_no:0x%x\n",
+			 "tg_sen_mode: 0x%x, cq_dma_sw_ctl:0x%x, frame_no:0x%x\n",
 			 readl(dev->base + REG_CAMSVCENTRAL_SEN_MODE),
-			 readl(dev->base_dma + REG_CAMSVDMATOP_SW_RST_CTL),
+			 readl(dev->base_scq + REG_CAMSVCQTOP_SW_RST_CTL),
 			 readl(dev->base + REG_CAMSVCENTRAL_FRAME_SEQ_NO)
 			);
 		mtk_smi_dbg_hang_detect("camsys-camsv");
 		goto RESET_FAILURE;
 	}
-
-	/* enable dma dcm after dma is idle */
-	writel(0, dev->base + REG_CAMSVCENTRAL_DCM_DIS);
-
-	writel(0, dev->base + REG_CAMSVCENTRAL_SW_CTL);
-	writel(1, dev->base + REG_CAMSVCENTRAL_SW_CTL);
-	writel(0, dev->base_dma + REG_CAMSVDMATOP_SW_RST_CTL);
-	writel(0, dev->base + REG_CAMSVCENTRAL_SW_CTL);
+	writel(0, dev->base_scq + REG_CAMSVCQTOP_SW_RST_CTL);
+	writel(0, dev->cam->base + REG_CAM_MAIN_SW_RST_1);
+	writel(3 << ((dev->id) * 2), dev->cam->base + REG_CAM_MAIN_SW_RST_1);
+	writel(0, dev->cam->base + REG_CAM_MAIN_SW_RST_1);
 	wmb(); /* make sure committed */
 
 RESET_FAILURE:
@@ -1457,9 +1452,6 @@ int mtk_cam_sv_fbc_pertag_enable(
 int mtk_cam_sv_central_common_disable(struct mtk_camsv_device *dev)
 {
 	int ret = 0;
-
-	/* disable dma dcm before do dma reset */
-	writel(1, dev->base + REG_CAMSVCENTRAL_DCM_DIS);
 
 	/* bypass tg_mode function before vf off */
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_SEN_MODE,
