@@ -190,6 +190,45 @@ static void cache_parity_irq_work(struct work_struct *w)
 			if (n > PAGE_SIZE)
 				goto call_aee;
 		}
+	} else if (cache_parity.ver == 3) {
+		n += snprintf(buf + n, PAGE_SIZE - n, "ECC errors(");
+		if (n > PAGE_SIZE)
+			goto call_aee;
+
+		for (status = 0, i = 0; i < cache_parity.nr_irq; i++) {
+			if (cache_parity.record[i].v3.is_err) {
+				status = cache_parity.record[i].v3.status_el1;
+				break;
+			}
+		}
+		if (status & ECC_UE_BIT)
+			n += snprintf(buf + n, PAGE_SIZE - n, "UE");
+		else if (status & ECC_CE_BIT)
+			n += snprintf(buf + n, PAGE_SIZE - n, "CE");
+		else if (status & ECC_DE_BIT)
+			n += snprintf(buf + n, PAGE_SIZE - n, "DE");
+		else
+			n += snprintf(buf + n, PAGE_SIZE - n, "NA");
+		if (n > PAGE_SIZE)
+			goto call_aee;
+
+		n += snprintf(buf + n, PAGE_SIZE - n, "),");
+		if (n > PAGE_SIZE)
+			goto call_aee;
+
+		for (i = 0; i < cache_parity.nr_irq; i++) {
+			if (!cache_parity.record[i].v3.is_err)
+				continue;
+			n += snprintf(buf + n, PAGE_SIZE - n,
+				"%s:%d,%s:0x%016llx,%s:0x%016llx ",
+				"irq", cache_parity.record[i].v3.irq,
+				"misc0_el1",
+				cache_parity.record[i].v3.misc0_el1,
+				"status_el1",
+				cache_parity.record[i].v3.status_el1);
+			if (n > PAGE_SIZE)
+				goto call_aee;
+		}
 	} else {
 		pr_debug("Unknown Cache Error Irq\n");
 	}
@@ -252,10 +291,13 @@ static void write_ERXSELR_EL1(u32 v)
 
 static irqreturn_t cache_parity_isr_v3(int irq, void *dev_id)
 {
-	u32 hwirq;
+	u32 hwirq, serr;
 	int i, idx, cpu;
 	u64 misc0, status;
 	u64 sel = 0x1;
+	static const struct midr_range cpu_list[] = {
+		MIDR_ALL_VERSIONS(MIDR_CORTEX_A510), /* KLEIN */
+	};
 
 	ecc_dump_debug_info();
 
@@ -281,6 +323,7 @@ static irqreturn_t cache_parity_isr_v3(int irq, void *dev_id)
 
 	misc0 = read_ERXMISC0_EL1();
 	status = read_ERXSTATUS_EL1();
+	serr = status & 0xFF;
 
 	/* Clear IRQ via clear error status */
 	write_ERXSTATUS_EL1(status);
@@ -312,11 +355,35 @@ static irqreturn_t cache_parity_isr_v3(int irq, void *dev_id)
 				cpu, irq, "expected cpu",
 				cache_parity.record[idx].v3.cpu);
 
+		/* Skip the error, may be caused by externel slave error
+		 * 1. When booker receives SLVERR(0x2) of AXI response,
+		 *    it will be transferred to DERR(Data Error) to DSU,
+		 *    KLEIN Core will get ECC Error with SERR = 0xC.
+		 * 2. When booker receives SLVERR(0x3) of AXI response,
+		 *    it will be transferred to DERR(Non-data Error) to DSU,
+		 *    KLEIN Core will get ECC Error with SERR = 0x12.
+		 */
+		if (is_midr_in_range_list(read_cpuid_id(), cpu_list)) {
+
+			/* SERR[7:0]
+			 * 0xC : Data value from (non-associative) external memory
+			 * 0x12: Data value from slave
+			 */
+			if ((serr == 0xC) || (serr == 0x12)) {
+				cpu = raw_smp_processor_id();
+				ECC_LOG("Cache ECC error, cpu%d serviced irq%d\n", cpu, irq);
+				ECC_LOG("SERR[7:0] = 0x%x, bypass this error!\n", serr);
+				goto check_nr_err;
+			}
+		}
+
 		schedule_work(&cache_parity.work);
 	}
 
 	ECC_LOG("Cache ECC error, %s %d, %s: 0x%016llx, %s: 0x%016llx\n",
 	       "irq", irq, "misc0_el1", misc0, "status_el1", status);
+
+check_nr_err:
 
 	if (atomic_read(&cache_parity.nr_err) > ECC_IRQ_TRIGGER_THRESHOLD) {
 		disable_irq_nosync(irq);
