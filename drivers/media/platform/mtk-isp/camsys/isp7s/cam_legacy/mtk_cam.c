@@ -5380,6 +5380,34 @@ int mtk_cam_req_save_mraw_pfmt(struct mtk_mraw_pipeline *pipe,
 	return 0;
 }
 
+static void mtk_ctk_sensor_worker_uninit(struct mtk_cam_ctx *ctx)
+{
+	if (ctx->sensor_worker_task) {
+		kthread_stop(ctx->sensor_worker_task);
+		ctx->sensor_worker_task = NULL;
+	}
+}
+
+static int mtk_ctx_sensor_worker_init(struct mtk_cam_ctx *ctx)
+{
+	kthread_init_worker(&ctx->sensor_worker);
+	ctx->sensor_worker_task = kthread_run(kthread_worker_fn,
+		&ctx->sensor_worker,
+		"sensor_worker-%d",
+		ctx->stream_id);
+
+	if (IS_ERR(ctx->sensor_worker_task)) {
+		pr_info("%s:ctx(%d): could not create sensor_worker_task\n",
+			 __func__, ctx->stream_id);
+		ctx->sensor_worker_task = NULL;
+		return -EINVAL;
+	}
+
+	sched_set_fifo(ctx->sensor_worker_task);
+
+	return 0;
+}
+
 static void mtk_cam_req_init(struct mtk_cam_request *cam_req)
 {
 	/* reset done status */
@@ -8651,18 +8679,9 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 		goto fail_uninit_composer;
 	}
 
-	kthread_init_worker(&ctx->sensor_worker);
-	ctx->sensor_worker_task = kthread_run(kthread_worker_fn,
-					      &ctx->sensor_worker,
-					      "sensor_worker-%d",
-					      ctx->stream_id);
-	if (IS_ERR(ctx->sensor_worker_task)) {
-		dev_info(cam->dev, "%s:ctx(%d): could not create sensor_worker_task\n",
-			 __func__, ctx->stream_id);
-		goto fail_release_buffer_pool;
-	}
-
-	sched_set_fifo(ctx->sensor_worker_task);
+	if (!ctx->sensor_worker_task)
+		if (mtk_ctx_sensor_worker_init(ctx))
+			goto fail_release_buffer_pool;
 
 	ctx->composer_wq =
 			alloc_ordered_workqueue(dev_name(cam->dev),
@@ -8754,8 +8773,8 @@ fail_uninit_composer_wq:
 fail_uninit_cmdq_worker_task:
 	destroy_workqueue(ctx->cmdq_wq);
 fail_uninit_sensor_worker_task:
-	kthread_stop(ctx->sensor_worker_task);
-	ctx->sensor_worker_task = NULL;
+	if (!is_raw_subdev(ctx->stream_id))
+		mtk_ctk_sensor_worker_uninit(ctx);
 fail_release_buffer_pool:
 	mtk_cam_working_buf_pool_release(ctx);
 fail_uninit_composer:
@@ -8843,8 +8862,8 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	destroy_workqueue(ctx->frame_done_wq);
 	ctx->frame_done_wq = NULL;
 	kthread_flush_worker(&ctx->sensor_worker);
-	kthread_stop(ctx->sensor_worker_task);
-	ctx->sensor_worker_task = NULL;
+	if (!is_raw_subdev(ctx->stream_id))
+		mtk_ctk_sensor_worker_uninit(ctx);
 
 	for (i = 0 ; i < ctx->used_sv_num ; i++) {
 		ctx->sv_pipe[i]->feature_pending = 0;
@@ -10361,6 +10380,8 @@ static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
 	ctx->composed_buffer_list.cnt = 0;
 	spin_unlock(&ctx->composed_buffer_list.lock);
 	mtk_ctx_watchdog_init(ctx);
+	if (is_raw_subdev(ctx->stream_id))
+		mtk_ctx_sensor_worker_init(ctx);
 }
 
 static int mtk_cam_v4l2_subdev_link_validate(struct v4l2_subdev *sd,
@@ -10774,6 +10795,10 @@ static int mtk_cam_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
+	int i;
+
+	for (i = 0; i < cam_dev->max_stream_num; i++)
+		mtk_ctk_sensor_worker_uninit(cam_dev->ctxs + i);
 
 	pm_runtime_disable(dev);
 
