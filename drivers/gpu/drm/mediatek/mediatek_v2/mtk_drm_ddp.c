@@ -14127,6 +14127,31 @@ static void mtk_ddp_ext_insert_dual_pipe_MT6985(struct mtk_drm_crtc *mtk_crtc,
 	writel_relaxed(reg, ovlsys1_regs + addr);
 }
 
+unsigned int mtk_ddp_ovl_resource_list(struct mtk_drm_private *priv, unsigned int **ovl_list)
+{
+	static unsigned int *_ovl_list;
+
+	switch (priv->data->mmsys_id) {
+	case MMSYS_MT6985:
+		if (_ovl_list) {
+			*ovl_list = _ovl_list;
+		} else {
+			/* MT6985 has 4 continue OVL comp */
+			_ovl_list = vmalloc(4 * sizeof(unsigned int));
+			_ovl_list[0] = DDP_COMPONENT_OVL0_2L;
+			_ovl_list[1] = DDP_COMPONENT_OVL1_2L;
+			_ovl_list[2] = DDP_COMPONENT_OVL2_2L;
+			_ovl_list[3] = DDP_COMPONENT_OVL3_2L;
+			*ovl_list = _ovl_list;
+		}
+		return 4;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 static void mtk_ddp_ext_remove_dual_pipe_dsc(struct mtk_drm_crtc *mtk_crtc,
 	struct mtk_disp_mutex *mutex)
 {

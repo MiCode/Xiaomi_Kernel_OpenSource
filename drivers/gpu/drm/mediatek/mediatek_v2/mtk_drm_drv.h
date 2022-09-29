@@ -123,6 +123,7 @@ struct mtk_drm_private {
 	struct drm_crtc *crtc[MAX_CRTC];
 	unsigned int pre_defined_bw[MAX_CRTC];
 	enum disp_hrt_usage usage[MAX_CRTC];
+	unsigned int ovl_usage[MAX_CRTC];
 	unsigned int req_hrt[MAX_CRTC];
 	unsigned int num_pipes;
 

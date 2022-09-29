@@ -218,6 +218,7 @@ void mutex_dump_analysis_mt6879(struct mtk_disp_mutex *mutex);
 
 void mmsys_config_dump_analysis_mt6855(void __iomem *config_regs);
 void mutex_dump_analysis_mt6855(struct mtk_disp_mutex *mutex);
+unsigned int mtk_ddp_ovl_resource_list(struct mtk_drm_private *priv, unsigned int **ovl_list);
 
 void mtk_ddp_disable_merge_irq(struct drm_device *drm);
 

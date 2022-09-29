@@ -6787,7 +6787,14 @@ SKIP_OVLSYS_CONFIG:
 			value = 0;
 
 		private->pre_defined_bw[i] = value;
-		DDPINFO("CRTC %d available BW:%x\n", i, value);
+
+		ret = of_property_read_u32_index(dev->of_node, "crtc-ovl-usage", i, &value);
+		if (ret < 0)
+			value = 0;
+		private->ovl_usage[i] = value;
+
+		DDPINFO("CRTC %d available BW:%x OVL usage:%x\n", i,
+				private->pre_defined_bw[i], private->ovl_usage[i]);
 	}
 
 	/* Get and enable top clk align to HW */
