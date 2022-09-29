@@ -4971,10 +4971,11 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 					else
 						req->p_data[i].s_data_num = 1;
 				} else if (req->p_data[i].s_data_num == 2) {
-					dev_info(cam->dev,
-						 "%s:req(%s): undefined s_data_1, scen(%s)\n",
+					dev_dbg(cam->dev,
+						 "%s:req(%s): update s_data_num, scen(%s)\n",
 						 __func__, req->req.debug_str,
 						 s_data->feature.scen->dbg_str);
+					req->p_data[i].s_data_num = 1;
 				}
 			} else if (is_camsv_subdev(i) && stream_ctx &&
 				   i == stream_ctx->stream_id) {
@@ -5171,7 +5172,6 @@ static unsigned int mtk_cam_req_get_pipe_used(struct media_request *req)
 	unsigned int i, num_s_data;
 	struct mtk_cam_device *cam =
 		container_of(req->mdev, struct mtk_cam_device, media_dev);
-	struct mtk_raw_pipeline *raw_pipeline;
 
 	list_for_each_entry(obj, &req->objects, list) {
 		struct vb2_buffer *vb;
@@ -5194,12 +5194,10 @@ static unsigned int mtk_cam_req_get_pipe_used(struct media_request *req)
 			 * for some special feature like mstream, it is 2.
 			 */
 			num_s_data = 1;
-			if (is_raw_subdev(i)) {
-				raw_pipeline = &cam->raw.pipelines[i - MTKCAM_SUBDEV_RAW_0];
-				/* we only support QBUF after streaming on now */
-				if (mtk_cam_scen_is_mstream_types(&raw_pipeline->scen_active))
-					num_s_data = 2;
-			}
+			if (is_raw_subdev(i))
+				/* init total s_data for raw subdev */
+				num_s_data = 2;
+
 			/*
 			 * May need to move the init after mtk_cam_req_update_ctrl to get
 			 * the correct num_s_data (need per-frame's scen information)
