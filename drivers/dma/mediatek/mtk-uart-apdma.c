@@ -123,6 +123,7 @@ struct mtk_chan {
 
 	void __iomem *base;
 	unsigned int irq;
+	unsigned int is_hub_port;
 
 	unsigned int irq_wg;
 	unsigned int rx_status;
@@ -140,6 +141,7 @@ struct mtk_chan {
 };
 
 static unsigned long long num;
+static unsigned int res_status;
 
 static inline struct mtk_uart_apdmadev *
 to_mtk_uart_apdma_dev(struct dma_device *d)
@@ -319,6 +321,12 @@ void mtk_uart_rx_setting(struct dma_chan *chan, int copied, int total)
 }
 EXPORT_SYMBOL(mtk_uart_rx_setting);
 
+void mtk_uart_set_res_status(unsigned int status)
+{
+	res_status = status;
+}
+EXPORT_SYMBOL(mtk_uart_set_res_status);
+
 void mtk_uart_get_apdma_rpt(struct dma_chan *chan, unsigned int *rpt)
 {
 	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
@@ -336,6 +344,11 @@ static void mtk_uart_apdma_start_tx(struct mtk_chan *c)
 	unsigned int wpt, vff_sz, left_data, rst_status;
 	unsigned int idx = 0;
 	int poll_cnt = MAX_POLLING_CNT;
+
+	if (c->is_hub_port) {
+		if (!res_status)
+			pr_info("[WARN]%s, txrx_request is not set\n", __func__);
+	}
 
 	vff_sz = c->cfg.dst_port_window_size;
 
@@ -936,7 +949,7 @@ static int mtk_uart_apdma_probe(struct platform_device *pdev)
 		clk_count = 0;
 		if (!clk_prepare_enable(mtkd->clk))
 			clk_count++;
-		pr_info("[%s]: support_hub[%d], clk_count[%d]\n", __func__,
+		pr_info("[%s]: support_hub[0x%x], clk_count[%d]\n", __func__,
 			mtkd->support_hub, clk_count);
 		mtk_uart_apdma_parse_peri(pdev);
 	}
@@ -963,6 +976,9 @@ static int mtk_uart_apdma_probe(struct platform_device *pdev)
 		}
 		c->irq = rc;
 		c->rec_idx = 0;
+
+		c->is_hub_port = mtkd->support_hub & (1 << i);
+		pr_info("c->is_hub_port is %d\n", c->is_hub_port);
 	}
 
 	pm_runtime_enable(&pdev->dev);
@@ -1029,12 +1045,12 @@ static int mtk_uart_apdma_resume(struct device *dev)
 	pr_info("[%s]: support_hub:%d, clk_count: %d\n", __func__,
 		mtkd->support_hub, clk_count);
 	if (!pm_runtime_suspended(dev)) {
-		if ((mtkd->support_hub == 1) && (clk_count >= 1))
+		if (mtkd->support_hub && (clk_count >= 1))
 			return 0;
 		ret = clk_prepare_enable(mtkd->clk);
 		if (ret)
 			return ret;
-		if (mtkd->support_hub == 1)
+		if (mtkd->support_hub)
 			clk_count++;
 		pr_info("[%s]: ret:%d\n", __func__, ret);
 	}
@@ -1062,7 +1078,7 @@ static int mtk_uart_apdma_runtime_resume(struct device *dev)
 {
 	struct mtk_uart_apdmadev *mtkd = dev_get_drvdata(dev);
 	pr_info("[%s]: support_hub:%d, clk_count: %d\n", __func__, mtkd->support_hub, clk_count);
-	if ((mtkd->support_hub == 1) && (clk_count >= 1))
+	if (mtkd->support_hub && (clk_count >= 1))
 		return 0;
 	if (mtkd->support_hub)
 		clk_count++;

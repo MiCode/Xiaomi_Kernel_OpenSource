@@ -6,6 +6,7 @@
  * Author: Matthias Brugger <matthias.bgg@gmail.com>
  */
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of_irq.h>
@@ -85,6 +86,12 @@
 
 #define MAX_POLLING_CNT 8
 #define LOG_BUF_SIZE 30
+
+#define FIFO_POLLING_INTERVAL  5    /*us*/
+#define FIFO_POLLING_COUNT  4
+
+#define FIFO_TX_STATUS_MASK  0xF
+#define FIFO_TX_CNT_MASK 0x1F
 
 #define MTK_UART_HUB_BAUD 12000000
 #define UART_DUMP_RECORE_NUM 10
@@ -254,201 +261,99 @@ static void mtk8250_reset_peri(void)
 		iounmap(peri_remap_reset_clr);
 }
 
-#if IS_ENABLED(CONFIG_MTK_UARTHUB)
-int mtk8250_uart_hub_get_host_fw_own_status(void)
+static void mtk8250_clear_fifo(struct tty_struct *tty)
 {
-	#if defined(KERNEL_UARTHUB_get_host_set_fw_own_status)
-		return KERNEL_UARTHUB_get_host_set_fw_own_status();
-	#else
-		return 0;
-	#endif
-}
-EXPORT_SYMBOL(mtk8250_uart_hub_get_host_fw_own_status);
+	struct uart_state *state = NULL;
+	struct uart_port *port = NULL;
+	struct uart_8250_port *up = NULL;
 
-int mtk8250_uart_hub_reset_flow_ctrl(void)
-{
-	#if defined(KERNEL_UARTHUB_reset_flow_control)
-		return KERNEL_UARTHUB_reset_flow_control();
-	#else
-		return 0;
-	#endif
-}
-EXPORT_SYMBOL(mtk8250_uart_hub_reset_flow_ctrl);
+	if (tty == NULL) {
+		pr_info("[%s] para error. tty is NULL\n", __func__);
+		goto exit;
+	}
 
-int mtk8250_uart_hub_get_host_wakeup_status(void)
-{
-	#if defined(KERNEL_UARTHUB_get_host_wakeup_status)
-		return KERNEL_UARTHUB_get_host_wakeup_status();
-	#else
-		return 0;
-	#endif
-}
-EXPORT_SYMBOL(mtk8250_uart_hub_get_host_wakeup_status);
+	state = tty->driver_data;
+	if (state == NULL) {
+		pr_info("[%s] para error. state is NULL\n", __func__);
+		goto exit;
+	}
 
-int mtk8250_uart_hub_dev0_set_tx_request(void)
-{
-	#if defined(KERNEL_UARTHUB_dev0_set_tx_request)
-		return KERNEL_UARTHUB_dev0_set_tx_request();
-	#else
-		return 0;
-	#endif
-}
-EXPORT_SYMBOL(mtk8250_uart_hub_dev0_set_tx_request);
+	port = state->uart_port;
+	if (port == NULL) {
+		pr_info("[%s] para error. port is NULL\n", __func__);
+		goto exit;
+	}
 
-int mtk8250_uart_hub_dev0_set_rx_request(void)
-{
-	#if defined(KERNEL_UARTHUB_dev0_set_rx_request)
-		return KERNEL_UARTHUB_dev0_set_rx_request();
-	#else
-		return 0;
-	#endif
-}
-EXPORT_SYMBOL(mtk8250_uart_hub_dev0_set_rx_request);
-int mtk8250_uart_hub_dev0_clear_tx_request(void)
-{
-	#if defined(KERNEL_UARTHUB_dev0_clear_tx_request)
-		return KERNEL_UARTHUB_dev0_clear_tx_request();
-	#else
-		return 0;
-	#endif
-}
-EXPORT_SYMBOL(mtk8250_uart_hub_dev0_clear_tx_request);
-int mtk8250_uart_hub_dev0_clear_rx_request(void)
-{
-	/*clear ap uart*/
-	mtk8250_clear_wakeup();
+	up = up_to_u8250p(port);
+	if (up == NULL) {
+		pr_info("[%s] para error. up is NULL\n", __func__);
+		goto exit;
+	}
 
-	#if defined(KERNEL_UARTHUB_dev0_clear_rx_request)
-		return KERNEL_UARTHUB_dev0_clear_rx_request();
-	#else
-		return 0;
-	#endif
+	/*clear fifo*/
+	serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO | UART_FCR_CLEAR_RCVR |
+		UART_FCR_CLEAR_XMIT);
+
+exit:
+	return;
+
 }
-EXPORT_SYMBOL(mtk8250_uart_hub_dev0_clear_rx_request);
-int mtk8250_uart_hub_get_uart_cmm_rx_count(void)
+
+static int mtk8250_polling_tx_fifo_empty(struct tty_struct *tty)
 {
-	#if defined(KERNEL_UARTHUB_get_uart_cmm_rx_count)
-		return KERNEL_UARTHUB_get_uart_cmm_rx_count();
-	#else
-		return 0;
-	#endif
+	unsigned int tx_status = 0, tx_cnt = 0, count = FIFO_POLLING_COUNT;
+	int ret = 0;
+	struct uart_state *state = NULL;
+	struct uart_port *port = NULL;
+	struct uart_8250_port *up = NULL;
+
+	if (tty == NULL) {
+		pr_info("[%s] para error. tty is NULL\n", __func__);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	state = tty->driver_data;
+	if (state == NULL) {
+		pr_info("[%s] para error. state is NULL\n", __func__);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	port = state->uart_port;
+	if (port == NULL) {
+		pr_info("[%s] para error. port is NULL\n", __func__);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	up = up_to_u8250p(port);
+	if (up == NULL) {
+		pr_info("[%s] para error. up is NULL\n", __func__);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	while (count) {
+
+		tx_status = serial_in(up, MTK_UART_DEBUG1) & FIFO_TX_STATUS_MASK; /*0x64*/
+		tx_cnt = serial_in(up, MTK_UART_DEBUG4) & FIFO_TX_CNT_MASK;  /*0x70*/
+
+		if (tx_status || tx_cnt) {
+			udelay(FIFO_POLLING_INTERVAL);
+			count--;
+		} else
+			break;
+	}
+
+	if (count)
+		pr_info("polling done, still clear.\n");
+	else
+		pr_info("polling failed, need clear fifo.\n");
+
+exit:
+	return ret;
 }
-EXPORT_SYMBOL(mtk8250_uart_hub_get_uart_cmm_rx_count);
-
-int mtk8250_uart_hub_dump_with_tag(const char *tag)
-{
-	#if defined(KERNEL_UARTHUB_dump_debug_info_with_tag)
-		return KERNEL_UARTHUB_dump_debug_info_with_tag(tag);
-	#else
-		return 0;
-	#endif
-}
-EXPORT_SYMBOL(mtk8250_uart_hub_dump_with_tag);
-
-int mtk8250_uart_hub_fifo_ctrl(int ctrl)
-{
-	#if defined(KERNEL_UARTHUB_md_adsp_fifo_ctrl)
-		return KERNEL_UARTHUB_md_adsp_fifo_ctrl(ctrl);
-	#else
-		return 0;
-	#endif
-}
-EXPORT_SYMBOL(mtk8250_uart_hub_fifo_ctrl);
-
-int mtk8250_uart_hub_assert_bit_ctrl(int ctrl)
-{
-	#if defined(KERNEL_UARTHUB_assert_state_ctrl)
-		return KERNEL_UARTHUB_assert_state_ctrl(ctrl);
-	#else
-		return 0;
-	#endif
-}
-EXPORT_SYMBOL(mtk8250_uart_hub_assert_bit_ctrl);
-
-int mtk8250_uart_hub_dump(void)
-{
-	#if defined(KERNEL_UARTHUB_dump_debug_info)
-		return KERNEL_UARTHUB_dump_debug_info();
-	#else
-		return 0;
-	#endif
-}
-EXPORT_SYMBOL(mtk8250_uart_hub_dump);
-
-int mtk8250_uart_hub_reset(void)
-{
-	#if defined(KERNEL_UARTHUB_sw_reset)
-		return KERNEL_UARTHUB_sw_reset();
-	#else
-		return 0;
-	#endif
-}
-EXPORT_SYMBOL(mtk8250_uart_hub_reset);
-
-int mtk8250_uart_hub_register_cb(UARTHUB_IRQ_CB irq_callback)
-{
-	#if defined(KERNEL_UARTHUB_irq_register_cb)
-		return KERNEL_UARTHUB_irq_register_cb(irq_callback);
-	#else
-		return 0;
-	#endif
-}
-EXPORT_SYMBOL(mtk8250_uart_hub_register_cb);
-
-int mtk8250_uart_hub_enable_bypass_mode(int bypass)
-{
-	#if defined(KERNEL_UARTHUB_bypass_mode_ctrl)
-		return KERNEL_UARTHUB_bypass_mode_ctrl(bypass);
-	#else
-		return 0;
-	#endif
-}
-EXPORT_SYMBOL(mtk8250_uart_hub_enable_bypass_mode);
-
-int mtk8250_uart_hub_set_request(void)
-{
-	#if defined(KERNEL_UARTHUB_dev0_set_txrx_request)
-		return KERNEL_UARTHUB_dev0_set_txrx_request();
-	#else
-		return 0;
-	#endif
-}
-EXPORT_SYMBOL(mtk8250_uart_hub_set_request);
-
-int mtk8250_uart_hub_clear_request(void)
-{
-	/*clear ap uart*/
-	mtk8250_clear_wakeup();
-
-	#if defined(KERNEL_UARTHUB_dev0_clear_txrx_request)
-		return KERNEL_UARTHUB_dev0_clear_txrx_request();
-	#else
-		return 0;
-	#endif
-}
-EXPORT_SYMBOL(mtk8250_uart_hub_clear_request);
-
-int mtk8250_uart_hub_is_assert(void)
-{
-	#if defined(KERNEL_UARTHUB_is_assert_state)
-		return KERNEL_UARTHUB_is_assert_state();
-	#else
-		return 0;
-	#endif
-}
-EXPORT_SYMBOL(mtk8250_uart_hub_is_assert);
-
-int mtk8250_uart_hub_is_ready(void)
-{
-	#if defined(KERNEL_UARTHUB_dev0_is_uarthub_ready)
-		return KERNEL_UARTHUB_dev0_is_uarthub_ready();
-	#else
-		return 0;
-	#endif
-}
-EXPORT_SYMBOL(mtk8250_uart_hub_is_ready);
-
-#endif
 
 #ifdef CONFIG_SERIAL_8250_DMA
 static void mtk8250_save_uart_apdma_reg(struct dma_chan *chan, unsigned int *reg_buf)
@@ -542,6 +447,16 @@ static void mtk_save_uart_reg(struct uart_8250_port *up, unsigned int *reg_buf)
 	spin_unlock_irqrestore(&up->port.lock, flags);
 }
 
+static void mtk8250_debug_regs_dump(struct uart_8250_port *up)
+{
+	mtk_save_uart_reg(up, uart_reg_buf);
+	pr_info("[%s] 0x60=0x%x,0x64=0x%x,0x68=0x%x,0x6c=0x%x,\n"
+		"0x70=0x%x,0x74=0x%x,0x78=0x%x,0x7c=0x%x,0x80=0x%x,\n",
+		__func__, uart_reg_buf[11], uart_reg_buf[12], uart_reg_buf[13],
+		uart_reg_buf[14], uart_reg_buf[15], uart_reg_buf[16],
+		uart_reg_buf[17], uart_reg_buf[18], uart_reg_buf[19]);
+}
+
 void mtk8250_data_dump(void)
 {
 #ifdef CONFIG_UART_DATA_RECORD
@@ -588,6 +503,18 @@ void mtk8250_data_dump(void)
 	pr_info("[%s] UART_DATA_RECORD is not config\n", __func__);
 #endif
 }
+
+#if IS_ENABLED(CONFIG_MTK_UARTHUB)
+int mtk8250_uart_hub_dump_with_tag(const char *tag)
+{
+	#if defined(KERNEL_UARTHUB_dump_debug_info_with_tag)
+		return KERNEL_UARTHUB_dump_debug_info_with_tag(tag);
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_dump_with_tag);
+#endif
 
 int mtk8250_uart_dump(struct tty_struct *tty)
 {
@@ -834,6 +761,254 @@ void mtk8250_uart_end_record(struct tty_struct *tty)
 #endif
 }
 EXPORT_SYMBOL(mtk8250_uart_end_record);
+
+#if IS_ENABLED(CONFIG_MTK_UARTHUB)
+int mtk8250_uart_hub_get_host_fw_own_status(void)
+{
+	#if defined(KERNEL_UARTHUB_get_host_set_fw_own_status)
+		return KERNEL_UARTHUB_get_host_set_fw_own_status();
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_get_host_fw_own_status);
+
+int mtk8250_uart_hub_reset_flow_ctrl(void)
+{
+	#if defined(KERNEL_UARTHUB_reset_flow_control)
+		return KERNEL_UARTHUB_reset_flow_control();
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_reset_flow_ctrl);
+
+int mtk8250_uart_hub_get_host_wakeup_status(void)
+{
+	#if defined(KERNEL_UARTHUB_get_host_wakeup_status)
+		return KERNEL_UARTHUB_get_host_wakeup_status();
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_get_host_wakeup_status);
+
+int mtk8250_uart_hub_dev0_set_tx_request(struct tty_struct *tty)
+{
+	#if defined(KERNEL_UARTHUB_dev0_set_tx_request)
+		int ret  = 0;
+
+		ret = KERNEL_UARTHUB_dev0_set_tx_request();
+		if (ret) {
+			pr_info("[%s]dev0_set_tx_request error. ret is %d\n",
+				__func__, ret);
+			goto exit;
+		}
+
+	#if defined(KERNEL_mtk_uart_set_res_status)
+		KERNEL_mtk_uart_set_res_status(1);
+		pr_info("%s: set res status as 1\n", __func__);
+	#endif
+
+		/*dump fifo status*/
+		mtk8250_uart_start_record(tty);
+		/*clear uart fifo*/
+		mtk8250_clear_fifo(tty);
+		/*dump fifo status*/
+		mtk8250_uart_end_record(tty);
+
+exit:
+		return ret;
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_dev0_set_tx_request);
+
+int mtk8250_uart_hub_dev0_set_rx_request(void)
+{
+	#if defined(KERNEL_UARTHUB_dev0_set_rx_request)
+		return KERNEL_UARTHUB_dev0_set_rx_request();
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_dev0_set_rx_request);
+int mtk8250_uart_hub_dev0_clear_tx_request(void)
+{
+	#if defined(KERNEL_UARTHUB_dev0_clear_tx_request)
+		return KERNEL_UARTHUB_dev0_clear_tx_request();
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_dev0_clear_tx_request);
+
+int mtk8250_uart_hub_dev0_clear_rx_request(struct tty_struct *tty)
+{
+#if defined(KERNEL_UARTHUB_dev0_clear_rx_request)
+	int ret = 0;
+
+	/*clear ap uart*/
+	mtk8250_clear_wakeup();
+
+	ret = KERNEL_UARTHUB_dev0_clear_rx_request();
+	if (ret) {
+		pr_info("%s failed\n", __func__);
+		goto exit;
+	}
+
+#if defined(KERNEL_mtk_uart_set_res_status)
+	KERNEL_mtk_uart_set_res_status(0);
+	pr_info("%s: set res status as 0\n", __func__);
+#endif
+
+	/*dump fifo status*/
+	mtk8250_uart_start_record(tty);
+
+	/*polling tx fifo empty*/
+	mtk8250_polling_tx_fifo_empty(tty);
+
+	/*clear fifo*/
+	mtk8250_clear_fifo(tty);
+
+	/*dump fifo status*/
+	mtk8250_uart_end_record(tty);
+
+exit:
+	return ret;
+#else
+	return 0;
+#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_dev0_clear_rx_request);
+int mtk8250_uart_hub_get_uart_cmm_rx_count(void)
+{
+	#if defined(KERNEL_UARTHUB_get_uart_cmm_rx_count)
+		return KERNEL_UARTHUB_get_uart_cmm_rx_count();
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_get_uart_cmm_rx_count);
+
+int mtk8250_uart_hub_fifo_ctrl(int ctrl)
+{
+	#if defined(KERNEL_UARTHUB_md_adsp_fifo_ctrl)
+		return KERNEL_UARTHUB_md_adsp_fifo_ctrl(ctrl);
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_fifo_ctrl);
+
+int mtk8250_uart_hub_assert_bit_ctrl(int ctrl)
+{
+	#if defined(KERNEL_UARTHUB_assert_state_ctrl)
+		return KERNEL_UARTHUB_assert_state_ctrl(ctrl);
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_assert_bit_ctrl);
+
+int mtk8250_uart_hub_dump(void)
+{
+	#if defined(KERNEL_UARTHUB_dump_debug_info)
+		return KERNEL_UARTHUB_dump_debug_info();
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_dump);
+
+int mtk8250_uart_hub_reset(void)
+{
+	#if defined(KERNEL_UARTHUB_sw_reset)
+		return KERNEL_UARTHUB_sw_reset();
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_reset);
+
+int mtk8250_uart_hub_register_cb(UARTHUB_IRQ_CB irq_callback)
+{
+	#if defined(KERNEL_UARTHUB_irq_register_cb)
+		return KERNEL_UARTHUB_irq_register_cb(irq_callback);
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_register_cb);
+
+int mtk8250_uart_hub_enable_bypass_mode(int bypass)
+{
+	#if defined(KERNEL_UARTHUB_bypass_mode_ctrl)
+		return KERNEL_UARTHUB_bypass_mode_ctrl(bypass);
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_enable_bypass_mode);
+
+int mtk8250_uart_hub_set_request(struct tty_struct *tty)
+{
+	#if defined(KERNEL_UARTHUB_dev0_set_txrx_request)
+		int ret  = 0;
+
+		ret = KERNEL_UARTHUB_dev0_set_txrx_request();
+		if (ret) {
+			pr_info("[%s]dev0_set_txrx_request error. ret is %d\n",
+				__func__, ret);
+			goto exit;
+		}
+
+		/*clear uart tx fifo*/
+		mtk8250_clear_fifo(tty);
+
+exit:
+		return ret;
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_set_request);
+
+int mtk8250_uart_hub_clear_request(void)
+{
+	/*clear ap uart*/
+	mtk8250_clear_wakeup();
+
+	#if defined(KERNEL_UARTHUB_dev0_clear_txrx_request)
+		return KERNEL_UARTHUB_dev0_clear_txrx_request();
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_clear_request);
+
+int mtk8250_uart_hub_is_assert(void)
+{
+	#if defined(KERNEL_UARTHUB_is_assert_state)
+		return KERNEL_UARTHUB_is_assert_state();
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_is_assert);
+
+int mtk8250_uart_hub_is_ready(void)
+{
+	#if defined(KERNEL_UARTHUB_dev0_is_uarthub_ready)
+		return KERNEL_UARTHUB_dev0_is_uarthub_ready();
+	#else
+		return 0;
+	#endif
+}
+EXPORT_SYMBOL(mtk8250_uart_hub_is_ready);
+
+#endif
 
 
 #ifdef CONFIG_SERIAL_8250_DMA
@@ -1290,6 +1465,10 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 		up->port.cons->cflag = termios->c_cflag;
 
 	spin_unlock_irqrestore(&port->lock, flags);
+
+	if (!uart_console(port))
+		mtk8250_debug_regs_dump(up);
+
 	/* Don't rewrite B0 */
 	if (tty_termios_baud_rate(termios))
 		tty_termios_encode_baud_rate(termios, baud, baud);
