@@ -8104,6 +8104,7 @@
 			mediatek,syscon-wakeup = <&pericfg_ao_clk 0x200 103>;
 			wakeup-source;
 			mediatek,vs-voter = <&pmic 0x149a 0x1 1>;
+			mediatek,uds = <&usb_dp_selector 19>;
 			usb-role-switch;
 			cdp-block;
 			port {
