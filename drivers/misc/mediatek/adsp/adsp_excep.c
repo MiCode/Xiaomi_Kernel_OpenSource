@@ -17,6 +17,9 @@
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+#include <mt-plat/mrdump.h>
+#endif
 
 #include "adsp_reg.h"
 #include "adsp_core.h"
@@ -29,7 +32,7 @@
 #define ADSP_MISC_BUF_SIZE      0x10000 //64KB
 #define ADSP_TEST_EE_PATTERN    "Assert-Test"
 
-static char adsp_ke_buffer[ADSP_KE_DUMP_LEN];
+static char *adsp_ke_buffer;
 static struct adsp_exception_control excep_ctrl;
 static bool suppress_test_ee;
 
@@ -245,6 +248,70 @@ static void adsp_exception_dump(struct adsp_exception_control *ctrl)
 }
 #endif
 
+void get_adsp_misc_buffer(unsigned long *vaddr, unsigned long *size)
+{
+	struct adsp_priv *pdata = NULL;
+	struct log_info_s *log_info = NULL;
+	struct buffer_info_s *buf_info = NULL;
+	void *buf = adsp_ke_buffer;
+	void *addr = NULL;
+	unsigned int w_pos, r_pos, buf_size;
+	unsigned int data_len[2];
+	unsigned int id = 0, n = 0;
+	unsigned int part_len = ADSP_KE_DUMP_LEN / ADSP_CORE_TOTAL;
+
+	if (!adspsys || !buf) {
+		pr_info("adsp image not load or not enough space, skip dump");
+		goto ERROR;
+	}
+	memset(buf, 0, ADSP_KE_DUMP_LEN);
+
+	for (id = 0; id < get_adsp_core_total(); id++) {
+		w_pos = 0;
+		pdata = get_adsp_core_by_id(id);
+		if (!pdata || !pdata->log_ctrl ||
+		    !pdata->log_ctrl->inited || !pdata->log_ctrl->priv)
+			goto ERROR;
+
+		log_info = (struct log_info_s *)pdata->log_ctrl->priv;
+		buf_info = (struct buffer_info_s *)(pdata->log_ctrl->priv
+						  + log_info->info_ofs);
+
+		buf_size = log_info->buff_size;
+		memcpy_fromio(&w_pos, &buf_info->w_pos, sizeof(w_pos));
+
+		if (w_pos >= buf_size)
+			w_pos -= buf_size;
+
+		if (w_pos < part_len) {
+			r_pos = buf_size + w_pos - part_len;
+			data_len[0] = part_len - w_pos;
+			data_len[1] = w_pos;
+		} else {
+			r_pos = w_pos - part_len;
+			data_len[0] = part_len;
+			data_len[1] = 0;
+		}
+
+		addr = pdata->log_ctrl->priv + log_info->buff_ofs;
+		memcpy(buf + n, addr + r_pos, data_len[0]);
+		n += data_len[0];
+		memcpy(buf + n, addr, data_len[1]);
+		n += data_len[1];
+	}
+
+	/* return value */
+	*vaddr = (unsigned long)buf;
+	*size = n;
+	return;
+
+ERROR:
+	/* return value */
+	*vaddr = (unsigned long)buf;
+	*size = 0;
+}
+EXPORT_SYMBOL(get_adsp_misc_buffer);
+
 void adsp_aed_worker(struct work_struct *ws)
 {
 	struct adsp_exception_control *ctrl = container_of(ws,
@@ -332,6 +399,10 @@ int init_adsp_exception_control(struct device *dev,
 {
 	struct adsp_exception_control *ctrl = &excep_ctrl;
 
+	adsp_ke_buffer = devm_kzalloc(dev, ADSP_KE_DUMP_LEN, GFP_KERNEL);
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+	mrdump_set_extra_dump(AEE_EXTRA_FILE_ADSP, get_adsp_misc_buffer);
+#endif
 	ctrl->waitq = waitq;
 	ctrl->workq = workq;
 	ctrl->buf_backup = NULL;
@@ -346,6 +417,14 @@ int init_adsp_exception_control(struct device *dev,
 	return 0;
 }
 
+int deinit_adsp_exception_control(void)
+{
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+	mrdump_set_extra_dump(AEE_EXTRA_FILE_ADSP, NULL);
+#endif
+	return 0;
+}
+
 void adsp_wdt_handler(int irq, void *data, int cid)
 {
 	struct adsp_priv *pdata = (struct adsp_priv *)data;
@@ -356,70 +435,6 @@ void adsp_wdt_handler(int irq, void *data, int cid)
 
 }
 
-void get_adsp_misc_buffer(unsigned long *vaddr, unsigned long *size)
-{
-	struct adsp_priv *pdata = NULL;
-	struct log_info_s *log_info = NULL;
-	struct buffer_info_s *buf_info = NULL;
-	void *buf = adsp_ke_buffer;
-	void *addr = NULL;
-	unsigned int w_pos, r_pos, buf_size;
-	unsigned int data_len[2];
-	unsigned int id = 0, n = 0;
-	unsigned int part_len = ADSP_MISC_BUF_SIZE / ADSP_CORE_TOTAL;
-
-	memset(buf, 0, ADSP_KE_DUMP_LEN);
-	if (!adspsys) {
-		pr_info("adsp image not load, skip dump");
-		goto ERROR;
-	}
-
-	for (id = 0; id < get_adsp_core_total(); id++) {
-		w_pos = 0;
-		pdata = get_adsp_core_by_id(id);
-		if (!pdata || !pdata->log_ctrl ||
-		    !pdata->log_ctrl->inited || !pdata->log_ctrl->priv)
-			goto ERROR;
-
-		log_info = (struct log_info_s *)pdata->log_ctrl->priv;
-		buf_info = (struct buffer_info_s *)(pdata->log_ctrl->priv
-						  + log_info->info_ofs);
-
-		buf_size = log_info->buff_size;
-		memcpy_fromio(&w_pos, &buf_info->w_pos, sizeof(w_pos));
-
-		if (w_pos >= buf_size)
-			w_pos -= buf_size;
-
-		if (w_pos < part_len) {
-			r_pos = buf_size + w_pos - part_len;
-			data_len[0] = part_len - w_pos;
-			data_len[1] = w_pos;
-		} else {
-			r_pos = w_pos - part_len;
-			data_len[0] = part_len;
-			data_len[1] = 0;
-		}
-
-		addr = pdata->log_ctrl->priv + log_info->buff_ofs;
-		memcpy(buf + n, addr + r_pos, data_len[0]);
-		n += data_len[0];
-		memcpy(buf + n, addr, data_len[1]);
-		n += data_len[1];
-	}
-
-	/* return value */
-	*vaddr = (unsigned long)buf;
-	*size = n;
-	return;
-
-ERROR:
-	/* return value */
-	*vaddr = (unsigned long)buf;
-	*size = 0;
-}
-EXPORT_SYMBOL(get_adsp_misc_buffer);
-
 void get_adsp_aee_buffer(unsigned long *vaddr, unsigned long *size)
 {
 	struct adsp_priv *pdata = NULL;
@@ -427,11 +442,11 @@ void get_adsp_aee_buffer(unsigned long *vaddr, unsigned long *size)
 	u32 len = ADSP_KE_DUMP_LEN;
 	u32 n = 0;
 
-	memset(buf, 0, len);
-	if (!adspsys) {
-		pr_info("adsp image not load, skip dump");
+	if (!adspsys || !buf) {
+		pr_info("adsp image not load or not enough space, skip dump");
 		goto EXIT;
 	}
+	memset(buf, 0, len);
 
 	adsp_enable_clock();
 	adsp_latch_dump_region(true);
