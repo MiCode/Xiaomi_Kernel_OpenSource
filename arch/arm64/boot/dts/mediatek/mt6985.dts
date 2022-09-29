@@ -15106,7 +15106,7 @@ l3_hit,l3_mis,pmu_cyc_cnt";
 				"active,idle,off";
 
 			node-34 = "SSPM_SWPM_GPU__LOADING",
-				"top_loading,stack_loading";
+				"top_loading,stack_loading,iterator_loading";
 
 			node-35 = "SSPM_SWPM_GPU__DVFS",
 				"top_freq,stack_freq,vgpu,vcore,mtcmos,top_ratio,stack_ratio";
@@ -15119,7 +15119,8 @@ l3_hit,l3_mis,pmu_cyc_cnt";
 
 			node-38 = "SSPM_SWPM_GPU__COUNTER",
 				"GPU_ACTIVE,EXEC_CORE_ACTIVE,EXEC_INSTR_FMA,EXEC_INSTR_CVT,EXEC_INSTR_SFU,",
-				"TEX,VARY_SLOT,L20,L21,L22,L23,ITERATOR_ACTIVE";
+				"TEX,VARY_SLOT,L20,L21,ITER_TILER_ACTIVE,ITER_COMPUTE_ACTIVE,",
+				"ITER_FRAG_ACTIVE,VARY16_SLOT,ITERATOR_ACTIVE";
 
 			node-39 = "SSPM_SWPM_GPU__POWER",
 				"gpu";
