@@ -1111,16 +1111,6 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 		}
 	}
 
-#ifdef GED_DCS_POLICY
-	if (is_dcs_enable() && dcs_get_cur_core_num() < dcs_get_max_core_num()) {
-		if (gx_fb_dvfs_margin < DCS_POLICY_MARGIN) {
-			gx_fb_dvfs_margin = DCS_POLICY_MARGIN;
-			margin_low_bound = DCS_POLICY_MARGIN;
-		}
-
-	}
-#endif /* GED_DCS_POLICY */
-
 	// check upper bound
 	if (gx_fb_dvfs_margin > (dvfs_margin_value*10))
 		gx_fb_dvfs_margin = dvfs_margin_value*10;
@@ -1138,8 +1128,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 							dvfs_margin_mode,
 							target_fps_margin,
 							dvfs_min_margin_inc_step * 10,
-							dvfs_margin_low_bound * 10,
-							DCS_POLICY_MARGIN);
+							dvfs_margin_low_bound * 10);
 
 	t_gpu_target_hd = t_gpu_target * (1000 - gx_fb_dvfs_margin) / 1000;
 
@@ -1413,19 +1402,9 @@ static bool ged_dvfs_policy(
 		gx_tb_dvfs_margin = g_tb_dvfs_margin_value;
 	}
 
-	int floor = g_tb_dvfs_margin_value_min * 10;
-#ifdef GED_DCS_POLICY
-	if (is_dcs_enable() && dcs_get_cur_core_num() < dcs_get_max_core_num()) {
-		if (gx_tb_dvfs_margin < DCS_POLICY_MARGIN / 10) {
-			gx_tb_dvfs_margin = DCS_POLICY_MARGIN / 10;
-			floor = DCS_POLICY_MARGIN;
-		}
-	}
-#endif /* GED_DCS_POLICY */
-
 	Policy__Loading_based__Margin(g_tb_dvfs_margin_value*10,
 								  gx_tb_dvfs_margin*10,
-								  floor);
+								  g_tb_dvfs_margin_value_min*10);
 
 	Policy__Loading_based__GPU_Time(t_gpu,
 									t_gpu_target,
@@ -1451,8 +1430,7 @@ static bool ged_dvfs_policy(
 		Policy__Loading_based__Margin__Detail(
 							g_tb_dvfs_margin_mode,
 							MIN_MARGIN_INC_STEP * 10,
-							g_tb_dvfs_margin_value_min * 10,
-							DCS_POLICY_MARGIN);
+							g_tb_dvfs_margin_value_min * 10);
 		ged_log_buf_print(ghLogBuf_DVFS,
 			"[GED_K][LB_DVFS] mode:0x%x, u_b:%d, l_b:%d, margin:%d, gpu_real:%d, gpu_pipe:%d, t_gpu:%d, target:%d, BQ:%llu",
 			g_tb_dvfs_margin_mode,

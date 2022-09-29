@@ -470,12 +470,6 @@ void ged_dvfs_gpu_clock_switch_notify(enum ged_gpu_power_state power_state)
 
 	if (power_state == GED_POWER_ON) {
 		g_ns_gpu_on_ts = ged_get_time();
-
-#ifdef GED_DCS_POLICY
-		if (g_ns_gpu_on_ts - g_ns_gpu_off_ts > GED_DVFS_FB_TIMER_TIMEOUT)
-			dcs_restore_max_core_mask();
-#endif /* GED_DCS_POLICY */
-
 		g_bGPUClock = true;
 		if (g_timer_on) {
 			ged_log_buf_print(ghLogBuf_DVFS,

@@ -1253,15 +1253,15 @@ noinline void Policy__Frame_based__Margin(int v1, int v2, int v3)
 	}
 }
 
-noinline void Policy__Frame_based__Margin__Detail(unsigned int v1, int v2, int v3, int v4, int v5)
+noinline void Policy__Frame_based__Margin__Detail(unsigned int v1, int v2, int v3, int v4)
 {
 	char buf[256];
 	int cx;
 
 	if (ged_log_perf_trace_enable) {
 		cx = snprintf(buf, sizeof(buf),
-			"margin_mode=%d, target_fps_margin=%d, min_margin_inc_step=%d, min_margin=%d, min_dcs_margin=%d\n",
-			v1, v2, v3, v4, v5);
+			"margin_mode=%d, target_fps_margin=%d, min_margin_inc_step=%d, min_margin=%d\n",
+			v1, v2, v3, v4);
 		if (cx >= 0 && cx < sizeof(buf))
 			trace_printk(buf);
 	}
@@ -1345,16 +1345,15 @@ noinline void Policy__Loading_based__Margin(int v1, int v2, int v3)
 	}
 }
 
-noinline void Policy__Loading_based__Margin__Detail(unsigned int v1, int v2, int v3,
-	int v4)
+noinline void Policy__Loading_based__Margin__Detail(unsigned int v1, int v2, int v3)
 {
 	char buf[256];
 	int cx;
 
 	if (ged_log_perf_trace_enable) {
 		cx = snprintf(buf, sizeof(buf),
-			"margin_mode=%u, min_margin_inc_step=%d, min_margin=%d, min_dcs_margin=%d\n",
-			v1, v2, v3, v4);
+			"margin_mode=%u, min_margin_inc_step=%d, min_margin=%d\n",
+			v1, v2, v3);
 		if (cx >= 0 && cx < sizeof(buf))
 			trace_printk(buf);
 	}

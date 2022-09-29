@@ -7,7 +7,6 @@
 
 #include "ged_type.h"
 
-#define DCS_POLICY_MARGIN 250
 #define DCS_DEFAULT_MIN_CORE 0
 
 struct dcs_core_mask {
