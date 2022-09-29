@@ -540,6 +540,9 @@ static void probe_android_rvh_selinux_avc_lookup(void *ignore,
 	struct mkp_avc_node *temp_node = NULL;
 	bool ready = false;
 	static DEFINE_RATELIMIT_STATE(rs_avc, 1*HZ, 10);
+#if IS_ENABLED(CONFIG_KASAN)
+	bool cached = false;
+#endif
 
 	if (!node || g_ro_avc_handle == 0)
 		return;
@@ -559,6 +562,9 @@ static void probe_android_rvh_selinux_avc_lookup(void *ignore,
 			if ((unsigned long)ro_avc_sharebuf_ptr->avc_node ==
 				(unsigned long)temp_node)
 				ready = true;
+#if IS_ENABLED(CONFIG_KASAN)
+			cached = true;
+#endif
 		}
 
 		if (!ready) {
@@ -590,6 +596,23 @@ static void probe_android_rvh_selinux_avc_lookup(void *ignore,
 				       (unsigned long)ro_avc_sharebuf_ptr->tsid,
 				       (unsigned long)ro_avc_sharebuf_ptr->tclass,
 				       (unsigned long)ro_avc_sharebuf_ptr->ae_allowed);
+#endif
+
+#if IS_ENABLED(CONFIG_KASAN)
+				if (!cached)
+					goto report;
+
+				MKP_ERR("Index from fast_avc_lookup: %d\n", index);
+
+				/* Try full iteration to find out all possible aliases */
+				ro_avc_sharebuf_ptr = (struct avc_sbuf_content *)va;
+				for (i = 0; i < avc_array_sz; ro_avc_sharebuf_ptr++, i++) {
+					if ((unsigned long)ro_avc_sharebuf_ptr->avc_node ==
+							(unsigned long)temp_node) {
+						MKP_ERR("Alias found: %d\n", i);
+					}
+				}
+report:
 #endif
 				handle_mkp_err_action(MKP_POLICY_SELINUX_AVC);
 			}
