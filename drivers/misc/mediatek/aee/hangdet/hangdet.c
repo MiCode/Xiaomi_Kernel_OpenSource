@@ -48,7 +48,7 @@ extern void mt_irq_dump_status(unsigned int irq);
 /*************************************************************************
  * Feature configure region
  *************************************************************************/
-#define WK_MAX_MSG_SIZE (128)
+#define WK_MAX_MSG_SIZE (256)
 #define SOFT_KICK_RANGE     (100*1000) // 100ms
 
 #define WDT_MODE		0x0
@@ -530,15 +530,25 @@ static struct __call_single_data wdt_csd[8];
 static void wdt_dump_cntcv(void *arg)
 {
 	int ret = -1;
+	uint64_t cnt = 0;
+	uint32_t low = 0;
+
+	if (systimer_base) {
+		low = readl(systimer_base + SYSTIMER_CNTCV_L);
+		cnt = readl(systimer_base + SYSTIMER_CNTCV_H);
+		cnt = cnt << 32 | low;
+	}
 
 	ret = snprintf(tmr_buf[smp_processor_id()], WK_MAX_MSG_SIZE,
-		"%s CPU:%d CNTCV_CTL:%llx CNTCV_TVAL:%llx SYST_CNTCR: %x SYST_DISTL: %x\n",
+		"%s CPU:%d CNTCV_CTL:%llx CNTCV_TVAL:%llx CNTVCT:%llx SYST_CNTCR:%x SYST_DISTL:%x SYST_CNTCV:%llx\n",
 		__func__,
 		smp_processor_id(),
 		read_sysreg(cntv_ctl_el0),
 		read_sysreg(cntv_tval_el0),
+		read_sysreg(cntvct_el0),
 		systimer_base ? ioread32(systimer_base + SYST_CNTCR) : 0,
-		systimer_base ? ioread32(systimer_base + SYST_DISTL) : 0);
+		systimer_base ? ioread32(systimer_base + SYST_DISTL) : 0,
+		systimer_base ? cnt : 0);
 	if (ret < 0) {
 		tmr_buf[smp_processor_id()][0] = 'E';
 		tmr_buf[smp_processor_id()][1] = 'R';
