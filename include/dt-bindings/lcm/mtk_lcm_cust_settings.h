@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause */
 /*
  * Device Tree defines for LCM settings
  * Copyright (c) 2022 MediaTek Inc.
