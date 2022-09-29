@@ -652,6 +652,9 @@ struct mtk_cam_apu_info {
 #define V4L2_CID_MTK_AOV_SWITCH_PM_OPS \
 	(V4L2_CID_USER_MTK_SENSOR_BASE + 41)
 
+#define V4L2_CID_MTK_AOV_SWITCH_MCLK_ULPOSC \
+	(V4L2_CID_USER_MTK_SENSOR_BASE + 42)
+
 /**
  * enum scl for imgsensor gpio aux function.
  */

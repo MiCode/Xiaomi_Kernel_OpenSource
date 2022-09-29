@@ -166,6 +166,7 @@ struct adaptor_ctx {
 	u32 shutter_for_timeout;
 	struct wakeup_source *sensor_ws;
 	unsigned int aov_pm_ops_flag;	/* flag for aov pm ops */
+	unsigned int aov_mclk_ulposc_flag;	/* flag for aov switch mclk to ulposc */
 };
 
 #endif

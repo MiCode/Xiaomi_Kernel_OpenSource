@@ -24,7 +24,6 @@
 #define SENINF_CK 242000000
 #define CYCLE_MARGIN 1
 #define RESYNC_DMY_CNT 4
-#define FIX_DPHY_SETTLE 1
 #define DPHY_SETTLE 0x1C
 #define CPHY_SETTLE 0x16 //60~80ns
 #define DPHY_TRAIL_SPEC 224
@@ -1669,46 +1668,42 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 		}
 		settle_delay_ck = settle_delay_dt;
 	} else {
-
-#if FIX_DPHY_SETTLE
-		settle_delay_dt = settle_delay_ck = DPHY_SETTLE;
-		settle_delay_ck = 0;
-#else
-
-		if (ctx->csi_param.not_fixed_trail_settle) {
-			settle_delay_dt = ctx->csi_param.dphy_data_settle
-				? ctx->csi_param.dphy_data_settle
-				: ctx->dphy_settle_delay_dt;
-			settle_delay_ck = ctx->csi_param.dphy_clk_settle
-					? ctx->csi_param.dphy_clk_settle
-					: ctx->settle_delay_ck;
-
+		if (!ctx->csi_param.not_fixed_dphy_settle) {
+			settle_delay_dt = settle_delay_ck = DPHY_SETTLE;
+			settle_delay_ck = 0;
 		} else {
-			settle_delay_dt = ctx->csi_param.dphy_data_settle;
-			if (settle_delay_dt == 0)
-				settle_delay_dt = DPHY_SETTLE;
-			else {
-				u64 temp = SENINF_CK * settle_delay_dt;
+			if (ctx->csi_param.not_fixed_trail_settle) {
+				settle_delay_dt = ctx->csi_param.dphy_data_settle
+					? ctx->csi_param.dphy_data_settle
+					: ctx->dphy_settle_delay_dt;
+				settle_delay_ck = ctx->csi_param.dphy_clk_settle
+						? ctx->csi_param.dphy_clk_settle
+						: ctx->settle_delay_ck;
+			} else {
+				settle_delay_dt = ctx->csi_param.dphy_data_settle;
+				if (settle_delay_dt == 0)
+					settle_delay_dt = DPHY_SETTLE;
+				else {
+					u64 temp = SENINF_CK * settle_delay_dt;
 
-				if (temp % 1000000000)
-					settle_delay_dt = 1 + (temp / 1000000000);
-				else
-					settle_delay_dt = (temp / 1000000000);
-			}
-			settle_delay_ck = ctx->csi_param.dphy_clk_settle;
-			if (settle_delay_ck == 0)
-				settle_delay_ck = DPHY_SETTLE;
-			else {
-				u64 temp = SENINF_CK * settle_delay_ck;
+					if (temp % 1000000000)
+						settle_delay_dt = 1 + (temp / 1000000000);
+					else
+						settle_delay_dt = (temp / 1000000000);
+				}
+				settle_delay_ck = ctx->csi_param.dphy_clk_settle;
+				if (settle_delay_ck == 0)
+					settle_delay_ck = DPHY_SETTLE;
+				else {
+					u64 temp = SENINF_CK * settle_delay_ck;
 
-				if (temp % 1000000000)
-					settle_delay_ck = 1 + (temp / 1000000000);
-				else
-					settle_delay_ck = (temp / 1000000000);
+					if (temp % 1000000000)
+						settle_delay_ck = 1 + (temp / 1000000000);
+					else
+						settle_delay_ck = (temp / 1000000000);
+				}
 			}
 		}
-
-#endif
 	}
 
 	SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,

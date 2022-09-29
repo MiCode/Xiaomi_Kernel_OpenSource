@@ -1319,6 +1319,7 @@ static int imgsensor_probe(struct i2c_client *client)
 	ctx->dev = dev;
 	ctx->sensor_debug_flag = &sensor_debug;
 	ctx->aov_pm_ops_flag = 0;
+	ctx->aov_mclk_ulposc_flag = 0;
 
 	endpoint = of_graph_get_next_endpoint(dev->of_node, NULL);
 	if (!endpoint) {

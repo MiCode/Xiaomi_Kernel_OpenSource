@@ -547,8 +547,10 @@ static int seninf_core_pm_runtime_get_sync(struct seninf_core *core)
 	if (core->pm_domain_cnt == 1) {
 		mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_SENIF);
 		ret = pm_runtime_get_sync(core->dev);
-		if (ret < 0)
-			dev_info(core->dev, "pm_runtime_get_sync fail\n");
+		if (ret < 0) {
+			dev_info(core->dev, "pm_runtime_get_sync(fail),ret(%d)\n", ret);
+			return ret;
+		}
 	} else if (core->pm_domain_cnt > 1) {
 		if (!core->pm_domain_devs)
 			return -EINVAL;
@@ -557,8 +559,12 @@ static int seninf_core_pm_runtime_get_sync(struct seninf_core *core)
 			if (core->pm_domain_devs[i] != NULL) {
 				mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_SENIF);
 				ret = pm_runtime_get_sync(core->pm_domain_devs[i]);
-				if (ret < 0)
-					dev_info(core->dev, "pm_runtime_get_sync fail\n");
+				if (ret < 0) {
+					dev_info(core->dev,
+						"pm_runtime_get_sync(fail),ret(%d)\n",
+						ret);
+					return ret;
+				}
 			}
 		}
 	} else
@@ -575,7 +581,7 @@ static int seninf_core_pm_runtime_put(struct seninf_core *core)
 	if (core->pm_domain_cnt == 1) {
 		ret = pm_runtime_put_sync(core->dev);
 		if (ret < 0)
-			dev_info(core->dev, "pm_runtime_put_sync fail\n");
+			dev_info(core->dev, "pm_runtime_put_sync(fail),ret(%d)\n", ret);
 		mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_SENIF);
 	} else if (core->pm_domain_cnt > 1) {
 		if (!core->pm_domain_devs)
@@ -585,7 +591,9 @@ static int seninf_core_pm_runtime_put(struct seninf_core *core)
 			if (core->pm_domain_devs[i] != NULL) {
 				ret = pm_runtime_put_sync(core->pm_domain_devs[i]);
 				if (ret < 0)
-					dev_info(core->dev, "pm_runtime_put_sync fail\n");
+					dev_info(core->dev,
+						"pm_runtime_put_sync(fail),ret(%d)\n",
+						ret);
 				mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_SENIF);
 			}
 		}
@@ -2653,9 +2661,19 @@ static int runtime_resume(struct device *dev)
 				"[%s] 1st user(%d),cnt(%d)\n",
 				__func__, core->current_sensor_id, core->refcnt);
 			/* power-domains enable */
-			seninf_core_pm_runtime_get_sync(core);
+			ret = seninf_core_pm_runtime_get_sync(core);
+			if (ret < 0) {
+				dev_info(dev,
+					"[%s] seninf_core_pm_runtime_get_sync(fail),ret(%d)\n",
+					__func__, ret);
+				return ret;
+			}
 			/* enable camtg_sel as phya clk */
-			enable_phya_clk(core);
+			ret = enable_phya_clk(core);
+			if (ret < 0)
+				dev_info(dev,
+					"[%s] enable_phya_clk(fail),ret(%d)\n",
+					__func__, ret);
 			/* enable seninf cg */
 			if (core->clk[CLK_CAM_SENINF]) {
 				ret = clk_prepare_enable(core->clk[CLK_CAM_SENINF]);

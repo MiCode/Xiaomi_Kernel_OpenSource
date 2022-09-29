@@ -386,6 +386,7 @@ struct mtk_csi_param {
 	__u8 legacy_phy;
 	__u8 not_fixed_trail_settle;
 	__u32 dphy_csi2_resync_dmy_cycle;
+	__u8 not_fixed_dphy_settle;
 };
 
 struct mtk_n_1_mode {

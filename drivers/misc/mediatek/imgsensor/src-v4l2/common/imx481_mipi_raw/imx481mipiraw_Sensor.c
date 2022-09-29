@@ -2608,6 +2608,7 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	csi_param->legacy_phy = 0;
 	csi_param->not_fixed_trail_settle = 0;
 	csi_param->dphy_trail = 0;
+	csi_param->not_fixed_dphy_settle = 0;
 
 	return 0;
 }

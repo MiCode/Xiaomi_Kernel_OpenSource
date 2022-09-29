@@ -27,6 +27,7 @@ enum {
 	CLK1_19_2M,
 	CLK1_24M,
 	CLK1_26M,
+	CLK1_26M_ULPOSC,
 	CLK1_52M,
 	CLK1_MCLK1,
 	CLK_MAXCNT,
@@ -47,6 +48,7 @@ enum {
 	"clk1_19.2", \
 	"clk1_24", \
 	"clk1_26", \
+	"clk1_26_ulposc", \
 	"clk1_52", \
 	"clk1_mclk1", \
 

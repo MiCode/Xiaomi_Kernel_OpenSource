@@ -69,7 +69,10 @@ static struct clk *get_clk_by_idx_freq(struct adaptor_ctx *ctx,
 		case 24:
 			return ctx->clk[CLK1_24M];
 		case 26:
-			return ctx->clk[CLK1_26M];
+			if (ctx->aov_mclk_ulposc_flag)
+				return ctx->clk[CLK1_26M_ULPOSC];
+			else
+				return ctx->clk[CLK1_26M];
 		case 52:
 			return ctx->clk[CLK1_52M];
 		}

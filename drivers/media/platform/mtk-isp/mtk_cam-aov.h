@@ -67,6 +67,7 @@ struct mtk_seninf_aov_param {
 	int settle_delay_ck;
 	int hs_trail_parameter;
 	u32 dphy_csi2_resync_dmy_cycle;
+	u8 not_fixed_dphy_settle;
 };
 
 enum AOV_DEINIT_TYPE {

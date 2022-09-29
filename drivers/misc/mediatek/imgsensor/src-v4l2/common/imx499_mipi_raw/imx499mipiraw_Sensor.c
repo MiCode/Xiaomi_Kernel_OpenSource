@@ -2899,6 +2899,7 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 {
 	csi_param->legacy_phy = 0;
 	csi_param->not_fixed_trail_settle = 0;
+	csi_param->not_fixed_dphy_settle = 0;
 
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:

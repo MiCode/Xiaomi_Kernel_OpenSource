@@ -763,6 +763,11 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 				mode->csi_param.not_fixed_trail_settle;
 			csi_param->dphy_csi2_resync_dmy_cycle =
 				mode->csi_param.dphy_csi2_resync_dmy_cycle;
+			if (!mode->csi_param.not_fixed_dphy_settle)
+				csi_param->not_fixed_dphy_settle = 0;
+			else
+				csi_param->not_fixed_dphy_settle =
+					mode->csi_param.not_fixed_dphy_settle;
 		}
 	}
 		break;
@@ -1346,6 +1351,15 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			"[%s] _aov_switch_pm_ops(correct),ret(%d)\n",
 			__func__, ret);
 		break;
+	case V4L2_CID_MTK_AOV_SWITCH_MCLK_ULPOSC:
+		dev_dbg(dev,
+			"V4L2_CID_MTK_AOV_SWITCH_MCLK_ULPOSC val(%d)\n",
+			ctrl->val);
+		if (ctrl->val)
+			ctx->aov_mclk_ulposc_flag = 1;
+		else
+			ctx->aov_mclk_ulposc_flag = 0;
+		break;
 	}
 
 	pm_runtime_put(dev);
@@ -1873,6 +1887,16 @@ static const struct v4l2_ctrl_config cfg_mtkcam_aov_switch_pm_ops = {
 	.step = 1,
 };
 
+static const struct v4l2_ctrl_config cfg_mtkcam_aov_switch_mclk_ulposc = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_MTK_AOV_SWITCH_MCLK_ULPOSC,
+	.name = "aov_switch_mclk_ulposc",
+	.type = V4L2_CTRL_TYPE_BOOLEAN,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 1,
+	.step = 1,
+};
+
 void adaptor_sensor_init(struct adaptor_ctx *ctx)
 {
 #if IMGSENSOR_LOG_MORE
@@ -2142,6 +2166,7 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_mtkcam_aov_switch_i2c_bus_sda_aux, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_mtkcam_aov_switch_rx_param, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_mtkcam_aov_switch_pm_ops, NULL);
+	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_mtkcam_aov_switch_mclk_ulposc, NULL);
 
 #ifdef IMGSENSOR_DEBUG
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_debug_cmd, NULL);

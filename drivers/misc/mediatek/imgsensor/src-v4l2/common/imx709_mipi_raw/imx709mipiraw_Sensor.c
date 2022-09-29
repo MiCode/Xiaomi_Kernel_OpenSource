@@ -112,116 +112,116 @@ static int stream_refcnt_for_aov;
 
 static struct imgsensor_info_struct imgsensor_info = {
 	.sensor_id = IMX709_SENSOR_ID,
-	.checksum_value = 0x5a6563df,
+	.checksum_value = 0xAF3E324F,
 
-	.pre = {	/* reg_B2 3280x2464@30fps */
-		.pclk = 571200000,
+	.pre = {	/* reg_B3_1 3264x2448@30fps */
+		.pclk = 863200000,
 		.linelength = 7400,
-		.framelength = 2568,
+		.framelength = 3888,
 		.startx = 0,
 		.starty = 0,
-		.grabwindow_width = 3280,
-		.grabwindow_height = 2464,
+		.grabwindow_width = 3264,
+		.grabwindow_height = 2448,
 		.mipi_data_lp2hs_settle_dc = 85,
-		.mipi_pixel_rate = 556800000,
+		.mipi_pixel_rate = 420400000,
 		.max_framerate = 300,	/* 30fps */
 	},
 
-	.cap = {	/* reg_B2 3280x2464@30fps */
-		.pclk = 571200000,
+	.cap = {	/* reg_B3_1 3264x2448@30fps */
+		.pclk = 863200000,
 		.linelength = 7400,
-		.framelength = 2568,
+		.framelength = 3888,
 		.startx = 0,
 		.starty = 0,
-		.grabwindow_width = 3280,
-		.grabwindow_height = 2464,
+		.grabwindow_width = 3264,
+		.grabwindow_height = 2448,
 		.mipi_data_lp2hs_settle_dc = 85,
-		.mipi_pixel_rate = 556800000,
+		.mipi_pixel_rate = 420400000,
 		.max_framerate = 300,	/* 30fps */
 	},
 
-	.normal_video = {	/* reg_I2 3280*1856@30fps */
-		.pclk = 859200000,
-		.linelength = 7456,
+	.normal_video = {	/* reg_C5 3264x1856@30fps */
+		.pclk = 863200000,
+		.linelength = 7400,
+		.framelength = 3888,
+		.startx = 0,
+		.starty = 0,
+		.grabwindow_width = 3264,
+		.grabwindow_height = 1856,
+		.mipi_data_lp2hs_settle_dc = 85,
+		/* following for GetDefaultFramerateByScenario() */
+		.mipi_pixel_rate = 440800000,
+		.max_framerate = 300,	/* 30fps */
+	},
+
+	.hs_video = {	/* reg_C1-2 3264x1856@60ps */
+		.pclk = 849600000,
+		.linelength = 7400,
 		.framelength = 1920,
 		.startx = 0,
 		.starty = 0,
-		.grabwindow_width = 3280,
+		.grabwindow_width = 3264,
 		.grabwindow_height = 1856,
 		.mipi_data_lp2hs_settle_dc = 85,
 		/* following for GetDefaultFramerateByScenario() */
-		.mipi_pixel_rate = 414400000,
-		.max_framerate = 300,	/* 30fps */
-	},
-
-	.hs_video = {	/* reg_C1-2 3280x1856@60ps */
-		.pclk = 849600000,
-		.linelength = 7400,
-		.framelength = 1912,
-		.startx = 0,
-		.starty = 0,
-		.grabwindow_width = 3280,
-		.grabwindow_height = 1856,
-		.mipi_data_lp2hs_settle_dc = 85,
-		/* following for GetDefaultFramerateByScenario() */
-		.mipi_pixel_rate = 412800000,
+		.mipi_pixel_rate = 415200000,
 		.max_framerate = 600, /* 60fps */
 	},
 
-	.slim_video = {	/* reg_C1-2 3280x1856@60ps */
+	.slim_video = {	/* reg_C1-2 3264x1856@60ps */
 		.pclk = 849600000,
 		.linelength = 7400,
-		.framelength = 1912,
+		.framelength = 1920,
 		.startx = 0,
 		.starty = 0,
-		.grabwindow_width = 3280,
+		.grabwindow_width = 3264,
 		.grabwindow_height = 1856,
 		.mipi_data_lp2hs_settle_dc = 85,
 		/* following for GetDefaultFramerateByScenario() */
-		.mipi_pixel_rate = 412800000,
+		.mipi_pixel_rate = 415200000,
 		.max_framerate = 600, /* 60fps */
 	},
 #ifdef AOV_MODE_SENSING
 	.custom1 = {	/* VGA+ 640x480@10FPS */
-		.pclk = 146400000,
+		.pclk = 167700000,
 		.linelength = 936,
-		.framelength = 15640,
+		.framelength = 17912,
 		.startx = 0,
 		.starty = 0,
 		.grabwindow_width = 640,
 		.grabwindow_height = 480,
 		.mipi_data_lp2hs_settle_dc = 85,
-		.mipi_pixel_rate = 178500000,
+		.mipi_pixel_rate = 205500000,
 		.max_framerate = 100,	/* 10fps */
 	},
 	.custom2 = {	/* VGA+ 480x320@10FPS */
-		.pclk = 211200000,
+		.pclk = 215800000,
 		.linelength = 936,
-		.framelength = 22560,
+		.framelength = 23048,
 		.startx = 0,
 		.starty = 0,
 		.grabwindow_width = 480,
 		.grabwindow_height = 320,
 		.mipi_data_lp2hs_settle_dc = 85,
-		.mipi_pixel_rate = 220500000,
+		.mipi_pixel_rate = 224000000,
 		.max_framerate = 100,	/* 10fps */
 	},
 	.custom3 = {	/* QVGA+ 320x240@10FPS */
-		.pclk = 360000000,
+		.pclk = 431600000,
 		.linelength = 1674,
-		.framelength = 21504,
+		.framelength = 25776,
 		.startx = 0,
 		.starty = 0,
 		.grabwindow_width = 320,
 		.grabwindow_height = 240,
 		.mipi_data_lp2hs_settle_dc = 85,
-		.mipi_pixel_rate = 175500000,
+		.mipi_pixel_rate = 213000000,
 		.max_framerate = 100,	/* 10fps */
 	},
 	.custom4 = {	/* VGA+ 640x480@5FPS */
-		.pclk = 216000000,
-		.linelength = 1872,
-		.framelength = 23072,
+		.pclk = 105300000,
+		.linelength = 936,
+		.framelength = 22496,
 		.startx = 0,
 		.starty = 0,
 		.grabwindow_width = 640,
@@ -231,9 +231,9 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.max_framerate = 50,	/* 5fps */
 	},
 	.custom5 = {	/* VGA+ 640x480@2FPS */
-		.pclk = 216000000,
-		.linelength = 1872,
-		.framelength = 57688,
+		.pclk = 105300000,
+		.linelength = 936,
+		.framelength = 56248,
 		.startx = 0,
 		.starty = 0,
 		.grabwindow_width = 640,
@@ -243,9 +243,9 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.max_framerate = 20,	/* 2fps */
 	},
 	.custom6 = {	/* VGA+ 480x320@5FPS */
-		.pclk = 166800000,
-		.linelength = 1872,
-		.framelength = 17816,
+		.pclk = 105300000,
+		.linelength = 936,
+		.framelength = 22496,
 		.startx = 0,
 		.starty = 0,
 		.grabwindow_width = 480,
@@ -255,9 +255,9 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.max_framerate = 50,	/* 5fps */
 	},
 	.custom7 = {	/* VGA+ 480x320@2FPS */
-		.pclk = 166800000,
-		.linelength = 1872,
-		.framelength = 44544,
+		.pclk = 105300000,
+		.linelength = 936,
+		.framelength = 56248,
 		.startx = 0,
 		.starty = 0,
 		.grabwindow_width = 480,
@@ -267,9 +267,9 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.max_framerate = 20,	/* 5fps */
 	},
 	.custom8 = {	/* QVGA+ 320x240@5FPS */
-		.pclk = 216000000,
-		.linelength = 3348,
-		.framelength = 12896,
+		.pclk = 210600000,
+		.linelength = 1674,
+		.framelength = 25160,
 		.startx = 0,
 		.starty = 0,
 		.grabwindow_width = 320,
@@ -279,9 +279,9 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.max_framerate = 50,	/* 5fps */
 	},
 	.custom9 = {	/* QVGA+ 320x240@2FPS */
-		.pclk = 216000000,
-		.linelength = 3348,
-		.framelength =  32256,
+		.pclk = 210600000,
+		.linelength = 1674,
+		.framelength = 62896,
 		.startx = 0,
 		.starty = 0,
 		.grabwindow_width = 320,
@@ -304,14 +304,14 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.max_framerate = 100,   /* 10fps */
 	},
 
-	.min_gain = BASEGAIN * 1,	/*1x gain*/
-	.max_gain = BASEGAIN * 32,	/*64x gain*/
+	.min_gain = BASEGAIN * 1,	/* 1x gain */
+	.max_gain = BASEGAIN * 32,	/* 32x gain */
 	.min_gain_iso = 100,
 	.margin = 24,	/* sensor framelength & shutter margin */
 	.min_shutter = 8,	/* min shutter */
 	.gain_step = 1,
 	.gain_type = 0,
-	.max_frame_length = 0xffff,
+	.max_frame_length = 0xFFFF,
 	.ae_shut_delay_frame = 0,
 	.ae_sensor_gain_delay_frame = 0,
 	.ae_ispGain_delay_frame = 2,	/* isp gain delay frame for AE cycle */
@@ -321,8 +321,8 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.sensor_mode_num = 15,	/* support sensor mode num */
 	.frame_time_delay_frame = 3,
 
-	.pre_delay_frame = 2,	/* 3 guanjd modify for c-t-s */
-	.cap_delay_frame = 2,	/* 3 guanjd modify for c-t-s */
+	.pre_delay_frame = 3,	/* 3 guanjd modify for c-t-s */
+	.cap_delay_frame = 3,	/* 3 guanjd modify for c-t-s */
 	.video_delay_frame = 3,
 	.hs_video_delay_frame = 3,
 	.slim_video_delay_frame = 3,
@@ -354,7 +354,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	.mipi_settle_delay_mode = 0,
 	// .sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_Gb,
 	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_B,
-	.mclk = 24,	/* mclk value, suggest 24 or 26 for 24Mhz or 26Mhz */
+	.mclk = 26,	/* mclk value, suggest 24 or 26 for 24Mhz or 26Mhz */
 	.mipi_lane_num = SENSOR_MIPI_4_LANE,
 	.i2c_addr_table = {0x20, 0xff},
 	/* record sensor support all write id addr,
@@ -365,16 +365,16 @@ static struct imgsensor_info_struct imgsensor_info = {
 
 /* Sensor output window information */
 static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[15] = {
-	{6560, 4928, 0, 0, 6560, 4928, 3280, 2464,
-	0, 0, 3280, 2464, 0, 0, 3280, 2464},	/* Preview reg_B2 */
-	{6560, 4928, 0, 0, 6560, 4928, 3280, 2464,
-	0, 0, 3280, 2464, 0, 0, 3280, 2464},	/* capture reg_B2 */
-	{6560, 4928, 0, 608, 6560, 3712, 3280, 1856,
-	0, 0, 3280, 1856, 0, 0, 3280, 1856},	/* normal video reg_I2 */
-	{6560, 4928, 0, 608, 6560, 3712, 3280, 1856,
-	0, 0, 3280, 1856, 0, 0, 3280, 1856},	/* hs_video reg_C1-2 */
-	{6560, 4928, 0, 608, 6560, 3712, 3280, 1856,
-	0, 0, 3280, 1856, 0, 0, 3280, 1856},	/* slim video reg_C1-2 */
+	{6560, 4928, 0, 16, 6560, 4896, 6560, 2448,
+	8, 0, 6544, 2448, 1640, 0, 3264, 2448},	/* Preview reg_B3_1 */
+	{6560, 4928, 0, 16, 6560, 4896, 6560, 2448,
+	8, 0, 6544, 2448, 1640, 0, 3264, 2448},	/* capture reg_B3_1 */
+	{6560, 4928, 0, 608, 6560, 3712, 6560, 1856,
+	8, 0, 6544, 1856, 1640, 0, 3264, 1856},	/* normal video reg_C5 */
+	{6560, 4928, 0, 608, 6560, 3712, 6560, 1856,
+	8, 0, 6544, 1856, 1640, 0, 3264, 1856},	/* hs_video reg_G-2 */
+	{6560, 4928, 0, 608, 6560, 3712, 6560, 1856,
+	8, 0, 6544, 1856, 1640, 0, 3264, 1856},	/* slim video reg_G-2 */
 #ifdef AOV_MODE_SENSING
 	{6560, 4928, 0, 544, 6560, 3840, 820, 480,
 	90, 0, 640, 480, 0, 0, 640, 480},	/* custom1  VGA+ */
@@ -404,35 +404,35 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[15] = {
 	{
 		0x01, 0x0a, 0x00, 0x08, 0x40, 0x00,	// preivew
 		{
-			{VC_STAGGER_NE, 0x00, 0x2b, 3280, 2464},
+			{VC_STAGGER_NE, 0x00, 0x2b, 3264, 2448},
 		},
 		1
 	},
 	{
 		0x01, 0x0a, 0x00, 0x08, 0x40, 0x00,	// capture
 		{
-			{VC_STAGGER_NE, 0x00, 0x2b, 3280, 2464},
+			{VC_STAGGER_NE, 0x00, 0x2b, 3264, 2448},
 		},
 		1
 	},
 	{
-		0x02, 0x0a, 0x00, 0x08, 0x40, 0x00,	// normal video
+		0x01, 0x0a, 0x00, 0x08, 0x40, 0x00,	// normal video
 		{
-			{VC_STAGGER_NE, 0x00, 0x2b, 3280, 1856},
+			{VC_STAGGER_NE, 0x00, 0x2b, 3264, 1856},
 		},
 		1
 	},
 	{
 		0x01, 0x0a, 0x00, 0x08, 0x40, 0x00,	// hs_video
 		{
-			{VC_STAGGER_NE, 0x00, 0x2b, 3280, 1856},
+			{VC_STAGGER_NE, 0x00, 0x2b, 3264, 1856},
 		},
 		1
 	},
 	{
 		0x01, 0x0a, 0x00, 0x08, 0x40, 0x00,	// slim video
 		{
-			{VC_STAGGER_NE, 0x00, 0x2b, 3280, 1856},
+			{VC_STAGGER_NE, 0x00, 0x2b, 3264, 1856},
 		},
 		1
 	},
@@ -440,63 +440,63 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[15] = {
 	{
 		0x01, 0x0a, 0x00, 0x08, 0x40, 0x00,	// custom1
 		{
-			{VC_STAGGER_NE, 0x00, 0x2b, 640, 480},
+			{VC_STAGGER_NE, 0x00, 0x2a, 640, 480},
 		},
 		1
 	},
 	{
 		0x01, 0x0a, 0x00, 0x08, 0x40, 0x00,	// custom2
 		{
-			{VC_STAGGER_NE, 0x00, 0x2b, 480, 320},
+			{VC_STAGGER_NE, 0x00, 0x2a, 480, 320},
 		},
 		1
 	},
 	{
 		0x01, 0x0a, 0x00, 0x08, 0x40, 0x00,	// custom3
 		{
-			{VC_STAGGER_NE, 0x00, 0x2b, 320, 240},
+			{VC_STAGGER_NE, 0x00, 0x2a, 320, 240},
 		},
 		1
 	},
 	{
 		0x01, 0x0a, 0x00, 0x08, 0x40, 0x00,	// custom4
 		{
-			{VC_STAGGER_NE, 0x00, 0x2b, 640, 480},
+			{VC_STAGGER_NE, 0x00, 0x2a, 640, 480},
 		},
 		1
 	},
 	{
 		0x01, 0x0a, 0x00, 0x08, 0x40, 0x00,	// custom5
 		{
-			{VC_STAGGER_NE, 0x00, 0x2b, 640, 480},
+			{VC_STAGGER_NE, 0x00, 0x2a, 640, 480},
 		},
 		1
 	},
 	{
 		0x01, 0x0a, 0x00, 0x08, 0x40, 0x00,	// custom6
 		{
-			{VC_STAGGER_NE, 0x00, 0x2b, 480, 320},
+			{VC_STAGGER_NE, 0x00, 0x2a, 480, 320},
 		},
 		1
 	},
 	{
 		0x01, 0x0a, 0x00, 0x08, 0x40, 0x00,	// custom7
 		{
-			{VC_STAGGER_NE, 0x00, 0x2b, 480, 320},
+			{VC_STAGGER_NE, 0x00, 0x2a, 480, 320},
 		},
 		1
 	},
 	{
 		0x01, 0x0a, 0x00, 0x08, 0x40, 0x00,	// custom8
 		{
-			{VC_STAGGER_NE, 0x00, 0x2b, 320, 240},
+			{VC_STAGGER_NE, 0x00, 0x2a, 320, 240},
 		},
 		1
 	},
 	{
 		0x01, 0x0a, 0x00, 0x08, 0x40, 0x00,	// custom9
 		{
-			{VC_STAGGER_NE, 0x00, 0x2b, 320, 240},
+			{VC_STAGGER_NE, 0x00, 0x2a, 320, 240},
 		},
 		1
 	},
@@ -512,11 +512,11 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[15] = {
 
 //mode 0,  1,  2,   3,  4,  5,  6,  7,   8,   9,  10, 11,  12,  13,  14, 15, 16, 17, 18, 19, 20
 static MUINT32 fine_integ_line_table[SENSOR_SCENARIO_ID_MAX] = {
-	3700,	//mode 0
-	3700,	//mode 1
-	3700,	//mode 2
-	3700,	//mode 3
-	3700,	//mode 4
+	826,	//mode 0
+	826,	//mode 1
+	826,	//mode 2
+	826,	//mode 3
+	826,	//mode 4
 	0,	//mode 5
 	0,	//mode 6
 	0,	//mode 7
@@ -526,7 +526,7 @@ static MUINT32 fine_integ_line_table[SENSOR_SCENARIO_ID_MAX] = {
 	0,	//mode 11
 	0,	//mode 12
 	0,	//mode 13
-	3700,	//mode 14
+	826,	//mode 14
 	0,	//mode 15
 	0,	//mode 16
 	0,	//mode 17
@@ -1354,7 +1354,7 @@ static int pwr_seq_common_enable_for_mode_transition(struct adaptor_ctx *ctx)
 		return ret;
 	}
 	LOG_INF("enable mclk(correct)\n");
-	ret = clk_set_parent(ctx->clk[CLK1_MCLK1], ctx->clk[CLK1_24M]);
+	ret = clk_set_parent(ctx->clk[CLK1_MCLK1], ctx->clk[CLK1_26M]);
 	if (ret) {
 		LOG_INF("enable mclk's parent(fail),ret(%d)\n", ret);
 		return ret;
@@ -1579,7 +1579,8 @@ static int pwr_seq_reset_sens_to_viewing(struct subdrv_ctx *ctx)
 		return ret;
 	}
 	DEBUG_LOG(ctx, "pwr_seq_common_enable_for_mode_transition(correct)\n");
-
+#endif
+	/* switch hw stand-by to viewing mode sw stand-by */
 	// ponv = 1
 	ret = pinctrl_select_state(_adaptor_ctx->pinctrl, _adaptor_ctx->state[STATE_PONV_HIGH]);
 	if (ret < 0) {
@@ -1600,7 +1601,7 @@ static int pwr_seq_reset_sens_to_viewing(struct subdrv_ctx *ctx)
 	}
 	DEBUG_LOG(ctx, "select(%s)(correct)\n", state_names[STATE_RST1_HIGH]);
 	mdelay(4);	// response time T7 in datasheet
-#endif
+
 	return ret;
 }
 
@@ -1663,8 +1664,14 @@ static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 
 		if (!ctx->sensor_debug_sensing_ut_on_scp) {
 			stream_refcnt_for_aov = 1;
-			// write_cmos_sensor_8(ctx, 0x32A0, 0x01);
-			write_cmos_sensor_8(ctx, 0x42B0, 0x00);
+			LOG_INF(
+				"on(correct),stream_refcnt_for_aov(%d)\n",
+				stream_refcnt_for_aov);
+			if (ctx->sensor_mode >= IMGSENSOR_MODE_CUSTOM1 &&
+				ctx->sensor_mode < IMGSENSOR_MODE_CUSTOM10) {
+				// write_cmos_sensor_8(ctx, 0x32A0, 0x01);
+				write_cmos_sensor_8(ctx, 0x42B0, 0x00);
+			}
 		}
 		write_cmos_sensor_8(ctx, 0x0100, 0X01);
 		LOG_INF("MODE_SEL(%08x)\n", read_cmos_sensor_8(ctx, 0x0100));
@@ -1751,36 +1758,136 @@ static void data_rate_global_timing_phy_ctrl(struct subdrv_ctx *ctx)
 
 	// global timing phy ctrl
 	switch (ctx->sensor_mode) {
-	case IMGSENSOR_MODE_CUSTOM1:
-	case IMGSENSOR_MODE_CUSTOM3:
+	case IMGSENSOR_MODE_PREVIEW:
+	case IMGSENSOR_MODE_CAPTURE:
 		write_cmos_sensor_8(ctx, 0x0808, 0x02);	// PHY_CTRL
 		if (!ctx->sensor_debug_dphy_global_timing_continuous_clk) {
 			write_cmos_sensor_8(ctx, 0x080A, 0x00);
-			write_cmos_sensor_8(ctx, 0x080B, 0xC6);
+			write_cmos_sensor_8(ctx, 0x080B, 0x9C);
+		} else {
+			write_cmos_sensor_8(ctx, 0x080A, 0x00);	// TCLK_POST_EX[9:8]
+			write_cmos_sensor_8(ctx, 0x080B, 0x8F);	// TCLK_POST_EX[7:0]
+		}
+		write_cmos_sensor_8(ctx, 0x080C, 0x00);	// THS_PREPARE_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x080D, 0x4F);	// THS_PREPARE_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x080E, 0x00);	// THS_ZERO_MIN_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x080F, 0x7F);	// THS_ZERO_MIN_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0810, 0x00);	// THS_TRAIL_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0811, 0x47);	// THS_TRAIL_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0812, 0x00);	// TCLK_TRAIL_MIN_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0813, 0x47);	// TCLK_TRAIL_MIN_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0814, 0x00);	// TCLK_PREPARE_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0815, 0x4F);	// TCLK_PREPARE_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0816, 0x01);	// TCLK_ZERO_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0817, 0x1F);	// TCLK_ZERO_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0818, 0x00);	// TLPX_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0819, 0x3F);	// TLPX_EX[7:0]
+		if (!ctx->sensor_debug_dphy_global_timing_continuous_clk) {
+			write_cmos_sensor_8(ctx, 0x0824, 0x00);	// THS_EXIT_EX[9:8]
+			write_cmos_sensor_8(ctx, 0x0825, 0x7F);	// THS_EXIT_EX[7:0]
+		} else {
+			write_cmos_sensor_8(ctx, 0x0824, 0x00);
+			write_cmos_sensor_8(ctx, 0x0825, 0xE6);
+		}
+		write_cmos_sensor_8(ctx, 0x0826, 0x00);	// TCLK_PRE_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0827, 0x0F);	// TCLK_PRE_EX[7:0]
+		break;
+	case IMGSENSOR_MODE_VIDEO:
+		write_cmos_sensor_8(ctx, 0x0808, 0x02);	// PHY_CTRL
+		if (!ctx->sensor_debug_dphy_global_timing_continuous_clk) {
+			write_cmos_sensor_8(ctx, 0x080A, 0x00);
+			write_cmos_sensor_8(ctx, 0x080B, 0x99);
+		} else {
+			write_cmos_sensor_8(ctx, 0x080A, 0x00);	// TCLK_POST_EX[9:8]
+			write_cmos_sensor_8(ctx, 0x080B, 0x8F);	// TCLK_POST_EX[7:0]
+		}
+		write_cmos_sensor_8(ctx, 0x080C, 0x00);	// THS_PREPARE_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x080D, 0x4F);	// THS_PREPARE_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x080E, 0x00);	// THS_ZERO_MIN_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x080F, 0x8F);	// THS_ZERO_MIN_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0810, 0x00);	// THS_TRAIL_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0811, 0x4F);	// THS_TRAIL_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0812, 0x00);	// TCLK_TRAIL_MIN_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0813, 0x47);	// TCLK_TRAIL_MIN_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0814, 0x00);	// TCLK_PREPARE_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0815, 0x4F);	// TCLK_PREPARE_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0816, 0x01);	// TCLK_ZERO_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0817, 0x2F);	// TCLK_ZERO_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0818, 0x00);	// TLPX_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0819, 0x3F);	// TLPX_EX[7:0]
+		if (!ctx->sensor_debug_dphy_global_timing_continuous_clk) {
+			write_cmos_sensor_8(ctx, 0x0824, 0x00);	// THS_EXIT_EX[9:8]
+			write_cmos_sensor_8(ctx, 0x0825, 0x7F);	// THS_EXIT_EX[7:0]
+		} else {
+			write_cmos_sensor_8(ctx, 0x0824, 0x00);
+			write_cmos_sensor_8(ctx, 0x0825, 0xE7);
+		}
+		write_cmos_sensor_8(ctx, 0x0826, 0x00);	// TCLK_PRE_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0827, 0x0F);	// TCLK_PRE_EX[7:0]
+		break;
+	case IMGSENSOR_MODE_HIGH_SPEED_VIDEO:
+	case IMGSENSOR_MODE_SLIM_VIDEO:
+		write_cmos_sensor_8(ctx, 0x0808, 0x02);	// PHY_CTRL
+		if (!ctx->sensor_debug_dphy_global_timing_continuous_clk) {
+			write_cmos_sensor_8(ctx, 0x080A, 0x00);
+			write_cmos_sensor_8(ctx, 0x080B, 0x9D);
+		} else {
+			write_cmos_sensor_8(ctx, 0x080A, 0x00);	// TCLK_POST_EX[9:8]
+			write_cmos_sensor_8(ctx, 0x080B, 0x8F);	// TCLK_POST_EX[7:0]
+		}
+		write_cmos_sensor_8(ctx, 0x080C, 0x00);	// THS_PREPARE_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x080D, 0x4F);	// THS_PREPARE_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x080E, 0x00);	// THS_ZERO_MIN_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x080F, 0x7F);	// THS_ZERO_MIN_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0810, 0x00);	// THS_TRAIL_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0811, 0x47);	// THS_TRAIL_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0812, 0x00);	// TCLK_TRAIL_MIN_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0813, 0x47);	// TCLK_TRAIL_MIN_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0814, 0x00);	// TCLK_PREPARE_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0815, 0x4F);	// TCLK_PREPARE_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0816, 0x01);	// TCLK_ZERO_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0817, 0x1F);	// TCLK_ZERO_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0818, 0x00);	// TLPX_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0819, 0x3F);	// TLPX_EX[7:0]
+		if (!ctx->sensor_debug_dphy_global_timing_continuous_clk) {
+			write_cmos_sensor_8(ctx, 0x0824, 0x00);	// THS_EXIT_EX[9:8]
+			write_cmos_sensor_8(ctx, 0x0825, 0x7F);	// THS_EXIT_EX[7:0]
+		} else {
+			write_cmos_sensor_8(ctx, 0x0824, 0x00);
+			write_cmos_sensor_8(ctx, 0x0825, 0xE6);
+		}
+		write_cmos_sensor_8(ctx, 0x0826, 0x00);	// TCLK_PRE_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0827, 0x0F);	// TCLK_PRE_EX[7:0]
+		break;
+	case IMGSENSOR_MODE_CUSTOM1:
+		write_cmos_sensor_8(ctx, 0x0808, 0x02);	// PHY_CTRL
+		if (!ctx->sensor_debug_dphy_global_timing_continuous_clk) {
+			write_cmos_sensor_8(ctx, 0x080A, 0x00);
+			write_cmos_sensor_8(ctx, 0x080B, 0xC3);
 		} else {
 			write_cmos_sensor_8(ctx, 0x080A, 0x00);	// TCLK_POST_EX[9:8]
 			write_cmos_sensor_8(ctx, 0x080B, 0x5F);	// TCLK_POST_EX[7:0]
 		}
 		write_cmos_sensor_8(ctx, 0x080C, 0x00);	// THS_PREPARE_EX[9:8]
-		write_cmos_sensor_8(ctx, 0x080D, 0x27);	// THS_PREPARE_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x080D, 0x1F);	// THS_PREPARE_EX[7:0]
 		write_cmos_sensor_8(ctx, 0x080E, 0x00);	// THS_ZERO_MIN_EX[9:8]
 		write_cmos_sensor_8(ctx, 0x080F, 0x3F);	// THS_ZERO_MIN_EX[7:0]
 		write_cmos_sensor_8(ctx, 0x0810, 0x00);	// THS_TRAIL_EX[9:8]
-		write_cmos_sensor_8(ctx, 0x0811, 0x27);	// THS_TRAIL_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0811, 0x1F);	// THS_TRAIL_EX[7:0]
 		write_cmos_sensor_8(ctx, 0x0812, 0x00);	// TCLK_TRAIL_MIN_EX[9:8]
 		write_cmos_sensor_8(ctx, 0x0813, 0x1F);	// TCLK_TRAIL_MIN_EX[7:0]
 		write_cmos_sensor_8(ctx, 0x0814, 0x00);	// TCLK_PREPARE_EX[9:8]
 		write_cmos_sensor_8(ctx, 0x0815, 0x1F);	// TCLK_PREPARE_EX[7:0]
 		write_cmos_sensor_8(ctx, 0x0816, 0x00);	// TCLK_ZERO_EX[9:8]
-		write_cmos_sensor_8(ctx, 0x0817, 0x8F);	// TCLK_ZERO_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0817, 0x7F);	// TCLK_ZERO_EX[7:0]
 		write_cmos_sensor_8(ctx, 0x0818, 0x00);	// TLPX_EX[9:8]
 		write_cmos_sensor_8(ctx, 0x0819, 0x1F);	// TLPX_EX[7:0]
 		if (!ctx->sensor_debug_dphy_global_timing_continuous_clk) {
 			write_cmos_sensor_8(ctx, 0x0824, 0x00);	// THS_EXIT_EX[9:8]
-			write_cmos_sensor_8(ctx, 0x0825, 0x3F);	// THS_EXIT_EX[7:0]
+			write_cmos_sensor_8(ctx, 0x0825, 0x2F);	// THS_EXIT_EX[7:0]
 		} else {
 			write_cmos_sensor_8(ctx, 0x0824, 0x00);
-			write_cmos_sensor_8(ctx, 0x0825, 0xDF);
+			write_cmos_sensor_8(ctx, 0x0825, 0xE0);
 		}
 		write_cmos_sensor_8(ctx, 0x0826, 0x00);	// TCLK_PRE_EX[9:8]
 		write_cmos_sensor_8(ctx, 0x0827, 0x0F);	// TCLK_PRE_EX[7:0]
@@ -1811,6 +1918,39 @@ static void data_rate_global_timing_phy_ctrl(struct subdrv_ctx *ctx)
 		if (!ctx->sensor_debug_dphy_global_timing_continuous_clk) {
 			write_cmos_sensor_8(ctx, 0x0824, 0x00);	// THS_EXIT_EX[9:8]
 			write_cmos_sensor_8(ctx, 0x0825, 0x3F);	// THS_EXIT_EX[7:0]
+		} else {
+			write_cmos_sensor_8(ctx, 0x0824, 0x00);
+			write_cmos_sensor_8(ctx, 0x0825, 0xE0);
+		}
+		write_cmos_sensor_8(ctx, 0x0826, 0x00);	// TCLK_PRE_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0827, 0x0F);	// TCLK_PRE_EX[7:0]
+		break;
+	case IMGSENSOR_MODE_CUSTOM3:
+		write_cmos_sensor_8(ctx, 0x0808, 0x02);	// PHY_CTRL
+		if (!ctx->sensor_debug_dphy_global_timing_continuous_clk) {
+			write_cmos_sensor_8(ctx, 0x080A, 0x00);
+			write_cmos_sensor_8(ctx, 0x080B, 0xC2);
+		} else {
+			write_cmos_sensor_8(ctx, 0x080A, 0x00);	// TCLK_POST_EX[9:8]
+			write_cmos_sensor_8(ctx, 0x080B, 0x5F);	// TCLK_POST_EX[7:0]
+		}
+		write_cmos_sensor_8(ctx, 0x080C, 0x00);	// THS_PREPARE_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x080D, 0x1F);	// THS_PREPARE_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x080E, 0x00);	// THS_ZERO_MIN_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x080F, 0x3F);	// THS_ZERO_MIN_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0810, 0x00);	// THS_TRAIL_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0811, 0x1F);	// THS_TRAIL_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0812, 0x00);	// TCLK_TRAIL_MIN_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0813, 0x1F);	// TCLK_TRAIL_MIN_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0814, 0x00);	// TCLK_PREPARE_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0815, 0x1F);	// TCLK_PREPARE_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0816, 0x00);	// TCLK_ZERO_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0817, 0x7F);	// TCLK_ZERO_EX[7:0]
+		write_cmos_sensor_8(ctx, 0x0818, 0x00);	// TLPX_EX[9:8]
+		write_cmos_sensor_8(ctx, 0x0819, 0x1F);	// TLPX_EX[7:0]
+		if (!ctx->sensor_debug_dphy_global_timing_continuous_clk) {
+			write_cmos_sensor_8(ctx, 0x0824, 0x00);	// THS_EXIT_EX[9:8]
+			write_cmos_sensor_8(ctx, 0x0825, 0x2F);	// THS_EXIT_EX[7:0]
 		} else {
 			write_cmos_sensor_8(ctx, 0x0824, 0x00);
 			write_cmos_sensor_8(ctx, 0x0825, 0xE0);
@@ -1869,46 +2009,59 @@ static void preview_setting(struct subdrv_ctx *ctx)
 {
 	imx709_table_write_cmos_sensor(ctx, imx709_preview_setting,
 		sizeof(imx709_preview_setting)/sizeof(kal_uint16));
+
+	data_rate_global_timing_phy_ctrl(ctx);
+
 	set_mirror_flip(ctx, ctx->mirror);
 	LOG_INF("X! pre setting!\n");
 }	/* preview_setting */
 
-/* full size 30fps */
 static void capture_setting(struct subdrv_ctx *ctx)
 {
 	imx709_table_write_cmos_sensor(ctx, imx709_capture_setting,
 		sizeof(imx709_capture_setting)/sizeof(kal_uint16));
+
+	data_rate_global_timing_phy_ctrl(ctx);
+
 	set_mirror_flip(ctx, ctx->mirror);
 	LOG_INF("X! cap setting!\n");
-}
+}	/* capture_setting */
 
 static void normal_video_setting(struct subdrv_ctx *ctx)
 {
 	imx709_table_write_cmos_sensor(ctx, imx709_normal_video_setting,
 		sizeof(imx709_normal_video_setting)/sizeof(kal_uint16));
+
+	data_rate_global_timing_phy_ctrl(ctx);
+
 	set_mirror_flip(ctx, ctx->mirror);
 	LOG_INF("X! normal video setting!\n");
-}
+}	/* normal_video_setting */
 
 static void hs_video_setting(struct subdrv_ctx *ctx)
 {
 	imx709_table_write_cmos_sensor(ctx, imx709_hs_video_setting,
 		sizeof(imx709_hs_video_setting)/sizeof(kal_uint16));
+
+	data_rate_global_timing_phy_ctrl(ctx);
+
 	set_mirror_flip(ctx, ctx->mirror);
 	LOG_INF("X! hs video setting!\n");
-}
+}	/* hs_video_setting */
 
 static void slim_video_setting(struct subdrv_ctx *ctx)
 {
 	imx709_table_write_cmos_sensor(ctx, imx709_slim_video_setting,
 		sizeof(imx709_slim_video_setting)/sizeof(kal_uint16));
+
+	data_rate_global_timing_phy_ctrl(ctx);
+
 	set_mirror_flip(ctx, ctx->mirror);
 	LOG_INF("X! slim video setting!\n");
-}
+}	/* slim_video_setting */
 
 static void custom1_setting(struct subdrv_ctx *ctx)
 {
-	/*************MIPI output setting************/
 	imx709_table_write_cmos_sensor(ctx, imx709_custom1_setting,
 		sizeof(imx709_custom1_setting)/sizeof(kal_uint16));
 
@@ -1916,11 +2069,10 @@ static void custom1_setting(struct subdrv_ctx *ctx)
 
 	set_mirror_flip(ctx, ctx->mirror);
 	LOG_INF("X! custom1 setting!\n");
-}
+}	/* custom1_setting */
 
 static void custom2_setting(struct subdrv_ctx *ctx)
 {
-	/*************MIPI output setting************/
 	imx709_table_write_cmos_sensor(ctx, imx709_custom2_setting,
 		sizeof(imx709_custom2_setting)/sizeof(kal_uint16));
 
@@ -1928,11 +2080,10 @@ static void custom2_setting(struct subdrv_ctx *ctx)
 
 	set_mirror_flip(ctx, ctx->mirror);
 	LOG_INF("X! custom2 setting!\n");
-}
+}	/* custom2_setting */
 
 static void custom3_setting(struct subdrv_ctx *ctx)
 {
-	/*************MIPI output setting************/
 	imx709_table_write_cmos_sensor(ctx, imx709_custom3_setting,
 		sizeof(imx709_custom3_setting)/sizeof(kal_uint16));
 
@@ -1940,11 +2091,10 @@ static void custom3_setting(struct subdrv_ctx *ctx)
 
 	set_mirror_flip(ctx, ctx->mirror);
 	LOG_INF("X! custom3 setting!\n");
-}
+}	/* custom3_setting */
 
 static void custom4_setting(struct subdrv_ctx *ctx)
 {
-	/*************MIPI output setting************/
 	imx709_table_write_cmos_sensor(ctx, imx709_custom4_setting,
 		sizeof(imx709_custom4_setting)/sizeof(kal_uint16));
 
@@ -1952,11 +2102,10 @@ static void custom4_setting(struct subdrv_ctx *ctx)
 
 	set_mirror_flip(ctx, ctx->mirror);
 	LOG_INF("X! custom4 setting!\n");
-}
+}	/* custom4_setting */
 
 static void custom5_setting(struct subdrv_ctx *ctx)
 {
-	/*************MIPI output setting************/
 	imx709_table_write_cmos_sensor(ctx, imx709_custom5_setting,
 		sizeof(imx709_custom5_setting)/sizeof(kal_uint16));
 
@@ -1964,11 +2113,10 @@ static void custom5_setting(struct subdrv_ctx *ctx)
 
 	set_mirror_flip(ctx, ctx->mirror);
 	LOG_INF("X! custom5 setting!\n");
-}
+}	/* custom5_setting */
 
 static void custom6_setting(struct subdrv_ctx *ctx)
 {
-	/*************MIPI output setting************/
 	imx709_table_write_cmos_sensor(ctx, imx709_custom6_setting,
 		sizeof(imx709_custom6_setting)/sizeof(kal_uint16));
 
@@ -1976,11 +2124,10 @@ static void custom6_setting(struct subdrv_ctx *ctx)
 
 	set_mirror_flip(ctx, ctx->mirror);
 	LOG_INF("X! custom6 setting!\n");
-}
+}	/* custom6_setting */
 
 static void custom7_setting(struct subdrv_ctx *ctx)
 {
-	/*************MIPI output setting************/
 	imx709_table_write_cmos_sensor(ctx, imx709_custom7_setting,
 		sizeof(imx709_custom7_setting)/sizeof(kal_uint16));
 
@@ -1988,11 +2135,10 @@ static void custom7_setting(struct subdrv_ctx *ctx)
 
 	set_mirror_flip(ctx, ctx->mirror);
 	LOG_INF("X! custom7 setting!\n");
-}
+}	/* custom7_setting */
 
 static void custom8_setting(struct subdrv_ctx *ctx)
 {
-	/*************MIPI output setting************/
 	imx709_table_write_cmos_sensor(ctx, imx709_custom8_setting,
 		sizeof(imx709_custom8_setting)/sizeof(kal_uint16));
 
@@ -2000,11 +2146,10 @@ static void custom8_setting(struct subdrv_ctx *ctx)
 
 	set_mirror_flip(ctx, ctx->mirror);
 	LOG_INF("X! custom8 setting!\n");
-}
+}	/* custom8_setting */
 
 static void custom9_setting(struct subdrv_ctx *ctx)
 {
-	/*************MIPI output setting************/
 	imx709_table_write_cmos_sensor(ctx, imx709_custom9_setting,
 		sizeof(imx709_custom9_setting)/sizeof(kal_uint16));
 
@@ -2012,10 +2157,10 @@ static void custom9_setting(struct subdrv_ctx *ctx)
 
 	set_mirror_flip(ctx, ctx->mirror);
 	LOG_INF("X! custom9 setting!\n");
-}
+}	/* custom9_setting */
+
 static void custom10_setting(struct subdrv_ctx *ctx)
 {
-	/*************MIPI output setting************/
 	imx709_table_write_cmos_sensor(ctx, imx709_custom10_setting,
 		sizeof(imx709_custom10_setting)/sizeof(kal_uint16));
 
@@ -2023,7 +2168,7 @@ static void custom10_setting(struct subdrv_ctx *ctx)
 
 	set_mirror_flip(ctx, ctx->mirror);
 	LOG_INF("X! custom10 setting!\n");
-}
+}	/* custom10_setting */
 
 static void motion_detection1_setting(struct subdrv_ctx *ctx)
 {
@@ -2031,7 +2176,7 @@ static void motion_detection1_setting(struct subdrv_ctx *ctx)
 		sizeof(imx709_md1_setting)/sizeof(kal_uint16));
 
 	LOG_INF("X! motion detection1 setting!\n");
-}
+}	/* motion_detection1_setting */
 
 static void motion_detection2_setting(struct subdrv_ctx *ctx)
 {
@@ -2039,7 +2184,7 @@ static void motion_detection2_setting(struct subdrv_ctx *ctx)
 		sizeof(imx709_md2_setting)/sizeof(kal_uint16));
 
 	LOG_INF("X! motion detection2 setting!\n");
-}
+}	/* motion_detection2_setting */
 
 static void motion_detection3_setting(struct subdrv_ctx *ctx)
 {
@@ -2047,7 +2192,7 @@ static void motion_detection3_setting(struct subdrv_ctx *ctx)
 		sizeof(imx709_md3_setting)/sizeof(kal_uint16));
 
 	LOG_INF("X! motion detection3 setting!\n");
-}
+}	/* motion_detection3_setting */
 
 static void hdr_write_tri_shutter_w_gph(struct subdrv_ctx *ctx,
 		kal_uint32 le, kal_uint32 me, kal_uint32 se, kal_bool gph)
@@ -2213,52 +2358,6 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 	ctx->extend_frame_length_en = KAL_FALSE;
 
 	switch (scenario_id) {
-	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
-	{
-		unsigned short imx709_seamless_normal_video[] = {
-			0x0342, 0x1C,
-			0x0343, 0xE8,
-			0x0340, 0x0F,
-			0x0341, 0x18,
-			0x3A00, 0x59,
-			0x3A01, 0x48,
-			0x3A97, 0x34,
-			0x3A9B, 0x34,
-			0x3AA1, 0x8B,
-			0x3AA5, 0x8B,
-			0x3AC8, 0x03,
-			0x3AC9, 0x0C,
-			0x3ACA, 0x03,
-			0x3ACB, 0x0C,
-			0x0202, 0x0F,
-			0x0203, 0x00,
-			0x0224, 0x01,
-			0x0225, 0xF4,
-			0x3170, 0x00,
-		};
-
-		ctx->sensor_mode = scenario_id;
-		ctx->autoflicker_en = KAL_FALSE;
-		ctx->pclk = imgsensor_info.normal_video.pclk;
-		ctx->line_length = imgsensor_info.normal_video.linelength;
-		ctx->frame_length = imgsensor_info.normal_video.framelength;
-		ctx->min_frame_length = imgsensor_info.normal_video.framelength;
-		ctx->readout_length = imgsensor_info.normal_video.readout_length;
-		ctx->read_margin = imgsensor_info.normal_video.read_margin;
-
-		FMC_GPH_START;
-		imx709_table_write_cmos_sensor(ctx, imx709_seamless_normal_video,
-				sizeof(imx709_seamless_normal_video) / sizeof(kal_uint16));
-		if (ae_ctrl) {
-			DEBUG_LOG(ctx,
-				"call SENSOR_SCENARIO_ID_NORMAL_VIDEO (%u) (%u)",
-				ae_ctrl[0], ae_ctrl[5]);
-			set_shutter_w_gph(ctx, ae_ctrl[0], KAL_FALSE);
-			set_gain_w_gph(ctx, ae_ctrl[5], KAL_FALSE);
-		}
-		FMC_GPH_END;
-	}
-		break;
 	default:
 	{
 		LOG_INF(
@@ -2269,7 +2368,7 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 		break;
 	}
 
-	set_cmos_sensor_8(ctx, 0x3010, 0x00);
+	// set_cmos_sensor_8(ctx, 0x3010, 0x00);
 	DEBUG_LOG(ctx,
 		"success, scenario is switched to (%u)",
 		scenario_id);
@@ -2296,7 +2395,7 @@ static int get_imgsensor_id(struct subdrv_ctx *ctx, UINT32 *sensor_id)
 {
 	kal_uint8 i = 0;
 	kal_uint8 retry = 2;
-	/* sensor have two i2c address 0x34 & 0x20,
+	/* sensor may have two i2c address 0x34 or 0x20,
 	 * we should detect the module used i2c address
 	 */
 	DEBUG_LOG(ctx, "for imx709 id\n");
@@ -2391,7 +2490,7 @@ static int open(struct subdrv_ctx *ctx)
 	ctx->autoflicker_en = KAL_FALSE;
 	ctx->sensor_mode = IMGSENSOR_MODE_INIT;
 	ctx->shutter = 0x3D0;
-	ctx->gain = 0x100;
+	ctx->gain = BASEGAIN * 4;
 	ctx->pclk = imgsensor_info.pre.pclk;
 	ctx->frame_length = imgsensor_info.pre.framelength;
 	ctx->line_length = imgsensor_info.pre.linelength;
@@ -2571,10 +2670,12 @@ static kal_uint32 custom1(struct subdrv_ctx *ctx,
 	struct adaptor_ctx *_adaptor_ctx = NULL;
 	int ret = 0;
 
-	DEBUG_LOG(ctx, "E!\n");
-
-	imgsensor_info.sd = i2c_get_clientdata(ctx->i2c_client);
-	_adaptor_ctx = to_ctx(imgsensor_info.sd);
+	if (ctx->i2c_client)
+		imgsensor_info.sd = i2c_get_clientdata(ctx->i2c_client);
+	if (imgsensor_info.sd)
+		_adaptor_ctx = to_ctx(imgsensor_info.sd);
+	if (!_adaptor_ctx)
+		return -ENODEV;
 
 	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM1;
 	ctx->pclk = imgsensor_info.custom1.pclk;
@@ -2605,7 +2706,7 @@ static kal_uint32 custom1(struct subdrv_ctx *ctx,
 	}
 
 	return ERROR_NONE;
-}
+}	/* custom1 */
 
 static kal_uint32 custom2(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
@@ -2614,10 +2715,12 @@ static kal_uint32 custom2(struct subdrv_ctx *ctx,
 	struct adaptor_ctx *_adaptor_ctx = NULL;
 	int ret = 0;
 
-	DEBUG_LOG(ctx, "E!\n");
-
-	imgsensor_info.sd = i2c_get_clientdata(ctx->i2c_client);
-	_adaptor_ctx = to_ctx(imgsensor_info.sd);
+	if (ctx->i2c_client)
+		imgsensor_info.sd = i2c_get_clientdata(ctx->i2c_client);
+	if (imgsensor_info.sd)
+		_adaptor_ctx = to_ctx(imgsensor_info.sd);
+	if (!_adaptor_ctx)
+		return -ENODEV;
 
 	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM2;
 	ctx->pclk = imgsensor_info.custom2.pclk;
@@ -2649,7 +2752,7 @@ static kal_uint32 custom2(struct subdrv_ctx *ctx,
 	}
 
 	return ERROR_NONE;
-}
+}	/* custom2 */
 
 static kal_uint32 custom3(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
@@ -2658,10 +2761,12 @@ static kal_uint32 custom3(struct subdrv_ctx *ctx,
 	struct adaptor_ctx *_adaptor_ctx = NULL;
 	int ret = 0;
 
-	DEBUG_LOG(ctx, "E!\n");
-
-	imgsensor_info.sd = i2c_get_clientdata(ctx->i2c_client);
-	_adaptor_ctx = to_ctx(imgsensor_info.sd);
+	if (ctx->i2c_client)
+		imgsensor_info.sd = i2c_get_clientdata(ctx->i2c_client);
+	if (imgsensor_info.sd)
+		_adaptor_ctx = to_ctx(imgsensor_info.sd);
+	if (!_adaptor_ctx)
+		return -ENODEV;
 
 	ctx->sensor_mode = IMGSENSOR_MODE_CUSTOM3;
 	ctx->pclk = imgsensor_info.custom3.pclk;
@@ -2693,7 +2798,7 @@ static kal_uint32 custom3(struct subdrv_ctx *ctx,
 	}
 
 	return ERROR_NONE;
-}
+}	/* custom3 */
 
 static kal_uint32 custom4(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
@@ -2711,7 +2816,7 @@ static kal_uint32 custom4(struct subdrv_ctx *ctx,
 	custom4_setting(ctx);	/* custom4 */
 
 	return ERROR_NONE;
-}
+}	/* custom4 */
 
 static kal_uint32 custom5(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
@@ -2729,7 +2834,7 @@ static kal_uint32 custom5(struct subdrv_ctx *ctx,
 	custom5_setting(ctx);	/* custom5 */
 
 	return ERROR_NONE;
-}
+}	/* custom5 */
 
 static kal_uint32 custom6(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
@@ -2747,7 +2852,7 @@ static kal_uint32 custom6(struct subdrv_ctx *ctx,
 	custom6_setting(ctx);	/* custom6 */
 
 	return ERROR_NONE;
-}
+}	/* custom6 */
 
 static kal_uint32 custom7(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
@@ -2765,7 +2870,7 @@ static kal_uint32 custom7(struct subdrv_ctx *ctx,
 	custom7_setting(ctx);	/* custom7 */
 
 	return ERROR_NONE;
-}
+}	/* custom7 */
 
 static kal_uint32 custom8(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
@@ -2783,7 +2888,7 @@ static kal_uint32 custom8(struct subdrv_ctx *ctx,
 	custom8_setting(ctx);	/* custom8 */
 
 	return ERROR_NONE;
-}
+}	/* custom8 */
 
 static kal_uint32 custom9(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
@@ -2801,7 +2906,7 @@ static kal_uint32 custom9(struct subdrv_ctx *ctx,
 	custom9_setting(ctx);	/* custom9 */
 
 	return ERROR_NONE;
-}
+}	/* custom9 */
 
 static kal_uint32 custom10(struct subdrv_ctx *ctx,
 		MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
@@ -2823,7 +2928,7 @@ static kal_uint32 custom10(struct subdrv_ctx *ctx,
 	mdelay(8);
 
 	return ERROR_NONE;
-}
+}	/* custom10 */
 
 static int get_resolution(struct subdrv_ctx *ctx,
 	MSDK_SENSOR_RESOLUTION_INFO_STRUCT *sensor_resolution)
@@ -4326,8 +4431,8 @@ static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
-			.hsize = 3280,
-			.vsize = 2464,
+			.hsize = 3264,
+			.vsize = 2448,
 			.user_data_desc = VC_STAGGER_NE,
 		},
 	}
@@ -4337,7 +4442,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
-			.hsize = 3280,
+			.hsize = 3264,
 			.vsize = 1856,
 			.user_data_desc = VC_STAGGER_NE,
 		},
@@ -4456,7 +4561,7 @@ static const struct subdrv_ctx defctx = {
 	.is_hflip = 1,
 	.is_vflip = 1,
 	.margin = 24,	/* exp margin */
-	.max_frame_length = 0xffff,
+	.max_frame_length = 0xFFFF,
 
 	.mirror = IMAGE_HV_MIRROR,	/* mirror flip information */
 	.sensor_mode = IMGSENSOR_MODE_INIT,
@@ -4505,38 +4610,69 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	struct mtk_csi_param *csi_param)
 {
 	switch (scenario_id) {
+	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
+	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
+		csi_param->legacy_phy = 0;
+		csi_param->not_fixed_trail_settle = 1;
+		csi_param->not_fixed_dphy_settle = 1;
+		csi_param->dphy_data_settle = 0x13;
+		csi_param->dphy_clk_settle = 0x13;
+		csi_param->dphy_trail = 0x34;
+		csi_param->dphy_csi2_resync_dmy_cycle = 0xF;
+		break;
+	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
+		csi_param->legacy_phy = 0;
+		csi_param->not_fixed_trail_settle = 1;
+		csi_param->not_fixed_dphy_settle = 1;
+		csi_param->dphy_data_settle = 0x12;
+		csi_param->dphy_clk_settle = 0x12;
+		csi_param->dphy_trail = 0x31;
+		csi_param->dphy_csi2_resync_dmy_cycle = 0xF;
+		break;
+	case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
+	case SENSOR_SCENARIO_ID_SLIM_VIDEO:
+		csi_param->legacy_phy = 0;
+		csi_param->not_fixed_trail_settle = 1;
+		csi_param->not_fixed_dphy_settle = 1;
+		csi_param->dphy_data_settle = 0x13;
+		csi_param->dphy_clk_settle = 0x13;
+		csi_param->dphy_trail = 0x35;
+		csi_param->dphy_csi2_resync_dmy_cycle = 0xF;
+		break;
 	case SENSOR_SCENARIO_ID_CUSTOM1:
 		csi_param->legacy_phy = 0;
 		csi_param->not_fixed_trail_settle = 1;
+		csi_param->not_fixed_dphy_settle = 1;
 		switch (ctx->aov_csi_clk) {
 		case 242:
-			csi_param->dphy_data_settle = 0x11;
-			csi_param->dphy_clk_settle = 0x11;
-			csi_param->dphy_trail = 0x94;
-			csi_param->dphy_csi2_resync_dmy_cycle = 0x2C;
+			csi_param->dphy_data_settle = 0x13;
+			csi_param->dphy_clk_settle = 0x13;
+			csi_param->dphy_trail = 0x82;
+			csi_param->dphy_csi2_resync_dmy_cycle = 0x26;
 			break;
 		case 130:
-			csi_param->dphy_data_settle = 0x9;
-			csi_param->dphy_clk_settle = 0x9;
-			csi_param->dphy_trail = 0x50;
-			csi_param->dphy_csi2_resync_dmy_cycle = 0x18;
+			csi_param->dphy_data_settle = 0xB;
+			csi_param->dphy_clk_settle = 0xB;
+			csi_param->dphy_trail = 0x46;
+			csi_param->dphy_csi2_resync_dmy_cycle = 0x15;
 			break;
 		}
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM2:
 		csi_param->legacy_phy = 0;
 		csi_param->not_fixed_trail_settle = 1;
+		csi_param->not_fixed_dphy_settle = 1;
 		switch (ctx->aov_csi_clk) {
 		case 242:
 			csi_param->dphy_data_settle = 0x12;
 			csi_param->dphy_clk_settle = 0x12;
-			csi_param->dphy_trail = 0x76;
-			csi_param->dphy_csi2_resync_dmy_cycle = 0x24;
+			csi_param->dphy_trail = 0x75;
+			csi_param->dphy_csi2_resync_dmy_cycle = 0x23;
 			break;
 		case 130:
 			csi_param->dphy_data_settle = 0xA;
 			csi_param->dphy_clk_settle = 0xA;
-			csi_param->dphy_trail = 0x40;
+			csi_param->dphy_trail = 0x3F;
 			csi_param->dphy_csi2_resync_dmy_cycle = 0x13;
 			break;
 		}
@@ -4544,18 +4680,19 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	case SENSOR_SCENARIO_ID_CUSTOM3:
 		csi_param->legacy_phy = 0;
 		csi_param->not_fixed_trail_settle = 1;
+		csi_param->not_fixed_dphy_settle = 1;
 		switch (ctx->aov_csi_clk) {
 		case 242:
-			csi_param->dphy_data_settle = 0x11;
-			csi_param->dphy_clk_settle = 0x11;
-			csi_param->dphy_trail = 0x96;
-			csi_param->dphy_csi2_resync_dmy_cycle = 0x2D;
+			csi_param->dphy_data_settle = 0x13;
+			csi_param->dphy_clk_settle = 0x13;
+			csi_param->dphy_trail = 0x7F;
+			csi_param->dphy_csi2_resync_dmy_cycle = 0x25;
 			break;
 		case 130:
-			csi_param->dphy_data_settle = 0x9;
-			csi_param->dphy_clk_settle = 0x9;
-			csi_param->dphy_trail = 0x51;
-			csi_param->dphy_csi2_resync_dmy_cycle = 0x18;
+			csi_param->dphy_data_settle = 0xA;
+			csi_param->dphy_clk_settle = 0xA;
+			csi_param->dphy_trail = 0x44;
+			csi_param->dphy_csi2_resync_dmy_cycle = 0x14;
 			break;
 		}
 		break;
@@ -4568,6 +4705,7 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	case SENSOR_SCENARIO_ID_CUSTOM10:
 		csi_param->legacy_phy = 0;
 		csi_param->not_fixed_trail_settle = 1;
+		csi_param->not_fixed_dphy_settle = 1;
 		switch (ctx->aov_csi_clk) {
 		case 242:
 			csi_param->dphy_data_settle = 0x14;
@@ -4586,10 +4724,11 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	default:
 		csi_param->legacy_phy = 0;
 		csi_param->not_fixed_trail_settle = 0;
+		csi_param->not_fixed_dphy_settle = 0;
 		break;
 	}
 	DEBUG_LOG(ctx,
-		"[%s] aov_csi_clk[%u] %d|%d|%d|%d|%d|%d|%d\n",
+		"[%s] aov_csi_clk[%u] %d|%d|%d|%d|%d|%d|%d|%d\n",
 		__func__,
 		ctx->aov_csi_clk,
 		csi_param->cphy_settle,
@@ -4598,7 +4737,8 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 		csi_param->dphy_trail,
 		csi_param->not_fixed_trail_settle,
 		csi_param->legacy_phy,
-		csi_param->dphy_csi2_resync_dmy_cycle);
+		csi_param->dphy_csi2_resync_dmy_cycle,
+		csi_param->not_fixed_dphy_settle);
 	return 0;
 }
 
@@ -4621,7 +4761,7 @@ static struct subdrv_ops ops = {
 static struct subdrv_pw_seq_entry pw_seq[] = {
 	{HW_ID_SCL, 0, 0},	/* default i2c bus scl 4 on apmcu side */
 	{HW_ID_SDA, 0, 0},	/* default i2c bus sda 4 on apmcu side */
-	{HW_ID_MCLK1, 24, 0},
+	{HW_ID_MCLK1, 26, 0},
 	// {HW_ID_PDN, 0, 0},
 	{HW_ID_PONV, 0, 1},
 	{HW_ID_RST1, 0, 1},

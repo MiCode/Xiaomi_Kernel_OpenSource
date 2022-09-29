@@ -626,14 +626,16 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx)
 	ctrl->p_new.p = csi_param;
 
 	ret = get_ctrl(ctrl);
-	dev_info(ctx->dev, "%s get_ctrl ret:%d %d|%d|%d|%d|%d|%d|%d\n", __func__,
+	dev_info(ctx->dev, "%s get_ctrl ret:%d %d|%d|%d|%d|%d|%d|%d|%d\n",
+		__func__,
 		ret, csi_param->cphy_settle,
 		csi_param->dphy_clk_settle,
 		csi_param->dphy_data_settle,
 		csi_param->dphy_trail,
 		csi_param->not_fixed_trail_settle,
 		csi_param->legacy_phy,
-		csi_param->dphy_csi2_resync_dmy_cycle);
+		csi_param->dphy_csi2_resync_dmy_cycle,
+		csi_param->not_fixed_dphy_settle);
 
 #if AOV_GET_PARAM
 	if (!(core->aov_sensor_id < 0) &&
@@ -646,6 +648,7 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx)
 		g_aov_param.legacy_phy = csi_param->legacy_phy;
 		g_aov_param.not_fixed_trail_settle = csi_param->not_fixed_trail_settle;
 		g_aov_param.dphy_csi2_resync_dmy_cycle = csi_param->dphy_csi2_resync_dmy_cycle;
+		g_aov_param.not_fixed_dphy_settle = csi_param->not_fixed_dphy_settle;
 	}
 #endif
 
@@ -2086,6 +2089,9 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 		pr_debug(
 			"[%s] dphy_csi2_resync_dmy_cycle(%u)\n",
 			__func__, aov_seninf_param->dphy_csi2_resync_dmy_cycle);
+		pr_debug(
+			"[%s] not_fixed_dphy_settle(%u)\n",
+			__func__, aov_seninf_param->not_fixed_dphy_settle);
 		pr_debug(
 			"[%s] vc(%d)\n", __func__, aov_seninf_param->vc.vc);
 		pr_debug(
