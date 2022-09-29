@@ -144,7 +144,7 @@ int uarthub_core_clk_get_from_dts(struct platform_device *pdev);
 int uarthub_core_get_default_baud_rate(int dev_index);
 int uarthub_core_check_irq_err_type(void);
 int uarthub_core_irq_mask_ctrl(int mask);
-int uarthub_core_irq_clear_ctrl(void);
+int uarthub_core_irq_clear_ctrl(int err_type);
 
 int uarthub_core_crc_ctrl(int enable);
 int uarthub_core_clk_univpll_ctrl(int clk_on);
