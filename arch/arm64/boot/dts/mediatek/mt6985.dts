@@ -9604,6 +9604,7 @@
 		interconnects = <&mmqos SLAVE_LARB(38) &mmqos SLAVE_COMMON(0)>;
 		interconnect-names = "disp_hrt_qos";
 		pre-define-bw = <0xffffffff>, <4200>, <0>;
+		crtc-ovl-usage = <7>, <4>, <8>;
 
 		/* define threads, see mt6873-gce.h */
 		mediatek,mailbox-gce = <&gce>;
@@ -9789,7 +9790,8 @@
 			"MTK_DRM_OPT_VIRTUAL_DISP",
 			"MTK_DRM_OPT_OVL_BW_MONITOR",
 			"MTK_DRM_OPT_GPU_CACHE",
-			"MTK_DRM_OPT_SPHRT";
+			"MTK_DRM_OPT_SPHRT",
+			"MTK_DRM_OPT_SDPA_OVL_SWITCH";
 
 		helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
 			<1>, /*MTK_DRM_OPT_USE_CMDQ*/
@@ -9849,7 +9851,8 @@
 			<1>, /*MTK_DRM_OPT_VIRTUAL_DISP*/
 			<0>, /*MTK_DRM_OPT_OVL_BW_MONITOR*/
 			<0>, /*MTK_DRM_OPT_GPU_CACHE*/
-			<1>; /*MTK_DRM_OPT_SPHRT*/
+			<1>, /*MTK_DRM_OPT_SPHRT*/
+			<1>; /*MTK_DRM_OPT_SDPA_OVL_SWITCH*/
 	};
 
 	disp_ssc0_smi_2x1_sub_comm: disp-ssc0-smi-2x1-sub-comm@1e809000 {
