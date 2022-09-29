@@ -8189,6 +8189,7 @@
 				mediatek,discth = <0xb>;
 				mediatek,pll-fbksel = <0x0>;
 				mediatek,pll-posdiv = <0x0>;
+				mediatek,lpm-parameter = <0x19 0x1e 0x1e>;
 			};
 
 			u3port0: usb3-phy0@11e43000 {
@@ -8222,6 +8223,7 @@
 				mediatek,discth = <0xb>;
 				mediatek,pll-fbksel = <0x0>;
 				mediatek,pll-posdiv = <0x0>;
+				mediatek,lpm-parameter = <0x19 0x1e 0x1e>;
 			};
 		};
 
