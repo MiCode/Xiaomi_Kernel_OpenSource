@@ -9398,7 +9398,8 @@
 				<&level_apdma>,
 				<&level_ufshci>,
 				<&level_usb_host>,
-				<&level_apusys_rv_mbox0 &level_apusys_rv_mbox1>;
+				<&level_apusys_rv_mbox0 &level_apusys_rv_mbox1>,
+				<&level_vcpsys_rv_mbox0>;
 		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
 		constraints = <&rc_bus26m &rc_syspll &rc_vcore>;
@@ -9450,6 +9451,10 @@
 			};
 			level_apusys_rv_mbox1: level-apusys-rv-mbox1 {
 				target = <&apusys_rv>;
+				value = <0 2 0 0>;
+			};
+			level_vcpsys_rv_mbox0: level-vcpsys-rv-mbox0 {
+				target = <&vcp>;
 				value = <0 2 0 0>;
 			};
 		};
