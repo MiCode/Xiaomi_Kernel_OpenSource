@@ -29,6 +29,18 @@
 #define MCU_BP_IRQ_TRIGGER_THRESHOLD	(2)
 #define INFRA_BP_IRQ_TRIGGER_THRESHOLD	(2)
 
+#define DBG_ERR_FLAG_STATUS0 0x88
+#define DBG_ERR_FLAG_STATUS1 0x8c
+
+#define BUS_TRACER_COMPATIBLE "mediatek,bus_tracer-v1"
+
+/*
+ * The base address of dbgao is placed in bus_tracer node
+ * temporarily, and will be moved out latter.
+ */
+
+static struct device_node *err_flag_node;
+
 union bus_parity_err {
 	struct _mst {
 		unsigned int parity_data;
@@ -65,6 +77,7 @@ struct bus_parity {
 	unsigned long long ts;
 	struct work_struct wk;
 	void __iomem *parity_sta;
+	void __iomem *dbgao_base;
 	unsigned int irq;
 	char *dump;
 };
@@ -417,10 +430,18 @@ static irqreturn_t infra_bp_isr(int irq, void *dev_id)
 	if (check_count == infra_bp.nr_bpm) {
 		pr_notice("%s: Receive irq but no bus parity fail\n",
 				__func__);
+
+		if (infra_bp.dbgao_base != NULL) {
+			pr_notice("%s: err_flag status1 is 0x%x.\n",
+				__func__, readl(infra_bp.dbgao_base + DBG_ERR_FLAG_STATUS0));
+			pr_notice("%s: err_flag status2 is 0x%x.\n",
+				__func__, readl(infra_bp.dbgao_base + DBG_ERR_FLAG_STATUS1));
+		}
+
 		if (infra_bp.nr_err < INFRA_BP_IRQ_TRIGGER_THRESHOLD)
 			enable_irq(infra_bp.irq);
 		else
-			pr_notice("%s disable irq %d due to trigger over than %d times.\n",
+			pr_notice("%s: disable irq %d due to trigger over than %d times.\n",
 				__func__, infra_bp.irq, INFRA_BP_IRQ_TRIGGER_THRESHOLD);
 		return IRQ_HANDLED;
 	}
@@ -571,6 +592,16 @@ static int bus_parity_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
+
+	/* find the bus_tracer node from dts */
+	err_flag_node = of_find_compatible_node(NULL, NULL, BUS_TRACER_COMPATIBLE);
+	if (err_flag_node == NULL) {
+		dev_notice(dev, "can't find node '%s' from dts.\n", BUS_TRACER_COMPATIBLE);
+		return -EINVAL;
+	}
+
+	/* get the base address for error flag from bus_tracer node. */
+	infra_bp.dbgao_base = of_iomap(err_flag_node, 1);
 
 	mcu_bp.dump = devm_kzalloc(dev, PAGE_SIZE, GFP_KERNEL);
 	if (!mcu_bp.dump)
