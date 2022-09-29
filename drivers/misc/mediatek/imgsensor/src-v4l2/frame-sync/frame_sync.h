@@ -220,12 +220,19 @@ struct fs_perframe_st {
 	unsigned int linelength;         // write_shutter(), set_max_framerate()
 	/* lineTimeInNs ~= 10^9 * (linelength/pclk) */
 	unsigned int lineTimeInNs;
+	unsigned int readout_time_us;    // current mode read out time.
 
 	/* callback function using */
 	unsigned int cmd_id;
 
 	/* debug variables */
 	int req_id;                      // from mtk hdr ae structure
+};
+
+
+struct fs_seamless_st {
+	struct fs_perframe_st seamless_pf_ctrl;
+	unsigned int orig_readout_time_us;
 };
 
 
@@ -297,7 +304,11 @@ struct FrameSync {
 
 
 	/* for notify FrameSync sensor doing seamless switch using */
-	void (*fs_seamless_switch)(unsigned int ident);
+	void (*fs_chk_exit_seamless_switch_frame)(const unsigned int ident);
+	void (*fs_chk_valid_for_doing_seamless_switch)(const unsigned int ident);
+	void (*fs_seamless_switch)(const unsigned int ident,
+		struct fs_seamless_st *p_seamless_info,
+		const unsigned int seamless_sof_cnt);
 
 
 	/* for choosing FrameSync StandAlone algorithm */
@@ -314,6 +325,10 @@ struct FrameSync {
 
 
 	void (*fs_mstream_en)(unsigned int ident, unsigned int en);
+
+
+	void (*fs_set_debug_info_sof_cnt)(const unsigned int ident,
+		const unsigned int sof_cnt);
 
 
 	void (*fs_notify_vsync)(const unsigned int ident,

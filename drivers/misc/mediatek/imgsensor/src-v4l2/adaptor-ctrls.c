@@ -958,7 +958,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			do_div(para.u64[0], ctx->cur_mode->linetime_in_ns);
 
 			/* read fine integ time*/
-			fine_integ_time = g_sensor_fine_integ_line(ctx);
+			fine_integ_time = g_sensor_fine_integ_line(ctx, ctx->cur_mode->id);
 
 			if (fine_integ_time > 0)
 				para.u64[0] = para.u64[0] * 1000;
@@ -1173,15 +1173,25 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_START_SEAMLESS_SWITCH:
 		{
 			struct mtk_seamless_switch_param *info = ctrl->p_new.p;
+			u32 fsync_exp[5] = {0}; /* preventing drv modified exp value */
+			u32 orig_scen_id = ctx->subctx.current_scenario_id;
+			u32 orig_readout_time_us =
+				(ctx->mode[orig_scen_id].height
+				*ctx->mode[orig_scen_id].linetime_in_ns_readout
+				/1000);
 			u64 time_boot = ktime_get_boottime_ns();
 			u64 time_mono = ktime_get_ns();
+
+			/* copy original input data for fsync using */
+			memcpy(fsync_exp, &info->ae_ctrl[0].exposure.arr, sizeof(fsync_exp));
 
 			para.u64[0] = info->target_scenario_id;
 			para.u64[1] = (uintptr_t)&info->ae_ctrl[0];
 			para.u64[2] = (uintptr_t)&info->ae_ctrl[1];
 
 			dev_info(dev,
-				    "seamless %u s[%u %u %u %u %u] g[%u %u %u %u %u] s1[%u %u %u %u %u] g1[%u %u %u %u %u] %llu|%llu\n",
+				    "seamless scen(%u => %u) s[%u %u %u %u %u] g[%u %u %u %u %u] s1[%u %u %u %u %u] g1[%u %u %u %u %u] %llu|%llu\n",
+					orig_scen_id,
 					info->target_scenario_id,
 					info->ae_ctrl[0].exposure.arr[0],
 					info->ae_ctrl[0].exposure.arr[1],
@@ -1219,7 +1229,9 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 				SENSOR_FEATURE_SEAMLESS_SWITCH,
 				para.u8, &len);
 
-			notify_fsync_mgr_seamless_switch(ctx);
+			notify_fsync_mgr_seamless_switch(ctx,
+				fsync_exp, IMGSENSOR_STAGGER_EXPOSURE_CNT,
+				orig_readout_time_us, info->target_scenario_id);
 
 			/*store ae ctrl for ESD reset*/
 			memset(&ctx->ae_memento, 0, sizeof(ctx->ae_memento));

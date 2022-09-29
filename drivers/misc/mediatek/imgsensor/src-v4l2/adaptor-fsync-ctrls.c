@@ -9,6 +9,7 @@
 #include "imgsensor-user.h"
 
 #include "adaptor.h"
+#include "adaptor-def.h"
 #include "adaptor-common-ctrl.h"
 #include "adaptor-fsync-ctrls.h"
 
@@ -110,7 +111,8 @@ static void fsync_mgr_chk_long_exposure(struct adaptor_ctx *ctx,
 	int has_long_exp = 0;
 	u32 fine_integ_line = 0;
 
-	fine_integ_line = g_sensor_fine_integ_line(ctx);
+	fine_integ_line =
+		g_sensor_fine_integ_line(ctx, ctx->subctx.current_scenario_id);
 
 	for (i = 0; i < ae_exp_cnt; ++i) {
 		u32 exp_lc =
@@ -142,7 +144,7 @@ static void fsync_mgr_chk_long_exposure(struct adaptor_ctx *ctx,
 static void fsync_mgr_set_hdr_exp_data(struct adaptor_ctx *ctx,
 	struct fs_hdr_exp_st *p_hdr_exp,
 	u32 *ae_exp_arr, u32 ae_exp_cnt,
-	u32 fine_integ_line)
+	u32 fine_integ_line, const u32 mode_id)
 {
 	struct mtk_stagger_info info = {0};
 	unsigned int i = 0;
@@ -174,7 +176,8 @@ static void fsync_mgr_set_hdr_exp_data(struct adaptor_ctx *ctx,
 	info.scenario_id = SENSOR_SCENARIO_ID_NONE;
 
 	/* for hdr-exp settings, e.g. STG sensor */
-	ret = g_stagger_info(ctx, ctx->cur_mode->id, &info);
+	// ret = g_stagger_info(ctx, ctx->cur_mode->id, &info);
+	ret = g_stagger_info(ctx, mode_id, &info);
 	if (!ret) {
 		p_hdr_exp->mode_exp_cnt = info.count;
 		p_hdr_exp->ae_exp_cnt = ae_exp_cnt;
@@ -191,6 +194,18 @@ static void fsync_mgr_set_hdr_exp_data(struct adaptor_ctx *ctx,
 						FINE_INTEG_CONVERT(p_hdr_exp->exp_lc[idx],
 							fine_integ_line);
 				}
+
+#ifndef REDUCE_FSYNC_CTRLS_LOG
+				adaptor_logi(ctx,
+					"ae_exp_arr[%u]:%u, fine_integ_line:%u, p_hdr_exp->exp_lc[%d]:%u\n",
+					i, ae_exp_arr[i], fine_integ_line,
+					idx, p_hdr_exp->exp_lc[idx]);
+#endif // !REDUCE_FSYNC_CTRLS_LOG
+
+			} else {
+				adaptor_logi(ctx,
+					"ERROR: idx:%d (< 0) = hdr_exp_idx_map[%u][%u]\n",
+					idx, ae_exp_cnt, i);
 			}
 		}
 	}
@@ -198,7 +213,7 @@ static void fsync_mgr_set_hdr_exp_data(struct adaptor_ctx *ctx,
 
 static void fsync_mgr_set_exp_data(struct adaptor_ctx *ctx,
 	struct fs_perframe_st *p_pf_ctrl,
-	u32 *ae_exp_arr, u32 ae_exp_cnt)
+	u32 *ae_exp_arr, u32 ae_exp_cnt, const u32 mode_id)
 {
 	u32 fine_integ_line = 0;
 
@@ -221,7 +236,7 @@ static void fsync_mgr_set_exp_data(struct adaptor_ctx *ctx,
 	}
 
 
-	fine_integ_line = g_sensor_fine_integ_line(ctx);
+	fine_integ_line = g_sensor_fine_integ_line(ctx, mode_id);
 	p_pf_ctrl->shutter_lc = (ae_exp_cnt == 1) ? *(ae_exp_arr + 0) : 0;
 	if (fine_integ_line) {
 		p_pf_ctrl->shutter_lc =
@@ -231,7 +246,7 @@ static void fsync_mgr_set_exp_data(struct adaptor_ctx *ctx,
 	fsync_mgr_set_hdr_exp_data(ctx,
 		&p_pf_ctrl->hdr_exp,
 		ae_exp_arr, ae_exp_cnt,
-		fine_integ_line);
+		fine_integ_line, mode_id);
 }
 
 
@@ -367,7 +382,7 @@ void notify_fsync_mgr_streaming(struct adaptor_ctx *ctx, unsigned int flag)
 	/* using ctx->subctx.shutter instead of ctx->subctx.exposure_def */
 	/* for any settings before streaming on */
 	s_info.def_shutter_lc = ctx->subctx.shutter;
-	s_info.margin_lc = g_sensor_margin(ctx);
+	s_info.margin_lc = g_sensor_margin(ctx, ctx->subctx.current_scenario_id);
 
 
 	/* sensor mode info */
@@ -606,21 +621,120 @@ void notify_fsync_mgr_set_extend_framelength(
 	ctx->fsync_mgr->fs_set_extend_framelength(ctx->idx, 0, ext_fl_us);
 }
 
-void notify_fsync_mgr_seamless_switch(struct adaptor_ctx *ctx)
+void notify_fsync_mgr_seamless_switch(struct adaptor_ctx *ctx,
+	u32 *ae_exp_arr, u32 ae_exp_max_cnt,
+	u32 orig_readout_time_us, u32 target_scenario_id)
 {
+	struct fs_seamless_st seamless_info = {0};
+	unsigned int ae_exp_cnt = 0;
+	unsigned int mode_crop_height = 0;
+	unsigned int mode_linetime_readout_ns = 0;
+	unsigned int i = 0;
+
 	/* not expected case */
 	if (unlikely(ctx->fsync_mgr == NULL)) {
 
 #if !defined(FORCE_DISABLE_FSYNC_MGR)
-		dev_info(ctx->dev,
-			"%s: sidx:%d, NOTICE: seamless switch, but ctx->fsync_mgr is NULL, return\n",
-			__func__, ctx->idx);
+		adaptor_logi(ctx,
+			"sidx:%d, NOTICE: seamless switch, but ctx->fsync_mgr is NULL, return\n",
+			ctx->idx);
 #endif
 
 		return;
 	}
 
-	ctx->fsync_mgr->fs_seamless_switch(ctx->idx);
+	if (unlikely(ae_exp_arr == NULL || ae_exp_max_cnt == 0)) {
+		adaptor_logi(ctx,
+			"sidx:%d, ERROR: get ae_exp_arr:%p, ae_exp_cnt:%u, return\n",
+			ctx->idx,
+			ae_exp_arr,
+			ae_exp_max_cnt);
+		return;
+	}
+
+	if (unlikely(target_scenario_id >= MODE_MAXCNT)) {
+		/* not expected case */
+		mode_crop_height = 0;
+		mode_linetime_readout_ns = 0;
+
+		adaptor_logi(ctx,
+			"sidx:%d, ERROR target_scenario_id:%u >= MODE_MAXCNT:%u, auto set mode_crop_height:%u, mode_linetime_readout_ns:%u\n",
+			target_scenario_id,
+			MODE_MAXCNT,
+			mode_crop_height,
+			mode_linetime_readout_ns);
+	} else {
+		mode_crop_height = ctx->mode[target_scenario_id].height;
+		mode_linetime_readout_ns =
+			ctx->mode[target_scenario_id].linetime_in_ns_readout;
+	}
+
+
+	seamless_info.seamless_pf_ctrl.req_id = ctx->req_id;
+
+	seamless_info.seamless_pf_ctrl.sensor_id = ctx->subdrv->id;
+	seamless_info.seamless_pf_ctrl.sensor_idx = ctx->idx;
+
+	seamless_info.seamless_pf_ctrl.min_fl_lc = ctx->subctx.min_frame_length;
+	seamless_info.seamless_pf_ctrl.margin_lc =
+		g_sensor_margin(ctx, target_scenario_id);
+	seamless_info.seamless_pf_ctrl.flicker_en = ctx->subctx.autoflicker_en;
+	seamless_info.seamless_pf_ctrl.out_fl_lc = ctx->subctx.frame_length;
+
+	/* preventing issue (seamless switch not update ctx->cur_mode data) */
+	seamless_info.seamless_pf_ctrl.pclk = ctx->subctx.pclk;
+	seamless_info.seamless_pf_ctrl.linelength = ctx->subctx.line_length;
+	seamless_info.seamless_pf_ctrl.lineTimeInNs =
+		CALC_LINE_TIME_IN_NS(
+			seamless_info.seamless_pf_ctrl.pclk,
+			seamless_info.seamless_pf_ctrl.linelength);
+	seamless_info.seamless_pf_ctrl.readout_time_us =
+		(mode_crop_height * mode_linetime_readout_ns / 1000);
+
+	/* calculate ae exp cnt manually */
+	for (i = 0; i < ae_exp_max_cnt; ++i) {
+		/* check how many non zero exp setting */
+		if (*(ae_exp_arr + i) != 0)
+			ae_exp_cnt++;
+	}
+
+	/* set exposure data */
+	fsync_mgr_set_exp_data(ctx, &seamless_info.seamless_pf_ctrl,
+		ae_exp_arr, ae_exp_cnt, target_scenario_id);
+
+	/* set orig readout time */
+	seamless_info.orig_readout_time_us = orig_readout_time_us;
+
+
+	ctx->fsync_mgr->fs_seamless_switch(ctx->idx, &seamless_info, ctx->sof_cnt);
+
+
+	adaptor_logd(ctx,
+		"sidx:%d, exp(%u, %u/%u/%u/%u/%u, cnt(mode:%u/ae:%u), max:%u, readout_len:%u, read_margin:%u), margin:%u, min_fl:%u, flk:%u, line_time:%u(ns), readout_time_us:%u(height:%u/linetime_readout_ns:%u), orig_readout_time_us:%u, fl(fsync:%u/subctx:%u), req_id:%d, sof_cnt:%u\n",
+		ctx->idx,
+		seamless_info.seamless_pf_ctrl.shutter_lc,
+		seamless_info.seamless_pf_ctrl.hdr_exp.exp_lc[0],
+		seamless_info.seamless_pf_ctrl.hdr_exp.exp_lc[1],
+		seamless_info.seamless_pf_ctrl.hdr_exp.exp_lc[2],
+		seamless_info.seamless_pf_ctrl.hdr_exp.exp_lc[3],
+		seamless_info.seamless_pf_ctrl.hdr_exp.exp_lc[4],
+		seamless_info.seamless_pf_ctrl.hdr_exp.mode_exp_cnt,
+		seamless_info.seamless_pf_ctrl.hdr_exp.ae_exp_cnt,
+		ae_exp_max_cnt,
+		seamless_info.seamless_pf_ctrl.hdr_exp.readout_len_lc,
+		seamless_info.seamless_pf_ctrl.hdr_exp.read_margin_lc,
+		seamless_info.seamless_pf_ctrl.margin_lc,
+		seamless_info.seamless_pf_ctrl.min_fl_lc,
+		seamless_info.seamless_pf_ctrl.flicker_en,
+		seamless_info.seamless_pf_ctrl.lineTimeInNs,
+		seamless_info.seamless_pf_ctrl.readout_time_us,
+		mode_crop_height,
+		mode_linetime_readout_ns,
+		seamless_info.orig_readout_time_us,
+		ctx->fsync_out_fl,
+		ctx->subctx.frame_length,
+		ctx->req_id,
+		ctx->sof_cnt);
 }
 
 void notify_fsync_mgr_n_1_en(struct adaptor_ctx *ctx, u64 n, u64 en)
@@ -700,6 +814,7 @@ void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 	int do_set_exp_with_fl)
 {
 	struct fs_perframe_st pf_ctrl = {0};
+	const unsigned int mode_id = ctx->subctx.current_scenario_id;
 
 	/* not expected case */
 	if (unlikely(ctx->fsync_mgr == NULL)) {
@@ -728,7 +843,7 @@ void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 	pf_ctrl.sensor_idx = ctx->idx;
 
 	pf_ctrl.min_fl_lc = ctx->subctx.min_frame_length;
-	pf_ctrl.margin_lc = g_sensor_margin(ctx);
+	pf_ctrl.margin_lc = g_sensor_margin(ctx, mode_id);
 	pf_ctrl.flicker_en = ctx->subctx.autoflicker_en;
 	pf_ctrl.out_fl_lc = ctx->subctx.frame_length; // sensor current fl_lc
 
@@ -737,9 +852,11 @@ void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 	pf_ctrl.linelength = ctx->subctx.line_length;
 	pf_ctrl.lineTimeInNs =
 		CALC_LINE_TIME_IN_NS(pf_ctrl.pclk, pf_ctrl.linelength);
+	pf_ctrl.readout_time_us =
+		(ctx->mode[mode_id].height * ctx->mode[mode_id].linetime_in_ns_readout / 1000);
 
 	/* set exposure data */
-	fsync_mgr_set_exp_data(ctx, &pf_ctrl, ae_exp_arr, ae_exp_cnt);
+	fsync_mgr_set_exp_data(ctx, &pf_ctrl, ae_exp_arr, ae_exp_cnt, mode_id);
 
 
 #if defined(TWO_STAGE_FS)
@@ -772,10 +889,9 @@ void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 #endif
 
 
-#if !defined(REDUCE_FSYNC_CTRLS_LOG)
-	dev_info(ctx->dev,
-		"%s: sidx:%d, exp(%u, %u/%u/%u/%u/%u, cnt(mode:%u/ae:%u)), margin:%u, min_fl:%u, flk:%u, line_time:%u(ns), set_exp_with_fl(%u, %u/%u)\n",
-		__func__, ctx->idx,
+	adaptor_logd(ctx,
+		"sidx:%d, exp(%u, %u/%u/%u/%u/%u, cnt(mode:%u/ae:%u), readout_len:%u, read_margin:%u), margin:%u, min_fl:%u, flk:%u, line_time:%u(ns), readout_time_us:%u(mode_id:%u/height:%u/linetime_readout_ns:%u), set_exp_with_fl(%u, %u/%u), req_id:%d, sof_cnt:%u\n",
+		ctx->idx,
 		pf_ctrl.shutter_lc,
 		pf_ctrl.hdr_exp.exp_lc[0],
 		pf_ctrl.hdr_exp.exp_lc[1],
@@ -784,14 +900,21 @@ void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 		pf_ctrl.hdr_exp.exp_lc[4],
 		pf_ctrl.hdr_exp.mode_exp_cnt,
 		pf_ctrl.hdr_exp.ae_exp_cnt,
+		pf_ctrl.hdr_exp.readout_len_lc,
+		pf_ctrl.hdr_exp.read_margin_lc,
 		pf_ctrl.margin_lc,
 		pf_ctrl.min_fl_lc,
 		pf_ctrl.flicker_en,
 		pf_ctrl.lineTimeInNs,
+		pf_ctrl.readout_time_us,
+		mode_id,
+		ctx->mode[mode_id].height,
+		ctx->mode[mode_id].linetime_in_ns_readout,
 		do_set_exp_with_fl,
 		ctx->fsync_out_fl,
-		ctx->subctx.frame_length);
-#endif
+		ctx->subctx.frame_length,
+		ctx->req_id,
+		ctx->sof_cnt);
 }
 
 

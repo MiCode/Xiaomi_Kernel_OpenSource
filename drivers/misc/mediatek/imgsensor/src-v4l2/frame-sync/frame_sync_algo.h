@@ -52,7 +52,9 @@ void fs_alg_set_anti_flicker(unsigned int idx, unsigned int flag);
 void fs_alg_set_extend_framelength(unsigned int idx,
 	unsigned int ext_fl_lc, unsigned int ext_fl_us);
 
-void fs_alg_seamless_switch(unsigned int idx);
+void fs_alg_seamless_switch(const unsigned int idx,
+	struct fs_seamless_st *p_seamless_info,
+	const struct fs_sa_cfg *p_sa_cfg);
 
 void fs_alg_update_tg(unsigned int idx, unsigned int tg);
 

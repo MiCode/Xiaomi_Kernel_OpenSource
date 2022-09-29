@@ -35,6 +35,7 @@ struct fs_perframe_st imx586_sensor_mode[] = {
 		.linelength = 7872,
 		.margin_lc = 48,
 		.lineTimeInNs = 10469,
+		.readout_time_us = 31407,
 	},
 
 	{
@@ -47,6 +48,7 @@ struct fs_perframe_st imx586_sensor_mode[] = {
 		.linelength = 7872,
 		.margin_lc = 48,
 		.lineTimeInNs = 10469,
+		.readout_time_us = 31407,
 	},
 
 	{
@@ -59,6 +61,7 @@ struct fs_perframe_st imx586_sensor_mode[] = {
 		.linelength = 7872,
 		.margin_lc = 48,
 		.lineTimeInNs = 10469,
+		.readout_time_us = 31407,
 	},
 
 	/* End */
@@ -72,6 +75,7 @@ struct fs_perframe_st imx586_sensor_mode[] = {
 		.linelength = 0,
 		.margin_lc = 0,
 		.lineTimeInNs = 0,
+		.readout_time_us = 0,
 	},
 };
 
@@ -88,6 +92,7 @@ struct fs_perframe_st s5k3m5sx_sensor_mode[] = {
 		.linelength = 4848,
 		.margin_lc = 4,
 		.lineTimeInNs = 10059,
+		.readout_time_us = 31384,
 	},
 
 	{
@@ -100,6 +105,7 @@ struct fs_perframe_st s5k3m5sx_sensor_mode[] = {
 		.linelength = 4848,
 		.margin_lc = 4,
 		.lineTimeInNs = 10059,
+		.readout_time_us = 31384,
 	},
 
 	{
@@ -112,6 +118,7 @@ struct fs_perframe_st s5k3m5sx_sensor_mode[] = {
 		.linelength = 4848,
 		.margin_lc = 4,
 		.lineTimeInNs = 10059,
+		.readout_time_us = 31384,
 	},
 
 	/* End */
@@ -125,6 +132,7 @@ struct fs_perframe_st s5k3m5sx_sensor_mode[] = {
 		.linelength = 0,
 		.margin_lc = 0,
 		.lineTimeInNs = 0,
+		.readout_time_us = 0,
 	},
 };
 
@@ -141,6 +149,7 @@ struct fs_perframe_st imx481_sensor_mode[] = {
 		.linelength = 5120,
 		.margin_lc = 18,
 		.lineTimeInNs = 8828,
+		.readout_time_us = 30863,
 	},
 
 	/* End */
@@ -154,6 +163,7 @@ struct fs_perframe_st imx481_sensor_mode[] = {
 		.linelength = 0,
 		.margin_lc = 0,
 		.lineTimeInNs = 0,
+		.readout_time_us = 0,
 	},
 };
 
@@ -179,6 +189,7 @@ struct fs_perframe_st imx766_sensor_mode[] = {
 		.linelength = 8816,
 		.margin_lc = 48,
 		.lineTimeInNs = 6879,
+		.readout_time_us = 32000,
 	},
 
 	{
@@ -200,6 +211,7 @@ struct fs_perframe_st imx766_sensor_mode[] = {
 		.linelength = 8816,
 		.margin_lc = 48,
 		.lineTimeInNs = 6879,
+		.readout_time_us = 32000,
 	},
 
 	{
@@ -221,6 +233,7 @@ struct fs_perframe_st imx766_sensor_mode[] = {
 		.linelength = 8816,
 		.margin_lc = 48,
 		.lineTimeInNs = 6879,
+		.readout_time_us = 32000,
 	},
 
 	/* End */
@@ -234,6 +247,7 @@ struct fs_perframe_st imx766_sensor_mode[] = {
 		.linelength = 0,
 		.margin_lc = 0,
 		.lineTimeInNs = 0,
+		.readout_time_us = 0,
 	},
 };
 

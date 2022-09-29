@@ -161,6 +161,7 @@ struct FrameSyncInst {
 	unsigned int pclk;
 	unsigned int linelength;
 	unsigned int lineTimeInNs;      // ~= 10^9 * (linelength/pclk)
+	unsigned int readout_time_us;   // current mode read out time.
 
 	/* output frame length */
 	unsigned int output_fl_lc;
@@ -778,6 +779,79 @@ static unsigned int calc_vts_sync_bias(unsigned int idx)
 }
 
 
+static unsigned int calc_seamless_frame_time_us(const unsigned int idx,
+	const struct fs_seamless_st *p_seamless_info)
+{
+	const unsigned int mode_exp_cnt =
+		fs_inst[idx].prev_hdr_exp.mode_exp_cnt;
+	unsigned int re_exp_us = 0, re_exp_lc = 0;
+	unsigned int hw_init_time_us = 0;
+	unsigned int readout_start_shift_us = 0;
+	unsigned int i = 0;
+	unsigned int ret = 0;
+
+	/* error handling (unexpected case) */
+	if (unlikely(p_seamless_info == NULL)) {
+		LOG_MUST(
+			"ERROR: [%u] ID:%#x(sidx:%u), get p_seamless_info:%p, return 0\n",
+			idx, fs_inst[idx].sensor_id, fs_inst[idx].sensor_idx,
+			p_seamless_info);
+		return 0;
+	}
+
+	/* get basic info */
+	/* check normal or hdr situation (normal: shutter_lc / hdr: hdr_exp) */
+	if (p_seamless_info->seamless_pf_ctrl.shutter_lc != 0)
+		re_exp_lc = p_seamless_info->seamless_pf_ctrl.shutter_lc;
+	else
+		re_exp_lc = p_seamless_info->seamless_pf_ctrl.hdr_exp.exp_lc[0];
+
+	re_exp_us = convert2TotalTime(fs_inst[idx].lineTimeInNs, re_exp_lc);
+
+	/* read back some last pf ctrl settings for calculating */
+	if (mode_exp_cnt) {
+		for (i = 1; i < mode_exp_cnt; ++i) {
+			int hdr_idx = hdr_exp_idx_map[mode_exp_cnt][i];
+
+			/* error case (unexpected) */
+			if (unlikely(hdr_idx < 0)) {
+				readout_start_shift_us = 0;
+				LOG_MUST(
+					"ERROR: [%u] ID:%#x(sidx:%u), hdr_exp_idx_map[%u][%u] = %d => return readout_start_shift_us:%u\n",
+					idx, fs_inst[idx].sensor_id, fs_inst[idx].sensor_idx,
+					mode_exp_cnt,
+					i,
+					hdr_idx,
+					readout_start_shift_us);
+
+				return readout_start_shift_us;
+			}
+
+			readout_start_shift_us +=
+				(fs_inst[idx].prev_hdr_exp.exp_lc[hdr_idx]
+				+ (fs_inst[idx].margin_lc / mode_exp_cnt));
+		}
+
+		readout_start_shift_us =
+			convert2TotalTime(fs_inst[idx].lineTimeInNs, readout_start_shift_us);
+	}
+
+	ret = readout_start_shift_us + p_seamless_info->orig_readout_time_us
+		+ hw_init_time_us + re_exp_us;
+
+	LOG_MUST(
+		"[%u] ID:%#x(sidx:%u), seamless_frame_time_us:%u (readout_start_shift_us:%u, orig_readout_time_us:%u, hw_init_time_us:%u, re_exp_us:%u)\n",
+		idx, fs_inst[idx].sensor_id, fs_inst[idx].sensor_idx,
+		ret,
+		readout_start_shift_us,
+		p_seamless_info->orig_readout_time_us,
+		hw_init_time_us,
+		re_exp_us);
+
+	return ret;
+}
+
+
 /*
  * check pf ctrl trigger in critical section of timestamp.
  * next timestamp of one sensor is coming soon.
@@ -983,16 +1057,23 @@ static inline void fs_alg_dump_perframe_data(unsigned int idx)
 void fs_alg_dump_fs_inst_data(const unsigned int idx)
 {
 	LOG_MUST(
-		"[%u] ID:%#x(sidx:%u), (%d), tg:%u, fdelay:%u, fl_lc(def/min/max):%u/%u/%u, shut_lc:%u(def:%u), margin_lc:%u, flk_en:%u, lineTime:%u(linelength:%u/pclk:%u), hdr_exp(c(%u/%u/%u/%u/%u, %u/%u, %u/%u), prev(%u/%u/%u/%u/%u, %u/%u, %u/%u), cnt:(mode/ae), read(len/margin)\n",
+		"[%u] ID:%#x(sidx:%u), (%d/%u), tg:%u, fdelay:%u, fl_lc(def/min/max/out):%u/%u/%u/%u(%u), pred_fl(c:%u(%u)/n:%u(%u)), shut_lc:%u(def:%u), margin_lc:%u, flk_en:%u, lineTime:%u(%u/%u), readout(us):%u, f_cell:%u, f_tag:%u, n_1:%u, hdr_exp(c(%u/%u/%u/%u/%u, %u/%u, %u/%u), prev(%u/%u/%u/%u/%u, %u/%u, %u/%u), cnt:(mode/ae), read(len/margin)), ts(%u/%u/%u/%u, %u/+(%u)/%u)\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
 		fs_inst[idx].req_id,
+		fs_inst[idx].sof_cnt,
 		fs_inst[idx].tg,
 		fs_inst[idx].fl_active_delay,
 		fs_inst[idx].def_min_fl_lc,
 		fs_inst[idx].min_fl_lc,
 		fs_inst[idx].max_fl_lc,
+		fs_inst[idx].output_fl_lc,
+		fs_inst[idx].output_fl_us,
+		fs_inst[idx].predicted_fl_us[0],
+		fs_inst[idx].predicted_fl_lc[0],
+		fs_inst[idx].predicted_fl_us[1],
+		fs_inst[idx].predicted_fl_lc[1],
 		fs_inst[idx].shutter_lc,
 		fs_inst[idx].def_shutter_lc,
 		fs_inst[idx].margin_lc,
@@ -1000,6 +1081,10 @@ void fs_alg_dump_fs_inst_data(const unsigned int idx)
 		fs_inst[idx].lineTimeInNs,
 		fs_inst[idx].linelength,
 		fs_inst[idx].pclk,
+		fs_inst[idx].readout_time_us,
+		fs_inst[idx].frame_tag,
+		fs_inst[idx].frame_cell_size,
+		fs_inst[idx].n_1_on_off,
 		fs_inst[idx].hdr_exp.exp_lc[0],
 		fs_inst[idx].hdr_exp.exp_lc[1],
 		fs_inst[idx].hdr_exp.exp_lc[2],
@@ -1017,7 +1102,14 @@ void fs_alg_dump_fs_inst_data(const unsigned int idx)
 		fs_inst[idx].prev_hdr_exp.mode_exp_cnt,
 		fs_inst[idx].prev_hdr_exp.ae_exp_cnt,
 		fs_inst[idx].prev_hdr_exp.readout_len_lc,
-		fs_inst[idx].prev_hdr_exp.read_margin_lc);
+		fs_inst[idx].prev_hdr_exp.read_margin_lc,
+		fs_inst[idx].timestamps[0],
+		fs_inst[idx].timestamps[1],
+		fs_inst[idx].timestamps[2],
+		fs_inst[idx].timestamps[3],
+		fs_inst[idx].last_vts,
+		fs_inst[idx].cur_tick,
+		fs_inst[idx].vsyncs);
 }
 
 
@@ -1054,7 +1146,7 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 
 
 	LOG_MUST(
-		"[%u] ID:%#x(sidx:%u), #%u, (%d/%u), out_fl:%u(%u), (%u/%u/%u/%u(%u/%u), %u, %u(%u)), pr_fl(c:%u(%u)/n:%u(%u)), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), m_idx:%u(ref:%d)/chg:%u(%u), adj_diff(s:%lld(%u)/m:%lld), flk_en:%u, sa_cfg(idx:%u/m_idx:%d/async_m_idx:%d/async_s:%#x/valid_sync:%#x/method:%u), tg:%u, ts(%u/+%u(%u)/%u), [frec(0:%u/%u)(fl_lc/shut_lc), fmeas:%u(pr:%u(%u)/act:%u), fmeas_ts(%u/%u/%u/%u), fs_inst_ts(%u/%u/%u/%u, %u/+%u(%u)/%u)]\n",
+		"[%u] ID:%#x(sidx:%u), #%u, (%d/%u), out_fl:%u(%u), (%u/%u/%u/%u(%u/%u), %u, %u(%u)), pr_fl(c:%u(%u)/n:%u(%u)), ts_bias(exp:%u/tag:%u(%u/%u)), readout_time:%u, delta:%u(fdelay:%u), m_idx:%u(ref:%d)/chg:%u(%u), adj_diff(s:%lld(%u)/m:%lld), flk_en:%u, sa_cfg(idx:%u/m_idx:%d/async_m_idx:%d/async_s:%#x/valid_sync:%#x/method:%u), tg:%u, ts(%u/+%u(%u)/%u), [frec(0:%u/%u)(fl_lc/shut_lc), fmeas:%u(pr:%u(%u)/act:%u), fmeas_ts(%u/%u/%u/%u), fs_inst_ts(%u/%u/%u/%u, %u/+%u(%u)/%u)]\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
@@ -1088,6 +1180,7 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 		fs_sa_inst.dynamic_paras[idx].tag_bias_us,
 		fs_sa_inst.dynamic_paras[idx].f_tag,
 		fs_sa_inst.dynamic_paras[idx].f_cell,
+		fs_inst[idx].readout_time_us,
 		fs_sa_inst.dynamic_paras[idx].delta,
 		fs_inst[idx].fl_active_delay,
 		fs_sa_inst.dynamic_paras[idx].master_idx,
@@ -1375,6 +1468,120 @@ static void fs_alg_sa_update_fl_us(const unsigned int idx,
 	/* for correctly showing info */
 	/* update fl also update all related variable */
 	fs_alg_sa_prepare_dynamic_para(idx, p_para);
+}
+
+
+static void fs_alg_sa_update_seamless_dynamic_para(const unsigned int idx,
+	struct fs_seamless_st *p_seamless_info,
+	struct FrameSyncDynamicPara *p_para)
+{
+	unsigned int seamless_frame_time_us = 0;
+	unsigned int ts_bias_lc = 0;
+	unsigned int i = 0;
+
+	/* error handling (unexpected case) */
+	if (unlikely(p_seamless_info == NULL)) {
+		LOG_MUST(
+			"ERROR: [%u] ID:%#x(sidx:%u), get p_seamless_info:%p, return\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			p_seamless_info);
+		return;
+	}
+
+	/* calculate seamless frame time */
+	seamless_frame_time_us = calc_seamless_frame_time_us(idx, p_seamless_info);
+
+	/* using seamless ctrl to update pf ctrl */
+	fs_inst[idx].hdr_exp = p_seamless_info->seamless_pf_ctrl.hdr_exp;
+	fs_alg_set_perframe_st_data(idx, &p_seamless_info->seamless_pf_ctrl);
+
+	/* calculate and get timestamp bias */
+	ts_bias_lc = calc_vts_sync_bias(idx);
+	p_para->ts_bias_us =
+		convert2TotalTime(fs_inst[idx].lineTimeInNs, ts_bias_lc);
+
+	/* overwrite pred_fl_us/lc[] value to match seamless ctrl */
+	fs_inst[idx].predicted_fl_us[0] = seamless_frame_time_us;
+	fs_inst[idx].predicted_fl_lc[0] =
+		convert2LineCount(
+			fs_inst[idx].lineTimeInNs,
+			fs_inst[idx].predicted_fl_us[0]);
+	fs_inst[idx].predicted_fl_lc[1] = p_seamless_info->seamless_pf_ctrl.out_fl_lc;
+	fs_inst[idx].predicted_fl_us[1] =
+		convert2TotalTime(
+			fs_inst[idx].lineTimeInNs,
+			fs_inst[idx].predicted_fl_lc[1]);
+	p_para->pred_fl_us[0] =
+		fs_inst[idx].predicted_fl_us[0];
+	p_para->pred_fl_us[1] =
+		fs_inst[idx].predicted_fl_us[1];
+
+	/* overwrite frame measurement predicted frame length for debugging */
+	frm_set_frame_measurement(
+		idx, 0,
+		fs_inst[idx].predicted_fl_us[0],
+		fs_inst[idx].predicted_fl_lc[0],
+		fs_inst[idx].predicted_fl_us[1],
+		fs_inst[idx].predicted_fl_lc[1]);
+
+
+#if defined(FS_UT)
+	/* update frame monitor current predicted framelength data */
+	frm_update_next_vts_bias_us(idx, p_para->ts_bias_us);
+#endif // FS_UT
+
+
+	/* for N:1 FrameSync case, calculate and get tag bias */
+	p_para->tag_bias_us = fs_alg_sa_calc_f_tag_diff(
+		idx, fs_inst[idx].frame_tag);
+
+
+	/* sync seamless frame length RG value */
+	set_fl_us(idx, p_para->stable_fl_us);
+
+
+	/* calculate predicted total delta (without timestamp diff) */
+	p_para->delta = (p_para->ts_bias_us + p_para->tag_bias_us);
+	for (i = 0; i < 2; ++i) {
+		p_para->delta +=
+			fs_alg_sa_calc_target_pred_fl_us(
+				p_para->pred_fl_us, p_para->stable_fl_us,
+				fs_inst[idx].fl_active_delay, i, 1);
+	}
+
+
+	FS_MUTEX_LOCK(&fs_algo_sa_proc_mutex_lock);
+
+	fs_sa_inst.dynamic_paras[idx] = *p_para;
+
+	FS_MUTEX_UNLOCK(&fs_algo_sa_proc_mutex_lock);
+
+
+#if !defined(REDUCE_FS_ALGO_LOG)
+	LOG_INF(
+		"[%u] ID:%#x(sidx:%u), #%u, stable_fl_us:%u, pred_fl(c:%u(%u), n:%u(%u))(%u), bias(exp:%u/tag:%u), delta:%u(fdelay:%u)\n",
+		idx,
+		fs_inst[idx].sensor_id,
+		fs_inst[idx].sensor_idx,
+		p_para->magic_num,
+		p_para->stable_fl_us,
+		p_para->pred_fl_us[0],
+		fs_inst[idx].predicted_fl_lc[0],
+		p_para->pred_fl_us[1],
+		fs_inst[idx].predicted_fl_lc[1],
+		fs_inst[idx].lineTimeInNs,
+		p_para->ts_bias_us,
+		p_para->tag_bias_us,
+		p_para->delta,
+		fs_inst[idx].fl_active_delay);
+
+	fs_alg_sa_dump_dynamic_para(idx);
+#endif // REDUCE_FS_ALGO_LOG
+
+
+	fs_alg_dump_fs_inst_data(idx);
 }
 
 
@@ -2123,31 +2330,46 @@ void fs_alg_set_extend_framelength(unsigned int idx,
 }
 
 
-void fs_alg_seamless_switch(unsigned int idx)
+void fs_alg_seamless_switch(const unsigned int idx,
+	struct fs_seamless_st *p_seamless_info,
+	const struct fs_sa_cfg *p_sa_cfg)
 {
-#if !defined(FS_UT)
-	u64 time_boot = ktime_get_boottime_ns();
-	u64 time_mono = ktime_get_ns();
-#endif // !FS_UT
+	struct FrameSyncDynamicPara para = {0};
 
-	LOG_MUST(
-#if !defined(FS_UT)
-		"[%u] ID:%#x(sidx:%u), sensor seamless switch %llu|%llu\n",
-		idx,
-		fs_inst[idx].sensor_id,
-		fs_inst[idx].sensor_idx,
-		time_boot,
-		time_mono);
-#else
-		"[%u] ID:%#x(sidx:%u), sensor seamless switch\n",
-		idx,
-		fs_inst[idx].sensor_id,
-		fs_inst[idx].sensor_idx);
-#endif // !FS_UT
+	/* error handling (unexpected case) */
+	if (unlikely(p_seamless_info == NULL)) {
+		LOG_MUST(
+			"ERROR: [%u] ID:%#x(sidx:%u), get p_seamless_info:%p, return\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			p_seamless_info);
+		return;
+	}
 
+	if (unlikely(p_sa_cfg == NULL)) {
+		LOG_MUST(
+			"ERROR: [%u] ID:%#x(sidx:%u), get p_sa_cfg:%p, return\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			p_sa_cfg);
+		return;
+	}
 
-	/* 1. clear/exit extend framelength stage */
-	fs_alg_set_extend_framelength(idx, 0, 0);
+	/* prepare new dynamic para */
+	fs_alg_sa_init_new_ctrl(p_sa_cfg, &para);
+	para.stable_fl_us = convert2TotalTime(
+		p_seamless_info->seamless_pf_ctrl.lineTimeInNs,
+		p_seamless_info->seamless_pf_ctrl.out_fl_lc);
+
+	/* get Vsync data by Frame Monitor */
+	fs_alg_sa_get_timestamp_info(idx, &para);
+
+	/* X. update dynamic para for sharing to other sensor */
+	fs_alg_sa_update_seamless_dynamic_para(idx, p_seamless_info, &para);
+
+	// fs_alg_sa_dump_dynamic_para(idx);
 }
 
 
@@ -2358,6 +2580,9 @@ static void fs_alg_set_hdr_exp_st_data(
 		/* NOT STG mode => get first EXP and overwrite shutter_lc data */
 		fs_inst[idx].shutter_lc = p_hdr_exp->exp_lc[0];
 		*shutter_lc = fs_inst[idx].shutter_lc;
+
+		fs_inst[idx].prev_hdr_exp = fs_inst[idx].hdr_exp;
+		memset(&fs_inst[idx].hdr_exp, 0, sizeof(fs_inst[idx].hdr_exp));
 
 
 		/* NOT STG mode and ae_exp_cnt == 1 => fine, return */
@@ -2575,6 +2800,7 @@ void fs_alg_set_perframe_st_data(
 	fs_inst[idx].pclk = pData->pclk;
 	fs_inst[idx].linelength = pData->linelength;
 	fs_inst[idx].lineTimeInNs = pData->lineTimeInNs;
+	fs_inst[idx].readout_time_us = pData->readout_time_us;
 
 	fs_inst[idx].prev_readout_min_fl_lc = fs_inst[idx].readout_min_fl_lc;
 	fs_inst[idx].readout_min_fl_lc = 0;

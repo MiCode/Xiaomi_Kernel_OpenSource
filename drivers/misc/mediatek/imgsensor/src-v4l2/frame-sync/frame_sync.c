@@ -47,6 +47,15 @@ struct fs_preset_perframe_st {
 //----------------------------------------------------------------------------//
 
 
+//----------------------- fs seamless perframe st ----------------------------//
+struct fs_seamless_ctrl_st {
+	FS_Atomic_T wait_for_processing;
+	unsigned int seamless_sof_cnt;
+	struct fs_seamless_st seamless_info;
+};
+//----------------------------------------------------------------------------//
+
+
 //---------------------------- frame recorder --------------------------------//
 struct FrameRecord {
 	unsigned int shutter_lc;
@@ -99,6 +108,7 @@ struct FrameSyncMgr {
 	FS_Atomic_T validSync_bits;
 	FS_Atomic_T pf_ctrl_bits;
 	FS_Atomic_T setup_complete_bits;
+	FS_Atomic_T seamless_bits;  // notify which sensor is doing seamless switch
 
 	unsigned int last_pf_ctrl_bits;
 	unsigned int last_setup_complete_bits;
@@ -138,6 +148,9 @@ struct FrameSyncMgr {
 	/* for set ae ctrl before streaming on */
 	struct fs_preset_perframe_st preset_ctrl[SENSOR_MAX_NUM];
 
+	/* for seamless switch */
+	struct fs_seamless_ctrl_st seamless_ctrl[SENSOR_MAX_NUM];
+
 
 	/* Frame Settings Recorder */
 	struct FrameRecorder frm_recorder[SENSOR_MAX_NUM];
@@ -158,6 +171,9 @@ struct FrameSyncMgr {
 	FS_Atomic_T async_mode_bits;            // SA async mode bits
 	FS_Atomic_T async_master_idx;           // SA async mode m_idx
 #endif // SUPPORT_FS_NEW_METHOD
+
+
+	unsigned int sof_cnt_arr[SENSOR_MAX_NUM];   // debug, from p1 sof cnt
 };
 static struct FrameSyncMgr fs_mgr;
 //----------------------------------------------------------------------------//
@@ -310,7 +326,7 @@ static void fs_dump_status(const int idx, const int flag, const char *caller,
 	log_buf[0] = '\0';
 	ret = snprintf(log_buf + strlen(log_buf),
 		LOG_BUF_STR_LEN - strlen(log_buf),
-		"[%s:%d/%d %s]: stat:%u, ready:%u, stream:%d, enSync:%d(%d/%d/%d/%d/%d/%d), valid:%d, hw_sync:%d(%d)(%d/%d/%d/%d/%d/%d), trigger:%u, pf_ctrl:%d(%u), complete:%d(%u)(hw:%d/%d/%d/%d/%d/%d), act(%u/%u/%u/%u/%u/%u), hdr_ft_mode(%u/%u/%u/%u/%u/%u), SA(%d/%d/%d, %d, async(%d, m_sidx:%d(%d)))",
+		"[%s:%d/%d %s]: stat:%u, ready:%u, stream:%d, enSync:%d(%d/%d/%d/%d/%d/%d), valid:%d, hw_sync:%d(%d)(%d/%d/%d/%d/%d/%d), trigger:%u, pf_ctrl:%d(%u), complete:%d(%u)(hw:%d/%d/%d/%d/%d/%d), act(%u/%u/%u/%u/%u/%u), hdr_ft_mode(%u/%u/%u/%u/%u/%u), seamless:%#x, SA(%d/%d/%d, %d, async(%d, m_sidx:%d(%d)))",
 		caller, idx, flag, msg,
 		status,
 		cnt,
@@ -372,6 +388,7 @@ static void fs_dump_status(const int idx, const int flag, const char *caller,
 		fs_mgr.hdr_ft_mode[3],
 		fs_mgr.hdr_ft_mode[4],
 		fs_mgr.hdr_ft_mode[5],
+		FS_ATOMIC_READ(&fs_mgr.seamless_bits),
 		FS_ATOMIC_READ(&fs_mgr.using_sa_ver),
 		fs_user_sa_config(),
 		FS_ATOMIC_READ(&fs_mgr.sa_bits),
@@ -931,7 +948,7 @@ static void frec_push_shutter_fl_lc(const unsigned int idx,
 static void frec_push_record(const unsigned int idx,
 	const unsigned int shutter_lc, const unsigned int framelength_lc)
 {
-	/* unexpected case handing */
+	/* unexpected case handling */
 	if (unlikely(fs_mgr.frm_recorder[idx].init == 0)) {
 		// TODO : add error handle ?
 		LOG_INF(
@@ -1057,6 +1074,7 @@ static void fs_init_members(void)
 	FS_ATOMIC_INIT(0, &fs_mgr.validSync_bits);
 	FS_ATOMIC_INIT(0, &fs_mgr.pf_ctrl_bits);
 	FS_ATOMIC_INIT(0, &fs_mgr.setup_complete_bits);
+	FS_ATOMIC_INIT(0, &fs_mgr.seamless_bits);
 
 	FS_ATOMIC_INIT(0, &fs_mgr.hw_sync_bits);
 	for (i = 0; i < FS_HW_SYNC_GROUP_ID_MAX; ++i) {
@@ -1065,8 +1083,11 @@ static void fs_init_members(void)
 	}
 	FS_ATOMIC_INIT(0, &fs_mgr.hw_sync_non_valid_group_bits);
 
-	for (i = 0; i < SENSOR_MAX_NUM; ++i)
+	for (i = 0; i < SENSOR_MAX_NUM; ++i) {
 		FS_ATOMIC_INIT(0, &fs_mgr.set_sync_sidx_table[i]);
+
+		FS_ATOMIC_INIT(0, &fs_mgr.seamless_ctrl[i].wait_for_processing);
+	}
 
 #if defined(USING_CCU)
 	FS_ATOMIC_INIT(0, &fs_mgr.power_on_ccu_bits);
@@ -1337,6 +1358,127 @@ static void fs_reset_perframe_stage_data(
 
 	fs_alg_reset_vsync_data(idx);
 }
+
+
+/*---------------------------------------------------------------------------*/
+// seamless switch functions
+/*---------------------------------------------------------------------------*/
+static unsigned int fs_chk_seamless_switch_status(const unsigned int idx)
+{
+	return FS_CHECK_BIT(idx, &fs_mgr.seamless_bits);
+}
+
+
+static void fs_clr_seamless_switch_info(const unsigned int idx)
+{
+	/* error handling (unexpected case) */
+	if (unlikely(check_idx_valid(idx) == 0)) {
+		LOG_MUST(
+			"NOTICE: [%u] %s is not register, return\n",
+			idx, REG_INFO);
+		return;
+	}
+
+	fs_set_status_bits(idx, 0, &fs_mgr.seamless_bits);
+
+	memset(&fs_mgr.seamless_ctrl[idx], 0, sizeof(fs_mgr.seamless_ctrl[idx]));
+
+	LOG_MUST(
+		"[%u] ID:%#x(sidx:%u), seamless:%#x, seamless_sof_cnt:%u (cleared), SA(m_idx:%d)\n",
+		idx,
+		fs_get_reg_sensor_id(idx),
+		fs_get_reg_sensor_idx(idx),
+		FS_ATOMIC_READ(&fs_mgr.seamless_bits),
+		fs_mgr.seamless_ctrl->seamless_sof_cnt,
+		FS_ATOMIC_READ(&fs_mgr.master_idx));
+}
+
+
+static void fs_set_seamless_switch_info(const unsigned int idx,
+	struct fs_seamless_st *p_seamless_info,
+	const unsigned int seamless_sof_cnt)
+{
+	/* error handling (unexpected case) */
+	if (unlikely(check_idx_valid(idx) == 0)) {
+		LOG_MUST(
+			"NOTICE: [%u] %s is not register, return\n",
+			idx, REG_INFO);
+		return;
+	}
+
+	if (unlikely(p_seamless_info == NULL)) {
+		LOG_MUST(
+			"ERROR: [%u] ID:%#x(sidx:%u), get p_seamless_info:%p, return\n",
+			idx,
+			fs_get_reg_sensor_id(idx),
+			fs_get_reg_sensor_idx(idx),
+			p_seamless_info);
+		return;
+	}
+
+	fs_set_status_bits(idx, 1, &fs_mgr.seamless_bits);
+
+	/* !!! setup fs_seamless_ctrl_st data !!! */
+	/* keep seamless switch ctrl information */
+	/* keep here & check for clear data when exit seamless frame */
+	FS_ATOMIC_SET(1, &fs_mgr.seamless_ctrl[idx].wait_for_processing);
+	fs_mgr.seamless_ctrl[idx].seamless_sof_cnt = seamless_sof_cnt;
+	fs_mgr.seamless_ctrl[idx].seamless_info = *p_seamless_info;
+
+	/* change SA alg master to this sensor */
+	/* before keepping seamless ctrl */
+	fs_sa_request_switch_master(idx);
+
+	LOG_INF(
+		"[%u] ID:%#x(sidx:%u), seamless:%#x, seamless_sof_cnt:%u, wait_for_processing:%d, SA(m_idx:%d), orig_readout_time_us:%u\n",
+		idx,
+		fs_get_reg_sensor_id(idx),
+		fs_get_reg_sensor_idx(idx),
+		FS_ATOMIC_READ(&fs_mgr.seamless_bits),
+		fs_mgr.seamless_ctrl[idx].seamless_sof_cnt,
+		FS_ATOMIC_READ(&fs_mgr.seamless_ctrl[idx].wait_for_processing),
+		FS_ATOMIC_READ(&fs_mgr.master_idx),
+		fs_mgr.seamless_ctrl[idx].seamless_info.orig_readout_time_us);
+}
+
+
+static void fs_do_seamless_switch_proc(const unsigned int idx,
+	const struct fs_sa_cfg *p_sa_cfg)
+{
+	struct fs_seamless_st *p_seamless_info = NULL;
+	struct fs_perframe_st *p_seamless_ctrl = NULL;
+
+	/* error handling (unexpected case) */
+	if (unlikely(check_idx_valid(idx) == 0)) {
+		LOG_MUST(
+			"NOTICE: [%u] %s is not register, return\n",
+			idx, REG_INFO);
+		return;
+	}
+
+	if (unlikely(p_sa_cfg == NULL)) {
+		LOG_MUST(
+			"ERROR: [%u] ID:%#x(sidx:%u), get p_sa_cfg:%p, return\n",
+			idx,
+			fs_get_reg_sensor_id(idx),
+			fs_get_reg_sensor_idx(idx),
+			p_sa_cfg);
+		return;
+	}
+
+	/* read back/get seamless ctrl that keep last time */
+	/* and prevent any issue overwriting last pf ctrl exp and fl */
+	p_seamless_info = &fs_mgr.seamless_ctrl[idx].seamless_info;
+	p_seamless_ctrl = &fs_mgr.seamless_ctrl[idx].seamless_info.seamless_pf_ctrl;
+
+	frec_reset_recorder(idx);
+	frec_push_def_shutter_fl_lc(idx,
+		p_seamless_ctrl->shutter_lc, p_seamless_ctrl->out_fl_lc);
+	// frec_dump_recorder(idx, __func__);
+
+	fs_alg_seamless_switch(idx, p_seamless_info, p_sa_cfg);
+}
+/*---------------------------------------------------------------------------*/
 
 
 #ifdef SUPPORT_FS_NEW_METHOD
@@ -2265,18 +2407,112 @@ void fs_set_extend_framelength(
 }
 
 
-void fs_seamless_switch(unsigned int ident)
+void fs_chk_exit_seamless_switch_frame(const unsigned int ident)
 {
-	unsigned int idx = fs_get_reg_sensor_pos(ident);
+	const unsigned int idx = fs_get_reg_sensor_pos(ident);
 
-	if (check_idx_valid(idx) == 0) {
+	/* error handling (unexpected case) */
+	if (unlikely(check_idx_valid(idx) == 0)) {
+		LOG_MUST(
+			"NOTICE: [%u] %s is not register, ident:%u, return\n",
+			idx, REG_INFO, ident);
+		return;
+	}
+
+	/* check if new vsync sof cnt been updated and is NOT match to seamless sof cnt */
+	/* because it is the next frame that after seamless switch frame */
+	/* if yes, clear/reset seamless ctrl data */
+	if (fs_chk_seamless_switch_status(idx)) {
+		if (fs_mgr.seamless_ctrl[idx].seamless_sof_cnt != fs_mgr.sof_cnt_arr[idx]
+			|| (FS_ATOMIC_READ(&fs_mgr.seamless_ctrl[idx].wait_for_processing) == 0)) {
+			LOG_MUST(
+				"NOTICE: [%u] ID:%#x(sidx:%u), wait_for_processing:%d or (current sof cnt:%u)/(seamelss sof cnt:%u) is different => It is NOT seamless switch frame => enter to NORMAL frame => clear seamless ctrl that keep before\n",
+				idx,
+				fs_mgr.seamless_ctrl[idx].seamless_info.seamless_pf_ctrl.sensor_id,
+				fs_mgr.seamless_ctrl[idx].seamless_info.seamless_pf_ctrl.sensor_idx,
+				FS_ATOMIC_READ(&fs_mgr.seamless_ctrl[idx].wait_for_processing),
+				fs_mgr.sof_cnt_arr[idx],
+				fs_mgr.seamless_ctrl[idx].seamless_sof_cnt);
+
+			fs_clr_seamless_switch_info(idx);
+		}
+	}
+}
+
+
+void fs_chk_valid_for_doing_seamless_switch(const unsigned int ident)
+{
+	struct fs_sa_cfg sa_cfg = {0};
+	const unsigned int idx = fs_get_reg_sensor_pos(ident);
+
+	/* error handling (unexpected case) */
+	if (unlikely(check_idx_valid(idx) == 0)) {
+		LOG_MUST(
+			"NOTICE: [%u] %s is not register, ident:%u, return\n",
+			idx, REG_INFO, ident);
+		return;
+	}
+
+	/* check if new vsync sof cnt been updated and is match to seamless sof cnt */
+	/* if not, keep seamless ctrl for vsync notify using. */
+	if (fs_chk_seamless_switch_status(idx)) {
+		if (fs_mgr.seamless_ctrl[idx].seamless_sof_cnt != fs_mgr.sof_cnt_arr[idx]) {
+			LOG_MUST(
+				"NOTICE: [%u] ID:%#x(sidx:%u), seamless:%#x, wait_for_processing:%d, (current sof cnt:%u)/(seamelss sof cnt:%u) is different, SA(m_idx:%d), keep this seamless ctrl\n",
+				idx,
+				fs_mgr.seamless_ctrl[idx].seamless_info.seamless_pf_ctrl.sensor_id,
+				fs_mgr.seamless_ctrl[idx].seamless_info.seamless_pf_ctrl.sensor_idx,
+				FS_ATOMIC_READ(&fs_mgr.seamless_bits),
+				FS_ATOMIC_READ(&fs_mgr.seamless_ctrl[idx].wait_for_processing),
+				fs_mgr.sof_cnt_arr[idx],
+				fs_mgr.seamless_ctrl[idx].seamless_sof_cnt,
+				FS_ATOMIC_READ(&fs_mgr.master_idx));
+
+			return;
+		}
+
+		/* !!! can do seamless frame-sync flow !!! */
+		fs_sa_setup_perframe_cfg_info(idx, &sa_cfg);
+
+		LOG_MUST(
+			"NOTICE: [%u] ID:%#x(sidx:%u), seamless_bits:%#x, wait_for_processing:%d, (current sof cnt:%u)/(seamelss sof cnt:%u) is same, SA(idx:%u/m_idx:%d/async_m_idx:%u/async_s:%#x/valid_sync:%#x/method:%u) => do seamless switch process\n",
+			idx,
+			fs_mgr.seamless_ctrl[idx].seamless_info.seamless_pf_ctrl.sensor_id,
+			fs_mgr.seamless_ctrl[idx].seamless_info.seamless_pf_ctrl.sensor_idx,
+			FS_ATOMIC_READ(&fs_mgr.seamless_bits),
+			FS_ATOMIC_READ(&fs_mgr.seamless_ctrl[idx].wait_for_processing),
+			fs_mgr.sof_cnt_arr[idx],
+			fs_mgr.seamless_ctrl[idx].seamless_sof_cnt,
+			sa_cfg.idx,
+			sa_cfg.m_idx,
+			sa_cfg.async_m_idx,
+			sa_cfg.async_s_bits,
+			sa_cfg.valid_sync_bits,
+			sa_cfg.sa_method);
+
+		FS_ATOMIC_SET(0, &fs_mgr.seamless_ctrl[idx].wait_for_processing);
+		fs_do_seamless_switch_proc(idx, &sa_cfg);
+	}
+}
+
+
+void fs_seamless_switch(const unsigned int ident,
+	struct fs_seamless_st *p_seamless_info,
+	const unsigned int seamless_sof_cnt)
+{
+	unsigned int idx = 0;
+
+	idx = fs_get_reg_sensor_pos(ident);
+	if (unlikely(check_idx_valid(idx) == 0)) {
 		LOG_INF(
 			"NOTICE: [%u] %s is not register, ident:%u, return\n",
 			idx, REG_INFO, ident);
 		return;
 	}
 
-	fs_alg_seamless_switch(idx);
+	fs_set_seamless_switch_info(idx, p_seamless_info, seamless_sof_cnt);
+
+	fs_chk_valid_for_doing_seamless_switch(idx);
 }
 
 
@@ -3067,6 +3303,19 @@ void fs_set_shutter(struct fs_perframe_st (*pf_ctrl))
 		return;
 	}
 
+	if (fs_chk_seamless_switch_status(idx)) {
+		LOG_MUST(
+			"NOTICE: [%u] ID:%#x(sidx:%u), (%d/%u), in seamless frame, seamless(%#x, sof_cnt:%u), skip/return\n",
+			idx,
+			pf_ctrl->sensor_id,
+			pf_ctrl->sensor_idx,
+			pf_ctrl->req_id,
+			fs_mgr.sof_cnt_arr[idx],
+			FS_ATOMIC_READ(&fs_mgr.seamless_bits),
+			fs_mgr.seamless_ctrl[idx].seamless_sof_cnt);
+		return;
+	}
+
 
 	fs_mgr.pf_ctrl[idx] = *pf_ctrl;
 
@@ -3172,7 +3421,26 @@ static void fs_debug_hw_sync(unsigned int idx)
 
 	hw_fs_dump_dynamic_para(idx);
 }
-#endif
+#endif // !FS_UT
+
+
+void fs_set_debug_info_sof_cnt(const unsigned int ident,
+	const unsigned int sof_cnt)
+{
+	unsigned int idx = fs_get_reg_sensor_pos(ident);
+
+	/* error handling (unexpected case) */
+	if (unlikely(check_idx_valid(idx) == 0)) {
+		LOG_MUST(
+			"NOTICE: [%u] %s is not register, return\n",
+			idx, REG_INFO);
+		return;
+	}
+
+	/* update debug info */
+	fs_mgr.sof_cnt_arr[idx] = sof_cnt;
+	fs_alg_set_debug_info_sof_cnt(idx, sof_cnt);
+}
 
 
 void fs_notify_vsync(const unsigned int ident, const unsigned int sof_cnt)
@@ -3183,7 +3451,7 @@ void fs_notify_vsync(const unsigned int ident, const unsigned int sof_cnt)
 	unsigned int idx = fs_get_reg_sensor_pos(ident);
 
 
-	if (check_idx_valid(idx) == 0) {
+	if (unlikely(check_idx_valid(idx) == 0)) {
 		/* not register/streaming on */
 		return;
 	}
@@ -3214,11 +3482,15 @@ void fs_notify_vsync(const unsigned int ident, const unsigned int sof_cnt)
 #endif // QUERY_CCU_TS_AT_SOF
 
 
-	/* update debug info */
-	fs_alg_set_debug_info_sof_cnt(idx, sof_cnt);
+	/* update debug info --- sof cnt */
+	fs_set_debug_info_sof_cnt(ident, sof_cnt);
 
 
-#endif // FS_UT
+	/* check special ctrl (e.g., seamless switch) */
+	fs_chk_valid_for_doing_seamless_switch(ident);
+	fs_chk_exit_seamless_switch_frame(ident);
+
+#endif // !FS_UT
 }
 
 
@@ -3376,11 +3648,14 @@ static struct FrameSync frameSync = {
 	fs_update_auto_flicker_mode,
 	fs_update_min_framelength_lc,
 	fs_set_extend_framelength,
+	fs_chk_exit_seamless_switch_frame,
+	fs_chk_valid_for_doing_seamless_switch,
 	fs_seamless_switch,
 	fs_set_using_sa_mode,
 	fs_set_frame_tag,
 	fs_n_1_en,
 	fs_mstream_en,
+	fs_set_debug_info_sof_cnt,
 	fs_notify_vsync,
 	fs_is_set_sync,
 	fs_is_hw_sync

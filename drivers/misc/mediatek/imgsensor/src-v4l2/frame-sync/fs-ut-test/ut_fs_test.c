@@ -2723,6 +2723,114 @@ static void ut_fs_ctrl_request_setup_do_ae_ctrl(
 }
 
 
+static void ut_fs_set_debug_info_sof_cnt(struct fs_perframe_st *p_pf_ctrl)
+{
+	/* UT test: update debug info --- sof cnt */
+	switch (REGISTER_METHOD) {
+	case BY_SENSOR_ID:
+		frameSync->fs_set_debug_info_sof_cnt(
+			p_pf_ctrl->sensor_id, g_counter);
+		break;
+
+	case BY_SENSOR_IDX:
+		frameSync->fs_set_debug_info_sof_cnt(
+			p_pf_ctrl->sensor_idx, g_counter);
+		break;
+
+	default:
+		printf(
+			"\n=== Run in defalut case, not assign register method ===\n");
+		break;
+	}
+
+}
+
+
+static void ut_trigger_ext_ctrl(struct fs_perframe_st *p_pf_ctrl)
+{
+	struct fs_seamless_st seamless_info = {0};
+	unsigned int i = 0;
+
+	for (i = 0;
+		(g_ext_ctrls[i].do_ext_fl_at_n_run != 0 ||
+		g_ext_ctrls[i].do_seamless_switch_at_n_run != 0); ++i) {
+
+		printf(GREEN
+			"Do ext_ctrl at => g_ext_ctrls.ext_at:%u/seamless_at:%u, g_counter:%u\n"
+			NONE,
+			g_ext_ctrls[i].do_ext_fl_at_n_run,
+			g_ext_ctrls[i].do_seamless_switch_at_n_run,
+			g_counter);
+
+		switch (REGISTER_METHOD) {
+		case BY_SENSOR_IDX:
+		default:
+			if (g_ext_ctrls[i].do_ext_fl_at_n_run == g_counter) {
+				frameSync->fs_set_extend_framelength(
+						g_ext_ctrls[i].sensor_idx,
+						0,
+						g_ext_ctrls[i].ext_fl_us);
+			}
+
+
+			if (g_ext_ctrls[i].do_seamless_switch_at_n_run == g_counter) {
+				printf(GREEN
+					"[UT seamless ctrl] call seamless switch, g_counter:%u\n"
+					NONE,
+					g_counter);
+
+				seamless_info.seamless_pf_ctrl = *p_pf_ctrl;
+				seamless_info.orig_readout_time_us = p_pf_ctrl->readout_time_us;
+
+				/* test seamless switch procedure */
+				switch (REGISTER_METHOD) {
+				case BY_SENSOR_ID:
+					frameSync->fs_seamless_switch(p_pf_ctrl->sensor_id,
+							&seamless_info, g_counter);
+
+					break;
+				case BY_SENSOR_IDX:
+					frameSync->fs_seamless_switch(p_pf_ctrl->sensor_idx,
+							&seamless_info, g_counter);
+
+					break;
+				default:
+					printf(
+						"\n=== Run in defalut case, not assign register method ===\n");
+					break;
+				}
+
+			} else {
+
+				printf(GREEN
+					"[UT vsync notify --- seamless ctrl] call chk exit seamless switch frame, g_counter:%u\n"
+					NONE,
+					g_counter);
+
+				switch (REGISTER_METHOD) {
+				case BY_SENSOR_ID:
+					frameSync->fs_chk_exit_seamless_switch_frame(
+						p_pf_ctrl->sensor_id);
+
+					break;
+				case BY_SENSOR_IDX:
+					frameSync->fs_chk_exit_seamless_switch_frame(
+						p_pf_ctrl->sensor_idx);
+
+					break;
+				default:
+					printf(
+						"\n=== Run in defalut case, not assign register method ===\n");
+					break;
+				}
+
+			}
+			break;
+		}
+	}
+}
+
+
 static void ut_ctrl_request_setup(void)
 {
 	int user_select_idx = 2147483647, /*input = 0,*/ ret = 0;
@@ -2760,6 +2868,9 @@ static void ut_ctrl_request_setup(void)
 #endif // REDUCE_UT_DEBUG_PRINTF
 
 
+		ut_fs_set_debug_info_sof_cnt(&pf_ctrl);
+
+
 		/* 0. try trigger for gen new shutter data */
 		ut_try_gen_new_shutter_data(pf_ctrl.sensor_idx);
 
@@ -2793,40 +2904,9 @@ static void ut_ctrl_request_setup(void)
 
 		if (!g_auto_run)
 			printf("\n\n");
-	}
-}
 
 
-static void ut_trigger_ext_ctrl(unsigned int run_times)
-{
-	unsigned int i = 0;
-
-	for (i = 0;
-		(g_ext_ctrls[i].do_ext_fl_at_n_run != 0 &&
-		g_ext_ctrls[i].do_seamless_switch_at_n_run != 0); ++i) {
-
-		// printf("g_ext_ctrls.ext_at:%u/seamless_at:%u\n",
-		//	g_ext_ctrls[i].do_ext_fl_at_n_run,
-		//	g_ext_ctrls[i].do_seamless_switch_at_n_run);
-
-		switch (REGISTER_METHOD) {
-		case BY_SENSOR_IDX:
-		default:
-			if (g_ext_ctrls[i].do_ext_fl_at_n_run == run_times) {
-				frameSync->fs_set_extend_framelength(
-						g_ext_ctrls[i].sensor_idx,
-						0,
-						g_ext_ctrls[i].ext_fl_us);
-			}
-
-
-			if (g_ext_ctrls[i].do_seamless_switch_at_n_run == run_times) {
-				frameSync->fs_seamless_switch(
-						g_ext_ctrls[i].sensor_idx);
-			}
-
-			break;
-		}
+		ut_trigger_ext_ctrl(&pf_ctrl);
 	}
 }
 
@@ -2981,7 +3061,7 @@ RUN_PF_CTRL_AUTO_NORMAL:
 
 
 		/* 2.x do ext ctrl if needed */
-		ut_trigger_ext_ctrl(g_counter);
+		// ut_trigger_ext_ctrl(g_counter);
 
 
 		/* 3. end => end this request ID settings */
@@ -3237,7 +3317,7 @@ static void ut_setup_ext_ctrl_cfg(
 	}
 
 	for (i = 0;
-		(ctrls[i].do_ext_fl_at_n_run != 0 &&
+		(ctrls[i].do_ext_fl_at_n_run != 0 ||
 		ctrls[i].do_seamless_switch_at_n_run != 0); ++i) {
 
 		g_ext_ctrls[i] = ctrls[i];

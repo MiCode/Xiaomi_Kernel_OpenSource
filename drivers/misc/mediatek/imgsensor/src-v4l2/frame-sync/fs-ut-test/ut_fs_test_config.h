@@ -703,9 +703,9 @@ struct ut_fs_test_n_1_mode_cfg n_1_cfg_2_2_60_main_0_1[] = {
 struct ut_fs_test_ext_ctrl_cfg ext_ctrl_cfg_01[] = {
 	{
 		.sensor_idx = 0,
-		.do_ext_fl_at_n_run = 8,
+		.do_ext_fl_at_n_run = 0,
 		.ext_fl_us = 5000,
-		.do_seamless_switch_at_n_run = 16,
+		.do_seamless_switch_at_n_run = 6,
 	},
 
 	/* End */

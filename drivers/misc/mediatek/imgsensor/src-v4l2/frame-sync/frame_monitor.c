@@ -550,6 +550,8 @@ void frm_set_frame_measurement(
 		vts_idx = (vts_idx + (VSYNCS_MAX-1)) % VSYNCS_MAX;
 	}
 
+	p_fmeas->results[meas_idx].predicted_fl_us = curr_fl_us;
+	p_fmeas->results[meas_idx].predicted_fl_lc = curr_fl_lc;
 	/* for passing more vsyncs case */
 	/*     i from 1 for preventing passed_vsyncs is 0 */
 	/*     and (0-1) compare to (unsigned int) will cause overflow */
