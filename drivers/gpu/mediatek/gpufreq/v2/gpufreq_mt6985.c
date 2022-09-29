@@ -218,6 +218,8 @@ static void __iomem *g_mfg_secure_base;
 static void __iomem *g_drm_debug_base;
 static void __iomem *g_mfg_ips_base;
 static void __iomem *g_mali_base;
+static void __iomem *g_emi_base;
+static void __iomem *g_sub_emi_base;
 static struct gpufreq_pmic_info *g_pmic;
 static struct gpufreq_clk_info *g_clk;
 static struct gpufreq_mtcmos_info *g_mtcmos;
@@ -1147,11 +1149,55 @@ void __gpufreq_dump_infra_status(void)
 		0x1030E22C, readl(STH_M6M7_IDLE_BIT_EN_0));
 
 	/* NTH_SLEEP_PROT_START */
+	/* NTH_GLITCH_PROT_RDY */
 	/* STH_SLEEP_PROT_START */
-	GPUFREQ_LOGI("%-11s (0x%x): 0x%08x, (0x%x): 0x%08x",
+	/* STH_GLITCH_PROT_RDY */
+	GPUFREQ_LOGI("%-11s (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x",
 		"[EMI]",
 		0x10270000, readl(NTH_SLEEP_PROT_START),
-		0x1030E000, readl(STH_SLEEP_PROT_START));
+		0x1027008C, readl(NTH_GLITCH_PROT_RDY),
+		0x1030E000, readl(STH_SLEEP_PROT_START),
+		0x1030E08C, readl(STH_GLITCH_PROT_RDY));
+
+	/* EMI_MD_LAT_HRT_UGT_CNT */
+	/* EMI_MD_HRT_UGT_CNT */
+	/* EMI_DISP_HRT_UGT_CNT */
+	/* EMI_CAM_HRT_UGT_CNT */
+	GPUFREQ_LOGI("%-11s (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x",
+		"[EMI]",
+		0x10219860, readl(EMI_MD_LAT_HRT_UGT_CNT),
+		0x10219864, readl(EMI_MD_HRT_UGT_CNT),
+		0x10219868, readl(EMI_DISP_HRT_UGT_CNT),
+		0x1021986C, readl(EMI_CAM_HRT_UGT_CNT));
+
+	/* EMI_MD_WR_LAT_HRT_UGT_CNT */
+	/* EMI_MDMCU_HIGH_LAT_UGT_CNT */
+	/* EMI_MDMCU_HIGH_WR_LAT_UGT_CNT */
+	GPUFREQ_LOGI("%-11s (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x",
+		"[EMI]",
+		0x102199A4, readl(EMI_MD_WR_LAT_HRT_UGT_CNT),
+		0x10219CC4, readl(EMI_MDMCU_HIGH_LAT_UGT_CNT),
+		0x10219CCC, readl(EMI_MDMCU_HIGH_WR_LAT_UGT_CNT));
+
+	/* SEMI_MD_LAT_HRT_UGT_CNT */
+	/* SEMI_MD_HRT_UGT_CNT */
+	/* SEMI_DISP_HRT_UGT_CNT */
+	/* SEMI_CAM_HRT_UGT_CNT */
+	GPUFREQ_LOGI("%-11s (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x",
+		"[EMI]",
+		0x1021D860, readl(SEMI_MD_LAT_HRT_UGT_CNT),
+		0x1021D864, readl(SEMI_MD_HRT_UGT_CNT),
+		0x1021D868, readl(SEMI_DISP_HRT_UGT_CNT),
+		0x1021D86C, readl(SEMI_CAM_HRT_UGT_CNT));
+
+	/* SEMI_MD_WR_LAT_HRT_UGT_CNT */
+	/* SEMI_MDMCU_HIGH_LAT_UGT_CNT */
+	/* SEMI_MDMCU_HIGH_WR_LAT_UGT_CNT */
+	GPUFREQ_LOGI("%-11s (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x",
+		"[EMI]",
+		0x1021D9A4, readl(SEMI_MD_WR_LAT_HRT_UGT_CNT),
+		0x1021DCC4, readl(SEMI_MDMCU_HIGH_LAT_UGT_CNT),
+		0x1021DCCC, readl(SEMI_MDMCU_HIGH_WR_LAT_UGT_CNT));
 
 	/* IFR_MFGSYS_PROT_EN_STA_0 */
 	/* IFR_MFGSYS_PROT_RDY_STA_0 */
@@ -1174,6 +1220,11 @@ void __gpufreq_dump_infra_status(void)
 		0x10028000, readl(STH_EMI_AO_DEBUG_CTRL0),
 		0x10023000, readl(INFRA_AO_BUS0_U_DEBUG_CTRL0),
 		0x1002B000, readl(INFRA_AO1_BUS1_U_DEBUG_CTRL0));
+
+	/* SPM_SRC_REQ */
+	GPUFREQ_LOGI("%-11s (0x%x): 0x%08x",
+		"[SPM]",
+		0x1C001818, readl(SPM_SRC_REQ));
 
 	GPUFREQ_LOGI("%-11s 0x%08x, 0x%08x, 0x%08x, 0x%08x, 0x%08x",
 		"[MFG0-4]", readl(SPM_MFG0_PWR_CON),
@@ -5815,6 +5866,30 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	g_mfg_ips_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_mfg_ips_base)) {
 		GPUFREQ_LOGE("fail to ioremap MFG_IPS: 0x%llx", res->start);
+		goto done;
+	}
+
+	/* 0x10219000 */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "emi_reg");
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource EMI_REG");
+		goto done;
+	}
+	g_emi_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_emi_base)) {
+		GPUFREQ_LOGE("fail to ioremap EMI_REG: 0x%llx", res->start);
+		goto done;
+	}
+
+	/* 0x1021D000 */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "sub_emi_reg");
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource SUB_EMI_REG");
+		goto done;
+	}
+	g_sub_emi_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_sub_emi_base)) {
+		GPUFREQ_LOGE("fail to ioremap SUB_EMI_REG: 0x%llx", res->start);
 		goto done;
 	}
 

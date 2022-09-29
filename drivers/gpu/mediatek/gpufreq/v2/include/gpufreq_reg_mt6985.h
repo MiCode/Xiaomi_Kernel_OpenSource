@@ -175,6 +175,7 @@ static inline u32 readl_mfg(const void __iomem *addr)
 #define SPM_SOC_BUCK_ISO_CON            (SPM_BASE + 0xF78)                    /* 0x1C001F78 */
 #define SPM_SOC_BUCK_ISO_CON_SET        (SPM_BASE + 0xF7C)                    /* 0x1C001F7C */
 #define SPM_SOC_BUCK_ISO_CON_CLR        (SPM_BASE + 0xF80)                    /* 0x1C001F80 */
+#define SPM_SRC_REQ                     (SPM_BASE + 0x818)                    /* 0x1C001818 */
 
 #define TOPCKGEN_BASE                   (g_topckgen_base)                     /* 0x10000000 */
 #define TOPCK_CLK_CFG_3                 (TOPCKGEN_BASE + 0x040)               /* 0x10000040 */
@@ -192,11 +193,13 @@ static inline u32 readl_mfg(const void __iomem *addr)
 
 #define NTH_EMICFG_AO_MEM_BASE          (g_nth_emicfg_ao_mem_base)            /* 0x10270000 */
 #define NTH_SLEEP_PROT_START            (NTH_EMICFG_AO_MEM_BASE + 0x000)      /* 0x10270000 */
+#define NTH_GLITCH_PROT_RDY             (NTH_EMICFG_AO_MEM_BASE + 0x08C)      /* 0x1027008C */
 #define NTH_M6M7_IDLE_BIT_EN_1          (NTH_EMICFG_AO_MEM_BASE + 0x228)      /* 0x10270228 */
 #define NTH_M6M7_IDLE_BIT_EN_0          (NTH_EMICFG_AO_MEM_BASE + 0x22C)      /* 0x1027022C */
 
 #define STH_EMICFG_AO_MEM_BASE          (g_sth_emicfg_ao_mem_base)            /* 0x1030E000 */
 #define STH_SLEEP_PROT_START            (STH_EMICFG_AO_MEM_BASE + 0x000)      /* 0x1030E000 */
+#define STH_GLITCH_PROT_RDY             (STH_EMICFG_AO_MEM_BASE + 0x08C)      /* 0x1030E08C */
 #define STH_M6M7_IDLE_BIT_EN_1          (STH_EMICFG_AO_MEM_BASE + 0x228)      /* 0x1030E228 */
 #define STH_M6M7_IDLE_BIT_EN_0          (STH_EMICFG_AO_MEM_BASE + 0x22C)      /* 0x1030E22C */
 
@@ -262,6 +265,24 @@ static inline u32 readl_mfg(const void __iomem *addr)
 #define MFG_IPS_10                      (MFG_IPS_BASE + 0x024)                /* 0x13FE0024 */
 #define MFG_IPS_12                      (MFG_IPS_BASE + 0x02C)                /* 0x13FE002C */
 #define MFG_IPS_13                      (MFG_IPS_BASE + 0x030)                /* 0x13FE0030 */
+
+#define EMI_BASE                        (g_emi_base)                          /* 0x10219000 */
+#define EMI_MD_LAT_HRT_UGT_CNT          (EMI_BASE + 0x860)                    /* 0x10219860 */
+#define EMI_MD_HRT_UGT_CNT              (EMI_BASE + 0x864)                    /* 0x10219864 */
+#define EMI_DISP_HRT_UGT_CNT            (EMI_BASE + 0x868)                    /* 0x10219868 */
+#define EMI_CAM_HRT_UGT_CNT             (EMI_BASE + 0x86C)                    /* 0x1021986C */
+#define EMI_MD_WR_LAT_HRT_UGT_CNT       (EMI_BASE + 0x9A4)                    /* 0x102199A4 */
+#define EMI_MDMCU_HIGH_LAT_UGT_CNT      (EMI_BASE + 0xCC4)                    /* 0x10219CC4 */
+#define EMI_MDMCU_HIGH_WR_LAT_UGT_CNT   (EMI_BASE + 0xCCC)                    /* 0x10219CCC */
+
+#define SUB_EMI_BASE                    (g_sub_emi_base)                      /* 0x1021D000 */
+#define SEMI_MD_LAT_HRT_UGT_CNT         (SUB_EMI_BASE + 0x860)                /* 0x1021D860 */
+#define SEMI_MD_HRT_UGT_CNT             (SUB_EMI_BASE + 0x864)                /* 0x1021D864 */
+#define SEMI_DISP_HRT_UGT_CNT           (SUB_EMI_BASE + 0x868)                /* 0x1021D868 */
+#define SEMI_CAM_HRT_UGT_CNT            (SUB_EMI_BASE + 0x86C)                /* 0x1021D86C */
+#define SEMI_MD_WR_LAT_HRT_UGT_CNT      (SUB_EMI_BASE + 0x9A4)                /* 0x1021D9A4 */
+#define SEMI_MDMCU_HIGH_LAT_UGT_CNT     (SUB_EMI_BASE + 0xCC4)                /* 0x1021DCC4 */
+#define SEMI_MDMCU_HIGH_WR_LAT_UGT_CNT  (SUB_EMI_BASE + 0xCCC)                /* 0x1021DCCC */
 
 /**************************************************
  * MFGSYS Register Info
