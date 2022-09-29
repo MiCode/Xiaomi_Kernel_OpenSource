@@ -17,7 +17,7 @@
 
 #define MAX_MRAW_VIDEO_DEV_NUM 2
 #define USING_MRAW_SCQ 1
-
+#define CHECK_MRAW_NODEQ 1
 #define MRAW_WRITE_BITS(RegAddr, RegName, FieldName, FieldValue) do {\
 	union RegName reg;\
 	\
@@ -214,6 +214,12 @@ struct mtk_mraw_device {
 
 	atomic_t is_enqueued;
 	atomic_t is_first_frame;
+#ifdef CHECK_MRAW_NODEQ
+	u64 fbc_iszero_cnt;
+	u64 last_wcnt;
+	u64 wcnt_no_dup_cnt;
+	unsigned int is_fbc_cnt_zero_happen;
+#endif
 };
 
 struct mtk_mraw {
@@ -273,6 +279,11 @@ void mtk_cam_mraw_get_mbn_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 	unsigned int *width, unsigned int *height);
 void mtk_cam_mraw_get_cpi_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 	unsigned int *width, unsigned int *height);
+#ifdef CHECK_MRAW_NODEQ
+void mraw_check_fbc_no_deque(struct mtk_cam_ctx *ctx,
+	struct mtk_mraw_device *mraw_dev,
+	int fbc_cnt, int write_cnt, unsigned int dequeued_frame_seq_no);
+#endif
 
 extern struct platform_driver mtk_cam_mraw_driver;
 

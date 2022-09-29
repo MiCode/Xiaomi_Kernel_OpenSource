@@ -1647,8 +1647,13 @@ void apply_camsv_cq(struct mtk_camsv_device *dev,
 	CAMSV_WRITE_BITS(dev->base_scq + REG_CAMSVCQTOP_THR_START,
 		CAMSVCQTOP_THR_START, CAMSVCQTOP_CSR_CQ_THR0_START, 1);
 
-	dev_dbg(dev->dev, "apply camsv scq: addr_msb:0x%x addr_lsb:0x%x size:%d",
-		cq_addr_msb, cq_addr_lsb, cq_size);
+	if (initial)
+		dev_info(dev->dev, "apply 1st camsv scq: addr_msb:0x%x addr_lsb:0x%x size:%d cq_en(0x%x))",
+			cq_addr_msb, cq_addr_lsb, cq_size,
+			readl_relaxed(dev->base_scq + REG_CAMSVCQTOP_THR_START));
+	else
+		dev_dbg(dev->dev, "apply camsv scq: addr_msb:0x%x addr_lsb:0x%x size:%d",
+			cq_addr_msb, cq_addr_lsb, cq_size);
 }
 
 int mtk_cam_sv_update_feature(struct mtk_cam_video_device *node)
