@@ -139,8 +139,7 @@ static void ged_notify_sw_sync_work_handle(struct work_struct *psWork)
 		mutex_lock(&gsPolicyLock);
 		timeout_value = lb_timeout;
 		psNotify->bUsed = false;
-		if (!hrtimer_active(&g_HT_hwvsync_emu) &&
-		!hrtimer_is_queued(&g_HT_hwvsync_emu)) {
+		if (hrtimer_expires_remaining(&g_HT_hwvsync_emu) < 0) {
 			enum gpu_dvfs_policy_state policy_state;
 
 			policy_state = ged_get_policy_state();
@@ -402,6 +401,7 @@ enum hrtimer_restart ged_sw_vsync_check_cb(struct hrtimer *timer)
 	unsigned long long temp;
 	long long llDiff;
 	unsigned int loading_mode = 0;
+	unsigned int gpu_loading_temp;
 	struct GED_NOTIFY_SW_SYNC *psNotify;
 	struct GpuUtilization_Ex util_ex;
 
@@ -421,24 +421,25 @@ enum hrtimer_restart ged_sw_vsync_check_cb(struct hrtimer *timer)
 		ged_dvfs_cal_gpu_utilization_ex(&gpu_av_loading,
 			&gpu_block, &gpu_idle, &util_ex);
 		gpu_loading = gpu_av_loading;
+		gpu_loading_temp = gpu_loading;
 #endif
 
 		ged_get_gpu_utli_ex(&util_ex);
 		mtk_get_dvfs_loading_mode(&loading_mode);
 		if (loading_mode == LOADING_MAX_3DTA_COM) {
-			gpu_loading =
+			gpu_loading_temp =
 			MAX(util_ex.util_3d, util_ex.util_ta) +
 			util_ex.util_compute;
 		} else if (loading_mode == LOADING_MAX_3DTA) {
-			gpu_loading =
+			gpu_loading_temp =
 			MAX(util_ex.util_3d, util_ex.util_ta);
 		} else if (loading_mode == LOADING_ITER) {
-			gpu_loading = util_ex.util_iter;
+			gpu_loading_temp = util_ex.util_iter;
 		} else if (loading_mode == LOADING_MAX_ITERMCU) {
-			gpu_loading = MAX(util_ex.util_iter, util_ex.util_mcu);
+			gpu_loading_temp = MAX(util_ex.util_iter, util_ex.util_mcu);
 		}
 
-		if (false == g_bGPUClock && 0 == gpu_loading
+		if (false == g_bGPUClock && 0 == gpu_loading_temp
 			&& (temp - g_ns_gpu_on_ts > GED_DVFS_TIMER_TIMEOUT)) {
 			if (psNotify && psNotify->bUsed == false) {
 				psNotify->bUsed = true;

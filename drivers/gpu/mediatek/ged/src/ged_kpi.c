@@ -1059,6 +1059,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		/*check if LB or FB*/
 		ged_kpi_set_fallback_mode(psHead);
 		/*First FB to LB*/
+		mutex_lock(&gsPolicyLock);
 		if (ged_get_policy_state() == POLICY_STATE_FB &&
 		ged_kpi_get_fallback_mode()) {
 			ged_set_policy_state(POLICY_STATE_LB);
@@ -1066,6 +1067,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			ged_set_backup_timer_timeout(lb_timeout);
 			ged_cancel_backup_timer();
 		}
+		mutex_unlock(&gsPolicyLock);
 		break;
 
 	/* queue buffer scope */
