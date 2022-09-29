@@ -12,6 +12,7 @@
 int mtk_cam_hsf_init(struct mtk_cam_ctx *ctx);
 int mtk_cam_hsf_config(struct mtk_cam_ctx *ctx, unsigned int raw_id);
 int mtk_cam_hsf_uninit(struct mtk_cam_ctx *ctx);
+int mtk_cam_hsf_aid(struct mtk_cam_ctx *ctx, unsigned int enable, unsigned int feature);
 void ccu_apply_cq(struct mtk_raw_device *dev, dma_addr_t cq_addr, unsigned int cq_size,
 int initial, unsigned int cq_offset,  unsigned int sub_cq_size, unsigned int sub_cq_offset);
 void ccu_stream_on(struct mtk_raw_device *dev, int on);

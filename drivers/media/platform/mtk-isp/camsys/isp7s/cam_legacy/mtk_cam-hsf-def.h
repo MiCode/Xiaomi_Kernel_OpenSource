@@ -26,6 +26,7 @@
 #define MSG_TO_CCU_WRITE_READ_COUNT 1
 #define MSG_TO_CCU_STREAM_ON 2
 #define MSG_TO_CCU_HSF_CONFIG 3
+#define MSG_TO_CCU_AID 4
 
 struct mtk_cam_hsf_info {
 	u32 cq_size;
@@ -77,6 +78,18 @@ struct mtk_cam_hsf_ctrl {
 	struct mtk_cam_dma_map *cq_buf;
 	struct mtk_cam_dma_map *chk_buf;
 };
+
+struct aid_info {
+	uint32_t enable;
+	uint32_t feature;
+};
+
+enum mtk_cam_aid_feature {
+	AID_START = 0,
+	AID_VAINR,
+	AID_END,
+};
+
 
 #define CMD_INIT 1
 #define CMD_UNINIT 2

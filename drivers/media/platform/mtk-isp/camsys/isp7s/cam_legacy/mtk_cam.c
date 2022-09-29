@@ -4224,6 +4224,7 @@ mtk_cam_config_raw_img_in_ipui(struct mtk_cam_request_stream_data *s_data,
 				ctx->slb_addr = slb.paddr;
 				ctx->slb_size = slb.size;
 			}
+			mtk_cam_hsf_aid(ctx, 1, AID_VAINR);
 		}
 
 	} else if (s_data->apu_info.apu_path == APU_FRAME_MODE) {
@@ -8958,6 +8959,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 		ret = slbc_release(&slb);
 		if (ret < 0)
 			dev_info(cam->dev, "failed to release slb buffer");
+		mtk_cam_hsf_aid(ctx, 0, AID_VAINR);
 	}
 	ctx->slb_addr = NULL;
 
