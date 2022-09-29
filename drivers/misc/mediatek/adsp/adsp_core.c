@@ -11,6 +11,9 @@
 #include <linux/suspend.h>
 #include <linux/arm-smccc.h>    /* for Kernel Native SMC API */
 #include <linux/soc/mediatek/mtk_sip_svc.h> /* for SMC ID table */
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
+#include <linux/soc/mediatek/devapc_public.h>
+#endif
 #include "adsp_clk.h"
 #include "adsp_timesync.h"
 #include "adsp_semaphore.h"
@@ -595,6 +598,18 @@ static int adsp_system_init(void)
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
+static bool devapc_power_cb(void)
+{
+	return adsp_smc_send(MTK_ADSP_KERNEL_OP_QUERY_STATE, 0, 0);
+}
+
+static struct devapc_power_callbacks devapc_power_handle = {
+	.type = DEVAPC_TYPE_ADSP,
+	.query_power = devapc_power_cb,
+};
+#endif
+
 int adsp_system_bootup(void)
 {
 	int ret = 0;
@@ -643,6 +658,11 @@ int adsp_system_bootup(void)
 	}
 
 	adsp_deregister_feature(SYSTEM_FEATURE_ID);
+
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
+	register_devapc_power_callback(&devapc_power_handle);
+#endif
+
 	pr_info("%s done\n", __func__);
 	return 0;
 
