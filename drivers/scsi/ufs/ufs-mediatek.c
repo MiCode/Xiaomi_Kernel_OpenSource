@@ -1750,35 +1750,42 @@ static void ufs_mtk_setup_clk_gating(struct ufs_hba *hba)
 	}
 }
 
+/* Convert microseconds to Auto-Hibernate Idle Timer register value */
+static u32 ufs_mtk_us_to_ahit(unsigned int timer)
+{
+	unsigned int scale;
+
+	for (scale = 0; timer > UFSHCI_AHIBERN8_TIMER_MASK; ++scale)
+		timer /= UFSHCI_AHIBERN8_SCALE_FACTOR;
+
+	return FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, timer) |
+	       FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, scale);
+}
+
 static void ufs_mtk_fix_ahit(struct ufs_hba *hba)
 {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	unsigned int us;
 
 	if (ufshcd_is_auto_hibern8_supported(hba)) {
 		switch (hba->dev_info.wmanufacturerid) {
 		case UFS_VENDOR_SAMSUNG:
 			/* configure auto-hibern8 timer to 3.5 ms */
-			host->desired_ahit =
-				FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 35) |
-				FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 2);
+			us = 3500;
 			break;
 
 		case UFS_VENDOR_MICRON:
 			/* configure auto-hibern8 timer to 2 ms */
-			host->desired_ahit =
-				FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 2) |
-				FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 3);
+			us = 2000;
 			break;
 
 		default:
-			/* configure auto-hibern8 timer to 500 us */
-			host->desired_ahit =
-				FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 5) |
-				FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 2);
+			/* configure auto-hibern8 timer to 1 ms */
+			us = 1000;
 			break;
 		}
 
-		hba->ahit = host->desired_ahit;
+		hba->ahit = host->desired_ahit = ufs_mtk_us_to_ahit(us);
 	}
 
 	ufs_mtk_setup_clk_gating(hba);
