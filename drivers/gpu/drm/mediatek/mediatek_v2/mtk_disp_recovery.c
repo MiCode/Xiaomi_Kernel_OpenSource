@@ -193,11 +193,7 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 		else
 			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
 						 DDP_FIRST_PATH, 0);
-		cmdq_pkt_flush(cmdq_handle);
-		cmdq_pkt_destroy(cmdq_handle);
-		cmdq_handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
-		cmdq_handle->err_cb.cb = esd_cmdq_timeout_cb;
-		cmdq_handle->err_cb.data = crtc;
+
 		cmdq_pkt_clear_event(cmdq_handle,
 				     mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
 
@@ -213,7 +209,11 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 		else
 			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
 						 DDP_FIRST_PATH, 1);
-
+		cmdq_pkt_flush(cmdq_handle);
+		cmdq_pkt_destroy(cmdq_handle);
+		cmdq_handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+		cmdq_handle->err_cb.cb = esd_cmdq_timeout_cb;
+		cmdq_handle->err_cb.data = crtc;
 		if (mtk_crtc->msync2.msync_on) {
 			u32 vfp_early_stop = 1;
 
@@ -228,7 +228,6 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 
 		CRTC_MMP_MARK(drm_crtc_index(crtc), esd_check, 2, 3);
 
-
 		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, ESD_CHECK_READ,
 				    (void *)mtk_crtc);
 
@@ -241,10 +240,10 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 	}
 	esd_ctx = mtk_crtc->esd_ctx;
 	esd_ctx->chk_sta = 0;
-
+	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_check, 2, 4);
 	cmdq_pkt_flush(cmdq_handle);
 
-	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_check, 2, 4);
+	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_check, 2, 5);
 
 
 	mtk_ddp_comp_io_cmd(output_comp, NULL, CONNECTOR_READ_EPILOG,
