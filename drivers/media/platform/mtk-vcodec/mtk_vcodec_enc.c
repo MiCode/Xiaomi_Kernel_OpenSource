@@ -2441,6 +2441,7 @@ static int mtk_venc_encode_header(void *priv)
 			     VENC_START_OPT_ENCODE_SEQUENCE_HEADER,
 			     NULL, bs_buf, &enc_result);
 
+	mutex_lock(&ctx->buf_lock);
 	get_free_buffers(ctx, &enc_result);
 
 	if (enc_result.bs_va == 0) {
@@ -2451,6 +2452,7 @@ static int mtk_venc_encode_header(void *priv)
 				  VB2_BUF_STATE_ERROR);
 		mtk_v4l2_err("%s venc_if_encode failed=%d",
 			__func__, ret);
+		mutex_unlock(&ctx->buf_lock);
 		return -EINVAL;
 	}
 	src_vb2_v4l2 = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
@@ -2465,6 +2467,7 @@ static int mtk_venc_encode_header(void *priv)
 	ctx->state = MTK_STATE_HEADER;
 	dst_buf->planes[0].bytesused = enc_result.bs_size;
 	v4l2_m2m_buf_done(dst_vb2_v4l2, VB2_BUF_STATE_DONE);
+	mutex_unlock(&ctx->buf_lock);
 
 	return 0;
 }
