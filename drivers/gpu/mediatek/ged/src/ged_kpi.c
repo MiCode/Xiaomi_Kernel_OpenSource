@@ -939,11 +939,13 @@ static void ged_kpi_set_fallback_mode(struct GED_KPI_HEAD *psHead)
 						, psHead->i32Count);
 	Policy__Common__Commit_Reason(same_times, diff_times);
 	/*check if LB or FB*/
-	if (same_times >= GED_KPI_SWITCH_FB_THRESHOLD)
-		is_loading_based = 0;/*switch FB*/
-	else if (diff_times > GED_KPI_SWITCH_LB_THRESHOLD)
-		is_loading_based = 1;/*switch LB*/
-
+	if (same_times >= GED_KPI_SWITCH_FB_THRESHOLD) {
+		if (main_head->isSF == 1) //surfacefliger use LB only
+			is_loading_based = 1;
+		else /*switch FB*/
+			is_loading_based = 0;
+	} else if (diff_times > GED_KPI_SWITCH_LB_THRESHOLD)
+		is_loading_based = 1; /*switch LB*/
 	/*else keep pre_state*/
 }
 
