@@ -10777,6 +10777,11 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto fail_uninit_link_change_wq;
 
+	/* DEBUG ONLY */
+	cam_dev->vmm_pmic = devm_regulator_get(dev, "vmm-pmic");
+	if (IS_ERR(cam_dev->vmm_pmic))
+		dev_info(dev, "failed to get vmm_pmic\n");
+
 	return 0;
 
 fail_uninit_link_change_wq:

@@ -601,6 +601,9 @@ struct mtk_cam_device {
 	wait_queue_head_t debug_exception_waitq;
 	struct cmdq_client *cmdq_clt;
 	struct mutex dvfs_op_lock;
+
+	/* DEBUG ONLY */
+	struct regulator *vmm_pmic;
 };
 
 static inline struct mtk_cam_request_stream_data*

@@ -2976,6 +2976,9 @@ static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD3_RDY_STAT),
 		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD4_RDY_STAT),
 		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD5_RDY_STAT));
+	if (raw_dev->cam->vmm_pmic)
+		dev_info(raw_dev->dev, "%d [VMM] voltage:%d\n", dequeued_frame_seq_no,
+			 regulator_get_voltage(raw_dev->cam->vmm_pmic));
 
 	ctx = mtk_cam_find_ctx(raw_dev->cam, &raw_dev->pipeline->subdev.entity);
 	if (!ctx) {
