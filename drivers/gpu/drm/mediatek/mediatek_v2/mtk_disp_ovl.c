@@ -2117,14 +2117,26 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	unsigned int value = 0, mask = 0, fmt_ex = 0;
 	unsigned long long temp_bw;
 	unsigned int dim_color;
-	struct drm_crtc *crtc = &comp->mtk_crtc->base;
-	struct mtk_crtc_state *mtk_crtc_state = to_mtk_crtc_state(crtc->state);
-	unsigned int frame_idx = mtk_crtc_state->prop_val[CRTC_PROP_OVL_DSI_SEQ];
+	struct drm_crtc *crtc;
+	struct mtk_crtc_state *mtk_crtc_state;
+	unsigned int frame_idx;
 	unsigned long alloc_id = state->prop_val[PLANE_PROP_BUFFER_ALLOC_ID];
 	unsigned int avg_ratio = 0;
-	struct mtk_drm_private *priv = crtc->dev->dev_private;
-	unsigned long crtc_idx = (unsigned long)drm_crtc_index(crtc);
+	struct mtk_drm_private *priv;
+	unsigned long crtc_idx;
 	int i = 0;
+
+	/* OVL comp might not attach to CRTC in layer_config(), need to check */
+	if (unlikely(!comp->mtk_crtc)) {
+		DDPPR_ERR("%s, %s has no CRTC\n", __func__, mtk_dump_comp_str(comp));
+		return;
+	}
+
+	crtc = &comp->mtk_crtc->base;
+	mtk_crtc_state = to_mtk_crtc_state(crtc->state);
+	frame_idx = mtk_crtc_state->prop_val[CRTC_PROP_OVL_DSI_SEQ];
+	priv = crtc->dev->dev_private;
+	crtc_idx = (unsigned long)drm_crtc_index(crtc);
 
 	/* handle dim layer for compression flag & color dim*/
 	if (fmt == DRM_FORMAT_C8) {
@@ -3628,9 +3640,14 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			  enum mtk_ddp_io_cmd io_cmd, void *params)
 {
 	int ret = 0;
-	struct mtk_drm_private *priv =
-		comp->mtk_crtc->base.dev->dev_private;
+	struct mtk_drm_private *priv;
 
+	if (!(comp->mtk_crtc && comp->mtk_crtc->base.dev)) {
+		DDPPR_ERR("%s %s has invalid CRTC or device\n", __func__, mtk_dump_comp_str(comp));
+		return -INVALID;
+	}
+
+	priv = comp->mtk_crtc->base.dev->dev_private;
 	switch (io_cmd) {
 	case MTK_IO_CMD_OVL_GOLDEN_SETTING: {
 		struct mtk_ddp_config *cfg;
