@@ -7,14 +7,20 @@
 
 static noinline void tracing_mark_write(char *fmt, ...)
 {
-	struct va_format vaf;
-	va_list va;
+	char log[256];
+	va_list args;
+	int len;
 
-	va_start(va, fmt);
-	vaf.fmt = fmt;
-	vaf.va = &va;
-	trace_printk("%pV", &vaf);
-	va_end(va);
+	memset(log, ' ', sizeof(log));
+	va_start(args, fmt);
+	len = vsnprintf(log, sizeof(log), fmt, args);
+	va_end(args);
+
+	if (unlikely(len < 0))
+		return;
+	else if (unlikely(len == 256))
+		log[255] = '\0';
+	trace_printk(log);
 }
 
 #define CORE_CTL_TRACE_BEGIN(fmt, args...) do { \
