@@ -4284,18 +4284,6 @@ static const struct mau_config_info mau_config_default[] = {
 			pr_info(fmt, ##args);\
 	} while (0)
 
-enum IOMMU_PROFILE_TYPE {
-	IOMMU_ALLOC = 0,
-	IOMMU_FREE,
-	IOMMU_MAP,
-	IOMMU_UNMAP,
-	IOMMU_SYNC,
-	IOMMU_UNSYNC,
-	IOMMU_SUSPEND,
-	IOMMU_RESUME,
-	IOMMU_EVENT_MAX,
-};
-
 struct iommu_event_mgr_t {
 	char name[11];
 	unsigned int dump_trace;
@@ -5050,12 +5038,21 @@ static void mtk_iommu_trace_init(struct mtk_m4u_data *data)
 	strncpy(event_mgr[IOMMU_UNSYNC].name, "unsync", 10);
 	strncpy(event_mgr[IOMMU_SUSPEND].name, "suspend", 10);
 	strncpy(event_mgr[IOMMU_RESUME].name, "resume", 10);
+	strncpy(event_mgr[IOMMU_POWER_ON].name, "pwr_on", 10);
+	strncpy(event_mgr[IOMMU_POWER_OFF].name, "pwr_off", 10);
 	event_mgr[IOMMU_ALLOC].dump_trace = 1;
 	event_mgr[IOMMU_FREE].dump_trace = 1;
 	event_mgr[IOMMU_SYNC].dump_trace = 1;
 	event_mgr[IOMMU_UNSYNC].dump_trace = 1;
 	event_mgr[IOMMU_SUSPEND].dump_trace = 1;
 	event_mgr[IOMMU_RESUME].dump_trace = 1;
+	event_mgr[IOMMU_POWER_ON].dump_trace = 1;
+	event_mgr[IOMMU_POWER_OFF].dump_trace = 1;
+
+	event_mgr[IOMMU_SUSPEND].dump_log = 1;
+	event_mgr[IOMMU_RESUME].dump_log = 1;
+	event_mgr[IOMMU_POWER_ON].dump_log = 1;
+	event_mgr[IOMMU_POWER_OFF].dump_log = 1;
 
 	iommu_globals.record = vmalloc(total_size);
 	if (!iommu_globals.record) {
@@ -5096,9 +5093,9 @@ static void mtk_iommu_trace_rec_write(int event,
 		return;
 
 	if (event_mgr[event].dump_log)
-		pr_info("[trace] %5s |0x%-9lx |%9zx |0x%lx |%s\n",
+		pr_info("[trace] %s |0x%lx |%lx |0x%lx |%s\n",
 			event_mgr[event].name,
-			data1, data2, data3,
+			data3, data1, data2,
 			(dev != NULL ? dev_name(dev) : ""));
 
 	if (event_mgr[event].dump_trace == 0)
@@ -5143,16 +5140,11 @@ void mtk_iommu_tlb_sync_trace(u64 iova, size_t size, int iommu_ids)
 }
 EXPORT_SYMBOL_GPL(mtk_iommu_tlb_sync_trace);
 
-void mtk_iommu_pm_trace(struct device *dev, bool resume)
+void mtk_iommu_pm_trace(int event, int iommu_id, int pd_sta,
+	unsigned long flags, struct device *dev)
 {
-	int event;
-
-	if (resume)
-		event = IOMMU_RESUME;
-	else
-		event = IOMMU_SUSPEND;
-
-	mtk_iommu_trace_rec_write(event, 0x0, 0x0, 0x0, dev);
+	mtk_iommu_trace_rec_write(event, (unsigned long) pd_sta, flags,
+				  (unsigned long) iommu_id, dev);
 }
 EXPORT_SYMBOL_GPL(mtk_iommu_pm_trace);
 

@@ -30,6 +30,20 @@ static const struct proc_ops __fops = {					  \
 	.proc_lseek	 = generic_file_llseek,				  \
 }
 
+enum iommu_event_type {
+	IOMMU_ALLOC = 0,
+	IOMMU_FREE,
+	IOMMU_MAP,
+	IOMMU_UNMAP,
+	IOMMU_SYNC,
+	IOMMU_UNSYNC,
+	IOMMU_SUSPEND,
+	IOMMU_RESUME,
+	IOMMU_POWER_ON,
+	IOMMU_POWER_OFF,
+	IOMMU_EVENT_MAX
+};
+
 typedef int (*mtk_iommu_fault_callback_t)(int port,
 	dma_addr_t mva, void *cb_data);
 
@@ -51,7 +65,8 @@ void mtk_iova_map(int tab_id, u64 iova, size_t size);
 void mtk_iova_unmap(int tab_id, u64 iova, size_t size);
 void mtk_iova_map_dump(u64 iova, u32 tab_id);
 void mtk_iommu_tlb_sync_trace(u64 iova, size_t size, int iommu_ids);
-void mtk_iommu_pm_trace(struct device *dev, bool resume);
+void mtk_iommu_pm_trace(int event, int iommu_id, int pd_sta,
+	unsigned long flags, struct device *dev);
 
 void mtk_iommu_debug_reset(void);
 enum peri_iommu get_peri_iommu_id(u32 bus_id);
