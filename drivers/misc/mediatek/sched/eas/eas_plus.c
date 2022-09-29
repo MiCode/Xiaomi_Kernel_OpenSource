@@ -319,7 +319,9 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 		static_pwr += cpu_static_pwr;
 		sum_cap += cap;
 
-		trace_sched_leakage(cpu, opp, cpu_temp[cpu], cpu_static_pwr, static_pwr, sum_cap);
+		if (trace_sched_leakage_enabled())
+			trace_sched_leakage(cpu, opp, cpu_temp[cpu], cpu_static_pwr,
+					static_pwr, sum_cap);
 	}
 	static_pwr = (static_pwr * sum_util) / sum_cap;
 #endif
@@ -371,10 +373,13 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 	dyn_pwr = pwr_eff * sum_util;
 
 	/* for pd_opp_capacity is scaled based on maximum scale 1024, so cost = pwr_eff * 1024 */
-	trace_sched_em_cpu_energy(opp, freq_legacy, pwr_eff, scale_cpu, dyn_pwr, static_pwr);
+	if (trace_sched_em_cpu_energy_enabled())
+		trace_sched_em_cpu_energy(opp, freq_legacy, pwr_eff, scale_cpu,
+				dyn_pwr, static_pwr);
 #else
 	dyn_pwr = (ps->cost * sum_util / scale_cpu);
-	trace_sched_em_cpu_energy(opp, freq, ps->cost, scale_cpu, dyn_pwr, static_pwr);
+	if (trace_sched_em_cpu_energy_enabled())
+		trace_sched_em_cpu_energy(opp, freq, ps->cost, scale_cpu, dyn_pwr, static_pwr);
 #endif
 
 	energy = dyn_pwr + static_pwr;
@@ -722,7 +727,8 @@ unsigned long calc_pwr(int cpu, unsigned long task_util)
 	static_pwr = (mtk_get_leakage(cpu, opp, get_cpu_temp(cpu)/1000) * task_util) / ps->capacity;
 	pwr = dyn_pwr + static_pwr;
 
-	trace_sched_em_cpu_energy(opp,
+	if (trace_sched_em_cpu_energy_enabled())
+		trace_sched_em_cpu_energy(opp,
 				aligned_freq_to_legacy_freq(cpu, ps->freq),
 				ps->pwr_eff, ps->capacity, dyn_pwr, static_pwr);
 
@@ -741,7 +747,8 @@ unsigned long calc_pwr_eff(int cpu, unsigned long cpu_util)
 	static_pwr_eff = mtk_get_leakage(cpu, opp, get_cpu_temp(cpu)/1000) / ps->capacity;
 	pwr_eff = ps->pwr_eff + static_pwr_eff;
 
-	trace_sched_calc_pwr_eff(cpu, cpu_util, opp, ps->capacity,
+	if (trace_sched_calc_pwr_eff_enabled())
+		trace_sched_calc_pwr_eff(cpu, cpu_util, opp, ps->capacity,
 				ps->pwr_eff, static_pwr_eff, pwr_eff);
 
 	return pwr_eff;
@@ -894,8 +901,10 @@ void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 			cpu_util = occupied_cap_per_gear;
 			this_pwr_eff = calc_pwr_eff(best_idle_cpu_per_gear, cpu_util);
 
-			trace_sched_aware_energy_rt(best_idle_cpu_per_gear, this_pwr_eff,
-								pwr_eff, cpu_util);
+			if (trace_sched_aware_energy_rt_enabled()) {
+				trace_sched_aware_energy_rt(best_idle_cpu_per_gear, this_pwr_eff,
+						pwr_eff, cpu_util);
+			}
 
 			if (this_pwr_eff < pwr_eff) {
 				pwr_eff = this_pwr_eff;
@@ -959,7 +968,8 @@ unlock:
 	}
 
 out:
-	trace_sched_select_task_rq_rt(p, select_reason, *target_cpu, idle_cpus, cfs_cpus,
+	if (trace_sched_select_task_rq_rt_enabled())
+		trace_sched_select_task_rq_rt(p, select_reason, *target_cpu, idle_cpus, cfs_cpus,
 					sd_flag, sync);
 }
 
@@ -1100,8 +1110,10 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 			cpu_util = occupied_cap_per_gear;
 			this_pwr_eff = calc_pwr_eff(best_idle_cpu_per_gear, cpu_util);
 
-			trace_sched_aware_energy_rt(best_idle_cpu_per_gear, this_pwr_eff,
+			if (trace_sched_aware_energy_rt_enabled()) {
+				trace_sched_aware_energy_rt(best_idle_cpu_per_gear, this_pwr_eff,
 					pwr_eff, cpu_util);
+			}
 
 			if (this_pwr_eff < pwr_eff) {
 				pwr_eff = this_pwr_eff;
@@ -1151,7 +1163,9 @@ unlock:
 	cpumask_clear(lowest_mask);
 
 out:
-	trace_sched_find_lowest_rq(p, select_reason, *lowest_cpu,  &avail_lowest_mask, lowest_mask,
-			idle_cpus, cfs_cpus);
+	if (trace_sched_find_lowest_rq_enabled())
+		trace_sched_find_lowest_rq(p, select_reason, *lowest_cpu,
+				&avail_lowest_mask, lowest_mask,
+				idle_cpus, cfs_cpus);
 	return;
 }

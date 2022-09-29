@@ -319,10 +319,12 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd,
 		max_util_base = max(max_util_base, min(cpu_util_base, _cpu_cap));
 		max_util_cur = max(max_util_cur, min(cpu_util_cur, _cpu_cap));
 
-		trace_sched_energy_util(-1, max_util_base, sum_util_base, cpu, util_freq_base,
-				util_running_base, cpu_util_base);
-		trace_sched_energy_util(dst_cpu, max_util_cur, sum_util_cur, cpu, util_freq_cur,
-				util_running_cur, cpu_util_cur);
+		if (trace_sched_energy_util_enabled()) {
+			trace_sched_energy_util(-1, max_util_base, sum_util_base, cpu,
+					util_freq_base, util_running_base, cpu_util_base);
+			trace_sched_energy_util(dst_cpu, max_util_cur, sum_util_cur, cpu,
+					util_freq_cur, util_running_cur, cpu_util_cur);
+		}
 
 		/* get temperature for each cpu*/
 		cpu_temp[cpu] = get_cpu_temp(cpu);
@@ -335,8 +337,11 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd,
 		_cpu_cap, cpu_temp);
 	energy_delta = energy_cur - energy_base;
 
-	trace_sched_compute_energy(-1, pd_mask, energy_base, max_util_base, sum_util_base);
-	trace_sched_compute_energy(dst_cpu, pd_mask, energy_cur, max_util_cur, sum_util_cur);
+	if (trace_sched_compute_energy_enabled()) {
+		trace_sched_compute_energy(-1, pd_mask, energy_base, max_util_base, sum_util_base);
+		trace_sched_compute_energy(dst_cpu, pd_mask, energy_cur, max_util_cur,
+				sum_util_cur);
+	}
 
 	return energy_delta;
 }
@@ -632,10 +637,11 @@ int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool laten
 		select_reason = LB_IRQ_BACKUP_ALLOWED;
 	}
 out:
-	trace_sched_find_cpu_in_irq(p, select_reason, target_cpu,
-			prev_cpu, fit_cpus, idle_cpus,
-			best_idle_cpu, best_idle_pwr, min_exit_lat,
-			max_spare_cap_cpu, best_pwr, max_spare_cap);
+	if (trace_sched_find_cpu_in_irq_enabled())
+		trace_sched_find_cpu_in_irq(p, select_reason, target_cpu,
+				prev_cpu, fit_cpus, idle_cpus,
+				best_idle_cpu, best_idle_pwr, min_exit_lat,
+				max_spare_cap_cpu, best_pwr, max_spare_cap);
 
 	return target_cpu;
 }
@@ -859,11 +865,13 @@ unlock:
 
 	*new_cpu = -1;
 done:
-	trace_sched_find_energy_efficient_cpu(best_delta, best_energy_cpu,
-			best_idle_cpu, idle_max_spare_cap_cpu, sys_max_spare_cap_cpu);
-	trace_sched_select_task_rq(p, select_reason, prev_cpu, *new_cpu,
-			task_util(p), task_util_est(p), uclamp_task_util(p),
-			latency_sensitive, sync);
+	if (trace_sched_find_energy_efficient_cpu_enabled())
+		trace_sched_find_energy_efficient_cpu(best_delta, best_energy_cpu,
+				best_idle_cpu, idle_max_spare_cap_cpu, sys_max_spare_cap_cpu);
+	if (trace_sched_select_task_rq_enabled())
+		trace_sched_select_task_rq(p, select_reason, prev_cpu, *new_cpu,
+				task_util(p), task_util_est(p), uclamp_task_util(p),
+				latency_sensitive, sync);
 
 }
 #endif
