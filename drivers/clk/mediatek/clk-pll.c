@@ -30,7 +30,7 @@
 /* default 7 bits integer, can be overridden with pcwibits. */
 #define INTEGER_BITS		7
 
-#define MTK_WAIT_HWV_PLL_PREPARE_CNT	300
+#define MTK_WAIT_HWV_PLL_PREPARE_CNT	500
 #define MTK_WAIT_HWV_PLL_PREPARE_US		1
 #define MTK_WAIT_HWV_PLL_VOTE_CNT		100
 #define MTK_WAIT_HWV_PLL_VOTE_US		2
