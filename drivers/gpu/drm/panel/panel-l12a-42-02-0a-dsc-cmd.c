@@ -111,6 +111,7 @@ static atomic_t doze_enable = ATOMIC_INIT(0);
 static int gDcThreshold = 450;
 static bool gDcEnable;
 static bool doze_had;
+static bool dimming_on;
 static struct lcm *panel_ctx;
 
 #define lcm_dcs_write_seq(ctx, seq...) \
@@ -127,6 +128,9 @@ static struct lcm *panel_ctx;
 })
 
 static int panel_doze_disable(struct drm_panel *panel, void *dsi, dcs_write_gce cb, void *handle);
+static int panel_doze_disable_grp(struct drm_panel *panel,
+	void *dsi, dcs_grp_write_gce cb, void *handle);
+
 
 static inline struct lcm *panel_to_lcm(struct drm_panel *panel)
 {
@@ -887,7 +891,6 @@ static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
 	char bl_tb[] = {0x51, 0x07, 0xff};
 	char dimmingon_tb[] = {0x53, 0x28};
 	char dimmingoff_tb[] = {0x53, 0x20};
-	static bool dimming_on;
 
 	if (gDcEnable && level < gDcThreshold)
 		level = gDcThreshold;
@@ -921,6 +924,95 @@ static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
 
 	return 0;
 }
+
+static int lcm_set_bl_elvss_cmdq(void *dsi, dcs_grp_write_gce cb, void *handle,
+		struct mtk_bl_ext_config *bl_ext_config)
+{
+	int pulses;
+	int level;
+	bool need_cfg_elvss = false;
+
+	static struct mtk_panel_para_table bl_tb[] = {
+			{3, {0x51, 0x0f, 0xff}},
+		};
+	static struct mtk_panel_para_table bl_elvss_tb[] = {
+			{3, { 0x51, 0x0f, 0xff}},
+			{2, { 0x83, 0xff}},
+		};
+	static struct mtk_panel_para_table elvss_tb[] = {
+			{2, { 0x83, 0xff}},
+		};
+	static struct mtk_panel_para_table dimmingon_tb[] = {
+			{3, {0x53, 0x28}},
+		};
+	static struct mtk_panel_para_table dimmingoff_tb[] = {
+			{3, {0x53, 0x20}},
+		};
+
+	if (!cb)
+		return -1;
+
+	pulses = bl_ext_config->elvss_pn;
+	level = bl_ext_config->backlight_level;
+
+	if (bl_ext_config->cfg_flag & (0x1<<SET_BACKLIGHT_LEVEL)) {
+
+		if (bl_ext_config->cfg_flag & (0x1<<SET_ELVSS_PN))
+			need_cfg_elvss = true;
+
+		if (gDcEnable && level < gDcThreshold)
+			level = gDcThreshold;
+
+		if (atomic_read(&doze_enable)) {
+			pr_info("%s: Return it when aod on, %d %d %d\n",
+				__func__, level, bl_tb[0].para_list[1], bl_tb[0].para_list[2]);
+			if (need_cfg_elvss) {
+				pr_info("%s elvss = -%d\n", __func__, pulses);
+				elvss_tb[0].para_list[1] = (u8)((1<<7)|pulses);
+				cb(dsi, handle, elvss_tb, ARRAY_SIZE(elvss_tb));
+			}
+			return 0;
+		}
+
+		if (doze_had && is_aod_mode()) {
+			pr_info("%s is in AOD mode need to call doze disable\n", __func__);
+			panel_doze_disable_grp(&panel_ctx->panel, dsi, cb, handle);
+		}
+
+		doze_had = false;
+
+		if (need_cfg_elvss) {
+			bl_elvss_tb[0].para_list[1] = (level >> 8) & 0xf;
+			bl_elvss_tb[0].para_list[2] = (level) & 0xFF;
+			pr_info("%s backlight = -%d\n", __func__, level);
+			pr_info("%s elvss = -%d\n", __func__, pulses);
+			bl_elvss_tb[1].para_list[1] = (u8)((1<<7)|pulses);
+			cb(dsi, handle, bl_elvss_tb, ARRAY_SIZE(bl_elvss_tb));
+		} else {
+			pr_info("%s backlight = -%d\n", __func__, level);
+			bl_tb[0].para_list[1] = (level >> 8) & 0xf;
+			bl_tb[0].para_list[2] = (level) & 0xFF;
+			cb(dsi, handle, bl_tb, ARRAY_SIZE(bl_tb));
+		}
+
+		if (!dimming_on && level) {
+			cb(dsi, handle, dimmingon_tb, ARRAY_SIZE(dimmingon_tb));
+			dimming_on = true;
+			pr_info("%s dimming status:%d\n", __func__, dimming_on);
+		} else if (dimming_on && !level) {
+			cb(dsi, handle, dimmingoff_tb, ARRAY_SIZE(dimmingoff_tb));
+			dimming_on = false;
+			pr_info("%s dimming status:%d\n", __func__, dimming_on);
+		}
+
+	} else if (bl_ext_config->cfg_flag & (0x1<<SET_ELVSS_PN)) {
+		pr_info("%s elvss = -%d\n", __func__, pulses);
+		elvss_tb[0].para_list[1] = (u8)((1<<7)|pulses);
+		cb(dsi, handle, elvss_tb, ARRAY_SIZE(elvss_tb));
+	}
+	return 0;
+}
+
 
 static struct LCM_setting_table mode_120hz_setting_gir_off[] = {
 	/* frequency select 120hz */
@@ -1175,11 +1267,38 @@ static int panel_doze_disable(struct drm_panel *panel,
 	return 0;
 }
 
+static int panel_doze_disable_grp(struct drm_panel *panel,
+	void *dsi, dcs_grp_write_gce cb, void *handle)
+{
+	static struct mtk_panel_para_table cmd0_tb[] = {
+			{6, {0xF0, 0x55, 0xAA, 0x52, 0x08, 0x00}},
+			{2, {0xB2, 0x98}},
+			{2, {0x65, 0x00}},
+			{2, {0x38, 0x00}},
+			{3, {0x51, 0x00, 0x08}},
+		};
+	static struct mtk_panel_para_table cmd1_tb[] = {
+			{2, {0x2C, 0x00}},
+		};
+	cb(dsi, handle, cmd0_tb, ARRAY_SIZE(cmd0_tb));
+
+	usleep_range(50 * 1000, 50 * 1000 + 10);
+	cb(dsi, handle, cmd1_tb, ARRAY_SIZE(cmd1_tb));
+
+	atomic_set(&doze_enable, 0);
+	pr_info("%s -\n", __func__);
+
+	return 0;
+}
+
+
+
 static struct mtk_panel_funcs ext_funcs = {
 	.reset = panel_ext_reset,
 	.ext_param_set = mtk_panel_ext_param_set,
 	.ext_param_get = mtk_panel_ext_param_get,
 	.set_backlight_cmdq = lcm_setbacklight_cmdq,
+	.set_bl_elvss_cmdq = lcm_set_bl_elvss_cmdq,
 	.mode_switch = mode_switch,
 	.doze_enable = panel_doze_enable,
 	.doze_disable = panel_doze_disable,
