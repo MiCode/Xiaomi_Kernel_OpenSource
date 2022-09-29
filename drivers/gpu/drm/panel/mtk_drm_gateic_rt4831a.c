@@ -3,17 +3,14 @@
  * Copyright (c) 2021 MediaTek Inc.
  */
 
-#ifdef CONFIG_LEDS_MTK_PWM
-#include <leds-mtk-pwm.h>
-#define LEDS_BRIGHTNESS_CHANGED
-#elif defined(CONFIG_LEDS_MTK_I2C)
-#include <leds-mtk-i2c.h>
-#define LEDS_BRIGHTNESS_CHANGED
-#endif
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include "mtk_drm_gateic.h"
+#if IS_ENABLED(CONFIG_LEDS_MTK)
+#include <linux/leds-mtk.h>
+#define LEDS_BRIGHTNESS_CHANGED
+#endif
 
 #define ADDR_BACKLIGHT_CONFIG1			(0x02)
 #define ADDR_BACKLIGHT_CONFIG2			(0x03)
@@ -125,7 +122,7 @@ static int rt4831a_set_backlight(unsigned int level)
 		DDPDBG("%s: ERROR %d!! i2c write data fail 0x%0x, 0x%0x !!\n",
 				__func__, ret, table[0][1], table[1][1]);
 	else
-		DDPMSG("%s, %d, backlight level:0x%x\n",
+		DDPDBG("%s, %d, backlight level:0x%x\n",
 			__func__, __LINE__, level);
 
 	ctx_rt4831a.backlight_level = level;
@@ -186,7 +183,7 @@ int rt4831a_backlight_event(struct notifier_block *nb, unsigned long event,
 	led_conf = (struct led_conf_info *)v;
 
 	switch (event) {
-	case 1:
+	case LED_BRIGHTNESS_CHANGED:
 		if (led_conf->cdev.brightness > 0)
 			atomic_set(&ctx_rt4831a.backlight_status, 1);
 		else
@@ -196,7 +193,7 @@ int rt4831a_backlight_event(struct notifier_block *nb, unsigned long event,
 		break;
 	}
 
-	DDPMSG("%s-- event:0x%x, brightness:0x%x, backlight status:0x%x\n",
+	DDPDBG("%s-- event:0x%x, brightness:0x%x, backlight status:0x%x\n",
 		__func__, event, led_conf->cdev.brightness,
 		atomic_read(&ctx_rt4831a.backlight_status));
 	return NOTIFY_DONE;
@@ -297,7 +294,7 @@ static int rt4831a_power_off(void)
 		return 0;
 	}
 
-	DDPMSG("%s++\n", __func__);
+	DDPDBG("%s++\n", __func__);
 	atomic_dec(&ctx_rt4831a.ref);
 	if (atomic_read(&ctx_rt4831a.ref) > 0) {
 		DDPMSG("%s, %d, do nothing, there are other users, %u\n",
