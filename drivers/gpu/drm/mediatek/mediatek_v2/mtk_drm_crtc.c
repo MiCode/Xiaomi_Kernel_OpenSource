@@ -5448,9 +5448,16 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 
 		if (ovl_status & 1) {
 			DDPPR_ERR("ovl status error:0x%x\n", ovl_status);
-			mtk_drm_crtc_analysis(crtc);
-			mtk_drm_crtc_dump(crtc);
-			cmdq_dump_pkt(cb_data->cmdq_handle, 0, true);
+			if (priv->data->mmsys_id == MMSYS_MT6985) {
+				g_mobile_log = 1;
+				mtk_drm_crtc_analysis(crtc);
+				mtk_drm_crtc_dump(crtc);
+				g_mobile_log = 0;
+			} else {
+				mtk_drm_crtc_analysis(crtc);
+				mtk_drm_crtc_dump(crtc);
+				cmdq_dump_pkt(cb_data->cmdq_handle, 0, true);
+			}
 		}
 		/*Msync 2.0 related function*/
 		if (ovl_status & 1)
