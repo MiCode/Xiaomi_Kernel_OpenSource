@@ -1294,6 +1294,12 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 					&sensor_config_data);
 
 			restore_ae_ctrl(ctx);
+
+			/* update timeout value after reset*/
+			ctx->shutter_for_timeout = ctx->exposure->val;
+			if (ctx->cur_mode->fine_intg_line)
+				ctx->shutter_for_timeout /= 1000;
+
 			_sensor_reset_s_stream(ctrl);
 			//dev_info(dev, "exit V4L2_CID_MTK_SENSOR_RESET\n");
 		}
