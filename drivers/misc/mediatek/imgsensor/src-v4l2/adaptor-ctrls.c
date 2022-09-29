@@ -1462,7 +1462,7 @@ static const struct v4l2_ctrl_config cfg_vsync_notify = {
 	.name = "vsync_notify",
 	.type = V4L2_CTRL_TYPE_INTEGER,
 	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
-	.max = 0xffff,
+	.max = 0x7fffffff,
 	.step = 1,
 };
 
@@ -1472,7 +1472,7 @@ static const struct v4l2_ctrl_config cfg_update_sof_cnt = {
 	.name = "update_sof_cnt",
 	.type = V4L2_CTRL_TYPE_INTEGER,
 	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
-	.max = 0xffffffff,
+	.max = 0x7fffffff,
 	.step = 1,
 };
 
