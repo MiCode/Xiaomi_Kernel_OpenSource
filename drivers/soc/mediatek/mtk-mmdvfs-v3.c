@@ -64,6 +64,9 @@ static struct platform_device *ccu_pdev;
 static struct device *cam_larb_dev;
 static int vmm_power;
 static DEFINE_MUTEX(mmdvfs_vmm_pwr_mutex);
+static int last_vote_step[PWR_MMDVFS_NUM];
+static int last_force_step[PWR_MMDVFS_NUM];
+static int dpsw_thr;
 
 enum {
 	log_pwr,
@@ -534,22 +537,30 @@ MODULE_PARM_DESC(vmm_ceil, "enable vmm ceiling");
 
 int mtk_mmdvfs_v3_set_force_step(const u16 pwr_idx, const s16 opp)
 {
-	int ret;
+	int *last, ret;
 
 	if (pwr_idx >= PWR_MMDVFS_NUM || opp >= MAX_OPP) {
 		MMDVFS_ERR("wrong pwr_idx:%hu opp:%hd", pwr_idx, opp);
 		return -EINVAL;
 	}
 
+	last = &last_force_step[pwr_idx];
+
+	if (*last == opp)
+		return 0;
+
 	mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_FORCE);
-	if (pwr_idx == PWR_MMDVFS_VMM)
+	if (dpsw_thr > 0 && (*last < 0 || *last >= dpsw_thr) &&
+		opp >= 0 && opp < dpsw_thr && pwr_idx == PWR_MMDVFS_VMM)
 		mtk_mmdvfs_enable_vmm(true);
 
 	ret = mmdvfs_vcp_ipi_send(FUNC_FORCE_OPP, pwr_idx, opp == -1 ? MAX_OPP : opp, NULL);
 
-	if (pwr_idx == PWR_MMDVFS_VMM)
+	if (dpsw_thr > 0 && *last >= 0 && *last < dpsw_thr &&
+		(opp < 0 || opp >= dpsw_thr) && pwr_idx == PWR_MMDVFS_VMM)
 		mtk_mmdvfs_enable_vmm(false);
 	mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMDVFS_FORCE);
+	*last = opp;
 
 	if (ret || log_level & (1 << log_adb))
 		MMDVFS_DBG("pwr_idx:%hu opp:%hd ret:%d", pwr_idx, opp, ret);
@@ -584,15 +595,21 @@ MODULE_PARM_DESC(force_step, "force mmdvfs to specified step");
 int mtk_mmdvfs_v3_set_vote_step(const u16 pwr_idx, const s16 opp)
 {
 	u32 freq = 0;
-	int i, ret = 0;
+	int i, *last, ret = 0;
 
 	if (pwr_idx >= PWR_MMDVFS_NUM || opp >= MAX_OPP) {
 		MMDVFS_ERR("failed:%d pwr_idx:%hu opp:%hd", ret, pwr_idx, opp);
 		return -EINVAL;
 	}
 
+	last = &last_vote_step[pwr_idx];
+
+	if (*last == opp)
+		return 0;
+
 	mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMDVFS_VOTE);
-	if (pwr_idx == PWR_MMDVFS_VMM)
+	if (dpsw_thr > 0 && (*last < 0 || *last >= dpsw_thr) &&
+		opp >= 0 && opp < dpsw_thr && pwr_idx == PWR_MMDVFS_VMM)
 		mtk_mmdvfs_enable_vmm(true);
 
 	for (i = mmdvfs_clk_num - 1; i >= 0; i--)
@@ -609,9 +626,11 @@ int mtk_mmdvfs_v3_set_vote_step(const u16 pwr_idx, const s16 opp)
 			break;
 		}
 
-	if (pwr_idx == PWR_MMDVFS_VMM)
+	if (dpsw_thr > 0 && *last >= 0 && *last < dpsw_thr &&
+		(opp < 0 || opp >= dpsw_thr) && pwr_idx == PWR_MMDVFS_VMM)
 		mtk_mmdvfs_enable_vmm(false);
 	mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMDVFS_VOTE);
+	*last = opp;
 
 	if (ret || log_level & (1 << log_adb))
 		MMDVFS_DBG("pwr_idx:%hu opp:%hd i:%d freq:%u ret:%d", pwr_idx, opp, i, freq, ret);
@@ -765,8 +784,17 @@ static inline void mmdvfs_reset_vcp(void)
 
 static int mmdvfs_pm_notifier(struct notifier_block *notifier, unsigned long pm_event, void *unused)
 {
+	int i;
+
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
+		for (i = 0; i < PWR_MMDVFS_NUM; i++) {
+			if (last_vote_step[i] != -1)
+				mtk_mmdvfs_v3_set_vote_step(i, -1);
+
+			if (last_force_step[i] != -1)
+				mtk_mmdvfs_v3_set_force_step(i, -1);
+		}
 		mmdvfs_reset_ccu();
 		mmdvfs_reset_vcp();
 		break;
@@ -1038,6 +1066,13 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 		if (larbdev)
 			cam_larb_dev = &larbdev->dev;
 		of_node_put(larbnode);
+	}
+
+	of_property_read_s32(node, "mediatek,dpsw-thr", &dpsw_thr);
+
+	for (i = 0; i < PWR_MMDVFS_NUM; i++) {
+		last_vote_step[i] = -1;
+		last_force_step[i] = -1;
 	}
 
 	kthr_vcp = kthread_run(mmdvfs_vcp_init_thread, NULL, "mmdvfs-vcp");
