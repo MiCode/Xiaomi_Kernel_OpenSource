@@ -551,11 +551,11 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 
 	/* 2. stop CRTC */
 	mtk_crtc_stop(mtk_crtc, wait);
-	CRTC_MMP_MARK(crtc_id, enter_idle, 1, wait);
+	CRTC_MMP_MARK((int)crtc_id, enter_idle, 1, wait);
 
 	/* 3. disconnect addon module and recover config */
 	mtk_crtc_disconnect_addon_module(crtc);
-	CRTC_MMP_MARK(crtc_id, enter_idle, 2, 0);
+	CRTC_MMP_MARK((int)crtc_id, enter_idle, 2, 0);
 
 	/* 4. set HRT BW to 0 */
 	if (mtk_drm_helper_get_opt(priv->helper_opt,
@@ -579,7 +579,7 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 	mtk_crtc_vblank_irq(&mtk_crtc->base);
 	/* 8. power off MTCMOS */
 	mtk_drm_top_clk_disable_unprepare(crtc->dev);
-	CRTC_MMP_MARK(crtc_id, enter_idle, 3, 0);
+	CRTC_MMP_MARK((int)crtc_id, enter_idle, 3, 0);
 
 	/* 9. disable fake vsync if need */
 	mtk_drm_fake_vsync_switch(crtc, false);
