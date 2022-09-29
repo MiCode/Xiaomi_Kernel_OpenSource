@@ -41,6 +41,13 @@ struct dlpt_regs_t {
 	const struct linear_range uvlo_range;
 };
 
+struct tag_bootmode {
+	u32 size;
+	u32 tag;
+	u32 bootmode;
+	u32 boottype;
+};
+
 struct dlpt_regs_t mt6359p_dlpt_regs = {
 	.rgs_chrdet = {
 		MT6359P_RGS_CHRDET_ADDR,
@@ -105,7 +112,7 @@ struct dlpt_priv {
 	struct iio_channel *chan_imix_r;
 	struct iio_channel *chan_zcv;
 	bool suspend_flag;
-
+	struct tag_bootmode *tag;
 };
 
 struct dlpt_callback_table {
@@ -227,7 +234,7 @@ static int dlpt_check_power_off(void)
 	int ret = 0;
 	static int dlpt_power_off_cnt;
 
-	if (dlpt.lbat_level == LOW_BATTERY_LEVEL_2) {
+	if (dlpt.lbat_level == LOW_BATTERY_LEVEL_2 && dlpt.tag->bootmode != 8) {
 		if (dlpt_power_off_cnt == 0)
 			ret = 0; /* 1st time get VBAT < 3.1V, record it */
 		else
@@ -558,9 +565,18 @@ static void dlpt_parse_dt(struct platform_device *pdev)
 		else
 			dlpt.is_power_path_supported =
 				of_property_read_bool(np, "power_path_support");
+
+		np = of_parse_phandle(pdev->dev.of_node, "bootmode", 0);
+		if (!np)
+			dev_notice(&pdev->dev, "get bootmode fail\n");
+		else {
+			dlpt.tag = (struct tag_bootmode *)of_get_property(np, "atag,boot", NULL);
+			if (!dlpt.tag)
+				dev_notice(&pdev->dev, "failed to get atag,boot\n");
+		}
 	}
-	dev_notice(&pdev->dev, "power_path_support:%d isense_support:%d\n"
-		   , dlpt.is_power_path_supported, dlpt.is_isense_supported);
+	dev_notice(&pdev->dev, "power_path_support:%d isense_support:%d bootmode:0x%x\n"
+		   , dlpt.is_power_path_supported, dlpt.is_isense_supported, dlpt.tag->bootmode);
 }
 
 static int dlpt_probe(struct platform_device *pdev)
