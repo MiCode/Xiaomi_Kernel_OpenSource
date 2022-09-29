@@ -288,18 +288,19 @@ static void mtu3_set_speed(struct mtu3 *mtu, enum usb_device_speed speed)
 static void mtu3_csr_init(struct mtu3 *mtu)
 {
 	void __iomem *mbase = mtu->mac_base;
-	struct ssusb_mtk *ssusb = mtu->ssusb;
 
 	if (mtu->is_u3_ip) {
 		/* disable LGO_U1/U2 by default */
 		mtu3_clrbits(mbase, U3D_LINK_POWER_CONTROL,
 				SW_U1_REQUEST_ENABLE | SW_U2_REQUEST_ENABLE);
+		/* disable U1 to U2 transition */
+		mtu3_clrbits(mbase, U3D_LTSSM_CTRL, U1_GO_U2_EN);
 		/* enable accept LGO_U1/U2 link command from host */
 		if (mtu->u3_lpm) {
 			mtu3_setbits(mbase, U3D_LINK_POWER_CONTROL,
 				SW_U1_ACCEPT_ENABLE | SW_U2_ACCEPT_ENABLE);
 		} else {
-			dev_info(ssusb->dev, "disable accept_lgo\n");
+			dev_info(mtu->dev, "disable accept_lgo\n");
 			mtu3_clrbits(mbase, U3D_LINK_POWER_CONTROL,
 				SW_U1_ACCEPT_ENABLE | SW_U2_ACCEPT_ENABLE);
 		}
