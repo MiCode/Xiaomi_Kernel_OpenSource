@@ -17,6 +17,8 @@
 #include <linux/interrupt.h>
 #include <linux/regmap.h>
 #include <linux/of_device.h>
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 #include "tcpm.h"
 
 #if IS_ENABLED(CONFIG_MTK_USB_TYPEC_MUX)
@@ -70,6 +72,40 @@ struct ps5170 {
 #define VS_VOTER_EN_LO 0x0
 #define VS_VOTER_EN_LO_SET 0x1
 #define VS_VOTER_EN_LO_CLR 0x2
+
+enum redriver_smc_request {
+	REDRIVER_SMC_PMIC_REQUEST = 4,
+	REDRIVER_SMC_PMIC_RELEASE,
+};
+
+enum redriver_power_state {
+	REDRIVER_DP_CONFIG = 0,
+	REDRIVER_DISABLE,
+};
+
+void ps5170_smc_request(struct ps5170 *ps,
+	enum redriver_power_state state)
+{
+	struct arm_smccc_res res;
+	int op;
+
+	dev_info(ps->dev, "%s state = %d\n", __func__, state);
+
+	switch (state) {
+	case REDRIVER_DP_CONFIG:
+		op = REDRIVER_SMC_PMIC_REQUEST;
+		break;
+	case REDRIVER_DISABLE:
+		op = REDRIVER_SMC_PMIC_RELEASE;
+		break;
+	default:
+		return;
+	}
+
+	arm_smccc_smc(MTK_SIP_KERNEL_USB_CONTROL,
+		op, 0, 0, 0, 0, 0, 0, &res);
+
+}
 
 void ps5170_vsvoter_set(struct ps5170 *ps)
 {
@@ -204,6 +240,9 @@ static int ps5170_set_conf(struct ps5170 *ps, u8 new_conf, u8 polarity)
 
 	switch (new_conf) {
 	case 2:
+		/* Request PMIC LPM resource */
+		ps5170_smc_request(ps, REDRIVER_DP_CONFIG);
+		mdelay(10);
 		/* DP Only mode 4-lane set orientation*/
 		if (!polarity)
 			i2c_smbus_write_byte_data(ps->i2c, 0x40, ps5170_ORIENTATION_NORMAL_DP);
@@ -216,6 +255,9 @@ static int ps5170_set_conf(struct ps5170 *ps, u8 new_conf, u8 polarity)
 		i2c_smbus_write_byte_data(ps->i2c, 0xa1, 0x04);
 		break;
 	case 4:
+		/* Request PMIC LPM resource  */
+		ps5170_smc_request(ps, REDRIVER_DP_CONFIG);
+		mdelay(10);
 		/*  DP 2 lane + USB mode set orientation*/
 		if (!polarity)
 			i2c_smbus_write_byte_data(ps->i2c, 0x40, ps5170_ORIENTATION_NORMAL_USBDP);
@@ -236,6 +278,9 @@ static int ps5170_set_conf(struct ps5170 *ps, u8 new_conf, u8 polarity)
 		i2c_smbus_write_byte_data(ps->i2c, 0xa1, 0x00);
 		if (ps->disable)
 			pinctrl_select_state(ps->pinctrl, ps->disable);
+		mdelay(10);
+		/* Release PMIC LPM Request */
+		ps5170_smc_request(ps, REDRIVER_DISABLE);
 		break;
 	}
 
