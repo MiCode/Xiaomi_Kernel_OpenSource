@@ -70,6 +70,35 @@ void aee_kernel_warning_api_func(const char *file, const int line,
 }
 EXPORT_SYMBOL(aee_kernel_warning_api_func);
 
+void aee_kernel_fatal_api_func(const char *file, const int line,
+		const int db_opt, const char *module, const char *msg, ...)
+{
+	char msgbuf[KERNEL_REPORT_LENGTH];
+	int offset = 0;
+	va_list args;
+
+	va_start(args, msg);
+	offset += snprintf(msgbuf, KERNEL_REPORT_LENGTH, "<%s:%d> ", file,
+			line);
+	offset += vsnprintf(msgbuf + offset, KERNEL_REPORT_LENGTH - offset,
+			msg, args);
+
+	if (g_aee_api && g_aee_api->kernel_reportAPI) {
+		if (module && strstr(module,
+			"maybe have other hang_detect KE DB"))
+			g_aee_api->kernel_reportAPI(AE_DEFECT_FATAL, db_opt,
+				module, msgbuf);
+		else
+			g_aee_api->kernel_reportAPI(AE_DEFECT_FATAL, db_opt,
+				module, msgbuf);
+	} else {
+		pr_notice("AEE kernel warning: %s", msgbuf);
+	}
+	va_end(args);
+}
+EXPORT_SYMBOL(aee_kernel_fatal_api_func);
+
+
 int aee_is_printk_too_much(const char *module)
 {
 	if (strstr(module, "intk too much"))
