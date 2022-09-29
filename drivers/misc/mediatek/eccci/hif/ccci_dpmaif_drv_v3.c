@@ -1179,6 +1179,10 @@ static int drv3_resume_noirq(struct device *dev)
 {
 	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMSR0, g_backup_ul_isr);
 	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMSR0, g_backup_dl_isr);
+
+	/* use msk to clear dummy interrupt */
+	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TISAR0, g_backup_dl_isr);
+	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0, g_backup_ul_isr);
 	return 0;
 }
 
