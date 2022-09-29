@@ -679,6 +679,8 @@ static u64 time_dur_us(const struct timespec64 *lhs, const struct timespec64 *rh
 static u32 mml_core_calc_tput_racing(struct mml_task *task, u32 pixel, u32 pipe)
 {
 	u32 act_time_us = div_u64(task->config->info.act_time, 1000);
+	struct mml_frame_data *src = &task->config->info.src;
+	struct mml_frame_dest *dest = &task->config->info.dest[0];
 
 	if (!act_time_us)
 		act_time_us = 1;
@@ -687,6 +689,12 @@ static u32 mml_core_calc_tput_racing(struct mml_task *task, u32 pixel, u32 pipe)
 	 */
 	task->pipe[pipe].throughput = div_u64(pixel, act_time_us);
 	mml_mmp(throughput, MMPROFILE_FLAG_PULSE, task->pipe[pipe].throughput, act_time_us);
+
+	/* for compress format afbc and hyfbc read block overhead */
+	if (MML_FMT_COMPRESS(src->format) &&
+		((dest->crop.r.width & 0x1f) || (dest->crop.r.height & 0xf)))
+		task->pipe[pipe].throughput = (task->pipe[pipe].throughput * 38) >> 5;
+
 	return act_time_us;
 }
 
