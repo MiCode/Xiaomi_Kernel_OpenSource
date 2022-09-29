@@ -762,6 +762,21 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 	}
 	dma_handle = CMDQ_BUF_ADDR(buf);
 
+	if (list_empty(&thread->task_busy_list)) {
+		// power
+		if (mminfra_power_cb && !mminfra_power_cb()) {
+			cmdq_err("hwid:%u idx:%u mminfra power not enable",
+				cmdq->hwid, thread->idx);
+			return;
+		}
+		// clock
+		if (mminfra_gce_cg && !mminfra_gce_cg(cmdq->hwid)) {
+			cmdq_err("hwid:%u idx:%u gce clock not enable",
+				cmdq->hwid, thread->idx);
+			return;
+		}
+	}
+
 	task = kzalloc(sizeof(*task), GFP_ATOMIC);
 	if (!task) {
 		cmdq_task_callback(pkt, -ENOMEM);
@@ -790,14 +805,6 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 
 
 	if (list_empty(&thread->task_busy_list)) {
-		// power
-		if (mminfra_power_cb && !mminfra_power_cb())
-			cmdq_err("hwid:%hu idx:%u mminfra power not enable",
-				cmdq->hwid, thread->idx);
-		// clock
-		if (mminfra_gce_cg && !mminfra_gce_cg(cmdq->hwid))
-			cmdq_err("hwid:%hu idx:%u gce clock not enable",
-				cmdq->hwid, thread->idx);
 
 		WARN_ON(cmdq_thread_reset(cmdq, thread) < 0);
 
