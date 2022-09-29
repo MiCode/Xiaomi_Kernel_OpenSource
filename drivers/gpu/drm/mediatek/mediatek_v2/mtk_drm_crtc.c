@@ -6999,8 +6999,13 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 
 	if (mtk_crtc->is_mml) {
 		comp = mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, DDP_FIRST_PATH, 0);
-		cmdq_pkt_write(cmdq_handle, NULL, comp->larb_cons[0], GENMASK(19, 16),
+
+		if (comp) {
+			mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, DDP_FIRST_PATH, 0);
+			cmdq_pkt_write(cmdq_handle, NULL, comp->larb_cons[0], GENMASK(19, 16),
 			       GENMASK(19, 16));
+		} else
+			DDPPR_ERR("%s with NULL comp\n", __func__);
 
 		if (mtk_crtc->is_dual_pipe) {
 			comp = mtk_crtc_get_dual_comp(crtc, DDP_FIRST_PATH, 0);
