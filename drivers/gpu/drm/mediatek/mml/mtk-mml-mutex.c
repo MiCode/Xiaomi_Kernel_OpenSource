@@ -67,6 +67,7 @@ struct mml_mutex {
 	struct mml_comp comp;
 	const struct mutex_data *data;
 	bool ddp_bound;
+	atomic_t connect[MML_PIPE_CNT];
 
 	struct mutex_module modules[MML_MAX_COMPONENTS];
 };
@@ -293,10 +294,15 @@ static void mutex_addon_config(struct mtk_ddp_comp *ddp_comp,
 
 	path = cfg->task->config->path[cfg->pipe];
 
-	if (cfg->config_type.type == ADDON_DISCONNECT)
-		mutex_disable(mutex, pkt, path);
-	else
+	if (cfg->config_type.type == ADDON_DISCONNECT) {
+		if (atomic_cmpxchg_acquire(&mutex->connect[cfg->pipe], 1, 0))
+			mutex_disable(mutex, pkt, path);
+		else
+			mml_err("%s disconnect without connect pipe %u", __func__, cfg->pipe);
+	} else {
+		atomic_set(&mutex->connect[cfg->pipe], 1);
 		mutex_enable(mutex, pkt, path, get_mutex_sof(&cfg->mutex), MML_MODE_DDP_ADDON);
+	}
 }
 
 static const struct mtk_ddp_comp_funcs ddp_comp_funcs = {
