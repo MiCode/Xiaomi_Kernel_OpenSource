@@ -954,7 +954,8 @@ static void fbt_set_task_policy(struct fpsgo_loading *fl,
 		return;
 
 	/* policy changes, reset */
-	fbt_set_affinity(fl->pid, FPSGO_PREFER_NONE);
+	if (fl->policy != policy && fl->prefer_type != FPSGO_PREFER_NONE)
+		fbt_set_task_policy(fl, fl->policy, FPSGO_PREFER_NONE, 0);
 
 	if (set_nice) {
 		ori_nice = fbt_set_priority(fl->pid, cur_nice);
@@ -1074,12 +1075,13 @@ static void dep_a_except_b(
 	struct fpsgo_loading dep_a[], int size_a,
 	struct fpsgo_loading dep_b[], int size_b,
 	struct fpsgo_loading dep_result[], int *size_result,
-	int copy_intersection_to_b)
+	int dep_result_rmidx[], int copy_intersection_to_b)
 {
 	struct fpsgo_loading *fl_b, *fl_a;
 	int i, j;
 	int incr_i, incr_j;
 	int temp_size_result = 0;
+	int index_a = 0, index_b = 0;
 
 	if (!size_b) {
 		memcpy(dep_result, dep_a,
@@ -1097,8 +1099,10 @@ static void dep_a_except_b(
 	     (i < size_b || j < size_a);
 	     i = incr_i ? __incr(i, size_b) : i,
 	     j = incr_j ? __incr(j, size_a) : j,
-	     fl_b = &dep_b[clamp(i, i, size_b - 1)],
-	     fl_a = &(dep_a[clamp(j, j, size_a - 1)])) {
+	     index_a = clamp(j, j, size_a - 1),
+	     index_b = clamp(i, i, size_b - 1),
+	     fl_b = &dep_b[index_b],
+	     fl_a = &(dep_a[index_a])) {
 
 		incr_i = incr_j = 0;
 
@@ -1120,6 +1124,8 @@ static void dep_a_except_b(
 			if (copy_intersection_to_b)
 				*fl_b = *fl_a;
 			incr_i = incr_j = 1;
+			if (dep_result_rmidx)
+				dep_result_rmidx[index_a] = 1;
 		} else if (fl_b->pid > fl_a->pid) {
 			if (j < size_a) {
 				dep_result[temp_size_result] = *fl_a;
@@ -1258,7 +1264,7 @@ static int fbt_get_dep_list(struct render_info *thr)
 		&(thr->dep_arr[0]), thr->dep_valid_size,
 		&dep_new[0], count,
 		&dep_only_old[0], &temp_size_only_old,
-		1);
+		NULL, 1);
 	print_dep(__func__, "old_dep",
 		thr->pid, thr->buffer_id,
 		&(thr->dep_arr[0]), thr->dep_valid_size);
@@ -1277,7 +1283,7 @@ static int fbt_get_dep_list(struct render_info *thr)
 			&(dep_only_old[0]), temp_size_only_old,
 			&max_blc_dep[0], max_blc_dep_num,
 			&dep_old_need_reset[0], &temp_size_old_need_reset,
-			0);
+			NULL, 0);
 		print_dep(__func__, "dep_need_reset",
 			thr->pid, thr->buffer_id,
 			&dep_old_need_reset[0], temp_size_old_need_reset);
@@ -1372,7 +1378,7 @@ static void fbt_clear_min_cap(struct render_info *thr)
 			&(thr->dep_arr[0]), thr->dep_valid_size,
 			&max_blc_dep[0], max_blc_dep_num,
 			&dep_need_set[0], &temp_size_need_set,
-			0);
+			NULL, 0);
 		print_dep(__func__, "dep",
 			thr->pid, thr->buffer_id,
 			&(thr->dep_arr[0]), thr->dep_valid_size);
@@ -1661,6 +1667,7 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	int cam_dep_arr_size = 0;
 	struct fpsgo_loading *dep_final_need_set = NULL;
 	int final_size_need_set = 0;
+	int *dep_rm_idx = NULL;
 
 	if (!uclamp_boost_enable)
 		return;
@@ -1727,12 +1734,19 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 		memset(cam_dep_arr, 0, MAX_DEP_NUM * sizeof(struct fpsgo_loading));
 	}
 
+	dep_rm_idx = kcalloc(MAX_DEP_NUM, sizeof(int), GFP_KERNEL);
+	if (!dep_rm_idx) {
+		FPSGO_LOGE("ERROR OOM %d\n", __LINE__);
+		goto EXIT;
+	}
+	memset(dep_rm_idx, 0, MAX_DEP_NUM * sizeof(int));
+
 	if (thr->pid == max_blc_pid && thr->buffer_id == max_blc_buffer_id) {
 		dep_a_except_b(
 			&(thr->dep_arr[0]), thr->dep_valid_size,
 			&cam_dep_arr[0], cam_dep_arr_size,
 			&dep_final_need_set[0], &final_size_need_set,
-			0);
+			dep_rm_idx, 0);
 		print_dep(__func__, "max_dep",
 			thr->pid, thr->buffer_id,
 			&(thr->dep_arr[0]), thr->dep_valid_size);
@@ -1745,7 +1759,7 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			&(thr->dep_arr[0]), thr->dep_valid_size,
 			&max_blc_dep[0], max_blc_dep_num,
 			&dep_need_set[0], &temp_size_need_set,
-			0);
+			dep_rm_idx, 0);
 		print_dep(__func__, "dep",
 			thr->pid, thr->buffer_id,
 			&(thr->dep_arr[0]), thr->dep_valid_size);
@@ -1754,10 +1768,10 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			&dep_need_set[0], temp_size_need_set);
 
 		dep_a_except_b(
-			&dep_need_set[0], temp_size_need_set,
+			&(thr->dep_arr[0]), thr->dep_valid_size,
 			&cam_dep_arr[0], cam_dep_arr_size,
 			&dep_final_need_set[0], &final_size_need_set,
-			0);
+			dep_rm_idx, 0);
 		print_dep(__func__, "dep_final_need_set",
 			thr->pid, thr->buffer_id,
 			&dep_final_need_set[0], final_size_need_set);
@@ -1769,10 +1783,13 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 
 	if (loading_th_final || boost_affinity_final
 			|| boost_LR_final || separate_aa_final) {
-		for (i = 0; i < size_final; i++) {
+		for (i = 0; i < thr->dep_valid_size; i++) {
 			struct fpsgo_loading *fl;
 
-			fl = &dep_final_need_set[i];
+			if (dep_rm_idx[i])
+				continue;
+			fl = &(thr->dep_arr[i]);
+
 			if (!fl->pid)
 				continue;
 
@@ -1786,10 +1803,12 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 
 
 
-	for (i = 0; i < size_final; i++) {
+	for (i = 0; i < thr->dep_valid_size; i++) {
 		struct fpsgo_loading *fl;
 
-		fl = &dep_final_need_set[i];
+		if (dep_rm_idx[i])
+			continue;
+		fl = &(thr->dep_arr[i]);
 
 		if (!fl->pid)
 			continue;
@@ -1870,6 +1889,7 @@ EXIT:
 	kfree(cam_dep_arr);
 	kfree(dep_str);
 	kfree(dep_need_set);
+	kfree(dep_rm_idx);
 }
 
 void fbt_set_render_boost_attr(struct render_info *thr)
