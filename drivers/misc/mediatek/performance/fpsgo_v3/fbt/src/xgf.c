@@ -657,7 +657,7 @@ static ssize_t xgf_spid_list_show(struct kobject *kobj,
 
 	hlist_for_each_entry(xgf_spid_iter, &xgf_wspid_list, hlist) {
 		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-			"%s\t%s\t%d\t%d\t%d\n",
+			"%s\t%s\t%d\t%d\t%d\t%d\n",
 			xgf_spid_iter->process_name,
 			xgf_spid_iter->thread_name,
 			xgf_spid_iter->rpid,
@@ -1147,10 +1147,32 @@ static void xgf_ema2_dump_info_frames(struct xgf_ema2_predictor *pt, char *buffe
 		buffer += sprintf(buffer, " %lld", pt->L[i]);
 }
 
+void xgf_get_runtime(pid_t tid, u64 *runtime)
+{
+	struct task_struct *p;
+
+	if (unlikely(!tid))
+		return;
+
+	rcu_read_lock();
+	p = find_task_by_vpid(tid);
+	if (!p) {
+		xgf_trace(" %5d not found to erase", tid);
+		rcu_read_unlock();
+		return;
+	}
+	get_task_struct(p);
+	rcu_read_unlock();
+
+	*runtime = (u64)fpsgo_task_sched_runtime(p);
+	put_task_struct(p);
+}
+EXPORT_SYMBOL(xgf_get_runtime);
 
 static int xgf_get_render(pid_t rpid, unsigned long long bufID, struct xgf_render **ret,
 	int force, unsigned long long queue_end_ts)
 {
+	unsigned long long tmp_runtime = 0;
 	struct xgf_render *iter;
 
 	hlist_for_each_entry(iter, &xgf_renders, hlist) {
@@ -1191,6 +1213,8 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID, struct xgf_rende
 		iter->render = rpid;
 		put_task_struct(tsk);
 
+		xgf_get_runtime(rpid, &tmp_runtime);
+
 		iter->bufID = bufID;
 		iter->xrd_arr_idx = 0;
 		iter->l_num = 0;
@@ -1206,6 +1230,7 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID, struct xgf_rende
 		iter->queue.end_ts = 0;
 		iter->deque.start_ts = 0;
 		iter->deque.end_ts = 0;
+		iter->render_runtime = tmp_runtime;
 		iter->raw_runtime = 0;
 		iter->ema_runtime = 0;
 		iter->spid = 0;
@@ -1277,6 +1302,26 @@ static inline unsigned long long xgf_ema_cal(
 	return ret;
 }
 
+static void xgf_del_pid2prev_dep(struct xgf_render *render, int tid)
+{
+	struct xgf_dep *xd;
+
+	if (!render || tid <= 0)
+		return;
+
+	xd = xgf_get_dep(tid, render, PREVI_DEPS, 0);
+	if (xd) {
+		rb_erase(&xd->rb_node, &render->prev_deps_list);
+		xgf_free(xd, XGF_DEP);
+	}
+
+	xd = xgf_get_dep(tid, render, OUTER_DEPS, 0);
+	if (xd) {
+		rb_erase(&xd->rb_node, &render->out_deps_list);
+		xgf_free(xd, XGF_DEP);
+	}
+}
+
 static void xgf_add_pid2prev_dep(struct xgf_render *render, int tid, int action)
 {
 	struct xgf_dep *xd;
@@ -1301,8 +1346,13 @@ static void xgf_wspid_list_add2prev(struct xgf_render *render)
 
 	hlist_for_each_entry_safe(xgf_spid_iter, t, &xgf_wspid_list, hlist) {
 		if (xgf_spid_iter->rpid == render->render
-			&& xgf_spid_iter->bufID == render->bufID)
-			xgf_add_pid2prev_dep(render, xgf_spid_iter->tid, xgf_spid_iter->action);
+			&& xgf_spid_iter->bufID == render->bufID) {
+			if (xgf_spid_iter->action == -1)
+				xgf_del_pid2prev_dep(render, xgf_spid_iter->tid);
+			else
+				xgf_add_pid2prev_dep(render, xgf_spid_iter->tid,
+					xgf_spid_iter->action);
+		}
 	}
 }
 
@@ -2016,28 +2066,6 @@ int fpsgo_fstb2xgf_notify_recycle(int pid, unsigned long long bufID)
 	return ret;
 }
 
-void xgf_get_runtime(pid_t tid, u64 *runtime)
-{
-	struct task_struct *p;
-
-	if (unlikely(!tid))
-		return;
-
-	rcu_read_lock();
-	p = find_task_by_vpid(tid);
-	if (!p) {
-		xgf_trace(" %5d not found to erase", tid);
-		rcu_read_unlock();
-		return;
-	}
-	get_task_struct(p);
-	rcu_read_unlock();
-
-	*runtime = (u64)fpsgo_task_sched_runtime(p);
-	put_task_struct(p);
-}
-EXPORT_SYMBOL(xgf_get_runtime);
-
 int xgf_get_logical_tid(int rpid, int tgid, int *l_tid,
 	unsigned long long prev_ts, unsigned long long last_ts)
 {
@@ -2186,6 +2214,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 	int do_extra_sub = 0;
 	unsigned long long q2q_time = 0;
 	unsigned long long tmp_runtime = 0;
+	unsigned long long diff_runtime = 0;
 	unsigned long long delta = 0;
 	unsigned long long time_scale = 1000;
 	long long ema2_offset = 0;
@@ -2221,6 +2250,13 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 
 		q2q_time = ts - r->queue.end_ts;
 		r->queue.end_ts = ts;
+
+		xgf_get_runtime(rpid, &tmp_runtime);
+		if (tmp_runtime && r->render_runtime &&
+			tmp_runtime > r->render_runtime)
+			diff_runtime = tmp_runtime - r->render_runtime;
+		r->render_runtime = tmp_runtime;
+
 		cur_xgf_extra_sub = xgf_extra_sub;
 
 		if (skip)
@@ -2228,7 +2264,8 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 
 		new_spid = xgf_get_spid(r);
 		if (new_spid != -1) {
-			xgf_trace("xgf spid:%d => %d", r->spid, new_spid);
+			xgf_trace("[xgf][%d][0x%llx] spid:%d => %d",
+				r->render, r->bufID, r->spid, new_spid);
 			r->spid = new_spid;
 		}
 
@@ -2239,7 +2276,9 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 			&& !cur_xgf_extra_sub && !xgf_force_no_extra_sub) {
 			do_extra_sub = 1;
 			cur_xgf_extra_sub = 1;
-			xgf_trace("xgf extra_sub:%d => %llu", rpid, t_dequeue_time);
+			diff_runtime = 0;
+			xgf_trace("[xgf][%d][0x%llx] do_extra_sub deq_time:%llu",
+				r->render, r->bufID, t_dequeue_time);
 		}
 
 		ret = xgf_enter_est_runtime(rpid, r, &raw_runtime, ts);
@@ -2251,10 +2290,15 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 		if (!raw_runtime)
 			*run_time = raw_runtime;
 		else {
-			xgf_trace("xgf raw_runtime:%llu q2qtime:%llu", raw_runtime, q2q_time);
 			/* error handling for raw_t_cpu */
 			if (q2q_time && raw_runtime > q2q_time)
 				raw_runtime = q2q_time;
+
+			if (diff_runtime && raw_runtime < diff_runtime) {
+				raw_runtime = diff_runtime < q2q_time ? diff_runtime : q2q_time;
+				xgf_trace("[xgf][%d][0x%llx] | fix_raw:%llu diff:%llu q2q:%llu",
+					r->render, r->bufID, raw_runtime, diff_runtime, q2q_time);
+			}
 
 			mutex_lock(&xgf_policy_cmd_lock);
 			policy = xgf_get_policy_cmd(r->parent, r->ema2_enable, ts, 0);
@@ -2340,6 +2384,9 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 		fpsgo_systrace_c_fbt(rpid, bufID, raw_runtime, "raw_t_cpu");
 		if (r->ema2_enable)
 			fpsgo_systrace_c_fbt(rpid, bufID, tmp_runtime, "ema2_t_cpu");
+		xgf_trace("[xgf][%d][0x%llx] | raw_runtime:%llu ema%d_runtime:%llu q2qtime:%llu",
+			r->render, r->bufID, raw_runtime,
+			r->ema2_enable?2:1, r->ema2_enable?tmp_runtime:r->ema_runtime, q2q_time);
 
 		xgf_print_critical_path_info(r);
 queue_end_skip:

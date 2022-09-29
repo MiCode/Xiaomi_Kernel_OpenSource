@@ -169,6 +169,7 @@ struct xgf_render {
 	struct xgf_runtime_sect deque;
 	struct xgf_runtime_sect queue;
 
+	unsigned long long render_runtime;
 	unsigned long long raw_runtime;
 	unsigned long long ema_runtime;
 
