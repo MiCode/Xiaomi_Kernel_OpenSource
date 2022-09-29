@@ -419,6 +419,41 @@ int mtk_mmdvfs_set_avs(const u8 idx, const u32 aging, const u32 fresh)
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_set_avs);
 
+int vmm_avs_debug_dump(char *buf, const struct kernel_param *kp)
+{
+	int len = 0;
+	u32 avs, i;
+
+	if (!MEM_BASE) {
+		MMDVFS_ERR("mmdvfs share memory is not ready");
+		return 0;
+	}
+
+	// power opp
+	len += snprintf(buf + len, PAGE_SIZE - len, "efuse:%u\n", readl(MEM_VMM_EFUSE));
+	for (i = 0; i < 8; i++)
+		len += snprintf(buf + len, PAGE_SIZE - len,
+			"opp_level%u: %u\n", i, readl(MEM_VMM_OPP_VOLT(i)));
+
+	i = readl(MEM_REC_VMM_DBG_CNT);
+	if (i > 0)
+		i = (i - 1) % MEM_REC_CNT_MAX;
+
+	avs = readl(MEM_REC_VMM_AVS(i));
+	len += snprintf(buf + len, PAGE_SIZE - len,
+		"temp:%#x volt:%u zone:%u opp_level:%u vde_on:%u isp_on:%u\n",
+		readl(MEM_REC_VMM_TEMP(i)), readl(MEM_REC_VMM_VOLT(i)), (avs & 0xff),
+		((avs >> 8) & 0xff), ((avs >> 16) & 0x1), ((avs >> 17) & 0x1));
+
+	return len;
+}
+
+static struct kernel_param_ops vmm_avs_debug_dump_ops = {
+	.get = vmm_avs_debug_dump,
+};
+module_param_cb(avs_debug, &vmm_avs_debug_dump_ops, NULL, 0644);
+MODULE_PARM_DESC(avs_debug, "dump avs debug information");
+
 static int mtk_mmdvfs_enable_vmm(const bool enable)
 {
 	int ret = 0;

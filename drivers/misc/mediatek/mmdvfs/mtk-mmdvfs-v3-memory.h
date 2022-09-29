@@ -35,11 +35,21 @@ static inline bool mmdvfs_is_init_done(void) { return false; }
 #define MEM_VOTE_OPP_USR(x)	(MEM_BASE + 0x50 + 0x4 * (x)) // USER_NUM
 
 #define MEM_VMM_CEIL_ENABLE	(MEM_BASE + 0x8C)
-/* 0x90 */
+#define MEM_VMM_EFUSE		(MEM_BASE + 0x90)
+#define MEM_VMM_OPP_VOLT(x)	(MEM_BASE + 0x94 + 0x4 * (x)) // VMM_OPP_NUM(8)
+/* next start: 0xB4 */
 
 #define MEM_REC_PWR_OBJ		4
 #define MEM_REC_USR_OBJ		5
+#define MEM_REC_VMM_DBG_OBJ	5
 #define MEM_REC_CNT_MAX		16
+
+#define MEM_REC_VMM_DBG_CNT	(MEM_BASE + 0xC74)
+#define MEM_REC_VMM_SEC(x)	(MEM_BASE + 0xC78 + MEM_REC_VMM_DBG_OBJ * 0x4 * (x))
+#define MEM_REC_VMM_NSEC(x)	(MEM_BASE + 0xC7C + MEM_REC_VMM_DBG_OBJ * 0x4 * (x))
+#define MEM_REC_VMM_VOLT(x)	(MEM_BASE + 0xC80 + MEM_REC_VMM_DBG_OBJ * 0x4 * (x))
+#define MEM_REC_VMM_TEMP(x)	(MEM_BASE + 0xC84 + MEM_REC_VMM_DBG_OBJ * 0x4 * (x))
+#define MEM_REC_VMM_AVS(x)	(MEM_BASE + 0xC88 + MEM_REC_VMM_DBG_OBJ * 0x4 * (x))
 
 #define MEM_REC_PWR_CNT		(MEM_BASE + 0xDB8)
 #define MEM_REC_PWR_SEC(x)	(MEM_BASE + 0xDBC + MEM_REC_PWR_OBJ * 0x4 * (x))
