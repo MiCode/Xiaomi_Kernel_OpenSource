@@ -1616,6 +1616,7 @@ static void core_config_task(struct mml_task *task)
 	struct mml_frame_config *cfg = task->config;
 	const u32 jobid = task->job.jobid;
 	s32 err;
+	bool addon_dual = cfg->dual && cfg->info.mode == MML_MODE_DDP_ADDON;
 
 	mml_trace_begin("%s", __func__);
 	if (cfg->info.mode == MML_MODE_DDP_ADDON)
@@ -1656,7 +1657,9 @@ static void core_config_task(struct mml_task *task)
 			init_completion(&task->pipe[0].ready);
 			init_completion(&task->pipe[1].ready);
 		}
-		cfg->task_ops->queue(task, 1);
+
+		if (!addon_dual)
+			cfg->task_ops->queue(task, 1);
 	}
 
 	/* hold config in this task to avoid config release before call submit_done */
@@ -1670,7 +1673,9 @@ static void core_config_task(struct mml_task *task)
 	core_config_pipe(task, 0);
 
 	/* check single pipe or (dual) pipe 1 done then callback */
-	if (cfg->dual)
+	if (addon_dual)
+		core_config_pipe(task, 1);
+	else if (cfg->dual)
 		flush_work(&task->work_config[1]);
 
 	cfg->task_ops->submit_done(task);
