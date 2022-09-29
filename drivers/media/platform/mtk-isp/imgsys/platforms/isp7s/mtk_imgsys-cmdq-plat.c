@@ -402,7 +402,6 @@ CHECK_WAIT_FENCE:
 		imgsys_fence->event_id = fence_evt->gce_event;
 		imgsys_fence->fence_fd = fence_evt->fence_fd;
 
-		dma_fence_get(imgsys_fence->kfence);
 		ret_f = dma_fence_add_callback(
 							imgsys_fence->kfence,
 							&(imgsys_fence->cb),
