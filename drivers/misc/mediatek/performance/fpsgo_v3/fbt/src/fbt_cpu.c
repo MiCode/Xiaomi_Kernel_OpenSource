@@ -5887,13 +5887,9 @@ static ssize_t light_loading_policy_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
-	char *temp = NULL;
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
 	int posi = 0;
-	int length = 0;
-
-	temp = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!temp)
-		goto out;
+	int length;
 
 	mutex_lock(&fbt_mlock);
 	length = scnprintf(temp + posi,
@@ -5906,11 +5902,7 @@ static ssize_t light_loading_policy_show(struct kobject *kobj,
 	posi += length;
 	mutex_unlock(&fbt_mlock);
 
-	length = scnprintf(buf, PAGE_SIZE, "%s", temp);
-
-out:
-	kfree(temp);
-	return length;
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
 static ssize_t light_loading_policy_store(struct kobject *kobj,
@@ -5918,29 +5910,23 @@ static ssize_t light_loading_policy_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = -1;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0)
 				val = arg;
 			else
-				goto out;
+				return count;
 		}
 	}
 
 	if (val < 0 || val > 100)
-		goto out;
+		return count;
 
 	loading_policy = val;
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
@@ -5964,26 +5950,20 @@ static ssize_t switch_idleprefer_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = -1;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0)
 				val = arg;
 			else
-				goto out;
+				return count;
 		}
 	}
 
 	fbt_switch_idleprefer(val);
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
@@ -5994,14 +5974,10 @@ static ssize_t fbt_info_show(struct kobject *kobj,
 		char *buf)
 {
 	struct fbt_thread_blc *pos, *next;
-	char *temp = NULL;
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
 	int posi = 0;
-	int length = 0;
+	int length;
 	int cluster;
-
-	temp = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!temp)
-		goto out;
 
 	mutex_lock(&fbt_mlock);
 
@@ -6059,11 +6035,7 @@ static ssize_t fbt_info_show(struct kobject *kobj,
 	}
 	mutex_unlock(&blc_mlock);
 
-	length = scnprintf(buf, PAGE_SIZE, "%s", temp);
-
-out:
-	kfree(temp);
-	return length;
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
 static KOBJ_ATTR_RO(fbt_info);
@@ -6073,13 +6045,9 @@ static ssize_t table_freq_show(struct kobject *kobj,
 		char *buf)
 {
 	int cluster, opp;
-	char *temp = NULL;
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
 	int posi = 0;
-	int length = 0;
-
-	temp = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!temp)
-		goto out;
+	int length;
 
 	mutex_lock(&fbt_mlock);
 
@@ -6096,11 +6064,7 @@ static ssize_t table_freq_show(struct kobject *kobj,
 
 	mutex_unlock(&fbt_mlock);
 
-	length = scnprintf(buf, PAGE_SIZE, "%s", temp);
-
-out:
-	kfree(temp);
-	return length;
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
 static KOBJ_ATTR_RO(table_freq);
@@ -6110,13 +6074,9 @@ static ssize_t table_cap_show(struct kobject *kobj,
 		char *buf)
 {
 	int cluster, opp;
-	char *temp = NULL;
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
 	int posi = 0;
-	int length = 0;
-
-	temp = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!temp)
-		goto out;
+	int length;
 
 	mutex_lock(&fbt_mlock);
 
@@ -6133,11 +6093,7 @@ static ssize_t table_cap_show(struct kobject *kobj,
 
 	mutex_unlock(&fbt_mlock);
 
-	length = scnprintf(buf, PAGE_SIZE, "%s", temp);
-
-out:
-	kfree(temp);
-	return length;
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
 static KOBJ_ATTR_RO(table_cap);
@@ -6146,13 +6102,9 @@ static ssize_t enable_uclamp_boost_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
-	char *temp = NULL;
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
 	int posi = 0;
-	int length = 0;
-
-	temp = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!temp)
-		goto out;
+	int length;
 
 	mutex_lock(&fbt_mlock);
 	length = scnprintf(temp + posi,
@@ -6162,11 +6114,7 @@ static ssize_t enable_uclamp_boost_show(struct kobject *kobj,
 	posi += length;
 	mutex_unlock(&fbt_mlock);
 
-	length = scnprintf(buf, PAGE_SIZE, "%s", temp);
-
-out:
-	kfree(temp);
-	return length;
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
 static KOBJ_ATTR_RO(enable_uclamp_boost);
@@ -6189,26 +6137,20 @@ static ssize_t boost_ta_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = -1;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0)
 				val = arg;
 			else
-				goto out;
+				return count;
 		}
 	}
 
 	fbt_switch_to_ta(val);
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
@@ -6218,13 +6160,9 @@ static ssize_t enable_switch_down_throttle_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
-	char *temp = NULL;
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
 	int posi = 0;
-	int length = 0;
-
-	temp = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!temp)
-		goto out;
+	int length;
 
 	mutex_lock(&fbt_mlock);
 	length = scnprintf(temp + posi,
@@ -6240,11 +6178,7 @@ static ssize_t enable_switch_down_throttle_show(struct kobject *kobj,
 
 	mutex_unlock(&fbt_mlock);
 
-	length = scnprintf(buf, PAGE_SIZE, "%s", temp);
-
-out:
-	kfree(temp);
-	return length;
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
 static ssize_t enable_switch_down_throttle_store(struct kobject *kobj,
@@ -6310,19 +6244,15 @@ static ssize_t ultra_rescue_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = -1;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0)
 				val = arg;
 			else
-				goto out;
+				return count;
 		}
 	}
 
@@ -6330,15 +6260,13 @@ static ssize_t ultra_rescue_store(struct kobject *kobj,
 
 	if (!fbt_enable) {
 		mutex_unlock(&fbt_mlock);
-		goto out;
+		return count;
 	}
 
 	fbt_set_ultra_rescue_locked(val);
 
 	mutex_unlock(&fbt_mlock);
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
@@ -6626,36 +6554,32 @@ static ssize_t llf_task_policy_store(struct kobject *kobj,
 {
 	int val = 0;
 	int orig_policy;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0)
 				val = arg;
 			else
-				goto out;
+				return count;
 		}
 	}
 
 	mutex_lock(&fbt_mlock);
 	if (!fbt_enable) {
 		mutex_unlock(&fbt_mlock);
-		goto out;
+		return count;
 	}
 
 	if (val < FPSGO_TPOLICY_NONE || val >= FPSGO_TPOLICY_MAX) {
 		mutex_unlock(&fbt_mlock);
-		goto out;
+		return count;
 	}
 
 	if (llf_task_policy == val) {
 		mutex_unlock(&fbt_mlock);
-		goto out;
+		return count;
 	}
 
 	orig_policy = llf_task_policy;
@@ -6666,8 +6590,6 @@ static ssize_t llf_task_policy_store(struct kobject *kobj,
 
 	schedule_work(&llf_switch_policy_work);
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
@@ -6691,19 +6613,15 @@ static ssize_t enable_ceiling_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = -1;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0)
 				val = arg;
 			else
-				goto out;
+				return count;
 		}
 	}
 
@@ -6714,8 +6632,6 @@ static ssize_t enable_ceiling_store(struct kobject *kobj,
 		enable_ceiling &= ~(1 << FPSGO_CEILING_PROCFS);
 	mutex_unlock(&fbt_mlock);
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
@@ -6763,12 +6679,8 @@ static ssize_t limit_uclamp_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = -1;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
@@ -6783,8 +6695,6 @@ static ssize_t limit_uclamp_store(struct kobject *kobj,
 		}
 	}
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
@@ -6808,12 +6718,8 @@ static ssize_t limit_ruclamp_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = -1;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
@@ -6828,8 +6734,6 @@ static ssize_t limit_ruclamp_store(struct kobject *kobj,
 		}
 	}
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
@@ -6853,12 +6757,8 @@ static ssize_t limit_uclamp_m_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = -1;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
@@ -6873,8 +6773,6 @@ static ssize_t limit_uclamp_m_store(struct kobject *kobj,
 		}
 	}
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
@@ -6898,12 +6796,8 @@ static ssize_t limit_ruclamp_m_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = -1;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
@@ -6918,8 +6812,6 @@ static ssize_t limit_ruclamp_m_store(struct kobject *kobj,
 		}
 	}
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
@@ -6950,22 +6842,18 @@ static ssize_t limit_cfreq_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = 0;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 	int opp;
 	int cluster;
 	struct fbt_syslimit *limit;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0)
 				val = arg;
 			else
-				goto out;
+				return count;
 		}
 	}
 
@@ -7003,8 +6891,6 @@ EXIT:
 	update_cfreq_rfreq_status_locked();
 	mutex_unlock(&fbt_mlock);
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
@@ -7035,22 +6921,18 @@ static ssize_t limit_cfreq_m_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = 0;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 	int opp;
 	int cluster;
 	struct fbt_syslimit *limit;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0)
 				val = arg;
 			else
-				goto out;
+				return count;
 		}
 	}
 
@@ -7091,8 +6973,6 @@ EXIT:
 	update_cfreq_rfreq_status_locked();
 	mutex_unlock(&fbt_mlock);
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
@@ -7123,22 +7003,18 @@ static ssize_t limit_rfreq_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = 0;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 	int opp;
 	int cluster;
 	struct fbt_syslimit *limit;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0)
 				val = arg;
 			else
-				goto out;
+				return count;
 		}
 	}
 
@@ -7175,8 +7051,6 @@ EXIT:
 	update_cfreq_rfreq_status_locked();
 	mutex_unlock(&fbt_mlock);
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
@@ -7208,22 +7082,18 @@ static ssize_t limit_rfreq_m_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = 0;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 	int opp;
 	int cluster;
 	struct fbt_syslimit *limit;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0)
 				val = arg;
 			else
-				goto out;
+				return count;
 		}
 	}
 
@@ -7262,8 +7132,6 @@ EXIT:
 	update_cfreq_rfreq_status_locked();
 	mutex_unlock(&fbt_mlock);
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
@@ -7287,26 +7155,20 @@ static ssize_t switch_filter_frame_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = -1;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0)
 				val = !!arg;
 			else
-				goto out;
+				return count;
 		}
 	}
 
 	fbt_set_filter_frame_enable(val);
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
@@ -7330,26 +7192,20 @@ static ssize_t filter_f_window_size_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = -1;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0)
 				val = arg;
 			else
-				goto out;
+				return count;
 		}
 	}
 
 	fbt_set_filter_frame_window_size(val);
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
@@ -7373,26 +7229,20 @@ static ssize_t filter_f_kmin_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = -1;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) == 0)
 				val = arg;
 			else
-				goto out;
+				return count;
 		}
 	}
 
 	fbt_set_filter_frame_kmin(val);
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
@@ -7415,12 +7265,8 @@ static ssize_t enable_separate_aa_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = -1;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
@@ -7431,8 +7277,6 @@ static ssize_t enable_separate_aa_store(struct kobject *kobj,
 		}
 	}
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
@@ -7456,12 +7300,8 @@ static ssize_t separate_pct_b_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = -1;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
@@ -7476,8 +7316,6 @@ static ssize_t separate_pct_b_store(struct kobject *kobj,
 		}
 	}
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
@@ -7501,12 +7339,8 @@ static ssize_t separate_pct_m_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = -1;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
@@ -7521,8 +7355,6 @@ static ssize_t separate_pct_m_store(struct kobject *kobj,
 		}
 	}
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
@@ -7545,12 +7377,8 @@ static ssize_t separate_release_sec_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	int val = -1;
-	char *acBuffer = NULL;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
-
-	acBuffer = kcalloc(FPSGO_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!acBuffer)
-		goto out;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
@@ -7563,8 +7391,6 @@ static ssize_t separate_release_sec_store(struct kobject *kobj,
 		}
 	}
 
-out:
-	kfree(acBuffer);
 	return count;
 }
 
