@@ -886,7 +886,7 @@ static void mtk_dsi_clear_rxrd_irq(struct mtk_dsi *dsi)
 static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 {
 	u32 data_rate = 0;
-	struct mtk_drm_crtc *mtk_crtc = dsi->ddp_comp.mtk_crtc;
+	struct mtk_drm_crtc *mtk_crtc = NULL;
 	struct mtk_drm_private *priv = NULL;
 
 	/**
@@ -896,6 +896,13 @@ static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 	 * mipi_ratio = (htotal_time + overhead_time) / htotal_time
 	 * data_rate = pixel_clock * bit_per_pixel * mipi_ratio / num_lanes;
 	 */
+
+	if (!dsi) {
+		DDPPR_ERR("%s failed with NULL dsi\n", __func__);
+		return data_rate;
+	}
+
+	mtk_crtc = dsi->ddp_comp.mtk_crtc;
 
 	if (mtk_crtc && mtk_crtc->base.dev)
 		priv = mtk_crtc->base.dev->dev_private;
@@ -1624,10 +1631,18 @@ static void mtk_dsi_calc_vdo_timing(struct mtk_dsi *dsi)
 	u32 dsi_tmp_buf_bpp;
 	u32 t_vfp, t_vbp, t_vsa;
 	u32 t_hfp, t_hbp, t_hsa;
-	struct mtk_panel_ext *ext = dsi->ext;
-	struct videomode *vm = &dsi->vm;
+	struct mtk_panel_ext *ext = NULL;
+	struct videomode *vm = NULL;
 	struct dynamic_mipi_params *dyn = NULL;
 	struct mtk_panel_spr_params *spr_params = NULL;
+
+	if (!dsi) {
+		DDPPR_ERR("%s with NULL dsi\n", __func__);
+		return;
+	}
+
+	ext = dsi->ext;
+	vm = &dsi->vm;
 
 	if (ext && ext->params) {
 		dyn = &ext->params->dyn;
@@ -2043,7 +2058,7 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			if ((dsi_underrun_trigger == 1 && priv &&
 				mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_DSI_UNDERRUN_AEE)) && trigger_aee) {
-				DDPAEE("[IRQ] %s:buffer underrun. TS: 0x%08x\n",
+				DDPAEE("[IRQ] %s:buffer underrun. TS: 0x%08llx\n",
 					mtk_dump_comp_str(&dsi->ddp_comp),
 					arch_timer_read_counter());
 				mtk_crtc->last_aee_trigger_ts = aee_now_ts;
@@ -6294,9 +6309,7 @@ static void mtk_dsi_ddic_handler_default_cb(struct cmdq_cb_data data)
 	}
 	free_handle = cb_data->misc;
 	index = drm_crtc_index(cb_data->crtc);
-
-	if (cb_data->crtc != NULL)
-		dsi = pm_get_mtk_dsi(cb_data->crtc);
+	dsi = pm_get_mtk_dsi(cb_data->crtc);
 
 	if (dsi != NULL)
 		panel_ext = dsi->ext;
@@ -7876,14 +7889,13 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			&& panel_ext && panel_ext->params
 			&& panel_ext->params->msync2_enable) {
 			if (state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] != 0) {
-				DDPDBG("[Msync]%s,%d\n", __func__, __LINE__);
-				if (dsi->mipi_hopping_sta && panel_ext && panel_ext->params
-					&& panel_ext->params->dyn.max_vfp_for_msync_dyn)
+				if (dsi->mipi_hopping_sta &&
+					panel_ext->params->dyn.max_vfp_for_msync_dyn)
 					vfront_porch = panel_ext->params->dyn.max_vfp_for_msync_dyn;
-				else if (panel_ext && panel_ext->params)
-					vfront_porch = panel_ext->params->max_vfp_for_msync;
 				else
-					vfront_porch = dsi->vm.vfront_porch;
+					vfront_porch = panel_ext->params->max_vfp_for_msync;
+				DDPDBG("[Msync]%s,%d vfront_porch %d\n",
+					__func__, __LINE__, vfront_porch);
 			}
 		}
 
