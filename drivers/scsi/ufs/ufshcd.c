@@ -2420,10 +2420,6 @@ static int ufshcd_map_sg(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 	int i;
 	int err;
 
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	u32 sg_dma_lower, sg_dma_upper;
-#endif
-
 	cmd = lrbp->cmd;
 	sg_segments = scsi_dma_map(cmd);
 	if (sg_segments < 0)
@@ -2449,33 +2445,6 @@ static int ufshcd_map_sg(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 				cpu_to_le32(upper_32_bits(sg->dma_address));
 			prd->reserved = 0;
 			prd = (void *)prd + hba->sg_entry_size;
-
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-			/* Only for MT6985 debug log*/
-			if (hba->irq == 162) {
-
-				/* Add debug log for EMI MPU violation on Region 47 */
-				sg_dma_lower = lower_32_bits(sg->dma_address);
-				sg_dma_upper = upper_32_bits(sg->dma_address);
-
-				if (sg_dma_upper == 0 && sg_dma_lower >= 0x9C38D000 &&
-							 sg_dma_lower <= 0x9F433000) {
-					dev_err(hba->dev, "[UFS] Access Region 47 address: 0x%x %x\n",
-						sg_dma_upper, sg_dma_lower);
-
-					dev_err(hba->dev, "sg_page: 0x%lx, pfn: 0x%lx\n",
-						sg_page(sg), page_to_pfn(sg_page(sg)));
-
-					/* dump DB for debug checking */
-					aee_kernel_warning_api(__FILE__, __LINE__,
-						DB_OPT_FS_IO_LOG | DB_OPT_FTRACE, "ufs",
-						"EMI MPU violation on Region 47: 0x%x %x",
-						sg_dma_upper, sg_dma_lower);
-					BUG_ON(1);
-				}
-			}
-#endif
-
 		}
 	} else {
 		lrbp->utr_descriptor_ptr->prd_table_length = 0;
