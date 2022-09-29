@@ -3645,21 +3645,22 @@ unsigned int mtk_dsi_mode_change_index(struct mtk_dsi *dsi,
 	}
 
 	cur_panel_params = panel_ext->params;
+	DDPINFO("%s:%d, mipi_hopping_sta %d, cur dyn.switch_en %d\n",
+		__func__, __LINE__,
+		dsi->mipi_hopping_sta,
+		cur_panel_params->dyn.switch_en);
 
 	if (panel_ext->funcs && panel_ext->funcs->ext_param_set) {
 		if (panel_ext->funcs->ext_param_set(dsi->panel, &dsi->conn,
 			dst_mode_idx))
 			DDPMSG("%s, error:not support dst mode:%d\n",
 				__func__, dst_mode_idx);
-		else
+		else {
 			adjust_panel_params = panel_ext->params;
+			DDPINFO("%s:%d adjust_panel_params->dyn.switch_en %d\n",
+				__func__, __LINE__, adjust_panel_params->dyn.switch_en);
+		}
 	}
-
-	DDPINFO("%s:%d, mipi_hopping_sta %d, cur dyn.switch_en %d, adj dyn.switch_en %d\n",
-		__func__, __LINE__,
-		dsi->mipi_hopping_sta,
-		cur_panel_params->dyn.switch_en,
-		adjust_panel_params->dyn.switch_en);
 
 	if (cur_panel_params && adjust_panel_params &&
 		!(dsi->mipi_hopping_sta && (cur_panel_params->dyn.switch_en ||
