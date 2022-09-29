@@ -1154,7 +1154,7 @@ void ufs_mtk_mcq_set_irq_affinity(struct ufs_hba *hba)
 	struct blk_mq_tag_set *tag_set = &hba->host->tag_set;
 	struct blk_mq_queue_map	*map = &tag_set->map[HCTX_TYPE_DEFAULT];
 	unsigned int nr = map->nr_queues;
-	unsigned int q_index, cpu, irq;
+	unsigned int q_index, cpu, _cpu, irq;
 	int ret;
 
 	if (!hba_priv->is_mcq_enabled)
@@ -1168,13 +1168,15 @@ void ufs_mtk_mcq_set_irq_affinity(struct ufs_hba *hba)
 		if (map->mq_map[cpu] >= 0) {
 			q_index = map->mq_map[cpu];
 			irq = hba_priv->mcq_intr_info[q_index].intr;
-			ret = irq_set_affinity(irq, cpumask_of(cpu));
+			/* force migrate irq of cpu0 to cpu3 */
+			_cpu = (cpu == 0) ? 3 : cpu;
+			ret = irq_set_affinity(irq, cpumask_of(_cpu));
 			if (ret) {
 				dev_err(hba->dev, "mcq: irq_set_affinity irq %d on CPU %d failed\n",
-									irq, cpu);
+									irq, _cpu);
 				return;
 			}
-			dev_info(hba->dev, "Set irq %d to CPU: %d\n", irq, cpu);
+			dev_info(hba->dev, "Set irq %d to CPU: %d\n", irq, _cpu);
 		}
 	}
 }
