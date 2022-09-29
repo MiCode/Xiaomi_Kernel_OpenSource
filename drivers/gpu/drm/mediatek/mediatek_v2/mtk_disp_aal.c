@@ -3117,9 +3117,9 @@ static int mtk_aal_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		mutex_unlock(&g_clarity_lock);
 
 		if (atomic_read(&g_force_delay_check_trig) == 1)
-			mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+			mtk_crtc_check_trigger(default_comp->mtk_crtc, true, false);
 		else
-			mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
+			mtk_crtc_check_trigger(default_comp->mtk_crtc, false, false);
 	}
 		break;
 	default:
