@@ -215,10 +215,8 @@ struct mtk_mraw_device {
 	atomic_t is_enqueued;
 	atomic_t is_first_frame;
 #ifdef CHECK_MRAW_NODEQ
-	u64 fbc_iszero_cnt;
 	u64 last_wcnt;
 	u64 wcnt_no_dup_cnt;
-	unsigned int is_fbc_cnt_zero_happen;
 #endif
 };
 

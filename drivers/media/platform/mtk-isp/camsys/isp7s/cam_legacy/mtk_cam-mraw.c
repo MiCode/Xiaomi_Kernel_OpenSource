@@ -1684,10 +1684,9 @@ int mtk_cam_mraw_dev_stream_on(
 		ret = mtk_cam_mraw_cq_enable(mraw_dev) ||
 			mtk_cam_mraw_top_enable(mraw_dev);
 #ifdef CHECK_MRAW_NODEQ
-		mraw_dev->fbc_iszero_cnt = 0;
 		mraw_dev->wcnt_no_dup_cnt = 0;
 		mraw_dev->last_wcnt = 0;
-		mraw_dev->is_fbc_cnt_zero_happen = 0;
+
 #endif
 	}
 	else {
@@ -2028,19 +2027,8 @@ void mraw_check_fbc_no_deque(struct mtk_cam_ctx *ctx,
 	struct mtk_mraw_device *mraw_dev,
 	int fbc_cnt, int write_cnt, unsigned int dequeued_frame_seq_no)
 {
-	/* Check for no enque */
-	if (fbc_cnt == 0) {
-		mraw_dev->fbc_iszero_cnt++;
-		if (mraw_dev->fbc_iszero_cnt % 10 == 0) {
-			mraw_dev->is_fbc_cnt_zero_happen = 1;
-			mtk_mraw_print_register_status(mraw_dev);
-		}
-	} else {
-		mraw_dev->fbc_iszero_cnt = 0;
-	}
-
 	/* Check for enqued but no deque */
-	if (!mraw_dev->is_fbc_cnt_zero_happen) {
+	if (fbc_cnt != 0) {
 		if (mraw_dev->last_wcnt != write_cnt) {
 			mraw_dev->last_wcnt = write_cnt;
 			mraw_dev->wcnt_no_dup_cnt = 0;
@@ -2049,6 +2037,7 @@ void mraw_check_fbc_no_deque(struct mtk_cam_ctx *ctx,
 			if (mraw_dev->wcnt_no_dup_cnt % 10 == 0) {
 				mtk_mraw_print_register_status(mraw_dev);
 				mtk_cam_seninf_dump(ctx->seninf, dequeued_frame_seq_no, false);
+				mraw_dev->wcnt_no_dup_cnt = 0;
 			}
 		}
 	}
