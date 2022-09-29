@@ -450,7 +450,7 @@ int dt_get_log_store(struct mem_desc_ls *data)
 
 	np_logstore = of_find_node_by_name(NULL, "logstore");
 	if (np_logstore) {
-		of_property_read_u32(np_logstore, "pmic_register", &pmic_addr);
+		of_property_read_u32(np_logstore, "pmic-register", &pmic_addr);
 		pr_notice("log_store: get address 0x%x.\n", pmic_addr);
 	} else {
 		pr_err("log_store: can't get pmic address.\n");
