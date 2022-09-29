@@ -205,7 +205,7 @@ initcall_debug=1";
 		pinctrl-names = "default";
 		port {
 			panel_in2: endpoint {
-				remote-endpoint = <&dsi_out>;
+				remote-endpoint = <&dsi_out2>;
 			};
 		};
 	};
@@ -218,7 +218,20 @@ initcall_debug=1";
 		pinctrl-names = "default";
 		port {
 			panel_in3: endpoint {
-				remote-endpoint = <&dsi_out>;
+				remote-endpoint = <&dsi_out3>;
+			};
+		};
+	};
+	panel4@3 {
+		compatible = "nt37801,cmd,fhd";
+		reg = <3>;
+		pm-enable-gpios = <&pio 68 0>;
+		reset-gpios = <&pio 86 0>;
+		gate-ic = <4831>;
+		pinctrl-names = "default";
+		port {
+			panel_in4: endpoint {
+				remote-endpoint = <&dsi_out4>;
 			};
 		};
 	};
@@ -226,6 +239,18 @@ initcall_debug=1";
 		port {
 			dsi_out: endpoint {
 				remote-endpoint = <&panel_in1>;
+			};
+
+			dsi_out2: endpoint2 {
+				remote-endpoint = <&panel_in2>;
+			};
+
+			dsi_out3: endpoint3 {
+				remote-endpoint = <&panel_in3>;
+			};
+
+			dsi_out4: endpoint4 {
+				remote-endpoint = <&panel_in4>;
 			};
 		};
 	};
