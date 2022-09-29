@@ -9246,6 +9246,7 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 	unsigned int msync_fps_record[60];
 	static unsigned int position;
 	dma_addr_t msync_slot_addr;
+	bool msync20_status_changed = 0;
 
 	/* When open VDS path switch feature, we will resume VDS crtc
 	 * in it's second atomic commit, and the crtc will be resumed
@@ -9360,6 +9361,9 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 		CRTC_MMP_MARK(index, atomic_begin, 0, 2);
 
 		msync_may_close = 1;
+		if (mtk_crtc->msync2.msync_frame_status == 0)
+			msync20_status_changed = 1;
+		mtk_crtc->msync2.msync_frame_status = 1;
 	} else if (mtk_crtc_is_frame_trigger_mode(crtc) &&
 			!msync_is_on(priv, params, crtc_id,
 				mtk_crtc_state, old_mtk_state) && (index == 0)) {
@@ -9371,6 +9375,26 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 			cmdq_pkt_write(mtk_crtc_state->cmdq_handle, mtk_crtc->gce_obj.base,
 				msync_slot_addr, DISABLE_REQUEST_TE, ~0);
 		}
+
+		if (mtk_crtc->msync2.msync_frame_status == 1)
+			msync20_status_changed = 1;
+		mtk_crtc->msync2.msync_frame_status = 0;
+	}
+
+	if (msync20_status_changed && (crtc_id == 0)) {
+		struct mtk_ddp_comp *oddmr_comp;
+		unsigned int od_trigger = 0;
+
+		/* adjust trigger loop in different display mode */
+		DDPINFO("%s msync20_status_changed to %d\n", __func__,
+				mtk_crtc->msync2.msync_frame_status);
+
+		oddmr_comp = priv->ddp_comp[DDP_COMPONENT_ODDMR0];
+
+		if (mtk_crtc->msync2.msync_frame_status == 0)
+			od_trigger = 1;
+
+		mtk_ddp_comp_io_cmd(oddmr_comp, NULL, ODDMR_TRIG_CTL, &od_trigger);
 	}
 
 #ifdef MTK_DRM_ADVANCE

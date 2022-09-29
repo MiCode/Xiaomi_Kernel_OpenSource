@@ -701,6 +701,7 @@ struct mtk_msync2 {
 	bool msync_disabled;
 	bool LFR_disabled;
 	bool msync_on;
+	bool msync_frame_status;
 	atomic_t LFR_final_state;
 };
 
