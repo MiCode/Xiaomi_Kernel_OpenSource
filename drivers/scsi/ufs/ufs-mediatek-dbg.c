@@ -432,6 +432,24 @@ static void probe_ufshcd_clk_gating(void *data, const char *dev_name,
 	cmd_hist[ptr].cmd.clk_gating.state = state;
 }
 
+static void probe_ufshcd_profile_clk_scaling(void *data, const char *dev_name,
+	const char *profile_info, s64 time_us, int err)
+{
+	int ptr;
+
+	if (!cmd_hist_enabled)
+		return;
+
+	ptr = cmd_hist_get_entry();
+
+	cmd_hist[ptr].event = CMD_CLK_SCALING;
+	if (!strcmp(profile_info, "up"))
+		cmd_hist[ptr].cmd.clk_scaling.state = CLKS_SCALE_UP;
+	else
+		cmd_hist[ptr].cmd.clk_scaling.state = CLKS_SCALE_DOWN;
+	cmd_hist[ptr].cmd.clk_scaling.err = err;
+}
+
 static void probe_ufshcd_pm(void *data, const char *dev_name,
 			    int err, s64 time_us,
 			    int pwr_mode, int link_state,
@@ -498,6 +516,10 @@ static struct tracepoints_table interests[] = {
 	{.name = "ufshcd_command", .func = probe_ufshcd_command},
 	{.name = "ufshcd_uic_command", .func = probe_ufshcd_uic_command},
 	{.name = "ufshcd_clk_gating", .func = probe_ufshcd_clk_gating},
+	{
+		.name = "ufshcd_profile_clk_scaling",
+		.func = probe_ufshcd_profile_clk_scaling
+	},
 	{
 		.name = "android_vh_ufs_send_command",
 		.func = probe_android_vh_ufs_send_command
@@ -596,6 +618,37 @@ static void ufs_mtk_dbg_print_clk_gating_event(char **buff,
 		cmd_hist[ptr].pid,
 		cmd_hist[ptr].event,
 		clk_gating_state_str[idx]
+		);
+}
+
+#define CLK_SCALING_STATE_MAX (2)
+
+static char *clk_scaling_state_str[CLK_SCALING_STATE_MAX + 1] = {
+	"clk scale down",
+	"clk scale up",
+	"unknown"
+};
+
+static void ufs_mtk_dbg_print_clk_scaling_event(char **buff,
+					unsigned long *size,
+					struct seq_file *m, int ptr)
+{
+	struct timespec64 dur;
+	int idx = cmd_hist[ptr].cmd.clk_scaling.state;
+
+	if (idx < 0 || idx >= CLK_SCALING_STATE_MAX)
+		idx = CLK_SCALING_STATE_MAX;
+
+	dur = ns_to_timespec64(cmd_hist[ptr].time);
+	SPREAD_PRINTF(buff, size, m,
+		"%3d-c(%d),%6llu.%lu,%5d,%2d,%15s, err:%d\n",
+		ptr,
+		cmd_hist[ptr].cpu,
+		dur.tv_sec, dur.tv_nsec,
+		cmd_hist[ptr].pid,
+		cmd_hist[ptr].event,
+		clk_scaling_state_str[idx],
+		cmd_hist[ptr].cmd.clk_scaling.err
 		);
 }
 
@@ -791,6 +844,8 @@ static void ufs_mtk_dbg_print_cmd_hist(char **buff, unsigned long *size,
 			ufs_mtk_dbg_print_uic_event(buff, size, m, ptr);
 		else if (cmd_hist[ptr].event == CMD_CLK_GATING)
 			ufs_mtk_dbg_print_clk_gating_event(buff, size, m, ptr);
+		else if (cmd_hist[ptr].event == CMD_CLK_SCALING)
+			ufs_mtk_dbg_print_clk_scaling_event(buff, size, m, ptr);
 		else if (cmd_hist[ptr].event == CMD_PM)
 			ufs_mtk_dbg_print_pm_event(buff, size, m, ptr);
 		else if (cmd_hist[ptr].event == CMD_ABORTING)

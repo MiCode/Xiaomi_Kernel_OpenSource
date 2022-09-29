@@ -53,6 +53,13 @@ enum ufsdbg_pm_state {
 	UFSDBG_SYSTEM_RESUME
 };
 
+/* clock scaling state  */
+enum clk_scaling_state {
+	CLKS_SCALE_DOWN,
+	CLKS_SCALE_UP,
+	CLKS_SCALE_UNKNOWN
+};
+
 enum cmd_hist_event {
 	CMD_SEND		= 0,
 	CMD_COMPLETED		= 1,
@@ -73,6 +80,7 @@ enum cmd_hist_event {
 	CMD_GENERIC		= 16,
 	CMD_CLK_GATING		= 17,
 	CMD_PM			= 18,
+	CMD_CLK_SCALING		= 19,
 	CMD_UNKNOWN
 };
 
@@ -114,6 +122,11 @@ struct clk_gating_event_struct {
 	u8 state;
 };
 
+struct clk_scaling_event_struct {
+	u8 state;
+	int err;
+};
+
 struct ufs_pm_struct {
 	u8 state;
 	int err;
@@ -134,6 +147,7 @@ struct cmd_hist_struct {
 		struct utp_cmd_struct utp;
 		struct uic_cmd_struct uic;
 		struct clk_gating_event_struct clk_gating;
+		struct clk_scaling_event_struct clk_scaling;
 		struct ufs_pm_struct pm;
 	} cmd;
 };

@@ -1794,6 +1794,7 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 
 	/* enable clk scaling*/
 	hba->caps |= UFSHCD_CAP_CLK_SCALING;
+	host->clk_scale_up = true; /* default is max freq */
 
 	hba->quirks |= UFSHCI_QUIRK_SKIP_MANUAL_WB_FLUSH_CTRL;
 	hba->vps->wb_flush_threshold = UFS_WB_BUF_REMAIN_PERCENT(80);
@@ -2531,26 +2532,48 @@ static void ufs_mtk_clk_scale(struct ufs_hba *hba, bool scale_up)
 	struct ufs_mtk_clk *mclk = &host->mclk;
 	struct ufs_clk_info *clki = mclk->ufs_sel_clki;
 	int ret = 0;
+	int ver;
+	static bool skip_switch;
 
+	if (host->clk_scale_up == scale_up)
+		goto out;
+
+	if (skip_switch)
+		goto skip;
+
+	/* Do switch */
 	ret = clk_prepare_enable(clki->clk);
 	if (ret) {
 		dev_info(hba->dev, "clk_prepare_enable() fail, ret = %d\n", ret);
-		return;
+		goto skip;
 	}
 
-	if (scale_up) {
+	/*
+	 * Parent switching may have glich and uic error.
+	 * Keep UFS4.0 device fast clock and UFS3.1 device slow clock.
+	 */
+	ver = (hba->dev_info.wspecversion & 0xF00) >> 8;
+	if (ver >= 4)
 		ret = clk_set_parent(clki->clk, mclk->ufs_sel_max_clki->clk);
-		clki->curr_freq = clki->max_freq;
-	} else {
+	else
 		ret = clk_set_parent(clki->clk, mclk->ufs_sel_min_clki->clk);
-		clki->curr_freq = clki->min_freq;
-	}
 
 	if (ret)
 		dev_info(hba->dev, "Failed to set ufs_sel_clki, ret = %d\n", ret);
 
 	clk_disable_unprepare(clki->clk);
 
+	skip_switch = true;
+
+skip:
+	host->clk_scale_up = scale_up;
+
+	/* Must always set before clk_set_rate() */
+	if (scale_up)
+		clki->curr_freq = clki->max_freq;
+	else
+		clki->curr_freq = clki->min_freq;
+out:
 	trace_ufs_mtk_clk_scale(clki->name, scale_up, clk_get_rate(clki->clk));
 }
 
