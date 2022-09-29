@@ -782,7 +782,7 @@ static void boost_ep_disable(void *unused, struct mtu3_ep *mep)
 	boost_set_ep_type(USB_TYPE_UNKNOWN, mep->epnum, mep->is_in);
 }
 
-static void mtu3_req_complete_boost(void *unused, struct mtu3_request *mreq)
+static void boost_gadget_queue(void *unused, struct mtu3_request *mreq)
 {
 	struct usb_request *req = &mreq->request;
 	struct mtu3_ep *mep = mreq->mep;
@@ -790,7 +790,7 @@ static void mtu3_req_complete_boost(void *unused, struct mtu3_request *mreq)
 
 	switch (type) {
 	case USB_TYPE_MTP:
-		if (req->actual >= 8192)
+		if (req->length >= 8192)
 			usb_boost();
 		break;
 	case USB_TYPE_RNDIS:
@@ -808,8 +808,8 @@ static int mtu3_trace_init(void)
 		boost_ep_enable, NULL));
 	WARN_ON(register_trace_mtu3_gadget_ep_disable(
 		boost_ep_disable, NULL));
-	WARN_ON(register_trace_mtu3_req_complete(
-		mtu3_req_complete_boost, NULL));
+	WARN_ON(register_trace_mtu3_gadget_queue(
+		boost_gadget_queue, NULL));
 	return 0;
 }
 #endif
