@@ -424,6 +424,7 @@ static void probe_ufshcd_clk_gating(void *data, const char *dev_name,
 	int ptr;
 #if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	struct ufs_mtk_host *host = ufshcd_get_variant(ufshba);
+	u32 val;
 #endif
 
 	if (!cmd_hist_enabled)
@@ -442,6 +443,19 @@ static void probe_ufshcd_clk_gating(void *data, const char *dev_name,
 		cmd_hist[ptr].cmd.clk_gating.arg2 =
 			readl(host->mphy_base + 0xA19C);
 		writel(0, host->mphy_base + 0x20C0);
+
+		/* when clock on, clear 2 line hw status */
+		val = readl(host->mphy_base + 0xA800) | 0x02;
+		writel(val, host->mphy_base + 0xA800);
+		writel(val, host->mphy_base + 0xA800);
+		val = val & (~0x02);
+		writel(val, host->mphy_base + 0xA800);
+
+		val = readl(host->mphy_base + 0xA900) | 0x02;
+		writel(val, host->mphy_base + 0xA900);
+		writel(val, host->mphy_base + 0xA900);
+		val = val & (~0x02);
+		writel(val, host->mphy_base + 0xA900);
 	} else {
 		cmd_hist[ptr].cmd.clk_gating.arg1 = 0;
 		cmd_hist[ptr].cmd.clk_gating.arg2 = 0;

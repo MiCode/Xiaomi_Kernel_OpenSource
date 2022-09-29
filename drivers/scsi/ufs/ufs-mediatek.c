@@ -57,53 +57,60 @@ static const u32 mphy_reg_dump[] = {
 	0xB010, /* RON */ /* 6 */
 	0xB010, /* RON */ /* 7 */
 	0xB010, /* RON */ /* 8 */
-	0xA0AC, /* RON */ /* 9 */
-	0xA0B0, /* RON */ /* 10 */
-	0xA1AC, /* RON */ /* 11 */
-	0xA1B0, /* RON */ /* 12 */
+	0xB110, /* RON */ /* 9 */
+	0xB110, /* RON */ /* 10 */
+	0xB110, /* RON */ /* 11 */
+	0xB110, /* RON */ /* 12 */
+	0xB110, /* RON */ /* 13 */
+	0xA0AC, /* RON */ /* 14 */
+	0xA0B0, /* RON */ /* 15 */
+	0xA09C, /* RON */ /* 16 */
+	0xA1AC, /* RON */ /* 17 */
+	0xA1B0, /* RON */ /* 18 */
+	0xA01C, /* RON */ /* 19 */
 
-	0x00B0, /* RON */ /* 13 */
+	0x00B0, /* RON */ /* 20 */
 
-	0xC210, /* CL */ /* 14 */
-	0xC280, /* CL */ /* 15 */
-	0xC268, /* CL */ /* 16 */
-	0xC228, /* CL */ /* 17 */
-	0xC22C, /* CL */ /* 18 */
-	0xC220, /* CL */ /* 19 */
-	0xC224, /* CL */ /* 20 */
-	0xC284, /* CL */ /* 21 */
-	0xC274, /* CL */ /* 22 */
-	0xC278, /* CL */ /* 23 */
-	0xC29C, /* CL */ /* 24 */
-	0xC214, /* CL */ /* 25 */
-	0xC218, /* CL */ /* 26 */
-	0xC21C, /* CL */ /* 27 */
-	0xC234, /* CL */ /* 28 */
-	0xC230, /* CL */ /* 29 */
-	0xC244, /* CL */ /* 30 */
-	0xC250, /* CL */ /* 31 */
-	0xC270, /* CL */ /* 32 */
-	0xC26C, /* CL */ /* 33 */
-	0xC310, /* CL */ /* 34 */
-	0xC380, /* CL */ /* 35 */
-	0xC368, /* CL */ /* 36 */
-	0xC328, /* CL */ /* 37 */
-	0xC32C, /* CL */ /* 38 */
-	0xC320, /* CL */ /* 39 */
-	0xC324, /* CL */ /* 40 */
-	0xC384, /* CL */ /* 41 */
-	0xC374, /* CL */ /* 42 */
-	0xC378, /* CL */ /* 43 */
-	0xC39C, /* CL */ /* 44 */
-	0xC314, /* CL */ /* 45 */
-	0xC318, /* CL */ /* 46 */
-	0xC31C, /* CL */ /* 47 */
-	0xC334, /* CL */ /* 48 */
-	0xC330, /* CL */ /* 49 */
-	0xC344, /* CL */ /* 50 */
-	0xC350, /* CL */ /* 51 */
-	0xC370, /* CL */ /* 52 */
-	0xC36C  /* CL */ /* 53 */
+	0xC210, /* CL */ /* 21 */
+	0xC280, /* CL */ /* 22 */
+	0xC268, /* CL */ /* 23 */
+	0xC228, /* CL */ /* 24 */
+	0xC22C, /* CL */ /* 25 */
+	0xC220, /* CL */ /* 26 */
+	0xC224, /* CL */ /* 27 */
+	0xC284, /* CL */ /* 28 */
+	0xC274, /* CL */ /* 29 */
+	0xC278, /* CL */ /* 30 */
+	0xC29C, /* CL */ /* 31 */
+	0xC214, /* CL */ /* 32 */
+	0xC218, /* CL */ /* 33 */
+	0xC21C, /* CL */ /* 34 */
+	0xC234, /* CL */ /* 35 */
+	0xC230, /* CL */ /* 36 */
+	0xC244, /* CL */ /* 37 */
+	0xC250, /* CL */ /* 38 */
+	0xC270, /* CL */ /* 39 */
+	0xC26C, /* CL */ /* 40 */
+	0xC310, /* CL */ /* 41 */
+	0xC380, /* CL */ /* 42 */
+	0xC368, /* CL */ /* 43 */
+	0xC328, /* CL */ /* 44 */
+	0xC32C, /* CL */ /* 45 */
+	0xC320, /* CL */ /* 46 */
+	0xC324, /* CL */ /* 47 */
+	0xC384, /* CL */ /* 48 */
+	0xC374, /* CL */ /* 49 */
+	0xC378, /* CL */ /* 50 */
+	0xC39C, /* CL */ /* 51 */
+	0xC314, /* CL */ /* 52 */
+	0xC318, /* CL */ /* 53 */
+	0xC31C, /* CL */ /* 54 */
+	0xC334, /* CL */ /* 55 */
+	0xC330, /* CL */ /* 56 */
+	0xC344, /* CL */ /* 57 */
+	0xC350, /* CL */ /* 58 */
+	0xC370, /* CL */ /* 59 */
+	0xC36C  /* CL */ /* 60 */
 };
 #define MPHY_DUMP_NUM    (sizeof(mphy_reg_dump) / sizeof(u32))
 enum {
@@ -2207,16 +2214,16 @@ static void ufs_mtk_mphy_record(struct ufs_hba *hba, u8 stage)
 		mphy_record[stage].record[i] =
 			readl(host->mphy_base + mphy_reg_dump[i]);
 	}
-	writel(0, host->mphy_base + 0x20C0);
 
-	for (i = 2; i < 12; i++) {
+	for (i = 2; i < 20; i++) {
 		mphy_record[stage].record[i] =
 			readl(host->mphy_base + mphy_reg_dump[i]);
 	}
+	writel(0, host->mphy_base + 0x20C0);
 
 	writel(0x0, host->mphy_base + 0x0);
 	writel(0x4, host->mphy_base + 0x4);
-	for (i = 13; i < 14; i++) {
+	for (i = 20; i < 21; i++) {
 		mphy_record[stage].record[i] =
 			readl(host->mphy_base + mphy_reg_dump[i]);
 	}
@@ -2236,7 +2243,7 @@ static void ufs_mtk_mphy_record(struct ufs_hba *hba, u8 stage)
 		host->mphy_base + 0xA738);
 
 	/* Dump [Lane0] RX RG */
-	for (i = 14; i < 16; i++) {
+	for (i = 21; i < 23; i++) {
 		mphy_record[stage].record[i] =
 			readl(host->mphy_base + mphy_reg_dump[i]);
 	}
@@ -2248,7 +2255,7 @@ static void ufs_mtk_mphy_record(struct ufs_hba *hba, u8 stage)
 	writel(readl(host->mphy_base + 0xC0DC) & ~(0x1 << 25),
 		host->mphy_base + 0xC0DC);
 
-	for (i = 16; i < 24; i++) {
+	for (i = 23; i < 31; i++) {
 		mphy_record[stage].record[i] =
 			readl(host->mphy_base + mphy_reg_dump[i]);
 	}
@@ -2260,13 +2267,13 @@ static void ufs_mtk_mphy_record(struct ufs_hba *hba, u8 stage)
 	writel(readl(host->mphy_base + 0xC0C0) & ~(0x1 << 27),
 		host->mphy_base + 0xC0C0);
 
-	for (i = 24; i < 34; i++) {
+	for (i = 31; i < 41; i++) {
 		mphy_record[stage].record[i] =
 			readl(host->mphy_base + mphy_reg_dump[i]);
 	}
 
 	/* Dump [Lane1] RX RG */
-	for (i = 34; i < 36; i++) {
+	for (i = 41; i < 43; i++) {
 		mphy_record[stage].record[i] =
 			readl(host->mphy_base + mphy_reg_dump[i]);
 	}
@@ -2278,7 +2285,7 @@ static void ufs_mtk_mphy_record(struct ufs_hba *hba, u8 stage)
 	writel(readl(host->mphy_base + 0xC1DC) & ~(0x1 << 25),
 		host->mphy_base + 0xC1DC);
 
-	for (i = 36; i < 44; i++) {
+	for (i = 43; i < 51; i++) {
 		mphy_record[stage].record[i] =
 			readl(host->mphy_base + mphy_reg_dump[i]);
 	}
@@ -2291,7 +2298,7 @@ static void ufs_mtk_mphy_record(struct ufs_hba *hba, u8 stage)
 		host->mphy_base + 0xC1C0);
 
 
-	for (i = 44; i < 54; i++) {
+	for (i = 51; i < 61; i++) {
 		mphy_record[stage].record[i] =
 			readl(host->mphy_base + mphy_reg_dump[i]);
 	}
