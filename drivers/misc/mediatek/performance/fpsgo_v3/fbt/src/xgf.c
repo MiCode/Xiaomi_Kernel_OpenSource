@@ -1337,6 +1337,10 @@ static void xgf_add_pid2prev_dep(struct xgf_render *render, int tid, int action)
 	else
 		xd = xgf_get_dep(tid, render, PREVI_DEPS, 1);
 	xd->action = action;
+
+	xd = xgf_get_dep(tid, render, OUTER_DEPS, 0);
+	if (xd)
+		xd->action = action;
 }
 
 static void xgf_wspid_list_add2prev(struct xgf_render *render)
