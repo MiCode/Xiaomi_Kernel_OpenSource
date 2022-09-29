@@ -14043,6 +14043,7 @@
 		mboxes = <&gce_m 24 0 CMDQ_THR_PRIO_1>;
 		clocks = <&mmdvfs_clk CLK_MMDVFS_CAM>;
 		clock-names = "mmdvfs_clk";
+		vmm-pmic-supply = <&mt6319_6_vbuck3>;
 	};
 
 	cam_raw_a@1a030000 {
