@@ -930,6 +930,8 @@ static int __maybe_unused xhci_mtk_suspend(struct device *dev)
 		return 0;
 	}
 
+	synchronize_irq(hcd->irq);
+
 	xhci_dbg(xhci, "%s: stop port polling\n", __func__);
 	clear_bit(HCD_FLAG_POLL_RH, &hcd->flags);
 	del_timer_sync(&hcd->rh_timer);
