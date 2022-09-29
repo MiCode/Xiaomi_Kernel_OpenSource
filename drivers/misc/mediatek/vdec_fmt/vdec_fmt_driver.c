@@ -8,6 +8,7 @@
 #include <linux/delay.h>
 #include <linux/cdev.h>
 #include <linux/suspend.h>
+#include <linux/mutex.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include "vdec_fmt_driver.h"
@@ -110,8 +111,9 @@ static int fmt_set_gce_task(struct cmdq_pkt *pkt_ptr, u32 id,
 			fmt->gce_task[i].iinfo = iinfo;
 			fmt->gce_task[i].oinfo = oinfo;
 			mutex_unlock(&fmt->mux_task);
-			fmt_debug(1, "taskid %d pkt_ptr %p",
-				i, pkt_ptr);
+			fmt_debug(1, "Set identifier from %d to %d taskid %d pkt_ptr %p",
+				fmt->gce_task[i].identifier, id, i, pkt_ptr);
+
 			return i;
 		}
 	}
@@ -126,8 +128,8 @@ static void fmt_clear_gce_task(unsigned int taskid)
 
 	mutex_lock(&fmt->mux_task);
 	if (fmt->gce_task[taskid].used == 1 && fmt->gce_task[taskid].pkt_ptr != NULL) {
-		fmt_debug(1, "taskid %d pkt_ptr %p",
-				taskid, fmt->gce_task[taskid].pkt_ptr);
+		fmt_debug(1, "taskid %d pkt_ptr %p, set id %d to %d",
+			taskid, fmt->gce_task[taskid].pkt_ptr, fmt->gce_task[taskid].identifier, 0);
 		fmt->gce_task[taskid].used = 0;
 		fmt->gce_task[taskid].pkt_ptr = NULL;
 		fmt->gce_task[taskid].identifier = 0;
@@ -489,14 +491,15 @@ static int fmt_gce_timeout_aee(struct cmdq_cb_data data)
 
 static int fmt_gce_cmd_flush(unsigned long arg)
 {
-	int i, taskid, ret;
-	unsigned char *user_data_addr = NULL;
+	int i, ret;
+	int taskid = -1;
+	// unsigned char *user_data_addr = NULL;
 	struct gce_cmdq_obj buff;
-	struct cmdq_pkt *pkt_ptr;
+	struct cmdq_pkt *pkt_ptr = NULL;
 	struct cmdq_client *cl;
 	struct gce_cmds *cmds;
 	unsigned int suspend_block_cnt = 0;
-	unsigned int identifier;
+	unsigned int identifier = 0;
 	struct mtk_vdec_fmt *fmt = fmt_mtkdev;
 	int lock = -1;
 	struct dmabuf_info iinfo, oinfo;
@@ -509,8 +512,13 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 		return -EINVAL;
 	}
 
-	user_data_addr = (unsigned char *)arg;
-	ret = (long)copy_from_user(&buff, user_data_addr,
+	if (IS_ERR_OR_NULL((void *) arg)) {
+		fmt_err("Error arg!");
+		return -EINVAL;
+	}
+
+	// user_data_addr = (unsigned char *)arg;
+	ret = (long)copy_from_user(&buff, (void *) arg,
 				   (unsigned long)sizeof(struct gce_cmdq_obj));
 	if (ret != 0L) {
 		fmt_err("gce_cmdq_obj copy_from_user failed! %d",
@@ -542,33 +550,33 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 		usleep_range(10000, 20000);
 	}
 
-	mutex_lock(&fmt->mux_gce_th[identifier]);
+	mutex_lock(fmt->mux_gce_th[identifier]);
+
 	while (lock != 0) {
 		lock = fmt_lock(identifier,
 			(bool)buff.secure);
 		if (lock != 0) {
-			mutex_unlock(&fmt->mux_gce_th[identifier]);
+			mutex_unlock(fmt->mux_gce_th[identifier]);
 			usleep_range(1000, 2000);
-			mutex_lock(&fmt->mux_gce_th[identifier]);
+			mutex_lock(fmt->mux_gce_th[identifier]);
 		}
 	}
 
 	cmds = fmt->gce_cmds[identifier];
 
-	user_data_addr = (unsigned char *)
-				   (unsigned long)buff.cmds_user_ptr;
-	ret = (long)copy_from_user(cmds, user_data_addr,
+	// user_data_addr = (unsigned char *) (unsigned long)buff.cmds_user_ptr;
+	ret = (long)copy_from_user(cmds, (void *)(unsigned long)buff.cmds_user_ptr,
 				   (unsigned long)sizeof(struct gce_cmds));
-	if (ret != 0L) {
+	if (ret != 0L || IS_ERR_OR_NULL(cmds)) {
 		fmt_err("gce_cmds copy_from_user failed! %d",
 			ret);
-		mutex_unlock(&fmt->mux_gce_th[identifier]);
+		mutex_unlock(fmt->mux_gce_th[identifier]);
 		return -EINVAL;
 	}
 	if (cmds->cmd_cnt >= FMT_CMDQ_CMD_MAX) {
 		fmt_err("cmd_cnt (%d) overflow!!", cmds->cmd_cnt);
 		cmds->cmd_cnt = FMT_CMDQ_CMD_MAX;
-		mutex_unlock(&fmt->mux_gce_th[identifier]);
+		mutex_unlock(fmt->mux_gce_th[identifier]);
 		ret = -EINVAL;
 		return ret;
 	}
@@ -579,7 +587,7 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 	if (IS_ERR_OR_NULL(pkt_ptr)) {
 		fmt_err("cmdq_pkt_create fail");
 		pkt_ptr = NULL;
-		mutex_unlock(&fmt->mux_gce_th[identifier]);
+		mutex_unlock(fmt->mux_gce_th[identifier]);
 		ret = -EINVAL;
 		return ret;
 	}
@@ -596,7 +604,7 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 			&iinfo, &oinfo, map, (bool)buff.secure);
 
 		if (ret < 0) {
-			mutex_unlock(&fmt->mux_gce_th[identifier]);
+			mutex_unlock(fmt->mux_gce_th[identifier]);
 			fmt_dmabuf_free_iova(iinfo.dbuf,
 				iinfo.attach, iinfo.sgt);
 			fmt_dmabuf_free_iova(oinfo.dbuf,
@@ -620,7 +628,7 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 			ret);
 			cmdq_mbox_disable(fmt->clt_fmt[0]->chan);
 			mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_VFMT);
-			mutex_unlock(&fmt->mux_gce_th[identifier]);
+			mutex_unlock(fmt->mux_gce_th[identifier]);
 			mutex_unlock(&fmt->mux_fmt);
 			return -EINVAL;
 		}
@@ -630,13 +638,13 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 
 	fmt_start_dvfs_emi_bw(fmt, buff.pmqos_param, identifier);
 
-	mutex_unlock(&fmt->mux_gce_th[identifier]);
+	mutex_unlock(fmt->mux_gce_th[identifier]);
 
 	taskid = fmt_set_gce_task(pkt_ptr, identifier, iinfo, oinfo);
 
 	if (taskid < 0) {
 		fmt_err("failed to set task id");
-		mutex_lock(&fmt->mux_gce_th[identifier]);
+		mutex_lock(fmt->mux_gce_th[identifier]);
 
 		mutex_lock(&fmt->mux_fmt);
 		atomic_dec(&fmt->gce_job_cnt[identifier]);
@@ -660,7 +668,7 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 		if (atomic_read(&fmt->gce_job_cnt[identifier]) == 0)
 			fmt_unlock(identifier);
 
-		mutex_unlock(&fmt->mux_gce_th[identifier]);
+		mutex_unlock(fmt->mux_gce_th[identifier]);
 
 		cmdq_pkt_destroy(pkt_ptr);
 		ret = -EINVAL;
@@ -679,21 +687,25 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 		fmt_err("copy task id to user fail");
 		return -EFAULT;
 	}
-
 	fmt_debug(1, "-");
-
 	return ret;
 }
 
 static int fmt_gce_wait_callback(unsigned long arg)
 {
 	int ret, i;
-	unsigned int identifier, taskid;
-	unsigned char *user_data_addr = NULL;
+	unsigned int identifier = 0;
+	unsigned int taskid = FMT_INST_MAX;
+	// unsigned char *user_data_addr = NULL;
 	struct mtk_vdec_fmt *fmt = fmt_mtkdev;
 
-	user_data_addr = (unsigned char *)arg;
-	ret = (long)copy_from_user(&taskid, user_data_addr,
+	if (IS_ERR_OR_NULL((void *) arg)) {
+		fmt_err("Error arg");
+		return -EINVAL;
+	}
+
+	// user_data_addr = (unsigned char *)arg;
+	ret = (long)copy_from_user(&taskid, (void *) arg,
 				   (unsigned long)sizeof(unsigned int));
 	if (ret != 0L) {
 		fmt_err("copy_from_user failed!%d",
@@ -714,15 +726,28 @@ static int fmt_gce_wait_callback(unsigned long arg)
 		return -EINVAL;
 	}
 
-	fmt_debug(1, "id %d taskid %d pkt_ptr %p",
-		identifier, taskid, fmt->gce_task[taskid].pkt_ptr);
+	if (IS_ERR_OR_NULL(fmt->gce_task[taskid].pkt_ptr)) {
+		fmt_err("invalid pkt_prt %p", fmt->gce_task[taskid].pkt_ptr);
+		return -EINVAL;
+	}
 
-	cmdq_pkt_wait_complete(fmt->gce_task[taskid].pkt_ptr);
+	if (atomic_read(&fmt->gce_task_wait_cnt[taskid]) > 0) {
+		fmt_err("GCE taskid %d is already waiting", taskid);
+		return -EINVAL;
+	}
+	atomic_inc(&fmt->gce_task_wait_cnt[taskid]);
+	ret = cmdq_pkt_wait_complete(fmt->gce_task[taskid].pkt_ptr);
+
+	if (ret != 0L) {
+		fmt_debug(0, "wait before flush, id %d taskid %d pkt_ptr %p",
+		identifier, taskid, fmt->gce_task[taskid].pkt_ptr);
+		return -EINVAL;
+	}
 
 	if (fmt_dbg_level == 4)
 		fmt_dump_addr_reg();
 
-	mutex_lock(&fmt->mux_gce_th[identifier]);
+	mutex_lock(fmt->mux_gce_th[identifier]);
 
 	mutex_lock(&fmt->mux_fmt);
 	atomic_dec(&fmt->gce_job_cnt[identifier]);
@@ -744,10 +769,12 @@ static int fmt_gce_wait_callback(unsigned long arg)
 	if (atomic_read(&fmt->gce_job_cnt[identifier]) == 0)
 		fmt_unlock(identifier);
 
-	mutex_unlock(&fmt->mux_gce_th[identifier]);
+	mutex_unlock(fmt->mux_gce_th[identifier]);
 
 	cmdq_pkt_destroy(fmt->gce_task[taskid].pkt_ptr);
 	fmt_clear_gce_task(taskid);
+
+	atomic_dec(&fmt->gce_task_wait_cnt[taskid]);
 
 	return ret;
 }
@@ -1148,6 +1175,13 @@ static int vdec_fmt_probe(struct platform_device *pdev)
 			goto err_device;
 	}
 
+	for (i = 0; i < (int)FMT_CORE_NUM; i++) {
+		fmt->mux_gce_th[i] = devm_kzalloc(dev,
+		sizeof(struct mutex), GFP_KERNEL);
+		if (fmt->mux_gce_th[i] == NULL)
+			goto err_device;
+	}
+
 	for (i = 0; i < GCE_EVENT_MAX; i++)
 		fmt_debug(0, "gce event %d id %d", i, fmt->gce_codec_eid[i]);
 
@@ -1159,7 +1193,7 @@ static int vdec_fmt_probe(struct platform_device *pdev)
 
 	for (i = 0; i < fmt->gce_th_num; i++) {
 		sema_init(&fmt->fmt_sem[i], 1);
-		mutex_init(&fmt->mux_gce_th[i]);
+		mutex_init(fmt->mux_gce_th[i]);
 	}
 	mutex_init(&fmt->mux_fmt);
 	mutex_init(&fmt->mux_task);
