@@ -176,10 +176,21 @@ struct ld_ud_table {
 };
 static struct ld_ud_table *loading_ud_table;
 
+struct gpu_utilization_history {
+	struct GpuUtilization_Ex util_data[MAX_SLIDE_WINDOW_SIZE];
+	struct {
+		unsigned int workload;   // unit: cycle
+		unsigned long long t_gpu;   // unit: us
+	} gpu_frame_property;
+	unsigned int current_idx;
+};
+static struct gpu_utilization_history g_util_hs;
+
 static int gx_dvfs_loading_mode = LOADING_MAX_ITERMCU;
 static int gx_dvfs_workload_mode = WORKLOAD_MAX_ITERMCU;
 struct GpuUtilization_Ex g_Util_Ex;
 static int ged_get_dvfs_loading_mode(void);
+static int ged_get_dvfs_workload_mode(void);
 
 #define GED_DVFS_TIMER_BASED_DVFS_MARGIN 30
 static int gx_tb_dvfs_margin = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
@@ -224,6 +235,172 @@ static void _init_loading_ud_table(void)
 
 	if (num >= 2)
 		loading_ud_table[num-1].down = loading_ud_table[num-2].down;
+}
+
+static void gpu_util_history_init(void)
+{
+	memset(&g_util_hs, 0, sizeof(struct gpu_utilization_history));
+}
+
+static void gpu_util_history_update(struct GpuUtilization_Ex *util_ex)
+{
+	unsigned int current_idx = g_util_hs.current_idx + 1;
+	unsigned long long max_workload =
+		util_ex->freq * util_ex->delta_time / 1000000;   // unit: cycle
+	unsigned long long max_t_gpu = util_ex->delta_time / 1000;   // unit: us
+	unsigned int workload_mode = 0;
+
+	if (current_idx >= MAX_SLIDE_WINDOW_SIZE)
+		current_idx = 0;   // wrap ring buffer index position around
+
+	/* update util history */
+	memcpy((void *)&g_util_hs.util_data[current_idx], (void *)util_ex,
+		sizeof(struct GpuUtilization_Ex));
+
+	/* update frame property */
+	// workload = freq * delta_time * loading
+	// t_gpu = delta_time * loading
+	workload_mode = ged_get_dvfs_workload_mode();
+	if (workload_mode == WORKLOAD_3D) {
+		g_util_hs.gpu_frame_property.workload +=
+			max_workload * util_ex->util_3d / 100;
+		g_util_hs.gpu_frame_property.t_gpu +=
+			max_t_gpu * util_ex->util_3d / 100;
+	} else if (workload_mode == WORKLOAD_ITER) {
+		g_util_hs.gpu_frame_property.workload +=
+			max_workload * util_ex->util_iter / 100;
+		g_util_hs.gpu_frame_property.t_gpu +=
+			max_t_gpu * util_ex->util_iter / 100;
+	} else if (workload_mode == WORKLOAD_MAX_ITERMCU) {
+		unsigned int util_temp = MAX(util_ex->util_iter, util_ex->util_mcu);
+
+		g_util_hs.gpu_frame_property.workload +=
+			max_workload * util_temp / 100;
+		g_util_hs.gpu_frame_property.t_gpu +=
+			max_t_gpu * util_temp / 100;
+	} else {   // WORKLOAD_ACTIVE or unknown mode
+		g_util_hs.gpu_frame_property.workload +=
+			max_workload * util_ex->util_active / 100;
+		g_util_hs.gpu_frame_property.t_gpu +=
+			max_t_gpu * util_ex->util_active / 100;
+	}
+
+	g_util_hs.current_idx = current_idx;
+}
+static unsigned int gpu_util_history_query_loading(unsigned int window_size_us)
+{
+	struct GpuUtilization_Ex *util_ex;
+	unsigned int loading_mode = 0;
+	unsigned long long sum_loading = 0;   // unit: % * us
+	unsigned long long sum_delta_time = 0;   // unit: us
+	unsigned long long remaining_time, delta_time;   // unit: us
+	unsigned int window_avg_loading = 0;
+	unsigned int cidx = g_util_hs.current_idx;
+	unsigned int his_loading = 0;
+	int pre_idx = cidx - MAX_SLIDE_WINDOW_SIZE;
+	int his_idx = 0;
+	int i = 0;
+
+	for (i = cidx; i > pre_idx; i--) {
+		// ring buffer index wrapping
+		if (i >= 0)
+			his_idx = i;
+		else
+			his_idx = i + MAX_SLIDE_WINDOW_SIZE;
+		util_ex = &g_util_hs.util_data[his_idx];
+
+		// calculate loading based on different loading mode
+		loading_mode = ged_get_dvfs_loading_mode();
+		if (loading_mode == LOADING_MAX_3DTA_COM) {
+			his_loading = MAX(util_ex->util_3d, util_ex->util_ta) +
+				util_ex->util_compute;
+		} else if (loading_mode == LOADING_MAX_3DTA) {
+			his_loading = MAX(util_ex->util_3d, util_ex->util_ta);
+		} else if (loading_mode == LOADING_ITER) {
+			his_loading = util_ex->util_iter;
+		} else if (loading_mode == LOADING_MAX_ITERMCU) {
+			his_loading = MAX(util_ex->util_iter,
+				util_ex->util_mcu);
+		} else {   // LOADING_ACTIVE or unknown mode
+			his_loading = util_ex->util_active;
+		}
+
+		// accumulate data
+		remaining_time = window_size_us - sum_delta_time;
+		delta_time = util_ex->delta_time / 1000;
+		if (delta_time > remaining_time)
+			delta_time = remaining_time;   // clip delta_time
+		sum_loading += his_loading * delta_time;
+		sum_delta_time += delta_time;
+
+		// data is sufficient
+		if (sum_delta_time >= window_size_us)
+			break;
+	}
+
+	if (sum_delta_time != 0)
+		window_avg_loading = sum_loading / sum_delta_time;
+
+	if (window_avg_loading > 100)
+		window_avg_loading = 100;
+
+	return window_avg_loading;
+}
+
+static unsigned int gpu_util_history_query_frequency(
+	unsigned int window_size_us)
+{
+	struct GpuUtilization_Ex *util_ex;
+	unsigned long long sum_freq = 0;   // unit: KHz * us
+	unsigned long long sum_delta_time = 0;   // unit: us
+	unsigned long long remaining_time, delta_time;   // unit: us
+	unsigned int window_avg_freq = 0;
+	unsigned int cidx = g_util_hs.current_idx;
+	unsigned int his_freq = 0;
+	int pre_idx = cidx - MAX_SLIDE_WINDOW_SIZE;
+	int his_idx = 0;
+	int i = 0;
+
+	for (i = cidx; i > pre_idx; i--) {
+		// ring buffer index wrapping
+		if (i >= 0)
+			his_idx = i;
+		else
+			his_idx = i + MAX_SLIDE_WINDOW_SIZE;
+		util_ex = &g_util_hs.util_data[his_idx];
+
+		// calculate frequency
+		his_freq = util_ex->freq;
+
+		// accumulate data
+		remaining_time = window_size_us - sum_delta_time;
+		delta_time = util_ex->delta_time / 1000;
+		if (delta_time > remaining_time)
+			delta_time = remaining_time;   // clip delta_time
+		sum_freq += his_freq * delta_time;
+		sum_delta_time += delta_time;
+
+		// data is sufficient
+		if (sum_delta_time >= window_size_us)
+			break;
+	}
+
+	if (sum_delta_time != 0)
+		window_avg_freq = sum_freq / sum_delta_time;
+
+	return window_avg_freq;
+}
+
+static void gpu_util_history_query_frame_property(unsigned int *workload,
+	unsigned long long *t_gpu)
+{
+	// copy latest counter value
+	*workload = g_util_hs.gpu_frame_property.workload;
+	*t_gpu = g_util_hs.gpu_frame_property.t_gpu;
+
+	// reset counter value
+	g_util_hs.gpu_frame_property.workload = 0;
+	g_util_hs.gpu_frame_property.t_gpu = 0;
 }
 
 unsigned long ged_query_info(GED_INFO eType)
@@ -309,6 +486,8 @@ bool ged_dvfs_cal_gpu_utilization_ex(unsigned int *pui32Loading,
 		ged_dvfs_cal_gpu_utilization_ex_fp(pui32Loading, pui32Block,
 			pui32Idle, (void *) Util_Ex);
 		Util_Ex->freq = ged_get_cur_freq();
+
+		gpu_util_history_update(Util_Ex);
 
 		memcpy((void *)&g_Util_Ex, (void *)Util_Ex,
 			sizeof(struct GpuUtilization_Ex));
@@ -2086,6 +2265,8 @@ GED_ERROR ged_dvfs_system_init(void)
 	/* initial as locked, signal when vsync_sw_notify */
 #ifdef ENABLE_COMMON_DVFS
 	gpu_dvfs_enable = 1;
+
+	gpu_util_history_init();
 
 	g_iSkipCount = MTK_DEFER_DVFS_WORK_MS / MTK_DVFS_SWITCH_INTERVAL_MS;
 
