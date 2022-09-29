@@ -181,8 +181,9 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 	int ret = 0;
 	void __user *argp = (void __user *)arg;
 	struct PM_TOOL_S *pm = (struct PM_TOOL_S *) pm_get_handle();
+#ifdef IF_ZERO
 	uint32_t dsi_id = pm->dsi_id;
-
+#endif
 	if (!(crtc->state->active) && cmd != FB_DUMP_FOR_POWER)
 		return -EFAULT;
 
@@ -190,6 +191,7 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 	mtk_drm_idlemgr_kick(__func__, crtc, 1);
 #endif
 	switch (cmd) {
+#ifdef IF_ZERO
 	case GET_DSI_ID:
 	{
 		put_user(dsi_id, (unsigned long *)argp);
@@ -215,6 +217,7 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 			sizeof(lcm_fb)) ? -EFAULT : 0;
 
 	}
+#endif
 	case FB_DUMP_FOR_POWER:
 	{
 		struct PM_MMQOS_REL_INFO qos_info;
@@ -253,6 +256,7 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 		return copy_to_user(argp, &qos_info,
 			sizeof(qos_info)) ? -EFAULT : 0;
 	}
+#ifdef IF_ZERO
 	case LCM_GET_ID:
 	{
 		/* not support anymore */
@@ -451,9 +455,11 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 		/* not support anymore */
 		return 0;
 	}
+#endif
 	default:
-		return ret;
+		DDPMSG("command not support fbconfig!\n");
 	}
+	return ret;
 }
 
 static int fbconfig_release(struct inode *inode, struct file *file)
