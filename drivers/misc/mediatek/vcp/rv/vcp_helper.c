@@ -107,6 +107,7 @@ struct vcp_region_info_st *vcp_region_info;
 struct vcp_region_info_st vcp_region_info_copy;
 
 struct vcp_work_struct vcp_sys_reset_work;
+struct wakeup_source *vcp_reset_lock;
 
 DEFINE_SPINLOCK(vcp_reset_spinlock);
 
@@ -528,6 +529,7 @@ static void vcp_A_notify_ws(struct work_struct *ws)
 	mutex_lock(&vcp_A_notify_mutex);
 #if VCP_RECOVERY_SUPPORT
 	atomic_set(&vcp_reset_status, RESET_STATUS_STOP);
+	__pm_relax(vcp_reset_lock);
 #endif
 	vcp_ready[VCP_A_ID] = 1;
 
@@ -611,6 +613,8 @@ static void vcp_wait_ready_timeout(struct timer_list *t)
 #if VCP_RECOVERY_SUPPORT
 	if (vcp_timeout_times < 10)
 		vcp_send_reset_wq(RESET_TYPE_TIMEOUT);
+	else
+		__pm_relax(vcp_reset_lock);
 #endif
 	vcp_timeout_times++;
 	pr_notice("[VCP] vcp_timeout_times=%x\n", vcp_timeout_times);
@@ -776,10 +780,6 @@ uint32_t vcp_wait_ready_sync(enum feature_id id)
 				if (feature_table[j].enable)
 					pr_info("[VCP] Active feature id %d cnt %d\n",
 						j, feature_table[j].enable);
-			/* mtk_smi_dbg_hang_detect("VCP"); */
-			if (vcp_ee_enable)
-				vcp_aee_print("wait ready timeout id %d\n", id);
-			else
 				pr_info("wait ready timeout id %d\n", id);
 			break;
 		}
@@ -1999,6 +1999,9 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 	 */
 	vcp_ready[VCP_A_ID] = 0;
 
+	/* wake lock AP*/
+	__pm_stay_awake(vcp_reset_lock);
+
 	/*workqueue for vcp ee, vcp reset by cmd will not trigger vcp ee*/
 	if (vcp_reset_by_cmd == 0 && vcp_ee_enable) {
 		vcp_aed(vcp_reset_type, VCP_A_ID);
@@ -2141,6 +2144,7 @@ void vcp_recovery_init(void)
 		(uint64_t)(phys_addr_t)vcp_loader_virt +
 		(phys_addr_t)vcp_region_info_copy.ap_loader_size);
 
+	vcp_reset_lock = wakeup_source_register(NULL, "vcp reset wakelock");
 	/* init reset by cmd flag */
 	vcp_reset_by_cmd = 0;
 
