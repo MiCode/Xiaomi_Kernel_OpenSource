@@ -34,6 +34,7 @@
 #define CMDQ_MAX_TASK_IN_THREAD		(16)
 #define CMDQ_MAX_READ_SLOT_COUNT	(4)
 #define CMDQ_INIT_FREE_TASK_COUNT	(8)
+#define CMDQ_MAX_TASK_CNT_ON_THREAD	(4)
 
 /* Thread that are high-priority (display threads) */
 #define CMDQ_MAX_HIGH_PRIORITY_THREAD_COUNT (8)
