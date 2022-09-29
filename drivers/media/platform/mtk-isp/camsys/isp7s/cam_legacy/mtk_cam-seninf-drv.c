@@ -1721,6 +1721,8 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
 	struct seninf_core *core = ctx->core;
+	int i;
+	bool pad_inited = false;
 
 	if (core->aov_abnormal_init_flag) {
 		ctx->is_aov_real_sensor = 1;
@@ -1730,6 +1732,21 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 	}
 
 	seninf_csi_s_stream(sd, enable);
+
+	/* avoid stream on when pad2cam is not set, it will cont stream on after set camtg */
+	if (enable) {
+		for (i = 0; i < PAD_MAXCNT; i++) {
+			if (ctx->pad2cam[i][0] != 0xff) {
+				pad_inited = true;
+				break;
+			}
+		}
+		if (!pad_inited) {
+			dev_info(ctx->dev,
+				 "[%s] pad_inited(%d)\n", __func__, pad_inited);
+			return 0;
+		}
+	}
 
 	if (ctx->streaming == enable) {
 		dev_info(ctx->dev,
@@ -2130,7 +2147,7 @@ static int mtk_cam_seninf_set_ctrl(struct v4l2_ctrl *ctrl)
 			break;
 		case NORMAL_CAMERA:
 		default:
-			ret = seninf_csi_s_stream(&ctx->subdev, s_stream_ctrl->enable);
+			ret = seninf_s_stream(&ctx->subdev, s_stream_ctrl->enable);
 			break;
 		}
 		break;
