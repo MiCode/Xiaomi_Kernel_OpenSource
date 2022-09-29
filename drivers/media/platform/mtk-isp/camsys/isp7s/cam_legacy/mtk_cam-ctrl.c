@@ -1159,7 +1159,7 @@ static int mtk_camsys_exp_switch_cam_mux(struct mtk_raw_device *raw_dev,
 		case EXPOSURE_CHANGE_1_to_2:
 			first_tag_idx = get_first_sv_tag_idx(ctx, 2, false);
 			last_tag_idx = get_last_sv_tag_idx(ctx, 2, false);
-			first_tag_idx_w = get_first_sv_tag_idx(ctx, 1, true);
+			first_tag_idx_w = get_first_sv_tag_idx(ctx, 2, true);
 			last_tag_idx_w = get_last_sv_tag_idx(ctx, 2, true);
 			settings[0].seninf = ctx->seninf;
 			settings[0].source = PAD_SRC_RAW0;
@@ -4898,6 +4898,9 @@ static void mtk_camsys_camsv_check_pure_raw_done(struct mtk_cam_ctx *ctx,
 
 	spin_lock(&ctx->cam->running_job_lock);
 	list_for_each_entry_safe(req, req_prev, &ctx->cam->running_job_list, list) {
+		if (!(req->pipe_used & (1 << ctx->streaming_pipe)))
+			continue;
+
 		s_data_ctx = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 		if (!s_data_ctx)
 			continue;
