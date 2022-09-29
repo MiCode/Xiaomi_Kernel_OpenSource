@@ -478,7 +478,8 @@ int mtk_cam_mark_vbuf_done(struct mtk_cam_request *req,
 					mtk_cam_req_pipe_s_data_clean(req, p, i);
 			}
 		}
-		mtk_cam_remove_req_from_running(cam, req);
+		if (atomic_read(&req->state) > MTK_CAM_REQ_STATE_PENDING)
+			mtk_cam_remove_req_from_running(cam, req);
 	}
 
 	vb2_buffer_done(&buf->vbb.vb2_buf, buf->final_state);
@@ -627,8 +628,7 @@ mtk_cam_s_data_get_scen(struct mtk_cam_scen *scen,
 		return false;
 
 	if (!is_raw_subdev(s_data->pipe_id) || !s_data->feature.scen) {
-		scen->id = MTK_CAM_SCEN_NORMAL;
-		mtk_cam_scen_update_dbg_str(scen);
+		mtk_cam_scen_init(scen);
 		return false;
 	}
 

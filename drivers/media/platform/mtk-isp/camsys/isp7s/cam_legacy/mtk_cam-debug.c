@@ -920,8 +920,8 @@ static void mtk_cam_exception_work(struct work_struct *work)
 	struct mtk_cam_request *req = mtk_cam_s_data_get_req(s_data);
 	struct mtk_cam_ctx *ctx = mtk_cam_s_data_get_ctx(s_data);
 	struct mtk_cam_dump_param dump_param;
-	char warn_desc[48];
-	char title_desc[48];
+	char warn_desc[64];
+	char title_desc[64];
 	int ret = 0;
 
 	if (s_data == NULL)
@@ -943,7 +943,7 @@ static void mtk_cam_exception_work(struct work_struct *work)
 	}
 
 	ctx->cam->debug_fs->ops->exp_dump(ctx->cam->debug_fs, &dump_param);
-	ret = snprintf(title_desc, 48, "Camsys:%s", dbg_work->desc);
+	ret = snprintf(title_desc, 64, "Camsys:%s", dbg_work->desc);
 	if (ret < 0) {
 		dev_info(ctx->cam->dev, "%s:camsys dump title desc error\n",
 			__func__);
@@ -951,7 +951,7 @@ static void mtk_cam_exception_work(struct work_struct *work)
 		return;
 	}
 
-	ret = snprintf(warn_desc, 48, "%s:ctx(%d):req(%d):%s",
+	ret = snprintf(warn_desc, 64, "%s:ctx(%d):req(%d):%s",
 		 req->req.debug_str, ctx->stream_id, s_data->frame_seq_no,
 		 dbg_work->desc);
 	if (ret < 0) {
