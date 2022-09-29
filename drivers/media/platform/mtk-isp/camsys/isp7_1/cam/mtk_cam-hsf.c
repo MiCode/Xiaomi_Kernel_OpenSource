@@ -162,6 +162,11 @@ static void mtk_cam_power_on_ccu(struct mtk_cam_hsf_ctrl *handle_inst, unsigned 
 		get_ccu_device(handle_inst);
 
 	ccu_rproc = rproc_get_by_phandle(handle_inst->ccu_handle);
+	if (!ccu_rproc) {
+		pr_info("error: get ccu rproc failed!\n");
+		return;
+	}
+
 	if (flag > 0) {
 	/* boot up ccu */
 #if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
@@ -503,7 +508,17 @@ int mtk_cam_hsf_config(struct mtk_cam_ctx *ctx, unsigned int raw_id)
 	dma_map_chk = hsf_config->chk_buf;
 	//TEST: secure iova map to camsys device.
 	dma_map_cq->dbuf = mtk_cam_dmabuf_alloc(ctx, CQ_BUF_SIZE);
+	if (!dma_map_cq->dbuf) {
+		dev_info(cam->dev, "mtk_cam_dmabuf_alloc fail\n");
+		return -1;
+	}
+
 	dev = mtk_cam_find_raw_dev_hsf(cam, ctx->pipe->enabled_raw);
+	if (!dev) {
+		dev_info(cam->dev, "config hsf raw device not found\n");
+		return -1;
+	}
+
 	raw_dev = dev_get_drvdata(dev);
 	dev_info(cam->dev, "mtk_cam_dmabuf_alloc Done\n");
 	if (mtk_cam_dmabuf_get_iova(ctx, &(hsf_config->ccu_pdev->dev), dma_map_cq) != 0) {
@@ -515,6 +530,11 @@ int mtk_cam_hsf_config(struct mtk_cam_ctx *ctx, unsigned int raw_id)
 		dma_map_cq->dma_addr, dma_map_cq->hsf_handle);
 	//TEST: secure map to ccu devcie.
 	dma_map_chk->dbuf = mtk_cam_dmabuf_alloc(ctx, CQ_BUF_SIZE);
+	if (!dma_map_chk->dbuf) {
+		dev_info(cam->dev, "mtk_cam_dmabuf_alloc dma_map_chk fail\n");
+		return -1;
+	}
+
 	dev_info(cam->dev, "mtk_cam_dmabuf_alloc ccu Done\n");
 	if (mtk_cam_dmabuf_get_iova(ctx, &(hsf_config->ccu_pdev->dev), dma_map_chk) != 0) {
 		dev_info(cam->dev, "Get chk iova failed\n");

@@ -523,11 +523,17 @@ int mtk_cam_hsf_config(struct mtk_cam_ctx *ctx, unsigned int raw_id)
 		dma_map_cq->dma_addr, dma_map_cq->hsf_handle);
 	//TEST: secure map to ccu devcie.
 	dma_map_chk->dbuf = mtk_cam_dmabuf_alloc(ctx, CQ_BUF_SIZE);
+	if (!dma_map_chk->dbuf) {
+		dev_info(cam->dev, "mtk_cam_dmabuf_alloc dma_map_chk fail\n");
+		return -1;
+	}
+
 	dev_info(cam->dev, "mtk_cam_dmabuf_alloc ccu Done\n");
 	if (mtk_cam_dmabuf_get_iova(ctx, &(hsf_config->ccu_pdev->dev), dma_map_chk) != 0) {
 		dev_info(cam->dev, "Get chk iova failed\n");
 		return -1;
 	}
+
 	dev_info(cam->dev, "dma_map_chk->dma_addr:0x%lx dma_map_chk->hsf_handle:0x%lx\n",
 		dma_map_chk->dma_addr, dma_map_chk->hsf_handle);
 	share_buf->chunk_hsfhandle = dma_map_chk->hsf_handle;
