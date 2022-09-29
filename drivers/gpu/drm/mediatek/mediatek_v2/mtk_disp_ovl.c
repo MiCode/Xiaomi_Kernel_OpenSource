@@ -865,6 +865,8 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 	DRM_MMP_MARK(IRQ, ovl->regs_pa, val);
 
 	mtk_crtc = ovl->mtk_crtc;
+	if (mtk_crtc)
+		drv_priv = mtk_crtc->base.dev->dev_private;
 
 	if (ovl->id == DDP_COMPONENT_OVL0)
 		DRM_MMP_MARK(ovl0, val, 0);
@@ -904,6 +906,9 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 	if (val & (1 << 2)) {
 		unsigned long long aee_now_ts = sched_clock();
 
+		if (drv_priv && (!atomic_read(&drv_priv->need_recover)))
+			atomic_set(&drv_priv->need_recover, 1);
+
 		if (__ratelimit(&isr_ratelimit)) {
 			unsigned int smi_cnt = 0;
 
@@ -923,13 +928,9 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 	if (val & (1 << 3))
 		DDPIRQ("[IRQ] %s: sw reset done!\n", mtk_dump_comp_str(ovl));
 
-	if (mtk_crtc) {
-		drv_priv = mtk_crtc->base.dev->dev_private;
-		if (!mtk_drm_helper_get_opt(
-			    drv_priv->helper_opt,
-			    MTK_DRM_OPT_COMMIT_NO_WAIT_VBLANK)) {
-			mtk_crtc_vblank_irq(&mtk_crtc->base);
-		}
+	if (drv_priv && (!mtk_drm_helper_get_opt(drv_priv->helper_opt,
+						 MTK_DRM_OPT_COMMIT_NO_WAIT_VBLANK))) {
+		mtk_crtc_vblank_irq(&mtk_crtc->base);
 	}
 
 	ret = IRQ_HANDLED;
@@ -1063,6 +1064,16 @@ static void mtk_ovl_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	comp->qos_bw = 0;
 	comp->qos_bw_other = 0;
 	comp->fbdc_bw = 0;
+	DDPDBG("%s-\n", __func__);
+}
+
+static void mtk_ovl_reset(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
+{
+	DDPDBG("%s+ OVL%d\n", __func__, comp->id);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_RST, 1, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_RST, 0, ~0);
 	DDPDBG("%s-\n", __func__);
 }
 
@@ -4244,6 +4255,7 @@ static const struct mtk_ddp_comp_funcs mtk_disp_ovl_funcs = {
 	.config_begin = mtk_ovl_config_begin,
 	.start = mtk_ovl_start,
 	.stop = mtk_ovl_stop,
+	.reset = mtk_ovl_reset,
 #ifdef IF_ZERO
 	.enable_vblank = mtk_ovl_enable_vblank,
 	.disable_vblank = mtk_ovl_disable_vblank,

@@ -211,8 +211,7 @@ struct mtk_drm_private {
 	bool already_first_config;
 
 	struct mml_drm_ctx *mml_ctx;
-	atomic_t mml_job_done;
-	wait_queue_head_t signal_mml_job_done_wq;
+	atomic_t need_recover;
 };
 
 struct mtk_drm_property {

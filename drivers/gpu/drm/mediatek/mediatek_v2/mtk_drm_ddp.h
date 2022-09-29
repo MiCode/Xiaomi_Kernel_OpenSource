@@ -220,4 +220,7 @@ void mutex_dump_analysis_mt6855(struct mtk_disp_mutex *mutex);
 
 void mtk_ddp_disable_merge_irq(struct drm_device *drm);
 
+void mtk_ddp_clean_ovl_pq_crossbar(struct mtk_drm_crtc *mtk_crtc,
+	struct cmdq_pkt *handle);
+
 #endif /* MTK_DRM_DDP_H */

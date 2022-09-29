@@ -1982,6 +1982,7 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	unsigned int skip_vblank = 0;
 	static unsigned int cnt;
 	static unsigned int underrun_cnt;
+	struct mtk_drm_private *priv = NULL;
 
 	if (IS_ERR_OR_NULL(dsi))
 		return IRQ_NONE;
@@ -1998,6 +1999,9 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	}
 
 	mtk_crtc = dsi->ddp_comp.mtk_crtc;
+	if (mtk_crtc && mtk_crtc->base.dev)
+		priv = mtk_crtc->base.dev->dev_private;
+
 
 	if (status & BUFFER_UNDERRUN_INT_FLAG) {
 		if (__ratelimit(&mmp_rate))
@@ -2019,7 +2023,6 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	if (status) {
 		writel(~status, dsi->regs + DSI_INTSTA);
 		if (status & BUFFER_UNDERRUN_INT_FLAG) {
-			struct mtk_drm_private *priv = NULL;
 			unsigned long long aee_now_ts = sched_clock();
 			int trigger_aee = 0;
 
@@ -2029,9 +2032,6 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				(aee_now_ts - mtk_crtc->last_aee_trigger_ts
 				> TIGGER_INTERVAL_S(10))))
 				trigger_aee = 1;
-
-			if (mtk_crtc && mtk_crtc->base.dev)
-				priv = mtk_crtc->base.dev->dev_private;
 
 			if ((dsi_underrun_trigger == 1 && priv &&
 				mtk_drm_helper_get_opt(priv->helper_opt,
@@ -2053,6 +2053,9 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				mtk_crtc->last_aee_trigger_ts = aee_now_ts;
 			}
 
+			if (priv && (!atomic_read(&priv->need_recover)))
+				atomic_set(&priv->need_recover, 1);
+
 			if (__ratelimit(&print_rate))
 				DDPPR_ERR(pr_fmt("[IRQ] %s: buffer underrun\n"),
 					mtk_dump_comp_str(&dsi->ddp_comp));
@@ -2070,8 +2073,6 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 
 		if ((status & TE_RDY_INT_FLAG) && mtk_crtc &&
 				(atomic_read(&mtk_crtc->d_te.te_switched) != 1)) {
-			struct mtk_drm_private *priv = NULL;
-
 			if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0) {
 				unsigned long long ext_te_time = sched_clock();
 
@@ -2085,8 +2086,6 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				wake_up_interruptible(&(mtk_crtc->signal_irq_for_pre_fence_wq));
 			}
 
-			if (mtk_crtc && mtk_crtc->base.dev)
-				priv = mtk_crtc->base.dev->dev_private;
 			if (priv && mtk_drm_helper_get_opt(priv->helper_opt,
 							   MTK_DRM_OPT_HBM))
 				wakeup_dsi_wq(&dsi->te_rdy);
@@ -2121,10 +2120,6 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 		}
 
 		if (status & FRAME_DONE_INT_FLAG) {
-			struct mtk_drm_private *priv = NULL;
-
-			if (mtk_crtc && mtk_crtc->base.dev)
-				priv = mtk_crtc->base.dev->dev_private;
 			if (priv && mtk_drm_helper_get_opt(priv->helper_opt,
 							   MTK_DRM_OPT_HBM))
 				wakeup_dsi_wq(&dsi->frame_done);

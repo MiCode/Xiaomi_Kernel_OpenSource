@@ -3048,6 +3048,7 @@ static void mtk_crtc_atmoic_ddp_config(struct drm_crtc *crtc,
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	enum addon_scenario scn = NONE;
 
 	if (lyeblob_ids->ddp_blob_id) {
 		blob = drm_property_lookup_blob(dev, lyeblob_ids->ddp_blob_id);
@@ -3056,6 +3057,11 @@ static void mtk_crtc_atmoic_ddp_config(struct drm_crtc *crtc,
 		lye_state = (struct mtk_lye_ddp_state *)blob->data;
 		drm_property_blob_put(blob);
 		old_lye_state = &state->lye_state;
+		scn = lye_state->scn[drm_crtc_index(crtc)];
+
+		/* reset ovl_pq_in_cb and ovl_pq_out_cb for safety */
+		if (scn == MML_RSZ || scn == ONE_SCALING)
+			mtk_ddp_clean_ovl_pq_crossbar(mtk_crtc, cmdq_handle);
 
 		/* skip MML_WITH_PQ connection/disconnection */
 		if ((lye_state->scn[drm_crtc_index(crtc)] == MML_WITH_PQ) &&
@@ -5451,6 +5457,9 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 			CRTC_MMP_MARK(id, dsi_dbg7_after_sof, _dsi_state_dbg7_2, 0);
 		}
 
+
+		if (atomic_read(&priv->need_recover))
+			atomic_set(&priv->need_recover, 0);
 	}
 	CRTC_MMP_MARK(id, frame_cfg, ovl_status, 0);
 
@@ -6842,7 +6851,7 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 		drm_set_dal(&mtk_crtc->base, cmdq_handle);
 
 	if (mtk_crtc->is_mml) {
-		mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, DDP_FIRST_PATH, 0);
+		comp = mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, DDP_FIRST_PATH, 0);
 		cmdq_pkt_write(cmdq_handle, NULL, comp->larb_cons[0], GENMASK(19, 16),
 			       GENMASK(19, 16));
 
@@ -8363,6 +8372,7 @@ void mml_cmdq_pkt_init(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 		for (; i <= mtk_crtc->is_dual_pipe; ++i) {
 			comp = priv->ddp_comp[id[i]];
 			comp->mtk_crtc = mtk_crtc;
+			mtk_ddp_comp_reset(comp, cmdq_handle);
 			mtk_ddp_comp_addon_config(comp, 0, 0, NULL, cmdq_handle);
 			mtk_disp_mutex_add_comp_with_cmdq(mtk_crtc, id[i], false, cmdq_handle, 0);
 		}
@@ -8390,6 +8400,7 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_panel_params *params =
 			mtk_drm_get_lcm_ext_params(crtc);
+	struct mtk_ddp_comp *comp = NULL;
 
 	if (mtk_crtc_is_dc_mode(crtc) || mtk_crtc->is_mml)
 		mtk_crtc_pkt_create(&cmdq_handle, crtc,
@@ -8423,12 +8434,10 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
 		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
 	}
 
-	if (mtk_crtc->sec_on) {
-		u32 idx = drm_crtc_index(crtc);
-		struct mtk_ddp_comp *comp = NULL;
 
+	if (mtk_crtc->sec_on) {
 		comp = mtk_ddp_comp_request_output(mtk_crtc);
-		if (idx == 2)
+		if (crtc_id == 2)
 			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 					IRQ_LEVEL_IDLE, NULL);
 		DDPDBG("%s:%d crtc:0x%p, sec_on:%d +\n",
@@ -9319,6 +9328,17 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 	CRTC_MMP_MARK(index, atomic_begin, (unsigned long)mtk_crtc_state->cmdq_handle, 0);
 
 #ifndef DRM_CMDQ_DISABLE
+	/* reset mml ir ovl, TODO: support random ovl, not the first comp of the path */
+	if (((mtk_crtc->mml_ir_state == MML_IR_ENTERING) && (crtc_idx == 0)) ||
+	      atomic_read(&priv->need_recover)) {
+		comp = mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, DDP_FIRST_PATH, 0);
+		mtk_ddp_comp_reset(comp, mtk_crtc_state->cmdq_handle);
+		if (mtk_crtc->is_dual_pipe) {
+			comp = mtk_crtc_get_dual_comp(crtc, DDP_FIRST_PATH, 0);
+			mtk_ddp_comp_reset(comp, mtk_crtc_state->cmdq_handle);
+		}
+	}
+
 	/* BW monitor: Read and Save BW info */
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_BW_MONITOR) &&
 		(crtc_idx == 0)) {

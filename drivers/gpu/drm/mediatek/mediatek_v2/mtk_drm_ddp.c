@@ -18322,6 +18322,43 @@ void mtk_ddp_disable_merge_irq(struct drm_device *drm)
 		writel_relaxed(0, priv->side_config_regs + DISPSYS_INTMERGE);
 }
 
+void mtk_ddp_clean_ovl_pq_crossbar(struct mtk_drm_crtc *mtk_crtc, struct cmdq_pkt *handle)
+{
+	int i;
+	struct mtk_drm_private *priv = NULL;
+
+	if (!handle || !mtk_crtc) {
+		DDPINFO("skip %s, mtk_crtc or cmdq handle is NULL\n", __func__);
+		return;
+	}
+
+	priv = mtk_crtc->base.dev->dev_private;
+	switch (priv->data->mmsys_id) {
+	case MMSYS_MT6985:
+	{
+		unsigned int addr[] = {MT6985_OVL_PQ_OUT_CROSSBAR0_MOUT_EN,
+				       MT6985_OVL_PQ_OUT_CROSSBAR1_MOUT_EN,
+				       MT6985_OVL_PQ_OUT_CROSSBAR2_MOUT_EN,
+				       MT6985_OVL_PQ_OUT_CROSSBAR3_MOUT_EN,
+				       MT6985_OVL_PQ_IN_CROSSBAR0_MOUT_EN,
+				       MT6985_OVL_PQ_IN_CROSSBAR1_MOUT_EN,
+				       MT6985_OVL_PQ_IN_CROSSBAR2_MOUT_EN};
+
+		for (i = 0; i < 7; ++i) {
+			if (mtk_crtc->ovlsys0_regs_pa)
+				cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+					       mtk_crtc->ovlsys0_regs_pa + addr[i], 0, ~0);
+			if (mtk_crtc->ovlsys1_regs_pa)
+				cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+					       mtk_crtc->ovlsys1_regs_pa + addr[i], 0, ~0);
+		}
+		break;
+	}
+	default:
+		break;
+	}
+}
+
 static int mtk_ddp_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
