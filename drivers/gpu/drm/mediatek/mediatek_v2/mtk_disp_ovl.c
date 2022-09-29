@@ -1339,9 +1339,12 @@ static enum mtk_ovl_colorspace mtk_ovl_map_cs(enum mtk_drm_dataspace ds)
 		break;
 	case MTK_DRM_DATASPACE_STANDARD_ADOBE_RGB:
 		DDPPR_ERR("%s: ovl get cs ADOBE_RGB\n", __func__);
+		fallthrough;
 	case MTK_DRM_DATASPACE_STANDARD_BT2020:
+		fallthrough;
 	case MTK_DRM_DATASPACE_STANDARD_BT2020_CONSTANT_LUMINANCE:
 		DDPPR_ERR("%s: ovl does not support BT2020\n", __func__);
+		fallthrough;
 	default:
 		cs = OVL_SRGB;
 		break;
@@ -1359,11 +1362,15 @@ static enum mtk_ovl_transfer mtk_ovl_map_transfer(enum mtk_drm_dataspace ds)
 		xfr = OVL_LINEAR;
 		break;
 	case MTK_DRM_DATASPACE_TRANSFER_GAMMA2_6:
+		fallthrough;
 	case MTK_DRM_DATASPACE_TRANSFER_GAMMA2_8:
 		DDPINFO("%s: ovl does not support gamma 2.6/2.8, use gamma 2.2\n", __func__);
+		fallthrough;
 	case MTK_DRM_DATASPACE_TRANSFER_ST2084:
+		fallthrough;
 	case MTK_DRM_DATASPACE_TRANSFER_HLG:
 		DDPINFO("%s: HDR transfer\n", __func__);
+		fallthrough;
 	default:
 		xfr = OVL_GAMMA2_2;
 		break;
