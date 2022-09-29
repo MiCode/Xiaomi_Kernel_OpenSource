@@ -411,7 +411,7 @@ static void uaudio_disconnect_cb(struct snd_usb_audio *chip)
 done:
 	mutex_unlock(&uodev->dev_lock);
 
-	USB_OFFLOAD_INFO("done %d\n");
+	USB_OFFLOAD_INFO("done\n");
 }
 
 static void uaudio_dev_release(struct kref *kref)
@@ -698,9 +698,9 @@ skip_sync_ep:
 		kref_init(&uadev[card_num].kref);
 		init_waitqueue_head(&uadev[card_num].disconnect_wq);
 		uadev[card_num].num_intf =
-		subs->dev->config->desc.bNumInterfaces;
+				subs->dev->config->desc.bNumInterfaces;
 		uadev[card_num].info = kcalloc(uadev[card_num].num_intf,
-		sizeof(struct intf_info), GFP_KERNEL);
+				sizeof(struct intf_info), GFP_KERNEL);
 		if (!uadev[card_num].info) {
 			ret = -ENOMEM;
 			goto err;
@@ -950,7 +950,12 @@ done:
 	if (!uainfo->enable && ret != -EINVAL && ret != -ENODEV) {
 		mutex_lock(&uodev->dev_lock);
 		if (info_idx >= 0) {
+			if (!uadev[pcm_card_num].info) {
+				USB_OFFLOAD_ERR("uaudio_dev cleanup already!\n");
+				return ret;
+			}
 			info = &uadev[pcm_card_num].info[info_idx];
+
 			usb_audio_dev_intf_cleanup(
 									uadev[pcm_card_num].udev,
 									info);
@@ -1637,7 +1642,7 @@ static int usb_offload_release(struct inode *ip, struct file *fp)
 	USB_OFFLOAD_INFO("%d\n", __LINE__);
 	uodev->is_streaming = false;
 	uodev->tx_streaming = false;
-	uodev->tx_streaming = false;
+	uodev->rx_streaming = false;
 	uodev->adsp_inited = false;
 	return 0;
 }
@@ -1677,7 +1682,7 @@ static long usb_offload_ioctl(struct file *fp,
 		if (ret || (value == 0)) {
 			uodev->is_streaming = false;
 			uodev->tx_streaming = false;
-			uodev->tx_streaming = false;
+			uodev->rx_streaming = false;
 			uodev->adsp_inited = false;
 		}
 		else
@@ -1686,7 +1691,10 @@ static long usb_offload_ioctl(struct file *fp,
 		break;
 	case USB_OFFLOAD_ENABLE_STREAM:
 	case USB_OFFLOAD_DISABLE_STREAM:
-		USB_OFFLOAD_INFO("USB_OFFLOAD_ENABLE_STREAM / USB_OFFLOAD_DISABLE_STREAM\n");
+		USB_OFFLOAD_INFO("%s\n",
+			(cmd == USB_OFFLOAD_ENABLE_STREAM) ?
+			"USB_OFFLOAD_ENABLE_STREAM":"USB_OFFLOAD_DISABLE_STREAM");
+
 		if (!uodev->adsp_inited) {
 			USB_OFFLOAD_ERR("ADSP NOT INITED YET!!!\n");
 			ret = -EFAULT;
@@ -1730,6 +1738,10 @@ static long usb_offload_ioctl(struct file *fp,
 			}
 		}
 		uodev->is_streaming = uodev->tx_streaming || uodev->rx_streaming;
+
+		USB_OFFLOAD_INFO("is_stream:%d, tx_stream:%d, rx_stream:%d, inited:%d\n",
+				uodev->is_streaming, uodev->tx_streaming,
+				uodev->rx_streaming, uodev->adsp_inited);
 
 		if (uodev->is_streaming) {
 			mtk_clk_notify(NULL, NULL, NULL, 1, 1, 0, CLK_EVT_BYPASS_PLL);
@@ -1811,7 +1823,7 @@ static int usb_offload_probe(struct platform_device *pdev)
 	}
 	uodev->is_streaming = false;
 	uodev->tx_streaming = false;
-	uodev->tx_streaming = false;
+	uodev->rx_streaming = false;
 	uodev->adsp_inited = false;
 
 	USB_OFFLOAD_INFO("default_use_sram:%d, current_mem_mode:%d, mem_id:%d\n",
