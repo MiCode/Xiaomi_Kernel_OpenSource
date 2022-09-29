@@ -1975,11 +1975,13 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	struct mtk_panel_ext *panel_ext = NULL;
 	u32 status;
 	unsigned int ret = 0;
-	static DEFINE_RATELIMIT_STATE(ioctl_ratelimit, 1 * HZ, 5);
+	static DEFINE_RATELIMIT_STATE(print_rate, HZ, 5); /* HZ = 250 */
+	static DEFINE_RATELIMIT_STATE(mmp_rate, 2, 2); /* 8 ms */
 	bool doze_enabled = 0;
 	unsigned int doze_wait = 0;
 	unsigned int skip_vblank = 0;
 	static unsigned int cnt;
+	static unsigned int underrun_cnt;
 
 	if (IS_ERR_OR_NULL(dsi))
 		return IRQ_NONE;
@@ -1994,14 +1996,18 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 		ret = IRQ_NONE;
 		goto out;
 	}
-	DRM_MMP_MARK(IRQ, dsi->ddp_comp.regs_pa, status);
 
 	mtk_crtc = dsi->ddp_comp.mtk_crtc;
 
-	if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0)
-		DRM_MMP_MARK(dsi0, status, 0);
-	else if (dsi->ddp_comp.id == DDP_COMPONENT_DSI1)
-		DRM_MMP_MARK(dsi1, status, 0);
+	if (status & BUFFER_UNDERRUN_INT_FLAG) {
+		if (__ratelimit(&mmp_rate))
+			DRM_MMP_MARK(dsi, underrun_cnt, status);
+	} else {
+		if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0)
+			DRM_MMP_MARK(dsi0, status, 0);
+		else if (dsi->ddp_comp.id == DDP_COMPONENT_DSI1)
+			DRM_MMP_MARK(dsi1, status, 0);
+	}
 
 	DDPIRQ("%s irq, val:0x%x\n", mtk_dump_comp_str(&dsi->ddp_comp), status);
 	/*
@@ -2016,6 +2022,8 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			struct mtk_drm_private *priv = NULL;
 			unsigned long long aee_now_ts = sched_clock();
 			int trigger_aee = 0;
+
+			++underrun_cnt;
 
 			if (mtk_crtc && (mtk_crtc->last_aee_trigger_ts == 0 ||
 				(aee_now_ts - mtk_crtc->last_aee_trigger_ts
@@ -2045,7 +2053,7 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				mtk_crtc->last_aee_trigger_ts = aee_now_ts;
 			}
 
-			if (__ratelimit(&ioctl_ratelimit))
+			if (__ratelimit(&print_rate))
 				DDPPR_ERR(pr_fmt("[IRQ] %s: buffer underrun\n"),
 					mtk_dump_comp_str(&dsi->ddp_comp));
 		}
