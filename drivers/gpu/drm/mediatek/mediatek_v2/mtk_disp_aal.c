@@ -570,14 +570,15 @@ int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
 
 	AALFLOW_LOG("%d\n", *enabled);
 
-	spin_lock_irqsave(&g_aal_irq_en_lock, flags);
-	if ((atomic_read(&g_aal_interrupt_enabled) == 1 && *enabled)
-		|| (atomic_read(&g_aal_interrupt_enabled) == 0 && !*enabled)) {
+	if (!mtk_drm_is_idle(&(comp->mtk_crtc->base))) {
+		spin_lock_irqsave(&g_aal_irq_en_lock, flags);
+		if ((atomic_read(&g_aal_interrupt_enabled) == 1 && *enabled)
+			|| (atomic_read(&g_aal_interrupt_enabled) == 0 && !*enabled)) {
+			spin_unlock_irqrestore(&g_aal_irq_en_lock, flags);
+			return ret;
+		}
 		spin_unlock_irqrestore(&g_aal_irq_en_lock, flags);
-		return ret;
 	}
-	spin_unlock_irqrestore(&g_aal_irq_en_lock, flags);
-
 	if (*enabled) {
 		mtk_drm_idlemgr_kick(__func__,
 				&default_comp->mtk_crtc->base, 1);
