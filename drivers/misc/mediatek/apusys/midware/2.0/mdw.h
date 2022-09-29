@@ -351,9 +351,11 @@ struct mdw_dev_func {
 	} while (0)
 #define mdw_exception(reason, args...) _mdw_exception("APUSYS_MIDDLEWARE", reason, ##args)
 #define dma_exception(reason, args...) _mdw_exception("APUSYS_EDMA", reason, ##args)
+#define aps_exception(reason, args...) _mdw_exception("APUSYS_APS", reason, ##args)
 #else
 #define mdw_exception(reason, args...)
 #define dma_exception(reason, args...)
+#define aps_exception(reason, args...)
 #endif
 
 void mdw_rv_set_func(struct mdw_device *mdev);

@@ -632,7 +632,7 @@ static int mdw_cmd_run(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 
 static void mdw_cmd_check_rets(struct mdw_cmd *c, int ret)
 {
-	uint32_t idx = 0, is_dma = 0;
+	uint32_t idx = 0, is_dma = 0, is_aps = 0;
 	DECLARE_BITMAP(tmp, 64);
 
 	memcpy(&tmp, &c->einfos->c.sc_rets, sizeof(c->einfos->c.sc_rets));
@@ -646,8 +646,16 @@ static void mdw_cmd_check_rets(struct mdw_cmd *c, int ret)
 		mdw_drv_warn("sc(0x%llx-#%u) type(%u) softlimit(%u) boost(%u) fail\n",
 			c->kid, idx, c->subcmds[idx].type,
 			c->softlimit, c->subcmds[idx].boost);
-		if (c->subcmds[idx].type == APUSYS_DEVICE_EDMA)
+		switch (c->subcmds[idx].type) {
+		case APUSYS_DEVICE_EDMA:
 			is_dma++;
+			break;
+		case APUSYS_DEVICE_APS:
+			is_aps++;
+			break;
+		default:
+			break;
+		}
 
 		idx++;
 	} while (idx < c->num_subcmds);
@@ -655,6 +663,11 @@ static void mdw_cmd_check_rets(struct mdw_cmd *c, int ret)
 	/* trigger exception if dma */
 	if (is_dma) {
 		dma_exception("dma exec fail:%s:ret(%d/0x%llx)pid(%d/%d)c(0x%llx)\n",
+			c->comm, ret, c->einfos->c.sc_rets,
+			c->pid, c->tgid, c->kid);
+	}
+	if (is_aps) {
+		aps_exception("aps exec fail:%s:ret(%d/0x%llx)pid(%d/%d)c(0x%llx)\n",
 			c->comm, ret, c->einfos->c.sc_rets,
 			c->pid, c->tgid, c->kid);
 	}
