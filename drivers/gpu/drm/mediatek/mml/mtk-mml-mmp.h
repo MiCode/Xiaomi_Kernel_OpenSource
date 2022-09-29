@@ -43,8 +43,7 @@ struct mml_mmp_events_t {
 	mmp_event wait_ready;
 	mmp_event flush;
 	mmp_event submit_cb;
-	mmp_event racing_enter;
-	mmp_event racing_stop;
+	mmp_event stop_racing;
 	mmp_event irq_loop;
 	mmp_event irq_err;
 	mmp_event irq_done;

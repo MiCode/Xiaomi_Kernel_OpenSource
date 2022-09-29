@@ -121,15 +121,6 @@ u16 mml_ir_get_disp_ready_event(struct mml_dev *mml);
 u16 mml_ir_get_mml_stop_event(struct mml_dev *mml);
 
 /*
- * mml_ir_get_target_event - get target line event
- *
- * @mml:	The mml driver instance
- *
- * Return:	The event id of target line
- */
-u16 mml_ir_get_target_event(struct mml_dev *mml);
-
-/*
  * mml_dump_thread - dump cmdq threads hold by mml
  *
  * @mml:	The mml driver instance

@@ -1427,7 +1427,7 @@ static void mml_core_stop_racing_pipe(struct mml_frame_config *cfg, u32 pipe, bo
 	if (force) {
 		/* call cmdq to stop hardware thread directly */
 		cmdq_mbox_channel_stop(cfg->path[pipe]->clt->chan);
-		mml_mmp(racing_stop, MMPROFILE_FLAG_PULSE, cfg->last_jobid, pipe);
+		mml_mmp(stop_racing, MMPROFILE_FLAG_PULSE, cfg->last_jobid, pipe);
 
 		for (i = 0; i < path->node_cnt; i++) {
 			comp = path->nodes[i].comp;
@@ -1438,7 +1438,7 @@ static void mml_core_stop_racing_pipe(struct mml_frame_config *cfg, u32 pipe, bo
 			return;
 		cmdq_thread_set_spr(cfg->path[pipe]->clt->chan, MML_CMDQ_NEXT_SPR,
 			MML_NEXTSPR_NEXT);
-		mml_mmp(racing_stop, MMPROFILE_FLAG_PULSE, cfg->last_jobid,
+		mml_mmp(stop_racing, MMPROFILE_FLAG_PULSE, cfg->last_jobid,
 			pipe | BIT(4));
 	}
 }
