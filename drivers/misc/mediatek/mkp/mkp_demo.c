@@ -214,6 +214,11 @@ static int __init protect_kernel(void)
 			}
 		}
 #endif
+		if (addr_start == 0) {
+			MKP_ERR("Cannot find the kernel text\n");
+			goto protect_krn_fail;
+		}
+
 		nr_pages = (addr_end-addr_start)>>PAGE_SHIFT;
 		phys_addr = __pa_symbol((void *)addr_start);
 		policy = MKP_POLICY_KERNEL_CODE;
@@ -235,11 +240,17 @@ static int __init protect_kernel(void)
 		addr_start = round_up(addr_start, PAGE_SIZE);
 		addr_end = round_down(addr_end, PAGE_SIZE);
 
+
 #ifdef SUPPORT_FULL_KERNEL_CODE_2M
 		/* Try to round_down/up the boundary in 2M */
 		if (kernel_code_perf && (addr_end_2m != 0) && (addr_end_2m <= addr_end))
 			addr_start = addr_end_2m;
 #endif
+		if (addr_start == 0) {
+			MKP_ERR("Cannot find the kernel rodata\n");
+			goto protect_krn_fail;
+		}
+
 		nr_pages = (addr_end-addr_start)>>PAGE_SHIFT;
 		phys_addr = __pa_symbol((void *)addr_start);
 		policy = MKP_POLICY_KERNEL_RODATA;
@@ -250,9 +261,11 @@ static int __init protect_kernel(void)
 			ret = mkp_set_mapping_ro(policy, handle);
 	}
 
+protect_krn_fail:
 	p_stext = NULL;
 	p_etext = NULL;
 	p__init_begin = NULL;
+
 	return 0;
 }
 #endif
