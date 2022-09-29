@@ -542,8 +542,6 @@ static int usb_offload_prepare_msg(struct snd_usb_substream *subs,
 	}
 	msg->uainfo = *uainfo;
 
-	dump_uainfo(&msg->uainfo);
-
 	assoc = iface->intf_assoc;
 	pcm_dev_num = uainfo->pcm_dev_num;
 	card_num = uainfo->pcm_card_num;
@@ -947,7 +945,6 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 	ret = send_uas_ipi_msg_to_adsp(&msg);
 	USB_OFFLOAD_INFO("send_ipi_msg_to_adsp msg, ret: %d\n", ret);
 	/* wait response */
-	dump_uainfo(&msg.uainfo);
 
 done:
 	if (!uainfo->enable && ret != -EINVAL && ret != -ENODEV) {
@@ -1638,6 +1635,10 @@ GET_OF_NODE_FAIL:
 static int usb_offload_release(struct inode *ip, struct file *fp)
 {
 	USB_OFFLOAD_INFO("%d\n", __LINE__);
+	uodev->is_streaming = false;
+	uodev->tx_streaming = false;
+	uodev->tx_streaming = false;
+	uodev->adsp_inited = false;
 	return 0;
 }
 
@@ -1673,8 +1674,12 @@ static long usb_offload_ioctl(struct file *fp,
 			xhci_mem->xhci_data_size = 0;
 		}
 		ret = send_init_ipi_msg_to_adsp(xhci_mem);
-		if (ret)
+		if (ret || (value == 0)) {
+			uodev->is_streaming = false;
+			uodev->tx_streaming = false;
+			uodev->tx_streaming = false;
 			uodev->adsp_inited = false;
+		}
 		else
 			uodev->adsp_inited = true;
 		kfree(xhci_mem);
