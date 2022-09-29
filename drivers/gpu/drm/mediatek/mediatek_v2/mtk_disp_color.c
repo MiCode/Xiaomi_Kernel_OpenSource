@@ -2504,6 +2504,25 @@ static bool color_get_DISP_TDSHP1_REG(struct resource *res)
 	return true;
 }
 
+static bool color_get_DISP_TDSHP2_REG(struct resource *res)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,disp_tdshp2");
+	rc = of_address_to_resource(node, 0, res);
+
+	// check if fail to get reg.
+	if (rc)	{
+		DDPINFO("Fail to get disp_tdshp1 REG\n");
+		return false;
+	}
+
+	DDPDBG("disp_tdshp2 REG: 0x%llx ~ 0x%llx\n", res->start, res->end);
+
+	return true;
+}
+
 static bool color_get_DISP_C3D1_REG(struct resource *res)
 {
 	int rc = 0;
@@ -3406,7 +3425,9 @@ static int mtk_color_user_cmd(struct mtk_ddp_comp *comp,
 					if (color_get_DISP_DITHER1_REG(&res))
 						pa1 =  res.start + offset;
 				} else if (tablet_index == TUNING_DISP_TDSHP) {
-					if (color_get_DISP_TDSHP1_REG(&res))
+					if (color_get_DISP_TDSHP2_REG(&res))
+						pa1 =  res.start + offset;
+					else if (color_get_DISP_TDSHP1_REG(&res))
 						pa1 =  res.start + offset;
 
 				} else if (tablet_index == TUNING_DISP_C3D) {
