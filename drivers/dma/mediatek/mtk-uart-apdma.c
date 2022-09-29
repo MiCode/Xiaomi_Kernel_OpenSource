@@ -85,6 +85,8 @@
 #define MAX_POLLING_CNT		5000
 #define UART_RECORD_MAXLEN	4096
 #define CONFIG_UART_DMA_DATA_RECORD
+#define DBG_STAT_WD_ACT		BIT(5)
+#define MAX_POLL_CNT_RX		200
 
 struct uart_info {
 	unsigned int wpt_reg;
@@ -93,6 +95,9 @@ struct uart_info {
 	unsigned long long trans_time;
 	unsigned long long trans_duration_time;
 	unsigned char rec_buf[UART_RECORD_MAXLEN];
+	unsigned int copy_wpt_reg;
+	unsigned int vff_dbg_reg;
+	int poll_cnt_rx;
 };
 
 struct mtk_uart_apdmacomp {
@@ -266,13 +271,15 @@ void mtk_uart_apdma_data_dump(struct dma_chan *chan)
 
 		ns = do_div(endtime, 1000000000);
 		dev_info(c->vc.chan.device->dev,
-			"[%s] [%s] [begin %5lu.%06lu] [elapsed time %5lu.%06lu] total=%llu,idx=%d,wpt=0x%x,rpt=0x%x,len=%d\n",
+			"[%s] [%s] [begin %5lu.%06lu] [elapsed time %5lu.%06lu] total=%llu,idx=%d,\n"
+			"wpt=0x%x,rpt=0x%x,len=%d,poll_cnt_rx=%d,vff_dbg=0x%x,copy_wpt=0x%x\n",
 			__func__, c->dir == DMA_DEV_TO_MEM ? "dma_rx" : "dma_tx",
 			(unsigned long)endtime, ns / 1000,
 			(unsigned long)durationtime, elapseNs/1000,
 			c->rec_total, idx,
 			c->rec_info[idx].wpt_reg, c->rec_info[idx].rpt_reg,
-			c->rec_info[idx].trans_len);
+			c->rec_info[idx].trans_len, c->rec_info[idx].poll_cnt_rx,
+			c->rec_info[idx].vff_dbg_reg, c->rec_info[idx].copy_wpt_reg);
 #ifdef CONFIG_UART_DMA_DATA_RECORD
 		if (len > UART_RECORD_MAXLEN) {
 			pr_info("[%s] msg len is exceed buf size:%d\n",
@@ -331,9 +338,11 @@ EXPORT_SYMBOL(mtk_uart_set_res_status);
 void mtk_uart_get_apdma_rpt(struct dma_chan *chan, unsigned int *rpt)
 {
 	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
+	unsigned int idx = 0;
 
 	*rpt = c->cur_rpt & VFF_RING_SIZE;
-
+	idx = (unsigned int)((c->rec_idx - 1) % UART_RECORD_COUNT);
+	c->rec_info[idx].copy_wpt_reg = mtk_uart_apdma_read(c, VFF_WPT);
 }
 EXPORT_SYMBOL(mtk_uart_get_apdma_rpt);
 
@@ -501,10 +510,17 @@ static void mtk_uart_apdma_tx_handler(struct mtk_chan *c)
 static void mtk_uart_apdma_rx_handler(struct mtk_chan *c)
 {
 	struct mtk_uart_apdma_desc *d = c->desc;
-	unsigned int len, wg, rg;
+	unsigned int len, wg, rg, left_data;
 	int cnt;
 	unsigned int idx = 0;
+	int poll_cnt = MAX_POLL_CNT_RX;
 
+	left_data = mtk_uart_apdma_read(c, VFF_DEBUG_STATUS);
+	while (((left_data & DBG_STAT_WD_ACT) == DBG_STAT_WD_ACT) && (poll_cnt > 0)) {
+		udelay(1);
+		left_data = mtk_uart_apdma_read(c, VFF_DEBUG_STATUS);
+		poll_cnt--;
+	}
 	mtk_uart_apdma_write(c, VFF_INT_FLAG, VFF_RX_INT_CLR_B);
 	//Read VFF_VALID_FLAG value
 	mb();
@@ -542,6 +558,8 @@ static void mtk_uart_apdma_rx_handler(struct mtk_chan *c)
 	c->rec_idx = (unsigned int)(c->rec_idx % UART_RECORD_COUNT);
 	c->rec_total++;
 
+	c->rec_info[idx].poll_cnt_rx = poll_cnt;
+	c->rec_info[idx].vff_dbg_reg = left_data;
 	c->rec_info[idx].wpt_reg = wg;
 	c->rec_info[idx].rpt_reg = rg;
 	c->rec_info[idx].trans_len = cnt;
