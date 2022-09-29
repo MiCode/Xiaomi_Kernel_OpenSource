@@ -6593,11 +6593,10 @@ unsigned int mtk_dsi_get_ps_wc(struct mtk_drm_crtc *mtk_crtc,
 }
 
 unsigned int mtk_dsi_get_line_time(struct mtk_drm_crtc *mtk_crtc,
-	struct mtk_dsi *dsi)
+	struct mtk_dsi *dsi, unsigned int ps_wc)
 {
 	unsigned int line_time;
 	unsigned int data_rate;
-	unsigned int ps_wc;
 	unsigned int null_packet_len = dsi->ext->params->cmd_null_pkt_len;
 	u32 lpx = 0, hs_prpr = 0, hs_zero = 0, hs_trail = 0, da_hs_exit = 0;
 	u32 ui = 0, cycle_time = 0;
@@ -6606,8 +6605,6 @@ unsigned int mtk_dsi_get_line_time(struct mtk_drm_crtc *mtk_crtc,
 	//for FPS change,update dsi->ext
 	dsi->ext = find_panel_ext(dsi->panel);
 	data_rate = mtk_dsi_default_rate(dsi);
-
-	ps_wc = mtk_dsi_get_ps_wc(mtk_crtc, dsi);
 
 	if (dsi->ext->params->is_cphy) {
 		/* CPHY */
@@ -7057,6 +7054,7 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 	unsigned int data_rate = mtk_dsi_default_rate(dsi);
 	u32 bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
 	struct mtk_panel_ext *ext = dsi->ext;
+	u32 ps_wc = 0;
 
 	dsi->ext = find_panel_ext(dsi->panel);
 	if (dsi->ext->params->dsc_params.enable)
@@ -7067,30 +7065,41 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 		bw_base = (unsigned long long) vact * hact * vrefresh * 4 / 1000;
 		bw_base =  bw_base * vtotal / vact;
 		bw_base =  bw_base / 1000;
+
+		DDPDBG("%s vdo mode bw_base:%llu, vrefresh:%d\n",
+				__func__, bw_base, vrefresh);
 	} else {
 		//cmd mode
 		bw_base = (unsigned long long) data_rate * dsi->lanes * compress_rate * 4;
 		bw_base = bw_base / bpp / 100;
 
 		if (dsi->driver_data->dsi_buffer) {
-			u32 line_time = 0, image_time = 1, ps_wc;
+			u32 line_time = 0, image_time = 1;
 
-			ps_wc =  mtk_dsi_get_ps_wc(mtk_crtc, dsi);
+			if (dsi->is_slave || dsi->slave_dsi)
+				hact /= 2;
+
+			if (dsi->ext->params->dsc_params.enable == 0)
+				ps_wc = hact * bpp / 8;
+			else
+				ps_wc = dsi->ext->params->dsc_params.chunk_size *
+					(dsi->ext->params->dsc_params.slice_mode + 1);
 
 			if (ext->params->is_cphy)
 				image_time = DIV_ROUND_UP(DIV_ROUND_UP(ps_wc, 2), dsi->lanes);
 			else
 				image_time = DIV_ROUND_UP(ps_wc, dsi->lanes);
 
-			line_time = mtk_dsi_get_line_time(mtk_crtc, dsi);
+			line_time = mtk_dsi_get_line_time(mtk_crtc, dsi, ps_wc);
 
 			bw_base = bw_base * image_time / line_time;
 			DDPINFO("%s, image_time=%d, line_time=%d\n",
 				__func__, image_time, line_time);
 		}
+		DDPDBG("%s cmd mode bw_base:%llu, ps_wc:%d, bpp=%d\n",
+				__func__, bw_base, ps_wc, bpp);
 	}
 
-	DDPDBG("%s Frame Bw:%llu, bpp:%d\n", __func__, bw_base, bpp);
 	return bw_base;
 }
 
@@ -7106,6 +7115,7 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 	unsigned int data_rate = mtk_dsi_default_rate(dsi);
 	u32 bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
 	struct mtk_panel_ext *panel_ext = mtk_crtc->panel_ext;
+	u32 ps_wc = 0;
 
 	if (dsi->ext->params->dsc_params.enable)
 		bpp = dsi->ext->params->dsc_params.bit_per_channel * 3;
@@ -7141,30 +7151,42 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 		* mode->hdisplay * vrefresh * 4 / 1000;
 		bw_base = bw_base * mode->vtotal / mode->vdisplay;
 		bw_base = bw_base / 1000;
+
+		DDPDBG("%s vdo mode bw_base:%llu, vrefresh:%d\n",
+				__func__, bw_base, vrefresh);
 	} else {
 		//cmd mode
 		bw_base = (unsigned long long) data_rate * dsi->lanes * compress_rate * 4;
 		bw_base = bw_base / bpp / 100;
 
 		if (dsi->driver_data->dsi_buffer) {
-			u32 line_time = 0, image_time = 1, ps_wc;
+			u32 line_time = 0, image_time = 1, hact;
 
-			ps_wc =  mtk_dsi_get_ps_wc(mtk_crtc, dsi);
+			hact = mode->hdisplay;
+			if (dsi->is_slave || dsi->slave_dsi)
+				hact /= 2;
+
+			if (dsi->ext->params->dsc_params.enable == 0)
+				ps_wc = hact * bpp / 8;
+			else
+				ps_wc = dsi->ext->params->dsc_params.chunk_size *
+					(dsi->ext->params->dsc_params.slice_mode + 1);
 
 			if (dsi->ext->params->is_cphy)
 				image_time = DIV_ROUND_UP(DIV_ROUND_UP(ps_wc, 2), dsi->lanes);
 			else
 				image_time = DIV_ROUND_UP(ps_wc, dsi->lanes);
 
-			line_time = mtk_dsi_get_line_time(mtk_crtc, dsi);
+			line_time = mtk_dsi_get_line_time(mtk_crtc, dsi, ps_wc);
 
 			bw_base = bw_base * image_time / line_time;
 			DDPINFO("%s, image_time=%d, line_time=%d\n",
 				__func__, image_time, line_time);
 		}
+		DDPDBG("%s cmd mode bw_base:%llu, ps_wc:%d, bpp=%d\n",
+				__func__, bw_base, ps_wc, bpp);
 	}
 
-	DDPDBG("%s Frame Bw:%llu, bpp:%d, mode_idx:%d\n", __func__, bw_base, bpp, mode_idx);
 	return bw_base;
 }
 
@@ -9902,6 +9924,7 @@ done:
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 	return ret;
 }
+
 void debug_dsi(struct drm_crtc *crtc, unsigned int offset, unsigned int mask)
 {
 	struct mtk_dsi *dsi = NULL;
