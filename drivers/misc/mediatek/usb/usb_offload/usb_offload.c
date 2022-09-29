@@ -33,6 +33,8 @@
 
 #include <trace/hooks/audio_usboffload.h>
 
+#include "clk-mtk.h"
+
 #if IS_ENABLED(CONFIG_SND_USB_AUDIO)
 #include "usbaudio.h"
 #include "card.h"
@@ -1721,10 +1723,16 @@ static long usb_offload_ioctl(struct file *fp,
 				uodev->rx_streaming = false;
 				break;
 			}
-
 		}
 		uodev->is_streaming = uodev->tx_streaming || uodev->rx_streaming;
 
+		if (uodev->is_streaming) {
+			mtk_clk_notify(NULL, NULL, NULL, 1, 1, 0, CLK_EVT_BYPASS_PLL);
+			USB_OFFLOAD_INFO("CLK_EVT_BYPASS_PLL 1 suspend\n");
+		} else {
+			mtk_clk_notify(NULL, NULL, NULL, 0, 1, 0, CLK_EVT_BYPASS_PLL);
+			USB_OFFLOAD_INFO("CLK_EVT_BYPASS_PLL 0 suspend\n");
+		}
 		break;
 	}
 fail:

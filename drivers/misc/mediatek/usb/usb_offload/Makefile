@@ -9,6 +9,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/include
 endif
 
+ccflags-y += -I$(srctree)/drivers/clk/mediatek/
+
 ifneq ($(CONFIG_DEVICE_MODULES_USB_XHCI_MTK), )
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/usb/usb_xhci
 else
