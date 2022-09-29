@@ -1638,18 +1638,15 @@ static int __maybe_unused mtk_pcie_suspend_noirq(struct device *dev)
 	u32 val;
 
 	if (port->suspend_mode == LINK_STATE_L12) {
-		val = readl_relaxed(port->base + PCIE_LTSSM_STATUS_REG);
-		dev_info(port->dev, "pcie LTSSM=%#x\n", val);
-		val = readl_relaxed(port->base + PCIE_ISTATUS_PM);
-		dev_info(port->dev, "pcie L1SS_pm=%#x\n", val);
+		dev_info(port->dev, "pcie LTSSM=%#x, pcie L1SS_pm=%#x\n",
+			 readl_relaxed(port->base + PCIE_LTSSM_STATUS_REG),
+			 readl_relaxed(port->base + PCIE_ISTATUS_PM));
 
 		if (port->port_num == 0) {
 			err = mtk_pcie_hw_control_vote(0, true, 0);
 			if (err)
 				return err;
 
-			dev_info(port->dev, "Modem HW MODE BIT=%#x\n",
-				 readl_relaxed(port->pextpcfg + PEXTP_RSV_0));
 		} else if (port->port_num == 1) {
 			val = readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_1);
 			val |= PCIE_HW_MTCMOS_EN_P1;
@@ -1659,7 +1656,8 @@ static int __maybe_unused mtk_pcie_suspend_noirq(struct device *dev)
 		/* BBCK2 is controlled by itself hardware mode */
 		clk_buf_voter_ctrl_by_id(7, HW);
 		/* srclken rc request state */
-		dev_info(port->dev, "srclken rc state=%#x\n",
+		dev_info(port->dev, "PCIe0 Modem HW MODE BIT=%#x, srclken rc state=%#x\n",
+			 readl_relaxed(port->pextpcfg + PEXTP_RSV_0),
 			 readl_relaxed(port->vlpcfg_base + SRCLKEN_RC_REQ_STA));
 	} else {
 		/* Trigger link to L2 state */
