@@ -1185,6 +1185,11 @@ static void devapc_ut(uint32_t cmd)
 	pr_info(PFX "%s, cmd:0x%x\n", __func__, cmd);
 
 	irq_type = cmd - 1;
+	if (irq_type >= IRQ_TYPE_NUM_MAX) {
+		pr_info(PFX "%s, invalid parameter\n", __func__);
+		return;
+	}
+
 	dapc_ao_base = mtk_devapc_ctx->devapc_ao_base[irq_type];
 
 	pr_info(PFX "%s, irq_type:0x%x\n", __func__, irq_type);
