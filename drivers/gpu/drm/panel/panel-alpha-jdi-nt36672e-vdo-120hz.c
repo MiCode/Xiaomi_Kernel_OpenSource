@@ -909,15 +909,15 @@ static const struct drm_display_mode performance_mode_120hz = {
 };
 
 static const struct drm_display_mode performance_mode_30hz = {
-	.clock = 92626,
+	.clock = 185253,
 	.hdisplay = 1080,
 	.hsync_start = 1080 + 76,//HFP
 	.hsync_end = 1080 + 76 + 12,//HSA
 	.htotal = 1080 + 76 + 12 + 80,//HBP
 	.vdisplay = 2400,
-	.vsync_start = 2400 + 60,//VFP
-	.vsync_end = 2400 + 60 + 10,//VSA
-	.vtotal = 2400 + 60 + 10 + 10,//VBP
+	.vsync_start = 2400 + 2528,//VFP
+	.vsync_end = 2400 + 2528 + 10,//VSA
+	.vtotal = 2400 + 2528 + 10 + 10,//VBP
 };
 
 static const struct drm_display_mode performance_mode_24hz = {
@@ -933,15 +933,15 @@ static const struct drm_display_mode performance_mode_24hz = {
 };
 
 static const struct drm_display_mode performance_mode_10hz = {
-	.clock = 30875,
+	.clock = 61751,
 	.hdisplay = 1080,
 	.hsync_start = 1080 + 76,//HFP
 	.hsync_end = 1080 + 76 + 12,//HSA
 	.htotal = 1080 + 76 + 12 + 80,//HBP
 	.vdisplay = 2400,
-	.vsync_start = 2400 + 60,//VFP
-	.vsync_end = 2400 + 60 + 10,//VSA
-	.vtotal = 2400 + 60 + 10 + 10,//VBP
+	.vsync_start = 2400 + 2528,//VFP
+	.vsync_end = 2400 + 2528 + 10,//VSA
+	.vtotal = 2400 + 2528 + 10 + 10,//VBP
 };
 
 #if defined(CONFIG_MTK_PANEL_EXT)
@@ -1236,22 +1236,23 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 
 	dst_fps = m ? drm_mode_vrefresh(m) : -EINVAL;
 
-	if (dst_fps == 60)
+	if (dst_fps == 60) {
+		ext_params.skip_vblank = 0;
 		ext->params = &ext_params;
-	else if (dst_fps == 90)
+	} else if (dst_fps == 90)
 		ext->params = &ext_params_90hz;
 	else if (dst_fps == 120) {
 		ext_params_120hz.skip_vblank = 0;
 		ext->params = &ext_params_120hz;
 	} else if (dst_fps == 30) {
-		ext_params_120hz.skip_vblank = 4;
-		ext->params = &ext_params_120hz;
+		ext_params.skip_vblank = 2;
+		ext->params = &ext_params;
 	} else if (dst_fps == 24) {
 		ext_params_120hz.skip_vblank = 5;
 		ext->params = &ext_params_120hz;
 	} else if (dst_fps == 10) {
-		ext_params_120hz.skip_vblank = 12;
-		ext->params = &ext_params_120hz;
+		ext_params.skip_vblank = 6;
+		ext->params = &ext_params;
 	} else {
 		pr_err("%s, dst_fps %d\n", __func__, dst_fps);
 		ret = -EINVAL;
