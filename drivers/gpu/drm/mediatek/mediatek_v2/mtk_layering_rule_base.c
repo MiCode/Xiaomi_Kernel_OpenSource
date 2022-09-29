@@ -3737,21 +3737,21 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev, struct drm_crtc 
 	if (g_mml_mode != MML_MODE_UNKNOWN) {
 		mode = g_mml_mode;
 	} else {
-		if (mtk_crtc->mml_debug & DISP_MML_DBG_LOG) {
-			DDPINFO("%s:%d\n", __func__, __LINE__);
+		if (mtk_crtc->mml_debug & DISP_MML_DBG_LOG)
 			print_mml_frame_info(*mml_info);
-			DDPINFO("%s:%d\n", __func__, __LINE__);
-		}
 
 		if (!(mtk_crtc->mml_debug & DISP_MML_MMCLK_UNLIMIT)) {
 			unsigned int ratio = 0;
 			unsigned long mmclk = 0;
 			unsigned long cur_freq = mtk_drm_get_freq(&mtk_crtc->base, __func__);
 			unsigned long cur_mmclk = mtk_drm_get_mmclk(&mtk_crtc->base, __func__);
+			const u32 src_w = mml_info->dest[0].crop.r.width;
+			const u32 src_h = mml_info->dest[0].crop.r.height;
+			const u32 dst_w = mml_info->dest[0].data.width;
+			const u32 dst_h = mml_info->dest[0].data.height;
 
-			// mode set to mml decouple mode if mmclk level need to be increased
-			ratio = (mml_info->src.width * mml_info->src.height) * 100 /
-				(mml_info->dest[0].data.width * mml_info->dest[0].data.height);
+			/* mode set to mml decouple mode if mmclk level need to be increased */
+			ratio = (src_w * src_h * 100) / (dst_w * dst_h);
 			mmclk = ratio * cur_freq / 100;
 
 			if ((mmclk > cur_mmclk) || (cur_freq == 0) || (ratio > 110)) {
@@ -3761,8 +3761,7 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev, struct drm_crtc 
 			}
 
 			DDPDBG("%s (%u,%u)->(%u,%u) ratio=%u mmclk=%lu cur_mmclk=%lu mode=%d\n",
-			       __func__, mml_info->src.width, mml_info->src.height,
-			       mml_info->dest[0].data.width, mml_info->dest[0].data.height, ratio,
+			       __func__, src_w, src_h, dst_w, dst_h, ratio,
 			       mmclk, cur_mmclk, mml_info->mode);
 		}
 
