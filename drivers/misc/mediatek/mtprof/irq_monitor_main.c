@@ -396,6 +396,10 @@ static void probe_irq_handler_exit(void *ignore,
 			/* skip debug irq. */
 			irq_aee_state[irq] = 1;
 
+		if (!strcmp(irq_name, "ttyS0"))
+			/* skip uart irq. */
+			irq_aee_state[irq] = 1;
+
 		if (!strcmp(irq_name, "ufshcd") && raw_smp_processor_id())
 			/* skip ufshcd aee if CPU!=0 */
 			out &= ~TO_AEE;
