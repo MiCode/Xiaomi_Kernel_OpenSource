@@ -2225,14 +2225,6 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	if (!pending->addr)
 		con |= BIT(28);
 
-	DDPINFO("%s+ id %s, idx:%d, lye_idx:%d, ext_idx:%d, enable:%d, fmt:0x%x\n",
-		__func__, mtk_dump_comp_str_id(comp->id), idx, lye_idx, ext_lye_idx,
-		pending->enable, pending->format);
-	DDPINFO("addr 0x%lx, compr %d, con 0x%x, mml_mode %d\n",
-		(unsigned long)pending->addr,
-		(unsigned int)pending->prop_val[PLANE_PROP_COMPRESS], con,
-		pending->mml_mode);
-
 	if (rotate) {
 		unsigned int bg_w = 0, bg_h = 0;
 
@@ -2344,6 +2336,14 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			       (val << lye_idx), (1 << lye_idx));
 		}
 	}
+
+	DDPINFO("%s+ id %s, idx:%d, lye_idx:%d, ext_idx:%d, enable:%d, fmt:0x%x\n",
+		__func__, mtk_dump_comp_str_id(comp->id), idx, lye_idx, ext_lye_idx,
+		pending->enable, pending->format);
+	DDPINFO("addr 0x%lx, compr %d, con 0x%x, mask 0x%x, mml_mode %d\n",
+		(unsigned long)pending->addr,
+		(unsigned int)pending->prop_val[PLANE_PROP_COMPRESS], con, mask,
+		pending->mml_mode);
 
 	if (pending->enable) {
 		struct drm_crtc *crtc;
@@ -3340,7 +3340,6 @@ static void mtk_ovl_config_begin(struct mtk_ddp_comp *comp, struct cmdq_pkt *han
 	if (scn == NONE) {
 		if (ovl->data->support_pq_selfloop) {
 			_ovl_PQ_out(comp, 0, handle, false);
-			_ovl_PQ_in(comp, 0, handle);
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				       comp->regs_pa + DISP_REG_OVL_PQ_LOOP_CON, 0,
 				       DISP_OVL_PQ_OUT_SIZE_SEL);
