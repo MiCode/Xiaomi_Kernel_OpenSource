@@ -222,7 +222,7 @@ static void mtk_cam_sv_request_drained(
 	if (sensor_seq_no_next <= atomic_read(&ctx->enqueued_frame_seq_no))
 		res = 1;
 	/* Send V4L2_EVENT_REQUEST_DRAINED event */
-	if (res == 0) {
+	if (res == 0 && pipeline) {
 		mtk_cam_sv_event_request_drained(pipeline);
 		dev_dbg(ctx->sv_dev->dev, "request_drained:(%d)\n", sensor_seq_no_next);
 	}
