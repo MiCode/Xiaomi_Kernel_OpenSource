@@ -139,17 +139,19 @@ char *mtk_get_format_name(uint32_t format)
 }
 
 static struct mtk_drm_property mtk_plane_property[PLANE_PROP_MAX] = {
-	{DRM_MODE_PROP_ATOMIC, "NEXT_BUFF_IDX", 0, UINT_MAX, 0},
+	{DRM_MODE_PROP_ATOMIC, "NEXT_BUFF_IDX", 0, UINT_MAX, 0},	/* 0 */
 	{DRM_MODE_PROP_ATOMIC, "LYE_BLOB_IDX", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "PLANE_PROP_ALPHA_CON", 0, 0x1, 0x1},
 	{DRM_MODE_PROP_ATOMIC, "PLANE_PROP_PLANE_ALPHA", 0, 0xFF, 0xFF},
 	{DRM_MODE_PROP_ATOMIC, "DATASPACE", 0, INT_MAX, 0},
-	{DRM_MODE_PROP_ATOMIC, "VPITCH", 0, UINT_MAX, 0},
+	{DRM_MODE_PROP_ATOMIC, "VPITCH", 0, UINT_MAX, 0},	/* 5 */
 	{DRM_MODE_PROP_ATOMIC, "COMPRESS", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "DIM_COLOR", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "IS_MML", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "MML_SUBMIT", 0, ULONG_MAX, 0},
-	{DRM_MODE_PROP_ATOMIC, "BUFFER_ALLOC_ID", 0, ULONG_MAX, 0},
+	{DRM_MODE_PROP_ATOMIC, "BUFFER_ALLOC_ID", 0, ULONG_MAX, 0},	/* 10 */
+	{DRM_MODE_PROP_ATOMIC, "OVL_CSC_SET_BRIGHTNESS", 0, ULONG_MAX, 0},
+	{DRM_MODE_PROP_ATOMIC, "OVL_CSC_SET_COLORTRANSFORM", 0, ULONG_MAX, 0},
 };
 
 static void mtk_plane_reset(struct drm_plane *plane)
@@ -209,6 +211,10 @@ mtk_plane_duplicate_state(struct drm_plane *plane)
 		old_state->prop_val[PLANE_PROP_ALPHA_CON];
 	state->prop_val[PLANE_PROP_PLANE_ALPHA] =
 		old_state->prop_val[PLANE_PROP_PLANE_ALPHA];
+	state->prop_val[PLANE_PROP_OVL_CSC_SET_BRIGHTNESS] =
+		old_state->prop_val[PLANE_PROP_OVL_CSC_SET_BRIGHTNESS];
+	state->prop_val[PLANE_PROP_OVL_CSC_SET_COLORTRANSFORM] =
+		old_state->prop_val[PLANE_PROP_OVL_CSC_SET_COLORTRANSFORM];
 	state->pending = old_state->pending;
 	state->comp_state = old_state->comp_state;
 	state->crtc = old_state->crtc;

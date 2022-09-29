@@ -412,10 +412,10 @@ enum GS_OVL_FLD {
 
 #define CSC_COEF_NUM 9
 
-static u32 sRGB_to_DCI_P3[CSC_COEF_NUM] = {215603, 46541, 0,     8702,  253442,
+static s32 sRGB_to_DCI_P3[CSC_COEF_NUM] = {215603, 46541, 0,     8702,  253442,
 					   0,      4478,  18979, 238687};
 
-static u32 DCI_P3_to_sRGB[CSC_COEF_NUM] = {
+static s32 DCI_P3_to_sRGB[CSC_COEF_NUM] = {
 	321111, -58967, 0, -11025, 273169, 0, -5148, -20614, 287906};
 
 #define DECLARE_MTK_OVL_COLORSPACE(EXPR)                                       \
@@ -430,8 +430,8 @@ static const char * const mtk_ovl_colorspace_str[] = {
 	DECLARE_MTK_OVL_COLORSPACE(DECLARE_STR)};
 
 #define DECLARE_MTK_OVL_TRANSFER(EXPR)                                         \
-	EXPR(OVL_GAMMA2)                                                       \
 	EXPR(OVL_GAMMA2_2)                                                     \
+	EXPR(OVL_GAMMA2)                                                       \
 	EXPR(OVL_LINEAR)                                                       \
 	EXPR(OVL_GAMMA_NUM)                                                    \
 	EXPR(OVL_GAMMA_UNKNOWN)
@@ -1389,16 +1389,14 @@ static int mtk_ovl_do_transfer(unsigned int idx,
 	       mtk_ovl_get_transfer_str(xfr_in),
 	       mtk_ovl_get_transfer_str(xfr_out));
 
-	en = xfr_in != OVL_LINEAR && (xfr_in != xfr_out || cs_in != cs_out);
-
+	en = (xfr_in != OVL_LINEAR);
 	if (en) {
 		*igamma_en = true;
 		*igamma_sel = xfr_in;
 	} else
 		*igamma_en = false;
 
-	en = xfr_out != OVL_LINEAR && (xfr_in != xfr_out || cs_in != cs_out);
-
+	en = xfr_out != OVL_LINEAR;
 	if (en) {
 		*gamma_en = true;
 		*gamma_sel = xfr_out;
@@ -1408,10 +1406,10 @@ static int mtk_ovl_do_transfer(unsigned int idx,
 	return 0;
 }
 
-static u32 *mtk_get_ovl_csc(enum mtk_ovl_colorspace in,
+static s32 *mtk_get_ovl_csc(enum mtk_ovl_colorspace in,
 			    enum mtk_ovl_colorspace out)
 {
-	static u32 *ovl_csc[OVL_CS_NUM][OVL_CS_NUM];
+	static s32 *ovl_csc[OVL_CS_NUM][OVL_CS_NUM];
 	static bool inited;
 
 	if (out < 0) {
@@ -1438,7 +1436,7 @@ done:
 
 static int mtk_ovl_do_csc(unsigned int idx, enum mtk_drm_dataspace plane_ds,
 			  enum mtk_drm_dataspace lcm_ds, bool *csc_en,
-			  u32 **csc)
+			  s32 **csc)
 {
 	enum mtk_ovl_colorspace in = OVL_SRGB, out = OVL_SRGB;
 	bool en = false;
@@ -1491,9 +1489,174 @@ mtk_ovl_map_lcm_color_mode(enum mtk_drm_color_mode cm)
 	return ds;
 }
 
+
+/* we want CT first ==> WCG ==> bri                              */
+/* for combination:                                              */
+/* (bri 4x4 matrix) x (WCG 4x4 matrix) x (CT 4x4 matrix) x (RGB) */
+void mtk_ovl_csc_combination(bool csc_en, unsigned int csc_float_bit, s32 *csc,
+	struct mtk_crtc_ovl_csc_config *occ, s32 *csc_final)
+{
+	unsigned int i, j;
+	long long csc_final_temp[16] = {0};
+
+	/* debug log */
+	for (i = 0; i < 3; i++)
+		DDPDBG("WCG<%d> = <%d, %d, %d>\n", i, *(csc + i * 3 + 0),
+			*(csc + i * 3 + 1), *(csc + i * 3 + 2));
+	for (i = 0; i < 4; i++)
+		DDPDBG("brightness<%d> = <%d, %d, %d, %d>\n", i,
+			occ->setbrightness[i * 4 + 0], occ->setbrightness[i * 4 + 1],
+			occ->setbrightness[i * 4 + 2], occ->setbrightness[i * 4 + 3]);
+	for (i = 0; i < 4; i++)
+		DDPDBG("setcolortransform<%d> = <%d, %d, %d, %d>\n", i,
+			occ->setcolortransform[i * 4 + 0], occ->setcolortransform[i * 4 + 1],
+			occ->setcolortransform[i * 4 + 2], occ->setcolortransform[i * 4 + 3]);
+
+	if (csc_en) {
+		/* WCG csc */
+		for (i = 0; i < 3; i++)
+			for (j = 0; j < 3; j++)
+				*(csc_final + i * 4 + j) = *(csc + i * 3 + j);
+	} else {
+		/* no WCG, set relay matrix */
+		*(csc_final + 0 * 4 + 0) = 1 << csc_float_bit;
+		*(csc_final + 1 * 4 + 1) = 1 << csc_float_bit;
+		*(csc_final + 2 * 4 + 2) = 1 << csc_float_bit;
+	}
+	/* for offset csc_combination */
+	*(csc_final + 15) = 1 << csc_float_bit;
+
+	/* debug log */
+	for (i = 0; i < 4; i++)
+		DDPDBG("csc_final_WCG<%d> = <%d, %d, %d, %d>\n", i, csc_final[i * 4 + 0],
+			csc_final[i * 4 + 1], csc_final[i * 4 + 2], csc_final[i * 4 + 3]);
+
+	if (occ) {
+		/* brightness para */
+		for (i = 0; i < 4; i++)
+			for (j = 0; j < 4; j++) {
+				csc_final_temp[i * 4 + j] =
+				(long long)(occ->setbrightness[i * 4 + 0]) *
+					(long long)*(csc_final + 0 * 4 + j) +
+				(long long)(occ->setbrightness[i * 4 + 1]) *
+					(long long)*(csc_final + 1 * 4 + j) +
+				(long long)(occ->setbrightness[i * 4 + 2]) *
+					(long long)*(csc_final + 2 * 4 + j) +
+				(long long)(occ->setbrightness[i * 4 + 3]) *
+					(long long)*(csc_final + 3 * 4 + j);
+			}
+		/* copy 4x4 back */
+		for (i = 0; i < 4; i++)
+			for (j = 0; j < 4; j++)
+				if (csc_final_temp[i * 4 + j] < 0)
+					csc_final_temp[i * 4 + j] =
+						(csc_final_temp[i * 4 + j] >> csc_float_bit) |
+						(0xffffffffffffffff << (64 - csc_float_bit));
+				else
+					csc_final_temp[i * 4 + j] =
+						csc_final_temp[i * 4 + j] >> csc_float_bit;
+		for (i = 0; i < 4; i++)
+			for (j = 0; j < 4; j++)
+				*(csc_final + i * 4 + j) = csc_final_temp[i * 4 + j];
+
+		/* debug log */
+		for (i = 0; i < 4; i++)
+			DDPDBG("csc_final_bri<%d> = <%d, %d, %d, %d>\n", i,
+				csc_final[i * 4 + 0], csc_final[i * 4 + 1],
+				csc_final[i * 4 + 2], csc_final[i * 4 + 3]);
+
+		/* CT para */
+		for (i = 0; i < 4; i++)
+			for (j = 0; j < 4; j++) {
+				csc_final_temp[i * 4 + j] =
+				(long long)(occ->setcolortransform[i * 4 + 0]) *
+					(long long)*(csc_final + 0 * 4 + j) +
+				(long long)(occ->setcolortransform[i * 4 + 1]) *
+					(long long)*(csc_final + 1 * 4 + j) +
+				(long long)(occ->setcolortransform[i * 4 + 2]) *
+					(long long)*(csc_final + 2 * 4 + j) +
+				(long long)(occ->setcolortransform[i * 4 + 3]) *
+					(long long)*(csc_final + 3 * 4 + j);
+			}
+		/* copy 4x4 back */
+		for (i = 0; i < 4; i++)
+			for (j = 0; j < 4; j++)
+				if (csc_final_temp[i * 4 + j] < 0)
+					csc_final_temp[i * 4 + j] =
+						(csc_final_temp[i * 4 + j] >> csc_float_bit) |
+						(0xffffffffffffffff << (64 - csc_float_bit));
+				else
+					csc_final_temp[i * 4 + j] =
+						csc_final_temp[i * 4 + j] >> csc_float_bit;
+		for (i = 0; i < 4; i++)
+			for (j = 0; j < 4; j++)
+				*(csc_final + i * 4 + j) = csc_final_temp[i * 4 + j];
+
+		/* debug log */
+		for (i = 0; i < 4; i++)
+			DDPDBG("csc_final_CT<%d> = <%d, %d, %d, %d>\n", i,
+				csc_final[i * 4 + 0], csc_final[i * 4 + 1],
+				csc_final[i * 4 + 2], csc_final[i * 4 + 3]);
+	}
+}
+
+void mtk_ovl_swap(int *a, int *b)
+{
+	int tmp;
+
+	tmp = *a;
+	*a = *b;
+	*b = tmp;
+}
+
+void mtk_ovl_transpose(int *matrix, int size)
+{
+	int i, j;
+
+	for (i = 0; i < size; i++)
+		for (j = 0; j < i; j++)
+			if (i != j)
+				mtk_ovl_swap(matrix + i * size + j, matrix + j * size + i);
+}
+
+void mtk_ovl_get_ovl_csc_data(struct drm_crtc *crtc,
+	struct mtk_plane_state *mtk_plane_state, int *ovl_scs_en,
+	struct mtk_crtc_ovl_csc_config *occ)
+{
+	int blob_id;
+	struct drm_property_blob *blob;
+
+	/* get brightness 4x4 by blob_id */
+	blob_id = mtk_plane_state->prop_val[PLANE_PROP_OVL_CSC_SET_BRIGHTNESS];
+	if (blob_id) {
+		blob = drm_property_lookup_blob(crtc->dev, blob_id);
+		if (blob && blob->data) {
+			memcpy(occ->setbrightness, blob->data, sizeof(int) * 16);
+			mtk_ovl_transpose(occ->setbrightness, 4);
+			*ovl_scs_en = 1;
+		} else
+			DDPINFO("Cannot get ovl_csc_config: SET_BRIGHTNESS, blob: %d!\n",
+										blob_id);
+		drm_property_blob_put(blob);
+	}
+
+	/* get colortransform 4x4 by blob_id */
+	blob_id = mtk_plane_state->prop_val[PLANE_PROP_OVL_CSC_SET_COLORTRANSFORM];
+	if (blob_id) {
+		blob = drm_property_lookup_blob(crtc->dev, blob_id);
+		if (blob && blob->data) {
+			memcpy(occ->setcolortransform, blob->data, sizeof(int) * 16);
+			mtk_ovl_transpose(occ->setcolortransform, 4);
+			*ovl_scs_en = 1;
+		} else
+			DDPINFO("Cannot get ovl_csc_config: SET_COLORTRANSFORM, blob: %d!\n",
+										blob_id);
+		drm_property_blob_put(blob);
+	}
+}
+
 static int mtk_ovl_color_manage(struct mtk_ddp_comp *comp, unsigned int idx,
-				struct mtk_plane_state *state,
-				struct cmdq_pkt *handle)
+			struct mtk_plane_state *state, struct cmdq_pkt *handle)
 {
 	unsigned int lye_idx = 0, ext_lye_idx = 0;
 	struct mtk_plane_pending_state *pending = &state->pending;
@@ -1501,12 +1664,32 @@ static int mtk_ovl_color_manage(struct mtk_ddp_comp *comp, unsigned int idx,
 	struct mtk_drm_private *priv;
 	bool gamma_en = false, igamma_en = false, csc_en = false;
 	u32 gamma_sel = 0, igamma_sel = 0;
-	u32 *csc = NULL;
+	s32 *csc = NULL;
 	u32 wcg_mask = 0, wcg_value = 0, sel_mask = 0, sel_value = 0, reg = 0;
 	enum mtk_drm_color_mode lcm_cm;
-	enum mtk_drm_dataspace lcm_ds, plane_ds;
+	enum mtk_drm_dataspace lcm_ds = 0, plane_ds = 0;
 	struct mtk_panel_params *params;
 	int i;
+	int ovl_csc_en_cur = 0;
+	struct mtk_crtc_ovl_csc_config occ = {
+		{
+			1 << 18, 0, 0, 0,
+			0, 1 << 18, 0, 0,
+			0, 0, 1 << 18, 0,
+			0, 0, 0, 1 << 18,
+		},
+		{
+			1 << 18, 0, 0, 0,
+			0, 1 << 18, 0, 0,
+			0, 0, 1 << 18, 0,
+			0, 0, 0, 1 << 18,
+		},
+	};
+	s32 csc_final[16] = { /* 4x4 matrix */
+		1 << 18, 0, 0, 0,
+		0, 1 << 18, 0, 0,
+		0, 0, 1 << 18, 0,
+		0, 0, 0, 1 << 18};
 
 	if (state->comp_state.comp_id) {
 		lye_idx = state->comp_state.lye_id;
@@ -1517,54 +1700,70 @@ static int mtk_ovl_color_manage(struct mtk_ddp_comp *comp, unsigned int idx,
 	if (!crtc)
 		goto done;
 
+	/* get brightness/layercolortransform csc */
+	mtk_ovl_get_ovl_csc_data(crtc, state, &ovl_csc_en_cur, &occ);
+
 	priv = crtc->dev->dev_private;
-	if (!mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_WCG) ||
-	    !pending->enable)
-		goto done;
+	if ((mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_WCG) && /* WCG condition */
+		pending->enable) ||	/* WCG condition */
+	    ovl_csc_en_cur) {	/* ovl csc condition */
+		params = mtk_drm_get_lcm_ext_params(crtc);
+		if (params)
+			lcm_cm = params->lcm_color_mode;
+		else
+			lcm_cm = MTK_DRM_COLOR_MODE_NATIVE;
 
-	params = mtk_drm_get_lcm_ext_params(crtc);
-	if (params)
-		lcm_cm = params->lcm_color_mode;
-	else
-		lcm_cm = MTK_DRM_COLOR_MODE_NATIVE;
+		lcm_ds = mtk_ovl_map_lcm_color_mode(lcm_cm);
+		plane_ds =
+			(enum mtk_drm_dataspace)pending->prop_val[PLANE_PROP_DATASPACE];
+		DDPDBG("%s+ idx:%d ds:0x%08x->0x%08x\n", __func__, idx, plane_ds,
+		       lcm_ds);
 
-	lcm_ds = mtk_ovl_map_lcm_color_mode(lcm_cm);
-	plane_ds =
-		(enum mtk_drm_dataspace)pending->prop_val[PLANE_PROP_DATASPACE];
+		mtk_ovl_do_transfer(idx, plane_ds, lcm_ds, &gamma_en, &igamma_en,
+				    &gamma_sel, &igamma_sel);
 
-	DDPDBG("%s+ idx:%d ds:0x%08x->0x%08x\n", __func__, idx, plane_ds,
-	       lcm_ds);
+		/* get WCG CSC */
+		if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_WCG) &&
+			pending->enable)
+			mtk_ovl_do_csc(idx, plane_ds, lcm_ds, &csc_en, &csc);
+	}
+	DDPDBG("%s, g, ig, gs, igs <%d><%d><%d><%d>\n",
+		__func__, gamma_en, igamma_en, gamma_sel, igamma_sel);
 
-	mtk_ovl_do_transfer(idx, plane_ds, lcm_ds, &gamma_en, &igamma_en,
-			    &gamma_sel, &igamma_sel);
-	mtk_ovl_do_csc(idx, plane_ds, lcm_ds, &csc_en, &csc);
+	/* csc combination */
+	mtk_ovl_csc_combination(csc_en, comp->mtk_crtc->crtc_caps.ovl_csc_bit_number,
+		csc, &occ, csc_final);
 
 done:
-
-	if (ext_lye_idx != LYE_NORMAL) {
-		SET_VAL_MASK(wcg_value, wcg_mask, igamma_en,
-			     FLD_ELn_IGAMMA_EN(ext_lye_idx - 1));
-		SET_VAL_MASK(wcg_value, wcg_mask, gamma_en,
-			     FLD_ELn_GAMMA_EN(ext_lye_idx - 1));
-		SET_VAL_MASK(wcg_value, wcg_mask, csc_en,
-			     FLD_ELn_CSC_EN(ext_lye_idx - 1));
-		SET_VAL_MASK(sel_value, sel_mask, igamma_sel,
-			     FLD_ELn_IGAMMA_SEL(ext_lye_idx - 1));
-		SET_VAL_MASK(sel_value, sel_mask, gamma_sel,
-			     FLD_ELn_GAMMA_SEL(ext_lye_idx - 1));
-	} else {
-		SET_VAL_MASK(wcg_value, wcg_mask, igamma_en,
-			     FLD_Ln_IGAMMA_EN(lye_idx));
-		SET_VAL_MASK(wcg_value, wcg_mask, gamma_en,
-			     FLD_Ln_GAMMA_EN(lye_idx));
-		SET_VAL_MASK(wcg_value, wcg_mask, csc_en,
-			     FLD_Ln_CSC_EN(lye_idx));
-		SET_VAL_MASK(sel_value, sel_mask, igamma_sel,
-			     FLD_Ln_IGAMMA_SEL(lye_idx));
-		SET_VAL_MASK(sel_value, sel_mask, gamma_sel,
-			     FLD_Ln_GAMMA_SEL(lye_idx));
+	if (csc_en || ovl_csc_en_cur) {
+		if (ext_lye_idx != LYE_NORMAL) {
+			SET_VAL_MASK(wcg_value, wcg_mask, igamma_en,
+				     FLD_ELn_IGAMMA_EN(ext_lye_idx - 1));
+			SET_VAL_MASK(wcg_value, wcg_mask, gamma_en,
+				     FLD_ELn_GAMMA_EN(ext_lye_idx - 1));
+			SET_VAL_MASK(wcg_value, wcg_mask, 1,
+				     FLD_ELn_CSC_EN(ext_lye_idx - 1));
+			SET_VAL_MASK(sel_value, sel_mask, igamma_sel,
+				     FLD_ELn_IGAMMA_SEL(ext_lye_idx - 1));
+			SET_VAL_MASK(sel_value, sel_mask, gamma_sel,
+				     FLD_ELn_GAMMA_SEL(ext_lye_idx - 1));
+		} else {
+			SET_VAL_MASK(wcg_value, wcg_mask, igamma_en,
+				     FLD_Ln_IGAMMA_EN(lye_idx));
+			SET_VAL_MASK(wcg_value, wcg_mask, gamma_en,
+				     FLD_Ln_GAMMA_EN(lye_idx));
+			SET_VAL_MASK(wcg_value, wcg_mask, 1,
+				     FLD_Ln_CSC_EN(lye_idx));
+			SET_VAL_MASK(sel_value, sel_mask, igamma_sel,
+				     FLD_Ln_IGAMMA_SEL(lye_idx));
+			SET_VAL_MASK(sel_value, sel_mask, gamma_sel,
+				     FLD_Ln_GAMMA_SEL(lye_idx));
+		}
 	}
+	DDPDBG("%s, lye_idx%d,ext_lye_idx%d,csc_en%d,ovl_csc_en%d,wcg_value0x%x,sel_value0x%x\n",
+		__func__, lye_idx, ext_lye_idx, csc_en, ovl_csc_en_cur, wcg_value, sel_value);
 
+	/* enable, gamma, igamma */
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_OVL_WCG_CFG1, wcg_value,
 		       wcg_mask);
@@ -1572,16 +1771,30 @@ done:
 		       comp->regs_pa + DISP_REG_OVL_WCG_CFG2, sel_value,
 		       sel_mask);
 
-	if (csc_en) {
-		if (ext_lye_idx != LYE_NORMAL)
-			reg = DISP_REG_OVL_ELn_R2R_PARA(ext_lye_idx - 1);
-		else
-			reg = DISP_REG_OVL_Ln_R2R_PARA(lye_idx);
+	if (ext_lye_idx != LYE_NORMAL)
+		reg = DISP_REG_OVL_ELn_R2R_PARA(ext_lye_idx - 1);
+	else
+		reg = DISP_REG_OVL_Ln_R2R_PARA(lye_idx);
 
-		for (i = 0; i < CSC_COEF_NUM; i++)
-			cmdq_pkt_write(handle, comp->cmdq_base,
-				       comp->regs_pa + reg + 4 * i, csc[i], ~0);
-	}
+	/* 3x3 write reg */
+	for (i = 0; i < CSC_COEF_NUM; i++)
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + reg + 4 * i, csc_final[((i / 3) * 4) + i % 3], ~0);
+
+	/* offset write reg */
+	/* offset in coda is s12.6 for u8, but value from HWC is s5.18 and normalize value */
+	for (i = 0; i < 3; i++)
+		if (csc_final[i * 4 + 3] < 0)
+			csc_final[i * 4 + 3] = csc_final[i * 4 + 3] >> 4 | 0xf0000000;
+		else
+			csc_final[i * 4 + 3] = csc_final[i * 4 + 3] >> 4;
+
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + reg + 4 * 12, csc_final[3], ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + reg + 4 * 13, csc_final[7], ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+			   comp->regs_pa + reg + 4 * 14, csc_final[11], ~0);
 
 	return 0;
 }

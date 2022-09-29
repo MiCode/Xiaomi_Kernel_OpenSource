@@ -12037,6 +12037,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 			mtk_crtc->crtc_caps.crtc_ability |= ABILITY_MSYNC20;
 			if (priv->data->mmsys_id == MMSYS_MT6886)
 				mtk_crtc->crtc_caps.crtc_ability |= ABILITY_BW_MONITOR;
+			mtk_crtc->crtc_caps.ovl_csc_bit_number = 18;
 		}
 	}
 	DDPINFO("%s:%x\n", crtc_caps, caps_value);
