@@ -75,9 +75,14 @@
 				lcm-params-dsi-fake_resolution = <1440 3200>;
 
 				lcm-params-dsi-default_mode = <0>;
-				lcm-params-dsi-mode_count = <1>;
+				lcm-params-dsi-mode_count = <6>;
 				lcm-params-dsi-mode_list =
-					<0 1440 3200 120>;
+					<0 1440 3200 120>,
+					<1 1440 3200 90>,
+					<2 1440 3200 60>,
+					<3 1440 3200 30>,
+					<4 1440 3200 24>,
+					<5 1440 3200 10>;
 
 				/* backlight mode */
 				lcm-params-dsi-backlight-mode {
@@ -112,9 +117,9 @@
 					lcm-params-dsi-vscan;
 
 					/* mtk_panel_params */
-					lcm-params-dsi-pll_clock = <600>;
-					lcm-params-dsi-data_rate = <1200>;
-					lcm-params-dsi-vfp_for_low_power = <16>;
+					lcm-params-dsi-pll_clock = <750>;
+					lcm-params-dsi-data_rate = <1500>;
+					lcm-params-dsi-vfp_for_low_power;
 					lcm-params-dsi-ssc_enable;
 					lcm-params-dsi-ssc_range;
 					lcm-params-dsi-lcm_color_mode;
@@ -138,6 +143,7 @@
 					lcm-params-dsi-lcm_index;
 					lcm-params-dsi-wait_sof_before_dec_vfp;
 					lcm-params-dsi-doze_delay;
+					lcm-params-dsi-lp_perline_en = <1>;
 					lcm-params-dsi-lfr_enable;
 					lcm-params-dsi-lfr_minimum_fps;
 					lcm-params-dsi-msync2_enable;
@@ -155,7 +161,10 @@
 					lcm-params-dsi-lcm_esd_check_table1;
 					lcm-params-dsi-lcm_esd_check_table2;
 
-					lcm-params-dsi-lcm_is_support_od;
+					/* Msync 3.0 */
+					lcm-params-dsi-skip_vblank = <0>;
+
+					lcm-params-dsi-lcm_is_support_od = <1>;
 					lcm-params-dsi-lcm_is_support_dmr;
 
 					/* fpga support */
@@ -216,6 +225,7 @@
 						lcm-params-dsi-lk_lcm_ext_te_period;
 						lcm-params-dsi-lk_noncont_clock;
 						lcm-params-dsi-lk_noncont_clock_period;
+						lcm-params-dsi-lk_lp_perline_en = <1>;
 						lcm-params-dsi-lk_clk_lp_per_line_enable = <0>;
 						lcm-params-dsi-lk_dual_dsi_type;
 						lcm-params-dsi-lk_mixmode_enable;
@@ -240,13 +250,13 @@
 							"mediatek,lcm-params-dsi-dsc-params";
 						lcm-params-dsi-dsc_enable = <1>;
 						lcm-params-dsi-dsc_enable_lk = <1>;
-						lcm-params-dsi-dsc_ver = <17>;
+						lcm-params-dsi-dsc_ver = <18>;
 						lcm-params-dsi-dsc_slice_mode = <1>;
 						lcm-params-dsi-dsc_rgb_swap = <0>;
-						lcm-params-dsi-dsc_cfg = <34>;
+						lcm-params-dsi-dsc_cfg = <40>;
 						lcm-params-dsi-dsc_rct_on = <1>;
-						lcm-params-dsi-dsc_bit_per_channel = <8>;
-						lcm-params-dsi-dsc_line_buf_depth = <9>;
+						lcm-params-dsi-dsc_bit_per_channel = <10>;
+						lcm-params-dsi-dsc_line_buf_depth = <11>;
 						lcm-params-dsi-dsc_bp_enable = <1>;
 						lcm-params-dsi-dsc_bit_per_pixel = <128>;
 						lcm-params-dsi-dsc_pic_height = <3200>;
@@ -264,14 +274,39 @@
 						lcm-params-dsi-dsc_slice_bpg_offset = <489>;
 						lcm-params-dsi-dsc_initial_offset = <6144>;
 						lcm-params-dsi-dsc_final_offset = <4336>;
-						lcm-params-dsi-dsc_flatness_minqp = <3>;
-						lcm-params-dsi-dsc_flatness_maxqp = <12>;
+						lcm-params-dsi-dsc_flatness_minqp = <7>;
+						lcm-params-dsi-dsc_flatness_maxqp = <16>;
 						lcm-params-dsi-dsc_rc_model_size = <8192>;
 						lcm-params-dsi-dsc_rc_edge_factor = <6>;
-						lcm-params-dsi-dsc_rc_quant_incr_limit0 = <11>;
-						lcm-params-dsi-dsc_rc_quant_incr_limit1 = <11>;
+						lcm-params-dsi-dsc_rc_quant_incr_limit0 = <15>;
+						lcm-params-dsi-dsc_rc_quant_incr_limit1 = <15>;
 						lcm-params-dsi-dsc_rc_tgt_offset_hi = <3>;
 						lcm-params-dsi-dsc_rc_tgt_offset_lo = <3>;
+
+						lcm-params-dsi-dsc-ext-pps-cfg {
+							compatible =
+							"mediatek,lcm-params-dsi-dsc-ext-pps-cfg";
+
+							pps_enable = <1>;
+							pps_rc_buf_thresh =
+								<896 1792 2688 3584 4480>,
+								<5376 6272 6720 7168 7616>,
+								<7744 7872 8000 8064>;
+							pps_range_min_qp =
+								<0 4 5 5 7>,
+								<7 7 7 7 8>,
+								<9 9 9 12 16>;
+							pps_range_max_qp =
+								<8 8 9 10 11>,
+								<11 11 12 13 14>,
+								<14 15 15 16 17>;
+							pps_range_bpg_ofs =
+								<0x00000002 0x00000000 0x00000000>,
+								<0xfffffffe 0xfffffffc 0xfffffffa>,
+								<0xfffffff8 0xfffffff8 0xfffffff8>,
+								<0xfffffff6 0xfffffff6 0xfffffff6>,
+								<0xfffffff4 0xfffffff4 0xfffffff4>;
+						};
 					};
 
 					lcm-params-dsi-phy-timcon-params-0-1440-3200-120 {
@@ -315,8 +350,8 @@
 					lcm-params-dsi-dyn-params-0-1440-3200-120 {
 						compatible =
 							"mediatek,lcm-params-dsi-dyn";
-						lcm-params-dsi-dyn_switch_en;
-						lcm-params-dsi-dyn_pll_clk;
+						lcm-params-dsi-dyn_switch_en = <1>;
+						lcm-params-dsi-dyn_pll_clk = <751>;
 						lcm-params-dsi-dyn_data_rate;
 						lcm-params-dsi-dyn_vsa;
 						lcm-params-dsi-dyn_vbp;
@@ -331,6 +366,1006 @@
 					};
 
 					lcm-params-dsi-dyn-fps-params-0-1440-3200-120 {
+						compatible =
+							"mediatek,lcm-params-dsi-dyn-fps";
+						lcm-params-dsi-dyn_fps_switch_en;
+						lcm-params-dsi-dyn_fps_vact_timing_fps;
+						lcm-params-dsi-dyn_fps_data_rate;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table0;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table1;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table2;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table3;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table4;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table5;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table6;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table7;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table8;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table9;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table10;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table11;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table12;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table13;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table14;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table15;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table16;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table17;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table18;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table19;
+					};
+				};
+
+				lcm-params-dsi-fps-1-1440-3200-90 {
+					compatible = "mediatek,lcm-dsi-fps-1-1440-3200-90";
+					lcm-params-dsi-voltage;
+					lcm-params-dsi-fake = <0>;
+
+					/* drm_display_mode */
+					lcm-params-dsi-vrefresh = <90>;
+					lcm-params-dsi-vertical_sync_active = <2>;
+					lcm-params-dsi-vertical_backporch = <16>;
+					lcm-params-dsi-vertical_frontporch = <10>;
+					lcm-params-dsi-vertical_active_line = <3200>;
+					lcm-params-dsi-horizontal_sync_active = <20>;
+					lcm-params-dsi-horizontal_backporch = <40>;
+					lcm-params-dsi-horizontal_frontporch = <40>;
+					lcm-params-dsi-horizontal_active_pixel = <1440>;
+					lcm-params-dsi-pixel_clock = <447401>;
+					lcm-params-dsi-hskew;
+					lcm-params-dsi-vscan;
+
+					/* mtk_panel_params */
+					lcm-params-dsi-pll_clock = <750>;
+					lcm-params-dsi-data_rate = <1500>;
+					lcm-params-dsi-vfp_for_low_power;
+					lcm-params-dsi-ssc_enable;
+					lcm-params-dsi-ssc_range;
+					lcm-params-dsi-lcm_color_mode;
+					lcm-params-dsi-min_luminance;
+					lcm-params-dsi-average_luminance;
+					lcm-params-dsi-max_luminance;
+					lcm-params-dsi-round_corner_en = <0>;
+					lcm-params-dsi-corner_pattern_height;
+					lcm-params-dsi-corner_pattern_height_bot;
+					lcm-params-dsi-corner_pattern_tp_size;
+					lcm-params-dsi-corner_pattern_tp_size_left;
+					lcm-params-dsi-corner_pattern_tp_size_right;
+					lcm-params-dsi-corner_pattern_name;
+					lcm-params-dsi-physical_width_um;
+					lcm-params-dsi-physical_height_um;
+					lcm-params-dsi-output_mode =
+						<MTK_LCM_PANEL_DSC_SINGLE_PORT>;
+					lcm-params-dsi-lcm_cmd_if;
+					lcm-params-dsi-hbm_en_time;
+					lcm-params-dsi-hbm_dis_time;
+					lcm-params-dsi-lcm_index;
+					lcm-params-dsi-wait_sof_before_dec_vfp;
+					lcm-params-dsi-doze_delay;
+					lcm-params-dsi-lp_perline_en = <1>;
+					lcm-params-dsi-lfr_enable;
+					lcm-params-dsi-lfr_minimum_fps;
+					lcm-params-dsi-msync2_enable;
+					lcm-params-dsi-max_vfp_for_msync;
+
+					/* lane swap */
+					lcm-params-dsi-lane_swap_en;
+					lcm-params-dsi-lane_swap0;
+					lcm-params-dsi-lane_swap1;
+
+					/* esd check table */
+					lcm-params-dsi-cust_esd_check = <0>;
+					lcm-params-dsi-esd_check_enable = <1>;
+					lcm-params-dsi-lcm_esd_check_table0 = [0a 01 1c];
+					lcm-params-dsi-lcm_esd_check_table1;
+					lcm-params-dsi-lcm_esd_check_table2;
+
+					/* Msync 3.0 */
+					lcm-params-dsi-skip_vblank = <0>;
+
+					lcm-params-dsi-lcm_is_support_od = <1>;
+					lcm-params-dsi-lcm_is_support_dmr;
+
+					lcm-params-dsi-dsc-params-1-1440-3200-90 {
+						compatible =
+							"mediatek,lcm-params-dsi-dsc-params";
+						lcm-params-dsi-dsc_enable = <1>;
+						lcm-params-dsi-dsc_ver = <18>;
+						lcm-params-dsi-dsc_slice_mode = <1>;
+						lcm-params-dsi-dsc_rgb_swap = <0>;
+						lcm-params-dsi-dsc_cfg = <40>;
+						lcm-params-dsi-dsc_rct_on = <1>;
+						lcm-params-dsi-dsc_bit_per_channel = <10>;
+						lcm-params-dsi-dsc_line_buf_depth = <11>;
+						lcm-params-dsi-dsc_bp_enable = <1>;
+						lcm-params-dsi-dsc_bit_per_pixel = <128>;
+						lcm-params-dsi-dsc_pic_height = <3200>;
+						lcm-params-dsi-dsc_pic_width = <1440>;
+						lcm-params-dsi-dsc_slice_height = <40>;
+						lcm-params-dsi-dsc_slice_width = <720>;
+						lcm-params-dsi-dsc_chunk_size = <720>;
+						lcm-params-dsi-dsc_xmit_delay = <512>;
+						lcm-params-dsi-dsc_dec_delay = <646>;
+						lcm-params-dsi-dsc_scale_value = <32>;
+						lcm-params-dsi-dsc_increment_interval = <1082>;
+						lcm-params-dsi-dsc_decrement_interval = <10>;
+						lcm-params-dsi-dsc_line_bpg_offset = <13>;
+						lcm-params-dsi-dsc_nfl_bpg_offset = <683>;
+						lcm-params-dsi-dsc_slice_bpg_offset = <489>;
+						lcm-params-dsi-dsc_initial_offset = <6144>;
+						lcm-params-dsi-dsc_final_offset = <4336>;
+						lcm-params-dsi-dsc_flatness_minqp = <7>;
+						lcm-params-dsi-dsc_flatness_maxqp = <16>;
+						lcm-params-dsi-dsc_rc_model_size = <8192>;
+						lcm-params-dsi-dsc_rc_edge_factor = <6>;
+						lcm-params-dsi-dsc_rc_quant_incr_limit0 = <15>;
+						lcm-params-dsi-dsc_rc_quant_incr_limit1 = <15>;
+						lcm-params-dsi-dsc_rc_tgt_offset_hi = <3>;
+						lcm-params-dsi-dsc_rc_tgt_offset_lo = <3>;
+
+						lcm-params-dsi-dsc-ext-pps-cfg {
+							compatible =
+							"mediatek,lcm-params-dsi-dsc-ext-pps-cfg";
+
+							pps_enable = <1>;
+							pps_rc_buf_thresh =
+								<896 1792 2688 3584 4480>,
+								<5376 6272 6720 7168 7616>,
+								<7744 7872 8000 8064>;
+							pps_range_min_qp =
+								<0 4 5 5 7>,
+								<7 7 7 7 8>,
+								<9 9 9 12 16>;
+							pps_range_max_qp =
+								<8 8 9 10 11>,
+								<11 11 12 13 14>,
+								<14 15 15 16 17>;
+							pps_range_bpg_ofs =
+								<0x00000002 0x00000000 0x00000000>,
+								<0xfffffffe 0xfffffffc 0xfffffffa>,
+								<0xfffffff8 0xfffffff8 0xfffffff8>,
+								<0xfffffff6 0xfffffff6 0xfffffff6>,
+								<0xfffffff4 0xfffffff4 0xfffffff4>;
+						};
+					};
+
+					lcm-params-dsi-phy-timcon-params-1-1440-3200-90 {
+						compatible =
+							"mediatek,lcm-params-dsi-phy-timcon";
+						lcm-params-dsi-phy_timcon_hs_trail;
+						lcm-params-dsi-phy_timcon_hs_prpr;
+						lcm-params-dsi-phy_timcon_hs_zero;
+						lcm-params-dsi-phy_timcon_lpx;
+						lcm-params-dsi-phy_timcon_ta_get;
+						lcm-params-dsi-phy_timcon_ta_sure;
+						lcm-params-dsi-phy_timcon_ta_go;
+						lcm-params-dsi-phy_timcon_da_hs_exit;
+						lcm-params-dsi-phy_timcon_clk_trail;
+						lcm-params-dsi-phy_timcon_cont_det;
+						lcm-params-dsi-phy_timcon_da_hs_sync;
+						lcm-params-dsi-phy_timcon_clk_zero;
+						lcm-params-dsi-phy_timcon_clk_prpr;
+						lcm-params-dsi-phy_timcon_clk_exit;
+						lcm-params-dsi-phy_timcon_clk_post;
+					};
+
+					lcm-params-dsi-dyn-params-1-1440-3200-90 {
+						compatible =
+							"mediatek,lcm-params-dsi-dyn";
+						lcm-params-dsi-dyn_switch_en = <1>;
+						lcm-params-dsi-dyn_pll_clk = <751>;
+						lcm-params-dsi-dyn_data_rate;
+						lcm-params-dsi-dyn_vsa;
+						lcm-params-dsi-dyn_vbp;
+						lcm-params-dsi-dyn_vfp;
+						lcm-params-dsi-dyn_vfp_lp_dyn;
+						lcm-params-dsi-dyn_vac;
+						lcm-params-dsi-dyn_hsa;
+						lcm-params-dsi-dyn_hbp;
+						lcm-params-dsi-dyn_hfp;
+						lcm-params-dsi-dyn_hac;
+						lcm-params-dsi-dyn_max_vfp_for_msync_dyn;
+					};
+
+					lcm-params-dsi-dyn-fps-params-1-1440-3200-90 {
+						compatible =
+							"mediatek,lcm-params-dsi-dyn-fps";
+						lcm-params-dsi-dyn_fps_switch_en;
+						lcm-params-dsi-dyn_fps_vact_timing_fps;
+						lcm-params-dsi-dyn_fps_data_rate;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table0;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table1;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table2;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table3;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table4;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table5;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table6;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table7;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table8;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table9;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table10;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table11;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table12;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table13;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table14;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table15;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table16;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table17;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table18;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table19;
+					};
+				};
+
+				lcm-params-dsi-fps-2-1440-3200-60 {
+					compatible = "mediatek,lcm-dsi-fps-2-1440-3200-60";
+					lcm-params-dsi-voltage;
+					lcm-params-dsi-fake = <0>;
+
+					/* drm_display_mode */
+					lcm-params-dsi-vrefresh = <60>;
+					lcm-params-dsi-vertical_sync_active = <2>;
+					lcm-params-dsi-vertical_backporch = <16>;
+					lcm-params-dsi-vertical_frontporch = <10>;
+					lcm-params-dsi-vertical_active_line = <3200>;
+					lcm-params-dsi-horizontal_sync_active = <20>;
+					lcm-params-dsi-horizontal_backporch = <40>;
+					lcm-params-dsi-horizontal_frontporch = <40>;
+					lcm-params-dsi-horizontal_active_pixel = <1440>;
+					lcm-params-dsi-pixel_clock = <298267>;
+					lcm-params-dsi-hskew;
+					lcm-params-dsi-vscan;
+
+					/* mtk_panel_params */
+					lcm-params-dsi-pll_clock = <750>;
+					lcm-params-dsi-data_rate = <1500>;
+					lcm-params-dsi-vfp_for_low_power;
+					lcm-params-dsi-ssc_enable;
+					lcm-params-dsi-ssc_range;
+					lcm-params-dsi-lcm_color_mode;
+					lcm-params-dsi-min_luminance;
+					lcm-params-dsi-average_luminance;
+					lcm-params-dsi-max_luminance;
+					lcm-params-dsi-round_corner_en = <0>;
+					lcm-params-dsi-corner_pattern_height;
+					lcm-params-dsi-corner_pattern_height_bot;
+					lcm-params-dsi-corner_pattern_tp_size;
+					lcm-params-dsi-corner_pattern_tp_size_left;
+					lcm-params-dsi-corner_pattern_tp_size_right;
+					lcm-params-dsi-corner_pattern_name;
+					lcm-params-dsi-physical_width_um;
+					lcm-params-dsi-physical_height_um;
+					lcm-params-dsi-output_mode =
+						<MTK_LCM_PANEL_DSC_SINGLE_PORT>;
+					lcm-params-dsi-lcm_cmd_if;
+					lcm-params-dsi-hbm_en_time;
+					lcm-params-dsi-hbm_dis_time;
+					lcm-params-dsi-lcm_index;
+					lcm-params-dsi-wait_sof_before_dec_vfp;
+					lcm-params-dsi-doze_delay;
+					lcm-params-dsi-lp_perline_en = <1>;
+					lcm-params-dsi-lfr_enable;
+					lcm-params-dsi-lfr_minimum_fps;
+					lcm-params-dsi-msync2_enable;
+					lcm-params-dsi-max_vfp_for_msync;
+
+					/* lane swap */
+					lcm-params-dsi-lane_swap_en;
+					lcm-params-dsi-lane_swap0;
+					lcm-params-dsi-lane_swap1;
+
+					/* esd check table */
+					lcm-params-dsi-cust_esd_check = <0>;
+					lcm-params-dsi-esd_check_enable = <1>;
+					lcm-params-dsi-lcm_esd_check_table0 = [0a 01 1c];
+					lcm-params-dsi-lcm_esd_check_table1;
+					lcm-params-dsi-lcm_esd_check_table2;
+
+					/* Msync 3.0 */
+					lcm-params-dsi-skip_vblank = <0>;
+
+					lcm-params-dsi-lcm_is_support_od = <1>;
+					lcm-params-dsi-lcm_is_support_dmr;
+
+					lcm-params-dsi-dsc-params-2-1440-3200-60 {
+						compatible =
+							"mediatek,lcm-params-dsi-dsc-params";
+						lcm-params-dsi-dsc_enable = <1>;
+						lcm-params-dsi-dsc_ver = <18>;
+						lcm-params-dsi-dsc_slice_mode = <1>;
+						lcm-params-dsi-dsc_rgb_swap = <0>;
+						lcm-params-dsi-dsc_cfg = <40>;
+						lcm-params-dsi-dsc_rct_on = <1>;
+						lcm-params-dsi-dsc_bit_per_channel = <10>;
+						lcm-params-dsi-dsc_line_buf_depth = <11>;
+						lcm-params-dsi-dsc_bp_enable = <1>;
+						lcm-params-dsi-dsc_bit_per_pixel = <128>;
+						lcm-params-dsi-dsc_pic_height = <3200>;
+						lcm-params-dsi-dsc_pic_width = <1440>;
+						lcm-params-dsi-dsc_slice_height = <40>;
+						lcm-params-dsi-dsc_slice_width = <720>;
+						lcm-params-dsi-dsc_chunk_size = <720>;
+						lcm-params-dsi-dsc_xmit_delay = <512>;
+						lcm-params-dsi-dsc_dec_delay = <646>;
+						lcm-params-dsi-dsc_scale_value = <32>;
+						lcm-params-dsi-dsc_increment_interval = <1082>;
+						lcm-params-dsi-dsc_decrement_interval = <10>;
+						lcm-params-dsi-dsc_line_bpg_offset = <13>;
+						lcm-params-dsi-dsc_nfl_bpg_offset = <683>;
+						lcm-params-dsi-dsc_slice_bpg_offset = <489>;
+						lcm-params-dsi-dsc_initial_offset = <6144>;
+						lcm-params-dsi-dsc_final_offset = <4336>;
+						lcm-params-dsi-dsc_flatness_minqp = <7>;
+						lcm-params-dsi-dsc_flatness_maxqp = <16>;
+						lcm-params-dsi-dsc_rc_model_size = <8192>;
+						lcm-params-dsi-dsc_rc_edge_factor = <6>;
+						lcm-params-dsi-dsc_rc_quant_incr_limit0 = <15>;
+						lcm-params-dsi-dsc_rc_quant_incr_limit1 = <15>;
+						lcm-params-dsi-dsc_rc_tgt_offset_hi = <3>;
+						lcm-params-dsi-dsc_rc_tgt_offset_lo = <3>;
+
+						lcm-params-dsi-dsc-ext-pps-cfg {
+							compatible =
+							"mediatek,lcm-params-dsi-dsc-ext-pps-cfg";
+
+							pps_enable = <1>;
+							pps_rc_buf_thresh =
+								<896 1792 2688 3584 4480>,
+								<5376 6272 6720 7168 7616>,
+								<7744 7872 8000 8064>;
+							pps_range_min_qp =
+								<0 4 5 5 7>,
+								<7 7 7 7 8>,
+								<9 9 9 12 16>;
+							pps_range_max_qp =
+								<8 8 9 10 11>,
+								<11 11 12 13 14>,
+								<14 15 15 16 17>;
+							pps_range_bpg_ofs =
+								<0x00000002 0x00000000 0x00000000>,
+								<0xfffffffe 0xfffffffc 0xfffffffa>,
+								<0xfffffff8 0xfffffff8 0xfffffff8>,
+								<0xfffffff6 0xfffffff6 0xfffffff6>,
+								<0xfffffff4 0xfffffff4 0xfffffff4>;
+						};
+					};
+
+					lcm-params-dsi-phy-timcon-params-2-1440-3200-60 {
+						compatible =
+							"mediatek,lcm-params-dsi-phy-timcon";
+						lcm-params-dsi-phy_timcon_hs_trail;
+						lcm-params-dsi-phy_timcon_hs_prpr;
+						lcm-params-dsi-phy_timcon_hs_zero;
+						lcm-params-dsi-phy_timcon_lpx;
+						lcm-params-dsi-phy_timcon_ta_get;
+						lcm-params-dsi-phy_timcon_ta_sure;
+						lcm-params-dsi-phy_timcon_ta_go;
+						lcm-params-dsi-phy_timcon_da_hs_exit;
+						lcm-params-dsi-phy_timcon_clk_trail;
+						lcm-params-dsi-phy_timcon_cont_det;
+						lcm-params-dsi-phy_timcon_da_hs_sync;
+						lcm-params-dsi-phy_timcon_clk_zero;
+						lcm-params-dsi-phy_timcon_clk_prpr;
+						lcm-params-dsi-phy_timcon_clk_exit;
+						lcm-params-dsi-phy_timcon_clk_post;
+					};
+
+					lcm-params-dsi-dyn-params-2-1440-3200-60 {
+						compatible =
+							"mediatek,lcm-params-dsi-dyn";
+						lcm-params-dsi-dyn_switch_en = <1>;
+						lcm-params-dsi-dyn_pll_clk = <751>;
+						lcm-params-dsi-dyn_data_rate;
+						lcm-params-dsi-dyn_vsa;
+						lcm-params-dsi-dyn_vbp;
+						lcm-params-dsi-dyn_vfp;
+						lcm-params-dsi-dyn_vfp_lp_dyn;
+						lcm-params-dsi-dyn_vac;
+						lcm-params-dsi-dyn_hsa;
+						lcm-params-dsi-dyn_hbp;
+						lcm-params-dsi-dyn_hfp;
+						lcm-params-dsi-dyn_hac;
+						lcm-params-dsi-dyn_max_vfp_for_msync_dyn;
+					};
+
+					lcm-params-dsi-dyn-fps-params-2-1440-3200-60 {
+						compatible =
+							"mediatek,lcm-params-dsi-dyn-fps";
+						lcm-params-dsi-dyn_fps_switch_en;
+						lcm-params-dsi-dyn_fps_vact_timing_fps;
+						lcm-params-dsi-dyn_fps_data_rate;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table0;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table1;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table2;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table3;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table4;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table5;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table6;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table7;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table8;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table9;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table10;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table11;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table12;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table13;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table14;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table15;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table16;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table17;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table18;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table19;
+					};
+				};
+
+				lcm-params-dsi-fps-3-1440-3200-30 {
+					compatible = "mediatek,lcm-dsi-fps-3-1440-3200-30";
+					lcm-params-dsi-voltage;
+					lcm-params-dsi-fake = <0>;
+
+					/* drm_display_mode */
+					lcm-params-dsi-vrefresh = <30>;
+					lcm-params-dsi-vertical_sync_active = <2>;
+					lcm-params-dsi-vertical_backporch = <16>;
+					lcm-params-dsi-vertical_frontporch = <10>;
+					lcm-params-dsi-vertical_active_line = <3200>;
+					lcm-params-dsi-horizontal_sync_active = <20>;
+					lcm-params-dsi-horizontal_backporch = <40>;
+					lcm-params-dsi-horizontal_frontporch = <40>;
+					lcm-params-dsi-horizontal_active_pixel = <1440>;
+					lcm-params-dsi-pixel_clock = <596534>;
+					lcm-params-dsi-hskew;
+					lcm-params-dsi-vscan;
+
+					/* mtk_panel_params */
+					lcm-params-dsi-pll_clock = <750>;
+					lcm-params-dsi-data_rate = <1500>;
+					lcm-params-dsi-vfp_for_low_power;
+					lcm-params-dsi-ssc_enable;
+					lcm-params-dsi-ssc_range;
+					lcm-params-dsi-lcm_color_mode;
+					lcm-params-dsi-min_luminance;
+					lcm-params-dsi-average_luminance;
+					lcm-params-dsi-max_luminance;
+					lcm-params-dsi-round_corner_en = <0>;
+					lcm-params-dsi-corner_pattern_height;
+					lcm-params-dsi-corner_pattern_height_bot;
+					lcm-params-dsi-corner_pattern_tp_size;
+					lcm-params-dsi-corner_pattern_tp_size_left;
+					lcm-params-dsi-corner_pattern_tp_size_right;
+					lcm-params-dsi-corner_pattern_name;
+					lcm-params-dsi-physical_width_um;
+					lcm-params-dsi-physical_height_um;
+					lcm-params-dsi-output_mode =
+						<MTK_LCM_PANEL_DSC_SINGLE_PORT>;
+					lcm-params-dsi-lcm_cmd_if;
+					lcm-params-dsi-hbm_en_time;
+					lcm-params-dsi-hbm_dis_time;
+					lcm-params-dsi-lcm_index;
+					lcm-params-dsi-wait_sof_before_dec_vfp;
+					lcm-params-dsi-doze_delay;
+					lcm-params-dsi-lp_perline_en = <1>;
+					lcm-params-dsi-lfr_enable;
+					lcm-params-dsi-lfr_minimum_fps;
+					lcm-params-dsi-msync2_enable;
+					lcm-params-dsi-max_vfp_for_msync;
+
+					/* lane swap */
+					lcm-params-dsi-lane_swap_en;
+					lcm-params-dsi-lane_swap0;
+					lcm-params-dsi-lane_swap1;
+
+					/* esd check table */
+					lcm-params-dsi-cust_esd_check = <0>;
+					lcm-params-dsi-esd_check_enable = <1>;
+					lcm-params-dsi-lcm_esd_check_table0 = [0a 01 1c];
+					lcm-params-dsi-lcm_esd_check_table1;
+					lcm-params-dsi-lcm_esd_check_table2;
+
+					/* Msync 3.0 */
+					lcm-params-dsi-skip_vblank = <4>;
+
+					lcm-params-dsi-lcm_is_support_od = <1>;
+					lcm-params-dsi-lcm_is_support_dmr;
+
+					lcm-params-dsi-dsc-params-3-1440-3200-30 {
+						compatible =
+							"mediatek,lcm-params-dsi-dsc-params";
+						lcm-params-dsi-dsc_enable = <1>;
+						lcm-params-dsi-dsc_ver = <18>;
+						lcm-params-dsi-dsc_slice_mode = <1>;
+						lcm-params-dsi-dsc_rgb_swap = <0>;
+						lcm-params-dsi-dsc_cfg = <40>;
+						lcm-params-dsi-dsc_rct_on = <1>;
+						lcm-params-dsi-dsc_bit_per_channel = <10>;
+						lcm-params-dsi-dsc_line_buf_depth = <11>;
+						lcm-params-dsi-dsc_bp_enable = <1>;
+						lcm-params-dsi-dsc_bit_per_pixel = <128>;
+						lcm-params-dsi-dsc_pic_height = <3200>;
+						lcm-params-dsi-dsc_pic_width = <1440>;
+						lcm-params-dsi-dsc_slice_height = <40>;
+						lcm-params-dsi-dsc_slice_width = <720>;
+						lcm-params-dsi-dsc_chunk_size = <720>;
+						lcm-params-dsi-dsc_xmit_delay = <512>;
+						lcm-params-dsi-dsc_dec_delay = <646>;
+						lcm-params-dsi-dsc_scale_value = <32>;
+						lcm-params-dsi-dsc_increment_interval = <1082>;
+						lcm-params-dsi-dsc_decrement_interval = <10>;
+						lcm-params-dsi-dsc_line_bpg_offset = <13>;
+						lcm-params-dsi-dsc_nfl_bpg_offset = <683>;
+						lcm-params-dsi-dsc_slice_bpg_offset = <489>;
+						lcm-params-dsi-dsc_initial_offset = <6144>;
+						lcm-params-dsi-dsc_final_offset = <4336>;
+						lcm-params-dsi-dsc_flatness_minqp = <7>;
+						lcm-params-dsi-dsc_flatness_maxqp = <16>;
+						lcm-params-dsi-dsc_rc_model_size = <8192>;
+						lcm-params-dsi-dsc_rc_edge_factor = <6>;
+						lcm-params-dsi-dsc_rc_quant_incr_limit0 = <15>;
+						lcm-params-dsi-dsc_rc_quant_incr_limit1 = <15>;
+						lcm-params-dsi-dsc_rc_tgt_offset_hi = <3>;
+						lcm-params-dsi-dsc_rc_tgt_offset_lo = <3>;
+
+						lcm-params-dsi-dsc-ext-pps-cfg {
+							compatible =
+							"mediatek,lcm-params-dsi-dsc-ext-pps-cfg";
+
+							pps_enable = <1>;
+							pps_rc_buf_thresh =
+								<896 1792 2688 3584 4480>,
+								<5376 6272 6720 7168 7616>,
+								<7744 7872 8000 8064>;
+							pps_range_min_qp =
+								<0 4 5 5 7>,
+								<7 7 7 7 8>,
+								<9 9 9 12 16>;
+							pps_range_max_qp =
+								<8 8 9 10 11>,
+								<11 11 12 13 14>,
+								<14 15 15 16 17>;
+							pps_range_bpg_ofs =
+								<0x00000002 0x00000000 0x00000000>,
+								<0xfffffffe 0xfffffffc 0xfffffffa>,
+								<0xfffffff8 0xfffffff8 0xfffffff8>,
+								<0xfffffff6 0xfffffff6 0xfffffff6>,
+								<0xfffffff4 0xfffffff4 0xfffffff4>;
+						};
+					};
+
+					lcm-params-dsi-phy-timcon-params-3-1440-3200-30 {
+						compatible =
+							"mediatek,lcm-params-dsi-phy-timcon";
+						lcm-params-dsi-phy_timcon_hs_trail;
+						lcm-params-dsi-phy_timcon_hs_prpr;
+						lcm-params-dsi-phy_timcon_hs_zero;
+						lcm-params-dsi-phy_timcon_lpx;
+						lcm-params-dsi-phy_timcon_ta_get;
+						lcm-params-dsi-phy_timcon_ta_sure;
+						lcm-params-dsi-phy_timcon_ta_go;
+						lcm-params-dsi-phy_timcon_da_hs_exit;
+						lcm-params-dsi-phy_timcon_clk_trail;
+						lcm-params-dsi-phy_timcon_cont_det;
+						lcm-params-dsi-phy_timcon_da_hs_sync;
+						lcm-params-dsi-phy_timcon_clk_zero;
+						lcm-params-dsi-phy_timcon_clk_prpr;
+						lcm-params-dsi-phy_timcon_clk_exit;
+						lcm-params-dsi-phy_timcon_clk_post;
+					};
+
+					lcm-params-dsi-dyn-params-3-1440-3200-30 {
+						compatible =
+							"mediatek,lcm-params-dsi-dyn";
+						lcm-params-dsi-dyn_switch_en = <1>;
+						lcm-params-dsi-dyn_pll_clk = <751>;
+						lcm-params-dsi-dyn_data_rate;
+						lcm-params-dsi-dyn_vsa;
+						lcm-params-dsi-dyn_vbp;
+						lcm-params-dsi-dyn_vfp;
+						lcm-params-dsi-dyn_vfp_lp_dyn;
+						lcm-params-dsi-dyn_vac;
+						lcm-params-dsi-dyn_hsa;
+						lcm-params-dsi-dyn_hbp;
+						lcm-params-dsi-dyn_hfp;
+						lcm-params-dsi-dyn_hac;
+						lcm-params-dsi-dyn_max_vfp_for_msync_dyn;
+					};
+
+					lcm-params-dsi-dyn-fps-params-3-1440-3200-30 {
+						compatible =
+							"mediatek,lcm-params-dsi-dyn-fps";
+						lcm-params-dsi-dyn_fps_switch_en;
+						lcm-params-dsi-dyn_fps_vact_timing_fps;
+						lcm-params-dsi-dyn_fps_data_rate;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table0;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table1;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table2;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table3;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table4;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table5;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table6;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table7;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table8;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table9;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table10;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table11;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table12;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table13;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table14;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table15;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table16;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table17;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table18;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table19;
+					};
+				};
+
+				lcm-params-dsi-fps-4-1440-3200-24 {
+					compatible = "mediatek,lcm-dsi-fps-4-1440-3200-24";
+					lcm-params-dsi-voltage;
+					lcm-params-dsi-fake = <0>;
+
+					/* drm_display_mode */
+					lcm-params-dsi-vrefresh = <24>;
+					lcm-params-dsi-vertical_sync_active = <2>;
+					lcm-params-dsi-vertical_backporch = <16>;
+					lcm-params-dsi-vertical_frontporch = <10>;
+					lcm-params-dsi-vertical_active_line = <3200>;
+					lcm-params-dsi-horizontal_sync_active = <20>;
+					lcm-params-dsi-horizontal_backporch = <40>;
+					lcm-params-dsi-horizontal_frontporch = <40>;
+					lcm-params-dsi-horizontal_active_pixel = <1440>;
+					lcm-params-dsi-pixel_clock = <596534>;
+					lcm-params-dsi-hskew;
+					lcm-params-dsi-vscan;
+
+					/* mtk_panel_params */
+					lcm-params-dsi-pll_clock = <750>;
+					lcm-params-dsi-data_rate = <1500>;
+					lcm-params-dsi-vfp_for_low_power;
+					lcm-params-dsi-ssc_enable;
+					lcm-params-dsi-ssc_range;
+					lcm-params-dsi-lcm_color_mode;
+					lcm-params-dsi-min_luminance;
+					lcm-params-dsi-average_luminance;
+					lcm-params-dsi-max_luminance;
+					lcm-params-dsi-round_corner_en = <0>;
+					lcm-params-dsi-corner_pattern_height;
+					lcm-params-dsi-corner_pattern_height_bot;
+					lcm-params-dsi-corner_pattern_tp_size;
+					lcm-params-dsi-corner_pattern_tp_size_left;
+					lcm-params-dsi-corner_pattern_tp_size_right;
+					lcm-params-dsi-corner_pattern_name;
+					lcm-params-dsi-physical_width_um;
+					lcm-params-dsi-physical_height_um;
+					lcm-params-dsi-output_mode =
+						<MTK_LCM_PANEL_DSC_SINGLE_PORT>;
+					lcm-params-dsi-lcm_cmd_if;
+					lcm-params-dsi-hbm_en_time;
+					lcm-params-dsi-hbm_dis_time;
+					lcm-params-dsi-lcm_index;
+					lcm-params-dsi-wait_sof_before_dec_vfp;
+					lcm-params-dsi-doze_delay;
+					lcm-params-dsi-lp_perline_en = <1>;
+					lcm-params-dsi-lfr_enable;
+					lcm-params-dsi-lfr_minimum_fps;
+					lcm-params-dsi-msync2_enable;
+					lcm-params-dsi-max_vfp_for_msync;
+
+					/* lane swap */
+					lcm-params-dsi-lane_swap_en;
+					lcm-params-dsi-lane_swap0;
+					lcm-params-dsi-lane_swap1;
+
+					/* esd check table */
+					lcm-params-dsi-cust_esd_check = <0>;
+					lcm-params-dsi-esd_check_enable = <1>;
+					lcm-params-dsi-lcm_esd_check_table0 = [0a 01 1c];
+					lcm-params-dsi-lcm_esd_check_table1;
+					lcm-params-dsi-lcm_esd_check_table2;
+
+					/* Msync 3.0 */
+					lcm-params-dsi-skip_vblank = <5>;
+
+					lcm-params-dsi-lcm_is_support_od = <1>;
+					lcm-params-dsi-lcm_is_support_dmr;
+
+					lcm-params-dsi-dsc-params-4-1440-3200-24 {
+						compatible =
+							"mediatek,lcm-params-dsi-dsc-params";
+						lcm-params-dsi-dsc_enable = <1>;
+						lcm-params-dsi-dsc_ver = <18>;
+						lcm-params-dsi-dsc_slice_mode = <1>;
+						lcm-params-dsi-dsc_rgb_swap = <0>;
+						lcm-params-dsi-dsc_cfg = <40>;
+						lcm-params-dsi-dsc_rct_on = <1>;
+						lcm-params-dsi-dsc_bit_per_channel = <10>;
+						lcm-params-dsi-dsc_line_buf_depth = <11>;
+						lcm-params-dsi-dsc_bp_enable = <1>;
+						lcm-params-dsi-dsc_bit_per_pixel = <128>;
+						lcm-params-dsi-dsc_pic_height = <3200>;
+						lcm-params-dsi-dsc_pic_width = <1440>;
+						lcm-params-dsi-dsc_slice_height = <40>;
+						lcm-params-dsi-dsc_slice_width = <720>;
+						lcm-params-dsi-dsc_chunk_size = <720>;
+						lcm-params-dsi-dsc_xmit_delay = <512>;
+						lcm-params-dsi-dsc_dec_delay = <646>;
+						lcm-params-dsi-dsc_scale_value = <32>;
+						lcm-params-dsi-dsc_increment_interval = <1082>;
+						lcm-params-dsi-dsc_decrement_interval = <10>;
+						lcm-params-dsi-dsc_line_bpg_offset = <13>;
+						lcm-params-dsi-dsc_nfl_bpg_offset = <683>;
+						lcm-params-dsi-dsc_slice_bpg_offset = <489>;
+						lcm-params-dsi-dsc_initial_offset = <6144>;
+						lcm-params-dsi-dsc_final_offset = <4336>;
+						lcm-params-dsi-dsc_flatness_minqp = <7>;
+						lcm-params-dsi-dsc_flatness_maxqp = <16>;
+						lcm-params-dsi-dsc_rc_model_size = <8192>;
+						lcm-params-dsi-dsc_rc_edge_factor = <6>;
+						lcm-params-dsi-dsc_rc_quant_incr_limit0 = <15>;
+						lcm-params-dsi-dsc_rc_quant_incr_limit1 = <15>;
+						lcm-params-dsi-dsc_rc_tgt_offset_hi = <3>;
+						lcm-params-dsi-dsc_rc_tgt_offset_lo = <3>;
+
+						lcm-params-dsi-dsc-ext-pps-cfg {
+							compatible =
+							"mediatek,lcm-params-dsi-dsc-ext-pps-cfg";
+
+							pps_enable = <1>;
+							pps_rc_buf_thresh =
+								<896 1792 2688 3584 4480>,
+								<5376 6272 6720 7168 7616>,
+								<7744 7872 8000 8064>;
+							pps_range_min_qp =
+								<0 4 5 5 7>,
+								<7 7 7 7 8>,
+								<9 9 9 12 16>;
+							pps_range_max_qp =
+								<8 8 9 10 11>,
+								<11 11 12 13 14>,
+								<14 15 15 16 17>;
+							pps_range_bpg_ofs =
+								<0x00000002 0x00000000 0x00000000>,
+								<0xfffffffe 0xfffffffc 0xfffffffa>,
+								<0xfffffff8 0xfffffff8 0xfffffff8>,
+								<0xfffffff6 0xfffffff6 0xfffffff6>,
+								<0xfffffff4 0xfffffff4 0xfffffff4>;
+						};
+					};
+
+					lcm-params-dsi-phy-timcon-params-4-1440-3200-24 {
+						compatible =
+							"mediatek,lcm-params-dsi-phy-timcon";
+						lcm-params-dsi-phy_timcon_hs_trail;
+						lcm-params-dsi-phy_timcon_hs_prpr;
+						lcm-params-dsi-phy_timcon_hs_zero;
+						lcm-params-dsi-phy_timcon_lpx;
+						lcm-params-dsi-phy_timcon_ta_get;
+						lcm-params-dsi-phy_timcon_ta_sure;
+						lcm-params-dsi-phy_timcon_ta_go;
+						lcm-params-dsi-phy_timcon_da_hs_exit;
+						lcm-params-dsi-phy_timcon_clk_trail;
+						lcm-params-dsi-phy_timcon_cont_det;
+						lcm-params-dsi-phy_timcon_da_hs_sync;
+						lcm-params-dsi-phy_timcon_clk_zero;
+						lcm-params-dsi-phy_timcon_clk_prpr;
+						lcm-params-dsi-phy_timcon_clk_exit;
+						lcm-params-dsi-phy_timcon_clk_post;
+					};
+
+					lcm-params-dsi-dyn-params-4-1440-3200-24 {
+						compatible =
+							"mediatek,lcm-params-dsi-dyn";
+						lcm-params-dsi-dyn_switch_en = <1>;
+						lcm-params-dsi-dyn_pll_clk = <751>;
+						lcm-params-dsi-dyn_data_rate;
+						lcm-params-dsi-dyn_vsa;
+						lcm-params-dsi-dyn_vbp;
+						lcm-params-dsi-dyn_vfp;
+						lcm-params-dsi-dyn_vfp_lp_dyn;
+						lcm-params-dsi-dyn_vac;
+						lcm-params-dsi-dyn_hsa;
+						lcm-params-dsi-dyn_hbp;
+						lcm-params-dsi-dyn_hfp;
+						lcm-params-dsi-dyn_hac;
+						lcm-params-dsi-dyn_max_vfp_for_msync_dyn;
+					};
+
+					lcm-params-dsi-dyn-fps-params-4-1440-3200-24 {
+						compatible =
+							"mediatek,lcm-params-dsi-dyn-fps";
+						lcm-params-dsi-dyn_fps_switch_en;
+						lcm-params-dsi-dyn_fps_vact_timing_fps;
+						lcm-params-dsi-dyn_fps_data_rate;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table0;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table1;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table2;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table3;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table4;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table5;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table6;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table7;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table8;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table9;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table10;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table11;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table12;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table13;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table14;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table15;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table16;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table17;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table18;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table19;
+					};
+				};
+
+				lcm-params-dsi-fps-5-1440-3200-10 {
+					compatible = "mediatek,lcm-dsi-fps-5-1440-3200-10";
+					lcm-params-dsi-voltage;
+					lcm-params-dsi-fake = <0>;
+
+					/* drm_display_mode */
+					lcm-params-dsi-vrefresh = <10>;
+					lcm-params-dsi-vertical_sync_active = <2>;
+					lcm-params-dsi-vertical_backporch = <16>;
+					lcm-params-dsi-vertical_frontporch = <10>;
+					lcm-params-dsi-vertical_active_line = <3200>;
+					lcm-params-dsi-horizontal_sync_active = <20>;
+					lcm-params-dsi-horizontal_backporch = <40>;
+					lcm-params-dsi-horizontal_frontporch = <40>;
+					lcm-params-dsi-horizontal_active_pixel = <1440>;
+					lcm-params-dsi-pixel_clock = <596534>;
+					lcm-params-dsi-hskew;
+					lcm-params-dsi-vscan;
+
+					/* mtk_panel_params */
+					lcm-params-dsi-pll_clock = <750>;
+					lcm-params-dsi-data_rate = <1500>;
+					lcm-params-dsi-vfp_for_low_power;
+					lcm-params-dsi-ssc_enable;
+					lcm-params-dsi-ssc_range;
+					lcm-params-dsi-lcm_color_mode;
+					lcm-params-dsi-min_luminance;
+					lcm-params-dsi-average_luminance;
+					lcm-params-dsi-max_luminance;
+					lcm-params-dsi-round_corner_en = <0>;
+					lcm-params-dsi-corner_pattern_height;
+					lcm-params-dsi-corner_pattern_height_bot;
+					lcm-params-dsi-corner_pattern_tp_size;
+					lcm-params-dsi-corner_pattern_tp_size_left;
+					lcm-params-dsi-corner_pattern_tp_size_right;
+					lcm-params-dsi-corner_pattern_name;
+					lcm-params-dsi-physical_width_um;
+					lcm-params-dsi-physical_height_um;
+					lcm-params-dsi-output_mode =
+						<MTK_LCM_PANEL_DSC_SINGLE_PORT>;
+					lcm-params-dsi-lcm_cmd_if;
+					lcm-params-dsi-hbm_en_time;
+					lcm-params-dsi-hbm_dis_time;
+					lcm-params-dsi-lcm_index;
+					lcm-params-dsi-wait_sof_before_dec_vfp;
+					lcm-params-dsi-doze_delay;
+					lcm-params-dsi-lp_perline_en = <1>;
+					lcm-params-dsi-lfr_enable;
+					lcm-params-dsi-lfr_minimum_fps;
+					lcm-params-dsi-msync2_enable;
+					lcm-params-dsi-max_vfp_for_msync;
+
+					/* lane swap */
+					lcm-params-dsi-lane_swap_en;
+					lcm-params-dsi-lane_swap0;
+					lcm-params-dsi-lane_swap1;
+
+					/* esd check table */
+					lcm-params-dsi-cust_esd_check = <0>;
+					lcm-params-dsi-esd_check_enable = <1>;
+					lcm-params-dsi-lcm_esd_check_table0 = [0a 01 1c];
+					lcm-params-dsi-lcm_esd_check_table1;
+					lcm-params-dsi-lcm_esd_check_table2;
+
+					/* Msync 3.0 */
+					lcm-params-dsi-skip_vblank = <12>;
+
+					lcm-params-dsi-lcm_is_support_od = <1>;
+					lcm-params-dsi-lcm_is_support_dmr;
+
+					lcm-params-dsi-dsc-params-5-1440-3200-10 {
+						compatible =
+							"mediatek,lcm-params-dsi-dsc-params";
+						lcm-params-dsi-dsc_enable = <1>;
+						lcm-params-dsi-dsc_ver = <18>;
+						lcm-params-dsi-dsc_slice_mode = <1>;
+						lcm-params-dsi-dsc_rgb_swap = <0>;
+						lcm-params-dsi-dsc_cfg = <40>;
+						lcm-params-dsi-dsc_rct_on = <1>;
+						lcm-params-dsi-dsc_bit_per_channel = <10>;
+						lcm-params-dsi-dsc_line_buf_depth = <11>;
+						lcm-params-dsi-dsc_bp_enable = <1>;
+						lcm-params-dsi-dsc_bit_per_pixel = <128>;
+						lcm-params-dsi-dsc_pic_height = <3200>;
+						lcm-params-dsi-dsc_pic_width = <1440>;
+						lcm-params-dsi-dsc_slice_height = <40>;
+						lcm-params-dsi-dsc_slice_width = <720>;
+						lcm-params-dsi-dsc_chunk_size = <720>;
+						lcm-params-dsi-dsc_xmit_delay = <512>;
+						lcm-params-dsi-dsc_dec_delay = <646>;
+						lcm-params-dsi-dsc_scale_value = <32>;
+						lcm-params-dsi-dsc_increment_interval = <1082>;
+						lcm-params-dsi-dsc_decrement_interval = <10>;
+						lcm-params-dsi-dsc_line_bpg_offset = <13>;
+						lcm-params-dsi-dsc_nfl_bpg_offset = <683>;
+						lcm-params-dsi-dsc_slice_bpg_offset = <489>;
+						lcm-params-dsi-dsc_initial_offset = <6144>;
+						lcm-params-dsi-dsc_final_offset = <4336>;
+						lcm-params-dsi-dsc_flatness_minqp = <7>;
+						lcm-params-dsi-dsc_flatness_maxqp = <16>;
+						lcm-params-dsi-dsc_rc_model_size = <8192>;
+						lcm-params-dsi-dsc_rc_edge_factor = <6>;
+						lcm-params-dsi-dsc_rc_quant_incr_limit0 = <15>;
+						lcm-params-dsi-dsc_rc_quant_incr_limit1 = <15>;
+						lcm-params-dsi-dsc_rc_tgt_offset_hi = <3>;
+						lcm-params-dsi-dsc_rc_tgt_offset_lo = <3>;
+
+						lcm-params-dsi-dsc-ext-pps-cfg {
+							compatible =
+							"mediatek,lcm-params-dsi-dsc-ext-pps-cfg";
+
+							pps_enable = <1>;
+							pps_rc_buf_thresh =
+								<896 1792 2688 3584 4480>,
+								<5376 6272 6720 7168 7616>,
+								<7744 7872 8000 8064>;
+							pps_range_min_qp =
+								<0 4 5 5 7>,
+								<7 7 7 7 8>,
+								<9 9 9 12 16>;
+							pps_range_max_qp =
+								<8 8 9 10 11>,
+								<11 11 12 13 14>,
+								<14 15 15 16 17>;
+							pps_range_bpg_ofs =
+								<0x00000002 0x00000000 0x00000000>,
+								<0xfffffffe 0xfffffffc 0xfffffffa>,
+								<0xfffffff8 0xfffffff8 0xfffffff8>,
+								<0xfffffff6 0xfffffff6 0xfffffff6>,
+								<0xfffffff4 0xfffffff4 0xfffffff4>;
+						};
+					};
+
+					lcm-params-dsi-phy-timcon-params-5-1440-3200-10 {
+						compatible =
+							"mediatek,lcm-params-dsi-phy-timcon";
+						lcm-params-dsi-phy_timcon_hs_trail;
+						lcm-params-dsi-phy_timcon_hs_prpr;
+						lcm-params-dsi-phy_timcon_hs_zero;
+						lcm-params-dsi-phy_timcon_lpx;
+						lcm-params-dsi-phy_timcon_ta_get;
+						lcm-params-dsi-phy_timcon_ta_sure;
+						lcm-params-dsi-phy_timcon_ta_go;
+						lcm-params-dsi-phy_timcon_da_hs_exit;
+						lcm-params-dsi-phy_timcon_clk_trail;
+						lcm-params-dsi-phy_timcon_cont_det;
+						lcm-params-dsi-phy_timcon_da_hs_sync;
+						lcm-params-dsi-phy_timcon_clk_zero;
+						lcm-params-dsi-phy_timcon_clk_prpr;
+						lcm-params-dsi-phy_timcon_clk_exit;
+						lcm-params-dsi-phy_timcon_clk_post;
+					};
+
+					lcm-params-dsi-dyn-params-5-1440-3200-10 {
+						compatible =
+							"mediatek,lcm-params-dsi-dyn";
+						lcm-params-dsi-dyn_switch_en = <1>;
+						lcm-params-dsi-dyn_pll_clk = <751>;
+						lcm-params-dsi-dyn_data_rate;
+						lcm-params-dsi-dyn_vsa;
+						lcm-params-dsi-dyn_vbp;
+						lcm-params-dsi-dyn_vfp;
+						lcm-params-dsi-dyn_vfp_lp_dyn;
+						lcm-params-dsi-dyn_vac;
+						lcm-params-dsi-dyn_hsa;
+						lcm-params-dsi-dyn_hbp;
+						lcm-params-dsi-dyn_hfp;
+						lcm-params-dsi-dyn_hac;
+						lcm-params-dsi-dyn_max_vfp_for_msync_dyn;
+					};
+
+					lcm-params-dsi-dyn-fps-params-5-1440-3200-10 {
 						compatible =
 							"mediatek,lcm-params-dsi-dyn-fps";
 						lcm-params-dsi-dyn_fps_switch_en;
@@ -392,8 +1427,9 @@
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 F4 55],
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03 90 03 03],
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 13],
-						[91 89 28 00 28 D2 00 02 86 04],
-						[3A 00 0A 02 AB 01 E9 10 F0],
+						[91 AB A8 00 28 D2],
+						[00 02 86 04 3A 00],
+						[0A 02 AB 01 E9 10 F0],
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 05 2A 00 00 05 9F],
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 05 2B 00 00 0C 7F],
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 35 00],
@@ -435,43 +1471,47 @@
 
 				set_backlight_mask = <0xfff>;
 				set_backlight_cmdq_table =
-					[MTK_LCM_PHASE_TYPE_HEX_START 01 MTK_LCM_PHASE_HEX_KERNEL],
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 08],
 						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_BACKLIGHT 02 01 02],
 						[03 51 0F FF],
-					[MTK_LCM_PHASE_TYPE_HEX_END 01 MTK_LCM_PHASE_HEX_KERNEL],
-					[MTK_LCM_PHASE_TYPE_HEX_START 02],
-						[MTK_LCM_PHASE_HEX_LK],
-						[MTK_LCM_PHASE_HEX_LK_DISPLAY_ON_DELAY],
-					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 08],
-						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_BACKLIGHT 02 01 02],
-						[03 51 0F FF],
-					[MTK_LCM_PHASE_TYPE_HEX_END 02],
-						[MTK_LCM_PHASE_HEX_LK],
-						[MTK_LCM_PHASE_HEX_LK_DISPLAY_ON_DELAY],
 					[MTK_LCM_TYPE_HEX_END];
 
-				set_elvss_cmdq_table;
-				set_backlight_elvss_cmdq_table;
+				set_elvss_cmdq_table =
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 06],
+						[MTK_LCM_INPUT_TYPE_HEX_MISC 01 01],
+						[02 83 ff],
+					[MTK_LCM_TYPE_HEX_END];
 
-				set_aod_light_mask = <0xff>;
-				set_aod_light_table;
+				set_backlight_elvss_cmdq_table =
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 08],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_BACKLIGHT 02 01 02],
+						[03 51 0F FF],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 06],
+						[MTK_LCM_INPUT_TYPE_HEX_MISC 01 01],
+						[02 83 ff],
+					[MTK_LCM_TYPE_HEX_END];
+
+				set_aod_light_mask = <0xfff>;
+				set_aod_light_table =
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 08],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_BACKLIGHT 02 01 02],
+						[03 51 0F FF],
+					[MTK_LCM_TYPE_HEX_END];
 
 				ata_id_value_data = [01 25 00];
 				ata_check_table =
 					[MTK_LCM_CMD_TYPE_HEX_READ_CMD 03 00 03 04],
 					[MTK_LCM_TYPE_HEX_END];
 
-				compare_id_value_data = [00];
+				compare_id_value_data = [78 01];
 				compare_id_table = [MTK_LCM_UTIL_TYPE_HEX_RESET 01 01],
 					[MTK_LCM_UTIL_TYPE_HEX_RESET 01 00],
 					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 01],
 					[MTK_LCM_UTIL_TYPE_HEX_RESET 01 01],
 					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 14],
-					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_COUNT 01 01],
-					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM 05 00 00 01 37 00],
-					[MTK_LCM_LK_TYPE_HEX_WRITE_PARAM 00],
-					[MTK_LCM_CMD_TYPE_HEX_READ_BUFFER 03 00 01 bf],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+						[F0 55 AA 52 08 01],
+					[MTK_LCM_CMD_TYPE_HEX_READ_BUFFER 03 00 02 bc],
 					[MTK_LCM_TYPE_HEX_END];
 
 				doze_enable_start_table;
@@ -496,7 +1536,57 @@
 				lcm-ops-dsi-fps-switch-after-poweron {
 					compatible =
 						"mediatek,lcm-ops-dsi-fps-switch-after-poweron";
-					fps-switch-0-1440-3200-120_table;
+					fps-switch-0-1440-3200-120_table =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 00],
+						[MTK_LCM_TYPE_HEX_END];
+
+					fps-switch-1-1440-3200-90_table =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 01],
+						[MTK_LCM_TYPE_HEX_END];
+
+					fps-switch-2-1440-3200-60_table =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+							[F0 55 AA 52 08 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 1C],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 09],
+							[BA 91 01 01 00 01 01 01 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 5A 01],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 30],
+						[MTK_LCM_TYPE_HEX_END];
+
+					fps-switch-3-1440-3200-30_table =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+							[F0 55 AA 52 08 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 1C],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 09],
+							[BA 91 03 03 00 01 03 03 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 5A 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 30],
+						[MTK_LCM_TYPE_HEX_END];
+
+					fps-switch-4-1440-3200-24_table =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+							[F0 55 AA 52 08 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 1C],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 09],
+							[BA 91 04 04 00 01 04 04 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 5A 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 30],
+						[MTK_LCM_TYPE_HEX_END];
+
+					fps-switch-5-1440-3200-10_table =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+							[F0 55 AA 52 08 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 1C],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 09],
+							[BA 91 0B 0B 00 01 0B 0B 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 5A 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 30],
+						[MTK_LCM_TYPE_HEX_END];
 				};
 
 				lcm-ops-dsi-fps-switch-before-powerdown {
