@@ -19,7 +19,8 @@
 
 struct mtk_cam_event_sensor_trigger {
 	__u32	tg_cnt;
-	__u32	reserved[15];
+	__u32	sensor_seq;
+	__u32	reserved[14];
 };
 
 

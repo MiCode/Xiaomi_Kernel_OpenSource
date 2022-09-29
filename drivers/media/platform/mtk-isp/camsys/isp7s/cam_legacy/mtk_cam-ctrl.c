@@ -97,13 +97,14 @@ void mtk_cam_event_sensor_trigger(struct mtk_raw_pipeline *pipeline,
 {
 	struct mtk_cam_event_sensor_trigger data = {
 		.tg_cnt = tg_cnt,
+		.sensor_seq = frame_seq_no,
 	};
 	struct v4l2_event event = {
 		.type = V4L2_EVENT_REQUEST_SENSOR_TRIGGER,
 		.u.frame_sync.frame_sequence = frame_seq_no,
 	};
-	memcpy(event.u.data, &data, 4);
-	// pr_info("preisp sensor event trigger:(%d)\n", (__u32)event.u.data[0]);
+	memcpy(event.u.data, &data, 8);
+	// pr_info("preisp sensor event:(%d/%d)\n", (__u32)event.u.data[0], (__u32)event.u.data[1]);
 	v4l2_event_queue(pipeline->subdev.devnode, &event);
 }
 
