@@ -1,14 +1,14 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
 /*
  * Device Tree defines for LCM settings
  * Copyright (c) 2022 MediaTek Inc.
  */
 
 &pio {
-	mt6985_nt37801_dphy_cmd_120hz_spr: mt6985_nt37801_dphy_cmd_120hz_spr {
+	mt6985_nt37801_dphy_cmd_120hz_spr: mt6985-nt37801-dphy-cmd-120hz-spr {
 		compatible = "mediatek,mt6985_nt37801_dphy_cmd_120hz_spr";
 
-		spr_ip_cfg =
+		spr-ip-cfg =
 			<0x00960438 0xf00010f0 0x08100800 0xf808f800 0x08000808>,
 			<0x00080010 0x08000000 0x10120000 0x00121000 0x10001012>,
 			<0x01f20012 0x22010001 0x02000220 0x20040003 0x00040003>,

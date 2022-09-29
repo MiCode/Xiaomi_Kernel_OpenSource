@@ -1,17 +1,17 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
 /*
  * Device Tree defines for LCM settings
  * Copyright (c) 2022 MediaTek Inc.
  */
 
 &pio {
-	nt36672c_fhdp_shechao_round_corner_pattern: nt36672c_fhdp_shechao_round_corner_pattern {
+	nt36672c_fhdp_shechao_round_corner_pattern: nt36672c-fhdp-shechao-round-corner-pattern {
 		compatible = "mediatek,nt36672c_fhdp_shechao_round_corner_pattern";
 
-		pattern_height = <32>;
-		pattern_height_bot = <32>;
+		pattern-height = <32>;
+		pattern-height-bot = <32>;
 
-		left_top =
+		left-top =
 			[1d 00 03 01 1b 04 38 04 03 00 f0 a0],
 			[30 30 a0 f0 1b 00 02 01 1d 04 38 04],
 			[03 00 c0 60 10 60 c0 19 00 02 01 1f],
@@ -83,20 +83,20 @@
 			[5f bf 1d 00 03 01 1b 04 38 04 03 00],
 			[bf 6f 20 30 9f ef];
 
-		left_top_left;
-		left_top_right;
-		right_top;
-		left_bottom;
-		right_bottom;
+		left-top-left;
+		left-top-right;
+		right-top;
+		left-bottom;
+		right-bottom;
 
 		lk-params {
 			compatible = "mediatek,lk-round-corner";
-			lk_rc_is_notch;
-			lk_rc_full_content = <0>;
-			lk_rc_width;
-			lk_rc_height;
-			lk_rc_width_bot;
-			lk_rc_height_bot;
+			lk-rc-is-notch;
+			lk-rc-full-content = <0>;
+			lk-rc-width;
+			lk-rc-height;
+			lk-rc-width-bot;
+			lk-rc-height-bot;
 		};
 	};
 };
