@@ -1264,9 +1264,9 @@ static void dlo_config_right(struct mml_frame_config *cfg,
 			     struct dlo_tile_data *data)
 {
 	data->enable_x_crop = true;
-	data->crop.left = cfg->dl_out[0].width;
+	data->crop.left = cfg->dl_out[1].left - cfg->dl_out[0].left;
 	data->crop.width = cfg->dl_out[1].width;
-	if (data->crop.left != cfg->dl_out[1].left - cfg->dl_out[0].left ||
+	if (data->crop.left > cfg->dl_out[0].width ||
 	    data->crop.left + data->crop.width != dest->compose.width ||
 	    cfg->dl_out[1].height != dest->compose.height)
 		mml_err("dlo[1] (%u, %u, %u, %u) cannot match compose (%u, %u) left %u",
