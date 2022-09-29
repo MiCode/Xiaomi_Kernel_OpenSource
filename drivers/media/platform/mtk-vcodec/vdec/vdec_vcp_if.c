@@ -836,7 +836,7 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 	int timeout = 0;
 	struct vdec_inst *inst = NULL;
 
-	if (!(mtk_vcodec_vcp & (1 << MTK_INST_DECODER)))
+	if (!mtk_vcodec_is_vcp(MTK_INST_DECODER))
 		return 0;
 
 	dev = container_of(this, struct mtk_vcodec_dev, vcp_notify);

@@ -31,7 +31,7 @@ static const struct venc_common_if *get_data_path_ptr(void)
 #if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 	if (VCU_FPTR(vcu_get_plat_device)) {
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-		if (mtk_vcodec_vcp & (1 << MTK_INST_ENCODER))
+		if (mtk_vcodec_is_vcp(MTK_INST_ENCODER))
 			return get_enc_vcp_if();
 #endif
 		return get_enc_vcu_if();
@@ -153,7 +153,7 @@ void venc_encode_prepare(void *ctx_prepare,
 	ctx->dev->curr_enc_ctx[core_id] = ctx;
 	spin_unlock_irqrestore(&ctx->dev->irqlock, *flags);
 	mtk_vcodec_enc_clock_on(ctx, core_id);
-	if (!(mtk_vcodec_vcp & (1 << MTK_INST_ENCODER)))
+	if (!mtk_vcodec_is_vcp(MTK_INST_ENCODER))
 		enable_irq(ctx->dev->enc_irq[core_id]);
 	if (core_id == MTK_VENC_CORE_0)
 		vcodec_trace_count("VENC_HW_CORE_0", 1);
@@ -182,7 +182,7 @@ void venc_encode_unprepare(void *ctx_unprepare,
 	else
 		vcodec_trace_count("VENC_HW_CORE_1", 0);
 
-	if (!(mtk_vcodec_vcp & (1 << MTK_INST_ENCODER)))
+	if (!mtk_vcodec_is_vcp(MTK_INST_ENCODER))
 		disable_irq(ctx->dev->enc_irq[core_id]);
 	mtk_vcodec_enc_clock_off(ctx, core_id);
 	spin_lock_irqsave(&ctx->dev->irqlock, *flags);

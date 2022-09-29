@@ -283,6 +283,7 @@ extern phys_addr_t vcp_get_reserve_mem_virt(enum vcp_reserve_mem_id_t id);
 extern phys_addr_t vcp_get_reserve_mem_size(enum vcp_reserve_mem_id_t id);
 #endif
 
+bool mtk_vcodec_is_vcp(int type);
 void __iomem *mtk_vcodec_get_dec_reg_addr(struct mtk_vcodec_ctx *data,
 	unsigned int reg_idx);
 void __iomem *mtk_vcodec_get_enc_reg_addr(struct mtk_vcodec_ctx *data,

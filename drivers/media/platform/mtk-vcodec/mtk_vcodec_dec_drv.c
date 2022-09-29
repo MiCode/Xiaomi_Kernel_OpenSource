@@ -83,7 +83,7 @@ static int fops_vcodec_open(struct file *file)
 	}
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) {
+	if (mtk_vcodec_is_vcp(MTK_INST_DECODER)) {
 		ret = vcp_register_feature(VDEC_FEATURE_ID);
 		if (ret) {
 			mtk_v4l2_err("Failed to vcp_register_feature");
@@ -281,7 +281,7 @@ static int fops_vcodec_release(struct file *file)
 		dev->dec_cnt--;
 	mutex_unlock(&dev->dev_mutex);
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) {
+	if (mtk_vcodec_is_vcp(MTK_INST_DECODER)) {
 		ret = vcp_deregister_feature(VDEC_FEATURE_ID);
 		if (ret) {
 			mtk_v4l2_err("Failed to vcp_deregister_feature");

@@ -80,6 +80,14 @@ EXPORT_SYMBOL_GPL(mtk_vdec_align_limit);
 struct vcu_v4l2_func vcu_func = { NULL };
 EXPORT_SYMBOL_GPL(vcu_func);
 
+bool mtk_vcodec_is_vcp(int type)
+{
+	if (type > MTK_INST_ENCODER || type < MTK_INST_DECODER)
+		return false;
+	return (mtk_vcodec_vcp & (1 << type));
+}
+EXPORT_SYMBOL_GPL(mtk_vcodec_is_vcp);
+
 /* VCODEC FTRACE */
 #if VCODEC_TRACE
 unsigned long vcodec_get_tracing_mark(void)

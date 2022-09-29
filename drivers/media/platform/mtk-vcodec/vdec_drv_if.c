@@ -30,7 +30,7 @@ static const struct vdec_common_if *get_data_path_ptr(void)
 #if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 	if (VCU_FPTR(vcu_get_plat_device)) {
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-		if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER))
+		if (mtk_vcodec_is_vcp(MTK_INST_DECODER))
 			return get_dec_vcp_if();
 #endif
 		return get_dec_vcu_if();
@@ -230,7 +230,7 @@ void vdec_decode_prepare(void *ctx_prepare,
 		}
 	}
 
-	if (ret == 0 && !(mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) &&
+	if (ret == 0 && !mtk_vcodec_is_vcp(MTK_INST_DECODER) &&
 	    ctx->power_type[hw_id] != VDEC_POWER_RELEASE)
 		enable_irq(ctx->dev->dec_irq[hw_id]);
 	mtk_vdec_dvfs_begin_frame(ctx, hw_id);
@@ -265,7 +265,7 @@ void vdec_decode_unprepare(void *ctx_unprepare,
 	else
 		vcodec_trace_count("VDEC_HW_LAT", 0);
 
-	if (!(mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) &&
+	if (!mtk_vcodec_is_vcp(MTK_INST_DECODER) &&
 	    ctx->power_type[hw_id] != VDEC_POWER_RELEASE)
 		disable_irq(ctx->dev->dec_irq[hw_id]);
 	if (ctx->power_type[hw_id] == VDEC_POWER_RELEASE) {

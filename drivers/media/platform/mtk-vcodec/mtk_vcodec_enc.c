@@ -3090,7 +3090,7 @@ void mtk_vcodec_enc_set_default_params(struct mtk_vcodec_ctx *ctx)
 	get_supported_framesizes(ctx);
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	if (mtk_vcodec_vcp & (1 << MTK_INST_ENCODER)) {
+	if (mtk_vcodec_is_vcp(MTK_INST_ENCODER)) {
 		set_venc_vcp_data(ctx, VENC_VCP_LOG_INFO_ID);
 		set_venc_vcp_data(ctx, VENC_SET_PROP_MEM_ID);
 	}

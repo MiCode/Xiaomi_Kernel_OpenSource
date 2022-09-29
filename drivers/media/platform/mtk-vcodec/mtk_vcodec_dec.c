@@ -2034,7 +2034,7 @@ void mtk_vdec_check_alive(struct timer_list *t)
 void mtk_vdec_alive_checker_init(struct mtk_vcodec_dev *dev)
 {
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) {
+	if (mtk_vcodec_is_vcp(MTK_INST_DECODER)) {
 		mutex_lock(&dev->ctx_mutex);
 		if (list_empty(&dev->ctx_list)) {
 			mtk_v4l2_debug(0, "[VDVFS][VDEC] init vdec alive checker...");
@@ -2053,7 +2053,7 @@ void mtk_vdec_alive_checker_init(struct mtk_vcodec_dev *dev)
 void mtk_vdec_alive_checker_deinit(struct mtk_vcodec_dev *dev)
 {
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) {
+	if (mtk_vcodec_is_vcp(MTK_INST_DECODER)) {
 		mutex_lock(&dev->ctx_mutex);
 		if (list_empty(&dev->ctx_list)) {
 			del_timer_sync(&dev->vdec_dvfs_params.vdec_active_checker);
@@ -2106,7 +2106,7 @@ void mtk_vcodec_dec_set_default_params(struct mtk_vcodec_ctx *ctx)
 	get_supported_framesizes(ctx);
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) {
+	if (mtk_vcodec_is_vcp(MTK_INST_DECODER)) {
 		set_vdec_vcp_data(ctx, VDEC_VCP_LOG_INFO_ID);
 		set_vdec_vcp_data(ctx, VDEC_SET_PROP_MEM_ID);
 	}
@@ -2785,7 +2785,8 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 
 	if ((f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) &&
 		vb2_is_busy(&ctx->m2m_ctx->cap_q_ctx.q)) {
-		mtk_v4l2_err("cap_q_ctx buffers already requested");
+		// can change back to mtk_v4l2_err after c2 flow fix
+		mtk_v4l2_debug(1, "cap_q_ctx buffers already requested");
 		ret = -EBUSY;
 	}
 
@@ -3747,14 +3748,16 @@ static int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 		if (ctx->src_cnt != NULL)
 			*(ctx->src_cnt) = 0;
 
-		// set SET_PARAM_TOTAL_BITSTREAM_BUFQ_COUNT for
-		// error handling when framing
-		total_frame_bufq_count = q->num_buffers;
-		if (vdec_if_set_param(ctx,
-			SET_PARAM_TOTAL_BITSTREAM_BUFQ_COUNT,
-			&total_frame_bufq_count)) {
-			mtk_v4l2_err("[%d] Error!! Cannot set param",
-				ctx->id);
+		if (!mtk_vcodec_is_vcp(MTK_INST_DECODER)) {
+			// set SET_PARAM_TOTAL_BITSTREAM_BUFQ_COUNT for
+			// error handling when framing
+			total_frame_bufq_count = q->num_buffers;
+			if (vdec_if_set_param(ctx,
+				SET_PARAM_TOTAL_BITSTREAM_BUFQ_COUNT,
+				&total_frame_bufq_count)) {
+				mtk_v4l2_err("[%d] Error!! Cannot set param",
+					ctx->id);
+			}
 		}
 		mtk_vdec_ts_reset(ctx);
 	}
@@ -4090,7 +4093,7 @@ static int mtk_vdec_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_MTK_SEC_DECODE:
 		ctx->dec_params.svp_mode = ctrl->val;
 		ctx->dec_param_change |= MTK_DEC_PARAM_SEC_DECODE;
-		mtk_v4l2_debug(0, "[%d] V4L2_CID_MPEG_MTK_SEC_DECODE id %d val %d",
+		mtk_v4l2_debug(ctrl->val ? 0 : 1, "[%d] V4L2_CID_MPEG_MTK_SEC_DECODE id %d val %d",
 			ctx->id, ctrl->id, ctrl->val);
 		break;
 	case V4L2_CID_MPEG_MTK_FRAME_SIZE:
