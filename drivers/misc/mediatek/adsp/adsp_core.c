@@ -23,6 +23,8 @@
 #include "adsp_mbox.h"
 #include "adsp_core.h"
 
+#define ADSP_MAGIC_PATTERN        (0xAD5BAD5B)
+
 #define adsp_smc_send(_opid, _val1, _val2)                   \
 ({                                                           \
 	struct arm_smccc_res res;                            \
@@ -462,14 +464,14 @@ int adsp_reset(void)
 	}
 
 	/* clear adsp cfg */
-	adsp_smc_send(MTK_ADSP_KERNEL_OP_SYS_CLEAR, 0, 0);
+	adsp_smc_send(MTK_ADSP_KERNEL_OP_SYS_CLEAR, ADSP_MAGIC_PATTERN, 0);
 
 	/* choose default clk mux */
 	adsp_select_clock_mode(CLK_LOW_POWER);
 	adsp_select_clock_mode(CLK_DEFAULT_INIT);
 
 	/* reload adsp */
-	ret = adsp_smc_send(MTK_ADSP_KERNEL_OP_RELOAD, 0, 0);
+	ret = adsp_smc_send(MTK_ADSP_KERNEL_OP_RELOAD, ADSP_MAGIC_PATTERN, 0);
 	if (ret < 0) {
 		pr_info("%s, adsp reload fail\n", __func__);
 		return ret;
@@ -601,7 +603,7 @@ int adsp_system_bootup(void)
 		goto ERROR;
 
 	switch_adsp_power(true);
-	adsp_smc_send(MTK_ADSP_KERNEL_OP_SYS_CLEAR, 0, 0);
+	adsp_smc_send(MTK_ADSP_KERNEL_OP_SYS_CLEAR, ADSP_MAGIC_PATTERN, 0);
 
 	for (cid = 0; cid < get_adsp_core_total(); cid++) {
 		pdata = adsp_cores[cid];
