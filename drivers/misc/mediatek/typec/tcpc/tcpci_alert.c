@@ -230,8 +230,19 @@ out:
 
 static int tcpci_alert_rx_overflow(struct tcpc_device *tcpc)
 {
+	int rv;
+	uint32_t alert_status;
+
 	TCPC_INFO("RX_OVERFLOW\n");
-	return tcpci_alert_recv_msg(tcpc);
+
+	rv = tcpci_get_alert_status(tcpc, &alert_status);
+	if (rv)
+		return rv;
+
+	if (alert_status & TCPC_REG_ALERT_RX_STATUS)
+		return tcpci_alert_recv_msg(tcpc);
+
+	return 0;
 }
 
 static int tcpci_alert_recv_hard_reset(struct tcpc_device *tcpc)
