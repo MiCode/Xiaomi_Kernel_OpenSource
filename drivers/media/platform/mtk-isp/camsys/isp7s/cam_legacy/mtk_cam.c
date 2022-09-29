@@ -854,8 +854,11 @@ static int update_scen_param(struct mtk_cam_ctx *ctx,
 	}
 
 	// vsync order
-	config_param->vsync_order =
-		mtk_cam_seninf_get_vsync_order(ctx->seninf);
+	if (ctx->seninf)
+		config_param->vsync_order =
+			mtk_cam_seninf_get_vsync_order(ctx->seninf);
+	else
+		config_param->vsync_order = MTKCAM_IPI_ORDER_BAYER_FIRST;
 
 	return 0;
 }
