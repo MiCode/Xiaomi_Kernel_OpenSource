@@ -7469,7 +7469,6 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 
 		if (!comp) {
 			DDPPR_ERR("ddp comp is NULL\n");
-			cmdq_pkt_destroy(cb_data->cmdq_handle);
 			kfree(cb_data);
 			return;
 		}
