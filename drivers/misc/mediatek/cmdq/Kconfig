@@ -6,3 +6,11 @@ config MTK_CMDQ_MBOX_EXT
 	  and aee db. Enable performance tools which add instruction
 	  inside packet and profiling. Also enable secure path with
 	  new sec controller which decuple with v3 driver.
+
+config MTK_CMDQ_DEBUG
+	tristate "enable CMDQ mailbox driver hw trace debug extension"
+	help
+	  This extension enables hw trace feature for cmdq driver, we
+	  only default enable hw trace feature in userdebug/eng load, and avoid
+	  user load for performance concern. But for hw trace feature,
+	  user can enable/disable it with adb command.

@@ -2405,8 +2405,10 @@ static int cmdq_probe(struct platform_device *pdev)
 #endif
 	cmdq->prebuilt_clt = cmdq_mbox_create(&pdev->dev, 0);
 	cmdq->hw_trace_clt = cmdq_mbox_create(&pdev->dev, 1);
+#if IS_ENABLED(CONFIG_MTK_CMDQ_DEBUG)
 	if (cmdq->hw_trace_clt && !IS_ERR(cmdq->hw_trace_clt))
 		cmdq_hw_trace = 1;
+#endif
 
 	if (!of_parse_phandle_with_args(
 		dev->of_node, "iommus", "#iommu-cells", 0, &args)) {
@@ -3101,7 +3103,7 @@ void cmdq_event_verify(void *chan, u16 event_id)
 }
 EXPORT_SYMBOL(cmdq_event_verify);
 
-s32 cmdq_pkt_hw_trace(struct cmdq_pkt *pkt)
+s32 cmdq_pkt_hw_trace(struct cmdq_pkt *pkt, const u16 event_id)
 {
 	struct cmdq_thread *thread;
 	struct cmdq_operand lop, rop;
@@ -3122,7 +3124,8 @@ s32 cmdq_pkt_hw_trace(struct cmdq_pkt *pkt)
 	cmdq_log("%s: pkt:%p idx:%hu", __func__, pkt, thread->idx);
 
 	// spr = (CMDQ_TPR_ID >> 14) | (idx << 24)
-	cmdq_pkt_assign_command(pkt, CMDQ_SPR_FOR_TEMP, thread->idx << 24);
+	cmdq_pkt_assign_command(pkt, CMDQ_SPR_FOR_TEMP,
+		thread->idx << 27 | (event_id & GENMASK(9, 0)) << 18);
 
 	lop.reg = true;
 	lop.idx = CMDQ_TPR_ID;
@@ -3139,6 +3142,8 @@ s32 cmdq_pkt_hw_trace(struct cmdq_pkt *pkt)
 	rop.idx = CMDQ_SPR_FOR_TEMP;
 	cmdq_pkt_logic_command(
 		pkt, CMDQ_LOGIC_OR, CMDQ_CPR_HW_TRACE_TEMP, &lop, &rop);
+
+	cmdq_hw_trace_check_inst(pkt);
 
 	cmdq_pkt_set_event(pkt, CMDQ_TOKEN_HW_TRACE_WAIT);
 	cmdq_pkt_set_event(pkt, CMDQ_TOKEN_HW_TRACE_LOCK);

@@ -929,7 +929,7 @@ struct cmdq_pkt *cmdq_pkt_create(struct cmdq_client *client)
 		cmdq_pkt_perf_begin(pkt);
 
 	if (!cmdq_util_is_prebuilt_client(client))
-		cmdq_pkt_hw_trace(pkt);
+		cmdq_pkt_hw_trace(pkt, 0);
 #endif
 	pkt->task_alive = true;
 	return pkt;
@@ -2062,6 +2062,25 @@ u32 *cmdq_pkt_get_perf_ret(struct cmdq_pkt *pkt)
 }
 EXPORT_SYMBOL(cmdq_pkt_get_perf_ret);
 
+void cmdq_hw_trace_check_inst(struct cmdq_pkt *pkt)
+{
+	struct cmdq_instruction *cmdq_inst, inst;
+
+	cmdq_inst = (struct cmdq_instruction *)cmdq_pkt_get_va_by_offset(pkt,
+		pkt->cmd_buf_size - CMDQ_INST_SIZE);
+	if (cmdq_inst && cmdq_inst->op == CMDQ_CODE_LOGIC) {
+		inst = *cmdq_inst;
+		if (cmdq_inst->arg_c != CMDQ_SPR_FOR_TEMP ||
+			cmdq_inst->arg_b != CMDQ_THR_SPR_IDX2) {
+			cmdq_inst->arg_c = CMDQ_SPR_FOR_TEMP;
+			cmdq_inst->arg_b = CMDQ_THR_SPR_IDX2;
+			cmdq_err("wrong hw trace inst:%#018llx -> %#018llx",
+				inst, *((u64 *)cmdq_inst));
+		}
+	}
+}
+EXPORT_SYMBOL(cmdq_hw_trace_check_inst);
+
 static bool cmdq_pkt_hw_trace_event(struct cmdq_pkt *pkt, const u16 event)
 {
 	struct cmdq_client *client;
@@ -2107,7 +2126,7 @@ int cmdq_pkt_wfe(struct cmdq_pkt *pkt, u16 event)
 		0, 0, 0, 0, CMDQ_CODE_WFE);
 
 	if (cmdq_pkt_hw_trace_event(pkt, event))
-		cmdq_pkt_hw_trace(pkt);
+		cmdq_pkt_hw_trace(pkt, event);
 	return ret;
 }
 EXPORT_SYMBOL(cmdq_pkt_wfe);
@@ -2133,7 +2152,7 @@ int cmdq_pkt_wait_no_clear(struct cmdq_pkt *pkt, u16 event)
 		0, 0, 0, 0, CMDQ_CODE_WFE);
 
 	if (cmdq_pkt_hw_trace_event(pkt, event))
-		cmdq_pkt_hw_trace(pkt);
+		cmdq_pkt_hw_trace(pkt, event);
 
 	if (event == CMDQ_TOKEN_PAUSE_TASK_32)
 		pkt->pause_offset = pkt->cmd_buf_size;

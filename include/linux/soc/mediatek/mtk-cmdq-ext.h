@@ -590,6 +590,8 @@ void cmdq_pkt_set_err_cb(struct cmdq_pkt *pkt,
 
 int cmdq_helper_init(void);
 
+void cmdq_hw_trace_check_inst(struct cmdq_pkt *pkt);
+
 struct cmdq_thread_task_info {
 	dma_addr_t		pa_base;
 	struct cmdq_pkt		*pkt;
