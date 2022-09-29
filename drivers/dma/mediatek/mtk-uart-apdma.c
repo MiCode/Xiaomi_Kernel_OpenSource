@@ -797,11 +797,15 @@ static const struct mtk_uart_apdmacomp mt6779_comp = {
 	.addr_bits = 34
 };
 
+static const struct mtk_uart_apdmacomp mt6985_comp = {
+	.addr_bits = 35
+};
+
 static const struct of_device_id mtk_uart_apdma_match[] = {
 	{ .compatible = "mediatek,mt6577-uart-dma", .data = NULL},
 	{ .compatible = "mediatek,mt2712-uart-dma", .data = NULL},
 	{ .compatible = "mediatek,mt6779-uart-dma", .data = &mt6779_comp},
-	{ .compatible = "mediatek,mt6985-uart-dma", .data = &mt6779_comp},
+	{ .compatible = "mediatek,mt6985-uart-dma", .data = &mt6985_comp},
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, mtk_uart_apdma_match);
