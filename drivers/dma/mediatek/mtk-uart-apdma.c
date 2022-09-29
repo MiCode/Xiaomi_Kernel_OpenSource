@@ -127,6 +127,10 @@ struct mtk_chan {
 	unsigned long long rec_total;
 	unsigned int start_record_wpt;
 	unsigned int start_record_rpt;
+	unsigned int start_int_flag;
+	unsigned int start_int_en;
+	unsigned int start_en;
+	unsigned int start_int_buf_size;
 	unsigned long long start_record_time;
 	struct uart_info rec_info[UART_RECORD_COUNT];
 };
@@ -192,6 +196,10 @@ void mtk_uart_apdma_start_record(struct dma_chan *chan)
 
 	c->start_record_wpt =  mtk_uart_apdma_read(c, VFF_WPT);
 	c->start_record_rpt = mtk_uart_apdma_read(c, VFF_RPT);
+	c->start_int_flag =  mtk_uart_apdma_read(c, VFF_INT_FLAG);
+	c->start_int_en =  mtk_uart_apdma_read(c, VFF_INT_EN);
+	c->start_en =  mtk_uart_apdma_read(c, VFF_EN);
+	c->start_int_buf_size =  mtk_uart_apdma_read(c, VFF_INT_BUF_SIZE);
 	c->start_record_time = sched_clock();
 }
 EXPORT_SYMBOL(mtk_uart_apdma_start_record);
@@ -199,8 +207,12 @@ EXPORT_SYMBOL(mtk_uart_apdma_start_record);
 void mtk_uart_apdma_end_record(struct dma_chan *chan)
 {
 	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
-	int _wpt =  mtk_uart_apdma_read(c, VFF_WPT);
-	int _rpt = mtk_uart_apdma_read(c, VFF_RPT);
+	unsigned int _wpt =  mtk_uart_apdma_read(c, VFF_WPT);
+	unsigned int _rpt = mtk_uart_apdma_read(c, VFF_RPT);
+	unsigned int _int_flag = mtk_uart_apdma_read(c, VFF_INT_FLAG);
+	unsigned int _int_en = mtk_uart_apdma_read(c, VFF_INT_EN);
+	unsigned int _en = mtk_uart_apdma_read(c, VFF_EN);
+	unsigned int _int_buf_size = mtk_uart_apdma_read(c, VFF_INT_BUF_SIZE);
 	unsigned long long starttime = c->start_record_time;
 	unsigned long long endtime = sched_clock();
 	unsigned long ns1 = do_div(starttime, 1000000000);
@@ -208,11 +220,18 @@ void mtk_uart_apdma_end_record(struct dma_chan *chan)
 
 	dev_info(c->vc.chan.device->dev,
 			"[%s] [%s] [start %5lu.%06lu] start_wpt=0x%x, start_rpt=0x%x,\n"
-			"[end %5lu.%06lu] end_wpt=0x%x, end_rpt=0x%x\n",
+			"start_int_flag=0x%x, start_int_en=0x%x, start_en=0x%x, start_int_buf_size=0x%x\n",
 			__func__, c->dir == DMA_DEV_TO_MEM ? "dma_rx" : "dma_tx",
-			(unsigned long)starttime, ns1 / 1000, c->start_record_wpt,
-			 c->start_record_rpt, (unsigned long)endtime, ns2 / 1000,
-			 _wpt, _rpt);
+			(unsigned long)starttime, ns1 / 1000,
+			c->start_record_wpt, c->start_record_rpt, c->start_int_flag,
+			c->start_int_en, c->start_en, c->start_int_buf_size);
+	dev_info(c->vc.chan.device->dev,
+			"[%s] [%s] [end %5lu.%06lu] end_wpt=0x%x, end_rpt=0x%x\n"
+			"end_int_flag=0x%x, end_int_en=0x%x, end_en=0x%x, end_int_buf_size=0x%x\n",
+			__func__, c->dir == DMA_DEV_TO_MEM ? "dma_rx" : "dma_tx",
+			(unsigned long)endtime, ns2 / 1000, _wpt, _rpt, _int_flag,
+			_int_en, _en, _int_buf_size);
+
 }
 EXPORT_SYMBOL(mtk_uart_apdma_end_record);
 
