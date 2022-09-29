@@ -1509,10 +1509,6 @@ void mtk_crtc_prepare_dual_pipe_path(struct device *dev, struct mtk_drm_private 
 		DDPDBG("prepare comp id in dual pipe %s, type=%d\n",
 				mtk_dump_comp_str_id(comp_id),
 				mtk_ddp_comp_get_type(comp_id));
-		if (comp_id < 0) {
-			DDPPR_ERR("%s: Invalid comp_id:%d\n", __func__, comp_id);
-			return;
-		}
 		if (mtk_ddp_comp_get_type(comp_id) == MTK_DISP_VIRTUAL ||
 			mtk_ddp_comp_get_type(comp_id) == MTK_DISP_PWM) {
 			struct mtk_ddp_comp *comp;
