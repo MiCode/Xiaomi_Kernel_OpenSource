@@ -2389,10 +2389,30 @@ static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
 
 	ufshcd_dump_regs(hba, REG_UFS_EXTREG, 0x4, "Ext Reg ");
 
+	/* Dump ufshci register 0x100 ~ 0x160 */
+	ufshcd_dump_regs(hba, REG_UFS_CCAP,
+			 REG_UFS_MMIO_OPT_CTRL_0 - REG_UFS_CCAP + 4,
+			 "UFSHCI (0x100): ");
+
+	/* Dump ufshci register 0x190 ~ 0x194 */
+	ufshcd_dump_regs(hba, REG_UFS_MMIO_SQ_IS,
+			 REG_UFS_MMIO_SQ_IE - REG_UFS_MMIO_SQ_IS + 4,
+			 "UFSHCI (0x190): ");
+
+	/* Dump ufshci register 0x1A0 ~ 0x1A4 */
+	ufshcd_dump_regs(hba, REG_UFS_MMIO_CQ_IS,
+			 REG_UFS_MMIO_CQ_IE - REG_UFS_MMIO_CQ_IS + 4,
+			 "UFSHCI (0x1A0): ");
+
+	/* Dump ufshci register 0x320 ~ 0x498 */
+	ufshcd_dump_regs(hba, REG_UFS_MCQ_BASE,
+			 MCQ_ADDR(REG_UFS_CQ_TAIL, 7) - REG_UFS_MCQ_BASE + 4,
+			 "UFSHCI (0x320): ");
+
 	/* Dump ufshci register 0x2200 ~ 0x22AC */
 	ufshcd_dump_regs(hba, REG_UFS_MPHYCTRL,
 			 REG_UFS_AH8X_MON - REG_UFS_MPHYCTRL + 4,
-			 "MPHY Ctrl (0x2200): ");
+			 "UFSHCI (0x2200): ");
 
 	/* Direct debugging information to REG_MTK_PROBE */
 	ufs_mtk_dbg_sel(hba);
@@ -2404,7 +2424,7 @@ static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
 #if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	aee_kernel_warning_api(__FILE__,
 		__LINE__, DB_OPT_FS_IO_LOG | DB_OPT_FTRACE,
-		"ufs", "timeout dump");
+		"ufs", "error dump");
 #endif
 }
 
@@ -2490,6 +2510,8 @@ static void ufs_mtk_event_notify(struct ufs_hba *hba,
 	if (evt == UFS_EVT_PA_ERR) {
 		for_each_set_bit(bit, &reg, ARRAY_SIZE(ufs_uic_pa_err_str))
 			dev_info(hba->dev, "%s\n", ufs_uic_pa_err_str[bit]);
+
+		ufs_mtk_dbg_register_dump(hba);
 	}
 
 	if (evt == UFS_EVT_DL_ERR) {
