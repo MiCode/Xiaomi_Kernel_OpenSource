@@ -2460,14 +2460,15 @@ static int ufshcd_map_sg(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 
 				if (sg_dma_upper == 0 && sg_dma_lower >= 0x9C38D000 &&
 							 sg_dma_lower <= 0x9F433000) {
-					dev_err(hba->dev, "[UFS] Access Region 47 address: 0x%x %x\n",
-						sg_dma_upper, sg_dma_lower);
+					dev_err(hba->dev, "[UFS] Access Region 47 address: 0x%x %x, sg_page: 0x%x\n",
+						sg_dma_upper, sg_dma_lower, sg_page(sg));
 
 					/* dump DB for debug checking */
 					aee_kernel_warning_api(__FILE__, __LINE__,
 						DB_OPT_FS_IO_LOG | DB_OPT_FTRACE, "ufs",
 						"EMI MPU violation on Region 47: 0x%x %x",
 						sg_dma_upper, sg_dma_lower);
+					BUG_ON(1);
 				}
 			}
 #endif
