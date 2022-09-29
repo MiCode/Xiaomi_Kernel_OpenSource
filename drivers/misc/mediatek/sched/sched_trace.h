@@ -10,6 +10,7 @@
 #include <linux/string.h>
 #include <linux/types.h>
 #include <linux/tracepoint.h>
+#include <linux/compat.h>
 
 #ifdef CREATE_TRACE_POINTS
 int sched_cgroup_state(struct task_struct *p, int subsys_id)
@@ -104,6 +105,7 @@ TRACE_EVENT(sched_select_task_rq,
 
 	TP_STRUCT__entry(
 		__field(pid_t, pid)
+		__field(int, compat_thread)
 		__field(int, policy)
 		__field(int, prev_cpu)
 		__field(int, target_cpu)
@@ -120,6 +122,7 @@ TRACE_EVENT(sched_select_task_rq,
 
 	TP_fast_assign(
 		__entry->pid        = tsk->pid;
+		__entry->compat_thread = is_compat_thread(task_thread_info(tsk));
 		__entry->policy     = policy;
 		__entry->prev_cpu   = prev_cpu;
 		__entry->target_cpu = target_cpu;
@@ -135,8 +138,9 @@ TRACE_EVENT(sched_select_task_rq,
 		),
 
 	TP_printk(
-		"pid=%4d policy=0x%08x pre-cpu=%d target=%d util=%d util_est=%d uclamp=%d mask=0x%lx sys_mask=0x%lx latency_sensitive=%d sync=%d cpuctl=%d cpuset=%d",
+		"pid=%4d 32-bit=%d policy=0x%08x pre-cpu=%d target=%d util=%d util_est=%d uclamp=%d mask=0x%lx sys_mask=0x%lx latency_sensitive=%d sync=%d cpuctl=%d cpuset=%d",
 		__entry->pid,
+		__entry->compat_thread,
 		__entry->policy,
 		__entry->prev_cpu,
 		__entry->target_cpu,
