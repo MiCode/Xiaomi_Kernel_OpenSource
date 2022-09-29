@@ -3951,7 +3951,8 @@ int disp_met_stop_set(void *data, u64 val)
 	/*1 enable  ; 0 disable*/
 	DDPMSG("MET Stop Condition list:\n");
 	DDPMSG("    1: underrun\n");
-	DDPMSG("    2: others\n");
+	DDPMSG("    2: oddmr err\n");
+	DDPMSG("    3: others\n");
 	DDPMSG("%s: update met stop condition from:%u to %lu\n",
 		__func__, disp_met_condition, val);
 
@@ -3961,7 +3962,10 @@ int disp_met_stop_set(void *data, u64 val)
 	case 1: //underrun
 		clear_dsi_underrun_event();
 		break;
-	case 2: //others
+	case 2: //oddmr err
+		clear_oddmr_err_event();
+		break;
+	case 3: //others
 		break;
 	default:
 		break;
@@ -3976,7 +3980,10 @@ static int disp_met_stop_get(void *data, u64 *val)
 	case 1: //underrun
 		*val = check_dsi_underrun_event();
 		break;
-	case 2: //others
+	case 2: //oddmr err
+		*val = check_oddmr_err_event();
+		break;
+	case 3: //others
 		*val = 0;
 		break;
 	default:

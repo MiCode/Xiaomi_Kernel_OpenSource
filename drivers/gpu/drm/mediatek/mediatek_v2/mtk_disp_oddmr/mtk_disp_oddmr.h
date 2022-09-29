@@ -92,6 +92,7 @@ struct mtk_disp_oddmr_data {
 	uint32_t dmr_buffer_size;
 	uint32_t odr_buffer_size;
 	uint32_t odw_buffer_size;
+	irqreturn_t (*irq_handler)(int irq, void *dev_id);
 };
 
 struct mtk_disp_oddmr_od_data {
@@ -142,6 +143,9 @@ struct mtk_disp_oddmr {
 	struct icc_path *qos_req_odw;
 	uint32_t qos_srt_odw;
 	uint32_t last_qos_srt_odw;
+	struct icc_path *qos_req_dmrr_hrt;
+	struct icc_path *qos_req_odr_hrt;
+	struct icc_path *qos_req_odw_hrt;
 	uint32_t irq_status;
 	/* only use in pipe0 */
 	enum ODDMR_STATE od_state;
@@ -159,4 +163,6 @@ int mtk_oddmr_hrt_cal_notify(int *oddmr_hrt);
 void mtk_disp_oddmr_debug(const char *opt);
 void mtk_oddmr_ddren(struct cmdq_pkt *cmdq_handle,
 	struct drm_crtc *crtc, int en);
+unsigned int check_oddmr_err_event(void);
+void clear_oddmr_err_event(void);
 #endif

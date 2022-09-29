@@ -764,7 +764,7 @@ static void mtk_oddmr_od_set_res(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg
 {
 	struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
 	uint32_t tile_overhead, scaling_mode, hscaling, h_2x4x_sel, comp_width, width, height;
-
+	uint32_t line_offset = 0;
 	tile_overhead = 0;
 	if (oddmr_priv == NULL)
 		return;
@@ -777,10 +777,11 @@ static void mtk_oddmr_od_set_res(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg
 	comp_width = oddmr_priv->cfg.comp_in_width;
 	width = oddmr_priv->cfg.width;
 	height = oddmr_priv->cfg.height;
-	ODDMRAPI_LOG("w %u, h %u, tileoverhead %u hscaling %u comp_w %u+\n",
-		width, height, tile_overhead, hscaling, comp_width);
+	line_offset = DIV_ROUND_UP(comp_width, hscaling);
+	ODDMRAPI_LOG("w %u, h %u, tileoverhead %u hscaling %u comp_w %u line %u\n",
+		width, height, tile_overhead, hscaling, comp_width, line_offset);
 	mtk_oddmr_write(comp, 0, DISP_ODDMR_OD_UMDA_CTRL_0, pkg);
-	mtk_oddmr_write(comp, comp_width / hscaling, DISP_ODDMR_OD_UMDA_CTRL_1, pkg);
+	mtk_oddmr_write(comp, line_offset, DISP_ODDMR_OD_UMDA_CTRL_1, pkg);
 	mtk_oddmr_write(comp, comp_width, DISP_ODDMR_OD_UMDA_CTRL_2, pkg);
 	mtk_oddmr_write(comp, height, DISP_ODDMR_OD_UMDA_CTRL_3, pkg);
 }
@@ -805,7 +806,7 @@ static void mtk_oddmr_od_init_end(struct mtk_ddp_comp *comp, struct cmdq_pkt *ha
 	//bypass off
 	mtk_oddmr_write(comp, 0,
 			DISP_ODDMR_TOP_OD_BYASS, handle);
-	mtk_oddmr_write(comp, 0,
+	mtk_oddmr_write(comp, 1,
 			DISP_ODDMR_TOP_HRT0_BYPASS, handle);
 }
 
@@ -1271,7 +1272,6 @@ static void mtk_oddmr_config(struct mtk_ddp_comp *comp,
 {
 	struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
 	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
-	struct mtk_drm_private *priv;
 	struct cmdq_pkt *cmdq_handle0 = NULL;
 	struct cmdq_pkt *cmdq_handle1 = NULL;
 	struct cmdq_client *client = NULL;
@@ -1281,7 +1281,6 @@ static void mtk_oddmr_config(struct mtk_ddp_comp *comp,
 		return;
 	}
 	ODDMRFLOW_LOG("%s+\n", mtk_dump_comp_str(comp));
-	priv = mtk_crtc->base.dev->dev_private;
 	if (mtk_crtc->gce_obj.client[CLIENT_PQ])
 		client = mtk_crtc->gce_obj.client[CLIENT_PQ];
 	else
@@ -1976,7 +1975,7 @@ static void mtk_oddmr_od_smi(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg)
 	value = 0;
 	mask = 0;
 	/* hrt0 */
-	SET_VAL_MASK(value, mask, 2, REG_HR0_RE_ULTRA_MODE);
+	SET_VAL_MASK(value, mask, 4, REG_HR0_RE_ULTRA_MODE);
 	SET_VAL_MASK(value, mask, 0, REG_HR0_POACH_CFG_OFF);
 	mtk_oddmr_write_mask(comp, value, DISP_ODDMR_HRT_CTR, mask, pkg);
 	if (priv->data->mmsys_id == MMSYS_MT6985) {
@@ -1994,7 +1993,7 @@ static void mtk_oddmr_od_smi(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg)
 		mtk_oddmr_write(comp, 0, DISP_ODDMR_REG_HR0_ULTRA_RE_OUT_THR_1, pkg);
 		value = 0;
 		mask = 0;
-		SET_VAL_MASK(value, mask, 2, REG_HR0_RE_ULTRA_MODE);
+		SET_VAL_MASK(value, mask, 4, REG_HR0_RE_ULTRA_MODE);
 		SET_VAL_MASK(value, mask, 0, REG_HR0_POACH_CFG_OFF);
 		SET_VAL_MASK(value, mask, 0, REG_HR0_PREULTRA_RE_ULTRA_MASK);
 		SET_VAL_MASK(value, mask, 1, REG_HR0_ULTRA_RE_MASK);
@@ -2003,7 +2002,7 @@ static void mtk_oddmr_od_smi(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg)
 	value = 0;
 	mask = 0;
 	/* odr*/
-	SET_VAL_MASK(value, mask, 2, REG_ODR_RE_ULTRA_MODE);
+	SET_VAL_MASK(value, mask, 4, REG_ODR_RE_ULTRA_MODE);
 	SET_VAL_MASK(value, mask, 0, REG_ODR_POACH_CFG_OFF);
 	mtk_oddmr_write_mask(comp, value, DISP_ODDMR_SMI_SB_FLG_ODR_8, mask, pkg);
 	buf_size = oddmr->data->odr_buffer_size;
@@ -2024,7 +2023,7 @@ static void mtk_oddmr_od_smi(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg)
 	value = 0;
 	mask = 0;
 	/* odw*/
-	SET_VAL_MASK(value, mask, 2, REG_ODW_WR_ULTRA_MODE);
+	SET_VAL_MASK(value, mask, 4, REG_ODW_WR_ULTRA_MODE);
 	SET_VAL_MASK(value, mask, 0, REG_ODW_POACH_CFG_OFF);
 	mtk_oddmr_write_mask(comp, value, DISP_ODDMR_SMI_SB_FLG_ODW_8, mask, pkg);
 	buf_size = oddmr->data->odw_buffer_size;
@@ -2052,13 +2051,13 @@ static void mtk_oddmr_dmr_smi(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg)
 	/* hrt1 */
 	value = 0;
 	mask = 0;
-	SET_VAL_MASK(value, mask, 2, REG_HR1_RE_ULTRA_MODE);
+	SET_VAL_MASK(value, mask, 4, REG_HR1_RE_ULTRA_MODE);
 	SET_VAL_MASK(value, mask, 0, REG_HR1_POACH_CFG_OFF);
 	mtk_oddmr_write_mask(comp, value, DISP_ODDMR_HRT_CTR, mask, pkg);
 	/* dmr */
 	value = 0;
 	mask = 0;
-	SET_VAL_MASK(value, mask, 2, REG_DMR_RE_ULTRA_MODE);
+	SET_VAL_MASK(value, mask, 4, REG_DMR_RE_ULTRA_MODE);
 	SET_VAL_MASK(value, mask, 0, REG_DMR_POACH_CFG_OFF);
 	mtk_oddmr_write_mask(comp, value, DISP_ODDMR_SMI_SB_FLG_DMR_8, mask, pkg);
 	buf_size = oddmr->data->dmr_buffer_size;
@@ -2698,7 +2697,7 @@ int mtk_oddmr_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		break;
 	case PMQOS_UPDATE_BW:
 	{
-		int enable, sec_on;
+		int od_enable, sec_on;
 		struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
 		struct mtk_drm_private *priv =
 			comp->mtk_crtc->base.dev->dev_private;
@@ -2707,8 +2706,12 @@ int mtk_oddmr_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 				MTK_DRM_OPT_MMQOS_SUPPORT))
 			break;
 		sec_on = comp->mtk_crtc->sec_on;
-		enable = oddmr_priv->od_enable && (!sec_on);
-		mtk_oddmr_od_srt_cal(comp, enable);
+		od_enable = oddmr_priv->od_enable && (!sec_on);
+		mtk_oddmr_od_srt_cal(comp, od_enable);
+		ODDMRLOW_LOG("srt odr(%u,%u),odw(%u,%u),dmrr(%u,%u)\n",
+			oddmr_priv->last_qos_srt_odr, oddmr_priv->qos_srt_odr,
+			oddmr_priv->last_qos_srt_odw, oddmr_priv->qos_srt_odw,
+			oddmr_priv->last_qos_srt_dmrr, oddmr_priv->qos_srt_dmrr);
 		/* process normal */
 		if (oddmr_priv->last_qos_srt_odr != oddmr_priv->qos_srt_odr) {
 			__mtk_disp_set_module_bw(oddmr_priv->qos_req_odr, comp->id,
@@ -2725,6 +2728,29 @@ int mtk_oddmr_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 				oddmr_priv->qos_srt_dmrr, DISP_BW_NORMAL_MODE);
 			oddmr_priv->last_qos_srt_dmrr = oddmr_priv->qos_srt_dmrr;
 		}
+	}
+		break;
+	case PMQOS_SET_HRT_BW:
+	{
+		int od_enable, dmr_enable, sec_on;
+		u32 bw_val = *(unsigned int *)params;
+		struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
+		struct mtk_drm_private *priv =
+			comp->mtk_crtc->base.dev->dev_private;
+
+		if (!mtk_drm_helper_get_opt(priv->helper_opt,
+				MTK_DRM_OPT_MMQOS_SUPPORT))
+			break;
+		sec_on = comp->mtk_crtc->sec_on;
+		od_enable = oddmr_priv->od_enable && (!sec_on);
+		dmr_enable = oddmr_priv->dmr_enable;
+		od_enable = !!bw_val && od_enable;
+		dmr_enable = !!bw_val && dmr_enable;
+		/* set to max if need hrt */
+		__mtk_disp_set_module_hrt(oddmr_priv->qos_req_dmrr_hrt, dmr_enable);
+		__mtk_disp_set_module_hrt(oddmr_priv->qos_req_odr_hrt, od_enable);
+		__mtk_disp_set_module_hrt(oddmr_priv->qos_req_odw_hrt, od_enable);
+		ODDMRLOW_LOG("hrt od %d dmr %d\n", od_enable, dmr_enable);
 	}
 		break;
 	default:
@@ -3833,6 +3859,19 @@ static int mtk_disp_oddmr_bind(struct device *dev, struct device *master,
 		mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
 						&priv->ddp_comp, "ODW");
 		oddmr_priv->qos_req_odw = of_mtk_icc_get(dev, buf);
+
+		mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
+						&priv->ddp_comp, "DMRR_HRT");
+		oddmr_priv->qos_req_dmrr_hrt = of_mtk_icc_get(dev, buf);
+
+		mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
+						&priv->ddp_comp, "ODR_HRT");
+		oddmr_priv->qos_req_odr_hrt = of_mtk_icc_get(dev, buf);
+
+		mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
+						&priv->ddp_comp, "ODW_HRT");
+		oddmr_priv->qos_req_odw_hrt = of_mtk_icc_get(dev, buf);
+
 	}
 	pr_notice("%s-\n", __func__);
 	return 0;
@@ -3853,15 +3892,32 @@ static const struct component_ops mtk_disp_oddmr_component_ops = {
 	.unbind = mtk_disp_oddmr_unbind,
 };
 
+static unsigned int oddmr_err_trigger;
+unsigned int check_oddmr_err_event(void)
+{
+	return oddmr_err_trigger;
+}
+
+void clear_oddmr_err_event(void)
+{
+	DDPMSG("%s, do clear underrun event\n", __func__);
+	oddmr_err_trigger = 0;
+}
+
 #ifdef ODDMR_ENABLE_IRQ
-static irqreturn_t mtk_oddmr_irq_status(int irq, void *dev_id)
+/*
+ * Check frame done status at sof.
+ * It is a err detection with delay,
+ * should be replaced when better ways come along.
+ */
+static irqreturn_t mtk_oddmr_check_framedone(int irq, void *dev_id)
 {
 	struct mtk_disp_oddmr *oddmr_priv = dev_id;
 	struct mtk_ddp_comp *comp;
 	struct mtk_drm_private *priv = NULL;
 	int opt = 0;
 	unsigned int ret = 0;
-	uint32_t status_raw, status;
+	uint32_t status_raw, status, od_enable;
 
 	if (IS_ERR_OR_NULL(oddmr_priv))
 		return IRQ_NONE;
@@ -3892,21 +3948,38 @@ static irqreturn_t mtk_oddmr_irq_status(int irq, void *dev_id)
 	}
 	if (status & DISP_ODDMR_IRQ_SOF) {
 		status = oddmr_priv->irq_status | status;
+
+		/* reset irq status */
+		od_enable = mtk_oddmr_read(comp, DISP_ODDMR_OD_CTRL_EN) & 0x01;
 		oddmr_priv->irq_status = status & DISP_ODDMR_IRQ_SOF;
+		/* do not care eof status when disable */
+		if (!od_enable)
+			oddmr_priv->irq_status = 0;
 		DDPIRQ("%s %s sof status:0x%x,0x%x\n", __func__, mtk_dump_comp_str(comp),
 			status, oddmr_priv->irq_status);
 		if ((status & DISP_ODDMR_IRQ_I_FRM_DNE) &&
 			(status & DISP_ODDMR_IRQ_O_FRM_DNE) &&
 			!(status & DISP_ODDMR_IRQ_FRAME_DONE) &&
 			!(status & DISP_ODDMR_IRQ_ODW_DONE)) {
-			priv = comp->mtk_crtc->base.dev->dev_private;
-			opt = mtk_drm_helper_get_opt(priv->helper_opt,
-				MTK_DRM_OPT_ODDMR_UNDERRUN_AEE);
-			DDPPR_ERR("%s %s err status 0x%x\n", __func__,
-				mtk_dump_comp_str(comp), status);
-			if (opt) {
-				DDPAEE("ODDMR:buffer underrun. TS: 0x%08llx\n",
-					arch_timer_read_counter());
+			if (od_enable) {
+				bool dump_en_tmp;
+
+				priv = comp->mtk_crtc->base.dev->dev_private;
+				opt = mtk_drm_helper_get_opt(priv->helper_opt,
+					MTK_DRM_OPT_ODDMR_UNDERRUN_AEE);
+				oddmr_err_trigger = 1;
+				DDPPR_ERR("%s %s err status 0x%x\n", __func__,
+					mtk_dump_comp_str(comp), status);
+				dump_en_tmp = g_oddmr_dump_en;
+				g_oddmr_dump_en = true;
+				mtk_drm_crtc_analysis(&(comp->mtk_crtc->base));
+				mtk_drm_crtc_dump(&(comp->mtk_crtc->base));
+				g_oddmr_dump_en = dump_en_tmp;
+				mtk_smi_dbg_hang_detect("oddmr-underrun");
+				if (opt) {
+					DDPAEE("ODDMR:buffer underrun. TS: 0x%08llx\n",
+						arch_timer_read_counter());
+				}
 			}
 		}
 	}
@@ -3974,7 +4047,7 @@ static int mtk_disp_oddmr_probe(struct platform_device *pdev)
 		}
 		irq_set_status_flags(irq_num, IRQ_TYPE_LEVEL_HIGH);
 		ret = devm_request_irq(
-			&pdev->dev, irq_num, mtk_oddmr_irq_status,
+			&pdev->dev, irq_num, priv->data->irq_handler,
 			IRQF_TRIGGER_NONE | IRQF_SHARED, dev_name(&pdev->dev), priv);
 		if (ret) {
 			DDPAEE("%s:%d, failed to request irq:%d ret:%d\n",
@@ -4039,6 +4112,7 @@ static const struct mtk_disp_oddmr_data mt6985_oddmr_driver_data = {
 	.dmr_buffer_size = 458,
 	.odr_buffer_size = 264,
 	.odw_buffer_size = 264,
+	.irq_handler = mtk_oddmr_check_framedone,
 };
 
 static const struct of_device_id mtk_disp_oddmr_driver_dt_match[] = {
