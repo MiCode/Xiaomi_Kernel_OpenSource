@@ -871,7 +871,6 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 		!strncmp(vio_master, "PERI2INFRA1_M", 13) ||
 		!strncmp(vio_master, "MCU_AP_M", 8) ||
 		!strncmp(vio_master, "AP", 2) ||
-		!strncmp(vio_master, "PCIE", 4) ||
 		!strncmp(vio_master, "others", 6) ||
 		!strncasecmp(vio_master, "UNKNOWN_MASTER", 14))
 		strncpy(dispatch_key, mtk_devapc_ctx->soc->subsys_get(
@@ -889,6 +888,10 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 	else if (!strncasecmp(vio_master, "CONN", 4) ||
 			!strncasecmp(dispatch_key, "CONN", 4))
 		id = INFRA_SUBSYS_CONN;
+
+	else if (!strncasecmp(vio_master, "PCIE", 4) ||
+			!strncasecmp(dispatch_key, "PCIE", 4))
+		id = INFRA_SUBSYS_PCIE;
 
 	else if (!strncasecmp(vio_master, "TINYSYS", 7))
 		id = INFRA_SUBSYS_ADSP;
@@ -927,7 +930,7 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 	/* Severity level */
 	if (dbg_stat->enable_KE && (ret_cb != DEVAPC_NOT_KE)) {
 		pr_info(PFX "Device APC Violation Issue/%s", dispatch_key);
-		BUG_ON(id != INFRA_SUBSYS_CONN);
+		BUG_ON(id != INFRA_SUBSYS_CONN && id != INFRA_SUBSYS_PCIE);
 
 	} else if (dbg_stat->enable_AEE) {
 		/* call mtk aee_kernel_exception */
