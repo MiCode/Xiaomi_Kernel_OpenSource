@@ -741,12 +741,17 @@ mtk_drm_crtc_duplicate_state(struct drm_crtc *crtc)
 	state->base.crtc = crtc;
 
 	if (crtc->state) {
+		struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
 		old_state = to_mtk_crtc_state(crtc->state);
 		state->lye_state = old_state->lye_state;
 		state->rsz_src_roi = old_state->rsz_src_roi;
 		state->rsz_dst_roi = old_state->rsz_dst_roi;
 		state->prop_val[CRTC_PROP_DOZE_ACTIVE] =
 			old_state->prop_val[CRTC_PROP_DOZE_ACTIVE];
+		if (mtk_crtc->res_switch)
+			state->prop_val[CRTC_PROP_DISP_MODE_IDX] =
+				old_state->prop_val[CRTC_PROP_DISP_MODE_IDX];
 	}
 
 	return &state->base;
@@ -3600,7 +3605,6 @@ void mtk_drm_crtc_mode_check(struct drm_crtc *crtc,
 	struct drm_crtc_state *old_state, struct drm_crtc_state *new_state)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct drm_display_mode *mode;
 	struct mtk_crtc_state *old_mtk_state = NULL;
 	struct mtk_crtc_state *new_mtk_state = NULL;
@@ -3616,7 +3620,7 @@ void mtk_drm_crtc_mode_check(struct drm_crtc *crtc,
 		return;
 
 
-	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_RES_SWITCH)) {
+	if (mtk_crtc->res_switch) {
 		//workaround for hwc
 		if (mtk_crtc->mode_idx
 			== old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]) {

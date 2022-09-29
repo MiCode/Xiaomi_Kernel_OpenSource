@@ -631,18 +631,19 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc,
 	tmp = 0;
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
-	if (mode_idx == mtk_crtc->mode_idx) {
+	if (!mtk_crtc->res_switch) {
 		if (output_comp)
 			mtk_ddp_comp_io_cmd(output_comp, NULL,
 				GET_FRAME_HRT_BW_BY_DATARATE, &tmp);
 	} else {
-		DDPMSG("%s mode_idx:%d->%d\n", __func__,
-			mtk_crtc->mode_idx, mode_idx);
+		DDPDBG("%s mode_idx:%d\n", __func__, mode_idx);
 		mtk_crtc->mode_idx = mode_idx;
+		tmp = mode_idx;
 		if (output_comp)
 			mtk_ddp_comp_io_cmd(output_comp, NULL,
 				GET_FRAME_HRT_BW_BY_MODE, &tmp);
 	}
+
 	if (!tmp) {
 		/* for avail_bw == 0 case, which imply this display is not HRT,
 		 *  return this function to 16 overlap

@@ -832,6 +832,7 @@ struct mtk_drm_crtc {
 	bool layer_rec_en;
 	unsigned int mode_change_index;
 	int mode_idx;
+	bool res_switch;
 	int fbt_layer_id;
 
 	wait_queue_head_t state_wait_queue;
