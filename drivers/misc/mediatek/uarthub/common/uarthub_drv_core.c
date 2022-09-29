@@ -879,6 +879,7 @@ int uarthub_core_close(void)
 #if CLK_CTRL_UNIVPLL_REQ
 	uarthub_core_clk_univpll_ctrl(0);
 #endif
+	uarthub_core_dev0_clear_txrx_request();
 	g_uarthub_open = 0;
 
 	return 0;
