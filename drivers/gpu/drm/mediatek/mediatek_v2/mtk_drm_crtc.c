@@ -6197,11 +6197,9 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 			DDPPR_ERR("ovl status error:0x%x\n", ovl_status);
 			if (priv->data->mmsys_id == MMSYS_MT6985) {
 				DDPAEE("ovl status error. TS: 0x%08x\n", ovl_status);
-				g_mobile_log = 1;
 				mtk_drm_crtc_mini_analysis(crtc);
 				mtk_drm_crtc_mini_dump(crtc);
 				cmdq_dump_pkt(cb_data->cmdq_handle, 0, true);
-				g_mobile_log = 0;
 			} else {
 				mtk_drm_crtc_analysis(crtc);
 				mtk_drm_crtc_dump(crtc);

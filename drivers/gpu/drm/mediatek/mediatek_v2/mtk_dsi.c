@@ -170,6 +170,8 @@
 #define CMD_HS_HFP_BLANKING_HS_EN BIT(16)
 #define CMD_HS_HFP_BLANKING_NULL_EN BIT(17)
 #define CMD_CPHY_6BYTE_EN BIT(18)
+#define CMD_TYPE1_HS_FLD_HFP_BLANKING_NULL_LEN REG_FLD_MSB_LSB(3, 0)
+#define CMD_TYPE1_HS_FLD_HFP_BLANKING_NULL_EN REG_FLD_MSB_LSB(17, 17)
 
 #define DSI_HSTX_CKL_WC 0x64
 
@@ -3866,6 +3868,13 @@ int mtk_dsi_analysis(struct mtk_ddp_comp *comp)
 		REG_FLD_VAL_GET(LFR_CON_FLD_REG_LFR_MODE, reg_val),
 		REG_FLD_VAL_GET(LFR_CON_FLD_REG_LFR_TYPE, reg_val),
 		REG_FLD_VAL_GET(LFR_CON_FLD_REG_LFR_SKIP_NUM, reg_val));
+
+	reg_val = readl(DSI_CMD_TYPE1_HS + baddr);
+	DDPDUMP("LP mode per line:%d, null cmd en:%d, null cmd len:%d\n",
+		DISP_REG_GET_FIELD(DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
+							baddr + DSI_CON_CTRL),
+		REG_FLD_VAL_GET(CMD_TYPE1_HS_FLD_HFP_BLANKING_NULL_EN, reg_val),
+		REG_FLD_VAL_GET(CMD_TYPE1_HS_FLD_HFP_BLANKING_NULL_LEN, reg_val));
 
 	return 0;
 }
