@@ -338,9 +338,9 @@ static int mtu3_gadget_queue(struct usb_ep *ep,
 	mtu3_insert_gpd(mep, mreq);
 	mtu3_qmu_resume(mep);
 
+	trace_mtu3_gadget_queue(mreq);
 error:
 	spin_unlock_irqrestore(&mtu->lock, flags);
-	trace_mtu3_gadget_queue(mreq);
 
 	return ret;
 }

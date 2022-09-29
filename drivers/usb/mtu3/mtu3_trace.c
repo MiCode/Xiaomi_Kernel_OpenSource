@@ -26,3 +26,4 @@ void mtu3_dbg_trace(struct device *dev, const char *fmt, ...)
 EXPORT_TRACEPOINT_SYMBOL_GPL(mtu3_gadget_ep_enable);
 EXPORT_TRACEPOINT_SYMBOL_GPL(mtu3_gadget_ep_disable);
 EXPORT_TRACEPOINT_SYMBOL_GPL(mtu3_req_complete);
+EXPORT_TRACEPOINT_SYMBOL_GPL(mtu3_gadget_queue);
