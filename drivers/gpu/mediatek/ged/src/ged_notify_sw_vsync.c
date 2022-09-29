@@ -404,7 +404,7 @@ enum hrtimer_restart ged_sw_vsync_check_cb(struct hrtimer *timer)
 	unsigned long long temp;
 	long long llDiff;
 	unsigned int loading_mode = 0;
-	unsigned int gpu_loading_temp;
+	unsigned int gpu_loading_temp = 0;
 	struct GED_NOTIFY_SW_SYNC *psNotify;
 	struct GpuUtilization_Ex util_ex;
 
@@ -424,7 +424,6 @@ enum hrtimer_restart ged_sw_vsync_check_cb(struct hrtimer *timer)
 		ged_dvfs_cal_gpu_utilization_ex(&gpu_av_loading,
 			&gpu_block, &gpu_idle, &util_ex);
 		gpu_loading = gpu_av_loading;
-		gpu_loading_temp = gpu_loading;
 #endif
 
 		ged_get_gpu_utli_ex(&util_ex);
@@ -440,6 +439,8 @@ enum hrtimer_restart ged_sw_vsync_check_cb(struct hrtimer *timer)
 			gpu_loading_temp = util_ex.util_iter;
 		} else if (loading_mode == LOADING_MAX_ITERMCU) {
 			gpu_loading_temp = MAX(util_ex.util_iter, util_ex.util_mcu);
+		} else {   // LOADING_ACTIVE or unknown mode
+			gpu_loading_temp = util_ex.util_active;
 		}
 
 		if (false == g_bGPUClock && 0 == gpu_loading_temp
