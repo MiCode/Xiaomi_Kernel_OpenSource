@@ -233,7 +233,7 @@ static int ssusb_vsvoter_of_property_parse(struct ssusb_mtk *ssusb,
 
 int get_dp_switch_status(struct ssusb_mtk *ssusb)
 {
-	u32 val;
+	u32 val = 0;
 	int dp_switch_bit;
 
 	if (IS_ERR_OR_NULL(ssusb->dp_switch))
