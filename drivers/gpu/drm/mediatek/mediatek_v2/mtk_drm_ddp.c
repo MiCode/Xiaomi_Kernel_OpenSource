@@ -15561,6 +15561,7 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 	unsigned long long irq_debug[10] = {0};
 	static DEFINE_RATELIMIT_STATE(irq_ratelimit, 5 * HZ, 1);
 	struct mtk_drm_private *priv = ddp->mtk_crtc[0]->base.dev->dev_private;
+	struct mtk_drm_crtc *mtk_crtc = ddp->mtk_crtc[0];
 
 	irq_debug[0] = sched_clock();
 
@@ -15585,8 +15586,10 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 		if (val & (0x1 << (m_id + DISP_MUTEX_TOTAL))) {
 			DDPIRQ("[IRQ] mutex%d eof!\n", m_id);
 			DRM_MMP_MARK(mutex[m_id], val, 1);
-			if (priv->data->mmsys_id == MMSYS_MT6985)
-				atomic_set(&ddp->mtk_crtc[0]->esd_ctx->target_time, 0);
+			if (mtk_crtc && mtk_crtc->esd_ctx) {
+				if (priv && priv->data->mmsys_id == MMSYS_MT6985)
+					atomic_set(&mtk_crtc->esd_ctx->target_time, 0);
+			}
 #ifndef DRM_BYPASS_PQ
 			irq_debug[1] = sched_clock();
 			disp_c3d_on_end_of_frame_mutex();
