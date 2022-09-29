@@ -2460,8 +2460,11 @@ static int ufshcd_map_sg(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 
 				if (sg_dma_upper == 0 && sg_dma_lower >= 0x9C38D000 &&
 							 sg_dma_lower <= 0x9F433000) {
-					dev_err(hba->dev, "[UFS] Access Region 47 address: 0x%x %x, sg_page: 0x%x\n",
-						sg_dma_upper, sg_dma_lower, sg_page(sg));
+					dev_err(hba->dev, "[UFS] Access Region 47 address: 0x%x %x\n",
+						sg_dma_upper, sg_dma_lower);
+
+					dev_err(hba->dev, "sg_page: 0x%lx, pfn: 0x%lx\n",
+						sg_page(sg), page_to_pfn(sg_page(sg)));
 
 					/* dump DB for debug checking */
 					aee_kernel_warning_api(__FILE__, __LINE__,
