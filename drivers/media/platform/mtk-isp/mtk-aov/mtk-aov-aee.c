@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2019 MediaTek Inc.
+ *
+ * Author: ChenHung Yang <chenhung.yang@mediatek.com>
  */
 
 #include <linux/proc_fs.h>
@@ -16,9 +18,8 @@
 
 int aov_notify_aee(void)
 {
-	pr_info("aov trigger aee dump+\n");
-
-	pr_info("aov trigger AEE dump-\n");
+	pr_info("%s+\n", __func__);
+	pr_info("%s-\n", __func__);
 
 	return 0;
 }
@@ -32,69 +33,38 @@ int proc_open(struct inode *inode, struct file *file)
 	try_module_get(THIS_MODULE);
 
 	name = file->f_path.dentry->d_name.name;
-	if (!strcmp(name, "daemon")) {
-		file->private_data = &aov_dev->aee_info.data[0];
-	} else if (!strcmp(name, "kernel")) {
-		file->private_data = &aov_dev->aee_info.data[1];
-	} else if (!strcmp(name, "stream")) {
-		file->private_data = &aov_dev->aee_info.data[2];
+	if (!strcmp(name, "kernel")) {
+		file->private_data = &aov_dev->aee_info.buffer;
 	} else {
 		module_put(THIS_MODULE);
 		return -EPERM;
 	}
 
-	if (file->private_data == NULL) {
-		pr_info("failed to allocate proc file(%s) buffer", name);
-		return -ENOMEM;
-	}
-
-	pr_info("%s: %s", __func__, name);
+	pr_debug("%s: %s", __func__, name);
 
 	return 0;
 }
 
-static ssize_t proc_read(struct file *file, char __user *buf, size_t lbuf,
+static ssize_t proc_read(struct file *file, char __user *buf, size_t length,
 	loff_t *ppos)
 {
 	struct proc_info *info = (struct proc_info *)file->private_data;
-	int nbytes, maxbytes, bytes_to_do;
+	int bytes, remain;
 
-	maxbytes = info->count - *ppos;
-	bytes_to_do = (maxbytes > lbuf) ? lbuf : maxbytes;
-	if (bytes_to_do == 0)
-		pr_info("Reached end of the device on a read");
+	remain = info->count - *ppos;
+	remain = (remain > length) ? length : remain;
+	if (remain <= 0) {
+		pr_debug("reach aov kernel node end");
+		info->count = 0;
+		return 0;
+	}
 
-	nbytes = bytes_to_do - copy_to_user(buf, info->buffer + *ppos, bytes_to_do);
-	*ppos += nbytes;
+	bytes = remain - copy_to_user(buf, info->buffer + *ppos, remain);
+	*ppos += bytes;
 
-	pr_info("\n Leaving the   READ function, nbytes=%d, pos=%d\n",
-		nbytes, (int)*ppos);
+	pr_debug("read aov kernel node bytes=%d, pos=%d\n", bytes, (int)*ppos);
 
-	return nbytes;
-}
-
-static ssize_t proc_write(struct file *file, const char __user *buf,
-	size_t lbuf, loff_t *ppos)
-{
-	struct proc_info *info = (struct proc_info *)file->private_data;
-	int nbytes, maxbytes, bytes_to_do;
-
-	maxbytes = info->size - *ppos;
-	bytes_to_do = (maxbytes > lbuf) ? lbuf : maxbytes;
-	if (bytes_to_do == 0)
-		pr_info("Reached end of the device on a write");
-
-	nbytes =
-			bytes_to_do - copy_from_user(info->buffer + *ppos, buf, bytes_to_do);
-
-	*ppos += nbytes;
-	if (*ppos > info->count)
-		info->count = *ppos;
-
-	pr_info("\n Leaving the WRITE function, nbytes=%d, pos=%d\n",
-		nbytes, (int)*ppos);
-
-	return nbytes;
+	return bytes;
 }
 
 int proc_close(struct inode *inode, struct file *file)
@@ -106,34 +76,129 @@ int proc_close(struct inode *inode, struct file *file)
 static const struct proc_ops aee_ops = {
 	.proc_open = proc_open,
 	.proc_read  = proc_read,
-	.proc_write = proc_write,
+	.proc_write = NULL,
 	.proc_release = proc_close
 };
 
 int aov_aee_init(struct mtk_aov *aov_dev)
 {
 	struct aov_aee *aee_info = &aov_dev->aee_info;
+	struct aee_record *record = &aee_info->record;
 
-	//aed_set_extra_func(aov_notify_aee);
+	// aed_set_extra_func(aov_notify_aee);
 
-	aee_info->entry = proc_mkdir("mtk_img_debug", NULL);
+	aee_info->entry = proc_mkdir("mtk_aov_debug", NULL);
 	if (aee_info->entry) {
-		aee_info->data[0].size = aov_AEE_MAX_BUFFER_SIZE;
-		aee_info->data[0].count = 0;
-		aee_info->data[1].size = aov_AEE_MAX_BUFFER_SIZE;
-		aee_info->data[1].count = 0;
-		aee_info->data[2].size = aov_AEE_MAX_BUFFER_SIZE;
-		aee_info->data[2].count = 0;
+		aee_info->buffer.count = 0;
 
-		aee_info->daemon = proc_create(
-			"daemon", 0644, aee_info->entry, &aee_ops);
-		aee_info->stream = proc_create(
-			"stream", 0644, aee_info->entry, &aee_ops);
 		aee_info->kernel = proc_create(
-			"kernel", 0644, aee_info->entry, &aee_ops);
+			"kernel", 0444, aee_info->entry, &aee_ops);
 	} else {
-		pr_info("%s: failed to create imgsys debug node\n", __func__);
+		pr_info("%s: failed to create aov debug node\n", __func__);
 	}
+
+	spin_lock_init(&record->lock);
+	record->head = 0;
+	record->tail = 0;
+
+	return 0;
+}
+
+int aov_aee_record(struct mtk_aov *aov_dev,
+	int op_seq, enum aov_op op_code)
+{
+	struct aov_aee *aee_info = &aov_dev->aee_info;
+	struct aee_record *record = &aee_info->record;
+	unsigned long flag;
+	struct op_data *data;
+
+	dev_dbg(aov_dev->dev, "%s+\n", __func__);
+
+	spin_lock_irqsave(&record->lock, flag);
+	data = &record->data[record->tail++];
+	if (record->tail >= AOV_AEE_MAX_RECORD_COUNT)
+		record->tail = 0;
+
+	if (record->head == record->tail) {
+		record->head++;
+		if (record->head >= AOV_AEE_MAX_RECORD_COUNT)
+			record->head = 0;
+	}
+	spin_unlock_irqrestore(&record->lock, flag);
+
+	data->op_time = ktime_get_boottime_ns();
+	data->op_seq  = op_seq;
+	data->op_code = op_code;
+
+	dev_dbg(aov_dev->dev, "%s: record time(%lld), seq(%d), cmd(%d)\n",
+		__func__, data->op_time, data->op_seq, data->op_code);
+
+	dev_dbg(aov_dev->dev, "%s-\n", __func__);
+
+	return 0;
+}
+
+int aov_aee_flush(struct mtk_aov *aov_dev)
+{
+	struct aov_aee *aee_info = &aov_dev->aee_info;
+	struct aee_record *record = &aee_info->record;
+	unsigned long flag;
+	struct proc_info *node;
+	int count;
+	int index;
+	int offset;
+	int remain;
+	int length;
+
+	dev_info(aov_dev->dev, "%s+\n", __func__);
+
+	spin_lock_irqsave(&record->lock, flag);
+	index = record->head;
+	count = record->tail - record->head;
+	if (count < 0)
+		count += AOV_AEE_MAX_RECORD_COUNT;
+	spin_unlock_irqrestore(&record->lock, flag);
+
+	dev_info(aov_dev->dev, "%s: flush index(%d), count(%d)\n",
+		__func__, index, count);
+
+	// flush to node buffer
+	node = &aee_info->buffer;
+	offset = node->count;
+	for (; count > 0; index++, count--) {
+		if (index >= AOV_AEE_MAX_RECORD_COUNT)
+			index = 0;
+
+		remain = AOV_AEE_MAX_BUFFER_SIZE - offset;
+
+		dev_dbg(aov_dev->dev, "%s: flush offset(%d), remain(%d)\n",
+			__func__, offset, remain);
+
+		if ((offset >= 0) &&
+				(offset < AOV_AEE_MAX_BUFFER_SIZE) && (remain > 0)) {
+			dev_dbg(aov_dev->dev, "%s: flush time(%lld), seq(%d), cmd(%d)\n",
+			__func__, record->data[index].op_time,
+				record->data[index].op_seq, record->data[index].op_code);
+
+			length = snprintf(&(node->buffer[offset]), remain,
+				"time(%lld), seq(%d), cmd(%d)\n",
+				record->data[index].op_time, record->data[index].op_seq,
+				record->data[index].op_code);
+			if (length < 0) {
+				dev_info(aov_dev->dev, "%s: failed to call snprintf(%d)",
+					__func__, length);
+				break;
+			}
+			offset += length;
+		} else {
+			break;
+		}
+	}
+
+	node->count = ((offset > AOV_AEE_MAX_BUFFER_SIZE) ?
+		AOV_AEE_MAX_BUFFER_SIZE : offset);
+
+	dev_info(aov_dev->dev, "%s-\n", __func__);
 
 	return 0;
 }
@@ -144,12 +209,6 @@ int aov_aee_uninit(struct mtk_aov *aov_dev)
 
 	if (aee_info->kernel)
 		proc_remove(aee_info->kernel);
-
-	if (aee_info->daemon)
-		proc_remove(aee_info->daemon);
-
-	if (aee_info->stream)
-		proc_remove(aee_info->stream);
 
 	if (aee_info->entry)
 		proc_remove(aee_info->entry);

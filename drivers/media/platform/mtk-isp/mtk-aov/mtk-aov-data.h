@@ -13,30 +13,30 @@
 /*
  * For user space <-> kernel communication
  */
-#define AOV_DEV_INIT              _IOW('H', 0, struct aov_user)
+#define AOV_DEV_START             _IOW('H', 0, struct aov_user)
 #define AOV_DEV_SENSOR_ON         _IOW('H', 1, struct sensor_notify)
 #define AOV_DEV_SENSOR_OFF        _IOW('H', 2, struct sensor_notify)
 #define AOV_DEV_DQEVENT           _IOR('H', 3, struct aov_dqevent)
-#define AOV_DEV_DEINIT            _IO('H', 4)
+#define AOV_DEV_STOP              _IO('H', 4)
 
 #if IS_ENABLED(CONFIG_COMPAT)
-#define COMPAT_AOV_DEV_INIT       _IOW('H', 0, struct aov_user)
+#define COMPAT_AOV_DEV_START      _IOW('H', 0, struct aov_user)
 #define COMPAT_AOV_DEV_DQEVENT    _IOR('H', 1, struct aov_dqevent)
 #define COMPAT_AOV_DEV_SENSOR_ON  _IOW('H', 2, struct sensor_notify)
 #define COMPAT_AOV_DEV_SENSOR_OFF _IOW('H', 3, struct sensor_notify)
-#define COMPAT_AOV_DEV_DEINIT     _IO('H', 4)
+#define COMPAT_AOV_DEV_STOP       _IO('H', 4)
 #endif
 
 /*
  * For APMCU <-> SCP communication
  */
 #define AOV_SCP_CMD_READY         (0)
-#define AOV_SCP_CMD_INIT          (1)
+#define AOV_SCP_CMD_START         (1)
 #define AOV_SCP_CMD_PWR_ON        (2)
 #define AOV_SCP_CMD_PWR_OFF       (3)
 #define AOV_SCP_CMD_FRAME         (4)
 #define AOV_SCP_CMD_NOTIFY        (5)
-#define AOV_SCP_CMD_DEINIT        (6)
+#define AOV_SCP_CMD_STOP          (6)
 #define AOV_SCP_CMD_MAX           (7)
 #define AOV_SCP_CMD_ACK           (0x80000000)
 
@@ -216,11 +216,11 @@ struct aov_user {
 	void *tuning_info;
 };
 
-struct senif_init {
+struct senif_start {
 	uint8_t data[AOV_MAX_SENIF_SIZE];
 } __aligned(8);
 
-struct aaa_init {
+struct aaa_start {
 	uint8_t data[AOV_MAX_AAA_SIZE];
 } __aligned(8);
 
@@ -228,11 +228,11 @@ struct tuning {
 	uint8_t data[AOV_MAX_TUNING_SIZE];
 } __aligned(8);
 
-struct aie_init {
+struct aie_start {
 	uint8_t data[AOV_MAX_AIE_SIZE];
 } __aligned(8);
 
-struct aov_init {
+struct aov_start {
 	// user parameter
 	uint32_t session;
 	uint32_t sensor_id;
@@ -263,16 +263,16 @@ struct aov_init {
 	uint32_t aie_avail;
 
 	// seninf/sensor
-	struct senif_init senif_info;
+	struct senif_start senif_info;
 
 	// aaa info
-	struct aaa_init aaa_info;
+	struct aaa_start aaa_info;
 
 	// tuning data
 	struct tuning tuning_info;
 
 	///aie info
-	struct aie_init aie_info;
+	struct aie_start aie_info;
 
 	// aov event
 	struct aov_event aov_event[AOV_MAX_EVENT_COUNT];
