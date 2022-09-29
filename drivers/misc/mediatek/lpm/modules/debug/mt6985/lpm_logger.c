@@ -223,6 +223,53 @@ static void dump_hw_cg_status(void)
 
 }
 
+static void dump_peri_cg_status(void)
+{
+#undef LOG_BUF_SIZE
+#define LOG_BUF_SIZE	(128)
+	char log_buf[LOG_BUF_SIZE] = { 0 };
+	unsigned int log_size = 0;
+	unsigned int peri_cg_num, setting_num;
+	unsigned int sta, setting;
+	int i, j;
+
+	peri_cg_num = (unsigned int)lpm_smc_spm_dbg(MT_SPM_DBG_SMC_PERI_REQ_NUM,
+				MT_LPM_SMC_ACT_GET, 0, 0);
+
+	setting_num = (unsigned int)lpm_smc_spm_dbg(MT_SPM_DBG_SMC_PERI_REQ_NUM,
+				MT_LPM_SMC_ACT_GET, 0, 1);
+
+	log_size = scnprintf(log_buf + log_size,
+		LOG_BUF_SIZE - log_size,
+		"PERI_CG sta :");
+
+	for (i = 0 ; i < peri_cg_num; i++) {
+		log_size += scnprintf(log_buf + log_size,
+				LOG_BUF_SIZE - log_size,
+				"[%d] ", i);
+		for (j = 0 ; j < setting_num; j++) {
+			sta =  (unsigned int)lpm_smc_spm_dbg(
+					MT_SPM_DBG_SMC_PERI_REQ_STATUS,
+					MT_LPM_SMC_ACT_GET, i, j);
+
+			setting = (unsigned int)lpm_smc_spm_dbg(
+						MT_SPM_DBG_SMC_PERI_REQ_SETTING,
+						MT_LPM_SMC_ACT_GET, i, j);
+
+			log_size += scnprintf(log_buf + log_size,
+				LOG_BUF_SIZE - log_size,
+				"0x%x ", setting & sta);
+		}
+		log_size += scnprintf(log_buf + log_size,
+				LOG_BUF_SIZE - log_size,
+				i < peri_cg_num - 1 ? "|" : ".");
+
+	}
+	WARN_ON(strlen(log_buf) >= LOG_BUF_SIZE);
+	pr_info("[name:spm&][SPM] %s\n", log_buf);
+
+}
+
 static void lpm_save_sleep_info(void)
 {
 }
@@ -328,6 +375,7 @@ static u32 is_blocked_cnt;
 	WARN_ON(strlen(log_buf) >= LOG_BUF_SIZE);
 	pr_info("[name:spm&][SPM] %s\n", log_buf);
 	dump_hw_cg_status();
+	dump_peri_cg_status();
 }
 
 static int lpm_show_message(int type, const char *prefix, void *data)

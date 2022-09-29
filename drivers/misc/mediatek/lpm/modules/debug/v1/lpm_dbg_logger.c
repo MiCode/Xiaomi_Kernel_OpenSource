@@ -88,7 +88,7 @@ static void lpm_check_cg_pll(void)
 				MT_LPM_SMC_ACT_GET, 0, 0);
 	if (block != 0) {
 		for (i = 0 ; i < spm_cond.pll_cnt ; i++) {
-			if (block & 1 << (16+i))
+			if (block & 1 << (spm_cond.pll_shift + i))
 				pr_info("suspend warning: pll: %s not closed\n"
 					, spm_cond.pll_str[i]);
 		}
