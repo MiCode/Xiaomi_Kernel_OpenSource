@@ -1002,6 +1002,8 @@ static ssize_t vtskin_temp_show(struct kobject *kobj,
 	int len = 0;
 
 	len = snprintf(buf, PAGE_SIZE, "%d\n", therm_intf_read_csram_s32(VTSKIN));
+	if (len < 0 || len >= sizeof(buf))
+		pr_info("%s: snprintf return negative and buf %s\n", __func__, buf);
 
 	return len;
 }
