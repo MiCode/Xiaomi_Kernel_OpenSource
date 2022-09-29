@@ -7290,7 +7290,7 @@ skip:
 			PMQOS_UPDATE_BW, NULL);
 
 	/* 3.1 stop the last mml pkt */
-	if (mtk_crtc->is_mml) {
+	if (mtk_crtc->is_mml || (mtk_crtc->mml_ir_state == MML_IR_LEAVING)) {
 		struct mtk_drm_sram_list *entry, *tmp;
 		struct mml_drm_ctx *mml_ctx = mtk_drm_get_mml_drm_ctx(crtc->dev, crtc);
 
