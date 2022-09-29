@@ -2433,13 +2433,13 @@ static int mtk_vcu_suspend(struct device *pDev)
 		pr_info("[VCU] %s fail due to videocodec activity\n", __func__);
 		return -EBUSY;
 	}
-	pr_info("[VCU] %s done\n", __func__);
+	pr_debug("[VCU] %s done\n", __func__);
 	return 0;
 }
 
 static int mtk_vcu_resume(struct device *pDev)
 {
-	pr_info("[VCU] %s done\n", __func__);
+	pr_debug("[VCU] %s done\n", __func__);
 	return 0;
 }
 
