@@ -227,7 +227,7 @@ static int mmdvfs_v3_debug_thread(void *data)
 	unsigned long va;
 	int ret = 0, retry = 0;
 
-	while (!mtk_is_mmdvfs_init_done()) {
+	while (!mmdvfs_is_init_done()) {
 		if (++retry > 100) {
 			MMDVFS_DBG("mmdvfs_v3 init not ready");
 			goto init_done;
@@ -235,7 +235,7 @@ static int mmdvfs_v3_debug_thread(void *data)
 		ssleep(2);
 	}
 
-	va = (unsigned long)(unsigned long *)mtk_mmdvfs_vcp_get_base(&pa);
+	va = (unsigned long)(unsigned long *)mmdvfs_get_vcp_base(&pa);
 	if (va && pa) {
 		ret = mrdump_mini_add_extra_file(va, pa, PAGE_SIZE, "MMDVFS_OPP");
 		if (ret)
@@ -304,7 +304,7 @@ static int mmdvfs_v3_dbg_ftrace_thread(void *data)
 	int retry = 0;
 	s32 i, j;
 
-	while (!mtk_is_mmdvfs_init_done()) {
+	while (!mmdvfs_is_init_done()) {
 		if (++retry > 100) {
 			ftrace_v3_ena = false;
 			MMDVFS_DBG("mmdvfs_v3 init not ready");
