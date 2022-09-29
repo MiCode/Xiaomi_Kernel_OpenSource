@@ -6895,7 +6895,7 @@
 			reg = <0 0x18000000 0 0x700000>;
 			interrupts = <GIC_SPI 593 IRQ_TYPE_LEVEL_HIGH 0>;
 			emi-addr = <0>;
-			emi-size = <0x3000000>;
+			emi-size = <0x1a00000>;
 			emi-alignment = <0x1000000>;
 			emi-max-addr = <0xC0000000>;
 			pinctrl-names = "wf_rst_off",
