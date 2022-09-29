@@ -134,8 +134,10 @@ struct mdla_rv_mem {
 };
 
 #define DEFAULT_DBG_SZ 0x1000
+#define DEFAULT_RV_DBG_SZ 0x2000
 static struct mdla_rv_mem dbg_mem;
 static struct mdla_rv_mem backup_mem;
+static struct mdla_rv_mem rv_dbg_mem;
 
 static char *mdla_plat_get_ipi_str(int idx)
 {
@@ -322,6 +324,11 @@ static int mdla_plat_send_addr_info(void *arg)
 		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_DBG_DATA_SZ, (u64)dbg_mem.size);
 	}
 
+	if (rv_dbg_mem.da) {
+		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_RV_DATA, (u64)rv_dbg_mem.da);
+		mdla_ipi_send(MDLA_IPI_ADDR, MDLA_IPI_ADDR_RV_DATA_SZ, (u64)rv_dbg_mem.size);
+	}
+
 	return 0;
 }
 
@@ -449,6 +456,7 @@ int mdla_rv_init(struct platform_device *pdev)
 	/* backup size * core num * preempt lv */
 	mdla_plat_alloc_mem(&backup_mem, 1024 * nr_core_ids * 4);
 	mdla_plat_alloc_mem(&dbg_mem, DEFAULT_DBG_SZ);
+	mdla_plat_alloc_mem(&rv_dbg_mem, DEFAULT_RV_DBG_SZ);
 
 	return 0;
 }
@@ -459,6 +467,7 @@ void mdla_rv_deinit(struct platform_device *pdev)
 
 	mdla_plat_free_mem(&backup_mem);
 	mdla_plat_free_mem(&dbg_mem);
+	mdla_plat_free_mem(&rv_dbg_mem);
 	mdla_ipi_deinit();
 
 	if (mdla_plat_pwr_drv_ready()
