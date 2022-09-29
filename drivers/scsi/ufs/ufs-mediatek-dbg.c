@@ -227,7 +227,7 @@ static int cmd_hist_get_entry(void)
 	cmd_hist[ptr].cpu = smp_processor_id();
 	cmd_hist[ptr].duration = 0;
 	cmd_hist[ptr].pid = current->pid;
-	cmd_hist[ptr].time = sched_clock();
+	cmd_hist[ptr].time = ktime_to_ns(ktime_get());
 
 	return ptr;
 }
@@ -367,7 +367,7 @@ static void probe_ufshcd_command(void *data, const char *dev_name,
 		while (1) {
 			if (cmd_hist[ptr].cmd.utp.tag == tag) {
 				cmd_hist[cmd_hist_ptr].duration =
-					sched_clock() -
+					ktime_to_ns(ktime_get()) -
 					cmd_hist[ptr].time;
 				break;
 			}
@@ -407,7 +407,7 @@ static void probe_ufshcd_uic_command(void *data, const char *dev_name,
 		while (1) {
 			if (cmd_hist[ptr].cmd.uic.cmd == cmd) {
 				cmd_hist[cmd_hist_ptr].duration =
-					sched_clock() -
+					ktime_to_ns(ktime_get()) -
 					cmd_hist[ptr].time;
 				break;
 			}
@@ -1118,9 +1118,6 @@ static void ufs_mtk_dbg_cleanup(void)
 int ufs_mtk_dbg_register(struct ufs_hba *hba)
 {
 	int i, ret;
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
-#endif
 
 	/*
 	 * Ignore any failure of AEE buffer allocation to still allow
@@ -1132,9 +1129,6 @@ int ufs_mtk_dbg_register(struct ufs_hba *hba)
 	ufshba = hba;
 	cmd_hist_initialized = true;
 
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	host->mphy_base = ioremap(0x112a0000, 0x10000);
-#endif
 	/* Install the tracepoints */
 	for_each_kernel_tracepoint(lookup_tracepoints, NULL);
 

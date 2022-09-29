@@ -45,6 +45,81 @@
 static int ufs_abort_aee_count;
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+static const u32 mphy_reg_dump[] = {
+	0xA09C, /* RON */ /* 0 */
+	0xA19C, /* RON */ /* 1 */
+
+	0x80C0, /* RON */ /* 2 */
+	0x81C0, /* RON */ /* 3 */
+	0xB010, /* RON */ /* 4 */
+	0xB010, /* RON */ /* 5 */
+	0xB010, /* RON */ /* 6 */
+	0xB010, /* RON */ /* 7 */
+	0xB010, /* RON */ /* 8 */
+	0xA0AC, /* RON */ /* 9 */
+	0xA0B0, /* RON */ /* 10 */
+	0xA1AC, /* RON */ /* 11 */
+	0xA1B0, /* RON */ /* 12 */
+
+	0x00B0, /* RON */ /* 13 */
+
+	0xC210, /* CL */ /* 14 */
+	0xC280, /* CL */ /* 15 */
+	0xC268, /* CL */ /* 16 */
+	0xC228, /* CL */ /* 17 */
+	0xC22C, /* CL */ /* 18 */
+	0xC220, /* CL */ /* 19 */
+	0xC224, /* CL */ /* 20 */
+	0xC284, /* CL */ /* 21 */
+	0xC274, /* CL */ /* 22 */
+	0xC278, /* CL */ /* 23 */
+	0xC29C, /* CL */ /* 24 */
+	0xC214, /* CL */ /* 25 */
+	0xC218, /* CL */ /* 26 */
+	0xC21C, /* CL */ /* 27 */
+	0xC234, /* CL */ /* 28 */
+	0xC230, /* CL */ /* 29 */
+	0xC244, /* CL */ /* 30 */
+	0xC250, /* CL */ /* 31 */
+	0xC270, /* CL */ /* 32 */
+	0xC26C, /* CL */ /* 33 */
+	0xC310, /* CL */ /* 34 */
+	0xC380, /* CL */ /* 35 */
+	0xC368, /* CL */ /* 36 */
+	0xC328, /* CL */ /* 37 */
+	0xC32C, /* CL */ /* 38 */
+	0xC320, /* CL */ /* 39 */
+	0xC324, /* CL */ /* 40 */
+	0xC384, /* CL */ /* 41 */
+	0xC374, /* CL */ /* 42 */
+	0xC378, /* CL */ /* 43 */
+	0xC39C, /* CL */ /* 44 */
+	0xC314, /* CL */ /* 45 */
+	0xC318, /* CL */ /* 46 */
+	0xC31C, /* CL */ /* 47 */
+	0xC334, /* CL */ /* 48 */
+	0xC330, /* CL */ /* 49 */
+	0xC344, /* CL */ /* 50 */
+	0xC350, /* CL */ /* 51 */
+	0xC370, /* CL */ /* 52 */
+	0xC36C  /* CL */ /* 53 */
+};
+#define MPHY_DUMP_NUM    (sizeof(mphy_reg_dump) / sizeof(u32))
+enum {
+	UFS_MPHY_INIT = 0,
+	UFS_MPHY_UIC,
+	UFS_MPHY_UIC_LINE_RESET,
+	UFS_MPHY_STAGE_NUM
+};
+
+struct ufs_mtk_mphy_struct {
+	u32 record[MPHY_DUMP_NUM];
+	u64 time;
+};
+static struct ufs_mtk_mphy_struct mphy_record[UFS_MPHY_STAGE_NUM];
+#endif
+
 extern void mt_irq_dump_status(unsigned int irq);
 static void ufs_mtk_auto_hibern8_disable(struct ufs_hba *hba);
 
@@ -684,6 +759,11 @@ static void ufs_mtk_init_host_caps(struct ufs_hba *hba)
 
 	if (of_property_read_bool(np, "mediatek,ufs-pmc-via-fastauto"))
 		host->caps |= UFS_MTK_CAP_PMC_VIA_FASTAUTO;
+
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	if (of_property_read_bool(np, "mediatek,ufs-mphy-debug"))
+		host->mphy_base = ioremap(0x112a0000, 0x10000);
+#endif
 
 	dev_info(hba->dev, "caps=0x%x", host->caps);
 
@@ -2059,6 +2139,159 @@ static int ufs_mtk_pre_pwr_change(struct ufs_hba *hba,
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+static void ufs_mtk_mphy_record(struct ufs_hba *hba, u8 stage)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	u32 i;
+
+	if (!host->mphy_base)
+		return;
+
+	if (mphy_record[stage].time)
+		return;
+
+	mphy_record[stage].time = ktime_to_ns(ktime_get());
+
+	writel(0xC1000200, host->mphy_base + 0x20C0);
+	for (i = 0; i < 2; i++) {
+		mphy_record[stage].record[i] =
+			readl(host->mphy_base + mphy_reg_dump[i]);
+	}
+	writel(0, host->mphy_base + 0x20C0);
+
+	for (i = 2; i < 12; i++) {
+		mphy_record[stage].record[i] =
+			readl(host->mphy_base + mphy_reg_dump[i]);
+	}
+
+	writel(0x0, host->mphy_base + 0x0);
+	writel(0x4, host->mphy_base + 0x4);
+	for (i = 13; i < 14; i++) {
+		mphy_record[stage].record[i] =
+			readl(host->mphy_base + mphy_reg_dump[i]);
+	}
+
+	/* Enable CK */
+	writel(readl(host->mphy_base + 0xA02C) | (0x1 << 11),
+		host->mphy_base + 0xA02C);
+	writel(readl(host->mphy_base + 0xA12C) | (0x1 << 11),
+		host->mphy_base + 0xA12C);
+	writel(readl(host->mphy_base + 0xA6C8) | (0x3 << 13),
+		host->mphy_base + 0xA6C8);
+	writel(readl(host->mphy_base + 0xA638) | (0x1 << 10),
+		host->mphy_base + 0xA638);
+	writel(readl(host->mphy_base + 0xA7C8) | (0x3 << 13),
+		host->mphy_base + 0xA7C8);
+	writel(readl(host->mphy_base + 0xA738) | (0x1 << 10),
+		host->mphy_base + 0xA738);
+
+	/* Dump [Lane0] RX RG */
+	for (i = 14; i < 16; i++) {
+		mphy_record[stage].record[i] =
+			readl(host->mphy_base + mphy_reg_dump[i]);
+	}
+
+	writel(readl(host->mphy_base + 0xC0DC) & ~(0x1 << 25),
+		host->mphy_base + 0xC0DC);
+	writel(readl(host->mphy_base + 0xC0DC) | (0x1 << 25),
+		host->mphy_base + 0xC0DC);
+	writel(readl(host->mphy_base + 0xC0DC) & ~(0x1 << 25),
+		host->mphy_base + 0xC0DC);
+
+	for (i = 16; i < 24; i++) {
+		mphy_record[stage].record[i] =
+			readl(host->mphy_base + mphy_reg_dump[i]);
+	}
+
+	writel(readl(host->mphy_base + 0xC0C0) & ~(0x1 << 27),
+		host->mphy_base + 0xC0C0);
+	writel(readl(host->mphy_base + 0xC0C0) | (0x1 << 27),
+		host->mphy_base + 0xC0C0);
+	writel(readl(host->mphy_base + 0xC0C0) & ~(0x1 << 27),
+		host->mphy_base + 0xC0C0);
+
+	for (i = 24; i < 34; i++) {
+		mphy_record[stage].record[i] =
+			readl(host->mphy_base + mphy_reg_dump[i]);
+	}
+
+	/* Dump [Lane1] RX RG */
+	for (i = 34; i < 36; i++) {
+		mphy_record[stage].record[i] =
+			readl(host->mphy_base + mphy_reg_dump[i]);
+	}
+
+	writel(readl(host->mphy_base + 0xC1DC) & ~(0x1 << 25),
+		host->mphy_base + 0xC1DC);
+	writel(readl(host->mphy_base + 0xC1DC) | (0x1 << 25),
+		host->mphy_base + 0xC1DC);
+	writel(readl(host->mphy_base + 0xC1DC) & ~(0x1 << 25),
+		host->mphy_base + 0xC1DC);
+
+	for (i = 36; i < 44; i++) {
+		mphy_record[stage].record[i] =
+			readl(host->mphy_base + mphy_reg_dump[i]);
+	}
+
+	writel(readl(host->mphy_base + 0xC1C0) & ~(0x1 << 27),
+		host->mphy_base + 0xC1C0);
+	writel(readl(host->mphy_base + 0xC1C0) | (0x1 << 27),
+		host->mphy_base + 0xC1C0);
+	writel(readl(host->mphy_base + 0xC1C0) & ~(0x1 << 27),
+		host->mphy_base + 0xC1C0);
+
+
+	for (i = 44; i < 54; i++) {
+		mphy_record[stage].record[i] =
+			readl(host->mphy_base + mphy_reg_dump[i]);
+	}
+
+	/* Disable CK */
+	writel(readl(host->mphy_base + 0xA02C) & ~(0x1 << 11),
+		host->mphy_base + 0xA02C);
+	writel(readl(host->mphy_base + 0xA12C) & ~(0x1 << 11),
+		host->mphy_base + 0xA12C);
+	writel(readl(host->mphy_base + 0xA6C8) & ~(0x3 << 13),
+		host->mphy_base + 0xA6C8);
+	writel(readl(host->mphy_base + 0xA638) & ~(0x1 << 10),
+		host->mphy_base + 0xA638);
+	writel(readl(host->mphy_base + 0xA7C8) & ~(0x3 << 13),
+		host->mphy_base + 0xA7C8);
+	writel(readl(host->mphy_base + 0xA738) & ~(0x1 << 10),
+		host->mphy_base + 0xA738);
+}
+#endif
+
+/* only can read/write in eng/userdebug */
+static void ufs_mtk_mphy_dump(struct ufs_hba *hba)
+{
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	struct timespec64 dur;
+	u32 i, j;
+
+	if (!host->mphy_base)
+		return;
+
+	for (i = 0; i < UFS_MPHY_STAGE_NUM; i++) {
+		if (mphy_record[i].time == 0)
+			continue;
+
+		dur = ns_to_timespec64(mphy_record[i].time);
+
+		pr_info("%s: MPHY record at %6llu.%lu\n", __func__,
+			dur.tv_sec, dur.tv_nsec);
+
+
+		for (j = 0; j < MPHY_DUMP_NUM; j++) {
+			pr_info("%s: 0x112a%04X=0x%x\n", __func__,
+				mphy_reg_dump[j], mphy_record[i].record[j]);
+		}
+	}
+#endif
+}
+
 static int ufs_mtk_pwr_change_notify(struct ufs_hba *hba,
 				     enum ufs_notify_change_status stage,
 				     struct ufs_pa_layer_attr *dev_max_params,
@@ -2072,6 +2305,9 @@ static int ufs_mtk_pwr_change_notify(struct ufs_hba *hba,
 					     dev_req_params);
 		break;
 	case POST_CHANGE:
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+		ufs_mtk_mphy_record(hba, UFS_MPHY_INIT);
+#endif
 		break;
 	default:
 		ret = -EINVAL;
@@ -2414,6 +2650,7 @@ static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	int err;
 	struct arm_smccc_res res;
+	unsigned long flags;
 
 	if (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL)
 		ufs_mtk_dev_vreg_set_lpm(hba, false);
@@ -2433,226 +2670,14 @@ static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 	return 0;
 fail:
-	return ufshcd_link_recovery(hba);
-}
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	hba->force_reset = true;
+	hba->ufshcd_state = UFSHCD_STATE_EH_SCHEDULED_FATAL;
+	schedule_work(&hba->eh_work);
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	flush_work(&hba->eh_work);
 
-/* only can read/write in eng/userdebug */
-static void ufs_mtk_mphy_dump(struct ufs_hba *hba)
-{
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
-
-	if (!host->mphy_base)
-		return;
-
-	writel(0xC1000200, host->mphy_base + 0x20C0);
-
-	pr_info("%s: 0x112aA09C=0x%x\n", __func__,
-		readl(host->mphy_base + 0xA09C));
-
-	pr_info("%s: 0x112aA19C=0x%x\n", __func__,
-		readl(host->mphy_base + 0xA19C));
-
-	writel(0, host->mphy_base + 0x20C0);
-
-	/* Enable CK */
-	writel(readl(host->mphy_base + 0xA02C) | (0x1 << 11),
-		host->mphy_base + 0xA02C);
-	writel(readl(host->mphy_base + 0xA12C) | (0x1 << 11),
-		host->mphy_base + 0xA12C);
-	writel(readl(host->mphy_base + 0xA6C8) | (0x3 << 13),
-		host->mphy_base + 0xA6C8);
-	writel(readl(host->mphy_base + 0xA638) | (0x1 << 10),
-		host->mphy_base + 0xA638);
-	writel(readl(host->mphy_base + 0xA7C8) | (0x3 << 13),
-		host->mphy_base + 0xA7C8);
-	writel(readl(host->mphy_base + 0xA738) | (0x1 << 10),
-		host->mphy_base + 0xA738);
-
-	/* ethc_ro_latch_en=1 */
-	writel(readl(host->mphy_base + 0xC0DC) | (0x1F << 22),
-		host->mphy_base + 0xC0DC);
-	writel(readl(host->mphy_base + 0xC0DC) | (0x7 << 29),
-		host->mphy_base + 0xC0DC);
-	writel(readl(host->mphy_base + 0xC0E0) | (0x1 << 0),
-		host->mphy_base + 0xC0E0);
-	writel(readl(host->mphy_base + 0xC1DC) | (0x1F << 22),
-		host->mphy_base + 0xC1DC);
-	writel(readl(host->mphy_base + 0xC1DC) | (0x7 << 29),
-		host->mphy_base + 0xC1DC);
-	writel(readl(host->mphy_base + 0xC1E0) | (0x1 << 0),
-		host->mphy_base + 0xC1E0);
-
-	/* ethc_ro_latch_en=0 */
-	writel(readl(host->mphy_base + 0xC0DC) & ~(0x1F << 22),
-		host->mphy_base + 0xC0DC);
-	writel(readl(host->mphy_base + 0xC0DC) & ~(0x7 << 29),
-		host->mphy_base + 0xC0DC);
-	writel(readl(host->mphy_base + 0xC0E0) & ~(0x1 << 0),
-		host->mphy_base + 0xC0E0);
-	writel(readl(host->mphy_base + 0xC1DC) & ~(0x1F << 22),
-		host->mphy_base + 0xC1DC);
-	writel(readl(host->mphy_base + 0xC1DC) & ~(0x7 << 29),
-		host->mphy_base + 0xC1DC);
-	writel(readl(host->mphy_base + 0xC1E0) & ~(0x1 << 0),
-		host->mphy_base + 0xC1E0);
-
-	/* Disable CK */
-	writel(readl(host->mphy_base + 0xA02C) & ~(0x1 << 11),
-		host->mphy_base + 0xA02C);
-	writel(readl(host->mphy_base + 0xA12C) & ~(0x1 << 11),
-		host->mphy_base + 0xA12C);
-	writel(readl(host->mphy_base + 0xA6C8) & ~(0x3 << 13),
-		host->mphy_base + 0xA6C8);
-	writel(readl(host->mphy_base + 0xA638) & ~(0x1 << 10),
-		host->mphy_base + 0xA638);
-	writel(readl(host->mphy_base + 0xA7C8) & ~(0x3 << 13),
-		host->mphy_base + 0xA7C8);
-	writel(readl(host->mphy_base + 0xA738) & ~(0x1 << 10),
-		host->mphy_base + 0xA738);
-
-	/* Enable CK */
-	writel(readl(host->mphy_base + 0xA02C) | (0x1 << 11),
-		host->mphy_base + 0xA02C);
-	writel(readl(host->mphy_base + 0xA12C) | (0x1 << 11),
-		host->mphy_base + 0xA12C);
-	writel(readl(host->mphy_base + 0xA6C8) | (0x3 << 13),
-		host->mphy_base + 0xA6C8);
-	writel(readl(host->mphy_base + 0xA638) | (0x1 << 10),
-		host->mphy_base + 0xA638);
-	writel(readl(host->mphy_base + 0xA7C8) | (0x3 << 13),
-		host->mphy_base + 0xA7C8);
-	writel(readl(host->mphy_base + 0xA738) | (0x1 << 10),
-		host->mphy_base + 0xA738);
-
-	/* ethc_ro_latch_en=1 */
-	writel(readl(host->mphy_base + 0xC0DC) | (0x1F << 22),
-		host->mphy_base + 0xC0DC);
-	writel(readl(host->mphy_base + 0xC0DC) | (0x7 << 29),
-		host->mphy_base + 0xC0DC);
-	writel(readl(host->mphy_base + 0xC0E0) | (0x1 << 0),
-		host->mphy_base + 0xC0E0);
-	writel(readl(host->mphy_base + 0xC1DC) | (0x1F << 22),
-		host->mphy_base + 0xC1DC);
-	writel(readl(host->mphy_base + 0xC1DC) | (0x7 << 29),
-		host->mphy_base + 0xC1DC);
-	writel(readl(host->mphy_base + 0xC1E0) | (0x1 << 0),
-		host->mphy_base + 0xC1E0);
-
-	/* ethc_ro_latch_en=0 */
-	writel(readl(host->mphy_base + 0xC0DC) & ~(0x1F << 22),
-		host->mphy_base + 0xC0DC);
-	writel(readl(host->mphy_base + 0xC0DC) & ~(0x7 << 29),
-		host->mphy_base + 0xC0DC);
-	writel(readl(host->mphy_base + 0xC0E0) & ~(0x1 << 0),
-		host->mphy_base + 0xC0E0);
-	writel(readl(host->mphy_base + 0xC1DC) & ~(0x1F << 22),
-		host->mphy_base + 0xC1DC);
-	writel(readl(host->mphy_base + 0xC1DC) & ~(0x7 << 29),
-		host->mphy_base + 0xC1DC);
-	writel(readl(host->mphy_base + 0xC1E0) & ~(0x1 << 0),
-		host->mphy_base + 0xC1E0);
-
-
-	/* Dump [Lane0] RX RG */
-	pr_info("%s: 0x112aC210=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC210));
-	pr_info("%s: 0x112aC280=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC280));
-	pr_info("%s: 0x112aC268=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC268));
-	pr_info("%s: 0x112aC228=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC228));
-	pr_info("%s: 0x112aC22C=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC22C));
-	pr_info("%s: 0x112aC220=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC220));
-	pr_info("%s: 0x112aC224=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC224));
-	pr_info("%s: 0x112aC284=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC284));
-	pr_info("%s: 0x112aC274=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC274));
-	pr_info("%s: 0x112aC278=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC278));
-	pr_info("%s: 0x112aC29C=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC29C));
-	pr_info("%s: 0x112aC214=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC214));
-	pr_info("%s: 0x112aC218=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC218));
-	pr_info("%s: 0x112aC21C=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC21C));
-	pr_info("%s: 0x112aC234=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC234));
-	pr_info("%s: 0x112aC230=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC230));
-	pr_info("%s: 0x112aC244=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC244));
-	pr_info("%s: 0x112aC250=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC250));
-	pr_info("%s: 0x112aC270=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC270));
-	pr_info("%s: 0x112aC26C=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC26C));
-
-	/* Dump [Lane1] RX RG */
-	pr_info("%s: 0x112aC310=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC310));
-	pr_info("%s: 0x112aC380=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC380));
-	pr_info("%s: 0x112aC368=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC368));
-	pr_info("%s: 0x112aC328=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC328));
-	pr_info("%s: 0x112aC32C=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC32C));
-	pr_info("%s: 0x112aC320=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC320));
-	pr_info("%s: 0x112aC324=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC324));
-	pr_info("%s: 0x112aC384=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC384));
-	pr_info("%s: 0x112aC374=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC374));
-	pr_info("%s: 0x112aC378=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC378));
-	pr_info("%s: 0x112aC39C=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC39C));
-	pr_info("%s: 0x112aC314=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC314));
-	pr_info("%s: 0x112aC318=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC318));
-	pr_info("%s: 0x112aC31C=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC31C));
-	pr_info("%s: 0x112aC334=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC334));
-	pr_info("%s: 0x112aC330=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC330));
-	pr_info("%s: 0x112aC344=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC344));
-	pr_info("%s: 0x112aC350=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC350));
-	pr_info("%s: 0x112aC370=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC370));
-	pr_info("%s: 0x112aC36C=0x%x\n", __func__,
-		readl(host->mphy_base + 0xC36C));
-
-
-	/* Disable CK */
-	writel(readl(host->mphy_base + 0xA02C) & ~(0x1 << 11),
-		host->mphy_base + 0xA02C);
-	writel(readl(host->mphy_base + 0xA12C) & ~(0x1 << 11),
-		host->mphy_base + 0xA12C);
-	writel(readl(host->mphy_base + 0xA6C8) & ~(0x3 << 13),
-		host->mphy_base + 0xA6C8);
-	writel(readl(host->mphy_base + 0xA638) & ~(0x1 << 10),
-		host->mphy_base + 0xA638);
-	writel(readl(host->mphy_base + 0xA7C8) & ~(0x3 << 13),
-		host->mphy_base + 0xA7C8);
-	writel(readl(host->mphy_base + 0xA738) & ~(0x1 << 10),
-		host->mphy_base + 0xA738);
-#endif
+	return 0;
 }
 
 static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
@@ -2801,12 +2826,24 @@ static void ufs_mtk_event_notify(struct ufs_hba *hba,
 		for_each_set_bit(bit, &reg, ARRAY_SIZE(ufs_uic_pa_err_str))
 			dev_info(hba->dev, "%s\n", ufs_uic_pa_err_str[bit]);
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+		/* Got a LINERESET indication. */
+		if (reg & UIC_PHY_ADAPTER_LAYER_GENERIC_ERROR)
+			ufs_mtk_mphy_record(hba, UFS_MPHY_UIC_LINE_RESET);
+		else
+			ufs_mtk_mphy_record(hba, UFS_MPHY_UIC);
+#endif
 		ufs_mtk_dbg_register_dump(hba);
 	}
 
 	if (evt == UFS_EVT_DL_ERR) {
 		for_each_set_bit(bit, &reg, ARRAY_SIZE(ufs_uic_dl_err_str))
 			dev_info(hba->dev, "%s\n", ufs_uic_dl_err_str[bit]);
+
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+		ufs_mtk_mphy_record(hba, UFS_MPHY_UIC);
+#endif
+		ufs_mtk_dbg_register_dump(hba);
 	}
 
 	/*
@@ -2849,14 +2886,17 @@ static void ufs_mtk_auto_hibern8_disable(struct ufs_hba *hba)
 	if (ret) {
 		dev_warn(hba->dev, "exit h8 state fail, ret=%d\n", ret);
 
-		/* link fail, do link recovery and disable ah8 again */
-		ufshcd_set_link_broken(hba);
-		ret = ufshcd_link_recovery(hba);
-		if (!ret) {
-			spin_lock_irqsave(hba->host->host_lock, flags);
-			ufshcd_writel(hba, 0, REG_AUTO_HIBERNATE_IDLE_TIMER);
-			spin_unlock_irqrestore(hba->host->host_lock, flags);
-		}
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		hba->force_reset = true;
+		hba->ufshcd_state = UFSHCD_STATE_EH_SCHEDULED_FATAL;
+		schedule_work(&hba->eh_work);
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		flush_work(&hba->eh_work);
+
+		/* disable auto-hibern8 */
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		ufshcd_writel(hba, 0, REG_AUTO_HIBERNATE_IDLE_TIMER);
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
 	}
 }
 
