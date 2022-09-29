@@ -2207,6 +2207,7 @@ static void destroy_ut_task(struct mml_task *task)
 		task->end_time.tv_sec, task->end_time.tv_nsec);
 	list_del(&task->entry);
 	ut_task_cnt--;
+	mml_pq_log("[mml] %s: after-- ut_task_cnt[%d]\n", __func__, ut_task_cnt);
 	kfree(task->config);
 	kfree(task);
 }
@@ -2243,15 +2244,21 @@ exit:
 
 static void create_ut_task(const char *case_name)
 {
-	struct mml_task *task = mml_core_create_task();
-	struct task_struct *thr;
+	struct mml_task *task = NULL;
+	struct task_struct *thr = NULL;
 
+	if (ut_task_cnt != 0) {
+		mml_pq_err("[mml] unexpected ut_task_cnt[%d]\n", ut_task_cnt);
+		return;
+	}
+
+	task = mml_core_create_task();
 	mml_pq_log("start create task for %s\n", case_name);
 	INIT_LIST_HEAD(&task->entry);
 	ktime_get_ts64(&task->end_time);
 	list_add_tail(&task->entry, &ut_mml_tasks);
 	ut_task_cnt++;
-
+	mml_pq_log("[mml] %s: after++ ut_task_cnt[%d]\n", __func__, ut_task_cnt);
 	mml_pq_log("[mml] created mml_task for PQ UT [%lu.%lu]\n",
 		task->end_time.tv_sec, task->end_time.tv_nsec);
 	thr = kthread_run(run_ut_task_threaded, task, case_name);
