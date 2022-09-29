@@ -1431,7 +1431,8 @@ static bool ged_dvfs_policy(
 		// use fix margin in fallback mode
 		policy_state = ged_get_policy_state();
 		if (policy_state == POLICY_STATE_FB_FALLBACK ||
-				policy_state == POLICY_STATE_LB_FALLBACK)
+				policy_state == POLICY_STATE_LB_FALLBACK ||
+				policy_state == POLICY_STATE_FORCE_LB_FALLBACK)
 			gx_tb_dvfs_margin = g_tb_dvfs_margin_value;
 
 		// overwrite FB fallback to LB if there're no pending main head frames
@@ -1476,7 +1477,8 @@ static bool ged_dvfs_policy(
 		/* opp control */
 		// use fallback window size in fallback mode
 		if (policy_state == POLICY_STATE_FB_FALLBACK ||
-				policy_state == POLICY_STATE_LB_FALLBACK)
+				policy_state == POLICY_STATE_LB_FALLBACK ||
+				policy_state == POLICY_STATE_FORCE_LB_FALLBACK)
 			window_size_ms = g_fallback_window_size;
 		ui32GPULoading = gpu_util_history_query_loading(window_size_ms * 1000);
 		loading_mode = ged_get_dvfs_loading_mode();
@@ -1493,9 +1495,12 @@ static bool ged_dvfs_policy(
 
 		// prevent decreasing opp in fallback mode
 		if ((policy_state == POLICY_STATE_FB_FALLBACK ||
-				policy_state == POLICY_STATE_LB_FALLBACK) &&
-				i32NewFreqID > ui32GPUFreq)
-			i32NewFreqID = ui32GPUFreq;
+				policy_state == POLICY_STATE_LB_FALLBACK ||
+				policy_state == POLICY_STATE_FORCE_LB_FALLBACK) &&
+				i32NewFreqID > ui32GPUFreq) {
+			if (g_fallback_frequency_adjust)
+				i32NewFreqID = ui32GPUFreq;
+		}
 
 		ged_log_buf_print(ghLogBuf_DVFS,
 			"[GED_K][LB_DVFS] mode:0x%x, u_b:%d, l_b:%d, margin:%d, complete:%d, uncomplete:%d, t_gpu:%d, target:%d",

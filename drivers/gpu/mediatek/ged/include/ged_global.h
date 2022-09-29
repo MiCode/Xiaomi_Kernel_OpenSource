@@ -64,6 +64,7 @@ extern unsigned int g_loading_target_mode;
 extern unsigned int g_fallback_mode;
 extern unsigned int g_fallback_time;
 extern unsigned int g_fallback_window_size;
+extern unsigned int g_fallback_frequency_adjust;
 extern unsigned int g_frame_target_mode;
 extern unsigned int g_frame_target_time;
 extern u64 fb_timeout;

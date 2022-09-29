@@ -910,6 +910,36 @@ static ssize_t fallback_window_size_store(struct kobject *kobj,
 static KOBJ_ATTR_RW(fallback_window_size);
 
 //-----------------------------------------------------------------------------
+unsigned int g_fallback_frequency_adjust = 1;
+
+static ssize_t fallback_frequency_adjust_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%u\n", g_fallback_frequency_adjust);
+}
+
+static ssize_t fallback_frequency_adjust_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[GED_SYSFS_MAX_BUFF_SIZE];
+	unsigned int u32Value;
+
+	if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtouint(acBuffer, 0, &u32Value) == 0) {
+				if (u32Value >= 0 && u32Value <= 1)
+					g_fallback_frequency_adjust = u32Value;
+			}
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(fallback_frequency_adjust);
+//-----------------------------------------------------------------------------
 unsigned int g_loading_slide_window_size = GED_DEFAULT_SLIDE_WINDOW_SIZE;
 
 static ssize_t loading_window_size_show(struct kobject *kobj,
@@ -1098,6 +1128,14 @@ GED_ERROR ged_hal_init(void)
 			"Failed to create fallback_window_size entry!\n");
 		goto ERROR;
 	}
+
+	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_fallback_frequency_adjust);
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE(
+			"Failed to create fallback_frequency_adjust entry!\n");
+		goto ERROR;
+	}
+
 	return err;
 
 ERROR:
@@ -1131,6 +1169,7 @@ void ged_hal_exit(void)
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_fallback_timing);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_fallback_interval);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_fallback_window_size);
+	ged_sysfs_remove_file(hal_kobj, &kobj_attr_fallback_frequency_adjust);
 #ifdef GED_DCS_POLICY
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_dcs_mode);
 #endif
