@@ -53,6 +53,7 @@ struct cmdq_sec_helper_fp *cmdq_sec_helper;
 #define CMDQ_EOC_CMD		((u64)((CMDQ_CODE_EOC << CMDQ_OP_CODE_SHIFT)) \
 				<< 32 | CMDQ_EOC_IRQ_EN)
 #define CMDQ_MBOX_BUF_LIMIT	16 /* default limit count */
+#define CMDQ_HW_MAX			2
 
 /* sleep for 312 tick, which around 12us */
 #define CMDQ_POLL_TICK			312
@@ -2342,14 +2343,15 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 	struct cmdq_pkt_buffer *buf;
 	u32 size = pkt->cmd_buf_size, cnt = 0;
 	s32 thread_id = cmdq_mbox_chan_id(client->chan);
-	static u8 err_num;
+	u32 hwid = cmdq_util_get_hw_id((u32)cmdq_mbox_get_base_pa(client->chan));
+	static u8 err_num[CMDQ_HW_MAX];
 
 	cmdq_msg("%s pkt:%p", __func__, pkt);
 
-	cmdq_util_helper->error_enable();
+	cmdq_util_helper->error_enable((u8)hwid);
 
 	cmdq_util_user_err(client ? client->chan : NULL,
-		"begin of error irq %u", err_num++);
+		"hwid:%d begin of error irq %u", hwid, err_num[hwid]++);
 	cmdq_chan_dump_dbg(client->chan);
 	cmdq_task_get_thread_pc(client->chan, &pc);
 	cmdq_util_user_err(client ? client->chan : NULL,
@@ -2400,7 +2402,7 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 			mod, cmdq_util_helper->hw_name(client->chan), pc, thread_id);
 	}
 
-	cmdq_util_helper->error_disable();
+	cmdq_util_helper->error_disable((u8)hwid);
 }
 
 static void cmdq_flush_async_cb(struct cmdq_cb_data data)
@@ -2494,7 +2496,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 {
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 
-	static u32 err_num;
+	static u32 err_num[CMDQ_HW_MAX];
 	struct cmdq_pkt *pkt = (struct cmdq_pkt *)data.data;
 	struct cmdq_client *client = pkt->cl;
 	struct cmdq_flush_item *item =
@@ -2505,6 +2507,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	const char *mod = NULL;
 	s32 thread_id = cmdq_mbox_chan_id(client->chan);
 	enum cmdq_aee_type aee;
+	u32 hwid = cmdq_util_get_hw_id(gce_pa);
 
 	/* assign error during dump cb */
 	item->err = data.err;
@@ -2519,10 +2522,11 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 
 	cmdq_util_helper->dump_lock();
 
-	if (err_num == 0)
-		cmdq_util_helper->error_enable();
 
-	cmdq_util_user_err(client->chan, "Begin of Error %u", err_num);
+	cmdq_util_user_err(client->chan, "hwid:%d Begin of Error %u",
+		hwid, err_num[hwid]);
+	if (!err_num[hwid])
+		cmdq_util_helper->error_enable((u8)hwid);
 
 	cmdq_dump_core(client->chan);
 
@@ -2552,7 +2556,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 		if (inst->arg_a >= CMDQ_TOKEN_PREBUILT_MDP_WAIT &&
 			inst->arg_a <= CMDQ_TOKEN_DISP_VA_END)
 			cmdq_util_prebuilt_dump(
-				cmdq_util_get_hw_id(gce_pa), inst->arg_a);
+				hwid, inst->arg_a);
 	} else if (inst)
 		cmdq_buf_cmd_parse((u64 *)inst, 1, pc, pc,
 			"curr inst:", client->chan);
@@ -2617,12 +2621,12 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 done:
 #endif
 
-	cmdq_util_user_err(client->chan, "End of Error %u", err_num);
-	if (err_num == 0) {
-		cmdq_util_helper->error_disable();
+	cmdq_util_user_err(client->chan, "hwid:%d End of Error %u", hwid, err_num[hwid]);
+	if (!err_num[hwid]) {
+		cmdq_util_helper->error_disable((u8)hwid);
 		cmdq_util_helper->set_first_err_mod(client->chan, mod);
 	}
-	err_num++;
+	err_num[hwid]++;
 	cmdq_util_helper->dump_unlock();
 
 #else

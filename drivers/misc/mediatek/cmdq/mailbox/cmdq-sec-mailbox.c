@@ -1259,7 +1259,7 @@ cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
 
 		if (err) {
 			cmdq_util_dump_lock();
-			cmdq_util_error_enable();
+			cmdq_util_error_enable(cmdq->hwid);
 			dump_err = true;
 		} else {
 			if (!mtee) {
@@ -1285,7 +1285,7 @@ cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
 			(unsigned long)cmdq->base_pa);
 
 	if (dump_err) {
-		cmdq_util_error_disable();
+		cmdq_util_error_disable(cmdq->hwid);
 		cmdq_util_dump_unlock();
 	}
 

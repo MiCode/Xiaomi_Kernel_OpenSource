@@ -91,9 +91,10 @@ EXPORT_SYMBOL(cmdqCoreRegisterDebugRegDumpCB);
 s32 cmdq_core_save_first_dump(const char *format, ...)
 {
 	va_list args;
+	u8 hwid = 0;
 
 	va_start(args, format);
-	cmdq_util_error_save_lst(format, args);
+	cmdq_util_error_save_lst(format, args, hwid);
 	va_end(args);
 	return 0;
 }

@@ -93,7 +93,7 @@ struct cmdq_hw_trace {
 };
 
 struct cmdq_util {
-	struct cmdq_util_error	err;
+	struct cmdq_util_error	err[CMDQ_HW_MAX];
 	struct cmdq_util_dentry	fs;
 	struct cmdq_record record[CMDQ_RECORD_NUM];
 	u16 record_idx;
@@ -227,21 +227,21 @@ bool cmdq_util_is_feature_en(u8 feature)
 }
 EXPORT_SYMBOL(cmdq_util_is_feature_en);
 
-void cmdq_util_error_enable(void)
+void cmdq_util_error_enable(u8 hwid)
 {
-	if (!util.err.nsec)
-		util.err.nsec = sched_clock();
-	atomic_inc(&util.err.enable);
+	if (!util.err[hwid].nsec)
+		util.err[hwid].nsec = sched_clock();
+	atomic_inc(&util.err[hwid].enable);
 }
 EXPORT_SYMBOL(cmdq_util_error_enable);
 
-void cmdq_util_error_disable(void)
+void cmdq_util_error_disable(u8 hwid)
 {
 	s32 enable;
 
-	enable = atomic_dec_return(&util.err.enable);
+	enable = atomic_dec_return(&util.err[hwid].enable);
 	if (enable < 0) {
-		cmdq_err("enable:%d", enable);
+		cmdq_err("enable:%d hwid:%d", enable, hwid);
 		dump_stack();
 	}
 }
@@ -259,30 +259,31 @@ void cmdq_util_dump_unlock(void)
 }
 EXPORT_SYMBOL(cmdq_util_dump_unlock);
 
-s32 cmdq_util_error_save_lst(const char *format, va_list args)
+s32 cmdq_util_error_save_lst(const char *format, va_list args, u8 hwid)
 {
 	unsigned long flags;
 	s32 size;
 	s32 enable;
 
-	enable = atomic_read(&util.err.enable);
-	if ((enable <= 0) || !util.err.buffer)
+	enable = atomic_read(&util.err[hwid].enable);
+	if ((enable <= 0) || !util.err[hwid].buffer)
 		return -EFAULT;
 
-	spin_lock_irqsave(&util.err.lock, flags);
-	size = vsnprintf(util.err.buffer + util.err.length,
-		CMDQ_FIRST_ERR_SIZE - util.err.length, format, args);
-	if (size >= CMDQ_FIRST_ERR_SIZE - util.err.length)
-		cmdq_log("size:%d over buf size:%d",
-			size, CMDQ_FIRST_ERR_SIZE - util.err.length);
-	util.err.length += size;
-	spin_unlock_irqrestore(&util.err.lock, flags);
+	spin_lock_irqsave(&util.err[hwid].lock, flags);
+	size = vsnprintf(util.err[hwid].buffer + util.err[hwid].length,
+		CMDQ_FIRST_ERR_SIZE - util.err[hwid].length, format, args);
+	if (size >= CMDQ_FIRST_ERR_SIZE - util.err[hwid].length)
+		cmdq_log("hwid:%d size:%d over buf size:%d",
+			hwid, size, CMDQ_FIRST_ERR_SIZE - util.err[hwid].length);
+	util.err[hwid].length += size;
+	spin_unlock_irqrestore(&util.err[hwid].lock, flags);
 
-	if (util.err.length >= CMDQ_FIRST_ERR_SIZE) {
-		cmdq_util_error_disable();
-		cmdq_err("util.err.length:%u is over CMDQ_FIRST_ERR_SIZE:%u",
-			util.err.length, CMDQ_FIRST_ERR_SIZE);
+	if (util.err[hwid].length >= CMDQ_FIRST_ERR_SIZE) {
+		cmdq_util_error_disable(hwid);
+		cmdq_err("hwid:%d util.err.length:%u is over CMDQ_FIRST_ERR_SIZE:%u",
+			hwid, util.err[hwid].length, CMDQ_FIRST_ERR_SIZE);
 	}
+
 	return 0;
 }
 EXPORT_SYMBOL(cmdq_util_error_save_lst);
@@ -291,29 +292,40 @@ s32 cmdq_util_error_save(const char *format, ...)
 {
 	va_list args;
 	s32 enable;
+	u8 i = 0;
 
-	enable = atomic_read(&util.err.enable);
-	if ((enable <= 0) || !util.err.buffer)
-		return -EFAULT;
+	for (i = 0; i < CMDQ_HW_MAX; i++) {
+		enable = atomic_read(&util.err[i].enable);
+		if (enable < 0)
+			return -EFAULT;
+		else if (!enable)
+			continue;
+		else if (enable && util.err[i].buffer != 0) {
+			va_start(args, format);
+			cmdq_util_error_save_lst(format, args, i);
+			va_end(args);
+		}
+	}
 
-	va_start(args, format);
-	cmdq_util_error_save_lst(format, args);
-	va_end(args);
 	return 0;
 }
 EXPORT_SYMBOL(cmdq_util_error_save);
 
 static int cmdq_util_status_print(struct seq_file *seq, void *data)
 {
-	u64		sec = util.err.nsec;
-	unsigned long	nsec = do_div(sec, 1000000000);
+	u64		sec = 0;
+	unsigned long	nsec = 0;
 	u32		i;
 
-	if (util.err.length) {
-		seq_printf(seq,
-			"[cmdq] first error kernel time:[%5llu.%06lu]\n",
-			sec, nsec);
-		seq_printf(seq, "%s", util.err.buffer);
+	for (i = 0; i < CMDQ_HW_MAX; i++) {
+		if (util.err[i].length) {
+			sec = util.err[i].nsec;
+			nsec = do_div(sec, 1000000000);
+			seq_printf(seq,
+				"[cmdq] hwid:%d first error kernel time:[%5llu.%06lu]\n",
+				i, sec, nsec);
+			seq_printf(seq, "%s", util.err[i].buffer);
+		}
 	}
 
 	seq_puts(seq, "[cmdq] dump all thread current status\n");
@@ -833,15 +845,19 @@ int cmdq_util_init(void)
 {
 	struct dentry	*dir;
 	bool exists = false;
+	u32 i;
 
 	cmdq_msg("%s begin", __func__);
 
 	cmdq_controller_set_fp(&controller_fp);
 	cmdq_helper_set_fp(&helper_fp);
-	spin_lock_init(&util.err.lock);
-	util.err.buffer = vzalloc(CMDQ_FIRST_ERR_SIZE);
-	if (!util.err.buffer)
-		return -ENOMEM;
+
+	for (i = 0; i < CMDQ_HW_MAX; i++) {
+		spin_lock_init(&util.err[i].lock);
+		util.err[i].buffer = vzalloc(CMDQ_FIRST_ERR_SIZE);
+		if (!util.err[i].buffer)
+			return -ENOMEM;
+	}
 
 	dir = debugfs_lookup("cmdq", NULL);
 	if (!dir) {

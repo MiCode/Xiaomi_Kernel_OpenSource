@@ -13,8 +13,8 @@
 typedef bool (*util_is_feature_en)(u8 feature);
 typedef void (*util_dump_lock)(void);
 typedef void (*util_dump_unlock)(void);
-typedef void (*util_error_enable)(void);
-typedef void (*util_error_disable)(void);
+typedef void (*util_error_enable)(u8 hwid);
+typedef void (*util_error_disable)(u8 hwid);
 typedef void (*util_dump_smi)(void);
 typedef const char *(*util_hw_name)(void *chan);
 typedef void (*util_set_first_err_mod)(void *chan, const char *mod);

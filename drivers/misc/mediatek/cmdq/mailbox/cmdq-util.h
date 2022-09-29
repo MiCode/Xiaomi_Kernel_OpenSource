@@ -170,11 +170,11 @@ void cmdq_util_test_set_ostd(void);
 u32 cmdq_util_get_bit_feature(void);
 bool cmdq_util_is_feature_en(u8 feature);
 
-void cmdq_util_error_enable(void); // TODO : need be called
-void cmdq_util_error_disable(void);
+void cmdq_util_error_enable(u8 hwid); // TODO : need be called
+void cmdq_util_error_disable(u8 hwid);
 void cmdq_util_dump_lock(void);
 void cmdq_util_dump_unlock(void);
-s32 cmdq_util_error_save_lst(const char *format, va_list args);
+s32 cmdq_util_error_save_lst(const char *format, va_list args, u8 hwid);
 s32 cmdq_util_error_save(const char *format, ...);
 void cmdq_util_enable_disp_va(void);
 bool cmdq_util_is_prebuilt_client(struct cmdq_client *client);
