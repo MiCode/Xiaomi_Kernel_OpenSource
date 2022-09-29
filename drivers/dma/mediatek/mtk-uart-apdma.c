@@ -281,22 +281,21 @@ void mtk_uart_apdma_data_dump(struct dma_chan *chan)
 			c->rec_info[idx].trans_len, c->rec_info[idx].poll_cnt_rx,
 			c->rec_info[idx].vff_dbg_reg, c->rec_info[idx].copy_wpt_reg);
 #ifdef CONFIG_UART_DMA_DATA_RECORD
-		if (len > UART_RECORD_MAXLEN) {
-			pr_info("[%s] msg len is exceed buf size:%d\n",
-				__func__, UART_RECORD_MAXLEN);
-			count++;
-			continue;
-		}
+		if (len <= UART_RECORD_MAXLEN) {
+			if (len > 256)
+				len = 256;
+			for (cyc = 0; cyc < len; cyc += 256) {
+				unsigned int cnt_min = len - cyc < 256 ? len - cyc : 256;
 
-		for (cyc = 0; cyc < len; cyc += 256) {
-			unsigned int cnt_min = len - cyc < 256 ? len - cyc : 256;
-
-			for (cnt = 0; cnt < cnt_min; cnt++)
-				(void)snprintf(raw_buf + 3 * cnt, 4, "%02X ", ptr[cnt + cyc]);
-			raw_buf[3*cnt] = '\0';
-			if (c->dir == DMA_MEM_TO_DEV)/*log too much, remove RX data dump*/
-				pr_info("%s [%d] data = %s\n",
-					c->dir == DMA_DEV_TO_MEM ? "Rx" : "Tx", cyc, raw_buf);
+				for (cnt = 0; cnt < cnt_min; cnt++)
+					(void)snprintf(raw_buf + 3 * cnt, 4, "%02X ",
+						ptr[cnt + cyc]);
+				raw_buf[3*cnt] = '\0';
+				if (c->dir == DMA_MEM_TO_DEV)/*log too much, remove RX data dump*/
+					pr_info("%s [%d] data = %s\n",
+						c->dir == DMA_DEV_TO_MEM ? "Rx" : "Tx", cyc,
+							raw_buf);
+			}
 		}
 #endif
 		idx++;

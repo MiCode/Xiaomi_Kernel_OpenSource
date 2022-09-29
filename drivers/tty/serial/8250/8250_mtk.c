@@ -484,16 +484,20 @@ void mtk8250_data_dump(void)
 			__func__, (unsigned long)endtime, ns / 1000,
 			rx_record.rec[idx].tty_port_addr);
 
-		if (len_ > UART_DUMP_BUF_LEN)
-			len_ = UART_DUMP_BUF_LEN;
-		for (cyc_ = 0; cyc_ < len_;) {
-			unsigned int cnt_min = (((len_ - cyc_) < 256) ? (len_ - cyc_) : 256);
+		if (len_ <= UART_DUMP_BUF_LEN) {
+			if (len_ > 256)
+				len_ = 256;
+			for (cyc_ = 0; cyc_ < len_;) {
+				unsigned int cnt_min = (((len_ - cyc_) < 256) ?
+								(len_ - cyc_) : 256);
 
-			for (cnt_ = 0; cnt_ < cnt_min; cnt_++)
-				(void)snprintf(raw_buf + 3 * cnt_, 4, "%02X ", ptr[cnt_ + cyc_]);
-			raw_buf[3 * cnt_] = '\0';
-			pr_info("[%d] data=%s\n", cyc_, raw_buf);
-			cyc_ += 256;
+				for (cnt_ = 0; cnt_ < cnt_min; cnt_++)
+					(void)snprintf(raw_buf + 3 * cnt_, 4, "%02X ",
+						ptr[cnt_ + cyc_]);
+				raw_buf[3 * cnt_] = '\0';
+				pr_info("[%d] data=%s\n", cyc_, raw_buf);
+				cyc_ += 256;
+			}
 		}
 		count++;
 		idx++;
