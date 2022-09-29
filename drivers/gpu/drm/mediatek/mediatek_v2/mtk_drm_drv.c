@@ -4647,9 +4647,8 @@ int lcm_fps_ctx_init(struct drm_crtc *crtc)
 	unsigned int index;
 
 	if (!crtc || crtc->index >= MAX_CRTC) {
-		if (crtc)
-			DDPPR_ERR("%s:invalid crtc:%d\n",
-				__func__, crtc->base.id);
+		DDPPR_ERR("%s:invalid crtc or invalid index :%d\n",
+			  __func__, crtc ? crtc->index : -EINVAL);
 		return -EINVAL;
 	}
 	index = crtc->index;
