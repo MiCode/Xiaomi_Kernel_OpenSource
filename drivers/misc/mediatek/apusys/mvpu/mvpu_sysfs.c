@@ -37,6 +37,7 @@ static ssize_t mvpu_img_show(struct kobject *kobj, struct kobj_attribute *attr,
 			 char *buf)
 {
 	int ret = 0;
+
 	if (ptn_total_size == 0)
 		ptn_total_size = get_ptn_total_size();
 	else
@@ -50,12 +51,13 @@ static ssize_t mvpu_img_show(struct kobject *kobj, struct kobj_attribute *attr,
 	ret = sprintf(buf, "0x%llx", ptn_total_size + kerbin_total_size + 32);
 	if (ret < 0) {
 		pr_info("[MVPU] %s, sprintf error\n", __func__);
-		return -1;
+		return ret;
 	}
+
 	pr_info("[MVPU] %s, ptn_size = 0x%x, kerbin_size = 0x%x\n",
 		__func__, (uint32_t)ptn_total_size, (uint32_t)kerbin_total_size);
 
-	return 0;
+	return ret;
 }
 
 static ssize_t mvpu_img_store(struct kobject *kobj, struct kobj_attribute *attr,
@@ -78,18 +80,18 @@ static ssize_t loglevel_show(struct kobject *kobj, struct kobj_attribute *attr,
 			 char *buf)
 {
 	uint64_t level = 0;
-	int ret = 0;
+	int ret = sprintf(buf, "%llu", level);
 
-	ret = sprintf(buf, "%llu", level);
 	if (ret < 0) {
 		pr_info("[MVPU] %s, sprintf error\n", __func__);
-		return -1;
+		return ret;
 	}
+
 	pr_info("[MVPU] %s, level= %d\n", __func__, (uint32_t)level);
 
 	mvpu_ipi_recv(MVPU_LOG_LEVEL, &level);
 
-	return 0;
+	return ret;
 }
 
 static ssize_t loglevel_store(struct kobject *kobj, struct kobj_attribute *attr,

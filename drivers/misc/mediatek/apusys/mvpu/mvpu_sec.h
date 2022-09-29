@@ -31,9 +31,11 @@
 
 #define MVPU_SEC_BLOCK_EDMA_KERNEL   // Forbidden edma in kernel code
 // #define MVPU_SEC_BLOCK_EDMA_KERNEL_RETURN // FIXME: block jobs to use edma in kernel code
-#define RT_BATCH_KERNEL_USING_EDMA	(1 << 27)
+#define RT_BATCH_KERNEL_USING_EDMA  (1 << 27)
 #define RT_BATCH_HASH_EXEC_CNT      ((1 << 31) | (1 << 30) | (1 << 29) | (1 << 28))
-#define MPVU_BATCH_MASK             0x07FFFFFF
+#define MVPU_BATCH_MASK             0x07FFFFFF
+#define MVPU_ONLINE_BATCH_NAME_HASH 0xAAAAAAAA
+#define MVPU_CMD_BUFF_ADDR          0x00000000
 
 //mvpu_algo.img
 //void * mvpu_algo_img;
@@ -111,6 +113,8 @@ struct mvpu_hash_pool {
 
 #define ITCM_VIRTUAL_BASE              0x19600000
 #define ITCM_VIRTUAL_BASE_END          0x19620000
+#define VIRTUAL_MVPU_TCM_BASE          0x19600000
+#define VIRTUAL_MVPU_TCM_BASE_END      0x19700000
 #define VIRTUAL_APUSYS_TCM_BASE        0x02000000
 #define VIRTUAL_APUSYS_TCM_BASE_END    0x03000000
 
@@ -298,7 +302,8 @@ int update_mpu(void *mvpu_cmd,
 					uint32_t hash_id,
 					uint32_t *sec_chk_addr,
 					uint32_t *sec_buf_size,
-					uint32_t *mem_is_kernel);
+					uint32_t *sec_buf_attr,
+					bool protect_phase);
 
 bool mem_use_iova(uint32_t addr);
 
