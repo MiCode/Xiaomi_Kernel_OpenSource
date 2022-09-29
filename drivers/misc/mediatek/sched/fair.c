@@ -458,8 +458,8 @@ void get_most_powerful_pd_and_util_Th(void)
 
 }
 
-static inline bool task_can_skip_this_cpu(struct task_struct *p, bool latency_sensitive,
-		int cpu, struct cpumask *bcpus)
+static inline bool task_can_skip_this_cpu(struct task_struct *p, unsigned long p_uclamp_min,
+		bool latency_sensitive, int cpu, struct cpumask *bcpus)
 {
 	bool cpu_in_bcpus;
 	unsigned long task_util;
@@ -467,7 +467,7 @@ static inline bool task_can_skip_this_cpu(struct task_struct *p, bool latency_se
 	if (latency_sensitive)
 		return 0;
 
-	if (uclamp_eff_value(p, UCLAMP_MIN) > 0)
+	if (p_uclamp_min > 0)
 		return 0;
 
 	if (cpumask_empty(bcpus))
@@ -522,7 +522,7 @@ int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool laten
 
 			cpumask_set_cpu(cpu, &allowed_cpu_mask);
 
-			if (task_can_skip_this_cpu(p, latency_sensitive, cpu, &bcpus))
+			if (task_can_skip_this_cpu(p, min_cap, latency_sensitive, cpu, &bcpus))
 				continue;
 
 			if (cpu_rq(cpu)->rt.rt_nr_running >= 1 &&

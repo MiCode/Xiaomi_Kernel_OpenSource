@@ -1180,8 +1180,6 @@ void mtk_sched_switch(void *data, struct task_struct *prev,
 void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowest_mask,
 			int ret, int *lowest_cpu)
 {
-	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
-	struct perf_domain *pd;
 	int cpu = -1;
 	int this_cpu = smp_processor_id();
 	cpumask_t avail_lowest_mask;
@@ -1231,11 +1229,6 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 	if (!cpumask_test_cpu(this_cpu, &avail_lowest_mask))
 		this_cpu = -1; /* Skip this_cpu opt if not among lowest */
 
-	rcu_read_lock();
-	pd = rcu_dereference(rd->pd);
-	if (!pd)
-		goto unlock;
-
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	ts[3] = sched_clock();
 #endif
@@ -1248,23 +1241,22 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 
 	/* Find best_cpu on same cluster with task_cpu(p) */
 	for (gear_id = 0; gear_id < nr_gear; gear_id++) {
+		gear_cpus = get_gear_cpumask(gear_id);
+
 		/*
 		 * "this_cpu" is cheaper to preempt than a
 		 * remote processor.
 		 */
-		if (this_cpu != -1 && cpumask_test_cpu(this_cpu, perf_domain_span(pd))) {
-			rcu_read_unlock();
+		if (this_cpu != -1 && cpumask_test_cpu(this_cpu, gear_cpus)) {
 			*lowest_cpu = this_cpu;
 			select_reason = LB_RT_SYNC;
 			goto out;
 		}
 
-		gear_cpus = get_gear_cpumask(gear_id);
 		for_each_cpu_and(cpu, &avail_lowest_mask, gear_cpus) {
 			struct task_struct *curr;
 
 			if (idle_cpu(cpu)) {
-				rcu_read_unlock();
 				*lowest_cpu = cpu;
 				select_reason = LB_RT_IDLE;
 				goto out;
@@ -1283,14 +1275,10 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 #endif
 
 	if (lowest_prio_cpu != -1) {
-		rcu_read_unlock();
 		*lowest_cpu = lowest_prio_cpu;
 		select_reason = LB_RT_LOWEST_PRIO;
 		goto out;
 	}
-
-unlock:
-	rcu_read_unlock();
 
 	/*
 	 * And finally, if there were no matches within the domains
