@@ -1759,6 +1759,7 @@ void mtk_wakeup_pf_wq(void)
 	if (!mtk_crtc || !mtk_crtc->base.dev) {
 		DDPPR_ERR("%s errors with NULL mtk_crtc or base.dev\n",
 			__func__);
+		return;
 	}
 
 	drm_priv = mtk_crtc->base.dev->dev_private;
