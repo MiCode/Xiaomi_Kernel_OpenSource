@@ -124,6 +124,9 @@ static int rt4831a_set_backlight(unsigned int level)
 	if (ret < 0)
 		DDPDBG("%s: ERROR %d!! i2c write data fail 0x%0x, 0x%0x !!\n",
 				__func__, ret, table[0][1], table[1][1]);
+	else
+		DDPMSG("%s, %d, backlight level:0x%x\n",
+			__func__, __LINE__, level);
 
 	ctx_rt4831a.backlight_level = level;
 	return 0; //for evb case, i2c ops are always failed
@@ -167,8 +170,10 @@ static int rt4831a_enable_backlight(void)
 	if (ret < 0)
 		DDPDBG("%s, failed to push backlight table, mode:%u, ret:%d\n",
 			__func__, ctx_rt4831a.backlight_mode, ret);
-
-	//DDPMSG("%s--, %d\n", __func__, ret);
+	else
+		DDPDBG("%s--, backlight status:0x%x, %d, mode:%u\n", __func__,
+			atomic_read(&ctx_rt4831a.backlight_status),
+			ctx_rt4831a.backlight_mode, ret);
 	return 0; //for evb case, i2c ops are always failed
 }
 
@@ -177,8 +182,6 @@ int rt4831a_backlight_event(struct notifier_block *nb, unsigned long event,
 	void *v)
 {
 	struct led_conf_info *led_conf;
-
-	DDPMSG("%s+\n", __func__);
 
 	led_conf = (struct led_conf_info *)v;
 
@@ -193,6 +196,9 @@ int rt4831a_backlight_event(struct notifier_block *nb, unsigned long event,
 		break;
 	}
 
+	DDPMSG("%s-- event:0x%x, brightness:0x%x, backlight status:0x%x\n",
+		__func__, event, led_conf->cdev.brightness,
+		atomic_read(&ctx_rt4831a.backlight_status));
 	return NOTIFY_DONE;
 }
 
@@ -249,7 +255,7 @@ static int rt4831a_power_on(void)
 		return 0;
 	}
 
-	DDPMSG("%s++ size:%u, unit:%u, backlight status:%d\n", __func__,
+	DDPMSG("%s++ size:%u, unit:%u, backlight status:0x%x\n", __func__,
 		size, unit, atomic_read(&ctx_rt4831a.backlight_status));
 	ctx_rt4831a.bias_pos_gpio = devm_gpiod_get(ctx_rt4831a.dev,
 		"pm-enable", GPIOD_OUT_HIGH);
@@ -315,7 +321,8 @@ static int rt4831a_power_off(void)
 		devm_gpiod_put(ctx_rt4831a.dev, ctx_rt4831a.bias_pos_gpio);
 	}
 
-	DDPMSG("%s--\n", __func__);
+	DDPMSG("%s--, backlight status:0x%x\n", __func__,
+		atomic_read(&ctx_rt4831a.backlight_status));
 	return 0; //for evb case, i2c ops are always failed
 }
 
@@ -447,6 +454,7 @@ static int rt4831a_drv_probe(struct platform_device *pdev)
 	}
 
 	ctx_rt4831a.backlight_level = 2047;
+	atomic_set(&ctx_rt4831a.backlight_status, 1);
 #ifdef LEDS_BRIGHTNESS_CHANGED
 	mtk_leds_register_notifier(&rt4831a_leds_init_notifier);
 #endif
@@ -454,7 +462,10 @@ static int rt4831a_drv_probe(struct platform_device *pdev)
 	atomic_set(&ctx_rt4831a.init, 1);
 
 	ret = mtk_drm_gateic_register(&rt4831a_ops, MTK_LCM_FUNC_DSI);
-	DDPMSG("%s--, %d, backlight mode:%u\n", __func__, ret, ctx_rt4831a.backlight_mode);
+	DDPMSG("%s--, %d, backlight mode:%u,level:0x%x,status:0x%x\n",
+		__func__, ret, ctx_rt4831a.backlight_mode,
+		ctx_rt4831a.backlight_level,
+		atomic_read(&ctx_rt4831a.backlight_status));
 
 	return ret;
 
