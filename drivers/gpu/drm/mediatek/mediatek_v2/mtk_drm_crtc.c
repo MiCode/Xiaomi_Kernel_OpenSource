@@ -3683,10 +3683,17 @@ unsigned int mtk_crtc_get_idle_interval(struct drm_crtc *crtc, unsigned int fps)
 {
 
 	unsigned int idle_interval = mtk_drm_get_idle_check_interval(crtc);
+	struct mtk_panel_params *panel_params = mtk_drm_get_lcm_ext_params(crtc);
+	bool vblank_off = panel_params ? panel_params->vblank_off : false;
 	/*calculate the timeout to enter idle in ms*/
-	if (idle_interval > 50)
+
+	if (!vblank_off && idle_interval > 50)
 		return 0;
+
 	idle_interval = (3 * 1000) / fps + 1;
+
+	if (idle_interval > 50)
+		idle_interval = 50;
 
 	DDPMSG("[fps]:%s,[fps->idle interval][%d fps->%d ms]\n",
 		__func__, fps, idle_interval);
