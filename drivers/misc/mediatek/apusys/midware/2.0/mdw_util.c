@@ -30,6 +30,13 @@ int mdw_util_ioctl(struct mdw_fpriv *mpriv, void *data)
 			break;
 		}
 
+		if (args->in.ucmd.size > MDW_UTIL_CMD_MAX_SIZE) {
+			mdw_drv_err("util cmd over size(%u/%u)\n",
+				args->in.ucmd.size, MDW_UTIL_CMD_MAX_SIZE);
+			ret = -EINVAL;
+			break;
+		}
+
 		mem_ucmd = vzalloc(args->in.ucmd.size);
 		if (!mem_ucmd) {
 			ret = -ENOMEM;
