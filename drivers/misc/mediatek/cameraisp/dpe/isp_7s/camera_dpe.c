@@ -4992,11 +4992,11 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 {
 	signed int Ret = 0;
 	/*unsigned int pid = 0;*/
-	struct DPE_REG_IO_STRUCT RegIo;
-	struct DPE_WAIT_IRQ_STRUCT IrqInfo;
-	struct DPE_CLEAR_IRQ_STRUCT ClearIrq;
-	struct DPE_Config dpe_DpeConfig;
-	struct DPE_Request dpe_DpeReq;
+	static struct DPE_REG_IO_STRUCT RegIo;
+	static struct DPE_WAIT_IRQ_STRUCT IrqInfo;
+	static struct DPE_CLEAR_IRQ_STRUCT ClearIrq;
+	static struct DPE_Config dpe_DpeConfig;
+	static struct DPE_Request dpe_DpeReq;
 	// signed int enqnum;
 	struct DPE_USER_INFO_STRUCT *pUserInfo;
 	int enqueNum;
@@ -6037,10 +6037,10 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	/*struct video_device *vdev = video_devdata(file);*/
 	unsigned long ret;
 	struct DPE_USER_INFO_STRUCT *pUserInfo;
-	struct DPE_Request ureq;
-	struct DPE_Request kreq;
+	static struct DPE_Request ureq;
+	static struct DPE_Request kreq;
 	/* size of cfgs = 3 owing to call stact limitation*/
-	struct DPE_Config cfgs[3];//[MAX_FRAMES_PER_REQUEST];
+	static struct DPE_Config cfgs[3];//[MAX_FRAMES_PER_REQUEST];
 	struct DPE_Config *pcfgs;
 	//unsigned long flags;
 	unsigned int m_real_ReqNum, f;
@@ -6144,10 +6144,10 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	/*struct video_device *vdev = video_devdata(file);*/
 	signed int Ret = 0;
-	struct DPE_Request ureq;
-	struct DPE_Request kreq;
+	static struct DPE_Request ureq;
+	static struct DPE_Request kreq;
 	/* size of cfgs = 3 owing to call stact limitation*/
-	struct DPE_Config cfgs[3];//[MAX_FRAMES_PER_REQUEST];
+	static struct DPE_Config cfgs[3];//[MAX_FRAMES_PER_REQUEST];
 	//unsigned long flags;
 	//unsigned int m_real_ReqNum;
 
