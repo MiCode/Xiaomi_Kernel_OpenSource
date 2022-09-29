@@ -36,6 +36,8 @@
 
 #include <aee.h>
 
+#include "mtk_imgsys-dev.h"
+
 #include "mtk-hcp.h"
 #include "mtk-hcp-aee.h"
 #include "mtk-hcp-support.h"
@@ -1107,6 +1109,13 @@ static int mtk_hcp_mmap(struct file *file, struct vm_area_struct *vma)
 static void module_notify(struct mtk_hcp *hcp_dev,
 					struct share_buf *user_data_addr)
 {
+	void *gce_buf = NULL;
+	int req_fd = 0;
+	struct img_sw_buffer *swbuf_data = NULL;
+	struct swfrm_info_t *swfrm_info = NULL;
+	struct mtk_imgsys_request *req = NULL;
+	u64 *req_stat = NULL;
+
 	if (!user_data_addr) {
 		dev_info(hcp_dev->dev, "%s invalid null share buffer", __func__);
 		return;
@@ -1119,6 +1128,30 @@ static void module_notify(struct mtk_hcp *hcp_dev,
 
 	dev_dbg(hcp_dev->dev, " %s with message id:%d\n",
 				__func__, user_data_addr->id);
+
+	swbuf_data = (struct img_sw_buffer *)user_data_addr->share_data;
+	if (swbuf_data && user_data_addr->id == HCP_IMGSYS_FRAME_ID) {
+		if (hcp_dev->data && hcp_dev->data->get_gce_virt)
+			gce_buf = hcp_dev->data->get_gce_virt();
+
+		if (gce_buf)
+			swfrm_info = (struct swfrm_info_t *)(gce_buf + (swbuf_data->offset));
+
+		if (swfrm_info && swfrm_info->is_lastfrm)
+			req = (struct mtk_imgsys_request *)swfrm_info->req_vaddr;
+
+		if (req) {
+			req_fd = req->tstate.req_fd;
+			req_stat = req->req_stat;
+		}
+
+		if (req_stat) {
+			*req_stat = *req_stat + 1;
+			dev_dbg(hcp_dev->dev, "req:%d req_stat(%p):%llu\n",
+				req_fd, req_stat, *req_stat);
+		}
+
+	}
 	if (hcp_dev->hcp_desc_table[user_data_addr->id].handler) {
 		hcp_dev->hcp_desc_table[user_data_addr->id].handler(
 			user_data_addr->share_data,
