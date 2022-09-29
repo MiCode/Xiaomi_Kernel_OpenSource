@@ -30,6 +30,7 @@ static DEFINE_MUTEX(aputop_func_mtx);
 struct wakeup_source *ws;
 #endif
 
+uint32_t log_lvl = APUSYS_PWR_LOG_OFF;
 int fpga_type;
 module_param(fpga_type, int, 0444);
 MODULE_PARM_DESC(fpga_type,

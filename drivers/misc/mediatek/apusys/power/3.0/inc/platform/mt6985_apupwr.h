@@ -292,18 +292,6 @@ void mt6985_apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump);
 #define APU_PCU_SEMA_CTRL0             0x0200
 #define APU_HW_SEMA_PWR_CTL            APU_PCU_SEMA_CTRL0
 
-enum {
-	APUSYS_PWR_LOG_OFF = 0, // disable
-	APUSYS_PWR_LOG_ERR = 1, // error
-	APUSYS_PWR_LOG_WRN = 2, // warning
-	APUSYS_PWR_LOG_PRO = 3, // profiling
-	APUSYS_PWR_LOG_INF = 4, // information
-	APUSYS_PWR_LOG_DBG = 5, // debug
-	APUSYS_PWR_LOG_ALL = 6, // verbose
-	APUSYS_PWR_LOG_CUS = 7, // customer view
-};
-
-extern uint32_t log_lvl;
 int mt6985_all_on(struct platform_device *pdev, struct apu_power *papw);
 void mt6985_all_off(struct platform_device *pdev);
 #endif // __mt6985_APUPWR_H__

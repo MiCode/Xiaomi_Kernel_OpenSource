@@ -45,6 +45,7 @@ static struct apu_power apupw = {
 static uint32_t g_opp_cfg_acx0;
 static uint32_t g_opp_cfg_acx1;
 
+#if APUPW_DUMP_FROM_APMCU
 static void aputop_dump_reg(enum apupw_reg idx, uint32_t offset, uint32_t size)
 {
 	char buf[32];
@@ -60,6 +61,7 @@ static void aputop_dump_reg(enum apupw_reg idx, uint32_t offset, uint32_t size)
 		print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
 			       apupw.regs[idx] + offset, size, true);
 }
+#endif
 
 static int init_reg_base(struct platform_device *pdev)
 {
@@ -247,6 +249,7 @@ static void aputop_dump_pcu_data(struct device *dev)
 			SMC_PWR_DUMP_PCU);
 }
 
+#if APUPW_DUMP_FROM_APMCU
 static void aputop_dump_pll_data(void)
 {
 	// need to 1-1 in order mapping with array in __apu_pll_init func
@@ -291,6 +294,7 @@ static void aputop_dump_pll_data(void)
 				buf);
 	}
 }
+#endif
 
 static int __apu_wake_rpc_rcx(struct device *dev)
 {
@@ -360,7 +364,9 @@ static int mt6985_apu_top_on(struct device *dev)
 		aputop_dump_pwr_reg(dev);
 		aputop_dump_rpc_data();
 		aputop_dump_pcu_data(dev);
+#if APUPW_DUMP_FROM_APMCU
 		aputop_dump_pll_data();
+#endif
 		if (ret == -EIO)
 			apupw_aee_warn("APUSYS_POWER",
 					"APUSYS_POWER_RPC_CFG_ERR");
@@ -436,7 +442,9 @@ static int mt6985_apu_top_off(struct device *dev)
 		aputop_dump_pwr_reg(dev);
 		aputop_dump_rpc_data();
 		aputop_dump_pcu_data(dev);
+#if APUPW_DUMP_FROM_APMCU
 		aputop_dump_pll_data();
+#endif
 		apupw_aee_warn("APUSYS_POWER", "APUSYS_POWER_SLEEP_TIMEOUT");
 		return -1;
 	}
@@ -531,8 +539,10 @@ static int mt6985_apu_top_func(struct platform_device *pdev,
 		break;
 	case APUTOP_FUNC_ARE_DUMP1:
 	case APUTOP_FUNC_ARE_DUMP2:
+#if APUPW_DUMP_FROM_APMCU
 		aputop_dump_reg(apu_are, 0x0, 0x4000);
 		aputop_dump_reg(apu_vcore, 0x3000, 0x10);
+#endif
 		break;
 	case APUTOP_FUNC_BOOT_HOST:
 		return plat_apu_boot_host();

@@ -6,6 +6,7 @@
 #include <linux/slab.h>
 
 #include "apu_top.h"
+#include "aputop_log.h"
 #include "aputop_rpmsg.h"
 #include "mt6985_apupwr.h"
 #include "mt6985_apupwr_prot.h"
@@ -34,7 +35,6 @@ static struct cluster_dev_opp_info opp_limit_tbl[CLUSTER_NUM] = {
 	_OPP_LMT_TBL(ACX1_LIMIT_OPP_REG),
 };
 
-uint32_t log_lvl = APUSYS_PWR_LOG_OFF;
 static inline int over_range_check(int opp)
 {
 	// we treat opp -1 as a special hint regard to unlimit opp !
