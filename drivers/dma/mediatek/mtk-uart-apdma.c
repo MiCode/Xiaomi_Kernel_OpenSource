@@ -7,6 +7,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <linux/dmaengine.h>
 #include <linux/dma-mapping.h>
 #include <linux/err.h>
@@ -102,7 +103,10 @@ struct mtk_uart_apdmadev {
 	struct clk *clk;
 	unsigned int support_bits;
 	unsigned int dma_requests;
+	unsigned int support_hub;
 };
+
+static unsigned int clk_count;
 
 struct mtk_uart_apdma_desc {
 	struct virt_dma_desc vd;
@@ -561,7 +565,8 @@ static int mtk_uart_apdma_alloc_chan_resources(struct dma_chan *chan)
 	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
 	unsigned int status;
 	int ret;
-	pr_info("debug: %s\n", __func__);
+	if (mtkd->support_hub)
+		pr_info("debug: %s: clk_count[%d]\n", __func__, clk_count);
 	ret = pm_runtime_get_sync(mtkd->ddev.dev);
 	if (ret < 0) {
 		pm_runtime_put_noidle(chan->device->dev);
@@ -791,13 +796,58 @@ static void mtk_uart_apdma_free(struct mtk_uart_apdmadev *mtkd)
 static const struct mtk_uart_apdmacomp mt6779_comp = {
 	.addr_bits = 34
 };
+
 static const struct of_device_id mtk_uart_apdma_match[] = {
 	{ .compatible = "mediatek,mt6577-uart-dma", .data = NULL},
 	{ .compatible = "mediatek,mt2712-uart-dma", .data = NULL},
 	{ .compatible = "mediatek,mt6779-uart-dma", .data = &mt6779_comp},
+	{ .compatible = "mediatek,mt6985-uart-dma", .data = &mt6779_comp},
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, mtk_uart_apdma_match);
+
+static void mtk_uart_apdma_parse_peri(struct platform_device *pdev)
+{
+		void __iomem *peri_remap_apdma = NULL;
+		unsigned int peri_apdma_base = 0, peri_apdma_mask = 0, peri_apdma_val = 0;
+		unsigned int index = 0;
+
+		index = of_property_read_u32_index(pdev->dev.of_node,
+			"peri-regs", 0, &peri_apdma_base);
+		if (index) {
+			pr_notice("[%s] get peri_addr fail\n", __func__);
+			return;
+		}
+
+		index = of_property_read_u32_index(pdev->dev.of_node,
+			"peri-regs", 1, &peri_apdma_mask);
+		if (index) {
+			pr_notice("[%s] get peri_addr fail\n", __func__);
+			return;
+		}
+
+		index = of_property_read_u32_index(pdev->dev.of_node,
+			"peri-regs", 2, &peri_apdma_val);
+		if (index) {
+			pr_notice("[%s] get peri_addr fail\n", __func__);
+			return;
+		}
+
+		peri_remap_apdma = ioremap(peri_apdma_base, 0x10);
+		if (!peri_remap_apdma) {
+			pr_notice("[%s] peri_remap_addr(%x) ioremap fail\n",
+					__func__, peri_apdma_base);
+
+				return;
+		}
+
+		writel(((readl(peri_remap_apdma) & (~peri_apdma_mask)) | peri_apdma_val),
+			(void *)peri_remap_apdma);
+
+		dev_info(&pdev->dev, "apdma clock protection:0x%x=0x%x",
+			peri_apdma_base, readl(peri_remap_apdma));
+
+}
 
 static int mtk_uart_apdma_probe(struct platform_device *pdev)
 {
@@ -837,7 +887,6 @@ static int mtk_uart_apdma_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev,
 			"DMA address bits: %d\n",  mtkd->support_bits);
-
 	rc = dma_set_mask_and_coherent(&pdev->dev,
 			DMA_BIT_MASK(mtkd->support_bits));
 	if (rc)
@@ -866,6 +915,22 @@ static int mtk_uart_apdma_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev,
 			 "Using %u as missing dma-requests property\n",
 			 MTK_UART_APDMA_NR_VCHANS);
+	}
+
+	if (of_property_read_u32(np, "support-hub", &mtkd->support_hub)) {
+		mtkd->support_hub = 0;
+		dev_info(&pdev->dev,
+			 "Using %u as missing support-hub property\n",
+			 mtkd->support_hub);
+	}
+
+	if (mtkd->support_hub) {
+		clk_count = 0;
+		if (!clk_prepare_enable(mtkd->clk))
+			clk_count++;
+		pr_info("[%s]: support_hub[%d], clk_count[%d]\n", __func__,
+			mtkd->support_hub, clk_count);
+		mtk_uart_apdma_parse_peri(pdev);
 	}
 
 	for (i = 0; i < mtkd->dma_requests; i++) {
@@ -936,7 +1001,12 @@ static int mtk_uart_apdma_remove(struct platform_device *pdev)
 static int mtk_uart_apdma_suspend(struct device *dev)
 {
 	struct mtk_uart_apdmadev *mtkd = dev_get_drvdata(dev);
-
+	pr_info("[%s]: support_hub:%d, clk_count: %d\n", __func__,
+		mtkd->support_hub, clk_count);
+	if (mtkd->support_hub) {
+		pr_info("[%s]: support_hub:%d, skip suspend\n", __func__, mtkd->support_hub);
+		return 0;
+	}
 	if (!pm_runtime_suspended(dev))
 		clk_disable_unprepare(mtkd->clk);
 
@@ -948,12 +1018,18 @@ static int mtk_uart_apdma_resume(struct device *dev)
 	int ret;
 	struct mtk_uart_apdmadev *mtkd = dev_get_drvdata(dev);
 
+	pr_info("[%s]: support_hub:%d, clk_count: %d\n", __func__,
+		mtkd->support_hub, clk_count);
 	if (!pm_runtime_suspended(dev)) {
+		if ((mtkd->support_hub == 1) && (clk_count >= 1))
+			return 0;
 		ret = clk_prepare_enable(mtkd->clk);
 		if (ret)
 			return ret;
+		if (mtkd->support_hub == 1)
+			clk_count++;
+		pr_info("[%s]: ret:%d\n", __func__, ret);
 	}
-
 	return 0;
 }
 #endif /* CONFIG_PM_SLEEP */
@@ -962,6 +1038,13 @@ static int mtk_uart_apdma_resume(struct device *dev)
 static int mtk_uart_apdma_runtime_suspend(struct device *dev)
 {
 	struct mtk_uart_apdmadev *mtkd = dev_get_drvdata(dev);
+	pr_info("[%s]: support_hub:%d, clk_count: %d\n", __func__, mtkd->support_hub, clk_count);
+	if (mtkd->support_hub) {
+		pr_info("[%s]: support_hub:%d, skip runtime suspend\n", __func__,
+			mtkd->support_hub);
+		return 0;
+	}
+
 	clk_disable_unprepare(mtkd->clk);
 
 	return 0;
@@ -970,6 +1053,11 @@ static int mtk_uart_apdma_runtime_suspend(struct device *dev)
 static int mtk_uart_apdma_runtime_resume(struct device *dev)
 {
 	struct mtk_uart_apdmadev *mtkd = dev_get_drvdata(dev);
+	pr_info("[%s]: support_hub:%d, clk_count: %d\n", __func__, mtkd->support_hub, clk_count);
+	if ((mtkd->support_hub == 1) && (clk_count >= 1))
+		return 0;
+	if (mtkd->support_hub)
+		clk_count++;
 	return clk_prepare_enable(mtkd->clk);
 }
 #endif /* CONFIG_PM */
