@@ -293,6 +293,14 @@ static int mtk_compr_offload_drain(struct snd_compr_stream *stream)
 
 		afe_offload_block.state = OFFLOAD_STATE_DRAIN;
 		afe_offload_block.drain_state = AUDIO_DRAIN_EARLY_NOTIFY;
+	} else if (afe_offload_block.state == OFFLOAD_STATE_DRAIN) {
+		pr_info("%s, resend OFFLOAD_DRAIN", __func__);
+		ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
+				       AUDIO_IPI_PAYLOAD,
+				       AUDIO_IPI_MSG_BYPASS_ACK,
+				       OFFLOAD_DRAIN,
+				       sizeof(buf_bridge->pWrite),
+				       0, (void *)&buf_bridge->pWrite);
 	}
 #ifdef use_wake_lock
 	mtk_compr_offload_int_wakelock(false);
