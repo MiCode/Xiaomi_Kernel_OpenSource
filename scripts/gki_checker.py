@@ -225,9 +225,7 @@ def filecompare(fileName):
     cmd = "git diff --ignore-all-space --ignore-blank-lines " + options.ACK_SHA + " -- " + fileName
     output = os.popen(cmd)
     diff_cont = output.read()
-    if(output.close() != None):
-        print("\nError: WTF! Can't get AOSP file content!")
-        sys.exit("Failed")
+    output.close()
     if diff_cont:
         print("\nError: You should Not modify " + fileName)
         gcmd = "git show " + options.ACK_SHA + ":" + fileName
