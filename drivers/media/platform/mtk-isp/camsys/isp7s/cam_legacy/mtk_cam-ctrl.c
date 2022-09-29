@@ -4898,7 +4898,7 @@ static void mtk_camsys_camsv_check_pure_raw_done(struct mtk_cam_ctx *ctx,
 
 	spin_lock(&ctx->cam->running_job_lock);
 	list_for_each_entry_safe(req, req_prev, &ctx->cam->running_job_list, list) {
-		if (!(req->pipe_used & (1 << ctx->streaming_pipe)))
+		if (!(req->pipe_used & ctx->streaming_pipe))
 			continue;
 
 		s_data_ctx = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
