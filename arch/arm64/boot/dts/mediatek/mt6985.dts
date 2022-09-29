@@ -3520,7 +3520,7 @@
 		};
 
 		apdma: dma-controller@11301000 {
-				compatible = "mediatek,mt6779-uart-dma";
+				compatible = "mediatek,mt6985-uart-dma";
 				reg =   <0 0x11301000 0 0x80>,
 					<0 0x11301080 0 0x80>,
 					<0 0x11301100 0 0x80>,
@@ -3540,6 +3540,8 @@
 				clocks = <&pericfg_ao_clk CLK_PERAO_DMA_B>;
 				clock-names = "apdma";
 				dma-requests = <8>;
+				support-hub = <1>;
+				peri-regs = <0x11036300 0x1 0x1>;  /*peri: <base, mask, val>*/
 				#dma-cells = <1>;
 		};
 
