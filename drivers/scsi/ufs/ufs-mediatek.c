@@ -2161,7 +2161,7 @@ static void ufs_mtk_mphy_record(struct ufs_hba *hba, u8 stage)
 	if (mphy_record[stage].time)
 		return;
 
-	mphy_record[stage].time = ktime_to_ns(ktime_get());
+	mphy_record[stage].time = div_u64(local_clock(), 1000);
 
 	writel(0xC1000200, host->mphy_base + 0x20C0);
 	for (i = 0; i < 2; i++) {

@@ -4717,7 +4717,11 @@ void ufshcd_update_evt_hist(struct ufs_hba *hba, u32 id, u32 val)
 
 	e = &hba->ufs_stats.event[id];
 	e->val[e->pos] = val;
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	e->tstamp[e->pos] = local_clock();
+#else
 	e->tstamp[e->pos] = ktime_get();
+#endif
 	e->cnt += 1;
 	e->pos = (e->pos + 1) % UFS_EVENT_HIST_LENGTH;
 
