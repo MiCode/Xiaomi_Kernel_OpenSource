@@ -916,12 +916,17 @@ int mtk_pe40_init_state(struct chg_alg_device *alg)
 			vbus1, vbus2, cap1.output_mv, cap2.output_mv,
 			ibus1, ibus2, cap1.output_ma, cap2.output_ma,
 			vbat1, vbat2);
-
-		pe4->r_sw = abs((vbus2 - vbus1) - (vbat2 - vbat1)) * 1000 /
-				abs(cap2.output_ma - cap1.output_ma);
-		pe4->r_cable = abs((cap2.output_mv - cap1.output_mv) -
-				    (vbus2 - vbus1)) * 1000 /
-				abs(cap2.output_ma - cap1.output_ma);
+		if (abs(cap2.output_ma - cap1.output_ma) != 0) {
+			pe4->r_sw = abs((vbus2 - vbus1) - (vbat2 - vbat1)) * 1000 /
+					abs(cap2.output_ma - cap1.output_ma);
+			pe4->r_cable = abs((cap2.output_mv - cap1.output_mv) -
+					    (vbus2 - vbus1)) * 1000 /
+					abs(cap2.output_ma - cap1.output_ma);
+		} else {
+			pe4->r_sw = abs((vbus2 - vbus1) - (vbat2 - vbat1)) * 1000;
+			pe4->r_cable = abs((cap2.output_mv - cap1.output_mv)
+					- (vbus2 - vbus1)) * 1000;
+		}
 		pe4->r_cable_2 = abs(cap2.output_mv - pe4->vbus_cali - vbus2)
 				* 1000 / abs(cap2.output_ma);
 		pe4->r_cable_1 = abs(cap1.output_mv - pe4->vbus_cali - vbus1)
