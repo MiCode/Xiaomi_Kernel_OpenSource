@@ -510,15 +510,23 @@ static SOC_ENUM_SINGLE_EXT_DECL(etdm_ch_num_map_enum,
 /* dai component */
 static const struct snd_kcontrol_new mtk_etdm_playback_ch1_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("DL11_CH1", AFE_CONN62_2,  I_DL11_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH1", AFE_CONN62,  I_ADDA_UL_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH1", AFE_CONN62,  I_PCM_2_CAP_CH1, 1, 0),
 };
 static const struct snd_kcontrol_new mtk_etdm_playback_ch2_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("DL11_CH2", AFE_CONN63_2,  I_DL11_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH1", AFE_CONN63,  I_ADDA_UL_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH1", AFE_CONN63,  I_PCM_2_CAP_CH1, 1, 0),
 };
 static const struct snd_kcontrol_new mtk_etdm_playback_ch3_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("DL11_CH3", AFE_CONN64_2,  I_DL11_CH3, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH1", AFE_CONN62,  I_ADDA_UL_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH1", AFE_CONN64,  I_PCM_2_CAP_CH1, 1, 0),
 };
 static const struct snd_kcontrol_new mtk_etdm_playback_ch4_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("DL11_CH4", AFE_CONN65_2,  I_DL11_CH4, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN63,  I_ADDA_UL_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH1", AFE_CONN65,  I_PCM_2_CAP_CH1, 1, 0),
 };
 static const struct snd_kcontrol_new mtk_etdm_playback_ch5_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("DL11_CH5", AFE_CONN66_2,  I_DL11_CH5, 1, 0),
@@ -538,6 +546,7 @@ static const struct snd_kcontrol_new mtk_etdm_playback_ch8_mix[] = {
 enum {
 	SUPPLY_SEQ_APLL,
 	SUPPLY_SEQ_ETDM_MCLK_EN,
+	SUPPLY_SEQ_ETDM_EN,
 };
 
 /* Tinyconn Mux */
@@ -715,6 +724,33 @@ static int mtk_afe_etdm_apll_connect(struct snd_soc_dapm_widget *source,
 	return (apll == cur_apll) ? 1 : 0;
 }
 
+static int mtk_etdm_en_event(struct snd_soc_dapm_widget *w,
+			    struct snd_kcontrol *kcontrol,
+			    int event)
+{
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+
+	dev_info(cmpnt->dev, "%s(), name %s, event 0x%x\n",
+		 __func__, w->name, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		mt6985_afe_gpio_request(afe, true, MT6985_DAI_ETDMIN, 0);
+		mt6985_afe_gpio_request(afe, true, MT6985_DAI_ETDMOUT, 0);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		mt6985_afe_gpio_request(afe, false, MT6985_DAI_ETDMIN, 0);
+		mt6985_afe_gpio_request(afe, false, MT6985_DAI_ETDMOUT, 0);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+
 static const struct snd_kcontrol_new mtk_dai_etdm_controls[] = {
 	SOC_ENUM_EXT("ETDM_OUT1_SGEN", etdm_out_sgen_map_enum,
 		     etdm_out_sgen_get, etdm_out_sgen_put),
@@ -803,6 +839,12 @@ static const struct snd_soc_dapm_widget mtk_dai_etdm_widgets[] = {
 				  mtk_mclk_en_event,
 				  SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
+	/* etdm en*/
+	SND_SOC_DAPM_SUPPLY_S("ETDM_EN", SUPPLY_SEQ_ETDM_EN,
+				  ETDM_OUT1_CON0, REG_ETDM_OUT_EN_SFT, 0,
+				  mtk_etdm_en_event,
+				  SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+
 	/* endpoint */
 	SND_SOC_DAPM_INPUT("ETDM_INPUT"),
 	SND_SOC_DAPM_OUTPUT("ETDM_OUTPUT"),
@@ -834,10 +876,12 @@ static const struct snd_soc_dapm_route mtk_dai_etdm_routes[] = {
 	{"ETDM Capture", NULL, "ETDM_INPUT"},
 
 	{"ETDM Playback", NULL, "aud_tdm_clk"},
+	{"ETDM Playback", NULL, "ETDM_EN"},
 	{"ETDM Playback", NULL, APLL1_W_NAME, mtk_afe_etdm_apll_connect},
 	{"ETDM Playback", NULL, APLL2_W_NAME, mtk_afe_etdm_apll_connect},
 
 	{"ETDM Capture", NULL, "aud_tdm_clk"},
+	{"ETDM Capture", NULL, "ETDM_EN"},
 	{"ETDM Capture", NULL, APLL1_W_NAME, mtk_afe_etdm_apll_connect},
 	{"ETDM Capture", NULL, APLL2_W_NAME, mtk_afe_etdm_apll_connect},
 
@@ -890,7 +934,7 @@ static int mtk_dai_etdm_hw_params(struct snd_pcm_substream *substream,
 		/* 3: pad top 5: no pad top */
 		regmap_update_bits(afe->regmap, ETDM_IN1_CON1,
 				   REG_INITIAL_POINT_MASK_SFT,
-				   0x5 << REG_INITIAL_POINT_SFT);
+				   0x3 << REG_INITIAL_POINT_SFT);
 		regmap_update_bits(afe->regmap, ETDM_IN1_CON1,
 				   REG_LRCK_RESET_MASK_SFT,
 				   0x1 << REG_LRCK_RESET_SFT);
@@ -1046,7 +1090,8 @@ static int mtk_dai_etdm_trigger(struct snd_pcm_substream *substream,
 			regmap_update_bits(afe->regmap, ETDM_OUT1_CON0,
 					   REG_ETDM_OUT_EN_MASK_SFT,
 					   0x0 << REG_ETDM_OUT_EN_SFT);
-			mt6985_afe_gpio_request(afe, false, MT6985_DAI_ETDMOUT, 0);		}
+			mt6985_afe_gpio_request(afe, false, MT6985_DAI_ETDMOUT, 0);
+		}
 		break;
 	default:
 		return -EINVAL;
