@@ -287,8 +287,9 @@ void mtk_uart_apdma_data_dump(struct dma_chan *chan)
 			for (cnt = 0; cnt < cnt_min; cnt++)
 				(void)snprintf(raw_buf + 3 * cnt, 4, "%02X ", ptr[cnt + cyc]);
 			raw_buf[3*cnt] = '\0';
-			pr_info("%s [%d] data = %s\n",
-			    c->dir == DMA_DEV_TO_MEM ? "Rx" : "Tx", cyc, raw_buf);
+			if (c->dir == DMA_MEM_TO_DEV)/*log too much, remove RX data dump*/
+				pr_info("%s [%d] data = %s\n",
+					c->dir == DMA_DEV_TO_MEM ? "Rx" : "Tx", cyc, raw_buf);
 		}
 #endif
 		idx++;

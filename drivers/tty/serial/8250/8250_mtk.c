@@ -1503,8 +1503,9 @@ static int __maybe_unused mtk8250_runtime_resume(struct device *dev)
 	int err;
 
 	if (data->clk_count > 0U) {
-		pr_info("[%s]: data->line[%d] clock count is %d\n", __func__,
-			data->line, data->clk_count);
+		if (data->support_hub)
+			pr_info("[%s]: data->line[%d] clock count is %d\n", __func__,
+				data->line, data->clk_count);
 	} else {
 		err = clk_prepare_enable(data->bus_clk);
 		if (err) {
