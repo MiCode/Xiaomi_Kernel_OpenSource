@@ -624,20 +624,80 @@ void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx)
 /*prepare mmdvfs data to vcp to begin*/
 void mtk_vdec_prepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long *in)
 {
-	struct vdec_inst *inst = (struct vdec_inst *) ctx->drv_handle;
-	struct vdec_vsi *vsi_data = inst->vsi;
+	struct vcodec_inst *inst = 0;
+	struct vdec_inst *inst_handle = (struct vdec_inst *) ctx->drv_handle;
+	struct vdec_vsi *vsi_data = inst_handle->vsi;
+
+	if (!ctx)
+		return;
+
+	inst = get_inst(ctx);
+	if (!inst)
+		add_inst(ctx);
 
 	in[0] = MTK_INST_START;
 	vsi_data->ctx_id = ctx->id;
 	vsi_data->op_rate = ctx->dec_params.operating_rate;
 	vsi_data->priority = ctx->dec_params.priority;
 	vsi_data->codec_fmt = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+	vsi_data->is_active = ctx->is_active;
+
+	return;
 }
 
 /*prepare inst ctx id to vcp to delete*/
 void mtk_vdec_unprepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long *in)
 {
+	struct vcodec_inst *inst = 0;
+
+	if (!ctx)
+		return;
+
+	inst = get_inst(ctx);
+	if (!inst)
+		return;
+
+	list_del(&inst->list);
+	vfree(inst);
+
 	in[0] = MTK_INST_END;
 }
 
+/* update active state of ctx to vcp */
+void mtk_vdec_dvfs_set_vsi_active_state(struct mtk_vcodec_ctx *ctx)
+{
+	struct vdec_inst *inst;
+	struct vdec_vsi *vsi_data;
 
+	mtk_v4l2_debug(4, "[VDVFS] ctx: %d vsi updated", ctx->id);
+
+	inst = (struct vdec_inst *) ctx->drv_handle;
+	vsi_data = inst->vsi;
+	vsi_data->is_active = ctx->is_active;
+}
+
+/* update target freq and opp in ap*/
+void mtk_vdec_force_update_freq(struct mtk_vcodec_dev *dev)
+{
+	update_freq(dev, MTK_INST_DECODER);
+	mtk_v4l2_debug(4, "[VDEC] freq %u", dev->vdec_dvfs_params.target_freq);
+	set_vdec_opp(dev, dev->vdec_dvfs_params.target_freq);
+}
+
+void mtk_vdec_dvfs_update_active_state(struct mtk_vcodec_ctx *ctx)
+{
+	struct vcodec_inst *inst = 0;
+	bool mmdvfs_in_vcp = (ctx->dev->vdec_reg == 0 && ctx->dev->vdec_mmdvfs_clk == 0);
+	unsigned long vcp_dvfs_data[1] = {MTK_INST_UPDATE};
+
+	if (mmdvfs_in_vcp) {
+		mtk_vdec_dvfs_set_vsi_active_state(ctx);
+		if (vdec_if_set_param(ctx, SET_PARAM_MMDVFS, vcp_dvfs_data) != 0)
+			mtk_v4l2_err("[VDVFS] %s [%d] alive ipi timeout", __func__, ctx->id);
+	} else {
+		inst = get_inst(ctx);
+		if (!inst)
+			return;
+		inst->is_active = ctx->is_active;
+	}
+}

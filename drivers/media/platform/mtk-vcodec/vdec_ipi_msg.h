@@ -464,7 +464,7 @@ struct vdec_vsi {
 	__s32 priority;
 	__u32 codec_fmt;
 	__s32 target_freq;
-
+	__u32 is_active;
 };
 
 #endif

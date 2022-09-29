@@ -16,6 +16,7 @@ void mtk_prepare_vdec_dvfs(struct mtk_vcodec_dev *dev);
 void mtk_unprepare_vdec_dvfs(struct mtk_vcodec_dev *dev);
 void mtk_prepare_vdec_emi_bw(struct mtk_vcodec_dev *dev);
 void mtk_unprepare_vdec_emi_bw(struct mtk_vcodec_dev *dev);
+void mtk_vdec_force_update_freq(struct mtk_vcodec_dev *dev);
 
 void mtk_vdec_dvfs_begin_inst(struct mtk_vcodec_ctx *ctx);
 void mtk_vdec_dvfs_end_inst(struct mtk_vcodec_ctx *ctx);
@@ -28,4 +29,5 @@ void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx);
 void mtk_vdec_prepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long *in);
 void mtk_vdec_unprepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long *in);
 void mtk_vdec_dvfs_sync_vsi_data(struct mtk_vcodec_ctx *ctx);
+void mtk_vdec_dvfs_update_active_state(struct mtk_vcodec_ctx *ctx);
 #endif /* _MTK_VCODEC_DEC_PM_PLAT_H_ */

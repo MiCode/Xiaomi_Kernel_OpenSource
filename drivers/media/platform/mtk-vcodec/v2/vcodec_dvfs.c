@@ -125,6 +125,8 @@ int add_inst(struct mtk_vcodec_ctx *ctx)
 		ctx->q_data[MTK_Q_DATA_SRC].visible_height :
 		ctx->q_data[MTK_Q_DATA_DST].coded_height;
 	new_inst->last_access = ktime_get_boottime_ns();
+	new_inst->is_active = 1;
+	new_inst->ctx = ctx;
 
 	/* Calculate config */
 	if (new_inst->codec_type == MTK_INST_ENCODER) {
@@ -477,7 +479,7 @@ void update_freq(struct mtk_vcodec_dev *dev, int codec_type)
 
 		list_for_each(item, &dev->vdec_dvfs_inst) {
 			inst = list_entry(item, struct vcodec_inst, list);
-			if (inst) {
+			if (inst && inst->is_active) {
 				freq = calc_freq(inst, dev);
 
 				if (freq > dev->vdec_dvfs_params.normal_max_freq)

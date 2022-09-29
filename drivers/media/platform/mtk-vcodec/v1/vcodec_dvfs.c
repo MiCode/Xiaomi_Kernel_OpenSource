@@ -126,7 +126,7 @@ int add_inst(struct mtk_vcodec_ctx *ctx)
 		ctx->q_data[MTK_Q_DATA_SRC].visible_height :
 		ctx->q_data[MTK_Q_DATA_DST].coded_height;
 	new_inst->last_access = ktime_get_boottime_ns();
-
+	new_inst->ctx = ctx;
 	/* Calculate config */
 	if (new_inst->codec_type == MTK_INST_ENCODER) {
 		ret = get_cfg(new_inst, ctx);

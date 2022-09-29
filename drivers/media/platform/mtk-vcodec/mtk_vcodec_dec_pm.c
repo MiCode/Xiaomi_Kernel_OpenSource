@@ -35,6 +35,9 @@ extern void vdec_dump_mem_buf(unsigned long h_vdec);
 void mtk_dec_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
 	ctx->input_driven = 0;
+	ctx->decoded_frame_cnt = 0;
+	ctx->last_decoded_frame_cnt = 0;
+	ctx->is_active = 1;
 }
 
 int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
@@ -1043,4 +1046,3 @@ void mtk_vdec_translation_fault_callback_setting(
 	}
 #endif
 }
-

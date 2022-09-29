@@ -7,13 +7,14 @@
 
 #include <linux/types.h>
 #include <linux/list.h>
+#include <linux/timer.h>
 #include "vcodec_ipi_msg.h"
 
 #define DEFAULT_VENC_CONFIG -1000
 #define MAX_VCODEC_FREQ 9999
 #define MAX_OP_CNT 5
 #define WP_SCENARIO 6
-#define VDEC_HIGHEST_FREQ 880000000
+
 
 struct mtk_vcodec_dev;
 struct mtk_vcodec_ctx;
@@ -47,6 +48,7 @@ struct vcodec_op_rate {
 /* instance info for dvfs */
 struct vcodec_inst {
 	int id;
+	struct mtk_vcodec_ctx *ctx;
 	u8 codec_type;
 	u32 codec_fmt;
 	u32 core_cnt;
@@ -58,6 +60,7 @@ struct vcodec_inst {
 	u32 width;
 	u32 height;
 	u64 last_access;
+	u8 is_active;
 	struct list_head list;
 };
 
@@ -73,9 +76,12 @@ struct dvfs_params {
 	u32 target_freq;	/* target freq */
 	u8 lock_cnt[MTK_VDEC_HW_NUM]; /* lock cnt */
 	u8 frame_need_update;	/* this frame begin / end needs update */
+	struct timer_list vdec_active_checker;
+	u8 has_timer;
 };
 
 struct vcodec_inst *get_inst(struct mtk_vcodec_ctx *ctx);
+int add_inst(struct mtk_vcodec_ctx *ctx);
 bool need_update(struct mtk_vcodec_ctx *ctx);
 bool remove_update(struct mtk_vcodec_ctx *ctx);
 u32 match_avail_freq(struct mtk_vcodec_dev *dev, int codec_type, u32 freq);

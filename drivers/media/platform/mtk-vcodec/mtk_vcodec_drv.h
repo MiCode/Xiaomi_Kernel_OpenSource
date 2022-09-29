@@ -71,15 +71,17 @@ enum mtk_vcodec_ipm {
 enum mtk_instance_type {
 	MTK_INST_DECODER                = 0,
 	MTK_INST_ENCODER                = 1,
-	MTK_INST_RESUME                 = 2,
 };
 
 /**
  * enum mtk_mmdvfs_type - The type of an MTK Vcodec MMDVFS.
  */
 enum mtk_mmdvfs_type {
-	MTK_INST_START                = 0,
-	MTK_INST_END                = 1,
+	MTK_INST_START              = 0,
+	MTK_INST_UPDATE             = 1,
+	MTK_INST_RESUME             = 2,
+	MTK_INST_SET                = 3,
+	MTK_INST_END                = 4,
 };
 
 /**
@@ -518,6 +520,11 @@ struct vdec_set_frame_work_struct {
 	struct mtk_vcodec_ctx *ctx;
 };
 
+struct vdec_check_alive_work_struct {
+	struct work_struct work;
+	struct mtk_vcodec_ctx *ctx;
+};
+
 /**
  * struct mtk_vcodec_ctx - Context (instance) private data.
  *
@@ -636,6 +643,7 @@ struct mtk_vcodec_ctx {
 
 	int init_cnt;
 	int decoded_frame_cnt;
+	int last_decoded_frame_cnt; // used for timer to check active state of decoded ctx
 	struct mutex buf_lock;
 	struct mutex worker_lock;
 	struct slbc_data sram_data;
@@ -656,6 +664,7 @@ struct mtk_vcodec_ctx {
 	 */
 	bool resched;
 	struct mutex resched_lock;
+	unsigned char is_active;
 };
 
 /*
@@ -738,6 +747,9 @@ struct mtk_vcodec_dev {
 
 	struct workqueue_struct *decode_workqueue;
 	struct workqueue_struct *encode_workqueue;
+	struct workqueue_struct *check_alive_workqueue;
+	struct vdec_check_alive_work_struct check_alive_work;
+
 	int int_cond;
 	int int_type;
 	struct mutex ctx_mutex;
