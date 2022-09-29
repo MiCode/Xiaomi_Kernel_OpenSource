@@ -19,6 +19,7 @@
 #define UFS_MTK_SIP_HOST_PWR_CTRL         BIT(5)
 #define UFS_MTK_SIP_GET_VCC_NUM           BIT(6)
 #define UFS_MTK_SIP_DEVICE_PWR_CTRL       BIT(7)
+#define UFS_MTK_SIP_MPHY_CTRL             BIT(8)
 
 /* UFS_MTK_SIP_HOST_PWR_CTRL options */
 enum sip_host_pwr_opt {
@@ -34,6 +35,11 @@ enum ufs_mtk_vcc_num {
 	UFS_VCC_1,
 	UFS_VCC_2,
 	UFS_VCC_MAX
+};
+
+enum ufs_mtk_mphy_op {
+	UFS_MPHY_BACKUP = 0,
+	UFS_MPHY_RESTORE
 };
 
 /*
@@ -83,5 +89,8 @@ static inline void _ufs_mtk_smc(struct ufs_mtk_smc_arg s)
 
 #define ufs_mtk_device_pwr_ctrl(on, ufs_version, res) \
 	ufs_mtk_smc(UFS_MTK_SIP_DEVICE_PWR_CTRL, &(res), on, ufs_version)
+
+#define ufs_mtk_mphy_ctrl(op, res) \
+	ufs_mtk_smc(UFS_MTK_SIP_MPHY_CTRL, &(res), op)
 
 #endif /* !_UFS_MEDIATEK_SIP_H */
