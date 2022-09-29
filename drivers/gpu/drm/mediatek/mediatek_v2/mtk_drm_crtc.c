@@ -3512,6 +3512,7 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 	struct drm_display_mode *mode = NULL;
 	unsigned int max_fps = 0;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	int en = 0;
 
 	if (unlikely(!mtk_crtc || !mtk_crtc->qos_ctx)) {
 		DDPPR_ERR("%s invalid qos_ctx\n", __func__);
@@ -3523,7 +3524,6 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 
 	if (atomic_read(&mtk_crtc->force_high_step) == 1) {
 		unsigned int step_size = mtk_drm_get_mmclk_step_size();
-		int en = 0;
 
 		if (!mtk_crtc->force_high_enabled) {
 			DDPMSG("start SET MMCLK step 0, and disable underrun irq\n");
@@ -3551,6 +3551,15 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 			atomic_set(&mtk_crtc->force_high_step, 0);
 		}
 	} else {
+		if (mtk_crtc->force_high_enabled != 0) {
+			en = 1;
+			output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+			if (output_comp) {
+				/* enable dsi underrun irq*/
+				DDPMSG("enable underrun irq after force_high_step set to 0\n");
+				mtk_ddp_comp_io_cmd(output_comp, NULL, IRQ_UNDERRUN, &en);
+			}
+		}
 		mtk_crtc->force_high_enabled = 0;
 	}
 

@@ -140,6 +140,8 @@ struct CRTC_MMP_Events {
 	/*ODDMR mmp mark*/
 	mmp_event oddmr_sof_thread;
 	mmp_event oddmr_ctl;
+	/*dsi underrun irq check*/
+	mmp_event dsi_underrun_irq;
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);
