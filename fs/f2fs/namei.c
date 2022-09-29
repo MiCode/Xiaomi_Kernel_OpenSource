@@ -592,7 +592,9 @@ static int f2fs_unlink(struct inode *dir, struct dentry *dentry)
 	struct page *page;
 	int err;
 
+#if !IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
 	trace_f2fs_unlink_enter(dir, dentry);
+#endif
 
 	if (unlikely(f2fs_cp_error(sbi))) {
 		err = -EIO;
@@ -638,7 +640,9 @@ static int f2fs_unlink(struct inode *dir, struct dentry *dentry)
 	if (IS_DIRSYNC(dir))
 		f2fs_sync_fs(sbi->sb, 1);
 fail:
+#if !IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
 	trace_f2fs_unlink_exit(inode, err);
+#endif
 	return err;
 }
 
