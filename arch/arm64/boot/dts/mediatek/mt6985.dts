@@ -11052,6 +11052,7 @@
 				<&smi_larb1 M4U_PORT_L1_DISP_OVL0_2L_RDMA1>;
 		iommus = <&disp_iommu M4U_PORT_L0_DISP_OVL0_2L_RDMA0>,
 			 <&disp_iommu M4U_PORT_L0_DISP_OVL0_2L_HDR>;
+		iommus-ovl = <M4U_PORT_L1_DISP_OVL0_2L_RDMA1>; /* for dujac workaround */
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_DISP_OVL0_2L_RDMA0)
 					&mmqos SLAVE_COMMON(0)>,
@@ -11074,6 +11075,7 @@
 				<&smi_larb0 M4U_PORT_L0_DISP_OVL1_2L_RDMA1>;
 		iommus = <&disp_iommu M4U_PORT_L1_DISP_OVL1_2L_RDMA0>,
 			 <&disp_iommu M4U_PORT_L1_DISP_OVL1_2L_HDR>;
+		iommus-ovl = <M4U_PORT_L0_DISP_OVL1_2L_RDMA1>; /* for dujac workaround */
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L1_DISP_OVL1_2L_RDMA0)
 					&mmqos SLAVE_COMMON(0)>,
@@ -11096,6 +11098,7 @@
 				<&smi_larb1 M4U_PORT_L1_DISP_OVL2_2L_RDMA1>;
 		iommus = <&disp_iommu M4U_PORT_L0_DISP_OVL2_2L_RDMA0>,
 			 <&disp_iommu M4U_PORT_L0_DISP_OVL2_2L_HDR>;
+		iommus-ovl = <M4U_PORT_L1_DISP_OVL2_2L_RDMA1>; /* for dujac workaround */
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_DISP_OVL2_2L_RDMA0)
 					&mmqos SLAVE_COMMON(0)>,
@@ -11118,6 +11121,7 @@
 				<&smi_larb0 M4U_PORT_L0_DISP_OVL3_2L_RDMA1>;
 		iommus = <&disp_iommu M4U_PORT_L1_DISP_OVL3_2L_RDMA0>,
 			 <&disp_iommu M4U_PORT_L1_DISP_OVL3_2L_HDR>;
+		iommus-ovl = <M4U_PORT_L0_DISP_OVL3_2L_RDMA1>; /* for dujac workaround */
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L1_DISP_OVL3_2L_RDMA0)
 					&mmqos SLAVE_COMMON(0)>,
@@ -11141,6 +11145,7 @@
 				<&smi_larb21 M4U_PORT_L21_DISP_OVL0_2L_RDMA1>;
 		iommus = <&disp_iommu M4U_PORT_L20_DISP_OVL0_2L_RDMA0>,
 			 <&disp_iommu M4U_PORT_L20_DISP_OVL0_2L_HDR>;
+		iommus-ovl = <M4U_PORT_L21_DISP_OVL0_2L_RDMA1>; /* for dujac workaround */
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L20_DISP_OVL0_2L_RDMA0)
 					&mmqos SLAVE_COMMON(0)>,
@@ -11163,6 +11168,7 @@
 				<&smi_larb20 M4U_PORT_L20_DISP_OVL1_2L_RDMA1>;
 		iommus = <&disp_iommu M4U_PORT_L21_DISP_OVL1_2L_RDMA0>,
 			 <&disp_iommu M4U_PORT_L21_DISP_OVL1_2L_HDR>;
+		iommus-ovl = <M4U_PORT_L20_DISP_OVL1_2L_RDMA1>; /* for dujac workaround */
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L21_DISP_OVL1_2L_RDMA0)
 					&mmqos SLAVE_COMMON(0)>,
@@ -11185,6 +11191,7 @@
 				<&smi_larb21 M4U_PORT_L21_DISP_OVL2_2L_RDMA1>;
 		iommus = <&disp_iommu M4U_PORT_L20_DISP_OVL2_2L_RDMA0>,
 			 <&disp_iommu M4U_PORT_L20_DISP_OVL2_2L_HDR>;
+		iommus-ovl = <M4U_PORT_L21_DISP_OVL2_2L_RDMA1>; /* for dujac workaround */
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L20_DISP_OVL2_2L_RDMA0)
 					&mmqos SLAVE_COMMON(0)>,
@@ -11207,6 +11214,7 @@
 				<&smi_larb20 M4U_PORT_L20_DISP_OVL3_2L_RDMA1>;
 		iommus = <&disp_iommu M4U_PORT_L21_DISP_OVL3_2L_RDMA0>,
 			 <&disp_iommu M4U_PORT_L21_DISP_OVL3_2L_HDR>;
+		iommus-ovl = <M4U_PORT_L20_DISP_OVL3_2L_RDMA1>; /* for dujac workaround */
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L21_DISP_OVL3_2L_RDMA0)
 					&mmqos SLAVE_COMMON(0)>,
