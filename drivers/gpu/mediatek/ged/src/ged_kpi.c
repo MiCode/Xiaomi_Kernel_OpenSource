@@ -1999,6 +1999,11 @@ static GED_BOOL ged_kpi_find_riskyBQ_func(unsigned long ulID,
 		risk_completed = t_gpu_latest * 100 / t_gpu_target;
 		risk_uncompleted = t_gpu_latest_uncompleted * 100 / t_gpu_target;
 
+		//prevent less than 1%
+		if (t_gpu_latest > 0 && risk_completed == 0)
+			risk_completed = 1;
+		if (t_gpu_latest_uncompleted > 0 && risk_uncompleted == 0)
+			risk_uncompleted = 1;
 		// update most risky BQ
 		if (risk_completed > info->completed_bq.risk) {
 			info->completed_bq.t_gpu = t_gpu_latest;
