@@ -1174,6 +1174,9 @@
 				/* ufs unipro reset */
 				0x48  8 0x4c  8 0 0
 				(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 0: unipro */
+				/* ufs mphy reset */
+				0x48  9 0x4c  9 0 0
+				(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 0: mphy */
 				>;
 		};
 	};
@@ -8481,9 +8484,9 @@
 			vcc-supply = <&mt6363_vemc>;
 			vccq-supply = <&mt6373_vbuck7>;
 
-			resets = <&ufscfgao_rst 0>, <&ufscfgpdn_rst 0>,
-				<&ufscfgpdn_rst 1>;
-			reset-names = "unipro_rst", "crypto_rst", "hci_rst";
+			resets = <&ufscfgao_rst 0>, <&ufscfgao_rst 1>,
+				<&ufscfgpdn_rst 0>, <&ufscfgpdn_rst 1>;
+			reset-names = "unipro_rst", "mphy_rst", "crypto_rst", "hci_rst";
 
 			bootmode = <&chosen>;
 
