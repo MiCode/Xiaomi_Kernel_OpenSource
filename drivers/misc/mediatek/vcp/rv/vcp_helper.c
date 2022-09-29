@@ -276,7 +276,7 @@ static void vcp_enable_irqs(void)
 		enable_irq(vcp_mboxdev.info_table[i].irq_num);
 
 	enable_irq(vcpreg.irq0);
-	pr_info("[VCP] VCP IRQ enabled\n");
+	pr_debug("[VCP] VCP IRQ enabled\n");
 }
 
 static void vcp_disable_irqs(void)
@@ -291,7 +291,7 @@ static void vcp_disable_irqs(void)
 	tasklet_disable(&vcp_A_irq0_tasklet);
 	tasklet_disable(&vcp_A_irq1_tasklet);
 
-	pr_info("[VCP] VCP IRQ disabled\n");
+	pr_debug("[VCP] VCP IRQ disabled\n");
 }
 
 static int vcp_ipi_dbg_resume_noirq(struct device *dev)
