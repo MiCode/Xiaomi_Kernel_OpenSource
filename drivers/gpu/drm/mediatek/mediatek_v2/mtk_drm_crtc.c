@@ -4277,6 +4277,94 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	DDPMSG("%s--\n", __func__);
 }
 
+static void mtk_crtc_msync2_switch_begin(struct drm_crtc *crtc)
+{
+	int i, j;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct cmdq_pkt *cevent_cmdq_handle, *sevent_cmdq_handle;
+	struct mtk_ddp_comp *comp;
+	struct mtk_ddp_comp *output_comp;
+	unsigned int crtc_id = drm_crtc_index(crtc);
+
+	struct mtk_ddp_comp *oddmr_comp;
+	unsigned int od_trigger = 0;
+
+	if (!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base))
+		return;
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (!output_comp) {
+		DDPMSG("output_comp is null!\n");
+		return;
+	}
+
+	mtk_crtc_pkt_create(&cevent_cmdq_handle, &mtk_crtc->base,
+				mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+	if (!cevent_cmdq_handle) {
+		DDPPR_ERR("%s:%d NULL cevent_cmdq_handle\n", __func__, __LINE__);
+		return;
+	}
+
+	/* 1. wait frame done & wait DSI not busy */
+	cmdq_pkt_wait_no_clear(cevent_cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+	/* Clear stream block to prevent trigger loop start */
+	cmdq_pkt_clear_event(cevent_cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+	cmdq_pkt_wfe(cevent_cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+	cmdq_pkt_clear_event(cevent_cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+	cmdq_pkt_wfe(cevent_cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+	cmdq_pkt_flush(cevent_cmdq_handle);
+	cmdq_pkt_destroy(cevent_cmdq_handle);
+
+
+	oddmr_comp = priv->ddp_comp[DDP_COMPONENT_ODDMR0];
+
+	if (mtk_crtc->msync2.msync_frame_status == 0)
+		od_trigger = 1;
+
+	mtk_ddp_comp_io_cmd(oddmr_comp, NULL, ODDMR_TRIG_CTL, &od_trigger);
+
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+		mtk_ddp_comp_io_cmd(comp, NULL,
+			FORCE_TRIG_CTL, &mtk_crtc->msync2.msync_frame_status);
+
+	mtk_crtc_v_idle_apsrc_control(crtc, NULL, false, false, crtc_id, true);
+	mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_PLL_SWITCH_REFERENCE_CNT_CTL,
+		&mtk_crtc->msync2.msync_frame_status);
+
+	if (mtk_crtc_with_trigger_loop(crtc) && mtk_crtc_with_event_loop(crtc)) {
+		mtk_crtc_stop_trig_loop(crtc);
+		mtk_crtc_stop_event_loop(crtc);
+
+		mtk_crtc_start_event_loop(crtc);
+		mtk_crtc_start_trig_loop(crtc);
+	}
+
+	/* set frame done */
+	mtk_crtc_pkt_create(&sevent_cmdq_handle, &mtk_crtc->base,
+				mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+	if (!sevent_cmdq_handle) {
+		DDPPR_ERR("%s:%d NULL sevent_cmdq_handle\n", __func__, __LINE__);
+		return;
+	}
+
+	cmdq_pkt_set_event(sevent_cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+	cmdq_pkt_set_event(sevent_cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+	cmdq_pkt_set_event(sevent_cmdq_handle,
+		mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+	cmdq_pkt_flush(sevent_cmdq_handle);
+	cmdq_pkt_destroy(sevent_cmdq_handle);
+}
+
 bool already_free;
 bool mtk_crtc_frame_buffer_existed(void)
 {
@@ -10628,37 +10716,13 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 	}
 
 	if ((msync20_status_changed && (crtc_id == 0)) || g_vidle_apsrc_debug) {
-		struct mtk_ddp_comp *oddmr_comp;
-		unsigned int od_trigger = 0;
 		g_vidle_apsrc_debug = 0;
 
 		/* adjust trigger loop in different display mode */
 		DDPINFO("%s msync20_status_changed to %d\n", __func__,
 				mtk_crtc->msync2.msync_frame_status);
 
-		oddmr_comp = priv->ddp_comp[DDP_COMPONENT_ODDMR0];
-
-		if (mtk_crtc->msync2.msync_frame_status == 0)
-			od_trigger = 1;
-
-		mtk_ddp_comp_io_cmd(oddmr_comp, NULL, ODDMR_TRIG_CTL, &od_trigger);
-
-		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
-			mtk_ddp_comp_io_cmd(comp, NULL,
-				FORCE_TRIG_CTL, &mtk_crtc->msync2.msync_frame_status);
-
-		if (mtk_crtc_with_trigger_loop(crtc) && (mtk_crtc_with_event_loop(crtc)) &&
-				mtk_crtc_is_frame_trigger_mode(crtc)) {
-			mtk_crtc_stop_trig_loop(crtc);
-			mtk_crtc_stop_event_loop(crtc);
-
-			mtk_crtc_v_idle_apsrc_control(crtc, NULL, false, false, crtc_id, true);
-			mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_PLL_SWITCH_REFERENCE_CNT_CTL,
-				&mtk_crtc->msync2.msync_frame_status);
-
-			mtk_crtc_start_event_loop(crtc);
-			mtk_crtc_start_trig_loop(crtc);
-		}
+		mtk_crtc_msync2_switch_begin(crtc);
 	}
 
 #ifdef MTK_DRM_ADVANCE
