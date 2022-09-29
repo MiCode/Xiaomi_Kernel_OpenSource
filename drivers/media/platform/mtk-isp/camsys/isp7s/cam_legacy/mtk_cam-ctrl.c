@@ -2279,7 +2279,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 			dev_info_ratelimited(raw_dev->dev, "[SOF] frame done work too late frames. req(%d),ts(%lu)\n",
 				req_stream_data->frame_seq_no, irq_info->ts_ns / 1000);
 		} else if (mtk_cam_ctx_has_raw(ctx) &&
-			   mtk_cam_scen_is_sensor_stagger(&ctx->pipe->scen_active)) {
+			   mtk_cam_scen_is_stagger_2_exp(&ctx->pipe->scen_active)) {
 			dev_dbg(raw_dev->dev, "[SOF:%d] HDR SWD over SOF case\n", frame_idx_inner);
 		} else if (write_cnt >= req_stream_data->frame_seq_no - write_cnt_offset) {
 			dev_info_ratelimited(raw_dev->dev, "[SOF] frame done reading lost %d frames. req(%d),ts(%lu)\n",
