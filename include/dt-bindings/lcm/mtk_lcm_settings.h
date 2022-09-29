@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause */
 /*
  * Device Tree defines for LCM settings
  * Copyright (c) 2021 MediaTek Inc.
@@ -12,10 +12,6 @@
 
 #define MAX_UINT32						((u32)~0U)
 #define MAX_INT32						((s32)(MAX_UINT32 >> 1))
-
-#define MTK_PANEL_TABLE_OPS_COUNT				1024
-#define MTK_PANEL_COMPARE_ID_LENGTH				10
-#define MTK_PANEL_ATA_ID_LENGTH					10
 
 #define BL_PWM_MODE						0
 #define BL_I2C_MODE						1
@@ -195,6 +191,8 @@
 #define MTK_LCM_INPUT_TYPE_HEX_CURRENT_MODE			04
 #define MTK_LCM_INPUT_TYPE_HEX_MISC				05
 #define MTK_LCM_INPUT_TYPE_HEX_LOCATE				06
+#define MTK_LCM_INPUT_TYPE_HEX_AOD				07
+#define MTK_LCM_INPUT_TYPE_HEX_DIM				08
 
 /* 0~127: used for common panel operation
  * customer is forbidden to use common panel operation
@@ -263,6 +261,8 @@
 #define MTK_LCM_INPUT_TYPE_CURRENT_MODE				0x04
 #define MTK_LCM_INPUT_TYPE_MISC					0x05
 #define MTK_LCM_INPUT_TYPE_LOCATE				0x06
+#define MTK_LCM_INPUT_TYPE_AOD				0x07
+#define MTK_LCM_INPUT_TYPE_DIM				0x08
 
 #define MTK_LCM_DDIC_FLAG_HIGH_SPEED				0x1
 #define MTK_LCM_DDIC_FLAG_ALIGN_TE				0x2
