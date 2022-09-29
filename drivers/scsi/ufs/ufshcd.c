@@ -2452,7 +2452,7 @@ static int ufshcd_map_sg(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 
 #if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 			/* Only for MT6985 debug log*/
-			if (hba->irq == 168) {
+			if (hba->irq == 162) {
 
 				/* Add debug log for EMI MPU violation on Region 47 */
 				sg_dma_lower = lower_32_bits(sg->dma_address);
