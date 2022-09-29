@@ -90,7 +90,7 @@ unsigned long mtk_uclamp_rq_util_with(struct rq *rq, unsigned long util,
 	if (p) {
 		min_util = max(min_util, min_cap);
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
-		max_util = max_cap;
+		max_util = (!rq->nr_running ? max_cap : max(max_util, max_cap));
 #else
 		max_util = max(max_util, max_cap);
 #endif
