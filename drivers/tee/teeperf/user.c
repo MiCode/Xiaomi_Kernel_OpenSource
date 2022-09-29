@@ -101,6 +101,7 @@ static void teeperf_set_cpu_group_to_high_freq(enum teeperf_cpu_group group,
 static void teeperf_high_freq(enum teeperf_cpu_type type, u32 high_freq)
 {
 	teeperf_set_cpu_to_high_freq(TEE_CPU, high_freq, BIG_CPU_FREQ_LEVEL_INDEX);
+	teeperf_set_cpu_group_to_high_freq(CPU_LITTLE_GROUP, high_freq);
 
 	if (type == CPU_V9_TYPE)
 		teeperf_set_cpu_group_to_high_freq(CPU_BIG_GROUP, high_freq);
