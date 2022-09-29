@@ -101,9 +101,8 @@ static void get_dpb_size(struct vdec_inst *inst, unsigned int *dpb_sz)
 	mtk_vcodec_debug(inst, "sz=%d", *dpb_sz);
 }
 
-static void get_dvfs_data(struct mtk_vcodec_dev *dev, unsigned int target_freq, unsigned int need)
+static void get_dvfs_data(struct mtk_vcodec_dev *dev, unsigned int need)
 {
-	dev->vdec_dvfs_params.target_freq = target_freq;
 	dev->vdec_dvfs_params.frame_need_update = need;
 }
 
@@ -661,25 +660,25 @@ int vcp_dec_ipi_handler(void *arg)
 				break;
 			// TODO: need remove HW locks /power & ISR ipis
 			case VCU_IPIMSG_DEC_LOCK_LAT:
-				get_dvfs_data(vcu->ctx->dev, msg->reserved, msg->no_need_put);
+				get_dvfs_data(vcu->ctx->dev, msg->no_need_put);
 				vdec_decode_prepare(vcu->ctx, MTK_VDEC_LAT);
 				msg->msg_id = AP_IPIMSG_DEC_LOCK_LAT_DONE;
 				vdec_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
 				break;
 			case VCU_IPIMSG_DEC_UNLOCK_LAT:
-				get_dvfs_data(vcu->ctx->dev, msg->reserved, msg->no_need_put);
+				get_dvfs_data(vcu->ctx->dev, msg->no_need_put);
 				vdec_decode_unprepare(vcu->ctx, MTK_VDEC_LAT);
 				msg->msg_id = AP_IPIMSG_DEC_UNLOCK_LAT_DONE;
 				vdec_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
 				break;
 			case VCU_IPIMSG_DEC_LOCK_CORE:
-				get_dvfs_data(vcu->ctx->dev, msg->reserved, msg->no_need_put);
+				get_dvfs_data(vcu->ctx->dev, msg->no_need_put);
 				vdec_decode_prepare(vcu->ctx, MTK_VDEC_CORE);
 				msg->msg_id = AP_IPIMSG_DEC_LOCK_CORE_DONE;
 				vdec_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
 				break;
 			case VCU_IPIMSG_DEC_UNLOCK_CORE:
-				get_dvfs_data(vcu->ctx->dev, msg->reserved, msg->no_need_put);
+				get_dvfs_data(vcu->ctx->dev, msg->no_need_put);
 				vdec_decode_unprepare(vcu->ctx, MTK_VDEC_CORE);
 				msg->msg_id = AP_IPIMSG_DEC_UNLOCK_CORE_DONE;
 				vdec_vcp_ipi_send(inst, msg, sizeof(*msg), 1);

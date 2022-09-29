@@ -27,5 +27,5 @@ void mtk_vdec_pmqos_begin_frame(struct mtk_vcodec_ctx *ctx);
 void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx);
 void mtk_vdec_prepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long *in);
 void mtk_vdec_unprepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long *in);
-
+void mtk_vdec_sync_target_freq(struct mtk_vcodec_ctx *ctx);
 #endif /* _MTK_VCODEC_DEC_PM_PLAT_H_ */

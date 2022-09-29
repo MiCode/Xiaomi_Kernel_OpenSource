@@ -3561,15 +3561,17 @@ static int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 
 		mutex_lock(&ctx->dev->dec_dvfs_mutex);
 		if (ctx->dev->vdec_reg == 0 && ctx->dev->vdec_mmdvfs_clk == 0) {
-			mtk_v4l2_debug(4, "[%d][VDVFS][VDEC] start ctrl DVFS in UP\n", ctx->id);
+			mtk_v4l2_debug(0, "[%d][VDVFS][VDEC] start ctrl DVFS in UP (freq %d)",
+				ctx->id, ctx->dev->vdec_dvfs_params.target_freq);
 			if (ctx->dev->vdec_dvfs_params.target_freq < VDEC_HIGHEST_FREQ)
 				mtk_vcodec_dec_pw_on(&ctx->dev->pm);
 			mtk_vdec_prepare_vcp_dvfs_data(ctx, vcp_dvfs_data);
 			vdec_if_set_param(ctx, SET_PARAM_MMDVFS, vcp_dvfs_data);
+			mtk_vdec_sync_target_freq(ctx);
 			if (ctx->dev->vdec_dvfs_params.target_freq < VDEC_HIGHEST_FREQ)
 				mtk_vcodec_dec_pw_off(&ctx->dev->pm);
 		} else {
-			mtk_v4l2_debug(4, "[%d][VDVFS][VDEC] start ctrl DVFS in AP\n", ctx->id);
+			mtk_v4l2_debug(0, "[%d][VDVFS][VDEC] start ctrl DVFS in AP", ctx->id);
 			mtk_vdec_dvfs_begin_inst(ctx);
 		}
 		mtk_vdec_pmqos_begin_inst(ctx);
@@ -3695,15 +3697,17 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 	mutex_unlock(&ctx->buf_lock);
 	mutex_lock(&ctx->dev->dec_dvfs_mutex);
 	if (ctx->dev->vdec_reg == 0 && ctx->dev->vdec_mmdvfs_clk == 0) {
-		mtk_v4l2_debug(0, "[%d][VDVFS][VDEC] stop ctrl DVFS in UP\n", ctx->id);
 		if (ctx->dev->vdec_dvfs_params.target_freq < VDEC_HIGHEST_FREQ)
 			mtk_vcodec_dec_pw_on(&ctx->dev->pm);
 		mtk_vdec_unprepare_vcp_dvfs_data(ctx, vcp_dvfs_data);
 		vdec_if_set_param(ctx, SET_PARAM_MMDVFS, vcp_dvfs_data);
+		mtk_vdec_sync_target_freq(ctx);
 		if (ctx->dev->vdec_dvfs_params.target_freq < VDEC_HIGHEST_FREQ)
 			mtk_vcodec_dec_pw_off(&ctx->dev->pm);
+		mtk_v4l2_debug(0, "[%d][VDVFS][VDEC] stop ctrl DVFS in UP (freq %d)",
+			ctx->id, ctx->dev->vdec_dvfs_params.target_freq);
 	} else {
-		mtk_v4l2_debug(0, "[%d][VDVFS][VDEC] stop ctrl DVFS in AP\n", ctx->id);
+		mtk_v4l2_debug(0, "[%d][VDVFS][VDEC] stop ctrl DVFS in AP", ctx->id);
 		mtk_vdec_dvfs_end_inst(ctx);
 	}
 	mtk_vdec_pmqos_end_inst(ctx);
