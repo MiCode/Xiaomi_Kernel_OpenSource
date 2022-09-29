@@ -744,6 +744,8 @@ static enum chk_sys_id debug_dump_id[] = {
 	ptp,
 	hwv,
 	hwv_ext,
+	smi_larb12,
+	smi_subcomm,
 	chk_sys_num,
 };
 
