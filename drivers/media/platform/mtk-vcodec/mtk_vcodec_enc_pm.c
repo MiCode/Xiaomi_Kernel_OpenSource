@@ -394,6 +394,9 @@ static int mtk_venc_translation_fault_callback(
 	} else if (larb_id == 8) {
 		reg_base = dev->enc_reg_base[VENC_C1_SYS];
 		hw_id = MTK_VENC_CORE_1;
+	} else if (larb_id == 37) {
+		reg_base = dev->enc_reg_base[VENC_C2_SYS];
+		hw_id = MTK_VENC_CORE_2;
 	}
 
 	spin_lock_irqsave(&dev->enc_power_lock[hw_id], flags);
@@ -446,7 +449,7 @@ static int mtk_venc_translation_fault_callback(
 			mtk_v4l2_err("0x4064: 0x%x, 0x406c : 0x%x, 0x4074: 0x%x, 0x52c0: 0x%x",
 				readl(reg_base + 0x4064), readl(reg_base + 0x406c),
 				readl(reg_base + 0x4074), readl(reg_base + 0x52c0));
-		} else if (larb_id == 8) {
+		} else if (larb_id == 8 || larb_id == 37) {
 			reg_base = dev->enc_reg_base[VENC_SYS];
 			spin_lock_irqsave(&dev->enc_power_lock[MTK_VENC_CORE_0], flags);
 			if (dev->enc_is_power_on[MTK_VENC_CORE_0] == false) {
@@ -483,6 +486,10 @@ void mtk_venc_translation_fault_callback_setting(
 	}
 	for (i = 0; i < dev->venc_ports[1].total_port_num; i++) {
 		mtk_iommu_register_fault_callback(MTK_M4U_ID(8, i),
+			mtk_venc_translation_fault_callback, (void *)dev, false);
+	}
+	for (i = 0; i < dev->venc_ports[2].total_port_num; i++) {
+		mtk_iommu_register_fault_callback(MTK_M4U_ID(37, i),
 			mtk_venc_translation_fault_callback, (void *)dev, false);
 	}
 #endif
