@@ -54,6 +54,7 @@ struct mml_drm_ctx {
 	bool kt_priority;
 	bool disp_dual;
 	bool disp_vdo;
+	bool racing_begin;
 	void (*submit_cb)(void *cb_param);
 	struct mml_tile_cache tile_cache[MML_PIPE_CNT];
 };
@@ -831,7 +832,9 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 	 */
 	mml_drm_try_frame(ctx, &submit->info);
 
-	mml_mmp(submit, MMPROFILE_FLAG_PULSE, atomic_read(&ctx->job_serial), submit->info.mode);
+	/* +1 for real id assign to next task */
+	mml_mmp(submit, MMPROFILE_FLAG_PULSE,
+		atomic_read(&ctx->job_serial) + 1, submit->info.mode);
 
 	mutex_lock(&ctx->config_mutex);
 
@@ -892,8 +895,11 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 	}
 
 	/* maintain racing ref count for easy query mode */
-	if (cfg->info.mode == MML_MODE_RACING)
-		atomic_inc(&ctx->racing_cnt);
+	if (cfg->info.mode == MML_MODE_RACING) {
+		/* also mark begin so that disp clear target line event */
+		if (atomic_inc_return(&ctx->racing_cnt) == 1)
+			ctx->racing_begin = true;
+	}
 
 	/* make sure id unique and cached last */
 	task->job.jobid = atomic_inc_return(&ctx->job_serial);
@@ -1319,12 +1325,26 @@ EXPORT_SYMBOL_GPL(mml_drm_set_panel_pixel);
 s32 mml_drm_racing_config_sync(struct mml_drm_ctx *ctx, struct cmdq_pkt *pkt)
 {
 	struct cmdq_operand lhs, rhs;
+	u16 event_target = mml_ir_get_target_event(ctx->mml);
 
 	mml_msg("[drm]%s for disp", __func__);
 
 	/* debug current task idx */
 	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX3,
 		atomic_read(&ctx->job_serial));
+
+	if (ctx->disp_vdo && event_target) {
+		/* non-racing to racing case, force clear target line
+		 * to make sure next racing begin from target line to sof
+		 */
+		if (ctx->racing_begin) {
+			cmdq_pkt_clear_event(pkt, event_target);
+			ctx->racing_begin = false;
+			mml_mmp(racing_enter, MMPROFILE_FLAG_PULSE,
+				atomic_read(&ctx->job_serial), 0);
+		}
+		cmdq_pkt_wait_no_clear(pkt, event_target);
+	}
 
 	/* set NEXT bit on, to let mml know should jump next */
 	lhs.reg = true;

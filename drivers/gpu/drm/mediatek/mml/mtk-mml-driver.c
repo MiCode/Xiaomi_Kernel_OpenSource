@@ -96,6 +96,7 @@ struct mml_dev {
 	u16 event_mml_ready;
 	u16 event_disp_ready;
 	u16 event_mml_stop;
+	u16 event_mml_target;
 
 	/* wack lock to prevent system off */
 	struct wakeup_source *wake_lock;
@@ -872,6 +873,11 @@ u16 mml_ir_get_mml_stop_event(struct mml_dev *mml)
 	return mml->event_mml_stop;
 }
 
+u16 mml_ir_get_target_event(struct mml_dev *mml)
+{
+	return mml->event_mml_target;
+}
+
 void mml_dump_thread(struct mml_dev *mml)
 {
 	u32 i;
@@ -1172,13 +1178,16 @@ static int mml_probe(struct platform_device *pdev)
 		mml->racing_height = 64;	/* default height 64px */
 
 	if (!of_property_read_u16(dev->of_node, "event-ir-mml-ready", &mml->event_mml_ready))
-		mml_log("racing event event_mml_ready %hu", mml->event_mml_ready);
+		mml_log("racing event event_mml_ready %u", mml->event_mml_ready);
 
 	if (!of_property_read_u16(dev->of_node, "event-ir-disp-ready", &mml->event_disp_ready))
-		mml_log("racing event event_disp_ready %hu", mml->event_disp_ready);
+		mml_log("racing event event_disp_ready %u", mml->event_disp_ready);
 
 	if (!of_property_read_u16(dev->of_node, "event-ir-mml-stop", &mml->event_mml_stop))
-		mml_log("racing event event_mml_stop %hu", mml->event_mml_stop);
+		mml_log("racing event event_mml_stop %u", mml->event_mml_stop);
+
+	if (!of_property_read_u16(dev->of_node, "event-ir-eof", &mml->event_mml_target))
+		mml_log("racing event event_mml_target %u", mml->event_mml_target);
 
 	mml->cmdq_base = cmdq_register_device(dev);
 	for (i = 0; i < thread_cnt; i++) {

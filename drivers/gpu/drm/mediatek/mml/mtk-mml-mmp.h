@@ -24,6 +24,9 @@
 #define mml_mmp(event, flag, v1, v2) \
 	mmprofile_log_ex(mml_mmp_get_event()->event, flag, v1, v2)
 
+#define mml_mmp2(event, flag, v1h, v1l, v2h, v2l) \
+	mmprofile_log_ex(mml_mmp_get_event()->event, flag, v1h << 16 | v1l, v2h << 16 | v2l)
+
 struct mml_mmp_events_t {
 	mmp_event mml;
 	mmp_event query_mode;
@@ -43,7 +46,8 @@ struct mml_mmp_events_t {
 	mmp_event wait_ready;
 	mmp_event flush;
 	mmp_event submit_cb;
-	mmp_event stop_racing;
+	mmp_event racing_enter;
+	mmp_event racing_stop;
 	mmp_event irq_loop;
 	mmp_event irq_err;
 	mmp_event irq_done;
@@ -74,6 +78,7 @@ struct mml_mmp_events_t *mml_mmp_get_event(void);
 #else
 
 #define mml_mmp(args...)
+#define mml_mmp2(args...)
 
 static inline void mml_mmp_init(void)
 {

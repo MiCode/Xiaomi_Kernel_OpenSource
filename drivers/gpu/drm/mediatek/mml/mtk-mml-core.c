@@ -1427,7 +1427,7 @@ static void mml_core_stop_racing_pipe(struct mml_frame_config *cfg, u32 pipe, bo
 	if (force) {
 		/* call cmdq to stop hardware thread directly */
 		cmdq_mbox_channel_stop(cfg->path[pipe]->clt->chan);
-		mml_mmp(stop_racing, MMPROFILE_FLAG_PULSE, cfg->last_jobid, pipe);
+		mml_mmp(racing_stop, MMPROFILE_FLAG_PULSE, cfg->last_jobid, pipe);
 
 		for (i = 0; i < path->node_cnt; i++) {
 			comp = path->nodes[i].comp;
@@ -1438,7 +1438,7 @@ static void mml_core_stop_racing_pipe(struct mml_frame_config *cfg, u32 pipe, bo
 			return;
 		cmdq_thread_set_spr(cfg->path[pipe]->clt->chan, MML_CMDQ_NEXT_SPR,
 			MML_NEXTSPR_NEXT);
-		mml_mmp(stop_racing, MMPROFILE_FLAG_PULSE, cfg->last_jobid,
+		mml_mmp(racing_stop, MMPROFILE_FLAG_PULSE, cfg->last_jobid,
 			pipe | BIT(4));
 	}
 }
@@ -1634,9 +1634,13 @@ static void core_config_task(struct mml_task *task)
 
 	mml_trace_begin("%s", __func__);
 	if (cfg->info.mode == MML_MODE_DDP_ADDON)
-		mml_mmp(config_dle, MMPROFILE_FLAG_START, jobid, 0);
+		mml_mmp2(config_dle, MMPROFILE_FLAG_START,
+			cfg->info.src.width, cfg->info.src.height,
+			cfg->info.dest[0].data.width, cfg->info.dest[0].data.height);
 	else
-		mml_mmp(config, MMPROFILE_FLAG_START, jobid, 0);
+		mml_mmp2(config, MMPROFILE_FLAG_START,
+			cfg->info.src.width, cfg->info.src.height,
+			cfg->info.dest[0].data.width, cfg->info.dest[0].data.height);
 
 	mml_msg("%s begin task %p config %p job %u",
 		__func__, task, cfg, jobid);
