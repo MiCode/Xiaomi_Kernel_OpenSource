@@ -23,6 +23,8 @@
 
 static const unsigned int bypass_register[] = {0x1d8, 0x3d8, 0x1e4, 0x3e4, 0x1e8, 0x3e8};
 static const unsigned int bypass_axi_info[] = {0x6, 0x7f80, 0x2000, 0x7, 0xff01, 0x4001};
+static const unsigned int miumpu_dump_info[] = {0, 2, 10, 2};
+static const unsigned int miukp_dump_info[] = {0, 15, 2, 15};
 
 static void set_regs(
 	struct reg_info_t *reg_list, unsigned int reg_cnt,
@@ -149,40 +151,32 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 	void __iomem *emi_cen_base;
 	void __iomem *miu_mpu_base;
 	void __iomem *miu_kp_base;
-	unsigned int emi_id, i, north_debug_counter, south_debug_counter;
-	ssize_t msg_len, debug_len;
-	int nr_vio, prefetch;
-	bool violation, miu_violation, miu_kp_violation, miu_mpu_violation;
+	unsigned int emi_id, i;
+	ssize_t msg_len;
+	int nr_vio, prefetch, vio_dump_idx, vio_dump_pos;
+	bool violation, miu_violation, miu_kp_violation, miu_mpu_violation,
+		flag_clear_all_violation;
 	irqreturn_t irqret;
 	const unsigned int hp_mask = 0x600000;
 	char md_str[MTK_EMI_MAX_CMD_LEN + 13] = {'\0'};
-	char debug_str[MTK_EMI_MAX_CMD_LEN + 1] = {'\0'};
 	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 3);
 
 	nr_vio = 0;
 	msg_len = 0;
 	prefetch = 0;
-	debug_len = 0;
-	north_debug_counter = 0;
-	south_debug_counter = 0;
+
 
 	for (emi_id = 0; emi_id < mpu->emi_cen_cnt; emi_id++) {
 		violation = false;
 		miu_violation = false;
 		miu_kp_violation = false;
 		miu_mpu_violation = false;
+		flag_clear_all_violation = false;
 
 		emi_cen_base = mpu->emi_cen_base[emi_id];
 		for (i = 0; i < mpu->dump_cnt; i++) {
 			dump_reg[i].value = readl(
 				emi_cen_base + dump_reg[i].offset);
-			if (debug_len < MTK_EMI_MAX_CMD_LEN)
-				debug_len += scnprintf(debug_str + debug_len,
-				MTK_EMI_MAX_CMD_LEN - debug_len,
-				"%s(%d),%s(%x),%s(%x);\n",
-				"emi", emi_id,
-				"off", dump_reg[i].offset,
-				"val", dump_reg[i].value);
 			if (dump_reg[i].value)
 				violation = true;
 		}
@@ -206,13 +200,12 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 			for (i = 0; i < mpu->miumpu_dump_cnt; i++) {
 				miumpu_dump_reg[i].value = readl(
 				miu_mpu_base + miumpu_dump_reg[i].offset);
-				if (miumpu_dump_reg[i].value) {
+			}
+			for (i = 0; i < mpu->miumpu_vio_dump_cnt; i++) {
+				vio_dump_idx = mpu->miumpu_vio_dump_info[i].vio_dump_idx;
+				vio_dump_pos = mpu->miumpu_vio_dump_info[i].vio_dump_pos;
+				if (CHECK_BIT(miumpu_dump_reg[vio_dump_idx].value, vio_dump_pos))
 					miu_mpu_violation = true;
-					if (emi_id == 0)
-						north_debug_counter++;
-					else
-						south_debug_counter++;
-				}
 			}
 
 			miu_kp_violation = false;
@@ -220,12 +213,18 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 			for (i = 0; i < mpu->miukp_dump_cnt; i++) {
 				miukp_dump_reg[i].value = readl(
 				miu_kp_base + miukp_dump_reg[i].offset);
+			}
 
-				if (miukp_dump_reg[i].value)
+			for (i = 0; i < mpu->kp_vio_dump_cnt; i++) {
+				vio_dump_idx = mpu->kp_vio_dump_info[i].vio_dump_idx;
+				vio_dump_pos = mpu->kp_vio_dump_info[i].vio_dump_pos;
+				if (CHECK_BIT(miukp_dump_reg[vio_dump_idx].value, vio_dump_pos))
 					miu_kp_violation = true;
 			}
 
+
 			if ((!miu_mpu_violation) && (!miu_kp_violation)) {
+				flag_clear_all_violation = true;
 				if (__ratelimit(&ratelimit))
 					pr_info("%s: emi:%d miu_mpu = 0, miu_kp = 0"
 					, __func__, emi_id);
@@ -335,15 +334,11 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 
 clear_violation:
 		clear_violation(mpu, emi_id);
-		if (miu_kp_violation)
+		if (miu_kp_violation || flag_clear_all_violation)
 			clear_kp_violation(emi_id);
 	}
 
 	if (nr_vio) {
-		/* for debug purpose to check smpu violation log is same as emimpu reg */
-		if (north_debug_counter == 1 || south_debug_counter == 1)
-			if (__ratelimit(&ratelimit))
-				pr_info("%s: %s", __func__, debug_str);
 		printk_deferred("%s: %s", __func__, mpu->vio_msg);
 		mpu->in_msg_dump = 1;
 		schedule_work(&emimpu_work);
@@ -482,6 +477,55 @@ static int emimpu_probe(struct platform_device *pdev)
 		mpu->miumpu_dump_reg[i].leng = 0;
 	}
 //dump miu mpu end
+//dump miumpu vio info start
+	size = of_property_count_elems_of_size(miumpu_node,
+		"vio-info", sizeof(char));
+	if (size <= 0) {
+		size = sizeof(miumpu_dump_info);
+		mpu->miumpu_vio_dump_cnt = size/sizeof(struct vio_dump_info_t);
+		mpu->miumpu_vio_dump_info = devm_kmalloc(&pdev->dev,
+			size, GFP_KERNEL);
+		if (!(mpu->miumpu_vio_dump_info))
+			return -ENOMEM;
+		memcpy(mpu->miumpu_vio_dump_info, miumpu_dump_info, size);
+	} else {
+		mpu->miumpu_vio_dump_cnt = size/sizeof(struct vio_dump_info_t);
+		mpu->miumpu_vio_dump_info = devm_kmalloc(&pdev->dev,
+			size, GFP_KERNEL);
+		if (!(mpu->miumpu_vio_dump_info))
+			return -ENOMEM;
+		size >>= 2;
+		ret = of_property_read_u32_array(miumpu_node, "vio-info",
+			(unsigned int *)(mpu->miumpu_vio_dump_info), size);
+		if (ret)
+			return -ENXIO;
+	}
+//dump miumpu vio info end
+//dump kp vio info start
+	size = of_property_count_elems_of_size(miukp_node,
+		"vio-info", sizeof(char));
+	if (size <= 0) {
+		size = sizeof(miukp_dump_info);
+		mpu->kp_vio_dump_cnt = size/sizeof(struct vio_dump_info_t);
+		mpu->kp_vio_dump_info = devm_kmalloc(&pdev->dev,
+			size, GFP_KERNEL);
+		if (!(mpu->kp_vio_dump_info))
+			return -ENOMEM;
+		memcpy(mpu->kp_vio_dump_info, miukp_dump_info, size);
+	} else {
+		mpu->kp_vio_dump_cnt = size/sizeof(struct vio_dump_info_t);
+		mpu->kp_vio_dump_info = devm_kmalloc(&pdev->dev,
+			size, GFP_KERNEL);
+		if (!(mpu->kp_vio_dump_info))
+			return -ENOMEM;
+		size >>= 2;
+		ret = of_property_read_u32_array(miukp_node, "vio-info",
+			(unsigned int *)(mpu->kp_vio_dump_info), size);
+		if (ret)
+			return -ENXIO;
+	}
+//dump kp vio info end
+
 //clear start
 	size = of_property_count_elems_of_size(emimpu_node,
 		"clear", sizeof(char));

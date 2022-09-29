@@ -56,6 +56,11 @@ struct reg_info_t {
 	unsigned int leng;
 };
 
+struct vio_dump_info_t {
+	unsigned int vio_dump_idx;
+	unsigned int vio_dump_pos;
+};
+
 struct bypass_aix_info_t {
 	unsigned int port;
 	unsigned int axi_mask;

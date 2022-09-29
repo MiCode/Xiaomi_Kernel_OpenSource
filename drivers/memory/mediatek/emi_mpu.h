@@ -17,6 +17,10 @@
 #define READ_AXI_MSB		5
 #define AXI_SET_NUM(num)	(num/3)
 
+#ifndef CHECK_BIT
+#define CHECK_BIT(var, pos) ((var) & (1<<(pos)))
+#endif
+
 typedef irqreturn_t (*emimpu_isr_hook)(
 	unsigned int emi_id, struct reg_info_t *dump, unsigned int leng);
 
@@ -31,12 +35,17 @@ struct emi_mpu {
 	unsigned int dump_cnt;
 	unsigned int miukp_dump_cnt;
 	unsigned int miumpu_dump_cnt;
+	unsigned int miumpu_vio_dump_cnt;
+	unsigned int kp_vio_dump_cnt;
 
 	struct emimpu_region_t *ap_rg_info;
 
 	struct reg_info_t *dump_reg;
 	struct reg_info_t *miukp_dump_reg;
 	struct reg_info_t *miumpu_dump_reg;
+
+	struct vio_dump_info_t *miumpu_vio_dump_info;
+	struct vio_dump_info_t *kp_vio_dump_info;
 
 	struct reg_info_t *clear_reg;
 	struct reg_info_t *clear_md_reg;
