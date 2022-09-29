@@ -336,11 +336,6 @@ static void update_hrt_bw(struct mtk_mmqos *mmqos)
 				    &comm_node->comm_port_list, list) {
 			if (comm_port->hrt_type < HRT_TYPE_NUM) {
 				mutex_lock(&comm_port->bw_lock);
-				pr_notice("%s hrt_type=%d comm%d_%d l_p=%d\n", __func__,
-					comm_port->hrt_type,
-					COMM_PORT_COMM_ID(comm_port->base->icc_node->id),
-					MASK_8(comm_port->base->icc_node->id),
-					icc_to_MBps(comm_port->latest_peak_bw));
 				hrt_bw[comm_port->hrt_type] +=
 					icc_to_MBps(comm_port->latest_peak_bw);
 				mutex_unlock(&comm_port->bw_lock);
