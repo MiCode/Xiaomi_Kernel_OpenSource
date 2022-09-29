@@ -1900,7 +1900,7 @@ static s32 wrot_wait(struct mml_comp *comp, struct mml_task *task,
 		wrot_config_inlinerot(comp, task, ccfg, idx);
 		wrot_frm->wdone_cnt++;
 
-		if (!task->config->disp_vdo && wrot_frm->wdone_cnt == 2)
+		if (!task->config->disp_vdo && wrot_frm->wdone_cnt == 1)
 			cmdq_pkt_set_event(pkt,
 				mml_ir_get_mml_ready_event(task->config->mml));
 	}

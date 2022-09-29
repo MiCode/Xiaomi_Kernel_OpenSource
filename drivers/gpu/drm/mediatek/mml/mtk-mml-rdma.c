@@ -619,7 +619,7 @@ struct rdma_frame_data {
 	u16 crop_off_l;		/* crop offset left */
 	u16 crop_off_t;		/* crop offset top */
 	u32 gmcif_con;
-	bool ultra_done;
+	bool ultra_off;
 
 	/* array of indices to one of entry in cache entry list,
 	 * use in reuse command
@@ -1562,24 +1562,33 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 	return 0;
 }
 
-static bool rdma_check_begin_tile(struct mml_comp_config *ccfg,
+static bool rdma_check_ultra_tile(struct mml_comp_config *ccfg,
 	struct mml_frame_config *cfg, u32 tile_idx)
 {
 	const struct mml_tile_output *tout = cfg->tile_output[ccfg->pipe];
 	/* sram always out0 */
 	const struct mml_frame_dest *dest = &cfg->info.dest[0];
-	u32 pre_tile_idx;
+	u32 cur_tile_idx;
 
-	if (dest->rotate == MML_ROT_90)
-		pre_tile_idx = tout->tiles[tile_idx].h_tile_no;
-	else if (dest->rotate == MML_ROT_270)
-		pre_tile_idx = tout->h_tile_cnt - tout->tiles[tile_idx].h_tile_no - 1;
-	else if (dest->rotate == MML_ROT_0)
-		pre_tile_idx = tout->tiles[tile_idx].v_tile_no;
-	else
-		pre_tile_idx = tout->v_tile_cnt - tout->tiles[tile_idx].v_tile_no - 1;
+	if (dest->rotate == MML_ROT_90) {
+		if (tout->tiles[tile_idx].h_tile_no == tout->h_tile_cnt - 1)
+			return true;
+		cur_tile_idx = tout->tiles[tile_idx].h_tile_no;
+	} else if (dest->rotate == MML_ROT_270) {
+		if (tout->tiles[tile_idx].h_tile_no == 0)
+			return true;
+		cur_tile_idx = tout->h_tile_cnt - tout->tiles[tile_idx].h_tile_no - 1;
+	} else if (dest->rotate == MML_ROT_0) {
+		if (tout->tiles[tile_idx].v_tile_no == tout->v_tile_cnt - 1)
+			return true;
+		cur_tile_idx = tout->tiles[tile_idx].v_tile_no;
+	} else {
+		if (tout->tiles[tile_idx].v_tile_no == 0)
+			return true;
+		cur_tile_idx = tout->v_tile_cnt - tout->tiles[tile_idx].v_tile_no - 1;
+	}
 
-	return pre_tile_idx == 2;
+	return cur_tile_idx < 2;
 }
 
 static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
@@ -1622,12 +1631,18 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 	const u32 crop_ofst_x = tile->luma.x;
 	const u32 crop_ofst_y = tile->luma.y;
 
-	if (cfg->info.mode == MML_MODE_RACING && !rdma_frm->ultra_done) {
-		if (rdma_check_begin_tile(ccfg, cfg, idx)) {
-			rdma_frm->gmcif_con ^= BIT(13) | BIT(12);
+	if (cfg->info.mode == MML_MODE_RACING) {
+		if (!rdma_frm->ultra_off && !rdma_check_ultra_tile(ccfg, cfg, idx)) {
+			u32 gmcif_con = rdma_frm->gmcif_con;
+
+			gmcif_con ^= BIT(13) | BIT(12);
+			rdma_write(pkt, base_pa, hw_pipe, CPR_RDMA_GMCIF_CON,
+				gmcif_con, write_sec);
+			rdma_frm->ultra_off = true;
+		} else if (rdma_frm->ultra_off && rdma_check_ultra_tile(ccfg, cfg, idx)) {
 			rdma_write(pkt, base_pa, hw_pipe, CPR_RDMA_GMCIF_CON,
 				rdma_frm->gmcif_con, write_sec);
-			rdma_frm->ultra_done = true;
+			rdma_frm->ultra_off = false;
 		}
 	}
 
