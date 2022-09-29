@@ -259,24 +259,25 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp, u32 *d
 	while (!(readl(MEM_IPI_SYNC_DATA) & (1 << func))) {
 		if (++retry > 10000) {
 			ret = IPI_COMPL_TIMEOUT;
-			goto ipi_send_end;
+			break;
 		}
 		if (!is_vcp_ready_ex(VCP_A_ID)) {
 			ret = -ETIMEDOUT;
-			goto ipi_send_end;
+			break;
 		}
 		udelay(10);
 	}
-	writel(val & ~readl(MEM_IPI_SYNC_DATA), MEM_IPI_SYNC_FUNC);
+
+	if (!ret)
+		writel(val & ~readl(MEM_IPI_SYNC_DATA), MEM_IPI_SYNC_FUNC);
+	else if (gen == vcp_cmd_ex(VCP_GET_GEN))
+		vcp_cmd_ex(VCP_SET_HALT);
 
 ipi_send_end:
-	if (ret || (log_level & (1 << log_ipi))) {
+	if (ret || (log_level & (1 << log_ipi)))
 		MMDVFS_ERR("ret:%d retry:%d ready:%d slot:%#llx vcp_power:%d unfinish func:%#x",
 			ret, retry, is_vcp_ready_ex(VCP_A_ID), *(u64 *)&slot, vcp_power,
 			readl(MEM_IPI_SYNC_FUNC));
-		if (gen == vcp_cmd_ex(VCP_GET_GEN) && ret != -ETIMEDOUT && ret)
-			vcp_cmd_ex(VCP_SET_HALT);
-	}
 	mmdvfs_ipi_status = ret;
 	mutex_unlock(&mmdvfs_vcp_ipi_mutex);
 	return ret;
@@ -707,7 +708,7 @@ static inline void mmdvfs_reset_ccu(void)
 
 static inline void mmdvfs_reset_vcp(void)
 {
-	int i;
+	int i, ret;
 
 	mutex_lock(&mmdvfs_vcp_pwr_mutex);
 	for (i = 0; i < VCP_PWR_USR_NUM; i++) {
@@ -715,14 +716,12 @@ static inline void mmdvfs_reset_vcp(void)
 			MMDVFS_ERR("i:%d usage:%d not disable", i, vcp_pwr_usage[i]);
 		vcp_pwr_usage[i] = 0;
 	}
-#ifdef RESET_VCP
 	if (vcp_power) {
 		ret = vcp_deregister_feature_ex(MMDVFS_FEATURE_ID);
 		if (ret)
 			MMDVFS_ERR("failed:%d vcp_power:%d", ret, vcp_power);
 		vcp_power = 0;
 	}
-#endif
 	mutex_unlock(&mmdvfs_vcp_pwr_mutex);
 }
 
@@ -986,6 +985,8 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 	}
 
 	vmm_notify_wq = create_singlethread_workqueue("vmm_notify_wq");
+	register_pm_notifier(&mmdvfs_pm_notifier_block);
+
 	clkmux_cb.clk_enable = mtk_mmdvfs_clk_enable;
 	clkmux_cb.clk_disable = mtk_mmdvfs_clk_disable;
 	mtk_clk_register_ipi_callback(&clkmux_cb);
@@ -993,18 +994,16 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 	if (of_property_read_bool(node, "mmdvfs-free-run"))
 		mmdvfs_free_run = true;
 
-	kthr_vcp = kthread_run(mmdvfs_vcp_init_thread, NULL, "mmdvfs-vcp");
-	kthr_ccu = kthread_run(mmdvfs_ccu_init_thread, node, "mmdvfs-ccu");
-
 	larbnode = of_parse_phandle(pdev->dev.of_node, "mediatek,larbs", 0);
 	if (larbnode) {
 		larbdev = of_find_device_by_node(larbnode);
-		if (larbdev) {
+		if (larbdev)
 			cam_larb_dev = &larbdev->dev;
-			register_pm_notifier(&mmdvfs_pm_notifier_block);
-		}
 		of_node_put(larbnode);
 	}
+
+	kthr_vcp = kthread_run(mmdvfs_vcp_init_thread, NULL, "mmdvfs-vcp");
+	kthr_ccu = kthread_run(mmdvfs_ccu_init_thread, node, "mmdvfs-ccu");
 	return ret;
 }
 
