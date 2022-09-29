@@ -118,6 +118,10 @@ module_param(mml_racing_rdone, int, 0644);
 /* 0x1 for input crc, 0xd for output crc */
 int mml_wrot_crc;
 module_param(mml_wrot_crc, int, 0644);
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+static u32 *wrot_crc_va[MML_PIPE_CNT];
+static dma_addr_t wrot_crc_pa[MML_PIPE_CNT];
+#endif
 
 int mml_wrot_bkgd_en;
 module_param(mml_wrot_bkgd_en, int, 0644);
@@ -1930,6 +1934,33 @@ static s32 wrot_post(struct mml_comp *comp, struct mml_task *task,
 			0, GENMASK(19, 16));
 	}
 
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	if (unlikely(mml_wrot_crc)) {
+		if (!wrot_crc_va[ccfg->pipe] && !wrot_crc_pa[ccfg->pipe]) {
+			wrot_crc_va[ccfg->pipe] =
+				cmdq_mbox_buf_alloc(task->config->path[ccfg->pipe]->clt,
+					&wrot_crc_pa[ccfg->pipe]);
+			mml_log("%s wrot component %u job %u pipe %u va[%p] pa[%llx]",
+				__func__, comp->id, task->job.jobid,
+				ccfg->pipe, wrot_crc_va[ccfg->pipe], wrot_crc_pa[ccfg->pipe]);
+		}
+
+		if (unlikely(!wrot_crc_va[ccfg->pipe]) || unlikely(!wrot_crc_pa[ccfg->pipe])) {
+			mml_err("%s job %u pipe %u get dram va[%p] pa[%llx] failed",
+				__func__, comp->id, task->job.jobid,
+				ccfg->pipe, wrot_crc_va[ccfg->pipe], wrot_crc_pa[ccfg->pipe]);
+		} else {
+			/* read reg value to spr : CMDQ_THR_SPR_IDX2*/
+			cmdq_pkt_read_addr(task->pkts[ccfg->pipe],
+				comp->base_pa + VIDO_CRC_VALUE,
+				CMDQ_THR_SPR_IDX2);
+
+			/* write spr to dram pa */
+			cmdq_pkt_write_indriect(task->pkts[ccfg->pipe],
+				NULL, wrot_crc_pa[ccfg->pipe], CMDQ_THR_SPR_IDX2, UINT_MAX);
+		}
+	}
+#endif
 	return 0;
 }
 
@@ -2019,12 +2050,14 @@ u32 wrot_format_get(struct mml_task *task, struct mml_comp_config *ccfg)
 static void wrot_task_done(struct mml_comp *comp, struct mml_task *task,
 			   struct mml_comp_config *ccfg)
 {
-	if (mml_wrot_crc) {
-		task->dest_crc = readl(comp->base + VIDO_CRC_VALUE);
-
-		mml_msg("%s wrot component %u, task %p, crc %#010x",
-			__func__, comp->id, task, task->dest_crc);
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	if (mml_wrot_crc && wrot_crc_va[ccfg->pipe]) {
+		task->dest_crc[ccfg->pipe] = readl(wrot_crc_va[ccfg->pipe]);
+		mml_msg("%s wrot component %u, job %u pipe %u crc %#010x",
+			__func__, comp->id, task->job.jobid,
+			ccfg->pipe, task->dest_crc[ccfg->pipe]);
 	}
+#endif
 }
 
 static s32 mml_wrot_comp_clk_enable(struct mml_comp *comp)

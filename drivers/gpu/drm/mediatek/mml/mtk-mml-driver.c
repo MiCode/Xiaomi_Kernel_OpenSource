@@ -53,8 +53,8 @@ struct mml_record {
 	u8 err;
 	u8 ref;
 
-	u32 src_crc;
-	u32 dest_crc;
+	u32 src_crc[MML_PIPE_CNT];
+	u32 dest_crc[MML_PIPE_CNT];
 };
 
 /* 512 records
@@ -979,8 +979,10 @@ void mml_record_track(struct mml_dev *mml, struct mml_task *task)
 	record->state = task->state;
 	record->err = task->err;
 	record->ref = kref_read(&task->ref);
-	record->src_crc = task->src_crc;
-	record->dest_crc = task->dest_crc;
+	record->src_crc[0] = task->src_crc[0];
+	record->dest_crc[0] = task->dest_crc[0];
+	record->src_crc[1] = task->src_crc[1];
+	record->dest_crc[1] = task->dest_crc[1];
 
 	mml->record_idx = (mml->record_idx + 1) & MML_RECORD_NUM_MASK;
 
@@ -990,7 +992,8 @@ void mml_record_track(struct mml_dev *mml, struct mml_task *task)
 #define REC_TITLE "Index,Job ID," \
 	"src map time,src unmap time,src,src size,plane 0," \
 	"dest map time,dest unmap time,dest,dest size,plane 0," \
-	"config job,task inst,state,ref,error,src_crc,dest_crc"
+	"config job,task inst,state,ref,error," \
+	"src_crc_pipe0,dest_crc_pipe0,src_crc_pipe1,dest_crc_pipe1"
 
 static int mml_record_print(struct seq_file *seq, void *data)
 {
@@ -1008,7 +1011,7 @@ static int mml_record_print(struct seq_file *seq, void *data)
 	seq_puts(seq, REC_TITLE ",\n");
 	for (i = 0; i < ARRAY_SIZE(mml->records); i++) {
 		record = &mml->records[idx];
-		seq_printf(seq, "%u,%u,%llu,%llu,%#llx,%u,%u,%llu,%llu,%#llx,%u,%u,%u,%#x,%u,%u,%s,%#010x,%#010x\n",
+		seq_printf(seq, "%u,%u,%llu,%llu,%#llx,%u,%u,%llu,%llu,%#llx,%u,%u,%u,%#x,%u,%u,%s,%#010x,%#010x,%#010x,%#010x\n",
 			idx,
 			record->jobid,
 			record->src_iova_map_time,
@@ -1026,8 +1029,10 @@ static int mml_record_print(struct seq_file *seq, void *data)
 			record->state,
 			record->ref,
 			record->err ? "error" : "",
-			record->src_crc,
-			record->dest_crc);
+			record->src_crc[0],
+			record->dest_crc[0],
+			record->src_crc[1],
+			record->dest_crc[1]);
 		idx = (idx + 1) & MML_RECORD_NUM_MASK;
 	}
 
@@ -1051,7 +1056,7 @@ void mml_record_dump(struct mml_dev *mml)
 	mml_err(REC_TITLE);
 	for (i = 0; i < dump_count; i++) {
 		record = &mml->records[idx];
-		mml_err("%u,%u,%llu,%llu,%#llx,%u,%u,%llu,%llu,%#llx,%u,%u,%#010x,%#010x",
+		mml_err("%u,%u,%llu,%llu,%#llx,%u,%u,%llu,%llu,%#llx,%u,%u,%#010x,%#010x,%#010x,%#010x",
 			idx,
 			record->jobid,
 			record->src_iova_map_time,
@@ -1064,8 +1069,10 @@ void mml_record_dump(struct mml_dev *mml)
 			record->dest_iova[0],
 			record->dest_size[0],
 			record->dest_plane_offset[0],
-			record->src_crc,
-			record->dest_crc);
+			record->src_crc[0],
+			record->dest_crc[0],
+			record->src_crc[1],
+			record->dest_crc[1]);
 		idx = (idx + 1) & MML_RECORD_NUM_MASK;
 	}
 }

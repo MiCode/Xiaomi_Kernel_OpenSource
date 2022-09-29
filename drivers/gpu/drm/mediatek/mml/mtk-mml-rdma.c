@@ -325,6 +325,10 @@ enum rdma_label {
 
 int mml_rdma_crc;
 module_param(mml_rdma_crc, int, 0644);
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+static u32 *rdma_crc_va[MML_PIPE_CNT];
+static dma_addr_t rdma_crc_pa[MML_PIPE_CNT];
+#endif
 
 static s32 rdma_write(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 hw_pipe,
 		      enum cpr_reg_idx idx, u32 value, bool write_sec)
@@ -1838,6 +1842,35 @@ static s32 rdma_post(struct mml_comp *comp, struct mml_task *task,
 			0, GENMASK(19, 16));
 	}
 
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	if (unlikely(mml_rdma_crc)) {
+		if (!rdma_crc_va[ccfg->pipe] && !rdma_crc_pa[ccfg->pipe]) {
+			rdma_crc_va[ccfg->pipe] =
+				cmdq_mbox_buf_alloc(cfg->path[ccfg->pipe]->clt,
+					&rdma_crc_pa[ccfg->pipe]);
+			mml_log("%s rdma component %u job %u pipe %u va[%p] pa[%llx]",
+				__func__, comp->id, task->job.jobid,
+				ccfg->pipe, rdma_crc_va[ccfg->pipe], rdma_crc_pa[ccfg->pipe]);
+		}
+
+		if (unlikely(!rdma_crc_va[ccfg->pipe]) || unlikely(!rdma_crc_pa[ccfg->pipe])) {
+			mml_err("%s job %u pipe %u get dram va[%p] pa[%llx] failed",
+				__func__, comp->id, task->job.jobid,
+				ccfg->pipe, rdma_crc_va[ccfg->pipe], rdma_crc_pa[ccfg->pipe]);
+		} else {
+			/* read reg value to spr : CMDQ_THR_SPR_IDX2*/
+			cmdq_pkt_read_addr(task->pkts[ccfg->pipe],
+				MML_FMT_COMPRESS(task->config->info.src.format) ?
+				(comp->base_pa + RDMA_MON_STA_0 + 27 * 8) :
+				(comp->base_pa + RDMA_CHKS_EXTR),
+				CMDQ_THR_SPR_IDX2);
+
+			/* write spr to dram pa */
+			cmdq_pkt_write_indriect(task->pkts[ccfg->pipe],
+				NULL, rdma_crc_pa[ccfg->pipe], CMDQ_THR_SPR_IDX2, UINT_MAX);
+		}
+	}
+#endif
 	return 0;
 }
 
@@ -1955,14 +1988,14 @@ u32 rdma_format_get(struct mml_task *task, struct mml_comp_config *ccfg)
 static void rdma_task_done(struct mml_comp *comp, struct mml_task *task,
 			   struct mml_comp_config *ccfg)
 {
-	if (mml_rdma_crc) {
-		task->src_crc = MML_FMT_COMPRESS(task->config->info.src.format) ?
-			readl(comp->base + RDMA_MON_STA_0 + 27 * 8) :
-			readl(comp->base + RDMA_CHKS_EXTR);
-
-		mml_msg("%s rdma component %u, task %p, crc %#010x",
-			__func__, comp->id, task, task->src_crc);
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	if (mml_rdma_crc && rdma_crc_va[ccfg->pipe]) {
+		task->src_crc[ccfg->pipe] = readl(rdma_crc_va[ccfg->pipe]);
+		mml_msg("%s rdma component %u job %u pipe %u crc %#010x",
+			__func__, comp->id, task->job.jobid,
+			ccfg->pipe, task->src_crc[ccfg->pipe]);
 	}
+#endif
 }
 
 static const struct mml_comp_hw_ops rdma_hw_ops = {

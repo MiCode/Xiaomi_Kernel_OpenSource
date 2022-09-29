@@ -499,8 +499,8 @@ struct mml_task {
 	bool dump_queued[MMLDUMPT_CNT];
 #endif
 
-	u32 src_crc;
-	u32 dest_crc;
+	u32 src_crc[MML_PIPE_CNT];
+	u32 dest_crc[MML_PIPE_CNT];
 };
 
 struct tile_func_block;
