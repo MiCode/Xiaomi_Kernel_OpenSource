@@ -2011,6 +2011,64 @@ int mtk_drm_ioctl_pq_get_persist_property(struct drm_device *dev, void *data,
 	return ret;
 }
 
+static void mtk_get_panels_info(void)
+{
+	struct mtk_drm_private *priv = drm_dev->dev_private;
+	struct mtk_ddp_comp *output_comp;
+	struct mtk_drm_panels_info *panel_ctx;
+	int i;
+
+	output_comp = mtk_ddp_comp_request_output(to_mtk_crtc(priv->crtc[0]));
+	panel_ctx = vzalloc(sizeof(struct mtk_drm_panels_info));
+	if (!panel_ctx) {
+		DDPPR_ERR("%s panel_info alloc failed\n", __func__);
+		return;
+	}
+
+	/* notify driver user does not know how many DSI connector exist */
+	panel_ctx->connector_cnt = -1;
+
+	mtk_ddp_comp_io_cmd(output_comp, NULL, GET_ALL_CONNECTOR_PANEL_NAME, panel_ctx);
+
+	DDPMSG("get panel_info_ctx connector_cnt %d default %d\n",
+			panel_ctx->connector_cnt, panel_ctx->default_connector_id);
+	if (panel_ctx->connector_cnt <= 0) {
+		DDPPR_ERR("%s invalid connector cnt\n", __func__);
+		goto out2;
+	}
+
+	panel_ctx->connector_obj_id = vmalloc(sizeof(unsigned int) * panel_ctx->connector_cnt);
+	panel_ctx->panel_name = vmalloc(sizeof(char *) * panel_ctx->connector_cnt);
+	if (!panel_ctx->connector_obj_id || !panel_ctx->panel_name) {
+		DDPPR_ERR("%s ojb_id or panel_name alloc fail\n", __func__);
+		goto out1;
+	}
+
+	for (i = 0 ; i < panel_ctx->connector_cnt ; ++i) {
+		panel_ctx->panel_name[i] = vmalloc(sizeof(char) * 64);
+		if (!panel_ctx->panel_name[i]) {
+			DDPPR_ERR("%s alloc panel_name fail\n", __func__);
+			goto out0;
+		}
+	}
+
+	mtk_ddp_comp_io_cmd(output_comp, NULL, GET_ALL_CONNECTOR_PANEL_NAME, panel_ctx);
+
+	for (i = 0 ; i < panel_ctx->connector_cnt ; ++i)
+		DDPMSG("%s get connector_id %d, panel_name %s, panel_id %u\n", __func__,
+				panel_ctx->connector_obj_id[i], panel_ctx->panel_name[i],
+				panel_ctx->panel_id);
+
+out0:
+	for (i = 0 ; i < panel_ctx->connector_cnt ; ++i)
+		vfree(panel_ctx->panel_name[i]);
+out1:
+	vfree(panel_ctx->panel_name);
+	vfree(panel_ctx->connector_obj_id);
+out2:
+	vfree(panel_ctx);
+}
+
 int mtk_drm_add_cb_data(struct cb_data_store *cb_data, unsigned int crtc_id)
 {
 	struct cb_data_store *tmp_cb_data = NULL;
@@ -3482,6 +3540,8 @@ static void process_dbg_opt(const char *opt)
 			}
 		}
 		DDPINFO("set spr ip done\n");
+	} else if (strncmp(opt, "get_panels_info", 15) == 0) {
+		mtk_get_panels_info();
 	}
 
 }

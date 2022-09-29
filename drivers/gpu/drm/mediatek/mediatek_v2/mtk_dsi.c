@@ -7653,6 +7653,69 @@ static unsigned int mtk_dsi_get_cmd_mode_line_time(struct drm_crtc *crtc)
 	return line_time_ns;
 }
 
+static void mtk_dsi_get_panels_info(struct mtk_dsi *dsi, struct mtk_drm_panels_info *panel_ctx)
+{
+	struct drm_device *dev;
+	struct drm_encoder *encoder;
+	int dsi_cnt = 0;
+	int crtc0_conn_id = -1;
+	bool only_check_mode = false;
+
+	if (!panel_ctx) {
+		DDPPR_ERR("invalid panel_info_ctx ptr\n");
+		return;
+	}
+
+	if (dsi->encoder.dev) {
+		dev = dsi->encoder.dev;
+	} else {
+		DDPPR_ERR("invalid drm device in mtk_dsi\n");
+		return;
+	}
+
+	if (panel_ctx->connector_cnt == -1)
+		only_check_mode = true;
+
+	drm_for_each_encoder(encoder, dev) {
+		struct mtk_dsi *mtk_dsi;
+		char *panel_name;
+
+		DDPDBG("connector name %s id %d, type %d possible crtc %x\n",
+			encoder->name, encoder->base.id, encoder->encoder_type,
+			encoder->possible_crtcs);
+
+		if (encoder->encoder_type != DRM_MODE_ENCODER_DSI)
+			continue;
+
+		mtk_dsi = container_of(encoder, struct mtk_dsi, encoder);
+		if (only_check_mode == false) {
+			mtk_ddp_comp_io_cmd(&mtk_dsi->ddp_comp, NULL, GET_PANEL_NAME,
+					&panel_name);
+			strncpy(panel_ctx->panel_name[dsi_cnt], panel_name, GET_PANELS_STR_LEN - 1);
+			panel_ctx->connector_obj_id[dsi_cnt] = mtk_dsi->conn.base.id;
+		}
+		++dsi_cnt;
+	}
+
+	if (only_check_mode == true) {
+		struct mtk_dsi *mtk_dsi = NULL;
+		struct mtk_ddp_comp *out_comp = NULL;
+		struct mtk_drm_private *priv;
+
+		priv = dev->dev_private;
+
+		/* PQ service request CRTC0's dsi output comp as default connector */
+		if (priv && priv->crtc[0])
+			out_comp = mtk_ddp_comp_request_output(to_mtk_crtc(priv->crtc[0]));
+		if (out_comp && mtk_ddp_comp_get_type(out_comp->id) == MTK_DSI)
+			mtk_dsi = container_of(out_comp, struct mtk_dsi, ddp_comp);
+		if (mtk_dsi)
+			crtc0_conn_id = mtk_dsi->conn.base.id;
+		panel_ctx->connector_cnt = dsi_cnt;
+		panel_ctx->default_connector_id = crtc0_conn_id;
+	}
+}
+
 static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			  enum mtk_ddp_io_cmd cmd, void *params)
 {
@@ -8129,6 +8192,21 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		out_params = (void **)params;
 
 		*out_params = (void *)dsi->panel->dev->driver->name;
+	}
+		break;
+	case GET_ALL_CONNECTOR_PANEL_NAME:
+	{
+		struct mtk_dsi *dsi =
+			container_of(comp, struct mtk_dsi, ddp_comp);
+		struct mtk_drm_panels_info *panel_ctx;
+
+		panel_ctx = (struct mtk_drm_panels_info *)params;
+
+		if (!panel_ctx) {
+			DDPPR_ERR("invalid panel_info_ctx ptr\n");
+			break;
+		}
+		mtk_dsi_get_panels_info(dsi, panel_ctx);
 	}
 		break;
 	case DSI_CHANGE_MODE:

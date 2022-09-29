@@ -5222,6 +5222,110 @@ int mtk_drm_ioctl_get_lcm_index(struct drm_device *dev, void *data,
 	return ret;
 }
 
+int mtk_drm_ioctl_get_all_connector_panel_info(struct drm_device *dev, void *data,
+		struct drm_file *file_priv)
+{
+	struct mtk_ddp_comp *dsi_comp;
+	struct mtk_drm_private *private;
+	struct mtk_drm_panels_info *panel_ctx =
+			(struct mtk_drm_panels_info *)data;
+	struct mtk_drm_panels_info __panel_ctx = {0};
+	bool check_only_mode;
+	void *ptr;
+	void **uptr;
+	int i, ret = 0;
+
+	if (!dev)
+		return -ENODEV;
+
+	private = dev->dev_private;
+	/* just need the struct mtk_dsi definition, would not really access HW or SW state */
+	dsi_comp = private->ddp_comp[DDP_COMPONENT_DSI0];
+	if (!dsi_comp)
+		dsi_comp = private->ddp_comp[DDP_COMPONENT_DSI1];
+	if (!dsi_comp)
+		return -ENXIO;
+
+	if (!panel_ctx) {
+		DDPPR_ERR("%s panel_info alloc failed\n", __func__);
+		return -EINVAL;
+	}
+
+	__panel_ctx.connector_cnt = panel_ctx->connector_cnt;
+	check_only_mode = (__panel_ctx.connector_cnt == -1);
+	/* need copy_from_user */
+	if (check_only_mode == false) {
+		ptr = panel_ctx->connector_obj_id;
+		__panel_ctx.connector_obj_id =
+			vmalloc(sizeof(unsigned int) * __panel_ctx.connector_cnt);
+		__panel_ctx.panel_name = vmalloc(sizeof(char *) * __panel_ctx.connector_cnt);
+		if (!__panel_ctx.connector_obj_id || !__panel_ctx.panel_name) {
+			DDPPR_ERR("%s ojb_id panel_id or panel_name alloc fail\n", __func__);
+			ret = -ENOMEM;
+			goto exit0;
+		}
+
+		for (i = 0 ; i < __panel_ctx.connector_cnt ; ++i) {
+			__panel_ctx.panel_name[i] = vzalloc(sizeof(char) * GET_PANELS_STR_LEN);
+			if (!__panel_ctx.panel_name[i]) {
+				DDPPR_ERR("%s alloc panel_name fail\n", __func__);
+				ret = -ENOMEM;
+				goto exit1;
+			}
+		}
+	}
+
+	mtk_ddp_comp_io_cmd(dsi_comp, NULL, GET_ALL_CONNECTOR_PANEL_NAME, &__panel_ctx);
+
+	/* need copy_to_user */
+	if (check_only_mode == false) {
+		ptr = panel_ctx->connector_obj_id;
+		if (copy_to_user((void __user *)ptr, __panel_ctx.connector_obj_id,
+				sizeof(unsigned int) * __panel_ctx.connector_cnt)) {
+			DDPPR_ERR("%s copy_to_user connector_obj_id fail\n", __func__);
+			ret = -EINVAL;
+			goto exit1;
+		}
+
+		uptr = vmalloc(sizeof(void __user *) * __panel_ctx.connector_cnt);
+		if (!uptr) {
+			DDPPR_ERR("%s alloc panel_name fail\n", __func__);
+			ret = -ENOMEM;
+			goto exit2;
+		}
+
+		if (copy_from_user(uptr, panel_ctx->panel_name,
+				sizeof(void __user *) * __panel_ctx.connector_cnt)) {
+			DDPPR_ERR("%s copy_from_user panel_name fail\n", __func__);
+			ret = -EINVAL;
+			goto exit2;
+		}
+		for (i = 0 ; i < __panel_ctx.connector_cnt; ++i) {
+			ptr = panel_ctx->panel_name + (sizeof(void __user *) * i);
+			if (copy_to_user((void __user *)uptr[i], __panel_ctx.panel_name[i],
+					sizeof(char) * GET_PANELS_STR_LEN)) {
+				DDPPR_ERR("%s copy_to_user panel_name fail\n", __func__);
+				ret = -EINVAL;
+				goto exit2;
+			}
+		}
+	} else {
+		panel_ctx->connector_cnt = __panel_ctx.connector_cnt;
+		panel_ctx->default_connector_id = __panel_ctx.default_connector_id;
+		return ret;
+	}
+exit2:
+	vfree(uptr);
+exit1:
+	for (i = 0 ; i < __panel_ctx.connector_cnt; ++i)
+		vfree(__panel_ctx.panel_name[i]);
+exit0:
+	vfree(__panel_ctx.connector_obj_id);
+	vfree(__panel_ctx.panel_name);
+
+	return ret;
+}
+
 void mtk_drm_mmlsys_submit_done_cb(void *cb_param)
 {
 	struct mtk_mml_cb_para *cb_para = (struct mtk_mml_cb_para *)cb_param;
@@ -5728,6 +5832,8 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MTK_READ_SW_REG, mtk_drm_ioctl_read_sw_reg,
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_GET_LCM_INDEX, mtk_drm_ioctl_get_lcm_index,
+			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_GET_PANELS_INFO, mtk_drm_ioctl_get_all_connector_panel_info,
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_AAL_INIT_REG, mtk_drm_ioctl_aal_init_reg,
 			  DRM_UNLOCKED),
