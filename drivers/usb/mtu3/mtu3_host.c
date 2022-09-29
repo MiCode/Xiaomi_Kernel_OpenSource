@@ -17,6 +17,9 @@
 #include "mtu3.h"
 #include "mtu3_dr.h"
 
+/* mt6886 */
+#define PERI_WK_CTRL3	0x14
+#define UWK_V1_4_CTRL0_MASK	0x1
 
 /* mt6983 etc */
 #define PERI_WK_CTRL2	0x8
@@ -50,6 +53,7 @@ enum ssusb_uwk_vers {
 	SSUSB_UWK_V1_1 = 101,	/* specific revision 1.01 */
 	SSUSB_UWK_V1_2,		/* specific revision 1.02 */
 	SSUSB_UWK_V1_3,		/* specific revision 1.03 */
+	SSUSB_UWK_V1_4,		/* specific revision 1.04 */
 };
 
 /*
@@ -84,6 +88,11 @@ static void ssusb_wakeup_ip_sleep_set(struct ssusb_mtk *ssusb, bool enable)
 
 		reg = ssusb->uwk_reg_base + PERI_WK_CTRL2;
 		msk = UWK_V1_3_CTRL2_MASK;
+		val = enable ? msk : 0;
+		break;
+	case SSUSB_UWK_V1_4:
+		reg = ssusb->uwk_reg_base + PERI_WK_CTRL3;
+		msk = UWK_V1_4_CTRL0_MASK;
 		val = enable ? msk : 0;
 		break;
 	case SSUSB_UWK_V2:
