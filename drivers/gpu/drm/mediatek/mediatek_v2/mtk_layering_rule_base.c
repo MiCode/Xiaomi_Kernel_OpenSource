@@ -3765,7 +3765,7 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev, struct drm_crtc 
 			ratio = (src_w * src_h * 100) / (dst_w * dst_h);
 			mmclk = ratio * cur_freq / 100;
 
-			if ((mmclk > cur_mmclk) || (cur_freq == 0) || (ratio > 110)) {
+			if ((mmclk > cur_mmclk) || (cur_freq == 0) || (ratio > 107)) {
 				mml_info->mode = MML_MODE_MML_DECOUPLE;
 				DDPINFO("%s: set DC to avoid increasing mmclk level\n", __func__);
 				DRM_MMP_MARK(layering, 0x331, ratio);
