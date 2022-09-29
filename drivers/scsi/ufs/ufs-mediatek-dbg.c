@@ -227,7 +227,7 @@ static int cmd_hist_get_entry(void)
 	cmd_hist[ptr].cpu = smp_processor_id();
 	cmd_hist[ptr].duration = 0;
 	cmd_hist[ptr].pid = current->pid;
-	cmd_hist[ptr].time = div_u64(local_clock(), 1000);
+	cmd_hist[ptr].time = local_clock();
 
 	return ptr;
 }
@@ -450,12 +450,36 @@ static void probe_ufshcd_clk_gating(void *data, const char *dev_name,
 		writel(val, host->mphy_base + 0xA800);
 		val = val & (~0x02);
 		writel(val, host->mphy_base + 0xA800);
+		val = val & ~(0x3FF << 2);
+		val = val | (0xC3 << 2);
+		writel(val, host->mphy_base + 0xA800);
 
 		val = readl(host->mphy_base + 0xA900) | 0x02;
 		writel(val, host->mphy_base + 0xA900);
 		writel(val, host->mphy_base + 0xA900);
 		val = val & (~0x02);
 		writel(val, host->mphy_base + 0xA900);
+		val = val & ~(0x3FF << 2);
+		val = val | (0xC3 << 2);
+		writel(val, host->mphy_base + 0xA900);
+
+		val = readl(host->mphy_base + 0xA804) | 0x02;
+		writel(val, host->mphy_base + 0xA804);
+		writel(val, host->mphy_base + 0xA804);
+		val = val & (~0x02);
+		writel(val, host->mphy_base + 0xA804);
+		val = val & ~(0x3FF << 2);
+		val = val | (0xC3 << 2);
+		writel(val, host->mphy_base + 0xA804);
+
+		val = readl(host->mphy_base + 0xA904) | 0x02;
+		writel(val, host->mphy_base + 0xA904);
+		writel(val, host->mphy_base + 0xA904);
+		val = val & (~0x02);
+		writel(val, host->mphy_base + 0xA904);
+		val = val & ~(0x3FF << 2);
+		val = val | (0xC3 << 2);
+		writel(val, host->mphy_base + 0xA904);
 	} else {
 		cmd_hist[ptr].cmd.clk_gating.arg1 = 0;
 		cmd_hist[ptr].cmd.clk_gating.arg2 = 0;
