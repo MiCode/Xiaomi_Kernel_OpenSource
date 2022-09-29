@@ -237,41 +237,30 @@ static bool is_uainfo_valid(struct usb_audio_stream_info *uainfo)
 		return false;
 	}
 
-	if (uainfo->enable < 0 || uainfo->enable > 1) {
+	if (uainfo->enable > 1) {
 		USB_OFFLOAD_ERR("uainfo->enable invalid (%d)\n", uainfo->enable);
 		return false;
 	}
 
-	if (uainfo->bit_rate < 0 || uainfo->bit_rate > 768000) {
+	if (uainfo->bit_rate > 768000) {
 		USB_OFFLOAD_ERR("uainfo->bit_rate invalid (%d)\n", uainfo->bit_rate);
 		return false;
 	}
 
-	if (uainfo->bit_depth < 0 || uainfo->bit_depth > 32) {
+	if (uainfo->bit_depth > 32) {
 		USB_OFFLOAD_ERR("uainfo->bit_depth invalid (%d)\n", uainfo->bit_depth);
 		return false;
 	}
 
-	if (uainfo->number_of_ch < 0 || uainfo->number_of_ch > 2) {
+	if (uainfo->number_of_ch > 2) {
 		USB_OFFLOAD_ERR("uainfo->number_of_ch invalid (%d)\n", uainfo->number_of_ch);
 		return false;
 	}
 
-	if (uainfo->direction < 0 || uainfo->direction > 1) {
+	if (uainfo->direction > 1) {
 		USB_OFFLOAD_ERR("uainfo->direction invalid (%d)\n", uainfo->direction);
 		return false;
 	}
-
-	if (uainfo->pcm_card_num < 0) {
-		USB_OFFLOAD_ERR("uainfo->pcm_card_num invalid (%d)\n", uainfo->pcm_card_num);
-		return false;
-	}
-
-	if (uainfo->pcm_dev_num < 0) {
-		USB_OFFLOAD_ERR("uainfo->pcm_dev_num invalid (%d)\n", uainfo->pcm_dev_num);
-		return false;
-	}
-
 	return true;
 }
 
@@ -1058,8 +1047,7 @@ static int mtk_usb_offload_gen_pool_create(int min_alloc_order, int nid)
 	USB_OFFLOAD_MEM_DBG("\n");
 
 	for (i = 0; i < USB_OFFLOAD_MEM_NUM; i++) {
-		usb_offload_mem_pool[i] = devm_gen_pool_create(uodev->dev, min_alloc_order,
-				-1, "mtk_usb_offload");
+		usb_offload_mem_pool[i] = gen_pool_create(min_alloc_order, -1);
 
 		if (!usb_offload_mem_pool[i])
 			return -ENOMEM;
