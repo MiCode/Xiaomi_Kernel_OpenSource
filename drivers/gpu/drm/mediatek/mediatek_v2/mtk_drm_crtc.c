@@ -13056,6 +13056,10 @@ int mtk_drm_crtc_getfence_ioctl(struct drm_device *dev, void *data,
 		ret = -EFAULT;
 		return ret;
 	}
+
+	/* async kick idle */
+	mtk_drm_idlemgr_kick_async(crtc);
+
 	/* create fence */
 	fence.fence = MTK_INVALID_FENCE_FD;
 	fence.value = ++fence_idx;
