@@ -17,6 +17,7 @@
 #include "clk-mux.h"
 
 static bool is_registered;
+static int wk_mmpll2_ref_count;
 
 static inline struct mtk_clk_mux *to_mtk_clk_mux(struct clk_hw *hw)
 {
@@ -120,8 +121,26 @@ static int mtk_clk_hwv_mux_enable(struct clk_hw *hw)
 	bool is_done = false;
 	int i = 0;
 
-	if ((mux->flags & CLK_SET_PARENT_DELAY) == CLK_SET_PARENT_DELAY)
-		mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 6)));
+	if ((mux->flags & CLK_SET_PARENT_DELAY) == CLK_SET_PARENT_DELAY) {
+		if (strcmp(clk_hw_get_name(hw), "venc_sel") == 0) {
+			wk_mmpll2_ref_count++;
+			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 6)));
+		} else if (strcmp(clk_hw_get_name(hw), "cam_sel") == 0) {
+			wk_mmpll2_ref_count++;
+			/* mmpll2_d6 */
+			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 5)));
+			/* mainpll2_d4_d2 */
+			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 10)));
+		} else if (strcmp(clk_hw_get_name(hw), "ccusys_sel") == 0) {
+			wk_mmpll2_ref_count++;
+			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 4)));
+		} else if (strcmp(clk_hw_get_name(hw), "ipe_sel") == 0) {
+			wk_mmpll2_ref_count++;
+			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 3)));
+		}
+		pr_notice("%s: hw: %s ref_count:%d\n",
+				__func__, clk_hw_get_name(hw), wk_mmpll2_ref_count);
+	}
 
 	regmap_write(mux->hwv_regmap, mux->data->hwv_set_ofs,
 			BIT(mux->data->gate_shift));
@@ -201,8 +220,35 @@ static void mtk_clk_hwv_mux_disable(struct clk_hw *hw)
 		i++;
 	}
 
-	if ((mux->flags & CLK_SET_PARENT_DELAY) == CLK_SET_PARENT_DELAY)
-		mtk_hwv_pll_off(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 6)));
+	if ((mux->flags & CLK_SET_PARENT_DELAY) == CLK_SET_PARENT_DELAY) {
+		if (strcmp(clk_hw_get_name(hw), "venc_sel") == 0) {
+			wk_mmpll2_ref_count--;
+			if (wk_mmpll2_ref_count == 0)
+				mtk_hwv_pll_off(
+					clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 6)));
+		} else if (strcmp(clk_hw_get_name(hw), "cam_sel") == 0) {
+			wk_mmpll2_ref_count--;
+			if (wk_mmpll2_ref_count == 0)
+				/* mmpll2_d6 */
+				mtk_hwv_pll_off(
+					clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 5)));
+			/* mainpll2_d4_d2 */
+			mtk_hwv_pll_off(
+				clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 10)));
+		} else if (strcmp(clk_hw_get_name(hw), "ccusys_sel") == 0) {
+			wk_mmpll2_ref_count--;
+			if (wk_mmpll2_ref_count == 0)
+				mtk_hwv_pll_off(
+					clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 4)));
+		} else if (strcmp(clk_hw_get_name(hw), "ipe_sel") == 0) {
+			wk_mmpll2_ref_count--;
+			if (wk_mmpll2_ref_count == 0)
+				mtk_hwv_pll_off(
+					clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 3)));
+		}
+		pr_notice("%s: hw: %s ref_count:%d\n",
+			__func__, clk_hw_get_name(hw), wk_mmpll2_ref_count);
+	}
 
 	return;
 
@@ -226,6 +272,27 @@ static int mtk_clk_ipi_mux_enable(struct clk_hw *hw)
 	struct ipi_callbacks *cb;
 	u32 val = 0;
 	int ret = 0;
+
+	if ((mux->flags & CLK_SET_PARENT_DELAY) == CLK_SET_PARENT_DELAY) {
+		if (strcmp(clk_hw_get_name(hw), "venc_sel") == 0) {
+			wk_mmpll2_ref_count++;
+			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 6)));
+		} else if (strcmp(clk_hw_get_name(hw), "cam_sel") == 0) {
+			wk_mmpll2_ref_count++;
+			/* mmpll2_d6 */
+			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 5)));
+			/* mainpll2_d4_d2 */
+			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 10)));
+		} else if (strcmp(clk_hw_get_name(hw), "ccusys_sel") == 0) {
+			wk_mmpll2_ref_count++;
+			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 4)));
+		} else if (strcmp(clk_hw_get_name(hw), "ipe_sel") == 0) {
+			wk_mmpll2_ref_count++;
+			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 3)));
+		}
+		pr_notice("%s: hw: %s ref_count:%d\n",
+			__func__,  clk_hw_get_name(hw), wk_mmpll2_ref_count);
+	}
 
 	cb = mtk_clk_get_ipi_cb();
 
@@ -265,7 +332,35 @@ static void mtk_clk_ipi_mux_disable(struct clk_hw *hw)
 			goto err;
 		}
 	}
-
+	if ((mux->flags & CLK_SET_PARENT_DELAY) == CLK_SET_PARENT_DELAY) {
+		if (strcmp(clk_hw_get_name(hw), "venc_sel") == 0) {
+			wk_mmpll2_ref_count--;
+			if (wk_mmpll2_ref_count == 0)
+				mtk_hwv_pll_off(clk_hw_get_parent(
+					clk_hw_get_parent_by_index(hw, 6)));
+		} else if (strcmp(clk_hw_get_name(hw), "cam_sel") == 0) {
+			wk_mmpll2_ref_count--;
+			if (wk_mmpll2_ref_count == 0)
+				/* mmpll2_d6 */
+				mtk_hwv_pll_off(
+					clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 5)));
+			/* mainpll2_d4_d2 */
+			mtk_hwv_pll_off(
+				clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 10)));
+		} else if (strcmp(clk_hw_get_name(hw), "ccusys_sel") == 0) {
+			wk_mmpll2_ref_count--;
+			if (wk_mmpll2_ref_count == 0)
+				mtk_hwv_pll_off(clk_hw_get_parent(
+					clk_hw_get_parent_by_index(hw, 4)));
+		} else if (strcmp(clk_hw_get_name(hw), "ipe_sel") == 0) {
+			wk_mmpll2_ref_count--;
+			if (wk_mmpll2_ref_count == 0)
+				mtk_hwv_pll_off(clk_hw_get_parent(
+					clk_hw_get_parent_by_index(hw, 3)));
+		}
+		pr_notice("%s: hw: %s ref_count:%d\n",
+			__func__, clk_hw_get_name(hw), wk_mmpll2_ref_count);
+	}
 	return;
 
 err:
