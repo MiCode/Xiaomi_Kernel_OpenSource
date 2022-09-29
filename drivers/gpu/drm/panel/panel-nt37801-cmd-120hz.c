@@ -843,6 +843,9 @@ static void mode_switch_to_90(struct drm_panel *panel)
 	struct lcm *ctx = panel_to_lcm(panel);
 
 	lcm_dcs_write_seq_static(ctx, 0x2F, 0x01);
+	lcm_dcs_write_seq_static(ctx, 0xF0, 0x55, 0xAA, 0x52, 0x08, 0x00);
+	lcm_dcs_write_seq_static(ctx, 0x6F, 0x07);
+	lcm_dcs_write_seq_static(ctx, 0xBA, 0x00, 0x4f);
 }
 
 static void mode_switch_to_60(struct drm_panel *panel)
