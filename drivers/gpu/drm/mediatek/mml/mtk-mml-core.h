@@ -37,6 +37,8 @@ extern int mml_cmdq_err;
 extern int mml_qos;
 extern int mml_qos_log;
 
+#define align_up(x, n)	(((x) + ((n) - 1)) & ~((n) - 1))
+
 /* define in mtk-mml-wrot.c */
 extern int mml_wrot_bkgd_en;
 

@@ -403,22 +403,28 @@ static void wrot_config_right(struct mml_frame_dest *dest,
 	wrot_frm->out_crop.width = wrot_frm->out_w - wrot_frm->out_crop.left;
 }
 
-static void wrot_config_top(struct mml_frame_dest *dest,
+static void wrot_config_top(struct mml_frame_data *src,
+			    struct mml_frame_dest *dest,
 			    struct wrot_frame_data *wrot_frm)
 {
 	wrot_frm->en_y_crop = true;
 	wrot_frm->out_crop.top = 0;
 	wrot_frm->out_crop.height = wrot_frm->out_h >> 1;
-	if (wrot_frm->out_crop.height & 0x1)
+	if (MML_FMT_COMPRESS(src->format))
+		wrot_frm->out_crop.height = align_up(wrot_frm->out_crop.height, 16);
+	else if (wrot_frm->out_crop.height & 0x1)
 		wrot_frm->out_crop.height++;
 }
 
-static void wrot_config_bottom(struct mml_frame_dest *dest,
+static void wrot_config_bottom(struct mml_frame_data *src,
+			       struct mml_frame_dest *dest,
 			       struct wrot_frame_data *wrot_frm)
 {
 	wrot_frm->en_y_crop = true;
 	wrot_frm->out_crop.top = wrot_frm->out_h >> 1;
-	if (wrot_frm->out_crop.top & 0x1)
+	if (MML_FMT_COMPRESS(src->format))
+		wrot_frm->out_crop.top = align_up(wrot_frm->out_crop.top, 16);
+	else if (wrot_frm->out_crop.top & 0x1)
 		wrot_frm->out_crop.top++;
 	wrot_frm->out_crop.height = wrot_frm->out_h - wrot_frm->out_crop.top;
 }
@@ -430,10 +436,10 @@ static void wrot_config_pipe0(struct mml_frame_config *cfg,
 	if (cfg->info.mode == MML_MODE_RACING) {
 		if ((dest->rotate == MML_ROT_90 && !dest->flip) ||
 		    (dest->rotate == MML_ROT_270 && dest->flip))
-			wrot_config_bottom(dest, wrot_frm);
+			wrot_config_bottom(&cfg->info.src, dest, wrot_frm);
 		else if ((dest->rotate == MML_ROT_90 && dest->flip) ||
 			 (dest->rotate == MML_ROT_270 && !dest->flip))
-			wrot_config_top(dest, wrot_frm);
+			wrot_config_top(&cfg->info.src, dest, wrot_frm);
 		else if ((dest->rotate == MML_ROT_0 && !dest->flip) ||
 			 (dest->rotate == MML_ROT_180 && dest->flip))
 			wrot_config_left(dest, wrot_frm);
@@ -452,10 +458,10 @@ static void wrot_config_pipe1(struct mml_frame_config *cfg,
 	if (cfg->info.mode == MML_MODE_RACING) {
 		if ((dest->rotate == MML_ROT_90 && !dest->flip) ||
 		    (dest->rotate == MML_ROT_270 && dest->flip))
-			wrot_config_top(dest, wrot_frm);
+			wrot_config_top(&cfg->info.src, dest, wrot_frm);
 		else if ((dest->rotate == MML_ROT_90 && dest->flip) ||
 			 (dest->rotate == MML_ROT_270 && !dest->flip))
-			wrot_config_bottom(dest, wrot_frm);
+			wrot_config_bottom(&cfg->info.src, dest, wrot_frm);
 		else if ((dest->rotate == MML_ROT_0 && !dest->flip) ||
 			 (dest->rotate == MML_ROT_180 && dest->flip))
 			wrot_config_right(dest, wrot_frm);
