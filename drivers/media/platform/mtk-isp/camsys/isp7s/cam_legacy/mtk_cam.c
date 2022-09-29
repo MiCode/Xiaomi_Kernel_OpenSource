@@ -868,12 +868,20 @@ static void mtk_cam_req_works_clean(struct mtk_cam_request_stream_data *s_data)
 {
 	struct mtk_cam_ctx *ctx = mtk_cam_s_data_get_ctx(s_data);
 	char *dbg_str = mtk_cam_s_data_get_dbg_str(s_data);
+	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
 
 	/* flush the sensor work */
 	if (atomic_read(&s_data->sensor_work.is_queued)) {
 		kthread_flush_work(&s_data->sensor_work.work);
 		dev_dbg(ctx->cam->dev,
 				"%s:ctx(%d):%s:seq(%d): flushed sensor_work\n",
+				__func__, ctx->stream_id, dbg_str, s_data->frame_seq_no);
+	}
+
+	if (sensor_ctrl) {
+		kthread_flush_work(&sensor_ctrl->work);
+		dev_dbg(ctx->cam->dev,
+				"%s:ctx(%d):%s:seq(%d): flushed sensor_work in sensor_ctrl\n",
 				__func__, ctx->stream_id, dbg_str, s_data->frame_seq_no);
 	}
 }
