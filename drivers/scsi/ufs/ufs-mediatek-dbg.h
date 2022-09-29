@@ -120,6 +120,9 @@ struct uic_cmd_struct {
 
 struct clk_gating_event_struct {
 	u8 state;
+	u32 arg1;
+	u32 arg2;
+	u32 arg3;
 };
 
 struct clk_scaling_event_struct {

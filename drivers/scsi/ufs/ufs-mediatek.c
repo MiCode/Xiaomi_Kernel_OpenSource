@@ -2386,11 +2386,32 @@ fail:
 	return ufshcd_link_recovery(hba);
 }
 
+/* only can read/write in eng/userdebug */
+static void ufshcd_mphy_dump(struct ufs_hba *hba)
+{
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+
+	if (host->mphy_base) {
+		writel(0xC1000200, host->mphy_base + 0x20C0);
+
+		pr_info("%s: 0x112aA09C=0x%x\n", __func__,
+			readl(host->mphy_base + 0xA09C));
+
+		pr_info("%s: 0x112aA19C=0x%x\n", __func__,
+			readl(host->mphy_base + 0xA19C));
+	}
+#endif
+}
+
 static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
 {
 	int i;
 
 	mt_irq_dump_status(hba->irq);
+
+	/* Dump ufshci register 0x 0~ 0xA0 */
+	ufshcd_dump_regs(hba, 0, UFSHCI_REG_SPACE_SIZE, "UFSHCI (0x0):");
 
 	/* Dump ufshci register 0x140 ~ 0x14C */
 	ufshcd_dump_regs(hba, REG_UFS_XOUFS_CTRL, 0x10, "XOUFS Ctrl (0x140): ");
@@ -2431,6 +2452,10 @@ static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
 	/* Direct debugging information to REG_MTK_PROBE */
 	ufs_mtk_dbg_sel(hba);
 	ufshcd_dump_regs(hba, REG_UFS_PROBE, 0x4, "Debug Probe ");
+
+	/* Dump mphy */
+	ufshcd_mphy_dump(hba);
+
 #if IS_ENABLED(CONFIG_SCSI_UFS_MEDIATEK_DBG)
 	ufs_mtk_dbg_dump(100);
 #endif

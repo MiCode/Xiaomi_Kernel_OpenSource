@@ -188,6 +188,7 @@ struct tag_chipid {
 
 struct ufs_mtk_host {
 	struct phy *mphy;
+	void __iomem *mphy_base;
 	struct regulator *reg_va09;
 	struct reset_control *hci_reset;
 	struct reset_control *unipro_reset;

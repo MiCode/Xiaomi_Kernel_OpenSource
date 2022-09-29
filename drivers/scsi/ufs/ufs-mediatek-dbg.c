@@ -422,6 +422,9 @@ static void probe_ufshcd_clk_gating(void *data, const char *dev_name,
 				    int state)
 {
 	int ptr;
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	struct ufs_mtk_host *host = ufshcd_get_variant(ufshba);
+#endif
 
 	if (!cmd_hist_enabled)
 		return;
@@ -430,6 +433,20 @@ static void probe_ufshcd_clk_gating(void *data, const char *dev_name,
 
 	cmd_hist[ptr].event = CMD_CLK_GATING;
 	cmd_hist[ptr].cmd.clk_gating.state = state;
+
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	if (state == CLKS_ON && host->mphy_base) {
+		writel(0xC1000200, host->mphy_base + 0x20C0);
+		cmd_hist[ptr].cmd.clk_gating.arg1 =
+			readl(host->mphy_base + 0xA09C);
+		cmd_hist[ptr].cmd.clk_gating.arg2 =
+			readl(host->mphy_base + 0xA19C);
+	} else {
+		cmd_hist[ptr].cmd.clk_gating.arg1 = 0;
+		cmd_hist[ptr].cmd.clk_gating.arg2 = 0;
+	}
+	cmd_hist[ptr].cmd.clk_gating.arg3 = 0;
+#endif
 }
 
 static void probe_ufshcd_profile_clk_scaling(void *data, const char *dev_name,
@@ -611,13 +628,16 @@ static void ufs_mtk_dbg_print_clk_gating_event(char **buff,
 
 	dur = ns_to_timespec64(cmd_hist[ptr].time);
 	SPREAD_PRINTF(buff, size, m,
-		"%3d-c(%d),%6llu.%lu,%5d,%2d,%13s\n",
+		"%3d-c(%d),%6llu.%lu,%5d,%2d,%13s,arg1=0x%X,arg2=0x%X,arg3=0x%X\n",
 		ptr,
 		cmd_hist[ptr].cpu,
 		dur.tv_sec, dur.tv_nsec,
 		cmd_hist[ptr].pid,
 		cmd_hist[ptr].event,
-		clk_gating_state_str[idx]
+		clk_gating_state_str[idx],
+		cmd_hist[ptr].cmd.clk_gating.arg1,
+		cmd_hist[ptr].cmd.clk_gating.arg2,
+		cmd_hist[ptr].cmd.clk_gating.arg3
 		);
 }
 
@@ -1097,6 +1117,9 @@ static void ufs_mtk_dbg_cleanup(void)
 int ufs_mtk_dbg_register(struct ufs_hba *hba)
 {
 	int i, ret;
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+#endif
 
 	/*
 	 * Ignore any failure of AEE buffer allocation to still allow
@@ -1108,6 +1131,9 @@ int ufs_mtk_dbg_register(struct ufs_hba *hba)
 	ufshba = hba;
 	cmd_hist_initialized = true;
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	host->mphy_base = ioremap(0x112a0000, 0x10000);
+#endif
 	/* Install the tracepoints */
 	for_each_kernel_tracepoint(lookup_tracepoints, NULL);
 
