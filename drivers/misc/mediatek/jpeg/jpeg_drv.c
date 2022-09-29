@@ -301,9 +301,9 @@ void jpeg_drv_hybrid_dec_power_on(int id)
 	if (!dec_hwlocked[(id+1)%HW_CORE_NUMBER]/*&& !dec_hwlocked[(id+2)%HW_CORE_NUM]*/) {
 		if (gJpegqDev.jpegLarb[0]) {
 			JPEG_LOG(1, "power on larb7");
-			ret = mtk_smi_larb_get(gJpegqDev.jpegLarb[0]);
+			ret = mtk_smi_larb_get_ex(gJpegqDev.jpegLarb[0], 2);
 			if (ret)
-				JPEG_LOG(0, "mtk_smi_larb_get failed %d",
+				JPEG_LOG(0, "mtk_smi_larb_get_ex failed %d",
 					ret);
 		}
 		ret = clk_prepare_enable(gJpegqDev.jpegClk.clk_venc_jpgDec);
@@ -319,9 +319,9 @@ void jpeg_drv_hybrid_dec_power_on(int id)
 	if (id == 2) {
 		if (gJpegqDev.jpegLarb[1]) {
 			JPEG_LOG(1, "power on larb8");
-			ret = mtk_smi_larb_get(gJpegqDev.jpegLarb[1]);
+			ret = mtk_smi_larb_get_ex(gJpegqDev.jpegLarb[1], 2);
 			if (ret)
-				JPEG_LOG(0, "mtk_smi_larb_get failed %d",
+				JPEG_LOG(0, "mtk_smi_larb_get_ex failed %d",
 					ret);
 		}
 		ret = clk_prepare_enable(gJpegqDev.jpegClk.clk_venc_c1_jpgDec);
@@ -341,7 +341,7 @@ void jpeg_drv_hybrid_dec_power_off(int id)
 		jpeg_drv_hybrid_dec_end_dvfs(1);
 		clk_disable_unprepare(gJpegqDev.jpegClk.clk_venc_c1_jpgDec);
 		if (gJpegqDev.jpegLarb[1])
-			mtk_smi_larb_put(gJpegqDev.jpegLarb[1]);
+			mtk_smi_larb_put_ex(gJpegqDev.jpegLarb[1], 2);
 	} else
 		jpeg_drv_hybrid_dec_end_dvfs(0);
 
@@ -349,7 +349,7 @@ void jpeg_drv_hybrid_dec_power_off(int id)
 		clk_disable_unprepare(gJpegqDev.jpegClk.clk_venc_jpgDec);
 		clk_disable_unprepare(gJpegqDev.jpegClk.clk_venc_jpgDec_c1);
 		if (gJpegqDev.jpegLarb[0])
-			mtk_smi_larb_put(gJpegqDev.jpegLarb[0]);
+			mtk_smi_larb_put_ex(gJpegqDev.jpegLarb[0], 2);
 	}
 
 	JPEG_LOG(1, "JPEG Hybrid Decoder Power Off %d", id);
