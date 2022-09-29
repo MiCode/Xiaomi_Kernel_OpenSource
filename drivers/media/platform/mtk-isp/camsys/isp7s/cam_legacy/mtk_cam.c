@@ -1093,7 +1093,7 @@ STOP_SCAN:
 			memset(&ae_data, 0, sizeof(ae_data));
 			dump_aa_info(ctx, &ae_data);
 			dev_info(ctx->cam->dev,
-				"%s:%s:ctx(%d):pipe(%d):de-queue seq(%d):handle seq(%d),done(0x%x),pipes(req:0x%x,ctx:0x%x,all:0x%x),del_job(%d),metaout va(0x%llx),size(%d,%d),AA(0x%llx,0x%llx,0x%llx,0x%llx)(0x%llx,0x%llx,0x%llx,0x%llx)(0x%llx,0x%llx,0x%llx,0x%llx)(0x%llx,0x%llx,0x%llx,0x%llx)(0x%llx,0x%llx,0x%llx,0x%llx)\n",
+				"%s:%s:ctx(%d):pipe(%d):de-queue seq(%d):handle seq(%d),done(0x%x),pipes(req:0x%x,ctx:0x%x,all:0x%x),del_job(%d),metaout va(0x%llx),size(%d,%d),AA(0x%llx,0x%llx,0x%llx,0x%llx)(0x%llx,0x%llx,0x%llx,0x%llx)(0x%llx,0x%llx,0x%llx,0x%llx)(0x%llx,0x%llx,0x%llx,0x%llx)(0x%llx,0x%llx,0x%llx,0x%llx)|AA(0x%llx,0x%llx,0x%llx,0x%llx)(0x%llx,0x%llx,0x%llx,0x%llx)(0x%llx,0x%llx,0x%llx,0x%llx)(0x%llx,0x%llx,0x%llx,0x%llx)(0x%llx,0x%llx,0x%llx,0x%llx)\n",
 				__func__, req->req.debug_str, ctx->stream_id, pipe_id,
 				dequeued_frame_seq_no, s_data->frame_seq_no, req->done_status,
 				req->pipe_used, ctx->streaming_pipe, ctx->cam->streaming_pipe,
@@ -1109,7 +1109,17 @@ STOP_SCAN:
 				ae_data.AA_Sum[0], ae_data.AA_Sum[1],
 				ae_data.AA_Sum[2], ae_data.AA_Sum[3],
 				ae_data.LTM_Sum[0], ae_data.LTM_Sum[1],
-				ae_data.LTM_Sum[2], ae_data.LTM_Sum[3]);
+				ae_data.LTM_Sum[2], ae_data.LTM_Sum[3],
+				ae_data.OBC_R1_Sum_W[0], ae_data.OBC_R1_Sum_W[1],
+				ae_data.OBC_R1_Sum_W[2], ae_data.OBC_R1_Sum_W[3],
+				ae_data.OBC_R2_Sum_W[0], ae_data.OBC_R2_Sum_W[1],
+				ae_data.OBC_R2_Sum_W[2], ae_data.OBC_R2_Sum_W[3],
+				ae_data.OBC_R3_Sum_W[0], ae_data.OBC_R3_Sum_W[1],
+				ae_data.OBC_R3_Sum_W[2], ae_data.OBC_R3_Sum_W[3],
+				ae_data.AA_Sum_W[0], ae_data.AA_Sum_W[1],
+				ae_data.AA_Sum_W[2], ae_data.AA_Sum_W[3],
+				ae_data.LTM_Sum_W[0], ae_data.LTM_Sum_W[1],
+				ae_data.LTM_Sum_W[2], ae_data.LTM_Sum_W[3]);
 		} else
 			dev_info(ctx->cam->dev,
 				"%s:%s:ctx(%d):pipe(%d):de-queue seq(%d):handle seq(%d),done(0x%x),pipes(req:0x%x,ctx:0x%x,all:0x%x),del_job(%d),metaout va(0x%llx)\n",

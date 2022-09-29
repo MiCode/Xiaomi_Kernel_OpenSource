@@ -618,7 +618,8 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 			      res_user->sensor_res.height, &width, &height);
 
 	if (res_user->raw_res.bin && !res_cfg->bin_enable) {
-		dev_info(dev,
+		if (log)
+			dev_info(dev,
 			 "%s:%s:pipe(%d): res calc failed on fource bin: user(%d)/bin_enable(%d)\n",
 			 __func__, dbg_str, pipeline->id, res_user->raw_res.bin,
 			 res_cfg->bin_enable);
@@ -627,7 +628,8 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 
 	if (res_cfg->raw_num_used > res_cfg->hwn_limit_max ||
 	    res_cfg->raw_num_used < res_cfg->hwn_limit_min) {
-		dev_info(dev,
+		if (log)
+			dev_info(dev,
 			 "%s:%s: pipe(%d): res calc failed on raw used: user(%d/%d)/raw_num_used(%d)\n",
 			 __func__, dbg_str, pipeline->id, res_cfg->hwn_limit_max,
 			 res_cfg->hwn_limit_min, res_cfg->raw_num_used);
@@ -1741,13 +1743,18 @@ void dump_aa_info(struct mtk_cam_ctx *ctx,
 {
 	struct mtk_raw_device *raw_dev = NULL;
 	struct mtk_raw_pipeline *pipe = ctx->pipe;
+	bool is_rgbw = mtk_cam_scen_is_rgbw_enabled(&ctx->pipe->scen_active);
 	int i;
 
 	for (i = 0; i < ctx->cam->num_raw_drivers; i++) {
 		if (pipe->enabled_raw & (1 << i)) {
 			struct device *dev = ctx->cam->raw.devs[i];
 
-			raw_dev = dev_get_drvdata(dev);
+			raw_dev = is_rgbw ?
+				get_master_raw_dev(ctx->cam, pipe) : dev_get_drvdata(dev);
+			if (raw_dev == NULL)
+				return;
+
 			ae_info->OBC_R1_Sum[0] +=
 				((u64)readl(raw_dev->base + OFFSET_OBC_R1_R_SUM_H) << 32) |
 				readl(raw_dev->base + OFFSET_OBC_R1_R_SUM_L);
@@ -1811,6 +1818,79 @@ void dump_aa_info(struct mtk_cam_ctx *ctx,
 			ae_info->AA_Sum[3] +=
 				((u64)readl(raw_dev->base + REG_AA_GB_SUM_H) << 32) |
 				readl(raw_dev->base + REG_AA_GB_SUM_L);
+
+			//w plane
+			if (is_rgbw) {
+				raw_dev = get_slave_raw_dev(ctx->cam, pipe);
+				if (raw_dev == NULL)
+					return;
+
+				ae_info->OBC_R1_Sum_W[0] =
+				  ((u64)readl(raw_dev->base + OFFSET_OBC_R1_R_SUM_H) << 32) |
+				  readl(raw_dev->base + OFFSET_OBC_R1_R_SUM_L);
+				ae_info->OBC_R2_Sum_W[0] =
+				  ((u64)readl(raw_dev->base + OFFSET_OBC_R2_R_SUM_H) << 32) |
+				  readl(raw_dev->base + OFFSET_OBC_R2_R_SUM_L);
+				ae_info->OBC_R3_Sum_W[0] =
+				  ((u64)readl(raw_dev->base + OFFSET_OBC_R3_R_SUM_H) << 32) |
+				  readl(raw_dev->base + OFFSET_OBC_R3_R_SUM_L);
+				ae_info->LTM_Sum_W[0] +=
+				  ((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_R_MSB) << 32) |
+				  readl(raw_dev->base + REG_LTM_AE_DEBUG_R_LSB);
+				ae_info->AA_Sum_W[0] +=
+				  ((u64)readl(raw_dev->base + REG_AA_R_SUM_H) << 32) |
+				  readl(raw_dev->base + REG_AA_R_SUM_L);
+
+				ae_info->OBC_R1_Sum_W[1] +=
+				  ((u64)readl(raw_dev->base + OFFSET_OBC_R1_B_SUM_H) << 32) |
+				  readl(raw_dev->base + OFFSET_OBC_R1_B_SUM_L);
+				ae_info->OBC_R2_Sum_W[1] +=
+				  ((u64)readl(raw_dev->base + OFFSET_OBC_R2_B_SUM_H) << 32) |
+				  readl(raw_dev->base + OFFSET_OBC_R2_B_SUM_L);
+				ae_info->OBC_R3_Sum_W[1] +=
+				  ((u64)readl(raw_dev->base + OFFSET_OBC_R3_B_SUM_H) << 32) |
+				  readl(raw_dev->base + OFFSET_OBC_R3_B_SUM_L);
+				ae_info->LTM_Sum_W[1] +=
+				  ((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_B_MSB) << 32) |
+				  readl(raw_dev->base + REG_LTM_AE_DEBUG_B_LSB);
+				ae_info->AA_Sum_W[1] +=
+				  ((u64)readl(raw_dev->base + REG_AA_B_SUM_H) << 32) |
+				  readl(raw_dev->base + REG_AA_B_SUM_L);
+
+				ae_info->OBC_R1_Sum_W[2] +=
+				  ((u64)readl(raw_dev->base + OFFSET_OBC_R1_GR_SUM_H) << 32) |
+				  readl(raw_dev->base + OFFSET_OBC_R1_GR_SUM_L);
+				ae_info->OBC_R2_Sum_W[2] +=
+				  ((u64)readl(raw_dev->base + OFFSET_OBC_R2_GR_SUM_H) << 32) |
+				  readl(raw_dev->base + OFFSET_OBC_R2_GR_SUM_L);
+				ae_info->OBC_R3_Sum_W[2] +=
+				  ((u64)readl(raw_dev->base + OFFSET_OBC_R3_GR_SUM_H) << 32) |
+				  readl(raw_dev->base + OFFSET_OBC_R3_GR_SUM_L);
+				ae_info->LTM_Sum_W[2] +=
+				  ((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_GR_MSB) << 32) |
+				  readl(raw_dev->base + REG_LTM_AE_DEBUG_GR_LSB);
+				ae_info->AA_Sum_W[2] +=
+				  ((u64)readl(raw_dev->base + REG_AA_GR_SUM_H) << 32) |
+				  readl(raw_dev->base + REG_AA_GR_SUM_L);
+
+				ae_info->OBC_R1_Sum_W[3] +=
+				  ((u64)readl(raw_dev->base + OFFSET_OBC_R1_GB_SUM_H) << 32) |
+				  readl(raw_dev->base + OFFSET_OBC_R1_GB_SUM_L);
+				ae_info->OBC_R2_Sum_W[3] +=
+				  ((u64)readl(raw_dev->base + OFFSET_OBC_R2_GB_SUM_H) << 32) |
+				  readl(raw_dev->base + OFFSET_OBC_R2_GB_SUM_L);
+				ae_info->OBC_R3_Sum_W[3] +=
+				  ((u64)readl(raw_dev->base + OFFSET_OBC_R3_GB_SUM_H) << 32) |
+				  readl(raw_dev->base + OFFSET_OBC_R3_GB_SUM_L);
+				ae_info->LTM_Sum_W[3] +=
+				 ((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_GB_MSB) << 32) |
+				  readl(raw_dev->base + REG_LTM_AE_DEBUG_GB_LSB);
+				ae_info->AA_Sum_W[3] +=
+				  ((u64)readl(raw_dev->base + REG_AA_GB_SUM_H) << 32) |
+				  readl(raw_dev->base + REG_AA_GB_SUM_L);
+
+				return;
+			}
 		}
 	}
 }
@@ -2466,9 +2546,10 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 	mtk_raw_update_debug_param(cam, res);
 
 	dev_info(cam->dev,
-		 "Res-end bin/raw_num/tg_pxlmode/before_raw/opp(%d/%d/%d/%d/%d), clk(%d), out(%dx%d)\n",
+		 "Res-end bin/raw_num/tg_pxlmode/before_raw/opp(%d/%d/%d/%d/%d), vb/hb(%d,%d), clk(%d), out(%dx%d)\n",
 		 res->bin_enable, res->raw_num_used, res->tgo_pxl_mode,
-		 res->tgo_pxl_mode_before_raw, res->opp_idx, res->clk_target, *out_w, *out_h);
+		 res->tgo_pxl_mode_before_raw, res->opp_idx, res->clk_target,
+		 res->vblank, res->hblank, *out_w, *out_h);
 
 	return (ret >= 0);
 }
@@ -3828,7 +3909,7 @@ int mtk_raw_set_sink_pad_fmt(struct v4l2_subdev *sd,
 
 	mtk_cam_pad_fmt_enable(framefmt, true);
 
-	dev_info(dev,
+	dev_dbg(dev,
 		"%s(%d): Set fmt pad:%d(%s), code/w/h = 0x%x/%d/%d\n",
 		__func__, fmt->which, fmt->pad, node_str,
 		framefmt->code, framefmt->width, framefmt->height);

@@ -1305,7 +1305,7 @@ static int calc_buffered_pixel_rate(struct device *dev,
 	do_div(buffered_pixel_rate, (width + hblank - k));
 	*result = buffered_pixel_rate;
 
-	dev_info(
+	dev_dbg(
 		dev,
 		"%s: w %d h %d hb %d vb %d fps %d/%d pclk %lld->%lld orig %lld k %lld hbe %d\n",
 		__func__, width, height, hblank, vblank,

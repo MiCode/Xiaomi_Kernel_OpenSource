@@ -2253,8 +2253,8 @@ int mtk_cam_video_s_fmt_chk_feature(struct mtk_cam_video_device *node,
 					sizeimage;
 			}
 
-			dev_info(cam->dev,
-				 "%%s:%s:pipe(%d):%s:scen(%s):stride:%d size:%d\n",
+			dev_dbg(cam->dev,
+				 "%s:%s:pipe(%d):%s:scen(%s):stride:%d size:%d\n",
 				 __func__, dbg_str, node->uid.pipe_id,
 				 node->desc.name, scen->dbg_str,
 				 bytesperline, sizeimage);

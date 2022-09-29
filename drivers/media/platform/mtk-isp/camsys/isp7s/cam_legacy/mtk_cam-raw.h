@@ -379,6 +379,11 @@ struct mtk_ae_debug_data {
 	u64 OBC_R3_Sum[4];
 	u64 AA_Sum[4];
 	u64 LTM_Sum[4];
+	u64 OBC_R1_Sum_W[4];
+	u64 OBC_R2_Sum_W[4];
+	u64 OBC_R3_Sum_W[4];
+	u64 AA_Sum_W[4];
+	u64 LTM_Sum_W[4];
 };
 
 /*
