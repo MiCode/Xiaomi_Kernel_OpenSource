@@ -1340,6 +1340,7 @@ static enum mtk_ovl_colorspace mtk_ovl_map_cs(enum mtk_drm_dataspace ds)
 	case MTK_DRM_DATASPACE_STANDARD_ADOBE_RGB:
 		DDPPR_ERR("%s: ovl get cs ADOBE_RGB\n", __func__);
 	case MTK_DRM_DATASPACE_STANDARD_BT2020:
+	case MTK_DRM_DATASPACE_STANDARD_BT2020_CONSTANT_LUMINANCE:
 		DDPPR_ERR("%s: ovl does not support BT2020\n", __func__);
 	default:
 		cs = OVL_SRGB;
@@ -1808,15 +1809,21 @@ static int mtk_ovl_yuv_matrix_convert(enum mtk_drm_dataspace plane_ds)
 	case MTK_DRM_DATASPACE_STANDARD_BT601_625_UNADJUSTED:
 	case MTK_DRM_DATASPACE_STANDARD_BT601_525:
 	case MTK_DRM_DATASPACE_STANDARD_BT601_525_UNADJUSTED:
-		ret = ((plane_ds & MTK_DRM_DATASPACE_RANGE_MASK) ==
-			MTK_DRM_DATASPACE_RANGE_FULL)
-			       ? OVL_CON_MTX_JPEG_TO_RGB
-			       : OVL_CON_MTX_BT601_TO_RGB;
+		switch (plane_ds & MTK_DRM_DATASPACE_RANGE_MASK) {
+		case MTK_DRM_DATASPACE_RANGE_UNSPECIFIED:
+		case MTK_DRM_DATASPACE_RANGE_LIMITED:
+			ret = OVL_CON_MTX_BT601_TO_RGB;
+			break;
+		default:
+			ret = OVL_CON_MTX_JPEG_TO_RGB;
+			break;
+		}
 		break;
 
 	case MTK_DRM_DATASPACE_STANDARD_BT709:
 	case MTK_DRM_DATASPACE_STANDARD_DCI_P3:
 	case MTK_DRM_DATASPACE_STANDARD_BT2020:
+	case MTK_DRM_DATASPACE_STANDARD_BT2020_CONSTANT_LUMINANCE:
 		ret = OVL_CON_MTX_BT709_TO_RGB;
 		break;
 
