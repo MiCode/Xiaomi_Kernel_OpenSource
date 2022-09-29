@@ -1025,6 +1025,24 @@ static void ufs_mtk_mcq_set_sqid(void *data, struct ufs_hba *hba, int index,
 	lrbp->android_vendor_data1 = index;
 }
 
+static void ufs_mtk_mcq_retry_complete(void *data, struct ufs_hba *hba)
+{
+	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
+	int index;
+	unsigned long flags;
+
+	if (!hba_priv->is_mcq_enabled)
+		return;
+
+	for_each_set_bit(index, hba_priv->outstanding_mcq_reqs, UFSHCD_MAX_TAG) {
+		ufs_mtk_transfer_req_compl_handler(hba, true, index);
+	}
+
+	spin_lock_irqsave(&hba->outstanding_lock, flags);
+	bitmap_zero(hba_priv->outstanding_mcq_reqs, UFSHCD_MAX_TAG);
+	spin_unlock_irqrestore(&hba->outstanding_lock, flags);
+}
+
 int ufs_mtk_mcq_alloc_priv(struct ufs_hba *hba)
 {
 	struct ufs_hba_private *hba_priv;
@@ -1307,6 +1325,10 @@ static struct tracepoints_table mcq_interests[] = {
 	{
 		.name = "android_vh_ufs_mcq_clear_pending",
 		.func = ufs_mtk_mcq_clear_pending
+	},
+	{
+		.name = "android_vh_ufs_mcq_retry_complete",
+		.func = ufs_mtk_mcq_retry_complete
 	},
 };
 

@@ -223,6 +223,9 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ufs_mcq_get_outstanding_reqs);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ufs_mcq_abort);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ufs_mcq_clear_cmd);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ufs_mcq_clear_pending);
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ufs_mcq_retry_complete);
+#endif
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cgroup_attach);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_iommu_setup_dma_ops);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_iommu_iovad_alloc_iova);

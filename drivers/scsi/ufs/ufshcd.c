@@ -6024,10 +6024,20 @@ static void ufshcd_clk_scaling_suspend(struct ufs_hba *hba, bool suspend)
 			ufshcd_resume_clkscaling(hba);
 	}
 }
-
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+static void ufshcd_err_handling_prepare(struct ufs_hba *hba, bool *rpm_put)
+#else
 static void ufshcd_err_handling_prepare(struct ufs_hba *hba)
+#endif
 {
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	if (!hba->pm_op_in_progress) {
+		ufshcd_rpm_get_sync(hba);
+		*rpm_put = true;
+	}
+#else
 	ufshcd_rpm_get_sync(hba);
+#endif
 	if (pm_runtime_status_suspended(&hba->sdev_ufs_device->sdev_gendev) ||
 	    hba->is_sys_suspended) {
 		enum ufs_pm_op pm_op;
@@ -6062,13 +6072,23 @@ static void ufshcd_err_handling_prepare(struct ufs_hba *hba)
 	cancel_work_sync(&hba->eeh_work);
 }
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+static void ufshcd_err_handling_unprepare(struct ufs_hba *hba, bool rpm_put)
+#else
 static void ufshcd_err_handling_unprepare(struct ufs_hba *hba)
+#endif
 {
 	ufshcd_scsi_unblock_requests(hba);
 	ufshcd_release(hba);
 	if (ufshcd_is_clkscaling_supported(hba))
 		ufshcd_clk_scaling_suspend(hba, false);
+
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	if (rpm_put)
+		ufshcd_rpm_put(hba);
+#else
 	ufshcd_rpm_put(hba);
+#endif
 }
 
 static inline bool ufshcd_err_handling_should_stop(struct ufs_hba *hba)
@@ -6150,6 +6170,9 @@ static void ufshcd_err_handler(struct work_struct *work)
 	bool needs_reset = false, needs_restore = false;
 	unsigned long *outstanding_reqs;
 	int nr_tag;
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	bool rpm_put = false;
+#endif
 
 	hba = container_of(work, struct ufs_hba, eh_work);
 
@@ -6164,7 +6187,11 @@ static void ufshcd_err_handler(struct work_struct *work)
 	}
 	ufshcd_set_eh_in_progress(hba);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	ufshcd_err_handling_prepare(hba, &rpm_put);
+#else
 	ufshcd_err_handling_prepare(hba);
+#endif
 	/* Complete requests that have door-bell cleared by h/w */
 	ufshcd_complete_requests(hba);
 	spin_lock_irqsave(hba->host->host_lock, flags);
@@ -6298,6 +6325,9 @@ do_reset:
 	if (needs_reset) {
 		hba->force_reset = false;
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+		trace_android_vh_ufs_mcq_retry_complete(hba);
+#endif
 		err = ufshcd_reset_and_restore(hba);
 		if (err)
 			dev_err(hba->dev, "%s: reset and restore failed with err %d\n",
@@ -6317,7 +6347,11 @@ skip_err_handling:
 	}
 	ufshcd_clear_eh_in_progress(hba);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	ufshcd_err_handling_unprepare(hba, rpm_put);
+#else
 	ufshcd_err_handling_unprepare(hba);
+#endif
 	up(&hba->host_sem);
 }
 
@@ -7005,6 +7039,9 @@ static int ufshcd_try_to_abort_task(struct ufs_hba *hba, int tag)
 	int poll_cnt;
 	u8 resp = 0xF;
 	u32 reg;
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	unsigned long *outstanding_reqs;
+#endif
 
 	for (poll_cnt = 100; poll_cnt; poll_cnt--) {
 		err = ufshcd_issue_tm_cmd(hba, lrbp->lun, lrbp->task_tag,
@@ -7021,12 +7058,33 @@ static int ufshcd_try_to_abort_task(struct ufs_hba *hba, int tag)
 			 */
 			dev_err(hba->dev, "%s: cmd at tag %d not pending in the device.\n",
 				__func__, tag);
+
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+			if (ufshcd_use_mcq_hooks(hba)) {
+				trace_android_vh_ufs_mcq_get_outstanding_reqs(hba,
+							&outstanding_reqs, NULL);
+				if (test_bit(tag, outstanding_reqs)) {
+					/* sleep for max. 200us to stabilize */
+					usleep_range(100, 200);
+					continue;
+				}
+			} else {
+				reg = ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL);
+				if (reg & (1 << tag)) {
+					/* sleep for max. 200us to stabilize */
+					usleep_range(100, 200);
+					continue;
+				}
+			}
+#else
 			reg = ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL);
 			if (reg & (1 << tag)) {
 				/* sleep for max. 200us to stabilize */
 				usleep_range(100, 200);
 				continue;
 			}
+#endif
+
 			/* command completed already */
 			dev_err(hba->dev, "%s: cmd at tag %d successfully cleared from DB.\n",
 				__func__, tag);

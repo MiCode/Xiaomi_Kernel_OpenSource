@@ -68,6 +68,7 @@ f include/media/media-entity.h
 f include/trace/events/block.h
 f include/trace/events/f2fs.h
 f include/trace/hooks/traps.h
+f include/trace/hooks/ufshcd.h
 f kernel/audit.c
 f kernel/fork.c
 f kernel/irq_work.c

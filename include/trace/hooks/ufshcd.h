@@ -123,6 +123,11 @@ DECLARE_HOOK(android_vh_ufs_mcq_clear_pending,
 	TP_PROTO(struct ufs_hba *hba, int *ret),
 	TP_ARGS(hba, ret));
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+DECLARE_HOOK(android_vh_ufs_mcq_retry_complete,
+	TP_PROTO(struct ufs_hba *hba),
+	TP_ARGS(hba));
+#endif
 #endif /* _TRACE_HOOK_UFSHCD_H */
 /* This part must be outside protection */
 #include <trace/define_trace.h>
