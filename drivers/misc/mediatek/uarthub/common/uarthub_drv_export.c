@@ -175,7 +175,7 @@ EXPORT_SYMBOL(UARTHUB_dump_debug_info);
 
 int UARTHUB_dump_debug_info_with_tag(const char *tag)
 {
-	return uarthub_core_debug_info_with_tag(tag);
+	return uarthub_core_debug_info_with_tag(tag, 1);
 }
 EXPORT_SYMBOL(UARTHUB_dump_debug_info_with_tag);
 
