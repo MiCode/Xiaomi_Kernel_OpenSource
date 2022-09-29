@@ -39,6 +39,7 @@ void mml_mmp_init(void)
 	mml_mmp_events.fence = mmprofile_register_event(mml, "fence");
 	mml_mmp_events.fence_timeout = mmprofile_register_event(mml, "fence_timeout");
 	mml_mmp_events.wait_ready = mmprofile_register_event(mml, "wait_ready");
+	mml_mmp_events.throughput = mmprofile_register_event(mml, "throughput");
 	mml_mmp_events.flush = mmprofile_register_event(mml, "flush");
 	mml_mmp_events.submit_cb = mmprofile_register_event(mml, "submit_cb");
 	mml_mmp_events.racing_enter = mmprofile_register_event(mml, "racing_enter");

@@ -44,6 +44,7 @@ struct mml_mmp_events_t {
 	mmp_event fence;
 	mmp_event fence_timeout;
 	mmp_event wait_ready;
+	mmp_event throughput;
 	mmp_event flush;
 	mmp_event submit_cb;
 	mmp_event racing_enter;

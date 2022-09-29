@@ -1302,7 +1302,13 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 			gmcif_con ^= BIT(16) | BIT(15);	/* URGENT_EN: always */
 		else if (mml_racing_urgent == 2)
 			gmcif_con ^= BIT(13) | BIT(16);	/* ULTRA_EN: always */
-		rdma_reset_threshold(rdma, pkt, base_pa, hw_pipe, write_sec);
+		else
+			gmcif_con |= BIT(14) | BIT(12);	/* URGENT_EN */
+		if (cfg->info.mode == MML_MODE_RACING)
+			rdma_select_threshold_hrt(rdma, pkt, base_pa, hw_pipe,
+				write_sec, src->format, src->width, src->height);
+		else
+			rdma_reset_threshold(rdma, pkt, base_pa, hw_pipe, write_sec);
 	} else if (cfg->info.mode == MML_MODE_RACING) {
 		gmcif_con |= BIT(14);	/* URGENT_EN */
 

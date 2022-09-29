@@ -473,14 +473,15 @@ static void dump_inout(struct mml_task *task)
 	s32 ret;
 
 	get_frame_str(frame, sizeof(frame), &cfg->info.src);
-	mml_log("in:%s plane:%hhu%s%s%s job:%u mode:%hhu",
+	mml_log("in:%s plane:%hhu%s%s%s job:%u mode:%hhu acttime %u",
 		frame,
 		task->buf.src.cnt,
 		cfg->info.alpha ? " alpha" : "",
 		task->buf.src.fence ? " fence" : "",
 		task->buf.src.flush ? " flush" : "",
 		task->job.jobid,
-		cfg->info.mode);
+		cfg->info.mode,
+		cfg->info.act_time);
 	if (cfg->info.dest[0].pq_config.en_region_pq) {
 		get_frame_str(frame, sizeof(frame), &cfg->info.seg_map);
 		mml_log("region pq in:%s plane:%hhu%s%s job:%u mode:%hhu",
@@ -685,7 +686,7 @@ static u32 mml_core_calc_tput_racing(struct mml_task *task, u32 pixel, u32 pipe)
 	 * giving act time, thus calc tput by act_time directly.
 	 */
 	task->pipe[pipe].throughput = div_u64(pixel, act_time_us);
-
+	mml_mmp(throughput, MMPROFILE_FLAG_PULSE, task->pipe[pipe].throughput, act_time_us);
 	return act_time_us;
 }
 
@@ -699,6 +700,8 @@ static u64 mml_core_calc_tput(struct mml_task *task, u32 pixel, u32 pipe,
 
 	/* truoughput by end time */
 	task->pipe[pipe].throughput = (u32)div_u64(pixel, duration);
+
+	mml_mmp(throughput, MMPROFILE_FLAG_PULSE, task->pipe[pipe].throughput, (u32)duration);
 
 	return duration;
 }
@@ -735,11 +738,21 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 	mutex_lock(&path_clt->clt_mutex);
 
 	ktime_get_real_ts64(&curr_time);
-	mml_msg_qos("task dvfs begin %p pipe %u cur %2u.%03llu end %2u.%03llu clt id %hhu",
-		task, pipe,
-		(u32)curr_time.tv_sec, div_u64(curr_time.tv_nsec, 1000000),
-		(u32)task->end_time.tv_sec, div_u64(task->end_time.tv_nsec, 1000000),
-		cfg->path[pipe]->clt_id);
+	if (cfg->info.mode == MML_MODE_RACING) {
+		mml_msg_qos(
+			"task dvfs begin %p pipe %u cur %2u.%03llu act_time %u clt id %hhu",
+			task, pipe,
+			(u32)curr_time.tv_sec, div_u64(curr_time.tv_nsec, 1000000),
+			cfg->info.act_time,
+			cfg->path[pipe]->clt_id);
+	} else {
+		mml_msg_qos(
+			"task dvfs begin %p pipe %u cur %2u.%03llu end %2u.%03llu clt id %hhu",
+			task, pipe,
+			(u32)curr_time.tv_sec, div_u64(curr_time.tv_nsec, 1000000),
+			(u32)task->end_time.tv_sec, div_u64(task->end_time.tv_nsec, 1000000),
+			cfg->path[pipe]->clt_id);
+	}
 
 	/* do not append to list and no qos/dvfs for this task */
 	if (!mml_qos)
