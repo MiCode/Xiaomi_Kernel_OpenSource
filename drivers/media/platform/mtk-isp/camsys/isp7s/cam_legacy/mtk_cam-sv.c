@@ -281,20 +281,20 @@ static int mtk_camsv_call_set_fmt(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
-	if (!mtk_camsv_try_fmt(sd, fmt)) {
+	if (mtk_camsv_try_fmt(sd, fmt) == MTKCAM_IPI_IMG_FMT_UNKNOWN) {
 		mf = get_sv_fmt(pipe, state, fmt->pad, fmt->which);
 		fmt->format = *mf;
 
 		dev_info(sv->cam_dev,
-			"sd:%s pad:%d set format w/h/code %d/%d/0x%x\n",
-			sd->name, fmt->pad, mf->width, mf->height, mf->code);
+			"sd:%s pad:%d set format w/h/code/which %d/%d/0x%x/%d\n",
+			sd->name, fmt->pad, mf->width, mf->height, mf->code, fmt->which);
 	} else {
 		mf = get_sv_fmt(pipe, state, fmt->pad, fmt->which);
 		*mf = fmt->format;
 
 		dev_info(sv->cam_dev,
-			"sd:%s pad:%d try format w/h/code %d/%d/0x%x\n",
-			sd->name, fmt->pad, mf->width, mf->height, mf->code);
+			"sd:%s pad:%d set format w/h/code/which %d/%d/0x%x/%d\n",
+			sd->name, fmt->pad, mf->width, mf->height, mf->code, fmt->which);
 	}
 
 	return 0;
@@ -2905,8 +2905,11 @@ static int mtk_camsv_runtime_resume(struct device *dev)
 
 	for (i = 0; i < CAMSV_IRQ_NUM; i++) {
 		enable_irq(camsv_dev->irq[i]);
-		dev_info(dev, "%s:enable irq %d\n", __func__, camsv_dev->irq[i]);
+		dev_dbg(dev, "%s:enable irq %d\n", __func__, camsv_dev->irq[i]);
 	}
+
+
+	dev_info(dev, "%s:enable irq\n", __func__);
 
 	return 0;
 }

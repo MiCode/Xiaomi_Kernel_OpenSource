@@ -321,20 +321,22 @@ static int mtk_mraw_call_set_fmt(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
-	if (!mtk_mraw_try_fmt(sd, fmt)) {
+	if (mtk_mraw_try_fmt(sd, fmt) == MTKCAM_IPI_IMG_FMT_UNKNOWN) {
 		mf = get_mraw_fmt(pipe, state, fmt->pad, fmt->which);
 		fmt->format = *mf;
+		dev_info(mraw->cam_dev,
+			"sd:%s pad:%d set format w/h/code/which %d/%d/0x%x/%d\n",
+			sd->name, fmt->pad, mf->width, mf->height, mf->code, fmt->which);
 	} else {
 		mf = get_mraw_fmt(pipe, state, fmt->pad, fmt->which);
 		*mf = fmt->format;
 		dev_info(mraw->cam_dev,
-			"sd:%s pad:%d set format w/h/code %d/%d/0x%x\n",
-			sd->name, fmt->pad, mf->width, mf->height, mf->code);
+			"sd:%s pad:%d set format w/h/code/which %d/%d/0x%x/%d\n",
+			sd->name, fmt->pad, mf->width, mf->height, mf->code, fmt->which);
 
 		if (fmt->pad == MTK_MRAW_SINK &&
 			fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
-			dev_info(mraw->cam_dev,
-				"%s: set mraw res_config\n", __func__);
+			dev_dbg(mraw->cam_dev, "%s: set mraw res_config", __func__);
 			/* set cfg buffer for tg/crp info. */
 			ipi_fmt = mtk_cam_get_sensor_fmt(fmt->format.code);
 			if (ipi_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN) {
@@ -1489,7 +1491,7 @@ int mtk_cam_mraw_cq_config(struct mtk_mraw_device *dev)
 
 	dev->sof_count = 0;
 
-	dev_info(dev->dev, "%s - REG_CQ_EN:0x%x ,REG_CQ_THR0_CTL:0x%8x\n",
+	dev_dbg(dev->dev, "%s - REG_CQ_EN:0x%x ,REG_CQ_THR0_CTL:0x%8x\n",
 		__func__,
 			readl_relaxed(dev->base + REG_MRAW_CQ_EN),
 			readl_relaxed(dev->base + REG_MRAW_CQ_SUB_THR0_CTL));
