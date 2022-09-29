@@ -1165,19 +1165,17 @@ void ufs_mtk_mcq_set_irq_affinity(struct ufs_hba *hba)
 
 	/* Set affinity */
 	for (cpu = 0; cpu < nr; cpu++) {
-		if (map->mq_map[cpu] >= 0) {
-			q_index = map->mq_map[cpu];
-			irq = hba_priv->mcq_intr_info[q_index].intr;
-			/* force migrate irq of cpu0 to cpu3 */
-			_cpu = (cpu == 0) ? 3 : cpu;
-			ret = irq_set_affinity(irq, cpumask_of(_cpu));
-			if (ret) {
-				dev_err(hba->dev, "mcq: irq_set_affinity irq %d on CPU %d failed\n",
-									irq, _cpu);
-				return;
-			}
-			dev_info(hba->dev, "Set irq %d to CPU: %d\n", irq, _cpu);
+		q_index = map->mq_map[cpu];
+		irq = hba_priv->mcq_intr_info[q_index].intr;
+		/* force migrate irq of cpu0 to cpu3 */
+		_cpu = (cpu == 0) ? 3 : cpu;
+		ret = irq_set_affinity(irq, cpumask_of(_cpu));
+		if (ret) {
+			dev_info(hba->dev, "mcq: irq_set_affinity irq %d on CPU %d failed\n",
+							 irq, _cpu);
+			return;
 		}
+		dev_info(hba->dev, "Set irq %d to CPU: %d\n", irq, _cpu);
 	}
 }
 
