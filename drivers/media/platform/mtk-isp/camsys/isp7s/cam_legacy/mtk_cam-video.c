@@ -2319,6 +2319,35 @@ int mtk_cam_video_s_fmt_chk_feature(struct mtk_cam_video_device *node,
 		}
 	}
 
+	/* re-config rawi for dc mode */
+	if (node->desc.id == MTK_RAW_MAIN_STREAM_OUT) {
+		struct v4l2_format *img_fmt;
+		unsigned int sink_ipi_fmt;
+		struct mtk_raw_pipeline *pipe;
+
+		if (is_raw_subdev(node->uid.pipe_id)) {
+			pipe = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
+			if (pipe && mtk_cam_hw_mode_is_dc(pipe->res_config.hw_mode)) {
+				img_fmt = &pipe->img_fmt_sink_pad;
+				img_fmt->fmt.pix_mp.width = try_fmt.fmt.pix_mp.width;
+				img_fmt->fmt.pix_mp.height = try_fmt.fmt.pix_mp.height;
+				img_fmt->fmt.pix_mp.pixelformat = try_fmt.fmt.pix_mp.pixelformat;
+				sink_ipi_fmt = mtk_cam_get_img_fmt(try_fmt.fmt.pix_mp.pixelformat);
+				img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline =
+					mtk_cam_dmao_xsize(
+						try_fmt.fmt.pix_mp.width, sink_ipi_fmt, 3);
+				img_fmt->fmt.pix_mp.plane_fmt[0].sizeimage =
+						img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline *
+						img_fmt->fmt.pix_mp.height;
+				dev_info(cam->dev,
+					"%s id:%d hwmode:0x%x ipi_fmt:%d pixelformat:0x%x\n",
+					__func__, node->desc.id,
+					pipe->res_config.hw_mode, sink_ipi_fmt,
+					img_fmt->fmt.pix_mp.pixelformat);
+			}
+		}
+	}
+
 	*f = try_fmt;
 
 	return 0;
