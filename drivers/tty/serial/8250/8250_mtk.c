@@ -813,6 +813,7 @@ int mtk8250_uart_hub_dev0_set_tx_request(struct tty_struct *tty)
 {
 	#if defined(KERNEL_UARTHUB_dev0_set_tx_request)
 		int ret  = 0;
+		unsigned int old_res_status = 0;
 
 		ret = KERNEL_UARTHUB_dev0_set_tx_request();
 		if (ret) {
@@ -823,13 +824,16 @@ int mtk8250_uart_hub_dev0_set_tx_request(struct tty_struct *tty)
 
 	#if defined(KERNEL_mtk_uart_set_res_status)
 		KERNEL_mtk_uart_set_res_status(1);
-		pr_info("%s: set res status as 1\n", __func__);
+		pr_info("%s: old:%d, set res status as 1\n",
+			__func__, old_res_status);
 	#endif
 
 		/*dump fifo status*/
 		//mtk8250_uart_start_record(tty);
 		/*clear uart fifo*/
-		mtk8250_clear_fifo(tty);
+		old_res_status = KERNEL_mtk_uart_get_res_status();
+		if (!old_res_status)
+			mtk8250_clear_fifo(tty);
 		/*dump fifo status*/
 		//mtk8250_uart_end_record(tty);
 

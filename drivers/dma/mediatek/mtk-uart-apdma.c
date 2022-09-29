@@ -351,6 +351,13 @@ void mtk_uart_set_res_status(unsigned int status)
 }
 EXPORT_SYMBOL(mtk_uart_set_res_status);
 
+unsigned int mtk_uart_get_res_status(void)
+{
+	return res_status;
+}
+EXPORT_SYMBOL(mtk_uart_get_res_status);
+
+
 void mtk_uart_get_apdma_rpt(struct dma_chan *chan, unsigned int *rpt)
 {
 	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
