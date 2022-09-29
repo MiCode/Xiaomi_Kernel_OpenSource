@@ -137,7 +137,7 @@
 
 					/* esd check table */
 					lcm-params-dsi-cust_esd_check = <0>;
-					lcm-params-dsi-esd_check_enable = <0>;
+					lcm-params-dsi-esd_check_enable = <1>;
 					lcm-params-dsi-lcm_esd_check_table0 = [0a 01 1c];
 					lcm-params-dsi-lcm_esd_check_table1;
 					lcm-params-dsi-lcm_esd_check_table2;
