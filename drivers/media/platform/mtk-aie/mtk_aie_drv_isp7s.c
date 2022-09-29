@@ -389,7 +389,7 @@ static void FDVT_DumpDRAMOut(struct mtk_aie_dev *fd, unsigned int *hw, unsigned 
 	unsigned int comparetimes = size / 4;
 
 	for (i = 0; i < comparetimes; i += 4) {
-		dev_info(fd->dev, "0x%08x, 0x%08x, 0x%08x, 0x%08x", hw[i],
+		dev_info(fd->dev, "[%d] 0x%08x, 0x%08x, 0x%08x, 0x%08x", i, hw[i],
 						hw[i + 1], hw[i + 2], hw[i + 3]);
 	}
 	dev_info(fd->dev, "Dump End");
@@ -676,8 +676,11 @@ static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
 			"fdmode_fdvt_fd_config:	0x%x, fdmode_fdvt_fd_config_size:	%d",
 			(unsigned int *)fd->base_para->fd_fd_cfg_va,
 			((fd->fd_fd_cfg_aligned_size)/87) * loop_num);
-		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_fd_cfg_va,
-			((fd->fd_fd_cfg_aligned_size)/87) * loop_num);
+		FDVT_DumpDRAMOut(fd,
+			(u32 *)fd->base_para->fd_fd_cfg_va
+				+ sizeof(u32) * FD_CONFIG_SIZE * (fd_loop_num / 3)*
+				(3 - fd->aie_cfg->number_of_pyramid),
+			((fd->fd_fd_cfg_aligned_size)/fd_loop_num) * (loop_num + 1));
 
 		dev_info(fd->dev, "FDVT DMA Debug Info\n");
 		dev_info(fd->dev, "[FDVT_DMA_RDMA_0_CHECK_SUM]: 0x%08X %08X\n",
