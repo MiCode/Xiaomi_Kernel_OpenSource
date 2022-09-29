@@ -317,6 +317,8 @@ static int irq_bh_worker(void *arg)
 			 * Linux scheduler point of view.
 			 */
 			while (i < NQ_TEE_WORKER_THREADS) {
+				set_user_nice(l_ctx.tee_worker[NQ_TEE_WORKER_THREADS - 1 - i],
+					MIN_NICE);
 				if (wake_up_process(
 				l_ctx.tee_worker[NQ_TEE_WORKER_THREADS
 								 - 1 - i]))
@@ -487,6 +489,8 @@ int nq_session_notify(struct nq_session *session, u32 id, u32 payload)
 		 * Linux scheduler point of view.
 		 */
 		while (i < NQ_TEE_WORKER_THREADS) {
+			set_user_nice(l_ctx.tee_worker[NQ_TEE_WORKER_THREADS - 1 - i],
+				MIN_NICE);
 			if (wake_up_process(
 			l_ctx.tee_worker[NQ_TEE_WORKER_THREADS
 							 - 1 - i]))
@@ -1048,6 +1052,8 @@ static s32 tee_schedule(uintptr_t arg, unsigned int *timeout_ms)
 			 * Linux scheduler point of view.
 			 */
 			while (i < req_workers && j < NQ_TEE_WORKER_THREADS) {
+				set_user_nice(l_ctx.tee_worker[NQ_TEE_WORKER_THREADS - 1 - j],
+					MIN_NICE);
 				if (wake_up_process(
 			    l_ctx.tee_worker[NQ_TEE_WORKER_THREADS - 1 - j]))
 					i++;
@@ -1267,6 +1273,7 @@ int nq_start(void)
 			return ret;
 		}
 
+		set_user_nice(l_ctx.tee_worker[cnt], MIN_NICE);
 		wake_up_process(l_ctx.tee_worker[cnt]);
 	}
 
