@@ -1000,8 +1000,8 @@ static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
 		has_v = 0;
 	}
 
-	if (wdma->data->use_larb_control_sec) {
-		if (wdma->data && wdma->data->check_wdma_sec_reg)
+	if (wdma && wdma->data && wdma->data->use_larb_control_sec) {
+		if (wdma->data->check_wdma_sec_reg)
 			larb_ctl_dummy = wdma->data->check_wdma_sec_reg(comp);
 		if (larb_ctl_dummy) {
 			if (mtk_wdma_store_sec_state(wdma, sec) && disp_sec_cb.cb != NULL) {
@@ -1014,7 +1014,7 @@ static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
 			}
 		}
 	} else {
-		if (wdma->data && wdma->data->aid_sel)
+		if (wdma && wdma->data && wdma->data->aid_sel)
 			aid_sel_offset = wdma->data->aid_sel(comp);
 		if (aid_sel_offset) {
 			if (sec)
