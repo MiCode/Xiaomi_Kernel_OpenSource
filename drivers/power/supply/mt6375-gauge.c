@@ -1867,7 +1867,8 @@ static signed int fg_set_iavg_intr(struct mtk_gauge *gauge_dev, void *data)
 /* / fg_cust_data.car_tune_value / priv->unit_fg_iavg  = fg_iavg_reg  */
 
 	fg_iavg_reg_ht = iavg_ht * 100;
-	if (gauge_dev->hw_status.r_fg_value != priv->default_r_fg) {
+	if ((gauge_dev->hw_status.r_fg_value != priv->default_r_fg) &&
+	    priv->default_r_fg != 0) {
 		fg_iavg_reg_ht = fg_iavg_reg_ht * gauge_dev->hw_status.r_fg_value;
 #if defined(__LP64__) || defined(_LP64)
 		do_div(fg_iavg_reg_ht, priv->default_r_fg);
@@ -1878,18 +1879,22 @@ static signed int fg_set_iavg_intr(struct mtk_gauge *gauge_dev, void *data)
 
 	fg_iavg_reg_ht = fg_iavg_reg_ht * 1000000;
 
+	if (priv->unit_fg_iavg != 0 && gauge_dev->gm->fg_cust_data.car_tune_value != 0) {
 #if defined(__LP64__) || defined(_LP64)
-	do_div(fg_iavg_reg_ht, priv->unit_fg_iavg);
-	do_div(fg_iavg_reg_ht, gauge_dev->gm->fg_cust_data.car_tune_value);
+		do_div(fg_iavg_reg_ht, priv->unit_fg_iavg);
+		do_div(fg_iavg_reg_ht, gauge_dev->gm->fg_cust_data.car_tune_value);
 #else
-	fg_iavg_reg_ht = div_s64(fg_iavg_reg_ht, priv->unit_fg_iavg);
-	fg_iavg_reg_ht = div_s64(fg_iavg_reg_ht, gauge_dev->gm->fg_cust_data.car_tune_value);
+		fg_iavg_reg_ht = div_s64(fg_iavg_reg_ht, priv->unit_fg_iavg);
+		fg_iavg_reg_ht = div_s64(fg_iavg_reg_ht,
+					 gauge_dev->gm->fg_cust_data.car_tune_value);
 #endif
+	}
 
 
 	fg_iavg_reg_lt = iavg_lt * 100;
 
-	if (gauge_dev->hw_status.r_fg_value != priv->default_r_fg) {
+	if ((gauge_dev->hw_status.r_fg_value != priv->default_r_fg) &&
+	    priv->default_r_fg != 0) {
 		fg_iavg_reg_lt = fg_iavg_reg_lt *
 			gauge_dev->hw_status.r_fg_value;
 #if defined(__LP64__) || defined(_LP64)
@@ -1901,14 +1906,16 @@ static signed int fg_set_iavg_intr(struct mtk_gauge *gauge_dev, void *data)
 
 	fg_iavg_reg_lt = fg_iavg_reg_lt * 1000000;
 
+	if (priv->unit_fg_iavg != 0 && gauge_dev->gm->fg_cust_data.car_tune_value != 0) {
 #if defined(__LP64__) || defined(_LP64)
-	do_div(fg_iavg_reg_lt, priv->unit_fg_iavg);
-	do_div(fg_iavg_reg_lt, gauge_dev->gm->fg_cust_data.car_tune_value);
+		do_div(fg_iavg_reg_lt, priv->unit_fg_iavg);
+		do_div(fg_iavg_reg_lt, gauge_dev->gm->fg_cust_data.car_tune_value);
 #else
-	fg_iavg_reg_lt = div_s64(fg_iavg_reg_lt, priv->unit_fg_iavg);
-	fg_iavg_reg_lt = div_s64(fg_iavg_reg_lt,
-				gauge_dev->gm->fg_cust_data.car_tune_value);
+		fg_iavg_reg_lt = div_s64(fg_iavg_reg_lt, priv->unit_fg_iavg);
+		fg_iavg_reg_lt = div_s64(fg_iavg_reg_lt,
+					gauge_dev->gm->fg_cust_data.car_tune_value);
 #endif
+	}
 
 	fg_iavg_lth_28_16 = (fg_iavg_reg_lt & 0x1fff0000) >> 16;
 	fg_iavg_lth_15_00 = fg_iavg_reg_lt & 0xffff;
