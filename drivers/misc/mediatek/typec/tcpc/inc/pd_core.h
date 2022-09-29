@@ -1032,6 +1032,9 @@ struct pd_port {
 #endif /* CONFIG_RECV_BAT_ABSENT_NOTIFY */
 
 	uint8_t cap_miss_match; /* For src_cap miss match */
+#if IS_ENABLED(CONFIG_WAIT_TX_RETRY_DONE)
+	struct completion tx_done;
+#endif /* CONFIG_WAIT_TX_RETRY_DONE */
 };
 
 #if CONFIG_USB_PD_ALT_MODE

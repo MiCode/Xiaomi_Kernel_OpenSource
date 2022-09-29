@@ -1923,6 +1923,14 @@ static int mt6375_transmit(struct tcpc_device *tcpc,
 	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
 	long long t1 = 0, t2 = 0;
 
+#if IS_ENABLED(CONFIG_WAIT_TX_RETRY_DONE)
+	if (!tcpc->pd_port.tx_done.done) {
+		MT6375_INFO("wait tx_done start\n");
+		ret = wait_for_completion_timeout(&tcpc->pd_port.tx_done, msecs_to_jiffies(10));
+		MT6375_INFO("wait tx_done end, ret = %d\n", ret);
+	}
+	reinit_completion(&tcpc->pd_port.tx_done);
+#endif /* CONFIG_WAIT_TX_RETRY_DONE */
 	MT6375_INFO("%s ++\n", __func__);
 	t1 = local_clock();
 	if (type < TCPC_TX_HARD_RESET) {
