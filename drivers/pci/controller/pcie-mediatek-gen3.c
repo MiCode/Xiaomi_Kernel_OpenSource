@@ -34,6 +34,8 @@
 #include "../pci.h"
 #include "../../misc/mediatek/clkbuf/v1/inc/mtk_clkbuf_ctl.h"
 
+u32 mtk_pcie_dump_link_info(int port);
+
 /* pextp register, CG,HW mode */
 #define PCIE_PEXTP_CG_0			0x14
 #define PEXTP_PWRCTL_0			0x40
@@ -96,6 +98,10 @@
 #define PCIE_MSI_IRQS_PER_SET		32
 #define PCIE_MSI_IRQS_NUM \
 	(PCIE_MSI_IRQS_PER_SET * PCIE_MSI_SET_NUM)
+
+#define PCIE_DEBUG_MONITOR		0x2c
+#define PCIE_DEBUG_SEL_0		0x164
+#define PCIE_DEBUG_SEL_1		0x168
 
 #define PCIE_INT_ENABLE_REG		0x180
 #define PCIE_MSI_ENABLE			GENMASK(PCIE_MSI_SET_NUM + 8 - 1, 8)
@@ -1273,6 +1279,8 @@ int mtk_pcie_remove_port(int port)
 		return -ENODEV;
 	}
 
+	mtk_pcie_dump_link_info(0);
+
 	device_release_driver(&pdev->dev);
 
 	return 0;
@@ -1305,6 +1313,12 @@ static void pcie_android_rvh_do_serror(void *data, struct pt_regs *regs,
 		pr_info("PCIe port not found!\n");
 		return;
 	}
+
+	/* Debug monitor pcie design internal signal */
+	writel_relaxed(0x80810001, pcie_port->base + PCIE_DEBUG_SEL_0);
+	writel_relaxed(0x22330100, pcie_port->base + PCIE_DEBUG_SEL_1);
+	pr_info("debug recovery:%#x\n",
+		readl_relaxed(pcie_port->base + PCIE_DEBUG_MONITOR));
 
 	pr_info("ltssm reg: %#x, PCIe interrupt status=%#x, AXI0 ERROR address=%#x, AXI0 ERROR status=%#x\n",
 		readl_relaxed(pcie_port->base + PCIE_LTSSM_STATUS_REG),
