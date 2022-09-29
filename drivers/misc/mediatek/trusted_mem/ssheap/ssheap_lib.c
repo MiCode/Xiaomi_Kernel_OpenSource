@@ -299,16 +299,15 @@ static u64 free_blocks(struct ssheap_buf_info *info)
 
 	/* free blocks */
 	list_for_each_entry_safe(block, temp, &info->block_list, entry) {
-		pr_debug(
-			"free block cpu_addr=%p dma_addr=0x%lx block_size=0x%lx\n",
-			block->cpu_addr, (unsigned long)block->dma_addr,
-			block->block_size);
-
+		// pr_debug("free block cpu_addr=%p\n", block->cpu_addr);
+		// pr_debug("free block dma_addr=0x%lx block_size=0x%lx\n",
+		// (unsigned long)block->dma_addr, block->block_size);
 		free_system_mem(block->page, block->block_size);
 		freed_size += block->block_size;
 		list_del(&block->entry);
 		kfree(block);
 	}
+	pr_debug("free blocks freed_size=0x%lx\n", freed_size);
 	return freed_size;
 }
 
@@ -477,12 +476,10 @@ retry:
 		block->block_size = block_size;
 		list_add_tail(&block->entry, &info->block_list);
 
-		pr_debug("dma_addr=%lx size=%lx\n", block->dma_addr,
-			 block->block_size);
-
 		allocated_size += block_size;
 		elems++;
 	}
+	pr_debug("Allocated size=%lx\n", allocated_size);
 	atomic64_add(allocated_size, &total_alloced_size);
 	info->req_size = req_size;
 	info->aligned_req_size = aligned_req_size;
@@ -537,8 +534,6 @@ static int create_pmm_msg(struct ssheap_buf_info *info)
 	paddr = page_to_phys(page);
 	pmm_msg_entry = (uint64_t *)kaddr;
 
-	pr_debug("pmm_msg_page paddr=%pa\n", &paddr);
-
 	for_each_sg(info->table->sgl, sg, info->table->nents, i) {
 		dma_addr = sg_dma_address(sg);
 		*(pmm_msg_entry++) = dma_addr;
@@ -592,10 +587,10 @@ unsigned long mtee_unassign_buffer(struct ssheap_buf_info *info,
 	paddr = page_to_phys(info->pmm_msg_page);
 	count = info->elems;
 	pmm_attr = PGLIST_SET_ATTR(paddr, mem_type);
-	pr_debug("pmm_msg_page paddr=%pa\n", &paddr);
+	// pr_debug("pmm_msg_page paddr=%pa\n", &paddr);
 	arm_smccc_smc(HYP_PMM_UNASSIGN_BUFFER, lower_32_bits(paddr),
 		      upper_32_bits(paddr), count, 0, 0, 0, 0, &smc_res);
-	pr_debug("smc_res.a0=%x\n", smc_res.a0);
+	pr_debug("pmm_msg_page paddr=%pa smc_res.a0=%x\n", &paddr, smc_res.a0);
 	return smc_res.a0;
 }
 
