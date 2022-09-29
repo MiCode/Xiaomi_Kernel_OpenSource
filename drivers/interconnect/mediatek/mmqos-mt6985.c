@@ -56,7 +56,7 @@ static const struct mtk_node_desc node_descs_mt6985[] = {
 	DEFINE_MNODE(larb33, SLAVE_LARB(33), 0, false, 0x0, MASTER_COMMON_PORT(0, 1)),
 	DEFINE_MNODE(larb2, SLAVE_LARB(2), 0, false, 0x0, MASTER_COMMON_PORT(0, 2)),
 	DEFINE_MNODE(larb5, SLAVE_LARB(5), 0, false, 0x2, MASTER_COMMON_PORT(0, 3)),
-	DEFINE_MNODE(larb7, SLAVE_LARB(7), 0, false, 0x0, MASTER_COMMON_PORT(0, 4)),
+	DEFINE_MNODE(larb7, SLAVE_LARB(7), 0, false, 0x1, MASTER_COMMON_PORT(0, 4)),
 	DEFINE_MNODE(larb10, SLAVE_LARB(10), 0, false, 0x2, MASTER_COMMON_PORT(0, 5)),
 	DEFINE_MNODE(larb22, SLAVE_LARB(22), 0, true, 0x2, MASTER_COMMON_PORT(0, 5)), //LARB11_u1
 	DEFINE_MNODE(larb23, SLAVE_LARB(23), 0, false, 0x0, MASTER_COMMON_PORT(0, 5)), //LARB11_u2
@@ -76,8 +76,8 @@ static const struct mtk_node_desc node_descs_mt6985[] = {
 	DEFINE_MNODE(larb20, SLAVE_LARB(20), 0, false, 0x0, MASTER_COMMON_PORT(1, 1)),
 	DEFINE_MNODE(larb3, SLAVE_LARB(3), 0, false, 0x0, MASTER_COMMON_PORT(1, 2)),
 	DEFINE_MNODE(larb4, SLAVE_LARB(4), 0, false, 0x11, MASTER_COMMON_PORT(1, 3)),
-	DEFINE_MNODE(larb8, SLAVE_LARB(8), 0, false, 0x0, MASTER_COMMON_PORT(1, 4)),
-	DEFINE_MNODE(larb37, SLAVE_LARB(37), 0, false, 0x0, MASTER_COMMON_PORT(1, 4)), //LARB8_u1
+	DEFINE_MNODE(larb8, SLAVE_LARB(8), 0, true, 0x12, MASTER_COMMON_PORT(1, 4)),
+	DEFINE_MNODE(larb37, SLAVE_LARB(37), 0, false, 0x12, MASTER_COMMON_PORT(1, 4)), //LARB8_u1
 	DEFINE_MNODE(larb9, SLAVE_LARB(9), 0, false, 0x11, MASTER_COMMON_PORT(1, 5)),
 	DEFINE_MNODE(larb11, SLAVE_LARB(11), 0, false, 0x0, MASTER_COMMON_PORT(1, 5)),
 	DEFINE_MNODE(larb12, SLAVE_LARB(12), 0, false, 0x0, MASTER_COMMON_PORT(1, 5)),
@@ -959,9 +959,12 @@ static const struct mtk_mmqos_desc mmqos_desc_mt6985 = {
 			HRT_NONE, HRT_CAM, HRT_NONE, HRT_NONE },
 	},
 	//.dual_pipe_larbs = { SLAVE_LARB(1), SLAVE_LARB(20) },
-	.mmqos_state = MMQOS_ENABLE | P2_COMM_OSTDL_ENABLE,
-	.p2_larbs = { SLAVE_LARB(9), SLAVE_LARB(10),
-			SLAVE_LARB(15), SLAVE_LARB(22) },
+	.mmqos_state = MMQOS_ENABLE | COMM_OSTDL_ENABLE,
+	.report_bw_larbs = { SLAVE_LARB(9), SLAVE_LARB(10),
+			SLAVE_LARB(15), SLAVE_LARB(22),
+			SLAVE_LARB(4), SLAVE_LARB(5),
+			SLAVE_LARB(7), SLAVE_LARB(8),
+			SLAVE_LARB(37),},
 };
 static const struct of_device_id mtk_mmqos_mt6985_of_ids[] = {
 	{

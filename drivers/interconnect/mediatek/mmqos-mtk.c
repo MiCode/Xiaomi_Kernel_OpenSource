@@ -478,8 +478,8 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 				icc_to_MBps(comm_port_node->latest_peak_bw),
 				mmqos->qos_bound, comm_port_node->hrt_type == HRT_MAX_BWL);
 
-		if ((mmqos_state & P2_COMM_OSTDL_ENABLE)
-			&& larb_node->is_p2_larb)
+		if ((mmqos_state & COMM_OSTDL_ENABLE)
+			&& larb_node->is_report_bw_larbs)
 			mmqos_update_comm_ostdl(comm_port_node->larb_dev,
 				port_id, mmqos->max_ratio, src);
 
@@ -1022,9 +1022,9 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 			/* init disable dualpipe */
 			gmmqos->dual_pipe_enable = false;
 
-			for (j = 0; j < MMQOS_MAX_P2_LARB_NUM; j++) {
-				if (node->id == mmqos_desc->p2_larbs[j])
-					larb_node->is_p2_larb = true;
+			for (j = 0; j < MMQOS_MAX_REPORT_LARB_NUM; j++) {
+				if (node->id == mmqos_desc->report_bw_larbs[j])
+					larb_node->is_report_bw_larbs = true;
 			}
 			larb_node->base = base_node;
 			node->data = (void *)larb_node;
