@@ -92,164 +92,6 @@ static void ufs_mtk_mcq_print_trs(void *data, struct ufs_hba *hba, bool pr_prdt)
 	}
 }
 
-#ifdef MCQ_PRIORITY
-static void ufs_mtk_mcq_send_sw_cmd(struct ufs_hba *hba, unsigned int task_tag)
-{
-	struct ufshcd_lrb *lrbp = &hba->lrb[task_tag];
-	int q_index = lrbp->android_vendor_data1;
-	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
-	struct ufs_queue *sq_ptr = &hba_priv->mcq_q_cfg.sq[q_index];
-	struct ufs_sw_queue *swq_ptr = &hba_priv->mcq_q_cfg.swq[q_index];
-	unsigned long flags;
-	u16 head, tail;
-
-	// Check SWQ full
-	spin_lock_irqsave(&sq_ptr->q_lock, flags);
-	head = swq_ptr->head;
-	tail = swq_ptr->tail;
-	if(((tail + 1) % swq_ptr->depth) == head) {
-		spin_unlock_irqrestore(&sq_ptr->q_lock, flags);
-		dev_err(hba->dev, "sw queue: %d FULL", q_index);
-		return;
-	}
-
-	// Put task to SWQ
-	swq_ptr->tag_data[swq_ptr->tail] = task_tag;
-	swq_ptr->tail++;
-	if (swq_ptr->tail == swq_ptr->depth)
-		swq_ptr->tail = 0;
-	spin_unlock_irqrestore(&sq_ptr->q_lock, flags);
-}
-
-/**
- * Return true: to HW queue
- * Return false: to SW queue
- */
-static bool ufs_mtk_mcq_to_hw(struct ufs_hba *hba, int index)
-{
-	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
-	struct ufs_queue_config *mcq_q_cfg = &hba_priv->mcq_q_cfg;
-
-	if (mcq_q_cfg->sq_cur_idx >= hba_priv->mcq_nr_hw_queue) {
-		/* finish one round */
-		goto to_swqueue;
-	}
-
-	if (index >= mcq_q_cfg->sq_cur_idx) {
-		if ((mcq_q_cfg->sq_sw_cmd_count > 0) &&
-			(mcq_q_cfg->sq_hw_cmd_count > UFSHCD_MCQ_PRI_THRESHOD)) {
-			/* swq has command and */
-			/* current hwq already sent amount of commands pick next hwq */
-			mcq_q_cfg->sq_cur_idx++;
-			goto to_swqueue;
-		}
-
-		if (mcq_q_cfg->sq_cur_idx != index) {
-			/* Change hwq, reset sq_hw_cmd_count */
-			mcq_q_cfg->sq_cur_idx = index;
-			mcq_q_cfg->sq_hw_cmd_count = 0;
-		}
-
-		if (mcq_q_cfg->sq_sw_cmd_count > 0) {
-			/* Increase command count if there is already command in swq */
-			mcq_q_cfg->sq_hw_cmd_count++;
-		}
-
-		return true;
-	}
-
-to_swqueue:
-	mcq_q_cfg->sq_sw_cmd_count++;
-	return false;
-}
-
-static bool ufs_mtk_swqueue_sq_isempty(struct ufs_hba *hba)
-{
-	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
-	struct ufs_queue *sq_ptr;
-	unsigned long flags;
-	u32 head, tail;
-	int i;
-
-	for (i = 0; i < hba_priv->mcq_nr_hw_queue; i++) {
-		sq_ptr = &hba_priv->mcq_q_cfg.sq[i];
-		spin_lock_irqsave(&sq_ptr->q_lock, flags);
-		head = ufshcd_readl(hba, MCQ_ADDR(REG_UFS_SQ_HEAD, i)) / SQE_SIZE;
-		tail = ufshcd_readl(hba, MCQ_ADDR(REG_UFS_SQ_TAIL, i)) / SQE_SIZE;
-		spin_unlock_irqrestore(&sq_ptr->q_lock, flags);
-		if (head != tail)
-			return false;
-	}
-
-	return true;
-}
-
-static int ufs_mtk_swqueue_handler(void *data)
-{
-	struct ufs_hba *hba = data;
-	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
-	struct ufs_queue_config *mcq_q_cfg = &hba_priv->mcq_q_cfg;
-	struct ufs_sw_queue *swq_ptr;
-	int i, task_tag;
-
-	while (true) {
-		spin_lock(&mcq_q_cfg->swq_lock);
-		if ((mcq_q_cfg->sq_sw_cmd_count == 0) ||
-				(!ufs_mtk_swqueue_sq_isempty(hba))) {
-			spin_unlock(&mcq_q_cfg->swq_lock);
-			msleep(100);
-			continue;
-		}
-
-		mcq_q_cfg->sq_sw_run_times++;
-		mcq_q_cfg->sq_sw_cmd_saved[mcq_q_cfg->sq_sw_cmd_count]++;
-
-		/* Generate delay */
-		for (i = 0; i < 5; i++)
-			ufshcd_readl(hba, REG_UFS_MCQCAP);
-
-		for (i = 0; i < hba_priv->mcq_nr_hw_queue; i++) {
-			swq_ptr = &mcq_q_cfg->swq[i];
-			if (swq_ptr->head == swq_ptr->tail) /* empty */
-				continue;
-
-			mcq_q_cfg->sq_cur_idx = i;
-			while (swq_ptr->head != swq_ptr->tail) {
-				task_tag = swq_ptr->tag_data[swq_ptr->head];
-				ufs_mtk_mcq_send_hw_cmd(hba, task_tag);
-				swq_ptr->head++;
-				if (swq_ptr->head >= swq_ptr->depth)
-					swq_ptr->head -= swq_ptr->depth;
-			}
-		}
-
-		// All SWQ to HWQ, reset counter
-		mcq_q_cfg->sq_sw_cmd_count = 0;
-		mcq_q_cfg->sq_hw_cmd_count = 0;
-		spin_unlock(&mcq_q_cfg->swq_lock);
-	}
-
-	return 0;
-}
-
-static void ufs_mtk_mcq_send_command_pri(struct ufs_hba *hba, unsigned int task_tag)
-{
-	struct ufshcd_lrb *lrbp = &hba->lrb[task_tag];
-	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
-	struct ufs_queue_config *mcq_q_cfg = &hba_priv->mcq_q_cfg;
-	int q_index = lrbp->android_vendor_data1;
-
-	spin_lock(&mcq_q_cfg->swq_lock);
-
-	if (ufs_mtk_mcq_to_hw(hba, q_index))
-		ufs_mtk_mcq_send_hw_cmd(hba, task_tag);
-	else
-		ufs_mtk_mcq_send_sw_cmd(hba, task_tag);
-
-	spin_unlock(&mcq_q_cfg->swq_lock);
-}
-#endif	// #ifdef MCQ_PRIORITY
-
 static u32 ufs_mtk_q_entry_offset(struct ufs_queue *q, union utp_q_entry *ptr)
 {
 	return (ptr - q->q_base_addr);
@@ -550,11 +392,7 @@ finalize:
 
 static void ufs_mtk_mcq_send_command(void *data, struct ufs_hba *hba, unsigned int task_tag)
 {
-#ifdef MCQ_PRIORITY
-	ufs_mtk_mcq_send_command_pri(hba, task_tag);
-#else
 	ufs_mtk_mcq_send_hw_cmd(hba, task_tag);
-#endif
 }
 
 static void ufs_mtk_mcq_config_queue(struct ufs_hba *hba, u8 qid,
@@ -563,22 +401,12 @@ static void ufs_mtk_mcq_config_queue(struct ufs_hba *hba, u8 qid,
 	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
 	struct ufs_queue_config *mcq_q_cfg = &hba_priv->mcq_q_cfg;
 	struct ufs_queue *queue;
-#ifdef MCQ_PRIORITY
-		struct ufs_sw_queue *swq;
-#endif
 
 	if (q_type == MCQ_Q_TYPE_SQ) {
 		queue = &mcq_q_cfg->sq[qid];
 		mcq_q_cfg->sq_cq_map[qid] = mapping;
 	} else {
 		queue = &mcq_q_cfg->cq[qid];
-
-#ifdef MCQ_PRIORITY
-		swq = &mcq_q_cfg->swq[qid];
-		swq->head = 0;
-		swq->tail = 0;
-		swq->depth = q_depth;
-#endif
 	}
 
 	//set depth and priority to 0, if Q is not enabled
@@ -598,7 +426,7 @@ static int ufs_mtk_mcq_init_queue(struct ufs_hba *hba)
 	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
 	struct ufs_queue_config *mcq_q_cfg = &hba_priv->mcq_q_cfg;
 	int i;
-	u8 sq_nr, cq_nr, q_depth, q_priority;
+	u8 sq_nr, cq_nr, q_depth, q_priority = 0;
 	u32 cnt;
 	struct ufs_queue *queue;
 
@@ -606,11 +434,6 @@ static int ufs_mtk_mcq_init_queue(struct ufs_hba *hba)
 	q_depth = hba_priv->mcq_nr_q_depth;
 	sq_nr = cq_nr = hba_priv->mcq_nr_hw_queue;
 	for (i = 0; i < sq_nr; i++) {
-#ifdef MCQ_PRIORITY
-		q_priority = (hba_priv->mcq_nr_hw_queue - 1) - i;
-#else
-		q_priority = 0;
-#endif
 		ufs_mtk_mcq_config_queue(hba, i, true, MCQ_Q_TYPE_SQ, q_depth, q_priority, i);
 		ufs_mtk_mcq_config_queue(hba, i, true, MCQ_Q_TYPE_CQ, q_depth, q_priority, i);
 
@@ -636,18 +459,6 @@ static int ufs_mtk_mcq_init_queue(struct ufs_hba *hba)
 	mcq_q_cfg->cq_nr = cq_nr;
 	dev_info(hba->dev, "SQ NR = %d\n", mcq_q_cfg->sq_nr);
 	dev_info(hba->dev, "CQ NR = %d\n", mcq_q_cfg->cq_nr);
-
-#ifdef MCQ_PRIORITY
-	mcq_q_cfg->sq_cur_idx = 0;
-	mcq_q_cfg->sq_sw_cmd_count = 0;
-	mcq_q_cfg->sq_hw_cmd_count = 0;
-
-	spin_lock_init(&mcq_q_cfg->swq_lock);
-
-	mcq_q_cfg->sq_sw_run_times = 0;
-	for (i = 0; i < 50; i++)
-		mcq_q_cfg->sq_sw_cmd_saved[i] = 0;
-#endif
 
 	return 0;
 
@@ -713,18 +524,14 @@ static void ufs_mtk_mcq_enable(struct ufs_hba *hba)
 	struct ufs_hba_private *hba_priv =
 				(struct ufs_hba_private *)hba->android_vendor_data1;
 
-	//enable AH8 + MCQ
+	// enable AH8 + MCQ
 	ufshcd_rmwl(hba, MCQ_AH8, MCQ_AH8, REG_UFS_MMIO_OPT_CTRL_0);
 
-	//set queue type: MCQ
+	// set queue type: MCQ
 	ufshcd_rmwl(hba, MCQCFG_TYPE, MCQCFG_TYPE, REG_UFS_MCQCFG);
 
-	//set arbitration scheme, check capability SP & RRP
-#ifdef MCQ_PRIORITY
-	ufshcd_rmwl(hba, MCQCFG_ARB_SCHEME, MCQCFG_ARB_SP, REG_UFS_MCQCFG);
-#else
+	// set arbitration scheme, check capability SP & RRP
 	ufshcd_rmwl(hba, MCQCFG_ARB_SCHEME, MCQCFG_ARB_RRP, REG_UFS_MCQCFG);
-#endif
 
 	cq_ie = 0;
 	for (i = 0; i < hba_priv->mcq_nr_hw_queue; i++) {
@@ -1439,27 +1246,9 @@ int ufs_mtk_mcq_memory_alloc(struct ufs_hba *hba)
 						   q_size,
 						   sizeof(struct ufs_queue),
 						   GFP_KERNEL);
-
-#ifdef MCQ_PRIORITY
-	hba_priv->mcq_q_cfg.swq = devm_kcalloc(hba->dev,
-				q_size, sizeof(struct ufs_sw_queue),
-				GFP_KERNEL);
-	if(!hba_priv->mcq_q_cfg.swq) {
-		dev_err(hba->dev,
-			"SW queue Memory allocation failed\n");
-		goto out;
-	}
-#endif
 	return 0;
 out:
 	return -ENOMEM;
-}
-
-void ufs_mtk_mcq_create_swqueue_thread(struct ufs_hba *hba)
-{
-#ifdef MCQ_PRIORITY
-	kthread_run(ufs_mtk_swqueue_handler, hba, "ufs_mtk_swqueue");
-#endif
 }
 
 struct tracepoints_table {

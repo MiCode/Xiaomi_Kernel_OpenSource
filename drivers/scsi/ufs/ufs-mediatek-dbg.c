@@ -174,19 +174,6 @@ static void ufs_mtk_dbg_print_info(char **buff, unsigned long *size,
 				  "MCQ priority enable: no\n");
 	}
 
-#ifdef MCQ_PRIORITY
-	if (hba_priv->is_mcq_enabled) {
-		SPREAD_PRINTF(buff, size, m,
-				  "MCQ priority called %d times\n",
-				  hba_priv->mcq_q_cfg.sq_sw_run_times);
-
-		for (i = 0; i < 20; i++)
-			SPREAD_PRINTF(buff, size, m,
-				      "MCQ statistics, sw_cmd=%d, count=%d\n",
-				      i, hba_priv->mcq_q_cfg.sq_sw_cmd_saved[i]);
-	}
-#endif
-
 	/* Error history */
 	ufs_mtk_dbg_print_err_hist(buff, size, m,
 			      UFS_EVT_PA_ERR, "pa_err");

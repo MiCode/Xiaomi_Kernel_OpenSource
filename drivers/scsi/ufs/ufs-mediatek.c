@@ -1795,8 +1795,6 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	if (err)
 		goto out;
 
-	ufs_mtk_mcq_create_swqueue_thread(hba);
-
 	err = ufs_mtk_bind_mphy(hba);
 	if (err)
 		goto out_variant_clear;

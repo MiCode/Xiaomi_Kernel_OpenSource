@@ -17,8 +17,6 @@
 #include "ufsfeature.h"
 #endif
 
-//#define MCQ_PRIORITY
-
 /*
  * Vendor specific UFSHCI Registers
  */
@@ -325,18 +323,6 @@ struct ufs_queue_config {
 	u8 cq_nr;
 	u8 sq_cq_map[UFSHCD_MAX_Q_NR];          //sq to cq mapping, ex. sq_cq_mapping[3] = 2 means sq[3] mapping to cq[2]
 	u32 sent_cmd_count[UFSHCD_MAX_Q_NR];
-
-#ifdef MCQ_PRIORITY
-	struct ufs_sw_queue *swq;
-	u8 sq_cur_idx;
-	u16 sq_sw_cmd_count;
-	u8 sq_hw_cmd_count;
-
-	spinlock_t swq_lock;
-
-	u32 sq_sw_run_times;
-	u32 sq_sw_cmd_saved[50];
-#endif
 };
 
 struct ufs_mcq_intr_info {
@@ -377,7 +363,6 @@ void ufs_mtk_mcq_request_irq(struct ufs_hba *hba);
 void ufs_mtk_mcq_set_irq_affinity(struct ufs_hba *hba);
 int ufs_mtk_mcq_memory_alloc(struct ufs_hba *hba);
 int ufs_mtk_mcq_install_tracepoints(void);
-void ufs_mtk_mcq_create_swqueue_thread(struct ufs_hba *hba);
 
 /*
  *  IOCTL opcode for ufs queries has the following opcode after
