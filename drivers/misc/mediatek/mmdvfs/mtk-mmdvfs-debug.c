@@ -200,6 +200,26 @@ static int mmdvfs_debug_opp_show(struct seq_file *file, void *data)
 			readl(MEM_REC_USR_PWR(j)),
 			readl(MEM_REC_USR_ID(j)), readl(MEM_REC_USR_OPP(j)));
 
+	// vmm debug
+	seq_printf(file, "VMM Efuse:%u\n", readl(MEM_VMM_EFUSE));
+	for (j = 0; j < 8; j++)
+		seq_printf(file, "VMM voltage level%d:%u\n", j, readl(MEM_VMM_OPP_VOLT(j)));
+
+	i = readl(MEM_REC_VMM_DBG_CNT) % MEM_REC_CNT_MAX;
+	if (readl(MEM_REC_VMM_SEC(i)))
+		for (j = i; j < MEM_REC_CNT_MAX; j++) {
+			seq_printf(file, "[%5u.%3u] volt:%u temp:%#x avs:%#x\n",
+				readl(MEM_REC_VMM_SEC(j)), readl(MEM_REC_VMM_NSEC(j)),
+				readl(MEM_REC_VMM_VOLT(j)),
+				readl(MEM_REC_VMM_TEMP(j)), readl(MEM_REC_VMM_AVS(j)));
+		}
+
+	for (j = 0; j < i; j++)
+		seq_printf(file, "[%5u.%3u] volt:%u temp:%#x avs:%#x\n",
+			readl(MEM_REC_VMM_SEC(j)), readl(MEM_REC_VMM_NSEC(j)),
+			readl(MEM_REC_VMM_VOLT(j)),
+			readl(MEM_REC_VMM_TEMP(j)), readl(MEM_REC_VMM_AVS(j)));
+
 	return 0;
 }
 
