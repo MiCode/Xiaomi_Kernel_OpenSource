@@ -158,6 +158,7 @@ static void sound_usb_connect(void *data, struct usb_interface *intf, struct snd
 	uodev->tx_streaming = false;
 	uodev->rx_streaming = false;
 	uodev->adsp_inited = false;
+	uodev->connected = true;
 }
 
 static void sound_usb_disconnect(void *data, struct usb_interface *intf)
@@ -171,6 +172,7 @@ static void sound_usb_disconnect(void *data, struct usb_interface *intf)
 	uodev->tx_streaming = false;
 	uodev->rx_streaming = false;
 	uodev->adsp_inited = false;
+	uodev->connected = false;
 
 	if (chip == USB_AUDIO_IFACE_UNUSED)
 		return;
@@ -975,21 +977,27 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 			mutex_unlock(&uodev->dev_lock);
 			return ret;
 		}
+		msg.status = uainfo->enable ?
+			USB_AUDIO_STREAM_REQ_START : USB_AUDIO_STREAM_REQ_STOP;
+
+		/* write to audio ipi*/
+		ret = send_uas_ipi_msg_to_adsp(&msg);
+		USB_OFFLOAD_INFO("send_ipi_msg_to_adsp msg, ret: %d\n", ret);
+		/* wait response */
 	} else {
+		msg.uainfo.direction = uainfo->direction;
+		msg.status = uainfo->enable ?
+			USB_AUDIO_STREAM_REQ_START : USB_AUDIO_STREAM_REQ_STOP;
+
+		/* write to audio ipi*/
+		ret = send_uas_ipi_msg_to_adsp(&msg);
+		USB_OFFLOAD_INFO("send_ipi_msg_to_adsp msg, ret: %d\n", ret);
+		/* wait response */
+
 		ret = substream->ops->hw_free(substream);
 		USB_OFFLOAD_INFO("hw_free, ret: %d\n", ret);
-
-		msg.uainfo.direction = uainfo->direction;
 	}
 	mutex_unlock(&uodev->dev_lock);
-
-	msg.status = uainfo->enable ?
-		USB_AUDIO_STREAM_REQ_START : USB_AUDIO_STREAM_REQ_STOP;
-
-	/* write to audio ipi*/
-	ret = send_uas_ipi_msg_to_adsp(&msg);
-	USB_OFFLOAD_INFO("send_ipi_msg_to_adsp msg, ret: %d\n", ret);
-	/* wait response */
 
 done:
 	if ((!uainfo->enable && ret != -EINVAL && ret != -ENODEV) ||
@@ -998,6 +1006,7 @@ done:
 		if (info_idx >= 0) {
 			if (!uadev[pcm_card_num].info) {
 				USB_OFFLOAD_ERR("uaudio_dev cleanup already!\n");
+				mutex_unlock(&uodev->dev_lock);
 				return ret;
 			}
 			info = &uadev[pcm_card_num].info[info_idx];
@@ -1621,6 +1630,11 @@ static int check_usb_offload_quirk(int vid, int pid)
 		USB_OFFLOAD_INFO("Logitech USB Headset H340 NOT SUPPORT!!\n");
 		return -1;
 	}
+
+	if (vid == 0x0BDA && pid == 0x4BD1) {
+		USB_OFFLOAD_INFO("JOWOYE MH339 NOT SUPPORT!!\n");
+		return -1;
+	}
 	return 0;
 }
 
@@ -1640,9 +1654,23 @@ static int check_is_multiple_ep(struct usb_host_config *config)
 
 		intf = config->interface[i];
 		for (j = 0; j < intf->num_altsetting; j++) {
-
+			if (!uodev->connected) {
+				USB_OFFLOAD_ERR("No dev(%d)\n",
+						uodev->connected);
+				return -1;
+			}
 			hostif = &intf->altsetting[j];
+			if (!hostif) {
+				USB_OFFLOAD_ERR("No alt(%d)\n",
+						uodev->connected);
+				return -1;
+			}
 			intfd = get_iface_desc(hostif);
+			if (!intfd) {
+				USB_OFFLOAD_ERR("No intf desc(%d)\n",
+						uodev->connected);
+				return -1;
+			}
 			USB_OFFLOAD_INFO("intf:%d, alt:%d, numEP: %d, class:0x%x, sub:0x%x\n",
 					i, j,
 					intfd->bNumEndpoints,
@@ -1672,21 +1700,33 @@ static int usb_offload_open(struct inode *ip, struct file *fp)
 	int i, class, vid, pid;
 
 	USB_OFFLOAD_INFO("++\n");
+	mutex_lock(&uodev->dev_lock);
 	if (!buf_dcbaa || !buf_ctx || !buf_seg) {
 		USB_OFFLOAD_ERR("USB_OFFLOAD_NOT_READY yet!!!\n");
+		mutex_unlock(&uodev->dev_lock);
+		return -1;
+	}
+
+	if (!uodev->connected) {
+		USB_OFFLOAD_ERR("No UAC Device Connected!!!\n");
+		mutex_unlock(&uodev->dev_lock);
 		return -1;
 	}
 
 	node_xhci_host = of_parse_phandle(uodev->dev->of_node, "xhci_host", 0);
 	if (node_xhci_host) {
 		pdev_xhci_host = of_find_device_by_node(node_xhci_host);
-		if (!pdev_xhci_host)
+		if (!pdev_xhci_host) {
+			mutex_unlock(&uodev->dev_lock);
 			return -ENODEV;
+		}
 		of_node_put(node_xhci_host);
 
 		mtk = platform_get_drvdata(pdev_xhci_host);
-		if (!mtk)
+		if (!mtk) {
+			mutex_unlock(&uodev->dev_lock);
 			return -ENODEV;
+		}
 		xhci = hcd_to_xhci(mtk->hcd);
 	} else {
 		USB_OFFLOAD_ERR("No 'xhci_host' node, NOT SUPPORT USB Offload!\n");
@@ -1708,6 +1748,7 @@ static int usb_offload_open(struct inode *ip, struct file *fp)
 
 	if (xhci->devs[2] != NULL) {
 		USB_OFFLOAD_INFO("Multiple Devices - NOT SUPPORT USB OFFLOAD!!\n");
+		mutex_unlock(&uodev->dev_lock);
 		return -1;
 	}
 
@@ -1730,19 +1771,25 @@ static int usb_offload_open(struct inode *ip, struct file *fp)
 			USB_OFFLOAD_INFO("Single Device - bInterfaceClass: 0x%x\n", class);
 
 			if (class == 0x01) {
-				if (check_usb_offload_quirk(vid, pid))
+				if (check_usb_offload_quirk(vid, pid)) {
+					mutex_unlock(&uodev->dev_lock);
 					return -1;
+				}
 
-				if (check_is_multiple_ep(config))
+				if (check_is_multiple_ep(config)) {
+					mutex_unlock(&uodev->dev_lock);
 					return -1;
+				}
 
 				USB_OFFLOAD_INFO("Single UAC - SUPPORT USB OFFLOAD!!\n");
+				mutex_unlock(&uodev->dev_lock);
 				return 0;
 			}
 		}
 		USB_OFFLOAD_INFO("Single Device - Not UAC. NOT SUPPORT USB OFFLOAD!!\n");
 	}
 GET_OF_NODE_FAIL:
+	mutex_unlock(&uodev->dev_lock);
 	return -1;
 }
 
