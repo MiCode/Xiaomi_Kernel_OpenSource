@@ -450,6 +450,46 @@ static int system_heap_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 	return 0;
 }
 
+static int mtk_mm_heap_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
+{
+	struct system_heap_buffer *buffer = dmabuf->priv;
+	struct sg_table *table = &buffer->sg_table;
+	unsigned long addr = vma->vm_start;
+	unsigned long offset = vma->vm_pgoff * PAGE_SIZE;
+	struct scatterlist *sg;
+	unsigned int i;
+	int ret;
+
+	if (buffer->uncached)
+		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+
+	for_each_sgtable_sg(table, sg, i) {
+		struct page *page = sg_page(sg);
+		unsigned long remainder = vma->vm_end - addr;
+		unsigned long len = sg->length;
+
+		if (offset >= sg->length) {
+			offset -= sg->length;
+			continue;
+		} else if (offset) {
+			page += offset / PAGE_SIZE;
+			len = sg->length - offset;
+			offset = 0;
+		}
+		len = min(len, remainder);
+		ret = remap_pfn_range(vma, addr, page_to_pfn(page), len,
+				      vma->vm_page_prot);
+
+		if (ret)
+			return ret;
+		addr += sg->length;
+		if (addr >= vma->vm_end)
+			return 0;
+	}
+
+	return 0;
+}
+
 static void *system_heap_do_vmap(struct system_heap_buffer *buffer)
 {
 	struct sg_table *table = &buffer->sg_table;
@@ -782,7 +822,7 @@ static const struct dma_buf_ops mtk_mm_heap_buf_ops = {
 	.begin_cpu_access_partial =
 			mtk_mm_heap_dma_buf_begin_cpu_access_partial,
 	.end_cpu_access_partial = mtk_mm_heap_dma_buf_end_cpu_access_partial,
-	.mmap = system_heap_mmap,
+	.mmap = mtk_mm_heap_mmap,
 	.vmap = system_heap_vmap,
 	.vunmap = system_heap_vunmap,
 	.release = mtk_mm_heap_dma_buf_release,
