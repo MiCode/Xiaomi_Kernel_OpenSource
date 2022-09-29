@@ -27,12 +27,13 @@
 #endif
 
 #define MMINFRA_MAX_CLK_NUM	(4)
+#define MAX_SMI_COMM_NUM	(3)
 
 struct mminfra_dbg {
 	void __iomem *ctrl_base;
 	void __iomem *mminfra_base;
 	ssize_t ctrl_size;
-	struct device *comm_dev;
+	struct device *comm_dev[MAX_SMI_COMM_NUM];
 	struct notifier_block nb;
 };
 
@@ -359,48 +360,51 @@ static void mminfra_gals_dump(void)
 
 int mtk_mminfra_dbg_hang_detect(const char *user)
 {
-	s32 offset, len = 0, ret;
+	s32 offset, len = 0, ret, i;
 	u32 val;
 	char buf[LINK_MAX + 1] = {0};
 
-	if (!dev || !dbg || !dbg->comm_dev)
-		return -ENODEV;
-
 	pr_info("%s: check caller:%s\n", __func__, user);
-	ret = pm_runtime_get_if_in_use(dbg->comm_dev);
-	if (ret <= 0) {
-		pr_notice("%s: mminfra is power off(%d)\n", __func__, ret);
-		return -EFAULT;
-	}
+	for (i = 0; i < MAX_SMI_COMM_NUM; i++) {
+		if (!dev || !dbg || !dbg->comm_dev[i])
+			return -ENODEV;
 
-	for (offset = 0; offset <= dbg->ctrl_size; offset += 4) {
-		val = readl_relaxed(dbg->ctrl_base + offset);
-		ret = snprintf(buf + len, LINK_MAX - len, " %#x=%#x,",
-			offset, val);
-		if (ret < 0 || ret >= LINK_MAX - len) {
-			ret = snprintf(buf + len, LINK_MAX - len, "%c", '\0');
-			if (ret < 0 || ret >= LINK_MAX - len)
-				pr_notice("%s: ret:%d buf size:%d\n",
-					__func__, ret, LINK_MAX - len);
-			dev_info(dev, "%s\n", buf);
+		ret = pm_runtime_get_if_in_use(dbg->comm_dev[i]);
+		if (ret <= 0) {
+			dev_info(dev, " MMinfra may off, comm_nr(%d), %d\n", i, ret);
+			continue;
+		}
 
-			len = 0;
-			memset(buf, '\0', sizeof(char) * ARRAY_SIZE(buf));
+		for (offset = 0; offset <= dbg->ctrl_size; offset += 4) {
+			val = readl_relaxed(dbg->ctrl_base + offset);
 			ret = snprintf(buf + len, LINK_MAX - len, " %#x=%#x,",
 				offset, val);
-			if (ret < 0 || ret >= LINK_MAX - len)
-				pr_notice("%s: ret:%d buf size:%d\n",
-					__func__, ret, LINK_MAX - len);
-		}
-		len += ret;
-	}
-	ret = snprintf(buf + len, LINK_MAX - len, "%c", '\0');
-	if (ret < 0 || ret >= LINK_MAX - len)
-		pr_notice("%s: ret:%d buf size:%d\n", __func__, ret, LINK_MAX - len);
-	dev_info(dev, "%s\n", buf);
+			if (ret < 0 || ret >= LINK_MAX - len) {
+				ret = snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+				if (ret < 0 || ret >= LINK_MAX - len)
+					pr_notice("%s: ret:%d buf size:%d\n",
+						__func__, ret, LINK_MAX - len);
+				dev_info(dev, "%s\n", buf);
 
-	mminfra_gals_dump();
-	pm_runtime_put(dbg->comm_dev);
+				len = 0;
+				memset(buf, '\0', sizeof(char) * ARRAY_SIZE(buf));
+				ret = snprintf(buf + len, LINK_MAX - len, " %#x=%#x,",
+					offset, val);
+				if (ret < 0 || ret >= LINK_MAX - len)
+					pr_notice("%s: ret:%d buf size:%d\n",
+						__func__, ret, LINK_MAX - len);
+			}
+			len += ret;
+		}
+		ret = snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+		if (ret < 0 || ret >= LINK_MAX - len)
+			pr_notice("%s: ret:%d buf size:%d\n", __func__, ret, LINK_MAX - len);
+		dev_info(dev, "%s\n", buf);
+
+		mminfra_gals_dump();
+		pm_runtime_put(dbg->comm_dev[i]);
+		return 0;
+	}
 	return 0;
 }
 
@@ -417,7 +421,7 @@ static irqreturn_t mminfra_irq_handler(int irq, void *data)
 	//char buf[LINK_MAX + 1] = {0};
 
 	pr_notice("handle mminfra irq!\n");
-	if (!dev || !dbg || !dbg->comm_dev)
+	if (!dev || !dbg || !dbg->comm_dev[0])
 		return IRQ_NONE;
 
 	cmdq_util_mminfra_cmd(1);
@@ -455,7 +459,7 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 	const char *name;
 	struct clk *clk;
 	u32 comm_id;
-	int ret = 0, i = 0, irq;
+	int ret = 0, i = 0, irq, comm_nr = 0;
 
 	dbg = kzalloc(sizeof(*dbg), GFP_KERNEL);
 	if (!dbg)
@@ -475,17 +479,16 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 	}
 
 	for_each_compatible_node(node, NULL, "mediatek,smi-common") {
-		if (!node || of_property_read_u32(node, "mediatek,common-id", &comm_id))
+		if (!node || !of_property_read_bool(node, "smi-common"))
 			continue;
 
-		if (comm_id == 0) {
-			comm_pdev = of_find_device_by_node(node);
-			of_node_put(node);
-			if (!comm_pdev)
-				return -EINVAL;
-			dbg->comm_dev = &comm_pdev->dev;
-			break;
-		}
+		of_property_read_u32(node, "mediatek,common-id", &comm_id);
+		comm_pdev = of_find_device_by_node(node);
+		of_node_put(node);
+		if (!comm_pdev)
+			return -EINVAL;
+		pr_notice("[mminfra] comm_id=%d, comm_nr=%d\n", comm_id, comm_nr);
+		dbg->comm_dev[comm_nr++] = &comm_pdev->dev;
 	}
 	dbg->nb.notifier_call = mminfra_smi_dbg_cb;
 	mtk_smi_dbg_register_notifier(&dbg->nb);
