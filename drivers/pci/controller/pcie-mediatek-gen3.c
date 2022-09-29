@@ -1497,8 +1497,10 @@ static void mtk_pcie_enable_hw_control(struct mtk_pcie_port *port, bool enable)
 		val &= ~PCIE_HW_MTCMOS_EN_P0;
 
 	writel_relaxed(val, port->pextpcfg + PEXTP_PWRCTL_0);
-	dev_info(port->dev, "PCIe HW MODE BIT=%#x\n",
-		 readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_0));
+
+	if (enable)
+		dev_info(port->dev, "PCIe HW MODE BIT=%#x\n",
+			 readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_0));
 }
 
 /*
@@ -1550,10 +1552,6 @@ int mtk_pcie_hw_control_vote(int port, bool hw_mode_en, u8 who)
 	mtk_pcie_enable_hw_control(pcie_port, vote_hw_mode_en);
 
 	mutex_unlock(&pcie_port->vote_lock);
-
-	pr_info("hw_mode_en=%d, who=%d, ep_hw_mode_en=%d, rc_hw_mode_en=%d, vote=%d\n",
-		hw_mode_en, who, pcie_port->ep_hw_mode_en,
-		pcie_port->rc_hw_mode_en, vote_hw_mode_en);
 
 	if (!vote_hw_mode_en) {
 		/* Check the sleep protect ready */
