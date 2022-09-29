@@ -36,6 +36,7 @@ _aarch64_additional_kmi_symbol_lists = [
     "android/abi_gki_aarch64_pasa",
     "android/abi_gki_aarch64_pixel",
     "android/abi_gki_aarch64_qcom",
+    "android/abi_gki_aarch64_rtktv",
     "android/abi_gki_aarch64_sony",
     "android/abi_gki_aarch64_sunxi",
     "android/abi_gki_aarch64_type_visibility",
