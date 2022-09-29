@@ -1029,16 +1029,20 @@ void get_min_shutter_by_scenario(struct subdrv_ctx *ctx,
 {
 	check_current_scenario_id_bound(ctx);
 	*min_shutter = ctx->s_ctx.exposure_min;
-	switch (ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode) {
-	case HDR_RAW_STAGGER_2EXP:
-		*exposure_step = ctx->s_ctx.exposure_step*2;
-		break;
-	case HDR_RAW_STAGGER_3EXP:
-		*exposure_step = ctx->s_ctx.exposure_step*3;
-		break;
-	default:
-		*exposure_step = ctx->s_ctx.exposure_step;
-		break;
+	if (ctx->s_ctx.mode[ctx->current_scenario_id].coarse_integ_step) {
+		*exposure_step = ctx->s_ctx.mode[ctx->current_scenario_id].coarse_integ_step;
+	} else {
+		switch (ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode) {
+		case HDR_RAW_STAGGER_2EXP:
+			*exposure_step = ctx->s_ctx.exposure_step*2;
+			break;
+		case HDR_RAW_STAGGER_3EXP:
+			*exposure_step = ctx->s_ctx.exposure_step*3;
+			break;
+		default:
+			*exposure_step = ctx->s_ctx.exposure_step;
+			break;
+		}
 	}
 }
 
