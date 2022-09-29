@@ -106,6 +106,22 @@ static inline int map_util_idx_by_tbl(struct pd_capacity_info *pd_info, unsigned
 	return idx;
 }
 
+struct mtk_em_perf_state *pd_get_util_ps(int cpu, unsigned long util, int *opp)
+{
+	int i, idx;
+	struct pd_capacity_info *pd_info;
+	struct mtk_em_perf_state *ps;
+
+	i = per_cpu(gear_id, cpu);
+	pd_info = &pd_capacity_tbl[i];
+	idx = map_util_idx_by_tbl(pd_info, util);
+	idx = pd_info->util_opp_map[idx];
+	ps = &pd_info->table[idx];
+	*opp = idx;
+	return ps;
+}
+EXPORT_SYMBOL_GPL(pd_get_util_ps);
+
 unsigned long pd_get_util_opp(int cpu, unsigned long util)
 {
 	int i, idx;
@@ -143,6 +159,22 @@ unsigned long pd_get_util_pwr_eff(int cpu, unsigned long util)
 	return pd_info->table[idx].pwr_eff;
 }
 EXPORT_SYMBOL_GPL(pd_get_util_pwr_eff);
+
+struct mtk_em_perf_state *pd_get_freq_ps(int cpu, unsigned long freq, int *opp)
+{
+	int i, idx;
+	struct pd_capacity_info *pd_info;
+	struct mtk_em_perf_state *ps;
+
+	i = per_cpu(gear_id, cpu);
+	pd_info = &pd_capacity_tbl[i];
+	idx = map_freq_idx_by_tbl(pd_info, freq);
+	idx = pd_info->freq_opp_map[idx];
+	ps = &pd_info->table[idx];
+	*opp = idx;
+	return ps;
+}
+EXPORT_SYMBOL_GPL(pd_get_freq_ps);
 
 unsigned long pd_get_freq_opp(int cpu, unsigned long freq)
 {

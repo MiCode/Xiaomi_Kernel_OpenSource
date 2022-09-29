@@ -264,6 +264,7 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 	int cpu, opp = -1;
 #if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
 	unsigned long pwr_eff, cap, freq_legacy, sum_cap = 0;
+	struct mtk_em_perf_state *mtk_ps;
 #else
 	int i;
 #endif
@@ -291,9 +292,9 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 	freq = max(freq, per_cpu(min_freq, cpu));
 
 #if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
-	opp = pd_get_freq_opp(cpu, freq);
-	pwr_eff = pd_get_opp_pwr_eff(cpu, opp);
-	cap = pd_get_opp_capacity(cpu, opp);
+	mtk_ps = pd_get_freq_ps(cpu, freq, &opp);
+	pwr_eff = mtk_ps->pwr_eff;
+	cap = mtk_ps->capacity;
 	freq_legacy = pd_get_opp_freq_legacy(cpu, pd_get_freq_opp_legacy(cpu, freq));
 #else
 	/*
@@ -770,19 +771,20 @@ unsigned long calc_pwr(int cpu, unsigned long task_util)
 {
 	int opp;
 	unsigned long cap;
-	unsigned long dyn_pwr_eff, dyn_pwr, static_pwr, pwr, freq;
+	struct mtk_em_perf_state *ps;
+	unsigned long dyn_pwr_eff, dyn_pwr, static_pwr, pwr;
 
-	opp = pd_get_util_opp(cpu, map_util_perf(task_util));
-	cap = pd_get_opp_capacity(cpu, opp);
+	ps = pd_get_util_ps(cpu, map_util_perf(task_util), &opp);
+	cap = ps->capacity;
 
-	dyn_pwr_eff = pd_get_opp_pwr_eff(cpu, opp);
+	dyn_pwr_eff = ps->pwr_eff;
 	dyn_pwr = dyn_pwr_eff * task_util;
 	static_pwr =  (mtk_get_leakage(cpu, opp, get_cpu_temp(cpu)/1000) * task_util) / cap;
 	pwr = dyn_pwr + static_pwr;
 
-	freq = pd_get_util_freq(cpu, map_util_perf(task_util));
-	freq = pd_get_opp_freq_legacy(cpu, pd_get_freq_opp_legacy(cpu, freq));
-	trace_sched_em_cpu_energy(opp, freq, dyn_pwr_eff, cpu, dyn_pwr, static_pwr);
+	trace_sched_em_cpu_energy(opp,
+				pd_get_opp_freq_legacy(cpu, pd_get_freq_opp_legacy(cpu, ps->freq)),
+				dyn_pwr_eff, cpu, dyn_pwr, static_pwr);
 
 	return pwr;
 }
@@ -791,12 +793,13 @@ unsigned long calc_pwr_eff(int cpu, unsigned long cpu_util)
 {
 	int opp;
 	unsigned long cap;
+	struct mtk_em_perf_state *ps;
 	unsigned long dyn_pwr_eff, static_pwr_eff, pwr_eff;
 
-	opp = pd_get_util_opp(cpu, map_util_perf(cpu_util));
-	cap = pd_get_opp_capacity(cpu, opp);
-	dyn_pwr_eff = pd_get_util_pwr_eff(cpu, cpu_util);
-	static_pwr_eff = mtk_get_leakage(cpu, opp, get_cpu_temp(cpu) >> 10) / cap;
+	ps = pd_get_util_ps(cpu, map_util_perf(cpu_util), &opp);
+	cap = ps->capacity;
+	dyn_pwr_eff = ps->pwr_eff;
+	static_pwr_eff = mtk_get_leakage(cpu, opp, get_cpu_temp(cpu)/1000) / cap;
 	pwr_eff = dyn_pwr_eff + static_pwr_eff;
 
 	trace_sched_calc_pwr_eff(cpu, cpu_util, opp, cap, dyn_pwr_eff, static_pwr_eff, pwr_eff);
