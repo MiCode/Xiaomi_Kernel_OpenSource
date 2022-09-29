@@ -7292,8 +7292,10 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 	if (mtk_crtc && mtk_crtc->base.dev)
 		priv = mtk_crtc->base.dev->dev_private;
 
-	DDPINFO("%s, mode_change_index:0x%x, cmd_null_pkt_en:%d\n", __func__,
-		mtk_crtc->mode_change_index, dsi->ext->params->cmd_null_pkt_en);
+	if (mtk_crtc &&
+		(dsi->ext && dsi->ext->params))
+		DDPINFO("%s, mode_change_index:0x%x, cmd_null_pkt_en:%d\n", __func__,
+			mtk_crtc->mode_change_index, dsi->ext->params->cmd_null_pkt_en);
 
 	if (IS_ERR_OR_NULL(priv)
 		|| (!(mtk_crtc->mode_change_index & MODE_DSI_CLK)
