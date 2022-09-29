@@ -37,6 +37,7 @@
 
 #define COMP_TAG "FPSGO_COMP"
 #define TIME_1MS  1000000
+#define MAX_CONNECT_API_SIZE 20
 
 static struct kobject *comp_kobj;
 static struct rb_root ui_pid_tree;
@@ -46,6 +47,9 @@ static int fpsgo_control;
 static int control_hwui;
 /* EGL, CPU, CAMREA */
 static int control_api_mask = 22;
+
+#define mtk_composer_dprintk_always(fmt, args...) \
+	pr_debug("[FPSGO_COMP]" fmt, ##args)
 
 static inline int fpsgo_com_check_is_surfaceflinger(int pid)
 {
@@ -110,6 +114,9 @@ struct connect_api_info *fpsgo_com_search_and_add_connect_api_info(int pid,
 	tmp->tgid = tgid;
 	tmp->buffer_id = buffer_id;
 	tmp->buffer_key = buffer_key;
+
+	mtk_composer_dprintk_always("Connect API! pid=%d, tgid=%d, buffer_id=%llu",
+		pid, tgid, buffer_id);
 
 	rb_link_node(&tmp->rb_node, parent, p);
 	rb_insert_color(&tmp->rb_node, &connect_api_tree);
@@ -732,7 +739,7 @@ void fpsgo_ctrl2comp_disconnect_api(
 
 	ret = fpsgo_get_BQid_pair(pid, 0, identifier, &buffer_id, &queue_SF, 0);
 	if (!ret || !buffer_id) {
-		FPSGO_LOGI("disconnect %d: %llu, %llu\n",
+		mtk_composer_dprintk_always("[Disconnect] NoBQid %d: %llu, %llu\n",
 				pid, buffer_id, identifier);
 		fpsgo_main_trace("COMP: disconnect %d: %llu, %llu\n",
 				pid, buffer_id, identifier);
@@ -743,12 +750,16 @@ void fpsgo_ctrl2comp_disconnect_api(
 	connect_api =
 		fpsgo_com_search_and_add_connect_api_info(pid, buffer_id, 0);
 	if (!connect_api) {
+		mtk_composer_dprintk_always("[Disconnect] NoConnectApi %d: %llu, %llu\n",
+			pid, buffer_id, identifier);
 		FPSGO_COM_TRACE(
 			"%s: FPSGo composer distory connect api fail : %d !!!!\n",
 			__func__, pid);
 		fpsgo_render_tree_unlock(__func__);
 		return;
 	}
+	mtk_composer_dprintk_always("[Disconnect] Success %d: %llu, %llu\n",
+		pid, buffer_id, identifier);
 	fpsgo_com_clear_connect_api_render_list(connect_api);
 	rb_erase(&connect_api->rb_node, &connect_api_tree);
 	kfree(connect_api);
@@ -762,6 +773,7 @@ void fpsgo_fstb2comp_check_connect_api(void)
 	struct rb_node *n;
 	struct connect_api_info *iter;
 	struct task_struct *tsk;
+	int size = 0;
 
 	FPSGO_COM_TRACE("%s ", __func__);
 
@@ -779,9 +791,15 @@ void fpsgo_fstb2comp_check_connect_api(void)
 			rb_erase(&iter->rb_node, &connect_api_tree);
 			n = rb_first(&connect_api_tree);
 			kfree(iter);
-		} else
+			size = 0;
+		} else {
 			n = rb_next(n);
+			size++;
+		}
 	}
+
+	if (size >= MAX_CONNECT_API_SIZE)
+		mtk_composer_dprintk_always("connect api tree size: %d", size);
 
 	fpsgo_render_tree_unlock(__func__);
 
