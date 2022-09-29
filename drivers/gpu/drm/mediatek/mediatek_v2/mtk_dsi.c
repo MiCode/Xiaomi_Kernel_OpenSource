@@ -5115,6 +5115,8 @@ static void _mtk_mipi_dsi_write_gce(struct mtk_dsi *dsi,
 				cmdq_mask, handle);
 	mtk_ddp_write_mask(&dsi->ddp_comp, cmdq_size,
 				DSI_CMDQ_SIZE, CMDQ_SIZE, handle);
+	mtk_ddp_write_mask(&dsi->ddp_comp, CMDQ_SIZE_SEL,
+				DSI_CMDQ_SIZE, CMDQ_SIZE_SEL, handle);
 }
 
 int mtk_mipi_dsi_write_gce(struct mtk_dsi *dsi,
