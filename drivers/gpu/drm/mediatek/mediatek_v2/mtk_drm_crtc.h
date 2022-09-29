@@ -491,6 +491,7 @@ enum CRTC_GCE_EVENT_TYPE {
 	EVENT_OVLSYS_WDMA0_EOF,
 	EVENT_OVLSYS1_WDMA0_EOF,
 	EVENT_SYNC_TOKEN_VIDLE_POWER_ON,
+	EVENT_SYNC_TOKEN_CHECK_TRIGGER_MERGE,
 	EVENT_TYPE_MAX,
 };
 
@@ -709,6 +710,13 @@ struct mtk_msync2 {
 	atomic_t LFR_final_state;
 };
 
+struct mtk_pre_te_cfg {
+	bool prefetch_te_en;
+	bool vidle_apsrc_off_en;
+	bool vidle_dsi_pll_off_en;
+	bool merge_trigger_en;
+};
+
 struct dual_te {
 	bool en;
 	atomic_t te_switched;
@@ -866,9 +874,7 @@ struct mtk_drm_crtc {
 	atomic_t cmdq_done;
 	wait_queue_head_t signal_fence_task_wq;
 
-	bool prefetch_te_en;
-	bool vidle_apsrc_off_en;
-	bool vidle_dsi_pll_off_en;
+	struct mtk_pre_te_cfg pre_te_cfg;
 
 	struct mtk_msync2 msync2;
 	struct mtk_panel_spr_params *panel_spr_params;
