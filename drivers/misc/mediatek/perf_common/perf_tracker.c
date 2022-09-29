@@ -181,10 +181,17 @@ static unsigned int cpudvfs_get_cur_freq(int cluster_id, bool is_mcupm)
 
 	return 0;
 }
-
-#define DSU_VOLT_2_CLUSTER	0x514
+/*
+ *cluster's volt: start from 0x514
+ *cluster's freq: start from 0x11e0
+ */
+/*2 cluster: B Vproc, >L Vproc, B Vsram, L Vsram */
+#define DSU_VOLT_2_CLUSTER	0x518
+/*2 cluster: L, B, >DSU */
 #define DSU_FREQ_2_CLUSTER	0x11e8
+/*3 cluster: B Vproc, M Vproc, >L Vproc, B Vsram, M Vsram, L Vsram */
 #define DSU_VOLT_3_CLUSTER	0x51c
+/*3 cluster: L, M, B, >DSU */
 #define DSU_FREQ_3_CLUSTER	0x11ec
 #define MCUPM_OFFSET_BASE	0x133c
 

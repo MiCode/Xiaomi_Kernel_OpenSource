@@ -59,6 +59,7 @@ static int init_cpu_cluster_info(void)
 	}
 
 	cluster_nr = cluster_num;
+	pr_info("%s: cluster_nr %d\n", TAG, cluster_nr);
 	return ret;
 }
 
