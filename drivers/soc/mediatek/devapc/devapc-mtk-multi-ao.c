@@ -882,18 +882,18 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 	dispatch_key[sizeof(dispatch_key) - 1] = '\0';
 
 	/* Callback func for vio master */
-	if (!strncasecmp(vio_master, "MD", 2))
+	if (!strncasecmp(vio_master, "MD", 2)) {
 		id = INFRA_SUBSYS_MD;
-
-	else if (!strncasecmp(vio_master, "CONN", 4) ||
+		ret_cb = DEVAPC_NOT_KE;
+	} else if (!strncasecmp(vio_master, "CONN", 4) ||
 			!strncasecmp(dispatch_key, "CONN", 4))
 		id = INFRA_SUBSYS_CONN;
 
 	else if (!strncasecmp(vio_master, "PCIE", 4) ||
-			!strncasecmp(dispatch_key, "PCIE", 4))
+			!strncasecmp(dispatch_key, "PCIE", 4)) {
 		id = INFRA_SUBSYS_PCIE;
-
-	else if (!strncasecmp(vio_master, "TINYSYS", 7))
+		ret_cb = DEVAPC_NOT_KE;
+	} else if (!strncasecmp(vio_master, "TINYSYS", 7))
 		id = INFRA_SUBSYS_ADSP;
 
 	else if (!strncasecmp(vio_master, "GCE", 3) ||
@@ -923,7 +923,8 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 
 		/* always call clkmgr cb if it's registered */
 		if (viocb->id == DEVAPC_SUBSYS_CLKMGR &&
-				viocb->debug_dump)
+				viocb->debug_dump &&
+				ret_cb != DEVAPC_NOT_KE)
 			viocb->debug_dump();
 	}
 
