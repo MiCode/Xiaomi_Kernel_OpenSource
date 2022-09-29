@@ -6868,6 +6868,8 @@
 			pinctrl-10 = <&connsys_combo_gpio_on>;
 
 			interrupt-parent = <&pio>;
+			mt6376-gpio = <&pio 231 0>,
+				      <&pio 241 0>;
 			interrupts = <231 IRQ_TYPE_EDGE_FALLING>;
 		};
 
