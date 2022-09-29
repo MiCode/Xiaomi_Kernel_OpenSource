@@ -12,10 +12,4 @@
 			<&topckgen_clk CLK_TOP_DSP_SEL>,
 			<&topckgen_clk CLK_TOP_TL_SEL>;
 	};
-
-	bring-up-pd-ufs0_phy_shutdown {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_UFS0_PHY_SHUTDOWN>;
-		#set-syscore-device;
-	};
 };
