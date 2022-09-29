@@ -8507,7 +8507,7 @@
 			gpr-offset = <0x2fd1c>;
 			gpr-id = <6>;
 			gmpu-table-size = <0x00400000>;
-			protected-reserve-size = <0x400000>;
+			protected-reserve-size = <0x800000>;
 		};
 
 		mali: mali@13000000 {
