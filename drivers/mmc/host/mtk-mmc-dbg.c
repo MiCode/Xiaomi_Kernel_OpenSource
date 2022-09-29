@@ -958,9 +958,11 @@ int mmc_dbg_register(struct mmc_host *mmc)
 	mmc_aee_buffer = kzalloc(MMC_AEE_BUFFER_SIZE, GFP_NOFS);
 
 	/* Blocktag */
+#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 	ret = mmc_mtk_biolog_init(mmc);
 	if (ret)
 		return ret;
+#endif
 
 	spin_lock_init(&cmd_hist_lock);
 

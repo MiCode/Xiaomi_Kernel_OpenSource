@@ -43,7 +43,9 @@ static int perf_tracker_on;
 static DEFINE_MUTEX(perf_ctl_mutex);
 
 static struct mtk_btag_mictx_iostat_struct iostat;
+#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 static struct mtk_btag_mictx_id ufs_mictx_id = {.storage = BTAG_STORAGE_UFS};
+#endif
 
 #if IS_ENABLED(CONFIG_MTK_GPU_SWPM_SUPPORT)
 static unsigned int gpu_pmu_enable;
@@ -379,6 +381,7 @@ void perf_tracker(u64 wallclock,
 		memset(iostat_ptr, 0,
 			sizeof(struct mtk_btag_mictx_iostat_struct));
 #endif
+
 	/* cpu stall ratio */
 	for (i = 0; i < nr_cpu_ids || i < max_cpus; i++)
 		stall[i] = cpu_stall_ratio(i);
@@ -390,6 +393,7 @@ void perf_tracker(u64 wallclock,
 			iostat_ptr,
 			stall
 			);
+
 }
 
 /*
