@@ -1865,7 +1865,6 @@ static void trigger_uarthub_error_worker_handler(struct work_struct *work)
 				(tv_now_assert.tv_sec > tv_end_assert.tv_sec)) == false) {
 			uarthub_core_irq_clear_ctrl();
 			uarthub_core_irq_mask_ctrl(0);
-			mutex_unlock(&g_clear_trx_req_lock);
 			tv_end_assert = tv_now_assert;
 			tv_end_assert.tv_sec += 1;
 			return;
