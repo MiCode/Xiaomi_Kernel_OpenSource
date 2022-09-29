@@ -811,11 +811,11 @@ int mtk8250_uart_hub_dev0_set_tx_request(struct tty_struct *tty)
 	#endif
 
 		/*dump fifo status*/
-		mtk8250_uart_start_record(tty);
+		//mtk8250_uart_start_record(tty);
 		/*clear uart fifo*/
 		mtk8250_clear_fifo(tty);
 		/*dump fifo status*/
-		mtk8250_uart_end_record(tty);
+		//mtk8250_uart_end_record(tty);
 
 exit:
 		return ret;
@@ -1057,9 +1057,6 @@ static void mtk8250_dma_rx_complete(void *param)
 	if (data->support_hub == 1) {
 		if (total <= UART_DUMP_BUF_LEN)
 			memcpy(rx_record.rec[idx].rec_buf, ptr, cnt);
-		else
-			pr_info("[%s] total = %d, exceeds buf size: %d\n",
-				__func__, total, UART_DUMP_BUF_LEN);
 	}
 #endif
 
