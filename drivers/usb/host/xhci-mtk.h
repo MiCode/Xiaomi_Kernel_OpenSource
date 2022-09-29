@@ -179,9 +179,5 @@ int xhci_mtk_drop_ep(struct usb_hcd *hcd, struct usb_device *udev,
 		     struct usb_host_endpoint *ep);
 int xhci_mtk_check_bandwidth(struct usb_hcd *hcd, struct usb_device *udev);
 void xhci_mtk_reset_bandwidth(struct usb_hcd *hcd, struct usb_device *udev);
-#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
-extern void xhci_link_segments(struct xhci_segment *,
-			struct xhci_segment *,
-			enum xhci_ring_type, bool);
-#endif
+
 #endif		/* _XHCI_MTK_H_ */

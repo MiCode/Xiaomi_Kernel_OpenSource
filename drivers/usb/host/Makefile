@@ -19,12 +19,7 @@ ifneq ($(CONFIG_USB_XHCI_DBGCAP), )
 	xhci-hcd-y += xhci-dbgcap.o xhci-dbgtty.o
 endif
 
-ifneq ($(CONFIG_USB_XHCI_MTK), )
-ifneq ($(CONFIG_MTK_USB_OFFLOAD), )
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/usb/usb_offload
-endif
 xhci-mtk-hcd-y := xhci-mtk.o xhci-mtk-sch.o
-endif
 
 xhci-plat-hcd-y := xhci-plat.o
 ifneq ($(CONFIG_USB_XHCI_MVEBU), )

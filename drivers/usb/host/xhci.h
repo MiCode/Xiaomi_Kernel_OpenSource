@@ -1943,12 +1943,6 @@ struct xhci_hcd {
 
 	void			*dbc;
 
-#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
-
-	struct xhci_vendor_ops *vendor_ops;
-
-#endif
-
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);
@@ -1969,11 +1963,6 @@ struct xhci_driver_overrides {
 			     struct usb_host_endpoint *ep);
 	int (*check_bandwidth)(struct usb_hcd *, struct usb_device *);
 	void (*reset_bandwidth)(struct usb_hcd *, struct usb_device *);
-#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
-	int (*address_device)(struct usb_hcd *hcd, struct usb_device *udev);
-	int (*bus_suspend)(struct usb_hcd *hcd);
-	int (*bus_resume)(struct usb_hcd *hcd);
-#endif
 };
 
 #define	XHCI_CFC_DELAY		10
@@ -2130,9 +2119,6 @@ int xhci_drop_endpoint(struct usb_hcd *hcd, struct usb_device *udev,
 		       struct usb_host_endpoint *ep);
 int xhci_check_bandwidth(struct usb_hcd *hcd, struct usb_device *udev);
 void xhci_reset_bandwidth(struct usb_hcd *hcd, struct usb_device *udev);
-#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
-int xhci_address_device(struct usb_hcd *hcd, struct usb_device *udev);
-#endif
 int xhci_disable_slot(struct xhci_hcd *xhci, u32 slot_id);
 int xhci_ext_cap_init(struct xhci_hcd *xhci);
 
@@ -2240,56 +2226,6 @@ static inline struct xhci_ring *xhci_urb_to_transfer_ring(struct xhci_hcd *xhci,
 					urb->stream_id);
 }
 
-#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
-/**
- * struct xhci_vendor_ops - function callbacks for vendor specific operations
- * @vendor_init: called for vendor init process
- * @vendor_cleanup: called for vendor cleanup process
- * @is_usb_offload_enabled: called to check if usb offload enabled
- * @alloc_dcbaa: called when allocating vendor specific dcbaa
- * @free_dcbaa: called to free vendor specific dcbaa
- * @alloc_transfer_ring: called when remote transfer ring allocation is required
- * @free_transfer_ring: called to free vendor specific transfer ring
- * @sync_dev_ctx: called when synchronization for device context is required
- * @alloc_container_ctx: called when allocating vendor specific container context
- * @free_container_ctx: called to free vendor specific container context
- */
-struct xhci_vendor_ops {
-	int (*vendor_init)(struct xhci_hcd *xhci);
-	void (*vendor_cleanup)(struct xhci_hcd *xhci);
-	bool (*is_usb_offload_enabled)(struct xhci_hcd *xhci,
-				       struct xhci_virt_device *vdev,
-				       unsigned int ep_index);
-
-	struct xhci_device_context_array *(*alloc_dcbaa)(struct xhci_hcd *xhci,
-							 gfp_t flags);
-	void (*free_dcbaa)(struct xhci_hcd *xhci);
-
-	struct xhci_ring *(*alloc_transfer_ring)(struct xhci_hcd *xhci,
-			u32 endpoint_type, enum xhci_ring_type ring_type,
-			unsigned int max_packet, gfp_t mem_flags);
-	void (*free_transfer_ring)(struct xhci_hcd *xhci,
-			struct xhci_ring *ring, unsigned int ep_index);
-	int (*sync_dev_ctx)(struct xhci_hcd *xhci, unsigned int slot_id);
-	void (*alloc_container_ctx)(struct xhci_hcd *xhci, struct xhci_container_ctx *ctx,
-				    int type, gfp_t flags);
-	void (*free_container_ctx)(struct xhci_hcd *xhci, struct xhci_container_ctx *ctx);
-#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
-	bool (*is_streaming)(struct xhci_hcd *xhci);
-#endif
-};
-
-struct xhci_vendor_ops *xhci_vendor_get_ops(struct xhci_hcd *xhci);
-
-int xhci_vendor_sync_dev_ctx(struct xhci_hcd *xhci, unsigned int slot_id);
-void xhci_vendor_free_transfer_ring(struct xhci_hcd *xhci,
-		struct xhci_ring *ring, unsigned int ep_index);
-bool xhci_vendor_is_usb_offload_enabled(struct xhci_hcd *xhci,
-		struct xhci_virt_device *virt_dev, unsigned int ep_index);
-#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD)
-bool xhci_vendor_is_streaming(struct xhci_hcd *xhci);
-#endif
-#endif
 /*
  * TODO: As per spec Isochronous IDT transmissions are supported. We bypass
  * them anyways as we where unable to find a device that matches the
