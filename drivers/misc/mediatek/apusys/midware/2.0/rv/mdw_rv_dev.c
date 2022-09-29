@@ -272,6 +272,7 @@ int mdw_rv_dev_set_param(struct mdw_rv_dev *mrdev, enum mdw_info_type type, uint
 
 	if (type == MDW_INFO_KLOG) {
 		g_mdw_klog = val;
+		goto out;
 	} else if (type >= MDW_INFO_MAX) {
 		ret = -EINVAL;
 		goto out;
