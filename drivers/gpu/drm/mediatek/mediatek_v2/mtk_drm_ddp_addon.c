@@ -990,8 +990,7 @@ void mtk_addon_connect_embed(struct drm_crtc *crtc, unsigned int ddp_mode,
 
 	attach_comp_id = mtk_crtc_find_comp(crtc, ddp_mode, module_data->attach_comp);
 	if (attach_comp_id == -1 || attach_comp_id >= DDP_COMPONENT_ID_MAX) {
-		if (module_data->attach_comp >= 0)
-			comp = priv->ddp_comp[module_data->attach_comp];
+		comp = priv->ddp_comp[module_data->attach_comp];
 		DDPPR_ERR(
 		"Attach module:%s is not in path mode %d attach_comp_id %d\n",
 		mtk_dump_comp_str(comp), ddp_mode, attach_comp_id);
