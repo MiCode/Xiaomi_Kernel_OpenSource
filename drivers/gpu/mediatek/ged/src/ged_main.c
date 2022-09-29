@@ -131,7 +131,6 @@ static const struct proc_ops ged_proc_fops = {
 
 unsigned int g_ged_gpueb_support;
 unsigned int g_ged_fdvfs_support;
-int g_ged_slide_window_support;
 unsigned int g_ged_gpu_freq_notify_support;
 unsigned int g_fastdvfs_mode;
 unsigned int g_fastdvfs_margin;
@@ -484,28 +483,6 @@ GED_ERROR check_eb_config(void)
 	return ret;
 }
 
-GED_ERROR check_afs_config(void)
-{
-	struct device_node *gpu_afs_node;
-	int ret = GED_OK;
-
-	gpu_afs_node = of_find_compatible_node(NULL, NULL, "mediatek,gpu_afs");
-	if (!gpu_afs_node) {
-		GED_LOGE("No gpu afs node.");
-		g_ged_slide_window_support = -1;
-	} else {
-		ret = of_property_read_u32(gpu_afs_node, "afs-policy-support",
-			&g_ged_slide_window_support);
-		if (unlikely(ret))
-			GED_LOGE("fail to read afs-policy-support (%d)", ret);
-	}
-	if (g_ged_slide_window_support == 1)
-		g_loading_slide_enable = 1;
-
-	return ret;
-}
-
-
 /******************************************************************************
  * Module related
  *****************************************************************************/
@@ -530,7 +507,6 @@ static int ged_pdrv_probe(struct platform_device *pdev)
 	g_ged_gpu_freq_notify_support = 0;
 	g_fastdvfs_mode		= 0;
 	g_fastdvfs_margin   = 0;
-	g_loading_slide_enable = 0;
 	err = check_eb_config();
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE("Failed to check ged config!\n");
@@ -541,12 +517,6 @@ static int ged_pdrv_probe(struct platform_device *pdev)
 		fastdvfs_proc_init();
 		fdvfs_init();
 		GED_LOGI("@%s: fdvfs init done\n", __func__);
-	}
-
-	err = check_afs_config();
-	if (unlikely(err != GED_OK)) {
-		GED_LOGE("Failed to check ged config!\n");
-		goto ERROR;
 	}
 
 	err = ged_sysfs_init();

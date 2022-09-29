@@ -741,12 +741,14 @@ static KOBJ_ATTR_RW(fw_idle);
 //-----------------------------------------------------------------------------
 
 unsigned int g_loading_stride_size = GED_DEFAULT_SLIDE_STRIDE_SIZE;
+unsigned int g_loading_target_mode;
 
 static ssize_t loading_stride_size_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "%d\n", g_loading_stride_size);
+	return scnprintf(buf, PAGE_SIZE, "%d\n",
+		g_loading_target_mode * 100 + g_loading_stride_size);
 }
 
 static ssize_t loading_stride_size_store(struct kobject *kobj,
@@ -759,9 +761,18 @@ static ssize_t loading_stride_size_store(struct kobject *kobj,
 	if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &i32Value) == 0) {
-				if (i32Value <= 0)
-					i32Value = 1;
-				g_loading_stride_size = i32Value;
+				if (i32Value < 200 && i32Value > 0) {
+					if (i32Value < 100) {
+						g_loading_target_mode = 0;
+						g_loading_stride_size = i32Value;
+					} else if (i32Value < 200 && i32Value > 100) {
+						g_loading_target_mode = 1;
+						g_loading_stride_size = i32Value % 100;
+					}
+				} else {
+					g_loading_target_mode = 0;
+					g_loading_stride_size = GED_DEFAULT_SLIDE_STRIDE_SIZE;
+				}
 			}
 		}
 	}
@@ -900,7 +911,6 @@ static KOBJ_ATTR_RW(fallback_window_size);
 
 //-----------------------------------------------------------------------------
 unsigned int g_loading_slide_window_size = GED_DEFAULT_SLIDE_WINDOW_SIZE;
-unsigned int g_loading_slide_enable;
 
 static ssize_t loading_window_size_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
@@ -919,12 +929,10 @@ static ssize_t loading_window_size_store(struct kobject *kobj,
 	if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &i32Value) == 0) {
-				if (i32Value == 0)
-					g_loading_slide_enable = 0;
-				else if (i32Value > 0)
-					g_loading_slide_enable = 1;
-
-				g_loading_slide_window_size = i32Value;
+				if (i32Value > 0 && i32Value < 256)
+					g_loading_slide_window_size = i32Value;
+				else
+					g_loading_slide_window_size = GED_DEFAULT_SLIDE_WINDOW_SIZE;
 			}
 		}
 	}

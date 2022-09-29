@@ -1255,41 +1255,6 @@ static int _loading_avg(int ui32loading)
 	return sum / ARRAY_SIZE(data);
 }
 
-static int _slide_window_loading(unsigned int ui32loading)
-{
-	static int data[MAX_SLIDE_WINDOW_SIZE];
-	static int idx;
-	unsigned int i = 0;
-	unsigned int slide_loading = 0;
-	unsigned int sum_slide = 0;
-
-	if (g_loading_slide_window_size == 0 || g_loading_stride_size == 0)
-		return 0;
-
-	unsigned int slide_count = (g_loading_slide_window_size/g_loading_stride_size);
-
-	if (slide_count == 0)
-		slide_count = 1;
-
-	int cidx = ++idx % slide_count;
-
-	data[cidx] = ui32loading;
-
-	if (slide_count > MAX_SLIDE_WINDOW_SIZE)
-		slide_count = MAX_SLIDE_WINDOW_SIZE;
-
-	for (i = 0; i <= slide_count-1; i++)
-		sum_slide += data[i];
-
-	slide_loading = sum_slide / slide_count;
-
-	if (slide_loading > 100)
-		slide_loading = 100;
-
-	return slide_loading;
-
-}
-
 static bool ged_dvfs_policy(
 		unsigned int ui32GPULoading, unsigned int *pui32NewFreqID,
 		unsigned long t, long phase, unsigned long ul3DFenceDoneTime,
@@ -1298,7 +1263,7 @@ static bool ged_dvfs_policy(
 	int ui32GPUFreq = ged_get_cur_oppidx();
 	unsigned int sentinalLoading = 0;
 	unsigned int ui32GPULoading_avg;
-
+	unsigned int window_size_ms = g_loading_slide_window_size;
 	int i32NewFreqID = (int)ui32GPUFreq;
 
 	unsigned long ui32IRQFlags;
@@ -1357,30 +1322,10 @@ static bool ged_dvfs_policy(
 
 	loading_mode = ged_get_dvfs_loading_mode();
 
-	if (loading_mode == LOADING_MAX_3DTA_COM) {
-		ui32GPULoading =
-		 MAX(g_Util_Ex.util_3d, g_Util_Ex.util_ta) +
-		g_Util_Ex.util_compute;
-	} else if (loading_mode == LOADING_MAX_3DTA) {
-		ui32GPULoading =
-		 MAX(g_Util_Ex.util_3d, g_Util_Ex.util_ta);
-	} else if (loading_mode == LOADING_ITER) {
-		ui32GPULoading = g_Util_Ex.util_iter;
-	} else if (loading_mode == LOADING_MAX_ITERMCU) {
-		ui32GPULoading = MAX(g_Util_Ex.util_iter, g_Util_Ex.util_mcu);
-	}
+	if (ged_get_policy_state() == POLICY_STATE_FALLBACK) // fallback mode
+		window_size_ms = g_fallback_window_size;
 
-	Policy__Loading_based__Loading__Detail(
-					g_Util_Ex.util_active,
-					g_Util_Ex.util_3d,
-					g_Util_Ex.util_ta,
-					g_Util_Ex.util_compute,
-					g_Util_Ex.util_iter,
-					g_Util_Ex.util_mcu,
-					loading_mode);
-
-	if (g_loading_slide_enable)
-		ui32GPULoading = _slide_window_loading(ui32GPULoading);
+	ui32GPULoading = gpu_util_history_query_loading(window_size_ms * 1000);
 
 	ged_log_buf_print(ghLogBuf_DVFS,
 		"[GED_K] timer: loading %u", ui32GPULoading);
@@ -1521,7 +1466,7 @@ static bool ged_dvfs_policy(
 			ullWnd);
 
 		ui32GPULoading_avg = _loading_avg(ui32GPULoading);
-		Policy__Loading_based__Loading(ui32GPULoading, ui32GPULoading_avg);
+		Policy__Loading_based__Loading(ui32GPULoading, ui32GPULoading_avg, loading_mode);
 
 		int ultra_high = (120 - gx_tb_dvfs_margin_cur >= 95)
 			? 95 : 120 - gx_tb_dvfs_margin_cur;

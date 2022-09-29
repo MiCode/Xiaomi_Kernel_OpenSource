@@ -1279,28 +1279,13 @@ noinline void Policy__Loading_based__Opp(int v1)
 	}
 }
 
-noinline void Policy__Loading_based__Loading(unsigned int v1, unsigned int v2)
+noinline void Policy__Loading_based__Loading(unsigned int v1, unsigned int v2, unsigned int v3)
 {
 	char buf[256];
 	int cx;
 
 	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf), "cur=%u, average=%u\n", v1, v2);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
-noinline void Policy__Loading_based__Loading__Detail(unsigned int v1, unsigned int v2,
-	unsigned int v3, unsigned int v4, unsigned int v5, unsigned int v6, int v7)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf),
-			"active=%u, 3d=%u, ta=%u, compute=%u, iter=%u, mcu=%u, mode=%d\n",
-			v1, v2, v3, v4, v5, v6, v7);
+		cx = snprintf(buf, sizeof(buf), "cur=%u, average=%u, mode=%d\n", v1, v2, v3);
 		if (cx >= 0 && cx < sizeof(buf))
 			trace_printk(buf);
 	}

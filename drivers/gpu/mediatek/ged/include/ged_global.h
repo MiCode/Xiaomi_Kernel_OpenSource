@@ -60,13 +60,12 @@ extern unsigned int g_ged_gpu_freq_notify_support;
 extern unsigned int g_fastdvfs_margin;
 extern unsigned int g_loading_stride_size;
 extern unsigned int g_loading_slide_window_size;
-extern unsigned int g_loading_slide_enable;
+extern unsigned int g_loading_target_mode;
 extern unsigned int g_fallback_mode;
 extern unsigned int g_fallback_time;
 extern unsigned int g_fallback_window_size;
 extern unsigned int g_frame_target_mode;
 extern unsigned int g_frame_target_time;
-extern int g_ged_slide_window_support;
 extern u64 fb_timeout;
 extern u64 lb_timeout;
 

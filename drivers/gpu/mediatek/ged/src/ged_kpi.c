@@ -864,6 +864,23 @@ static GED_BOOL ged_kpi_find_and_delete_miss_tag(u64 ulID, int i32FrameID
 
 	return ret;
 }
+
+// input argument unit: nanosecond
+static void set_lb_timeout(int t_gpu_target)
+{
+	switch (g_loading_target_mode) {
+	case 0:
+		lb_timeout = (u64)g_loading_stride_size * 1000000; //ms to ns
+		break;
+	case 1:
+		lb_timeout = (u64)t_gpu_target * g_loading_stride_size / 10;
+		break;
+	default:
+		lb_timeout = (u64)g_loading_stride_size * 1000000;
+		break;
+	}
+}
+
 /* ------------------------------------------------------------------- */
 /* for FB-base/LB-base mode switch */
 /* ------------------------------------------------------------------- */
@@ -1163,10 +1180,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		if (g_force_gpu_dvfs_fallback) {   // main producer ratio < thresh (LB)
 			// use LB policy
 			ged_set_policy_state(POLICY_STATE_LB);
-			if (g_loading_slide_enable)
-				lb_timeout = (u64) g_loading_stride_size * 1000000; //ms to ns
-			else
-				lb_timeout = psKPI->t_gpu_target << 1;
+			set_lb_timeout(psKPI->t_gpu_target);
 		} else {   // main producer ratio >= thresh (FB)
 			if (main_head == psHead) {   // is main head
 				if (ged_get_policy_state() ==
@@ -1174,11 +1188,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					// cannot obtain workload of first frame, so use LB policy
 					ged_set_policy_state(POLICY_STATE_FORCE_LB);
 					force_fallback = 1;
-					if (g_loading_slide_enable)
-						lb_timeout = (u64)g_loading_stride_size *
-							1000000; //ms to ns
-					else
-						lb_timeout = psKPI->t_gpu_target << 1;
+					set_lb_timeout(psKPI->t_gpu_target);
 				} else {   // previous commmit is FB or fallback
 					// use FB policy
 					ged_set_policy_state(POLICY_STATE_FB);
