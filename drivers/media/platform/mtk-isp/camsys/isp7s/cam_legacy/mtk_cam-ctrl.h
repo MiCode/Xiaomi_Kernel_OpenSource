@@ -245,4 +245,5 @@ int mtk_camsv_special_hw_scenario_handler(struct mtk_cam_device *cam,
 	unsigned int hw_scen, unsigned int tag_idx);
 int mtk_camsv_pure_raw_scenario_handler(struct mtk_cam_ctx *ctx,
 	unsigned int frame_seq_no, int tag_idx);
+void mtk_cam_m2m_try_apply_cq(struct mtk_cam_ctx *ctx);
 #endif

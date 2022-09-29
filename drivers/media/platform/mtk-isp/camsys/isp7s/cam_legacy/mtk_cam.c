@@ -931,7 +931,7 @@ int mtk_cam_get_timestamp(struct mtk_cam_ctx *ctx,
 		dev_info(ctx->cam->dev,
 			 "ctx(%d): can't get MTK_RAW_META_OUT_0 buf from req(%d)\n",
 			 ctx->stream_id, s_data->frame_seq_no);
-		return -1;
+		return 0;
 	}
 
 	vb = &buf->vbb.vb2_buf;
@@ -939,7 +939,7 @@ int mtk_cam_get_timestamp(struct mtk_cam_ctx *ctx,
 		dev_info(ctx->cam->dev,
 			 "%s:ctx(%d): can't get vb2 buf\n",
 			 __func__, ctx->stream_id);
-		return -1;
+		return 0;
 	}
 
 	vaddr = vb2_plane_vaddr(&buf->vbb.vb2_buf, 0);
@@ -947,7 +947,7 @@ int mtk_cam_get_timestamp(struct mtk_cam_ctx *ctx,
 		dev_info(ctx->cam->dev,
 			 "%s:ctx(%d): can't get plane_vadd\n",
 			 __func__, ctx->stream_id);
-		return -1;
+		return 0;
 	}
 
 	if ((s_data->working_buf->buffer.va == (void *)NULL) ||
@@ -955,7 +955,7 @@ int mtk_cam_get_timestamp(struct mtk_cam_ctx *ctx,
 		dev_info(ctx->cam->dev,
 			 "%s:ctx(%d): can't get working_buf\n",
 			 __func__, ctx->stream_id);
-		return -1;
+		return 0;
 	}
 
 	fho_va = (u32 *)(s_data->working_buf->buffer.va +
@@ -5929,9 +5929,8 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 	struct mtk_mraw_working_buf_entry *mraw_buf_entry[MAX_MRAW_PIPES_PER_STREAM];
 	struct mtk_cam_request_stream_data *s_data;
 	struct mtk_cam_request *req;
-	bool is_m2m_apply_cq = false;
 	bool is_mux_change_with_apply_cq = false;
-	int i;
+	int i, is_first_cq;
 	struct mtk_raw_device *raw_dev;
 	struct mtk_mraw_device *mraw_dev;
 	struct mtk_cam_scen scen;
@@ -6109,35 +6108,6 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 	sv_buf_entry->sv_cq_desc_size = (mtk_cam_scen_is_m2m(&scen)) ?
 		0 : ipi_msg->ack_data.frame_result.camsv[0].size;
 
-	if (mtk_cam_scen_is_m2m(&scen)) {
-		struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
-		struct mtk_camsys_ctrl_state *state_temp;
-		bool allow_m2m_trigger = true;
-
-		/* List state-queue status*/
-		spin_lock(&sensor_ctrl->camsys_state_lock);
-		list_for_each_entry(state_temp, &sensor_ctrl->camsys_state_list,
-				    state_element) {
-			if (state_temp->estate >= E_STATE_CQ)
-				allow_m2m_trigger = false;
-		}
-		spin_unlock(&sensor_ctrl->camsys_state_lock);
-
-		/* here do nothing */
-		spin_lock(&ctx->composed_buffer_list.lock);
-		dev_dbg(dev, "%s ctx->composed_buffer_list.cnt %d\n", __func__,
-			ctx->composed_buffer_list.cnt);
-
-		if (allow_m2m_trigger && ctx->composed_buffer_list.cnt == 0)
-			is_m2m_apply_cq = true;
-
-		spin_unlock(&ctx->composed_buffer_list.lock);
-
-		spin_lock(&ctx->processing_buffer_list.lock);
-		dev_dbg(dev, "%s ctx->processing_buffer_list.cnt %d\n", __func__,
-			ctx->processing_buffer_list.cnt);
-		spin_unlock(&ctx->processing_buffer_list.lock);
-	}
 	if (mtk_cam_scen_is_ext_isp(&scen) &&
 		ctx->ext_isp_meta_off &&
 		ctx->ext_isp_pureraw_off) {
@@ -6151,10 +6121,11 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 			ctx->pipe->scen_active.id = MTK_CAM_SCEN_NORMAL;
 		}
 	}
-	/* initial frame */
-	if ((ctx->composed_frame_seq_no == 1 &&
-		!mtk_cam_scen_is_time_shared(&scen)) ||
-	    is_m2m_apply_cq || is_mux_change_with_apply_cq) {
+
+	/* directly apply cq */
+	is_first_cq = (ctx->composed_frame_seq_no == 1);
+	if ((is_first_cq && !mtk_cam_scen_is_time_shared(&scen))
+	    || is_mux_change_with_apply_cq) {
 		struct device *dev;
 
 		if (mtk_cam_scen_is_ext_isp(&scen)) {
@@ -6194,13 +6165,6 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 		}
 
 		raw_dev = dev_get_drvdata(dev);
-
-		if (mtk_cam_scen_is_m2m(&scen)) {
-			dev_dbg(dev, "%s M2M apply_cq, composed_buffer_list.cnt %d frame_seq_no %d\n",
-				__func__, ctx->composed_buffer_list.cnt,
-				s_data->frame_seq_no);
-			mtk_cam_m2m_enter_cq_state(&s_data->state);
-		}
 
 		/* mmqos update */
 		mtk_cam_qos_bw_calc(ctx, s_data->raw_dmas, false);
@@ -6288,10 +6252,6 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 	list_add_tail(&buf_entry->list_entry,
 		      &ctx->composed_buffer_list.list);
 	ctx->composed_buffer_list.cnt++;
-	if (mtk_cam_scen_is_m2m(&scen)) {
-		dev_dbg(dev, "%s M2M composed_buffer_list.cnt %d\n",
-			__func__, ctx->composed_buffer_list.cnt);
-	}
 	spin_unlock(&ctx->composed_buffer_list.lock);
 
 	for (i = 0; i < ctx->used_mraw_num; i++) {
@@ -6309,6 +6269,11 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 	spin_unlock(&ctx->sv_composed_buffer_list.lock);
 
 	spin_unlock(&ctx->using_buffer_list.lock);
+
+	/* apply next composed buffer if it is required */
+	if (mtk_cam_scen_is_m2m(&scen) && !is_first_cq)
+		mtk_cam_m2m_try_apply_cq(ctx);
+
 	/*composed delay to over sof, to keep fps, trigger cq here by conditions*/
 	if (s_data->frame_seq_no == atomic_read(&ctx->composed_delay_seq_no)) {
 		dev = mtk_cam_find_raw_dev(cam, ctx->pipe->enabled_raw);

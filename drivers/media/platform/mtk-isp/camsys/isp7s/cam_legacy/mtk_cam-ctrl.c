@@ -2823,6 +2823,85 @@ static void mtk_cam_mstream_frame_sync(struct mtk_raw_device *raw_dev,
 	}
 }
 
+void mtk_cam_m2m_try_apply_cq(struct mtk_cam_ctx *ctx)
+{
+	struct mtk_raw_device *raw_dev;
+	struct mtk_cam_working_buf_entry *buf_entry;
+	struct mtk_cam_request_stream_data *s_data;
+	unsigned int next_cq_seq;
+
+	if (!ctx)
+		return;
+
+	raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
+	next_cq_seq = ctx->dequeued_frame_seq_no + 1;
+
+	spin_lock(&ctx->using_buffer_list.lock);
+	/* check composed cq */
+	spin_lock(&ctx->composed_buffer_list.lock);
+	if (list_empty(&ctx->composed_buffer_list.list)) {
+		dev_info(raw_dev->dev,
+			"[M2M] no buffer for next_cq_seq:%d, composed_frame_seq_no:%d, composed_buffer_list.cnt:%d\n",
+			next_cq_seq,
+			ctx->composed_frame_seq_no,
+			ctx->composed_buffer_list.cnt);
+	} else {
+		buf_entry = list_first_entry(&ctx->composed_buffer_list.list,
+					     struct mtk_cam_working_buf_entry,
+					     list_entry);
+
+		s_data = buf_entry->s_data;
+		if (!s_data) {
+			dev_info(raw_dev->dev,
+				"[M2M] get s_data failed at next_cq_seq:%d\n",
+				next_cq_seq);
+			goto EXIT;
+		}
+
+		dev_dbg(raw_dev->dev,
+			"[M2M] %s: next_cq_seq:%d, s_data->frame_seq_no:%d\n",
+			__func__, next_cq_seq, s_data->frame_seq_no);
+
+		if (s_data->frame_seq_no != next_cq_seq)
+			goto EXIT;
+
+		list_del(&buf_entry->list_entry);
+		ctx->composed_buffer_list.cnt--;
+
+		/* transit to processing */
+		spin_lock(&ctx->processing_buffer_list.lock);
+		list_add_tail(&buf_entry->list_entry,
+			      &ctx->processing_buffer_list.list);
+		ctx->processing_buffer_list.cnt++;
+		spin_unlock(&ctx->processing_buffer_list.lock);
+
+		apply_cq(raw_dev, 0,
+			buf_entry->buffer.iova,
+			buf_entry->cq_desc_size,
+			buf_entry->cq_desc_offset,
+			buf_entry->sub_cq_desc_size,
+			buf_entry->sub_cq_desc_offset);
+
+		/* all (raw/sv/mraw) buffer entry should be transited */
+		/* from composed to processing */
+		if (mtk_cam_sv_apply_all_buffers(ctx) == 0)
+			dev_info(raw_dev->dev, "sv apply all buffers failed");
+
+		if (mtk_cam_mraw_apply_all_buffers(ctx) == 0)
+			dev_info(raw_dev->dev, "mraw apply all buffers failed");
+
+		s_data->timestamp = ktime_get_boottime_ns();
+		s_data->timestamp_mono = ktime_get_ns();
+		mtk_cam_m2m_enter_cq_state(&s_data->state);
+		dev_info(raw_dev->dev,
+			"[M2M] apply cq, s_data->frame_seq_no:%d\n",
+			s_data->frame_seq_no);
+	}
+EXIT:
+	spin_unlock(&ctx->composed_buffer_list.lock);
+	spin_unlock(&ctx->using_buffer_list.lock);
+}
+
 static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 			      unsigned int dequeued_frame_seq_no,
 			      unsigned int pipe_id)
@@ -2832,12 +2911,8 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 	struct mtk_camsys_ctrl_state *state_sensor = NULL;
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *req_stream_data;
-	struct mtk_cam_working_buf_entry *buf_entry;
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
-	dma_addr_t base_addr;
 	int que_cnt = 0;
-	u64 time_boot = ktime_get_boottime_ns();
-	u64 time_mono = ktime_get_ns();
 	int dequeue_cnt;
 	bool is_mstream_first = false;
 
@@ -2869,6 +2944,7 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 		mtk_cam_event_frame_sync(ctx->pipe, dequeued_frame_seq_no);
 	}
 
+	/* assign at SOF */
 	ctx->dequeued_frame_seq_no = dequeued_frame_seq_no;
 
 	/* List state-queue status*/
@@ -2920,71 +2996,14 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 			dequeue_cnt = 0;
 		}
 	} else {
-		/* here */
 		dequeue_cnt = mtk_cam_dequeue_req_frame(ctx,
 				dequeued_frame_seq_no, ctx->stream_id);
 	}
 
 	/* apply next composed buffer */
-	spin_lock(&ctx->composed_buffer_list.lock);
-	dev_dbg(raw_dev->dev,
-		"[M2M check next action] que_cnt:%d composed_buffer_list.cnt:%d\n",
-		que_cnt, ctx->composed_buffer_list.cnt);
-
-	if (list_empty(&ctx->composed_buffer_list.list)) {
-		dev_info(raw_dev->dev,
-			"[M2M] no buffer, cq_num:%d, frame_seq:%d, composed_buffer_list.cnt :%d\n",
-			ctx->composed_frame_seq_no, dequeued_frame_seq_no,
-			ctx->composed_buffer_list.cnt);
-		spin_unlock(&ctx->composed_buffer_list.lock);
-	} else {
-		buf_entry = list_first_entry(&ctx->composed_buffer_list.list,
-					     struct mtk_cam_working_buf_entry,
-					     list_entry);
-		list_del(&buf_entry->list_entry);
-		ctx->composed_buffer_list.cnt--;
-		spin_unlock(&ctx->composed_buffer_list.lock);
-		spin_lock(&ctx->processing_buffer_list.lock);
-		list_add_tail(&buf_entry->list_entry,
-			      &ctx->processing_buffer_list.list);
-		ctx->processing_buffer_list.cnt++;
-
-		dev_dbg(raw_dev->dev,
-			"[M2M P1 Don] ctx->processing_buffer_list.cnt:%d\n",
-			ctx->processing_buffer_list.cnt);
-
-		spin_unlock(&ctx->processing_buffer_list.lock);
-
-		base_addr = buf_entry->buffer.iova;
-
-		if (state_sensor == NULL) {
-			dev_info(raw_dev->dev, "[M2M P1 Don] Invalid state_sensor\n");
-			return;
-		}
-
-		req = mtk_cam_ctrl_state_get_req(state_sensor);
-		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
-		req_stream_data->timestamp = time_boot;
-		req_stream_data->timestamp_mono = time_mono;
-
-		apply_cq(raw_dev, 0, base_addr,
-			buf_entry->cq_desc_size,
-			buf_entry->cq_desc_offset,
-			buf_entry->sub_cq_desc_size,
-			buf_entry->sub_cq_desc_offset);
-
-		state_transition(state_sensor, E_STATE_SENSOR, E_STATE_CQ);
-
-		dev_dbg(raw_dev->dev,
-		"M2M apply_cq [ctx:%d-#%d], CQ-%d, composed:%d, cq_addr:0x%x\n",
-		ctx->stream_id, dequeued_frame_seq_no, req_stream_data->frame_seq_no,
-		ctx->composed_frame_seq_no, base_addr);
-
-		dev_dbg(raw_dev->dev,
-		"M2M apply_cq: composed_buffer_list.cnt:%d time:%lld, monotime:%lld\n",
-		ctx->composed_buffer_list.cnt, req_stream_data->timestamp,
-		req_stream_data->timestamp_mono);
-	}
+	if (req_stream_data &&
+	    mtk_cam_scen_is_m2m(req_stream_data->feature.scen))
+		mtk_cam_m2m_try_apply_cq(ctx);
 
 	if (dequeue_cnt) {
 		mutex_lock(&ctx->cam->queue_lock);
@@ -4604,7 +4623,6 @@ void mtk_cam_frame_done_work(struct work_struct *work)
 
 	if (mtk_cam_ctx_has_raw(ctx) &&
 	    mtk_cam_scen_is_m2m(s_data_ctx->feature.scen))
-		/* here */
 		mtk_cam_handle_m2m_frame_done(ctx,
 				  req_stream_data->frame_seq_no,
 				  req_stream_data->pipe_id);
@@ -5144,7 +5162,6 @@ static int mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
 
 		if (mtk_cam_scen_is_m2m(&raw_dev->pipeline->scen_active)) {
-			/* here */
 			mtk_camsys_raw_m2m_cq_done(raw_dev, ctx, irq_info->frame_idx);
 			mtk_camsys_raw_m2m_trigger(raw_dev, ctx, irq_info->frame_idx);
 		} else {
@@ -5158,15 +5175,22 @@ static int mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 				     &ctx->sensor_ctrl);
 
 	/* raw's DMA done, we only allow AFO done here */
-	if (irq_info->irq_type & (1 << CAMSYS_IRQ_AFO_DONE))
-		mtk_cam_meta1_done(ctx, ctx->dequeued_frame_seq_no, ctx->stream_id);
+	if (irq_info->irq_type & (1 << CAMSYS_IRQ_AFO_DONE)) {
+		if (mtk_cam_ctx_has_raw(ctx) &&
+		    mtk_cam_scen_is_m2m(&ctx->pipe->scen_active)) {
+			mtk_cam_meta1_done(ctx, irq_info->frame_idx_inner,
+					   ctx->stream_id);
+		} else {
+			mtk_cam_meta1_done(ctx, ctx->dequeued_frame_seq_no,
+					   ctx->stream_id);
+		}
+	}
 
 	/* raw's SW done */
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE)) {
 
 		if (mtk_cam_ctx_has_raw(ctx) &&
 		    mtk_cam_scen_is_m2m(&ctx->pipe->scen_active)) {
-			/* here */
 			mtk_camsys_m2m_frame_done(ctx, irq_info->frame_idx_inner,
 						  ctx->stream_id);
 		} else if (mtk_cam_ctx_has_raw(ctx) &&
