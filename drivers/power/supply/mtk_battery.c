@@ -312,15 +312,11 @@ static int battery_psy_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
 
-		ret = gauge_get_property(GAUGE_PROP_BATTERY_EXIST,
-			&bs_data->bat_present);
+		bs_data->bat_present = 1;
 
-		if (ret == -EHOSTDOWN)
-			val->intval = gm->present;
-		else {
-			val->intval = bs_data->bat_present;
-			gm->present = bs_data->bat_present;
-		}
+		val->intval = bs_data->bat_present;
+		gm->present = bs_data->bat_present;
+
 		ret = 0;
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
@@ -344,8 +340,8 @@ static int battery_psy_get_property(struct power_supply *psy,
 			val->intval = bs_data->bat_capacity;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		ret = gauge_get_property(GAUGE_PROP_BATTERY_CURRENT,
-			&curr_now);
+		ret = gauge_get_property_control(gm, GAUGE_PROP_BATTERY_CURRENT,
+			&curr_now, 1);
 
 		if (ret == -EHOSTDOWN)
 			val->intval = gm->ibat * 100;
@@ -357,8 +353,8 @@ static int battery_psy_get_property(struct power_supply *psy,
 		ret = 0;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_AVG:
-		ret = gauge_get_property(GAUGE_PROP_AVERAGE_CURRENT,
-			&curr_avg);
+		ret = gauge_get_property_control(gm, GAUGE_PROP_AVERAGE_CURRENT,
+			&curr_avg, 1);
 
 		if (ret == -EHOSTDOWN)
 			val->intval = gm->ibat * 100;
@@ -389,8 +385,8 @@ static int battery_psy_get_property(struct power_supply *psy,
 		if (gm->disableGM30)
 			bs_data->bat_batt_vol = 4000;
 		else
-			ret = gauge_get_property(GAUGE_PROP_BATTERY_VOLTAGE,
-			&bs_data->bat_batt_vol);
+			ret = gauge_get_property_control(gm, GAUGE_PROP_BATTERY_VOLTAGE,
+				&bs_data->bat_batt_vol, 1);
 
 		if (ret == -EHOSTDOWN)
 			val->intval = gm->vbat;
@@ -401,7 +397,7 @@ static int battery_psy_get_property(struct power_supply *psy,
 		ret = 0;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-		val->intval = force_get_tbat(gm, true) * 10;
+		val->intval = force_get_tbat(gm, false) * 10;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY_LEVEL:
 		val->intval = check_cap_level(bs_data->bat_capacity);
@@ -420,8 +416,8 @@ static int battery_psy_get_property(struct power_supply *psy,
 			int current_now = 0;
 			int time_to_full = 0;
 
-			ret = gauge_get_property(GAUGE_PROP_BATTERY_CURRENT,
-				&current_now);
+			ret = gauge_get_property_control(gm, GAUGE_PROP_AVERAGE_CURRENT,
+				&current_now, 1);
 
 			if (ret == -EHOSTDOWN)
 				current_now = gm->ibat;
@@ -739,7 +735,7 @@ int volttotemp(struct mtk_battery *gm, int dwVolt, int volt_cali)
 	return sbattmp;
 }
 
-int force_get_tbat_internal(struct mtk_battery *gm, bool update)
+int force_get_tbat_internal(struct mtk_battery *gm)
 {
 	int bat_temperature_volt = 2;
 	int bat_temperature_val = 0;
@@ -760,7 +756,7 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 	struct timespec64 tmp_time;
 	int ret = 0;
 
-	if (update == true || pre_bat_temperature_val == -1) {
+	if (pre_bat_temperature_val == -1) {
 		/* Get V_BAT_Temperature */
 		ret = gauge_get_property(GAUGE_PROP_BATTERY_TEMPERATURE_ADC,
 			&bat_temperature_volt);
@@ -778,8 +774,8 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 			else
 				fg_meter_res_value = 0;
 
-			gauge_get_property(GAUGE_PROP_BATTERY_CURRENT,
-				&fg_current_temp);
+			gauge_get_property_control(gm, GAUGE_PROP_BATTERY_CURRENT,
+				&fg_current_temp, 0);
 
 			gm->ibat = fg_current_temp;
 
@@ -902,7 +898,11 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 
 int force_get_tbat(struct mtk_battery *gm, bool update)
 {
+	struct property_control *prop_control;
+	int prop_map = CONTROL_GAUGE_PROP_BATTERY_TEMPERATURE_ADC;
 	int bat_temperature_val = 0;
+
+	prop_control = &gm->prop_control;
 
 	if (gm->is_probe_done == false) {
 		gm->cur_bat_temp = 25;
@@ -914,7 +914,13 @@ int force_get_tbat(struct mtk_battery *gm, bool update)
 		return gm->fixed_bat_tmp;
 	}
 
-	bat_temperature_val = force_get_tbat_internal(gm, true);
+	if (update == true || gm->no_prop_timeout_control) {
+		bat_temperature_val = force_get_tbat_internal(gm);
+		prop_control->val[prop_map] = bat_temperature_val;
+	} else {
+		bat_temperature_val = prop_control->val[prop_map];
+		prop_control->counter += 1;
+	}
 
 	if (bat_temperature_val == -EHOSTDOWN)
 		return gm->cur_bat_temp;
@@ -997,6 +1003,58 @@ int gauge_set_property(enum gauge_property gp,
 	return 0;
 }
 
+int prop_control_mapping(enum gauge_property gp)
+{
+	switch (gp) {
+	case GAUGE_PROP_BATTERY_EXIST:
+		return CONTROL_GAUGE_PROP_BATTERY_EXIST;
+	case GAUGE_PROP_BATTERY_CURRENT:
+		return CONTROL_GAUGE_PROP_BATTERY_CURRENT;
+	case GAUGE_PROP_AVERAGE_CURRENT:
+		return CONTROL_GAUGE_PROP_AVERAGE_CURRENT;
+	case GAUGE_PROP_BATTERY_VOLTAGE:
+		return CONTROL_GAUGE_PROP_BATTERY_VOLTAGE;
+	case GAUGE_PROP_BATTERY_TEMPERATURE_ADC:
+		return CONTROL_GAUGE_PROP_BATTERY_TEMPERATURE_ADC;
+	default:
+		return -1;
+	}
+}
+
+int gauge_get_property_control(struct mtk_battery *gm, enum gauge_property gp,
+	int *val, int mode)
+{
+	struct property_control *prop_control;
+	ktime_t ctime = 0, dtime = 0;
+	struct timespec64 diff;
+	int prop_map, ret = 0;
+
+	prop_control = &gm->prop_control;
+
+	prop_map = prop_control_mapping(gp);
+
+	if (prop_map == -1) {
+		ret = gauge_get_property(gp, val);
+	} else if (mode == 0 || gm->no_prop_timeout_control) {
+		ret = gauge_get_property(gp, val);
+		prop_control->val[prop_map] = *val;
+		prop_control->last_prop_update_time[prop_map] = ktime_get_boottime();
+	} else {
+		ctime = ktime_get_boottime();
+		dtime = ktime_sub(ctime, prop_control->last_prop_update_time[prop_map]);
+		diff = ktime_to_timespec64(dtime);
+		prop_control->counter += 1;
+
+		if (diff.tv_sec > prop_control->diff_time_th[prop_map]) {
+			ret = gauge_get_property(gp, val);
+			prop_control->val[prop_map] = *val;
+			prop_control->last_prop_update_time[prop_map] = ctime;
+		} else {
+			*val = prop_control->val[prop_map];
+		}
+	}
+	return ret;
+}
 /* ============================================================ */
 /* load .h/dtsi */
 /* ============================================================ */
@@ -1239,6 +1297,8 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 
 	fg_cust_data->moving_battemp_en = MOVING_BATTEMP_EN;
 	fg_cust_data->moving_battemp_thr = MOVING_BATTEMP_THR;
+
+	gm->no_prop_timeout_control = NO_PROP_TIMEOUT_CONTROL;
 
 	/* battery healthd */
 	fg_cust_data->bat_bh_en = BAT_BH_EN;
@@ -1943,6 +2003,9 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 	fg_read_dts_val(np, "FIXED_BATTERY_TEMPERATURE", &(gm->fixed_bat_tmp),
 		1);
 
+	fg_read_dts_val(np, "NO_PROP_TIMEOUT_CONTROL",
+		&(gm->no_prop_timeout_control), 1);
+
 	fg_read_dts_val(np, "ACTIVE_TABLE",
 		&(fg_table_cust_data->active_table_number), 1);
 
@@ -2170,8 +2233,8 @@ void battery_update_psd(struct mtk_battery *gm)
 	if (gm->disableGM30)
 		bat_data->bat_batt_vol = 4000;
 	else
-		gauge_get_property(GAUGE_PROP_BATTERY_VOLTAGE,
-			&bat_data->bat_batt_vol);
+		gauge_get_property_control(gm, GAUGE_PROP_BATTERY_VOLTAGE,
+			&bat_data->bat_batt_vol, 0);
 
 	bat_data->bat_batt_temp = force_get_tbat(gm, true);
 }
@@ -2189,8 +2252,8 @@ void battery_update(struct mtk_battery *gm)
 	battery_update_psd(gm);
 	bat_data->bat_technology = POWER_SUPPLY_TECHNOLOGY_LION;
 	bat_data->bat_health = POWER_SUPPLY_HEALTH_GOOD;
-	bat_data->bat_present =
-		gauge_get_int_property(GAUGE_PROP_BATTERY_EXIST);
+	gauge_get_property_control(gm, GAUGE_PROP_BATTERY_EXIST,
+		&bat_data->bat_present, 0);
 
 	if (battery_get_int_property(BAT_PROP_DISABLE))
 		bat_data->bat_capacity = 50;
@@ -2727,9 +2790,9 @@ static void fg_drv_update_hw_status(struct mtk_battery *gm)
 {
 	ktime_t ktime;
 
-	gm->tbat = force_get_tbat_internal(gm, true);
+	gm->tbat = force_get_tbat_internal(gm);
 
-	bm_err("car[%d,%ld,%ld,%ld,%ld] tmp:%d soc:%d uisoc:%d vbat:%d ibat:%d baton:%d algo:%d gm3:%d %d %d %d %d,boot:%d\n",
+	bm_err("car[%d,%ld,%ld,%ld,%ld] tmp:%d soc:%d uisoc:%d vbat:%d ibat:%d baton:%d algo:%d gm3:%d %d %d %d %d %d bat_cnt: %d, boot:%d\n",
 		gauge_get_int_property(GAUGE_PROP_COULOMB),
 		gm->coulomb_plus.end, gm->coulomb_minus.end,
 		gm->uisoc_plus.end, gm->uisoc_minus.end,
@@ -2741,10 +2804,13 @@ static void fg_drv_update_hw_status(struct mtk_battery *gm)
 		gm->algo.active,
 		gm->disableGM30, gm->fg_cust_data.disable_nafg,
 		gm->ntc_disable_nafg, gm->cmd_disable_nafg, gm->vbat0_flag,
+		gm->no_prop_timeout_control,
+		gm->prop_control.counter,
 		gm->bootmode);
 
 	fg_drv_update_daemon(gm);
 
+	gm->prop_control.counter = 0;
 	/* kernel mode need regular update info */
 	if (gm->algo.active == true)
 		battery_update(gm);
@@ -2942,7 +3008,8 @@ int get_shutdown_cond(struct mtk_battery *gm)
 	if (gm->disableGM30)
 		vbat = 4000;
 	else
-		vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE);
+		gauge_get_property_control(gm, GAUGE_PROP_BATTERY_VOLTAGE,
+			&vbat, 0);
 
 	sdc = &gm->sdc;
 	if (sdc->shutdown_status.is_soc_zero_percent)
@@ -2979,13 +3046,15 @@ int disable_shutdown_cond(struct mtk_battery *gm, int shutdown_cond)
 	int vbat = 0;
 
 	sdc = &gm->sdc;
-	now_current = gauge_get_int_property(GAUGE_PROP_BATTERY_CURRENT);
+	gauge_get_property_control(gm, GAUGE_PROP_BATTERY_CURRENT,
+		&now_current, 0);
 	now_is_kpoc = is_kernel_power_off_charging();
 
 	if (gm->disableGM30)
 		vbat = 4000;
 	else
-		vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE);
+		gauge_get_property_control(gm, GAUGE_PROP_BATTERY_VOLTAGE,
+			&vbat, 0);
 
 
 	bm_debug("%s %d, is kpoc %d curr %d is_charging %d flag:%d lb:%d\n",
@@ -3028,13 +3097,15 @@ int set_shutdown_cond(struct mtk_battery *gm, int shutdown_cond)
 	enable_lbat_shutdown = 0;
 #endif
 
-	now_current = gauge_get_int_property(GAUGE_PROP_BATTERY_CURRENT);
+	gauge_get_property_control(gm, GAUGE_PROP_BATTERY_CURRENT,
+		&now_current, 0);
 	now_is_kpoc = is_kernel_power_off_charging();
 
 	if (gm->disableGM30)
 		vbat = 4000;
 	else
-		vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE);
+		gauge_get_property_control(gm, GAUGE_PROP_BATTERY_VOLTAGE,
+			&vbat, 0);
 
 	sdc = &gm->sdc;
 	sds = &gm->sdc.shutdown_status;
@@ -3195,8 +3266,8 @@ static int shutdown_event_handler(struct mtk_battery *gm)
 	}
 
 	if (sdd->shutdown_status.is_uisoc_one_percent) {
-		now_current = gauge_get_int_property(
-			GAUGE_PROP_BATTERY_CURRENT);
+		gauge_get_property_control(gm, GAUGE_PROP_BATTERY_CURRENT,
+			&now_current, 0);
 
 		if (current_ui_soc == 0) {
 			duraction =
@@ -3239,8 +3310,8 @@ static int shutdown_event_handler(struct mtk_battery *gm)
 		if (gm->disableGM30)
 			vbat = 4000;
 		else
-			vbat = gauge_get_int_property(
-				GAUGE_PROP_BATTERY_VOLTAGE);
+			gauge_get_property_control(gm, GAUGE_PROP_BATTERY_VOLTAGE,
+				&vbat, 0);
 
 		sdd->batdata[sdd->batidx] = vbat;
 
@@ -3557,6 +3628,28 @@ int fg_check_lk_swocv(struct device *dev,
 	return 0;
 }
 
+int fg_prop_control_init(struct mtk_battery *gm)
+{
+	struct property_control	*prop_control;
+
+	prop_control = &gm->prop_control;
+
+	memset(prop_control->last_prop_update_time, 0,
+		sizeof(prop_control->last_prop_update_time));
+	prop_control->diff_time_th[CONTROL_GAUGE_PROP_BATTERY_EXIST] =
+		PROP_BATTERY_EXIST_TIMEOUT;
+	prop_control->diff_time_th[CONTROL_GAUGE_PROP_BATTERY_CURRENT] =
+		PROP_BATTERY_CURRENT_TIMEOUT;
+	prop_control->diff_time_th[CONTROL_GAUGE_PROP_AVERAGE_CURRENT] =
+		PROP_AVERAGE_CURRENT_TIMEOUT;
+	prop_control->diff_time_th[CONTROL_GAUGE_PROP_BATTERY_VOLTAGE] =
+		PROP_BATTERY_VOLTAGE_TIMEOUT;
+	prop_control->diff_time_th[CONTROL_GAUGE_PROP_BATTERY_TEMPERATURE_ADC] =
+		PROP_BATTERY_TEMPERATURE_ADC_TIMEOUT;
+	prop_control->counter = 0;
+	return 0;
+}
+
 int battery_init(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -3577,6 +3670,7 @@ int battery_init(struct platform_device *pdev)
 
 	fg_check_bootmode(&pdev->dev, gm);
 	fg_check_lk_swocv(&pdev->dev, gm);
+	fg_prop_control_init(gm);
 	fg_custom_init_from_header(gm);
 	fg_custom_init_from_dts(pdev, gm);
 	gauge_coulomb_service_init(gm);

@@ -34,6 +34,12 @@
 #define BMLOG_DEBUG_LEVEL   7
 #define BMLOG_TRACE_LEVEL   8
 
+#define PROP_BATTERY_EXIST_TIMEOUT 10
+#define	PROP_BATTERY_CURRENT_TIMEOUT 1
+#define	PROP_AVERAGE_CURRENT_TIMEOUT 5
+#define	PROP_BATTERY_VOLTAGE_TIMEOUT 5
+#define	PROP_BATTERY_TEMPERATURE_ADC_TIMEOUT 10
+
 #define BMLOG_DEFAULT_LEVEL BMLOG_DEBUG_LEVEL
 
 #define bm_err(fmt, args...)   \
@@ -114,6 +120,21 @@ enum battery_property {
 	BAT_PROP_LOG_LEVEL,
 };
 
+enum property_control_data {
+	CONTROL_GAUGE_PROP_BATTERY_EXIST,
+	CONTROL_GAUGE_PROP_BATTERY_CURRENT,
+	CONTROL_GAUGE_PROP_AVERAGE_CURRENT,
+	CONTROL_GAUGE_PROP_BATTERY_VOLTAGE,
+	CONTROL_GAUGE_PROP_BATTERY_TEMPERATURE_ADC,
+	CONTROL_MAX,
+};
+
+struct property_control {
+	int val[CONTROL_MAX];
+	ktime_t last_prop_update_time[CONTROL_MAX];
+	int diff_time_th[CONTROL_MAX];
+	int counter;
+};
 struct battery_data {
 	struct power_supply_desc psd;
 	struct power_supply_config psy_cfg;
@@ -896,6 +917,7 @@ struct mtk_battery {
 	struct mutex ops_lock;
 	struct mutex fg_update_lock;
 
+	struct property_control prop_control;
 	struct battery_data bs_data;
 	struct mtk_coulomb_service cs;
 	struct mtk_gauge *gauge;
@@ -904,6 +926,9 @@ struct mtk_battery {
 	struct mtk_battery_algo algo;
 
 	u_int fgd_pid;
+
+	/*for bat prop*/
+	int no_prop_timeout_control;
 
 	/* adb */
 	int fixed_bat_tmp;
@@ -1107,7 +1132,7 @@ extern void disable_gauge_irq(struct mtk_gauge *gauge,
 	enum gauge_irq irq);
 extern int bat_get_debug_level(void);
 extern int force_get_tbat(struct mtk_battery *gm, bool update);
-extern int force_get_tbat_internal(struct mtk_battery *gm, bool update);
+extern int force_get_tbat_internal(struct mtk_battery *gm);
 extern int wakeup_fg_algo_cmd(struct mtk_battery *gm,
 	unsigned int flow_state, int cmd, int para1);
 extern int wakeup_fg_algo(struct mtk_battery *gm, unsigned int flow_state);
@@ -1115,6 +1140,8 @@ extern int wakeup_fg_algo(struct mtk_battery *gm, unsigned int flow_state);
 extern int gauge_get_int_property(enum gauge_property gp);
 extern int gauge_get_property(enum gauge_property gp,
 			    int *val);
+extern int gauge_get_property_control(struct mtk_battery *gm,
+	enum gauge_property gp, int *val, int mode);
 extern int gauge_set_property(enum gauge_property gp,
 			    int val);
 extern int battery_init(struct platform_device *pdev);

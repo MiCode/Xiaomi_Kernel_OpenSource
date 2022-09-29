@@ -114,8 +114,8 @@ int gauge_get_average_current(struct mtk_battery *gm, bool *valid)
 			iavg = gm->sw_iavg;
 		else {
 			*valid = gm->gauge->fg_hw_info.current_avg_valid;
-			iavg =
-			gauge_get_int_property(GAUGE_PROP_AVERAGE_CURRENT);
+			gauge_get_property_control(gm, GAUGE_PROP_AVERAGE_CURRENT,
+				&iavg, 0);
 		}
 	}
 
@@ -2409,6 +2409,54 @@ static ssize_t BAT_HEALTH_store(
 	return size;
 }
 
+static ssize_t BAT_NO_PROP_TIMEOUT_show(
+	struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+
+	bm_trace("[FG] %s : %d\n",
+		__func__,
+		gm->no_prop_timeout_control);
+	return sprintf(buf, "%d\n",
+		gm->no_prop_timeout_control);
+}
+
+static ssize_t BAT_NO_PROP_TIMEOUT_store(
+	struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t size)
+{
+	unsigned long val = 0;
+	int ret;
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+
+	bm_err("[%s] into store\n", __func__);
+	if (buf != NULL && size != 0) {
+		bm_err("[%s] buf is %s\n",
+			__func__, buf);
+		ret = kstrtoul(buf, 10, &val);
+		if (val < 0) {
+			bm_err(
+				"[%s] val is %d ??\n",
+				__func__,
+				(int)val);
+			val = 0;
+		}
+		if (val == 0)
+			gm->no_prop_timeout_control = 0;
+		else
+			gm->no_prop_timeout_control = 1;
+
+		bm_err(
+			"%s=%d\n",
+			__func__,
+			gm->no_prop_timeout_control);
+	}
+	return size;
+}
 
 static DEVICE_ATTR_RW(Battery_Temperature);
 static DEVICE_ATTR_RW(UI_SOC);
@@ -2426,7 +2474,7 @@ static DEVICE_ATTR_RW(reset_battery_cycle);
 static DEVICE_ATTR_RW(reset_aging_factor);
 static DEVICE_ATTR_RW(BAT_EC);
 static DEVICE_ATTR_RW(BAT_HEALTH);
-
+static DEVICE_ATTR_RW(BAT_NO_PROP_TIMEOUT);
 
 static int mtk_battery_setup_files(struct platform_device *pdev)
 {
@@ -2499,6 +2547,10 @@ static int mtk_battery_setup_files(struct platform_device *pdev)
 	if (ret)
 		goto _out;
 
+	ret = device_create_file(&(pdev->dev), &dev_attr_BAT_NO_PROP_TIMEOUT);
+	if (ret)
+		goto _out;
+
 _out:
 	return ret;
 }
@@ -2528,7 +2580,8 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 	{
 		int is_bat_exist = 0;
 
-		gauge_get_property(GAUGE_PROP_BATTERY_EXIST, &is_bat_exist);
+		gauge_get_property_control(gm, GAUGE_PROP_BATTERY_EXIST,
+			&is_bat_exist, 0);
 		ret_msg->fgd_data_len += sizeof(is_bat_exist);
 		memcpy(ret_msg->fgd_data,
 			&is_bat_exist, sizeof(is_bat_exist));
@@ -2988,8 +3041,8 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 		/* BAT_DISCHARGING = 0 */
 		/* BAT_CHARGING = 1 */
 
-		bat_current = gauge_get_int_property(
-			GAUGE_PROP_BATTERY_CURRENT);
+		gauge_get_property_control(gm, GAUGE_PROP_BATTERY_CURRENT,
+			&bat_current, 0);
 		if (bat_current > 0)
 			is_bat_charging = 1;
 		else
@@ -3674,9 +3727,11 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 
 		if (gm->disableGM30)
 			vbat = 4000 * 10;
-		else
-			vbat = gauge_get_int_property(
-				GAUGE_PROP_BATTERY_VOLTAGE) * 10;
+		else {
+			gauge_get_property_control(gm, GAUGE_PROP_BATTERY_VOLTAGE,
+				&vbat, 0);
+			vbat *= 10;
+		}
 
 		ret_msg->fgd_data_len += sizeof(vbat);
 		memcpy(ret_msg->fgd_data, &vbat, sizeof(vbat));
@@ -4204,8 +4259,8 @@ unsigned int TempToBattVolt(struct mtk_battery *gm, int temp, int update)
 #endif
 
 	if (update == true) {
-		fg_current_temp = gauge_get_int_property(
-			GAUGE_PROP_BATTERY_CURRENT);
+		gauge_get_property_control(gm, GAUGE_PROP_BATTERY_CURRENT,
+			&fg_current_temp, 0);
 		if (fg_current_temp <= 0)
 			fg_current_state = false;
 		else
@@ -4335,7 +4390,8 @@ void sw_check_bat_plugout(struct mtk_battery *gm)
 	int is_bat_exist;
 
 	if (gm->disable_plug_int && gm->disableGM30 != true) {
-		is_bat_exist = gauge_get_int_property(GAUGE_PROP_BATTERY_EXIST);
+		gauge_get_property_control(gm, GAUGE_PROP_BATTERY_EXIST,
+			&is_bat_exist, 0);
 		/* fg_bat_plugout_int_handler(); */
 		if (is_bat_exist == 0) {
 			bm_err(
@@ -4377,8 +4433,11 @@ void fg_update_sw_low_battery_check(unsigned int thd)
 
 	if (gm->disableGM30)
 		vbat = 4000 * 10;
-	else
-		vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE) * 10;
+	else {
+		gauge_get_property_control(gm, GAUGE_PROP_BATTERY_VOLTAGE,
+			&vbat, 0);
+		vbat *= 10;
+	}
 
 	bm_err("[%s]vbat:%d %d ht:%d %d lt:%d %d\n",
 		__func__,
@@ -4482,7 +4541,8 @@ static int nafg_irq_handler(struct mtk_battery *gm)
 	if (gm->disableGM30)
 		vbat = 4000;
 	else
-		vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE);
+		gauge_get_property_control(gm, GAUGE_PROP_BATTERY_VOLTAGE,
+			&vbat, 0);
 
 
 	bm_err(
@@ -4525,7 +4585,8 @@ static irqreturn_t bat_plugout_irq(int irq, void *data)
 	struct mtk_battery *gm = data;
 	int is_bat_exist;
 
-	is_bat_exist = gauge_get_int_property(GAUGE_PROP_BATTERY_EXIST);
+	gauge_get_property_control(gm, GAUGE_PROP_BATTERY_EXIST,
+		&is_bat_exist, 0);
 
 	bm_err("[%s]is_bat %d miss:%d\n",
 		__func__,
@@ -4746,7 +4807,8 @@ static void sw_iavg_init(struct mtk_battery *gm)
 
 	/* BAT_DISCHARGING = 0 */
 	/* BAT_CHARGING = 1 */
-	bat_current = gauge_get_int_property(GAUGE_PROP_BATTERY_CURRENT);
+	gauge_get_property_control(gm, GAUGE_PROP_BATTERY_CURRENT,
+		&bat_current, 0);
 
 	gm->sw_iavg = bat_current;
 
