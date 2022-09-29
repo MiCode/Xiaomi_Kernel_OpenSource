@@ -1131,7 +1131,7 @@ static void mtk_ddp_comp_larb_get(struct mtk_ddp_comp *comp,
 #ifdef MTK_SMI_CLK_CTRL
 	ret = mtk_smi_larb_get(larb_dev);
 	if (ret)
-		DDPPR_ERR("mtk_smi_larb_get failed:%s\n", ret);
+		DDPPR_ERR("mtk_smi_larb_get failed:%d\n", ret);
 #else
 	pm_runtime_get_sync(comp->dev);
 #endif
