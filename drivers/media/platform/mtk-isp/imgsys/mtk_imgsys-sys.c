@@ -787,7 +787,8 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 		return;
 	}
 
-	if (swfrminfo_cb->is_lastfrm)
+	if (swfrminfo_cb->is_lastfrm && isLastTaskInReq
+		&& (swfrminfo_cb->fail_isHWhang == -1))
 		*(req->req_stat) = *(req->req_stat) + 1;
 
 	IMGSYS_SYSTRACE_BEGIN("ReqFd:%d Own:%s\n", req->tstate.req_fd,
