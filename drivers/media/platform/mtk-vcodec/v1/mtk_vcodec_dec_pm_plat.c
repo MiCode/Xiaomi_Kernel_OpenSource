@@ -601,11 +601,14 @@ void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx)
 void mtk_vdec_prepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long *in)
 {
 	struct vcodec_inst *inst = 0;
-	struct vdec_inst *inst_handle = (struct vdec_inst *) ctx->drv_handle;
-	struct vdec_vsi *vsi_data = inst_handle->vsi;
+	struct vdec_inst *inst_handle;
+	struct vdec_vsi *vsi_data;
 
-	if (!ctx)
+	if (ctx == NULL)
 		return;
+
+	inst_handle = (struct vdec_inst *) ctx->drv_handle;
+	vsi_data = inst_handle->vsi;
 
 	inst = get_inst(ctx);
 	if (!inst)
