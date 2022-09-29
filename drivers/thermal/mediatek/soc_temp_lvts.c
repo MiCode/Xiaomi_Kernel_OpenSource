@@ -3788,17 +3788,17 @@ static void mt6985_efuse_to_cal_data(struct lvts_data *lvts_data)
 
 	cal_data->count_rc[MT6985_LVTS_MCU_CTRL0] = GET_CAL_DATA_BITMASK(8, 23, 0);
 	cal_data->count_rc[MT6985_LVTS_MCU_CTRL1] = GET_CAL_DATA_BITMASK(9, 23, 0);
-	cal_data->count_rc[MT6985_LVTS_MCU_CTRL2] = GET_CAL_DATA_BITMASK(10, 23, 0);
-	cal_data->count_rc[MT6985_LVTS_MCU_CTRL3] = GET_CAL_DATA_BITMASK(11, 23, 0);
-	cal_data->count_rc[MT6985_LVTS_AP_CTRL0] = GET_CAL_DATA_BITMASK(12, 23, 0);
-	cal_data->count_rc[MT6985_LVTS_AP_CTRL1] = GET_CAL_DATA_BITMASK(13, 23, 0);
-	cal_data->count_rc[MT6985_LVTS_AP_CTRL2] = GET_CAL_DATA_BITMASK(14, 23, 0);
-	cal_data->count_rc[MT6985_LVTS_AP_CTRL3] = GET_CAL_DATA_BITMASK(29, 23, 0);
-	cal_data->count_rc[MT6985_LVTS_AP_CTRL4] = GET_CAL_DATA_BITMASK(30, 23, 0);
+	cal_data->count_rc[MT6985_LVTS_MCU_CTRL2] = GET_CAL_DATA_BITMASK(34, 23, 0);
+	cal_data->count_rc[MT6985_LVTS_MCU_CTRL3] = GET_CAL_DATA_BITMASK(10, 23, 0);
+	cal_data->count_rc[MT6985_LVTS_AP_CTRL0] = GET_CAL_DATA_BITMASK(11, 23, 0);
+	cal_data->count_rc[MT6985_LVTS_AP_CTRL1] = GET_CAL_DATA_BITMASK(12, 23, 0);
+	cal_data->count_rc[MT6985_LVTS_AP_CTRL2] = GET_CAL_DATA_BITMASK(13, 23, 0);
+	cal_data->count_rc[MT6985_LVTS_AP_CTRL3] = GET_CAL_DATA_BITMASK(14, 23, 0);
+	cal_data->count_rc[MT6985_LVTS_AP_CTRL4] = GET_CAL_DATA_BITMASK(29, 23, 0);
 
-	cal_data->count_rc[MT6985_LVTS_GPU_CTRL0] = GET_CAL_DATA_BITMASK(32, 23, 0);
-	cal_data->count_rc[MT6985_LVTS_GPU_CTRL1] = GET_CAL_DATA_BITMASK(33, 23, 0);
-	cal_data->count_rc[MT6985_LVTS_GPU_CTRL2] = GET_CAL_DATA_BITMASK(34, 23, 0);
+	cal_data->count_rc[MT6985_LVTS_GPU_CTRL0] = GET_CAL_DATA_BITMASK(31, 23, 0);
+	cal_data->count_rc[MT6985_LVTS_GPU_CTRL1] = GET_CAL_DATA_BITMASK(32, 23, 0);
+	cal_data->count_rc[MT6985_LVTS_GPU_CTRL2] = GET_CAL_DATA_BITMASK(33, 23, 0);
 }
 
 static void mt6985_check_cal_data(struct lvts_data *lvts_data)
