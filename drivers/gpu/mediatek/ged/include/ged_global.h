@@ -14,6 +14,7 @@
 #define GED_DEFAULT_FRAME_TARGET_TIME 15
 #define GED_DEFAULT_FALLBACK_MODE 2
 #define GED_DEFAULT_FALLBACK_TIME 10
+#define GED_DEFAULT_FALLBACK_WINDOW_SIZE 1
 
 extern GED_LOG_BUF_HANDLE ghLogBuf_DVFS;
 extern void (*mtk_set_bottom_gpu_freq_fp)(unsigned int idx);
@@ -62,6 +63,7 @@ extern unsigned int g_loading_slide_window_size;
 extern unsigned int g_loading_slide_enable;
 extern unsigned int g_fallback_mode;
 extern unsigned int g_fallback_time;
+extern unsigned int g_fallback_window_size;
 extern unsigned int g_frame_target_mode;
 extern unsigned int g_frame_target_time;
 extern int g_ged_slide_window_support;

@@ -863,7 +863,39 @@ static ssize_t fallback_interval_store(struct kobject *kobj,
 static KOBJ_ATTR_RW(fallback_interval);
 
 //-----------------------------------------------------------------------------
+unsigned int g_fallback_window_size = GED_DEFAULT_FALLBACK_WINDOW_SIZE;
 
+static ssize_t fallback_window_size_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%u\n", g_fallback_window_size);
+}
+
+static ssize_t fallback_window_size_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[GED_SYSFS_MAX_BUFF_SIZE];
+	int i32Value;
+
+	if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &i32Value) == 0) {
+				if (i32Value > 0 && i32Value < 65)
+					g_fallback_window_size = i32Value;
+				else
+					g_fallback_window_size = GED_DEFAULT_FALLBACK_WINDOW_SIZE;
+			}
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(fallback_window_size);
+
+//-----------------------------------------------------------------------------
 unsigned int g_loading_slide_window_size = GED_DEFAULT_SLIDE_WINDOW_SIZE;
 unsigned int g_loading_slide_enable;
 
@@ -1035,7 +1067,6 @@ GED_ERROR ged_hal_init(void)
 		goto ERROR;
 	}
 
-
 	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_fallback_timing);
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE(
@@ -1047,6 +1078,13 @@ GED_ERROR ged_hal_init(void)
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE(
 			"Failed to create fallback_interval entry!\n");
+		goto ERROR;
+	}
+
+	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_fallback_window_size);
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE(
+			"Failed to create fallback_window_size entry!\n");
 		goto ERROR;
 	}
 	return err;
@@ -1081,6 +1119,7 @@ void ged_hal_exit(void)
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_total_gpu_freq_level_count);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_fallback_timing);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_fallback_interval);
+	ged_sysfs_remove_file(hal_kobj, &kobj_attr_fallback_window_size);
 #ifdef GED_DCS_POLICY
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_dcs_mode);
 #endif
