@@ -1339,12 +1339,13 @@ static bool _mtk_atomic_mml_plane(struct drm_device *dev,
 
 	submit_kernel->info.act_time = line_time * submit_pq->info.dest[0].data.height;
 
-	DDPINFO("fps=%d vtotal=%d line_time=%d dst_h=%d act_time=%d dma=0x%x src_fmt=%#010x\n",
+	DDPINFO("fps=%d vtotal=%d line_time=%d dst_h=%d act_time=%d dma=0x%x src_fmt=%#010x ",
 			fps, vtotal, line_time,
 			submit_pq->info.dest[0].data.height,
 			submit_kernel->info.act_time,
 			submit_kernel->buffer.src.dmabuf[0],
 			submit_kernel->info.src.format);
+	DDPINFO("plane=%d\n", submit_kernel->buffer.src.cnt);
 
 	ret = mml_drm_submit(mml_ctx, submit_kernel, &(mtk_crtc->mml_cb));
 	if (ret)
