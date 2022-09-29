@@ -81,12 +81,12 @@ static int vmm_locked_isp_open(bool genpd_update)
 	if (genpd_update) {
 		vmm_genpd_user_counter++;
 		if (vmm_genpd_user_counter == 1)
-			mtk_mmdvfs_camera_notify(true, true);
+			mtk_mmdvfs_genpd_notify(VMM_USR_CAM, true, true);
 	}
 
 	vmm_user_counter++;
 	if (vmm_user_counter == 1)
-		mtk_mmdvfs_camera_notify(false, true);
+		mtk_mmdvfs_genpd_notify(VMM_USR_CAM, true, false);
 
 	return 0;
 }
@@ -98,7 +98,7 @@ static int vmm_locked_isp_close(bool genpd_update)
 			return 0;
 		vmm_genpd_user_counter--;
 		if (vmm_genpd_user_counter == 0)
-			mtk_mmdvfs_camera_notify(true, false);
+			mtk_mmdvfs_genpd_notify(VMM_USR_CAM, false, true);
 	}
 
 	/* no need to counter down at probe stage */
@@ -106,7 +106,7 @@ static int vmm_locked_isp_close(bool genpd_update)
 		return 0;
 	vmm_user_counter--;
 	if (vmm_user_counter == 0)
-		mtk_mmdvfs_camera_notify(false, false);
+		mtk_mmdvfs_genpd_notify(VMM_USR_CAM, false, false);
 
 	return 0;
 }
@@ -115,7 +115,7 @@ static int vmm_locked_vde_open(void)
 {
 	vde_user_counter++;
 	if (vde_user_counter == 1)
-		mtk_mmdvfs_vdec_notify(1);
+		mtk_mmdvfs_genpd_notify(VMM_USR_VDE, true, true);
 
 	return 0;
 }
@@ -128,7 +128,7 @@ static int vmm_locked_vde_close(void)
 
 	vde_user_counter--;
 	if (vde_user_counter == 0)
-		mtk_mmdvfs_vdec_notify(0);
+		mtk_mmdvfs_genpd_notify(VMM_USR_VDE, false, true);
 
 	return 0;
 }

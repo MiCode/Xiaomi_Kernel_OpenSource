@@ -25,7 +25,7 @@ enum vcp_pwr_usr {
 	VCP_PWR_USR_MMDVFS_GET_VCP_LOG,
 	VCP_PWR_USR_MMDVFS_SET_VCP_LOG,
 	VCP_PWR_USR_MMDVFS_VCP_INIT,
-	VCP_PWR_USR_MMDVFS_CAM_NOTIFY,
+	VCP_PWR_USR_MMDVFS_VMM_NOTIFY,
 	VCP_PWR_USR_MMQOS_HRT,
 	VCP_PWR_USR_VFMT,
 	VCP_PWR_USR_IMG,
@@ -37,9 +37,17 @@ enum vcp_pwr_usr {
 	VCP_PWR_USR_NUM
 };
 
+enum {
+	VMM_USR_CAM,
+	VMM_USR_IMG,
+	VMM_USR_VDE = 1,
+	VMM_USR_NUM
+};
+
 #if IS_ENABLED(CONFIG_MTK_MMDVFS)
-int mtk_mmdvfs_camera_notify(bool genpd_update, bool enable);
 int mtk_mmdvfs_camera_notify_from_mmqos(bool enable);
+int mtk_mmdvfs_genpd_notify(const u8 idx, const bool enable, const bool genpd_update);
+int mtk_mmdvfs_set_avs(u16 usr_id, u32 aging_cnt, u32 fresh_cnt);
 bool mtk_is_mmdvfs_init_done(void);
 int mtk_mmdvfs_enable_vcp(bool enable, unsigned int usr_id);
 int mtk_mmdvfs_enable_ccu(bool enable, unsigned int usr_id);
@@ -52,7 +60,11 @@ int mtk_mmdvfs_camera_notify_from_mmqos(bool enable)
 { return 0; }
 
 static inline
-int mtk_mmdvfs_camera_notify(bool genpd_update, bool enable)
+int mtk_mmdvfs_genpd_notify(const u8 idx, const bool enable, const bool genpd_update)
+{ return 0; }
+
+static inline
+int mtk_mmdvfs_set_avs(u16 usr_id, u32 aging_cnt, u32 fresh_cnt)
 { return 0; }
 
 static inline

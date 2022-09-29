@@ -65,8 +65,8 @@ enum {
 	FUNC_MMDVFS_INIT,
 	FUNC_CLKMUX_ENABLE,
 	FUNC_VMM_CEIL_ENABLE,
-	FUNC_VMM_VB_ENABLE,
-	FUNC_VMM_AGING_ENABLE,
+	FUNC_VMM_GENPD_NOTIFY,
+	FUNC_VMM_AVS_UPDATE,
 	FUNC_FORCE_OPP,
 	FUNC_VOTE_OPP,
 	FUNC_TEST,
@@ -81,8 +81,8 @@ struct mmdvfs_ipi_data {
 	uint32_t base;
 };
 
-struct mmdvfs_cam_notify_work {
-	struct work_struct cam_notify_work;
+struct mmdvfs_vmm_notify_work {
+	struct work_struct vmm_notify_work;
 	bool enable;
 };
 

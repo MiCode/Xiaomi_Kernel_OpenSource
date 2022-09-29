@@ -63,6 +63,7 @@ static DEFINE_MUTEX(mmdvfs_ccu_pwr_mutex);
 static int ccu_power;
 struct ipi_callbacks clk_cb;
 static DEFINE_MUTEX(mmdvfs_clkmux_mutex);
+static DEFINE_MUTEX(mmdvfs_avs_mutex);
 
 static int last_ccu_freq = -1;
 static unsigned int ccu_pwr_usage[CCU_PWR_USR_NUM];
@@ -71,13 +72,14 @@ static unsigned int vcp_pwr_usage[VCP_PWR_USR_NUM];
 static struct notifier_block vcp_ready_notifier;
 static struct notifier_block force_on_notifier;
 
-static struct workqueue_struct *cam_notify_wq;
+static struct workqueue_struct *vmm_notify_wq;
 
 enum mmdvfs_log_level {
 	log_ipi,
 	log_ccf_cb,
 	log_vcp,
 	log_clk,
+	log_vmm_notify,
 };
 
 static inline struct mtk_mmdvfs_clk *to_mtk_mmdvfs_clk(struct clk_hw *hw)
@@ -123,7 +125,7 @@ int mtk_mmdvfs_enable_ccu(bool enable, unsigned int usr_id)
 		ccu_pwr_usage[usr_id]++;
 	} else {
 		if (ccu_power == 0) {
-			MMDVFS_ERR("disable vcp when vcp_power==0");
+			MMDVFS_ERR("disable ccu when ccu_power==0");
 			mutex_unlock(&mmdvfs_ccu_pwr_mutex);
 			return -EINVAL;
 		}
@@ -513,40 +515,63 @@ static const struct clk_ops mtk_mmdvfs_req_ops = {
 	.recalc_rate	= mtk_mmdvfs_recalc_rate,
 };
 
-void cam_notify_work_func(struct work_struct *work)
+int mtk_mmdvfs_set_avs(u16 usr_id, u32 aging_cnt, u32 fresh_cnt)
 {
-	struct mmdvfs_cam_notify_work *cam_notify_work =
-		container_of(work, struct mmdvfs_cam_notify_work, cam_notify_work);
+	if (!mtk_is_mmdvfs_init_done())
+		return -1;
 
-	mtk_mmdvfs_enable_vcp(cam_notify_work->enable, VCP_PWR_USR_MMDVFS_CAM_NOTIFY);
-	kfree(cam_notify_work);
+	mutex_lock(&mmdvfs_avs_mutex);
+	writel(aging_cnt, MEM_AGING_CNT_USR(usr_id));
+	writel(fresh_cnt, MEM_FRESH_CNT_USR(usr_id));
+	mmdvfs_vcp_ipi_send(FUNC_VMM_AVS_UPDATE, MAX_OPP, MAX_OPP);
+	mutex_unlock(&mmdvfs_avs_mutex);
+
+	MMDVFS_DBG("usr_id:%hu aging_cnt:%u fresh_cnt:%u", usr_id, aging_cnt, fresh_cnt);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_mmdvfs_set_avs);
+
+void vmm_notify_work_func(struct work_struct *work)
+{
+	struct mmdvfs_vmm_notify_work *vmm_notify_work =
+		container_of(work, struct mmdvfs_vmm_notify_work, vmm_notify_work);
+
+	mtk_mmdvfs_enable_vcp(vmm_notify_work->enable, VCP_PWR_USR_MMDVFS_VMM_NOTIFY);
+	kfree(vmm_notify_work);
 }
 
-int mtk_mmdvfs_camera_notify(const bool genpd_update, const bool enable)
+int mtk_mmdvfs_genpd_notify(const u8 idx, const bool enable, const bool genpd_update)
 {
-	struct mmdvfs_cam_notify_work *work;
+	struct mmdvfs_vmm_notify_work *work;
 
-	MMDVFS_DBG("genpd_update:%u enable:%u", genpd_update, enable);
-	if (genpd_update) {
-		if (!cam_notify_wq) {
-			MMDVFS_ERR("no came notify wq");
-			return -ENODEV;
-		}
-
-		work = kzalloc(sizeof(*work), GFP_KERNEL);
-		if (!work) {
-			MMDVFS_ERR("memory allocation failed");
-			return -ENOMEM;
-		}
-
-		work->enable = enable;
-		INIT_WORK(&work->cam_notify_work, cam_notify_work_func);
-		queue_work(cam_notify_wq, &work->cam_notify_work);
+	if (mtk_is_mmdvfs_init_done()) {
+		mutex_lock(&mmdvfs_avs_mutex);
+		writel(enable ? 1 : 0, MEM_GENPD_ENABLE_USR(idx));
+		mmdvfs_vcp_ipi_send(FUNC_VMM_GENPD_NOTIFY, idx, enable ? 1 : 0);
+		mutex_unlock(&mmdvfs_avs_mutex);
 	}
+
+	if (!genpd_update)
+		return 0;
+
+	if (!vmm_notify_wq) {
+		MMDVFS_ERR("no came notify wq");
+		return -ENODEV;
+	}
+
+	work = kzalloc(sizeof(*work), GFP_KERNEL);
+	if (!work) {
+		MMDVFS_ERR("memory allocation failed");
+		return -ENOMEM;
+	}
+
+	work->enable = enable;
+	INIT_WORK(&work->vmm_notify_work, vmm_notify_work_func);
+	queue_work(vmm_notify_wq, &work->vmm_notify_work);
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(mtk_mmdvfs_camera_notify);
+EXPORT_SYMBOL_GPL(mtk_mmdvfs_genpd_notify);
 
 int mtk_mmdvfs_camera_notify_from_mmqos(const bool enable)
 {
@@ -556,8 +581,7 @@ int mtk_mmdvfs_camera_notify_from_mmqos(const bool enable)
 	}
 
 	writel(enable ? 1 : 0, MEM_VMM_CEIL_ENABLE);
-	if (is_vcp_ready_ex(VCP_A_ID))
-		mmdvfs_vcp_ipi_send(FUNC_VMM_CEIL_ENABLE, MAX_OPP, MAX_OPP);
+	mmdvfs_vcp_ipi_send(FUNC_VMM_CEIL_ENABLE, enable ? 1 : 0, MAX_OPP);
 
 	return 0;
 }
@@ -852,9 +876,7 @@ static int mtk_mmdvfs_clk_ctrl(const u8 clk_idx, const bool enable)
 		writel(val & ~(1 << clk_idx), MEM_CLKMUX_ENABLE);
 	}
 
-	if (is_vcp_ready_ex(VCP_A_ID))
-		mmdvfs_vcp_ipi_send(FUNC_CLKMUX_ENABLE, clk_idx, enable);
-
+	mmdvfs_vcp_ipi_send(FUNC_CLKMUX_ENABLE, clk_idx, enable);
 	mutex_unlock(&mmdvfs_clkmux_mutex);
 	return 0;
 }
@@ -1144,7 +1166,7 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 	kthr_vcp = kthread_run(mmdvfs_vcp_init_thread, NULL, "mmdvfs-vcp");
 	kthr_ccu = kthread_run(mmdvfs_ccu_init_thread, node, "mmdvfs-ccu");
 
-	cam_notify_wq = create_singlethread_workqueue("cam_notify_wq");
+	vmm_notify_wq = create_singlethread_workqueue("vmm_notify_wq");
 
 	force_on_notifier.notifier_call = mmdvfs_force_on_callback;
 	mtk_smi_dbg_register_force_on_notifier(&force_on_notifier);
