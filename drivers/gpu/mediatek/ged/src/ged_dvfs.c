@@ -1431,6 +1431,11 @@ static bool ged_dvfs_policy(
 				policy_state == POLICY_STATE_LB_FALLBACK)
 			gx_tb_dvfs_margin = g_tb_dvfs_margin_value;
 
+		// overwrite FB fallback to LB if there're no pending main head frames
+		if (policy_state == POLICY_STATE_FB_FALLBACK &&
+				ged_kpi_get_main_bq_uncomplete_count() <= 0)
+			ged_set_policy_state(POLICY_STATE_LB);
+
 		Policy__Loading_based__Margin(g_tb_dvfs_margin_value*10,
 			gx_tb_dvfs_margin*10, g_tb_dvfs_margin_value_min*10);
 		Policy__Loading_based__Margin__Detail(g_tb_dvfs_margin_mode,

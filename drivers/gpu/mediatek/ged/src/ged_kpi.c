@@ -1042,16 +1042,6 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				(unsigned long)ulID, (void *)psHead);
 			spin_unlock_irqrestore(&gs_hashtableLock, ulIRQFlags);
 		}
-		/*check if LB or FB*/
-		ged_kpi_set_fallback_mode(psHead);
-		/*First FB to LB*/
-		if (ged_get_policy_state() == POLICY_STATE_FB &&
-		ged_kpi_get_fallback_mode()) {
-			ged_set_policy_state(POLICY_STATE_LB);
-			set_lb_timeout(psHead->t_gpu_target);
-			ged_set_backup_timer_timeout(lb_timeout);
-			ged_cancel_backup_timer();
-		}
 		memset(psKPI, 0, sizeof(struct GED_KPI));
 		psKPI->ulMask |= GED_TIMESTAMP_TYPE_D;
 		psKPI->ullTimeStampD = psTimeStamp->ullTimeStamp;
@@ -1065,6 +1055,17 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		psHead->i32Count += 1;
 		psHead->i32Gpu_uncompleted++;
 		psKPI->i32Gpu_uncompleted = psHead->i32Gpu_uncompleted;
+
+		/*check if LB or FB*/
+		ged_kpi_set_fallback_mode(psHead);
+		/*First FB to LB*/
+		if (ged_get_policy_state() == POLICY_STATE_FB &&
+		ged_kpi_get_fallback_mode()) {
+			ged_set_policy_state(POLICY_STATE_LB);
+			set_lb_timeout(psHead->t_gpu_target);
+			ged_set_backup_timer_timeout(lb_timeout);
+			ged_cancel_backup_timer();
+		}
 		break;
 
 	/* queue buffer scope */
@@ -2092,6 +2093,14 @@ void ged_kpi_update_t_gpu_latest_uncompleted(void)
 		ged_kpi_update_t_gpu_latest_uncompleted_fcn,
 		(void *) &current_timestamp);
 	spin_unlock_irqrestore(&gs_hashtableLock, ulIRQFlags);
+}
+
+int ged_kpi_get_main_bq_uncomplete_count(void)
+{
+	if (main_head)
+		return main_head->i32Gpu_uncompleted;
+	else
+		return -1;
 }
 
 /* ------------------------------------------------------------------- */

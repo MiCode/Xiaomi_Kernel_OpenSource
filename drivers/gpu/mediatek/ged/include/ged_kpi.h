@@ -67,6 +67,7 @@ struct ged_risky_bq_info {
 	unsigned int total_gpu_completed_count;
 };
 GED_ERROR ged_kpi_timer_based_pick_riskyBQ(struct ged_risky_bq_info *info);
+int ged_kpi_get_main_bq_uncomplete_count(void);
 
 /* For Gift Usage */
 GED_ERROR ged_kpi_query_dvfs_freq_pred(int *gpu_freq_cur
