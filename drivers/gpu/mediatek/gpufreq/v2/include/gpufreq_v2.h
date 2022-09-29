@@ -112,6 +112,7 @@ enum gpufreq_config_target {
 	CONFIG_OCL_TIMESTAMP    = 12,
 	CONFIG_FAKE_MTCMOS_CTRL = 13,
 	CONFIG_MCUETM_CLK       = 14,
+	CONFIG_PTP3             = 15,
 };
 
 enum gpufreq_config_value {
@@ -310,6 +311,7 @@ struct gpufreq_shared_status {
 	unsigned int stress_test;
 	unsigned int test_mode;
 	unsigned int ips_mode;
+	unsigned int ptp3_mode;
 	unsigned int temper_comp_mode;
 	unsigned int ht_temper_comp_mode;
 	struct gpufreq_reg_info reg_mfgsys[GPUFREQ_MAX_REG_NUM];

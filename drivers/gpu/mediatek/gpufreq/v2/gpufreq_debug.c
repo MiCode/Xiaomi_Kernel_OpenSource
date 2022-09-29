@@ -141,12 +141,13 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 		g_gpueb_support ? "On" : "Off",
 		g_shared_status->stress_test ? "On" : "Off");
 	seq_printf(m,
-		"%-16s AgingMargin: %s, AVSMargin: %s, GPM1.0: %s, GPM3.0: %s\n",
+		"%-16s AgingMargin: %s, AVSMargin: %s, GPM1.0: %s, GPM3.0: %s, PTP3: %s\n",
 		"[MFGSYS Config]",
 		g_shared_status->aging_margin ? "On" : "Off",
 		g_shared_status->avs_margin ? "On" : "Off",
 		g_shared_status->gpm1_mode ? "On" : "Off",
-		g_shared_status->gpm3_mode ? "On" : "Off");
+		g_shared_status->gpm3_mode ? "On" : "Off",
+		g_shared_status->ptp3_mode ? "On" : "Off");
 	seq_printf(m,
 		"%-16s Temperature: %d'C, GPUTemperComp: %d/%d, STACKTemperComp: %d/%d\n",
 		"[MFGSYS Config]",
@@ -766,6 +767,12 @@ static ssize_t mfgsys_config_proc_write(struct file *file,
 				val = IPS_VMIN_GET;
 		} else if (sysfs_streq(input_target, "mcuetm_clk")) {
 			target = CONFIG_MCUETM_CLK;
+			if (sysfs_streq(input_val, "enable"))
+				val = FEAT_ENABLE;
+			else if (sysfs_streq(input_val, "disable"))
+				val = FEAT_DISABLE;
+		} else if (sysfs_streq(input_target, "ptp3")) {
+			target = CONFIG_PTP3;
 			if (sysfs_streq(input_val, "enable"))
 				val = FEAT_ENABLE;
 			else if (sysfs_streq(input_val, "disable"))
