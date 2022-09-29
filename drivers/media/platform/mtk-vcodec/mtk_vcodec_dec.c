@@ -3608,7 +3608,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 	struct mtk_vcodec_ctx *ctx = vb2_get_drv_priv(q);
 	struct mtk_video_dec_buf *src_buf_info = NULL;
 	unsigned int i = 0;
-	struct mtk_video_dec_buf *dstbuf;
+	struct mtk_video_dec_buf *srcbuf, *dstbuf;
 	unsigned long vcp_dvfs_data[1] = {0};
 
 	mtk_v4l2_debug(4, "[%d] (%d) state=(%x) ctx->decoded_frame_cnt=%d",
@@ -3634,6 +3634,21 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 			if (src_vb2_v4l2 != &ctx->dec_flush_buf->vb &&
 				src_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
 				v4l2_m2m_buf_done(src_vb2_v4l2, VB2_BUF_STATE_ERROR);
+
+		for (i = 0; i < q->num_buffers; i++)
+			if (q->bufs[i]->state == VB2_BUF_STATE_ACTIVE) {
+				src_vb2_v4l2 = container_of(
+					q->bufs[i], struct vb2_v4l2_buffer, vb2_buf);
+				srcbuf = container_of(
+					src_vb2_v4l2, struct mtk_video_dec_buf, vb);
+				mtk_v4l2_err("[%d] src num_buffers %d q_cnt %d queue id=%d state %d %d %d %d",
+					ctx->id, q->num_buffers,
+					atomic_read(&q->owned_by_drv_count),
+					srcbuf->vb.vb2_buf.index,
+					q->bufs[i]->state, srcbuf->queued_in_vb2,
+					srcbuf->queued_in_v4l2, srcbuf->used);
+				vb2_buffer_done(q->bufs[i], VB2_BUF_STATE_ERROR);
+			}
 		mutex_unlock(&ctx->buf_lock);
 		ctx->dec_flush_buf->lastframe = NON_EOS;
 		update_src_cnt(ctx);
@@ -3686,13 +3701,16 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 			q->bufs[i], struct vb2_v4l2_buffer, vb2_buf);
 		dstbuf = container_of(
 			dst_vb2_v4l2, struct mtk_video_dec_buf, vb);
-		mtk_v4l2_debug(4, "[%d]num_buffers %d status=%x queue id=%d %p %llx q_cnt %d %d %d %d",
-			ctx->id, q->num_buffers, dstbuf->frame_buffer.status,
+		mtk_v4l2_debug((q->bufs[i]->state == VB2_BUF_STATE_ACTIVE) ? 0 : 4,
+			"[%d] dst num_buffers %d q_cnt %d status=%x queue id=%d %p %llx state %d %d %d %d",
+			ctx->id, q->num_buffers, atomic_read(&q->owned_by_drv_count),
+			dstbuf->frame_buffer.status,
 			dstbuf->vb.vb2_buf.index, &dstbuf->frame_buffer,
 			(unsigned long)(&dstbuf->frame_buffer),
-			atomic_read(&q->owned_by_drv_count),
-			dstbuf->queued_in_vb2,
+			q->bufs[i]->state, dstbuf->queued_in_vb2,
 			dstbuf->queued_in_v4l2, dstbuf->used);
+		if (q->bufs[i]->state == VB2_BUF_STATE_ACTIVE)
+			vb2_buffer_done(q->bufs[i], VB2_BUF_STATE_ERROR);
 	}
 	mutex_unlock(&ctx->buf_lock);
 	mutex_lock(&ctx->dev->dec_dvfs_mutex);
