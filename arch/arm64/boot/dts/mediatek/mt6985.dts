@@ -1755,16 +1755,53 @@
 		vmm-pmic-supply = <&mt6319_6_vbuck3>;
 	};
 
-	camsys_power: camsys_power {
+	camsys_power: camsys-power {
 		compatible = "mediatek,vmm_notifier";
 
-		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_VCORE>;
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_MAIN>;
+		clock-names = "cam_avs";
+		clocks = <&camsys_main_clk CLK_CAM_MAIN_AVS_CON_0>;
+		pd-id = <0>;
+		reg = <0 0x1A00D000 0 0x1000>;
+		reg-names = "cam_reg";
 	};
 
-	imgsys_power: imgsys_power {
+	imgsys_power: imgsys-power {
+		compatible = "mediatek,vmm_notifier";
+
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_ISP_MAIN>;
+		clock-names = "img_avs";
+		clocks = <&imgsys_main_clk CLK_IMG_AVS>;
+		pd-id = <1>;
+		reg = <0 0x15004000 0 0x1000>;
+		reg-names = "img_reg";
+	};
+
+	camsys_vcore_power: camsys-vcore-power {
+		compatible = "mediatek,vmm_notifier";
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_CAM_VCORE>;
+		pd-id = <2>;
+	};
+
+	imgsys_vcore_power: imgsys-vcore-power {
 		compatible = "mediatek,vmm_notifier";
 
 		power-domains = <&scpsys MT6985_POWER_DOMAIN_ISP_VCORE>;
+		pd-id = <3>;
+	};
+
+	vde0_power: vde0_power {
+		compatible = "mediatek,vmm_notifier";
+
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_VDE0>;
+		pd-id = <4>;
+	};
+
+	vde1_power: vde1_power {
+		compatible = "mediatek,vmm_notifier";
+
+		power-domains = <&scpsys MT6985_POWER_DOMAIN_VDE1>;
+		pd-id = <5>;
 	};
 
 	ccu_rproc1: ccu_rproc1 {
