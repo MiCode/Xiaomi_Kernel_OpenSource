@@ -401,6 +401,7 @@ CHECK_WAIT_FENCE:
 		imgsys_fence->event_id = fence_evt->gce_event;
 		imgsys_fence->fence_fd = fence_evt->fence_fd;
 
+		dma_fence_get(imgsys_fence->kfence);
 		ret_f = dma_fence_add_callback(
 							imgsys_fence->kfence,
 							&(imgsys_fence->cb),
@@ -492,6 +493,49 @@ static void imgsys_cmdq_fence_notify_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 	}
 }
 
+static void imgsys_cmdq_fence_rmcb_plat7s(struct mtk_imgsys_dev *imgsys_dev,
+				struct mtk_imgsys_cb_param *cb_param)
+{
+	u32 frm_idx = 0;
+	u32 f_lop_idx = 0, waitf_num = 0;
+	struct mtk_imgsys_fence *imgsys_fence = NULL;
+
+	frm_idx = cb_param->frm_idx;
+	waitf_num = cb_param->frm_info->user_info[frm_idx].wait_fence_num;
+	if (waitf_num <= 0)
+		return;
+
+	for (f_lop_idx = 0; f_lop_idx < waitf_num; f_lop_idx++) {
+		imgsys_fence = &(cb_param->waitfence[f_lop_idx]);
+		if (imgsys_fence->kfence == NULL) {
+			dev_info(imgsys_dev->dev,
+				"%s: [ERROR] Own:%s MWFrame:#%d MWReq:#%d ReqFd:%d:[wait-#%d/%d]null fence, fd:%d\n",
+				__func__, (char *)(&(cb_param->frm_info->frm_owner)),
+				cb_param->frm_info->frame_no, cb_param->frm_info->request_no,
+				cb_param->frm_info->request_fd, frm_idx, f_lop_idx,
+				imgsys_fence->fence_fd);
+			return;
+		}
+
+		dma_fence_remove_callback(
+							imgsys_fence->kfence,
+							&(imgsys_fence->cb));
+		dma_fence_put(imgsys_fence->kfence);
+
+		if (imgsys_fence_dbg_enable_plat7s()) {
+			dev_info(imgsys_dev->dev,
+				"%s: Own:%s MWFrame:#%d MWReq:#%d ReqFd:%d,[wait-#%d/%d]0x%x,fencefd:%d,gthrd:%d,event:%d,ref_ct:%d\n",
+				__func__, (char *)(&(cb_param->frm_info->frm_owner)),
+				cb_param->frm_info->frame_no, cb_param->frm_info->request_no,
+				cb_param->frm_info->request_fd, frm_idx, f_lop_idx,
+				imgsys_fence->kfence, imgsys_fence->fence_fd,
+				imgsys_fence->thd_idx, imgsys_fence->event_id,
+				atomic_read(&imgsys_fence->kfence->refcount.refcount.refs));
+		}
+	}
+
+}
+
 #if CMDQ_CB_KTHREAD
 static void imgsys_cmdq_cb_work_plat7s(struct kthread_work *work)
 #else
@@ -530,7 +574,7 @@ static void imgsys_cmdq_cb_work_plat7s(struct work_struct *work)
 		cb_param->pkt_ofst[3], cb_param->pkt_ofst[4]);
 
 	imgsys_cmdq_fence_notify_plat7s(imgsys_dev, cb_param);
-
+	imgsys_cmdq_fence_rmcb_plat7s(imgsys_dev, cb_param);
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	mtk_imgsys_power_ctrl_plat7s(imgsys_dev, false);
