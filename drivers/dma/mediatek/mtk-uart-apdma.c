@@ -493,11 +493,8 @@ static void mtk_uart_apdma_rx_handler(struct mtk_chan *c)
 	//Read VFF_VALID_FLAG value
 	mb();
 
-	if (!mtk_uart_apdma_read(c, VFF_VALID_SIZE)) {
-		pr_info("[%s]:VFF_INT_FLAG = 0x%x\n,", __func__,
-				mtk_uart_apdma_read(c, VFF_INT_FLAG));
+	if (!mtk_uart_apdma_read(c, VFF_VALID_SIZE))
 		return;
-	}
 
 	mtk_uart_apdma_write(c, VFF_EN, VFF_EN_CLR_B);
 	mtk_uart_apdma_write(c, VFF_INT_EN, VFF_INT_EN_CLR_B);
