@@ -337,7 +337,7 @@ static bool filter_by_hw_limitation(struct drm_device *dev,
 	return flag;
 }
 
-static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx,
+static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx, int disp_list,
 				  enum DISP_HW_MAPPING_TB_TYPE tb_type,
 				  int param);
 static int layering_get_valid_hrt(struct drm_crtc *crtc, struct drm_mtk_layering_info *disp_info);
@@ -363,7 +363,7 @@ static void copy_hrt_bound_table(struct drm_mtk_layering_info *disp_info,
 	mutex_lock(&hrt_table_lock);
 	valid_num = layering_get_valid_hrt(crtc, disp_info);
 	ovl_bound = mtk_get_phy_layer_limit(
-		get_mapping_table(dev, 0, DISP_HW_LAYER_TB, MAX_PHY_OVL_CNT));
+		get_mapping_table(dev, 0, disp_info->disp_list, DISP_HW_LAYER_TB, MAX_PHY_OVL_CNT));
 	valid_num = min(valid_num, ovl_bound * 100);
 
 	for (i = 0; i < HRT_LEVEL_NUM; i++)
@@ -386,8 +386,130 @@ static int *get_bound_table(enum DISP_HW_MAPPING_TB_TYPE tb_type)
 	}
 	return NULL;
 }
+uint16_t get_dynamic_mapping_table(struct drm_device *dev, unsigned int disp_idx,
+		unsigned int disp_list, unsigned int tb_type, unsigned int hrt_type)
+{
+	struct mtk_drm_private *priv = dev->dev_private;
+	unsigned int temp, temp1 = 0, comp_id_nr, *comp_id_list;
+	int i, j, main_disp_idx = -1;
+	uint16_t ret = 0;
 
-static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx,
+	comp_id_nr = mtk_ddp_ovl_resource_list(priv, &comp_id_list);
+
+	for (i = 0; i < MAX_CRTC ; ++i) {
+		if (priv->pre_defined_bw[i] == 0xFFFFFFFF) {
+			main_disp_idx = i;
+			break;
+		}
+	}
+	if (main_disp_idx == -1) {
+		DDPPR_ERR("%s can't find main disp, set it to 0\n", __func__);
+		main_disp_idx = 0;
+	}
+
+	switch (hrt_type) {
+	case HRT_TB_TYPE_GENERAL0:
+		if (tb_type == DISP_HW_LAYER_TB)
+			ret = 0x3;
+		else /* DISP_HW_OVL_TB */
+			ret = 0x2;
+		break;
+	case HRT_TB_TYPE_GENERAL1:
+		if (tb_type == DISP_HW_LAYER_TB) {
+			temp = priv->ovl_usage[main_disp_idx];
+
+			for (i = 0 ; i < MAX_CRTC ; ++i) {
+				if (i == main_disp_idx)
+					continue;
+
+				if ((disp_list & BIT(i)) != 0)
+					temp = temp & ~priv->ovl_usage[i];
+			}
+			for (i = 0,	j = 0 ; i < comp_id_nr ; ++i) {
+				if ((temp & BIT(i)) != 0) {
+					temp1 |= 0x3 << (j * 2);
+					j++;
+				}
+			}
+			temp1 = temp1 << 1;
+			ret = temp1;
+		} else { /* DISP_HW_OVL_TB */
+			temp = priv->ovl_usage[main_disp_idx];
+
+			for (i = 0 ; i < MAX_CRTC ; ++i) {
+				if (i == main_disp_idx)
+					continue;
+
+				if ((disp_list & BIT(i)) != 0)
+					temp = temp & ~priv->ovl_usage[i];
+			}
+
+			for (i = 0, j = 0 ; i < comp_id_nr ; ++i) {
+				if ((temp & BIT(i)) != 0) {
+					temp1 |= 0x1 << (j * 2);
+					j++;
+				}
+			}
+			temp1 |= 0x1 << (j * 2);
+			ret = temp1;
+		}
+		break;
+	case HRT_TB_TYPE_RPO_L0:
+		if (tb_type == DISP_HW_LAYER_TB) {
+			temp = priv->ovl_usage[main_disp_idx];
+
+			for (i = 0 ; i < MAX_CRTC ; ++i) {
+				if (i == main_disp_idx)
+					continue;
+
+				if ((disp_list & BIT(i)) != 0)
+					temp = temp & ~priv->ovl_usage[i];
+			}
+
+			for (i = 0, j = 0; i < comp_id_nr ; ++i) {
+				if ((temp & BIT(i)) != 0) {
+					if (i == 0)
+						temp1 |= 0x1 << (j * 2);
+					else
+						temp1 |= 0x3 << (j * 2);
+					j++;
+				}
+			}
+			temp1 = temp1 << 1;
+			ret =  temp1;
+		} else { /* DISP_HW_OVL_TB */
+			temp = priv->ovl_usage[main_disp_idx];
+
+			for (i = 0 ; i < MAX_CRTC ; ++i) {
+				if (i == main_disp_idx)
+					continue;
+
+				if ((disp_list & BIT(i)) != 0)
+					temp = temp & ~priv->ovl_usage[i];
+			}
+
+			for (i = 0, j = 0 ; i < comp_id_nr ; ++i) {
+				if ((temp & BIT(i)) != 0) {
+					temp1 |= 0x1 << (j * 2);
+					j++;
+				}
+			}
+			temp1 |= 0x1 << (j * 2);
+			ret = temp1;
+		}
+		break;
+	case HRT_TB_TYPE_SINGLE_LAYER:
+		ret = 0x1;
+		break;
+	default:
+		ret = 0;
+		break;
+	}
+
+	return ret;
+}
+
+static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx, int disp_list,
 				  enum DISP_HW_MAPPING_TB_TYPE tb_type,
 				  int param)
 {
@@ -417,7 +539,11 @@ static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx,
 	switch (tb_type) {
 	case DISP_HW_OVL_TB:
 		if (priv->data->mmsys_id == MMSYS_MT6985)
-			map = ovl_mapping_table_mt6985[addon_data->hrt_type];
+			if (get_layering_opt(LYE_OPT_SPDA_OVL_SWITCH))
+				map = get_dynamic_mapping_table(dev, disp_idx, disp_list,
+						DISP_HW_OVL_TB, addon_data->hrt_type);
+			else
+				map = ovl_mapping_table_mt6985[addon_data->hrt_type];
 		else
 			map = ovl_mapping_table[addon_data->hrt_type];
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
@@ -435,7 +561,11 @@ static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx,
 	case DISP_HW_LAYER_TB:
 		if (param <= MAX_PHY_OVL_CNT && param >= 0) {
 			if (priv->data->mmsys_id == MMSYS_MT6985)
-				tmp_map = layer_mapping_table_mt6985[addon_data->hrt_type];
+				if (get_layering_opt(LYE_OPT_SPDA_OVL_SWITCH))
+					tmp_map = get_dynamic_mapping_table(dev, disp_idx,
+						disp_list, DISP_HW_LAYER_TB, addon_data->hrt_type);
+				else
+					tmp_map = layer_mapping_table_mt6985[addon_data->hrt_type];
 			else
 				tmp_map = layer_mapping_table[addon_data->hrt_type];
 			if (mtk_drm_helper_get_opt(priv->helper_opt,

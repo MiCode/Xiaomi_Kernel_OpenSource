@@ -374,14 +374,14 @@ int mtk_get_phy_layer_limit(uint16_t layer_map_tb)
 	return total_cnt;
 }
 
-static int get_ovl_by_phy(struct drm_device *dev, int disp_idx,
+static int get_ovl_by_phy(struct drm_device *dev, int disp_idx, int disp_list,
 			  uint16_t layer_map_tb, int phy_layer_idx)
 {
 	uint16_t ovl_mapping_tb;
 	int i, ovl_idx = 0, layer_idx = 0;
 
 	ovl_mapping_tb =
-		l_rule_ops->get_mapping_table(dev, disp_idx, DISP_HW_OVL_TB, 0);
+		l_rule_ops->get_mapping_table(dev, disp_idx, disp_list, DISP_HW_OVL_TB, 0);
 	for (layer_idx = 0; layer_idx < MAX_PHY_OVL_CNT; layer_idx++) {
 		if (layer_map_tb & 0x1) {
 			if (phy_layer_idx == 0)
@@ -410,11 +410,11 @@ static int get_ovl_by_phy(struct drm_device *dev, int disp_idx,
 	return ovl_idx;
 }
 
-static int get_phy_ovl_index(struct drm_device *dev, int disp_idx,
+static int get_phy_ovl_index(struct drm_device *dev, int disp_idx, int disp_list,
 			     int layer_idx)
 {
 	uint16_t ovl_mapping_tb =
-		l_rule_ops->get_mapping_table(dev, disp_idx, DISP_HW_OVL_TB, 0);
+		l_rule_ops->get_mapping_table(dev, disp_idx, disp_list, DISP_HW_OVL_TB, 0);
 	int phy_layer_cnt, layer_flag;
 
 	phy_layer_cnt = 0;
@@ -435,7 +435,8 @@ static int get_larb_by_ovl(struct drm_device *dev, int ovl_idx, int disp_idx)
 	uint16_t larb_mapping_tb;
 	int larb_idx;
 
-	larb_mapping_tb = l_rule_ops->get_mapping_table(dev, disp_idx,
+	/* no need for disp_list */
+	larb_mapping_tb = l_rule_ops->get_mapping_table(dev, disp_idx, 0,
 							DISP_HW_LARB_TB, 0);
 	larb_idx = (larb_mapping_tb >> ovl_idx * 4) & 0xF;
 
@@ -881,7 +882,7 @@ retry:
 	if (get_layering_opt(LYE_OPT_GPU_CACHE) && (disp_idx == HRT_PRIMARY))
 		phy_ovl_cnt_after_gc = get_phy_ovl_layer_cnt_after_gc(disp_info, disp_idx,
 		&layerset_head, &layerset_tail);
-	l_tb = l_rule_ops->get_mapping_table(dev, disp_idx, DISP_HW_LAYER_TB,
+	l_tb = l_rule_ops->get_mapping_table(dev, disp_idx, disp_info->disp_list, DISP_HW_LAYER_TB,
 					     MAX_PHY_OVL_CNT);
 
 	ovl_num_limit = mtk_get_phy_layer_limit(l_tb);
@@ -978,13 +979,13 @@ static int ext_id_tuning(struct drm_device *dev,
 		phy_ovl_cnt = MAX_PHY_OVL_CNT;
 	}
 
-	ovl_tb = l_rule_ops->get_mapping_table(dev, disp_idx, DISP_HW_OVL_TB, 0);
-	l_tb = l_rule_ops->get_mapping_table(dev, disp_idx, DISP_HW_LAYER_TB,
+	ovl_tb = l_rule_ops->get_mapping_table(dev, disp_idx, info->disp_list, DISP_HW_OVL_TB, 0);
+	l_tb = l_rule_ops->get_mapping_table(dev, disp_idx, info->disp_list, DISP_HW_LAYER_TB,
 					     phy_ovl_cnt);
 
 	if (l_rule_info->dal_enable) {
 		l_tb = l_rule_ops->get_mapping_table(
-			dev, disp_idx, DISP_HW_LAYER_TB, MAX_PHY_OVL_CNT);
+			dev, disp_idx, info->disp_list, DISP_HW_LAYER_TB, MAX_PHY_OVL_CNT);
 		l_tb &= HRT_AEE_LAYER_MASK;
 	}
 
@@ -1010,9 +1011,9 @@ static int ext_id_tuning(struct drm_device *dev,
 			if (cur_phy_cnt > 0) {
 				int cur_ovl, pre_ovl;
 
-				cur_ovl = get_ovl_by_phy(dev, disp_idx, l_tb,
+				cur_ovl = get_ovl_by_phy(dev, disp_idx, info->disp_list, l_tb,
 							 cur_phy_cnt);
-				pre_ovl = get_ovl_by_phy(dev, disp_idx, l_tb,
+				pre_ovl = get_ovl_by_phy(dev, disp_idx, info->disp_list, l_tb,
 							 cur_phy_cnt - 1);
 				if (cur_ovl != pre_ovl)
 					ext_cnt = 0;
@@ -1706,6 +1707,7 @@ static bool _calc_gpu_cache_layerset_hrt_num(struct drm_device *dev,
 	int sum_overlap_w_gc = 0;
 	int j = 0;
 	int bw_monitor_is_on = 0;
+	unsigned int disp_list;
 
 	/* BWM + GPU Cache */
 	if (get_layering_opt(LYE_OPT_OVL_BW_MONITOR))
@@ -1732,12 +1734,13 @@ static bool _calc_gpu_cache_layerset_hrt_num(struct drm_device *dev,
 	 */
 	layer_idx = -1;
 	ovl_cnt = get_phy_ovl_layer_cnt(disp_info, disp);
-	layer_map = l_rule_ops->get_mapping_table(dev, disp, DISP_HW_LAYER_TB,
+	disp_list = disp_info->disp_list;
+	layer_map = l_rule_ops->get_mapping_table(dev, disp, disp_list, DISP_HW_LAYER_TB,
 						  ovl_cnt);
 
 	if (l_rule_info->dal_enable) {
 		layer_map = l_rule_ops->get_mapping_table(
-			dev, disp, DISP_HW_LAYER_TB, MAX_PHY_OVL_CNT);
+			dev, disp, disp_list, DISP_HW_LAYER_TB, MAX_PHY_OVL_CNT);
 		layer_map &= HRT_AEE_LAYER_MASK;
 	}
 
@@ -1774,8 +1777,8 @@ static bool _calc_gpu_cache_layerset_hrt_num(struct drm_device *dev,
 					layer_idx++;
 
 				phy_layer_idx =
-					get_phy_ovl_index(dev, disp, layer_idx);
-				ovl_idx = get_ovl_by_phy(dev, disp, layer_map,
+					get_phy_ovl_index(dev, disp, disp_list, layer_idx);
+				ovl_idx = get_ovl_by_phy(dev, disp, disp_list, layer_map,
 							 layer_idx);
 				if (get_larb_by_ovl(dev, ovl_idx, disp) !=
 				    hrt_type)
@@ -1832,8 +1835,8 @@ static bool _calc_gpu_cache_layerset_hrt_num(struct drm_device *dev,
 					layer_idx++;
 
 				phy_layer_idx =
-					get_phy_ovl_index(dev, disp, layer_idx);
-				ovl_idx = get_ovl_by_phy(dev, disp, layer_map,
+					get_phy_ovl_index(dev, disp, disp_list, layer_idx);
+				ovl_idx = get_ovl_by_phy(dev, disp, disp_list, layer_map,
 							 layer_idx);
 
 				if (get_larb_by_ovl(dev, ovl_idx, disp) !=
@@ -1942,6 +1945,7 @@ static int _calc_hrt_num(struct drm_device *dev,
 	int overlap_w_of_bwm = 0;
 	int bw_monitor_is_on = 0;
 	int gpu_cache_is_on = 0;
+	unsigned int disp_list;
 
 	/* BWM + GPU Cache */
 	if (get_layering_opt(LYE_OPT_OVL_BW_MONITOR))
@@ -1972,12 +1976,13 @@ static int _calc_hrt_num(struct drm_device *dev,
 	 */
 	layer_idx = -1;
 	ovl_cnt = get_phy_ovl_layer_cnt(disp_info, disp);
-	layer_map = l_rule_ops->get_mapping_table(dev, disp, DISP_HW_LAYER_TB,
+	disp_list = disp_info->disp_list;
+	layer_map = l_rule_ops->get_mapping_table(dev, disp, disp_list, DISP_HW_LAYER_TB,
 						  ovl_cnt);
 
 	if (l_rule_info->dal_enable) {
 		layer_map = l_rule_ops->get_mapping_table(
-			dev, disp, DISP_HW_LAYER_TB, MAX_PHY_OVL_CNT);
+			dev, disp, disp_list, DISP_HW_LAYER_TB, MAX_PHY_OVL_CNT);
 		layer_map &= HRT_AEE_LAYER_MASK;
 	}
 
@@ -2040,8 +2045,8 @@ static int _calc_hrt_num(struct drm_device *dev,
 					layer_idx++;
 
 				phy_layer_idx =
-					get_phy_ovl_index(dev, disp, layer_idx);
-				ovl_idx = get_ovl_by_phy(dev, disp, layer_map,
+					get_phy_ovl_index(dev, disp, disp_list, layer_idx);
+				ovl_idx = get_ovl_by_phy(dev, disp, disp_list, layer_map,
 							 layer_idx);
 				if (get_larb_by_ovl(dev, ovl_idx, disp) !=
 				    hrt_type)
@@ -2087,8 +2092,8 @@ static int _calc_hrt_num(struct drm_device *dev,
 					layer_idx++;
 
 				phy_layer_idx =
-					get_phy_ovl_index(dev, disp, layer_idx);
-				ovl_idx = get_ovl_by_phy(dev, disp, layer_map,
+					get_phy_ovl_index(dev, disp, disp_list, layer_idx);
+				ovl_idx = get_ovl_by_phy(dev, disp, disp_list, layer_map,
 							 layer_idx);
 
 				if (get_larb_by_ovl(dev, ovl_idx, disp) !=
@@ -2351,7 +2356,7 @@ static int ext_layer_grouping(struct drm_device *dev,
 		 */
 		phy_layer_cnt =
 			mtk_get_phy_layer_limit(l_rule_ops->get_mapping_table(
-				dev, disp_idx, DISP_HW_LAYER_TB,
+				dev, disp_idx, disp_info->disp_list, DISP_HW_LAYER_TB,
 				MAX_PHY_OVL_CNT));
 		/* Remove the rule here so that we can have more oppotunity to
 		 * test extended layer
@@ -2439,12 +2444,13 @@ void lye_add_lye_priv_blob(struct mtk_plane_comp_state *comp_state,
 	lyeblob_ids->lye_plane_blob_id[disp_idx][plane_idx] = blob->base.id;
 }
 
-static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
+static int mtk_lye_get_comp_id(int disp_idx, int disp_list, struct drm_device *drm_dev,
 			       int layer_map_idx)
 {
 	uint16_t ovl_mapping_tb = l_rule_ops->get_mapping_table(
-		drm_dev, disp_idx, DISP_HW_OVL_TB, 0);
+		drm_dev, disp_idx, disp_list, DISP_HW_OVL_TB, 0);
 	struct mtk_drm_private *priv = drm_dev->dev_private;
+	unsigned int temp, temp1, i, comp_id_nr, *comp_id_list;
 
 	/* TODO: The component ID should be changed by ddp path and platforms */
 	if (disp_idx == 0) {
@@ -2455,36 +2461,112 @@ static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
 			MTK_DRM_OPT_VDS_PATH_SWITCH) &&
 			priv->need_vds_path_switch)
 			return DDP_COMPONENT_OVL0;
-		else {
-			if (priv->data->mmsys_id == MMSYS_MT6985) {
-				if (HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
-					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) >=
-					layer_map_idx) {
-					return DDP_COMPONENT_OVL0_2L;
-				} else if (HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
-					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
-					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) -
-					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) >=
-					layer_map_idx) {
-					return DDP_COMPONENT_OVL1_2L;
-				} else
-					return DDP_COMPONENT_OVL2_2L;
-			} else {
-				if (HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
-					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) >=
-					layer_map_idx) {
-					if ((priv->data->mmsys_id == MMSYS_MT6895) ||
-						(priv->data->mmsys_id == MMSYS_MT6886) ||
-						(priv->data->mmsys_id == MMSYS_MT6855))
-						return DDP_COMPONENT_OVL1_2L;
-					else
-						return DDP_COMPONENT_OVL0_2L;
-				} else
-					return DDP_COMPONENT_OVL0;
+		else if (get_layering_opt(LYE_OPT_SPDA_OVL_SWITCH)) {
+			comp_id_nr = mtk_ddp_ovl_resource_list(priv, &comp_id_list);
+			if (HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
+				HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) >= layer_map_idx) {
+				temp = priv->ovl_usage[disp_idx];
+				for (i = 1 ; i < MAX_CRTC ; ++i) {
+					if ((disp_list & BIT(i)) != 0)
+						temp = temp & ~priv->ovl_usage[i];
+				}
+				temp1 = HRT_GET_FIRST_SET_BIT(temp);
+				for (i = 0 ; i < comp_id_nr ; ++i) {
+					if (temp1 == BIT(i))
+						break;
+				}
+				if (i >= comp_id_nr) {
+					DDPPR_ERR("%s comp_id_nr %u ovl_usage %u, set to 0\n",
+						__func__, comp_id_nr, temp);
+					i = 0;
+				}
+				return comp_id_list[i];
+			} else if (HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
+				HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
+				HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) -
+				HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) >=
+				layer_map_idx) {
+				temp = priv->ovl_usage[disp_idx];
+
+				for (i = 1 ; i < MAX_CRTC ; ++i) {
+					if ((disp_list & BIT(i)) != 0)
+						temp = temp & ~priv->ovl_usage[i];
+				}
+				temp1 = HRT_GET_FIRST_SET_BIT(temp - HRT_GET_FIRST_SET_BIT(temp));
+				for (i = 0 ; i < comp_id_nr ; ++i) {
+					if (temp1 == BIT(i))
+						break;
+				}
+				if (i >= comp_id_nr) {
+					DDPPR_ERR("%s comp_id_nr %u ovl_usage %u, set to 0\n",
+						__func__, comp_id_nr, temp);
+					i = 0;
+				}
+				return comp_id_list[i];
 			}
+			temp = priv->ovl_usage[disp_idx];
+
+			for (i = 1 ; i < MAX_CRTC ; ++i) {
+				if ((disp_list & BIT(i)) != 0)
+					temp = temp & ~priv->ovl_usage[i];
+			}
+			temp1 = HRT_GET_FIRST_SET_BIT(temp -
+					HRT_GET_FIRST_SET_BIT(temp - HRT_GET_FIRST_SET_BIT(temp)) -
+					HRT_GET_FIRST_SET_BIT(temp));
+			for (i = 0 ; i < comp_id_nr ; ++i) {
+				if (temp1 == BIT(i))
+					break;
+			}
+			if (i >= comp_id_nr) {
+				DDPPR_ERR("%s comp_id_nr %u ovl_usage %u, set to 0\n",
+						__func__, comp_id_nr, temp);
+				i = 0;
+			}
+			return comp_id_list[i];
+		}
+		if (priv->data->mmsys_id == MMSYS_MT6985) {
+			if (HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
+				HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) >=
+				layer_map_idx) {
+				return DDP_COMPONENT_OVL0_2L;
+			} else if (HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
+				HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
+				HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) -
+				HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) >=
+				layer_map_idx) {
+				return DDP_COMPONENT_OVL1_2L;
+			} else
+				return DDP_COMPONENT_OVL2_2L;
+		} else {
+			if (HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
+				HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) >=
+				layer_map_idx) {
+				if ((priv->data->mmsys_id == MMSYS_MT6895) ||
+					(priv->data->mmsys_id == MMSYS_MT6886) ||
+					(priv->data->mmsys_id == MMSYS_MT6855))
+					return DDP_COMPONENT_OVL1_2L;
+				else
+					return DDP_COMPONENT_OVL0_2L;
+			} else
+				return DDP_COMPONENT_OVL0;
 		}
 	} else if (disp_idx == 1) {
-		if (priv->data->mmsys_id == MMSYS_MT6885)
+		if (get_layering_opt(LYE_OPT_SPDA_OVL_SWITCH)) {
+			struct drm_crtc *crtc = priv->crtc[disp_idx];
+			struct mtk_drm_crtc *mtk_crtc;
+			struct mtk_ddp_comp *comp;
+			unsigned int i, j;
+
+			if (!crtc)
+				return DDP_COMPONENT_OVL2_2L;
+
+			mtk_crtc = to_mtk_crtc(crtc);
+			//disp_idx 1 does not exist multiple mode yet
+			for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+				if (comp)
+					break;
+			return comp->id;
+		} else if (priv->data->mmsys_id == MMSYS_MT6885)
 			return DDP_COMPONENT_OVL2_2L;
 		else if (priv->data->mmsys_id == MMSYS_MT6983)
 			return DDP_COMPONENT_OVL2_2L_NWCG;
@@ -2496,7 +2578,22 @@ static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_VDS_PATH_SWITCH))
 			return DDP_COMPONENT_OVL0_2L;
-		else if (priv->data->mmsys_id == MMSYS_MT6983)
+		else if (get_layering_opt(LYE_OPT_SPDA_OVL_SWITCH)) {
+			struct drm_crtc *crtc = priv->crtc[disp_idx];
+			struct mtk_drm_crtc *mtk_crtc;
+			struct mtk_ddp_comp *comp;
+			unsigned int i, j;
+
+			if (!crtc)
+				return DDP_COMPONENT_OVL2_2L;
+
+			mtk_crtc = to_mtk_crtc(crtc);
+			//disp_idx 2 does not exist multiple mode yet
+			for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+				if (comp)
+					break;
+			return comp->id;
+		} else if (priv->data->mmsys_id == MMSYS_MT6983)
 			return DDP_COMPONENT_OVL1_2L_NWCG;
 		else if (priv->data->mmsys_id == MMSYS_MT6985)
 			return DDP_COMPONENT_OVL7_2L;
@@ -2508,7 +2605,22 @@ static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
 		else
 			return DDP_COMPONENT_OVL2_2L;
 	} else if (disp_idx == 3) {
-		if (priv->data->mmsys_id == MMSYS_MT6983)
+		if (get_layering_opt(LYE_OPT_SPDA_OVL_SWITCH)) {
+			struct drm_crtc *crtc = priv->crtc[disp_idx];
+			struct mtk_drm_crtc *mtk_crtc;
+			struct mtk_ddp_comp *comp;
+			unsigned int i, j;
+
+			if (!crtc)
+				return DDP_COMPONENT_OVL2_2L;
+
+			mtk_crtc = to_mtk_crtc(crtc);
+			//disp_idx 3 does not exist multiple mode yet
+			for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+				if (comp)
+					break;
+			return comp->id;
+		} else if (priv->data->mmsys_id == MMSYS_MT6983)
 			return DDP_COMPONENT_OVL0_2L_NWCG;
 		else if (priv->data->mmsys_id == MMSYS_MT6985)
 			return DDP_COMPONENT_OVL7_2L;
@@ -2520,7 +2632,7 @@ static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
 	return DDP_COMPONENT_OVL2_2L;
 }
 
-static int mtk_lye_get_lye_id(int disp_idx, struct drm_device *drm_dev,
+static int mtk_lye_get_lye_id(int disp_idx, int disp_list, struct drm_device *drm_dev,
 			      int layer_map_idx)
 {
 	int cnt = 0;
@@ -2531,7 +2643,7 @@ static int mtk_lye_get_lye_id(int disp_idx, struct drm_device *drm_dev,
 			layer_map_idx >>= 1;
 		}
 	layer_map_idx = cnt;
-	return get_phy_ovl_index(drm_dev, disp_idx, layer_map_idx);
+	return get_phy_ovl_index(drm_dev, disp_idx, disp_list, layer_map_idx);
 }
 
 static void clear_layer(struct drm_mtk_layering_info *disp_info,
@@ -2694,9 +2806,9 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 
 		layer_map_idx = HRT_GET_FIRST_SET_BIT(layer_map);
 		comp_state.comp_id =
-			mtk_lye_get_comp_id(disp_idx, drm_dev, layer_map_idx);
+			mtk_lye_get_comp_id(disp_idx, disp_info->disp_list, drm_dev, layer_map_idx);
 		comp_state.lye_id =
-			mtk_lye_get_lye_id(disp_idx, drm_dev, layer_map_idx);
+			mtk_lye_get_lye_id(disp_idx, disp_info->disp_list, drm_dev, layer_map_idx);
 
 		if (is_extended_layer(layer_info)) {
 			comp_state.ext_lye_id = LYE_EXT0 + ext_cnt;
@@ -2853,11 +2965,11 @@ static int dispatch_ovl_id(struct drm_mtk_layering_info *disp_info,
 		if (clear)
 			ovl_cnt++;
 		layer_map = l_rule_ops->get_mapping_table(
-			drm_dev, disp_idx, DISP_HW_LAYER_TB, ovl_cnt);
+			drm_dev, disp_idx, disp_info->disp_list, DISP_HW_LAYER_TB, ovl_cnt);
 
 		if (l_rule_info->dal_enable) {
 			layer_map = l_rule_ops->get_mapping_table(
-				drm_dev, disp_idx, DISP_HW_LAYER_TB,
+				drm_dev, disp_idx, disp_info->disp_list, DISP_HW_LAYER_TB,
 				MAX_PHY_OVL_CNT);
 			layer_map &= HRT_AEE_LAYER_MASK;
 		}

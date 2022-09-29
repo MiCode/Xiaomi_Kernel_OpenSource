@@ -157,7 +157,7 @@ struct layering_rule_ops {
 	void (*scenario_decision)(struct drm_device *dev,
 		const enum SCN_FACTOR scn_decision_flag, const unsigned int scale_num);
 	int *(*get_bound_table)(enum DISP_HW_MAPPING_TB_TYPE tb_type);
-	uint16_t (*get_mapping_table)(struct drm_device *dev, int disp_idx,
+	uint16_t (*get_mapping_table)(struct drm_device *dev, int disp_idx, int disp_list,
 				      enum DISP_HW_MAPPING_TB_TYPE tb_type,
 				      int param);
 	/* should be removed */
