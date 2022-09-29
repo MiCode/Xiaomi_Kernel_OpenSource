@@ -1006,6 +1006,13 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 
 	mtk_ovl_io_cmd(comp, handle, IRQ_LEVEL_NORMAL, NULL);
 
+	cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DISP_REG_OVL_RST, 0x1, 0x1);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DISP_REG_OVL_RST, 0x0, 0x1);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_INTSTA, 0, ~0);
+
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_EN,
 		       0x1, 0x1);
 
@@ -1046,18 +1053,12 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 
 static void mtk_ovl_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
-	DDPDBG("%s+\n", __func__);
+	DDPDBG("%s+ %s\n", __func__, mtk_dump_comp_str(comp));
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_INTEN, 0, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_EN,
 		       0x0, 0x1);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_REG_OVL_RST, 1, ~0);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_REG_OVL_INTSTA, 0, ~0);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_REG_OVL_RST, 0, ~0);
 
 	mtk_ovl_all_layer_off(comp, handle, 0);
 
@@ -1069,7 +1070,7 @@ static void mtk_ovl_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 
 static void mtk_ovl_reset(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
-	DDPDBG("%s+ OVL%d\n", __func__, comp->id);
+	DDPDBG("%s+ %s\n", __func__, mtk_dump_comp_str(comp));
 	cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_RST, 1, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
@@ -4439,15 +4440,16 @@ mtk_ovl_config_trigger(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkt,
 	switch (flag) {
 	case MTK_TRIG_FLAG_PRE_TRIGGER:
 	{
-		DDPINFO("%s+ %s\n", __func__, mtk_dump_comp_str(comp));
+	/* may cause side effect, need check
 		if (comp->blank_mode)
 			break;
+		DDPINFO("%s+ %s\n", __func__, mtk_dump_comp_str(comp));
 
 		cmdq_pkt_write(pkt, comp->cmdq_base,
 				comp->regs_pa + DISP_REG_OVL_RST, 0x1, 0x1);
 		cmdq_pkt_write(pkt, comp->cmdq_base,
 				comp->regs_pa + DISP_REG_OVL_RST, 0x0, 0x1);
-
+	*/
 		break;
 	}
 #ifdef IF_ZERO /* not ready for dummy register method */
