@@ -172,7 +172,7 @@
 #define MT6879_FLD_OVL0_2L_NWCG_RDMA_ULTRA_SEL    REG_FLD_MSB_LSB(17, 14)
 
 #define MTK_DDP_COMP_USER "DISP"
-
+#define CONFIG_MTK_IOMMU_MISC_DBG_DETAIL
 
 void mtk_ddp_write(struct mtk_ddp_comp *comp, unsigned int value,
 		   unsigned int offset, void *handle)
@@ -965,8 +965,8 @@ static int mtk_ddp_iommu_callback(int port, dma_addr_t mva, void *data)
 			mtk_dump_reg(comp);
 		} else {
 			crtc = &mtk_crtc->base;
-			mtk_drm_crtc_analysis(crtc);
-			mtk_drm_crtc_dump(crtc);
+			mtk_drm_crtc_mini_analysis(crtc);
+			mtk_drm_crtc_mini_dump(crtc);
 		}
 #else
 		mtk_dump_analysis(comp);

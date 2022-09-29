@@ -274,6 +274,113 @@ static void mtk_drm_crtc_addon_dump(struct drm_crtc *crtc,
 	}
 }
 
+void mtk_drm_crtc_mini_dump(struct drm_crtc *crtc)
+{
+	int i, j;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_ddp_comp *comp;
+	int crtc_id = drm_crtc_index(crtc);
+
+	if (crtc_id < 0) {
+		DDPPR_ERR("%s: Invalid crtc_id:%d\n", __func__, crtc_id);
+		return;
+	}
+
+	if (priv->mmsys_dev && pm_runtime_get_if_in_use(priv->mmsys_dev) <= 0)
+		goto done_return;
+	if (priv->side_mmsys_dev && pm_runtime_get_if_in_use(priv->side_mmsys_dev) <= 0)
+		goto done_return;
+	if (priv->ovlsys_dev && pm_runtime_get_if_in_use(priv->ovlsys_dev) <= 0)
+		goto done_return;
+	if (priv->side_ovlsys_dev && pm_runtime_get_if_in_use(priv->side_ovlsys_dev) <= 0)
+		goto done_return;
+
+	DDPFUNC("crtc%d\n", crtc_id);
+
+	switch (priv->data->mmsys_id) {
+	case MMSYS_MT2701:
+	case MMSYS_MT2712:
+	case MMSYS_MT8173:
+	case MMSYS_MT6779:
+		break;
+	case MMSYS_MT6885:
+		mmsys_config_dump_reg_mt6885(mtk_crtc->config_regs);
+		break;
+	case MMSYS_MT6983:
+		mmsys_config_dump_reg_mt6983(mtk_crtc->config_regs);
+		if (mtk_crtc->side_config_regs)
+			mmsys_config_dump_reg_mt6983(mtk_crtc->side_config_regs);
+		break;
+	case MMSYS_MT6985:
+		DDPDUMP("== DISP pipe-0 OVLSYS_CONFIG REGS:0x%x ==\n",
+					mtk_crtc->ovlsys0_regs_pa);
+		ovlsys_config_dump_reg_mt6985(mtk_crtc->ovlsys0_regs);
+		if (mtk_crtc->ovlsys1_regs) {
+			DDPDUMP("== DISP pipe-1 OVLSYS_CONFIG REGS:0x%x ==\n",
+				mtk_crtc->ovlsys1_regs_pa);
+			ovlsys_config_dump_reg_mt6985(mtk_crtc->ovlsys1_regs);
+		}
+
+		DDPDUMP("== DISP pipe-0 MMSYS_CONFIG REGS:0x%x ==\n",
+					mtk_crtc->config_regs_pa);
+		mmsys_config_dump_reg_mt6985(mtk_crtc->config_regs);
+		if (mtk_crtc->side_config_regs) {
+			DDPDUMP("== DISP pipe-1 MMSYS_CONFIG REGS:0x%x ==\n",
+				mtk_crtc->side_config_regs_pa);
+			mmsys_config_dump_reg_mt6985(mtk_crtc->side_config_regs);
+		}
+		if (mtk_crtc->is_dual_pipe) {
+			for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+				if (comp && ((mtk_ddp_comp_get_type(comp->id) == MTK_DISP_OVL) ||
+					(mtk_ddp_comp_get_type(comp->id) == MTK_DSI)))
+					mtk_dump_reg(comp);
+			}
+		}
+		break;
+	case MMSYS_MT6895:
+	case MMSYS_MT6886:
+		DDPDUMP("== DISP pipe0 MMSYS_CONFIG REGS:0x%x ==\n",
+					mtk_crtc->config_regs_pa);
+		mmsys_config_dump_reg_mt6895(mtk_crtc->config_regs);
+		if (mtk_crtc->side_config_regs) {
+			DDPDUMP("== DISP pipe1 MMSYS_CONFIG REGS:0x%x ==\n",
+				mtk_crtc->side_config_regs_pa);
+			mmsys_config_dump_reg_mt6895(mtk_crtc->side_config_regs);
+		}
+		break;
+	case MMSYS_MT6873:
+	case MMSYS_MT6853:
+	case MMSYS_MT6833:
+	case MMSYS_MT6879:
+	case MMSYS_MT6855:
+		mmsys_config_dump_reg_mt6879(mtk_crtc->config_regs);
+		break;
+	default:
+		DDPPR_ERR("%s mtk drm not support mmsys id %d\n",
+			__func__, priv->data->mmsys_id);
+		break;
+	}
+
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
+		if (comp && ((mtk_ddp_comp_get_type(comp->id) == MTK_DISP_OVL) ||
+			(mtk_ddp_comp_get_type(comp->id) == MTK_DSI)))
+			mtk_dump_reg(comp);
+	}
+
+	if (priv->side_ovlsys_dev)
+		pm_runtime_put(priv->side_ovlsys_dev);
+	if (priv->ovlsys_dev)
+		pm_runtime_put(priv->ovlsys_dev);
+	if (priv->side_mmsys_dev)
+		pm_runtime_put(priv->side_mmsys_dev);
+	if (priv->mmsys_dev)
+		pm_runtime_put(priv->mmsys_dev);
+
+done_return:
+	return;
+}
+
 void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 {
 	int i, j;
@@ -471,6 +578,144 @@ static void mtk_drm_crtc_addon_analysis(struct drm_crtc *crtc,
 			mtk_dump_analysis(comp);
 		}
 	}
+}
+
+void mtk_drm_crtc_mini_analysis(struct drm_crtc *crtc)
+{
+	int i, j;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_ddp_comp *comp;
+	int crtc_id = drm_crtc_index(crtc);
+
+	if (crtc_id < 0) {
+		DDPPR_ERR("%s: Invalid crtc_id:%d\n", __func__, crtc_id);
+		return;
+	}
+
+	if (priv->mmsys_dev && pm_runtime_get_if_in_use(priv->mmsys_dev) <= 0)
+		goto done_return;
+	if (priv->side_mmsys_dev && pm_runtime_get_if_in_use(priv->side_mmsys_dev) <= 0)
+		goto done_return;
+	if (priv->ovlsys_dev && pm_runtime_get_if_in_use(priv->ovlsys_dev) <= 0)
+		goto done_return;
+	if (priv->side_ovlsys_dev && pm_runtime_get_if_in_use(priv->side_ovlsys_dev) <= 0)
+		goto done_return;
+
+	DDPFUNC("crtc%d\n", crtc_id);
+
+	switch (priv->data->mmsys_id) {
+	case MMSYS_MT2701:
+	case MMSYS_MT2712:
+	case MMSYS_MT8173:
+	case MMSYS_MT6779:
+		break;
+	case MMSYS_MT6885:
+		mmsys_config_dump_analysis_mt6885(mtk_crtc->config_regs);
+		if (mtk_crtc->is_dual_pipe) {
+			DDPDUMP("anlysis dual pipe\n");
+			mtk_ddp_dual_pipe_dump(mtk_crtc);
+			for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+				if (comp && ((mtk_ddp_comp_get_type(comp->id) == MTK_DISP_OVL) ||
+					(mtk_ddp_comp_get_type(comp->id) == MTK_DSI))) {
+					mtk_dump_analysis(comp);
+					mtk_dump_reg(comp);
+				}
+			}
+		}
+		break;
+	case MMSYS_MT6983:
+		mmsys_config_dump_analysis_mt6983(mtk_crtc->config_regs);
+		if (mtk_crtc->side_config_regs) {
+			DDPDUMP("DUMP DISPSYS1\n");
+			mmsys_config_dump_analysis_mt6983(mtk_crtc->side_config_regs);
+		}
+		if (mtk_crtc->is_dual_pipe) {
+			for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+				if (comp && ((mtk_ddp_comp_get_type(comp->id) == MTK_DISP_OVL) ||
+					(mtk_ddp_comp_get_type(comp->id) == MTK_DSI))) {
+					mtk_dump_analysis(comp);
+					mtk_dump_reg(comp);
+				}
+			}
+		}
+		break;
+	case MMSYS_MT6985:
+		DDPDUMP("== DUMP OVLSYS pipe-0 ANALYSIS:0x%x ==\n",
+			mtk_crtc->ovlsys0_regs_pa);
+		ovlsys_config_dump_analysis_mt6985(mtk_crtc->ovlsys0_regs);
+		if (mtk_crtc->ovlsys1_regs) {
+			DDPDUMP("== DUMP OVLSYS pipe-1 ANALYSIS:0x%x ==\n",
+				mtk_crtc->ovlsys1_regs_pa);
+			ovlsys_config_dump_analysis_mt6985(mtk_crtc->ovlsys1_regs);
+		}
+
+		DDPDUMP("== DUMP DISP pipe-0 ANALYSIS:0x%x ==\n",
+			mtk_crtc->config_regs_pa);
+		mmsys_config_dump_analysis_mt6985(mtk_crtc->config_regs);
+		if (mtk_crtc->side_config_regs) {
+			DDPDUMP("== DUMP DISP pipe-1 ANALYSIS:0x%x ==\n",
+				mtk_crtc->side_config_regs_pa);
+			mmsys_config_dump_analysis_mt6985(mtk_crtc->side_config_regs);
+		}
+
+		if (mtk_crtc->is_dual_pipe) {
+			for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+				if (comp && ((mtk_ddp_comp_get_type(comp->id) == MTK_DISP_OVL) ||
+					(mtk_ddp_comp_get_type(comp->id) == MTK_DSI)))
+					mtk_dump_analysis(comp);
+			}
+		}
+		break;
+	case MMSYS_MT6895:
+	case MMSYS_MT6886:
+		DDPDUMP("== DUMP DISP pipe0 ANALYSIS:0x%x ==\n",
+			mtk_crtc->config_regs_pa);
+		mmsys_config_dump_analysis_mt6895(mtk_crtc->config_regs);
+		if (mtk_crtc->side_config_regs) {
+			DDPDUMP("== DUMP DISP pipe1 ANALYSIS:0x%x ==\n",
+				mtk_crtc->side_config_regs_pa);
+			mmsys_config_dump_analysis_mt6895(mtk_crtc->side_config_regs);
+		}
+		if (mtk_crtc->is_dual_pipe) {
+			for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+				if (comp && ((mtk_ddp_comp_get_type(comp->id) == MTK_DISP_OVL) ||
+					(mtk_ddp_comp_get_type(comp->id) == MTK_DSI))) {
+					mtk_dump_analysis(comp);
+					mtk_dump_reg(comp);
+				}
+			}
+		}
+		break;
+	case MMSYS_MT6873:
+	case MMSYS_MT6853:
+	case MMSYS_MT6833:
+	case MMSYS_MT6879:
+	case MMSYS_MT6855:
+		break;
+	default:
+		DDPPR_ERR("%s mtk drm not support mmsys id %d\n",
+			__func__, priv->data->mmsys_id);
+		break;
+	}
+
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
+		if (comp && ((mtk_ddp_comp_get_type(comp->id) == MTK_DISP_OVL) ||
+			(mtk_ddp_comp_get_type(comp->id) == MTK_DSI)))
+			mtk_dump_analysis(comp);
+	}
+
+	if (priv->side_ovlsys_dev)
+		pm_runtime_put(priv->side_ovlsys_dev);
+	if (priv->ovlsys_dev)
+		pm_runtime_put(priv->ovlsys_dev);
+	if (priv->side_mmsys_dev)
+		pm_runtime_put(priv->side_mmsys_dev);
+	if (priv->mmsys_dev)
+		pm_runtime_put(priv->mmsys_dev);
+
+done_return:
+	return;
 }
 
 void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
@@ -5865,13 +6110,14 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 			if (priv->data->mmsys_id == MMSYS_MT6985) {
 				DDPAEE("ovl status error. TS: 0x%08x\n", ovl_status);
 				g_mobile_log = 1;
-				mtk_drm_crtc_analysis(crtc);
-				mtk_drm_crtc_dump(crtc);
+				mtk_drm_crtc_mini_analysis(crtc);
+				mtk_drm_crtc_mini_dump(crtc);
 				cmdq_dump_pkt(cb_data->cmdq_handle, 0, true);
 				g_mobile_log = 0;
 			} else {
 				mtk_drm_crtc_analysis(crtc);
 				mtk_drm_crtc_dump(crtc);
+				cmdq_dump_pkt(cb_data->cmdq_handle, 0, true);
 			}
 		}
 		/*Msync 2.0 related function*/

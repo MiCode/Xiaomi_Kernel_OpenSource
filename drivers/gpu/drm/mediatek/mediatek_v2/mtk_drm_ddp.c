@@ -16597,7 +16597,6 @@ void ovlsys_config_dump_reg_mt6985(void __iomem *config_regs)
 {
 	unsigned int off = 0;
 
-	DDPDUMP("== DISP OVLSYS_CONFIG REGS ==\n");
 /* TODO: use raw dump helper here */
 	for (off = 0x0; off <= 0x40; off += 0x10)
 		mtk_serial_dump_reg(config_regs, off, 4);
@@ -16639,7 +16638,6 @@ void mmsys_config_dump_reg_mt6985(void __iomem *config_regs)
 {
 	unsigned int off = 0;
 
-	DDPDUMP("== DISP MMSYS_CONFIG REGS ==\n");
 /* TODO: use raw dump helper here */
 	for (off = 0x0; off <= 0x40; off += 0x10)
 		mtk_serial_dump_reg(config_regs, off, 4);
@@ -17125,7 +17123,6 @@ void mmsys_config_dump_analysis_mt6985(void __iomem *config_regs)
 	ready[5] =
 		readl_relaxed(config_regs + MT6985_DISP_REG_CONFIG_DL_READY_5);
 
-	DDPDUMP("== DISP MMSYS_CONFIG ANALYSIS ==\n");
 	reg = readl_relaxed(config_regs + DISP_REG_CONFIG_MMSYS_CG_CON0_MT6985);
 	for (bit = 0; bit < 32; bit++) {
 		if ((reg & (1 << bit)) == 0) {
@@ -17275,7 +17272,6 @@ void ovlsys_config_dump_analysis_mt6985(void __iomem *config_regs)
 	greq1 = readl_relaxed(config_regs +
 				MT6985_DISP_REG_OVLSYS_SMI_LARB1_GREQ);
 
-	DDPDUMP("== DISP MMSYS_OVLSYS ANALYSIS ==\n");
 	reg = readl_relaxed(config_regs + DISP_REG_CONFIG_OVLSYS_CG_CON0_MT6985);
 	for (bit = 0; bit < 32; bit++) {
 		if ((reg & (1 << bit)) == 0) {
