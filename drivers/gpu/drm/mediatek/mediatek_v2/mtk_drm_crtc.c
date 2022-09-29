@@ -3514,22 +3514,31 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 
 	if (atomic_read(&mtk_crtc->force_high_step) == 1) {
 		unsigned int step_size = mtk_drm_get_mmclk_step_size();
+		int en = 0;
 
 		if (!mtk_crtc->force_high_enabled) {
-			DDPMSG("start SET MMCLK step 0\n");
+			DDPMSG("start SET MMCLK step 0, and disable underrun irq\n");
 			/* set MMCLK highest step for next 2048 frame */
 			mtk_crtc->force_high_enabled = 2048;
+			/* disable dsi underrun irq*/
+			output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+			en = 0;
+			if (output_comp)
+				mtk_ddp_comp_io_cmd(output_comp, NULL, IRQ_UNDERRUN, &en);
 		}
 		mtk_crtc->force_high_enabled--;
 
 		if (mtk_crtc->force_high_enabled > 0) {
 			mtk_drm_set_mmclk(crtc, step_size - 1, false, __func__);
 		} else {
-			int en = 1;
-
+			en = 1;
 			output_comp = mtk_ddp_comp_request_output(mtk_crtc);
-			if (output_comp)
+			if (output_comp) {
+				DDPMSG("set MMCLK back, and enable underrun irq\n");
 				mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE, &en);
+				/* enable dsi underrun irq*/
+				mtk_ddp_comp_io_cmd(output_comp, NULL, IRQ_UNDERRUN, &en);
+			}
 			atomic_set(&mtk_crtc->force_high_step, 0);
 		}
 	} else {

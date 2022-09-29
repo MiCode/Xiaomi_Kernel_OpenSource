@@ -2044,7 +2044,8 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	status &= 0xffde;
 	if (status) {
 		writel(~status, dsi->regs + DSI_INTSTA);
-		if (status & BUFFER_UNDERRUN_INT_FLAG) {
+		if ((status & BUFFER_UNDERRUN_INT_FLAG)
+			&& (atomic_read(&mtk_crtc->force_high_step) == 0)) {
 			unsigned long long aee_now_ts = sched_clock();
 			int trigger_aee = 0;
 
@@ -8069,10 +8070,14 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			return 0;
 		}
 
-		inten = BUFFER_UNDERRUN_INT_FLAG;
-
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DSI_INTSTA, 0x0, ~0);
+
+		if (atomic_read(&comp->mtk_crtc->force_high_step) == 1)
+			DDPMSG("force_high_step = 1, skip underrun irq\n");
+		else
+			inten = BUFFER_UNDERRUN_INT_FLAG;
+
 		if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
 			inten |= FRAME_DONE_INT_FLAG;
 			cmdq_pkt_write(handle, comp->cmdq_base,
@@ -8093,6 +8098,19 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 					comp->regs_pa + DSI_INTEN, inten, inten);
 			}
 		}
+	}
+		break;
+	case IRQ_UNDERRUN:
+	{
+		bool *en = (bool *)params;
+		unsigned int reg;
+
+		if (*en)
+			reg = readl_relaxed(comp->regs + DSI_INTEN) | BUFFER_UNDERRUN_INT_FLAG;
+		else
+			reg = readl_relaxed(comp->regs + DSI_INTEN) & ~BUFFER_UNDERRUN_INT_FLAG;
+
+		writel_relaxed(reg, comp->regs + DSI_INTEN);
 	}
 		break;
 	case LCM_RESET:
