@@ -18,7 +18,7 @@
 #include <linux/pm_wakeup.h>
 #include <linux/delay.h>
 #include <linux/suspend.h>
-
+#include <soc/mediatek/mmdvfs_v3.h>
 #include "mtk_vcodec_dec_pm.h"
 #include "mtk_vcodec_dec_pm_plat.h"
 #include "mtk_vcodec_drv.h"
@@ -93,6 +93,7 @@ static int fops_vcodec_open(struct file *file)
 			mtk_buf = NULL;
 			return -EPERM;
 		}
+		mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_VDEC);
 	}
 #endif
 
@@ -286,6 +287,7 @@ static int fops_vcodec_release(struct file *file)
 			mtk_v4l2_err("Failed to vcp_deregister_feature");
 			return -EPERM;
 		}
+		mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_VDEC);
 	}
 #endif
 
