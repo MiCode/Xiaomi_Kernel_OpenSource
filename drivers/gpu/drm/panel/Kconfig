@@ -918,6 +918,17 @@ config DRM_PANEL_NT37801_MSYNC2_RTE
 	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
 	  interface to host.
 
+config DRM_PANEL_NT37801_CMD_FHD
+	tristate "NT37801 cmd fhd mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for NT37801 CMD FHD
+	  cmd mode Full HD panel. The panel has a 1080x2400
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
 config DRM_PANEL_NT37801_CMD_LTPO
 	tristate "nt37801 fhdplus and wqhd dphy 120hz panel"
 	depends on OF
