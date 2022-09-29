@@ -457,6 +457,9 @@ static char *spm_resource_str[MT_SPM_RES_MAX] = {
 	[MT_SPM_RES_SYSPLL] = "SYSPLL",
 	[MT_SPM_RES_DRAM_S0] = "DRAM_S0",
 	[MT_SPM_RES_DRAM_S1] = "DRAM_S1",
+	[MT_SPM_RES_VCORE] = "VCORE",
+	[MT_SPM_RES_EMI] = "EMI",
+	[MT_SPM_RES_PMIC] = "PMIC",
 };
 
 static ssize_t spm_res_rq_read(char *ToUserBuf, size_t sz, void *priv)
