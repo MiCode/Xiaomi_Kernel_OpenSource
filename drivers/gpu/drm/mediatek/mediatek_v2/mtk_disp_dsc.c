@@ -111,11 +111,6 @@
 #define RC_BUF_THRESH_NUM (14)
 #define RANGE_BPG_OFS_NUM (15)
 
-#define PANEL_37801_PIC_HEIGHT		3200
-#define PANEL_37801_PIC_WIDTH		1440
-#define PANEL_37801_SLICE_HEIGHT	40
-#define PANEL_37801_SLICE_WIDTH		(PANEL_37801_PIC_WIDTH/2)
-
 struct mtk_disp_dsc_data {
 	bool support_shadow;
 	bool need_bypass_shadow;
@@ -133,25 +128,6 @@ struct mtk_disp_dsc {
 	const struct mtk_disp_dsc_data *data;
 	int enable;
 };
-
-static void mtk_disp_dsc_pps_setting(struct mtk_ddp_comp *comp,
-	struct cmdq_pkt *handle, int min_qp_even_val, int max_qp_even_val,
-	int min_qp_odd_val, int max_qp_odd_val, unsigned int offset)
-{
-	unsigned int value = 0, mask = 0;
-
-	if (min_qp_even_val != -1)
-		SET_VAL_MASK(value, mask, min_qp_even_val, RANGE_MIN_QP_EVEN);
-	if (max_qp_even_val != -1)
-		SET_VAL_MASK(value, mask, max_qp_even_val, RANGE_MAX_QP_EVEN);
-	if (min_qp_odd_val != -1)
-		SET_VAL_MASK(value, mask, min_qp_odd_val, RANGE_MIN_QP_ODD);
-	if (max_qp_odd_val != -1)
-		SET_VAL_MASK(value, mask, max_qp_odd_val, RANGE_MAX_QP_ODD);
-
-	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + offset,
-		       value, mask);
-}
 
 static inline struct mtk_disp_dsc *comp_to_dsc(struct mtk_ddp_comp *comp)
 {
@@ -708,35 +684,6 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 				DISP_REG_DSC_PPS19, handle);
 		}
 #endif
-
-		if (dsc_params->pic_height == PANEL_37801_PIC_HEIGHT
-			&& dsc_params->pic_width == PANEL_37801_PIC_WIDTH
-			&& dsc_params->slice_height == PANEL_37801_SLICE_HEIGHT
-			&& dsc_params->slice_width == PANEL_37801_SLICE_WIDTH) {
-
-			/* RANGE_MIN_QP6 / RANGE_MAX_QP6 */
-			/* RANGE_MIN_QP7 / RANGE_MAX_QP7 */
-			mtk_disp_dsc_pps_setting(comp, handle, 3, 7, 3, 8,
-				DISP_REG_DSC_PPS15);
-
-			/* RANGE_MIN_QP9 */
-			mtk_disp_dsc_pps_setting(comp, handle, -1, -1, 4, -1,
-				DISP_REG_DSC_PPS16);
-
-			/* RANGE_MAX_QP10 */
-			/* RANGE_MAX_QP11 */
-			mtk_disp_dsc_pps_setting(comp, handle, -1, 10, -1, 11,
-				DISP_REG_DSC_PPS17);
-
-			/* RANGE_MAX_QP12 */
-			mtk_disp_dsc_pps_setting(comp, handle, -1, 11, -1, -1,
-				DISP_REG_DSC_PPS18);
-
-			/* RANGE_MIN_QP13 / RANGE_MAX_QP13 */
-			/* RANGE_MIN_QP14 / RANGE_MAX_QP14 */
-			mtk_disp_dsc_pps_setting(comp, handle, 8, 12, 12, 13,
-				DISP_REG_DSC_PPS19);
-		}
 
 		dsc->enable = true;
 	} else {

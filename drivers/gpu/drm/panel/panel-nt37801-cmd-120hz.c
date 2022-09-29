@@ -52,6 +52,15 @@ static struct mtk_panel_para_table elvss_tb[] = {
 		{2, { 0x83, 0xff}},
 	};
 
+unsigned int nt37801_wqhs_dsi_cmd_120hz_dphy_buf_thresh[14] = {
+	896, 1792, 2688, 3584, 4480, 5376, 6272, 6720, 7168, 7616, 7744, 7872, 8000, 8064};
+unsigned int nt37801_wqhs_dsi_cmd_120hz_dphy_range_min_qp[15] = {
+	0, 4, 5, 5, 7, 7, 7, 7, 7, 8, 9, 9, 9, 12, 16};
+unsigned int nt37801_wqhs_dsi_cmd_120hz_dphy_range_max_qp[15] = {
+	8, 8, 9, 10, 11, 11, 11, 12, 13, 14, 14, 15, 15, 16, 17};
+int nt37801_wqhs_dsi_cmd_120hz_dphy_range_bpg_ofs[15] = {
+	2, 0, 0, -2, -4, -6, -8, -8, -8, -10, -10, -10, -12, -12, -12};
+
 struct lcm {
 	struct device *dev;
 	struct drm_panel panel;
@@ -250,8 +259,8 @@ static void lcm_panel_init(struct lcm *ctx)
 	lcm_dcs_write_seq_static(ctx, 0x6F, 0x1B);
 	lcm_dcs_write_seq_static(ctx, 0xF4, 0x55);
 	lcm_dcs_write_seq_static(ctx, 0x90, 0x03, 0x03);
-	lcm_dcs_write_seq_static(ctx, 0x91, 0x89, 0x28, 0x00, 0x28, 0xD2, 0x00,
-		0x02, 0x86, 0x04, 0x3A, 0x00, 0x0A, 0x02, 0xAB, 0x01, 0xE9, 0x10, 0xF0);
+	lcm_dcs_write_seq_static(ctx, 0x91, 0xAB, 0xA8, 0x00, 0x28, 0xD2,
+		0x00, 0x02, 0x86, 0x04, 0x3A, 0x00, 0x0A, 0x02, 0xAB, 0x01, 0xE9, 0x10, 0xF0);
 	lcm_dcs_write_seq_static(ctx, 0x2A, 0x00, 0x00, 0x05, 0x9F);
 	lcm_dcs_write_seq_static(ctx, 0x2B, 0x00, 0x00, 0x0C, 0x7F);
 	lcm_dcs_write_seq_static(ctx, 0x35, 0x00);
@@ -604,13 +613,13 @@ static struct mtk_panel_params ext_params = {
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
 		.enable = 1,
-		.ver = 17,
+		.ver = 18,
 		.slice_mode = 1,
 		.rgb_swap = 0,
-		.dsc_cfg = 34,
+		.dsc_cfg = 40,
 		.rct_on = 1,
-		.bit_per_channel = 8,
-		.dsc_line_buf_depth = 9,
+		.bit_per_channel = 10,
+		.dsc_line_buf_depth = 11,
 		.bp_enable = 1,
 		.bit_per_pixel = 128,
 		.pic_height = FRAME_HEIGHT,
@@ -628,14 +637,22 @@ static struct mtk_panel_params ext_params = {
 		.slice_bpg_offset = 489,
 		.initial_offset = 6144,
 		.final_offset = 4336,
-		.flatness_minqp = 3,
-		.flatness_maxqp = 12,
+		.flatness_minqp = 7,
+		.flatness_maxqp = 16,
 		.rc_model_size = 8192,
 		.rc_edge_factor = 6,
-		.rc_quant_incr_limit0 = 11,
-		.rc_quant_incr_limit1 = 11,
+		.rc_quant_incr_limit0 = 15,
+		.rc_quant_incr_limit1 = 15,
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
+
+		.ext_pps_cfg = {
+			.enable = 1,
+			.rc_buf_thresh = nt37801_wqhs_dsi_cmd_120hz_dphy_buf_thresh,
+			.range_min_qp = nt37801_wqhs_dsi_cmd_120hz_dphy_range_min_qp,
+			.range_max_qp = nt37801_wqhs_dsi_cmd_120hz_dphy_range_max_qp,
+			.range_bpg_ofs = nt37801_wqhs_dsi_cmd_120hz_dphy_range_bpg_ofs,
+			},
 		},
 	.data_rate = 1500,
 	/* following MIPI hopping parameter might cause screen mess */
@@ -659,13 +676,13 @@ static struct mtk_panel_params ext_params_90hz = {
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
 		.enable = 1,
-		.ver = 17,
+		.ver = 18,
 		.slice_mode = 1,
 		.rgb_swap = 0,
-		.dsc_cfg = 34,
+		.dsc_cfg = 40,
 		.rct_on = 1,
-		.bit_per_channel = 8,
-		.dsc_line_buf_depth = 9,
+		.bit_per_channel = 10,
+		.dsc_line_buf_depth = 11,
 		.bp_enable = 1,
 		.bit_per_pixel = 128,
 		.pic_height = FRAME_HEIGHT,
@@ -683,14 +700,22 @@ static struct mtk_panel_params ext_params_90hz = {
 		.slice_bpg_offset = 489,
 		.initial_offset = 6144,
 		.final_offset = 4336,
-		.flatness_minqp = 3,
-		.flatness_maxqp = 12,
+		.flatness_minqp = 7,
+		.flatness_maxqp = 16,
 		.rc_model_size = 8192,
 		.rc_edge_factor = 6,
-		.rc_quant_incr_limit0 = 11,
-		.rc_quant_incr_limit1 = 11,
+		.rc_quant_incr_limit0 = 15,
+		.rc_quant_incr_limit1 = 15,
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
+
+		.ext_pps_cfg = {
+			.enable = 1,
+			.rc_buf_thresh = nt37801_wqhs_dsi_cmd_120hz_dphy_buf_thresh,
+			.range_min_qp = nt37801_wqhs_dsi_cmd_120hz_dphy_range_min_qp,
+			.range_max_qp = nt37801_wqhs_dsi_cmd_120hz_dphy_range_max_qp,
+			.range_bpg_ofs = nt37801_wqhs_dsi_cmd_120hz_dphy_range_bpg_ofs,
+			},
 		},
 	.data_rate = 1500,
 	/* following MIPI hopping parameter might cause screen mess */
@@ -714,13 +739,13 @@ static struct mtk_panel_params ext_params_60hz = {
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
 		.enable = 1,
-		.ver = 17,
+		.ver = 18,
 		.slice_mode = 1,
 		.rgb_swap = 0,
-		.dsc_cfg = 34,
+		.dsc_cfg = 40,
 		.rct_on = 1,
-		.bit_per_channel = 8,
-		.dsc_line_buf_depth = 9,
+		.bit_per_channel = 10,
+		.dsc_line_buf_depth = 11,
 		.bp_enable = 1,
 		.bit_per_pixel = 128,
 		.pic_height = FRAME_HEIGHT,
@@ -738,14 +763,22 @@ static struct mtk_panel_params ext_params_60hz = {
 		.slice_bpg_offset = 489,
 		.initial_offset = 6144,
 		.final_offset = 4336,
-		.flatness_minqp = 3,
-		.flatness_maxqp = 12,
+		.flatness_minqp = 7,
+		.flatness_maxqp = 16,
 		.rc_model_size = 8192,
 		.rc_edge_factor = 6,
-		.rc_quant_incr_limit0 = 11,
-		.rc_quant_incr_limit1 = 11,
+		.rc_quant_incr_limit0 = 15,
+		.rc_quant_incr_limit1 = 15,
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
+
+		.ext_pps_cfg = {
+			.enable = 1,
+			.rc_buf_thresh = nt37801_wqhs_dsi_cmd_120hz_dphy_buf_thresh,
+			.range_min_qp = nt37801_wqhs_dsi_cmd_120hz_dphy_range_min_qp,
+			.range_max_qp = nt37801_wqhs_dsi_cmd_120hz_dphy_range_max_qp,
+			.range_bpg_ofs = nt37801_wqhs_dsi_cmd_120hz_dphy_range_bpg_ofs,
+			},
 		},
 	.data_rate = 1500,
 	/* following MIPI hopping parameter might cause screen mess */
