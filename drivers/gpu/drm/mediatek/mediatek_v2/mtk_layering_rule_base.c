@@ -3645,6 +3645,7 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev, struct drm_crtc 
 			if ((mmclk > cur_mmclk) || (cur_freq == 0) || (ratio > 110)) {
 				mml_info->mode = MML_MODE_MML_DECOUPLE;
 				DDPINFO("%s: set DC to avoid increasing mmclk level\n", __func__);
+				DRM_MMP_MARK(layering, 0x331, ratio);
 			}
 
 			DDPDBG("%s (%u,%u)->(%u,%u) ratio=%u mmclk=%lu cur_mmclk=%lu mode=%d\n",
@@ -3735,8 +3736,6 @@ static void check_is_mml_layer(const int disp_idx,
 	struct drm_mtk_layer_config *c = NULL;
 	int i = 0;
 	enum MTK_LAYERING_CAPS mml_capacity = DISP_MML_CAPS_MASK;
-	static bool last_is_ir;
-	bool curr_is_ir = false;
 
 	if (!dev || !disp_info || !scn_decision_flag)
 		return;
@@ -3786,7 +3785,6 @@ static void check_is_mml_layer(const int disp_idx,
 			if (mml_capacity & c->layer_caps) {
 				if (MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
 					mml_capacity = 0;
-					curr_is_ir = true;
 				} else if (MTK_MML_DISP_DIRECT_LINK_LAYER & c->layer_caps) {
 					/* TBD */
 				} else {
@@ -3803,11 +3801,12 @@ static void check_is_mml_layer(const int disp_idx,
 			}
 		}
 
-		/* Frame[N-1](IR) Frame[N](DC) is not allowed */
-		if ((MTK_MML_DISP_DECOUPLE_LAYER & c->layer_caps) && last_is_ir) {
+		if ((MTK_MML_DISP_DECOUPLE_LAYER & c->layer_caps) &&
+		    kref_read(&mtk_crtc->mml_ir_sram.ref)) {
 			c->layer_caps &= ~MTK_MML_DISP_DECOUPLE_LAYER;
 			c->layer_caps |= MTK_MML_DISP_MDP_LAYER;
-			DDPMSG("%s hrt_idx:%d last is IR, set MML_DC to MDP\n", __func__, hrt_idx);
+			DDPINFO("Use MDP for IR-DC transition\n");
+			DRM_MMP_MARK(layering, 0x331, 4);
 		}
 
 		if (MTK_MML_DISP_DIRECT_LINK_LAYER & c->layer_caps ||
@@ -3831,7 +3830,6 @@ static void check_is_mml_layer(const int disp_idx,
 				disp_info->gles_tail[disp_idx] = i;
 		}
 	}
-	last_is_ir = curr_is_ir;
 
 	if (disp_info->gles_head[disp_idx] != -1) {
 		int adjusted_gles_head = -1;
