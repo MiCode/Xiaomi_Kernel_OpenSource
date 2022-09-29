@@ -89,9 +89,9 @@
 					compatible = "mediatek,lcm-dsi-backlight-mode";
 
 					lcm-bl-compatible = "mediatek,disp-leds";
-					lcm-bl-max_brightness = <10239>;
+					lcm-bl-max_brightness = <2047>;
 					lcm-bl-min_brightness = <4>;
-					lcm-bl-max_hw_brightness = <4095>;
+					lcm-bl-max_hw_brightness = <2047>;
 					lcm-bl-led_mode = <4>;
 					lcm-bl-gate_enable;
 					lcm-bl-pwm_config;
@@ -117,8 +117,8 @@
 					lcm-params-dsi-vscan;
 
 					/* mtk_panel_params */
-					lcm-params-dsi-pll_clock = <735>;
-					lcm-params-dsi-data_rate = <1470>;
+					lcm-params-dsi-pll_clock = <750>;
+					lcm-params-dsi-data_rate = <1500>;
 					lcm-params-dsi-vfp_for_low_power;
 					lcm-params-dsi-ssc_enable;
 					lcm-params-dsi-ssc_range;
@@ -351,7 +351,7 @@
 						compatible =
 							"mediatek,lcm-params-dsi-dyn";
 						lcm-params-dsi-dyn_switch_en = <1>;
-						lcm-params-dsi-dyn_pll_clk = <736>;
+						lcm-params-dsi-dyn_pll_clk = <751>;
 						lcm-params-dsi-dyn_data_rate;
 						lcm-params-dsi-dyn_vsa;
 						lcm-params-dsi-dyn_vbp;
@@ -414,8 +414,8 @@
 					lcm-params-dsi-vscan;
 
 					/* mtk_panel_params */
-					lcm-params-dsi-pll_clock = <735>;
-					lcm-params-dsi-data_rate = <1470>;
+					lcm-params-dsi-pll_clock = <750>;
+					lcm-params-dsi-data_rate = <1500>;
 					lcm-params-dsi-vfp_for_low_power;
 					lcm-params-dsi-ssc_enable;
 					lcm-params-dsi-ssc_range;
@@ -551,7 +551,7 @@
 						compatible =
 							"mediatek,lcm-params-dsi-dyn";
 						lcm-params-dsi-dyn_switch_en = <1>;
-						lcm-params-dsi-dyn_pll_clk = <736>;
+						lcm-params-dsi-dyn_pll_clk = <751>;
 						lcm-params-dsi-dyn_data_rate;
 						lcm-params-dsi-dyn_vsa;
 						lcm-params-dsi-dyn_vbp;
@@ -614,8 +614,8 @@
 					lcm-params-dsi-vscan;
 
 					/* mtk_panel_params */
-					lcm-params-dsi-pll_clock = <735>;
-					lcm-params-dsi-data_rate = <1470>;
+					lcm-params-dsi-pll_clock = <750>;
+					lcm-params-dsi-data_rate = <1500>;
 					lcm-params-dsi-vfp_for_low_power;
 					lcm-params-dsi-ssc_enable;
 					lcm-params-dsi-ssc_range;
@@ -751,7 +751,7 @@
 						compatible =
 							"mediatek,lcm-params-dsi-dyn";
 						lcm-params-dsi-dyn_switch_en = <1>;
-						lcm-params-dsi-dyn_pll_clk = <736>;
+						lcm-params-dsi-dyn_pll_clk = <751>;
 						lcm-params-dsi-dyn_data_rate;
 						lcm-params-dsi-dyn_vsa;
 						lcm-params-dsi-dyn_vbp;
@@ -814,8 +814,8 @@
 					lcm-params-dsi-vscan;
 
 					/* mtk_panel_params */
-					lcm-params-dsi-pll_clock = <735>;
-					lcm-params-dsi-data_rate = <1470>;
+					lcm-params-dsi-pll_clock = <750>;
+					lcm-params-dsi-data_rate = <1500>;
 					lcm-params-dsi-vfp_for_low_power;
 					lcm-params-dsi-ssc_enable;
 					lcm-params-dsi-ssc_range;
@@ -951,7 +951,7 @@
 						compatible =
 							"mediatek,lcm-params-dsi-dyn";
 						lcm-params-dsi-dyn_switch_en = <1>;
-						lcm-params-dsi-dyn_pll_clk = <736>;
+						lcm-params-dsi-dyn_pll_clk = <751>;
 						lcm-params-dsi-dyn_data_rate;
 						lcm-params-dsi-dyn_vsa;
 						lcm-params-dsi-dyn_vbp;
@@ -1014,8 +1014,8 @@
 					lcm-params-dsi-vscan;
 
 					/* mtk_panel_params */
-					lcm-params-dsi-pll_clock = <735>;
-					lcm-params-dsi-data_rate = <1470>;
+					lcm-params-dsi-pll_clock = <750>;
+					lcm-params-dsi-data_rate = <1500>;
 					lcm-params-dsi-vfp_for_low_power;
 					lcm-params-dsi-ssc_enable;
 					lcm-params-dsi-ssc_range;
@@ -1151,7 +1151,7 @@
 						compatible =
 							"mediatek,lcm-params-dsi-dyn";
 						lcm-params-dsi-dyn_switch_en = <1>;
-						lcm-params-dsi-dyn_pll_clk = <736>;
+						lcm-params-dsi-dyn_pll_clk = <751>;
 						lcm-params-dsi-dyn_data_rate;
 						lcm-params-dsi-dyn_vsa;
 						lcm-params-dsi-dyn_vbp;
@@ -1214,8 +1214,8 @@
 					lcm-params-dsi-vscan;
 
 					/* mtk_panel_params */
-					lcm-params-dsi-pll_clock = <735>;
-					lcm-params-dsi-data_rate = <1470>;
+					lcm-params-dsi-pll_clock = <750>;
+					lcm-params-dsi-data_rate = <1500>;
 					lcm-params-dsi-vfp_for_low_power;
 					lcm-params-dsi-ssc_enable;
 					lcm-params-dsi-ssc_range;
@@ -1351,7 +1351,7 @@
 						compatible =
 							"mediatek,lcm-params-dsi-dyn";
 						lcm-params-dsi-dyn_switch_en = <1>;
-						lcm-params-dsi-dyn_pll_clk = <736>;
+						lcm-params-dsi-dyn_pll_clk = <751>;
 						lcm-params-dsi-dyn_data_rate;
 						lcm-params-dsi-dyn_vsa;
 						lcm-params-dsi-dyn_vbp;
@@ -1445,7 +1445,7 @@
 					[MTK_LCM_PHASE_TYPE_HEX_START 01 MTK_LCM_PHASE_HEX_KERNEL],
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 08],
 						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_BACKLIGHT 02 01 02],
-						[03 51 0F FF],
+						[03 51 07 FF],
 					[MTK_LCM_PHASE_TYPE_HEX_END 01 MTK_LCM_PHASE_HEX_KERNEL],
 
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 01 11],
@@ -1469,11 +1469,11 @@
 
 				lcm_update_table;
 
-				set_backlight_mask = <0xfff>;
+				set_backlight_mask = <0x7ff>;
 				set_backlight_cmdq_table =
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 08],
 						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_BACKLIGHT 02 01 02],
-						[03 51 0F FF],
+						[03 51 07 FF],
 					[MTK_LCM_TYPE_HEX_END];
 
 				set_elvss_cmdq_table =
@@ -1485,17 +1485,17 @@
 				set_backlight_elvss_cmdq_table =
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 08],
 						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_BACKLIGHT 02 01 02],
-						[03 51 0F FF],
+						[03 51 07 FF],
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 06],
 						[MTK_LCM_INPUT_TYPE_HEX_MISC 01 01],
 						[02 83 ff],
 					[MTK_LCM_TYPE_HEX_END];
 
-				set_aod_light_mask = <0xfff>;
+				set_aod_light_mask = <0x7ff>;
 				set_aod_light_table =
 					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 08],
 						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_BACKLIGHT 02 01 02],
-						[03 51 0F FF],
+						[03 51 07 FF],
 					[MTK_LCM_TYPE_HEX_END];
 
 				ata_id_value_data = [01 25 00];
