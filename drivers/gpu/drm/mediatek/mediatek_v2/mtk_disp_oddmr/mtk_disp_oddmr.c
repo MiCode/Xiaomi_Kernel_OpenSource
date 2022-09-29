@@ -2434,6 +2434,10 @@ int mtk_oddmr_hrt_cal_notify(int *oddmr_hrt)
 	}
 	if (g_oddmr_hrt_en == false)
 		return 0;
+	//TODO: should remove this
+	if (g_od_param.od_basic_info.basic_param.panel_width > 1100 ||
+		g_od_param.od_basic_info.basic_param.panel_height > 2500)
+		sum = 0;
 	*oddmr_hrt += sum;
 	return sum;
 }
