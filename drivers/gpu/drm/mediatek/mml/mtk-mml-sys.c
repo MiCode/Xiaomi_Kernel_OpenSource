@@ -215,7 +215,8 @@ static void sys_sync_racing(struct mml_comp *comp, struct mml_task *task,
 	 *	set MML_READY
 	 *	wait_and_clear DISP_READY
 	 */
-	cmdq_pkt_set_event(pkt, mml_ir_get_mml_ready_event(mml));
+	if (task->config->disp_vdo)
+		cmdq_pkt_set_event(pkt, mml_ir_get_mml_ready_event(mml));
 	cmdq_pkt_wfe(pkt, mml_ir_get_disp_ready_event(mml));
 }
 

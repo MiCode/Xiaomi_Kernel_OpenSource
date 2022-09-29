@@ -74,7 +74,7 @@ module_param(mml_racing_urgent, int, 0644);
  * 2: only tile 0 and tile 1
  * 3: per-loop/per-frame eoc
  */
-int mml_racing_eoc;
+int mml_racing_eoc = 2;
 module_param(mml_racing_eoc, int, 0644);
 
 int mml_hw_perf;
