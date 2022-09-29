@@ -923,6 +923,8 @@ static int rt1711_set_polarity(struct tcpc_device *tcpc, int polarity)
 {
 	int data;
 
+	if (polarity < 0)
+		return -EINVAL;
 	data = rt1711h_init_cc_params(tcpc,
 		tcpc->typec_remote_cc[polarity]);
 	if (data)
@@ -1241,10 +1243,12 @@ static int rt_parse_dt(struct rt1711_chip *chip, struct device *dev)
 #else
 	ret = of_property_read_u32(np,
 		"rt1711pd,intr_gpio_num", &chip->irq_gpio);
-	if (ret < 0)
+	if (ret < 0) {
 		pr_err("%s no intr_gpio info\n", __func__);
+		return ret;
+	}
 #endif
-	return ret < 0 ? ret : 0;
+	return 0;
 }
 
 /*
