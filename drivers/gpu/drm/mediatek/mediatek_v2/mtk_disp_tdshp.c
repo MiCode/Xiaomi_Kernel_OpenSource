@@ -67,7 +67,7 @@ static int mtk_disp_tdshp_write_reg(struct mtk_ddp_comp *comp,
 		goto thshp_write_reg_unlock;
 	}
 
-	pr_notice("tdshp_en: %x, tdshp_limit: %x, tdshp_ylev_256: %x",
+	DDPINFO("tdshp_en: %x, tdshp_limit: %x, tdshp_ylev_256: %x\n",
 			disp_tdshp_regs->tdshp_en, disp_tdshp_regs->tdshp_limit,
 			disp_tdshp_regs->tdshp_ylev_256);
 

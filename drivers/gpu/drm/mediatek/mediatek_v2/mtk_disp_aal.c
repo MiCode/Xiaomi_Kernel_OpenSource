@@ -28,7 +28,6 @@
 #else
 #define mtk_leds_brightness_set(x, y) do { } while (0)
 #endif
-#define MT65XX_LED_MODE_NONE (0)
 #define MT65XX_LED_MODE_CUST_LCM (4)
 
 #include "mtk_drm_crtc.h"
@@ -82,7 +81,6 @@ static atomic_t g_aal_backlight_notified = ATOMIC_INIT(1023);
 static atomic_t g_aal_initialed = ATOMIC_INIT(0);
 static atomic_t g_aal_allowPartial = ATOMIC_INIT(0);
 static atomic_t g_aal_force_enable_irq = ATOMIC_INIT(0);
-static atomic_t g_led_mode = ATOMIC_INIT(MT65XX_LED_MODE_NONE);
 static atomic_t g_aal_force_relay = ATOMIC_INIT(0);
 static atomic_t g_aal_eof_irq = ATOMIC_INIT(0);
 static atomic_t g_aal1_eof_irq = ATOMIC_INIT(0);
@@ -277,37 +275,6 @@ static inline s32 basic_cmdq_write(struct cmdq_pkt *handle,
 			comp->regs_pa + offset, value, mask);
 	}
 }
-
-static int disp_aal_get_cust_led(void)
-{
-	struct device_node *led_node = NULL;
-	int ret = 0;
-	int led_mode;
-	int pwm_config[5] = { 0 };
-
-	led_node = of_find_compatible_node(NULL, NULL,
-	"mediatek,lcd-backlight");
-	if (!led_node) {
-		ret = -1;
-		pr_notice("Cannot find LED node from dts\n");
-	} else {
-		ret = of_property_read_u32(led_node, "led_mode", &led_mode);
-		if (!ret)
-			atomic_set(&g_led_mode, led_mode);
-		else
-			pr_notice("led dts can not get led mode data.\n");
-
-		ret = of_property_read_u32_array(led_node,
-	    "pwm_config", pwm_config, ARRAY_SIZE(pwm_config));
-	}
-
-	if (ret)
-		pr_notice("get pwm cust info fail\n");
-	pr_notice("%s mode=%u\n", __func__, atomic_read(&g_led_mode));
-
-	return ret;
-}
-
 
 #define LOG_INTERVAL_TH 200
 #define LOG_BUFFER_SIZE 4
@@ -732,10 +699,6 @@ static void mtk_aal_init(struct mtk_ddp_comp *comp,
 			comp->regs_pa + DISP_AAL_CFG, 0x0 << 1, (0x3 << 1));
 	}
 
-	/* get lcd-backlight mode from dts */
-	if (atomic_read(&g_led_mode) == MT65XX_LED_MODE_NONE)
-		disp_aal_get_cust_led();
-
 	if (comp->mtk_crtc->is_dual_pipe) {
 		if (comp->id == DDP_COMPONENT_AAL0) {
 			atomic_set(&g_aal0_hist_available, 0);
@@ -752,7 +715,6 @@ static void mtk_aal_init(struct mtk_ddp_comp *comp,
 	atomic_set(&g_aal_eof_irq, 0);
 	atomic_set(&g_aal1_eof_irq, 0);
 	atomic_set(&aal_data->dirty_frame_retrieved, 1);
-	AALFLOW_LOG("led mode: %d-\n", atomic_read(&g_led_mode));
 }
 
 static bool debug_bypass_alg_mode;
