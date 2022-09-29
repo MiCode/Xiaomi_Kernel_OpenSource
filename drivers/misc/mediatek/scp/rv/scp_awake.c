@@ -114,23 +114,31 @@ int scp_awake_lock(void *_scp_id)
 	/* scp lock awake success*/
 	if (ret != -1)
 		*scp_awake_count = *scp_awake_count + 1;
+	spin_unlock_irqrestore(&scp_awake_spinlock, spin_flags);
 
 	if (ret == -1) {
 		pr_notice("%s: awake %s fail..\n", __func__, core_id);
-		scp_reousrce_dump();
-		/*
-		 * Based on SCP DE suggestion, force PLL CG enable in order to avoid
-		 * be disabled by others.
-		 */
-		if (scp_dvfs_feature_enable()) {
-			pr_notice("[SCP]%s: Enable PLL\n", __func__);
-			scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
-		}
 #if SCP_RECOVERY_SUPPORT
-
+		/*
+		 * It's OK without critical section for below code flow,
+		 * recovery machine already consider the race condition
+		 * of "scp_reset_status".
+		 */
 		if (scp_set_reset_status() == RESET_STATUS_STOP) {
+			/*
+			 * Since SCP may not be accessible in bus hang issue,
+			 * then we backup some information before APMCU halt SCP.
+			 */
+			scp_reousrce_dump();
 			pr_notice("%s: start to reset scp...\n", __func__);
-
+			/*
+			 * Based on SCP DE suggestion, force PLL CG enable in order to avoid
+			 * be disabled by others.
+			 */
+			if (scp_dvfs_feature_enable()) {
+				pr_notice("[SCP]%s: Enable PLL\n", __func__);
+				scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
+			}
 #if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
 			if (scpreg.secure_dump) {
 				scp_do_halt_set();
@@ -147,9 +155,6 @@ int scp_awake_lock(void *_scp_id)
 			pr_notice("%s: scp resetting\n", __func__);
 #endif
 	}
-
-	spin_unlock_irqrestore(&scp_awake_spinlock, spin_flags);
-
 	return ret;
 }
 EXPORT_SYMBOL_GPL(scp_awake_lock);
@@ -226,23 +231,32 @@ int scp_awake_unlock(void *_scp_id)
 		if (*scp_awake_count > 0)
 			*scp_awake_count = *scp_awake_count - 1;
 	}
+	spin_unlock_irqrestore(&scp_awake_spinlock, spin_flags);
 
 	if (ret == -1) {
 		pr_notice("%s: awake %s fail..\n", __func__, core_id);
-		scp_reousrce_dump();
-		/*
-		 * Based on SCP DE suggestion, force PLL CG enable in order to avoid
-		 * be disabled by others.
-		 */
-		if (scp_dvfs_feature_enable()) {
-			pr_notice("[SCP]%s: Enable PLL\n", __func__);
-			scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
-		}
 		WARN_ON(1);
 #if SCP_RECOVERY_SUPPORT
+		/*
+		 * It's OK without critical section for below code flow,
+		 * recovery machine already consider the race condition
+		 * of "scp_reset_status".
+		 */
 		if (scp_set_reset_status() == RESET_STATUS_STOP) {
+			/*
+			 * Since SCP may not be accessible in bus hang issue,
+			 * then we backup some information before APMCU halt SCP.
+			 */
+			scp_reousrce_dump();
 			pr_notice("%s: start to reset scp...\n", __func__);
-
+			/*
+			 * Based on SCP DE suggestion, force PLL CG enable in order to avoid
+			 * be disabled by others.
+			 */
+			if (scp_dvfs_feature_enable()) {
+				pr_notice("[SCP]%s: Enable PLL\n", __func__);
+				scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
+			}
 #if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
 			if (scpreg.secure_dump) {
 				scp_do_halt_set();
@@ -259,11 +273,6 @@ int scp_awake_unlock(void *_scp_id)
 			pr_notice("%s: scp resetting\n", __func__);
 #endif
 	}
-
-
-	/* spinlock context safe */
-	spin_unlock_irqrestore(&scp_awake_spinlock, spin_flags);
-
 	return ret;
 }
 EXPORT_SYMBOL_GPL(scp_awake_unlock);
