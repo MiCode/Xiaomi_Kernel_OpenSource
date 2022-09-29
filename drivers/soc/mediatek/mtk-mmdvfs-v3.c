@@ -149,6 +149,8 @@ EXPORT_SYMBOL_GPL(mtk_mmdvfs_enable_ccu);
 
 static void reset_ccu_power(void)
 {
+	int i;
+
 	mutex_lock(&mmdvfs_ccu_pwr_mutex);
 	if (ccu_power > 0) {
 #if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
@@ -157,6 +159,9 @@ static void reset_ccu_power(void)
 		rproc_shutdown(ccu_rproc);
 #endif
 		ccu_power = 0;
+		for (i = 0; i < CCU_PWR_USR_NUM; i++)
+			ccu_pwr_usage[i] = 0;
+
 		MMDVFS_DBG("check ccu_power > 0 and shutdown ccu");
 	}
 
