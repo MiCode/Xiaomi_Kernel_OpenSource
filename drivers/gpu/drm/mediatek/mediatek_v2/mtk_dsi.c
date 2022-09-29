@@ -1593,7 +1593,7 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 
 	/* enable ultra signal between SOF to VACT */
 	mtk_dsi_mask(dsi, DSI_RESERVED, DSI_VDE_BLOCK_ULTRA, 0);
-	fill_rate = mmsys_clk * ps_wc / width / buffer_unit;
+	fill_rate = mmsys_clk * dsi_buf_bpp / buffer_unit;
 	tmp = (readl(dsi->regs + DSI_BUF_CON1) >> 16) * sram_unit / buffer_unit;
 
 	if (dsi->ext->params->is_cphy) {
