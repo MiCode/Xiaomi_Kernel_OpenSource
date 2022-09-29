@@ -7,6 +7,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/sched.h>
+#include <linux/sched/clock.h>
 #include <linux/init.h>
 #include <linux/cpu.h>
 #include <linux/delay.h>
@@ -992,6 +993,12 @@ static void cm_mgr_cpu_frequency_tracer(void *ignore, unsigned int frequency,
 	struct cpufreq_policy *policy = NULL;
 	unsigned int idx = 0;
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[2];
+
+	ts[0] = sched_clock();
+#endif
+
 	if (!cm_mgr_cpu_map_dram_enable)
 		return;
 
@@ -1024,6 +1031,13 @@ static void cm_mgr_cpu_frequency_tracer(void *ignore, unsigned int frequency,
 		cpufreq_cpu_put(policy);
 	}
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+	if ((ts[1] - ts[0] > 300000ULL) && in_hardirq()) {
+		printk_deferred("%s duration %llu, ts[0]=%llu, ts[1]=%llu\n",
+			__func__, ts[1] - ts[0], ts[0], ts[1]);
+	}
+#endif
 }
 
 struct tracepoints_table cm_mgr_tracepoints[] = {
