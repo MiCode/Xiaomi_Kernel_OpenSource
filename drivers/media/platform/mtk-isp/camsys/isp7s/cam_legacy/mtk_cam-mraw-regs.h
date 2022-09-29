@@ -232,6 +232,39 @@ union MRAW_MRAWCTL_FBC_GROUP {
 	unsigned int Raw;
 };
 
+union MRAW_FBC_IMGO_M1_CTRL2 {
+	struct /* 0x1A1310C4 */
+	{
+		unsigned int FBC_IMGO_M1_RCNT :  8;    /*  0.. 7, 0x000000ff */
+		unsigned int FBC_IMGO_M1_WCNT :  8;    /*  8..15, 0x0000ff00 */
+		unsigned int FBC_IMGO_M1_FBC_CNT :  9;    /* 16..24, 0x01ff0000 */
+		unsigned int FBC_IMGO_M1_DROP_CNT :  7;    /* 25..31, 0xfe000000 */
+	} Bits;
+	unsigned int Raw;
+};
+
+union MRAW_FBC_IMGBO_M1_CTRL2 {
+	struct /* 0x1A1310CC */
+	{
+		unsigned int FBC_IMGBO_M1_RCNT :  8;    /*  0.. 7, 0x000000ff */
+		unsigned int FBC_IMGBO_M1_WCNT :  8;    /*  8..15, 0x0000ff00 */
+		unsigned int FBC_IMGBO_M1_FBC_CNT :  9;    /* 16..24, 0x01ff0000 */
+		unsigned int FBC_IMGBO_M1_DROP_CNT :  7;    /* 25..31, 0xfe000000 */
+	} Bits;
+	unsigned int Raw;
+};
+
+union MRAW_FBC_CPIO_M1_CTRL2 {
+	struct /* 0x1A1310D4 */
+	{
+		unsigned int FBC_CPIO_M1_RCNT :  8;    /*  0.. 7, 0x000000ff */
+		unsigned int FBC_CPIO_M1_WCNT :  8;    /*  8..15, 0x0000ff00 */
+		unsigned int FBC_CPIO_M1_FBC_CNT :  9;    /* 16..24, 0x01ff0000 */
+		unsigned int FBC_CPIO_M1_DROP_CNT :  7;    /* 25..31, 0xfe000000 */
+	} Bits;
+	unsigned int Raw;
+};
+
 #define REG_MRAW_CAMCTL_FBC_RCNT_INC				0x003C
 
 #define MRAWCTL_IMGO_RCNT_INC			BIT(0)

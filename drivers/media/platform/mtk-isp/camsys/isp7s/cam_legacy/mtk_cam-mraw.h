@@ -277,6 +277,8 @@ void mtk_cam_mraw_get_mbn_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 	unsigned int *width, unsigned int *height);
 void mtk_cam_mraw_get_cpi_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 	unsigned int *width, unsigned int *height);
+bool mtk_cam_mraw_is_zero_fbc_cnt(struct mtk_cam_ctx *ctx,
+	struct mtk_mraw_device *mraw_dev);
 #ifdef CHECK_MRAW_NODEQ
 void mraw_check_fbc_no_deque(struct mtk_cam_ctx *ctx,
 	struct mtk_mraw_device *mraw_dev,

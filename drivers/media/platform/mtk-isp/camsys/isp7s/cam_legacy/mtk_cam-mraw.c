@@ -708,6 +708,24 @@ static void mtk_cam_mraw_set_dense_fmt(
 	}
 }
 
+bool mtk_cam_mraw_is_zero_fbc_cnt(struct mtk_cam_ctx *ctx,
+	struct mtk_mraw_device *mraw_dev)
+{
+	bool result = false;
+	unsigned int imgo_fbc_cnt = 0, imgbo_fbc_cnt = 0, cpio_fbc_cnt = 0;
+
+	imgo_fbc_cnt = MRAW_READ_BITS(mraw_dev->base + REG_MRAW_FBC_IMGO_CTL2,
+		MRAW_FBC_IMGO_M1_CTRL2, FBC_IMGO_M1_FBC_CNT);
+	imgbo_fbc_cnt =  MRAW_READ_BITS(mraw_dev->base + REG_MRAW_FBC_IMGBO_CTL2,
+		MRAW_FBC_IMGBO_M1_CTRL2, FBC_IMGBO_M1_FBC_CNT);
+	cpio_fbc_cnt = MRAW_READ_BITS(mraw_dev->base + REG_MRAW_FBC_CPIO_CTL2,
+		MRAW_FBC_CPIO_M1_CTRL2, FBC_CPIO_M1_FBC_CNT);
+
+	if (!(imgo_fbc_cnt || imgbo_fbc_cnt || cpio_fbc_cnt))
+		result = true;
+	return result;
+}
+
 static void mtk_cam_mraw_set_concatenation_fmt(
 	struct device *dev, unsigned int *tg_width_temp,
 	unsigned int *tg_height_temp,
