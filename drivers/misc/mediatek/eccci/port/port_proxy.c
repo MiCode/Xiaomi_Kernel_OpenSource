@@ -899,7 +899,7 @@ static void port_dump_raw_data(struct port_t *port, int dir,
  * @dir: data transmission direction
  * @priority_level: modem hardware queue priority level
  * priority_level = -1 --> use port_cfg default config for ctrl path
- * priority_level = PRIORITY_0 --> lowest priority use MD_HW_NORMAL_Q(Q0)
+ * priority_level = PRIORITY_0 --> lowest priority use port_cfg default
  * priority_level = PRIORITY_1 --> medium priority use MD_HW_MEDIUM_Q(Q2)
  * priority_level = PRIORITY_2 --> highest priority use MD_HW_HIGH_Q(Q1)
  */
@@ -918,7 +918,7 @@ static inline int port_get_queue_no(struct port_t *port, enum DIRECTION dir,
 				MD_HW_MEDIUM_Q);
 		if (priority_level == PRIORITY_0)
 			return (md_state == EXCEPTION ? port->txq_exp_index :
-				MD_HW_NORMAL_Q);
+				port->txq_index);
 		return (md_state == EXCEPTION ? port->txq_exp_index :
 			port->txq_index);
 	} else if (dir == IN)
