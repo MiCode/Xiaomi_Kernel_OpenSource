@@ -323,7 +323,7 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 			trace_sched_leakage(cpu, opp, cpu_temp[cpu], cpu_static_pwr,
 					static_pwr, sum_cap);
 	}
-	static_pwr = (static_pwr * sum_util) / sum_cap;
+	static_pwr = (likely(sum_cap) ? (static_pwr * sum_util) / sum_cap : 0);
 #endif
 
 	/*
