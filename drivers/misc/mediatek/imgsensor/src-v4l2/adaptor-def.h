@@ -149,6 +149,7 @@ enum {
 	REGULATOR_AVDD1,
 	REGULATOR_AVDD2,
 	REGULATOR_DVDD1,
+	REGULATOR_RST,
 	REGULATOR_MAXCNT,
 };
 
@@ -161,6 +162,7 @@ enum {
 	"avdd1", \
 	"avdd2", \
 	"dvdd1", \
+	"rst", \
 
 /* Format code util */
 

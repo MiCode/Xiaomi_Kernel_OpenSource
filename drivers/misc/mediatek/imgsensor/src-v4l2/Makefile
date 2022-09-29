@@ -49,6 +49,11 @@ alpha_drv += $(1)
 total_subdrvs += $(1)
 unknown_drv :=
 endif
+ifneq ($(wildcard $(IMGSENSOR_DRIVER_PATH)/camera_project/k6985v1_64_alpha/$(1)),)
+alpha_drv_k6985 += $(1)
+total_subdrvs += $(1)
+unknown_drv :=
+endif
 endef
 
 $(foreach drv,$(subst $\",,$(CONFIG_CUSTOM_KERNEL_IMGSENSOR)),$(eval $(call FILTER_DRV,$(drv))))
@@ -89,6 +94,11 @@ endif
 ifneq ($(alpha_drv),)
 $(info alpha_drv : $(alpha_drv))
 $(foreach drv,$(alpha_drv),$(eval $(call add_subdrv,camera_project/k6983v1_64_alpha/$(drv))))
+endif
+
+ifneq ($(alpha_drv_k6985),)
+$(info alpha_drv_k6985 : $(alpha_drv_k6985))
+$(foreach drv,$(alpha_drv_k6985),$(eval $(call add_subdrv,camera_project/k6985v1_64_alpha/$(drv))))
 endif
 
 comma := ,
