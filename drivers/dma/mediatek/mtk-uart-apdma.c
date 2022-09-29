@@ -87,6 +87,7 @@
 #define CONFIG_UART_DMA_DATA_RECORD
 #define DBG_STAT_WD_ACT		BIT(5)
 #define MAX_POLL_CNT_RX		200
+#define MAX_GLOBAL_VD_COUNT	5
 
 struct uart_info {
 	unsigned int wpt_reg;
@@ -118,12 +119,15 @@ struct mtk_uart_apdma_desc {
 
 	dma_addr_t addr;
 	unsigned int avail_len;
+	bool is_global_vd;
+	bool is_using;
 };
 
 struct mtk_chan {
 	struct virt_dma_chan vc;
 	struct dma_slave_config	cfg;
 	struct mtk_uart_apdma_desc *desc;
+	struct mtk_uart_apdma_desc c_desc[MAX_GLOBAL_VD_COUNT];
 	enum dma_transfer_direction dir;
 
 	void __iomem *base;
@@ -180,7 +184,13 @@ static unsigned int mtk_uart_apdma_read(struct mtk_chan *c, unsigned int reg)
 
 static void mtk_uart_apdma_desc_free(struct virt_dma_desc *vd)
 {
-		kfree(container_of(vd, struct mtk_uart_apdma_desc, vd));
+	struct mtk_uart_apdma_desc *d = NULL;
+
+	d = container_of(vd, struct mtk_uart_apdma_desc, vd);
+	if (d->is_global_vd)
+		d->is_using = false;
+	else
+		kfree(d);
 }
 
 void mtk_save_uart_apdma_reg(struct dma_chan *chan, unsigned int *reg_buf)
@@ -682,6 +692,7 @@ static struct dma_async_tx_descriptor *mtk_uart_apdma_prep_slave_sg
 	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
 	struct mtk_uart_apdma_desc *d;
 	unsigned int poll_cnt = 0;
+	unsigned int idx_vd = 0;
 
 	if (!is_slave_direction(dir) || sglen != 1) {
 		pr_info("%s is_slave_direction: %d, sglen: %d\n",
@@ -697,8 +708,20 @@ static struct dma_async_tx_descriptor *mtk_uart_apdma_prep_slave_sg
 		poll_cnt++;
 	}
 	if (!d) {
-		pr_info("%s kzalloc fail retry count: %d\n", __func__, poll_cnt);
-		return NULL;
+		for (idx_vd = 0; idx_vd < MAX_GLOBAL_VD_COUNT; idx_vd++) {
+			if (c->c_desc[idx_vd].is_using == false) {
+				d = &(c->c_desc[idx_vd]);
+				d->is_using = true;
+				d->is_global_vd = true;
+				break;
+			}
+		}
+		if (idx_vd >= MAX_GLOBAL_VD_COUNT) {
+			pr_info("%s kzalloc fail cnt:%d, no_global_vd\n", __func__, poll_cnt);
+			return NULL;
+		}
+	} else {
+		d->is_global_vd = false;
 	}
 
 	d->avail_len = sg_dma_len(sgl);
