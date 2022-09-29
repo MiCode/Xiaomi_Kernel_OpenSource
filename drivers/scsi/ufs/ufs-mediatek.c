@@ -2059,13 +2059,15 @@ static void ufs_mtk_setup_clk_gating(struct ufs_hba *hba)
 
 static int ufs_mtk_post_link(struct ufs_hba *hba)
 {
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	/* enable unipro clock gating feature */
 	ufs_mtk_cfg_unipro_cg(hba, true);
 
 	/* configure auto-hibern8 timer to 500 us */
 	if (ufshcd_is_auto_hibern8_supported(hba)) {
-		hba->ahit = FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 5) |
+		host->desired_ahit = FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 5) |
 			    FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 2);
+		hba->ahit = host->desired_ahit;
 	}
 
 	ufs_mtk_setup_clk_gating(hba);
@@ -2544,10 +2546,19 @@ static void ufs_mtk_clk_scale(struct ufs_hba *hba, bool scale_up)
 	struct ufs_clk_info *clki = mclk->ufs_sel_clki;
 	int ret = 0;
 	int ver;
+	u32 ahit;
 	static bool skip_switch;
 
 	if (host->clk_scale_up == scale_up)
 		goto out;
+
+	/* set longer ah8 timer when scale up */
+	if (scale_up)
+		ahit = FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 5) |
+				FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 3);
+	else
+		ahit = host->desired_ahit;
+	ufshcd_auto_hibern8_update(hba, ahit);
 
 	if (skip_switch)
 		goto skip;

@@ -203,6 +203,7 @@ struct ufs_mtk_host {
 	u16 ref_clk_ungating_wait_us;
 	u16 ref_clk_gating_wait_us;
 	u32 ip_ver;
+	u32 desired_ahit;
 	struct ufs_mtk_clk mclk;
 	bool pm_qos_init;
 	struct pm_qos_request pm_qos_req;
