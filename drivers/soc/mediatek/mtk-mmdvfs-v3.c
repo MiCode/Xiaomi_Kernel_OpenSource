@@ -37,6 +37,7 @@ static struct clk *mmdvfs_pwr_clk[PWR_MMDVFS_NUM];
 static void *mmdvfs_vcp_ipi_data_base;
 static u64 mmdvfs_vcp_ipi_data;
 static DEFINE_MUTEX(mmdvfs_vcp_ipi_mutex);
+static DEFINE_MUTEX(mmdvfs_vcp_ipi_base_mutex);
 
 #define MMDVFS_VB_ENABLE_OFFSET 0xff4
 #define MMDVFS_AGING_ENABLE_OFFSET 0xff8
@@ -308,6 +309,11 @@ int mtk_mmdvfs_enable_vcp(bool enable, unsigned int usr_id)
 		vcp_power++;
 		vcp_pwr_usage[usr_id]++;
 	} else {
+		if (vcp_pwr_usage[usr_id] == 0) {
+			MMDVFS_ERR("disable vcp when usr:%u vcp_pwr_usage==0", usr_id);
+			mutex_unlock(&mmdvfs_vcp_pwr_mutex);
+			return -EINVAL;
+		}
 		if (vcp_power == 0) {
 			MMDVFS_ERR("disable vcp when vcp_power==0");
 			mutex_unlock(&mmdvfs_vcp_pwr_mutex);
@@ -362,8 +368,11 @@ static inline bool mmdvfs_vcp_ipi_base_get(void)
 	phys_addr_t pa = 0ULL;
 	static bool flags;
 
-	if (flags)
+	mutex_lock(&mmdvfs_vcp_ipi_base_mutex);
+	if (flags) {
+		mutex_unlock(&mmdvfs_vcp_ipi_base_mutex);
 		return mmdvfs_vcp_ipi_data_base ? true : false;
+	}
 
 	if (!mmdvfs_vcp_base) // iova
 		mmdvfs_vcp_base = vcp_get_reserve_mem_phys_ex(MMDVFS_MEM_ID);
@@ -389,6 +398,7 @@ static inline bool mmdvfs_vcp_ipi_base_get(void)
 		mmdvfs_vcp_ipi_data_base += MMDVFS_VCP_IPI_DATA_OFFSET;
 
 	flags = true;
+	mutex_unlock(&mmdvfs_vcp_ipi_base_mutex);
 	return mmdvfs_vcp_ipi_data_base ? true : false;
 }
 
