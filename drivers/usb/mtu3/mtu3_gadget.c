@@ -447,9 +447,12 @@ static int mtu3_gadget_dequeue(struct usb_ep *ep, struct usb_request *req)
 		goto done;
 	}
 
-	mtu3_qmu_flush(mep);  /* REVISIT: set BPS ?? */
-	mtu3_req_complete(mep, req, -ECONNRESET);
-	mtu3_qmu_start(mep);
+	if (mtu->is_active) {
+		mtu3_qmu_flush(mep);  /* REVISIT: set BPS ?? */
+		mtu3_req_complete(mep, req, -ECONNRESET);
+		mtu3_qmu_start(mep);
+	} else
+		mtu3_req_complete(mep, req, -ECONNRESET);
 
 done:
 	spin_unlock_irqrestore(&mtu->lock, flags);
