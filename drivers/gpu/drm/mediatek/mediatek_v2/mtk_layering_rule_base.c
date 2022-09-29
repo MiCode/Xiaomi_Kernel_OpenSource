@@ -57,6 +57,8 @@ static int g_emi_bound_table[HRT_LEVEL_NUM];
 int have_force_gpu_layer;
 int sum_overlap_w_of_bwm;
 
+static DEFINE_MUTEX(layering_info_lock);
+
 #define DISP_MML_LAYER_LIMIT 1
 
 static struct {
@@ -3166,15 +3168,20 @@ static int set_disp_info(struct drm_mtk_layering_info *disp_info_user,
 {
 	int i;
 
+	mutex_lock(&layering_info_lock);
 	memcpy(&layering_info, disp_info_user,
 		sizeof(struct drm_mtk_layering_info));
 
 
-	for (i = 0; i < HRT_DISP_TYPE_NUM; i++)
-		if (_copy_layer_info_from_disp(disp_info_user, debug_mode, i))
+	for (i = 0; i < HRT_DISP_TYPE_NUM; i++) {
+		if (_copy_layer_info_from_disp(disp_info_user, debug_mode, i)) {
+			mutex_unlock(&layering_info_lock);
 			return -EFAULT;
+		}
+	}
 
 	memset(l_rule_info->addon_scn, 0x0, sizeof(l_rule_info->addon_scn));
+	mutex_unlock(&layering_info_lock);
 	return 0;
 }
 
