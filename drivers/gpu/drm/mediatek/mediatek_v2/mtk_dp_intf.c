@@ -903,12 +903,20 @@ unsigned long long mtk_dpintf_get_frame_hrt_bw_base(
 		struct mtk_drm_crtc *mtk_crtc, struct mtk_dp_intf *dp_intf)
 {
 	unsigned long long bw_base;
-	int hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
-	int vtotal = mtk_crtc->base.state->adjusted_mode.vtotal;
-	int vact = mtk_crtc->base.state->adjusted_mode.vdisplay;
-	int vrefresh = drm_mode_vrefresh(&mtk_crtc->base.state->adjusted_mode);
+	int hact;
+	int vtotal;
+	int vact;
+	int vrefresh;
 	u32 bpp = 3;
 
+	/* for the case dpintf not initialize yet, return 1 avoid treat as error */
+	if (!(mtk_crtc && mtk_crtc->base.state))
+		return 1;
+
+	hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
+	vtotal = mtk_crtc->base.state->adjusted_mode.vtotal;
+	vact = mtk_crtc->base.state->adjusted_mode.vdisplay;
+	vrefresh = drm_mode_vrefresh(&mtk_crtc->base.state->adjusted_mode);
 	bw_base = (unsigned long long)vact * hact * vrefresh * 4 / 1000;
 	bw_base = bw_base * vtotal / vact;
 	bw_base = bw_base / 1000;
