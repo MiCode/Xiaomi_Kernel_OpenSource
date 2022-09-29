@@ -5912,7 +5912,7 @@ static void wq_watchdog_timer_fn(struct timer_list *unused)
 	if (lockup_detected)
 		show_workqueue_state();
 #if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
-	if (lockup_detected) {
+	if (lockup_detected && lockup_func) {
 		pr_err("WQ_lockup: [<%px>] %pS\n", lockup_func, lockup_func);
 		BUG();
 	}
