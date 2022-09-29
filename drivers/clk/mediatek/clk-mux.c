@@ -138,8 +138,6 @@ static int mtk_clk_hwv_mux_enable(struct clk_hw *hw)
 			wk_mmpll2_ref_count++;
 			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 3)));
 		}
-		pr_notice("%s: hw: %s ref_count:%d\n",
-				__func__, clk_hw_get_name(hw), wk_mmpll2_ref_count);
 	}
 
 	regmap_write(mux->hwv_regmap, mux->data->hwv_set_ofs,
@@ -246,8 +244,6 @@ static void mtk_clk_hwv_mux_disable(struct clk_hw *hw)
 				mtk_hwv_pll_off(
 					clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 3)));
 		}
-		pr_notice("%s: hw: %s ref_count:%d\n",
-			__func__, clk_hw_get_name(hw), wk_mmpll2_ref_count);
 	}
 
 	return;
@@ -290,8 +286,6 @@ static int mtk_clk_ipi_mux_enable(struct clk_hw *hw)
 			wk_mmpll2_ref_count++;
 			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 3)));
 		}
-		pr_notice("%s: hw: %s ref_count:%d\n",
-			__func__,  clk_hw_get_name(hw), wk_mmpll2_ref_count);
 	}
 
 	cb = mtk_clk_get_ipi_cb();
@@ -358,8 +352,6 @@ static void mtk_clk_ipi_mux_disable(struct clk_hw *hw)
 				mtk_hwv_pll_off(clk_hw_get_parent(
 					clk_hw_get_parent_by_index(hw, 3)));
 		}
-		pr_notice("%s: hw: %s ref_count:%d\n",
-			__func__, clk_hw_get_name(hw), wk_mmpll2_ref_count);
 	}
 	return;
 
