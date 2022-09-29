@@ -483,4 +483,12 @@ config PINCTRL_EQUILIBRIUM
 	  pin functions, configure GPIO attributes for LGM SoC pins. Pinmux and
 	  pinconf settings are retrieved from device tree.
 
+config CONFIG_MTK_PINCTRL_DEBUG
+	tristate "Mediatek Pinctrl Debug Setting"
+	help
+	  This is the debug configuration of pin controller and gpio driver
+	  for mediatek internal usage. It will enable mediatek common v2,
+	  paris and eint core driver. And for another usage is for bypass
+	  Android GKI rule until upstream.
+
 endif

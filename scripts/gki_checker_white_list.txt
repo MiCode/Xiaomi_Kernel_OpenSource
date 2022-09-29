@@ -43,6 +43,7 @@ f drivers/iommu/iova.c
 f drivers/media/mc/mc-device.c
 f drivers/media/v4l2-core/v4l2-ioctl.c
 f drivers/media/v4l2-core/v4l2-subdev.c
+f drivers/pinctrl/pinmux.c
 f drivers/remoteproc/remoteproc_core.c
 f drivers/scsi/scsi_lib.c
 f drivers/scsi/scsi_scan.c
