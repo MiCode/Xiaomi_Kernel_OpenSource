@@ -90,17 +90,16 @@ phys_addr_t dram_end_addr;
 
 static struct mtk_blocktag *mtk_btag_find_by_name(const char *name)
 {
-	struct mtk_blocktag *btag, *n;
-	unsigned long flags;
+	struct mtk_blocktag *btag;
 
-	spin_lock_irqsave(&list_lock, flags);
-	list_for_each_entry_safe(btag, n, &mtk_btag_list, list) {
+	rcu_read_lock();
+	list_for_each_entry_rcu(btag, &mtk_btag_list, list) {
 		if (!strncmp(btag->name, name, BLOCKTAG_NAME_LEN-1)) {
-			spin_unlock_irqrestore(&list_lock, flags);
+			rcu_read_unlock();
 			return btag;
 		}
 	}
-	spin_unlock_irqrestore(&list_lock, flags);
+	rcu_read_unlock();
 
 	return NULL;
 }
@@ -108,17 +107,16 @@ static struct mtk_blocktag *mtk_btag_find_by_name(const char *name)
 struct mtk_blocktag *mtk_btag_find_by_type(
 					enum mtk_btag_storage_type storage_type)
 {
-	struct mtk_blocktag *btag, *n;
-	unsigned long flags;
+	struct mtk_blocktag *btag;
 
-	spin_lock_irqsave(&list_lock, flags);
-	list_for_each_entry_safe(btag, n, &mtk_btag_list, list) {
+	rcu_read_lock();
+	list_for_each_entry_rcu(btag, &mtk_btag_list, list) {
 		if (btag->storage_type == storage_type) {
-			spin_unlock_irqrestore(&list_lock, flags);
+			rcu_read_unlock();
 			return btag;
 		}
 	}
-	spin_unlock_irqrestore(&list_lock, flags);
+	rcu_read_unlock();
 
 	return NULL;
 }
@@ -669,24 +667,23 @@ static void mtk_btag_seq_main_info(char **buff, unsigned long *size,
 	struct seq_file *seq)
 {
 	size_t used_mem = 0;
-	struct mtk_blocktag *btag, *n;
-	unsigned long flags;
+	struct mtk_blocktag *btag;
 
 	SPREAD_PRINTF(buff, size, seq, "[Trace]\n");
-	spin_lock_irqsave(&list_lock, flags);
-	list_for_each_entry_safe(btag, n, &mtk_btag_list, list)
+	rcu_read_lock();
+	list_for_each_entry_rcu(btag, &mtk_btag_list, list)
 		mtk_btag_seq_debug_show_ringtrace(buff, size, seq, btag);
-	spin_unlock_irqrestore(&list_lock, flags);
+	rcu_read_unlock();
 
 	SPREAD_PRINTF(buff, size, seq, "[Info]\n");
-	spin_lock_irqsave(&list_lock, flags);
-	list_for_each_entry_safe(btag, n, &mtk_btag_list, list)
+	rcu_read_lock();
+	list_for_each_entry_rcu(btag, &mtk_btag_list, list)
 		if (btag->vops->seq_show) {
 			SPREAD_PRINTF(buff, size, seq, "<%s: context info>\n",
 					btag->name);
 			btag->vops->seq_show(buff, size, seq);
 		}
-	spin_unlock_irqrestore(&list_lock, flags);
+	rcu_read_unlock();
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
 	SPREAD_PRINTF(buff, size, seq, "[BLK_PM]\n");
@@ -698,10 +695,13 @@ static void mtk_btag_seq_main_info(char **buff, unsigned long *size,
 		mtk_fscmd_show(buff, size, seq);
 	}
 #endif
+
 	SPREAD_PRINTF(buff, size, seq, "[Memory Usage]\n");
-	list_for_each_entry_safe(btag, n, &mtk_btag_list, list)
+	rcu_read_lock();
+	list_for_each_entry_rcu(btag, &mtk_btag_list, list)
 		used_mem += mtk_btag_seq_sub_show_usedmem(buff, size,
 				seq, btag);
+	rcu_read_unlock();
 
 	SPREAD_PRINTF(buff, size, seq, "<blocktag core>\n");
 	used_mem += mtk_btag_seq_pidlog_usedmem(buff, size, seq);
@@ -752,13 +752,12 @@ static int mtk_btag_main_open(struct inode *inode, struct file *file)
 static ssize_t mtk_btag_main_write(struct file *file, const char __user *ubuf,
 	size_t count, loff_t *ppos)
 {
-	struct mtk_blocktag *btag, *n;
-	unsigned long flags;
+	struct mtk_blocktag *btag;
 
-	spin_lock_irqsave(&list_lock, flags);
-	list_for_each_entry_safe(btag, n, &mtk_btag_list, list)
+	rcu_read_lock();
+	list_for_each_entry_rcu(btag, &mtk_btag_list, list)
 		mtk_btag_clear_trace(&btag->rt);
-	spin_unlock_irqrestore(&list_lock, flags);
+	rcu_read_unlock();
 
 	return count;
 }
@@ -837,7 +836,7 @@ struct mtk_blocktag *mtk_btag_alloc(const char *name,
 	mtk_btag_mictx_init(btag);
 out:
 	spin_lock_irqsave(&list_lock, flags);
-	list_add(&btag->list, &mtk_btag_list);
+	list_add_rcu(&btag->list, &mtk_btag_list);
 	spin_unlock_irqrestore(&list_lock, flags);
 	mtk_btag_earaio_init_mictx(vops, storage_type, btag_proc_root);
 
@@ -852,10 +851,11 @@ void mtk_btag_free(struct mtk_blocktag *btag)
 		return;
 
 	spin_lock_irqsave(&list_lock, flags);
-	list_del(&btag->list);
-	mtk_btag_mictx_free_all(btag);
+	list_del_rcu(&btag->list);
 	spin_unlock_irqrestore(&list_lock, flags);
 
+	synchronize_rcu();
+	mtk_btag_mictx_free_all(btag);
 	kfree(btag->ctx.priv);
 	kfree(btag->rt.trace);
 	proc_remove(btag->dentry.droot);
