@@ -834,8 +834,6 @@ static int xhci_trace_init(void)
 {
 #if IS_ENABLED(CONFIG_DEVICE_MODULES_USB_XHCI_MTK)
 	WARN_ON(register_trace_xhci_urb_giveback_(xhci_urb_giveback_dbg, NULL));
-#else
-	WARN_ON(register_trace_xhci_urb_giveback(xhci_urb_giveback_dbg, NULL));
 #endif
 	return 0;
 }
