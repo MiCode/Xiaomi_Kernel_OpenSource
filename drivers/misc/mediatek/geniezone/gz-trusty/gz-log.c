@@ -48,8 +48,6 @@
 #include <linux/debugfs.h>
 #include <linux/sched/clock.h>
 
-#include <mt-plat/mrdump.h>
-
 #if ENABLE_GZ_TRACE_DUMP
 #if IS_BUILTIN(CONFIG_MTK_GZ_LOG)
 	#include "gz_trace_builtin.h"
@@ -221,10 +219,6 @@ static int gz_log_page_init(void)
 		glctx.flag == STATIC_MAP ? "static_map" : "dynamic",
 		glctx.virt, glctx.size);
 
-	// register GZ_LOG DB log
-	mrdump_mini_add_extra_file((unsigned long)glctx.virt,
-				(unsigned long)glctx.paddr,
-				(unsigned long)glctx.size, "GZ_LOG");
 
 	return 0;
 }
