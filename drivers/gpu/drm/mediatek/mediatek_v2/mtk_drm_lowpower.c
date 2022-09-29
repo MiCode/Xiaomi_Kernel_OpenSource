@@ -520,7 +520,7 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 				mtk_crtc->base.dev->dev_private;
 	struct mtk_ddp_comp *output_comp = NULL;
 	int en = 0;
-	bool wait = true;
+	struct cmdq_pkt *cmdq_handle;
 
 	DDPINFO("%s, crtc%d+\n", __func__, crtc_id);
 
@@ -531,28 +531,42 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 	}
 
 	if (mtk_crtc->is_mml) {
-		struct cmdq_pkt *cmdq_handle;
+		mtk_crtc->mml_ir_state = MML_IR_IDLE;
+	}
 
-		mtk_crtc_pkt_create(&cmdq_handle, crtc, mtk_crtc->gce_obj.client[CLIENT_CFG]);
-		if (cmdq_handle) {
-			cmdq_pkt_clear_event(cmdq_handle,
-					     mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
-			cmdq_pkt_clear_event(cmdq_handle,
-					     mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
-			cmdq_pkt_flush(cmdq_handle);
+	/* 0. Waiting CLIENT_DSI_CFG/CLIENT_CFG thread done */
+	mtk_crtc_pkt_create(&cmdq_handle, crtc,
+		mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+
+	if (cmdq_handle) {
+		cmdq_pkt_flush(cmdq_handle);
+		cmdq_pkt_destroy(cmdq_handle);
+	}
+
+	mtk_crtc_pkt_create(&cmdq_handle, crtc, mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+	if (cmdq_handle) {
+		cmdq_pkt_clear_event(cmdq_handle,
+				     mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+		cmdq_pkt_clear_event(cmdq_handle,
+				     mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+		cmdq_pkt_wfe(cmdq_handle,
+				     mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+
+		cmdq_pkt_flush(cmdq_handle);
+
+		if (mtk_crtc->is_mml)
 			CRTC_MMP_MARK(0, mml_dbg, (unsigned long)cmdq_handle, MMP_MML_IDLE);
-			cmdq_pkt_destroy(cmdq_handle);
-			wait = false;
-			mtk_crtc->mml_ir_state = MML_IR_IDLE;
-		}
+
+		cmdq_pkt_destroy(cmdq_handle);
 	}
 
 	/* 1. stop connector */
 	mtk_drm_idlemgr_disable_connector(crtc);
 
 	/* 2. stop CRTC */
-	mtk_crtc_stop(mtk_crtc, wait);
-	CRTC_MMP_MARK((int)crtc_id, enter_idle, 1, wait);
+	mtk_crtc_stop(mtk_crtc, false);
+	CRTC_MMP_MARK((int)crtc_id, enter_idle, 1, 0);
 
 	/* 3. disconnect addon module and recover config */
 	mtk_crtc_disconnect_addon_module(crtc);
