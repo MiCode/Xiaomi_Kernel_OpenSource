@@ -75,6 +75,7 @@ struct fpsgo_loading {
 	int policy;
 	long nice_bk;
 	int action;
+	int rmidx;
 };
 
 struct fbt_thread_blc {
