@@ -611,6 +611,7 @@ static bool mtk_dsp_check_exception(struct mtk_base_dsp *dsp,
 	if (ipi_msg && ipi_msg->param2 == ADSP_DL_CONSUME_RESET) {
 		pr_info("%s() %s adsp reset\n", __func__, task_name);
 		RingBuf_Reset(&dsp->dsp_mem[id].ring_buf);
+		dsp->dsp_mem[id].underflowed = true;
 		snd_pcm_period_elapsed(dsp->dsp_mem[id].substream);
 		return true;
 	}
