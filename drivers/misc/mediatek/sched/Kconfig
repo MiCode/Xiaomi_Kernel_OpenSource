@@ -124,8 +124,3 @@ config MTK_CORE_CTL
 	  utilizations from scheduler information automatically.
 	  If you are not sure about whether to enable it or not,
 	  please set n.
-
-config MTK_FIX_CGROUP_COMMON
-	tristate "add sched debug log"
-	help
-	  MTK_FIX_CGROUP_COMMON is the kernel config to fix cgroup common code issue.
