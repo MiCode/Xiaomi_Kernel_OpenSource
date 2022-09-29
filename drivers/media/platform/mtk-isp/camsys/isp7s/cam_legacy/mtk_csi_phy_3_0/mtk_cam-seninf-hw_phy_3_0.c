@@ -896,8 +896,21 @@ static int mtk_cam_seninf_set_cammux_src(struct seninf_ctx *ctx, int src, int ta
 	return 0;
 }
 
+static void mtk_cam_seninf_reset_dt_remap(void *pSeninf_csi2)
+{
+	if (pSeninf_csi2) {
+		SENINF_WRITE_REG(pSeninf_csi2, SENINF_CSI2_FORCEDT0, 0);
+		SENINF_WRITE_REG(pSeninf_csi2, SENINF_CSI2_FORCEDT1, 0);
+		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_DT0, RG_CSI2_RAW16_DT, 0x2e);
+		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_DT0, RG_CSI2_RAW14_DT, 0x2d);
+		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_DT0, RG_CSI2_RAW12_DT, 0x2c);
+		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_DT0, RG_CSI2_RAW10_DT, 0x2b);
+	}
+}
+
 static int mtk_cam_seninf_remap_dt(void *pSeninf_csi2, struct seninf_vc *vc, int dt_remap_index)
 {
+	int remap_ret = 0;
 
 	if (!vc || !pSeninf_csi2)
 		return -1;
@@ -928,10 +941,34 @@ static int mtk_cam_seninf_remap_dt(void *pSeninf_csi2, struct seninf_vc *vc, int
 		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_FORCEDT1, RG_FORCE_DT3_EN, 0x1);
 		break;
 	default:
+		remap_ret = -1;
 		break;
 	}
 
-	return 0;
+	if (remap_ret >= 0) {
+		switch (vc->dt) {
+		case 0x2e:
+			/* map raw16 dt to unused dt number */
+			SENINF_BITS(pSeninf_csi2, SENINF_CSI2_DT0, RG_CSI2_RAW16_DT, 0x2f);
+			break;
+		case 0x2d:
+			/* map raw14 dt to unused dt number */
+			SENINF_BITS(pSeninf_csi2, SENINF_CSI2_DT0, RG_CSI2_RAW14_DT, 0x2f);
+			break;
+		case 0x2c:
+			/* map raw12 dt to unused dt number */
+			SENINF_BITS(pSeninf_csi2, SENINF_CSI2_DT0, RG_CSI2_RAW12_DT, 0x2f);
+			break;
+		case 0x2b:
+			/* map raw10 dt to unused dt number */
+			SENINF_BITS(pSeninf_csi2, SENINF_CSI2_DT0, RG_CSI2_RAW10_DT, 0x2f);
+			break;
+		default:
+			break;
+		}
+	}
+
+	return remap_ret;
 }
 static int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int intf,
 			  struct seninf_vcinfo *vcinfo)
@@ -958,8 +995,7 @@ static int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int intf,
 	SENINF_WRITE_REG(pSeninf_csi2, SENINF_CSI2_CH2_CTRL, 0);
 	SENINF_WRITE_REG(pSeninf_csi2, SENINF_CSI2_CH3_CTRL, 0);
 
-	SENINF_WRITE_REG(pSeninf_csi2, SENINF_CSI2_FORCEDT0, 0);
-	SENINF_WRITE_REG(pSeninf_csi2, SENINF_CSI2_FORCEDT1, 0);
+	mtk_cam_seninf_reset_dt_remap(pSeninf_csi2);
 
 	for (i = 0; i < vcinfo->cnt; i++) {
 		vc = &vcinfo->vc[i];
@@ -968,6 +1004,9 @@ static int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int intf,
 			if (dt_remap_index == 0) {
 				dt_remap_table[dt_remap_index] = vc->dt;
 				ret = mtk_cam_seninf_remap_dt(pSeninf_csi2, vc, dt_remap_index);
+				dev_info(ctx->dev,
+					"ret(%d) idx(%d) vc[%d] dt 0x%x remap to %d\n",
+					ret, dt_remap_index, i, vc->dt, vc->dt_remap_to_type);
 				dt_remap_index++;
 			} else {
 				j = 0;
@@ -982,6 +1021,10 @@ static int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int intf,
 					dt_remap_table[dt_remap_index] = vc->dt;
 					ret = mtk_cam_seninf_remap_dt(pSeninf_csi2, vc,
 									dt_remap_index);
+					dev_info(ctx->dev,
+						"ret(%d) idx(%d) vc[%d] dt 0x%x remap to %d\n",
+						ret, dt_remap_index, i, vc->dt,
+						vc->dt_remap_to_type);
 					dt_remap_index++;
 				}
 			}
