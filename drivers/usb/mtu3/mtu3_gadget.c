@@ -7,8 +7,79 @@
  * Author: Chunfeng Yun <chunfeng.yun@mediatek.com>
  */
 
+#include <linux/usb/composite.h>
+
 #include "mtu3.h"
 #include "mtu3_trace.h"
+
+#include "u_fs.h"
+
+/* workaround for f_fs use after free issue */
+struct ffs_ep {
+	struct usb_ep *ep;
+	struct usb_request *req;
+	struct usb_endpoint_descriptor	*descs[3];
+	u8 num;
+	int status;
+};
+
+struct ffs_function {
+	struct usb_configuration *conf;
+	struct usb_gadget *gadget;
+	struct ffs_data *ffs;
+	struct ffs_ep *eps;
+	u8 eps_revmap[16];
+	short *interfaces_nums;
+	struct usb_function function;
+};
+
+static struct usb_function *mtu3_ep_to_func(struct mtu3_ep *mep)
+{
+	struct usb_ep *ep = &mep->ep;
+	struct usb_composite_dev *cdev;
+	struct usb_function *f = NULL;
+	int addr;
+
+	cdev = get_gadget_data(&mep->mtu->g);
+	if (!cdev || !cdev->config)
+		return f;
+
+	if (!mep->epnum)
+		return f;
+
+	addr = ((ep->address & 0x80) >> 3)
+			| (ep->address & 0x0f);
+
+	list_for_each_entry(f, &cdev->config->functions, list) {
+		if (test_bit(addr, f->endpoints))
+			break;
+	}
+
+	return f;
+}
+
+static bool mtu3_ffs_state_valid(struct mtu3_ep *mep)
+{
+	struct usb_function *f;
+	struct ffs_function *func;
+
+	f = mtu3_ep_to_func(mep);
+
+	if (!f || strcmp("Function FS Gadget", f->name))
+		return true;
+
+	func = container_of(f, struct ffs_function, function);
+	if (!func->ffs)
+		return false;
+
+	if (!func->ffs->epfiles || func->ffs->state != FFS_ACTIVE) {
+		dev_info(mep->mtu->dev, "%s ffs->state!=active\n", __func__);
+		return false;
+	}
+
+	return true;
+}
+/* workaround for f_fs use after free issue */
 
 void mtu3_req_complete(struct mtu3_ep *mep,
 		     struct usb_request *req, int status)
@@ -193,7 +264,7 @@ static int mtu3_gadget_ep_enable(struct usb_ep *ep,
 	dev_dbg(mtu->dev, "%s %s\n", __func__, ep->name);
 
 	if (mep->flags & MTU3_EP_ENABLED) {
-		dev_WARN_ONCE(mtu->dev, true, "%s is already enabled\n",
+		dev_info_once(mtu->dev, "%s is already enabled\n",
 				mep->name);
 		return 0;
 	}
@@ -214,6 +285,10 @@ error:
 
 	dev_dbg(mtu->dev, "%s active_ep=%d\n", __func__, mtu->active_ep);
 	trace_mtu3_gadget_ep_enable(mep);
+
+	/* workaround for f_fs use after free issue */
+	if (!ret && !mtu3_ffs_state_valid(mep))
+		ret = -EINVAL;
 
 	return ret;
 }
