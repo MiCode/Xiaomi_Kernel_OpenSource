@@ -328,11 +328,33 @@ static int devmpu_check_violation(void)
 	if (prop_addr && prop_size) {
 		pr_info("Check if DevMPU violation is at 0x%x\n", prop_addr);
 		reg_base = ioremap((phys_addr_t)prop_addr, prop_size);
-		pr_info("Read from %p\n", reg_base);
-		prop_value = *(uint64_t *)reg_base;
-		pr_info("value 0x%llx\n", prop_value);
-		pr_info("Write to %p\n", reg_base);
-		*(uint64_t *)reg_base = prop_value;
+		if (!reg_base)
+			return -EIO;
+
+		pr_info("Read from 0x%pK\n", reg_base);
+
+		prop_value = readq(reg_base);
+		pr_info("%s:%d value 0x%llx\n", __func__, __LINE__, prop_value);
+
+		if (prop_value) {
+			pr_info("%s:%d EMI didn't protect READ and check HP mode\n",
+				__func__, __LINE__);
+			BUG();
+		}
+
+		pr_info("Write to 0x%pK\n", reg_base);
+		writeq(prop_value | 0x5AA5AA55, reg_base);
+
+		prop_value = readq(reg_base);
+		pr_info("%s:%d value 0x%llx\n", __func__, __LINE__, prop_value);
+
+		if (prop_value) {
+			pr_info("%s:%d EMI didn't protect WRITE and check HP mode\n",
+				__func__, __LINE__);
+			BUG();
+		}
+
+		iounmap(reg_base);
 	}
 
 	return 0;
