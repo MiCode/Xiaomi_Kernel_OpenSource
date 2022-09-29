@@ -118,7 +118,7 @@ static void sched_queue_task_hook(void *data, struct rq *rq, struct task_struct 
 
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	ts[1] = sched_clock();
-	if (ts[1] - ts[0] > 500000ULL) {
+	if ((ts[1] - ts[0] > 500000ULL) && in_hardirq()) {
 		printk_deferred("%s duration %llu, ts[0]=%llu, ts[1]=%llu\n",
 				__func__, ts[1] - ts[0], ts[0], ts[1]);
 	}

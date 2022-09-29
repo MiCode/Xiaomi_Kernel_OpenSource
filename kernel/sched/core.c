@@ -3132,7 +3132,7 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	ts[6] = sched_clock();
 
-	if (ts[6] - ts[0] > 500000ULL) {
+	if ((ts[6] - ts[0] > 500000ULL) && in_hardirq()) {
 		int i;
 
 		printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__, ts[6] - ts[0], ts[0]);
@@ -4283,7 +4283,7 @@ out:
 #endif
 	preempt_enable();
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	if (ts[13] - ts[0] > 4000000ULL) {
+	if ((ts[13] - ts[0] > 4000000ULL) && in_hardirq()) {
 		int i;
 
 		printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__, ts[13] - ts[0], ts[0]);
