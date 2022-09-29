@@ -506,7 +506,8 @@ EXPORT_SYMBOL(ged_dvfs_gpu_clock_switch_notify);
 
 GED_ERROR ged_notify_sw_vsync_system_init(void)
 {
-	g_psNotifyWorkQueue = create_workqueue("ged_notify_sw_vsync");
+	g_psNotifyWorkQueue = alloc_ordered_workqueue("ged_notify_sw_vsync",
+						WQ_HIGHPRI | WQ_FREEZABLE | WQ_MEM_RECLAIM);
 
 	if (g_psNotifyWorkQueue == NULL)
 		return GED_ERROR_OOM;
