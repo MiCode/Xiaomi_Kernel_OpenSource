@@ -113,6 +113,7 @@ struct mtk8250_dump {
 	int r_rx_pos;
 	int r_copied;
 	int port_id;
+	unsigned long long tty_port_addr;
 	unsigned char rec_buf[UART_DUMP_BUF_LEN];
 };
 
@@ -564,6 +565,10 @@ void mtk8250_data_dump(void)
 			rx_record.rec_total, idx, rx_record.rec[idx].port_id, len_,
 			rx_record.rec[idx].r_rx_pos, rx_record.rec[idx].r_copied);
 
+		pr_info("[%s] [%5lu.%06lu] tty_port: %llu\n",
+			__func__, (unsigned long)endtime, ns / 1000,
+			rx_record.rec[idx].tty_port_addr);
+
 		if (len_ > UART_DUMP_BUF_LEN)
 			len_ = UART_DUMP_BUF_LEN;
 		for (cyc_ = 0; cyc_ < len_;) {
@@ -900,8 +905,10 @@ static void mtk8250_dma_rx_complete(void *param)
 		copied += copied_sec;
 	}
 
-	if (data->support_hub == 1)
+	if (data->support_hub == 1) {
 		rx_record.rec[idx].r_copied = copied;
+		rx_record.rec[idx].tty_port_addr = (unsigned long long)tty_port;
+	}
 
 	up->port.icount.rx += copied;
 	mtk8250_uart_rx_setting(dma->rxchan, copied, total);
