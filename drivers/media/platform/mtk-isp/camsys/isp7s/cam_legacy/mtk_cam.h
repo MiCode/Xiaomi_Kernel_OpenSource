@@ -1132,7 +1132,7 @@ unsigned int mtk_cam_get_sv_mapped_tag_order(
 	int hw_scen, int exp_no, int tag_idx);
 
 unsigned int get_master_raw_id(unsigned int num_raw_drivers,
-									  unsigned int enabled_raw);
+			       unsigned int enabled_raw);
 struct mtk_raw_device *get_master_raw_dev(struct mtk_cam_device *cam,
 					  struct mtk_raw_pipeline *pipe);
 struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,

@@ -5873,7 +5873,7 @@ int get_last_sv_tag_idx(struct mtk_cam_ctx *ctx,
 }
 
 unsigned int get_master_raw_id(unsigned int num_raw_drivers,
-									  unsigned int enabled_raw)
+			       unsigned int enabled_raw)
 {
 	unsigned int i;
 
@@ -5882,8 +5882,11 @@ unsigned int get_master_raw_id(unsigned int num_raw_drivers,
 			break;
 	}
 
-	if (i == num_raw_drivers)
+	if (i == num_raw_drivers) {
 		pr_info("no master raw id found, enabled_raw 0x%x", enabled_raw);
+		WARN_ON(1);
+		return 0;
+	}
 
 	return i;
 }
