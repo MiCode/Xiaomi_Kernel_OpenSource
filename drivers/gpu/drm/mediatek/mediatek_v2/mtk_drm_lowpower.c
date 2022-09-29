@@ -600,7 +600,6 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 	bool mode = mtk_crtc_is_dc_mode(crtc);
 	struct mtk_ddp_comp *comp;
 	unsigned int i, j;
-	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
 	struct mtk_ddp_comp *output_comp = NULL;
 	int en = 1;
 
@@ -655,7 +654,7 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 	if (mtk_crtc->mml_ir_state == MML_IR_IDLE) {
 		/* do not config mml addon module but dsc */
 		mtk_crtc_addon_connector_connect(crtc, NULL);
-		mtk_crtc_alloc_sram(mtk_crtc, mtk_state->prop_val[CRTC_PROP_LYE_IDX]);
+		mtk_crtc_alloc_sram(mtk_crtc, mtk_crtc->mml_ir_sram.bk_hrt_idx);
 	} else
 		mtk_crtc_connect_addon_module(crtc);
 

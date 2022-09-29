@@ -8124,6 +8124,9 @@ skip:
 			mml_drm_racing_stop_sync(mml_ctx, cmdq_handle);
 
 		mutex_lock(&mtk_crtc->mml_ir_sram.lock);
+		entry = list_last_entry(&mtk_crtc->mml_ir_sram.list.head,
+					struct mtk_drm_sram_list, head);
+		mtk_crtc->mml_ir_sram.bk_hrt_idx = entry->hrt_idx;
 		list_for_each_entry_safe(entry, tmp, &mtk_crtc->mml_ir_sram.list.head, head) {
 			list_del_init(&entry->head);
 			kfree(entry);
@@ -8524,7 +8527,7 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 
 	/* 15. alloc sram if last is MML */
 	if (mtk_crtc->is_mml)
-		mtk_crtc_alloc_sram(mtk_crtc, mtk_state->prop_val[CRTC_PROP_LYE_IDX]);
+		mtk_crtc_alloc_sram(mtk_crtc, mtk_crtc->mml_ir_sram.bk_hrt_idx);
 
 end:
 	CRTC_MMP_EVENT_END((int) crtc_id, enable,

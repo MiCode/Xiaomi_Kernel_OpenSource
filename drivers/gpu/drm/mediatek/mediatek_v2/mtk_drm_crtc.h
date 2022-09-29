@@ -738,6 +738,7 @@ struct mtk_drm_sram {
 	struct slbc_data data;
 	struct mutex lock;
 	struct kref ref;
+	unsigned int bk_hrt_idx;
 	struct mtk_drm_sram_list list;
 };
 
