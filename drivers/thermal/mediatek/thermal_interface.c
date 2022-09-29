@@ -1425,62 +1425,6 @@ static void therm_intf_debugfs_init(void) {}
 static void therm_intf_debugfs_exit(void) {}
 #endif
 
-static int therm_intf_suspend_noirq(struct device *dev)
-{
-	int  apu_emul_temp, apu_ttj, apu_power_budget, apu_max_temp;
-	int apu_limit_opp, apu_current_opp;
-
-	apu_emul_temp = therm_intf_read_apu_mbox_s32(APU_MBOX_EMUL_TEMP_OFFSET);
-	therm_intf_write_csram(apu_emul_temp, EMUL_TEMP_OFFSET + 8);
-
-	apu_ttj = therm_intf_read_apu_mbox_s32(APU_MBOX_TTJ_OFFSET);
-	therm_intf_write_csram(apu_ttj, TTJ_OFFSET + 8);
-
-	apu_power_budget = therm_intf_read_apu_mbox_s32(APU_MBOX_PB_OFFSET);
-	therm_intf_write_csram(apu_power_budget, POWER_BUDGET_OFFSET + 8);
-
-	apu_max_temp = therm_intf_read_apu_mbox_s32(APU_MBOX_TEMP_OFFSET);
-	therm_intf_write_csram(apu_max_temp, APU_TEMP_OFFSET);
-
-	apu_limit_opp = therm_intf_read_apu_mbox_s32(APU_MBOX_LIMIT_OPP_OFFSET);
-	therm_intf_write_csram(apu_limit_opp, APU_LIMIT_OPP_OFFSET);
-
-	apu_current_opp = therm_intf_read_apu_mbox_s32(APU_MBOX_CUR_OPP_OFFSET);
-	therm_intf_write_csram(apu_current_opp, APU_CUR_OPP_OFFSET);
-
-	return 0;
-}
-
-static int therm_intf_resume_noirq(struct device *dev)
-{
-	int  apu_emul_temp, apu_ttj, apu_power_budget, apu_max_temp;
-	int apu_limit_opp, apu_current_opp;
-
-	apu_emul_temp = therm_intf_read_csram_s32(EMUL_TEMP_OFFSET + 8);
-	therm_intf_write_apu_mbox(apu_emul_temp, APU_MBOX_EMUL_TEMP_OFFSET);
-
-	apu_ttj = therm_intf_read_csram_s32(TTJ_OFFSET + 8);
-	therm_intf_write_apu_mbox(apu_ttj, APU_MBOX_TTJ_OFFSET);
-
-	apu_power_budget = therm_intf_read_csram_s32(POWER_BUDGET_OFFSET + 8);
-	therm_intf_write_apu_mbox(apu_power_budget, APU_MBOX_PB_OFFSET);
-
-	apu_max_temp = therm_intf_read_csram_s32(APU_TEMP_OFFSET);
-	therm_intf_write_apu_mbox(apu_max_temp, APU_MBOX_TEMP_OFFSET);
-
-	apu_limit_opp = therm_intf_read_csram_s32(APU_LIMIT_OPP_OFFSET);
-	therm_intf_write_apu_mbox(apu_limit_opp, APU_MBOX_LIMIT_OPP_OFFSET);
-
-	apu_current_opp = therm_intf_read_csram_s32(APU_CUR_OPP_OFFSET);
-	therm_intf_write_apu_mbox(apu_current_opp, APU_MBOX_CUR_OPP_OFFSET);
-
-	return 0;
-}
-
-static const struct dev_pm_ops therm_intf_pm_ops = {
-	.suspend_noirq = therm_intf_suspend_noirq,
-	.resume_noirq = therm_intf_resume_noirq,
-};
 
 static const struct of_device_id therm_intf_of_match[] = {
 	{ .compatible = "mediatek,therm_intf", },
@@ -1580,7 +1524,6 @@ static struct platform_driver therm_intf_driver = {
 	.driver = {
 		.name = "mtk-thermal-interface",
 		.of_match_table = therm_intf_of_match,
-		.pm = &therm_intf_pm_ops,
 	},
 };
 
