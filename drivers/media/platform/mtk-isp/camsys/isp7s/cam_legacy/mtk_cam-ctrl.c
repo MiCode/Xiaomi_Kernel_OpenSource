@@ -5493,6 +5493,14 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 		/* nothing to do for pure raw dump */
 	}
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
+		if (ctx->pipe && mtk_cam_scen_is_ext_isp(&ctx->pipe->scen_active) &&
+			irq_info->frame_idx == 1) {
+			struct mtk_cam_request_stream_data *s_data =
+				mtk_cam_get_req_s_data(ctx, ctx->stream_id, 1);
+
+			if (s_data)
+				s_data->state.estate = E_STATE_EXTISP_SV_OUTER;
+		}
 		if (mtk_camsys_is_all_cq_done(ctx, camsv_dev->id +
 			MTKCAM_SUBDEV_CAMSV_START) == false) {
 			atomic_set(&camsv_dev->is_first_frame, 0);
@@ -5501,13 +5509,12 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 		/* stream on after all pipes' cq done */
 		if (atomic_read(&camsv_dev->is_first_frame)) {
 			atomic_set(&camsv_dev->is_first_frame, 0);
-			if (ctx->used_raw_num && ctx->pipe) {
+			if (ctx->used_raw_num) {
+				if (!ctx->pipe) {
+					dev_dbg(camsv_dev->dev, "no ctx->pipe\n");
+					return -EINVAL;
+				}
 				if (mtk_cam_scen_is_ext_isp(&ctx->pipe->scen_active)) {
-					struct mtk_cam_request_stream_data *s_data =
-						mtk_cam_get_req_s_data(ctx, ctx->stream_id, 1);
-
-					if (s_data)
-						s_data->state.estate = E_STATE_EXTISP_SV_OUTER;
 					if (ctx->sv_dev && ctx->sv_dev->used_tag_cnt)
 						mtk_cam_sv_dev_stream_on(ctx, 1);
 					for (i = 0; i < ctx->used_mraw_num; i++)
