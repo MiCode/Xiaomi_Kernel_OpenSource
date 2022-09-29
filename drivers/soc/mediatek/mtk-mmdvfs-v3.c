@@ -298,9 +298,7 @@ int mtk_mmdvfs_enable_vcp(bool enable, unsigned int usr_id)
 	mutex_lock(&mmdvfs_vcp_pwr_mutex);
 	if (enable) {
 		if (vcp_power == 0) {
-			mutex_lock(&mmdvfs_vcp_ipi_mutex);
 			ret = vcp_register_feature_ex(MMDVFS_FEATURE_ID);
-			mutex_unlock(&mmdvfs_vcp_ipi_mutex);
 			if (ret) {
 				MMDVFS_ERR("vcp_register_feature failed:%d", ret);
 				mutex_unlock(&mmdvfs_vcp_pwr_mutex);
@@ -316,9 +314,7 @@ int mtk_mmdvfs_enable_vcp(bool enable, unsigned int usr_id)
 			return -EINVAL;
 		}
 		if (vcp_power == 1) {
-			mutex_unlock(&mmdvfs_vcp_ipi_mutex);
 			ret = vcp_deregister_feature_ex(MMDVFS_FEATURE_ID);
-			mutex_unlock(&mmdvfs_vcp_ipi_mutex);
 			if (ret) {
 				MMDVFS_ERR("vcp_deregister_feature failed:%d", ret);
 				mutex_unlock(&mmdvfs_vcp_pwr_mutex);
@@ -428,6 +424,14 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 	if (is_vcp_suspending_ex())
 		return -EBUSY;
 
+	while (!is_vcp_ready_ex(VCP_A_ID)) {
+		if (++retry > 100) {
+			MMDVFS_ERR("VCP_A_ID:%d not ready", VCP_A_ID);
+			return -ETIMEDOUT;
+		}
+		usleep_range(1000, 2000);
+	}
+
 	if (!mmdvfs_vcp_ipi_base_get()) {
 		MMDVFS_DBG("get failed va:%#llx", mmdvfs_vcp_ipi_data_base);
 		return -ENOMEM;
@@ -439,15 +443,6 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp,
 	}
 
 	mutex_lock(&mmdvfs_vcp_ipi_mutex);
-	while (!is_vcp_ready_ex(VCP_A_ID)) {
-		if (++retry > 100) {
-			MMDVFS_ERR("VCP_A_ID:%d not ready", VCP_A_ID);
-			mutex_unlock(&mmdvfs_vcp_ipi_mutex);
-			return -ETIMEDOUT;
-		}
-		usleep_range(1000, 2000);
-	}
-
 	mmdvfs_vcp_ipi_data = *(u64 *)(unsigned long *)&slot;
 	writel(data, mmdvfs_vcp_ipi_data_base);
 
