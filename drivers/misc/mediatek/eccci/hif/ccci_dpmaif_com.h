@@ -68,7 +68,7 @@ struct dpmaif_rx_lro_info {
 
 #define DPMAIF_CAP_LRO            (1 << 0)
 #define DPMAIF_CAP_2RXQ           (1 << 1)
-#define DPMAIF_CAP_PIT_DEG        (1 << 2)
+#define DPMAIF_CAP_USE_RESV_MEM   (1 << 2)
 
 #define DPMAIF_RXQ_NUM            2
 #define DPMAIF_TXQ_NUM            4

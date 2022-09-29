@@ -31,6 +31,8 @@
 #include <mt-plat/mtk_ccci_common.h>
 
 #include "ccci_debug.h"
+#include "ccci_dpmaif_reg_com.h"
+#include "ccci_dpmaif_com.h"
 #include "ccci_dpmaif_resv_mem.h"
 
 
@@ -58,6 +60,9 @@ void ccci_dpmaif_resv_mem_init(void)
 	struct reserved_mem *rmem = NULL;
 
 	g_use_cache_mem_from_dts = 0;
+
+	if ((dpmaif_ctl->capability & DPMAIF_CAP_USE_RESV_MEM) != DPMAIF_CAP_USE_RESV_MEM)
+		return;
 
 	/* for cacheable memory  */
 	rmem_node = of_find_compatible_node(NULL, NULL, "mediatek,dpmaif-resv-cache-mem");

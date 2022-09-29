@@ -1296,7 +1296,21 @@ static int dpmaif_rxq_init_buf(struct dpmaif_rx_queue *rxq)
 		return LOW_MEMORY_PIT;
 	}
 
-	rxq->pit_phy_addr = virt_to_phys(rxq->pit_base);
+	rxq->pit_phy_addr = dma_map_single(
+			dpmaif_ctl->dev, rxq->pit_base,
+			(rxq->pit_cnt * dpmaif_ctl->dl_pit_byte_size),
+			DMA_FROM_DEVICE);
+
+	if (dma_mapping_error(dpmaif_ctl->dev, rxq->pit_phy_addr)) {
+		CCCI_ERROR_LOG(0, TAG,
+			"[%s] error: rxq%d pit_base[0x%llx] dma_map_single fail.\n",
+			__func__, rxq->index, rxq->pit_base);
+		kfree(rxq->pit_base);
+		return LOW_MEMORY_PIT;
+	}
+
+	CCCI_NORMAL_LOG(-1, TAG, "[%s] rxq%d pit_base=(0x%llx/0x%llx)\n",
+		__func__, rxq->index, rxq->pit_base, rxq->pit_phy_addr);
 
 	return ret;
 }
