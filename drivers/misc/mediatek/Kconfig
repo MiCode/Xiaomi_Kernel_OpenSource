@@ -198,7 +198,5 @@ config FPGA_EARLY_PORTING
 	  platform and non-FPGA platform.
 	  Say Y here if you are doing FPGA early porting.
 	  If unsure, say N
-
-source "drivers/misc/mediatek/hbt/Kconfig"
 endmenu # Misc
 
