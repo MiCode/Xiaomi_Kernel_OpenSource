@@ -9545,7 +9545,9 @@ static int config_bridge_pad_links(struct mtk_cam_device *cam,
 					return ret;
 				}
 			}
-		} else if (i >= MTKCAM_SUBDEV_MRAW_START && i < MTKCAM_SUBDEV_MRAW_END) {
+		} else if (i >= MTKCAM_SUBDEV_MRAW_START && i < (MTKCAM_SUBDEV_MRAW_START +
+			   GET_PLAT_V4L2(mraw_pipeline_num))) {
+
 			pipe_entity =
 				&cam->mraw.pipelines[i - MTKCAM_SUBDEV_MRAW_START].subdev.entity;
 

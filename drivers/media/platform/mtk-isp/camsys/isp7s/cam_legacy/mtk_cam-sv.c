@@ -2203,7 +2203,7 @@ void camsv_handle_err(
 	int frame_idx_inner = data->frame_idx_inner;
 	int tag_idx;
 	unsigned int fbc_imgo_status, imgo_addr, imgo_addr_msb, dcif_set, tg_vf_con;
-
+	unsigned int first_tag, last_tag, group_info, i;
 	/* camsv todo: show more error detail */
 	for (tag_idx = 0; tag_idx < MAX_SV_HW_TAGS; tag_idx++) {
 		if (!(data->err_tags & (1 << tag_idx)))
@@ -2228,6 +2228,15 @@ void camsv_handle_err(
 			imgo_addr, dcif_set, tg_vf_con);
 		camsv_irq_handle_err(camsv_dev, frame_idx_inner, tag_idx);
 	}
+	first_tag = readl_relaxed(camsv_dev->base + REG_CAMSVCENTRAL_FIRST_TAG);
+	last_tag = readl_relaxed(camsv_dev->base + REG_CAMSVCENTRAL_LAST_TAG);
+	for (i = 0; i < MAX_SV_HW_GROUPS; i++) {
+		group_info = readl_relaxed(camsv_dev->base + REG_CAMSVCENTRAL_GROUP_TAG0 +
+			REG_CAMSVCENTRAL_GROUP_TAG_SHIFT * i);
+		dev_info_ratelimited(camsv_dev->dev, "group%d: group_info:%x", i, group_info);
+	}
+	dev_info_ratelimited(camsv_dev->dev, "first_tag:0x%x last_tag:0x%x",
+		first_tag, last_tag);
 	if (!(data->err_tags) && (err_status & CAMSVCENTRAL_DMA_SRAM_FULL_ST))
 		dev_info_ratelimited(camsv_dev->dev, "camsv_id:%d camsv dma full error_status:0x%x",
 			camsv_dev->id, err_status);
