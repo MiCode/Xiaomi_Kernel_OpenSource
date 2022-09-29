@@ -8983,8 +8983,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	}
 	ctx->slb_addr = NULL;
 
-	if (cam->cmdq_clt)
-		cmdq_mbox_disable(cam->cmdq_clt->chan);
+	cmdq_mbox_disable(cam->cmdq_clt->chan);
 
 	mtk_cam_working_buf_pool_release(ctx);
 
