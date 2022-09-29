@@ -392,6 +392,9 @@ int mtk_mmdvfs_genpd_notify(const u8 idx, const bool enable)
 {
 	struct mmdvfs_vmm_notify_work *work;
 
+	if (!mmdvfs_is_init_done())
+		return 0;
+
 	mmdvfs_vcp_ipi_send(FUNC_VMM_GENPD_NOTIFY, idx, enable ? 1 : 0, NULL);
 
 	if (!vmm_notify_wq)
