@@ -2169,6 +2169,17 @@ void mtk_drm_del_cb_data(struct cmdq_cb_data data, unsigned int crtc_id)
 }
 
 #if IS_ENABLED(CONFIG_MTK_DISP_DEBUG)
+static bool is_comp_addr(uint32_t addr, struct mtk_ddp_comp *comp)
+{
+	uint32_t range = 0x1000;
+
+	if (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_ODDMR)
+		range = 0x2000;
+	if (addr >= comp->regs_pa && addr < comp->regs_pa + range)
+		return true;
+	return false;
+}
+
 static bool is_disp_reg(uint32_t addr, char *comp_name, uint32_t comp_name_len)
 {
 	struct drm_crtc *crtc;
@@ -2187,7 +2198,7 @@ static bool is_disp_reg(uint32_t addr, char *comp_name, uint32_t comp_name_len)
 			continue;
 
 		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
-			if (addr >= comp->regs_pa && addr < comp->regs_pa + 0x1000) {
+			if (is_comp_addr(addr, comp)) {
 				mtk_ddp_comp_get_name(comp, comp_name, comp_name_len);
 				return true;
 			}
@@ -2195,7 +2206,7 @@ static bool is_disp_reg(uint32_t addr, char *comp_name, uint32_t comp_name_len)
 
 		if (mtk_crtc->is_dual_pipe) {
 			for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
-				if (addr >= comp->regs_pa && addr < comp->regs_pa + 0x1000) {
+				if (is_comp_addr(addr, comp)) {
 					mtk_ddp_comp_get_name(comp, comp_name, comp_name_len);
 					return true;
 				}
