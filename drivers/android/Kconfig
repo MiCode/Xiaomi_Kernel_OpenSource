@@ -109,6 +109,18 @@ config ANDROID_VENDOR_OEM_DATA
 
 	  If even slightly unsure, say Y.
 
+config ANDROID_FIX_PCIE_SLAVE_ERROR
+	bool "Android fix PCIe slave error"
+	help
+	  This is a temporary config used for mtk userdebug and eng load to
+	  avoid Android GKI ABI rules. Once the patch be merged to ACK and
+	  pull to our branch, will revert this.
+
+	  ANDROID_FIX_PCIE_SLAVE_ERROR is the kernel config of vendor hooks.
+	  Add vendor hooks for unusual abort cases to avoid system panic.
+	  When pcie encounters completion timeout, PCIe hardware will reply
+	  slave error to bus, which will causes the system to panic.
+
 endif # if ANDROID
 
 endmenu

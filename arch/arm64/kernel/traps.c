@@ -947,6 +947,19 @@ bool arm64_is_fatal_ras_serror(struct pt_regs *regs, unsigned int esr)
 
 void do_serror(struct pt_regs *regs, unsigned int esr)
 {
+#if IS_ENABLED(CONFIG_ANDROID_FIX_PCIE_SLAVE_ERROR)
+	int ret = 0;
+
+	/*
+	 * Add vendor hooks for unusual abort cases to avoid system panic.
+	 * When pcie encounters completion timeout, PCIe hardware will reply
+	 * slave error to bus, which will causes the system to panic.
+	 */
+	trace_android_rvh_do_serror(regs, esr, &ret);
+	if (ret != 0)
+		return;
+#endif
+
 	/* non-RAS errors are not containable */
 	if (!arm64_is_ras_serror(esr) || arm64_is_fatal_ras_serror(regs, esr))
 		arm64_serror_panic(regs, esr);

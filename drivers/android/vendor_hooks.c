@@ -336,6 +336,9 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_do_ptrauth_fault);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_panic_unhandled);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_arm64_serror_panic);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_vmpressure);
+#if IS_ENABLED(CONFIG_ANDROID_FIX_PCIE_SLAVE_ERROR)
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_do_serror);
+#endif
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_sha256);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_aes_expandkey);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_aes_encrypt);
