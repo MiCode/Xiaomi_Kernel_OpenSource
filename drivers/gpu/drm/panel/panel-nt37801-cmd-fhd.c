@@ -707,6 +707,9 @@ static struct mtk_panel_params ext_params = {
 		.switch_en = 1,
 		.pll_clk = PLL_CLOCK + 1,
 	},
+	.dyn_fps = {
+		.vact_timing_fps = 120,
+	},
 };
 
 static struct mtk_panel_params ext_params_90hz = {
