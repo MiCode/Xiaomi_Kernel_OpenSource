@@ -1345,7 +1345,9 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level,
 	oddmr_comp = priv->ddp_comp[DDP_COMPONENT_ODDMR0];
 	mtk_ddp_comp_io_cmd(oddmr_comp, cmdq_handle, ODDMR_BL_CHG, &level);
 
-	if ((cfg_flag & (0x1<<SET_BACKLIGHT_LEVEL)) && !(cfg_flag & (0x1<<SET_ELVSS_PN))) {
+	if ((cfg_flag & (0x1<<SET_BACKLIGHT_LEVEL)) && !(cfg_flag & (0x1<<SET_ELVSS_PN))
+		&& !(cfg_flag & (0x1<<ENABLE_DYN_ELVSS))
+		&& !(cfg_flag & (0x1<<DISABLE_DYN_ELVSS))) {
 
 		DDPINFO("%s cfg_flag = %d,level=%d\n", __func__, cfg_flag, level);
 		if (comp && comp->funcs && comp->funcs->io_cmd)
