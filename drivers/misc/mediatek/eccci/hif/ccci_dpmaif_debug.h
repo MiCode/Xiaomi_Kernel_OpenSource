@@ -16,9 +16,9 @@
 #include <mt-plat/mtk_ccci_common.h>
 #include <linux/ip.h>
 
+#include "ccci_dpmaif_com.h"
 
 #define ENABLE_DPMAIF_ISR_LOG
-
 
 #define TYPE_RX_DONE_SKB_ID  0
 #define TYPE_RX_PUSH_SKB_ID  1
@@ -165,8 +165,9 @@ extern void ccci_set_dpmaif_debug_cb(void (*dpmaif_debug_cb)(void));
 
 
 #ifdef ENABLE_DPMAIF_ISR_LOG
-void ccci_dpmaif_print_irq_log(void);
-int ccci_dpmaif_record_isr_cnt(unsigned long long ts,
+void ccci_dpmaif_show_irq_log(void);
+
+int ccci_dpmaif_record_isr_cnt(unsigned long long ts, struct dpmaif_rx_queue *rxq,
 		unsigned int L2TISAR0, unsigned int L2RISAR0);
 
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)

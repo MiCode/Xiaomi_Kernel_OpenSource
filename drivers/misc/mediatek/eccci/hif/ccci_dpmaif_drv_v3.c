@@ -583,6 +583,9 @@ static irqreturn_t drv3_isr0(int irq, void *data)
 	unsigned int L2RIMR0  = drv3_get_dl_interrupt_mask();
 	unsigned int L2TISAR0 = ccci_drv_get_ul_isr_event();
 	unsigned int L2TIMR0  = DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMR0);
+#ifdef ENABLE_DPMAIF_ISR_LOG
+	unsigned int L2RISAR0_bak = L2RISAR0, L2TISAR0_bak = L2TISAR0;
+#endif
 
 	/* clear IP busy register wake up cpu case */
 	ccci_drv_clear_ip_busy();
@@ -637,6 +640,11 @@ static irqreturn_t drv3_isr0(int irq, void *data)
 		hdr.txmr = L2TIMR0;
 		ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
 	}
+#ifdef ENABLE_DPMAIF_ISR_LOG
+	if (ccci_dpmaif_record_isr_cnt(local_clock(), rxq, L2TISAR0, L2RISAR0))
+		CCCI_ERROR_LOG(0, TAG, "DPMAIF IRQ L2(%x/%x)(%x/%x)\n",
+			L2TISAR0_bak, L2RISAR0_bak, L2TIMR0, L2RIMR0);
+#endif
 
 	return IRQ_HANDLED;
 }
@@ -646,6 +654,9 @@ static irqreturn_t drv3_isr1(int irq, void *data)
 	struct dpmaif_rx_queue *rxq = (struct dpmaif_rx_queue *)data;
 	unsigned int L2RISAR0 = ccci_drv_get_dl_isr_event();
 	unsigned int L2RIMR0  = drv3_get_dl_interrupt_mask();
+#ifdef ENABLE_DPMAIF_ISR_LOG
+		unsigned int L2RISAR0_bak = L2RISAR0;
+#endif
 
 	/* clear IP busy register wake up cpu case */
 	ccci_drv_clear_ip_busy();
@@ -676,6 +687,11 @@ static irqreturn_t drv3_isr1(int irq, void *data)
 		hdr.rxmr = L2RIMR0;
 		ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
 	}
+#ifdef ENABLE_DPMAIF_ISR_LOG
+	if (ccci_dpmaif_record_isr_cnt(local_clock(), rxq, 0, L2RISAR0))
+		CCCI_ERROR_LOG(0, TAG, "%s:DPMAIF IRQ L2(%x/%x)\n",
+			__func__, L2RISAR0_bak, L2RISAR0);
+#endif
 
 	return IRQ_HANDLED;
 }
@@ -748,11 +764,9 @@ static irqreturn_t drv3_isr(int irq, void *data)
 		ccci_dpmaif_debug_add(&hdr, sizeof(hdr));
 	}
 #ifdef ENABLE_DPMAIF_ISR_LOG
-	else {
-		if (ccci_dpmaif_record_isr_cnt(local_clock(), L2TISAR0, L2RISAR0))
-			CCCI_ERROR_LOG(0, TAG, "DPMAIF IRQ L2(%x/%x)(%x/%x)\n",
-					L2TISAR0_bak, L2RISAR0_bak, L2TIMR0, L2RIMR0);
-	}
+	if (ccci_dpmaif_record_isr_cnt(local_clock(), rxq, L2TISAR0, L2RISAR0))
+		CCCI_ERROR_LOG(0, TAG, "DPMAIF IRQ L2(%x/%x)(%x/%x)\n",
+			L2TISAR0_bak, L2RISAR0_bak, L2TIMR0, L2RIMR0);
 #endif
 
 	return IRQ_HANDLED;
@@ -1255,7 +1269,7 @@ static void drv3_dump_register(int buf_type)
 		dpmaif_ctl->ao_dl_sram_base + 0x00, 0xFF);
 
 #ifdef ENABLE_DPMAIF_ISR_LOG
-	ccci_dpmaif_print_irq_log();
+	ccci_dpmaif_show_irq_log();
 #endif
 }
 

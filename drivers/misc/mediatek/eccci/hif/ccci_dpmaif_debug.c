@@ -43,40 +43,29 @@ unsigned int                      g_debug_flags;
 
 #ifdef ENABLE_DPMAIF_ISR_LOG
 
-struct dpmaif_isr_log {
-	u64 ts_start;
-	u64 ts_end;
-	u32 irq_cnt[64];
-};
-
 #define ISR_LOG_DATA_LEN 10
 
-static struct dpmaif_isr_log *g_isr_log;
-static unsigned long long g_pre_time;
-static unsigned int g_isr_log_idx;
-
-
-void ccci_dpmaif_print_irq_log(void)
+static void ccci_dpmaif_print_irq_log(struct dpmaif_isr_count *isr_log)
 {
 	int i, j;
 	char string[300];
 	int len = 0, pos = 0;
 	u64 tss1, tss2, tse1, tse2;
 
-	if (g_isr_log == NULL)
+	if (isr_log == NULL)
 		return;
 
 	CCCI_BUF_LOG_TAG(0, CCCI_DUMP_DPMAIF, TAG,
 		"dump dpmaif isr log: L2TISAR0(0~31) L2RISAR0(32~63)\n");
 
 	for (i = 0; i < ISR_LOG_DATA_LEN; i++) {
-		if (g_isr_log[i].ts_start == 0)
+		if (isr_log[i].ts_start == 0)
 			continue;
 
-		tss1 = g_isr_log[i].ts_start;
+		tss1 = isr_log[i].ts_start;
 		tss2 = do_div(tss1, 1000000000);
 
-		tse1 = g_isr_log[i].ts_end;
+		tse1 = isr_log[i].ts_end;
 		tse2 = do_div(tse1, 1000000000);
 
 		len = snprintf(string+pos, 300-pos, "%d|%lu.%06lu~%lu.%06lu->",
@@ -88,10 +77,10 @@ void ccci_dpmaif_print_irq_log(void)
 		pos += len;
 
 		for (j = 0; j < 64; j++) {
-			if (g_isr_log[i].irq_cnt[j] == 0)
+			if (isr_log[i].irq_cnt[j] == 0)
 				continue;
 
-			len = snprintf(string+pos, 300-pos, " %u-%u", j, g_isr_log[i].irq_cnt[j]);
+			len = snprintf(string+pos, 300-pos, " %u-%u", j, isr_log[i].irq_cnt[j]);
 			if ((len <= 0) || (len >= 300-pos))
 				break;
 
@@ -104,27 +93,40 @@ void ccci_dpmaif_print_irq_log(void)
 	}
 }
 
+void ccci_dpmaif_show_irq_log(void)
+{
+	unsigned int i;
+	struct dpmaif_rx_queue *rxq;
+
+	for (i = 0; i < dpmaif_ctl->real_rxq_num; i++) {
+		rxq = &dpmaif_ctl->rxq[i];
+		ccci_dpmaif_print_irq_log(rxq->isr_cnt_each_rxq);
+	}
+}
+
 inline int ccci_dpmaif_record_isr_cnt(unsigned long long ts,
+		struct dpmaif_rx_queue *rxq,
 		unsigned int L2TISAR0, unsigned int L2RISAR0)
 {
 	unsigned int i;
 
-	if (g_isr_log == NULL)
+	if (rxq->isr_cnt_each_rxq == NULL) {
+		CCCI_ERROR_LOG(-1, TAG, "%s:%d isr_cnt_each_rxq is null\n", __func__, __LINE__);
 		return 0;
-
-	if ((ts - g_pre_time) >= 1000000000) {  // > 1s
-		g_isr_log_idx++;
-		if (g_isr_log_idx >= ISR_LOG_DATA_LEN)
-			g_isr_log_idx = 0;
-
-		memset(g_isr_log[g_isr_log_idx].irq_cnt, 0,
-				sizeof(g_isr_log[g_isr_log_idx].irq_cnt));
-
-		g_isr_log[g_isr_log_idx].ts_start = ts;
-		g_pre_time = ts;
 	}
 
-	g_isr_log[g_isr_log_idx].ts_end = ts;
+	if ((ts - rxq->isr_pre_time) >= 1000000000) {  // > 1s
+		rxq->isr_log_idx++;
+		if (rxq->isr_log_idx >= ISR_LOG_DATA_LEN)
+			rxq->isr_log_idx = 0;
+
+		memset(rxq->isr_cnt_each_rxq[rxq->isr_log_idx].irq_cnt, 0,
+			sizeof(rxq->isr_cnt_each_rxq[rxq->isr_log_idx].irq_cnt));
+		rxq->isr_cnt_each_rxq[rxq->isr_log_idx].ts_start = ts;
+		rxq->isr_pre_time = ts;
+	}
+
+	rxq->isr_cnt_each_rxq[rxq->isr_log_idx].ts_end = ts;
 
 	for (i = 0; i < 32; i++) {
 		if (L2TISAR0 == 0)
@@ -132,8 +134,8 @@ inline int ccci_dpmaif_record_isr_cnt(unsigned long long ts,
 
 		if (L2TISAR0 & (1<<i)) {
 			L2TISAR0 &= (~(1<<i));
-			g_isr_log[g_isr_log_idx].irq_cnt[i]++;
-			if (g_isr_log[g_isr_log_idx].irq_cnt[i] > 50000)
+			rxq->isr_cnt_each_rxq[rxq->isr_log_idx].irq_cnt[i]++;
+			if (rxq->isr_cnt_each_rxq[rxq->isr_log_idx].irq_cnt[i] > 50000)
 				return -1;
 		}
 	}
@@ -144,14 +146,15 @@ inline int ccci_dpmaif_record_isr_cnt(unsigned long long ts,
 
 		if (L2RISAR0 & (1<<i)) {
 			L2RISAR0 &= (~(1<<i));
-			g_isr_log[g_isr_log_idx].irq_cnt[i+32]++;
-			if (g_isr_log[g_isr_log_idx].irq_cnt[i+32] > 50000)
+			rxq->isr_cnt_each_rxq[rxq->isr_log_idx].irq_cnt[i+32]++;
+			if (rxq->isr_cnt_each_rxq[rxq->isr_log_idx].irq_cnt[i+32] > 50000)
 				return -1;
 		}
 	}
 
 	return 0;
 }
+
 #endif
 
 void ccci_dpmaif_debug_add(void *data, int len)
@@ -373,6 +376,39 @@ static const struct proc_ops g_dpmaif_debug_fops = {
 
 };
 
+void ccci_dpmaif_isr_record_init(void)
+{
+#ifdef ENABLE_DPMAIF_ISR_LOG
+	unsigned int i;
+	struct dpmaif_rx_queue *rxq;
+	struct dpmaif_isr_count *isr_log;
+
+	isr_log = kzalloc(sizeof(struct dpmaif_isr_count) * ISR_LOG_DATA_LEN *
+			dpmaif_ctl->real_rxq_num, GFP_KERNEL);
+	if (!isr_log) {
+		CCCI_ERROR_LOG(-1, TAG, "[%s] error: alloc isr_log fail\n", __func__);
+		return;
+	}
+
+	for (i = 0; i < dpmaif_ctl->real_rxq_num; i++) {
+		rxq = &dpmaif_ctl->rxq[i];
+		rxq->isr_cnt_each_rxq = isr_log + ISR_LOG_DATA_LEN * i;
+		CCCI_NORMAL_LOG(-1, TAG, "%s:rxq%d addr=%p\n",
+			__func__, i, rxq->isr_cnt_each_rxq);
+	}
+
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+	mrdump_mini_add_extra_file((unsigned long)isr_log, __pa_nodebug(isr_log),
+		(sizeof(struct dpmaif_isr_count) * ISR_LOG_DATA_LEN *
+			dpmaif_ctl->real_rxq_num), "DPMAIF_ISR");
+#endif
+
+#else
+	CCCI_NORMAL_LOG(-1, TAG, "DPMAIF_ISR_LOG not enable\n");
+#endif
+
+}
+
 void ccci_dpmaif_debug_init(void)
 {
 	struct proc_dir_entry *dpmaif_debug_proc;
@@ -403,14 +439,5 @@ void ccci_dpmaif_debug_init(void)
 			__func__, g_debug_buf_len, g_debug_buf.data);
 	}
 
-#ifdef ENABLE_DPMAIF_ISR_LOG
-	g_isr_log = kzalloc(sizeof(struct dpmaif_isr_log) * ISR_LOG_DATA_LEN, GFP_KERNEL);
-	if (!g_isr_log)
-		CCCI_ERROR_LOG(-1, TAG, "[%s] error: alloc g_isr_log fail\n", __func__);
-#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
-	else
-		mrdump_mini_add_extra_file((unsigned long)g_isr_log, __pa_nodebug(g_isr_log),
-			(sizeof(struct dpmaif_isr_log) * ISR_LOG_DATA_LEN), "DPMAIF_ISR");
-#endif
-#endif
+	ccci_dpmaif_isr_record_init();
 }

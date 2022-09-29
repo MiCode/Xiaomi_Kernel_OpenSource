@@ -24,7 +24,6 @@
 #include "ccci_dpmaif_debug.h"
 
 
-
 #define  IPV4_VERSION           0x40
 #define  IPV6_VERSION           0x60
 
@@ -342,6 +341,13 @@ struct dpmaif_drb_skb {
 	unsigned short  is_last_one:1;
 };
 
+/* for isr count record */
+struct dpmaif_isr_count {
+	u64 ts_start;
+	u64 ts_end;
+	u32 irq_cnt[64];
+};
+
 struct dpmaif_rx_queue {
 	unsigned char   index;
 	bool            started;
@@ -383,6 +389,11 @@ struct dpmaif_rx_queue {
 	void (*rxq_tasklet)(unsigned long data);
 	void (*rxq_drv_unmask_dl_interrupt)(void);
 	int  (*rxq_drv_dl_add_pit_remain_cnt)(unsigned short cnt);
+
+	/* isr count record */
+	struct dpmaif_isr_count *isr_cnt_each_rxq;
+	u64 isr_pre_time;
+	u32 isr_log_idx;
 };
 
 
