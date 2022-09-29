@@ -377,14 +377,22 @@
  *	the non-transmitting interfaces are deleted as well.
  *
  * @NL80211_CMD_GET_KEY: Get sequence counter information for a key specified
- *	by %NL80211_ATTR_KEY_IDX and/or %NL80211_ATTR_MAC.
+ *	by %NL80211_ATTR_KEY_IDX and/or %NL80211_ATTR_MAC. %NL80211_ATTR_MAC
+ *	represents peer's MLD address for MLO pairwise key. For MLO group key,
+ *	the link is identified by %NL80211_ATTR_MLO_LINK_ID.
  * @NL80211_CMD_SET_KEY: Set key attributes %NL80211_ATTR_KEY_DEFAULT,
  *	%NL80211_ATTR_KEY_DEFAULT_MGMT, or %NL80211_ATTR_KEY_THRESHOLD.
+ *	For MLO connection, the link to set default key is identified by
+ *	%NL80211_ATTR_MLO_LINK_ID.
  * @NL80211_CMD_NEW_KEY: add a key with given %NL80211_ATTR_KEY_DATA,
  *	%NL80211_ATTR_KEY_IDX, %NL80211_ATTR_MAC, %NL80211_ATTR_KEY_CIPHER,
- *	and %NL80211_ATTR_KEY_SEQ attributes.
+ *	and %NL80211_ATTR_KEY_SEQ attributes. %NL80211_ATTR_MAC represents
+ *	peer's MLD address for MLO pairwise key. The link to add MLO
+ *	group key is identified by %NL80211_ATTR_MLO_LINK_ID.
  * @NL80211_CMD_DEL_KEY: delete a key identified by %NL80211_ATTR_KEY_IDX
- *	or %NL80211_ATTR_MAC.
+ *	or %NL80211_ATTR_MAC. %NL80211_ATTR_MAC represents peer's MLD address
+ *	for MLO pairwise key. The link to delete group key is identified by
+ *	%NL80211_ATTR_MLO_LINK_ID.
  *
  * @NL80211_CMD_GET_BEACON: (not used)
  * @NL80211_CMD_SET_BEACON: change the beacon on an access point interface
@@ -1518,11 +1526,11 @@ enum nl80211_commands {
 
 /*
  * These are temporary definitions that will become permanent when the UAPI
- * change is accepted upstream. This will not be used in production until the
- * UAPI change lands upstream
+ * changes lands into linux.git tree. These attributes must not be used in
+ * production until the UAPI change lands into linux.git tree.
  */
 
-/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?h=mld&id=a353a99fb75e5c1c3b15050e9efaab1997350862 */
+/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?id=7b0a0e3c3a88260b6fcb017e49f198463aa62ed1 */
 #define NL80211_CMD_ADD_LINK NL80211_CMD_RESERVED_DO_NOT_USE_1
 #define NL80211_CMD_REMOVE_LINK NL80211_CMD_RESERVED_DO_NOT_USE_2
 
@@ -3269,22 +3277,22 @@ enum nl80211_attrs {
 
 /*
  * These are temporary definitions that will become permanent when the UAPI
- * change is accepted upstream. This will not be used in production until the
- * UAPI change lands upstream
+ * changes lands into linux.git tree. These attributes must not be used in
+ * production until the UAPI change lands into linux.git tree.
  */
 
-/* Link: https://lore.kernel.org/linux-wireless/1653312358-12321-1-git-send-email-quic_vjakkam@quicinc.com/ */
-#define NL80211_ATTR_MAX_NUM_AKM_SUITES NL80211_ATTR_RESERVED_DO_NOT_USE_1
+/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?id=7b0a0e3c3a88260b6fcb017e49f198463aa62ed1 */
+#define NL80211_ATTR_MLO_LINKS NL80211_ATTR_RESERVED_DO_NOT_USE_1
+#define NL80211_ATTR_MLO_LINK_ID NL80211_ATTR_RESERVED_DO_NOT_USE_2
 
-/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?h=mld&id=a353a99fb75e5c1c3b15050e9efaab1997350862 */
-#define NL80211_ATTR_MLO_LINKS NL80211_ATTR_RESERVED_DO_NOT_USE_2
-#define NL80211_ATTR_MLO_LINK_ID NL80211_ATTR_RESERVED_DO_NOT_USE_3
+/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?id=d648c23024bd01333acd2fd5e34bcde0ffb66b16 */
+#define NL80211_ATTR_MLD_ADDR NL80211_ATTR_RESERVED_DO_NOT_USE_3
 
-/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?h=mld&id=e35626979423cadc21bd4a68d4aa14eaeccbbd59 */
-#define NL80211_ATTR_MLD_ADDR NL80211_ATTR_RESERVED_DO_NOT_USE_4
+/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?id=efbabc11650040c64884ff3019b88c7bcc0ceb1d */
+#define NL80211_ATTR_MLO_SUPPORT NL80211_ATTR_RESERVED_DO_NOT_USE_4
 
-/* Link: https://lore.kernel.org/linux-wireless/1654679797-7740-1-git-send-email-quic_vjakkam@quicinc.com/ */
-#define NL80211_ATTR_MLO_SUPPORT NL80211_ATTR_RESERVED_DO_NOT_USE_5
+/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?id=ecad3b0b99bff7247a11f8c7cb19ac9b0cb28b09 */
+#define NL80211_ATTR_MAX_NUM_AKM_SUITES NL80211_ATTR_RESERVED_DO_NOT_USE_5
 
 /* source-level API compatibility */
 #define NL80211_ATTR_SCAN_GENERATION NL80211_ATTR_GENERATION

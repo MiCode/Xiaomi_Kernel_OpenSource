@@ -1437,7 +1437,7 @@ static int lbs_cfg_disconnect(struct wiphy *wiphy, struct net_device *dev,
 }
 
 static int lbs_cfg_set_default_key(struct wiphy *wiphy,
-				   struct net_device *netdev,
+				   struct net_device *netdev, int link_id,
 				   u8 key_index, bool unicast,
 				   bool multicast)
 {
@@ -1457,8 +1457,8 @@ static int lbs_cfg_set_default_key(struct wiphy *wiphy,
 
 
 static int lbs_cfg_add_key(struct wiphy *wiphy, struct net_device *netdev,
-			   u8 idx, bool pairwise, const u8 *mac_addr,
-			   struct key_params *params)
+			   int link_id, u8 idx, bool pairwise,
+			   const u8 *mac_addr, struct key_params *params)
 {
 	struct lbs_private *priv = wiphy_priv(wiphy);
 	u16 key_info;
@@ -1518,7 +1518,8 @@ static int lbs_cfg_add_key(struct wiphy *wiphy, struct net_device *netdev,
 
 
 static int lbs_cfg_del_key(struct wiphy *wiphy, struct net_device *netdev,
-			   u8 key_index, bool pairwise, const u8 *mac_addr)
+			   int link_id, u8 key_index, bool pairwise,
+			   const u8 *mac_addr)
 {
 
 	lbs_deb_assoc("del_key: key_idx %d, mac_addr %pM\n",

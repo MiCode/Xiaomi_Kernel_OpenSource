@@ -1,3 +1,4 @@
+
 [abi_symbol_list]
   access_process_vm
   activate_task
@@ -47,6 +48,7 @@
   available_idle_cpu
   backlight_device_get_by_type
   backlight_device_set_brightness
+  __balance_callbacks
   balance_push_callback
   bio_endio
   bio_end_io_acct_remapped
@@ -65,20 +67,39 @@
   __blk_alloc_disk
   blk_cleanup_disk
   blk_execute_rq_nowait
+  blk_freeze_queue_start
+  blk_get_queue
   blk_get_request
+  blk_mark_disk_dead
+  blk_mq_alloc_request
+  blk_mq_alloc_request_hctx
+  blk_mq_complete_request_remote
+  blk_mq_delay_kick_requeue_list
+  blk_mq_freeze_queue_wait
+  blk_mq_freeze_queue_wait_timeout
+  blk_mq_pci_map_queues
   blk_mq_rq_cpu
+  blk_mq_tagset_wait_completed_request
+  blk_mq_tag_to_rq
+  blk_mq_update_nr_hw_queues
+  blk_put_queue
   blk_put_request
+  blk_queue_chunk_sectors
+  blk_queue_dma_alignment
   blk_queue_flag_clear
   blk_queue_flag_set
+  blk_queue_flag_test_and_set
   blk_queue_io_min
   blk_queue_io_opt
   blk_queue_logical_block_size
   blk_queue_max_discard_sectors
   blk_queue_max_write_zeroes_sectors
   blk_queue_physical_block_size
+  blk_queue_virt_boundary
   blk_rq_map_user
   blk_rq_map_user_iov
   blk_rq_unmap_user
+  blk_sync_queue
   blocking_notifier_call_chain
   blocking_notifier_chain_register
   blocking_notifier_chain_unregister
@@ -146,6 +167,7 @@
   __clk_get_name
   clk_get_parent
   clk_get_rate
+  clk_get_sys
   clk_hw_get_flags
   clk_hw_get_name
   clk_hw_get_num_parents
@@ -324,6 +346,7 @@
   device_property_read_u32_array
   device_register
   device_remove_file
+  device_remove_file_self
   device_show_int
   device_store_int
   device_unregister
@@ -433,9 +456,12 @@
   dev_pm_opp_set_sharing_cpus
   dev_pm_qos_add_notifier
   dev_pm_qos_add_request
+  dev_pm_qos_expose_latency_tolerance
+  dev_pm_qos_hide_latency_tolerance
   dev_pm_qos_remove_notifier
   dev_pm_qos_remove_request
   dev_pm_qos_update_request
+  dev_pm_qos_update_user_latency_tolerance
   devres_add
   __devres_alloc_node
   devres_free
@@ -1114,9 +1140,12 @@
   mempool_alloc
   mempool_alloc_slab
   mempool_create
+  mempool_create_node
   mempool_destroy
   mempool_free
   mempool_free_slab
+  mempool_kfree
+  mempool_kmalloc
   memremap
   mem_section
   memset
@@ -1288,18 +1317,23 @@
   param_ops_ullong
   param_set_bool
   param_set_copystring
+  param_set_uint_minmax
   pci_aer_clear_nonfatal_status
+  pcibios_resource_to_bus
   pci_bus_type
   pci_dev_get
   pci_device_group
   pci_device_is_present
   pci_dev_present
   pci_dev_put
+  pci_disable_pcie_error_reporting
+  pcie_aspm_enabled
   pcie_capability_clear_and_set_word
   pcie_capability_read_word
   pci_enable_device
   pci_enable_pcie_error_reporting
   pci_find_ext_capability
+  pci_free_irq
   pci_get_device
   pci_get_domain_bus_and_slot
   pci_host_probe
@@ -1311,9 +1345,11 @@
   pci_read_config_dword
   pci_read_config_word
   __pci_register_driver
+  pci_request_irq
   pci_restore_state
   pci_save_state
   pci_set_master
+  pci_sriov_configure_simple
   pci_store_saved_state
   pci_walk_bus
   pci_write_config_dword
@@ -1497,6 +1533,7 @@
   pwmchip_add
   pwmchip_remove
   qcom_smem_state_get
+  qcom_smem_state_put
   qcom_smem_state_register
   qcom_smem_state_unregister
   qcom_smem_state_update_bits
@@ -2034,6 +2071,7 @@
   __tracepoint_android_rvh_update_cpu_capacity
   __tracepoint_android_rvh_update_cpus_allowed
   __tracepoint_android_rvh_update_misfit_status
+  __tracepoint_android_rvh_update_thermal_stats
   __tracepoint_android_rvh_wake_up_new_task
   __tracepoint_android_vh_audio_usb_offload_connect
   __tracepoint_android_vh_binder_restore_priority
@@ -2046,6 +2084,7 @@
   __tracepoint_android_vh_cpuidle_psci_enter
   __tracepoint_android_vh_cpuidle_psci_exit
   __tracepoint_android_vh_disable_thermal_cooling_stats
+  __tracepoint_android_vh_do_wake_up_sync
   __tracepoint_android_vh_ftrace_dump_buffer
   __tracepoint_android_vh_ftrace_format_check
   __tracepoint_android_vh_ftrace_oops_enter

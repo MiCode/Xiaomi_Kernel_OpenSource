@@ -1813,9 +1813,7 @@ int rebind_subsystems(struct cgroup_root *dst_root, u16 ss_mask)
 
 		if (ss->css_rstat_flush) {
 			list_del_rcu(&css->rstat_css_node);
-#if IS_ENABLED(CONFIG_MTK_FIX_CGROUP_COMMON)
 			synchronize_rcu();
-#endif
 			list_add_rcu(&css->rstat_css_node,
 				     &dcgrp->rstat_css_list);
 		}

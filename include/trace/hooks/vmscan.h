@@ -34,6 +34,9 @@ DECLARE_HOOK(android_vh_shrink_slab_bypass,
 DECLARE_HOOK(android_vh_do_shrink_slab,
 	TP_PROTO(struct shrinker *shrinker, struct shrink_control *shrinkctl, int priority),
 	TP_ARGS(shrinker, shrinkctl, priority));
+DECLARE_HOOK(android_vh_tune_memcg_scan_type,
+	TP_PROTO(struct mem_cgroup *memcg, char *scan_type),
+	TP_ARGS(memcg, scan_type));
 #endif /* _TRACE_HOOK_VMSCAN_H */
 /* This part must be outside protection */
 #include <trace/define_trace.h>

@@ -65,6 +65,38 @@
   mempool_free_pages
   blk_pm_runtime_init
   scsi_remove_device
+  kobject_get
+  __traceiter_android_vh_ufs_update_sdev
+  __tracepoint_android_vh_ufs_mcq_handler
+  __tracepoint_android_vh_ufs_mcq_print_trs
+  __tracepoint_android_vh_ufs_mcq_config
+  __tracepoint_android_vh_ufs_mcq_max_tag
+  __tracepoint_android_vh_ufs_mcq_hba_capabilities
+  __tracepoint_android_vh_ufs_mcq_clear_pending
+  __tracepoint_android_vh_ufs_mcq_abort
+  __tracepoint_android_vh_ufs_mcq_map_tag
+  __tracepoint_android_vh_ufs_mcq_make_hba_operational
+  __tracepoint_android_vh_ufs_use_mcq_hooks
+  __tracepoint_android_vh_ufs_mcq_get_outstanding_reqs
+  __tracepoint_android_vh_ufs_mcq_clear_cmd
+  __tracepoint_android_vh_ufs_mcq_send_command
+  __tracepoint_android_vh_ufs_mcq_set_sqid
+  __tracepoint_android_vh_ufs_mcq_has_oustanding_reqs
+  __traceiter_android_vh_ufs_mcq_handler
+  __traceiter_android_vh_ufs_mcq_print_trs
+  __traceiter_android_vh_ufs_mcq_config
+  __traceiter_android_vh_ufs_mcq_max_tag
+  __traceiter_android_vh_ufs_mcq_hba_capabilities
+  __traceiter_android_vh_ufs_mcq_clear_pending
+  __traceiter_android_vh_ufs_mcq_abort
+  __traceiter_android_vh_ufs_mcq_map_tag
+  __traceiter_android_vh_ufs_mcq_make_hba_operational
+  __traceiter_android_vh_ufs_use_mcq_hooks
+  __traceiter_android_vh_ufs_mcq_get_outstanding_reqs
+  __traceiter_android_vh_ufs_mcq_clear_cmd
+  __traceiter_android_vh_ufs_mcq_send_command
+  __traceiter_android_vh_ufs_mcq_set_sqid
+  __traceiter_android_vh_ufs_mcq_has_oustanding_reqs
 
 #required by cs35l41 module
   regmap_raw_write_async
@@ -125,14 +157,28 @@
   simple_strtoul
   sync_blockdev
   wait_for_device_probe
+  blk_mq_alloc_sq_tag_set
 
 #required by millet.ko
   __traceiter_android_vh_binder_wait_for_work
   __tracepoint_android_vh_binder_wait_for_work
+  __traceiter_android_vh_do_send_sig_info
+  __traceiter_android_vh_binder_preset
+  __traceiter_android_vh_binder_trans
+  __traceiter_android_vh_binder_reply
+  __traceiter_android_vh_binder_alloc_new_buf_locked
+  __tracepoint_android_vh_do_send_sig_info
+  __tracepoint_android_vh_binder_preset
+  __tracepoint_android_vh_binder_trans
+  __tracepoint_android_vh_binder_reply
+  __tracepoint_android_vh_binder_alloc_new_buf_locked
+
 
 #required by mi_sched.ko
   __traceiter_android_vh_free_task
   __tracepoint_android_vh_free_task
+  __traceiter_android_vh_scheduler_tick
+  __tracepoint_android_vh_scheduler_tick
   jiffies_64
 
 #required by migt.ko
@@ -142,6 +188,8 @@
   __tracepoint_android_rvh_after_enqueue_task
   __tracepoint_android_rvh_after_dequeue_task
   __tracepoint_android_vh_map_util_freq
+  __traceiter_android_vh_map_util_freq_new
+  __tracepoint_android_vh_map_util_freq_new
 
 #required by turbo.ko
 
@@ -155,12 +203,15 @@
 
 #required by pm8941-pwrkey.ko module
   console_printk
+  console_verbose
 
 #required by binderinfo.ko module
   __traceiter_android_vh_binder_transaction_init
   __tracepoint_android_vh_binder_transaction_init
   __traceiter_android_vh_binder_print_transaction_info
   __tracepoint_android_vh_binder_print_transaction_info
+  __traceiter_binder_txn_latency_free
+  __tracepoint_binder_txn_latency_free
 
 #required by reclaim module
 
@@ -180,3 +231,33 @@
 
 #required by swinfo.ko module
   proc_set_size
+
+#required by msm_rtb.ko module
+  __tracepoint_rwmmio_read
+  __traceiter_rwmmio_read
+  __tracepoint_rwmmio_write
+  __traceiter_rwmmio_write
+  __tracepoint_irq_handler_entry
+  __traceiter_irq_handler_entry
+
+#required by msm_rtb.ko module
+  phy_resolve_aneg_linkmode
+
+#required by metis.ko module
+  __traceiter_android_vh_rwsem_read_wait_start
+  __traceiter_android_vh_rwsem_write_wait_start
+  __traceiter_android_vh_mutex_wait_start
+  __traceiter_android_vh_alter_mutex_list_add
+  __traceiter_android_rvh_cpuset_fork
+  __traceiter_android_vh_sched_setaffinity_early
+  __traceiter_android_rvh_set_cpus_allowed_comm
+  __traceiter_android_rvh_dequeue_task
+  __tracepoint_android_vh_rwsem_read_wait_start
+  __tracepoint_android_vh_rwsem_write_wait_start
+  __tracepoint_android_vh_mutex_wait_start
+  __tracepoint_android_vh_alter_mutex_list_add
+  __tracepoint_android_rvh_cpuset_fork
+  __tracepoint_android_vh_sched_setaffinity_early
+  __tracepoint_android_rvh_set_cpus_allowed_comm
+  __tracepoint_android_rvh_dequeue_task
+  cpuset_cpus_allowed

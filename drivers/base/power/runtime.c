@@ -1728,9 +1728,6 @@ void pm_runtime_get_suppliers(struct device *dev)
 		if (link->flags & DL_FLAG_PM_RUNTIME) {
 			link->supplier_preactivated = true;
 			pm_runtime_get_sync(link->supplier);
-#if !IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-			refcount_inc(&link->rpm_active);
-#endif
 		}
 
 	device_links_read_unlock(idx);
@@ -1743,10 +1740,6 @@ void pm_runtime_get_suppliers(struct device *dev)
 void pm_runtime_put_suppliers(struct device *dev)
 {
 	struct device_link *link;
-#if !IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	unsigned long flags;
-	bool put;
-#endif
 	int idx;
 
 	idx = device_links_read_lock();
@@ -1755,16 +1748,7 @@ void pm_runtime_put_suppliers(struct device *dev)
 				device_links_read_lock_held())
 		if (link->supplier_preactivated) {
 			link->supplier_preactivated = false;
-#if !IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-			spin_lock_irqsave(&dev->power.lock, flags);
-			put = pm_runtime_status_suspended(dev) &&
-			      refcount_dec_not_one(&link->rpm_active);
-			spin_unlock_irqrestore(&dev->power.lock, flags);
-			if (put)
-				pm_runtime_put(link->supplier);
-#else
 			pm_runtime_put(link->supplier);
-#endif
 		}
 
 	device_links_read_unlock(idx);

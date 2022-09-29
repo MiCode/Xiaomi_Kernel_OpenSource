@@ -487,7 +487,6 @@ static void device_link_release_fn(struct work_struct *work)
 
 	pm_runtime_release_supplier(link, true);
 
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	/*
 	 * If supplier_preactivated is set, the link has been dropped between
 	 * the pm_runtime_get_suppliers() and pm_runtime_put_suppliers() calls
@@ -497,7 +496,6 @@ static void device_link_release_fn(struct work_struct *work)
 	 */
 	if (link->supplier_preactivated)
 		pm_runtime_put_noidle(link->supplier);
-#endif
 
 	put_device(link->consumer);
 	put_device(link->supplier);

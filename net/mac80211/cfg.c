@@ -402,8 +402,8 @@ static int ieee80211_set_tx(struct ieee80211_sub_if_data *sdata,
 }
 
 static int ieee80211_add_key(struct wiphy *wiphy, struct net_device *dev,
-			     u8 key_idx, bool pairwise, const u8 *mac_addr,
-			     struct key_params *params)
+			     int link_id, u8 key_idx, bool pairwise,
+			     const u8 *mac_addr, struct key_params *params)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 	struct ieee80211_local *local = sdata->local;
@@ -519,7 +519,8 @@ static int ieee80211_add_key(struct wiphy *wiphy, struct net_device *dev,
 }
 
 static int ieee80211_del_key(struct wiphy *wiphy, struct net_device *dev,
-			     u8 key_idx, bool pairwise, const u8 *mac_addr)
+			     int link_id, u8 key_idx, bool pairwise,
+			     const u8 *mac_addr)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 	struct ieee80211_local *local = sdata->local;
@@ -560,8 +561,8 @@ static int ieee80211_del_key(struct wiphy *wiphy, struct net_device *dev,
 }
 
 static int ieee80211_get_key(struct wiphy *wiphy, struct net_device *dev,
-			     u8 key_idx, bool pairwise, const u8 *mac_addr,
-			     void *cookie,
+			     int link_id, u8 key_idx, bool pairwise,
+			     const u8 *mac_addr, void *cookie,
 			     void (*callback)(void *cookie,
 					      struct key_params *params))
 {
@@ -680,7 +681,7 @@ static int ieee80211_get_key(struct wiphy *wiphy, struct net_device *dev,
 
 static int ieee80211_config_default_key(struct wiphy *wiphy,
 					struct net_device *dev,
-					u8 key_idx, bool uni,
+					int link_id, u8 key_idx, bool uni,
 					bool multi)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
@@ -692,7 +693,7 @@ static int ieee80211_config_default_key(struct wiphy *wiphy,
 
 static int ieee80211_config_default_mgmt_key(struct wiphy *wiphy,
 					     struct net_device *dev,
-					     u8 key_idx)
+					     int link_id, u8 key_idx)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 
@@ -703,7 +704,7 @@ static int ieee80211_config_default_mgmt_key(struct wiphy *wiphy,
 
 static int ieee80211_config_default_beacon_key(struct wiphy *wiphy,
 					       struct net_device *dev,
-					       u8 key_idx)
+					       int link_id, u8 key_idx)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 
