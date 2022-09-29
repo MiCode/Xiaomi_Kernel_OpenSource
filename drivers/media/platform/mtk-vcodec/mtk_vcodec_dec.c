@@ -402,9 +402,7 @@ static int mtk_vdec_set_frame(struct mtk_vcodec_ctx *ctx,
 	if (ctx->input_driven == INPUT_DRIVEN_PUT_FRM) {
 		ret = vdec_if_set_param(ctx, SET_PARAM_FRAME_BUFFER, buf);
 		if (ret == -EIO) {
-			ctx->state = MTK_STATE_ABORT;
-			vdec_check_release_lock(ctx);
-			mtk_vdec_queue_error_event(ctx);
+			mtk_vdec_error_handle(ctx);
 		}
 	}
 
@@ -1157,6 +1155,19 @@ void mtk_vdec_queue_error_event(struct mtk_vcodec_ctx *ctx)
 	v4l2_event_queue_fh(&ctx->fh, &ev_error);
 }
 
+void mtk_vdec_error_handle(struct mtk_vcodec_ctx *ctx)
+{
+	ctx->state = MTK_STATE_ABORT;
+	vdec_check_release_lock(ctx);
+	mutex_lock(&ctx->dev->dec_dvfs_mutex);
+	if (ctx->dev->vdec_dvfs_params.target_freq == VDEC_HIGHEST_FREQ) {
+		mtk_vcodec_dec_pw_off(&ctx->dev->pm);
+		ctx->dev->vdec_dvfs_params.target_freq = 0;
+	}
+	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
+	mtk_vdec_queue_error_event(ctx);
+}
+
 static void mtk_vdec_reset_decoder(struct mtk_vcodec_ctx *ctx, bool is_drain,
 	struct mtk_vcodec_mem *current_bs, enum v4l2_buf_type type)
 {
@@ -1645,9 +1656,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 		clean_free_bs_buffer(ctx, &src_buf_info->bs_buffer);
 		if (ret == -EIO) {
 			/* ipi timeout / VPUD crashed ctx abort */
-			ctx->state = MTK_STATE_ABORT;
-			vdec_check_release_lock(ctx);
-			mtk_vdec_queue_error_event(ctx);
+			mtk_vdec_error_handle(ctx);
 			v4l2_m2m_buf_done(&src_buf_info->vb,
 				VB2_BUF_STATE_ERROR);
 		} else if (mtk_vcodec_unsupport) {
@@ -3095,8 +3104,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		if (ret) {
 			mtk_v4l2_err("[%d]: vdec_if_init() fail ret=%d",
 						 ctx->id, ret);
-			ctx->state = MTK_STATE_ABORT;
-			mtk_vdec_queue_error_event(ctx);
+			mtk_vdec_error_handle(ctx);
 			return;
 		}
 		ctx->state = MTK_STATE_INIT;
@@ -3304,13 +3312,10 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		} else if (mtk_vcodec_unsupport || last_frame_type != NON_EOS) {
 			mtk_v4l2_err("[%d]Error!! Codec driver not support the file!",
 						 ctx->id);
-			ctx->state = MTK_STATE_ABORT;
-			mtk_vdec_queue_error_event(ctx);
+			mtk_vdec_error_handle(ctx);
 		} else if (ret == -EIO) {
 			/* ipi timeout / VPUD crashed ctx abort */
-			ctx->state = MTK_STATE_ABORT;
-			vdec_check_release_lock(ctx);
-			mtk_vdec_queue_error_event(ctx);
+			mtk_vdec_error_handle(ctx);
 		}
 		ctx->init_cnt++;
 		return;
@@ -3556,13 +3561,15 @@ static int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 
 		mutex_lock(&ctx->dev->dec_dvfs_mutex);
 		if (ctx->dev->vdec_reg == 0 && ctx->dev->vdec_mmdvfs_clk == 0) {
-			mtk_v4l2_debug(4, "[VDVFS][VDEC] start ctrl DVFS in UP\n");
-			mtk_vcodec_dec_pw_on(&ctx->dev->pm);
+			mtk_v4l2_debug(4, "[%d][VDVFS][VDEC] start ctrl DVFS in UP\n", ctx->id);
+			if (ctx->dev->vdec_dvfs_params.target_freq < VDEC_HIGHEST_FREQ)
+				mtk_vcodec_dec_pw_on(&ctx->dev->pm);
 			mtk_vdec_prepare_vcp_dvfs_data(ctx, vcp_dvfs_data);
 			vdec_if_set_param(ctx, SET_PARAM_MMDVFS, vcp_dvfs_data);
-			mtk_vcodec_dec_pw_off(&ctx->dev->pm);
+			if (ctx->dev->vdec_dvfs_params.target_freq < VDEC_HIGHEST_FREQ)
+				mtk_vcodec_dec_pw_off(&ctx->dev->pm);
 		} else {
-			mtk_v4l2_debug(4, "[VDVFS][VDEC] start ctrl DVFS in AP\n");
+			mtk_v4l2_debug(4, "[%d][VDVFS][VDEC] start ctrl DVFS in AP\n", ctx->id);
 			mtk_vdec_dvfs_begin_inst(ctx);
 		}
 		mtk_vdec_pmqos_begin_inst(ctx);
@@ -3688,13 +3695,15 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 	mutex_unlock(&ctx->buf_lock);
 	mutex_lock(&ctx->dev->dec_dvfs_mutex);
 	if (ctx->dev->vdec_reg == 0 && ctx->dev->vdec_mmdvfs_clk == 0) {
-		mtk_v4l2_debug(0, "[VDVFS][VDEC] stop ctrl DVFS in UP\n");
-		mtk_vcodec_dec_pw_on(&ctx->dev->pm);
+		mtk_v4l2_debug(0, "[%d][VDVFS][VDEC] stop ctrl DVFS in UP\n", ctx->id);
+		if (ctx->dev->vdec_dvfs_params.target_freq < VDEC_HIGHEST_FREQ)
+			mtk_vcodec_dec_pw_on(&ctx->dev->pm);
 		mtk_vdec_unprepare_vcp_dvfs_data(ctx, vcp_dvfs_data);
 		vdec_if_set_param(ctx, SET_PARAM_MMDVFS, vcp_dvfs_data);
-		mtk_vcodec_dec_pw_off(&ctx->dev->pm);
+		if (ctx->dev->vdec_dvfs_params.target_freq < VDEC_HIGHEST_FREQ)
+			mtk_vcodec_dec_pw_off(&ctx->dev->pm);
 	} else {
-		mtk_v4l2_debug(0, "[VDVFS][VDEC] stop ctrl DVFS in AP\n");
+		mtk_v4l2_debug(0, "[%d][VDVFS][VDEC] stop ctrl DVFS in AP\n", ctx->id);
 		mtk_vdec_dvfs_end_inst(ctx);
 	}
 	mtk_vdec_pmqos_end_inst(ctx);

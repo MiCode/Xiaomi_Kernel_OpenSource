@@ -20,6 +20,7 @@
 #include "vcp_helper.h"
 // TODO: need remove ISR ipis
 #include "mtk_vcodec_intr.h"
+#include "mtk_vcodec_dec_pm.h"
 
 #ifdef CONFIG_MTK_ENG_BUILD
 #define IPI_TIMEOUT_MS          (10000U)
@@ -796,14 +797,38 @@ static int vdec_vcp_backup(struct vdec_inst *inst)
 	return err;
 }
 
+static void vdec_vcp_mmdvfs_resume(struct mtk_vcodec_ctx *ctx)
+{
+	struct vdec_inst *inst = (struct vdec_inst *)ctx->drv_handle;
+	struct vdec_ap_ipi_set_param msg;
+	int err = 0;
+
+	mtk_vcodec_debug_enter(inst);
+	if (!inst)
+		return;
+
+	// power always when high freq
+	mutex_lock(&ctx->dev->dec_dvfs_mutex);
+	if (ctx->dev->vdec_dvfs_params.target_freq == VDEC_HIGHEST_FREQ) {
+		memset(&msg, 0, sizeof(msg));
+		msg.msg_id = AP_IPIMSG_DEC_SET_PARAM;
+		msg.ctx_id = inst->ctx->id;
+		msg.vcu_inst_addr = inst->vcu.inst_addr;
+		msg.data[0] = MTK_INST_RESUME;
+		err = vdec_vcp_ipi_send(inst, &msg, sizeof(msg), 0);
+	}
+	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
+
+	mtk_vcodec_debug(inst, "- ret=%d", err);
+}
+
 static int vcp_vdec_notify_callback(struct notifier_block *this,
 	unsigned long event, void *ptr)
 {
 	struct mtk_vcodec_dev *dev;
 	struct list_head *p, *q;
-	struct mtk_vcodec_ctx *ctx;
+	struct mtk_vcodec_ctx *ctx = NULL, *tmp_ctx;
 	int timeout = 0;
-	bool backup = false;
 	struct vdec_inst *inst = NULL;
 
 	if (!(mtk_vcodec_vcp & (1 << MTK_INST_DECODER)))
@@ -826,14 +851,12 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 		list_for_each_safe(p, q, &dev->ctx_list) {
 			ctx = list_entry(p, struct mtk_vcodec_ctx, list);
 			if (ctx != NULL && ctx->state != MTK_STATE_ABORT) {
-				ctx->state = MTK_STATE_ABORT;
 				inst = (struct vdec_inst *)(ctx->drv_handle);
 				if (inst != NULL) {
 					inst->vcu.failure = VDEC_IPI_MSG_STATUS_FAIL;
 					inst->vcu.abort = 1;
 				}
-				vdec_check_release_lock(ctx);
-				mtk_vdec_queue_error_event(ctx);
+				mtk_vdec_error_handle(ctx);
 			}
 		}
 		mutex_unlock(&dev->ctx_mutex);
@@ -856,30 +879,42 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 		// send backup ipi to vcp by one of any instances
 		mutex_lock(&dev->ctx_mutex);
 		list_for_each_safe(p, q, &dev->ctx_list) {
-			ctx = list_entry(p, struct mtk_vcodec_ctx, list);
-			if (ctx != NULL && ctx->drv_handle != 0 &&
-			    ctx->state < MTK_STATE_ABORT && ctx->state > MTK_STATE_FREE) {
-				mutex_unlock(&dev->ctx_mutex);
-				backup = true;
-				vdec_vcp_backup((struct vdec_inst *)ctx->drv_handle);
-				vdec_suspend_power(ctx);
-				break;
-			}
-		}
-		if (!backup)
-			mutex_unlock(&dev->ctx_mutex);
-	break;
-	case VCP_EVENT_RESUME:
-		mutex_lock(&dev->ctx_mutex);
-		list_for_each_safe(p, q, &dev->ctx_list) {
-			ctx = list_entry(p, struct mtk_vcodec_ctx, list);
-			if (ctx != NULL && ctx->drv_handle != 0 &&
-			    ctx->state < MTK_STATE_ABORT && ctx->state > MTK_STATE_FREE) {
-				vdec_resume_power(ctx);
+			tmp_ctx = list_entry(p, struct mtk_vcodec_ctx, list);
+			if (tmp_ctx != NULL && tmp_ctx->drv_handle != 0 &&
+			    tmp_ctx->state < MTK_STATE_ABORT && tmp_ctx->state > MTK_STATE_FREE) {
+				ctx = tmp_ctx;
 				break;
 			}
 		}
 		mutex_unlock(&dev->ctx_mutex);
+		if (ctx) {
+			vdec_vcp_backup((struct vdec_inst *)ctx->drv_handle);
+			vdec_suspend_power(ctx);
+			mutex_lock(&dev->dec_dvfs_mutex);
+			if (dev->vdec_dvfs_params.target_freq == VDEC_HIGHEST_FREQ)
+				mtk_vcodec_dec_pw_off(&ctx->dev->pm);
+			mutex_unlock(&dev->dec_dvfs_mutex);
+		}
+	break;
+	case VCP_EVENT_RESUME:
+		mutex_lock(&dev->ctx_mutex);
+		list_for_each_safe(p, q, &dev->ctx_list) {
+			tmp_ctx = list_entry(p, struct mtk_vcodec_ctx, list);
+			if (tmp_ctx != NULL && tmp_ctx->drv_handle != 0 &&
+			    tmp_ctx->state < MTK_STATE_ABORT && tmp_ctx->state > MTK_STATE_FREE) {
+				ctx = tmp_ctx;
+				break;
+			}
+		}
+		mutex_unlock(&dev->ctx_mutex);
+		if (ctx) {
+			mutex_lock(&dev->dec_dvfs_mutex);
+			if (dev->vdec_dvfs_params.target_freq == VDEC_HIGHEST_FREQ)
+				mtk_vcodec_dec_pw_on(&ctx->dev->pm);
+			mutex_unlock(&dev->dec_dvfs_mutex);
+			vdec_resume_power(ctx);
+			vdec_vcp_mmdvfs_resume(ctx);
+		}
 	break;
 	}
 	return NOTIFY_DONE;

@@ -71,6 +71,7 @@ enum mtk_vcodec_ipm {
 enum mtk_instance_type {
 	MTK_INST_DECODER                = 0,
 	MTK_INST_ENCODER                = 1,
+	MTK_INST_RESUME                 = 2,
 };
 
 /**

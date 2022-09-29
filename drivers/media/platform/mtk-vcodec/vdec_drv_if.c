@@ -223,8 +223,6 @@ void vdec_decode_prepare(void *ctx_prepare,
 	if (ctx->power_type[hw_id] == VDEC_POWER_NORMAL) {
 		if (ctx->dec_params.operating_rate >= MTK_VDEC_ALWAYS_ON_OP_RATE)
 			ctx->power_type[hw_id] = VDEC_POWER_ALWAYS_OP;
-		if (mtk_vdec_is_highest_freq(ctx))
-			ctx->power_type[hw_id] = VDEC_POWER_ALWAYS_FREQ;
 		if (ctx->power_type[hw_id] >= VDEC_POWER_ALWAYS) {
 			ctx->dev->dec_always_on[hw_id]++;
 			mtk_v4l2_debug(0, "[%d] hw_id %d power type %d always on %d", ctx->id,
@@ -270,8 +268,7 @@ void vdec_decode_unprepare(void *ctx_unprepare,
 	if (!(mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) &&
 	    ctx->power_type[hw_id] != VDEC_POWER_RELEASE)
 		disable_irq(ctx->dev->dec_irq[hw_id]);
-	if (ctx->power_type[hw_id] == VDEC_POWER_RELEASE ||
-	   (ctx->power_type[hw_id] == VDEC_POWER_ALWAYS_FREQ && !mtk_vdec_is_highest_freq(ctx))) {
+	if (ctx->power_type[hw_id] == VDEC_POWER_RELEASE) {
 		mtk_v4l2_debug(0, "[%d] hw_id %d power type %d off always on %d", ctx->id,
 			hw_id, ctx->power_type[hw_id], ctx->dev->dec_always_on[hw_id]);
 		ctx->dev->dec_always_on[hw_id]--;

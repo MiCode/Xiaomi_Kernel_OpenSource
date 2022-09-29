@@ -32,15 +32,6 @@
 
 //#define VDEC_PRINT_DTS_INFO
 
-#define VDEC_HIGHEST_FREQ 880000000
-
-bool mtk_vdec_is_highest_freq(struct mtk_vcodec_ctx *ctx)
-{
-	struct vdec_inst *inst = (struct vdec_inst *) ctx->drv_handle;
-
-	return inst->vsi->target_freq == VDEC_HIGHEST_FREQ;
-}
-
 static bool mtk_dec_tput_init(struct mtk_vcodec_dev *dev)
 {
 	const int op_item_num = 7;

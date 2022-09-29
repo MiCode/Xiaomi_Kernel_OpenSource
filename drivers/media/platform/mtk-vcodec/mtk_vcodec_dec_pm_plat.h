@@ -12,8 +12,6 @@
 #define DEC_DVFS	1
 #define DEC_EMI_BW	1
 
-bool mtk_vdec_is_highest_freq(struct mtk_vcodec_ctx *ctx);
-
 void mtk_prepare_vdec_dvfs(struct mtk_vcodec_dev *dev);
 void mtk_unprepare_vdec_dvfs(struct mtk_vcodec_dev *dev);
 void mtk_prepare_vdec_emi_bw(struct mtk_vcodec_dev *dev);
