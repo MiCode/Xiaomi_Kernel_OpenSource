@@ -11,9 +11,15 @@
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 
-#define UFS_BIOLOG_RINGBUF_MAX    120
-#define UFS_BIOLOG_CONTEXT_TASKS  256
-#define UFS_BIOLOG_CONTEXTS       1
+#define BTAG_UFS_RINGBUF_MAX    120
+
+#define BTAG_UFS_QD_LOG         5
+#define BTAG_UFS_QD             (1UL << (BTAG_UFS_QD_LOG))
+
+#define BTAG_UFS_TAG_ID(TASK_ID) \
+	((TASK_ID) & (BTAG_UFS_QD - 1))
+#define BTAG_UFS_QUEUE_ID(TASK_ID) \
+	((TASK_ID) >> BTAG_UFS_QD_LOG)
 
 enum {
 	tsk_send_cmd = 0,
@@ -21,7 +27,7 @@ enum {
 	tsk_max
 };
 
-struct ufs_mtk_bio_context_task {
+struct mtk_btag_ufs_task {
 	__u16 cmd;
 	__u16 len;
 	__u32 lba;
@@ -29,7 +35,7 @@ struct ufs_mtk_bio_context_task {
 };
 
 /* Context of Request Queue */
-struct ufs_mtk_bio_context {
+struct mtk_btag_ufs_ctx {
 	spinlock_t lock;
 	__u64 busy_start_t;
 	__u64 period_start_t;
@@ -37,7 +43,7 @@ struct ufs_mtk_bio_context {
 	__u64 period_usage;
 	__u64 sum_of_inflight_start;
 	__u16 q_depth;
-	struct ufs_mtk_bio_context_task task[UFS_BIOLOG_CONTEXT_TASKS];
+	struct mtk_btag_ufs_task task[BTAG_UFS_QD];
 	struct mtk_btag_workload workload;
 	struct mtk_btag_throughput throughput;
 	struct mtk_btag_proc_pidlogger pidlog;

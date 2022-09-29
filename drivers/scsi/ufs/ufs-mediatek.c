@@ -701,7 +701,7 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 			phy_power_off(host->mphy);
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 			if (host->qos_enabled)
-				ufs_mtk_biolog_clk_gating(on);
+				mtk_btag_ufs_clk_gating(on);
 #endif
 		}
 	} else if (on && status == POST_CHANGE) {
@@ -712,7 +712,7 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 			ufs_mtk_pm_qos(hba, on);
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 		if (host->qos_enabled)
-			ufs_mtk_biolog_clk_gating(on);
+			mtk_btag_ufs_clk_gating(on);
 #endif
 	}
 
@@ -840,8 +840,8 @@ static void ufs_mtk_trace_vh_send_command(void *data, struct ufs_hba *hba, struc
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 	if (ufs_mtk_is_data_cmd(cmd)) {
-		ufs_mtk_biolog_send_command(lrbp->task_tag, cmd);
-		ufs_mtk_biolog_check(1);
+		mtk_btag_ufs_send_command(lrbp->task_tag, cmd);
+		mtk_btag_ufs_check(lrbp->task_tag, 1);
 	}
 #endif
 }
@@ -866,13 +866,13 @@ static void ufs_mtk_get_outstanding_reqs(struct ufs_hba *hba,
 static void ufs_mtk_trace_vh_compl_command(void *data, struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 {
 	struct scsi_cmnd *cmd = lrbp->cmd;
-	unsigned long *outstanding_reqs;
 #if defined(CONFIG_UFSFEATURE)
 	unsigned long outstanding_tasks;
 	struct ufsf_feature *ufsf;
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER) || defined(CONFIG_UFSFEATURE)
+	unsigned long *outstanding_reqs;
 	unsigned long ongoing_cnt = 0;
 	int tmp_tag, nr_tag;
 #endif
@@ -894,8 +894,8 @@ static void ufs_mtk_trace_vh_compl_command(void *data, struct ufs_hba *hba, stru
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 	if (ufs_mtk_is_data_cmd(cmd)) {
-		ufs_mtk_biolog_transfer_req_compl(tag, ongoing_cnt);
-		ufs_mtk_biolog_check(ongoing_cnt);
+		mtk_btag_ufs_transfer_req_compl(tag, ongoing_cnt);
+		mtk_btag_ufs_check(tag, ongoing_cnt);
 	}
 #endif
 
@@ -1885,7 +1885,7 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	init_completion(&host->luns_added);
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
-	ufs_mtk_biolog_init(host->qos_allowed, host->boot_device);
+	mtk_btag_ufs_init(host);
 #endif
 
 #if IS_ENABLED(CONFIG_SCSI_UFS_MEDIATEK_DBG)
@@ -2833,7 +2833,7 @@ static int ufs_mtk_remove(struct platform_device *pdev)
 
 	ufshcd_remove(hba);
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
-	ufs_mtk_biolog_exit();
+	mtk_btag_ufs_exit();
 #endif
 	ufs_mtk_uninstall_tracepoints();
 	return 0;

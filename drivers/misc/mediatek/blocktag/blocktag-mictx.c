@@ -14,127 +14,113 @@
 
 #include "mtk_blocktag.h"
 
-static void mtk_btag_mictx_reset(
-	struct mtk_btag_mictx_struct *mictx,
-	__u64 window_begin)
+#define MICTX_RESET_NS 1000000000
+
+void mtk_btag_mictx_eval_tp(struct mtk_blocktag *btag, __u32 idx, bool write,
+			    __u64 usage, __u32 size)
 {
-	if (!window_begin)
-		window_begin = sched_clock();
-	mictx->window_begin = window_begin;
-
-	if (!mictx->q_depth)
-		mictx->idle_begin = mictx->window_begin;
-	else
-		mictx->idle_begin = 0;
-
-	mictx->idle_total = 0;
-	mictx->tp_min_time = mictx->tp_max_time = 0;
-	mictx->weighted_qd = 0;
-	memset(&mictx->tp, 0, sizeof(struct mtk_btag_throughput));
-	memset(&mictx->req, 0, sizeof(struct mtk_btag_req));
-}
-
-void mtk_btag_mictx_check_window(struct mtk_btag_mictx_id mictx_id)
-{
-	struct mtk_blocktag *btag;
-	struct mtk_btag_mictx_struct *mictx, *n;
-	unsigned long flags;
-	__u64 t_cur = sched_clock();
-
-	btag = mtk_btag_find_by_type(mictx_id.storage);
-	if (btag) {
-		spin_lock_irqsave(&btag->mictx.list_lock, flags);
-		list_for_each_entry_safe(mictx, n, &btag->mictx.list, list) {
-			if (mictx->id == mictx_id.id) {
-				if ((t_cur - mictx->window_begin) > 1000000000)
-					mtk_btag_mictx_reset(mictx, t_cur);
-			}
-		}
-		spin_unlock_irqrestore(&btag->mictx.list_lock, flags);
-	}
-}
-
-void mtk_btag_mictx_eval_tp(
-	struct mtk_blocktag *btag,
-	bool write, __u64 usage, __u32 size)
-{
-	struct mtk_btag_mictx_struct *mictx, *n;
+	struct mtk_btag_mictx *mictx;
 	struct mtk_btag_throughput_rw *tprw;
 	unsigned long flags;
 	__u64 cur_time = sched_clock();
 	__u64 req_begin_time;
 
-	spin_lock_irqsave(&btag->mictx.list_lock, flags);
-	list_for_each_entry_safe(mictx, n, &btag->mictx.list, list) {
-		tprw = (write) ? &mictx->tp.w : &mictx->tp.r;
+	if (idx >= btag->ctx.count)
+		return;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(mictx, &btag->ctx.mictx.list, list) {
+		struct mtk_btag_mictx_data *data = mictx->data;
+
+		spin_lock_irqsave(&data[idx].lock, flags);
+		tprw = (write) ? &data[idx].tp.w : &data[idx].tp.r;
 		tprw->size += size;
 		tprw->usage += usage;
-
-		mictx->tp_max_time = cur_time;
+		data[idx].tp_max_time = cur_time;
 		req_begin_time = cur_time - usage;
-
-		if (!mictx->tp_min_time || req_begin_time < mictx->tp_min_time)
-			mictx->tp_min_time = req_begin_time;
+		if (!data[idx].tp_min_time || req_begin_time < data[idx].tp_min_time)
+			data[idx].tp_min_time = req_begin_time;
+		spin_unlock_irqrestore(&data[idx].lock, flags);
 	}
-	spin_unlock_irqrestore(&btag->mictx.list_lock, flags);
+	rcu_read_unlock();
 }
 
-void mtk_btag_mictx_eval_req(struct mtk_blocktag *btag, bool write,
-				__u32 total_len, __u32 top_len)
+void mtk_btag_mictx_eval_req(struct mtk_blocktag *btag, __u32 idx, bool write,
+			     __u32 total_len, __u32 top_len)
 {
-	struct mtk_btag_mictx_struct *mictx, *n;
+	struct mtk_btag_mictx *mictx;
 	struct mtk_btag_req_rw *reqrw;
 	unsigned long flags;
 
-	spin_lock_irqsave(&btag->mictx.list_lock, flags);
-	list_for_each_entry_safe(mictx, n, &btag->mictx.list, list) {
-		reqrw = (write) ? &mictx->req.w : &mictx->req.r;
+	if (idx >= btag->ctx.count)
+		return;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(mictx, &btag->ctx.mictx.list, list) {
+		struct mtk_btag_mictx_data *data = mictx->data;
+
+		spin_lock_irqsave(&data[idx].lock, flags);
+		reqrw = (write) ? &data[idx].req.w : &data[idx].req.r;
 		reqrw->count++;
 		reqrw->size += total_len;
 		reqrw->size_top += top_len;
+		spin_unlock_irqrestore(&data[idx].lock, flags);
 	}
-	spin_unlock_irqrestore(&btag->mictx.list_lock, flags);
+	rcu_read_unlock();
 
 	if (top_len && btag->vops->earaio_enabled)
 		mtk_btag_earaio_update_pwd(write, top_len);
 }
 
-void mtk_btag_mictx_accumulate_weight_qd(
-	struct mtk_blocktag *btag, __u64 t_begin, __u64 t_cur)
+void mtk_btag_mictx_accumulate_weight_qd(struct mtk_blocktag *btag, __u32 idx,
+					 __u64 t_begin, __u64 t_cur)
 {
-	struct mtk_btag_mictx_struct *mictx, *n;
+	struct mtk_btag_mictx *mictx;
 	unsigned long flags;
 
-	spin_lock_irqsave(&btag->mictx.list_lock, flags);
-	list_for_each_entry_safe(mictx, n, &btag->mictx.list, list) {
-		t_begin = max_t(u64, mictx->window_begin, t_begin);
-		mictx->weighted_qd += t_cur - t_begin;
+	if (idx >= btag->ctx.count)
+		return;
+
+	rcu_read_lock();
+	list_for_each_entry_rcu(mictx, &btag->ctx.mictx.list, list) {
+		struct mtk_btag_mictx_data *data = mictx->data;
+
+		spin_lock_irqsave(&data[idx].lock, flags);
+		t_begin = max_t(u64, data[idx].window_begin, t_begin);
+		data[idx].weighted_qd += t_cur - t_begin;
+		spin_unlock_irqrestore(&data[idx].lock, flags);
 	}
-	spin_unlock_irqrestore(&btag->mictx.list_lock, flags);
+	rcu_read_unlock();
 }
 
-void mtk_btag_mictx_update(struct mtk_blocktag *btag, __u32 q_depth,
-			   __u64 sum_of_inflight_start)
+void mtk_btag_mictx_update(struct mtk_blocktag *btag, __u32 idx,
+			   __u32 q_depth, __u64 sum_of_inflight_start)
 {
-	struct mtk_btag_mictx_struct *mictx, *n;
+	struct mtk_btag_mictx *mictx;
 	unsigned long flags;
 	__u64 t_cur = sched_clock();
 
-	spin_lock_irqsave(&btag->mictx.list_lock, flags);
-	list_for_each_entry_safe(mictx, n, &btag->mictx.list, list) {
-		mictx->sum_of_inflight_start = sum_of_inflight_start;
-		mictx->q_depth = q_depth;
+	if (idx > btag->ctx.count)
+		return;
 
-		if (!mictx->q_depth) {
-			mictx->idle_begin = t_cur;
+	rcu_read_lock();
+	list_for_each_entry_rcu(mictx, &btag->ctx.mictx.list, list) {
+		struct mtk_btag_mictx_data *data = mictx->data;
+
+		spin_lock_irqsave(&data[idx].lock, flags);
+		data[idx].sum_of_inflight_start = sum_of_inflight_start;
+		data[idx].q_depth = q_depth;
+		if (!data[idx].q_depth) {
+			data[idx].idle_begin = t_cur;
 		} else {
-			if (mictx->idle_begin) {
-				mictx->idle_total += t_cur - mictx->idle_begin;
-				mictx->idle_begin = 0;
+			if (data[idx].idle_begin) {
+				data[idx].idle_total += t_cur - data[idx].idle_begin;
+				data[idx].idle_begin = 0;
 			}
 		}
+		spin_unlock_irqrestore(&data[idx].lock, flags);
 	}
-	spin_unlock_irqrestore(&btag->mictx.list_lock, flags);
+	rcu_read_unlock();
 
 	/*
 	 * Peek if I/O workload exceeds the threshold to send boosting
@@ -142,6 +128,64 @@ void mtk_btag_mictx_update(struct mtk_blocktag *btag, __u32 q_depth,
 	 */
 	if (q_depth && btag->vops->earaio_enabled)
 		mtk_btag_earaio_check_pwd();
+}
+
+static void mtk_btag_mictx_reset(struct mtk_btag_mictx_data *data,
+				 __u64 window_begin)
+{
+	data->window_begin = window_begin;
+
+	if (!data->q_depth)
+		data->idle_begin = data->window_begin;
+	else
+		data->idle_begin = 0;
+
+	data->idle_total = 0;
+	data->tp_min_time = data->tp_max_time = 0;
+	data->weighted_qd = 0;
+	memset(&data->tp, 0, sizeof(struct mtk_btag_throughput));
+	memset(&data->req, 0, sizeof(struct mtk_btag_req));
+}
+
+static struct mtk_btag_mictx *mtk_btag_mictx_find(struct mtk_blocktag *btag,
+						  __s8 id)
+{
+	struct mtk_btag_mictx *mictx;
+
+	list_for_each_entry_rcu(mictx, &btag->ctx.mictx.list, list)
+		if (mictx->id == id)
+			return mictx;
+	return NULL;
+}
+
+void mtk_btag_mictx_check_window(struct mtk_btag_mictx_id mictx_id)
+{
+	struct mtk_blocktag *btag;
+	struct mtk_btag_mictx *mictx;
+	unsigned long flags;
+	__u64 t_cur = sched_clock();
+	int idx;
+
+	btag = mtk_btag_find_by_type(mictx_id.storage);
+	if (!btag)
+		return;
+
+	rcu_read_lock();
+	mictx = mtk_btag_mictx_find(btag, mictx_id.id);
+	if (!mictx) {
+		rcu_read_unlock();
+		return;
+	}
+
+	for (idx = 0; idx < btag->ctx.count; idx++) {
+		struct mtk_btag_mictx_data *data = mictx->data;
+
+		spin_lock_irqsave(&data[idx].lock, flags);
+		if ((t_cur - data[idx].window_begin) > MICTX_RESET_NS)
+			mtk_btag_mictx_reset(data + idx, t_cur);
+		spin_unlock_irqrestore(&data[idx].lock, flags);
+	}
+	rcu_read_unlock();
 }
 
 static __u32 mtk_btag_eval_tp_speed(__u32 bytes, __u64 duration)
@@ -165,91 +209,98 @@ static __u32 mtk_btag_eval_tp_speed(__u32 bytes, __u64 duration)
 	return speed_kbs;
 }
 
-int mtk_btag_mictx_get_data(
-	struct mtk_btag_mictx_id mictx_id,
-	struct mtk_btag_mictx_iostat_struct *iostat)
+int mtk_btag_mictx_get_data(struct mtk_btag_mictx_id mictx_id,
+			    struct mtk_btag_mictx_iostat_struct *iostat)
 {
 	struct mtk_blocktag *btag;
-	struct mtk_btag_mictx_struct *mictx, *n;
-	struct mtk_btag_mictx_struct tmp_mictx;
-	u64 time_cur, dur, tp_dur;
+	struct mtk_btag_mictx *mictx;
 	unsigned long flags;
-	u64 top;
-	bool find = false;
+	__u64 dur = 0, idle_total = 0;
+	__u64 top_total = 0, rw_total = 0;
+	__u64 time_cur = sched_clock();
+	int i;
 
-	if (!iostat || mictx_id.id == -1)
+	if (!iostat)
 		return -1;
-
-	time_cur = sched_clock();
 
 	btag = mtk_btag_find_by_type(mictx_id.storage);
-	if (btag) {
-		spin_lock_irqsave(&btag->mictx.list_lock, flags);
-		list_for_each_entry_safe(mictx, n, &btag->mictx.list, list) {
-			if (mictx->id == mictx_id.id) {
-				find = true;
-				memcpy(&tmp_mictx, mictx
-					, sizeof(struct mtk_btag_mictx_struct));
-				mtk_btag_mictx_reset(mictx, time_cur);
-			}
-		}
-		spin_unlock_irqrestore(&btag->mictx.list_lock, flags);
-	}
-
-	if (!find)
+	if (!btag)
 		return -1;
 
-	dur = time_cur - tmp_mictx.window_begin;
+	rcu_read_lock();
+	mictx = mtk_btag_mictx_find(btag, mictx_id.id);
+	if (!mictx) {
+		rcu_read_unlock();
+		return -1;
+	}
+
+	memset(iostat, 0, sizeof(struct mtk_btag_mictx_iostat_struct));
+	for (i = 0; i < btag->ctx.count; i++) {
+		struct mtk_btag_mictx_data tmp_data, *data = mictx->data;
+		__u64 tp_dur;
+
+		spin_lock_irqsave(&data[i].lock, flags);
+		memcpy(&tmp_data, &data[i], sizeof(struct mtk_btag_mictx_data));
+		mtk_btag_mictx_reset(data + i, time_cur);
+		spin_unlock_irqrestore(&data[i].lock, flags);
+
+		dur = time_cur - tmp_data.window_begin;
+
+		/* calculate throughput (per-request) */
+		iostat->tp_req_r += mtk_btag_eval_tp_speed(
+			tmp_data.tp.r.size, tmp_data.tp.r.usage);
+		iostat->tp_req_w += mtk_btag_eval_tp_speed(
+			tmp_data.tp.w.size, tmp_data.tp.w.usage);
+
+		/* calculate throughput (overlapped, not 100% precise) */
+		tp_dur = tmp_data.tp_max_time - tmp_data.tp_min_time;
+		iostat->tp_all_r += mtk_btag_eval_tp_speed(
+			tmp_data.tp.r.size, tp_dur);
+		iostat->tp_all_w += mtk_btag_eval_tp_speed(
+			tmp_data.tp.w.size, tp_dur);
+
+		/* provide request count and size */
+		iostat->reqcnt_r += tmp_data.req.r.count;
+		iostat->reqsize_r += tmp_data.req.r.size;
+		iostat->reqcnt_w += tmp_data.req.w.count;
+		iostat->reqsize_w += tmp_data.req.w.size;
+
+		/* calculate idle total */
+		if (tmp_data.idle_begin)
+			tmp_data.idle_total += (time_cur - tmp_data.idle_begin);
+		idle_total += tmp_data.idle_total;
+
+		/* calculate top_total and rw_total */
+		if (tmp_data.req.r.size || tmp_data.req.w.size) {
+			tmp_data.req.r.size >>= 12;
+			tmp_data.req.w.size >>= 12;
+			tmp_data.req.r.size_top >>= 12;
+			tmp_data.req.w.size_top >>= 12;
+			top_total += tmp_data.req.r.size_top + tmp_data.req.w.size_top;
+			rw_total += tmp_data.req.r.size + tmp_data.req.w.size;
+		}
+
+		/* fill-in cmdq depth */
+		if (btag->vops->mictx_eval_wqd) {
+			iostat->q_depth +=
+				btag->vops->mictx_eval_wqd(&tmp_data, time_cur);
+		} else {
+			iostat->q_depth += tmp_data.q_depth;
+		}
+	}
+	rcu_read_unlock();
 
 	/* fill-in duration */
 	iostat->duration = dur;
 
-	/* calculate throughput (per-request) */
-	iostat->tp_req_r = mtk_btag_eval_tp_speed(
-		tmp_mictx.tp.r.size, tmp_mictx.tp.r.usage);
-	iostat->tp_req_w = mtk_btag_eval_tp_speed(
-		tmp_mictx.tp.w.size, tmp_mictx.tp.w.usage);
-
-	/* calculate throughput (overlapped, not 100% precise) */
-	tp_dur = tmp_mictx.tp_max_time - tmp_mictx.tp_min_time;
-	iostat->tp_all_r = mtk_btag_eval_tp_speed(
-		tmp_mictx.tp.r.size, tp_dur);
-	iostat->tp_all_w = mtk_btag_eval_tp_speed(
-		tmp_mictx.tp.w.size, tp_dur);
-
-	/* provide request count and size */
-	iostat->reqcnt_r = tmp_mictx.req.r.count;
-	iostat->reqsize_r = tmp_mictx.req.r.size;
-	iostat->reqcnt_w = tmp_mictx.req.w.count;
-	iostat->reqsize_w = tmp_mictx.req.w.size;
-
 	/* calculate workload */
-	if (tmp_mictx.idle_begin)
-		tmp_mictx.idle_total += (time_cur - tmp_mictx.idle_begin);
-
-	iostat->wl = 100 - div64_u64((tmp_mictx.idle_total * 100), dur);
+	iostat->wl = 100 - div64_u64(idle_total * 100, dur * btag->ctx.count);
 
 	/* calculate top ratio */
-	if (tmp_mictx.req.r.size || tmp_mictx.req.w.size) {
-		tmp_mictx.req.r.size >>= 12;
-		tmp_mictx.req.w.size >>= 12;
-		tmp_mictx.req.r.size_top >>= 12;
-		tmp_mictx.req.w.size_top >>= 12;
-
-		top = tmp_mictx.req.r.size_top + tmp_mictx.req.w.size_top;
-		top = top * 100 / (tmp_mictx.req.r.size + tmp_mictx.req.w.size);
-	} else {
-		top = 0;
-	}
-
-	iostat->top = top;
-
-	/* fill-in cmdq depth */
-	if (btag->vops->mictx_eval_wqd) {
-		iostat->q_depth =
-			btag->vops->mictx_eval_wqd(&tmp_mictx, time_cur);
-	} else
-		iostat->q_depth = tmp_mictx.q_depth;
+	if (!rw_total)
+		iostat->top = 0;
+	else
+		iostat->top = top_total * 100 / rw_total;
 
 	return 0;
 }
@@ -258,63 +309,87 @@ EXPORT_SYMBOL_GPL(mtk_btag_mictx_get_data);
 static int mtk_btag_mictx_alloc(enum mtk_btag_storage_type type)
 {
 	struct mtk_blocktag *btag;
-	struct mtk_btag_mictx_struct *mictx;
+	struct mtk_btag_mictx *mictx;
+	struct mtk_btag_mictx_data *data;
 	unsigned long flags;
+	__u64 time = sched_clock();
+	int i;
 
 	btag = mtk_btag_find_by_type(type);
-	if (btag) {
-		mictx = kzalloc(sizeof(struct mtk_btag_mictx_struct), GFP_NOFS);
-		if (!mictx)
-			return -1;
+	if (!btag)
+		return -1;
 
-		spin_lock_irqsave(&btag->mictx.list_lock, flags);
-		mictx->id = btag->mictx.last_unused_id;
-		mictx->window_begin = sched_clock();
-		btag->mictx.count++;
-		btag->mictx.last_unused_id++;
-		list_add(&mictx->list, &btag->mictx.list);
-		spin_unlock_irqrestore(&btag->mictx.list_lock, flags);
+	mictx = kzalloc(sizeof(struct mtk_btag_mictx), GFP_NOFS);
+	if (!mictx)
+		return -1;
 
-		return mictx->id;
+	data = kcalloc(btag->ctx.count, sizeof(struct mtk_btag_mictx_data),
+		       GFP_NOFS);
+	if (!data) {
+		kfree(mictx);
+		return -1;
 	}
 
-	return -1;
+	for (i = 0; i < btag->ctx.count; i++) {
+		data[i].window_begin = time;
+		spin_lock_init(&data[i].lock);
+	}
+	mictx->data = data;
+
+	spin_lock_irqsave(&btag->ctx.mictx.list_lock, flags);
+	mictx->id = btag->ctx.mictx.last_unused_id;
+	btag->ctx.mictx.nr_list++;
+	btag->ctx.mictx.last_unused_id++;
+	list_add_tail_rcu(&mictx->list, &btag->ctx.mictx.list);
+	spin_unlock_irqrestore(&btag->ctx.mictx.list_lock, flags);
+
+	return mictx->id;
 }
 
 static void mtk_btag_mictx_free(struct mtk_btag_mictx_id *mictx_id)
 {
 	struct mtk_blocktag *btag;
-	struct mtk_btag_mictx_struct *mictx, *n;
+	struct mtk_btag_mictx *mictx;
 	unsigned long flags;
 
 	btag = mtk_btag_find_by_type(mictx_id->storage);
-	if (btag) {
-		spin_lock_irqsave(&btag->mictx.list_lock, flags);
-		list_for_each_entry_safe(mictx, n, &btag->mictx.list, list) {
-			if (mictx->id == mictx_id->id) {
-				mictx_id->id = -1;
-				list_del(&mictx->list);
-				btag->mictx.count--;
-				kfree(mictx);
-				break;
-			}
-		}
-		spin_unlock_irqrestore(&btag->mictx.list_lock, flags);
-	}
+	if (!btag)
+		return;
+
+	spin_lock_irqsave(&btag->ctx.mictx.list_lock, flags);
+	list_for_each_entry(mictx, &btag->ctx.mictx.list, list)
+		if (mictx->id == mictx_id->id)
+			goto found;
+	spin_unlock_irqrestore(&btag->ctx.mictx.list_lock, flags);
+	return;
+
+found:
+	list_del_rcu(&mictx->list);
+	btag->ctx.mictx.nr_list--;
+	spin_unlock_irqrestore(&btag->ctx.mictx.list_lock, flags);
+
+	synchronize_rcu();
+	kfree(mictx->data);
+	kfree(mictx);
 }
 
-void mtk_btag_mictx_free_btag(struct mtk_blocktag *btag)
+void mtk_btag_mictx_free_all(struct mtk_blocktag *btag)
 {
-	struct mtk_btag_mictx_struct *mictx, *n;
+	struct mtk_btag_mictx *mictx, *n;
 	unsigned long flags;
+	LIST_HEAD(free_list);
 
-	spin_lock_irqsave(&btag->mictx.list_lock, flags);
-	list_for_each_entry_safe(mictx, n, &btag->mictx.list, list) {
+	spin_lock_irqsave(&btag->ctx.mictx.list_lock, flags);
+	list_splice_init(&btag->ctx.mictx.list, &free_list);
+	btag->ctx.mictx.nr_list = 0;
+	spin_unlock_irqrestore(&btag->ctx.mictx.list_lock, flags);
+
+	synchronize_rcu();
+	list_for_each_entry_safe(mictx, n, &free_list, list) {
 		list_del(&mictx->list);
-		btag->mictx.count--;
+		kfree(mictx->data);
 		kfree(mictx);
 	}
-	spin_unlock_irqrestore(&btag->mictx.list_lock, flags);
 }
 
 void mtk_btag_mictx_enable(struct mtk_btag_mictx_id *mictx_id, bool enable)
@@ -326,9 +401,9 @@ void mtk_btag_mictx_enable(struct mtk_btag_mictx_id *mictx_id, bool enable)
 }
 EXPORT_SYMBOL_GPL(mtk_btag_mictx_enable);
 
-void mtk_btag_mictx_init(struct mtk_blocktag *btag, struct mtk_btag_vops *vops)
+void mtk_btag_mictx_init(struct mtk_blocktag *btag)
 {
-	spin_lock_init(&btag->mictx.list_lock);
-	btag->mictx.count = 0;
-	INIT_LIST_HEAD(&btag->mictx.list);
+	spin_lock_init(&btag->ctx.mictx.list_lock);
+	btag->ctx.mictx.nr_list = 0;
+	INIT_LIST_HEAD(&btag->ctx.mictx.list);
 }

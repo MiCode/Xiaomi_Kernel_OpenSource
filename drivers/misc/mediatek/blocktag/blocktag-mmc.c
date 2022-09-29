@@ -21,7 +21,7 @@
 struct mtk_blocktag *mmc_mtk_btag;
 
 static struct mmc_mtk_bio_context_task *mmc_mtk_bio_get_task(
-	struct mmc_mtk_bio_context *ctx, int task_id)
+	struct mmc_mtk_bio_context *ctx, __u16 task_id)
 {
 	struct mmc_mtk_bio_context_task *tsk = NULL;
 
@@ -50,7 +50,7 @@ static struct mmc_mtk_bio_context *mmc_mtk_bio_curr_ctx(bool is_sd)
 }
 
 static struct mmc_mtk_bio_context_task *mmc_mtk_bio_curr_task(
-	int task_id, struct mmc_mtk_bio_context **curr_ctx, bool is_sd)
+	__u16 task_id, struct mmc_mtk_bio_context **curr_ctx, bool is_sd)
 {
 	struct mmc_mtk_bio_context *ctx;
 
@@ -72,13 +72,13 @@ int mtk_btag_pidlog_add_mmc(bool is_sd, bool write, __u32 total_len,
 
 	spin_lock_irqsave(&ctx->lock, flags);
 	mtk_btag_pidlog_insert(&ctx->pidlog, write, tmplog);
-	mtk_btag_mictx_eval_req(mmc_mtk_btag, write, total_len, top_len);
+	mtk_btag_mictx_eval_req(mmc_mtk_btag, 0, write, total_len, top_len);
 	spin_unlock_irqrestore(&ctx->lock, flags);
 
 	return 1;
 }
 
-void mmc_mtk_biolog_send_command(int task_id, struct mmc_request *mrq)
+void mmc_mtk_biolog_send_command(__u16 task_id, struct mmc_request *mrq)
 {
 	struct mmc_queue_req *mqrq;
 	struct request *req;
@@ -127,7 +127,7 @@ void mmc_mtk_biolog_send_command(int task_id, struct mmc_request *mrq)
 		return;
 
 	if (req)
-		mtk_btag_commit_req(req, is_sd);
+		mtk_btag_commit_req(0, req, is_sd);
 
 	if (is_sd && mrq->cmd->data) {
 		tsk->len = mrq->cmd->data->blksz * mrq->cmd->data->blocks;
@@ -146,14 +146,14 @@ void mmc_mtk_biolog_send_command(int task_id, struct mmc_request *mrq)
 		ctx->period_start_t = tsk->t[tsk_send_cmd];
 
 	ctx->q_depth++;
-	mtk_btag_mictx_update(mmc_mtk_btag, ctx->q_depth, 0);
+	mtk_btag_mictx_update(mmc_mtk_btag, 0, ctx->q_depth, 0);
 
 	spin_unlock_irqrestore(&ctx->lock, flags);
 }
 EXPORT_SYMBOL_GPL(mmc_mtk_biolog_send_command);
 
 void mmc_mtk_biolog_transfer_req_compl(struct mmc_host *mmc,
-	int task_id, unsigned long req_mask)
+	__u16 task_id, unsigned long req_mask)
 {
 	struct mmc_mtk_bio_context *ctx;
 	struct mmc_mtk_bio_context_task *tsk;
@@ -201,7 +201,7 @@ void mmc_mtk_biolog_transfer_req_compl(struct mmc_host *mmc,
 		size = tsk->len;
 		tp->usage += busy_time;
 		tp->size += size;
-		mtk_btag_mictx_eval_tp(mmc_mtk_btag, write, busy_time,
+		mtk_btag_mictx_eval_tp(mmc_mtk_btag, 0, write, busy_time,
 				       size);
 	}
 
@@ -209,8 +209,9 @@ void mmc_mtk_biolog_transfer_req_compl(struct mmc_host *mmc,
 		ctx->q_depth = 0;
 	else
 		ctx->q_depth--;
-	mtk_btag_mictx_update(mmc_mtk_btag, ctx->q_depth, 0);
-	mtk_btag_mictx_accumulate_weight_qd(mmc_mtk_btag, tsk->t[tsk_send_cmd],
+	mtk_btag_mictx_update(mmc_mtk_btag, 0, ctx->q_depth, 0);
+	mtk_btag_mictx_accumulate_weight_qd(mmc_mtk_btag, 0,
+					    tsk->t[tsk_send_cmd],
 					    tsk->t[tsk_req_compl]);
 
 	/* clear this task */

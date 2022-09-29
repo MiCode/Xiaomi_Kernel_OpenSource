@@ -218,7 +218,7 @@ static void mtk_btag_pidlog_commit_bio(struct bio_vec *bvec, __u32 *total_len,
 	}
 }
 
-void mtk_btag_commit_req(struct request *rq, bool is_sd)
+void mtk_btag_commit_req(__u16 task_id, struct request *rq, bool is_sd)
 {
 	struct bio *bio = rq->bio;
 	struct bio_vec bvec;
@@ -248,7 +248,8 @@ void mtk_btag_commit_req(struct request *rq, bool is_sd)
 
 	write  = (bio_data_dir(bio) == WRITE) ? true : false;
 	if (type == BTAG_STORAGE_UFS)
-		mtk_btag_pidlog_add_ufs(write, total_len, top_len, &tmplog);
+		mtk_btag_pidlog_add_ufs(task_id, write, total_len, top_len,
+					&tmplog);
 	else if (type == BTAG_STORAGE_MMC)
 		mtk_btag_pidlog_add_mmc(is_sd, write, total_len, top_len,
 					&tmplog);
@@ -553,12 +554,15 @@ static size_t mtk_btag_seq_sub_show_usedmem(char **buff, unsigned long *size,
 		used_mem += size_l;
 	}
 
-	size_l = btag->mictx.count * sizeof(struct mtk_btag_mictx_struct);
+	size_l = btag->ctx.mictx.nr_list * (sizeof(struct mtk_btag_mictx) +
+			sizeof(struct mtk_btag_mictx_data) * btag->ctx.count);
 	SPREAD_PRINTF(buff, size, seq,
-		"%s mictx list: %d mictx * %zu = %zu bytes\n",
+		"%s mictx list: %d mictx * (%zu + %d * %zu) = %zu bytes\n",
 			btag->name,
-			btag->mictx.count,
-			sizeof(struct mtk_btag_mictx_struct),
+			btag->ctx.mictx.nr_list,
+			sizeof(struct mtk_btag_mictx),
+			btag->ctx.count,
+			sizeof(struct mtk_btag_mictx_data),
 			size_l);
 	used_mem += size_l;
 
@@ -830,12 +834,12 @@ struct mtk_blocktag *mtk_btag_alloc(const char *name,
 	if (IS_ERR(btag->dentry.dlog))
 		goto out;
 
-	mtk_btag_mictx_init(btag, vops);
-	mtk_btag_earaio_init_mictx(vops, storage_type, btag_proc_root);
+	mtk_btag_mictx_init(btag);
 out:
 	spin_lock_irqsave(&list_lock, flags);
 	list_add(&btag->list, &mtk_btag_list);
 	spin_unlock_irqrestore(&list_lock, flags);
+	mtk_btag_earaio_init_mictx(vops, storage_type, btag_proc_root);
 
 	return btag;
 }
@@ -849,7 +853,7 @@ void mtk_btag_free(struct mtk_blocktag *btag)
 
 	spin_lock_irqsave(&list_lock, flags);
 	list_del(&btag->list);
-	mtk_btag_mictx_free_btag(btag);
+	mtk_btag_mictx_free_all(btag);
 	spin_unlock_irqrestore(&list_lock, flags);
 
 	kfree(btag->ctx.priv);
