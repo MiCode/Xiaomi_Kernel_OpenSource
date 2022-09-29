@@ -72,7 +72,14 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 		case CMDQ_SYNC_TOKEN_ESD_EOF:
 		case CMDQ_SYNC_TOKEN_STREAM_BLOCK:
 		case CMDQ_SYNC_TOKEN_CABC_EOF:
+		case CMDQ_SYNC_TOKEN_CONFIG_DIRTY_1
+			... CMDQ_SYNC_TOKEN_CABC_EOF_1:
+		case CMDQ_SYNC_TOKEN_CONFIG_DIRTY_3
+			... CMDQ_SYNC_TOKEN_CABC_EOF_3:
 			return "DISP";
+		case CMDQ_SYNC_TOKEN_MML_BUFA
+			... CMDQ_SYNC_TOKEN_MML_PIPE1_NEXT:
+			return "MML";
 		default:
 			return "CMDQ";
 		}
@@ -145,11 +152,15 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 			... CMDQ_SYNC_TOKEN_IMGSYS_POOL_133:
 		case CMDQ_SYNC_TOKEN_IMGSYS_WPE_EIS
 			... CMDQ_SYNC_TOKEN_IPESYS_ME:
+		case CMDQ_SYNC_TOKEN_IMGSYS_VSS_TRAW
+			... CMDQ_SYNC_TOKEN_IMGSYS_VSS_DIP:
 		case CMDQ_SYNC_TOKEN_IMGSYS_POOL_134
 			... CMDQ_SYNC_TOKEN_IMGSYS_POOL_221:
 		case CMDQ_SYNC_TOKEN_IMGSYS_POOL_222
 			... CMDQ_SYNC_TOKEN_IMGSYS_POOL_250:
 			return "IMGSYS";
+		case CMDQ_SYNC_TOKEN_APUSYS_APU:
+			return "APUSYS_EDMA";
 		default:
 			return "CMDQ";
 		}
