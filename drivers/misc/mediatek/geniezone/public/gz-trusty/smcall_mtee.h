@@ -168,6 +168,8 @@
 			SMC_STDCALL_NR(SMC_ENTITY_MT_TRUSTED_OS, 0xFF80)
 #define MT_SMC_SC_GZ_VPU		\
 			SMC_STDCALL_NR(SMC_ENTITY_MT_TRUSTED_OS, 0xFF81)
+#define MT_SMC_SC_SAPU_DRAM_FB		\
+			SMC_STDCALL_NR(SMC_ENTITY_MT_TRUSTED_OS, 0xFF82)
 
 /*********************************************/
 /*** Reserve original secure monitor calls ***/

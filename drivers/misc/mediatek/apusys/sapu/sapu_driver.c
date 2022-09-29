@@ -10,6 +10,8 @@
 #include <linux/of_device.h>
 #include <linux/types.h>
 #include <linux/dma-direct.h>
+#include <linux/dma-heap.h>
+#include <uapi/linux/dma-heap.h>
 #include <linux/miscdevice.h>
 #include <linux/platform_device.h>
 #include <linux/fs.h>
@@ -137,6 +139,65 @@ static int sapu_lock_ipi_send(uint32_t lock, struct kref *ref_cnt)
 
 unlock_and_ret:
 	mutex_unlock(get_rpm_mtx());
+	return ret;
+}
+
+int apusys_pwr_switch(bool power_on, struct apusys_sapu_data *data)
+{
+	struct platform_device *pdev;
+	int ret = -EINVAL;
+
+	if (!data) {
+		pr_info("[%s] data is NULL, return fail\n", __func__);
+		return ret;
+	}
+
+	pdev = data->pdev;
+	/**
+	 * lock : ipi_send first, then smc to change state
+	 * unlock : smc to change state first, then ipi_send
+	 */
+	if (power_on) {
+		ret = sapu_lock_ipi_send(1, &data->lock_ref_cnt);
+		if (ret) {
+			pr_info("[%s]sapu_lock_ipi_send return(0x%x)\n",
+							__func__, ret);
+			return ret;
+		}
+
+		ret = trusty_std_call32(pdev->dev.parent,
+				MTEE_SMCNR(MT_SMCF_SC_VPU,
+				pdev->dev.parent),
+				0, 1, 0);
+		if (ret) {
+			pr_info("[%s]trusty_std_call32 fail(0x%x), reset the power lock\n",
+					__func__, ret);
+
+			ret = sapu_lock_ipi_send(0, &data->lock_ref_cnt);
+			if (ret) {
+				pr_info("[%s]sapu_lock_ipi_send return(0x%x), reset failed\n",
+						__func__, ret);
+			}
+			return ret;
+		}
+	} else {
+		ret = trusty_std_call32(pdev->dev.parent,
+				MTEE_SMCNR(MT_SMCF_SC_VPU,
+				pdev->dev.parent),
+				0, 0, 0);
+		if (ret) {
+			pr_info("[%s]trusty_std_call32 fail(0x%x)\n",
+				__func__, ret);
+			return ret;
+		}
+
+		ret = sapu_lock_ipi_send(0, &data->lock_ref_cnt);
+		if (ret) {
+			pr_info("[%s]sapu_lock_ipi_send return(0x%x)\n",
+				__func__, ret);
+			return ret;
+		}
+	}
 	return ret;
 }
 
@@ -290,53 +351,12 @@ datamem_dmabuf_put:
 			return ret;
 		}
 
-		pdev = data->pdev;
-
-		/**
-		 * lock : ipi_send first, then smc to change state
-		 * unlock : smc to change state first, then ipi_send
-		 */
 		if (ioPWRarg.lock > 0) {
-			ret = sapu_lock_ipi_send(1, &data->lock_ref_cnt);
-			if (ret) {
-				pr_info("[%s]sapu_lock_ipi_send return(0x%x)\n",
-								__func__, ret);
-				return ret;
-			}
-
-			ret = trusty_std_call32(pdev->dev.parent,
-					MTEE_SMCNR(MT_SMCF_SC_VPU,
-					pdev->dev.parent),
-					0, 1, 0);
-			if (ret) {
-				pr_info("[%s]trusty_std_call32 fail(0x%x), reset the power lock\n",
-					 __func__, ret);
-
-				ret = sapu_lock_ipi_send(0, &data->lock_ref_cnt);
-				if (ret) {
-					pr_info("[%s]sapu_lock_ipi_send return(0x%x), reset failed\n",
-						 __func__, ret);
-				}
-				return ret;
-			}
+			ret = apusys_pwr_switch(true, data);
 		} else {
-			ret = trusty_std_call32(pdev->dev.parent,
-					MTEE_SMCNR(MT_SMCF_SC_VPU,
-					pdev->dev.parent),
-					0, 0, 0);
-			if (ret) {
-				pr_info("[%s]trusty_std_call32 fail(0x%x)\n",
-					__func__, ret);
-				return ret;
-			}
-
-			ret = sapu_lock_ipi_send(0, &data->lock_ref_cnt);
-			if (ret) {
-				pr_info("[%s]sapu_lock_ipi_send return(0x%x)\n",
-					__func__, ret);
-				return ret;
-			}
+			ret = apusys_pwr_switch(false, data);
 		}
+
 	break;
 
 	default:
