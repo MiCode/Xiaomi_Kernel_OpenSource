@@ -10,11 +10,9 @@
 
 /* Be available to print in userdebug and eng load */
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
-#define pr_usrdebug(fmt, ...) pr_notice(fmt)
-
+#define pr_usrdebug(fmt, ...) pr_notice(fmt, __VA_ARGS__)
 #else
-#define pr_usrdebug(fmt, ...) no_printk(fmt)
-
+#define pr_usrdebug(fmt, ...) no_printk(fmt, __VA_ARGS__)
 #endif
 
 #define SCP_MBOX_TOTAL 5
