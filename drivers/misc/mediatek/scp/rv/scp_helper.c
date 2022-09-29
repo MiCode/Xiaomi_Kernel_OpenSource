@@ -1106,10 +1106,21 @@ static ssize_t wdt_reset_store(struct device *dev
 		, struct device_attribute *attr, const char *buf, size_t count)
 {
 	unsigned int value = 0;
+	int ret;
+	struct scpctl_cmd_s cmd;
+	char *prompt = "[SCPCTL]:";
 
 	if (!buf || count == 0)
 		return count;
 	pr_notice("[SCP] %s: %8s\n", __func__, buf);
+	cmd.type = SCPCTL_DEBUG_LOGIN;
+	cmd.op = SCP_DEBUG_MAGIC_PATTERN;
+	ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_SCPCTL_1, 0, &cmd,
+			PIN_OUT_SIZE_SCPCTL_1, 0);
+	if (ret != IPI_ACTION_DONE)
+		pr_notice("%s failed, %d\n", prompt, ret);
+	mdelay(10);
+
 	if (kstrtouint(buf, 10, &value) == 0) {
 		if (value == 666)
 			scp_wdt_reset(0);

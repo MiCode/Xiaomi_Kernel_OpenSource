@@ -31,7 +31,8 @@
 /* scp dvfs return status flag */
 #define SET_PLL_FAIL		(1)
 #define SET_PMIC_VOLT_FAIL	(2)
-
+#define SCPCTL_DEBUG_LOGIN	(0x2)
+#define SCP_DEBUG_MAGIC_PATTERN (0x05515521)
 #define mt_reg_sync_writel(v, a) \
 	do {    \
 		__raw_writel((v), (void __force __iomem *)((a)));   \
