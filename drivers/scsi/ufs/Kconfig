@@ -138,6 +138,8 @@ config SCSI_UFS_MEDIATEK_DBG
 
 	  If unsure, say N.
 
+source "drivers/scsi/ufs/vendor/Kconfig"
+
 config SCSI_UFS_HISI
 	tristate "Hisilicon specific hooks to UFS controller platform driver"
 	depends on (ARCH_HISI || COMPILE_TEST) && SCSI_UFSHCD_PLATFORM

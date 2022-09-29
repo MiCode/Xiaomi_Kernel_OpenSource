@@ -1,3 +1,4 @@
+
 config UFSFEATURE
 	bool "UFS feature activate"
 	depends on SCSI_UFSHCD
@@ -72,7 +73,7 @@ config UFSHID_DEBUG
 	depends on SCSI_UFSHCD && UFSFEATURE && UFSHID
 	default n
 	help
-	UFS HID Debug Enable (for check io stat during trigger)
+	  UFS HID Debug Enable (for check io stat during trigger)
 
 config UFSRINGBUF
 	bool "UFS RingBuffer support"
@@ -87,3 +88,9 @@ config UFSRINGBUF_POC
 	  UFS RingBuffer POC test
 	  1. set default vendor_signature & vendor_parameter for test
 	  2. Set custom vender_parameter
+
+config UFS_MEDIATEK_INTERNAL
+	bool "Mediatek UFS Internal Features"
+	help
+	  UFS features or code block that is kept available internally
+	  and should not be upstreamed.

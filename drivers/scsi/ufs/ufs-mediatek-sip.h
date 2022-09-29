@@ -20,7 +20,8 @@
 #define UFS_MTK_SIP_GET_VCC_NUM           BIT(6)
 #define UFS_MTK_SIP_DEVICE_PWR_CTRL       BIT(7)
 
-enum SIP_HOST_PWR_OPT {
+/* UFS_MTK_SIP_HOST_PWR_CTRL options */
+enum sip_host_pwr_opt {
 	HOST_PWR_HCI,
 	HOST_PWR_MPHY
 };
@@ -50,7 +51,8 @@ struct ufs_mtk_smc_arg {
 	unsigned long v7;
 };
 
-static void _ufs_mtk_smc(struct ufs_mtk_smc_arg s)
+
+static inline void _ufs_mtk_smc(struct ufs_mtk_smc_arg s)
 {
 	arm_smccc_smc(MTK_SIP_UFS_CONTROL,
 		s.cmd,

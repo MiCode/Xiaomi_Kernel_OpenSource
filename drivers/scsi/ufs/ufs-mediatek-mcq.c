@@ -14,6 +14,7 @@
 #include "ufshcd.h"
 #include "ufshcd-crypto.h"
 #include "ufs-mediatek.h"
+#include "ufs-mediatek-sip.h"
 
 #include <trace/hooks/ufshcd.h>
 
@@ -1046,12 +1047,29 @@ void ufs_mtk_mcq_host_dts(struct ufs_hba *hba)
 {
 	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
 	struct device_node *np = hba->dev->of_node;
+#if IS_ENABLED(CONFIG_UFS_MEDIATEK_INTERNAL)
+	struct tag_chipid *chipid;
+	unsigned int val;
+#endif
 	int i;
 
 	if (of_property_read_bool(np, "mediatek,ufs-mcq-enabled"))
 		hba_priv->is_mcq_enabled = true;
 	else
 		hba_priv->is_mcq_enabled = false;
+
+#if IS_ENABLED(CONFIG_UFS_MEDIATEK_INTERNAL)
+	/* Get chip id from bootmode */
+	chipid = (struct tag_chipid *)ufs_mtk_get_boot_property(np,
+								"atag,chipid", NULL);
+	if (chipid && !of_property_read_u32(np, "mediatek,ufs-mcq-disable-on-hwver", &val)) {
+		dev_dbg(hba->dev, "%s: hwver=0x%x\n", __func__, chipid->hw_ver);
+		if (chipid->hw_ver == val) {
+			hba_priv->is_mcq_enabled = false;
+			dev_info(hba->dev, "mcq disabled");
+		}
+	}
+#endif
 
 	if (hba_priv->is_mcq_enabled) {
 		hba_priv->mcq_nr_hw_queue = 1;

@@ -8,6 +8,7 @@
 
 #include <linux/bitops.h>
 #include <linux/pm_qos.h>
+#include <linux/of_device.h>
 
 #include "ufs.h"
 #include "ufshci.h"
@@ -172,6 +173,16 @@ struct ufs_mtk_hw_ver {
 	u8 minor;
 	u8 major;
 };
+
+#if IS_ENABLED(CONFIG_UFS_MEDIATEK_INTERNAL)
+struct tag_chipid {
+	u32 size;
+	u32 hw_code;
+	u32 hw_subcode;
+	u32 hw_ver;
+	u32 sw_ver;
+};
+#endif
 
 struct ufs_mtk_host {
 	struct phy *mphy;
@@ -440,4 +451,16 @@ static inline struct ufsf_feature *ufs_mtk_get_ufsf(struct ufs_hba *hba)
 	return &host->ufsf;
 }
 #endif
+
+static inline const void *ufs_mtk_get_boot_property(struct device_node *np,
+	const char *name, int *lenp)
+{
+	struct device_node *boot_node = NULL;
+
+	boot_node = of_parse_phandle(np, "bootmode", 0);
+	if (!boot_node)
+		return NULL;
+	return of_get_property(boot_node, name, lenp);
+}
+
 #endif /* !_UFS_MEDIATEK_H */

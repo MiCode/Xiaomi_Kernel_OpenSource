@@ -12,7 +12,10 @@
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/pm.h>
+#include <linux/pm_domain.h>
+
 #include <ufs-mediatek-sip.h>
+#include <ufs-mediatek.h>
 
 #define UFSPHY_CLKS_CNT    2
 
@@ -240,14 +243,45 @@ out:
 	return 0;
 }
 
+static int ufs_mtk_phy_init(struct ufs_mtk_phy *phy)
+{
+	struct device *dev = phy->dev;
+	u32 val = 0;
+	int ret;
+
+#if IS_ENABLED(CONFIG_UFS_MEDIATEK_INTERNAL)
+	struct tag_chipid *chipid;
+	/* Get chip id from bootmode */
+	chipid = (struct tag_chipid *)ufs_mtk_get_boot_property(dev->of_node,
+								"atag,chipid", NULL);
+
+	ret = of_property_read_u32(dev->of_node, "mediatek,pm-forbidden-on-hwver", &val);
+	if (!ret && chipid) {
+		if (chipid->hw_ver == val) {
+			pm_runtime_forbid(dev);
+			dev_info(dev, "pm forbidden");
+		}
+	}
+#endif
+
+	ret = of_property_read_u32(dev->of_node, "mphy-ver", &val);
+	if (!ret)
+		phy->ver = val;
+
+	if (!phy->ver)
+		ufs_mtk_phy_clk_init(phy);
+
+	return 0;
+}
+
+
 static int ufs_mtk_phy_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct phy *generic_phy;
 	struct phy_provider *phy_provider;
 	struct ufs_mtk_phy *phy;
-	u32 ver = 0;
-	int ret;
+	int ret = 0;
 
 	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
 	if (!phy)
@@ -259,12 +293,9 @@ static int ufs_mtk_phy_probe(struct platform_device *pdev)
 
 	phy->dev = dev;
 
-	ret = of_property_read_u32(dev->of_node, "mphy-ver", &ver);
-	if (!ret)
-		phy->ver = ver;
-
-	if (!phy->ver)
-		ufs_mtk_phy_clk_init(phy);
+	ret = ufs_mtk_phy_init(phy);
+	if (ret)
+		return ret;
 
 	generic_phy = devm_phy_create(dev, NULL, &ufs_mtk_phy_ops);
 	if (IS_ERR(generic_phy))
