@@ -16600,6 +16600,9 @@ void ovlsys_config_dump_reg_mt6985(void __iomem *config_regs)
 	for (off = 0x200; off <= 0x230; off += 0x10)
 		mtk_serial_dump_reg(config_regs, off, 4);
 
+	for (off = 0x280; off <= 0x2E0; off += 0x10)
+		mtk_serial_dump_reg(config_regs, off, 4);
+
 	for (off = 0x300; off <= 0x308; off += 0x10)
 		mtk_serial_dump_reg(config_regs, off, 3);
 
@@ -16628,6 +16631,9 @@ void mmsys_config_dump_reg_mt6985(void __iomem *config_regs)
 	for (off = 0x0; off <= 0x40; off += 0x10)
 		mtk_serial_dump_reg(config_regs, off, 4);
 
+	for (off = 0x50; off <= 0x60; off += 0x10)
+		mtk_serial_dump_reg(config_regs, off, 4);
+
 	for (off = 0xF0; off <= 0x190; off += 0x10)
 		mtk_serial_dump_reg(config_regs, off, 4);
 
@@ -16636,6 +16642,9 @@ void mmsys_config_dump_reg_mt6985(void __iomem *config_regs)
 
 	for (off = 0x200; off <= 0x230; off += 0x10)
 		mtk_serial_dump_reg(config_regs, off, 4);
+
+	for (off = 0x280; off <= 0x2D0; off += 0x10)
+		mtk_serial_dump_reg(config_regs, off, 3);
 
 	for (off = 0x300; off <= 0x308; off += 0x10)
 		mtk_serial_dump_reg(config_regs, off, 3);

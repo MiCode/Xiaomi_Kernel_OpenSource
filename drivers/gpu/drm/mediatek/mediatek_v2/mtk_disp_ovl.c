@@ -4067,7 +4067,10 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 		}
 
 		mtk_serial_dump_reg(baddr, 0x200, 4);
+		/* debug monitor */
 		mtk_serial_dump_reg(baddr, 0x230, 4);
+		mtk_serial_dump_reg(baddr, 0x240, 4);
+		mtk_serial_dump_reg(baddr, 0x250, 4);
 		/* LC_CON */
 		mtk_serial_dump_reg(baddr, 0x280, 4);
 
