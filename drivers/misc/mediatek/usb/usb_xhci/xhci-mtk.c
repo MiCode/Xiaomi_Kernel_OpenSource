@@ -930,8 +930,6 @@ static int __maybe_unused xhci_mtk_suspend(struct device *dev)
 		return 0;
 	}
 
-	synchronize_irq(hcd->irq);
-
 	xhci_dbg(xhci, "%s: stop port polling\n", __func__);
 	clear_bit(HCD_FLAG_POLL_RH, &hcd->flags);
 	del_timer_sync(&hcd->rh_timer);
@@ -941,6 +939,8 @@ static int __maybe_unused xhci_mtk_suspend(struct device *dev)
 	ret = xhci_mtk_host_disable(mtk);
 	if (ret)
 		goto restart_poll_rh;
+
+	synchronize_irq(hcd->irq);
 
 	if (!mtk->keep_clk_on)
 		clk_bulk_disable_unprepare(BULK_CLKS_NUM, mtk->clks);
