@@ -1718,7 +1718,7 @@ static void xgff_reset_render(struct xgff_frame *iter)
 	}
 
 	hlist_del(&iter->hlist);
-	xgf_free(iter, XGFF_FRAME);
+	xgf_free(iter, NATIVE_ALLOC);
 }
 
 void xgf_reset_all_renders(void)
@@ -2384,7 +2384,7 @@ static int xgff_new_frame(pid_t tID, unsigned long long bufID,
 	struct xgf_render *xriter;
 	struct task_struct *tsk;
 
-	iter = xgf_alloc(sizeof(*iter), XGFF_FRAME);
+	iter = xgf_alloc(sizeof(*iter), NATIVE_ALLOC);
 
 	if (!iter)
 		return -ENOMEM;
@@ -2396,7 +2396,7 @@ static int xgff_new_frame(pid_t tID, unsigned long long bufID,
 	rcu_read_unlock();
 
 	if (!tsk) {
-		xgf_free(iter, XGFF_FRAME);
+		xgf_free(iter, NATIVE_ALLOC);
 		return -EINVAL;
 	}
 
@@ -2710,7 +2710,7 @@ static int _xgff_frame_end(
 	xgf_clean_deps_list(&r->xgfrender, PREVI_DEPS);
 	xgf_render_dep_reset(&r->xgfrender);
 
-	xgf_free(r, XGFF_FRAME);
+	xgf_free(r, NATIVE_ALLOC);
 
 qudeq_notify_err:
 	xgf_trace("[XGFF] non_xgf_ret: %d at rpid:%d, runtime:%llu", ret, tid, raw_runtime);
