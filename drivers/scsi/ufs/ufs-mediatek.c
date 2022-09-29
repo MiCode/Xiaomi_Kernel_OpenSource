@@ -1727,6 +1727,63 @@ static void ufs_mtk_vreg_fix_vccqx(struct ufs_hba *hba)
 	}
 }
 
+static void ufs_mtk_setup_clk_gating(struct ufs_hba *hba)
+{
+	unsigned long flags;
+	u32 ah_ms = 10;
+	u32 ah_scale, ah_timer;
+	u32 scale_us[] = {1, 10, 100, 1000, 10000, 100000};
+
+	if (ufshcd_is_clkgating_allowed(hba)) {
+		if (ufshcd_is_auto_hibern8_supported(hba) && hba->ahit) {
+			ah_scale = FIELD_GET(UFSHCI_AHIBERN8_SCALE_MASK,
+					  hba->ahit);
+			ah_timer = FIELD_GET(UFSHCI_AHIBERN8_TIMER_MASK,
+					  hba->ahit);
+			if (ah_scale <= 5)
+				ah_ms = ah_timer * scale_us[ah_scale] / 1000;
+		}
+
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		hba->clk_gating.delay_ms = max(ah_ms, 10U);
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+	}
+}
+
+static void ufs_mtk_fix_ahit(struct ufs_hba *hba)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+
+	if (ufshcd_is_auto_hibern8_supported(hba)) {
+		switch (hba->dev_info.wmanufacturerid) {
+		case UFS_VENDOR_SAMSUNG:
+			/* configure auto-hibern8 timer to 3.5 ms */
+			host->desired_ahit =
+				FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 35) |
+				FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 2);
+			break;
+
+		case UFS_VENDOR_MICRON:
+			/* configure auto-hibern8 timer to 2 ms */
+			host->desired_ahit =
+				FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 2) |
+				FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 3);
+			break;
+
+		default:
+			/* configure auto-hibern8 timer to 500 us */
+			host->desired_ahit =
+				FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 5) |
+				FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 2);
+			break;
+		}
+
+		hba->ahit = host->desired_ahit;
+	}
+
+	ufs_mtk_setup_clk_gating(hba);
+}
+
 /**
  * ufs_mtk_init - find other essential mmio bases
  * @hba: host controller instance
@@ -2040,37 +2097,10 @@ static int ufs_mtk_pre_link(struct ufs_hba *hba)
 	return ret;
 }
 
-static void ufs_mtk_setup_clk_gating(struct ufs_hba *hba)
-{
-	unsigned long flags;
-	u32 ah_ms;
-
-	if (ufshcd_is_clkgating_allowed(hba)) {
-		if (ufshcd_is_auto_hibern8_supported(hba) && hba->ahit)
-			ah_ms = FIELD_GET(UFSHCI_AHIBERN8_TIMER_MASK,
-					  hba->ahit);
-		else
-			ah_ms = 10;
-		spin_lock_irqsave(hba->host->host_lock, flags);
-		hba->clk_gating.delay_ms = ah_ms + 5;
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
-	}
-}
-
 static int ufs_mtk_post_link(struct ufs_hba *hba)
 {
-	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	/* enable unipro clock gating feature */
 	ufs_mtk_cfg_unipro_cg(hba, true);
-
-	/* configure auto-hibern8 timer to 500 us */
-	if (ufshcd_is_auto_hibern8_supported(hba)) {
-		host->desired_ahit = FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 5) |
-			    FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 2);
-		hba->ahit = host->desired_ahit;
-	}
-
-	ufs_mtk_setup_clk_gating(hba);
 
 	return 0;
 }
@@ -2428,6 +2458,7 @@ static void ufs_mtk_fixup_dev_quirks(struct ufs_hba *hba)
 
 	ufs_mtk_vreg_fix_vcc(hba);
 	ufs_mtk_vreg_fix_vccqx(hba);
+	ufs_mtk_fix_ahit(hba);
 
 	ufs_mtk_install_tracepoints(hba);
 
@@ -2550,19 +2581,21 @@ static void ufs_mtk_clk_scale(struct ufs_hba *hba, bool scale_up)
 	struct ufs_clk_info *clki = mclk->ufs_sel_clki;
 	int ret = 0;
 	int ver;
-	u32 ahit;
+	/* u32 ahit; */
 	static bool skip_switch;
 
 	if (host->clk_scale_up == scale_up)
 		goto out;
 
 	/* set longer ah8 timer when scale up */
+	/*
 	if (scale_up)
 		ahit = FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 5) |
 				FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, 3);
 	else
 		ahit = host->desired_ahit;
 	ufshcd_auto_hibern8_update(hba, ahit);
+	*/
 
 	if (skip_switch)
 		goto skip;
