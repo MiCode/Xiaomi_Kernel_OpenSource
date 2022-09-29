@@ -640,7 +640,7 @@ void mtk_vdec_unprepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long 
 {
 	struct vcodec_inst *inst = 0;
 
-	if (!ctx)
+	if (ctx == NULL)
 		return;
 
 	inst = get_inst(ctx);
