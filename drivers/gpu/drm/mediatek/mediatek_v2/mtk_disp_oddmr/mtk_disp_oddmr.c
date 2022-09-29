@@ -199,8 +199,12 @@
 #define DISP_ODDMR_HRT_CTR (0x003C + DISP_ODDMR_REG_SMI_BASE)
 #define REG_HR0_RE_ULTRA_MODE REG_FLD_MSB_LSB(3, 0)
 #define REG_HR0_POACH_CFG_OFF REG_FLD_MSB_LSB(4, 4)
+#define REG_HR0_PREULTRA_RE_ULTRA_MASK REG_FLD_MSB_LSB(6, 6)
+#define REG_HR0_ULTRA_RE_MASK REG_FLD_MSB_LSB(7, 7)
 #define REG_HR1_RE_ULTRA_MODE REG_FLD_MSB_LSB(11, 8)
 #define REG_HR1_POACH_CFG_OFF REG_FLD_MSB_LSB(12, 12)
+#define REG_HR1_PREULTRA_RE_ULTRA_MASK REG_FLD_MSB_LSB(14, 14)
+#define REG_HR1_ULTRA_RE_MASK REG_FLD_MSB_LSB(15, 15)
 #define DISP_ODDMR_REG_HR0_PREULTRA_RE_IN_THR_0 (0x0040 + DISP_ODDMR_REG_SMI_BASE)//12 0
 #define DISP_ODDMR_REG_HR0_PREULTRA_RE_IN_THR_1 (0x0044 + DISP_ODDMR_REG_SMI_BASE)//12 0
 #define DISP_ODDMR_REG_HR0_PREULTRA_RE_OUT_THR_0 (0x0048 + DISP_ODDMR_REG_SMI_BASE)//12 0
@@ -576,45 +580,36 @@ static void mtk_oddmr_set_pq(struct mtk_ddp_comp *comp,
 	}
 }
 
-static void mtk_oddmr_set_crop(struct mtk_ddp_comp *comp,
-		struct cmdq_pkt *pkg, uint32_t width, uint32_t height, uint32_t tile_overhead)
+static void mtk_oddmr_set_crop(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg)
 {
+	struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
+	uint32_t tile_overhead, comp_width, height;
 	uint32_t reg_value, reg_mask, win_lr = 0;
 
-	ODDMRAPI_LOG("+\n");
 	reg_value = 0;
 	reg_mask = 0;
-	if (comp->id == DDP_COMPONENT_ODDMR1)
+	tile_overhead = oddmr_priv->cfg.comp_overhead;
+	comp_width = oddmr_priv->cfg.comp_in_width;
+	height = oddmr_priv->cfg.height;
+	if (oddmr_priv->is_right_pipe)
 		win_lr = 1;
+	ODDMRAPI_LOG("comp_width %u tile_overhead %u win_lr %u+\n",
+		comp_width, tile_overhead, win_lr);
 	SET_VAL_MASK(reg_value, reg_mask, win_lr, REG_WINDOW_LR);
 	SET_VAL_MASK(reg_value, reg_mask, tile_overhead, REG_GUARD_BAND_PIXEL);
 	mtk_oddmr_write(comp, reg_value, DISP_ODDMR_CRP_CTR_2, pkg);
-	mtk_oddmr_write(comp, width/2, DISP_ODDMR_CRP_CTR_0, pkg);
+	//actual width
+	mtk_oddmr_write(comp, comp_width - tile_overhead, DISP_ODDMR_CRP_CTR_0, pkg);
 	mtk_oddmr_write(comp, height, DISP_ODDMR_CRP_CTR_1, pkg);
 	mtk_oddmr_write(comp, 0, DISP_ODDMR_TOP_CRP_BYPSS, pkg);
 }
 
-static void mtk_oddmr_set_crop_dual(struct cmdq_pkt *pkg,
-		uint32_t width, uint32_t height, uint32_t tile_overhead)
+static void mtk_oddmr_set_crop_dual(struct cmdq_pkt *pkg)
 {
-	uint32_t reg_value, reg_mask;
-
 	ODDMRAPI_LOG("+\n");
 	if (default_comp->mtk_crtc->is_dual_pipe) {
-		reg_value = 0;
-		reg_mask = 0;
-		mtk_oddmr_write(default_comp, width/2, DISP_ODDMR_CRP_CTR_0, pkg);
-		mtk_oddmr_write(default_comp, height, DISP_ODDMR_CRP_CTR_1, pkg);
-		SET_VAL_MASK(reg_value, reg_mask, 0, REG_WINDOW_LR);
-		SET_VAL_MASK(reg_value, reg_mask, tile_overhead, REG_GUARD_BAND_PIXEL);
-		mtk_oddmr_write(default_comp, reg_value, DISP_ODDMR_CRP_CTR_2, pkg);
-		mtk_oddmr_write(default_comp, 0, DISP_ODDMR_TOP_CRP_BYPSS, pkg);
-		mtk_oddmr_write(oddmr1_default_comp, width/2, DISP_ODDMR_CRP_CTR_0, pkg);
-		mtk_oddmr_write(oddmr1_default_comp, height, DISP_ODDMR_CRP_CTR_1, pkg);
-		SET_VAL_MASK(reg_value, reg_mask, 1, REG_WINDOW_LR);
-		SET_VAL_MASK(reg_value, reg_mask, tile_overhead, REG_GUARD_BAND_PIXEL);
-		mtk_oddmr_write(oddmr1_default_comp, reg_value, DISP_ODDMR_CRP_CTR_2, pkg);
-		mtk_oddmr_write(oddmr1_default_comp, 0, DISP_ODDMR_TOP_CRP_BYPSS, pkg);
+		mtk_oddmr_set_crop(default_comp, pkg);
+		mtk_oddmr_set_crop(oddmr1_default_comp, pkg);
 	} else
 		mtk_oddmr_write(default_comp, 1, DISP_ODDMR_TOP_CRP_BYPSS, pkg);
 }
@@ -712,19 +707,15 @@ static void mtk_oddmr_od_common_init(struct mtk_ddp_comp *comp, struct cmdq_pkt 
 	mtk_oddmr_set_pq(comp, pkg, &g_od_param.od_basic_info.basic_pq);
 }
 
-static void mtk_oddmr_od_hsk(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg,
-	uint32_t width, uint32_t height)
+static void mtk_oddmr_od_hsk(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg)
 {
-	uint32_t comp_width, tile_overhead = 0, dualpipe_divisor = 1;
+	uint32_t height, comp_width, tile_overhead = 0;
 	struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
 
 	if ((oddmr_priv != NULL) && (oddmr_priv->data != NULL) && comp->mtk_crtc->is_dual_pipe)
-		tile_overhead = oddmr_priv->data->tile_overhead;
-	if (comp->mtk_crtc->is_dual_pipe)
-		dualpipe_divisor = 2;
-	else
-		dualpipe_divisor = 1;
-	comp_width = width / dualpipe_divisor + tile_overhead;
+		tile_overhead = oddmr_priv->cfg.comp_overhead;
+	comp_width = oddmr_priv->cfg.comp_in_width;
+	height = oddmr_priv->cfg.height;
 
 	mtk_oddmr_write(comp, comp_width, DISP_ODDMR_OD_HSK_0, pkg);
 	mtk_oddmr_write(comp, height, DISP_ODDMR_OD_HSK_1, pkg);
@@ -736,23 +727,23 @@ static void mtk_oddmr_od_hsk(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg,
 			DISP_ODDMR_OD_HSK_4, pkg);
 }
 
-static void mtk_oddmr_od_set_res(struct mtk_ddp_comp *comp,
-	struct cmdq_pkt *pkg, uint32_t width, uint32_t height)
+static void mtk_oddmr_od_set_res(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg)
 {
-	uint32_t tile_overhead, hscaling, comp_width, dualpipe_divisor = 1;
 	struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
+	uint32_t tile_overhead, scaling_mode, hscaling, h_2x4x_sel, comp_width, width, height;
 
 	tile_overhead = 0;
 	if ((oddmr_priv != NULL) && (oddmr_priv->data != NULL) && comp->mtk_crtc->is_dual_pipe)
-		tile_overhead = oddmr_priv->data->tile_overhead;
-	hscaling = (g_od_param.od_basic_info.basic_param.scaling_mode & BIT(0)) > 0 ? 2 : 1;
-	if (comp->mtk_crtc->is_dual_pipe)
-		dualpipe_divisor = 2;
-	else
-		dualpipe_divisor = 1;
-	comp_width = width / dualpipe_divisor + tile_overhead;
-	ODDMRAPI_LOG("width %u height %u tileoverhead %u hscaling %u dual_div %u comp_w %u+\n",
-		width, height, tile_overhead, hscaling, dualpipe_divisor, comp_width);
+		tile_overhead = oddmr_priv->cfg.comp_overhead;
+	scaling_mode = g_od_param.od_basic_info.basic_param.scaling_mode;
+	hscaling = (scaling_mode & BIT(0)) > 0 ? 2 : 1;
+	h_2x4x_sel = (scaling_mode & BIT(2)) > 0 ? 2 : 1;
+	hscaling = hscaling * h_2x4x_sel;
+	comp_width = oddmr_priv->cfg.comp_in_width;
+	width = oddmr_priv->cfg.width;
+	height = oddmr_priv->cfg.height;
+	ODDMRAPI_LOG("w %u, h %u, tileoverhead %u hscaling %u comp_w %u+\n",
+		width, height, tile_overhead, hscaling, comp_width);
 	mtk_oddmr_write(comp, 0, DISP_ODDMR_OD_UMDA_CTRL_0, pkg);
 	mtk_oddmr_write(comp, comp_width / hscaling, DISP_ODDMR_OD_UMDA_CTRL_1, pkg);
 	mtk_oddmr_write(comp, comp_width, DISP_ODDMR_OD_UMDA_CTRL_2, pkg);
@@ -766,8 +757,7 @@ static void mtk_oddmr_od_init_end(struct mtk_ddp_comp *comp, struct cmdq_pkt *ha
 	mtk_oddmr_write(comp, 0, DISP_ODDMR_OD_SW_RESET, handle);
 	mtk_oddmr_od_udma_init(comp, handle);
 	//force clk off
-	mtk_oddmr_od_hsk(comp, handle, g_oddmr_current_timing.hdisplay,
-		g_oddmr_current_timing.vdisplay);
+	mtk_oddmr_od_hsk(comp, handle);
 	//bypass off
 	mtk_oddmr_write(comp, 0,
 			DISP_ODDMR_TOP_OD_BYASS, handle);
@@ -775,6 +765,25 @@ static void mtk_oddmr_od_init_end(struct mtk_ddp_comp *comp, struct cmdq_pkt *ha
 			DISP_ODDMR_TOP_HRT0_BYPASS, handle);
 }
 
+static void mtk_oddmr_fill_cfg(struct mtk_ddp_comp *comp, struct mtk_ddp_config *cfg)
+{
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
+
+	oddmr_priv->cfg.width = cfg->w;
+	oddmr_priv->cfg.height = cfg->h;
+	//if (!cfg->tile_overhead.is_support) {
+	if (mtk_crtc->is_dual_pipe) {
+		oddmr_priv->cfg.comp_in_width = cfg->w / 2;
+		oddmr_priv->cfg.comp_overhead = 0;
+		oddmr_priv->cfg.total_overhead = 0;
+	} else {
+		oddmr_priv->cfg.comp_in_width = cfg->w;
+		oddmr_priv->cfg.comp_overhead = 0;
+		oddmr_priv->cfg.total_overhead = 0;
+	}
+	//}
+}
 static bool mtk_oddmr_drm_mode_to_oddmr_timg(struct mtk_drm_crtc *mtk_crtc,
 		struct mtk_oddmr_timing *oddmr_mode)
 {
@@ -873,10 +882,12 @@ static int mtk_oddmr_od_bpp(int mode)
 	int bits, ret = 100;
 	uint32_t scaling_mode =
 		g_od_param.od_basic_info.basic_param.scaling_mode;
-	int hscaling, vscaling;
+	int hscaling, h_2x4x_sel, vscaling;
 
 	hscaling = (scaling_mode & BIT(0)) > 0 ? 2 : 1;
 	vscaling = (scaling_mode & BIT(1)) > 0 ? 2 : 1;
+	h_2x4x_sel = (scaling_mode & BIT(2)) > 0 ? 2 : 1;
+	hscaling = hscaling * h_2x4x_sel;
 	switch (mode) {
 	case OD_MODE_TYPE_RGB444:
 	case OD_MODE_TYPE_COMPRESS_12:
@@ -904,19 +915,21 @@ static int mtk_oddmr_od_bpp(int mode)
 	return ret;
 }
 
-static void mtk_oddmr_set_spr2rgb(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg,
-	u16 width, uint32_t overhead)
+static void mtk_oddmr_set_spr2rgb(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg)
 {
 	uint32_t mask_2x2 = 0, spr_mask[6] = {0}, x_init = 0, spr_format = 0;
 	struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
 	bool is_right_pipe = false;
+	uint32_t overhead, comp_width, width;
 
 	if (oddmr_priv->spr_enable == 0 || oddmr_priv->spr_relay == 1)
 		return;
 	ODDMRAPI_LOG("+\n");
-	if (comp->id == DDP_COMPONENT_ODDMR1)
-		is_right_pipe = true;
+	is_right_pipe = oddmr_priv->is_right_pipe;
 	spr_format = oddmr_priv->spr_format;
+	overhead = oddmr_priv->cfg.comp_overhead;
+	comp_width = oddmr_priv->cfg.comp_in_width;
+	width = oddmr_priv->cfg.width;
 	switch (spr_format) {
 	case MTK_PANEL_RGBG_BGRG_TYPE:
 		mask_2x2 = 1;
@@ -983,13 +996,13 @@ static void mtk_oddmr_set_spr2rgb(struct mtk_ddp_comp *comp, struct cmdq_pkt *pk
 	mtk_oddmr_write(comp, spr_mask[4], DISP_ODDMR_REG_SPR_MASK_4, pkg);
 	mtk_oddmr_write(comp, spr_mask[5], DISP_ODDMR_REG_SPR_MASK_5, pkg);
 	if (is_right_pipe) {
-		mtk_oddmr_write(comp, width / 2 + overhead, DISP_ODDMR_REG_SPR_PANEL_WIDTH, pkg);
-		x_init = width / 2 - overhead;
+		//start idx of right pipe
+		x_init = width - comp_width;
 		x_init = mask_2x2 ? x_init % 2 : x_init % 3;
 	}
 	mtk_oddmr_write(comp, x_init, DISP_ODDMR_REG_SPR_X_INIT, pkg);
 	if (comp->mtk_crtc->is_dual_pipe)
-		mtk_oddmr_write(comp, width / 2 + overhead, DISP_ODDMR_REG_SPR_PANEL_WIDTH, pkg);
+		mtk_oddmr_write(comp, comp_width, DISP_ODDMR_REG_SPR_PANEL_WIDTH, pkg);
 	else
 		mtk_oddmr_write(comp, width, DISP_ODDMR_REG_SPR_PANEL_WIDTH, pkg);
 	mtk_oddmr_write(comp, 1, DISP_ODDMR_REG_SPR_COMP_EN, pkg);
@@ -998,16 +1011,11 @@ static void mtk_oddmr_set_spr2rgb(struct mtk_ddp_comp *comp, struct cmdq_pkt *pk
 
 static void mtk_oddmr_set_spr2rgb_dual(struct cmdq_pkt *pkg)
 {
-	u16 hdisplay;
-	uint32_t overhead;
-
 	if (g_oddmr_priv->spr_enable == 0 || g_oddmr_priv->spr_relay == 1)
 		return;
-	hdisplay = g_oddmr_current_timing.hdisplay;
-	overhead = g_oddmr_priv->data->tile_overhead;
-	mtk_oddmr_set_spr2rgb(default_comp, pkg, hdisplay, overhead);
+	mtk_oddmr_set_spr2rgb(default_comp, pkg);
 	if (default_comp->mtk_crtc->is_dual_pipe)
-		mtk_oddmr_set_spr2rgb(oddmr1_default_comp, pkg, hdisplay, overhead);
+		mtk_oddmr_set_spr2rgb(oddmr1_default_comp, pkg);
 }
 
 static void mtk_oddmr_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
@@ -1040,13 +1048,8 @@ static void mtk_oddmr_od_clk_en(struct mtk_ddp_comp *comp, struct cmdq_pkt *hand
 static void mtk_oddmr_od_prepare(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
 	struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
-	u16 hdisplay, vdisplay;
-	uint32_t overhead;
 
-	hdisplay = g_oddmr_current_timing.hdisplay;
-	vdisplay = g_oddmr_current_timing.vdisplay;
-	overhead = oddmr_priv->data->tile_overhead;
-	ODDMRFLOW_LOG(" %ux%u,%u %s+\n", hdisplay, vdisplay, overhead, mtk_dump_comp_str(comp));
+	ODDMRFLOW_LOG("%s+\n", mtk_dump_comp_str(comp));
 	if (oddmr_priv->data->is_od_need_force_clk)
 		mtk_oddmr_od_hsk_force_clk(comp, NULL);
 	if (oddmr_priv->data->is_od_need_crop_garbage == true) {
@@ -1056,9 +1059,9 @@ static void mtk_oddmr_od_prepare(struct mtk_ddp_comp *comp, struct cmdq_pkt *han
 		udelay(1);
 	}
 	mtk_oddmr_od_clk_en(comp, NULL);
-	//crop off
+	//crop off, add for first boot
 	if (comp->mtk_crtc->is_dual_pipe)
-		mtk_oddmr_set_crop(comp, NULL, hdisplay, vdisplay, overhead);
+		mtk_oddmr_set_crop(comp, NULL);
 	else
 		mtk_oddmr_write(comp, 1, DISP_ODDMR_TOP_CRP_BYPSS, NULL);
 }
@@ -1127,16 +1130,44 @@ static void mtk_oddmr_unprepare(struct mtk_ddp_comp *comp)
 	mtk_ddp_comp_clk_unprepare(comp);
 }
 
+#ifdef IF_ZERO
+static void mtk_disp_oddmr_config_overhead(struct mtk_ddp_comp *comp, struct mtk_ddp_config *cfg)
+{
+	struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	uint32_t comp_overhead;
+
+	if (cfg->tile_overhead.is_support) {
+		//TODO: dmr blocksize
+		if (mtk_crtc->is_dual_pipe)
+			comp_overhead = oddmr_priv->data->tile_overhead;
+		else
+			comp_overhead = 0;
+		if (oddmr_priv->is_right_pipe) {
+			cfg->tile_overhead.right_in_width += comp_overhead;
+			cfg->tile_overhead.right_overhead += comp_overhead;
+			oddmr_priv->cfg.comp_overhead = comp_overhead;
+			oddmr_priv->cfg.comp_in_width = cfg->tile_overhead.right_in_width;
+			oddmr_priv->cfg.total_overhead = cfg->tile_overhead.right_overhead;
+		} else {
+			cfg->tile_overhead.left_in_width += comp_overhead;
+			cfg->tile_overhead.left_overhead += comp_overhead;
+			oddmr_priv->cfg.comp_overhead = comp_overhead;
+			oddmr_priv->cfg.comp_in_width = cfg->tile_overhead.left_in_width;
+			oddmr_priv->cfg.total_overhead = cfg->tile_overhead.left_overhead;
+		}
+	}
+}
+#endif
+
 static void mtk_oddmr_first_cfg(struct mtk_ddp_comp *comp,
 		struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
 {
 	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
 	struct mtk_ddp_comp *out_comp = NULL;
 	unsigned long flags;
 	int crtc_idx;
-	struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
-	u16 hdisplay, vdisplay;
-	uint32_t overhead;
 
 	DDPMSG("%s+\n", __func__);
 	is_oddmr_dmr_support = comp->mtk_crtc->panel_ext->params->is_support_dmr;
@@ -1154,11 +1185,9 @@ static void mtk_oddmr_first_cfg(struct mtk_ddp_comp *comp,
 	spin_lock_irqsave(&g_oddmr_timing_lock, flags);
 	mtk_oddmr_drm_mode_to_oddmr_timg(mtk_crtc, &g_oddmr_current_timing);
 	spin_unlock_irqrestore(&g_oddmr_timing_lock, flags);
-	hdisplay = g_oddmr_current_timing.hdisplay;
-	vdisplay = g_oddmr_current_timing.vdisplay;
-	overhead = oddmr_priv->data->tile_overhead;
+	mtk_oddmr_fill_cfg(comp, cfg);
 	if (is_oddmr_dmr_support || is_oddmr_od_support)
-		mtk_oddmr_set_spr2rgb(comp, handle, hdisplay, overhead);
+		mtk_oddmr_set_spr2rgb(comp, handle);
 
 	DDPMSG("%s dmr %d od %d-\n", __func__, is_oddmr_dmr_support, is_oddmr_od_support);
 }
@@ -1168,8 +1197,6 @@ static void mtk_oddmr_config(struct mtk_ddp_comp *comp,
 		struct cmdq_pkt *handle)
 {
 	struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
-	u16 hdisplay, vdisplay;
-	uint32_t overhead;
 	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 	struct cmdq_pkt *cmdq_handle0 = NULL;
 	struct cmdq_pkt *cmdq_handle1 = NULL;
@@ -1185,11 +1212,14 @@ static void mtk_oddmr_config(struct mtk_ddp_comp *comp,
 	else
 		client = mtk_crtc->gce_obj.client[CLIENT_CFG];
 
-	hdisplay = g_oddmr_current_timing.hdisplay;
-	vdisplay = g_oddmr_current_timing.vdisplay;
-	overhead = oddmr_priv->data->tile_overhead;
+	mtk_oddmr_fill_cfg(comp, cfg);
 
 	if (is_oddmr_od_support == true && g_oddmr_priv->od_state == ODDMR_INIT_DONE) {
+		//crop off
+		if (comp->mtk_crtc->is_dual_pipe)
+			mtk_oddmr_set_crop(comp, NULL);
+		else
+			mtk_oddmr_write(comp, 1, DISP_ODDMR_TOP_CRP_BYPSS, NULL);
 		//write sram
 		cmdq_mbox_enable(client->chan);
 		cmdq_handle0 = oddmr_priv->od_data.od_sram_pkgs[0];
@@ -1214,11 +1244,11 @@ static void mtk_oddmr_config(struct mtk_ddp_comp *comp,
 		else
 			mtk_oddmr_write(comp, 0x10, DISP_ODDMR_OD_SRAM_CTRL_0, NULL);
 		if (!(g_oddmr_priv->spr_enable == 0 || g_oddmr_priv->spr_relay == 1))
-			mtk_oddmr_set_spr2rgb(comp, NULL, hdisplay, overhead);
+			mtk_oddmr_set_spr2rgb(comp, NULL);
 		mtk_oddmr_od_smi(comp, NULL);
 		mtk_oddmr_od_set_dram(comp, NULL);
 		mtk_oddmr_od_common_init(comp, NULL);
-		mtk_oddmr_od_set_res(comp, NULL, hdisplay, vdisplay);
+		mtk_oddmr_od_set_res(comp, NULL);
 		mtk_oddmr_od_init_end(comp, NULL);
 		mtk_oddmr_set_od_enable(comp, oddmr_priv->od_enable, handle);
 		//sw bypass first frame od pq
@@ -1519,40 +1549,56 @@ static int mtk_oddmr_od_get_bpc(uint32_t od_mode, uint32_t channel)
 	return bpc;
 }
 
-/* channel size = ROUND_UP(Width / hscaling x bpc / 128) x 128 x Height / 8 */
+/*
+ * hscaling : 1,2,4; vscaling: 1,2
+ * Width = align_up(Width, 8)
+ * channel size = align_up(Width / hscaling x bpc, 128) x Height / vscaling / 8
+ */
 static uint32_t mtk_oddmr_od_get_dram_size(uint32_t width, uint32_t height,
 		uint32_t scaling_mode, uint32_t od_mode, uint32_t channel)
 {
-	uint32_t hscaling, vscaling, bpc, size;
+	uint32_t hscaling, h_2x4x_sel, vscaling, bpc, size, width_up;
 
 	ODDMRAPI_LOG("+\n");
 	bpc = mtk_oddmr_od_get_bpc(od_mode, channel);
 	hscaling = (scaling_mode & BIT(0)) > 0 ? 2 : 1;
 	vscaling = (scaling_mode & BIT(1)) > 0 ? 2 : 1;
+	h_2x4x_sel = (scaling_mode & BIT(2)) > 0 ? 2 : 1;
+	hscaling = hscaling * h_2x4x_sel;
+	width_up = DIV_ROUND_UP(width, 8) * 8;
 	size = width / hscaling * bpc;
 	size = DIV_ROUND_UP(size, OD_H_ALIGN_BITS);
 	size = size * OD_H_ALIGN_BITS * height / vscaling / 8;
 
+	ODDMRFLOW_LOG("width %u width_up %u hscaling %u vscaling %u bpc %u\n",
+		width, width_up, hscaling, vscaling, bpc);
 	ODDMRFLOW_LOG("table mode %u channel %u dram size %u\n", od_mode, channel, size);
 	return size;
 }
 static void mtk_oddmr_od_alloc_dram_dual(void)
 {
+
 	uint32_t scaling_mode, size_b, size_g, size_r, width, height, od_mode;
-	int tile_overhead = 0;
+	int tile_overhead = 0, ret;
 	bool secu;
 
 	ODDMRAPI_LOG("+\n");
-	width = g_od_param.od_basic_info.basic_param.panel_width;
-	height = g_od_param.od_basic_info.basic_param.panel_height;
-	scaling_mode = g_od_param.od_basic_info.basic_param.scaling_mode;
-	od_mode = g_od_param.od_basic_info.basic_param.od_mode;
-	if (g_oddmr_priv == NULL) {
+	if (default_comp == NULL || g_oddmr_priv == NULL) {
 		DDPPR_ERR("%s comp is invalid\n", __func__);
 		return;
 	}
-	if (g_oddmr_priv->data != NULL)
-		tile_overhead = g_oddmr_priv->data->tile_overhead;
+	ret = mtk_drm_crtc_get_panel_original_size(&default_comp->mtk_crtc->base,
+				&width, &height);
+	if (ret < 0 || width == 0 || height == 0) {
+		ODDMRFLOW_LOG("panel original size error(%ux%u).\n", width, height);
+		width = g_od_param.od_basic_info.basic_param.panel_width;
+		height = g_od_param.od_basic_info.basic_param.panel_height;
+	}
+	scaling_mode = g_od_param.od_basic_info.basic_param.scaling_mode;
+	od_mode = g_od_param.od_basic_info.basic_param.od_mode;
+	tile_overhead = g_oddmr_priv->cfg.comp_overhead;
+	ODDMRFLOW_LOG("%ux%u tile_overhead %d scaling_mode 0x%x od_mode %u\n",
+		width, height, tile_overhead, scaling_mode, od_mode);
 
 	secu = mtk_oddmr_is_svp_on_mtee();
 	//od do not support secu for short of secu mem
@@ -1861,17 +1907,24 @@ static void mtk_oddmr_od_smi(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg)
 	mtk_oddmr_write_mask(comp, value, DISP_ODDMR_HRT_CTR, mask, pkg);
 	if (priv->data->mmsys_id == MMSYS_MT6985) {
 		//read in pre-ultra
-		mtk_oddmr_write(comp, 0, DISP_ODDMR_REG_HR0_PREULTRA_RE_IN_THR_0, pkg);
+		mtk_oddmr_write(comp, 0xFFF, DISP_ODDMR_REG_HR0_PREULTRA_RE_IN_THR_0, pkg);
 		mtk_oddmr_write(comp, 0, DISP_ODDMR_REG_HR0_PREULTRA_RE_IN_THR_1, pkg);
 		//read out pre-ultra
 		mtk_oddmr_write(comp, 0xFFF, DISP_ODDMR_REG_HR0_PREULTRA_RE_OUT_THR_0, pkg);
-		mtk_oddmr_write(comp, 1, DISP_ODDMR_REG_HR0_PREULTRA_RE_OUT_THR_1, pkg);
+		mtk_oddmr_write(comp, 0, DISP_ODDMR_REG_HR0_PREULTRA_RE_OUT_THR_1, pkg);
 		//read in ultra
-		mtk_oddmr_write(comp, 0xFFF, DISP_ODDMR_REG_HR0_ULTRA_RE_IN_THR_0, pkg);
-		mtk_oddmr_write(comp, 1, DISP_ODDMR_REG_HR0_ULTRA_RE_IN_THR_1, pkg);
+		mtk_oddmr_write(comp, 0, DISP_ODDMR_REG_HR0_ULTRA_RE_IN_THR_0, pkg);
+		mtk_oddmr_write(comp, 0, DISP_ODDMR_REG_HR0_ULTRA_RE_IN_THR_1, pkg);
 		//read out ultra
-		mtk_oddmr_write(comp, 0xFFF, DISP_ODDMR_REG_HR0_ULTRA_RE_OUT_THR_0, pkg);
-		mtk_oddmr_write(comp, 1, DISP_ODDMR_REG_HR0_ULTRA_RE_OUT_THR_1, pkg);
+		mtk_oddmr_write(comp, 0, DISP_ODDMR_REG_HR0_ULTRA_RE_OUT_THR_0, pkg);
+		mtk_oddmr_write(comp, 0, DISP_ODDMR_REG_HR0_ULTRA_RE_OUT_THR_1, pkg);
+		value = 0;
+		mask = 0;
+		SET_VAL_MASK(value, mask, 2, REG_HR0_RE_ULTRA_MODE);
+		SET_VAL_MASK(value, mask, 0, REG_HR0_POACH_CFG_OFF);
+		SET_VAL_MASK(value, mask, 0, REG_HR0_PREULTRA_RE_ULTRA_MASK);
+		SET_VAL_MASK(value, mask, 1, REG_HR0_ULTRA_RE_MASK);
+		mtk_oddmr_write_mask(comp, value, DISP_ODDMR_HRT_CTR, mask, pkg);
 	}
 	value = 0;
 	mask = 0;
@@ -1965,11 +2018,11 @@ static void mtk_oddmr_dmr_smi_dual(struct cmdq_pkt *pkg)
 		mtk_oddmr_dmr_smi(oddmr1_default_comp, pkg);
 }
 
-static void mtk_oddmr_od_set_res_dual(struct cmdq_pkt *pkg, uint32_t width, uint32_t height)
+static void mtk_oddmr_od_set_res_dual(struct cmdq_pkt *pkg)
 {
-	mtk_oddmr_od_set_res(default_comp, pkg, width, height);
+	mtk_oddmr_od_set_res(default_comp, pkg);
 	if (default_comp->mtk_crtc->is_dual_pipe)
-		mtk_oddmr_od_set_res(oddmr1_default_comp, pkg, width, height);
+		mtk_oddmr_od_set_res(oddmr1_default_comp, pkg);
 }
 
 static void mtk_oddmr_dmr_free_table(struct mtk_ddp_comp *comp)
@@ -2063,7 +2116,7 @@ static int mtk_oddmr_dmr_set_table_dual(struct cmdq_pkt *pkg, int table_idx)
 				&g_dmr_param.dmr_tables[table_idx]->pq_left_pipe);
 		mtk_oddmr_set_pq(oddmr1_default_comp, pkg,
 				&g_dmr_param.dmr_tables[table_idx]->pq_right_pipe);
-		mtk_oddmr_set_crop_dual(pkg, width, height, tile_overhead);
+		mtk_oddmr_set_crop_dual(pkg);
 		atomic_set(&g_oddmr1_priv->dmr_data.cur_table_idx, table_idx);
 	} else {
 		mtk_oddmr_set_pq(default_comp, pkg,
@@ -2316,9 +2369,7 @@ static void mtk_oddmr_od_timing_chg_dual(struct mtk_oddmr_timing *timing, struct
 				/* res switch in ddic */
 				atomic_set(&g_oddmr_od_weight_trigger, 1);
 				weight = 0;
-				mtk_oddmr_od_set_res_dual(handle,
-						timing->hdisplay,
-						timing->vdisplay);
+				mtk_oddmr_od_set_res_dual(handle);
 			} else {
 				mtk_oddmr_od_gain_lookup(timing->vrefresh,
 						timing->bl_level, table_idx, &weight);
@@ -2581,7 +2632,7 @@ static void mtk_oddmr_set_od_enable(struct mtk_ddp_comp *comp, uint32_t enable,
 	bool sec_on;
 
 	sec_on = comp->mtk_crtc->sec_on;
-	ODDMRAPI_LOG("en %d, sec %d+\n", enable, sec_on);
+	ODDMRLOW_LOG("en %d, sec %d+\n", enable, sec_on);
 	if (enable && !sec_on)
 		mtk_oddmr_write_mask(comp, 1, DISP_ODDMR_OD_CTRL_EN, 0x01, handle);
 	else
@@ -2862,8 +2913,6 @@ static int mtk_oddmr_od_init(void)
 {
 	struct mtk_drm_crtc *mtk_crtc;
 	int ret, table_idx;
-	uint32_t tile_overhead = 0;
-	u16 hdisplay, vdisplay;
 	struct cmdq_client *client = NULL;
 
 	ODDMRAPI_LOG("+\n");
@@ -2983,11 +3032,8 @@ static int mtk_oddmr_od_init(void)
 		}
 		cmdq_mbox_disable(client->chan);
 
-		tile_overhead = g_oddmr_priv->data->tile_overhead;
-		hdisplay = g_oddmr_current_timing.hdisplay;
-		vdisplay = g_oddmr_current_timing.vdisplay;
-		mtk_oddmr_od_set_res_dual(NULL, hdisplay, vdisplay);
-		mtk_oddmr_set_crop_dual(NULL, hdisplay, vdisplay, tile_overhead);
+		mtk_oddmr_od_set_res_dual(NULL);
+		mtk_oddmr_set_crop_dual(NULL);
 		g_oddmr_priv->od_state = ODDMR_INIT_DONE;
 		mtk_oddmr_release_clock();
 		ret = mtk_crtc_user_cmd(&default_comp->mtk_crtc->base,
@@ -3648,6 +3694,7 @@ static const struct mtk_ddp_comp_funcs mtk_disp_oddmr_funcs = {
 	.io_cmd = mtk_oddmr_io_cmd,
 	.user_cmd = mtk_oddmr_user_cmd,
 	.first_cfg = mtk_oddmr_first_cfg,
+	//.config_overhead = mtk_disp_oddmr_config_overhead,
 };
 
 static int mtk_disp_oddmr_bind(struct device *dev, struct device *master,
@@ -3714,10 +3761,14 @@ static int mtk_disp_oddmr_probe(struct platform_device *pdev)
 	priv->data = of_device_get_match_data(dev);
 	platform_set_drvdata(pdev, priv);
 
-	if (comp_id == DDP_COMPONENT_ODDMR0)
+	if (comp_id == DDP_COMPONENT_ODDMR0) {
+		priv->is_right_pipe = false;
 		g_oddmr_priv = priv;
-	if (comp_id == DDP_COMPONENT_ODDMR1)
+	}
+	if (comp_id == DDP_COMPONENT_ODDMR1) {
+		priv->is_right_pipe = true;
 		g_oddmr1_priv = priv;
+	}
 	if (!default_comp && comp_id == DDP_COMPONENT_ODDMR0)
 		default_comp = &priv->ddp_comp;
 	if (!oddmr1_default_comp && comp_id == DDP_COMPONENT_ODDMR1)

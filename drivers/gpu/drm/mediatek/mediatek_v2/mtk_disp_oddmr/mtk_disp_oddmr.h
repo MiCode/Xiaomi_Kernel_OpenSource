@@ -109,6 +109,13 @@ struct mtk_disp_oddmr_dmr_data {
 	struct mtk_drm_gem_obj *mura_table;
 };
 
+struct mtk_disp_oddmr_cfg {
+	uint32_t width;
+	uint32_t height;
+	uint32_t comp_in_width;
+	uint32_t comp_overhead;
+	uint32_t total_overhead;
+};
 /**
  * struct mtk_disp_oddmr - DISP_oddmr driver structure
  * @ddp_comp - structure containing type enum and hardware resources
@@ -116,8 +123,10 @@ struct mtk_disp_oddmr_dmr_data {
 struct mtk_disp_oddmr {
 	struct mtk_ddp_comp	 ddp_comp;
 	const struct mtk_disp_oddmr_data *data;
+	bool is_right_pipe;
 	struct mtk_disp_oddmr_od_data od_data;
 	struct mtk_disp_oddmr_dmr_data dmr_data;
+	struct mtk_disp_oddmr_cfg cfg;
 	atomic_t oddmr_clock_ref;
 	int od_enable;
 	int dmr_enable;
