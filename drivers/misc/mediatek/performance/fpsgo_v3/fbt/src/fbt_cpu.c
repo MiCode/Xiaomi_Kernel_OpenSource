@@ -1106,9 +1106,6 @@ static void dep_a_except_b(
 	int temp_size_result = 0;
 	int index_a = 0, index_b = 0;
 
-	for (i = 0; i < size_a; i++)
-		dep_a[i].rmidx = 0;
-
 	if (!size_b) {
 		memcpy(dep_result, dep_a,
 			size_a * sizeof(struct fpsgo_loading));
@@ -1757,6 +1754,9 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 		cam_dep_arr_size = 0;
 		memset(cam_dep_arr, 0, MAX_DEP_NUM * sizeof(struct fpsgo_loading));
 	}
+
+	for (i = 0; i < thr->dep_valid_size; i++)
+		thr->dep_arr[i].rmidx = 0;
 
 	if (thr->pid == max_blc_pid && thr->buffer_id == max_blc_buffer_id) {
 		dep_a_except_b(
