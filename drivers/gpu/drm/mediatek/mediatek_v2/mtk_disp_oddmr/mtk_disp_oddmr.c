@@ -41,6 +41,16 @@
 #define REG_FORCE_COMMIT REG_FLD_MSB_LSB(4, 4)
 #define REG_BYPASS_SHADOW REG_FLD_MSB_LSB(5, 5)
 #define DISP_ODDMR_TOP_CTR_4 0x001C//rst
+#define DISP_ODDMR_IRQ_FORCE 0x0020
+#define DISP_ODDMR_IRQ_CLEAR 0x0024
+#define DISP_ODDMR_IRQ_MASK 0x0028
+#define DISP_ODDMR_IRQ_STATUS 0x002C
+#define DISP_ODDMR_IRQ_FRAME_DONE BIT(0)
+#define DISP_ODDMR_IRQ_ODW_DONE BIT(1)
+#define DISP_ODDMR_IRQ_I_FRM_DNE BIT(2)
+#define DISP_ODDMR_IRQ_O_FRM_DNE BIT(3)
+#define DISP_ODDMR_IRQ_SOF BIT(5)
+#define DISP_ODDMR_IRQ_RAW_STATUS 0x0030
 #define DISP_ODDMR_DITHER_CTR_1 0x0044//11bit
 #define DISP_ODDMR_DITHER_CTR_2 0x0048//10bit
 #define DISP_ODDMR_DMR_UDMA_CTR_4 0x00D0
@@ -256,12 +266,24 @@
 #define REG_DMR_RE_ULTRA_MODE REG_FLD_MSB_LSB(7, 4)
 /* OD UDMA R*/
 #define DISP_ODDMR_REG_UDMA_R_BASE 0x1600
-#define DISP_ODDMR_UDMA_R_CTRL88	(0x01C0 + DISP_ODDMR_REG_UDMA_R_BASE)//W 3
+#define DISP_ODDMR_UDMA_R_CTRL84_0	(0x0160 + DISP_ODDMR_REG_UDMA_R_BASE)//R
+#define DISP_ODDMR_UDMA_R_CTRL84_1	(0x0164 + DISP_ODDMR_REG_UDMA_R_BASE)//R
+#define DISP_ODDMR_UDMA_R_CTRL84_2	(0x0168 + DISP_ODDMR_REG_UDMA_R_BASE)//R
+#define DISP_ODDMR_UDMA_R_CTRL86_0	(0x01A0 + DISP_ODDMR_REG_UDMA_R_BASE)//R
+#define DISP_ODDMR_UDMA_R_CTRL86_1	(0x01A4 + DISP_ODDMR_REG_UDMA_R_BASE)//R
+#define DISP_ODDMR_UDMA_R_CTRL86_2	(0x01A8 + DISP_ODDMR_REG_UDMA_R_BASE)//R
+#define DISP_ODDMR_UDMA_R_CTRL88	(0x01C0 + DISP_ODDMR_REG_UDMA_R_BASE)//W 1
 #define DISP_ODDMR_UDMA_R_CTRL_104	(0x01C8 + DISP_ODDMR_REG_UDMA_R_BASE)//R
 
 /* OD UDMA W*/
 #define DISP_ODDMR_REG_UDMA_W_BASE 0x1800
-#define DISP_ODDMR_UDMA_W_CTR_82	(0x01C0 + DISP_ODDMR_REG_UDMA_W_BASE)//W 3
+#define DISP_ODDMR_UDMA_W_CTR_58	(0x0160 + DISP_ODDMR_REG_UDMA_W_BASE)//R
+#define DISP_ODDMR_UDMA_W_CTR_59	(0x0164 + DISP_ODDMR_REG_UDMA_W_BASE)//R
+#define DISP_ODDMR_UDMA_W_CTR_60	(0x0168 + DISP_ODDMR_REG_UDMA_W_BASE)//R
+#define DISP_ODDMR_UDMA_W_CTR_74	(0x01A0 + DISP_ODDMR_REG_UDMA_W_BASE)//R
+#define DISP_ODDMR_UDMA_W_CTR_75	(0x01A4 + DISP_ODDMR_REG_UDMA_W_BASE)//R
+#define DISP_ODDMR_UDMA_W_CTR_76	(0x01A8 + DISP_ODDMR_REG_UDMA_W_BASE)//R
+#define DISP_ODDMR_UDMA_W_CTR_82	(0x01C0 + DISP_ODDMR_REG_UDMA_W_BASE)//W 1
 #define DISP_ODDMR_UDMA_W_CTR_84	(0x01C8 + DISP_ODDMR_REG_UDMA_W_BASE)//R
 
 #define OD_H_ALIGN_BITS 128
@@ -292,14 +314,14 @@ static bool debug_api_log;
 		DDPINFO("[API]%s:" fmt, __func__, ##arg); \
 	} while (0)
 
-//TODO add MMP
 //TODO split dmr table in sw for dynamic overhead
 static bool is_oddmr_od_support;
 static bool is_oddmr_dmr_support;
 static bool g_oddmr_ddren = true;
 static bool g_oddmr_hrt_en = true;
 static bool g_oddmr_dump_en;
-
+#define ODDMR_ENABLE_IRQ
+#define ODDMR_IRQ_MASK_VAL 0x2F
 /*
  * od_weight_trigger is used to trigger od set pq
  * is used in resume, res switch flow frame 2
@@ -338,6 +360,9 @@ static void mtk_oddmr_set_od_enable(struct mtk_ddp_comp *comp, uint32_t enable,
 		struct cmdq_pkt *handle);
 static void mtk_oddmr_set_od_enable_dual(struct mtk_ddp_comp *comp, uint32_t enable,
 		struct cmdq_pkt *handle);
+static uint32_t mtk_oddmr_od_get_dram_size(uint32_t width, uint32_t height,
+		uint32_t scaling_mode, uint32_t od_mode, uint32_t channel);
+
 
 static inline unsigned int mtk_oddmr_read(struct mtk_ddp_comp *comp,
 		unsigned int offset)
@@ -762,6 +787,15 @@ static void mtk_oddmr_od_set_res(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg
 
 static void mtk_oddmr_od_init_end(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct mtk_drm_private *priv;
+
+	priv = mtk_crtc->base.dev->dev_private;
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+		MTK_DRM_OPT_ODDMR_UNDERRUN_AEE)) {
+		mtk_oddmr_write_mask(comp, ODDMR_IRQ_MASK_VAL,
+			DISP_ODDMR_IRQ_MASK, ODDMR_IRQ_MASK_VAL, handle);
+	}
 	//od reset
 	mtk_oddmr_write(comp, 0x200, DISP_ODDMR_OD_SW_RESET, handle);
 	mtk_oddmr_write(comp, 0, DISP_ODDMR_OD_SW_RESET, handle);
@@ -925,6 +959,39 @@ static int mtk_oddmr_od_bpp(int mode)
 	return ret;
 }
 
+static void mtk_oddmr_od_srt_cal(struct mtk_ddp_comp *comp, int en)
+{
+	struct mtk_disp_oddmr *oddmr_priv;
+	uint32_t srt = 0, scaling_mode, od_mode, vrefresh;
+
+	if (comp == NULL)
+		return;
+	oddmr_priv = comp_to_oddmr(comp);
+	if (en) {
+		scaling_mode = g_od_param.od_basic_info.basic_param.scaling_mode;
+		od_mode = g_od_param.od_basic_info.basic_param.od_mode;
+		srt += mtk_oddmr_od_get_dram_size(oddmr_priv->cfg.comp_in_width,
+			oddmr_priv->cfg.height, scaling_mode, od_mode, 0);
+		srt += mtk_oddmr_od_get_dram_size(oddmr_priv->cfg.comp_in_width,
+			oddmr_priv->cfg.height, scaling_mode, od_mode, 1);
+		srt += mtk_oddmr_od_get_dram_size(oddmr_priv->cfg.comp_in_width,
+			oddmr_priv->cfg.height, scaling_mode, od_mode, 2);
+		vrefresh = g_oddmr_current_timing.vrefresh;
+		//blanking ratio
+		do_div(srt, 1000);
+		srt *= 125;
+		do_div(srt, 100);
+		srt = srt * vrefresh;
+		do_div(srt, 1000);
+		oddmr_priv->qos_srt_odr = srt;
+		oddmr_priv->qos_srt_odw = srt;
+	} else {
+		oddmr_priv->qos_srt_odr = 0;
+		oddmr_priv->qos_srt_odw = 0;
+	}
+	ODDMRAPI_LOG("srt %u -\n", srt);
+}
+
 static void mtk_oddmr_set_spr2rgb(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg)
 {
 	uint32_t mask_2x2 = 0, spr_mask[6] = {0}, x_init = 0, spr_format = 0;
@@ -1030,20 +1097,17 @@ static void mtk_oddmr_set_spr2rgb_dual(struct cmdq_pkt *pkg)
 
 static void mtk_oddmr_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
-	//void __iomem *baddr = comp->regs;
-	//struct mtk_disp_oddmr *oddmr = comp_to_oddmr(comp);
-	//if (oddmr->enable) {
-	//}
-
-	ODDMRFLOW_LOG("%s oddmr_start\n", mtk_dump_comp_str(comp));
+	ODDMRLOW_LOG("%s oddmr_start\n", mtk_dump_comp_str(comp));
 }
 
 static void mtk_oddmr_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
-	//void __iomem *baddr = comp->regs;
+	struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
 
-	//mtk_ddp_write_mask(comp, 0x0, DISP_REG_SPR_EN, SPR_EN, handle);
 	ODDMRFLOW_LOG("%s oddmr_stop\n", mtk_dump_comp_str(comp));
+	oddmr_priv->qos_srt_dmrr = 0;
+	oddmr_priv->qos_srt_odr = 0;
+	oddmr_priv->qos_srt_odw = 0;
 }
 
 static void mtk_oddmr_od_clk_en(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
@@ -1207,6 +1271,7 @@ static void mtk_oddmr_config(struct mtk_ddp_comp *comp,
 {
 	struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
 	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct mtk_drm_private *priv;
 	struct cmdq_pkt *cmdq_handle0 = NULL;
 	struct cmdq_pkt *cmdq_handle1 = NULL;
 	struct cmdq_client *client = NULL;
@@ -1216,6 +1281,7 @@ static void mtk_oddmr_config(struct mtk_ddp_comp *comp,
 		return;
 	}
 	ODDMRFLOW_LOG("%s+\n", mtk_dump_comp_str(comp));
+	priv = mtk_crtc->base.dev->dev_private;
 	if (mtk_crtc->gce_obj.client[CLIENT_PQ])
 		client = mtk_crtc->gce_obj.client[CLIENT_PQ];
 	else
@@ -1584,6 +1650,7 @@ static uint32_t mtk_oddmr_od_get_dram_size(uint32_t width, uint32_t height,
 	ODDMRFLOW_LOG("table mode %u channel %u dram size %u\n", od_mode, channel, size);
 	return size;
 }
+
 static void mtk_oddmr_od_alloc_dram_dual(void)
 {
 
@@ -1896,7 +1963,6 @@ static int mtk_oddmr_od_gain_lookup(uint32_t fps, uint32_t dbv, int table_idx, u
 	bl_gain_table = g_od_param.od_tables[table_idx]->bl_table;
 	tmp_item = (int)dbv;
 	result_dbv = mtk_oddmr_common_gain_lookup(tmp_item, bl_gain_table, cnt);
-	/* TODO algo for fps + dbv*/
 	*weight = ((uint32_t)result_dbv * (uint32_t)result_fps + 32) / 64;
 	return 0;
 }
@@ -2390,7 +2456,7 @@ static void mtk_oddmr_od_timing_chg_dual(struct mtk_oddmr_timing *timing, struct
 
 /* call from drm atomic flow */
 void mtk_oddmr_timing_chg(struct mtk_oddmr_timing *timing, struct cmdq_pkt *handle)
-{//TODO may have easy way
+{
 	unsigned long flags;
 	struct mtk_oddmr_timing timing_working_copy;
 
@@ -2581,29 +2647,34 @@ void mtk_oddmr_ddren(struct cmdq_pkt *cmdq_handle,
 int mtk_oddmr_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		enum mtk_ddp_io_cmd cmd, void *params)
 {
-	/* only handle oddmr0 as main oddmr comp */
-	if (comp->id == DDP_COMPONENT_ODDMR1)
-		return 0;
 	ODDMRLOW_LOG("cmd %d+\n", cmd);
 
 	switch (cmd) {
 	case FRAME_DIRTY:
+		if (comp->id == DDP_COMPONENT_ODDMR1)
+			break;
 		atomic_set(&g_oddmr_frame_dirty, 1);
 		break;
 	case ODDMR_TRIG_CTL:
 	{
 		uint32_t on = *(uint32_t *)params;
 
+		if (comp->id == DDP_COMPONENT_ODDMR1)
+			break;
 		atomic_set(&g_od_check_trigger, on);
 	}
 		break;
 	case PQ_DIRTY:
+		if (comp->id == DDP_COMPONENT_ODDMR1)
+			break;
 		mtk_oddmr_set_pq_dirty();
 		break;
 	case ODDMR_BL_CHG:
 	{
 		uint32_t bl_level = *(uint32_t *)params;
 
+		if (comp->id == DDP_COMPONENT_ODDMR1)
+			break;
 		mtk_oddmr_bl_chg(bl_level, handle);
 	}
 		break;
@@ -2611,6 +2682,8 @@ int mtk_oddmr_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	{
 		struct mtk_oddmr_timing *timing = (struct mtk_oddmr_timing *)params;
 
+		if (comp->id == DDP_COMPONENT_ODDMR1)
+			break;
 		mtk_oddmr_timing_chg(timing, handle);
 	}
 		break;
@@ -2618,11 +2691,41 @@ int mtk_oddmr_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	{
 		bool sec_on = *(bool *)params;
 
+		if (comp->id == DDP_COMPONENT_ODDMR1)
+			break;
 		mtk_oddmr_od_sec_bypass(sec_on, handle);
 	}
 		break;
-	case COMP_ADD_HRT:
-		mtk_oddmr_hrt_cal_notify(params);
+	case PMQOS_UPDATE_BW:
+	{
+		int enable, sec_on;
+		struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
+		struct mtk_drm_private *priv =
+			comp->mtk_crtc->base.dev->dev_private;
+
+		if (!mtk_drm_helper_get_opt(priv->helper_opt,
+				MTK_DRM_OPT_MMQOS_SUPPORT))
+			break;
+		sec_on = comp->mtk_crtc->sec_on;
+		enable = oddmr_priv->od_enable && (!sec_on);
+		mtk_oddmr_od_srt_cal(comp, enable);
+		/* process normal */
+		if (oddmr_priv->last_qos_srt_odr != oddmr_priv->qos_srt_odr) {
+			__mtk_disp_set_module_bw(oddmr_priv->qos_req_odr, comp->id,
+				oddmr_priv->qos_srt_odr, DISP_BW_NORMAL_MODE);
+			oddmr_priv->last_qos_srt_odr = oddmr_priv->qos_srt_odr;
+		}
+		if (oddmr_priv->last_qos_srt_odw != oddmr_priv->qos_srt_odw) {
+			__mtk_disp_set_module_bw(oddmr_priv->qos_req_odw, comp->id,
+				oddmr_priv->qos_srt_odw, DISP_BW_NORMAL_MODE);
+			oddmr_priv->last_qos_srt_odw = oddmr_priv->qos_srt_odw;
+		}
+		if (oddmr_priv->last_qos_srt_dmrr != oddmr_priv->qos_srt_dmrr) {
+			__mtk_disp_set_module_bw(oddmr_priv->qos_req_dmrr, comp->id,
+				oddmr_priv->qos_srt_dmrr, DISP_BW_NORMAL_MODE);
+			oddmr_priv->last_qos_srt_dmrr = oddmr_priv->qos_srt_dmrr;
+		}
+	}
 		break;
 	default:
 		break;
@@ -2796,7 +2899,6 @@ static int mtk_oddmr_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle
 
 void disp_oddmr_on_start_of_frame(void)
 {
-	//ODDMRAPI_LOG("+\n");
 	if (!default_comp)
 		return;
 	if (is_oddmr_od_support == false ||
@@ -2866,7 +2968,7 @@ static void disp_oddmr_wait_sof_irq(void)
 				mtk_crtc_is_frame_trigger_mode(&default_comp->mtk_crtc->base) &&
 				atomic_read(&g_od_check_trigger)) {
 				ODDMRLOW_LOG("check trigger\n");
-				mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
+				mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
 				//mtk_crtc_user_cmd(&default_comp->mtk_crtc->base,
 						//default_comp, ODDMR_CMD_EOF_CHECK_TRIGGER, NULL);
 				CRTC_MMP_MARK(0, oddmr_sof_thread, 0, 3);
@@ -3705,7 +3807,10 @@ static int mtk_disp_oddmr_bind(struct device *dev, struct device *master,
 {
 	struct mtk_disp_oddmr *priv = dev_get_drvdata(dev);
 	struct drm_device *drm_dev = data;
+	struct mtk_drm_private *private = drm_dev->dev_private;
+	struct mtk_disp_oddmr *oddmr_priv;
 	int ret;
+	char buf[50];
 
 	pr_notice("%s+\n", __func__);
 	ret = mtk_ddp_comp_register(drm_dev, &priv->ddp_comp);
@@ -3713,6 +3818,21 @@ static int mtk_disp_oddmr_bind(struct device *dev, struct device *master,
 		dev_err(dev, "Failed to register component %s: %d\n",
 				dev->of_node->full_name, ret);
 		return ret;
+	}
+	if (mtk_drm_helper_get_opt(private->helper_opt,
+			MTK_DRM_OPT_MMQOS_SUPPORT)) {
+		oddmr_priv = comp_to_oddmr(&priv->ddp_comp);
+		mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
+						&priv->ddp_comp, "DMRR");
+		oddmr_priv->qos_req_dmrr = of_mtk_icc_get(dev, buf);
+
+		mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
+						&priv->ddp_comp, "ODR");
+		oddmr_priv->qos_req_odr = of_mtk_icc_get(dev, buf);
+
+		mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
+						&priv->ddp_comp, "ODW");
+		oddmr_priv->qos_req_odw = of_mtk_icc_get(dev, buf);
 	}
 	pr_notice("%s-\n", __func__);
 	return 0;
@@ -3732,6 +3852,70 @@ static const struct component_ops mtk_disp_oddmr_component_ops = {
 	.bind = mtk_disp_oddmr_bind,
 	.unbind = mtk_disp_oddmr_unbind,
 };
+
+#ifdef ODDMR_ENABLE_IRQ
+static irqreturn_t mtk_oddmr_irq_status(int irq, void *dev_id)
+{
+	struct mtk_disp_oddmr *oddmr_priv = dev_id;
+	struct mtk_ddp_comp *comp;
+	struct mtk_drm_private *priv = NULL;
+	int opt = 0;
+	unsigned int ret = 0;
+	uint32_t status_raw, status;
+
+	if (IS_ERR_OR_NULL(oddmr_priv))
+		return IRQ_NONE;
+
+	if (mtk_drm_top_clk_isr_get("oddmr_irq") == false) {
+		DDPIRQ("%s, top clk off\n", __func__);
+		return IRQ_NONE;
+	}
+	comp = &oddmr_priv->ddp_comp;
+	status_raw = mtk_oddmr_read(comp, DISP_ODDMR_IRQ_RAW_STATUS);
+	status = mtk_oddmr_read(comp, DISP_ODDMR_IRQ_STATUS);
+	mtk_oddmr_write(comp, status, DISP_ODDMR_IRQ_CLEAR, NULL);
+	mtk_oddmr_write(comp, 0, DISP_ODDMR_IRQ_CLEAR, NULL);
+	CRTC_MMP_MARK(0, oddmr_ctl, status_raw, status);
+	//DDP_IRQ
+	DDPIRQ("%s %s irq, val:0x%x,0x%x\n", __func__, mtk_dump_comp_str(comp),
+		status_raw, status);
+	if (status &
+		(DISP_ODDMR_IRQ_FRAME_DONE |
+		DISP_ODDMR_IRQ_ODW_DONE |
+		DISP_ODDMR_IRQ_I_FRM_DNE |
+		DISP_ODDMR_IRQ_O_FRM_DNE)) {
+		//only care eof follows sof
+		if (oddmr_priv->irq_status & DISP_ODDMR_IRQ_SOF)
+			oddmr_priv->irq_status |= status;
+		DDPIRQ("%s %s eof status:0x%x,0x%x\n", __func__, mtk_dump_comp_str(comp),
+			status, oddmr_priv->irq_status);
+	}
+	if (status & DISP_ODDMR_IRQ_SOF) {
+		status = oddmr_priv->irq_status | status;
+		oddmr_priv->irq_status = status & DISP_ODDMR_IRQ_SOF;
+		DDPIRQ("%s %s sof status:0x%x,0x%x\n", __func__, mtk_dump_comp_str(comp),
+			status, oddmr_priv->irq_status);
+		if ((status & DISP_ODDMR_IRQ_I_FRM_DNE) &&
+			(status & DISP_ODDMR_IRQ_O_FRM_DNE) &&
+			!(status & DISP_ODDMR_IRQ_FRAME_DONE) &&
+			!(status & DISP_ODDMR_IRQ_ODW_DONE)) {
+			priv = comp->mtk_crtc->base.dev->dev_private;
+			opt = mtk_drm_helper_get_opt(priv->helper_opt,
+				MTK_DRM_OPT_ODDMR_UNDERRUN_AEE);
+			DDPPR_ERR("%s %s err status 0x%x\n", __func__,
+				mtk_dump_comp_str(comp), status);
+			if (opt) {
+				DDPAEE("ODDMR:buffer underrun. TS: 0x%08llx\n",
+					arch_timer_read_counter());
+			}
+		}
+	}
+	ret = IRQ_HANDLED;
+	mtk_drm_top_clk_isr_put("oddmr_irq");
+
+	return ret;
+}
+#endif
 
 static int mtk_disp_oddmr_probe(struct platform_device *pdev)
 {
@@ -3776,6 +3960,31 @@ static int mtk_disp_oddmr_probe(struct platform_device *pdev)
 		default_comp = &priv->ddp_comp;
 	if (!oddmr1_default_comp && comp_id == DDP_COMPONENT_ODDMR1)
 		oddmr1_default_comp = &priv->ddp_comp;
+
+#ifdef ODDMR_ENABLE_IRQ
+	if (comp_id == DDP_COMPONENT_ODDMR0 ||
+		comp_id == DDP_COMPONENT_ODDMR1) {
+		int irq_num;
+
+		irq_num = platform_get_irq(pdev, 0);
+		if (irq_num < 0) {
+			dev_err(&pdev->dev, "failed to request oddmr irq resource\n");
+			ret = -EPROBE_DEFER;
+			goto err;
+		}
+		irq_set_status_flags(irq_num, IRQ_TYPE_LEVEL_HIGH);
+		ret = devm_request_irq(
+			&pdev->dev, irq_num, mtk_oddmr_irq_status,
+			IRQF_TRIGGER_NONE | IRQF_SHARED, dev_name(&pdev->dev), priv);
+		if (ret) {
+			DDPAEE("%s:%d, failed to request irq:%d ret:%d\n",
+					__func__, __LINE__,
+					irq_num, ret);
+			ret = -EPROBE_DEFER;
+			goto err;
+		}
+	}
+#endif
 
 	mtk_ddp_comp_pm_enable(&priv->ddp_comp);
 
