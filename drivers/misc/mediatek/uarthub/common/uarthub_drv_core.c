@@ -473,6 +473,31 @@ int uarthub_core_irq_register(struct platform_device *pdev)
 	return 0;
 }
 
+int uarthub_core_irq_free(struct platform_device *pdev)
+{
+	struct device_node *node = NULL;
+	int irq_num = 0;
+
+	uarthub_core_irq_mask_ctrl(0);
+	uarthub_core_irq_clear_ctrl();
+
+	if (pdev)
+		node = pdev->dev.of_node;
+
+	if (node) {
+		irq_num = irq_of_parse_and_map(node, 0);
+		pr_info("[%s] get irq id(%d) from DT\n",
+			__func__, irq_num);
+
+		free_irq(irq_num, NULL);
+	} else {
+		pr_notice("[%s] can't find CONSYS compatible node\n", __func__);
+		return -1;
+	}
+
+	return 0;
+}
+
 int uarthub_core_get_uarthub_reg(void)
 {
 	if (!g_uarthub_plat_ic_ops) {
@@ -661,8 +686,7 @@ int uarthub_core_close(void)
 	pr_info("[%s] g_max_dev=[%d]\n", __func__, g_max_dev);
 #endif
 
-	uarthub_core_irq_mask_ctrl(1);
-	uarthub_core_irq_clear_ctrl();
+	uarthub_core_irq_free(g_uarthub_pdev);
 
 #if CLK_CTRL_UNIVPLL_REQ
 	uarthub_core_clk_univpll_ctrl(0);
@@ -1754,6 +1778,11 @@ int uarthub_core_config_internal_baud_rate(int dev_index, int rate_index)
 		return -3;
 	}
 
+	if (uarthub_core_is_uarthub_clk_enable() == 0) {
+		pr_notice("[%s] uarthub_core_is_uarthub_clk_enable=[0]\n", __func__);
+		return -4;
+	}
+
 #if UARTHUB_DEBUG_LOG
 	pr_info("[%s] dev_index=[%d], rate_index=[%d]\n",
 		__func__, dev_index, rate_index);
@@ -1792,6 +1821,11 @@ int uarthub_core_config_external_baud_rate(int rate_index)
 		return -1;
 	}
 
+	if (uarthub_core_is_uarthub_clk_enable() == 0) {
+		pr_notice("[%s] uarthub_core_is_uarthub_clk_enable=[0]\n", __func__);
+		return -4;
+	}
+
 #if UARTHUB_DEBUG_LOG
 	pr_info("[%s] rate_index=[%d]\n", __func__, rate_index);
 #endif
@@ -1820,25 +1854,6 @@ static void trigger_uarthub_error_worker_handler(struct work_struct *work)
 	int err_total = 0;
 	int err_index = 0;
 	struct timespec64 now;
-
-	if (!mutex_trylock(&g_clear_trx_req_lock)) {
-		pr_notice("[%s] fail to get g_clear_trx_req_lock lock, err_type=[%d]\n",
-			__func__, err_type);
-		uarthub_core_irq_clear_ctrl();
-		uarthub_core_irq_mask_ctrl(0);
-		return;
-	}
-
-	if (!intfhub_base_remap_addr || uarthub_core_is_apb_bus_clk_enable() == 0)
-		return;
-
-	if (uarthub_core_is_bypass_mode() == 1) {
-		pr_info("[%s] ignore irq error in bypass mode\n", __func__);
-		uarthub_core_irq_mask_ctrl(1);
-		uarthub_core_irq_clear_ctrl();
-		mutex_unlock(&g_clear_trx_req_lock);
-		return;
-	}
 
 	ktime_get_real_ts64(&now);
 	tv_now_assert.tv_sec = now.tv_sec;
@@ -1886,9 +1901,33 @@ static void trigger_uarthub_error_worker_handler(struct work_struct *work)
 		}
 	}
 
+	if (!mutex_trylock(&g_clear_trx_req_lock)) {
+		pr_notice("[%s] fail to get g_clear_trx_req_lock lock, err_type=[%d]\n",
+			__func__, err_type);
+		uarthub_core_irq_clear_ctrl();
+		uarthub_core_irq_mask_ctrl(0);
+		return;
+	}
+
+	if (!intfhub_base_remap_addr || uarthub_core_is_apb_bus_clk_enable() == 0) {
+		uarthub_core_irq_clear_ctrl();
+		uarthub_core_irq_mask_ctrl(0);
+		mutex_unlock(&g_clear_trx_req_lock);
+		return;
+	}
+
+	if (uarthub_core_is_bypass_mode() == 1) {
+		pr_info("[%s] ignore irq error in bypass mode\n", __func__);
+		uarthub_core_irq_mask_ctrl(1);
+		uarthub_core_irq_clear_ctrl();
+		mutex_unlock(&g_clear_trx_req_lock);
+		return;
+	}
+
 	if (uarthub_core_is_assert_state() == 1) {
 		pr_info("[%s] ignore irq error if assert flow\n", __func__);
 		uarthub_core_irq_clear_ctrl();
+		uarthub_core_irq_mask_ctrl(0);
 		mutex_unlock(&g_clear_trx_req_lock);
 		return;
 	}
@@ -3456,16 +3495,14 @@ int uarthub_core_debug_info_with_tag_nolock(const char *tag, int dump_uart_ip)
 
 	len = 0;
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"[%s][%s] IDEV0_IRQ_STA(0x30)=[0x%x]",
+		"[%s][%s] IDEV0_IRQ_STA/MASK(0x30/0x38)=[0x%x-0x%x]",
 		def_tag, ((tag == NULL) ? "null" : tag),
-		UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV0_IRQ_STA(intfhub_base_remap_addr)));
+		UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV0_IRQ_STA(intfhub_base_remap_addr)),
+		UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV0_IRQ_MASK(intfhub_base_remap_addr)));
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		",IIRQ_STA(0xd0)=[0x%x]",
-		UARTHUB_REG_READ(UARTHUB_INTFHUB_IRQ_STA(intfhub_base_remap_addr)));
-
-	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		",IIRQ_MASK(0xd8)=[0x%x]",
+		",IIRQ_STA/MASK(0xd0/0xd8)=[0x%x-0x%x]",
+		UARTHUB_REG_READ(UARTHUB_INTFHUB_IRQ_STA(intfhub_base_remap_addr)),
 		UARTHUB_REG_READ(UARTHUB_INTFHUB_IRQ_MASK(intfhub_base_remap_addr)));
 
 	val = UARTHUB_REG_READ(UARTHUB_INTFHUB_STA0(intfhub_base_remap_addr));
