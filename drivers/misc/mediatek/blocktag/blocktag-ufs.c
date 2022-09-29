@@ -58,13 +58,16 @@ static struct mtk_btag_ufs_ctx *mtk_btag_ufs_curr_ctx(__u16 task_id)
 {
 	struct mtk_btag_ufs_ctx *ctx = BTAG_CTX(ufs_mtk_btag);
 
+	if (!ctx)
+		return NULL;
+
 	if (BTAG_UFS_QUEUE_ID(task_id) >= ufs_mtk_btag->ctx.count) {
 		pr_notice("[BLOCK_TAG] %s: invalid task id %d\n",
 			__func__, task_id);
 		return NULL;
 	}
 
-	return ctx ? &ctx[BTAG_UFS_QUEUE_ID(task_id)] : NULL;
+	return &ctx[BTAG_UFS_QUEUE_ID(task_id)];
 }
 
 static struct mtk_btag_ufs_task *mtk_btag_ufs_curr_task(__u16 task_id,
@@ -242,7 +245,12 @@ static void mtk_btag_ufs_work(struct work_struct *work)
 		memset(tr, 0, sizeof(struct mtk_btag_trace));
 		tr->pid = 0;
 		tr->qid = idx;
+
 		ctx = mtk_btag_ufs_curr_ctx(idx);
+		if (!ctx) {
+			spin_unlock_irqrestore(&rt->lock, flags);
+			break;
+		}
 
 		spin_lock(&ctx->lock);
 		time = sched_clock();
@@ -369,6 +377,9 @@ static void mtk_btag_ufs_init_ctx(struct mtk_blocktag *btag)
 	struct mtk_btag_ufs_ctx *ctx = BTAG_CTX(btag);
 	__u64 time = sched_clock();
 	int i;
+
+	if (!ctx)
+		return;
 
 	memset(ctx, 0, sizeof(struct mtk_btag_ufs_ctx) * btag->ctx.count);
 	for (i = 0; i < btag->ctx.count; i++) {
