@@ -522,6 +522,7 @@ int mtk_drm_esd_testing_process(struct drm_crtc *crtc, bool need_lock)
 		if (!esd_ctx->chk_active && need_lock) {
 			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 			mutex_unlock(&private->commit.lock);
+			return 0;
 		}
 
 		i = 0; /* repeat */
@@ -544,6 +545,7 @@ int mtk_drm_esd_testing_process(struct drm_crtc *crtc, bool need_lock)
 				DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 				mutex_unlock(&private->commit.lock);
 			}
+			return 0;
 		} else if (recovery_flg && ret == 0) {
 			DDPPR_ERR("[ESD] esd recovery success\n");
 			recovery_flg = 0;
