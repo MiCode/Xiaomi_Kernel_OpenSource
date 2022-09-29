@@ -84,13 +84,8 @@ void aee_kernel_fatal_api_func(const char *file, const int line,
 			msg, args);
 
 	if (g_aee_api && g_aee_api->kernel_reportAPI) {
-		if (module && strstr(module,
-			"maybe have other hang_detect KE DB"))
-			g_aee_api->kernel_reportAPI(AE_DEFECT_FATAL, db_opt,
-				module, msgbuf);
-		else
-			g_aee_api->kernel_reportAPI(AE_DEFECT_FATAL, db_opt,
-				module, msgbuf);
+		g_aee_api->kernel_reportAPI(AE_DEFECT_FATAL, db_opt,
+			module, msgbuf);
 	} else {
 		pr_notice("AEE kernel warning: %s", msgbuf);
 	}
