@@ -5807,9 +5807,9 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		return;
 	}
 
-	if (mtk_crtc->base.dev->dev_private)
+	if (mtk_crtc->base.dev && mtk_crtc->base.dev->dev_private)
 		priv = mtk_crtc->base.dev->dev_private;
-	else {
+	else if (!priv) {
 		DDPPR_ERR("%s:%d errors with NULL mtk_crtc->base.dev->dev_private\n",
 			__func__, __LINE__);
 		return;
