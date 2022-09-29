@@ -4524,11 +4524,21 @@ int aie_prepare(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 	return ret;
 }
 
+static void aie_irqhandle(struct mtk_aie_dev *fd)
+{
+	int status;
+
+	writel(0x0, fd->fd_base + AIE_START_REG);
+
+	/* interrupt read clear */
+	status = readl(fd->fd_base + AIE_INT_REG);
+}
+
 #ifdef FDVT_USE_GCE
 static void AIECmdqCB(struct cmdq_cb_data data)
 {
 	struct mtk_aie_dev *fd = (struct mtk_aie_dev *)data.data;
-
+	aie_irqhandle(fd);
 	queue_work(fd->frame_done_wq, &fd->req_work.work);
 }
 
@@ -4788,16 +4798,6 @@ static void aie_execute(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 	config_aie_cmdq_hw(fd, aie_cfg);
 #endif
 
-}
-
-static void aie_irqhandle(struct mtk_aie_dev *fd)
-{
-	int status;
-
-	writel(0x0, fd->fd_base + AIE_START_REG);
-
-	/* interrupt read clear */
-	status = readl(fd->fd_base + AIE_INT_REG);
 }
 
 /* return aie_cfg to user space */
