@@ -23,6 +23,7 @@
 #include "mtk_cam-seninf-hw.h"
 #include "imgsensor-user.h"
 #include "mtk_cam-seninf-ca.h"
+#include <aee.h>
 
 #include "mtk_cam-defs.h"
 
@@ -1364,13 +1365,47 @@ int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd, int pad_id)
 int mtk_cam_seninf_get_vsync_order(struct v4l2_subdev *sd)
 {
 	/* todo: 0: bayer first 1: w first */
-	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
-	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
+	struct seninf_ctx *ctx = NULL;
+	struct seninf_vcinfo *vcinfo = NULL;
 	struct seninf_vc *vc;
 	int i = 0;
 
+	if (sd == NULL) {
+		pr_info("sd should not be Nullptr\n");
+		aee_kernel_warning_api(
+				__FILE__, __LINE__, DB_OPT_DEFAULT,
+				"seninf", "sd should not be Nullptr");
+		return MTKCAM_IPI_ORDER_BAYER_FIRST;
+	}
+
+	ctx = container_of(sd, struct seninf_ctx, subdev);
+
+	if (ctx == NULL) {
+		pr_info("ctx should not be Nullptr\n");
+		aee_kernel_warning_api(
+				__FILE__, __LINE__, DB_OPT_DEFAULT,
+				"seninf", "ctx should not be Nullptr");
+		return MTKCAM_IPI_ORDER_BAYER_FIRST;
+	}
+
+	vcinfo = &ctx->vcinfo;
+
+	if (vcinfo == NULL) {
+		dev_info(ctx->dev, "vcinfo should not be nullptr\n");
+		aee_kernel_warning_api(
+				__FILE__, __LINE__, DB_OPT_DEFAULT,
+				"seninf", "vcinfo should not be Nullptr");
+		return MTKCAM_IPI_ORDER_BAYER_FIRST;
+	}
+
 	for (i = 0; i < vcinfo->cnt; i++) {
 		vc = &vcinfo->vc[i];
+
+		if (vc == NULL) {
+			dev_info(ctx->dev, "vc is nullptr at i: %d, vcinfo->cnt %d\n",
+				i, vcinfo->cnt);
+			return MTKCAM_IPI_ORDER_BAYER_FIRST;
+		}
 
 		switch (vc->out_pad) {
 		case PAD_SRC_RAW0:
