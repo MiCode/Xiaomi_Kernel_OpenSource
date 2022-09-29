@@ -193,6 +193,9 @@ struct fpsgo_boost_attr {
 	int separate_pct_m_by_pid;
 	int separate_release_sec_by_pid;
 
+	/* blc boost*/
+	int blc_boost_by_pid;
+
 	/* QUOTA */
 	int qr_enable_by_pid;
 	int qr_t2wnt_x_by_pid;

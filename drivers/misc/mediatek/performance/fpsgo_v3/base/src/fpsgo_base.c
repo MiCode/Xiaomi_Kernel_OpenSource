@@ -590,6 +590,7 @@ void fpsgo_reset_pid_attr(struct fpsgo_boost_attr *boost_attr)
 		boost_attr->gcc_deq_bound_thrs_by_pid = BY_PID_DEFAULT_VAL;
 		boost_attr->gcc_enq_bound_quota_by_pid = BY_PID_DEFAULT_VAL;
 		boost_attr->gcc_deq_bound_quota_by_pid = BY_PID_DEFAULT_VAL;
+		boost_attr->blc_boost_by_pid = BY_PID_DEFAULT_VAL;
 	}
 }
 
@@ -826,6 +827,7 @@ int is_to_delete_fpsgo_attr(struct fpsgo_attr_by_pid *fpsgo_attr)
 			boost_attr.qr_t2wnt_x_by_pid == BY_PID_DEFAULT_VAL &&
 			boost_attr.qr_t2wnt_y_n_by_pid == BY_PID_DEFAULT_VAL &&
 			boost_attr.qr_t2wnt_y_p_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.blc_boost_by_pid == BY_PID_DEFAULT_VAL &&
 			boost_attr.gcc_deq_bound_quota_by_pid == BY_PID_DEFAULT_VAL &&
 			boost_attr.gcc_deq_bound_thrs_by_pid == BY_PID_DEFAULT_VAL &&
 			boost_attr.gcc_down_sec_pct_by_pid == BY_PID_DEFAULT_VAL &&
@@ -863,6 +865,7 @@ int is_to_delete_fpsgo_attr(struct fpsgo_attr_by_pid *fpsgo_attr)
 			boost_attr.qr_t2wnt_x_by_pid == BY_PID_DELETE_VAL ||
 			boost_attr.qr_t2wnt_y_n_by_pid == BY_PID_DELETE_VAL ||
 			boost_attr.qr_t2wnt_y_p_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.blc_boost_by_pid == BY_PID_DELETE_VAL ||
 			boost_attr.gcc_deq_bound_quota_by_pid == BY_PID_DELETE_VAL ||
 			boost_attr.gcc_deq_bound_thrs_by_pid == BY_PID_DELETE_VAL ||
 			boost_attr.gcc_down_sec_pct_by_pid == BY_PID_DELETE_VAL ||
@@ -1645,7 +1648,7 @@ static ssize_t render_info_params_show(struct kobject *kobj,
 	pos += length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-		" separate_aa, separate_release_sec_by_pid, pct_b, pct_m\n");
+		" separate_aa, separate_release_sec_by_pid, pct_b, pct_m, blc_boost\n");
 	pos += length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
@@ -1710,11 +1713,12 @@ static ssize_t render_info_params_show(struct kobject *kobj,
 			pos += length;
 
 			length = scnprintf(temp + pos,
-				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d, %4d\n",
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d, %4d, %4d\n",
 				attr_item.separate_aa_by_pid,
 				attr_item.separate_release_sec_by_pid,
 				attr_item.separate_pct_b_by_pid,
-				attr_item.separate_pct_m_by_pid);
+				attr_item.separate_pct_m_by_pid,
+				attr_item.blc_boost_by_pid);
 			pos += length;
 
 			length = scnprintf(temp + pos,
@@ -1795,7 +1799,7 @@ static ssize_t render_attr_params_show(struct kobject *kobj,
 	pos += length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-		" separate_aa, separate_release_sec_by_pid, pct_b, pct_m,\n");
+		" separate_aa, separate_release_sec_by_pid, pct_b, pct_m, blc_boost\n");
 	pos += length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
@@ -1849,11 +1853,12 @@ static ssize_t render_attr_params_show(struct kobject *kobj,
 		pos += length;
 
 		length = scnprintf(temp + pos,
-			FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d, %4d\n",
+			FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d, %4d, %4d\n",
 			attr_item.separate_aa_by_pid,
 			attr_item.separate_release_sec_by_pid,
 			attr_item.separate_pct_b_by_pid,
-			attr_item.separate_pct_m_by_pid);
+			attr_item.separate_pct_m_by_pid,
+			attr_item.blc_boost_by_pid);
 		pos += length;
 
 		length = scnprintf(temp + pos,

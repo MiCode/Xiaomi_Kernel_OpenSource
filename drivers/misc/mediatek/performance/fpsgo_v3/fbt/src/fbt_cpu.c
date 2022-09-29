@@ -89,6 +89,7 @@
 #define DEFAULT_GCC_ENQ_BOUND_QUOTA 6
 #define DEFAULT_GCC_DEQ_BOUND_THRS 20
 #define DEFAULT_GCC_DEQ_BOUND_QUOTA 6
+#define DEFAULT_BLC_BOOST 0
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -357,6 +358,7 @@ static int separate_aa;
 static int separate_pct_b;
 static int separate_pct_m;
 static int separate_release_sec;
+static int blc_boost;
 
 static int cluster_num;
 static int nr_freq_cpu;
@@ -1901,6 +1903,7 @@ void fbt_set_render_boost_attr(struct render_info *thr)
 	render_attr->limit_ruclamp_m_by_pid = limit_ruclamp_m;
 	render_attr->separate_pct_b_by_pid = separate_pct_b;
 	render_attr->separate_pct_m_by_pid = separate_pct_m;
+	render_attr->blc_boost_by_pid = blc_boost;
 
 	render_attr->qr_enable_by_pid = qr_enable;
 	render_attr->qr_t2wnt_x_by_pid = qr_t2wnt_x;
@@ -1981,6 +1984,9 @@ void fbt_set_render_boost_attr(struct render_info *thr)
 	if (pid_attr.separate_pct_m_by_pid != BY_PID_DEFAULT_VAL)
 		render_attr->separate_pct_m_by_pid =
 			pid_attr.separate_pct_m_by_pid;
+	if (pid_attr.blc_boost_by_pid != BY_PID_DEFAULT_VAL)
+		render_attr->blc_boost_by_pid =
+			pid_attr.blc_boost_by_pid;
 	if (pid_attr.qr_enable_by_pid != BY_PID_DEFAULT_VAL)
 		render_attr->qr_enable_by_pid =
 			pid_attr.qr_enable_by_pid;
@@ -3822,6 +3828,7 @@ static int fbt_boost_policy(
 	int qr_t2wnt_x_final = thread_info->attr.qr_t2wnt_x_by_pid;
 	int qr_t2wnt_y_n_final = thread_info->attr.qr_t2wnt_y_n_by_pid;
 	int qr_t2wnt_y_p_final = thread_info->attr.qr_t2wnt_y_p_by_pid;
+	int blc_boost_final = thread_info->attr.blc_boost_by_pid;
 
 	if (!thread_info) {
 		FPSGO_LOGE("ERROR %d\n", __LINE__);
@@ -3988,9 +3995,21 @@ static int fbt_boost_policy(
 
 	}
 
+	if (blc_boost_final) {
+		fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt, "before boost");
+		fpsgo_systrace_c_fbt(pid, buffer_id, blc_boost_final, "blc_boost");
+		blc_wt = blc_wt * blc_boost_final / 100;
+	}
+
 	blc_wt = fbt_limit_capacity(blc_wt, 0);
 	blc_wt = fbt_limit_capacity_isolation(blc_wt, &isolation_cap);
 	if (separate_aa_final) {
+		if (blc_boost_final) {
+			fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt_b, "before boost b");
+			blc_wt_b = blc_wt_b * blc_boost_final / 100;
+			fpsgo_systrace_c_fbt(pid, buffer_id, blc_wt_m, "before boost m");
+			blc_wt_m = blc_wt_m * blc_boost_final / 100;
+		}
 		blc_wt_b = fbt_limit_capacity(blc_wt_b, 0);
 		blc_wt_b = fbt_limit_capacity_isolation(blc_wt_b, &isolation_cap);
 		blc_wt_m = fbt_limit_capacity(blc_wt_m, 0);
@@ -6381,6 +6400,11 @@ static ssize_t fbt_attr_by_pid_store(struct kobject *kobj,
 			boost_attr->separate_pct_m_by_pid = val;
 		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->separate_pct_m_by_pid = BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "blc_boost")) {
+		if (val >= 0 && val < 200 && action == 's')
+			boost_attr->blc_boost_by_pid = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->blc_boost_by_pid = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "qr_enable")) {
 		if ((val == 0 || val == 1) && action == 's')
 			boost_attr->qr_enable_by_pid = val;
@@ -7356,6 +7380,43 @@ static ssize_t separate_release_sec_store(struct kobject *kobj,
 
 static KOBJ_ATTR_RW(separate_release_sec);
 
+static ssize_t blc_boost_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	int val = -1;
+
+	mutex_lock(&fbt_mlock);
+	val = blc_boost;
+	mutex_unlock(&fbt_mlock);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
+}
+
+static ssize_t blc_boost_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	int val = -1;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				val = arg;
+			else
+				return count;
+		}
+	}
+
+	blc_boost = clamp(val, 0, 200);
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(blc_boost);
+
 void fbt_init_cpu_loading_info(void)
 {
 	int i = 0, err_exit = 0;
@@ -7454,6 +7515,8 @@ void __exit fbt_cpu_exit(void)
 			&kobj_attr_separate_pct_m);
 	fpsgo_sysfs_remove_file(fbt_kobj,
 			&kobj_attr_separate_release_sec);
+	fpsgo_sysfs_remove_file(fbt_kobj,
+			&kobj_attr_blc_boost);
 
 	fpsgo_sysfs_remove_dir(&fbt_kobj);
 	fbt_delete_cpu_loading_info();
@@ -7572,6 +7635,7 @@ int __init fbt_cpu_init(void)
 	separate_pct_b = 0;
 	separate_pct_m = 0;
 	separate_release_sec = 0;
+	blc_boost = DEFAULT_BLC_BOOST;
 
 	sbe_rescue_enable = fbt_get_default_sbe_rescue_enable();
 
@@ -7666,6 +7730,8 @@ int __init fbt_cpu_init(void)
 				&kobj_attr_separate_pct_m);
 		fpsgo_sysfs_create_file(fbt_kobj,
 				&kobj_attr_separate_release_sec);
+		fpsgo_sysfs_create_file(fbt_kobj,
+				&kobj_attr_blc_boost);
 #if FPSGO_MW
 		fpsgo_sysfs_create_file(fbt_kobj,
 				&kobj_attr_fbt_attr_by_pid);
