@@ -53,9 +53,16 @@ typedef void (*UARTHUB_IRQ_CB) (unsigned int err_type);
 #define KERNEL_UARTHUB_close                      UARTHUB_close
 
 #define KERNEL_UARTHUB_dev0_is_uarthub_ready      UARTHUB_dev0_is_uarthub_ready
+#define KERNEL_UARTHUB_get_host_wakeup_status     UARTHUB_get_host_wakeup_status
+#define KERNEL_UARTHUB_get_host_set_fw_own_status UARTHUB_get_host_set_fw_own_status
 #define KERNEL_UARTHUB_dev0_is_txrx_idle          UARTHUB_dev0_is_txrx_idle
+#define KERNEL_UARTHUB_dev0_set_tx_request        UARTHUB_dev0_set_tx_request
+#define KERNEL_UARTHUB_dev0_set_rx_request        UARTHUB_dev0_set_rx_request
 #define KERNEL_UARTHUB_dev0_set_txrx_request      UARTHUB_dev0_set_txrx_request
+#define KERNEL_UARTHUB_dev0_clear_tx_request      UARTHUB_dev0_clear_tx_request
+#define KERNEL_UARTHUB_dev0_clear_rx_request      UARTHUB_dev0_clear_rx_request
 #define KERNEL_UARTHUB_dev0_clear_txrx_request    UARTHUB_dev0_clear_txrx_request
+#define KERNEL_UARTHUB_get_uart_cmm_rx_count      UARTHUB_get_uart_cmm_rx_count
 #define KERNEL_UARTHUB_is_assert_state            UARTHUB_is_assert_state
 
 #define KERNEL_UARTHUB_irq_register_cb            UARTHUB_irq_register_cb
@@ -78,9 +85,16 @@ int UARTHUB_open(void);
 int UARTHUB_close(void);
 
 int UARTHUB_dev0_is_uarthub_ready(void);
+int UARTHUB_get_host_wakeup_status(void);
+int UARTHUB_get_host_set_fw_own_status(void);
 int UARTHUB_dev0_is_txrx_idle(int rx);
+int UARTHUB_dev0_set_tx_request(void);
+int UARTHUB_dev0_set_rx_request(void);
 int UARTHUB_dev0_set_txrx_request(void);
+int UARTHUB_dev0_clear_tx_request(void);
+int UARTHUB_dev0_clear_rx_request(void);
 int UARTHUB_dev0_clear_txrx_request(void);
+int UARTHUB_get_uart_cmm_rx_count(void);
 int UARTHUB_is_assert_state(void);
 
 int UARTHUB_irq_register_cb(UARTHUB_IRQ_CB irq_callback);

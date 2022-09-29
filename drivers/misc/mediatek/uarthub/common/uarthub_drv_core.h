@@ -166,9 +166,16 @@ int uarthub_core_open(void);
 int uarthub_core_close(void);
 
 int uarthub_core_dev0_is_uarthub_ready(void);
+int uarthub_core_get_host_wakeup_status(void);
+int uarthub_core_get_host_set_fw_own_status(void);
 int uarthub_core_dev0_is_txrx_idle(int rx);
+int uarthub_core_dev0_set_tx_request(void);
+int uarthub_core_dev0_set_rx_request(void);
 int uarthub_core_dev0_set_txrx_request(void);
+int uarthub_core_dev0_clear_tx_request(void);
+int uarthub_core_dev0_clear_rx_request(void);
 int uarthub_core_dev0_clear_txrx_request(void);
+int uarthub_core_get_uart_cmm_rx_count(void);
 int uarthub_core_is_assert_state(void);
 
 int uarthub_core_irq_register_cb(UARTHUB_CORE_IRQ_CB irq_callback);

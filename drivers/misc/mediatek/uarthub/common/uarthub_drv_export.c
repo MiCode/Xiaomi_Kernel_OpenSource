@@ -44,11 +44,35 @@ int UARTHUB_dev0_is_uarthub_ready(void)
 }
 EXPORT_SYMBOL(UARTHUB_dev0_is_uarthub_ready);
 
+int UARTHUB_get_host_wakeup_status(void)
+{
+	return uarthub_core_get_host_wakeup_status();
+}
+EXPORT_SYMBOL(UARTHUB_get_host_wakeup_status);
+
+int UARTHUB_get_host_set_fw_own_status(void)
+{
+	return uarthub_core_get_host_set_fw_own_status();
+}
+EXPORT_SYMBOL(UARTHUB_get_host_set_fw_own_status);
+
 int UARTHUB_dev0_is_txrx_idle(int rx)
 {
 	return uarthub_core_dev0_is_txrx_idle(rx);
 }
 EXPORT_SYMBOL(UARTHUB_dev0_is_txrx_idle);
+
+int UARTHUB_dev0_set_tx_request(void)
+{
+	return uarthub_core_dev0_set_tx_request();
+}
+EXPORT_SYMBOL(UARTHUB_dev0_set_tx_request);
+
+int UARTHUB_dev0_set_rx_request(void)
+{
+	return uarthub_core_dev0_set_rx_request();
+}
+EXPORT_SYMBOL(UARTHUB_dev0_set_rx_request);
 
 int UARTHUB_dev0_set_txrx_request(void)
 {
@@ -56,11 +80,29 @@ int UARTHUB_dev0_set_txrx_request(void)
 }
 EXPORT_SYMBOL(UARTHUB_dev0_set_txrx_request);
 
+int UARTHUB_dev0_clear_tx_request(void)
+{
+	return uarthub_core_dev0_clear_tx_request();
+}
+EXPORT_SYMBOL(UARTHUB_dev0_clear_tx_request);
+
+int UARTHUB_dev0_clear_rx_request(void)
+{
+	return uarthub_core_dev0_clear_rx_request();
+}
+EXPORT_SYMBOL(UARTHUB_dev0_clear_rx_request);
+
 int UARTHUB_dev0_clear_txrx_request(void)
 {
 	return uarthub_core_dev0_clear_txrx_request();
 }
 EXPORT_SYMBOL(UARTHUB_dev0_clear_txrx_request);
+
+int UARTHUB_get_uart_cmm_rx_count(void)
+{
+	return uarthub_core_get_uart_cmm_rx_count();
+}
+EXPORT_SYMBOL(UARTHUB_get_uart_cmm_rx_count);
 
 int UARTHUB_is_assert_state(void)
 {
