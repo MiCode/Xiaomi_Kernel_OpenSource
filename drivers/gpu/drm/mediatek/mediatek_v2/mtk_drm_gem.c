@@ -867,13 +867,25 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 		return -EFAULT;
 
 	submit_kernel = kzalloc(sizeof(struct mml_submit), GFP_KERNEL);
+	if (!submit_kernel) {
+		DDPMSG("[%s][%d][%d] kzalloc fail\n", __func__, __LINE__, ret);
+		return -EFAULT;
+	}
+
 	memcpy(submit_kernel, submit_user, sizeof(struct mml_submit));
 	submit_kernel->job = kzalloc(sizeof(struct mml_job), GFP_KERNEL);
+	if (!submit_kernel->job) {
+		ret = -EFAULT;
+		DDPMSG("[%s][%d][%d] kzalloc fail\n", __func__, __LINE__, ret);
+		goto err_handle_create;
+	}
 
 	if (submit_user->job) {
 		ret = copy_from_user(submit_kernel->job, submit_user->job, sizeof(struct mml_job));
-		if (ret)
+		if (ret) {
 			DDPMSG("[%s][%d][%d] copy_from_user fail\n", __func__, __LINE__, ret);
+			goto err_handle_create;
+		}
 	} else
 		DDPMSG("[%s] submit_user->job is null\n", __func__);
 
@@ -881,11 +893,19 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 		if (submit_user->pq_param[i]) {
 			submit_kernel->pq_param[i] =
 				kzalloc(sizeof(struct mml_pq_param), GFP_KERNEL);
+			if (!submit_kernel->pq_param[i]) {
+				ret = -EFAULT;
+				DDPMSG("[%s][%d][%d] kzalloc fail\n", __func__, __LINE__, ret);
+				goto err_handle_create;
+			}
+
 			ret = copy_from_user(submit_kernel->pq_param[i], submit_user->pq_param[i],
 				sizeof(struct mml_pq_param));
-			if (ret)
+			if (ret) {
 				DDPMSG("[%s][%d][%d] copy_from_user fail\n",
 				__func__, __LINE__, ret);
+				goto err_handle_create;
+			}
 			//copy_from_user(submit_kernel->pq_param[i]->gralloc_extra_handle,
 			//	submit_user->pq_param[i]->gralloc_extra_handle, sizeof(void *));
 		} else {
@@ -920,8 +940,9 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 			DDPMSG("[%s][%d][%d] copy_to_user fail\n", __func__, __LINE__, ret);
 	}
 
+err_handle_create:
 	for (i = 0; i < MML_MAX_OUTPUTS; i++) {
-		if (submit_user->pq_param[i])
+		if (submit_kernel->pq_param[i])
 			kfree(submit_kernel->pq_param[i]);
 	}
 	kfree(submit_kernel->job);
