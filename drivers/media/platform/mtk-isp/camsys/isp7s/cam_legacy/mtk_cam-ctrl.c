@@ -5337,7 +5337,7 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 		return -1;
 	}
 	ctx = &cam->ctxs[camsv_dev->ctx_stream_id];
-	if (mtk_cam_scen_is_ext_isp(&ctx->pipe->scen_active)) {
+	if (ctx->pipe && (mtk_cam_scen_is_ext_isp(&ctx->pipe->scen_active))) {
 		dev_info(camsv_dev->dev, "ts=%lu irq_type %d, req:%d/%d, cnt:%d/%d, done_group:0x%x\n",
 		irq_info->ts_ns / 1000,
 		irq_info->irq_type,
