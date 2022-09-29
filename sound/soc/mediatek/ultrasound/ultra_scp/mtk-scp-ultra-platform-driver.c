@@ -339,11 +339,11 @@ static int mtk_scp_ultra_engine_state_set(struct snd_kcontrol *kcontrol,
 		payload[5] = param_config.period_in_size;
 		payload[6] = param_config.target_out_channel;
 		ret_val = ultra_ipi_send_msg(AUDIO_TASK_USND_MSG_ID_ON,
-						false,
-						7,
-						&payload[0],
-						ULTRA_IPI_NEED_ACK,
-						param_config.format_out);
+					     false,
+					     7,
+					     &payload[0],
+					     ULTRA_IPI_NEED_ACK,
+					     param_config.format_out);
 		if (ret_val == 0) {
 			pr_info("%s() set state on failed\n", __func__);
 			scp_ultra->usnd_state = SCP_ULTRA_STATE_IDLE;
@@ -364,24 +364,29 @@ static int mtk_scp_ultra_engine_state_set(struct snd_kcontrol *kcontrol,
 		afe->memif[scp_ultra_memif_dl_id].scp_ultra_enable = false;
 		afe->memif[scp_ultra_memif_ul_id].scp_ultra_enable = false;
 
-		ultra_ipi_send(AUDIO_TASK_USND_MSG_ID_OFF,
-			       false,
-			       0,
-			       NULL,
-			       ULTRA_IPI_NEED_ACK);
+		ret_val = ultra_ipi_send(AUDIO_TASK_USND_MSG_ID_OFF,
+					 false,
+					 0,
+					 NULL,
+					 ULTRA_IPI_NEED_ACK);
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 		scp_deregister_feature(ULTRA_FEATURE_ID);
 #endif
+		if (ret_val == 0) {
+			pr_info("%s() set state off failed\n", __func__);
+			aud_wake_unlock(ultra_suspend_lock);
+			return -1;
+		}
 		aud_wake_unlock(ultra_suspend_lock);
 		return 0;
 	case SCP_ULTRA_STATE_START:
 		aud_wake_lock(ultra_suspend_lock);
 		pm_runtime_get_sync(afe->dev);
 		ultra_ipi_send(AUDIO_TASK_USND_MSG_ID_START,
-					false,
-					0,
-					NULL,
-					ULTRA_IPI_NEED_ACK);
+			       false,
+			       0,
+			       NULL,
+			       ULTRA_IPI_NEED_ACK);
 		pm_runtime_put(afe->dev);
 		aud_wake_unlock(ultra_suspend_lock);
 		return 0;
@@ -389,10 +394,10 @@ static int mtk_scp_ultra_engine_state_set(struct snd_kcontrol *kcontrol,
 		aud_wake_lock(ultra_suspend_lock);
 		pm_runtime_get_sync(afe->dev);
 		ultra_ipi_send(AUDIO_TASK_USND_MSG_ID_STOP,
-					false,
-					0,
-					NULL,
-					ULTRA_IPI_NEED_ACK);
+			       false,
+			       0,
+			       NULL,
+			       ULTRA_IPI_NEED_ACK);
 		pm_runtime_put(afe->dev);
 		aud_wake_unlock(ultra_suspend_lock);
 		return 0;
