@@ -8476,11 +8476,9 @@ skip:
 	/* 3.1 stop the last mml pkt */
 	if (mtk_crtc->is_mml || (mtk_crtc->mml_ir_state == MML_IR_LEAVING)) {
 		struct mtk_drm_sram_list *entry, *tmp;
-		struct mml_drm_ctx *mml_ctx = mtk_drm_get_mml_drm_ctx(crtc->dev, crtc);
 
-		if (mml_ctx && (mtk_crtc_is_frame_trigger_mode(crtc) ||
-				mtk_crtc_is_connector_enable(mtk_crtc)))
-			mml_drm_racing_stop_sync(mml_ctx, cmdq_handle);
+		if (mtk_crtc_is_frame_trigger_mode(crtc) || mtk_crtc_is_connector_enable(mtk_crtc))
+			mtk_crtc_mml_racing_stop_sync(crtc, cmdq_handle, false);
 
 		mutex_lock(&mtk_crtc->mml_ir_sram.lock);
 		entry = list_last_entry(&mtk_crtc->mml_ir_sram.list.head,
@@ -9691,7 +9689,7 @@ void mml_cmdq_pkt_init(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 		mml_drm_racing_config_sync(mml_ctx, cmdq_handle);
 		break;
 	case MML_IR_LEAVING:
-		mtk_crtc_mml_racing_stop_sync(crtc, cmdq_handle);
+		mtk_crtc_mml_racing_stop_sync(crtc, cmdq_handle, false);
 		break;
 	default:
 		break;
@@ -15768,11 +15766,6 @@ void mtk_crtc_mml_racing_resubmit(struct drm_crtc *crtc, struct cmdq_pkt *_cmdq_
 	const enum mtk_ddp_comp_id id[] = {DDP_COMPONENT_INLINE_ROTATE0,
 					   DDP_COMPONENT_INLINE_ROTATE1};
 
-	if (mtk_crtc_is_frame_trigger_mode(crtc)) {
-		DDPMSG("%s skip in cmd mode\n", __func__);
-		return;
-	}
-
 	if (!mml_ctx || !mtk_crtc->is_mml) {
 		DDPMSG("%s !mml_ctx or !is_mml\n", __func__);
 		return;
@@ -15811,17 +15804,13 @@ void mtk_crtc_mml_racing_resubmit(struct drm_crtc *crtc, struct cmdq_pkt *_cmdq_
 	}
 }
 
-void mtk_crtc_mml_racing_stop_sync(struct drm_crtc *crtc, struct cmdq_pkt *_cmdq_handle)
+void mtk_crtc_mml_racing_stop_sync(struct drm_crtc *crtc, struct cmdq_pkt *_cmdq_handle,
+				   bool force)
 {
 	bool flush = false;
 	struct cmdq_pkt *cmdq_handle = NULL;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mml_drm_ctx *mml_ctx = mtk_drm_get_mml_drm_ctx(crtc->dev, crtc);
-
-	if (mtk_crtc_is_frame_trigger_mode(crtc)) {
-		DDPINFO("%s skip in cmd mode\n", __func__);
-		return;
-	}
 
 	if (!mml_ctx) {
 		DDPMSG("%s !mml_ctx\n", __func__);
@@ -15840,7 +15829,10 @@ void mtk_crtc_mml_racing_stop_sync(struct drm_crtc *crtc, struct cmdq_pkt *_cmdq
 		return;
 	}
 
-	mml_drm_racing_stop_sync(mml_ctx, cmdq_handle);
+	if (force && mtk_crtc->mml_cfg)
+		mml_drm_stop(mml_ctx, mtk_crtc->mml_cfg, false);
+	else
+		mml_drm_racing_stop_sync(mml_ctx, cmdq_handle);
 
 	if (flush) {
 		cmdq_pkt_flush(cmdq_handle);

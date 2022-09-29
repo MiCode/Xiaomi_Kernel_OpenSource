@@ -436,7 +436,8 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 
 	if (mtk_crtc->is_mml) {
 		mtk_crtc_pkt_create(&cmdq_handle, crtc, mtk_crtc->gce_obj.client[CLIENT_CFG]);
-		mtk_crtc_mml_racing_stop_sync(crtc, cmdq_handle);
+		mtk_crtc_mml_racing_stop_sync(crtc, cmdq_handle,
+					      mtk_crtc_is_frame_trigger_mode(crtc) ? true : false);
 		/* flush cmdq with stop_vdo_mode before it set DSI_START to 0 */
 	}
 
