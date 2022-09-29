@@ -74,6 +74,20 @@ static int usnd_scp_recover_event(struct notifier_block *this,
 				  unsigned long event,
 				  void *ptr)
 {
+	struct mtk_base_scp_ultra *scp_ultra = get_scp_ultra_base();
+	struct mtk_base_scp_ultra_mem *ultra_mem = &scp_ultra->ultra_mem;
+	struct mtk_base_afe *afe = get_afe_base();
+	struct mtk_base_afe_memif *memif =
+		&afe->memif[ultra_mem->ultra_dl_memif_id];
+	struct mtk_base_afe_memif *memiful =
+		&afe->memif[ultra_mem->ultra_ul_memif_id];
+	int irq_id_dl = memif->irq_usage;
+	struct mtk_base_afe_irq *irqs_dl = &afe->irqs[irq_id_dl];
+	const struct mtk_base_irq_data *irq_data_dl = irqs_dl->irq_data;
+	int irq_id_ul = memiful->irq_usage;
+	struct mtk_base_afe_irq *irqs_ul = &afe->irqs[irq_id_ul];
+	const struct mtk_base_irq_data *irq_data_ul = irqs_ul->irq_data;
+
 	switch (event) {
 	case SCP_EVENT_READY: {
 		pr_info("%s(), SCP_EVENT_READY\n", __func__);
@@ -83,6 +97,42 @@ static int usnd_scp_recover_event(struct notifier_block *this,
 	case SCP_EVENT_STOP:
 		ultra_SetScpRecoverStatus(true);
 		pr_info("%s(), SCP_EVENT_STOP\n", __func__);
+		if (scp_ultra->usnd_state == SCP_ULTRA_STATE_START) {
+			pm_runtime_get_sync(afe->dev);
+			/* stop dl memif */
+			regmap_update_bits(afe->regmap,
+					   memif->data->enable_reg,
+					   1 << memif->data->enable_shift,
+					   0);
+			/* stop ul memif */
+			regmap_update_bits(afe->regmap,
+					   memiful->data->enable_reg,
+					   1 << memiful->data->enable_shift,
+					   0);
+			/* stop dl irq */
+			regmap_update_bits(afe->regmap,
+					   irq_data_dl->irq_en_reg,
+					   1 << irq_data_dl->irq_en_shift,
+					   0);
+
+			/* stop ul irq */
+			regmap_update_bits(afe->regmap, irq_data_ul->irq_en_reg,
+					   1 << irq_data_ul->irq_en_shift,
+					   0);
+
+			/* clear pending dl irq */
+			regmap_write(afe->regmap, irq_data_dl->irq_clr_reg,
+				     1 << irq_data_dl->irq_clr_shift);
+
+			/* clear pending ul irq */
+			regmap_write(afe->regmap, irq_data_ul->irq_clr_reg,
+				     1 << irq_data_ul->irq_clr_shift);
+
+			/* Set dl&ul irq to ap */
+			set_afe_dl_irq_target(false);
+			set_afe_ul_irq_target(false);
+			pm_runtime_put(afe->dev);
+		}
 		break;
 	}
 	return NOTIFY_DONE;
