@@ -1734,7 +1734,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 	seninf_csi_s_stream(sd, enable);
 
 	/* avoid stream on when pad2cam is not set, it will cont stream on after set camtg */
-	if (enable) {
+	if (enable && !ctx->is_aov_real_sensor) {
 		for (i = 0; i < PAD_MAXCNT; i++) {
 			if (ctx->pad2cam[i][0] != 0xff) {
 				pad_inited = true;
