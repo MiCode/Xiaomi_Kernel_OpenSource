@@ -870,7 +870,8 @@ static void mtk_atomic_doze_update_dsi_state(struct drm_device *dev,
 		mtk_crtc_change_output_mode(crtc,
 			mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]);
 }
-
+	/* TODO: need PQ team's help to fix the following flow that will lead to doze issue.*/
+#ifdef IF_ZERO
 static void pq_bypass_cmdq_cb(struct cmdq_cb_data data)
 {
 	struct mtk_cmdq_cb_data *cb_data = data.data;
@@ -878,9 +879,11 @@ static void pq_bypass_cmdq_cb(struct cmdq_cb_data data)
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
 	kfree(cb_data);
 }
-
+#endif
 static void mtk_atomit_doze_update_pq(struct drm_crtc *crtc, unsigned int stage, bool old_state)
 {
+	/* TODO: need PQ team's help to fix the following flow that will lead to doze issue.*/
+#ifdef IF_ZERO
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *mtk_state;
 	struct mtk_ddp_comp *comp;
@@ -891,7 +894,12 @@ static void mtk_atomit_doze_update_pq(struct drm_crtc *crtc, unsigned int stage,
 #ifndef DRM_CMDQ_DISABLE
 	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_CFG];
 #endif
+#endif
+	/* skip this stage avoid cmdq_mbox control abnormal */
+	return;
 
+	/* TODO: need PQ team's help to fix the following flow that will lead to doze issue.*/
+#ifdef IF_ZERO
 	DDPINFO("%s+: new crtc state = %d, old crtc state = %d, stage = %d\n", __func__,
 		crtc->state->active, old_state, stage);
 	mtk_state = to_mtk_crtc_state(crtc->state);
@@ -931,6 +939,11 @@ static void mtk_atomit_doze_update_pq(struct drm_crtc *crtc, unsigned int stage,
 		return;
 	}
 
+#ifndef DRM_CMDQ_DISABLE
+	if (bypass)
+		cmdq_mbox_enable(client->chan); /* GCE clk refcnt + 1 */
+#endif
+
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
 	cb_data->crtc = crtc;
@@ -967,6 +980,7 @@ static void mtk_atomit_doze_update_pq(struct drm_crtc *crtc, unsigned int stage,
 #ifndef DRM_CMDQ_DISABLE
 	if (bypass)
 		cmdq_mbox_disable(client->chan); /* GCE clk refcnt - 1 */
+#endif
 #endif
 }
 
