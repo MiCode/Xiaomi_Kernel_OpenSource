@@ -54,6 +54,13 @@ struct mtk_panel_context {
 
 	/* fake mode */
 	atomic_t fake_mode;
+
+	/* doze status */
+	atomic_t doze_enabled;
+	atomic_t doze_had;
+
+	/* dim status */
+	atomic_t dim_status;
 };
 
 extern struct platform_driver mtk_drm_panel_dbi_driver;

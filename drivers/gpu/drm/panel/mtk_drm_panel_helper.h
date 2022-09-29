@@ -24,7 +24,6 @@ extern unsigned long long mtk_lcm_total_size;
 #define MTK_LCM_MODE_UNIT   (4)
 #define MTK_LCM_DEBUG_DUMP  (0)
 #define MTK_LCM_DATA_OFFSET (2)
-#define MTK_LCM_MODE_COUNT  (20)
 
 /* mtk_lcm_ops_table
  * used to store the lcm operation commands
@@ -44,7 +43,6 @@ struct mtk_lcm_params_dpi {
 	unsigned int dpi_private_data;
 };
 
-#define MTK_LCM_MSYNC_MAX_FPS_COUNT (16)
 struct mtk_lcm_mode_dsi {
 /* key word */
 	unsigned int id;
@@ -57,7 +55,8 @@ struct mtk_lcm_mode_dsi {
 /* params */
 	struct drm_display_mode mode;
 	struct mtk_panel_params ext_param;
-	int msync_set_min_fps_list[MTK_LCM_MSYNC_MAX_FPS_COUNT];
+	int msync_set_min_fps_list_length;
+	unsigned int *msync_set_min_fps_list;
 	struct mtk_lcm_ops_table msync_set_min_fps;
 /* ops */
 	struct mtk_lcm_ops_table msync_switch_mte;
@@ -231,10 +230,15 @@ struct mtk_lcm_ops_dsi {
 	unsigned int set_aod_light_mask;
 	struct mtk_lcm_ops_table set_aod_light;
 
-	/* panel aod check*/
+	/* panel ata check*/
 	unsigned int ata_id_value_length;
 	u8 *ata_id_value_data;
 	struct mtk_lcm_ops_table ata_check;
+
+	/* panel aod mode check*/
+	unsigned int aod_mode_value_length;
+	u8 *aod_mode_value_data;
+	struct mtk_lcm_ops_table aod_mode_check;
 
 #ifdef MTK_PANEL_SUPPORT_COMPARE_ID
 	/* panel compare id check*/
@@ -263,13 +267,16 @@ struct mtk_lcm_ops_dsi {
 	unsigned int read_panelid_len;
 	struct mtk_lcm_ops_table read_panelid;
 
-	int msync_switch_mte_mode[MTK_LCM_MODE_COUNT];
+	unsigned int msync_switch_mte_mode_count;
+	u8 *msync_switch_mte_mode;
 	struct mtk_lcm_ops_table default_msync_switch_mte;
 
-	int fps_switch_afon_mode[MTK_LCM_MODE_COUNT];
+	unsigned int fps_switch_afon_mode_count;
+	u8 *fps_switch_afon_mode;
 	struct mtk_lcm_ops_table default_fps_switch_afon;
 
-	int fps_switch_bfoff_mode[MTK_LCM_MODE_COUNT];
+	unsigned int fps_switch_bfoff_mode_count;
+	u8 *fps_switch_bfoff_mode;
 	struct mtk_lcm_ops_table default_fps_switch_bfoff;
 
 #if MTK_LCM_DEBUG_DUMP
@@ -349,7 +356,44 @@ struct mtk_panel_resource {
 int load_panel_resource_from_dts(struct device_node *lcm_np,
 		struct mtk_panel_resource *data);
 
+/* function: parse lcm operation table in dts settings
+ * input: np: the dts node
+ *        table: lcm operation list
+ *        func: lcm operation name
+ *        flag_len: the ddic flag length
+ *        panel_type: lcm type of DSI/DPI/DBI
+ *        cust: customized operation
+ *        phase: parsing phase of KERNEL/LK
+ * output: lcm operation count
+ */
 int parse_lcm_ops_func(struct device_node *np,
+		struct mtk_lcm_ops_table *table, char *func,
+		unsigned int flag_len, unsigned int panel_type,
+		const struct mtk_panel_cust *cust, unsigned int phase);
+
+/* function: parse the common lcm operation table
+ *        shared by different conditions in dts settings,
+ *        u8/u32 is the data type of list array.
+ * input: np: the dts node
+ *        list: the condition list
+ *        list_len: the condition count
+ *        list_name: the condition list name
+ *        table: lcm operation list
+ *        func: lcm operation name
+ *        flag_len: the ddic flag length
+ *        panel_type: lcm type of DSI/DPI/DBI
+ *        cust: customized operation
+ *        phase: parsing phase of KERNEL/LK
+ * output: 0 for pass, else failed
+ */
+int parse_lcm_common_ops_func_u8(struct device_node *np,
+		u8 **list, unsigned int *list_len, char *list_name,
+		struct mtk_lcm_ops_table *table, char *func,
+		unsigned int flag_len, unsigned int panel_type,
+		const struct mtk_panel_cust *cust, unsigned int phase);
+
+int parse_lcm_common_ops_func_u32(struct device_node *np,
+		u32 **list, unsigned int *list_len, char *list_name,
 		struct mtk_lcm_ops_table *table, char *func,
 		unsigned int flag_len, unsigned int panel_type,
 		const struct mtk_panel_cust *cust, unsigned int phase);
