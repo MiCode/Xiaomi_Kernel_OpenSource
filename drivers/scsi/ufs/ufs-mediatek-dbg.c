@@ -157,9 +157,9 @@ static void ufs_mtk_dbg_print_info(char **buff, unsigned long *size,
 
 	/* Device info */
 	SPREAD_PRINTF(buff, size, m,
-		      "Device vendor=0x%X, model=%s\n",
-		      hba->dev_info.wmanufacturerid,
-		      hba->dev_info.model);
+		      "Device vendor=%.8s, model=%.16s, rev=%.4s\n",
+		      hba->sdev_ufs_device->vendor,
+		      hba->sdev_ufs_device->model, hba->sdev_ufs_device->rev);
 
 	if (hba_priv->is_mcq_enabled) {
 		SPREAD_PRINTF(buff, size, m,

@@ -2381,6 +2381,7 @@ fail:
 
 static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
 {
+	int i;
 
 	mt_irq_dump_status(hba->irq);
 
@@ -2411,8 +2412,14 @@ static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
 
 	/* Dump ufshci register 0x2200 ~ 0x22AC */
 	ufshcd_dump_regs(hba, REG_UFS_MPHYCTRL,
-			 REG_UFS_AH8X_MON - REG_UFS_MPHYCTRL + 4,
+			 REG_UFS_REJECT_MON - REG_UFS_MPHYCTRL + 4,
 			 "UFSHCI (0x2200): ");
+
+	/* Dump ufshci register 0x22B0 ~ 0x22B4, 4 times */
+	for (i = 0; i < 4; i++)
+		ufshcd_dump_regs(hba, REG_UFS_AH8E_MON,
+			 REG_UFS_AH8X_MON - REG_UFS_AH8E_MON + 4,
+			 "UFSHCI (0x22B0): ");
 
 	/* Direct debugging information to REG_MTK_PROBE */
 	ufs_mtk_dbg_sel(hba);
