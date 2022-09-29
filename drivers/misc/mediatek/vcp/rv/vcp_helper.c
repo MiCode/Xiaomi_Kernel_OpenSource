@@ -2506,10 +2506,14 @@ static int vcp_device_probe(struct platform_device *pdev)
 	pr_notice("[VCP] vcpreg.twohart = %d,  vcpreg.femter_ck = %d\n",
 		vcpreg.twohart, vcpreg.femter_ck);
 
+	vcp_ee_enable = 0;
+	vcpreg.secure_dump = 0;
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT)
 	of_property_read_u32(pdev->dev.of_node, "vcp-secure-dump"
 						, &vcpreg.secure_dump);
 	of_property_read_u32(pdev->dev.of_node, "vcp-ee-enable"
 						, &vcp_ee_enable);
+#endif
 
 	pr_notice("[VCP] vcpreg.secure_dump = %d, vcp_ee_enable = %d\n",
 			vcpreg.secure_dump, vcp_ee_enable);
@@ -2887,10 +2891,9 @@ static int __init vcp_init(void)
 
 	INIT_WORK(&vcp_A_notify_work.work, vcp_A_notify_ws);
 
-#ifdef VCP_DEBUG_REMOVED
 	mtk_ipi_register(&vcp_ipidev, IPI_IN_VCP_READY_0,
 			(void *)vcp_A_ready_ipi_handler, NULL, &msg_vcp_ready0);
-#endif
+
 	mtk_ipi_register(&vcp_ipidev, IPI_IN_VCP_READY_1,
 			(void *)vcp_A_ready_ipi_handler, NULL, &msg_vcp_ready1);
 #ifdef VCP_DEBUG_REMOVED
