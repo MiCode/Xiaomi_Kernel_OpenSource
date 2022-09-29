@@ -34,6 +34,7 @@
 
 #define ESD_TRY_CNT 5
 #define ESD_CHECK_PERIOD 2000 /* ms */
+#define esd_timer_to_mtk_crtc(x) container_of(x, struct mtk_drm_crtc, esd_timer)
 
 /* pinctrl implementation */
 long _set_state(struct drm_crtc *crtc, const char *name)
@@ -194,7 +195,7 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
 						 DDP_FIRST_PATH, 0);
 
-		cmdq_pkt_clear_event(cmdq_handle,
+		cmdq_pkt_wfe(cmdq_handle,
 				     mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
 
 		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, ESD_CHECK_READ,
@@ -560,6 +561,29 @@ int mtk_drm_esd_testing_process(struct drm_crtc *crtc, bool need_lock)
 		return 0;
 
 }
+
+static void mtk_esd_timer_do(struct timer_list *esd_timer)
+{
+	//wake up interrupt
+	struct mtk_drm_crtc *mtk_crtc = esd_timer_to_mtk_crtc(esd_timer);
+	struct mtk_drm_esd_ctx *esd_ctx = NULL;
+
+	esd_ctx = mtk_crtc->esd_ctx;
+	atomic_set(&esd_ctx->target_time, 1);
+	wake_up_interruptible(&mtk_crtc->esd_ctx->check_task_wq);
+}
+
+int init_esd_timer(struct drm_crtc *crtc)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_esd_ctx *esd_ctx = NULL;
+
+	esd_ctx = mtk_crtc->esd_ctx;
+	timer_setup(&mtk_crtc->esd_timer, mtk_esd_timer_do, 0);
+	mod_timer(&mtk_crtc->esd_timer, jiffies + (1*HZ));
+	return 0;
+}
+
 static int mtk_drm_esd_check_worker_kthread(void *data)
 {
 	struct sched_param param = {.sched_priority = 87};
@@ -587,6 +611,9 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 		msleep(ESD_CHECK_PERIOD);
 		if (esd_ctx->chk_en == 0)
 			continue;
+
+		init_esd_timer(crtc);
+
 		ret = wait_event_interruptible(
 			esd_ctx->check_task_wq,
 			atomic_read(&esd_ctx->check_wakeup) &&
@@ -596,9 +623,8 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 			DDPINFO("[ESD]check thread waked up accidently\n");
 			continue;
 		}
-
+		del_timer_sync(&mtk_crtc->esd_timer);
 		mtk_drm_esd_testing_process(crtc, true);
-
 		/* 2. other check & recovery */
 		if (kthread_should_stop())
 			break;
