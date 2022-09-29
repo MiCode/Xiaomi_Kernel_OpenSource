@@ -4406,9 +4406,11 @@ static void mtk_ovl_prepare(struct mtk_ddp_comp *comp)
 		mtk_ddp_write_mask_cpu(comp, DISP_OVL_BYPASS_SHADOW,
 			DISP_REG_OVL_EN, DISP_OVL_BYPASS_SHADOW);
 
-	dev_priv = comp->mtk_crtc->base.dev->dev_private;
-	if (mtk_drm_helper_get_opt(dev_priv->helper_opt, MTK_DRM_OPT_LAYER_REC))
-		writel(0xffffffff, comp->regs + DISP_OVL_REG_GDRDY_PRD);
+	if (comp->mtk_crtc && comp->mtk_crtc->base.dev) {
+		dev_priv = comp->mtk_crtc->base.dev->dev_private;
+		if (mtk_drm_helper_get_opt(dev_priv->helper_opt, MTK_DRM_OPT_LAYER_REC))
+			writel(0xffffffff, comp->regs + DISP_OVL_REG_GDRDY_PRD);
+	}
 }
 
 static void mtk_ovl_unprepare(struct mtk_ddp_comp *comp)
