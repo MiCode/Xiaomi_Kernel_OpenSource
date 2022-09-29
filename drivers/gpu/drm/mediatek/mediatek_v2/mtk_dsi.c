@@ -7940,6 +7940,35 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		}
 	}
 		break;
+	case DSI_GET_MODE_CONT:
+	{
+		struct drm_display_mode *mode, *next;
+		unsigned int *cont;
+
+		if (dsi == NULL)
+			break;
+
+		cont = (unsigned int *)params;
+		*cont = 0;
+		list_for_each_entry_safe(mode, next, &dsi->conn.modes, head) {
+			if (mode == NULL)
+				break;
+			(*cont)++;
+		}
+	}
+		break;
+	case DSI_SET_PANEL_PARAMS_BY_IDX:
+	{
+		struct mtk_crtc_state *state =
+			to_mtk_crtc_state(comp->mtk_crtc->base.state);
+		state->prop_val[CRTC_PROP_DISP_MODE_IDX] = *((unsigned int *)params);
+		if (dsi->ext && dsi->ext->funcs &&
+			dsi->ext->funcs->ext_param_set)
+			dsi->ext->funcs->ext_param_set(dsi->panel, &dsi->conn,
+				state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
+	}
+		break;
+
 	case DSI_FILL_MODE_BY_CONNETOR:
 	{
 		struct drm_connector *conn = &dsi->conn;

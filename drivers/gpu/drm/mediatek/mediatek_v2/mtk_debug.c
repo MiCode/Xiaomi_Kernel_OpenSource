@@ -3218,6 +3218,10 @@ static void process_dbg_opt(const char *opt)
 		unsigned int fake_hdr_en = 0;
 		struct drm_crtc *crtc;
 		struct mtk_panel_params *params = NULL;
+		struct mtk_drm_crtc *mtk_crtc;
+		struct mtk_ddp_comp *output_comp;
+		struct mtk_crtc_state *state;
+		unsigned int mode_cont, cur_mode_idx, i;
 		int ret;
 
 		ret = sscanf(opt, "fake_wcg:%u\n", &fake_hdr_en);
@@ -3233,15 +3237,32 @@ static void process_dbg_opt(const char *opt)
 			DDPPR_ERR("find crtc fail\n");
 			return;
 		}
+		mtk_crtc = to_mtk_crtc(crtc);
 
-		params = mtk_drm_get_lcm_ext_params(crtc);
-		if (!params) {
-			DDPPR_ERR("[Fake HDR] find lcm ext fail\n");
+		state = to_mtk_crtc_state(mtk_crtc->base.state);
+		cur_mode_idx = state->prop_val[CRTC_PROP_DISP_MODE_IDX];
+		output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+		if (!output_comp) {
+			DDPMSG("output_comp is null!\n");
 			return;
 		}
+		mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_GET_MODE_CONT, &mode_cont);
 
-		params->lcm_color_mode = (fake_hdr_en) ?
-			MTK_DRM_COLOR_MODE_DISPLAY_P3 : MTK_DRM_COLOR_MODE_NATIVE;
+		DDPINFO("set panel color_mode info: mode_cont = %d, cur_mode_idx = %d\n",
+							mode_cont, cur_mode_idx);
+
+		for (i = 0; i < mode_cont; i++) {
+			mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_SET_PANEL_PARAMS_BY_IDX, &i);
+			params = mtk_drm_get_lcm_ext_params(crtc);
+			if (!params) {
+				DDPINFO("[Fake HDR] find lcm ext fail[%d]\n", i);
+				return;
+			}
+			params->lcm_color_mode = (fake_hdr_en) ?
+				MTK_DRM_COLOR_MODE_DISPLAY_P3 : MTK_DRM_COLOR_MODE_NATIVE;
+		}
+		mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_SET_PANEL_PARAMS_BY_IDX, &cur_mode_idx);
+
 		DDPINFO("set panel color_mode to %d\n", params->lcm_color_mode);
 	} else if (strncmp(opt, "fake_mode:", 10) == 0) {
 		unsigned int en = 0;
