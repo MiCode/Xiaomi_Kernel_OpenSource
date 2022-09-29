@@ -30,10 +30,15 @@ DECLARE_PER_CPU(unsigned long, min_freq);
 #define LB_IRQ_BACKUP_CURR         (0x480)
 #define LB_IRQ_BACKUP_PREV         (0x481)
 #define LB_IRQ_BACKUP_ALLOWED      (0x482)
-#define LB_RT_FAIL      (0x1000)
+#define LB_RT_FAIL         (0x1000)
+#define LB_RT_FAIL_PD      (0x1001)
+#define LB_RT_FAIL_CPU     (0x1002)
 #define LB_RT_SYNC      (0x2000)
 #define LB_RT_IDLE      (0x4000)
-#define LB_RT_LOWEST_PRIO  (0x8000)
+#define LB_RT_LOWEST_PRIO         (0x8000)
+#define LB_RT_LOWEST_PRIO_NORMAL  (0x8001)
+#define LB_RT_LOWEST_PRIO_RT      (0x8002)
+#define LB_RT_SOURCE_CPU   (0x10000)
 
 #ifdef CONFIG_SMP
 /*

@@ -756,14 +756,10 @@ unsigned long mtk_uclamp_rq_util_with_inirq(struct rq *rq, unsigned long util,
 static inline unsigned int mtk_task_cap(struct task_struct *p, int cpu,
 					unsigned long min_cap, unsigned long max_cap)
 {
-	unsigned long util;
-	struct rq *rq;
+	unsigned long util = cpu_util_cfs(cpu_rq(cpu));
+	unsigned long cpu_cap = arch_scale_cpu_capacity(cpu);
 
-	rq = cpu_rq(cpu);
-	util = min_cap;
-	util = mtk_uclamp_rq_util_with_inirq(rq, util, p, min_cap, max_cap);
-
-	return clamp_val(util, min_cap, max_cap);
+	return  mtk_cpu_util(cpu, util, cpu_cap, FREQUENCY_UTIL, p);
 }
 
 #if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
@@ -813,33 +809,78 @@ unsigned long calc_pwr(int cpu, unsigned long task_util)
 }
 #endif
 
+#if IS_ENABLED(CONFIG_SMP)
+static inline bool should_honor_rt_sync(struct rq *rq, struct task_struct *p,
+					bool sync)
+{
+	/*
+	 * If the waker is CFS, then an RT sync wakeup would preempt the waker
+	 * and force it to run for a likely small time after the RT wakee is
+	 * done. So, only honor RT sync wakeups from RT wakers.
+	 */
+	return sync && task_has_rt_policy(rq->curr) &&
+		p->prio <= rq->rt.highest_prio.next &&
+		rq->rt.rt_nr_running <= 2;
+}
+#else
+static inline bool should_honor_rt_sync(struct rq *rq, struct task_struct *p,
+					bool sync)
+{
+	return 0;
+}
+#endif
+
 void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 				int sd_flag, int flags, int *target_cpu)
 {
 	struct task_struct *curr;
 	struct rq *rq;
-	int lowest_cpu = -1;
-	int lowest_prio = 0;
+	int lowest_cpu = -1, rt_lowest_cpu = -1;
+	int lowest_prio = 0, rt_lowest_prio = p->prio;
 	int cpu;
 	int select_reason = -1;
 	bool sync = !!(flags & WF_SYNC);
+	struct rq *this_cpu_rq;
+	int this_cpu;
+	bool test, may_not_preempt;
+	struct cpuidle_state *idle;
+	unsigned int min_exit_lat;
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
 	struct perf_domain *pd;
 	unsigned int cpu_util;
+	unsigned long occupied_cap, occupied_cap_per_gear;
+	int best_idle_cpu_per_gear;
 	int best_idle_cpu = -1;
 	unsigned long pwr_eff = ULONG_MAX;
 	unsigned long this_pwr_eff = ULONG_MAX;
-	unsigned long min_cap;
-	unsigned long max_cap;
+	unsigned long min_cap = uclamp_eff_value(p, UCLAMP_MIN);
+	unsigned long max_cap = uclamp_eff_value(p, UCLAMP_MAX);
+	unsigned int cfs_cpus = 0;
+	unsigned int idle_cpus = 0;
 
 	*target_cpu = -1;
 	/* For anything but wake ups, just return the task_cpu */
 	if (!(flags & (WF_TTWU | WF_FORK))) {
-		select_reason = LB_RT_FAIL;
-		goto out;
+		if (!cpu_paused(source_cpu)) {
+			select_reason = LB_RT_FAIL;
+			*target_cpu = source_cpu;
+			goto out;
+		}
 	}
 
 	rcu_read_lock();
+	this_cpu = smp_processor_id();
+	this_cpu_rq = cpu_rq(this_cpu);
+
+	/*
+	 * Respect the sync flag as long as the task can run on this CPU.
+	 */
+	if (should_honor_rt_sync(this_cpu_rq, p, sync) &&
+	    cpumask_test_cpu(this_cpu, p->cpus_ptr)) {
+		*target_cpu = this_cpu;
+		select_reason = LB_RT_SYNC;
+		goto unlock;
+	}
 
 	/*
 	 * Select one CPU from each cluster and
@@ -847,14 +888,14 @@ void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 	 */
 	pd = rcu_dereference(rd->pd);
 	if (!pd) {
-		select_reason = LB_RT_FAIL;
-		goto unlock;
+		select_reason = LB_RT_FAIL_PD;
+		goto source;
 	}
 
-	min_cap = uclamp_eff_value(p, UCLAMP_MIN);
-	max_cap = uclamp_eff_value(p, UCLAMP_MAX);
-
 	for (; pd; pd = pd->next) {
+		min_exit_lat = UINT_MAX;
+		occupied_cap_per_gear = ULONG_MAX;
+		best_idle_cpu_per_gear = -1;
 		for_each_cpu_and(cpu, perf_domain_span(pd), cpu_active_mask) {
 			if (!cpumask_test_cpu(cpu, p->cpus_ptr))
 				continue;
@@ -866,16 +907,33 @@ void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 				continue;
 
 			if (idle_cpu(cpu)) {
-				cpu_util = mtk_task_cap(p, cpu, min_cap, max_cap);
-				this_pwr_eff = calc_pwr_eff(cpu, cpu_util);
-
-				trace_sched_aware_energy_rt(cpu, this_pwr_eff, pwr_eff, cpu_util);
-
-				if (this_pwr_eff < pwr_eff) {
-					pwr_eff = this_pwr_eff;
-					best_idle_cpu = cpu;
+				/* WFI > non-WFI */
+				idle_cpus = (idle_cpus | (1 << cpu));
+				idle = idle_get_state(cpu_rq(cpu));
+				occupied_cap = mtk_task_cap(p, cpu, min_cap, max_cap);
+				if (idle) {
+					/* non WFI, find shortest exit_latency */
+					if (idle->exit_latency < min_exit_lat) {
+						min_exit_lat = idle->exit_latency;
+						best_idle_cpu_per_gear = cpu;
+						occupied_cap_per_gear = occupied_cap;
+					} else if ((idle->exit_latency == min_exit_lat)
+						&& (occupied_cap_per_gear < occupied_cap)) {
+						best_idle_cpu_per_gear = cpu;
+						occupied_cap_per_gear = occupied_cap;
+					}
+				} else {
+					/* WFI, find max_spare_cap (least occupied_cap) */
+					if (min_exit_lat > 0) {
+						min_exit_lat = 0;
+						best_idle_cpu_per_gear = cpu;
+						occupied_cap_per_gear = occupied_cap;
+					} else if (occupied_cap_per_gear < occupied_cap) {
+						best_idle_cpu_per_gear = cpu;
+						occupied_cap_per_gear = occupied_cap;
+					}
 				}
-				break;
+				continue;
 			}
 			rq = cpu_rq(cpu);
 			curr = rq->curr;
@@ -884,23 +942,80 @@ void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 					&& (!task_may_not_preempt(curr, cpu))) {
 				lowest_prio = curr->prio;
 				lowest_cpu = cpu;
+				cfs_cpus = (cfs_cpus | (1 << cpu));
+			}
+		}
+		if (best_idle_cpu_per_gear != -1) {
+			cpu_util = occupied_cap_per_gear;
+			this_pwr_eff = calc_pwr_eff(best_idle_cpu_per_gear, cpu_util);
+
+			trace_sched_aware_energy_rt(best_idle_cpu_per_gear, this_pwr_eff,
+								pwr_eff, cpu_util);
+
+			if (this_pwr_eff < pwr_eff) {
+				pwr_eff = this_pwr_eff;
+				best_idle_cpu = best_idle_cpu_per_gear;
 			}
 		}
 	}
 
-	*target_cpu = best_idle_cpu;
-	select_reason = LB_RT_IDLE;
+	if (best_idle_cpu != -1) {
+		*target_cpu = best_idle_cpu;
+		select_reason = LB_RT_IDLE;
+		goto unlock;
+	}
 
-	if (-1 == *target_cpu) {
+	if (lowest_cpu != -1) {
 		*target_cpu =  lowest_cpu;
-		select_reason = LB_RT_LOWEST_PRIO;
+		select_reason = LB_RT_LOWEST_PRIO_NORMAL;
+		goto unlock;
+	}
+
+source:
+	rq = cpu_rq(source_cpu);
+	/* unlocked access */
+	curr = READ_ONCE(rq->curr);
+	/* check source_cpu status */
+	may_not_preempt = task_may_not_preempt(curr, source_cpu);
+	test = (curr && (may_not_preempt ||
+			 (unlikely(rt_task(curr)) &&
+			  (curr->nr_cpus_allowed < 2 || curr->prio <= p->prio))));
+
+	if (!test && mtk_rt_task_fits_capacity(p, source_cpu, min_cap, max_cap)) {
+		select_reason = ((select_reason == -1) ? LB_RT_SOURCE_CPU : select_reason);
+		*target_cpu = source_cpu;
 	}
 
 unlock:
 	rcu_read_unlock();
-out:
 
-	trace_sched_select_task_rq_rt(p, select_reason, *target_cpu, sd_flag, sync);
+	/* if no cpu fufill condition above,
+	 * then select cpu with lowest prioity
+	 */
+	if (-1 == *target_cpu) {
+		for_each_cpu(cpu, p->cpus_ptr) {
+
+			if (cpu_paused(cpu))
+				continue;
+
+			if (!mtk_rt_task_fits_capacity(p, cpu, min_cap, max_cap))
+				continue;
+
+			rq = cpu_rq(cpu);
+			curr = rq->curr;
+			if (curr && rt_task(curr)
+					&& (curr->prio > rt_lowest_prio)) {
+				rt_lowest_prio = curr->prio;
+				rt_lowest_cpu = cpu;
+			}
+		}
+		*target_cpu =  rt_lowest_cpu;
+		select_reason = LB_RT_LOWEST_PRIO_RT;
+	}
+
+out:
+	trace_sched_select_task_rq_rt(p, select_reason, *target_cpu, idle_cpus, cfs_cpus,
+					sd_flag, sync);
 }
 
 #if IS_ENABLED(CONFIG_MTK_EAS)
