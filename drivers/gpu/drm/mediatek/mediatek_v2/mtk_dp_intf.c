@@ -780,12 +780,14 @@ static void mtk_dp_intf_config(struct mtk_ddp_comp *comp,
 
 int mtk_dp_intf_dump(struct mtk_ddp_comp *comp)
 {
-	void __iomem *baddr = comp->regs;
+	void __iomem *baddr = NULL;
 
-	if (!baddr) {
+	if (IS_ERR_OR_NULL(comp) || IS_ERR_OR_NULL(comp->regs)) {
 		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
 		return 0;
 	}
+
+	baddr = comp->regs;
 
 	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
 	DDPDUMP("(0x0000) DP_EN                 =0x%x\n",
