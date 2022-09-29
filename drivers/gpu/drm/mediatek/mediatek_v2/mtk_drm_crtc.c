@@ -7937,9 +7937,8 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 
 		plane_state = to_mtk_plane_state(plane->state);
 		if (plane_state->base.crtc == NULL && plane_state->pending.enable) {
-			DDPINFO("%s CRTC NULL but plane pending, skip restore\n", __func__);
-			cmdq_pkt_destroy(cmdq_handle);
-			return;
+			DDPINFO("%s CRTC NULL but plane%d pending, skip restore\n", __func__, i);
+			break;
 		}
 
 		if (!plane_state->pending.enable ||
