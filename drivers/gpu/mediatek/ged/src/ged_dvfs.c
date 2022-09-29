@@ -141,7 +141,7 @@ static unsigned int g_maxfreq;
 static int g_minfreq_idx;
 static int g_maxfreq_idx;
 static int api_sync_flag;
-static int api_sync_flag_enable;
+
 /* need to sync to EB */
 #define BATCH_MAX_READ_COUNT 32
 /* formatted pattern |xxxx|yyyy 5x2 */
@@ -1416,7 +1416,7 @@ static bool ged_dvfs_policy(
 		if (policy_state == POLICY_STATE_LB ||
 				policy_state == POLICY_STATE_LB_FALLBACK) {
 			// overwrite state & timeout value set prior to ged_dvfs_run
-			if (uncomplete_flag || (get_api_sync_flag() && api_sync_flag_enable)) {
+			if (uncomplete_flag || get_api_sync_flag()) {
 				ged_set_policy_state(POLICY_STATE_LB_FALLBACK);
 				ged_set_backup_timer_timeout(ged_get_fallback_time());
 			} else {
@@ -1426,7 +1426,7 @@ static bool ged_dvfs_policy(
 		} else if (policy_state == POLICY_STATE_FORCE_LB ||
 				policy_state == POLICY_STATE_FORCE_LB_FALLBACK) {
 			// overwrite state & timeout value set prior to ged_dvfs_run
-			if (uncomplete_flag || (get_api_sync_flag() && api_sync_flag_enable)) {
+			if (uncomplete_flag || get_api_sync_flag()) {
 				ged_set_policy_state(POLICY_STATE_FORCE_LB_FALLBACK);
 				ged_set_backup_timer_timeout(ged_get_fallback_time());
 			} else {
@@ -2229,7 +2229,6 @@ GED_ERROR ged_dvfs_probe(int pid)
 
 GED_ERROR ged_dvfs_system_init(void)
 {
-	struct device_node *api_sync_flag_dts = NULL;
 	mutex_init(&gsDVFSLock);
 	mutex_init(&gsPolicyLock);
 	mutex_init(&gsVSyncOffsetLock);
@@ -2242,9 +2241,6 @@ GED_ERROR ged_dvfs_system_init(void)
 
 	gpu_util_history_init();
 
-	api_sync_flag_dts = of_find_compatible_node(NULL, NULL, "mediatek,gpu-api-sync");
-	if (unlikely(api_sync_flag_dts))
-		api_sync_flag_enable = 1;
 	g_iSkipCount = MTK_DEFER_DVFS_WORK_MS / MTK_DVFS_SWITCH_INTERVAL_MS;
 
 	g_ulvsync_period = get_ns_period_from_fps(60);
