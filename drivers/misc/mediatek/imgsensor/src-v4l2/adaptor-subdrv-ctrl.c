@@ -1731,6 +1731,7 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	u32 *feature_data_32 = (u32 *) feature_para;
 	u64 *feature_data = (u64 *) feature_para;
 	int i = 0;
+	int ret = ERROR_NONE;
 
 	if (ctx->s_ctx.list != NULL) {
 		for (i = 0; i < ctx->s_ctx.list_len; i++)
@@ -1824,7 +1825,7 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		set_video_mode(ctx, *feature_data);
 		break;
 	case SENSOR_FEATURE_CHECK_SENSOR_ID:
-		common_get_imgsensor_id(ctx, feature_data_32);
+		ret = common_get_imgsensor_id(ctx, feature_data_32);
 		break;
 	case SENSOR_FEATURE_SET_AUTO_FLICKER_MODE:
 		set_auto_flicker_mode(ctx,
