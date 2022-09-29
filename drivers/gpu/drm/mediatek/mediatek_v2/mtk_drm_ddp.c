@@ -16611,6 +16611,8 @@ void ovlsys_config_dump_reg_mt6985(void __iomem *config_regs)
 	for (off = 0x200; off <= 0x230; off += 0x10)
 		mtk_serial_dump_reg(config_regs, off, 4);
 
+	mtk_cust_dump_reg(config_regs, 0x260, 0x26c, -1, -1);
+
 	for (off = 0x280; off <= 0x2E0; off += 0x10)
 		mtk_serial_dump_reg(config_regs, off, 4);
 

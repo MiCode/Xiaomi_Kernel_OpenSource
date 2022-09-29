@@ -642,6 +642,9 @@ static void mtk_fake_engine_share_port_config(struct drm_crtc *crtc,
 				fake_eng_data->fake_eng_num,
 				sizeof(void __iomem *),
 				GFP_KERNEL);
+		if (!baddr)
+			return;
+
 		for (i = 0; i < fake_eng_data->fake_eng_num; i++) {
 			larb_node = of_parse_phandle(priv->mmsys_dev->of_node,
 				"fake-engine", i * 2);
@@ -727,6 +730,9 @@ void fake_engine(struct drm_crtc *crtc, unsigned int idx, unsigned int en,
 					fake_eng_data->fake_eng_num,
 					sizeof(struct mtk_drm_gem_obj *),
 					GFP_KERNEL);
+			if (!gem)
+				return;
+
 			for (i = 0; i < fake_eng_data->fake_eng_num; i++) {
 				gem[i] = mtk_drm_gem_create(crtc->dev,
 							1024*1024, true);
@@ -3729,7 +3735,11 @@ static void process_dbg_opt(const char *opt)
 		DDPINFO("set spr ip done\n");
 	} else if (strncmp(opt, "get_panels_info", 15) == 0) {
 		mtk_get_panels_info();
+	} else if (strncmp(opt, "clear_errdump", 13) == 0) {
+		memset(err_buffer[0], 0, ERROR_BUFFER_COUNT * LOGGER_BUFFER_SIZE);
+		memset(dump_buffer[0], 0, DUMP_BUFFER_COUNT * LOGGER_BUFFER_SIZE);
 	}
+
 
 }
 
