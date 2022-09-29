@@ -1878,10 +1878,11 @@ void mt6983_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 
 	if (handle == NULL) {
 		unsigned int v;
-
-		v = (readl(priv->config_regs + MMSYS_SODI_REQ_MASK)
-			& (~sodi_req_mask));
-		v += (sodi_req_val & sodi_req_mask);
+		/*
+		 * v = (readl(priv->config_regs + MMSYS_SODI_REQ_MASK)
+		 *	 & (~sodi_req_mask));
+		 * v += (sodi_req_val & sodi_req_mask);
+		 */
 		/* TODO: HARD CODE for RDMA0 scenario */
 		v = 0xF500;
 		writel_relaxed(v, priv->config_regs + MMSYS_SODI_REQ_MASK);
@@ -1999,11 +2000,11 @@ void mt6985_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 
 	if (handle == NULL) {
 		unsigned int v;
-
-		v = (readl(priv->config_regs + MMSYS_SODI_REQ_MASK)
-			& (~sodi_req_mask));
-		v += (sodi_req_val & sodi_req_mask);
-
+		/*
+		 * v = (readl(priv->config_regs + MMSYS_SODI_REQ_MASK)
+		 *	& (~sodi_req_mask));
+		 * v += (sodi_req_val & sodi_req_mask);
+		 */
 		/* 0xF4/0xF8: only config on DISPSYS(HARD CODE) */
 		v = 0x13F6C0;
 		writel_relaxed(v, priv->config_regs + MMSYS_SODI_REQ_MASK);

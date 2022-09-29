@@ -892,9 +892,6 @@ static void mtk_atomit_doze_update_pq(struct drm_crtc *crtc, unsigned int stage,
 	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_CFG];
 #endif
 
-	/* skip this stage avoid cmdq_mbox control abnormal */
-	return;
-
 	DDPINFO("%s+: new crtc state = %d, old crtc state = %d, stage = %d\n", __func__,
 		crtc->state->active, old_state, stage);
 	mtk_state = to_mtk_crtc_state(crtc->state);
@@ -990,7 +987,8 @@ static void mtk_atomic_doze_preparation(struct drm_device *dev,
 			continue;
 		}
 
-		mtk_atomit_doze_update_pq(crtc, 0, old_state->crtcs[i].old_state->active);
+		if (old_state && old_state->crtcs[i].old_state)
+			mtk_atomit_doze_update_pq(crtc, 0, old_state->crtcs[i].old_state->active);
 
 		mtk_atomic_doze_update_dsi_state(dev, crtc, 1);
 
@@ -1018,7 +1016,8 @@ static void mtk_atomic_doze_finish(struct drm_device *dev,
 
 		mtk_atomic_doze_update_dsi_state(dev, crtc, 0);
 
-		mtk_atomit_doze_update_pq(crtc, 1, old_state->crtcs[i].old_state->active);
+		if (old_state && old_state->crtcs[i].old_state)
+			mtk_atomit_doze_update_pq(crtc, 1, old_state->crtcs[i].old_state->active);
 	}
 }
 

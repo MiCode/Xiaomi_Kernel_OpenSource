@@ -7185,12 +7185,18 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 	unsigned int clk_cnt = 0;
 	struct mtk_drm_private *priv = NULL;
 
+	if (!dsi) {
+		DDPPR_ERR("%s, %d, invalid parameter\n", __func__, __LINE__);
+		return;
+	}
+
 	/* use no mipi clk change solution */
 	if (mtk_crtc && mtk_crtc->base.dev)
 		priv = mtk_crtc->base.dev->dev_private;
 
 	if (!(priv && mtk_drm_helper_get_opt(priv->helper_opt,
 		MTK_DRM_OPT_DYN_MIPI_CHANGE))
+		&& dsi->ext && dsi->ext->params
 		&& !(mtk_crtc->mode_change_index & MODE_DSI_RES)
 		&& !(dsi->ext->params->cmd_null_pkt_en))
 		need_mipi_change = 0;
@@ -7251,7 +7257,7 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 	mtk_dsi_clk_hs_mode(dsi, 1);
 	if (mtk_drm_helper_get_opt(priv->helper_opt,
 			MTK_DRM_OPT_MMDVFS_SUPPORT)) {
-		if (dsi && dsi->driver_data && dsi->driver_data->mmclk_by_datarate)
+		if (dsi->driver_data && dsi->driver_data->mmclk_by_datarate)
 			dsi->driver_data->mmclk_by_datarate(dsi, mtk_crtc, 1);
 	}
 skip_change_mipi:
@@ -7340,6 +7346,11 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 
 	DDPINFO("%s+\n", __func__);
 
+	if (!dsi) {
+		DDPPR_ERR("%s, %d, invalid parameter\n", __func__, __LINE__);
+		return;
+	}
+
 	if (dsi->ext && dsi->ext->funcs &&
 		dsi->ext->funcs->ext_param_set)
 		dsi->ext->funcs->ext_param_set(dsi->panel, &dsi->conn,
@@ -7427,7 +7438,7 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 		 */
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
 		MTK_DRM_OPT_MSYNC2_0)
-		&& dsi->ext->params->msync2_enable) {
+		&& dsi->ext && dsi->ext->params->msync2_enable) {
 			if (state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] != 0) {
 				DDPDBG("[Msync]%s,%d\n", __func__, __LINE__);
 

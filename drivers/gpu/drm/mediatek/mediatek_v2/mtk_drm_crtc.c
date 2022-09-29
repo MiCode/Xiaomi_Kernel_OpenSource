@@ -5377,7 +5377,13 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	unsigned int _dsi_state_dbg7_2 = 0;
 	ktime_t pf_time;
 
-	if (mtk_crtc && mtk_crtc->base.dev->dev_private)
+	if (unlikely(!mtk_crtc)) {
+		DDPPR_ERR("%s:%d invalid pointer mtk_crtc\n",
+			__func__, __LINE__);
+		return;
+	}
+
+	if (mtk_crtc->base.dev->dev_private)
 		priv = mtk_crtc->base.dev->dev_private;
 	DDPINFO("crtc_state:%x, atomic_state:%x, crtc:%x, pf:%u\n",
 		crtc_state, atomic_state, crtc, cb_data->pres_fence_idx);
@@ -5390,7 +5396,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 
 	if ((drm_crtc_index(crtc) != 2) && (priv && priv->power_state)) {
 		// only VDO mode panel use CMDQ call
-		if (mtk_crtc && !mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
+		if (!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
 				!cb_data->msync2_enable) {
 			enum PF_TS_TYPE pf_ts_type;
 
@@ -5466,8 +5472,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 				__func__, fence_idx, cb_data->pres_fence_idx);
 		}
 		// only VDO mode panel use CMDQ call
-		if (mtk_crtc &&
-			!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+		if (!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
 			if (cb_data->msync2_enable)
 				mtk_release_present_fence(session_id,
 						fence_idx, ktime_get());
