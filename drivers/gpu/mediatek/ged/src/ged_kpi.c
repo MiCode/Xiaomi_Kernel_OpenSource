@@ -234,10 +234,12 @@ static struct GED_KPI_MEOW_DVFS_FREQ_PRED *g_psGIFT;
 int g_target_fps_default = GED_KPI_MAX_FPS;
 int g_target_time_default = GED_KPI_SEC_DIVIDER / GED_KPI_MAX_FPS;
 
-#define GED_KPI_TOTAL_ITEMS 256
+#define GED_KPI_TOTAL_ITEMS 32
 #define GED_KPI_UID(pid, wnd) (pid | ((unsigned long)wnd))
 #define SCREEN_IDLE_PERIOD 500000000
-
+#define GED_KPI_SWITCH_FB_THRESHOLD 3
+#define GED_KPI_SWITCH_LB_THRESHOLD 0
+#define GED_KPI_MAX_SWITCH_COUNT 8
 /* static int display_fps = GED_KPI_MAX_FPS; */
 static int target_fps_4_main_head = 60;
 static long long vsync_period = GED_KPI_SEC_DIVIDER / GED_KPI_MAX_FPS;
@@ -283,6 +285,8 @@ module_param(is_GED_KPI_enabled, uint, 0644);
  */
 struct GED_KPI_HEAD *main_head;
 struct GED_KPI_HEAD *prev_main_head;
+static int is_loading_based;
+static bool g_is_multiproducer;
 /* end */
 
 /* for calculating KPI info per second */
@@ -372,37 +376,13 @@ static inline void ged_kpi_clean_kpi_info(void)
 	g_CRemTimeAccu = 0;
 	g_gpu_freq_accum = 0;
 }
-/* ------------------------------------------------------------------- */
 
-static GED_BOOL ged_kpi_find_main_head_func(unsigned long ulID,
-	void *pvoid, void *pvParam)
-{
-	struct GED_KPI_HEAD *psHead = (struct GED_KPI_HEAD *)pvoid;
-
-	if (!psHead)
-		return GED_FALSE;
-
-	GED_LOGD("psHead->i32Count: %d, isSF: %d", psHead->i32Count, psHead->isSF);
-
-	if (psHead->isSF == 0) {
-		if (main_head == NULL || psHead->i32Count > main_head->i32Count) {
-			if (main_head && psHead)
-				GED_LOGD("main_head changes from %p to %p",
-					main_head, psHead);
-			main_head = psHead;
-		}
-	}
-
-	return GED_TRUE;
-}
 /* ------------------------------------------------------------------- */
 /* for calculating average per-second performance info */
 /* ------------------------------------------------------------------- */
 static inline void ged_kpi_calc_kpi_info(u64 ulID, struct GED_KPI *psKPI
 	, struct GED_KPI_HEAD *psHead)
 {
-	ged_hashtable_iterator(gs_hashtable,
-		ged_kpi_find_main_head_func, (void *)NULL);
 
 	/* check if there is a main rendering thread */
 	/* only SF is excluded from the group of considered candidates */
@@ -885,31 +865,93 @@ static void set_lb_timeout(int t_gpu_target)
 }
 
 /* ------------------------------------------------------------------- */
+/* while producer */
+/* ------------------------------------------------------------------- */
+static GED_BOOL ged_kpi_check_other_producer_func(unsigned long ulID,
+	void *pvoid, void *pvParam)
+{
+	struct GED_KPI_HEAD *psHead = (struct GED_KPI_HEAD *) pvoid;
+	unsigned long long main_ullWnd = *(unsigned long long *) pvParam;
+
+	if (!psHead)
+		return GED_FALSE;
+
+	if (psHead->i32Gpu_uncompleted > 0 && ulID != main_ullWnd)
+		g_is_multiproducer = true;
+	return GED_TRUE;
+}
+
+/* ------------------------------------------------------------------- */
 /* for FB-base/LB-base mode switch */
 /* ------------------------------------------------------------------- */
-static int ged_kpi_check_fallback_mode(void)
+static void ged_kpi_set_fallback_mode(struct GED_KPI_HEAD *psHead)
 {
-	int i, count = 0;
+	unsigned long ulIRQFlags;
+	static unsigned int same_times;
+	static unsigned int candidate_same_times;
+	static unsigned int diff_times;
+	static struct GED_KPI_HEAD *candidate_head;
 
-	if (!main_head)
-		return 1;
+	spin_lock_irqsave(&gs_hashtableLock, ulIRQFlags);
+	g_is_multiproducer = false;
+	ged_hashtable_iterator(gs_hashtable,
+		ged_kpi_check_other_producer_func, (void *) &psHead->ullWnd);
+	spin_unlock_irqrestore(&gs_hashtableLock, ulIRQFlags);
 
-	/* filter systemui by checking isSF = -1*/
-	for (i = 0; i < GED_KPI_TOTAL_ITEMS; i++) {
-		if (g_asKPI[i].isSF == -1)
-			count += 1;
+	/*main_head first init*/
+	if (main_head == NULL)
+		main_head = psHead;
+	if (psHead->ullWnd != main_head->ullWnd) {
+		same_times = 0;
+		diff_times += 1;
+		/*consecutive not main head*/
+		if (candidate_head != psHead) {
+			candidate_head = psHead;
+			candidate_same_times = 1;
+		} else {
+			if (g_is_multiproducer)
+				candidate_same_times = 0;
+			else
+				candidate_same_times += 1;
+		}
+		/*change main_head when > threshold*/
+		if (candidate_same_times >= GED_KPI_SWITCH_FB_THRESHOLD) {
+			main_head = candidate_head;
+			same_times = candidate_same_times;
+			diff_times = 0;
+			candidate_same_times = 0;
+		}
+	} else {
+		diff_times = 0;
+		candidate_same_times = 0;
+		if (g_is_multiproducer)
+			same_times = 0;
+		else
+			same_times += 1;
 	}
-	count += main_head->i32Count;
+	/*prevent overflow*/
+	if (same_times > GED_KPI_MAX_SWITCH_COUNT)
+		same_times = GED_KPI_MAX_SWITCH_COUNT;
+	if (diff_times > GED_KPI_MAX_SWITCH_COUNT)
+		diff_times = GED_KPI_MAX_SWITCH_COUNT;
 
-	int main_producer_ratio = count * 100 / GED_KPI_TOTAL_ITEMS;
+	Policy__Common__Commit_Reason__TID(psHead->pid, (int)(psHead->ullWnd % 0xF)
+						, psHead->i32Count);
+	Policy__Common__Commit_Reason(same_times, diff_times);
+	/*check if LB or FB*/
+	if (same_times >= GED_KPI_SWITCH_FB_THRESHOLD)
+		is_loading_based = 0;/*switch FB*/
+	else if (diff_times > GED_KPI_SWITCH_LB_THRESHOLD)
+		is_loading_based = 1;/*switch LB*/
 
-	Policy__Common__Commit_Reason(main_producer_ratio, g_fb_dvfs_threshold);
-
-	if (count * 100 / GED_KPI_TOTAL_ITEMS > g_fb_dvfs_threshold)
-		return 0;
-
-	return 1;
+	/*else keep pre_state*/
 }
+
+static int ged_kpi_get_fallback_mode(void)
+{
+	return is_loading_based;
+}
+
 /* ------------------------------------------------------------------- */
 static void ged_kpi_work_cb(struct work_struct *psWork)
 {
@@ -998,7 +1040,16 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				(unsigned long)ulID, (void *)psHead);
 			spin_unlock_irqrestore(&gs_hashtableLock, ulIRQFlags);
 		}
-
+		/*check if LB or FB*/
+		ged_kpi_set_fallback_mode(psHead);
+		/*First FB to LB*/
+		if (ged_get_policy_state() == POLICY_STATE_FB &&
+		ged_kpi_get_fallback_mode()) {
+			ged_set_policy_state(POLICY_STATE_LB);
+			set_lb_timeout(psHead->t_gpu_target);
+			ged_set_backup_timer_timeout(lb_timeout);
+			ged_cancel_backup_timer();
+		}
 		memset(psKPI, 0, sizeof(struct GED_KPI));
 		psKPI->ulMask |= GED_TIMESTAMP_TYPE_D;
 		psKPI->ullTimeStampD = psTimeStamp->ullTimeStamp;
@@ -1177,7 +1228,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		/* checking if there is struct GED_KPI info
 		 * resource monopoly
 		 */
-		g_force_gpu_dvfs_fallback = ged_kpi_check_fallback_mode();
+		g_force_gpu_dvfs_fallback = ged_kpi_get_fallback_mode();
 
 		/* set backup timer and execute FB DVFS */
 		t_gpu = psKPI->t_gpu;

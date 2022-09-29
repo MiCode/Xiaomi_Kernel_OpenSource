@@ -1369,15 +1369,27 @@ noinline void Policy__DCS__Detail(unsigned int v1)
 	}
 }
 
-noinline void Policy__Common__Commit_Reason(int v1, int v2)
+noinline void Policy__Common__Commit_Reason(unsigned int v1, unsigned int v2)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf), "same=%u, diff=%u\n", v1, v2);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
+noinline void Policy__Common__Commit_Reason__TID(int PID, int BQID, int count)
 {
 	char buf[256];
 	int cx;
 
 	if (ged_log_perf_trace_enable) {
 		cx = snprintf(buf, sizeof(buf),
-			"main_producer_ratio=%d, fb_dvfs_threshold=%d\n",
-			v1, v2);
+			"%d_%d=%d\n",
+			PID, BQID, count);
 		if (cx >= 0 && cx < sizeof(buf))
 			trace_printk(buf);
 	}

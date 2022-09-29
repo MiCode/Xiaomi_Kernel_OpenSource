@@ -90,7 +90,8 @@ noinline void Policy__Loading_based__Margin__Detail(unsigned int v1, int v2, int
 noinline void Policy__DCS(int v1, int v2);
 noinline void Policy__DCS__Detail(unsigned int v1);
 // Common
-noinline void Policy__Common__Commit_Reason(int v1, int v2);
+noinline void Policy__Common__Commit_Reason(unsigned int v1, unsigned int v2);
+noinline void Policy__Common__Commit_Reason__TID(int PID, int BQID, int count);
 // Frequency
 noinline void Frequency__(long long v1, unsigned long v2);
 
