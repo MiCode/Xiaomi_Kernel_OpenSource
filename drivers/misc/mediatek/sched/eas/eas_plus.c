@@ -1172,18 +1172,8 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 	cpumask_t avail_lowest_mask;
 	int lowest_prio_cpu = -1, lowest_prio = 0;
 	int select_reason = -1;
-	struct cpuidle_state *idle;
-	unsigned int min_exit_lat;
-	unsigned int cpu_util;
-	unsigned long occupied_cap, occupied_cap_per_gear;
-	int best_idle_cpu_per_gear;
-	int best_idle_cpu = -1;
-	unsigned long pwr_eff = ULONG_MAX;
-	unsigned long this_pwr_eff = ULONG_MAX;
-	unsigned long min_cap;
-	unsigned long max_cap;
-	unsigned int cfs_cpus = 0;
-	unsigned int idle_cpus = 0;
+	unsigned int gear_id, nr_gear;
+	struct cpumask *gear_cpus;
 
 	cpumask_andnot(&avail_lowest_mask, lowest_mask, cpu_pause_mask);
 	if (!ret) {
@@ -1219,11 +1209,10 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 	if (!pd)
 		goto unlock;
 
-	min_cap = uclamp_eff_value(p, UCLAMP_MIN);
-	max_cap = uclamp_eff_value(p, UCLAMP_MAX);
+	nr_gear = get_nr_gears();
 
 	/* Find best_cpu on same cluster with task_cpu(p) */
-	for (; pd; pd = pd->next) {
+	for (gear_id = 0; gear_id < nr_gear; gear_id++) {
 		/*
 		 * "this_cpu" is cheaper to preempt than a
 		 * remote processor.
@@ -1235,74 +1224,23 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 			goto out;
 		}
 
-		min_exit_lat = UINT_MAX;
-		occupied_cap_per_gear = ULONG_MAX;
-		best_idle_cpu_per_gear = -1;
-		for_each_cpu_and(cpu, &avail_lowest_mask, perf_domain_span(pd)) {
+		gear_cpus = get_gear_cpumask(gear_id);
+		for_each_cpu_and(cpu, &avail_lowest_mask, gear_cpus) {
 			struct task_struct *curr;
 
 			if (idle_cpu(cpu)) {
-				/* WFI > non-WFI */
-				idle_cpus = (idle_cpus | (1 << cpu));
-				idle = idle_get_state(cpu_rq(cpu));
-				occupied_cap = mtk_task_cap(p, cpu, min_cap, max_cap);
-				if (idle) {
-					/* non WFI, find shortest exit_latency */
-					if (idle->exit_latency < min_exit_lat) {
-						min_exit_lat = idle->exit_latency;
-						best_idle_cpu_per_gear = cpu;
-						occupied_cap_per_gear = occupied_cap;
-					}
-					/* if exit_latency are identical, select larger capacity */
-					else if ((idle->exit_latency == min_exit_lat)
-						&& (occupied_cap_per_gear > occupied_cap)) {
-						best_idle_cpu_per_gear = cpu;
-						occupied_cap_per_gear = occupied_cap;
-					}
-				} else {
-					/* WFI, find max_spare_cap (least occupied_cap) */
-					if (min_exit_lat > 0) {
-						min_exit_lat = 0;
-						best_idle_cpu_per_gear = cpu;
-						occupied_cap_per_gear = occupied_cap;
-					}
-					/* if multiple cpus are in WFI, select larger capacity */
-					else if (occupied_cap_per_gear > occupied_cap) {
-						best_idle_cpu_per_gear = cpu;
-						occupied_cap_per_gear = occupied_cap;
-					}
-				}
-				continue;
+				rcu_read_unlock();
+				*lowest_cpu = cpu;
+				select_reason = LB_RT_IDLE;
+				goto out;
 			}
 			curr = cpu_curr(cpu);
 			/* &fair_sched_class undefined in scheduler.ko */
 			if (fair_policy(curr->policy) && (curr->prio > lowest_prio)) {
 				lowest_prio = curr->prio;
 				lowest_prio_cpu = cpu;
-				cfs_cpus = (cfs_cpus | (1 << cpu));
 			}
 		}
-		if (best_idle_cpu_per_gear != -1) {
-			cpu_util = occupied_cap_per_gear;
-			this_pwr_eff = calc_pwr_eff(best_idle_cpu_per_gear, cpu_util);
-
-			if (trace_sched_aware_energy_rt_enabled()) {
-				trace_sched_aware_energy_rt(best_idle_cpu_per_gear, this_pwr_eff,
-					pwr_eff, cpu_util);
-			}
-
-			if (this_pwr_eff < pwr_eff) {
-				pwr_eff = this_pwr_eff;
-				best_idle_cpu = best_idle_cpu_per_gear;
-			}
-		}
-	}
-
-	if (best_idle_cpu != -1) {
-		rcu_read_unlock();
-		*lowest_cpu = best_idle_cpu;
-		select_reason = LB_RT_IDLE;
-		goto out;
 	}
 
 	if (lowest_prio_cpu != -1) {
@@ -1341,7 +1279,6 @@ unlock:
 out:
 	if (trace_sched_find_lowest_rq_enabled())
 		trace_sched_find_lowest_rq(p, select_reason, *lowest_cpu,
-				&avail_lowest_mask, lowest_mask,
-				idle_cpus, cfs_cpus);
+				&avail_lowest_mask, lowest_mask);
 	return;
 }

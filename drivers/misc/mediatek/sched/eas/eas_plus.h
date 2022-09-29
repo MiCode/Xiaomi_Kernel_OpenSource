@@ -93,8 +93,7 @@ extern void init_system_cpumask(void);
 extern void set_system_cpumask_int(unsigned int val);
 extern struct cpumask *get_system_cpumask(void);
 
-extern void is_most_powerful_pd(struct perf_domain *pd);
-extern void clear_powerful_pd(void);
+extern void get_most_powerful_pd_and_util_Th(void);
 
 #define EAS_SYNC_SET                            _IOW('g', 1,  unsigned int)
 #define EAS_SYNC_GET                            _IOW('g', 2,  unsigned int)

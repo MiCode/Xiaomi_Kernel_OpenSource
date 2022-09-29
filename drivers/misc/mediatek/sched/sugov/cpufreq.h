@@ -115,6 +115,7 @@ extern void set_sbb_active_ratio(int val);
 extern int get_sbb_active_ratio(void);
 extern int is_busy_tick_boost_all(void);
 extern unsigned int get_nr_gears(void);
+extern struct cpumask *get_gear_cpumask(unsigned int gear);
 extern bool is_gearless_support(void);
 DECLARE_PER_CPU(unsigned int, gear_id);
 #endif /* __CPUFREQ_H__ */

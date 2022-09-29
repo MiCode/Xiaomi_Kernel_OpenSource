@@ -435,32 +435,34 @@ struct cpumask *get_system_cpumask(void)
 EXPORT_SYMBOL_GPL(get_system_cpumask);
 
 static struct cpumask bcpus;
+static unsigned long util_Th;
 
-void is_most_powerful_pd(struct perf_domain *pd)
+void get_most_powerful_pd_and_util_Th(void)
 {
-	int cpu;
+	unsigned int nr_gear = get_nr_gears();
 
-	/* check multiple pds existed */
-	if (!pd)
+	/* no mutliple pd */
+	if (WARN_ON(nr_gear <= 1)) {
+		util_Th = 0;
 		return;
+	}
 
-	cpu = cpumask_first(to_cpumask(pd->em_pd->cpus));
+	/* pd_capacity_tbl is sorted by ascending order,
+	 * so nr_gear-1 is most powerful gear and
+	 * nr_gear is the second powerful gear.
+	 */
+	cpumask_copy(&bcpus, get_gear_cpumask(nr_gear-1));
+	/* threshold is set to large capacity in mcpus */
+	util_Th = pd_get_opp_capacity(
+		cpumask_first(get_gear_cpumask(nr_gear-2)), 0);
 
-	if (capacity_orig_of(cpu) != SCHED_CAPACITY_SCALE)
-		return;
-
-	cpumask_copy(&bcpus, perf_domain_span(pd));
 }
 
-void clear_powerful_pd(void)
-{
-	cpumask_clear(&bcpus);
-}
-
-static inline bool task_can_skip_idle_cpu(struct task_struct *p, bool latency_sensitive,
+static inline bool task_can_skip_this_cpu(struct task_struct *p, bool latency_sensitive,
 		int cpu, struct cpumask *bcpus)
 {
 	bool cpu_in_bcpus;
+	unsigned long task_util;
 
 	if (latency_sensitive)
 		return 0;
@@ -472,7 +474,8 @@ static inline bool task_can_skip_idle_cpu(struct task_struct *p, bool latency_se
 		return 0;
 
 	cpu_in_bcpus = cpumask_test_cpu(cpu, bcpus);
-	if (!cpu_in_bcpus)
+	task_util = task_util_est(p);
+	if (!cpu_in_bcpus || !fits_capacity(task_util, util_Th))
 		return 0;
 
 	return 1;
@@ -519,7 +522,7 @@ int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool laten
 
 			cpumask_set_cpu(cpu, &allowed_cpu_mask);
 
-			if (task_can_skip_idle_cpu(p, latency_sensitive, cpu, &bcpus))
+			if (task_can_skip_this_cpu(p, latency_sensitive, cpu, &bcpus))
 				continue;
 
 			if (cpu_rq(cpu)->rt.rt_nr_running >= 1 &&

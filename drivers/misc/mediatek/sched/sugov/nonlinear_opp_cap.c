@@ -120,6 +120,15 @@ unsigned int get_nr_gears(void)
 }
 EXPORT_SYMBOL_GPL(get_nr_gears);
 
+struct cpumask *get_gear_cpumask(unsigned int gear)
+{
+	struct pd_capacity_info *pd_info;
+
+	pd_info = &pd_capacity_tbl[gear];
+	return &pd_info->cpus;
+}
+EXPORT_SYMBOL_GPL(get_gear_cpumask);
+
 static inline int map_freq_idx_by_tbl(struct pd_capacity_info *pd_info, unsigned long freq)
 {
 	int idx;
