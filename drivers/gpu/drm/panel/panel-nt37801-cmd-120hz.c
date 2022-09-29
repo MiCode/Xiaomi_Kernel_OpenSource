@@ -37,6 +37,7 @@
 
 #define FRAME_WIDTH				(1440)
 #define FRAME_HEIGHT			(3200)
+#define PLL_CLOCK (735)
 
 static atomic_t current_backlight;
 static struct mtk_panel_para_table bl_tb0[] = {
@@ -600,7 +601,7 @@ static int lcm_set_bl_elvss_cmdq(void *dsi, dcs_grp_write_gce cb, void *handle,
 }
 
 static struct mtk_panel_params ext_params = {
-	.pll_clk = 750,
+	.pll_clk = PLL_CLOCK,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -654,16 +655,16 @@ static struct mtk_panel_params ext_params = {
 			.range_bpg_ofs = nt37801_wqhs_dsi_cmd_120hz_dphy_range_bpg_ofs,
 			},
 		},
-	.data_rate = 1500,
+	.data_rate = PLL_CLOCK * 2,
 	/* following MIPI hopping parameter might cause screen mess */
 	.dyn = {
 		.switch_en = 1,
-		.pll_clk = 751,
+		.pll_clk = PLL_CLOCK + 1,
 	},
 };
 
 static struct mtk_panel_params ext_params_90hz = {
-	.pll_clk = 750,
+	.pll_clk = PLL_CLOCK,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -717,16 +718,16 @@ static struct mtk_panel_params ext_params_90hz = {
 			.range_bpg_ofs = nt37801_wqhs_dsi_cmd_120hz_dphy_range_bpg_ofs,
 			},
 		},
-	.data_rate = 1500,
+	.data_rate = PLL_CLOCK * 2,
 	/* following MIPI hopping parameter might cause screen mess */
 	.dyn = {
 		.switch_en = 1,
-		.pll_clk = 751,
+		.pll_clk = PLL_CLOCK + 1,
 	},
 };
 
 static struct mtk_panel_params ext_params_60hz = {
-	.pll_clk = 750,
+	.pll_clk = PLL_CLOCK,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -780,11 +781,11 @@ static struct mtk_panel_params ext_params_60hz = {
 			.range_bpg_ofs = nt37801_wqhs_dsi_cmd_120hz_dphy_range_bpg_ofs,
 			},
 		},
-	.data_rate = 1500,
+	.data_rate = PLL_CLOCK * 2,
 	/* following MIPI hopping parameter might cause screen mess */
 	.dyn = {
 		.switch_en = 1,
-		.pll_clk = 751,
+		.pll_clk = PLL_CLOCK + 1,
 	},
 };
 
