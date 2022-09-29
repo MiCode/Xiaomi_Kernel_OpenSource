@@ -16,6 +16,8 @@
 #include <apusys_device.h>
 #include <scp.h>
 
+#include "slbc_ops.h"
+
 #include "npu_scp_ipi.h"
 #include "aov_rpmsg.h"
 #include "aov_recovery.h"
@@ -441,8 +443,9 @@ static int apusys_aov_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int apusys_aov_suspend(struct platform_device *pdev, pm_message_t state)
+static int apusys_aov_suspend_late(struct device *dev)
 {
+	struct platform_device *pdev = to_platform_device(dev);
 	struct apusys_aov_ctx *ctx = platform_get_drvdata(pdev);
 	struct npu_scp_ipi_param send_msg = { 0, 0, 0, 0 };
 	int ret, retry_cnt = 10;
@@ -465,8 +468,9 @@ static int apusys_aov_suspend(struct platform_device *pdev, pm_message_t state)
 	return 0;
 }
 
-static int apusys_aov_resume(struct platform_device *pdev)
+static int apusys_aov_resume_early(struct device *dev)
 {
+	struct platform_device *pdev = to_platform_device(dev);
 	struct apusys_aov_ctx *ctx = platform_get_drvdata(pdev);
 	struct npu_scp_ipi_param send_msg = { 0, 0, 0, 0 };
 	int ret, retry_cnt = 10;
@@ -485,8 +489,24 @@ static int apusys_aov_resume(struct platform_device *pdev)
 	} while (ret != 0 && retry_cnt-- > 0);
 
 	if (ret) {
-		// TODO: SCP may not be alive, release SLB
-		dev_info(ctx->dev, "%s forcibly release slb\n", __func__);
+		// If SCP is not responding, then release SLB anyway.
+		int slb_ref = 0;
+		struct slbc_data slb_data = {
+			.uid = UID_AOV_APU,
+			.type = TP_BUFFER,
+			.timeout = 10,
+		};
+
+		slb_ref = slbc_status(&slb_data);
+		if (slb_ref > 0) {
+			dev_info(ctx->dev, "%s forcibly release AOV_APU slb\n", __func__);
+			ret = slbc_release(&slb_data);
+			if (ret) {
+				dev_info(ctx->dev, "%s Failed to release AOV_APU slb, ret %d\n",
+					 __func__, ret);
+
+			}
+		}
 	}
 
 	dev_info(ctx->dev, "%s send resume done\n", __func__);
@@ -511,6 +531,11 @@ static int apusys_aov_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct dev_pm_ops apusys_aov_pm_cb = {
+	.suspend_late = apusys_aov_suspend_late,
+	.resume_early = apusys_aov_resume_early,
+};
+
 static const struct of_device_id apusys_aov_of_match[] = {
 	{ .compatible = "mediatek,apusys_aov", },
 	{},
@@ -519,13 +544,12 @@ MODULE_DEVICE_TABLE(of, apusys_aov_of_match);
 
 static struct platform_driver apusys_aov_driver = {
 	.probe = apusys_aov_probe,
-	.suspend = apusys_aov_suspend,
-	.resume = apusys_aov_resume,
 	.remove = apusys_aov_remove,
 	.driver	= {
 		.name = "apusys_aov",
 		.owner = THIS_MODULE,
 		.of_match_table = apusys_aov_of_match,
+		.pm = &apusys_aov_pm_cb,
 	},
 };
 

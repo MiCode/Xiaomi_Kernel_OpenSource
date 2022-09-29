@@ -198,7 +198,7 @@ static struct notifier_block aov_recovery_scp_notifier = {
 static int aov_recovery_callback(struct rpmsg_device *rpdev, void *data, int len, void *priv,
 				 u32 src)
 {
-	pr_info("%s get src %d\n", __func__, src); //debug
+	pr_debug("%s get src %d\n", __func__, src);
 
 	if (!recovery_ctx) {
 		pr_info("%s aov-recovery ctx is not available\n", __func__);
