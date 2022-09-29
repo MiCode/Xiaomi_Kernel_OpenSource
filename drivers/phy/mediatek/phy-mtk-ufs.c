@@ -250,7 +250,18 @@ static int ufs_mtk_phy_init(struct ufs_mtk_phy *phy)
 	int ret;
 
 #if IS_ENABLED(CONFIG_UFS_MEDIATEK_INTERNAL)
-	pm_runtime_forbid(dev);
+	struct tag_chipid *chipid;
+	/* Get chip id from bootmode */
+	chipid = (struct tag_chipid *)ufs_mtk_get_boot_property(dev->of_node,
+								"atag,chipid", NULL);
+
+	ret = of_property_read_u32(dev->of_node, "mediatek,pm-forbidden-on-hwver", &val);
+	if (!ret && chipid) {
+		if (chipid->hw_ver == val) {
+			pm_runtime_forbid(dev);
+			dev_info(dev, "pm forbidden");
+		}
+	}
 #endif
 
 	ret = of_property_read_u32(dev->of_node, "mphy-ver", &val);
