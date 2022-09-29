@@ -168,6 +168,8 @@ int ged_bridge_gpu_hint_to_cpu(
 		struct GED_BRIDGE_OUT_GPU_HINT_TO_CPU *out)
 {
 	int ret = 0;
+	set_api_sync_flag(in->hint);
+	Policy__Common__Sync_Api(in->hint);
 #ifdef CONFIG_MTK_FPSGO_V3
 	ret = fpsgo_notify_gpu_block(in->tid, in->i32BridgeFD, in->hint);
 #endif

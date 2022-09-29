@@ -173,8 +173,8 @@ extern void (*mtk_timer_base_dvfs_margin_fp)(int i32MarginValue);
 extern int (*mtk_get_timer_base_dvfs_margin_fp)(void);
 int ged_dvfs_get_tb_dvfs_margin_cur(void);
 unsigned int ged_dvfs_get_tb_dvfs_margin_mode(void);
-
-
+void set_api_sync_flag(int flag);
+int get_api_sync_flag(void);
 #define LOADING_ACTIVE 0
 #define LOADING_MAX_3DTA_COM 1
 #define LOADING_MAX_3DTA 2

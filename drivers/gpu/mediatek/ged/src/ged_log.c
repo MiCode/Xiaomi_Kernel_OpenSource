@@ -1407,6 +1407,18 @@ noinline void Policy__Common__Commit_Reason__TID(int PID, int BQID, int count)
 	}
 }
 
+noinline void Policy__Common__Sync_Api(int hint)
+{
+	char buf[256];
+	int cx;
+
+	if (ged_log_perf_trace_enable) {
+		cx = snprintf(buf, sizeof(buf), "hint=%d\n", hint);
+		if (cx >= 0 && cx < sizeof(buf))
+			trace_printk(buf);
+	}
+}
+
 noinline void Frequency__(unsigned int v1, unsigned int v2)
 {
 	char buf[256];

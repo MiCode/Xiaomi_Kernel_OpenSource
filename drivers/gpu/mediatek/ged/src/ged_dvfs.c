@@ -140,7 +140,7 @@ static unsigned int g_minfreq;
 static unsigned int g_maxfreq;
 static int g_minfreq_idx;
 static int g_maxfreq_idx;
-
+static int api_sync_flag;
 
 /* need to sync to EB */
 #define BATCH_MAX_READ_COUNT 32
@@ -1222,7 +1222,14 @@ static int _loading_avg(int ui32loading)
 
 	return sum / ARRAY_SIZE(data);
 }
-
+int get_api_sync_flag(void)
+{
+	return api_sync_flag;
+}
+void set_api_sync_flag(int flag)
+{
+	api_sync_flag = flag;
+}
 static bool ged_dvfs_policy(
 		unsigned int ui32GPULoading, unsigned int *pui32NewFreqID,
 		unsigned long t, long phase, unsigned long ul3DFenceDoneTime,
@@ -1409,7 +1416,7 @@ static bool ged_dvfs_policy(
 		if (policy_state == POLICY_STATE_LB ||
 				policy_state == POLICY_STATE_LB_FALLBACK) {
 			// overwrite state & timeout value set prior to ged_dvfs_run
-			if (uncomplete_flag) {
+			if (uncomplete_flag || get_api_sync_flag()) {
 				ged_set_policy_state(POLICY_STATE_LB_FALLBACK);
 				ged_set_backup_timer_timeout(ged_get_fallback_time());
 			} else {
@@ -1419,7 +1426,7 @@ static bool ged_dvfs_policy(
 		} else if (policy_state == POLICY_STATE_FORCE_LB ||
 				policy_state == POLICY_STATE_FORCE_LB_FALLBACK) {
 			// overwrite state & timeout value set prior to ged_dvfs_run
-			if (uncomplete_flag) {
+			if (uncomplete_flag || get_api_sync_flag()) {
 				ged_set_policy_state(POLICY_STATE_FORCE_LB_FALLBACK);
 				ged_set_backup_timer_timeout(ged_get_fallback_time());
 			} else {

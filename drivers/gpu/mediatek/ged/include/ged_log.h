@@ -93,6 +93,7 @@ noinline void Policy__DCS__Detail(unsigned int v1);
 noinline void Policy__Common(unsigned int v1, unsigned int v2);
 noinline void Policy__Common__Commit_Reason(unsigned int v1, unsigned int v2);
 noinline void Policy__Common__Commit_Reason__TID(int PID, int BQID, int count);
+noinline void Policy__Common__Sync_Api(int hint);
 // Frequency
 noinline void Frequency__(unsigned int v1, unsigned int v2);
 // Loading
