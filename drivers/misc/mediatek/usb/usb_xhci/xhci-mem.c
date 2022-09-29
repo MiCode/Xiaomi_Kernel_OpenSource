@@ -957,8 +957,10 @@ void xhci_free_virt_device(struct xhci_hcd *xhci, int slot_id)
 
 	trace_xhci_free_virt_device(dev);
 
-	if (dev->tt_info)
+	if (dev && dev->tt_info)
 		old_active_eps = dev->tt_info->active_eps;
+	else if (!dev)
+		return;
 
 	for (i = 0; i < 31; i++) {
 		if (dev->eps[i].ring)
