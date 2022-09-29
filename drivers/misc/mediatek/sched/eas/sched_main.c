@@ -40,12 +40,16 @@ static inline void sched_asym_cpucapacity_init(void)
 
 	rcu_read_lock();
 	pd = rcu_dereference(rd->pd);
-	for (; pd; pd = pd->next)
+	for (; pd; pd = pd->next) {
 		pd_count++;
+		is_most_powerful_pd(pd);
+	}
 	rcu_read_unlock();
 	preempt_enable();
-	if (pd_count <= 1)
+	if (pd_count <= 1) {
 		mtk_sched_asym_cpucapacity = 0;
+		clear_powerful_pd();
+	}
 }
 
 static void sched_task_util_hook(void *data, struct sched_entity *se)

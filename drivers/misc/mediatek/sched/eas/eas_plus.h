@@ -24,6 +24,12 @@ DECLARE_PER_CPU(unsigned long, min_freq);
 #define LB_BEST_ENERGY_CPU      (0x100)
 #define LB_MAX_SPARE_CPU        (0x200)
 #define LB_IN_INTERRUPT		(0x400)
+#define LB_IRQ_BEST_IDLE    (0x410)
+#define LB_IRQ_IDLE_MAX_SPARE   (0x420)
+#define LB_IRQ_MAX_SPARE   (0x440)
+#define LB_IRQ_BACKUP_CURR         (0x480)
+#define LB_IRQ_BACKUP_PREV         (0x481)
+#define LB_IRQ_BACKUP_ALLOWED      (0x482)
 #define LB_RT_FAIL      (0x1000)
 #define LB_RT_SYNC      (0x2000)
 #define LB_RT_IDLE      (0x4000)
@@ -79,6 +85,9 @@ extern void init_system_cpumask(void);
 extern void set_system_cpumask_int(unsigned int val);
 extern struct cpumask *get_system_cpumask(void);
 
+extern void is_most_powerful_pd(struct perf_domain *pd);
+extern void clear_powerful_pd(void);
+
 #define EAS_SYNC_SET                            _IOW('g', 1,  unsigned int)
 #define EAS_SYNC_GET                            _IOW('g', 2,  unsigned int)
 #define EAS_PERTASK_LS_SET                      _IOW('g', 3,  unsigned int)
@@ -90,7 +99,6 @@ extern struct cpumask *get_system_cpumask(void);
 #define EAS_GET_THERMAL_HEADROOM_INTERVAL_GET	_IOR('g', 9,  unsigned int)
 #define EAS_SET_SYSTEM_MASK			_IOW('g', 10,  unsigned int)
 #define EAS_GET_SYSTEM_MASK			_IOW('g', 11,  unsigned int)
-
 
 #if IS_ENABLED(CONFIG_MTK_NEWIDLE_BALANCE)
 extern void mtk_sched_newidle_balance(void *data, struct rq *this_rq,

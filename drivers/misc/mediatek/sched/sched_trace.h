@@ -37,37 +37,59 @@ out:
 
 TRACE_EVENT(sched_find_cpu_in_irq,
 
-	TP_PROTO(struct task_struct *tsk,
-		unsigned long task_util, int target_cpu, unsigned long pwr,
-		unsigned int cap, unsigned int fit_cpus),
+	TP_PROTO(struct task_struct *tsk, int policy, int target_cpu,
+		int prev_cpu, unsigned int fit_cpus, unsigned int idle_cpus,
+		int best_idle_cpu, unsigned long best_idle_pwr, unsigned int min_exit_lat,
+		int max_spare_cpu, unsigned long best_pwr, long max_spare_cap),
 
-	TP_ARGS(tsk, task_util, target_cpu, pwr, cap, fit_cpus),
+	TP_ARGS(tsk, policy, target_cpu,
+			prev_cpu, fit_cpus, idle_cpus,
+			best_idle_cpu, best_idle_pwr, min_exit_lat,
+			max_spare_cpu, best_pwr, max_spare_cap),
 
 	TP_STRUCT__entry(
 		__field(pid_t,         pid)
-		__field(unsigned long, task_util)
+		__field(int,           policy)
 		__field(int,           target_cpu)
-		__field(unsigned long, pwr)
-		__field(unsigned int,  cap)
+		__field(int,           prev_cpu)
 		__field(unsigned int,  fit_cpus)
+		__field(unsigned int,  idle_cpus)
+		__field(int,           best_idle_cpu)
+		__field(unsigned long, best_idle_pwr)
+		__field(unsigned int,  min_exit_lat)
+		__field(int,           max_spare_cpu)
+		__field(unsigned long, best_pwr)
+		__field(long,          max_spare_cap)
 		),
 
 	TP_fast_assign(
-		__entry->pid           = tsk->pid;
-		__entry->task_util     = task_util;
-		__entry->target_cpu    = target_cpu;
-		__entry->pwr           = pwr;
-		__entry->cap           = cap;
-		__entry->fit_cpus = fit_cpus;
+		__entry->pid                     = tsk->pid;
+		__entry->policy                  = policy;
+		__entry->target_cpu              = target_cpu;
+		__entry->prev_cpu                = prev_cpu;
+		__entry->fit_cpus                = fit_cpus;
+		__entry->idle_cpus               = idle_cpus;
+		__entry->best_idle_cpu           = best_idle_cpu;
+		__entry->best_idle_pwr           = best_idle_pwr;
+		__entry->min_exit_lat            = min_exit_lat;
+		__entry->max_spare_cpu           = max_spare_cpu;
+		__entry->best_pwr                = best_pwr;
+		__entry->max_spare_cap           = max_spare_cap;
 		),
 
-	TP_printk("pid=%4d util=%lu target_cpu=%d pwr=%lu cap=%u fit_cpus=0x%x",
+	TP_printk("pid=%4d policy=0x%08x target_cpu=%d task_cpu=%d fit_cpus=0x%x idle_cpus=0x%x best_idle_cpu=%d best_idle_pwr=%lu min_exit_lat=%u max_spare_cpu=%d best_pwr=%lu max_spare_cap=%ld",
 		__entry->pid,
-		__entry->task_util,
+		__entry->policy,
 		__entry->target_cpu,
-		__entry->pwr,
-		__entry->cap,
-		__entry->fit_cpus)
+		__entry->prev_cpu,
+		__entry->fit_cpus,
+		__entry->idle_cpus,
+		__entry->best_idle_cpu,
+		__entry->best_idle_pwr,
+		__entry->min_exit_lat,
+		__entry->max_spare_cpu,
+		__entry->best_pwr,
+		__entry->max_spare_cap)
 );
 
 extern struct cpumask system_cpumask;
