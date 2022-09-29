@@ -749,6 +749,7 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 	int fg_current_temp = 0;
 	bool fg_current_state = false;
 	int bat_temperature_volt_temp = 0;
+	int orig_fg_current1 = 0, orig_fg_current2 = 0, orig_bat_temperature_volt = 0;
 	int vol_cali = 0;
 	static int pre_bat_temperature_volt_temp, pre_bat_temperature_volt;
 	static int pre_fg_current_temp;
@@ -843,7 +844,13 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 			if ((tmp_time.tv_sec <= 20) &&
 				(abs(pre_bat_temperature_val2 -
 				bat_temperature_val) >= 5)) {
-				bm_err("[%s][err] current:%d,%d,%d,%d,%d,%d pre:%d,%d,%d,%d,%d,%d\n",
+				gauge_get_property(GAUGE_PROP_BATTERY_CURRENT, &orig_fg_current1);
+				gauge_get_property(GAUGE_PROP_BATTERY_TEMPERATURE_ADC,
+					&orig_bat_temperature_volt);
+				gauge_get_property(GAUGE_PROP_BATTERY_CURRENT, &orig_fg_current2);
+				orig_fg_current1 /= 10;
+				orig_fg_current2 /= 10;
+				bm_err("[%s][err] current:%d,%d,%d,%d,%d,%d pre:%d,%d,%d,%d,%d,%d baton:%d ibat:%d,%d\n",
 					__func__,
 					bat_temperature_volt_temp,
 					bat_temperature_volt,
@@ -856,7 +863,10 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 					pre_fg_current_state,
 					pre_fg_current_temp,
 					pre_fg_r_value,
-					pre_bat_temperature_val2);
+					pre_bat_temperature_val2,
+					orig_bat_temperature_volt,
+					orig_fg_current1,
+					orig_fg_current2);
 				/*pmic_auxadc_debug(1);*/
 				WARN_ON(1);
 			}
