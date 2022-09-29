@@ -28,6 +28,7 @@
 #define DFT_CFG_HEIGHT  MTK_VDEC_MIN_H
 #define MTK_VDEC_MAX_W  mtk_vdec_max_width
 #define MTK_VDEC_MAX_H  mtk_vdec_max_heigh
+#define MTK_VDEC_4K_WH  (4096 * 2176)
 
 static unsigned int mtk_vdec_max_width;
 static unsigned int mtk_vdec_max_heigh;
@@ -3219,6 +3220,15 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 	return 0;
 }
 
+static int mtk_vdec_get_align_limit(struct mtk_vcodec_ctx *ctx)
+{
+	if (mtk_vdec_align_limit > 0)
+		return mtk_vdec_align_limit;
+	if (ctx->dec_params.svp_mode || ctx->picinfo.buf_w * ctx->picinfo.buf_h > MTK_VDEC_4K_WH)
+		return MIN(ctx->dpb_size - 6, 2);
+	return MIN(ctx->dpb_size - 6, 6);
+}
+
 static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 {
 	struct vb2_buffer *src_buf;
@@ -3328,9 +3338,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 
 		if (ctx->input_driven == NON_INPUT_DRIVEN && ctx->align_mode) {
 			pair_cnt = MIN((*ctx->src_cnt), (*ctx->dst_cnt));
-			limit_cnt = MIN(ctx->dpb_size - 6, 6);
-			if (mtk_vdec_align_limit > 0)
-				limit_cnt = mtk_vdec_align_limit;
+			limit_cnt = mtk_vdec_get_align_limit(ctx);
 
 			if (pair_cnt >= limit_cnt) {
 				mtk_v4l2_debug(2, "[%d] (%d) pair cnt %d(%d,%d) >= %d when align mode, need to set align_type(%d)",
@@ -3355,9 +3363,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 
 	if (ctx->input_driven == NON_INPUT_DRIVEN && ctx->align_mode) {
 		pair_cnt = MIN((*ctx->src_cnt), (*ctx->dst_cnt));
-		limit_cnt = MIN(ctx->dpb_size - 6, 6);
-		if (mtk_vdec_align_limit > 0)
-			limit_cnt = mtk_vdec_align_limit;
+		limit_cnt = mtk_vdec_get_align_limit(ctx);
 
 		if (pair_cnt >= limit_cnt || buf->lastframe != NON_EOS)
 			mtk_v4l2_debug(2, "[%d] (%d) pair cnt %d(%d,%d) >= %d or is EOS (%d) when align mode, need to set align_type(%d)",
