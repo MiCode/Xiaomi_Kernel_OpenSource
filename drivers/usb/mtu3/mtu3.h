@@ -65,6 +65,8 @@ struct mtu3_request;
 #define MTU3_U3_IP_SLOT_MAX 4
 #define MTU3_U2_IP_SLOT_DEFAULT 1
 
+#define DP_SWITCH_MSK 1
+
 /**
  * IP TRUNK version
  * from 0x1003 version, USB3 Gen2 is supported, two changes affect driver:
@@ -335,6 +337,9 @@ struct ssusb_mtk {
 	u32 vsv_vers;
 	/* offload */
 	int offload_mode;
+	/* dp switch */
+	struct regmap *dp_switch;
+	u32 dp_switch_oft;
 };
 
 /**
@@ -532,5 +537,7 @@ void mtu3_device_disable(struct mtu3 *mtu);
 
 irqreturn_t mtu3_ep0_isr(struct mtu3 *mtu);
 extern const struct usb_ep_ops mtu3_ep0_ops;
+
+int get_dp_switch_status(struct ssusb_mtk *ssusb);
 
 #endif

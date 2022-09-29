@@ -153,6 +153,10 @@ int ssusb_host_enable(struct ssusb_mtk *ssusb)
 	int i;
 	int ret;
 
+	/* if dp 4-lane, set u3_ports = 0 */
+	if (get_dp_switch_status(ssusb))
+		num_u3p = 0;
+
 	/* power on host ip */
 	mtu3_clrbits(ibase, U3D_SSUSB_IP_PW_CTRL1, SSUSB_IP_HOST_PDN);
 
@@ -236,6 +240,10 @@ int ssusb_host_resume(struct ssusb_mtk *ssusb, bool p0_skipped)
 	int num_u2p = ssusb->u2_ports;
 	u32 value;
 	int i;
+
+	/* if dp 4-lane, set u3_ports = 0 */
+	if (get_dp_switch_status(ssusb))
+		num_u3p = 0;
 
 	if (p0_skipped) {
 		u2p_skip_msk |= 0x1;

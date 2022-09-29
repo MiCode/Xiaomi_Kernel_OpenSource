@@ -17,6 +17,7 @@
 #include <linux/pm_wakeirq.h>
 #include <linux/regmap.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
+#include <linux/mfd/syscon.h>
 
 #include "mtu3.h"
 #include "mtu3_dr.h"
@@ -230,6 +231,60 @@ static int ssusb_vsvoter_of_property_parse(struct ssusb_mtk *ssusb,
 	return PTR_ERR_OR_ZERO(ssusb->vsv);
 }
 
+int get_dp_switch_status(struct ssusb_mtk *ssusb)
+{
+	u32 val;
+	int dp_switch_bit;
+
+	if (IS_ERR_OR_NULL(ssusb->dp_switch))
+		return 0;
+
+	regmap_read(ssusb->dp_switch, 0, &val);
+
+	if (val & DP_SWITCH_MSK << ssusb->dp_switch_oft)
+		dp_switch_bit = 1;
+	else
+		dp_switch_bit = 0;
+
+	dev_info(ssusb->dev, "%s dp_switch bit is %d\n",
+		__func__, dp_switch_bit);
+
+	return dp_switch_bit;
+}
+
+static int ssusb_dp_switch_of_property_parse(struct ssusb_mtk *ssusb,
+			struct device_node *dn)
+{
+	struct of_phandle_args args;
+	struct platform_device *pdev;
+	int ret;
+
+	/* dp switch is optional */
+	if (!of_property_read_bool(dn, "mediatek,uds"))
+		return 0;
+
+	ret = of_parse_phandle_with_fixed_args(dn,
+		"mediatek,uds", 1, 0, &args);
+
+	if (ret)
+		return ret;
+
+	pdev = of_find_device_by_node(args.np);
+	if (!pdev)
+		return -ENODEV;
+
+	ssusb->dp_switch = device_node_to_regmap(args.np);
+
+	if (!ssusb->dp_switch)
+		return -ENODEV;
+
+	ssusb->dp_switch_oft = args.args[0];
+
+	dev_info(ssusb->dev, "dp switch - oft:%d\n",
+			ssusb->dp_switch_oft);
+
+	return PTR_ERR_OR_ZERO(ssusb->dp_switch);
+}
 
 static int ssusb_offload_get_mode(void)
 {
@@ -611,6 +666,10 @@ get_phy:
 	ret = ssusb_vsvoter_of_property_parse(ssusb, node);
 	if (ret)
 		dev_info(dev, "failed to parse vsv property\n");
+
+	ret = ssusb_dp_switch_of_property_parse(ssusb, node);
+	if (ret)
+		dev_info(dev, "failed to parse dp_switch property\n");
 
 	ssusb->dr_mode = usb_get_dr_mode(dev);
 	if (ssusb->dr_mode == USB_DR_MODE_UNKNOWN)
