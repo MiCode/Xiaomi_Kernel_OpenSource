@@ -571,6 +571,29 @@ int conap_scp_unregister_drv(enum conap_scp_drv_type type)
 }
 EXPORT_SYMBOL(conap_scp_unregister_drv);
 
+
+struct conn_debug_cmd {
+	uint32_t drv;
+	uint32_t cmd;
+	uint32_t param;
+};
+
+void conap_scp_cmd_handler(int drv_type, int cmd, int param)
+{
+	int ret;
+	struct conn_debug_cmd debug_cmd;
+
+	debug_cmd.drv = drv_type;
+	debug_cmd.cmd = cmd;
+	debug_cmd.param = param;
+
+	ret = conap_scp_send_message(DRV_TYPE_CONN, 1,
+					(unsigned char *)&debug_cmd, sizeof(debug_cmd));
+	if (ret)
+		pr_notice("[%s] send msg fail [%d]", __func__, ret);
+
+}
+
 /*********************************************************************/
 /* init/deinit */
 /*********************************************************************/
@@ -611,6 +634,7 @@ int conap_scp_init(void)
 	}
 
 	connectivity_register_state_notifier(&g_conn_state_notifier);
+	connectivity_register_cmd_handler(conap_scp_cmd_handler);
 
 	pr_info("[%s] DONE", __func__);
 	return 0;
@@ -618,6 +642,8 @@ int conap_scp_init(void)
 
 int conap_scp_deinit(void)
 {
+	connectivity_unregister_cmd_handler();
+	connectivity_unregister_state_notifier(&g_conn_state_notifier);
 	conap_scp_ipi_deinit();
 	msg_thread_deinit(&g_core_ctx.tx_msg_thread);
 	mutex_destroy(&g_core_ctx.lock);
