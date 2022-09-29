@@ -254,9 +254,15 @@
 #define DISP_ODDMR_SMI_SB_FLG_DMR_8 (0x0120 + DISP_ODDMR_REG_SMI_BASE)
 #define REG_DMR_POACH_CFG_OFF REG_FLD_MSB_LSB(1, 1)
 #define REG_DMR_RE_ULTRA_MODE REG_FLD_MSB_LSB(7, 4)
-/* OD UDMA */
-#define DISP_ODDMR_REG_SMI_BASE 0xA00
+/* OD UDMA R*/
+#define DISP_ODDMR_REG_UDMA_R_BASE 0x1600
+#define DISP_ODDMR_UDMA_R_CTRL88	(0x01C0 + DISP_ODDMR_REG_UDMA_R_BASE)//W 3
+#define DISP_ODDMR_UDMA_R_CTRL_104	(0x01C8 + DISP_ODDMR_REG_UDMA_R_BASE)//R
 
+/* OD UDMA W*/
+#define DISP_ODDMR_REG_UDMA_W_BASE 0x1800
+#define DISP_ODDMR_UDMA_W_CTR_82	(0x01C0 + DISP_ODDMR_REG_UDMA_W_BASE)//W 3
+#define DISP_ODDMR_UDMA_W_CTR_84	(0x01C8 + DISP_ODDMR_REG_UDMA_W_BASE)//R
 
 #define OD_H_ALIGN_BITS 128
 #define ODDMR_READ_IN_PRE_ULTRA     (2 / 3)
@@ -712,7 +718,9 @@ static void mtk_oddmr_od_hsk(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg)
 	uint32_t height, comp_width, tile_overhead = 0;
 	struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
 
-	if ((oddmr_priv != NULL) && (oddmr_priv->data != NULL) && comp->mtk_crtc->is_dual_pipe)
+	if (oddmr_priv == NULL)
+		return;
+	if (oddmr_priv->data != NULL && comp->mtk_crtc->is_dual_pipe)
 		tile_overhead = oddmr_priv->cfg.comp_overhead;
 	comp_width = oddmr_priv->cfg.comp_in_width;
 	height = oddmr_priv->cfg.height;
@@ -733,7 +741,9 @@ static void mtk_oddmr_od_set_res(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg
 	uint32_t tile_overhead, scaling_mode, hscaling, h_2x4x_sel, comp_width, width, height;
 
 	tile_overhead = 0;
-	if ((oddmr_priv != NULL) && (oddmr_priv->data != NULL) && comp->mtk_crtc->is_dual_pipe)
+	if (oddmr_priv == NULL)
+		return;
+	if (oddmr_priv->data != NULL && comp->mtk_crtc->is_dual_pipe)
 		tile_overhead = oddmr_priv->cfg.comp_overhead;
 	scaling_mode = g_od_param.od_basic_info.basic_param.scaling_mode;
 	hscaling = (scaling_mode & BIT(0)) > 0 ? 2 : 1;
@@ -1094,7 +1104,7 @@ static void mtk_oddmr_prepare(struct mtk_ddp_comp *comp)
 {
 	struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
 
-	DDPMSG("%s+\n", __func__);
+	ODDMRAPI_LOG("+\n");
 	mtk_ddp_comp_clk_prepare(comp);
 	if (is_oddmr_od_support || is_oddmr_dmr_support)
 		mtk_oddmr_top_prepare(comp, NULL);
@@ -1108,7 +1118,6 @@ static void mtk_oddmr_prepare(struct mtk_ddp_comp *comp)
 			(is_oddmr_od_support || is_oddmr_dmr_support))
 		mtk_oddmr_spr2rgb_prepare(comp);
 	atomic_set(&oddmr_priv->oddmr_clock_ref, 1);
-	DDPMSG("%s-\n", __func__);
 }
 
 static void mtk_oddmr_unprepare(struct mtk_ddp_comp *comp)
@@ -1578,7 +1587,7 @@ static uint32_t mtk_oddmr_od_get_dram_size(uint32_t width, uint32_t height,
 static void mtk_oddmr_od_alloc_dram_dual(void)
 {
 
-	uint32_t scaling_mode, size_b, size_g, size_r, width, height, od_mode;
+	uint32_t scaling_mode, size_b, size_g, size_r, width = 0, height = 0, od_mode;
 	int tile_overhead = 0, ret;
 	bool secu;
 
@@ -1815,12 +1824,12 @@ static int mtk_oddmr_od_table_lookup(struct mtk_disp_oddmr *priv,
 	ret = _mtk_oddmr_od_table_lookup(cur_timing);
 	if (ret >= 0) {
 		*table_idx = ret;
-		DDPPR_ERR("%s update table fps %u, table_idx %d sram(%d %d)\n", __func__,
+		ODDMRFLOW_LOG("update table fps %u, table_idx %d sram(%d %d)\n",
 				cur_timing->vrefresh, ret, priv->od_data.od_sram_table_idx[0],
 				priv->od_data.od_sram_table_idx[1]);
 		return 2;
 	}
-	DDPPR_ERR("%s fps %u out of range\n", __func__, cur_timing->vrefresh);
+	ODDMRFLOW_LOG("fps %u out of range\n", cur_timing->vrefresh);
 	return -EFAULT;
 }
 
@@ -1849,7 +1858,7 @@ static int mtk_oddmr_common_gain_lookup(int item, void *table, uint32_t cnt)
 	}
 	if (i >= cnt) {
 		result = gain_table[cnt - 1].value;
-		DDPPR_ERR("%s item %u outof range (%u, %u)\n", __func__, tmp_item,
+		ODDMRFLOW_LOG("item %u outof range (%u, %u)\n", tmp_item,
 				gain_table[0].item, gain_table[cnt - 1].item);
 	} else {
 		//to cover negative value in calculate
@@ -1889,7 +1898,7 @@ static int mtk_oddmr_od_gain_lookup(uint32_t fps, uint32_t dbv, int table_idx, u
 	tmp_item = (int)dbv;
 	result_dbv = mtk_oddmr_common_gain_lookup(tmp_item, bl_gain_table, cnt);
 	/* TODO algo for fps + dbv*/
-	*weight = (uint32_t)result_dbv;
+	*weight = ((uint32_t)result_dbv * (uint32_t)result_fps + 32) / 64;
 	return 0;
 }
 
@@ -2485,10 +2494,6 @@ int mtk_oddmr_hrt_cal_notify(int *oddmr_hrt)
 	}
 	if (g_oddmr_hrt_en == false)
 		return 0;
-	//TODO: should remove this
-	if (g_od_param.od_basic_info.basic_param.panel_width > 1100 ||
-		g_od_param.od_basic_info.basic_param.panel_height > 2500)
-		sum = 0;
 	*oddmr_hrt += sum;
 	return sum;
 }
@@ -2789,7 +2794,6 @@ static int mtk_oddmr_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle
 	}
 	return 0;
 }
-
 
 void disp_oddmr_on_start_of_frame(void)
 {
