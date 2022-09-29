@@ -58,6 +58,7 @@ static int margin_mode_dbnc_a = 9;
 static int margin_mode_dbnc_b = 1;
 static int margin_mode_gpu_dbnc_a = 9;
 static int margin_mode_gpu_dbnc_b = 1;
+static int RESET_TOLERENCE = DEFAULT_RESET_TOLERENCE;
 static int JUMP_CHECK_NUM = DEFAULT_JUMP_CHECK_NUM;
 static int JUMP_CHECK_Q_PCT = DEFAULT_JUMP_CHECK_Q_PCT;
 static int adopt_low_fps = 1;
@@ -343,7 +344,7 @@ static void fstb_update_policy_cmd(struct FSTB_FRAME_INFO *iter,
 			policy->notify_target_fps)
 			policy->ts = ts;
 	} else {
-		iter->self_ctrl_fps_enable = 0;
+		iter->self_ctrl_fps_enable = fstb_self_ctrl_fps_enable ? 1 : 0;
 		iter->tfb_enable = 0;
 		iter->notify_target_fps = 0;
 	}
@@ -1155,8 +1156,8 @@ void fpsgo_comp2fstb_prepare_calculate_target_fps(int pid, unsigned long long bu
 	if (!iter)
 		goto out;
 
-	if (!iter->self_ctrl_fps_enable && fstb_self_ctrl_fps_enable)
-		iter->self_ctrl_fps_enable = 1;
+	if (!iter->self_ctrl_fps_enable)
+		iter->self_ctrl_fps_enable = fstb_self_ctrl_fps_enable ? 1 : 0;
 
 	if (!iter->self_ctrl_fps_enable)
 		goto out;
@@ -2639,6 +2640,11 @@ FSTB_SYSFS_WRITE_VALUE(margin_mode_gpu_dbnc_b, margin_mode_gpu_dbnc_b, 1, INT_MA
 
 static KOBJ_ATTR_RW(margin_mode_gpu_dbnc_b);
 
+FSTB_SYSFS_READ(fstb_reset_tolerence, 1, RESET_TOLERENCE);
+FSTB_SYSFS_WRITE_VALUE(fstb_reset_tolerence, RESET_TOLERENCE, 0, INT_MAX);
+
+static KOBJ_ATTR_RW(fstb_reset_tolerence);
+
 FSTB_SYSFS_READ(fstb_tune_quantile, 1, QUANTILE);
 FSTB_SYSFS_WRITE_VALUE(fstb_tune_quantile, QUANTILE, 0, 100);
 
@@ -2852,6 +2858,8 @@ int mtk_fstb_init(void)
 		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_margin_mode_gpu);
 		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_fstb_reset_tolerence);
+		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_fstb_fps_list);
 		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_fstb_soft_level);
@@ -2928,6 +2936,8 @@ int __exit mtk_fstb_exit(void)
 			&kobj_attr_margin_mode_gpu_dbnc_a);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_margin_mode_gpu);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_fstb_reset_tolerence);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_fstb_fps_list);
 	fpsgo_sysfs_remove_file(fstb_kobj,
