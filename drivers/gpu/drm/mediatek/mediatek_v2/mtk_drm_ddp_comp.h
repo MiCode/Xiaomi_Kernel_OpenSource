@@ -581,6 +581,7 @@ struct mtk_ddp_config {
 	unsigned int x;
 	unsigned int y;
 	unsigned int vrefresh;
+	unsigned int clock;
 	unsigned int bpc;
 	struct golden_setting_context *p_golden_setting_context;
 	unsigned int source_bpc;

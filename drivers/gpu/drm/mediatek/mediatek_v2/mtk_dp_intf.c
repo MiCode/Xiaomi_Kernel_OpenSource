@@ -212,6 +212,10 @@ static const struct mtk_dp_intf_resolution_cfg mt6983_resolution_cfg[SINK_MAX] =
 					.clksrc = TVDPLL_D16,
 					.con1 = 0x8216D89D
 				},
+	[SINK_1920_1080_120_RB] = {
+					.clksrc = TVDPLL_D8,
+					.con1 = 0x82160000
+				},
 	[SINK_1920_1080_120] = {
 					.clksrc = TVDPLL_D8,
 					.con1 = 0x8216D89D
@@ -613,8 +617,8 @@ static void mtk_dp_intf_config(struct mtk_ddp_comp *comp,
 	unsigned int bg_top = 0, bg_bot = 0;
 	unsigned int rw_times = 0;
 
-	DDPMSG("%s w %d, h, %d, fps %d!\n",
-			__func__, cfg->w, cfg->h, cfg->vrefresh);
+	DDPMSG("%s w %d, h, %d, clock %d, fps %d!\n",
+			__func__, cfg->w, cfg->h, cfg->clock, cfg->vrefresh);
 
 	hsize = cfg->w;
 	vsize = cfg->h;
@@ -646,13 +650,23 @@ static void mtk_dp_intf_config(struct mtk_ddp_comp *comp,
 		vbp = 36;
 	} else if ((cfg->w == 1920) && (cfg->h == 1080)
 		   && (cfg->vrefresh == 120)) {
-		dp_intf->res = SINK_1920_1080_120;
-		hpw = 11;
-		hfp = 22;
-		hbp = 37;
-		vpw = 5;
-		vfp = 4;
-		vbp = 36;
+		if (cfg->clock == 285500) {
+			dp_intf->res = SINK_1920_1080_120_RB;
+			hpw = 8;
+			hfp = 12;
+			hbp = 20;
+			vpw = 5;
+			vfp = 3;
+			vbp = 56;
+		} else {
+			dp_intf->res = SINK_1920_1080_120;
+			hpw = 11;
+			hfp = 22;
+			hbp = 37;
+			vpw = 5;
+			vfp = 4;
+			vbp = 36;
+		}
 	} else if ((cfg->w == 1080) && (cfg->h == 2460)
 			  && (cfg->vrefresh == 60)) {
 		dp_intf->res = SINK_1080_2460;

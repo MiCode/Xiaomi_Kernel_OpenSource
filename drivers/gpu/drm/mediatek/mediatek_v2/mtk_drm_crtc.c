@@ -7092,6 +7092,7 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 
 	cfg.w = crtc->state->adjusted_mode.hdisplay;
 	cfg.h = crtc->state->adjusted_mode.vdisplay;
+	cfg.clock = crtc->state->adjusted_mode.clock;
 	if (output_comp && drm_crtc_index(crtc) == 0) {
 		cfg.w = mtk_ddp_comp_io_cmd(output_comp, NULL,
 					DSI_GET_VIRTUAL_WIDTH, NULL);
