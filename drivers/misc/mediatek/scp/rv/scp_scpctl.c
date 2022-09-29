@@ -2,7 +2,7 @@
 /*
  * Copyright (C) 2020 MediaTek Inc.
  */
-
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 #include <linux/device.h>       /* needed by device_* */
 #include "scp_ipi_pin.h"
 #include "scp_mbox_layout.h"
@@ -46,5 +46,5 @@ _err:
 	return -EIO;
 }
 DEVICE_ATTR_WO(scpctl);
-
+#endif
 

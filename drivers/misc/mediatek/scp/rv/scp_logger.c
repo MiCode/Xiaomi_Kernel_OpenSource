@@ -88,7 +88,10 @@ struct scp_logger_ctrl_msg {
 
 static unsigned int scp_A_logger_inited;
 static unsigned int scp_A_logger_wakeup_ap;
+
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 static unsigned int scp_A_logger_enable;
+#endif
 
 static struct log_ctrl_s *SCP_A_log_ctl;
 static struct buffer_info_s *SCP_A_buf_info;
@@ -220,6 +223,7 @@ exit:
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 ssize_t scp_A_log_read(char __user *data, size_t len)
 {
 	unsigned int w_pos, r_pos, datalen;
@@ -327,6 +331,9 @@ static unsigned int scp_A_log_if_poll(struct file *file, poll_table *wait)
 
 	return ret;
 }
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 /*
  * ipi send to enable scp logger flag
  */
@@ -595,7 +602,7 @@ static ssize_t log_filter_store(struct device *dev,
 	}
 }
 DEVICE_ATTR_WO(log_filter);
-
+#endif
 
 /*
  * IPI for logger init
@@ -719,8 +726,10 @@ static void scp_logger_notify_ws(struct work_struct *ws)
 		SCP_A_log_ctl->enable = 1;
 		pr_notice("[SCP]logger initial fail, ipi ret=%d\n", ret);
 	}
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 	if (scp_A_logger_enable)
 		ret = scp_A_log_enable_set(scp_A_logger_enable);
+#endif
 	pr_notice("[SCP]logger re-enable ret=%d\n", ret);
 
 }
@@ -823,13 +832,14 @@ void scp_logger_uninit(void)
 		vfree(tmp);
 }
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 const struct file_operations scp_A_log_file_ops = {
 	.owner = THIS_MODULE,
 	.read = scp_A_log_if_read,
 	.open = scp_A_log_if_open,
 	.poll = scp_A_log_if_poll,
 };
-
+#endif
 
 /*
  * move scp last log from sram to dram

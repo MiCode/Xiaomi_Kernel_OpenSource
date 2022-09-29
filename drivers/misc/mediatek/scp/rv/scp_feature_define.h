@@ -17,7 +17,6 @@
 #define SCP_LOGGER_ENABLE                (0)
 #endif
 #define SCP_VOW_LOW_POWER_MODE           (1)
-#define SCP_DEBUG_NODE_ENABLE            (0)
 
 /* scp rescovery feature option*/
 #define SCP_RECOVERY_SUPPORT             (1)
