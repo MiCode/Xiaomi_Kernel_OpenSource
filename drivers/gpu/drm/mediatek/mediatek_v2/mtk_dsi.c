@@ -3639,6 +3639,12 @@ unsigned int mtk_dsi_mode_change_index(struct mtk_dsi *dsi,
 			adjust_panel_params = panel_ext->params;
 	}
 
+	DDPINFO("%s:%d, mipi_hopping_sta %d, cur dyn.switch_en %d, adj dyn.switch_en %d\n",
+		__func__, __LINE__,
+		dsi->mipi_hopping_sta,
+		cur_panel_params->dyn.switch_en,
+		adjust_panel_params->dyn.switch_en);
+
 	if (cur_panel_params && adjust_panel_params &&
 		!(dsi->mipi_hopping_sta && (cur_panel_params->dyn.switch_en ||
 		adjust_panel_params->dyn.switch_en))) {
@@ -3659,6 +3665,12 @@ unsigned int mtk_dsi_mode_change_index(struct mtk_dsi *dsi,
 			mode_chg_index |= MODE_DSI_CLK;
 		else if (cur_panel_params->pll_clk != adjust_panel_params->pll_clk)
 			mode_chg_index |= MODE_DSI_CLK;
+		else if (mtk_drm_helper_get_opt(priv->helper_opt,
+					MTK_DRM_OPT_DYN_MIPI_CHANGE)) {
+			if (cur_panel_params->dyn_fps.data_rate !=
+				adjust_panel_params->dyn_fps.data_rate)
+				mode_chg_index |= MODE_DSI_CLK;
+		}
 
 		//else if (adjust_mode->clock != old_mode->clock)
 			//mode_chg_index |= MODE_DSI_CLK;
@@ -7261,12 +7273,17 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 	if (mtk_crtc && mtk_crtc->base.dev)
 		priv = mtk_crtc->base.dev->dev_private;
 
+	DDPINFO("%s, mode_change_index:0x%x, cmd_null_pkt_en:%d\n", __func__,
+		mtk_crtc->mode_change_index, dsi->ext->params->cmd_null_pkt_en);
+
 	if (IS_ERR_OR_NULL(priv)
 		|| (!(mtk_crtc->mode_change_index & MODE_DSI_CLK)
 		&& !(mtk_crtc->mode_change_index & MODE_DSI_RES)
 		&& !(dsi->ext && dsi->ext->params
 		&& dsi->ext->params->cmd_null_pkt_en)))
 		need_mipi_change = 0;
+
+	DDPINFO("%s, need_mipi_change %d\n", __func__, need_mipi_change);
 
 	if (!(mtk_crtc->mode_change_index & MODE_DSI_RES)) {
 		mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
