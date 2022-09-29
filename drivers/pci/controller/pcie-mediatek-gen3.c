@@ -1315,8 +1315,6 @@ static void pcie_android_rvh_do_serror(void *data, struct pt_regs *regs,
 	val = readl_relaxed(pcie_port->base + PCIE_INT_STATUS_REG);
 	if (val & PCIE_AXI_READ_ERR)
 		*ret = 1;
-
-	dump_stack();
 }
 #endif
 
