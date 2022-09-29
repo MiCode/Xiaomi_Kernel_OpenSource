@@ -6,6 +6,7 @@
 #define __THERMAL_TRACE_LOCAL_H__
 
 /* SRAM OFFSET */
+#define GPU_VTSKIN_OFFSET (0x94)
 #define CPU_TTJ_OFFSET (0x100)
 #define GPU_TTJ_OFFSET (0x104)
 #define APU_TTJ_OFFSET (0x108)
@@ -30,6 +31,8 @@
 #define GPU_TEMP_OFFSET (0x180)
 #define GPU_LIMIT_FREQ_OFFSET (0x184)
 #define GPU_CUR_FREQ_OFFSET (0x188)
+#define GPU_PPM_LIMIT_OFFSET (0x3C8)
+#define GPU_PPM_LIMITER_OFFSET (0x3CC)
 #define APU_TEMP_OFFSET (0x190)
 #define APU_LIMIT_OPP_OFFSET (0x194)
 #define APU_CUR_OPP_OFFSET (0x198)
@@ -66,8 +69,12 @@ struct thermal_gpu_info {
 	int temp;
 	int pre_temp;
 	int temp_noinvalid;
+	int vtskin;
+	unsigned int ppm_limiter;
 	unsigned int limit_freq;
 	unsigned int cur_freq;
+	unsigned int ppm_limit_freq;
+
 };
 
 struct thermal_apu_info {

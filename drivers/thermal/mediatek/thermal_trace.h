@@ -189,8 +189,11 @@ TRACE_EVENT(thermal_gpu,
 		__field(int, limit_powerbudget)
 		__field(int, temp)
 		__field(int, temp_noinvalid)
+		__field(int, vtskin)
+		__field(unsigned int, ppm_limiter)
 		__field(unsigned int, limit_freq)
 		__field(unsigned int, cur_freq)
+		__field(unsigned int, ppm_limit_freq)
 	),
 
 	TP_fast_assign(
@@ -198,13 +201,17 @@ TRACE_EVENT(thermal_gpu,
 		__entry->limit_powerbudget = gpu->limit_powerbudget;
 		__entry->temp = gpu->temp;
 		__entry->temp_noinvalid = gpu->temp_noinvalid;
+		__entry->vtskin = gpu->vtskin;
 		__entry->limit_freq = gpu->limit_freq;
 		__entry->cur_freq = gpu->cur_freq;
+		__entry->ppm_limiter = gpu->ppm_limiter;
+		__entry->ppm_limit_freq = gpu->ppm_limit_freq;
 	),
 
-	TP_printk("ttj=%d limit_pb=%d t=%d t2=%d limit_freq=%d cur_freq=%d",
+	TP_printk("ttj=%d limit_pb=%d t=%d t2=%d limit_freq=%d cur_freq=%d ppm_limiter=%d ppm_limit_freq=%d vtskin=%d",
 		__entry->ttj, __entry->limit_powerbudget, __entry->temp, __entry->temp_noinvalid,
-		__entry->limit_freq, __entry->cur_freq)
+		__entry->limit_freq, __entry->cur_freq,
+		__entry->ppm_limiter,  __entry->ppm_limit_freq, __entry->vtskin)
 );
 
 TRACE_EVENT(thermal_apu,

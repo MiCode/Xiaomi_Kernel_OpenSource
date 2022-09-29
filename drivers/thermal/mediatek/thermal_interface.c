@@ -1267,13 +1267,12 @@ static const struct file_operations cpu_cooler_fops = {
 
 static int gpu_cooler_show(struct seq_file *m, void *unused)
 {
-	/* output: tt, tp, polling_delay, statistics ttj, leakage info */
-	seq_printf(m, "%d,%d,%d,%d,%d\n",
+	/* output: tt, tp, polling_delay, leakage info */
+	seq_printf(m, "%d,%d,%d,%d\n",
 		therm_intf_read_csram(GPU_COOLER_BASE+4),
 		therm_intf_read_csram(GPU_COOLER_BASE),
 		therm_intf_read_csram(GPU_COOLER_BASE+8),
-		therm_intf_read_csram(GPU_COOLER_BASE+32),
-		therm_intf_read_csram(GPU_COOLER_BASE+36));
+		therm_intf_read_csram(GPU_COOLER_BASE+20));
 
 	return 0;
 }
@@ -1308,8 +1307,6 @@ static ssize_t gpu_cooler_write(struct file *flip,
 		therm_intf_write_csram(value, GPU_COOLER_BASE + 4);
 	else if (strncmp(target, "polling_delay", 3) == 0)
 		therm_intf_write_csram(value, GPU_COOLER_BASE + 8);
-	else if (strncmp(target, "statistics_ttj", 3) == 0)
-		therm_intf_write_csram(value, GPU_COOLER_BASE + 32);
 
 	ret = cnt;
 
@@ -1336,12 +1333,9 @@ static const struct file_operations gpu_cooler_fops = {
 
 static int gpu_temp_debug_show(struct seq_file *m, void *unused)
 {
-	seq_printf(m, "BIN1=%d BIN2=%d BIN3=%d total_count=%d max_temp=%d\n",
-			   therm_intf_read_csram(GPU_COOLER_BASE + 12),
+	seq_printf(m, "statistics_control=%d max_temp=%d\n",
 			   therm_intf_read_csram(GPU_COOLER_BASE + 16),
-			   therm_intf_read_csram(GPU_COOLER_BASE + 20),
-			   therm_intf_read_csram(GPU_COOLER_BASE + 24),
-			   therm_intf_read_csram(GPU_COOLER_BASE + 28));
+			   therm_intf_read_csram(GPU_COOLER_BASE + 12));
 
 	return 0;
 }
@@ -1371,14 +1365,11 @@ static ssize_t gpu_temp_debug_write(struct file *flip,
 	}
 
 	if (value == 0) {
-		therm_intf_write_csram(0, GPU_COOLER_BASE + 12);
 		therm_intf_write_csram(0, GPU_COOLER_BASE + 16);
-		therm_intf_write_csram(0, GPU_COOLER_BASE + 20);
-		therm_intf_write_csram(0, GPU_COOLER_BASE + 24);
-		therm_intf_write_csram(-274000, GPU_COOLER_BASE + 28);
+		therm_intf_write_csram(-274000, GPU_COOLER_BASE + 12);
 	}
 	if (value < 0)
-		therm_intf_write_csram(-1, GPU_COOLER_BASE + 24);
+		therm_intf_write_csram(-1, GPU_COOLER_BASE + 16);
 
 
 	ret = cnt;
