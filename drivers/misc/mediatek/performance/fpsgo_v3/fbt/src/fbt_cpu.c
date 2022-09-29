@@ -144,6 +144,14 @@ enum FPSGO_TASK_POLICY {
 	FPSGO_TPOLICY_MAX,
 };
 
+enum FPSGO_BOOST_AFFINITY {
+	FPSGO_BAFFINITY_NONE = 0,
+	FPSGO_BAFFINITY_B = 1,
+	FPSGO_BAFFINITY_B_ADJ = 2,
+	FPSGO_BAFFINITY_B_M = 3,
+	FPSGO_BAFFINITY_TOTAL,
+};
+
 enum FPSGO_LIMIT_POLICY {
 	FPSGO_LIMIT_NONE = 0,
 	FPSGO_LIMIT_CAPACITY,
@@ -1845,35 +1853,65 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 				fbt_set_per_task_cap(fl->pid, min_cap_b, max_cap_b);
 			else
 				fbt_set_per_task_cap(fl->pid, min_cap, max_cap);
-			if (boost_affinity_final)
-				fbt_set_task_policy(fl, boost_affinity_final,
-						FPSGO_PREFER_BIG, 1);
-			else if (boost_LR_final && thr->hwui == RENDER_INFO_HWUI_NONE
-					&& fbt_is_R_L_task(fl->pid, heaviest_pid, thr->pid)) {
-				fbt_set_task_policy(fl, FPSGO_TPOLICY_NONE,
-						FPSGO_PREFER_NONE, 1);
-			} else {
-				fbt_set_task_policy(fl, FPSGO_TPOLICY_NONE,
-						FPSGO_PREFER_NONE, 0);
+			switch (boost_affinity_final) {
+			case FPSGO_BAFFINITY_B:
+				fbt_set_task_policy(fl, FPSGO_TPOLICY_AFFINITY,
+								FPSGO_PREFER_BIG, 1);
+				break;
+			case FPSGO_BAFFINITY_B_ADJ:
+				fbt_set_task_policy(fl, FPSGO_TPOLICY_AFFINITY_ADJ,
+								FPSGO_PREFER_BIG, 1);
+				break;
+			case FPSGO_BAFFINITY_B_M:
+				fbt_set_task_policy(fl, FPSGO_TPOLICY_AFFINITY,
+								FPSGO_PREFER_B_M, 1);
+				break;
+			default:
+				if (boost_LR_final && thr->hwui == RENDER_INFO_HWUI_NONE
+					&& fbt_is_R_L_task(fl->pid, heaviest_pid, thr->pid))
+					fbt_set_task_policy(fl, FPSGO_TPOLICY_NONE,
+									FPSGO_PREFER_NONE, 1);
+				else
+					fbt_set_task_policy(fl, FPSGO_TPOLICY_NONE,
+									FPSGO_PREFER_NONE, 0);
+				break;
 			}
 		} else {
 			if (separate_aa_final) {
 				if (separate_release_sec_final)
 					fbt_set_per_task_cap(fl->pid, min_cap_m,
-						max(max_cap_m, max_cap_b));
+							max(max_cap_m, max_cap_b));
 				else
 					fbt_set_per_task_cap(fl->pid, min_cap_m, max_cap_m);
 			} else
 				fbt_set_per_task_cap(fl->pid, min_cap, max_cap);
-			if (boost_affinity_final) {
+
+			switch (boost_affinity_final) {
+			case FPSGO_BAFFINITY_B:
 				fbt_set_task_policy(fl, FPSGO_TPOLICY_AFFINITY,
-						FPSGO_PREFER_L_M, 0);
-			} else if (boost_LR_final && thr->hwui == RENDER_INFO_HWUI_NONE
-					&& fbt_is_R_L_task(fl->pid, heaviest_pid, thr->pid)) {
-				fbt_set_task_policy(fl, FPSGO_TPOLICY_NONE,
-						FPSGO_PREFER_NONE, 1);
-			} else {
-				fbt_reset_task_setting(fl, 0);
+								FPSGO_PREFER_L_M, 0);
+				break;
+			case FPSGO_BAFFINITY_B_ADJ:
+				fbt_set_task_policy(fl, FPSGO_TPOLICY_AFFINITY,
+								FPSGO_PREFER_L_M, 0);
+				break;
+			case FPSGO_BAFFINITY_B_M:
+				if (thr->hwui == RENDER_INFO_HWUI_NONE
+					&& fbt_is_R_L_task(fl->pid, heaviest_pid, thr->pid))
+					fbt_set_task_policy(fl, FPSGO_TPOLICY_AFFINITY,
+									FPSGO_PREFER_B_M, 1);
+				else
+					fbt_set_task_policy(fl, FPSGO_TPOLICY_AFFINITY,
+									FPSGO_PREFER_B_M, 0);
+				break;
+			default:
+				if (boost_LR_final && thr->hwui == RENDER_INFO_HWUI_NONE
+					&& fbt_is_R_L_task(fl->pid, heaviest_pid, thr->pid))
+					fbt_set_task_policy(fl, FPSGO_TPOLICY_NONE,
+							FPSGO_PREFER_NONE, 1);
+				else
+					fbt_reset_task_setting(fl, 0);
+				break;
 			}
 		}
 
@@ -6450,7 +6488,7 @@ static ssize_t fbt_attr_by_pid_store(struct kobject *kobj,
 		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->filter_frame_kmin_by_pid = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "boost_affinity")) {
-		if (val >= FPSGO_TPOLICY_NONE && val < FPSGO_TPOLICY_MAX
+		if (val >= FPSGO_BAFFINITY_NONE && val < FPSGO_BAFFINITY_TOTAL
 			&& action == 's')
 			boost_attr->boost_affinity_by_pid = val;
 		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
