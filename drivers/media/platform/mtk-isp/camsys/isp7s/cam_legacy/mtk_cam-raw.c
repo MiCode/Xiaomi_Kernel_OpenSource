@@ -2453,6 +2453,7 @@ static void mtk_raw_update_debug_param(struct mtk_cam_device *cam,
 		dev_info(cam->dev, "DEBUG: force debug_clk_idx: %d\n",
 			 debug_clk_idx);
 		res->clk_target = clk->clklv[debug_clk_idx];
+		res->opp_idx = debug_clk_idx;
 	}
 
 	dev_dbg(cam->dev,
