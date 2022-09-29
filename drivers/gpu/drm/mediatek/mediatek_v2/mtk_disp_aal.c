@@ -176,6 +176,7 @@ static struct mtk_disp_aal *g_aal1_data;
 static struct mtk_aal_feature_option *g_aal_fo;
 static DEFINE_MUTEX(g_aal_sram_lock);
 static bool gDre30Enabled;
+static bool gPrvDre30Enabled;
 static unsigned int g_aal_dre30_en;
 
 // for Display Clarity
@@ -4295,11 +4296,16 @@ int mtk_drm_ioctl_aal_set_trigger_state(struct drm_device *dev, void *data,
 
 		spin_lock_irqsave(&g_aal_hist_lock, flags);
 		if ((g_aal_fo->mtk_dre30_support) && (!gDre30Enabled)) {
+			gPrvDre30Enabled = gDre30Enabled;
 			gDre30Enabled = true;
-			// need flip sram to get local histogram
-			mtk_crtc_user_cmd(g_aal_data->crtc, default_comp, FLIP_SRAM, NULL);
 		}
 		spin_unlock_irqrestore(&g_aal_hist_lock, flags);
+
+		if (gPrvDre30Enabled != gDre30Enabled) {
+			// need flip sram to get local histogram
+			mtk_crtc_user_cmd(g_aal_data->crtc, default_comp, FLIP_SRAM, NULL);
+			gPrvDre30Enabled = gDre30Enabled;
+		}
 
 		trigger_state->dre3_krn_flag = gDre30Enabled ? 1 : 0;
 
