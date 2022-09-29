@@ -184,7 +184,7 @@
 
 #define HTOL_THRESHOLD_MAX			20
 #define HTOL_THRESHOLD_MIN			5
-#define HTOL_CALI_MAX				120
+#define HTOL_CALI_MAX				267
 
 /* mt6359 610.352 uA */
 #define UNIT_FGCURRENT				610352
@@ -3894,22 +3894,6 @@ static int psy_gauge_set_property(struct power_supply *psy,
 static int mtk_gauge_proprietary_init(struct mt6375_priv *priv)
 {
 	struct mtk_gauge *gauge = &priv->gauge;
-	const int r_fg_val[] = { 50, 20, 10, 5 };
-	unsigned int regval;
-	int ret;
-
-	/* Get default r_fg gain error selection, must be set in LK */
-	ret = regmap_read(priv->regmap, RG_FGADC_ANA_ELR4, &regval);
-	if (ret)
-		return ret;
-	regval &= FG_GAINERR_SEL_MASK;
-	priv->default_r_fg = r_fg_val[regval];
-
-	priv->unit_fgcurrent = UNIT_FGCURRENT;
-	priv->unit_charge = UNIT_CHARGE;
-	priv->unit_fg_iavg = UNIT_FG_IAVG;
-	priv->unit_fgcar_zcv = UNIT_FGCAR_ZCV;
-
 	/* Variable initialization */
 	gauge->regmap = priv->regmap;
 	gauge->pdev = to_platform_device(priv->dev);
@@ -3940,28 +3924,53 @@ static int mtk_gauge_proprietary_init(struct mt6375_priv *priv)
 	return 0;
 }
 
-static void mt6375_gauge_refactor_unit(struct mt6375_priv *priv)
+static int mt6375_gauge_refactor_unit(struct mt6375_priv *priv)
 {
-	struct fuel_gauge_custom_data fg_cust_data = priv->gauge.gm->fg_cust_data;
+	struct device_node *np = priv->dev->of_node;
+	const int r_fg_val[] = { 50, 20, 10, 5 };
+	u32 regval = 0, r_fg_value = 0, curr_measure_20a = 0, unit_multiple = 0;
+	int ret;
 
-	if (priv->gauge.hw_status.r_fg_value == 20)
+	priv->unit_fgcurrent = UNIT_FGCURRENT;
+	priv->unit_charge = UNIT_CHARGE;
+	priv->unit_fg_iavg = UNIT_FG_IAVG;
+	priv->unit_fgcar_zcv = UNIT_FGCAR_ZCV;
+
+	/* Get default r_fg gain error selection, must be set in LK */
+	ret = regmap_read(priv->regmap, RG_FGADC_ANA_ELR4, &regval);
+	if (ret)
+		return ret;
+	regval &= FG_GAINERR_SEL_MASK;
+	priv->default_r_fg = r_fg_val[regval];
+
+	ret = of_property_read_u32(np, "R_FG_VALUE", &r_fg_value);
+	r_fg_value *= 10;
+	ret |= of_property_read_u32(np, "CURR_MEASURE_20A", &curr_measure_20a);
+	ret |= of_property_read_u32(np, "UNIT_MULTIPLE", &unit_multiple);
+	if (ret) {
+		dev_notice(priv->dev, "%s: failed to parse dt\n", __func__);
+		return -EINVAL;
+	}
+
+	if (r_fg_value == 20)
 		priv->default_r_fg = 20;
-	if (fg_cust_data.curr_measure_20a) {
+	if (curr_measure_20a) {
 		priv->default_r_fg = 10;
-		priv->unit_fgcurrent *= fg_cust_data.unit_multiple;
-		priv->unit_charge *= fg_cust_data.unit_multiple;
-		priv->unit_fg_iavg *= fg_cust_data.unit_multiple;
-		priv->unit_fgcar_zcv *= fg_cust_data.unit_multiple;
+		priv->unit_fgcurrent *= unit_multiple;
+		priv->unit_charge *= unit_multiple;
+		priv->unit_fg_iavg *= unit_multiple;
+		priv->unit_fgcar_zcv *= unit_multiple;
 	}
 
 	pr_notice("%s:20A:%d,r_fg:%d,unit_fg_current:%d,unit_charge:%d,unit_fg_iavg:%d,unit_fgcar_zcv:%d\n",
 		  __func__,
-		  priv->gauge.gm->fg_cust_data.curr_measure_20a,
+		  curr_measure_20a,
 		  priv->default_r_fg,
 		  priv->unit_fgcurrent,
 		  priv->unit_charge,
 		  priv->unit_fg_iavg,
 		  priv->unit_fgcar_zcv);
+	return 0;
 }
 
 static int mt6375_gauge_probe(struct platform_device *pdev)
@@ -4013,13 +4022,18 @@ static int mt6375_gauge_probe(struct platform_device *pdev)
 		goto out_irq_chip;
 	}
 
+	ret = mt6375_gauge_refactor_unit(priv);
+	if (ret) {
+		dev_notice(&pdev->dev, "Failed to refactor unit\n");
+		goto out_irq_chip;
+	}
+
 	ret = mtk_gauge_proprietary_init(priv);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to do mtk gauge init\n");
 		goto out_irq_chip;
 	}
 
-	mt6375_gauge_refactor_unit(priv);
 	return 0;
 
 out_irq_chip:
