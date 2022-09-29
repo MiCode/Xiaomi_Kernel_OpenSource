@@ -120,7 +120,7 @@
 #define MIDBAND_COEF_V_CUST_FLT1_03             (0x590)
 #define MIDBAND_COEF_H_CUST_FLT1_00             (0x594)
 #define MIDBAND_COEF_H_CUST_FLT1_01             (0x598)
-#define MIDBAND_COEF_H_CUST_FLT1_02             (0x5C9)
+#define MIDBAND_COEF_H_CUST_FLT1_02             (0x59C)
 #define MIDBAND_COEF_H_CUST_FLT1_03             (0x600)
 
 #define HIGHBAND_COEF_V_CUST_FLT1_00            (0x604)
