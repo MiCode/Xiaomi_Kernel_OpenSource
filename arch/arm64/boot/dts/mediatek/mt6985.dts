@@ -8880,6 +8880,8 @@
 				<0 0x13fbc000 0 0x1000>,  /* MFG_SECURE */
 				<0 0x1000d000 0 0x1000>,  /* DRM_DEBUG */
 				<0 0x13fe0000 0 0x1000>,  /* MFG_IPS */
+				<0 0x10219000 0 0x1000>,  /* EMI_REG */
+				<0 0x1021d000 0 0x1000>,  /* SUB_EMI_REG */
 				<0 0x00118800 0 0x2000>;  /* SYSRAM_MFG_HISTORY */
 			reg-names =
 				"mfg_top_config",
@@ -8903,6 +8905,8 @@
 				"mfg_secure",
 				"drm_debug",
 				"mfg_ips",
+				"emi_reg",
+				"sub_emi_reg",
 				"sysram_mfg_history";
 			vgpu-supply = <&mt6373_vbuck4>;
 			vstack-supply = <&mt6373_vbuck2>;
