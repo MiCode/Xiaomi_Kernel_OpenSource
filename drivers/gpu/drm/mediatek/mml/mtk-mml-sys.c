@@ -5,6 +5,7 @@
  */
 
 #include <linux/component.h>
+#include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
@@ -41,6 +42,9 @@ module_param(mml_racing_sleep, int, 0644);
 #if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
 int mml_ddp_dump = 1;
 module_param(mml_ddp_dump, int, 0644);
+
+int mml_dle_delay;
+module_param(mml_dle_delay, int, 0644);
 #endif
 
 enum mml_comp_type {
@@ -1080,6 +1084,11 @@ static void sys_addon_connect(struct mml_sys *sys,
 	ddp_command_make(cfg->task, cfg->pipe, pkt);
 
 	sys_ddp_enable(sys, cfg->task, cfg->pipe);
+
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	if (mml_dle_delay)
+		usleep_range(mml_dle_delay, mml_dle_delay + 10);
+#endif
 }
 
 static void sys_addon_disconnect(struct mml_sys *sys,

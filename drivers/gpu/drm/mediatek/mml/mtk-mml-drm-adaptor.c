@@ -67,6 +67,7 @@ enum mml_mode mml_drm_query_cap(struct mml_drm_ctx *ctx,
 	const u32 srcw = info->src.width;
 	const u32 srch = info->src.height;
 	enum mml_mode mode;
+	u32 reason = 0;
 
 	if (mml_pq_disable) {
 		for (i = 0; i < MML_MAX_OUTPUTS; i++) {
@@ -151,7 +152,7 @@ enum mml_mode mml_drm_query_cap(struct mml_drm_ctx *ctx,
 	if (!tp || !tp->op->query_mode)
 		goto not_support;
 
-	mode = tp->op->query_mode(ctx->mml, info);
+	mode = tp->op->query_mode(ctx->mml, info, &reason);
 	if (atomic_read(&ctx->racing_cnt) && mode == MML_MODE_MML_DECOUPLE) {
 		/* if mml hw running racing mode and query info need dc,
 		 * go back to MDP decouple to avoid hw conflict.
@@ -165,7 +166,8 @@ enum mml_mode mml_drm_query_cap(struct mml_drm_ctx *ctx,
 		mode = MML_MODE_MDP_DECOUPLE;
 	}
 
-	mml_mmp(query_mode, MMPROFILE_FLAG_PULSE, mode, info->mode);
+	mml_mmp(query_mode, MMPROFILE_FLAG_PULSE,
+		(info->mode << 16) | mode, reason);
 	return mode;
 
 not_support:
@@ -814,11 +816,13 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 			submit->info.dest[i].data.format,
 			submit->info.dest[i].data.modifier);
 
-	/* TODO: remove after disp support calc time 6.75 * 1000 * height
-	 * give default total time for mml frame in racing case
+	/* give default act time in case something wrong in disp
+	 * the 2604 base on cmd mode
+	 *	ns / fps / vtotal = line_time, which expend to
+	 *	1000000000 / 120 / 3228 = 2581
 	 */
 	if (submit->info.mode == MML_MODE_RACING && !submit->info.act_time)
-		submit->info.act_time = 3375 * submit->info.dest[0].data.height;
+		submit->info.act_time = 2581 * submit->info.dest[0].data.height;
 
 	/* always do frame info adjust for now
 	 * but this flow should call from hwc/disp in future version

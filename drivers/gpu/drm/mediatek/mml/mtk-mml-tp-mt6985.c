@@ -830,7 +830,8 @@ static s32 tp_select(struct mml_topology_cache *cache,
 	return 0;
 }
 
-static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *info)
+static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *info,
+	u32 *reason)
 {
 	struct mml_topology_cache *tp;
 	u32 pixel;
@@ -847,21 +848,28 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 
 	/* skip all racing mode check if use prefer dc */
 	if (info->mode == MML_MODE_MML_DECOUPLE ||
-		info->mode == MML_MODE_MDP_DECOUPLE)
+		info->mode == MML_MODE_MDP_DECOUPLE) {
+		*reason = mml_query_userdc;
 		goto decouple_user;
+	}
 
 	if (info->mode == MML_MODE_APUDC &&
 		info->src.width == 1920 && info->src.height == 1080) {
+		*reason = mml_query_apudc;
 		goto decouple_user;
 	}
 
 	/* TODO: should REMOVE after inlinerot resize ready */
-	if (unlikely(!mml_racing_rsz) && tp_need_resize(info))
+	if (unlikely(!mml_racing_rsz) && tp_need_resize(info)) {
+		*reason = mml_query_norsz;
 		goto decouple;
+	}
 
 	/* secure content cannot output to sram */
-	if (info->src.secure || info->dest[0].data.secure)
+	if (info->src.secure || info->dest[0].data.secure) {
+		*reason = mml_query_sec;
 		goto decouple;
+	}
 
 	/* no pq support for racing mode */
 	if (info->dest[0].pq_config.en_dc ||
@@ -869,12 +877,16 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 		info->dest[0].pq_config.en_hdr ||
 		info->dest[0].pq_config.en_ccorr ||
 		info->dest[0].pq_config.en_dre ||
-		info->dest[0].pq_config.en_region_pq)
+		info->dest[0].pq_config.en_region_pq) {
+		*reason = mml_query_pqen;
 		goto decouple;
+	}
 
 	/* racing only support 1 out */
-	if (info->dest_cnt > 1)
+	if (info->dest_cnt > 1) {
+		*reason = mml_query_2out;
 		goto decouple;
+	}
 
 	/* get mid opp frequency */
 	tp = mml_topology_get_cache(mml);
@@ -883,10 +895,6 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 		goto decouple;
 	}
 
-	/* TODO: remove after disp support calc time 6.75 * 1000 * height */
-	if (!info->act_time)
-		info->act_time = 3375 * info->dest[0].data.height;
-
 	freq = tp->opp_speeds[MML_IR_MAX_OPP];
 	if (!freq) {
 		mml_err("no opp table support");
@@ -894,29 +902,44 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 	}
 	pixel = max(info->src.width * info->src.height,
 		info->dest[0].data.width * info->dest[0].data.height);
-	if (div_u64(pixel, freq) >= info->act_time)
-		goto decouple;
+
+	if (info->act_time) {
+		if (div_u64(pixel / 2, freq) >= info->act_time / 1000) {
+			*reason = mml_query_acttime;
+			goto decouple;
+		}
+	}
 
 	/* only support FHD/2K with rotate 90/270 case for now */
-	if (info->dest[0].rotate == MML_ROT_0 || info->dest[0].rotate == MML_ROT_180)
+	if (info->dest[0].rotate == MML_ROT_0 || info->dest[0].rotate == MML_ROT_180) {
+		*reason = mml_query_rot;
 		goto decouple;
+	}
 	if (info->dest[0].crop.r.width > MML_IR_WIDTH_2K ||
 		info->dest[0].crop.r.height > MML_IR_HEIGHT_2K ||
-		pixel > MML_IR_2K)
+		pixel > MML_IR_2K) {
+		*reason = mml_query_highpixel;
 		goto decouple;
+	}
 	if (info->dest[0].crop.r.width < MML_IR_WIDTH ||
 		info->dest[0].crop.r.height < MML_IR_HEIGHT ||
-		pixel < MML_IR_MIN)
+		pixel < MML_IR_MIN) {
+		*reason = mml_query_lowpixel;
 		goto decouple;
+	}
 
 	/* destination width must cross display pipe width */
-	if (info->dest[0].data.width < MML_IR_OUT_MIN_W)
+	if (info->dest[0].data.width < MML_IR_OUT_MIN_W) {
+		*reason = mml_query_outwidth;
 		goto decouple;
+	}
 
 	if (info->dest[0].data.width * info->dest[0].data.height * 1000 /
 		info->dest[0].crop.r.width / info->dest[0].crop.r.height <
-		MML_IR_RSZ_MIN_RATIO)
+		MML_IR_RSZ_MIN_RATIO) {
+		*reason = mml_query_rszratio;
 		goto decouple;
+	}
 
 	return MML_MODE_RACING;
 

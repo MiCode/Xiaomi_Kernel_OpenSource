@@ -1876,14 +1876,6 @@ static void wrot_config_inlinerot(struct mml_comp *comp, struct mml_task *task,
 			wrot->irot_base[wrot_frm->sram_side] + INLINEROT_WDONE,
 			1 << wrot_frm->wdone[idx].sram, U32_MAX);
 	}
-
-	/* debug, make gce send irq to cmdq and mark mmp pulse */
-	if (mml_racing_eoc == 1)
-		cmdq_pkt_eoc(pkt, false);
-	else if (mml_racing_eoc == 2) {
-		if (idx == 0 || idx == 1)
-			cmdq_pkt_eoc(pkt, false);
-	}
 }
 
 static s32 wrot_wait(struct mml_comp *comp, struct mml_task *task,
@@ -1899,6 +1891,14 @@ static s32 wrot_wait(struct mml_comp *comp, struct mml_task *task,
 	if (task->config->info.mode == MML_MODE_RACING && wrot_frm->wdone[idx].eol) {
 		wrot_config_inlinerot(comp, task, ccfg, idx);
 		wrot_frm->wdone_cnt++;
+
+		/* debug, make gce send irq to cmdq and mark mmp pulse */
+		if (mml_racing_eoc == 1)
+			cmdq_pkt_eoc(pkt, false);
+		else if (mml_racing_eoc == 2) {
+			if (wrot_frm->wdone_cnt == 1 || wrot_frm->wdone_cnt == 2)
+				cmdq_pkt_eoc(pkt, false);
+		}
 
 		if (!task->config->disp_vdo && wrot_frm->wdone_cnt == 1)
 			cmdq_pkt_set_event(pkt,
