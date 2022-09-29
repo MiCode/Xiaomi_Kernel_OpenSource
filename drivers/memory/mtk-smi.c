@@ -2137,9 +2137,11 @@ static void dump_smi_sysram_common(void)
 		ret = snprintf(buf + len, LINK_MAX - len, " %#x=%#x,",
 			offset, val);
 		if (ret < 0 || ret >= LINK_MAX - len) {
-			snprintf(buf + len, LINK_MAX - len, "%c", '\0');
-			pr_notice("[smi] %s\n", buf);
+			ret = snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+			if (ret < 0)
+				pr_notice("%s ret:%d\n", __func__, ret);
 
+			pr_notice("[smi] %s\n", buf);
 			len = 0;
 			memset(buf, '\0', sizeof(char) * ARRAY_SIZE(buf));
 			ret = snprintf(buf + len, LINK_MAX - len, " %#x=%#x,",
