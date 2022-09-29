@@ -592,11 +592,27 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 {
 	int ret;
 	unsigned int reg_value = 0;
+	void __iomem *reg;
 
 #ifdef FEATURE_INFORM_NFC_VSIM_CHANGE
 	/* notify NFC */
 	inform_nfc_vsim_change(0, 0);
 #endif
+
+	if ((md_cd_plat_val_ptr.md_gen == 6298) && md_cd_plat_val_ptr.md_sub_ver) {
+		reg = ioremap_wc(0x20020000, 0x1000);
+		if (!reg) {
+			CCCI_ERROR_LOG(0, TAG, "%s, ioremap_wc fail\n", __func__);
+			return -1;
+		}
+
+		CCCI_BOOTUP_LOG(0, TAG, "[POWER OFF] gen98+ stop MD UART\n");
+		CCCI_NORMAL_LOG(0, TAG, "[POWER OFF] gen98+ stop MD UART\n");
+
+		ccci_write32(reg, 0x180, ccci_read32(reg, 0x180) | 0x4);
+		ccci_write32(reg, 0x1A0, ccci_read32(reg, 0x1A0) | 0x4);
+		iounmap(reg);
+	}
 
 	/* revert sequencer setting to AOC1.0 for gen98 */
 	if (md_cd_plat_val_ptr.md_gen == 6298) {
