@@ -3947,7 +3947,7 @@
 			interconnect-names = "icc-mdspd-bw";
 			required-opps = <&dvfsrc_freq_opp0>,
 					<&dvfsrc_freq_opp1>;
-			net-spd-ver = <4>;
+			net-spd-ver = <8>;
 			hw-reset-ver = <1>;
 			dpmaif-infracfg = <&infracfg_ao_clk>;
 		};
