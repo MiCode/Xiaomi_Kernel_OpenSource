@@ -1310,11 +1310,11 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 	select_reason = LB_RT_FAIL;
 	cpumask_clear(lowest_mask);
 
+out:
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	ts[8] = sched_clock();
 #endif
 
-out:
 	if (trace_sched_find_lowest_rq_enabled())
 		trace_sched_find_lowest_rq(p, select_reason, *lowest_cpu,
 				&avail_lowest_mask, lowest_mask);

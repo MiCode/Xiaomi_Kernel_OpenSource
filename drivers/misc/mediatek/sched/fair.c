@@ -504,6 +504,11 @@ int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool laten
 	int prev_cpu = task_cpu(p);
 	int select_reason = -1;
 	struct cpumask allowed_cpu_mask;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[9] = {0};
+
+	ts[0] = sched_clock();
+#endif
 
 	for (; pd; pd = pd->next) {
 		max_spare_cap_cpu_per_gear = -1;
@@ -646,6 +651,10 @@ int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool laten
 		}
 	}
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+#endif
+
 	if (latency_sensitive) {
 		if (best_idle_cpu >= 0) {
 			/* best idle cpu existed */
@@ -661,17 +670,30 @@ int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool laten
 		goto out;
 	}
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[2] = sched_clock();
+#endif
+
 	if (max_spare_cap_cpu != -1) {
 		target_cpu = max_spare_cap_cpu;
 		select_reason = LB_BEST_ENERGY_CPU;
 		goto out;
 	}
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[3] = sched_clock();
+#endif
+
 	/* All cpu failed on !fit_capacity, use sys_max_spare_cap_cpu */
 	if (sys_max_spare_cap_cpu != -1) {
 		target_cpu = sys_max_spare_cap_cpu;
 		select_reason = LB_MAX_SPARE_CPU;
 		goto out;
 	}
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[4] = sched_clock();
+#endif
 
 	/*no best_idle_cpu and max_spare_cpu available,
 	 *select this_cpu or prev_cpu with cpu_allowed_mask
@@ -682,22 +704,53 @@ int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool laten
 			select_reason = LB_IRQ_BACKUP_CURR;
 			goto out;
 		}
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[5] = sched_clock();
+#endif
 		if (cpumask_test_cpu(prev_cpu, &allowed_cpu_mask)) {
 			target_cpu = prev_cpu;
 			select_reason = LB_IRQ_BACKUP_PREV;
 			goto out;
 		}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		ts[6] = sched_clock();
+#endif
 		/*select cpu in allowed_cpu_mask, not paused, and no rt running */
 		target_cpu = cpumask_any(&allowed_cpu_mask);
 		select_reason = LB_IRQ_BACKUP_ALLOWED;
 	}
+
 out:
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[7] = sched_clock();
+#endif
+
 	if (trace_sched_find_cpu_in_irq_enabled())
 		trace_sched_find_cpu_in_irq(p, select_reason, target_cpu,
 				prev_cpu, fit_cpus, idle_cpus,
 				best_idle_cpu, best_idle_pwr, min_exit_lat,
 				max_spare_cap_cpu, best_pwr, max_spare_cap);
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[8] = sched_clock();
+
+	if ((ts[8] - ts[0] > 500000ULL) && in_hardirq()) {
+		int i, i_prev;
+		u64 prev, curr;
+
+		printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__, ts[8] - ts[0], ts[0]);
+		i_prev = 0;
+		for (i = 0; i < 8; i++) {
+			if (ts[i+1]) {
+				prev = ts[i_prev];
+				curr = ts[i+1];
+				printk_deferred("%s ts[%d]=%llu, ts[%d]=%llu, duration=%llu\n",
+						__func__, i_prev, prev, i+1, curr, curr - prev);
+				i_prev = i+1;
+			}
+		}
+	}
+#endif
 
 	return target_cpu;
 }
