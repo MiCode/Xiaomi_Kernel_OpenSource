@@ -70,7 +70,7 @@ static void mtk_inlinerotate_addon_config(struct mtk_ddp_comp *comp,
 		return;
 #endif
 
-	DDPINFO("%s+ handle:0x%x, comp->regs_pa:0x%x, ovl_sel:%u\n",
+	DDPINFO("%s handle:0x%x, comp->regs_pa:0x%x, ovl_sel:%u\n",
 		__func__, handle, comp->regs_pa, ovl_sel);
 
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_DISPSYS_SHADOW_CTRL,
@@ -81,8 +81,6 @@ static void mtk_inlinerotate_addon_config(struct mtk_ddp_comp *comp,
 		       64, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_INLINEROT_HEIGHT1,
 		       64, ~0);
-
-	DDPINFO("%s -\n", __func__);
 }
 
 void mtk_inlinerotate_dump(struct mtk_ddp_comp *comp)

@@ -16,6 +16,8 @@
 #include "mtk_rect.h"
 #include "mtk_drm_drv.h"
 
+#define DISP_REG_OVL_DL_IN_RELAY0_SIZE 0x260
+
 /**
  * struct mtk_disp_dli_async - DISP_RSZ driver structure
  * @ddp_comp - structure containing type enum and hardware resources
@@ -35,7 +37,21 @@ static void mtk_dli_async_addon_config(struct mtk_ddp_comp *comp,
 				 union mtk_addon_config *addon_config,
 				 struct cmdq_pkt *handle)
 {
-	DDPINFO("%s\n", __func__);
+	DDPDBG("%s+\n", __func__);
+
+	if (!addon_config)
+		return;
+
+	if ((addon_config->config_type.module == DISP_MML_IR_PQ_v2) ||
+	    (addon_config->config_type.module == DISP_MML_IR_PQ_v2_1)) {
+		u8 pipe = addon_config->addon_mml_config.pipe;
+
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_OVL_DL_IN_RELAY0_SIZE,
+			       (addon_config->addon_mml_config.mml_dst_roi[pipe].width |
+				addon_config->addon_mml_config.mml_dst_roi[pipe].height << 16),
+			       ~0);
+	}
 }
 
 void mtk_dli_async_dump(struct mtk_ddp_comp *comp)
@@ -61,13 +77,13 @@ int mtk_dli_async_analysis(struct mtk_ddp_comp *comp)
 
 static void mtk_dli_async_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
-	DDPINFO("%s\n", __func__);
+	DDPDBG("%s+\n", __func__);
 	// nothig to do
 }
 
 static void mtk_dli_async_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
-	DDPINFO("%s\n", __func__);
+	DDPDBG("%s+\n", __func__);
 	// nothig to do
 }
 

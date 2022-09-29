@@ -1187,9 +1187,8 @@ void mtk_free_mml_submit(struct mml_submit *temp)
 		return;
 
 	for (i = 0; i < MML_MAX_PLANES && i < temp->buffer.src.cnt; ++i) {
-		if (temp->buffer.src.use_dma &&
-			temp->buffer.src.dmabuf[i]) {
-			DDPINFO("%s:%d\n", __func__, __LINE__);
+		if (temp->buffer.src.use_dma &&	temp->buffer.src.dmabuf[i]) {
+			DDPINFO("%s dmabuf:0x%x\n", __func__, temp->buffer.src.dmabuf[i]);
 			dma_buf_put(temp->buffer.src.dmabuf[i]);
 		}
 	}
@@ -1323,8 +1322,6 @@ static bool _mtk_atomic_mml_plane(struct drm_device *dev,
 
 		submit_kernel->buffer.src.use_dma = true;
 		submit_kernel->buffer.src.dmabuf[i] = fd_to_dma_buf(fd);
-		DDPINFO("%s:%d dmabuf:0x%x\n", __func__, __LINE__,
-			submit_kernel->buffer.src.dmabuf[i]);
 	}
 
 	mml_drm_split_info(submit_kernel, submit_pq);
@@ -1340,14 +1337,14 @@ static bool _mtk_atomic_mml_plane(struct drm_device *dev,
 	} else
 		line_time = (1000000000 / fps) / vtotal;
 
-	// calculate act time
 	submit_kernel->info.act_time = line_time * submit_pq->info.dest[0].data.height;
-	DDPINFO("%s fps=%d vtotal=%d line_time=%d dest_height=%d act_time=%d\n", __func__,
-			fps, vtotal, line_time, submit_pq->info.dest[0].data.height,
-			submit_kernel->info.act_time);
-	DDPINFO("%s mml act_time=%d src_fmt:%#010x plane:%hhu\n", __func__,
+
+	DDPINFO("fps=%d vtotal=%d line_time=%d dst_h=%d act_time=%d dma=0x%x src_fmt=%#010x\n",
+			fps, vtotal, line_time,
+			submit_pq->info.dest[0].data.height,
 			submit_kernel->info.act_time,
-			submit_kernel->info.src.format, submit_kernel->buffer.src.cnt);
+			submit_kernel->buffer.src.dmabuf[0],
+			submit_kernel->info.src.format);
 
 	ret = mml_drm_submit(mml_ctx, submit_kernel, &(mtk_crtc->mml_cb));
 	if (ret)
@@ -5345,28 +5342,24 @@ void mtk_drm_mmlsys_submit_done_cb(void *cb_param)
 	if (cb_para == NULL)
 		return;
 
-	DDPINFO("%s cb_para:0x%x, 0x%x, 0x%x\n", __func__,
-		cb_para, &(cb_para->mml_job_submit_done), &(cb_para->mml_job_submit_wq));
 	atomic_set(&(cb_para->mml_job_submit_done), 1);
-	DDPINFO("%s 2\n", __func__);
 	wake_up_interruptible(&(cb_para->mml_job_submit_wq));
-	DDPINFO("%s 3\n", __func__);
+	DDPINFO("%s-\n", __func__);
 }
 
 void mtk_drm_wait_mml_submit_done(struct mtk_mml_cb_para *cb_para)
 {
 	int ret = 0;
 
-	DDPINFO("%s 1 0x%x 0x%x, 0x%x\n", __func__,
+	DDPINFO("%s+ 0x%x 0x%x, 0x%x\n", __func__,
 		cb_para,
 		&(cb_para->mml_job_submit_wq),
 		&(cb_para->mml_job_submit_done));
 	ret = wait_event_interruptible(
-		cb_para->mml_job_submit_wq
-		, atomic_read(&cb_para->mml_job_submit_done));
-	DDPINFO("%s 2 ret:%d\n", __func__, ret);
+		cb_para->mml_job_submit_wq,
+		atomic_read(&cb_para->mml_job_submit_done));
 	atomic_set(&(cb_para->mml_job_submit_done), 0);
-	DDPINFO("%s 3\n", __func__);
+	DDPINFO("%s- ret:%d\n", __func__, ret);
 }
 
 struct mml_drm_ctx *mtk_drm_get_mml_drm_ctx(struct drm_device *dev,

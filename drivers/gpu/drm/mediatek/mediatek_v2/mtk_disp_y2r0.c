@@ -90,12 +90,12 @@ int mtk_y2r_analysis(struct mtk_ddp_comp *comp)
 
 static void mtk_y2r_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
-	DDPINFO("%s\n", __func__);
+	DDPDBG("%s+\n", __func__);
 }
 
 static void mtk_y2r_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
-	DDPINFO("%s\n", __func__);
+	DDPDBG("%s+\n", __func__);
 }
 
 static void mtk_y2r_prepare(struct mtk_ddp_comp *comp)
