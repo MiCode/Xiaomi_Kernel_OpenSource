@@ -8348,12 +8348,27 @@
 			status = "disabled";
 		};
 
+		ufsphy: ufsphy@112a0000 {
+			compatible = "mediatek,mt8183-ufsphy";
+			#phy-cells = <0>;
+			mphy-ver = <1>;
+			ranges;
+			reg = <0 0x112a0000 0 0x1000>,
+			      <0 0x1c001000 0 0x1000>;
+
+			power-domains = <&scpsys MT6985_POWER_DOMAIN_UFS0_PHY_SHUTDOWN>;
+
+			/* @CONFIG_UFS_MEDIATEK_INTERNAL */
+			mediatek,pm-forbidden-on-hwver = <0xca00>;
+
+			bootmode = <&chosen>;
+		};
+
 		ufshci: ufshci@112b0000 {
 			compatible = "mediatek,mt8183-ufshci";
 			reg = <0 0x112b0000 0 0x2300>;
+			phys = <&ufsphy>;
 
-			interrupts = <GIC_SPI 168 IRQ_TYPE_LEVEL_HIGH 0>;
-#if 0
 			interrupts = <GIC_SPI 168 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 178 IRQ_TYPE_LEVEL_HIGH 0>,
@@ -8363,7 +8378,7 @@
 				     <GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 183 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH 0>;
-#endif
+
 
 			clocks =
 				<&topckgen_clk CLK_TOP_U_SEL>,
@@ -8419,12 +8434,13 @@
 			mediatek,ufs-pmc-via-fastauto;
 
 			/* mcq setting */
-#if 0
 			mediatek,ufs-mcq-enabled;
 			mediatek,ufs-mcq-hwq-count = <8>;
 			mediatek,ufs-mcq-q-depth = <32>;
 			mediatek,ufs-mcq-intr-count = <8>;
-#endif
+
+			/* @CONFIG_UFS_MEDIATEK_INTERNAL */
+			mediatek,ufs-mcq-disable-on-hwver = <0xca00>;
 		};
 
 		mgm: mgm {
