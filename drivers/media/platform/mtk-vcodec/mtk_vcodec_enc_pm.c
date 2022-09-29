@@ -247,7 +247,7 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 
 	for (larb_index = 0; larb_index < MTK_VENC_MAX_LARB_COUNT; larb_index++) {
 		if (pm->larbvencs[larb_index]) {
-			ret = mtk_smi_larb_get(pm->larbvencs[larb_index]);
+			ret = mtk_smi_larb_get_ex(pm->larbvencs[larb_index], 0);
 			if (ret)
 				mtk_v4l2_err("Failed to get venc larb. index: %d, core_id: %d",
 					larb_index, core_id);
@@ -371,7 +371,7 @@ void mtk_vcodec_enc_clock_off(struct mtk_vcodec_ctx *ctx, int core_id)
 		mtk_v4l2_err("invalid core_id %d", core_id);
 	for (larb_index = 0; larb_index < MTK_VENC_MAX_LARB_COUNT; larb_index++) {
 		if (pm->larbvencs[larb_index])
-			mtk_smi_larb_put(pm->larbvencs[larb_index]);
+			mtk_smi_larb_put_ex(pm->larbvencs[larb_index], 0);
 	}
 #endif
 }
