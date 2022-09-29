@@ -50,11 +50,11 @@
   backlight_device_set_brightness
   __balance_callbacks
   balance_push_callback
+  bio_associate_blkg
   bio_endio
   bio_end_io_acct_remapped
   bio_start_io_acct
   bitmap_allocate_region
-  __balance_callbacks
   __bitmap_and
   __bitmap_clear
   bitmap_find_next_zero_area_off
@@ -66,6 +66,7 @@
   bitmap_zalloc
   __blk_alloc_disk
   blk_cleanup_disk
+  blk_cleanup_queue
   blk_execute_rq_nowait
   blk_freeze_queue_start
   blk_get_queue
@@ -75,12 +76,19 @@
   blk_mq_alloc_request_hctx
   blk_mq_complete_request_remote
   blk_mq_delay_kick_requeue_list
+  blk_mq_free_request
+  blk_mq_freeze_queue
   blk_mq_freeze_queue_wait
   blk_mq_freeze_queue_wait_timeout
+  blk_mq_init_queue
+  blk_mq_map_queues
   blk_mq_pci_map_queues
+  blk_mq_requeue_request
   blk_mq_rq_cpu
+  blk_mq_tagset_busy_iter
   blk_mq_tagset_wait_completed_request
   blk_mq_tag_to_rq
+  blk_mq_unfreeze_queue
   blk_mq_update_nr_hw_queues
   blk_put_queue
   blk_put_request
@@ -527,6 +535,7 @@
   dma_map_resource
   dma_map_sg_attrs
   dma_map_sgtable
+  dma_max_mapping_size
   dmam_free_coherent
   dma_release_channel
   dma_request_chan
@@ -542,6 +551,8 @@
   dma_unmap_resource
   dma_unmap_sg_attrs
   do_exit
+  __do_once_done
+  __do_once_start
   do_trace_rcu_torture_read
   double_rq_lock
   do_wait_intr
@@ -1309,6 +1320,7 @@
   param_array_ops
   param_get_int
   param_get_string
+  param_get_uint
   param_get_ullong
   param_ops_bool
   param_ops_charp
@@ -1317,6 +1329,7 @@
   param_ops_ullong
   param_set_bool
   param_set_copystring
+  param_set_uint
   param_set_uint_minmax
   pci_aer_clear_nonfatal_status
   pcibios_resource_to_bus
@@ -1524,6 +1537,7 @@
   ptp_clock_unregister
   putback_movable_pages
   put_device
+  put_disk
   put_iova_domain
   __put_page
   put_sg_io_hdr
@@ -2058,6 +2072,7 @@
   __tracepoint_android_rvh_select_task_rq_fair
   __tracepoint_android_rvh_select_task_rq_rt
   __tracepoint_android_rvh_set_balance_anon_file_reclaim
+  __tracepoint_android_rvh_set_cpus_allowed_by_task
   __tracepoint_android_rvh_set_cpus_allowed_ptr_locked
   __tracepoint_android_rvh_set_gfp_zone_flags
   __tracepoint_android_rvh_set_readahead_gfp_mask
@@ -2309,6 +2324,7 @@
   wait_for_completion
   wait_for_completion_interruptible
   wait_for_completion_interruptible_timeout
+  wait_for_completion_io_timeout
   wait_for_completion_timeout
   __wait_rcu_gp
   __wake_up
