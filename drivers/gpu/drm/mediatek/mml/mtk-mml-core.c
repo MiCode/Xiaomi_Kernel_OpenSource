@@ -1939,8 +1939,11 @@ s32 mml_write_array(struct cmdq_pkt *pkt, dma_addr_t addr, u32 value, u32 mask,
 	struct mml_task_reuse *reuse, struct mml_pipe_cache *cache,
 	struct mml_reuse_array *reuses)
 {
-	mml_write(pkt, addr, value, mask, reuse, cache,
+	s32 ret = mml_write(pkt, addr, value, mask, reuse, cache,
 		&reuses->offs[reuses->idx].label_idx);
+
+	if (ret < 0)
+		return ret;
 	return mml_reuse_add_offset(reuse, reuses);
 }
 
