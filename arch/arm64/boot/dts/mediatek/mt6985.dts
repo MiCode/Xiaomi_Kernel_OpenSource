@@ -15156,6 +15156,7 @@ FLL0_out,FLL1_out,FLL2_out,FLL4_out,FLL5_out,FLL6_out";
 			io-channel-names = "pmic_ptim",
 					   "pmic_imix_r",
 					   "pmic_batadc";
+			bootmode = <&chosen>;
 		};
 	};
 
