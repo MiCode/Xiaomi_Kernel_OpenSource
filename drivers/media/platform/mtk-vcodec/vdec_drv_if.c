@@ -225,8 +225,11 @@ void vdec_decode_prepare(void *ctx_prepare,
 			ctx->power_type[hw_id] = VDEC_POWER_ALWAYS_OP;
 		if (mtk_vdec_is_highest_freq(ctx))
 			ctx->power_type[hw_id] = VDEC_POWER_ALWAYS_FREQ;
-		if (ctx->power_type[hw_id] >= VDEC_POWER_ALWAYS)
+		if (ctx->power_type[hw_id] >= VDEC_POWER_ALWAYS) {
 			ctx->dev->dec_always_on[hw_id]++;
+			mtk_v4l2_debug(0, "[%d] hw_id %d power type %d always on %d", ctx->id,
+				hw_id, ctx->power_type[hw_id], ctx->dev->dec_always_on[hw_id]);
+		}
 	}
 
 	if (ret == 0 && !(mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) &&
@@ -269,6 +272,8 @@ void vdec_decode_unprepare(void *ctx_unprepare,
 		disable_irq(ctx->dev->dec_irq[hw_id]);
 	if (ctx->power_type[hw_id] == VDEC_POWER_RELEASE ||
 	   (ctx->power_type[hw_id] == VDEC_POWER_ALWAYS_FREQ && !mtk_vdec_is_highest_freq(ctx))) {
+		mtk_v4l2_debug(0, "[%d] hw_id %d power type %d off always on %d", ctx->id,
+			hw_id, ctx->power_type[hw_id], ctx->dev->dec_always_on[hw_id]);
 		ctx->dev->dec_always_on[hw_id]--;
 		ctx->power_type[hw_id] = VDEC_POWER_NORMAL;
 	}
@@ -303,6 +308,34 @@ void vdec_check_release_lock(void *ctx_check)
 			else
 				mtk_v4l2_err("[%d] daemon killed when holding lock %d",
 					ctx->id, i);
+		}
+	}
+}
+
+void vdec_suspend_power(void *ctx_check)
+{
+	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_check;
+	int hw_id;
+
+	for (hw_id = 0; hw_id < MTK_VDEC_HW_NUM; hw_id++) {
+		if (ctx->dev->dec_always_on[hw_id] > 0) {
+			mtk_vcodec_dec_clock_off(&ctx->dev->pm, hw_id);
+			mtk_v4l2_debug(0, "hw_id %d clock off for is always on %d",
+				hw_id, ctx->dev->dec_always_on[hw_id]);
+		}
+	}
+}
+
+void vdec_resume_power(void *ctx_check)
+{
+	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_check;
+	int hw_id;
+
+	for (hw_id = 0; hw_id < MTK_VDEC_HW_NUM; hw_id++) {
+		if (ctx->dev->dec_always_on[hw_id] > 0) {
+			mtk_vcodec_dec_clock_on(&ctx->dev->pm, hw_id);
+			mtk_v4l2_debug(0, "hw_id %d clock on for is always on %d",
+				hw_id, ctx->dev->dec_always_on[hw_id]);
 		}
 	}
 }

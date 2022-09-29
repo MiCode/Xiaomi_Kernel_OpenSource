@@ -1002,6 +1002,10 @@ static int vcp_pm_event(struct notifier_block *notifier
 		is_suspending = false;
 		mutex_unlock(&vcp_pw_clk_mutex);
 
+		mutex_lock(&vcp_A_notify_mutex);
+		vcp_extern_notify(VCP_EVENT_RESUME);
+		mutex_unlock(&vcp_A_notify_mutex);
+
 		// SMC call to TFA / DEVAPC
 		// arm_smccc_smc(MTK_SIP_KERNEL_VCP_CONTROL, MTK_TINYSYS_VCP_KERNEL_OP_XXX,
 		// 0, 0, 0, 0, 0, 0, &res);

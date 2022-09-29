@@ -853,8 +853,8 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 		mutex_lock(&dev->ipi_mutex_res);
 		mutex_unlock(&dev->ipi_mutex_res);
 		mutex_unlock(&dev->ipi_mutex);
-		mutex_lock(&dev->ctx_mutex);
 		// send backup ipi to vcp by one of any instances
+		mutex_lock(&dev->ctx_mutex);
 		list_for_each_safe(p, q, &dev->ctx_list) {
 			ctx = list_entry(p, struct mtk_vcodec_ctx, list);
 			if (ctx != NULL && ctx->drv_handle != 0 &&
@@ -862,11 +862,24 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 				mutex_unlock(&dev->ctx_mutex);
 				backup = true;
 				vdec_vcp_backup((struct vdec_inst *)ctx->drv_handle);
+				vdec_suspend_power(ctx);
 				break;
 			}
 		}
 		if (!backup)
 			mutex_unlock(&dev->ctx_mutex);
+	break;
+	case VCP_EVENT_RESUME:
+		mutex_lock(&dev->ctx_mutex);
+		list_for_each_safe(p, q, &dev->ctx_list) {
+			ctx = list_entry(p, struct mtk_vcodec_ctx, list);
+			if (ctx != NULL && ctx->drv_handle != 0 &&
+			    ctx->state < MTK_STATE_ABORT && ctx->state > MTK_STATE_FREE) {
+				vdec_resume_power(ctx);
+				break;
+			}
+		}
+		mutex_unlock(&dev->ctx_mutex);
 	break;
 	}
 	return NOTIFY_DONE;
