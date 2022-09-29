@@ -4239,7 +4239,10 @@ void mtk_crtc_ovl_connect_change(struct drm_crtc *crtc, unsigned int ovl_res,
 
 	for (i = 0 ; i < mtk_crtc->dual_pipe_ddp_ctx.ovl_comp_nr[DDP_FIRST_PATH] ; ++i) {
 		comp = mtk_crtc->dual_pipe_ddp_ctx.ovl_comp[DDP_FIRST_PATH][i];
-		if (comp && mtk_ddp_comp_get_type(comp->id) == MTK_DISP_VIRTUAL)
+		if (!comp) {
+			DDPPR_ERR("%s errors with NULL comp\n", __func__);
+			continue;
+		} else if (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_VIRTUAL)
 			continue;
 
 		mtk_ddp_comp_stop(comp, cmdq_handle);
