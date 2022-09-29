@@ -943,6 +943,7 @@ int mtk_mipi_tx_ssc_en(struct phy *phy, struct mtk_panel_ext *mtk_panel)
 	unsigned int data_rate;
 	u16 pdelta1, ssc_prd;
 	u8 txdiv, div3;
+	unsigned int delta1 = 5; /* Delta1 is SSC range, default is 0%~-0.5% */
 
 	DDPINFO("%s+\n", __func__);
 	if (mtk_panel->params->ssc_enable) {
@@ -974,8 +975,11 @@ int mtk_mipi_tx_ssc_en(struct phy *phy, struct mtk_panel_ext *mtk_panel)
 			DDPPR_ERR("data rate is too low\n");
 			return -EINVAL;
 		}
+		delta1 = (mtk_panel->params->ssc_range == 0) ?
+			delta1 : mtk_panel->params->ssc_range;
 
-		pdelta1 = data_rate / 2 * txdiv * div3 * 5 / 26 * 262144 / 1000 / 433;
+		DDPMSG("delta1:%d\n", delta1);
+		pdelta1 = data_rate / 2 * txdiv * div3 * delta1 / 26 * 262144 / 1000 / 433;
 
 		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON3_MT6983,
 						FLD_RG_DSI_PLL_SDM_SSC_DELTA1_MT6983, pdelta1);
@@ -1463,24 +1467,20 @@ static int mtk_mipi_tx_pll_prepare_mt6886(struct clk_hw *hw)
 		DDPPR_ERR("data rate is too low\n");
 		return -EINVAL;
 	}
-	if (rate < 2500)
+	if (rate < 2500) {
 		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
 			FLD_RG_DSI_PRD_REF_SEL, 0x0);
-	else
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PRESERVED_MT6983,
+			FLD_RD_DSI_PRESERVED0_BIT6, 0x1 << 6);
+	} else {
 		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
 			FLD_RG_DSI_PRD_REF_SEL, 0x4);
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PRESERVED_MT6983,
+			FLD_RD_DSI_PRESERVED0_BIT6, 0x0);
+	}
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PRESERVED_MT6983,
+		FLD_RD_DSI_PRESERVED0_BIT5_4, 0x3 << 4);
 
-	if (rate > 2000)
-		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
-			FLD_RG_DSI_V2I_REF_SEL, 0x4);
-	else if (rate > 1200)
-		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
-			FLD_RG_DSI_V2I_REF_SEL, 0x2);
-	else
-		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
-			FLD_RG_DSI_V2I_REF_SEL, 0x0);
-
-	writel(0x0, mipi_tx->regs + MIPITX_PRESERVED_MT6983);
 	writel(0x00FF12E0, mipi_tx->regs + MIPITX_PLL_CON4);
 	/* BG_LPF_EN / BG_CORE_EN */
 	writel(0x3FFF0180, mipi_tx->regs + MIPITX_LANE_CON_MT6983);
