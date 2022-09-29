@@ -5781,6 +5781,12 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 
 	if (mtk_crtc->base.dev->dev_private)
 		priv = mtk_crtc->base.dev->dev_private;
+	else {
+		DDPPR_ERR("%s:%d errors with NULL mtk_crtc->base.dev->dev_private\n",
+			__func__, __LINE__);
+		return;
+	}
+
 	DDPINFO("crtc_state:%x, atomic_state:%x, crtc:%x, pf:%u\n",
 		crtc_state, atomic_state, crtc, cb_data->pres_fence_idx);
 
