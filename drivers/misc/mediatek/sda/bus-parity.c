@@ -150,6 +150,7 @@ static void infra_bp_irq_work(struct work_struct *w)
 {
 	struct bus_parity_elem *bpm;
 	union bus_parity_err *bpr;
+	unsigned int check_count = 0;
 	int i;
 
 	for (i = 0; i < infra_bp.nr_bpm; i++) {
@@ -160,12 +161,27 @@ static void infra_bp_irq_work(struct work_struct *w)
 			bpr->mst.is_err = false;
 		else if (bpm->type && (bpr->slv.is_err == true))
 			bpr->slv.is_err = false;
-		else
+		else {
+			check_count++;
 			continue;
+		}
 	}
+
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-	aee_kernel_exception("Infra Bus Parity", infra_bp.dump);
+	if (check_count < infra_bp.nr_bpm)
+		aee_kernel_exception("Infra Bus Parity", infra_bp.dump);
 #endif
+	if (check_count == infra_bp.nr_bpm) {
+		BPR_LOG("%s: Receive irq but no bus parity fail\n", __func__);
+
+		if (infra_bp.dbgao_base != NULL) {
+			BPR_LOG("%s: err_flag status1 is 0x%x.\n",
+				__func__, readl(infra_bp.dbgao_base + DBG_ERR_FLAG_STATUS0));
+			BPR_LOG("%s: err_flag status2 is 0x%x.\n",
+				__func__, readl(infra_bp.dbgao_base + DBG_ERR_FLAG_STATUS1));
+		}
+	}
+
 	if (infra_bp.nr_err < INFRA_BP_IRQ_TRIGGER_THRESHOLD)
 		enable_irq(infra_bp.irq);
 	else
@@ -419,6 +435,8 @@ static irqreturn_t infra_bp_isr(int irq, void *dev_id)
 		}
 	}
 
+	schedule_work(&infra_bp.wk);
+
 	/*
 	 * Due to multi-sources (parity fail/timeout/emi parity/tracker) will trigger
 	 * this interrupt, we should ignore if no bus parity fail but receive irq.
@@ -427,26 +445,8 @@ static irqreturn_t infra_bp_isr(int irq, void *dev_id)
 	 * get no function after bypassing other sources. Use IRQF_SHARED and return
 	 * IRQ_NONE.
 	 */
-	if (check_count == infra_bp.nr_bpm) {
-		pr_notice("%s: Receive irq but no bus parity fail\n",
-				__func__);
-
-		if (infra_bp.dbgao_base != NULL) {
-			pr_notice("%s: err_flag status1 is 0x%x.\n",
-				__func__, readl(infra_bp.dbgao_base + DBG_ERR_FLAG_STATUS0));
-			pr_notice("%s: err_flag status2 is 0x%x.\n",
-				__func__, readl(infra_bp.dbgao_base + DBG_ERR_FLAG_STATUS1));
-		}
-
-		if (infra_bp.nr_err < INFRA_BP_IRQ_TRIGGER_THRESHOLD)
-			enable_irq(infra_bp.irq);
-		else
-			pr_notice("%s: disable irq %d due to trigger over than %d times.\n",
-				__func__, infra_bp.irq, INFRA_BP_IRQ_TRIGGER_THRESHOLD);
+	if (check_count == infra_bp.nr_bpm)
 		return IRQ_HANDLED;
-	}
-
-	schedule_work(&infra_bp.wk);
 
 	spin_lock(&infra_bp_isr_lock);
 
