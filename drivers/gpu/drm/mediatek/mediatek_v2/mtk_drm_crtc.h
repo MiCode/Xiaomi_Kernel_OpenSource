@@ -772,6 +772,7 @@ struct mtk_drm_crtc {
 	struct mtk_drm_plane *planes;
 	unsigned int layer_nr;
 	bool pending_planes;
+	unsigned int ovl_usage_status;
 
 	void __iomem *ovlsys0_regs;
 	resource_size_t ovlsys0_regs_pa;
@@ -924,6 +925,8 @@ struct mtk_crtc_state {
 	struct mtk_rect mml_dst_roi_dual[2];
 	struct mtk_rsz_param rsz_param[2];
 	atomic_t plane_enabled_num;
+	bool pending_usage_update;
+	unsigned int pending_usage_list;
 
 	/* property */
 	unsigned int prop_val[CRTC_PROP_MAX];
