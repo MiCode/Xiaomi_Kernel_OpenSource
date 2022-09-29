@@ -3924,7 +3924,8 @@ static void check_is_mml_layer(const int disp_idx,
 		}
 
 		if ((MTK_MML_DISP_DECOUPLE_LAYER & c->layer_caps) &&
-		    kref_read(&mtk_crtc->mml_ir_sram.ref)) {
+		    (kref_read(&mtk_crtc->mml_ir_sram.ref) ||
+		     mtk_crtc->mml_ir_state == MML_IR_IDLE)) {
 			c->layer_caps &= ~MTK_MML_DISP_DECOUPLE_LAYER;
 			c->layer_caps |= MTK_MML_DISP_MDP_LAYER;
 			DDPINFO("Use MDP for IR-DC transition\n");

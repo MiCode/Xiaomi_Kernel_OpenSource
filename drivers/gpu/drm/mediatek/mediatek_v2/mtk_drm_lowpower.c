@@ -540,6 +540,7 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 			cmdq_pkt_clear_event(cmdq_handle,
 					     mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
 			cmdq_pkt_flush(cmdq_handle);
+			CRTC_MMP_MARK(0, mml_dbg, (unsigned long)cmdq_handle, MMP_MML_IDLE);
 			cmdq_pkt_destroy(cmdq_handle);
 			wait = false;
 			mtk_crtc->mml_ir_state = MML_IR_IDLE;
