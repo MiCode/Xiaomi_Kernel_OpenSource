@@ -36,6 +36,7 @@ f arch/arm64/mm/flush.c
 f arch/arm64/mm/pageattr.c
 f block/blk-core.c
 f block/blk-pm.c
+f drivers/android/binder_alloc.c
 f drivers/android/vendor_hooks.c
 f drivers/base/core.c
 f drivers/base/power/runtime.c
@@ -209,6 +210,7 @@ s ax88772_stop
 s ax88772_suspend
 s ax88772_unbind
 s belkin_info
+s binder_alloc_deferred_release
 s __cfi_check
 s cypress_GX3_info
 s dlink_dub1312_info

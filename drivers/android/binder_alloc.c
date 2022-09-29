@@ -819,7 +819,11 @@ void binder_alloc_deferred_release(struct binder_alloc *alloc)
 
 	buffers = 0;
 	mutex_lock(&alloc->mutex);
+#ifdef MTK_FIX_BINDER_COMMON_ISSUE
+	WARN_ON(alloc->vma);
+#else
 	BUG_ON(alloc->vma);
+#endif
 
 	while ((n = rb_first(&alloc->allocated_buffers))) {
 		buffer = rb_entry(n, struct binder_buffer, rb_node);

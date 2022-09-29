@@ -54,6 +54,14 @@ config ANDROID_BINDER_IPC_SELFTEST
 	  exhaustively with combinations of various buffer sizes and
 	  alignments.
 
+config MTK_FIX_BINDER_COMMON_ISSUE
+	bool "fix binder common code issue"
+	help
+	  The feaure is to fix binder common code issue.
+	  In some cases, the fix patch has not yet accepted by Google
+	  reviewer, we use this config for fix problem in ENG/USERDEBUG
+	  build early.
+
 config ANDROID_DEBUG_SYMBOLS
 	bool "Android Debug Symbols"
 	help
