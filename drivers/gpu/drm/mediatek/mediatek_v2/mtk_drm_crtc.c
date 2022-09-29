@@ -9458,6 +9458,11 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 			od_trigger = 1;
 
 		mtk_ddp_comp_io_cmd(oddmr_comp, NULL, ODDMR_TRIG_CTL, &od_trigger);
+
+		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+			mtk_ddp_comp_io_cmd(comp, NULL,
+				FORCE_TRIG_CTL, &mtk_crtc->msync2.msync_frame_status);
+
 	}
 
 #ifdef MTK_DRM_ADVANCE
