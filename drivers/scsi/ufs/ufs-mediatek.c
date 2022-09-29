@@ -323,8 +323,9 @@ static int ufs_mtk_setup_ref_clk(struct ufs_hba *hba, bool on)
 		}
 
 		// R/W 0x112B80B0
-		value = ufshcd_readl(hba, 0x80B0);
-		ufshcd_writel(hba, value, 0x80B0);
+		reg1 = ioremap(0x112B80B0, sizeof(u32));
+		value = readl(reg1);
+		writel(value, reg1);
 	}
 #endif
 
