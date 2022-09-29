@@ -1,4 +1,5 @@
 CONFIG_BUILD_CONFIG_FILE="build.config.mtk.aarch64"
+CONFIG_MODULE_SIG_KEY="certs/mtk_signing_key.pem"
 # CONFIG_MODULE_SIG_ALL is not set
 CONFIG_ARCH_MEDIATEK=y
 CONFIG_ABI_MONITOR=y
