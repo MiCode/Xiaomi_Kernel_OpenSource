@@ -1182,18 +1182,7 @@ static void devapc_ut(uint32_t cmd)
 		pr_info(PFX "%s, cmd(0x%x) not supported\n", __func__, cmd);
 		return;
 	}
-
 	pr_info(PFX "%s, cmd:0x%x\n", __func__, cmd);
-
-	irq_type = cmd - 1;
-	if (irq_type >= IRQ_TYPE_NUM_MAX) {
-		pr_info(PFX "%s, invalid parameter\n", __func__);
-		return;
-	}
-
-	dapc_ao_base = mtk_devapc_ctx->devapc_ao_base[irq_type];
-
-	pr_info(PFX "%s, irq_type:0x%x\n", __func__, irq_type);
 
 	if (cmd == DEVAPC_UT_DAPC_INFRA_VIO ||
 		cmd == DEVAPC_UT_DAPC_PERI_VIO ||
@@ -1202,6 +1191,15 @@ static void devapc_ut(uint32_t cmd)
 		cmd == DEVAPC_UT_DAPC_MMINFRA_VIO ||
 		cmd == DEVAPC_UT_DAPC_MMUP_VIO ||
 		cmd == DEVAPC_UT_DAPC_GPU_VIO) {
+		irq_type = cmd - 1;
+		if (irq_type >= IRQ_TYPE_NUM_MAX) {
+			pr_info(PFX "%s, invalid parameter\n", __func__);
+			return;
+		}
+
+		dapc_ao_base = mtk_devapc_ctx->devapc_ao_base[irq_type];
+		pr_info(PFX "%s, irq_type:0x%x\n", __func__, irq_type);
+
 		if (unlikely(dapc_ao_base == NULL)) {
 			pr_err(PFX "%s:%d NULL pointer\n", __func__, __LINE__);
 			return;
