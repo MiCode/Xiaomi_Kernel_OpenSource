@@ -1991,27 +1991,27 @@
 			};
 
 			csi_efuse0: csi_data0 {
-				reg = <0x1b8 0x4>;
+				reg = <0x1d4 0x4>;
 			};
 
 			csi_efuse1: csi_data1 {
-				reg = <0x1bc 0x4>;
+				reg = <0x1d8 0x4>;
 			};
 
 			csi_efuse2: csi_data2 {
-				reg = <0x1c0 0x4>;
+				reg = <0x1dc 0x4>;
 			};
 
 			csi_efuse3: csi_data3 {
-				reg = <0x1c4 0x4>;
+				reg = <0x140 0x4>;
 			};
 
 			csi_efuse4: csi_data4 {
-				reg = <0x1c8 0x4>;
+				reg = <0x144 0x4>;
 			};
 
 			csi_efuse5: csi_data5 {
-				reg = <0x1cc 0x4>;
+				reg = <0x148 0x4>;
 			};
 
 			lkginfo: lkg {
