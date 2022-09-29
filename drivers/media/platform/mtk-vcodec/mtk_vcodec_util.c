@@ -241,29 +241,6 @@ void mtk_vcodec_del_ctx_list(struct mtk_vcodec_ctx *ctx)
 }
 EXPORT_SYMBOL_GPL(mtk_vcodec_del_ctx_list);
 
-bool mtk_vcodec_ctx_is_valid(struct mtk_vcodec_dev *dev, struct mtk_vcodec_ctx *ctx)
-{
-	struct list_head *p, *q;
-	struct mtk_vcodec_ctx *tmp_ctx;
-
-	if (!dev || !ctx)
-		return false;
-
-	mutex_lock(&dev->ctx_mutex);
-	list_for_each_safe(p, q, &dev->ctx_list) {
-		tmp_ctx = list_entry(p, struct mtk_vcodec_ctx, list);
-		if (tmp_ctx != NULL && tmp_ctx == ctx &&
-		    tmp_ctx->state < MTK_STATE_ABORT && tmp_ctx->state > MTK_STATE_FREE) {
-			mutex_unlock(&dev->ctx_mutex);
-			return true;
-		}
-	}
-	mutex_unlock(&dev->ctx_mutex);
-
-	return false;
-}
-EXPORT_SYMBOL_GPL(mtk_vcodec_ctx_is_valid);
-
 void mtk_vcodec_init_slice_info(struct mtk_vcodec_ctx *ctx, struct mtk_video_dec_buf *dst_buf_info)
 {
 	struct vb2_v4l2_buffer *dst_buf;

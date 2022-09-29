@@ -661,7 +661,7 @@ static void mtk_vdec_dump_addr_reg(
 		lat_vld_addr = vld_addr; // for ipm v1 input buffer
 
 	ctx = dev->curr_dec_ctx[hw_id];
-	if (mtk_vcodec_ctx_is_valid(dev, ctx))
+	if (ctx)
 		fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 	else
 		fourcc = v4l2_fourcc('U', 'N', 'K', 'N');
@@ -869,7 +869,7 @@ static int mtk_vdec_translation_fault_callback(
 	}
 
 	ctx = dev->curr_dec_ctx[hw_id];
-	if (mtk_vcodec_ctx_is_valid(dev, ctx)) {
+	if (ctx) {
 		fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 		mtk_v4l2_err("[%d] codec:0x%08x(%c%c%c%c) %s(%d) TF larb %d port %s(%x) mva 0x%llx",
 			ctx->id, fourcc, fourcc & 0xFF, (fourcc >> 8) & 0xFF,
@@ -946,7 +946,7 @@ static int mtk_vdec_uP_translation_fault_callback(
 
 	for (hw_id = 0; hw_id < MTK_VDEC_HW_NUM; hw_id++) {
 		dec_ctx[hw_id] = dev->curr_dec_ctx[hw_id];
-		if (mtk_vcodec_ctx_is_valid(dev, dec_ctx[hw_id])) {
+		if (dec_ctx[hw_id]) {
 			dec_ctx_id[hw_id] = dec_ctx[hw_id]->id;
 			dec_fourcc[hw_id] = dec_ctx[hw_id]->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 			for (i = 0; i < 4; i++)
