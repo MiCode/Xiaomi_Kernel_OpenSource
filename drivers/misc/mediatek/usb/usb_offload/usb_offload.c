@@ -80,6 +80,9 @@ MODULE_PARM_DESC(usb_offload_log, "Enable/Disable USB Offload log");
 	} while (0)
 
 static DEFINE_MUTEX(register_mutex);
+
+static struct usb_audio_dev uadev[SNDRV_CARDS];
+static struct usb_offload_dev *uodev;
 static struct snd_usb_audio *usb_chip[SNDRV_CARDS];
 
 static void uaudio_disconnect_cb(struct snd_usb_audio *chip);
@@ -150,6 +153,11 @@ static void sound_usb_connect(void *data, struct usb_interface *intf, struct snd
 
 	if (chip->index >= 0)
 		usb_chip[chip->index] = chip;
+
+	uodev->is_streaming = false;
+	uodev->tx_streaming = false;
+	uodev->rx_streaming = false;
+	uodev->adsp_inited = false;
 }
 
 static void sound_usb_disconnect(void *data, struct usb_interface *intf)
@@ -158,6 +166,11 @@ static void sound_usb_disconnect(void *data, struct usb_interface *intf)
 	unsigned int card_num;
 
 	USB_OFFLOAD_INFO("\n");
+
+	uodev->is_streaming = false;
+	uodev->tx_streaming = false;
+	uodev->rx_streaming = false;
+	uodev->adsp_inited = false;
 
 	if (chip == USB_AUDIO_IFACE_UNUSED)
 		return;
@@ -172,6 +185,11 @@ static void sound_usb_disconnect(void *data, struct usb_interface *intf)
 	if (chip->num_interfaces < 1)
 		if (chip->index >= 0)
 			usb_chip[chip->index] = NULL;
+
+	uodev->is_streaming = false;
+	uodev->tx_streaming = false;
+	uodev->rx_streaming = false;
+	uodev->adsp_inited = false;
 }
 
 static int sound_usb_trace_init(void)
@@ -183,8 +201,6 @@ static int sound_usb_trace_init(void)
 	return 0;
 }
 
-static struct usb_audio_dev uadev[SNDRV_CARDS];
-static struct usb_offload_dev *uodev;
 static bool is_support_format(snd_pcm_format_t fmt)
 {
 	switch (fmt) {
@@ -1639,12 +1655,24 @@ GET_OF_NODE_FAIL:
 
 static int usb_offload_release(struct inode *ip, struct file *fp)
 {
+	int ret = 0;
+	struct usb_audio_stream_msg msg = {0};
+
 	USB_OFFLOAD_INFO("%d\n", __LINE__);
 	uodev->is_streaming = false;
 	uodev->tx_streaming = false;
 	uodev->rx_streaming = false;
 	uodev->adsp_inited = false;
-	return 0;
+
+	msg.status = USB_AUDIO_STREAM_REQ_STOP;
+	msg.status_valid = 1;
+
+	/* write to audio ipi*/
+	ret = send_disconnect_ipi_msg_to_adsp();
+	/* wait response */
+	USB_OFFLOAD_INFO("send_disconnect_ipi_msg_to_adsp msg, ret: %d\n", ret);
+
+	return ret;
 }
 
 static long usb_offload_ioctl(struct file *fp,
