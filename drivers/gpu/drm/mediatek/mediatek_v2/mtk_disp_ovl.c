@@ -2162,6 +2162,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			(crtc_idx == 0)) {
 			uint64_t key = 0;
 			int fbt_layer_id = -1;
+			unsigned long long temp_bw_old = temp_bw;
 
 			fbt_layer_id = mtk_crtc->fbt_layer_id;
 			/* if layer is fbt layer need find fbt layer ratio to cal bw */
@@ -2218,8 +2219,8 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 				}
 			}
 
-			DDPDBG("BWM: ovl frame idx:%u alloc id:%lu key:%lu layer idx:%u bw:%llu\n",
-					frame_idx, alloc_id, key, idx, temp_bw);
+			DDPINFO("BWM:frame idx:%u alloc id:%lu key:%lu lye_idx:%u bw:%llu(%llu)\n",
+					frame_idx, alloc_id, key, idx, temp_bw, temp_bw_old);
 		}
 
 		if (pending->mml_mode != MML_MODE_RACING) {
@@ -3545,7 +3546,7 @@ other:
 					    DISP_BW_NORMAL_MODE);
 			comp->last_qos_bw_other = comp->qos_bw_other;
 		}
-		DDPDBG("update ovl fbdc_bw to %u, qos bw to %u, %u\n",
+		DDPINFO("update ovl fbdc_bw to %u, qos bw to %u, %u\n",
 			comp->fbdc_bw, comp->qos_bw, comp->qos_bw_other);
 		break;
 	}
