@@ -95,6 +95,7 @@ struct uart_info {
 	unsigned int trans_len;
 	unsigned long long trans_time;
 	unsigned long long trans_duration_time;
+	unsigned long long complete_time;
 	unsigned char rec_buf[UART_RECORD_MAXLEN];
 	unsigned int copy_wpt_reg;
 	unsigned int vff_dbg_reg;
@@ -274,6 +275,8 @@ void mtk_uart_apdma_data_dump(struct dma_chan *chan)
 		unsigned long long durationtime = c->rec_info[idx].trans_duration_time;
 		unsigned long ns = 0;
 		unsigned long long elapseNs = do_div(durationtime, 1000000000);
+		unsigned long long complete_time = c->rec_info[idx].complete_time;
+		unsigned long complete_ns = do_div(complete_time, 1000000000);
 #ifdef CONFIG_UART_DMA_DATA_RECORD
 		unsigned int cnt = 0;
 		unsigned int cyc = 0;
@@ -284,13 +287,15 @@ void mtk_uart_apdma_data_dump(struct dma_chan *chan)
 
 		ns = do_div(endtime, 1000000000);
 		dev_info(c->vc.chan.device->dev,
-			"[%s] [%s] [begin %5lu.%06lu] [%s time %5lu.%06lu] total=%llu,idx=%d,\n"
+			"[%s] [%s] [begin %5lu.%06lu] [%s time %5lu.%06lu]\n"
+			"[complete_time:%5lu.%06lu] total=%llu,idx=%d,\n"
 			"wpt=0x%x,rpt=0x%x,len=%d,poll_cnt_rx=%d,vff_dbg=0x%x,copy_wpt=0x%x,\n"
 			"irq_handler cpu:%d, pid:%d, comm:%s\n",
 			__func__, c->dir == DMA_DEV_TO_MEM ? "dma_rx" : "dma_tx",
 			(unsigned long)endtime, ns / 1000,
 			c->dir == DMA_DEV_TO_MEM ? "rx_handler" : "elapsed",
 			(unsigned long)durationtime, elapseNs/1000,
+			(unsigned long)complete_time, complete_ns / 1000,
 			c->rec_total, idx,
 			c->rec_info[idx].wpt_reg, c->rec_info[idx].rpt_reg,
 			c->rec_info[idx].trans_len, c->rec_info[idx].poll_cnt_rx,
@@ -534,6 +539,7 @@ static irqreturn_t vchan_complete_thread_irq(int irq, void *dev_id)
 	struct virt_dma_chan *vc = to_virt_chan(d->vd.tx.chan);
 	struct virt_dma_desc *vd, *_vd;
 	struct dmaengine_desc_callback cb;
+	unsigned int idx = 0;
 	LIST_HEAD(head);
 
 	spin_lock_irq(&vc->lock);
@@ -556,6 +562,9 @@ static irqreturn_t vchan_complete_thread_irq(int irq, void *dev_id)
 		dmaengine_desc_callback_invoke(&cb, &vd->tx_result);
 		vchan_vdesc_fini(vd);
 	}
+	idx = (unsigned int)((c->rec_idx-1) % UART_RECORD_COUNT);
+	c->rec_info[idx].complete_time = sched_clock();
+
 	return IRQ_HANDLED;
 }
 
