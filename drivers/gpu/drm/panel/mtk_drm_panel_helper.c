@@ -26,11 +26,11 @@ int mtk_lcm_dts_read_u32_array(struct device_node *np, char *prop,
 			prop, out, min_len, max_len);
 #if MTK_LCM_DEBUG_DUMP
 	if (len == 1)
-		DDPMSG("%s: %s = %u\n", __func__, prop, *out);
+		DDPDBG("%s: %s = %u\n", __func__, prop, *out);
 	else if (len > 0)
-		DDPMSG("%s: %s array of %d data\n", __func__, prop, len);
+		DDPDBG("%s: %s array of %d data\n", __func__, prop, len);
 	else if (len == 0)
-		DDPMSG("%s: %s is empty\n", __func__, prop);
+		DDPDBG("%s: %s is empty\n", __func__, prop);
 	else
 		DDPMSG("%s: %s is not existed or overflow, %d\n",
 			__func__, prop, len);
@@ -89,9 +89,9 @@ int mtk_lcm_dts_read_u8_array_from_u32(struct device_node *np, char *prop,
 		for (i = 0; i < len; i++)
 			out[i] = (u8)data[i];
 #if MTK_LCM_DEBUG_DUMP
-		DDPMSG("%s: %s array of %d data\n", __func__, prop, len);
+		DDPDBG("%s: %s array of %d data\n", __func__, prop, len);
 	} else if (len == 0) {
-		DDPMSG("%s: %s is empty\n", __func__, prop);
+		DDPDBG("%s: %s is empty\n", __func__, prop);
 	} else {
 		DDPMSG("%s: %s is not existed or overflow, %d\n",
 			__func__, prop, len);
@@ -119,7 +119,7 @@ int mtk_lcm_dts_read_u8_array(struct device_node *np, char *prop,
 			prop, out, min_len, max_len);
 #if MTK_LCM_DEBUG_DUMP
 	if (len == 1) {
-		DDPMSG("%s: %s = 0x%x\n", __func__, prop, *out);
+		DDPDBG("%s: %s = 0x%x\n", __func__, prop, *out);
 	} else if (len > 0) {
 		int i = 0;
 
@@ -129,7 +129,7 @@ int mtk_lcm_dts_read_u8_array(struct device_node *np, char *prop,
 			i, out[i], out[i+1], out[i+2], out[i+3],
 			out[i+4], out[i+5], out[i+6], out[i+7]);
 	} else if (len == 0) {
-		DDPMSG("%s: %s is empty\n", __func__, prop);
+		DDPDBG("%s: %s is empty\n", __func__, prop);
 	} else {
 		DDPMSG("%s: %s is not existed or overflow, %d\n",
 			__func__, prop, len);
@@ -253,9 +253,9 @@ static int parse_lcm_params_dt_node(struct device_node *np,
 			&params->type);
 	mtk_lcm_dts_read_u32_array(np, "lcm-params-resolution",
 			&params->resolution[0], 0, 2);
-	mtk_lcm_dts_read_u32(np, "lcm-params-physical_width",
+	mtk_lcm_dts_read_u32(np, "lcm-params-physical-width",
 			&params->physical_width);
-	mtk_lcm_dts_read_u32(np, "lcm-params-physical_height",
+	mtk_lcm_dts_read_u32(np, "lcm-params-physical-height",
 			&params->physical_height);
 	//dump_lcm_params_basic(params);
 
@@ -1154,7 +1154,6 @@ void mtk_lcm_dump_u8_array(u8 *buf, unsigned int size, const char *name)
 		name == NULL)
 		return;
 
-	DDPDUMP("----%s size:%u----\n", name, size);
 	if (size >= 8) {
 		for (i = 0; i <= size - 8; i += 8)
 			DDPDUMP("%s[%u], 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
@@ -1187,7 +1186,6 @@ void mtk_lcm_dump_u32_array(u32 *buf, unsigned int size, const char *name)
 		name == NULL)
 		return;
 
-	DDPDUMP("----%s size:%u----\n", name, size);
 	if (size >= 8) {
 		for (i = 0; i <= size - 8; i += 8)
 			DDPDUMP("%s[%u], 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
@@ -1259,7 +1257,7 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 			(unsigned int)lcm_op->param.buf_data.data_len,
 			lcm_op->param.buf_data.flag);
 		mtk_lcm_dump_u8_array(lcm_op->param.buf_data.data,
-				lcm_op->size, owner);
+				lcm_op->size, "   data");
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER_CONDITION:
 		DDPDUMP("[%s-%u]:%s,%s,dts:%u,name:0x%x,con:0x%x,cnt:%u,flag:0x%x\n",
@@ -1269,7 +1267,7 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 			(unsigned int)lcm_op->param.buf_con_data.data_len,
 			lcm_op->param.buf_con_data.flag);
 		mtk_lcm_dump_u8_array(lcm_op->param.buf_con_data.data,
-				lcm_op->param.buf_con_data.data_len, owner);
+				lcm_op->param.buf_con_data.data_len, "   data");
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT:
 		DDPDUMP("[%s-%u]:%s,%s, dts:%u,id_cnt:%u,data_cnt:%u,flag:0x%x\n",
@@ -1278,9 +1276,9 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 			(unsigned int)lcm_op->param.buf_runtime_data.data_len,
 			lcm_op->param.buf_runtime_data.flag);
 		mtk_lcm_dump_u8_array(lcm_op->param.buf_runtime_data.id,
-				lcm_op->param.buf_runtime_data.id_len, owner);
+				lcm_op->param.buf_runtime_data.id_len, "   data");
 		mtk_lcm_dump_u8_array(lcm_op->param.buf_runtime_data.data,
-				lcm_op->param.buf_runtime_data.data_len, owner);
+				lcm_op->param.buf_runtime_data.data_len, "   data");
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_CMD:
 		DDPDUMP("[%s-%u]:%s,%s,dts:%u,cmd:0x%x,cnt:%u,flag:0x%x\n",
@@ -1289,7 +1287,7 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 			(unsigned int)lcm_op->param.cmd_data.tx_len,
 			lcm_op->param.cmd_data.flag);
 			mtk_lcm_dump_u8_array(lcm_op->param.cmd_data.tx_data,
-					lcm_op->param.cmd_data.tx_len, owner);
+					lcm_op->param.cmd_data.tx_len, "   data");
 		break;
 	case MTK_LCM_CMD_TYPE_READ_BUFFER:
 		DDPDUMP("[%s-%u]:%s,%s,dts:%u,cnt:%u,startid:%u,rx:%u,flag:0x%x\n",
@@ -1299,7 +1297,7 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 			lcm_op->param.cmd_data.rx_len,
 			lcm_op->param.cmd_data.flag);
 			mtk_lcm_dump_u8_array(lcm_op->param.cmd_data.tx_data,
-					lcm_op->param.cmd_data.tx_len, owner);
+					lcm_op->param.cmd_data.tx_len, "   data");
 		break;
 	case MTK_LCM_CMD_TYPE_READ_CMD:
 		DDPDUMP("[%s-%u]:%s,%s,dts:%u,cmd:0x%x,cnt:%u,startid:%u,flag:0x%x\n",
@@ -2534,7 +2532,7 @@ int mtk_execute_func_gpio(struct mtk_lcm_ops_data *lcm_op,
 		break;
 	case MTK_LCM_GPIO_TYPE_DIR_OUTPUT:
 		gpiod = devm_gpiod_get_index(&dev,
-			"lcm_gpio_list", id, GPIOD_OUT_HIGH);
+			"lcm-gpio-list", id, GPIOD_OUT_HIGH);
 		if (IS_ERR_OR_NULL(gpiod)) {
 			DDPPR_ERR("%s: invalid gpiod:%u\n", __func__, id);
 			return PTR_ERR(gpiod);
@@ -2545,7 +2543,7 @@ int mtk_execute_func_gpio(struct mtk_lcm_ops_data *lcm_op,
 		break;
 	case MTK_LCM_GPIO_TYPE_DIR_INPUT:
 		gpiod = devm_gpiod_get_index(&dev,
-			"lcm_gpio_list", id, GPIOD_OUT_HIGH);
+			"lcm-gpio-list", id, GPIOD_OUT_HIGH);
 		if (IS_ERR_OR_NULL(gpiod)) {
 			DDPPR_ERR("%s: invalid gpiod:%u\n", __func__, id);
 			return PTR_ERR(gpiod);
@@ -2556,7 +2554,7 @@ int mtk_execute_func_gpio(struct mtk_lcm_ops_data *lcm_op,
 		break;
 	case MTK_LCM_GPIO_TYPE_OUT:
 		gpiod = devm_gpiod_get_index(&dev,
-			"lcm_gpio_list", id, GPIOD_OUT_HIGH);
+			"lcm-gpio-list", id, GPIOD_OUT_HIGH);
 		if (IS_ERR_OR_NULL(gpiod)) {
 			DDPPR_ERR("%s: invalid gpiod:%u\n", __func__, id);
 			return PTR_ERR(gpiod);
