@@ -157,6 +157,7 @@ static struct
 	bool                 vow_recovering;
 	bool                 split_dumpfile_flag;
 	bool                 mcps_flag;
+	bool                 bargein_enable;
 	unsigned int         scp_dual_mic_switch;
 	unsigned int         mtkif_type;
 	unsigned int         google_engine_version;
@@ -672,6 +673,7 @@ static void vow_service_Init(void)
 		vowserv.vow_speaker_number = VOW_DEFAULT_SPEAKER_NUM;
 		vowserv.scp_dual_mic_switch = VOW_ENABLE_DUAL_MIC;
 		vowserv.mtkif_type = 0;
+		vowserv.bargein_enable = false;
 		/* set meaningless default value to platform identifier and version */
 		memset(vowserv.google_engine_arch, 0, VOW_ENGINE_INFO_LENGTH_BYTE);
 		if (sprintf(vowserv.google_engine_arch, "12345678-1234-1234-1234-123456789012") < 0)
@@ -2270,6 +2272,20 @@ DEVICE_ATTR(vow_SplitDumpFile,
 	    VowDrv_SetSplitDumpFile);
 
 
+static ssize_t VowDrv_GetBargeInStatus(struct device *kobj,
+				       struct device_attribute *attr,
+				       char *buf)
+{
+	unsigned int stat;
+	char cstr[35];
+	int size = sizeof(cstr);
+
+	stat = (vowserv.bargein_enable == true) ? 1 : 0;
+
+	return snprintf(buf, size, "BargeIn Status = %s\n",
+			(stat == 0x1) ? "YES" : "NO");
+}
+
 static ssize_t VowDrv_SetBargeInDebug(struct device *kobj,
 				      struct device_attribute *attr,
 				      const char *buf,
@@ -2284,8 +2300,8 @@ static ssize_t VowDrv_SetBargeInDebug(struct device *kobj,
 	return n;
 }
 DEVICE_ATTR(vow_SetBargeIn,
-	    0200, /*S_IWUSR*/
-	    NULL,
+	    0644, /*S_IWUSR | S_IRUGO*/
+	    VowDrv_GetBargeInStatus,
 	    VowDrv_SetBargeInDebug);
 
 static bool VowDrv_SetBargeIn(unsigned int set, unsigned int irq_id)
@@ -2308,17 +2324,20 @@ static bool VowDrv_SetBargeIn(unsigned int set, unsigned int irq_id)
 				   1,
 				   &vow_ipi_buf[0],
 				   VOW_IPI_NEED_ACK);
+		if (ret == true)
+			vowserv.bargein_enable = true;
 	} else if (set == 0) {
-
 		ret = vow_ipi_send(IPIMSG_VOW_SET_BARGEIN_OFF,
 				   1,
 				   &vow_ipi_buf[0],
 				   VOW_IPI_NEED_ACK);
 		vow_deregister_feature(VOW_BARGEIN_FEATURE_ID);
+		if (ret == true)
+			vowserv.bargein_enable = false;
 	} else {
 		VOWDRV_DEBUG("Adb comment error\n\r");
 	}
-	if (ret == 0)
+	if (ret == false)
 		VOWDRV_DEBUG("IPIMSG_BARGE_IN(%d) ipi send error\n", set);
 #else
 	VOWDRV_DEBUG("%s(), vow: SCP no support\n\r", __func__);
