@@ -142,10 +142,7 @@ inline void push_table_cmdq(struct mtk_dsi *dsi, dcs_write_gce cb, void *handle,
 		switch (cmd) {
 
 		case REGFLAG_DELAY:
-			if (table[i].count <= 10)
-				msleep(table[i].count);
-			else
-				msleep(table[i].count);
+			msleep(table[i].count);
 			break;
 
 		case REGFLAG_UDELAY:
