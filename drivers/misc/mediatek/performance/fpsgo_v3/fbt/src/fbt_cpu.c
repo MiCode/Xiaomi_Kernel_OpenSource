@@ -972,8 +972,13 @@ static void fbt_set_task_policy(struct fpsgo_loading *fl,
 		return;
 
 	/* policy changes, reset */
-	if (fl->policy != policy && fl->prefer_type != FPSGO_PREFER_NONE)
-		fbt_set_task_policy(fl, fl->policy, FPSGO_PREFER_NONE, 0);
+	if (!fl->reset_taskmask) {
+		if (fl->policy != policy && fl->prefer_type != FPSGO_PREFER_NONE)
+			fbt_set_task_policy(fl, fl->policy, FPSGO_PREFER_NONE, 0);
+	} else {
+		// Reset task mask for each frame.
+		fbt_set_affinity(fl->pid, FPSGO_PREFER_NONE);
+	}
 
 	if (set_nice) {
 		ori_nice = fbt_set_priority(fl->pid, cur_nice);
@@ -1820,6 +1825,8 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 		struct fpsgo_loading *fl;
 
 		fl = &(thr->dep_arr[i]);
+
+		fl->reset_taskmask = thr->attr.reset_taskmask;
 		if (fl->rmidx)
 			continue;
 
@@ -1989,6 +1996,7 @@ void fbt_set_render_boost_attr(struct render_info *thr)
 	render_attr->gcc_enq_bound_quota_by_pid = gcc_enq_bound_quota;
 	render_attr->gcc_deq_bound_thrs_by_pid = gcc_deq_bound_thrs;
 	render_attr->gcc_deq_bound_quota_by_pid = gcc_deq_bound_quota;
+	render_attr->reset_taskmask = 0;
 
 #if FPSGO_MW
 	fpsgo_attr = fpsgo_find_attr_by_pid(thr->tgid, 0);
@@ -2103,6 +2111,8 @@ void fbt_set_render_boost_attr(struct render_info *thr)
 	if (pid_attr.gcc_deq_bound_quota_by_pid != BY_PID_DEFAULT_VAL)
 		render_attr->gcc_deq_bound_quota_by_pid =
 			pid_attr.gcc_deq_bound_quota_by_pid;
+	if (pid_attr.reset_taskmask != BY_PID_DEFAULT_VAL)
+		render_attr->reset_taskmask = pid_attr.reset_taskmask;
 #endif  // FPSGO_MW
 }
 
@@ -6625,6 +6635,11 @@ static ssize_t fbt_attr_by_pid_store(struct kobject *kobj,
 			boost_attr->gcc_deq_bound_quota_by_pid = val;
 		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->gcc_deq_bound_quota_by_pid = BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "reset_taskmask")) {
+		if ((val == 0 || val == 1) && action == 's')
+			boost_attr->reset_taskmask = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->reset_taskmask = BY_PID_DEFAULT_VAL;
 	}
 
 delete_pid:

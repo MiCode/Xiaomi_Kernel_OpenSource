@@ -76,6 +76,7 @@ struct fpsgo_loading {
 	long nice_bk;
 	int action;
 	int rmidx;
+	int reset_taskmask;
 };
 
 struct fbt_thread_blc {
@@ -216,6 +217,9 @@ struct fpsgo_boost_attr {
 	int gcc_deq_bound_thrs_by_pid;
 	int gcc_enq_bound_quota_by_pid;
 	int gcc_deq_bound_quota_by_pid;
+
+	/* Reset taskmask */
+	int reset_taskmask;
 };
 
 struct render_info {
