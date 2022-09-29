@@ -48,6 +48,7 @@ static int sapu_lock_ipi_send(uint32_t lock, struct kref *ref_cnt)
 	unsigned int sapu_lock_ref_cnt;
 	struct PWRarg data;
 	struct sapu_lock_rpmsg_device *sapu_lock_rpm_dev;
+	unsigned long long jiffies_start = 0, jiffies_end = 0;
 
 	sapu_lock_rpm_dev = get_rpm_dev();
 
@@ -108,9 +109,22 @@ static int sapu_lock_ipi_send(uint32_t lock, struct kref *ref_cnt)
 			/* wait for receiving ack
 			 * to ensure uP clear irq status done
 			 */
+			jiffies_start = get_jiffies_64();
+
 			ret = wait_for_completion_timeout(
 					&sapu_lock_rpm_dev->ack,
-					msecs_to_jiffies(100));
+					msecs_to_jiffies(10000));
+
+			jiffies_end = get_jiffies_64();
+
+			if (likely(jiffies_end > jiffies_start)) {
+				if (unlikely((jiffies_end-jiffies_start) > msecs_to_jiffies(100)))
+					pr_info("completion ack is overtime => %u ms\n",
+						jiffies_to_msecs(jiffies_end-jiffies_start));
+			} else {
+				pr_info("tick timer's value overflow\n");
+			}
+
 			if (ret == 0) {
 				pr_info("%s: wait for completion timeout\n",
 						__func__);
