@@ -426,6 +426,7 @@ void switch_adsp_power(bool on)
 		adsp_disable_clock();
 	}
 }
+EXPORT_SYMBOL(switch_adsp_power);
 
 void adsp_latch_dump_region(bool en)
 {
@@ -602,7 +603,6 @@ int adsp_system_bootup(void)
 	if (ret)
 		goto ERROR;
 
-	switch_adsp_power(true);
 	adsp_smc_send(MTK_ADSP_KERNEL_OP_SYS_CLEAR, ADSP_MAGIC_PATTERN, 0);
 
 	for (cid = 0; cid < get_adsp_core_total(); cid++) {

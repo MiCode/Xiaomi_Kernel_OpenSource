@@ -185,6 +185,8 @@ static int adspsys_drv_probe(struct platform_device *pdev)
 
 	register_adspsys(adspsys);
 
+	switch_adsp_power(true);
+
 	pr_info("%s, success\n", __func__);
 ERROR:
 	return ret;
