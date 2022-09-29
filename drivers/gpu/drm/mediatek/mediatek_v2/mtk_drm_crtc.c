@@ -7668,9 +7668,20 @@ void mtk_crtc_disconnect_default_path(struct mtk_drm_crtc *mtk_crtc)
 	if (mtk_crtc->is_dual_pipe) {
 		mtk_ddp_disconnect_dual_pipe_path(mtk_crtc, mtk_crtc->mutex[0]);
 
-		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j)
+		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+			struct mtk_ddp_comp *tmp_comp;
+			unsigned int next_comp_id;
+
+			if (j + 1 >= __mtk_crtc_dual_path_len(mtk_crtc, i))
+				tmp_comp = NULL;
+			else
+				tmp_comp = mtk_crtc_get_dual_comp(crtc, i, j + 1);
+			next_comp_id = tmp_comp ? tmp_comp->id : DDP_COMPONENT_ID_MAX;
+			mtk_ddp_remove_comp_from_path(mtk_crtc,
+					comp->id, next_comp_id);
 			mtk_disp_mutex_remove_comp(mtk_crtc->mutex[0],
 				comp->id);
+		}
 	}
 }
 
