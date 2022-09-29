@@ -706,8 +706,8 @@ void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 		ret = -EFAULT;
 
 	mmsys_id = mtk_get_mmsys_id(crtc);
-	if (g_sb_param.gain[gain_r] != gain[gain_r] &&
-		g_sb_param.gain[gain_g] != gain[gain_g] &&
+	if (g_sb_param.gain[gain_r] != gain[gain_r] ||
+		g_sb_param.gain[gain_g] != gain[gain_g] ||
 		g_sb_param.gain[gain_b] != gain[gain_b]) {
 
 		g_sb_param.gain[gain_r] = gain[gain_r];
