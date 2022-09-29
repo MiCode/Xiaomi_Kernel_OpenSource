@@ -984,6 +984,11 @@ void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 	unsigned long max_cap = uclamp_eff_value(p, UCLAMP_MAX);
 	unsigned int cfs_cpus = 0;
 	unsigned int idle_cpus = 0;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[2];
+
+	ts[0] = sched_clock();
+#endif
 
 	*target_cpu = -1;
 	/* For anything but wake ups, just return the task_cpu */
@@ -1146,6 +1151,16 @@ out:
 	if (trace_sched_select_task_rq_rt_enabled())
 		trace_sched_select_task_rq_rt(p, select_reason, *target_cpu, idle_cpus, cfs_cpus,
 					sd_flag, sync);
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+
+	if ((ts[1] - ts[0] > 500000ULL) && in_hardirq()) {
+		printk_deferred("%s duration %llu, ts[0]=%llu, ts[1]=%llu\n",
+				__func__, ts[1] - ts[0], ts[0], ts[1]);
+
+	}
+#endif
 }
 
 #if IS_ENABLED(CONFIG_MTK_EAS)
@@ -1174,12 +1189,21 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 	int select_reason = -1;
 	unsigned int gear_id, nr_gear;
 	struct cpumask *gear_cpus;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 ts[10] = {0};
+
+	ts[0] = sched_clock();
+#endif
 
 	cpumask_andnot(&avail_lowest_mask, lowest_mask, cpu_pause_mask);
 	if (!ret) {
 		select_reason = LB_RT_NO_LOWEST_RQ;
 		goto out; /* No targets found */
 	}
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[1] = sched_clock();
+#endif
 
 	cpu = task_cpu(p);
 
@@ -1196,6 +1220,9 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 		select_reason = LB_RT_SOURCE_CPU;
 		goto out;
 	}
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[2] = sched_clock();
+#endif
 
 	/*
 	 * Otherwise, we consult the sched_domains span maps to figure
@@ -1209,7 +1236,15 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 	if (!pd)
 		goto unlock;
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[3] = sched_clock();
+#endif
+
 	nr_gear = get_nr_gears();
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[4] = sched_clock();
+#endif
 
 	/* Find best_cpu on same cluster with task_cpu(p) */
 	for (gear_id = 0; gear_id < nr_gear; gear_id++) {
@@ -1243,6 +1278,10 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 		}
 	}
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[5] = sched_clock();
+#endif
+
 	if (lowest_prio_cpu != -1) {
 		rcu_read_unlock();
 		*lowest_cpu = lowest_prio_cpu;
@@ -1263,6 +1302,9 @@ unlock:
 		select_reason = LB_RT_FAIL_SYNC;
 		goto out;
 	}
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[6] = sched_clock();
+#endif
 
 	cpu = cpumask_any_and_distribute(&avail_lowest_mask, cpu_possible_mask);
 	if (cpu < nr_cpu_ids) {
@@ -1271,14 +1313,43 @@ unlock:
 		goto out;
 	}
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[7] = sched_clock();
+#endif
+
 	/* Let find_lowest_rq not to choose dst_cpu */
 	*lowest_cpu = -1;
 	select_reason = LB_RT_FAIL;
 	cpumask_clear(lowest_mask);
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[8] = sched_clock();
+#endif
+
 out:
 	if (trace_sched_find_lowest_rq_enabled())
 		trace_sched_find_lowest_rq(p, select_reason, *lowest_cpu,
 				&avail_lowest_mask, lowest_mask);
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	ts[9] = sched_clock();
+
+	if ((ts[9] - ts[0] > 200000ULL) && in_hardirq()) {
+		int i, i_prev;
+		u64 prev, curr;
+
+		printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__, ts[9] - ts[0], ts[0]);
+		i_prev = 0;
+		for (i = 0; i < 9; i++) {
+			if (ts[i+1]) {
+				prev = ts[i_prev];
+				curr = ts[i+1];
+				printk_deferred("%s ts[%d]=%llu, ts[%d]=%llu, duration=%llu\n",
+						__func__, i_prev, prev, i+1, curr, curr - prev);
+				i_prev = i+1;
+			}
+		}
+	}
+#endif
 	return;
 }
