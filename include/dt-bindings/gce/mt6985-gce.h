@@ -981,6 +981,7 @@
 #define CMDQ_SYNC_TOKEN_TE_0				705
 #define CMDQ_SYNC_TOKEN_PREFETCH_TE_0			706
 #define CMDQ_SYNC_TOKEN_VIDLE_POWER_ON			707
+#define CMDQ_SYNC_TOKEN_CHECK_TRIGGER_MERGE		708
 
 /* Resource lock event to control resource in GCE thread */
 #define CMDQ_SYNC_RESOURCE_WROT0			710
