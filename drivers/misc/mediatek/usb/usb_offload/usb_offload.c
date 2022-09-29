@@ -185,11 +185,6 @@ static void sound_usb_disconnect(void *data, struct usb_interface *intf)
 	if (chip->num_interfaces < 1)
 		if (chip->index >= 0)
 			usb_chip[chip->index] = NULL;
-
-	uodev->is_streaming = false;
-	uodev->tx_streaming = false;
-	uodev->rx_streaming = false;
-	uodev->adsp_inited = false;
 }
 
 static int sound_usb_trace_init(void)
@@ -443,15 +438,26 @@ static void uaudio_dev_release(struct kref *kref)
 static int info_idx_from_ifnum(unsigned int card_num, int intf_num, bool enable)
 {
 	int i;
+	USB_OFFLOAD_INFO("enable:%d, card_num:%d, intf_num:%d\n",
+			enable, card_num, intf_num);
 
 	/*
 	 * default index 0 is used when info is allocated upon
 	 * first enable audio stream req for a pcm device
 	 */
-	if (enable && !uadev[card_num].info)
+	if (enable && !uadev[card_num].info) {
+		USB_OFFLOAD_INFO("enable:%d, uadev[%d].info:%d\n",
+				enable, card_num, uadev[card_num].info);
 		return 0;
+	}
+
+	USB_OFFLOAD_INFO("num_intf:%d\n", uadev[card_num].num_intf);
 
 	for (i = 0; i < uadev[card_num].num_intf; i++) {
+		USB_OFFLOAD_INFO("card_idx:%d, in_use:%d, intf_num:%d\n",
+			i,
+			uadev[card_num].info[i].in_use,
+			uadev[card_num].info[i].intf_num);
 		if (enable && !uadev[card_num].info[i].in_use)
 			return i;
 		else if (!enable &&
@@ -869,14 +875,24 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 
 	info_idx = info_idx_from_ifnum(pcm_card_num, interface,
 		uainfo->enable);
+	USB_OFFLOAD_INFO("info_idx: %d, interface: %d\n",
+			info_idx, interface);
 	if (atomic_read(&chip->shutdown) || !subs->stream || !subs->stream->pcm
 			|| !subs->stream->chip || !subs->pcm_substream || info_idx < 0) {
+		USB_OFFLOAD_INFO("chip->shutdown:%d\n", atomic_read(&chip->shutdown));
+		if (!subs->stream)
+			USB_OFFLOAD_INFO("NO subs->stream\n");
+		if (!subs->stream->pcm)
+			USB_OFFLOAD_INFO("NO subs->stream->pcm\n");
+		if (!subs->stream->chip)
+			USB_OFFLOAD_INFO("NO subs->stream->chip\n");
+		if (!subs->pcm_substream)
+			USB_OFFLOAD_INFO("NO subs->pcm_substream\n");
+
 		ret = -ENODEV;
 		mutex_unlock(&uodev->dev_lock);
 		goto done;
 	}
-	USB_OFFLOAD_INFO("info_idx: %d, interface: %d\n",
-			info_idx, interface);
 
 	if (uainfo->enable) {
 		if (info_idx < 0) {
@@ -938,7 +954,7 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 		mutex_unlock(&uodev->dev_lock);
 		goto done;
 	}
-	USB_OFFLOAD_INFO("uainfo->enable:%d\n", uainfo->enable);
+
 	if (uainfo->enable) {
 		ret = usb_offload_prepare_msg(subs, uainfo, &msg, info_idx);
 		USB_OFFLOAD_INFO("prepare msg, ret: %d\n", ret);
@@ -1585,6 +1601,50 @@ static bool xhci_mtk_is_streaming(struct xhci_hcd *xhci)
 	return uodev->is_streaming;
 }
 
+static int check_usb_offload_quirk(int vid, int pid)
+{
+	if (vid == 0x046D && pid == 0x0A38) {
+		USB_OFFLOAD_INFO("Logitech USB Headset H340 NOT SUPPORT!!\n");
+		return -1;
+	}
+	return 0;
+}
+
+static int check_is_multiple_ep(struct usb_host_config *config)
+{
+	struct usb_interface *intf;
+	struct usb_host_interface *hostif;
+	struct usb_interface_descriptor *intfd;
+	int i, j;
+
+	if (!config)
+		return -1;
+
+	USB_OFFLOAD_INFO("num of intf: %d\n", config->desc.bNumInterfaces);
+
+	for (i = 0; i < config->desc.bNumInterfaces; i++) {
+
+		intf = config->interface[i];
+		for (j = 0; j < intf->num_altsetting; j++) {
+
+			hostif = &intf->altsetting[j];
+			intfd = get_iface_desc(hostif);
+			USB_OFFLOAD_INFO("intf:%d, alt:%d, numEP: %d, class:0x%x, sub:0x%x\n",
+					i, j,
+					intfd->bNumEndpoints,
+					intfd->bInterfaceClass,
+					intfd->bInterfaceSubClass);
+			if (intfd->bNumEndpoints > 1 &&
+				intfd->bInterfaceClass == 0x1 &&
+				intfd->bInterfaceSubClass == 0x2) {
+				USB_OFFLOAD_INFO("Multiple EP in one intf. NOT SUPPORT!!\n");
+				return -1;
+			}
+		}
+	}
+	return 0;
+}
+
 static int usb_offload_open(struct inode *ip, struct file *fp)
 {
 	struct device_node *node_xhci_host;
@@ -1593,8 +1653,9 @@ static int usb_offload_open(struct inode *ip, struct file *fp)
 	struct xhci_hcd *xhci;
 	struct usb_device *udev;
 	struct usb_host_config *config;
+
 	int err = 0;
-	int i, class;
+	int i, class, vid, pid;
 
 	USB_OFFLOAD_INFO("++\n");
 	if (!buf_dcbaa || !buf_ctx || !buf_seg) {
@@ -1621,8 +1682,14 @@ static int usb_offload_open(struct inode *ip, struct file *fp)
 
 	for (i = 0; i <= 2; i++) {
 		if (xhci->devs[i] != NULL)
-			USB_OFFLOAD_INFO("xhci->devs[%d]->udev->descriptor.bDeviceClass: 0x%x\n",
-					i, xhci->devs[i]->udev->descriptor.bDeviceClass);
+			if (xhci->devs[i]->udev != NULL) {
+				USB_OFFLOAD_INFO("dev %d bDeviceClass: 0x%x\n",
+						i, xhci->devs[i]->udev->descriptor.bDeviceClass);
+				USB_OFFLOAD_INFO("dev %d idVendor: 0x%x\n",
+						i, xhci->devs[i]->udev->descriptor.idVendor);
+				USB_OFFLOAD_INFO("dev %d idProduct: 0x%x\n",
+						i, xhci->devs[i]->udev->descriptor.idProduct);
+			}
 	}
 
 	if (xhci->devs[2] != NULL) {
@@ -1631,20 +1698,32 @@ static int usb_offload_open(struct inode *ip, struct file *fp)
 	}
 
 	if (xhci->devs[1] != NULL) {
+
 		udev = xhci->devs[1]->udev;
 		class = udev->descriptor.bDeviceClass;
-		USB_OFFLOAD_INFO("Single Device - bDeviceClass: 0x%x\n", class);
+		vid = udev->descriptor.idVendor;
+		pid = udev->descriptor.idProduct;
+		USB_OFFLOAD_INFO("Single Device - bDeviceClass: 0x%x, VID: 0x%x, PID: 0x%x\n",
+				class, vid, pid);
 
-		if (class == 0x00 || class == 0xef) {
-			if (udev->actconfig != NULL && udev->actconfig->interface[0] != NULL) {
-				config = udev->actconfig;
-				class = config->interface[0]->cur_altsetting->desc.bInterfaceClass;
-				USB_OFFLOAD_INFO("Single Device - bInterfaceClass: 0x%x\n", class);
+		if ((class == 0x00 || class == 0xef) &&
+			 udev->actconfig != NULL &&
+			 udev->actconfig->interface[0] != NULL &&
+			 udev->actconfig->interface[0]->cur_altsetting != NULL) {
 
-				if (class == 0x01) {
-					USB_OFFLOAD_INFO("Single UAC - SUPPORT USB OFFLOAD!!\n");
-					return 0;
-				}
+			config = udev->actconfig;
+			class = config->interface[0]->cur_altsetting->desc.bInterfaceClass;
+			USB_OFFLOAD_INFO("Single Device - bInterfaceClass: 0x%x\n", class);
+
+			if (class == 0x01) {
+				if (check_usb_offload_quirk(vid, pid))
+					return -1;
+
+				if (check_is_multiple_ep(config))
+					return -1;
+
+				USB_OFFLOAD_INFO("Single UAC - SUPPORT USB OFFLOAD!!\n");
+				return 0;
 			}
 		}
 		USB_OFFLOAD_INFO("Single Device - Not UAC. NOT SUPPORT USB OFFLOAD!!\n");
