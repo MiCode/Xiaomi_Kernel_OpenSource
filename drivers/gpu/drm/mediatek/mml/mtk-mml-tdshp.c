@@ -763,7 +763,7 @@ static void tdshp_task_done_readback(struct mml_comp *comp, struct mml_task *tas
 			TDSHP_CLARITY_HIST_START, TDSHP_CLARITY_STATUS_NUM);
 	}
 
-	mml_pq_put_readback_buffer(task, pipe, task->pq_task->tdshp_hist[pipe]);
+	mml_pq_put_readback_buffer(task, pipe, &(task->pq_task->tdshp_hist[pipe]));
 exit:
 	mml_pq_trace_ex_end();
 }

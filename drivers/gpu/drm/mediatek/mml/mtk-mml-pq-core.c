@@ -427,17 +427,23 @@ void mml_pq_get_readback_buffer(struct mml_task *task, u8 pipe,
 		mutex_unlock(&task->pq_task->buffer_mutex);
 	}
 	mml_pq_rb_msg("%s job_id[%d] va[%p] pa[%llx] buffer_num[%d]", __func__,
-			task->job.jobid, temp_buffer->va, temp_buffer->pa, buffer_num);
+		task->job.jobid, temp_buffer->va, temp_buffer->pa, buffer_num);
 }
 
 void mml_pq_put_readback_buffer(struct mml_task *task, u8 pipe,
-				 struct mml_pq_readback_buffer *hist)
+				struct mml_pq_readback_buffer **hist)
 {
+	if (!(*hist)) {
+		mml_pq_err("%s buffer hist is null jobid[%d]", __func__, task->job.jobid);
+		return;
+	}
+
 	mml_pq_rb_msg("%s all end job_id[%d] hist_va[%p] hist_pa[%llx]",
-		__func__, task->job.jobid, hist->va, hist->pa);
+		__func__, task->job.jobid, (*hist)->va, (*hist)->pa);
 	mutex_lock(&rb_buf_list_mutex);
-	list_add_tail(&hist->buffer_list, &rb_buf_list);
+	list_add_tail(&((*hist)->buffer_list), &rb_buf_list);
 	mutex_unlock(&rb_buf_list_mutex);
+	*hist = NULL;
 }
 
 void mml_pq_task_release(struct mml_task *task)

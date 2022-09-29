@@ -259,7 +259,7 @@ void mml_pq_get_readback_buffer(struct mml_task *task, u8 pipe,
  * @engine	engine id, readback engine
  */
 void mml_pq_put_readback_buffer(struct mml_task *task, u8 pipe,
-				struct mml_pq_readback_buffer *hist);
+				struct mml_pq_readback_buffer **hist);
 
 /*
  * mml_pq_set_tile_init - noify from MML core through MML PQ driver

@@ -1026,11 +1026,12 @@ static void hdr_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 			hdr_histogram_check(comp, task, offset, ccfg);
 		}
 	}
+
 	if (vcp) {
 		mml_pq_put_vcp_buf_offset(task, engine, task->pq_task->hdr_hist[pipe]);
 		cmdq_vcp_enable(false);
 	} else
-		mml_pq_put_readback_buffer(task, pipe, task->pq_task->hdr_hist[pipe]);
+		mml_pq_put_readback_buffer(task, pipe, &(task->pq_task->hdr_hist[pipe]));
 exit:
 	mml_pq_trace_ex_end();
 }
