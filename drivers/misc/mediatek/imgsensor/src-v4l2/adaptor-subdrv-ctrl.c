@@ -439,6 +439,18 @@ void set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 	}
+
+	if (framerate == 0) {
+		DRV_LOG(ctx, "framerate (%u) is invalid\n", framerate);
+		return;
+	}
+
+	if (ctx->s_ctx.mode[scenario_id].linelength == 0) {
+		DRV_LOG(ctx, "linelength (%u) is invalid\n",
+			ctx->s_ctx.mode[scenario_id].linelength);
+		return;
+	}
+
 	frame_length = ctx->s_ctx.mode[scenario_id].pclk / framerate * 10
 		/ ctx->s_ctx.mode[scenario_id].linelength;
 	frame_length_step = ctx->s_ctx.mode[scenario_id].framelength_step;
@@ -458,7 +470,19 @@ void set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 
 bool set_auto_flicker(struct subdrv_ctx *ctx, bool min_framelength_en)
 {
-	u16 framerate = ctx->pclk / ctx->line_length * 10 / ctx->frame_length;
+	u16 framerate = 0;
+
+	if (!ctx->line_length) {
+		DRV_LOGE(ctx, "line_length(%u) is invalid\n", ctx->line_length);
+		return FALSE;
+	}
+
+	if (!ctx->frame_length) {
+		DRV_LOGE(ctx, "frame_length(%u) is invalid\n", ctx->frame_length);
+		return FALSE;
+	}
+
+	framerate = ctx->pclk / ctx->line_length * 10 / ctx->frame_length;
 
 	DRV_LOG(ctx, "cur_fps:%u, flick_en:%u, min_fl_en:%u\n",
 		framerate, ctx->autoflicker_en, min_framelength_en);
