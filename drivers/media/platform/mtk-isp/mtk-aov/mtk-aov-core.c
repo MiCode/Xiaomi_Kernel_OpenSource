@@ -185,6 +185,7 @@ static int send_cmd_internal(struct aov_core *core_info,
 {
 	struct mtk_aov *aov_dev = aov_core_get_device();
 	struct packet packet;
+	int count;
 	int retry;
 	unsigned long timeout;
 	int scp_ready;
@@ -209,21 +210,36 @@ static int send_cmd_internal(struct aov_core *core_info,
 	do {
 		if (wait) {
 			timeout = msecs_to_jiffies(AOV_TIMEOUT_MS);
-			ret = wait_event_interruptible_timeout(core_info->scp_queue,
-				((scp_ready = atomic_read(&(core_info->scp_ready))) == 2), timeout);
-			if (ret == 0) {
-				AOV_TRACE_END();
-				dev_info(aov_dev->dev, "%s: send cmd(%d/%d) timeout!\n",
-					__func__, cmd_code, scp_ready);
-				return -EIO;
-			} else if (-ERESTARTSYS == ret) {
-				AOV_TRACE_END();
-				dev_info(aov_dev->dev, "%s: send cmd(%d/%d) interrupted !\n",
-					__func__, cmd_code, scp_ready);
-				return -ERESTARTSYS;
-			}
-			dev_dbg(aov_dev->dev, "%s: send cmd(%d/%d) done\n",
-					__func__, cmd_code, scp_ready);
+
+			count = 0;
+			do {
+				ret = wait_event_interruptible_timeout(core_info->scp_queue,
+					((scp_ready = atomic_read(&(core_info->scp_ready))) == 2),
+					timeout);
+				if (ret == 0) {
+					AOV_TRACE_END();
+					dev_info(aov_dev->dev, "%s: send cmd(%d/%d) timeout!\n",
+						__func__, cmd_code, scp_ready);
+					return -EIO;
+				} else if (-ERESTARTSYS == ret) {
+					if (count++ >= 100) {
+						AOV_TRACE_END();
+						dev_info(aov_dev->dev, "%s: send cmd(%d/%d/%d) failed\n",
+							__func__, cmd_code, scp_ready, count);
+						return -ERESTARTSYS;
+					}
+
+					dev_dbg(aov_dev->dev, "%s: send cmd(%d/%d/%d) interrupted !\n",
+						__func__, cmd_code, scp_ready, count);
+
+					// retry again
+					continue;
+				} else {
+					dev_dbg(aov_dev->dev, "%s: send cmd(%d/%d) done\n",
+						__func__, cmd_code, scp_ready);
+					break;
+				}
+			} while (1);
 		}
 
 		packet.session = atomic_read(&(core_info->scp_session));
@@ -250,21 +266,37 @@ static int send_cmd_internal(struct aov_core *core_info,
 				usleep_range(1000, 2000);
 		} else if (ack) {
 			timeout = msecs_to_jiffies(AOV_TIMEOUT_MS);
-			ret = wait_event_interruptible_timeout(core_info->ack_wq[cmd_code],
-				atomic_cmpxchg(&(core_info->ack_cmd[cmd_code]), 1, 0), timeout);
-			if (ret == 0) {
-				dev_info(aov_dev->dev, "%s: wait ack cmd(%d) timeout\n",
-					__func__, cmd_code);
-				return -EIO;
-			} else if (-ERESTARTSYS == ret) {
-				dev_info(aov_dev->dev, "%s: wait cmd(%d) ack interrupted\n",
-					__func__, cmd_code);
-				ret = -EINTR;
-			} else {
-				dev_dbg(aov_dev->dev, "%s: wait cmd(%d) ack done\n",
-					__func__, cmd_code);
-				ret = 0;
-			}
+
+			count = 0;
+			do {
+				ret = wait_event_interruptible_timeout(core_info->ack_wq[cmd_code],
+					atomic_cmpxchg(&(core_info->ack_cmd[cmd_code]), 1, 0),
+					timeout);
+				if (ret == 0) {
+					AOV_TRACE_END();
+					dev_info(aov_dev->dev, "%s: wait ack cmd(%d) timeout\n",
+						__func__, cmd_code);
+					return -EIO;
+				} else if (-ERESTARTSYS == ret) {
+					if (count++ >= 100) {
+						AOV_TRACE_END();
+						dev_info(aov_dev->dev, "%s: wait cmd(%d) ack failed\n",
+							__func__, cmd_code, count);
+						return -ERESTARTSYS;
+					}
+
+					dev_dbg(aov_dev->dev, "%s: wait cmd(%d/%d) ack interrupted\n",
+						__func__, cmd_code, count);
+
+					// retry again
+					continue;
+				} else {
+					dev_dbg(aov_dev->dev, "%s: wait cmd(%d) ack done\n",
+						__func__, cmd_code);
+					ret = 0;
+					break;
+				}
+			} while (1);
 		}
 	} while (ret == IPI_PIN_BUSY);
 
