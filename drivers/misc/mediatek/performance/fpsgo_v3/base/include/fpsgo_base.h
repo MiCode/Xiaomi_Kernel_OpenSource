@@ -76,6 +76,7 @@ struct fpsgo_loading {
 	long nice_bk;
 	int action;
 	int rmidx;
+	int heavyidx;
 	int reset_taskmask;
 };
 
