@@ -1294,7 +1294,8 @@ static int __maybe_unused mtk8250_runtime_suspend(struct device *dev)
 	struct uart_8250_port *up = serial8250_get_port(data->line);
 
 	if (data->support_hub) {
-		dev_dbg(dev, "%s support_hub, skip disable clock\n", __func__);
+		pr_info("[%s]:clock count is[%d] support_hub, skip disable clock\n",
+		 __func__, data->clk_count);
 	} else {
 		if (data->clk_count == 0U) {
 			dev_dbg(dev, "%s clock count is 0\n", __func__);
@@ -1316,8 +1317,8 @@ static int __maybe_unused mtk8250_runtime_resume(struct device *dev)
 	int err;
 
 	if (data->clk_count > 0U) {
-		dev_dbg(dev, "%s clock count is %d\n", __func__,
-			data->clk_count);
+		pr_info("[%s]: data->line[%d] clock count is %d\n", __func__,
+			data->line, data->clk_count);
 	} else {
 		err = clk_prepare_enable(data->bus_clk);
 		if (err) {
@@ -1634,6 +1635,12 @@ static int mtk8250_probe(struct platform_device *pdev)
 #endif
 
 	platform_set_drvdata(pdev, data);
+	if (data->support_hub) {
+		if (clk_prepare_enable(data->bus_clk)) {
+			pr_info("[%s]: line[%d], data->clk_count[%d], CLk enable fail!!\n",
+				__func__, data->line, data->clk_count);
+		}
+	}
 
 	pm_runtime_enable(&pdev->dev);
 	err = mtk8250_runtime_resume(&pdev->dev);
