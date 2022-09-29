@@ -691,6 +691,8 @@ void trigger_vcp_halt(enum vcp_core_id id)
 
 	mutex_lock(&vcp_pw_clk_mutex);
 	if (mmup_enable_count() && vcp_ready[id]) {
+		vcp_dump_last_regs(mmup_enable_count());
+
 		/* trigger halt isr, force vcp enter wfi */
 		pr_notice("[VCP] %s VCP EE coredump...\n", __func__);
 		writel(B_GIPC4_SETCLR_0, R_GIPC_IN_SET);
