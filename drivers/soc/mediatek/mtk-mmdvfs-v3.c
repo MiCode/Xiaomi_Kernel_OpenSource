@@ -40,13 +40,15 @@ static u64 mmdvfs_vcp_ipi_data;
 static DEFINE_MUTEX(mmdvfs_vcp_ipi_mutex);
 static DEFINE_MUTEX(mmdvfs_vcp_ipi_base_mutex);
 
-#define MMDVFS_VB_ENABLE_OFFSET 0xff4
-#define MMDVFS_AGING_ENABLE_OFFSET 0xff8
-static void *mmdvfs_vb_enable_base;
-static void *mmdvfs_aging_enable_base;
+#define MMDVFS_VMM_CEIL_ENABLE_OFFSET 0xff8
+#define MMDVFS_CAM_AGING_CNT_OFFSET 0xff4
+#define MMDVFS_CAM_FRESH_CNT_OFFSET 0xff0
+#define MMDVFS_IMG_AGING_CNT_OFFSET 0xfec
+#define MMDVFS_IMG_FRESH_CNT_OFFSET 0xfe8
+#define MMDVFS_VMM_EN_CAM_CLK_OFFSET 0xfe4
+#define MMDVFS_VMM_VDEC_ENABLE_OFFSET 0xfe0
+static void *mmdvfs_ipi_start_base;
 
-#define MMDVFS_VMM_CEIL_ENABLE_OFFSET 0xff0
-static void *mmdvfs_vmm_ceil_enable_base;
 
 static int log_level;
 static bool mmdvfs_init_done;
@@ -129,7 +131,7 @@ int mtk_mmdvfs_enable_ccu(bool enable, unsigned int usr_id)
 		ccu_pwr_usage[usr_id]++;
 	} else {
 		if (ccu_power == 0) {
-			MMDVFS_ERR("disable vcp when vcp_power==0");
+			MMDVFS_ERR("disable ccu when ccu_power==0");
 			mutex_unlock(&mmdvfs_ccu_pwr_mutex);
 			return -EINVAL;
 		}
@@ -392,15 +394,8 @@ static inline bool mmdvfs_vcp_ipi_base_get(void)
 		&pa, &mmdvfs_vcp_base, mmdvfs_vcp_ipi_data_base,
 		MMDVFS_VCP_IPI_DATA_OFFSET);
 
-	if (!mmdvfs_aging_enable_base && mmdvfs_vcp_ipi_data_base)
-		mmdvfs_aging_enable_base = mmdvfs_vcp_ipi_data_base + MMDVFS_AGING_ENABLE_OFFSET;
-
-	if (!mmdvfs_vb_enable_base && mmdvfs_vcp_ipi_data_base)
-		mmdvfs_vb_enable_base = mmdvfs_vcp_ipi_data_base + MMDVFS_VB_ENABLE_OFFSET;
-
-	if (!mmdvfs_vmm_ceil_enable_base)
-		mmdvfs_vmm_ceil_enable_base =
-			mmdvfs_vcp_ipi_data_base + MMDVFS_VMM_CEIL_ENABLE_OFFSET;
+	if (!mmdvfs_ipi_start_base)
+		mmdvfs_ipi_start_base = mmdvfs_vcp_ipi_data_base;
 
 	if (mmdvfs_vcp_ipi_data_base)
 		mmdvfs_vcp_ipi_data_base += MMDVFS_VCP_IPI_DATA_OFFSET;
@@ -635,6 +630,78 @@ static int mmdvfs_set_vcp_init(void)
 	return 0;
 }
 
+int mtk_mmdvfs_set_avs(u16 usr_id, u32 aging_cnt, u32 fresh_cnt)
+{
+	if (!mmdvfs_ipi_start_base) {
+		MMDVFS_ERR("mmdvfs_ipi_start_base is NULL");
+		return -EINVAL;
+	}
+	switch (usr_id) {
+	case AVS_USR_CAM:
+		writel(aging_cnt, mmdvfs_ipi_start_base + MMDVFS_CAM_AGING_CNT_OFFSET);
+		writel(fresh_cnt, mmdvfs_ipi_start_base + MMDVFS_CAM_FRESH_CNT_OFFSET);
+		break;
+	case AVS_USR_IMG:
+		writel(aging_cnt, mmdvfs_ipi_start_base + MMDVFS_IMG_AGING_CNT_OFFSET);
+		writel(fresh_cnt, mmdvfs_ipi_start_base + MMDVFS_IMG_FRESH_CNT_OFFSET);
+		break;
+	default:
+		MMDVFS_ERR("invalid usr_id:%u", usr_id);
+	}
+
+	if (is_vcp_ready_ex(VCP_A_ID))
+		mmdvfs_set_vcp_init();
+
+	MMDVFS_DBG("usr_id:%hu aging_cnt:%u fresh_cnt:%u", usr_id, aging_cnt, fresh_cnt);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_mmdvfs_set_avs);
+
+static int mmdvfs_set_vdec_enable(const bool enable)
+{
+	if (!mmdvfs_ipi_start_base) {
+		MMDVFS_ERR("mmdvfs_ipi_start_base is NULL");
+		return -EINVAL;
+	}
+
+	writel(enable ? 1 : 0, mmdvfs_ipi_start_base + MMDVFS_VMM_VDEC_ENABLE_OFFSET);
+	if (is_vcp_ready_ex(VCP_A_ID))
+		mmdvfs_set_vcp_init();
+
+	return 0;
+}
+
+int mtk_mmdvfs_vdec_notify(bool enable)
+{
+	if (!mtk_is_mmdvfs_init_done()) {
+		MMDVFS_DBG("mmdvfs_v3 init not ready");
+		return 0;
+	}
+
+	if (!enable)
+		mmdvfs_set_vdec_enable(false);
+	mtk_mmdvfs_enable_vcp(enable, VCP_PWR_USR_MMDVFS_VDEC_NOTIFY);
+	if (enable)
+		mmdvfs_set_vdec_enable(true);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_mmdvfs_vdec_notify);
+
+static int mmdvfs_set_vmm_en_cam_clk(const bool enable)
+{
+	if (!mmdvfs_ipi_start_base) {
+		MMDVFS_ERR("mmdvfs_ipi_start_base is NULL");
+		return -EINVAL;
+	}
+
+	writel(enable ? 1 : 0, mmdvfs_ipi_start_base + MMDVFS_VMM_EN_CAM_CLK_OFFSET);
+	if (is_vcp_ready_ex(VCP_A_ID))
+		mmdvfs_set_vcp_init();
+
+	return 0;
+}
+
 void cam_notify_work_func(struct work_struct *work)
 {
 	struct mmdvfs_cam_notify_work *cam_notify_work =
@@ -650,6 +717,7 @@ int mtk_mmdvfs_camera_notify(const bool genpd_update, const bool enable)
 
 	MMDVFS_DBG("genpd_update:%u enable:%u", genpd_update, enable);
 	if (genpd_update) {
+		mmdvfs_set_vmm_en_cam_clk(enable);
 		if (!cam_notify_wq) {
 			MMDVFS_ERR("no came notify wq");
 			return -ENODEV;
@@ -673,12 +741,12 @@ EXPORT_SYMBOL_GPL(mtk_mmdvfs_camera_notify);
 int mtk_mmdvfs_camera_notify_from_mmqos(const bool enable)
 {
 
-	if (!mmdvfs_vmm_ceil_enable_base) {
-		MMDVFS_ERR("mmdvfs_vmm_ceil_enable_base is NULL");
+	if (!mmdvfs_ipi_start_base) {
+		MMDVFS_ERR("mmdvfs_ipi_start_base is NULL");
 		return -EINVAL;
 	}
 
-	writel(enable ? 1 : 0, mmdvfs_vmm_ceil_enable_base);
+	writel(enable ? 1 : 0, mmdvfs_ipi_start_base + MMDVFS_VMM_CEIL_ENABLE_OFFSET);
 	if (is_vcp_ready_ex(VCP_A_ID))
 		mmdvfs_set_vcp_init();
 
@@ -850,43 +918,6 @@ static int mmdvfs_vcp_notifier_callback(struct notifier_block *nb, unsigned long
 	}
 	return NOTIFY_DONE;
 }
-
-static int mmdvfs_set_vmm_init(const char *val, const struct kernel_param *kp)
-{
-	int ret;
-	unsigned int bin, aging;
-
-	ret = sscanf(val, "%u %u", &bin, &aging);
-	if (ret != 2) {
-		MMDVFS_ERR("input failed:%d val:%s", ret, val);
-		return -EINVAL;
-	}
-
-	if (!mmdvfs_vb_enable_base) {
-		MMDVFS_ERR("mmdvfs_vb_enable_base is NULL");
-		return ret;
-	}
-
-	if (!mmdvfs_aging_enable_base) {
-		MMDVFS_ERR("mmdvfs_aging_enable_base is NULL");
-		return ret;
-	}
-
-	writel(bin, mmdvfs_vb_enable_base);
-	writel(aging, mmdvfs_aging_enable_base);
-	mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VMM, 0);
-	mtk_mmdvfs_v3_set_vote_step(PWR_MMDVFS_VMM, -1);
-
-	MMDVFS_DBG("ret:%d bin:%u aging:%u", ret, bin, aging);
-
-	return ret;
-}
-
-static struct kernel_param_ops mmdvfs_vmm_init_ops = {
-	.set = mmdvfs_set_vmm_init,
-};
-module_param_cb(vmm_init, &mmdvfs_vmm_init_ops, NULL, 0644);
-MODULE_PARM_DESC(vmm_init, "set vmm initialization");
 
 static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 			unsigned long pm_event, void *unused)
