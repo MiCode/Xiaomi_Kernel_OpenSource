@@ -1262,7 +1262,7 @@ int smi_get_larb_dump(const char *val, const struct kernel_param *kp)
 	s32		result, larb_id, ret;
 
 	result = kstrtoint(val, 0, &larb_id);
-	if (result || larb_id < 0) {
+	if (result || larb_id < 0 || larb_id >= MTK_SMI_NR_MAX) {
 		pr_notice("SMI get larb dump failed: %d\n", result);
 		return result;
 	}
@@ -1287,7 +1287,7 @@ int smi_put_larb(const char *val, const struct kernel_param *kp)
 	s32		result, larb_id;
 
 	result = kstrtoint(val, 0, &larb_id);
-	if (result || larb_id < 0) {
+	if (result || larb_id < 0 || larb_id >= MTK_SMI_NR_MAX) {
 		pr_notice("SMI put larb failed: %d\n", result);
 		return result;
 	}
