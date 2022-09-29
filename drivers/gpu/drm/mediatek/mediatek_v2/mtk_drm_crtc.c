@@ -12142,7 +12142,9 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 
 	/* set bpc by panel info */
 	if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params) {
-		mtk_crtc->bpc = mtk_crtc->panel_ext->params->dsc_params.bit_per_channel;
+		if (output_comp)
+			mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_GET_BPC,
+						&mtk_crtc->bpc);
 		DDPINFO("%s, bpc = %d\n", __func__, mtk_crtc->bpc);
 	} else if (!mtk_crtc->panel_ext) {
 		DDPINFO("%s, set bpc fail, mtk_crtc->bpc NULL\n", __func__);

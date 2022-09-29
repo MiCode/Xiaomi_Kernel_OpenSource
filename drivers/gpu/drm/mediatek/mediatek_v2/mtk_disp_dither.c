@@ -400,6 +400,15 @@ static void mtk_dither_config(struct mtk_ddp_comp *comp,
 
 }
 
+static void mtk_dither_first_cfg(struct mtk_ddp_comp *comp,
+	       struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
+{
+	DDPINFO("%s g_gamma_data_mode=%ud cfg->bpc=%d\n",
+		__func__, g_gamma_data_mode, cfg->bpc);
+
+	mtk_dither_config(comp, cfg, handle);
+}
+
 static void mtk_dither_start(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle)
 {
@@ -719,6 +728,7 @@ int mtk_drm_ioctl_set_dither_param(struct drm_device *dev, void *data,
 
 static const struct mtk_ddp_comp_funcs mtk_disp_dither_funcs = {
 	.config = mtk_dither_config,
+	.first_cfg = mtk_dither_first_cfg,
 	.start = mtk_dither_start,
 	.stop = mtk_dither_stop,
 	.bypass = mtk_dither_bypass,

@@ -8555,6 +8555,32 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			panel_ext->funcs->read_panelid(dsi->panel, panelid);
 	}
 		break;
+	case DSI_GET_BPC:
+	{
+		unsigned int *bpc = (unsigned int *)params;
+
+		DDPINFO("DSI_GET_BPC\n");
+		panel_ext = mtk_dsi_get_panel_ext(comp);
+		if (panel_ext && panel_ext->params)
+			*bpc = panel_ext->params->dsc_params.bit_per_channel;
+
+		if (*bpc == 0) {
+			switch (dsi->format) {
+			case MIPI_DSI_FMT_RGB565:
+				*bpc = 5;
+				break;
+			case MIPI_DSI_FMT_RGB666_PACKED:
+				*bpc = 6;
+				break;
+			case MIPI_DSI_FMT_RGB666:
+			case MIPI_DSI_FMT_RGB888:
+			default:
+				*bpc = 8;
+				break;
+			}
+		}
+	}
+		break;
 	default:
 		break;
 	}
