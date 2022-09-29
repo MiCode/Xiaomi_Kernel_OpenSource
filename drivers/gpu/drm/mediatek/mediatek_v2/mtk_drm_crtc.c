@@ -11060,6 +11060,19 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	if (mtk_crtc->is_mml)
 		mtk_drm_wait_mml_submit_done(&(mtk_crtc->mml_cb));
 
+#if IS_ENABLED(CONFIG_MTK_DISP_DEBUG)
+	if (g_wr_reg.after_commit == 1) {
+		int k;
+
+		for (k = 0; k < g_wr_reg.index; k++) {
+			DDPINFO("[reg_dbg] reg_wr: addr:0x%x, val:0x%x, mask:0x%x\n",
+				g_wr_reg.reg[k].addr, g_wr_reg.reg[k].val, g_wr_reg.reg[k].mask);
+			cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
+				g_wr_reg.reg[k].addr, g_wr_reg.reg[k].val, g_wr_reg.reg[k].mask);
+		}
+	}
+#endif
+
 	mtk_drm_idlemgr_kick(__func__, crtc, false); /* update kick timestamp */
 
 #ifndef DRM_CMDQ_DISABLE

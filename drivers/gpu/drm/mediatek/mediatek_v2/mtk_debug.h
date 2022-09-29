@@ -99,4 +99,20 @@ enum mtk_drm_mml_dbg {
 	MMP_MML_SUBMIT = 0x4000,
 };
 
+#if IS_ENABLED(CONFIG_MTK_DISP_DEBUG)
+struct reg_dbg {
+	uint32_t addr;
+	uint32_t val;
+	uint32_t mask;
+};
+
+struct wr_online_dbg {
+	struct reg_dbg reg[64];
+	uint32_t index;
+	uint32_t after_commit;
+};
+
+extern struct wr_online_dbg g_wr_reg;
+#endif
+
 #endif

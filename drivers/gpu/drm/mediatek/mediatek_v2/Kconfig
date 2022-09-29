@@ -38,3 +38,9 @@ config MTK_DISP_LOGGER
 	  initial display loggger during driver probe
 	  stage, but can still manual disable this function
 	  through debugfs or procfs.
+
+config MTK_DISP_DEBUG
+	bool "Support display debug function, default disable in user load"
+	help
+	  Used to debug for display module, only needed by developers.
+	  The function sould be disabled in user load for security.

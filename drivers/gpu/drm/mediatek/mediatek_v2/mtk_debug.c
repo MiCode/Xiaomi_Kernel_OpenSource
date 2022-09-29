@@ -95,6 +95,9 @@ unsigned int disp_cm_bypass;
 static unsigned int m_old_pq_persist_property[32];
 unsigned int m_new_pq_persist_property[32];
 unsigned int g_mml_mode;
+#if IS_ENABLED(CONFIG_MTK_DISP_DEBUG)
+struct wr_online_dbg g_wr_reg;
+#endif
 
 int gCaptureOVLEn;
 int gCaptureWDMAEn;
@@ -2150,6 +2153,44 @@ void mtk_drm_del_cb_data(struct cmdq_cb_data data, unsigned int crtc_id)
 	spin_unlock_irqrestore(&cb_data_clock_lock, flags);
 }
 
+#if IS_ENABLED(CONFIG_MTK_DISP_DEBUG)
+static bool is_disp_reg(uint32_t addr, char *comp_name, uint32_t comp_name_len)
+{
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_ddp_comp *comp;
+	int i, j;
+
+	drm_for_each_crtc(crtc, drm_dev) {
+		if (!crtc) {
+			DDPPR_ERR("find crtc fail\n");
+			continue;
+		}
+
+		mtk_crtc = to_mtk_crtc(crtc);
+		if (!crtc->enabled || mtk_crtc->ddp_mode == DDP_NO_USE)
+			continue;
+
+		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
+			if (addr >= comp->regs_pa && addr < comp->regs_pa + 0x1000) {
+				mtk_ddp_comp_get_name(comp, comp_name, comp_name_len);
+				return true;
+			}
+		}
+
+		if (mtk_crtc->is_dual_pipe) {
+			for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+				if (addr >= comp->regs_pa && addr < comp->regs_pa + 0x1000) {
+					mtk_ddp_comp_get_name(comp, comp_name, comp_name_len);
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+#endif
+
 static void process_dbg_opt(const char *opt)
 {
 	DDPINFO("display_debug cmd %s\n", opt);
@@ -3309,6 +3350,97 @@ static void process_dbg_opt(const char *opt)
 		mtk_ddp_comp_io_cmd(comp, NULL,	DSI_SET_CRTC_AVAIL_MODES, mtk_crtc);
 		DDPINFO("[Fake mode] avail_modes_num:%d->%d\n",
 							tmp, mtk_crtc->avail_modes_num);
+#if IS_ENABLED(CONFIG_MTK_DISP_DEBUG)
+	} else if (strncmp(opt, "after_commit:", strlen("after_commit:")) == 0) {
+		int ret;
+
+		memset(&g_wr_reg, 0, sizeof(g_wr_reg));
+		ret = sscanf(opt, "after_commit:%u\n", &g_wr_reg.after_commit);
+		if (ret != 1) {
+			DDPPR_ERR("[reg_dbg] error to parse cmd %s\n", opt);
+			return;
+		}
+		DDPMSG("[reg_dbg] set after_commit:%u\n", g_wr_reg.after_commit);
+	} else if (strncmp(opt, "gce_wr:", strlen("gce_wr:")) == 0) {
+		uint32_t addr, val, mask;
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+		struct cmdq_pkt *handle;
+		char comp_name[64] = {0};
+		int ret;
+
+		ret = sscanf(opt, "gce_wr:%x,%x,%x\n", &addr, &val, &mask);
+		if (ret != 3) {
+			DDPPR_ERR("[reg_dbg] error to parse cmd %s\n", opt);
+			return;
+		}
+
+		if (!is_disp_reg(addr, comp_name, sizeof(comp_name))) {
+			DDPPR_ERR("[reg_dbg] not display register!\n");
+			return;
+		}
+
+		DDPMSG("[reg_dbg] comp:%s, addr:0x%x, val:0x%x, mask:0x%x\n",
+				comp_name, addr, val, mask);
+		if (g_wr_reg.after_commit == 1) {
+			g_wr_reg.reg[g_wr_reg.index].addr = addr;
+			g_wr_reg.reg[g_wr_reg.index].val = val;
+			g_wr_reg.reg[g_wr_reg.index].mask = mask;
+			if (g_wr_reg.index < 63)
+				g_wr_reg.index++;
+		} else {
+			/* this debug cmd only for crtc0 */
+			crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+						typeof(*crtc), head);
+			if (!crtc) {
+				DDPPR_ERR("[reg_dbg] find crtc fail\n");
+				return;
+			}
+
+			mtk_crtc = to_mtk_crtc(crtc);
+
+			mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
+					mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+					addr, val, mask);
+			cmdq_pkt_flush(handle);
+			cmdq_pkt_destroy(handle);
+		}
+	} else if (strncmp(opt, "gce_rd:", strlen("gce_rd:")) == 0) {
+		uint32_t addr, val;
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+		struct cmdq_pkt *handle;
+		struct cmdq_pkt_buffer *cmdq_buf;
+		int ret;
+
+		ret = sscanf(opt, "gce_rd:%x\n", &addr);
+		if (ret != 1) {
+			DDPPR_ERR("[reg_dbg] error to parse cmd %s\n", opt);
+			return;
+		}
+
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+		if (!crtc) {
+			DDPPR_ERR("[reg_dbg] find crtc fail\n");
+			return;
+		}
+
+		mtk_crtc = to_mtk_crtc(crtc);
+		cmdq_buf = &(mtk_crtc->gce_obj.buf);
+
+		mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
+				mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+		cmdq_pkt_mem_move(handle, NULL, addr,
+				cmdq_buf->pa_base + DISP_SLOT_TE1_EN, CMDQ_THR_SPR_IDX1);
+		cmdq_pkt_flush(handle);
+		cmdq_pkt_destroy(handle);
+
+		val = *(unsigned int *)(cmdq_buf->va_base + DISP_SLOT_TE1_EN);
+		DDPMSG("[reg_dbg] gce_rd: addr(0x%x) = 0x%x\n", addr, val);
+#endif
 	} else if (strncmp(opt, "esd_check", 9) == 0) {
 		unsigned int esd_check_en = 0;
 		struct drm_crtc *crtc;
