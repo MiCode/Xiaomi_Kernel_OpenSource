@@ -34,6 +34,7 @@ enum vcp_pwr_usr {
 	VCP_PWR_USR_SENIF,
 	VCP_PWR_USR_PDA,
 	VCP_PWR_USR_VDEC,
+	VCP_PWR_USR_SMI,
 	VCP_PWR_USR_NUM
 };
 
