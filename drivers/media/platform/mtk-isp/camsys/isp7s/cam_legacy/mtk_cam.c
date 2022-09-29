@@ -7719,7 +7719,8 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 		s_raw_pipe_data->used_tag_cnt += req_amount;
 		s_raw_pipe_data->enabled_sv_tags |= idle_tags;
 	} else if (config_pipe && !mtk_cam_scen_is_mstream(scen) &&
-		!mtk_cam_scen_is_mstream_m2m(scen) && !mtk_cam_scen_is_subsample(scen)) {
+		!mtk_cam_scen_is_mstream_m2m(scen) && !mtk_cam_scen_is_subsample(scen) &&
+		!mtk_cam_is_hsf(ctx)) {
 #if PURE_RAW_WITH_SV
 		unsigned int hw_scen, exp_no, req_amount;
 		unsigned int idle_tags, seninf_padidx, tag_order;
@@ -8252,7 +8253,8 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 		ctx->sv_dev->used_tag_cnt += req_amount;
 	} else if (config_pipe && !mtk_cam_scen_is_mstream(scen_active) &&
 		!mtk_cam_scen_is_mstream_m2m(scen_active) &&
-		!mtk_cam_scen_is_subsample(scen_active)) {
+		!mtk_cam_scen_is_subsample(scen_active) &&
+		!mtk_cam_is_hsf(ctx)) {
 #if PURE_RAW_WITH_SV
 		unsigned int hw_scen, exp_no, req_amount;
 		unsigned int idle_tags, seninf_padidx, tag_order;
