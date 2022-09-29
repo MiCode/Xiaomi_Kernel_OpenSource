@@ -212,6 +212,8 @@ struct usb_offload_dev {
 	bool default_use_sram;
 	int current_mem_mode;
 	bool is_streaming;
+	bool tx_streaming;
+	bool rx_streaming;
 	struct ssusb_offload *ssusb_offload_notify;
 	struct mutex dev_lock;
 };

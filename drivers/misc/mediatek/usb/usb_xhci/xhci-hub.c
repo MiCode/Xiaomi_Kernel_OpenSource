@@ -1293,6 +1293,10 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 		/* FIXME: What new port features do we need to support? */
 		switch (wValue) {
 		case USB_PORT_FEAT_SUSPEND:
+			if (xhci_vendor_is_streaming(xhci)) {
+				xhci_info(xhci, "%s - USB_OFFLOAD bypass\n", __func__);
+				break;
+			}
 			temp = readl(ports[wIndex]->addr);
 			if ((temp & PORT_PLS_MASK) != XDEV_U0) {
 				/* Resume the port to U0 first */
@@ -1547,6 +1551,10 @@ int xhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 		temp = xhci_port_state_to_neutral(temp);
 		switch (wValue) {
 		case USB_PORT_FEAT_SUSPEND:
+			if (xhci_vendor_is_streaming(xhci)) {
+				xhci_info(xhci, "%s - USB_OFFLOAD bypass\n", __func__);
+				break;
+			}
 			temp = readl(ports[wIndex]->addr);
 			xhci_dbg(xhci, "clear USB_PORT_FEAT_SUSPEND\n");
 			xhci_dbg(xhci, "PORTSC %04x\n", temp);

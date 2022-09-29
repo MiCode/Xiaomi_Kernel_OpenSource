@@ -625,7 +625,7 @@ static int xhci_mtk_setup(struct usb_hcd *hcd)
 	return ret;
 }
 
-static bool xhci_vendor_is_streaming(struct xhci_hcd *xhci)
+bool xhci_vendor_is_streaming(struct xhci_hcd *xhci)
 {
 	struct xhci_vendor_ops *ops = xhci_vendor_get_ops_(xhci);
 

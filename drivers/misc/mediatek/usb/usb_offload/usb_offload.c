@@ -58,12 +58,12 @@ module_param(usb_offload_log, uint, 0644);
 MODULE_PARM_DESC(usb_offload_log, "Enable/Disable USB Offload log");
 
 #define USB_OFFLOAD_MEM_DBG(fmt, args...) do { \
-		if (usb_offload_log > 2) \
+		if (usb_offload_log > 1) \
 			pr_info("UD, %s(%d) " fmt, __func__, __LINE__, ## args); \
 	} while (0)
 
 #define USB_OFFLOAD_INFO(fmt, args...) do { \
-		if (usb_offload_log > 1) \
+		if (1) \
 			pr_info("UO, %s(%d) " fmt, __func__, __LINE__, ## args); \
 	} while (0)
 
@@ -1633,11 +1633,29 @@ static long usb_offload_ioctl(struct file *fp,
 
 		ret = usb_offload_enable_stream(&uainfo);
 
-		if (cmd == USB_OFFLOAD_ENABLE_STREAM && ret == 0)
-			uodev->is_streaming = true;
+		if (cmd == USB_OFFLOAD_ENABLE_STREAM && ret == 0) {
+			switch (uainfo.direction) {
+			case 0:
+				uodev->tx_streaming = true;
+				break;
+			case 1:
+				uodev->rx_streaming = true;
+				break;
+			}
+		}
 
-		if (cmd == USB_OFFLOAD_DISABLE_STREAM)
-			uodev->is_streaming = false;
+		if (cmd == USB_OFFLOAD_DISABLE_STREAM) {
+			switch (uainfo.direction) {
+			case 0:
+				uodev->tx_streaming = false;
+				break;
+			case 1:
+				uodev->rx_streaming = false;
+				break;
+			}
+
+		}
+		uodev->is_streaming = uodev->tx_streaming || uodev->rx_streaming;
 
 		break;
 	}
