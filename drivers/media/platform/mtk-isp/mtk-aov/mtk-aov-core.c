@@ -293,7 +293,7 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 	if (data && len) {
 		if (cmd == AOV_SCP_CMD_START) {
 			if (atomic_read(&(core_info->aov_ready))) {
-				dev_info(aov_dev->dev, "%s: invalid aov ready state\n");
+				dev_info(aov_dev->dev, "%s: invalid aov ready state\n", __func__);
 				return -EIO;
 			}
 
@@ -526,7 +526,8 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		ret = slbc_release(&slb);
 		AOV_TRACE_END();
 		if (ret < 0) {
-			dev_info(aov_dev->dev, "failed to release slb buffer: %d", ret);
+			dev_info(aov_dev->dev, "%s: failed to release slb buffer: %d",
+				__func__, ret);
 			return ret;
 		}
 #else
@@ -1297,11 +1298,11 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 
 		// Free aov_start buffer
 		if (core_info->aov_start) {
-			dev_info(aov_dev->dev, "aov force free init+");
+			dev_info(aov_dev->dev, "%s: aov force free init+", __func__);
 			spin_lock_irqsave(&core_info->buf_lock, flag);
 			tlsf_free(&(core_info->alloc), core_info->aov_start);
 			spin_unlock_irqrestore(&core_info->buf_lock, flag);
-			dev_info(aov_dev->dev, "aov force free init-");
+			dev_info(aov_dev->dev, "%s: aov force free init-", __func__);
 		}
 
 		// Reset event to empty
@@ -1325,6 +1326,8 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 			core_info->sensor_id, DEINIT_ABNORMAL_USR_FD_KILL);
 
 		dev_info(aov_dev->dev, "%s: force aov deinit-: (%d)", __func__, ret);
+
+		atomic_set(&(core_info->aov_ready), 0);
 
 		ret = 1;
 	}

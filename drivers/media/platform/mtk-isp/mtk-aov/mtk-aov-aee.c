@@ -30,7 +30,7 @@ int proc_open(struct inode *inode, struct file *file)
 
 	const char *name;
 
-	try_module_get(THIS_MODULE);
+	(void)try_module_get(THIS_MODULE);
 
 	name = file->f_path.dentry->d_name.name;
 	if (!strcmp(name, "kernel")) {
@@ -174,8 +174,9 @@ int aov_aee_flush(struct mtk_aov *aov_dev)
 		dev_dbg(aov_dev->dev, "%s: flush offset(%d), remain(%d)\n",
 			__func__, offset, remain);
 
-		if ((offset >= 0) &&
-				(offset < AOV_AEE_MAX_BUFFER_SIZE) && (remain > 0)) {
+		if ((index >= 0) && (index < AOV_AEE_MAX_RECORD_COUNT) &&
+				(offset >= 0) && (offset < AOV_AEE_MAX_BUFFER_SIZE) &&
+				(remain > 0)) {
 			dev_dbg(aov_dev->dev, "%s: flush time(%lld), seq(%d), cmd(%d)\n",
 			__func__, record->data[index].op_time,
 				record->data[index].op_seq, record->data[index].op_code);
