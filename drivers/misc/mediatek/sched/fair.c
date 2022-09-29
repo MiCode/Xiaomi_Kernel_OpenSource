@@ -593,7 +593,7 @@ int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool laten
 		}
 		/* best idle (lightest sleep) cpu per gear existed */
 		if (best_idle_cpu_per_gear != -1) {
-			pwr = calc_pwr(best_idle_cpu_per_gear, cpu_util);
+			pwr = calc_pwr_eff(best_idle_cpu_per_gear, cpu_util);
 			if (best_idle_pwr > pwr) {
 				best_idle_pwr = pwr;
 				best_idle_cpu = best_idle_cpu_per_gear;
@@ -609,7 +609,7 @@ int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool laten
 			}
 		} else if (max_spare_cap_cpu_per_gear != -1) {
 			/* calculate power consumption of candidate cpu per gear */
-			pwr = calc_pwr(max_spare_cap_cpu_per_gear, cpu_util);
+			pwr = calc_pwr_eff(max_spare_cap_cpu_per_gear, cpu_util);
 			/* if cpu power is better, select it as candidate */
 			if (best_pwr > pwr) {
 				best_pwr = pwr;

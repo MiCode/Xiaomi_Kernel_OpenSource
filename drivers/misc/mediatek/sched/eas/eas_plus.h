@@ -121,6 +121,7 @@ extern void mtk_sched_newidle_balance(void *data, struct rq *this_rq,
 #endif
 
 extern unsigned long calc_pwr(int cpu, unsigned long task_util);
+extern unsigned long calc_pwr_eff(int cpu, unsigned long cpu_util);
 #endif
 
 extern int migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target,
