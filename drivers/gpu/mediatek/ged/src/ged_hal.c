@@ -929,7 +929,7 @@ static ssize_t fallback_frequency_adjust_store(struct kobject *kobj,
 	if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtouint(acBuffer, 0, &u32Value) == 0) {
-				if (u32Value >= 0 && u32Value <= 1)
+				if (u32Value <= 1)
 					g_fallback_frequency_adjust = u32Value;
 			}
 		}
