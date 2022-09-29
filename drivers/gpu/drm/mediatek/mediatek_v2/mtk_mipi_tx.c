@@ -3280,6 +3280,77 @@ void mtk_mipi_tx_pll_rate_switch_gce(struct phy *phy,
 	DDPINFO("%s-\n", __func__);
 }
 
+void mtk_mipi_tx_pll_rate_switch_gce_mt6886(struct phy *phy,
+		void *handle, unsigned long rate)
+{
+	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
+	unsigned int txdiv, txdiv0, txdiv1, tmp;
+	u32 reg_val;
+	unsigned int fbksel;
+
+	DDPINFO("%s+ %lu\n", __func__, rate);
+
+	/* parameter rate should be MHz */
+	if (rate >= 6000) {
+		txdiv = 1;
+		txdiv0 = 0;
+		txdiv1 = 0;
+	} else if (rate >= 3000) {
+		txdiv = 2;
+		txdiv0 = 1;
+		txdiv1 = 0;
+	} else if (rate >= 2000) {
+		txdiv = 1;
+		txdiv0 = 0;
+		txdiv1 = 0;
+	} else if (rate >= 1500) {
+		txdiv = 4;
+		txdiv0 = 2;
+		txdiv1 = 0;
+	} else if (rate >= 1000) {
+		txdiv = 2;
+		txdiv0 = 1;
+		txdiv1 = 0;
+	} else if (rate >= 750) {
+		txdiv = 8;
+		txdiv0 = 3;
+		txdiv1 = 0;
+	} else if (rate >= 510) {
+		txdiv = 4;
+		txdiv0 = 2;
+		txdiv1 = 0;
+	} else {
+		return;
+	}
+	tmp = mipi_tx->driver_data->dsi_get_pcw(rate, txdiv);
+
+	fbksel = ((rate >> 1) * txdiv) >= 3800 ? 2 : 1;
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON1,
+			FLD_RG_DSI_PLL_FBSEL_MT6983, (fbksel - 1) << 13);
+
+	cmdq_pkt_write(handle, mipi_tx->cmdq_base,
+			mipi_tx->regs_pa + MIPITX_PLL_CON0, tmp, ~0);
+
+	reg_val = readl(mipi_tx->regs + MIPITX_PLL_CON1);
+
+	reg_val = reg_val & ~(mipi_tx->driver_data->dsi_pll_sdm_pcw_chg);
+
+	cmdq_pkt_write(handle, mipi_tx->cmdq_base,
+			mipi_tx->regs_pa + MIPITX_PLL_CON1, reg_val, ~0);
+
+	reg_val = reg_val | mipi_tx->driver_data->dsi_pll_sdm_pcw_chg;
+
+	cmdq_pkt_write(handle, mipi_tx->cmdq_base,
+			mipi_tx->regs_pa + MIPITX_PLL_CON1, reg_val, ~0);
+
+	reg_val = reg_val & ~(mipi_tx->driver_data->dsi_pll_sdm_pcw_chg);
+
+	cmdq_pkt_write(handle, mipi_tx->cmdq_base,
+			mipi_tx->regs_pa + MIPITX_PLL_CON1, reg_val, ~0);
+
+	DDPINFO("%s-\n", __func__);
+}
+
 void mtk_mipi_tx_pll_rate_switch_gce_mt6983(struct phy *phy,
 		void *handle, unsigned long rate)
 {
@@ -4205,6 +4276,7 @@ static const struct mtk_mipitx_data mt6886_mipitx_data = {
 	.dsi_get_pcw = _dsi_get_pcw_mt6983,
 	.backup_mipitx_impedance = backup_mipitx_impedance_mt6886,
 	.refill_mipitx_impedance = refill_mipitx_impedance_mt6886,
+	.pll_rate_switch_gce = mtk_mipi_tx_pll_rate_switch_gce_mt6886,
 };
 
 static const struct mtk_mipitx_data mt6983_mipitx_cphy_data = {
