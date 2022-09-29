@@ -106,6 +106,7 @@
 
 #define PCIE_INT_STATUS_REG		0x184
 #define PCIE_AXIERR_COMPL_TIMEOUT	BIT(18)
+#define PCIE_AXI_READ_ERR		GENMASK(18, 16)
 #define PCIE_MSI_SET_ENABLE_REG		0x190
 #define PCIE_MSI_SET_ENABLE		GENMASK(PCIE_MSI_SET_NUM - 1, 0)
 
@@ -124,6 +125,7 @@
 
 #define PCIE_AXI0_ERR_ADDR_L		0xe00
 #define PCIE_AXI0_ERR_INFO		0xe08
+#define PCIE_ERR_STS_CLEAR		BIT(0)
 
 #define PCIE_ICMD_PM_REG		0x198
 #define PCIE_TURN_OFF_LINK		BIT(4)
@@ -1303,18 +1305,15 @@ static void pcie_android_rvh_do_serror(void *data, struct pt_regs *regs,
 		return;
 	}
 
-	val = readl_relaxed(pcie_port->base + PCIE_INT_STATUS_REG);
-	if (val & PCIE_AXIERR_COMPL_TIMEOUT) {
-		*ret = 1;
-		writel_relaxed(PCIE_AXIERR_COMPL_TIMEOUT,
-			       pcie_port->base + PCIE_INT_STATUS_REG);
-	}
-
 	pr_info("ltssm reg: %#x, PCIe interrupt status=%#x, AXI0 ERROR address=%#x, AXI0 ERROR status=%#x\n",
 		readl_relaxed(pcie_port->base + PCIE_LTSSM_STATUS_REG),
 		readl_relaxed(pcie_port->base + PCIE_INT_STATUS_REG),
 		readl_relaxed(pcie_port->base + PCIE_AXI0_ERR_ADDR_L),
 		readl_relaxed(pcie_port->base + PCIE_AXI0_ERR_INFO));
+
+	val = readl_relaxed(pcie_port->base + PCIE_INT_STATUS_REG);
+	if (val & PCIE_AXI_READ_ERR)
+		*ret = 1;
 
 	dump_stack();
 }
@@ -1326,6 +1325,7 @@ static void pcie_android_rvh_do_serror(void *data, struct pt_regs *regs,
  * @ret_val: bit[4:0]: LTSSM state (PCIe MAC offset 0x150 bit[28:24])
  *           bit[5]: DL_UP state (PCIe MAC offset 0x154 bit[8])
  *           bit[6]: Completion timeout status (PCIe MAC offset 0x184 bit[18])
+ *                   AXI fetch error (PCIe MAC offset 0x184 bit[17])
  */
 u32 mtk_pcie_dump_link_info(int port)
 {
@@ -1362,8 +1362,18 @@ u32 mtk_pcie_dump_link_info(int port)
 	ret_val |= PCIE_LTSSM_STATE(val);
 	val = readl_relaxed(pcie_port->base + PCIE_LINK_STATUS_REG);
 	ret_val |= (val >> 3) & BIT(5);
+
+	/* AXI read request error: AXI fetch error and completion timeout */
 	val = readl_relaxed(pcie_port->base + PCIE_INT_STATUS_REG);
-	ret_val |= (val >> 12) & BIT(6);
+	if (val & PCIE_AXI_READ_ERR) {
+		ret_val &= BIT(6);
+		/* Clear cmpltTO event */
+		writel_relaxed(PCIE_AXI_READ_ERR,
+			       pcie_port->base + PCIE_INT_STATUS_REG);
+		/* Clear error status */
+		writel_relaxed(PCIE_ERR_STS_CLEAR,
+			       pcie_port->base + PCIE_AXI0_ERR_INFO);
+	}
 
 	pr_info("ltssm reg:%#x, link sta:%#x, power sta:%#x, IP basic sta:%#x, int sta:%#x, axi err add:%#x, axi err info:%#x\n",
 		readl_relaxed(pcie_port->base + PCIE_LTSSM_STATUS_REG),
