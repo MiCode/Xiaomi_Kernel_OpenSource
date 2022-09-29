@@ -65,9 +65,9 @@ EXPORT_SYMBOL(mtk_vdec_vcp_log);
 char *mtk_venc_vcp_log = "";
 EXPORT_SYMBOL(mtk_venc_vcp_log);
 
-/* For venc slb release info */
-struct VENC_SLB_RELEASE_T mtk_venc_slb_info = {0};
-EXPORT_SYMBOL(mtk_venc_slb_info);
+/* For venc slb cb info */
+struct VENC_SLB_CB_T mtk_venc_slb_cb = {0};
+EXPORT_SYMBOL(mtk_venc_slb_cb);
 
 /* For vcp vdec sec mem debug */
 int mtk_vdec_sw_mem_sec;

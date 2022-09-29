@@ -41,20 +41,12 @@ int mtk_slb_user_activate_request(struct slbc_data *d)
 {
 	int ret = 1;
 
-	mtk_v4l2_debug(0, "slb %d/%d/%d, w/h %d/%d, fps %d, opr %d",
-		mtk_venc_slb_info.use_slbc, mtk_venc_slb_info.release_slbc,
-		mtk_venc_slb_info.request_slbc, mtk_venc_slb_info.width,
-		mtk_venc_slb_info.height, mtk_venc_slb_info.frm_rate,
-		mtk_venc_slb_info.operationrate);
-
-	if ((mtk_venc_slb_info.width == 0) && (mtk_venc_slb_info.height == 0) &&
-		(mtk_venc_slb_info.frm_rate == 0) && (mtk_venc_slb_info.operationrate == 0)) {
-		mtk_v4l2_debug(0, "venc is not required slb");
-		ret = 0;
-	} else {
-		mtk_v4l2_debug(0, "venc is required slb");
-		mtk_venc_slb_info.request_slbc = 1;
-	}
+	atomic_set(&mtk_venc_slb_cb.request_slbc, 1);
+	mtk_v4l2_debug(0, "slb_cb %d/%d cnt %d/%d",
+		atomic_read(&mtk_venc_slb_cb.release_slbc),
+		atomic_read(&mtk_venc_slb_cb.request_slbc),
+		atomic_read(&mtk_venc_slb_cb.perf_used_cnt),
+		atomic_read(&mtk_venc_slb_cb.later_cnt));
 
 	return ret;
 }
@@ -69,30 +61,22 @@ int mtk_slb_user_activate_request(struct slbc_data *d)
  */
 int mtk_slb_user_deactivate_request(struct slbc_data *d)
 {
-	int ret = 1;
+	int ret;
 
-	mtk_v4l2_debug(0, "slb %d/%d/%d, w/h %d/%d, fps %d, opr %d",
-		mtk_venc_slb_info.use_slbc, mtk_venc_slb_info.release_slbc,
-		mtk_venc_slb_info.request_slbc, mtk_venc_slb_info.width,
-		mtk_venc_slb_info.height, mtk_venc_slb_info.frm_rate,
-		mtk_venc_slb_info.operationrate);
-
-	if (mtk_venc_slb_info.use_slbc == 1) {
-		if (((mtk_venc_slb_info.width >= 3840) && (mtk_venc_slb_info.height >= 2160) &&
-		(mtk_venc_slb_info.frm_rate >= 30)) ||
-		((mtk_venc_slb_info.width >= 1920) && (mtk_venc_slb_info.height >= 1080) &&
-		(mtk_venc_slb_info.operationrate >= 120)) ||
-		((mtk_venc_slb_info.width >= 1280) && (mtk_venc_slb_info.height >= 720) &&
-		(mtk_venc_slb_info.operationrate >= 240))) {
-			mtk_v4l2_debug(0, "venc unable to release SLB");
-			ret = 0;
-		} else {
-			mtk_v4l2_debug(0, "venc able to release SLB");
-			mtk_venc_slb_info.release_slbc = 1;
-		}
+	if (atomic_read(&mtk_venc_slb_cb.perf_used_cnt) > 0) {
+		mtk_v4l2_debug(0, "venc unable to release SLB");
+		ret = 0;
 	} else {
-		mtk_v4l2_debug(0, "SLB released, venc does not use SLB");
+		mtk_v4l2_debug(0, "venc able to release SLB");
+		atomic_set(&mtk_venc_slb_cb.release_slbc, 1);
+		ret = 1;
 	}
+
+	mtk_v4l2_debug(0, "slb_cb %d/%d cnt %d/%d",
+		atomic_read(&mtk_venc_slb_cb.release_slbc),
+		atomic_read(&mtk_venc_slb_cb.request_slbc),
+		atomic_read(&mtk_venc_slb_cb.perf_used_cnt),
+		atomic_read(&mtk_venc_slb_cb.later_cnt));
 
 	return ret;
 }
@@ -108,7 +92,6 @@ void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 	slbc_ops.data = &ctx->sram_data;
 	slbc_ops.activate = mtk_slb_user_activate_request;
 	slbc_ops.deactivate = mtk_slb_user_deactivate_request;
-	memset(&mtk_venc_slb_info, 0, sizeof(struct VENC_SLB_RELEASE_T));
 
 	if (slbc_register_activate_ops(&slbc_ops) != 0) {
 		pr_info("register cb slbc_register_activate_ops fail\n");
@@ -124,10 +107,22 @@ void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 		pr_info("slbc_addr error 0x%x\n", ctx->slbc_addr);
 		ctx->use_slbc = 0;
 	}
-	mtk_venc_slb_info.use_slbc = ctx->use_slbc;
 
-	pr_info("slbc_request %d, 0x%x, 0x%llx\n",
-	ctx->use_slbc, ctx->slbc_addr, ctx->sram_data.paddr);
+	if (ctx->use_slbc == 1 && ctx->sram_data.ref == 1) {
+		atomic_set(&mtk_venc_slb_cb.release_slbc, 0);
+		atomic_set(&mtk_venc_slb_cb.request_slbc, 0);
+		atomic_set(&mtk_venc_slb_cb.perf_used_cnt, 0);
+		atomic_set(&mtk_venc_slb_cb.later_cnt, 0);
+	}
+
+	pr_info("slbc_request %d, 0x%x, 0x%llx, ref %d\n",
+	ctx->use_slbc, ctx->slbc_addr, ctx->sram_data.paddr, ctx->sram_data.ref);
+
+	mtk_v4l2_debug(0, "slb_cb %d/%d cnt %d/%d",
+		atomic_read(&mtk_venc_slb_cb.release_slbc),
+		atomic_read(&mtk_venc_slb_cb.request_slbc),
+		atomic_read(&mtk_venc_slb_cb.perf_used_cnt),
+		atomic_read(&mtk_venc_slb_cb.later_cnt));
 }
 
 int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
@@ -206,7 +201,26 @@ void mtk_venc_deinit_ctx_pm(struct mtk_vcodec_ctx *ctx)
 	if (ctx->use_slbc == 1) {
 		pr_debug("slbc_release, %p\n", &ctx->sram_data);
 		slbc_release(&ctx->sram_data);
+
+		pr_info("slbc_release ref %d\n", ctx->sram_data.ref);
+		if (ctx->sram_data.ref == 0) {
+			atomic_set(&mtk_venc_slb_cb.release_slbc, 0);
+			atomic_set(&mtk_venc_slb_cb.request_slbc, 0);
+			atomic_set(&mtk_venc_slb_cb.perf_used_cnt, 0);
+			atomic_set(&mtk_venc_slb_cb.later_cnt, 0);
+		}
+		if (ctx->enc_params.slbc_encode_performance)
+			atomic_dec(&mtk_venc_slb_cb.perf_used_cnt);
+	} else {
+		atomic_dec(&mtk_venc_slb_cb.later_cnt);
 	}
+
+	mtk_v4l2_debug(0, "slb_cb %d/%d perf %d cnt %d/%d",
+		atomic_read(&mtk_venc_slb_cb.release_slbc),
+		atomic_read(&mtk_venc_slb_cb.request_slbc),
+		ctx->enc_params.slbc_encode_performance,
+		atomic_read(&mtk_venc_slb_cb.perf_used_cnt),
+		atomic_read(&mtk_venc_slb_cb.later_cnt));
 }
 
 void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)

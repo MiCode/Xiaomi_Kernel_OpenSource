@@ -352,6 +352,7 @@ struct mtk_enc_params {
 	unsigned int    max_w;
 	unsigned int    max_h;
 	unsigned int    slbc_ready;
+	unsigned int    slbc_encode_performance;
 	unsigned int    i_qp;
 	unsigned int    p_qp;
 	unsigned int    b_qp;

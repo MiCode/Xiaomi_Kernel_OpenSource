@@ -32,7 +32,13 @@
 #define LOG_PROPERTY_SIZE 1024
 #define ROUND_N(X, N)   (((X) + ((N)-1)) & (~((N)-1)))    //only for N is exponential of 2
 #define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
-
+#define isENCODE_PERFORMANCE_USAGE(w, h, fr, opr) \
+		((((w) >= 3840 && (h) >= 2160 && (fr) >= 30) || \
+		((h) >= 3840 && (w) >= 2160 && (fr) >= 30) || \
+		((w) >= 1920 && (h) >= 1080 && (opr) >= 120) || \
+		((h) >= 1920 && (w) >= 1080 && (opr) >= 120) || \
+		((w) >= 1280 && (h) >= 720 && (opr) >= 240) || \
+		((h) >= 1280 && (w) >= 720 && (opr) >= 240)) ? (1) : (0))
 /**
  * enum eos_types  - encoder different eos types
  * @NON_EOS     : no eos, normal frame
@@ -127,16 +133,14 @@ extern char *mtk_venc_vcp_log;
 extern char mtk_venc_vcp_log_prev[LOG_PROPERTY_SIZE];
 extern int mtk_vdec_sw_mem_sec;
 extern int mtk_vdec_align_limit;
-struct VENC_SLB_RELEASE_T {
-	int use_slbc;
-	int release_slbc;
-	int request_slbc;
-	unsigned int width;
-	unsigned int height;
-	unsigned int frm_rate;
-	unsigned int operationrate;
+
+struct VENC_SLB_CB_T {
+	atomic_t release_slbc;
+	atomic_t request_slbc;
+	atomic_t perf_used_cnt;
+	atomic_t later_cnt; //cnt means that slb is not used now and will be used
 };
-extern struct VENC_SLB_RELEASE_T mtk_venc_slb_info;
+extern struct VENC_SLB_CB_T mtk_venc_slb_cb;
 
 #define DEBUG   1
 #define VCU_FPTR(x) (vcu_func.x)

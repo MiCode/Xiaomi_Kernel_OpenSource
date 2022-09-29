@@ -2226,11 +2226,6 @@ static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 	mtk_venc_set_param(ctx, &param);
 	ret = venc_if_set_param(ctx, VENC_SET_PARAM_ENC, &param);
 
-	mtk_venc_slb_info.width = param.width;
-	mtk_venc_slb_info.height = param.height;
-	mtk_venc_slb_info.frm_rate = param.frm_rate;
-	mtk_venc_slb_info.operationrate = param.operationrate;
-
 	mtk_v4l2_debug(0,
 	"fmt 0x%x, P/L %d/%d, w/h %d/%d, buf %d/%d, fps/bps %d/%d(%d), gop %d, ip# %d opr %d async %d grid size %d/%d b#%d, slbc %d maxqp %d minqp %d",
 	param.input_yuv_fmt, param.profile,
@@ -2241,6 +2236,21 @@ static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 	param.operationrate, ctx->async_mode,
 	(param.heif_grid_size>>16), param.heif_grid_size&0xffff,
 	param.num_b_frame, param.slbc_ready, param.max_qp, param.min_qp);
+
+	ctx->enc_params.slbc_encode_performance = isENCODE_PERFORMANCE_USAGE(param.width,
+		param.height, param.frm_rate, param.operationrate);
+	if (ctx->use_slbc == 1) {
+		if (ctx->enc_params.slbc_encode_performance)
+			atomic_inc(&mtk_venc_slb_cb.perf_used_cnt);
+	} else
+		atomic_inc(&mtk_venc_slb_cb.later_cnt);
+
+	mtk_v4l2_debug(0, "slb_cb %d/%d perf %d cnt %d/%d",
+		atomic_read(&mtk_venc_slb_cb.release_slbc),
+		atomic_read(&mtk_venc_slb_cb.request_slbc),
+		ctx->enc_params.slbc_encode_performance,
+		atomic_read(&mtk_venc_slb_cb.perf_used_cnt),
+		atomic_read(&mtk_venc_slb_cb.later_cnt));
 
 	if (ret) {
 		mtk_v4l2_err("venc_if_set_param failed=%d", ret);
@@ -2362,8 +2372,6 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 		mtk_venc_pmqos_end_inst(ctx);
 		mutex_unlock(&ctx->dev->enc_dvfs_mutex);
 	}
-
-	memset(&mtk_venc_slb_info, 0, sizeof(struct VENC_SLB_RELEASE_T));
 
 	if ((q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
 	     vb2_is_streaming(&ctx->m2m_ctx->out_q_ctx.q)) ||
