@@ -1750,7 +1750,7 @@ unsigned int mtk_cam_get_sv_tag_index(struct mtk_cam_ctx *ctx,
 int mtk_cam_sv_pipeline_config(struct mtk_camsv_device *camsv_dev)
 {
 	camsv_dev->sof_count = 0;
-
+	camsv_dev->tg_cnt = 0;
 	mtk_camsv_register_iommu_tf_callback(camsv_dev);
 
 	mtk_cam_sv_dmao_common_config(camsv_dev);
@@ -2354,7 +2354,8 @@ static irqreturn_t mtk_irq_camsv_sof(int irq, void *data)
 	tg_cnt =
 		readl_relaxed(camsv_dev->base + REG_CAMSVCENTRAL_VF_ST_TAG1 +
 				CAMSVCENTRAL_VF_ST_TAG_SHIFT * 3);
-	tg_cnt = (tg_cnt & 0xff000000) >> 24;
+	tg_cnt = (camsv_dev->tg_cnt & 0xffffff00) + ((tg_cnt & 0xff000000) >> 24);
+
 	dev_dbg(camsv_dev->dev, "camsv-%d: sof status:0x%x seq_no:%d_%d group_tags:0x%x_%x_%x_%x first_tag:0x%x last_tag:0x%x VF_ST_TAG4:%d",
 		camsv_dev->id, irq_sof_status,
 		dequeued_imgo_seq_no_inner, dequeued_imgo_seq_no,
@@ -2390,7 +2391,10 @@ static irqreturn_t mtk_irq_camsv_sof(int irq, void *data)
 	irq_info.irq_type |= (1 << CAMSYS_IRQ_FRAME_START);
 	camsv_dev->sof_count++;
 	camsv_dev->last_sof_time_ns = irq_info.ts_ns;
-	camsv_dev->tg_cnt = tg_cnt;
+	if (tg_cnt < camsv_dev->tg_cnt)
+		camsv_dev->tg_cnt = tg_cnt + BIT(8);
+	else
+		camsv_dev->tg_cnt = tg_cnt;
 	camsv_dev->sof_timestamp = ktime_get_boottime_ns();
 	irq_flag = irq_info.irq_type;
 	if (irq_flag && push_msgfifo(camsv_dev, &irq_info) == 0)

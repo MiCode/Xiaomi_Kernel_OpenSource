@@ -2208,6 +2208,7 @@ void initialize(struct mtk_raw_device *dev, int is_slave)
 
 	dev->is_slave = is_slave;
 	dev->sof_count = 0;
+	dev->tg_count = 0;
 	dev->vsync_count = 0;
 	dev->sub_sensor_ctrl_en = false;
 	dev->time_shared_busy = 0;
@@ -2642,7 +2643,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	fbc_fho_ctl2 =
 		readl_relaxed(REG_FBC_CTL2(raw_dev->base + FBC_R1A_BASE, 1));
 	tg_cnt = readl_relaxed(raw_dev->base + REG_TG_INTER_ST);
-	tg_cnt = (tg_cnt & 0xff000000) >> 24;
+	tg_cnt = (raw_dev->tg_count & 0xffffff00) + ((tg_cnt & 0xff000000) >> 24);
 	err_status = irq_status & INT_ST_MASK_CAM_ERR;
 
 	if (unlikely(debug_raw))
@@ -2696,7 +2697,10 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		raw_dev->sof_count++;
 
 		raw_dev->cur_vsync_idx = 0;
-		raw_dev->tg_count = tg_cnt;
+		if (tg_cnt < raw_dev->tg_count)
+			raw_dev->tg_count = tg_cnt + BIT(8);
+		else
+			raw_dev->tg_count = tg_cnt;
 		raw_dev->last_sof_time_ns = irq_info.ts_ns;
 		irq_info.write_cnt = ((fbc_fho_ctl2 & WCNT_BIT_MASK) >> 8) - 1;
 		irq_info.fbc_cnt = (fbc_fho_ctl2 & CNT_BIT_MASK) >> 16;

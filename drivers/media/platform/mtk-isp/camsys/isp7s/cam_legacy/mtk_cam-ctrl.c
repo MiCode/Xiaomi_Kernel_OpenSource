@@ -6750,9 +6750,11 @@ void mtk_cam_extisp_vf_reset(struct mtk_raw_pipeline *pipe)
 			cam = ctx->cam;
 			mtk_cam_raw_vf_reset(ctx, raw_dev);
 			raw_dev->sof_count = 0;
+			raw_dev->tg_count = 0;
 			camsv_dev = ctx->sv_dev;
 			mtk_cam_sv_vf_reset(ctx, camsv_dev);
 			camsv_dev->sof_count = 0;
+			camsv_dev->tg_cnt = 0;
 		}
 	}
 }
