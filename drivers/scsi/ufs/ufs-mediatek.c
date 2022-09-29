@@ -1823,8 +1823,11 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 		hba->caps |= UFSHCD_CAP_HIBERN8_WITH_CLK_GATING;
 
 	ufs_mtk_init_clocks(hba);
+
+#if IS_ENABLED(CONFIG_SCSI_UFS_MEDIATEK_DBG)
 	if (hba->caps & UFSHCD_CAP_CLK_SCALING)
 		ufs_mtk_init_clk_scaling_sysfs(hba);
+#endif
 
 	/*
 	 * ufshcd_vops_init() is invoked after
@@ -2732,8 +2735,11 @@ static int ufs_mtk_remove(struct platform_device *pdev)
 	ufs_mtk_remove_ufsf(hba);
 #endif
 
+
+#if IS_ENABLED(CONFIG_SCSI_UFS_MEDIATEK_DBG)
 	if (hba->caps & UFSHCD_CAP_CLK_SCALING)
 		ufs_mtk_remove_clk_scaling_sysfs(hba);
+#endif
 
 	ufshcd_remove(hba);
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
