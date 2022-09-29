@@ -78,6 +78,29 @@ static ssize_t min_brightness_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(min_brightness);
 
+static ssize_t max_hw_brightness_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct led_conf_info *led_conf =
+		container_of(led_cdev, struct led_conf_info, cdev);
+
+	return sprintf(buf, "%u\n", led_conf->max_hw_brightness);
+}
+static DEVICE_ATTR_RO(max_hw_brightness);
+
+static ssize_t led_mode_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct led_conf_info *led_conf =
+		container_of(led_cdev, struct led_conf_info, cdev);
+
+	return sprintf(buf, "%u\n", led_conf->mode);
+}
+static DEVICE_ATTR_RO(led_mode);
+
+
 #ifdef CONFIG_LEDS_MT_BRIGHTNESS_HW_CHANGED
 static ssize_t mt_brightness_hw_changed_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -373,6 +396,12 @@ int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode)
 		pr_info("No min-brightness, use default value 1");
 		mdev->conf.min_brightness = 1;
 	}
+	ret = fwnode_property_read_u32(fwnode,
+		"led_mode", &(mdev->conf.mode));
+	if (ret) {
+		pr_info("No min-brightness, use default value 1");
+		mdev->conf.mode = MT_LED_MODE_CUST_BLS_I2C;
+	}
 	mdev->conf.limit_hw_brightness = mdev->conf.max_hw_brightness;
 	ret = fwnode_property_read_string(fwnode, "default-state", &state);
 	if (!ret) {
@@ -420,6 +449,8 @@ EXPORT_SYMBOL_GPL(mt_leds_parse_dt);
 
 static struct attribute *led_class_attrs[] = {
 	&dev_attr_min_brightness.attr,
+	&dev_attr_max_hw_brightness.attr,
+	&dev_attr_led_mode.attr,
 	NULL,
 };
 
