@@ -824,6 +824,9 @@ static int panel_init_backlight_input_data(unsigned int level, unsigned int mode
 	unsigned int count = 0;
 	int ret = 0;
 
+	if (level > mode)
+		level = mode;
+
 	if (mode <= 0xff) {
 		count = 1;
 		if (mtk_lcm_create_input(input, count,
@@ -836,7 +839,6 @@ static int panel_init_backlight_input_data(unsigned int level, unsigned int mode
 		*data = level;
 	} else if (mode <= 0xffff) {
 		count = 2;
-		level = level * 4095 / 255;
 		if (mtk_lcm_create_input(input, count,
 				MTK_LCM_INPUT_TYPE_CURRENT_BACKLIGHT) < 0) {
 			DDPPR_ERR("%s, %d ended to alloc data\n", __func__, __LINE__);
@@ -873,9 +875,6 @@ static int panel_set_backlight(void *dsi, dcs_write_gce cb,
 
 	if (IS_ERR_OR_NULL(table) || table->size == 0)
 		return 0;
-
-	if (level > 255)
-		level = 255;
 
 	if (mtk_lcm_create_input_packet(&input, 1, 0) < 0)
 		return -ENOMEM;
@@ -923,9 +922,6 @@ static int panel_set_backlight_group(void *dsi, dcs_grp_write_gce cb,
 
 	if (IS_ERR_OR_NULL(table) || table->size == 0)
 		return 0;
-
-	if (level > 255)
-		level = 255;
 
 	if (mtk_lcm_create_input_packet(&input, 1, 0) < 0)
 		return -ENOMEM;
