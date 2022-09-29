@@ -620,21 +620,46 @@ static int mtk_uart_apdma_alloc_chan_resources(struct dma_chan *chan)
 	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
 	unsigned int status;
 	int ret;
-	if (mtkd->support_hub)
+	if (mtkd->support_hub) {
 		pr_info("debug: %s: clk_count[%d]\n", __func__, clk_count);
+		if (c->dir == DMA_MEM_TO_DEV) {
+			pr_info("INT_EN[0x%x] INT_FLAG[0x%x],\n"
+						"WPT[0x%x] RPT[0x%x] THRE[0x%x] LEN[0x%x]\n",
+				mtk_uart_apdma_read(c, VFF_INT_EN),
+				mtk_uart_apdma_read(c, VFF_INT_FLAG),
+				mtk_uart_apdma_read(c, VFF_WPT),
+				mtk_uart_apdma_read(c, VFF_RPT),
+				mtk_uart_apdma_read(c, VFF_THRE),
+				mtk_uart_apdma_read(c, VFF_LEN));
+		}
+	}
+
 	ret = pm_runtime_get_sync(mtkd->ddev.dev);
 	if (ret < 0) {
 		pm_runtime_put_noidle(chan->device->dev);
 		return ret;
 	}
 
-	mtk_uart_apdma_write(c, VFF_ADDR, 0);
-	mtk_uart_apdma_write(c, VFF_THRE, 0);
-	mtk_uart_apdma_write(c, VFF_LEN, 0);
-	mtk_uart_apdma_write(c, VFF_RST, VFF_WARM_RST_B);
+	if (c->dir == DMA_MEM_TO_DEV) {
+		mtk_uart_apdma_write(c, VFF_INT_EN, 0);
+		mtk_uart_apdma_write(c, VFF_ADDR, 0);
+		mtk_uart_apdma_write(c, VFF_THRE, 0xFFFF);
+		mtk_uart_apdma_write(c, VFF_WPT, 0);
+		mtk_uart_apdma_write(c, VFF_LEN, 0);
+		mtk_uart_apdma_write(c, VFF_RST, VFF_WARM_RST_B);
+	} else {
+		mtk_uart_apdma_write(c, VFF_ADDR, 0);
+		mtk_uart_apdma_write(c, VFF_THRE, 0);
+		mtk_uart_apdma_write(c, VFF_LEN, 0);
+		mtk_uart_apdma_write(c, VFF_RST, VFF_WARM_RST_B);
+	}
 
 	ret = readx_poll_timeout(readl, c->base + VFF_EN,
 			  status, !status, 10, 100);
+	//
+	if (c->dir == DMA_MEM_TO_DEV)
+		mtk_uart_apdma_write(c, VFF_THRE, 0);
+	//
 	if (ret)
 		goto err_pm;
 
@@ -651,6 +676,16 @@ static int mtk_uart_apdma_alloc_chan_resources(struct dma_chan *chan)
 		dev_info(chan->device->dev, "Can't enable dma IRQ wake\n");
 		ret = -EINVAL;
 		goto err_pm;
+	}
+
+	if (c->dir == DMA_MEM_TO_DEV) {
+		pr_info("INT_FLAG[0x%x] WPT[0x%x],\n"
+					"RPT[0x%x] THRE[0x%x] LEN[0x%x]\n",
+			mtk_uart_apdma_read(c, VFF_INT_FLAG),
+			mtk_uart_apdma_read(c, VFF_WPT),
+			mtk_uart_apdma_read(c, VFF_RPT),
+			mtk_uart_apdma_read(c, VFF_THRE),
+			mtk_uart_apdma_read(c, VFF_LEN));
 	}
 
 	if (mtkd->support_bits > VFF_ORI_ADDR_BITS_NUM)
