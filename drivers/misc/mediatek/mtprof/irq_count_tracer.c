@@ -194,14 +194,21 @@ static void __show_irq_count_info(unsigned int output)
 
 		for (irq = 0; irq < min_t(int, nr_irqs, MAX_IRQ_NUM); irq++) {
 			unsigned int count;
+			const char *irq_name;
 
 			count = irq_mon_irqs_cpu(irq, cpu);
 			if (!count)
 				continue;
 
-			irq_mon_msg(output, "    %d:%s +%d(%d)",
-				      irq, irq_to_name(irq),
-				      count - irq_cnt->count[irq], count);
+			irq_name = irq_to_name(irq);
+			if (irq_name && !strcmp(irq_name, "IPI"))
+				irq_mon_msg(output, "    %d:%s%d +%d(%d)",
+					    irq, irq_name, irq_to_ipi_type(irq),
+					    count - irq_cnt->count[irq], count);
+			else
+				irq_mon_msg(output, "    %d:%s +%d(%d)",
+					    irq, irq_name ? irq_name : "NULL",
+					    count - irq_cnt->count[irq], count);
 		}
 		irq_mon_msg(output, "");
 	}
