@@ -694,7 +694,7 @@ static struct dma_async_tx_descriptor *mtk_uart_apdma_prep_slave_sg
 	d = kzalloc(sizeof(*d), GFP_NOWAIT);
 	while ((!d) && (poll_cnt < MAX_POLLING_CNT)) {
 		udelay(4);
-		d = kzalloc(sizeof(*d), GFP_KERNEL);
+		d = kzalloc(sizeof(*d), GFP_NOWAIT);
 		poll_cnt++;
 	}
 	if (!d) {
