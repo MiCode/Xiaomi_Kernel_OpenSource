@@ -2623,10 +2623,12 @@ static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 			larb->larbid, atomic_read(&larb->smi.ref_count));
 	}
 
-	if (readl_relaxed(larb->base + SMI_LARB_STAT) ||
-			readl_relaxed(larb->base + INT_SMI_LARB_STAT)) {
-		pr_notice("[SMI]larb:%d, suspend but busy\n", larb->larbid);
-		raw_notifier_call_chain(&smi_driver_notifier_list, larb->larbid, larb);
+	if (larb->larbid != 12) {
+		if (readl_relaxed(larb->base + SMI_LARB_STAT) ||
+				readl_relaxed(larb->base + INT_SMI_LARB_STAT)) {
+			pr_notice("[SMI]larb:%d, suspend but busy\n", larb->larbid);
+			raw_notifier_call_chain(&smi_driver_notifier_list, larb->larbid, larb);
+		}
 	}
 
 	if (larb_gen->sleep_ctrl)
