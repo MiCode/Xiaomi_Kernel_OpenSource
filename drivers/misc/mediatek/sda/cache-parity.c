@@ -302,6 +302,7 @@ static irqreturn_t cache_parity_isr_v3(int irq, void *dev_id)
 	u64 sel = 0x1;
 	static const struct midr_range cpu_list[] = {
 		MIDR_ALL_VERSIONS(MIDR_CORTEX_A510), /* KLEIN */
+		{},
 	};
 
 	ecc_dump_debug_info();
