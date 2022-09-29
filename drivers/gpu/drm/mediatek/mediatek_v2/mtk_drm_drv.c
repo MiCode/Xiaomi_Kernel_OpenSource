@@ -5723,6 +5723,7 @@ static void mtk_drm_kms_deinit(struct drm_device *drm)
 	}
 }
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 int mtk_drm_fm_lcm_auto_test(struct drm_device *dev, void *data,
 			 struct drm_file *file_priv)
 {
@@ -5773,6 +5774,7 @@ int mtk_drm_fm_lcm_auto_test(struct drm_device *dev, void *data,
 	}
 	return 0;
 }
+#endif
 
 static const struct drm_ioctl_desc mtk_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MTK_GEM_CREATE, mtk_gem_create_ioctl,
@@ -5901,8 +5903,10 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_BYPASS_DISP_GAMMA, mtk_drm_ioctl_bypass_disp_gamma,
 		DRM_UNLOCKED),
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	DRM_IOCTL_DEF_DRV(MTK_FACTORY_LCM_AUTO_TEST, mtk_drm_fm_lcm_auto_test,
 			  DRM_UNLOCKED),
+#endif
 	DRM_IOCTL_DEF_DRV(MTK_GET_PQ_CAPS, mtk_drm_ioctl_get_pq_caps,
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_SET_PQ_CAPS, mtk_drm_ioctl_set_pq_caps,
