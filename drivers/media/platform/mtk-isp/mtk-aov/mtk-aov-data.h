@@ -54,8 +54,8 @@
 #define AOV_MAX_TUNING_SIZE       (2 * 1024)
 #define AOV_MAX_AIE_SIZE          (162 * 1024)
 
-#define AOV_MAX_YUVO1_OUTPUT      (640 * 480 + 640 * 240 + 32)  // 640 x 480
-#define AOV_MAX_YUVO2_OUTPUT      (384 * 240 + 384 * 120 + 32)  // 320 x 240
+#define AOV_MAX_YUVO1_OUTPUT      (737280 + 32)  // 640 x 480, nv12 12-bit
+#define AOV_MAX_YUVO2_OUTPUT      (184320 + 32)  // 320 x 240, nv12 12-bit
 #define AOV_MAX_AIE_OUTPUT        (32 * 1024)
 #define AOV_MAX_APU_OUTPUT        (256 * 1024)
 #define AOV_MAX_IMGO_OUTPUT       (921600 + 32)  // 640 x 480, bayer12
@@ -194,11 +194,12 @@ struct aov_user {
 	uint32_t sensor_bit;
 	uint32_t sensor_ae;
 	uint32_t format_order;
-	uint32_t frame_format;
 	uint32_t main_width;
 	uint32_t main_height;
+	uint32_t main_format;
 	uint32_t sub_width;
 	uint32_t sub_height;
+	uint32_t sub_format;
 	uint32_t frame_rate;
 	uint32_t frame_mode;
 	uint32_t debug_mode;
@@ -240,11 +241,12 @@ struct aov_init {
 	uint32_t sensor_bit;
 	uint32_t sensor_ae;
 	uint32_t format_order;
-	uint32_t frame_format;
 	uint32_t main_width;
 	uint32_t main_height;
+	uint32_t main_format;
 	uint32_t sub_width;
 	uint32_t sub_height;
+	uint32_t sub_format;
 	uint32_t frame_rate;
 	uint32_t frame_mode;
 	uint32_t debug_mode;
