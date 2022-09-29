@@ -289,6 +289,7 @@ static int vmm_notifier_probe(struct platform_device *pdev)
 	struct resource *res;
 
 	mutex_init(&ctrl_mutex);
+	mutex_init(&vde_mutex);
 
 	ret = of_property_read_u32(dev->of_node, "pd-id", &pd_id);
 	if (ret) {
