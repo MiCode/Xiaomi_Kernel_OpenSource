@@ -1115,12 +1115,19 @@ static int mtk_dsi_set_data_rate(struct mtk_dsi *dsi)
 
 void mtk_dsi_config_null_packet(struct mtk_dsi *dsi)
 {
-	u32 null_packet_len = dsi->ext->params->cmd_null_pkt_len;
+	u32 null_packet_len;
 
-	if (dsi->ext->params->lp_perline_en == 0 &&
+	if (IS_ERR_OR_NULL(dsi)) {
+		DDPPR_ERR("%s:%d with NULL dsi\n", __func__, __LINE__);
+		return;
+	}
+
+	if (dsi->ext && dsi->ext->params &&
+		dsi->ext->params->lp_perline_en == 0 &&
 		mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
 		dsi->ext->params->cmd_null_pkt_en) {
 		// hs mode
+		null_packet_len = dsi->ext->params->cmd_null_pkt_len;
 		mtk_dsi_mask(dsi, DSI_CMD_TYPE1_HS,
 				CMD_HS_HFP_BLANKING_NULL_EN,
 				CMD_HS_HFP_BLANKING_NULL_EN);
