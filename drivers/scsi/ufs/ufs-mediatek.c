@@ -834,7 +834,6 @@ static void ufs_mtk_trace_vh_send_command_vend_ss(void *data, struct ufs_hba *hb
 static void ufs_mtk_trace_vh_send_command(void *data, struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 {
 	struct scsi_cmnd *cmd = lrbp->cmd;
-	struct device_link *link;
 
 	if (!cmd)
 		return;
@@ -845,43 +844,6 @@ static void ufs_mtk_trace_vh_send_command(void *data, struct ufs_hba *hba, struc
 		ufs_mtk_biolog_check(1);
 	}
 #endif
-
-	/* Something wrong, trigger error dump and recovery */
-	if ((hba->curr_dev_pwr_mode == UFS_SLEEP_PWR_MODE) &&
-		(cmd->cmnd[0] != START_STOP)) {
-		dev_err(hba->dev, "Device suspend and send cmd:0x%x in lun:%d",
-			cmd->cmnd[0], lrbp->lun);
-		dev_err(hba->dev, "Device Wlun Runtime PM: req=%d, status:%d, err:%d, usage_count:%d, links_count:%d\n",
-			hba->sdev_ufs_device->sdev_gendev.power.request,
-			hba->sdev_ufs_device->sdev_gendev.power.runtime_status,
-			hba->sdev_ufs_device->sdev_gendev.power.runtime_error,
-			hba->sdev_ufs_device->sdev_gendev.power.usage_count,
-			hba->sdev_ufs_device->sdev_gendev.power.links_count);
-
-		list_for_each_entry(link,
-			&hba->sdev_ufs_device->sdev_gendev.links.consumers,
-			s_node) {
-			dev_err(hba->dev, "Consumer: %s Link: status:%d, rpm_active:%d, Runtime PM: req=%d, status:%d, err:%d, usage_count:%d, last_busy:%lld\n",
-				dev_name(link->consumer),
-				link->status,
-				link->rpm_active,
-				link->consumer->power.request,
-				link->consumer->power.runtime_status,
-				link->consumer->power.runtime_error,
-				link->consumer->power.usage_count,
-				link->consumer->power.last_busy);
-
-			/*
-			 * If consumer is active, wakeup supplier and increase
-			 * rpm_active, this is same as rpm_get_suppliers doing.
-			 */
-			if (link->consumer->power.runtime_status ==
-				RPM_ACTIVE) {
-				pm_runtime_get_sync(link->supplier);
-				refcount_inc(&link->rpm_active);
-			}
-		}
-	}
 }
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER) || defined(CONFIG_UFSFEATURE)
