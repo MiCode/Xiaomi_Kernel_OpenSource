@@ -943,7 +943,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.pdaf_cap = TRUE,
 		.imgsensor_pd_info = &imgsensor_pd_info,
-		.ae_binning_ratio = 1,
+		.ae_binning_ratio = 1000,
 		.fine_integ_line = 502,
 		.delay_frame = 3,
 		.csi_param = {
@@ -1273,7 +1273,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.pdaf_cap = TRUE,
 		.imgsensor_pd_info = &imgsensor_pd_info,
-		.ae_binning_ratio = 1,
+		.ae_binning_ratio = 1000,
 		.fine_integ_line = 502,
 		.delay_frame = 3,
 		.csi_param = {
@@ -1321,7 +1321,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.pdaf_cap = TRUE,
 		.imgsensor_pd_info = &imgsensor_pd_info,
-		.ae_binning_ratio = 1,
+		.ae_binning_ratio = 1000,
 		.fine_integ_line = 502,
 		.delay_frame = 3,
 		.csi_param = {
@@ -1463,7 +1463,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.pdaf_cap = TRUE,
 		.imgsensor_pd_info = &imgsensor_pd_info,
-		.ae_binning_ratio = 1,
+		.ae_binning_ratio = 1000,
 		.fine_integ_line = 751,
 		.delay_frame = 3,
 		.csi_param = {
