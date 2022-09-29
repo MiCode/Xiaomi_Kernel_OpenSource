@@ -324,7 +324,7 @@ static int lm3643_flash_brt_ctrl(struct lm3643_flash *flash,
 		pr_info("led_no error\n");
 		return -1;
 	}
-	pr_info("%s %d brt:%u", __func__, led_no, brt);
+	pr_info_ratelimited("%s %d brt:%u", __func__, led_no, brt);
 	if (brt < LM3643_FLASH_BRT_MIN)
 		return lm3643_enable_ctrl(flash, led_no, false);
 
@@ -351,7 +351,7 @@ static int lm3643_flash_tout_ctrl(struct lm3643_flash *flash,
 	int rval;
 	u8 tout_bits;
 
-	pr_info("%s tout:%u", __func__, tout);
+	pr_info_ratelimited("%s tout:%u", __func__, tout);
 	if (tout == 50)
 		tout_bits = 0x04;
 	else
