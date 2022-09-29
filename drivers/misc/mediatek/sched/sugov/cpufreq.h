@@ -15,6 +15,9 @@
 #define CAPACITY_ENTRY_SIZE 0x2
 #define REG_FREQ_SCALING 0x4cc
 #define LUT_ROW_SIZE 0x4
+#define SBB_ALL 0
+#define SBB_GROUP 1
+#define SBB_TASK 2
 
 #if !IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
 struct mtk_em_perf_state {
@@ -107,7 +110,9 @@ extern int set_sched_capacity_margin_dvfs(unsigned int capacity_margin);
 extern unsigned int get_sched_capacity_margin_dvfs(void);
 #endif
 #endif
-extern void set_busy_tick_boost(struct task_struct *p, bool set);
+extern void set_sbb(int flag, int pid, bool set);
+extern void set_sbb_active_ratio(int val);
+extern int get_sbb_active_ratio(void);
 extern int is_busy_tick_boost_all(void);
 extern unsigned int get_nr_gears(void);
 extern bool is_gearless_support(void);

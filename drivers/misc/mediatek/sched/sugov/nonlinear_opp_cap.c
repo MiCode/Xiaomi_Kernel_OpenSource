@@ -10,6 +10,7 @@
 #include <linux/sort.h>
 #include <sched/sched.h>
 #include <linux/energy_model.h>
+#include "common.h"
 #include "cpufreq.h"
 #include "sugov_trace.h"
 #if IS_ENABLED(CONFIG_MTK_GEARLESS_SUPPORT)
@@ -33,6 +34,7 @@ static bool freq_scaling_disabled = true;
 static int pd_count;
 static int entry_count;
 static int busy_tick_boost_all;
+static int sbb_active_ratio = 100;
 
 enum {
 	REG_FREQ_LUT_TABLE,
@@ -53,14 +55,48 @@ struct cpufreq_mtk {
 	cpumask_t related_cpus;
 };
 
-void set_busy_tick_boost(struct task_struct *p, bool set)
+void set_sbb(int flag, int pid, bool set)
 {
-	if (p)
-		p->android_vendor_data1[5] = set;
-	else
+	struct task_struct *p;
+
+	switch (flag) {
+	case SBB_ALL:
 		busy_tick_boost_all = set;
+		break;
+	case SBB_GROUP:
+		rcu_read_lock();
+		p = find_task_by_vpid(pid);
+		if (p) {
+			get_task_struct(p);
+			p->sched_task_group->android_vendor_data1[TG_SBB_FLG] = set;
+			put_task_struct(p);
+		}
+		rcu_read_unlock();
+		break;
+	case SBB_TASK:
+		rcu_read_lock();
+		p = find_task_by_vpid(pid);
+		if (p) {
+			get_task_struct(p);
+			p->android_vendor_data1[T_SBB_FLG] = set;
+			put_task_struct(p);
+		}
+		rcu_read_unlock();
+	}
 }
-EXPORT_SYMBOL_GPL(set_busy_tick_boost);
+EXPORT_SYMBOL_GPL(set_sbb);
+
+void set_sbb_active_ratio(int val)
+{
+	sbb_active_ratio = val;
+}
+EXPORT_SYMBOL_GPL(set_sbb_active_ratio);
+
+int get_sbb_active_ratio(void)
+{
+	return sbb_active_ratio;
+}
+EXPORT_SYMBOL_GPL(get_sbb_active_ratio);
 
 int is_busy_tick_boost_all(void)
 {

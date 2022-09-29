@@ -250,17 +250,20 @@ unsigned long mtk_cpu_util(int cpu, struct util_rq *util_rq,
 	util_ori = util;
 
 	if (type == FREQUENCY_UTIL) {
-		if ((rq->curr->android_vendor_data1[5] || is_busy_tick_boost_all()) &&
-			p == (struct task_struct *)UINTPTR_MAX && rq->android_vendor_data1[0] > 1) {
-			util = util * rq->android_vendor_data1[0];
+		if ((rq->curr->android_vendor_data1[T_SBB_FLG] || is_busy_tick_boost_all() ||
+				rq->curr->sched_task_group->android_vendor_data1[TG_SBB_FLG]) &&
+				p == (struct task_struct *)UINTPTR_MAX &&
+				rq->android_vendor_data1[RQ_SBB_ACTIVE]) {
+			util = util * rq->android_vendor_data1[RQ_SBB_BOOST_FACTOR];
 			sbb_trigger = true;
 		}
 		if (p == (struct task_struct *)UINTPTR_MAX)
 			p = NULL;
 		util = mtk_uclamp_rq_util_with(rq, util, p, min_cap, max_cap);
 		if (sbb_trigger && trace_sugov_ext_sbb_enabled())
-			trace_sugov_ext_sbb(rq->cpu, rq->android_vendor_data1[0],
-				util_ori, util);
+			trace_sugov_ext_sbb(rq->cpu, rq->curr->pid,
+			rq->android_vendor_data1[RQ_SBB_BOOST_FACTOR], util_ori, util,
+			rq->android_vendor_data1[RQ_SBB_CPU_UTILIZE], get_sbb_active_ratio());
 	}
 
 

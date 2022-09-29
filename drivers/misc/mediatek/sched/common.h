@@ -5,6 +5,20 @@
 #ifndef _SCHED_COMMON_H
 #define _SCHED_COMMON_H
 
+/* Task Vendor Data */
+#define T_SBB_FLG 5
+
+/* Task Group Vendor Data */
+#define TG_SBB_FLG 0
+
+/* Run Queue Vendor Data */
+#define RQ_SBB_ACTIVE 0
+#define RQ_SBB_IDLE_TIME 1
+#define RQ_SBB_WALL_TIME 2
+#define RQ_SBB_BOOST_FACTOR 3
+#define RQ_SBB_TICK_START 4
+#define RQ_SBB_CPU_UTILIZE 15
+
 struct util_rq {
 	unsigned long util_cfs;
 	unsigned long dl_util;

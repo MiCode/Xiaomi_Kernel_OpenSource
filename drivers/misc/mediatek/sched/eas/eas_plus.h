@@ -107,6 +107,13 @@ extern void clear_powerful_pd(void);
 #define EAS_GET_THERMAL_HEADROOM_INTERVAL_GET	_IOR('g', 9,  unsigned int)
 #define EAS_SET_SYSTEM_MASK			_IOW('g', 10,  unsigned int)
 #define EAS_GET_SYSTEM_MASK			_IOW('g', 11,  unsigned int)
+#define EAS_SBB_ALL_SET				_IOW('g', 12,  unsigned int)
+#define EAS_SBB_ALL_UNSET			_IOW('g', 13,  unsigned int)
+#define EAS_SBB_GROUP_SET			_IOW('g', 14,  unsigned int)
+#define EAS_SBB_GROUP_UNSET			_IOW('g', 15,  unsigned int)
+#define EAS_SBB_TASK_SET			_IOW('g', 16,  unsigned int)
+#define EAS_SBB_TASK_UNSET			_IOW('g', 17,  unsigned int)
+#define EAS_SBB_ACTIVE_RATIO		_IOW('g', 18,  unsigned int)
 
 #if IS_ENABLED(CONFIG_MTK_NEWIDLE_BALANCE)
 extern void mtk_sched_newidle_balance(void *data, struct rq *this_rq,

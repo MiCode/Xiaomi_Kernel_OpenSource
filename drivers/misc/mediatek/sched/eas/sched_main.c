@@ -21,6 +21,7 @@
 #include "common.h"
 #include "eas_plus.h"
 #include "sched_sys_common.h"
+#include "sugov/cpufreq.h"
 
 #define CREATE_TRACE_POINTS
 #include "eas_trace.h"
@@ -289,6 +290,41 @@ static long eas_ioctl_impl(struct file *filp,
 		val = cpumask_ptr->bits[0];
 		if (easctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
 			return -1;
+		break;
+	case EAS_SBB_ALL_SET:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_sbb(SBB_ALL, 0, true);
+		break;
+	case EAS_SBB_ALL_UNSET:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_sbb(SBB_ALL, 0, false);
+		break;
+	case EAS_SBB_GROUP_SET:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_sbb(SBB_GROUP, val, true);
+		break;
+	case EAS_SBB_GROUP_UNSET:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_sbb(SBB_GROUP, val, false);
+		break;
+	case EAS_SBB_TASK_SET:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_sbb(SBB_TASK, val, true);
+		break;
+	case EAS_SBB_TASK_UNSET:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_sbb(SBB_TASK, val, false);
+		break;
+	case EAS_SBB_ACTIVE_RATIO:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_sbb_active_ratio(val);
 		break;
 	default:
 		pr_debug(TAG "%s %d: unknown cmd %x\n",
