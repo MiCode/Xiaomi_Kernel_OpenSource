@@ -603,7 +603,7 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	if (ret < 0)
 		goto err_pwr_ack;
 
-	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_PEXTP_PHY_RTFF)) {
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_PEXTP_PHY_RTFF) && scpd->rtff_flag) {
 		val |= PWR_RTFF_CLK_DIS;
 		writel(val, ctl_addr);
 	}
@@ -614,13 +614,13 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	val &= ~PWR_ISO_BIT;
 	writel(val, ctl_addr);
 
-	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_PEXTP_PHY_RTFF))
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_PEXTP_PHY_RTFF) && scpd->rtff_flag)
 		udelay(10);
 
 	val |= PWR_RST_B_BIT;
 	writel(val, ctl_addr);
 
-	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_NON_CPU_RTFF)) {
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_NON_CPU_RTFF) && scpd->rtff_flag) {
 		val |= PWR_RTFF_CLK_DIS;
 		writel(val, ctl_addr);
 
@@ -632,7 +632,7 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 
 		val &= ~PWR_RTFF_CLK_DIS;
 		writel(val, ctl_addr);
-	} else if (MTK_SCPD_CAPS(scpd, MTK_SCPD_PEXTP_PHY_RTFF)) {
+	} else if (MTK_SCPD_CAPS(scpd, MTK_SCPD_PEXTP_PHY_RTFF) && scpd->rtff_flag) {
 		val |= PWR_RTFF_SAVE;
 		writel(val, ctl_addr);
 
@@ -670,6 +670,11 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	scpsys_clk_disable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
 
 	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
+
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_NON_CPU_RTFF) ||
+			MTK_SCPD_CAPS(scpd, MTK_SCPD_PEXTP_PHY_RTFF)) {
+		scpd->rtff_flag = false;
+	}
 
 	return 0;
 
@@ -783,6 +788,11 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 	ret = scpsys_regulator_disable(scpd);
 	if (ret < 0)
 		goto out;
+
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_NON_CPU_RTFF) ||
+			MTK_SCPD_CAPS(scpd, MTK_SCPD_PEXTP_PHY_RTFF)) {
+		scpd->rtff_flag = true;
+	}
 
 	return 0;
 

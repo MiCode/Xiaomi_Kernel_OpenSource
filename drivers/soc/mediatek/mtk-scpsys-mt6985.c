@@ -418,7 +418,7 @@ static const struct scp_domain_data scp_domain_mt6985_spm_data[] = {
 			BUS_PROT_IGN(UFSCFG_AO_TYPE, 0x54, 0x58, 0x50, 0x5c,
 				MT6985_UFSCFG_AO_PROT_EN_UFS_UFS0_PHY),
 		},
-		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_IS_PWR_CON_ON,
+		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_IS_PWR_CON_ON  | MTK_SCPD_NON_CPU_RTFF,
 	},
 	[MT6985_POWER_DOMAIN_PEXTP_MAC0_SHUTDOWN] = {
 		.name = "pextp_mac0_shutdown",

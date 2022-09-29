@@ -106,6 +106,7 @@ struct scp_domain {
 	struct clk *subsys_lp_clk[MAX_SUBSYS_CLKS];
 	const struct scp_domain_data *data;
 	struct regulator *supply;
+	bool rtff_flag;
 };
 
 struct scp_ctrl_reg {
