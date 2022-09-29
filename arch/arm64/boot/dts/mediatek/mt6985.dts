@@ -14070,19 +14070,19 @@
 			<&mdp_iommu M4U_PORT_L17_DRZ4NO_R3>;
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L17_YUVO_R1)
-				&mmqos SLAVE_COMMON(0)>,
+				&mmqos SLAVE_COMMON(1)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L17_YUVO_R3)
-				&mmqos SLAVE_COMMON(0)>,
+				&mmqos SLAVE_COMMON(1)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L17_YUVO_R2)
-				&mmqos SLAVE_COMMON(0)>,
+				&mmqos SLAVE_COMMON(1)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L17_YUVO_R5)
-				&mmqos SLAVE_COMMON(0)>,
+				&mmqos SLAVE_COMMON(1)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L17_RGBWI_R1)
-				&mmqos SLAVE_COMMON(0)>,
+				&mmqos SLAVE_COMMON(1)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L17_TCYSO_R1)
-				&mmqos SLAVE_COMMON(0)>,
+				&mmqos SLAVE_COMMON(1)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L17_DRZ4NO_R3)
-				&mmqos SLAVE_COMMON(0)>;
+				&mmqos SLAVE_COMMON(1)>;
 		interconnect-names =
 			"yuvo_r1",
 			"yuvo_r3",
