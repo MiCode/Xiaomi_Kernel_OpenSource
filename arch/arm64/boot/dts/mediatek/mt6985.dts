@@ -12357,6 +12357,7 @@
 			"aov", "vcore", "vmm";
 		mediatek,ccu-rproc = <&ccu_rproc>;
 		mediatek,larbs = <&smi_larb16>;
+		mediatek,dpsw-thr = <1>;
 		#clock-cells = <1>;
 		clocks = <&mmdvfs_clk CLK_MMDVFS_VCORE>, <&mmdvfs_clk CLK_MMDVFS_VMM>;
 		clock-names = "vcore", "vmm";
