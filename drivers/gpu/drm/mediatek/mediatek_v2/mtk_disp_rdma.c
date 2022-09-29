@@ -363,6 +363,15 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 		if (mtk_crtc &&
 			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
 			if (rdma->id == DDP_COMPONENT_RDMA0) {
+				struct mtk_drm_private *drm_priv =
+					mtk_crtc->base.dev->dev_private;
+				struct drm_crtc *crtc = &mtk_crtc->base;
+				unsigned int crtc_idx = drm_crtc_index(crtc);
+				unsigned int pf_idx;
+
+				pf_idx = readl(mtk_get_gce_backup_slot_va(mtk_crtc,
+					DISP_SLOT_PRESENT_FENCE(crtc_idx)));
+				atomic_set(&drm_priv->crtc_rel_present[crtc_idx], pf_idx);
 				atomic_set(&mtk_crtc->pf_event, 1);
 				wake_up_interruptible(&mtk_crtc->present_fence_wq);
 			}
@@ -415,7 +424,12 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 				wake_up_interruptible(
 					&mtk_crtc->esd_ctx->check_task_wq);
 			}
-			atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 0);
+			if (!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
+					(val & (1 << 2)) == 0 &&
+					(rdma->id == DDP_COMPONENT_RDMA0 ||
+					 rdma->id == DDP_COMPONENT_RDMA2 ||
+					 rdma->id == DDP_COMPONENT_RDMA3))
+				atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 0);
 		}
 	}
 
