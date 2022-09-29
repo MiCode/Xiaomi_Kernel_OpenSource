@@ -4375,6 +4375,11 @@ mtk_camsys_raw_change_pipeline(struct mtk_cam_ctx *ctx,
 
 	mtk_cam_sensor_switch_stop_reinit_hw(ctx, req_stream_data, ctx->stream_id);
 
+	spin_lock(&ctx->first_cq_lock);
+	ctx->is_first_cq_done = 0;
+	ctx->cq_done_status = 0;
+	spin_unlock(&ctx->first_cq_lock);
+
 	spin_lock(&ctx->composed_buffer_list.lock);
 	if (list_empty(&ctx->composed_buffer_list.list)) {
 		req_stream_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_SENSOR_SWITCH_BACKEND_DELAYED;
@@ -4385,11 +4390,6 @@ mtk_camsys_raw_change_pipeline(struct mtk_cam_ctx *ctx,
 		mutex_unlock(&ctx->sensor_switch_op_lock);
 		return;
 	}
-
-	spin_lock(&ctx->first_cq_lock);
-	ctx->is_first_cq_done = 0;
-	ctx->cq_done_status = 0;
-	spin_unlock(&ctx->first_cq_lock);
 
 	if (ctx->sv_dev) {
 		sv_buf_entry = list_first_entry(&ctx->sv_composed_buffer_list.list,
