@@ -6295,7 +6295,7 @@ void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_request *req;
 	struct mtk_raw_device *raw_dev;
 	unsigned long flags;
-	int stateidx;
+	int stateidx, ret = 0;
 	unsigned int dequeued_frame_seq_no = irq_info->frame_idx_inner;
 	u64 time_boot = irq_info->ts_ns;
 	u64 time_mono = ktime_get_ns();
@@ -6346,17 +6346,24 @@ void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 		req = mtk_cam_ctrl_state_get_req(state_sensor);
 		stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 		/* apply sv buffer */
-		if (mtk_cam_sv_apply_all_buffers(ctx) == 0)
+		if (mtk_cam_sv_apply_all_buffers(ctx) == 0) {
 			dev_info(cam->dev, "sv apply all buffers failed");
+			ret = 1;
+		}
 		/* apply mraw buffer */
-		if (mtk_cam_mraw_apply_all_buffers(ctx) == 0)
+		if (mtk_cam_mraw_apply_all_buffers(ctx) == 0) {
 			dev_info(cam->dev, "mraw apply all buffers failed");
-		state_transition(state_sensor, E_STATE_EXTISP_SENSOR,
-				 E_STATE_EXTISP_SV_OUTER);
-		stream_data->state.sof_cnt_key = ctx->sv_dev->tg_cnt;
-		dev_info(cam->dev, "[%s-ENQ-SV] ctx:%d/req:%d s:0x%x, cnt:%d/%d, key:%d\n",
-		__func__, ctx->stream_id, stream_data->frame_seq_no, state_sensor->estate,
-		ctx->sv_dev->tg_cnt, ctx->sv_dev->sof_count, stream_data->state.sof_cnt_key);
+			ret = 1;
+		}
+		if (ret == 0) {
+			state_transition(state_sensor, E_STATE_EXTISP_SENSOR,
+					 E_STATE_EXTISP_SV_OUTER);
+			stream_data->state.sof_cnt_key = ctx->sv_dev->tg_cnt;
+			dev_info(cam->dev, "[%s-ENQ] ctx:%d/req:%d s:0x%x, cnt:%d/%d, key:%d\n",
+			__func__, ctx->stream_id, stream_data->frame_seq_no,
+			state_sensor->estate, ctx->sv_dev->tg_cnt,
+			ctx->sv_dev->sof_count, stream_data->state.sof_cnt_key);
+		}
 	}
 	if (state_out) {
 		req = mtk_cam_ctrl_state_get_req(state_out);
