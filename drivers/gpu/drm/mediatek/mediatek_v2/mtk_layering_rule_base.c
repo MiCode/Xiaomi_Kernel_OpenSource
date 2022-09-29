@@ -3604,6 +3604,7 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev, struct drm_crtc 
 	enum MTK_LAYERING_CAPS ret = MTK_MML_DISP_NOT_SUPPORT;
 	struct mtk_drm_crtc *mtk_crtc = NULL;
 	struct mtk_drm_private *priv = NULL;
+	struct drm_crtc *crtcx = NULL;
 
 	if (!dev || !crtc) {
 		DDPMSG("%s !dev, !crtc\n", __func__);
@@ -3652,18 +3653,25 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev, struct drm_crtc 
 			       mmclk, cur_mmclk, mml_info->mode);
 		}
 
+		/* set to DC if another display is on */
+		drm_for_each_crtc(crtcx, dev) {
+			if (crtcx && (drm_crtc_index(crtcx) != 0)) {
+				struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtcx);
+
+				if (mtk_crtc->wk_lock->active)
+					mml_info->mode = MML_MODE_MML_DECOUPLE;
+			}
+		}
+
 		if (!mtk_crtc->mml_ir_enable)
 			mml_info->mode = MML_MODE_MML_DECOUPLE;
 
+		if (mtk_crtc_is_frame_trigger_mode(crtc) && (!mtk_crtc->mml_cmd_ir) &&
+		    !mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_SUPPORT_CMD_MODE))
+			mode = MML_MODE_MML_DECOUPLE;
+
 		mode = mml_drm_query_cap(mtk_drm_get_mml_drm_ctx(dev, crtc), mml_info);
 		DDPDBG("%s, mml_drm_query_cap mode:%d\n", __func__, mode);
-
-		/* Temp patch for CMD mode not support IR */
-		if (mode == MML_MODE_RACING &&
-		    (mtk_crtc_is_frame_trigger_mode(crtc) &&
-		     !mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_SUPPORT_CMD_MODE) &&
-		     !mtk_crtc->mml_cmd_ir))
-			mode = MML_MODE_MML_DECOUPLE;
 
 		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 		if (mtk_crtc->slbc_state == SLBC_UNREGISTER) {
