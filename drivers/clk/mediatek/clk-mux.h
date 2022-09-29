@@ -37,6 +37,7 @@ struct mtk_mux {
 	u8 gate_shift;
 	u8 upd_shift;
 	u8 ipi_shift;
+	u8 qs_shift;
 
 	const struct clk_ops *ops;
 
@@ -165,7 +166,8 @@ extern const struct clk_ops mtk_ipi_mux_ops;
 #define MUX_IPI_FLAGS(_id, _name, _parents, _mux_ofs,		\
 			_mux_set_ofs, _mux_clr_ofs, _hwv_sta_ofs,	\
 			_hwv_set_ofs, _hwv_clr_ofs, _ipi_shift,		\
-			_shift, _width, _gate, _upd_ofs, _upd, _flags) {		\
+			_shift, _width, _gate, _upd_ofs, _upd,		\
+			_qs_shift, _flags) {		\
 		.id = _id,						\
 		.name = _name,						\
 		.mux_ofs = _mux_ofs,					\
@@ -179,7 +181,8 @@ extern const struct clk_ops mtk_ipi_mux_ops;
 		.mux_width = _width,					\
 		.gate_shift = _gate,					\
 		.upd_shift = _upd,					\
-		.ipi_shift = _ipi_shift,					\
+		.ipi_shift = _ipi_shift,				\
+		.qs_shift = _qs_shift,                                \
 		.parent_names = _parents,				\
 		.num_parents = ARRAY_SIZE(_parents),			\
 		.flags = CLK_SET_RATE_PARENT | CLK_USE_HW_VOTER | _flags,	\

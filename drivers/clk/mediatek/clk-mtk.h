@@ -240,11 +240,11 @@ void mtk_clk_register_dividers(const struct mtk_clk_divider *mcds,
 struct clk_onecell_data *mtk_alloc_clk_data(unsigned int clk_num);
 void mtk_free_clk_data(struct clk_onecell_data *clk_data);
 
-#define HAVE_RST_BAR	BIT(0)
-#define PLL_AO		BIT(1)
-#define CLK_USE_HW_VOTER	BIT(2)
-#define HWV_CHK_FULL_STA	BIT(3)
-#define CLK_SET_PARENT_DELAY	BIT(4)
+#define HAVE_RST_BAR			BIT(0)
+#define PLL_AO				BIT(1)
+#define CLK_USE_HW_VOTER		BIT(2)
+#define HWV_CHK_FULL_STA		BIT(3)
+#define CLK_ENABLE_QUICK_SWITCH		BIT(4)
 
 struct mtk_pll_div_table {
 	u32 div;

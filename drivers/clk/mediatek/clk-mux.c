@@ -17,7 +17,6 @@
 #include "clk-mux.h"
 
 static bool is_registered;
-static int wk_mmpll2_ref_count;
 
 static inline struct mtk_clk_mux *to_mtk_clk_mux(struct clk_hw *hw)
 {
@@ -121,23 +120,10 @@ static int mtk_clk_hwv_mux_enable(struct clk_hw *hw)
 	bool is_done = false;
 	int i = 0;
 
-	if ((mux->flags & CLK_SET_PARENT_DELAY) == CLK_SET_PARENT_DELAY) {
-		if (strcmp(clk_hw_get_name(hw), "venc_sel") == 0) {
-			wk_mmpll2_ref_count++;
-			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 6)));
-		} else if (strcmp(clk_hw_get_name(hw), "cam_sel") == 0) {
-			wk_mmpll2_ref_count++;
-			/* mmpll2_d6 */
-			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 5)));
-			/* mainpll2_d4_d2 */
-			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 10)));
-		} else if (strcmp(clk_hw_get_name(hw), "ccusys_sel") == 0) {
-			wk_mmpll2_ref_count++;
-			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 4)));
-		} else if (strcmp(clk_hw_get_name(hw), "ipe_sel") == 0) {
-			wk_mmpll2_ref_count++;
-			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 3)));
-		}
+	if ((mux->flags & CLK_ENABLE_QUICK_SWITCH) == CLK_ENABLE_QUICK_SWITCH) {
+		/* mainpll2_d4_d2 */
+		val = mux->data->qs_shift;
+		mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, val)));
 	}
 
 	regmap_write(mux->hwv_regmap, mux->data->hwv_set_ofs,
@@ -218,32 +204,10 @@ static void mtk_clk_hwv_mux_disable(struct clk_hw *hw)
 		i++;
 	}
 
-	if ((mux->flags & CLK_SET_PARENT_DELAY) == CLK_SET_PARENT_DELAY) {
-		if (strcmp(clk_hw_get_name(hw), "venc_sel") == 0) {
-			wk_mmpll2_ref_count--;
-			if (wk_mmpll2_ref_count == 0)
-				mtk_hwv_pll_off(
-					clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 6)));
-		} else if (strcmp(clk_hw_get_name(hw), "cam_sel") == 0) {
-			wk_mmpll2_ref_count--;
-			if (wk_mmpll2_ref_count == 0)
-				/* mmpll2_d6 */
-				mtk_hwv_pll_off(
-					clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 5)));
-			/* mainpll2_d4_d2 */
-			mtk_hwv_pll_off(
-				clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 10)));
-		} else if (strcmp(clk_hw_get_name(hw), "ccusys_sel") == 0) {
-			wk_mmpll2_ref_count--;
-			if (wk_mmpll2_ref_count == 0)
-				mtk_hwv_pll_off(
-					clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 4)));
-		} else if (strcmp(clk_hw_get_name(hw), "ipe_sel") == 0) {
-			wk_mmpll2_ref_count--;
-			if (wk_mmpll2_ref_count == 0)
-				mtk_hwv_pll_off(
-					clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 3)));
-		}
+	if ((mux->flags & CLK_ENABLE_QUICK_SWITCH) == CLK_ENABLE_QUICK_SWITCH) {
+		/* mainpll2_d4_d2 */
+		val = mux->data->qs_shift;
+		mtk_hwv_pll_off(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, val)));
 	}
 
 	return;
@@ -269,23 +233,10 @@ static int mtk_clk_ipi_mux_enable(struct clk_hw *hw)
 	u32 val = 0;
 	int ret = 0;
 
-	if ((mux->flags & CLK_SET_PARENT_DELAY) == CLK_SET_PARENT_DELAY) {
-		if (strcmp(clk_hw_get_name(hw), "venc_sel") == 0) {
-			wk_mmpll2_ref_count++;
-			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 6)));
-		} else if (strcmp(clk_hw_get_name(hw), "cam_sel") == 0) {
-			wk_mmpll2_ref_count++;
-			/* mmpll2_d6 */
-			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 5)));
-			/* mainpll2_d4_d2 */
-			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 10)));
-		} else if (strcmp(clk_hw_get_name(hw), "ccusys_sel") == 0) {
-			wk_mmpll2_ref_count++;
-			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 4)));
-		} else if (strcmp(clk_hw_get_name(hw), "ipe_sel") == 0) {
-			wk_mmpll2_ref_count++;
-			mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 3)));
-		}
+	if ((mux->flags & CLK_ENABLE_QUICK_SWITCH) == CLK_ENABLE_QUICK_SWITCH) {
+		/* mainpll2_d4_d2 */
+		val = mux->data->qs_shift;
+		mtk_hwv_pll_on(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, val)));
 	}
 
 	cb = mtk_clk_get_ipi_cb();
@@ -326,33 +277,13 @@ static void mtk_clk_ipi_mux_disable(struct clk_hw *hw)
 			goto err;
 		}
 	}
-	if ((mux->flags & CLK_SET_PARENT_DELAY) == CLK_SET_PARENT_DELAY) {
-		if (strcmp(clk_hw_get_name(hw), "venc_sel") == 0) {
-			wk_mmpll2_ref_count--;
-			if (wk_mmpll2_ref_count == 0)
-				mtk_hwv_pll_off(clk_hw_get_parent(
-					clk_hw_get_parent_by_index(hw, 6)));
-		} else if (strcmp(clk_hw_get_name(hw), "cam_sel") == 0) {
-			wk_mmpll2_ref_count--;
-			if (wk_mmpll2_ref_count == 0)
-				/* mmpll2_d6 */
-				mtk_hwv_pll_off(
-					clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 5)));
-			/* mainpll2_d4_d2 */
-			mtk_hwv_pll_off(
-				clk_hw_get_parent(clk_hw_get_parent_by_index(hw, 10)));
-		} else if (strcmp(clk_hw_get_name(hw), "ccusys_sel") == 0) {
-			wk_mmpll2_ref_count--;
-			if (wk_mmpll2_ref_count == 0)
-				mtk_hwv_pll_off(clk_hw_get_parent(
-					clk_hw_get_parent_by_index(hw, 4)));
-		} else if (strcmp(clk_hw_get_name(hw), "ipe_sel") == 0) {
-			wk_mmpll2_ref_count--;
-			if (wk_mmpll2_ref_count == 0)
-				mtk_hwv_pll_off(clk_hw_get_parent(
-					clk_hw_get_parent_by_index(hw, 3)));
-		}
+
+	if ((mux->flags & CLK_ENABLE_QUICK_SWITCH) == CLK_ENABLE_QUICK_SWITCH) {
+		/* mainpll2_d4_d2 */
+		val = mux->data->qs_shift;
+		mtk_hwv_pll_off(clk_hw_get_parent(clk_hw_get_parent_by_index(hw, val)));
 	}
+
 	return;
 
 err:
@@ -378,7 +309,6 @@ static int __mtk_clk_mux_set_parent_lock(struct clk_hw *hw, u8 index, bool setcl
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
 	u32 mask = GENMASK(mux->data->mux_width - 1, 0);
 	u32 val = 0, orig = 0;
-	int i = 0;
 	unsigned long flags = 0;
 
 	if (mux->lock)
@@ -406,33 +336,12 @@ static int __mtk_clk_mux_set_parent_lock(struct clk_hw *hw, u8 index, bool setcl
 		regmap_update_bits(mux->regmap, mux->data->mux_ofs, mask,
 			index << mux->data->mux_shift);
 
-	if ((mux->flags & CLK_SET_PARENT_DELAY) == CLK_SET_PARENT_DELAY) {
-		while (1) {
-			regmap_read(mux->regmap, 0xA34, &val);
-			if ((val & 0x40) == 0)
-				break;
-
-			if (i < MTK_WAIT_SET_PARENT_CNT)
-				udelay(MTK_WAIT_SET_PARENT_US);
-			else
-				goto set_parent_fail;
-			i++;
-		}
-	}
-
 	if (mux->lock)
 		spin_unlock_irqrestore(mux->lock, flags);
 	else
 		__release(mux->lock);
 
 	return 0;
-
-set_parent_fail:
-	pr_notice("cksta: 0x%x mux: 0x%x(%d)\n", val, orig, index);
-	mtk_clk_notify(mux->regmap, NULL, clk_hw_get_name(hw),
-		mux->data->mux_ofs, 0, 0, CLK_EVT_SET_PARENT_TIMEOUT);
-
-	return -1;
 }
 
 static int mtk_clk_mux_set_parent_lock(struct clk_hw *hw, u8 index)

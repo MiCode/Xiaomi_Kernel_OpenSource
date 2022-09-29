@@ -2865,12 +2865,12 @@ static const struct mtk_mux top_muxes[] = {
 		7/* pdn */, CKSYS2_CLK_CFG_UPDATE1/* upd ofs */,
 		TOP_MUX_SENINF5_SHIFT/* upd shift */),
 	/* CKSYS2_CLK_CFG_14 */
-	MUX_HWV_FLAGS(CLK_TOP_VENC_SEL/* dts */, "venc_sel", venc_parents/* parent */,
+	MUX_HWV(CLK_TOP_VENC_SEL/* dts */, "venc_sel", venc_parents/* parent */,
 		CKSYS2_CLK_CFG_14, CKSYS2_CLK_CFG_14_SET, CKSYS2_CLK_CFG_14_CLR/* set parent */,
 		HWV_CG_27_DONE, HWV_CG_27_SET, HWV_CG_27_CLR, /* hwv */
 		0/* lsb */, 4/* width */,
 		7/* pdn */, CKSYS2_CLK_CFG_UPDATE1/* upd ofs */,
-		TOP_MUX_VENC_SHIFT/* upd shift */, CLK_SET_PARENT_DELAY),
+		TOP_MUX_VENC_SHIFT/* upd shift */),
 	MUX_IPI(CLK_TOP_VDEC_SEL/* dts */, "vdec_sel", vdec_parents/* parent */,
 		CKSYS2_CLK_CFG_14, CKSYS2_CLK_CFG_14_SET, CKSYS2_CLK_CFG_14_CLR/* set parent */,
 		HWV_CG_27_DONE, HWV_CG_27_SET, HWV_CG_27_CLR, /* hwv */
@@ -2891,24 +2891,24 @@ static const struct mtk_mux top_muxes[] = {
 		10/* ipi */, 0/* lsb */, 4/* width */,
 		7/* pdn */, CKSYS2_CLK_CFG_UPDATE2/* upd ofs */,
 		TOP_MUX_IMG1_SHIFT/* upd shift */),
-	MUX_IPI_FLAGS(CLK_TOP_IPE_SEL/* dts */, "ipe_sel", ipe_parents/* parent */,
+	MUX_IPI(CLK_TOP_IPE_SEL/* dts */, "ipe_sel", ipe_parents/* parent */,
 		CKSYS2_CLK_CFG_17, CKSYS2_CLK_CFG_17_SET, CKSYS2_CLK_CFG_17_CLR/* set parent */,
 		HWV_CG_29_DONE, HWV_CG_29_SET, HWV_CG_29_CLR, /* hwv */
 		11/* ipi */, 8/* lsb */, 4/* width */,
 		15/* pdn */, CKSYS2_CLK_CFG_UPDATE2/* upd ofs */,
-		TOP_MUX_IPE_SHIFT/* upd shift */, CLK_SET_PARENT_DELAY),
+		TOP_MUX_IPE_SHIFT/* upd shift */),
 	MUX_IPI_FLAGS(CLK_TOP_CAM_SEL/* dts */, "cam_sel", cam_parents/* parent */,
 		CKSYS2_CLK_CFG_17, CKSYS2_CLK_CFG_17_SET, CKSYS2_CLK_CFG_17_CLR/* set parent */,
 		HWV_CG_29_DONE, HWV_CG_29_SET, HWV_CG_29_CLR, /* hwv */
 		12/* ipi */, 16/* lsb */, 4/* width */,
 		23/* pdn */, CKSYS2_CLK_CFG_UPDATE2/* upd ofs */,
-		TOP_MUX_CAM_SHIFT/* upd shift */, CLK_SET_PARENT_DELAY),
-	MUX_HWV_FLAGS(CLK_TOP_CCUSYS_SEL/* dts */, "ccusys_sel", ccusys_parents/* parent */,
+		TOP_MUX_CAM_SHIFT/* upd shift */, 10, CLK_ENABLE_QUICK_SWITCH),
+	MUX_HWV(CLK_TOP_CCUSYS_SEL/* dts */, "ccusys_sel", ccusys_parents/* parent */,
 		CKSYS2_CLK_CFG_17, CKSYS2_CLK_CFG_17_SET, CKSYS2_CLK_CFG_17_CLR/* set parent */,
 		HWV_CG_29_DONE, HWV_CG_29_SET, HWV_CG_29_CLR, /* hwv */
 		24/* lsb */, 4/* width */,
 		31/* pdn */, CKSYS2_CLK_CFG_UPDATE2/* upd ofs */,
-		TOP_MUX_CCUSYS_SHIFT/* upd shift */, CLK_SET_PARENT_DELAY),
+		TOP_MUX_CCUSYS_SHIFT/* upd shift */),
 	/* CKSYS2_CLK_CFG_18 */
 	MUX_HWV(CLK_TOP_CAMTM_SEL/* dts */, "camtm_sel", camtm_parents/* parent */,
 		CKSYS2_CLK_CFG_18, CKSYS2_CLK_CFG_18_SET, CKSYS2_CLK_CFG_18_CLR/* set parent */,
