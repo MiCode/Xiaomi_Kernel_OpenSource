@@ -58,6 +58,14 @@
 #define KREE_INFO(fmt...) pr_info("[KREE]" fmt)
 #define KREE_ERR(fmt...) pr_info("[KREE][ERR]" fmt)
 
+static int gz_dev_open(struct inode *inode, struct file *filp);
+static int gz_dev_release(struct inode *inode, struct file *filp);
+
+static long gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg);
+#if IS_ENABLED(CONFIG_COMPAT)
+static long gz_compat_ioctl(struct file *filep, unsigned int cmd, unsigned long arg);
+#endif
+
 static const struct file_operations fops = {.owner = THIS_MODULE,
 	.open = gz_dev_open,
 	.release = gz_dev_release,
@@ -136,10 +144,7 @@ static ssize_t gz_test_store(struct device *dev,
 	}
 	return n;
 }
-
-
 DEVICE_ATTR_RW(gz_test);
-
 
 static int create_files(void)
 {
@@ -151,12 +156,21 @@ static int create_files(void)
 		KREE_DEBUG("ERR: misc register failed.");
 		return res;
 	}
+
 	res = device_create_file(gz_device.this_device, &dev_attr_gz_test);
 	if (res != 0) {
 		KREE_DEBUG("ERR: create sysfs do_info failed.");
 		return res;
 	}
+
 	return 0;
+}
+
+static void remove_files(void)
+{
+	device_remove_file(gz_device.this_device, &dev_attr_gz_test);
+
+	misc_deregister(&gz_device);
 }
 
 /*********** test case implementations *************/
@@ -1090,25 +1104,17 @@ static struct devapc_vio_callbacks gz_devapc_vio_handle = {
 #endif
 
 #endif
+
 /************ kernel module init entry ***************/
-static int __init gz_init(void)
+static int gz_main_probe(struct platform_device *pdev)
 {
 	int res;
 
-	tz_system_dev = NULL;
+	KREE_DEBUG("%s gz driver start\n", __func__);
 
 	res = create_files();
 	if (res) {
 		KREE_DEBUG("create sysfs failed: %d\n", res);
-	} else {
-		res = platform_driver_register(&tz_system_driver);
-		if (res) {
-			KREE_ERR("%s driver register fail\n", __func__);
-			return res;
-		}
-
-		if (IS_ERR_OR_NULL(tz_system_dev))
-			KREE_ERR("%s tz_system_dev is NULL\n", __func__);
 	}
 
 #if enable_code
@@ -1122,14 +1128,49 @@ static int __init gz_init(void)
 	return res;
 }
 
-/************ kernel module exit entry ***************/
-static void __exit gz_exit(void)
+static int gz_main_remove(struct platform_device *pdev)
 {
-	KREE_DEBUG("gz driver exit\n");
+	KREE_DEBUG("%s gz driver exit\n", __func__);
+
+	remove_files();
+
+	return 0;
 }
 
+static const struct of_device_id gz_main_of_match[] = {
+	{ .compatible = "mediatek,trusty-mtee-v1", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, gz_main_of_match);
 
-module_init(gz_init);
-module_exit(gz_exit);
+struct platform_driver gz_main_driver = {
+	.probe = gz_main_probe,
+	.remove = gz_main_remove,
+	.driver	= {
+		.name = "gz_main",
+		.owner = THIS_MODULE,
+		.of_match_table = gz_main_of_match,
+	},
+};
+
+static int __init gz_main_init(void)
+{
+	int ret = 0;
+
+	ret = platform_driver_register(&gz_main_driver);
+	if (ret) {
+		KREE_ERR("%s driver register fail, ret %d\n", __func__, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static void __exit gz_main_exit(void)
+{
+	platform_driver_unregister(&gz_main_driver);
+}
+
+module_init(gz_main_init);
+module_exit(gz_main_exit);
 MODULE_LICENSE("GPL v2");
-

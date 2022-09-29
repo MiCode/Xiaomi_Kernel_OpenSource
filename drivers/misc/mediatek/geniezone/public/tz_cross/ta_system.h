@@ -49,6 +49,5 @@ struct gz_syscall_cmd_param {
 	(sizeof(struct gz_syscall_cmd_param) - GZ_MSG_DATA_MAX_LEN)
 
 extern struct platform_device *tz_system_dev;
-extern struct platform_driver tz_system_driver;
 
 #endif /* __TRUSTZONE_TA_SYSTEM__ */

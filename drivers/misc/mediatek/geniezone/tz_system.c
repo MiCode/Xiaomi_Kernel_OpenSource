@@ -1285,11 +1285,39 @@ u32 KREE_GetSystemCntFrq(void)
 }
 EXPORT_SYMBOL(KREE_GetSystemCntFrq);
 
+static int tz_system_add_device_link(struct device *dev, void *data)
+{
+	struct device *self = (struct device *)data;
+	unsigned int dl_flags = DL_FLAG_PM_RUNTIME | DL_FLAG_AUTOREMOVE_CONSUMER |
+				DL_FLAG_AUTOREMOVE_SUPPLIER;
+
+	if (dev != self) {
+		struct device_link *link = device_link_add(self, dev, dl_flags);
+
+		if (link) {
+			KREE_INFO("%s Link consumer %s to supplier %s flags 0x%x\n",
+				__func__, dev_name(self), dev_name(dev), dl_flags);
+
+			if (link->status == DL_STATE_DORMANT)
+				return -EPROBE_DEFER;
+		} else
+			KREE_ERR("%s Failed to link consumer %s to supplier %s flags 0x%x\n",
+				__func__, dev_name(self), dev_name(dev), dl_flags);
+	}
+
+	return 0;
+}
+
 static int tz_system_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	struct device *trusty_dev = pdev->dev.parent;
 
 	KREE_DEBUG("%s\n", __func__);
+
+	ret = device_for_each_child(trusty_dev, (void *)&pdev->dev, tz_system_add_device_link);
+	if (ret)
+		return ret;
 
 	perf_boost_cnt = 0;
 	mutex_init(&perf_boost_lock);
@@ -1346,7 +1374,6 @@ struct platform_driver tz_system_driver = {
 		.of_match_table = tz_system_of_match,
 	},
 };
-EXPORT_SYMBOL(tz_system_driver);
 
 int tz_system_std_call32(u32 smcnr, u32 a0, u32 a1, u32 a2)
 {
@@ -1354,4 +1381,24 @@ int tz_system_std_call32(u32 smcnr, u32 a0, u32 a1, u32 a2)
 				smcnr, a0, a1, a2);
 }
 
+static int __init tz_system_init(void)
+{
+	int ret = 0;
+
+	ret = platform_driver_register(&tz_system_driver);
+	if (ret) {
+		KREE_ERR("%s driver register fail, ret %d\n", __func__, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static void __exit tz_system_exit(void)
+{
+	platform_driver_unregister(&tz_system_driver);
+}
+
+module_init(tz_system_init);
+module_exit(tz_system_exit);
 MODULE_LICENSE("GPL v2");
