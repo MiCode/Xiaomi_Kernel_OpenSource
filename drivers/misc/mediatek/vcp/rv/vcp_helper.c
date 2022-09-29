@@ -689,6 +689,7 @@ void trigger_vcp_halt(enum vcp_core_id id)
 {
 	int j;
 
+	mutex_lock(&vcp_pw_clk_mutex);
 	if (mmup_enable_count() && vcp_ready[id]) {
 		/* trigger halt isr, force vcp enter wfi */
 		pr_notice("[VCP] %s VCP EE coredump...\n", __func__);
@@ -698,6 +699,7 @@ void trigger_vcp_halt(enum vcp_core_id id)
 				pr_info("[VCP] Active feature id %d cnt %d\n",
 					j, feature_table[j].enable);
 	}
+	mutex_unlock(&vcp_pw_clk_mutex);
 }
 EXPORT_SYMBOL_GPL(trigger_vcp_halt);
 
