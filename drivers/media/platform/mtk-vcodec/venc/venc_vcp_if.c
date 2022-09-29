@@ -1243,6 +1243,17 @@ static void venc_get_free_buffers(struct venc_inst *inst,
 			     struct ring_input_list *list,
 			     struct venc_done_result *pResult)
 {
+	if (list->count < 0 || list->count >= VENC_MAX_FB_NUM) {
+		mtk_vcodec_err(inst, "list count %d invalid ! (write_idx %d, read_idx %d)",
+			list->count, list->write_idx, list->read_idx);
+		if (list->write_idx < 0 || list->write_idx >= VENC_MAX_FB_NUM ||
+		    list->read_idx < 0  || list->read_idx >= VENC_MAX_FB_NUM)
+			list->write_idx = list->read_idx = 0;
+		if (list->write_idx >= list->read_idx)
+			list->count = list->write_idx - list->read_idx;
+		else
+			list->count = list->write_idx + VENC_MAX_FB_NUM - list->read_idx;
+	}
 	if (list->count == 0) {
 		mtk_vcodec_debug(inst, "[FB] there is no free buffers");
 		pResult->bs_va = 0;

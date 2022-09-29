@@ -1303,6 +1303,16 @@ static void vdec_get_fb(struct vdec_inst *inst,
 	unsigned long vdec_fb_va;
 	struct vdec_fb *fb;
 
+	if (list->count >= DEC_MAX_FB_NUM) {
+		mtk_vcodec_err(inst, "list count %d invalid ! (write_idx %d, read_idx %d)",
+			list->count, list->write_idx, list->read_idx);
+		if (list->write_idx >= DEC_MAX_FB_NUM || list->read_idx >= DEC_MAX_FB_NUM)
+			list->write_idx = list->read_idx = 0;
+		if (list->write_idx >= list->read_idx)
+			list->count = list->write_idx - list->read_idx;
+		else
+			list->count = list->write_idx + DEC_MAX_FB_NUM - list->read_idx;
+	}
 	if (list->count == 0) {
 		mtk_vcodec_debug(inst, "[FB] there is no %s fb",
 						 disp_list ? "disp" : "free");
