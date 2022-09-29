@@ -7737,7 +7737,7 @@ static void mtk_dsi_get_panels_info(struct mtk_dsi *dsi, struct mtk_drm_panels_i
 
 	drm_for_each_encoder(encoder, dev) {
 		struct mtk_dsi *mtk_dsi;
-		char *panel_name;
+		char *panel_name = NULL;
 
 		DDPDBG("connector name %s id %d, type %d possible crtc %x\n",
 			encoder->name, encoder->base.id, encoder->encoder_type,
@@ -7750,8 +7750,15 @@ static void mtk_dsi_get_panels_info(struct mtk_dsi *dsi, struct mtk_drm_panels_i
 		if (only_check_mode == false) {
 			mtk_ddp_comp_io_cmd(&mtk_dsi->ddp_comp, NULL, GET_PANEL_NAME,
 					&panel_name);
-			strncpy(panel_ctx->panel_name[dsi_cnt], panel_name, GET_PANELS_STR_LEN - 1);
-			panel_ctx->connector_obj_id[dsi_cnt] = mtk_dsi->conn.base.id;
+
+			if (panel_name) {
+				strncpy(panel_ctx->panel_name[dsi_cnt], panel_name,
+					GET_PANELS_STR_LEN - 1);
+				panel_ctx->connector_obj_id[dsi_cnt] = mtk_dsi->conn.base.id;
+			} else {
+				DDPPR_ERR("%s NULL panel_name\n", __func__);
+				break;
+			}
 		}
 		++dsi_cnt;
 	}
