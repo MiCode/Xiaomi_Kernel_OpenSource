@@ -94,6 +94,7 @@ static const struct dvfs_ref s_dl_dvfs_tbl_v6[] = { /* 6:2 for mt6879 */
 	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat, tx_done*/
 	{1000000000LL, {-1, -1, -1, -1}, -1, 0x02, 0x80, 0x40, 0x20, {0x1D, 0x1D, 0x1D, 0x1D}},
 	/* normal */
+	{100000000LL,  {-1, -1, -1, -1}, -1, 0xC0, 0xC0, 0xC0, 0xC0, {0xC0, 0xC0, 0xC0, 0xC0}},
 	{0LL,          {-1, -1, -1, -1}, -1, 0x02, 0xFF, 0xFF, 0xFF, {-1, -1, -1, -1}},
 };
 
