@@ -68,8 +68,10 @@ extern void mt_irq_dump_status(unsigned int irq);
 #define DEFAULT_INTERVAL    15
 #define WDT_COUNTER     0x514
 
+#define SYST_CNTCR		0x0
 #define SYST0_CON		0x40
 #define SYST0_VAL		0x44
+#define SYST_DISTL		0x130
 
 #define SYSTIMER_CNTCV_L	(0x8)
 #define SYSTIMER_CNTCV_H	(0xC)
@@ -530,11 +532,13 @@ static void wdt_dump_cntcv(void *arg)
 	int ret = -1;
 
 	ret = snprintf(tmr_buf[smp_processor_id()], WK_MAX_MSG_SIZE,
-		"%s CPU:%d CNTCV_CTL:%llx CNTCV_TVAL:%llx\n",
+		"%s CPU:%d CNTCV_CTL:%llx CNTCV_TVAL:%llx SYST_CNTCR: %x SYST_DISTL: %x\n",
 		__func__,
 		smp_processor_id(),
 		read_sysreg(cntv_ctl_el0),
-		read_sysreg(cntv_tval_el0));
+		read_sysreg(cntv_tval_el0),
+		systimer_base ? ioread32(systimer_base + SYST_CNTCR) : 0,
+		systimer_base ? ioread32(systimer_base + SYST_DISTL) : 0);
 	if (ret < 0) {
 		tmr_buf[smp_processor_id()][0] = 'E';
 		tmr_buf[smp_processor_id()][1] = 'R';
@@ -698,7 +702,8 @@ static void kwdt_process_kick(int local_bit, int cpu,
 			pm_system_wakeup();
 		else {
 			spin_lock_bh(&lock);
-			if (g_hang_detected && !aee_dump_timer_t) {
+			if (g_hang_detected && !aee_dump_timer_t &&
+				!timer_pending(&aee_dump_timer)) {
 				pm_system_wakeup();
 				aee_dump_timer_t = sched_clock();
 				g_change_tmo = 1;
