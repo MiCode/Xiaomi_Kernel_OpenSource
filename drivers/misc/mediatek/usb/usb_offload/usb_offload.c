@@ -146,7 +146,8 @@ static void sound_usb_connect(void *data, struct usb_interface *intf, struct snd
 {
 	USB_OFFLOAD_INFO("index=%d\n", chip->index);
 
-	usb_chip[chip->index] = chip;
+	if (chip->index >= 0)
+		usb_chip[chip->index] = chip;
 }
 
 static void sound_usb_disconnect(void *data, struct usb_interface *intf)
@@ -167,7 +168,8 @@ static void sound_usb_disconnect(void *data, struct usb_interface *intf)
 	uaudio_disconnect_cb(chip);
 
 	if (chip->num_interfaces < 1)
-		usb_chip[chip->index] = NULL;
+		if (chip->index >= 0)
+			usb_chip[chip->index] = NULL;
 }
 
 static int sound_usb_trace_init(void)
@@ -226,6 +228,51 @@ get_speed_info(enum usb_device_speed udev_speed)
 		USB_OFFLOAD_INFO("udev speed %d\n", udev_speed);
 		return USB_AUDIO_DEVICE_SPEED_INVALID;
 	}
+}
+
+static bool is_uainfo_valid(struct usb_audio_stream_info *uainfo)
+{
+	if (uainfo == NULL) {
+		USB_OFFLOAD_ERR("uainfo is NULL\n");
+		return false;
+	}
+
+	if (uainfo->enable < 0 || uainfo->enable > 1) {
+		USB_OFFLOAD_ERR("uainfo->enable invalid (%d)\n", uainfo->enable);
+		return false;
+	}
+
+	if (uainfo->bit_rate < 0 || uainfo->bit_rate > 768000) {
+		USB_OFFLOAD_ERR("uainfo->bit_rate invalid (%d)\n", uainfo->bit_rate);
+		return false;
+	}
+
+	if (uainfo->bit_depth < 0 || uainfo->bit_depth > 32) {
+		USB_OFFLOAD_ERR("uainfo->bit_depth invalid (%d)\n", uainfo->bit_depth);
+		return false;
+	}
+
+	if (uainfo->number_of_ch < 0 || uainfo->number_of_ch > 2) {
+		USB_OFFLOAD_ERR("uainfo->number_of_ch invalid (%d)\n", uainfo->number_of_ch);
+		return false;
+	}
+
+	if (uainfo->direction < 0 || uainfo->direction > 1) {
+		USB_OFFLOAD_ERR("uainfo->direction invalid (%d)\n", uainfo->direction);
+		return false;
+	}
+
+	if (uainfo->pcm_card_num < 0) {
+		USB_OFFLOAD_ERR("uainfo->pcm_card_num invalid (%d)\n", uainfo->pcm_card_num);
+		return false;
+	}
+
+	if (uainfo->pcm_dev_num < 0) {
+		USB_OFFLOAD_ERR("uainfo->pcm_dev_num invalid (%d)\n", uainfo->pcm_dev_num);
+		return false;
+	}
+
+	return true;
 }
 
 static void dump_uainfo(struct usb_audio_stream_info *uainfo)
@@ -386,7 +433,7 @@ static void uaudio_dev_release(struct kref *kref)
 	wake_up(&dev->disconnect_wq);
 }
 
-static int info_idx_from_ifnum(int card_num, int intf_num, bool enable)
+static int info_idx_from_ifnum(unsigned int card_num, int intf_num, bool enable)
 {
 	int i;
 
@@ -477,11 +524,22 @@ static int usb_offload_prepare_msg(struct snd_usb_substream *subs,
 	struct uac_format_type_i_ext_descriptor *fmt_v2;
 	struct uac1_as_header_descriptor *as;
 	int ret;
-	int protocol, card_num, pcm_dev_num;
+	unsigned int protocol, card_num, pcm_dev_num;
 	int interface, altset_idx;
 	void *hdr_ptr;
 	unsigned int data_ep_pipe = 0, sync_ep_pipe = 0;
 
+	if (subs == NULL) {
+		USB_OFFLOAD_ERR("substream is NULL!\n");
+		ret = -ENODEV;
+		goto err;
+	}
+
+	if (subs->cur_audiofmt == NULL) {
+		USB_OFFLOAD_ERR("substream->cur_audio_fmt is NULL!\n");
+		ret = -ENODEV;
+		goto err;
+	}
 	interface = subs->cur_audiofmt->iface;
 	altset_idx = subs->cur_audiofmt->altset_idx;
 
@@ -1000,7 +1058,9 @@ static int mtk_usb_offload_gen_pool_create(int min_alloc_order, int nid)
 	USB_OFFLOAD_MEM_DBG("\n");
 
 	for (i = 0; i < USB_OFFLOAD_MEM_NUM; i++) {
-		usb_offload_mem_pool[i] = gen_pool_create(min_alloc_order, -1);
+		usb_offload_mem_pool[i] = devm_gen_pool_create(uodev->dev, min_alloc_order,
+				-1, "mtk_usb_offload");
+
 		if (!usb_offload_mem_pool[i])
 			return -ENOMEM;
 
@@ -1284,11 +1344,12 @@ static void xhci_mtk_usb_offload_segment_free(struct xhci_hcd *xhci,
 					USB_OFFLOAD_ERR("FAIL: free mem seg: %d\n", idx);
 				else
 					USB_OFFLOAD_MEM_DBG("Free mem seg: %d DONE\n", idx);
-				return;
+				goto done;
 			}
 		}
 		USB_OFFLOAD_MEM_DBG("NO Segment MATCH to be freed. seg->trbs: %p, seg->dma: %llx\n",
 				seg->trbs, seg->dma);
+done:
 		seg->trbs = NULL;
 	}
 	kfree(seg->bounce_buf);
@@ -1343,6 +1404,7 @@ static struct xhci_segment *xhci_mtk_usb_offload_segment_alloc(struct xhci_hcd *
 			mem_id, buf_seg_slot);
 
 	seg->trbs = (void *) buf_seg[buf_seg_slot].dma_area;
+	seg->dma = 0;
 	dma = buf_seg[buf_seg_slot].dma_addr;
 	USB_OFFLOAD_MEM_DBG("seg->trbs: %p, dma: %llx, size: %d\n",
 			seg->trbs,
@@ -1359,7 +1421,6 @@ static struct xhci_segment *xhci_mtk_usb_offload_segment_alloc(struct xhci_hcd *
 		seg->bounce_buf = kzalloc(max_packet, flags);
 		if (!seg->bounce_buf) {
 			xhci_mtk_usb_offload_segment_free(xhci, seg, mem_id);
-			kfree(seg);
 			return NULL;
 		}
 	}
@@ -1475,8 +1536,6 @@ static struct xhci_ring *xhci_mtk_alloc_transfer_ring(struct xhci_hcd *xhci,
 	ring->bounce_buf_len = max_packet;
 	INIT_LIST_HEAD(&ring->td_list);
 	ring->type = ring_type;
-	if (num_segs == 0)
-		return ring;
 
 	ret = xhci_mtk_usb_offload_alloc_segments_for_ring(xhci, &ring->first_seg,
 			&ring->last_seg, num_segs, cycle_state, ring_type,
@@ -1621,11 +1680,18 @@ static long usb_offload_ioctl(struct file *fp,
 			xhci_mem->xhci_data_size = 0;
 		}
 		ret = send_init_ipi_msg_to_adsp(xhci_mem);
+		kfree(xhci_mem);
 		break;
 	case USB_OFFLOAD_ENABLE_STREAM:
 	case USB_OFFLOAD_DISABLE_STREAM:
 		USB_OFFLOAD_INFO("USB_OFFLOAD_ENABLE_STREAM / USB_OFFLOAD_DISABLE_STREAM\n");
 		if (copy_from_user(&uainfo, (void __user *)value, sizeof(uainfo))) {
+			ret = -EFAULT;
+			goto fail;
+		}
+
+		if (!is_uainfo_valid(&uainfo)) {
+			USB_OFFLOAD_ERR("uainfo invalid!!!\n");
 			ret = -EFAULT;
 			goto fail;
 		}
@@ -1712,8 +1778,10 @@ static int usb_offload_probe(struct platform_device *pdev)
 
 	uodev = devm_kzalloc(&pdev->dev, sizeof(struct usb_offload_dev),
 		GFP_KERNEL);
-	if (!uodev)
+	if (!uodev) {
+		USB_OFFLOAD_ERR("Fail to allocate usb_offload_dev\n");
 		return -ENOMEM;
+	}
 
 	uodev->dev = &pdev->dev;
 
@@ -1733,35 +1801,60 @@ static int usb_offload_probe(struct platform_device *pdev)
 
 	node_xhci_host = of_parse_phandle(uodev->dev->of_node, "xhci_host", 0);
 	if (node_xhci_host) {
-		USB_OFFLOAD_INFO("Set XHCI vendor hook ops\n");
-		platform_set_drvdata(pdev, &xhci_mtk_vendor_ops);
-
 		ret = mtk_init_usb_offload_sharemem(ADSP_XHCI_MEM_ID, USB_OFFLOAD_MEM_DRAM_ID);
 		if (ret == -EPROBE_DEFER)
 			goto INIT_SHAREMEM_FAIL;
 
 		if (uodev->default_use_sram)
-			ret = mtk_init_usb_offload_sharemem(0, USB_OFFLOAD_MEM_SRAM_ID);
+			mtk_init_usb_offload_sharemem(0, USB_OFFLOAD_MEM_SRAM_ID);
 
 		ret = mtk_usb_offload_gen_pool_create(MIN_USB_OFFLOAD_SHIFT, -1);
+		if (ret) {
+			ret = -ENOMEM;
+			goto GEN_POOL_FAIL;
+		}
 
 		ret = misc_register(&usb_offload_device);
+		if (ret) {
+			USB_OFFLOAD_ERR("Fail to allocate usb_offload_device\n");
+			ret = -ENOMEM;
+			goto INIT_MISC_DEV_FAIL;
+		}
 
 		uodev->ssusb_offload_notify = kzalloc(
 					sizeof(*uodev->ssusb_offload_notify), GFP_KERNEL);
 		if (!uodev->ssusb_offload_notify) {
+			USB_OFFLOAD_ERR("Fail to alloc ssusb_offload_notify\n");
 			ret = -ENOMEM;
 			goto INIT_OFFLOAD_NOTIFY_FAIL;
 		}
 		uodev->ssusb_offload_notify->dev = uodev->dev;
 		uodev->ssusb_offload_notify->get_mode = xhci_mtk_ssusb_offload_get_mode;
 		ret = ssusb_offload_register(uodev->ssusb_offload_notify);
-	} else
+		if (ret) {
+			USB_OFFLOAD_ERR("Fail to register ssusb_offload\n");
+			ret = -ENOMEM;
+			goto REG_SSUSB_OFFLOAD_FAIL;
+		}
+		USB_OFFLOAD_INFO("Set XHCI vendor hook ops\n");
+		platform_set_drvdata(pdev, &xhci_mtk_vendor_ops);
+
+		sound_usb_trace_init();
+	} else {
 		USB_OFFLOAD_ERR("No 'xhci_host' node, NOT support USB_OFFLOAD\n");
+		ret = -ENODEV;
+		goto INIT_SHAREMEM_FAIL;
+	}
 
-	sound_usb_trace_init();
-
+	return ret;
+REG_SSUSB_OFFLOAD_FAIL:
+	kfree(uodev->ssusb_offload_notify);
 INIT_OFFLOAD_NOTIFY_FAIL:
+	misc_deregister(&usb_offload_device);
+INIT_MISC_DEV_FAIL:
+GEN_POOL_FAIL:
+	if (uodev->default_use_sram)
+		iounmap((void *) usb_offload_mem_buffer[USB_OFFLOAD_MEM_SRAM_ID].va_addr);
 INIT_SHAREMEM_FAIL:
 	of_node_put(node_xhci_host);
 	return ret;
