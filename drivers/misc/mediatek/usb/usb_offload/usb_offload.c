@@ -323,8 +323,13 @@ static void uaudio_dev_cleanup(struct usb_audio_dev *dev)
 {
 	int if_idx;
 
-	if (!dev->udev) {
+	if (!dev) {
 		USB_OFFLOAD_ERR("USB audio device is already freed.\n");
+		return;
+	}
+
+	if (!dev->udev) {
+		USB_OFFLOAD_ERR("USB device is already freed.\n");
 		return;
 	}
 
@@ -333,8 +338,8 @@ static void uaudio_dev_cleanup(struct usb_audio_dev *dev)
 		if (!dev->info[if_idx].in_use)
 			continue;
 		usb_audio_dev_intf_cleanup(dev->udev, &dev->info[if_idx]);
-		USB_OFFLOAD_INFO("release resources: intf# %d card# %d\n",
-				dev->info[if_idx].intf_num, dev->card_num);
+		USB_OFFLOAD_INFO("release resources: if_idx:%d intf# %d card# %d\n",
+				if_idx, dev->info[if_idx].intf_num, dev->card_num);
 	}
 
 	dev->num_intf = 0;
@@ -429,7 +434,12 @@ static void uaudio_dev_release(struct kref *kref)
 {
 	struct usb_audio_dev *dev = container_of(kref, struct usb_audio_dev, kref);
 
-	USB_OFFLOAD_INFO("for dev %pK\n", dev);
+	if (!dev) {
+		USB_OFFLOAD_ERR("dev has been freed!!\n");
+		return;
+	}
+	USB_OFFLOAD_INFO("in_use:%d -> 0\n",
+			atomic_read(&uadev[uodev->card_num].in_use));
 
 	atomic_set(&dev->in_use, 0);
 	wake_up(&dev->disconnect_wq);
@@ -454,7 +464,7 @@ static int info_idx_from_ifnum(unsigned int card_num, int intf_num, bool enable)
 	USB_OFFLOAD_INFO("num_intf:%d\n", uadev[card_num].num_intf);
 
 	for (i = 0; i < uadev[card_num].num_intf; i++) {
-		USB_OFFLOAD_INFO("card_idx:%d, in_use:%d, intf_num:%d\n",
+		USB_OFFLOAD_INFO("info_idx:%d, in_use:%d, intf_num:%d\n",
 			i,
 			uadev[card_num].info[i].in_use,
 			uadev[card_num].info[i].intf_num);
@@ -745,7 +755,7 @@ skip_sync_ep:
 	uadev[card_num].info[info_idx].in_use = true;
 
 	set_bit(card_num, &uodev->card_slot);
-
+	uodev->card_num = card_num;
 	return 0;
 err:
 	return ret;
@@ -882,10 +892,12 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 		USB_OFFLOAD_INFO("chip->shutdown:%d\n", atomic_read(&chip->shutdown));
 		if (!subs->stream)
 			USB_OFFLOAD_INFO("NO subs->stream\n");
-		if (!subs->stream->pcm)
-			USB_OFFLOAD_INFO("NO subs->stream->pcm\n");
-		if (!subs->stream->chip)
-			USB_OFFLOAD_INFO("NO subs->stream->chip\n");
+		else {
+			if (!subs->stream->pcm)
+				USB_OFFLOAD_INFO("NO subs->stream->pcm\n");
+			if (!subs->stream->chip)
+				USB_OFFLOAD_INFO("NO subs->stream->chip\n");
+		}
 		if (!subs->pcm_substream)
 			USB_OFFLOAD_INFO("NO subs->pcm_substream\n");
 
@@ -1736,6 +1748,7 @@ static int usb_offload_release(struct inode *ip, struct file *fp)
 {
 	int ret = 0;
 	struct usb_audio_stream_msg msg = {0};
+	unsigned int card_num = uodev->card_num;
 
 	USB_OFFLOAD_INFO("%d\n", __LINE__);
 	uodev->is_streaming = false;
@@ -1751,6 +1764,12 @@ static int usb_offload_release(struct inode *ip, struct file *fp)
 	/* wait response */
 	USB_OFFLOAD_INFO("send_disconnect_ipi_msg_to_adsp msg, ret: %d\n", ret);
 
+	mutex_lock(&uodev->dev_lock);
+	uaudio_dev_cleanup(&uadev[card_num]);
+	USB_OFFLOAD_INFO("uadev[%d].in_use: %d ==> 0\n",
+			card_num, atomic_read(&uadev[card_num].in_use));
+	atomic_set(&uadev[card_num].in_use, 0);
+	mutex_unlock(&uodev->dev_lock);
 	return ret;
 }
 

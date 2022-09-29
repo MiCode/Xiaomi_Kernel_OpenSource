@@ -208,6 +208,7 @@ struct usb_offload_dev {
 	struct device *dev;
 	u32 intr_num;
 	unsigned long card_slot;
+	unsigned int card_num;
 	enum usb_offload_mem_id mem_id;
 	bool default_use_sram;
 	int current_mem_mode;
