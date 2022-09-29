@@ -87,12 +87,8 @@ static int ipi_transfer_buffer(struct ipi_transfer *t)
 	timeout = wait_for_completion_timeout(&hw->done,
 			msecs_to_jiffies(100));
 	spin_lock_irqsave(&hw_transfer_lock, flags);
-	if (!timeout) {
+	if (!timeout)
 		hw->count = -ETIMEDOUT;
-		pr_err_ratelimited("timeout %u %u %u %u %u\n",
-			hw->tx[0], hw->tx[1], hw->tx[2],
-			hw->tx[3], hw->tx[4]);
-	}
 	hw->context = NULL;
 	spin_unlock_irqrestore(&hw_transfer_lock, flags);
 	return hw->count;
@@ -234,10 +230,8 @@ static void ipi_comm_complete(unsigned char *buffer, unsigned int len)
 	struct ipi_hw_transfer *hw = &hw_transfer;
 
 	spin_lock(&hw_transfer_lock);
-	if (!hw->context) {
-		pr_err("dropped transfer\n");
+	if (!hw->context)
 		goto out;
-	}
 	/* only copy hw->rx_len bytes to hw->rx to avoid memory corruption */
 	memcpy(hw->rx, buffer, hw->rx_len);
 	/* hw->count give real len */
