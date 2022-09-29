@@ -55,7 +55,9 @@ int mtk_cam_dvfs_tbl_get_opp(struct mtk_cam_dvfs_tbl *tbl);
 void mtk_cam_qos_init(struct mtk_cam_device *cam);
 void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx);
 void mtk_cam_qos_sv_bw_reset(struct mtk_cam_ctx *ctx);
-void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool force);
-void mtk_cam_qos_sv_bw_calc(struct mtk_cam_ctx *ctx, bool force);
+void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx,
+	struct mtk_cam_request_stream_data *s_data, bool force);
+void mtk_cam_qos_sv_bw_calc(struct mtk_cam_ctx *ctx,
+	struct mtk_cam_request_stream_data *s_data, bool force);
 
 #endif

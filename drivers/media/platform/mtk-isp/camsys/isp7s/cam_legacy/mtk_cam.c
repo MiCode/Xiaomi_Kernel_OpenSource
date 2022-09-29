@@ -6207,7 +6207,7 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 		raw_dev = dev_get_drvdata(dev);
 
 		/* mmqos update */
-		mtk_cam_qos_bw_calc(ctx, s_data->raw_dmas, false);
+		mtk_cam_qos_bw_calc(ctx, s_data, true);
 
 		if (ctx->sv_dev) {
 			/* may be programmed by raw's scq under dcif case */
@@ -6390,7 +6390,7 @@ static int isp_composer_handle_sv_ack(struct mtk_cam_device *cam,
 
 		atomic_set(&ctx->sv_dev->is_first_frame, 1);
 		/* mmqos update for single sv case */
-		mtk_cam_qos_sv_bw_calc(ctx, false);
+		mtk_cam_qos_sv_bw_calc(ctx, s_data, true);
 
 		apply_camsv_cq(ctx->sv_dev,
 			buf_entry->buffer.iova,
