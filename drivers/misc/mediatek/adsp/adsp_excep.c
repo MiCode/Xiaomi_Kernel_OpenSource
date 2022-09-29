@@ -213,6 +213,7 @@ static void adsp_exception_dump(struct adsp_exception_control *ctrl)
 	if (suppress_test_ee && coredump
 	    && strstr(coredump->assert_log, ADSP_TEST_EE_PATTERN)) {
 		pr_info("%s, suppress Test EE dump", __func__);
+		msleep(20);
 		return;
 	}
 
