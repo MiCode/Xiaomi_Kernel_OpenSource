@@ -77,7 +77,7 @@ struct mtk_disp_rsz_data {
 };
 
 enum mtk_rsz_color_format {
-	ARGB8101010,
+	ARGB2101010,
 	RGB999,
 	RGB888,
 	UNKNOWN_RSZ_CFMT,
@@ -228,7 +228,7 @@ static int mtk_rsz_set_color_format(enum mtk_rsz_color_format fmt)
 	u32 reg_val = 0;
 
 	switch (fmt) {
-	case ARGB8101010:
+	case ARGB2101010:
 		reg_val = REG_FLD_VAL(FLD_RSZ_POWER_SAVING, 0x0);
 		reg_val |= REG_FLD_VAL(FLD_RSZ_RGB_BIT_MODE, 0x0);
 		break;
@@ -270,7 +270,7 @@ static void mtk_rsz_addon_config(struct mtk_ddp_comp *comp,
 	struct mtk_addon_rsz_config config = addon_config->addon_rsz_config;
 	struct mtk_rsz_config_struct *rsz_config = NULL;
 	struct mtk_disp_rsz *rsz = comp_to_rsz(comp);
-	enum mtk_rsz_color_format fmt = RGB888;
+	enum mtk_rsz_color_format fmt = ARGB2101010;
 	bool tile_mode = false;
 	u32 reg_val = 0;
 	u32 tile_idx = 0;
