@@ -573,7 +573,7 @@ static struct vb2_v4l2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 	struct vdec_fb *free_frame_buffer = NULL;
 	struct vb2_buffer *vb;
 	int i;
-	dma_addr_t new_dma_addr;
+	dma_addr_t new_dma_addr = 0;
 	bool new_dma = false;
 
 	mutex_lock(&ctx->buf_lock);
@@ -609,7 +609,8 @@ static struct vb2_v4l2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 
 	vb = &dstbuf->vb.vb2_buf;
 	for (i = 0; i < vb->num_planes; i++) {
-		new_dma_addr = vb2_dma_contig_plane_dma_addr(vb, i);
+		if (!IS_ERR_OR_NULL(vb2_plane_cookie(vb, i)))
+			new_dma_addr = vb2_dma_contig_plane_dma_addr(vb, i);
 		// real buffer changed in this slot
 		if (free_frame_buffer->fb_base[i].dmabuf != vb->planes[i].dbuf) {
 			new_dma = true;
