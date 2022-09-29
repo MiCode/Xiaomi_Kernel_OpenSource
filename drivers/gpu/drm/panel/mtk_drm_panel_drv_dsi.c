@@ -273,7 +273,7 @@ static int mtk_drm_panel_do_prepare(struct mtk_panel_context *ctx_dsi)
 	if (IS_ERR_OR_NULL(ops))
 		return -EINVAL;
 
-	DDPMSG("%s, %d, prop:0x%x size:%lluByte\n",
+	DDPINFO("%s, %d, prop:0x%x size:%lluByte\n",
 		__func__, __LINE__, prop, mtk_lcm_total_size);
 	start = sched_clock();
 	if (mtk_lcm_create_input_packet(&input, 1, 1) < 0)
@@ -308,7 +308,7 @@ fail2:
 	mtk_lcm_destroy_input_packet(&input);
 	end = sched_clock();
 
-	DDPMSG("%s, %d, prop:0x%x time:%lluns, ret:%d, size:%lluByte\n",
+	DDPINFO("%s, %d, prop:0x%x time:%lluns, ret:%d, size:%lluByte\n",
 		__func__, __LINE__, prop, end - start, ret, mtk_lcm_total_size);
 	return ret;
 }
@@ -740,6 +740,7 @@ fail:
 	return ret;
 }
 
+#ifdef MTK_AOD_MODE_CHECK
 static int mtk_panel_aod_mode_check(unsigned char *out)
 {
 	struct mtk_lcm_ops_dsi *ops = NULL;
@@ -814,6 +815,7 @@ fail:
 	DDPMSG("%s-, ret:%d, out:0x%x\n", __func__, ret, *out);
 	return ret;
 }
+#endif
 
 static int panel_init_backlight_input_data(unsigned int level, unsigned int mode,
 	struct mtk_lcm_ops_input *input)
@@ -867,7 +869,6 @@ static int panel_set_backlight(void *dsi, dcs_write_gce cb,
 	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
 				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
 				MTK_LCM_DSI_CMD_PROP_PACK;
-	unsigned char aod_mode = 0;
 	int ret = 0;
 
 	if (IS_ERR_OR_NULL(table) || table->size == 0)
@@ -876,50 +877,12 @@ static int panel_set_backlight(void *dsi, dcs_write_gce cb,
 	if (level > 255)
 		level = 255;
 
-	if (mtk_lcm_create_input_packet(&input, 1, 2) < 0)
+	if (mtk_lcm_create_input_packet(&input, 1, 0) < 0)
 		return -ENOMEM;
 
 	/* set runtime input data of backlight */
 	if (panel_init_backlight_input_data(level, mode, &input.data[0]) < 0)
-		goto fail2;
-
-	/* set runtime input data of aod mode */
-	if (mtk_lcm_create_input(&input.condition[0], 1,
-			MTK_LCM_INPUT_TYPE_AOD) < 0) {
-		DDPPR_ERR("%s, %d failed to alloc aod mode data\n",
-			__func__, __LINE__);
-		ret = -ENOMEM;
-		goto fail1;
-	}
-	if (atomic_read(&ctx_dsi->doze_had) != 0) {
-		if (mtk_panel_aod_mode_check(&aod_mode) < 0)
-			goto end;
-		*(u8 *)input.condition[0].data = aod_mode;
-	} else {
-		*(u8 *)input.condition[0].data = 0;
-	}
-
-	/* set runtime input data of dim status */
-	if (mtk_lcm_create_input(&input.condition[1], 1,
-			MTK_LCM_INPUT_TYPE_DIM) < 0) {
-		DDPPR_ERR("%s, %d failed to alloc dim data\n",
-			__func__, __LINE__);
-		ret = -ENOMEM;
-		goto end;
-	}
-	if (atomic_read(&ctx_dsi->dim_status) == 0 &&
-		level > 0) { //do dim on ops
-		DDPMSG("%s, %d,switch dim on, level\n",
-			__func__, __LINE__, level);
-		*(u8 *)input.condition[1].data = 1;
-	} else if (atomic_read(&ctx_dsi->dim_status) > 0 &&
-		level == 0) { //do dim off ops
-		DDPMSG("%s, %d,switch dim off, level\n",
-			__func__, __LINE__, level);
-		*(u8 *)input.condition[1].data = 0;
-	} else { //skip dim ops
-		*(u8 *)input.condition[1].data = 0xff;
-	}
+		goto fail;
 
 	if (mtk_lcm_support_cb == 0)
 		ret = mtk_panel_execute_operation(dsi_dev, table,
@@ -935,22 +898,13 @@ static int panel_set_backlight(void *dsi, dcs_write_gce cb,
 
 	/* update context before return */
 	atomic_set(&ctx_dsi->current_backlight, level);
-	atomic_set(&ctx_dsi->doze_had, 0);
-	if (atomic_read(&ctx_dsi->dim_status) == 0 &&
-		level > 0)
-		atomic_set(&ctx_dsi->dim_status, 1);
-	else if (atomic_read(&ctx_dsi->dim_status) > 0 &&
-		level == 0)
-		atomic_set(&ctx_dsi->dim_status, 0);
 
 end:
-	mtk_lcm_destroy_input(input.condition);
-fail1:
 	mtk_lcm_destroy_input(input.data);
-fail2:
+fail:
 	mtk_lcm_destroy_input_packet(&input);
 
-	DDPMSG("%s- level:%u %d\n", __func__, level, ret);
+	DDPINFO("%s- level:%u %d\n", __func__, level, ret);
 	return ret;
 }
 
@@ -1041,7 +995,7 @@ static int mtk_panel_set_backlight_cmdq(void *dsi, dcs_write_gce cb,
 		return -EINVAL;
 	}
 
-	DDPMSG("%s+\n", __func__);
+	DDPDBG("%s+\n", __func__);
 	cust = ctx_dsi->panel_resource->cust;
 	if (cust != NULL &&
 		cust->ext_funcs.set_backlight_cmdq != NULL) {
@@ -1054,11 +1008,6 @@ static int mtk_panel_set_backlight_cmdq(void *dsi, dcs_write_gce cb,
 		return ret;
 	}
 
-	if (atomic_read(&ctx_dsi->doze_enabled) != 0) {
-		DDPMSG("%s,%d: skip set backlight when aod on\n",
-			__func__, __LINE__);
-		return 0;
-	}
 	ops = ctx_dsi->panel_resource->ops.dsi_ops;
 	if (IS_ERR_OR_NULL(ops) ||
 		ops->set_backlight_cmdq.size == 0) {
@@ -1440,10 +1389,8 @@ static int mtk_panel_doze_enable(struct drm_panel *panel,
 		ret = mtk_panel_execute_callback(dsi, cb, handle,
 				&ops->doze_enable, NULL, "doze_enable");
 
-	if (ret == 0) {
+	if (ret == 0)
 		atomic_set(&ctx_dsi->doze_enabled, 1);
-		atomic_set(&ctx_dsi->doze_had, 1);
-	}
 
 	DDPMSG("%s- ret:%d\n", __func__, ret);
 	return ret;
@@ -2798,8 +2745,6 @@ static int mtk_drm_lcm_probe(struct mipi_dsi_device *dsi_dev)
 	atomic_set(&ctx_dsi->current_backlight, 0xFF);
 	atomic_set(&ctx_dsi->fake_mode, 0);
 	atomic_set(&ctx_dsi->doze_enabled, 0);
-	atomic_set(&ctx_dsi->doze_had, 0);
-	atomic_set(&ctx_dsi->dim_status, 0);
 	ctx_dsi->current_mode = dsi_params->default_mode;
 	spin_lock_init(&ctx_dsi->lock);
 
