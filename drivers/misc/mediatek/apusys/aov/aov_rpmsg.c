@@ -130,7 +130,7 @@ static int apu_tx_thread(void *data)
 			retry_cnt = 20;
 			do {
 				send_msg.cmd = NPU_SCP_NP_MDW;
-				send_msg.act = NPU_SCP_NP_MDW_ACK;
+				send_msg.act = NPU_SCP_NP_MDW_TO_SCP;
 				send_msg.arg = MDW_SCP_IPI_BUSY;
 
 				ret = npu_scp_ipi_send(&send_msg, NULL, MDW_TIMEOUT_MS);
@@ -162,6 +162,7 @@ static int scp_tx_thread(void *data)
 		do {
 			send_msg.cmd = NPU_SCP_NP_MDW;
 			send_msg.act = NPU_SCP_NP_MDW_TO_SCP;
+			send_msg.arg = 0;
 
 			ret = npu_scp_ipi_send(&send_msg, NULL, MDW_TIMEOUT_MS);
 			pr_debug_ratelimited("%s scp ipi, ret %d\n", __func__, ret);
