@@ -868,10 +868,97 @@ int uarthub_core_dev0_is_txrx_idle(int rx)
 	return (state == 0) ? 1 : 0;
 }
 
+
+#define UARTHUB_TSK_OP_LOG_SIZE     20
+#define UARTHUB_IRQ_OP_LOG_SIZE     5
+
+#define UARTHUB_LOG_IRQ_PKT_SIZE    12
+#define UARTHUB_LOG_IRQ_IDX_ADDR(addr) (addr)
+
+#define UARTHUB_LOG_TSK_PKT_SIZE    20
+#define UARTHUB_LOG_TSK_IDX_ADDR(addr) \
+		(addr + (UARTHUB_LOG_IRQ_PKT_SIZE * UARTHUB_IRQ_OP_LOG_SIZE) + 4)
+
+#define UARTHUB_CK_CNT_ADDR(addr) \
+	(UARTHUB_LOG_TSK_IDX_ADDR(addr) + (UARTHUB_TSK_OP_LOG_SIZE * UARTHUB_LOG_TSK_PKT_SIZE) + 4)
+
+#define UARTHUB_TMP_BUF_SZ  512
+char g_buf[UARTHUB_TMP_BUF_SZ];
+
+int uarthub_core_dump_sspm_log(void)
+{
+	void __iomem *sys_sram_base_remap_addr = NULL;
+	void __iomem *log_addr = NULL;
+	int i, n, used;
+	uint32_t val, irq_idx = 0, tsk_idx = 0;
+	uint64_t t;
+	char *tmp;
+
+	if (g_uarthub_plat_ic_ops == NULL ||
+		g_uarthub_plat_ic_ops->uarthub_plat_get_sys_sram_base_addr == NULL)
+		return 0;
+
+	sys_sram_base_remap_addr =
+		g_uarthub_plat_ic_ops->uarthub_plat_get_sys_sram_base_addr();
+
+	g_buf[0] = '\0';
+	log_addr = UARTHUB_LOG_IRQ_IDX_ADDR(sys_sram_base_remap_addr);
+	irq_idx = UARTHUB_REG_READ(log_addr);
+	log_addr += 4;
+
+	tmp = g_buf;
+	used = 0;
+	for (i = 0; i < UARTHUB_IRQ_OP_LOG_SIZE; i++) {
+		t = UARTHUB_REG_READ(log_addr);
+		t = t << 32 | UARTHUB_REG_READ(log_addr + 4);
+		n = snprintf(tmp + used, UARTHUB_TMP_BUF_SZ - used, "[%llu:%X] ",
+							t,
+							UARTHUB_REG_READ(log_addr + 8));
+		if (n > 0)
+			used += n;
+		log_addr += UARTHUB_LOG_IRQ_PKT_SIZE;
+	}
+	pr_info("[%s][%x] %s", __func__, irq_idx, g_buf);
+
+	log_addr = UARTHUB_LOG_TSK_IDX_ADDR(sys_sram_base_remap_addr);
+	tsk_idx = UARTHUB_REG_READ(log_addr);
+	log_addr += 4;
+	g_buf[0] = '\0';
+	tmp = g_buf;
+	used = 0;
+	for (i = 0; i < UARTHUB_TSK_OP_LOG_SIZE; i++) {
+		t = UARTHUB_REG_READ(log_addr);
+		t = t << 32 | UARTHUB_REG_READ(log_addr + 4);
+		n = snprintf(tmp + used, UARTHUB_TMP_BUF_SZ - used, "[%llu:%d-%x-%x]",
+							t,
+							UARTHUB_REG_READ(log_addr + 8),
+							UARTHUB_REG_READ(log_addr + 12),
+							UARTHUB_REG_READ(log_addr + 16));
+		if (n > 0) {
+			used += n;
+			if ((i % (UARTHUB_TSK_OP_LOG_SIZE/2))
+					== ((UARTHUB_TSK_OP_LOG_SIZE/2) - 1)) {
+				pr_info("[%s][%x] %s", __func__, tsk_idx, g_buf);
+				g_buf[0] = '\0';
+				tmp = g_buf;
+				used = 0;
+			}
+		}
+		log_addr += UARTHUB_LOG_TSK_PKT_SIZE;
+	}
+
+	log_addr = UARTHUB_CK_CNT_ADDR(sys_sram_base_remap_addr);
+	val = UARTHUB_REG_READ(log_addr);
+	pr_info("[%s] off/on cnt=[%d][%d]", __func__, (val & 0xFFFF), (val >> 16));
+
+	return 0;
+}
+
 int uarthub_core_dev0_set_tx_request(void)
 {
 	int retry = 0;
 	int val = 0;
+	uint32_t timer_h = 0, timer_l = 0;
 
 	if (g_uarthub_disable == 1)
 		return 0;
@@ -896,9 +983,15 @@ int uarthub_core_dev0_set_tx_request(void)
 
 	UARTHUB_REG_WRITE(UARTHUB_INTFHUB_DEV0_STA_SET(intfhub_base_remap_addr), 0x2);
 
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_sys_timer)
+		g_uarthub_plat_ic_ops->uarthub_plat_get_spm_sys_timer(&timer_h, &timer_l);
+
 #if !(SUPPORT_SSPM_DRIVER)
 	UARTHUB_SET_BIT(UARTHUB_INTFHUB_IRQ_CLR(intfhub_base_remap_addr), (0x1 << 0));
-	pr_info("[%s] is_ready=[%d]\n", __func__, uarthub_core_dev0_is_uarthub_ready());
+	pr_info("[%s] is_ready=[%d] sys_timer[%x][%x]\n", __func__,
+					uarthub_core_dev0_is_uarthub_ready(),
+					timer_h, timer_l);
 #if UARTHUB_DEBUG_LOG
 	uarthub_core_debug_info_with_tag(__func__, 1);
 #endif
@@ -935,6 +1028,10 @@ int uarthub_core_dev0_set_tx_request(void)
 
 int uarthub_core_dev0_set_rx_request(void)
 {
+#if UARTHUB_INFO_LOG
+	uint32_t timer_h = 0, timer_l = 0;
+#endif
+
 	if (g_uarthub_disable == 1)
 		return 0;
 
@@ -953,7 +1050,13 @@ int uarthub_core_dev0_set_rx_request(void)
 	}
 
 #if UARTHUB_INFO_LOG
-	pr_info("[%s] g_max_dev=[%d]\n", __func__, g_max_dev);
+
+	if (g_uarthub_plat_ic_ops &&
+			g_uarthub_plat_ic_ops->uarthub_plat_get_spm_sys_timer)
+		g_uarthub_plat_ic_ops->uarthub_plat_get_spm_sys_timer(&timer_h, &timer_l);
+
+	pr_info("[%s] g_max_dev=[%d] sys_timer=[%x][%x]\n", __func__, g_max_dev,
+					timer_h, timer_l);
 #endif
 
 	UARTHUB_REG_WRITE(UARTHUB_INTFHUB_DEV0_STA_SET(intfhub_base_remap_addr), 0x1);
@@ -3155,6 +3258,8 @@ int uarthub_core_debug_info_with_tag_nolock(const char *tag, int dump_uart_ip)
 
 	pr_info("[%s][%s] ++++++++++++++++++++++++++++++++++++++++\n",
 		def_tag, ((tag == NULL) ? "null" : tag));
+
+	uarthub_core_dump_sspm_log();
 
 	val = UARTHUB_REG_READ(UARTHUB_INTFHUB_DBG(intfhub_base_remap_addr));
 	len = 0;

@@ -28,6 +28,7 @@ void __iomem *ap_dma_uart_3_tx_int_remap_addr;
 void __iomem *spm_remap_addr;
 void __iomem *apmixedsys_remap_addr;
 void __iomem *iocfg_rm_remap_addr;
+void __iomem *sys_sram_remap_addr;
 
 static int uarthub_init_remap_reg_mt6985(void);
 static int uarthub_deinit_unmap_reg_mt6985(void);
@@ -45,7 +46,9 @@ static int uarthub_get_uart_mux_info_mt6985(void);
 static int uarthub_get_uarthub_addr_info_mt6985(struct uarthub_reg_base_addr *info);
 static void __iomem *uarthub_get_ap_uart_base_addr_mt6985(void);
 static void __iomem *uarthub_get_ap_dma_tx_int_addr_mt6985(void);
+static void __iomem *uarthub_get_sys_sram_addr_mt6985(void);
 static int uarthub_get_spm_res_info_mt6985(void);
+static int uarthub_get_spm_sys_timer_mt6985(uint32_t *hi, uint32_t *lo);
 static int uarthub_get_peri_clk_info_mt6985(void);
 static int uarthub_get_peri_uart_pad_mode_mt6985(void);
 
@@ -66,7 +69,9 @@ struct uarthub_ops_struct mt6985_plat_data = {
 	.uarthub_plat_get_uarthub_addr_info = uarthub_get_uarthub_addr_info_mt6985,
 	.uarthub_plat_get_ap_uart_base_addr = uarthub_get_ap_uart_base_addr_mt6985,
 	.uarthub_plat_get_ap_dma_tx_int_addr = uarthub_get_ap_dma_tx_int_addr_mt6985,
+	.uarthub_plat_get_sys_sram_base_addr = uarthub_get_sys_sram_addr_mt6985,
 	.uarthub_plat_get_spm_res_info = uarthub_get_spm_res_info_mt6985,
+	.uarthub_plat_get_spm_sys_timer = uarthub_get_spm_sys_timer_mt6985,
 	.uarthub_plat_get_peri_clk_info = uarthub_get_peri_clk_info_mt6985,
 	.uarthub_plat_get_peri_uart_pad_mode = uarthub_get_peri_uart_pad_mode_mt6985,
 };
@@ -83,6 +88,7 @@ int uarthub_init_remap_reg_mt6985(void)
 	spm_remap_addr = ioremap(SPM_BASE_ADDR, 0x1000);
 	apmixedsys_remap_addr = ioremap(APMIXEDSYS_BASE_ADDR, 0x500);
 	iocfg_rm_remap_addr = ioremap(IOCFG_RM_BASE_ADDR, 100);
+	sys_sram_remap_addr = ioremap(SYS_SRAM_BASE_ADDR, 0x200);
 
 	return 0;
 }
@@ -118,6 +124,9 @@ int uarthub_deinit_unmap_reg_mt6985(void)
 
 	if (iocfg_rm_remap_addr)
 		iounmap(iocfg_rm_remap_addr);
+
+	if (sys_sram_remap_addr)
+		iounmap(sys_sram_remap_addr);
 
 	return 0;
 }
@@ -398,6 +407,11 @@ void __iomem *uarthub_get_ap_dma_tx_int_addr_mt6985(void)
 	return ap_dma_uart_3_tx_int_remap_addr;
 }
 
+void __iomem *uarthub_get_sys_sram_addr_mt6985(void)
+{
+	return sys_sram_remap_addr;
+}
+
 int uarthub_get_spm_res_info_mt6985(void)
 {
 	unsigned int spm_res1 = 0, spm_res2 = 0;
@@ -419,6 +433,25 @@ int uarthub_get_spm_res_info_mt6985(void)
 
 	return 1;
 }
+int uarthub_get_spm_sys_timer_mt6985(uint32_t *hi, uint32_t *lo)
+{
+	if (hi == NULL || lo == NULL) {
+		pr_notice("[%s] invalid argument\n", __func__);
+		return -1;
+	}
+
+	if (!spm_remap_addr) {
+		pr_notice("[%s] spm_remap_addr is NULL\n", __func__);
+		return -1;
+	}
+
+	*hi = UARTHUB_REG_READ(spm_remap_addr + SPM_SYS_TIMER_H);
+	*lo = UARTHUB_REG_READ(spm_remap_addr + SPM_SYS_TIMER_L);
+
+	return 1;
+}
+
+
 
 int uarthub_get_peri_uart_pad_mode_mt6985(void)
 {

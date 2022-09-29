@@ -111,11 +111,18 @@
 #define MD32PCM_SCU_CTRL1              0x104
 #define MD32PCM_SCU_CTRL1_MASK         (0x17 << 17)
 #define MD32PCM_SCU_CTRL1_SHIFT        17
+
+#define SPM_SYS_TIMER_L                0x504
+#define SPM_SYS_TIMER_H                0x508
+
 #define SPM_REQ_STA_9                  0x86C
 #define SPM_REQ_STA_9_MASK             (0x1F << 17)
 #define SPM_REQ_STA_9_SHIFT            17
 
 #define UART3_BASE_ADDR                0x11004000
 #define AP_DMA_UART_3_TX_INT_FLAG_ADDR 0x11301300
+
+#define SYS_SRAM_BASE_ADDR              0x00113C00
+
 
 #endif /* MT6985_H */
