@@ -29,6 +29,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/reset.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
+#include <trace/hooks/traps.h>
 
 #include "../pci.h"
 #include "../../misc/mediatek/clkbuf/v1/inc/mtk_clkbuf_ctl.h"
@@ -104,6 +105,7 @@
 	GENMASK(PCIE_INTX_SHIFT + PCI_NUM_INTX - 1, PCIE_INTX_SHIFT)
 
 #define PCIE_INT_STATUS_REG		0x184
+#define PCIE_AXIERR_COMPL_TIMEOUT	BIT(18)
 #define PCIE_MSI_SET_ENABLE_REG		0x190
 #define PCIE_MSI_SET_ENABLE		GENMASK(PCIE_MSI_SET_NUM - 1, 0)
 
@@ -1274,6 +1276,48 @@ int mtk_pcie_remove_port(int port)
 }
 EXPORT_SYMBOL(mtk_pcie_remove_port);
 
+#if IS_ENABLED(CONFIG_ANDROID_FIX_PCIE_SLAVE_ERROR)
+static void pcie_android_rvh_do_serror(void *data, struct pt_regs *regs,
+				       unsigned int esr, int *ret)
+{
+	struct device_node *pcie_node;
+	struct platform_device *pdev;
+	struct mtk_pcie_port *pcie_port;
+	u32 val;
+
+	pcie_node = mtk_pcie_find_node_by_port(0);
+	if (!pcie_node) {
+		pr_info("PCIe device node not found!\n");
+		return;
+	}
+
+	pdev = of_find_device_by_node(pcie_node);
+	if (!pdev) {
+		pr_info("PCIe platform device not found!\n");
+		return;
+	}
+
+	pcie_port = platform_get_drvdata(pdev);
+	if (!pcie_port) {
+		pr_info("PCIe port not found!\n");
+		return;
+	}
+
+	val = readl_relaxed(pcie_port->base + PCIE_INT_STATUS_REG);
+	if (val & PCIE_AXIERR_COMPL_TIMEOUT) {
+		*ret = 1;
+		writel_relaxed(PCIE_AXIERR_COMPL_TIMEOUT,
+			       pcie_port->base + PCIE_INT_STATUS_REG);
+	}
+
+	pr_info("ltssm reg: %#x, PCIe interrupt status=%#x, AXI0 ERROR address=%#x, AXI0 ERROR status=%#x\n",
+		readl_relaxed(pcie_port->base + PCIE_LTSSM_STATUS_REG),
+		readl_relaxed(pcie_port->base + PCIE_INT_STATUS_REG),
+		readl_relaxed(pcie_port->base + PCIE_AXI0_ERR_ADDR_L),
+		readl_relaxed(pcie_port->base + PCIE_AXI0_ERR_INFO));
+}
+#endif
+
 /**
  * mtk_pcie_dump_link_info() - Dump PCIe RC information
  * @port: The port number which EP use
@@ -1681,6 +1725,15 @@ static struct platform_driver mtk_pcie_driver = {
 
 static int mtk_pcie_init_func(void *pvdev)
 {
+#if IS_ENABLED(CONFIG_ANDROID_FIX_PCIE_SLAVE_ERROR)
+	int err = 0;
+
+	err = register_trace_android_rvh_do_serror(
+			pcie_android_rvh_do_serror, NULL);
+	if (err)
+		pr_info("register pcie android_rvh_do_serror failed!\n");
+#endif
+
 	return platform_driver_register(&mtk_pcie_driver);
 }
 
