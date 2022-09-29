@@ -44,6 +44,7 @@ f drivers/iommu/iova.c
 f drivers/media/mc/mc-device.c
 f drivers/media/v4l2-core/v4l2-ioctl.c
 f drivers/media/v4l2-core/v4l2-subdev.c
+f drivers/mmc/core/sd.c
 f drivers/pinctrl/pinmux.c
 f drivers/remoteproc/remoteproc_core.c
 f drivers/scsi/scsi_lib.c
@@ -288,6 +289,7 @@ s mii_ethtool_set_link_ksettings
 s mii_ethtool_sset
 s mii_link_ok
 s mii_nway_restart
+s mmc_sd_init_card
 s mmsys_default_routing_table
 s mmsys_mt8183_routing_table
 s mt2701_mmsys_driver_data
