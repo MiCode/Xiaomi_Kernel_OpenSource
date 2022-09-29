@@ -72,9 +72,8 @@ static void parse_lcm_dsi_cm_params(struct device_node *np,
 static void parse_lcm_dsi_spr_params(struct device_node *np,
 			struct mtk_panel_spr_params *spr_params)
 {
-	struct property *pp = NULL;
 	struct device_node *spr_np = NULL;
-	int ret = 0, len = 0;
+	int ret = 0;
 
 	if (IS_ERR_OR_NULL(spr_params))
 		return;
@@ -132,27 +131,15 @@ static void parse_lcm_dsi_spr_params(struct device_node *np,
 	spr_np = of_parse_phandle(np,
 			"lcm-params-dsi-spr_ip_params", 0);
 	if (!IS_ERR_OR_NULL(spr_np)) {
-		pp = of_find_property(spr_np, "spr_ip_cfg", &len);
-		if (pp != NULL && len > 0) {
-			LCM_KZALLOC(spr_params->spr_ip_params, len + 1, GFP_KERNEL);
-			if (spr_params->spr_ip_params == NULL) {
-				DDPPR_ERR("%s, %d, failed to allocate spr_ip_params, %d\n",
-					__func__, __LINE__, len);
-				return;
-			}
-			spr_params->spr_ip_params_len = len;
-			ret = mtk_lcm_dts_read_u32_array(spr_np,
-					"spr_ip_cfg",
-					spr_params->spr_ip_params, 0, len + 1);
-			if (ret <= 0) {
-				DDPPR_ERR("%s, %d,failed to get spr_ip_cfg, ret:%d\n",
-					__func__, __LINE__, ret);
-				LCM_KFREE(spr_params->spr_ip_params, len + 1);
-				spr_params->spr_ip_params = NULL;
-				spr_params->spr_ip_params_len = 0;
-				return;
-			}
+		ret = mtk_lcm_dts_read_u32_pointer(spr_np,
+				"spr_ip_cfg",
+				&spr_params->spr_ip_params);
+		if (ret < 0) {
+			DDPPR_ERR("%s, %d,failed to get spr_ip_cfg, ret:%d\n",
+				__func__, __LINE__, ret);
+			return;
 		}
+		spr_params->spr_ip_params_len = ret;
 	}
 
 	mtk_lcm_dts_read_u32(np,
@@ -196,6 +183,9 @@ static void parse_lcm_dsi_spr_params(struct device_node *np,
 static void parse_lcm_dsi_dsc_mode(struct device_node *np,
 			struct mtk_panel_dsc_params *dsc_params)
 {
+	struct device_node *child_np = NULL;
+	int ret = 0;
+
 	if (IS_ERR_OR_NULL(dsc_params))
 		return;
 
@@ -302,6 +292,54 @@ static void parse_lcm_dsi_dsc_mode(struct device_node *np,
 	mtk_lcm_dts_read_u32(np,
 			"lcm-params-dsi-dsc_rc_tgt_offset_lo",
 			&dsc_params->rc_tgt_offset_lo);
+
+	for_each_available_child_of_node(np, child_np) {
+		/* dsc->ext_pps_cfg */
+		if (of_device_is_compatible(child_np,
+			"mediatek,lcm-params-dsi-dsc-ext-pps-cfg")) {
+			mtk_lcm_dts_read_u32(child_np, "pps_enable",
+					&dsc_params->ext_pps_cfg.enable);
+			if (dsc_params->ext_pps_cfg.enable == 0)
+				break;
+
+			ret = mtk_lcm_dts_read_u32_pointer(child_np,
+					"pps_rc_buf_thresh",
+					&dsc_params->ext_pps_cfg.rc_buf_thresh);
+			if (ret < 0)
+				DDPPR_ERR("%s, failed to parse rc_buf_thresh, %d",
+					__func__, ret);
+			else
+				dsc_params->ext_pps_cfg.rc_buf_thresh_count = ret;
+
+			ret = mtk_lcm_dts_read_u32_pointer(child_np,
+					"pps_range_min_qp",
+					&dsc_params->ext_pps_cfg.range_min_qp);
+			if (ret < 0)
+				DDPPR_ERR("%s, failed to parse range_min_qp, %d",
+					__func__, ret);
+			else
+				dsc_params->ext_pps_cfg.range_min_qp_count = ret;
+
+			ret = mtk_lcm_dts_read_u32_pointer(child_np,
+					"pps_range_max_qp",
+					&dsc_params->ext_pps_cfg.range_max_qp);
+			if (ret < 0)
+				DDPPR_ERR("%s, failed to parse range_max_qp, %d",
+					__func__, ret);
+			else
+				dsc_params->ext_pps_cfg.range_max_qp_count = ret;
+
+			ret = mtk_lcm_dts_read_u32_pointer(child_np,
+					"pps_range_bpg_ofs",
+					(u32 **)&dsc_params->ext_pps_cfg.range_bpg_ofs);
+			if (ret < 0)
+				DDPPR_ERR("%s, failed to parse range_bpg_ofs, %d",
+					__func__, ret);
+			else
+				dsc_params->ext_pps_cfg.range_bpg_ofs_count = ret;
+			break;
+		}
+	}
 }
 
 /* parsing of struct mtk_dsi_phy_timcon */
@@ -509,12 +547,7 @@ static void parse_lcm_dsi_round_corner_dtsi(
 			struct device_node *rc_np,
 			struct mtk_panel_params *ext_param)
 {
-	struct property *pp = NULL;
-	int rc_len = 0, ret = 0;
-#if MTK_LCM_DEBUG_DUMP
-	unsigned int i = 0;
-	char *addr = NULL;
-#endif
+	int ret = 0;
 
 	DDPDUMP("%s, %d, round corner pattern from dtsi\n",
 		__func__, __LINE__);
@@ -523,95 +556,39 @@ static void parse_lcm_dsi_round_corner_dtsi(
 	mtk_lcm_dts_read_u32(rc_np, "pattern_height_bot",
 			&ext_param->corner_pattern_height_bot);
 
-	pp = of_find_property(rc_np, "left_top", &rc_len);
-	if (pp != NULL && rc_len > 0) {
-		LCM_KZALLOC(ext_param->corner_pattern_lt_addr, rc_len + 1, GFP_KERNEL);
-		if (ext_param->corner_pattern_lt_addr == NULL) {
-			DDPPR_ERR("%s, %d, failed to allocate rc_lt, %d\n",
-				__func__, __LINE__, rc_len);
-			return;
-		}
-		ext_param->corner_pattern_tp_size = rc_len;
-		ret = mtk_lcm_dts_read_u8_array(rc_np, "left_top",
-				ext_param->corner_pattern_lt_addr, 0, rc_len + 1);
-		if (ret <= 0) {
-			DDPPR_ERR("%s, failed to parsing rc_tp, %d\n",
-				__func__, ext_param->corner_pattern_tp_size);
-			LCM_KFREE(ext_param->corner_pattern_lt_addr, rc_len + 1);
-			ext_param->corner_pattern_lt_addr = NULL;
-			ext_param->corner_pattern_tp_size = 0;
-			return;
-		}
+	ret = mtk_lcm_dts_read_u8_pointer(rc_np, "left_top",
+			(u8 **)&ext_param->corner_pattern_lt_addr);
+	if (ret < 0)
+		DDPPR_ERR("%s, failed to parsing rc_tp, %d\n",
+			__func__, ret);
+	else
+		ext_param->corner_pattern_tp_size = ret;
 
 #if MTK_LCM_DEBUG_DUMP
-		DDPMSG("====round corner top pattern size:%u =====\n",
-			ext_param->corner_pattern_tp_size);
-		addr = (char *)ext_param->corner_pattern_lt_addr;
-		for (i = 0; i < ext_param->corner_pattern_tp_size - 12;
-			i += 12)
-			DDPMSG(
-				"rc_tp: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
-				 *(addr + i),
-				 *(addr + i + 1),
-				 *(addr + i + 2),
-				 *(addr + i + 3),
-				 *(addr + i + 4),
-				 *(addr + i + 5),
-				 *(addr + i + 6),
-				 *(addr + i + 7),
-				 *(addr + i + 8),
-				 *(addr + i + 9),
-				 *(addr + i + 10),
-				 *(addr + i + 11));
-		DDPMSG("=============================\n");
+	DDPMSG("====round corner top pattern size:%u =====\n",
+		ext_param->corner_pattern_tp_size);
+	mtk_lcm_dump_u8_array(
+			(unsigned char *)ext_param->corner_pattern_lt_addr,
+			ext_param->corner_pattern_tp_size,
+			"rc_lt_addr");
+	DDPMSG("=============================\n");
 #endif
-	}
 
-	pp = of_find_property(rc_np, "left_top_left", &rc_len);
-	if (pp != NULL && rc_len > 0) {
-		LCM_KZALLOC(ext_param->corner_pattern_lt_addr_l,
-				rc_len + 1, GFP_KERNEL);
-		if (ext_param->corner_pattern_lt_addr_l == NULL) {
-			DDPPR_ERR("%s, %d, failed to allocate rc_lt_l, %d\n",
-				__func__, __LINE__, rc_len);
-			return;
-		}
-		ext_param->corner_pattern_tp_size_l = rc_len;
-		ret = mtk_lcm_dts_read_u8_array(rc_np, "left_top_left",
-				ext_param->corner_pattern_lt_addr_l, 0, rc_len + 1);
-		if (ret <= 0) {
-			DDPPR_ERR("%s, failed to parsing rc_tp_l, %d\n",
-				__func__, ext_param->corner_pattern_tp_size_l);
-			LCM_KFREE(ext_param->corner_pattern_lt_addr_l,
-				rc_len + 1);
-			ext_param->corner_pattern_lt_addr_l = NULL;
-			ext_param->corner_pattern_tp_size_l = 0;
-			return;
-		}
-	}
+	ret = mtk_lcm_dts_read_u8_pointer(rc_np, "left_top_left",
+			(u8 **)&ext_param->corner_pattern_lt_addr_l);
+	if (ret < 0)
+		DDPPR_ERR("%s, failed to parsing rc_tp_l, %d\n",
+			__func__, ret);
+	else
+		ext_param->corner_pattern_tp_size_l = ret;
 
-	pp = of_find_property(rc_np, "left_top_right", &rc_len);
-	if (pp != NULL && rc_len > 0) {
-		LCM_KZALLOC(ext_param->corner_pattern_lt_addr_r,
-				rc_len + 1, GFP_KERNEL);
-		if (ext_param->corner_pattern_lt_addr_r == NULL) {
-			DDPPR_ERR("%s, %d, failed to allocate rc_lt_r, %d\n",
-				__func__, __LINE__, rc_len);
-			return;
-		}
-		ext_param->corner_pattern_tp_size_r = rc_len;
-		ret = mtk_lcm_dts_read_u8_array(rc_np, "left_top_right",
-				ext_param->corner_pattern_lt_addr_r, 0, rc_len + 1);
-		if (ret <= 0) {
-			DDPPR_ERR("%s, failed to parsing rc_tp_r, %d\n",
-				__func__, ext_param->corner_pattern_tp_size_r);
-			LCM_KFREE(ext_param->corner_pattern_lt_addr_r,
-				rc_len + 1);
-			ext_param->corner_pattern_lt_addr_r = NULL;
-			ext_param->corner_pattern_tp_size_r = 0;
-			return;
-		}
-	}
+	ret = mtk_lcm_dts_read_u8_pointer(rc_np, "left_top_right",
+			(u8 **)&ext_param->corner_pattern_lt_addr_r);
+	if (ret < 0)
+		DDPPR_ERR("%s, failed to parsing rc_tp_r, %d\n",
+			__func__, ret);
+	else
+		ext_param->corner_pattern_tp_size_r = ret;
 }
 
 static void parse_lcm_dsi_round_corner_header(
@@ -797,11 +774,11 @@ static void parse_lcm_dsi_fps_ext_param(struct device_node *np,
 			if (ext_param->lcm_esd_check_table[i].count == 0)
 				continue;
 			for (j = 0;
-			     j < ext_param->lcm_esd_check_table[i].count; j++)
+				 j < ext_param->lcm_esd_check_table[i].count; j++)
 				ext_param->lcm_esd_check_table[i].para_list[j] =
 					temp[j + 2];
 			for (j = 0;
-			     j < ext_param->lcm_esd_check_table[i].count; j++)
+				 j < ext_param->lcm_esd_check_table[i].count; j++)
 				ext_param->lcm_esd_check_table[i].mask_list[j] =
 					temp[j + 2 +
 					ext_param->lcm_esd_check_table[i].count];
@@ -1532,10 +1509,9 @@ int parse_lcm_ops_dsi(struct device_node *np,
 		const struct mtk_panel_cust *cust)
 {
 	struct device_node *mode_np = NULL;
-	struct property *pp = NULL;
 	struct mtk_lcm_mode_dsi *mode_node;
 	char mode_name[128] = {0};
-	int len = 0, ret = 0;
+	int ret = 0;
 
 	if (IS_ERR_OR_NULL(params) || IS_ERR_OR_NULL(np) || IS_ERR_OR_NULL(ops)) {
 		DDPPR_ERR("%s:%d, ERROR: invalid params/ops\n",
@@ -1569,27 +1545,17 @@ int parse_lcm_ops_dsi(struct device_node *np,
 	}
 
 #ifdef MTK_PANEL_SUPPORT_COMPARE_ID
-	pp = of_find_property(np, "compare_id_value_data", &len);
-	if (pp != NULL && len > 0) {
-		LCM_KZALLOC(ops->compare_id_value_data, len + 1, GFP_KERNEL);
-		if (ops->compare_id_value_data == NULL) {
-			DDPPR_ERR("%s,%d: failed to allocate compare id data\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		ops->compare_id_value_length = len;
-		ret = mtk_lcm_dts_read_u8_array(np,
-					"compare_id_value_data",
-					&ops->compare_id_value_data[0], 0, len + 1);
-		if (ret <= 0) {
-			DDPPR_ERR("%s,%d: failed to parse compare id data\n",
-				__func__, __LINE__);
-			LCM_KFREE(ops->compare_id_value_data, len + 1);
-			ops->compare_id_value_data = NULL;
-			ops->compare_id_value_length = 0;
-			return -EFAULT;
-		}
+	ret = mtk_lcm_dts_read_u8_pointer(np,
+				"compare_id_value_data",
+				&&ops->compare_id_value_data[0]);
+	if (ret < 0) {
+		DDPPR_ERR("%s,%d: failed to parse compare id data, %d\n",
+			__func__, __LINE__, ret);
+		return -EFAULT;
+	}
+	ops->compare_id_value_length = ret;
 
+	if (ops->compare_id_value_length > 0) {
 		ret = parse_lcm_ops_func(np,
 					&ops->compare_id, "compare_id_table",
 					ops->flag_len,
@@ -1600,11 +1566,6 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				__func__, __LINE__, ret);
 			return ret;
 		}
-	} else {
-		DDPMSG("%s, %d, failed to get compare id,len%d\n",
-			__func__, __LINE__, len);
-		ops->compare_id_value_length = 0;
-		ops->compare_id_value_data = NULL;
 	}
 #endif
 
@@ -1646,28 +1607,17 @@ int parse_lcm_ops_dsi(struct device_node *np,
 		return ret;
 	}
 
-	pp = of_find_property(np, "aod_mode_value_data", &len);
-	if (pp != NULL && len > 0) {
-		LCM_KZALLOC(ops->aod_mode_value_data, len + 1, GFP_KERNEL);
-		if (ops->aod_mode_value_data == NULL) {
-			DDPPR_ERR("%s,%d: failed to allocate aod mode\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
+	ret = mtk_lcm_dts_read_u8_pointer(np,
+				"aod_mode_value_data",
+				&ops->aod_mode_value_data);
+	if (ret < 0) {
+		DDPPR_ERR("%s,%d: failed to parse aod mode, %d\n",
+			__func__, __LINE__, ret);
+		return -EFAULT;
+	}
+	ops->aod_mode_value_length = ret;
 
-		ops->aod_mode_value_length = len;
-		ret = mtk_lcm_dts_read_u8_array(np,
-					"aod_mode_value_data",
-					&ops->aod_mode_value_data[0], 0, len + 1);
-		if (ret <= 0) {
-			DDPPR_ERR("%s,%d: failed to parse aod mode\n",
-				__func__, __LINE__);
-			LCM_KFREE(ops->aod_mode_value_data, len + 1);
-			ops->aod_mode_value_data = NULL;
-			ops->aod_mode_value_length = 0;
-			return -EFAULT;
-		}
-
+	if (ops->aod_mode_value_length > 0) {
 		ret = parse_lcm_ops_func(np,
 					&ops->aod_mode_check, "aod_mode_check_table",
 					ops->flag_len,
@@ -1678,34 +1628,19 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				__func__, __LINE__, ret);
 			return ret;
 		}
-	} else {
-		DDPMSG("%s, %d, failed to get aod mode,len%d\n",
-			__func__, __LINE__, len);
-		ops->aod_mode_value_length = 0;
-		ops->aod_mode_value_data = NULL;
 	}
 
-	pp = of_find_property(np, "ata_id_value_data", &len);
-	if (pp != NULL && len > 0) {
-		LCM_KZALLOC(ops->ata_id_value_data, len + 1, GFP_KERNEL);
-		if (ops->ata_id_value_data == NULL) {
-			DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		ops->ata_id_value_length = len;
-		ret = mtk_lcm_dts_read_u8_array(np,
-					"ata_id_value_data",
-					&ops->ata_id_value_data[0], 0, len + 1);
-		if (ret <= 0) {
-			DDPPR_ERR("%s,%d: failed to parse ata id\n",
-				__func__, __LINE__);
-			LCM_KFREE(ops->ata_id_value_data, len + 1);
-			ops->ata_id_value_data = NULL;
-			ops->ata_id_value_length = 0;
-			return -EFAULT;
-		}
+	ret = mtk_lcm_dts_read_u8_pointer(np,
+				"ata_id_value_data",
+				&ops->ata_id_value_data);
+	if (ret < 0) {
+		DDPPR_ERR("%s,%d: failed to parse ata id, %d\n",
+			__func__, __LINE__, ret);
+		return -EFAULT;
+	}
+	ops->ata_id_value_length = ret;
 
+	if (ops->ata_id_value_length > 0) {
 		ret = parse_lcm_ops_func(np,
 					&ops->ata_check, "ata_check_table",
 					ops->flag_len,
@@ -1716,11 +1651,6 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				__func__, __LINE__, ret);
 			return ret;
 		}
-	} else {
-		DDPMSG("%s, %d, failed to get ata id,len%d\n",
-			__func__, __LINE__, len);
-		ops->ata_id_value_length = 0;
-		ops->ata_id_value_data = NULL;
 	}
 
 	mtk_lcm_dts_read_u32(np, "set_aod_light_mask",
@@ -2175,6 +2105,23 @@ static void dump_lcm_dsi_dsc_mode(struct mtk_panel_dsc_params *dsc_params, unsig
 		dsc_params->rc_quant_incr_limit1,
 		dsc_params->rc_tgt_offset_hi,
 		dsc_params->rc_tgt_offset_lo);
+	DDPDUMP("ext_pps_cfg: enable=%u\n",
+		dsc_params->ext_pps_cfg.enable);
+
+	if (dsc_params->ext_pps_cfg.enable > 0) {
+		mtk_lcm_dump_u32_array(dsc_params->ext_pps_cfg.rc_buf_thresh,
+			dsc_params->ext_pps_cfg.rc_buf_thresh_count,
+			">>rc_buf_thresh");
+		mtk_lcm_dump_u32_array(dsc_params->ext_pps_cfg.range_min_qp,
+			dsc_params->ext_pps_cfg.range_min_qp_count,
+			">>range_min_qp");
+		mtk_lcm_dump_u32_array(dsc_params->ext_pps_cfg.range_max_qp,
+			dsc_params->ext_pps_cfg.range_max_qp_count,
+			">>range_max_qp");
+		mtk_lcm_dump_u32_array(dsc_params->ext_pps_cfg.range_bpg_ofs,
+			dsc_params->ext_pps_cfg.range_bpg_ofs_count,
+			">>range_bpg_ofs");
+	}
 }
 
 /* dump dsi phy_timcon settings */
@@ -2241,7 +2188,7 @@ static void dump_lcm_dsi_dyn_fps(struct dynamic_fps_params *dyn_fps, unsigned in
 			i, dyn_fps->dfps_cmd_table[i].src_fps,
 			dyn_fps->dfps_cmd_table[i].cmd_num);
 		for (j = 0; j < dyn_fps->dfps_cmd_table[i].cmd_num; j++) {
-			DDPDUMP("    para%d:0x%x\n", j,
+			DDPDUMP("	para%d:0x%x\n", j,
 				dyn_fps->dfps_cmd_table[i].para_list[j]);
 		}
 	}
@@ -2264,7 +2211,7 @@ static void dump_lcm_dsi_fps_mode(struct drm_display_mode *mode, unsigned int fp
 static void dump_lcm_dsi_msync_tte_param(unsigned int fps,
 	struct msync_trigger_level_te_table *ttable)
 {
-	int i = 0, j = 0, r = 0;
+	int i = 0, j = 0;
 	__u8 *para_list = NULL;
 
 	DDPDUMP("----------fps%u TTE-----------\n", fps);
@@ -2288,13 +2235,9 @@ static void dump_lcm_dsi_msync_tte_param(unsigned int fps,
 				ttable->trigger_level_te_level[i].cmd_list[j].cmd_num);
 			para_list =
 				&ttable->trigger_level_te_level[i].cmd_list[j].para_list[0];
-			for (r = 0; r <
-				ttable->trigger_level_te_level[i].cmd_list[j].cmd_num;
-				r += 4) {
-				DDPDUMP("TTE:   para[%d]:0x%x,0x%x,0x%x,0x%x\n", r,
-					para_list[r], para_list[r + 1],
-					para_list[r + 2], para_list[r + 3]);
-			}
+			mtk_lcm_dump_u8_array(para_list,
+				ttable->trigger_level_te_level[i].cmd_list[j].cmd_num,
+				"TTE:   para");
 		}
 	}
 	DDPDUMP("------------------------\n");
@@ -2322,7 +2265,7 @@ static void dump_lcm_dsi_msync_mte_param(unsigned int fps,
 static void dump_lcm_dsi_msync_rte_param(unsigned int fps,
 	struct msync_request_te_table *rtable)
 {
-	int i = 0, j = 0, r = 0;
+	int i = 0, j = 0;
 	struct msync_level_table *te_tb =
 			&rtable->rte_te_level[0];
 	__u8 *para_list = NULL;
@@ -2349,11 +2292,9 @@ static void dump_lcm_dsi_msync_rte_param(unsigned int fps,
 		DDPDUMP("RTE:rte_cmd_list[%d]:num=%u", i,
 			rtable->rte_cmd_list[i].cmd_num);
 		para_list = &rtable->rte_cmd_list[i].para_list[0];
-		for (j = 0; j < rtable->rte_cmd_list[i].cmd_num; j += 4) {
-			DDPDUMP("RTE:   para[%d]:0x%x,0x%x,0x%x,0x%x\n", j,
-				para_list[j], para_list[j + 1],
-				para_list[j + 2], para_list[j + 3]);
-		}
+		mtk_lcm_dump_u8_array(para_list,
+			rtable->rte_cmd_list[i].cmd_num,
+			"RTE:   para");
 	}
 
 	/*dump request_te_level*/
@@ -2376,13 +2317,9 @@ static void dump_lcm_dsi_msync_rte_param(unsigned int fps,
 				rtable->request_te_level[i].cmd_list[j].cmd_num);
 			para_list =
 				&rtable->request_te_level[i].cmd_list[j].para_list[0];
-			for (r = 0; r <
-				rtable->request_te_level[i].cmd_list[j].cmd_num;
-				r += 4) {
-				DDPDUMP("RTE:   para[%d]:0x%x,0x%x,0x%x,0x%x\n", r,
-					para_list[r], para_list[r + 1],
-					para_list[r + 2], para_list[r + 3]);
-			}
+			mtk_lcm_dump_u8_array(para_list,
+				rtable->request_te_level[i].cmd_list[j].cmd_num,
+				"RTE:   para");
 		}
 	}
 
@@ -2446,9 +2383,10 @@ static void dump_lcm_dsi_fps_ext_param(struct mtk_panel_params *ext_param, unsig
 		ext_param->is_cphy,
 		ext_param->cust_esd_check,
 		ext_param->esd_check_enable);
-	DDPDUMP("od:%d, de-mura:%d\n",
+	DDPDUMP("od:%d, de-mura:%d, skip_vblank:%u\n",
 		ext_param->is_support_od,
-		ext_param->is_support_dmr);
+		ext_param->is_support_dmr,
+		ext_param->skip_vblank);
 	DDPDUMP("lfr:(enable=%u, fps=%u), msync:(enable=%u, vfp=%u)\n",
 		ext_param->lfr_enable,
 		ext_param->lfr_minimum_fps,
@@ -2566,7 +2504,7 @@ void dump_lcm_params_dsi(struct mtk_lcm_params_dsi *params,
 	DDPDUMP("=============================================\n");
 
 	if (IS_ERR_OR_NULL(cust) ||
-	    IS_ERR_OR_NULL(cust->dump_params))
+		IS_ERR_OR_NULL(cust->dump_params))
 		return;
 
 	DDPDUMP("=========== LCM CUSTOMIZATION DUMP ==============\n");
@@ -2581,7 +2519,7 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 {
 	char mode_name[128] = {0};
 	struct mtk_lcm_mode_dsi *mode_node;
-	int i = 0, ret = 0;
+	int ret = 0;
 
 	if (IS_ERR_OR_NULL(ops)) {
 		DDPPR_ERR("%s, %d: invalid params\n", __func__, __LINE__);
@@ -2605,38 +2543,22 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 	/*dump ata check*/
 	DDPDUMP("ata_id_value_length=%u\n",
 		ops->ata_id_value_length);
-	DDPDUMP("ata_id_value_data:");
-	for (i = 0; i < ops->ata_id_value_length; i += 4)
-		DDPDUMP("[ata_id_value_data+%u]>>> 0x%x, 0x%x, 0x%x, 0x%x\n",
-			i, ops->ata_id_value_data[i],
-			ops->ata_id_value_data[i + 1],
-			ops->ata_id_value_data[i + 2],
-			ops->ata_id_value_data[i + 3]);
+	mtk_lcm_dump_u8_array(ops->ata_id_value_data,
+			ops->ata_id_value_length, "ata_id_value_data");
 	dump_lcm_ops_table(&ops->ata_check, cust, "ata_check");
 
 	/*dump aod mode check*/
 	DDPDUMP("aod_mode_value_length=%u\n",
 		ops->aod_mode_value_length);
-	DDPDUMP("aod_mode_value_data:");
-	for (i = 0; i < ops->aod_mode_value_length; i += 4)
-		DDPDUMP("[aod_mode_value_data+%u]>>> 0x%x, 0x%x, 0x%x, 0x%x\n",
-			i, ops->aod_mode_value_data[i],
-			ops->aod_mode_value_data[i + 1],
-			ops->aod_mode_value_data[i + 2],
-			ops->aod_mode_value_data[i + 3]);
+	mtk_lcm_dump_u8_array(ops->aod_mode_value_data,
+			ops->aod_mode_value_length, "aod_mode_value_data");
 	dump_lcm_ops_table(&ops->aod_mode_check, cust, "aod_mode_check");
 
 #ifdef MTK_PANEL_SUPPORT_COMPARE_ID
 	DDPDUMP("compare_id_value_length=%u\n",
 		ops->compare_id_value_length);
-	DDPDUMP("compare_id_value_data=",
-	for (i = 0; i < ops->compare_id_value_length; i += 4)
-		DDPDUMP("[compare_id_value_data+%u]>>> 0x%x, 0x%x, 0x%x, 0x%x\n",
-			i, ops->compare_id_value_data[i],
-			ops->compare_id_value_data[i + 1],
-			ops->compare_id_value_data[i + 2],
-			ops->compare_id_value_data[i + 3]);
-	DDPDUMP("\n");
+	mtk_lcm_dump_u8_array(ops->compare_id_value_data,
+			ops->compare_id__value_length, "compare_id_value_data");
 	dump_lcm_ops_table(&ops->compare_id, cust, "compare_id");
 #endif
 
@@ -2661,43 +2583,22 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 	dump_lcm_ops_table(&ops->read_panelid, cust, "read_panelid");
 
 	/* dump msync switch mte default ops*/
-	if (ops->msync_switch_mte_mode != NULL) {
-		for (i = 0; i < ops->msync_switch_mte_mode_count;
-			i += 4) {
-			DDPDUMP("msync_switch_mte_mode[%d]: %d %d %d %d\n", i,
-				ops->msync_switch_mte_mode[i],
-				ops->msync_switch_mte_mode[i + 1],
-				ops->msync_switch_mte_mode[i + 2],
-				ops->msync_switch_mte_mode[i + 3]);
-		}
-	}
+	mtk_lcm_dump_u8_array(ops->msync_switch_mte_mode,
+			ops->msync_switch_mte_mode_count,
+			"msync_switch_mte_mode");
 	dump_lcm_ops_table(&ops->default_msync_switch_mte,
 			cust, "default_msync_switch_mte");
 
 	/* dump fps switch default ops*/
-	if (ops->fps_switch_bfoff_mode != NULL) {
-		for (i = 0; i < ops->fps_switch_bfoff_mode_count;
-			i += 4) {
-			DDPDUMP("fps_switch_bfoff_mode: %d %d %d %d\n",
-				ops->fps_switch_bfoff_mode[i],
-				ops->fps_switch_bfoff_mode[i + 1],
-				ops->fps_switch_bfoff_mode[i + 2],
-				ops->fps_switch_bfoff_mode[i + 3]);
-		}
-	}
+	mtk_lcm_dump_u8_array(ops->fps_switch_bfoff_mode,
+			ops->fps_switch_bfoff_mode_count,
+			"fps_switch_bfoff_mode");
 	dump_lcm_ops_table(&ops->default_fps_switch_bfoff,
 			cust, "default_fps_switch_bfoff");
 
-	if (ops->fps_switch_afon_mode != NULL) {
-		for (i = 0; i < ops->fps_switch_afon_mode_count;
-			i += 4) {
-			DDPDUMP("fps_switch_afon_mode: %d %d %d %d\n",
-				ops->fps_switch_afon_mode[i],
-				ops->fps_switch_afon_mode[i + 1],
-				ops->fps_switch_afon_mode[i + 2],
-				ops->fps_switch_afon_mode[i + 3]);
-		}
-	}
+	mtk_lcm_dump_u8_array(ops->fps_switch_afon_mode,
+			ops->fps_switch_afon_mode_count,
+			"fps_switch_afon_mode");
 	dump_lcm_ops_table(&ops->default_fps_switch_afon,
 			cust, "default_fps_switch_afon");
 	if (params != NULL && params->mode_count > 0) {
@@ -2738,29 +2639,23 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 				 mode_node->height, mode_node->fps);
 			if (ret < 0 || (size_t)ret >= sizeof(mode_name))
 				DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
-			for (i = 0; i < mode_node->msync_set_min_fps_list_length; i += 4) {
-				DDPDUMP("%s-[%d]:%d,%d,%d,%d\n", mode_name, i,
-					mode_node->msync_set_min_fps_list[i],
-					mode_node->msync_set_min_fps_list[i + 1],
-					mode_node->msync_set_min_fps_list[i + 2],
-					mode_node->msync_set_min_fps_list[i + 3]);
-			}
+				mtk_lcm_dump_u32_array(mode_node->msync_set_min_fps_list,
+						mode_node->msync_set_min_fps_list_length,
+						mode_name);
 			dump_lcm_ops_table(&mode_node->msync_set_min_fps,
 					cust, mode_name);
 		}
 	}
 
 	if (cust != NULL &&
-		cust->dump_ops_table != NULL) {
+		cust->dump_ops_table != NULL)
 		cust->dump_ops_table(__func__, MTK_LCM_FUNC_DSI);
-	}
 
 	DDPDUMP("=============================================\n");
 }
 EXPORT_SYMBOL(dump_lcm_ops_dsi);
 
-void free_lcm_params_dsi_round_corner(
-		struct mtk_panel_params *ext_param)
+void free_lcm_params_dsi_round_corner(struct mtk_panel_params *ext_param)
 {
 	if (IS_ERR_OR_NULL(ext_param) ||
 		ext_param->round_corner_en == 0 ||
@@ -2768,7 +2663,7 @@ void free_lcm_params_dsi_round_corner(
 		return;
 
 	if (ext_param->corner_pattern_lt_addr != NULL &&
-	    ext_param->corner_pattern_tp_size > 0) {
+		ext_param->corner_pattern_tp_size > 0) {
 		LCM_KFREE(ext_param->corner_pattern_lt_addr,
 				ext_param->corner_pattern_tp_size + 1);
 		ext_param->corner_pattern_tp_size = 0;
@@ -2776,7 +2671,7 @@ void free_lcm_params_dsi_round_corner(
 	}
 
 	if (ext_param->corner_pattern_lt_addr_l != NULL &&
-	    ext_param->corner_pattern_tp_size_l > 0) {
+		ext_param->corner_pattern_tp_size_l > 0) {
 		LCM_KFREE(ext_param->corner_pattern_lt_addr_l,
 				ext_param->corner_pattern_tp_size_l + 1);
 		ext_param->corner_pattern_tp_size_l = 0;
@@ -2784,11 +2679,50 @@ void free_lcm_params_dsi_round_corner(
 	}
 
 	if (ext_param->corner_pattern_lt_addr_r != NULL &&
-	    ext_param->corner_pattern_tp_size_r > 0) {
+		ext_param->corner_pattern_tp_size_r > 0) {
 		LCM_KFREE(ext_param->corner_pattern_lt_addr_r,
 				ext_param->corner_pattern_tp_size_r + 1);
 		ext_param->corner_pattern_tp_size_r = 0;
 		ext_param->corner_pattern_lt_addr_r = NULL;
+	}
+}
+
+void free_lcm_params_dsc(struct mtk_panel_dsc_params *dsc_params)
+{
+	if (dsc_params == NULL ||
+		dsc_params->ext_pps_cfg.enable == 0)
+		return;
+
+	if (dsc_params->ext_pps_cfg.rc_buf_thresh != NULL &&
+		dsc_params->ext_pps_cfg.rc_buf_thresh_count > 0) {
+		LCM_KFREE(dsc_params->ext_pps_cfg.rc_buf_thresh,
+				sizeof(u32) * (dsc_params->ext_pps_cfg.rc_buf_thresh_count + 1));
+		dsc_params->ext_pps_cfg.rc_buf_thresh = NULL;
+		dsc_params->ext_pps_cfg.rc_buf_thresh_count = 0;
+	}
+
+	if (dsc_params->ext_pps_cfg.range_min_qp != NULL &&
+		dsc_params->ext_pps_cfg.range_min_qp_count > 0) {
+		LCM_KFREE(dsc_params->ext_pps_cfg.range_min_qp,
+				sizeof(u32) * (dsc_params->ext_pps_cfg.range_min_qp_count + 1));
+		dsc_params->ext_pps_cfg.range_min_qp = NULL;
+		dsc_params->ext_pps_cfg.range_min_qp_count = 0;
+	}
+
+	if (dsc_params->ext_pps_cfg.range_max_qp != NULL &&
+		dsc_params->ext_pps_cfg.range_max_qp_count > 0) {
+		LCM_KFREE(dsc_params->ext_pps_cfg.range_max_qp,
+				sizeof(u32) * (dsc_params->ext_pps_cfg.range_max_qp_count + 1));
+		dsc_params->ext_pps_cfg.range_max_qp = NULL;
+		dsc_params->ext_pps_cfg.range_max_qp_count = 0;
+	}
+
+	if (dsc_params->ext_pps_cfg.range_bpg_ofs != NULL &&
+		dsc_params->ext_pps_cfg.range_bpg_ofs_count > 0) {
+		LCM_KFREE(dsc_params->ext_pps_cfg.range_bpg_ofs,
+				sizeof(u32) * (dsc_params->ext_pps_cfg.range_bpg_ofs_count + 1));
+		dsc_params->ext_pps_cfg.range_bpg_ofs = NULL;
+		dsc_params->ext_pps_cfg.range_bpg_ofs_count = 0;
 	}
 }
 
@@ -2824,7 +2758,7 @@ void free_lcm_params_dsi(struct mtk_lcm_params_dsi *params,
 		/* free msync set min fps ops*/
 		if (mode_node->msync_set_min_fps_list != NULL) {
 			LCM_KFREE(mode_node->msync_set_min_fps_list,
-				mode_node->msync_set_min_fps_list_length + 1);
+				sizeof(u32) * (mode_node->msync_set_min_fps_list_length + 1));
 			mode_node->msync_set_min_fps_list = NULL;
 			mode_node->msync_set_min_fps_list_length = 0;
 		}
@@ -2838,13 +2772,16 @@ void free_lcm_params_dsi(struct mtk_lcm_params_dsi *params,
 		if (spr_params->spr_ip_params_len > 0 &&
 			spr_params->spr_ip_params != NULL) {
 			LCM_KFREE(spr_params->spr_ip_params,
-				spr_params->spr_ip_params_len + 1);
+				sizeof(u32) * (spr_params->spr_ip_params_len + 1));
 			spr_params->spr_ip_params = NULL;
 			spr_params->spr_ip_params_len = 0;
 		}
 
 		/* free round corner params*/
 		free_lcm_params_dsi_round_corner(&mode_node->ext_param);
+
+		/* free dsc params*/
+		free_lcm_params_dsc(&mode_node->ext_param.dsc_params);
 
 		list_del(&mode_node->list);
 		LCM_KFREE(mode_node, sizeof(struct mtk_lcm_mode_dsi));
@@ -2874,7 +2811,7 @@ void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 
 #ifdef MTK_PANEL_SUPPORT_COMPARE_ID
 	if (ops->compare_id_value_length > 0 &&
-	    ops->compare_id_value_data != NULL) {
+		ops->compare_id_value_data != NULL) {
 		LCM_KFREE(ops->compare_id_value_data,
 				sizeof(ops->compare_id_value_data));
 		ops->compare_id_value_length = 0;
@@ -2924,7 +2861,7 @@ void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 
 	/* free ata check table */
 	if (ops->ata_id_value_length > 0 &&
-	    ops->ata_id_value_data != NULL) {
+		ops->ata_id_value_data != NULL) {
 		LCM_KFREE(ops->ata_id_value_data,
 				ops->ata_id_value_length + 1);
 		ops->ata_id_value_length = 0;
@@ -2934,7 +2871,7 @@ void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 
 	/* free aod check table */
 	if (ops->aod_mode_value_length > 0 &&
-	    ops->aod_mode_value_data != NULL) {
+		ops->aod_mode_value_data != NULL) {
 		LCM_KFREE(ops->aod_mode_value_data,
 				ops->aod_mode_value_length + 1);
 		ops->aod_mode_value_length = 0;

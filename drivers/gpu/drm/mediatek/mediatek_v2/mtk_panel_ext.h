@@ -275,9 +275,13 @@ struct mtk_panel_spr_params {
 struct mtk_panel_dsc_ext_pps_cfg {
 	unsigned int enable;
 	unsigned int *rc_buf_thresh;
+	unsigned int rc_buf_thresh_count;
 	unsigned int *range_min_qp;
+	unsigned int range_min_qp_count;
 	unsigned int *range_max_qp;
+	unsigned int range_max_qp_count;
 	int *range_bpg_ofs;
+	unsigned int range_bpg_ofs_count;
 };
 
 

@@ -140,6 +140,99 @@ int mtk_lcm_dts_read_u8_array(struct device_node *np, char *prop,
 }
 EXPORT_SYMBOL(mtk_lcm_dts_read_u8_array);
 
+int mtk_lcm_dts_read_u32_pointer(struct device_node *np, char *prop,
+	u32 **out)
+{
+	struct property *pp = NULL;
+	u32 *data = NULL;
+	int len = 0, ret = 0, count = 0;
+
+	if (IS_ERR_OR_NULL(prop) ||
+	    IS_ERR_OR_NULL(np))
+		return 0;
+
+	pp = of_find_property(np, prop, &len);
+	if (pp == NULL || len <= 0) {
+		DDPMSG("%s, %d, invalid %s, len%d\n",
+			__func__, __LINE__, prop, len);
+		*out = NULL;
+		return 0;
+	}
+
+	LCM_KZALLOC(data, len + sizeof(u32), GFP_KERNEL);
+	if (data == NULL) {
+		DDPPR_ERR("%s,%d: failed to allocate %s\n",
+			__func__, __LINE__, prop);
+		*out = NULL;
+		return -ENOMEM;
+	}
+
+	count = len / sizeof(u32);
+	ret = mtk_lcm_dts_read_u32_array(np, prop,
+				data, 0, count + 1);
+	if (ret <= 0) {
+		DDPPR_ERR("%s,%d: failed to parse %s\n",
+			__func__, __LINE__, prop);
+		LCM_KFREE(data, len + sizeof(u32));
+		data = NULL;
+		*out = NULL;
+		return -EFAULT;
+	}
+
+	data[count] = 0;
+	*out = data;
+	DDPDUMP("%s, %d, %s,%d/%u\n",
+		__func__, __LINE__, prop, len, count);
+	return count;
+}
+EXPORT_SYMBOL(mtk_lcm_dts_read_u32_pointer);
+
+int mtk_lcm_dts_read_u8_pointer(struct device_node *np, char *prop,
+	u8 **out)
+{
+	struct property *pp = NULL;
+	u8 *data = NULL;
+	int len = 0, ret = 0;
+
+	if (IS_ERR_OR_NULL(prop) ||
+	    IS_ERR_OR_NULL(np))
+		return 0;
+
+	pp = of_find_property(np, prop, &len);
+	if (pp == NULL || len <= 0) {
+		DDPDBG("%s, %d, invalid %s, len%d\n",
+			__func__, __LINE__, prop, len);
+		*out = NULL;
+		return 0;
+	}
+
+	LCM_KZALLOC(data, len + 1, GFP_KERNEL);
+	if (data == NULL) {
+		DDPPR_ERR("%s,%d: failed to allocate %s\n",
+			__func__, __LINE__, prop);
+		*out = NULL;
+		return -ENOMEM;
+	}
+
+	ret = mtk_lcm_dts_read_u8_array(np, prop,
+				data, 0, len + 1);
+	if (ret <= 0) {
+		DDPPR_ERR("%s,%d: failed to parse %s\n",
+			__func__, __LINE__, prop);
+		LCM_KFREE(data, len + 1);
+		data = NULL;
+		*out = NULL;
+		return -EFAULT;
+	}
+
+	data[len] = '\0';
+	*out = data;
+	DDPDUMP("%s, %d, %s %d\n",
+		__func__, __LINE__, prop, len);
+	return len;
+}
+EXPORT_SYMBOL(mtk_lcm_dts_read_u8_pointer);
+
 static int parse_lcm_params_dt_node(struct device_node *np,
 		struct mtk_lcm_params *params)
 {
@@ -543,7 +636,6 @@ int parse_lcm_ops_func(struct device_node *np,
 {
 	u8 *table_dts_buf = NULL;
 	int table_dts_size = 0;
-	struct property *pp = NULL;
 	unsigned int i = 0, skip_count = 0;
 	u8 *tmp;
 	int len = 0, tmp_len = 0, ret = 0;
@@ -557,30 +649,19 @@ int parse_lcm_ops_func(struct device_node *np,
 		return -EFAULT;
 	}
 
-	pp = of_find_property(np, func, &len);
-	if (len == 0) {
-		return 0;
-	} else if (len < 0) {
+	len = mtk_lcm_dts_read_u8_pointer(np,
+				func, &table_dts_buf);
+	if (len <= 0) {
 #if MTK_LCM_DEBUG_DUMP
 		DDPMSG("%s, failed to get table dts, len:%d\n",
 			__func__, len);
 #endif
 		return 0;
-	} else {
-		table_dts_size = len + 1;
-		LCM_KZALLOC(table_dts_buf, table_dts_size, GFP_KERNEL);
-		if (table_dts_buf == NULL) {
-			DDPPR_ERR("%s, %d: failed to alloc table\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-
-		mtk_lcm_dts_read_u8_array(np,
-				func, &table_dts_buf[0], 0, table_dts_size);
-		table_dts_buf[len] = '\0';
-		DDPDUMP("%s: start to parse:%s, len:%u\n",
-			__func__, func, len);
 	}
+
+	table_dts_size = len + 1;
+	DDPDUMP("%s: start to parse:%s, len:%u\n",
+		__func__, func, len);
 
 	INIT_LIST_HEAD(&table->list);
 	tmp = &table_dts_buf[0];
@@ -672,8 +753,7 @@ int parse_lcm_common_ops_func(struct device_node *np,
 		const struct mtk_panel_cust *cust, unsigned int phase,
 		unsigned int list_unit)
 {
-	struct property *pp = NULL;
-	int len = 0, ret = 0;
+	int ret = 0;
 
 	if (np == NULL || list_name == NULL ||
 		table == NULL || func == NULL ||
@@ -682,62 +762,31 @@ int parse_lcm_common_ops_func(struct device_node *np,
 		return -EINVAL;
 
 	/* parse mode list */
-	pp = of_find_property(np, list_name, &len);
-	if (pp == NULL || len <= 0) {
-		DDPMSG("%s,%d, not support %s, %d\n",
-			__func__, __LINE__, list_name, len);
-		return 0;
-	}
-
 	switch (list_unit) {
 	case 1:
 	{
-		u8 *list_tmp_u8 = NULL;
-
-		LCM_KZALLOC(list_tmp_u8, (len + 1) * list_unit, GFP_KERNEL);
-		if (list_tmp_u8 == NULL) {
-			DDPPR_ERR("%s, %d, failed to allocate %s, %dx%u\n",
-				__func__, __LINE__, list_name, len, list_unit);
-			return -ENOMEM;
-		}
-		ret = mtk_lcm_dts_read_u8_array(np, list_name,
-				list_tmp_u8, 0, len + 1);
-		if (ret <= 0) {
+		ret = mtk_lcm_dts_read_u8_pointer(np, list_name,
+				(u8 **)list);
+		if (ret < 0) {
 			DDPMSG("%s, %d, failed to parse %s, %u\n",
 				__func__, __LINE__, list_name, ret);
-			LCM_KFREE(list_tmp_u8, (len + 1) * list_unit);
-			list_tmp_u8 = NULL;
-			*list = NULL;
 			*list_len = 0;
 			return -EFAULT;
 		}
-		*list = (void *)list_tmp_u8;
-		*list_len = len;
+		*list_len = ret;
 		break;
 	}
 	case 4:
 	{
-		u32 *list_tmp_u32 = NULL;
-
-		LCM_KZALLOC(list_tmp_u32, (len + 1) * list_unit, GFP_KERNEL);
-		if (list_tmp_u32 == NULL) {
-			DDPPR_ERR("%s, %d, failed to allocate %s, %dx%u\n",
-				__func__, __LINE__, list_name, len, list_unit);
-			return -ENOMEM;
-		}
-		ret = mtk_lcm_dts_read_u32_array(np, list_name,
-				list_tmp_u32, 0, len + 1);
-		if (ret <= 0) {
+		ret = mtk_lcm_dts_read_u32_pointer(np, list_name,
+				(u32 **)list);
+		if (ret < 0) {
 			DDPMSG("%s, %d, failed to parse %s, %u\n",
 				__func__, __LINE__, list_name, ret);
-			LCM_KFREE(list_tmp_u32, (len + 1) * list_unit);
-			list_tmp_u32 = NULL;
-			*list = NULL;
 			*list_len = 0;
 			return -EFAULT;
 		}
-		*list = (void *)list_tmp_u32;
-		*list_len = len;
+		*list_len = ret;
 		break;
 	}
 	default:
@@ -1096,6 +1145,72 @@ static void mtk_get_type_name(unsigned int type, char *out)
 		DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 }
 
+void mtk_lcm_dump_u8_array(u8 *buf, unsigned int size, const char *name)
+{
+	unsigned int i = 0;
+	int remain = 0;
+
+	if (size == 0 || IS_ERR_OR_NULL(buf) ||
+		name == NULL)
+		return;
+
+	DDPDUMP("----%s size:%u----\n", name, size);
+	if (size >= 8) {
+		for (i = 0; i <= size - 8; i += 8)
+			DDPDUMP("%s[%u], 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
+				name, i, buf[i], buf[i + 1], buf[i + 2], buf[i + 3],
+				buf[i + 4], buf[i + 5], buf[i + 6], buf[i + 7]);
+	}
+
+	remain = size - i;
+	if (remain == 0)
+		return;
+
+	DDPDUMP("    %s[%u], 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
+		name, i, remain > 0 ? buf[i] : 0x0,
+		remain > 1 ? buf[i + 1] : 0x0,
+		remain > 2 ? buf[i + 2] : 0x0,
+		remain > 3 ? buf[i + 3] : 0x0,
+		remain > 4 ? buf[i + 4] : 0x0,
+		remain > 5 ? buf[i + 5] : 0x0,
+		remain > 6 ? buf[i + 6] : 0x0,
+		remain > 7 ? buf[i + 7] : 0x0);
+}
+EXPORT_SYMBOL(mtk_lcm_dump_u8_array);
+
+void mtk_lcm_dump_u32_array(u32 *buf, unsigned int size, const char *name)
+{
+	unsigned int i = 0;
+	int remain = 0;
+
+	if (size == 0 || IS_ERR_OR_NULL(buf) ||
+		name == NULL)
+		return;
+
+	DDPDUMP("----%s size:%u----\n", name, size);
+	if (size >= 8) {
+		for (i = 0; i <= size - 8; i += 8)
+			DDPDUMP("%s[%u], 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
+				name, i, buf[i], buf[i + 1], buf[i + 2], buf[i + 3],
+				buf[i + 4], buf[i + 5], buf[i + 6], buf[i + 7]);
+	}
+
+	remain = size - i;
+	if (remain == 0)
+		return;
+
+	DDPDUMP("%s[%u], 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
+		name, i, remain > 0 ? buf[i] : 0x0,
+		remain > 1 ? buf[i + 1] : 0x0,
+		remain > 2 ? buf[i + 2] : 0x0,
+		remain > 3 ? buf[i + 3] : 0x0,
+		remain > 4 ? buf[i + 4] : 0x0,
+		remain > 5 ? buf[i + 5] : 0x0,
+		remain > 6 ? buf[i + 6] : 0x0,
+		remain > 7 ? buf[i + 7] : 0x0);
+}
+EXPORT_SYMBOL(mtk_lcm_dump_u32_array);
+
 static void dump_lcm_ops_func_util(struct mtk_lcm_ops_data *lcm_op,
 	const char *owner, unsigned int id)
 {
@@ -1131,7 +1246,6 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 {
 	char func_name[MTK_LCM_NAME_LENGTH] = { 0 };
 	char type_name[MTK_LCM_NAME_LENGTH] = { 0 };
-	unsigned int i = 0;
 
 	if (IS_ERR_OR_NULL(lcm_op) || IS_ERR_OR_NULL(owner))
 		return;
@@ -1144,14 +1258,8 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 			owner, id, func_name, type_name, lcm_op->size,
 			(unsigned int)lcm_op->param.buf_data.data_len,
 			lcm_op->param.buf_data.flag);
-		for (i = 0; i < lcm_op->size; i += 4) {
-			DDPDUMP("[%s-%u][data%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
-				owner, id, i, i + 3,
-				lcm_op->param.buf_data.data[i],
-				lcm_op->param.buf_data.data[i + 1],
-				lcm_op->param.buf_data.data[i + 2],
-				lcm_op->param.buf_data.data[i + 3]);
-		}
+		mtk_lcm_dump_u8_array(lcm_op->param.buf_data.data,
+				lcm_op->size, owner);
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER_CONDITION:
 		DDPDUMP("[%s-%u]:%s,%s,dts:%u,name:0x%x,con:0x%x,cnt:%u,flag:0x%x\n",
@@ -1160,14 +1268,8 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 			lcm_op->param.buf_con_data.condition,
 			(unsigned int)lcm_op->param.buf_con_data.data_len,
 			lcm_op->param.buf_con_data.flag);
-		for (i = 0; i < (unsigned int)lcm_op->param.buf_con_data.data_len; i += 4) {
-			DDPDUMP("[%s-%u][data%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
-				owner, id, i, i + 3,
-				lcm_op->param.buf_con_data.data[i],
-				lcm_op->param.buf_con_data.data[i + 1],
-				lcm_op->param.buf_con_data.data[i + 2],
-				lcm_op->param.buf_con_data.data[i + 3]);
-		}
+		mtk_lcm_dump_u8_array(lcm_op->param.buf_con_data.data,
+				lcm_op->param.buf_con_data.data_len, owner);
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT:
 		DDPDUMP("[%s-%u]:%s,%s, dts:%u,id_cnt:%u,data_cnt:%u,flag:0x%x\n",
@@ -1175,22 +1277,10 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 			lcm_op->size, lcm_op->param.buf_runtime_data.id_len,
 			(unsigned int)lcm_op->param.buf_runtime_data.data_len,
 			lcm_op->param.buf_runtime_data.flag);
-		for (i = 0; i < roundup(lcm_op->param.buf_runtime_data.id_len, 4); i += 4) {
-			DDPDUMP("[%s-%u][input_id%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
-				owner, id, i, i + 3,
-				lcm_op->param.buf_runtime_data.id[i],
-				lcm_op->param.buf_runtime_data.id[i + 1],
-				lcm_op->param.buf_runtime_data.id[i + 2],
-				lcm_op->param.buf_runtime_data.id[i + 3]);
-		}
-		for (i = 0; i < roundup(lcm_op->param.buf_runtime_data.data_len, 4); i += 4) {
-			DDPDUMP("[%s-%u][data%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
-				owner, id, i, i + 3,
-				lcm_op->param.buf_runtime_data.data[i],
-				lcm_op->param.buf_runtime_data.data[i + 1],
-				lcm_op->param.buf_runtime_data.data[i + 2],
-				lcm_op->param.buf_runtime_data.data[i + 3]);
-		}
+		mtk_lcm_dump_u8_array(lcm_op->param.buf_runtime_data.id,
+				lcm_op->param.buf_runtime_data.id_len, owner);
+		mtk_lcm_dump_u8_array(lcm_op->param.buf_runtime_data.data,
+				lcm_op->param.buf_runtime_data.data_len, owner);
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_CMD:
 		DDPDUMP("[%s-%u]:%s,%s,dts:%u,cmd:0x%x,cnt:%u,flag:0x%x\n",
@@ -1198,14 +1288,8 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 			lcm_op->param.cmd_data.cmd,
 			(unsigned int)lcm_op->param.cmd_data.tx_len,
 			lcm_op->param.cmd_data.flag);
-		for (i = 0; i < (unsigned int)lcm_op->param.cmd_data.tx_len; i += 4) {
-			DDPDUMP("[%s-%u][data%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
-				owner, id, i, i + 3,
-				lcm_op->param.cmd_data.tx_data[i],
-				lcm_op->param.cmd_data.tx_data[i + 1],
-				lcm_op->param.cmd_data.tx_data[i + 2],
-				lcm_op->param.cmd_data.tx_data[i + 3]);
-		}
+			mtk_lcm_dump_u8_array(lcm_op->param.cmd_data.tx_data,
+					lcm_op->param.cmd_data.tx_len, owner);
 		break;
 	case MTK_LCM_CMD_TYPE_READ_BUFFER:
 		DDPDUMP("[%s-%u]:%s,%s,dts:%u,cnt:%u,startid:%u,rx:%u,flag:0x%x\n",
@@ -1214,14 +1298,8 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 			lcm_op->param.cmd_data.rx_off,
 			lcm_op->param.cmd_data.rx_len,
 			lcm_op->param.cmd_data.flag);
-		for (i = 0; i < (unsigned int)lcm_op->param.cmd_data.tx_len; i += 4) {
-			DDPDUMP("[%s-%u][data%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
-				owner, id, i, i + 3,
-				lcm_op->param.cmd_data.tx_data[i],
-				lcm_op->param.cmd_data.tx_data[i + 1],
-				lcm_op->param.cmd_data.tx_data[i + 2],
-				lcm_op->param.cmd_data.tx_data[i + 3]);
-		}
+			mtk_lcm_dump_u8_array(lcm_op->param.cmd_data.tx_data,
+					lcm_op->param.cmd_data.tx_len, owner);
 		break;
 	case MTK_LCM_CMD_TYPE_READ_CMD:
 		DDPDUMP("[%s-%u]:%s,%s,dts:%u,cmd:0x%x,cnt:%u,startid:%u,flag:0x%x\n",
@@ -1310,7 +1388,8 @@ void dump_lcm_ops_table(struct mtk_lcm_ops_table *table,
 		DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 
 	if (IS_ERR_OR_NULL(table) || table->size == 0) {
-		DDPDUMP("%s: \"%s\" is empty\n", __func__, owner_tmp);
+		DDPDUMP("%s: \"%s\" is empty, size:%u\n",
+			__func__, owner_tmp, table->size);
 		return;
 	}
 

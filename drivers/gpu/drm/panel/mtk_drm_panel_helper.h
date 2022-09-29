@@ -442,6 +442,12 @@ int mtk_panel_execute_callback_group(void *dsi, dcs_grp_write_gce cb,
 	void *handle, struct mtk_lcm_ops_table *table,
 	struct mtk_lcm_ops_input_packet *input, const char *master);
 
+/* function: parse lcm parameters
+ * input: np: dts node,
+ *        prop: parameter name
+ *        out: the output result
+ * output: output length, <0 for error
+ */
 void mtk_lcm_dts_read_u32(struct device_node *np, char *prop,
 		u32 *out);
 int mtk_lcm_dts_read_u32_array(struct device_node *np, char *prop,
@@ -452,6 +458,18 @@ int mtk_lcm_dts_read_u8_array(struct device_node *np, char *prop,
 		u8 *out, int min_len, int max_len);
 int mtk_lcm_dts_read_u8_array_from_u32(struct device_node *np, char *prop,
 		u8 *out, int min_len, int max_len);
+
+/* function: runtime allocate buffer and
+ *           parse lcm parameters into the buffer
+ * input: np: dts node,
+ *        prop: parameter name
+ *        out: the output result
+ * output: output length, <0 for error
+ */
+int mtk_lcm_dts_read_u32_pointer(struct device_node *np, char *prop,
+	u32 **out);
+int mtk_lcm_dts_read_u8_pointer(struct device_node *np, char *prop,
+	u8 **out);
 
 /* function: parse lcm parameters
  * input: fdt: dts, nodeoffset: dts node,
@@ -496,6 +514,9 @@ void free_lcm_ops_dpi(struct mtk_lcm_ops_dpi *ops,
 	const struct mtk_panel_cust *cust);
 void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 	const struct mtk_panel_cust *cust);
+
+void mtk_lcm_dump_u8_array(u8 *buf, unsigned int size, const char *name);
+void mtk_lcm_dump_u32_array(u32 *buf, unsigned int size, const char *name);
 
 /* function: dump ops data*/
 int dump_lcm_ops_func(struct mtk_lcm_ops_data *lcm_op,
