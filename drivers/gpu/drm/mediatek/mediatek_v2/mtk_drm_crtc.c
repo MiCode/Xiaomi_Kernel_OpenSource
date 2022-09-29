@@ -7252,6 +7252,12 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 		struct mtk_plane_state *plane_state;
 
 		plane_state = to_mtk_plane_state(plane->state);
+		if (plane_state->base.crtc == NULL && plane_state->pending.enable) {
+			DDPINFO("%s CRTC NULL but plane pending, skip restore\n", __func__);
+			cmdq_pkt_destroy(cmdq_handle);
+			return;
+		}
+
 		if (!plane_state->pending.enable ||
 			(i >= OVL_PHY_LAYER_NR && !plane_state->comp_state.comp_id)) {
 			DDPINFO("%s i=%d comp_id=%u continue\n", __func__, i,
