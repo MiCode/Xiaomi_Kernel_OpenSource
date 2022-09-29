@@ -9755,6 +9755,7 @@
 			"MTK_DRM_OPT_PRESENT_FENCE",
 			"MTK_DRM_OPT_RDMA_UNDERFLOW_AEE",
 			"MTK_DRM_OPT_DSI_UNDERRUN_AEE",
+			"MTK_DRM_OPT_ODDMR_UNDERRUN_AEE",
 			"MTK_DRM_OPT_HRT",
 			"MTK_DRM_OPT_HRT_MODE",
 			"MTK_DRM_OPT_DELAYED_TRIGGER",
@@ -9816,6 +9817,7 @@
 			<1>, /*MTK_DRM_OPT_PRESENT_FENCE*/
 			<0>, /*MTK_DRM_OPT_RDMA_UNDERFLOW_AEE*/
 			<1>, /*MTK_DRM_OPT_DSI_UNDERRUN_AEE*/
+			<0>, /*MTK_DRM_OPT_ODDMR_UNDERRUN_AEE*/
 			<1>, /*MTK_DRM_OPT_HRT*/
 			<1>, /*MTK_DRM_OPT_HRT_MODE*/
 			<0>, /*MTK_DRM_OPT_DELAYED_TRIGGER*/
@@ -11833,24 +11835,46 @@
 		compatible = "mediatek,disp_oddmr0",
 			"mediatek,mt6985-disp-oddmr";
 		reg = <0 0x14013000 0 0x2000>;
+		interrupts = <GIC_SPI 374 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&dispsys_config_clk CLK_MM_DISP_ODDMR0>;
 		mediatek,larb = <&smi_larb32>;
 		mediatek,smi-id = <32>;
 		iommus = <&disp_iommu M4U_PORT_L32_DISP_ODDMR0_DMRR>,
 			<&disp_iommu M4U_PORT_L32_DISP_ODDMR0_ODR>,
 			<&disp_iommu M4U_PORT_L32_DISP_ODDMR0_ODW>;
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L32_DISP_ODDMR0_DMRR)
+					&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L32_DISP_ODDMR0_ODR)
+					&mmqos SLAVE_COMMON(1)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L32_DISP_ODDMR0_ODW)
+					&mmqos SLAVE_COMMON(1)>;
+		interconnect-names = "DDP_COMPONENT_ODDMR0_DMRR",
+					"DDP_COMPONENT_ODDMR0_ODR",
+					"DDP_COMPONENT_ODDMR0_ODW";
 	};
 
 	disp1_oddmr0: disp1-oddmr0@14213000 {
 		compatible = "mediatek,disp1_oddmr0",
 			"mediatek,mt6985-disp-oddmr";
 		reg = <0 0x14213000 0 0x2000>;
+		interrupts = <GIC_SPI 418 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&dispsys1_config_clk CLK_MM1_DISP_ODDMR0>;
 		mediatek,larb = <&smi_larb33>;
 		mediatek,smi-id = <33>;
 		iommus = <&disp_iommu M4U_PORT_L33_DISP_ODDMR0_DMRR>,
 			<&disp_iommu M4U_PORT_L33_DISP_ODDMR0_ODR>,
 			<&disp_iommu M4U_PORT_L33_DISP_ODDMR0_ODW>;
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L33_DISP_ODDMR0_DMRR)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L33_DISP_ODDMR0_ODR)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L33_DISP_ODDMR0_ODW)
+					&mmqos SLAVE_COMMON(0)>;
+		interconnect-names = "DDP_COMPONENT_ODDMR1_DMRR",
+					"DDP_COMPONENT_ODDMR1_ODR",
+					"DDP_COMPONENT_ODDMR1_ODW";
 	};
 
 	disp_vdcm0: disp-vdcm0@1401b000 {
