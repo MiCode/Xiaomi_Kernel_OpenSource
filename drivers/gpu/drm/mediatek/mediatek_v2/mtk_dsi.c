@@ -7217,11 +7217,11 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 	if (mtk_crtc && mtk_crtc->base.dev)
 		priv = mtk_crtc->base.dev->dev_private;
 
-	if (!(priv && mtk_drm_helper_get_opt(priv->helper_opt,
-		MTK_DRM_OPT_DYN_MIPI_CHANGE))
-		&& dsi->ext && dsi->ext->params
+	if (IS_ERR_OR_NULL(priv)
+		|| (!(mtk_crtc->mode_change_index & MODE_DSI_CLK)
 		&& !(mtk_crtc->mode_change_index & MODE_DSI_RES)
-		&& !(dsi->ext->params->cmd_null_pkt_en))
+		&& !(dsi->ext && dsi->ext->params
+		&& dsi->ext->params->cmd_null_pkt_en)))
 		need_mipi_change = 0;
 
 	if (!(mtk_crtc->mode_change_index & MODE_DSI_RES)) {
