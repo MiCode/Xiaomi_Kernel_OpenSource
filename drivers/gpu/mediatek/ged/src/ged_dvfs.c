@@ -1416,6 +1416,16 @@ static bool ged_dvfs_policy(
 				ged_set_policy_state(POLICY_STATE_LB);
 				ged_set_backup_timer_timeout(lb_timeout);
 			}
+		} else if (policy_state == POLICY_STATE_FORCE_LB ||
+				policy_state == POLICY_STATE_FORCE_LB_FALLBACK) {
+			// overwrite state & timeout value set prior to ged_dvfs_run
+			if (uncomplete_flag) {
+				ged_set_policy_state(POLICY_STATE_FORCE_LB_FALLBACK);
+				ged_set_backup_timer_timeout(ged_get_fallback_time());
+			} else {
+				ged_set_policy_state(POLICY_STATE_FORCE_LB);
+				ged_set_backup_timer_timeout(lb_timeout);
+			}
 		}
 
 		// use fix margin in fallback mode
@@ -1972,6 +1982,7 @@ void ged_dvfs_run(
 	GED_DVFS_COMMIT_TYPE eCommitType)
 {
 	unsigned long ui32IRQFlags;
+	enum gpu_dvfs_policy_state policy_state;
 
 	mutex_lock(&gsDVFSLock);
 
@@ -2029,7 +2040,9 @@ void ged_dvfs_run(
 			if (ged_dvfs_policy(gpu_loading, &g_ui32FreqIDFromPolicy, t, phase,
 					ul3DFenceDoneTime, false)) {
 				// overwrite eCommitType in case fallback is needed in LB
-				if (ged_get_policy_state() == POLICY_STATE_LB)
+				policy_state = ged_get_policy_state();
+				if (policy_state == POLICY_STATE_LB ||
+					policy_state == POLICY_STATE_FORCE_LB)
 					eCommitType = GED_DVFS_LOADING_BASE_COMMIT;
 				else
 					eCommitType = GED_DVFS_FALLBACK_COMMIT;

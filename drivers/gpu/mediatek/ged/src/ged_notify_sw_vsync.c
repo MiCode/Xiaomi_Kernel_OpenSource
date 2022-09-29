@@ -145,10 +145,13 @@ static void ged_notify_sw_sync_work_handle(struct work_struct *psWork)
 			policy_state = ged_get_policy_state();
 			if (policy_state == POLICY_STATE_FB ||
 					policy_state == POLICY_STATE_FB_FALLBACK ||
-					policy_state == POLICY_STATE_LB_FALLBACK) {
+					policy_state == POLICY_STATE_LB_FALLBACK ||
+					policy_state == POLICY_STATE_FORCE_LB_FALLBACK) {
 				eCommitType = GED_DVFS_FALLBACK_COMMIT;
 				if (policy_state == POLICY_STATE_LB_FALLBACK)
 					ged_set_policy_state(POLICY_STATE_LB_FALLBACK);
+				else if (policy_state == POLICY_STATE_FORCE_LB_FALLBACK)
+					ged_set_policy_state(POLICY_STATE_FORCE_LB_FALLBACK);
 				else
 					ged_set_policy_state(POLICY_STATE_FB_FALLBACK);
 				timeout_value = ged_get_fallback_time();

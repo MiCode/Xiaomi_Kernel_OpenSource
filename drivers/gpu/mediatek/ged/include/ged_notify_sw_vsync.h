@@ -27,10 +27,11 @@ u64 ged_get_fallback_time(void);
 enum gpu_dvfs_policy_state {
 	POLICY_STATE_INIT = -1,
 	POLICY_STATE_LB = 0,
+	POLICY_STATE_FORCE_LB,
 	POLICY_STATE_FB,
 	POLICY_STATE_LB_FALLBACK,
+	POLICY_STATE_FORCE_LB_FALLBACK,
 	POLICY_STATE_FB_FALLBACK,
-	POLICY_STATE_FORCE_LB,
 };
 enum gpu_dvfs_policy_state ged_get_policy_state_pre(void);
 enum gpu_dvfs_policy_state ged_get_policy_state(void);
