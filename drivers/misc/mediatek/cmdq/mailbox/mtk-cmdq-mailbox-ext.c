@@ -951,20 +951,18 @@ static void cmdq_task_exec_done(struct cmdq_task *task, s32 err)
 	u32 *perf, hw_time = 0, exec_begin = 0, exec_end = 0;
 	unsigned long hw_time_rem = 0;
 
-	if (task) {
-		perf = cmdq_pkt_get_perf_ret(task->pkt);
-		if (perf) {
-			exec_begin = perf[0];
-			exec_end = perf[1];
-			hw_time = exec_end > exec_begin ?
-				exec_end - exec_begin :
-				~exec_begin + 1 + exec_end;
-			hw_time_rem = (u32)CMDQ_TICK_TO_US(hw_time);
-		}
+	perf = cmdq_pkt_get_perf_ret(task->pkt);
+	if (perf) {
+		exec_begin = perf[0];
+		exec_end = perf[1];
+		hw_time = exec_end > exec_begin ?
+			exec_end - exec_begin :
+			~exec_begin + 1 + exec_end;
+		hw_time_rem = (u32)CMDQ_TICK_TO_US(hw_time);
 	}
 
 	mmprofile_log_ex(cmdq_mmp.hw_exec, MMPROFILE_FLAG_PULSE,
-		task ? (unsigned long)task->pkt : 0, (unsigned long)hw_time);
+		(unsigned long)task->pkt, (unsigned long)hw_time);
 #endif
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	task->pkt->rec_irq = sched_clock();
