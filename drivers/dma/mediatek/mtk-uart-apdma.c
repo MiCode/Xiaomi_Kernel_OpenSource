@@ -139,6 +139,8 @@ struct mtk_chan {
 	struct uart_info rec_info[UART_RECORD_COUNT];
 };
 
+static unsigned long long num;
+
 static inline struct mtk_uart_apdmadev *
 to_mtk_uart_apdma_dev(struct dma_device *d)
 {
@@ -493,9 +495,15 @@ static void mtk_uart_apdma_rx_handler(struct mtk_chan *c)
 	//Read VFF_VALID_FLAG value
 	mb();
 
-	if (!mtk_uart_apdma_read(c, VFF_VALID_SIZE))
+	if (!mtk_uart_apdma_read(c, VFF_VALID_SIZE)) {
+		num++;
+		if (num % 5000 == 1) {
+			pr_info("debug: %s: VFF_VALID_SIZE[0x%x], num[%llu]\n", __func__,
+			 mtk_uart_apdma_read(c, VFF_VALID_SIZE), num);
+		}
 		return;
-
+	}
+	num = 0;
 	mtk_uart_apdma_write(c, VFF_EN, VFF_EN_CLR_B);
 	mtk_uart_apdma_write(c, VFF_INT_EN, VFF_INT_EN_CLR_B);
 
