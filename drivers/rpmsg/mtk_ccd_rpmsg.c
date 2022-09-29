@@ -391,15 +391,9 @@ mtk_create_client_msgdevice(struct rproc_subdev *subdev,
 			 (atomic_read(&mtk_subdev->listen_obj_rdy) ==
 			 CCD_LISTEN_OBJECT_PREPARING));
 
-		if (ret != 0) {
+		if (ret != 0)
 			dev_info(&mtk_subdev->pdev->dev,
 				"ccd listen wait error: %d\n", ret);
-			mutex_lock(&mtk_subdev->endpoints_lock);
-			idr_remove(&mtk_subdev->endpoints, info->src);
-			mutex_unlock(&mtk_subdev->endpoints_lock);
-			put_device(&mdev->rpdev.dev);
-			return NULL;
-		}
 
 		mutex_lock(&mtk_subdev->master_listen_lock);
 	}
