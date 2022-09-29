@@ -228,6 +228,7 @@ exit:
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT)
 ssize_t vcp_A_log_read(char __user *data, size_t len)
 {
 	unsigned int w_pos, r_pos, datalen;
@@ -665,7 +666,7 @@ static ssize_t log_filter_store(struct device *dev,
 	}
 }
 DEVICE_ATTR_WO(log_filter);
-
+#endif  // CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT
 
 /*
  * IPI for logger init
@@ -794,8 +795,10 @@ static void vcp_logger_notify_ws(struct work_struct *ws)
 		udelay(1000);
 	} while (retrytimes > 0 && vcp_A_logger_inited);
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT)
 	udelay(1000);
 	vcp_A_log_enable_set(VCP_A_log_ctl->enable);
+#endif  // CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT
 }
 
 /******************************************************************************
@@ -873,13 +876,14 @@ void vcp_logger_uninit(void)
 		vfree(tmp);
 }
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT)
 const struct file_operations vcp_A_log_file_ops = {
 	.owner = THIS_MODULE,
 	.read = vcp_A_log_if_read,
 	.open = vcp_A_log_if_open,
 	.poll = vcp_A_log_if_poll,
 };
-
+#endif  // CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT
 
 /*
  * move vcp last log from sram to dram

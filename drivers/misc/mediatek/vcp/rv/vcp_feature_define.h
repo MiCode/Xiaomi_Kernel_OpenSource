@@ -13,7 +13,6 @@
 #define VCP_RESERVED_MEM                 (1)
 #define VCP_LOGGER_ENABLE                (1)
 #define VCP_VOW_LOW_POWER_MODE           (1)
-#define VCP_DEBUG_NODE_ENABLE            (0)
 
 /* vcp rescovery feature option*/
 #define VCP_RECOVERY_SUPPORT             (1)

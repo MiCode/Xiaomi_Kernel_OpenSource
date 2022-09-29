@@ -13,3 +13,11 @@ config MTK_TINYSYS_VCP_VERSION
 	default ""
 	help
 	  MTK_TINYSYS_VCP_VERSION define which vcp version will be used
+
+config MTK_TINYSYS_VCP_DEBUG_SUPPORT
+	bool "VCP Debug support"
+	help
+	  This is a debug interface for VCP
+	  Set Y to enable this feature.
+	  Set N to disable this feature.
+	  If unsure, Set N to disable it.

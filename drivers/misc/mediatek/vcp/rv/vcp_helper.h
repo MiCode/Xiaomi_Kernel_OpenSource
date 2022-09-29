@@ -165,6 +165,9 @@ struct vcp_region_info_st {
 /* vcp helper varriable */
 extern bool driver_init_done;
 
+extern struct vcp_regs vcpreg;
+extern const struct file_operations vcp_A_log_file_ops;
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT)
 /* vcp device attribute */
 extern struct device_attribute dev_attr_vcp_A_mobile_log_UT;
 extern struct device_attribute dev_attr_vcp_A_logger_wakeup_AP;
@@ -175,6 +178,7 @@ extern struct device_attribute dev_attr_vcp_mobile_log;
 extern struct device_attribute dev_attr_vcp_A_get_last_log;
 extern struct device_attribute dev_attr_vcp_A_status;
 extern struct device_attribute dev_attr_log_filter;
+#endif  //  CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT
 extern struct bin_attribute bin_attr_vcp_dump;
 
 /* vcp loggger */

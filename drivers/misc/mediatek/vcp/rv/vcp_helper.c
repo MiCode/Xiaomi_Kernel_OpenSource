@@ -887,8 +887,11 @@ int vcp_disable_pm_clk(enum feature_id id)
 		del_timer(&vcp_ready_timer[VCP_A_ID].tl);
 #endif
 		vcp_wait_core_stop_timeout(1);
+
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT)
 		pr_info("[VCP][Debug] bus_dbg_out[0x%x]: 0x%x, waitCnt=%u\n", VCP_BUS_DEBUG_OUT,
 			readl(VCP_BUS_DEBUG_OUT), waitCnt);
+#endif  // CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT
 
 		vcp_disable_dapc();
 		vcp_wait_awake_count();
@@ -1140,6 +1143,7 @@ static inline ssize_t vcp_deregister_off_store(struct device *kobj
 }
 DEVICE_ATTR_WO(vcp_deregister_off);
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT)
 static inline ssize_t vcp_A_status_show(struct device *kobj
 			, struct device_attribute *attr, char *buf)
 {
@@ -1267,7 +1271,6 @@ static ssize_t vcp_ee_enable_store(struct device *kobj
 }
 DEVICE_ATTR_RW(vcp_ee_enable);
 
-#if VCP_DEBUG_NODE_ENABLE
 static inline ssize_t vcp_A_awake_lock_show(struct device *kobj
 			, struct device_attribute *attr, char *buf)
 {
@@ -1340,8 +1343,7 @@ static inline ssize_t vcp_ipi_test_store(struct device *kobj
 }
 
 DEVICE_ATTR_RW(vcp_ipi_test);
-
-#endif
+#endif  //  CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT
 
 #if VCP_RECOVERY_SUPPORT
 void vcp_wdt_reset(int cpu_id)
@@ -1357,6 +1359,7 @@ void vcp_wdt_reset(int cpu_id)
 }
 EXPORT_SYMBOL(vcp_wdt_reset);
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT)
 /*
  * trigger wdt manually (debug use)
  * Warning! watch dog may be refresh just after you set
@@ -1429,7 +1432,7 @@ static ssize_t recovery_flag_store(struct device *dev
 }
 
 DEVICE_ATTR_RW(recovery_flag);
-
+#endif  //  CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT
 #endif
 
 /******************************************************************************
@@ -1437,7 +1440,9 @@ DEVICE_ATTR_RW(recovery_flag);
 static struct miscdevice vcp_device = {
 	.minor = MISC_DYNAMIC_MINOR,
 	.name = "vcp",
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT)
 	.fops = &vcp_A_log_file_ops
+#endif  //  CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT
 };
 
 
@@ -1455,6 +1460,7 @@ static int create_files(void)
 		return ret;
 	}
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT)
 #if VCP_LOGGER_ENABLE
 	ret = device_create_file(vcp_device.this_device
 					, &dev_attr_vcp_mobile_log);
@@ -1466,12 +1472,10 @@ static int create_files(void)
 	if (unlikely(ret != 0))
 		return ret;
 
-#if VCP_DEBUG_NODE_ENABLE
 	ret = device_create_file(vcp_device.this_device
 					, &dev_attr_vcp_A_mobile_log_UT);
 	if (unlikely(ret != 0))
 		return ret;
-#endif  // VCP_DEBUG_NODE_ENABLE
 
 	ret = device_create_file(vcp_device.this_device
 					, &dev_attr_vcp_A_get_last_log);
@@ -1483,12 +1487,14 @@ static int create_files(void)
 					, &dev_attr_vcp_A_status);
 	if (unlikely(ret != 0))
 		return ret;
+#endif  // CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT
 
 	ret = device_create_bin_file(vcp_device.this_device
 					, &bin_attr_vcp_dump);
 	if (unlikely(ret != 0))
 		return ret;
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT)
 	ret = device_create_file(vcp_device.this_device
 					, &dev_attr_vcp_A_reg_status);
 	if (unlikely(ret != 0))
@@ -1505,7 +1511,6 @@ static int create_files(void)
 	if (unlikely(ret != 0))
 		return ret;
 
-#if VCP_DEBUG_NODE_ENABLE
 	ret = device_create_file(vcp_device.this_device
 					, &dev_attr_vcp_A_awake_lock);
 	if (unlikely(ret != 0))
@@ -1521,7 +1526,6 @@ static int create_files(void)
 					, &dev_attr_vcp_ipi_test);
 	if (unlikely(ret != 0))
 		return ret;
-#endif  // VCP_DEBUG_NODE_ENABLE
 
 #if VCP_RECOVERY_SUPPORT
 	ret = device_create_file(vcp_device.this_device
@@ -1559,6 +1563,7 @@ static int create_files(void)
 
 	if (unlikely(ret != 0))
 		return ret;
+#endif  //  CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT
 
 	return 0;
 }
