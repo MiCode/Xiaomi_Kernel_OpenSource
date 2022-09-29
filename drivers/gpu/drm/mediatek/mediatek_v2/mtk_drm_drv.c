@@ -1837,11 +1837,14 @@ static const enum mtk_ddp_comp_id mt6983_mtk_ddp_main[] = {
 #endif
 };
 
-static const enum mtk_ddp_comp_id mt6985_mtk_ddp_main_bringup[] = {
+static const enum mtk_ddp_comp_id mt6985_mtk_ovlsys_main_bringup[] = {
 	DDP_COMPONENT_OVL0_2L,
 	DDP_COMPONENT_OVL1_2L,
 	DDP_COMPONENT_OVL2_2L,
 	DDP_COMPONENT_OVLSYS_DLO_ASYNC3,
+};
+
+static const enum mtk_ddp_comp_id mt6985_mtk_ddp_main_bringup[] = {
 	DDP_COMPONENT_DLI_ASYNC0,
 #ifdef DRM_BYPASS_PQ
 	DDP_COMPONENT_PQ0_OUT_CB3,
@@ -1943,11 +1946,14 @@ static const enum mtk_ddp_comp_id mt6985_mtk_ddp_main[] = {
 	DDP_COMPONENT_PWM0,
 };
 
-static const enum mtk_ddp_comp_id mt6985_mtk_ddp_dual_main_bringup[] = {
+static const enum mtk_ddp_comp_id mt6985_mtk_ovlsys_dual_main_bringup[] = {
 	DDP_COMPONENT_OVL4_2L,
 	DDP_COMPONENT_OVL5_2L,
 	DDP_COMPONENT_OVL6_2L,
 	DDP_COMPONENT_OVLSYS_DLO_ASYNC10,
+};
+
+static const enum mtk_ddp_comp_id mt6985_mtk_ddp_dual_main_bringup[] = {
 	DDP_COMPONENT_DLI_ASYNC6,
 #ifdef DRM_BYPASS_PQ
 	DDP_COMPONENT_PQ1_OUT_CB3,
@@ -2050,7 +2056,7 @@ static const enum mtk_ddp_comp_id mt6985_mtk_ddp_dual_main[] = {
 
 /* CRTC1 */
 static const enum mtk_ddp_comp_id mt6985_mtk_ddp_ext_dp[] = {
-	DDP_COMPONENT_OVL3_2L,
+	DDP_COMPONENT_OVL2_2L,
 	DDP_COMPONENT_OVLSYS_DLO_ASYNC5,
 	DDP_COMPONENT_DLI_ASYNC2,
 	DDP_COMPONENT_PQ0_OUT_CB4,
@@ -2061,7 +2067,7 @@ static const enum mtk_ddp_comp_id mt6985_mtk_ddp_ext_dp[] = {
 };
 
 static const enum mtk_ddp_comp_id mt6985_mtk_ddp_dual_ext_dp[] = {
-	DDP_COMPONENT_OVL7_2L,
+	DDP_COMPONENT_OVL6_2L,
 	DDP_COMPONENT_OVLSYS_DLO_ASYNC12,
 	DDP_COMPONENT_DLI_ASYNC8,
 	DDP_COMPONENT_PQ1_OUT_CB4,
@@ -3392,9 +3398,13 @@ static const struct mtk_crtc_path_data mt6983_mtk_third_path_data = {
 };
 
 static const struct mtk_crtc_path_data mt6985_mtk_main_path_data = {
+	.ovl_path[DDP_MAJOR][0] = mt6985_mtk_ovlsys_main_bringup,
+	.ovl_path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6985_mtk_ovlsys_main_bringup),
 	.path[DDP_MAJOR][0] = mt6985_mtk_ddp_main_bringup,
 	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6985_mtk_ddp_main_bringup),
 	.path_req_hrt[DDP_MAJOR][0] = true,
+	.dual_ovl_path[0] = mt6985_mtk_ovlsys_dual_main_bringup,
+	.dual_ovl_path_len[0] = ARRAY_SIZE(mt6985_mtk_ovlsys_dual_main_bringup),
 	.dual_path[0] = mt6985_mtk_ddp_dual_main_bringup,
 	.dual_path_len[0] = ARRAY_SIZE(mt6985_mtk_ddp_dual_main_bringup),
 //	.wb_path[DDP_MAJOR] = mt6983_mtk_ddp_main_wb_path,
