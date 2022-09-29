@@ -875,7 +875,7 @@ GED_ERROR ged_dvfs_um_commit(unsigned long gpu_tar_freq, bool bFallback)
 int gx_fb_dvfs_margin = DEFAULT_DVFS_MARGIN;/* 10-bias */
 
 #define MAX_DVFS_MARGIN 990 /* 99% margin */
-#define MIN_DVFS_MARGIN 100 /* 10% margin */
+#define MIN_DVFS_MARGIN 50 /* 5% margin */
 
 /* dynamic margin mode for FPSGo control fps margin */
 #define DYNAMIC_MARGIN_MODE_CONFIG_FPS_MARGIN 0x10
@@ -898,14 +898,14 @@ int gx_fb_dvfs_margin = DEFAULT_DVFS_MARGIN;/* 10-bias */
 /* variable margin mode OPP Iidx */
 #define VARIABLE_MARGIN_MODE_OPP_INDEX 0x01
 
-#define MIN_MARGIN_INC_STEP 1 /* 1% headroom */
+#define MIN_MARGIN_INC_STEP 10 /* 1% headroom */
 
 // default frame-based margin mode + value is 130
-static int dvfs_margin_value = DEFAULT_DVFS_MARGIN/10;
-unsigned int dvfs_margin_mode = DYNAMIC_MARGIN_MODE_CONFIG_FPS_MARGIN;
+static int dvfs_margin_value = DEFAULT_DVFS_MARGIN;
+unsigned int dvfs_margin_mode = DYNAMIC_MARGIN_MODE_PERF;
 
 static int dvfs_min_margin_inc_step = MIN_MARGIN_INC_STEP;
-static int dvfs_margin_low_bound = 1; /* 1% headroom */
+static int dvfs_margin_low_bound = MIN_DVFS_MARGIN;
 
 module_param(gx_fb_dvfs_margin, int, 0644);
 
@@ -945,6 +945,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 		ap_workload_real;   // unit: 100*cycle
 	unsigned long long frame_t_gpu;   // for gpu_util_history api
 	unsigned int frame_workload, frame_freq;   // for gpu_util_history api
+	int t_gpu_target_hd;   // apply headroom target, unit: us
 	int t_gpu_pipe, t_gpu_real;   // unit: us
 	int gpu_freq_pre, gpu_freq_tar, gpu_freq_floor;   // unit: KHZ
 	int i, ui32NewFreqID = 0;
@@ -992,6 +993,10 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 	}
 	/* use LB policy */
 	if (force_fallback == 1) {
+		if (ged_get_policy_state() == POLICY_STATE_FORCE_LB)
+			// reset frame property for FB control in the next iteration
+			gpu_util_history_query_frame_property(&frame_workload,
+				&frame_t_gpu);
 		ged_set_backup_timer_timeout(lb_timeout);
 		is_fb_dvfs_triggered = 0;
 		return gpu_freq_pre;
@@ -1023,47 +1028,34 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 	if (ap_workload_real > ap_workload)
 		ap_workload = ap_workload_real;
 
-	/* calculate dynamic margin */
-	/* configure margin mode */
-	if (dvfs_margin_mode == CONFIGURE_MARGIN_MODE) {
-		gx_fb_dvfs_margin = dvfs_margin_value*10; /* 10-bias */
-		margin_low_bound = 0;
-	}
-
-	int t_gpu_target_hd = 0;
-	if (dvfs_margin_mode & 0x10) {
+	/* calculate margin */
+	if (dvfs_margin_mode == CONFIGURE_MARGIN_MODE) {   // fix margin mode
+		gx_fb_dvfs_margin = dvfs_margin_value;
+		margin_low_bound = dvfs_margin_low_bound;
+	} else if (dvfs_margin_mode & 0x10) {   // dynamic margin mode
 		/* dvfs_margin_mode == */
 		/* DYNAMIC_MARGIN_MODE_CONFIG_FPS_MARGIN or */
 		/* DYNAMIC_MARGIN_MODE_FIXED_FPS_MARGIN) or */
 		/* DYNAMIC_MARGIN_MODE_NO_FPS_MARGIN or */
 		/* DYNAMIC_MARGIN_MODE_EXTEND or */
 		/* DYNAMIC_MARGIN_MODE_PERF */
-
-		// int t_gpu_target_hd;/* apply headroom target */
 		int temp;
 
 		if (dvfs_margin_mode == DYNAMIC_MARGIN_MODE_PERF)
 			t_gpu_target_hd = t_gpu_target *
-				(1000 - gx_fb_dvfs_margin) / 1000;
+				(1000 - dvfs_margin_low_bound) / 1000;
 		else
 			t_gpu_target_hd = t_gpu_target;
 
-		if (t_gpu > t_gpu_target_hd) { /* must set to max. margin */
-			t_gpu_target_hd = (t_gpu_target_hd != 0) ?
-				t_gpu_target_hd : 1;
+		if (t_gpu > t_gpu_target_hd) {   // previous frame overdued
+			// adjust margin
 			temp = (gx_fb_dvfs_margin*(t_gpu-t_gpu_target_hd))
 				/ t_gpu_target_hd;
-
-			if (temp < dvfs_min_margin_inc_step*10)
-				temp = dvfs_min_margin_inc_step*10;
-
+			if (temp < dvfs_min_margin_inc_step)
+				temp = dvfs_min_margin_inc_step;
 			gx_fb_dvfs_margin += temp;
-
-			/* if (gx_fb_dvfs_margin > (dvfs_margin_value*10)) { */
-			/*	gx_fb_dvfs_margin = dvfs_margin_value*10; */
-			/*} */
-
-		} else {
+		} else {   // previous frame in time
+			// set margin low boud according to FPSGO's margin (+3/+1)
 			if (dvfs_margin_mode
 				== DYNAMIC_MARGIN_MODE_NO_FPS_MARGIN)
 				margin_low_bound = MIN_DVFS_MARGIN;
@@ -1087,46 +1079,39 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 					/ t_gpu_target;
 				}
 
-				if (margin_low_bound > dvfs_margin_value*10)
-					margin_low_bound =
-					dvfs_margin_value*10;
+				// margin_low_bound range clipping
+				if (margin_low_bound > dvfs_margin_value)
+					margin_low_bound = dvfs_margin_value;
 
-				if (margin_low_bound < dvfs_margin_low_bound*10)
-					margin_low_bound =
-					dvfs_margin_low_bound*10;
+				if (margin_low_bound < dvfs_margin_low_bound)
+					margin_low_bound = dvfs_margin_low_bound;
 			}
-			t_gpu_target_hd = (t_gpu_target_hd != 0) ?
-				t_gpu_target_hd : 1;
 
+			// adjust margin
 			temp = (gx_fb_dvfs_margin*(t_gpu_target_hd-t_gpu))
 				/ t_gpu_target_hd;
-
 			gx_fb_dvfs_margin -= temp;
-
-			/* if (gx_fb_dvfs_margin < margin_low_bound) { */
-			/*	gx_fb_dvfs_margin = margin_low_bound; */
-			/*} */
 		}
+	} else {   // unknown mode
+		// use fix margin mode
+		gx_fb_dvfs_margin = dvfs_margin_value;
+		margin_low_bound = dvfs_margin_low_bound;
 	}
 
 	// check upper bound
-	if (gx_fb_dvfs_margin > (dvfs_margin_value*10))
-		gx_fb_dvfs_margin = dvfs_margin_value*10;
+	if (gx_fb_dvfs_margin > dvfs_margin_value)
+		gx_fb_dvfs_margin = dvfs_margin_value;
 
 	// check lower bound
 	if (gx_fb_dvfs_margin < margin_low_bound)
 		gx_fb_dvfs_margin = margin_low_bound;
 
 	//  * 10 to keep unit uniform
-	Policy__Frame_based__Margin(dvfs_margin_value * 10,
-								gx_fb_dvfs_margin,
-								margin_low_bound);
+	Policy__Frame_based__Margin(dvfs_margin_value, gx_fb_dvfs_margin,
+		margin_low_bound);
 
-	Policy__Frame_based__Margin__Detail(
-							dvfs_margin_mode,
-							target_fps_margin,
-							dvfs_min_margin_inc_step * 10,
-							dvfs_margin_low_bound * 10);
+	Policy__Frame_based__Margin__Detail(dvfs_margin_mode, target_fps_margin,
+		dvfs_min_margin_inc_step, dvfs_margin_low_bound);
 
 	t_gpu_target_hd = t_gpu_target * (1000 - gx_fb_dvfs_margin) / 1000;
 
@@ -1726,12 +1711,10 @@ static void ged_dvfs_margin_value(int i32MarginValue)
 	mutex_lock(&gsDVFSLock);
 
 	g_fastdvfs_margin = 0;
-	dvfs_min_margin_inc_step = MIN_MARGIN_INC_STEP;
-	dvfs_margin_low_bound = MIN_DVFS_MARGIN/10;
 
 	if (i32MarginValue == -1) {
 		dvfs_margin_mode = CONFIGURE_MARGIN_MODE;
-		dvfs_margin_value = DEFAULT_DVFS_MARGIN/10;
+		dvfs_margin_value = DEFAULT_DVFS_MARGIN;
 		mutex_unlock(&gsDVFSLock);
 		return;
 	} else if (i32MarginValue == -2) {
@@ -1761,19 +1744,26 @@ static void ged_dvfs_margin_value(int i32MarginValue)
 	} else if ((i32MarginValue > 400) && (i32MarginValue < 500)) {
 		dvfs_margin_mode = DYNAMIC_MARGIN_MODE_EXTEND;
 		i32MarginValue = i32MarginValue - 400;
-		dvfs_min_margin_inc_step = (i32MarginValue_ori & 0xfc00) >> 10;
-		dvfs_margin_low_bound = (i32MarginValue_ori & 0x7f0000) >> 16;
 	} else if ((i32MarginValue > 500) && (i32MarginValue < 600)) {
 		dvfs_margin_mode = DYNAMIC_MARGIN_MODE_PERF;
 		i32MarginValue = i32MarginValue - 500;
-		dvfs_min_margin_inc_step = (i32MarginValue_ori & 0xfc00) >> 10;
-		dvfs_margin_low_bound = (i32MarginValue_ori & 0x7f0000) >> 16;
 	}
+	// unit: % to 10*%
+	dvfs_margin_value = i32MarginValue * 10;
+	dvfs_min_margin_inc_step = ((i32MarginValue_ori & 0xfc00) >> 10) * 10;
+	dvfs_margin_low_bound = ((i32MarginValue_ori & 0x7f0000) >> 16) * 10;
 
-	if (i32MarginValue > (MAX_DVFS_MARGIN/10)) /* 0~ MAX_DVFS_MARGIN % */
-		dvfs_margin_value = (MAX_DVFS_MARGIN/10);
-	else
-		dvfs_margin_value = i32MarginValue;
+	// range clipping
+	if (dvfs_margin_value > MAX_DVFS_MARGIN)
+		dvfs_margin_value = MAX_DVFS_MARGIN;
+	if (dvfs_margin_value < MIN_DVFS_MARGIN)
+		dvfs_margin_value = MIN_DVFS_MARGIN;
+	if (dvfs_margin_low_bound > MAX_DVFS_MARGIN)
+		dvfs_margin_low_bound = MAX_DVFS_MARGIN;
+	if (dvfs_margin_low_bound < MIN_DVFS_MARGIN)
+		dvfs_margin_low_bound = MIN_DVFS_MARGIN;
+	if (dvfs_min_margin_inc_step < MIN_MARGIN_INC_STEP)
+		dvfs_min_margin_inc_step = MIN_MARGIN_INC_STEP;
 
 	mutex_unlock(&gsDVFSLock);
 }
@@ -1783,17 +1773,17 @@ static int ged_get_dvfs_margin_value(void)
 	int ret = 0;
 
 	if (dvfs_margin_mode == CONFIGURE_MARGIN_MODE)
-		ret = dvfs_margin_value;
+		ret = dvfs_margin_value/10;
 	else if (dvfs_margin_mode == DYNAMIC_MARGIN_MODE_CONFIG_FPS_MARGIN)
-		ret = dvfs_margin_value + 100;
+		ret = dvfs_margin_value/10 + 100;
 	else if (dvfs_margin_mode == DYNAMIC_MARGIN_MODE_FIXED_FPS_MARGIN)
-		ret = dvfs_margin_value + 200;
+		ret = dvfs_margin_value/10 + 200;
 	else if (dvfs_margin_mode == DYNAMIC_MARGIN_MODE_NO_FPS_MARGIN)
-		ret = dvfs_margin_value + 300;
+		ret = dvfs_margin_value/10 + 300;
 	else if (dvfs_margin_mode == DYNAMIC_MARGIN_MODE_EXTEND)
-		ret = dvfs_margin_value + 400;
+		ret = dvfs_margin_value/10 + 400;
 	else if (dvfs_margin_mode == DYNAMIC_MARGIN_MODE_PERF)
-		ret = dvfs_margin_value + 500;
+		ret = dvfs_margin_value/10 + 500;
 	else if (dvfs_margin_mode == VARIABLE_MARGIN_MODE_OPP_INDEX)
 		ret = -2;
 
