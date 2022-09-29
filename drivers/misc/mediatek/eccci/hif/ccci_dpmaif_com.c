@@ -1304,13 +1304,14 @@ static int dpmaif_rxq_init_buf(struct dpmaif_rx_queue *rxq)
 	if (dma_mapping_error(dpmaif_ctl->dev, rxq->pit_phy_addr)) {
 		CCCI_ERROR_LOG(0, TAG,
 			"[%s] error: rxq%d pit_base[0x%llx] dma_map_single fail.\n",
-			__func__, rxq->index, rxq->pit_base);
+			__func__, rxq->index, (unsigned long long)rxq->pit_base);
 		kfree(rxq->pit_base);
 		return LOW_MEMORY_PIT;
 	}
 
 	CCCI_NORMAL_LOG(-1, TAG, "[%s] rxq%d pit_base=(0x%llx/0x%llx)\n",
-		__func__, rxq->index, rxq->pit_base, rxq->pit_phy_addr);
+		__func__, rxq->index, (unsigned long long)rxq->pit_base,
+		(unsigned long long)rxq->pit_phy_addr);
 
 	return ret;
 }
@@ -2964,6 +2965,19 @@ static int dpmaif_init_com(struct device *dev)
 
 	dev->dma_mask = &g_dpmaif_dmamask;
 	dev->coherent_dma_mask = g_dpmaif_dmamask;
+
+	if (!dev->dma_parms) {
+		dev->dma_parms = devm_kzalloc(dev,
+			sizeof(struct device_dma_parameters), GFP_KERNEL);
+		if (!dev->dma_parms)
+			CCCI_ERROR_LOG(0, TAG, "[%s] warning: devm_kzalloc() fail.\n", __func__);
+	}
+	if (dev->dma_parms) {
+		if (dma_set_max_seg_size(dev, UINT_MAX))
+			CCCI_ERROR_LOG(0, TAG,
+				"[%s] warning: dma_set_max_seg_size() fail.\n", __func__);
+	}
+
 	/* hook up to device */
 	dev->platform_data = dpmaif_ctl; /* maybe no need */
 

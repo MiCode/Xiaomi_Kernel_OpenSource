@@ -58,6 +58,7 @@ void ccci_dpmaif_resv_mem_init(void)
 {
 	struct device_node  *rmem_node = NULL;
 	struct reserved_mem *rmem = NULL;
+	dma_addr_t phy_addr = 0;
 
 	g_use_cache_mem_from_dts = 0;
 
@@ -83,11 +84,21 @@ void ccci_dpmaif_resv_mem_init(void)
 	g_resv_cache_mem_size = rmem->size;
 	g_resv_cache_mem_offs = 0;
 
-	g_resv_cache_vir_addr = memremap(g_resv_cache_phy_addr, g_resv_cache_mem_size,
-										MEMREMAP_WB);
+	g_resv_cache_vir_addr = phys_to_virt(g_resv_cache_phy_addr);
 	if (!g_resv_cache_vir_addr) {
 		CCCI_ERROR_LOG(0, TAG,
 			"[%s] error: g_resv_cache_vir_addr is NULL.\n", __func__);
+		return;
+	}
+
+	phy_addr = dma_map_single(dpmaif_ctl->dev,
+		g_resv_cache_vir_addr,
+		g_resv_cache_mem_size, DMA_FROM_DEVICE);
+	if (dma_mapping_error(dpmaif_ctl->dev, phy_addr)) {
+		CCCI_ERROR_LOG(0, TAG,
+			"[%s] error: dma_map_single() fail.(0x%llx/0x%llx/0x%llx);\n",
+			__func__, (unsigned long long)g_resv_cache_vir_addr,
+			(unsigned long long)g_resv_cache_phy_addr, (unsigned long long)phy_addr);
 		return;
 	}
 
