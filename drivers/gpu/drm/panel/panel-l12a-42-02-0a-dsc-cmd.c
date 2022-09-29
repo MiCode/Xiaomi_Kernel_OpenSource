@@ -324,10 +324,7 @@ static void push_table(struct lcm *ctx, struct LCM_setting_table *table, unsigne
 		memset(temp, 0, sizeof(temp));
 		switch (cmd) {
 		case REGFLAG_DELAY:
-			if (table[i].count <= 10)
-				msleep(table[i].count);
-			else
-				msleep(table[i].count);
+			msleep(table[i].count);
 			break;
 		case REGFLAG_END_OF_TABLE:
 			break;
