@@ -46,7 +46,6 @@
 
 static u64 g_fallback_time_out = GED_DVFS_FB_TIMER_TIMEOUT;
 
-#define GED_KPI_MSEC_DIVIDER ((u64)1000000)
 static struct hrtimer g_HT_hwvsync_emu;
 
 #include "ged_dvfs.h"
@@ -104,7 +103,7 @@ u64 ged_get_fallback_time(void)
 	u64 temp = 0;
 
 	if (g_fallback_mode == 0)
-		temp = g_fallback_time * GED_KPI_MSEC_DIVIDER;
+		temp = (u64)g_fallback_time * 1000000;//ms to ns
 	else if (g_fallback_mode == 1)
 		temp = fb_timeout * g_fallback_time / 10;
 	else if (g_fallback_mode == 2)

@@ -921,6 +921,22 @@ static void ged_dvfs_trigger_fb_dvfs(void)
 	is_fb_dvfs_triggered = 1;
 }
 
+// input argument unit: nanosecond
+static void set_fb_timeout(int t_gpu_target_ori, int t_gpu_target_margin)
+{
+	switch (g_frame_target_mode) {
+	case 1:
+		fb_timeout = (u64)t_gpu_target_ori * g_frame_target_time  / 10;
+		break;
+	case 2:
+		fb_timeout = (u64)t_gpu_target_margin * g_frame_target_time / 10;
+		break;
+	default:
+		fb_timeout = (u64)g_frame_target_time * 1000000; //ms to ns
+		break;
+	}
+}
+
 /*
  *	input argument t_gpu, t_gpu_target unit: ns
  */
@@ -939,11 +955,11 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 	static int cur_frame_idx;
 	static int pre_frame_idx;
 	static int busy_cycle[GED_DVFS_BUSY_CYCLE_MONITORING_WINDOW_NUM];
+	int t_gpu_target_origin = t_gpu_target;
 	int gpu_busy_cycle = 0;
 	int busy_cycle_cur;
 	unsigned long ui32IRQFlags;
 	static unsigned int force_fallback_pre;
-	u64 timeout_value = lb_timeout;
 	static int margin_low_bound;
 	int ultra_high_step_size = (dvfs_step_mode & 0xff);
 
@@ -978,7 +994,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 	}
 	/* use LB policy */
 	if (force_fallback == 1) {
-		ged_set_backup_timer_timeout(timeout_value);
+		ged_set_backup_timer_timeout(lb_timeout);
 		is_fb_dvfs_triggered = 0;
 		return gpu_freq_pre;
 	}
@@ -1217,8 +1233,9 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 	ged_dvfs_gpu_freq_commit((unsigned long)ui32NewFreqID,
 		gpu_freq_tar, GED_DVFS_FRAME_BASE_COMMIT);
 
-	timeout_value = fb_timeout;
-	ged_set_backup_timer_timeout(timeout_value);
+	//t_gpu_target(unit: 100us) *10^5 =nanosecond
+	set_fb_timeout(t_gpu_target_origin, t_gpu_target * 100000);
+	ged_set_backup_timer_timeout(fb_timeout);
 	ged_cancel_backup_timer();
 	is_fb_dvfs_triggered = 0;
 	return gpu_freq_tar;
@@ -1514,7 +1531,9 @@ static bool ged_dvfs_policy(
 		int ultra_high_step_size = (dvfs_step_mode & 0xff);
 		int ultra_low_step_size = (dvfs_step_mode & 0xff00) >> 8;
 
-		//ui32GPULoading >= 110 - gx_tb_dvfs_margin_cur || ui32GPULoading >= 95
+		if (low < ultra_low)
+			low = ultra_low;
+
 		if (ui32GPULoading >= ultra_high)
 			i32NewFreqID -= ultra_high_step_size;
 		else if (ui32GPULoading < ultra_low)
@@ -1524,6 +1543,10 @@ static bool ged_dvfs_policy(
 		else if (ui32GPULoading_avg <= low)
 			i32NewFreqID += 1;
 
+		//prevent decreasing opp in fall back mode
+		if (ged_get_policy_state() == POLICY_STATE_FALLBACK
+				&& i32NewFreqID > ui32GPUFreq)
+			i32NewFreqID = ui32GPUFreq;
 
 		Policy__Loading_based__Bound(ultra_high,
 									 high,

@@ -58,7 +58,6 @@
 #define GED_PR_DEBUG(fmt, args...)\
 	pr_debug(GED_KPI_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
 
-#define GED_KPI_MSEC_DIVIDER 1000000
 #define GED_KPI_SEC_DIVIDER 1000000000
 #define GED_KPI_MAX_FPS 60
 /* set default margin to be distinct from FPSGO(0 or 3) */
@@ -1165,7 +1164,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			// use LB policy
 			ged_set_policy_state(POLICY_STATE_LB);
 			if (g_loading_slide_enable)
-				lb_timeout = g_loading_stride_size * GED_KPI_MSEC_DIVIDER;
+				lb_timeout = (u64) g_loading_stride_size * 1000000; //ms to ns
 			else
 				lb_timeout = psKPI->t_gpu_target << 1;
 		} else {   // main producer ratio >= thresh (FB)
@@ -1176,19 +1175,13 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					ged_set_policy_state(POLICY_STATE_FORCE_LB);
 					force_fallback = 1;
 					if (g_loading_slide_enable)
-						lb_timeout = g_loading_stride_size *
-							GED_KPI_MSEC_DIVIDER;
+						lb_timeout = (u64)g_loading_stride_size *
+							1000000; //ms to ns
 					else
 						lb_timeout = psKPI->t_gpu_target << 1;
 				} else {   // previous commmit is FB or fallback
 					// use FB policy
 					ged_set_policy_state(POLICY_STATE_FB);
-					if (g_frame_target_mode)
-						fb_timeout = psKPI->t_gpu_target *
-							(u64)g_frame_target_time  / 10;
-					else
-						fb_timeout = g_frame_target_time *
-							GED_KPI_MSEC_DIVIDER;
 				}
 			} else {   // not main head
 				// do nothing

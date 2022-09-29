@@ -793,12 +793,15 @@ static ssize_t fallback_timing_store(struct kobject *kobj,
 	if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &i32Value) == 0) {
-				if (i32Value < 200 && i32Value >= 0) {
+				if (i32Value < 300 && i32Value >= 0) {
 					if (i32Value < 100) {
 						g_frame_target_mode = 0;
 						g_frame_target_time = i32Value;
 					} else if (i32Value < 200 && i32Value > 100) {
 						g_frame_target_mode = 1;
+						g_frame_target_time =  i32Value % 100;
+					} else if (i32Value < 300 && i32Value > 200) {
+						g_frame_target_mode = 2;
 						g_frame_target_time =  i32Value % 100;
 					}
 				} else {
