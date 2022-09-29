@@ -59,8 +59,9 @@ static inline void mtk_cam_scen_update_dbg_str(struct mtk_cam_scen *scen)
 			      scen->scen.mstream.mem_saving);
 		break;
 	case MTK_CAM_SCEN_SMVR:
-		snprintf_safe(scen->dbg_str, 15, "%d:%d", scen->id,
-			      scen->scen.smvr.subsample_num);
+		snprintf_safe(scen->dbg_str, 15, "%d:%d:%d", scen->id,
+			 scen->scen.smvr.subsample_num,
+			 scen->scen.smvr.output_first_frame_only);
 		break;
 	case MTK_CAM_SCEN_NORMAL:
 	case MTK_CAM_SCEN_ODT_NORMAL:
@@ -229,6 +230,14 @@ static inline bool mtk_cam_scen_is_subsample(struct mtk_cam_scen *scen)
 		return false;
 	return (scen->id == MTK_CAM_SCEN_SMVR);
 }
+
+static inline bool mtk_cam_scen_is_subsample_1st_frame_only(struct mtk_cam_scen *scen)
+{
+	if (!scen || scen->id != MTK_CAM_SCEN_SMVR)
+		return false;
+	return (scen->scen.smvr.output_first_frame_only != 0);
+}
+
 
 static inline bool mtk_cam_scen_is_stagger_2_exp(struct mtk_cam_scen *scen)
 {

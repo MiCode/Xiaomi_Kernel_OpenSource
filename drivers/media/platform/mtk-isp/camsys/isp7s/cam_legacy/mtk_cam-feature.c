@@ -34,8 +34,19 @@ int mtk_cam_get_feature_switch(struct mtk_raw_pipeline *raw_pipe,
 	int res = EXPOSURE_CHANGE_NONE;
 	int exp = 1, exp_prev = 1;
 
+	dev_dbg(raw_pipe->subdev.dev, "%s scen: cur(%s) prev(%s)\n",
+			__func__, cur->dbg_str, prev->dbg_str);
+
 	exp = mtk_cam_scen_get_exp_num(cur);
 	exp_prev = mtk_cam_scen_get_exp_num(prev);
+
+	if ((mtk_cam_scen_is_subsample_1st_frame_only(cur) &&
+			!mtk_cam_scen_is_subsample_1st_frame_only(prev)) ||
+			(mtk_cam_scen_is_subsample_1st_frame_only(prev) &&
+			!mtk_cam_scen_is_subsample_1st_frame_only(cur))) {
+		dev_dbg(raw_pipe->subdev.dev, "subspl mode change\n");
+		return SUBSPL_MODE_CHANGE;
+	}
 
 	if (exp == exp_prev)
 		return EXPOSURE_CHANGE_NONE;

@@ -3007,6 +3007,8 @@ static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 	if (raw_pipe->sensor_mode_update &&
 	    s_data->feature.switch_feature_type == EXPOSURE_CHANGE_NONE)
 		s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_SENSOR_MODE_UPDATE_T1;
+	else if (s_data->feature.switch_feature_type == SUBSPL_MODE_CHANGE)
+		s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_SUBSPL_MODE_UDPATE;
 
 	if (raw_pipe->req_res_calc)
 		s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_RES_CALC;
@@ -6527,6 +6529,10 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	if (req->ctx_link_update & 1 << ctx->stream_id ||
 	    req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SINK_FMT_UPDATE)
 		mtk_cam_s_data_dev_config(req_stream_data, true, true);
+	else if (req_stream_data->flags &
+			MTK_CAM_REQ_S_DATA_FLAG_SUBSPL_MODE_UDPATE)
+		mtk_cam_s_data_dev_config(req_stream_data, true, false);
+
 
 	/* save config_param for debug and exception dump */
 	config_param = mtk_cam_s_data_get_config_param(req_stream_data);
@@ -7639,7 +7645,11 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 			return ret;
 	}
 
-	config_param.flags = MTK_CAM_IPI_CONFIG_TYPE_INPUT_CHANGE;
+	if (mtk_cam_scen_is_subsample(scen))
+		config_param.flags = mtk_cam_scen_is_subsample_1st_frame_only(scen) ?
+			MTK_CAM_IPI_CONFIG_TYPE_SMVR_PREVIEW : 0;
+	else
+		config_param.flags = MTK_CAM_IPI_CONFIG_TYPE_INPUT_CHANGE;
 
 	dev_dbg(dev, "%s: config_param flag:0x%x enabled_raw:0x%x\n", __func__,
 			config_param.flags, s_raw_pipe_data->enabled_raw);
@@ -8106,6 +8116,9 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 
 	if (config_pipe && is_first_request_sync(ctx))
 		config_param.flags |= MTK_CAM_IPI_CONFIG_TYPE_EXEC_TWICE;
+
+	if (mtk_cam_scen_is_subsample_1st_frame_only(scen_active))
+		config_param.flags |= MTK_CAM_IPI_CONFIG_TYPE_SMVR_PREVIEW;
 
 	dev_dbg(dev, "%s: config_param flag:0x%x enabled_raw:0x%x\n", __func__,
 			config_param.flags, ctx->pipe->enabled_raw);
