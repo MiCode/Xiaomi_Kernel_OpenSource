@@ -3351,7 +3351,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus2[] = {
 
 	{
 		.bus.csi2 = {
-			.channel = 1,
+			.channel = 5,
 			.data_type = 0x2b,
 			.hsize = 0x1000,
 			.vsize = 0x0900,
