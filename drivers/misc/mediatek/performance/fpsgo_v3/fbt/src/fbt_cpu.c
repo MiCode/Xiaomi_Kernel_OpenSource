@@ -4960,7 +4960,7 @@ static void fbt_frame_start(struct render_info *thr, unsigned long long ts)
 EXIT:
 	fpsgo_fbt2fstb_update_cpu_frame_info(thr->pid, thr->buffer_id,
 		thr->tgid, thr->frame_type,
-		thr->Q2Q_time, runtime,
+		thr->Q2Q_time, runtime, targettime,
 		blc_wt, limited_cap, thr->enqueue_length, thr->dequeue_length);
 }
 

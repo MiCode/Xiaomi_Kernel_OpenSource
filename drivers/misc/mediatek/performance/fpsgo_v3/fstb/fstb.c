@@ -65,6 +65,9 @@ static int adopt_low_fps = 1;
 static int condition_get_fps;
 static int condition_fstb_active;
 static long long FRAME_TIME_WINDOW_SIZE_US = USEC_PER_SEC;
+static int gpu_slowdown_check;
+
+module_param(gpu_slowdown_check, int, 0644);
 
 DECLARE_WAIT_QUEUE_HEAD(queue);
 DECLARE_WAIT_QUEUE_HEAD(active_queue);
@@ -861,6 +864,7 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 		int frame_type,
 		unsigned long long Q2Q_time,
 		long long Runnging_time,
+		int Target_time,
 		unsigned int Curr_cap,
 		unsigned int Max_cap,
 		unsigned long long enqueue_length,
@@ -1010,6 +1014,9 @@ out:
 	default:
 		break;
 	}
+	if (gpu_slowdown_check && !iter->target_fps_diff
+			&& iter->cpu_time > Target_time && iter->cpu_time > iter->gpu_time)
+		eara_fps = iter->target_fps;
 	ged_kpi_set_target_FPS_margin(iter->bufid, eara_fps, tolerence_fps,
 		iter->target_fps_diff, iter->cpu_time);
 

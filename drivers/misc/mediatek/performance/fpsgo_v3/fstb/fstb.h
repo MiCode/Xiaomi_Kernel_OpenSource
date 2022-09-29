@@ -34,6 +34,7 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 	int frame_type,
 	unsigned long long Q2Q_time,
 	long long Runnging_time,
+	int Target_time,
 	unsigned int Curr_cap,
 	unsigned int Max_cap,
 	unsigned long long enqueue_length,
