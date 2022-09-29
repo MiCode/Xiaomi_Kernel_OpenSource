@@ -489,6 +489,8 @@ int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool laten
 	unsigned int idle_cpus = 0;
 	long max_spare_cap = LONG_MIN, spare_cap, max_spare_cap_per_gear;
 	int max_spare_cap_cpu = -1, max_spare_cap_cpu_per_gear;
+	long sys_max_spare_cap = LONG_MIN;
+	int sys_max_spare_cap_cpu = -1;
 	unsigned long util;
 	bool not_in_softmask;
 	unsigned int min_exit_lat = UINT_MAX, min_exit_lat_per_gear;
@@ -533,6 +535,12 @@ int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool laten
 
 			if (not_in_softmask)
 				continue;
+
+			/* record sys_max_spare_cap_cpu */
+			if (spare_cap > sys_max_spare_cap) {
+				sys_max_spare_cap = spare_cap;
+				sys_max_spare_cap_cpu = cpu;
+			}
 
 			/*
 			 * Skip CPUs that cannot satisfy the capacity request.
@@ -626,6 +634,12 @@ int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool laten
 	if (max_spare_cap_cpu != -1) {
 		target_cpu = max_spare_cap_cpu;
 		select_reason = LB_IRQ_MAX_SPARE;
+		goto out;
+	}
+	/* All cpu failed on !fit_capacity, use sys_max_spare_cap_cpu */
+	if (sys_max_spare_cap_cpu != -1) {
+		target_cpu = sys_max_spare_cap_cpu;
+		select_reason = LB_IRQ_SYS_MAX_SPARE;
 		goto out;
 	}
 

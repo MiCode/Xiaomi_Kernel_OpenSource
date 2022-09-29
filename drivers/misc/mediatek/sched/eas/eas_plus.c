@@ -1045,7 +1045,7 @@ void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 						best_idle_cpu_per_gear = cpu;
 						occupied_cap_per_gear = occupied_cap;
 					} else if ((idle->exit_latency == min_exit_lat)
-						&& (occupied_cap_per_gear < occupied_cap)) {
+						&& (occupied_cap_per_gear > occupied_cap)) {
 						best_idle_cpu_per_gear = cpu;
 						occupied_cap_per_gear = occupied_cap;
 					}
@@ -1055,7 +1055,7 @@ void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 						min_exit_lat = 0;
 						best_idle_cpu_per_gear = cpu;
 						occupied_cap_per_gear = occupied_cap;
-					} else if (occupied_cap_per_gear < occupied_cap) {
+					} else if (occupied_cap_per_gear > occupied_cap) {
 						best_idle_cpu_per_gear = cpu;
 						occupied_cap_per_gear = occupied_cap;
 					}
@@ -1255,7 +1255,7 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 					}
 					/* if exit_latency are identical, select larger capacity */
 					else if ((idle->exit_latency == min_exit_lat)
-						&& (occupied_cap_per_gear < occupied_cap)) {
+						&& (occupied_cap_per_gear > occupied_cap)) {
 						best_idle_cpu_per_gear = cpu;
 						occupied_cap_per_gear = occupied_cap;
 					}
