@@ -456,16 +456,17 @@ static u32 frame_calc_layer_hrt(struct mml_drm_ctx *ctx, struct mml_frame_info *
 	return (u32)hrt;
 }
 
-static void frame_buf_to_task_buf(struct mml_file_buf *fbuf,
+static s32 frame_buf_to_task_buf(struct mml_file_buf *fbuf,
 				  struct mml_buffer *user_buf,
 				  const char *name)
 {
 	u8 i;
+	s32 ret = 0;
 
 	if (user_buf->use_dma)
 		mml_buf_get(fbuf, user_buf->dmabuf, user_buf->cnt, name);
 	else
-		mml_buf_get_fd(fbuf, user_buf->fd, user_buf->cnt, name);
+		ret = mml_buf_get_fd(fbuf, user_buf->fd, user_buf->cnt, name);
 
 	/* also copy size for later use */
 	for (i = 0; i < user_buf->cnt; i++)
@@ -478,6 +479,8 @@ static void frame_buf_to_task_buf(struct mml_file_buf *fbuf,
 		fbuf->fence = sync_file_get_fence(user_buf->fence);
 		mml_msg("[drm]get dma fence %p by %d", fbuf->fence, user_buf->fence);
 	}
+
+	return ret;
 }
 
 static void task_move_to_running(struct mml_task *task)
@@ -917,18 +920,35 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 	task->end_time.tv_nsec = submit->end.nsec;
 	/* give default time if empty */
 	frame_check_end_time(&task->end_time);
-	frame_buf_to_task_buf(&task->buf.src,
+
+	result = frame_buf_to_task_buf(&task->buf.src,
 			      &submit->buffer.src,
 			      "mml_rdma");
-	if (submit->info.dest[0].pq_config.en_region_pq)
-		frame_buf_to_task_buf(&task->buf.seg_map,
+	if (result) {
+		mml_err("[drm]%s get dma buf fail", __func__);
+		goto err_buf_exit;
+	}
+
+	if (submit->info.dest[0].pq_config.en_region_pq) {
+		result = frame_buf_to_task_buf(&task->buf.seg_map,
 				      &submit->buffer.seg_map,
 				      "mml_rdma");
+		if (result) {
+			mml_err("[drm]%s get dma buf fail", __func__);
+			goto err_buf_exit;
+		}
+	}
+
 	task->buf.dest_cnt = submit->buffer.dest_cnt;
-	for (i = 0; i < submit->buffer.dest_cnt; i++)
-		frame_buf_to_task_buf(&task->buf.dest[i],
+	for (i = 0; i < submit->buffer.dest_cnt; i++) {
+		result = frame_buf_to_task_buf(&task->buf.dest[i],
 				      &submit->buffer.dest[i],
 				      "mml_wrot");
+		if (result) {
+			mml_err("[drm]%s get dma buf fail", __func__);
+			goto err_buf_exit;
+		}
+	}
 
 	/* create fence for this task */
 	fence.value = task->job.jobid;
@@ -966,6 +986,7 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 
 err_unlock_exit:
 	mutex_unlock(&ctx->config_mutex);
+err_buf_exit:
 	mml_trace_end();
 	mml_log("%s fail result %d", __func__, result);
 	return result;
