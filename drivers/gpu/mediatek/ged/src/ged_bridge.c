@@ -70,9 +70,6 @@ int ged_bridge_monitor_3D_fence(
 			psMonitor3DFenceINT->eType,
 			psMonitor3DFenceINT->timeouts);
 		psMonitor3DFenceOUT->eError = GED_OK;
-	} else {
-		psMonitor3DFenceOUT->eError =
-			ged_monitor_3D_fence_add(psMonitor3DFenceINT->fd);
 	}
 	return 0;
 }
