@@ -1358,6 +1358,19 @@ u32 mtk_pcie_dump_link_info(int port)
 	if (val)
 		return 0;
 
+	pr_info("ltssm reg:%#x, link sta:%#x, power sta:%#x, IP basic sta:%#x, int sta:%#x, axi err add:%#x, axi err info:%#x\n",
+		readl_relaxed(pcie_port->base + PCIE_LTSSM_STATUS_REG),
+		readl_relaxed(pcie_port->base + PCIE_LINK_STATUS_REG),
+		readl_relaxed(pcie_port->base + PCIE_ISTATUS_PM),
+		readl_relaxed(pcie_port->base + PCIE_BASIC_STATUS),
+		readl_relaxed(pcie_port->base + PCIE_INT_STATUS_REG),
+		readl_relaxed(pcie_port->base + PCIE_AXI0_ERR_ADDR_L),
+		readl_relaxed(pcie_port->base + PCIE_AXI0_ERR_INFO));
+	pr_info("clock gate:%#x, PCIe HW MODE BIT:%#x, Modem HW MODE BIT:%#x\n",
+		readl_relaxed(pcie_port->pextpcfg + PCIE_PEXTP_CG_0),
+		readl_relaxed(pcie_port->pextpcfg + PEXTP_PWRCTL_0),
+		readl_relaxed(pcie_port->pextpcfg + PEXTP_RSV_0));
+
 	val = readl_relaxed(pcie_port->base + PCIE_LTSSM_STATUS_REG);
 	ret_val |= PCIE_LTSSM_STATE(val);
 	val = readl_relaxed(pcie_port->base + PCIE_LINK_STATUS_REG);
@@ -1374,19 +1387,6 @@ u32 mtk_pcie_dump_link_info(int port)
 		writel_relaxed(PCIE_ERR_STS_CLEAR,
 			       pcie_port->base + PCIE_AXI0_ERR_INFO);
 	}
-
-	pr_info("ltssm reg:%#x, link sta:%#x, power sta:%#x, IP basic sta:%#x, int sta:%#x, axi err add:%#x, axi err info:%#x\n",
-		readl_relaxed(pcie_port->base + PCIE_LTSSM_STATUS_REG),
-		readl_relaxed(pcie_port->base + PCIE_LINK_STATUS_REG),
-		readl_relaxed(pcie_port->base + PCIE_ISTATUS_PM),
-		readl_relaxed(pcie_port->base + PCIE_BASIC_STATUS),
-		readl_relaxed(pcie_port->base + PCIE_INT_STATUS_REG),
-		readl_relaxed(pcie_port->base + PCIE_AXI0_ERR_ADDR_L),
-		readl_relaxed(pcie_port->base + PCIE_AXI0_ERR_INFO));
-	pr_info("clock gate:%#x, PCIe HW MODE BIT:%#x, Modem HW MODE BIT:%#x\n",
-		readl_relaxed(pcie_port->pextpcfg + PCIE_PEXTP_CG_0),
-		readl_relaxed(pcie_port->pextpcfg + PEXTP_PWRCTL_0),
-		readl_relaxed(pcie_port->pextpcfg + PEXTP_RSV_0));
 
 	return ret_val;
 }
