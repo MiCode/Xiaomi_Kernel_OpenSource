@@ -631,8 +631,14 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 						 ctx->mraw_pipe[i]->cammux_id);
 		}
 	} else {
+		spin_lock(&ctx->processing_buffer_list.lock);
 		ctx->processing_buffer_list.cnt = 0;
+		spin_unlock(&ctx->processing_buffer_list.lock);
+
+		spin_lock(&ctx->composed_buffer_list.lock);
 		ctx->composed_buffer_list.cnt = 0;
+		spin_unlock(&ctx->composed_buffer_list.lock);
+
 		dev_dbg(cam->dev, "[M2M] reset processing_buffer_list.cnt & composed_buffer_list.cnt\n");
 	}
 
