@@ -308,6 +308,7 @@ bool ged_dvfs_cal_gpu_utilization_ex(unsigned int *pui32Loading,
 	if (ged_dvfs_cal_gpu_utilization_ex_fp != NULL) {
 		ged_dvfs_cal_gpu_utilization_ex_fp(pui32Loading, pui32Block,
 			pui32Idle, (void *) Util_Ex);
+		Util_Ex->freq = ged_get_cur_freq();
 
 		memcpy((void *)&g_Util_Ex, (void *)Util_Ex,
 			sizeof(struct GpuUtilization_Ex));

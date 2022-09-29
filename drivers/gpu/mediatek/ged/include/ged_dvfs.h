@@ -91,12 +91,16 @@ struct GED_DVFS_BW_DATA {
 #define MAX_BW_PROFILE 5
 
 struct GpuUtilization_Ex {
+	// unit for util_*: %
 	unsigned int util_active;
 	unsigned int util_3d;
 	unsigned int util_ta;
 	unsigned int util_compute;
 	unsigned int util_iter;
 	unsigned int util_mcu;
+
+	unsigned long long delta_time;   // unit: ns
+	unsigned int freq;   // unit: kHz
 };
 
 bool ged_dvfs_cal_gpu_utilization_ex(unsigned int *pui32Loading,
