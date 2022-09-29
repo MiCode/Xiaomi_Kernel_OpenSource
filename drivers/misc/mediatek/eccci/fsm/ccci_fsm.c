@@ -1654,7 +1654,7 @@ void dump_md_info_in_devapc(struct ccci_modem *md)
 	ccci_util_mem_dump(CCCI_DUMP_MEM_DUMP, mdss_dbg->base_ap_view_vir,
 			mdss_dbg->size);
 	CCCI_MEM_LOG_TAG(0, FSM, "Dump mdl2sram log\n");
-	if (md && md->hw_info && md->hw_info->md_l2sram_base) {
+	if (md->hw_info->md_l2sram_base) {
 		md_cd_lock_modem_clock_src(1);
 		ccci_util_mem_dump(CCCI_DUMP_MEM_DUMP, md->hw_info->md_l2sram_base,
 			md->hw_info->md_l2sram_size);
