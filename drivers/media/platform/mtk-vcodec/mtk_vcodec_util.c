@@ -565,13 +565,14 @@ int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev,
 {
 	struct dma_heap *dma_heap;
 	struct dma_buf *dbuf;
-	__u32 alloc_len = mem->len;
+	__u32 alloc_len;
 
 	if (mem == NULL || dev == NULL || attach == NULL || sgt == NULL) {
 		mtk_v4l2_err("Invalid arguments, mem=0x%x, dev=0x%x, attach=0x%x, sgt=0x%x",
 			mem, dev, attach, sgt);
 		return -EINVAL;
 	}
+	alloc_len = mem->len;
 
 	mem->iova = 0;
 	if (dev == NULL) {
