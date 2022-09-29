@@ -9670,10 +9670,12 @@
 			"disp_token_disp_va_start2",
 			"disp_token_disp_va_end2",
 			"disp_token_disp_te0",
-			"disp_token_disp_prete0",
+			"disp_token_disp_prefetch_te0",
+			"disp_gpio_te0",
 			"disp_gpio_te1",
 			"disp_dsi0_targetline0",
-			"disp_ovlsys_wdma0_eof0";
+			"disp_ovlsys_wdma0_eof0",
+			"disp_token_disp_v_idle_power_on0";
 
 		gce-events =
 			<&gce CMDQ_EVENT_OVLSYS_STREAM_DONE_ENG_EVENT_0>,
@@ -9711,10 +9713,12 @@
 			<&gce CMDQ_SYNC_TOKEN_DISP_VA_START>,
 			<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>,
 			<&gce CMDQ_SYNC_TOKEN_TE_0>,
-			<&gce CMDQ_SYNC_TOKEN_PRETE_0>,
+			<&gce CMDQ_SYNC_TOKEN_PREFETCH_TE_0>,
+			<&gce CMDQ_EVENT_GCE_EVENT_DSI0_TE_I>,
 			<&gce CMDQ_EVENT_GCE_EVENT_DSI1_TE_I>,
 			<&gce CMDQ_EVENT_DISPSYS_DISP_DSI0_TARGET_LINE_ENG_EVENT>,
-			<&gce CMDQ_EVENT_OVLSYS_DISP_WDMA0_FRAME_DONE>;
+			<&gce CMDQ_EVENT_OVLSYS_DISP_WDMA0_FRAME_DONE>,
+			<&gce CMDQ_SYNC_TOKEN_VIDLE_POWER_ON>;
 
 		helper-name = "MTK_DRM_OPT_STAGE",
 			"MTK_DRM_OPT_USE_CMDQ",
@@ -9767,8 +9771,10 @@
 			"MTK_DRM_OPT_MML_IR",
 			"MTK_DRM_OPT_DUAL_TE",
 			"MTK_DRM_OPT_RES_SWITCH",
+			"MTK_DRM_OPT_PREFETCH_TE",
+			"MTK_DRM_OPT_VIDLE_APSRC_OFF",
+			"MTK_DRM_OPT_VIDLE_DSI_PLL_OFF",
 			"MTK_DRM_OPT_VIRTUAL_DISP",
-			"MTK_DRM_OPT_PRE_TE",
 			"MTK_DRM_OPT_OVL_BW_MONITOR",
 			"MTK_DRM_OPT_GPU_CACHE",
 			"MTK_DRM_OPT_SPHRT";
@@ -9824,8 +9830,10 @@
 			<1>, /*MTK_DRM_OPT_MML_IR*/
 			<0>, /*MTK_DRM_OPT_DUAL_TE*/
 			<1>, /*MTK_DRM_OPT_RES_SWITCH*/
+			<0>, /*MTK_DRM_OPT_PREFETCH_TE*/
+			<0>, /*MTK_DRM_OPT_VIDLE_APSRC_OFF*/
+			<0>, /*MTK_DRM_OPT_VIDLE_DSI_PLL_OFF*/
 			<1>, /*MTK_DRM_OPT_VIRTUAL_DISP*/
-			<0>, /*MTK_DRM_OPT_PRE_TE*/
 			<0>, /*MTK_DRM_OPT_OVL_BW_MONITOR*/
 			<0>, /*MTK_DRM_OPT_GPU_CACHE*/
 			<1>; /*MTK_DRM_OPT_SPHRT*/
