@@ -307,7 +307,13 @@ static void imgsys_cmdq_fence_done_plat7s(struct dma_fence *fence, struct dma_fe
 	thd_idx = imgsys_fence->thd_idx;
 	event_id = imgsys_fence->event_id;
 
-	cmdq_mbox_enable(imgsys_clt[thd_idx]->chan);
+	if (is_stream_off == 1) {
+		pr_info("%s: [ERROR] pipe had been turned off(%d)! with fence:0x%x,fencefd:%d,gthrd:%d,event:%d\n",
+			__func__, is_stream_off, fence, imgsys_fence->fence_fd,
+			thd_idx, event_id);
+		return;
+	}
+
 	event_val = cmdq_get_event(imgsys_clt[thd_idx]->chan, imgsys_event[event_id].event);
 
 	if (event_val == 0) {
@@ -326,7 +332,6 @@ static void imgsys_cmdq_fence_done_plat7s(struct dma_fence *fence, struct dma_fe
 		pr_info("%s: [ERROR]SetEvent fail with fence:0x%x,fencefd:%d,gthrd:%d,event:%d,event_val:%d\n",
 			__func__, fence, imgsys_fence->fence_fd, thd_idx, event_id, event_val);
 	}
-	cmdq_mbox_disable(imgsys_clt[thd_idx]->chan);
 
 }
 
