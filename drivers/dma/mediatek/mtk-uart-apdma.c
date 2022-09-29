@@ -621,14 +621,26 @@ static struct dma_async_tx_descriptor *mtk_uart_apdma_prep_slave_sg
 {
 	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
 	struct mtk_uart_apdma_desc *d;
+	unsigned int poll_cnt = 0;
 
-	if (!is_slave_direction(dir) || sglen != 1)
+	if (!is_slave_direction(dir) || sglen != 1) {
+		pr_info("%s is_slave_direction: %d, sglen: %d\n",
+			__func__, is_slave_direction(dir), sglen);
 		return NULL;
+	}
 
 	/* Now allocate and setup the descriptor */
 	d = kzalloc(sizeof(*d), GFP_NOWAIT);
-	if (!d)
+	while ((!d) && (poll_cnt < MAX_POLLING_CNT)) {
+		udelay(2);
+		d = kzalloc(sizeof(*d), GFP_NOWAIT);
+		poll_cnt++;
+	}
+	if (!d) {
+		pr_info("%s kzalloc fail retry count: %d\n", __func__, poll_cnt);
+		panic("uart kzalloc fail");
 		return NULL;
+	}
 
 	d->avail_len = sg_dma_len(sgl);
 	d->addr = sg_dma_address(sgl);
