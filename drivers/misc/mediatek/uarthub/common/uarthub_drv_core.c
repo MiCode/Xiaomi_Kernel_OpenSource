@@ -276,8 +276,8 @@ static int uarthub_core_init(void)
 	dump_hrtimer.function = dump_hrtimer_handler_cb;
 #if UARTHUB_DUMP_DEBUG_LOOP_ENABLE
 	uarthub_core_dump_trx_info_loop_ctrl(1, UARTHUB_DEFAULT_DUMP_DEBUG_LOOP_MS);
-#endif
 	uarthub_core_dump_trx_info_loop_trigger();
+#endif
 
 	return 0;
 
@@ -538,11 +538,15 @@ static int uarthub_fb_notifier_callback(struct notifier_block *nb, unsigned long
 				__func__, prefix, postfix);
 #if UARTHUB_INFO_LOG
 			uarthub_core_debug_info_with_tag_worker("UNBLANK_CB");
+#endif
+#if UARTHUB_DUMP_DEBUG_LOOP_ENABLE
 			uarthub_core_dump_trx_info_loop_trigger();
 #endif
 		} else if (data == MTK_DISP_BLANK_POWERDOWN) {
 #if UARTHUB_INFO_LOG
 			uarthub_core_debug_info_with_tag_worker("POWERDOWN_CB");
+#endif
+#if UARTHUB_DUMP_DEBUG_LOOP_ENABLE
 			uarthub_core_dump_trx_info_loop_trigger();
 #endif
 			pr_info("[%s] %s uarthub enter early POWERDOWN %s\n",
@@ -1272,6 +1276,10 @@ int uarthub_core_dev0_clear_rx_request(void)
 	UARTHUB_REG_WRITE(UARTHUB_INTFHUB_DEV0_STA_CLR(intfhub_base_remap_addr), 0x5);
 	mutex_unlock(&g_clear_trx_req_lock);
 
+#if UARTHUB_INFO_LOG
+	uarthub_core_debug_info_with_tag(__func__);
+#endif
+
 	return 0;
 }
 
@@ -1304,6 +1312,10 @@ int uarthub_core_dev0_clear_txrx_request(void)
 	UARTHUB_REG_WRITE(UARTHUB_INTFHUB_DEV0_STA_CLR(intfhub_base_remap_addr), 0x7);
 
 	mutex_unlock(&g_clear_trx_req_lock);
+
+#if UARTHUB_INFO_LOG
+	uarthub_core_debug_info_with_tag(__func__);
+#endif
 
 	return 0;
 }
@@ -2387,7 +2399,7 @@ int uarthub_core_is_apb_bus_clk_enable(void)
 
 int uarthub_core_is_uarthub_clk_enable(void)
 {
-	int state = 0, state1 = 0, state2 = 0;
+	int state = 0;
 
 	if (g_uarthub_disable == 1)
 		return 0;
@@ -2438,14 +2450,10 @@ int uarthub_core_is_uarthub_clk_enable(void)
 	}
 
 	state = (UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DEV0_STA(
-		intfhub_base_remap_addr), 0x3));
-	state1 = (UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DEV1_STA(
-		intfhub_base_remap_addr), 0x3));
-	state2 = (UARTHUB_REG_READ_BIT(UARTHUB_INTFHUB_DEV2_STA(
-		intfhub_base_remap_addr), 0x3));
+		intfhub_base_remap_addr), 0x7));
 
-	if ((state + state1 + state2) == 0) {
-		pr_notice("[%s] all host clear the rx req\n",
+	if (state == 0) {
+		pr_notice("[%s] AP host clear the tx/rx req\n",
 			__func__);
 		return 0;
 	}
