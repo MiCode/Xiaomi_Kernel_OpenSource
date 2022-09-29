@@ -46,7 +46,7 @@ struct conap_scp_shm_config g_adp_shm_mt6985 = {
 };
 
 struct conap_scp_batching_config g_adp_batching_mt6985 = {
-	.buff_offset = 0x58EC00,
+	.buff_offset = 0x445000,
 	.buff_size = 0x4B000,
 };
 #endif
