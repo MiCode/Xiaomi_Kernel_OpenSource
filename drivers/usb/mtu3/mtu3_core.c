@@ -89,8 +89,6 @@ static inline void mtu3_ss_func_set(struct mtu3 *mtu, bool enable)
 			mdelay(180);
 
 		mtu3_setbits(mtu->mac_base, U3D_USB3_CONFIG, USB3_EN);
-		/* clear SUSPENDM_ENABLE for u2 lpm */
-		mtu3_clrbits(mtu->mac_base, U3D_POWER_MANAGEMENT, SUSPENDM_ENABLE);
 	} else
 		mtu3_clrbits(mtu->mac_base, U3D_USB3_CONFIG, USB3_EN);
 
