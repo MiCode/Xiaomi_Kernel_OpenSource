@@ -3298,6 +3298,12 @@ static unsigned int dual_comp_map_mt6985(unsigned int comp_id)
 	case DDP_COMPONENT_WDMA0:
 		ret = DDP_COMPONENT_WDMA1;
 		break;
+	case DDP_COMPONENT_OVLSYS_WDMA0:
+		ret = DDP_COMPONENT_OVLSYS_WDMA2;
+		break;
+	case DDP_COMPONENT_OVLSYS_WDMA1:
+		ret = DDP_COMPONENT_OVLSYS_WDMA3;
+		break;
 	default:
 		DDPMSG("unknown comp %u for %s\n", comp_id, __func__);
 	}

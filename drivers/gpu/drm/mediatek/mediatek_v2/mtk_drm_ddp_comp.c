@@ -323,6 +323,7 @@ static const char *const mtk_ddp_comp_stem[MTK_DDP_COMP_TYPE_MAX] = {
 	[MTK_DISP_OD] = "od",
 	[MTK_DISP_BLS] = "bls",
 	[MTK_DISP_RSZ] = "rsz",
+	[MTK_DISP_MDP_RSZ] = "mdp-rsz",
 	[MTK_DISP_POSTMASK] = "postmask",
 	[MTK_DMDP_RDMA] = "mrdma",
 	[MTK_DMDP_HDR] = "mhdr",
@@ -692,6 +693,8 @@ static const struct mtk_ddp_comp_match mtk_ddp_matches[DDP_COMPONENT_ID_MAX] = {
 	{DDP_COMPONENT_OVL1_BG_CB4, MTK_DISP_VIRTUAL, -1, NULL, 0},
 	{DDP_COMPONENT_TDSHP0_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
 	{DDP_COMPONENT_OVL7_2L_VIRTUAL0, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_MDP_RSZ0, MTK_DISP_MDP_RSZ, 0, NULL, 0},
+	{DDP_COMPONENT_MDP_RSZ1, MTK_DISP_MDP_RSZ, 1, NULL, 0},
 };
 
 bool mtk_ddp_comp_is_output(struct mtk_ddp_comp *comp)

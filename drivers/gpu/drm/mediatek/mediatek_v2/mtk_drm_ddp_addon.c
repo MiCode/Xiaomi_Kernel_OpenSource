@@ -95,17 +95,13 @@ static const int disp_wdma2_path[] = {
 };
 
 static const int disp_ovlsys_wdma0_path[] = {
-	/* real case: need wait */
-	/* DDP_COMPONENT_OVLSYS_DRSZ0, */
-	/* DDP_COMPONENT_OVLSYS_WDMA1, */
-	DDP_COMPONENT_OVLSYS_WDMA0,
+	DDP_COMPONENT_MDP_RSZ0,
+	DDP_COMPONENT_OVLSYS_WDMA1,
 };
 
 static const int disp_ovlsys_wdma2_path[] = {
-	/* real case: need wait */
-	/* DDP_COMPONENT_OVLSYS_DRSZ1, */
-	/* DDP_COMPONENT_OVLSYS_WDMA3, */
-	DDP_COMPONENT_OVLSYS_WDMA2,
+	DDP_COMPONENT_MDP_RSZ1,
+	DDP_COMPONENT_OVLSYS_WDMA3,
 };
 
 static const int disp_wdma2_path_v2[] = {

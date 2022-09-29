@@ -6364,6 +6364,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_RSZ},
 	{.compatible = "mediatek,mt6886-disp-rsz",
 	 .data = (void *)MTK_DISP_RSZ},
+	{.compatible = "mediatek,mt6985-disp-mdp-rsz",
+	 .data = (void *)MTK_DISP_MDP_RSZ},
 	{.compatible = "mediatek,mt6779-disp-postmask",
 	 .data = (void *)MTK_DISP_POSTMASK},
 	{.compatible = "mediatek,mt6885-disp-postmask",
@@ -6898,7 +6900,7 @@ SKIP_OVLSYS_CONFIG:
 		if (comp_type == MTK_DISP_OVL ||
 		    comp_type == MTK_DISP_MERGE ||
 		    comp_type == MTK_DISP_RDMA || comp_type == MTK_DISP_WDMA ||
-		    comp_type == MTK_DISP_RSZ ||
+		    comp_type == MTK_DISP_RSZ || comp_type == MTK_DISP_MDP_RSZ ||
 		    comp_type == MTK_DISP_POSTMASK || comp_type == MTK_DSI
 		    || comp_type == MTK_DISP_DSC || comp_type == MTK_DPI
 #ifndef DRM_BYPASS_PQ
@@ -7171,6 +7173,7 @@ static struct platform_driver *const mtk_drm_drivers[] = {
 	&mtk_mipi_tx_driver,
 	&mtk_dsi_driver,
 	&mtk_dp_intf_driver,
+	&mtk_disp_mdp_rsz_driver,
 #ifdef CONFIG_DRM_MEDIATEK_HDMI
 	&mtk_dpi_driver,
 	&mtk_lvds_driver,
