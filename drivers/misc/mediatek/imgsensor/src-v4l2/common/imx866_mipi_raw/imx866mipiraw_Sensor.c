@@ -2939,6 +2939,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 				break;
 			}
 			break;
+		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 		case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
 			switch (*(feature_data + 1)) {
 			case HDR_RAW_STAGGER_2EXP:
