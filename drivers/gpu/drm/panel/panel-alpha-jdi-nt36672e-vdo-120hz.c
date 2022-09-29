@@ -1231,31 +1231,31 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 {
 	struct mtk_panel_ext *ext = find_panel_ext(panel);
 	int ret = 0;
+	int dst_fps = 0;
 	struct drm_display_mode *m = get_mode_by_id_hfp(connector, mode);
 
-	if (!m) {
-		pr_err("%s:%d invalid display_mode\n", __func__, __LINE__);
-		return ret;
-	}
+	dst_fps = m ? drm_mode_vrefresh(m) : -EINVAL;
 
-	if (drm_mode_vrefresh(m) == 60)
+	if (dst_fps == 60)
 		ext->params = &ext_params;
-	else if (drm_mode_vrefresh(m) == 90)
+	else if (dst_fps == 90)
 		ext->params = &ext_params_90hz;
-	else if (drm_mode_vrefresh(m) == 120) {
+	else if (dst_fps == 120) {
 		ext_params_120hz.skip_vblank = 0;
 		ext->params = &ext_params_120hz;
-	} else if (drm_mode_vrefresh(m) == 30) {
+	} else if (dst_fps == 30) {
 		ext_params_120hz.skip_vblank = 4;
 		ext->params = &ext_params_120hz;
-	} else if (drm_mode_vrefresh(m) == 24) {
+	} else if (dst_fps == 24) {
 		ext_params_120hz.skip_vblank = 5;
 		ext->params = &ext_params_120hz;
-	} else if (drm_mode_vrefresh(m) == 10) {
+	} else if (dst_fps == 10) {
 		ext_params_120hz.skip_vblank = 12;
 		ext->params = &ext_params_120hz;
-	} else
-		ret = 1;
+	} else {
+		pr_err("%s, dst_fps %d\n", __func__, dst_fps);
+		ret = -EINVAL;
+	}
 
 	return ret;
 }
@@ -1307,23 +1307,23 @@ static int mode_switch(struct drm_panel *panel,
 		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage)
 {
 	int ret = 0;
+	int dst_fps = 0;
 	struct drm_display_mode *m = get_mode_by_id_hfp(connector, dst_mode);
-
-	if (!m) {
-		pr_err("%s:%d invalid display_mode\n", __func__, __LINE__);
-		return ret;
-	}
 
 	pr_info("%s cur_mode = %d dst_mode %d\n", __func__, cur_mode, dst_mode);
 
-	if (drm_mode_vrefresh(m) == 60) { /* 60 switch to 120 */
+	dst_fps = m ? drm_mode_vrefresh(m) : -EINVAL;
+
+	if (dst_fps == 60) { /* 60 switch to 120 */
 		mode_switch_to_60(panel);
-	} else if (drm_mode_vrefresh(m) == 90) { /* 1200 switch to 60 */
+	} else if (dst_fps == 90) { /* 1200 switch to 60 */
 		mode_switch_to_90(panel);
-	} else if (drm_mode_vrefresh(m) == 120) { /* 1200 switch to 60 */
+	} else if (dst_fps == 120) { /* 1200 switch to 60 */
 		mode_switch_to_120(panel);
-	} else
-		ret = 1;
+	} else {
+		pr_err("%s, dst_fps %d\n", __func__, dst_fps);
+		ret = -EINVAL;
+	}
 
 	return ret;
 }

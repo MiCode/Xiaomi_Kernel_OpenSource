@@ -1098,16 +1098,21 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 {
 	struct mtk_panel_ext *ext = find_panel_ext(panel);
 	int ret = 0;
+	int dst_fps = 0;
 	struct drm_display_mode *m = get_mode_by_id_hfp(connector, mode);
 
-	if (drm_mode_vrefresh(m) == 60)
+	dst_fps = m ? drm_mode_vrefresh(m) : -EINVAL;
+
+	if (dst_fps == 60)
 		ext->params = &ext_params;
-	else if (drm_mode_vrefresh(m) == 90)
+	else if (dst_fps == 90)
 		ext->params = &ext_params_90hz;
-	else if (drm_mode_vrefresh(m) == 144)
+	else if (dst_fps == 144)
 		ext->params = &ext_params_144hz;
-	else
-		ret = 1;
+	else {
+		pr_err("%s, dst_fps %d\n", __func__, dst_fps);
+		ret = -EINVAL;
+	}
 
 	return ret;
 }
@@ -1159,23 +1164,23 @@ static int mode_switch(struct drm_panel *panel,
 		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage)
 {
 	int ret = 0;
+	int dst_fps = 0;
 	struct drm_display_mode *m = get_mode_by_id_hfp(connector, dst_mode);
-
-	if (!m) {
-		pr_err("ERROR!! drm_display_mode m is null\n");
-		return -ENOMEM;
-	}
 
 	pr_info("%s cur_mode = %d dst_mode %d\n", __func__, cur_mode, dst_mode);
 
-	if (drm_mode_vrefresh(m) == 60) { /* 60 switch to 120 */
+	dst_fps = m ? drm_mode_vrefresh(m) : -EINVAL;
+
+	if (dst_fps  == 60) { /* 60 switch to 120 */
 		mode_switch_to_60(panel);
-	} else if (drm_mode_vrefresh(m) == 90) { /* 1200 switch to 60 */
+	} else if (dst_fps == 90) { /* 1200 switch to 60 */
 		mode_switch_to_90(panel);
-	} else if (drm_mode_vrefresh(m) == 144) { /* 1200 switch to 60 */
+	} else if (dst_fps == 144) { /* 1200 switch to 60 */
 		mode_switch_to_144(panel);
-	} else
-		ret = 1;
+	} else {
+		pr_err("%s, dst_fps %d\n", __func__, dst_fps);
+		ret = -EINVAL;
+	}
 
 	return ret;
 }

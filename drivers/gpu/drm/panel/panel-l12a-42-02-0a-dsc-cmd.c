@@ -815,19 +815,24 @@ static int mtk_panel_ext_param_get(struct drm_panel *panel,
 	unsigned int mode)
 {
 	int ret = 0;
+	int dst_fps = 0;
 	struct drm_display_mode *m_dst = get_mode_by_id(connector, mode);
 
-	if (drm_mode_vrefresh(m_dst) == MODE0_FPS)
+	dst_fps = m_dst ? drm_mode_vrefresh(m_dst) : -EINVAL;
+
+	if (dst_fps == MODE0_FPS)
 		*ext_param = &ext_params;
-	else if (drm_mode_vrefresh(m_dst) == MODE2_FPS)
+	else if (dst_fps == MODE2_FPS)
 		*ext_param = &ext_params_90hz;
-	else if (drm_mode_vrefresh(m_dst) == MODE1_FPS)
+	else if (dst_fps == MODE1_FPS)
 		*ext_param = &ext_params_120hz;
-	else
-		ret = 1;
+	else {
+		pr_err("%s, dst_fps %d\n", __func__, dst_fps);
+		ret = -EINVAL;
+	}
 
 	if (!ret)
-		current_fps = drm_mode_vrefresh(m_dst);
+		current_fps = dst_fps;
 
 	return ret;
 }
@@ -837,19 +842,24 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 {
 	struct mtk_panel_ext *ext = find_panel_ext(panel);
 	int ret = 0;
+	int dst_fps = 0;
 	struct drm_display_mode *m_dst = get_mode_by_id(connector, mode);
 
-	if (drm_mode_vrefresh(m_dst) == MODE0_FPS)
+	dst_fps = m_dst ? drm_mode_vrefresh(m_dst) : -EINVAL;
+
+	if (dst_fps == MODE0_FPS)
 		ext->params = &ext_params;
-	else if (drm_mode_vrefresh(m_dst) == MODE2_FPS)
+	else if (dst_fps == MODE2_FPS)
 		ext->params = &ext_params_90hz;
-	else if (drm_mode_vrefresh(m_dst) == MODE1_FPS)
+	else if (dst_fps == MODE1_FPS)
 		ext->params = &ext_params_120hz;
-	else
-		ret = 1;
+	else {
+		pr_err("%s, dst_fps %d\n", __func__, dst_fps);
+		ret = -EINVAL;
+	}
 
 	if (!ret)
-		current_fps = drm_mode_vrefresh(m_dst);
+		current_fps = dst_fps;
 
 	return ret;
 }
@@ -1031,6 +1041,9 @@ static int mode_switch(struct drm_panel *panel,
 		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage)
 {
 	int ret = 0;
+	int dst_fps = 0, cur_fps = 0;
+	int dst_vdisplay = 0, dst_hdisplay = 0;
+	int cur_vdisplay = 0, cur_hdisplay = 0;
 	bool isFpsChange = false;
 	struct drm_display_mode *m_dst = get_mode_by_id(connector, dst_mode);
 	struct drm_display_mode *m_cur = get_mode_by_id(connector, cur_mode);
@@ -1038,20 +1051,28 @@ static int mode_switch(struct drm_panel *panel,
 	if (cur_mode == dst_mode)
 		return ret;
 
-	isFpsChange = drm_mode_vrefresh(m_dst) == drm_mode_vrefresh(m_cur) ? false : true;
+	dst_fps = m_dst ? drm_mode_vrefresh(m_dst) : -EINVAL;
+	dst_vdisplay = m_dst ? m_dst->vdisplay : -EINVAL;
+	dst_hdisplay = m_dst ? m_dst->hdisplay : -EINVAL;
+	cur_fps = m_cur ? drm_mode_vrefresh(m_cur) : -EINVAL;
+	cur_vdisplay = m_cur ? m_cur->vdisplay : -EINVAL;
+	cur_hdisplay = m_cur ? m_cur->hdisplay : -EINVAL;
+
+	isFpsChange = ((dst_fps == cur_fps) && (dst_fps != -EINVAL)
+			&& (cur_fps != -EINVAL)) ? false : true;
 
 	pr_info("%s isFpsChange = %d\n", __func__, isFpsChange);
 	pr_info("%s dst_mode vrefresh = %d, vdisplay = %d, vdisplay = %d\n",
-		__func__, drm_mode_vrefresh(m_dst), m_dst->vdisplay, m_dst->hdisplay);
+		__func__, dst_fps, dst_vdisplay, dst_hdisplay);
 	pr_info("%s cur_mode vrefresh = %d, vdisplay = %d, vdisplay = %d\n",
-		__func__, drm_mode_vrefresh(m_cur), m_cur->vdisplay, m_cur->hdisplay);
+		__func__, cur_fps, cur_vdisplay, cur_hdisplay);
 
 	if (isFpsChange) {
-		if (drm_mode_vrefresh(m_dst) == MODE0_FPS)
+		if (dst_fps == MODE0_FPS)
 			mode_switch_to_60(panel, stage);
-		else if (drm_mode_vrefresh(m_dst) == MODE2_FPS)
+		else if (dst_fps == MODE2_FPS)
 			mode_switch_to_90(panel, stage);
-		else if (drm_mode_vrefresh(m_dst) == MODE1_FPS)
+		else if (dst_fps == MODE1_FPS)
 			mode_switch_to_120(panel, stage);
 		else
 			ret = 1;

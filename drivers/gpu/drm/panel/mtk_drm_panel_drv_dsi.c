@@ -1704,7 +1704,7 @@ static void mtk_panel_dump(struct drm_panel *panel, enum MTK_LCM_DUMP_FLAG flag)
 static struct mtk_lcm_mode_dsi *mtk_drm_panel_get_mode_by_id(
 	struct mtk_lcm_params_dsi *params, unsigned int id)
 {
-	struct mtk_lcm_mode_dsi *mode_node;
+	struct mtk_lcm_mode_dsi *mode_node = NULL;
 
 	if (IS_ERR_OR_NULL(params) ||
 		params->mode_count == 0)
@@ -1722,7 +1722,7 @@ static struct mtk_lcm_mode_dsi *mtk_drm_panel_get_mode_by_id(
 
 static struct mtk_lcm_mode_dsi *mtk_lcm_find_1st_max_fps_mode(unsigned int level)
 {
-	struct mtk_lcm_mode_dsi *mode_node;
+	struct mtk_lcm_mode_dsi *mode_node = {0};
 	struct mtk_lcm_mode_dsi *max_node = {0};
 	unsigned int max_fps = (unsigned int)-1;
 	struct mtk_lcm_params_dsi *params =
