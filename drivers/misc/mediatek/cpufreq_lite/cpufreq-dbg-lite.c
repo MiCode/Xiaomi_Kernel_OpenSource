@@ -154,7 +154,6 @@ static int create_cpufreq_debug_fs(void)
 
 static int mtk_cpudvfs_init(void)
 {
-	int ret = 0;
 	struct device_node *dvfs_node;
 	struct platform_device *pdev;
 
@@ -171,12 +170,6 @@ static int mtk_cpudvfs_init(void)
 	}
 
 	create_cpufreq_debug_fs();
-#ifdef EEM_DBG_LITE
-	ret = mtk_eem_init(pdev);
-	if (ret)
-		pr_info("eem dbg init fail: %d\n", ret);
-#endif
-	mtk_devinfo_init(pdev);
 	return 0;
 }
 module_init(mtk_cpudvfs_init);
