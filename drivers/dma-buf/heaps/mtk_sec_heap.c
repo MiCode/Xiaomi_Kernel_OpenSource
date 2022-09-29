@@ -1261,7 +1261,7 @@ static struct mtk_heap_priv_info mtk_sec_heap_priv = {
 
 int is_mtk_sec_heap_dmabuf(const struct dma_buf *dmabuf)
 {
-	if (!dmabuf)
+	if (IS_ERR_OR_NULL(dmabuf))
 		return 0;
 
 	if (dmabuf->ops == &sec_buf_page_ops ||
