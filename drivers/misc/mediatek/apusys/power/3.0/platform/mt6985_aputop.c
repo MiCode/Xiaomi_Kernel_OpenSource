@@ -57,7 +57,7 @@ static void aputop_dump_reg(enum apupw_reg idx, uint32_t offset, uint32_t size)
 			(ulong)(apupw.phy_addr[idx]) + offset);
 
 	/* dump content with pa as prefix */
-	if (!ret)
+	if (ret)
 		print_hex_dump(KERN_ERR, buf, DUMP_PREFIX_OFFSET, 16, 4,
 			       apupw.regs[idx] + offset, size, true);
 }
@@ -319,6 +319,11 @@ static int __apu_wake_rpc_rcx(struct device *dev)
 			val, (val & 0x1UL), 50, 10000);
 	if (ret) {
 		pr_info("%s polling RPC RDY timeout, ret %d\n", __func__, ret);
+		/* show powerack info */
+		dev_info(dev, "%s RCX APU_RPC_PWR_ACK 0x%x = 0x%x\n",
+					 __func__,
+					 (u32)(apupw.phy_addr[apu_rpc] + APU_RPC_PWR_ACK),
+					 readl(apupw.regs[apu_rpc] + APU_RPC_PWR_ACK));
 		goto out;
 	}
 
@@ -334,6 +339,11 @@ static int __apu_wake_rpc_rcx(struct device *dev)
 			val, (val & (0x1 << 29)), 50, 10000);
 	if (ret) {
 		pr_info("%s polling ARE FSM timeout, ret %d\n", __func__, ret);
+		/* show powerack info */
+		dev_info(dev, "%s RCX APU_RPC_PWR_ACK 0x%x = 0x%x\n",
+					 __func__,
+					 (u32)(apupw.phy_addr[apu_rpc] + APU_RPC_PWR_ACK),
+					 readl(apupw.regs[apu_rpc] + APU_RPC_PWR_ACK));
 		goto out;
 	}
 

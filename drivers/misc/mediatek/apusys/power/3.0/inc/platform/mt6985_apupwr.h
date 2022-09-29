@@ -154,6 +154,7 @@ void mt6985_apu_dump_rpc_status(enum t_acx_id id, struct rpc_status_dump *dump);
 #define APU_RPC_HW_CON1           0x0030
 #define APU_RPC_INTF_PWR_RDY_REG  0x0040
 #define APU_RPC_INTF_PWR_RDY      0x0044
+#define APU_RPC_PWR_ACK           0x0048
 #define APU_RPC_MTCMOS_SW_CTRL0   0x0140
 
 #define RPC_TOP_SEL_HW_DEF	(0x012b0000) // cfg in hw default
