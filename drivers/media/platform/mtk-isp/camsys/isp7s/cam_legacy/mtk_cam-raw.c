@@ -3334,17 +3334,26 @@ static int raw_stagger_select(struct mtk_cam_ctx *ctx,
 	}
 
 	result->enabled_raw = 0;
-	for (m = MTKCAM_SUBDEV_RAW_0; m < RAW_PIPELINE_NUM; m++) {
-		mask = 1 << m;
-		if (stagger_select.raw_select & mask) { /*check stagger raw select mask*/
-			if (!(raw_status & mask)) { /*check available raw select mask*/
-				result->enabled_raw |= mask;
-				selected = true;
-				break;
+
+	if (ctx->pipe->res_config.raw_num_used == 2) {
+		mask = 1 << MTKCAM_SUBDEV_RAW_0 | 1 << MTKCAM_SUBDEV_RAW_1;
+		if (!(raw_status & mask)) {
+			ctx->pipe->enabled_raw |= mask;
+			selected = true;
+		}
+	} else {
+		for (m = MTKCAM_SUBDEV_RAW_0; m < RAW_PIPELINE_NUM; m++) {
+			mask = 1 << m;
+			if (stagger_select.raw_select & mask) { /*check stagger raw select mask*/
+				if (!(raw_status & mask)) { /*check available raw select mask*/
+					result->enabled_raw |= mask;
+					selected = true;
+					break;
+				}
+			} else {
+				dev_info(cam->dev, "[%s:select] traversed current raw %d/0x%x, stagger_select_raw_mask:0x%x\n",
+					__func__, m, mask, stagger_select.raw_select);
 			}
-		} else {
-			dev_info(cam->dev, "[%s:select] traversed current raw %d/0x%x, stagger_select_raw_mask:0x%x\n",
-				__func__, m, mask, stagger_select.raw_select);
 		}
 	}
 
