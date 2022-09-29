@@ -1128,6 +1128,7 @@ static void mtk_ddp_comp_larb_get(struct mtk_ddp_comp *comp,
 	if (!larb_dev)
 		return;
 
+	DRM_MMP_MARK(top_clk, comp->id, 2);
 #ifdef MTK_SMI_CLK_CTRL
 	ret = mtk_smi_larb_get(larb_dev);
 	if (ret)
@@ -1143,6 +1144,7 @@ static void mtk_ddp_comp_larb_put(struct mtk_ddp_comp *comp,
 	if (!larb_dev)
 		return;
 
+	DRM_MMP_MARK(top_clk, comp->id, 3);
 #ifdef MTK_SMI_CLK_CTRL
 	mtk_smi_larb_put(larb_dev);
 #else
