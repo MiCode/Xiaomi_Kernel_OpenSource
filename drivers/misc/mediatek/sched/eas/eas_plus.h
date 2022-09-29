@@ -38,7 +38,10 @@ DECLARE_PER_CPU(unsigned long, min_freq);
 #define LB_RT_LOWEST_PRIO         (0x8000)
 #define LB_RT_LOWEST_PRIO_NORMAL  (0x8001)
 #define LB_RT_LOWEST_PRIO_RT      (0x8002)
-#define LB_RT_SOURCE_CPU   (0x10000)
+#define LB_RT_SOURCE_CPU       (0x10000)
+#define LB_RT_FAIL_SYNC        (0x20000)
+#define LB_RT_FAIL_RANDOM      (0x40000)
+#define LB_RT_NO_LOWEST_RQ     (0x80000)
 
 #ifdef CONFIG_SMP
 /*

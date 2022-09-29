@@ -1040,11 +1040,13 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 	int this_cpu = smp_processor_id();
 	cpumask_t avail_lowest_mask;
 	int lowest_prio_cpu = -1, lowest_prio = 0;
-
-	if (!ret)
-		return; /* No targets found */
+	int select_reason = -1;
 
 	cpumask_andnot(&avail_lowest_mask, lowest_mask, cpu_pause_mask);
+	if (!ret) {
+		select_reason = LB_RT_NO_LOWEST_RQ;
+		goto out; /* No targets found */
+	}
 
 	cpu = task_cpu(p);
 
@@ -1058,7 +1060,8 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 	 */
 	if (cpumask_test_cpu(cpu, &avail_lowest_mask)) {
 		*lowest_cpu = cpu;
-		return;
+		select_reason = LB_RT_SOURCE_CPU;
+		goto out;
 	}
 
 	/*
@@ -1082,7 +1085,8 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 		if (this_cpu != -1 && cpumask_test_cpu(this_cpu, perf_domain_span(pd))) {
 			rcu_read_unlock();
 			*lowest_cpu = this_cpu;
-			return;
+			select_reason = LB_RT_SYNC;
+			goto out;
 		}
 
 		for_each_cpu_and(cpu, &avail_lowest_mask, perf_domain_span(pd)) {
@@ -1091,7 +1095,8 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 			if (idle_cpu(cpu)) {
 				rcu_read_unlock();
 				*lowest_cpu = cpu;
-				return;
+				select_reason = LB_RT_IDLE;
+				goto out;
 			}
 			curr = cpu_curr(cpu);
 			/* &fair_sched_class undefined in scheduler.ko */
@@ -1105,7 +1110,8 @@ void mtk_find_lowest_rq(void *data, struct task_struct *p, struct cpumask *lowes
 	if (lowest_prio_cpu != -1) {
 		rcu_read_unlock();
 		*lowest_cpu = lowest_prio_cpu;
-		return;
+		select_reason = LB_RT_LOWEST_PRIO;
+		goto out;
 	}
 
 unlock:
@@ -1118,16 +1124,23 @@ unlock:
 	 */
 	if (this_cpu != -1) {
 		*lowest_cpu = this_cpu;
-		return;
+		select_reason = LB_RT_FAIL_SYNC;
+		goto out;
 	}
 
 	cpu = cpumask_any_and_distribute(&avail_lowest_mask, cpu_possible_mask);
 	if (cpu < nr_cpu_ids) {
 		*lowest_cpu = cpu;
-		return;
+		select_reason = LB_RT_FAIL_RANDOM;
+		goto out;
 	}
 
 	/* Let find_lowest_rq not to choose dst_cpu */
 	*lowest_cpu = -1;
+	select_reason = LB_RT_FAIL;
 	cpumask_clear(lowest_mask);
+
+out:
+	trace_sched_find_lowest_rq(p, select_reason, *lowest_cpu,  &avail_lowest_mask, lowest_mask);
+	return;
 }

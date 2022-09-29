@@ -561,6 +561,38 @@ TRACE_EVENT(sched_set_cpus_allowed,
 		  __entry->new_mask, __entry->valid_mask,
 		  __entry->pause_cpus)
 );
+
+TRACE_EVENT(sched_find_lowest_rq,
+	TP_PROTO(struct task_struct *tsk, int policy,
+		int target_cpu,
+		struct cpumask *avail_lowest_mask, struct cpumask *lowest_mask),
+
+	TP_ARGS(tsk, policy, target_cpu, avail_lowest_mask, lowest_mask),
+
+	TP_STRUCT__entry(
+		__field(pid_t, pid)
+		__field(int, policy)
+		__field(int, target_cpu)
+		__field(unsigned int, avail_lowest_mask)
+		__field(unsigned int, lowest_mask)
+	),
+
+	TP_fast_assign(
+		__entry->pid = tsk->pid;
+		__entry->policy = policy;
+		__entry->target_cpu = target_cpu;
+		__entry->avail_lowest_mask = cpumask_bits(avail_lowest_mask)[0];
+		__entry->lowest_mask = cpumask_bits(lowest_mask)[0];
+	),
+
+	TP_printk(
+		"pid=%4d policy=0x%08x target=%d avail_lowest_mask=0x%lx lowest_mask=0x%lx",
+		__entry->pid,
+		__entry->policy,
+		__entry->target_cpu,
+		__entry->avail_lowest_mask,
+		__entry->lowest_mask)
+);
 #endif
 
 #endif /* _TRACE_SCHEDULER_H */
