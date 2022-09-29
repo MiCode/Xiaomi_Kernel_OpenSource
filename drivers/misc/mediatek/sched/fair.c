@@ -230,12 +230,16 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd,
 		struct task_struct *tsk = cpu == dst_cpu ? p : NULL;
 		struct cfs_rq *cfs_rq = &cpu_rq(cpu)->cfs;
 		unsigned long util_est = 0, util_freq = READ_ONCE(cfs_rq->avg.util_avg);
+#if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
+		struct util_rq util_rq_energy, util_rq_freq;
+#endif
 
 		if (sched_feat(UTIL_EST))
 			util_est = READ_ONCE(cfs_rq->avg.util_est.enqueued);
 
 		util_freq_base = mtk_cpu_util_next(cpu, p, -1, util_freq, util_est);
 		util_running_base = util_freq_base;
+
 		/*
 		 * Busy time computation: utilization clamping is not
 		 * required since the ratio (sum_util / cpu_capacity)
@@ -243,7 +247,12 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd,
 		 * consumption at the (eventually clamped) cpu_capacity.
 		 */
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
-		cpu_energy_util = mtk_cpu_util(cpu, util_running_base, cpu_cap,
+		util_rq_freq.util_cfs = util_freq_base;
+		util_rq_freq.base = 1;
+		util_rq_energy.util_cfs = util_running_base;
+		util_rq_energy.base = 1;
+
+		cpu_energy_util = mtk_cpu_util(cpu, &util_rq_energy, cpu_cap,
 					       ENERGY_UTIL, NULL, min_cap, max_cap);
 #else
 		cpu_energy_util = effective_cpu_util(cpu, util_running_base, cpu_cap,
@@ -259,7 +268,7 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd,
 		 * FREQUENCY_UTIL's utilization can be max OPP.
 		 */
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
-		cpu_util_base = mtk_cpu_util(cpu, util_freq_base, cpu_cap,
+		cpu_util_base = mtk_cpu_util(cpu, &util_rq_freq, cpu_cap,
 					      FREQUENCY_UTIL, NULL, min_cap, max_cap);
 #else
 		cpu_util_base = effective_cpu_util(cpu, util_freq_base, cpu_cap,
@@ -286,7 +295,10 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd,
 			 * consumption at the (eventually clamped) cpu_capacity.
 			 */
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
-			cpu_energy_util = mtk_cpu_util(cpu, util_running_cur, cpu_cap,
+			util_rq_freq.util_cfs = util_freq_cur;
+			util_rq_energy.util_cfs = util_running_cur;
+
+			cpu_energy_util = mtk_cpu_util(cpu, &util_rq_energy, cpu_cap,
 					       ENERGY_UTIL, NULL, min_cap, max_cap);
 #else
 			cpu_energy_util = effective_cpu_util(cpu, util_running_cur, cpu_cap,
@@ -302,7 +314,7 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd,
 			 * FREQUENCY_UTIL's utilization can be max OPP.
 			 */
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
-			cpu_util_cur = mtk_cpu_util(cpu, util_freq_cur, cpu_cap,
+			cpu_util_cur = mtk_cpu_util(cpu, &util_rq_freq, cpu_cap,
 					      FREQUENCY_UTIL, tsk, min_cap, max_cap);
 #else
 			cpu_util_cur = effective_cpu_util(cpu, util_freq_cur, cpu_cap,

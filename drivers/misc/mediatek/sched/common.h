@@ -5,6 +5,15 @@
 #ifndef _SCHED_COMMON_H
 #define _SCHED_COMMON_H
 
+struct util_rq {
+	unsigned long util_cfs;
+	unsigned long dl_util;
+	unsigned long irq_util;
+	unsigned long rt_util;
+	unsigned long bw_dl_util;
+	bool base;
+};
+
 #if IS_ENABLED(CONFIG_NONLINEAR_FREQ_CTL)
 extern void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 			struct cpumask *cpumask, unsigned long *next_freq);
@@ -13,7 +22,9 @@ extern void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq
 #endif /* CONFIG_NONLINEAR_FREQ_CTL */
 
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
-unsigned long mtk_cpu_util(int cpu, unsigned long util_cfs,
+DECLARE_PER_CPU(int, cpufreq_idle_cpu);
+DECLARE_PER_CPU(spinlock_t, cpufreq_idle_cpu_lock);
+unsigned long mtk_cpu_util(int cpu, struct util_rq *util_rq,
 				unsigned long max, enum cpu_util_type type,
 				struct task_struct *p,
 				unsigned long min_cap, unsigned long max_cap);
