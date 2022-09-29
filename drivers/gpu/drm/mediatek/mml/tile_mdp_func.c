@@ -349,15 +349,17 @@ enum isp_tile_message tile_prz_for(struct tile_func_block *ptr_func,
 			C42OutXRight = data->c42_out_frame_w - 1;
 		} else {
 			C42OutXRight = ptr_func->in_pos_xe;
+			if (data->crop_aal_tile_loss)
+				C42OutXRight -= 8;
 
-			/* tile calculation: xe not end position & is odd
+			/* tile calculation: xe is not frame end then is odd
 			 * HW behavior:
-			 *   prz in x size = drs out x size
-			 *		   = (drs in x size + 0x01) & ~0x01
-			 *   prz out x size = urs in x size
-			 *		    = (urs out x size + 0x01) & ~0x01
-			 *   can match tile calculation
-			 * HW only needs to fill in drs in x size & urs out x size
+			 *	prz in xe = drs out xe
+			 *		  = (drs in xe + 0x01) & ~0x01
+			 *	prz out xe = urs in xe
+			 *		   = (urs out xe + 0x01) & ~0x01
+			 * can match tile calculation
+			 * HW only needs drs in size and urs out size
 			 */
 			if (!(ptr_func->in_pos_xe & 0x1))
 				C42OutXRight -= 1;
