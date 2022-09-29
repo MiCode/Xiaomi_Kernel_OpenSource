@@ -341,7 +341,7 @@ int uarthub_get_peri_clk_info_mt6985(void)
 	}
 
 	return UARTHUB_REG_READ_BIT(pericfg_ao_remap_addr + PERI_CLOCK_CON,
-		PERI_CLOCK_CON_MASK);
+		PERI_UART_FBCLK_CKSEL);
 }
 
 #if CHEKCING_UNIVPLL_CLK_DONE

@@ -148,24 +148,23 @@ int uarthub_core_irq_clear_ctrl(void);
 
 int uarthub_core_crc_ctrl(int enable);
 int uarthub_core_clk_univpll_ctrl(int clk_on);
+int uarthub_core_is_univpll_on(void);
 int uarthub_core_rx_error_crc_info(int dev_index, int *p_crc_error_data, int *p_crc_result);
 int uarthub_core_timeout_info(int dev_index, int rx, int *p_timeout_counter, int *p_pkt_counter);
 int uarthub_core_config_baud_rate(void __iomem *uarthub_dev_base, int rate_index);
 int uarthub_core_reset_to_ap_enable_only(int ap_only);
 void uarthub_core_set_trigger_uarthub_error_worker(int err_type);
+void uarthub_core_set_trigger_uarthub_frame_error_worker(void);
 int uarthub_core_is_apb_bus_clk_enable(void);
 int uarthub_core_is_uarthub_clk_enable(void);
 int uarthub_core_debug_uart_ip_info_with_tag_ex(const char *tag, int boundary);
 int uarthub_core_debug_uart_ip_info_loop(void);
 int uarthub_core_debug_uart_ip_info_loop_compare_diff(void);
 int uarthub_core_debug_apdma_uart_info_with_tag_ex(const char *tag, int boundary);
-int uarthub_core_debug_info_with_tag_nolock(const char *tag, int dump_uart_ip);
 int uarthub_core_debug_info_with_tag_worker(const char *tag);
 int uarthub_core_dump_trx_info_loop_trigger(void);
 int uarthub_core_debug_byte_cnt_info(const char *tag);
-int uarthub_core_debug_byte_cnt_info_nolock(const char *tag);
 int uarthub_core_debug_clk_info(const char *tag);
-int uarthub_core_debug_clk_info_nolock(const char *tag);
 
 /*******************************************************************************
  *                              public function
@@ -197,7 +196,7 @@ int uarthub_core_reset_flow_control(void);
 int uarthub_core_reset(void);
 int uarthub_core_loopback_test(int dev_index, int tx_to_rx, int enable);
 int uarthub_core_debug_info(void);
-int uarthub_core_debug_info_with_tag(const char *tag, int dump_uart_ip);
+int uarthub_core_debug_info_with_tag(const char *tag);
 int uarthub_core_debug_bt_tx_timeout(const char *tag);
 int uarthub_core_dump_trx_info_loop_ctrl(int enable, int loop_dur_ms);
 int uarthub_core_debug_dump_tx_rx_count(const char *tag, int trigger_point);

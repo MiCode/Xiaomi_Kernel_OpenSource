@@ -89,7 +89,7 @@
 #define PERI_CG_1_UARTHUB_CLK_CG_MASK  0x3000000
 #define PERI_CG_1_UARTHUB_CLK_CG_SHIFT 24
 #define PERI_CLOCK_CON                 0x20
-#define PERI_CLOCK_CON_MASK            0xF00
+#define PERI_UART_FBCLK_CKSEL          0xF00
 #define PERI_UART_WAKEUP               0x50
 #define PERI_UART_WAKEUP_MASK          0x10
 #define PERI_UART_WAKEUP_SHIFT         4
