@@ -875,9 +875,10 @@ static int rt5512_component_aif_hw_params(struct snd_pcm_substream *substream,
 	char *tmp = "SPK";
 
 	dev_dbg(dai->dev, "%s: ++\n", __func__);
-	dev_info(dai->dev, "format: 0x%08x, rate: 0x%08x, word_len: %d, aud_bit: %d\n",
-		 params_format(hw_params), params_rate(hw_params), word_len,
-		 aud_bit);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		dev_info(dai->dev, "format: 0x%08x, rate: 0x%08x, word_len: %d, aud_bit: %d\n",
+			 params_format(hw_params), params_rate(hw_params), word_len,
+			 aud_bit);
 	if (word_len > 32 || word_len < 16) {
 		dev_err(dai->dev, "not supported word length\n");
 		return -ENOTSUPP;
@@ -924,10 +925,9 @@ static int rt5512_component_aif_hw_free(struct snd_pcm_substream *substream,
 	int ret = 0;
 	char *tmp = "SPK";
 
-	dev_info(dai->dev, "%s\n", __func__);
-
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 		return 0;
+	dev_info(dai->dev, "%s successfully start\n", __func__);
 
 	ret = snd_soc_dapm_disable_pin(dapm, tmp);
 	if (ret < 0)
