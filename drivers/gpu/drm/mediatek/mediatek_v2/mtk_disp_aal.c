@@ -90,6 +90,7 @@ static atomic_t g_aal_first_frame = ATOMIC_INIT(1);
 static atomic_t g_aal1_first_frame = ATOMIC_INIT(1);
 static atomic_t g_aal_dre30_write = ATOMIC_INIT(1);
 static atomic_t g_aal_interrupt_enabled = ATOMIC_INIT(0);
+static atomic_t g_force_delay_check_trig = ATOMIC_INIT(0);
 static struct workqueue_struct *aal_flip_wq;
 static struct workqueue_struct *aal_refresh_wq;
 
@@ -444,7 +445,10 @@ void disp_aal_refresh_by_kernel(void)
 
 		spin_unlock_irqrestore(&g_aal_irq_en_lock, flags);
 		/* Backlight or Kernel API latency should be smallest */
-		mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
+		if (atomic_read(&g_force_delay_check_trig) == 1)
+			mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+		else
+			mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
 	}
 }
 
@@ -574,7 +578,10 @@ int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
 	if (*enabled) {
 		mtk_drm_idlemgr_kick(__func__,
 				&default_comp->mtk_crtc->base, 1);
-		mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
+		if (atomic_read(&g_force_delay_check_trig) == 1)
+			mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+		else
+			mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
 
 		while ((atomic_read(&aal_data->is_clock_on) != 1) && (retry != 0)) {
 			usleep_range(500, 1000);
@@ -627,7 +634,10 @@ static void mtk_disp_aal_refresh_trigger(struct work_struct *work_item)
 {
 	AALFLOW_LOG("start");
 
-	mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
+	if (atomic_read(&g_force_delay_check_trig) == 1)
+		mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+	else
+		mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
 }
 
 void disp_aal_flip_sram(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
@@ -3145,7 +3155,10 @@ static int mtk_aal_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		CRTC_MMP_EVENT_END(0, clarity_set_regs, 0, 3);
 		mutex_unlock(&g_clarity_lock);
 
-		mtk_crtc_check_trigger(comp->mtk_crtc, false, false);
+		if (atomic_read(&g_force_delay_check_trig) == 1)
+			mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+		else
+			mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
 	}
 		break;
 	default:
@@ -3439,6 +3452,7 @@ int mtk_aal_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	      enum mtk_ddp_io_cmd cmd, void *params)
 {
 	unsigned long flags;
+	uint32_t force_delay_trigger;
 	struct mtk_disp_aal *aal_data = comp_to_aal(comp);
 
 	if (cmd == FRAME_DIRTY) {
@@ -3450,6 +3464,9 @@ int mtk_aal_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 				disp_aal_set_interrupt(NULL, true);
 			spin_unlock_irqrestore(&g_aal_clock_lock, flags);
 		}
+	} else if (cmd == FORCE_TRIG_CTL) {
+		force_delay_trigger = *(uint32_t *)params;
+		atomic_set(&g_force_delay_check_trig, force_delay_trigger);
 	}
 	AALFLOW_LOG("end\n");
 	return 0;

@@ -565,6 +565,7 @@ enum mtk_ddp_io_cmd {
 	RSZ_GET_TILE_LENGTH,
 	RSZ_GET_IN_MAX_HEIGHT,
 	DSI_GET_BPC,
+	FORCE_TRIG_CTL,
 };
 
 struct golden_setting_context {

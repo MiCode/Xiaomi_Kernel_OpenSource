@@ -104,6 +104,8 @@ static atomic_t g_gamma_sof_irq_available = ATOMIC_INIT(0);
 static struct DISP_GAMMA_12BIT_LUT_T ioctl_data;
 struct mtk_ddp_comp *g_gamma_flip_comp[2];
 
+static atomic_t g_force_delay_check_trig = ATOMIC_INIT(0);
+
 /* TODO */
 /* static ddp_module_notify g_gamma_ddp_notify; */
 
@@ -731,7 +733,11 @@ void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 		}
 		mtk_leds_brightness_set("lcd-backlight", bl, ess20_spect_param->ELVSSPN,
 					ess20_spect_param->flag);
-		mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
+
+		if (atomic_read(&g_force_delay_check_trig) == 1)
+			mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+		else
+			mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
 		DDPINFO("%s : gain = %d, backlight = %d",
 			__func__, g_sb_param.gain[gain_r], bl);
 	} else {
@@ -896,6 +902,19 @@ static void mtk_gamma_unprepare(struct mtk_ddp_comp *comp)
 	mtk_ddp_comp_clk_unprepare(comp);
 }
 
+int mtk_gamma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
+	      enum mtk_ddp_io_cmd cmd, void *params)
+{
+	uint32_t force_delay_trigger;
+
+	if (cmd == FORCE_TRIG_CTL) {
+		force_delay_trigger = *(uint32_t *)params;
+		atomic_set(&g_force_delay_check_trig, force_delay_trigger);
+	}
+
+	return 0;
+}
+
 static const struct mtk_ddp_comp_funcs mtk_disp_gamma_funcs = {
 	.gamma_set = mtk_gamma_set,
 	.config = mtk_gamma_config,
@@ -903,6 +922,7 @@ static const struct mtk_ddp_comp_funcs mtk_disp_gamma_funcs = {
 	.stop = mtk_gamma_stop,
 	.bypass = mtk_gamma_bypass,
 	.user_cmd = mtk_gamma_user_cmd,
+	.io_cmd = mtk_gamma_io_cmd,
 	.prepare = mtk_gamma_prepare,
 	.unprepare = mtk_gamma_unprepare,
 };
