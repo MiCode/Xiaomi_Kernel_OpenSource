@@ -1102,7 +1102,7 @@ s32 cmdq_pkt_append_command(struct cmdq_pkt *pkt, u16 arg_c, u16 arg_b,
 	va = buf->va_base + CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
 
 	if (pkt->avail_buf_size >= CMDQ_CMD_BUFFER_SIZE - CMDQ_INST_SIZE &&
-		*((u64 *)va) != CMDQ_BUF_INIT_VAL) {
+		!buf->copy && *((u64 *)va) != CMDQ_BUF_INIT_VAL) {
 		struct cmdq_client *client = pkt->cl;
 
 		cmdq_util_err(
@@ -1457,6 +1457,7 @@ s32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src)
 			CMDQ_CMD_BUFFER_SIZE : cmd_size;
 		memcpy(new->va_base, buf->va_base, copy_size);
 		cmd_size -= copy_size;
+		new->copy = true;
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 		if (new == list_first_entry(&dst->buf, typeof(*buf), list_entry) &&

@@ -129,6 +129,7 @@ struct cmdq_pkt_buffer {
 	bool			use_pool;
 	bool			map;
 	u64			alloc_time;
+	bool			copy;
 };
 
 struct cmdq_buf_pool {
