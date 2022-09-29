@@ -110,10 +110,7 @@ inline void push_table(struct lcm *ctx, struct LCD_setting_table *table,
 		switch (cmd) {
 
 		case REGFLAG_DELAY:
-			if (table[i].count <= 10)
-				msleep(table[i].count);
-			else
-				msleep(table[i].count);
+			msleep(table[i].count);
 			break;
 
 		case REGFLAG_UDELAY:
