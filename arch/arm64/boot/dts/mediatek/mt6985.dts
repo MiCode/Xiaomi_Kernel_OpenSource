@@ -8506,7 +8506,7 @@
 			reg-names = "gpueb_base";
 			gpr-offset = <0x2fd1c>;
 			gpr-id = <6>;
-			gmpu-table-size = <0x00400000>;
+			gmpu-table-size = <0x0>;
 			protected-reserve-size = <0x800000>;
 		};
 
