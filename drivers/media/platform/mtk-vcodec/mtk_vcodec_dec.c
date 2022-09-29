@@ -3268,13 +3268,13 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		}
 		ctx->state = MTK_STATE_INIT;
 	}
-
+	/*
 	if (!ctx->is_active && ctx->state == MTK_STATE_HEADER) {
 		ctx->dev->check_alive_work.ctx = ctx;
 		queue_work(ctx->dev->check_alive_workqueue, &ctx->dev->check_alive_work.work);
 		mtk_v4l2_debug(4, "%s [VDVFS] retrigger bg ctx %d", __func__, ctx->id);
 	}
-
+	 */
 	/*
 	 * check if this buffer is ready to be used after decode
 	 */

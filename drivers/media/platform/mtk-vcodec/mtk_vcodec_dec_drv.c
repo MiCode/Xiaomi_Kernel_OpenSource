@@ -546,11 +546,13 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 		goto err_event_workq;
 	}
 
+
 	/*Init workqueue for vdec alive checker*/
+	/*
 	dev->check_alive_workqueue = create_singlethread_workqueue("vdec_check_alive");
 	INIT_WORK(&dev->check_alive_work.work, mtk_vdec_check_alive_work);
 	dev->check_alive_work.ctx = NULL;
-
+	 */
 	ret = video_register_device(vfd_dec, VFL_TYPE_VIDEO, -1);
 	if (ret) {
 		mtk_v4l2_err("Failed to register video device");
@@ -674,8 +676,8 @@ static int mtk_vcodec_dec_remove(struct platform_device *pdev)
 	flush_workqueue(dev->decode_workqueue);
 	destroy_workqueue(dev->decode_workqueue);
 
-	flush_workqueue(dev->check_alive_workqueue);
-	destroy_workqueue(dev->check_alive_workqueue);
+	// flush_workqueue(dev->check_alive_workqueue);
+	// destroy_workqueue(dev->check_alive_workqueue);
 
 	if (dev->m2m_dev_dec)
 		v4l2_m2m_release(dev->m2m_dev_dec);
