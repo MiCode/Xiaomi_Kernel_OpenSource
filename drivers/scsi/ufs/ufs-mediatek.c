@@ -2240,7 +2240,7 @@ static void ufs_mtk_dev_vreg_set_lpm(struct ufs_hba *hba, bool lpm)
 	}
 }
 
-static int ufs_mtk_suspend_check(struct ufs_hba *hba)
+static int ufs_mtk_suspend_check(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	struct device_link *link;
 	int err = 0;
@@ -2248,6 +2248,10 @@ static int ufs_mtk_suspend_check(struct ufs_hba *hba)
 
 	/* Once wl_device can suspend, no need check anymore */
 	if (bypass)
+		goto out;
+
+	/* Only check runtime pm */
+	if (pm_op != UFS_RUNTIME_PM)
 		goto out;
 
 	list_for_each_entry(link,
@@ -2275,7 +2279,7 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op,
 	struct arm_smccc_res res;
 
 	if (status == PRE_CHANGE) {
-		err = ufs_mtk_suspend_check(hba);
+		err = ufs_mtk_suspend_check(hba, pm_op);
 		if (err)
 			return err;
 
