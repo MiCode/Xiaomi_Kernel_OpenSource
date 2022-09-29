@@ -3191,14 +3191,16 @@ static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle)
 {
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
 	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
-	int need_create_hnd = 0;
+	int need_create_hnd = 0, index = 0;
 	struct cmdq_pkt *cmdq_handle;
 
 	if (!mtk_crtc) {
 		DDPPR_ERR("%s, mtk_crtc is NULL\n", __func__);
 		return 1;
 	}
-	CRTC_MMP_MARK(drm_crtc_index(&mtk_crtc->base), esd_check, 3, 0);
+
+	index = drm_crtc_index(&mtk_crtc->base);
+	CRTC_MMP_MARK(index, esd_check, 3, 0);
 	/* Add blocking flush for waiting dsi idle in other gce client */
 	if (handle) {
 		struct cmdq_pkt *cmdq_handle1 = (struct cmdq_pkt *)handle;
@@ -3218,7 +3220,7 @@ static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle)
 		cmdq_pkt_flush(cmdq_handle);
 		cmdq_pkt_destroy(cmdq_handle);
 	}
-	CRTC_MMP_MARK(drm_crtc_index(&mtk_crtc->base), esd_check, 3, 1);
+	CRTC_MMP_MARK(index, esd_check, 3, 1);
 	if (!handle)
 		need_create_hnd = 1;
 	if (need_create_hnd) {
@@ -3236,9 +3238,9 @@ static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle)
 		_mtk_dsi_set_mode(&dsi->slave_dsi->ddp_comp, handle, CMD_MODE);
 	cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
 		dsi->ddp_comp.regs_pa + DSI_START, 0, ~0);
-	CRTC_MMP_MARK(drm_crtc_index(&mtk_crtc->base), esd_check, 3, 2);
+	CRTC_MMP_MARK(index, esd_check, 3, 2);
 	mtk_dsi_poll_for_idle(dsi, handle);
-	CRTC_MMP_MARK(drm_crtc_index(&mtk_crtc->base), esd_check, 3, 3);
+	CRTC_MMP_MARK(index, esd_check, 3, 3);
 	if (need_create_hnd) {
 		cmdq_pkt_flush(handle);
 		cmdq_pkt_destroy(handle);
@@ -3294,6 +3296,7 @@ int mtk_dsi_read_gce(struct mtk_ddp_comp *comp, void *handle,
 {
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)ptr;
+	int index = 0;
 
 	if (mtk_crtc == NULL) {
 		DDPPR_ERR("%s dsi comp not configure CRTC yet", __func__);
@@ -3305,6 +3308,8 @@ int mtk_dsi_read_gce(struct mtk_ddp_comp *comp, void *handle,
 				dsi->slave_dsi->ddp_comp.regs_pa + DSI_CON_CTRL,
 				0x0, DSI_DUAL_EN);
 	}
+
+	index = drm_crtc_index(&mtk_crtc->base);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + dsi->driver_data->reg_cmdq0_ofs,
 		0x00013700, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + dsi->driver_data->reg_cmdq1_ofs,
@@ -3316,9 +3321,9 @@ int mtk_dsi_read_gce(struct mtk_ddp_comp *comp, void *handle,
 		0x0, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_START,
 		0x1, ~0);
-	CRTC_MMP_MARK(drm_crtc_index(&mtk_crtc->base), esd_check, 4, 0);
+	CRTC_MMP_MARK(index, esd_check, 4, 0);
 	mtk_dsi_cmdq_poll(comp, handle, comp->regs_pa + DSI_INTSTA, 0x1, 0x1);
-	CRTC_MMP_MARK(drm_crtc_index(&mtk_crtc->base), esd_check, 4, 1);
+	CRTC_MMP_MARK(index, esd_check, 4, 1);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_INTSTA,
 		0x0, 0x1);
 
@@ -3334,9 +3339,9 @@ int mtk_dsi_read_gce(struct mtk_ddp_comp *comp, void *handle,
 		0x1, 0x1);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_INTSTA,
 		0x0, 0x1);
-	CRTC_MMP_MARK(drm_crtc_index(&mtk_crtc->base), esd_check, 4, 2);
+	CRTC_MMP_MARK(index, esd_check, 4, 2);
 	mtk_dsi_poll_for_idle(dsi, handle);
-	CRTC_MMP_MARK(drm_crtc_index(&mtk_crtc->base), esd_check, 4, 3);
+	CRTC_MMP_MARK(index, esd_check, 4, 3);
 	if (dsi->slave_dsi) {
 		cmdq_pkt_write(handle, dsi->slave_dsi->ddp_comp.cmdq_base,
 				dsi->slave_dsi->ddp_comp.regs_pa + DSI_CON_CTRL,
@@ -6450,7 +6455,7 @@ static int mtk_dsi_ddic_handler_by_gce(struct mtk_dsi *dsi,
 			if (IS_ERR_OR_NULL(handler_cb))
 				handler_cb =  mtk_dsi_ddic_handler_default_cb;
 			cmdq_pkt_flush_threaded(handle, handler_cb, cb_data);
-			CRTC_MMP_MARK(index, ddic_send_cmd,
+			CRTC_MMP_MARK((int)index, ddic_send_cmd,
 					(unsigned long)cb_data->cmdq_handle,
 					(unsigned long)cb_data->ddic_packet);
 		}
