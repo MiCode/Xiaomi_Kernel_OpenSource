@@ -954,7 +954,6 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 	static int cur_frame_idx;
 	static int pre_frame_idx;
 	static int busy_cycle[GED_DVFS_BUSY_CYCLE_MONITORING_WINDOW_NUM];
-	int t_gpu_target_origin = t_gpu_target;
 	int gpu_busy_cycle = 0;
 	int busy_cycle_cur;
 	unsigned long ui32IRQFlags;
@@ -1032,7 +1031,8 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 	if (dvfs_margin_mode == CONFIGURE_MARGIN_MODE) {   // fix margin mode
 		gx_fb_dvfs_margin = dvfs_margin_value;
 		margin_low_bound = dvfs_margin_low_bound;
-	} else if (dvfs_margin_mode & 0x10) {   // dynamic margin mode
+	} else if ((dvfs_margin_mode & 0x10) &&
+			(t_gpu_target > 0)) {   // dynamic margin mode
 		/* dvfs_margin_mode == */
 		/* DYNAMIC_MARGIN_MODE_CONFIG_FPS_MARGIN or */
 		/* DYNAMIC_MARGIN_MODE_FIXED_FPS_MARGIN) or */
@@ -1041,11 +1041,14 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 		/* DYNAMIC_MARGIN_MODE_PERF */
 		int temp;
 
-		if (dvfs_margin_mode == DYNAMIC_MARGIN_MODE_PERF)
+		if (dvfs_margin_mode == DYNAMIC_MARGIN_MODE_PERF) {
 			t_gpu_target_hd = t_gpu_target *
 				(1000 - dvfs_margin_low_bound) / 1000;
-		else
+			if (t_gpu_target_hd <= 0)
+				t_gpu_target_hd = 1;
+		} else
 			t_gpu_target_hd = t_gpu_target;
+		// from this point on, t_gpu_target & t_gpu_target_hd would be > 0
 
 		if (t_gpu > t_gpu_target_hd) {   // previous frame overdued
 			// adjust margin
@@ -1066,7 +1069,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 					DYNAMIC_MARGIN_MODE_FIXED_FPS_MARGIN)
 					target_fps_margin = FIXED_FPS_MARGIN;
 
-				if (target_fps_margin == 0)
+				if (target_fps_margin <= 0)
 					margin_low_bound = MIN_DVFS_MARGIN;
 				else {
 					target_time_low_bound =
@@ -1206,7 +1209,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 		gpu_freq_tar, GED_DVFS_FRAME_BASE_COMMIT);
 
 	//t_gpu_target(unit: 100us) *10^5 =nanosecond
-	set_fb_timeout(t_gpu_target_origin, t_gpu_target * 100000);
+	set_fb_timeout(t_gpu_target * 100000, t_gpu_target_hd * 100000);
 	ged_set_backup_timer_timeout(fb_timeout);
 	ged_cancel_backup_timer();
 	is_fb_dvfs_triggered = 0;
