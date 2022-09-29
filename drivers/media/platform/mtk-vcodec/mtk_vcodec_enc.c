@@ -174,14 +174,15 @@ void mtk_enc_put_buf(struct mtk_vcodec_ctx *ctx)
 	struct mtk_video_enc_buf *bs_info, *frm_info;
 	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
 	struct vb2_buffer *dst_buf;
-	struct venc_inst *inst;
-
-	inst = (struct venc_inst *)(ctx->drv_handle);
-	if (inst != NULL && inst->vcu_inst.abort)
-		return;
+	struct venc_inst *inst = (struct venc_inst *)(ctx->drv_handle);
 
 	mutex_lock(&ctx->buf_lock);
 	do {
+		if (inst != NULL && inst->vcu_inst.abort) {
+			mtk_v4l2_err("abort when put buf");
+			break;
+		}
+
 		dst_vb2_v4l2 = NULL;
 		src_vb2_v4l2 = NULL;
 		pfrm = NULL;
@@ -2331,6 +2332,7 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 			if (ret == -EIO) {
 				dstq = &ctx->m2m_ctx->cap_q_ctx.q;
 				srcq = &ctx->m2m_ctx->out_q_ctx.q;
+				mutex_lock(&ctx->buf_lock);
 				for (i = 0; i < dstq->num_buffers; i++) {
 					dst_vb2_v4l2 = container_of(
 						dstq->bufs[i], struct vb2_v4l2_buffer, vb2_buf);
@@ -2348,24 +2350,31 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 					if (src_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
 						v4l2_m2m_buf_done(&srcbuf->vb, VB2_BUF_STATE_ERROR);
 				}
+				mutex_unlock(&ctx->buf_lock);
+
 				venc_check_release_lock(ctx);
 			}
 		}
 	}
 
 	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		mutex_lock(&ctx->buf_lock);
 		while ((dst_vb2_v4l2 = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx))) {
 			dst_buf = &dst_vb2_v4l2->vb2_buf;
 			dst_buf->planes[0].bytesused = 0;
 			if (dst_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
 				v4l2_m2m_buf_done(dst_vb2_v4l2, VB2_BUF_STATE_ERROR);
 		}
+		mutex_unlock(&ctx->buf_lock);
 	} else {
+		mutex_lock(&ctx->buf_lock);
 		while ((src_vb2_v4l2 = v4l2_m2m_src_buf_remove(ctx->m2m_ctx))) {
 			if (src_vb2_v4l2 != &ctx->enc_flush_buf->vb &&
 				src_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
 				v4l2_m2m_buf_done(src_vb2_v4l2, VB2_BUF_STATE_ERROR);
 		}
+		mutex_unlock(&ctx->buf_lock);
+
 		ctx->enc_flush_buf->lastframe = NON_EOS;
 		mutex_lock(&ctx->dev->enc_dvfs_mutex);
 		mtk_venc_dvfs_end_inst(ctx);

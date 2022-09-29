@@ -3620,10 +3620,12 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 			}
 		}
 
+		mutex_lock(&ctx->buf_lock);
 		while ((src_vb2_v4l2 = v4l2_m2m_src_buf_remove(ctx->m2m_ctx)))
 			if (src_vb2_v4l2 != &ctx->dec_flush_buf->vb &&
 				src_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
 				v4l2_m2m_buf_done(src_vb2_v4l2, VB2_BUF_STATE_ERROR);
+		mutex_unlock(&ctx->buf_lock);
 		ctx->dec_flush_buf->lastframe = NON_EOS;
 		update_src_cnt(ctx);
 		return;
@@ -3655,6 +3657,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 		mtk_vdec_reset_decoder(ctx, 0, NULL, q->type);
 	}
 
+	mutex_lock(&ctx->buf_lock);
 	while ((dst_vb2_v4l2 = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx))) {
 		dst_buf = &dst_vb2_v4l2->vb2_buf;
 
@@ -3664,6 +3667,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 		if (dst_vb2_v4l2->vb2_buf.state == VB2_BUF_STATE_ACTIVE)
 			v4l2_m2m_buf_done(dst_vb2_v4l2, VB2_BUF_STATE_ERROR);
 	}
+	mutex_unlock(&ctx->buf_lock);
 	update_dst_cnt(ctx);
 
 	/* check buffer status */
