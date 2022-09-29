@@ -1190,7 +1190,7 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID, struct xgf_rende
 	if (!force)
 		return -EINVAL;
 
-	iter = xgf_alloc(sizeof(*iter), XGF_RENDER);
+	iter = xgf_alloc(sizeof(*iter), NATIVE_ALLOC);
 
 	if (!iter)
 		return -ENOMEM;
@@ -1205,7 +1205,7 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID, struct xgf_rende
 		rcu_read_unlock();
 
 		if (!tsk) {
-			xgf_free(iter, XGF_RENDER);
+			xgf_free(iter, NATIVE_ALLOC);
 			return -EINVAL;
 		}
 
@@ -1796,7 +1796,7 @@ static void xgf_reset_render(struct xgf_render *iter)
 	}
 
 	hlist_del(&iter->hlist);
-	xgf_free(iter, XGF_RENDER);
+	xgf_free(iter, NATIVE_ALLOC);
 }
 
 static void xgff_reset_render(struct xgff_frame *iter)
