@@ -2387,20 +2387,219 @@ fail:
 }
 
 /* only can read/write in eng/userdebug */
-static void ufshcd_mphy_dump(struct ufs_hba *hba)
+static void ufs_mtk_mphy_dump(struct ufs_hba *hba)
 {
 #if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 
-	if (host->mphy_base) {
-		writel(0xC1000200, host->mphy_base + 0x20C0);
+	if (!host->mphy_base)
+		return;
 
-		pr_info("%s: 0x112aA09C=0x%x\n", __func__,
-			readl(host->mphy_base + 0xA09C));
+	writel(0xC1000200, host->mphy_base + 0x20C0);
 
-		pr_info("%s: 0x112aA19C=0x%x\n", __func__,
-			readl(host->mphy_base + 0xA19C));
-	}
+	pr_info("%s: 0x112aA09C=0x%x\n", __func__,
+		readl(host->mphy_base + 0xA09C));
+
+	pr_info("%s: 0x112aA19C=0x%x\n", __func__,
+		readl(host->mphy_base + 0xA19C));
+
+	/* Enable CK */
+	writel(readl(host->mphy_base + 0xA02C) | (0x1 << 11),
+		host->mphy_base + 0xA02C);
+	writel(readl(host->mphy_base + 0xA12C) | (0x1 << 11),
+		host->mphy_base + 0xA12C);
+	writel(readl(host->mphy_base + 0xA6C8) | (0x3 << 13),
+		host->mphy_base + 0xA6C8);
+	writel(readl(host->mphy_base + 0xA638) | (0x1 << 10),
+		host->mphy_base + 0xA638);
+	writel(readl(host->mphy_base + 0xA7C8) | (0x3 << 13),
+		host->mphy_base + 0xA7C8);
+	writel(readl(host->mphy_base + 0xA738) | (0x1 << 10),
+		host->mphy_base + 0xA738);
+
+	/* ethc_ro_latch_en=1 */
+	writel(readl(host->mphy_base + 0xC0DC) | (0x1F << 22),
+		host->mphy_base + 0xC0DC);
+	writel(readl(host->mphy_base + 0xC0DC) | (0x7 << 29),
+		host->mphy_base + 0xC0DC);
+	writel(readl(host->mphy_base + 0xC0E0) | (0x1 << 0),
+		host->mphy_base + 0xC0E0);
+	writel(readl(host->mphy_base + 0xC1DC) | (0x1F << 22),
+		host->mphy_base + 0xC1DC);
+	writel(readl(host->mphy_base + 0xC1DC) | (0x7 << 29),
+		host->mphy_base + 0xC1DC);
+	writel(readl(host->mphy_base + 0xC1E0) | (0x1 << 0),
+		host->mphy_base + 0xC1E0);
+
+	/* ethc_ro_latch_en=0 */
+	writel(readl(host->mphy_base + 0xC0DC) & ~(0x1F << 22),
+		host->mphy_base + 0xC0DC);
+	writel(readl(host->mphy_base + 0xC0DC) & ~(0x7 << 29),
+		host->mphy_base + 0xC0DC);
+	writel(readl(host->mphy_base + 0xC0E0) & ~(0x1 << 0),
+		host->mphy_base + 0xC0E0);
+	writel(readl(host->mphy_base + 0xC1DC) & ~(0x1F << 22),
+		host->mphy_base + 0xC1DC);
+	writel(readl(host->mphy_base + 0xC1DC) & ~(0x7 << 29),
+		host->mphy_base + 0xC1DC);
+	writel(readl(host->mphy_base + 0xC1E0) & ~(0x1 << 0),
+		host->mphy_base + 0xC1E0);
+
+	/* Disable CK */
+	writel(readl(host->mphy_base + 0xA02C) & ~(0x1 << 11),
+		host->mphy_base + 0xA02C);
+	writel(readl(host->mphy_base + 0xA12C) & ~(0x1 << 11),
+		host->mphy_base + 0xA12C);
+	writel(readl(host->mphy_base + 0xA6C8) & ~(0x3 << 13),
+		host->mphy_base + 0xA6C8);
+	writel(readl(host->mphy_base + 0xA638) & ~(0x1 << 10),
+		host->mphy_base + 0xA638);
+	writel(readl(host->mphy_base + 0xA7C8) & ~(0x3 << 13),
+		host->mphy_base + 0xA7C8);
+	writel(readl(host->mphy_base + 0xA738) & ~(0x1 << 10),
+		host->mphy_base + 0xA738);
+
+	/* Enable CK */
+	writel(readl(host->mphy_base + 0xA02C) | (0x1 << 11),
+		host->mphy_base + 0xA02C);
+	writel(readl(host->mphy_base + 0xA12C) | (0x1 << 11),
+		host->mphy_base + 0xA12C);
+	writel(readl(host->mphy_base + 0xA6C8) | (0x3 << 13),
+		host->mphy_base + 0xA6C8);
+	writel(readl(host->mphy_base + 0xA638) | (0x1 << 10),
+		host->mphy_base + 0xA638);
+	writel(readl(host->mphy_base + 0xA7C8) | (0x3 << 13),
+		host->mphy_base + 0xA7C8);
+	writel(readl(host->mphy_base + 0xA738) | (0x1 << 10),
+		host->mphy_base + 0xA738);
+
+	/* ethc_ro_latch_en=1 */
+	writel(readl(host->mphy_base + 0xC0DC) | (0x1F << 22),
+		host->mphy_base + 0xC0DC);
+	writel(readl(host->mphy_base + 0xC0DC) | (0x7 << 29),
+		host->mphy_base + 0xC0DC);
+	writel(readl(host->mphy_base + 0xC0E0) | (0x1 << 0),
+		host->mphy_base + 0xC0E0);
+	writel(readl(host->mphy_base + 0xC1DC) | (0x1F << 22),
+		host->mphy_base + 0xC1DC);
+	writel(readl(host->mphy_base + 0xC1DC) | (0x7 << 29),
+		host->mphy_base + 0xC1DC);
+	writel(readl(host->mphy_base + 0xC1E0) | (0x1 << 0),
+		host->mphy_base + 0xC1E0);
+
+	/* ethc_ro_latch_en=0 */
+	writel(readl(host->mphy_base + 0xC0DC) & ~(0x1F << 22),
+		host->mphy_base + 0xC0DC);
+	writel(readl(host->mphy_base + 0xC0DC) & ~(0x7 << 29),
+		host->mphy_base + 0xC0DC);
+	writel(readl(host->mphy_base + 0xC0E0) & ~(0x1 << 0),
+		host->mphy_base + 0xC0E0);
+	writel(readl(host->mphy_base + 0xC1DC) & ~(0x1F << 22),
+		host->mphy_base + 0xC1DC);
+	writel(readl(host->mphy_base + 0xC1DC) & ~(0x7 << 29),
+		host->mphy_base + 0xC1DC);
+	writel(readl(host->mphy_base + 0xC1E0) & ~(0x1 << 0),
+		host->mphy_base + 0xC1E0);
+
+
+	/* Dump [Lane0] RX RG */
+	pr_info("%s: 0x112aC210=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC210));
+	pr_info("%s: 0x112aC280=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC280));
+	pr_info("%s: 0x112aC268=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC268));
+	pr_info("%s: 0x112aC228=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC228));
+	pr_info("%s: 0x112aC22C=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC22C));
+	pr_info("%s: 0x112aC220=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC220));
+	pr_info("%s: 0x112aC224=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC224));
+	pr_info("%s: 0x112aC284=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC284));
+	pr_info("%s: 0x112aC274=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC274));
+	pr_info("%s: 0x112aC278=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC278));
+	pr_info("%s: 0x112aC29C=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC29C));
+	pr_info("%s: 0x112aC214=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC214));
+	pr_info("%s: 0x112aC218=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC218));
+	pr_info("%s: 0x112aC21C=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC21C));
+	pr_info("%s: 0x112aC234=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC234));
+	pr_info("%s: 0x112aC230=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC230));
+	pr_info("%s: 0x112aC244=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC244));
+	pr_info("%s: 0x112aC250=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC250));
+	pr_info("%s: 0x112aC270=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC270));
+	pr_info("%s: 0x112aC26C=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC26C));
+
+	/* Dump [Lane1] RX RG */
+	pr_info("%s: 0x112aC310=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC310));
+	pr_info("%s: 0x112aC380=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC380));
+	pr_info("%s: 0x112aC368=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC368));
+	pr_info("%s: 0x112aC328=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC328));
+	pr_info("%s: 0x112aC32C=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC32C));
+	pr_info("%s: 0x112aC320=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC320));
+	pr_info("%s: 0x112aC324=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC324));
+	pr_info("%s: 0x112aC384=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC384));
+	pr_info("%s: 0x112aC374=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC374));
+	pr_info("%s: 0x112aC378=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC378));
+	pr_info("%s: 0x112aC39C=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC39C));
+	pr_info("%s: 0x112aC314=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC314));
+	pr_info("%s: 0x112aC318=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC318));
+	pr_info("%s: 0x112aC31C=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC31C));
+	pr_info("%s: 0x112aC334=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC334));
+	pr_info("%s: 0x112aC330=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC330));
+	pr_info("%s: 0x112aC344=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC344));
+	pr_info("%s: 0x112aC350=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC350));
+	pr_info("%s: 0x112aC370=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC370));
+	pr_info("%s: 0x112aC36C=0x%x\n", __func__,
+		readl(host->mphy_base + 0xC36C));
+
+
+	/* Disable CK */
+	writel(readl(host->mphy_base + 0xA02C) & ~(0x1 << 11),
+		host->mphy_base + 0xA02C);
+	writel(readl(host->mphy_base + 0xA12C) & ~(0x1 << 11),
+		host->mphy_base + 0xA12C);
+	writel(readl(host->mphy_base + 0xA6C8) & ~(0x3 << 13),
+		host->mphy_base + 0xA6C8);
+	writel(readl(host->mphy_base + 0xA638) & ~(0x1 << 10),
+		host->mphy_base + 0xA638);
+	writel(readl(host->mphy_base + 0xA7C8) & ~(0x3 << 13),
+		host->mphy_base + 0xA7C8);
+	writel(readl(host->mphy_base + 0xA738) & ~(0x1 << 10),
+		host->mphy_base + 0xA738);
 #endif
 }
 
@@ -2454,7 +2653,7 @@ static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
 	ufshcd_dump_regs(hba, REG_UFS_PROBE, 0x4, "Debug Probe ");
 
 	/* Dump mphy */
-	ufshcd_mphy_dump(hba);
+	ufs_mtk_mphy_dump(hba);
 
 #if IS_ENABLED(CONFIG_SCSI_UFS_MEDIATEK_DBG)
 	ufs_mtk_dbg_dump(100);
