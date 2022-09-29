@@ -1081,7 +1081,8 @@ static int lcm_enable(struct drm_panel *panel)
 #define VSA (8)
 #define VBP (8)
 #define VACT (3216)
-#define PLL_CLOCK (834)
+#define MSYNC_PLL_CLOCK (528)
+#define MSYNC_DATARATE (1056)
 
 #define HACT_FHD (1080)
 #define VACT_FHD (2412)
@@ -2712,26 +2713,26 @@ static int msync_te_level_switch_grp(void *dsi, dcs_grp_write_gce cb,
 	if (fps_level <= MODE_0_FPS) { /*switch to 60 */
 		DDPMSG("%s:%d switch to 60fps\n", __func__, __LINE__);
 		cb(dsi, handle, msync_level_60, ARRAY_SIZE(msync_level_60));
-		ext->params->pll_clk = ext_params_fhd_60.pll_clk;
-		ext->params->data_rate = ext_params_fhd_60.data_rate;
+		ext->params->pll_clk = MSYNC_PLL_CLOCK;
+		ext->params->data_rate = MSYNC_DATARATE;
 
 	} else if (fps_level <= MODE_1_FPS) { /*switch to 72 */
 		DDPMSG("%s:%d switch to 72fps\n", __func__, __LINE__);
 		cb(dsi, handle, msync_level_72, ARRAY_SIZE(msync_level_72));
-		ext->params->pll_clk = ext_params_fhd_120.pll_clk;
-		ext->params->data_rate = ext_params_fhd_120.data_rate;
+		ext->params->pll_clk = MSYNC_PLL_CLOCK;
+		ext->params->data_rate = MSYNC_DATARATE;
 
 	} else if (fps_level <= MODE_2_FPS) { /*switch to 90 */
 		DDPMSG("%s:%d switch to 90fps\n", __func__, __LINE__);
 		cb(dsi, handle, msync_level_90, ARRAY_SIZE(msync_level_90));
-		ext->params->pll_clk = ext_params_fhd_120.pll_clk;
-		ext->params->data_rate = ext_params_fhd_120.data_rate;
+		ext->params->pll_clk = MSYNC_PLL_CLOCK;
+		ext->params->data_rate = MSYNC_DATARATE;
 
 	} else if (fps_level <= MODE_3_FPS) { /*switch to 120 */
 		DDPMSG("%s:%d switch to 120fps\n", __func__, __LINE__);
 		cb(dsi, handle, msync_level_120, ARRAY_SIZE(msync_level_120));
-		ext->params->pll_clk = ext_params_fhd_120.pll_clk;
-		ext->params->data_rate = ext_params_fhd_120.data_rate;
+		ext->params->pll_clk = MSYNC_PLL_CLOCK;
+		ext->params->data_rate = MSYNC_DATARATE;
 
 	} else if (fps_level == MTE_OFF) { /*close multi te */
 		DDPMSG("%s:%d Close MTE done\n", __func__, __LINE__);
