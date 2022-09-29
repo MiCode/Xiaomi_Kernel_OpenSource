@@ -207,6 +207,22 @@ void connectivity_register_state_notifier(struct notifier_block *nb);
 void connectivity_unregister_state_notifier(struct notifier_block *nb);
 void connectivity_export_conap_scp_state_change(enum conn_event_type type);
 
+/* HIF debug */
+void connectivity_register_cmd_handler(void (*cmd_hdlr)(int drv_type, int cmd, int param));
+void connectivity_unregister_cmd_handler(void);
+
+enum conn_hif_dbg_drv_type {
+	CONN_HIF_DBG_WF = 0,
+	CONN_HIF_DBG_BT = 1,
+};
+enum conn_hif_dbg_cmd {
+	CONN_HIF_DBG_CMD_PCLOG = 0,
+	CONN_HIF_DBG_CMD_PCIE = 1,
+	CONN_HIF_DBG_CMD_UART = 2,
+};
+void connectivity_export_conap_scp_trigger_cmd(enum conn_hif_dbg_drv_type drv_type,
+						enum conn_hif_dbg_cmd cmd, int param);
+
 #ifdef CPU_BOOST
 void connectivity_export_mt_ppm_sysboost_freq(enum ppm_sysboost_user user,
 					      unsigned int freq);
