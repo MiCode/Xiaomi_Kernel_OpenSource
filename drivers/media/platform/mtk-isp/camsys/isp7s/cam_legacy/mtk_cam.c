@@ -7800,6 +7800,8 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 			config_param.sv_input[0][i].tag_id = i;
 			config_param.sv_input[0][i].tag_order =
 				s_raw_pipe_data->tag_info[i].tag_order;
+			config_param.sv_input[0][i].is_first_frame =
+				(req->ctx_link_update & 1 << ctx->stream_id) ? 1 : 0;
 			config_param.sv_input[0][i].input =
 				s_raw_pipe_data->tag_info[i].cfg_in_param;
 		}
@@ -8325,6 +8327,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 			config_param.sv_input[0][i].tag_id = i;
 			config_param.sv_input[0][i].tag_order =
 				ctx->sv_dev->tag_info[i].tag_order;
+			config_param.sv_input[0][i].is_first_frame = 1;
 			config_param.sv_input[0][i].input =
 				ctx->sv_dev->tag_info[i].cfg_in_param;
 		}
