@@ -109,13 +109,16 @@ static void update_runtime(struct gbe_boost_unit *iter)
 static int check_dep_run_and_update(struct gbe_boost_unit *iter)
 {
 	int i;
-	int ret  = 0;
+	int ret = 0;
 	struct task_struct *p;
 	unsigned long long cur_ts_ns = ktime_to_ns(ktime_get());
 	char dep_str[MAIN_LOG_SIZE] = {"\0"};
 	char temp[MAIN_LOG_SIZE] = {"\0"};
 	unsigned long long new_runtime = 0;
 	int tmplen;
+
+	if (!gbe_enable)
+		return ret;
 
 	for (i = 0; i < iter->dep_num; i++) {
 		rcu_read_lock();
@@ -182,18 +185,7 @@ static void gbe_do_timer2(struct work_struct *work)
 	if (iter->state == FREE) {
 		hlist_del(&iter->hlist);
 		kfree(iter);
-	} else if (iter->boost_cnt > MAX_BOOST_CNT) {
-		iter->state = FREE;
-		iter->boost_cnt = 0;
-		gbe_trace_count(iter->pid, iter->bufID,
-			iter->boost_cnt, "gbe_boost_cnt");
-		gbe_trace_count(iter->pid, iter->bufID,
-			iter->state, "gbe_state");
-		gbe_boost_cpu();
-		hrtimer_cancel(&iter->timer2);
-		hrtimer_start(&iter->timer2,
-			ms_to_ktime(TIMER2_MS), HRTIMER_MODE_REL);
-	} else if (check_dep_run_and_update(iter)) {
+	} else if (iter->boost_cnt <= MAX_BOOST_CNT && check_dep_run_and_update(iter)) {
 		if (cur_ts_ms - iter->q_ts_ms > TIMER1_MS) {
 			iter->boost_cnt++;
 			gbe_trace_count(iter->pid, iter->bufID, iter->boost_cnt,
