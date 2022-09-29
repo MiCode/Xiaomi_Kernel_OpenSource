@@ -24,6 +24,7 @@
 #endif
 #include "mtk_iommu.h"
 #include "clk-mtk.h"
+#include "mmdvfs_v3.h"
 //#include <dt-bindings/memory/mtk-smi-larb-port.h>
 
 #define DRV_NAME	"mtk-smi-dbg"
@@ -948,6 +949,19 @@ int mtk_smi_dbg_unregister_notifier(struct notifier_block *nb)
 }
 EXPORT_SYMBOL_GPL(mtk_smi_dbg_unregister_notifier);
 
+static RAW_NOTIFIER_HEAD(force_on_notifier_list);
+int mtk_smi_dbg_register_force_on_notifier(struct notifier_block *nb)
+{
+	return raw_notifier_chain_register(&force_on_notifier_list, nb);
+}
+EXPORT_SYMBOL_GPL(mtk_smi_dbg_register_force_on_notifier);
+
+int mtk_smi_dbg_unregister_force_on_notifier(struct notifier_block *nb)
+{
+	return raw_notifier_chain_unregister(&force_on_notifier_list, nb);
+}
+EXPORT_SYMBOL_GPL(mtk_smi_dbg_unregister_force_on_notifier);
+
 static void read_smi_ostd_status(struct mtk_smi_dbg_node node[])
 {
 	u32 i, j, id, type;
@@ -1481,6 +1495,9 @@ int smi_larb_force_all_on(char *buf, const struct kernel_param *kp)
 	struct mtk_smi_dbg	*smi = gsmi;
 	s32 i, ret;
 
+	pr_notice("%s enable vcp\n", __func__);
+	raw_notifier_call_chain(&force_on_notifier_list,
+		true, NULL);
 	for (i = 0; i < ARRAY_SIZE(smi->larb); i++) {
 		if (!smi->larb[i].dev)
 			continue;
@@ -1512,6 +1529,9 @@ int smi_larb_force_all_put(char *buf, const struct kernel_param *kp)
 		}
 		smi_force_on = 0;
 		pr_notice("[smi] larb force all put\n");
+		pr_notice("disable vcp\n");
+		raw_notifier_call_chain(&force_on_notifier_list,
+			false, NULL);
 	}
 
 	return 0;

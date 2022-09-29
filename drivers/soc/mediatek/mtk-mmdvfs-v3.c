@@ -28,6 +28,8 @@
 
 #include "mtk-mmdvfs-ftrace.h"
 
+#include "../../misc/mediatek/smi/mtk-smi-dbg.h"
+
 static u8 mmdvfs_clk_num;
 static struct mtk_mmdvfs_clk *mtk_mmdvfs_clks;
 
@@ -78,6 +80,7 @@ static unsigned int ccu_pwr_usage[CCU_PWR_USR_NUM];
 static unsigned int vcp_pwr_usage[VCP_PWR_USR_NUM];
 
 static struct notifier_block vcp_ready_notifier;
+static struct notifier_block force_on_notifier;
 
 static struct workqueue_struct *cam_notify_wq;
 
@@ -919,6 +922,20 @@ static int mmdvfs_vcp_notifier_callback(struct notifier_block *nb, unsigned long
 	return NOTIFY_DONE;
 }
 
+static int mmdvfs_force_on_callback(struct notifier_block *nb, unsigned long action, void *data)
+{
+	int user;
+	bool enable;
+
+	MMDVFS_DBG("force_on_callback again");
+	user = VCP_PWR_USR_SMI;
+	enable = !(action == 0);
+	MMDVFS_DBG("%s enable %d user %d\n", __func__, enable, user);
+	mtk_mmdvfs_enable_vcp(enable, user);
+
+	return NOTIFY_DONE;
+}
+
 static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 			unsigned long pm_event, void *unused)
 {
@@ -1451,6 +1468,8 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 
 	cam_notify_wq = create_singlethread_workqueue("cam_notify_wq");
 
+	force_on_notifier.notifier_call = mmdvfs_force_on_callback;
+	mtk_smi_dbg_register_force_on_notifier(&force_on_notifier);
 	return ret;
 }
 
