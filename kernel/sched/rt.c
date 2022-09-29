@@ -1922,7 +1922,7 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 		ts[2] = sched_clock();
 
-		if ((ts[2] - ts[1] > 400000ULL) && in_hardirq()) {
+		if ((ts[2] - ts[1] > 1000000ULL) && in_hardirq()) {
 			printk_deferred("%s duration %llu, ts[1]=%llu, ts[2]=%llu\n",
 					__func__, ts[2] - ts[1], ts[1], ts[2]);
 		}
@@ -1949,7 +1949,7 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 			ts[4] = sched_clock();
 
-			if ((ts[4] - ts[3] > 400000ULL) && in_hardirq()) {
+			if ((ts[4] - ts[3] > 1000000ULL) && in_hardirq()) {
 				printk_deferred("%s duration %llu, ts[3]=%llu, ts[4]=%llu, rq=%d, lowest=%d\n",
 					__func__, ts[4] - ts[3], ts[3], ts[4],
 					rq->cpu, lowest_rq->cpu);
@@ -1975,7 +1975,7 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 		ts[5] = sched_clock();
 
-		if ((ts[5] - ts[3] > 400000ULL) && in_hardirq()) {
+		if ((ts[5] - ts[3] > 1000000ULL) && in_hardirq()) {
 			printk_deferred("%s duration %llu, ts[3]=%llu, ts[5]=%llu\n",
 					__func__, ts[5] - ts[3], ts[3], ts[5]);
 		}
@@ -1996,7 +1996,7 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	ts[8] = sched_clock();
 
-	if ((ts[8] - ts[0] > 500000ULL) && in_hardirq()) {
+	if ((ts[8] - ts[0] > 2500000ULL) && in_hardirq()) {
 		int i;
 
 		printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__, ts[8] - ts[0], ts[0]);
@@ -2085,7 +2085,7 @@ retry:
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 		ts[4] = sched_clock();
 
-		if ((ts[4] - ts[0] > 500000ULL) && in_hardirq()) {
+		if ((ts[4] - ts[0] > 600000ULL) && in_hardirq()) {
 			int i;
 
 			printk_deferred("%s duration %llu, ts[0]=%llu\n",
@@ -2112,7 +2112,7 @@ retry:
 
 		if (!pull || rq->push_busy) {
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			if ((ts[6] - ts[0] > 500000ULL) && in_hardirq()) {
+			if ((ts[6] - ts[0] > 700000ULL) && in_hardirq()) {
 				int i;
 
 				printk_deferred("%s duration %llu, ts[0]=%llu\n",
@@ -2148,7 +2148,7 @@ retry:
 #endif
 		if (cpu == -1 || cpu == rq->cpu) {
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			if ((ts[8] - ts[0] > 500000ULL) && in_hardirq()) {
+			if ((ts[8] - ts[0] > 800000ULL) && in_hardirq()) {
 				int i;
 
 				printk_deferred("%s duration %llu, ts[0]=%llu\n",
@@ -2190,7 +2190,7 @@ retry:
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 		ts[13] = sched_clock();
 
-		if ((ts[13] - ts[0] > 500000ULL) && in_hardirq()) {
+		if ((ts[13] - ts[0] > 900000ULL) && in_hardirq()) {
 			int i;
 
 			printk_deferred("%s duration %llu, ts[0]=%llu\n",
@@ -2211,7 +2211,7 @@ retry:
 
 	if (WARN_ON(next_task == rq->curr)) {
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		if ((ts[14] - ts[0] > 500000ULL) && in_hardirq()) {
+		if ((ts[14] - ts[0] > 1000000ULL) && in_hardirq()) {
 			int i;
 
 			printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__,
@@ -2272,7 +2272,7 @@ retry:
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 		ts[18] = sched_clock();
 
-		if ((ts[18] - ts[0] > 500000ULL) && in_hardirq()) {
+		if ((ts[18] - ts[0] > 2500000ULL) && in_hardirq()) {
 			int i;
 
 			printk_deferred("%s duration %llu, ts[0]=%llu\n",
@@ -2315,7 +2315,7 @@ out:
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	ts[25] = sched_clock();
 
-	if ((ts[25] - ts[0] > 500000ULL) && in_hardirq()) {
+	if ((ts[25] - ts[0] > 2500000ULL) && in_hardirq()) {
 		int i;
 
 		printk_deferred("%s duration %llu, ts[0]=%llu\n",
@@ -2341,7 +2341,7 @@ static void push_rt_tasks(struct rq *rq)
 		;
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	ts[1] = sched_clock();
-	if ((ts[1] - ts[0] > 2000000ULL) && in_hardirq()) {
+	if ((ts[1] - ts[0] > 3000000ULL) && in_hardirq()) {
 		printk_deferred("%s duration %llu, ts[0]=%llu, ts[1]=%llu\n",
 				__func__, ts[1] - ts[0], ts[0], ts[1]);
 	}

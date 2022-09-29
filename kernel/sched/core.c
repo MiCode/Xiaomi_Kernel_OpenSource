@@ -3677,7 +3677,7 @@ static void ttwu_do_wakeup(struct rq *rq, struct task_struct *p, int wake_flags,
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	ts[5] = sched_clock();
 
-	if ((ts[5] - ts[0] > 2000000ULL) && in_hardirq()) {
+	if ((ts[5] - ts[0] > 3000000ULL) && in_hardirq()) {
 		int i;
 
 		printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__, ts[5] - ts[0], ts[0]);
@@ -3734,7 +3734,7 @@ ttwu_do_activate(struct rq *rq, struct task_struct *p, int wake_flags,
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	ts[6] = sched_clock();
 
-	if ((ts[6] - ts[0] > 3000000ULL) && in_hardirq()) {
+	if ((ts[6] - ts[0] > 4000000ULL) && in_hardirq()) {
 		int i;
 
 		printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__, ts[6] - ts[0], ts[0]);
@@ -3839,7 +3839,7 @@ void sched_ttwu_pending(void *arg)
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	ts[5] = sched_clock();
 
-	if ((ts[5] - ts[0] > 4000000ULL) && in_hardirq()) {
+	if ((ts[5] - ts[0] > 4500000ULL) && in_hardirq()) {
 		int i;
 
 		printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__, ts[5] - ts[0], ts[0]);

@@ -489,7 +489,7 @@ void mtk_tick_entry(void *data, struct rq *rq)
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	ts[3] = sched_clock();
 
-	if ((ts[3] - ts[0] > 500000ULL) && in_hardirq()) {
+	if ((ts[3] - ts[0] > 1000000ULL) && in_hardirq()) {
 		int i;
 
 		printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__, ts[3] - ts[0], ts[0]);
@@ -634,7 +634,7 @@ void check_for_migration(struct task_struct *p)
 #endif
 		if (!pd) {
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			if ((ts[1] - ts[0] > 200000ULL) && in_hardirq()) {
+			if ((ts[1] - ts[0] > 1000000ULL) && in_hardirq()) {
 				printk_deferred("%s duration %llu, ts[0]=%llu, ts[1]=%llu\n",
 						__func__, ts[1] - ts[0], ts[0], ts[1]);
 			}
@@ -661,7 +661,7 @@ void check_for_migration(struct task_struct *p)
 #endif
 		if (opp_curr <= thre) {
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			if ((ts[4] - ts[0] > 200000ULL) && in_hardirq()) {
+			if ((ts[4] - ts[0] > 1000000ULL) && in_hardirq()) {
 				int i;
 
 				printk_deferred("%s duration %llu, ts[0]=%llu\n",
@@ -705,7 +705,7 @@ void check_for_migration(struct task_struct *p)
 		if (new_cpu < 0) {
 			raw_spin_unlock(&migration_lock);
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			if ((ts[10] - ts[0] > 500000ULL) && in_hardirq()) {
+			if ((ts[10] - ts[0] > 5000000ULL) && in_hardirq()) {
 				int i;
 
 				printk_deferred("%s duration %llu, ts[0]=%llu\n",
@@ -753,7 +753,7 @@ void check_for_migration(struct task_struct *p)
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	ts[15] = sched_clock();
 
-	if ((ts[15] - ts[0] > 500000ULL) && in_hardirq()) {
+	if ((ts[15] - ts[0] > 5000000ULL) && in_hardirq()) {
 		int i;
 
 		printk_deferred("%s duration %llu, ts[0]=%llu\n",
@@ -791,7 +791,7 @@ void mtk_hook_after_enqueue_task(void *data, struct rq *rq,
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
 	if (rq->nr_running != 1) {
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		if ((ts[1] - ts[0] > 500000ULL) && in_hardirq()) {
+		if ((ts[1] - ts[0] > 1000000ULL) && in_hardirq()) {
 			printk_deferred("%s duration %llu, ts[0]=%llu, ts[1]=%llu\n",
 					__func__, ts[1] - ts[0], ts[0], ts[1]);
 		}
@@ -815,7 +815,7 @@ void mtk_hook_after_enqueue_task(void *data, struct rq *rq,
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	ts[4] = sched_clock();
 
-	if ((ts[4] - ts[0] > 500000ULL) && in_hardirq()) {
+	if ((ts[4] - ts[0] > 1000000ULL) && in_hardirq()) {
 		int i;
 
 		printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__, ts[4] - ts[0], ts[0]);
