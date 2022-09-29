@@ -179,8 +179,8 @@
 		fts,irq-flags = <0x2008>;/* 1:rising, 2:falling;*/
 		fts,x-max = <14400>;/*Super resolution*/
 		fts,y-max = <32000>;/*Super resolution*/
-		fts,screen_x = <1440>;
-		fts,screen_y = <3200>;
+		fts,screen-x = <1440>;
+		fts,screen-y = <3200>;
 		//fts,fod-lx = <4180>;
 		//fts,fod-ly = <16810>;
 		fts,support-super-resolution = <1>;
@@ -240,7 +240,7 @@
 		fts,touch-expert-array = <2 15 1 120 3 15
 					  4 15 1 120 2 15
 					  6 15 1 120 5 15>;
-		fts,cfg_0 {
+		fts,cfg {
 			fts,tp-vendor = <0x38>;
 			fts,tp-color = <0x32>;
 			fts,fw-name = "st_fts_L11a.ftb";
@@ -433,7 +433,7 @@
 };
 
 &odm {
-	xiaomi_touch: xiaomi-touch {
+	tc8_touch: tc8-touch {
 		compatible = "tc8sp-touch";
 		status = "ok";
 		touch,name = "tc8sp-touch";
