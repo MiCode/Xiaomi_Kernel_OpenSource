@@ -1894,9 +1894,12 @@ void mtk_crtc_ddp_unprepare(struct mtk_drm_crtc *mtk_crtc)
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	struct mtk_panel_params *panel_ext =
 	    mtk_drm_get_lcm_ext_params(crtc);
+	unsigned int comp_id;
 
-	for_each_comp_in_all_crtc_mode(comp, mtk_crtc, i, j, ddp_mode)
+	for_each_comp_id_in_path_data(comp_id, mtk_crtc->path_data, i, j, ddp_mode) {
+		comp = priv->ddp_comp[comp_id];
 		mtk_ddp_comp_unprepare(comp);
+	}
 
 	for (i = 0; i < ADDON_SCN_NR; i++) {
 		addon_data = mtk_addon_get_scenario_data(__func__,
@@ -1920,7 +1923,8 @@ void mtk_crtc_ddp_unprepare(struct mtk_drm_crtc *mtk_crtc)
 	}
 
 	if (mtk_crtc->is_dual_pipe) {
-		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+		for_each_comp_id_in_dual_pipe(comp_id, mtk_crtc->path_data, i, j) {
+			comp = priv->ddp_comp[comp_id];
 			mtk_ddp_comp_clk_unprepare(comp);
 			mtk_ddp_comp_unprepare(comp);
 		}
