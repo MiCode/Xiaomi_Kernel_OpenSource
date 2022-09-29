@@ -93,12 +93,17 @@ uint32_t get_ptn_size(uint32_t hash)
 
 bool get_ptn_hash(uint32_t hash)
 {
-	uint32_t ptn_total_num = mvpu_algo_img[KER_NUM_OFFSET];
+	uint32_t ptn_total_num = 0;
 	int i = 0;
 
 	uint32_t shift = 0;
 	uint32_t ptn_hash = 0;
 	uint32_t ptn_size_offset = 0;
+
+	if (mvpu_algo_available == false)
+		return false;
+
+	ptn_total_num = mvpu_algo_img[KER_NUM_OFFSET];
 
 	for (i = 0; i < ptn_total_num; i++) {
 		// get hash by ptn.bin size
@@ -1925,6 +1930,11 @@ int mvpu_load_img(struct device *dev)
 	size = mvpu_algo->size;
 
 	mvpu_algo_img = (uint32_t *)phys_to_virt(pa);
+	if (!mvpu_algo_img) {
+		// user may not need image partition
+		mvpu_algo_available = false;
+		goto END;
+	}
 
 	mvpu_algo_iova =
 		(uint32_t)dma_map_single_attrs(dev, mvpu_algo_img, size,
