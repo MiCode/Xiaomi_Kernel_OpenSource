@@ -1755,9 +1755,15 @@ void mtk_wakeup_pf_wq(void)
 	}
 	crtc_idx = drm_crtc_index(crtc);
 	mtk_crtc = to_mtk_crtc(crtc);
+
+	if (!mtk_crtc || !mtk_crtc->base.dev) {
+		DDPPR_ERR("%s errors with NULL mtk_crtc or base.dev\n",
+			__func__);
+	}
+
 	drm_priv = mtk_crtc->base.dev->dev_private;
 
-	if (mtk_crtc && drm_priv &&
+	if (drm_priv &&
 		mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
 		pf_idx = readl(mtk_get_gce_backup_slot_va(mtk_crtc,
 			DISP_SLOT_PRESENT_FENCE(crtc_idx)));
