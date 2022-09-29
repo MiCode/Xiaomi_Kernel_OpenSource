@@ -590,7 +590,7 @@ int mtk_oddmr_load_param(struct mtk_disp_oddmr *priv, struct mtk_drm_oddmr_param
 		size_alloc = sizeof(struct mtk_oddmr_dmr_table);
 		if (g_dmr_param.dmr_tables[table_idx] == NULL) {
 			DDPINFO("%s:%d, dmr_table%d is NULL\n",
-					table_idx, __func__, __LINE__);
+					__func__, __LINE__, table_idx);
 #ifndef APP_DEBUG
 			data = kzalloc(size_alloc, GFP_KERNEL);
 #else
@@ -641,7 +641,7 @@ int mtk_oddmr_load_param(struct mtk_disp_oddmr *priv, struct mtk_drm_oddmr_param
 		size_alloc = sizeof(struct mtk_oddmr_od_table);
 		if (g_od_param.od_tables[table_idx] == NULL) {
 			DDPINFO("%s:%d, od_table%d is NULL\n",
-					table_idx, __func__, __LINE__);
+					__func__, __LINE__, table_idx);
 #ifndef APP_DEBUG
 			data = kzalloc(size_alloc, GFP_KERNEL);
 #else
