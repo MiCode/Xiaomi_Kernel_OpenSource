@@ -15,4 +15,12 @@ enum BUS_PARITY_OP {
 	BP_MCU_CLR = 0,
 	NR_BUS_PARITY_OP
 };
+
+struct tag_chipid {
+	u32 size;
+	u32 hw_code;
+	u32 hw_subcode;
+	u32 hw_ver;
+	u32 sw_ver;
+};
 #endif   /*__MTK_SDA_H__*/

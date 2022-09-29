@@ -470,6 +470,8 @@ static int bus_parity_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *np = pdev->dev.of_node;
+	struct device_node *np_chosen;
+	struct tag_chipid *chipid;
 	size_t size;
 	int ret, i;
 
@@ -635,6 +637,26 @@ static int bus_parity_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(dev, "can't request infra-bus-parity irq(%d)\n", ret);
 		return ret;
+	}
+
+	np_chosen = of_find_node_by_path("/chosen");
+	if (!np_chosen)
+		np_chosen = of_find_node_by_path("/chosen@0");
+
+	if (np_chosen) {
+		chipid = (struct tag_chipid *) of_get_property(np_chosen,
+				"atag,chipid", NULL);
+		if (!chipid)
+			return 0;
+
+		pr_info("get chipid 0x%x:0x%x:0x%x:0x%x.\n",
+			chipid->hw_code, chipid->hw_subcode, chipid->hw_ver, chipid->sw_ver);
+
+		/* XXX for SLV_L3GIC check */
+		if (chipid->hw_code == 0x1229 && chipid->hw_subcode == 0x8a00
+			&& chipid->hw_ver == 0xca00 && chipid->sw_ver == 0x0000) {
+			mcu_bp.nr_bpm = mcu_bp.nr_bpm - 1;
+		}
 	}
 
 	return 0;
