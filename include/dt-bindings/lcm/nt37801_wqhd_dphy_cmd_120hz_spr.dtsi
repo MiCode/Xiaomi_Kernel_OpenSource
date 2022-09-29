@@ -2043,12 +2043,18 @@
 				lcm-ops-dsi-fps-switch-after-poweron {
 					compatible =
 						"mediatek,lcm-ops-dsi-fps-switch-after-poweron";
+
 					fps-switch-0-1440-3200-120_table =
 						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 00],
 						[MTK_LCM_TYPE_HEX_END];
 
 					fps-switch-1-1440-3200-90_table =
 						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 01],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+							[F0 55 AA 52 08 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 07],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03],
+							[BA 00 4f],
 						[MTK_LCM_TYPE_HEX_END];
 
 					fps-switch-2-1440-3200-60_table =
@@ -2099,7 +2105,63 @@
 				lcm-ops-dsi-fps-switch-before-powerdown {
 					compatible =
 						"mediatek,lcm-ops-dsi-fps-switch-before-powerdown";
-					fps-switch-0-1440-3200-120_table;
+
+					fps-switch-0-1440-3200-120_table =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 00],
+						[MTK_LCM_TYPE_HEX_END];
+
+					fps-switch-1-1440-3200-90_table =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 01],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+							[F0 55 AA 52 08 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 07],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03],
+							[BA 00 4f],
+						[MTK_LCM_TYPE_HEX_END];
+
+					fps-switch-2-1440-3200-60_table =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+							[F0 55 AA 52 08 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 1C],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 09],
+							[BA 91 01 01 00 01 01 01 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 5A 01],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 30],
+						[MTK_LCM_TYPE_HEX_END];
+
+					fps-switch-3-1440-3200-30_table =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+							[F0 55 AA 52 08 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 1C],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 09],
+							[BA 91 03 03 00 01 03 03 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 5A 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 30],
+						[MTK_LCM_TYPE_HEX_END];
+
+					fps-switch-4-1440-3200-24_table =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+							[F0 55 AA 52 08 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 1C],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 09],
+							[BA 91 04 04 00 01 04 04 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 5A 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 30],
+						[MTK_LCM_TYPE_HEX_END];
+
+					fps-switch-5-1440-3200-10_table =
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+							[F0 55 AA 52 08 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 6F 1C],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 09],
+							[BA 91 0B 0B 00 01 0B 0B 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 5A 00],
+						[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 2F 30],
+						[MTK_LCM_TYPE_HEX_END];
 				};
 			};
 		};
