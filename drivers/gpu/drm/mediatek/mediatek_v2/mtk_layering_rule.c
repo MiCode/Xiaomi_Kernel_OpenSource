@@ -905,6 +905,7 @@ static void backup_input_config(struct drm_mtk_layering_info *disp_info)
 {
 	unsigned int size = 0;
 
+	mutex_lock(&hrt_table_lock);
 	/* free before use */
 	if (g_input_config != 0) {
 		kfree(g_input_config);
@@ -912,8 +913,10 @@ static void backup_input_config(struct drm_mtk_layering_info *disp_info)
 	}
 
 	if (disp_info->layer_num[HRT_PRIMARY] <= 0 ||
-	    disp_info->input_config[HRT_PRIMARY] == NULL)
+		disp_info->input_config[HRT_PRIMARY] == NULL) {
+		mutex_unlock(&hrt_table_lock);
 		return;
+	}
 
 	/* memory allocate */
 	size = sizeof(struct drm_mtk_layer_config) *
@@ -922,11 +925,13 @@ static void backup_input_config(struct drm_mtk_layering_info *disp_info)
 
 	if (g_input_config == 0) {
 		DDPPR_ERR("%s: allocate memory fail\n", __func__);
+		mutex_unlock(&hrt_table_lock);
 		return;
 	}
 
 	/* memory copy */
 	memcpy(g_input_config, disp_info->input_config[HRT_PRIMARY], size);
+	mutex_unlock(&hrt_table_lock);
 }
 
 static void fbdc_pre_calculate(struct drm_mtk_layering_info *disp_info)
