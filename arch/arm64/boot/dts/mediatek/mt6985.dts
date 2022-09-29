@@ -3577,7 +3577,7 @@
 				clocks = <&pericfg_ao_clk CLK_PERAO_DMA_B>;
 				clock-names = "apdma";
 				dma-requests = <8>;
-				support-hub = <1>;
+				support-hub = <0xC0>;  /*bit 0~7 to ch 0~7*/
 				peri-regs = <0x11036300 0x1 0x1>;  /*peri: <base, mask, val>*/
 				#dma-cells = <1>;
 		};
