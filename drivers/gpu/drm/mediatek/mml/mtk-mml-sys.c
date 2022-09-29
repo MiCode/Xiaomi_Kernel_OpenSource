@@ -684,10 +684,42 @@ static s32 mml_comp_clk_aid_enable(struct mml_comp *comp)
 	return 0;
 }
 
+static s32 mml_sys_comp_clk_enable(struct mml_comp *comp)
+{
+	int ret;
+
+	/* original clk enable */
+	ret = mml_comp_clk_aid_enable(comp);
+	if (ret < 0)
+		return ret;
+
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	mml_update_comp_status(mml_mon_mmlsys, 1);
+#endif
+
+	return 0;
+}
+
+static s32 mml_sys_comp_clk_disable(struct mml_comp *comp)
+{
+	int ret;
+
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	mml_update_comp_status(mml_mon_mmlsys, 0);
+#endif
+
+	/* original clk enable */
+	ret = mml_comp_clk_disable(comp);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
 #ifndef MML_FPGA
 static const struct mml_comp_hw_ops sys_hw_ops_aid = {
-	.clk_enable = &mml_comp_clk_aid_enable,
-	.clk_disable = &mml_comp_clk_disable,
+	.clk_enable = &mml_sys_comp_clk_enable,
+	.clk_disable = &mml_sys_comp_clk_disable,
 };
 #endif
 
@@ -787,6 +819,10 @@ static int sys_comp_init(struct device *dev, struct mml_sys *sys,
 
 	comp->config_ops = &sys_config_ops;
 	comp->debug_ops = &sys_debug_ops;
+
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	mml_init_swpm_comp(mml_mon_mmlsys, comp);
+#endif
 
 #ifndef MML_FPGA
 	/* scmi(sspm) config aid/uid support */

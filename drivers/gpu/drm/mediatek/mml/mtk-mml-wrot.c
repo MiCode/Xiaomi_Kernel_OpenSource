@@ -2027,11 +2027,47 @@ static void wrot_task_done(struct mml_comp *comp, struct mml_task *task,
 	}
 }
 
+static s32 mml_wrot_comp_clk_enable(struct mml_comp *comp)
+{
+	int ret;
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
+#endif
+
+	/* original clk enable */
+	ret = mml_comp_clk_enable(comp);
+	if (ret < 0)
+		return ret;
+
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	mml_update_comp_status(mml_mon_wrot + wrot->idx, 1);
+#endif
+
+	return 0;
+}
+
+static s32 mml_wrot_comp_clk_disable(struct mml_comp *comp)
+{
+	int ret;
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
+
+	mml_update_comp_status(mml_mon_wrot + wrot->idx, 0);
+#endif
+
+	/* original clk enable */
+	ret = mml_comp_clk_disable(comp);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
 static const struct mml_comp_hw_ops wrot_hw_ops = {
 	.pw_enable = &mml_comp_pw_enable,
 	.pw_disable = &mml_comp_pw_disable,
-	.clk_enable = &mml_comp_clk_enable,
-	.clk_disable = &mml_comp_clk_disable,
+	.clk_enable = &mml_wrot_comp_clk_enable,
+	.clk_disable = &mml_wrot_comp_clk_disable,
 	.qos_datasize_get = &wrot_datasize_get,
 	.qos_format_get = &wrot_format_get,
 	.qos_set = &mml_comp_qos_set,
@@ -2335,6 +2371,10 @@ static int probe(struct platform_device *pdev)
 		priv->event_bufa,
 		priv->event_bufb,
 		priv->event_buf_next);
+
+#if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
+	mml_init_swpm_comp(mml_mon_wrot + priv->idx, &priv->comp);
+#endif
 
 	return ret;
 }
