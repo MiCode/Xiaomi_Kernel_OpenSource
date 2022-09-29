@@ -177,6 +177,7 @@
 #define PCIE_VLPCFG_BASE		0x1C00C000
 #define PCIE_VLP_AXI_PROTECT_STA	0x240
 #define PCIE_MAC0_SLP_READY_MASK	BIT(11)
+#define SRCLKEN_RC_REQ_STA		0x1130
 
 enum mtk_pcie_suspend_link_state {
 	LINK_STATE_L12 = 0,
@@ -431,7 +432,7 @@ static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 	if (port->pextpcfg) {
 		mutex_init(&port->vote_lock);
 
-		port->vlpcfg_base = ioremap(PCIE_VLPCFG_BASE, 0x1000);
+		port->vlpcfg_base = ioremap(PCIE_VLPCFG_BASE, 0x2000);
 		port->ep_hw_mode_en = false;
 		port->rc_hw_mode_en = false;
 
@@ -1652,6 +1653,9 @@ static int __maybe_unused mtk_pcie_suspend_noirq(struct device *dev)
 
 		/* BBCK2 is controlled by itself hardware mode */
 		clk_buf_voter_ctrl_by_id(7, HW);
+		/* srclken rc request state */
+		dev_info(port->dev, "srclken rc state=%#x\n",
+			 readl_relaxed(port->vlpcfg_base + SRCLKEN_RC_REQ_STA));
 	} else {
 		/* Trigger link to L2 state */
 		err = mtk_pcie_turn_off_link(port);
