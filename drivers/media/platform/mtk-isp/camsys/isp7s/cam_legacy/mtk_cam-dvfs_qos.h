@@ -13,6 +13,7 @@ struct regulator;
 struct icc_path;
 struct mtk_cam_device;
 struct mtk_cam_ctx;
+struct mtk_cam_dvfs_tbl;
 
 #define DVFS_QOS_READY
 #define ISP_CLK_LEVEL_CNT 10
@@ -42,14 +43,19 @@ struct mtk_camsys_dvfs {
 	unsigned long mraw_qos_bw_peak[MTK_CAM_MRAW_PORT_NUM];
 };
 
+int mtk_cam_dvfs_get_clkidx(struct mtk_cam_device *cam, u64 freq_cur, bool debug);
 void mtk_cam_dvfs_init(struct mtk_cam_device *cam);
 void mtk_cam_dvfs_uninit(struct mtk_cam_device *cam);
-void mtk_cam_dvfs_update_clk(struct mtk_cam_device *cam);
+void mtk_cam_dvfs_update_clk(struct mtk_cam_device *cam, bool force_update);
 void mtk_cam_dvfs_force_clk(struct mtk_cam_device *cam, bool enable);
-
+void mtk_cam_dvfs_tbl_init(struct mtk_cam_dvfs_tbl *tbl, int opp_num);
+void mtk_cam_dvfs_tbl_add_opp(struct mtk_cam_dvfs_tbl *tbl, int opp);
+void mtk_cam_dvfs_tbl_del_opp(struct mtk_cam_dvfs_tbl *tbl, int opp);
+int mtk_cam_dvfs_tbl_get_opp(struct mtk_cam_dvfs_tbl *tbl);
 void mtk_cam_qos_init(struct mtk_cam_device *cam);
 void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx);
 void mtk_cam_qos_sv_bw_reset(struct mtk_cam_ctx *ctx);
 void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool force);
 void mtk_cam_qos_sv_bw_calc(struct mtk_cam_ctx *ctx, bool force);
+
 #endif

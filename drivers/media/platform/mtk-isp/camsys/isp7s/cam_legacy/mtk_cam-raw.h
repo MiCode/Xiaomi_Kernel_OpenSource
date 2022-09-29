@@ -217,6 +217,7 @@ struct mtk_cam_resource_config {
 	struct mtk_cam_scen scen;
 	u32 res_strategy[MTK_CAMSYS_RES_STEP_NUM];
 	u32 clk_target;
+	u8  opp_idx;
 	u32 raw_num_used;
 	u32 bin_enable;
 	u32 frz_enable;
@@ -285,6 +286,7 @@ struct mtk_raw_pipeline {
 	struct mtk_cam_resource_v2 user_res;
 	/* debug only, will be phased-out after passing integration */
 	struct mtk_cam_resource_config res_config;
+	bool req_res_calc;
 	int sensor_mode_update;
 	s64 sync_id;
 	/* mstream */

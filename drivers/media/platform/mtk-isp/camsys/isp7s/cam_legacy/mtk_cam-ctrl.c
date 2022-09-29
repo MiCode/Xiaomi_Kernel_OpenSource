@@ -716,7 +716,9 @@ void mtk_cam_req_seninf_change(struct mtk_cam_request *req)
 	}
 
 	dev_dbg(cam->dev, "%s: update DVFS\n",	 __func__);
-	mtk_cam_dvfs_update_clk(cam);
+	mutex_lock(&cam->dvfs_op_lock);
+	mtk_cam_dvfs_update_clk(cam, true);
+	mutex_unlock(&cam->dvfs_op_lock);
 
 	for (i = 0; i < cam->max_stream_num; i++) {
 		if (req->ctx_used & (1 << i) && req->ctx_link_update & (1 << i)) {

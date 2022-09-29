@@ -141,59 +141,87 @@ static struct mraw_mmqos mraw_qos[] = {
 	},
 };
 
-static void mtk_cam_dvfs_enumget_clktarget(struct mtk_cam_device *cam)
+static bool mtk_cam_dvfs_enumget_clktarget(struct mtk_cam_device *cam)
 {
 	struct mtk_camsys_dvfs *dvfs = &cam->camsys_ctrl.dvfs_info;
 	int clk_streaming_max = dvfs->clklv[0];
-	int i;
+	int i, opp_idx = 0, clklv = 0;
+	bool need_update = false;
 
 	for (i = MTKCAM_SUBDEV_RAW_START;  i < MTKCAM_SUBDEV_RAW_END; i++) {
 		if (cam->ctxs[i].streaming && cam->ctxs[i].pipe) {
 			struct mtk_cam_resource_config *res =
 				&cam->ctxs[i].pipe->res_config;
-			if (clk_streaming_max < res->clk_target)
-				clk_streaming_max = res->clk_target;
-			dev_dbg(cam->dev, "on ctx:%d clk needed:%d", i, res->clk_target);
+
+			/* use the last calc result if there is no s_data queued in the ctx */
+			clklv = res->clk_target;
+			opp_idx = mtk_cam_dvfs_tbl_get_opp(&cam->ctxs[i].dvfs_tbl);
+			if (opp_idx >= 0)
+				clklv = dvfs->clklv[opp_idx];
+
+			if (clk_streaming_max < clklv)
+				clk_streaming_max = clklv;
+			dev_dbg(cam->dev, "on ctx:%d clk needed:%d, opp_cnt(%d,%d,%d,%d,%d,%d,%d,%d)",
+				i, clklv,
+				cam->ctxs[i].dvfs_tbl.opp_cnt[0], cam->ctxs[i].dvfs_tbl.opp_cnt[1],
+				cam->ctxs[i].dvfs_tbl.opp_cnt[2], cam->ctxs[i].dvfs_tbl.opp_cnt[3],
+				cam->ctxs[i].dvfs_tbl.opp_cnt[4], cam->ctxs[i].dvfs_tbl.opp_cnt[5],
+				cam->ctxs[i].dvfs_tbl.opp_cnt[6], cam->ctxs[i].dvfs_tbl.opp_cnt[7]);
 		} else {
 			dev_dbg(cam->dev, "on ctx:%d not streaming or pipe null", i);
 		}
 	}
-	dvfs->clklv_target = clk_streaming_max;
-	dev_dbg(cam->dev, "[%s] dvfs->clk=%d", __func__, dvfs->clklv_target);
+
+	if (dvfs->clklv_target != clk_streaming_max) {
+		need_update = true;
+		dvfs->clklv_target = clk_streaming_max;
+	}
+
+	dev_dbg(cam->dev, "[%s] dvfs->clk=%d, need_update=%d",
+		__func__, dvfs->clklv_target, need_update);
+
+	return need_update;
 }
 
-static void mtk_cam_dvfs_get_clkidx(struct mtk_cam_device *cam)
+int mtk_cam_dvfs_get_clkidx(struct mtk_cam_device *cam, u64 freq_cur, bool debug)
 {
 	struct mtk_camsys_dvfs *dvfs = &cam->camsys_ctrl.dvfs_info;
+	int i, clklv_idx = 0;
 
-	u64 freq_cur = 0;
-	int i;
-
-	freq_cur = dvfs->clklv_target;
 	for (i = 0; i < dvfs->clklv_num; i++) {
-		if (freq_cur == dvfs->clklv[i])
-			dvfs->clklv_idx = i;
+		if (freq_cur == dvfs->clklv[i]) {
+			clklv_idx = i;
+			break;
+		}
 	}
-	dev_dbg(cam->dev, "[%s] get clk=%d, idx=%d",
-		 __func__, dvfs->clklv_target, dvfs->clklv_idx);
+
+	if (debug)
+		dev_dbg(cam->dev, "[%s] get clk=%d, idx=%d",
+			__func__, freq_cur, clklv_idx);
+
+	return clklv_idx;
 }
 
-void mtk_cam_dvfs_update_clk(struct mtk_cam_device *cam)
+void mtk_cam_dvfs_update_clk(struct mtk_cam_device *cam, bool force_update)
 {
 	struct mtk_camsys_dvfs *dvfs = &cam->camsys_ctrl.dvfs_info;
 	int ret;
+	bool need_update = false;
 
 	if (dvfs->mmdvfs_clk && dvfs->clklv_num &&
 		(atomic_read(&dvfs->fixed_clklv) == 0)) {
-		mtk_cam_dvfs_enumget_clktarget(cam);
-		mtk_cam_dvfs_get_clkidx(cam);
-		ret = clk_set_rate(dvfs->mmdvfs_clk, dvfs->clklv_target);
-		if (ret < 0) {
-			dev_info(cam->dev, "[%s] clk set rate fail", __func__);
-			return;
+		need_update = mtk_cam_dvfs_enumget_clktarget(cam);
+		if (force_update || need_update) {
+			dvfs->clklv_idx = mtk_cam_dvfs_get_clkidx(cam, dvfs->clklv_target, true);
+			ret = clk_set_rate(dvfs->mmdvfs_clk, dvfs->clklv_target);
+			if (ret < 0) {
+				dev_info(cam->dev, "[%s] clk set rate fail", __func__);
+				return;
+			}
+			dev_info(cam->dev, "[%s] update idx:%d clk:%d volt:%d",
+				 __func__, dvfs->clklv_idx, dvfs->clklv_target,
+				 dvfs->voltlv[dvfs->clklv_idx]);
 		}
-		dev_info(cam->dev, "[%s] update idx:%d clk:%d volt:%d", __func__,
-			dvfs->clklv_idx, dvfs->clklv_target, dvfs->voltlv[dvfs->clklv_idx]);
 	}
 }
 
@@ -214,7 +242,9 @@ void mtk_cam_dvfs_force_clk(struct mtk_cam_device *cam, bool enable)
 				__func__, clklv, dvfs->voltlv[FORCE_CLK_LEVEL], ret);
 		} else {
 			if (atomic_cmpxchg(&dvfs->fixed_clklv, clklv, 0)) {
-				mtk_cam_dvfs_update_clk(cam);
+				mutex_lock(&cam->dvfs_op_lock);
+				mtk_cam_dvfs_update_clk(cam, true);
+				mutex_unlock(&cam->dvfs_op_lock);
 			}
 		}
 	}
@@ -281,6 +311,48 @@ opp_default_table:
 	dvfs_info->clklv_num = 1;
 
 }
+
+int mtk_cam_dvfs_tbl_get_opp(struct mtk_cam_dvfs_tbl *tbl)
+{
+	int opp = -1;
+	int i;
+
+	for (i = tbl->opp_num - 1; i >= 0; i--) {
+		if (tbl->opp_cnt[i] > 0) {
+			opp = i;
+			break;
+		}
+	}
+
+	return opp;
+}
+
+void mtk_cam_dvfs_tbl_init(struct mtk_cam_dvfs_tbl *tbl, int opp_num)
+{
+	if (!tbl || opp_num >= MTK_CAM_OPP_TBL_MAX)
+		return;
+
+	tbl->opp_num = opp_num;
+	memset(tbl->opp_cnt, 0, sizeof(tbl->opp_cnt));
+}
+
+void mtk_cam_dvfs_tbl_add_opp(struct mtk_cam_dvfs_tbl *tbl, int opp)
+{
+	if (!tbl || opp >= tbl->opp_num)
+		return;
+
+	tbl->opp_cnt[opp]++;
+}
+
+void mtk_cam_dvfs_tbl_del_opp(struct mtk_cam_dvfs_tbl *tbl, int opp)
+{
+	if (!tbl || opp >= tbl->opp_num)
+		return;
+
+	if (tbl->opp_cnt[opp] > 0)
+		tbl->opp_cnt[opp]--;
+}
+
 
 #define MTK_CAM_QOS_LSCI_TABLE_MAX_SIZE (32768)
 #define MTK_CAM_QOS_CACI_TABLE_MAX_SIZE (32768)

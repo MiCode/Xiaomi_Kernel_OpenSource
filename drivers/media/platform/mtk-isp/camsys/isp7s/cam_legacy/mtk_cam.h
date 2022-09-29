@@ -58,6 +58,8 @@
 
 #define MTK_CAM_MAX_DISPLAY_IC_RUNNING_JOBS 9
 
+#define MTK_CAM_OPP_TBL_MAX 10
+
 struct platform_device;
 struct mtk_rpmsg_device;
 struct mtk_cam_debug_fs;
@@ -97,6 +99,8 @@ struct mtk_raw_pipeline;
 
 /* composed error case, buf_entry was not in composed/processing buf list */
 #define MTK_CAM_REQ_S_DATA_FLAG_COMPOMSED_ERROR	BIT(11)
+
+#define  MTK_CAM_REQ_S_DATA_FLAG_RES_CALC		BIT(12)
 
 #define v4l2_subdev_format_request_fd(x) x->reserved[0]
 
@@ -424,6 +428,11 @@ struct mtk_cam_watchdog_data {
 	u64 watchdog_time_diff_ns;
 };
 
+struct mtk_cam_dvfs_tbl {
+	int opp_cnt[MTK_CAM_OPP_TBL_MAX];
+	int opp_num;
+};
+
 struct mtk_cam_ctx {
 	struct mtk_cam_device *cam;
 	unsigned int stream_id;
@@ -445,6 +454,7 @@ struct mtk_cam_ctx {
 	struct v4l2_subdev *prev_seninf;
 	struct v4l2_subdev *pipe_subdevs[MAX_PIPES_PER_STREAM];
 	struct mtk_camsys_sensor_ctrl sensor_ctrl;
+	struct mtk_cam_dvfs_tbl dvfs_tbl;
 
 	unsigned int used_raw_num;
 	unsigned int used_raw_dev;
@@ -587,7 +597,7 @@ struct mtk_cam_device {
 	struct workqueue_struct *debug_exception_wq;
 	wait_queue_head_t debug_exception_waitq;
 	struct cmdq_client *cmdq_clt;
-
+	struct mutex dvfs_op_lock;
 };
 
 static inline struct mtk_cam_request_stream_data*
@@ -721,6 +731,19 @@ mtk_cam_s_data_get_res(struct mtk_cam_request_stream_data *s_data)
 		return NULL;
 
 	return &s_data->req->raw_pipe_data[s_data->pipe_id].res;
+}
+
+
+static inline struct mtk_cam_resource_config*
+mtk_cam_s_data_get_res_cfg(struct mtk_cam_request_stream_data *s_data)
+{
+	if (s_data == NULL)
+		return NULL;
+
+	if (!is_raw_subdev(s_data->pipe_id))
+		return NULL;
+
+	return &s_data->req->raw_pipe_data[s_data->pipe_id].res_config;
 }
 
 static inline struct mtkcam_ipi_config_param*

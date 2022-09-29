@@ -753,6 +753,7 @@ static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 		dev_dbg(dev, "%s:pipe(%d): pending res calc\n",
 				__func__, pipeline->id);
 		pipeline->user_res = *res_user;
+		pipeline->req_res_calc = true;
 		return ret;
 	}
 
@@ -2434,8 +2435,12 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 		res->vblank, res->hwn_limit_max, res->hwn_limit_min, res->bin_limit);
 
 	ret = mtk_raw_find_combination(&calc, &stepper);
-	if (ret)
+	if (ret) {
 		dev_info(cam->dev, "failed to find valid resource\n");
+		res->opp_idx = mtk_cam_dvfs_get_clkidx(cam, calc.clk, true);
+	} else {
+		res->opp_idx = stepper.opp_idx;
+	}
 
 	/* return raw pixel mode in 7s*/
 	calc.raw_num = (rgb_2raw > 0) ? rgb_2raw:calc.raw_num;
@@ -2455,9 +2460,9 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 	mtk_raw_update_debug_param(cam, res);
 
 	dev_info(cam->dev,
-		"Res-end bin/raw_num/tg_pxlmode/before_raw(%d/%d/%d/%d), clk(%d), out(%dx%d)\n",
-		res->bin_enable, res->raw_num_used, res->tgo_pxl_mode,
-		res->tgo_pxl_mode_before_raw, res->clk_target, *out_w, *out_h);
+		 "Res-end bin/raw_num/tg_pxlmode/before_raw/opp(%d/%d/%d/%d/%d), clk(%d), out(%dx%d)\n",
+		 res->bin_enable, res->raw_num_used, res->tgo_pxl_mode,
+		 res->tgo_pxl_mode_before_raw, res->opp_idx, res->clk_target, *out_w, *out_h);
 
 	return (ret >= 0);
 }
