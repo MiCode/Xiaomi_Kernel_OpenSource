@@ -463,7 +463,7 @@ static int mtk_mm_heap_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 	if (buffer->uncached)
 		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
-	for_each_sgtable_sg(table, sg, i) {
+	for_each_sg(table->sgl, sg, table->nents, i) {
 		struct page *page = sg_page(sg);
 		unsigned long remainder = vma->vm_end - addr;
 		unsigned long len = sg->length;
@@ -479,10 +479,9 @@ static int mtk_mm_heap_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 		len = min(len, remainder);
 		ret = remap_pfn_range(vma, addr, page_to_pfn(page), len,
 				      vma->vm_page_prot);
-
 		if (ret)
 			return ret;
-		addr += sg->length;
+		addr += len;
 		if (addr >= vma->vm_end)
 			return 0;
 	}
