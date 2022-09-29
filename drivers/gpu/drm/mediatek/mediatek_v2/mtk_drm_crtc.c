@@ -14323,6 +14323,9 @@ int mtk_crtc_path_switch(struct drm_crtc *crtc, unsigned int ddp_mode,
 	int index = drm_crtc_index(crtc);
 	bool need_wait;
 
+	if (ddp_mode > DDP_NO_USE)	/* ddp_mode wrong */
+		return 0;
+
 	CRTC_MMP_EVENT_START(index, path_switch, mtk_crtc->ddp_mode,
 			ddp_mode);
 

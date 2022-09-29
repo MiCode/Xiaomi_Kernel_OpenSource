@@ -2214,7 +2214,7 @@ static void process_dbg_opt(const char *opt)
 		int ret;
 
 		tmp = (char *)(opt + 7);
-		for (i = 0; i < 100; i++) {
+		for (i = 0; i < 99; i++) {    /* option[99] should be '\0' to aviod oob */
 			if (tmp[i] != ',' && tmp[i] != ' ')
 				option[i] = tmp[i];
 			else
