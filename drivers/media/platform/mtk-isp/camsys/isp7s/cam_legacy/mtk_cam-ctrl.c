@@ -1663,9 +1663,9 @@ static void mtk_cam_try_set_sensor(struct mtk_cam_ctx *ctx)
 			   ctx->sensor_ctrl.sof_time;
 	/*for 1st unsync, sensor setting will be set at enque thread*/
 	if (ctx->used_raw_num) {
-		if (MTK_CAM_INITIAL_REQ_SYNC == 0 &&
-		    mtk_cam_scen_is_sensor_normal(&ctx->pipe->scen_active) &&
-		    sensor_seq_no_next <= 2) {
+		if (MTK_CAM_INITIAL_REQ_SYNC == 0 && sensor_seq_no_next <= 2 &&
+		    (mtk_cam_scen_is_sensor_normal(&ctx->pipe->scen_active) ||
+			 mtk_cam_scen_is_sensor_stagger(&ctx->pipe->scen_active))) {
 			return;
 		}
 	} else {
