@@ -798,7 +798,7 @@ static void ufs_mtk_trace_vh_compl_command_vend_ss(struct ufs_hba *hba,
 	}
 #if defined(CONFIG_UFSHID)
 	/* Check if it is the last request to be completed */
-	if (!out_tasks && (out_reqs == (1 << lrbp->task_tag)))
+	if (!out_tasks && !out_reqs)
 		schedule_work(&ufsf->on_idle_work);
 #endif
 }
@@ -884,44 +884,67 @@ static void ufs_mtk_trace_vh_send_command(void *data, struct ufs_hba *hba, struc
 	}
 }
 
+#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER) || defined(CONFIG_UFSFEATURE)
+static void ufs_mtk_get_outstanding_reqs(struct ufs_hba *hba,
+				unsigned long **outstanding_reqs, int *nr_tag)
+{
+	struct ufs_hba_private *hba_priv =
+			(struct ufs_hba_private *)hba->android_vendor_data1;
+
+	if (hba_priv->is_mcq_enabled) {
+		*outstanding_reqs = hba_priv->outstanding_mcq_reqs;
+		*nr_tag = UFSHCD_MAX_TAG;
+	} else {
+		*outstanding_reqs = &hba->outstanding_reqs;
+		*nr_tag = hba->nutrs;
+	}
+}
+#endif
+
 static void ufs_mtk_trace_vh_compl_command(void *data, struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 {
 	struct scsi_cmnd *cmd = lrbp->cmd;
-	unsigned long outstanding_reqs;
+	unsigned long *outstanding_reqs;
+#if defined(CONFIG_UFSFEATURE)
 	unsigned long outstanding_tasks;
-	unsigned long flags;
+	struct ufsf_feature *ufsf;
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER) || defined(CONFIG_UFSFEATURE)
+	unsigned long ongoing_cnt = 0;
+	int tmp_tag, nr_tag;
+#endif
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 	int tag = lrbp->task_tag;
-	unsigned long req_mask;
-#endif
-
-#if defined(CONFIG_UFSFEATURE)
-	struct ufsf_feature *ufsf;
 #endif
 
 	if (!cmd)
 		return;
 
-	spin_lock_irqsave(hba->host->host_lock, flags);
-	outstanding_reqs = hba->outstanding_reqs;
-	outstanding_tasks = hba->outstanding_tasks;
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
+#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER) || defined(CONFIG_UFSFEATURE)
+	ufs_mtk_get_outstanding_reqs(hba, &outstanding_reqs, &nr_tag);
+	for_each_set_bit(tmp_tag, outstanding_reqs, nr_tag) {
+		ongoing_cnt = 1;
+		break;
+	}
+#endif
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 	if (ufs_mtk_is_data_cmd(cmd)) {
-		req_mask = outstanding_reqs & ~(1 << tag);
-		ufs_mtk_biolog_transfer_req_compl(tag, req_mask);
-		ufs_mtk_biolog_check(req_mask);
+		ufs_mtk_biolog_transfer_req_compl(tag, ongoing_cnt);
+		ufs_mtk_biolog_check(ongoing_cnt);
 	}
 #endif
 
 #if defined(CONFIG_UFSFEATURE)
 	ufsf = ufs_mtk_get_ufsf(hba);
 
+	outstanding_tasks = hba->outstanding_tasks;
+
 	if (ufsf->hba)
 		ufs_mtk_trace_vh_compl_command_vend_ss(hba, lrbp,
-			outstanding_reqs, outstanding_tasks);
+			ongoing_cnt, outstanding_tasks);
 #endif
 }
 
