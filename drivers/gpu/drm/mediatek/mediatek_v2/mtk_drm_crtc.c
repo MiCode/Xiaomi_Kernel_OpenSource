@@ -6595,6 +6595,11 @@ void mtk_crtc_hw_block_ready(struct drm_crtc *crtc)
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
+	if (!mtk_crtc->trig_loop_cmdq_handle) {
+		DDPDBG("%s: trig_loop is stopped\n", __func__);
+		return;
+	}
+
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
 	cmdq_pkt_set_event(cmdq_handle,
