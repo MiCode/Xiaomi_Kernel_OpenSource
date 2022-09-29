@@ -33,9 +33,9 @@
 
 static bool mtk_enc_tput_init(struct mtk_vcodec_dev *dev)
 {
-	const int tp_item_num = 4;
+	const int tp_item_num = 6;
 	const int cfg_item_num = 4;
-	const int bw_item_num = 2;
+	const int bw_item_num = 3;
 	int i, larb_cnt, ret;
 	struct platform_device *pdev;
 	u32 nmin, nmax;
@@ -116,6 +116,22 @@ static bool mtk_enc_tput_init(struct mtk_vcodec_dev *dev)
 			return false;
 		}
 		dev->venc_tput[i].codec_type = 1;
+
+		ret = of_property_read_u32_index(pdev->dev.of_node, "throughput-table",
+				i * tp_item_num + 4, &dev->venc_tput[i].base_freq);
+		mtk_v4l2_debug(0, "[VENC][tput] get base_freq: %d", dev->venc_tput[i].base_freq);
+		if (ret) {
+			mtk_v4l2_debug(0, "[VENC] Cannot get base_freq");
+			return false;
+		}
+
+		ret = of_property_read_u32_index(pdev->dev.of_node, "throughput-table",
+				i * tp_item_num + 5, &dev->venc_tput[i].bw_factor);
+		mtk_v4l2_debug(0, "[VENC][tput] get bw_factor: %d", dev->venc_tput[i].bw_factor);
+		if (ret) {
+			mtk_v4l2_debug(0, "[VENC] Cannot get bw_factor");
+			return false;
+		}
 	}
 
 	/* config */
@@ -171,53 +187,52 @@ static bool mtk_enc_tput_init(struct mtk_vcodec_dev *dev)
 	}
 
 	/* bw */
-	dev->venc_port_cnt = of_property_count_u32_elems(pdev->dev.of_node,
+	dev->venc_larb_cnt = of_property_count_u32_elems(pdev->dev.of_node,
 				"bandwidth-table") / bw_item_num;
 
-	if (dev->venc_port_cnt > MTK_VENC_PORT_NUM) {
-		mtk_v4l2_debug(0, "[VENC] venc port over limit %d > %d",
-				dev->venc_port_cnt, MTK_VENC_PORT_NUM);
-		dev->venc_port_cnt = MTK_VENC_PORT_NUM;
+	if (dev->venc_larb_cnt > MTK_VENC_LARB_NUM) {
+		mtk_v4l2_debug(0, "[VENC] venc larb over limit %d > %d",
+				dev->venc_larb_cnt, MTK_VENC_LARB_NUM);
+		dev->venc_larb_cnt = MTK_VENC_LARB_NUM;
 	}
 
-	if (!dev->venc_port_cnt) {
+	if (!dev->venc_larb_cnt) {
 		mtk_v4l2_debug(0, "[VENC] bandwidth table not exist");
 		return false;
 	}
 
-	dev->venc_port_bw = vzalloc(sizeof(struct vcodec_port_bw) * dev->venc_port_cnt);
-	if (!dev->venc_port_bw) {
-		/* mtk_v4l2_debug(0, "[VENC] vzalloc venc_port_bw table failed"); */
+	dev->venc_larb_bw = vzalloc(sizeof(struct vcodec_larb_bw) * dev->venc_larb_cnt);
+	if (!dev->venc_larb_bw) {
+		/* mtk_v4l2_debug(0, "[VENC] vzalloc venc_larb_bw table failed"); */
 		return false;
 	}
 
-	for (i = 0; i < dev->venc_port_cnt; i++) {
+	for (i = 0; i < dev->venc_larb_cnt; i++) {
 		ret = of_property_read_u32_index(pdev->dev.of_node, "bandwidth-table",
-				i * bw_item_num, (u32 *)&dev->venc_port_bw[i].port_type);
+				i * bw_item_num, (u32 *)&dev->venc_larb_bw[i].larb_id);
 		if (ret) {
 			mtk_v4l2_debug(0, "[VENC] Cannot get bw port type");
 			return false;
 		}
 
 		ret = of_property_read_u32_index(pdev->dev.of_node, "bandwidth-table",
-				i * bw_item_num + 1, &dev->venc_port_bw[i].port_base_bw);
+				i * bw_item_num + 1, &dev->venc_larb_bw[i].larb_type);
 		if (ret) {
 			mtk_v4l2_debug(0, "[VENC] Cannot get base bw");
 			return false;
 		}
 
-		/* larb port sum placeholder */
-		if (dev->venc_port_bw[i].port_type == VCODEC_PORT_LARB_SUM) {
-			dev->venc_port_bw[i].larb = dev->venc_port_bw[i].port_base_bw;
-			dev->venc_port_bw[i].port_base_bw = 0;
-			if (i + 1 < dev->venc_port_cnt)
-				dev->venc_port_idx[++larb_cnt] = i + 1;
+		ret = of_property_read_u32_index(pdev->dev.of_node, "bandwidth-table",
+				i * bw_item_num + 2, &dev->venc_larb_bw[i].larb_base_bw);
+		if (ret) {
+			mtk_v4l2_debug(0, "[VENC] Cannot get base bw");
+			return false;
 		}
 	}
 
 #ifdef VENC_PRINT_DTS_INFO
-	mtk_v4l2_debug(0, "[VENC] tput_cnt %d, cfg_cnt %d, port_cnt %d\n",
-		dev->venc_tput_cnt, dev->venc_cfg_cnt, dev->venc_port_cnt);
+	mtk_v4l2_debug(0, "[VENC] tput_cnt %d, cfg_cnt %d, larb_cnt %d\n",
+		dev->venc_tput_cnt, dev->venc_cfg_cnt, dev->venc_larb_cnt);
 
 	for (i = 0; i < dev->venc_tput_cnt; i++) {
 		mtk_v4l2_debug(0, "[VENC] tput fmt %u, cfg %d, cy1 %u, cy2 %u",
@@ -235,11 +250,11 @@ static bool mtk_enc_tput_init(struct mtk_vcodec_dev *dev)
 			dev->venc_cfg[i].config_2);
 	}
 
-	for (i = 0; i < dev->venc_port_cnt; i++) {
-		mtk_v4l2_debug(0, "[VENC] port[%d] type %d, bw %u, larb %u", i,
-			dev->venc_port_bw[i].port_type,
-			dev->venc_port_bw[i].port_base_bw,
-			dev->venc_port_bw[i].larb);
+	for (i = 0; i < dev->venc_larb_cnt; i++) {
+		mtk_v4l2_debug(0, "[VENC] larb %u type %d, bw %u",
+			dev->venc_larb_bw[i].larb_id
+			dev->venc_larb_bw[i].larb_type,
+			dev->venc_larb_bw[i].larb_base_bw);
 	}
 #endif
 	return true;
@@ -257,9 +272,9 @@ static void mtk_enc_tput_deinit(struct mtk_vcodec_dev *dev)
 		dev->venc_cfg = 0;
 	}
 
-	if (dev->venc_port_bw) {
-		vfree(dev->venc_port_bw);
-		dev->venc_port_bw = 0;
+	if (dev->venc_larb_bw) {
+		vfree(dev->venc_larb_bw);
+		dev->venc_larb_bw = 0;
 	}
 }
 
@@ -322,38 +337,38 @@ void mtk_prepare_venc_emi_bw(struct mtk_vcodec_dev *dev)
 #if ENC_EMI_BW
 	int i, ret;
 	struct platform_device *pdev = 0;
-	u32 port_num = 0;
-	const char *path_strs[MTK_VENC_PORT_NUM];
+	u32 larb_num = 0;
+	const char *path_strs[MTK_VENC_LARB_NUM];
 
 	pdev = dev->plat_dev;
-	for (i = 0; i < MTK_VENC_PORT_NUM; i++)
+	for (i = 0; i < MTK_VENC_LARB_NUM; i++)
 		dev->venc_qos_req[i] = 0;
 
-	ret = of_property_read_u32(pdev->dev.of_node, "interconnect-num", &port_num);
+	ret = of_property_read_u32(pdev->dev.of_node, "interconnect-num", &larb_num);
 	if (ret) {
 		mtk_v4l2_debug(0, "[VENC] Cannot get interconnect num, skip");
 		return;
 	}
 
 	ret = of_property_read_string_array(pdev->dev.of_node, "interconnect-names",
-						path_strs, port_num);
+		path_strs, larb_num);
 
 	if (ret < 0) {
 		mtk_v4l2_debug(0, "[VENC] Cannot get interconnect names, skip");
 		return;
-	} else if (ret != (int)port_num) {
-		mtk_v4l2_debug(0, "[VENC] Interconnect name count not match %u %d", port_num, ret);
+	} else if (ret != (int)larb_num) {
+		mtk_v4l2_debug(0, "[VENC] Interconnect name count not match %u %d", larb_num, ret);
 	}
 
-	if (port_num > MTK_VENC_PORT_NUM) {
-		mtk_v4l2_debug(0, "[VENC] venc port over limit %u > %d",
-				port_num, MTK_VENC_PORT_NUM);
-		port_num = MTK_VENC_PORT_NUM;
+	if (larb_num > MTK_VENC_LARB_NUM) {
+		mtk_v4l2_debug(0, "[VENC] venc larb over limit %u > %d",
+				larb_num, MTK_VENC_LARB_NUM);
+		larb_num = MTK_VENC_LARB_NUM;
 	}
 
-	for (i = 0; i < port_num; i++) {
+	for (i = 0; i < larb_num; i++) {
 		dev->venc_qos_req[i] = of_mtk_icc_get(&pdev->dev, path_strs[i]);
-		mtk_v4l2_debug(16, "[VENC] %d %p %s", i, dev->venc_qos_req[i], path_strs[i]);
+		mtk_v4l2_debug(0, "[VENC] %d %p %s", i, dev->venc_qos_req[i], path_strs[i]);
 	}
 #endif
 }
@@ -420,34 +435,22 @@ void mtk_venc_pmqos_begin_inst(struct mtk_vcodec_ctx *ctx)
 {
 	int i;
 	struct mtk_vcodec_dev *dev = 0;
-	u64 target_bw = 0;
+	u32 target_bw = 0;
 
 	dev = ctx->dev;
+	mtk_v4l2_debug(4, "[VENC] ctx:%d");
 
-	if ((dev->venc_dvfs_params.target_freq == dev->venc_dvfs_params.min_freq) &&
-		(dev->venc_dvfs_params.target_freq >
-		(dev->venc_dvfs_params.freq_sum * 3))) {
-		mtk_v4l2_debug(8, "[VENC] Loading too low %u / %u, 0 QoS BW",
-			dev->venc_dvfs_params.freq_sum,
-			dev->venc_dvfs_params.target_freq);
-		return;
-	}
-
-	for (i = 0; i < dev->venc_port_cnt; i++) {
-		target_bw = (u64)dev->venc_port_bw[i].port_base_bw *
-			dev->venc_dvfs_params.target_freq /
-			dev->venc_dvfs_params.min_freq;
-		if (dev->venc_port_bw[i].port_type < VCODEC_PORT_LARB_SUM) {
-			mtk_icc_set_bw_not_update(dev->venc_qos_req[i],
+	for (i = 0; i < dev->venc_larb_cnt; i++) {
+		target_bw = (dev->venc_larb_bw[i].larb_base_bw / 100)
+			* (dev->venc_dvfs_params.target_bw_factor / (100 * 100));
+		if (dev->venc_larb_bw[i].larb_type < VCODEC_LARB_SUM) {
+			mtk_icc_set_bw(dev->venc_qos_req[i],
 					MBps_to_icc((u32)target_bw), 0);
-			mtk_v4l2_debug(8, "[VENC] port %d bw %lu MB/s", i, (u32)target_bw);
-		} else if (dev->venc_port_bw[i].port_type == VCODEC_PORT_LARB_SUM) {
-			mtk_icc_set_bw(dev->venc_qos_req[i], 0, 0);
-			mtk_v4l2_debug(8, "[VENC] port %d set larb %u bw",
-					i, dev->venc_port_bw[i].larb);
+			mtk_v4l2_debug(8, "[VENC] set larb%d: %dMB/s",
+				dev->venc_larb_bw[i].larb_id, target_bw);
 		} else {
 			mtk_v4l2_debug(8, "[VENC] unknown port type %d\n",
-					dev->venc_port_bw[i].port_type);
+					dev->venc_larb_bw[i].larb_type);
 		}
 	}
 }
@@ -456,28 +459,25 @@ void mtk_venc_pmqos_end_inst(struct mtk_vcodec_ctx *ctx)
 {
 	int i;
 	struct mtk_vcodec_dev *dev = 0;
-	u64 target_bw = 0;
+	u32 target_bw = 0;
 
 	dev = ctx->dev;
-	for (i = 0; i < dev->venc_port_cnt; i++) {
-		target_bw = (u64)dev->venc_port_bw[i].port_base_bw *
-			dev->venc_dvfs_params.target_freq /
-			dev->venc_dvfs_params.min_freq;
+
+	for (i = 0; i < dev->venc_larb_cnt; i++) {
+		target_bw = (dev->venc_larb_bw[i].larb_base_bw / 100)
+			* (dev->venc_dvfs_params.target_bw_factor / (100 * 100));
 
 		if (list_empty(&dev->venc_dvfs_inst)) /* no more instances */
 			target_bw = 0;
 
-		if (dev->venc_port_bw[i].port_type < VCODEC_PORT_LARB_SUM) {
-			mtk_icc_set_bw_not_update(dev->venc_qos_req[i],
+		if (dev->venc_larb_bw[i].larb_type < VCODEC_LARB_SUM) {
+			mtk_icc_set_bw(dev->venc_qos_req[i],
 					MBps_to_icc((u32)target_bw), 0);
-			mtk_v4l2_debug(8, "[VENC] port %d bw %lu MB/s", i, (u32)target_bw);
-		} else if (dev->venc_port_bw[i].port_type == VCODEC_PORT_LARB_SUM) {
-			mtk_icc_set_bw(dev->venc_qos_req[i], 0, 0);
-			mtk_v4l2_debug(8, "[VENC] port %d set larb %u bw",
-					i, dev->venc_port_bw[i].larb);
+			mtk_v4l2_debug(8, "[VENC] set larb %d: %dMB/s",
+					dev->venc_larb_bw[i].larb_id, target_bw);
 		} else {
 			mtk_v4l2_debug(8, "[VENC] unknown port type %d\n",
-					dev->venc_port_bw[i].port_type);
+					dev->venc_larb_bw[i].larb_type);
 		}
 	}
 }

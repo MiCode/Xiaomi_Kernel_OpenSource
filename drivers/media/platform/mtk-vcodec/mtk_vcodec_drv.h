@@ -52,6 +52,8 @@
 #define MAX_CODEC_FREQ_STEP	10
 #define MTK_VDEC_PORT_NUM	64
 #define MTK_VENC_PORT_NUM	128
+#define MTK_VDEC_LARB_NUM	8
+#define MTK_VENC_LARB_NUM	8
 #define MTK_MAX_METADATA_NUM    8
 
 #define MAX_GEN_BUF_CNT		32
@@ -808,6 +810,8 @@ struct mtk_vcodec_dev {
 	int venc_cfg_cnt;
 	int vdec_port_cnt;
 	int venc_port_cnt;
+	int venc_larb_cnt;
+	int vdec_larb_cnt;
 	int vdec_port_idx[MTK_VDEC_HW_NUM];
 	int venc_port_idx[MTK_VENC_HW_NUM];
 	struct vcodec_perf *vdec_tput;
@@ -824,6 +828,8 @@ struct mtk_vcodec_dev {
 	struct dvfs_params venc_dvfs_params;
 	struct vcodec_port_bw *vdec_port_bw;
 	struct vcodec_port_bw *venc_port_bw;
+	struct vcodec_larb_bw *vdec_larb_bw;
+	struct vcodec_larb_bw *venc_larb_bw;
 /**
  *	struct ion_client *ion_vdec_client;
  *	struct ion_client *ion_venc_client;

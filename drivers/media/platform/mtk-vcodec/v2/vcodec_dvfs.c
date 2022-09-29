@@ -100,6 +100,8 @@ int add_inst(struct mtk_vcodec_ctx *ctx)
 	new_inst->codec_type = ctx->type;
 	new_inst->codec_fmt = (new_inst->codec_type == MTK_INST_ENCODER) ?
 		ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc : ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+	new_inst->yuv_fmt = (new_inst->codec_type == MTK_INST_ENCODER) ?
+		ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc : ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc;
 	new_inst->config = DEFAULT_VENC_CONFIG; /* Read from register when encode done */
 	new_inst->core_cnt = 2; /* Depends on WP */
 	new_inst->b_frame = (new_inst->codec_type == MTK_INST_ENCODER) ?
@@ -454,6 +456,83 @@ u64 calc_freq(struct vcodec_inst *inst, struct mtk_vcodec_dev *dev)
 	return freq;
 }
 
+bool mtk_vcodec_is_10Bit(u32 cur_codec_fmt, int codec_type)
+{
+	if (codec_type == MTK_INST_DECODER) {
+		/* Todo: add decoder */
+	} else if (codec_type == MTK_INST_ENCODER) {
+		if (cur_codec_fmt == V4L2_PIX_FMT_RGBA1010102 ||
+		    cur_codec_fmt == V4L2_PIX_FMT_BGRA1010102 ||
+		    cur_codec_fmt == V4L2_PIX_FMT_ARGB1010102 ||
+		    cur_codec_fmt == V4L2_PIX_FMT_ABGR1010102 ||
+		    cur_codec_fmt == V4L2_PIX_FMT_RGBA1010102_AFBC ||
+		    cur_codec_fmt == V4L2_PIX_FMT_BGRA1010102_AFBC ||
+		    cur_codec_fmt == V4L2_PIX_FMT_MT10 || cur_codec_fmt == V4L2_PIX_FMT_MT10S ||
+		    cur_codec_fmt == V4L2_PIX_FMT_P010S || cur_codec_fmt == V4L2_PIX_FMT_P010M ||
+		    cur_codec_fmt == V4L2_PIX_FMT_NV12_10B_AFBC) {
+			mtk_v4l2_debug(8, "[VDVFS] venc ctx is 10bit");
+			return true;
+		}
+	}
+	return false;
+}
+
+bool mtk_vcodec_is_afbc(u32 cur_codec_fmt, int codec_type)
+{
+	if (codec_type == MTK_INST_DECODER) {
+		/* Todo: add decoder */
+	} else if (codec_type == MTK_INST_ENCODER) {
+		if (cur_codec_fmt == V4L2_PIX_FMT_RGB32_AFBC ||
+		    cur_codec_fmt == V4L2_PIX_FMT_BGR32_AFBC ||
+		    cur_codec_fmt == V4L2_PIX_FMT_RGBA1010102_AFBC ||
+		    cur_codec_fmt == V4L2_PIX_FMT_BGRA1010102_AFBC ||
+		    cur_codec_fmt == V4L2_PIX_FMT_NV12_AFBC ||
+		    cur_codec_fmt == V4L2_PIX_FMT_NV21_AFBC ||
+		    cur_codec_fmt == V4L2_PIX_FMT_NV12_10B_AFBC) {
+			mtk_v4l2_debug(8, "[VDVFS] venc ctx is afbc");
+			return true;
+		}
+	}
+	return false;
+}
+
+u32 mtk_vcodec_get_bw_factor(struct mtk_vcodec_dev *dev, int codec_type)
+{
+	int i;
+	struct list_head *item;
+	struct vcodec_inst *inst;
+	u32 bw_factor_bit, bw_factor_afbc;
+	u32 inst_bw_factor, target_bw_factor = 0;
+	u32 freq_sum = dev->venc_dvfs_params.target_freq;
+
+	if (codec_type == MTK_INST_DECODER) {
+		/*Todo: decoder use bw factor*/
+		return 0;
+	} else if (codec_type == MTK_INST_ENCODER) {
+		/*get encoder bw factor*/
+		list_for_each(item, &dev->venc_dvfs_inst) {
+			inst = list_entry(item, struct vcodec_inst, list);
+			bw_factor_bit = mtk_vcodec_is_10Bit(inst->yuv_fmt, MTK_INST_ENCODER) ?
+				BW_FACTOR_10BIT : 100;
+			bw_factor_afbc = mtk_vcodec_is_afbc(inst->yuv_fmt, MTK_INST_ENCODER) ?
+				100 : BW_FACTOR_NONAFBC;
+			for (i = 0 ; i < dev->venc_tput_cnt; i++) {
+				if (inst->config == dev->venc_tput[i].config &&
+				    inst->codec_fmt == dev->venc_tput[i].codec_fmt) {
+					inst_bw_factor = dev->venc_tput[i].bw_factor * bw_factor_bit
+					* bw_factor_afbc * (freq_sum / dev->venc_tput[i].base_freq);
+					if (inst_bw_factor > target_bw_factor) {
+						mtk_v4l2_debug(8, "[VDVFS] ctx %d, bw_fac:%d",
+						inst->id, inst_bw_factor);
+						target_bw_factor = inst_bw_factor;
+					}
+				}
+			}
+		}
+		return target_bw_factor;
+	}
+	return 0;
+}
 
 void update_freq(struct mtk_vcodec_dev *dev, int codec_type)
 {
@@ -462,6 +541,7 @@ void update_freq(struct mtk_vcodec_dev *dev, int codec_type)
 	u64 freq = 0;
 	u64 freq_sum = 0;
 	u32 op_rate_sum = 0;
+	u32 target_bw_factor;
 	bool no_op_rate_max_freq = false;
 
 	if (codec_type == MTK_INST_DECODER) {
@@ -557,6 +637,12 @@ void update_freq(struct mtk_vcodec_dev *dev, int codec_type)
 		freq_sum = match_avail_freq(dev, codec_type, freq_sum);
 
 		dev->venc_dvfs_params.target_freq = (u32)freq_sum;
-		mtk_v4l2_debug(6, "[VDVFS] VENC freq = %u", dev->venc_dvfs_params.target_freq);
+		mtk_v4l2_debug(6, "[VDVFS] VENC freq = %u",
+			dev->venc_dvfs_params.target_freq);
+
+		target_bw_factor = mtk_vcodec_get_bw_factor(dev, MTK_INST_ENCODER);
+		dev->venc_dvfs_params.target_bw_factor = target_bw_factor;
+		mtk_v4l2_debug(6, "[VDVFS] VENC bw_factor = %u",
+			dev->venc_dvfs_params.target_bw_factor);
 	}
 }

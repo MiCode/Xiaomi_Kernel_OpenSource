@@ -20,10 +20,23 @@ enum vcodec_port_type {
 	VCODEC_PORT_LARB_SUM = 6
 };
 
+enum vcodec_larb_type {
+	VCODEC_LARB_READ = 0,
+	VCODEC_LARB_WRITE = 1,
+	VCODEC_LARB_READ_WRITE = 2,
+	VCODEC_LARB_SUM = 3
+};
+
 struct vcodec_port_bw {
 	int port_type;
 	u32 port_base_bw;
 	u32 larb;
+};
+
+struct vcodec_larb_bw {
+	int larb_type;
+	u32 larb_base_bw;
+	u32 larb_id;
 };
 
 #endif

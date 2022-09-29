@@ -14,7 +14,9 @@
 #define MAX_VCODEC_FREQ 4294967295
 #define MAX_OP_CNT 5
 #define WP_SCENARIO 6
-
+#define VDEC_HIGHEST_FREQ 880000000
+#define BW_FACTOR_10BIT 125
+#define BW_FACTOR_NONAFBC 114
 
 struct mtk_vcodec_dev;
 struct mtk_vcodec_ctx;
@@ -26,6 +28,8 @@ struct vcodec_perf {
 	s32 config;
 	u32 cy_per_mb_1; /* for I/P */
 	u32 cy_per_mb_2; /* for I/P/B */
+	u32 base_freq; /* freq for single inst under this codec and resolution */
+	u32 bw_factor; /* target bandwidth = base bandwidth * (bw_factor / 100 )*/
 };
 
 /* config selection criteria */
@@ -51,6 +55,7 @@ struct vcodec_inst {
 	struct mtk_vcodec_ctx *ctx;
 	u8 codec_type;
 	u32 codec_fmt;
+	u32 yuv_fmt;
 	u32 core_cnt;
 	s32 config;
 	u32 b_frame;
@@ -76,6 +81,7 @@ struct dvfs_params {
 	u32 target_freq;	/* target freq */
 	u8 lock_cnt[MTK_VDEC_HW_NUM]; /* lock cnt */
 	u8 frame_need_update;	/* this frame begin / end needs update */
+	u32 target_bw_factor; /* target bw = base bw * target_bw_factor*/
 	struct timer_list vdec_active_checker;
 	u8 has_timer;
 };
