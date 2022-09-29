@@ -125,9 +125,16 @@ EXPORT_SYMBOL_GPL(mtk_vcodec_get_enc_reg_addr);
 int mtk_vcodec_mem_alloc(struct mtk_vcodec_ctx *data,
 						 struct mtk_vcodec_mem *mem)
 {
-	unsigned long size = mem->size;
+	unsigned long size;
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)data;
-	struct device *dev = &ctx->dev->plat_dev->dev;
+	struct device *dev;
+
+	if (data == NULL || mem == NULL) {
+		mtk_v4l2_err("Invalid arguments, data=0x%x, mem=0x%x", data, mem);
+		return -EINVAL;
+	}
+	size = mem->size;
+	dev = &ctx->dev->plat_dev->dev;
 
 	mem->va = dma_alloc_coherent(dev, size, &mem->dma_addr, GFP_KERNEL);
 
@@ -151,9 +158,16 @@ EXPORT_SYMBOL_GPL(mtk_vcodec_mem_alloc);
 void mtk_vcodec_mem_free(struct mtk_vcodec_ctx *data,
 						 struct mtk_vcodec_mem *mem)
 {
-	unsigned long size = mem->size;
+	unsigned long size;
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)data;
-	struct device *dev = &ctx->dev->plat_dev->dev;
+	struct device *dev;
+
+	if (data == NULL || mem == NULL) {
+		mtk_v4l2_err("Invalid arguments, data=0x%x, mem=0x%x", data, mem);
+		return;
+	}
+	size = mem->size;
+	dev = &ctx->dev->plat_dev->dev;
 
 	if (!mem->va) {
 		mtk_v4l2_err("%s dma_free size=%ld failed!", dev_name(dev),
@@ -178,6 +192,11 @@ void mtk_vcodec_set_curr_ctx(struct mtk_vcodec_dev *dev,
 {
 	unsigned long flags;
 
+	if (dev == NULL || ctx == NULL || hw_id >= MTK_VDEC_HW_NUM) {
+		mtk_v4l2_err("Invalid arguments, dev=0x%x, ctx=0x%x, hw_id=%d", dev, ctx, hw_id);
+		return;
+	}
+
 	spin_lock_irqsave(&dev->irqlock, flags);
 	dev->curr_dec_ctx[hw_id] = ctx;
 	spin_unlock_irqrestore(&dev->irqlock, flags);
@@ -190,8 +209,8 @@ struct mtk_vcodec_ctx *mtk_vcodec_get_curr_ctx(struct mtk_vcodec_dev *dev,
 	unsigned long flags;
 	struct mtk_vcodec_ctx *ctx;
 
-	if (!dev) {
-		mtk_v4l2_err("dev is NULL! (hw_id %d)");
+	if (!dev || hw_id >= MTK_VDEC_HW_NUM) {
+		mtk_v4l2_err("Invalid arguments, dev=0x%x, hw_id=%d", dev, hw_id);
 		return NULL;
 	}
 
@@ -224,10 +243,18 @@ EXPORT_SYMBOL_GPL(mtk_vcodec_del_ctx_list);
 
 void mtk_vcodec_init_slice_info(struct mtk_vcodec_ctx *ctx, struct mtk_video_dec_buf *dst_buf_info)
 {
-	struct vb2_v4l2_buffer *dst_buf = &dst_buf_info->vb;
-	struct vdec_fb *pfb = &dst_buf_info->frame_buffer;
-	struct dma_buf *dbuf = dst_buf->vb2_buf.planes[0].dbuf;
+	struct vb2_v4l2_buffer *dst_buf;
+	struct vdec_fb *pfb;
+	struct dma_buf *dbuf;
 	struct dma_fence *fence;
+
+	if (ctx == NULL || dst_buf_info == NULL) {
+		mtk_v4l2_err("Invalid arguments, ctx=0x%x, dst_buf_info=0x%x", ctx, dst_buf_info);
+		return;
+	}
+	dst_buf = &dst_buf_info->vb;
+	pfb = &dst_buf_info->frame_buffer;
+	dbuf = dst_buf->vb2_buf.planes[0].dbuf;
 
 	pfb->slice_done_count = 0;
 	fence = mtk_vcodec_create_fence(ctx->dec_params.slice_count);
@@ -361,8 +388,13 @@ EXPORT_SYMBOL(mtk_vcodec_get_bs);
 int v4l2_m2m_buf_queue_check(struct v4l2_m2m_ctx *m2m_ctx,
 		void *vbuf)
 {
-	struct v4l2_m2m_buffer *b = container_of(vbuf,
-				struct v4l2_m2m_buffer, vb);
+	struct v4l2_m2m_buffer *b;
+
+	if (vbuf == NULL) {
+		mtk_v4l2_err("Invalid arguments, m2m_ctx=0x%x, vbuf=0x%x", m2m_ctx, vbuf);
+		return -1;
+	}
+	b = container_of(vbuf, struct v4l2_m2m_buffer, vb);
 	mtk_v4l2_debug(8, "[Debug] b %p b->list.next %p prev %p %p %p\n",
 		b, b->list.next, b->list.prev,
 		LIST_POISON1, LIST_POISON2);
@@ -441,7 +473,11 @@ EXPORT_SYMBOL(mtk_dma_sync_sg_range);
 void v4l_fill_mtk_fmtdesc(struct v4l2_fmtdesc *fmt)
 {
 	const char *descr = NULL;
-	const unsigned int sz = sizeof(fmt->description);
+
+	if (fmt == NULL) {
+		mtk_v4l2_err("Invalid arguments, fmt=0x%x", fmt);
+		return;
+	}
 
 	switch (fmt->pixelformat) {
 	case V4L2_PIX_FMT_H265:
@@ -518,7 +554,7 @@ void v4l_fill_mtk_fmtdesc(struct v4l2_fmtdesc *fmt)
 	}
 
 	if (descr)
-		WARN_ON(strscpy(fmt->description, descr, sz) < 0);
+		WARN_ON(strscpy(fmt->description, descr, sizeof(fmt->description)) < 0);
 }
 EXPORT_SYMBOL_GPL(v4l_fill_mtk_fmtdesc);
 
@@ -530,6 +566,12 @@ int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev,
 	struct dma_heap *dma_heap;
 	struct dma_buf *dbuf;
 	__u32 alloc_len = mem->len;
+
+	if (mem == NULL || dev == NULL || attach == NULL || sgt == NULL) {
+		mtk_v4l2_err("Invalid arguments, mem=0x%x, dev=0x%x, attach=0x%x, sgt=0x%x",
+			mem, dev, attach, sgt);
+		return -EINVAL;
+	}
 
 	mem->iova = 0;
 	if (dev == NULL) {
@@ -603,6 +645,12 @@ EXPORT_SYMBOL_GPL(mtk_vcodec_alloc_mem);
 int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev,
 	struct dma_buf_attachment *attach, struct sg_table *sgt)
 {
+	if (mem == NULL || dev == NULL || attach == NULL || sgt == NULL) {
+		mtk_v4l2_err("Invalid arguments, mem=0x%x, dev=0x%x, attach=0x%x, sgt=0x%x",
+			mem, dev, attach, sgt);
+		return -EINVAL;
+	}
+
 	if (mem->type == MEM_TYPE_FOR_SW ||
 		mem->type == MEM_TYPE_FOR_HW ||
 		mem->type == MEM_TYPE_FOR_UBE_HW ||
@@ -767,6 +815,11 @@ void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val,
 	char *token = NULL;
 	long temp_val = 0;
 	char log[LOG_PROPERTY_SIZE] = {0};
+
+	if (dev == NULL) {
+		mtk_v4l2_err("Invalid arguments, dev=0x%x", dev);
+		return;
+	}
 
 	if (val == NULL || strlen(val) == 0)
 		return;
