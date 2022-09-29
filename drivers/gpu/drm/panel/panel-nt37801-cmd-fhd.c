@@ -86,6 +86,23 @@ static struct mtk_panel_para_table elvss_tb[] = {
 		{2, { 0x83, 0xff}},
 	};
 
+unsigned int nt37801_cmd_fhd_buf_thresh[14] = {
+	 896, 1792, 2688, 3584, 4480,
+	5376, 6272, 6720, 7168, 7616,
+	7744, 7872, 8000, 8064};
+unsigned int nt37801_cmd_fhd_range_min_qp[15] = {
+	0, 0, 1, 1, 3, 3,
+	3, 3, 3, 4, 5, 5,
+	5, 8, 12};
+unsigned int nt37801_cmd_fhd_range_max_qp[15] = {
+	4, 4, 5, 6, 7, 7,
+	7, 8, 9, 10, 10, 11,
+	11, 12, 13};
+int nt37801_cmd_fhd_range_bpg_ofs[15] = {
+	2, 0, 0, -2, -4, -6,
+	-8, -8, -8, -10, -10, -10,
+	-12, -12, -12};
+
 struct lcm {
 	struct device *dev;
 	struct drm_panel panel;
@@ -675,6 +692,14 @@ static struct mtk_panel_params ext_params = {
 		.rc_quant_incr_limit1 = 11,
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
+
+		.ext_pps_cfg = {
+			.enable = 1,
+			.rc_buf_thresh = nt37801_cmd_fhd_buf_thresh,
+			.range_min_qp = nt37801_cmd_fhd_range_min_qp,
+			.range_max_qp = nt37801_cmd_fhd_range_max_qp,
+			.range_bpg_ofs = nt37801_cmd_fhd_range_bpg_ofs,
+			},
 		},
 	.data_rate = PLL_CLOCK * 2,
 	/* following MIPI hopping parameter might cause screen mess */
@@ -730,6 +755,13 @@ static struct mtk_panel_params ext_params_90hz = {
 		.rc_quant_incr_limit1 = 11,
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
+		.ext_pps_cfg = {
+			.enable = 1,
+			.rc_buf_thresh = nt37801_cmd_fhd_buf_thresh,
+			.range_min_qp = nt37801_cmd_fhd_range_min_qp,
+			.range_max_qp = nt37801_cmd_fhd_range_max_qp,
+			.range_bpg_ofs = nt37801_cmd_fhd_range_bpg_ofs,
+			},
 		},
 	.data_rate = PLL_CLOCK * 2,
 	/* following MIPI hopping parameter might cause screen mess */
@@ -785,6 +817,13 @@ static struct mtk_panel_params ext_params_60hz = {
 		.rc_quant_incr_limit1 = 11,
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
+		.ext_pps_cfg = {
+			.enable = 1,
+			.rc_buf_thresh = nt37801_cmd_fhd_buf_thresh,
+			.range_min_qp = nt37801_cmd_fhd_range_min_qp,
+			.range_max_qp = nt37801_cmd_fhd_range_max_qp,
+			.range_bpg_ofs = nt37801_cmd_fhd_range_bpg_ofs,
+			},
 		},
 	.data_rate = PLL_CLOCK * 2,
 	/* following MIPI hopping parameter might cause screen mess */
