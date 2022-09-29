@@ -5046,7 +5046,7 @@ static bool mtk_camsys_is_all_cq_done(struct mtk_cam_ctx *ctx,
 	ctx->cq_done_status |= (1 << pipe_id);
 
 	// check cq done status
-	if (ctx->used_raw_num)
+	if (ctx->used_raw_num && ctx->pipe)
 		all_subdevs |= (1 << ctx->pipe->id);
 	if (ctx->sv_dev)
 		all_subdevs |= (1 << (ctx->sv_dev->id + MTKCAM_SUBDEV_CAMSV_START));
@@ -5395,7 +5395,7 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 		/* stream on after all pipes' cq done */
 		if (atomic_read(&camsv_dev->is_first_frame)) {
 			atomic_set(&camsv_dev->is_first_frame, 0);
-			if (ctx->used_raw_num) {
+			if (ctx->used_raw_num && ctx->pipe) {
 				if (mtk_cam_scen_is_ext_isp(&ctx->pipe->scen_active)) {
 					struct mtk_cam_request_stream_data *s_data =
 						mtk_cam_get_req_s_data(ctx, ctx->stream_id, 1);
