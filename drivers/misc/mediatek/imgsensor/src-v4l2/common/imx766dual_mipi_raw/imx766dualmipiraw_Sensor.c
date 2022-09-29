@@ -87,10 +87,11 @@ static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
+			.channel = 0,
+			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0300,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
@@ -107,10 +108,11 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cap[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
+			.channel = 0,
+			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0300,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
@@ -127,10 +129,11 @@ static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
+			.channel = 0,
+			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0240,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
@@ -147,10 +150,11 @@ static struct mtk_mbus_frame_desc_entry frame_desc_hs_vid[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
+			.channel = 0,
+			.data_type = 0x30,
 			.hsize = 0x0800,
 			.vsize = 0x0120,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
@@ -167,10 +171,11 @@ static struct mtk_mbus_frame_desc_entry frame_desc_slim_vid[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
+			.channel = 0,
+			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0300,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
@@ -187,10 +192,11 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus1[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
+			.channel = 0,
+			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0300,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
@@ -207,10 +213,11 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus2[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
+			.channel = 0,
+			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0240,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
@@ -227,10 +234,11 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus3[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
+			.channel = 0,
+			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0600,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
@@ -256,19 +264,21 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus4[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
+			.channel = 0,
+			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0240,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
 	{
 		.bus.csi2 = {
-			.channel = 4,
-			.data_type = 0x2b,
+			.channel = 1,
+			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0240,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
 		},
 	},
@@ -285,10 +295,11 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus5[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
+			.channel = 0,
+			.data_type = 0x30,
 			.hsize = 0x0800,
 			.vsize = 0x0120,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
@@ -327,10 +338,11 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus8[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
+			.channel = 0,
+			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0300,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
@@ -347,10 +359,11 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus9[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
+			.channel = 0,
+			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0300,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
@@ -367,10 +380,11 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus10[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
+			.channel = 0,
+			.data_type = 0x30,
 			.hsize = 0x0800,
 			.vsize = 0x0300,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
@@ -387,10 +401,11 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus11[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
+			.channel = 0,
+			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0600,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
@@ -416,19 +431,21 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus12[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
+			.channel = 0,
+			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0300,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
 	{
 		.bus.csi2 = {
-			.channel = 4,
-			.data_type = 0x2b,
+			.channel = 1,
+			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0300,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
 		},
 	},
@@ -445,10 +462,11 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus13[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
+			.channel = 0,
+			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0240,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
@@ -465,10 +483,11 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus14[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
+			.channel = 0,
+			.data_type = 0x30,
 			.hsize = 0x0800,
 			.vsize = 0x0240,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
@@ -485,10 +504,11 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus15[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
+			.channel = 0,
+			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0300,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
@@ -514,19 +534,21 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus16[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 3,
-			.data_type = 0x2b,
+			.channel = 0,
+			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0300,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
 	{
 		.bus.csi2 = {
-			.channel = 4,
-			.data_type = 0x2b,
+			.channel = 1,
+			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0300,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
 		},
 	},
