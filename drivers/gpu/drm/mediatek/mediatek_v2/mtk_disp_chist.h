@@ -14,6 +14,7 @@ struct mtk_disp_chist_data {
 	unsigned int color_format;
 	unsigned int max_channel;
 	unsigned int max_bin;
+	unsigned int chist_shift_num;
 };
 
 struct mtk_disp_chist {

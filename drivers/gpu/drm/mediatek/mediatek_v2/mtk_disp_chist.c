@@ -68,12 +68,6 @@
 
 //#define DEBUG_UT_TEST
 
-#ifdef DEBUG_UT_TEST
-#define DISP_CHIST_SHIFT_NUM 0
-#else
-#define DISP_CHIST_SHIFT_NUM 5
-#endif
-
 static unsigned int g_chist_relay_value[2];
 #define index_of_chist(module) ((module == DDP_COMPONENT_CHIST0) ? 0 : 1)
 
@@ -319,6 +313,15 @@ static bool is_dual_pipe_comp(struct mtk_ddp_comp *comp)
 				comp->id == DDP_COMPONENT_CHIST3);
 
 	return (comp->id == DDP_COMPONENT_CHIST1);
+}
+
+static int chist_shift_num(struct mtk_ddp_comp *comp)
+{
+#ifdef DEBUG_UT_TEST
+	return 0;
+#else
+	return comp_to_chist(comp)->data->chist_shift_num;
+#endif
 }
 
 void mtk_chist_dump_impl(struct mtk_ddp_comp *comp)
@@ -799,6 +802,9 @@ static void mtk_chist_config(struct mtk_ddp_comp *comp,
 				   comp->regs_pa + DISP_CHIST_SHADOW_CTRL,
 				   0x1, ~0);
 
+	if (comp->id != DDP_COMPONENT_CHIST0 &&
+		comp->id != DDP_COMPONENT_CHIST1)
+		return;
 	// default by pass chist
 	mtk_chist_bypass(comp, 1, handle);
 	if (comp->id == DDP_COMPONENT_CHIST0
@@ -879,11 +885,11 @@ static void mtk_get_hist_dual_pipe(struct mtk_ddp_comp *comp,
 		if (g_chist_config[index][i].roi_start_x >= g_pipe_width)
 			// read right
 			g_disp_hist[index][i].hist[j] = readl(dual_comp->regs
-				+ DISP_CHIST_SRAM_R_IF) >> DISP_CHIST_SHIFT_NUM;
+				+ DISP_CHIST_SRAM_R_IF) >> chist_shift_num(comp);
 		else if (g_chist_config[index][i].roi_end_x < g_pipe_width)
 			// read left
 			g_disp_hist[index][i].hist[j] = readl(comp->regs + DISP_CHIST_SRAM_R_IF)
-				>> DISP_CHIST_SHIFT_NUM;
+				>> chist_shift_num(comp);
 		else {
 			if (g_chist_block_config[index][i].sum_column > 1) {
 				int current_column = (j / g_chist_config[index][i].bin_count)
@@ -891,7 +897,7 @@ static void mtk_get_hist_dual_pipe(struct mtk_ddp_comp *comp,
 
 				if (current_column < g_chist_block_config[index][i].left_column) {
 					g_disp_hist[index][i].hist[j] = readl(comp->regs
-						+ DISP_CHIST_SRAM_R_IF) >> DISP_CHIST_SHIFT_NUM;
+						+ DISP_CHIST_SRAM_R_IF) >> chist_shift_num(comp);
 
 					if (g_chist_block_config[index][i].merge_column >= 0 &&
 						g_chist_block_config[index][i].merge_column
@@ -899,17 +905,17 @@ static void mtk_get_hist_dual_pipe(struct mtk_ddp_comp *comp,
 						g_disp_hist[index][i].hist[j] +=
 							(readl(dual_comp->regs
 							+ DISP_CHIST_SRAM_R_IF) - 0x10)
-							>> DISP_CHIST_SHIFT_NUM;
+							>> chist_shift_num(comp);
 					}
 				} else {
 					g_disp_hist[index][i].hist[j] = readl(dual_comp->regs
-						+ DISP_CHIST_SRAM_R_IF) >> DISP_CHIST_SHIFT_NUM;
+						+ DISP_CHIST_SRAM_R_IF) >> chist_shift_num(comp);
 				}
 			} else {
 				g_disp_hist[index][i].hist[j] = readl(comp->regs
-					+ DISP_CHIST_SRAM_R_IF) >> DISP_CHIST_SHIFT_NUM;
+					+ DISP_CHIST_SRAM_R_IF) >> chist_shift_num(comp);
 				g_disp_hist[index][i].hist[j] += (readl(dual_comp->regs
-					+ DISP_CHIST_SRAM_R_IF) - 0x10) >> DISP_CHIST_SHIFT_NUM;
+					+ DISP_CHIST_SRAM_R_IF) - 0x10) >> chist_shift_num(comp);
 			}
 		}
 	}
@@ -959,7 +965,7 @@ static void mtk_get_chist(struct mtk_ddp_comp *comp)
 
 				for (; j < max_bins; j++) {
 					g_disp_hist[index][i].hist[j] = readl(comp->regs
-						+ DISP_CHIST_SRAM_R_IF) >> DISP_CHIST_SHIFT_NUM;
+						+ DISP_CHIST_SRAM_R_IF) >> chist_shift_num(comp);
 				}
 			}
 		}
@@ -1088,6 +1094,7 @@ static const struct mtk_disp_chist_data mt6983_chist_driver_data = {
 	.color_format = DISP_CHIST_COLOR_FORMAT,
 	.max_channel = 3,
 	.max_bin = DISP_CHIST_MAX_BIN_LOW,
+	.chist_shift_num = 5,
 };
 
 static const struct mtk_disp_chist_data mt6895_chist_driver_data = {
@@ -1096,6 +1103,7 @@ static const struct mtk_disp_chist_data mt6895_chist_driver_data = {
 	.color_format = DISP_CHIST_COLOR_FORMAT,
 	.max_channel = 3,
 	.max_bin = DISP_CHIST_MAX_BIN_LOW,
+	.chist_shift_num = 5,
 };
 
 static const struct mtk_disp_chist_data mt6879_chist_driver_data = {
@@ -1104,6 +1112,7 @@ static const struct mtk_disp_chist_data mt6879_chist_driver_data = {
 	.color_format = DISP_CHIST_COLOR_FORMAT,
 	.max_channel = 3,
 	.max_bin = DISP_CHIST_MAX_BIN_LOW,
+	.chist_shift_num = 5,
 };
 
 static const struct mtk_disp_chist_data mt6985_chist_driver_data = {
@@ -1112,6 +1121,7 @@ static const struct mtk_disp_chist_data mt6985_chist_driver_data = {
 	.color_format = DISP_CHIST_COLOR_FORMAT,
 	.max_channel = 3,
 	.max_bin = DISP_CHIST_MAX_BIN_LOW,
+	.chist_shift_num = 7,
 };
 
 static const struct mtk_disp_chist_data mt6886_chist_driver_data = {
@@ -1120,6 +1130,7 @@ static const struct mtk_disp_chist_data mt6886_chist_driver_data = {
 	.color_format = DISP_CHIST_COLOR_FORMAT,
 	.max_channel = 3,
 	.max_bin = DISP_CHIST_MAX_BIN_LOW,
+	.chist_shift_num = 5,
 };
 
 
