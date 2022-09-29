@@ -17,6 +17,7 @@
 #include <linux/rpmsg.h>
 #include <linux/rpmsg/mtk_rpmsg.h>
 #include <linux/iommu.h>
+#include <linux/workqueue.h>
 
 #include "clk-mtk.h"
 #include "mtk-mmdvfs-v3.h"
@@ -75,6 +76,8 @@ static unsigned int ccu_pwr_usage[CCU_PWR_USR_NUM];
 static unsigned int vcp_pwr_usage[VCP_PWR_USR_NUM];
 
 static struct notifier_block vcp_ready_notifier;
+
+static struct workqueue_struct *cam_notify_wq;
 
 enum mmdvfs_log_level {
 	log_ipi,
@@ -632,16 +635,36 @@ static int mmdvfs_set_vcp_init(void)
 	return 0;
 }
 
+void cam_notify_work_func(struct work_struct *work)
+{
+	struct mmdvfs_cam_notify_work *cam_notify_work =
+		container_of(work, struct mmdvfs_cam_notify_work, cam_notify_work);
+
+	mtk_mmdvfs_enable_vcp(cam_notify_work->enable, VCP_PWR_USR_MMDVFS_CAM_NOTIFY);
+	kfree(cam_notify_work);
+}
+
 int mtk_mmdvfs_camera_notify(const bool genpd_update, const bool enable)
 {
-	if (!mtk_is_mmdvfs_init_done()) {
-		MMDVFS_DBG("mmdvfs_v3 init not ready");
-		return 0;
-	}
+	struct mmdvfs_cam_notify_work *work;
 
 	MMDVFS_DBG("genpd_update:%u enable:%u", genpd_update, enable);
-	if (genpd_update)
-		mtk_mmdvfs_enable_vcp(enable, VCP_PWR_USR_MMDVFS_CAM_NOTIFY);
+	if (genpd_update) {
+		if (!cam_notify_wq) {
+			MMDVFS_ERR("no came notify wq");
+			return -ENODEV;
+		}
+
+		work = kzalloc(sizeof(*work), GFP_KERNEL);
+		if (!work) {
+			MMDVFS_ERR("memory allocation failed");
+			return -ENOMEM;
+		}
+
+		work->enable = enable;
+		INIT_WORK(&work->cam_notify_work, cam_notify_work_func);
+		queue_work(cam_notify_wq, &work->cam_notify_work);
+	}
 
 	return 0;
 }
@@ -1394,6 +1417,8 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 
 	kthr_vcp = kthread_run(mmdvfs_vcp_init_thread, NULL, "mmdvfs-vcp");
 	kthr_ccu = kthread_run(mmdvfs_ccu_init_thread, node, "mmdvfs-ccu");
+
+	cam_notify_wq = create_singlethread_workqueue("cam_notify_wq");
 
 	return ret;
 }
