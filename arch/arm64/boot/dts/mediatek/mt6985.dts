@@ -71,6 +71,8 @@
 		rsz5 = &disp1_rsz1;
 //		mrsz0 = &disp_mdp_rsz0;
 //		mrsz1 = &disp1_mdp_rsz0;
+		mdp-rsz0 = &mdp_rsz6;
+		mdp-rsz1 = &mdp_rsz7;
 		wdma0 = &disp_wdma1;
 		wdma1 = &disp1_wdma1;
 		wdma10 = &disp_wdma0;
@@ -11264,6 +11266,20 @@
 		reg = <0 0x14606000 0 0x1000>;
 		interrupts = <GIC_SPI 435 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&ovlsys1_config_clk CLK_OVL1_DISP_RSZ1>;
+	};
+
+	mdp_rsz6: mdp-rsz6@14407000 {
+		compatible = "mediatek,mdp_rsz",
+				"mediatek,mt6985-disp-mdp-rsz";
+		reg = <0 0x14407000 0 0x1000>;
+		clocks = <&ovlsys_config_clk CLK_OVL_MDP_RSZ0>;
+	};
+
+	mdp_rsz7: mdp-rsz7@14607000 {
+		compatible = "mediatek,mdp_rsz",
+				"mediatek,mt6985-disp-mdp-rsz";
+		reg = <0 0x14607000 0 0x1000>;
+		clocks = <&ovlsys1_config_clk CLK_OVL1_MDP_RSZ0>;
 	};
 
 	inlinerot0: inlinerot@1440b000 {
