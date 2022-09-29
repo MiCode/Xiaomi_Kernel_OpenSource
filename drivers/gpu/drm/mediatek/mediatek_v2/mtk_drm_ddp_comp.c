@@ -993,11 +993,36 @@ static void mtk_ddp_comp_iommu_register(struct mtk_ddp_comp *comp)
 			mtk_iommu_register_fault_callback(
 						port, mtk_ddp_iommu_callback,
 						comp, false);
-		DDPINFO("%s, comp:%u, register the %d port:0x%x\n",
-			__func__, comp->id, index, port);
+		DDPINFO("%s, id:%s, register the %d port:0x%x\n",
+			__func__, mtk_dump_comp_str_id(comp->id), index, port);
 		index++;
 	}
 }
+
+static void mtk_ddp_ovl_iommu_register(struct mtk_ddp_comp *comp)
+{
+	int port = 0, index = 0, ret = 0;
+
+	if (!comp || !comp->dev)
+		return;
+
+	while (1) {
+		ret = of_property_read_u32_index(comp->dev->of_node,
+				"iommus-ovl", index, &port);
+		if (ret < 0)
+			break;
+		if (disp_helper_get_stage() ==
+			DISP_HELPER_STAGE_NORMAL)
+			mtk_iommu_register_fault_callback(
+						port, mtk_ddp_iommu_callback,
+						comp, false);
+
+		DDPINFO("%s, id:%s, register the %d port:0x%x\n",
+			__func__, mtk_dump_comp_str_id(comp->id), index, port);
+		index++;
+	}
+}
+
 #endif
 
 int mtk_ddp_comp_init(struct device *dev, struct device_node *node,
@@ -1076,6 +1101,8 @@ int mtk_ddp_comp_init(struct device *dev, struct device_node *node,
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 	mtk_ddp_comp_iommu_register(comp);
+	if (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_OVL)
+		mtk_ddp_ovl_iommu_register(comp);
 #endif
 
 	DDPINFO("%s-\n", __func__);
