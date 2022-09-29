@@ -920,21 +920,21 @@ static void ged_dvfs_trigger_fb_dvfs(void)
 {
 	is_fb_dvfs_triggered = 1;
 }
+
 /*
- *	t_gpu, t_gpu_target in ms * 10
+ *	input argument t_gpu, t_gpu_target unit: ns
  */
-static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
+static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 	int target_fps_margin, unsigned int force_fallback)
 {
-	unsigned int loading_mode = 0, workload_mode = 0;
-	int t_gpu, t_gpu_active, t_gpu_3d, t_gpu_iter, t_gpu_mcu;
-	struct GpuUtilization_Ex util_ex;
-	int i, gpu_freq_tar, gpu_freq_floor, ui32NewFreqID = 0;
-	unsigned int ap_workload, ap_workload_active, ap_workload_3d, ap_workload_iter,
-		ap_workload_mcu;
-	int ret_freq = -1;
+	unsigned int ap_workload, ap_workload_pipe,
+		ap_workload_real;   // unit: 100*cycle
+	unsigned long long frame_t_gpu;   // for gpu_util_history api
+	unsigned int frame_workload, frame_freq;   // for gpu_util_history api
+	int t_gpu_pipe, t_gpu_real;   // unit: us
+	int gpu_freq_pre, gpu_freq_tar, gpu_freq_floor;   // unit: KHZ
+	int i, ui32NewFreqID = 0;
 	int minfreq_idx;
-	static int gpu_freq_pre = -1;
 	static int num_pre_frames;
 	static int cur_frame_idx;
 	static int pre_frame_idx;
@@ -947,18 +947,24 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 	static int margin_low_bound;
 	int ultra_high_step_size = (dvfs_step_mode & 0xff);
 
+	gpu_freq_pre = ged_get_cur_freq();
+
+	/* DVFS is not enabled */
 	if (gpu_dvfs_enable == 0) {
 		ged_log_buf_print(ghLogBuf_DVFS,
 			"[GED_K][FB_DVFS] skip %s due to gpu_dvfs_enable=%u",
 			__func__, gpu_dvfs_enable);
-
-		gpu_freq_pre = ret_freq = ged_get_cur_freq();
-		ged_set_backup_timer_timeout(timeout_value);
 		is_fb_dvfs_triggered = 0;
-		return ret_freq;
+		return gpu_freq_pre;
 	}
 
-	// force_fallback 0: FB, 1: LB, 2: special token for first FB after LB
+	/* not main producer */
+	if (t_gpu == -1) {
+		is_fb_dvfs_triggered = 0;
+		return gpu_freq_pre;
+	}
+
+	// force_fallback 0: FB, 1: LB
 	if (force_fallback_pre != force_fallback) {
 		force_fallback_pre = force_fallback;
 
@@ -970,40 +976,11 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 		}
 
 	}
-	/* (t_gpu_done_interval == -1) means it's inaccurate, i.e., non-main BQ */
-	if (force_fallback == 1 || t_gpu_done_interval == -1) {
-		gpu_freq_pre = ret_freq = ged_get_cur_freq();
+	/* use LB policy */
+	if (force_fallback == 1) {
 		ged_set_backup_timer_timeout(timeout_value);
 		is_fb_dvfs_triggered = 0;
-		return ret_freq;
-	}
-
-	/* initialize different GPU time */
-	if (force_fallback == 2) {
-		// do not use loading as this is the first FB after LB
-		t_gpu_active = t_gpu_done_interval / 100000;
-		t_gpu_3d = t_gpu_active;
-		t_gpu_iter = t_gpu_active;
-		t_gpu_mcu = t_gpu_active;
-	} else {
-		ged_get_gpu_utli_ex(&util_ex);
-		t_gpu_active = t_gpu_done_interval * util_ex.util_active / (100 * 100000);
-		t_gpu_3d = t_gpu_done_interval * util_ex.util_3d / (100 * 100000);
-		t_gpu_iter = t_gpu_done_interval * util_ex.util_iter / (100 * 100000);
-		t_gpu_mcu = t_gpu_done_interval * util_ex.util_mcu / (100 * 100000);
-	}
-	t_gpu_done_interval /= 100000;
-	t_gpu_target /= 100000;
-
-	mtk_get_dvfs_loading_mode(&loading_mode);
-	if (loading_mode == LOADING_3D) {
-		t_gpu = t_gpu_3d;
-	} else if (loading_mode == LOADING_ITER) {
-		t_gpu = t_gpu_iter;
-	} else if (loading_mode == LOADING_MAX_ITERMCU) {
-		t_gpu = MAX(t_gpu_iter, t_gpu_mcu);
-	} else {   // LOADING_ACTIVE or others or unknown mode
-		t_gpu = t_gpu_active;
+		return gpu_freq_pre;
 	}
 
 	spin_lock_irqsave(&gsGpuUtilLock, ui32IRQFlags);
@@ -1011,14 +988,26 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 		is_fallback_mode_triggered = 0;
 	spin_unlock_irqrestore(&gsGpuUtilLock, ui32IRQFlags);
 
-	if (t_gpu <= 0) {
-		ged_log_buf_print(ghLogBuf_DVFS,
-		"[GED_K][FB_DVFS] skip DVFS due to t_gpu <= 0, t_gpu: %d"
-			, t_gpu);
-		gpu_freq_pre = ret_freq = ged_get_cur_freq();
-		is_fb_dvfs_triggered = 0;
-		return ret_freq;
-	}
+	/* obtain GPU frame property */
+	t_gpu /= 100000;   // change unit from ns to 100*us
+	t_gpu_target /= 100000;   // change unit from ns to 100*us
+
+	gpu_util_history_query_frame_property(&frame_workload, &frame_t_gpu);
+	t_gpu_pipe = t_gpu;
+	t_gpu_real = (int) (frame_t_gpu / 100);   // change unit from us to 100*us
+	// define t_gpu = max(t_gpu_completion, t_gpu_real) for FB policy
+	if (t_gpu_real > t_gpu)
+		t_gpu = t_gpu_real;
+
+	frame_freq = gpu_util_history_query_frequency(t_gpu_pipe * 100);
+	ap_workload_real =
+		frame_workload / 100;   // change unit from cycle to 100*cycle
+	ap_workload_pipe =
+		frame_freq * t_gpu_pipe / 1000;   // change unit from 0.1 to 100*cycle
+	ap_workload = ap_workload_pipe;
+	// define workload = max(t_gpu_completion * avg_freq, freq * t_gpu_real)
+	if (ap_workload_real > ap_workload)
+		ap_workload = ap_workload_real;
 
 	/* calculate dynamic margin */
 	/* configure margin mode */
@@ -1136,41 +1125,23 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 							dvfs_margin_low_bound * 10,
 							DCS_POLICY_MARGIN);
 
-	t_gpu_target = t_gpu_target * (1000 - gx_fb_dvfs_margin) / 1000;
+	t_gpu_target_hd = t_gpu_target * (1000 - gx_fb_dvfs_margin) / 1000;
 
 	//  * 100 to keep unit uniform
 	Policy__Frame_based__GPU_Time((t_gpu * 100),
 								  (t_gpu_target * 100),
-								  (t_gpu_target_hd * 100));
-	Policy__Frame_based__GPU_Time__Detail((t_gpu_done_interval * 100),
-		(t_gpu_active * 100), (t_gpu_3d * 100), (t_gpu_iter * 100),
-		(t_gpu_mcu * 100));
+								  (t_gpu_target_hd * 100),
+								  (t_gpu_real * 100),
+								  (t_gpu_pipe * 100));
 
 	// Hint target frame time w/z headroom
 	if (ged_is_fdvfs_support())
-		mtk_gpueb_dvfs_set_taget_frame_time(t_gpu_target, gx_fb_dvfs_margin);
+		mtk_gpueb_dvfs_set_taget_frame_time(t_gpu_target_hd, gx_fb_dvfs_margin);
 
-	/* compute AP workload */
-	gpu_freq_pre = ged_get_cur_freq() >> 10;
-	// gpu_freq_pre = ged_get_cur_freq() / 1000;
-	ap_workload_active = t_gpu_active * gpu_freq_pre;
-	ap_workload_3d = t_gpu_3d * gpu_freq_pre;
-	ap_workload_iter = t_gpu_iter * gpu_freq_pre;
-	ap_workload_mcu = t_gpu_mcu * gpu_freq_pre;
-	mtk_get_dvfs_workload_mode(&workload_mode);
-	if (workload_mode == WORKLOAD_3D) {
-		ap_workload = ap_workload_3d;
-	} else if (workload_mode == WORKLOAD_ITER) {
-		ap_workload = ap_workload_iter;
-	} else if (workload_mode == WORKLOAD_MAX_ITERMCU) {
-		ap_workload = MAX(ap_workload_iter, ap_workload_mcu);
-	} else {   // WORKLOAD_ACTIVE or unknown mode
-		ap_workload = ap_workload_active;
-	}
-
+	/* select workload */
 	if (ged_is_fdvfs_support() && is_fb_dvfs_triggered && is_fdvfs_enable()
 		&& g_eb_workload != 0xFFFF) {
-		g_eb_workload /= 100;
+		g_eb_workload /= 100;   // change unit from cycle to 100*cycle
 		busy_cycle_cur = (g_eb_workload < ap_workload) ? g_eb_workload : ap_workload;
 	}
 	else
@@ -1189,17 +1160,17 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 			gpu_busy_cycle : busy_cycle_cur;
 	}
 
-	Policy__Frame_based__Workload__Source(g_eb_workload, ap_workload_active,
-		ap_workload_3d, ap_workload_iter, ap_workload_mcu, workload_mode);
-	Policy__Frame_based__Workload(busy_cycle_cur, gpu_busy_cycle);
+	Policy__Frame_based__Workload((busy_cycle_cur * 100),
+		(gpu_busy_cycle * 100), (ap_workload_real * 100),
+		(ap_workload_pipe * 100), ged_get_dvfs_loading_mode());
 
-	if (t_gpu_target != 0)
-		gpu_freq_tar = (gpu_busy_cycle / t_gpu_target);
+	/* compute target frequency */
+	if (t_gpu_target_hd != 0)
+		gpu_freq_tar = (gpu_busy_cycle / t_gpu_target_hd) * 1000;
 	else
 		gpu_freq_tar = gpu_freq_pre;
 
-	gpu_freq_floor = (gpu_freq_pre * GED_FB_DVFS_FERQ_DROP_RATIO_LIMIT / 100) << 10;
-	gpu_freq_tar = gpu_freq_tar << 10;
+	gpu_freq_floor = gpu_freq_pre * GED_FB_DVFS_FERQ_DROP_RATIO_LIMIT / 100;
 	if (gpu_freq_tar < gpu_freq_floor)
 		gpu_freq_tar = gpu_freq_floor;
 
@@ -1228,17 +1199,14 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 	if (dvfs_margin_mode == VARIABLE_MARGIN_MODE_OPP_INDEX)
 		gx_fb_dvfs_margin = (ui32NewFreqID / 3)*10;
 
-	gpu_freq_pre = gpu_freq_pre << 10;
-	// gpu_freq_pre = gpu_freq_pre * 1000;
-
 	ged_log_perf_trace_counter("fb_workload",
 			(long long)busy_cycle_cur, 5566, 0, 0);
 	ged_log_perf_trace_counter("fb_margin_value",
 			(long long)gx_fb_dvfs_margin / 10, 5566, 0, 0);
 
 	ged_log_buf_print(ghLogBuf_DVFS,
-	"[GED_K][FB_DVFS]t_gpu:%d,t_gpu_tar:%d,gpu_freq_tar:%d,gpu_freq_pre:%d",
-	t_gpu, t_gpu_target, gpu_freq_tar, gpu_freq_pre);
+	"[GED_K][FB_DVFS]t_gpu:%d,t_gpu_tar_hd:%d,gpu_freq_tar:%d,gpu_freq_pre:%d",
+	t_gpu, t_gpu_target_hd, gpu_freq_tar, gpu_freq_pre);
 
 	ged_log_buf_print(ghLogBuf_DVFS,
 	"[GED_K][FB_DVFS]mode:%x,h:%d,margin:%d,l:%d,fps:+%d,l_b:%d,step:%d",
@@ -1249,12 +1217,11 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 	ged_dvfs_gpu_freq_commit((unsigned long)ui32NewFreqID,
 		gpu_freq_tar, GED_DVFS_FRAME_BASE_COMMIT);
 
-	ret_freq = gpu_freq_tar;
 	timeout_value = fb_timeout;
 	ged_set_backup_timer_timeout(timeout_value);
 	ged_cancel_backup_timer();
 	is_fb_dvfs_triggered = 0;
-	return ret_freq;
+	return gpu_freq_tar;
 }
 
 static int _loading_avg(int ui32loading)

@@ -67,8 +67,8 @@ struct GED_NOTIFY_SW_SYNC {
 #define MAX_NOTIFY_CNT 125
 struct GED_NOTIFY_SW_SYNC loading_base_notify[MAX_NOTIFY_CNT];
 int notify_index;
-static int policy_state = -1;
-static int policy_state_pre = -1;
+static enum gpu_dvfs_policy_state policy_state = POLICY_STATE_INIT;
+static enum gpu_dvfs_policy_state policy_state_pre = POLICY_STATE_INIT;
 
 int (*ged_sw_vsync_event_fp)(bool bMode) = NULL;
 EXPORT_SYMBOL(ged_sw_vsync_event_fp);
@@ -111,15 +111,15 @@ u64 ged_get_fallback_time(void)
 		temp = lb_timeout * g_fallback_time / 10;
 	return temp;
 }
-int ged_get_policy_state(void)
+enum gpu_dvfs_policy_state ged_get_policy_state(void)
 {
 	return policy_state;
 }
-int ged_get_policy_state_pre(void)
+enum gpu_dvfs_policy_state ged_get_policy_state_pre(void)
 {
 	return policy_state_pre;
 }
-void ged_set_policy_state(int state)
+void ged_set_policy_state(enum gpu_dvfs_policy_state state)
 {
 	policy_state_pre = policy_state;
 	policy_state = state;
@@ -139,10 +139,10 @@ static void ged_notify_sw_sync_work_handle(struct work_struct *psWork)
 		psNotify->bUsed = false;
 		if (!hrtimer_active(&g_HT_hwvsync_emu) &&
 		!hrtimer_is_queued(&g_HT_hwvsync_emu)) {
-			if (ged_get_policy_state() == 1 ||
-				ged_get_policy_state() == 2) {
+			if (ged_get_policy_state() == POLICY_STATE_FB ||
+				ged_get_policy_state() == POLICY_STATE_FALLBACK) {
 				eCommitType = GED_DVFS_FB_FALLBACK_COMMIT;
-				ged_set_policy_state(2);
+				ged_set_policy_state(POLICY_STATE_FALLBACK);
 				timeout_value = ged_get_fallback_time();
 			} else {
 				eCommitType = GED_DVFS_LOADING_BASE_COMMIT;

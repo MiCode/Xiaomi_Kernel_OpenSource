@@ -22,9 +22,16 @@ void ged_notify_sw_vsync_system_exit(void);
 void ged_set_backup_timer_timeout(u64 time_out);
 void ged_cancel_backup_timer(void);
 
-int ged_get_policy_state_pre(void);
-int ged_get_policy_state(void);
-void ged_set_policy_state(int state);
+enum gpu_dvfs_policy_state {
+	POLICY_STATE_INIT = -1,
+	POLICY_STATE_LB = 0,
+	POLICY_STATE_FB,
+	POLICY_STATE_FALLBACK,
+	POLICY_STATE_FORCE_LB,
+};
+enum gpu_dvfs_policy_state ged_get_policy_state_pre(void);
+enum gpu_dvfs_policy_state ged_get_policy_state(void);
+void ged_set_policy_state(enum gpu_dvfs_policy_state state);
 #if defined(CONFIG_GPU_MT8167) || defined(CONFIG_GPU_MT8173) ||\
 defined(CONFIG_GPU_MT6739) || defined(CONFIG_GPU_MT6761) ||\
 defined(CONFIG_GPU_MT6765)

@@ -75,11 +75,8 @@ void ged_log_perf_trace_batch_counter(char *name, long long count, int pid,
 void ged_log_dump(GED_LOG_BUF_HANDLE hLogBuf);
 // Frame-based
 noinline void Policy__Frame_based__Frequency(int v1, int v2);
-noinline void Policy__Frame_based__Workload(int v1, int v2);
-noinline void Policy__Frame_based__Workload__Source(unsigned int v1,
-	unsigned int v2, unsigned int v3, unsigned int v4, unsigned int v5, unsigned int v6);
-noinline void Policy__Frame_based__GPU_Time(int v1, int v2, int v3);
-noinline void Policy__Frame_based__GPU_Time__Detail(int v1, int v2, int v3, int v4, int v5);
+noinline void Policy__Frame_based__Workload(int v1, int v2, int v3, int v4, unsigned int v5);
+noinline void Policy__Frame_based__GPU_Time(int v1, int v2, int v3, int v4, int v5);
 noinline void Policy__Frame_based__Margin(int v1, int v2, int v3);
 noinline void Policy__Frame_based__Margin__Detail(unsigned int v1, int v2, int v3, int v4, int v5);
 // Loading-based
