@@ -193,16 +193,10 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp, u32 *d
 	int gen, ret = 0, retry = 0;
 	u32 val;
 
-	if (!mmdvfs_is_init_done()) {
-		MMDVFS_DBG("free_run:%d init_done:%d slot:%#llx",
-			mmdvfs_free_run, mmdvfs_init_done, *(u64 *)&slot);
-		return 0;
-	}
+	if (!mmdvfs_is_init_done())
+		return -ENODEV;
 
 	mutex_lock(&mmdvfs_vcp_ipi_mutex);
-	slot.ack = mmdvfs_memory_iova >> 32;
-	slot.base = (u32)mmdvfs_memory_iova;
-
 	switch (func) {
 	case FUNC_CLKMUX_ENABLE:
 		val = readl(MEM_CLKMUX_ENABLE);
@@ -241,8 +235,13 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp, u32 *d
 	val = readl(MEM_IPI_SYNC_FUNC);
 	writel(val | (1 << func), MEM_IPI_SYNC_FUNC);
 
+	slot.ack = mmdvfs_memory_iova >> 32;
+	slot.base = (u32)mmdvfs_memory_iova;
 	gen = vcp_cmd_ex(VCP_GET_GEN);
+
 	while (!is_vcp_ready_ex(VCP_A_ID)) {
+		if (func == FUNC_VMM_GENPD_NOTIFY)
+			goto ipi_send_end;
 		if (++retry > 100) {
 			ret = -ETIMEDOUT;
 			goto ipi_send_end;
@@ -389,13 +388,13 @@ void vmm_notify_work_func(struct work_struct *work)
 	kfree(vmm_notify_work);
 }
 
-int mtk_mmdvfs_genpd_notify(const u8 idx, const bool enable, const bool genpd_update)
+int mtk_mmdvfs_genpd_notify(const u8 idx, const bool enable)
 {
 	struct mmdvfs_vmm_notify_work *work;
 
 	mmdvfs_vcp_ipi_send(FUNC_VMM_GENPD_NOTIFY, idx, enable ? 1 : 0, NULL);
 
-	if (!genpd_update || !vmm_notify_wq)
+	if (!vmm_notify_wq)
 		return 0;
 
 	work = kzalloc(sizeof(*work), GFP_KERNEL);
@@ -412,10 +411,11 @@ EXPORT_SYMBOL_GPL(mtk_mmdvfs_genpd_notify);
 int mtk_mmdvfs_set_avs(const u8 idx, const u32 aging, const u32 fresh)
 {
 	u32 data[2] = {aging, fresh};
+	int ret;
 
-	mmdvfs_vcp_ipi_send(FUNC_VMM_AVS_UPDATE, idx, MAX_OPP, (u32 *)&data);
-	MMDVFS_DBG("idx:%hhu aging:%u fresh:%u", idx, aging, fresh);
-	return 0;
+	ret = mmdvfs_vcp_ipi_send(FUNC_VMM_AVS_UPDATE, idx, MAX_OPP, (u32 *)&data);
+	MMDVFS_DBG("ret:%d idx:%hhu aging:%u fresh:%u", ret, idx, aging, fresh);
+	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_mmdvfs_set_avs);
 

@@ -81,13 +81,14 @@ static int vmm_locked_isp_open(bool genpd_update)
 	if (genpd_update) {
 		vmm_genpd_user_counter++;
 		if (vmm_genpd_user_counter == 1)
-			mtk_mmdvfs_genpd_notify(VMM_USR_CAM, true, true);
+			mtk_mmdvfs_genpd_notify(VMM_USR_CAM, true);
 	}
 
 	vmm_user_counter++;
+#ifdef TODO_CALL_VMM_CEIL_API
 	if (vmm_user_counter == 1)
-		mtk_mmdvfs_genpd_notify(VMM_USR_CAM, true, false);
-
+		mtk_mmdvfs_genpd_notify(VMM_USR_CAM, true);
+#endif
 	return 0;
 }
 
@@ -98,15 +99,17 @@ static int vmm_locked_isp_close(bool genpd_update)
 			return 0;
 		vmm_genpd_user_counter--;
 		if (vmm_genpd_user_counter == 0)
-			mtk_mmdvfs_genpd_notify(VMM_USR_CAM, false, true);
+			mtk_mmdvfs_genpd_notify(VMM_USR_CAM, false);
 	}
 
 	/* no need to counter down at probe stage */
 	if (vmm_user_counter == 0)
 		return 0;
 	vmm_user_counter--;
+#ifdef TODO_CALL_VMM_CEIL_API
 	if (vmm_user_counter == 0)
-		mtk_mmdvfs_genpd_notify(VMM_USR_CAM, false, false);
+		mtk_mmdvfs_genpd_notify(VMM_USR_CAM, false);
+#endif
 
 	return 0;
 }
@@ -115,7 +118,7 @@ static int vmm_locked_vde_open(void)
 {
 	vde_user_counter++;
 	if (vde_user_counter == 1)
-		mtk_mmdvfs_genpd_notify(VMM_USR_VDE, true, true);
+		mtk_mmdvfs_genpd_notify(VMM_USR_VDE, true);
 
 	return 0;
 }
@@ -128,7 +131,7 @@ static int vmm_locked_vde_close(void)
 
 	vde_user_counter--;
 	if (vde_user_counter == 0)
-		mtk_mmdvfs_genpd_notify(VMM_USR_VDE, false, true);
+		mtk_mmdvfs_genpd_notify(VMM_USR_VDE, false);
 
 	return 0;
 }
