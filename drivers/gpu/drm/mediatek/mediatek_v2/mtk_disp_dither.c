@@ -70,6 +70,7 @@ static struct mtk_ddp_comp *default_comp;
 static struct workqueue_struct *dither_pure_detect_wq;
 static struct work_struct dither_pure_detect_task;
 static unsigned int g_dither_mode = 1;
+static bool g_dither_reg_backup;
 
 enum COLOR_IOCTL_CMD {
 	DITHER_SELECT = 0,
@@ -444,19 +445,24 @@ static void mtk_dither_bypass(struct mtk_ddp_comp *comp, int bypass,
 struct dither_backup {
 	unsigned int REG_DITHER_CFG;
 };
-static struct dither_backup g_dither_backup = {
-	.REG_DITHER_CFG = 0x80000182,
-};
+
+static struct dither_backup g_dither_backup;
 
 static void ddp_dither_backup(struct mtk_ddp_comp *comp)
 {
 	g_dither_backup.REG_DITHER_CFG =
 		readl(comp->regs + DISP_REG_DITHER_CFG);
+
+	g_dither_reg_backup = true;
 }
 
 static void ddp_dither_restore(struct mtk_ddp_comp *comp)
 {
-	writel(g_dither_backup.REG_DITHER_CFG, comp->regs + DISP_REG_DITHER_CFG);
+	if (g_dither_reg_backup) {
+		writel(g_dither_backup.REG_DITHER_CFG,
+			comp->regs + DISP_REG_DITHER_CFG);
+		g_dither_reg_backup = false;
+	}
 }
 
 static void mtk_dither_prepare(struct mtk_ddp_comp *comp)
