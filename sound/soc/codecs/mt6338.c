@@ -1256,6 +1256,7 @@ static int mt6338_snd_soc_put_volsw(struct snd_kcontrol *kcontrol,
 				    struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	struct mt6338_priv *priv = snd_soc_component_get_drvdata(component);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 	unsigned int reg = mc->reg;
@@ -1269,8 +1270,8 @@ static int mt6338_snd_soc_put_volsw(struct snd_kcontrol *kcontrol,
 	unsigned int invert = mc->invert;
 	int err;
 	bool type_2r = false;
-	unsigned int val2 = 0;
-	unsigned int val, val_mask;
+	unsigned int val2 = 0, index2 = 0;
+	unsigned int val = 0, val_mask = 0, index = 0;
 
 	if (sign_bit)
 		mask = BIT(sign_bit + 1) - 1;
@@ -1280,12 +1281,14 @@ static int mt6338_snd_soc_put_volsw(struct snd_kcontrol *kcontrol,
 	if (invert)
 		val = max - val;
 	val_mask = mask << shift;
+	index = val;
 	val = val << shift;
 	if (snd_soc_volsw_is_stereo(mc)) {
 		val2 = ucontrol->value.integer.value[1];
 		val2 = (val2 + min) & mask;
 		if (invert)
 			val2 = max - val2;
+		index2 = val2;
 		if (reg == reg2) {
 			val_mask |= mask << rshift;
 			val |= val2 << rshift;
@@ -1294,6 +1297,44 @@ static int mt6338_snd_soc_put_volsw(struct snd_kcontrol *kcontrol,
 			type_2r = true;
 		}
 	}
+
+	switch (mc->reg) {
+	case MT6338_ZCD_CON2:
+	case MT6338_ZCD_CON2_H:
+		priv->ana_gain[AUDIO_ANALOG_VOLUME_HPOUTL] = index;
+		priv->ana_gain[AUDIO_ANALOG_VOLUME_HPOUTR] = index2;
+		break;
+	case MT6338_ZCD_CON1:
+	case MT6338_ZCD_CON1_H:
+		priv->ana_gain[AUDIO_ANALOG_VOLUME_LINEOUTL] = index;
+		priv->ana_gain[AUDIO_ANALOG_VOLUME_LINEOUTR] = index2;
+		break;
+	case MT6338_ZCD_CON3:
+		priv->ana_gain[AUDIO_ANALOG_VOLUME_HSOUTL] = index;
+		break;
+	case MT6338_AUDENC_PMU_CON1:
+		priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP1] = index;
+		break;
+	case MT6338_AUDENC_PMU_CON3:
+		priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2] = index;
+		break;
+	case MT6338_AUDENC_PMU_CON5:
+		priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP3] = index;
+		break;
+	case MT6338_AUDENC_PMU_CON7:
+		priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP4] = index;
+		break;
+	case MT6338_AUDENC_PMU_CON10:
+		priv->ana_gain[AUDIO_ANALOG_NEG_VOLUME_MICAMP1] = index;
+		priv->ana_gain[AUDIO_ANALOG_NEG_VOLUME_MICAMP2] = index;
+		priv->ana_gain[AUDIO_ANALOG_NEG_VOLUME_MICAMP3] = index;
+		priv->ana_gain[AUDIO_ANALOG_NEG_VOLUME_MICAMP4] = index;
+		break;
+	}
+
+	dev_info(priv->dev, "%s(), name %s, reg(0x%x), set index = 0x%x\n",
+		 __func__, kcontrol->id.name, mc->reg, index);
+
 	err = snd_soc_component_update_bits(component, reg, val_mask, val);
 	if (err < 0)
 		return err;
@@ -1358,66 +1399,6 @@ static int mt6338_put_volsw(struct snd_kcontrol *kcontrol,
 	if (ret < 0)
 		return ret;
 
-	switch (mc->reg) {
-	case MT6338_ZCD_CON2:
-	case MT6338_ZCD_CON2_H:
-		regmap_read(priv->regmap, MT6338_ZCD_CON2, &reg);
-		priv->ana_gain[AUDIO_ANALOG_VOLUME_HPOUTL] =
-			(reg >> RG_AUDHPLGAIN_SFT) & RG_AUDHPLGAIN_MASK;
-		regmap_read(priv->regmap, MT6338_ZCD_CON2_H, &reg);
-		priv->ana_gain[AUDIO_ANALOG_VOLUME_HPOUTR] =
-			(reg >> RG_AUDHPRGAIN_SFT) & RG_AUDHPRGAIN_MASK;
-		break;
-	case MT6338_ZCD_CON1:
-	case MT6338_ZCD_CON1_H:
-		regmap_read(priv->regmap, MT6338_ZCD_CON1, &reg);
-		priv->ana_gain[AUDIO_ANALOG_VOLUME_LINEOUTL] =
-			(reg >> RG_AUDLOLGAIN_SFT) & RG_AUDLOLGAIN_MASK;
-		regmap_read(priv->regmap, MT6338_ZCD_CON1_H, &reg);
-		priv->ana_gain[AUDIO_ANALOG_VOLUME_LINEOUTR] =
-			(reg >> RG_AUDLORGAIN_SFT) & RG_AUDLORGAIN_MASK;
-		break;
-	case MT6338_ZCD_CON3:
-		regmap_read(priv->regmap, MT6338_ZCD_CON3, &reg);
-		priv->ana_gain[AUDIO_ANALOG_VOLUME_HSOUTL] =
-			(reg >> RG_AUDHSGAIN_SFT) & RG_AUDHSGAIN_MASK;
-		break;
-	case MT6338_AUDENC_PMU_CON1:
-		regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON1, &reg);
-		priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP1] =
-			(reg >> RG_AUDPREAMPLGAIN_SFT) & RG_AUDPREAMPLGAIN_MASK;
-		break;
-	case MT6338_AUDENC_PMU_CON3:
-		regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON3, &reg);
-		priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2] =
-			(reg >> RG_AUDPREAMPRGAIN_SFT) & RG_AUDPREAMPRGAIN_MASK;
-		break;
-	case MT6338_AUDENC_PMU_CON5:
-		regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON5, &reg);
-		priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP3] =
-			(reg >> RG_AUDPREAMP3GAIN_SFT) & RG_AUDPREAMP3GAIN_MASK;
-		break;
-	case MT6338_AUDENC_PMU_CON7:
-		regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON7, &reg);
-		priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP4] =
-			(reg >> RG_AUDPREAMP4GAIN_SFT) & RG_AUDPREAMP4GAIN_MASK;
-		break;
-	case MT6338_AUDENC_PMU_CON10:
-		regmap_read(priv->regmap, MT6338_AUDENC_PMU_CON10, &reg);
-		priv->ana_gain[AUDIO_ANALOG_NEG_VOLUME_MICAMP1] =
-			(reg >> RG_AUDPREAMPLNEGGAIN_SFT) & RG_AUDPREAMPLNEGGAIN_MASK;
-		priv->ana_gain[AUDIO_ANALOG_NEG_VOLUME_MICAMP2] =
-			(reg >> RG_AUDPREAMPRNEGGAIN_SFT) & RG_AUDPREAMPRNEGGAIN_MASK;
-		priv->ana_gain[AUDIO_ANALOG_NEG_VOLUME_MICAMP3] =
-			(reg >> RG_AUDPREAMP3NEGGAIN_SFT) & RG_AUDPREAMP3NEGGAIN_MASK;
-		priv->ana_gain[AUDIO_ANALOG_NEG_VOLUME_MICAMP4] =
-			(reg >> RG_AUDPREAMP4NEGGAIN_SFT) & RG_AUDPREAMP4NEGGAIN_MASK;
-		break;
-	}
-
-	dev_info(priv->dev, "%s(), name %s, reg(0x%x) = 0x%x, set index = %x\n",
-		 __func__, kcontrol->id.name, mc->reg, reg, index);
-
 	return ret;
 }
 
@@ -1479,7 +1460,6 @@ static const struct snd_kcontrol_new mt6338_snd_controls[] = {
 	/* debug */
 	SOC_SINGLE_EXT("Codec keylock", SND_SOC_NOPM, 0, 0x1, 0,
 			   mt6338_key_get, mt6338_key_set),
-
 };
 
 /* LOL MUX */
