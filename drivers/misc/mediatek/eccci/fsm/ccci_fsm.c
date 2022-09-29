@@ -1622,6 +1622,10 @@ EXPORT_SYMBOL(fsm_get_entity);
 void dump_md_info_in_devapc(struct ccci_modem *md)
 {
 	unsigned char ccif_sram[CCCI_EE_SIZE_CCIF_SRAM] = { 0 };
+	struct ccci_smem_region *mdccci_dbg =
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_MDCCCI_DBG);
+	struct ccci_smem_region *mdss_dbg =
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_MDSS_DBG);
 
 	// DUMP_FLAG_CCIF_REG
 	CCCI_MEM_LOG_TAG(0, FSM, "Dump CCIF REG\n");
@@ -1641,6 +1645,21 @@ void dump_md_info_in_devapc(struct ccci_modem *md)
 	// DUMP_MD_BOOTUP_STATUS
 	if (md->hw_info->plat_ptr->get_md_bootup_status)
 		md->hw_info->plat_ptr->get_md_bootup_status(NULL, 0);
+
+	// MD_DBG_DUMP_SMEM
+	CCCI_MEM_LOG_TAG(0, FSM, "Dump MD EX log\n");
+	ccci_util_mem_dump(CCCI_DUMP_MEM_DUMP, mdccci_dbg->base_ap_view_vir,
+			mdccci_dbg->size);
+	CCCI_MEM_LOG_TAG(0, FSM, "Dump mdss_dbg log\n");
+	ccci_util_mem_dump(CCCI_DUMP_MEM_DUMP, mdss_dbg->base_ap_view_vir,
+			mdss_dbg->size);
+	CCCI_MEM_LOG_TAG(0, FSM, "Dump mdl2sram log\n");
+	if (md && md->hw_info && md->hw_info->md_l2sram_base) {
+		md_cd_lock_modem_clock_src(1);
+		ccci_util_mem_dump(CCCI_DUMP_MEM_DUMP, md->hw_info->md_l2sram_base,
+			md->hw_info->md_l2sram_size);
+		md_cd_lock_modem_clock_src(0);
+	}
 }
 
 void ccci_dump_md_in_devapc(char *user_info)

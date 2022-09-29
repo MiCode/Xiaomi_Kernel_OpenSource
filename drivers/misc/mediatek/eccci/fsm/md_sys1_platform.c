@@ -1154,10 +1154,18 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 			"mediatek,offset-epon-md1", 1, &retval);
 	if (ret < 0)
 		hw_info->md_l2sram_base = NULL;
-	else
+	else {
 		hw_info->md_l2sram_base = of_iomap(dev_ptr->dev.of_node, 0);
-	CCCI_NORMAL_LOG(0, TAG, "%s, val: %s, 0x%x\n", __func__,
-		hw_info->md_l2sram_base?"l2sram":"mddbgss", hw_info->md_epon_offset);
+		ret = of_property_read_u32_index(dev_ptr->dev.of_node,
+			"reg", 3, &retval);
+		if (ret < 0)
+			hw_info->md_l2sram_size = 0;
+		else
+			hw_info->md_l2sram_size = retval;
+	}
+	CCCI_NORMAL_LOG(0, TAG, "%s, val: %s, 0x%x, l2sram_size: %d\n",
+			__func__, hw_info->md_l2sram_base?"l2sram":"mddbgss",
+			hw_info->md_epon_offset, hw_info->md_l2sram_size);
 
 	hw_info->md_wdt_irq_id =
 	 irq_of_parse_and_map(dev_ptr->dev.of_node, 0);
