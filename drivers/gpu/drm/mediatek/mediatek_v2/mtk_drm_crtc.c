@@ -7939,6 +7939,7 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 	for (i = 0; i < mtk_crtc->layer_nr; i++) {
 		struct drm_plane *plane = &mtk_crtc->planes[i].base;
 		struct mtk_plane_state *plane_state;
+		struct mtk_crtc_state *mtk_crtc_state = NULL;
 
 		plane_state = to_mtk_plane_state(plane->state);
 		if (plane_state->base.crtc == NULL && plane_state->pending.enable) {
@@ -7946,10 +7947,19 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 			break;
 		}
 
+		mtk_crtc_state = to_mtk_crtc_state(mtk_crtc->base.state);
 		if (!plane_state->pending.enable ||
-			(i >= OVL_PHY_LAYER_NR && !plane_state->comp_state.comp_id)) {
-			DDPINFO("%s i=%d comp_id=%u continue\n", __func__, i,
-				plane_state->comp_state.comp_id);
+			(i >= OVL_PHY_LAYER_NR && !plane_state->comp_state.comp_id) ||
+			((plane_state->comp_state.layer_caps & MTK_DISP_RSZ_LAYER) &&
+			mtk_crtc_state &&
+			(mtk_crtc_state->rsz_param[0].out_len == 0 ||
+			(mtk_crtc->is_dual_pipe && mtk_crtc_state->rsz_param[1].out_len == 0)))) {
+			DDPINFO("%s i=%d comp_id=%u (%d,%d,%d,%d) continue\n", __func__, i,
+				plane_state->comp_state.comp_id,
+				(plane_state->comp_state.layer_caps & MTK_DISP_RSZ_LAYER),
+				plane_state->pending.enable,
+				mtk_crtc_state->rsz_param[0].out_len,
+				mtk_crtc_state->rsz_param[1].out_len);
 			continue;
 		}
 
