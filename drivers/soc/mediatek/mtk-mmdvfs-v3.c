@@ -916,7 +916,7 @@ int mmdvfs_set_vcp_log(const char *val, const struct kernel_param *kp)
 	}
 
 	ret = kstrtou32(val, 0, &log);
-	if (ret || log >= (1 >> LOG_NUM)) {
+	if (ret || log >= (1 << LOG_NUM)) {
 		MMDVFS_ERR("failed:%d log:%#x", ret, log);
 		return ret;
 	}
