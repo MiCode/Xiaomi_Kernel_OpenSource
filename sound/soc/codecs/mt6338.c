@@ -189,18 +189,33 @@ unsigned int mt6338_voice_rate_transform(unsigned int rate)
 static void mt6338_get_hw_ver(struct mt6338_priv *priv)
 {
 	int ret = 0;
-	int value, fab;
-	unsigned short efuse_val = 0;
-
+	int value = 0, fab = 0;
+	unsigned long efuse_val = 0;
+	unsigned long ecid = 0, ecid2 = 0;
+	/* [71:69] TOP_CHIP_ID,  2: E2  3: E3 */
 	ret = nvmem_device_read(priv->hp_efuse, 0x8, 1, &efuse_val);
-	value = (efuse_val >> 5) & 0x3;
-
+	value = (efuse_val >> 5) & 0x7;
+	/* [119:117] TOP_FAB_CODE,  0: UMC */
 	ret = nvmem_device_read(priv->hp_efuse, 0xE, 1, &efuse_val);
-	fab = (efuse_val >> 5) & 0x3;
+	fab = (efuse_val >> 5) & 0x7;
+	/* [1021:958] CHIP_ID[63:0] : ECID lot & wafer & XY*/
+	ret = nvmem_device_read(priv->hp_efuse, 0x77, 1, &efuse_val);
+	ecid = (efuse_val >> 6) & 0x3;
+	ret = nvmem_device_read(priv->hp_efuse, 0x78, 3, &efuse_val);
+	ecid = efuse_val << 2 | ecid;
+	ret = nvmem_device_read(priv->hp_efuse, 0x7b, 1, &efuse_val);
+	ecid = (efuse_val & 0x3f) << 26 | ecid;
+
+	ret = nvmem_device_read(priv->hp_efuse, 0x7b, 1, &efuse_val);
+	ecid2 = (efuse_val >> 6) & 0x3;
+	ret = nvmem_device_read(priv->hp_efuse, 0x7c, 3, &efuse_val);
+	ecid2 = efuse_val << 2 | ecid2;
+	ret = nvmem_device_read(priv->hp_efuse, 0x7f, 1, &efuse_val);
+	ecid2 = (efuse_val & 0x3f) << 26 | ecid2;
 
 	priv->hw_ver = value;
-	pr_info("%s() mt6338 fab=%d, hw_ver= %d\n",
-		__func__, fab, priv->hw_ver);
+	pr_info("%s() mt6338 fab=%d, hw_ver= %d, ecid = %x%x\n",
+		__func__, fab, priv->hw_ver, ecid, ecid2);
 }
 
 #ifdef NLE_IMP
