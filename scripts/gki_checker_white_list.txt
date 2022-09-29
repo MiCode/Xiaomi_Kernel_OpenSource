@@ -56,6 +56,7 @@ f drivers/tty/serial/8250/8250_port.c
 f fs/coredump.c
 f fs/f2fs/checkpoint.c
 f fs/f2fs/namei.c
+f fs/f2fs/inode.c
 f fs/fs-writeback.c
 f include/linux/dev_printk.h
 f include/linux/dynamic_debug.h
