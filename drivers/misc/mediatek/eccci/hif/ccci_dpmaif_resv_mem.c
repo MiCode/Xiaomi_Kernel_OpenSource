@@ -78,7 +78,8 @@ void ccci_dpmaif_resv_mem_init(void)
 	g_resv_cache_mem_size = rmem->size;
 	g_resv_cache_mem_offs = 0;
 
-	g_resv_cache_vir_addr = ccci_map_phy_addr(g_resv_cache_phy_addr, g_resv_cache_mem_size);
+	g_resv_cache_vir_addr = memremap(g_resv_cache_phy_addr, g_resv_cache_mem_size,
+										MEMREMAP_WB);
 	if (!g_resv_cache_vir_addr) {
 		CCCI_ERROR_LOG(0, TAG,
 			"[%s] error: g_resv_cache_vir_addr is NULL.\n", __func__);

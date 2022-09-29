@@ -12,8 +12,6 @@
 
 
 
-extern void __iomem *ccci_map_phy_addr(phys_addr_t phy_addr, unsigned int size);
-
 void ccci_dpmaif_resv_mem_init(void);
 
 int ccci_dpmaif_get_resv_cache_mem(void **vir_base,
