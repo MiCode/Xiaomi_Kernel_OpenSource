@@ -13851,10 +13851,12 @@ int mtk_crtc_find_next_comp(struct drm_crtc *crtc, unsigned int ddp_mode,
 				struct mtk_ddp_comp *temp_comp;
 
 				temp_comp = mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, i, k);
-				id = temp_comp->id;
-				if (mtk_ddp_comp_get_type(id) !=
-				    MTK_DISP_VIRTUAL)
+				id = temp_comp ? temp_comp->id : -EINVAL;
+				if ((id != -EINVAL) &&
+					(mtk_ddp_comp_get_type(id) != MTK_DISP_VIRTUAL))
 					return id;
+				else
+					return -1;
 			}
 
 			return -1;
