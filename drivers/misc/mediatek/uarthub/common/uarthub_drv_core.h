@@ -162,6 +162,7 @@ int uarthub_core_debug_uart_ip_info_loop(void);
 int uarthub_core_debug_uart_ip_info_loop_compare_diff(void);
 int uarthub_core_debug_apdma_uart_info_with_tag_ex(const char *tag, int boundary);
 int uarthub_core_debug_info_with_tag_worker(const char *tag);
+int uarthub_core_debug_clk_info_worker(const char *tag);
 int uarthub_core_dump_trx_info_loop_trigger(void);
 int uarthub_core_debug_byte_cnt_info(const char *tag);
 int uarthub_core_debug_clk_info(const char *tag);
