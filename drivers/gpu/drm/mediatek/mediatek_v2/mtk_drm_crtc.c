@@ -12824,8 +12824,13 @@ static void mtk_crtc_disconnect_single_path_cmdq(struct drm_crtc *crtc,
 		comp = mtk_crtc_get_comp(crtc, ddp_mode, path_idx, i);
 		temp_comp = mtk_crtc_get_comp(crtc, ddp_mode, path_idx, i + 1);
 
-		mtk_ddp_remove_comp_from_path_with_cmdq(
-			mtk_crtc, comp->id, temp_comp->id, cmdq_handle);
+		if (comp && temp_comp)
+			mtk_ddp_remove_comp_from_path_with_cmdq(
+				mtk_crtc, comp->id, temp_comp->id, cmdq_handle);
+		else {
+			DDPPR_ERR("%s, comp or temp_comp is NULL\n", __func__);
+			break;
+		}
 	}
 	for_each_comp_in_crtc_target_mode_path(comp, mtk_crtc, i, ddp_mode, path_idx)
 		mtk_disp_mutex_remove_comp_with_cmdq(
