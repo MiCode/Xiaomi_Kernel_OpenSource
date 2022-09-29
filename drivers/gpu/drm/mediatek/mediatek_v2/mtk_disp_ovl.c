@@ -896,7 +896,7 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 	if ((ovl->id == DDP_COMPONENT_OVL0_2L) && (val & (1 << 15))) {
 		DDPIRQ("[IRQ] %s: OVL target line\n", mtk_dump_comp_str(ovl));
 		DRM_MMP_MARK(ovl0, val, 3);
-		if (mtk_crtc->esd_ctx) {
+		if (mtk_crtc && mtk_crtc->esd_ctx) {
 			atomic_set(&mtk_crtc->esd_ctx->target_time, 1);
 			wake_up_interruptible(&mtk_crtc->esd_ctx->check_task_wq);
 		}
