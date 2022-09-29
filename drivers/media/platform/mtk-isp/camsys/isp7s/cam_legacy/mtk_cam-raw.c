@@ -2410,7 +2410,13 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 
 	calc.mipi_pixel_rate = (s64)(in_w + res->hblank) * (in_h + res->vblank)
 		* res->interval.denominator / res->interval.numerator;
-	calc.line_time = 1000000000L
+	/* fake preisp line time from customized prate */
+	if (mtk_cam_scen_is_ext_isp(&res->scen) && pixel_rate > 0) {
+		calc.line_time = 1000000000L * in_w / pixel_rate;
+		dev_info(cam->dev, "preisp:res linetime:%lld, prate:%lld, w:%d\n",
+			calc.line_time, pixel_rate, in_w);
+	} else
+		calc.line_time = 1000000000L
 		* res->interval.numerator / res->interval.denominator
 		/ (in_h + vblank);
 	calc.width = in_w;
