@@ -34,6 +34,8 @@
 #define PWR_STA_BIT			BIT(30)
 #define PWR_STA_2ND_BIT			BIT(31)
 
+bool check_bypass_status;
+
 void __attribute__((weak)) clkchk_set_cfg(void)
 {
 }
@@ -411,6 +413,20 @@ static bool __check_pll_off(const char * const *name)
 
 		pr_notice("suspend warning[0m: %s is on\n", *name);
 
+		if (check_bypass_status) {
+			bool bypass_name_is_equal = false;
+			const char * const *bypass_name;
+
+			bypass_name = clkchk_ops->get_bypass_pll_name();
+			for (; *bypass_name != NULL; bypass_name++)
+				if (strcmp(*bypass_name, *name)) {
+					bypass_name_is_equal = true;
+					continue;
+				}
+			if (bypass_name_is_equal)
+				continue;
+		}
+
 		valid++;
 	}
 
@@ -679,6 +695,12 @@ static int clkchk_evt_handling(struct notifier_block *nb,
 		break;
 	case CLK_EVT_SET_PARENT_TIMEOUT:
 		clkchk_dump_bus_reg(clkd->regmap, clkd->ofs);
+		break;
+	case CLK_EVT_BYPASS_PLL:
+		if (clkd->ofs)
+			check_bypass_status = true;
+		else
+			check_bypass_status = false;
 		break;
 	default:
 		pr_notice("cannot get flags identify\n");

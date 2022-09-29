@@ -1117,6 +1117,11 @@ static const char * const notice_pll_names[] = {
 	NULL
 };
 
+static const char * const bypass_pll_name[] = {
+	"univpll",
+	NULL
+};
+
 static const char * const *get_off_pll_names(void)
 {
 	return off_pll_names;
@@ -1125,6 +1130,11 @@ static const char * const *get_off_pll_names(void)
 static const char * const *get_notice_pll_names(void)
 {
 	return notice_pll_names;
+}
+
+static const char * const *get_bypass_pll_name(void)
+{
+	return bypass_pll_name;
 }
 
 static bool is_pll_chk_bug_on(void)
@@ -1243,6 +1253,7 @@ static struct clkchk_ops clkchk_mt6985_ops = {
 	.is_cg_chk_pwr_on = is_cg_chk_pwr_on,
 	.get_off_pll_names = get_off_pll_names,
 	.get_notice_pll_names = get_notice_pll_names,
+	.get_bypass_pll_name = get_bypass_pll_name,
 	.is_pll_chk_bug_on = is_pll_chk_bug_on,
 	.get_vf_name = get_vf_name,
 	.get_vf_opp = get_vf_opp,

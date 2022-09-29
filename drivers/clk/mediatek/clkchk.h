@@ -92,6 +92,7 @@ struct clkchk_ops {
 	void (*trace_clk_event)(const char *name, unsigned int clk_sta);
 	void (*trigger_trace_dump)(unsigned int enable);
 	void (*check_hwv_irq_sta)(void);
+	const char * const *(*get_bypass_pll_name)(void);
 };
 
 int pwr_hw_is_on(enum PWR_STA_TYPE type, s32 val);
