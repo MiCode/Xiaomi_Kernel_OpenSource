@@ -22,7 +22,7 @@
 #define XGF_MAX_SPID_LIST_LENGTH 20
 #define DEFAULT_DFRC 60
 #define TARGET_FPS_LEVEL 10
-#define MAX_DEP_PATH_NUM 50
+#define MAX_DEP_PATH_NUM 80
 #define MAX_DEP_TASK_NUM 100
 #define N 8
 
