@@ -396,6 +396,8 @@
   __traceiter_android_vh_futex_wake_up_q_finish
   __traceiter_android_vh_handle_failed_page_trylock
   __traceiter_android_vh_irqtime_account_process_tick
+  __traceiter_android_vh_killed_process
+  __traceiter_android_vh_kmalloc_slab
   __traceiter_android_vh_mark_page_accessed
   __traceiter_android_vh_mem_cgroup_alloc
   __traceiter_android_vh_mem_cgroup_css_offline
@@ -418,6 +420,7 @@
   __traceiter_android_vh_record_rwsem_lock_starttime
   __traceiter_android_vh_rmqueue
   __traceiter_android_vh_rwsem_wake_finish
+  __traceiter_android_vh_save_track_hash
   __traceiter_android_vh_sched_show_task
   __traceiter_android_vh_sched_stat_runtime_rt
   __traceiter_android_vh_show_mapcount_pages
@@ -478,6 +481,8 @@
   __tracepoint_android_vh_futex_wake_up_q_finish
   __tracepoint_android_vh_handle_failed_page_trylock
   __tracepoint_android_vh_irqtime_account_process_tick
+  __tracepoint_android_vh_killed_process
+  __tracepoint_android_vh_kmalloc_slab
   __tracepoint_android_vh_mark_page_accessed
   __tracepoint_android_vh_mem_cgroup_alloc
   __tracepoint_android_vh_mem_cgroup_css_offline
@@ -501,6 +506,7 @@
   __tracepoint_android_vh_rmqueue
   __tracepoint_android_vh_rwsem_wake_finish
   __tracepoint_android_vh_sched_show_task
+  __tracepoint_android_vh_save_track_hash
   __tracepoint_android_vh_sched_stat_runtime_rt
   __tracepoint_android_vh_show_mapcount_pages
   __tracepoint_android_vh_sync_txn_recvd
