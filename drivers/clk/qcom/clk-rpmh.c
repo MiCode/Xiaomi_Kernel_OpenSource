@@ -693,6 +693,7 @@ static struct clk_hw *sdxpinn_rpmh_clocks[] = {
 	[RPMH_RF_CLK3]		= &sdm845_rf_clk3.hw,
 	[RPMH_RF_CLK3_A]	= &sdm845_rf_clk3_ao.hw,
 	[RPMH_QPIC_CLK]		= &sdx55_qpic_clk.hw,
+	[RPMH_IPA_CLK]		= &sdx55_ipa.hw,
 };
 
 static const struct clk_rpmh_desc clk_rpmh_sdxpinn = {
