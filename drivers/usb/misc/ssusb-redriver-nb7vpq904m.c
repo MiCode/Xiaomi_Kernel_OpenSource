@@ -807,6 +807,7 @@ static int redriver_i2c_probe(struct i2c_client *client,
 	    of_property_read_bool(redriver->dev->of_node, "lane-channel-swap");
 
 	redriver->op_mode = OP_MODE_NONE;
+	redriver_vdd_enable(redriver, true);
 	ssusb_redriver_gen_dev_set(redriver);
 	/* when private vdd present and change to none mode, it can simply disable vdd regulator,
 	 * but to keep things simple and avoid if/else operation, keep one same rule as,
@@ -814,10 +815,7 @@ static int redriver_i2c_probe(struct i2c_client *client,
 	 * also it will keep consistent behavior if it still need vdd control when multiple
 	 * clients share the same vdd regulator.
 	 */
-	if (redriver->vdd) {
-		redriver->vdd_enable = false;
-		regulator_disable(redriver->vdd);
-	}
+	redriver_vdd_enable(redriver, false);
 
 	ssusb_redriver_orientation_gpio_init(redriver);
 
