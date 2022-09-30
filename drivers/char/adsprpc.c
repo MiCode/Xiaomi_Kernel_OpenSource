@@ -4227,6 +4227,7 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 
 	VERIFY(err, fl->apps->channel[cid].issubsystemup == 1);
 	if (err) {
+		wait_for_completion(&fl->shutdown);
 		err = -ECONNRESET;
 		goto bail;
 	}
@@ -5806,7 +5807,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 				GFP_KERNEL);
 	spin_lock_init(&fl->dspsignals_lock);
 	mutex_init(&fl->signal_create_mutex);
-
+	init_completion(&fl->shutdown);
 	return 0;
 }
 
@@ -7085,6 +7086,8 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 {
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_channel_ctx *ctx;
+	struct fastrpc_file *fl;
+	struct hlist_node *n;
 	int cid = -1;
 
 	ctx = container_of(nb, struct fastrpc_channel_ctx, nb);
@@ -7105,6 +7108,13 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 	case QCOM_SSR_AFTER_SHUTDOWN:
 		fastrpc_rproc_trace_events(gcinfo[cid].subsys,
 			"QCOM_SSR_AFTER_SHUTDOWN", "fastrpc_restart_notifier-enter");
+		spin_lock(&me->hlock);
+		hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
+			if (fl->cid != cid)
+				continue;
+			complete(&fl->shutdown);
+		}
+		spin_unlock(&me->hlock);
 		pr_info("adsprpc: %s: received RAMDUMP notification for %s\n",
 			__func__, gcinfo[cid].subsys);
 		break;

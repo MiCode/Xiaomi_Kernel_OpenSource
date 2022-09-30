@@ -1087,6 +1087,7 @@ struct fastrpc_file {
 	struct fastrpc_dspsignal *signal_groups[DSPSIGNAL_NUM_SIGNALS / DSPSIGNAL_GROUP_SIZE];
 	spinlock_t dspsignals_lock;
 	struct mutex signal_create_mutex;
+	struct completion shutdown;
 };
 
 union fastrpc_ioctl_param {
