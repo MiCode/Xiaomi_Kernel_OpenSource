@@ -2400,3 +2400,4 @@
   mmc_select_card
   mmc_prepare_busy_cmd
   mmc_retune_hold
+  sdhci_dumpregs
