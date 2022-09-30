@@ -705,6 +705,8 @@ static struct clk_hw *sdxbaagha_rpmh_clocks[] = {
 	[RPMH_CXO_CLK_A]	= &sdm845_bi_tcxo_ao.hw,
 	[RPMH_RF_CLK1]		= &sdm845_rf_clk1.hw,
 	[RPMH_RF_CLK1_A]	= &sdm845_rf_clk1_ao.hw,
+	[RPMH_QPIC_CLK]		= &sdx55_qpic_clk.hw,
+	[RPMH_IPA_CLK]		= &sdx55_ipa.hw,
 };
 
 static const struct clk_rpmh_desc clk_rpmh_sdxbaagha = {
