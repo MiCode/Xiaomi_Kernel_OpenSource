@@ -5711,6 +5711,7 @@ static int fastrpc_channel_open(struct fastrpc_file *fl, uint32_t flags)
 
 	if (cid == ADSP_DOMAIN_ID && me->channel[cid].ssrcount !=
 			 me->channel[cid].prevssrcount) {
+		mutex_unlock(&me->channel[cid].smd_mutex);
 		mutex_lock(&fl->map_mutex);
 		err = fastrpc_mmap_remove_ssr(fl, 1);
 		mutex_unlock(&fl->map_mutex);
@@ -5718,6 +5719,7 @@ static int fastrpc_channel_open(struct fastrpc_file *fl, uint32_t flags)
 			ADSPRPC_WARN(
 				"failed to unmap remote heap for %s (err %d)\n",
 				me->channel[cid].subsys, err);
+		mutex_lock(&me->channel[cid].smd_mutex);
 		me->channel[cid].prevssrcount =
 					me->channel[cid].ssrcount;
 	}
