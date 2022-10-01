@@ -512,7 +512,7 @@ static int mhi_ch_open(struct qdss_bridge_drvdata *drvdata)
 	}
 	spin_unlock_bh(&drvdata->lock);
 
-	ret = mhi_prepare_for_transfer(drvdata->mhi_dev);
+	ret = mhi_prepare_for_transfer(drvdata->mhi_dev, 0);
 	if (ret) {
 		pr_err("Unable to open MHI channel\n");
 		return ret;
@@ -780,7 +780,7 @@ static int mhi_uci_open(struct inode *inode, struct file *filp)
 	}
 	spin_unlock_bh(&drvdata->lock);
 
-	ret = mhi_prepare_for_transfer(drvdata->mhi_dev);
+	ret = mhi_prepare_for_transfer(drvdata->mhi_dev, 0);
 	if (ret) {
 		pr_err("Error starting transfer channels\n");
 		return ret;
@@ -838,7 +838,7 @@ static void qdss_mhi_remove(struct mhi_device *mhi_dev)
 			wait_for_completion(&drvdata->completion);
 		} else {
 			spin_unlock_bh(&drvdata->lock);
-			if (drvdata->usb_ch && drvdata->usb_ch->priv_usb)
+			if (drvdata->usb_ch)
 				usb_qdss_close(drvdata->usb_ch);
 			do {
 				msleep(20);

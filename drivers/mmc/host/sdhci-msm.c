@@ -28,6 +28,7 @@
 #include <linux/clk/qcom.h>
 #include <linux/nvmem-consumer.h>
 #include <linux/ipc_logging.h>
+#include <linux/pinctrl/qcom-pinctrl.h>
 
 #include "sdhci-pltfm.h"
 #include "cqhci.h"
@@ -140,6 +141,7 @@
 
 #define CORE_PWRSAVE_DLL	BIT(3)
 #define CORE_FIFO_ALT_EN	BIT(10)
+#define CORE_CMDEN_HS400_INPUT_MASK_CNT BIT(13)
 #define DDR_CONFIG_POR_VAL		0x80040873
 #define DLL_USR_CTL_POR_VAL		0x10800
 #define ENABLE_DLL_LOCK_STATUS		BIT(26)
@@ -201,6 +203,10 @@
 #define CQHCI_VENDOR_CFG1	0xA00
 #define CQHCI_VENDOR_DIS_RST_ON_CQ_EN	(0x3 << 13)
 #define RCLK_TOGGLE BIT(1)
+
+/* enum for writing to TLMM_NORTH_SPARE register as defined by pinctrl API */
+#define TLMM_NORTH_SPARE	2
+#define TLMM_NORTH_SPARE_CORE_IE	BIT(15)
 
 #define SDHCI_CMD_FLAGS_MASK	0xff
 #define	SDHCI_BOOT_DEVICE	0x0
@@ -585,8 +591,7 @@ static void sdhci_msm_v5_variant_writel_relaxed(u32 val,
 	writel_relaxed(val, host->ioaddr + offset);
 }
 
-static unsigned int msm_get_clock_rate_for_bus_mode(struct sdhci_host *host,
-						    unsigned int clock)
+static unsigned int msm_get_clock_mult_for_bus_mode(struct sdhci_host *host)
 {
 	struct mmc_ios ios = host->mmc->ios;
 	/*
@@ -599,8 +604,8 @@ static unsigned int msm_get_clock_rate_for_bus_mode(struct sdhci_host *host,
 	    ios.timing == MMC_TIMING_MMC_DDR52 ||
 	    ios.timing == MMC_TIMING_MMC_HS400 ||
 	    host->flags & SDHCI_HS400_TUNING)
-		clock *= 2;
-	return clock;
+		return 2;
+	return 1;
 }
 
 static void msm_set_clock_rate_for_bus_mode(struct sdhci_host *host,
@@ -610,24 +615,40 @@ static void msm_set_clock_rate_for_bus_mode(struct sdhci_host *host,
 	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
 	struct mmc_ios curr_ios = host->mmc->ios;
 	struct clk *core_clk = msm_host->bulk_clks[0].clk;
+	unsigned long achieved_rate;
+	unsigned int desired_rate;
+	unsigned int mult;
 	int rc;
 
-	clock = msm_get_clock_rate_for_bus_mode(host, clock);
+	mult = msm_get_clock_mult_for_bus_mode(host);
+	desired_rate = clock * mult;
 
 	if (curr_ios.timing == MMC_TIMING_SD_HS &&
 			msm_host->uses_level_shifter)
-		clock = LEVEL_SHIFTER_HIGH_SPEED_FREQ;
+		desired_rate = LEVEL_SHIFTER_HIGH_SPEED_FREQ;
 
-	rc = dev_pm_opp_set_rate(mmc_dev(host->mmc), clock);
+	rc = dev_pm_opp_set_rate(mmc_dev(host->mmc), desired_rate);
 	if (rc) {
 		pr_err("%s: Failed to set clock at rate %u at timing %d\n",
-		       mmc_hostname(host->mmc), clock,
+		       mmc_hostname(host->mmc), desired_rate,
 		       curr_ios.timing);
 		return;
 	}
-	msm_host->clk_rate = clock;
+
+	/*
+         * Qualcomm Technologies, Inc. clock drivers by default round
+         * clock _up_ if they can't make the requested rate.  This is not
+         * good for SD.  Yell if we encounter it.
+         */
+        achieved_rate = clk_get_rate(core_clk);
+        if (achieved_rate > desired_rate)
+                pr_debug("%s: Card appears overclocked; req %u Hz, actual %lu Hz\n",
+                        mmc_hostname(host->mmc), desired_rate, achieved_rate);
+        host->mmc->actual_clock = achieved_rate / mult;
+	msm_host->clk_rate = desired_rate;
+
 	pr_debug("%s: Setting clock at rate %lu at timing %d\n",
-		 mmc_hostname(host->mmc), clk_get_rate(core_clk),
+		 mmc_hostname(host->mmc), achieved_rate,
 		 curr_ios.timing);
 	sdhci_msm_log_str(msm_host, "Setting clock at rate %lu at timing %d\n",
 			clk_get_rate(core_clk), curr_ios.timing);
@@ -1570,10 +1591,6 @@ static int sdhci_msm_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	const struct sdhci_msm_offset *msm_offset =
 					sdhci_priv_msm_offset(host);
 
-	core_vendor_spec = readl_relaxed(host->ioaddr +
-					msm_offset->core_vendor_spec);
-
-
 	if (!sdhci_msm_is_tuning_needed(host)) {
 		msm_host->use_cdr = false;
 		sdhci_msm_set_cdr(host, false);
@@ -1614,6 +1631,9 @@ static int sdhci_msm_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		msm_set_clock_rate_for_bus_mode(host, ios.clock);
 		host->flags &= ~SDHCI_HS400_TUNING;
 	}
+
+	core_vendor_spec = readl_relaxed(host->ioaddr +
+			msm_offset->core_vendor_spec);
 
 	/* Make sure that PWRSAVE bit is set to '0' during tuning */
 	writel_relaxed((core_vendor_spec & ~CORE_CLK_PWRSAVE),
@@ -2199,6 +2219,37 @@ static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 	sdhci_msm_log_str(msm_host, "request %d done\n", req_type);
 }
 
+/*
+ * sdhci_msm_enhanced_strobe_mask :-
+ * Before running CMDQ transfers in HS400 Enhanced Strobe mode,
+ * SW should write 3 to
+ * HC_VENDOR_SPECIFIC_FUNC3.CMDEN_HS400_INPUT_MASK_CNT register.
+ * The default reset value of this register is 2.
+ */
+static void sdhci_msm_enhanced_strobe_mask(struct mmc_host *mmc, bool set)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	const struct sdhci_msm_offset *msm_offset = msm_host->offset;
+	u32 config;
+
+	if (!mmc->ios.enhanced_strobe) {
+		pr_debug("%s: host/card does not support hs400 enhanced strobe\n",
+				mmc_hostname(host->mmc));
+		return;
+	}
+
+	config = readl_relaxed(host->ioaddr + msm_offset->core_vendor_spec3);
+
+	if (set)
+		config |= CORE_CMDEN_HS400_INPUT_MASK_CNT;
+	else
+		config &= ~CORE_CMDEN_HS400_INPUT_MASK_CNT;
+
+	writel_relaxed(config, host->ioaddr + msm_offset->core_vendor_spec3);
+}
+
 static void sdhci_msm_dump_pwr_ctrl_regs(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -2405,6 +2456,7 @@ static int sdhci_msm_setup_vreg(struct sdhci_msm_host *msm_host,
 	struct sdhci_msm_vreg_data *curr_slot;
 	struct sdhci_msm_reg_data *vreg_table[2];
 	struct mmc_host *mmc = msm_host->mmc;
+	u32 val = 0;
 
 	sdhci_msm_log_str(msm_host, "%s regulators\n",
 			enable ? "Enabling" : "Disabling");
@@ -2428,6 +2480,20 @@ static int sdhci_msm_setup_vreg(struct sdhci_msm_host *msm_host,
 		mmc->card->ext_csd.power_off_notification == EXT_CSD_NO_POWER_NOTIFICATION)
 		vreg_table[1]->is_always_on = false;
 
+	if (!enable && !(mmc->caps & MMC_CAP_NONREMOVABLE)) {
+
+		/*
+		 * Disable Receiver of the Pad to avoid crowbar currents
+		 * when Pad power supplies are collapsed. Provide SW control
+		 * on the core_ie of SDC2 Pads. SW write 1’b0
+		 * into the bit 15 of register TLMM_NORTH_SPARE.
+		 */
+
+		val = msm_spare_read(TLMM_NORTH_SPARE);
+		val &= ~TLMM_NORTH_SPARE_CORE_IE;
+		msm_spare_write(TLMM_NORTH_SPARE, val);
+	}
+
 	for (i = 0; i < ARRAY_SIZE(vreg_table); i++) {
 		if (vreg_table[i]) {
 			if (enable)
@@ -2438,6 +2504,21 @@ static int sdhci_msm_setup_vreg(struct sdhci_msm_host *msm_host,
 				goto out;
 		}
 	}
+
+	if (enable && !(mmc->caps & MMC_CAP_NONREMOVABLE)) {
+
+		/*
+		 * Disable Receiver of the Pad to avoid crowbar currents
+		 * when Pad power supplies are collapsed. Provide SW control
+		 * on the core_ie of SDC2 Pads. SW write 1’b1
+		 * into the bit 15 of register TLMM_NORTH_SPARE.
+		 */
+
+		val = msm_spare_read(TLMM_NORTH_SPARE);
+		val |= TLMM_NORTH_SPARE_CORE_IE;
+		msm_spare_write(TLMM_NORTH_SPARE, val);
+	}
+
 out:
 	return ret;
 }
@@ -2779,13 +2860,6 @@ static unsigned int sdhci_msm_get_min_clock(struct sdhci_host *host)
 static void __sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 {
 	u16 clk;
-	/*
-	 * Keep actual_clock as zero -
-	 * - since there is no divider used so no need of having actual_clock.
-	 * - MSM controller uses SDCLK for data timeout calculation. If
-	 *   actual_clock is zero, host->clock is taken for calculation.
-	 */
-	host->mmc->actual_clock = 0;
 
 	sdhci_writew(host, 0, SDHCI_CLOCK_CONTROL);
 
@@ -2808,7 +2882,7 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
 
 	if (!clock) {
-		msm_host->clk_rate = clock;
+		host->mmc->actual_clock = msm_host->clk_rate = 0;
 		goto out;
 	}
 
@@ -3201,6 +3275,7 @@ static void sdhci_msm_set_timeout(struct sdhci_host *host, struct mmc_command *c
 static const struct cqhci_host_ops sdhci_msm_cqhci_ops = {
 	.enable		= sdhci_msm_cqe_enable,
 	.disable	= sdhci_msm_cqe_disable,
+	.enhanced_strobe_mask = sdhci_msm_enhanced_strobe_mask,
 #ifdef CONFIG_MMC_CRYPTO
 	.program_key	= sdhci_msm_program_key,
 #endif
@@ -3237,8 +3312,7 @@ static int sdhci_msm_cqe_add_host(struct sdhci_host *host,
 	msm_host->mmc->caps2 |= MMC_CAP2_CQE | MMC_CAP2_CQE_DCMD;
 	cq_host->ops = &sdhci_msm_cqhci_ops;
 	msm_host->cq_host = cq_host;
-	/* TODO: Needs Upstreaming */
-	/* cq_host->offset_changed = msm_host->cqhci_offset_changed; */
+	cq_host->offset_changed = msm_host->cqhci_offset_changed;
 
 	dma64 = host->flags & SDHCI_USE_64_BIT_DMA;
 
@@ -3953,11 +4027,9 @@ static void sdhci_msm_cqe_dump_debug_ram(struct sdhci_host *host)
 
 	/* registers offset changed starting from 4.2.0 */
 	offset = minor >= SDHCI_MSM_VER_420 ? 0 : 0x48;
-	/*
-	 * TODO: Needs upstreaming?
-	 * if (cq_host->offset_changed)
-	 *	offset += CQE_V5_VENDOR_CFG;
-	 */
+
+	if (cq_host->offset_changed)
+		offset += CQE_V5_VENDOR_CFG;
 	pr_err("---- Debug RAM dump ----\n");
 	pr_err(DRV_NAME ": Debug RAM wrap-around: 0x%08x | Debug RAM overlap: 0x%08x\n",
 	       cqhci_readl(cq_host, CQ_CMD_DBG_RAM_WA + offset),
@@ -5112,6 +5184,13 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 
 	if (core_major == 1 && core_minor >= 0x49)
 		msm_host->updated_ddr_cfg = true;
+
+	/* For SDHC v5.0.0 onwards, ICE 3.0 specific registers are added
+	 * in CQ register space, due to which few CQ registers are
+	 * shifted. Set cqhci_offset_changed boolean to use updated address.
+	 */
+	if (core_major == 1 && core_minor >= 0x6B)
+		msm_host->cqhci_offset_changed = true;
 
 	if (core_major == 1 && core_minor >= 0x71)
 		msm_host->uses_tassadar_dll = true;

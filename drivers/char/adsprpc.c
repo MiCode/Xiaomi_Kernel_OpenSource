@@ -3898,7 +3898,7 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 		 * If remote-heap VMIDs are defined in DTSI, then do
 		 * hyp_assign from HLOS to those VMs (LPASS, ADSP).
 		 */
-		if (rhvm->vmid && mem && !mem->is_persistent && mem->refs == 1 && size) {
+		if (rhvm->vmid && mem && mem->refs == 1 && size) {
 			err = hyp_assign_phys(phys, (uint64_t)size,
 				hlosvm, 1,
 				rhvm->vmid, rhvm->vmperm, rhvm->vmcount);
@@ -4498,11 +4498,14 @@ static int fastrpc_munmap_on_dsp_rh(struct fastrpc_file *fl, uint64_t phys,
 						size_t size, uint32_t flags, int locked)
 {
 	int err = 0;
-	struct fastrpc_apps *me = &gfa;
 	int tgid = 0;
-	int destVM[1] = {VMID_HLOS};
-	int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
+	struct fastrpc_apps *me = &gfa;
 	int cid = -1;
+	struct fastrpc_ioctl_invoke_async ioctl;
+	remote_arg_t ra[2];
+	struct {
+		uint8_t skey;
+	} routargs;
 
 	if (!fl) {
 		err = -EBADF;
@@ -4517,62 +4520,61 @@ static int fastrpc_munmap_on_dsp_rh(struct fastrpc_file *fl, uint64_t phys,
 			cid);
 		goto bail;
 	}
-	if (flags == ADSP_MMAP_HEAP_ADDR) {
-		struct fastrpc_ioctl_invoke_async ioctl;
-		remote_arg_t ra[2];
-		int err = 0;
-		struct {
-			uint8_t skey;
-		} routargs;
 
-		tgid = fl->tgid;
-		ra[0].buf.pv = (void *)&tgid;
-		ra[0].buf.len = sizeof(tgid);
-
-		ra[1].buf.pv = (void *)&routargs;
-		ra[1].buf.len = sizeof(routargs);
-
-		ioctl.inv.handle = FASTRPC_STATIC_HANDLE_PROCESS_GROUP;
-		ioctl.inv.sc = REMOTE_SCALARS_MAKE(9, 1, 1);
-		ioctl.inv.pra = ra;
-		ioctl.fds = NULL;
-		ioctl.attrs = NULL;
-		ioctl.crc = NULL;
-		ioctl.perf_kernel = NULL;
-		ioctl.perf_dsp = NULL;
-		ioctl.job = NULL;
-
-		if (locked) {
-			mutex_unlock(&fl->map_mutex);
-			mutex_unlock(&me->channel[cid].smd_mutex);
-		}
-		VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
-				FASTRPC_MODE_PARALLEL, KERNEL_MSG_WITH_ZERO_PID, &ioctl)));
-		if (locked) {
-			mutex_lock(&me->channel[cid].smd_mutex);
-			mutex_lock(&fl->map_mutex);
-		}
-		if (err)
-			goto bail;
-	} else if (flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
-		if ((me->channel[cid].rhvm.vmid)
-				&& (me->channel[cid].in_hib == 0)) {
-			err = hyp_assign_phys(phys,
-					(uint64_t)size,
-					me->channel[cid].rhvm.vmid,
-					me->channel[cid].rhvm.vmcount,
-					destVM, destVMperm, 1);
-			if (err) {
-				ADSPRPC_ERR(
-					"rh hyp unassign failed with %d for phys 0x%llx, size %zu\n",
-					err, phys, size);
-				err = -EADDRNOTAVAIL;
-				goto bail;
-			}
-		}
+	tgid = fl->tgid;
+	ra[0].buf.pv = (void *)&tgid;
+	ra[0].buf.len = sizeof(tgid);
+	ra[1].buf.pv = (void *)&routargs;
+	ra[1].buf.len = sizeof(routargs);
+	ioctl.inv.handle = FASTRPC_STATIC_HANDLE_PROCESS_GROUP;
+	ioctl.inv.sc = REMOTE_SCALARS_MAKE(9, 1, 1);
+	ioctl.inv.pra = ra;
+	ioctl.fds = NULL;
+	ioctl.attrs = NULL;
+	ioctl.crc = NULL;
+	ioctl.perf_kernel = NULL;
+	ioctl.perf_dsp = NULL;
+	ioctl.job = NULL;
+	if (locked) {
+		mutex_unlock(&fl->map_mutex);
+		mutex_unlock(&me->channel[cid].smd_mutex);
 	}
+	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
+			FASTRPC_MODE_PARALLEL, KERNEL_MSG_WITH_ZERO_PID, &ioctl)));
+	if (locked) {
+		mutex_lock(&me->channel[cid].smd_mutex);
+		mutex_lock(&fl->map_mutex);
+	}
+	if (err)
+		goto bail;
 
 bail:
+	return err;
+}
+
+static int fastrpc_munmap_rh(uint64_t phys, size_t size,
+						uint32_t flags)
+{
+	int err = 0;
+	struct fastrpc_apps *me = &gfa;
+	int destVM[1] = {VMID_HLOS};
+	int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
+
+	if ((me->channel[RH_CID].rhvm.vmid)
+			&& (me->channel[RH_CID].in_hib == 0)) {
+		err = hyp_assign_phys(phys,
+				(uint64_t)size,
+				me->channel[RH_CID].rhvm.vmid,
+				me->channel[RH_CID].rhvm.vmcount,
+				destVM, destVMperm, 1);
+		if (err) {
+			ADSPRPC_ERR(
+				"rh hyp unassign failed with %d for phys 0x%llx, size %zu\n",
+				err, phys, size);
+			err = -EADDRNOTAVAIL;
+			return err;
+		}
+	}
 	return err;
 }
 
@@ -4585,10 +4587,14 @@ static int fastrpc_munmap_on_dsp(struct fastrpc_file *fl, uintptr_t raddr,
 						size, flags)));
 	if (err)
 		goto bail;
-	if (flags == ADSP_MMAP_HEAP_ADDR ||
-				flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
+	if (flags == ADSP_MMAP_HEAP_ADDR) {
 		VERIFY(err, !(err = fastrpc_munmap_on_dsp_rh(fl, phys,
 			size, flags, 0)));
+		if (err)
+			goto bail;
+	} else if (flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
+		VERIFY(err, !(err = fastrpc_munmap_rh(phys,
+			size, flags)));
 		if (err)
 			goto bail;
 	}
@@ -4607,10 +4613,12 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked)
 	unsigned long irq_flags = 0;
 
 	INIT_LIST_HEAD(&head);
-	VERIFY(err, fl->cid == RH_CID);
-	if (err) {
-		err = -EBADR;
-		goto bail;
+	if (fl) {
+		VERIFY(err, fl->cid == RH_CID);
+		if (err) {
+			err = -EBADR;
+			goto bail;
+		}
 	}
 	do {
 		match = NULL;
@@ -4618,7 +4626,31 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked)
 		hlist_for_each_entry_safe(map, n, &me->maps, hn) {
 			match = map;
 			if (map->is_persistent) {
-				map->in_use = false;
+				if (map->in_use) {
+					int destVM[1] = {VMID_HLOS};
+					int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
+					uint64_t phys = map->phys;
+					size_t size = map->size;
+
+					map->in_use = false;
+					spin_unlock_irqrestore(&me->hlock, irq_flags);
+					//hyp assign it back to HLOS
+					if (me->channel[RH_CID].rhvm.vmid) {
+						err = hyp_assign_phys(phys,
+							(uint64_t)size,
+							me->channel[RH_CID].rhvm.vmid,
+							me->channel[RH_CID].rhvm.vmcount,
+							destVM, destVMperm, 1);
+					}
+					if (err) {
+						ADSPRPC_ERR(
+						"rh hyp unassign failed with %d for phys 0x%llx, size %zu\n",
+						err, phys, size);
+						err = -EADDRNOTAVAIL;
+						return err;
+					}
+					spin_lock_irqsave(&me->hlock, irq_flags);
+				}
 				match = NULL;
 				continue;
 			}
@@ -4628,8 +4660,18 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked)
 		spin_unlock_irqrestore(&me->hlock, irq_flags);
 
 		if (match) {
-			err = fastrpc_munmap_on_dsp_rh(fl, match->phys,
-						match->size, match->flags, locked);
+			if (match->flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
+				err = fastrpc_munmap_rh(match->phys,
+						match->size, match->flags);
+			} else if (match->flags == ADSP_MMAP_HEAP_ADDR) {
+				if (fl)
+					err = fastrpc_munmap_on_dsp_rh(fl, match->phys,
+							match->size, match->flags, 0);
+				else {
+					pr_err("Cannot communicate with DSP, ADSP is down\n");
+					fastrpc_mmap_add(match);
+				}
+			}
 			if (err)
 				goto bail;
 			memset(&ramdump_segments_rh, 0, sizeof(ramdump_segments_rh));
@@ -7714,91 +7756,37 @@ static int fastrpc_hibernation_notifier(struct notifier_block *nb,
 static struct notifier_block fastrpc_notif_block = {
 	.notifier_call = fastrpc_hibernation_notifier,
 };
-
-static int fastrpc_hibernation_restore(struct device *dev)
-{
-	int err = 0;
-	struct fastrpc_apps *me = &gfa;
-	struct smq_phy_page range;
-	struct device_node *ion_node, *node;
-	struct platform_device *ion_pdev;
-	struct cma *cma;
-	uint32_t val;
-
-	if (!hibernation)
-		return 0;
-
-	if (of_device_is_compatible(dev->of_node,
-					"qcom,msm-adsprpc-mem-region")) {
-		me->dev = dev;
-		range.addr = 0;
-		ion_node = of_find_compatible_node(NULL, NULL, "qcom,msm-ion");
-		if (ion_node) {
-			for_each_available_child_of_node(ion_node, node) {
-				if (of_property_read_u32(node, "reg", &val))
-					continue;
-				if (val != ION_ADSP_HEAP_ID)
-					continue;
-				ion_pdev = of_find_device_by_node(node);
-				if (!ion_pdev)
-					break;
-				cma = dev_get_cma_area(&ion_pdev->dev);
-				if (cma) {
-					range.addr = cma_get_base(cma);
-					range.size = (size_t)cma_get_size(cma);
-				}
-				break;
-			}
-		}
-		if (range.addr && !of_property_read_bool(dev->of_node,
-							 "restrict-access")) {
-			int srcVM[1] = {VMID_HLOS};
-			int destVM[4] = {VMID_HLOS, VMID_MSS_MSA, VMID_SSC_Q6,
-						VMID_ADSP_Q6};
-			int destVMperm[4] = {PERM_READ | PERM_WRITE | PERM_EXEC,
-				PERM_READ | PERM_WRITE | PERM_EXEC,
-				PERM_READ | PERM_WRITE | PERM_EXEC,
-				PERM_READ | PERM_WRITE | PERM_EXEC,
-				};
-
-			VERIFY(err, !hyp_assign_phys(range.addr, range.size,
-					srcVM, 1, destVM, destVMperm, 4));
-			if (err)
-				return err;
-			me->range.addr = range.addr;
-			me->range.size = range.size;
-		}
-	}
-	return err;
-}
-
-#else
-
-static int fastrpc_hibernation_restore(struct device *dev)
-{
-	return 0;
-}
 #endif
 
 #ifdef CONFIG_PM_SLEEP
+static int fastrpc_hibernation_suspend(struct device *dev)
+{
+	int err = 0;
+
+	if (of_device_is_compatible(dev->of_node,
+					"qcom,msm-fastrpc-compute")) {
+		err = fastrpc_mmap_remove_ssr(NULL, 0);
+		if (err)
+			ADSPRPC_WARN("failed to unmap remote heap (err %d)\n",
+					err);
+	}
+	return err;
+}
 static int fastrpc_restore(struct device *dev)
 {
 	struct fastrpc_apps *me = &gfa;
 	int cid;
-	int err = 0;
 
 	pr_info("adsprpc: restore enter\n");
 	for (cid = 0; cid < NUM_CHANNELS; cid++)
 		me->channel[cid].in_hib = 1;
 
-	err = fastrpc_hibernation_restore(dev);
-	if (err)
-		return err;
 	pr_info("adsprpc: restore exit\n");
 	return 0;
 }
 
 static const struct dev_pm_ops fastrpc_pm = {
+	.freeze = fastrpc_hibernation_suspend,
 	.restore = fastrpc_restore,
 };
 #endif

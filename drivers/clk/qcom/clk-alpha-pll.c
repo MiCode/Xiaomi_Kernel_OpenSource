@@ -2117,7 +2117,7 @@ static void lucid_pll_list_registers(struct seq_file *f,
 	if (val & PLL_FSM_ENA) {
 		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
 					data1[0].offset, &val);
-		clock_debug_output(f, "%20s: 0x%.8x\n", data[0].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data1[0].name, val);
 	}
 }
 
@@ -2235,7 +2235,7 @@ static void clk_agera_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	if (val & PLL_FSM_ENA) {
 		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
 				data1[0].offset, &val);
-		clock_debug_output(f, "%20s: 0x%.8x\n", data[0].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data1[0].name, val);
 	}
 }
 
@@ -3094,7 +3094,7 @@ static void clk_regera_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
 	if (val & PLL_FSM_ENA) {
 		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
 				data1[0].offset, &val);
-		clock_debug_output(f, "%20s: 0x%.8x\n", data[0].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data1[0].name, val);
 	}
 }
 
@@ -3519,7 +3519,7 @@ static void lucid_evo_pll_list_registers(struct seq_file *f,
 	if (val & PLL_EVO_ENABLE_VOTE_RUN) {
 		regmap_read(pll->clkr.regmap, pll->clkr.enable_reg +
 					data1[0].offset, &val);
-		clock_debug_output(f, "%20s: 0x%.8x\n", data[0].name, val);
+		clock_debug_output(f, "%20s: 0x%.8x\n", data1[0].name, val);
 	}
 }
 

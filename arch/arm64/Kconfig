@@ -1111,6 +1111,14 @@ config CPU_LITTLE_ENDIAN
 
 endchoice
 
+config ARM64_KMALLOC64
+	bool "Use kmalloc-64"
+	help
+	  Some ARM64 cpus may use a 64 byte cacheline instead of 128 byte.
+	  This allows the smallest kmalloc cache to be 64 bytes, which
+	  can save memory for allocations smaller than 64 bytes.
+	  Say N if unsure.
+
 config SCHED_MC
 	bool "Multi-core scheduler support"
 	help

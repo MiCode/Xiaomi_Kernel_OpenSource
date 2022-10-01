@@ -27,6 +27,7 @@ qnoc-qos-obj				:= qnoc-qos.o
 qnoc-qos-rpm-obj			:= qnoc-qos-rpm.o
 qnoc-kalama-objs			:= kalama.o
 qnoc-bengal-objs			:= bengal.o
+qnoc-sa410m-objs			:= sa410m.o
 epss-l3-obj				:= epss-l3.o
 
 obj-$(CONFIG_INTERCONNECT_QCOM_BCM_VOTER) += icc-bcm-voter.o
@@ -53,6 +54,7 @@ obj-$(CONFIG_INTERCONNECT_QCOM_SCUBA) += qnoc-scuba.o
 obj-$(CONFIG_INTERCONNECT_QCOM_LEMANS) += qnoc-lemans.o
 obj-$(CONFIG_INTERCONNECT_QCOM_BENGAL) += qnoc-bengal.o
 obj-$(CONFIG_INTERCONNECT_QCOM_RPM) += icc-rpm.o
+obj-$(CONFIG_INTERCONNECT_QCOM_SA410M) += qnoc-sa410m.o
 obj-$(CONFIG_INTERCONNECT_QCOM_SMD_RPM) += icc-smd-rpm.o
 obj-$(CONFIG_INTERCONNECT_QCOM_QOS) += qnoc-qos.o
 obj-$(CONFIG_INTERCONNECT_QCOM_QOS_RPM) += qnoc-qos-rpm.o

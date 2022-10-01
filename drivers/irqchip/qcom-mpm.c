@@ -595,10 +595,23 @@ const struct mpm_pin mpm_khaje_gic_chip_data[] = {
 	{-1},
 };
 
+const struct mpm_pin mpm_monaco_gic_chip_data[] = {
+	{5, 296}, /* lpass_irq_out_sdc */
+	{8, 260}, /* eud_p0_dpse_int_mx */
+	{86, 183}, /* mpm_wake,spmi_m */
+	{89, 422}, /* tsens0_tsens_0C_int */
+	{91, 260}, /* eud_p0_dmse_int_mx */
+	{-1},
+};
+
 static const struct of_device_id mpm_gic_chip_data_table[] = {
 	{
 		.compatible = "qcom,mpm-khaje",
 		.data = mpm_khaje_gic_chip_data,
+	},
+	{
+		.compatible = "qcom,mpm-monaco",
+		.data = mpm_monaco_gic_chip_data,
 	},
 	{}
 };

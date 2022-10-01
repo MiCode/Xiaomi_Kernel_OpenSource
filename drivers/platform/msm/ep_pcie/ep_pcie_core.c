@@ -87,6 +87,12 @@ static struct ep_pcie_clk_info_t
 	{NULL, "pcie_pipe_clk_mux", 0, false},
 	{NULL, "pcie_pipe_clk_ext_src", 0, false},
 	{NULL, "pcie_0_ref_clk_src", 0, false},
+	{NULL, "snoc_pcie_sf_south_qx_clk", 0, false},
+	{NULL, "snoc_pcie_sf_center_qx_clk", 0, false},
+	{NULL, "snoc_cnoc_pcie_qx_clk", 0, false},
+	{NULL, "snoc_cnoc_gemnoc_pcie_south_qx_clk", 0, false},
+	{NULL, "snoc_cnoc_gemnoc_pcie_qx_clk", 0, false},
+	{NULL, "gemnoc_pcie_qx_clk", 0, false},
 };
 
 static struct ep_pcie_clk_info_t
@@ -2582,7 +2588,7 @@ static int ep_pcie_enumeration(struct ep_pcie_dev_t *dev)
 		EP_PCIE_ERR(&ep_pcie_dev,
 			"PCIe V%d: the input handler is NULL\n",
 			ep_pcie_dev.rev);
-		return EP_PCIE_ERROR;
+		return -ENODEV;
 	}
 
 	EP_PCIE_DBG(dev,
@@ -3858,7 +3864,11 @@ static int ep_pcie_probe(struct platform_device *pdev)
 		ep_pcie_dev.rev, dev_name(&(pdev->dev)));
 
 	ret = ep_pcie_enumeration(&ep_pcie_dev);
-	if (ret && !ep_pcie_debug_keep_resource)
+	if (ret == EP_PCIE_ERROR)
+		EP_PCIE_ERR(&ep_pcie_dev,
+				"PCIe V%d: Enumeration failed in probe, waiting for Perst deassert\n",
+				ep_pcie_dev.rev);
+	if (ret && !ep_pcie_debug_keep_resource & !ep_pcie_dev.perst_enum)
 		goto irq_deinit;
 
 	register_reboot_notifier(&ep_pcie_core_reboot_notifier);

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2015, 2021 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
  */
 #ifndef LINUX_MMC_CQHCI_H
 #define LINUX_MMC_CQHCI_H
@@ -115,6 +115,12 @@
 
 /* command response argument */
 #define CQHCI_CRA			0x5C
+
+/*
+ * Add new macro for updated CQ vendor specific
+ * register address for SDHC v5.0 onwards.
+ */
+#define CQE_V5_VENDOR_CFG		0x900
 
 /* crypto capabilities */
 #define CQHCI_CCAP			0x100
@@ -243,6 +249,7 @@ struct cqhci_host {
 	bool activated;
 	bool waiting_for_idle;
 	bool recovery_halt;
+	bool offset_changed;
 
 	size_t desc_size;
 	size_t data_size;
@@ -297,6 +304,7 @@ struct cqhci_host_ops {
 	int (*program_key)(struct cqhci_host *cq_host,
 			   const union cqhci_crypto_cfg_entry *cfg, int slot);
 #endif
+	void (*enhanced_strobe_mask)(struct mmc_host *mmc, bool set);
 };
 
 static inline void cqhci_writel(struct cqhci_host *host, u32 val, int reg)

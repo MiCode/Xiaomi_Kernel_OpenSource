@@ -451,6 +451,17 @@ config ARM_SMMU_V3_SVA
 	  Say Y here if your system supports SVA extensions such as PCIe PASID
 	  and PRI.
 
+config IOMMU_TLBSYNC_DEBUG
+	bool "TLB sync timeout debug"
+	depends on ARM_SMMU
+	help
+	  Collects the SMMU system state information after the
+	  first TLB sync timeout failure by calling BUG() from
+	  a workqueue thread. Note to use this only on debug
+	  builds.
+
+	  If unsure, say N here.
+
 config QCOM_LAZY_MAPPING
 	tristate "Reference counted iommu-mapping support"
 	depends on QCOM_DMABUF_HEAPS

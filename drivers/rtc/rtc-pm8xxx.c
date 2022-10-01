@@ -27,6 +27,8 @@
 
 #define NUM_8_BIT_RTC_REGS		0x4
 
+#define RTC_SEC_TO_MSEC(s)	((s) * 1000ULL)
+
 /**
  * struct pm8xxx_rtc_regs - describe RTC registers per PMIC versions
  * @ctrl: base address of control register
@@ -45,6 +47,7 @@ struct pm8xxx_rtc_regs {
 	unsigned int alarm_ctrl2;
 	unsigned int alarm_rw;
 	unsigned int alarm_en;
+	unsigned int read_ms;
 };
 
 /**
@@ -367,6 +370,69 @@ rtc_rw_fail:
 	return rc;
 }
 
+static ssize_t rtc_ms_val_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	int rc;
+	u8 value[NUM_8_BIT_RTC_REGS], value_ms[2];
+	unsigned long secs = 0, msecs = 0, rtc_ms_total = 0;
+	unsigned int reg;
+	struct pm8xxx_rtc *rtc_dd = dev_get_drvdata(dev->parent);
+	const struct pm8xxx_rtc_regs *regs = rtc_dd->regs;
+
+	rc = regmap_bulk_read(rtc_dd->regmap, regs->read, value, sizeof(value));
+	if (rc) {
+		dev_err(dev, "RTC read data register failed\n");
+		return rc;
+	}
+
+	/*
+	 * Read the LSB again and check if there has been a carry over.
+	 * If there is, redo the read operation.
+	 */
+	rc = regmap_read(rtc_dd->regmap, regs->read, &reg);
+	if (rc < 0) {
+		dev_err(dev, "RTC read data register failed\n");
+		return rc;
+	}
+
+	if (unlikely(reg < value[0])) {
+		rc = regmap_bulk_read(rtc_dd->regmap, regs->read,
+				      value, sizeof(value));
+		if (rc) {
+			dev_err(dev, "RTC read data register failed\n");
+			return rc;
+		}
+	}
+
+	secs = value[0] | (value[1] << 8) | (value[2] << 16) |
+	       ((unsigned long)value[3] << 24);
+
+	/* Read milli-second value */
+	rc = regmap_bulk_read(rtc_dd->regmap, regs->read_ms, value_ms, sizeof(value_ms));
+	if (rc) {
+		dev_err(dev, "RTC read data register failed\n");
+		return rc;
+	}
+
+	msecs = value_ms[0] | (value_ms[1] << 8);
+
+	rtc_ms_total = RTC_SEC_TO_MSEC(secs) + msecs;
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", rtc_ms_total);
+}
+
+static DEVICE_ATTR_RO(rtc_ms_val);
+
+static struct attribute *pm8xxx_rtc_attrs[] = {
+	&dev_attr_rtc_ms_val.attr,
+	NULL,
+};
+
+static const struct attribute_group pm8xxx_rtc_group = {
+	.attrs = pm8xxx_rtc_attrs,
+};
+
 static const struct rtc_class_ops pm8xxx_rtc_ops = {
 	.read_time	= pm8xxx_rtc_read_time,
 	.set_time	= pm8xxx_rtc_set_time,
@@ -528,6 +594,7 @@ static const struct pm8xxx_rtc_regs pmk8350_regs = {
 	.alarm_ctrl	= 0x6246,
 	.alarm_ctrl2	= 0x6248,
 	.alarm_en	= BIT(7),
+	.read_ms	= 0x6162,
 };
 
 static const struct pm8xxx_rtc_regs pm5100_regs = {
@@ -538,6 +605,7 @@ static const struct pm8xxx_rtc_regs pm5100_regs = {
 	.alarm_ctrl	= 0x6546,
 	.alarm_ctrl2	= 0x6548,
 	.alarm_en	= BIT(7),
+	.read_ms	= 0x6462,
 };
 
 /*
@@ -603,6 +671,12 @@ static int pm8xxx_rtc_probe(struct platform_device *pdev)
 	rtc_dd->rtc->ops = &pm8xxx_rtc_ops;
 	rtc_dd->rtc->range_max = U32_MAX;
 
+
+	rc = rtc_add_group(rtc_dd->rtc, &pm8xxx_rtc_group);
+	if (rc)
+		return rc;
+
+
 	/* Request the alarm IRQ */
 	rc = devm_request_any_context_irq(&pdev->dev, rtc_dd->rtc_alarm_irq,
 					  pm8xxx_alarm_trigger,
@@ -625,7 +699,34 @@ static int pm8xxx_rtc_probe(struct platform_device *pdev)
 	return pm8xxx_rtc_init_alarm(rtc_dd);
 }
 
-#ifdef CONFIG_PM_SLEEP
+static int pm8xxx_rtc_restore(struct device *dev)
+{
+	struct pm8xxx_rtc *rtc_dd = dev_get_drvdata(dev);
+	int rc;
+
+	/* Request the alarm IRQ */
+	rc = devm_request_any_context_irq(rtc_dd->rtc_dev,
+					  rtc_dd->rtc_alarm_irq,
+					  pm8xxx_alarm_trigger,
+					  IRQF_TRIGGER_RISING,
+					  "pm8xxx_rtc_alarm", rtc_dd);
+	if (rc < 0) {
+		dev_err(rtc_dd->rtc_dev, "Request IRQ failed (%d)\n", rc);
+		return rc;
+	}
+
+	return pm8xxx_rtc_enable(rtc_dd);
+}
+
+static int pm8xxx_rtc_freeze(struct device *dev)
+{
+	struct pm8xxx_rtc *rtc_dd = dev_get_drvdata(dev);
+
+	devm_free_irq(rtc_dd->rtc_dev, rtc_dd->rtc_alarm_irq, rtc_dd);
+
+	return 0;
+}
+
 static int pm8xxx_rtc_resume(struct device *dev)
 {
 	struct pm8xxx_rtc *rtc_dd = dev_get_drvdata(dev);
@@ -645,11 +746,13 @@ static int pm8xxx_rtc_suspend(struct device *dev)
 
 	return 0;
 }
-#endif
 
-static SIMPLE_DEV_PM_OPS(pm8xxx_rtc_pm_ops,
-			 pm8xxx_rtc_suspend,
-			 pm8xxx_rtc_resume);
+static const struct dev_pm_ops pm8xxx_rtc_pm_ops = {
+	.freeze = pm8xxx_rtc_freeze,
+	.restore = pm8xxx_rtc_restore,
+	.suspend = pm8xxx_rtc_suspend,
+	.resume = pm8xxx_rtc_resume,
+};
 
 static struct platform_driver pm8xxx_rtc_driver = {
 	.probe		= pm8xxx_rtc_probe,

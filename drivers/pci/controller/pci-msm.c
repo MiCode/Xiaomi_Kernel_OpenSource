@@ -4431,7 +4431,7 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 		return ret;
 
 	dev->icc_path = of_icc_get(&pdev->dev, "icc_path");
-	if (IS_ERR_OR_NULL(dev->icc_path)) {
+	if (IS_ERR(dev->icc_path)) {
 		ret = dev->icc_path ? PTR_ERR(dev->icc_path) : -EINVAL;
 
 		PCIE_ERR(dev, "PCIe: RC%d: failed to get ICC path: %d\n",
@@ -5801,7 +5801,6 @@ static irqreturn_t handle_wake_irq(int irq, void *data)
 
 		if (dev->drv_supported && !dev->suspending &&
 		    dev->link_status == MSM_PCIE_LINK_ENABLED) {
-			msm_pcie_clk_dump(dev);
 			pcie_phy_dump(dev);
 			pcie_parf_dump(dev);
 			pcie_dm_core_dump(dev);
@@ -5877,7 +5876,6 @@ static void msm_pcie_handle_linkdown(struct msm_pcie_dev_t *dev)
 		PCIE_DUMP(dev,
 			"PCIe:Linkdown IRQ for RC%d Dumping PCIe registers\n",
 			dev->rc_idx);
-		msm_pcie_clk_dump(dev);
 		pcie_phy_dump(dev);
 		pcie_parf_dump(dev);
 		pcie_dm_core_dump(dev);

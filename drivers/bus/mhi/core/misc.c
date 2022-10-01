@@ -1052,6 +1052,9 @@ static int mhi_get_capability_offset(struct mhi_controller *mhi_cntrl,
 	if (ret)
 		return ret;
 	do {
+		if (*offset >= MHI_REG_SIZE)
+			return -ENXIO;
+
 		ret = mhi_read_reg_field(mhi_cntrl, mhi_cntrl->regs, *offset,
 					 CAP_CAPID_MASK, CAP_CAPID_SHIFT,
 					 &cur_cap);
@@ -1068,8 +1071,6 @@ static int mhi_get_capability_offset(struct mhi_controller *mhi_cntrl,
 			return ret;
 
 		*offset = next_offset;
-		if (*offset >= MHI_REG_SIZE)
-			return -ENXIO;
 	} while (next_offset);
 
 	return -ENXIO;

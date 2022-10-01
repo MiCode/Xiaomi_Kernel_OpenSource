@@ -3447,11 +3447,11 @@ static int stmmac_hw_setup(struct net_device *dev, bool ptp_register)
 		netdev_warn(priv->dev, "PTP not supported by HW\n");
 	else if (ret)
 		netdev_warn(priv->dev, "PTP init failed\n");
-	else if (ptp_register)
+	else if (ptp_register) {
 		stmmac_ptp_register(priv);
-	else
 		clk_set_rate(priv->plat->clk_ptp_ref,
 					 priv->plat->clk_ptp_rate);
+	}
 
 	ret = priv->plat->init_pps(priv);
 
@@ -3926,6 +3926,9 @@ static int stmmac_open(struct net_device *dev)
 		phylink_speed_up(priv->phylink);
 	}
 
+	if (!priv->phy_irq_enabled)
+		priv->plat->phy_irq_enable(priv);
+
 	ret = stmmac_request_irq(dev);
 	if (ret)
 		goto irq_error;
@@ -3981,6 +3984,9 @@ static int stmmac_release(struct net_device *dev)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
 	u32 chan;
+
+	if (priv->phy_irq_enabled)
+		priv->plat->phy_irq_disable(priv);
 
 	netif_tx_disable(dev);
 
