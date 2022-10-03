@@ -945,6 +945,17 @@ config I2C_SLAVE_QCOM
           This driver can also be built as a module.  If so, the module
           will be called i2c-slave.
 
+config I2C_SLAVE_TEST
+        tristate "Qualcomm Technologies Inc.'s I2C Slave Test"
+        depends on ARCH_QCOM || COMPILE_TEST
+        default n
+        help
+          If you say yes to this option, support will be included for the
+          built-in I2C slave interface on the QTI SoCs.
+
+          This driver can also be built as a module.  If so, the module
+          will be called i2c-slave-test.
+
 config I2C_QUP
 	tristate "Qualcomm QUP based I2C controller"
 	depends on ARCH_QCOM || COMPILE_TEST
