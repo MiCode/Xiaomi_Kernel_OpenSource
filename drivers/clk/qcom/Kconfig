@@ -1051,4 +1051,13 @@ config SA_GCC_410M
 	  Say Y if you want to use peripheral devices such as UART, SPI,
 	  I2C, USB, UFS, SDCC, PCIe etc.
 
+config SDX_GCC_BAAGHA
+	tristate "SDXBAAGHA Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc.
+	  SDXBAAGHA devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, SD/eMMC, PCIe, etc.
+
 endif
