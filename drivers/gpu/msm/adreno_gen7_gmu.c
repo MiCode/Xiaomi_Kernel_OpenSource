@@ -851,6 +851,10 @@ void gen7_gmu_register_config(struct adreno_device *adreno_dev)
 	gmu_core_regwrite(device, GEN7_GPU_GMU_CX_GMU_CX_FALNEXT_INTF, 0x1);
 	gmu_core_regwrite(device, GEN7_GPU_GMU_CX_GMU_CX_FAL_INTF, 0x1);
 
+	/* Program GMU QOS control to avoid bandwidth starvation */
+	if (adreno_is_gen7_6_0(adreno_dev))
+		gmu_core_regwrite(device, GEN7_GMU_CX_MRC_GBIF_QOS_CTRL, 0x33);
+
 	/* Turn on TCM retention */
 	adreno_cx_misc_regwrite(adreno_dev, GEN7_GPU_CX_MISC_TCM_RET_CNTL, 1);
 

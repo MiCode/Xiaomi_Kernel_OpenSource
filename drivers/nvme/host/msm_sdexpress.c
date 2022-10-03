@@ -5,6 +5,15 @@
 
 #include "msm_sdexpress.h"
 
+static void msm_sdexpress_kobj_release(struct kobject *kobj)
+{
+	kobject_put(kobj);
+}
+
+static struct kobj_type msm_sdexpress_ktype = {
+	.release = msm_sdexpress_kobj_release,
+};
+
 static int msm_sdexpress_vreg_set_voltage(struct msm_sdexpress_reg_data *vreg,
 					int min_uV, int max_uV)
 {
@@ -82,6 +91,7 @@ static int msm_sdexpress_vreg_disable(struct msm_sdexpress_reg_data *vreg)
 					__func__, vreg->name, ret);
 			return ret;
 		}
+		vreg->is_enabled = false;
 
 		/* Set min. voltage level to 0 */
 		return msm_sdexpress_vreg_set_voltage(vreg, 0, vreg->high_vol_level);
@@ -179,6 +189,8 @@ static void msm_sdexpress_enumerate_card(struct msm_sdexpress_info *info)
 		if (time_after(jiffies, timeout)) {
 			pr_err("%s: CLKREQ is not going low. Wrong card may be inserted ?\n",
 					__func__);
+			/* notify userspace that an incompatible card is inserted */
+			kobject_uevent(&info->kobj, KOBJ_CHANGE);
 			rc = -ENODEV;
 			goto disable_vdd2;
 		}
@@ -624,9 +636,26 @@ static int msm_sdexpress_probe(struct platform_device *pdev)
 	if (!gpiod_get_value(info->sdexpress_gpio->gpio))
 		queue_work(info->sdexpress_wq, &info->sdex_work);
 
+	/* Initialize and register a kobject with the kobject core */
+	kobject_init(&info->kobj, &msm_sdexpress_ktype);
+	ret = kobject_add(&info->kobj, &dev->kobj, "%s", "sdexpress");
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to add kobject (%d)\n", ret);
+		goto kput;
+	}
+
+	/* announce that kobject has been created */
+	ret = kobject_uevent(&info->kobj, KOBJ_ADD);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to sent uevent (%d)\n", ret);
+		goto kput;
+	}
+
 	pr_info("%s: probe successful\n", __func__);
 	return ret;
 
+kput:
+	kobject_put(&info->kobj);
 err:
 	if (info->sdexpress_wq)
 		destroy_workqueue(info->sdexpress_wq);

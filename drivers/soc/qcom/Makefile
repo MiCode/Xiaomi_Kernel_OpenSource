@@ -65,6 +65,7 @@ smcinvoke_mod-y	+= smcinvoke_kernel.o smcinvoke.o
 obj-$(CONFIG_QCOM_MICRODUMP) += microdump_collector.o
 obj-$(CONFIG_QCOM_SDM845_LLCC) += llcc-sdm845.o
 obj-$(CONFIG_QCOM_LLCC_PERFMON) += llcc_perfmon.o
+obj-$(CONFIG_QCOM_SPAD_PERFMON) += llcc_spad.o
 obj-$(CONFIG_QCOM_RPMHPD) += rpmhpd.o
 obj-$(CONFIG_QCOM_RPMPD) += rpmpd.o
 obj-$(CONFIG_QMP_DEBUGFS_CLIENT) += qmp-debugfs-client.o

@@ -11,6 +11,7 @@
 
 #define CNSS_MAX_FILE_NAME		20
 #define CNSS_MAX_TIMESTAMP_LEN		32
+#define CNSS_WLFW_MAX_BUILD_ID_LEN      128
 #define CNSS_MAX_DEV_MEM_NUM		4
 #define CNSS_CHIP_VER_ANY		0
 
@@ -75,6 +76,7 @@ struct cnss_soc_info {
 	char fw_build_timestamp[CNSS_MAX_TIMESTAMP_LEN + 1];
 	struct cnss_device_version device_version;
 	struct cnss_dev_mem_info dev_mem_info[CNSS_MAX_DEV_MEM_NUM];
+	char fw_build_id[CNSS_WLFW_MAX_BUILD_ID_LEN + 1];
 };
 
 struct cnss_wlan_runtime_ops {

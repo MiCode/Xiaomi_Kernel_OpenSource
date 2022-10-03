@@ -29,6 +29,7 @@ config QCOM_COMMAND_DB
 config QCOM_CPUSS_SLEEP_STATS
 	tristate "Qualcomm Technologies, Inc. (QTI) CPUSS sleep stats driver"
 	depends on DEBUG_FS
+	depends on QCOM_SCM
 	help
 	 Qualcomm Technologies, Inc. (QTI) CPUSS sleep stats driver to get
 	 hardware LPM counts and residency for particular core/cluster
@@ -228,6 +229,15 @@ config QCOM_LLCC_PERFMON
 	  This is used for performance and debug activity and exports sysfs
 	  interface. sysfs interface is used to configure and dump the LLCC
 	  performance events.
+
+config QCOM_SPAD_PERFMON
+	tristate "Qualcomm Technologies, Inc. SPAD Perfmon driver"
+	depends on QCOM_LLCC
+	help
+	  This option enables driver for SPAD Performance monitor block. Using
+	  this various events in SPAD LPI LB block can be monitored.
+	  Exports sysfs interface to configure and dump the SPAD performance
+	  events.
 
 config QCOM_KRYO_L2_ACCESSORS
 	bool

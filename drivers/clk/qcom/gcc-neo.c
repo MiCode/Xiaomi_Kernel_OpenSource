@@ -1429,6 +1429,20 @@ static struct clk_branch gcc_iris_ss_hf_axi1_clk = {
 	},
 };
 
+static struct clk_branch gcc_iris_ss_hf_axi1_sreg = {
+	.sreg_enable_reg = 0x42034,
+	.sreg_core_ack_bit = BIT(11),
+	.sreg_periph_ack_bit = BIT(10),
+	.clkr = {
+		.enable_reg = 0x42034,
+		.enable_mask = BIT(3),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_iris_ss_hf_axi1_sreg",
+			.ops = &clk_branch2_sreg_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_iris_ss_spd_axi1_clk = {
 	.halt_reg = 0x70020,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -1445,6 +1459,20 @@ static struct clk_branch gcc_iris_ss_spd_axi1_clk = {
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_iris_ss_spd_axi1_sreg = {
+	.sreg_enable_reg = 0x70024,
+	.sreg_core_ack_bit = BIT(11),
+	.sreg_periph_ack_bit = BIT(10),
+	.clkr = {
+		.enable_reg = 0x70024,
+		.enable_mask = BIT(3),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_iris_ss_spd_axi1_sreg",
+			.ops = &clk_branch2_sreg_ops,
 		},
 	},
 };
@@ -2349,6 +2377,20 @@ static struct clk_branch gcc_video_axi0_clk = {
 	},
 };
 
+static struct clk_branch gcc_video_axi0_sreg = {
+	.sreg_enable_reg = 0x4201C,
+	.sreg_core_ack_bit = BIT(11),
+	.sreg_periph_ack_bit = BIT(10),
+	.clkr = {
+		.enable_reg = 0x4201C,
+		.enable_mask = BIT(3),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_video_axi0_sreg",
+			.ops = &clk_branch2_sreg_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_video_axi1_clk = {
 	.halt_reg = 0x42024,
 	.halt_check = BRANCH_HALT_SKIP,
@@ -2360,6 +2402,20 @@ static struct clk_branch gcc_video_axi1_clk = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_video_axi1_clk",
 			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_video_axi1_sreg = {
+	.sreg_enable_reg = 0x42028,
+	.sreg_core_ack_bit = BIT(11),
+	.sreg_periph_ack_bit = BIT(10),
+	.clkr = {
+		.enable_reg = 0x42028,
+		.enable_mask = BIT(3),
+		.hw.init = &(struct clk_init_data){
+			.name = "gcc_video_axi1_sreg",
+			.ops = &clk_branch2_sreg_ops,
 		},
 	},
 };
@@ -2396,7 +2452,9 @@ static struct clk_regmap *gcc_neo_clocks[] = {
 	[GCC_GPU_MEMNOC_GFX_CLK] = &gcc_gpu_memnoc_gfx_clk.clkr,
 	[GCC_GPU_SNOC_DVM_GFX_CLK] = &gcc_gpu_snoc_dvm_gfx_clk.clkr,
 	[GCC_IRIS_SS_HF_AXI1_CLK] = &gcc_iris_ss_hf_axi1_clk.clkr,
+	[GCC_IRIS_SS_HF_AXI1_SREG] = &gcc_iris_ss_hf_axi1_sreg.clkr,
 	[GCC_IRIS_SS_SPD_AXI1_CLK] = &gcc_iris_ss_spd_axi1_clk.clkr,
+	[GCC_IRIS_SS_SPD_AXI1_SREG] = &gcc_iris_ss_spd_axi1_sreg.clkr,
 	[GCC_PCIE_0_AUX_CLK] = &gcc_pcie_0_aux_clk.clkr,
 	[GCC_PCIE_0_AUX_CLK_SRC] = &gcc_pcie_0_aux_clk_src.clkr,
 	[GCC_PCIE_0_CFG_AHB_CLK] = &gcc_pcie_0_cfg_ahb_clk.clkr,
@@ -2479,7 +2537,9 @@ static struct clk_regmap *gcc_neo_clocks[] = {
 	[GCC_USB3_PRIM_PHY_PIPE_CLK] = &gcc_usb3_prim_phy_pipe_clk.clkr,
 	[GCC_USB3_PRIM_PHY_PIPE_CLK_SRC] = &gcc_usb3_prim_phy_pipe_clk_src.clkr,
 	[GCC_VIDEO_AXI0_CLK] = &gcc_video_axi0_clk.clkr,
+	[GCC_VIDEO_AXI0_SREG] = &gcc_video_axi0_sreg.clkr,
 	[GCC_VIDEO_AXI1_CLK] = &gcc_video_axi1_clk.clkr,
+	[GCC_VIDEO_AXI1_SREG] = &gcc_video_axi1_sreg.clkr,
 };
 
 static const struct qcom_reset_map gcc_neo_resets[] = {

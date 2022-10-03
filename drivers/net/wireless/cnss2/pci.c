@@ -1569,6 +1569,48 @@ static int cnss_pci_check_mhi_state_bit(struct cnss_pci_data *pci_priv,
 	return -EINVAL;
 }
 
+static cnss_rddm_trigger_debug(struct cnss_pci_data *pci_priv)
+{
+	int read_val, ret;
+
+	switch (pci_priv->device_id) {
+	case QCA6490_DEVICE_ID:
+	case KIWI_DEVICE_ID:
+		break;
+	default:
+		cnss_pr_err("RDDM Trigger debug not supported");
+		return -EOPNOTSUPP;
+	}
+
+	cnss_pr_err("Write GCC Spare with ACE55 Pattern");
+	cnss_pci_reg_write(pci_priv, GCC_GCC_SPARE_REG_1, 0xACE55);
+	ret = cnss_pci_reg_read(pci_priv, GCC_GCC_SPARE_REG_1, &read_val);
+	cnss_pr_err("Read back GCC Spare: 0x%x, ret: %d", read_val, ret);
+	ret = cnss_pci_reg_read(pci_priv, GCC_PRE_ARES_DEBUG_TIMER_VAL,
+				&read_val);
+	cnss_pr_err("Warm reset allowed check: 0x%x, ret: %d", read_val, ret);
+	return ret;
+}
+
+static cnss_rddm_trigger_check(struct cnss_pci_data *pci_priv)
+{
+	int read_val, ret;
+
+	switch (pci_priv->device_id) {
+	case QCA6490_DEVICE_ID:
+	case KIWI_DEVICE_ID:
+		break;
+	default:
+		cnss_pr_err("RDDM Trigger check not supported");
+		return -EOPNOTSUPP;
+	}
+
+	ret = cnss_pci_reg_read(pci_priv, GCC_GCC_SPARE_REG_1, &read_val);
+	cnss_pr_err("Read GCC spare to check reset status: 0x%x, ret: %d",
+		    read_val, ret);
+	return ret;
+}
+
 static void cnss_pci_set_mhi_state_bit(struct cnss_pci_data *pci_priv,
 				       enum cnss_mhi_state mhi_state)
 {
@@ -1686,12 +1728,14 @@ retry_mhi_suspend:
 		mutex_unlock(&pci_priv->mhi_ctrl->pm_mutex);
 		break;
 	case CNSS_MHI_TRIGGER_RDDM:
+		cnss_rddm_trigger_debug(pci_priv);
 		ret = mhi_force_rddm_mode(pci_priv->mhi_ctrl);
 		if (ret) {
 			cnss_pr_err("Failed to trigger RDDM, err = %d\n", ret);
 
 			cnss_pr_dbg("Sending host reset req\n");
 			ret = mhi_force_reset(pci_priv->mhi_ctrl);
+			cnss_rddm_trigger_check(pci_priv);
 		}
 		break;
 	case CNSS_MHI_RDDM_DONE:
@@ -4228,6 +4272,8 @@ int cnss_get_soc_info(struct device *dev, struct cnss_soc_info *info)
 	       sizeof(info->device_version));
 	memcpy(&info->dev_mem_info, &plat_priv->dev_mem_info,
 	       sizeof(info->dev_mem_info));
+	memcpy(&info->fw_build_id, &plat_priv->fw_build_id,
+	       sizeof(info->fw_build_id));
 
 	return 0;
 }
@@ -4608,6 +4654,16 @@ static int cnss_pci_assert_host_sol(struct cnss_pci_data *pci_priv)
 	return 0;
 }
 
+static void cnss_pci_mhi_reg_dump(struct cnss_pci_data *pci_priv)
+{
+	if (!cnss_pci_check_link_status(pci_priv))
+		cnss_mhi_debug_reg_dump(pci_priv);
+
+	cnss_pci_soc_scratch_reg_dump(pci_priv);
+	cnss_pci_dump_misc_reg(pci_priv);
+	cnss_pci_dump_shadow_reg(pci_priv);
+}
+
 int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 {
 	int ret;
@@ -4626,12 +4682,8 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 
 	cnss_auto_resume(&pci_priv->pci_dev->dev);
 
-	if (!cnss_pci_check_link_status(pci_priv))
-		cnss_mhi_debug_reg_dump(pci_priv);
-
-	cnss_pci_soc_scratch_reg_dump(pci_priv);
-	cnss_pci_dump_misc_reg(pci_priv);
-	cnss_pci_dump_shadow_reg(pci_priv);
+	if (!pci_priv->is_smmu_fault)
+		cnss_pci_mhi_reg_dump(pci_priv);
 
 	/* If link is still down here, directly trigger link down recovery */
 	ret = cnss_pci_check_link_status(pci_priv);
@@ -4642,6 +4694,10 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_TRIGGER_RDDM);
 	if (ret) {
+		if (pci_priv->is_smmu_fault) {
+			cnss_pci_mhi_reg_dump(pci_priv);
+			pci_priv->is_smmu_fault = false;
+		}
 		if (!test_bit(CNSS_MHI_POWER_ON, &pci_priv->mhi_state) ||
 		    test_bit(CNSS_MHI_POWERING_OFF, &pci_priv->mhi_state)) {
 			cnss_pr_dbg("MHI is not powered on, ignore RDDM failure\n");
@@ -4654,6 +4710,11 @@ int cnss_pci_force_fw_assert_hdlr(struct cnss_pci_data *pci_priv)
 		cnss_schedule_recovery(&pci_priv->pci_dev->dev,
 				       CNSS_REASON_DEFAULT);
 		return ret;
+	}
+
+	if (pci_priv->is_smmu_fault) {
+		cnss_pci_mhi_reg_dump(pci_priv);
+		pci_priv->is_smmu_fault = false;
 	}
 
 	if (!test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state)) {
@@ -4847,16 +4908,18 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 	cnss_pci_dump_misc_reg(pci_priv);
 	cnss_pci_dump_shadow_reg(pci_priv);
 
+	cnss_rddm_trigger_debug(pci_priv);
 	ret = mhi_download_rddm_image(pci_priv->mhi_ctrl, in_panic);
 	if (ret) {
 		cnss_fatal_err("Failed to download RDDM image, err = %d\n",
 			       ret);
 		if (!cnss_pci_assert_host_sol(pci_priv))
 			return;
+		cnss_rddm_trigger_check(pci_priv);
 		cnss_pci_dump_debug_reg(pci_priv);
 		return;
 	}
-
+	cnss_rddm_trigger_check(pci_priv);
 	fw_image = pci_priv->mhi_ctrl->fbc_image;
 	rddm_image = pci_priv->mhi_ctrl->rddm_image;
 	dump_data->nentries = 0;

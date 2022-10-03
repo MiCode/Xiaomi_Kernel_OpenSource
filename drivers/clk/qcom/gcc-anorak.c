@@ -1970,6 +1970,32 @@ static struct clk_branch gcc_disp_hf_axi_clk = {
 	},
 };
 
+static struct clk_branch gcc_edp_0_clkref_en = {
+	.halt_reg = 0x9c028,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x9c028,
+		.enable_mask = BIT(0),
+		.hw.init = &(const struct clk_init_data){
+			.name = "gcc_edp_0_clkref_en",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_edp_1_clkref_en = {
+	.halt_reg = 0x9c02c,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x9c02c,
+		.enable_mask = BIT(0),
+		.hw.init = &(const struct clk_init_data){
+			.name = "gcc_edp_1_clkref_en",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_gp10_clk = {
 	.halt_reg = 0xb5000,
 	.halt_check = BRANCH_HALT,
@@ -3701,6 +3727,8 @@ static struct clk_regmap *gcc_anorak_clocks[] = {
 	[GCC_DDRSS_PCIE_SF_TBU_CLK] = &gcc_ddrss_pcie_sf_tbu_clk.clkr,
 	[GCC_DISP1_HF_AXI_CLK] = &gcc_disp1_hf_axi_clk.clkr,
 	[GCC_DISP_HF_AXI_CLK] = &gcc_disp_hf_axi_clk.clkr,
+	[GCC_EDP_0_CLKREF_EN] = &gcc_edp_0_clkref_en.clkr,
+	[GCC_EDP_1_CLKREF_EN] = &gcc_edp_1_clkref_en.clkr,
 	[GCC_GP10_CLK] = &gcc_gp10_clk.clkr,
 	[GCC_GP10_CLK_SRC] = &gcc_gp10_clk_src.clkr,
 	[GCC_GP10_DIV_CLK_SRC] = &gcc_gp10_div_clk_src.clkr,

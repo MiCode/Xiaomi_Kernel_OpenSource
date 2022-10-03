@@ -703,6 +703,7 @@ struct fastrpc_file {
 	bool is_unsigned_pd;
 	/* Flag to indicate dynamic process creation status*/
 	enum fastrpc_process_create_state dsp_process_state;
+	struct completion shutdown;
 };
 
 static struct fastrpc_apps gfa;
@@ -3082,12 +3083,14 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 			       uint32_t kernel, uint32_t handle)
 {
 	struct smq_msg *msg = &ctx->msg;
+	struct smq_msg msg_temp;
 	struct fastrpc_file *fl = ctx->fl;
 	struct fastrpc_channel_ctx *channel_ctx = NULL;
 	int err = 0, cid = -1;
 	uint32_t sc = ctx->sc;
 	int64_t ns = 0;
 	uint64_t xo_time_in_us = 0;
+	int isasync = (ctx->asyncjob.isasyncjob ? true : false);
 
 	if (!fl) {
 		err = -EBADF;
@@ -3129,6 +3132,15 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 		goto bail;
 	}
 	xo_time_in_us = __arch_counter_get_cntvct() * 10ull / 192ull;
+	if (isasync) {
+		/*
+		 * After message is sent to DSP, async response thread could immediately
+		 * get the response and free context, which will result in a use-after-free
+		 * in this function. So use a local variable for message.
+		 */
+		memcpy(&msg_temp, msg, sizeof(struct smq_msg));
+		msg = &msg_temp;
+	}
 	err = rpmsg_send(channel_ctx->rpdev->ept, (void *)msg, sizeof(*msg));
 	mutex_unlock(&channel_ctx->rpmsg_mutex);
 	trace_fastrpc_rpmsg_send(cid, (uint64_t)ctx, msg->invoke.header.ctx,
@@ -4540,6 +4552,7 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	}
 	VERIFY(err, fl->apps->channel[cid].issubsystemup == 1);
 	if (err) {
+		wait_for_completion(&fl->shutdown);
 		err = -ECONNRESET;
 		goto bail;
 	}
@@ -4659,7 +4672,6 @@ static int fastrpc_mem_unmap_to_dsp(struct fastrpc_file *fl, int fd,
 	inargs.len = (uint64_t)size;
 	ra[0].buf.pv = (void *)&inargs;
 	ra[0].buf.len = sizeof(inargs);
-
 	ioctl.inv.handle = FASTRPC_STATIC_HANDLE_PROCESS_GROUP;
 	ioctl.inv.sc = REMOTE_SCALARS_MAKE(11, 1, 0);
 	ioctl.inv.pra = ra;
@@ -6071,7 +6083,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	fl->dev_pm_qos_req = kcalloc(me->silvercores.corecount,
 				sizeof(struct dev_pm_qos_request),
 				GFP_KERNEL);
-
+	init_completion(&fl->shutdown);
 	return 0;
 }
 
@@ -7022,6 +7034,8 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 {
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_channel_ctx *ctx;
+	struct fastrpc_file *fl;
+	struct hlist_node *n;
 	int cid = -1;
 
 	ctx = container_of(nb, struct fastrpc_channel_ctx, nb);
@@ -7042,6 +7056,13 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 	case QCOM_SSR_AFTER_SHUTDOWN:
 		trace_rproc_qcom_event(gcinfo[cid].subsys,
 			"QCOM_SSR_AFTER_SHUTDOWN", "fastrpc_restart_notifier-enter");
+		spin_lock(&me->hlock);
+		hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
+			if (fl->cid != cid)
+				continue;
+			complete(&fl->shutdown);
+		}
+		spin_unlock(&me->hlock);
 		if (cid == RH_CID) {
 			if (me->ramdump_handle)
 				me->channel[RH_CID].ramdumpenabled = 1;

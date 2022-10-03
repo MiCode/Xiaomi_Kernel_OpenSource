@@ -175,6 +175,16 @@ static int snapshot_freeze_obj_list(struct kgsl_snapshot *snapshot,
 	return ret;
 }
 
+static inline bool adreno_ib_addr_overlap(u64 ibaddr, u64 gpuaddr, u64 dwords)
+{
+	u64 size = dwords << 2;
+
+	if (size > (U64_MAX - gpuaddr))
+		return false;
+
+	return (ibaddr >= gpuaddr && ibaddr < (gpuaddr + size));
+}
+
 void adreno_parse_ib(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot,
 		struct kgsl_process_private *process,
@@ -187,17 +197,15 @@ void adreno_parse_ib(struct kgsl_device *device,
 	 * then push it into the static blob otherwise put it in the dynamic
 	 * list
 	 */
-	if (kgsl_addr_range_overlap(gpuaddr, dwords,
-		snapshot->ib1base, snapshot->ib1size)) {
+	if (adreno_ib_addr_overlap(snapshot->ib1base, gpuaddr, dwords)) {
 		/*
 		 * During restore after preemption, ib1base in the register
 		 * can be updated by CP. In such scenarios, to dump complete
 		 * IB1 in snapshot, we should consider ib1base from ringbuffer.
 		 */
-		if (gpuaddr != snapshot->ib1base) {
-			snapshot->ib1base = gpuaddr;
-			snapshot->ib1size = dwords;
-		}
+		snapshot->ib1base = gpuaddr;
+		snapshot->ib1size = dwords;
+
 		kgsl_snapshot_push_object(device, process, gpuaddr, dwords);
 		return;
 	}
@@ -321,8 +329,8 @@ static void snapshot_rb_ibs(struct kgsl_device *device,
 				ibsize = rbptr[index + 3];
 			}
 
-			if (kgsl_addr_range_overlap(ibaddr, ibsize,
-				snapshot->ib1base, snapshot->ib1size)) {
+			if (adreno_ib_addr_overlap(snapshot->ib1base,
+					ibaddr, ibsize)) {
 				/*
 				 * During restore after preemption, ib1base in
 				 * the register can be updated by CP. In such

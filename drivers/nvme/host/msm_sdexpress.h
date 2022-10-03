@@ -19,6 +19,7 @@
 #include <linux/gpio/consumer.h>
 #include <linux/errno.h>
 #include <linux/msm_pcie.h>
+#include <linux/kobject.h>
 
 #define DRIVER_NAME "msm_sdexpress"
 #define MAX_PROP_SIZE 32
@@ -98,6 +99,8 @@ struct msm_sdexpress_info {
 	struct msm_sdexpress_gpio *sdexpress_clkreq_gpio;
 	/* sdexpress work item */
 	struct work_struct sdex_work;
+	/* struct kobject for uevents */
+	struct kobject kobj;
 };
 
 #endif /* MSM_SDEXPRESS_H */
