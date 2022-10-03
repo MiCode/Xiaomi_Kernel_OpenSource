@@ -716,10 +716,6 @@ int kgsl_pwrscale_init(struct kgsl_device *device, struct platform_device *pdev,
 	/* link storage array to the devfreq profile pointer */
 	gpu_profile->profile.freq_table = pwrscale->freq_table;
 
-	/* if there is only 1 freq, no point in running a governor */
-	if (gpu_profile->profile.max_state == 1)
-		governor = "performance";
-
 	/* initialize msm-adreno-tz governor specific data here */
 	adreno_tz_data.disable_busy_time_burst =
 		of_property_read_bool(pdev->dev.of_node,
