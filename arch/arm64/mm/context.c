@@ -338,12 +338,7 @@ EXPORT_SYMBOL_GPL(arm64_mm_context_put);
 /* Errata workaround post TTBRx_EL1 update. */
 asmlinkage void post_ttbr_update_workaround(void)
 {
-	if (!IS_ENABLED(CONFIG_CAVIUM_ERRATUM_27456))
-		return;
-
-	asm(ALTERNATIVE("nop; nop; nop",
-			"ic iallu; dsb nsh; isb",
-			ARM64_WORKAROUND_CAVIUM_27456));
+	return;
 }
 
 void cpu_do_switch_mm(phys_addr_t pgd_phys, struct mm_struct *mm)
