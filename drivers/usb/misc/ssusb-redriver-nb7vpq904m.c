@@ -144,6 +144,7 @@ static int redriver_vdd_enable(struct ssusb_redriver *redriver, bool on)
 
 	if (on && !redriver->vdd_enable) {
 		redriver->vdd_enable = true;
+		regulator_set_load(redriver->vdd, 250000);
 		return regulator_enable(redriver->vdd);
 	} else if (!on && redriver->vdd_enable) {
 		redriver->vdd_enable = false;
