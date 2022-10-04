@@ -770,6 +770,8 @@
   fwnode_property_read_string
   fwnode_property_read_u32_array
   fwnode_property_read_u64_array
+  g_audio_cleanup
+  g_audio_setup
   gcd
   generic_file_llseek
   generic_handle_domain_irq
@@ -802,6 +804,21 @@
   get_each_dmabuf
   __get_free_pages
   get_governor_parent_kobj
+  gether_cleanup
+  gether_connect
+  gether_disconnect
+  gether_get_dev_addr
+  gether_get_host_addr
+  gether_get_host_addr_u8
+  gether_get_ifname
+  gether_get_qmult
+  gether_register_netdev
+  gether_set_dev_addr
+  gether_set_gadget
+  gether_set_host_addr
+  gether_set_ifname
+  gether_set_qmult
+  gether_setup_name_default
   get_kernel_pages
   get_pid_task
   get_random_bytes
@@ -1047,6 +1064,7 @@
   kstrtoint_from_user
   kstrtol_from_user
   kstrtoll
+  kstrtos16
   kstrtou16
   kstrtou8
   kstrtouint
@@ -1407,6 +1425,7 @@
   phy_exit
   phy_get
   phy_init
+  phy_loopback
   phy_power_off
   phy_power_on
   phy_print_status
@@ -2150,6 +2169,14 @@
   uart_get_baud_rate
   uart_get_divisor
   uart_update_timeout
+  u_audio_get_mute
+  u_audio_get_volume
+  u_audio_set_mute
+  u_audio_set_volume
+  u_audio_start_capture
+  u_audio_start_playback
+  u_audio_stop_capture
+  u_audio_stop_playback
   __ubsan_handle_cfi_check_fail_abort
   uclamp_eff_value
   __udelay
