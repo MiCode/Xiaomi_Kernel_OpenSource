@@ -170,7 +170,7 @@ retry:
 	 * board-level hardware. So go ahead and enable VDD2
 	 */
 
-	usleep_range(500, 600);
+	udelay(1000);
 	vreg = info->vreg_data->vdd2_data;
 	rc = msm_sdexpress_setup_vreg(info, vreg, true);
 	if (rc) {
@@ -215,9 +215,10 @@ retry:
 		}
 	}
 
-	if (!rc)
+	if (!rc) {
 		pr_info("%s: Card enumerated successfully\n", __func__);
-	return;
+		return;
+	}
 
 disable_vdd2:
 	vreg = info->vreg_data->vdd2_data;
@@ -233,7 +234,7 @@ static void msm_sdexpress_detect_change(struct work_struct *work)
 {
 	struct msm_sdexpress_info *info;
 
-	info = container_of(work, struct msm_sdexpress_info, sdex_work);
+	info = container_of(to_delayed_work(work), struct msm_sdexpress_info, sdex_work);
 	pr_debug("%s Enter. trigger event:%d cd gpio:%d clkreq gpio:%d\n", __func__,
 			atomic_read(&info->trigger_card_event),
 			gpiod_get_value(info->sdexpress_gpio->gpio),
@@ -252,7 +253,8 @@ static irqreturn_t msm_sdexpress_gpio_cd_irqt(int irq, void *dev_id)
 
 	atomic_set(&info->trigger_card_event, 1);
 
-	queue_work(info->sdexpress_wq, &info->sdex_work);
+	queue_delayed_work(info->sdexpress_wq, &info->sdex_work,
+		msecs_to_jiffies(info->sdexpress_gpio->cd_debounce_delay_ms));
 	return IRQ_HANDLED;
 }
 
@@ -433,7 +435,6 @@ static int msm_sdexpress_parse_cd_gpio(struct device *dev,
 	if (rc < 0) {
 		dev_warn(dev, "%s unable to set debounce for cd gpio desc (%d)\n",
 				__func__, rc);
-		info->sdexpress_gpio->cd_debounce_delay_ms = 0;
 		rc = 0;
 	}
 
@@ -620,7 +621,7 @@ static int msm_sdexpress_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	INIT_WORK(&info->sdex_work, msm_sdexpress_detect_change);
+	INIT_DELAYED_WORK(&info->sdex_work, msm_sdexpress_detect_change);
 
 	/* Parse platform data */
 	ret = msm_sdexpress_populate_pdata(dev, info);
@@ -650,7 +651,8 @@ static int msm_sdexpress_probe(struct platform_device *pdev)
 	/* Queue a work-item for card presence from bootup */
 	atomic_set(&info->trigger_card_event, 0);
 	if (!gpiod_get_value(info->sdexpress_gpio->gpio))
-		queue_work(info->sdexpress_wq, &info->sdex_work);
+		queue_delayed_work(info->sdexpress_wq, &info->sdex_work,
+			msecs_to_jiffies(SDEXPRESS_PROBE_DELAYED_PERIOD));
 
 	/* Initialize and register a kobject with the kobject core */
 	kobject_init(&info->kobj, &msm_sdexpress_ktype);

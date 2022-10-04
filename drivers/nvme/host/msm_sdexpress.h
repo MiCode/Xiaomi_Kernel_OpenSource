@@ -27,6 +27,7 @@
 #define SDEXPRESS_VREG_VDD2_DEFAULT_UV 1800000 /* uV */
 #define SDEXPRESS_VREG_DEFAULT_MIN_LOAD_UA 0 /* uA */
 #define SDEXPRESS_VREG_DEFAULT_MAX_LODA_UA 600000 /* uA */
+#define SDEXPRESS_PROBE_DELAYED_PERIOD 50000 /* msec */
 #define PCIE_ENUMERATE_RETRY 3 /* retries upon msm_pcie_enumerate() failure */
 
 /*
@@ -73,7 +74,7 @@ struct msm_sdexpress_gpio {
 	/* gpio irq handler*/
 	irqreturn_t (*cd_gpio_isr)(int irq, void *dev_id);
 	/* debounce time value in ms */
-	u32 cd_debounce_delay_ms;
+	u16 cd_debounce_delay_ms;
 	/* gpio label/name */
 	char *label;
 };
@@ -99,7 +100,7 @@ struct msm_sdexpress_info {
 	/* structure to hold pcie clkreq gpio information */
 	struct msm_sdexpress_gpio *sdexpress_clkreq_gpio;
 	/* sdexpress work item */
-	struct work_struct sdex_work;
+	struct delayed_work sdex_work;
 	/* struct kobject for uevents */
 	struct kobject kobj;
 };
