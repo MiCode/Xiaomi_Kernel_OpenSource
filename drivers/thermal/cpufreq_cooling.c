@@ -246,6 +246,8 @@ static int cpufreq_get_requested_power(struct thermal_cooling_device *cdev,
 
 	*power = get_dynamic_power(cpufreq_cdev, freq);
 
+	trace_android_vh_modify_thermal_cpu_get_power(policy, power);
+
 	if (load_cpu) {
 		trace_thermal_power_cpu_get_power(policy->related_cpus, freq,
 						  load_cpu, i, *power);
