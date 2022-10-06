@@ -4619,6 +4619,7 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 	struct kgsl_process_private *private = dev_priv->process_priv;
 	struct kgsl_mem_entry *entry = NULL;
 	struct kgsl_device *device = dev_priv->device;
+	uint64_t flags;
 	int ret;
 
 	/* Handle leagacy behavior for memstore */
@@ -4662,8 +4663,11 @@ static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 
 	vma->vm_ops = &kgsl_gpumem_vm_ops;
 
-	if (cache == KGSL_CACHEMODE_WRITEBACK
-		|| cache == KGSL_CACHEMODE_WRITETHROUGH) {
+	flags = entry->memdesc.flags;
+
+	if (!(flags & KGSL_MEMFLAGS_IOCOHERENT) &&
+	    (cache == KGSL_CACHEMODE_WRITEBACK ||
+	     cache == KGSL_CACHEMODE_WRITETHROUGH)) {
 		int i;
 		unsigned long addr = vma->vm_start;
 		struct kgsl_memdesc *m = &entry->memdesc;
