@@ -26,6 +26,7 @@ icc-smd-rpm-objs			:= smd-rpm.o
 qnoc-sdxpinn-objs			:= sdxpinn.o
 qnoc-qos-obj				:= qnoc-qos.o
 qnoc-qos-rpm-obj			:= qnoc-qos-rpm.o
+qnoc-sdxbaagha-objs			:= sdxbaagha.o
 qnoc-kalama-objs			:= kalama.o
 qnoc-bengal-objs			:= bengal.o
 qnoc-sa410m-objs			:= sa410m.o
@@ -33,6 +34,7 @@ epss-l3-obj				:= epss-l3.o
 
 obj-$(CONFIG_INTERCONNECT_QCOM_BCM_VOTER) += icc-bcm-voter.o
 obj-$(CONFIG_INTERCONNECT_QCOM_KALAMA) += qnoc-kalama.o
+obj-$(CONFIG_INTERCONNECT_QCOM_SDXBAAGHA) += qnoc-sdxbaagha.o
 obj-$(CONFIG_INTERCONNECT_QCOM_MSM8916) += qnoc-msm8916.o
 obj-$(CONFIG_INTERCONNECT_QCOM_MSM8939) += qnoc-msm8939.o
 obj-$(CONFIG_INTERCONNECT_QCOM_MSM8974) += qnoc-msm8974.o
