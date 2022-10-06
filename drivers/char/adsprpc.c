@@ -2047,17 +2047,13 @@ static void fastrpc_notify_users_staticpd_pdr(struct fastrpc_file *me)
 	spin_unlock_irqrestore(&me->hlock, irq_flags);
 }
 
-static void fastrpc_ramdump_collection(int cid)
+static void fastrpc_update_ramdump_status(int cid)
 {
 	struct fastrpc_file *fl = NULL;
 	struct hlist_node *n = NULL;
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_channel_ctx *chan = &me->channel[cid];
-	struct qcom_dump_segment ramdump_entry;
-	struct fastrpc_buf *buf = NULL;
-	int ret = 0;
 	unsigned long irq_flags = 0;
-	struct list_head head;
 
 	spin_lock_irqsave(&me->hlock, irq_flags);
 	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
@@ -2071,6 +2067,19 @@ static void fastrpc_ramdump_collection(int cid)
 	if (chan->buf)
 		hlist_add_head(&chan->buf->hn_init, &chan->initmems);
 	spin_unlock_irqrestore(&me->hlock, irq_flags);
+}
+
+static void fastrpc_ramdump_collection(int cid)
+{
+	struct fastrpc_file *fl = NULL;
+	struct hlist_node *n = NULL;
+	struct fastrpc_apps *me = &gfa;
+	struct fastrpc_channel_ctx *chan = &me->channel[cid];
+	struct qcom_dump_segment ramdump_entry;
+	struct fastrpc_buf *buf = NULL;
+	int ret = 0;
+	unsigned long irq_flags = 0;
+	struct list_head head;
 
 	hlist_for_each_entry_safe(buf, n, &chan->initmems, hn_init) {
 		fl = buf->fl;
@@ -7092,6 +7101,7 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 	struct fastrpc_file *fl;
 	struct hlist_node *n;
 	int cid = -1;
+	struct timespec64 startT = {0};
 
 	ctx = container_of(nb, struct fastrpc_channel_ctx, nb);
 	cid = ctx - &me->channel[0];
@@ -7124,15 +7134,23 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 	case QCOM_SSR_BEFORE_POWERUP:
 		fastrpc_rproc_trace_events(gcinfo[cid].subsys,
 			"QCOM_SSR_BEFORE_POWERUP", "fastrpc_restart_notifier-enter");
+		pr_info("adsprpc: %s: subsystem %s is about to start\n",
+			__func__, gcinfo[cid].subsys);
+		if (cid == CDSP_DOMAIN_ID && dump_enabled() &&
+				ctx->ssrcount)
+			fastrpc_update_ramdump_status(cid);
+		fastrpc_notify_drivers(me, cid);
 		/* Skip ram dump collection in first boot */
 		if (cid == CDSP_DOMAIN_ID && dump_enabled() &&
 				ctx->ssrcount) {
 			mutex_lock(&me->channel[cid].smd_mutex);
 			fastrpc_print_debug_data(cid);
 			mutex_unlock(&me->channel[cid].smd_mutex);
+			ktime_get_real_ts64(&startT);
 			fastrpc_ramdump_collection(cid);
+			pr_info("adsprpc: %s: fastrpc ramdump finished in %lu (us)\n",
+				__func__, getnstimediff(&startT));
 		}
-		fastrpc_notify_drivers(me, cid);
 		break;
 	case QCOM_SSR_AFTER_POWERUP:
 		fastrpc_rproc_trace_events(gcinfo[cid].subsys,
