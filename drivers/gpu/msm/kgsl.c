@@ -4020,13 +4020,17 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 
 	cachemode = kgsl_memdesc_get_cachemode(&entry->memdesc);
 	/*
-	 * Secure buffers cannot be reclaimed. Avoid reclaim of cached buffers
-	 * as we could get request for cache operations on these buffers when
-	 * they are reclaimed.
+	 * Secure buffers cannot be reclaimed. For IO-COHERENT devices cached
+	 * buffers can safely reclaimed. But avoid reclaim cached buffers of
+	 * non IO-COHERENT devices as we could get request for cache operations
+	 * on these buffers when they are reclaimed.
 	 */
 	if (!(flags & KGSL_MEMFLAGS_SECURE) &&
-			!(cachemode == KGSL_CACHEMODE_WRITEBACK) &&
-			!(cachemode == KGSL_CACHEMODE_WRITETHROUGH))
+			(((flags & KGSL_MEMFLAGS_IOCOHERENT) &&
+			!(cachemode == KGSL_CACHEMODE_WRITETHROUGH)) ||
+			(!(flags & KGSL_MEMFLAGS_IOCOHERENT) &&
+			 !(cachemode == KGSL_CACHEMODE_WRITEBACK) &&
+			!(cachemode == KGSL_CACHEMODE_WRITETHROUGH))))
 		entry->memdesc.priv |= KGSL_MEMDESC_CAN_RECLAIM;
 
 	kgsl_process_add_stats(private,
