@@ -420,10 +420,6 @@ int gen7_start(struct adreno_device *adreno_dev)
 	kgsl_regmap_multi_write(&device->regmap, gen7_core->gbif,
 		gen7_core->gbif_count);
 
-	if (gen7_core->qos_value)
-		kgsl_regwrite(device, GEN7_RBBM_GBIF_CLIENT_QOS_CNTL,
-			gen7_core->qos_value[adreno_dev->cur_rb->id]);
-
 	kgsl_regwrite(device, GEN7_UCHE_GBIF_GX_CONFIG, 0x10240e0);
 
 	/* Make all blocks contribute to the GPU BUSY perf counter */
