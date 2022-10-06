@@ -346,7 +346,11 @@ static struct thermal_zone_of_device_ops adc_tm5_ops = {
 	.set_trips = adc_tm5_set_trips,
 };
 
-static int adc_tm5_register_tzd(struct adc_tm5_chip *adc_tm)
+static struct thermal_zone_of_device_ops adc_tm5_iio_ops = {
+	.get_temp = adc_tm5_get_temp,
+};
+
+static int adc_tm5_register_tzd(struct adc_tm5_chip *adc_tm, bool set_trips)
 {
 	unsigned int i;
 	struct thermal_zone_device *tzd;
@@ -354,10 +358,17 @@ static int adc_tm5_register_tzd(struct adc_tm5_chip *adc_tm)
 	for (i = 0; i < adc_tm->nchannels; i++) {
 		adc_tm->channels[i].chip = adc_tm;
 
-		tzd = devm_thermal_zone_of_sensor_register(adc_tm->dev,
-							   adc_tm->channels[i].channel,
-							   &adc_tm->channels[i],
-							   &adc_tm5_ops);
+		if (set_trips)
+			tzd = devm_thermal_zone_of_sensor_register(adc_tm->dev,
+						   adc_tm->channels[i].channel,
+						   &adc_tm->channels[i],
+						   &adc_tm5_ops);
+		else
+			tzd = devm_thermal_zone_of_sensor_register(adc_tm->dev,
+						   adc_tm->channels[i].channel,
+						   &adc_tm->channels[i],
+						   &adc_tm5_iio_ops);
+
 		if (IS_ERR(tzd)) {
 			if (PTR_ERR(tzd) == -ENODEV) {
 				dev_warn(adc_tm->dev, "thermal sensor on channel %d is not used\n",
@@ -579,16 +590,25 @@ static int adc_tm5_probe(struct platform_device *pdev)
 	adc_tm->dev = dev;
 	adc_tm->base = reg;
 
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
-		dev_err(dev, "get_irq failed: %d\n", irq);
-		return irq;
-	}
-
 	ret = adc_tm5_get_dt_data(adc_tm, node);
 	if (ret) {
 		dev_err(dev, "get dt data failed: %d\n", ret);
 		return ret;
+	}
+
+	if (of_device_is_compatible(node, "qcom,spmi-adc-tm5-iio")) {
+		ret = adc_tm5_register_tzd(adc_tm, false);
+		if (ret) {
+			dev_err(dev, "tzd register failed for adc tm5 iio channel\n");
+			return ret;
+		}
+		return 0;
+	}
+
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0) {
+		dev_err(dev, "get_irq failed: %d\n", irq);
+		return irq;
 	}
 
 	ret = adc_tm5_init(adc_tm);
@@ -597,7 +617,7 @@ static int adc_tm5_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = adc_tm5_register_tzd(adc_tm);
+	ret = adc_tm5_register_tzd(adc_tm, true);
 	if (ret) {
 		dev_err(dev, "tzd register failed\n");
 		return ret;
@@ -610,6 +630,10 @@ static int adc_tm5_probe(struct platform_device *pdev)
 static const struct of_device_id adc_tm5_match_table[] = {
 	{
 		.compatible = "qcom,spmi-adc-tm5",
+		.data = &adc_tm5_data_pmic,
+	},
+	{
+		.compatible = "qcom,spmi-adc-tm5-iio",
 		.data = &adc_tm5_data_pmic,
 	},
 	{ }
