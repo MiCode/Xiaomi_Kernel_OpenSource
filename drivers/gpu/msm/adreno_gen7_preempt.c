@@ -763,7 +763,7 @@ int gen7_preemption_context_init(struct kgsl_context *context)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	u64 flags = 0;
 
-	if (!adreno_is_preemption_enabled(adreno_dev))
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
 		return 0;
 
 	if (context->flags & KGSL_CONTEXT_SECURE)
