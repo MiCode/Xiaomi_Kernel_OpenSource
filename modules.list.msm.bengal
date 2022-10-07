@@ -51,13 +51,13 @@ phy-qcom-ufs-qmp-v4-khaje.ko
 phy-qcom-ufs-qrbtc-sdm845.ko
 pinctrl-msm.ko
 proxy-consumer.ko
-qcom-dload-mode.ko
+qpnp-power-on.ko
+msm-poweroff.ko
 qcom_dma_heaps.ko
 qcom_hwspinlock.ko
 qcom_iommu_util.ko
 qcom-spmi-pmic.ko
 spmi-pmic-arb.ko
-qcom-reboot-reason.ko
 qcom-scm.ko
 qnoc-qos-rpm.ko
 qrtr.ko
