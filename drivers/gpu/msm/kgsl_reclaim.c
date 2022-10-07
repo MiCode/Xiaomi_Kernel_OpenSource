@@ -246,7 +246,8 @@ static u32 kgsl_reclaim_process(struct kgsl_process_private *process,
 		}
 
 		memdesc = &entry->memdesc;
-		if ((memdesc->priv & KGSL_MEMDESC_CAN_RECLAIM) &&
+		if (!entry->pending_free &&
+				(memdesc->priv & KGSL_MEMDESC_CAN_RECLAIM) &&
 				!(memdesc->priv & KGSL_MEMDESC_RECLAIMED) &&
 				!(memdesc->priv & KGSL_MEMDESC_SKIP_RECLAIM))
 			valid_entry = kgsl_mem_entry_get(entry);
