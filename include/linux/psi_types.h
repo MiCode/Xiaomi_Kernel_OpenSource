@@ -142,6 +142,11 @@ struct psi_trigger {
 	u64 last_event_time;
 };
 
+enum poll_wakeup_bits {
+	POLL_WAKEUP	= 0,
+	POLL_SCHEDULED	= 1,
+};
+
 struct psi_group {
 	/* Protects data used by the aggregator */
 	struct mutex avgs_lock;
@@ -166,7 +171,6 @@ struct psi_group {
 	struct timer_list poll_timer;
 	wait_queue_head_t poll_wait;
 	atomic_t poll_wakeup;
-	atomic_t poll_scheduled;
 
 	/* Protects data used by the monitor */
 	struct mutex trigger_lock;

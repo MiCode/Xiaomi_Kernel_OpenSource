@@ -191,6 +191,28 @@ static void psi_avgs_work(struct work_struct *work);
 
 static void poll_timer_fn(struct timer_list *t);
 
+static inline void atomic_set_bit(int i, atomic_t *v)
+{
+	atomic_or(1 << i, v);
+}
+
+static inline void atomic_clear_bit(int i, atomic_t *v)
+{
+	atomic_and(~(1 << i), v);
+}
+
+static inline int atomic_fetch_and_set_bit(int i, atomic_t *v)
+{
+	int mask = 1 << i;
+	return atomic_fetch_or(mask, v) & mask;
+}
+
+static inline int atomic_fetch_and_clear_bit(int i, atomic_t *v)
+{
+	int mask = 1 << i;
+	return atomic_fetch_and(~mask, v) & mask;
+}
+
 static void group_init(struct psi_group *group)
 {
 	int cpu;
@@ -202,7 +224,7 @@ static void group_init(struct psi_group *group)
 	INIT_DELAYED_WORK(&group->avgs_work, psi_avgs_work);
 	mutex_init(&group->avgs_lock);
 	/* Init trigger-related members */
-	atomic_set(&group->poll_scheduled, 0);
+	atomic_set(&group->poll_wakeup, 0);
 	mutex_init(&group->trigger_lock);
 	INIT_LIST_HEAD(&group->triggers);
 	memset(group->nr_triggers, 0, sizeof(group->nr_triggers));
@@ -577,7 +599,8 @@ static void psi_schedule_poll_work(struct psi_group *group, unsigned long delay,
 	 * atomic_xchg should be called even when !force to provide a
 	 * full memory barrier (see the comment inside psi_poll_work).
 	 */
-	if (atomic_xchg(&group->poll_scheduled, 1) && !force)
+	if (atomic_fetch_and_set_bit(POLL_SCHEDULED, &group->poll_wakeup) &&
+				     !force)
 		return;
 
 	rcu_read_lock();
@@ -590,7 +613,7 @@ static void psi_schedule_poll_work(struct psi_group *group, unsigned long delay,
 	if (likely(task))
 		mod_timer(&group->poll_timer, jiffies + delay);
 	else
-		atomic_set(&group->poll_scheduled, 0);
+		atomic_clear_bit(POLL_SCHEDULED, &group->poll_wakeup);
 
 	rcu_read_unlock();
 }
@@ -615,7 +638,7 @@ static void psi_poll_work(struct psi_group *group)
 		 * should be negligible and polling_next_update still keeps
 		 * updates correctly on schedule.
 		 */
-		atomic_set(&group->poll_scheduled, 0);
+		atomic_clear_bit(POLL_SCHEDULED, &group->poll_wakeup);
 		/*
 		 * A task change can race with the poll worker that is supposed to
 		 * report on it. To avoid missing events, ensure ordering between
@@ -682,7 +705,7 @@ static int psi_poll_worker(void *data)
 
 	while (true) {
 		wait_event_interruptible(group->poll_wait,
-				atomic_cmpxchg(&group->poll_wakeup, 1, 0) ||
+				atomic_fetch_and_clear_bit(POLL_WAKEUP, &group->poll_wakeup) ||
 				kthread_should_stop());
 		if (kthread_should_stop())
 			break;
@@ -696,7 +719,7 @@ static void poll_timer_fn(struct timer_list *t)
 {
 	struct psi_group *group = from_timer(group, t, poll_timer);
 
-	atomic_set(&group->poll_wakeup, 1);
+	atomic_set_bit(POLL_WAKEUP, &group->poll_wakeup);
 	wake_up_interruptible(&group->poll_wait);
 }
 
@@ -1177,7 +1200,7 @@ struct psi_trigger *psi_trigger_create(struct psi_group *group,
 			mutex_unlock(&group->trigger_lock);
 			return ERR_CAST(task);
 		}
-		atomic_set(&group->poll_wakeup, 0);
+		atomic_clear_bit(POLL_WAKEUP, &group->poll_wakeup);
 		wake_up_process(task);
 		rcu_assign_pointer(group->poll_task, task);
 	}
@@ -1256,7 +1279,7 @@ void psi_trigger_destroy(struct psi_trigger *t)
 		 * can no longer be found through group->poll_task.
 		 */
 		kthread_stop(task_to_destroy);
-		atomic_set(&group->poll_scheduled, 0);
+		atomic_clear_bit(POLL_SCHEDULED, &group->poll_wakeup);
 	}
 	kfree(t);
 }
