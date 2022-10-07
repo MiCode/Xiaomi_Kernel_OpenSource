@@ -1943,11 +1943,11 @@ int mhi_dev_send_ee_event(struct mhi_dev *mhi, enum mhi_dev_execenv exec_env)
 }
 EXPORT_SYMBOL(mhi_dev_send_ee_event);
 
-static void mhi_dev_trigger_cb(enum mhi_client_channel ch_id)
+static void mhi_dev_trigger_cb(uint32_t vf_id, enum mhi_client_channel ch_id)
 {
 	struct mhi_dev_ready_cb_info *info;
 	enum mhi_ctrl_info state_data;
-	struct mhi_dev *mhi_ctx = mhi_get_dev_ctx(mhi_hw_ctx, MHI_DEV_PHY_FUN);
+	struct mhi_dev *mhi_ctx = mhi_get_dev_ctx(mhi_hw_ctx, vf_id);
 
 	/* Currently no clients register for HW channel notification */
 	if (ch_id >= MHI_MAX_SOFTWARE_CHANNELS)
@@ -2214,7 +2214,7 @@ send_start_completion_event:
 
 		mhi_update_state_info_ch(vf_id, ch_id, MHI_STATE_CONNECTED);
 		/* Trigger callback to clients */
-		mhi_dev_trigger_cb(ch_id);
+		mhi_dev_trigger_cb(vf_id, ch_id);
 		mhi_uci_chan_state_notify(mhi, ch_id, MHI_STATE_CONNECTED);
 		break;
 
@@ -2286,7 +2286,7 @@ send_undef_completion_event:
 			mutex_unlock(&ch->ch_lock);
 			mhi_update_state_info_ch(vf_id, ch_id, MHI_STATE_DISCONNECTED);
 			/* Trigger callback to clients */
-			mhi_dev_trigger_cb(ch_id);
+			mhi_dev_trigger_cb(vf_id, ch_id);
 			mhi_uci_chan_state_notify(mhi, ch_id,
 					MHI_STATE_DISCONNECTED);
 		}
@@ -2357,7 +2357,7 @@ send_undef_completion_event:
 			mutex_unlock(&ch->ring->event_lock);
 			mutex_unlock(&ch->ch_lock);
 			mhi_update_state_info_ch(vf_id, ch_id, MHI_STATE_DISCONNECTED);
-			mhi_dev_trigger_cb(ch_id);
+			mhi_dev_trigger_cb(vf_id, ch_id);
 			mhi_uci_chan_state_notify(mhi, ch_id,
 					MHI_STATE_DISCONNECTED);
 		}
@@ -2587,7 +2587,7 @@ static void mhi_update_state_info_all(struct mhi_dev *mhi_ctx, enum mhi_ctrl_inf
 			continue;
 		channel_state_info[vf_id][ch_id].ctrl_info = info;
 		/* Notify kernel clients */
-		mhi_dev_trigger_cb(ch_id);
+		mhi_dev_trigger_cb(vf_id, ch_id);
 	}
 
 	/* For legacy reasons for QTI client */
