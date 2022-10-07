@@ -338,14 +338,10 @@ static int copy_features(struct kvm_vcpu *shadow_vcpu, struct kvm_vcpu *host_vcp
 	/*
 	 * Check if remaining features are allowed:
 	 * - Performance Monitoring
-	 * - Scalable Vectors
 	 * - Pointer Authentication
 	 */
 	if (FIELD_GET(ARM64_FEATURE_MASK(ID_AA64DFR0_PMUVER), PVM_ID_AA64DFR0_ALLOW))
 	        set_bit(KVM_ARM_VCPU_PMU_V3, allowed_features);
-
-	if (FIELD_GET(ARM64_FEATURE_MASK(ID_AA64PFR0_SVE), PVM_ID_AA64PFR0_ALLOW))
-	        set_bit(KVM_ARM_VCPU_SVE, allowed_features);
 
 	if (FIELD_GET(ARM64_FEATURE_MASK(ID_AA64ISAR1_API), PVM_ID_AA64ISAR1_ALLOW) &&
 	    FIELD_GET(ARM64_FEATURE_MASK(ID_AA64ISAR1_APA), PVM_ID_AA64ISAR1_ALLOW))
