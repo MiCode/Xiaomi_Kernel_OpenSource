@@ -803,7 +803,25 @@ enum bq27xxx_dm_reg_id {
 	BQ27XXX_DM_DESIGN_CAPACITY = 0,
 	BQ27XXX_DM_DESIGN_ENERGY,
 	BQ27XXX_DM_TERMINATE_VOLTAGE,
+#ifdef CONFIG_BATTERY_BQ27XXX_RESIST_TABLE_UPDATES_NVM
 	BQ27XXX_DM_TAPER_RATE,
+	BQ27XXX_DM_QMAX,
+	BQ27XXX_RAM_R_a0_0,
+	BQ27XXX_RAM_R_a0_1,
+	BQ27XXX_RAM_R_a0_2,
+	BQ27XXX_RAM_R_a0_3,
+	BQ27XXX_RAM_R_a0_4,
+	BQ27XXX_RAM_R_a0_5,
+	BQ27XXX_RAM_R_a0_6,
+	BQ27XXX_RAM_R_a0_7,
+	BQ27XXX_RAM_R_a0_8,
+	BQ27XXX_RAM_R_a0_9,
+	BQ27XXX_RAM_R_a0_10,
+	BQ27XXX_RAM_R_a0_11,
+	BQ27XXX_RAM_R_a0_12,
+	BQ27XXX_RAM_R_a0_13,
+	BQ27XXX_RAM_R_a0_14,
+#endif
 };
 
 #define bq27000_dm_regs 0
@@ -858,7 +876,25 @@ static struct bq27xxx_dm_reg bq27421_dm_regs[] = {
 	[BQ27XXX_DM_DESIGN_CAPACITY]   = { 82, 10, 2,    0,  8000 },
 	[BQ27XXX_DM_DESIGN_ENERGY]     = { 82, 12, 2,    0, 32767 },
 	[BQ27XXX_DM_TERMINATE_VOLTAGE] = { 82, 16, 2, 2500,  3700 },
+#ifdef CONFIG_BATTERY_BQ27XXX_RESIST_TABLE_UPDATES_NVM
 	[BQ27XXX_DM_TAPER_RATE]        = { 82, 27, 2,    0,  2000 }, /* Taper rate */
+	[BQ27XXX_DM_QMAX]              = { 82,  0, 2,    0, 32767 },
+	[BQ27XXX_RAM_R_a0_0]           = { 89,  0, 2,    0, 32767 },
+	[BQ27XXX_RAM_R_a0_1]           = { 89,  2, 2,    0, 32767 },
+	[BQ27XXX_RAM_R_a0_2]           = { 89,  4, 2,    0, 32767 },
+	[BQ27XXX_RAM_R_a0_3]           = { 89,  6, 2,    0, 32767 },
+	[BQ27XXX_RAM_R_a0_4]           = { 89,  8, 2,    0, 32767 },
+	[BQ27XXX_RAM_R_a0_5]           = { 89, 10, 2,    0, 32767 },
+	[BQ27XXX_RAM_R_a0_6]           = { 89, 12, 2,    0, 32767 },
+	[BQ27XXX_RAM_R_a0_7]           = { 89, 14, 2,    0, 32767 },
+	[BQ27XXX_RAM_R_a0_8]           = { 89, 16, 2,    0, 32767 },
+	[BQ27XXX_RAM_R_a0_9]           = { 89, 18, 2,    0, 32767 },
+	[BQ27XXX_RAM_R_a0_10]          = { 89, 20, 2,    0, 32767 },
+	[BQ27XXX_RAM_R_a0_11]          = { 89, 22, 2,    0, 32767 },
+	[BQ27XXX_RAM_R_a0_12]          = { 89, 24, 2,    0, 32767 },
+	[BQ27XXX_RAM_R_a0_13]          = { 89, 26, 2,    0, 32767 },
+	[BQ27XXX_RAM_R_a0_14]          = { 89, 28, 2,    0, 32767 },
+#endif
 };
 
 static struct bq27xxx_dm_reg bq27425_dm_regs[] = {
@@ -995,7 +1031,26 @@ static const char * const bq27xxx_dm_reg_name[] = {
 	[BQ27XXX_DM_DESIGN_CAPACITY] = "design-capacity",
 	[BQ27XXX_DM_DESIGN_ENERGY] = "design-energy",
 	[BQ27XXX_DM_TERMINATE_VOLTAGE] = "terminate-voltage",
+#ifdef CONFIG_BATTERY_BQ27XXX_RESIST_TABLE_UPDATES_NVM
 	[BQ27XXX_DM_TAPER_RATE] = "Taper-rate",
+	[BQ27XXX_DM_QMAX]       = "QMAX-Cell",
+	[BQ27XXX_RAM_R_a0_0]    = "R_a0_0",
+	[BQ27XXX_RAM_R_a0_1]    = "R_a0_1",
+	[BQ27XXX_RAM_R_a0_2]    = "R_a0_2",
+	[BQ27XXX_RAM_R_a0_3]    = "R_a0_3",
+	[BQ27XXX_RAM_R_a0_4]    = "R_a0_4",
+	[BQ27XXX_RAM_R_a0_5]    = "R_a0_5",
+	[BQ27XXX_RAM_R_a0_6]    = "R_a0_6",
+	[BQ27XXX_RAM_R_a0_7]    = "R_a0_7",
+	[BQ27XXX_RAM_R_a0_8]    = "R_a0_8",
+	[BQ27XXX_RAM_R_a0_9]    = "R_a0_9",
+	[BQ27XXX_RAM_R_a0_10]   = "R_a0_10",
+	[BQ27XXX_RAM_R_a0_11]   = "R_a0_11",
+	[BQ27XXX_RAM_R_a0_12]   = "R_a0_12",
+	[BQ27XXX_RAM_R_a0_13]   = "R_a0_13",
+	[BQ27XXX_RAM_R_a0_14]   = "R_a0_14",
+#endif
+
 };
 
 
@@ -1372,7 +1427,10 @@ static void bq27xxx_battery_set_config(struct bq27xxx_device_info *di,
 	struct bq27xxx_dm_buf bd = BQ27XXX_DM_BUF(di, BQ27XXX_DM_DESIGN_CAPACITY);
 	struct bq27xxx_dm_buf bt = BQ27XXX_DM_BUF(di, BQ27XXX_DM_TERMINATE_VOLTAGE);
 	bool updated;
-	u32 taper_rate, i;
+#ifdef CONFIG_BATTERY_BQ27XXX_RESIST_TABLE_UPDATES_NVM
+	struct bq27xxx_dm_buf rt = BQ27XXX_DM_BUF(di, BQ27XXX_RAM_R_a0_0);
+	u32 i, taper_rate;
+#endif
 
 	if (bq27xxx_battery_unseal(di) < 0)
 		return;
@@ -1380,8 +1438,7 @@ static void bq27xxx_battery_set_config(struct bq27xxx_device_info *di,
 	if (info->charge_full_design_uah != -EINVAL &&
 	    info->energy_full_design_uwh != -EINVAL) {
 		bq27xxx_battery_read_dm_block(di, &bd);
-		taper_rate = (u32)((info->charge_full_design_uah * 10) /
-				   info->charge_term_current_ua);
+
 		/* assume design energy, taper_rate & capacity are in same block */
 		bq27xxx_battery_update_dm_block(di, &bd,
 					BQ27XXX_DM_DESIGN_CAPACITY,
@@ -1389,9 +1446,22 @@ static void bq27xxx_battery_set_config(struct bq27xxx_device_info *di,
 		bq27xxx_battery_update_dm_block(di, &bd,
 					BQ27XXX_DM_DESIGN_ENERGY,
 					info->energy_full_design_uwh / 1000);
-		/* update Taper rate based on the capacity and term current*/
+
+#ifdef CONFIG_BATTERY_BQ27XXX_RESIST_TABLE_UPDATES_NVM
+		bq27xxx_battery_read_dm_block(di, &rt);
+		/* update Taper rate based on the capacity and term current */
+		taper_rate = (u32)((info->charge_full_design_uah * 10) /
+				    info->charge_term_current_ua);
 		bq27xxx_battery_update_dm_block(di, &bd, BQ27XXX_DM_TAPER_RATE,
 						taper_rate);
+		/* update the QMAX-CELL0 and resistance table */
+		bq27xxx_battery_update_dm_block(di, &bd, BQ27XXX_DM_QMAX,
+						 di->qmax_cell0);
+		for (i = 0 ; i < 15; i++)
+			bq27xxx_battery_update_dm_block(di, &rt,
+							(i + BQ27XXX_RAM_R_a0_0),
+							di->resist_table[i]);
+#endif
 	}
 
 	if (info->voltage_min_design_uv != -EINVAL) {
@@ -1408,9 +1478,18 @@ static void bq27xxx_battery_set_config(struct bq27xxx_device_info *di,
 	bq27xxx_battery_write_dm_block(di, &bd);
 	bq27xxx_battery_write_dm_block(di, &bt);
 
+#ifdef CONFIG_BATTERY_BQ27XXX_RESIST_TABLE_UPDATES_NVM
+	bq27xxx_battery_write_dm_block(di, &rt);
+
 	bq27xxx_battery_read_dm_block(di, &bd);
 	for (i = 0; i < BQ27XXX_DM_SZ; i++)
 		dev_dbg(di->dev, "BQ27xxx: DM_NVM[%d]: 0x%04x\n", i, bd.data[i]);
+
+	bq27xxx_battery_read_dm_block(di, &rt);
+	for (i = 0; i < BQ27XXX_DM_SZ; i++)
+		dev_dbg(di->dev, "BQ27xxx: Resisiatnce table DM_NVM[%d]:0x%04x\n",
+			i, rt.data[i]);
+#endif
 
 	bq27xxx_battery_seal(di);
 
