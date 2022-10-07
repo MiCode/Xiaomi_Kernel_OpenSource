@@ -86,8 +86,8 @@ static struct mhi_dma_ops *mhi_dma_fun_ops;
 static void mhi_hwc_cb(void *priv, enum mhi_dma_event_type event,
 	unsigned long data);
 static void mhi_ring_init_cb(void *user_data);
-static void mhi_update_state_info(struct mhi_dev_ctx *mhi_hw_ctx, enum mhi_ctrl_info info);
-static void mhi_update_state_info_ch(uint32_t ch_id, enum mhi_ctrl_info info);
+static void mhi_update_state_info(struct mhi_dev *mhi, enum mhi_ctrl_info info);
+static void mhi_update_state_info_ch(u32 vf_id, uint32_t ch_id, enum mhi_ctrl_info info);
 static int mhi_deinit(struct mhi_dev *mhi);
 static int mhi_dev_pcie_notify_event;
 static void mhi_dev_transfer_completion_cb(void *mreq);
@@ -106,7 +106,7 @@ static void mhi_dev_pcie_handle_event(struct work_struct *work);
 static void mhi_dev_setup_virt_device(struct mhi_dev_ctx *mhictx);
 static inline struct mhi_dev *mhi_get_dev_ctx(struct mhi_dev_ctx *mhi_hw_ctx, enum mhi_id id);
 
-static struct mhi_dev_uevent_info channel_state_info[MHI_MAX_CHANNELS];
+static struct mhi_dev_uevent_info channel_state_info[MHI_MAX_NUM_INSTANCES][MHI_MAX_CHANNELS];
 static DECLARE_COMPLETION(read_from_host);
 static DECLARE_COMPLETION(write_to_host);
 static DECLARE_COMPLETION(transfer_host_to_device);
@@ -1525,7 +1525,7 @@ static int mhi_enable_int(struct mhi_dev *mhi_ctx)
 		pr_err("Failed to enable command db: %d\n", rc);
 		return rc;
 	}
-	mhi_update_state_info(mhi_ctx->mhi_hw_ctx, MHI_STATE_CONNECTED);
+	mhi_update_state_info(mhi_ctx, MHI_STATE_CONNECTED);
 	if (!mhi_ctx->mhi_int)
 		ep_pcie_mask_irq_event(mhi_ctx->mhi_hw_ctx->phandle,
 				EP_PCIE_INT_EVT_MHI_A7, true);
@@ -2103,7 +2103,7 @@ static int mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 			union mhi_dev_ring_element_type *el, void *ctx)
 {
 	int rc = 0;
-	uint32_t ch_id = 0;
+	uint32_t ch_id = 0, vf_id = mhi->vf_id;
 	union mhi_dev_ring_element_type event;
 	struct mhi_addr host_addr;
 	struct mhi_dev_channel *ch;
@@ -2212,7 +2212,7 @@ send_start_completion_event:
 		if (rc)
 			pr_err("Error sending command completion event\n");
 
-		mhi_update_state_info_ch(ch_id, MHI_STATE_CONNECTED);
+		mhi_update_state_info_ch(vf_id, ch_id, MHI_STATE_CONNECTED);
 		/* Trigger callback to clients */
 		mhi_dev_trigger_cb(ch_id);
 		mhi_uci_chan_state_notify(mhi, ch_id, MHI_STATE_CONNECTED);
@@ -2284,7 +2284,7 @@ send_undef_completion_event:
 
 			mutex_unlock(&ch->ring->event_lock);
 			mutex_unlock(&ch->ch_lock);
-			mhi_update_state_info_ch(ch_id, MHI_STATE_DISCONNECTED);
+			mhi_update_state_info_ch(vf_id, ch_id, MHI_STATE_DISCONNECTED);
 			/* Trigger callback to clients */
 			mhi_dev_trigger_cb(ch_id);
 			mhi_uci_chan_state_notify(mhi, ch_id,
@@ -2356,7 +2356,7 @@ send_undef_completion_event:
 			mhi_dev_process_reset_cmd(mhi, ch_id);
 			mutex_unlock(&ch->ring->event_lock);
 			mutex_unlock(&ch->ch_lock);
-			mhi_update_state_info_ch(ch_id, MHI_STATE_DISCONNECTED);
+			mhi_update_state_info_ch(vf_id, ch_id, MHI_STATE_DISCONNECTED);
 			mhi_dev_trigger_cb(ch_id);
 			mhi_uci_chan_state_notify(mhi, ch_id,
 					MHI_STATE_DISCONNECTED);
@@ -2571,22 +2571,23 @@ static bool mhi_dev_check_channel_interrupt(struct mhi_dev *mhi)
 
 static void mhi_update_state_info_all(struct mhi_dev *mhi_ctx, enum mhi_ctrl_info info)
 {
-	int i;
+	int ch_id;
+	u32 vf_id = mhi_ctx->vf_id;
 	struct mhi_dev_client_cb_reason reason;
 
 	mhi_ctx->ctrl_info = info;
-	for (i = 0; i < MHI_MAX_SOFTWARE_CHANNELS; ++i) {
+	for (ch_id = 0; ch_id < MHI_MAX_SOFTWARE_CHANNELS; ++ch_id) {
 		/*
 		 * Skip channel state info change
 		 * if channel is already in the desired state.
 		 */
-		if (channel_state_info[i].ctrl_info == info ||
+		if (channel_state_info[vf_id][ch_id].ctrl_info == info ||
 		    (info == MHI_STATE_DISCONNECTED &&
-		    channel_state_info[i].ctrl_info == MHI_STATE_CONFIGURED))
+		    channel_state_info[vf_id][ch_id].ctrl_info == MHI_STATE_CONFIGURED))
 			continue;
-		channel_state_info[i].ctrl_info = info;
+		channel_state_info[vf_id][ch_id].ctrl_info = info;
 		/* Notify kernel clients */
-		mhi_dev_trigger_cb(i);
+		mhi_dev_trigger_cb(ch_id);
 	}
 
 	/* For legacy reasons for QTI client */
@@ -3162,7 +3163,7 @@ int mhi_dev_resume(struct mhi_dev *mhi)
 		mhi->write_to_host(mhi, &data_transfer, NULL,
 				MHI_DEV_DMA_SYNC);
 	}
-	mhi_update_state_info(mhi->mhi_hw_ctx, MHI_STATE_CONNECTED);
+	mhi_update_state_info(mhi, MHI_STATE_CONNECTED);
 
 	atomic_set(&mhi->is_suspended, 0);
 
@@ -4068,7 +4069,7 @@ static void mhi_dev_enable(struct work_struct *work)
 	 * is not already set to CONNECTED
 	 */
 	if (mhi->ctrl_info != MHI_STATE_CONNECTED)
-		mhi_update_state_info(mhi->mhi_hw_ctx, MHI_STATE_CONFIGURED);
+		mhi_update_state_info(mhi, MHI_STATE_CONFIGURED);
 
 	/*Enable MHI dev network stack Interface*/
 	rc = mhi_dev_net_interface_init();
@@ -4141,7 +4142,9 @@ int mhi_register_state_cb(void (*mhi_state_cb)
 }
 EXPORT_SYMBOL(mhi_register_state_cb);
 
-static void mhi_update_state_info_ch(uint32_t ch_id, enum mhi_ctrl_info info)
+static void mhi_update_state_info_ch(uint32_t vf_id,
+				     uint32_t ch_id,
+				     enum mhi_ctrl_info info)
 {
 	struct mhi_dev_client_cb_reason reason;
 
@@ -4149,7 +4152,7 @@ static void mhi_update_state_info_ch(uint32_t ch_id, enum mhi_ctrl_info info)
 	if (ch_id >= MHI_MAX_SOFTWARE_CHANNELS)
 		return;
 
-	channel_state_info[ch_id].ctrl_info = info;
+	channel_state_info[vf_id][ch_id].ctrl_info = info;
 	if (ch_id == MHI_CLIENT_QMI_OUT || ch_id == MHI_CLIENT_QMI_IN) {
 		/* For legacy reasons for QTI client */
 		reason.reason = MHI_DEV_CTRL_UPDATE;
@@ -4157,12 +4160,9 @@ static void mhi_update_state_info_ch(uint32_t ch_id, enum mhi_ctrl_info info)
 	}
 }
 
-
-static void mhi_update_state_info(struct mhi_dev_ctx *mhictx, enum mhi_ctrl_info info)
+static inline void mhi_update_state_info(struct mhi_dev *mhi,
+					 enum mhi_ctrl_info info)
 {
-	struct mhi_dev *mhi = mhi_get_dev_ctx(mhi_hw_ctx, MHI_DEV_PHY_FUN);
-
-	/* TODO: FR for supporting s/w channels in VF */
 	mhi->ctrl_info = info;
 }
 
@@ -4171,11 +4171,10 @@ int mhi_ctrl_state_info(uint32_t idx, uint32_t *info)
 	struct mhi_dev *mhi = mhi_get_dev_ctx(mhi_hw_ctx, MHI_DEV_PHY_FUN);
 
 	if (idx == MHI_DEV_UEVENT_CTRL)
-		/*TODO: FR for supporting s/w channels in VF */
 		*info = mhi->ctrl_info;
 	else
 		if (idx < MHI_MAX_SOFTWARE_CHANNELS)
-			*info = channel_state_info[idx].ctrl_info;
+			*info = channel_state_info[MHI_DEV_PHY_FUN][idx].ctrl_info;
 		else
 			return -EINVAL;
 
@@ -4864,7 +4863,7 @@ static int mhi_dev_probe(struct platform_device *pdev)
 		mutex_init(&mhi_pf->mhi_lock);
 
 		mhi_uci_init();
-		mhi_update_state_info(mhi_hw_ctx, MHI_STATE_CONFIGURED);
+		mhi_update_state_info(mhi_pf, MHI_STATE_CONFIGURED);
 	}
 
 	if (mhi_pf->use_edma) {

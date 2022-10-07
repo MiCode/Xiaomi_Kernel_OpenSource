@@ -645,7 +645,8 @@ struct mhi_dev {
 
 	struct mhi_dev_ctx		*mhi_hw_ctx;
 	struct mhi_sm_dev		*mhi_sm_ctx;
-	int				vf_id;
+	/* MHI VF number */
+	uint32_t			vf_id;
 
 	int (*device_to_host)(uint64_t dst_pa, void *src, uint32_t len,
 				struct mhi_dev *mhi, struct mhi_req *req);
