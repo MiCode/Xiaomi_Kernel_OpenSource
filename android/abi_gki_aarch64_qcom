@@ -1181,11 +1181,21 @@
   misc_deregister
   misc_register
   mmc_cqe_request_done
+  mmc_execute_tuning
   mmc_of_parse
+  __mmc_poll_for_busy
+  mmc_prepare_busy_cmd
   mmc_regulator_get_supply
   mmc_regulator_set_ocr
   mmc_regulator_set_vqmmc
+  mmc_retune_hold
+  mmc_retune_release
+  mmc_select_card
   mmc_send_tuning
+  mmc_set_bus_mode
+  mmc_set_bus_width
+  mmc_set_clock
+  mmc_set_timing
   mmput
   mod_delayed_work_on
   mod_node_page_state
@@ -1790,6 +1800,7 @@
   sdhci_cqe_disable
   sdhci_cqe_enable
   sdhci_cqe_irq
+  sdhci_dumpregs
   sdhci_enable_clk
   sdhci_get_property
   sdhci_pltfm_free
@@ -2127,6 +2138,7 @@
   __tracepoint_android_vh_logbuf
   __tracepoint_android_vh_logbuf_pr_cont
   __tracepoint_android_vh_mmc_sdio_pm_flag_set
+  __tracepoint_android_vh_mmc_sd_update_cmdline_timing
   __tracepoint_android_vh_printk_hotplug
   __tracepoint_android_vh_rproc_recovery
   __tracepoint_android_vh_rproc_recovery_set
@@ -2390,14 +2402,3 @@
   xsk_tx_peek_desc
   xsk_tx_release
   xsk_uses_need_wakeup
-  mmc_set_clock
-  mmc_execute_tuning
-  mmc_set_bus_mode
-  mmc_set_timing
-  mmc_set_bus_width
-  mmc_retune_release
-  __mmc_poll_for_busy
-  mmc_select_card
-  mmc_prepare_busy_cmd
-  mmc_retune_hold
-  sdhci_dumpregs
