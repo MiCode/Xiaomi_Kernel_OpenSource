@@ -96,6 +96,7 @@
   clk_enable
   clk_fixed_factor_ops
   clk_get_rate
+  __clk_is_enabled
   clk_prepare
   clk_put
   clk_set_parent
