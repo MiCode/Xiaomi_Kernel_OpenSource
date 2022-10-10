@@ -366,25 +366,28 @@ static int copy_features(struct kvm_vcpu *shadow_vcpu, struct kvm_vcpu *host_vcp
 	return 0;
 }
 
+static void unpin_host_vcpu(struct shadow_vcpu_state *shadow_vcpu)
+{
+	struct kvm_vcpu *host_vcpu = shadow_vcpu->vcpu.arch.pkvm.host_vcpu;
+	size_t sve_state_size;
+	void *sve_state = shadow_vcpu->vcpu.arch.sve_state;
+
+	hyp_unpin_shared_mem(host_vcpu, host_vcpu + 1);
+
+	if (!sve_state)
+		return;
+
+	sve_state = kern_hyp_va(sve_state);
+	sve_state_size = vcpu_sve_state_size(&shadow_vcpu->vcpu);
+	hyp_unpin_shared_mem(sve_state, sve_state + sve_state_size);
+}
+
 static void unpin_host_vcpus(struct shadow_vcpu_state *shadow_vcpus, int nr_vcpus)
 {
 	int i;
 
-	for (i = 0; i < nr_vcpus; i++) {
-		struct kvm_vcpu *host_vcpu = shadow_vcpus[i].vcpu.arch.pkvm.host_vcpu;
-		struct kvm_vcpu *shadow_vcpu = &shadow_vcpus[i].vcpu;
-		void *sve_state = shadow_vcpu->arch.sve_state;
-		size_t sve_state_size;
-
-		hyp_unpin_shared_mem(host_vcpu, host_vcpu + 1);
-
-		if (!sve_state)
-			continue;
-
-		sve_state = kern_hyp_va(sve_state);
-		sve_state_size = vcpu_sve_state_size(shadow_vcpu);
-		hyp_unpin_shared_mem(sve_state, sve_state + sve_state_size);
-	}
+	for (i = 0; i < nr_vcpus; i++)
+		unpin_host_vcpu(&shadow_vcpus[i]);
 }
 
 static int set_host_vcpus(struct shadow_vcpu_state *shadow_vcpus, int nr_vcpus,
