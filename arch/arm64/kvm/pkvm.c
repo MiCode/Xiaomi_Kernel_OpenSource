@@ -117,7 +117,7 @@ void __init kvm_hyp_reserve(void)
  */
 static int __create_el2_shadow(struct kvm *kvm)
 {
-	struct kvm_vcpu *vcpu, **vcpu_array;
+	struct kvm_vcpu *vcpu;
 	size_t pgd_sz, shadow_sz;
 	void *pgd, *shadow_addr;
 	unsigned long idx;
@@ -146,12 +146,6 @@ static int __create_el2_shadow(struct kvm *kvm)
 		goto free_pgd;
 	}
 
-	/* Stash the vcpu pointers into the PGD */
-	BUILD_BUG_ON(KVM_MAX_VCPUS > (PAGE_SIZE / sizeof(u64)));
-	vcpu_array = pgd;
-	kvm_for_each_vcpu(idx, vcpu, kvm)
-		vcpu_array[idx] = vcpu;
-
 	/* Donate the shadow memory to hyp and let hyp initialize it. */
 	ret = kvm_call_hyp_nvhe(__pkvm_init_shadow, kvm, shadow_addr, shadow_sz,
 				pgd);
@@ -163,8 +157,25 @@ static int __create_el2_shadow(struct kvm *kvm)
 	/* Store the shadow handle given by hyp for future call reference. */
 	kvm->arch.pkvm.shadow_handle = shadow_handle;
 
+	/* Initialize the shadow vcpus.  */
+	kvm_for_each_vcpu (idx, vcpu, kvm) {
+		/* Indexing of the vcpus to be sequential starting at 0. */
+		if (WARN_ON(vcpu->vcpu_idx != idx)) {
+			ret = -EINVAL;
+			goto destroy_vm;
+		}
+
+		ret = kvm_call_hyp_nvhe(__pkvm_init_shadow_vcpu, shadow_handle,
+					vcpu);
+		if (ret)
+			goto destroy_vm;
+	}
+
 	return 0;
 
+destroy_vm:
+	kvm_shadow_destroy(kvm);
+	return ret;
 free_shadow:
 	free_pages_exact(shadow_addr, shadow_sz);
 free_pgd:

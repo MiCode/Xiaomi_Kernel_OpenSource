@@ -1006,6 +1006,14 @@ static void handle___pkvm_init_shadow(struct kvm_cpu_context *host_ctxt)
 						   shadow_size, pgd);
 }
 
+static void handle___pkvm_init_shadow_vcpu(struct kvm_cpu_context *host_ctxt)
+{
+	DECLARE_REG(unsigned int, shadow_handle, host_ctxt, 1);
+	DECLARE_REG(struct kvm_vcpu *, host_vcpu, host_ctxt, 2);
+
+	cpu_reg(host_ctxt, 1) =	__pkvm_init_shadow_vcpu(shadow_handle, host_vcpu);
+}
+
 static void handle___pkvm_teardown_shadow(struct kvm_cpu_context *host_ctxt)
 {
 	DECLARE_REG(int, shadow_handle, host_ctxt, 1);
@@ -1079,6 +1087,7 @@ static const hcall_t host_hcall[] = {
 	HANDLE_FUNC(__vgic_v3_save_vmcr_aprs),
 	HANDLE_FUNC(__vgic_v3_restore_vmcr_aprs),
 	HANDLE_FUNC(__pkvm_init_shadow),
+	HANDLE_FUNC(__pkvm_init_shadow_vcpu),
 	HANDLE_FUNC(__pkvm_teardown_shadow),
 	HANDLE_FUNC(__pkvm_vcpu_load),
 	HANDLE_FUNC(__pkvm_vcpu_put),
