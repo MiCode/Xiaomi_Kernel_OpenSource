@@ -1010,8 +1010,11 @@ static void handle___pkvm_init_shadow_vcpu(struct kvm_cpu_context *host_ctxt)
 {
 	DECLARE_REG(unsigned int, shadow_handle, host_ctxt, 1);
 	DECLARE_REG(struct kvm_vcpu *, host_vcpu, host_ctxt, 2);
+	DECLARE_REG(void *, shadow_vcpu_hva, host_ctxt, 3);
 
-	cpu_reg(host_ctxt, 1) =	__pkvm_init_shadow_vcpu(shadow_handle, host_vcpu);
+	cpu_reg(host_ctxt, 1) =	__pkvm_init_shadow_vcpu(shadow_handle,
+							host_vcpu,
+							shadow_vcpu_hva);
 }
 
 static void handle___pkvm_teardown_shadow(struct kvm_cpu_context *host_ctxt)
