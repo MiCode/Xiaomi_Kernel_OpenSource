@@ -166,6 +166,8 @@ extern int qcom_scm_get_feat_version_cp(u64 *version);
 extern bool qcom_scm_kgsl_set_smmu_aperture_available(void);
 extern int qcom_scm_kgsl_set_smmu_aperture(
 				unsigned int num_context_bank);
+extern int qcom_scm_kgsl_set_smmu_lpac_aperture(
+				unsigned int num_context_bank);
 extern int qcom_scm_enable_shm_bridge(void);
 extern int qcom_scm_delete_shm_bridge(u64 handle);
 extern int qcom_scm_create_shm_bridge(u64 pfn_and_ns_perm_flags,
