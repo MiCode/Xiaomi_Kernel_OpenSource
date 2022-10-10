@@ -516,7 +516,7 @@ void kgsl_core_exit(void);
 static inline bool kgsl_gpuaddr_in_memdesc(const struct kgsl_memdesc *memdesc,
 				uint64_t gpuaddr, uint64_t size)
 {
-	if (!memdesc)
+	if (IS_ERR_OR_NULL(memdesc))
 		return false;
 
 	/* set a minimum size to search for */
