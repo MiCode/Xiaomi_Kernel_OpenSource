@@ -1188,16 +1188,14 @@ static void qcom_ethqos_phy_suspend_clks(struct qcom_ethqos *ethqos)
 
 	ethqos_update_rgmii_clk_and_bus_cfg(ethqos, 0);
 
-	if (ethqos->phy_wol_supported) {
-		if (priv->plat->stmmac_clk)
-			clk_disable_unprepare(priv->plat->stmmac_clk);
+	if (priv->plat->stmmac_clk)
+		clk_disable_unprepare(priv->plat->stmmac_clk);
 
-		if (priv->plat->pclk)
-			clk_disable_unprepare(priv->plat->pclk);
+	if (priv->plat->pclk)
+		clk_disable_unprepare(priv->plat->pclk);
 
-		if (priv->plat->clk_ptp_ref)
-			clk_disable_unprepare(priv->plat->clk_ptp_ref);
-	}
+	if (priv->plat->clk_ptp_ref)
+		clk_disable_unprepare(priv->plat->clk_ptp_ref);
 
 	if (ethqos->rgmii_clk)
 		clk_disable_unprepare(ethqos->rgmii_clk);
@@ -1227,16 +1225,14 @@ static void qcom_ethqos_phy_resume_clks(struct qcom_ethqos *ethqos)
 
 	ETHQOSINFO("Enter\n");
 
-	if (ethqos->phy_wol_supported) {
-		if (priv->plat->stmmac_clk)
-			clk_prepare_enable(priv->plat->stmmac_clk);
+	if (priv->plat->stmmac_clk)
+		clk_prepare_enable(priv->plat->stmmac_clk);
 
-		if (priv->plat->pclk)
-			clk_prepare_enable(priv->plat->pclk);
+	if (priv->plat->pclk)
+		clk_prepare_enable(priv->plat->pclk);
 
-		if (priv->plat->clk_ptp_ref)
-			clk_prepare_enable(priv->plat->clk_ptp_ref);
-	}
+	if (priv->plat->clk_ptp_ref)
+		clk_prepare_enable(priv->plat->clk_ptp_ref);
 
 	if (ethqos->rgmii_clk)
 		clk_prepare_enable(ethqos->rgmii_clk);
