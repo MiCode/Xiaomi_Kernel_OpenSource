@@ -2282,14 +2282,16 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 			err = ufs_qcom_set_bus_vote(hba, true);
 			if (ufs_qcom_is_link_hibern8(hba))
 				ufs_qcom_phy_set_src_clk_h8_exit(phy);
-			/* Device ref clk should be enabled before Unipro clock */
-			err = clk_prepare_enable(host->ref_clki->clk);
-			if (!err)
-				host->ref_clki->enabled = on;
-			else
-				ufs_qcom_msg(ERR, hba->dev,
-					"%s: Fail dev-ref-clk enabled, ret=%d\n",
-					__func__, err);
+			if (!host->ref_clki->enabled) {
+				/* Device ref clk should be enabled before Unipro clock */
+				err = clk_prepare_enable(host->ref_clki->clk);
+				if (!err)
+					host->ref_clki->enabled = on;
+				else
+					ufs_qcom_msg(ERR, hba->dev,
+						"%s: Fail dev-ref-clk enabled, ret=%d\n",
+						__func__, err);
+			}
 		} else {
 			if (!ufs_qcom_is_link_active(hba)) {
 				err = ufs_qcom_phy_power_off(hba);
