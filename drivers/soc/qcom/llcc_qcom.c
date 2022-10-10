@@ -735,15 +735,6 @@ static int llcc_spad_init(struct llcc_slice_desc *desc)
 	if (ret)
 		return ret;
 
-	/* SPAD activity based sleep and wakeup sequence to set the
-	 * corresponding CSRs for activity based sleep/wakeup
-	 */
-	if (drv_data->spad_act_slp_wake_enable) {
-		ret = llcc_spad_act_slp_wake();
-		if (ret)
-			return ret;
-	}
-
 	return 0;
 }
 
@@ -785,6 +776,15 @@ int llcc_slice_activate(struct llcc_slice_desc *desc)
 		ret = llcc_spad_init(desc);
 		if (ret)
 			goto act_err;
+
+		/* SPAD activity based sleep and wakeup sequence to set the
+		 * corresponding CSRs for activity based sleep/wakeup
+		 */
+		if (drv_data->spad_act_slp_wake_enable) {
+			ret = llcc_spad_act_slp_wake();
+			if (ret)
+				goto act_err;
+		}
 
 		ret = llcc_spad_clk_on_ctrl();
 		if (ret)
