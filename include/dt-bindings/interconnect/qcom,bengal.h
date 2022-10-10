@@ -35,6 +35,7 @@
 #define MASTER_SDCC_1				26
 #define MASTER_SDCC_2				27
 #define MASTER_USB3				28
+#define MASTER_UFS_MEM				29
 #define SLAVE_EBI_CH0				512
 #define BIMC_SNOC_SLV				513
 #define SLAVE_QUP_CORE_0			514
@@ -97,5 +98,7 @@
 #define SLAVE_QDSS_STM				571
 #define SLAVE_TCU				572
 #define SLAVE_ANOC_SNOC				573
+#define SLAVE_UFS_MEM_CFG			574
+#define SLAVE_PRNG				575
 
 #endif
