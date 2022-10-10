@@ -48,6 +48,7 @@ struct vib_ldo_chip {
 	struct hrtimer		overdrive_timer;
 	struct work_struct	vib_work;
 	struct work_struct	overdrive_work;
+	struct delayed_work	vib_attr_recreate_work;
 
 	u16			base;
 	int			vmax_uV;
@@ -57,6 +58,7 @@ struct vib_ldo_chip {
 	u64			vib_play_ms;
 	bool			vib_enabled;
 	bool			disable_overdrive;
+	bool			vib_recreate_attr;
 };
 
 static inline int qpnp_vib_ldo_poll_status(struct vib_ldo_chip *chip)
@@ -377,6 +379,38 @@ static struct device_attribute qpnp_vib_attrs[] = {
 	__ATTR(vmax_mv, 0664, qpnp_vib_show_vmax, qpnp_vib_store_vmax),
 };
 
+static void qpnp_vib_attr_recreate_work(struct work_struct *work)
+{
+	struct vib_ldo_chip *chip = container_of(work, struct vib_ldo_chip,
+						vib_attr_recreate_work.work);
+
+	int i;
+	int ret = 0;
+
+	for (i = 0; i < ARRAY_SIZE(qpnp_vib_attrs); i++) {
+		ret = sysfs_create_file(&chip->cdev.dev->kobj,
+				&qpnp_vib_attrs[i].attr);
+		if (ret == -EEXIST)
+			pr_err("Attr:%s exists. Continuing to other attrs\n",
+						qpnp_vib_attrs[i].attr.name);
+		else if (ret < 0) {
+			pr_err("Error in creating sysfs file, ret=%d\n", ret);
+			goto sysfs_fail;
+		}
+	}
+
+	pr_info("Removed attributes re-created successfully\n");
+	goto exit;
+
+sysfs_fail:
+	for (--i; i >= 0; i--)
+		sysfs_remove_file(&chip->cdev.dev->kobj,
+				&qpnp_vib_attrs[i].attr);
+
+exit:
+	pr_info("Recreation of attributes completed\n");
+}
+
 static int qpnp_vib_parse_dt(struct device *dev, struct vib_ldo_chip *chip)
 {
 	int ret;
@@ -410,6 +444,9 @@ static int qpnp_vib_parse_dt(struct device *dev, struct vib_ldo_chip *chip)
 						QPNP_VIB_LDO_VMIN_UV);
 	}
 
+	chip->vib_recreate_attr = of_property_read_bool(dev->of_node,
+					"qcom,vib-recreate-attr");
+
 	return ret;
 }
 
@@ -435,6 +472,8 @@ static int qpnp_vibrator_ldo_suspend(struct device *dev)
 	}
 	hrtimer_cancel(&chip->stop_timer);
 	cancel_work_sync(&chip->vib_work);
+	if (chip->vib_recreate_attr)
+		cancel_delayed_work_sync(&chip->vib_attr_recreate_work);
 	qpnp_vib_ldo_enable(chip, false);
 	mutex_unlock(&chip->lock);
 
@@ -443,6 +482,7 @@ static int qpnp_vibrator_ldo_suspend(struct device *dev)
 static SIMPLE_DEV_PM_OPS(qpnp_vibrator_ldo_pm_ops, qpnp_vibrator_ldo_suspend,
 			NULL);
 
+#define VIB_ATTR_RECREATE_DELAY 5000
 static int qpnp_vibrator_ldo_probe(struct platform_device *pdev)
 {
 	struct device_node *of_node = pdev->dev.of_node;
@@ -477,6 +517,9 @@ static int qpnp_vibrator_ldo_probe(struct platform_device *pdev)
 	mutex_init(&chip->lock);
 	INIT_WORK(&chip->vib_work, qpnp_vib_work);
 	INIT_WORK(&chip->overdrive_work, qpnp_vib_overdrive_work);
+	if (chip->vib_recreate_attr)
+		INIT_DELAYED_WORK(&chip->vib_attr_recreate_work,
+				qpnp_vib_attr_recreate_work);
 
 	hrtimer_init(&chip->stop_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	chip->stop_timer.function = vib_stop_timer;
@@ -504,6 +547,10 @@ static int qpnp_vibrator_ldo_probe(struct platform_device *pdev)
 		}
 	}
 
+	if (chip->vib_recreate_attr)
+		schedule_delayed_work(&chip->vib_attr_recreate_work,
+					msecs_to_jiffies(VIB_ATTR_RECREATE_DELAY));
+
 	pr_info("Vibrator LDO successfully registered: uV = %d, overdrive = %s\n",
 		chip->vmax_uV,
 		chip->disable_overdrive ? "disabled" : "enabled");
@@ -529,6 +576,8 @@ static int qpnp_vibrator_ldo_remove(struct platform_device *pdev)
 	}
 	hrtimer_cancel(&chip->stop_timer);
 	cancel_work_sync(&chip->vib_work);
+	if (chip->vib_recreate_attr)
+		cancel_delayed_work_sync(&chip->vib_attr_recreate_work);
 	mutex_destroy(&chip->lock);
 	dev_set_drvdata(&pdev->dev, NULL);
 
