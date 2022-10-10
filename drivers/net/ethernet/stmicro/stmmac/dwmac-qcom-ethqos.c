@@ -1440,7 +1440,7 @@ static ssize_t read_phy_reg_dump(struct file *file, char __user *user_buf,
 					 "\n************* PHY Reg dump *************\n");
 
 	for (i = 0; i < 32; i++) {
-		phydata = ethqos_mdio_read(priv, priv->plat->phy_addr, i);
+		phydata = priv->mii->read(priv->mii, priv->plat->phy_addr, i);
 		len += scnprintf(buf + len, buf_len - len,
 					 "MII Register (%#x) = %#x\n",
 					 i, phydata);
