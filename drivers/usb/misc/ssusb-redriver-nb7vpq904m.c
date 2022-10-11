@@ -75,6 +75,10 @@ enum operation_mode {
 
 #define CHAN_MODE_DISABLE	0xff /* when disable, not configure eq, gain ... */
 
+#define CHIP_MAX_PWR_UA		260000
+#define CHIP_MIN_PWR_UV		1710000
+#define CHIP_MAX_PWR_UV		1890000
+
 struct ssusb_redriver {
 	struct device		*dev;
 	struct regmap		*regmap;
@@ -137,21 +141,28 @@ static int redriver_i2c_reg_set(struct ssusb_redriver *redriver,
 	return 0;
 }
 
-static int redriver_vdd_enable(struct ssusb_redriver *redriver, bool on)
+static void redriver_vdd_enable(struct ssusb_redriver *redriver, bool on)
 {
-	if (!redriver->vdd || redriver->op_mode != OP_MODE_NONE)
-		return 0;
+	int l, v, s;
+
+	if (!redriver->vdd || redriver->op_mode != OP_MODE_NONE) {
+		dev_dbg(redriver->dev, "no vdd regulator operation\n");
+		return;
+	}
 
 	if (on && !redriver->vdd_enable) {
 		redriver->vdd_enable = true;
-		regulator_set_load(redriver->vdd, 250000);
-		return regulator_enable(redriver->vdd);
+		l = regulator_set_load(redriver->vdd, CHIP_MAX_PWR_UA);
+		v = regulator_set_voltage(redriver->vdd, CHIP_MIN_PWR_UV, CHIP_MAX_PWR_UV);
+		s = regulator_enable(redriver->vdd);
+		dev_dbg(redriver->dev, "vdd regulator enable return %d-%d-%d\n", l, v, s);
 	} else if (!on && redriver->vdd_enable) {
 		redriver->vdd_enable = false;
-		return regulator_disable(redriver->vdd);
+		s = regulator_disable(redriver->vdd);
+		v = regulator_set_voltage(redriver->vdd, 0, CHIP_MAX_PWR_UV);
+		l = regulator_set_load(redriver->vdd, 0);
+		dev_dbg(redriver->dev, "vdd regulator disable return %d-%d-%d\n", l, v, s);
 	}
-
-	return 0;
 }
 
 static int ssusb_redriver_gen_dev_set(struct ssusb_redriver *redriver)
