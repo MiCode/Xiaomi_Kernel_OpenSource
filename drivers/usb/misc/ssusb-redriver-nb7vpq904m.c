@@ -514,6 +514,12 @@ static int ssusb_redriver_ucsi_notifier(struct notifier_block *nb,
 	if (redriver->op_mode == op_mode)
 		return NOTIFY_OK;
 
+	/*
+	 * if regulator was turn off during disocnnect, when connect and turn on regulator,
+	 * it will enter default 4 lanes USB mode which is different from behavior that
+	 * regulator always on.
+	 */
+	redriver_vdd_enable(redriver, true);
 	dev_dbg(redriver->dev, "op mode %s -> %s\n",
 		OPMODESTR(redriver->op_mode), OPMODESTR(op_mode));
 	redriver->op_mode = op_mode;
@@ -526,8 +532,6 @@ static int ssusb_redriver_ucsi_notifier(struct notifier_block *nb,
 			redriver->typec_orientation == ORIENTATION_CC1 ?
 			"CC1" : "CC2");
 	}
-
-	redriver_vdd_enable(redriver, true);
 
 	ret = ssusb_redriver_channel_update(redriver);
 	if (ret) {
