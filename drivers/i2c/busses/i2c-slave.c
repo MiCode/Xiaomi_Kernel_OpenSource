@@ -4,6 +4,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/interconnect.h>
 #include <linux/io.h>
 #include <linux/ipc_logging.h>
 #include <linux/i2c.h>
@@ -291,10 +292,37 @@ static irqreturn_t i2c_slave_irq(int irq, void *dev)
 	I2C_SLAVE_DBG(i2c_slave->ipcl, false, i2c_slave->dev,
 		      "irq status: 0x%x\n", irq_stat);
 
+	if (irq_stat & (1 << ERR_CONDITION)) {
+		I2C_SLAVE_DBG(i2c_slave->ipcl, false, i2c_slave->dev, "%s\n",
+			      irq_log[ERR_CONDITION]);
+		dump_register(i2c_slave);
+		i2c_slave_write_bit(i2c_slave, I2C_S_SW_RESET_REG, SW_RESET);
+		i2c_slave_clear_irq(i2c_slave, ALL_IRQ);
+		i2c_slave_enable_irq(i2c_slave);
+		i2c_slave_write_bit(i2c_slave, I2C_S_CONTROL,
+				    CLEAR_TX_FIFO | CLEAR_RX_FIFO);
+		i2c_slave_write_bit(i2c_slave, I2C_S_CLK_LOW_TIMEOUT, TIMER_MODE);
+		i2c_slave_write_bit(i2c_slave, I2C_S_CONFIG, CORE_EN);
+		i2c_slave_send_nack(i2c_slave);
+	}
+
 	if (irq_stat & (1 << CLOCK_LOW_TIMEOUT)) {
 		I2C_SLAVE_DBG(i2c_slave->ipcl, false, i2c_slave->dev, "%s\n",
 			      irq_log[CLOCK_LOW_TIMEOUT]);
 		i2c_slave_clear_irq(i2c_slave, ALL_IRQ);
+	}
+
+	if (irq_stat & (1 << STOP_DETECTED)) {
+		I2C_SLAVE_DBG(i2c_slave->ipcl, false, i2c_slave->dev, "%s\n",
+			      irq_log[STOP_DETECTED]);
+		i2c_slave_clear_irq(i2c_slave, STOP_DETECTED);
+	}
+
+	if (irq_stat & (1 << RX_FIFO_FULL)) {
+		I2C_SLAVE_DBG(i2c_slave->ipcl, false, i2c_slave->dev, "%s\n",
+			      irq_log[RX_FIFO_FULL]);
+		i2c_slave_send_nack(i2c_slave);
+		i2c_slave_clear_irq(i2c_slave, RX_FIFO_FULL);
 	}
 
 	if (irq_stat & (1 << STRCH_RD)) {
@@ -318,37 +346,11 @@ static irqreturn_t i2c_slave_irq(int irq, void *dev)
 		i2c_slave_clear_irq(i2c_slave, RX_DATA_AVAIL);
 	}
 
-	if (irq_stat & (1 << STOP_DETECTED)) {
-		I2C_SLAVE_DBG(i2c_slave->ipcl, false, i2c_slave->dev, "%s\n",
-			      irq_log[STOP_DETECTED]);
-		i2c_slave_clear_irq(i2c_slave, STOP_DETECTED);
-	}
-
 	if (irq_stat & (1 << STRCH_WR)) {
 		I2C_SLAVE_DBG(i2c_slave->ipcl, false, i2c_slave->dev, "%s\n",
 			      irq_log[STRCH_WR]);
 		i2c_slave_clear_irq(i2c_slave, STRCH_WR);
 		i2c_slave_send_ack(i2c_slave);
-	}
-
-	if (irq_stat & (1 << ERR_CONDITION)) {
-		I2C_SLAVE_DBG(i2c_slave->ipcl, false, i2c_slave->dev, "%s\n",
-			      irq_log[ERR_CONDITION]);
-		dump_register(i2c_slave);
-		i2c_slave_write_bit(i2c_slave, I2C_S_SW_RESET_REG, SW_RESET);
-		i2c_slave_clear_irq(i2c_slave, ALL_IRQ);
-		i2c_slave_enable_irq(i2c_slave);
-		i2c_slave_write_bit(i2c_slave, I2C_S_CONTROL,
-				    CLEAR_TX_FIFO | CLEAR_RX_FIFO);
-		i2c_slave_write_bit(i2c_slave, I2C_S_CLK_LOW_TIMEOUT, TIMER_MODE);
-		i2c_slave_write_bit(i2c_slave, I2C_S_CONFIG, CORE_EN);
-		i2c_slave_send_nack(i2c_slave);
-	}
-
-	if (irq_stat & (1 << RX_FIFO_FULL)) {
-		I2C_SLAVE_DBG(i2c_slave->ipcl, false, i2c_slave->dev, "%s\n",
-			      irq_log[RX_FIFO_FULL]);
-		i2c_slave_clear_irq(i2c_slave, RX_FIFO_FULL);
 	}
 
 	if (irq_stat & (1 << TX_FIFO_EMPTY)) {
@@ -362,12 +364,14 @@ static irqreturn_t i2c_slave_irq(int irq, void *dev)
 	if (irq_stat & (1 << GCA_DETECTED)) {
 		I2C_SLAVE_DBG(i2c_slave->ipcl, false, i2c_slave->dev, "%s\n",
 			      irq_log[GCA_DETECTED]);
+		i2c_slave_send_nack(i2c_slave);
 		i2c_slave_clear_irq(i2c_slave, GCA_DETECTED);
 	}
 
 	if (irq_stat & (1 << RESTART_DETECTED)) {
 		I2C_SLAVE_DBG(i2c_slave->ipcl, false, i2c_slave->dev, "%s\n",
 			      irq_log[RESTART_DETECTED]);
+		i2c_slave_send_ack(i2c_slave);
 		i2c_slave_clear_irq(i2c_slave, RESTART_DETECTED);
 	}
 
@@ -603,6 +607,39 @@ err_on_xo:
 }
 
 /**
+ * i2c_slave_icc_init: Enable ICB voting.
+ * @i2c_slave: Pointer to Main Structure.
+ *
+ * This function will enable ICB voting for i2c slave.
+ *
+ * Return: 0 for success, negative number for error condition.
+ */
+static int i2c_slave_icc_init(struct i2c_slave *i2c_slave)
+{
+	int ret = 0;
+
+	i2c_slave->icc_path = devm_of_icc_get(i2c_slave->dev, "i2c-slave-config");
+	if (IS_ERR(i2c_slave->icc_path)) {
+		I2C_SLAVE_ERR(i2c_slave->ipcl, true, i2c_slave->dev,
+			      "devm_of_icc_get failed: %d:\n", ret);
+		return -EINVAL;
+	}
+
+	i2c_slave->bw = APPS_PROC_TO_I2C_SLAVE_VOTE;
+	icc_set_bw(i2c_slave->icc_path, i2c_slave->bw, i2c_slave->bw);
+
+	ret = icc_enable(i2c_slave->icc_path);
+	if (ret) {
+		I2C_SLAVE_ERR(i2c_slave->ipcl, true, i2c_slave->dev,
+			      "ICC enable failed err: %d\n", ret);
+		devres_free(&i2c_slave->icc_path);
+		return ret;
+	}
+
+	return 0;
+}
+
+/**
  * i2c_slave_func: To check supported i2c functionality.
  * @adap: I2C driver adapter.
  *
@@ -687,8 +724,14 @@ static int i2c_slave_probe(struct platform_device *pdev)
 		goto err_irq;
 	}
 
-	i2c_slave->adap.algo = &i2c_slave_algo;
+	ret = i2c_slave_icc_init(i2c_slave);
+	if (ret) {
+		I2C_SLAVE_ERR(i2c_slave->ipcl, true, i2c_slave->dev,
+			      "ICC init failed ret: %d\n", ret);
+		goto err_icc;
+	}
 
+	i2c_slave->adap.algo = &i2c_slave_algo;
 	i2c_slave->rx_count = 0;
 
 	/* Enable IRQ */
@@ -723,11 +766,14 @@ static int i2c_slave_probe(struct platform_device *pdev)
 		      "I2C Slave probed\n");
 	return 0;
 
+err_adap:
+	icc_disable(i2c_slave->icc_path);
+	devres_free(&i2c_slave->icc_path);
+err_icc:
+	disable_irq(i2c_slave->irq);
 err_irq:
 	clk_disable_unprepare(i2c_slave->ahb_clk);
 	clk_disable_unprepare(i2c_slave->xo_clk);
-err_adap:
-	disable_irq(i2c_slave->irq);
 err_ipc:
 	if (i2c_slave->ipcl)
 		ipc_log_context_destroy(i2c_slave->ipcl);
@@ -744,7 +790,6 @@ err:
  *
  * Return: 0 for success.
  */
-
 static int i2c_slave_remove(struct platform_device *pdev)
 {
 	struct i2c_slave *i2c_slave = platform_get_drvdata(pdev);
@@ -752,6 +797,8 @@ static int i2c_slave_remove(struct platform_device *pdev)
 	clk_disable_unprepare(i2c_slave->ahb_clk);
 	clk_disable_unprepare(i2c_slave->xo_clk);
 	disable_irq(i2c_slave->irq);
+	icc_disable(i2c_slave->icc_path);
+	devres_free(&i2c_slave->icc_path);
 	i2c_del_adapter(&i2c_slave->adap);
 
 	if (i2c_slave->ipcl)
@@ -759,6 +806,97 @@ static int i2c_slave_remove(struct platform_device *pdev)
 
 	return 0;
 }
+
+/**
+ * i2c_slave_suspend: driver suspend function.
+ * @dev: Pointer to device structure.
+ *
+ * This function will put driver into suspend state by releasing
+ * icc, irq and core clock.
+ *
+ * Return: 0 for success.
+ */
+#ifdef I2C_SLAVE_SUSPEND_RESUME
+static int i2c_slave_suspend(struct device *dev)
+{
+	struct i2c_slave *i2c_slave = dev_get_drvdata(dev);
+
+	disable_irq(i2c_slave->irq);
+	icc_disable(i2c_slave->icc_path);
+	clk_disable_unprepare(i2c_slave->ahb_clk);
+	clk_disable_unprepare(i2c_slave->xo_clk);
+	I2C_SLAVE_DBG(i2c_slave->ipcl, true, i2c_slave->dev,
+		      "%s\n", __func__);
+	return 0;
+}
+
+/**
+ * i2c_slave_resume: driver resume function.
+ * @dev: Pointer to device structure.
+ *
+ * This function will resume the driver by enabling icc, irq
+ * and core clock.
+ *
+ * Return: 0 for success, negative number for error condition.
+ */
+static int i2c_slave_resume(struct device *dev)
+{
+	struct i2c_slave *i2c_slave = dev_get_drvdata(dev);
+	int ret = 0;
+
+	enable_irq(i2c_slave->irq);
+
+	ret = icc_enable(i2c_slave->icc_path);
+	if (ret) {
+		I2C_SLAVE_ERR(i2c_slave->ipcl, true, i2c_slave->dev,
+			      "ICC enable failed err: %d\n", ret);
+		goto err_icc;
+	}
+
+	ret = clk_prepare_enable(i2c_slave->ahb_clk);
+	if (ret) {
+		I2C_SLAVE_DBG(i2c_slave->ipcl, true, i2c_slave->dev,
+			      "%s: failing at ahb clk prepare enable ret=%d\n",
+			      __func__, ret);
+		goto err_ahb_clk;
+	}
+
+	ret = clk_prepare_enable(i2c_slave->xo_clk);
+	if (ret) {
+		I2C_SLAVE_DBG(i2c_slave->ipcl, true, i2c_slave->dev,
+			      "%s: failing at xo clk prepare enable ret=%d\n",
+			       __func__, ret);
+		clk_disable_unprepare(i2c_slave->ahb_clk);
+		goto err_xo_clk;
+	}
+
+	I2C_SLAVE_DBG(i2c_slave->ipcl, true, i2c_slave->dev,
+		      "%s:\n", __func__);
+	return 0;
+
+err_xo_clk:
+	clk_disable_unprepare(i2c_slave->ahb_clk);
+err_ahb_clk:
+	icc_disable(i2c_slave->icc_path);
+err_icc:
+	return ret;
+}
+#else
+static int i2c_slave_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static int i2c_slave_resume(struct device *dev)
+{
+	return 0;
+}
+#endif
+
+static const struct dev_pm_ops i2c_slave_pm_ops = {
+	.suspend = i2c_slave_suspend,
+	.resume = i2c_slave_resume,
+};
 
 static const struct of_device_id i2c_slave_dt_match[] = {
 	{.compatible = "qcom,i2c-slave" },
@@ -769,6 +907,7 @@ MODULE_DEVICE_TABLE(of, i2c_slave_dt_match);
 static struct platform_driver i2c_slave_driver = {
 	.driver = {
 		.name = "i2c_slave",
+		.pm = &i2c_slave_pm_ops,
 		.of_match_table = i2c_slave_dt_match,
 	},
 	.probe  = i2c_slave_probe,
