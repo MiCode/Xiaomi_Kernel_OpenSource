@@ -9,8 +9,11 @@
 
 #include <trace/hooks/vendor_hooks.h>
 
-/* struct task_struct */
+#ifdef __GENKSYMS__
 #include <linux/sched.h>
+#endif
+
+struct task_struct;
 
 DECLARE_HOOK(android_vh_is_fpsimd_save,
 	TP_PROTO(struct task_struct *prev, struct task_struct *next),

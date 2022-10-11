@@ -1,4 +1,5 @@
 [abi_symbol_list]
+  add_timer
   address_space_init_once
   add_timer
   alloc_anon_inode
@@ -15,19 +16,14 @@
   bio_chain
   __bio_crypt_clone
   bio_crypt_set_ctx
-  bio_endio
   bio_end_io_acct_remapped
+  bio_endio
   bio_init
   bio_put
   bio_start_io_acct
   __blk_alloc_disk
   blk_cleanup_disk
   blk_cleanup_queue
-  blkdev_get_by_dev
-  blkdev_get_by_path
-  __blkdev_issue_discard
-  blkdev_issue_flush
-  blkdev_put
   blk_finish_plug
   blk_queue_flag_clear
   blk_queue_flag_set
@@ -41,6 +37,11 @@
   blk_queue_write_cache
   blk_start_plug
   blk_status_to_errno
+  blkdev_get_by_dev
+  blkdev_get_by_path
+  __blkdev_issue_discard
+  blkdev_issue_flush
+  blkdev_put
   call_rcu
   capable
   cgroup_add_legacy_cftypes
@@ -52,27 +53,28 @@
   contig_page_data
   copy_from_kernel_nofault
   cpufreq_update_util_data
+  cpu_hwcap_keys
+  __cpu_online_mask
+  __cpu_possible_mask
   __cpuhp_remove_state
   __cpuhp_setup_state
   __cpuhp_state_add_instance
   __cpuhp_state_remove_instance
-  cpu_hwcap_keys
   cpumask_next
-  __cpu_online_mask
-  __cpu_possible_mask
   crypto_alloc_base
   crypto_comp_compress
   crypto_comp_decompress
   crypto_destroy_tfm
   crypto_has_alg
+  d_path
   debugfs_create_dir
   debugfs_create_file
   dec_zone_page_state
   default_llseek
-  delayed_work_timer_fn
   del_gendisk
   del_timer
   del_timer_sync
+  delayed_work_timer_fn
   destroy_workqueue
   device_add_disk
   devres_destroy
@@ -80,10 +82,9 @@
   disk_start_io_acct
   do_traversal_all_lruvec
   down
-  downgrade_write
   down_read
   down_write
-  d_path
+  downgrade_write
   dput
   dump_stack
   eventfd_ctx_fileget
@@ -96,14 +97,14 @@
   flush_dcache_page
   flush_work
   fput
-  __free_pages
   free_pages
+  __free_pages
   free_percpu
   fs_bio_set
   fsync_bdev
-  genlmsg_put
   genl_register_family
   genl_unregister_family
+  genlmsg_put
   get_each_dmabuf
   get_each_object_track
   __get_free_pages
@@ -117,6 +118,7 @@
   idr_find
   idr_for_each
   idr_remove
+  in_egroup_p
   inc_zone_page_state
   in_egroup_p
   __inet6_lookup_established
@@ -192,7 +194,6 @@
   memcpy
   memmove
   memory_cgrp_subsys
-  memory_cgrp_subsys_enabled_key
   memparse
   memset
   memset64
@@ -246,7 +247,6 @@
   proc_create_data
   proc_mkdir
   proc_remove
-  public_key_verify_signature
   put_disk
   __put_page
   __put_task_struct
@@ -284,11 +284,10 @@
   schedule
   schedule_timeout
   scnprintf
-  sdio_writeb_readb
   seq_lseek
   seq_open
-  __seq_open_private
   seq_open_private
+  __seq_open_private
   seq_printf
   seq_putc
   seq_puts
@@ -302,15 +301,16 @@
   set_cpus_allowed_ptr
   set_freezable
   set_page_dirty
+  set_user_nice
   __SetPageMovable
   set_user_nice
   shrink_slab
   si_mem_available
+  si_swapinfo
   simple_open
   simple_read_from_buffer
   single_open
   single_release
-  si_swapinfo
   __skb_checksum_complete
   skb_dump
   snprintf
@@ -332,6 +332,7 @@
   strstr
   submit_bio
   submit_bio_wait
+  sys_tz
   sysfs_create_files
   __sysfs_match_string
   sysfs_remove_files
@@ -339,7 +340,6 @@
   system_freezable_wq
   system_unbound_wq
   system_wq
-  sys_tz
   task_active_pid_ns
   tcf_action_exec
   tcf_exts_destroy
@@ -349,7 +349,6 @@
   tcf_queue_work
   tcp_hashinfo
   time64_to_tm
-  timespec64_to_jiffies
   __traceiter_android_rvh_check_preempt_wakeup_ignore
   __traceiter_android_rvh_do_serror
   __traceiter_android_rvh_pick_next_entity
@@ -413,9 +412,9 @@
   __traceiter_android_vh_pcplist_add_cma_pages_bypass
   __traceiter_android_vh_print_slabinfo_header
   __traceiter_android_vh_record_mutex_lock_starttime
-  __traceiter_android_vh_record_pcpu_rwsem_starttime
   __traceiter_android_vh_record_rtmutex_lock_starttime
   __traceiter_android_vh_record_rwsem_lock_starttime
+  __traceiter_android_vh_record_percpu_rwsem_lock_starttime
   __traceiter_android_vh_rmqueue
   __traceiter_android_vh_rwsem_wake_finish
   __traceiter_android_vh_sched_show_task
@@ -494,13 +493,13 @@
   __tracepoint_android_vh_page_trylock_set
   __tracepoint_android_vh_pcplist_add_cma_pages_bypass
   __tracepoint_android_vh_print_slabinfo_header
-  __tracepoint_android_vh_record_mutex_lock_starttime
-  __tracepoint_android_vh_record_pcpu_rwsem_starttime
-  __tracepoint_android_vh_record_rtmutex_lock_starttime
-  __tracepoint_android_vh_record_rwsem_lock_starttime
-  __tracepoint_android_vh_rmqueue
   __tracepoint_android_vh_rwsem_wake_finish
   __tracepoint_android_vh_sched_show_task
+  __tracepoint_android_vh_record_mutex_lock_starttime
+  __tracepoint_android_vh_record_rtmutex_lock_starttime
+  __tracepoint_android_vh_record_rwsem_lock_starttime
+  __tracepoint_android_vh_record_percpu_rwsem_lock_starttime
+  __tracepoint_android_vh_rmqueue
   __tracepoint_android_vh_sched_stat_runtime_rt
   __tracepoint_android_vh_show_mapcount_pages
   __tracepoint_android_vh_sync_txn_recvd
@@ -508,10 +507,6 @@
   __tracepoint_android_vh_tune_scan_type
   __tracepoint_android_vh_tune_swappiness
   __tracepoint_android_vh_update_page_mapcount
-  __tracepoint_net_dev_queue
-  __tracepoint_net_dev_xmit
-  __tracepoint_netif_receive_skb
-  __tracepoint_netif_rx
   __tracepoint_sched_stat_blocked
   __tracepoint_sched_stat_iowait
   __tracepoint_sched_stat_runtime

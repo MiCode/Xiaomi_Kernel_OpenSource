@@ -67,6 +67,19 @@ int put_old_timex32(struct old_timex32 __user *, const struct __kernel_timex *);
  *
  * Returns the timeval representation of the nsec parameter.
  */
+#ifndef __GENKSYMS__
+/*
+ * There is a mismatch between this signature and the declaration
+ * in kernel/time/time.c where the argument actually should be
+ * s64, but is declared as const s64 in kernel/time/time.c. Since
+ * the KMI expects const, we can't cherry-pick the upstream
+ * fix: 46dae32fe625 ("time: Correct the prototype of ns_to_kernel_old_timeval
+ * and ns_to_timespec64"). Use __GENKSYMS__ to force CRC to stay
+ * constant.
+ */
+extern struct __kernel_old_timeval ns_to_kernel_old_timeval(const s64 nsec);
+#else
 extern struct __kernel_old_timeval ns_to_kernel_old_timeval(s64 nsec);
+#endif
 
 #endif

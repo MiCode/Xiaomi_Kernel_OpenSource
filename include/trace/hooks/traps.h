@@ -7,8 +7,12 @@
 #define _TRACE_HOOK_TRAPS_H
 #include <trace/hooks/vendor_hooks.h>
 
-/* struct pt_regs */
+#ifdef __GENKSYMS__
 #include <asm/ptrace.h>
+#endif
+
+struct pt_regs;
+
 DECLARE_RESTRICTED_HOOK(android_rvh_do_undefinstr,
 	TP_PROTO(struct pt_regs *regs),
 	TP_ARGS(regs),

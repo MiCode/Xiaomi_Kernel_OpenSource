@@ -16,15 +16,20 @@
 #if !defined(_TRACE_HOOK_MM_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_HOOK_MM_H
 
-#include <linux/types.h>
-
-#include <linux/mm.h>
-#include <linux/oom.h>
 #include <trace/hooks/vendor_hooks.h>
 #include <linux/rwsem.h>
 
-/* struct slabinfo */
+#ifdef __GENKSYMS__
+#include <linux/types.h>
+#include <linux/mm.h>
+#include <linux/oom.h>
+#include <linux/rwsem.h>
 #include <../mm/slab.h>
+#endif
+
+struct oom_control;
+struct slabinfo;
+
 DECLARE_RESTRICTED_HOOK(android_rvh_set_skip_swapcache_flags,
 			TP_PROTO(gfp_t *flags),
 			TP_ARGS(flags), 1);
@@ -118,6 +123,9 @@ DECLARE_HOOK(android_vh_page_should_be_protected,
 DECLARE_HOOK(android_vh_mark_page_accessed,
 	TP_PROTO(struct page *page),
 	TP_ARGS(page));
+DECLARE_HOOK(android_vh_page_cache_forced_ra,
+	TP_PROTO(struct readahead_control *ractl, unsigned long req_count, bool *do_forced_ra),
+	TP_ARGS(ractl, req_count, do_forced_ra));
 DECLARE_HOOK(android_vh_alloc_pages_reclaim_bypass,
 	TP_PROTO(gfp_t gfp_mask, int order, int alloc_flags,
 	int migratetype, struct page **page),

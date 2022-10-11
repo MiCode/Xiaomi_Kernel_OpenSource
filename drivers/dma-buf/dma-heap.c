@@ -20,6 +20,8 @@
 #include <linux/dma-heap.h>
 #include <uapi/linux/dma-heap.h>
 
+#include <trace/hooks/dmabuf.h>
+
 #define DEVNAME "dma_heap"
 
 #define NUM_HEAP_MINORS 128
@@ -80,10 +82,15 @@ struct dma_buf *dma_heap_buffer_alloc(struct dma_heap *heap, size_t len,
 				      unsigned int fd_flags,
 				      unsigned int heap_flags)
 {
+	bool vh_valid = false;
+
+	trace_android_vh_dmabuf_heap_flags_validation(heap,
+		len, fd_flags, heap_flags, &vh_valid);
+
 	if (fd_flags & ~DMA_HEAP_VALID_FD_FLAGS)
 		return ERR_PTR(-EINVAL);
 
-	if (heap_flags & ~DMA_HEAP_VALID_HEAP_FLAGS)
+	if (heap_flags & ~DMA_HEAP_VALID_HEAP_FLAGS && !vh_valid)
 		return ERR_PTR(-EINVAL);
 	/*
 	 * Allocations from all heaps have to begin

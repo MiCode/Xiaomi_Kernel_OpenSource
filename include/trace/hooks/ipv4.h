@@ -9,6 +9,8 @@
 #include <linux/tracepoint.h>
 #include <trace/hooks/vendor_hooks.h>
 
+struct sock;
+
 DECLARE_RESTRICTED_HOOK(android_rvh_tcp_sendmsg_locked,
 	TP_PROTO(struct sock *sk, int size),
 	TP_ARGS(sk, size), 1);

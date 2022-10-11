@@ -7,8 +7,12 @@
 #define _TRACE_HOOK_SOFTLOCKUP_H
 #include <trace/hooks/vendor_hooks.h>
 
-/* struct pt_regs */
+#ifdef __GENKSYMS__
 #include <asm/ptrace.h>
+#endif
+
+struct pt_regs;
+
 DECLARE_HOOK(android_vh_watchdog_timer_softlockup,
 	TP_PROTO(int duration, struct pt_regs *regs, bool is_panic),
 	TP_ARGS(duration, regs, is_panic));

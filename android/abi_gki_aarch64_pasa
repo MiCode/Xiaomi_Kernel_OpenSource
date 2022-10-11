@@ -1,0 +1,16 @@
+
+[abi_symbol_list]
+  __hid_register_driver
+  __hid_request
+  hid_add_device
+  hid_alloc_report_buf
+  hid_allocate_device
+  hid_destroy_device
+  hid_hw_start
+  hid_hw_stop
+  hid_input_report
+  hid_open_report
+  hid_parse_report
+  hid_report_raw_event
+  hid_unregister_driver
+  hidinput_calc_abs_res
