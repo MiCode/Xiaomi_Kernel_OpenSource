@@ -579,6 +579,7 @@
   drm_client_init
   drm_client_modeset_commit_locked
   drm_client_register
+  drm_connector_list_update
   drm_crtc_vblank_reset
   drm_dp_atomic_find_vcpi_slots
   drm_dp_atomic_release_vcpi_slots
@@ -588,6 +589,7 @@
   drm_dp_mst_allocate_vcpi
   drm_dp_mst_deallocate_vcpi
   drm_dp_mst_detect_port
+  drm_dp_mst_dump_topology
   drm_dp_mst_get_edid
   drm_dp_mst_get_port_malloc
   drm_dp_mst_hpd_irq
@@ -609,12 +611,17 @@
   drm_is_current_master
   drm_kms_helper_poll_disable
   drm_kms_helper_poll_enable
+  drm_master_get
+  drm_master_put
   drm_mode_convert_umode
   drm_mode_create_dp_colorspace_property
+  drm_mode_create_tile_group
   drm_mode_is_420_only
   drm_mode_match
+  drm_mode_prune_invalid
   drm_mode_set_crtcinfo
   drm_mode_set_name
+  drm_mode_sort
   drm_object_property_set_value
   drm_wait_one_vblank
   __dynamic_dev_dbg
@@ -2100,7 +2107,6 @@
   __tracepoint_android_rvh_set_cpus_allowed_ptr_locked
   __tracepoint_android_rvh_set_gfp_zone_flags
   __tracepoint_android_rvh_set_readahead_gfp_mask
-  __tracepoint_android_rvh_update_readahead_gfp_mask
   __tracepoint_android_rvh_set_skip_swapcache_flags
   __tracepoint_android_rvh_set_task_cpu
   __tracepoint_android_rvh_show_max_freq
@@ -2111,6 +2117,7 @@
   __tracepoint_android_rvh_update_cpu_capacity
   __tracepoint_android_rvh_update_cpus_allowed
   __tracepoint_android_rvh_update_misfit_status
+  __tracepoint_android_rvh_update_readahead_gfp_mask
   __tracepoint_android_rvh_update_thermal_stats
   __tracepoint_android_rvh_wake_up_new_task
   __tracepoint_android_vh_audio_usb_offload_connect
