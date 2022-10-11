@@ -656,13 +656,16 @@
   gpiochip_remove
   gpiod_cansleep
   gpiod_count
+  gpiod_direction_input
   gpiod_direction_output
   gpiod_direction_output_raw
+  gpiod_get_raw_value
   gpiod_get_value
   gpiod_get_value_cansleep
   gpiod_is_active_low
   gpiod_set_consumer_name
   gpiod_set_debounce
+  gpiod_set_raw_value
   gpiod_set_value
   gpiod_set_value_cansleep
   gpiod_to_irq
@@ -692,6 +695,7 @@
   hwspin_lock_get_id
   hwspin_lock_request
   hwspin_lock_request_specific
+  __hwspin_lock_timeout
   __hwspin_trylock
   __hwspin_unlock
   i2c_adapter_type
@@ -745,11 +749,16 @@
   __init_waitqueue_head
   inode_init_once
   input_allocate_device
+  input_close_device
   input_event
   input_free_device
+  input_open_device
   input_register_device
+  input_register_handle
+  input_register_handler
   input_set_capability
   input_unregister_device
+  input_unregister_handle
   __insert_inode_hash
   int_sqrt
   invalidate_bh_lrus
@@ -858,8 +867,12 @@
   kstrtoull
   kthread_bind
   kthread_create_on_node
+  kthread_park
+  kthread_parkme
+  kthread_should_park
   kthread_should_stop
   kthread_stop
+  kthread_unpark
   ktime_get
   ktime_get_coarse_real_ts64
   ktime_get_coarse_with_offset
@@ -1035,6 +1048,7 @@
   of_get_next_parent
   of_get_property
   of_get_regulator_init_data
+  of_hwspin_lock_get_id
   of_iomap
   of_irq_find_parent
   of_irq_get
@@ -1711,6 +1725,7 @@
   usb_string
   usb_submit_urb
   usb_unanchor_urb
+  usb_unlink_anchored_urbs
   __usecs_to_jiffies
   usleep_range_state
   uuid_null

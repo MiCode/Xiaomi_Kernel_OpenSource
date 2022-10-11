@@ -10,14 +10,19 @@
  * Following tracepoints are not exported in tracefs and provide a
  * mechanism for vendor modules to hook and extend functionality
  */
-/* struct mutex */
+
+#ifdef __GENKSYMS__
 #include <linux/mutex.h>
-/* struct rt_mutex_base */
 #include <linux/rtmutex.h>
-/* struct rw_semaphore */
 #include <linux/rwsem.h>
-/* struct task_struct */
 #include <linux/sched.h>
+#endif
+
+struct mutex;
+struct rt_mutex_base;
+struct rw_semaphore;
+struct task_struct;
+
 DECLARE_HOOK(android_vh_mutex_wait_start,
 	TP_PROTO(struct mutex *lock),
 	TP_ARGS(lock));
@@ -71,7 +76,7 @@ DECLARE_HOOK(android_vh_record_rtmutex_lock_starttime,
 DECLARE_HOOK(android_vh_record_rwsem_lock_starttime,
 	TP_PROTO(struct task_struct *tsk, unsigned long settime_jiffies),
 	TP_ARGS(tsk, settime_jiffies));
-DECLARE_HOOK(android_vh_record_pcpu_rwsem_starttime,
+DECLARE_HOOK(android_vh_record_percpu_rwsem_lock_starttime,
 	TP_PROTO(struct task_struct *tsk, unsigned long settime_jiffies),
 	TP_ARGS(tsk, settime_jiffies));
 
