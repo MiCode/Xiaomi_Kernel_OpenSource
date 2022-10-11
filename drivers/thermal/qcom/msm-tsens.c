@@ -71,37 +71,39 @@ static int tsens_register_interrupts(struct tsens_device *tmdev)
 	return 0;
 }
 
-#ifdef CONFIG_DEEPSLEEP
 static int tsens_suspend(struct device *dev)
 {
 	struct tsens_device *tmdev = dev_get_drvdata(dev);
 
-	if (mem_sleep_current != PM_SUSPEND_MEM)
+	if (pm_suspend_via_firmware() != PM_SUSPEND_MEM)
 		return 0;
 
 	return tmdev->ops->suspend(tmdev);
-}
-
-static int tsens_freeze(struct device *dev)
-{
-	return tsens_suspend(dev);
 }
 
 static int tsens_resume(struct device *dev)
 {
 	struct tsens_device *tmdev = dev_get_drvdata(dev);
 
-	if (mem_sleep_current != PM_SUSPEND_MEM)
+	if (pm_suspend_via_firmware() != PM_SUSPEND_MEM)
 		return 0;
 
 	return tmdev->ops->resume(tmdev);
 }
 
+static int tsens_freeze(struct device *dev)
+{
+	struct tsens_device *tmdev = dev_get_drvdata(dev);
+
+	return tmdev->ops->suspend(tmdev);
+}
+
 static int tsens_restore(struct device *dev)
 {
-	return tsens_resume(dev);
+	struct tsens_device *tmdev = dev_get_drvdata(dev);
+
+	return tmdev->ops->resume(tmdev);
 }
-#endif
 
 static const struct of_device_id tsens_table[] = {
 	{	.compatible = "qcom,msm8953-tsens",
@@ -404,23 +406,19 @@ static int tsens_tm_probe(struct platform_device *pdev)
 	return rc;
 }
 
-#ifdef CONFIG_DEEPSLEEP
 static const struct dev_pm_ops tsens_pm_ops = {
 	.freeze = tsens_freeze,
 	.restore = tsens_restore,
 	.suspend = tsens_suspend,
 	.resume = tsens_resume,
 };
-#endif
 
 static struct platform_driver tsens_tm_driver = {
 	.probe = tsens_tm_probe,
 	.remove = tsens_tm_remove,
 	.driver = {
 		.name = "msm-tsens",
-#ifdef CONFIG_DEEPSLEEP
 		.pm = &tsens_pm_ops,
-#endif
 		.of_match_table = tsens_table,
 	},
 };
