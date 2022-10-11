@@ -67,6 +67,7 @@ obj-$(CONFIG_QDRU_ECPRICC_CINDER) += ecpricc-cinder.o
 obj-$(CONFIG_QDRU_GCC_CINDER) += gcc-cinder.o
 obj-$(CONFIG_QDRU_DEBUGCC_CINDER) += debugcc-cinder.o
 obj-$(CONFIG_SA_CAMCC_LEMANS) += camcc-lemans.o
+obj-$(CONFIG_SA_DEBUGCC_410M) += debugcc-sa410m.o
 obj-$(CONFIG_SA_DEBUGCC_LEMANS) += debugcc-lemans.o
 obj-$(CONFIG_SA_DISPCC_LEMANS) += dispcc0-lemans.o dispcc1-lemans.o
 obj-$(CONFIG_SA_GCC_410M) += gcc-sa410m.o
