@@ -65,3 +65,4 @@ qcom-spmi-pmic.ko
 spmi-pmic-arb.ko
 regmap-spmi.ko
 spmi.ko
+nvmem_qcom-spmi-sdam.ko
