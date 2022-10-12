@@ -16,14 +16,20 @@
 #if !defined(_TRACE_HOOK_MM_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_HOOK_MM_H
 
-#include <linux/types.h>
+#include <trace/hooks/vendor_hooks.h>
+#include <linux/rwsem.h>
 
+#ifdef __GENKSYMS__
+#include <linux/types.h>
 #include <linux/mm.h>
 #include <linux/oom.h>
-#include <trace/hooks/vendor_hooks.h>
-
-/* struct slabinfo */
+#include <linux/rwsem.h>
 #include <../mm/slab.h>
+#endif
+
+struct oom_control;
+struct slabinfo;
+
 DECLARE_RESTRICTED_HOOK(android_rvh_set_skip_swapcache_flags,
 			TP_PROTO(gfp_t *flags),
 			TP_ARGS(flags), 1);
@@ -91,6 +97,10 @@ DECLARE_HOOK(android_vh_mem_cgroup_css_offline,
 DECLARE_HOOK(android_vh_vmpressure,
 	TP_PROTO(struct mem_cgroup *memcg, bool *bypass),
 	TP_ARGS(memcg, bypass));
+DECLARE_HOOK(android_vh_do_page_trylock,
+	TP_PROTO(struct page *page, struct rw_semaphore *sem,
+		bool *got_lock, bool *success),
+	TP_ARGS(page, sem, got_lock, success));
 DECLARE_HOOK(android_vh_update_page_mapcount,
 	TP_PROTO(struct page *page, bool inc_size, bool compound,
 			bool *first_mapping, bool *success),
@@ -113,7 +123,23 @@ DECLARE_HOOK(android_vh_page_should_be_protected,
 DECLARE_HOOK(android_vh_mark_page_accessed,
 	TP_PROTO(struct page *page),
 	TP_ARGS(page));
-
+DECLARE_HOOK(android_vh_page_cache_forced_ra,
+	TP_PROTO(struct readahead_control *ractl, unsigned long req_count, bool *do_forced_ra),
+	TP_ARGS(ractl, req_count, do_forced_ra));
+DECLARE_HOOK(android_vh_alloc_pages_reclaim_bypass,
+	TP_PROTO(gfp_t gfp_mask, int order, int alloc_flags,
+	int migratetype, struct page **page),
+	TP_ARGS(gfp_mask, order, alloc_flags, migratetype, page));
+DECLARE_HOOK(android_vh_alloc_pages_failure_bypass,
+	TP_PROTO(gfp_t gfp_mask, int order, int alloc_flags,
+	int migratetype, struct page **page),
+	TP_ARGS(gfp_mask, order, alloc_flags, migratetype, page));
+DECLARE_HOOK(android_vh_rmqueue,
+	TP_PROTO(struct zone *preferred_zone, struct zone *zone,
+		unsigned int order, gfp_t gfp_flags,
+		unsigned int alloc_flags, int migratetype),
+	TP_ARGS(preferred_zone, zone, order,
+		gfp_flags, alloc_flags, migratetype));
 #endif /* _TRACE_HOOK_MM_H */
 
 /* This part must be outside protection */
