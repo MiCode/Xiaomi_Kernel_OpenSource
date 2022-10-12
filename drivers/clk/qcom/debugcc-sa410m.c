@@ -74,8 +74,6 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_gp1_clk",
 	"gcc_gp2_clk",
 	"gcc_gp3_clk",
-	"gcc_hwkm_km_core_clk",
-	"gcc_hwkm_km_kt_clk",
 	"gcc_pcie_0_aux_clk",
 	"gcc_pcie_0_cfg_ahb_clk",
 	"gcc_pcie_0_mstr_axi_clk",
@@ -89,8 +87,6 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_pdm_xo4_clk",
 	"gcc_pwm0_xo512_clk",
 	"gcc_qmip_pcie_ahb_clk",
-	"gcc_qpic_io_macro_clk",
-	"gcc_qpic_system_clk",
 	"gcc_qupv3_wrap0_core_2x_clk",
 	"gcc_qupv3_wrap0_core_clk",
 	"gcc_qupv3_wrap0_s0_clk",
@@ -143,8 +139,6 @@ static int gcc_debug_mux_sels[] = {
 	0x180,		/* gcc_gp1_clk */
 	0x181,		/* gcc_gp2_clk */
 	0x182,		/* gcc_gp3_clk */
-	0x16A,		/* gcc_hwkm_km_core_clk */
-	0x16B,		/* gcc_hwkm_km_kt_clk */
 	0x1D2,		/* gcc_pcie_0_aux_clk */
 	0x1D1,		/* gcc_pcie_0_cfg_ahb_clk */
 	0x1D0,		/* gcc_pcie_0_mstr_axi_clk */
@@ -158,8 +152,6 @@ static int gcc_debug_mux_sels[] = {
 	0x13C,		/* gcc_pdm_xo4_clk */
 	0x13E,		/* gcc_pwm0_xo512_clk */
 	0x1D5,		/* gcc_qmip_pcie_ahb_clk */
-	0x167,		/* gcc_qpic_io_macro_clk */
-	0x169,		/* gcc_qpic_system_clk */
 	0x134,		/* gcc_qupv3_wrap0_core_2x_clk */
 	0x133,		/* gcc_qupv3_wrap0_core_clk */
 	0x135,		/* gcc_qupv3_wrap0_s0_clk */
