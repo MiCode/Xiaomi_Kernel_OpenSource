@@ -183,6 +183,7 @@
   contig_page_data
   _copy_from_iter
   copy_from_kernel_nofault
+  copy_from_user_toio
   _copy_to_iter
   copy_to_user_fromio
   __cpu_active_mask
