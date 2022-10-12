@@ -68,6 +68,7 @@ struct qcom_etu_slice {
 	int extts_irq;
 	int extts_index;
 	int extts_event_sel;
+	int extts_slice_num;
 	int extts_event_type;
 	u32 etu_tsc_sec;
 	u32 etu_tsc_nsec;
@@ -281,19 +282,19 @@ static irqreturn_t qcom_etu_irq_handler(int irq, void *data)
 	u32 regval, status;
 
 	status = readl_relaxed(TSCSS_TSC_ETU_SLICE_BASE(etu->etu_baseaddr,
-					etu->extts_event_sel, TSCSS_TSC_SLICE_ETU_STATUS));
+					etu->extts_slice_num, TSCSS_TSC_SLICE_ETU_STATUS));
 
-	pr_debug("Sel %d extts_enable %d status 0%x\n",
-					etu->extts_event_sel, etu->extts_enable, status);
+	pr_debug("Slice %d extts_enable %d status 0%x\n",
+					etu->extts_slice_num, etu->extts_enable, status);
 
 	if (etu->extts_enable && (status & GENMASK(5, 0))) {
 		u64 ts;
 
 		etu->etu_tsc_sec = readl_relaxed(TSCSS_TSC_ETU_SLICE_BASE(etu->etu_baseaddr,
-					etu->extts_event_sel, TSCSS_ETU_SLICE_TSC_TS_HI));
+					etu->extts_slice_num, TSCSS_ETU_SLICE_TSC_TS_HI));
 
 		etu->etu_tsc_nsec = readl_relaxed(TSCSS_TSC_ETU_SLICE_BASE(etu->etu_baseaddr,
-					etu->extts_event_sel, TSCSS_ETU_SLICE_TSC_TS_LO));
+					etu->extts_slice_num, TSCSS_ETU_SLICE_TSC_TS_LO));
 		ts  = etu->etu_tsc_sec * NSEC + etu->etu_tsc_nsec;
 
 		pr_debug("ts:%llu etu->etu_tsc_timestamp:%llu\n", ts, etu->etu_tsc_timestamp);
@@ -314,13 +315,13 @@ static irqreturn_t qcom_etu_irq_handler(int irq, void *data)
 				etu->etu_tsc_sec, etu->etu_tsc_nsec, etu->etu_tsc_timestamp);
 
 		etu->etu_gctr_sec = readl_relaxed(TSCSS_TSC_ETU_SLICE_BASE(etu->etu_baseaddr,
-					etu->extts_event_sel, TSCSS_ETU_SLICE_GCTR_TS_HI));
+					etu->extts_slice_num, TSCSS_ETU_SLICE_GCTR_TS_HI));
 
 		etu->etu_gctr_nsec = readl_relaxed(TSCSS_TSC_ETU_SLICE_BASE(etu->etu_baseaddr,
-					etu->extts_event_sel, TSCSS_ETU_SLICE_GCTR_TS_LO));
+					etu->extts_slice_num, TSCSS_ETU_SLICE_GCTR_TS_LO));
 
 		etu->extts_event_type = readl_relaxed(TSCSS_TSC_ETU_SLICE_BASE(etu->etu_baseaddr,
-					etu->extts_event_sel, TSCSS_ETU_SLICE_TS_EVENT_TYPE));
+					etu->extts_slice_num, TSCSS_ETU_SLICE_TS_EVENT_TYPE));
 
 		/* Concatenate GCTR_TS_HI(31:0) & GCTR_TS_LO(31:8) and divide with 19.2MHz */
 		etu->global_qtimer = (((u64)etu->etu_gctr_sec << 24) |
@@ -331,45 +332,45 @@ static irqreturn_t qcom_etu_irq_handler(int irq, void *data)
 				etu->global_qtimer, etu->extts_event_type);
 
 		regval = readl_relaxed(TSCSS_TSC_ETU_SLICE_BASE(etu->etu_baseaddr,
-					etu->extts_event_sel, TSCSS_TSC_SLICE_ETU_CFG));
+					etu->extts_slice_num, TSCSS_TSC_SLICE_ETU_CFG));
 		regval &= ~BIT(17);
 		regval &= ~BIT(16);
 
 		writel_relaxed(regval, TSCSS_TSC_ETU_SLICE_BASE(etu->etu_baseaddr,
-					etu->extts_event_sel, TSCSS_TSC_SLICE_ETU_CFG));
+					etu->extts_slice_num, TSCSS_TSC_SLICE_ETU_CFG));
 
 		/* FIFO CLR */
 		writel_relaxed(0x7, TSCSS_TSC_ETU_SLICE_BASE(etu->etu_baseaddr,
-					etu->extts_event_sel, TSCSS_ETU_SLICE_FIFO_CLR));
+					etu->extts_slice_num, TSCSS_ETU_SLICE_FIFO_CLR));
 
 		pr_debug("Status %x, sec: %u\n",
 				readl_relaxed(TSCSS_TSC_ETU_SLICE_BASE(etu->etu_baseaddr,
-					etu->extts_event_sel, TSCSS_TSC_SLICE_ETU_STATUS)),
+					etu->extts_slice_num, TSCSS_TSC_SLICE_ETU_STATUS)),
 				readl_relaxed(TSCSS_TSC_ETU_SLICE_BASE(etu->etu_baseaddr,
-					etu->extts_event_sel, TSCSS_ETU_SLICE_TSC_TS_HI)));
+					etu->extts_slice_num, TSCSS_ETU_SLICE_TSC_TS_HI)));
 
 		/* Enable GCTR_TS_EN & TSCTR_TS_EN*/
 		regval |= BIT(16) | BIT(17);
 
 		writel_relaxed(regval, TSCSS_TSC_ETU_SLICE_BASE(etu->etu_baseaddr,
-					etu->extts_event_sel, TSCSS_TSC_SLICE_ETU_CFG));
+					etu->extts_slice_num, TSCSS_TSC_SLICE_ETU_CFG));
 	}
 
 	return IRQ_HANDLED;
 }
 
-static void qcom_tsc_configure_etu(struct qcom_ptp_tsc *timer, int sel)
+static void qcom_tsc_configure_etu(struct qcom_ptp_tsc *timer, int slice)
 {
 	void __iomem *base = timer->etu_baseaddr;
 	u32 regval;
 
 	/* Register for the IRQ */
-	regval = readl_relaxed(TSCSS_TSC_ETU_SLICE_BASE(base, sel, TSCSS_TSC_SLICE_ETU_CFG));
-	regval |= (sel << 4) & GENMASK(9, 4);
+	regval = readl_relaxed(TSCSS_TSC_ETU_SLICE_BASE(base, slice, TSCSS_TSC_SLICE_ETU_CFG));
+	regval |= (timer->etu_slice[slice].extts_event_sel << 4) & GENMASK(9, 4);
 
-	writel_relaxed(regval, TSCSS_TSC_ETU_SLICE_BASE(base, sel, TSCSS_TSC_SLICE_ETU_CFG));
+	writel_relaxed(regval, TSCSS_TSC_ETU_SLICE_BASE(base, slice, TSCSS_TSC_SLICE_ETU_CFG));
 
-	regval = readl_relaxed(TSCSS_TSC_ETU_SLICE_BASE(base, sel, TSCSS_TSC_SLICE_ETU_CFG));
+	regval = readl_relaxed(TSCSS_TSC_ETU_SLICE_BASE(base, slice, TSCSS_TSC_SLICE_ETU_CFG));
 
 	/* Enable GCTR_TS_EN & TSCTR_TS_EN*/
 	regval |= BIT(16) | BIT(17);
@@ -378,10 +379,10 @@ static void qcom_tsc_configure_etu(struct qcom_ptp_tsc *timer, int sel)
 
 	/* Enable rising edge config */
 	regval |= BIT(0);
-	writel_relaxed(regval, TSCSS_TSC_ETU_SLICE_BASE(base, sel, TSCSS_TSC_SLICE_ETU_CFG));
+	writel_relaxed(regval, TSCSS_TSC_ETU_SLICE_BASE(base, slice, TSCSS_TSC_SLICE_ETU_CFG));
 
-	pr_debug("ETU_SLICE#%d: 0x%x\n", sel,
-		readl_relaxed(TSCSS_TSC_ETU_SLICE_BASE(base, sel, TSCSS_TSC_SLICE_ETU_CFG)));
+	pr_debug("ETU_SLICE#%d: 0x%x\n", slice,
+		readl_relaxed(TSCSS_TSC_ETU_SLICE_BASE(base, slice, TSCSS_TSC_SLICE_ETU_CFG)));
 }
 
 static int qcom_ptp_enable(struct ptp_clock_info *ptp,
@@ -389,7 +390,7 @@ static int qcom_ptp_enable(struct ptp_clock_info *ptp,
 {
 	struct qcom_ptp_tsc *timer = container_of(ptp, struct qcom_ptp_tsc,
 							ptp_clock_info);
-	int sel;
+	int slice;
 
 	pr_debug("Request Type %d\n", rq->type);
 
@@ -405,16 +406,16 @@ static int qcom_ptp_enable(struct ptp_clock_info *ptp,
 		else if (!on)
 			return 0;
 
-		for (sel = 0; sel < MAX_ETU_SLICE; sel++) {
-			if (!timer->etu_slice[sel].extts_present)
+		for (slice = 0; slice < MAX_ETU_SLICE; slice++) {
+			if (!timer->etu_slice[slice].extts_present)
 				continue;
 
-			if (rq->extts.index == timer->etu_slice[sel].extts_index) {
-				pr_debug("sel %d, index %d, etu_index %d\n", sel, rq->extts.index,
-					timer->etu_slice[sel].extts_index);
+			if (rq->extts.index == timer->etu_slice[slice].extts_index) {
+				pr_debug("slice %d, index %d, etu_index %d\n", slice,
+					rq->extts.index, timer->etu_slice[slice].extts_index);
 				qcom_tsc_configure_etu(timer,
-					timer->etu_slice[sel].extts_event_sel);
-				timer->etu_slice[sel].extts_enable = true;
+					timer->etu_slice[slice].extts_slice_num);
+				timer->etu_slice[slice].extts_enable = true;
 			}
 
 		}
@@ -478,38 +479,45 @@ static int qcom_tsc_etu_get_data(struct platform_device *pdev,
 
 	for (i = 0; i < cnt; i++) {
 		const char *name;
-		u32 sel;
+		u32 sel, slice;
 
 		ret = of_property_read_u32_index(dev->of_node, "qcom,etu-event-sel", i, &sel);
 		if (ret)
 			break;
 
-		timer->etu_slice[sel].etu_baseaddr = timer->etu_baseaddr;
-		timer->etu_slice[sel].extts_index = i;
-		timer->etu_slice[sel].extts_event_sel = sel;
+		ret = of_property_read_u32_index(dev->of_node, "qcom,etu-slice", i, &slice);
+		if (ret) {
+			pr_debug("etu-slice property does not exist, configure using sel value\n");
+			slice = sel;
+		}
+
+		timer->etu_slice[slice].etu_baseaddr = timer->etu_baseaddr;
+		timer->etu_slice[slice].extts_index = i;
+		timer->etu_slice[slice].extts_event_sel = sel;
+		timer->etu_slice[slice].extts_slice_num = slice;
 		of_property_read_string_index(dev->of_node,
 				"qcom,etu-event-names", i, &name);
 
-		strscpy(timer->etu_slice[sel].name, name, sizeof(timer->etu_slice[sel].name));
-		timer->etu_slice[sel].extts_irq = platform_get_irq_byname(pdev, name);
+		strscpy(timer->etu_slice[slice].name, name, sizeof(timer->etu_slice[slice].name));
+		timer->etu_slice[slice].extts_irq = platform_get_irq_byname(pdev, name);
 
-		pr_debug("sel: %d, index: %d, slice-name: %s, IRQ: %d\n", sel,
-				timer->etu_slice[sel].extts_index,
-				timer->etu_slice[sel].name, timer->etu_slice[sel].extts_irq);
+		pr_debug("sel: %d, index: %d, slice-num:%d slice-name: %s, IRQ: %d\n", sel,
+				timer->etu_slice[slice].extts_index, slice,
+				timer->etu_slice[slice].name, timer->etu_slice[slice].extts_irq);
 
-		if (timer->etu_slice[sel].extts_irq > 0) {
-			ret = devm_request_irq(dev, timer->etu_slice[sel].extts_irq,
+		if (timer->etu_slice[slice].extts_irq > 0) {
+			ret = devm_request_irq(dev, timer->etu_slice[slice].extts_irq,
 					qcom_etu_irq_handler, IRQF_TRIGGER_RISING,
-					timer->etu_slice[sel].name,
-					(void *)&timer->etu_slice[sel]);
+					timer->etu_slice[slice].name,
+					(void *)&timer->etu_slice[slice]);
 			if (ret)
 				pr_debug("Failed to request IRQ\n");
 			else
 				pr_debug("IRQ registered ret%d\n", ret);
 		}
 
-		timer->etu_slice[sel].extts_present = true;
-		timer->etu_slice[sel].ptp_clock = timer->ptp_clock;
+		timer->etu_slice[slice].extts_present = true;
+		timer->etu_slice[slice].ptp_clock = timer->ptp_clock;
 	}
 
 	timer->total_etu_cnt = cnt;
