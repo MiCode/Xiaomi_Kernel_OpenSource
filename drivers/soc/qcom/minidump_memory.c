@@ -127,10 +127,8 @@ void md_dump_meminfo(struct seq_buf *m)
 		    global_node_page_state(NR_WRITEBACK_TEMP));
 	seq_buf_printf(m, "VmallocTotal:   %8lu kB\n",
 		   (unsigned long)VMALLOC_TOTAL >> 10);
-	show_val_kb(m, "VmallocUsed: ",
-			*(unsigned long *)android_debug_symbol(ADS_VMALLOC_NR_PAGES));
-	show_val_kb(m, "Percpu:         ",
-			*(unsigned long *)android_debug_symbol(ADS_PCPU_NR_PAGES));
+	show_val_kb(m, "VmallocUsed: ", vmalloc_nr_pages());
+	show_val_kb(m, "Percpu:         ", pcpu_nr_pages());
 
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	show_val_kb(m, "AnonHugePages:  ",
@@ -348,7 +346,7 @@ static unsigned long page_owner_filter = 0xF;
 static unsigned long page_owner_handles_size =  SZ_16K;
 static int nr_handles;
 static LIST_HEAD(accounted_call_site_list);
-static DEFINE_MUTEX(accounted_call_site_lock);
+static DEFINE_SPINLOCK(accounted_call_site_lock);
 struct accounted_call_site {
 	struct list_head list;
 	char name[50];
@@ -386,7 +384,7 @@ static bool check_unaccounted(char *buf, ssize_t count,
 		struct page *page, depot_stack_handle_t handle)
 {
 	int i, ret = 0;
-	unsigned long *entries;
+	unsigned long *entries, flags;
 	unsigned int nr_entries;
 	struct accounted_call_site *call_site;
 
@@ -401,16 +399,16 @@ static bool check_unaccounted(char *buf, ssize_t count,
 		if (ret == count - 1)
 			return false;
 
-		mutex_lock(&accounted_call_site_lock);
+		spin_lock_irqsave(&accounted_call_site_lock, flags);
 		list_for_each_entry(call_site,
 				&accounted_call_site_list, list) {
 			if (strnstr(buf, call_site->name,
 					strlen(buf))) {
-				mutex_unlock(&accounted_call_site_lock);
+				spin_unlock_irqrestore(&accounted_call_site_lock, flags);
 				return false;
 			}
 		}
-		mutex_unlock(&accounted_call_site_lock);
+		spin_unlock_irqrestore(&accounted_call_site_lock, flags);
 	}
 	return true;
 }
@@ -667,6 +665,7 @@ static ssize_t page_owner_call_site_write(struct file *file,
 {
 	struct accounted_call_site *call_site;
 	char buf[50];
+	unsigned long flags;
 
 	if (count >= 50) {
 		pr_err_ratelimited("Input string size too large\n");
@@ -689,10 +688,10 @@ static ssize_t page_owner_call_site_write(struct file *file,
 	if (!call_site)
 		return -ENOMEM;
 
-	strscpy(call_site->name, buf, strlen(call_site->name));
-	mutex_lock(&accounted_call_site_lock);
+	strscpy(call_site->name, buf, sizeof(call_site->name));
+	spin_lock_irqsave(&accounted_call_site_lock, flags);
 	list_add_tail(&call_site->list, &accounted_call_site_list);
-	mutex_unlock(&accounted_call_site_lock);
+	spin_unlock_irqrestore(&accounted_call_site_lock, flags);
 
 	return count;
 }
@@ -702,6 +701,7 @@ static ssize_t page_owner_call_site_read(struct file *file, char __user *ubuf,
 {
 	char *kbuf;
 	struct accounted_call_site *call_site;
+	unsigned long flags;
 	int i = 1, ret = 0;
 	size_t size = PAGE_SIZE;
 
@@ -710,18 +710,18 @@ static ssize_t page_owner_call_site_read(struct file *file, char __user *ubuf,
 		return -ENOMEM;
 
 	ret = scnprintf(kbuf, count, "%s\n", "Accounted call sites:");
-	mutex_lock(&accounted_call_site_lock);
+	spin_lock_irqsave(&accounted_call_site_lock, flags);
 	list_for_each_entry(call_site, &accounted_call_site_list, list) {
 		ret += scnprintf(kbuf + ret, size - ret,
 			"%d. %s\n", i, call_site->name);
 		i += 1;
 		if (ret == size) {
 			ret = -ENOMEM;
-			mutex_unlock(&accounted_call_site_lock);
+			spin_unlock_irqrestore(&accounted_call_site_lock, flags);
 			goto err;
 		}
 	}
-	mutex_unlock(&accounted_call_site_lock);
+	spin_unlock_irqrestore(&accounted_call_site_lock, flags);
 	ret = simple_read_from_buffer(ubuf, count, offset, kbuf, strlen(kbuf));
 err:
 	kfree(kbuf);
