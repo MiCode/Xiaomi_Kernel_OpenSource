@@ -257,3 +257,12 @@ config QTI_THERMAL_MINIDUMP
 	   be saved to the minidump in real time. When the system crashes,
 	   the saved temperature data will help analyze the reason for the
 	   system crash.
+
+config QTI_BCL_OFF_COOLING_DEVICE
+	tristate "QTI Ibat threshold update cooling devices"
+	depends on SPMI && THERMAL
+	help
+	   This enables the bcl off cooling devices.
+	   These cooling devices will be used to disable bcl
+	   whenever RF calibration is performed.
+
