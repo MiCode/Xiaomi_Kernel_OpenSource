@@ -248,6 +248,12 @@ void a6xx_hwsched_snapshot(struct adreno_device *adreno_dev,
 		if (entry->desc.mem_kind == HFI_MEMKIND_CSW_PRIV_NON_SECURE)
 			snapshot_preemption_records(device, snapshot,
 				entry->md);
+
+		if (entry->desc.mem_kind == HFI_MEMKIND_PREEMPT_SCRATCH)
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
+				snapshot, adreno_snapshot_global,
+				entry->md);
 	}
 }
 

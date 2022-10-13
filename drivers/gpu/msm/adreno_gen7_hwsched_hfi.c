@@ -998,6 +998,21 @@ static int enable_preemption(struct adreno_device *adreno_dev)
 
 }
 
+static int gen7_hfi_send_perfcounter_feature_ctrl(struct adreno_device *adreno_dev)
+{
+	/*
+	 * Perfcounter retention is disabled by default in GMU firmware.
+	 * In case perfcounter retention behavior is overwritten by sysfs
+	 * setting dynamically, send this HFI feature with 'enable = 0' to
+	 * disable this feature in GMU firmware.
+	 */
+	if (adreno_dev->perfcounter)
+		return gen7_hfi_send_feature_ctrl(adreno_dev,
+				HFI_FEATURE_PERF_NORETAIN, 0, 0);
+
+	return 0;
+}
+
 int gen7_hwsched_hfi_start(struct adreno_device *adreno_dev)
 {
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
@@ -1042,6 +1057,10 @@ int gen7_hwsched_hfi_start(struct adreno_device *adreno_dev)
 		if (ret)
 			goto err;
 	}
+
+	ret = gen7_hfi_send_perfcounter_feature_ctrl(adreno_dev);
+	if (ret)
+		goto err;
 
 	/* Enable the long ib timeout detection */
 	if (adreno_long_ib_detect(adreno_dev)) {

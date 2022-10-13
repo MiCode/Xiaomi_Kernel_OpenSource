@@ -70,6 +70,7 @@
 #define HFI_FEATURE_MINBW	20
 #define HFI_FEATURE_CLX		21
 #define HFI_FEATURE_LSR		23
+#define HFI_FEATURE_PERF_NORETAIN       26
 
 
 /* A6xx uses a different value for KPROF */
@@ -203,6 +204,12 @@ enum hfi_mem_kind {
 	 * memory for LPAC context record
 	 */
 	HFI_MEMKIND_CSW_LPAC_PRIV_NON_SECURE,
+	/** @HFI_MEMKIND_MEMSTORE: Buffer used to query a context's GPU sop/eop timestamps */
+	HFI_MEMKIND_MEMSTORE,
+	/** @HFI_MEMKIND_HW_FENCE:  Hardware fence Tx/Rx headers and queues */
+	HFI_MEMKIND_HW_FENCE,
+	/** @HFI_MEMKIND_PREEMPT_SCRATCH: Used for Preemption scratch memory */
+	HFI_MEMKIND_PREEMPT_SCRATCH,
 	HFI_MEMKIND_MAX,
 };
 
@@ -229,6 +236,9 @@ static const char * const hfi_memkind_strings[] = {
 	[HFI_MEMKIND_MMIO_IPC_CORE] = "GMU MMIO IPC",
 	[HFI_MEMKIND_MMIO_IPCC_AOSS] = "GMU MMIO IPCC AOSS",
 	[HFI_MEMKIND_CSW_LPAC_PRIV_NON_SECURE] = "GMU CSW LPAC PRIV NON SECURE",
+	[HFI_MEMKIND_MEMSTORE] = "GMU MEMSTORE",
+	[HFI_MEMKIND_HW_FENCE] = "GMU HW FENCE",
+	[HFI_MEMKIND_PREEMPT_SCRATCH] = "GMU PREEMPTION",
 	[HFI_MEMKIND_MAX] = "GMU UNKNOWN",
 };
 
