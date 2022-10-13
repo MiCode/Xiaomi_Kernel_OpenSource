@@ -2126,6 +2126,7 @@
   __tracepoint_android_vh_binder_restore_priority
   __tracepoint_android_vh_binder_set_priority
   __tracepoint_android_vh_binder_wakeup_ilocked
+  __tracepoint_android_vh_check_hibernation_swap
   __tracepoint_android_vh_check_uninterruptible_tasks
   __tracepoint_android_vh_check_uninterruptible_tasks_dn
   __tracepoint_android_vh_cpu_idle_enter
@@ -2152,6 +2153,8 @@
   __tracepoint_android_vh_printk_hotplug
   __tracepoint_android_vh_rproc_recovery
   __tracepoint_android_vh_rproc_recovery_set
+  __tracepoint_android_vh_save_cpu_resume
+  __tracepoint_android_vh_save_hib_resume_bdev
   __tracepoint_android_vh_scheduler_tick
   __tracepoint_android_vh_show_resume_epoch_val
   __tracepoint_android_vh_show_suspend_epoch_val
