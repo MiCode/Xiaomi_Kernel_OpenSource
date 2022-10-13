@@ -121,3 +121,4 @@ obj-$(CONFIG_QCOM_DEBUG_SYMBOL) += debug_symbol.o
 obj-$(CONFIG_MSM_POWER_STATE) += power_state.o
 obj-$(CONFIG_SILENT_MODE) += silent-mode-hw-monitoring.o
 obj-$(CONFIG_RENAME_DEVICES) += rename_devices.o
+obj-$(CONFIG_QCOM_S2D_VENDOR_HOOK) += qcom_hib.o
