@@ -159,17 +159,6 @@ int gen7_build_rpmh_tables(struct adreno_device *adreno_dev);
 bool gen7_gmu_gx_is_on(struct adreno_device *adreno_dev);
 
 /**
- * gen7_gmu_device_snapshot - GEN7 GMU snapshot function
- * @device: Device being snapshotted
- * @snapshot: Pointer to the snapshot instance
- *
- * This is where all of the GEN7 GMU specific bits and pieces are grabbed
- * into the snapshot memory
- */
-void gen7_gmu_device_snapshot(struct kgsl_device *device,
-		struct kgsl_snapshot *snapshot);
-
-/**
  * gen7_gmu_device_probe - GEN7 GMU snapshot function
  * @pdev: Pointer to the platform device
  * @chipid: Chipid of the target
