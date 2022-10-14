@@ -114,6 +114,7 @@
   __tracepoint_irq_handler_exit
   __tracepoint_kfree_skb
   __tracepoint_workqueue_execute_start
+  _trace_android_vh_record_pcpu_rwsem_starttime
   usb_alloc_dev
   usb_deregister_dev
   usb_find_interface
