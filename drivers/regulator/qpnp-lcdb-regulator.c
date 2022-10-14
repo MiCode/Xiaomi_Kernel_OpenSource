@@ -145,6 +145,7 @@
 
 /* NCP */
 #define LCDB_NCP_OUTPUT_VOLTAGE_REG	0x81
+#define EN_NCP_VOUT_SYMMETRY_BIT		BIT(7)
 
 #define LCDB_NCP_VREG_OK_CTL_REG	0x85
 
@@ -235,6 +236,7 @@ struct qpnp_lcdb {
 	u32				wa_flags;
 	int				sc_irq;
 	int				pwrdn_delay_ms;
+	bool			ncp_symmetry;
 
 	/* TTW params */
 	bool				ttw_enable;
@@ -1248,7 +1250,8 @@ static int qpnp_lcdb_get_voltage(struct qpnp_lcdb *lcdb,
 	if (type == BST)
 		return qpnp_lcdb_get_bst_voltage(lcdb, voltage_mv);
 
-	if (type == NCP)
+	/* When symmetry is enabled, NCP voltage directly follows LDO voltage */
+	if (type == NCP && !lcdb->ncp_symmetry)
 		offset = LCDB_NCP_OUTPUT_VOLTAGE_REG;
 
 	rc = qpnp_lcdb_read(lcdb, lcdb->base + offset, &val, 1);
@@ -2063,6 +2066,16 @@ static int qpnp_lcdb_hw_init(struct qpnp_lcdb *lcdb)
 			return rc;
 	}
 
+
+	if (lcdb->ncp_symmetry) {
+		rc = qpnp_lcdb_masked_write(lcdb, lcdb->base +
+					    LCDB_NCP_OUTPUT_VOLTAGE_REG,
+					    EN_NCP_VOUT_SYMMETRY_BIT,
+					    EN_NCP_VOUT_SYMMETRY_BIT);
+		if (rc < 0)
+			return rc;
+	}
+
 	rc = qpnp_lcdb_init_bst(lcdb);
 	if (rc < 0) {
 		pr_err("Failed to initialize BOOST rc=%d\n", rc);
@@ -2166,6 +2179,9 @@ static int qpnp_lcdb_parse_dt(struct qpnp_lcdb *lcdb)
 	lcdb->voltage_step_ramp =
 			of_property_read_bool(node, "qcom,voltage-step-ramp");
 
+	lcdb->ncp_symmetry =
+			of_property_read_bool(node, "qcom,ncp-symmetry");
+
 	lcdb->pwrdn_delay_ms = -EINVAL;
 	rc = of_property_read_u32(node, "qcom,pwrdn-delay-ms", &tmp);
 	if (!rc) {
@@ -2214,8 +2230,7 @@ static int qpnp_lcdb_regulator_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	lcdb->subtype = (u8)of_device_get_match_data(&pdev->dev);
-
+	lcdb->subtype = (u8)(unsigned long)of_device_get_match_data(&pdev->dev);
 	lcdb->dev = &pdev->dev;
 	lcdb->pdev = pdev;
 	mutex_init(&lcdb->lcdb_mutex);
