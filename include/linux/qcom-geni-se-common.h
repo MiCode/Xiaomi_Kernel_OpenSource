@@ -71,6 +71,8 @@ if (print) { \
 #define SE_DMA_RX_IRQ_EN_SET	(0xD4C)
 #define SE_DMA_RX_IRQ_EN_CLR	(0xD50)
 
+#define SE_HW_PARAM_2                   (0xE2C)
+
 #define TX_GENI_CANCEL_IRQ		(BIT(14))
 
 /* DMA DEBUG Register fields */
@@ -92,6 +94,9 @@ if (print) { \
 #define GENI_CFG_REG80		0x240
 #define GENI_IO_MUX_0_EN	BIT(0)
 #define GENI_IO_MUX_1_EN	BIT(1)
+
+/* SE_HW_PARAM_2 fields */
+#define GEN_HW_FSM_I2C			(BIT(15))
 
 /* GENI_CFG_REG80 fields */
 #define IO1_SEL_TX		BIT(2)
