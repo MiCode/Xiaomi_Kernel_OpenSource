@@ -944,6 +944,7 @@ static const struct soc_id soc_id[] = {
 	{ 561, "KHAJEP" },
 	{ 562, "KHAJEQ" },
 	{ 585, "KHAJEG" },
+	{ 586, "KHAJEIOT" },
 	{ 519, "KALAMA" },
 	{ 524, "QRB_SCUBA" },
 	{ 532, "LEMANSAU_IVI" },
