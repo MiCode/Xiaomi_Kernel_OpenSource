@@ -1242,7 +1242,7 @@ out_guest_err:
 
 static bool pkvm_install_ioguard_page(struct kvm_vcpu *vcpu, u64 *exit_code)
 {
-	u32 retval = SMCCC_RET_SUCCESS;
+	u64 retval = SMCCC_RET_SUCCESS;
 	u64 ipa = smccc_get_arg1(vcpu);
 	int ret;
 
