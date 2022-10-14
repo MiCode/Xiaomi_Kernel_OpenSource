@@ -511,6 +511,7 @@ static struct clk_branch gpu_cc_cx_snoc_dvm_clk = {
 			.parent_data = &(const struct clk_parent_data){
 				.fw_name = "gcc_gpu_snoc_dvm_gfx_clk",
 			},
+			.num_parents = 1,
 			.ops = &clk_branch2_ops,
 		},
 	},
