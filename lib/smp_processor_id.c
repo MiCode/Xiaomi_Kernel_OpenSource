@@ -48,7 +48,9 @@ unsigned int check_preemption_disabled(const char *what1, const char *what2)
 	printk("caller is %pS\n", __builtin_return_address(0));
 	dump_stack();
 	instrumentation_end();
-
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	BUG();
+#endif
 out_enable:
 	preempt_enable_no_resched_notrace();
 out:

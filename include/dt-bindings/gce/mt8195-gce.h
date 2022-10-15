@@ -51,6 +51,7 @@
 #define SUBSYS_1c40XXXX		23
 #define SUBSYS_1c50XXXX		24
 #define SUBSYS_1c60XXXX		25
+#define SUBSYS_NO_SUPPORT	99
 
 /* GCE General Purpose Register (GPR) support */
 #define GCE_GPR_R00		0x0
@@ -808,5 +809,132 @@
 
 /* end of hw event */
 #define CMDQ_MAX_HW_EVENT				1019
+
+/* sw token should use the unused event id from 0 to 1023 */
+#define CMDQ_SYNC_TOKEN_INVALID				(-1)
+
+/* Event for imgsys flow control */
+#define CMDQ_SYNC_TOKEN_IMGSYS_WPE_EIS			33
+#define CMDQ_SYNC_TOKEN_IMGSYS_WPE_TNR			34
+#define CMDQ_SYNC_TOKEN_IMGSYS_TRAW			35
+#define CMDQ_SYNC_TOKEN_IMGSYS_LTRAW			36
+#define CMDQ_SYNC_TOKEN_IMGSYS_DIP			37
+#define CMDQ_SYNC_TOKEN_IMGSYS_PQDIP_A			38
+#define CMDQ_SYNC_TOKEN_IMGSYS_PQDIP_B			39
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_1			41
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_2			42
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_3			43
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_4			44
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_5			45
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_6			46
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_7			47
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_8			48
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_9			49
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_10			50
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_11			51
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_12			52
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_13			53
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_14			54
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_15			55
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_16			56
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_17			57
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_18			58
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_19			59
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_20			60
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_21			157
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_22			158
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_23			159
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_24			160
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_25			161
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_26			162
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_27			163
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_28			164
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_29			165
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_30			166
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_31			167
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_32			168
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_33			169
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_34			170
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_35			171
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_36			172
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_37			173
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_38			174
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_39			175
+#define CMDQ_SYNC_TOKEN_IMGSYS_POOL_40			176
+#define CMDQ_SYNC_TOKEN_CAMSYS_POOL_1			177
+#define CMDQ_SYNC_TOKEN_CAMSYS_POOL_2			178
+#define CMDQ_SYNC_TOKEN_CAMSYS_POOL_3			179
+#define CMDQ_SYNC_TOKEN_CAMSYS_POOL_4			180
+#define CMDQ_SYNC_TOKEN_CAMSYS_POOL_5			181
+#define CMDQ_SYNC_TOKEN_CAMSYS_POOL_6			182
+#define CMDQ_SYNC_TOKEN_CAMSYS_POOL_7			183
+#define CMDQ_SYNC_TOKEN_CAMSYS_POOL_8			184
+#define CMDQ_SYNC_TOKEN_CAMSYS_POOL_9			185
+#define CMDQ_SYNC_TOKEN_CAMSYS_POOL_10			186
+
+/* Config thread notify trigger thread */
+#define CMDQ_SYNC_TOKEN_CONFIG_DIRTY			971
+/* Trigger thread notify config thread */
+#define CMDQ_SYNC_TOKEN_STREAM_EOF			972
+/* Block Trigger thread until the ESD check finishes. */
+#define CMDQ_SYNC_TOKEN_ESD_EOF				973
+#define CMDQ_SYNC_TOKEN_STREAM_BLOCK			974
+/* check CABC setup finish */
+#define CMDQ_SYNC_TOKEN_CABC_EOF			975
+/* Pass-2 notifies VENC frame is ready to be encoded */
+#define CMDQ_SYNC_TOKEN_VENC_INPUT_READY		976
+/* VENC notifies Pass-2 encode done so next frame may start */
+#define CMDQ_SYNC_TOKEN_VENC_EOF			977
+
+/* Notify normal CMDQ there are some secure task done
+ * MUST NOT CHANGE, this token sync with secure world
+ */
+#define CMDQ_SYNC_SECURE_THR_EOF			980
+
+/* CMDQ use sw token */
+#define CMDQ_SYNC_TOKEN_USER_0				981
+#define CMDQ_SYNC_TOKEN_USER_1				982
+#define CMDQ_SYNC_TOKEN_POLL_MONITOR			983
+#define CMDQ_SYNC_TOKEN_TPR_LOCK			984
+
+/* ISP sw token */
+#define CMDQ_SYNC_TOKEN_MSS				985
+#define CMDQ_SYNC_TOKEN_MSF				986
+
+/* GPR access tokens (for register backup)
+ * There are 15 32-bit GPR, 3 GPR form a set
+ * (64-bit for address, 32-bit for value)
+ * MUST NOT CHANGE, these tokens sync with MDP
+ */
+#define CMDQ_SYNC_TOKEN_GPR_SET_0			987
+#define CMDQ_SYNC_TOKEN_GPR_SET_1			988
+#define CMDQ_SYNC_TOKEN_GPR_SET_2			989
+#define CMDQ_SYNC_TOKEN_GPR_SET_3			990
+#define CMDQ_SYNC_TOKEN_GPR_SET_4			991
+
+/* Resource lock event to control resource in GCE thread */
+#define CMDQ_SYNC_RESOURCE_WROT0			992
+#define CMDQ_SYNC_RESOURCE_WROT1			993
+
+/* Event for gpr timer, used in sleep and poll with timeout */
+#define CMDQ_TOKEN_GPR_TIMER_R0				996
+#define CMDQ_TOKEN_GPR_TIMER_R1				997
+#define CMDQ_TOKEN_GPR_TIMER_R2				998
+#define CMDQ_TOKEN_GPR_TIMER_R3				999
+#define CMDQ_TOKEN_GPR_TIMER_R4				1000
+#define CMDQ_TOKEN_GPR_TIMER_R5				1001
+#define CMDQ_TOKEN_GPR_TIMER_R6				1002
+#define CMDQ_TOKEN_GPR_TIMER_R7				1003
+#define CMDQ_TOKEN_GPR_TIMER_R8				1004
+#define CMDQ_TOKEN_GPR_TIMER_R9				1005
+#define CMDQ_TOKEN_GPR_TIMER_R10			1006
+#define CMDQ_TOKEN_GPR_TIMER_R11			1007
+#define CMDQ_TOKEN_GPR_TIMER_R12			1008
+#define CMDQ_TOKEN_GPR_TIMER_R13			1009
+#define CMDQ_TOKEN_GPR_TIMER_R14			1010
+#define CMDQ_TOKEN_GPR_TIMER_R15			1011
+
+/* defined in mtk-cmdq-mailbox.h */
+/* #define CMDQ_EVENT_MAX					0x3ff */
 
 #endif

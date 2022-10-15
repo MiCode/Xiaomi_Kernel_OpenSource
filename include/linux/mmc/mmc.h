@@ -99,6 +99,12 @@ static inline bool mmc_op_multi(u32 opcode)
 	       opcode == MMC_READ_MULTIPLE_BLOCK;
 }
 
+static inline bool mmc_op_tuning(u32 opcode)
+{
+	return opcode == MMC_SEND_TUNING_BLOCK ||
+			opcode == MMC_SEND_TUNING_BLOCK_HS200;
+}
+
 /*
  * MMC_SWITCH argument format:
  *
@@ -448,5 +454,14 @@ static inline bool mmc_ready_for_data(u32 status)
 #define MMC_TRIM_ARGS			0x00008001
 
 #define mmc_driver_type_mask(n)		(1 << (n))
+
+struct mmc_card;
+
+extern int mmc_select_bus_width(struct mmc_card *card);
+extern int mmc_select_hs(struct mmc_card *card);
+extern int mmc_select_hs_ddr(struct mmc_card *card);
+extern int mmc_select_hs400(struct mmc_card *card);
+extern int mmc_hs200_tuning(struct mmc_card *card);
+extern int mmc_select_timing(struct mmc_card *card);
 
 #endif /* LINUX_MMC_MMC_H */

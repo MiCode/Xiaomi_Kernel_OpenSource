@@ -54,6 +54,25 @@ config ANDROID_BINDER_IPC_SELFTEST
 	  exhaustively with combinations of various buffer sizes and
 	  alignments.
 
+config MTK_FIX_BINDER_COMMON_ISSUE
+	bool "fix binder common code issue"
+	help
+	  The feaure is to fix binder common code issue.
+	  In some cases, the fix patch has not yet accepted by Google
+	  reviewer, we use this config for fix problem in ENG/USERDEBUG
+	  build early.
+
+config ANDROID_DEBUG_SYMBOLS
+	bool "Android Debug Symbols"
+	help
+	  Enables export of debug symbols that are useful for offline debugging
+	  of a kernel. These symbols would be used in vendor modules to find
+	  addresses of the core kernel symbols for vendor extensions.
+
+	  This driver is statically compiled into kernel and maintains all the
+	  required symbol addresses for vendor modules and provides necessary
+	  interface vendor modules.
+
 config ANDROID_VENDOR_HOOKS
 	bool "Android Vendor Hooks"
 	depends on TRACEPOINTS
@@ -62,6 +81,53 @@ config ANDROID_VENDOR_HOOKS
 
 	  Allow vendor modules to attach to tracepoint "hooks" defined via
 	  DECLARE_HOOK or DECLARE_RESTRICTED_HOOK.
+
+config ANDROID_KABI_RESERVE
+	bool "Android KABI reserve padding"
+	default y
+	help
+	  This option enables the padding that the Android GKI kernel adds
+	  to many different kernel structures to support an in-kernel stable ABI
+	  over the lifespan of support for the kernel.
+
+	  Only disable this option if you have a system that needs the Android
+	  kernel drivers, but is NOT an Android GKI kernel image. If disabled
+	  it has the possibility to make the kernel static and runtime image
+	  slightly smaller but will NOT be supported by the Google Android
+	  kernel team.
+
+	  If even slightly unsure, say Y.
+
+config ANDROID_VENDOR_OEM_DATA
+	bool "Android vendor and OEM data padding"
+	default y
+	help
+	  This option enables the padding that the Android GKI kernel adds
+	  to many different kernel structures to support an in-kernel stable ABI
+	  over the lifespan of support for the kernel as well as OEM additional
+	  fields that are needed by some of the Android kernel tracepoints. The
+	  macros enabled by this option are used to enable padding in vendor modules
+	  used for the above specified purposes.
+
+	  Only disable this option if you have a system that needs the Android
+	  kernel drivers, but is NOT an Android GKI kernel image and you do NOT
+	  use the Android kernel tracepoints. If disabled it has the possibility
+	  to make the kernel static and runtime image slightly smaller but will
+	  NOT be supported by the Google Android kernel team.
+
+	  If even slightly unsure, say Y.
+
+config ANDROID_FIX_PCIE_SLAVE_ERROR
+	bool "Android fix PCIe slave error"
+	help
+	  This is a temporary config used for mtk userdebug and eng load to
+	  avoid Android GKI ABI rules. Once the patch be merged to ACK and
+	  pull to our branch, will revert this.
+
+	  ANDROID_FIX_PCIE_SLAVE_ERROR is the kernel config of vendor hooks.
+	  Add vendor hooks for unusual abort cases to avoid system panic.
+	  When pcie encounters completion timeout, PCIe hardware will reply
+	  slave error to bus, which will causes the system to panic.
 
 endif # if ANDROID
 

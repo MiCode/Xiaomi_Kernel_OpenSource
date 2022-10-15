@@ -1,17 +1,90 @@
-# Copyright (C) 2021 The Android Open Source Project
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#       http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
 
-load("//build/kleaf:common_kernels.bzl", "define_common_kernels")
 
-define_common_kernels()
+load("//build/kernel/kleaf:constants.bzl", "aarch64_outs")
+load("//build/kernel/kleaf:kernel.bzl", "kernel_build")
+
+
+filegroup(
+    name = "kernel_aarch64_sources",
+    srcs = glob(
+        ["**"],
+        exclude = [
+            "BUILD.bazel",
+            "**/*.bzl",
+            ".git/**",
+        ],
+    ),
+)
+
+
+module_outs = [
+    "drivers/base/regmap/regmap-spmi.ko",
+    "drivers/block/zram/zram.ko",
+    "drivers/iio/buffer/industrialio-triggered-buffer.ko",
+    "drivers/iio/buffer/kfifo_buf.ko",
+    "drivers/leds/leds-pwm.ko",
+    "drivers/media/v4l2-core/v4l2-async.ko",
+    "drivers/media/v4l2-core/v4l2-flash-led-class.ko",
+    "drivers/media/v4l2-core/v4l2-fwnode.ko",
+    "drivers/mmc/host/cqhci.ko",
+    "drivers/net/usb/ax88179_178a.ko",
+    "drivers/perf/arm_dsu_pmu.ko",
+    "drivers/phy/mediatek/phy-mtk-mipi-dsi-drv.ko",
+    "drivers/power/reset/reboot-mode.ko",
+    "drivers/power/reset/syscon-reboot-mode.ko",
+    "drivers/tee/tee.ko",
+    "drivers/thermal/thermal-generic-adc.ko",
+    "mm/zsmalloc.ko",
+    "net/mac80211/mac80211.ko",
+    "net/wireless/cfg80211.ko",
+]
+
+
+kernel_build(
+    name = "kernel_aarch64.eng",
+    srcs = [
+        ":kernel_aarch64_sources",
+        "//kernel_device_modules-mainline:device_configs",
+    ],
+    outs = aarch64_outs,
+    module_outs = module_outs,
+    build_config = "//kernel_device_modules-mainline:kernel_build_config.eng",
+    kconfig_ext = "//kernel_device_modules-mainline:Kconfig.ext",
+    base_kernel = None,
+    trim_nonlisted_kmi = False,
+)
+
+
+kernel_build(
+    name = "kernel_aarch64.userdebug",
+    srcs = [
+        ":kernel_aarch64_sources",
+        "//kernel_device_modules-mainline:device_configs",
+    ],
+    outs = aarch64_outs,
+    module_outs = module_outs,
+    build_config = "//kernel_device_modules-mainline:kernel_build_config.userdebug",
+    kconfig_ext = "//kernel_device_modules-mainline:Kconfig.ext",
+    base_kernel = None,
+    trim_nonlisted_kmi = False,
+)
+
+
+kernel_build(
+    name = "kernel_aarch64.user",
+    srcs = [
+        ":kernel_aarch64_sources",
+        "//kernel_device_modules-mainline:device_configs",
+    ],
+    outs = aarch64_outs,
+    module_outs = module_outs,
+    build_config = "//kernel_device_modules-mainline:kernel_build_config.user",
+    kconfig_ext = "//kernel_device_modules-mainline:Kconfig.ext",
+    base_kernel = None,
+    trim_nonlisted_kmi = False,
+)

@@ -43,6 +43,7 @@
 #include <linux/mutex.h>
 #include <linux/netdevice.h>
 #include <linux/rcupdate.h>
+#include <linux/android_kabi.h>
 
 #include <net/net_namespace.h>
 #include <net/tcp.h>
@@ -113,6 +114,9 @@ struct tls_rec {
 	char aad_space[TLS_AAD_SPACE_SIZE];
 	u8 iv_data[MAX_IV_SIZE];
 	struct aead_request aead_req;
+
+	ANDROID_KABI_RESERVE(1);
+
 	u8 aead_req_ctx[];
 };
 
@@ -141,6 +145,8 @@ struct tls_sw_context_tx {
 #define BIT_TX_SCHEDULED	0
 #define BIT_TX_CLOSING		1
 	unsigned long tx_bitmask;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct tls_sw_context_rx {
@@ -158,6 +164,8 @@ struct tls_sw_context_rx {
 	/* protect crypto_wait with decrypt_pending*/
 	spinlock_t decrypt_compl_lock;
 	bool async_notify;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct tls_record_info {
@@ -296,6 +304,12 @@ struct tlsdev_ops {
 	int (*tls_dev_resync)(struct net_device *netdev,
 			      struct sock *sk, u32 seq, u8 *rcd_sn,
 			      enum tls_offload_ctx_dir direction);
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
+
 };
 
 enum tls_offload_sync_type {

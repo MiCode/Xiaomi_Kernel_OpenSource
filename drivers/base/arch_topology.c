@@ -167,8 +167,11 @@ void topology_set_thermal_pressure(const struct cpumask *cpus,
 {
 	int cpu;
 
-	for_each_cpu(cpu, cpus)
+	for_each_cpu(cpu, cpus) {
 		WRITE_ONCE(per_cpu(thermal_pressure, cpu), th_pressure);
+		trace_android_rvh_update_thermal_stats(cpu);
+	}
+
 }
 EXPORT_SYMBOL_GPL(topology_set_thermal_pressure);
 
@@ -617,7 +620,7 @@ void update_siblings_masks(unsigned int cpuid)
 	for_each_online_cpu(cpu) {
 		cpu_topo = &cpu_topology[cpu];
 
-		if (cpuid_topo->llc_id == cpu_topo->llc_id) {
+		if (cpu_topo->llc_id != -1 && cpuid_topo->llc_id == cpu_topo->llc_id) {
 			cpumask_set_cpu(cpu, &cpuid_topo->llc_sibling);
 			cpumask_set_cpu(cpuid, &cpu_topo->llc_sibling);
 		}

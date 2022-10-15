@@ -18,6 +18,8 @@
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/sd.h>
 
+#include <trace/hooks/mmc.h>
+
 #include "core.h"
 #include "card.h"
 #include "host.h"
@@ -66,7 +68,7 @@ static const unsigned int sd_au_size[] = {
 		__res & __mask;						\
 	})
 
-#define SD_POWEROFF_NOTIFY_TIMEOUT_MS 2000
+#define SD_POWEROFF_NOTIFY_TIMEOUT_MS 1000
 #define SD_WRITE_EXTR_SINGLE_TIMEOUT_MS 1000
 
 struct sd_busy_data {
@@ -472,6 +474,8 @@ static void sd_update_bus_speed_mode(struct mmc_card *card)
 		    SD_MODE_UHS_SDR12)) {
 			card->sd_bus_speed = UHS_SDR12_BUS_SPEED;
 	}
+
+	trace_android_vh_sd_update_bus_speed_mode(card);
 }
 
 static int sd_set_bus_speed_mode(struct mmc_card *card, u8 *status)
@@ -1515,6 +1519,10 @@ retry:
 		 */
 		mmc_set_clock(host, mmc_sd_get_max_clock(card));
 
+		trace_android_vh_mmc_sd_update_cmdline_timing(card, &err);
+		if (err < 0)
+			goto free_card;
+
 		/*
 		 * Switch to wider bus (if supported).
 		 */
@@ -1526,6 +1534,10 @@ retry:
 
 			mmc_set_bus_width(host, MMC_BUS_WIDTH_4);
 		}
+
+		trace_android_vh_mmc_sd_update_dataline_timing(card, &err);
+		if (err < 0)
+			goto free_card;
 	}
 
 	if (!oldcard) {
@@ -1662,6 +1674,12 @@ static int sd_poweroff_notify(struct mmc_card *card)
 			mmc_hostname(card->host), err);
 		goto out;
 	}
+
+	/* Find out when the command is completed. */
+	err = mmc_poll_for_busy(card, SD_WRITE_EXTR_SINGLE_TIMEOUT_MS, false,
+				MMC_BUSY_EXTR_SINGLE);
+	if (err)
+		goto out;
 
 	cb_data.card = card;
 	cb_data.reg_buf = reg_buf;
@@ -1867,6 +1885,8 @@ err:
 
 	pr_err("%s: error %d whilst initialising SD card\n",
 		mmc_hostname(host), err);
+
+	trace_android_vh_mmc_attach_sd(host, ocr, err);
 
 	return err;
 }

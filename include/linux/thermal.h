@@ -15,6 +15,7 @@
 #include <linux/device.h>
 #include <linux/sysfs.h>
 #include <linux/workqueue.h>
+#include <linux/android_kabi.h>
 #include <uapi/linux/thermal.h>
 
 #define THERMAL_MAX_TRIPS	12
@@ -78,6 +79,8 @@ struct thermal_zone_device_ops {
 			  enum thermal_trend *);
 	void (*hot)(struct thermal_zone_device *);
 	void (*critical)(struct thermal_zone_device *);
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct thermal_cooling_device_ops {
@@ -87,6 +90,8 @@ struct thermal_cooling_device_ops {
 	int (*get_requested_power)(struct thermal_cooling_device *, u32 *);
 	int (*state2power)(struct thermal_cooling_device *, unsigned long, u32 *);
 	int (*power2state)(struct thermal_cooling_device *, u32, unsigned long *);
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct thermal_cooling_device {
@@ -101,6 +106,8 @@ struct thermal_cooling_device {
 	struct mutex lock; /* protect thermal_instances list */
 	struct list_head thermal_instances;
 	struct list_head node;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -174,6 +181,8 @@ struct thermal_zone_device {
 	struct list_head node;
 	struct delayed_work poll_queue;
 	enum thermal_notify_event notify_event;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -194,6 +203,8 @@ struct thermal_governor {
 	void (*unbind_from_tz)(struct thermal_zone_device *tz);
 	int (*throttle)(struct thermal_zone_device *tz, int trip);
 	struct list_head	governor_list;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 /* Structure that holds binding parameters for a zone */
@@ -229,6 +240,8 @@ struct thermal_bind_params {
 	unsigned long *binding_limits;
 	int (*match) (struct thermal_zone_device *tz,
 			struct thermal_cooling_device *cdev);
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 /* Structure to define Thermal Zone parameters */
@@ -282,6 +295,8 @@ struct thermal_zone_params {
 	 * 		Used by thermal zone drivers (default 0).
 	 */
 	int offset;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -299,6 +314,12 @@ struct thermal_zone_params {
  *		   temperature.
  * @set_trip_temp: a pointer to a function that sets the trip temperature on
  *		   hardware.
+ * @change_mode: a pointer to a function that notifies the thermal zone
+ *		   mode change.
+ * @hot:	 a pointer to a function that notifies the thermal zone
+ *		   hot trip violation.
+ * @critical: a pointer to a function that notifies the thermal zone
+ *		   critical trip violation.
  */
 struct thermal_zone_of_device_ops {
 	int (*get_temp)(void *, int *);
@@ -306,6 +327,11 @@ struct thermal_zone_of_device_ops {
 	int (*set_trips)(void *, int, int);
 	int (*set_emul_temp)(void *, int);
 	int (*set_trip_temp)(void *, int, int);
+	int (*change_mode) (void *, enum thermal_device_mode);
+	void (*hot)(void *sensor_data);
+	void (*critical)(void *sensor_data);
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 /* Function declarations */

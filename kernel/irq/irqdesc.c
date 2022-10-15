@@ -405,6 +405,7 @@ static struct irq_desc *alloc_desc(int irq, int node, unsigned int flags,
 	lockdep_set_class(&desc->lock, &irq_desc_lock_class);
 	mutex_init(&desc->request_mutex);
 	init_rcu_head(&desc->rcu);
+	init_waitqueue_head(&desc->wait_for_threads);
 
 	desc_set_defaults(irq, desc, node, affinity, owner);
 	irqd_set(&desc->irq_data, flags);
@@ -573,6 +574,7 @@ int __init early_irq_init(void)
 		raw_spin_lock_init(&desc[i].lock);
 		lockdep_set_class(&desc[i].lock, &irq_desc_lock_class);
 		mutex_init(&desc[i].request_mutex);
+		init_waitqueue_head(&desc[i].wait_for_threads);
 		desc_set_defaults(i, &desc[i], node, NULL, NULL);
 	}
 	return arch_early_irq_init();
@@ -691,16 +693,22 @@ int handle_domain_irq(struct irq_domain *domain,
 	struct irq_desc *desc;
 	int ret = 0;
 
-	irq_enter();
 
 	/* The irqdomain code provides boundary checks */
 	desc = irq_resolve_mapping(domain, hwirq);
-	if (likely(desc))
-		handle_irq_desc(desc);
+	if (likely(desc)) {
+		if (IS_ENABLED(CONFIG_ARCH_WANTS_IRQ_RAW) &&
+		    unlikely(irq_settings_is_raw(desc))) {
+			handle_irq_desc(desc);
+		} else {
+			irq_enter();
+			handle_irq_desc(desc);
+			irq_exit();
+		}
+	}
 	else
 		ret = -EINVAL;
 
-	irq_exit();
 	set_irq_regs(old_regs);
 	return ret;
 }

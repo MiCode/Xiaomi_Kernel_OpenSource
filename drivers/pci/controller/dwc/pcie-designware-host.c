@@ -263,14 +263,6 @@ static void dw_pcie_free_msi(struct pcie_port *pp)
 
 	irq_domain_remove(pp->msi_domain);
 	irq_domain_remove(pp->irq_domain);
-
-	if (pp->msi_data) {
-		struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
-		struct device *dev = pci->dev;
-
-		dma_unmap_single_attrs(dev, pp->msi_data, sizeof(pp->msi_msg),
-				       DMA_FROM_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
-	}
 }
 
 static void dw_pcie_msi_init(struct pcie_port *pp)
@@ -295,6 +287,7 @@ int dw_pcie_host_init(struct pcie_port *pp)
 	struct resource_entry *win;
 	struct pci_host_bridge *bridge;
 	struct resource *cfg_res;
+	u64 *msi_vaddr;
 	int ret;
 
 	raw_spin_lock_init(&pci->pp.lock);
@@ -373,17 +366,15 @@ int dw_pcie_host_init(struct pcie_port *pp)
 							    dw_chained_msi_isr,
 							    pp);
 
-			ret = dma_set_mask(pci->dev, DMA_BIT_MASK(32));
+			ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
 			if (ret)
 				dev_warn(pci->dev, "Failed to set DMA mask to 32-bit. Devices with only 32-bit MSI support may not work properly\n");
 
-			pp->msi_data = dma_map_single_attrs(pci->dev, &pp->msi_msg,
-						      sizeof(pp->msi_msg),
-						      DMA_FROM_DEVICE,
-						      DMA_ATTR_SKIP_CPU_SYNC);
-			if (dma_mapping_error(pci->dev, pp->msi_data)) {
-				dev_err(pci->dev, "Failed to map MSI data\n");
-				pp->msi_data = 0;
+			msi_vaddr = dmam_alloc_coherent(dev, sizeof(u64), &pp->msi_data,
+							GFP_KERNEL);
+			if (!msi_vaddr) {
+				dev_err(dev, "Failed to alloc and map MSI data\n");
+				ret = -ENOMEM;
 				goto err_free_msi;
 			}
 		}

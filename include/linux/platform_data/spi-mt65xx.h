@@ -12,6 +12,10 @@
 /* Board specific platform_data */
 struct mtk_chip_config {
 	u32 sample_sel;
+
+	u32 cs_setuptime;
+	u32 cs_holdtime;
+	u32 cs_idletime;
 	u32 tick_delay;
 };
 #endif

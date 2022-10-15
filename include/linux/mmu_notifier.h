@@ -6,8 +6,11 @@
 #include <linux/spinlock.h>
 #include <linux/mm_types.h>
 #include <linux/mmap_lock.h>
+#include <linux/percpu-rwsem.h>
+#include <linux/slab.h>
 #include <linux/srcu.h>
 #include <linux/interval_tree.h>
+#include <linux/android_kabi.h>
 
 struct mmu_notifier_subscriptions;
 struct mmu_notifier;
@@ -221,6 +224,11 @@ struct mmu_notifier_ops {
 	 */
 	struct mmu_notifier *(*alloc_notifier)(struct mm_struct *mm);
 	void (*free_notifier)(struct mmu_notifier *subscription);
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 /*
@@ -240,6 +248,9 @@ struct mmu_notifier {
 	struct mm_struct *mm;
 	struct rcu_head rcu;
 	unsigned int users;
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 };
 
 /**
@@ -499,15 +510,30 @@ static inline void mmu_notifier_invalidate_range(struct mm_struct *mm,
 		__mmu_notifier_invalidate_range(mm, start, end);
 }
 
-static inline void mmu_notifier_subscriptions_init(struct mm_struct *mm)
+static inline bool mmu_notifier_subscriptions_init(struct mm_struct *mm)
 {
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+	mm->mmu_notifier_lock = kzalloc(sizeof(struct percpu_rw_semaphore), GFP_KERNEL);
+	if (!mm->mmu_notifier_lock)
+		return false;
+	if (percpu_init_rwsem(mm->mmu_notifier_lock)) {
+		kfree(mm->mmu_notifier_lock);
+		return false;
+	}
+#endif
+
 	mm->notifier_subscriptions = NULL;
+	return true;
 }
 
 static inline void mmu_notifier_subscriptions_destroy(struct mm_struct *mm)
 {
 	if (mm_has_notifiers(mm))
 		__mmu_notifier_subscriptions_destroy(mm);
+
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+	percpu_rwsem_async_destroy(mm->mmu_notifier_lock);
+#endif
 }
 
 
@@ -724,8 +750,9 @@ static inline void mmu_notifier_invalidate_range(struct mm_struct *mm,
 {
 }
 
-static inline void mmu_notifier_subscriptions_init(struct mm_struct *mm)
+static inline bool mmu_notifier_subscriptions_init(struct mm_struct *mm)
 {
+	return true;
 }
 
 static inline void mmu_notifier_subscriptions_destroy(struct mm_struct *mm)
@@ -748,5 +775,30 @@ static inline void mmu_notifier_synchronize(void)
 }
 
 #endif /* CONFIG_MMU_NOTIFIER */
+
+#if defined(CONFIG_MMU_NOTIFIER) && defined(CONFIG_SPECULATIVE_PAGE_FAULT)
+
+static inline bool mmu_notifier_trylock(struct mm_struct *mm)
+{
+	return percpu_down_read_trylock(mm->mmu_notifier_lock);
+}
+
+static inline void mmu_notifier_unlock(struct mm_struct *mm)
+{
+	percpu_up_read(mm->mmu_notifier_lock);
+}
+
+#else
+
+static inline bool mmu_notifier_trylock(struct mm_struct *mm)
+{
+	return true;
+}
+
+static inline void mmu_notifier_unlock(struct mm_struct *mm)
+{
+}
+
+#endif
 
 #endif /* _LINUX_MMU_NOTIFIER_H */

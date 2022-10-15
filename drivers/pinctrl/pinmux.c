@@ -689,6 +689,10 @@ static ssize_t pinmux_select(struct file *file, const char __user *user_buf,
 	if (len > PINMUX_SELECT_MAX)
 		return -ENOMEM;
 
+#if IS_ENABLED(CONFIG_MTK_PINCTRL_DEBUG)
+	if (len <= 0)
+		return -EINVAL;
+#endif
 	buf = kzalloc(PINMUX_SELECT_MAX, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;

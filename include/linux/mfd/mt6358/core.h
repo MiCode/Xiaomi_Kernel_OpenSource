@@ -32,7 +32,7 @@ enum mt6358_irq_top_status_shift {
 	MT6358_SCK_TOP,
 	MT6358_BM_TOP,
 	MT6358_HK_TOP,
-	MT6358_AUD_TOP,
+	MT6358_AUD_TOP = 7,
 	MT6358_MISC_TOP,
 };
 

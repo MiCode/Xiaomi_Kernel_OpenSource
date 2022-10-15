@@ -42,8 +42,8 @@ void cfg80211_rx_assoc_resp(struct net_device *dev, struct cfg80211_bss *bss,
 
 	memset(&cr, 0, sizeof(cr));
 	cr.status = (int)le16_to_cpu(mgmt->u.assoc_resp.status_code);
-	cr.bssid = mgmt->bssid;
-	cr.bss = bss;
+	cr.links[0].bssid = mgmt->bssid;
+	cr.links[0].bss = bss;
 	cr.req_ie = req_ies;
 	cr.req_ie_len = req_ies_len;
 	cr.resp_ie = resp_ie;
@@ -92,8 +92,7 @@ static void cfg80211_process_deauth(struct wireless_dev *wdev,
 
 	nl80211_send_deauth(rdev, wdev->netdev, buf, len, reconnect, GFP_KERNEL);
 
-	if (!wdev->current_bss ||
-	    !ether_addr_equal(wdev->current_bss->pub.bssid, bssid))
+	if (!wdev->connected || !ether_addr_equal(wdev->u.client.connected_addr, bssid))
 		return;
 
 	__cfg80211_disconnected(wdev->netdev, NULL, 0, reason_code, from_ap);
@@ -113,8 +112,8 @@ static void cfg80211_process_disassoc(struct wireless_dev *wdev,
 	nl80211_send_disassoc(rdev, wdev->netdev, buf, len, reconnect,
 			      GFP_KERNEL);
 
-	if (WARN_ON(!wdev->current_bss ||
-		    !ether_addr_equal(wdev->current_bss->pub.bssid, bssid)))
+	if (WARN_ON(!wdev->connected ||
+		    !ether_addr_equal(wdev->u.client.connected_addr, bssid)))
 		return;
 
 	__cfg80211_disconnected(wdev->netdev, NULL, 0, reason_code, from_ap);
@@ -233,47 +232,30 @@ EXPORT_SYMBOL(cfg80211_michael_mic_failure);
 /* some MLME handling for userspace SME */
 int cfg80211_mlme_auth(struct cfg80211_registered_device *rdev,
 		       struct net_device *dev,
-		       struct ieee80211_channel *chan,
-		       enum nl80211_auth_type auth_type,
-		       const u8 *bssid,
-		       const u8 *ssid, int ssid_len,
-		       const u8 *ie, int ie_len,
-		       const u8 *key, int key_len, int key_idx,
-		       const u8 *auth_data, int auth_data_len)
+		       struct cfg80211_auth_request *req)
 {
 	struct wireless_dev *wdev = dev->ieee80211_ptr;
-	struct cfg80211_auth_request req = {
-		.ie = ie,
-		.ie_len = ie_len,
-		.auth_data = auth_data,
-		.auth_data_len = auth_data_len,
-		.auth_type = auth_type,
-		.key = key,
-		.key_len = key_len,
-		.key_idx = key_idx,
-	};
-	int err;
 
 	ASSERT_WDEV_LOCK(wdev);
 
-	if (auth_type == NL80211_AUTHTYPE_SHARED_KEY)
-		if (!key || !key_len || key_idx < 0 || key_idx > 3)
-			return -EINVAL;
-
-	if (wdev->current_bss &&
-	    ether_addr_equal(bssid, wdev->current_bss->pub.bssid))
-		return -EALREADY;
-
-	req.bss = cfg80211_get_bss(&rdev->wiphy, chan, bssid, ssid, ssid_len,
-				   IEEE80211_BSS_TYPE_ESS,
-				   IEEE80211_PRIVACY_ANY);
-	if (!req.bss)
+	if (!req->bss)
 		return -ENOENT;
 
-	err = rdev_auth(rdev, dev, &req);
+	if (req->link_id >= 0 &&
+	    !(wdev->wiphy->flags & WIPHY_FLAG_SUPPORTS_MLO))
+		return -EINVAL;
 
-	cfg80211_put_bss(&rdev->wiphy, req.bss);
-	return err;
+	if (req->auth_type == NL80211_AUTHTYPE_SHARED_KEY) {
+		if (!req->key || !req->key_len ||
+		    req->key_idx < 0 || req->key_idx > 3)
+			return -EINVAL;
+	}
+
+	if (wdev->connected &&
+	    ether_addr_equal(req->bss->bssid, wdev->u.client.connected_addr))
+		return -EALREADY;
+
+	return rdev_auth(rdev, dev, req);
 }
 
 /*  Do a logical ht_capa &= ht_capa_mask.  */
@@ -310,21 +292,28 @@ void cfg80211_oper_and_vht_capa(struct ieee80211_vht_cap *vht_capa,
 		p1[i] &= p2[i];
 }
 
+/* Note: caller must cfg80211_put_bss() regardless of result */
 int cfg80211_mlme_assoc(struct cfg80211_registered_device *rdev,
 			struct net_device *dev,
-			struct ieee80211_channel *chan,
-			const u8 *bssid,
-			const u8 *ssid, int ssid_len,
 			struct cfg80211_assoc_request *req)
 {
 	struct wireless_dev *wdev = dev->ieee80211_ptr;
-	int err;
+	int err, i, j;
 
 	ASSERT_WDEV_LOCK(wdev);
 
-	if (wdev->current_bss &&
-	    (!req->prev_bssid || !ether_addr_equal(wdev->current_bss->pub.bssid,
-						   req->prev_bssid)))
+	for (i = 1; i < ARRAY_SIZE(req->links); i++) {
+		if (!req->links[i].bss)
+			continue;
+		for (j = 0; j < i; j++) {
+			if (req->links[i].bss == req->links[j].bss)
+				return -EINVAL;
+		}
+	}
+
+	if (wdev->connected &&
+	    (!req->prev_bssid ||
+	     !ether_addr_equal(wdev->u.client.connected_addr, req->prev_bssid)))
 		return -EALREADY;
 
 	cfg80211_oper_and_ht_capa(&req->ht_capa_mask,
@@ -332,18 +321,22 @@ int cfg80211_mlme_assoc(struct cfg80211_registered_device *rdev,
 	cfg80211_oper_and_vht_capa(&req->vht_capa_mask,
 				   rdev->wiphy.vht_capa_mod_mask);
 
-	req->bss = cfg80211_get_bss(&rdev->wiphy, chan, bssid, ssid, ssid_len,
-				    IEEE80211_BSS_TYPE_ESS,
-				    IEEE80211_PRIVACY_ANY);
-	if (!req->bss)
-		return -ENOENT;
-
 	err = rdev_assoc(rdev, dev, req);
-	if (!err)
-		cfg80211_hold_bss(bss_from_pub(req->bss));
-	else
-		cfg80211_put_bss(&rdev->wiphy, req->bss);
+	if (!err) {
+		int link_id;
 
+		if (req->bss) {
+			cfg80211_ref_bss(&rdev->wiphy, req->bss);
+			cfg80211_hold_bss(bss_from_pub(req->bss));
+		}
+
+		for (link_id = 0; link_id < ARRAY_SIZE(req->links); link_id++) {
+			if (!req->links[link_id].bss)
+				continue;
+			cfg80211_ref_bss(&rdev->wiphy, req->links[link_id].bss);
+			cfg80211_hold_bss(bss_from_pub(req->links[link_id].bss));
+		}
+	}
 	return err;
 }
 
@@ -364,13 +357,13 @@ int cfg80211_mlme_deauth(struct cfg80211_registered_device *rdev,
 	ASSERT_WDEV_LOCK(wdev);
 
 	if (local_state_change &&
-	    (!wdev->current_bss ||
-	     !ether_addr_equal(wdev->current_bss->pub.bssid, bssid)))
+	    (!wdev->connected ||
+	     !ether_addr_equal(wdev->u.client.connected_addr, bssid)))
 		return 0;
 
 	if (ether_addr_equal(wdev->disconnect_bssid, bssid) ||
-	    (wdev->current_bss &&
-	     ether_addr_equal(wdev->current_bss->pub.bssid, bssid)))
+	    (wdev->connected &&
+	     ether_addr_equal(wdev->u.client.connected_addr, bssid)))
 		wdev->conn_owner_nlportid = 0;
 
 	return rdev_deauth(rdev, dev, &req);
@@ -392,11 +385,12 @@ int cfg80211_mlme_disassoc(struct cfg80211_registered_device *rdev,
 
 	ASSERT_WDEV_LOCK(wdev);
 
-	if (!wdev->current_bss)
+	if (!wdev->connected)
 		return -ENOTCONN;
 
-	if (ether_addr_equal(wdev->current_bss->pub.bssid, bssid))
-		req.bss = &wdev->current_bss->pub;
+	if (ether_addr_equal(wdev->links[0].client.current_bss->pub.bssid,
+			     bssid))
+		req.bss = &wdev->links[0].client.current_bss->pub;
 	else
 		return -ENOTCONN;
 
@@ -405,7 +399,7 @@ int cfg80211_mlme_disassoc(struct cfg80211_registered_device *rdev,
 		return err;
 
 	/* driver should have reported the disassoc */
-	WARN_ON(wdev->current_bss);
+	WARN_ON(wdev->connected);
 	return 0;
 }
 
@@ -420,10 +414,10 @@ void cfg80211_mlme_down(struct cfg80211_registered_device *rdev,
 	if (!rdev->ops->deauth)
 		return;
 
-	if (!wdev->current_bss)
+	if (!wdev->connected)
 		return;
 
-	memcpy(bssid, wdev->current_bss->pub.bssid, ETH_ALEN);
+	memcpy(bssid, wdev->u.client.connected_addr, ETH_ALEN);
 	cfg80211_mlme_deauth(rdev, dev, bssid, NULL, 0,
 			     WLAN_REASON_DEAUTH_LEAVING, false);
 }
@@ -676,28 +670,34 @@ int cfg80211_mlme_mgmt_tx(struct cfg80211_registered_device *rdev,
 
 		switch (wdev->iftype) {
 		case NL80211_IFTYPE_ADHOC:
+			/*
+			 * check for IBSS DA must be done by driver as
+			 * cfg80211 doesn't track the stations
+			 */
+			if (!wdev->u.ibss.current_bss ||
+			    !ether_addr_equal(wdev->u.ibss.current_bss->pub.bssid,
+					      mgmt->bssid)) {
+				err = -ENOTCONN;
+				break;
+			}
+			break;
 		case NL80211_IFTYPE_STATION:
 		case NL80211_IFTYPE_P2P_CLIENT:
-			if (!wdev->current_bss) {
+			if (!wdev->connected) {
 				err = -ENOTCONN;
 				break;
 			}
 
-			if (!ether_addr_equal(wdev->current_bss->pub.bssid,
+			/* FIXME: MLD may address this differently */
+
+			if (!ether_addr_equal(wdev->u.client.connected_addr,
 					      mgmt->bssid)) {
 				err = -ENOTCONN;
 				break;
 			}
 
-			/*
-			 * check for IBSS DA must be done by driver as
-			 * cfg80211 doesn't track the stations
-			 */
-			if (wdev->iftype == NL80211_IFTYPE_ADHOC)
-				break;
-
 			/* for station, check that DA is the AP */
-			if (!ether_addr_equal(wdev->current_bss->pub.bssid,
+			if (!ether_addr_equal(wdev->u.client.connected_addr,
 					      mgmt->da)) {
 				err = -ENOTCONN;
 				break;
@@ -743,19 +743,19 @@ int cfg80211_mlme_mgmt_tx(struct cfg80211_registered_device *rdev,
 		if (!ieee80211_is_action(mgmt->frame_control) ||
 		    mgmt->u.action.category != WLAN_CATEGORY_PUBLIC)
 			return -EINVAL;
-		if (!wdev->current_bss &&
+		if (!wdev->connected &&
 		    !wiphy_ext_feature_isset(
 			    &rdev->wiphy,
 			    NL80211_EXT_FEATURE_MGMT_TX_RANDOM_TA))
 			return -EINVAL;
-		if (wdev->current_bss &&
+		if (wdev->connected &&
 		    !wiphy_ext_feature_isset(
 			    &rdev->wiphy,
 			    NL80211_EXT_FEATURE_MGMT_TX_RANDOM_TA_CONNECTED))
 			return -EINVAL;
 	}
 
-	/* Transmit the Action frame as requested by user space */
+	/* Transmit the management frame as requested by user space */
 	return rdev_mgmt_tx(rdev, wdev, params, cookie);
 }
 
@@ -905,19 +905,22 @@ void cfg80211_dfs_channels_update_work(struct work_struct *work)
 }
 
 
-void cfg80211_radar_event(struct wiphy *wiphy,
-			  struct cfg80211_chan_def *chandef,
-			  gfp_t gfp)
+void __cfg80211_radar_event(struct wiphy *wiphy,
+			    struct cfg80211_chan_def *chandef,
+			    bool offchan, gfp_t gfp)
 {
 	struct cfg80211_registered_device *rdev = wiphy_to_rdev(wiphy);
 
-	trace_cfg80211_radar_event(wiphy, chandef);
+	trace_cfg80211_radar_event(wiphy, chandef, offchan);
 
 	/* only set the chandef supplied channel to unavailable, in
 	 * case the radar is detected on only one of multiple channels
 	 * spanned by the chandef.
 	 */
 	cfg80211_set_dfs_state(wiphy, chandef, NL80211_DFS_UNAVAILABLE);
+
+	if (offchan)
+		queue_work(cfg80211_wq, &rdev->background_cac_abort_wk);
 
 	cfg80211_sched_dfs_chan_update(rdev);
 
@@ -926,7 +929,7 @@ void cfg80211_radar_event(struct wiphy *wiphy,
 	memcpy(&rdev->radar_chandef, chandef, sizeof(struct cfg80211_chan_def));
 	queue_work(cfg80211_wq, &rdev->propagate_radar_detect_wk);
 }
-EXPORT_SYMBOL(cfg80211_radar_event);
+EXPORT_SYMBOL(__cfg80211_radar_event);
 
 void cfg80211_cac_event(struct net_device *netdev,
 			const struct cfg80211_chan_def *chandef,
@@ -937,12 +940,13 @@ void cfg80211_cac_event(struct net_device *netdev,
 	struct cfg80211_registered_device *rdev = wiphy_to_rdev(wiphy);
 	unsigned long timeout;
 
+	/* not yet supported */
+	if (wdev->valid_links)
+		return;
+
 	trace_cfg80211_cac_event(netdev, event);
 
 	if (WARN_ON(!wdev->cac_started && event != NL80211_RADAR_CAC_STARTED))
-		return;
-
-	if (WARN_ON(!wdev->chandef.chan))
 		return;
 
 	switch (event) {
@@ -970,3 +974,143 @@ void cfg80211_cac_event(struct net_device *netdev,
 	nl80211_radar_notify(rdev, chandef, event, netdev, gfp);
 }
 EXPORT_SYMBOL(cfg80211_cac_event);
+
+static void
+__cfg80211_background_cac_event(struct cfg80211_registered_device *rdev,
+				struct wireless_dev *wdev,
+				const struct cfg80211_chan_def *chandef,
+				enum nl80211_radar_event event)
+{
+	struct wiphy *wiphy = &rdev->wiphy;
+	struct net_device *netdev;
+
+	lockdep_assert_wiphy(&rdev->wiphy);
+
+	if (!cfg80211_chandef_valid(chandef))
+		return;
+
+	if (!rdev->background_radar_wdev)
+		return;
+
+	switch (event) {
+	case NL80211_RADAR_CAC_FINISHED:
+		cfg80211_set_dfs_state(wiphy, chandef, NL80211_DFS_AVAILABLE);
+		memcpy(&rdev->cac_done_chandef, chandef, sizeof(*chandef));
+		queue_work(cfg80211_wq, &rdev->propagate_cac_done_wk);
+		cfg80211_sched_dfs_chan_update(rdev);
+		wdev = rdev->background_radar_wdev;
+		break;
+	case NL80211_RADAR_CAC_ABORTED:
+		if (!cancel_delayed_work(&rdev->background_cac_done_wk))
+			return;
+		wdev = rdev->background_radar_wdev;
+		break;
+	case NL80211_RADAR_CAC_STARTED:
+		break;
+	default:
+		return;
+	}
+
+	netdev = wdev ? wdev->netdev : NULL;
+	nl80211_radar_notify(rdev, chandef, event, netdev, GFP_KERNEL);
+}
+
+static void
+cfg80211_background_cac_event(struct cfg80211_registered_device *rdev,
+			      const struct cfg80211_chan_def *chandef,
+			      enum nl80211_radar_event event)
+{
+	wiphy_lock(&rdev->wiphy);
+	__cfg80211_background_cac_event(rdev, rdev->background_radar_wdev,
+					chandef, event);
+	wiphy_unlock(&rdev->wiphy);
+}
+
+void cfg80211_background_cac_done_wk(struct work_struct *work)
+{
+	struct delayed_work *delayed_work = to_delayed_work(work);
+	struct cfg80211_registered_device *rdev;
+
+	rdev = container_of(delayed_work, struct cfg80211_registered_device,
+			    background_cac_done_wk);
+	cfg80211_background_cac_event(rdev, &rdev->background_radar_chandef,
+				      NL80211_RADAR_CAC_FINISHED);
+}
+
+void cfg80211_background_cac_abort_wk(struct work_struct *work)
+{
+	struct cfg80211_registered_device *rdev;
+
+	rdev = container_of(work, struct cfg80211_registered_device,
+			    background_cac_abort_wk);
+	cfg80211_background_cac_event(rdev, &rdev->background_radar_chandef,
+				      NL80211_RADAR_CAC_ABORTED);
+}
+
+void cfg80211_background_cac_abort(struct wiphy *wiphy)
+{
+	struct cfg80211_registered_device *rdev = wiphy_to_rdev(wiphy);
+
+	queue_work(cfg80211_wq, &rdev->background_cac_abort_wk);
+}
+EXPORT_SYMBOL(cfg80211_background_cac_abort);
+
+int
+cfg80211_start_background_radar_detection(struct cfg80211_registered_device *rdev,
+					  struct wireless_dev *wdev,
+					  struct cfg80211_chan_def *chandef)
+{
+	unsigned int cac_time_ms;
+	int err;
+
+	lockdep_assert_wiphy(&rdev->wiphy);
+
+	if (!wiphy_ext_feature_isset(&rdev->wiphy,
+				     NL80211_EXT_FEATURE_RADAR_BACKGROUND))
+		return -EOPNOTSUPP;
+
+	/* Offchannel chain already locked by another wdev */
+	if (rdev->background_radar_wdev && rdev->background_radar_wdev != wdev)
+		return -EBUSY;
+
+	/* CAC already in progress on the offchannel chain */
+	if (rdev->background_radar_wdev == wdev &&
+	    delayed_work_pending(&rdev->background_cac_done_wk))
+		return -EBUSY;
+
+	err = rdev_set_radar_background(rdev, chandef);
+	if (err)
+		return err;
+
+	cac_time_ms = cfg80211_chandef_dfs_cac_time(&rdev->wiphy, chandef);
+	if (!cac_time_ms)
+		cac_time_ms = IEEE80211_DFS_MIN_CAC_TIME_MS;
+
+	rdev->background_radar_chandef = *chandef;
+	rdev->background_radar_wdev = wdev; /* Get offchain ownership */
+
+	__cfg80211_background_cac_event(rdev, wdev, chandef,
+					NL80211_RADAR_CAC_STARTED);
+	queue_delayed_work(cfg80211_wq, &rdev->background_cac_done_wk,
+			   msecs_to_jiffies(cac_time_ms));
+
+	return 0;
+}
+
+void cfg80211_stop_background_radar_detection(struct wireless_dev *wdev)
+{
+	struct wiphy *wiphy = wdev->wiphy;
+	struct cfg80211_registered_device *rdev = wiphy_to_rdev(wiphy);
+
+	lockdep_assert_wiphy(wiphy);
+
+	if (wdev != rdev->background_radar_wdev)
+		return;
+
+	rdev_set_radar_background(rdev, NULL);
+	rdev->background_radar_wdev = NULL; /* Release offchain ownership */
+
+	__cfg80211_background_cac_event(rdev, wdev,
+					&rdev->background_radar_chandef,
+					NL80211_RADAR_CAC_ABORTED);
+}

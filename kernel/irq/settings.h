@@ -19,6 +19,7 @@ enum {
 	_IRQ_DISABLE_UNLAZY	= IRQ_DISABLE_UNLAZY,
 	_IRQ_HIDDEN		= IRQ_HIDDEN,
 	_IRQ_NO_DEBUG		= IRQ_NO_DEBUG,
+	_IRQ_RAW		= IRQ_RAW,
 	_IRQF_MODIFY_MASK	= IRQF_MODIFY_MASK,
 };
 
@@ -35,6 +36,7 @@ enum {
 #define IRQ_DISABLE_UNLAZY	GOT_YOU_MORON
 #define IRQ_HIDDEN		GOT_YOU_MORON
 #define IRQ_NO_DEBUG		GOT_YOU_MORON
+#define IRQ_RAW			GOT_YOU_MORON
 #undef IRQF_MODIFY_MASK
 #define IRQF_MODIFY_MASK	GOT_YOU_MORON
 
@@ -185,4 +187,17 @@ static inline void irq_settings_set_no_debug(struct irq_desc *desc)
 static inline bool irq_settings_no_debug(struct irq_desc *desc)
 {
 	return desc->status_use_accessors & _IRQ_NO_DEBUG;
+}
+
+static inline bool irq_settings_is_raw(struct irq_desc *desc)
+{
+	if (IS_ENABLED(CONFIG_ARCH_WANTS_IRQ_RAW))
+		return desc->status_use_accessors & _IRQ_RAW;
+
+	/*
+	 * Using IRQ_RAW on architectures that don't expect it is
+	 * likely to be wrong.
+	 */
+	WARN_ON_ONCE(1);
+	return false;
 }

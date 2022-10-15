@@ -1,0 +1,3 @@
+mm/zsmalloc.ko
+crypto/fips140.ko
+drivers/block/zram/zram.ko

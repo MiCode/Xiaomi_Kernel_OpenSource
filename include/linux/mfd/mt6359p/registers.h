@@ -1,21 +1,357 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2021 MediaTek Inc.
+ * Copyright (c) 2020 MediaTek Inc.
  */
 
 #ifndef __MFD_MT6359P_REGISTERS_H__
 #define __MFD_MT6359P_REGISTERS_H__
 
-#define MT6359P_CHIP_VER 0x5930
-
 /* PMIC Registers */
-#define MT6359P_HWCID                         0x8
+#define MT6359P_SWCID                         0xa
 #define MT6359P_TOP_TRAP                      0x50
+#define MT6359P_TOP_CKPDN_CON0                0x10c
+#define MT6359P_TOP_CKHWEN_CON0               0x12a
+#define MT6359P_TOP_RST_MISC                  0x14a
+#define MT6359P_MISC_TOP_INT_CON0             0x188
+#define MT6359P_MISC_TOP_INT_STATUS0          0x194
+#define MT6359P_TOP_INT_STATUS0               0x19e
+#define MT6359P_OTP_CON0                      0x38a
 #define MT6359P_TOP_TMA_KEY                   0x3a8
+#define MT6359P_SCK_TOP_CKPDN_CON0            0x514
+#define MT6359P_SCK_TOP_INT_CON0              0x528
+#define MT6359P_SCK_TOP_INT_STATUS0           0x534
+#define MT6359P_EOSC_CALI_CON0                0x53a
+#define MT6359P_EOSC_CALI_CON1                0x53c
+#define MT6359P_RTC_MIX_CON0                  0x53e
+#define MT6359P_RTC_MIX_CON1                  0x540
+#define MT6359P_RTC_MIX_CON2                  0x542
+#define MT6359P_RTC_DSN_ID                    0x580
+#define MT6359P_RTC_DSN_REV0                  0x582
+#define MT6359P_RTC_DBI                       0x584
+#define MT6359P_RTC_DXI                       0x586
+#define MT6359P_RTC_BBPU                      0x588
+#define MT6359P_RTC_IRQ_STA                   0x58a
+#define MT6359P_RTC_IRQ_EN                    0x58c
+#define MT6359P_RTC_CII_EN                    0x58e
+#define MT6359P_RTC_AL_MASK                   0x590
+#define MT6359P_RTC_TC_SEC                    0x592
+#define MT6359P_RTC_TC_MIN                    0x594
+#define MT6359P_RTC_TC_HOU                    0x596
+#define MT6359P_RTC_TC_DOM                    0x598
+#define MT6359P_RTC_TC_DOW                    0x59a
+#define MT6359P_RTC_TC_MTH                    0x59c
+#define MT6359P_RTC_TC_YEA                    0x59e
+#define MT6359P_RTC_AL_SEC                    0x5a0
+#define MT6359P_RTC_AL_MIN                    0x5a2
+#define MT6359P_RTC_AL_HOU                    0x5a4
+#define MT6359P_RTC_AL_DOM                    0x5a6
+#define MT6359P_RTC_AL_DOW                    0x5a8
+#define MT6359P_RTC_AL_MTH                    0x5aa
+#define MT6359P_RTC_AL_YEA                    0x5ac
+#define MT6359P_RTC_OSC32CON                  0x5ae
+#define MT6359P_RTC_POWERKEY1                 0x5b0
+#define MT6359P_RTC_POWERKEY2                 0x5b2
+#define MT6359P_RTC_PDN1                      0x5b4
+#define MT6359P_RTC_PDN2                      0x5b6
+#define MT6359P_RTC_SPAR0                     0x5b8
+#define MT6359P_RTC_SPAR1                     0x5ba
+#define MT6359P_RTC_PROT                      0x5bc
+#define MT6359P_RTC_DIFF                      0x5be
+#define MT6359P_RTC_CALI                      0x5c0
+#define MT6359P_RTC_WRTGR                     0x5c2
+#define MT6359P_RTC_CON                       0x5c4
+#define MT6359P_RTC_SEC_CTRL                  0x5c6
+#define MT6359P_RTC_INT_CNT                   0x5c8
+#define MT6359P_RTC_SEC_DAT0                  0x5ca
+#define MT6359P_RTC_SEC_DAT1                  0x5cc
+#define MT6359P_RTC_SEC_DAT2                  0x5ce
+#define MT6359P_RTC_SEC_DSN_ID                0x600
+#define MT6359P_RTC_SEC_DSN_REV0              0x602
+#define MT6359P_RTC_SEC_DBI                   0x604
+#define MT6359P_RTC_SEC_DXI                   0x606
+#define MT6359P_RTC_TC_SEC_SEC                0x608
+#define MT6359P_RTC_TC_MIN_SEC                0x60a
+#define MT6359P_RTC_TC_HOU_SEC                0x60c
+#define MT6359P_RTC_TC_DOM_SEC                0x60e
+#define MT6359P_RTC_TC_DOW_SEC                0x610
+#define MT6359P_RTC_TC_MTH_SEC                0x612
+#define MT6359P_RTC_TC_YEA_SEC                0x614
+#define MT6359P_RTC_SEC_CK_PDN                0x616
+#define MT6359P_RTC_SEC_WRTGR                 0x618
+#define MT6359P_PSC_TOP_INT_CON0              0x910
+#define MT6359P_PSC_TOP_INT_STATUS0           0x91c
+#define MT6359P_CHR_CON0                      0xa88
+#define MT6359P_PCHR_VREF_ANA_CON1            0xa92
+#define MT6359P_BM_TOP_INT_CON0               0xc32
+#define MT6359P_BM_TOP_INT_CON1               0xc38
+#define MT6359P_BM_TOP_INT_STATUS0            0xc4a
+#define MT6359P_BM_TOP_INT_STATUS1            0xc4c
+#define MT6359P_FGADC_R_CON0                  0xd88
+#define MT6359P_FGADC_CON1                    0xd0a
+#define MT6359P_FGADC_CUR_CON1                0xd8c
+#define MT6359P_FGADC_CUR_CON2                0xd8e
+#define MT6359P_HK_TOP_ID		      0xf80
+#define MT6359P_HK_TOP_REV0                   0xf82
+#define MT6359P_HK_TOP_DBI                    0xf84
+#define MT6359P_HK_TOP_DXI                    0xf86
+#define MT6359P_HK_TPM0                       0xf88
+#define MT6359P_HK_TPM1                       0xf8a
+#define MT6359P_HK_TOP_CLK_CON0               0xf8c
+#define MT6359P_HK_TOP_CLK_CON1               0xf8e
+#define MT6359P_HK_TOP_RST_CON0               0xf90
+#define MT6359P_HK_TOP_INT_CON0               0xf92
+#define MT6359P_HK_TOP_INT_CON0_SET           0xf94
+#define MT6359P_HK_TOP_INT_CON0_CLR           0xf96
+#define MT6359P_HK_TOP_INT_MASK_CON0          0xf98
+#define MT6359P_HK_TOP_INT_MASK_CON0_SET      0xf9a
+#define MT6359P_HK_TOP_INT_MASK_CON0_CLR      0xf9c
+#define MT6359P_HK_TOP_INT_STATUS0            0xf9e
+#define MT6359P_HK_TOP_INT_RAW_STATUS0        0xfa0
+#define MT6359P_HK_TOP_MON_CON0               0xfa2
+#define MT6359P_HK_TOP_MON_CON1               0xfa4
+#define MT6359P_HK_TOP_MON_CON2               0xfa6
+#define MT6359P_HK_TOP_CHR_CON                0xfa8
+#define MT6359P_HK_TOP_ANA_CON                0xfaa
+#define MT6359P_HK_TOP_AUXADC_ANA             0xfac
+#define MT6359P_HK_TOP_STRUP                  0xfae
+#define MT6359P_HK_TOP_LDO_CON                0xfb0
+#define MT6359P_HK_TOP_LDO_STATUS             0xfb2
+#define MT6359P_HK_TOP_WKEY                   0xfb4
+#define MT6359P_AUXADC_DSN_ID                 0x1000
+#define MT6359P_AUXADC_DSN_REV0               0x1002
+#define MT6359P_AUXADC_DSN_DBI                0x1004
+#define MT6359P_AUXADC_DSN_FPI                0x1006
+#define MT6359P_AUXADC_ANA_CON0               0x1008
+#define MT6359P_AUXADC_ANA_CON1               0x100a
+#define MT6359P_AUXADC_ELR_NUM                0x100c
+#define MT6359P_AUXADC_ELR_0                  0x100e
+#define MT6359P_AUXADC_DIG_1_DSN_ID           0x1080
+#define MT6359P_AUXADC_DIG_1_DSN_REV0         0x1082
+#define MT6359P_AUXADC_DIG_1_DSN_DBI          0x1084
+#define MT6359P_AUXADC_DIG_1_DSN_DXI          0x1086
+#define MT6359P_AUXADC_ADC0                   0x1088
+#define MT6359P_AUXADC_ADC1                   0x108a
+#define MT6359P_AUXADC_ADC2                   0x108c
+#define MT6359P_AUXADC_ADC3                   0x108e
+#define MT6359P_AUXADC_ADC4                   0x1090
+#define MT6359P_AUXADC_ADC5                   0x1092
+#define MT6359P_AUXADC_ADC6                   0x1094
+#define MT6359P_AUXADC_ADC7                   0x1096
+#define MT6359P_AUXADC_ADC8                   0x1098
+#define MT6359P_AUXADC_ADC9                   0x109a
+#define MT6359P_AUXADC_ADC10                  0x109c
+#define MT6359P_AUXADC_ADC11                  0x109e
+#define MT6359P_AUXADC_ADC12                  0x10a0
+#define MT6359P_AUXADC_ADC15                  0x10a2
+#define MT6359P_AUXADC_ADC16                  0x10a4
+#define MT6359P_AUXADC_ADC17                  0x10a6
+#define MT6359P_AUXADC_ADC18                  0x10a8
+#define MT6359P_AUXADC_ADC19                  0x10aa
+#define MT6359P_AUXADC_ADC20                  0x10ac
+#define MT6359P_AUXADC_ADC21                  0x10ae
+#define MT6359P_AUXADC_ADC22                  0x10b0
+#define MT6359P_AUXADC_ADC23                  0x10b2
+#define MT6359P_AUXADC_ADC24                  0x10b4
+#define MT6359P_AUXADC_ADC26                  0x10b6
+#define MT6359P_AUXADC_ADC27                  0x10b8
+#define MT6359P_AUXADC_ADC30                  0x10ba
+#define MT6359P_AUXADC_ADC32                  0x10bc
+#define MT6359P_AUXADC_ADC33                  0x10be
+#define MT6359P_AUXADC_ADC34                  0x10c0
+#define MT6359P_AUXADC_ADC37                  0x10c2
+#define MT6359P_AUXADC_ADC38                  0x10c4
+#define MT6359P_AUXADC_ADC39                  0x10c6
+#define MT6359P_AUXADC_ADC40                  0x10c8
+#define MT6359P_AUXADC_STA0                   0x10ca
+#define MT6359P_AUXADC_STA1                   0x10cc
+#define MT6359P_AUXADC_STA2                   0x10ce
+#define MT6359P_AUXADC_DIG_2_DSN_ID           0x1100
+#define MT6359P_AUXADC_DIG_2_DSN_REV0         0x1102
+#define MT6359P_AUXADC_DIG_2_DSN_DBI          0x1104
+#define MT6359P_AUXADC_DIG_2_DSN_DXI          0x1106
+#define MT6359P_AUXADC_RQST0                  0x1108
+#define MT6359P_AUXADC_RQST1                  0x110a
+#define MT6359P_AUXADC_DIG_3_DSN_ID           0x1180
+#define MT6359P_AUXADC_DIG_3_DSN_REV0         0x1182
+#define MT6359P_AUXADC_DIG_3_DSN_DBI          0x1184
+#define MT6359P_AUXADC_DIG_3_DSN_DXI          0x1186
+#define MT6359P_AUXADC_CON0                   0x1188
+#define MT6359P_AUXADC_CON0_SET               0x118a
+#define MT6359P_AUXADC_CON0_CLR               0x118c
+#define MT6359P_AUXADC_CON1                   0x118e
+#define MT6359P_AUXADC_CON2                   0x1190
+#define MT6359P_AUXADC_CON3                   0x1192
+#define MT6359P_AUXADC_CON4                   0x1194
+#define MT6359P_AUXADC_CON5                   0x1196
+#define MT6359P_AUXADC_CON6                   0x1198
+#define MT6359P_AUXADC_CON7                   0x119a
+#define MT6359P_AUXADC_CON8                   0x119c
+#define MT6359P_AUXADC_CON9                   0x119e
+#define MT6359P_AUXADC_CON10                  0x11a0
+#define MT6359P_AUXADC_CON11                  0x11a2
+#define MT6359P_AUXADC_CON12                  0x11a4
+#define MT6359P_AUXADC_CON13                  0x11a6
+#define MT6359P_AUXADC_CON14                  0x11a8
+#define MT6359P_AUXADC_CON15                  0x11aa
+#define MT6359P_AUXADC_CON16                  0x11ac
+#define MT6359P_AUXADC_CON17                  0x11ae
+#define MT6359P_AUXADC_CON18                  0x11b0
+#define MT6359P_AUXADC_CON19                  0x11b2
+#define MT6359P_AUXADC_CON20                  0x11b4
+#define MT6359P_AUXADC_CON21                  0x11b6
+#define MT6359P_AUXADC_AUTORPT0               0x11b8
+#define MT6359P_AUXADC_ACCDET                 0x11ba
+#define MT6359P_AUXADC_DBG0                   0x11bc
+#define MT6359P_AUXADC_NAG_0                  0x11be
+#define MT6359P_AUXADC_NAG_1                  0x11c0
+#define MT6359P_AUXADC_NAG_2                  0x11c2
+#define MT6359P_AUXADC_NAG_3                  0x11c4
+#define MT6359P_AUXADC_NAG_4                  0x11c6
+#define MT6359P_AUXADC_NAG_5                  0x11c8
+#define MT6359P_AUXADC_NAG_6                  0x11ca
+#define MT6359P_AUXADC_NAG_7                  0x11cc
+#define MT6359P_AUXADC_NAG_8                  0x11ce
+#define MT6359P_AUXADC_NAG_9                  0x11d0
+#define MT6359P_AUXADC_NAG_10                 0x11d2
+#define MT6359P_AUXADC_NAG_11                 0x11d4
+#define MT6359P_AUXADC_DIG_3_ELR_NUM          0x11d6
+#define MT6359P_AUXADC_DIG_3_ELR0             0x11d8
+#define MT6359P_AUXADC_DIG_3_ELR1             0x11da
+#define MT6359P_AUXADC_DIG_3_ELR2             0x11dc
+#define MT6359P_AUXADC_DIG_3_ELR3             0x11de
+#define MT6359P_AUXADC_DIG_3_ELR4             0x11e0
+#define MT6359P_AUXADC_DIG_3_ELR5             0x11e2
+#define MT6359P_AUXADC_DIG_3_ELR6             0x11e4
+#define MT6359P_AUXADC_DIG_3_ELR7             0x11e6
+#define MT6359P_AUXADC_DIG_3_ELR8             0x11e8
+#define MT6359P_AUXADC_DIG_3_ELR9             0x11ea
+#define MT6359P_AUXADC_DIG_3_ELR10            0x11ec
+#define MT6359P_AUXADC_DIG_3_ELR11            0x11ee
+#define MT6359P_AUXADC_DIG_3_ELR12            0x11f0
+#define MT6359P_AUXADC_DIG_3_ELR13            0x11f2
+#define MT6359P_AUXADC_DIG_3_ELR14            0x11f4
+#define MT6359P_AUXADC_DIG_3_ELR15            0x11f6
+#define MT6359P_AUXADC_DIG_3_ELR16            0x11f8
+#define MT6359P_AUXADC_DIG_4_DSN_ID           0x1200
+#define MT6359P_AUXADC_DIG_4_DSN_REV0         0x1202
+#define MT6359P_AUXADC_DIG_4_DSN_DBI          0x1204
+#define MT6359P_AUXADC_DIG_4_DSN_DXI          0x1206
+#define MT6359P_AUXADC_IMP0                   0x1208
+#define MT6359P_AUXADC_IMP1                   0x120a
+#define MT6359P_AUXADC_IMP2                   0x120c
+#define MT6359P_AUXADC_IMP3                   0x120e
+#define MT6359P_AUXADC_IMP4                   0x1210
+#define MT6359P_AUXADC_IMP5                   0x1212
+#define MT6359P_AUXADC_LBAT0                  0x1214
+#define MT6359P_AUXADC_LBAT1                  0x1216
+#define MT6359P_AUXADC_LBAT2                  0x1218
+#define MT6359P_AUXADC_LBAT3                  0x121a
+#define MT6359P_AUXADC_LBAT4                  0x121c
+#define MT6359P_AUXADC_LBAT5                  0x121e
+#define MT6359P_AUXADC_LBAT6                  0x1220
+#define MT6359P_AUXADC_LBAT7                  0x1222
+#define MT6359P_AUXADC_LBAT8                  0x1224
+#define MT6359P_AUXADC_BAT_TEMP_0             0x1226
+#define MT6359P_AUXADC_BAT_TEMP_1             0x1228
+#define MT6359P_AUXADC_BAT_TEMP_2             0x122a
+#define MT6359P_AUXADC_BAT_TEMP_3             0x122c
+#define MT6359P_AUXADC_BAT_TEMP_4             0x122e
+#define MT6359P_AUXADC_BAT_TEMP_5             0x1230
+#define MT6359P_AUXADC_BAT_TEMP_6             0x1232
+#define MT6359P_AUXADC_BAT_TEMP_7             0x1234
+#define MT6359P_AUXADC_BAT_TEMP_8             0x1236
+#define MT6359P_AUXADC_BAT_TEMP_9             0x1238
+#define MT6359P_AUXADC_LBAT2_0                0x123a
+#define MT6359P_AUXADC_LBAT2_1                0x123c
+#define MT6359P_AUXADC_LBAT2_2                0x123e
+#define MT6359P_AUXADC_LBAT2_3                0x1240
+#define MT6359P_AUXADC_LBAT2_4                0x1242
+#define MT6359P_AUXADC_LBAT2_5                0x1244
+#define MT6359P_AUXADC_LBAT2_6                0x1246
+#define MT6359P_AUXADC_LBAT2_7                0x1248
+#define MT6359P_AUXADC_LBAT2_8                0x124a
+#define MT6359P_AUXADC_THR0                   0x124c
+#define MT6359P_AUXADC_THR1                   0x124e
+#define MT6359P_AUXADC_THR2                   0x1250
+#define MT6359P_AUXADC_THR3                   0x1252
+#define MT6359P_AUXADC_THR4                   0x1254
+#define MT6359P_AUXADC_THR5                   0x1256
+#define MT6359P_AUXADC_THR6                   0x1258
+#define MT6359P_AUXADC_THR7                   0x125a
+#define MT6359P_AUXADC_THR8                   0x125c
+#define MT6359P_AUXADC_MDRT_0                 0x125e
+#define MT6359P_AUXADC_MDRT_1                 0x1260
+#define MT6359P_AUXADC_MDRT_2                 0x1262
+#define MT6359P_AUXADC_MDRT_3                 0x1264
+#define MT6359P_AUXADC_MDRT_4                 0x1266
+#define MT6359P_AUXADC_MDRT_5                 0x1268
+#define MT6359P_AUXADC_DCXO_MDRT_1            0x126a
+#define MT6359P_AUXADC_DCXO_MDRT_2            0x126c
+#define MT6359P_AUXADC_DCXO_MDRT_3            0x126e
+#define MT6359P_AUXADC_DCXO_MDRT_4            0x1270
+#define MT6359P_AUXADC_RSV_1                  0x1272
+#define MT6359P_AUXADC_PRI_NEW                0x1274
+#define MT6359P_AUXADC_SPL_LIST_0             0x1276
+#define MT6359P_AUXADC_SPL_LIST_1             0x1278
+#define MT6359P_AUXADC_SPL_LIST_2             0x127a
+#define MT6359P_BUCK_TOP_INT_CON0             0x1418
+#define MT6359P_BUCK_TOP_INT_STATUS0          0x1424
+#define MT6359P_BUCK_VPU_CON0                 0x1488
+#define MT6359P_BUCK_VPU_DBG0                 0x14a6
+#define MT6359P_BUCK_VPU_DBG1                 0x14a8
+#define MT6359P_BUCK_VPU_ELR0                 0x14ac
+#define MT6359P_BUCK_VCORE_CON0               0x1508
+#define MT6359P_BUCK_VCORE_DBG0               0x1526
+#define MT6359P_BUCK_VCORE_DBG1               0x1528
 #define MT6359P_BUCK_VCORE_ELR_NUM            0x152a
 #define MT6359P_BUCK_VCORE_ELR0               0x152c
+#define MT6359P_BUCK_VGPU11_CON0              0x1588
+#define MT6359P_BUCK_VGPU11_DBG0              0x15a6
+#define MT6359P_BUCK_VGPU11_DBG1              0x15a8
 #define MT6359P_BUCK_VGPU11_SSHUB_CON0        0x15aa
 #define MT6359P_BUCK_VGPU11_ELR0              0x15b4
+#define MT6359P_BUCK_VGPU12_CON0              0x1608
+#define MT6359P_BUCK_VGPU12_DBG0              0x1626
+#define MT6359P_BUCK_VGPU12_DBG1              0x1628
+#define MT6359P_BUCK_VMODEM_CON0              0x1688
+#define MT6359P_BUCK_VMODEM_DBG0              0x16a6
+#define MT6359P_BUCK_VMODEM_DBG1              0x16a8
+#define MT6359P_BUCK_VMODEM_ELR0              0x16ae
+#define MT6359P_BUCK_VPROC1_CON0              0x1708
+#define MT6359P_BUCK_VPROC1_DBG0              0x1726
+#define MT6359P_BUCK_VPROC1_DBG1              0x1728
+#define MT6359P_BUCK_VPROC1_ELR0              0x172e
+#define MT6359P_BUCK_VPROC2_CON0              0x1788
+#define MT6359P_BUCK_VPROC2_DBG0              0x17a6
+#define MT6359P_BUCK_VPROC2_DBG1              0x17a8
+#define MT6359P_BUCK_VPROC2_ELR0              0x17b2
+#define MT6359P_BUCK_VS1_CON0                 0x1808
+#define MT6359P_BUCK_VS1_DBG0                 0x1826
+#define MT6359P_BUCK_VS1_DBG1                 0x1828
+#define MT6359P_BUCK_VS1_ELR0                 0x1834
+#define MT6359P_BUCK_VS2_CON0                 0x1888
+#define MT6359P_BUCK_VS2_DBG0                 0x18a6
+#define MT6359P_BUCK_VS2_DBG1                 0x18a8
+#define MT6359P_BUCK_VS2_ELR0                 0x18b4
+#define MT6359P_BUCK_VPA_CON0                 0x1908
+#define MT6359P_BUCK_VPA_CON1                 0x190e
+#define MT6359P_BUCK_VPA_CFG0                 0x1910
+#define MT6359P_BUCK_VPA_CFG1                 0x1912
+#define MT6359P_BUCK_VPA_DBG0                 0x1914
+#define MT6359P_BUCK_VPA_DBG1                 0x1916
+#define MT6359P_VGPUVCORE_ANA_CON2            0x198e
+#define MT6359P_VGPUVCORE_ANA_CON13           0x19a4
+#define MT6359P_VPROC1_ANA_CON3               0x19b2
+#define MT6359P_VPROC2_ANA_CON3               0x1a0e
+#define MT6359P_VMODEM_ANA_CON3               0x1a1a
+#define MT6359P_VPU_ANA_CON3                  0x1a26
+#define MT6359P_VS1_ANA_CON0                  0x1a2c
+#define MT6359P_VS2_ANA_CON0                  0x1a34
+#define MT6359P_VPA_ANA_CON0                  0x1a3c
+#define MT6359P_LDO_TOP_INT_CON0              0x1b14
+#define MT6359P_LDO_TOP_INT_CON1              0x1b1a
+#define MT6359P_LDO_TOP_INT_STATUS0           0x1b28
+#define MT6359P_LDO_TOP_INT_STATUS1           0x1b2a
 #define MT6359P_LDO_VSRAM_PROC1_ELR           0x1b44
 #define MT6359P_LDO_VSRAM_PROC2_ELR           0x1b46
 #define MT6359P_LDO_VSRAM_OTHERS_ELR          0x1b48
@@ -116,23 +452,155 @@
 #define MT6359P_VXO22_ANA_CON0                0x2088
 #define MT6359P_VRFCK_ANA_CON0                0x208c
 #define MT6359P_VBBCK_ANA_CON0                0x2096
+#define MT6359P_ISINK0_CON1		      0x210a
+#define MT6359P_ISINK1_CON1		      0x210c
+#define MT6359P_ISINK_EN_CTRL_SMPL	      0x2110
+#define MT6359P_AUD_TOP_INT_CON0              0x2328
+#define MT6359P_AUD_TOP_INT_STATUS0           0x2334
 
+#define MT6359P_RGS_CHRDET_ADDR			 MT6359P_CHR_CON0
+#define MT6359P_RGS_CHRDET_MASK			 0x1
+#define MT6359P_RGS_CHRDET_SHIFT		 0
+#define MT6359P_RG_UVLO_VTHL_ADDR		 MT6359P_PCHR_VREF_ANA_CON1
+#define MT6359P_RG_UVLO_VTHL_MASK		 0x1F
+#define MT6359P_RG_UVLO_VTHL_SHIFT		 2
+#define MT6359P_RG_BUCK_VPU_EN_ADDR		 MT6359P_BUCK_VPU_CON0
+#define MT6359P_RG_BUCK_VPU_LP_ADDR		 MT6359P_BUCK_VPU_CON0
+#define MT6359P_RG_BUCK_VPU_LP_SHIFT             1
+#define MT6359P_DA_VPU_VOSEL_ADDR		 MT6359P_BUCK_VPU_DBG0
+#define MT6359P_DA_VPU_VOSEL_MASK                0x7F
+#define MT6359P_DA_VPU_VOSEL_SHIFT               0
+#define MT6359P_DA_VPU_EN_ADDR			 MT6359P_BUCK_VPU_DBG1
+#define MT6359P_RG_BUCK_VPU_VOSEL_ADDR		 MT6359P_BUCK_VPU_ELR0
+#define MT6359P_RG_BUCK_VPU_VOSEL_MASK           0x7F
+#define MT6359P_RG_BUCK_VPU_VOSEL_SHIFT          0
+#define MT6359P_RG_BUCK_VCORE_EN_ADDR		 MT6359P_BUCK_VCORE_CON0
+#define MT6359P_RG_BUCK_VCORE_LP_ADDR		 MT6359P_BUCK_VCORE_CON0
+#define MT6359P_RG_BUCK_VCORE_LP_SHIFT           1
+#define MT6359P_DA_VCORE_VOSEL_ADDR		 MT6359P_BUCK_VCORE_DBG0
+#define MT6359P_DA_VCORE_VOSEL_MASK              0x7F
+#define MT6359P_DA_VCORE_VOSEL_SHIFT             0
+#define MT6359P_DA_VCORE_EN_ADDR		 MT6359P_BUCK_VCORE_DBG1
 #define MT6359P_RG_BUCK_VCORE_VOSEL_ADDR         MT6359P_BUCK_VCORE_ELR0
+#define MT6359P_RG_BUCK_VCORE_VOSEL_MASK         0x7F
+#define MT6359P_RG_BUCK_VCORE_VOSEL_SHIFT        0
+#define MT6359P_RG_BUCK_VGPU11_EN_ADDR           MT6359P_BUCK_VGPU11_CON0
+#define MT6359P_RG_BUCK_VGPU11_LP_ADDR           MT6359P_BUCK_VGPU11_CON0
+#define MT6359P_RG_BUCK_VGPU11_LP_SHIFT          1
 #define MT6359P_RG_BUCK_VGPU11_SSHUB_EN_ADDR     MT6359P_BUCK_VGPU11_SSHUB_CON0
+#define MT6359P_DA_VGPU11_VOSEL_ADDR             MT6359P_BUCK_VGPU11_DBG0
+#define MT6359P_DA_VGPU11_VOSEL_MASK             0x7F
+#define MT6359P_DA_VGPU11_VOSEL_SHIFT            0
+#define MT6359P_DA_VGPU11_EN_ADDR                MT6359P_BUCK_VGPU11_DBG1
+#define MT6359P_RG_BUCK_VGPU12_EN_ADDR           MT6359P_BUCK_VGPU12_CON0
+#define MT6359P_RG_BUCK_VGPU12_LP_ADDR           MT6359P_BUCK_VGPU12_CON0
+#define MT6359P_RG_BUCK_VGPU12_LP_SHIFT          1
+#define MT6359P_DA_VGPU12_VOSEL_ADDR             MT6359P_BUCK_VGPU12_DBG0
+#define MT6359P_DA_VGPU12_VOSEL_MASK             0x7F
+#define MT6359P_DA_VGPU12_VOSEL_SHIFT            0
+#define MT6359P_DA_VGPU12_EN_ADDR                MT6359P_BUCK_VGPU12_DBG1
 #define MT6359P_RG_BUCK_VGPU11_VOSEL_ADDR        MT6359P_BUCK_VGPU11_ELR0
+#define MT6359P_RG_BUCK_VGPU11_VOSEL_MASK        0x7F
+#define MT6359P_RG_BUCK_VGPU11_VOSEL_SHIFT       0
 #define MT6359P_RG_BUCK_VGPU11_SSHUB_VOSEL_ADDR  MT6359P_BUCK_VGPU11_SSHUB_CON0
 #define MT6359P_RG_BUCK_VGPU11_SSHUB_VOSEL_MASK  0x7F
 #define MT6359P_RG_BUCK_VGPU11_SSHUB_VOSEL_SHIFT 4
-#define MT6359P_RG_LDO_VSRAM_PROC1_VOSEL_ADDR    MT6359P_LDO_VSRAM_PROC1_ELR
+#define MT6359P_RG_BUCK_VMODEM_EN_ADDR           MT6359P_BUCK_VMODEM_CON0
+#define MT6359P_RG_BUCK_VMODEM_LP_ADDR           MT6359P_BUCK_VMODEM_CON0
+#define MT6359P_RG_BUCK_VMODEM_LP_SHIFT          1
+#define MT6359P_DA_VMODEM_VOSEL_ADDR             MT6359P_BUCK_VMODEM_DBG0
+#define MT6359P_DA_VMODEM_VOSEL_MASK             0x7F
+#define MT6359P_DA_VMODEM_VOSEL_SHIFT            0
+#define MT6359P_DA_VMODEM_EN_ADDR                MT6359P_BUCK_VMODEM_DBG1
+#define MT6359P_RG_BUCK_VMODEM_VOSEL_ADDR        MT6359P_BUCK_VMODEM_ELR0
+#define MT6359P_RG_BUCK_VMODEM_VOSEL_MASK        0x7F
+#define MT6359P_RG_BUCK_VMODEM_VOSEL_SHIFT       0
+#define MT6359P_RG_BUCK_VPROC1_EN_ADDR           MT6359P_BUCK_VPROC1_CON0
+#define MT6359P_RG_BUCK_VPROC1_LP_ADDR           MT6359P_BUCK_VPROC1_CON0
+#define MT6359P_RG_BUCK_VPROC1_LP_SHIFT          1
+#define MT6359P_DA_VPROC1_VOSEL_ADDR             MT6359P_BUCK_VPROC1_DBG0
+#define MT6359P_DA_VPROC1_VOSEL_MASK             0x7F
+#define MT6359P_DA_VPROC1_VOSEL_SHIFT            0
+#define MT6359P_DA_VPROC1_EN_ADDR                MT6359P_BUCK_VPROC1_DBG1
+#define MT6359P_RG_BUCK_VPROC1_VOSEL_ADDR        MT6359P_BUCK_VPROC1_ELR0
+#define MT6359P_RG_BUCK_VPROC1_VOSEL_MASK        0x7F
+#define MT6359P_RG_BUCK_VPROC1_VOSEL_SHIFT       0
+#define MT6359P_RG_BUCK_VPROC2_EN_ADDR           MT6359P_BUCK_VPROC2_CON0
+#define MT6359P_RG_BUCK_VPROC2_LP_ADDR           MT6359P_BUCK_VPROC2_CON0
+#define MT6359P_RG_BUCK_VPROC2_LP_SHIFT          1
+#define MT6359P_DA_VPROC2_VOSEL_ADDR             MT6359P_BUCK_VPROC2_DBG0
+#define MT6359P_DA_VPROC2_VOSEL_MASK             0x7F
+#define MT6359P_DA_VPROC2_VOSEL_SHIFT            0
+#define MT6359P_DA_VPROC2_EN_ADDR                MT6359P_BUCK_VPROC2_DBG1
+#define MT6359P_RG_BUCK_VPROC2_VOSEL_ADDR        MT6359P_BUCK_VPROC2_ELR0
+#define MT6359P_RG_BUCK_VPROC2_VOSEL_MASK        0x7F
+#define MT6359P_RG_BUCK_VPROC2_VOSEL_SHIFT       0
+#define MT6359P_RG_BUCK_VS1_EN_ADDR              MT6359P_BUCK_VS1_CON0
+#define MT6359P_RG_BUCK_VS1_LP_ADDR              MT6359P_BUCK_VS1_CON0
+#define MT6359P_RG_BUCK_VS1_LP_SHIFT             1
+#define MT6359P_DA_VS1_VOSEL_ADDR                MT6359P_BUCK_VS1_DBG0
+#define MT6359P_DA_VS1_VOSEL_MASK                0x7F
+#define MT6359P_DA_VS1_VOSEL_SHIFT               0
+#define MT6359P_DA_VS1_EN_ADDR			 MT6359P_BUCK_VS1_DBG1
+#define MT6359P_RG_BUCK_VS1_VOSEL_ADDR           MT6359P_BUCK_VS1_ELR0
+#define MT6359P_RG_BUCK_VS1_VOSEL_MASK           0x7F
+#define MT6359P_RG_BUCK_VS1_VOSEL_SHIFT          0
+#define MT6359P_RG_BUCK_VS2_EN_ADDR              MT6359P_BUCK_VS2_CON0
+#define MT6359P_RG_BUCK_VS2_LP_ADDR              MT6359P_BUCK_VS2_CON0
+#define MT6359P_RG_BUCK_VS2_LP_SHIFT             1
+#define MT6359P_DA_VS2_VOSEL_ADDR		 MT6359P_BUCK_VS2_DBG0
+#define MT6359P_DA_VS2_VOSEL_MASK                0x7F
+#define MT6359P_DA_VS2_VOSEL_SHIFT               0
+#define MT6359P_DA_VS2_EN_ADDR			 MT6359P_BUCK_VS2_DBG1
+#define MT6359P_RG_BUCK_VS2_VOSEL_ADDR           MT6359P_BUCK_VS2_ELR0
+#define MT6359P_RG_BUCK_VS2_VOSEL_MASK           0x7F
+#define MT6359P_RG_BUCK_VS2_VOSEL_SHIFT          0
+#define MT6359P_RG_BUCK_VPA_EN_ADDR              MT6359P_BUCK_VPA_CON0
+#define MT6359P_RG_BUCK_VPA_LP_ADDR              MT6359P_BUCK_VPA_CON0
+#define MT6359P_RG_BUCK_VPA_LP_SHIFT             1
+#define MT6359P_RG_BUCK_VPA_VOSEL_ADDR           MT6359P_BUCK_VPA_CON1
+#define MT6359P_RG_BUCK_VPA_VOSEL_MASK           0x3F
+#define MT6359P_RG_BUCK_VPA_VOSEL_SHIFT          0
+#define MT6359P_DA_VPA_VOSEL_ADDR                MT6359P_BUCK_VPA_DBG0
+#define MT6359P_DA_VPA_VOSEL_MASK                0x3F
+#define MT6359P_DA_VPA_VOSEL_SHIFT               0
+#define MT6359P_DA_VPA_EN_ADDR                   MT6359P_BUCK_VPA_DBG1
+#define MT6359P_RG_VGPU11_FCCM_ADDR              MT6359P_VGPUVCORE_ANA_CON2
+#define MT6359P_RG_VGPU11_FCCM_SHIFT             9
+#define MT6359P_RG_VCORE_FCCM_ADDR		 MT6359P_VGPUVCORE_ANA_CON13
+#define MT6359P_RG_VCORE_FCCM_SHIFT              5
+#define MT6359P_RG_VPROC1_FCCM_ADDR		 MT6359P_VPROC1_ANA_CON3
+#define MT6359P_RG_VPROC1_FCCM_SHIFT             1
+#define MT6359P_RG_VPROC2_FCCM_ADDR              MT6359P_VPROC2_ANA_CON3
+#define MT6359P_RG_VPROC2_FCCM_SHIFT             1
+#define MT6359P_RG_VMODEM_FCCM_ADDR              MT6359P_VMODEM_ANA_CON3
+#define MT6359P_RG_VMODEM_FCCM_SHIFT             1
+#define MT6359P_RG_VPU_FCCM_ADDR                 MT6359P_VPU_ANA_CON3
+#define MT6359P_RG_VPU_FCCM_SHIFT                1
+#define MT6359P_RG_VS1_FPWM_ADDR                 MT6359P_VS1_ANA_CON0
+#define MT6359P_RG_VS1_FPWM_SHIFT                3
+#define MT6359P_RG_VS2_FPWM_ADDR			MT6359P_VS2_ANA_CON0
+#define MT6359P_RG_VS2_FPWM_SHIFT                3
+#define MT6359P_RG_VPA_MODESET_ADDR              MT6359P_VPA_ANA_CON0
+#define MT6359P_RG_VPA_MODESET_SHIFT             1
+#define MT6359P_RG_LDO_VSRAM_PROC1_VOSEL_ADDR	 MT6359P_LDO_VSRAM_PROC1_ELR
+#define MT6359P_RG_LDO_VSRAM_PROC1_VOSEL_MASK    0x7F
+#define MT6359P_RG_LDO_VSRAM_PROC1_VOSEL_SHIFT   0
 #define MT6359P_RG_LDO_VSRAM_PROC2_VOSEL_ADDR    MT6359P_LDO_VSRAM_PROC2_ELR
+#define MT6359P_RG_LDO_VSRAM_PROC2_VOSEL_MASK    0x7F
+#define MT6359P_RG_LDO_VSRAM_PROC2_VOSEL_SHIFT   0
 #define MT6359P_RG_LDO_VSRAM_OTHERS_VOSEL_ADDR   MT6359P_LDO_VSRAM_OTHERS_ELR
+#define MT6359P_RG_LDO_VSRAM_OTHERS_VOSEL_MASK   0x7F
+#define MT6359P_RG_LDO_VSRAM_OTHERS_VOSEL_SHIFT  0
 #define MT6359P_RG_LDO_VSRAM_MD_VOSEL_ADDR       MT6359P_LDO_VSRAM_MD_ELR
+#define MT6359P_RG_LDO_VSRAM_MD_VOSEL_MASK       0x7F
+#define MT6359P_RG_LDO_VSRAM_MD_VOSEL_SHIFT      0
 #define MT6359P_RG_LDO_VEMC_VOSEL_0_ADDR         MT6359P_LDO_VEMC_ELR_0
 #define MT6359P_RG_LDO_VEMC_VOSEL_0_MASK         0xF
 #define MT6359P_RG_LDO_VEMC_VOSEL_0_SHIFT        0
 #define MT6359P_RG_LDO_VFE28_EN_ADDR             MT6359P_LDO_VFE28_CON0
 #define MT6359P_DA_VFE28_B_EN_ADDR               MT6359P_LDO_VFE28_MON
-#define MT6359P_RG_LDO_VXO22_EN_ADDR             MT6359P_LDO_VXO22_CON0
+#define MT6359P_RG_LDO_VXO22_EN_ADDR		 MT6359P_LDO_VXO22_CON0
 #define MT6359P_RG_LDO_VXO22_EN_SHIFT            0
 #define MT6359P_DA_VXO22_B_EN_ADDR               MT6359P_LDO_VXO22_MON
 #define MT6359P_RG_LDO_VRF18_EN_ADDR             MT6359P_LDO_VRF18_CON0
@@ -145,27 +613,31 @@
 #define MT6359P_RG_LDO_VEFUSE_EN_SHIFT           0
 #define MT6359P_DA_VEFUSE_B_EN_ADDR              MT6359P_LDO_VEFUSE_MON
 #define MT6359P_RG_LDO_VCN33_1_EN_0_ADDR         MT6359P_LDO_VCN33_1_CON0
+#define MT6359P_RG_LDO_VCN33_1_EN_0_MASK         0x1
+#define MT6359P_RG_LDO_VCN33_1_EN_0_SHIFT        0
 #define MT6359P_DA_VCN33_1_B_EN_ADDR             MT6359P_LDO_VCN33_1_MON
 #define MT6359P_RG_LDO_VCN33_1_EN_1_ADDR         MT6359P_LDO_VCN33_1_MULTI_SW
 #define MT6359P_RG_LDO_VCN33_1_EN_1_SHIFT        15
-#define MT6359P_RG_LDO_VCN33_2_EN_0_ADDR         MT6359P_LDO_VCN33_2_CON0
+#define MT6359P_RG_LDO_VCN33_2_EN_0_ADDR		MT6359P_LDO_VCN33_2_CON0
 #define MT6359P_RG_LDO_VCN33_2_EN_0_SHIFT        0
 #define MT6359P_DA_VCN33_2_B_EN_ADDR             MT6359P_LDO_VCN33_2_MON
 #define MT6359P_RG_LDO_VCN33_2_EN_1_ADDR         MT6359P_LDO_VCN33_2_MULTI_SW
+#define MT6359P_RG_LDO_VCN33_2_EN_1_MASK         0x1
+#define MT6359P_RG_LDO_VCN33_2_EN_1_SHIFT        15
 #define MT6359P_RG_LDO_VCN13_EN_ADDR             MT6359P_LDO_VCN13_CON0
 #define MT6359P_RG_LDO_VCN13_EN_SHIFT            0
 #define MT6359P_DA_VCN13_B_EN_ADDR               MT6359P_LDO_VCN13_MON
 #define MT6359P_RG_LDO_VCN18_EN_ADDR             MT6359P_LDO_VCN18_CON0
 #define MT6359P_DA_VCN18_B_EN_ADDR               MT6359P_LDO_VCN18_MON
-#define MT6359P_RG_LDO_VA09_EN_ADDR              MT6359P_LDO_VA09_CON0
+#define MT6359P_RG_LDO_VA09_EN_ADDR		 MT6359P_LDO_VA09_CON0
 #define MT6359P_RG_LDO_VA09_EN_SHIFT             0
 #define MT6359P_DA_VA09_B_EN_ADDR                MT6359P_LDO_VA09_MON
-#define MT6359P_RG_LDO_VCAMIO_EN_ADDR            MT6359P_LDO_VCAMIO_CON0
+#define MT6359P_RG_LDO_VCAMIO_EN_ADDR		 MT6359P_LDO_VCAMIO_CON0
 #define MT6359P_RG_LDO_VCAMIO_EN_SHIFT           0
 #define MT6359P_DA_VCAMIO_B_EN_ADDR              MT6359P_LDO_VCAMIO_MON
 #define MT6359P_RG_LDO_VA12_EN_ADDR              MT6359P_LDO_VA12_CON0
 #define MT6359P_RG_LDO_VA12_EN_SHIFT             0
-#define MT6359P_DA_VA12_B_EN_ADDR                MT6359P_LDO_VA12_MON
+#define MT6359P_DA_VA12_B_EN_ADDR		 MT6359P_LDO_VA12_MON
 #define MT6359P_RG_LDO_VAUX18_EN_ADDR            MT6359P_LDO_VAUX18_CON0
 #define MT6359P_DA_VAUX18_B_EN_ADDR              MT6359P_LDO_VAUX18_MON
 #define MT6359P_RG_LDO_VAUD18_EN_ADDR            MT6359P_LDO_VAUD18_CON0
@@ -179,12 +651,16 @@
 #define MT6359P_RG_LDO_VSIM1_EN_ADDR             MT6359P_LDO_VSIM1_CON0
 #define MT6359P_RG_LDO_VSIM1_EN_SHIFT            0
 #define MT6359P_DA_VSIM1_B_EN_ADDR               MT6359P_LDO_VSIM1_MON
-#define MT6359P_RG_LDO_VSIM2_EN_ADDR             MT6359P_LDO_VSIM2_CON0
+#define MT6359P_RG_LDO_VSIM2_EN_ADDR		 MT6359P_LDO_VSIM2_CON0
 #define MT6359P_RG_LDO_VSIM2_EN_SHIFT            0
 #define MT6359P_DA_VSIM2_B_EN_ADDR               MT6359P_LDO_VSIM2_MON
 #define MT6359P_RG_LDO_VUSB_EN_0_ADDR            MT6359P_LDO_VUSB_CON0
+#define MT6359P_RG_LDO_VUSB_EN_0_MASK            0x1
+#define MT6359P_RG_LDO_VUSB_EN_0_SHIFT           0
 #define MT6359P_DA_VUSB_B_EN_ADDR                MT6359P_LDO_VUSB_MON
 #define MT6359P_RG_LDO_VUSB_EN_1_ADDR            MT6359P_LDO_VUSB_MULTI_SW
+#define MT6359P_RG_LDO_VUSB_EN_1_MASK            0x1
+#define MT6359P_RG_LDO_VUSB_EN_1_SHIFT           15
 #define MT6359P_RG_LDO_VRFCK_EN_ADDR             MT6359P_LDO_VRFCK_CON0
 #define MT6359P_RG_LDO_VRFCK_EN_SHIFT            0
 #define MT6359P_DA_VRFCK_B_EN_ADDR               MT6359P_LDO_VRFCK_MON
@@ -199,50 +675,418 @@
 #define MT6359P_RG_LDO_VIO28_EN_ADDR             MT6359P_LDO_VIO28_CON0
 #define MT6359P_RG_LDO_VIO28_EN_SHIFT            0
 #define MT6359P_DA_VIO28_B_EN_ADDR               MT6359P_LDO_VIO28_MON
-#define MT6359P_RG_LDO_VM18_EN_ADDR              MT6359P_LDO_VM18_CON0
+#define MT6359P_RG_LDO_VM18_EN_ADDR		 MT6359P_LDO_VM18_CON0
 #define MT6359P_RG_LDO_VM18_EN_SHIFT             0
 #define MT6359P_DA_VM18_B_EN_ADDR                MT6359P_LDO_VM18_MON
 #define MT6359P_RG_LDO_VUFS_EN_ADDR              MT6359P_LDO_VUFS_CON0
-#define MT6359P_RG_LDO_VUFS_EN_SHIFT             0
+#define MT6359P_RG_LDO_VUFS_EN_SHIFT		 0
 #define MT6359P_DA_VUFS_B_EN_ADDR                MT6359P_LDO_VUFS_MON
 #define MT6359P_RG_LDO_VSRAM_PROC1_EN_ADDR       MT6359P_LDO_VSRAM_PROC1_CON0
 #define MT6359P_DA_VSRAM_PROC1_B_EN_ADDR         MT6359P_LDO_VSRAM_PROC1_MON
 #define MT6359P_DA_VSRAM_PROC1_VOSEL_ADDR        MT6359P_LDO_VSRAM_PROC1_VOSEL1
+#define MT6359P_DA_VSRAM_PROC1_VOSEL_MASK        0x7F
+#define MT6359P_DA_VSRAM_PROC1_VOSEL_SHIFT       8
 #define MT6359P_RG_LDO_VSRAM_PROC2_EN_ADDR       MT6359P_LDO_VSRAM_PROC2_CON0
 #define MT6359P_DA_VSRAM_PROC2_B_EN_ADDR         MT6359P_LDO_VSRAM_PROC2_MON
 #define MT6359P_DA_VSRAM_PROC2_VOSEL_ADDR        MT6359P_LDO_VSRAM_PROC2_VOSEL1
+#define MT6359P_DA_VSRAM_PROC2_VOSEL_MASK        0x7F
+#define MT6359P_DA_VSRAM_PROC2_VOSEL_SHIFT       8
 #define MT6359P_RG_LDO_VSRAM_OTHERS_EN_ADDR      MT6359P_LDO_VSRAM_OTHERS_CON0
 #define MT6359P_DA_VSRAM_OTHERS_B_EN_ADDR        MT6359P_LDO_VSRAM_OTHERS_MON
 #define MT6359P_DA_VSRAM_OTHERS_VOSEL_ADDR       MT6359P_LDO_VSRAM_OTHERS_VOSEL1
-#define MT6359P_RG_LDO_VSRAM_OTHERS_SSHUB_EN_ADDR    MT6359P_LDO_VSRAM_OTHERS_SSHUB
-#define MT6359P_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL_ADDR MT6359P_LDO_VSRAM_OTHERS_SSHUB
+#define MT6359P_DA_VSRAM_OTHERS_VOSEL_MASK       0x7F
+#define MT6359P_DA_VSRAM_OTHERS_VOSEL_SHIFT      8
+#define MT6359P_RG_LDO_VSRAM_OTHERS_SSHUB_EN_ADDR \
+						 MT6359P_LDO_VSRAM_OTHERS_SSHUB
+#define MT6359P_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL_ADDR \
+						 MT6359P_LDO_VSRAM_OTHERS_SSHUB
+#define MT6359P_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL_MASK	0x7F
+#define MT6359P_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL_SHIFT	1
 #define MT6359P_RG_LDO_VSRAM_MD_EN_ADDR          MT6359P_LDO_VSRAM_MD_CON0
 #define MT6359P_DA_VSRAM_MD_B_EN_ADDR            MT6359P_LDO_VSRAM_MD_MON
 #define MT6359P_DA_VSRAM_MD_VOSEL_ADDR           MT6359P_LDO_VSRAM_MD_VOSEL1
-#define MT6359P_RG_VCN33_1_VOSEL_ADDR            MT6359P_VCN33_1_ANA_CON0
+#define MT6359P_DA_VSRAM_MD_VOSEL_MASK		 0x7F
+#define MT6359P_DA_VSRAM_MD_VOSEL_SHIFT          8
+#define MT6359P_RG_VCN33_1_VOSEL_ADDR		 MT6359P_VCN33_1_ANA_CON0
+#define MT6359P_RG_VCN33_1_VOSEL_MASK            0xF
+#define MT6359P_RG_VCN33_1_VOSEL_SHIFT           8
 #define MT6359P_RG_VCN33_2_VOSEL_ADDR            MT6359P_VCN33_2_ANA_CON0
+#define MT6359P_RG_VCN33_2_VOSEL_MASK            0xF
+#define MT6359P_RG_VCN33_2_VOSEL_SHIFT           8
 #define MT6359P_RG_VEMC_VOSEL_ADDR               MT6359P_VEMC_ANA_CON0
+#define MT6359P_RG_VEMC_VOSEL_MASK               0xF
+#define MT6359P_RG_VEMC_VOSEL_SHIFT              8
 #define MT6359P_RG_VSIM1_VOSEL_ADDR              MT6359P_VSIM1_ANA_CON0
+#define MT6359P_RG_VSIM1_VOSEL_MASK              0xF
+#define MT6359P_RG_VSIM1_VOSEL_SHIFT             8
 #define MT6359P_RG_VSIM2_VOSEL_ADDR              MT6359P_VSIM2_ANA_CON0
-#define MT6359P_RG_VIO28_VOSEL_ADDR              MT6359P_VIO28_ANA_CON0
+#define MT6359P_RG_VSIM2_VOSEL_MASK              0xF
+#define MT6359P_RG_VSIM2_VOSEL_SHIFT             8
+#define MT6359P_RG_VIO28_VOSEL_ADDR		 MT6359P_VIO28_ANA_CON0
+#define MT6359P_RG_VIO28_VOSEL_MASK              0xF
+#define MT6359P_RG_VIO28_VOSEL_SHIFT             8
 #define MT6359P_RG_VIBR_VOSEL_ADDR               MT6359P_VIBR_ANA_CON0
+#define MT6359P_RG_VIBR_VOSEL_MASK               0xF
+#define MT6359P_RG_VIBR_VOSEL_SHIFT              8
 #define MT6359P_RG_VRF18_VOSEL_ADDR              MT6359P_VRF18_ANA_CON0
-#define MT6359P_RG_VEFUSE_VOSEL_ADDR             MT6359P_VEFUSE_ANA_CON0
+#define MT6359P_RG_VRF18_VOSEL_MASK              0xF
+#define MT6359P_RG_VRF18_VOSEL_SHIFT             8
+#define MT6359P_RG_VEFUSE_VOSEL_ADDR		 MT6359P_VEFUSE_ANA_CON0
+#define MT6359P_RG_VEFUSE_VOSEL_MASK             0xF
+#define MT6359P_RG_VEFUSE_VOSEL_SHIFT            8
 #define MT6359P_RG_VCAMIO_VOSEL_ADDR             MT6359P_VCAMIO_ANA_CON0
+#define MT6359P_RG_VCAMIO_VOSEL_MASK             0xF
+#define MT6359P_RG_VCAMIO_VOSEL_SHIFT            8
 #define MT6359P_RG_VIO18_VOSEL_ADDR              MT6359P_VIO18_ANA_CON0
+#define MT6359P_RG_VIO18_VOSEL_MASK              0xF
+#define MT6359P_RG_VIO18_VOSEL_SHIFT             8
 #define MT6359P_RG_VM18_VOSEL_ADDR               MT6359P_VM18_ANA_CON0
+#define MT6359P_RG_VM18_VOSEL_MASK               0xF
+#define MT6359P_RG_VM18_VOSEL_SHIFT              8
 #define MT6359P_RG_VUFS_VOSEL_ADDR               MT6359P_VUFS_ANA_CON0
+#define MT6359P_RG_VUFS_VOSEL_MASK               0xF
+#define MT6359P_RG_VUFS_VOSEL_SHIFT              8
 #define MT6359P_RG_VRF12_VOSEL_ADDR              MT6359P_VRF12_ANA_CON0
-#define MT6359P_RG_VCN13_VOSEL_ADDR              MT6359P_VCN13_ANA_CON0
-#define MT6359P_RG_VA09_VOSEL_ADDR               MT6359P_VRF18_ELR_3
+#define MT6359P_RG_VRF12_VOSEL_MASK              0xF
+#define MT6359P_RG_VRF12_VOSEL_SHIFT             8
+#define MT6359P_RG_VCN13_VOSEL_ADDR		 MT6359P_VCN13_ANA_CON0
+#define MT6359P_RG_VCN13_VOSEL_MASK              0xF
+#define MT6359P_RG_VCN13_VOSEL_SHIFT             8
+#define MT6359P_RG_VA09_VOSEL_ADDR		 MT6359P_VRF18_ELR_3
+#define MT6359P_RG_VA09_VOSEL_MASK               0xF
+#define MT6359P_RG_VA09_VOSEL_SHIFT              8
 #define MT6359P_RG_VA12_VOSEL_ADDR               MT6359P_VFE28_ELR_4
+#define MT6359P_RG_VA12_VOSEL_MASK               0xF
+#define MT6359P_RG_VA12_VOSEL_SHIFT              8
 #define MT6359P_RG_VXO22_VOSEL_ADDR              MT6359P_VXO22_ANA_CON0
+#define MT6359P_RG_VXO22_VOSEL_MASK              0xF
+#define MT6359P_RG_VXO22_VOSEL_SHIFT             8
 #define MT6359P_RG_VRFCK_VOSEL_ADDR              MT6359P_VRFCK_ANA_CON0
+#define MT6359P_RG_VRFCK_VOSEL_MASK              0xF
+#define MT6359P_RG_VRFCK_VOSEL_SHIFT             8
 #define MT6359P_RG_VBBCK_VOSEL_ADDR              MT6359P_VBBCK_ANA_CON0
 #define MT6359P_RG_VBBCK_VOSEL_MASK              0xF
 #define MT6359P_RG_VBBCK_VOSEL_SHIFT             4
 #define MT6359P_VM_MODE_ADDR                     MT6359P_TOP_TRAP
 #define MT6359P_TMA_KEY_ADDR                     MT6359P_TOP_TMA_KEY
+
+#define PMIC_HWCID_ADDR				0x8
+#define PMIC_HWCID_MASK				0xFFFF
+#define PMIC_HWCID_SHIFT			0
+
+#define PMIC_AUXADC_NAG_PRD_SEL_ADDR		0x11be
+#define PMIC_AUXADC_NAG_PRD_SEL_MASK		0x3
+#define PMIC_AUXADC_NAG_PRD_SEL_SHIFT		3
+
+#define PMIC_FG_LATCHDATA_ST_ADDR		0xd0a
+#define PMIC_FG_LATCHDATA_ST_MASK		0x1
+#define PMIC_FG_LATCHDATA_ST_SHIFT		15
+
+#define PMIC_FG_SW_CLEAR_ADDR			0xd0a
+#define PMIC_FG_SW_CLEAR_MASK			0x1
+#define PMIC_FG_SW_CLEAR_SHIFT			3
+
+#define PMIC_FG_SW_READ_PRE_ADDR		0xd0a
+#define PMIC_FG_SW_READ_PRE_MASK		0x1
+#define PMIC_FG_SW_READ_PRE_SHIFT		0
+
+#define PMIC_FG_CURRENT_OUT_ADDR		0xd8a
+#define PMIC_FG_CURRENT_OUT_MASK		0xFFFF
+#define PMIC_FG_CURRENT_OUT_SHIFT		0
+
+#define PMIC_FG_R_CURR_ADDR			0xd88
+#define PMIC_FG_R_CURR_MASK			0xFFFF
+#define PMIC_FG_R_CURR_SHIFT			0
+
+#define PMIC_FG_CAR_15_00_ADDR			0xd16
+#define PMIC_FG_CAR_15_00_MASK			0xFFFF
+#define PMIC_FG_CAR_15_00_SHIFT			0
+
+#define PMIC_FG_CAR_31_16_ADDR			0xd18
+#define PMIC_FG_CAR_31_16_MASK			0xFFFF
+#define PMIC_FG_CAR_31_16_SHIFT			0
+
+#define PMIC_FG_BAT_HTH_15_00_ADDR		0xd20
+#define PMIC_FG_BAT_HTH_15_00_MASK		0xFFFF
+#define PMIC_FG_BAT_HTH_15_00_SHIFT		0
+
+#define PMIC_FG_BAT_HTH_31_16_ADDR		0xd22
+#define PMIC_FG_BAT_HTH_31_16_MASK		0xFFFF
+#define PMIC_FG_BAT_HTH_31_16_SHIFT		0
+
+#define PMIC_FG_BAT_LTH_15_00_ADDR		0xd1c
+#define PMIC_FG_BAT_LTH_15_00_MASK		0xFFFF
+#define PMIC_FG_BAT_LTH_15_00_SHIFT		0
+
+#define PMIC_FG_BAT_LTH_31_16_ADDR		0xd1e
+#define PMIC_FG_BAT_LTH_31_16_MASK		0xFFFF
+#define PMIC_FG_BAT_LTH_31_16_SHIFT		0
+
+#define PMIC_AD_BATON_UNDET_ADDR		0xe0a
+#define PMIC_AD_BATON_UNDET_MASK		0x1
+#define PMIC_AD_BATON_UNDET_SHIFT		1
+
+#define PMIC_AUXADC_ADC_RDY_PWRON_CLR_ADDR	0x11b2
+#define PMIC_AUXADC_ADC_RDY_PWRON_CLR_MASK	0x1
+#define PMIC_AUXADC_ADC_RDY_PWRON_CLR_SHIFT	3
+
+#define PMIC_AUXADC_LBAT2_IRQ_EN_MIN_ADDR	0x1240
+#define PMIC_AUXADC_LBAT2_IRQ_EN_MIN_MASK	0x1
+#define PMIC_AUXADC_LBAT2_IRQ_EN_MIN_SHIFT	12
+
+#define PMIC_AUXADC_LBAT2_DET_MIN_ADDR		0x1240
+#define PMIC_AUXADC_LBAT2_DET_MIN_MASK		0x1
+#define PMIC_AUXADC_LBAT2_DET_MIN_SHIFT		13
+
+#define PMIC_AUXADC_LBAT2_IRQ_EN_MAX_ADDR	0x123e
+#define PMIC_AUXADC_LBAT2_IRQ_EN_MAX_MASK	0x1
+#define PMIC_AUXADC_LBAT2_IRQ_EN_MAX_SHIFT	12
+
+#define PMIC_AUXADC_LBAT2_DET_MAX_ADDR		0x123e
+#define PMIC_AUXADC_LBAT2_DET_MAX_MASK		0x1
+#define PMIC_AUXADC_LBAT2_DET_MAX_SHIFT		13
+
+#define PMIC_AUXADC_LBAT2_EN_ADDR		0x123a
+#define PMIC_AUXADC_LBAT2_EN_MASK		0x1
+#define PMIC_AUXADC_LBAT2_EN_SHIFT		0
+
+#define PMIC_AUXADC_LBAT2_VOLT_MIN_ADDR		0x1240
+#define PMIC_AUXADC_LBAT2_VOLT_MIN_MASK		0xFFF
+#define PMIC_AUXADC_LBAT2_VOLT_MIN_SHIFT	0
+
+#define PMIC_AUXADC_LBAT2_DET_PRD_SEL_ADDR	0x123c
+#define PMIC_AUXADC_LBAT2_DET_PRD_SEL_MASK	0x3
+#define PMIC_AUXADC_LBAT2_DET_PRD_SEL_SHIFT	0
+
+#define PMIC_AUXADC_LBAT2_DEBT_MIN_SEL_ADDR	0x123c
+#define PMIC_AUXADC_LBAT2_DEBT_MIN_SEL_MASK	0x3
+#define PMIC_AUXADC_LBAT2_DEBT_MIN_SEL_SHIFT	4
+
+#define PMIC_AUXADC_LBAT2_VOLT_MAX_ADDR		0x123e
+#define PMIC_AUXADC_LBAT2_VOLT_MAX_MASK		0xFFF
+#define PMIC_AUXADC_LBAT2_VOLT_MAX_SHIFT	0
+
+#define PMIC_AUXADC_LBAT2_DET_PRD_SEL_ADDR	0x123c
+#define PMIC_AUXADC_LBAT2_DET_PRD_SEL_MASK	0x3
+#define PMIC_AUXADC_LBAT2_DET_PRD_SEL_SHIFT	0
+
+#define PMIC_AUXADC_LBAT2_DEBT_MAX_SEL_ADDR	0x123c
+#define PMIC_AUXADC_LBAT2_DEBT_MAX_SEL_MASK	0x3
+#define PMIC_AUXADC_LBAT2_DEBT_MAX_SEL_SHIFT	2
+
+#define PMIC_AUXADC_NAG_CNT_15_0_ADDR		0x11c6
+#define PMIC_AUXADC_NAG_CNT_15_0_MASK		0xFFFF
+#define PMIC_AUXADC_NAG_CNT_15_0_SHIFT		0
+
+#define PMIC_AUXADC_NAG_CNT_25_16_ADDR		0x11c8
+#define PMIC_AUXADC_NAG_CNT_25_16_MASK		0x3FF
+#define PMIC_AUXADC_NAG_CNT_25_16_SHIFT		0
+
+#define PMIC_AUXADC_NAG_DLTV_ADDR		0x11ca
+#define PMIC_AUXADC_NAG_DLTV_MASK		0xFFFF
+#define PMIC_AUXADC_NAG_DLTV_SHIFT		0
+
+#define PMIC_AUXADC_NAG_C_DLTV_15_0_ADDR        0x11cc
+#define PMIC_AUXADC_NAG_C_DLTV_15_0_MASK	0xFFFF
+#define PMIC_AUXADC_NAG_C_DLTV_15_0_SHIFT	0
+
+#define PMIC_AUXADC_NAG_C_DLTV_26_16_ADDR	0x11ce
+#define PMIC_AUXADC_NAG_C_DLTV_26_16_MASK	0x7FF
+#define PMIC_AUXADC_NAG_C_DLTV_26_16_SHIFT	0
+
+#define PMIC_FG_RSTB_STATUS_ADDR		0xd14
+#define PMIC_FG_RSTB_STATUS_MASK		0x1
+#define PMIC_FG_RSTB_STATUS_SHIFT		0
+
+#define PMIC_FG_IAVG_VLD_ADDR			0xd2e
+#define PMIC_FG_IAVG_VLD_MASK			0x1
+#define PMIC_FG_IAVG_VLD_SHIFT			15
+
+#define PMIC_FG_IAVG_15_00_ADDR			0xd2c
+#define PMIC_FG_IAVG_15_00_MASK			0xFFFF
+#define PMIC_FG_IAVG_15_00_SHIFT		0
+
+#define PMIC_FG_IAVG_27_16_ADDR			0xd2e
+#define PMIC_FG_IAVG_27_16_MASK			0xFFF
+#define PMIC_FG_IAVG_27_16_SHIFT		0
+
+#define PMIC_FG_IAVG_VLD_ADDR			0xd2e
+#define PMIC_FG_IAVG_VLD_MASK			0x1
+#define PMIC_FG_IAVG_VLD_SHIFT			15
+
+#define PMIC_AUXADC_ADC_OUT_FGADC_PCHR_ADDR	0x10b6
+#define PMIC_AUXADC_ADC_OUT_FGADC_PCHR_MASK	0x7FFF
+#define PMIC_AUXADC_ADC_OUT_FGADC_PCHR_SHIFT	0
+
+#define PMIC_AUXADC_NAG_IRQ_EN_ADDR		0x11be
+#define PMIC_AUXADC_NAG_IRQ_EN_MASK		0x1
+#define PMIC_AUXADC_NAG_IRQ_EN_SHIFT		10
+
+#define PMIC_AUXADC_NAG_EN_ADDR			0x11be
+#define PMIC_AUXADC_NAG_EN_MASK			0x1
+#define PMIC_AUXADC_NAG_EN_SHIFT		0
+
+#define PMIC_AUXADC_NAG_ZCV_ADDR		0x11c0
+#define PMIC_AUXADC_NAG_ZCV_MASK		0x7FFF
+#define PMIC_AUXADC_NAG_ZCV_SHIFT		0
+
+#define PMIC_AUXADC_NAG_C_DLTV_TH_15_0_ADDR	0x11c2
+#define PMIC_AUXADC_NAG_C_DLTV_TH_15_0_MASK	0xFFFF
+#define PMIC_AUXADC_NAG_C_DLTV_TH_15_0_SHIFT	0
+
+#define PMIC_AUXADC_NAG_C_DLTV_TH_26_16_ADDR	0x11c4
+#define PMIC_AUXADC_NAG_C_DLTV_TH_26_16_MASK	0x7FF
+#define PMIC_AUXADC_NAG_C_DLTV_TH_26_16_SHIFT	0
+
+#define PMIC_AUXADC_NAG_VBAT1_SEL_ADDR		0x11be
+#define PMIC_AUXADC_NAG_VBAT1_SEL_MASK		0x1
+#define PMIC_AUXADC_NAG_VBAT1_SEL_SHIFT		2
+
+#define PMIC_FG_ZCV_DET_IV_ADDR			0xd4e
+#define PMIC_FG_ZCV_DET_IV_MASK			0xF
+#define PMIC_FG_ZCV_DET_IV_SHIFT		0
+
+#define PMIC_FG_ZCV_CAR_TH_15_00_ADDR		0xd58
+#define PMIC_FG_ZCV_CAR_TH_15_00_MASK		0xFFFF
+#define PMIC_FG_ZCV_CAR_TH_15_00_SHIFT		0
+
+#define PMIC_FG_ZCV_CAR_TH_30_16_ADDR		0xd5a
+#define PMIC_FG_ZCV_CAR_TH_30_16_MASK		0x7FFF
+#define PMIC_FG_ZCV_CAR_TH_30_16_SHIFT		0
+
+#define PMIC_FG_ZCV_DET_EN_ADDR			0xd08
+#define PMIC_FG_ZCV_DET_EN_MASK			0x1
+#define PMIC_FG_ZCV_DET_EN_SHIFT		10
+
+#define PMIC_FG_N_CHARGE_RST_ADDR		0xd0a
+#define PMIC_FG_N_CHARGE_RST_MASK		0x1
+#define PMIC_FG_N_CHARGE_RST_SHIFT		11
+
+#define PMIC_AUXADC_ADC_OUT_NAG_ADDR		0x11d2
+#define PMIC_AUXADC_ADC_OUT_NAG_MASK		0x7FFF
+#define PMIC_AUXADC_ADC_OUT_NAG_SHIFT		0
+
+#define PMIC_AUXADC_ADC_RDY_PWRON_PCHR_ADDR	0x10aa
+#define PMIC_AUXADC_ADC_RDY_PWRON_PCHR_MASK	0x1
+#define PMIC_AUXADC_ADC_RDY_PWRON_PCHR_SHIFT	15
+
+#define PMIC_AUXADC_ADC_OUT_PWRON_PCHR_ADDR	0x10aa
+#define PMIC_AUXADC_ADC_OUT_PWRON_PCHR_MASK	0x7FFF
+#define PMIC_AUXADC_ADC_OUT_PWRON_PCHR_SHIFT	0
+
+#define PMIC_RG_HK_STRUP_AUXADC_START_SEL_ADDR	0xfae
+#define PMIC_RG_HK_STRUP_AUXADC_START_SEL_MASK	0x1
+#define PMIC_RG_HK_STRUP_AUXADC_START_SEL_SHIFT	2
+
+#define PMIC_AUXADC_ADC_RDY_BAT_PLUGIN_PCHR_ADDR	0x10b8
+#define PMIC_AUXADC_ADC_RDY_BAT_PLUGIN_PCHR_MASK	0x1
+#define PMIC_AUXADC_ADC_RDY_BAT_PLUGIN_PCHR_SHIFT	15
+
+#define PMIC_AUXADC_ADC_OUT_BAT_PLUGIN_PCHR_ADDR	0x10b8
+#define PMIC_AUXADC_ADC_OUT_BAT_PLUGIN_PCHR_MASK	0x7FFF
+#define PMIC_AUXADC_ADC_OUT_BAT_PLUGIN_PCHR_SHIFT	0
+
+#define PMIC_AUXADC_ADC_RDY_BAT_PLUGIN_CLR_ADDR		0x11b2
+#define PMIC_AUXADC_ADC_RDY_BAT_PLUGIN_CLR_MASK		0x1
+#define PMIC_AUXADC_ADC_RDY_BAT_PLUGIN_CLR_SHIFT	2
+
+#define PMIC_FG_N_CHARGE_LTH_15_00_ADDR		0xd28
+#define PMIC_FG_N_CHARGE_LTH_15_00_MASK		0xFFFF
+#define PMIC_FG_N_CHARGE_LTH_15_00_SHIFT	0
+
+#define PMIC_FG_N_CHARGE_LTH_31_16_ADDR		0xd2a
+#define PMIC_FG_N_CHARGE_LTH_31_16_MASK		0xFFFF
+#define PMIC_FG_N_CHARGE_LTH_31_16_SHIFT	0
+
+#define PMIC_FG_NTER_15_00_ADDR			0xd38
+#define PMIC_FG_NTER_15_00_MASK			0xFFFF
+#define PMIC_FG_NTER_15_00_SHIFT		0
+
+#define PMIC_FG_NTER_29_16_ADDR			0xd3a
+#define PMIC_FG_NTER_29_16_MASK			0x3FFF
+#define PMIC_FG_NTER_29_16_SHIFT		0
+
+#define PMIC_MT6359_FG_CIC2_ADDR		0xd90
+#define PMIC_MT6359_FG_CIC2_MASK		0xFFFF
+#define PMIC_MT6359_FG_CIC2_SHIFT		0
+
+#define PMIC_FG_NCAR_15_00_ADDR			0xd24
+#define PMIC_FG_NCAR_15_00_MASK			0xFFFF
+#define PMIC_FG_NCAR_15_00_SHIFT		0
+
+#define PMIC_FG_NCAR_31_16_ADDR			0xd26
+#define PMIC_FG_NCAR_31_16_MASK			0xFFFF
+#define PMIC_FG_NCAR_31_16_SHIFT		0
+
+#define PMIC_FG_IAVG_LTH_15_00_ADDR		0xd30
+#define PMIC_FG_IAVG_LTH_15_00_MASK		0xFFFF
+#define PMIC_FG_IAVG_LTH_15_00_SHIFT		0
+
+#define PMIC_FG_IAVG_LTH_28_16_ADDR		0xd32
+#define PMIC_FG_IAVG_LTH_28_16_MASK		0x1FFF
+#define PMIC_FG_IAVG_LTH_28_16_SHIFT		0
+
+#define PMIC_FG_IAVG_HTH_15_00_ADDR		0xd34
+#define PMIC_FG_IAVG_HTH_15_00_MASK		0xFFFF
+#define PMIC_FG_IAVG_HTH_15_00_SHIFT		0
+
+#define PMIC_FG_IAVG_HTH_28_16_ADDR		0xd36
+#define PMIC_FG_IAVG_HTH_28_16_MASK		0x1FFF
+#define PMIC_FG_IAVG_HTH_28_16_SHIFT		0
+
+#define PMIC_FG_ZCV_CURR_ADDR			0xd50
+#define PMIC_FG_ZCV_CURR_MASK			0xFFFF
+#define PMIC_FG_ZCV_CURR_SHIFT			0
+
+#define PMIC_AUXADC_BAT_TEMP_IRQ_EN_MAX_ADDR	0x122c
+#define PMIC_AUXADC_BAT_TEMP_IRQ_EN_MAX_MASK	0x1
+#define PMIC_AUXADC_BAT_TEMP_IRQ_EN_MAX_SHIFT	12
+
+#define PMIC_AUXADC_BAT_TEMP_EN_ADDR		0x1226
+#define PMIC_AUXADC_BAT_TEMP_EN_MASK		0x1
+#define PMIC_AUXADC_BAT_TEMP_EN_SHIFT		0
+
+#define PMIC_AUXADC_BAT_TEMP_DEBT_MAX_SEL_ADDR	0x122a
+#define PMIC_AUXADC_BAT_TEMP_DEBT_MAX_SEL_MASK	0x3
+#define PMIC_AUXADC_BAT_TEMP_DEBT_MAX_SEL_SHIFT	2
+
+#define PMIC_AUXADC_BAT_TEMP_DET_PRD_SEL_ADDR	0x122a
+#define PMIC_AUXADC_BAT_TEMP_DET_PRD_SEL_MASK	0x3
+#define PMIC_AUXADC_BAT_TEMP_DET_PRD_SEL_SHIFT	0
+
+#define PMIC_AUXADC_BAT_TEMP_VOLT_MAX_ADDR	0x122c
+#define PMIC_AUXADC_BAT_TEMP_VOLT_MAX_MASK	0xFFF
+#define PMIC_AUXADC_BAT_TEMP_VOLT_MAX_SHIFT	0
+
+#define PMIC_RG_INT_MASK_BAT_TEMP_L_ADDR	0xf98
+#define PMIC_RG_INT_MASK_BAT_TEMP_L_MASK	0x1
+#define PMIC_RG_INT_MASK_BAT_TEMP_L_SHIFT	5
+
+#define PMIC_AUXADC_BAT_TEMP_DET_MAX_ADDR	0x122c
+#define PMIC_AUXADC_BAT_TEMP_DET_MAX_MASK	0x1
+#define PMIC_AUXADC_BAT_TEMP_DET_MAX_SHIFT	13
+
+#define PMIC_AUXADC_BAT_TEMP_VOLT_MIN_ADDR	0x122e
+#define PMIC_AUXADC_BAT_TEMP_VOLT_MIN_MASK	0xFFF
+#define PMIC_AUXADC_BAT_TEMP_VOLT_MIN_SHIFT	0
+
+#define PMIC_AUXADC_BAT_TEMP_IRQ_EN_MIN_ADDR	0x122e
+#define PMIC_AUXADC_BAT_TEMP_IRQ_EN_MIN_MASK	0x1
+#define PMIC_AUXADC_BAT_TEMP_IRQ_EN_MIN_SHIFT	12
+
+#define PMIC_AUXADC_BAT_TEMP_DEBT_MIN_SEL_ADDR	0x122a
+#define PMIC_AUXADC_BAT_TEMP_DEBT_MIN_SEL_MASK	0x3
+#define PMIC_AUXADC_BAT_TEMP_DEBT_MIN_SEL_SHIFT	4
+
+#define PMIC_RG_INT_MASK_BAT_TEMP_H_ADDR	0xf98
+#define PMIC_RG_INT_MASK_BAT_TEMP_H_MASK	0x1
+#define PMIC_RG_INT_MASK_BAT_TEMP_H_SHIFT	4
+
+#define PMIC_AUXADC_BAT_TEMP_DET_MIN_ADDR	0x122e
+#define PMIC_AUXADC_BAT_TEMP_DET_MIN_MASK	0x1
+#define PMIC_AUXADC_BAT_TEMP_DET_MIN_SHIFT	13
+
+#define PMIC_RG_SYSTEM_INFO_CON0_ADDR		0xd9a
 
 #define TMA_KEY 0x9CA6
 

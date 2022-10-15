@@ -663,17 +663,14 @@ config DM_ZONED
 
 	  If unsure, say N.
 
-config DM_BOW
-	tristate "Backup block device"
-	depends on BLK_DEV_DM
-	select DM_BUFIO
+config DM_AUDIT
+	bool "DM audit events"
+	depends on AUDIT
 	help
-	  This device-mapper target takes a device and keeps a log of all
-	  changes using free blocks identified by issuing a trim command.
-	  This can then be restored by running a command line utility,
-	  or committed by simply replacing the target.
+	  Generate audit events for device-mapper.
 
-	  If unsure, say N.
+	  Enables audit logging of several security relevant events in the
+	  particular device-mapper targets, especially the integrity target.
 
 config DM_USER
 	tristate "Block device in userspace"

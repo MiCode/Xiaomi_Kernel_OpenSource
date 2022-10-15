@@ -161,6 +161,8 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 
 	util = map_util_perf(util);
 	trace_android_vh_map_util_freq(util, freq, max, &next_freq);
+	trace_android_vh_map_util_freq_new(util, freq, max, &next_freq, policy,
+			&sg_policy->need_freq_update);
 	if (next_freq)
 		freq = next_freq;
 	else
@@ -301,6 +303,7 @@ static void sugov_iowait_apply(struct sugov_cpu *sg_cpu, u64 time)
 	 * into the same scale so we can compare.
 	 */
 	boost = (sg_cpu->iowait_boost * sg_cpu->max) >> SCHED_CAPACITY_SHIFT;
+	boost = uclamp_rq_util_with(cpu_rq(sg_cpu->cpu), boost, NULL);
 	if (sg_cpu->util < boost)
 		sg_cpu->util = boost;
 }

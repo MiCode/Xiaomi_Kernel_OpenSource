@@ -48,8 +48,10 @@ SECTIONS {
 	}
 
 	.rodata : {
+		*(.rodata.._start)
 		*(.rodata .rodata.[0-9a-zA-Z_]*)
 		*(.rodata..L*)
+		*(.rodata.._end)
 	}
 
 	/*
@@ -57,8 +59,11 @@ SECTIONS {
 	 * of the .text section, and is aligned to PAGE_SIZE.
 	 */
 	.text : ALIGN_CFI {
+		*(.text.._start)
 		*(.text.__cfi_check)
 		*(.text .text.[0-9a-zA-Z_]* .text..L.cfi*)
+		*(.text.._end)
+		*(.text.._fips140_unchecked)
 	}
 #endif
 }

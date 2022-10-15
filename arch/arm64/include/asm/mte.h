@@ -40,7 +40,9 @@ void mte_sync_tags(pte_t old_pte, pte_t pte);
 void mte_copy_page_tags(void *kto, const void *kfrom);
 void mte_thread_init_user(void);
 void mte_thread_switch(struct task_struct *next);
+void mte_cpu_setup(void);
 void mte_suspend_enter(void);
+void mte_suspend_exit(void);
 long set_mte_ctrl(struct task_struct *task, unsigned long arg);
 long get_mte_ctrl(struct task_struct *task);
 int mte_ptrace_copy_tags(struct task_struct *child, long request,
@@ -69,6 +71,9 @@ static inline void mte_thread_switch(struct task_struct *next)
 static inline void mte_suspend_enter(void)
 {
 }
+static inline void mte_suspend_exit(void)
+{
+}
 static inline long set_mte_ctrl(struct task_struct *task, unsigned long arg)
 {
 	return 0;
@@ -88,11 +93,11 @@ static inline int mte_ptrace_copy_tags(struct task_struct *child,
 
 #ifdef CONFIG_KASAN_HW_TAGS
 /* Whether the MTE asynchronous mode is enabled. */
-DECLARE_STATIC_KEY_FALSE(mte_async_mode);
+DECLARE_STATIC_KEY_FALSE(mte_async_or_asymm_mode);
 
-static inline bool system_uses_mte_async_mode(void)
+static inline bool system_uses_mte_async_or_asymm_mode(void)
 {
-	return static_branch_unlikely(&mte_async_mode);
+	return static_branch_unlikely(&mte_async_or_asymm_mode);
 }
 
 void mte_check_tfsr_el1(void);
@@ -121,7 +126,7 @@ static inline void mte_check_tfsr_exit(void)
 	mte_check_tfsr_el1();
 }
 #else
-static inline bool system_uses_mte_async_mode(void)
+static inline bool system_uses_mte_async_or_asymm_mode(void)
 {
 	return false;
 }

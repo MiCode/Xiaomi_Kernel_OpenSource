@@ -43,7 +43,8 @@ static int dir_link(struct dentry *old_dentry, struct inode *dir,
 			 struct dentry *new_dentry);
 static int dir_rmdir(struct inode *dir, struct dentry *dentry);
 static int dir_rename(struct inode *old_dir, struct dentry *old_dentry,
-		struct inode *new_dir, struct dentry *new_dentry);
+		struct inode *new_dir, struct dentry *new_dentry,
+		unsigned int flags);
 
 static int file_open(struct inode *inode, struct file *file);
 static int file_release(struct inode *inode, struct file *file);
@@ -86,7 +87,7 @@ static int dir_rename_wrap(struct user_namespace *ns, struct inode *old_dir,
 			   struct dentry *old_dentry, struct inode *new_dir,
 			   struct dentry *new_dentry, unsigned int flags)
 {
-	return dir_rename(old_dir, old_dentry, new_dir, new_dentry);
+	return dir_rename(old_dir, old_dentry, new_dir, new_dentry, flags);
 }
 
 static const struct inode_operations incfs_dir_inode_ops = {
@@ -442,7 +443,8 @@ static int incfs_init_dentry(struct dentry *dentry, struct path *path)
 }
 
 static struct dentry *open_or_create_special_dir(struct dentry *backing_dir,
-						 const char *name)
+						 const char *name,
+						 bool *created)
 {
 	struct dentry *index_dentry;
 	struct inode *backing_inode = d_inode(backing_dir);
@@ -455,6 +457,7 @@ static struct dentry *open_or_create_special_dir(struct dentry *backing_dir,
 		return index_dentry;
 	} else if (d_really_is_positive(index_dentry)) {
 		/* Index already exists. */
+		*created = false;
 		return index_dentry;
 	}
 
@@ -474,6 +477,7 @@ static struct dentry *open_or_create_special_dir(struct dentry *backing_dir,
 		return ERR_PTR(-EINVAL);
 	}
 
+	*created = true;
 	return index_dentry;
 }
 
@@ -1330,7 +1334,8 @@ path_err:
 }
 
 static int dir_rename(struct inode *old_dir, struct dentry *old_dentry,
-		struct inode *new_dir, struct dentry *new_dentry)
+		struct inode *new_dir, struct dentry *new_dentry,
+		unsigned int flags)
 {
 	struct mount_info *mi = get_mount_info(old_dir->i_sb);
 	struct dentry *backing_old_dentry;
@@ -1385,6 +1390,11 @@ static int dir_rename(struct inode *old_dir, struct dentry *old_dentry,
 	rd.old_dentry	= backing_old_dentry;
 	rd.new_dir	= d_inode(backing_new_dir_dentry);
 	rd.new_dentry	= backing_new_dentry;
+	rd.flags	= flags;
+	rd.old_mnt_userns = &init_user_ns;
+	rd.new_mnt_userns = &init_user_ns;
+	rd.delegated_inode = NULL;
+
 	error = vfs_rename(&rd);
 	if (error)
 		goto unlock_out;
@@ -1757,6 +1767,7 @@ struct dentry *incfs_mount_fs(struct file_system_type *type, int flags,
 	struct super_block *src_fs_sb = NULL;
 	struct inode *root_inode = NULL;
 	struct super_block *sb = sget(type, NULL, set_anon_super, flags, NULL);
+	bool dir_created = false;
 	int error = 0;
 
 	if (IS_ERR(sb))
@@ -1773,17 +1784,23 @@ struct dentry *incfs_mount_fs(struct file_system_type *type, int flags,
 
 	BUILD_BUG_ON(PAGE_SIZE != INCFS_DATA_FILE_BLOCK_SIZE);
 
+	if (!dev_name) {
+		pr_err("incfs: Backing dir is not set, filesystem can't be mounted.\n");
+		error = -ENOENT;
+		goto err_deactivate;
+	}
+
 	error = parse_options(&options, (char *)data);
 	if (error != 0) {
 		pr_err("incfs: Options parsing error. %d\n", error);
-		goto err;
+		goto err_deactivate;
 	}
 
 	sb->s_bdi->ra_pages = options.readahead_pages;
 	if (!dev_name) {
 		pr_err("incfs: Backing dir is not set, filesystem can't be mounted.\n");
 		error = -ENOENT;
-		goto err;
+		goto err_free_opts;
 	}
 
 	error = kern_path(dev_name, LOOKUP_FOLLOW | LOOKUP_DIRECTORY,
@@ -1792,69 +1809,80 @@ struct dentry *incfs_mount_fs(struct file_system_type *type, int flags,
 		!d_really_is_positive(backing_dir_path.dentry)) {
 		pr_err("incfs: Error accessing: %s.\n",
 			dev_name);
-		goto err;
+		goto err_free_opts;
 	}
 	src_fs_sb = backing_dir_path.dentry->d_sb;
 	sb->s_maxbytes = src_fs_sb->s_maxbytes;
+	sb->s_stack_depth = src_fs_sb->s_stack_depth + 1;
+
+	if (sb->s_stack_depth > FILESYSTEM_MAX_STACK_DEPTH) {
+		error = -EINVAL;
+		goto err_put_path;
+	}
 
 	mi = incfs_alloc_mount_info(sb, &options, &backing_dir_path);
-
 	if (IS_ERR_OR_NULL(mi)) {
 		error = PTR_ERR(mi);
 		pr_err("incfs: Error allocating mount info. %d\n", error);
-		mi = NULL;
-		goto err;
+		goto err_put_path;
 	}
 
+	sb->s_fs_info = mi;
+	mi->mi_backing_dir_path = backing_dir_path;
 	index_dir = open_or_create_special_dir(backing_dir_path.dentry,
-					       INCFS_INDEX_NAME);
+					       INCFS_INDEX_NAME, &dir_created);
 	if (IS_ERR_OR_NULL(index_dir)) {
 		error = PTR_ERR(index_dir);
 		pr_err("incfs: Can't find or create .index dir in %s\n",
 			dev_name);
 		/* No need to null index_dir since we don't put it */
-		goto err;
+		goto err_put_path;
 	}
+
 	mi->mi_index_dir = index_dir;
+	mi->mi_index_free = dir_created;
 
 	incomplete_dir = open_or_create_special_dir(backing_dir_path.dentry,
-						    INCFS_INCOMPLETE_NAME);
+						    INCFS_INCOMPLETE_NAME,
+						    &dir_created);
 	if (IS_ERR_OR_NULL(incomplete_dir)) {
 		error = PTR_ERR(incomplete_dir);
 		pr_err("incfs: Can't find or create .incomplete dir in %s\n",
 			dev_name);
 		/* No need to null incomplete_dir since we don't put it */
-		goto err;
+		goto err_put_path;
 	}
 	mi->mi_incomplete_dir = incomplete_dir;
+	mi->mi_incomplete_free = dir_created;
 
-	sb->s_fs_info = mi;
 	root_inode = fetch_regular_inode(sb, backing_dir_path.dentry);
 	if (IS_ERR(root_inode)) {
 		error = PTR_ERR(root_inode);
-		goto err;
+		goto err_put_path;
 	}
 
 	sb->s_root = d_make_root(root_inode);
 	if (!sb->s_root) {
 		error = -ENOMEM;
-		goto err;
+		goto err_put_path;
 	}
 	error = incfs_init_dentry(sb->s_root, &backing_dir_path);
 	if (error)
-		goto err;
+		goto err_put_path;
 
 	path_put(&backing_dir_path);
 	sb->s_flags |= SB_ACTIVE;
 
 	pr_debug("incfs: mount\n");
 	return dget(sb->s_root);
-err:
-	sb->s_fs_info = NULL;
+
+err_put_path:
 	path_put(&backing_dir_path);
-	incfs_free_mount_info(mi);
-	deactivate_locked_super(sb);
+err_free_opts:
 	free_options(&options);
+err_deactivate:
+	deactivate_locked_super(sb);
+	pr_err("incfs: mount failed %d\n", error);
 	return ERR_PTR(error);
 }
 
@@ -1889,10 +1917,28 @@ out:
 void incfs_kill_sb(struct super_block *sb)
 {
 	struct mount_info *mi = sb->s_fs_info;
+	struct inode *dinode = NULL;
 
 	pr_debug("incfs: unmount\n");
-	generic_shutdown_super(sb);
-	incfs_free_mount_info(mi);
+
+	if (mi) {
+		if (mi->mi_backing_dir_path.dentry)
+			dinode = d_inode(mi->mi_backing_dir_path.dentry);
+
+		if (dinode) {
+			if (mi->mi_index_dir && mi->mi_index_free)
+				vfs_rmdir(&init_user_ns, dinode,
+					  mi->mi_index_dir);
+
+			if (mi->mi_incomplete_dir && mi->mi_incomplete_free)
+				vfs_rmdir(&init_user_ns, dinode,
+					  mi->mi_incomplete_dir);
+		}
+
+		incfs_free_mount_info(mi);
+		sb->s_fs_info = NULL;
+	}
+	kill_anon_super(sb);
 }
 
 static int show_options(struct seq_file *m, struct dentry *root)

@@ -12,6 +12,7 @@
 #include <uapi/linux/psci.h>
 
 #include <nvhe/memory.h>
+#include <nvhe/pkvm.h>
 #include <nvhe/trap_handler.h>
 
 void kvm_hyp_cpu_entry(unsigned long r0);
@@ -221,6 +222,44 @@ asmlinkage void __noreturn kvm_host_psci_cpu_entry(bool is_cpu_on)
 	__host_enter(host_ctxt);
 }
 
+static DEFINE_HYP_SPINLOCK(mem_protect_lock);
+
+static u64 psci_mem_protect(s64 offset)
+{
+	static u64 cnt;
+	u64 new = cnt + offset;
+
+	hyp_assert_lock_held(&mem_protect_lock);
+
+	if (!offset || kvm_host_psci_config.version < PSCI_VERSION(1, 1))
+		return cnt;
+
+	if (!cnt || !new)
+		psci_call(PSCI_1_1_FN64_MEM_PROTECT, offset < 0 ? 0 : 1, 0, 0);
+
+	cnt = new;
+	return cnt;
+}
+
+static bool psci_mem_protect_active(void)
+{
+	return psci_mem_protect(0);
+}
+
+void psci_mem_protect_inc(void)
+{
+	hyp_spin_lock(&mem_protect_lock);
+	psci_mem_protect(1);
+	hyp_spin_unlock(&mem_protect_lock);
+}
+
+void psci_mem_protect_dec(void)
+{
+	hyp_spin_lock(&mem_protect_lock);
+	psci_mem_protect(-1);
+	hyp_spin_unlock(&mem_protect_lock);
+}
+
 static unsigned long psci_0_1_handler(u64 func_id, struct kvm_cpu_context *host_ctxt)
 {
 	if (is_psci_0_1(cpu_off, func_id) || is_psci_0_1(migrate, func_id))
@@ -249,6 +288,9 @@ static unsigned long psci_0_2_handler(u64 func_id, struct kvm_cpu_context *host_
 	 */
 	case PSCI_0_2_FN_SYSTEM_OFF:
 	case PSCI_0_2_FN_SYSTEM_RESET:
+		pkvm_clear_pvmfw_pages();
+		/* Avoid racing with a MEM_PROTECT call. */
+		hyp_spin_lock(&mem_protect_lock);
 		return psci_forward(host_ctxt);
 	case PSCI_0_2_FN64_CPU_SUSPEND:
 		return psci_cpu_suspend(func_id, host_ctxt);
@@ -262,9 +304,16 @@ static unsigned long psci_0_2_handler(u64 func_id, struct kvm_cpu_context *host_
 static unsigned long psci_1_0_handler(u64 func_id, struct kvm_cpu_context *host_ctxt)
 {
 	switch (func_id) {
+	case PSCI_1_1_FN64_SYSTEM_RESET2:
+		pkvm_clear_pvmfw_pages();
+		hyp_spin_lock(&mem_protect_lock);
+		if (psci_mem_protect_active()) {
+			return psci_0_2_handler(PSCI_0_2_FN_SYSTEM_RESET,
+						host_ctxt);
+		}
+		fallthrough;
 	case PSCI_1_0_FN_PSCI_FEATURES:
 	case PSCI_1_0_FN_SET_SUSPEND_MODE:
-	case PSCI_1_1_FN64_SYSTEM_RESET2:
 		return psci_forward(host_ctxt);
 	case PSCI_1_0_FN64_SYSTEM_SUSPEND:
 		return psci_system_suspend(func_id, host_ctxt);

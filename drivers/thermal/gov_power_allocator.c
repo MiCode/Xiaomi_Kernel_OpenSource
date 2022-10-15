@@ -14,6 +14,8 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/thermal_power_allocator.h>
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/thermal.h>
 
 #include "thermal_core.h"
 
@@ -468,6 +470,7 @@ static int allocate_power(struct thermal_zone_device *tz,
 	}
 
 	power_range = pid_controller(tz, control_temp, max_allocatable_power);
+	trace_android_vh_thermal_power_cap(&power_range);
 
 	divvy_up_power(weighted_req_power, max_power, num_actors,
 		       total_weighted_req_power, power_range, granted_power,
@@ -711,6 +714,8 @@ static int power_allocator_throttle(struct thermal_zone_device *tz, int trip)
 	int switch_on_temp, control_temp;
 	struct power_allocator_params *params = tz->governor_data;
 	bool update;
+	bool enable = true;
+	bool override = false;
 
 	/*
 	 * We get called for every trip point but we only need to do
@@ -719,9 +724,22 @@ static int power_allocator_throttle(struct thermal_zone_device *tz, int trip)
 	if (trip != params->trip_max_desired_temperature)
 		return 0;
 
-	ret = tz->ops->get_trip_temp(tz, params->trip_switch_on,
-				     &switch_on_temp);
-	if (!ret && (tz->temperature < switch_on_temp)) {
+	/*
+	 * Enable or disable IPA control by temperature and user power budget.
+	 * About enable:
+	 *	true: enable IPA control when temperature >= swtich_on_temp.
+	 *	false: disable IPA control when temperature < switch_on_temp.
+	 * About override:
+	 *	true: power budget is overridden by user power budget.
+	 *	false: power budget is not overridden, there's no other thermal
+	 *	requirement.
+	 */
+	trace_android_vh_enable_thermal_power_throttle(&enable, &override);
+	if (enable)
+		ret = tz->ops->get_trip_temp(tz, params->trip_switch_on,
+					     &switch_on_temp);
+	if (!enable || (!ret && (tz->temperature < switch_on_temp) &&
+			!override)) {
 		update = (tz->last_temperature >= switch_on_temp);
 		tz->passive = 0;
 		reset_pid_controller(params);

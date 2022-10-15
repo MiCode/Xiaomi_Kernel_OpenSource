@@ -293,12 +293,12 @@ int vgic_v2_map_resources(struct kvm *kvm)
 
 	if (IS_VGIC_ADDR_UNDEF(dist->vgic_dist_base) ||
 	    IS_VGIC_ADDR_UNDEF(dist->vgic_cpu_base)) {
-		kvm_err("Need to set vgic cpu and dist addresses first\n");
+		kvm_debug("Need to set vgic cpu and dist addresses first\n");
 		return -ENXIO;
 	}
 
 	if (!vgic_v2_check_base(dist->vgic_dist_base, dist->vgic_cpu_base)) {
-		kvm_err("VGIC CPU and dist frames overlap\n");
+		kvm_debug("VGIC CPU and dist frames overlap\n");
 		return -EINVAL;
 	}
 
@@ -344,6 +344,11 @@ int vgic_v2_probe(const struct gic_kvm_info *info)
 {
 	int ret;
 	u32 vtr;
+
+	if (is_protected_kvm_enabled()) {
+		kvm_err("GICv2 not supported in protected mode\n");
+		return -ENXIO;
+	}
 
 	if (!info->vctrl.start) {
 		kvm_err("GICH not present in the firmware table\n");
@@ -465,17 +470,10 @@ void vgic_v2_load(struct kvm_vcpu *vcpu)
 		       kvm_vgic_global_state.vctrl_base + GICH_APR);
 }
 
-void vgic_v2_vmcr_sync(struct kvm_vcpu *vcpu)
+void vgic_v2_put(struct kvm_vcpu *vcpu, bool blocking)
 {
 	struct vgic_v2_cpu_if *cpu_if = &vcpu->arch.vgic_cpu.vgic_v2;
 
 	cpu_if->vgic_vmcr = readl_relaxed(kvm_vgic_global_state.vctrl_base + GICH_VMCR);
-}
-
-void vgic_v2_put(struct kvm_vcpu *vcpu)
-{
-	struct vgic_v2_cpu_if *cpu_if = &vcpu->arch.vgic_cpu.vgic_v2;
-
-	vgic_v2_vmcr_sync(vcpu);
 	cpu_if->vgic_apr = readl_relaxed(kvm_vgic_global_state.vctrl_base + GICH_APR);
 }

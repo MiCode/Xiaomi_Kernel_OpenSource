@@ -100,12 +100,15 @@ static struct firmware_cache fw_cache;
 extern struct builtin_fw __start_builtin_fw[];
 extern struct builtin_fw __end_builtin_fw[];
 
-static void fw_copy_to_prealloc_buf(struct firmware *fw,
+static bool fw_copy_to_prealloc_buf(struct firmware *fw,
 				    void *buf, size_t size)
 {
-	if (!buf || size < fw->size)
-		return;
+	if (!buf)
+		return true;
+	if (size < fw->size)
+		return false;
 	memcpy(buf, fw->data, fw->size);
+	return true;
 }
 
 static bool fw_get_builtin_firmware(struct firmware *fw, const char *name,
@@ -117,9 +120,7 @@ static bool fw_get_builtin_firmware(struct firmware *fw, const char *name,
 		if (strcmp(name, b_fw->name) == 0) {
 			fw->size = b_fw->size;
 			fw->data = b_fw->data;
-			fw_copy_to_prealloc_buf(fw, buf, size);
-
-			return true;
+			return fw_copy_to_prealloc_buf(fw, buf, size);
 		}
 	}
 
@@ -463,21 +464,85 @@ static int fw_decompress_xz(struct device *dev, struct fw_priv *fw_priv,
 #endif /* CONFIG_FW_LOADER_COMPRESS */
 
 /* direct firmware loading support */
-static char fw_path_para[256];
+#define CUSTOM_FW_PATH_COUNT	10
+#define PATH_SIZE		255
+static char fw_path_para[CUSTOM_FW_PATH_COUNT][PATH_SIZE];
 static const char * const fw_path[] = {
-	fw_path_para,
+	fw_path_para[0],
+	fw_path_para[1],
+	fw_path_para[2],
+	fw_path_para[3],
+	fw_path_para[4],
+	fw_path_para[5],
+	fw_path_para[6],
+	fw_path_para[7],
+	fw_path_para[8],
+	fw_path_para[9],
 	"/lib/firmware/updates/" UTS_RELEASE,
 	"/lib/firmware/updates",
 	"/lib/firmware/" UTS_RELEASE,
 	"/lib/firmware"
 };
 
+static char strpath[PATH_SIZE * CUSTOM_FW_PATH_COUNT];
+static int firmware_param_path_set(const char *val, const struct kernel_param *kp)
+{
+	int i;
+	char *path, *end;
+
+	strscpy(strpath, val, sizeof(strpath));
+	/* Remove leading and trailing spaces from path */
+	path = strim(strpath);
+	for (i = 0; path && i < CUSTOM_FW_PATH_COUNT; i++) {
+		end = strchr(path, ',');
+
+		/* Skip continuous token case, for example ',,,' */
+		if (end == path) {
+			i--;
+			path = ++end;
+			continue;
+		}
+
+		if (end != NULL)
+			*end = '\0';
+		else {
+			/* end of the string reached and no other tockens ','  */
+			strscpy(fw_path_para[i], path, PATH_SIZE);
+			break;
+		}
+
+		strscpy(fw_path_para[i], path, PATH_SIZE);
+		path = ++end;
+	}
+
+	return 0;
+}
+
+static int firmware_param_path_get(char *buffer, const struct kernel_param *kp)
+{
+	int count = 0, i;
+
+	for (i = 0; i < CUSTOM_FW_PATH_COUNT; i++) {
+		if (strlen(fw_path_para[i]) != 0)
+			count += scnprintf(buffer + count, PATH_SIZE, "%s%s", fw_path_para[i], ",");
+	}
+
+	buffer[count - 1] = '\0';
+
+	return count - 1;
+}
 /*
- * Typical usage is that passing 'firmware_class.path=$CUSTOMIZED_PATH'
+ * Typical usage is that passing 'firmware_class.path=/vendor,/firwmare_mnt'
  * from kernel command line because firmware_class is generally built in
- * kernel instead of module.
+ * kernel instead of module. ',' is used as delimiter for setting 10
+ * custom paths for firmware loader.
  */
-module_param_string(path, fw_path_para, sizeof(fw_path_para), 0644);
+
+static const struct kernel_param_ops firmware_param_ops = {
+	.set = firmware_param_path_set,
+	.get = firmware_param_path_get,
+};
+module_param_cb(path, &firmware_param_ops, NULL, 0644);
 MODULE_PARM_DESC(path, "customized firmware image search path with a higher priority than default path");
 
 static int
@@ -794,6 +859,8 @@ _request_firmware(const struct firmware **firmware_p, const char *name,
 		  size_t offset, u32 opt_flags)
 {
 	struct firmware *fw = NULL;
+	struct cred *kern_cred = NULL;
+	const struct cred *old_cred;
 	bool nondirect = false;
 	int ret;
 
@@ -809,6 +876,18 @@ _request_firmware(const struct firmware **firmware_p, const char *name,
 					offset, opt_flags);
 	if (ret <= 0) /* error or already assigned */
 		goto out;
+
+	/*
+	 * We are about to try to access the firmware file. Because we may have been
+	 * called by a driver when serving an unrelated request from userland, we use
+	 * the kernel credentials to read the file.
+	 */
+	kern_cred = prepare_kernel_cred(NULL);
+	if (!kern_cred) {
+		ret = -ENOMEM;
+		goto out;
+	}
+	old_cred = override_creds(kern_cred);
 
 	ret = fw_get_filesystem_firmware(device, fw->priv, "", NULL);
 
@@ -834,6 +913,9 @@ _request_firmware(const struct firmware **firmware_p, const char *name,
 						      opt_flags, ret);
 	} else
 		ret = assign_fw(fw, device);
+
+	revert_creds(old_cred);
+	put_cred(kern_cred);
 
  out:
 	if (ret < 0) {

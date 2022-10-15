@@ -7,6 +7,8 @@
 #include <linux/rcupdate.h>
 #include <linux/sched.h>
 #include <linux/sched/task.h>
+#include <linux/slab.h>
+#include <linux/sched/debug.h>
 #include <linux/errno.h>
 
 int __percpu_init_rwsem(struct percpu_rw_semaphore *sem,
@@ -162,7 +164,7 @@ static void percpu_rwsem_wait(struct percpu_rw_semaphore *sem, bool reader)
 	__set_current_state(TASK_RUNNING);
 }
 
-bool __percpu_down_read(struct percpu_rw_semaphore *sem, bool try)
+bool __sched __percpu_down_read(struct percpu_rw_semaphore *sem, bool try)
 {
 	if (__percpu_down_read_trylock(sem))
 		return true;
@@ -211,7 +213,7 @@ static bool readers_active_check(struct percpu_rw_semaphore *sem)
 	return true;
 }
 
-void percpu_down_write(struct percpu_rw_semaphore *sem)
+void __sched percpu_down_write(struct percpu_rw_semaphore *sem)
 {
 	might_sleep();
 	rwsem_acquire(&sem->dep_map, 0, 0, _RET_IP_);
@@ -268,3 +270,34 @@ void percpu_up_write(struct percpu_rw_semaphore *sem)
 	rcu_sync_exit(&sem->rss);
 }
 EXPORT_SYMBOL_GPL(percpu_up_write);
+
+static LIST_HEAD(destroy_list);
+static DEFINE_SPINLOCK(destroy_list_lock);
+
+static void destroy_list_workfn(struct work_struct *work)
+{
+	struct percpu_rw_semaphore *sem, *sem2;
+	LIST_HEAD(to_destroy);
+
+	spin_lock(&destroy_list_lock);
+	list_splice_init(&destroy_list, &to_destroy);
+	spin_unlock(&destroy_list_lock);
+
+	if (list_empty(&to_destroy))
+		return;
+
+	list_for_each_entry_safe(sem, sem2, &to_destroy, destroy_list_entry) {
+		percpu_free_rwsem(sem);
+		kfree(sem);
+	}
+}
+
+static DECLARE_WORK(destroy_list_work, destroy_list_workfn);
+
+void percpu_rwsem_async_destroy(struct percpu_rw_semaphore *sem)
+{
+	spin_lock(&destroy_list_lock);
+	list_add_tail(&sem->destroy_list_entry, &destroy_list);
+	spin_unlock(&destroy_list_lock);
+	schedule_work(&destroy_list_work);
+}

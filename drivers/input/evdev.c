@@ -24,6 +24,7 @@
 #include <linux/device.h>
 #include <linux/cdev.h>
 #include "input-compat.h"
+#include <trace/hooks/evdev.h>
 
 struct evdev {
 	int open;
@@ -214,6 +215,9 @@ static int evdev_set_clk_type(struct evdev_client *client, unsigned int clkid)
 static void __pass_event(struct evdev_client *client,
 			 const struct input_event *event)
 {
+	trace_android_vh_pass_input_event(client->head, client->tail, client->bufsize,
+		event->type, event->code, event->value);
+
 	client->buffer[client->head++] = *event;
 	client->head &= client->bufsize - 1;
 
