@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2017,2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/io.h>
@@ -369,7 +370,7 @@ static size_t a3xx_snapshot_cp_meq(struct kgsl_device *device, u8 *buf,
 /*
  * a3xx_snapshot() - A3XX GPU snapshot function
  * @adreno_dev: Device being snapshotted
- * @snapshot: Snapshot meta data
+ * @snapshot: Snapshot metadata
  * @remain: Amount of space left in snapshot memory
  *
  * This is where all of the A3XX specific bits and pieces are grabbed
