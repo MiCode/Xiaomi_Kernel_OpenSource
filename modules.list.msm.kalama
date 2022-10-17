@@ -95,3 +95,5 @@ qcom_rimps.ko
 c1dcvs_vendor.ko
 c1dcvs_scmi.ko
 bcl_pmic5.ko
+nvme-core.ko
+nvme.ko

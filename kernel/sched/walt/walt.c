@@ -3816,11 +3816,6 @@ static void walt_irq_work(struct irq_work *irq_work)
 		level++;
 	}
 
-	if (!is_migration) {
-		for_each_cpu(cpu, &lock_cpus)
-			update_cpu_capacity_helper(cpu);
-	}
-
 	__walt_irq_work_locked(is_migration, &lock_cpus);
 
 	for_each_cpu(cpu, &lock_cpus)
@@ -4496,6 +4491,21 @@ static void android_rvh_build_perf_domains(void *unused, bool *eas_check)
 	*eas_check = true;
 }
 
+static void android_rvh_update_thermal_stats(void *unused, int cpu)
+{
+	if (unlikely(walt_disabled))
+		return;
+	update_cpu_capacity_helper(cpu);
+}
+
+static DECLARE_COMPLETION(rebuild_domains_completion);
+static void rebuild_sd_workfn(struct work_struct *work)
+{
+	rebuild_sched_domains();
+	complete(&rebuild_domains_completion);
+}
+static DECLARE_WORK(rebuild_sd_work, rebuild_sd_workfn);
+
 static void walt_do_sched_yield(void *unused, struct rq *rq)
 {
 	struct task_struct *curr = rq->curr;
@@ -4541,6 +4551,7 @@ static void register_walt_hooks(void)
 	register_trace_android_rvh_build_perf_domains(android_rvh_build_perf_domains, NULL);
 	register_trace_cpu_frequency_limits(walt_cpu_frequency_limits, NULL);
 	register_trace_android_rvh_do_sched_yield(walt_do_sched_yield, NULL);
+	register_trace_android_rvh_update_thermal_stats(android_rvh_update_thermal_stats, NULL);
 }
 
 atomic64_t walt_irq_work_lastq_ws;
@@ -4608,6 +4619,7 @@ static void walt_init(struct work_struct *work)
 {
 	struct ctl_table_header *hdr;
 	static atomic_t already_inited = ATOMIC_INIT(0);
+	struct root_domain *rd = cpu_rq(cpumask_first(cpu_active_mask))->rd;
 	int i;
 
 	might_sleep();
@@ -4630,6 +4642,8 @@ static void walt_init(struct work_struct *work)
 	walt_cfs_init();
 	walt_halt_init();
 	wait_for_completion_interruptible(&tick_sched_clock_completion);
+	schedule_work(&rebuild_sd_work);
+	wait_for_completion_interruptible(&rebuild_domains_completion);
 	stop_machine(walt_init_stop_handler, NULL, NULL);
 
 	hdr = register_sysctl_table(walt_base_table);
@@ -4647,6 +4661,11 @@ static void walt_init(struct work_struct *work)
 	}
 
 	topology_clear_scale_freq_source(SCALE_FREQ_SOURCE_ARCH, cpu_online_mask);
+
+	if (!rcu_dereference(rd->pd))
+		WALT_BUG(WALT_BUG_WALT, NULL,
+			 "root domain's perf-domain values not initialized rd->pd=%d.",
+			 rd->pd);
 }
 
 static DECLARE_WORK(walt_init_work, walt_init);

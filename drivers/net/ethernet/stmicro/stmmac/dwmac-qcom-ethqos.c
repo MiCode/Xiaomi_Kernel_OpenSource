@@ -1188,16 +1188,14 @@ static void qcom_ethqos_phy_suspend_clks(struct qcom_ethqos *ethqos)
 
 	ethqos_update_rgmii_clk_and_bus_cfg(ethqos, 0);
 
-	if (ethqos->phy_wol_supported) {
-		if (priv->plat->stmmac_clk)
-			clk_disable_unprepare(priv->plat->stmmac_clk);
+	if (priv->plat->stmmac_clk)
+		clk_disable_unprepare(priv->plat->stmmac_clk);
 
-		if (priv->plat->pclk)
-			clk_disable_unprepare(priv->plat->pclk);
+	if (priv->plat->pclk)
+		clk_disable_unprepare(priv->plat->pclk);
 
-		if (priv->plat->clk_ptp_ref)
-			clk_disable_unprepare(priv->plat->clk_ptp_ref);
-	}
+	if (priv->plat->clk_ptp_ref)
+		clk_disable_unprepare(priv->plat->clk_ptp_ref);
 
 	if (ethqos->rgmii_clk)
 		clk_disable_unprepare(ethqos->rgmii_clk);
@@ -1227,16 +1225,14 @@ static void qcom_ethqos_phy_resume_clks(struct qcom_ethqos *ethqos)
 
 	ETHQOSINFO("Enter\n");
 
-	if (ethqos->phy_wol_supported) {
-		if (priv->plat->stmmac_clk)
-			clk_prepare_enable(priv->plat->stmmac_clk);
+	if (priv->plat->stmmac_clk)
+		clk_prepare_enable(priv->plat->stmmac_clk);
 
-		if (priv->plat->pclk)
-			clk_prepare_enable(priv->plat->pclk);
+	if (priv->plat->pclk)
+		clk_prepare_enable(priv->plat->pclk);
 
-		if (priv->plat->clk_ptp_ref)
-			clk_prepare_enable(priv->plat->clk_ptp_ref);
-	}
+	if (priv->plat->clk_ptp_ref)
+		clk_prepare_enable(priv->plat->clk_ptp_ref);
 
 	if (ethqos->rgmii_clk)
 		clk_prepare_enable(ethqos->rgmii_clk);
@@ -1444,7 +1440,7 @@ static ssize_t read_phy_reg_dump(struct file *file, char __user *user_buf,
 					 "\n************* PHY Reg dump *************\n");
 
 	for (i = 0; i < 32; i++) {
-		phydata = ethqos_mdio_read(priv, priv->plat->phy_addr, i);
+		phydata = priv->mii->read(priv->mii, priv->plat->phy_addr, i);
 		len += scnprintf(buf + len, buf_len - len,
 					 "MII Register (%#x) = %#x\n",
 					 i, phydata);

@@ -614,6 +614,9 @@ static void ep_pcie_pipe_clk_deinit(struct ep_pcie_dev_t *dev)
 
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
 
+	if (dev->rumi)
+		return;
+
 	for (i = 0; i < EP_PCIE_MAX_PIPE_CLK; i++)
 		if (dev->pipeclk[i].hdl)
 			clk_disable_unprepare(

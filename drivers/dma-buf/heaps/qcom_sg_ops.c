@@ -123,14 +123,18 @@ static struct sg_table *qcom_sg_map_dma_buf(struct dma_buf_attachment *attachmen
 	if (buffer->uncached || !mem_buf_vmperm_can_cmo(vmperm))
 		attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
-	if (attrs & DMA_ATTR_DELAYED_UNMAP)
+	if (attrs & DMA_ATTR_DELAYED_UNMAP) {
 		ret = msm_dma_map_sgtable(attachment->dev, table, direction,
 					  attachment->dmabuf, attrs);
-	else
+	} else if (!a->mapped) {
 		ret = dma_map_sgtable(attachment->dev, table, direction, attrs);
+	} else {
+		dev_err(attachment->dev, "Error: Dma-buf is already mapped!\n");
+		ret = -EBUSY;
+	}
 
 	if (ret) {
-		table = ERR_PTR(-ENOMEM);
+		table = ERR_PTR(ret);
 		goto err_map_sgtable;
 	}
 

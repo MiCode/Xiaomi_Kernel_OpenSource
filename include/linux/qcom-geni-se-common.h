@@ -91,7 +91,7 @@ if (print) { \
 /* GENI_OUTPUT_CTRL fields */
 #define GENI_CFG_REG80		0x240
 #define GENI_IO_MUX_0_EN	BIT(0)
-#define GENI_IO_MUX_1_EN	BIT(2)
+#define GENI_IO_MUX_1_EN	BIT(1)
 
 /* GENI_CFG_REG80 fields */
 #define IO1_SEL_TX		BIT(2)
@@ -107,6 +107,13 @@ if (print) { \
 #define HW_VER_MINOR_MASK GENMASK(27, 16)
 #define HW_VER_MINOR_SHFT 16
 #define HW_VER_STEP_MASK GENMASK(15, 0)
+
+#define OTHER_IO_OE		BIT(12)
+#define IO2_DATA_IN_SEL		BIT(11)
+#define RX_DATA_IN_SEL		BIT(8)
+#define IO_MACRO_IO3_SEL	(GENMASK(7, 6))
+#define IO_MACRO_IO2_SEL	BIT(5)
+#define IO_MACRO_IO0_SEL_BIT	BIT(0)
 
 static inline int geni_se_common_resources_init(struct geni_se *se, u32 geni_to_core,
 			 u32 cpu_to_geni, u32 geni_to_ddr)

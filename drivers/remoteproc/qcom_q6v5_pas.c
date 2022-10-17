@@ -1100,6 +1100,7 @@ static int adsp_probe(struct platform_device *pdev)
 		goto detach_proxy_pds;
 	}
 
+	qcom_sysmon_register_ssr_subdev(adsp->sysmon, &adsp->ssr_subdev.subdev);
 	ret = device_create_file(adsp->dev, &dev_attr_txn_id);
 	if (ret)
 		goto remove_subdevs;

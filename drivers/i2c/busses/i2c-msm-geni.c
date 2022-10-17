@@ -1407,6 +1407,124 @@ geni_i2c_txn_ret:
 	return ret;
 }
 
+/**
+ * i2c_slave_xfer: SMbus transfer function.
+ * @adap: I2C driver adapter.
+ * @addr: Slave address.
+ * @flags: i2c client flag.
+ * @read_write: Read/Write flag.
+ * @command: SMbus command code.
+ * @xfer_type: read/write transfer type.
+ * @data: Pointer to client data.
+ *
+ * This function will transfer SMbus command using
+ * geni i2c transfer function.
+ *
+ * Return: 0 for success, Negative number for error condition.
+ */
+static int geni_i2c_smbus_xfer(struct i2c_adapter *adap, u16 addr,
+			       unsigned short flags, char read_write,
+			       u8 command, int xfer_type, union i2c_smbus_data *data)
+{
+	struct geni_i2c_dev *gi2c = i2c_get_adapdata(adap);
+	struct i2c_msg msgs;
+	u8 buf[I2C_SMBUS_BLOCK_MAX];
+	int ret = 0, i;
+
+	msgs.addr = addr;
+	msgs.buf = buf;
+	msgs.flags = read_write;
+
+	if (read_write == I2C_SMBUS_READ) {
+		switch (xfer_type) {
+		case I2C_SMBUS_BYTE_DATA:
+			msgs.len = I2C_SMBUS_BYTE;
+			ret = geni_i2c_xfer(adap, &msgs, 1);
+			if (ret < 0) {
+				I2C_LOG_ERR(gi2c->ipcl, false, gi2c->dev,
+					    "i2c read byte failed ret:%d\n", ret);
+				return ret;
+			}
+			data->byte = buf[0];
+			break;
+
+		case I2C_SMBUS_WORD_DATA:
+			msgs.len = I2C_SMBUS_BYTE_DATA;
+			ret = geni_i2c_xfer(adap, &msgs, 1);
+			if (ret < 0) {
+				I2C_LOG_ERR(gi2c->ipcl, false, gi2c->dev,
+					    "i2c read word failed ret:%d\n", ret);
+				return ret;
+			}
+			data->word = (buf[0] | (buf[1] << 8));
+			break;
+
+		case I2C_SMBUS_BLOCK_DATA:
+			msgs.len = I2C_SMBUS_BLOCK_MAX;
+			ret = geni_i2c_xfer(adap, &msgs, 1);
+			if (ret < 0) {
+				I2C_LOG_ERR(gi2c->ipcl, false, gi2c->dev,
+					    "i2c read block failed ret:%d\n", ret);
+				return ret;
+			}
+			data->block[0] = msgs.len;
+			for (i = 0; i < msgs.len; i++)
+				data->block[i + 1] = buf[i];
+			break;
+
+		default:
+			I2C_LOG_ERR(gi2c->ipcl, false, gi2c->dev, "Invalid xfer type\n");
+			return -EINVAL;
+		}
+	} else if (read_write == I2C_SMBUS_WRITE) {
+		switch (xfer_type) {
+		case I2C_SMBUS_BYTE_DATA:
+			msgs.len = I2C_SMBUS_BYTE;
+			buf[0] = data->byte;
+			ret = geni_i2c_xfer(adap, &msgs, 1);
+			if (ret < 0) {
+				I2C_LOG_ERR(gi2c->ipcl, false, gi2c->dev,
+					    "i2c write byte failed ret:%d\n", ret);
+				return ret;
+			}
+			break;
+
+		case I2C_SMBUS_WORD_DATA:
+			msgs.len = I2C_SMBUS_BYTE_DATA;
+			buf[0] = (uint8_t)(data->word & 0xFF);
+			buf[1] = (uint8_t)(data->word >> 8);
+			ret = geni_i2c_xfer(adap, &msgs, 1);
+			if (ret < 0) {
+				I2C_LOG_ERR(gi2c->ipcl, false, gi2c->dev,
+					    "i2c write word failed ret:%d\n", ret);
+				return ret;
+			}
+			break;
+
+		case I2C_SMBUS_BLOCK_DATA:
+			if (data->block[0] > I2C_SMBUS_BLOCK_MAX)
+				data->block[0] = I2C_SMBUS_BLOCK_MAX;
+
+			for (i = 0; i < data->block[0]; i++)
+				buf[i] = data->block[i + 1];
+
+			msgs.len = data->block[0];
+			ret = geni_i2c_xfer(adap, &msgs, 1);
+			if (ret < 0) {
+				I2C_LOG_ERR(gi2c->ipcl, false, gi2c->dev,
+					    "i2c write block failed ret:%d\n", ret);
+				return ret;
+			}
+			break;
+
+		default:
+			I2C_LOG_ERR(gi2c->ipcl, false, gi2c->dev, "Invalid xfer type\n");
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
 static u32 geni_i2c_func(struct i2c_adapter *adap)
 {
 	return I2C_FUNC_I2C | (I2C_FUNC_SMBUS_EMUL & ~I2C_FUNC_SMBUS_QUICK);
@@ -1415,6 +1533,7 @@ static u32 geni_i2c_func(struct i2c_adapter *adap)
 static const struct i2c_algorithm geni_i2c_algo = {
 	.master_xfer	= geni_i2c_xfer,
 	.functionality	= geni_i2c_func,
+	.smbus_xfer	= geni_i2c_smbus_xfer,
 };
 
 #if I2C_HUB_DEF

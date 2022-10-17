@@ -542,6 +542,8 @@ stmmac_probe_config_dt(struct platform_device *pdev, u8 *mac)
 
 	if (of_device_is_compatible(np, "snps,dwxgmac")) {
 		plat->has_xgmac = 1;
+		plat->has_gmac4 = 0;
+		plat->has_gmac = 0;
 		plat->pmt = 1;
 		plat->tso_en = of_property_read_bool(np, "snps,tso");
 	}
