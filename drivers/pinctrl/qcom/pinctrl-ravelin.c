@@ -22,6 +22,17 @@ static const struct msm_pinctrl_soc_data ravelin_pinctrl = {
 	.ngroups = ARRAY_SIZE(ravelin_groups),
 	.ngpios = 137,
 };
+
+static const struct msm_pinctrl_soc_data ravelin_vm_pinctrl = {
+	.pins = ravelin_pins,
+	.npins = ARRAY_SIZE(ravelin_pins),
+	.functions = ravelin_functions,
+	.nfunctions = ARRAY_SIZE(ravelin_functions),
+	.groups = ravelin_groups,
+	.ngroups = ARRAY_SIZE(ravelin_groups),
+	.ngpios = 137,
+};
+
 static void qcom_trace_gpio_read(void *unused, struct gpio_device *gdev,
 				bool *block_gpio_read)
 {
@@ -46,6 +57,7 @@ static int ravelin_pinctrl_probe(struct platform_device *pdev)
 
 static const struct of_device_id ravelin_pinctrl_of_match[] = {
 	{ .compatible = "qcom,ravelin-pinctrl", .data = &ravelin_pinctrl},
+	{ .compatible = "qcom,ravelin-vm-pinctrl", .data = &ravelin_vm_pinctrl},
 	{ },
 };
 
