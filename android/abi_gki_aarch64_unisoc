@@ -807,6 +807,7 @@
   proc_dostring
   proc_mkdir
   __pskb_copy_fclone
+  psi_system
   pskb_expand_head
   put_device
   put_pages_list
