@@ -2386,6 +2386,9 @@
 # required by snd-soc-aw881xx.ko
   i2c_smbus_write_byte
 
+# repuired by snd-soc-fsa4480.ko
+  of_find_i2c_device_by_node
+
 # required by snd-soc-sprd-audio-dma.ko
   dmam_alloc_attrs
   dmam_free_coherent
