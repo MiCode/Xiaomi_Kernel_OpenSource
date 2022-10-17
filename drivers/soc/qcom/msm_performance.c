@@ -1098,7 +1098,9 @@ int cpucp_gplaf_init(struct scmi_device *sdev)
 
 	gplaf_ops = sdev->handle->devm_get_protocol(sdev, SCMI_PROTOCOL_GPLAF, &gplaf_handle);
 
-	if (!gplaf_ops || !gplaf_handle)
+	if (IS_ERR(gplaf_ops))
+		return PTR_ERR(gplaf_ops);
+	if (!gplaf_handle)
 		return -EINVAL;
 	return ret;
 }
@@ -1391,8 +1393,8 @@ int cpucp_plh_init(struct scmi_device *sdev)
 
 	plh_ops = sdev->handle->devm_get_protocol(sdev, SCMI_PROTOCOL_PLH, &plh_handle);
 
-	if (!plh_ops)
-		return -EINVAL;
+	if (IS_ERR(plh_ops))
+		return PTR_ERR(plh_ops);
 
 	return ret;
 }
@@ -1969,8 +1971,8 @@ int cpucp_scmi_shared_rail_boost_init(struct scmi_device *sdev)
 
 	shared_rail_ops = sdev->handle->devm_get_protocol(sdev,
 				SCMI_PROTOCOL_SHARED_RAIL, &shared_rail_handle);
-	if (!shared_rail_ops)
-		return -ENODEV;
+	if (IS_ERR(shared_rail_ops))
+		return PTR_ERR(shared_rail_ops);
 
 	return ret;
 }

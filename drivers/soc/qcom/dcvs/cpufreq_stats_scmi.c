@@ -346,8 +346,8 @@ static int scmi_cpufreq_stats_probe(struct scmi_device *sdev)
 		return -ENODEV;
 
 	ops = sdev->handle->devm_get_protocol(sdev, SCMI_CPUFREQ_STATS_PROTOCOL, &ph);
-	if (!ops)
-		return -ENODEV;
+	if (IS_ERR(ops))
+		return PTR_ERR(ops);
 	return qcom_cpufreq_stats_init(sdev->handle);
 }
 

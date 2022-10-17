@@ -250,9 +250,8 @@ static int scmi_c1dcvs_probe(struct scmi_device *sdev)
 		return -ENODEV;
 
 	ops = sdev->handle->devm_get_protocol(sdev, SCMI_C1DCVS_PROTOCOL, &ph);
-	if (!ops)
-		return -ENODEV;
-
+	if (IS_ERR(ops))
+		return PTR_ERR(ops);
 	ret = kobject_init_and_add(&c1dcvs_kobj, &c1dcvs_settings_ktype,
 				   &cpu_subsys.dev_root->kobj, "c1dcvs");
 	if (ret < 0) {
