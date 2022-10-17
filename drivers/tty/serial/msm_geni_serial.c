@@ -3801,12 +3801,20 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	if (is_console) {
 		dev_port->handle_rx = handle_rx_console;
 		dev_port->rx_fifo = devm_kzalloc(uport->dev, sizeof(u32),
-								GFP_KERNEL);
+						 GFP_KERNEL);
+		if (!dev_port->rx_fifo) {
+			ret = -ENOMEM;
+			goto exit_geni_serial_probe;
+		}
 	} else {
 		dev_port->handle_rx = handle_rx_hs;
-		dev_port->rx_fifo = devm_kzalloc(uport->dev,
-				sizeof(dev_port->rx_fifo_depth * sizeof(u32)),
-								GFP_KERNEL);
+		dev_port->rx_fifo =
+			devm_kzalloc(uport->dev, (dev_port->rx_fifo_depth *
+				     sizeof(u32)), GFP_KERNEL);
+		if (!dev_port->rx_fifo) {
+			ret = -ENOMEM;
+			goto exit_geni_serial_probe;
+		}
 		pm_runtime_set_suspended(&pdev->dev);
 		pm_runtime_set_autosuspend_delay(&pdev->dev, 150);
 		pm_runtime_use_autosuspend(&pdev->dev);

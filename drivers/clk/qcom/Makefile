@@ -121,6 +121,7 @@ obj-$(CONFIG_SM_VIDEOCC_8250) += videocc-sm8250.o
 obj-$(CONFIG_SM_GPUCC_DIWALI) += gpucc-diwali.o
 obj-$(CONFIG_SM_GPUCC_HOLI) += gpucc-holi.o
 obj-$(CONFIG_SM_GPUCC_PARROT) += gpucc-parrot.o
+obj-$(CONFIG_SM_GPUCC_RAVELIN) += gpucc-ravelin.o
 obj-$(CONFIG_SM_GPUCC_SHIMA) += gpucc-shima.o
 obj-$(CONFIG_SXR_GPUCC_ANORAK) += gpucc-anorak.o
 obj-$(CONFIG_SXR_GPUCC_NEO) += gpucc-neo.o

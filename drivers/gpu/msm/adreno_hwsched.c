@@ -1630,6 +1630,8 @@ void adreno_hwsched_parse_fault_cmdobj(struct adreno_device *adreno_dev,
 static int unregister_context(int id, void *ptr, void *data)
 {
 	struct kgsl_context *context = ptr;
+	struct adreno_context *drawctxt = ADRENO_CONTEXT(context);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(context->device);
 
 	/*
 	 * We don't need to send the unregister hfi packet because
@@ -1638,6 +1640,19 @@ static int unregister_context(int id, void *ptr, void *data)
 	 * registers with gmu on its first submission post slumber.
 	 */
 	context->gmu_registered = false;
+
+	/* Consider the scenario where non-recurring submissions were made
+	 * by a context. Here internal_timestamp of context would be non
+	 * zero. After slumber, last retired timestamp is not held by GMU.
+	 * If this context submits a recurring workload, the context is
+	 * registered again, but the internal timestamp is not updated. When
+	 * the context is unregistered in send_context_unregister_hfi(),
+	 * we could be waiting on old internal_timestamp which is not held by
+	 * GMU. This can result in GMU errors. Hence if ADRENO_LSR is enabled
+	 * set internal_timestamp to zero when entering slumber.
+	 */
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_LSR))
+		drawctxt->internal_timestamp = 0;
 
 	return 0;
 }

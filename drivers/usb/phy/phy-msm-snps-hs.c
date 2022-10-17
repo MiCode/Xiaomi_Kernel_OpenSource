@@ -456,6 +456,7 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 				qcom_scm_io_writel(phy->eud_reg, 0x0);
 				phy->re_enable_eud = true;
 			} else {
+				msm_hsphy_enable_clocks(phy, true);
 				ret = msm_hsphy_enable_power(phy, true);
 				return ret;
 			}
@@ -1546,8 +1547,11 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 	 * kernel boot till USB phy driver is initialized based on cable status,
 	 * keep LDOs on here.
 	 */
-	if (phy->eud_enable_reg && readl_relaxed(phy->eud_enable_reg))
+	if (phy->eud_enable_reg && readl_relaxed(phy->eud_enable_reg)) {
+		msm_hsphy_enable_clocks(phy, true);
 		msm_hsphy_enable_power(phy, true);
+	}
+
 	return 0;
 
 err_ret:

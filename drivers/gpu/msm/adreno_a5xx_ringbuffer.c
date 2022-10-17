@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "adreno.h"
@@ -309,10 +310,16 @@ static u64 a5xx_get_user_profiling_ib(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb, struct kgsl_drawobj_cmd *cmdobj,
 		u32 target_offset, u32 *cmds)
 {
-	u32 offset = rb->profile_index * (PROFILE_IB_DWORDS << 2);
-	u32 *ib = rb->profile_desc->hostptr + offset;
-	u64 gpuaddr = rb->profile_desc->gpuaddr + offset;
-	u32 dwords = a5xx_get_alwayson_counter(adreno_dev, ib,
+	u32 offset, *ib, dwords;
+	u64 gpuaddr;
+
+	if (IS_ERR(rb->profile_desc))
+		return 0;
+
+	offset = rb->profile_index * (PROFILE_IB_DWORDS << 2);
+	ib = rb->profile_desc->hostptr + offset;
+	gpuaddr = rb->profile_desc->gpuaddr + offset;
+	dwords = a5xx_get_alwayson_counter(adreno_dev, ib,
 		cmdobj->profiling_buffer_gpuaddr + target_offset);
 
 	cmds[0] = cp_type7_packet(CP_INDIRECT_BUFFER_PFE, 3);
