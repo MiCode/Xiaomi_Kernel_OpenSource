@@ -2282,6 +2282,16 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 			err = ufs_qcom_set_bus_vote(hba, true);
 			if (ufs_qcom_is_link_hibern8(hba))
 				ufs_qcom_phy_set_src_clk_h8_exit(phy);
+			err = ufs_qcom_phy_power_on(hba);
+			if (err) {
+				ufs_qcom_msg(ERR, hba->dev, "%s: phy power on failed, ret = %d\n",
+						 __func__, err);
+				return err;
+			}
+
+			/* enable the device ref clock for HS mode*/
+			if (ufshcd_is_hs_mode(&hba->pwr_info))
+				ufs_qcom_dev_ref_clk_ctrl(host, true);
 			/* Device ref clk should be enabled before Unipro clock */
 			err = clk_prepare_enable(host->ref_clki->clk);
 			if (!err)
@@ -2292,14 +2302,6 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 					__func__, err);
 		} else {
 			if (!ufs_qcom_is_link_active(hba)) {
-				err = ufs_qcom_phy_power_off(hba);
-				if (err) {
-					ufs_qcom_msg(ERR, hba->dev,
-						"%s: phy power off failed, ret=%d\n",
-						__func__, err);
-					return err;
-				}
-				ufs_qcom_dev_ref_clk_ctrl(host, false);
 				/*
 				 * Dont turn off dev ref-clk before unipro clk.
 				 * Setting ref_clki state to requested state of
@@ -2313,6 +2315,14 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 	case POST_CHANGE:
 		if (!on) {
 			if (!ufs_qcom_is_link_active(hba)) {
+				err = ufs_qcom_phy_power_off(hba);
+				if (err) {
+					ufs_qcom_msg(ERR, hba->dev,
+						"%s: phy power off failed, ret=%d\n",
+						__func__, err);
+					return err;
+				}
+				ufs_qcom_dev_ref_clk_ctrl(host, false);
 				/* ref_clk state is already changed in PRE_CHANGE */
 				clk_disable_unprepare(host->ref_clki->clk);
 			}
@@ -2322,17 +2332,6 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 			if (err)
 				return err;
 			err = ufs_qcom_unvote_qos_all(hba);
-		} else {
-			err = ufs_qcom_phy_power_on(hba);
-			if (err) {
-				ufs_qcom_msg(ERR, hba->dev, "%s: phy power on failed, ret = %d\n",
-						 __func__, err);
-				return err;
-			}
-
-			/* enable the device ref clock for HS mode*/
-			if (ufshcd_is_hs_mode(&hba->pwr_info))
-				ufs_qcom_dev_ref_clk_ctrl(host, true);
 		}
 		if (!err)
 			atomic_set(&host->clks_on, on);
