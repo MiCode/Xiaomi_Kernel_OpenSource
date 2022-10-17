@@ -191,10 +191,23 @@ static void qcedev_ce_high_bw_req(struct qcedev_control *podev,
 			ret = qcedev_control_clocks(podev, true);
 			if (ret)
 				goto exit_unlock_mutex;
+			ret = qce_set_irqs(podev->qce, true);
+			if (ret) {
+				pr_err("%s: could not enable bam irqs, ret = %d\n",
+						__func__, ret);
+				qcedev_control_clocks(podev, false);
+				goto exit_unlock_mutex;
+			}
 		}
 		podev->high_bw_req_count++;
 	} else {
 		if (podev->high_bw_req_count == 1) {
+			ret = qce_set_irqs(podev->qce, false);
+			if (ret) {
+				pr_err("%s: could not disable bam irqs, ret = %d\n",
+						__func__, ret);
+				goto exit_unlock_mutex;
+			}
 			ret = qcedev_control_clocks(podev, false);
 			if (ret)
 				goto exit_unlock_mutex;
@@ -2574,13 +2587,21 @@ static int qcedev_probe_device(struct platform_device *pdev)
 		rc = -ENODEV;
 		goto exit_scale_busbandwidth;
 	}
+	podev->qce = handle;
+
+	rc = qce_set_irqs(podev->qce, false);
+	if (rc) {
+		pr_err("%s: could not disable bam irqs, ret = %d\n",
+				__func__, rc);
+		goto exit_scale_busbandwidth;
+	}
+
 	rc = icc_set_bw(podev->icc_path, 0, 0);
 	if (rc) {
 		pr_err("%s Unable to set to low bandwidth\n", __func__);
 		goto exit_qce_close;
 	}
 
-	podev->qce = handle;
 	podev->pdev = pdev;
 	platform_set_drvdata(pdev, podev);
 
@@ -2695,6 +2716,12 @@ static int qcedev_suspend(struct platform_device *pdev, pm_message_t state)
 
 	mutex_lock(&qcedev_sent_bw_req);
 	if (podev->high_bw_req_count) {
+		ret = qce_set_irqs(podev->qce, false);
+		if (ret) {
+			pr_err("%s: could not disable bam irqs, ret = %d\n",
+					__func__, ret);
+			goto suspend_exit;
+		}
 		ret = qcedev_control_clocks(podev, false);
 		if (ret)
 			goto suspend_exit;
@@ -2720,6 +2747,12 @@ static int qcedev_resume(struct platform_device *pdev)
 		ret = qcedev_control_clocks(podev, true);
 		if (ret)
 			goto resume_exit;
+		ret = qce_set_irqs(podev->qce, true);
+		if (ret) {
+			pr_err("%s: could not enable bam irqs, ret = %d\n",
+					__func__, ret);
+			qcedev_control_clocks(podev, false);
+		}
 	}
 
 resume_exit:
