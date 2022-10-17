@@ -123,16 +123,6 @@ static void gh_init_wait_queues(struct gh_proxy_vm *vm)
 		init_waitqueue_head(&vm->vcpu[j].wait_queue);
 }
 
-static inline bool is_vm_supports_proxy(gh_vmid_t gh_vmid)
-{
-	gh_vmid_t vmid;
-
-	if ((!gh_rm_get_vmid(GH_TRUSTED_VM, &vmid) && vmid == gh_vmid) ||
-			(!gh_rm_get_vmid(GH_OEM_VM, &vmid) && vmid == gh_vmid))
-		return true;
-
-	return false;
-}
 
 static inline struct gh_proxy_vm *gh_get_vm(gh_vmid_t vmid)
 {
@@ -146,6 +136,24 @@ static inline struct gh_proxy_vm *gh_get_vm(gh_vmid_t vmid)
 	}
 
 	return vm;
+}
+
+static inline bool is_vm_supports_proxy(gh_vmid_t gh_vmid)
+{
+	struct gh_proxy_vm *vm;
+	bool ret = false;
+
+	/* Only when the vmid corresponding vm's vcpu populated,
+	 * this vm's gh_proxy_vm struct will be initialised with
+	 * vcpu_count > 0.
+	 */
+	mutex_lock(&gh_vm_mutex);
+	vm = gh_get_vm(gh_vmid);
+	if (vm && vm->id != GH_VMID_INVAL && vm->vcpu_count > 0)
+		ret = true;
+
+	mutex_unlock(&gh_vm_mutex);
+	return ret;
 }
 
 static inline struct gh_proxy_vcpu *gh_get_vcpu(struct gh_proxy_vm *vm, gh_capid_t cap_id)
@@ -267,6 +275,7 @@ static int gh_populate_vm_vcpu_info(gh_vmid_t vmid, gh_label_t cpu_idx,
 	struct gh_proxy_vm *vm;
 	int ret = 0;
 	char *vcpu_irq_name;
+	gh_vmid_t temp_vmid;
 
 	if (!init_done) {
 		pr_err("Driver probe failed\n");
@@ -274,7 +283,8 @@ static int gh_populate_vm_vcpu_info(gh_vmid_t vmid, gh_label_t cpu_idx,
 		goto out;
 	}
 
-	if (!is_vm_supports_proxy(vmid)) {
+	if ((!gh_rm_get_vmid(GH_TRUSTED_VM, &temp_vmid) && temp_vmid != vmid) &&
+	    (!gh_rm_get_vmid(GH_OEM_VM, &temp_vmid) && temp_vmid != vmid)) {
 		pr_info("Skip populating VCPU affinity info for VM=%d\n", vmid);
 		goto out;
 	}
