@@ -3362,15 +3362,15 @@ free_ereqs:
 	return rc;
 }
 
-int mhi_dev_open_channel(uint32_t chan_id,
-			struct mhi_dev_client **handle_client,
-			void (*mhi_dev_client_cb_reason)
-			(struct mhi_dev_client_cb_reason *cb))
+static int __mhi_dev_open_channel(struct mhi_dev *mhi_ctx,
+				  uint32_t chan_id,
+				  struct mhi_dev_client **handle_client,
+				  void (*mhi_dev_client_cb_reason)
+				  (struct mhi_dev_client_cb_reason *cb))
 {
 	int rc = 0;
 	struct mhi_dev_channel *ch;
 	struct platform_device *pdev;
-	struct mhi_dev *mhi_ctx = mhi_get_dev_ctx(mhi_hw_ctx, MHI_DEV_PHY_FUN);
 
 	if (!mhi_ctx || !mhi_ctx->mhi_hw_ctx->pdev) {
 		mhi_log(MHI_MSG_ERROR, "Invalid open channel call for ch_id:%d\n", chan_id);
@@ -3423,6 +3423,17 @@ free_client:
 exit:
 	mutex_unlock(&ch->ch_lock);
 	return rc;
+}
+
+int mhi_dev_open_channel(uint32_t chan_id,
+			 struct mhi_dev_client **handle_client,
+			 void (*mhi_dev_client_cb_reason)
+			 (struct mhi_dev_client_cb_reason *cb))
+{
+	struct mhi_dev *mhi = mhi_get_dev_ctx(mhi_hw_ctx, MHI_DEV_PHY_FUN);
+
+	return __mhi_dev_open_channel(mhi, chan_id, handle_client,
+				      mhi_dev_client_cb_reason);
 }
 EXPORT_SYMBOL(mhi_dev_open_channel);
 
@@ -4095,26 +4106,16 @@ static void mhi_ring_init_cb(void *data)
 	mutex_unlock(&mhi->mhi_lock);
 }
 
-int mhi_register_state_cb(void (*mhi_state_cb)
-				(struct mhi_dev_client_cb_data *cb_data),
-				void *data, enum mhi_client_channel channel)
+static int __mhi_register_state_cb(void (*mhi_state_cb)
+				   (struct mhi_dev_client_cb_data *cb_data),
+				   void *data,
+				   enum mhi_client_channel channel,
+				   struct mhi_dev *mhi)
 {
 	struct mhi_dev_ready_cb_info *cb_info = NULL;
-	/* TODO: FR for supporting s/w channels in VF */
-	struct mhi_dev *mhi = mhi_get_dev_ctx(mhi_hw_ctx, MHI_DEV_PHY_FUN);
 
-	if (WARN_ON(!mhi))
-		return -ENXIO;
-
-	if (channel >= MHI_MAX_SOFTWARE_CHANNELS) {
-		pr_err("Invalid channel :%d\n", channel);
-		return -EINVAL;
-	}
-
-	mutex_lock(&mhi->mhi_lock);
 	cb_info = kmalloc(sizeof(*cb_info), GFP_KERNEL);
 	if (!cb_info) {
-		mutex_unlock(&mhi->mhi_lock);
 		return -ENOMEM;
 	}
 
@@ -4132,13 +4133,31 @@ int mhi_register_state_cb(void (*mhi_state_cb)
 	 * early during boot - add an explicit check for non-null "ch".
 	 */
 	if (mhi->ch && (mhi->ch[channel].state == MHI_DEV_CH_STARTED)) {
-		mutex_unlock(&mhi->mhi_lock);
 		return -EEXIST;
 	}
 
+	return 0;
+}
+
+int mhi_register_state_cb(void (*mhi_state_cb) (struct mhi_dev_client_cb_data *cb_data),
+				void *data, enum mhi_client_channel channel)
+{
+	struct mhi_dev *mhi = mhi_get_dev_ctx(mhi_hw_ctx, MHI_DEV_PHY_FUN);
+	int ret_val = 0;
+
+	if (WARN_ON(!mhi))
+		return -ENXIO;
+
+	if (channel >= MHI_MAX_SOFTWARE_CHANNELS) {
+		pr_err("Invalid channel :%d\n", channel);
+		return -EINVAL;
+	}
+
+	mutex_lock(&mhi->mhi_lock);
+	ret_val = __mhi_register_state_cb(mhi_state_cb, data, channel, mhi);
 	mutex_unlock(&mhi->mhi_lock);
 
-	return 0;
+	return ret_val;
 }
 EXPORT_SYMBOL(mhi_register_state_cb);
 
@@ -4166,21 +4185,28 @@ static inline void mhi_update_state_info(struct mhi_dev *mhi,
 	mhi->ctrl_info = info;
 }
 
-int mhi_ctrl_state_info(uint32_t idx, uint32_t *info)
+static int __mhi_ctrl_state_info(struct mhi_dev *mhi, uint32_t vf_id,
+				    uint32_t ch_id, uint32_t *info)
 {
-	struct mhi_dev *mhi = mhi_get_dev_ctx(mhi_hw_ctx, MHI_DEV_PHY_FUN);
-
-	if (idx == MHI_DEV_UEVENT_CTRL)
+	if (ch_id == MHI_DEV_UEVENT_CTRL)
 		*info = mhi->ctrl_info;
 	else
-		if (idx < MHI_MAX_SOFTWARE_CHANNELS)
-			*info = channel_state_info[MHI_DEV_PHY_FUN][idx].ctrl_info;
+		if (ch_id < MHI_MAX_SOFTWARE_CHANNELS)
+			*info = channel_state_info[vf_id][ch_id].ctrl_info;
 		else
 			return -EINVAL;
 
-	mhi_log(MHI_MSG_VERBOSE, "idx:%d, ctrl:%d", idx, *info);
+	mhi_log(MHI_MSG_VERBOSE, "vf_id:%d ch_id:%d, ctrl:%d\n",
+				  vf_id, ch_id, *info);
 
 	return 0;
+}
+
+int mhi_ctrl_state_info(uint32_t ch_id, uint32_t *info)
+{
+	struct mhi_dev *mhi = mhi_get_dev_ctx(mhi_hw_ctx, MHI_DEV_PHY_FUN);
+
+	return __mhi_ctrl_state_info(mhi, mhi->vf_id, ch_id, info);
 }
 EXPORT_SYMBOL(mhi_ctrl_state_info);
 
