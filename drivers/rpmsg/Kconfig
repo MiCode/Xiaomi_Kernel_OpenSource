@@ -111,17 +111,6 @@ config RPMSG_QCOM_GLINK_SLATECOM
 	  data to the appropriate SLATECOM format and allows for GLINK
 	  communication with remote subsystems that are external to the SoC.
 
-config RPMSG_GLINK_SLATECOM_WAKEUP_MS
-	int "GLINK Slatecom Wakeup timeout"
-	default 0
-	help
-	  This option is used to configure the wakesource timeout that GLINK
-	  slatecom should take when a packet is received. The glink driver can
-	  guarantee that the packet gets queued to glinkpkt driver but cannot
-	  guarantee the client process will get time to run if auto sleep is
-	  enabled. This config will help mitigate missed packets on systems
-	  where auto sleep is aggressive.
-
 config MSM_RPM_SMD
 	tristate "RPM driver using SMD protocol"
 	select RPMSG
