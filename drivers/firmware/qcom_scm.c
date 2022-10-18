@@ -698,7 +698,6 @@ int qcom_scm_pas_shutdown_retry(u32 peripheral)
 		return ret;
 
 	pr_err("PAS Shutdown: First call to shutdown failed with error: %d\n", ret);
-
 	while (retry_num < pas_shutdown_retry_max && ret) {
 		retry_num++;
 		msleep(pas_shutdown_retry_interval);

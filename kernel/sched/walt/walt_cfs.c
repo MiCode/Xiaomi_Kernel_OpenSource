@@ -12,6 +12,23 @@
 #include <../../../drivers/android/binder_internal.h>
 #include "../../../drivers/android/binder_trace.h"
 
+#ifdef CONFIG_METIS_WALT
+#include "../../../drivers/mihw/include/mi_module.h"
+
+extern struct walt_get_indicies_hooks mi_walt_get_indicies_func[WALT_CFS_TYPES];
+extern struct find_energy_cpu_hooks wake_render_func[WALT_CFS_TYPES];
+extern void mi_check_preempt_wakeup_hook(void *nonus, struct rq *rq,
+		struct task_struct *p, bool *preempt, bool *nopreempt,
+		int wake_flags, struct sched_entity *se,
+		struct sched_entity *pse, int next_buddy_marked,
+		unsigned int granularity, bool *pt_flag);
+
+extern void mi_pick_next_task_fair_hook(void *nouse, struct rq *rq,
+		struct task_struct **p, struct sched_entity **se,
+		bool *repick, bool simple, struct task_struct *prev);
+
+#endif
+
 static void create_util_to_cost_pd(struct em_perf_domain *pd)
 {
 	int util, cpu = cpumask_first(to_cpumask(pd->cpus));
@@ -161,6 +178,10 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 		bool *energy_eval_needed)
 {
 	int i = 0;
+#ifdef CONFIG_METIS_WALT
+	bool check_return = false;
+	int mod;
+#endif
 
 	*order_index = 0;
 	*end_index = 0;
@@ -182,6 +203,19 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 			*end_index = 1;
 		return;
 	}
+
+#ifdef CONFIG_METIS_WALT
+	for (mod = 0; mod < WALT_CFS_TYPES; mod++) {
+		if (mi_walt_get_indicies_func[mod].f) {
+			mi_walt_get_indicies_func[mod].f(p, order_index, end_index,
+				num_sched_clusters, &check_return);
+			if(check_return) {
+				*energy_eval_needed = false;
+				return;
+			}
+		}
+	}
+#endif
 
 	if (is_uclamp_boosted || per_task_boost ||
 		task_boost_policy(p) == SCHED_BOOST_ON_BIG ||
@@ -776,7 +810,14 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	int first_cpu;
 	bool energy_eval_needed = true;
 	struct compute_energy_output output;
+#ifdef CONFIG_METIS_WALT
+	int mod;
 
+	for (mod = 0; mod < WALT_CFS_TYPES; mod++) {
+		if (wake_render_func[mod].f)
+			wake_render_func[mod].f(p, &need_idle);
+	}
+#endif
 	if (walt_is_many_wakeup(sibling_count_hint) && prev_cpu != cpu &&
 			cpumask_test_cpu(prev_cpu, &p->cpus_mask))
 		return prev_cpu;
@@ -931,12 +972,21 @@ fail:
 	return -EPERM;
 }
 
+#ifdef CONFIG_METIS_WALT
+extern void mi_select_task_rq_fair(struct task_struct *p, int prev_cpu,
+		int sd_flag, int wake_flags, int *target_cpu);
+#endif
+
 static void
 walt_select_task_rq_fair(void *unused, struct task_struct *p, int prev_cpu,
 				int sd_flag, int wake_flags, int *target_cpu)
 {
 	int sync;
 	int sibling_count_hint;
+
+#ifdef CONFIG_METIS_WALT
+	mi_select_task_rq_fair(p, prev_cpu, sd_flag, wake_flags, target_cpu);
+#endif
 
 	if (unlikely(walt_disabled))
 		return;
@@ -1228,7 +1278,14 @@ static void walt_cfs_check_preempt_wakeup(void *unused, struct rq *rq, struct ta
 	struct walt_task_struct *wts_c = (struct walt_task_struct *) rq->curr->android_vendor_data1;
 	bool resched = false;
 	bool p_is_mvp, curr_is_mvp;
+#ifdef CONFIG_METIS_WALT
+	bool pt_flag = false;
+	mi_check_preempt_wakeup_hook(unused, rq, p, preempt, nopreempt, wake_flags,
+			se, pse, next_buddy_marked, granularity, &pt_flag);
 
+	if (*preempt || pt_flag)
+		return;
+#endif
 	if (unlikely(walt_disabled))
 		return;
 
@@ -1278,6 +1335,12 @@ static void walt_cfs_replace_next_task_fair(void *unused, struct rq *rq, struct 
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	struct walt_task_struct *wts;
 	struct task_struct *mvp;
+
+#ifdef CONFIG_METIS_WALT
+	mi_pick_next_task_fair_hook(unused, rq, p, se, repick, simple, prev);
+	if (*repick)
+		return;
+#endif
 
 	if (unlikely(walt_disabled))
 		return;

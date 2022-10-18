@@ -1,0 +1,11 @@
+#
+# Goodix touchscreen driver configuration
+#
+config TOUCHSCREEN_GOODIX_BRL_9916_L9S
+	tristate "Goodix berlin touchscreen"
+	default n
+	help
+	  Say Y here if you have a Goodix berlin series touch controller
+	  to your system.
+	  If build module, say M.
+	  If unsure, say N.

@@ -292,7 +292,7 @@ enum fastrpc_msg_type {
 
 static struct dentry *debugfs_root;
 static struct dentry *debugfs_global_file;
-
+int iommu_dma_enable_best_fit_algo(struct device *dev);
 static inline uint64_t buf_page_start(uint64_t buf)
 {
 	uint64_t start = (uint64_t) buf & PAGE_MASK;

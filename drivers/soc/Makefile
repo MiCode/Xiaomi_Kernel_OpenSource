@@ -29,3 +29,7 @@ obj-$(CONFIG_PLAT_VERSATILE)	+= versatile/
 obj-y				+= xilinx/
 obj-$(CONFIG_ARCH_ZX)		+= zte/
 obj-$(CONFIG_SOC_KENDRYTE)	+= kendryte/
+
+ifeq ($(TARGET_PRODUCT), ziyi)
+    KBUILD_CPPFLAGS += -DCONFIG_TARGET_PRODUCT_ZIYI
+endif

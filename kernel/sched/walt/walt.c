@@ -106,6 +106,7 @@ u64 walt_ktime_get_ns(void)
 		return ktime_to_ns(ktime_last);
 	return ktime_get_ns();
 }
+EXPORT_SYMBOL_GPL(walt_ktime_get_ns);
 
 static void walt_resume(void)
 {
@@ -481,6 +482,7 @@ static void walt_sched_account_irqstart(int cpu, struct task_struct *curr)
 
 static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime);
+
 static void walt_sched_account_irqend(int cpu, struct task_struct *curr, u64 delta)
 {
 	struct rq *rq = cpu_rq(cpu);
@@ -1510,23 +1512,6 @@ static inline unsigned int load_to_freq(struct rq *rq, unsigned int load)
 		 (unsigned int)arch_scale_cpu_capacity(cpu_of(rq)));
 }
 
-static bool do_pl_notif(struct rq *rq)
-{
-	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
-	u64 prev = wrq->old_busy_time;
-	u64 pl = wrq->walt_stats.pred_demands_sum_scaled;
-	int cpu = cpu_of(rq);
-
-	/* If already at max freq, bail out */
-	if (capacity_orig_of(cpu) == capacity_curr_of(cpu))
-		return false;
-
-	prev = max(prev, wrq->old_estimated_time);
-
-	/* 400 MHz filter. */
-	return (pl > prev) && (load_to_freq(rq, pl - prev) > 400000);
-}
-
 static void rollover_cpu_window(struct rq *rq, bool full_window)
 {
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
@@ -1845,6 +1830,63 @@ account_busy_for_task_demand(struct rq *rq, struct task_struct *p, int event)
 
 	return 1;
 }
+
+#ifdef CONFIG_MI_SCHED_WALT
+static int
+__account_busy_for_task_demand(struct rq *rq, struct task_struct *p, int event,
+		bool account_wait_time)
+{
+	/*
+	 * No need to bother updating task demand for exiting tasks
+	 * or the idle task.
+	 */
+	if (is_idle_task(p))
+		return 0;
+
+	/*
+	 * When a task is waking up it is completing a segment of non-busy
+	 * time. Likewise, if wait time is not treated as busy time, then
+	 * when a task begins to run or is migrated, it is not running and
+	 * is completing a segment of non-busy time.
+	 */
+	if (event == TASK_WAKE || (!account_wait_time &&
+			 (event == PICK_NEXT_TASK || event == TASK_MIGRATE)))
+		return 0;
+
+	/*
+	 * The idle exit time is not accounted for the first task _picked_ up to
+	 * run on the idle CPU.
+	 */
+	if (event == PICK_NEXT_TASK && rq->curr == rq->idle)
+		return 0;
+
+	/*
+	 * TASK_UPDATE can be called on sleeping task, when its moved between
+	 * related groups
+	 */
+	if (event == TASK_UPDATE) {
+		if (rq->curr == p)
+			return 1;
+
+		return p->on_rq ? account_wait_time : 0;
+	}
+
+	return 1;
+}
+
+static int
+account_pkg_busy_time(struct rq *rq, struct task_struct *p, int event)
+{
+	if (is_idle_task(p)) {
+		if (event == PICK_NEXT_TASK)
+			return 0;
+
+		return 1;
+	}
+
+	return __account_busy_for_task_demand(rq, p, event, false);
+}
+#endif
 
 /*
  * Called when new window is starting for a task, to record cpu usage over
@@ -2184,6 +2226,23 @@ static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int even
 	update_task_pred_demand(rq, p, event);
 	if (event == PUT_PREV_TASK && p->state)
 		wts->iowaited = p->in_iowait;
+
+#ifdef CONFIG_MI_SCHED_WALT
+	if (pkg_enable()) {
+		int fstat = 0;
+		u64 delta = 0;
+		int pkg_task_busy = account_pkg_busy_time(rq, p, event);
+		if (pkg_task_busy) {
+			fstat |= PKG_TASK_BUSY;
+			if (is_idle_task(p))
+				delta = irqtime;
+			else
+				delta = wallclock - wts->mark_start;
+			delta = scale_exec_time(delta, rq);
+			update_pkg_load(p, rq->cpu, fstat, wallclock, delta);
+		}
+	}
+#endif
 
 	trace_sched_update_task_ravg(p, rq, event, wallclock, irqtime,
 				&wrq->grp_time, wrq, wts);
@@ -3996,13 +4055,15 @@ static void android_rvh_try_to_wake_up_success(void *unused, struct task_struct 
 {
 	unsigned long flags;
 	int cpu = p->cpu;
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	if (unlikely(walt_disabled))
 		return;
 
+	if (wts->mvp_list.prev == NULL && wts->mvp_list.next == NULL)
+		init_new_task_load(p);
+
 	raw_spin_lock_irqsave(&cpu_rq(cpu)->lock, flags);
-	if (do_pl_notif(cpu_rq(cpu)))
-		waltgov_run_callback(cpu_rq(cpu), WALT_CPUFREQ_PL);
 	raw_spin_unlock_irqrestore(&cpu_rq(cpu)->lock, flags);
 }
 
@@ -4123,6 +4184,9 @@ static void android_rvh_sched_fork_init(void *unused, struct task_struct *p)
 	if (unlikely(walt_disabled))
 		return;
 
+#ifdef CONFIG_MI_SCHED_WALT
+	mi_task_fork(NULL, p);
+#endif
 	__sched_fork_init(p);
 }
 

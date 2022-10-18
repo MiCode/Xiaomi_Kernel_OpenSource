@@ -150,7 +150,6 @@ static int __init init_mem_hooks(void)
 		return ret;
 	}
 
-
 	return 0;
 }
 

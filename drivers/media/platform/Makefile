@@ -82,3 +82,4 @@ obj-$(CONFIG_VIDEO_QCOM_VENUS)		+= qcom/venus/
 obj-y					+= sunxi/
 
 obj-y					+= msm/
+obj-y					+= xiaomi/

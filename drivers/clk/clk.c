@@ -3468,6 +3468,7 @@ static int __clk_core_init(struct clk_core *core)
 		return -EINVAL;
 
 	clk_prepare_lock();
+	core->hw->core = core;
 
 	/*
 	 * Set hw->core after grabbing the prepare_lock to synchronize with
@@ -3648,10 +3649,10 @@ static int __clk_core_init(struct clk_core *core)
 out:
 	clk_pm_runtime_put(core);
 unlock:
-	if (ret) {
+	if (ret){
 		hlist_del_init(&core->child_node);
 		core->hw->core = NULL;
-	}
+		}
 
 	clk_prepare_unlock();
 

@@ -34,6 +34,8 @@
 
 #define MAX_LINKS 32		
 
+#define GH_NETLINK_ROUTE    (29)
+
 struct sockaddr_nl {
 	__kernel_sa_family_t	nl_family;	/* AF_NETLINK	*/
 	unsigned short	nl_pad;		/* zero		*/

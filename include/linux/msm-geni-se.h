@@ -51,6 +51,7 @@ enum se_protocol_types {
  * @num_clk_levels:	Number of valid clock levels in clk_perf_tbl.
  * @clk_perf_tbl:	Table of clock frequency input to Serial Engine clock.
  * @proto:		Protocol configured for this serial engine
+ * @is_list_add:	To synchronize list add and del.
  */
 struct se_geni_rsc {
 	struct device *ctrl_dev;
@@ -74,6 +75,7 @@ struct se_geni_rsc {
 	unsigned int num_clk_levels;
 	unsigned long *clk_perf_tbl;
 	enum se_protocol_types proto;
+	bool is_list_add;
 };
 
 #define PINCTRL_DEFAULT	"default"
@@ -332,7 +334,11 @@ struct se_geni_rsc {
 #define TX_EOT			(BIT(1))
 #define TX_SBE			(BIT(2))
 #define TX_RESET_DONE		(BIT(3))
+#define TX_FLUSH_DONE		(BIT(4))
+#define TX_GENI_GP_IRQ		(GENMASK(12, 5))
 #define TX_GENI_CANCEL_IRQ	(BIT(14))
+#define TX_GENI_CMD_FAILURE	(BIT(15))
+#define DMA_TX_ERROR_STATUS (TX_SBE | TX_GENI_CANCEL_IRQ | TX_GENI_CMD_FAILURE)
 
 /* SE_DMA_RX_IRQ_STAT Register fields */
 #define RX_DMA_DONE		(BIT(0))
@@ -340,9 +346,11 @@ struct se_geni_rsc {
 #define RX_SBE			(BIT(2))
 #define RX_RESET_DONE		(BIT(3))
 #define RX_FLUSH_DONE		(BIT(4))
-#define RX_GENI_GP_IRQ		(GENMASK(10, 5))
+#define RX_GENI_GP_IRQ		(GENMASK(12, 5))
 #define RX_GENI_CANCEL_IRQ	(BIT(14))
 #define RX_GENI_GP_IRQ_EXT	(GENMASK(13, 12))
+#define RX_GENI_CMD_FAILURE	(BIT(15))
+#define DMA_RX_ERROR_STATUS (RX_SBE | RX_GENI_CANCEL_IRQ | RX_GENI_CMD_FAILURE)
 
 /* DMA DEBUG Register fields */
 #define DMA_TX_ACTIVE		(BIT(0))

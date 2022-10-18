@@ -454,6 +454,18 @@ static const struct of_device_id __maybe_unused fan53555_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, fan53555_dt_ids);
 
+static int fan53555_set_voltage(struct fan53555_device_info *di,
+				struct regmap *regmap)
+{
+	int ret = 0;
+	// set to 0.83v : 0.6V + BIT0_7(val) * 6.25mV
+	ret = regmap_write(regmap, FAN53555_VSEL0, 0xa5);
+	if (ret < 0)
+		dev_err(di->dev, "set voltage failed!\n");
+
+	return ret;
+}
+
 static int fan53555_regulator_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
@@ -537,6 +549,9 @@ static int fan53555_regulator_probe(struct i2c_client *client,
 	ret = fan53555_regulator_register(di, &config);
 	if (ret < 0)
 		dev_err(&client->dev, "Failed to register regulator!\n");
+
+	fan53555_set_voltage(di, regmap);
+
 	return ret;
 
 }

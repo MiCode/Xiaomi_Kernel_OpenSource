@@ -8,6 +8,11 @@
 #include "walt.h"
 #include "trace.h"
 
+#ifdef CONFIG_METIS_WALT
+#include "../../../drivers/mihw/include/mi_module.h"
+
+extern struct walt_get_indicies_hooks mi_walt_get_indicies_func[WALT_CFS_TYPES];
+#endif
 static DEFINE_PER_CPU(cpumask_var_t, walt_local_cpu_mask);
 
 static void walt_rt_energy_aware_wake_cpu(void *unused, struct task_struct *task,
@@ -24,6 +29,20 @@ static void walt_rt_energy_aware_wake_cpu(void *unused, struct task_struct *task
 	int cluster;
 	int order_index = (boost_on_big && num_sched_clusters > 1) ? 1 : 0;
 	bool best_cpu_lt = true;
+#ifdef CONFIG_METIS_WALT
+	int end_index;
+	bool check_return = false;
+	int mod;
+
+	for (mod = 0; mod < WALT_CFS_TYPES; mod++) {
+		if (mi_walt_get_indicies_func[mod].f) {
+			mi_walt_get_indicies_func[mod].f(task, &order_index, &end_index,
+				num_sched_clusters, &check_return);
+			if (check_return)
+				break;
+		}
+	}
+#endif
 
 	if (unlikely(walt_disabled))
 		return;
@@ -139,6 +158,11 @@ static inline bool walt_should_honor_rt_sync(struct rq *rq, struct task_struct *
 		rq->rt.rt_nr_running <= 2;
 }
 
+#ifdef CONFIG_METIS_WALT
+extern void mi_select_task_rq_fair(struct task_struct *p, int prev_cpu,
+		int sd_flag, int wake_flags, int *target_cpu);
+#endif
+
 static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int cpu,
 					int sd_flag, int wake_flags, int *new_cpu)
 {
@@ -149,6 +173,9 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 	int ret, target = -1, this_cpu;
 	struct cpumask *lowest_mask;
 
+#ifdef CONFIG_METIS_WALT
+	mi_select_task_rq_fair(task, cpu, sd_flag, wake_flags, new_cpu);
+#endif
 	if (unlikely(walt_disabled))
 		return;
 

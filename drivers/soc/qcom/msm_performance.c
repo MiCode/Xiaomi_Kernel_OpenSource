@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/*
+/* 
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
@@ -26,6 +26,8 @@
 #include <linux/perf_event.h>
 #include <linux/errno.h>
 #include <linux/topology.h>
+#include <linux/pkg_stat.h>
+#include "../../mihw/include/mi_module.h"
 
 #include <linux/scmi_protocol.h>
 #include <linux/scmi_plh.h>
@@ -155,7 +157,6 @@ static ssize_t get_dplh_log_level(struct kobject *kobj,
 static ssize_t set_dplh_log_level(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf,
 	size_t count);
-
 
 static struct kobj_attribute cpu_min_freq_attr =
 	__ATTR(cpu_min_freq, 0644, get_cpu_min_freq, set_cpu_min_freq);
@@ -508,8 +509,7 @@ static ssize_t set_cpu_min_freq(struct kobject *kobj,
 
 		if (cpu_online(i)) {
 			req = &per_cpu(qos_req_min, i);
-			if (freq_qos_update_request(req, i_cpu_stats->min) < 0)
-				break;
+			
 		}
 
 		for_each_cpu(j, policy.related_cpus)
@@ -1982,6 +1982,7 @@ static int __init msm_performance_init(void)
 	init_pmu_counter();
 
 	dest = ioremap(GPLAF_SP_ADDR, GPLAF_SP_SIZE);
+
 	return 0;
 }
 MODULE_LICENSE("GPL v2");

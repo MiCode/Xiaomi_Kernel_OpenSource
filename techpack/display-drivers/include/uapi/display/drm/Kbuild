@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note
+
+header-y += msm_drm_pp.h
+header-y += sde_drm.h
+header-y += mi_disp.h

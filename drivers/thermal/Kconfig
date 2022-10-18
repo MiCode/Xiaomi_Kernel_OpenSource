@@ -476,6 +476,13 @@ depends on (ARCH_QCOM && OF) || COMPILE_TEST
 source "drivers/thermal/qcom/Kconfig"
 endmenu
 
+config MI_THERMAL_INTERFACE
+	tristate "xiaomi thermal control interface"
+	depends on THERMAL
+	default n
+	help
+	  This is xiaomi thermal control interface.
+
 config ZX2967_THERMAL
 	tristate "Thermal sensors on zx2967 SoC"
 	depends on ARCH_ZX || COMPILE_TEST
@@ -510,4 +517,21 @@ config KHADAS_MCU_FAN_THERMAL
 	  If you say yes here you get support for the FAN controlled
 	  by the Microcontroller found on the Khadas VIM boards.
 
+config MI_THERMAL_MULTI_CHARGE
+	tristate "enable multi charge themral interface"
+	help
+	  Enable multi charge function in kernel, add two sysfs nodes in
+	  thermal_message.
+
+config  HAVE_CHARGE_TEMP
+	tristate "enable have charge temp node in thermal interface"
+	help
+		Enable display charge temp node in kernel, add one node in thermal_message 
+
 endif
+
+config HAVE_MULTI_SCREEN
+	bool "Have multi screen"
+	default n
+	help
+		Enable register two screen in driver
