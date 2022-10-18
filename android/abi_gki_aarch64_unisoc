@@ -3058,6 +3058,13 @@
   __tracepoint_android_vh_ufs_send_uic_command
   __tracepoint_android_vh_ufs_update_sdev
   __tracepoint_android_vh_ufs_update_sysfs
+  scsi_autopm_get_device
+  scsi_autopm_put_device
+  scsi_block_when_processing_errors
+  scsi_cmd_allowed
+  scsi_device_quiesce
+  __scsi_iterate_devices
+  ufshcd_add_command_trace
   ufshcd_auto_hibern8_update
   ufshcd_config_pwr_mode
   ufshcd_delay_us
@@ -3068,6 +3075,7 @@
   ufshcd_fixup_dev_quirks
   ufshcd_get_local_unipro_ver
   ufshcd_hold
+  ufshcd_init_pwr_dev_param
   ufshcd_link_recovery
   ufshcd_pltfrm_init
   ufshcd_pltfrm_shutdown
@@ -3083,6 +3091,10 @@
   ufshcd_suspend_prepare
   ufshcd_system_resume
   ufshcd_system_suspend
+  ufshcd_transfer_rsp_status
+  ufshcd_uic_change_pwr_mode
+  ufshcd_uic_hibern8_exit
+  ufshcd_update_evt_hist
 
 # required by unisoc_dump_io.ko
   blk_stat_enable_accounting
