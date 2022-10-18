@@ -1172,9 +1172,11 @@ int mhi_uci_init(void);
  * mhi_dev_net_interface_init() - Initializes the mhi device network interface
  *		which exposes the virtual network interface (mhi_dev_net0).
  *		data packets will transfer between MHI host interface (mhi_swip)
- *		and mhi_dev_net interface using software path
+ *		and mhi_dev_net interface using software path.
+ * @vf_id       MHI instance (physical or virtual) id.
+ * @num_vfs     Total number of vutual MHI instances supported on this target.
  */
-int mhi_dev_net_interface_init(void);
+int mhi_dev_net_interface_init(u32 vf_id, u32 num_vfs);
 
 void mhi_dev_notify_a7_event(struct mhi_dev *mhi);
 
