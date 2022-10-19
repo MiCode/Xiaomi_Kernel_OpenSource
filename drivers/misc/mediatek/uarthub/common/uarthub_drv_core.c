@@ -4267,10 +4267,16 @@ int uarthub_core_debug_dump_tx_rx_count(const char *tag, int trigger_point)
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
 				",bcnt=[R:%d", d0_rx_bcnt);
 		} else {
+#if DUMP_AP_UART_DBG_INFO
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
 				",bcnt=[R:%d-%d-%d-%d-%d",
 				d0_rx_bcnt, d1_rx_bcnt, d2_rx_bcnt,
 				cmm_rx_bcnt, ap_rx_bcnt);
+#else
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				",bcnt=[R:%d-%d-%d-%d",
+				d0_rx_bcnt, d1_rx_bcnt, d2_rx_bcnt, cmm_rx_bcnt);
+#endif
 		}
 
 		if (d0_tx_bcnt == d1_tx_bcnt && d1_tx_bcnt == d2_tx_bcnt &&
@@ -4278,10 +4284,16 @@ int uarthub_core_debug_dump_tx_rx_count(const char *tag, int trigger_point)
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
 				",T:%d]", d0_tx_bcnt);
 		} else {
+#if DUMP_AP_UART_DBG_INFO
 			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
 				",T:%d-%d-%d-%d-%d]",
 				d0_tx_bcnt, d1_tx_bcnt, d2_tx_bcnt,
 				cmm_tx_bcnt, ap_tx_bcnt);
+#else
+			len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+				",T:%d-%d-%d-%d]",
+				d0_tx_bcnt, d1_tx_bcnt, d2_tx_bcnt, cmm_tx_bcnt);
+#endif
 		}
 
 		if (d0_wait_for_send_xoff == d1_wait_for_send_xoff &&
