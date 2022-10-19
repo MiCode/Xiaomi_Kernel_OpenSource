@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/clk-provider.h>
 #include <linux/remoteproc.h>
 #include <linux/suspend.h>
 #include <linux/rtc.h>
@@ -2644,6 +2645,7 @@ static bool mtk_imgsys_idle(struct device *dev)
 	if (pipe->streaming || num)
 		idle = false;
 
+	dev_info(dev, "%s: [imgclk_dbg] idle(%d)\n", __func__, idle);
 	return idle;
 }
 
@@ -2653,6 +2655,7 @@ int __maybe_unused mtk_imgsys_pm_suspend(struct device *dev)
 	int ret, num;
 	bool idle = true;
 
+	dev_info(dev, "%s: [imgclk_dbg] pm_suspend\n", __func__);
 	ret = wait_event_timeout
 		(imgsys_dev->flushing_waitq, (idle = mtk_imgsys_idle(dev)),
 		 msecs_to_jiffies(1000 / 30 * DIP_COMPOSING_MAX_NUM * 3));
@@ -2678,6 +2681,7 @@ int __maybe_unused mtk_imgsys_pm_suspend(struct device *dev)
 		return NOTIFY_BAD;
 	}
 #endif
+	dev_info(dev, "%s: [imgclk_dbg] return NOTIFY_DONE\n", __func__);
 	return NOTIFY_DONE;
 }
 
@@ -2699,6 +2703,7 @@ int __maybe_unused mtk_imgsys_pm_resume(struct device *dev)
 		return NOTIFY_BAD;
 	}
 #endif
+	dev_info(dev, "%s: [imgclk_dbg] pm_resume\n", __func__);
 	return NOTIFY_DONE;
 }
 
@@ -2961,6 +2966,25 @@ bypass_larbs:
 		return ret;
 	}
 #endif
+	//isp_main pd cb
+	dev_dbg(imgsys_dev->dev, "%s: isp_main pd cb +\n", __func__);
+	if (data && data->clk_check) {
+		ret = data->clk_check(imgsys_dev);
+		if (ret) {
+			dev_info(&pdev->dev, "gen pd add notifier fail(%d)\n", ret);
+			return ret;
+		}
+	}
+	dev_dbg(imgsys_dev->dev, "%s: isp_main pd cb -\n", __func__);
+
+	//imgsys_clk onoff debug
+	for (i = 0; i < imgsys_dev->num_clks; i++) {
+		if (__clk_is_enabled(imgsys_dev->clks[i].clk))
+			dev_dbg(imgsys_dev->dev, "%s: [imgclk_dbg](%d) on\n", __func__, i);
+		else
+			dev_dbg(imgsys_dev->dev, "%s: [imgclk_dbg](%d) off\n", __func__, i);
+	}
+
 	return 0;
 
 err_release_deinit_v4l2:
@@ -2993,15 +3017,29 @@ EXPORT_SYMBOL(mtk_imgsys_remove);
 int mtk_imgsys_runtime_suspend(struct device *dev)
 {
 	struct mtk_imgsys_dev *imgsys_dev = dev_get_drvdata(dev);
+	int i;
 
 #if MTK_CM4_SUPPORT
 	rproc_shutdown(imgsys_dev->rproc_handle);
 #endif
 
+	//imgsys_clk onoff debug
+	for (i = 0; i < imgsys_dev->num_clks; i++) {
+		if (__clk_is_enabled(imgsys_dev->clks[i].clk))
+			dev_dbg(dev, "%s: + [imgclk_dbg](%d) on\n", __func__, i);
+		else
+			dev_dbg(dev, "%s: + [imgclk_dbg](%d) off\n", __func__, i);
+	}
 	clk_bulk_disable_unprepare(imgsys_dev->num_clks,
 				   imgsys_dev->clks);
-
-	dev_dbg(dev, "%s: disabled imgsys clks\n", __func__);
+	//imgsys_clk onoff debug
+	for (i = 0; i < imgsys_dev->num_clks; i++) {
+		if (__clk_is_enabled(imgsys_dev->clks[i].clk))
+			dev_dbg(dev, "%s: - [imgclk_dbg](%d) on\n", __func__, i);
+		else
+			dev_dbg(dev, "%s: - [imgclk_dbg](%d) off\n", __func__, i);
+	}
+	dev_info(dev, "%s: disabled imgsys clks\n", __func__);
 
 	return 0;
 }
@@ -3010,10 +3048,25 @@ EXPORT_SYMBOL(mtk_imgsys_runtime_suspend);
 int mtk_imgsys_runtime_resume(struct device *dev)
 {
 	struct mtk_imgsys_dev *imgsys_dev = dev_get_drvdata(dev);
-	int ret;
+	int ret, i;
 
+	//imgsys_clk onoff debug
+	for (i = 0; i < imgsys_dev->num_clks; i++) {
+		if (__clk_is_enabled(imgsys_dev->clks[i].clk))
+			dev_dbg(dev, "%s: + [imgclk_dbg](%d) on\n", __func__, i);
+		else
+			dev_dbg(dev, "%s: + [imgclk_dbg](%d) off\n", __func__, i);
+	}
 	ret = clk_bulk_prepare_enable(imgsys_dev->num_clks,
 				      imgsys_dev->clks);
+	//imgsys_clk onoff debug
+	for (i = 0; i < imgsys_dev->num_clks; i++) {
+		if (__clk_is_enabled(imgsys_dev->clks[i].clk))
+			dev_dbg(dev, "%s: - [imgclk_dbg](%d) on\n", __func__, i);
+		else
+			dev_dbg(dev, "%s: - [imgclk_dbg](%d) off\n", __func__, i);
+	}
+
 	if (ret) {
 		dev_info(imgsys_dev->dev,
 			"%s: failed to enable dip clks(%d)\n",
@@ -3021,7 +3074,7 @@ int mtk_imgsys_runtime_resume(struct device *dev)
 		return ret;
 	}
 
-	dev_dbg(dev, "%s: enabled imgsys clks\n", __func__);
+	dev_info(dev, "%s: enabled imgsys clks\n", __func__);
 
 #if MTK_CM4_SUPPORT
 	ret = rproc_boot(imgsys_dev->rproc_handle);

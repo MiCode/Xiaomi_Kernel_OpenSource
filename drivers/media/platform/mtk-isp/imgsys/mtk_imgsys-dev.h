@@ -349,6 +349,7 @@ struct mtk_imgsys_dev {
 	debug_dump dump;
 	atomic_t imgsys_user_cnt;
 	struct kref init_kref;
+	struct notifier_block pw_notifier;
 };
 
 /* contained in struct mtk_imgsys_user's done_list */

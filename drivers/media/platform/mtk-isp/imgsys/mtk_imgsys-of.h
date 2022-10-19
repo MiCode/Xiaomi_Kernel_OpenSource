@@ -29,6 +29,7 @@ struct cust_data {
 	unsigned int pipe_num;
 	const struct module_ops *imgsys_modules;
 	debug_dump dump;
+	int (*clk_check)(struct mtk_imgsys_dev *imgsys_dev);
 };
 
 void init_imgsys_pipeline(const struct cust_data *data);

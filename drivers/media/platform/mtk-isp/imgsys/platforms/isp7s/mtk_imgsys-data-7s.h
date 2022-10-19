@@ -30,6 +30,7 @@ const struct cust_data imgsys_data[] = {
 		.pipe_num = ARRAY_SIZE(pipe_settings_isp7),
 	.imgsys_modules = imgsys_isp7_modules,
 		.dump = imgsys_debug_dump_routine,
+		.clk_check = imgsys_clk_check,
 	},
 	/* ISP 7.1 */
 
