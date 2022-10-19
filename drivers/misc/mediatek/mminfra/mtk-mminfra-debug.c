@@ -426,11 +426,18 @@ static int mminfra_smi_dbg_cb(struct notifier_block *nb,
 static bool aee_dump;
 static irqreturn_t mminfra_irq_handler(int irq, void *data)
 {
+	s32 ret;
 	//char buf[LINK_MAX + 1] = {0};
 
 	pr_notice("handle mminfra irq!\n");
 	if (!dev || !dbg || !dbg->comm_dev[0])
 		return IRQ_NONE;
+
+	ret = pm_runtime_get_if_in_use(dev);
+	if (ret <= 0) {
+		pr_notice("%s: mminfra is power off(%d)\n", __func__, ret);
+		return IRQ_HANDLED;
+	}
 
 	cmdq_util_mminfra_cmd(1);
 
@@ -446,6 +453,8 @@ static irqreturn_t mminfra_irq_handler(int irq, void *data)
 	}
 
 	cmdq_util_mminfra_cmd(0);
+
+	pm_runtime_put(dev);
 
 	return IRQ_HANDLED;
 }
