@@ -25,6 +25,7 @@
 #define MAX_DEP_PATH_NUM 50
 #define MAX_DEP_TASK_NUM 100
 #define N 8
+#define MAX_XGF_POLICY_CMD_NUM 10
 
 enum XGF_ERROR {
 	XGF_NOTIFY_OK,

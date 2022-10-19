@@ -41,7 +41,6 @@
 
 #define TIME_1S  1000000000ULL
 #define TRAVERSE_PERIOD  300000000000ULL
-#define FPSGO_MAX_TREE_SIZE 10
 
 #define event_trace(ip, fmt, args...) \
 do { \
@@ -53,6 +52,8 @@ do { \
 	__trace_bprintk(ip, trace_printk_fmt, ##args);    \
 	}	\
 } while (0)
+
+static int total_fps_control_pid_info_num;
 
 static struct kobject *base_kobj;
 static struct rb_root render_pid_tree;
@@ -1032,6 +1033,33 @@ void fpsgo_delete_sbe_info(int pid)
 	kfree(data);
 }
 
+void fpsgo_delete_oldest_fps_control_pid_info(void)
+{
+	unsigned long long min_ts = ULLONG_MAX;
+	struct fps_control_pid_info *min_iter = NULL, *tmp_iter = NULL;
+	struct rb_root *rbr = NULL;
+	struct rb_node *rbn = NULL;
+
+	if (RB_EMPTY_ROOT(&fps_control_pid_info_tree))
+		return;
+
+	rbr = &fps_control_pid_info_tree;
+	for (rbn = rb_first(rbr); rbn; rbn = rb_next(rbn)) {
+		tmp_iter = rb_entry(rbn, struct fps_control_pid_info, entry);
+		if (tmp_iter->ts < min_ts) {
+			min_ts = tmp_iter->ts;
+			min_iter = tmp_iter;
+		}
+	}
+
+	if (!min_iter)
+		return;
+
+	rb_erase(&min_iter->entry, &fps_control_pid_info_tree);
+	kfree(min_iter);
+	total_fps_control_pid_info_num--;
+}
+
 struct fps_control_pid_info *fpsgo_search_and_add_fps_control_pid(int pid, int force)
 {
 	struct rb_node **p = &fps_control_pid_info_tree.rb_node;
@@ -1060,9 +1088,14 @@ struct fps_control_pid_info *fpsgo_search_and_add_fps_control_pid(int pid, int f
 		return NULL;
 
 	tmp->pid = pid;
+	tmp->ts = fpsgo_get_time();
 
 	rb_link_node(&tmp->entry, parent, p);
 	rb_insert_color(&tmp->entry, &fps_control_pid_info_tree);
+	total_fps_control_pid_info_num++;
+
+	if (total_fps_control_pid_info_num > FPSGO_MAX_TREE_SIZE)
+		fpsgo_delete_oldest_fps_control_pid_info();
 
 	return tmp;
 }
@@ -1080,6 +1113,27 @@ void fpsgo_delete_fpsgo_control_pid(int pid)
 
 	rb_erase(&data->entry, &fps_control_pid_info_tree);
 	kfree(data);
+	total_fps_control_pid_info_num--;
+}
+
+int fpsgo_get_all_fps_control_pid_info(struct fps_control_pid_info *arr)
+{
+	int index = 0;
+	struct fps_control_pid_info *iter = NULL;
+	struct rb_root *rbr = NULL;
+	struct rb_node *rbn = NULL;
+
+	rbr = &fps_control_pid_info_tree;
+	for (rbn = rb_first(rbr); rbn; rbn = rb_next(rbn)) {
+		iter = rb_entry(rbn, struct fps_control_pid_info, entry);
+		arr[index].pid = iter->pid;
+		arr[index].ts = iter->ts;
+		index++;
+		if (index >= FPSGO_MAX_TREE_SIZE)
+			break;
+	}
+
+	return index;
 }
 
 static void fpsgo_check_BQid_status(void)

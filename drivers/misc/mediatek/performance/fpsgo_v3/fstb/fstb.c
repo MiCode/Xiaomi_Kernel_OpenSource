@@ -2890,6 +2890,7 @@ static ssize_t fstb_policy_cmd_show(struct kobject *kobj,
 		char *buf)
 {
 	char *temp = NULL;
+	int i = 1;
 	int pos = 0;
 	int length = 0;
 	struct FSTB_POLICY_CMD *iter;
@@ -2907,13 +2908,15 @@ static ssize_t fstb_policy_cmd_show(struct kobject *kobj,
 		iter = rb_entry(rbn, struct FSTB_POLICY_CMD, rb_node);
 		length = scnprintf(temp + pos,
 			FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-			"tgid:%d\tfstb_self_ctrl_fps_enable:%d\ttfb_enable:%d\tnotify_target_fps:%d\tts:%llu\n",
+			"%dth\ttgid:%d\tfstb_self_ctrl_fps_enable:%d\ttfb_enable:%d\tnotify_target_fps:%d\tts:%llu\n",
+			i,
 			iter->tgid,
 			iter->self_ctrl_fps_enable,
 			iter->tfb_enable,
 			iter->notify_target_fps,
 			iter->ts);
 		pos += length;
+		i++;
 	}
 
 	mutex_unlock(&fstb_policy_cmd_lock);

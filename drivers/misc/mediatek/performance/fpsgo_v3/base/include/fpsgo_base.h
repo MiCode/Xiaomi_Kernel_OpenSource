@@ -24,6 +24,7 @@
 #define FPSGO_MW 1
 #define BY_PID_DEFAULT_VAL -1
 #define BY_PID_DELETE_VAL -2
+#define FPSGO_MAX_TREE_SIZE 10
 
 enum {
 	FPSGO_SET_UNKNOWN = -1,
@@ -301,6 +302,7 @@ struct sbe_info {
 struct fps_control_pid_info {
 	int pid;
 	struct rb_node entry;
+	unsigned long long ts;
 };
 
 struct video_info {
@@ -368,6 +370,7 @@ struct sbe_info *fpsgo_search_and_add_sbe_info(int pid, int force);
 void fpsgo_delete_sbe_info(int pid);
 struct fps_control_pid_info *fpsgo_search_and_add_fps_control_pid(int pid, int force);
 void fpsgo_delete_fpsgo_control_pid(int pid);
+int fpsgo_get_all_fps_control_pid_info(struct fps_control_pid_info *arr);
 void fpsgo_check_thread_status(void);
 void fpsgo_clear(void);
 struct BQ_id *fpsgo_find_BQ_id(int pid, int tgid, long long identifier,

@@ -65,6 +65,7 @@ static int xgf_cfg_spid;
 static int xgf_ema2_enable;
 static int xgf_display_rate = DEFAULT_DFRC;
 static int is_xgff_mips_exp_enable;
+static int total_xgf_policy_cmd_num;
 
 int fstb_frame_num = 20;
 EXPORT_SYMBOL(fstb_frame_num);
@@ -517,6 +518,39 @@ void xgf_free(void *pvBuf, int cmd)
 }
 EXPORT_SYMBOL(xgf_free);
 
+static void xgf_delete_policy_cmd(struct xgf_policy_cmd *iter)
+{
+	unsigned long long min_ts = ULLONG_MAX;
+	struct xgf_policy_cmd *tmp_iter = NULL, *min_iter = NULL;
+	struct rb_node *rbn = NULL;
+
+	if (iter) {
+		min_iter = iter;
+		goto delete;
+	}
+
+	if (RB_EMPTY_ROOT(&xgf_policy_cmd_tree))
+		return;
+
+	rbn = rb_first(&xgf_policy_cmd_tree);
+	while (rbn) {
+		tmp_iter = rb_entry(rbn, struct xgf_policy_cmd, rb_node);
+		if (tmp_iter->ts < min_ts) {
+			min_ts = tmp_iter->ts;
+			min_iter = tmp_iter;
+		}
+		rbn = rb_next(rbn);
+	}
+
+	if (!min_iter)
+		return;
+
+delete:
+	rb_erase(&min_iter->rb_node, &xgf_policy_cmd_tree);
+	kfree(min_iter);
+	total_xgf_policy_cmd_num--;
+}
+
 static struct xgf_policy_cmd *xgf_get_policy_cmd(int tgid, int ema2_enable,
 	unsigned long long ts, int force)
 {
@@ -549,6 +583,10 @@ static struct xgf_policy_cmd *xgf_get_policy_cmd(int tgid, int ema2_enable,
 
 	rb_link_node(&iter->rb_node, parent, p);
 	rb_insert_color(&iter->rb_node, &xgf_policy_cmd_tree);
+	total_xgf_policy_cmd_num++;
+
+	if (total_xgf_policy_cmd_num > MAX_XGF_POLICY_CMD_NUM)
+		xgf_delete_policy_cmd(NULL);
 
 	return iter;
 }
@@ -3029,6 +3067,7 @@ static ssize_t xgf_ema2_enable_by_pid_show(struct kobject *kobj,
 		char *buf)
 {
 	char *temp = NULL;
+	int i = 1;
 	int pos = 0;
 	int length = 0;
 	struct xgf_policy_cmd *iter;
@@ -3046,9 +3085,10 @@ static ssize_t xgf_ema2_enable_by_pid_show(struct kobject *kobj,
 		iter = rb_entry(rbn, struct xgf_policy_cmd, rb_node);
 		length = scnprintf(temp + pos,
 			FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-			"tgid:%d\tema2_enable:%d\tts:%llu\n",
-			iter->tgid, iter->ema2_enable, iter->ts);
+			"%dth\ttgid:%d\tema2_enable:%d\tts:%llu\n",
+			i, iter->tgid, iter->ema2_enable, iter->ts);
 		pos += length;
+		i++;
 	}
 
 	mutex_unlock(&xgf_policy_cmd_lock);
@@ -3082,10 +3122,8 @@ static ssize_t xgf_ema2_enable_by_pid_store(struct kobject *kobj,
 					iter = xgf_get_policy_cmd(tgid, !!ema2_enable, ts, 1);
 				else {
 					iter = xgf_get_policy_cmd(tgid, ema2_enable, ts, 0);
-					if (iter) {
-						rb_erase(&iter->rb_node, &xgf_policy_cmd_tree);
-						kfree(iter);
-					}
+					if (iter)
+						xgf_delete_policy_cmd(iter);
 				}
 				mutex_unlock(&xgf_policy_cmd_lock);
 			}
