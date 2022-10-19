@@ -274,7 +274,8 @@ void vdec_decode_unprepare(void *ctx_unprepare,
 		ctx->dev->dec_always_on[hw_id]--;
 		ctx->power_type[hw_id] = VDEC_POWER_NORMAL;
 	}
-	if (ctx->dev->dec_always_on[hw_id] == 0)
+	if (ctx->dev->dec_always_on[hw_id] == 0 && !ctx->dev->dec_is_suspend_off &&
+	    ctx == mtk_vcodec_get_curr_ctx(ctx->dev, hw_id))
 		mtk_vcodec_dec_clock_off(&ctx->dev->pm, hw_id);
 	mtk_vcodec_set_curr_ctx(ctx->dev, NULL, hw_id);
 	mtk_vdec_unlock(ctx, hw_id);
@@ -290,12 +291,16 @@ void vdec_check_release_lock(void *ctx_check)
 
 	for (i = 0; i < MTK_VDEC_HW_NUM; i++) {
 		is_always_on = false;
+		mutex_lock(&ctx->hw_status);
 		if (ctx->power_type[i] >= VDEC_POWER_ALWAYS) {
 			is_always_on = true;
 			ctx->power_type[i] = VDEC_POWER_RELEASE;
-			if (ctx->hw_locked[i] == 0)
-				vdec_decode_prepare(ctx, i); // for mtk_vdec_lock
+			if (ctx->hw_locked[i] == 0) {
+				mtk_vdec_lock(ctx, i);
+				mtk_vcodec_set_curr_ctx(ctx->dev, ctx, i);
+			}
 		}
+		mutex_unlock(&ctx->hw_status);
 		if (ctx->hw_locked[i] == 1) {
 			vdec_decode_unprepare(ctx, i);
 			ctx->power_type[i] = VDEC_POWER_NORMAL;
@@ -314,6 +319,7 @@ void vdec_suspend_power(void *ctx_check)
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_check;
 	int hw_id;
 
+	mutex_lock(&ctx->hw_status);
 	for (hw_id = 0; hw_id < MTK_VDEC_HW_NUM; hw_id++) {
 		if (ctx->dev->dec_always_on[hw_id] > 0) {
 			mtk_vcodec_dec_clock_off(&ctx->dev->pm, hw_id);
@@ -321,6 +327,8 @@ void vdec_suspend_power(void *ctx_check)
 				hw_id, ctx->dev->dec_always_on[hw_id]);
 		}
 	}
+	ctx->dev->dec_is_suspend_off = true;
+	mutex_unlock(&ctx->hw_status);
 }
 
 void vdec_resume_power(void *ctx_check)
@@ -328,6 +336,7 @@ void vdec_resume_power(void *ctx_check)
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_check;
 	int hw_id;
 
+	mutex_lock(&ctx->hw_status);
 	for (hw_id = 0; hw_id < MTK_VDEC_HW_NUM; hw_id++) {
 		if (ctx->dev->dec_always_on[hw_id] > 0) {
 			mtk_vcodec_dec_clock_on(&ctx->dev->pm, hw_id);
@@ -335,5 +344,7 @@ void vdec_resume_power(void *ctx_check)
 				hw_id, ctx->dev->dec_always_on[hw_id]);
 		}
 	}
+	ctx->dev->dec_is_suspend_off = false;
+	mutex_unlock(&ctx->hw_status);
 }
 
