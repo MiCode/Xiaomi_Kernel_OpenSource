@@ -100,7 +100,7 @@ static int wait_another_core_suspend(struct adsp_priv *pdata)
 
 int adsp_core0_suspend(void)
 {
-	int ret = 0, retry = 10;
+	int ret = 0, retry = 100;
 	u32 status = 0;
 	struct adsp_priv *pdata = adsp_cores[ADSP_A_ID];
 	ktime_t start = ktime_get();
@@ -123,7 +123,7 @@ int adsp_core0_suspend(void)
 		}
 
 		while (!is_adsp_core_suspend(pdata) && --retry)
-			usleep_range(100, 200);
+			usleep_range(1000, 2000);
 
 		if (retry == 0 || get_adsp_state(pdata) == ADSP_RESET) {
 			show_adsp_core_suspend(pdata);
@@ -188,7 +188,7 @@ int adsp_core0_resume(void)
 
 int adsp_core1_suspend(void)
 {
-	int ret = 0, retry = 10;
+	int ret = 0, retry = 100;
 	u32 status = 0;
 	struct adsp_priv *pdata = adsp_cores[ADSP_B_ID];
 	ktime_t start = ktime_get();
@@ -209,7 +209,7 @@ int adsp_core1_suspend(void)
 		}
 
 		while (!is_adsp_core_suspend(pdata) && --retry)
-			usleep_range(100, 200);
+			usleep_range(1000, 2000);
 
 		if (retry == 0 || get_adsp_state(pdata) == ADSP_RESET) {
 			show_adsp_core_suspend(pdata);

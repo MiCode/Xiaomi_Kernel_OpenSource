@@ -20,6 +20,9 @@
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 #include <mt-plat/mrdump.h>
 #endif
+#if IS_ENABLED(CONFIG_MTK_EMI)
+#include <soc/mediatek/emi.h>
+#endif
 
 #include "adsp_reg.h"
 #include "adsp_core.h"
@@ -351,12 +354,19 @@ void adsp_aed_worker(struct work_struct *ws)
 		if (ret == 0)
 			break;
 
+#if IS_ENABLED(CONFIG_MTK_EMI)
+		if (retry == 0)
+			mtk_emidbg_dump();
+#endif
 		/* reset fail & retry */
 		pr_info("%s, reset retry.... (%d)", __func__, retry);
 		msleep(20);
 	}
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	if (ret) {
+#if IS_ENABLED(CONFIG_MTK_EMI)
+		mtk_emidbg_dump();
+#endif
 		pr_info("%s, adsp dead, wait dump dead body", __func__);
 		if (is_infrabus_timeout())
 			BUG(); /* reboot for bus dump */
