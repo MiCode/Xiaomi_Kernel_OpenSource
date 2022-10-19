@@ -307,7 +307,7 @@ static void handle_query_cap_ack_msg(struct vdec_vcu_ipi_query_cap_ack *msg)
 static struct device *get_dev_by_mem_type(struct vdec_inst *inst, struct vcodec_mem_obj *mem)
 {
 	if (inst->ctx->dec_params.svp_mode) {
-		if (mtk_vdec_sw_mem_sec && mem->type == MEM_TYPE_FOR_SW)
+		if (mem->type == MEM_TYPE_FOR_SW)
 			mem->type = MEM_TYPE_FOR_SEC_SW;
 		else if (mem->type == MEM_TYPE_FOR_HW)
 			mem->type = MEM_TYPE_FOR_SEC_HW;
