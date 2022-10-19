@@ -8752,8 +8752,30 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	return 0;
 }
 
+void mtk_dsi_first_cfg(struct mtk_ddp_comp *comp,
+	       struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
+{
+	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct mtk_panel_ext *panel_ext = mtk_dsi_get_panel_ext(comp);
+
+	if (!mtk_crtc || !panel_ext || !dsi) {
+		DDPPR_ERR("%s, NULL pointer\n", __func__);
+		return;
+	}
+
+	/* Clear dsi perframe bit to avoid inconsistent behavior between lk and kernel */
+	if (panel_ext->params->lp_perline_en == 0 &&
+		mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+		mtk_dsi_poll_for_idle(dsi, handle);
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMD_TYPE1_HS, 0,
+				CMD_HS_HFP_BLANKING_HS_EN);
+	}
+}
+
 static const struct mtk_ddp_comp_funcs mtk_dsi_funcs = {
 	.config = mtk_dsi_ddp_config,
+	.first_cfg = mtk_dsi_first_cfg,
 	.prepare = mtk_dsi_ddp_prepare,
 	.unprepare = mtk_dsi_ddp_unprepare,
 	.config_trigger = mtk_dsi_config_trigger,
