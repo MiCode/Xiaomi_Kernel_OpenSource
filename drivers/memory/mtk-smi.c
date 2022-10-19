@@ -16,6 +16,7 @@
 #include <linux/pm_opp.h>
 #include <linux/pm_runtime.h>
 #include <linux/pm_domain.h>
+#include <linux/delay.h>
 #include <soc/mediatek/smi.h>
 #include <dt-bindings/memory/mt2701-larb-port.h>
 #include <dt-bindings/memory/mtk-memory-port.h>
@@ -187,6 +188,7 @@ struct mtk_smi_larb { /* larb: local arbiter */
 	int				larbid;
 	int				comm_port_id[LARB_MAX_COMMON];
 	u32				*mmu;
+	bool				clk_on_delay;
 
 	unsigned char			*bank;
 };
@@ -2382,6 +2384,10 @@ static int mtk_smi_larb_probe(struct platform_device *pdev)
 		}
 	}
 
+	/*mt6886 wa for larb4 clk on delay*/
+	if (of_property_read_bool(dev->of_node, "clk-on-delay"))
+		larb->clk_on_delay = true;
+
 	is_mpu_violation(dev, false);
 	return ret;
 }
@@ -2412,6 +2418,9 @@ static int __maybe_unused mtk_smi_larb_resume(struct device *dev)
 
 	if (larb_gen->sleep_ctrl)
 		larb_gen->sleep_ctrl(dev, false);
+
+	if (larb->clk_on_delay)
+		udelay(20);
 
 	/* Configure the basic setting for this larb */
 	larb_gen->config_port(dev);
