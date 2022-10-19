@@ -70,7 +70,6 @@ static inline struct mtk_disp_merge *comp_to_merge(struct mtk_ddp_comp *comp)
 
 static void mtk_merge_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
-	int ret = 0;
 	struct mtk_drm_private *priv = NULL;
 
 	if (!comp) {
@@ -80,12 +79,6 @@ static void mtk_merge_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 
 	if (comp->mtk_crtc && comp->mtk_crtc->base.dev->dev_private)
 		priv = comp->mtk_crtc->base.dev->dev_private;
-	if (comp->dev)
-		ret = pm_runtime_get_sync(comp->dev);
-
-	if (ret < 0)
-		DRM_ERROR("Failed to enable power domain: %d\n", ret);
-	DDPMSG("%s\n", __func__);
 
 	if (priv && priv->data && priv->data->mmsys_id == MMSYS_MT6985) {
 		cmdq_pkt_write(handle, comp->cmdq_base,
@@ -104,13 +97,7 @@ static void mtk_merge_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 
 static void mtk_merge_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
-	int ret;
 	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
-
-	DDPMSG("%s\n", __func__);
-	ret = pm_runtime_put(comp->dev);
-	if (ret < 0)
-		DRM_ERROR("Failed to disable power domain: %d\n", ret);
 
 	if (priv->data->mmsys_id == MMSYS_MT6985) {
 		cmdq_pkt_write(handle, comp->cmdq_base,
