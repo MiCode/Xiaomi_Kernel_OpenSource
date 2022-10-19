@@ -1144,8 +1144,6 @@ int rt5512_i2c_probe(struct i2c_client *client,
 #endif /* GENERIC_DEBUGFS */
 
 	pm_runtime_set_active(chip->dev);
-	pm_runtime_use_autosuspend(chip->dev);
-	pm_runtime_set_autosuspend_delay(chip->dev, 50);
 	pm_runtime_enable(chip->dev);
 
 	dev_set_name(chip->dev, "RT5512_MT_%d", chip->dev_cnt);
