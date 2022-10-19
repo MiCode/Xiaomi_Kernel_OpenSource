@@ -3991,7 +3991,7 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 				atomic_read(&sensor_ctrl->isp_request_seq_no)) {
 				state_transition(state_entry, E_STATE_EXTISP_CQ,
 						E_STATE_EXTISP_OUTER);
-				dev_info(raw_dev->dev, "[CQD-EXT-ISP] ctx:%d req:%d, state:0x%x\n",
+				dev_dbg(raw_dev->dev, "[CQD-EXT-ISP] ctx:%d req:%d, state:0x%x\n",
 					ctx->stream_id,
 					req_stream_data->frame_seq_no, state_entry->estate);
 			}
@@ -5206,7 +5206,8 @@ static int mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 
 	is_rgbw = mtk_cam_scen_is_rgbw_enabled(&raw_dev->pipeline->scen_active);
 
-	if (mtk_cam_scen_is_ext_isp(&ctx->pipe->scen_active)) {
+	if (mtk_cam_scen_is_ext_isp(&ctx->pipe->scen_active) &&
+		(irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START))) {
 		dev_info(raw_dev->dev, "ts=%lu irq_type %d, req:%d/%d, cnt:%d/%d\n",
 		irq_info->ts_ns / 1000,
 		irq_info->irq_type,
@@ -5465,7 +5466,8 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 		return -1;
 	}
 	ctx = &cam->ctxs[camsv_dev->ctx_stream_id];
-	if (ctx->pipe && (mtk_cam_scen_is_ext_isp(&ctx->pipe->scen_active))) {
+	if (ctx->pipe && (mtk_cam_scen_is_ext_isp(&ctx->pipe->scen_active)) &&
+		(irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START))) {
 		dev_info(camsv_dev->dev, "ts=%lu irq_type %d, req:%d/%d, cnt:%d/%d, done_group:0x%x\n",
 		irq_info->ts_ns / 1000,
 		irq_info->irq_type,
@@ -6344,8 +6346,17 @@ void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 			mtk_cam_extisp_handle_sv_tstamp(ctx, stream_data, irq_info);
 		}
 		/* Find to-be-set element*/
-		if (state_temp->estate == E_STATE_EXTISP_SENSOR)
-			state_sensor = state_temp;
+		if (state_temp->estate == E_STATE_EXTISP_SENSOR) {
+			if (stream_data->state.loss_raw_cq_key &&
+				stream_data->state.loss_raw_cq_key == ctx->sv_dev->tg_cnt) {
+				dev_info(cam->dev, "[%s:pass] loss_raw_cq_key:%d, Req:%d / State:0x%x\n",
+				__func__, stream_data->state.loss_raw_cq_key,
+				stream_data->frame_seq_no, state_temp->estate);
+				stream_data->state.loss_raw_cq_key = 0;
+			} else {
+				state_sensor = state_temp;
+			}
+		}
 		dev_dbg(ctx->cam->dev,
 		"[%s] STATE_CHECK [N-%d] Req:%d / State:0x%x\n",
 		__func__, stateidx, stream_data->frame_seq_no, state_temp->estate);
@@ -6414,7 +6425,7 @@ void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 			state_transition(state_out, E_STATE_EXTISP_SV_OUTER,
 				 E_STATE_EXTISP_CQ);
 		}
-		dev_info(cam->dev, "[%s] ctx:%d/req:%d state:0x%x\n", __func__,
+		dev_dbg(cam->dev, "[%s] ctx:%d/req:%d state:0x%x\n", __func__,
 			ctx->stream_id, stream_data->frame_seq_no, state_out->estate);
 	}
 }
@@ -6455,6 +6466,12 @@ int mtk_camsys_extisp_state_handle(struct mtk_raw_device *raw_dev,
 				stream_data->state.sof_cnt_key == raw_dev->tg_count)
 				if (!state_sv)
 					state_sv = state_temp;
+			if (state_temp->estate == E_STATE_EXTISP_SENSOR &&
+				stream_data->state.sof_cnt_key == 0 &&
+				stream_data->frame_seq_no == frame_inner_idx + 1 &&
+				stream_data->frame_seq_no > 1) {
+				stream_data->state.loss_raw_cq_key = raw_dev->tg_count;
+			}
 			dev_dbg(ctx->cam->dev,
 			"[%s] STATE_CHECK [N-%d] Req:%d / State:0x%x\n", __func__,
 			stateidx, stream_data->frame_seq_no, state_temp->estate);
@@ -6502,7 +6519,7 @@ int mtk_camsys_extisp_state_handle(struct mtk_raw_device *raw_dev,
 				atomic_set(&sensor_ctrl->isp_request_seq_no,
 					frame_inner_idx);
 				mtk_cam_extisp_handle_raw_tstamp(ctx, stream_data, irq_info);
-				dev_info(ctx->cam->dev,
+				dev_dbg(ctx->cam->dev,
 					"[%s] frame_seq_no:%d, OUTER->INNER state:0x%x\n",
 					__func__, stream_data->frame_seq_no, state_out->estate);
 			}
@@ -6672,11 +6689,10 @@ void mtk_camsys_extisp_raw_frame_start(struct mtk_raw_device *raw_dev,
 		/* req_stream_data of req_cq*/
 		req_stream_data = mtk_cam_ctrl_state_to_req_s_data(current_state);
 		dev_info(raw_dev->dev,
-		"SOF[ctx:%d-#%d], CQ-%d is update, composed:%d, cq_addr:0x%x, cnt:%d/%d, key:%d\n",
+		"SOF[ctx:%d-#%d], CQ-%d updated (buf:%d) composed:%d, cq_addr:0x%x, cnt:%d/%d, key:%d\n",
 		ctx->stream_id, dequeued_frame_seq_no, req_stream_data->frame_seq_no,
-		ctx->composed_frame_seq_no, base_addr,
+		buf_entry->s_data->frame_seq_no, ctx->composed_frame_seq_no, base_addr,
 		raw_dev->tg_count, raw_dev->sof_count, req_stream_data->state.sof_cnt_key);
-
 	}
 }
 

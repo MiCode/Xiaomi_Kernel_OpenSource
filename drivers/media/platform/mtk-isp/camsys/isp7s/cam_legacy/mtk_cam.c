@@ -4803,6 +4803,7 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 	req_stream_data->pipe_id = pipe_id;
 	req_stream_data->state.estate = E_STATE_READY;
 	req_stream_data->state.sof_cnt_key = 0;
+	req_stream_data->state.loss_raw_cq_key = 0;
 	req_stream_data->index = s_data_index;
 	req_stream_data->req_id = 0;
 	req_stream_data->feature.scen = NULL;

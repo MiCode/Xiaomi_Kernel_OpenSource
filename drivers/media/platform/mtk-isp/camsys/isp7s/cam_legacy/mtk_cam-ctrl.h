@@ -106,6 +106,7 @@ struct mtk_camsys_ctrl_state {
 	struct list_head state_element;
 	/* for sof counter between each data in preisp */
 	int sof_cnt_key;
+	int loss_raw_cq_key;
 };
 
 struct mtk_camsys_link_ctrl {
