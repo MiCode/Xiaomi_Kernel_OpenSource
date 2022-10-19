@@ -17378,12 +17378,9 @@ void mmsys_config_dump_analysis_mt6895(void __iomem *config_regs)
 	char *name = NULL;
 	unsigned int valid[6] = {0};
 	unsigned int ready[6] = {0};
-	unsigned int greq0 =
-		readl_relaxed(config_regs +
-				MT6895_DISP_REG_CONFIG_SMI_LARB0_GREQ);
-	unsigned int greq1 =
-		readl_relaxed(config_regs +
-				MT6895_DISP_REG_CONFIG_SMI_LARB1_GREQ);
+	unsigned int greq0 = 0;
+	unsigned int greq1 = 0;
+
 	valid[0] =
 		readl_relaxed(config_regs + MT6895_DISP_REG_CONFIG_DL_VALID_0);
 	valid[1] =
@@ -17410,6 +17407,10 @@ void mmsys_config_dump_analysis_mt6895(void __iomem *config_regs)
 	ready[5] =
 		readl_relaxed(config_regs + MT6895_DISP_REG_CONFIG_DL_READY_5);
 
+	greq0 = readl_relaxed(config_regs +
+				MT6895_DISP_REG_CONFIG_SMI_LARB0_GREQ);
+	greq1 = readl_relaxed(config_regs +
+				MT6895_DISP_REG_CONFIG_SMI_LARB1_GREQ);
 	DDPDUMP("== DISP MMSYS_CONFIG ANALYSIS ==\n");
 	reg = readl_relaxed(config_regs + DISP_REG_CONFIG_MMSYS_CG_CON0_MT6895);
 	for (bit = 0; bit < 32; bit++) {
