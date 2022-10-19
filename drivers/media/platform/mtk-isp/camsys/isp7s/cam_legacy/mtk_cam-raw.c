@@ -1642,9 +1642,8 @@ void reset(struct mtk_raw_device *dev)
 	writel(0xffffffff, dev->yuv_base + REG_CTL_RAW_MOD5_DCM_DIS);
 
 	/* enable CQI_R1 ~ R4 before reset and make sure loaded to inner */
-	writel(readl(dev->base + REG_CTL_MOD6_EN) | CQI_ALL_EN,
-	    dev->base + REG_CTL_MOD6_EN);
-	toggle_db(dev);
+	writel(readl(dev->base_inner + REG_CTL_MOD6_EN) | CQI_ALL_EN,
+	    dev->base_inner + REG_CTL_MOD6_EN);
 
 	writel(0, dev->base + REG_CTL_SW_CTL);
 	writel(1, dev->base + REG_CTL_SW_CTL);
