@@ -465,6 +465,7 @@ struct vdec_vsi {
 	__u32 codec_fmt;
 	__s32 target_freq;
 	__u32 is_active;
+	__u8  high_loading_scenario;
 };
 
 #endif

@@ -897,7 +897,8 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 			vdec_vcp_backup((struct vdec_inst *)ctx->drv_handle);
 			vdec_suspend_power(ctx);
 			mutex_lock(&dev->dec_dvfs_mutex);
-			if (dev->vdec_dvfs_params.target_freq == VDEC_HIGHEST_FREQ)
+			// if power always on, put pw ref cnt before suspend
+			if (mtk_vdec_dvfs_is_pw_always_on(ctx))
 				mtk_vcodec_dec_pw_off(&ctx->dev->pm);
 			mutex_unlock(&dev->dec_dvfs_mutex);
 		}
@@ -917,7 +918,8 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 
 		if (ctx) {
 			mutex_lock(&dev->dec_dvfs_mutex);
-			if (dev->vdec_dvfs_params.target_freq == VDEC_HIGHEST_FREQ)
+			// if power always on before suspend, get pw ref cnt after resume
+			if (mtk_vdec_dvfs_is_pw_always_on(ctx))
 				mtk_vcodec_dec_pw_on(&ctx->dev->pm);
 			mutex_unlock(&dev->dec_dvfs_mutex);
 			vdec_resume_power(ctx);

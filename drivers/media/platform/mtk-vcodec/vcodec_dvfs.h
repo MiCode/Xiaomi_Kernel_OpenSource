@@ -84,6 +84,7 @@ struct dvfs_params {
 	u32 target_bw_factor; /* target bw = base bw * target_bw_factor*/
 	struct timer_list vdec_active_checker;
 	u8 has_timer;
+	u8 high_loading_scenario; /* flag of pwr always on for performance */
 };
 
 struct vcodec_inst *get_inst(struct mtk_vcodec_ctx *ctx);
