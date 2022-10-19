@@ -47,10 +47,13 @@ int rpmsg_ccd_ipi_send(struct mtk_rpmsg_rproc_subdev *mtk_subdev,
 		       struct mtk_ccd_rpmsg_endpoint *mept,
 		       void *buf, unsigned int len, unsigned int wait)
 {
+	int ret = 0;
 	struct mtk_ccd *ccd = platform_get_drvdata(mtk_subdev->pdev);
 	struct mtk_ccd_params *ccd_params = kzalloc(sizeof(*ccd_params),
 						    GFP_KERNEL);
-	int ret = 0;
+
+	if (!ccd_params)
+		return -ENOMEM;
 
 	ccd_params->worker_obj.src = mept->mchinfo.chinfo.src;
 	ccd_params->worker_obj.id = mept->mchinfo.id;
@@ -88,17 +91,11 @@ void ccd_master_destroy(struct mtk_ccd *ccd,
 	int id;
 	struct rpmsg_endpoint *ept;
 	struct mtk_rpmsg_device *srcmdev;
-	struct mtk_ccd_rpmsg_endpoint *mept;
-	struct list_head mchinfo_list;
-	struct mtk_ccd_mchinfo_entry *mchinfo_item;
-	struct mtk_ccd_mchinfo_entry *mchinfo_tmp;
 	struct mtk_rpmsg_rproc_subdev *mtk_subdev =
 		to_mtk_subdev(ccd->rpmsg_subdev);
 
 	dev_info(&mtk_subdev->pdev->dev, "%s, master_obj: %d\n",
 		 __func__, master_obj->state);
-
-	INIT_LIST_HEAD(&mchinfo_list);
 
 	/* use the src addr to fetch the callback of the appropriate user */
 	mutex_lock(&mtk_subdev->endpoints_lock);
@@ -125,39 +122,14 @@ void ccd_master_destroy(struct mtk_ccd *ccd,
 
 			/* farewell, ept, we don't need you anymore */
 			kref_put(&ept->refcount, __ept_release);
+			rpmsg_destroy_ept(ept);
 
-			mept = to_mtk_rpmsg_endpoint(ept);
-			mchinfo_item = kzalloc(sizeof(*mchinfo_item),
-					       GFP_KERNEL);
-			mchinfo_item->mchinfo = &mept->mchinfo;
-			list_add_tail(&mchinfo_item->list_entry, &mchinfo_list);
 		} else {
 			dev_dbg(&mtk_subdev->pdev->dev,
 				"msg received with no recipient\n");
 		}
 	}
 	mutex_unlock(&mtk_subdev->endpoints_lock);
-
-	list_for_each_entry_safe(mchinfo_item, mchinfo_tmp,
-				 &mchinfo_list, list_entry) {
-		if (mtk_subdev && mchinfo_item && mchinfo_item->mchinfo) {
-			mtk_rpmsg_destroy_rpmsgdev(mtk_subdev,
-					   &mchinfo_item->mchinfo->chinfo);
-		} else {
-			dev_info(&mtk_subdev->pdev->dev,
-				 "%s: mtk_subdev(%p),mchinfo_item or mchinfo_item is NULL\n",
-				 __func__, mtk_subdev);
-
-			if (!mchinfo_item)
-				dev_info(&mtk_subdev->pdev->dev,
-					 "%s: mchinfo_item is NULL\n", __func__);
-
-			if (mchinfo_item && !mchinfo_item->mchinfo)
-				dev_info(&mtk_subdev->pdev->dev,
-					 "%s: mchinfo_item->mchinfo is NULL\n", __func__);
-		}
-		kfree(mchinfo_item);
-	}
 }
 EXPORT_SYMBOL_GPL(ccd_master_destroy);
 

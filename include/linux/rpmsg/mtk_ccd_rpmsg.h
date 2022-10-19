@@ -60,7 +60,10 @@ struct mtk_ccd_rpmsg_ops {
 			void *buf, unsigned int len, unsigned int wait);
 };
 
-struct mtk_rpmsg_device *mtk_create_client_msgdevice(
+void mtk_create_client_msgdevice(
+	struct rproc_subdev *subdev);
+
+struct mtk_rpmsg_device *mtk_get_client_msgdevice(
 	struct rproc_subdev *subdev,
 	struct rpmsg_channel_info *info);
 
@@ -72,6 +75,8 @@ mtk_rpmsg_create_rproc_subdev(struct platform_device *pdev,
 			      struct mtk_ccd_rpmsg_ops *ops);
 
 void mtk_rpmsg_destroy_rproc_subdev(struct rproc_subdev *subdev);
+
+void mtk_rpmsg_destroy_rpmsgdev(struct rproc_subdev *mtk_subdev);
 
 int mtk_rpmsg_subdev_probe(struct rproc_subdev *subdev);
 void mtk_rpmsg_subdev_remove(struct rproc_subdev *subdev);

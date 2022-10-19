@@ -56,8 +56,4 @@ int ccd_msgdev_init(void);
 
 void __ept_release(struct kref *kref);
 
-int
-mtk_rpmsg_destroy_rpmsgdev(struct mtk_rpmsg_rproc_subdev *mtk_subdev,
-			   struct rpmsg_channel_info *info);
-
 #endif

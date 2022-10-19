@@ -864,9 +864,12 @@ static int isp_composer_init(struct mtk_cam_ctx *ctx)
 	snprintf(msg->name, RPMSG_NAME_SIZE, "mtk-camsys\%d", ctx->stream_id);
 	msg->src = ctx->ipi_id;
 
-	ctx->rpmsg_dev = mtk_create_client_msgdevice(rpmsg_subdev, msg);
-	if (!ctx->rpmsg_dev)
+	ctx->rpmsg_dev = mtk_get_client_msgdevice(rpmsg_subdev, msg);
+	if (!ctx->rpmsg_dev) {
+		dev_info(dev, "%s failed get_client_msgdevice, ctx:%d\n",
+			 __func__, ctx->stream_id);
 		return -EINVAL;
+	}
 
 	ctx->rpmsg_dev->rpdev.ept = rpmsg_create_ept(&ctx->rpmsg_dev->rpdev,
 						     isp_composer_handler,

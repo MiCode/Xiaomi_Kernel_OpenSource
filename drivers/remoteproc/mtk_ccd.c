@@ -133,6 +133,8 @@ static void ccd_add_rpmsg_subdev(struct mtk_ccd *ccd)
 static void ccd_remove_rpmsg_subdev(struct mtk_ccd *ccd)
 {
 	if (ccd->rpmsg_subdev) {
+		mtk_rpmsg_destroy_rpmsgdev(ccd->rpmsg_subdev);
+
 		rproc_remove_subdev(ccd->rproc, ccd->rpmsg_subdev);
 		mtk_rpmsg_destroy_rproc_subdev(ccd->rpmsg_subdev);
 		ccd->rpmsg_subdev = NULL;
@@ -436,6 +438,8 @@ static int ccd_probe(struct platform_device *pdev)
 	ret = rproc_add(rproc);
 	if (ret)
 		goto remove_subdev;
+
+	mtk_create_client_msgdevice(ccd->rpmsg_subdev);
 
 	return 0;
 
