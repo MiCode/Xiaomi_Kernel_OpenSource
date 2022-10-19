@@ -271,6 +271,8 @@ static s32 birsz_prepare(struct mml_comp *comp, struct mml_task *task,
 	struct birsz_fw_out fw_out;
 
 	birsz_frm = kzalloc(sizeof(*birsz_frm), GFP_KERNEL);
+	if (!birsz_frm)
+		return -ENOMEM;
 	ccfg->data = birsz_frm;
 
 	fw_in.in_width = src->width;
