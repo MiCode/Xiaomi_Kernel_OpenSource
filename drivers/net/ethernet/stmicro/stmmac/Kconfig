@@ -253,6 +253,17 @@ config DWMAC_VISCONTI
 	help
 	  Support for ethernet controller on Visconti SoCs.
 
+config DWXGMAC_QCOM_4K
+	bool "Support for 4K Virtualization of XGMAC registers"
+	depends on ARCH_SDXPINN
+	default y
+	help
+	  This selects 4K virtualization of DMA and MTL offsets for the
+	  stmmac device driver. With this config different base addresses
+	  for various MTL and DMA registers are selected. This config is
+	  only applicable for XGMAC2 HW version. Other targets should
+	  not enable this config.
+
 endif
 
 config DWMAC_INTEL
