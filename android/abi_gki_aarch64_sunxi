@@ -23,12 +23,17 @@
   atomic_notifier_chain_register
   autoremove_wake_function
   bcmp
+  bio_add_page
+  bio_alloc_bioset
+  bio_associate_blkg
   bio_endio
   bio_end_io_acct_remapped
+  bio_put
   bio_start_io_acct
   __blk_alloc_disk
   blk_cleanup_disk
   blk_cleanup_queue
+  blkdev_get_by_dev
   blk_mq_alloc_tag_set
   blk_mq_complete_request
   __blk_mq_end_request
@@ -90,6 +95,7 @@
   class_destroy
   class_find_device
   __class_register
+  class_remove_file_ns
   class_unregister
   __ClearPageMovable
   clk_disable
@@ -248,6 +254,7 @@
   devm_gpio_request
   devm_gpio_request_one
   devm_hwrng_register
+  devm_iio_device_alloc
   devm_input_allocate_device
   devm_ioremap
   devm_ioremap_resource
@@ -434,6 +441,7 @@
   free_pages_exact
   free_percpu
   freezing_slow_path
+  fs_bio_set
   fsync_bdev
   gcd
   generic_file_llseek
@@ -486,6 +494,11 @@
   handle_edge_irq
   handle_fasteoi_irq
   handle_sysrq
+  hid_hw_start
+  hid_open_report
+  __hid_register_driver
+  __hid_request
+  hid_unregister_driver
   hrtimer_active
   hrtimer_cancel
   hrtimer_forward
@@ -526,6 +539,8 @@
   idr_remove
   idr_replace
   ignore_console_lock_warning
+  __iio_device_register
+  iio_device_unregister
   inc_zone_page_state
   in_egroup_p
   inet_csk_get_port
@@ -540,6 +555,7 @@
   input_allocate_device
   input_close_device
   input_event
+  input_ff_create_memless
   input_free_device
   input_open_device
   input_register_device
@@ -1229,12 +1245,14 @@
   strlcpy
   strlen
   strncasecmp
+  strnchr
   strncmp
   strncpy
   strnlen
   strpbrk
   strsep
   strstr
+  submit_bio_wait
   __sw_hweight16
   __sw_hweight32
   __sw_hweight64
@@ -1524,3 +1542,6 @@
   __xa_alloc
   xa_erase
   xa_load
+  xas_load
+  xas_nomem
+  xas_store
