@@ -9702,7 +9702,8 @@
 			"disp_dsi0_targetline0",
 			"disp_ovlsys_wdma0_eof0",
 			"disp_token_disp_v_idle_power_on0",
-			"disp_token_disp_check_trigger_merge0";
+			"disp_token_disp_check_trigger_merge0",
+			"disp_ovlsys_wdma1_eof0";
 
 		gce-events =
 			<&gce CMDQ_EVENT_OVLSYS_STREAM_DONE_ENG_EVENT_0>,
@@ -9746,7 +9747,9 @@
 			<&gce CMDQ_EVENT_DISPSYS_DISP_DSI0_TARGET_LINE_ENG_EVENT>,
 			<&gce CMDQ_EVENT_OVLSYS_DISP_WDMA0_FRAME_DONE>,
 			<&gce CMDQ_SYNC_TOKEN_VIDLE_POWER_ON>,
-			<&gce CMDQ_SYNC_TOKEN_CHECK_TRIGGER_MERGE>;
+			<&gce CMDQ_SYNC_TOKEN_CHECK_TRIGGER_MERGE>,
+			<&gce CMDQ_EVENT_OVLSYS_DISP_WDMA2_FRAME_DONE>;
+
 
 		helper-name = "MTK_DRM_OPT_STAGE",
 			"MTK_DRM_OPT_USE_CMDQ",
