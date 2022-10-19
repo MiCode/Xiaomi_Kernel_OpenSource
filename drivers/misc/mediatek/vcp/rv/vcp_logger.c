@@ -679,6 +679,8 @@ static int vcp_logger_init_handler(struct VCP_LOG_INFO *log_info)
 	unsigned long flags;
 	phys_addr_t dma_addr;
 
+	struct arm_smccc_res res;
+
 	dma_addr = vcp_get_reserve_mem_phys(VCP_A_LOGGER_MEM_ID);
 	pr_debug("[VCP] vcp_get_reserve_mem_phys=%llx\n", (uint64_t)dma_addr);
 	spin_lock_irqsave(&vcp_A_log_buf_spinlock, flags);
@@ -706,6 +708,13 @@ static int vcp_logger_init_handler(struct VCP_LOG_INFO *log_info)
 		pr_debug("[VCP]  end of last_log_info.vcp_last_log_buf %x is over tcm_size %x\n",
 			last_log_info.vcp_log_buf_addr + last_log_info.vcp_log_buf_maxlen,
 				vcpreg.total_tcmsize);
+
+	arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
+			MTK_TINYSYS_VCP_KERNEL_OP_SET_SRAMLOGBUF_INFO,
+			last_log_info.vcp_log_buf_addr,
+			last_log_info.vcp_log_end_addr,
+			last_log_info.vcp_log_buf_maxlen,
+			0, 0, 0, &res);
 
 	/* setting dram ctrl config to vcp*/
 	/* vcp side get wakelock, AP to write info to vcp sram*/

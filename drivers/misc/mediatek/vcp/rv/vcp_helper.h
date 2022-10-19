@@ -101,6 +101,7 @@ enum mtk_tinysys_vcp_kernel_op {
 	MTK_TINYSYS_VCP_KERNEL_OP_DUMP_POLLING,
 	MTK_TINYSYS_VCP_KERNEL_OP_RESET_SET,
 	MTK_TINYSYS_VCP_KERNEL_OP_RESET_RELEASE,
+	MTK_TINYSYS_VCP_KERNEL_OP_SET_SRAMLOGBUF_INFO,
 	MTK_TINYSYS_VCP_KERNEL_OP_NUM,
 };
 
@@ -160,6 +161,12 @@ struct vcp_region_info_st {
 	uint32_t regdump_start;
 	uint32_t regdump_size;
 	uint32_t ap_params_start;
+	uint32_t sramlog_buf_offset;
+	uint32_t sramlog_end_idx_offset;
+	uint32_t sramlog_buf_maxlen;
+	uint32_t ap_loader_start_PA;
+	uint32_t coredump_offset;
+	uint32_t coredump_dram_offset;
 };
 
 /* vcp helper varriable */
