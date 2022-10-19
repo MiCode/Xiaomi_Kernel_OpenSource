@@ -34,6 +34,7 @@
 #include "mtk_imgsys-probe.h"
 
 #define CLK_READY
+//#define IMG_CLK_CHECK
 
 static struct device *imgsys_pm_dev;
 
@@ -2976,7 +2977,7 @@ bypass_larbs:
 		}
 	}
 	dev_dbg(imgsys_dev->dev, "%s: isp_main pd cb -\n", __func__);
-
+#ifdef IMG_CLK_CHECK
 	//imgsys_clk onoff debug
 	for (i = 0; i < imgsys_dev->num_clks; i++) {
 		if (__clk_is_enabled(imgsys_dev->clks[i].clk))
@@ -2984,7 +2985,7 @@ bypass_larbs:
 		else
 			dev_dbg(imgsys_dev->dev, "%s: [imgclk_dbg](%d) off\n", __func__, i);
 	}
-
+#endif
 	return 0;
 
 err_release_deinit_v4l2:
@@ -3017,12 +3018,15 @@ EXPORT_SYMBOL(mtk_imgsys_remove);
 int mtk_imgsys_runtime_suspend(struct device *dev)
 {
 	struct mtk_imgsys_dev *imgsys_dev = dev_get_drvdata(dev);
+#ifdef IMG_CLK_CHECK
 	int i;
+#endif
 
 #if MTK_CM4_SUPPORT
 	rproc_shutdown(imgsys_dev->rproc_handle);
 #endif
 
+#ifdef IMG_CLK_CHECK
 	//imgsys_clk onoff debug
 	for (i = 0; i < imgsys_dev->num_clks; i++) {
 		if (__clk_is_enabled(imgsys_dev->clks[i].clk))
@@ -3030,8 +3034,10 @@ int mtk_imgsys_runtime_suspend(struct device *dev)
 		else
 			dev_dbg(dev, "%s: + [imgclk_dbg](%d) off\n", __func__, i);
 	}
+#endif
 	clk_bulk_disable_unprepare(imgsys_dev->num_clks,
 				   imgsys_dev->clks);
+#ifdef IMG_CLK_CHECK
 	//imgsys_clk onoff debug
 	for (i = 0; i < imgsys_dev->num_clks; i++) {
 		if (__clk_is_enabled(imgsys_dev->clks[i].clk))
@@ -3039,6 +3045,7 @@ int mtk_imgsys_runtime_suspend(struct device *dev)
 		else
 			dev_dbg(dev, "%s: - [imgclk_dbg](%d) off\n", __func__, i);
 	}
+#endif
 	dev_info(dev, "%s: disabled imgsys clks\n", __func__);
 
 	return 0;
@@ -3048,8 +3055,12 @@ EXPORT_SYMBOL(mtk_imgsys_runtime_suspend);
 int mtk_imgsys_runtime_resume(struct device *dev)
 {
 	struct mtk_imgsys_dev *imgsys_dev = dev_get_drvdata(dev);
-	int ret, i;
+	int ret;
+#ifdef IMG_CLK_CHECK
+	int i;
+#endif
 
+#ifdef IMG_CLK_CHECK
 	//imgsys_clk onoff debug
 	for (i = 0; i < imgsys_dev->num_clks; i++) {
 		if (__clk_is_enabled(imgsys_dev->clks[i].clk))
@@ -3057,8 +3068,10 @@ int mtk_imgsys_runtime_resume(struct device *dev)
 		else
 			dev_dbg(dev, "%s: + [imgclk_dbg](%d) off\n", __func__, i);
 	}
+#endif
 	ret = clk_bulk_prepare_enable(imgsys_dev->num_clks,
 				      imgsys_dev->clks);
+#ifdef IMG_CLK_CHECK
 	//imgsys_clk onoff debug
 	for (i = 0; i < imgsys_dev->num_clks; i++) {
 		if (__clk_is_enabled(imgsys_dev->clks[i].clk))
@@ -3066,7 +3079,7 @@ int mtk_imgsys_runtime_resume(struct device *dev)
 		else
 			dev_dbg(dev, "%s: - [imgclk_dbg](%d) off\n", __func__, i);
 	}
-
+#endif
 	if (ret) {
 		dev_info(imgsys_dev->dev,
 			"%s: failed to enable dip clks(%d)\n",

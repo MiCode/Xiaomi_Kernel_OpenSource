@@ -24,6 +24,7 @@
 #define ADL_HW_SET    2
 #define SW_RST   (0x000C)
 #define DBG_SW_CLR   (0x0260)
+//#define IMG_CB_CLK_CHECK
 
 struct imgsys_dbg_engine_t dbg_engine_name_list[DL_CHECK_ENG_NUM] = {
 	{IMGSYS_ENG_WPE_EIS, "WPE_EIS"},
@@ -316,8 +317,10 @@ void imgsys_main_uninit(struct mtk_imgsys_dev *imgsys_dev)
 static int mtk_imgsys_pd_callback(struct notifier_block *nb,
 		unsigned long flags, void *data)
 {
-	uint32_t i;
 	struct mtk_imgsys_dev *imgsys_dev;
+#ifdef IMG_CB_CLK_CHECK
+	uint32_t i;
+#endif
 
 	pr_debug("%s: +\n", __func__);
 
@@ -325,9 +328,8 @@ static int mtk_imgsys_pd_callback(struct notifier_block *nb,
 		pr_debug("%s: no need flags\n", __func__);
 		return 0;
 	}
-
 	imgsys_dev = container_of(nb, struct mtk_imgsys_dev, pw_notifier);
-
+#ifdef IMG_CB_CLK_CHECK
 	if (flags == GENPD_NOTIFY_ON) {
 		for (i = 0; i < imgsys_dev->num_clks; i++) {
 			if (__clk_is_enabled(imgsys_dev->clks[i].clk))
@@ -349,7 +351,7 @@ static int mtk_imgsys_pd_callback(struct notifier_block *nb,
 		}
 		dev_dbg(imgsys_dev->dev, "%s: before ISP_MAIN off", __func__);
 	}
-
+#endif
 	pr_debug("%s: -\n", __func__);
 
 	return 0;
