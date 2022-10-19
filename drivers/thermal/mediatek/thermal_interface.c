@@ -1073,10 +1073,11 @@ static ssize_t dram_data_rate_show(struct kobject *kobj,
 
 	len = snprintf(buf, PAGE_SIZE, "%d\n",
 		mtk_dramc_get_data_rate());
+	if (len < 0 || len >= sizeof(buf))
+		pr_info("%s: snprintf return negative and buf %s\n", __func__, buf);
 
 	return len;
 }
-
 
 static struct kobj_attribute ttj_attr = __ATTR_RW(ttj);
 static struct kobj_attribute power_budget_attr = __ATTR_RW(power_budget);
