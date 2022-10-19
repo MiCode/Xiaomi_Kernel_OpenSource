@@ -90,6 +90,9 @@
 #define FIFO_POLLING_INTERVAL  5    /*us*/
 #define FIFO_POLLING_COUNT  4
 
+#define TTY_BUF_POLLING_INTERVAL 10 /*ms*/
+#define TTY_BUF_POLLING_COUNT  10
+
 #define FIFO_TX_STATUS_MASK  0xF
 #define FIFO_TX_CNT_MASK 0x1F
 
@@ -1044,10 +1047,24 @@ static void mtk8250_dma_rx_complete(void *param)
 	int copied, total, cnt, copied_sec;
 	unsigned char *ptr;
 	unsigned long flags;
-	unsigned int idx = 0;
+	unsigned int idx = 0, polling_cnt = TTY_BUF_POLLING_COUNT;
 
 	if (data->rx_status == DMA_RX_SHUTDOWN)
 		return;
+
+	if ((data->support_hub == 1) && rx_record.rec_total) {
+		//first assign as last record idx
+		idx = (unsigned int)((rx_record.rec_total - 1) % UART_DUMP_RECORE_NUM);
+
+		while (polling_cnt) {
+			if (!rx_record.rec[idx].r_copied)
+				msleep(TTY_BUF_POLLING_INTERVAL);
+			else
+				break;
+
+			polling_cnt--;
+		}
+	}
 
 	spin_lock_irqsave(&up->port.lock, flags);
 
@@ -1058,6 +1075,7 @@ static void mtk8250_dma_rx_complete(void *param)
 	mtk8250_uart_get_apdma_rpt(dma->rxchan, &(data->rx_pos));
 
 	if (data->support_hub == 1) {
+		//reassign to the new record
 		idx = (unsigned int)(rx_record.rec_total % UART_DUMP_RECORE_NUM);
 		rx_record.rec_total++;
 		rx_record.rec[idx].trans_len = total;
