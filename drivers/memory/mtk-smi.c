@@ -10,6 +10,7 @@
 #include <linux/io.h>
 #include <linux/iopoll.h>
 #include <linux/module.h>
+#include <linux/suspend.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
@@ -491,6 +492,10 @@ int mtk_smi_larb_get(struct device *larbdev)
 	if (unlikely(!larb))
 		return -ENODEV;
 
+	if (pm_suspend_target_state != PM_SUSPEND_ON)
+		pr_notice("%s:larb%d err power on/off timing, RPM_status:%d\n",
+			__func__, larb->larbid, larbdev->power.runtime_status);
+
 	if (log_level & 1 << log_config_bit)
 		pr_info("[SMI]larb:%d get ref_count:%d\n",
 			larb->larbid, atomic_read(&larb->smi.ref_count));
@@ -516,6 +521,10 @@ void mtk_smi_larb_put(struct device *larbdev)
 	if (unlikely(!larb))
 		return;
 
+	if (pm_suspend_target_state != PM_SUSPEND_ON)
+		pr_notice("%s:larb%d err power on/off timing, RPM_status:%d\n",
+			__func__, larb->larbid, larbdev->power.runtime_status);
+
 	if (log_level & 1 << log_config_bit)
 		pr_info("[SMI]larb:%d put ref_count:%d\n",
 			larb->larbid, atomic_read(&larb->smi.ref_count));
@@ -535,6 +544,10 @@ int mtk_smi_larb_get_ex(struct device *larbdev, int user)
 
 	if (unlikely(!larb))
 		return -ENODEV;
+
+	if (pm_suspend_target_state != PM_SUSPEND_ON)
+		pr_notice("%s:larb%d err power on/off timing, RPM_status:%d\n",
+			__func__, larb->larbid, larbdev->power.runtime_status);
 
 	if (log_level & 1 << log_config_bit)
 		pr_info("[SMI]larb:%d get ref_count:%d user:%d\n",
@@ -562,6 +575,10 @@ void mtk_smi_larb_put_ex(struct device *larbdev, int user)
 
 	if (unlikely(!larb))
 		return;
+
+	if (pm_suspend_target_state != PM_SUSPEND_ON)
+		pr_notice("%s:larb%d err power on/off timing, RPM_status:%d\n",
+			__func__, larb->larbid, larbdev->power.runtime_status);
 
 	if (log_level & 1 << log_config_bit)
 		pr_info("[SMI]larb:%d put ref_count:%d\n",
@@ -2635,12 +2652,10 @@ static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 			larb->larbid, atomic_read(&larb->smi.ref_count));
 	}
 
-	if (larb->larbid != 12) {
-		if (readl_relaxed(larb->base + SMI_LARB_STAT) ||
-				readl_relaxed(larb->base + INT_SMI_LARB_STAT)) {
-			pr_notice("[SMI]larb:%d, suspend but busy\n", larb->larbid);
-			raw_notifier_call_chain(&smi_driver_notifier_list, larb->larbid, larb);
-		}
+	if (readl_relaxed(larb->base + SMI_LARB_STAT) ||
+			readl_relaxed(larb->base + INT_SMI_LARB_STAT)) {
+		pr_notice("[SMI]larb:%d, suspend but busy\n", larb->larbid);
+		raw_notifier_call_chain(&smi_driver_notifier_list, larb->larbid, larb);
 	}
 
 	if (larb_gen->sleep_ctrl)
