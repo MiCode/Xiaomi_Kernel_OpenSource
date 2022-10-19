@@ -476,6 +476,7 @@ static int mmdvfs_debug_smi_cb(struct notifier_block *nb, unsigned long action, 
 {
 	int i;
 
+/* TODO: Use non-sleep API or thread
 	if (g_mmdvfs->reg_vcore)
 		MMDVFS_DBG("vcore enabled:%d voltage:%d", regulator_is_enabled(g_mmdvfs->reg_vcore),
 			regulator_get_voltage(g_mmdvfs->reg_vcore));
@@ -483,7 +484,7 @@ static int mmdvfs_debug_smi_cb(struct notifier_block *nb, unsigned long action, 
 	if (g_mmdvfs->reg_vmm)
 		MMDVFS_DBG("vmm enabled:%d voltage:%d", regulator_is_enabled(g_mmdvfs->reg_vmm),
 			regulator_get_voltage(g_mmdvfs->reg_vmm));
-
+*/
 	for (i = 0; i < g_mmdvfs->fmeter_count; i++)
 		MMDVFS_DBG("i:%d id:%hu type:%hu freq:%u",
 			i, g_mmdvfs->fmeter_id[i], g_mmdvfs->fmeter_type[i],
