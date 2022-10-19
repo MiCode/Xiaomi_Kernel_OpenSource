@@ -1584,12 +1584,17 @@ int mtk_drm_ioctl_aal_set_ess20_spect_param(struct drm_device *dev, void *data,
 	struct drm_file *file_priv)
 {
 	int ret = 0;
+	unsigned int flag = 0;
 	struct DISP_AAL_ESS20_SPECT_PARAM *param = (struct DISP_AAL_ESS20_SPECT_PARAM *) data;
 
 	memcpy(&g_aal_ess20_spect_param, param, sizeof(*param));
 	AALAPI_LOG("[aal_kernel]ELVSSPN = %d, flag = %d",
 		g_aal_ess20_spect_param.ELVSSPN, g_aal_ess20_spect_param.flag);
-
+	if (g_aal_ess20_spect_param.flag & (1 << ENABLE_DYN_ELVSS)) {
+		AALAPI_LOG("[aal_kernel]enable dyn elvss  flag = %d", g_aal_ess20_spect_param.flag);
+		flag = 1 << ENABLE_DYN_ELVSS;
+		mtk_leds_brightness_set("lcd-backlight", 0, 0, flag);
+	}
 	return ret;
 }
 
@@ -1642,13 +1647,13 @@ int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 		mtk_trans_gain_to_gamma(crtc, &g_aal_param.silky_bright_gain[0],
 			backlight_value, (void *)&g_aal_ess20_spect_param);
 	} else {
-		AALAPI_LOG("%d", backlight_value);
+		AALAPI_LOG("bl=%d,pn=%d,flag=%d", backlight_value, g_aal_ess20_spect_param.ELVSSPN,
+			g_aal_ess20_spect_param.flag);
 		mtk_leds_brightness_set("lcd-backlight", backlight_value,
 					g_aal_ess20_spect_param.ELVSSPN,
 					g_aal_ess20_spect_param.flag);
 	}
-	g_aal_ess20_spect_param.ELVSSPN = 0;
-	g_aal_ess20_spect_param.flag = (0x01<<SET_BACKLIGHT_LEVEL);
+
 	AALFLOW_LOG("delay refresh: %d", g_aal_param.refreshLatency);
 	if (g_aal_param.refreshLatency == 33)
 		delay_refresh = true;
