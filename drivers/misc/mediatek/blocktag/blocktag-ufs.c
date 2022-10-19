@@ -140,7 +140,7 @@ void mtk_btag_ufs_send_command(__u16 task_id, struct scsi_cmnd *cmd)
 
 	ctx->q_depth++;
 	mtk_btag_mictx_update(ufs_mtk_btag, BTAG_UFS_QUEUE_ID(task_id),
-			      ctx->q_depth, ctx->sum_of_inflight_start);
+			      ctx->q_depth, ctx->sum_of_inflight_start, 0);
 
 	spin_unlock_irqrestore(&ctx->lock, flags);
 }
@@ -208,7 +208,7 @@ void mtk_btag_ufs_transfer_req_compl(__u16 task_id, unsigned long req_mask)
 	else
 		ctx->q_depth--;
 	mtk_btag_mictx_update(ufs_mtk_btag, BTAG_UFS_QUEUE_ID(task_id),
-			      ctx->q_depth, ctx->sum_of_inflight_start);
+			      ctx->q_depth, ctx->sum_of_inflight_start, 1);
 	mtk_btag_mictx_accumulate_weight_qd(ufs_mtk_btag,
 					    BTAG_UFS_QUEUE_ID(task_id),
 					    tsk->t[tsk_send_cmd],

@@ -285,7 +285,7 @@ void mtk_btag_mictx_eval_req(struct mtk_blocktag *btag, __u32 idx, bool write,
 void mtk_btag_mictx_accumulate_weight_qd(struct mtk_blocktag *btag, __u32 idx,
 					 __u64 t_begin, __u64 t_cur);
 void mtk_btag_mictx_update(struct mtk_blocktag *btag, __u32 idx, __u32 q_depth,
-			   __u64 sum_of_start);
+			   __u64 sum_of_start, int cmd_rsp);
 int mtk_btag_mictx_get_data(
 	struct mtk_btag_mictx_id mictx_id,
 	struct mtk_btag_mictx_iostat_struct *iostat);

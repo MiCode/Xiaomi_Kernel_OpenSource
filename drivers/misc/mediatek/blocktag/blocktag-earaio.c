@@ -32,13 +32,15 @@ struct eara_iostat {
 	int io_reqc_r;
 	int io_reqc_w;
 	int io_q_dept;
+	int io_reqsz_r;
+	int io_reqsz_w;
 };
 
 static DEFINE_MUTEX(eara_ioctl_lock);
 
 /* mini context for major embedded storage only */
 #define MICTX_PROC_CMD_BUF_SIZE (1)
-#define PWD_WIDTH_NS 250000000 /* 250ms */
+#define PWD_WIDTH_NS 100000000 /* 100ms */
 static struct mtk_btag_earaio_control earaio_ctrl;
 static struct miscdevice earaio_obj;
 
@@ -57,6 +59,8 @@ static void mtk_btag_eara_get_data(struct eara_iostat *data)
 	data->io_reqc_r = iostat.reqcnt_r;
 	data->io_reqc_w = iostat.reqcnt_w;
 	data->io_q_dept = iostat.q_depth;
+	data->io_reqsz_r = iostat.reqsize_r;
+	data->io_reqsz_w = iostat.reqsize_w;
 }
 
 static void mtk_btag_eara_start_collect(void)

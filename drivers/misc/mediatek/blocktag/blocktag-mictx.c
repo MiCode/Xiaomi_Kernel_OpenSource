@@ -8,6 +8,7 @@
 
 #define DEBUG 1
 
+#include <linux/atomic.h>
 #include <linux/sched.h>
 #include <linux/spinlock.h>
 #include <linux/math64.h>
@@ -15,6 +16,10 @@
 #include "mtk_blocktag.h"
 
 #define MICTX_RESET_NS 1000000000
+
+/* To do: move atomic variables into ufs/mmc context */
+static atomic_t ufs_qd;
+static atomic64_t ufs_idle_begin, ufs_idle_total, ufs_win_begin;
 
 void mtk_btag_mictx_eval_tp(struct mtk_blocktag *btag, __u32 idx, bool write,
 			    __u64 usage, __u32 size)
@@ -94,11 +99,12 @@ void mtk_btag_mictx_accumulate_weight_qd(struct mtk_blocktag *btag, __u32 idx,
 }
 
 void mtk_btag_mictx_update(struct mtk_blocktag *btag, __u32 idx,
-			   __u32 q_depth, __u64 sum_of_inflight_start)
+			   __u32 q_depth, __u64 sum_of_inflight_start, int cmd_rsp)
 {
 	struct mtk_btag_mictx *mictx;
 	unsigned long flags;
 	__u64 t_cur = sched_clock();
+	s64 idle_begin_tmp;
 
 	if (idx > btag->ctx.count)
 		return;
@@ -110,6 +116,10 @@ void mtk_btag_mictx_update(struct mtk_blocktag *btag, __u32 idx,
 		spin_lock_irqsave(&data[idx].lock, flags);
 		data[idx].sum_of_inflight_start = sum_of_inflight_start;
 		data[idx].q_depth = q_depth;
+
+		/* To do: check if per_cpu idle_total and idle_begin are still
+		 *        required
+		 */
 		if (!data[idx].q_depth) {
 			data[idx].idle_begin = t_cur;
 		} else {
@@ -121,6 +131,20 @@ void mtk_btag_mictx_update(struct mtk_blocktag *btag, __u32 idx,
 		spin_unlock_irqrestore(&data[idx].lock, flags);
 	}
 	rcu_read_unlock();
+
+	if (cmd_rsp == 0) {
+		/* cmd */
+		if (atomic_inc_return(&ufs_qd) == 1) {
+			idle_begin_tmp = atomic64_xchg(&ufs_idle_begin, 0ULL);
+			if (idle_begin_tmp)
+				atomic64_add(t_cur - idle_begin_tmp,
+					&ufs_idle_total);
+		}
+	} else {
+		/* rsp */
+		if (!atomic_dec_return(&ufs_qd))
+			atomic64_cmpxchg(&ufs_idle_begin, 0ULL, t_cur);
+	}
 
 	/*
 	 * Peek if I/O workload exceeds the threshold to send boosting
@@ -135,6 +159,9 @@ static void mtk_btag_mictx_reset(struct mtk_btag_mictx_data *data,
 {
 	data->window_begin = window_begin;
 
+	/* To do: check if per_cpu idle_total and idle_begin are still
+	 *        required
+	 */
 	if (!data->q_depth)
 		data->idle_begin = data->window_begin;
 	else
@@ -181,6 +208,9 @@ void mtk_btag_mictx_check_window(struct mtk_btag_mictx_id mictx_id)
 		struct mtk_btag_mictx_data *data = mictx->data;
 
 		spin_lock_irqsave(&data[idx].lock, flags);
+		/* To do: check if this is necessary, or mtk_btag_mictx_reset()
+		 *        only in mtk_btag_mictx_get_data() is enough?
+		 */
 		if ((t_cur - data[idx].window_begin) > MICTX_RESET_NS)
 			mtk_btag_mictx_reset(data + idx, t_cur);
 		spin_unlock_irqrestore(&data[idx].lock, flags);
@@ -215,9 +245,13 @@ int mtk_btag_mictx_get_data(struct mtk_btag_mictx_id mictx_id,
 	struct mtk_blocktag *btag;
 	struct mtk_btag_mictx *mictx;
 	unsigned long flags;
+	/* comment out
 	__u64 dur = 0, idle_total = 0;
+	*/
+	__u64 idle_total = 0;
 	__u64 top_total = 0, rw_total = 0;
 	__u64 time_cur = sched_clock();
+	__u64 idle_begin_tmp, win_begin_tmp;
 	int i;
 
 	if (!iostat)
@@ -244,7 +278,9 @@ int mtk_btag_mictx_get_data(struct mtk_btag_mictx_id mictx_id,
 		mtk_btag_mictx_reset(data + i, time_cur);
 		spin_unlock_irqrestore(&data[i].lock, flags);
 
+		/* comment out
 		dur = time_cur - tmp_data.window_begin;
+		*/
 
 		/* calculate throughput (per-request) */
 		iostat->tp_req_r += mtk_btag_eval_tp_speed(
@@ -266,9 +302,11 @@ int mtk_btag_mictx_get_data(struct mtk_btag_mictx_id mictx_id,
 		iostat->reqsize_w += tmp_data.req.w.size;
 
 		/* calculate idle total */
+		/* comment out
 		if (tmp_data.idle_begin)
 			tmp_data.idle_total += (time_cur - tmp_data.idle_begin);
 		idle_total += tmp_data.idle_total;
+		*/
 
 		/* calculate top_total and rw_total */
 		if (tmp_data.req.r.size || tmp_data.req.w.size) {
@@ -288,19 +326,51 @@ int mtk_btag_mictx_get_data(struct mtk_btag_mictx_id mictx_id,
 			iostat->q_depth += tmp_data.q_depth;
 		}
 	}
+
 	rcu_read_unlock();
 
 	/* fill-in duration */
+	/* comment out
 	iostat->duration = dur;
+	*/
 
 	/* calculate workload */
+	/* comment out
 	iostat->wl = 100 - div64_u64(idle_total * 100, dur * btag->ctx.count);
+	*/
+
+	idle_begin_tmp = atomic64_read(&ufs_idle_begin);
+	if (idle_begin_tmp) {
+		idle_total = atomic64_read(&ufs_idle_total)
+			+ time_cur - idle_begin_tmp;
+		atomic64_cmpxchg(&ufs_idle_begin, idle_begin_tmp, time_cur);
+	}
+	/* Note: idle_total after eara_io's first get_data may be wrongly
+	 *	 regarded as 100% wl if idle_begin is 0 before enter here
+	 */
+
+	atomic64_set(&ufs_idle_total, 0ULL);
+
+	/* To do: protect multi-threads call mtk_btag_mictx_get_data */
+	win_begin_tmp = atomic64_read(&ufs_win_begin);
+
+	/* To do: remove the "if case " after making sure idle_total is
+	 *        always calculated correctly
+	 */
+	if (idle_total > time_cur - win_begin_tmp)
+		iostat->wl = 0;
+	else
+		iostat->wl = 100 - div64_u64(idle_total * 100, time_cur - win_begin_tmp);
+
+	iostat->duration = time_cur - win_begin_tmp;
 
 	/* calculate top ratio */
 	if (!rw_total)
 		iostat->top = 0;
 	else
 		iostat->top = top_total * 100 / rw_total;
+
+	atomic64_set(&ufs_win_begin, time_cur);
 
 	return 0;
 }
@@ -406,4 +476,9 @@ void mtk_btag_mictx_init(struct mtk_blocktag *btag)
 	spin_lock_init(&btag->ctx.mictx.list_lock);
 	btag->ctx.mictx.nr_list = 0;
 	INIT_LIST_HEAD(&btag->ctx.mictx.list);
+
+	atomic_set(&ufs_qd, 0);
+	atomic64_set(&ufs_idle_begin, sched_clock());
+	atomic64_set(&ufs_idle_total, 0ULL);
+	atomic64_set(&ufs_win_begin, sched_clock());
 }
