@@ -218,14 +218,31 @@ static int mtk_clk_ipi_mux_enable(struct clk_hw *hw)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
 	struct ipi_callbacks *cb;
+	u32 mask;
 	u32 val = 0;
+	u32 orig = 0;
 	int ret = 0;
 
 	cb = mtk_clk_get_ipi_cb();
 
 	if (cb && cb->clk_enable) {
 		ret = cb->clk_enable(mux->data->ipi_shift);
-		if (ret) {
+		if (((mux->flags & CLK_IPI_EN_DEFAULT_OPP) == CLK_IPI_EN_DEFAULT_OPP)
+				&& ret == -ENODEV) {
+			regmap_read(mux->regmap, mux->data->mux_ofs, &orig);
+			mask = GENMASK(mux->data->mux_width - 1, 0);
+			val = (orig >> mux->data->mux_shift) & ~mask;
+			pr_notice("mux ipi send fail for vcp suspend(%d %d)\n",
+				val, mux->data->default_opp);
+			if (val != mux->data->default_opp) {
+				regmap_write(mux->regmap, mux->data->clr_ofs,
+						mask << mux->data->mux_shift);
+				regmap_write(mux->regmap, mux->data->set_ofs,
+						mux->data->default_opp << mux->data->mux_shift);
+				regmap_write(mux->regmap, mux->data->upd_ofs,
+						BIT(mux->data->upd_shift));
+			}
+		} else if (ret) {
 			regmap_read(mux->regmap, mux->data->mux_ofs, &val);
 			pr_err("Failed to send enable ipi to VCP %s: 0x%x(%d)\n",
 					clk_hw_get_name(hw), val, ret);
