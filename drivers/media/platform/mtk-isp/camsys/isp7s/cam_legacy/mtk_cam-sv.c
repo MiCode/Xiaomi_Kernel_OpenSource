@@ -914,7 +914,7 @@ RESET_FAILURE:
 
 void sv_reset(struct mtk_camsv_device *dev)
 {
-	int dma_sw_ctl, cq_dma_sw_ctl;
+	int dma_sw_ctl, cq_dma_sw_ctl, i;
 	int ret;
 
 	dev_dbg(dev->dev, "%s camsv_id:%d\n", __func__, dev->id);
@@ -984,6 +984,16 @@ void sv_reset(struct mtk_camsv_device *dev)
 		CAMSVCQ_CQ_SUB_EN, CAMSVCQ_CQ_SUB_RESET, 0);
 	CAMSV_WRITE_BITS(dev->base_scq + REG_CAMSVCQ_CQ_EN,
 		CAMSVCQ_CQ_EN, CAMSVCQ_CQ_RESET, 0);
+
+
+	/* avoid camsv tag data leakage */
+	for (i = SVTAG_START; i < SVTAG_END; i++) {
+		writel(0, dev->base + REG_CAMSVCENTRAL_GRAB_PXL_TAG1 +
+			CAMSVCENTRAL_GRAB_PXL_TAG_SHIFT * i);
+		writel(0, dev->base + REG_CAMSVCENTRAL_GRAB_LIN_TAG1 +
+			CAMSVCENTRAL_GRAB_LIN_TAG_SHIFT * i);
+	}
+	wmb();/* make sure committed */
 
 
 RESET_FAILURE:
