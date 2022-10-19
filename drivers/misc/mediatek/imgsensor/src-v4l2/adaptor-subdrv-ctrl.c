@@ -972,6 +972,8 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 			set_i2c_buffer(ctx, ctx->s_ctx.reg_addr_fast_mode, 0x00);
 			commit_i2c_buffer(ctx);
 		}
+		memset(ctx->exposure, 0, sizeof(ctx->exposure));
+		memset(ctx->ana_gain, 0, sizeof(ctx->ana_gain));
 		ctx->autoflicker_en = FALSE;
 		ctx->extend_frame_length_en = 0;
 		ctx->is_seamless = 0;
