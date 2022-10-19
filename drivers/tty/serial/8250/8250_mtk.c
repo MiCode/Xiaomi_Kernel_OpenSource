@@ -461,12 +461,14 @@ static void mtk_save_uart_reg(struct uart_8250_port *up, unsigned int *reg_buf)
 	spin_unlock_irqrestore(&up->port.lock, flags);
 }
 
-static void mtk8250_debug_regs_dump(struct uart_8250_port *up)
+static void mtk8250_debug_regs_dump(struct uart_8250_port *up, const char *str)
 {
+	if (str == NULL)
+		str = "N/A";
 	mtk_save_uart_reg(up, uart_reg_buf);
-	pr_info("[%s]: 0x60=0x%x,0x64=0x%x,0x68=0x%x,0x6c=0x%x,\n"
+	pr_info("[%s][%s]: 0x60=0x%x,0x64=0x%x,0x68=0x%x,0x6c=0x%x,"
 		"0x70=0x%x,0x74=0x%x,0x78=0x%x,0x7c=0x%x,0x80=0x%x,\n",
-		__func__, uart_reg_buf[11], uart_reg_buf[12], uart_reg_buf[13],
+		__func__, str, uart_reg_buf[11], uart_reg_buf[12], uart_reg_buf[13],
 		uart_reg_buf[14], uart_reg_buf[15], uart_reg_buf[16],
 		uart_reg_buf[17], uart_reg_buf[18], uart_reg_buf[19]);
 }
@@ -1215,15 +1217,11 @@ static int mtk8250_startup(struct uart_port *port)
 
 #if defined(KERNEL_UARTHUB_open)
 	if (data->support_hub == 1) {
-		pr_info("[dump before uart full reset]\n");
-		mtk8250_debug_regs_dump(up);
-
+		mtk8250_debug_regs_dump(up, "reset_before");
 		mtk8250_reset_peri(up);
+		mtk8250_debug_regs_dump(up, "reset_after");
 
-		pr_info("[dump after uart full reset]\n");
-		mtk8250_debug_regs_dump(up);
-
-		pr_info("open uarthub if it is supported.\n");
+		pr_info("[%s]: open uarthub if it is supported.\n", __func__);
 		/*open UARTHUB*/
 		KERNEL_UARTHUB_open();
 	}
@@ -1517,7 +1515,7 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 	spin_unlock_irqrestore(&port->lock, flags);
 
 	if (!uart_console(port))
-		mtk8250_debug_regs_dump(up);
+		mtk8250_debug_regs_dump(up, NULL);
 
 	/* Don't rewrite B0 */
 	if (tty_termios_baud_rate(termios))

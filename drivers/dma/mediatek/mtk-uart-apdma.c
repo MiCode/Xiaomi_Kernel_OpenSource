@@ -707,10 +707,11 @@ static int mtk_uart_apdma_alloc_chan_resources(struct dma_chan *chan)
 	unsigned int status;
 	int ret;
 	if (mtkd->support_hub) {
-		pr_info("debug: %s: clk_count[%d]\n", __func__, clk_count);
+		pr_debug("debug: %s: clk_count[%d]\n", __func__, clk_count);
 		if (c->dir == DMA_MEM_TO_DEV) {
-			pr_info("INT_EN[0x%x] INT_FLAG[0x%x],\n"
+			pr_info("[%s]:INT_EN[0x%x] INT_FLAG[0x%x],"
 						"WPT[0x%x] RPT[0x%x] THRE[0x%x] LEN[0x%x]\n",
+				__func__,
 				mtk_uart_apdma_read(c, VFF_INT_EN),
 				mtk_uart_apdma_read(c, VFF_INT_FLAG),
 				mtk_uart_apdma_read(c, VFF_WPT),
