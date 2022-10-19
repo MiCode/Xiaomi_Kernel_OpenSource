@@ -4404,6 +4404,8 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 	struct mtk_cam_request_stream_data *req_stream_data;
 	int i, ctx_cnt;
 	struct mtk_cam_scen scen;
+	struct mtk_raw_pde_config *pde_cfg;
+	int pdo_max_sz = 0;
 	int ret;
 	unsigned long fps;
 
@@ -4532,9 +4534,18 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 			if (ret)
 				return ret;
 			break;
-		case MTKCAM_IPI_RAW_META_STATS_CFG:
 		case MTKCAM_IPI_RAW_META_STATS_0:
 		case MTKCAM_IPI_RAW_META_STATS_1:
+			if (ctx->pipe) {
+				pde_cfg = &ctx->pipe->pde_config;
+				if (pde_cfg->pde_info[CAM_SET_CTRL].pd_table_offset)
+					pdo_max_sz = pde_cfg->pde_info[CAM_SET_CTRL].pdo_max_size;
+			}
+			CALL_PLAT_V4L2(set_meta_stats_info, node->desc.dma_port,
+				vb2_plane_vaddr(vb, 0), pdo_max_sz,
+					mtk_cam_scen_is_rgbw_enabled(&scen));
+			break;
+		case MTKCAM_IPI_RAW_META_STATS_CFG:
 			break;
 		default:
 			/* Do nothing for the ports not related to crop settings */
