@@ -185,10 +185,18 @@
 /* PHY Adapter Protocol Constants */
 #define PA_MAXDATALANES	4
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+#define DL_FC0ProtectionTimeOutVal_Default	1500
+#else
 #define DL_FC0ProtectionTimeOutVal_Default	8191
+#endif
 #define DL_TC0ReplayTimeOutVal_Default		65535
 #define DL_AFC0ReqTimeOutVal_Default		32767
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+#define DL_FC1ProtectionTimeOutVal_Default	1500
+#else
 #define DL_FC1ProtectionTimeOutVal_Default	8191
+#endif
 #define DL_TC1ReplayTimeOutVal_Default		65535
 #define DL_AFC1ReqTimeOutVal_Default		32767
 
