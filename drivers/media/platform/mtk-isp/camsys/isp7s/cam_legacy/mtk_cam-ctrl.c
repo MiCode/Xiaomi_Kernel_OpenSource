@@ -6363,7 +6363,6 @@ void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 		/* apply mraw buffer */
 		if (mtk_cam_mraw_apply_all_buffers(ctx) == 0) {
 			dev_info(cam->dev, "mraw apply all buffers failed");
-			ret = 1;
 		}
 		if (ret == 0) {
 			state_transition(state_sensor, E_STATE_EXTISP_SENSOR,
