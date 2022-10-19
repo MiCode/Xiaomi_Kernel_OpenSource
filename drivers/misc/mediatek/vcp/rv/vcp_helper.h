@@ -226,6 +226,7 @@ extern phys_addr_t vcp_mem_base_virt;
 extern phys_addr_t vcp_mem_size;
 extern atomic_t vcp_reset_status;
 extern spinlock_t vcp_awake_spinlock;
+extern struct mutex  vcp_pw_clk_mutex;
 extern struct tasklet_struct vcp_A_irq0_tasklet;
 extern struct tasklet_struct vcp_A_irq1_tasklet;
 

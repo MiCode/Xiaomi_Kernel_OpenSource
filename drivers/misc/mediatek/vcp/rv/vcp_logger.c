@@ -236,6 +236,7 @@ ssize_t vcp_A_log_read(char __user *data, size_t len)
 	unsigned int retrytimes = VCP_IPI_RETRY_TIMES;
 	struct vcp_logger_ctrl_msg msg;
 	int ret;
+	int i;
 
 	if (!driver_init_done || !VCP_A_log_ctl->enable)
 		return 0;
@@ -252,10 +253,21 @@ ssize_t vcp_A_log_read(char __user *data, size_t len)
 
 	if (strcmp(current->comm, "mobile_log_d.rd") != 0) {
 		if (log_ctl_debug) {
+			i = 0;
+			while (!mutex_trylock(&vcp_pw_clk_mutex)) {
+				i += 5;
+				mdelay(5);
+				if (i > VCP_SYNC_TIMEOUT_MS) {
+					pr_notice("[VCP] %s lock fail\n", __func__);
+					goto error;
+				}
+			}
+
 			if (is_vcp_ready(VCP_A_ID)) {
 				msg.cmd = VCP_LOGGER_IPI_FLUSH;
 				ret = mtk_ipi_send(&vcp_ipidev, IPI_OUT_LOGGER_CTRL,
 					0, &msg, sizeof(msg)/MBOX_SLOT_SIZE, 0);
+				mutex_unlock(&vcp_pw_clk_mutex);
 
 				if (ret == IPI_ACTION_DONE) {
 					/* wait w_ptr updated or sync 10ms  */
@@ -265,6 +277,9 @@ ssize_t vcp_A_log_read(char __user *data, size_t len)
 					}
 					w_pos = VCP_A_buf_info->w_pos;
 				}
+			} else {
+				mutex_unlock(&vcp_pw_clk_mutex);
+				pr_notice("[VCP] %s not ready\n", __func__);
 			}
 			/* dump full logger buffer start from w_pos + 1 */
 			r_pos_debug = (w_pos >= DRAM_BUF_LEN) ?  0 : (w_pos+1);

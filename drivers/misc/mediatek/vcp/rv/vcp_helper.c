@@ -167,7 +167,7 @@ static unsigned int vcp_timeout_times;
 
 #endif
 
-static DEFINE_MUTEX(vcp_pw_clk_mutex);
+DEFINE_MUTEX(vcp_pw_clk_mutex);
 static DEFINE_MUTEX(vcp_A_notify_mutex);
 static DEFINE_MUTEX(vcp_feature_mutex);
 
@@ -533,7 +533,7 @@ static void vcp_A_notify_ws(struct work_struct *ws)
 #endif
 	vcp_ready[VCP_A_ID] = 1;
 
-	if (vcp_notify_flag && mmup_enable_count() > 0) {
+	if (vcp_notify_flag) {
 		pr_debug("[VCP] notify blocking call\n");
 		blocking_notifier_call_chain(&vcp_A_notifier_list
 			, VCP_EVENT_READY, NULL);
