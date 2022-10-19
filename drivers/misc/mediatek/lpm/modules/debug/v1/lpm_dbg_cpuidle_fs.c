@@ -122,8 +122,6 @@ int lpm_cpuidle_fs_init(void)
 
 	lpm_cpuidle_control_init();
 
-	mtk_cpuidle_cpc_init();
-
 	lpm_cpuidle_profile_init();
 
 	lpm_cpuidle_state_init();
