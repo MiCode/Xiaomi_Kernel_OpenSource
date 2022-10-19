@@ -709,6 +709,7 @@ void trigger_vcp_halt(enum vcp_core_id id)
 			if (feature_table[j].enable)
 				pr_info("[VCP] Active feature id %d cnt %d\n",
 					j, feature_table[j].enable);
+		mtk_smi_dbg_hang_detect("VCP EE");
 	} else
 		pr_notice("[VCP] %s not ready\n", __func__);
 	mutex_unlock(&vcp_pw_clk_mutex);
