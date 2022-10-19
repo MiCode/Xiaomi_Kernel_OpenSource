@@ -30,6 +30,7 @@
 #include <sound/asound.h>
 #include <linux/iommu.h>
 #include <linux/dma-mapping.h>
+#include <adsp_helper.h>
 
 #include <trace/hooks/audio_usboffload.h>
 
@@ -86,6 +87,36 @@ static struct usb_offload_dev *uodev;
 static struct snd_usb_audio *usb_chip[SNDRV_CARDS];
 
 static void uaudio_disconnect_cb(struct snd_usb_audio *chip);
+
+#ifdef CFG_RECOVERY_SUPPORT
+static int usb_offload_event_receive(struct notifier_block *this, unsigned long event,
+			    void *ptr)
+{
+	int ret = 0;
+
+	switch (event) {
+	case ADSP_EVENT_STOP:
+		pr_info("%s event[%lu]\n", __func__, event);
+		uodev->adsp_exception = true;
+		uodev->adsp_ready = false;
+		break;
+	case ADSP_EVENT_READY: {
+		pr_info("%s event[%lu]\n", __func__, event);
+		uodev->adsp_ready = true;
+		uodev->adsp_exception = false;
+		break;
+	}
+	default:
+		pr_info("%s event[%lu]\n", __func__, event);
+	}
+	return ret;
+}
+
+static struct notifier_block adsp_usb_offload_notifier = {
+	.notifier_call = usb_offload_event_receive,
+	.priority = PRIMARY_FEATURE_PRI,
+};
+#endif
 
 static struct snd_usb_substream *find_snd_usb_substream(unsigned int card_num,
 	unsigned int pcm_idx, unsigned int direction, struct snd_usb_audio
@@ -1761,6 +1792,7 @@ static int usb_offload_open(struct inode *ip, struct file *fp)
 			return -ENODEV;
 		}
 		xhci = hcd_to_xhci(mtk->hcd);
+		uodev->xhci = xhci;
 	} else {
 		USB_OFFLOAD_ERR("No 'xhci_host' node, NOT SUPPORT USB Offload!\n");
 		err = -EINVAL;
@@ -1883,6 +1915,39 @@ static long usb_offload_ioctl(struct file *fp,
 			xhci_mem->xhci_data_addr = 0;
 			xhci_mem->xhci_data_size = 0;
 		}
+
+		USB_OFFLOAD_INFO("adsp_exception:%d, adsp_ready:%d\n",
+				uodev->adsp_exception, uodev->adsp_ready);
+		if (uodev->adsp_exception) {
+			u32 temp, irq_pending;
+			u64 temp_64;
+
+			USB_OFFLOAD_INFO("ADSP EE ++ op:0x%08x, iman:0x%08X, erdp:0x%08X\n",
+				readl(&uodev->xhci->op_regs->status),
+				readl(&uodev->xhci->run_regs->ir_set[1].irq_pending),
+				xhci_read_64(uodev->xhci, &uodev->xhci->ir_set[1].erst_dequeue));
+
+			USB_OFFLOAD_INFO("// Disabling event ring interrupts\n");
+			temp = readl(&uodev->xhci->op_regs->status);
+			writel((temp & ~0x1fff) | STS_EINT, &uodev->xhci->op_regs->status);
+			temp = readl(&uodev->xhci->ir_set[1].irq_pending);
+			writel(ER_IRQ_DISABLE(temp), &uodev->xhci->ir_set[1].irq_pending);
+
+			irq_pending = readl(&uodev->xhci->run_regs->ir_set[1].irq_pending);
+			irq_pending |= IMAN_IP;
+			writel(irq_pending, &uodev->xhci->run_regs->ir_set[1].irq_pending);
+
+			temp_64 = xhci_read_64(uodev->xhci, &uodev->xhci->ir_set[1].erst_dequeue);
+			/* Clear the event handler busy flag (RW1C) */
+			temp_64 |= ERST_EHB;
+			xhci_write_64(uodev->xhci, temp_64, &uodev->xhci->ir_set[1].erst_dequeue);
+
+			USB_OFFLOAD_INFO("ADSP EE -- op:0x%08x, iman:0x%08X, erdp:0x%08X\n",
+				readl(&uodev->xhci->op_regs->status),
+				readl(&uodev->xhci->run_regs->ir_set[1].irq_pending),
+				xhci_read_64(uodev->xhci, &uodev->xhci->ir_set[1].erst_dequeue));
+		}
+
 		ret = send_init_ipi_msg_to_adsp(xhci_mem);
 		if (ret || (value == 0)) {
 			uodev->is_streaming = false;
@@ -2115,6 +2180,9 @@ static int usb_offload_probe(struct platform_device *pdev)
 
 		USB_OFFLOAD_INFO("Set XHCI vendor hook ops\n");
 		platform_set_drvdata(pdev, &xhci_mtk_vendor_ops);
+#ifdef CFG_RECOVERY_SUPPORT
+		adsp_register_notify(&adsp_usb_offload_notifier);
+#endif
 
 		sound_usb_trace_init();
 	} else {
