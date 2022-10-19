@@ -356,7 +356,6 @@ EXPORT_SYMBOL_GPL(mtk_smi_larb_bw_set);
 static void mtk_smi_larb_bw_set_ex(struct device *dev, const u32 port, const u32 val)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
-	u32	freq;
 
 	if (port >= SMI_LARB_PORT_NR_MAX) { /* max: 32 ports for a larb */
 		dev_notice(dev, "%s port invalid:%d, val:%u.\n", __func__,
@@ -365,20 +364,8 @@ static void mtk_smi_larb_bw_set_ex(struct device *dev, const u32 port, const u32
 	}
 	if (val) {
 		larb->larb_gen->bwl[larb->larbid * SMI_LARB_PORT_NR_MAX + port] = val;
-		if (atomic_read(&larb->smi.ref_count)) {
-			if (larb->clk_on_delay &&  port == 12) {
-				freq = mt_get_fmeter_freq(FM_VDEC_CK, CKGEN);
-				dev_notice(dev, "%s:ready to write %#x, val=%#x, FM_VDEC_CK = %#x\n",
-					__func__, SMI_LARB_OSTDL_PORTx(port), val, freq);
-				if (!freq)
-					BUG_ON(1);
-			} else if (larb->clk_on_delay && port == 13) {
-				dev_notice(dev, "%s:ready to write %#x, val=%#x\n",
-					__func__, SMI_LARB_OSTDL_PORTx(port), val);
-			}
+		if (atomic_read(&larb->smi.ref_count))
 			writel(val, larb->base + SMI_LARB_OSTDL_PORTx(port));
-			//writel(val, larb->base + INT_SMI_LARB_OSTDL_PORTx(port));
-		}
 	}
 }
 
