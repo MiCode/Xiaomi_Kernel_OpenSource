@@ -24,6 +24,7 @@
 #include <linux/types.h>
 #include <linux/debugfs.h>
 #include <linux/thermal.h>
+#include <soc/mediatek/dramc.h>
 
 #include <linux/io.h>
 #if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
@@ -1064,6 +1065,19 @@ static ssize_t catm_p_store(struct kobject *kobj,
 	return -EINVAL;
 }
 
+
+static ssize_t dram_data_rate_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+
+	len = snprintf(buf, PAGE_SIZE, "%d\n",
+		mtk_dramc_get_data_rate());
+
+	return len;
+}
+
+
 static struct kobj_attribute ttj_attr = __ATTR_RW(ttj);
 static struct kobj_attribute power_budget_attr = __ATTR_RW(power_budget);
 static struct kobj_attribute cpu_info_attr = __ATTR_RO(cpu_info);
@@ -1091,7 +1105,7 @@ static struct kobj_attribute sports_mode_attr = __ATTR_RW(sports_mode);
 static struct kobj_attribute vtskin_info_attr = __ATTR_RW(vtskin_info);
 static struct kobj_attribute vtskin_temp_attr = __ATTR_RW(vtskin_temp);
 static struct kobj_attribute catm_p_attr = __ATTR_RW(catm_p);
-
+static struct kobj_attribute dram_data_rate_attr = __ATTR_RO(dram_data_rate);
 
 static struct attribute *thermal_attrs[] = {
 	&ttj_attr.attr,
@@ -1120,6 +1134,7 @@ static struct attribute *thermal_attrs[] = {
 	&vtskin_info_attr.attr,
 	&vtskin_temp_attr.attr,
 	&catm_p_attr.attr,
+	&dram_data_rate_attr.attr,
 	NULL
 };
 static struct attribute_group thermal_attr_group = {
