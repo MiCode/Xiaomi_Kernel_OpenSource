@@ -36,8 +36,6 @@ unsigned int ged_kpi_get_cur_avg_response_time(void);
 unsigned int ged_kpi_get_cur_avg_gpu_remained_time(void);
 unsigned int ged_kpi_get_cur_avg_cpu_remained_time(void);
 unsigned int ged_kpi_get_cur_avg_gpu_freq(void);
-unsigned int ged_kpi_get_fw_idle(void);
-
 
 void ged_kpi_get_latest_perf_state(long long *t_cpu_remained,
 		long long *t_gpu_remained,
@@ -53,7 +51,11 @@ unsigned int ged_kpi_enabled(void);
 void ged_kpi_set_target_FPS(u64 ulID, int target_FPS);
 void ged_kpi_set_target_FPS_margin(u64 ulID, int target_FPS,
 		int target_FPS_margin, int eara_fps_margin, int cpu_time);
-void ged_kpi_set_fw_idle(unsigned int time);
+
+int ged_kpi_get_fw_idle_mode(void);
+int ged_kpi_is_fw_idle_policy_enable(void);
+void ged_kpi_set_fw_idle_mode(unsigned int mode);
+void ged_kpi_enable_fw_idle_policy(unsigned int mode);
 
 void ged_kpi_update_t_gpu_latest_uncompleted(void);
 struct ged_risky_bq_info {

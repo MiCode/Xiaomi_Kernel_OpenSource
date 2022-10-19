@@ -708,15 +708,22 @@ static ssize_t fw_idle_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
-	unsigned int ui32FwIdle;
+	int ui32FwIdle = 0;
+	int fw_idle_enable = 0;
 	int pos = 0;
-	int length;
 
-	ui32FwIdle = ged_kpi_get_fw_idle();
+	ui32FwIdle = ged_kpi_get_fw_idle_mode();
+	fw_idle_enable = ged_kpi_is_fw_idle_policy_enable();
 
-	length = scnprintf(buf + pos, PAGE_SIZE - pos,
-			"%d\n", ui32FwIdle);
-	pos += length;
+	if (fw_idle_enable) {
+		pos += scnprintf(buf + pos, PAGE_SIZE - pos,
+					"FW idle policy is enable\n");
+		pos += scnprintf(buf + pos, PAGE_SIZE - pos,
+					"Policy mode : %d\n", ui32FwIdle);
+	} else {
+		pos = scnprintf(buf + pos, PAGE_SIZE - pos,
+					"FW idle policy is disabled\n");
+	}
 
 	return pos;
 }
@@ -726,12 +733,25 @@ static ssize_t fw_idle_store(struct kobject *kobj,
 		const char *buf, size_t count)
 {
 	char acBuffer[GED_SYSFS_MAX_BUFF_SIZE];
-	int i32Value;
+	u32 i32Value;
+	int mode = 0;
+	int enable = 0;
 
 	if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
-			if (kstrtoint(acBuffer, 0, &i32Value) == 0)
-				ged_kpi_set_fw_idle(i32Value);
+			if (kstrtoint(acBuffer, 0, &i32Value) == 0) {
+				switch (i32Value) {
+				case 0xF0:
+					ged_kpi_enable_fw_idle_policy(1);
+					break;
+				case 0xFF:
+					ged_kpi_enable_fw_idle_policy(0);
+					break;
+				default:
+					if (ged_kpi_is_fw_idle_policy_enable())
+						ged_kpi_set_fw_idle_mode(i32Value);
+				}
+			}
 		}
 	}
 

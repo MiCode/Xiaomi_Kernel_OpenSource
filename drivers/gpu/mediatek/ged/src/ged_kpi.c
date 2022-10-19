@@ -266,9 +266,18 @@ static unsigned int is_GED_KPI_enabled = 1;
 static unsigned int g_force_gpu_dvfs_fallback;
 static int g_fb_dvfs_threshold = 80;
 
-#define FW_IDLE_TIMER_DEFAULT 5
+#define FW_IDLE_TIMER_0_MS    0
+#define FW_IDLE_TIMER_5_MS    5
+#define FW_IDLE_TIMER_10_MS   10
+
+#define FW_IDLE_MODE_DEFAULT  0
+#define FW_IDLE_MODE_FIX_10   2
+#define FW_IDLE_MODE_FIX_5    1
+#define FW_IDLE_MODE_Fix_0    3
+
 #define FW_IDLE_FPS_THRESHOLD 60
-static int g_is_idle_fw_enable;
+static int g_is_fw_idle_enable = 1;
+static int g_fw_idle_mode;
 static int g_fw_idle_timer;
 static int g_is_panel_hz_change;
 
@@ -727,21 +736,29 @@ static GED_BOOL ged_kpi_update_TargetTimeAndTargetFps(
 			"FRC mode is specified, use default mode");
 	}
 
-	/* update fw idle timer value */
-	if (g_is_idle_fw_enable)
-		idle_timer_ms = FW_IDLE_TIMER_DEFAULT;
-	else {
-		if (psHead == main_head)
-			idle_timer_ms =
-				(target_fps <= FW_IDLE_FPS_THRESHOLD && target_fps > 0) ?
-				0 : FW_IDLE_TIMER_DEFAULT;
-	}
+	if (g_is_fw_idle_enable) {
+		/* update fw idle timer value */
+		switch (g_fw_idle_mode) {
+		case FW_IDLE_MODE_DEFAULT:
+			if (psHead == main_head)
+				idle_timer_ms =
+					(target_fps <= FW_IDLE_FPS_THRESHOLD) ?
+					FW_IDLE_TIMER_0_MS : FW_IDLE_TIMER_5_MS;
+			break;
+		case FW_IDLE_MODE_FIX_5:
+			idle_timer_ms = FW_IDLE_TIMER_5_MS;
+			break;
+		case FW_IDLE_MODE_FIX_10:
+			idle_timer_ms = FW_IDLE_TIMER_10_MS;
+			break;
+		}
 
-	/* set fw idle timer if timer value change */
-	if (g_is_panel_hz_change || g_fw_idle_timer != idle_timer_ms) {
-		mtk_set_gpu_idle(idle_timer_ms);
-		g_fw_idle_timer = idle_timer_ms;
-		g_is_panel_hz_change = 0;
+		/* set fw idle timer if timer value ever changed*/
+		if (g_is_panel_hz_change || g_fw_idle_timer != idle_timer_ms) {
+			mtk_set_gpu_idle(idle_timer_ms);
+			g_fw_idle_timer = idle_timer_ms;
+			g_is_panel_hz_change = 0;
+		}
 	}
 
 	psHead->target_fps = target_fps;
@@ -1826,19 +1843,22 @@ unsigned int ged_kpi_get_cur_avg_gpu_freq(void)
 #endif /* MTK_GED_KPI */
 }
 /* ------------------------------------------------------------------- */
-unsigned int ged_kpi_get_fw_idle(void)
-{
-	return g_is_idle_fw_enable;
-}
-/* ------------------------------------------------------------------- */
 void ged_dfrc_fps_limit_cb(unsigned int target_fps)
 {
 	/* update fw idle timer value */
-	if (g_is_idle_fw_enable)
-		g_fw_idle_timer = FW_IDLE_TIMER_DEFAULT;
-	else
-		g_fw_idle_timer =
-			(target_fps <= FW_IDLE_FPS_THRESHOLD) ? 0 : FW_IDLE_TIMER_DEFAULT;
+	switch (g_fw_idle_mode) {
+	case FW_IDLE_MODE_DEFAULT:
+		g_fw_idle_timer = (target_fps <= FW_IDLE_FPS_THRESHOLD) ?
+			FW_IDLE_TIMER_0_MS : FW_IDLE_TIMER_5_MS;
+		break;
+	case FW_IDLE_MODE_FIX_5:
+		g_fw_idle_timer = FW_IDLE_TIMER_5_MS;
+		break;
+	case FW_IDLE_MODE_FIX_10:
+		g_fw_idle_timer = FW_IDLE_TIMER_10_MS;
+		break;
+	}
+
 	g_is_panel_hz_change = 1;
 
 	g_target_fps_default =
@@ -1964,14 +1984,36 @@ void ged_kpi_set_target_FPS_margin(u64 ulID, int target_FPS,
 }
 EXPORT_SYMBOL(ged_kpi_set_target_FPS_margin);
 /* ------------------------------------------------------------------- */
-void ged_kpi_set_fw_idle(unsigned int mode)
+int ged_kpi_get_fw_idle_mode(void)
 {
+	return g_fw_idle_mode;
+}
+/* ------------------------------------------------------------------- */
+int ged_kpi_is_fw_idle_policy_enable(void)
+{
+	return g_is_fw_idle_enable;
+}
+/* ------------------------------------------------------------------- */
+void ged_kpi_set_fw_idle_mode(unsigned int mode)
+{
+	if (mode == FW_IDLE_MODE_DEFAULT || mode == FW_IDLE_MODE_Fix_0
+		|| mode == FW_IDLE_MODE_FIX_5 || mode == FW_IDLE_MODE_FIX_10)
+		g_fw_idle_mode = mode;
+
 	if (!mode)
 		mtk_set_gpu_idle(g_fw_idle_timer);
 
-	g_is_idle_fw_enable = mode;
 }
-EXPORT_SYMBOL(ged_kpi_set_fw_idle);
+EXPORT_SYMBOL(ged_kpi_set_fw_idle_mode);
+/* ------------------------------------------------------------------- */
+void ged_kpi_enable_fw_idle_policy(unsigned int enable)
+{
+	g_is_fw_idle_enable = enable;
+
+	if (enable)
+		g_fw_idle_mode = FW_IDLE_MODE_DEFAULT;
+}
+EXPORT_SYMBOL(ged_kpi_enable_fw_idle_policy);
 /* ------------------------------------------------------------------- */
 
 static GED_BOOL ged_kpi_find_riskyBQ_func(unsigned long ulID,
