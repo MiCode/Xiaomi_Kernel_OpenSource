@@ -18,6 +18,9 @@
 #include <soc/mediatek/mmdvfs_v3.h>
 #include <mt-plat/mrdump.h>
 
+#include <clk-fmeter.h>
+#include <mtk-smi-dbg.h>
+
 #include "mtk-mmdvfs-v3-memory.h"
 #include "mtk-mmdvfs-ftrace.h"
 
@@ -50,6 +53,14 @@ struct mmdvfs_debug {
 
 	/* MMDVFS_DBG_VER3 */
 	u32 use_v3_pwr;
+
+	/* regulator and fmeter */
+	struct regulator *reg_vcore;
+	struct regulator *reg_vmm;
+	u8 fmeter_count;
+	u8 *fmeter_id;
+	u8 *fmeter_type;
+	struct notifier_block nb;
 };
 
 static struct mmdvfs_debug *g_mmdvfs;
@@ -461,6 +472,26 @@ static struct kernel_param_ops mmdvfs_debug_set_ftrace_ops = {
 module_param_cb(ftrace, &mmdvfs_debug_set_ftrace_ops, NULL, 0644);
 MODULE_PARM_DESC(ftrace, "mmdvfs ftrace log");
 
+static int mmdvfs_debug_smi_cb(struct notifier_block *nb, unsigned long action, void *data)
+{
+	int i;
+
+	if (g_mmdvfs->reg_vcore)
+		MMDVFS_DBG("vcore enabled:%d voltage:%d", regulator_is_enabled(g_mmdvfs->reg_vcore),
+			regulator_get_voltage(g_mmdvfs->reg_vcore));
+
+	if (g_mmdvfs->reg_vmm)
+		MMDVFS_DBG("vmm enabled:%d voltage:%d", regulator_is_enabled(g_mmdvfs->reg_vmm),
+			regulator_get_voltage(g_mmdvfs->reg_vmm));
+
+	for (i = 0; i < g_mmdvfs->fmeter_count; i++)
+		MMDVFS_DBG("i:%d id:%hu type:%hu freq:%u",
+			i, g_mmdvfs->fmeter_id[i], g_mmdvfs->fmeter_type[i],
+			mt_get_fmeter_freq(g_mmdvfs->fmeter_id[i], g_mmdvfs->fmeter_type[i]));
+
+	return 0;
+}
+
 static int mmdvfs_debug_probe(struct platform_device *pdev)
 {
 	struct proc_dir_entry *dir, *proc;
@@ -540,6 +571,55 @@ static int mmdvfs_debug_probe(struct platform_device *pdev)
 	if (g_mmdvfs->use_v3_pwr)
 		kthr = kthread_run(
 			mmdvfs_v3_debug_thread, NULL, "mmdvfs-dbg-vcp");
+
+	/* regulator */
+	reg = devm_regulator_get(g_mmdvfs->dev, "vcore");
+	if (IS_ERR_OR_NULL(reg)) {
+		MMDVFS_DBG("devm_regulator_get vcore failed:%d", PTR_ERR(reg));
+		return PTR_ERR(reg);
+	}
+	g_mmdvfs->reg_vcore = reg;
+
+	reg = devm_regulator_get(g_mmdvfs->dev, "vmm-pmic");
+	if (IS_ERR_OR_NULL(reg)) {
+		MMDVFS_DBG("devm_regulator_get vmm-pmic failed:%d", PTR_ERR(reg));
+		return PTR_ERR(reg);
+	}
+	g_mmdvfs->reg_vmm = reg;
+
+	ret = of_property_count_u8_elems(g_mmdvfs->dev->of_node, "fmeter-id");
+	if (ret < 0) {
+		MMDVFS_DBG("count_elems fmeter-id failed:%d", ret);
+		return ret;
+	}
+	g_mmdvfs->fmeter_count = ret;
+
+	g_mmdvfs->fmeter_id = kcalloc(
+		g_mmdvfs->fmeter_count, sizeof(*g_mmdvfs->fmeter_id), GFP_KERNEL);
+	if (!g_mmdvfs->fmeter_id)
+		return -ENOMEM;
+
+	ret = of_property_read_u8_array(g_mmdvfs->dev->of_node,
+		"fmeter-id", g_mmdvfs->fmeter_id, g_mmdvfs->fmeter_count);
+	if (ret) {
+		MMDVFS_DBG("read_array fmeter-id failed:%d", ret);
+		return ret;
+	}
+
+	g_mmdvfs->fmeter_type = kcalloc(
+		g_mmdvfs->fmeter_count, sizeof(*g_mmdvfs->fmeter_type), GFP_KERNEL);
+	if (!g_mmdvfs->fmeter_type)
+		return -ENOMEM;
+
+	ret = of_property_read_u8_array(g_mmdvfs->dev->of_node,
+		"fmeter-type", g_mmdvfs->fmeter_type, g_mmdvfs->fmeter_count);
+	if (ret) {
+		MMDVFS_DBG("read_array fmeter-type failed:%d", ret);
+		return ret;
+	}
+
+	g_mmdvfs->nb.notifier_call = mmdvfs_debug_smi_cb;
+	mtk_smi_dbg_register_notifier(&g_mmdvfs->nb);
 
 	return 0;
 }
