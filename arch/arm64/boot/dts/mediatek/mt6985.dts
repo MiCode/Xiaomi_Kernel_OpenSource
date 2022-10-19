@@ -704,7 +704,7 @@
 		cpu-power-bbcpu-weight-max = <100>;
 		cpu-power-bbcpu-weight-min = <100>;
 
-		/* use-cpu-to-dram-map-new = "enable"; */
+		use-cpu-to-dram-map-new = "enable";
 	};
 
 	fpsgo: fpsgo {
