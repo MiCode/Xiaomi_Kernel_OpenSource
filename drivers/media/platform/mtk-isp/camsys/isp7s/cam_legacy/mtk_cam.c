@@ -6271,7 +6271,7 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 				sv_buf_entry->buffer.iova,
 				sv_buf_entry->sv_cq_desc_size,
 				sv_buf_entry->sv_cq_desc_offset,
-				(ctx->composed_frame_seq_no == 1) ? 1 : 0);
+				1);
 		for (i = 0; i < ctx->used_sv_num; i++) {
 			if ((sv_buf_entry->s_data->req->pipe_used &
 				(1 << ctx->sv_pipe[i]->id)))
@@ -6289,7 +6289,7 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 					mraw_buf_entry[i]->buffer.iova,
 					mraw_buf_entry[i]->mraw_cq_desc_size,
 					mraw_buf_entry[i]->mraw_cq_desc_offset,
-					(ctx->composed_frame_seq_no == 1) ? 1 : 0);
+					1);
 			} else {
 				mtk_ctx_watchdog_stop(ctx, ctx->mraw_pipe[i]->id);
 				mtk_cam_mraw_vf_on(mraw_dev, 0);

@@ -2224,6 +2224,8 @@ void camsv_irq_handle_err(
 	struct mtk_camsv_tag_info tag_info = camsv_dev->tag_info[tag_idx];
 	unsigned int stream_id;
 
+	writel_relaxed((tag_idx << 22) + (tag_idx << 27),
+		camsv_dev->base + REG_E_CAMSVCENTRAL_TAG_R_SEL);
 	dev_info_ratelimited(camsv_dev->dev,
 		"TAG_IDX:%d TG PATHCFG/SENMODE FRMSIZE/R RGRABPXL/LIN:0x%x/%x 0x%x/%x 0x%x/%x\n",
 		tag_idx,
