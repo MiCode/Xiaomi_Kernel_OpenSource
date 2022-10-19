@@ -3641,6 +3641,14 @@ static long WPE_ioctl(struct file *pFile,
 				if (WPE_REQUEST_STATE_EMPTY ==
 				    g_WPE_ReqRing.WPEReq_Struct[
 				    g_WPE_ReqRing.WriteIdx].State) {
+					if (enqueNum >
+						_SUPPORT_MAX_WPE_FRAME_REQUEST_ ||
+						enqueNum < 0) {
+						LOG_ERR(
+						"WPE Enque Num is bigger than enqueNum:%d\n",
+						enqueNum);
+						break;
+					}
 					spin_lock_irqsave(
 						&(WPEInfo.SpinLockIrq
 						[WPE_IRQ_TYPE_INT_WPE_ST]),
@@ -3656,12 +3664,6 @@ static long WPE_ioctl(struct file *pFile,
 					spin_unlock_irqrestore(
 						&(WPEInfo.SpinLockIrq
 					[WPE_IRQ_TYPE_INT_WPE_ST]), flags);
-					if (enqueNum >
-					_SUPPORT_MAX_WPE_FRAME_REQUEST_) {
-						LOG_ERR(
-							"WPE Enque Num is bigger than enqueNum:%d\n",
-						     enqueNum);
-					}
 					LOG_DBG("WPE_ENQNUE_NUM:%d\n",
 						enqueNum);
 				} else {
