@@ -1418,6 +1418,8 @@ int region_info_set(uint32_t buf_num,
 	int i = 0, j = 0;
 	uint32_t buf_io_cnt = 0;
 	uint32_t buf_io_total = 0;
+	uint32_t base_shift = 0;
+	uint32_t size_shift = 0;
 
 	//get all IO buf addr
 	for (i = 0; i < buf_num; i++) {
@@ -1456,19 +1458,26 @@ int region_info_set(uint32_t buf_num,
 
 	//mapping size info
 	for (i = 0; i < buf_io_total; i++) {
+		base_shift = buf_io_addr[i] & 0x00000FFF;
+
 		for (j = 0; j < buf_num; j++) {
 			if (buf_io_addr[i] == sec_chk_addr[j]) {
 				buf_io_size[i] =
-					((sec_buf_size[j] + MVPU_MPU_SIZE - 1)
+					(((sec_buf_size[j] + base_shift) + MVPU_MPU_SIZE - 1)
 						/MVPU_MPU_SIZE)
 						*MVPU_MPU_SIZE;
+
+				size_shift = buf_io_size[i] - sec_buf_size[j];
+				if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG) {
+					if (base_shift > size_shift)
+						pr_info("[MVPU][SEC] [MPU] ERROR base_shift 0x%08x, size_shift 0x%08x\n",
+							base_shift, size_shift);
+				}
 			}
 		}
-	}
 
-	//base aligned (TBD: 4K page alreadly?)
-	for (i = 0; i < buf_io_total; i++)
 		buf_io_addr[i] = buf_io_addr[i] & 0xFFFFF000;
+	}
 
 	if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_ALL) {
 		pr_info("[MVPU][SEC] [MPU] %s buf_io_total = %3d\n", __func__, buf_io_total);
