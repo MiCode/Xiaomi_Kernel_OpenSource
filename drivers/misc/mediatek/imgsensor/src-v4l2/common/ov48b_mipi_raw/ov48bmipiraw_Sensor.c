@@ -1324,6 +1324,27 @@ static void ov48b_set_max_framerate_by_scenario(struct subdrv_ctx *ctx, u8 *para
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 	}
+
+	if (framerate == 0) {
+		DRV_LOG(ctx, "framerate should not be 0\n");
+		return;
+	}
+
+	if (ctx->s_ctx.mode[scenario_id].linelength == 0) {
+		DRV_LOG(ctx, "linelength should not be 0\n");
+		return;
+	}
+
+	if (ctx->line_length == 0) {
+		DRV_LOG(ctx, "ctx->line_length should not be 0\n");
+		return;
+	}
+
+	if (ctx->frame_length == 0) {
+		DRV_LOG(ctx, "ctx->frame_length should not be 0\n");
+		return;
+	}
+
 	frame_length = ctx->s_ctx.mode[scenario_id].pclk / framerate * 10
 		/ ctx->s_ctx.mode[scenario_id].linelength;
 	ctx->frame_length =
