@@ -470,6 +470,14 @@ static bool is_pll_chk_bug_on(void)
 	return clkchk_ops->is_pll_chk_bug_on();
 }
 
+static bool clkchk_retry_bug_on(bool reset_cnt)
+{
+	if (clkchk_ops == NULL || clkchk_ops->suspend_retry == NULL)
+		return true;
+
+	return clkchk_ops->suspend_retry(reset_cnt);
+}
+
 /*
  * clkchk vf table checking
  */
@@ -581,15 +589,20 @@ static int clk_chk_dev_pm_suspend(struct device *dev)
 			dump_enabled_clks(pvdck);
 
 		if (is_pll_chk_bug_on() || pdchk_get_bug_on_stat()) {
-			clkchk_dump_pll_reg(false);
-			BUG_ON(1);
+			if (clkchk_retry_bug_on(false)) {
+				clkchk_dump_pll_reg(false);
+				BUG_ON(1);
+			} else {
+				return -1;
+			}
 		}
-
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 		aee_kernel_warning_api(__FILE__, __LINE__,
 				DB_OPT_DEFAULT, "clk-chk",
 				"fail to disable clk/pd in suspend\n");
 #endif
+	} else {
+		clkchk_retry_bug_on(true);
 	}
 
 	return 0;

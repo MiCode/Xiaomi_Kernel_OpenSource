@@ -44,6 +44,7 @@ struct pdchk_ops {
 	void (*trace_power_event)(unsigned int pd_id, unsigned int pwr_sta);
 	void (*dump_power_event)(void);
 	void (*check_hwv_irq_sta)(void);
+	bool (*pdchk_suspend_retry)(bool reset_cnt);
 };
 
 void pdchk_common_init(const struct pdchk_ops *ops);

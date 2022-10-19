@@ -192,6 +192,14 @@ OUT:
 	return false;
 }
 
+static bool pdchk_retry_bug_on(bool reset_cnt)
+{
+	if (pdchk_ops == NULL || pdchk_ops->pdchk_suspend_retry == NULL)
+		return true;
+
+	return pdchk_ops->pdchk_suspend_retry(reset_cnt);
+}
+
 static bool is_mtcmos_chk_bug_on(void)
 {
 	if (pdchk_ops == NULL || pdchk_ops->is_mtcmos_chk_bug_on == NULL)
@@ -224,6 +232,8 @@ static int pdchk_dev_pm_suspend(struct device *dev)
 {
 	atomic_inc(&check_enabled);
 	if (check_mtcmos_off()) {
+		if (!pdchk_retry_bug_on(false))
+			return -1;
 		if (is_mtcmos_chk_bug_on())
 			pdchk_set_bug_on_stat(true);
 
@@ -232,6 +242,8 @@ static int pdchk_dev_pm_suspend(struct device *dev)
 				DB_OPT_DEFAULT, "pd-chk",
 				"fail to disable clk/pd in suspend\n");
 #endif
+	} else {
+		pdchk_retry_bug_on(true);
 	}
 
 	return 0;
@@ -503,6 +515,7 @@ void pdchk_common_init(const struct pdchk_ops *ops)
 	}
 
 	atomic_set(&check_enabled, 0);
+
 	set_genpd_notify();
 }
 EXPORT_SYMBOL(pdchk_common_init);

@@ -78,6 +78,7 @@ struct clkchk_ops {
 	const char * const *(*get_off_pll_names)(void);
 	const char * const *(*get_notice_pll_names)(void);
 	bool (*is_pll_chk_bug_on)(void);
+	bool (*suspend_retry)(bool reset_cnt);
 	const char *(*get_vf_name)(int id);
 	int (*get_vf_opp)(int id, int opp);
 	u32 (*get_vf_num)(void);
