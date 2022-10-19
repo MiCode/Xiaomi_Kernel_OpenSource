@@ -551,12 +551,6 @@
 				num_ports = <25>;
 				bus_freq_mhz = <688>;
 			};
-			monitor8 {
-				monitor_name = "debug_ctrl_ao_MMUP_AO";
-				base = <0x1ec51000>;
-				num_ports = <13>;
-				bus_freq_mhz = <728>;
-			};
 		};
 	};
 
