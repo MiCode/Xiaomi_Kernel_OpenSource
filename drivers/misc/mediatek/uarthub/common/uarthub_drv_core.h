@@ -27,10 +27,10 @@ struct debug_info_ctrl {
 };
 
 struct uarthub_gpio_base_addr {
-	unsigned long addr;
-	unsigned long mask;
-	unsigned long value;
-	unsigned long gpio_value;
+	unsigned int addr;
+	unsigned int mask;
+	unsigned int value;
+	unsigned int gpio_value;
 };
 
 struct uarthub_gpio_trx_info {

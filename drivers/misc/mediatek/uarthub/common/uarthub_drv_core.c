@@ -2778,33 +2778,33 @@ int uarthub_core_debug_uart_ip_info_loop_compare_diff(void)
 	const char *def_tag = "HUB_DBG_LOOP";
 	struct uarthub_uart_ip_debug_info crc_bypass = {0};
 	unsigned char dmp_info_buf[DBG_LOG_LEN];
-	struct uarthub_gpio_trx_info gpio_base_addr;
+	struct uarthub_gpio_trx_info gpio_base_addr = {0};
 	int len = 0;
 	int val = 0;
 	int cur_crc = 0;
-	int cur_bypass = 0;
-	int cur_uart_pad_mode = 0;
-	int cur_gpio_tx_mode = 0;
-	int cur_gpio_rx_mode = 0;
-	int cur_gpio_tx_dir = 0;
-	int cur_gpio_rx_dir = 0;
-	int cur_gpio_tx_ies = 0;
-	int cur_gpio_rx_ies = 0;
-	int cur_gpio_tx_pu = 0;
-	int cur_gpio_rx_pu = 0;
-	int cur_gpio_tx_pd = 0;
-	int cur_gpio_rx_pd = 0;
-	int cur_gpio_tx_drv = 0;
-	int cur_gpio_rx_drv = 0;
-	int cur_gpio_tx_smt = 0;
-	int cur_gpio_rx_smt = 0;
-	int cur_gpio_tx_tdsel = 0;
-	int cur_gpio_rx_tdsel = 0;
-	int cur_gpio_tx_rdsel = 0;
-	int cur_gpio_rx_rdsel = 0;
-	int cur_gpio_tx_sec_en = 0;
-	int cur_gpio_rx_sec_en = 0;
-	int cur_gpio_rx_din = 0;
+	unsigned int cur_bypass = 0;
+	unsigned int cur_uart_pad_mode = 0;
+	unsigned int cur_gpio_tx_mode = 0;
+	unsigned int cur_gpio_rx_mode = 0;
+	unsigned int cur_gpio_tx_dir = 0;
+	unsigned int cur_gpio_rx_dir = 0;
+	unsigned int cur_gpio_tx_ies = 0;
+	unsigned int cur_gpio_rx_ies = 0;
+	unsigned int cur_gpio_tx_pu = 0;
+	unsigned int cur_gpio_rx_pu = 0;
+	unsigned int cur_gpio_tx_pd = 0;
+	unsigned int cur_gpio_rx_pd = 0;
+	unsigned int cur_gpio_tx_drv = 0;
+	unsigned int cur_gpio_rx_drv = 0;
+	unsigned int cur_gpio_tx_smt = 0;
+	unsigned int cur_gpio_rx_smt = 0;
+	unsigned int cur_gpio_tx_tdsel = 0;
+	unsigned int cur_gpio_rx_tdsel = 0;
+	unsigned int cur_gpio_tx_rdsel = 0;
+	unsigned int cur_gpio_rx_rdsel = 0;
+	unsigned int cur_gpio_tx_sec_en = 0;
+	unsigned int cur_gpio_rx_sec_en = 0;
+	unsigned int cur_gpio_rx_din = 0;
 	unsigned long long kt_sec;
 	unsigned long kt_nsec;
 	struct timespec64 now;
@@ -2936,41 +2936,41 @@ int uarthub_core_debug_uart_ip_info_loop_compare_diff(void)
 
 	len = 0;
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"[%s] GPIO TX_MODE=[addr:0x%lx,mask:0x%lx,exp:0x%lx,read:0x%lx]",
+		"[%s] GPIO TX_MODE=[addr:0x%x,mask:0x%x,exp:0x%x,read:0x%x]",
 		def_tag,
 		gpio_base_addr.tx_mode.addr, gpio_base_addr.tx_mode.mask,
 		gpio_base_addr.tx_mode.value, cur_gpio_tx_mode);
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___RX_MODE=[addr:0x%lx,mask:0x%lx,exp:0x%lx,read:0x%lx]",
+		"___RX_MODE=[addr:0x%x,mask:0x%x,exp:0x%x,read:0x%x]",
 		gpio_base_addr.rx_mode.addr, gpio_base_addr.rx_mode.mask,
 		gpio_base_addr.rx_mode.value, cur_gpio_rx_mode);
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___RX_PAD_INFO=[0x%lx]", cur_gpio_rx_din);
+		"___RX_PAD_INFO=[0x%x]", cur_gpio_rx_din);
 
 	pr_info("%s\n", dmp_info_buf);
 
 	len = 0;
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"[%s] GPIO DIR=[T:0x%lx,R:0x%lx]___DRV=[T:0x%lx,R:0x%lx]",
+		"[%s] GPIO DIR=[T:0x%x,R:0x%x]___DRV=[T:0x%x,R:0x%x]",
 		def_tag,
 		cur_gpio_tx_dir, cur_gpio_rx_dir, cur_gpio_tx_drv, cur_gpio_rx_drv);
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___PU=[T:0x%lx,R:0x%lx]___PD=[T:0x%lx,R:0x%lx]",
+		"___PU=[T:0x%x,R:0x%x]___PD=[T:0x%x,R:0x%x]",
 		cur_gpio_tx_pu, cur_gpio_rx_pu, cur_gpio_tx_pd, cur_gpio_rx_pd);
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___IES=[T:0x%lx,R:0x%lx]___SMT=[T:0x%lx,R:0x%lx]",
+		"___IES=[T:0x%x,R:0x%x]___SMT=[T:0x%x,R:0x%x]",
 		cur_gpio_tx_ies, cur_gpio_rx_ies, cur_gpio_tx_smt, cur_gpio_rx_smt);
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___TDSEL=[T:0x%lx,R:0x%lx]___RDSEL=[T:0x%lx,R:0x%lx]",
+		"___TDSEL=[T:0x%x,R:0x%x]___RDSEL=[T:0x%x,R:0x%x]",
 		cur_gpio_tx_tdsel, cur_gpio_rx_tdsel, cur_gpio_tx_rdsel, cur_gpio_rx_rdsel);
 
 	len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-		"___SEC_EN=[T:0x%lx,R:0x%lx]", cur_gpio_tx_sec_en, cur_gpio_rx_sec_en);
+		"___SEC_EN=[T:0x%x,R:0x%x]", cur_gpio_tx_sec_en, cur_gpio_rx_sec_en);
 
 	pr_info("%s\n", dmp_info_buf);
 
@@ -3526,12 +3526,12 @@ int uarthub_core_debug_info_with_tag(const char *tag)
 			if (gpio_base_addr.tx_mode.gpio_value ==
 					gpio_base_addr.rx_mode.gpio_value) {
 				len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-					"[%s][%s] GPIO MODE=[T/R:0x%lx]",
+					"[%s][%s] GPIO MODE=[T/R:0x%x]",
 					def_tag, ((tag == NULL) ? "null" : tag),
 					gpio_base_addr.tx_mode.gpio_value);
 			} else {
 				len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-					"[%s][%s] GPIO MODE=[T:0x%lx,R:0x%lx]",
+					"[%s][%s] GPIO MODE=[T:0x%x,R:0x%x]",
 					def_tag, ((tag == NULL) ? "null" : tag),
 					gpio_base_addr.tx_mode.gpio_value,
 					gpio_base_addr.rx_mode.gpio_value);
@@ -3540,10 +3540,10 @@ int uarthub_core_debug_info_with_tag(const char *tag)
 			if (gpio_base_addr.tx_drv.gpio_value ==
 					gpio_base_addr.rx_drv.gpio_value) {
 				len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-					",DRV=[T/R:0x%lx]", gpio_base_addr.tx_drv.gpio_value);
+					",DRV=[T/R:0x%x]", gpio_base_addr.tx_drv.gpio_value);
 			} else {
 				len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-					",DRV=[T:0x%lx,R:0x%lx]",
+					",DRV=[T:0x%x,R:0x%x]",
 					gpio_base_addr.tx_drv.gpio_value,
 					gpio_base_addr.rx_drv.gpio_value);
 			}
