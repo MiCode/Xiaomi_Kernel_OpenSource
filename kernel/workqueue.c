@@ -2211,6 +2211,12 @@ __acquires(&pool->lock)
 	bool cpu_intensive = pwq->wq->flags & WQ_CPU_INTENSIVE;
 	unsigned long work_data;
 	struct worker *collision;
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+		work_func_t toolong_func = work->func;
+		unsigned long start_time = 0;
+		unsigned long end_time = 0;
+		unsigned int diff = 0;
+#endif
 #ifdef CONFIG_LOCKDEP
 	/*
 	 * It is permissible to free the struct work_struct from
@@ -2310,7 +2316,14 @@ __acquires(&pool->lock)
 	 */
 	lockdep_invariant_state(true);
 	trace_workqueue_execute_start(work);
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	start_time = jiffies;
+#endif
 	worker->current_func(work);
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	end_time = jiffies;
+	diff = jiffies_to_msecs(end_time - start_time);
+#endif
 	/*
 	 * While we must be careful to not use "work" after this, the trace
 	 * point will only record its address.
@@ -2319,6 +2332,12 @@ __acquires(&pool->lock)
 	lock_map_release(&lockdep_map);
 	lock_map_release(&pwq->wq->lockdep_map);
 
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	if (diff > 20000) {
+		pr_info("WQ_long: workqueue long function:dur=%u,str=%lu,end=%lu,[<%p>] %pS\n",
+		diff, start_time, end_time, toolong_func, toolong_func);
+	}
+#endif
 	if (unlikely(in_atomic() || lockdep_depth(current) > 0)) {
 		pr_err("BUG: workqueue leaked lock or atomic: %s/0x%08x/%d\n"
 		       "     last function: %ps\n",
@@ -5914,7 +5933,7 @@ static void wq_watchdog_timer_fn(struct timer_list *unused)
 #if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
 	if (lockup_detected && lockup_func) {
 		pr_err("WQ_lockup: [<%px>] %pS\n", lockup_func, lockup_func);
-		BUG();
+		//BUG();
 	}
 #endif
 	wq_watchdog_reset_touched();
