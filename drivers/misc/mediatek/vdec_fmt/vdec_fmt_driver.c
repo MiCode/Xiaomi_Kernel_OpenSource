@@ -465,13 +465,16 @@ static void fmt_gce_flush_callback(struct cmdq_cb_data data)
 {
 	struct cmdq_pkt *pkt_ptr;
 	struct mtk_vdec_fmt *fmt = fmt_mtkdev;
-
+	int i;
 	pkt_ptr = (struct cmdq_pkt *)data.data;
 
 	if (data.err < 0) {
 		fmt_err("pkt_ptr %p aee_cb %p", pkt_ptr, pkt_ptr->aee_cb);
 		atomic_set(&fmt->fmt_error, 1);
 		fmt_dump_addr_reg();
+		// reset bw request if fmt_error = 1
+		for (i = 0; i < fmt->gce_th_num; i++)
+			fmt_end_dvfs_emi_bw(fmt, i);
 	}
 }
 
@@ -1042,7 +1045,7 @@ static int vdec_fmt_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct device *dev;
 	int ret = 0;
-	int i, rdma_swwa;
+	int i, rdma_swwa, min_qos_threshold;
 	u32 port_id;
 
 	fmt_debug(0, "initialization");
@@ -1134,6 +1137,14 @@ static int vdec_fmt_probe(struct platform_device *pdev)
 	fmt->dtsInfo.RDMA_needWA = (bool) rdma_swwa;
 	if (fmt->dtsInfo.RDMA_needWA)
 		fmt_debug(0, "RDMA need software workaround");
+
+	ret = of_property_read_u32(dev->of_node, "mediatek,fmt-qos-threshold",
+						&min_qos_threshold);
+	fmt_debug(0, "min_qos_threshold %d", min_qos_threshold);
+	if (min_qos_threshold)
+		fmt->min_qos_threshold = min_qos_threshold;
+	else
+		fmt->min_qos_threshold = MTK_FMT_DFLT_MIN_QOS;
 
 	for (i = 0; i < ARRAY_SIZE(fmt->gce_gpr); i++) {
 		ret = of_property_read_u32_index(dev->of_node, "gce-gpr",

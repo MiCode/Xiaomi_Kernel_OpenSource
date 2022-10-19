@@ -6,6 +6,7 @@
 #ifndef MTK_FMT_PM_H
 #define MTK_FMT_PM_H
 #include "vdec_fmt_driver.h"
+#define MTK_FMT_DFLT_MIN_QOS 10
 
 void fmt_init_pm(struct mtk_vdec_fmt *fmt);
 int32_t fmt_clock_on(struct mtk_vdec_fmt *fmt);

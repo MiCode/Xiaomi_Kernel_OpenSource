@@ -138,7 +138,7 @@ void fmt_start_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, struct fmt_pmqos pmqos_para
 	u64 request_freq64;
 	struct timespec64 curr_time;
 	s32 duration;
-	u32 bandwidth;
+	u32 rdma_bandwidth, wdma_bandwidth;
 
 	fmt_debug(1, "tv_sec %d tv_usec %d pixel_size %d rdma_datasize %d wdma_datasize %d",
 			pmqos_param.tv_sec,
@@ -179,29 +179,36 @@ void fmt_start_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, struct fmt_pmqos pmqos_para
 		if (ret)
 			fmt_debug(0, "Failed to set mmdvfs rate %d\n", request_freq);
 	}
-	fmt_debug(1, "rdma cal MMqos (%d, %d, %d)",
-			pmqos_param.rdma_datasize,
-			pmqos_param.pixel_size,
-			request_freq);
+
 	if (id >= 0 && id < fmt->gce_th_num) {
 		FMT_BANDWIDTH(pmqos_param.rdma_datasize, pmqos_param.pixel_size,
-			request_freq, bandwidth);
-		if (fmt->fmt_qos_req[id] != 0) {
-			mtk_icc_set_bw(fmt->fmt_qos_req[id],
-			MBps_to_icc(bandwidth), 0);
-		}
-		fmt_debug(1, "rdma bandwidth %d", bandwidth);
-		fmt_debug(1, "wdma cal MMqos (%d, %d, %d)",
-			pmqos_param.wdma_datasize,
-			pmqos_param.pixel_size,
-			request_freq);
+			request_freq, rdma_bandwidth);
 		FMT_BANDWIDTH(pmqos_param.wdma_datasize, pmqos_param.pixel_size,
-			request_freq, bandwidth);
-		if (fmt->fmt_qos_req[id+2] != 0) {
-			mtk_icc_set_bw(fmt->fmt_qos_req[id+2],
-			MBps_to_icc(bandwidth), 0);
+			request_freq, wdma_bandwidth);
+
+		fmt_debug(1, "MMQoS: id:%d, data_size: (%d, %d), req_freq: %d, pix_size: %d",
+			id, pmqos_param.rdma_datasize, pmqos_param.wdma_datasize,
+			request_freq, pmqos_param.pixel_size);
+
+		if (fmt->fmt_qos_req[id] != 0 && fmt->fmt_qos_req[id+2] != 0) {
+			if (rdma_bandwidth + wdma_bandwidth <= fmt->min_qos_threshold) {
+				mtk_icc_set_bw(fmt->fmt_qos_req[id],
+					MBps_to_icc(0), 0);
+				mtk_icc_set_bw(fmt->fmt_qos_req[id+2],
+					MBps_to_icc(0), 0);
+				fmt_debug(1, "MMQoS: r_bw: %d(0), w_bw: %d(0), lower than min qos",
+					rdma_bandwidth, wdma_bandwidth);
+			} else {
+				mtk_icc_set_bw(fmt->fmt_qos_req[id],
+					MBps_to_icc(rdma_bandwidth), 0);
+				mtk_icc_set_bw(fmt->fmt_qos_req[id+2],
+					MBps_to_icc(wdma_bandwidth), 0);
+				fmt_debug(1, "MMQoS: r_bw: %d, w_bw: %d",
+					rdma_bandwidth, wdma_bandwidth);
+			}
+
 		}
-		fmt_debug(1, "wdma bandwidth %d", bandwidth);
+
 	}
 }
 
