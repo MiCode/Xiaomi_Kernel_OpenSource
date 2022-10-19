@@ -319,5 +319,6 @@ int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev,
 void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val,
 	enum mtk_vcodec_log_index log_index);
 void mtk_vcodec_init_slice_info(struct mtk_vcodec_ctx *ctx, struct mtk_video_dec_buf *dst_buf_info);
+void mtk_vcodec_check_alive(struct timer_list *t);
 
 #endif /* _MTK_VCODEC_UTIL_H_ */

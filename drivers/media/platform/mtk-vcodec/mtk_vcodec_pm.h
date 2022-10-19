@@ -32,7 +32,6 @@
 #define MTK_MAX_VENC_CLK_COUNT 4
 #define MTK_MAX_VENC_CLK_CORE_COUNT 4
 #define MTK_VENC_MAX_LARB_COUNT 3
-#define MTK_VDEC_CHECK_ACTIVE_INTERVAL 2000 // ms
 #define VDEC_HIGHEST_FREQ 880000000
 
 #define IS_SPECIFIC_CLK_TYPE(clk_name, prefix) \
@@ -242,5 +241,4 @@ enum mtk_enc_dtsi_reg_idx {
 	VENC_GCON,
 	NUM_MAX_VENC_REG_BASE
 };
-
 #endif /* _MTK_VCODEC_PM_H_ */

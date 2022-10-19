@@ -9,7 +9,6 @@
 #include <linux/list.h>
 #include <linux/timer.h>
 #include "vcodec_ipi_msg.h"
-
 #define DEFAULT_VENC_CONFIG -1000
 #define MAX_VCODEC_FREQ 4294967295
 #define MAX_OP_CNT 5
@@ -17,6 +16,7 @@
 #define VDEC_HIGHEST_FREQ 880000000
 #define BW_FACTOR_10BIT 125
 #define BW_FACTOR_NONAFBC 114
+
 
 struct mtk_vcodec_dev;
 struct mtk_vcodec_ctx;
@@ -92,5 +92,6 @@ bool need_update(struct mtk_vcodec_ctx *ctx);
 bool remove_update(struct mtk_vcodec_ctx *ctx);
 u32 match_avail_freq(struct mtk_vcodec_dev *dev, int codec_type, u64 freq);
 void update_freq(struct mtk_vcodec_dev *dev, int codec_type);
-
+void mtk_vcodec_alive_checker_suspend(struct mtk_vcodec_dev *dev);
+void mtk_vcodec_alive_checker_resume(struct mtk_vcodec_dev *dev);
 #endif

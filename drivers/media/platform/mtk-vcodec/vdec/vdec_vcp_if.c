@@ -891,7 +891,7 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 				break;
 			}
 		}
-		// mtk_vdec_alive_checker_suspend(dev);
+		mtk_vcodec_alive_checker_suspend(dev);
 		mutex_unlock(&dev->ctx_mutex);
 		if (ctx) {
 			vdec_vcp_backup((struct vdec_inst *)ctx->drv_handle);
@@ -912,7 +912,7 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 				break;
 			}
 		}
-		// mtk_vdec_alive_checker_resume(dev);
+		mtk_vcodec_alive_checker_resume(dev);
 		mutex_unlock(&dev->ctx_mutex);
 
 		if (ctx) {
@@ -994,8 +994,6 @@ static int vdec_vcp_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	*h_vdec = (unsigned long)inst;
 	inst->vcu.daemon_pid = get_vcp_generation();
 
-	// mtk_vdec_alive_checker_init(ctx->dev);
-
 	mtk_vcodec_add_ctx_list(ctx);
 
 	err = vdec_vcp_ipi_send(inst, &msg, sizeof(msg), 0);
@@ -1055,7 +1053,6 @@ static void vdec_vcp_deinit(unsigned long h_vdec)
 	mtk_vcodec_debug(inst, "- ret=%d", err);
 
 	mtk_vcodec_del_ctx_list(inst->ctx);
-	// mtk_vdec_alive_checker_deinit(inst->ctx->dev);
 
 	mutex_lock(inst->vcu.ctx_ipi_lock);
 	list_for_each_safe(p, q, &inst->vcu.bufs) {

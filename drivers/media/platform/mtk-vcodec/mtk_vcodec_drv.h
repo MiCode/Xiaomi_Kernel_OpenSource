@@ -23,6 +23,7 @@
 #include "mtk_vcodec_util.h"
 #include "vcodec_ipi_msg.h"
 #include "mtk_vcodec_pm.h"
+#include "mtk_vcodec_dec_pm_plat.h"
 #include "vcodec_dvfs.h"
 #include "vcodec_bw.h"
 #include "mtk_dma_contig.h"
@@ -525,6 +526,7 @@ struct vdec_set_frame_work_struct {
 struct vdec_check_alive_work_struct {
 	struct work_struct work;
 	struct mtk_vcodec_ctx *ctx;
+	struct mtk_vcodec_dev *dev;
 };
 
 /**

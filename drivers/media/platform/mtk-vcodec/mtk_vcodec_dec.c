@@ -1941,8 +1941,8 @@ void mtk_vcodec_dec_release(struct mtk_vcodec_ctx *ctx)
  */
 void mtk_vdec_check_alive_work(struct work_struct *ws)
 {
-	struct mtk_vcodec_dev *dev;
-	struct mtk_vcodec_ctx *ctx;
+	struct mtk_vcodec_dev *dev = NULL;
+	struct mtk_vcodec_ctx *ctx = NULL;
 	struct vcodec_inst *inst;
 	struct list_head *item;
 	bool mmdvfs_in_vcp, need_update = false;
@@ -1950,25 +1950,37 @@ void mtk_vdec_check_alive_work(struct work_struct *ws)
 	unsigned long vcp_dvfs_data[1] = {0};
 
 	caws = container_of(ws, struct vdec_check_alive_work_struct, work);
-	dev = container_of(caws, struct mtk_vcodec_dev, check_alive_work);
+	dev = caws->dev;
 
 	mmdvfs_in_vcp = (dev->vdec_reg == 0 && dev->vdec_mmdvfs_clk == 0);
 
 	mutex_lock(&dev->dec_dvfs_mutex);
 
-	if (list_empty(&dev->vdec_dvfs_inst)) {
+	if (list_empty(&dev->vdec_dvfs_inst) || dev->is_codec_suspending == 1) {
+		if (caws->ctx != NULL)
+			kfree(caws);
 		mutex_unlock(&dev->dec_dvfs_mutex);
 		return;
 	}
 
-	if (caws->ctx) {
+	if (caws->ctx != NULL) { // ctx retrigger case
 		ctx = caws->ctx;
-		need_update = true;
+		// cur ctx should be in dvfs list
+		list_for_each(item, &dev->vdec_dvfs_inst) {
+			inst = list_entry(item, struct vcodec_inst, list);
+			if (inst->ctx == ctx)
+				need_update = true;
+		}
+		if (!need_update) {
+			kfree(caws);
+			mutex_unlock(&dev->dec_dvfs_mutex);
+			return;
+		}
 		ctx->is_active = 1;
 		mtk_vdec_dvfs_update_active_state(ctx);
-		ctx->dev->check_alive_work.ctx = NULL;
-		mtk_v4l2_debug(4, "[VDVFS] %s [%d] is active now", __func__, ctx->id);
-	} else {
+		kfree(caws);
+		mtk_v4l2_debug(0, "[VDVFS] %s [%d] is active now", __func__, ctx->id);
+	} else { // timer trigger case
 		list_for_each(item, &dev->vdec_dvfs_inst) {
 		inst = list_entry(item, struct vcodec_inst, list);
 		ctx = inst->ctx;
@@ -2016,79 +2028,6 @@ void mtk_vdec_check_alive_work(struct work_struct *ws)
 
 	mutex_unlock(&dev->dec_dvfs_mutex);
 }
-
-void mtk_vdec_check_alive(struct timer_list *t)
-{
-	struct dvfs_params *params;
-	struct mtk_vcodec_dev *dev;
-
-	params = from_timer(params, t, vdec_active_checker);
-	dev = container_of(params, struct mtk_vcodec_dev, vdec_dvfs_params);
-	queue_work(dev->check_alive_workqueue, &dev->check_alive_work.work);
-
-	/*retrigger timer for next check*/
-	params->vdec_active_checker.expires =
-		jiffies + msecs_to_jiffies(MTK_VDEC_CHECK_ACTIVE_INTERVAL);
-	add_timer(&params->vdec_active_checker);
-}
-
-void mtk_vdec_alive_checker_init(struct mtk_vcodec_dev *dev)
-{
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	if (mtk_vcodec_is_vcp(MTK_INST_DECODER)) {
-		mutex_lock(&dev->ctx_mutex);
-		if (list_empty(&dev->ctx_list)) {
-			mtk_v4l2_debug(0, "[VDVFS][VDEC] init vdec alive checker...");
-			timer_setup(&dev->vdec_dvfs_params.vdec_active_checker,
-				mtk_vdec_check_alive, 0);
-			dev->vdec_dvfs_params.vdec_active_checker.expires =
-			jiffies + msecs_to_jiffies(MTK_VDEC_CHECK_ACTIVE_INTERVAL);
-			add_timer(&dev->vdec_dvfs_params.vdec_active_checker);
-			dev->vdec_dvfs_params.has_timer = 1;
-		}
-		mutex_unlock(&dev->ctx_mutex);
-	}
-#endif
-}
-
-void mtk_vdec_alive_checker_deinit(struct mtk_vcodec_dev *dev)
-{
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	if (mtk_vcodec_is_vcp(MTK_INST_DECODER)) {
-		mutex_lock(&dev->ctx_mutex);
-		if (list_empty(&dev->ctx_list)) {
-			del_timer_sync(&dev->vdec_dvfs_params.vdec_active_checker);
-			flush_workqueue(dev->check_alive_workqueue);
-			dev->vdec_dvfs_params.has_timer = 0;
-			mtk_v4l2_debug(0, "[VDVFS][VDEC] deinit vdec alive checker...");
-		}
-		mutex_unlock(&dev->ctx_mutex);
-	}
-#endif
-}
-
-void mtk_vdec_alive_checker_suspend(struct mtk_vcodec_dev *dev)
-{
-	if (!list_empty(&dev->ctx_list) && dev->vdec_dvfs_params.has_timer) {
-		mtk_v4l2_debug(0, "[VDVFS][VDEC] suspend vdec alive checker...");
-		del_timer_sync(&dev->vdec_dvfs_params.vdec_active_checker);
-		flush_workqueue(dev->check_alive_workqueue);
-		dev->vdec_dvfs_params.has_timer = 0;
-	}
-}
-
-void mtk_vdec_alive_checker_resume(struct mtk_vcodec_dev *dev)
-{
-	if (!list_empty(&dev->ctx_list) && !dev->vdec_dvfs_params.has_timer) {
-		mtk_v4l2_debug(0, "[VDVFS][VDEC] resume vdec alive checker...");
-		timer_setup(&dev->vdec_dvfs_params.vdec_active_checker, mtk_vdec_check_alive, 0);
-		dev->vdec_dvfs_params.vdec_active_checker.expires =
-			jiffies + msecs_to_jiffies(MTK_VDEC_CHECK_ACTIVE_INTERVAL);
-		add_timer(&dev->vdec_dvfs_params.vdec_active_checker);
-		dev->vdec_dvfs_params.has_timer = 1;
-	}
-}
-
 
 void mtk_vcodec_dec_set_default_params(struct mtk_vcodec_ctx *ctx)
 {
@@ -3256,7 +3195,9 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	bool new_dma = false;
 	char debug_bs[50] = "";
 	int pair_cnt, limit_cnt;
-
+#ifdef VDEC_CHECK_ALIVE
+	struct vdec_check_alive_work_struct *retrigger_ctx_work;
+#endif
 	mtk_v4l2_debug(4, "[%d] (%d) id=%d, vb=%p",
 				   ctx->id, vb->vb2_queue->type,
 				   vb->index, vb);
@@ -3280,13 +3221,19 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		}
 		ctx->state = MTK_STATE_INIT;
 	}
-	/*
+
+#ifdef VDEC_CHECK_ALIVE
+	/* ctx resume, queue work for check alive timer */
 	if (!ctx->is_active && ctx->state == MTK_STATE_HEADER) {
-		ctx->dev->check_alive_work.ctx = ctx;
-		queue_work(ctx->dev->check_alive_workqueue, &ctx->dev->check_alive_work.work);
-		mtk_v4l2_debug(4, "%s [VDVFS] retrigger bg ctx %d", __func__, ctx->id);
+		retrigger_ctx_work = kzalloc(sizeof(*retrigger_ctx_work), GFP_KERNEL);
+		INIT_WORK(&retrigger_ctx_work->work, mtk_vdec_check_alive_work);
+		retrigger_ctx_work->ctx = ctx;
+		retrigger_ctx_work->dev = ctx->dev;
+		queue_work(ctx->dev->check_alive_workqueue, &retrigger_ctx_work->work);
+		mtk_v4l2_debug(0, "%s [VDVFS] retrigger ctx work: %d", __func__, ctx->id);
+		ctx->is_active = 1;
 	}
-	 */
+#endif
 	/*
 	 * check if this buffer is ready to be used after decode
 	 */

@@ -16,24 +16,21 @@
 #include "mtk_vcodec_util.h"
 #include "mtk_vcu.h"
 
-#if DEC_DVFS
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
 #include "vcodec_dvfs.h"
 #include "vdec_drv_if.h"
 #define STD_VDEC_FREQ 218000000
-#endif
 
-#if DEC_EMI_BW
 //#include <linux/interconnect-provider.h>
 #include "mtk-interconnect.h"
 #include "vcodec_bw.h"
-#endif
 
 //#define VDEC_PRINT_DTS_INFO
 
 static bool mtk_dec_tput_init(struct mtk_vcodec_dev *dev)
 {
+#if DEC_DVFS
 	const int op_item_num = 7;
 	const int tp_item_num = 4;
 	const int bw_item_num = 2;
@@ -251,11 +248,13 @@ static bool mtk_dec_tput_init(struct mtk_vcodec_dev *dev)
 			dev->vdec_port_bw[i].larb);
 	}
 #endif
+#endif
 	return true;
 }
 
 static void mtk_dec_tput_deinit(struct mtk_vcodec_dev *dev)
 {
+#if DEC_DVFS
 	if (dev->vdec_dflt_op_rate) {
 		vfree(dev->vdec_dflt_op_rate);
 		dev->vdec_dflt_op_rate = 0;
@@ -270,6 +269,7 @@ static void mtk_dec_tput_deinit(struct mtk_vcodec_dev *dev)
 		vfree(dev->vdec_port_bw);
 		dev->vdec_port_bw = 0;
 	}
+#endif
 }
 
 
@@ -280,7 +280,6 @@ void mtk_prepare_vdec_dvfs(struct mtk_vcodec_dev *dev)
 	struct dev_pm_opp *opp = 0;
 	unsigned long freq = 0;
 	int i = 0;
-	bool tput_ret = false;
 
 	INIT_LIST_HEAD(&dev->vdec_dvfs_inst);
 
@@ -315,17 +314,14 @@ void mtk_prepare_vdec_dvfs(struct mtk_vcodec_dev *dev)
 		i++;
 		dev_pm_opp_put(opp);
 	}
-
-	tput_ret = mtk_dec_tput_init(dev);
 #endif
+	mtk_dec_tput_init(dev);
 }
 
 void mtk_unprepare_vdec_dvfs(struct mtk_vcodec_dev *dev)
 {
-#if DEC_DVFS
 	/* Set to lowest clock before leaving */
 	mtk_dec_tput_deinit(dev);
-#endif
 }
 
 void mtk_prepare_vdec_emi_bw(struct mtk_vcodec_dev *dev)
