@@ -9985,7 +9985,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 				dev_info(ctx->cam->dev,
 					"%s:ctx/pipe_id(%d/%d): timeout, VF(%d) raw vsync count(%d) sof count(%d) watchdog count(%d) start dump (+%lldms)\n",
 					__func__, ctx->stream_id, pipe_id, vf_en,
-					raw ? raw->vsync_count : -1, sof_count,
+					last_vsync_count, sof_count,
 					watchdog_cnt, watchdog_data->watchdog_time_diff_ns/1000000);
 			}
 			atomic_set(&watchdog_data->watchdog_dumped, 1); // fixme
@@ -10118,6 +10118,7 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 	u64 cost_time_ms, timer_expires_ms;
 	int sof_count = 0, is_vf_on = 0;
 	int enabled_watchdog_pipe;
+	int raw_vsync_cnt = -1;
 	unsigned int idx;
 	int i;
 	unsigned long flags;
@@ -10141,6 +10142,7 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 				__func__, ctx->stream_id);
 			return;
 		}
+		raw_vsync_cnt = raw->vsync_count;
 	}
 
 	spin_lock_irqsave(&ctx->watchdog_pipe_lock, flags);
@@ -10202,7 +10204,7 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 				if (watchdog_dump_cnt < 4) {
 					dev_info_ratelimited(ctx->cam->dev, "%s:ctx/pipe_id(%d/%d): timeout! VF(%d) raw vsync count(%d) sof count(%d) watchdog_cnt(%d)(+%lldms)\n",
 						__func__, ctx->stream_id, i, is_vf_on,
-						raw ? raw->vsync_count : -1, sof_count,
+						raw_vsync_cnt, sof_count,
 						watchdog_cnt,
 						watchdog_data->watchdog_time_diff_ns/1000000);
 					schedule_work(&watchdog_data->watchdog_work);
