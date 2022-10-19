@@ -456,7 +456,7 @@ static void mtk_cam_stream_on(struct mtk_raw_device *raw_dev,
 		for (i = 0; i < ctx->used_mraw_num; i++)
 			mtk_cam_mraw_dev_stream_on(ctx,
 				get_mraw_dev(ctx->cam, ctx->mraw_pipe[i]), 1);
-		stream_on(raw_dev, 1);
+		stream_on(ctx, raw_dev, 1);
 	}
 	spin_unlock(&ctx->streaming_lock);
 }
@@ -3913,7 +3913,7 @@ static void mtk_camsys_raw_m2m_cq_done(struct mtk_raw_device *raw_dev,
 	struct mtk_cam_request_stream_data *req_stream_data;
 
 	if (frame_seq_no_outer == 1)
-		stream_on(raw_dev, 1);
+		stream_on(ctx, raw_dev, 1);
 
 	dev_dbg(raw_dev->dev,
 		"[M2M CQD] frame_seq_no_outer:%d composed_buffer_list.cnt:%d\n",
@@ -4138,7 +4138,7 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 			if (mtk_cam_scen_is_ext_isp(req_stream_data->feature.scen)) {
 				spin_lock(&ctx->streaming_lock);
 				if (ctx->streaming)
-					stream_on(raw_dev, 1);
+					stream_on(ctx, raw_dev, 1);
 				spin_unlock(&ctx->streaming_lock);
 			} else
 				mtk_cam_stream_on(raw_dev, ctx);

@@ -6987,12 +6987,12 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 			struct mtk_raw_device *raw_dev_slave =
 						get_slave_raw_dev(cam, ctx->pipe);
 			if (raw_dev_slave)
-				stream_on(raw_dev_slave, 0);
+				stream_on(ctx, raw_dev_slave, 0);
 			if (ctx->pipe->res_config.raw_num_used == 3) {
 				struct mtk_raw_device *raw_dev_slave2 =
 					get_slave2_raw_dev(cam, ctx->pipe);
 				if (raw_dev_slave2)
-					stream_on(raw_dev_slave2, 0);
+					stream_on(ctx, raw_dev_slave2, 0);
 			}
 		}
 	}
@@ -9502,9 +9502,9 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		raw_dev = dev_get_drvdata(dev);
 		if (scen_active && mtk_cam_scen_is_time_shared(scen_active)) {
 			if (mtk_cam_ts_are_all_ctx_off(cam, ctx))
-				stream_on(raw_dev, 0);
+				stream_on(ctx, raw_dev, 0);
 		} else {
-			stream_on(raw_dev, 0);
+			stream_on(ctx, raw_dev, 0);
 #ifdef MTK_CAM_HSF_SUPPORT
 			if (mtk_cam_is_hsf(ctx)) {
 				ret = mtk_cam_hsf_uninit(ctx);
@@ -9522,12 +9522,12 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 			struct mtk_raw_device *raw_dev_slave =
 						get_slave_raw_dev(cam, ctx->pipe);
 			if (raw_dev_slave)
-				stream_on(raw_dev_slave, 0);
+				stream_on(ctx, raw_dev_slave, 0);
 			if (ctx->pipe->res_config.raw_num_used == 3) {
 				struct mtk_raw_device *raw_dev_slave2 =
 					get_slave2_raw_dev(cam, ctx->pipe);
 				if (raw_dev_slave2)
-					stream_on(raw_dev_slave2, 0);
+					stream_on(ctx, raw_dev_slave2, 0);
 			}
 		}
 	}

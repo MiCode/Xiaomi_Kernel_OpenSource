@@ -1940,6 +1940,30 @@ void toggle_db(struct mtk_raw_device *dev)
 			readl_relaxed(dev->base_inner + REG_TG_SEN_MODE));
 }
 
+static void toggle_db_all_raw(struct mtk_cam_ctx *ctx)
+{
+	struct mtk_raw_device *raw;
+
+	raw = get_master_raw_dev(ctx->cam, ctx->pipe);
+
+	if (raw)
+		toggle_db(raw);
+
+	if (ctx->pipe->res_config.raw_num_used >= 2) {
+		raw = get_slave_raw_dev(ctx->cam, ctx->pipe);
+
+		if (raw)
+			toggle_db(raw);
+	}
+
+	if (ctx->pipe->res_config.raw_num_used >= 3) {
+		raw = get_slave2_raw_dev(ctx->cam, ctx->pipe);
+
+		if (raw)
+			toggle_db(raw);
+	}
+}
+
 void enable_tg_db(struct mtk_raw_device *dev, int en)
 {
 	int value;
@@ -2324,7 +2348,8 @@ void immediate_stream_off(struct mtk_raw_device *dev)
 				 offset, cur_val, cfg_val);
 }
 
-void stream_on(struct mtk_raw_device *dev, int on)
+void stream_on(struct mtk_cam_ctx *ctx,
+		struct mtk_raw_device *dev, int on)
 {
 	u32 val;
 	u32 cfg_val;
@@ -2362,7 +2387,7 @@ void stream_on(struct mtk_raw_device *dev, int on)
 			dev->grab_err_cnt = 0;
 			enable_tg_db(dev, 0);
 			enable_tg_db(dev, 1);
-			toggle_db(dev);
+			toggle_db_all_raw(ctx);
 			if (mtk_cam_scen_is_time_shared(scen_active) ||
 				mtk_cam_scen_is_odt(scen_active)) {
 				dev_info(dev->dev, "[%s] M2M view finder disable\n", __func__);

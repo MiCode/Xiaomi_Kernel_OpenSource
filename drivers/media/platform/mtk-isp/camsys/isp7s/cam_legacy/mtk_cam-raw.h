@@ -452,7 +452,8 @@ void enable_tg_db(struct mtk_raw_device *dev, int en);
 
 void initialize(struct mtk_raw_device *dev, int is_slave);
 
-void stream_on(struct mtk_raw_device *dev, int on);
+void stream_on(struct mtk_cam_ctx *ctx,
+		struct mtk_raw_device *dev, int on);
 
 void immediate_stream_off(struct mtk_raw_device *dev);
 
