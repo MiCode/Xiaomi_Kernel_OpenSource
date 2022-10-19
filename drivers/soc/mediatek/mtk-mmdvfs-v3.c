@@ -61,7 +61,7 @@ static DEFINE_MUTEX(mmdvfs_ccu_pwr_mutex);
 static struct rproc *ccu_rproc;
 static struct platform_device *ccu_pdev;
 
-static struct device *cam_larb_dev;
+static struct device *vmm_larb_dev;
 static int vmm_power;
 static DEFINE_MUTEX(mmdvfs_vmm_pwr_mutex);
 static int last_vote_step[PWR_MMDVFS_NUM];
@@ -375,12 +375,12 @@ static const struct clk_ops mtk_mmdvfs_req_ops = {
 	.recalc_rate	= mtk_mmdvfs_recalc_rate,
 };
 
-int mtk_mmdvfs_camera_notify_from_mmqos(const bool enable)
+int mtk_mmdvfs_camera_notify(const bool enable)
 {
 	mmdvfs_vcp_ipi_send(FUNC_VMM_CEIL_ENABLE, MAX_OPP, enable ? 1 : 0, NULL);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(mtk_mmdvfs_camera_notify_from_mmqos);
+EXPORT_SYMBOL_GPL(mtk_mmdvfs_camera_notify);
 
 void vmm_notify_work_func(struct work_struct *work)
 {
@@ -464,13 +464,13 @@ static int mtk_mmdvfs_enable_vmm(const bool enable)
 {
 	int ret = 0;
 
-	if (!cam_larb_dev)
+	if (!vmm_larb_dev)
 		return 0;
 
 	mutex_lock(&mmdvfs_vmm_pwr_mutex);
 	if (enable) {
 		if (!vmm_power) {
-			ret = mtk_smi_larb_get(cam_larb_dev);
+			ret = mtk_smi_larb_get(vmm_larb_dev);
 			if (ret)
 				goto enable_vmm_end;
 		}
@@ -481,7 +481,7 @@ static int mtk_mmdvfs_enable_vmm(const bool enable)
 			goto enable_vmm_end;
 		}
 		if (vmm_power == 1)
-			mtk_smi_larb_put(cam_larb_dev);
+			mtk_smi_larb_put(vmm_larb_dev);
 		vmm_power -= 1;
 	}
 
@@ -523,7 +523,7 @@ int mmdvfs_vmm_ceil_step(const char *val, const struct kernel_param *kp)
 
 	MMDVFS_DBG("enable:%u start", enable);
 	mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_MMQOS);
-	mtk_mmdvfs_camera_notify_from_mmqos(enable);
+	mtk_mmdvfs_camera_notify(enable);
 	mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMQOS);
 	MMDVFS_DBG("enable:%u end", enable);
 	return 0;
@@ -1064,7 +1064,7 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 	if (larbnode) {
 		larbdev = of_find_device_by_node(larbnode);
 		if (larbdev)
-			cam_larb_dev = &larbdev->dev;
+			vmm_larb_dev = &larbdev->dev;
 		of_node_put(larbnode);
 	}
 

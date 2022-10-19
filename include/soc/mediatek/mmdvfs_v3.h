@@ -42,7 +42,7 @@ int mtk_mmdvfs_get_ipi_status(void);
 int mtk_mmdvfs_enable_vcp(const bool enable, const u8 idx);
 int mtk_mmdvfs_enable_ccu(const bool enable, const u8 idx);
 
-int mtk_mmdvfs_camera_notify_from_mmqos(const bool enable);
+int mtk_mmdvfs_camera_notify(const bool enable);
 int mtk_mmdvfs_genpd_notify(const u8 idx, const bool enable);
 int mtk_mmdvfs_set_avs(const u8 idx, const u32 aging, const u32 fresh);
 
@@ -55,9 +55,8 @@ static inline int mtk_mmdvfs_get_ipi_status(void) { return 0; }
 static inline int mtk_mmdvfs_enable_vcp(const bool enable, const u8 idx) { return 0; }
 static inline int mtk_mmdvfs_enable_ccu(const bool enable, const u8 idx) { return 0; }
 
-static inline int mtk_mmdvfs_camera_notify_from_mmqos(const bool enable) { return 0; }
-static inline
-int mtk_mmdvfs_genpd_notify(const u8 idx, const bool enable) { return 0; }
+static inline int mtk_mmdvfs_camera_notify(const bool enable) { return 0; }
+static inline int mtk_mmdvfs_genpd_notify(const u8 idx, const bool enable) { return 0; }
 static inline int mtk_mmdvfs_set_avs(const u8 idx, const u32 aging, const u32 fresh) { return 0; }
 
 static inline int mtk_mmdvfs_v3_set_force_step(const u16 pwr_idx, const s16 opp) { return 0; }

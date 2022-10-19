@@ -85,10 +85,8 @@ static int vmm_locked_isp_open(bool genpd_update)
 	}
 
 	vmm_user_counter++;
-#ifdef TODO_CALL_VMM_CEIL_API
 	if (vmm_user_counter == 1)
-		mtk_mmdvfs_genpd_notify(VMM_USR_CAM, true);
-#endif
+		mtk_mmdvfs_camera_notify(true);
 	return 0;
 }
 
@@ -105,12 +103,10 @@ static int vmm_locked_isp_close(bool genpd_update)
 	/* no need to counter down at probe stage */
 	if (vmm_user_counter == 0)
 		return 0;
-	vmm_user_counter--;
-#ifdef TODO_CALL_VMM_CEIL_API
-	if (vmm_user_counter == 0)
-		mtk_mmdvfs_genpd_notify(VMM_USR_CAM, false);
-#endif
 
+	vmm_user_counter--;
+	if (vmm_user_counter == 0)
+		mtk_mmdvfs_camera_notify(false);
 	return 0;
 }
 
