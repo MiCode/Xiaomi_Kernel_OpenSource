@@ -220,6 +220,7 @@ void vdec_decode_prepare(void *ctx_prepare,
 	mtk_vcodec_set_curr_ctx(ctx->dev, ctx, hw_id);
 	if (ctx->dev->dec_always_on[hw_id] == 0)
 		mtk_vcodec_dec_clock_on(&ctx->dev->pm, hw_id);
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	if (ctx->power_type[hw_id] == VDEC_POWER_NORMAL) {
 		if (ctx->dec_params.operating_rate >= MTK_VDEC_ALWAYS_ON_OP_RATE)
 			ctx->power_type[hw_id] = VDEC_POWER_ALWAYS_OP;
@@ -229,6 +230,7 @@ void vdec_decode_prepare(void *ctx_prepare,
 				hw_id, ctx->power_type[hw_id], ctx->dev->dec_always_on[hw_id]);
 		}
 	}
+#endif
 
 	if (ret == 0 && !mtk_vcodec_is_vcp(MTK_INST_DECODER) &&
 	    ctx->power_type[hw_id] != VDEC_POWER_RELEASE)
