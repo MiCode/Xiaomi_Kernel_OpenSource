@@ -356,8 +356,8 @@ static void fstb_update_policy_cmd(struct FSTB_FRAME_INFO *iter,
 static void fstb_delete_policy_cmd(struct FSTB_POLICY_CMD *iter)
 {
 	unsigned long long min_ts = ULLONG_MAX;
-	struct FSTB_POLICY_CMD *tmp_iter, *min_iter;
-	struct rb_node *rbn;
+	struct FSTB_POLICY_CMD *tmp_iter = NULL, *min_iter = NULL;
+	struct rb_node *rbn = NULL;
 
 	if (iter) {
 		if (!iter->self_ctrl_fps_enable &&
@@ -386,7 +386,7 @@ static void fstb_delete_policy_cmd(struct FSTB_POLICY_CMD *iter)
 
 delete:
 	rb_erase(&min_iter->rb_node, &fstb_policy_cmd_tree);
-	kfree(iter);
+	kfree(min_iter);
 	total_fstb_policy_cmd_num--;
 }
 
@@ -394,8 +394,8 @@ static struct FSTB_POLICY_CMD *fstb_get_policy_cmd(int tgid,
 	unsigned long long ts, int force)
 {
 	struct rb_node **p = &fstb_policy_cmd_tree.rb_node;
-	struct rb_node *parent;
-	struct FSTB_POLICY_CMD *iter;
+	struct rb_node *parent = NULL;
+	struct FSTB_POLICY_CMD *iter = NULL;
 
 	while (*p) {
 		parent = *p;
@@ -412,9 +412,6 @@ static struct FSTB_POLICY_CMD *fstb_get_policy_cmd(int tgid,
 	if (!force)
 		return NULL;
 
-	if (total_fstb_policy_cmd_num > MAX_FSTB_POLICY_CMD_NUM)
-		fstb_delete_policy_cmd(NULL);
-
 	iter = kzalloc(sizeof(*iter), GFP_KERNEL);
 	if (!iter)
 		return NULL;
@@ -429,6 +426,9 @@ static struct FSTB_POLICY_CMD *fstb_get_policy_cmd(int tgid,
 	rb_insert_color(&iter->rb_node, &fstb_policy_cmd_tree);
 
 	total_fstb_policy_cmd_num++;
+
+	if (total_fstb_policy_cmd_num > MAX_FSTB_POLICY_CMD_NUM)
+		fstb_delete_policy_cmd(NULL);
 
 	return iter;
 }

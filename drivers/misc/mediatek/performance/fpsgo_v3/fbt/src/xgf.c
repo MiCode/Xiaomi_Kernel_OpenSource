@@ -521,7 +521,7 @@ static struct xgf_policy_cmd *xgf_get_policy_cmd(int tgid, int ema2_enable,
 	unsigned long long ts, int force)
 {
 	struct rb_node **p = &xgf_policy_cmd_tree.rb_node;
-	struct rb_node *parent;
+	struct rb_node *parent = NULL;
 	struct xgf_policy_cmd *iter;
 
 	while (*p) {
