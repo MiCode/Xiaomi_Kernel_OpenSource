@@ -4758,7 +4758,8 @@ void mtk_camsys_frame_done(struct mtk_cam_ctx *ctx,
 		return;
 	}
 
-	if (!(req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT))
+	if (is_raw_subdev(pipe_id) &&
+		!(req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT))
 		mtk_cam_read_hdr_timestamp(ctx, req_stream_data);
 
 	atomic_set(&req_stream_data->seninf_dump_state, MTK_CAM_REQ_DBGWORK_S_FINISHED);
