@@ -58,11 +58,11 @@ struct uarthub_gpio_trx_info {
 };
 
 struct uarthub_uart_ip_debug_info {
-	unsigned long dev0;
-	unsigned long dev1;
-	unsigned long dev2;
-	unsigned long cmm;
-	unsigned long ap;
+	unsigned int dev0;
+	unsigned int dev1;
+	unsigned int dev2;
+	unsigned int cmm;
+	unsigned int ap;
 };
 
 typedef void (*UARTHUB_CORE_IRQ_CB) (unsigned int err_type);
