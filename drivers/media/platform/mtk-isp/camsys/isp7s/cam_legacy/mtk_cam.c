@@ -658,9 +658,11 @@ struct mtk_cam_request *mtk_cam_get_req(struct mtk_cam_ctx *ctx,
 }
 bool watchdog_scenario(struct mtk_cam_ctx *ctx)
 {
-	/* TBC: in legacy driver we only start watchog when the ctx has raw */
+	/* TBC: in legacy driver we only start watchog when using PD or single sv case */
 	if (ctx->sensor && mtk_cam_ctx_has_raw(ctx) &&
 	    !mtk_cam_scen_is_m2m(&ctx->pipe->scen_active))
+		return true;
+	else if (ctx->sensor && !mtk_cam_ctx_has_raw(ctx))
 		return true;
 	else
 		return false;
@@ -7249,9 +7251,10 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 			if (watchdog_scenario(ctx) &&
 			    initial_frame &&
 			    !immediate_switch_sensor) {
-				mtk_ctx_watchdog_start(ctx, 4,
-					get_master_raw_id(cam->num_raw_drivers,
-					ctx->pipe->enabled_raw));
+				if (mtk_cam_ctx_has_raw(ctx))
+					mtk_ctx_watchdog_start(ctx, 4,
+						get_master_raw_id(cam->num_raw_drivers,
+						ctx->pipe->enabled_raw));
 				for (j = 0; j < ctx->used_sv_num; j++) {
 					struct v4l2_format img_fmt =
 						ctx->sv_pipe[j]->vdev_nodes[
@@ -8832,8 +8835,10 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 		 __func__, ctx->stream_id, entity->name);
 
 	if (watchdog_scenario(ctx)) {
-		raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
-		mtk_ctx_watchdog_stop(ctx, raw_dev->id + MTKCAM_SUBDEV_RAW_START);
+		if (mtk_cam_ctx_has_raw(ctx)) {
+			raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
+			mtk_ctx_watchdog_stop(ctx, raw_dev->id + MTKCAM_SUBDEV_RAW_START);
+		}
 		for (i = 0; i < ctx->used_sv_num; i++)
 			mtk_ctx_watchdog_stop(ctx, ctx->sv_pipe[i]->id);
 		for (i = 0; i < ctx->used_mraw_num; i++)
@@ -9912,12 +9917,15 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 		return;
 	}
 
-	raw = get_master_raw_dev(ctx->cam, ctx->pipe);
+	if (mtk_cam_ctx_has_raw(ctx)) {
+		raw = get_master_raw_dev(ctx->cam, ctx->pipe);
+		if (last_vsync_count == raw->vsync_count)
+			is_abnormal_vsync = true;
+		last_vsync_count = raw->vsync_count;
+	}
+
 	timeout = mtk_cam_seninf_check_timeout(seninf,
-					       watchdog_data->watchdog_time_diff_ns);
-	if (last_vsync_count == raw->vsync_count)
-		is_abnormal_vsync = true;
-	last_vsync_count = raw->vsync_count;
+						watchdog_data->watchdog_time_diff_ns);
 
 	vf_en = 0;
 	sof_count = 0;
@@ -9976,7 +9984,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 				dev_info(ctx->cam->dev,
 					"%s:ctx/pipe_id(%d/%d): timeout, VF(%d) raw vsync count(%d) sof count(%d) watchdog count(%d) start dump (+%lldms)\n",
 					__func__, ctx->stream_id, pipe_id, vf_en,
-					raw->vsync_count, sof_count,
+					raw ? raw->vsync_count : -1, sof_count,
 					watchdog_cnt, watchdog_data->watchdog_time_diff_ns/1000000);
 			}
 			atomic_set(&watchdog_data->watchdog_dumped, 1); // fixme
@@ -10116,20 +10124,22 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 	if (!ctx->streaming)
 		return;
 
-	raw = get_master_raw_dev(ctx->cam, ctx->pipe);
-	if (!raw) {
-		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d):stop watchdog task for no raw ctx\n",
-			 __func__, ctx->stream_id);
-		return;
-	}
-	if (atomic_read(&raw->vf_en) == 0 &&
-	    !(mtk_cam_ctx_has_raw(ctx) &&
-	    mtk_cam_scen_is_ext_isp(&ctx->pipe->scen_active))) {
-		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d):vf_en = 0\n",
-			 __func__, ctx->stream_id);
-		return;
+	if (mtk_cam_ctx_has_raw(ctx)) {
+		raw = get_master_raw_dev(ctx->cam, ctx->pipe);
+		if (!raw) {
+			dev_info(ctx->cam->dev,
+				"%s:ctx(%d):stop watchdog task for no raw ctx\n",
+				__func__, ctx->stream_id);
+			return;
+		}
+		if (atomic_read(&raw->vf_en) == 0 &&
+			!(mtk_cam_ctx_has_raw(ctx) &&
+			mtk_cam_scen_is_ext_isp(&ctx->pipe->scen_active))) {
+			dev_info(ctx->cam->dev,
+				"%s:ctx(%d):vf_en = 0\n",
+				__func__, ctx->stream_id);
+			return;
+		}
 	}
 
 	spin_lock_irqsave(&ctx->watchdog_pipe_lock, flags);
@@ -10141,7 +10151,7 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 			watchdog_data = &ctx->watchdog_data[i];
 			watchdog_cnt = atomic_inc_return(&watchdog_data->watchdog_cnt);
 			watchdog_dump_cnt = atomic_read(&watchdog_data->watchdog_dump_cnt);
-			if (is_raw_subdev(i)) {
+			if (mtk_cam_ctx_has_raw(ctx) && is_raw_subdev(i)) {
 				watchdog_data->watchdog_time_diff_ns =
 					current_time_ns - raw->last_sof_time_ns;
 				sof_count = raw->sof_count;
@@ -10191,7 +10201,8 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 				if (watchdog_dump_cnt < 4) {
 					dev_info_ratelimited(ctx->cam->dev, "%s:ctx/pipe_id(%d/%d): timeout! VF(%d) raw vsync count(%d) sof count(%d) watchdog_cnt(%d)(+%lldms)\n",
 						__func__, ctx->stream_id, i, is_vf_on,
-						raw->vsync_count, sof_count, watchdog_cnt,
+						raw ? raw->vsync_count : -1, sof_count,
+						watchdog_cnt,
 						watchdog_data->watchdog_time_diff_ns/1000000);
 					schedule_work(&watchdog_data->watchdog_work);
 				} else {
@@ -10256,10 +10267,13 @@ void mtk_ctx_watchdog_start(struct mtk_cam_ctx *ctx, int timeout_cnt, int pipe_i
 	int is_timer_add = 0;
 	unsigned long flags;
 	int raw_pipe_mask = 0;
+	int sv_pipe_mask = 0;
 	int i;
 
 	for (i = MTKCAM_SUBDEV_RAW_START; i < MTKCAM_SUBDEV_RAW_END; i++)
 		raw_pipe_mask |= (1 << i);
+	for (i = MTKCAM_SUBDEV_CAMSV_START; i < MTKCAM_SUBDEV_CAMSV_END; i++)
+		sv_pipe_mask |= (1 << i);
 
 	spin_lock_irqsave(&ctx->watchdog_pipe_lock, flags);
 	enabled_watchdog_pipe = ctx->enabled_watchdog_pipe;
@@ -10279,7 +10293,11 @@ void mtk_ctx_watchdog_start(struct mtk_cam_ctx *ctx, int timeout_cnt, int pipe_i
 
 	spin_lock_irqsave(&ctx->watchdog_pipe_lock, flags);
 	/* Start timer when the first raw watchdog start */
-	if (is_raw_subdev(pipe_id) && !(ctx->enabled_watchdog_pipe & raw_pipe_mask))
+	if (mtk_cam_ctx_has_raw(ctx) && is_raw_subdev(pipe_id) &&
+		!(ctx->enabled_watchdog_pipe & raw_pipe_mask))
+		is_timer_add = 1;
+	else if (!mtk_cam_ctx_has_raw(ctx) && is_camsv_subdev(pipe_id) &&
+		!(ctx->enabled_watchdog_pipe & sv_pipe_mask))
 		is_timer_add = 1;
 	watchdog_data->ctx = ctx;
 	ctx->enabled_watchdog_pipe |= (1 << pipe_id);
@@ -10299,10 +10317,13 @@ void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx, int pipe_id)
 	int is_timer_delete = 0;
 	unsigned long flags;
 	int raw_pipe_mask = 0;
+	int sv_pipe_mask = 0;
 	int i;
 
 	for (i = MTKCAM_SUBDEV_RAW_START; i < MTKCAM_SUBDEV_RAW_END; i++)
 		raw_pipe_mask |= (1 << i);
+	for (i = MTKCAM_SUBDEV_CAMSV_START; i < MTKCAM_SUBDEV_CAMSV_END; i++)
+		sv_pipe_mask |= (1 << i);
 
 	spin_lock_irqsave(&ctx->watchdog_pipe_lock, flags);
 	enabled_watchdog_pipe = ctx->enabled_watchdog_pipe;
@@ -10318,7 +10339,11 @@ void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx, int pipe_id)
 	ctx->enabled_watchdog_pipe &= ~(1 << pipe_id);
 	watchdog_data->ctx = NULL;
 	/* Stop timer when the last raw watchdog stop */
-	if (is_raw_subdev(pipe_id) && !(ctx->enabled_watchdog_pipe & raw_pipe_mask))
+	if (mtk_cam_ctx_has_raw(ctx) && is_raw_subdev(pipe_id) &&
+		!(ctx->enabled_watchdog_pipe & raw_pipe_mask))
+		is_timer_delete = 1;
+	else if (!mtk_cam_ctx_has_raw(ctx) && is_camsv_subdev(pipe_id) &&
+		!(ctx->enabled_watchdog_pipe & sv_pipe_mask))
 		is_timer_delete = 1;
 	spin_unlock_irqrestore(&ctx->watchdog_pipe_lock, flags);
 
