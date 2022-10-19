@@ -3422,6 +3422,23 @@ void fs_update_shutter(struct fs_perframe_st (*pf_ctrl))
 }
 
 
+void fs_get_fl_record_info(const unsigned int ident,
+	unsigned int *p_target_min_fl_us, unsigned int *p_out_fl_us)
+{
+	const unsigned int idx = fs_get_reg_sensor_pos(ident);
+
+	/* error handling (unexpected case) */
+	if (check_idx_valid(idx) == 0) {
+		LOG_MUST(
+			"NOTICE: [%u] %s is not register, ident:%u, return\n",
+			idx, REG_INFO, ident);
+		return;
+	}
+
+	fs_alg_get_fl_rec_st_info(idx, p_target_min_fl_us, p_out_fl_us);
+}
+
+
 #if !defined(FS_UT)
 static void fs_debug_hw_sync(unsigned int idx)
 {
@@ -3671,7 +3688,8 @@ static struct FrameSync frameSync = {
 	fs_set_debug_info_sof_cnt,
 	fs_notify_vsync,
 	fs_is_set_sync,
-	fs_is_hw_sync
+	fs_is_hw_sync,
+	fs_get_fl_record_info
 };
 
 

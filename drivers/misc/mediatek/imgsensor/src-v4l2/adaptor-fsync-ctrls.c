@@ -960,6 +960,32 @@ void notify_fsync_mgr_vsync(struct adaptor_ctx *ctx)
 }
 
 
+void notify_fsync_mgr_g_fl_record_info(struct adaptor_ctx *ctx,
+	struct mtk_fs_frame_length_info *p_fl_info)
+{
+	/* not expected case */
+	if (unlikely(ctx->fsync_mgr == NULL)) {
+
+#if !defined(FORCE_DISABLE_FSYNC_MGR)
+		adaptor_logi(ctx,
+			"sidx:%d, NOTICE: notify fsync sync frame, but ctx->fsync_mgr is NULL, return\n",
+			ctx->idx);
+#endif
+
+		return;
+	}
+
+	ctx->fsync_mgr->fs_get_fl_record_info(ctx->idx,
+		&p_fl_info->target_min_fl_us, &p_fl_info->out_fl_us);
+
+	adaptor_logd(ctx,
+		"sidx:%d, p_fl_info(target_min_fl_us:%u, out_fl_us:%u)\n",
+		ctx->idx,
+		p_fl_info->target_min_fl_us,
+		p_fl_info->out_fl_us);
+}
+
+
 /*******************************************************************************
  * init Frame-Sync Mgr / get all function calls
  ******************************************************************************/

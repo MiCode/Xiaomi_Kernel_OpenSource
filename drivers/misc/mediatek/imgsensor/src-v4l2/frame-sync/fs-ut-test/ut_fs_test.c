@@ -632,7 +632,7 @@ static void test_fs_register_sensor_behavior(void)
 
 	default:
 		printf(
-			"\n=== Run in defalut case, not assign register method ===\n");
+			"\n=== Run in default case, not assign register method ===\n");
 		break;
 	}
 
@@ -2834,6 +2834,7 @@ static void ut_trigger_ext_ctrl(struct fs_perframe_st *p_pf_ctrl)
 static void ut_ctrl_request_setup(void)
 {
 	int user_select_idx = 2147483647, /*input = 0,*/ ret = 0;
+	unsigned int target_min_fl_us, out_fl_us;
 	unsigned int i = 0;
 
 
@@ -2901,6 +2902,36 @@ static void ut_ctrl_request_setup(void)
 			printf("\n\n");
 
 		frameSync->fs_set_shutter(&pf_ctrl);
+
+
+		/* test MW query fl record info */
+		switch (REGISTER_METHOD) {
+		case BY_SENSOR_ID:
+			frameSync->fs_get_fl_record_info(
+				pf_ctrl.sensor_id,
+				&target_min_fl_us, &out_fl_us);
+			break;
+
+		case BY_SENSOR_IDX:
+			frameSync->fs_get_fl_record_info(
+				pf_ctrl.sensor_idx,
+				&target_min_fl_us, &out_fl_us);
+			break;
+
+		default:
+			printf(RED
+				"WARNING: Run in default case, unexpected\n"
+				NONE);
+			break;
+		}
+		printf("\n");
+		printf(GREEN
+			"[UT ctrl_request_setup] i:%u, sensor_id:%#x, sensor_idx:%u, target_min_fl_us:%u, out_fl_us:%u\n"
+			NONE,
+			i, pf_ctrl.sensor_id, pf_ctrl.sensor_idx,
+			target_min_fl_us,
+			out_fl_us);
+
 
 		if (!g_auto_run)
 			printf("\n\n");

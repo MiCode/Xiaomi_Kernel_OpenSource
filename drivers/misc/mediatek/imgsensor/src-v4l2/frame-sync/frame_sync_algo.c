@@ -116,6 +116,16 @@ struct FrameSyncStandAloneInst {
 };
 static struct FrameSyncStandAloneInst fs_sa_inst;
 #endif // SUPPORT_FS_NEW_METHOD
+//----------------------------------------------------------------------------//
+
+
+#define FS_FL_RECORD_DEPTH (5)
+struct fs_fl_rec_st {
+	unsigned int ref_magic_num;
+	unsigned int target_min_fl_us;
+	unsigned int out_fl_us;
+};
+//----------------------------------------------------------------------------//
 
 
 struct FrameSyncInst {
@@ -198,6 +208,9 @@ struct FrameSyncInst {
 
 	/* frame_record_st (record shutter and framelength settings) */
 	struct frame_record_st recs[RECORDER_DEPTH];
+
+	struct fs_fl_rec_st fl_rec[FS_FL_RECORD_DEPTH];
+
 
 	/* frame monitor data */
 	unsigned int vsyncs;
@@ -1231,6 +1244,147 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 
 
 
+
+/******************************************************************************/
+// fs frame length record functions
+/******************************************************************************/
+static void fs_alg_init_fl_rec_st(const unsigned int idx)
+{
+	const unsigned int f_cell = get_valid_frame_cell_size(idx);
+	const unsigned int f_tag = fs_inst[idx].frame_tag;
+
+	/* for m-stream case (only tag 0 need reset) */
+	if (f_cell == 2 && f_tag != 0)
+		return;
+
+	memset(&fs_inst[idx].fl_rec, 0, sizeof(fs_inst[idx].fl_rec));
+}
+
+
+static void fs_alg_update_fl_rec_st_fl_info(const unsigned int idx,
+	const unsigned int ref_magic_num,
+	const unsigned int target_min_fl_us, const unsigned int out_fl_us)
+{
+	const unsigned int f_cell = get_valid_frame_cell_size(idx);
+	const unsigned int f_tag = fs_inst[idx].frame_tag;
+
+	if (f_tag >= FS_FL_RECORD_DEPTH) {
+		LOG_MUST(
+			"ERROR: [%u] ID:%#x(sidx:%u), f_tag:%u >= FS_FL_RECORD_DEPTH:%u, f_cell:%u, array index overflow, return   [idx:%u, target_min_fl_us:%u, out_fl_us:%u]\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			f_tag,
+			FS_FL_RECORD_DEPTH,
+			f_cell,
+			idx,
+			target_min_fl_us,
+			out_fl_us);
+		return;
+	}
+
+	/* update debug info */
+	fs_inst[idx].fl_rec[f_tag].ref_magic_num = ref_magic_num;
+
+	/* update/setup frame length info */
+	/* target_min_fl_us is equal to (fl_us * f_cell) */
+	fs_inst[idx].fl_rec[f_tag].target_min_fl_us =
+		(f_cell != 0) ? (target_min_fl_us/f_cell) : target_min_fl_us;
+	fs_inst[idx].fl_rec[f_tag].out_fl_us = out_fl_us;
+
+	LOG_INF(
+		"[%u] ID:%#x(sidx:%u), fl_rec(0:(#%u, %u/%u), 1:(#%u, %u/%u), 2:(#%u, %u/%u), 3:(#%u, %u/%u), 4:(#%u, %u/%u), (target_min_fl_us/out_fl_us)), f_tag:%u/f_cell:%u\n",
+		idx,
+		fs_inst[idx].sensor_id,
+		fs_inst[idx].sensor_idx,
+		fs_inst[idx].fl_rec[0].ref_magic_num,
+		fs_inst[idx].fl_rec[0].target_min_fl_us,
+		fs_inst[idx].fl_rec[0].out_fl_us,
+		fs_inst[idx].fl_rec[1].ref_magic_num,
+		fs_inst[idx].fl_rec[1].target_min_fl_us,
+		fs_inst[idx].fl_rec[1].out_fl_us,
+		fs_inst[idx].fl_rec[2].ref_magic_num,
+		fs_inst[idx].fl_rec[2].target_min_fl_us,
+		fs_inst[idx].fl_rec[2].out_fl_us,
+		fs_inst[idx].fl_rec[3].ref_magic_num,
+		fs_inst[idx].fl_rec[3].target_min_fl_us,
+		fs_inst[idx].fl_rec[3].out_fl_us,
+		fs_inst[idx].fl_rec[4].ref_magic_num,
+		fs_inst[idx].fl_rec[4].target_min_fl_us,
+		fs_inst[idx].fl_rec[4].out_fl_us,
+		f_tag,
+		f_cell);
+}
+
+
+void fs_alg_get_fl_rec_st_info(const unsigned int idx,
+	unsigned int *p_target_min_fl_us, unsigned int *p_out_fl_us)
+{
+	const unsigned int f_cell = get_valid_frame_cell_size(idx);
+	const unsigned int f_tag = fs_inst[idx].frame_tag;
+	unsigned int i = 0;
+
+	/* error handle (unexpected case) */
+	if (p_target_min_fl_us == NULL || p_out_fl_us == NULL) {
+		LOG_MUST(
+			"ERROR: [%u] ID:%#x(sidx:%u), get non-valid p_target_min_fl_us:%p or p_out_fl_us:%p, return\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			p_target_min_fl_us,
+			p_out_fl_us);
+		return;
+	}
+
+	/* clear data */
+	*p_target_min_fl_us = 0;
+	*p_out_fl_us = 0;
+
+	if (f_tag >= FS_FL_RECORD_DEPTH) {
+		LOG_MUST(
+			"ERROR: [%u] ID:%#x(sidx:%u), f_tag:%u >= FS_FL_RECORD_DEPTH:%u, f_cell:%u, array index overflow, return\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			f_tag,
+			FS_FL_RECORD_DEPTH,
+			f_cell);
+		return;
+	}
+
+	/* copy data */
+	for (i = 0; i < f_cell; ++i) {
+		*p_target_min_fl_us += fs_inst[idx].fl_rec[i].target_min_fl_us;
+		*p_out_fl_us += fs_inst[idx].fl_rec[i].out_fl_us;
+	}
+
+	LOG_MUST(
+		"[%u] ID:%#x(sidx:%u), target_min_fl_us:%u/out_fl_us:%u, fl_rec(0:(#%u, %u/%u), 1:(#%u, %u/%u), 2:(#%u, %u/%u), 3:(#%u, %u/%u), 4:(#%u, %u/%u), (target_min_fl_us/out_fl_us)), f_cell:%u\n",
+		idx,
+		fs_inst[idx].sensor_id,
+		fs_inst[idx].sensor_idx,
+		*p_target_min_fl_us,
+		*p_out_fl_us,
+		fs_inst[idx].fl_rec[0].ref_magic_num,
+		fs_inst[idx].fl_rec[0].target_min_fl_us,
+		fs_inst[idx].fl_rec[0].out_fl_us,
+		fs_inst[idx].fl_rec[1].ref_magic_num,
+		fs_inst[idx].fl_rec[1].target_min_fl_us,
+		fs_inst[idx].fl_rec[1].out_fl_us,
+		fs_inst[idx].fl_rec[2].ref_magic_num,
+		fs_inst[idx].fl_rec[2].target_min_fl_us,
+		fs_inst[idx].fl_rec[2].out_fl_us,
+		fs_inst[idx].fl_rec[3].ref_magic_num,
+		fs_inst[idx].fl_rec[3].target_min_fl_us,
+		fs_inst[idx].fl_rec[3].out_fl_us,
+		fs_inst[idx].fl_rec[4].ref_magic_num,
+		fs_inst[idx].fl_rec[4].target_min_fl_us,
+		fs_inst[idx].fl_rec[4].out_fl_us,
+		f_cell);
+}
+
+
+
 /******************************************************************************/
 // fs algo operation functions (set information data)
 /******************************************************************************/
@@ -1258,6 +1412,9 @@ static inline void fs_alg_sa_init_new_ctrl(
 
 	/* sync current settings */
 	fs_alg_sa_sync_settings_for_dynamic_paras(idx, p_para);
+
+	/* init frame length record st data (if needed) */
+	fs_alg_init_fl_rec_st(idx);
 }
 
 
@@ -1472,6 +1629,11 @@ static void fs_alg_sa_update_fl_us(const unsigned int idx,
 	/* for correctly showing info */
 	/* update fl also update all related variable */
 	fs_alg_sa_prepare_dynamic_para(idx, p_para);
+
+	/* update frame length info to user */
+	fs_alg_update_fl_rec_st_fl_info(idx,
+		p_para->magic_num,
+		p_para->target_min_fl_us, p_para->stable_fl_us);
 }
 
 
@@ -1625,6 +1787,7 @@ static unsigned int fs_alg_sa_get_timestamp_info(const unsigned int idx,
 static void fs_alg_sa_pre_set_dynamic_paras(const unsigned int idx,
 	struct FrameSyncDynamicPara *p_para)
 {
+	const unsigned int f_cell = get_valid_frame_cell_size(idx);
 	unsigned int fl_us = convert2TotalTime(
 		fs_inst[idx].lineTimeInNs,
 		*fs_inst[idx].recs[0].framelength_lc);
@@ -1632,6 +1795,7 @@ static void fs_alg_sa_pre_set_dynamic_paras(const unsigned int idx,
 	/* sync current settings */
 	fs_alg_sa_sync_settings_for_dynamic_paras(idx, p_para);
 
+	p_para->target_min_fl_us = (fl_us * f_cell);
 	fs_alg_sa_update_fl_us(idx, fl_us, p_para);
 	fs_alg_sa_get_timestamp_info(idx, p_para);
 
@@ -2787,6 +2951,8 @@ void fs_alg_set_streaming_st_data(
 	/* hdr exp settings, overwrite shutter_lc value (equivalent shutter) */
 	fs_alg_set_hdr_exp_st_data(idx, &pData->def_shutter_lc, &pData->hdr_exp);
 
+	/* init frame length record st data (if needed) */
+	fs_alg_init_fl_rec_st(idx);
 
 	fs_alg_dump_streaming_data(idx);
 }

@@ -79,6 +79,10 @@ void notify_fsync_mgr_sync_frame(struct adaptor_ctx *ctx,
 void notify_fsync_mgr_vsync(struct adaptor_ctx *ctx);
 
 
+void notify_fsync_mgr_g_fl_record_info(struct adaptor_ctx *ctx,
+	struct mtk_fs_frame_length_info *p_fl_info);
+
+
 /*******************************************************************************
  * init Frame-Sync Mgr / get all function calls
  ******************************************************************************/

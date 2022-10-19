@@ -409,6 +409,14 @@ enum FS_SYNC_TYPE {
 	FS_SYNC_TYPE_ASYNC_MODE = 1 << 8,
 };
 
+struct mtk_fs_frame_length_info {
+	/* for stable case, sensor min frame length */
+	__u32 target_min_fl_us;
+
+	/* sensor current frame length value */
+	__u32 out_fl_us;
+};
+
 struct mtk_test_pattern_data {
 	__u32 Channel_R;
 	__u32 Channel_Gr;
@@ -542,6 +550,9 @@ struct mtk_fine_integ_line {
 
 #define VIDIOC_MTK_G_DIG_GAIN_STEP \
 	_IOWR('M', BASE_VIDIOC_PRIVATE + 42, __u32)
+
+#define VIDIOC_MTK_G_FS_FRAME_LENGTH_INFO \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 43, struct mtk_fs_frame_length_info)
 
 /* SET */
 

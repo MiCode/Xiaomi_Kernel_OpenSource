@@ -42,6 +42,10 @@ void fs_alg_dump_fs_inst_data(const unsigned int idx);
 void fs_alg_dump_all_fs_inst_data(void);
 
 
+void fs_alg_get_fl_rec_st_info(const unsigned int idx,
+	unsigned int *p_target_min_fl_us, unsigned int *p_out_fl_us);
+
+
 /*******************************************************************************
  * fs algo operation functions (set information data)
  ******************************************************************************/

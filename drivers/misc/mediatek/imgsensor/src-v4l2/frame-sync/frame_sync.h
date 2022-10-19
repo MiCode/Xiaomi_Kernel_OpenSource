@@ -342,6 +342,9 @@ struct FrameSync {
 	unsigned int (*fs_is_set_sync)(unsigned int sensor_id);
 
 	unsigned int (*fs_is_hw_sync)(const unsigned int ident);
+
+	void (*fs_get_fl_record_info)(const unsigned int ident,
+		unsigned int *p_target_min_fl_us, unsigned int *p_out_fl_us);
 };
 
 
