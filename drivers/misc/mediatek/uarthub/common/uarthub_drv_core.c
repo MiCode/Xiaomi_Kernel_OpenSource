@@ -418,8 +418,6 @@ static irqreturn_t uarthub_irq_isr(int irq, void *arg)
 			0x0, 0x3FFFF);
 	}
 
-	uarthub_core_set_trigger_uarthub_frame_error_worker();
-
 	return IRQ_HANDLED;
 }
 
@@ -715,6 +713,7 @@ int uarthub_core_open(void)
 	g_uarthub_open = 1;
 #endif
 
+	uarthub_core_irq_clear_ctrl(-1);
 	ret = uarthub_core_irq_register(g_uarthub_pdev);
 	if (ret)
 		return -1;
@@ -740,6 +739,7 @@ int uarthub_core_close(void)
 #endif
 
 	uarthub_core_irq_free(g_uarthub_pdev);
+	uarthub_core_irq_clear_ctrl(-1);
 
 	uarthub_core_dev0_clear_txrx_request();
 	g_uarthub_open = 0;
