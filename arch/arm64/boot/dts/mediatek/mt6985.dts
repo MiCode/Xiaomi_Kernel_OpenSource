@@ -12394,6 +12394,10 @@
 		force-step0 = <1>; /* 0:opp0,  1:opp1, ... */
 		release-step0 = <1>; /* 0:disable,  1:enable */
 		use-v3-pwr = <2>; /* OR operation of (1 << PWR_MMDVFS_XXX) */
+		vcore-supply = <&mt6363_vbuck6>;
+		vmm-pmic-supply = <&mt6319_6_vbuck3>;
+		fmeter-id = /bits/ 8 <5 6 7 8 9 10 11 58 57 58 69 70 71>;
+		fmeter-type = /bits/ 8 <2 2 2 2 2 2 2 2 5 5 5 5 5>;
 	};
 
 	mmdvfs-v3-start {
