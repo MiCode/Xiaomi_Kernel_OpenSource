@@ -76,6 +76,7 @@ static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info = {
 	 .i4BlockNumY = 187,
 	 .i4Crop = { {0, 0}, {0, 0}, {0, 200}, {0, 0}, {0, 0},
 			 {0, 0}, {80, 420}, {0, 0}, {0, 0}, {0, 0} },
+	 .i4VCPackNum = 2,
 };
 
 static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info_vid = {
@@ -95,6 +96,7 @@ static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info_vid = {
 	 .i4BlockNumY = 162,
 	 .i4Crop = { {0, 0}, {0, 0}, {0, 200}, {0, 0}, {0, 0},
 			 {0, 0}, {80, 420}, {0, 0}, {0, 0}, {0, 0} },
+	 .i4VCPackNum = 2,
 };
 
 static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info_cus2 = {
@@ -114,6 +116,7 @@ static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info_cus2 = {
 	 .i4BlockNumY = 135,
 	 .i4Crop = { {0, 0}, {0, 0}, {0, 200}, {0, 0}, {0, 0},
 			 {0, 0}, {80, 420}, {0, 0}, {0, 0}, {0, 0} },
+	 .i4VCPackNum = 2,
 };
 
 static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = {
