@@ -170,6 +170,9 @@ static int board_ntc_get_temp(void *data, int *temp)
 	unsigned int val, r_type, r_ntc, dbg_reg, en_reg, count = 0;
 	unsigned long long v_in;
 	bool is_val_valid, is_rtype_valid;
+	static DEFINE_RATELIMIT_STATE(ratelimit, 5 * HZ, 10);
+
+	ratelimit_set_flags(&ratelimit, RATELIMIT_MSG_ON_RELEASE);
 
 	while (count < READ_TIA_REG_COUNT_MAX) {
 		val = readl(ntc_info->data_reg);
@@ -228,9 +231,10 @@ RETRY:
 		*temp = board_ntc_r_to_temp(ntc_info, r_ntc);
 	}
 
-	dev_dbg_ratelimited(ntc_info->dev, "val=0x%x, v_in/r_type/r_ntc/t=%d/%d/%d/%d\n",
+	if (__ratelimit(&ratelimit)) {
+		dev_info(ntc_info->dev, "val=0x%x, v_in/r_type/r_ntc/t=%d/%d/%d/%d\n",
 		val, v_in, r_type, r_ntc, *temp);
-
+	}
 	return 0;
 }
 
