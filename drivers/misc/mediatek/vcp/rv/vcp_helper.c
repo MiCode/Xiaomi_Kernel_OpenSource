@@ -687,9 +687,18 @@ static void vcp_err_info_handler(int id, void *prdata, void *data,
  */
 void trigger_vcp_halt(enum vcp_core_id id)
 {
-	int j;
+	int i, j;
 
-	mutex_lock(&vcp_pw_clk_mutex);
+	i = 0;
+	while (!mutex_trylock(&vcp_pw_clk_mutex)) {
+		i += 5;
+		mdelay(5);
+		if (i > VCP_SYNC_TIMEOUT_MS) {
+			pr_notice("[VCP] %s lock fail\n", __func__);
+			return;
+		}
+	}
+
 	if (mmup_enable_count() && vcp_ready[id]) {
 		vcp_dump_last_regs(mmup_enable_count());
 
@@ -700,7 +709,8 @@ void trigger_vcp_halt(enum vcp_core_id id)
 			if (feature_table[j].enable)
 				pr_info("[VCP] Active feature id %d cnt %d\n",
 					j, feature_table[j].enable);
-	}
+	} else
+		pr_notice("[VCP] %s not ready\n", __func__);
 	mutex_unlock(&vcp_pw_clk_mutex);
 }
 EXPORT_SYMBOL_GPL(trigger_vcp_halt);
