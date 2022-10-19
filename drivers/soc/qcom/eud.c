@@ -180,14 +180,17 @@ static void enable_eud(struct platform_device *pdev)
 	if (priv->secure_eud_en && !check_eud_mode_mgr2(priv)) {
 		ret = qcom_scm_io_writel(priv->eud_mode_mgr2_phys_base +
 				   EUD_REG_EUD_EN2, EUD_ENABLE_CMD);
-		if (ret)
+		if (ret) {
 			dev_err(&pdev->dev,
 			"qcom_scm_io_writel failed with rc:%d\n", ret);
+			return;
+		}
 	}
 
 	/* Ensure Register Writes Complete */
 	wmb();
 
+	enable = EUD_ENABLE_CMD;
 	usleep_range(50, 100);
 	/* perform spoof connect as recommended */
 	extcon_set_state_sync(priv->extcon, EXTCON_USB, true);
@@ -213,11 +216,14 @@ static void disable_eud(struct platform_device *pdev)
 	if (priv->secure_eud_en) {
 		ret = qcom_scm_io_writel(priv->eud_mode_mgr2_phys_base +
 				   EUD_REG_EUD_EN2, EUD_DISABLE_CMD);
-		if (ret)
+		if (ret) {
 			dev_err(&pdev->dev,
 			"qcom_scm_io_write failed with rc:%d\n", ret);
+			return;
+		}
 	}
 
+	enable = EUD_DISABLE_CMD;
 	msm_eud_clkref_en(priv, false);
 
 	usleep_range(50, 100);
@@ -236,7 +242,6 @@ static int param_eud_set(const char *val, const struct kernel_param *kp)
 	if (enable != EUD_ENABLE_CMD && enable != EUD_DISABLE_CMD)
 		return -EINVAL;
 
-	*((uint *)kp->arg) = enable;
 	if (!eud_ready)
 		return 0;
 
