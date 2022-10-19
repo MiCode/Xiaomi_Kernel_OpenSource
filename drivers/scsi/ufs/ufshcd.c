@@ -6028,20 +6028,10 @@ static void ufshcd_clk_scaling_suspend(struct ufs_hba *hba, bool suspend)
 			ufshcd_resume_clkscaling(hba);
 	}
 }
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-static void ufshcd_err_handling_prepare(struct ufs_hba *hba, bool *rpm_put)
-#else
+
 static void ufshcd_err_handling_prepare(struct ufs_hba *hba)
-#endif
 {
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	if (!hba->pm_op_in_progress) {
-		ufshcd_rpm_get_sync(hba);
-		*rpm_put = true;
-	}
-#else
 	ufshcd_rpm_get_sync(hba);
-#endif
 	if (pm_runtime_status_suspended(&hba->sdev_ufs_device->sdev_gendev) ||
 	    hba->is_sys_suspended) {
 		enum ufs_pm_op pm_op;
@@ -6076,23 +6066,14 @@ static void ufshcd_err_handling_prepare(struct ufs_hba *hba)
 	cancel_work_sync(&hba->eeh_work);
 }
 
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-static void ufshcd_err_handling_unprepare(struct ufs_hba *hba, bool rpm_put)
-#else
 static void ufshcd_err_handling_unprepare(struct ufs_hba *hba)
-#endif
 {
 	ufshcd_scsi_unblock_requests(hba);
 	ufshcd_release(hba);
 	if (ufshcd_is_clkscaling_supported(hba))
 		ufshcd_clk_scaling_suspend(hba, false);
 
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	if (rpm_put)
-		ufshcd_rpm_put(hba);
-#else
 	ufshcd_rpm_put(hba);
-#endif
 }
 
 static inline bool ufshcd_err_handling_should_stop(struct ufs_hba *hba)
@@ -6174,9 +6155,6 @@ static void ufshcd_err_handler(struct work_struct *work)
 	bool needs_reset = false, needs_restore = false;
 	unsigned long *outstanding_reqs;
 	int nr_tag;
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	bool rpm_put = false;
-#endif
 
 	hba = container_of(work, struct ufs_hba, eh_work);
 
@@ -6191,11 +6169,7 @@ static void ufshcd_err_handler(struct work_struct *work)
 	}
 	ufshcd_set_eh_in_progress(hba);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	ufshcd_err_handling_prepare(hba, &rpm_put);
-#else
 	ufshcd_err_handling_prepare(hba);
-#endif
 	/* Complete requests that have door-bell cleared by h/w */
 	ufshcd_complete_requests(hba);
 	spin_lock_irqsave(hba->host->host_lock, flags);
@@ -6351,11 +6325,7 @@ skip_err_handling:
 	}
 	ufshcd_clear_eh_in_progress(hba);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	ufshcd_err_handling_unprepare(hba, rpm_put);
-#else
 	ufshcd_err_handling_unprepare(hba);
-#endif
 	up(&hba->host_sem);
 }
 

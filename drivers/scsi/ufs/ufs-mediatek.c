@@ -387,7 +387,7 @@ static const u8 *mphy_str[] = {
 #endif
 
 extern void mt_irq_dump_status(unsigned int irq);
-static void ufs_mtk_auto_hibern8_disable(struct ufs_hba *hba);
+static int ufs_mtk_auto_hibern8_disable(struct ufs_hba *hba);
 
 #define CREATE_TRACE_POINTS
 #include "ufs-mediatek-trace.h"
@@ -3243,8 +3243,7 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op,
 
 		if (!ufshcd_is_auto_hibern8_supported(hba))
 			return 0;
-		ufs_mtk_auto_hibern8_disable(hba);
-		return 0;
+		return ufs_mtk_auto_hibern8_disable(hba);
 	}
 
 	if (ufshcd_is_link_hibern8(hba)) {
@@ -3285,7 +3284,6 @@ static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	int err;
 	struct arm_smccc_res res;
-	unsigned long flags;
 
 	if (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL)
 		ufs_mtk_dev_vreg_set_lpm(hba, false);
@@ -3305,14 +3303,20 @@ static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 	return 0;
 fail:
-	spin_lock_irqsave(hba->host->host_lock, flags);
-	hba->force_reset = true;
-	hba->ufshcd_state = UFSHCD_STATE_EH_SCHEDULED_FATAL;
-	schedule_work(&hba->eh_work);
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
-	flush_work(&hba->eh_work);
 
-	return 0;
+	/*
+	 * Should not return fail if platform(parent) dev is resume,
+	 * which power, clock and mtcmos is all turn on.
+	 */
+	err = ufshcd_link_recovery(hba);
+	if (err) {
+		dev_err(hba->dev, "Device PM: req=%d, status:%d, err:%d\n",
+			hba->dev->power.request,
+			hba->dev->power.runtime_status,
+			hba->dev->power.runtime_error);
+	}
+
+	return 0; /* cannot return fail, else IO hang */
 }
 
 static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
@@ -3512,7 +3516,7 @@ static void ufs_mtk_event_notify(struct ufs_hba *hba,
 #endif
 }
 
-static void ufs_mtk_auto_hibern8_disable(struct ufs_hba *hba)
+static int ufs_mtk_auto_hibern8_disable(struct ufs_hba *hba)
 {
 	unsigned long flags;
 	int ret;
@@ -3534,13 +3538,12 @@ static void ufs_mtk_auto_hibern8_disable(struct ufs_hba *hba)
 		hba->ufshcd_state = UFSHCD_STATE_EH_SCHEDULED_FATAL;
 		schedule_work(&hba->eh_work);
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
-		flush_work(&hba->eh_work);
 
-		/* disable auto-hibern8 */
-		spin_lock_irqsave(hba->host->host_lock, flags);
-		ufshcd_writel(hba, 0, REG_AUTO_HIBERNATE_IDLE_TIMER);
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		/* trigger error handler and break suspend */
+		ret = -EBUSY;
 	}
+
+	return ret;
 }
 
 void ufs_mtk_setup_task_mgmt(struct ufs_hba *hba, int tag, u8 tm_function)
