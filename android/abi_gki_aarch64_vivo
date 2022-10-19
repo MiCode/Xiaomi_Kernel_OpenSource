@@ -2338,6 +2338,8 @@
   __traceiter_android_vh_binder_restore_priority
   __traceiter_android_vh_binder_set_priority
   __traceiter_android_vh_binder_trans
+  __traceiter_android_vh_blk_alloc_rqs
+  __traceiter_android_vh_blk_rq_ctx_init
   __traceiter_android_vh_cpu_idle_enter
   __traceiter_android_vh_cpu_idle_exit
   __traceiter_android_vh_dup_task_struct
@@ -2439,6 +2441,8 @@
   __tracepoint_android_vh_binder_set_priority
   __tracepoint_android_vh_binder_trans
   __tracepoint_android_vh_binder_wakeup_ilocked
+  __tracepoint_android_vh_blk_alloc_rqs
+  __tracepoint_android_vh_blk_rq_ctx_init
   __tracepoint_android_vh_cpu_idle_enter
   __tracepoint_android_vh_cpu_idle_exit
   __tracepoint_android_vh_cpuidle_psci_enter
