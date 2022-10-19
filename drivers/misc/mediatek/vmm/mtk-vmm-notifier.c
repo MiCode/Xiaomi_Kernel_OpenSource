@@ -92,6 +92,14 @@ static int vmm_locked_isp_open(bool genpd_update)
 
 static int vmm_locked_isp_close(bool genpd_update)
 {
+	/* no need to counter down at probe stage */
+	if (vmm_user_counter == 0)
+		return 0;
+
+	vmm_user_counter--;
+	if (vmm_user_counter == 0)
+		mtk_mmdvfs_camera_notify(false);
+
 	if (genpd_update) {
 		if (vmm_genpd_user_counter == 0)
 			return 0;
@@ -100,13 +108,6 @@ static int vmm_locked_isp_close(bool genpd_update)
 			mtk_mmdvfs_genpd_notify(VMM_USR_CAM, false);
 	}
 
-	/* no need to counter down at probe stage */
-	if (vmm_user_counter == 0)
-		return 0;
-
-	vmm_user_counter--;
-	if (vmm_user_counter == 0)
-		mtk_mmdvfs_camera_notify(false);
 	return 0;
 }
 
