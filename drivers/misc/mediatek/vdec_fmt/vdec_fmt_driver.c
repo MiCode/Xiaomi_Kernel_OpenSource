@@ -656,6 +656,10 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 			// pwr/clock on/off only when there's 0 job on both pipes
 			for (i = 0; i < fmt->gce_th_num; i++)
 				fmt_end_dvfs_emi_bw(fmt, i);
+			if (atomic_read(&fmt->fmt_error) == 1) {
+				fmt_err("fmt in error status before pwr off!");
+				fmt_dump_addr_reg();
+			}
 			fmt_debug(0, "Both pipe job cnt = 0, pwr/clock off");
 			ret = fmt_clock_off(fmt);
 				if (ret != 0L) {
@@ -757,6 +761,10 @@ static int fmt_gce_wait_callback(unsigned long arg)
 		// pwr/clock on/off only when there's 0 job on both pipes
 		for (i = 0; i < fmt->gce_th_num; i++)
 			fmt_end_dvfs_emi_bw(fmt, i);
+		if (atomic_read(&fmt->fmt_error) == 1) {
+			fmt_err("fmt in error status before pwr off!");
+			fmt_dump_addr_reg();
+		}
 		fmt_debug(1, "Both pipe job cnt = 0, pwr/clock off");
 		ret = fmt_clock_off(fmt);
 			if (ret != 0L) {
