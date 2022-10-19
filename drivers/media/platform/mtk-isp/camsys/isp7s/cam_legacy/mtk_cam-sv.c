@@ -1562,6 +1562,8 @@ int mtk_cam_sv_central_common_disable(struct mtk_camsv_device *dev)
 
 	sv_reset(dev);
 	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_DMA_EN_IMG, 0);
+	CAMSV_WRITE_REG(dev->base + REG_E_CAMSVCENTRAL_DCIF_SET, 0);
+	CAMSV_WRITE_REG(dev->base + REG_E_CAMSVCENTRAL_DCIF_SEL, 0);
 	mtk_cam_sv_toggle_db(dev);
 
 	return ret;
@@ -2379,7 +2381,7 @@ static irqreturn_t mtk_irq_camsv_sof(int irq, void *data)
 	struct mtk_camsys_irq_info irq_info;
 	unsigned int dequeued_imgo_seq_no, dequeued_imgo_seq_no_inner;
 	unsigned int tg_cnt;
-	unsigned int irq_sof_status;
+	unsigned int irq_sof_status, dcif_set, dcif_sel;
 	unsigned int irq_flag = 0;
 	bool wake_thread = 0;
 	unsigned int i;
@@ -2400,12 +2402,16 @@ static irqreturn_t mtk_irq_camsv_sof(int irq, void *data)
 		readl_relaxed(camsv_dev->base_inner + REG_CAMSVCENTRAL_FIRST_TAG);
 	camsv_dev->last_tag =
 		readl_relaxed(camsv_dev->base_inner + REG_CAMSVCENTRAL_LAST_TAG);
+	dcif_set =
+		readl_relaxed(camsv_dev->base_inner + REG_E_CAMSVCENTRAL_DCIF_SET);
+	dcif_sel =
+		readl_relaxed(camsv_dev->base_inner + REG_E_CAMSVCENTRAL_DCIF_SEL);
 	tg_cnt =
 		readl_relaxed(camsv_dev->base + REG_CAMSVCENTRAL_VF_ST_TAG1 +
 				CAMSVCENTRAL_VF_ST_TAG_SHIFT * 3);
 	tg_cnt = (camsv_dev->tg_cnt & 0xffffff00) + ((tg_cnt & 0xff000000) >> 24);
 
-	dev_dbg(camsv_dev->dev, "camsv-%d: sof status:0x%x seq_no:%d_%d group_tags:0x%x_%x_%x_%x first_tag:0x%x last_tag:0x%x VF_ST_TAG4:%d",
+	dev_dbg(camsv_dev->dev, "camsv-%d: sof status:0x%x seq_no:%d_%d group_tags:0x%x_%x_%x_%x first_tag:0x%x last_tag:0x%x dcif:0x%x_%x VF_ST_TAG4:%d",
 		camsv_dev->id, irq_sof_status,
 		dequeued_imgo_seq_no_inner, dequeued_imgo_seq_no,
 		camsv_dev->active_group_info[0],
@@ -2414,6 +2420,8 @@ static irqreturn_t mtk_irq_camsv_sof(int irq, void *data)
 		camsv_dev->active_group_info[3],
 		camsv_dev->first_tag,
 		camsv_dev->last_tag,
+		dcif_set,
+		dcif_sel,
 		tg_cnt);
 
 	irq_info.irq_type = 0;
