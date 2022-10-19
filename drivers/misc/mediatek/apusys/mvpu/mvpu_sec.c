@@ -24,6 +24,8 @@
 #include "apusys_device.h"
 #include "apu_config.h"
 
+#include "mdw_trace.h"
+
 #include "mvpu_plat_device.h"
 #include "mvpu_sysfs.h"
 #include "mvpu_ipi.h"
@@ -103,6 +105,8 @@ bool get_ptn_hash(uint32_t hash)
 	if (mvpu_algo_available == false)
 		return false;
 
+	mdw_trace_begin("[MVPU] %s", __func__);
+
 	ptn_total_num = mvpu_algo_img[KER_NUM_OFFSET];
 
 	for (i = 0; i < ptn_total_num; i++) {
@@ -121,6 +125,8 @@ bool get_ptn_hash(uint32_t hash)
 		if ((ptn_size_offset % 4) != 0)
 			ptn_size_offset = ptn_size_offset + 4 - (ptn_size_offset % 4);
 	}
+
+	mdw_trace_end();
 
 	return false;
 }
@@ -521,6 +527,7 @@ int update_hash_pool(void *session,
 	int ret_dma_buf_vmap = 0;
 	struct dma_buf_map sys_map;
 
+	mdw_trace_begin("[MVPU] %s", __func__);
 	if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
 		pr_info("[MVPU][Sec] %s\n", __func__);
 
@@ -744,6 +751,7 @@ int update_hash_pool(void *session,
 	if (p_buf)
 		dma_buf_vunmap(hash_pool[session_id]->hash_dma_buf[hash_id], p_buf);
 
+	mdw_trace_end();
 	return 0;
 }
 
@@ -1123,6 +1131,7 @@ int replace_mem(uint32_t session_id,
 	int ret_dma_buf_vmap = 0;
 	struct dma_buf_map sys_map;
 
+	mdw_trace_begin("[MVPU] %s", __func__);
 	if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
 		pr_info("[MVPU][Sec] %s\n", __func__);
 
@@ -1220,6 +1229,7 @@ int replace_mem(uint32_t session_id,
 	if (buf_ptr_base)
 		dma_buf_vunmap(hash_pool[session_id]->hash_dma_buf[hash_id], buf_ptr_base);
 
+	mdw_trace_end();
 	return ret;
 }
 
@@ -1724,6 +1734,8 @@ int update_mpu(void *mvpu_cmd,
 
 	uint32_t total_mpu_cnt = 0;
 
+	mdw_trace_begin("[MVPU] %s", __func__);
+
 	if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
 		pr_info("[MVPU][SEC] %s\n", __func__);
 
@@ -1815,6 +1827,7 @@ END:
 	if (buf_io_addr_merged != NULL)
 		kfree(buf_io_addr_merged);
 
+	mdw_trace_end();
 	return ret;
 }
 
@@ -1875,7 +1888,8 @@ int check_iova(void *session,
 		if (desc_ptr == NULL) {
 			pr_info("[MVPU][Sec] apusys_mem_query_kva_by_sess fail (session: 0x%llx, chk_base: 0x%08x)\n",
 					session, chk_base);
-			return -ENOMEM;
+			ret = -ENOMEM;
+			goto END;
 		}
 
 		if (desc_type == DESC_TYPE_GLSU)
@@ -1913,7 +1927,8 @@ int check_batch_flow(void *session,
 						uint32_t knl_num)
 {
 	int ret = 0;
-	int i = 0, j = 0;
+	uint32_t i = 0, j = 0;
+	uint32_t cnt = 0;
 
 	uint32_t chk_num = 0;
 	uint32_t chk_base = 0;
@@ -1924,16 +1939,21 @@ int check_batch_flow(void *session,
 
 	uint32_t *buf_ptr = NULL;
 
-	if (sec_level != SEC_LVL_CHECK_ALL) {
-		sample = get_random_u32()%100;
-
-		if (sample == 0)
-			sample = 1;
-	}
+	mdw_trace_begin("[MVPU] %s sample %d", __func__, sample);
 
 	for (i = 0; i < knl_num; i = i + sample) {
 		if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
 			pr_info("[MVPU][CHK] knl_num %d, check %03d\n", knl_num, i);
+
+		if (cnt >= MVPU_CHK_MAX)
+			break;
+
+		if (sec_level != SEC_LVL_CHECK_ALL) {
+			sample = get_random_u32()%100;
+
+			if (sample == 0)
+				sample = 1;
+		}
 
 		buf_ptr = (uint32_t *)((uintptr_t)kreg_kva + i*72);
 
@@ -1975,9 +1995,12 @@ int check_batch_flow(void *session,
 				goto END;
 			}
 		}
+
+		cnt++;
 	}
 
 END:
+	mdw_trace_end();
 	return ret;
 }
 
@@ -2077,7 +2100,7 @@ int mvpu_sec_init(struct device *dev)
 		}
 */
 
-		hash_pool[session_id] = kzalloc(sizeof(struct mvpu_hash_pool), GFP_KERNEL);
+		hash_pool[session_id] = kvzalloc(sizeof(struct mvpu_hash_pool), GFP_KERNEL);
 		if (!hash_pool[session_id]) {
 			ret = -ENOMEM;
 			goto END;

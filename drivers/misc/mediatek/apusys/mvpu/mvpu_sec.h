@@ -37,6 +37,8 @@
 #define MVPU_ONLINE_BATCH_NAME_HASH 0xAAAAAAAA
 #define MVPU_CMD_BUFF_ADDR          0x00000000
 
+#define MVPU_CHK_MAX 20
+
 //mvpu_algo.img
 //void * mvpu_algo_img;
 static dma_addr_t mvpu_algo_iova;

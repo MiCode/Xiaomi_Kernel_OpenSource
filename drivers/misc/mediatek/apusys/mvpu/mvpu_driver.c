@@ -21,6 +21,8 @@
 #include "apusys_device.h"
 #include "apu_config.h"
 
+#include "mdw_trace.h"
+
 #include "mvpu_plat_device.h"
 #include "mvpu_sysfs.h"
 #include "mvpu_ipi.h"
@@ -115,6 +117,8 @@ static int mvpu_validation(void *hnd)
 	uint32_t buf_cmd_next = 0;
 
 	bool support_mod_kerarg = false;
+
+	mdw_trace_begin("[MVPU] %s", __func__);
 
 	cmd_hnd = hnd;
 
@@ -249,6 +253,8 @@ static int mvpu_validation(void *hnd)
 
 	if ((batch_name_hash & MVPU_BATCH_MASK) !=
 			(MVPU_ONLINE_BATCH_NAME_HASH & MVPU_BATCH_MASK)) {
+		mdw_trace_begin("[MVPU] mvpu_req integrity check, buf_num %d, rp_num %d",
+			buf_num, rp_num);
 		if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
 				(uint64_t)mvpu_req->sec_chk_addr, buf_num*sizeof(uint32_t)) != 0) {
 			pr_info("[MVPU][Sec] sec_chk_addr integrity checked FAIL\n");
@@ -322,8 +328,10 @@ static int mvpu_validation(void *hnd)
 			ret = -ENOMEM;
 			goto END_WITH_MUTEX;
 		}
+		mdw_trace_end();
 
 		// buf integrity check
+		mdw_trace_begin("[MVPU] user buf integrity check");
 		for (i = 0; i < buf_num; i++) {
 			if (mvpu_loglvl_drv >= APUSYS_MVPU_LOG_DBG) {
 				pr_info("[MVPU][Sec] buf[%3d]: addr 0x%08x, attr: %d, size: 0x%08x\n",
@@ -360,6 +368,7 @@ static int mvpu_validation(void *hnd)
 							i, sec_chk_addr[i]);
 			}
 		}
+		mdw_trace_end();
 
 		if (buf_int_check_pass == 0) {
 			pr_info("[MVPU][Sec] [ERROR] integrity checked FAIL\n");
@@ -1030,6 +1039,7 @@ END:
 		ker_bin_each_iova = NULL;
 	}
 
+	mdw_trace_end();
 	return ret;
 }
 #endif
