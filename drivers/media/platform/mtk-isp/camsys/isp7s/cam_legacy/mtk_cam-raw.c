@@ -3247,6 +3247,8 @@ static int mtk_raw_sd_subscribe_event(struct v4l2_subdev *subdev,
 		return v4l2_event_subscribe(fh, sub, 0, NULL);
 	case V4L2_EVENT_ERROR:
 		return v4l2_event_subscribe(fh, sub, 0, NULL);
+	case V4L2_EVENT_EXTISP_CAMSYS_READY:
+		return v4l2_event_subscribe(fh, sub, 0, NULL);
 
 	default:
 		return -EINVAL;

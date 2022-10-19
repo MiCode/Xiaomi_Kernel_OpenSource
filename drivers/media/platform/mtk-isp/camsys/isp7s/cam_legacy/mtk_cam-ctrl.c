@@ -126,6 +126,18 @@ void mtk_cam_event_error(struct mtk_raw_pipeline *pipeline, char *msg)
 		pr_info("%s: get raw_pipeline failed", __func__);
 }
 
+void mtk_cam_event_extisp_camsys_ready(struct mtk_raw_pipeline *pipeline)
+{
+	struct v4l2_event event = {
+		.type = V4L2_EVENT_EXTISP_CAMSYS_READY,
+	};
+
+	if (pipeline)
+		v4l2_event_queue(pipeline->subdev.devnode, &event);
+	else
+		pr_info("%s: get raw_pipeline failed", __func__);
+}
+
 static void mtk_cam_sv_event_eos(struct mtk_camsv_pipeline *pipeline)
 {
 	struct v4l2_event event = {
@@ -5434,6 +5446,7 @@ static int mtk_camsys_event_handle_mraw(struct mtk_cam_device *cam,
 						mtk_cam_mraw_dev_stream_on(ctx,
 							get_mraw_dev(ctx->cam,
 								ctx->mraw_pipe[i]), 1);
+					mtk_cam_event_extisp_camsys_ready(ctx->pipe);
 				} else {
 					raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
 					mtk_camsys_raw_cq_done(raw_dev, ctx, irq_info->frame_idx);
@@ -5542,6 +5555,7 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_device *cam,
 						mtk_cam_mraw_dev_stream_on(ctx,
 							get_mraw_dev(ctx->cam,
 								ctx->mraw_pipe[i]), 1);
+					mtk_cam_event_extisp_camsys_ready(ctx->pipe);
 				} else {
 					raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
 					mtk_camsys_raw_cq_done(raw_dev, ctx,
