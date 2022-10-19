@@ -688,7 +688,7 @@ static irqreturn_t mtk_uart_apdma_irq_handler(int irq, void *dev_id)
 	spin_unlock(&c->vc.lock);
 	if (current_dir == DMA_DEV_TO_MEM) {
 		if (num % 5000 == 2)
-			pr_info("debug: %s: VFF_VALID_SIZE=0, num[%llu]\n", __func__, num);
+			pr_debug("debug: %s: VFF_VALID_SIZE=0, num[%llu]\n", __func__, num);
 	} else if (current_dir == DMA_MEM_TO_DEV) {
 		if (dump_tx_err)
 			pr_info("debug: %s: TX[%d] FIX ME!", __func__, current_irq);
