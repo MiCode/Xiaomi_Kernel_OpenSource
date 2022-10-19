@@ -850,7 +850,7 @@ static int adspsleepmon_driver_probe(struct platform_device *pdev)
 			"qcom,enable_adsp_panic_lpi");
 
 	g_adspsleepmon.b_config_adsp_panic_lpm_overall = of_property_read_bool(dev->of_node,
-			"qcom,enable_adsp_panic_lpm_overall;");
+			"qcom,enable_adsp_panic_lpm_overall");
 
 	of_property_read_u32(dev->of_node, "qcom,wait_time_lpm",
 						 &g_adspsleepmon.lpm_wait_time);
