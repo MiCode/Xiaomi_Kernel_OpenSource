@@ -1158,6 +1158,8 @@ static void dep_a_except_b(
 		}
 
 		if (fl_b->pid == fl_a->pid) {
+			if (fl_b->action)
+				fl_a->action = fl_b->action;
 			if (copy_intersection_to_b)
 				*fl_b = *fl_a;
 			incr_i = incr_j = 1;
@@ -1942,6 +1944,8 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			separate_aa_final) {
 			fpsgo_systrace_c_fbt_debug(fl->pid, thr->buffer_id,
 				fl->loading, "dep-loading");
+			fpsgo_systrace_c_fbt_debug(fl->pid, thr->buffer_id,
+				fl->action, "dep-action");
 		}
 
 		light_thread = fbt_is_light_loading(fl->loading, loading_th_final);
@@ -2016,7 +2020,7 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 									FPSGO_PREFER_M, 1);
 				else
 					fbt_set_task_policy(fl, FPSGO_TPOLICY_AFFINITY,
-									FPSGO_PREFER_M, 0);
+									FPSGO_PREFER_M, fl->action);
 				break;
 			default:
 				if (boost_LR_final && thr->hwui == RENDER_INFO_HWUI_NONE
