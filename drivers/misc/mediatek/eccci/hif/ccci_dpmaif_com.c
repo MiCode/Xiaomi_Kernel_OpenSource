@@ -981,6 +981,24 @@ static inline int dpmaifq_rxq_notify_hw_pit_cnt(struct dpmaif_rx_queue *rxq,
 	return 0;
 }
 
+static inline int dpmaif_rxq_check_pit_seq(struct dpmaif_rx_queue *rxq, unsigned int pit_seq)
+{
+	if (rxq->pit_seq != pit_seq) {
+		CCCI_ERROR_LOG(0, TAG,
+			"[%s] error: pit_seq is invalid: (%u/%u)\n",
+			__func__, rxq->pit_seq, pit_seq);
+
+		return DATA_CHECK_FAIL;
+	}
+
+	if (rxq->pit_seq == 0xFE)
+		rxq->pit_seq = 0;
+	else
+		rxq->pit_seq++;
+
+	return 0;
+}
+
 #define NOTIFY_RX_PUSH(rxq)  wake_up_all(&rxq->rxq_wq)
 
 static int dpmaif_rxq_start_read_from_pit(struct dpmaif_rx_queue *rxq,
@@ -1019,6 +1037,13 @@ static int dpmaif_rxq_start_read_from_pit(struct dpmaif_rx_queue *rxq,
 
 		nml_pit_v2 = (struct dpmaif_normal_pit_v2 *)(rxq->pit_base +
 				(pit_rd_idx * pit_size));
+
+		if (g_dpmf_ver == 3) {
+			ret = dpmaif_rxq_check_pit_seq(rxq,
+				((struct dpmaif_normal_pit_v3 *)nml_pit_v2)->pit_seq);
+			if (ret)
+				goto occur_err;
+		}
 
 		if (nml_pit_v2->packet_type == DES_PT_MSG) {  //is message pit
 			dpmaif_rxq_handle_msg_pit(rxq, (struct dpmaif_msg_pit_base *)nml_pit_v2);
@@ -1595,6 +1620,7 @@ static int dpmaif_rxqs_start(void)
 	for (i = 0; i < dpmaif_ctl->real_rxq_num; i++) {
 		rxq = &dpmaif_ctl->rxq[i];
 		rxq->started = true;
+		rxq->pit_seq = 0;
 		rxq->budget  = dpmaif_ctl->dl_bat_entry_size - 1;
 
 		if (dpmaif_rxq_hw_init(rxq))
