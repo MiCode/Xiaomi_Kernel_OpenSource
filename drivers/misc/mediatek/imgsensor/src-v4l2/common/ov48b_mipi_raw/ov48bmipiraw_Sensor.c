@@ -335,6 +335,16 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus13[] = {
 		},
 	},
 };
+static struct mtk_mbus_frame_desc_entry frame_desc_cus14[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x0fa0,
+			.vsize = 0x0bb8,
+		},
+	},
+};
 
 static struct subdrv_mode_struct mode_struct[] = {
 	{
@@ -1126,6 +1136,50 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.pdaf_cap = FALSE,
 		.imgsensor_pd_info = PARAM_UNDEFINED,
 		.ae_binning_ratio = 2,
+		.fine_integ_line = 0,
+		.delay_frame = 2,
+		.csi_param = {
+			.cphy_settle = 98,
+		},
+	},
+	{
+		.frame_desc = frame_desc_cus14,
+		.num_entries = ARRAY_SIZE(frame_desc_cus14),
+		.mode_setting_table = addr_data_pair_custom14,
+		.mode_setting_len = ARRAY_SIZE(addr_data_pair_custom14),
+		.seamless_switch_group = PARAM_UNDEFINED,
+		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
+		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
+		.hdr_group = PARAM_UNDEFINED,
+		.hdr_mode = HDR_NONE,
+		.pclk = 115200000,
+		.linelength = 576,
+		.framelength = 3333,
+		.max_framerate = 600,
+		.mipi_pixel_rate = 956000000,
+		.readout_length = 0,
+		.read_margin = 0,
+		.imgsensor_winsize_info = {
+			.full_w = 8000,
+			.full_h = 6000,
+			.x0_offset = 0,
+			.y0_offset = 0,
+			.w0_size = 8000,
+			.h0_size = 6000,
+			.scale_w = 4000,
+			.scale_h = 3000,
+			.x1_offset = 0,
+			.y1_offset = 0,
+			.w1_size = 4000,
+			.h1_size = 3000,
+			.x2_tg_offset = 0,
+			.y2_tg_offset = 0,
+			.w2_tg_size = 4000,
+			.h2_tg_size = 3000,
+		},
+		.pdaf_cap = FALSE,
+		.imgsensor_pd_info = PARAM_UNDEFINED,
+		.ae_binning_ratio = 1,
 		.fine_integ_line = 0,
 		.delay_frame = 2,
 		.csi_param = {
