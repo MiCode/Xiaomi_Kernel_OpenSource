@@ -600,9 +600,9 @@ static void probe_android_rvh_selinux_avc_lookup(void *ignore,
 
 #if IS_ENABLED(CONFIG_KASAN)
 				if (!cached)
-					goto report;
-
-				MKP_ERR("Index from fast_avc_lookup: %d\n", index);
+					MKP_ERR("Index from slow path\n");
+				else
+					MKP_ERR("Index from fast_avc_lookup: %d\n", index);
 
 				/* Try full iteration to find out all possible aliases */
 				ro_avc_sharebuf_ptr = (struct avc_sbuf_content *)va;
@@ -612,7 +612,6 @@ static void probe_android_rvh_selinux_avc_lookup(void *ignore,
 						MKP_ERR("Alias found: %d\n", i);
 					}
 				}
-report:
 #endif
 				handle_mkp_err_action(MKP_POLICY_SELINUX_AVC);
 			}
