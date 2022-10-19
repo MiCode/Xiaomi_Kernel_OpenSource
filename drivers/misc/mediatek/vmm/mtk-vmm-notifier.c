@@ -69,11 +69,11 @@ struct vmm_notifier_data {
 static struct vmm_notifier_data global_data[PD_NUM];
 
 /* VDE user coount */
-struct mutex vde_mutex;
+static DEFINE_MUTEX(vde_mutex);
 static int vde_user_counter;
 
 /* Camera user count */
-struct mutex ctrl_mutex;
+static DEFINE_MUTEX(ctrl_mutex);
 static int vmm_genpd_user_counter;
 static int vmm_user_counter;
 static int vmm_locked_isp_open(bool genpd_update)
@@ -290,9 +290,6 @@ static int vmm_notifier_probe(struct platform_device *pdev)
 	const char *reg_name;
 	struct vmm_notifier_data *data;
 	struct resource *res;
-
-	mutex_init(&ctrl_mutex);
-	mutex_init(&vde_mutex);
 
 	ret = of_property_read_u32(dev->of_node, "pd-id", &pd_id);
 	if (ret) {
