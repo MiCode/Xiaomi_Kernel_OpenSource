@@ -827,6 +827,8 @@ static int mmdvfs_vcp_notifier_callback(struct notifier_block *nb, unsigned long
 {
 	switch (action) {
 	case VCP_EVENT_READY:
+		MMDVFS_DBG("receive VCP_EVENT_READY IPI_SYNC_FUNC=%#x IPI_SYNC_DATA=%#x",
+			readl(MEM_IPI_SYNC_FUNC), readl(MEM_IPI_SYNC_DATA));
 		mmdvfs_vcp_ipi_send(FUNC_MMDVFS_INIT, MAX_OPP, MAX_OPP, NULL);
 		mmdvfs_vcp_cb_ready = true;
 		break;
