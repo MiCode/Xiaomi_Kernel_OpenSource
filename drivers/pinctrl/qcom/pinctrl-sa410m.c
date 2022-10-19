@@ -1975,6 +1975,51 @@ static const struct msm_pingroup sa410m_groups[] = {
 static struct pinctrl_qup sa410m_qup_regs[] = {
 };
 
+static const struct msm_gpio_wakeirq_map sa410m_mpm_map[] = {
+	{0, 84},
+	{3, 75},
+	{4, 16},
+	{6, 59},
+	{8, 63},
+	{11, 17},
+	{13, 18},
+	{14, 51},
+	{17, 20},
+	{18, 52},
+	{19, 53},
+	{24, 6},
+	{25, 71},
+	{27, 73},
+	{28, 41},
+	{31, 27},
+	{32, 54},
+	{33, 55},
+	{34, 56},
+	{35, 57},
+	{36, 58},
+	{39, 28},
+	{46, 29},
+	{62, 60},
+	{63, 61},
+	{64, 62},
+	{69, 33},
+	{70, 34},
+	{72, 72},
+	{75, 35},
+	{79, 36},
+	{80, 21},
+	{81, 38},
+	{86, 19},
+	{87, 42},
+	{88, 43},
+	{89, 45},
+	{91, 74},
+	{94, 47},
+	{95, 48},
+	{96, 49},
+	{97, 50},
+};
+
 static const struct msm_pinctrl_soc_data sa410m_pinctrl = {
 	.pins = sa410m_pins,
 	.npins = ARRAY_SIZE(sa410m_pins),
@@ -1987,6 +2032,8 @@ static const struct msm_pinctrl_soc_data sa410m_pinctrl = {
 	.ntiles = ARRAY_SIZE(sa410m_tiles),
 	.qup_regs = sa410m_qup_regs,
 	.nqup_regs = ARRAY_SIZE(sa410m_qup_regs),
+	.wakeirq_map = sa410m_mpm_map,
+	.nwakeirq_map = ARRAY_SIZE(sa410m_mpm_map),
 };
 
 static int sa410m_pinctrl_probe(struct platform_device *pdev)
