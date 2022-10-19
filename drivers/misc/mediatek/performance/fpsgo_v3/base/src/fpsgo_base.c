@@ -2197,10 +2197,12 @@ static KOBJ_ATTR_RO(render_loading);
 int init_fpsgo_common(void)
 {
 	render_pid_tree = RB_ROOT;
-
 	BQ_id_list = RB_ROOT;
 	linger_tree = RB_ROOT;
 	hwui_info_tree = RB_ROOT;
+	sbe_info_tree = RB_ROOT;
+	fps_control_pid_info_tree = RB_ROOT;
+	fpsgo_attr_by_pid_tree = RB_ROOT;
 
 	if (!fpsgo_sysfs_create_dir(NULL, "common", &base_kobj)) {
 		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_systrace_mask);
