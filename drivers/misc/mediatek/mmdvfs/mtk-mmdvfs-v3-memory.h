@@ -26,7 +26,8 @@ static inline bool mmdvfs_is_init_done(void) { return false; }
 #define MEM_VSRAM_VOL		(MEM_BASE + 0x8)
 #define MEM_IPI_SYNC_FUNC	(MEM_BASE + 0xC)
 #define MEM_IPI_SYNC_DATA	(MEM_BASE + 0x10)
-#define MEM_CLKMUX_ENABLE	(MEM_BASE + 0x14)
+/* skip : 0x14 */
+
 #define MEM_GENPD_ENABLE_USR(x)	(MEM_BASE + 0x18 + 0x4 * (x)) // CAM, VDE
 #define MEM_AGING_CNT_USR(x)	(MEM_BASE + 0x20 + 0x4 * (x)) // CAM, IMG
 #define MEM_FRESH_CNT_USR(x)	(MEM_BASE + 0x28 + 0x4 * (x)) // CAM, IMG
@@ -34,10 +35,13 @@ static inline bool mmdvfs_is_init_done(void) { return false; }
 #define MEM_VOTE_OPP_PWR(x)	(MEM_BASE + 0x40 + 0x4 * (x)) // POWER_NUM
 #define MEM_VOTE_OPP_USR(x)	(MEM_BASE + 0x50 + 0x4 * (x)) // USER_NUM
 
-#define MEM_VMM_CEIL_ENABLE	(MEM_BASE + 0x8C)
-#define MEM_VMM_EFUSE		(MEM_BASE + 0x90)
-#define MEM_VMM_OPP_VOLT(x)	(MEM_BASE + 0x94 + 0x4 * (x)) // VMM_OPP_NUM(8)
-/* next start: 0xB4 */
+/* skip : 0x8C */
+#define MEM_CLKMUX_ENABLE	(MEM_BASE + 0x90)
+#define MEM_CLKMUX_ENABLE_DONE	(MEM_BASE + 0x94)
+#define MEM_VMM_CEIL_ENABLE	(MEM_BASE + 0x98)
+#define MEM_VMM_EFUSE		(MEM_BASE + 0x9C)
+#define MEM_VMM_OPP_VOLT(x)	(MEM_BASE + 0xA0 + 0x4 * (x)) // VMM_OPP_NUM(8)
+/* next start: 0xC0 */
 
 #define MEM_REC_PWR_OBJ		4
 #define MEM_REC_USR_OBJ		5
