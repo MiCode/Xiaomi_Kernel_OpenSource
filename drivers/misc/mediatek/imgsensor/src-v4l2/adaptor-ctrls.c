@@ -244,19 +244,47 @@ static int set_hdr_gain_dual(struct adaptor_ctx *ctx, struct mtk_hdr_gain *info)
 	return 0;
 }
 
+static u32 g_scenario_exposure_cnt(struct adaptor_ctx *ctx, int scenario)
+{
+	u32 result = 1, len = 0;
+	union feature_para para;
+	struct mtk_stagger_info info = {0};
+	int ret = 0;
+
+	para.u64[0] = scenario;
+	para.u64[1] = 0;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_EXPOSURE_COUNT_BY_SCENARIO,
+		para.u8, &len);
+	if (para.u64[1]) {
+		result = (u32) para.u64[1];
+		adaptor_logd(ctx, "scenario exp count = %u\n", result);
+		return result;
+	}
+
+	info.scenario_id = SENSOR_SCENARIO_ID_NONE;
+	ret = g_stagger_info(ctx, scenario, &info);
+	if (!ret) {
+		/* non-stagger mode, the info count would be 0, it's same as 1 */
+		if (info.count == 0)
+			info.count = 1;
+		result = info.count;
+	}
+
+	adaptor_logd(ctx, "exp count by stagger info = %u\n", result);
+	return result;
+}
+
 static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 						  struct mtk_hdr_ae *ae_ctrl)
 {
 	union feature_para para;
-	u32 len = 0, exp_count = 0;
-	struct mtk_stagger_info info = {0};
-	int ret = 0;
+	u32 len = 0, exp_count = 0, scenario_exp_cnt = 0;
 
 #if IMGSENSOR_LOG_MORE
 	dev_info(ctx->dev, "[%s]+\n", __func__);
 #endif
-
-	info.scenario_id = SENSOR_SCENARIO_ID_NONE;
 
 	/* update ctx req id */
 	ctx->req_id = ae_ctrl->req_id;
@@ -266,17 +294,12 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 		ae_ctrl->exposure.arr[exp_count] != 0)
 		exp_count++;
 
-	/* get exp_cnt */
-	ret = g_stagger_info(ctx, ctx->cur_mode->id, &info);
-	if (!ret) {
-		/* non-stagger mode, the info count would be 0, it's same as 1 */
-		if (info.count == 0)
-			info.count = 1;
-		if (info.count != exp_count) {
-			dev_info(ctx->dev, "warn: scenario_exp_cnt=%u, but ae_exp_count=%u\n",
-				 info.count, exp_count);
-			exp_count = info.count;
-		}
+	/* get scenario exp_cnt */
+	scenario_exp_cnt = g_scenario_exposure_cnt(ctx, ctx->cur_mode->id);
+	if (scenario_exp_cnt != exp_count) {
+		dev_info(ctx->dev, "warn: scenario_exp_cnt=%u, but ae_exp_count=%u\n",
+			 scenario_exp_cnt, exp_count);
+		exp_count = scenario_exp_cnt;
 	}
 	switch (exp_count) {
 	case 3:

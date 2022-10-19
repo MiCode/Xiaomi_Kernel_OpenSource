@@ -1511,6 +1511,32 @@ void get_readout_by_scenario(struct subdrv_ctx *ctx,
 		* 1000000000) / ctx->s_ctx.mode[scenario_id].pclk * ratio;
 }
 
+void get_exposure_count_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *scenario_exp_cnt)
+{
+	u32 exp_cnt = 0;
+
+	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
+		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+			scenario_id, ctx->s_ctx.sensor_mode_num);
+		return;
+	}
+
+	switch (ctx->s_ctx.mode[scenario_id].hdr_mode) {
+	case HDR_RAW_STAGGER_2EXP:
+		exp_cnt = 2;
+		break;
+	case HDR_RAW_STAGGER_3EXP:
+		exp_cnt = 3;
+		break;
+	default:
+		exp_cnt = 1;
+		break;
+	}
+
+	*scenario_exp_cnt = exp_cnt;
+}
+
 int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
 {
 	u8 i = 0;
@@ -2073,6 +2099,11 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		get_readout_by_scenario(ctx,
 			(enum SENSOR_SCENARIO_ID_ENUM)*feature_data,
 			feature_data + 1);
+		break;
+	case SENSOR_FEATURE_GET_EXPOSURE_COUNT_BY_SCENARIO:
+		get_exposure_count_by_scenario(ctx,
+			(enum SENSOR_SCENARIO_ID_ENUM)*feature_data,
+			(u32 *)(feature_data + 1));
 		break;
 	default:
 		break;

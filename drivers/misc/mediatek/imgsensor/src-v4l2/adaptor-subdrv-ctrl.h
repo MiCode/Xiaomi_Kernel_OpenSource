@@ -145,6 +145,8 @@ void get_sensor_rgbw_output_mode(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *rgbw_output_mode);
 void get_readout_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *readout_time);
+void get_exposure_count_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *scenario_exp_cnt);
 
 int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id);
 void subdrv_ctx_init(struct subdrv_ctx *ctx);
