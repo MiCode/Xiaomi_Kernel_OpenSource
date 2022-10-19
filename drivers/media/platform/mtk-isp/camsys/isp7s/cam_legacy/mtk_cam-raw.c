@@ -568,7 +568,7 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 
 	// currently only support normal & stagger 2-exp
 	if (res_cfg->hw_mode != 0) {
-		if (!mtk_cam_scen_is_stagger_2_exp(&res_cfg->scen) &&
+		if (!mtk_cam_scen_is_sensor_stagger(&res_cfg->scen) &&
 			!mtk_cam_scen_is_sensor_normal(&res_cfg->scen)) {
 			dev_info(dev, "scen(%d) not support hw_mode(%d)",
 				 res_cfg->scen.id, res_cfg->hw_mode);
@@ -2548,7 +2548,7 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 	mtk_raw_update_debug_param(cam, res);
 
 	dev_info(cam->dev,
-		 "Res-end bin/raw_num/tg_pxlmode/before_raw/opp(%d/%d/%d/%d/%d), vb/hb(%d,%d), clk(%d), out(%dx%d)\n",
+		 "Res-end bin/raw_num/tg_pxlmode/before_raw/opp(%d/%d/%d/%d/%d), clk(%d), vb/hb(%d,%d), out(%dx%d)\n",
 		 res->bin_enable, res->raw_num_used, res->tgo_pxl_mode,
 		 res->tgo_pxl_mode_before_raw, res->opp_idx, res->clk_target,
 		 res->vblank, res->hblank, *out_w, *out_h);
