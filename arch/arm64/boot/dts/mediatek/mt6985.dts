@@ -5858,6 +5858,7 @@
 					<0 0x15170000 0 0x00100>,	/* 19 IMGSYS_DIP_TOP_NR2 */
 					<0 0x15710000 0 0x00100>,	/* 20 IMGSYS_TRAW_DIP1 */
 					<0 0x15330000 0 0x10000>;	/* 21 IMGSYS_ME_MMG */
+			power-domains = <&scpsys MT6985_POWER_DOMAIN_ISP_MAIN>;
 			mediatek,hcp = <&hcp>;
 			mediatek,larbs = <&smi_larb9>,
 					<&smi_larb10>,
