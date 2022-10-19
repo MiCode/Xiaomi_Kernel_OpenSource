@@ -360,7 +360,6 @@ static int uarthub_fb_notifier_callback(struct notifier_block *nb, unsigned long
 	data = *(int *)v;
 
 	if (value == MTK_DISP_EVENT_BLANK) {
-		pr_info("%s+\n", __func__);
 		if (data == MTK_DISP_BLANK_UNBLANK) {
 			pr_info("[%s] %s uarthub enter UNBLANK %s\n",
 				__func__, prefix, postfix);
@@ -389,7 +388,6 @@ static int uarthub_fb_notifier_callback(struct notifier_block *nb, unsigned long
 			pr_info("[%s] %s data(%d) is not UNBLANK or POWERDOWN %s\n",
 				__func__, prefix, data, postfix);
 		}
-		pr_info("%s-\n", __func__);
 	}
 
 	return 0;

@@ -426,10 +426,8 @@ int uarthub_get_spm_res_info_mt6985(void)
 	spm_res2 = UARTHUB_REG_READ_BIT(spm_remap_addr + MD32PCM_SCU_CTRL1,
 		MD32PCM_SCU_CTRL1_MASK) >> MD32PCM_SCU_CTRL1_SHIFT;
 
-	if (spm_res1 != 0x1D || spm_res2 != 0x17) {
-		pr_info("[%s], spm_res1=0x%x, spm_res2=0x%x\n", __func__, spm_res1, spm_res2);
+	if (spm_res1 != 0x1D || spm_res2 != 0x17)
 		return 0;
-	}
 
 	return 1;
 }
