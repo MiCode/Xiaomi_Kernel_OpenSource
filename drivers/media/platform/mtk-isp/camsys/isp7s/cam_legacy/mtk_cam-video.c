@@ -2557,27 +2557,33 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 		if (extmeta_size) {
 			f->fmt.meta.buffersize = extmeta_size;
 			f->fmt.meta.dataformat = default_fmt->fmt.meta.dataformat;
+			/* fake for backend compose */
+			node->active_fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_SBGGR8;
+			node->active_fmt.fmt.pix_mp.width = cam->raw
+				.pipelines[node->uid.pipe_id].cfg[node->desc.id].mbus_fmt.width;
+			node->active_fmt.fmt.pix_mp.height = cam->raw
+				.pipelines[node->uid.pipe_id].cfg[node->desc.id].mbus_fmt.height;
+			node->active_fmt.fmt.pix_mp.num_planes = 1;
+			cal_image_pix_mp(node->desc.id, &node->active_fmt.fmt.pix_mp, 3);
+			dev_info(cam->dev,
+				"%s:extmeta name:%s buffersize:%d, fmt:0x%x, w/h/byteline:%d/%d/%d\n",
+				__func__, node->desc.name, f->fmt.meta.buffersize,
+				node->active_fmt.fmt.pix_mp.pixelformat,
+				node->active_fmt.fmt.pix_mp.width,
+				node->active_fmt.fmt.pix_mp.height,
+				node->active_fmt.fmt.pix_mp.plane_fmt[0].bytesperline);
 		} else {
 			f->fmt.meta.buffersize =
 				CAMSV_EXT_META_0_WIDTH * CAMSV_EXT_META_0_HEIGHT;
 			f->fmt.meta.dataformat = default_fmt->fmt.meta.dataformat;
+			dev_info(cam->dev,
+				"%s:zero size:extmeta name:%s buffersize:%d, fmt:0x%x, w/h/byteline:%d/%d/%d\n",
+				__func__, node->desc.name, f->fmt.meta.buffersize,
+				node->active_fmt.fmt.pix_mp.pixelformat,
+				node->active_fmt.fmt.pix_mp.width,
+				node->active_fmt.fmt.pix_mp.height,
+				node->active_fmt.fmt.pix_mp.plane_fmt[0].bytesperline);
 		}
-		/* fake for backend compose */
-		node->active_fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_SBGGR8;
-		node->active_fmt.fmt.pix_mp.width = cam->raw
-			.pipelines[node->uid.pipe_id].cfg[node->desc.id].mbus_fmt.width;
-		node->active_fmt.fmt.pix_mp.height = cam->raw
-			.pipelines[node->uid.pipe_id].cfg[node->desc.id].mbus_fmt.height;
-		node->active_fmt.fmt.pix_mp.num_planes = 1;
-		cal_image_pix_mp(node->desc.id, &node->active_fmt.fmt.pix_mp, 3);
-		dev_dbg(cam->dev,
-			"%s:extmeta name:%s buffersize:%d, fmt:0x%x, w/h/byteline:%d/%d/%d\n",
-			__func__, node->desc.name, node->active_fmt.fmt.meta.buffersize,
-			node->active_fmt.fmt.pix_mp.pixelformat,
-			node->active_fmt.fmt.pix_mp.width,
-			node->active_fmt.fmt.pix_mp.height,
-			node->active_fmt.fmt.pix_mp.plane_fmt[0].bytesperline);
-
 		return 0;
 	default:
 		break;

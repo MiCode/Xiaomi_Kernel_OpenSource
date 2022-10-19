@@ -4654,7 +4654,7 @@ static struct mtk_cam_format_desc meta_ext_fmts[] = {
 	{
 		.vfmt.fmt.meta = {
 			.dataformat = V4L2_META_FMT_MTISP_3A,
-			.buffersize = 0,
+			.buffersize = 4,
 		},
 	},
 };
