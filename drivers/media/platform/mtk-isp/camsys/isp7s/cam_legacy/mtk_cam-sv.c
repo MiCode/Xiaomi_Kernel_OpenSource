@@ -1671,7 +1671,7 @@ int mtk_cam_sv_frame_no_inner(struct mtk_camsv_device *dev)
 	return readl_relaxed(dev->base_inner + REG_CAMSVCENTRAL_FRAME_SEQ_NO);
 }
 
-int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx)
+int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx, int initial)
 {
 	struct mtk_camsv_working_buf_entry *buf_entry;
 	int i;
@@ -1700,7 +1700,7 @@ int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx)
 				buf_entry->buffer.iova,
 				buf_entry->sv_cq_desc_size,
 				buf_entry->sv_cq_desc_offset,
-				0);
+				initial);
 		if (watchdog_scenario(ctx)) {
 			for (i = 0; i < ctx->used_sv_num; i++) {
 				if (buf_entry->s_data->req->pipe_used &
@@ -1735,11 +1735,14 @@ void apply_camsv_cq(struct mtk_camsv_device *dev,
 	CAMSV_WRITE_BITS(dev->base_scq + REG_CAMSVCQTOP_THR_START,
 		CAMSVCQTOP_THR_START, CAMSVCQTOP_CSR_CQ_THR0_START, 1);
 
-	if (initial)
+	if (initial) {
+		/* enable stagger mode for multiple vsync(s) */
+		CAMSV_WRITE_BITS(dev->base_scq + REG_CAMSVCQ_CQ_EN,
+			CAMSVCQ_CQ_EN, CAMSVCQ_SCQ_STAGGER_MODE, 1);
 		dev_info(dev->dev, "apply 1st camsv scq: addr_msb:0x%x addr_lsb:0x%x size:%d cq_en(0x%x))",
 			cq_addr_msb, cq_addr_lsb, cq_size,
-			readl_relaxed(dev->base_scq + REG_CAMSVCQTOP_THR_START));
-	else
+			readl_relaxed(dev->base_scq + REG_CAMSVCQ_CQ_EN));
+	} else
 		dev_dbg(dev->dev, "apply camsv scq: addr_msb:0x%x addr_lsb:0x%x size:%d",
 			cq_addr_msb, cq_addr_lsb, cq_size);
 }
@@ -1814,9 +1817,9 @@ int mtk_cam_sv_cq_config(struct mtk_camsv_device *camsv_dev)
 	/* camsv todo: db en */
 	CAMSV_WRITE_BITS(camsv_dev->base_scq + REG_CAMSVCQ_CQ_EN,
 		CAMSVCQ_CQ_EN, CAMSVCQ_CQ_DB_EN, 0);
-	/* always enable stagger mode for multiple vsync(s) */
+	/* reset stagger mode */
 	CAMSV_WRITE_BITS(camsv_dev->base_scq + REG_CAMSVCQ_CQ_EN,
-		CAMSVCQ_CQ_EN, CAMSVCQ_SCQ_STAGGER_MODE, 1);
+		CAMSVCQ_CQ_EN, CAMSVCQ_SCQ_STAGGER_MODE, 0);
 	CAMSV_WRITE_BITS(camsv_dev->base_scq + REG_CAMSVCQ_CQ_SUB_THR0_CTL,
 		CAMSVCQ_CQ_SUB_THR0_CTL, CAMSVCQ_CQ_SUB_THR0_MODE, 1);
 	/* camsv todo: start period need to be calculated */

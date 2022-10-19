@@ -336,7 +336,7 @@ int mtk_cam_sv_central_common_enable(struct mtk_camsv_device *dev);
 int mtk_cam_sv_fbc_disable(struct mtk_camsv_device *dev, unsigned int tag_idx);
 int mtk_cam_sv_enquehwbuf(struct mtk_camsv_device *dev,
 	dma_addr_t ba, unsigned int seq_no, unsigned int tag);
-int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx);
+int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx, int initial);
 unsigned int mtk_cam_get_sv_tag_index(struct mtk_cam_ctx *ctx,
 		unsigned int pipe_id);
 int mtk_cam_sv_dev_pertag_write_rcnt(

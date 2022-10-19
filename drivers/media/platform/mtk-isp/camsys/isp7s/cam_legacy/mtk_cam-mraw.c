@@ -630,7 +630,7 @@ void apply_mraw_cq(struct mtk_mraw_device *dev,
 		wmb(); /* TBC */
 		dev_info(dev->dev,
 			"apply 1st mraw%d scq - addr/size = [main] 0x%llx/%d cq_en(0x%x)\n",
-			dev->id, cq_addr, cq_size, readl_relaxed(dev->base + REG_MRAW_CTL_START));
+			dev->id, cq_addr, cq_size, readl_relaxed(dev->base + REG_MRAW_CQ_EN));
 	} else {
 #if USING_MRAW_SCQ
 		writel_relaxed(MRAWCTL_CQ_THR0_START, dev->base + REG_MRAW_CTL_START);
@@ -1069,18 +1069,21 @@ void mtk_cam_mraw_get_mbn_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 	switch (param->mbn_dir) {
 	case MBN_POW_VERTICAL:
 	case MBN_POW_HORIZONTAL:
-		mtk_cam_mraw_set_dense_fmt(cam->dev, width,
-			height, param, imgo_m1);
+		mtk_cam_mraw_set_dense_fmt(
+			cam->mraw.devs[pipe_id - MTKCAM_SUBDEV_MRAW_START],
+			width, height, param, imgo_m1);
 		break;
 	case MBN_POW_SPARSE_CONCATENATION:
-		mtk_cam_mraw_set_concatenation_fmt(cam->dev, width,
-			height, param, imgo_m1);
+		mtk_cam_mraw_set_concatenation_fmt(
+			cam->mraw.devs[pipe_id - MTKCAM_SUBDEV_MRAW_START],
+			width, height, param, imgo_m1);
 		break;
 	case MBN_POW_SPARSE_INTERLEVING:
 		mtk_cam_mraw_set_interleving_fmt(width, height, imgo_m1);
 		break;
 	default:
-		dev_info(cam->dev, "%s:MBN's dir %d %s fail",
+		dev_info(cam->mraw.devs[pipe_id - MTKCAM_SUBDEV_MRAW_START],
+			"%s:MBN's dir %d %s fail",
 			__func__, param->mbn_dir, "unknown idx");
 		return;
 	}
@@ -1098,24 +1101,27 @@ void mtk_cam_mraw_get_cpi_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 	switch (param->cpi_dir) {
 	case CPI_POW_VERTICAL:
 	case CPI_POW_HORIZONTAL:
-		mtk_cam_mraw_set_dense_fmt(cam->dev, width,
-			height, param, cpio_m1);
+		mtk_cam_mraw_set_dense_fmt(
+			cam->mraw.devs[pipe_id - MTKCAM_SUBDEV_MRAW_START],
+			width, height, param, cpio_m1);
 		break;
 	case CPI_POW_SPARSE_CONCATENATION:
-		mtk_cam_mraw_set_concatenation_fmt(cam->dev, width,
-			height, param, cpio_m1);
+		mtk_cam_mraw_set_concatenation_fmt(
+			cam->mraw.devs[pipe_id - MTKCAM_SUBDEV_MRAW_START],
+			width, height, param, cpio_m1);
 		break;
 	case CPI_POW_SPARSE_INTERLEVING:
 		mtk_cam_mraw_set_interleving_fmt(width, height, cpio_m1);
 		break;
 	default:
-		dev_info(cam->dev, "%s:CPI's dir %d %s fail",
+		dev_info(cam->mraw.devs[pipe_id - MTKCAM_SUBDEV_MRAW_START],
+			"%s:CPI's dir %d %s fail",
 			__func__, param->cpi_dir, "unknown idx");
 		return;
 	}
 }
 
-int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx)
+int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, int initial)
 {
 	struct mtk_mraw_working_buf_entry *buf_entry;
 	struct mtk_mraw_device *mraw_dev;
@@ -1146,7 +1152,7 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx)
 			apply_mraw_cq(mraw_dev,
 				buf_entry->buffer.iova,
 				buf_entry->mraw_cq_desc_size,
-				buf_entry->mraw_cq_desc_offset, 0);
+				buf_entry->mraw_cq_desc_offset, initial);
 		} else {
 			mtk_ctx_watchdog_stop(ctx, ctx->mraw_pipe[i]->id);
 			if (buf_entry->s_data->pad_fmt_update & (1 << MTK_MRAW_SINK))

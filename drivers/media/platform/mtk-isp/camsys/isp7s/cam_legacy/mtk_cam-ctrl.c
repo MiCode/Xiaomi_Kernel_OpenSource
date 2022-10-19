@@ -2938,10 +2938,10 @@ void mtk_cam_m2m_try_apply_cq(struct mtk_cam_ctx *ctx)
 
 		/* all (raw/sv/mraw) buffer entry should be transited */
 		/* from composed to processing */
-		if (mtk_cam_sv_apply_all_buffers(ctx) == 0)
+		if (mtk_cam_sv_apply_all_buffers(ctx, 0) == 0)
 			dev_info(raw_dev->dev, "sv apply all buffers failed");
 
-		if (mtk_cam_mraw_apply_all_buffers(ctx) == 0)
+		if (mtk_cam_mraw_apply_all_buffers(ctx, 0) == 0)
 			dev_info(raw_dev->dev, "mraw apply all buffers failed");
 
 		s_data->timestamp = ktime_get_boottime_ns();
@@ -3272,12 +3272,12 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	}
 
 	if (is_apply) {
-		if (mtk_cam_sv_apply_all_buffers(ctx) == 0)
+		if (mtk_cam_sv_apply_all_buffers(ctx, 0) == 0)
 			dev_info(raw_dev->dev, "sv apply all buffers failed");
 	}
 
 	if (ctx->used_mraw_num && is_apply) {
-		if (mtk_cam_mraw_apply_all_buffers(ctx) == 0)
+		if (mtk_cam_mraw_apply_all_buffers(ctx, 0) == 0)
 			dev_info(raw_dev->dev, "mraw apply all buffers failed");
 	}
 }
@@ -3366,11 +3366,11 @@ void mtk_camsys_composed_delay_enque(struct mtk_raw_device *raw_dev,
 	}
 
 	if (is_apply) {
-		if (mtk_cam_sv_apply_all_buffers(ctx) == 0)
+		if (mtk_cam_sv_apply_all_buffers(ctx, 0) == 0)
 			dev_info(raw_dev->dev, "sv apply all buffers failed");
 	}
 	if (ctx->used_mraw_num && is_apply) {
-		if (mtk_cam_mraw_apply_all_buffers(ctx) == 0)
+		if (mtk_cam_mraw_apply_all_buffers(ctx, 0) == 0)
 			dev_info(raw_dev->dev, "mraw apply all buffers failed");
 	}
 }
@@ -3571,11 +3571,11 @@ int hdr_apply_cq_at_last_sof(struct mtk_raw_device *raw_dev,
 	}
 
 	if (is_apply) {
-		if (mtk_cam_sv_apply_all_buffers(ctx) == 0)
+		if (mtk_cam_sv_apply_all_buffers(ctx, 0) == 0)
 			dev_info(raw_dev->dev, "sv apply all buffers failed");
 	}
 	if (ctx->used_mraw_num && is_apply) {
-		if (mtk_cam_mraw_apply_all_buffers(ctx) == 0)
+		if (mtk_cam_mraw_apply_all_buffers(ctx, 0) == 0)
 			dev_info(raw_dev->dev, "mraw apply all buffers failed");
 	}
 
@@ -4465,10 +4465,10 @@ mtk_camsys_raw_change_pipeline(struct mtk_cam_ctx *ctx,
 		 buf_entry->sub_cq_desc_offset);
 	ts_ns = ktime_get_boottime_ns();
 
-	if (mtk_cam_sv_apply_all_buffers(ctx) == 0)
+	if (mtk_cam_sv_apply_all_buffers(ctx, 1) == 0)
 		dev_info(raw_dev->dev, "sv apply all buffers failed");
 
-	if (mtk_cam_mraw_apply_all_buffers(ctx) == 0)
+	if (mtk_cam_mraw_apply_all_buffers(ctx, 1) == 0)
 		dev_info(raw_dev->dev, "mraw apply all buffers failed");
 
 	mutex_unlock(&ctx->sensor_switch_op_lock);
@@ -5120,7 +5120,7 @@ static void mtk_camsys_camsv_frame_start(struct mtk_camsv_device *camsv_dev,
 	/* apply next buffer */
 	if (ctx->stream_id >= MTKCAM_SUBDEV_CAMSV_START &&
 		ctx->stream_id < MTKCAM_SUBDEV_CAMSV_END) {
-		if (mtk_cam_sv_apply_all_buffers(ctx)) {
+		if (mtk_cam_sv_apply_all_buffers(ctx, 0)) {
 			/* transit state from sensor -> outer */
 			if (ctx->sensor)
 				state_transition(current_state, E_STATE_SENSOR, E_STATE_OUTER);
@@ -5691,7 +5691,8 @@ int mtk_camsv_special_hw_scenario_handler(struct mtk_cam_device *cam,
 			mtk_camsys_camsv_frame_start(camsv_dev, ctx,
 				irq_info->frame_idx_inner, tag_idx);
 #endif
-		if (!bDcif && (camsv_dev->first_tag == (1 << tag_idx)))
+		if (!bDcif && (camsv_dev->first_tag == (1 << tag_idx)) &&
+			(ctx->pure_raw_sv_tag_idx != tag_idx))
 			mtk_camsys_raw_frame_start(raw_dev, ctx, irq_info);
 	}
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_DONE)) {
@@ -6381,12 +6382,12 @@ void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 		req = mtk_cam_ctrl_state_get_req(state_sensor);
 		stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 		/* apply sv buffer */
-		if (mtk_cam_sv_apply_all_buffers(ctx) == 0) {
+		if (mtk_cam_sv_apply_all_buffers(ctx, 0) == 0) {
 			dev_info(cam->dev, "sv apply all buffers failed");
 			ret = 1;
 		}
 		/* apply mraw buffer */
-		if (mtk_cam_mraw_apply_all_buffers(ctx) == 0) {
+		if (mtk_cam_mraw_apply_all_buffers(ctx, 0) == 0) {
 			dev_info(cam->dev, "mraw apply all buffers failed");
 		}
 		if (ret == 0) {

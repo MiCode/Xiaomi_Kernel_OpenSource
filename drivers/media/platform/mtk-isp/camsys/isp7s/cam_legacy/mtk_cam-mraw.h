@@ -237,7 +237,7 @@ void mraw_reset(struct mtk_mraw_device *dev);
 int mtk_cam_mraw_pipeline_config(struct mtk_cam_ctx *ctx, unsigned int idx);
 struct device *mtk_cam_find_mraw_dev(
 	struct mtk_cam_device *cam, unsigned int mraw_mask);
-int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx);
+int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, int initial);
 int mtk_cam_mraw_dev_config(
 	struct mtk_cam_ctx *ctx, unsigned int idx);
 int mtk_cam_mraw_dev_stream_on(struct mtk_cam_ctx *ctx,
