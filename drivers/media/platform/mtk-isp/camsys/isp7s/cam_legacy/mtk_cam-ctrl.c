@@ -3690,6 +3690,14 @@ int mtk_cam_hdr_last_frame_start(struct mtk_raw_device *raw_dev,
 	hdr_apply_cq_at_last_sof(raw_dev, ctx,
 		state_sensor, irq_info);
 
+	if ((irq_info->ts_ns / 1000000 - sensor_ctrl->sof_time) >
+		sensor_ctrl->timer_req_event) {
+		dev_dbg(ctx->cam->dev, "last sof over drain (SE:%llu, NE:%llu)\n",
+			irq_info->ts_ns / 1000000, sensor_ctrl->sof_time);
+		mtk_cam_submit_kwork_in_sensorctrl(
+			sensor_ctrl->sensorsetting_wq, sensor_ctrl);
+	}
+
 	return 0;
 }
 
