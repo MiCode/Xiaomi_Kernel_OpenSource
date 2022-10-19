@@ -3398,6 +3398,19 @@ void fs_update_shutter(struct fs_perframe_st (*pf_ctrl))
 		return;
 	}
 
+	if (fs_chk_seamless_switch_status(idx)) {
+		LOG_MUST(
+			"NOTICE: [%u] ID:%#x(sidx:%u), (%d/%u), in seamless frame, seamless(%#x, sof_cnt:%u), skip/return\n",
+			idx,
+			pf_ctrl->sensor_id,
+			pf_ctrl->sensor_idx,
+			pf_ctrl->req_id,
+			fs_mgr.sof_cnt_arr[idx],
+			FS_ATOMIC_READ(&fs_mgr.seamless_bits),
+			fs_mgr.seamless_ctrl[idx].seamless_sof_cnt);
+		return;
+	}
+
 	// fs_mgr.pf_ctrl[idx] = *pf_ctrl;
 	/* ONLY update frame length value (we care this value) */
 	/* Not modify other data that getting from set shutter API */

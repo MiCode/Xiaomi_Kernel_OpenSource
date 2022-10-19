@@ -806,7 +806,9 @@ static unsigned int calc_seamless_frame_time_us(const unsigned int idx,
 	else
 		re_exp_lc = p_seamless_info->seamless_pf_ctrl.hdr_exp.exp_lc[0];
 
-	re_exp_us = convert2TotalTime(fs_inst[idx].lineTimeInNs, re_exp_lc);
+	re_exp_us = convert2TotalTime(
+			p_seamless_info->seamless_pf_ctrl.lineTimeInNs,
+			re_exp_lc);
 
 	/* read back some last pf ctrl settings for calculating */
 	if (mode_exp_cnt) {
@@ -840,13 +842,15 @@ static unsigned int calc_seamless_frame_time_us(const unsigned int idx,
 		+ hw_init_time_us + re_exp_us;
 
 	LOG_MUST(
-		"[%u] ID:%#x(sidx:%u), seamless_frame_time_us:%u (readout_start_shift_us:%u, orig_readout_time_us:%u, hw_init_time_us:%u, re_exp_us:%u)\n",
+		"[%u] ID:%#x(sidx:%u), seamless_frame_time_us:%u (readout_start_shift_us:%u, orig_readout_time_us:%u, hw_init_time_us:%u, re_exp_us:%u, line_time(ns):(%u => %u)\n",
 		idx, fs_inst[idx].sensor_id, fs_inst[idx].sensor_idx,
 		ret,
 		readout_start_shift_us,
 		p_seamless_info->orig_readout_time_us,
 		hw_init_time_us,
-		re_exp_us);
+		re_exp_us,
+		fs_inst[idx].lineTimeInNs,
+		p_seamless_info->seamless_pf_ctrl.lineTimeInNs);
 
 	return ret;
 }
