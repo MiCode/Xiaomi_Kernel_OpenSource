@@ -49,6 +49,7 @@ static int vcp_pwr_usage[VCP_PWR_USR_NUM];
 static DEFINE_MUTEX(mmdvfs_vcp_pwr_mutex);
 static struct workqueue_struct *vmm_notify_wq;
 
+static bool mmdvfs_vcp_cb_ready;
 static int mmdvfs_ipi_status;
 static DEFINE_MUTEX(mmdvfs_vcp_ipi_mutex);
 static struct ipi_callbacks clkmux_cb;
@@ -139,7 +140,7 @@ int mtk_mmdvfs_enable_vcp(const bool enable, const u8 idx)
 
 enable_vcp_end:
 	if (ret || (log_level & (1 << log_pwr)))
-		MMDVFS_ERR("ret:%d enable:%d vcp_power:%d idx:%hhu usage:%d",
+		MMDVFS_DBG("ret:%d enable:%d vcp_power:%d idx:%hhu usage:%d",
 			ret, enable, vcp_power, idx, vcp_pwr_usage[idx]);
 	mutex_unlock(&mmdvfs_vcp_pwr_mutex);
 	return ret;
@@ -192,7 +193,8 @@ EXPORT_SYMBOL_GPL(mtk_mmdvfs_enable_ccu);
 
 static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp, u32 *data) // ap > vcp
 {
-	struct mmdvfs_ipi_data slot = {func, idx, opp};
+	struct mmdvfs_ipi_data slot = {
+		func, idx, opp, mmdvfs_memory_iova >> 32, (u32)mmdvfs_memory_iova};
 	int gen, ret = 0, retry = 0;
 	u32 val;
 
@@ -205,7 +207,7 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp, u32 *d
 		val = readl(MEM_CLKMUX_ENABLE);
 		if ((opp && (val & (1 << idx))) || (!opp && !(val & (1 << idx)))) {
 			ret = -EINVAL;
-			goto ipi_send_end;
+			goto ipi_lock_end;
 		}
 		writel(opp ? (val | (1 << idx)) : (val & ~(1 << idx)), MEM_CLKMUX_ENABLE);
 		break;
@@ -215,14 +217,14 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp, u32 *d
 	case FUNC_VMM_GENPD_NOTIFY:
 		if (idx >= VMM_USR_NUM) {
 			ret = -EINVAL;
-			goto ipi_send_end;
+			goto ipi_lock_end;
 		}
 		writel(opp, MEM_GENPD_ENABLE_USR(idx));
 		break;
 	case FUNC_VMM_AVS_UPDATE:
 		if (idx >= VMM_USR_NUM) {
 			ret = -EINVAL;
-			goto ipi_send_end;
+			goto ipi_lock_end;
 		}
 		writel(data[0], MEM_AGING_CNT_USR(idx));
 		writel(data[1], MEM_FRESH_CNT_USR(idx));
@@ -234,15 +236,10 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp, u32 *d
 		writel(opp, MEM_VOTE_OPP_USR(idx));
 		break;
 	}
-	writel(0, MEM_IPI_SYNC_DATA);
 	val = readl(MEM_IPI_SYNC_FUNC);
-	writel(val | (1 << func), MEM_IPI_SYNC_FUNC);
+	mutex_unlock(&mmdvfs_vcp_ipi_mutex);
 
-	slot.ack = mmdvfs_memory_iova >> 32;
-	slot.base = (u32)mmdvfs_memory_iova;
-	gen = vcp_cmd_ex(VCP_GET_GEN);
-
-	while (!is_vcp_ready_ex(VCP_A_ID)) {
+	while (!is_vcp_ready_ex(VCP_A_ID) || (!mmdvfs_vcp_cb_ready && func != FUNC_MMDVFS_INIT)) {
 		if (func == FUNC_VMM_GENPD_NOTIFY)
 			goto ipi_send_end;
 		if (++retry > 100) {
@@ -252,10 +249,15 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp, u32 *d
 		usleep_range(1000, 2000);
 	}
 
+	mutex_lock(&mmdvfs_vcp_ipi_mutex);
+	writel(0, MEM_IPI_SYNC_DATA);
+	writel(val | (1 << func), MEM_IPI_SYNC_FUNC);
+	gen = vcp_cmd_ex(VCP_GET_GEN);
+
 	ret = mtk_ipi_send(vcp_get_ipidev(), IPI_OUT_MMDVFS, IPI_SEND_WAIT,
 		&slot, PIN_OUT_SIZE_MMDVFS, IPI_TIMEOUT_MS);
 	if (ret != IPI_ACTION_DONE)
-		goto ipi_send_end;
+		goto ipi_lock_end;
 
 	retry = 0;
 	while (!(readl(MEM_IPI_SYNC_DATA) & (1 << func))) {
@@ -275,13 +277,17 @@ static int mmdvfs_vcp_ipi_send(const u8 func, const u8 idx, const u8 opp, u32 *d
 	else if (gen == vcp_cmd_ex(VCP_GET_GEN))
 		vcp_cmd_ex(VCP_SET_HALT);
 
+ipi_lock_end:
+	val = readl(MEM_IPI_SYNC_FUNC);
+	mutex_unlock(&mmdvfs_vcp_ipi_mutex);
+
 ipi_send_end:
 	if (ret || (log_level & (1 << log_ipi)))
-		MMDVFS_ERR("ret:%d retry:%d ready:%d slot:%#llx vcp_power:%d unfinish func:%#x",
-			ret, retry, is_vcp_ready_ex(VCP_A_ID), *(u64 *)&slot, vcp_power,
-			readl(MEM_IPI_SYNC_FUNC));
+		MMDVFS_DBG(
+			"ret:%d retry:%d ready:%d cb_ready:%d slot:%#llx vcp_power:%d unfinish func:%#x",
+			ret, retry, is_vcp_ready_ex(VCP_A_ID), mmdvfs_vcp_cb_ready,
+			*(u64 *)&slot, vcp_power, val);
 	mmdvfs_ipi_status = ret;
-	mutex_unlock(&mmdvfs_vcp_ipi_mutex);
 	return ret;
 }
 
@@ -290,7 +296,7 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate, unsigned l
 	struct mtk_mmdvfs_clk *clk = container_of(hw, typeof(*clk), clk_hw);
 	u8 opp, pwr_opp = MAX_OPP, user_opp = MAX_OPP;
 	u32 img_clk = rate / 1000000UL;
-	int i, ret;
+	int i, ret, retry = 0;
 
 	if (!mmdvfs_is_init_done())
 		return 0;
@@ -328,19 +334,29 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate, unsigned l
 		return 0;
 	mmdvfs_pwr_opp[clk->pwr_id] = pwr_opp;
 
-	if (clk->ipi_type == IPI_MMDVFS_CCU)
+
+	while (!is_vcp_ready_ex(VCP_A_ID) || !mmdvfs_vcp_cb_ready) {
+		if (++retry > 100) {
+			ret = -ETIMEDOUT;
+			goto set_rate_end;
+		}
+		usleep_range(1000, 2000);
+	}
+
+	if (clk->ipi_type == IPI_MMDVFS_CCU) {
+		writel(pwr_opp, MEM_VOTE_OPP_USR(clk->user_id));
 		ret = mtk_ccu_rproc_ipc_send(
 			ccu_pdev, MTK_CCU_FEATURE_ISPDVFS, /* DVFS_IMG_CLK */ 4,
 			(void *)&img_clk, sizeof(img_clk));
-	else
+	} else
 		ret = mmdvfs_vcp_ipi_send(FUNC_VOTE_OPP, clk->user_id, pwr_opp, NULL);
 
 set_rate_end:
 	if (ret || (log_level & (1 << log_clk_ops)))
 		MMDVFS_ERR(
-			"ret:%d user_id:%hhu clk_id:%hhu opp:%hhu rate:%lu opp:%hhu pwr_opp:%hhu user_opp:%hhu img_clk:%u",
-			ret, clk->user_id, clk->clk_id, clk->opp, rate, opp,
-			pwr_opp, user_opp, img_clk);
+			"ret:%d retry:%d ready:%d cb_ready:%d user_id:%hhu clk_id:%hhu opp:%hhu rate:%lu opp:%hhu pwr_opp:%hhu user_opp:%hhu img_clk:%u",
+			ret, retry, is_vcp_ready_ex(VCP_A_ID), mmdvfs_vcp_cb_ready,
+			clk->user_id, clk->clk_id, clk->opp, rate, opp, pwr_opp, user_opp, img_clk);
 	return ret;
 }
 
@@ -812,6 +828,10 @@ static int mmdvfs_vcp_notifier_callback(struct notifier_block *nb, unsigned long
 	switch (action) {
 	case VCP_EVENT_READY:
 		mmdvfs_vcp_ipi_send(FUNC_MMDVFS_INIT, MAX_OPP, MAX_OPP, NULL);
+		mmdvfs_vcp_cb_ready = true;
+		break;
+	case VCP_EVENT_STOP:
+		mmdvfs_vcp_cb_ready = false;
 		break;
 	}
 	return NOTIFY_DONE;
