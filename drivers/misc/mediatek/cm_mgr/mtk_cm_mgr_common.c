@@ -1003,6 +1003,7 @@ struct tracepoints_table {
 static void cm_mgr_cpu_frequency_tracer(void *ignore, unsigned int frequency,
 		unsigned int cpu_id)
 {
+	int ret = 0;
 	int cpu = 0, cluster = 0;
 	struct cpufreq_policy *policy = NULL;
 	unsigned int idx = 0;
@@ -1013,8 +1014,13 @@ static void cm_mgr_cpu_frequency_tracer(void *ignore, unsigned int frequency,
 	ts[0] = sched_clock();
 #endif
 
-	if (!cm_mgr_cpu_map_dram_enable)
+	if (!cm_mgr_cpu_map_dram_enable) {
+		if (cm_work_flag && cm_mgr_cpu_to_dram_opp != cm_mgr_num_perf) {
+			cm_mgr_cpu_to_dram_opp = cm_mgr_num_perf;
+			ret = schedule_delayed_work(&cm_mgr_work, 1);
+		}
 		return;
+	}
 
 	policy = cpufreq_cpu_get(cpu_id);
 	if (!policy)
@@ -1192,8 +1198,8 @@ fail_reg_cpu_frequency_entry:
 
 	if (cm_mgr_use_cpu_to_dram_map) {
 		cm_mgr_add_cpu_opp_to_ddr_req();
-		cm_work_flag = 1;
 		INIT_DELAYED_WORK(&cm_mgr_work, cm_mgr_process);
+		cm_work_flag = 1;
 	}
 
 	return 0;

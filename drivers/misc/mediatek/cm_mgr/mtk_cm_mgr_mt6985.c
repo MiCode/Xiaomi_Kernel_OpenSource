@@ -498,6 +498,8 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 
 	dev_pm_genpd_set_performance_state(&pdev->dev, 0);
 
+	cm_mgr_get_sspm_version();
+
 	cm_mgr_set_disable_fb(0);
 
 	cm_mgr_init_done = 1;
