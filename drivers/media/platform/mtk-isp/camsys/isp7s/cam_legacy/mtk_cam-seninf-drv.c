@@ -1221,7 +1221,7 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 
 			g_seninf_ops->_set_test_model(ctx,
 					vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->pixel_mode,
-					vc_dt_filter, i, vc[i]->vc, vc[i]->dt);
+					vc_dt_filter, i, vc[i]->vc, vc[i]->dt, vc[i]->vc);
 
 			if (vc[i]->out_pad == PAD_SRC_PDAF0)
 				mdelay(40);

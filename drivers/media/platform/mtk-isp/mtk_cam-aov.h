@@ -30,6 +30,7 @@ struct seninf_vc {
 	u16 exp_vsize;
 	u8 bit_depth;
 	u8 dt_remap_to_type;
+	u8 muxvr_offset;
 };
 
 /* camsys supported parameter */

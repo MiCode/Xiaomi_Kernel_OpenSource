@@ -152,7 +152,7 @@ struct seninf_mux *mtk_cam_seninf_mux_get_by_type(struct seninf_ctx *ctx,
 
 #define SAT_MUX_FACTOR 8
 
-int mux2mux_vr(struct seninf_ctx *ctx, int mux, int cammux)
+int mux2mux_vr(struct seninf_ctx *ctx, int mux, int cammux, int vc_idx)
 {
 	int sat_mux_factor = SAT_MUX_FACTOR;
 	struct seninf_core *core = ctx->core;
@@ -168,7 +168,7 @@ int mux2mux_vr(struct seninf_ctx *ctx, int mux, int cammux)
 	else if (mux >= sat_mux_first && mux <= sat_mux_second) {
 		mux_vr = sat_mux_first + ((mux - sat_mux_first) * sat_mux_factor);
 		if (cammux >= sat_cammux_first && cammux <= sat_cammux_second)
-			mux_vr += ((cammux - sat_cammux_first) % sat_mux_factor);
+			mux_vr += vc_idx;
 	} else
 		mux_vr = (mux - sat_mux_second) + (num_sat_mux * sat_mux_factor) - 1;
 
@@ -314,6 +314,9 @@ void mtk_cam_seninf_mux_put(struct seninf_ctx *ctx, struct seninf_mux *mux)
 {
 	struct seninf_core *core = ctx->core;
 	int i, j;
+
+	// disable mux and the cammux if cammux already disabled
+	g_seninf_ops->_disable_mux(ctx, mux->idx);
 
 	mutex_lock(&core->mutex);
 	list_move_tail(&mux->list, &core->list_mux);
@@ -667,6 +670,8 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 	int i, raw_cnt;
 	int desc;
 	int ret = 0;
+	int *vcid_map = NULL;
+	int j, map_cnt;
 
 	if (!ctx->sensor_sd)
 		return -EINVAL;
@@ -691,12 +696,27 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 	vcinfo->cnt = 0;
 	raw_cnt = 0;
 
+	vcid_map = kmalloc_array(fd.num_entries, sizeof(int), GFP_KERNEL);
+	map_cnt = 0;
+	if (!vcid_map)
+		return -EINVAL;
+
 	for (i = 0; i < fd.num_entries; i++) {
 		vc = &vcinfo->vc[vcinfo->cnt];
 		vc->vc = fd.entry[i].bus.csi2.channel;
 		vc->dt = fd.entry[i].bus.csi2.data_type;
 		desc = fd.entry[i].bus.csi2.user_data_desc;
 		vc->dt_remap_to_type = fd.entry[i].bus.csi2.dt_remap_to_type;
+
+		for (j = 0; j < map_cnt; j++) {
+			if (vcid_map[j] == vc->vc)
+				break;
+		}
+		if (map_cnt == j) { /* not found in vc id map */
+			vcid_map[j] = vc->vc;
+			map_cnt = j + 1;
+		}
+		vc->muxvr_offset = j;
 
 		switch (desc) {
 		case VC_3HDR_Y:
@@ -897,10 +917,10 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 		}
 
 		dev_info(ctx->dev,
-			"%s vc[%d] vc 0x%x dt 0x%x pad %d exp %dx%d grp 0x%x code 0x%x, fsync_ext_vsync_pad_code:%#llx\n",
+			"%s vc[%d] vc 0x%x dt 0x%x pad %d exp %dx%d grp 0x%x muxvr_offset %d code 0x%x, fsync_ext_vsync_pad_code:%#llx\n",
 			__func__,
 			vcinfo->cnt, vc->vc, vc->dt, vc->out_pad,
-			vc->exp_hsize, vc->exp_vsize, vc->group,
+			vc->exp_hsize, vc->exp_vsize, vc->group, vc->muxvr_offset,
 			ctx->fmt[vc->out_pad].format.code,
 			fsync_ext_vsync_pad_code);
 
@@ -908,6 +928,8 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 	}
 
 	setup_fsync_vsync_src_pad(ctx, fsync_ext_vsync_pad_code);
+
+	kfree(vcid_map);
 
 	return 0;
 }
@@ -1093,6 +1115,9 @@ static struct seninf_mux *get_mux(struct seninf_ctx *ctx, struct seninf_vc *vc,
 
 		g_seninf_ops->_set_top_mux_ctrl(ctx, mux->idx, intf);
 
+		// set vc split
+		g_seninf_ops->_set_mux_vc_split_all(ctx, mux->idx);
+
 		//TODO
 		//mtk_cam_seninf_set_mux_crop(ctx, mux->idx, 0, 2327, 0);
 	}
@@ -1143,7 +1168,7 @@ int _mtk_cam_seninf_set_camtg_with_dest_idx(struct v4l2_subdev *sd, int pad_id,
 #ifdef SENSOR_SECURE_MTEE_SUPPORT
 		if (ctx->is_secure == 1) {
 			dest->cam = camtg;
-			dest->mux_vr = mux2mux_vr(ctx, dest->mux, dest->cam);
+			dest->mux_vr = mux2mux_vr(ctx, dest->mux, dest->cam, vc->muxvr_offset);
 
 			dev_info(ctx->dev, "Sensor Secure CA");
 			g_seninf_ops->_set_cammux_vc(ctx, dest->cam,
@@ -1191,12 +1216,10 @@ int _mtk_cam_seninf_set_camtg_with_dest_idx(struct v4l2_subdev *sd, int pad_id,
 					dev_info(ctx->dev, "mux is null\n");
 					return -EBUSY;
 				}
-				// set vc split
-				g_seninf_ops->_set_mux_vc_split(ctx, mux->idx,
-								dest->tag, vc->vc);
 
 				dest->mux = mux->idx;
-				dest->mux_vr = mux2mux_vr(ctx, dest->mux, dest->cam);
+				dest->mux_vr = mux2mux_vr(ctx, dest->mux, dest->cam,
+							vc->muxvr_offset);
 
 				g_seninf_ops->_switch_to_cammux_inner_page(ctx, true);
 				g_seninf_ops->_set_cammux_next_ctrl(ctx, 0x3f, dest->cam);
@@ -1488,11 +1511,9 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 			dest->mux = mux->idx;
 
 			if (dest->cam != 0xff) {
-				dest->mux_vr = mux2mux_vr(ctx, dest->mux, dest->cam);
+				dest->mux_vr = mux2mux_vr(ctx, dest->mux, dest->cam,
+							vc->muxvr_offset);
 				dest->tag = ctx->pad_tag_id[vc->out_pad][j];
-				// set vc split
-				g_seninf_ops->_set_mux_vc_split(ctx, dest->mux,
-								dest->tag, vc->vc);
 
 				vc_sel = vc->vc;
 				dt_sel = vc->dt;

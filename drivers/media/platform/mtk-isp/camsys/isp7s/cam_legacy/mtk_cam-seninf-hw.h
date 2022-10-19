@@ -95,8 +95,7 @@ struct mtk_cam_seninf_ops {
 	int (*_set_mux_ctrl)(struct seninf_ctx *ctx, int mux,
 					int hsPol, int vsPol, int src_sel,
 					int pixel_mode);
-	int (*_set_mux_vc_split)(struct seninf_ctx *ctx, int mux,
-					int tag, int vc);
+	int (*_set_mux_vc_split_all)(struct seninf_ctx *ctx, int mux);
 	int (*_set_mux_crop)(struct seninf_ctx *ctx, int mux,
 					int start_x, int end_x, int enable);
 	int (*_is_mux_used)(struct seninf_ctx *ctx, int mux);
@@ -106,7 +105,8 @@ struct mtk_cam_seninf_ops {
 	int (*_set_cammux_chk_pixel_mode)(struct seninf_ctx *ctx,
 							 int cam_mux, int pixelMode);
 	int (*_set_test_model)(struct seninf_ctx *ctx,
-			int mux, int cam_mux, int pixelMode, int filter, int con, int vc, int dt);
+			int mux, int cam_mux, int pixelMode, int filter, int con, int vc, int dt,
+			int muxvr_ofs);
 	int (*_set_csi_mipi)(struct seninf_ctx *ctx);
 	int (*_poweroff)(struct seninf_ctx *ctx);
 	int (*_reset)(struct seninf_ctx *ctx, int seninfIdx);
