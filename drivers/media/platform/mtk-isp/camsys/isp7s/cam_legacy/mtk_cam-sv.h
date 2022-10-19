@@ -317,7 +317,8 @@ unsigned int mtk_cam_sv_format_sel(unsigned int pixel_fmt);
 unsigned int mtk_cam_sv_pak_sel(unsigned int tg_fmt,
 	unsigned int pixel_mode);
 unsigned int mtk_cam_sv_xsize_cal(
-	struct mtkcam_ipi_input_param *cfg_in_param);
+	struct mtkcam_ipi_input_param *cfg_in_param,
+	int img_fmt);
 int mtk_cam_sv_central_common_config(struct mtk_camsv_device *dev,
 	unsigned int sub_ratio);
 int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *dev);

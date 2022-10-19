@@ -1111,13 +1111,13 @@ unsigned int mtk_cam_sv_pak_sel(unsigned int pixel_fmt,
 	return is_unpak;
 }
 
-unsigned int mtk_cam_sv_xsize_cal(struct mtkcam_ipi_input_param *cfg_in_param)
+unsigned int mtk_cam_sv_xsize_cal(struct mtkcam_ipi_input_param *cfg_in_param, int img_fmt)
 {
 
 	unsigned int size = 0;
 	unsigned int divisor = 0;
 
-	switch (cfg_in_param->fmt) {
+	switch (img_fmt) {
 	case V4L2_PIX_FMT_SBGGR8:
 	case V4L2_PIX_FMT_SGBRG8:
 	case V4L2_PIX_FMT_SGRBG8:
@@ -1421,8 +1421,7 @@ int mtk_cam_sv_dmao_pertag_config(
 		CAMSVDMATOP_WDMA_BASIC_IMG1, STRIDE_IMG1,
 		dev->tag_info[tag_idx].stride);
 
-	dev_info(dev->dev, "xsize:%d ysize:%d stride:%d\n",
-		mtk_cam_sv_xsize_cal(cfg_in_param),
+	dev_info(dev->dev, "ysize:%d stride:%d\n",
 		cfg_in_param->in_crop.s.h,
 		dev->tag_info[tag_idx].stride);
 
@@ -1916,7 +1915,7 @@ int mtk_cam_call_sv_pipeline_config(
 	cfg_in_param->raw_pixel_id = mtk_cam_get_sensor_pixel_id(mf->code);
 	cfg_in_param->subsample = sub_ratio;
 
-	bbp = mtk_cam_sv_xsize_cal(cfg_in_param);
+	bbp = mtk_cam_sv_xsize_cal(cfg_in_param, img_fmt->fmt.pix_mp.pixelformat);
 	if (bbp < img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline)
 		tag_info->stride = img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline;
 	else

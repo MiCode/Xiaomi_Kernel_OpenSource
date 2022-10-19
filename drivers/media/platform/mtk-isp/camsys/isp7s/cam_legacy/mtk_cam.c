@@ -8067,6 +8067,7 @@ int mtk_cam_sv_dev_config(struct mtk_cam_ctx *ctx)
 			} else {
 				img_fmt = ctx->sv_pipe[0]->vdev_nodes[
 					MTK_CAMSV_EXT_STREAM_OUT - MTK_CAMSV_SINK_NUM].active_fmt;
+				img_fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_SBGGR8;
 				seninf_padidx = PAD_SRC_GENERAL0;
 			}
 		} else {
