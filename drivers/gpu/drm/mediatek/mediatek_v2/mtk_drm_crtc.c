@@ -2475,6 +2475,8 @@ int get_addon_path_wait_event(struct drm_crtc *crtc,
 		return mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF];
 	else if (comp->id == DDP_COMPONENT_OVLSYS_WDMA0)
 		return mtk_crtc->gce_obj.event[EVENT_OVLSYS_WDMA0_EOF];
+	else if (comp->id == DDP_COMPONENT_OVLSYS_WDMA1)
+		return mtk_crtc->gce_obj.event[EVENT_OVLSYS_WDMA1_EOF];
 
 	DDPPR_ERR("The output component has not frame done event\n");
 	return -EINVAL;
@@ -12482,6 +12484,10 @@ static void mtk_crtc_get_event_name(struct mtk_drm_crtc *mtk_crtc, char *buf,
 	case EVENT_SYNC_TOKEN_CHECK_TRIGGER_MERGE:
 		len = snprintf(buf, buf_len, "disp_token_disp_check_trigger_merge%d",
 					drm_crtc_index(&mtk_crtc->base));
+		break;
+	case EVENT_OVLSYS_WDMA1_EOF:
+		len = snprintf(buf, buf_len, "disp_ovlsys_wdma1_eof%d",
+			       drm_crtc_index(&mtk_crtc->base));
 		break;
 	default:
 		DDPPR_ERR("%s invalid event_id:%d\n", __func__, event_id);
