@@ -671,6 +671,8 @@ int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev,
 		   mem->type == MEM_TYPE_FOR_SEC_HW ||
 		   mem->type == MEM_TYPE_FOR_SEC_UBE_HW) {
 		dma_heap = dma_heap_find("mtk_svp_page-uncached");
+	} else if (mem->type == MEM_TYPE_FOR_SEC_WFD_HW) {
+		dma_heap = dma_heap_find("mtk_wfd_page-uncached");
 	} else {
 		mtk_v4l2_err("wrong type %u\n", mem->type);
 		return -EPERM;
