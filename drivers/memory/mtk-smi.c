@@ -22,8 +22,6 @@
 #include <dt-bindings/memory/mt2701-larb-port.h>
 #include <dt-bindings/memory/mtk-memory-port.h>
 #include <../misc/mediatek/include/mt-plat/aee.h>
-#include "../clk/mediatek/clk-fmeter.h"
-#include "../clk/mediatek/clk-mt6886-fmeter.h"
 
 #include <linux/kthread.h>
 
