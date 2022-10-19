@@ -305,7 +305,6 @@ static int __mtk_clk_mux_set_parent_lock(struct clk_hw *hw, u8 index, bool setcl
 	u32 val = 0, orig = 0;
 	unsigned long flags = 0;
 	bool qs_pll_need_off = false;
-	void __iomem *vdecmux_cksta = ioremap(0x10000234, sizeof(u32));
 
 	if (mux->lock)
 		spin_lock_irqsave(mux->lock, flags);
@@ -353,10 +352,6 @@ static int __mtk_clk_mux_set_parent_lock(struct clk_hw *hw, u8 index, bool setcl
 	else
 		__release(mux->lock);
 
-	if (mux->flags & VDEC_ONLY) {
-		if ((readl(vdecmux_cksta)) & 0x00000400)
-			BUG_ON(1);
-	}
 	return 0;
 }
 

@@ -247,7 +247,6 @@ void mtk_free_clk_data(struct clk_onecell_data *clk_data);
 #define HWV_CHK_FULL_STA		BIT(3)
 #define CLK_ENABLE_QUICK_SWITCH		BIT(4)
 #define CLK_IPI_EN_DEFAULT_OPP		BIT(5)
-#define VDEC_ONLY		BIT(6)
 
 struct mtk_pll_div_table {
 	u32 div;
