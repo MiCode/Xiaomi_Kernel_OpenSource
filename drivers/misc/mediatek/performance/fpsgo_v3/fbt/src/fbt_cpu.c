@@ -1670,8 +1670,10 @@ static void fbt_cal_min_max_cap(struct render_info *thr,
 	} else {
 		if (jerk == FPSGO_JERK_SECOND)
 			bhr_opp_local = rescue_second_copp;
-		else
+		else {
+			rescue_opp_c = clamp(rescue_opp_c, 0, nr_freq_cpu - 1);
 			bhr_opp_local = rescue_opp_c;
+		}
 		bhr_local = 0;
 	}
 
@@ -2710,6 +2712,7 @@ static void fbt_do_sjerk(struct work_struct *work)
 	if (!pld)
 		goto EXIT;
 
+	rescue_opp_f = clamp(rescue_opp_f, 0, nr_freq_cpu - 1);
 	blc_wt = fbt_get_new_base_blc(pld, thr->boost_info.last_blc,
 		rescue_second_enhance_f, rescue_opp_f, rescue_second_copp);
 	if (separate_aa_final) {
@@ -2805,6 +2808,8 @@ static void fbt_do_jerk_locked(struct render_info *thr, struct fbt_jerk *jerk, i
 		}
 	}
 
+	rescue_opp_f = clamp(rescue_opp_f, 0, nr_freq_cpu - 1);
+	rescue_opp_c = clamp(rescue_opp_c, 0, nr_freq_cpu - 1);
 	blc_wt = fbt_get_new_base_blc(pld, blc_wt, rescue_enhance_f, rescue_opp_f, rescue_opp_c);
 	if (separate_aa_final) {
 		blc_wt_b = fbt_get_new_base_blc(pld, blc_wt_b,
@@ -3255,6 +3260,7 @@ static void fbt_do_boost(unsigned int blc_wt, int pid,
 	int cluster, i = 0;
 	int min_ceiling = 0;
 
+	bhr_opp = clamp(bhr_opp, 0, nr_freq_cpu - 1);
 	pld =
 		kcalloc(cluster_num, sizeof(struct cpu_ctrl_data),
 				GFP_KERNEL);
@@ -5355,12 +5361,14 @@ void fpsgo_sbe2fbt_rescue(struct render_info *thr, int start, int enhance,
 		if (!floor)
 			goto leave;
 
+		rescue_opp_c = clamp(rescue_opp_c, 0, nr_freq_cpu - 1);
 		headroom = rescue_opp_c;
 		new_enhance = enhance < 0 ?  rescue_enhance_f : sbe_enhance_f;
 
 		if (thr->boost_info.cur_stage == FPSGO_JERK_SECOND)
 			headroom = rescue_second_copp;
 
+		rescue_opp_f = clamp(rescue_opp_f, 0, nr_freq_cpu - 1);
 		blc_wt = fbt_get_new_base_blc(pld, floor, new_enhance, rescue_opp_f, headroom);
 		if (separate_aa_final) {
 			blc_wt_b = fbt_get_new_base_blc(pld, floor, new_enhance,
@@ -5436,6 +5444,7 @@ void fpsgo_sbe2fbt_rescue(struct render_info *thr, int start, int enhance,
 		/* find max perf index */
 		fbt_find_max_blc(&temp_blc, &temp_blc_pid, &temp_blc_buffer_id,
 				&temp_blc_dep_num, temp_blc_dep);
+		rescue_opp_f = clamp(rescue_opp_f, 0, nr_freq_cpu - 1);
 		fbt_get_new_base_blc(pld, temp_blc, 0, rescue_opp_f, bhr_opp);
 		fbt_set_ceiling(pld, thr->pid, thr->buffer_id);
 		if (boost_ta) {
