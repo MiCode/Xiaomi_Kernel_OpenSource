@@ -30,7 +30,9 @@ enum ipcmem_host_type {
 /**
  * IPCLite return codes
  */
-#define IPCLITE_EINCHAN				9 /**< Inactive Channel */
+#define IPCLITE_SUCCESS		0 /*< Success > */
+#define IPCLITE_FAILURE		1 /*< Failure > */
+#define IPCLITE_EINCHAN		9 /*< Inactive Channel */
 
 struct global_region_info {
 	void *virt_base;

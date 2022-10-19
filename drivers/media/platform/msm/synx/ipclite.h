@@ -10,19 +10,20 @@
 #include <linux/mailbox_controller.h>
 #include "ipclite_client.h"
 
-#define IPCMEM_INIT_COMPLETED	0x1
+#define IPCMEM_INIT_COMPLETED		0x1
 #define ACTIVE_CHANNEL			0x1
 
 #define IPCMEM_TOC_SIZE			(4*1024)
-#define MAX_CHANNEL_SIGNALS		5
+#define MAX_CHANNEL_SIGNALS		6
 
 #define MAX_PARTITION_COUNT		7	/*7 partitions other than global partition*/
 
 #define IPCLITE_MSG_SIGNAL		0
-#define IPCLITE_MEM_INIT_SIGNAL 1
-#define IPCLITE_VERSION_SIGNAL  2
+#define IPCLITE_MEM_INIT_SIGNAL		1
+#define IPCLITE_VERSION_SIGNAL		2
 #define IPCLITE_TEST_SIGNAL		3
 #define IPCLITE_SSR_SIGNAL		4
+#define IPCLITE_DEBUG_SIGNAL		5
 
 /** Flag definitions for the entries */
 #define IPCMEM_TOC_ENTRY_FLAGS_ENABLE_READ_PROTECTION   (0x01)
@@ -45,7 +46,96 @@
 
 #define CONFIGURED_CORE		1
 
+#define IPCLITE_DEBUG_SIZE		(64 * 1024)
+#define IPCLITE_DEBUG_INFO_SIZE		256
+#define IPCLITE_CORE_DBG_LABEL		"APSS:"
+#define IPCLITE_LOG_MSG_SIZE		100
+#define IPCLITE_LOG_BUF_SIZE		512
+#define IPCLITE_DBG_LABEL_SIZE		5
+#define IPCLITE_SIGNAL_LABEL_SIZE	10
+#define PREV_INDEX			2
+
+#define IPCLITE_OS_LOG(__level, __fmt, arg...) \
+	do { \
+		if (ipclite_debug_level & __level) { \
+			if (ipclite_debug_control & IPCLITE_DMESG_LOG) { \
+				pr_info(IPCLITE_CORE_DBG_LABEL "%s:"__fmt, \
+							ipclite_dbg_label[__level], ## arg); \
+			} \
+			if (ipclite_debug_control & IPCLITE_INMEM_LOG) { \
+				IPCLITE_OS_INMEM_LOG(IPCLITE_CORE_DBG_LABEL "%s:"__fmt, \
+							ipclite_dbg_label[__level], ## arg); \
+			} \
+		} \
+	} while (0)
+
 /*IPCMEM Structure Definitions*/
+
+enum ipclite_debug_level {
+	IPCLITE_ERR  = 0x0001,
+	IPCLITE_WARN = 0x0002,
+	IPCLITE_INFO = 0x0004,
+	IPCLITE_DBG  = 0x0008,
+};
+
+enum ipclite_debug_control {
+	IPCLITE_DMESG_LOG = 0x0001,
+	IPCLITE_DBG_STRUCT = 0x0002,
+	IPCLITE_INMEM_LOG = 0x0004,
+};
+
+enum ipclite_debug_dump {
+	IPCLITE_DUMP_DBG_STRUCT = 0x0001,
+	IPCLITE_DUMP_INMEM_LOG = 0x0002,
+	IPCLITE_DUMP_SSR = 0x0004,
+};
+
+static const char ipclite_dbg_label[][IPCLITE_DBG_LABEL_SIZE] = {
+	[IPCLITE_ERR] = "err",
+	[IPCLITE_WARN] = "warn",
+	[IPCLITE_INFO] = "info",
+	[IPCLITE_DBG] = "dbg"
+};
+
+struct ipclite_debug_info_host {
+	uint32_t numsig_sent; //no. of signals sent from the core
+	uint32_t numsig_recv; //no. of signals received on the core
+	uint32_t tx_wr_index; //write index of tx queue
+	uint32_t tx_rd_index; //read index of tx queue
+	uint32_t rx_wr_index; //write index of rx queue
+	uint32_t rx_rd_index; //read index of rx queue
+	uint32_t num_intr; //no. of interrupts received on the core
+	uint32_t prev_tx_wr_index[PREV_INDEX]; //previous write index of tx queue
+	uint32_t prev_tx_rd_index[PREV_INDEX]; //previous read index of tx queue
+	uint32_t prev_rx_wr_index[PREV_INDEX]; //previous write index of rx queue
+	uint32_t prev_rx_rd_index[PREV_INDEX]; //previous read index of rx queue
+};
+
+struct ipclite_debug_info_overall {
+	uint32_t total_numsig_sent; //total no. of signals sent
+	uint32_t total_numsig_recv; //total no. of signals received
+	uint32_t last_sent_host_id; //last signal sent to host
+	uint32_t last_recv_host_id; //last signal received from host
+	uint32_t last_sigid_sent; //last sent signal id
+	uint32_t last_sigid_recv; //last received signal id
+};
+
+struct ipclite_debug_info {
+	uint32_t debug_version;
+	uint32_t debug_level;
+	uint32_t debug_control;
+	uint32_t debug_dump;
+	uint32_t debug_log_index;
+};
+
+struct ipclite_debug_inmem_buf {
+	char IPCLITELog[IPCLITE_LOG_BUF_SIZE][IPCLITE_LOG_MSG_SIZE];
+};
+
+struct ipclite_debug_struct {
+	struct ipclite_debug_info_overall dbg_info_overall;
+	struct ipclite_debug_info_host dbg_info_host[IPCMEM_NUM_HOSTS];
+};
 
 struct ipclite_features {
 	uint32_t global_atomic_support;
@@ -130,13 +220,13 @@ struct ipclite_fifo {
 	size_t (*avail)(struct ipclite_fifo *fifo);
 
 	void (*peak)(struct ipclite_fifo *fifo,
-			       void *data, size_t count);
+				 void *data, size_t count);
 
 	void (*advance)(struct ipclite_fifo *fifo,
-				  size_t count);
+				  size_t count, uint32_t core_id);
 
 	void (*write)(struct ipclite_fifo *fifo,
-				const void *data, size_t dlen);
+		const void *data, size_t dlen, uint32_t core_id, uint32_t signal_id);
 
 	void (*reset)(struct ipclite_fifo *fifo);
 };
