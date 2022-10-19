@@ -367,8 +367,7 @@ static void probe_ufshcd_command(void *data, const char *dev_name,
 		while (1) {
 			if (cmd_hist[ptr].cmd.utp.tag == tag) {
 				cmd_hist[cmd_hist_ptr].duration =
-					div_u64(local_clock(), 1000) -
-					cmd_hist[ptr].time;
+					local_clock() - cmd_hist[ptr].time;
 				break;
 			}
 			ptr = cmd_hist_get_prev_ptr(ptr);
@@ -407,8 +406,7 @@ static void probe_ufshcd_uic_command(void *data, const char *dev_name,
 		while (1) {
 			if (cmd_hist[ptr].cmd.uic.cmd == cmd) {
 				cmd_hist[cmd_hist_ptr].duration =
-					div_u64(local_clock(), 1000) -
-					cmd_hist[ptr].time;
+					local_clock() - cmd_hist[ptr].time;
 				break;
 			}
 			ptr = cmd_hist_get_prev_ptr(ptr);
@@ -673,7 +671,7 @@ static void ufs_mtk_dbg_print_clk_gating_event(char **buff,
 
 	dur = ns_to_timespec64(cmd_hist[ptr].time);
 	SPREAD_PRINTF(buff, size, m,
-		"%3d-c(%d),%6llu.%lu,%5d,%2d,%13s,arg1=0x%X,arg2=0x%X,arg3=0x%X\n",
+		"%3d-c(%d),%6llu.%09lu,%5d,%2d,%13s,arg1=0x%X,arg2=0x%X,arg3=0x%X\n",
 		ptr,
 		cmd_hist[ptr].cpu,
 		dur.tv_sec, dur.tv_nsec,
@@ -706,7 +704,7 @@ static void ufs_mtk_dbg_print_clk_scaling_event(char **buff,
 
 	dur = ns_to_timespec64(cmd_hist[ptr].time);
 	SPREAD_PRINTF(buff, size, m,
-		"%3d-c(%d),%6llu.%lu,%5d,%2d,%15s, err:%d\n",
+		"%3d-c(%d),%6llu.%09lu,%5d,%2d,%15s, err:%d\n",
 		ptr,
 		cmd_hist[ptr].cpu,
 		dur.tv_sec, dur.tv_nsec,
@@ -742,7 +740,7 @@ static void ufs_mtk_dbg_print_pm_event(char **buff,
 
 	dur = ns_to_timespec64(cmd_hist[ptr].time);
 	SPREAD_PRINTF(buff, size, m,
-		"%3d-c(%d),%6llu.%lu,%5d,%2d,%3s, ret=%d, time_us=%8lu, pwr_mode=%d, link_status=%d\n",
+		"%3d-c(%d),%6llu.%09lu,%5d,%2d,%3s, ret=%d, time_us=%8lu, pwr_mode=%d, link_status=%d\n",
 		ptr,
 		cmd_hist[ptr].cpu,
 		dur.tv_sec, dur.tv_nsec,
@@ -768,7 +766,7 @@ static void ufs_mtk_dbg_print_device_reset_event(char **buff,
 
 	dur = ns_to_timespec64(cmd_hist[ptr].time);
 	SPREAD_PRINTF(buff, size, m,
-		"%3d-c(%d),%6llu.%lu,%5d,%2d,%13s\n",
+		"%3d-c(%d),%6llu.%09lu,%5d,%2d,%13s\n",
 		ptr,
 		cmd_hist[ptr].cpu,
 		dur.tv_sec, dur.tv_nsec,
@@ -785,7 +783,7 @@ static void ufs_mtk_dbg_print_uic_event(char **buff, unsigned long *size,
 
 	dur = ns_to_timespec64(cmd_hist[ptr].time);
 	SPREAD_PRINTF(buff, size, m,
-		"%3d-u(%d),%6llu.%lu,%5d,%2d,0x%2x,arg1=0x%X,arg2=0x%X,arg3=0x%X,\t%llu\n",
+		"%3d-u(%d),%6llu.%09lu,%5d,%2d,0x%2x,arg1=0x%X,arg2=0x%X,arg3=0x%X,\t%llu\n",
 		ptr,
 		cmd_hist[ptr].cpu,
 		dur.tv_sec, dur.tv_nsec,
@@ -808,7 +806,7 @@ static void ufs_mtk_dbg_print_utp_event(char **buff, unsigned long *size,
 	if (cmd_hist[ptr].cmd.utp.lba == 0xFFFFFFFFFFFFFFFF)
 		cmd_hist[ptr].cmd.utp.lba = 0;
 	SPREAD_PRINTF(buff, size, m,
-		"%3d-r(%d),%6llu.%lu,%5d,%2d,0x%2x,t=%2d,db:0x%8x,is:0x%8x,crypt:%d,%d,lba=%10llu,len=%6d,\t%llu\n",
+		"%3d-r(%d),%6llu.%09lu,%5d,%2d,0x%2x,t=%2d,db:0x%8x,is:0x%8x,crypt:%d,%d,lba=%10llu,len=%6d,\t%llu\n",
 		ptr,
 		cmd_hist[ptr].cpu,
 		dur.tv_sec, dur.tv_nsec,
@@ -834,7 +832,7 @@ static void ufs_mtk_dbg_print_dev_event(char **buff, unsigned long *size,
 	dur = ns_to_timespec64(cmd_hist[ptr].time);
 
 	SPREAD_PRINTF(buff, size, m,
-		"%3d-r(%d),%6llu.%lu,%5d,%2d,%4u,t=%2d,op:%u,idn:%u,idx:%u,sel:%u\n",
+		"%3d-r(%d),%6llu.%09lu,%5d,%2d,%4u,t=%2d,op:%u,idn:%u,idx:%u,sel:%u\n",
 		ptr,
 		cmd_hist[ptr].cpu,
 		dur.tv_sec, dur.tv_nsec,
@@ -858,7 +856,7 @@ static void ufs_mtk_dbg_print_tm_event(char **buff, unsigned long *size,
 	if (cmd_hist[ptr].cmd.utp.lba == 0xFFFFFFFFFFFFFFFF)
 		cmd_hist[ptr].cmd.utp.lba = 0;
 	SPREAD_PRINTF(buff, size, m,
-		"%3d-r(%d),%6llu.%lu,%5d,%2d,0x%2x,lun=%d,tag=%d,task_tag=%d\n",
+		"%3d-r(%d),%6llu.%09lu,%5d,%2d,0x%2x,lun=%d,tag=%d,task_tag=%d\n",
 		ptr,
 		cmd_hist[ptr].cpu,
 		dur.tv_sec, dur.tv_nsec,
