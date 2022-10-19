@@ -3030,15 +3030,18 @@ static int ufs_mtk_post_link(struct ufs_hba *hba)
 	/* enable unipro clock gating feature */
 	ufs_mtk_cfg_unipro_cg(hba, true);
 
-	/* 1: 0.8db, 2: 1.6db, 3: 2.5db, 4: 3.5db */
-	ufshcd_dme_peer_set(hba,
-		UIC_ARG_MIB_SEL(TX_HS_EQUALIZER_SETTING,
-			UIC_ARG_MPHY_TX_GEN_SEL_INDEX(0)),
-			4);
-	ufshcd_dme_peer_set(hba,
-		UIC_ARG_MIB_SEL(TX_HS_EQUALIZER_SETTING,
-			UIC_ARG_MPHY_TX_GEN_SEL_INDEX(1)),
-			4);
+	/* This setting is only support in mipi mphy 5.0 and experiment only */
+	if (ufs_mtk_is_tx_skew_fix(hba)) {
+		/* 1: 0.8db, 2: 1.6db, 3: 2.5db, 4: 3.5db */
+		ufshcd_dme_peer_set(hba,
+			UIC_ARG_MIB_SEL(TX_HS_EQUALIZER_SETTING,
+				UIC_ARG_MPHY_TX_GEN_SEL_INDEX(0)),
+				4);
+		ufshcd_dme_peer_set(hba,
+			UIC_ARG_MIB_SEL(TX_HS_EQUALIZER_SETTING,
+				UIC_ARG_MPHY_TX_GEN_SEL_INDEX(1)),
+				4);
+	}
 
 	return 0;
 }
