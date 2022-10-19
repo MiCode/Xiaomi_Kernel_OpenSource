@@ -1485,6 +1485,32 @@ void get_sensor_rgbw_output_mode(struct subdrv_ctx *ctx,
 	DRV_LOG(ctx, "rgbw_output_mode:%u(sid:%u)\n", *rgbw_output_mode, scenario_id);
 }
 
+void get_readout_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *readout_time)
+{
+	u32 ratio = 1;
+
+	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
+		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+			scenario_id, ctx->s_ctx.sensor_mode_num);
+		return;
+	}
+	switch (ctx->s_ctx.mode[scenario_id].hdr_mode) {
+	case HDR_RAW_STAGGER_2EXP:
+		ratio = 2;
+		break;
+	case HDR_RAW_STAGGER_3EXP:
+		ratio = 3;
+		break;
+	default:
+		break;
+	}
+	*readout_time =
+		(u64)((u64)ctx->s_ctx.mode[scenario_id].linelength
+		* ctx->s_ctx.mode[scenario_id].imgsensor_winsize_info.h2_tg_size
+		* 1000000000) / ctx->s_ctx.mode[scenario_id].pclk * ratio;
+}
+
 int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
 {
 	u8 i = 0;
@@ -2042,6 +2068,11 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	case SENSOR_FEATURE_GET_SENSOR_RGBW_OUTPUT_MODE:
 		get_sensor_rgbw_output_mode(ctx, *feature_data_32,
 			(u32 *)(uintptr_t)(*(feature_data + 1)));
+		break;
+	case SENSOR_FEATURE_GET_READOUT_BY_SCENARIO:
+		get_readout_by_scenario(ctx,
+			(enum SENSOR_SCENARIO_ID_ENUM)*feature_data,
+			feature_data + 1);
 		break;
 	default:
 		break;

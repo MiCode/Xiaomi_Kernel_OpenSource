@@ -143,6 +143,8 @@ void get_mipi_pixel_rate(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *mipi_pixel_rate);
 void get_sensor_rgbw_output_mode(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *rgbw_output_mode);
+void get_readout_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *readout_time);
 
 int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id);
 void subdrv_ctx_init(struct subdrv_ctx *ctx);
