@@ -501,6 +501,11 @@ struct mml_task {
 	bool dump_queued[MMLDUMPT_CNT];
 #endif
 
+	u64 config_pipe_time[MML_PIPE_CNT];
+	u64 bw_time[MML_PIPE_CNT];
+	u64 freq_time[MML_PIPE_CNT];
+	u64 wait_fence_time[MML_PIPE_CNT];
+	u64 flush_time[MML_PIPE_CNT];
 	u32 src_crc[MML_PIPE_CNT];
 	u32 dest_crc[MML_PIPE_CNT];
 };

@@ -33,19 +33,25 @@
 struct mml_record {
 	u32 jobid;
 
-	u64 src_iova[MML_MAX_PLANES];
-	u64 dest_iova[MML_MAX_PLANES];
+	u64 src_iova;
+	u64 dest_iova;
 
-	u32 src_size[MML_MAX_PLANES];
-	u32 dest_size[MML_MAX_PLANES];
+	u32 src_size;
+	u32 dest_size;
 
-	u32 src_plane_offset[MML_MAX_PLANES];
-	u32 dest_plane_offset[MML_MAX_PLANES];
+	u32 src_plane_offset;
+	u32 dest_plane_offset;
 
 	u64 src_iova_map_time;
 	u64 dest_iova_map_time;
 	u64 src_iova_unmap_time;
 	u64 dest_iova_unmap_time;
+
+	u64 config_pipe_time[MML_PIPE_CNT];
+	u64 bw_time[MML_PIPE_CNT];
+	u64 freq_time[MML_PIPE_CNT];
+	u64 wait_fence_time[MML_PIPE_CNT];
+	u64 flush_time[MML_PIPE_CNT];
 
 	u32 cfg_jobid;
 	u32 task;
@@ -960,16 +966,12 @@ void mml_record_track(struct mml_dev *mml, struct mml_task *task)
 	record = &mml->records[mml->record_idx];
 
 	record->jobid = task->job.jobid;
-	for (i = 0; i < MML_MAX_PLANES; i++) {
-		buf = &task->buf;
-
-		record->src_iova[i] = buf->src.dma[i].iova;
-		record->dest_iova[i] = buf->dest[0].dma[i].iova;
-		record->src_size[i] = buf->src.size[i];
-		record->dest_size[i] = buf->dest[0].size[i];
-		record->src_plane_offset[i] = cfg->info.src.plane_offset[i];
-		record->dest_plane_offset[i] = cfg->info.dest[0].data.plane_offset[i];
-	}
+	record->src_iova = buf->src.dma[0].iova;
+	record->dest_iova = buf->dest[0].dma[0].iova;
+	record->src_size = buf->src.size[0];
+	record->dest_size = buf->dest[0].size[0];
+	record->src_plane_offset = cfg->info.src.plane_offset[0];
+	record->dest_plane_offset = cfg->info.dest[0].data.plane_offset[0];
 	record->src_iova_map_time = buf->src.map_time;
 	record->dest_iova_map_time = buf->dest[0].map_time;
 	record->src_iova_unmap_time = buf->src.unmap_time;
@@ -979,10 +981,16 @@ void mml_record_track(struct mml_dev *mml, struct mml_task *task)
 	record->state = task->state;
 	record->err = task->err;
 	record->ref = kref_read(&task->ref);
-	record->src_crc[0] = task->src_crc[0];
-	record->dest_crc[0] = task->dest_crc[0];
-	record->src_crc[1] = task->src_crc[1];
-	record->dest_crc[1] = task->dest_crc[1];
+
+	for (i = 0; i < MML_PIPE_CNT; i++) {
+		record->config_pipe_time[i] = task->config_pipe_time[i];
+		record->bw_time[i] = task->bw_time[i];
+		record->freq_time[i] = task->freq_time[i];
+		record->wait_fence_time[i] = task->wait_fence_time[i];
+		record->flush_time[i] = task->flush_time[i];
+		record->src_crc[i] = task->src_crc[i];
+		record->dest_crc[i] = task->dest_crc[i];
+	}
 
 	mml->record_idx = (mml->record_idx + 1) & MML_RECORD_NUM_MASK;
 
@@ -992,7 +1000,9 @@ void mml_record_track(struct mml_dev *mml, struct mml_task *task)
 #define REC_TITLE "Index,Job ID," \
 	"src map time,src unmap time,src,src size,plane 0," \
 	"dest map time,dest unmap time,dest,dest size,plane 0," \
-	"config job,task inst,state,ref,error," \
+	"config job,task inst," \
+	"PIPE0 stamp config,bw,freq,fence,flush,PIPE1 stamp config,bw,freq,fence,flush," \
+	"state,ref,error," \
 	"src_crc_pipe0,dest_crc_pipe0,src_crc_pipe1,dest_crc_pipe1"
 
 static int mml_record_print(struct seq_file *seq, void *data)
@@ -1011,21 +1021,37 @@ static int mml_record_print(struct seq_file *seq, void *data)
 	seq_puts(seq, REC_TITLE ",\n");
 	for (i = 0; i < ARRAY_SIZE(mml->records); i++) {
 		record = &mml->records[idx];
-		seq_printf(seq, "%u,%u,%llu,%llu,%#llx,%u,%u,%llu,%llu,%#llx,%u,%u,%u,%#x,%u,%u,%s,%#010x,%#010x,%#010x,%#010x\n",
+		seq_printf(seq,
+			/* idx to task */
+			"%u,%u,%llu,%llu,%#llx,%u,%u,%llu,%llu,%#llx,%u,%u,%u,%#x,"
+			/* config_pipe_time to flush_time */
+			"%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,%llu,"
+			/* state to dest crc */
+			"%u,%u,%s,%#010x,%#010x,%#010x,%#010x\n",
 			idx,
 			record->jobid,
 			record->src_iova_map_time,
 			record->src_iova_unmap_time,
-			record->src_iova[0],
-			record->src_size[0],
-			record->src_plane_offset[0],
+			record->src_iova,
+			record->src_size,
+			record->src_plane_offset,
 			record->dest_iova_map_time,
 			record->dest_iova_unmap_time,
-			record->dest_iova[0],
-			record->dest_size[0],
-			record->dest_plane_offset[0],
+			record->dest_iova,
+			record->dest_size,
+			record->dest_plane_offset,
 			record->cfg_jobid,
 			record->task,
+			record->config_pipe_time[0],
+			record->bw_time[0],
+			record->freq_time[0],
+			record->wait_fence_time[0],
+			record->flush_time[0],
+			record->config_pipe_time[1],
+			record->bw_time[1],
+			record->freq_time[1],
+			record->wait_fence_time[1],
+			record->flush_time[1],
 			record->state,
 			record->ref,
 			record->err ? "error" : "",
@@ -1061,14 +1087,14 @@ void mml_record_dump(struct mml_dev *mml)
 			record->jobid,
 			record->src_iova_map_time,
 			record->src_iova_unmap_time,
-			record->src_iova[0],
-			record->src_size[0],
-			record->src_plane_offset[0],
+			record->src_iova,
+			record->src_size,
+			record->src_plane_offset,
 			record->dest_iova_map_time,
 			record->dest_iova_unmap_time,
-			record->dest_iova[0],
-			record->dest_size[0],
-			record->dest_plane_offset[0],
+			record->dest_iova,
+			record->dest_size,
+			record->dest_plane_offset,
 			record->src_crc[0],
 			record->dest_crc[0],
 			record->src_crc[1],
