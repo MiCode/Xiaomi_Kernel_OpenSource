@@ -689,6 +689,7 @@ static bool finish_cq_buf(struct mtk_cam_request_stream_data *req_stream_data)
 		spin_unlock(&ctx->processing_buffer_list.lock);
 		return false;
 	}
+
 	/* check if composed error case */
 	if (req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_COMPOMSED_ERROR) {
 		dev_info(ctx->cam->dev,

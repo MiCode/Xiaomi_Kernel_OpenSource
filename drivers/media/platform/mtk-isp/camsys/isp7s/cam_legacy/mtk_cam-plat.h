@@ -143,7 +143,9 @@ void set_platform_data(const struct camsys_platform_data *platform_data);
 	((cur_platform && cur_platform->v4l2 && cur_platform->v4l2->ops) ? \
 	 cur_platform->v4l2->ops(__VA_ARGS__) : -EINVAL)
 
-#define GET_PLAT_V4L2(member) (cur_platform->v4l2->member)
+#define GET_PLAT_V4L2(member) \
+	((cur_platform && cur_platform->v4l2) ? \
+	 cur_platform->v4l2->member : 0)
 
 /* platform data list */
 #ifdef CAMSYS_ISP7S_MT6985
