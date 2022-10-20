@@ -54,6 +54,7 @@ enum core_ldo_levels {
 #define SW_PORTSELECT_MX	BIT(1)
 /* port select polarity: 1 - invert polarity of portselect from gpio */
 #define PORTSELECT_POLARITY	BIT(2)
+#define HW_PORT_SELECT		BIT(3)
 
 /* USB3_DP_PHY_USB3_DP_COM_SWI_CTRL bits */
 
@@ -456,7 +457,7 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 		 * The lane selection based on PHY flags will not get affected.
 		 */
 		if (val < 0 && phy->invert_ps_polarity)
-			writel_relaxed(PORTSELECT_POLARITY,
+			writel_relaxed(PORTSELECT_POLARITY | HW_PORT_SELECT,
 				phy->base + phy->phy_reg[USB3_DP_COM_TYPEC_CTRL]);
 
 		writel_relaxed(0x01,
