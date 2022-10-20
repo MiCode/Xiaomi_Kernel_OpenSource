@@ -889,6 +889,7 @@
   runqueues
   sched_clock
   sched_feat_keys
+  sched_setattr
   sched_set_fifo_low
   sched_setscheduler
   sched_setscheduler_nocheck
