@@ -27,6 +27,11 @@ if [ "${KERNEL_CMDLINE_CONSOLE_AUTO}" != "0" ]; then
 	KERNEL_VENDOR_CMDLINE+=' console=ttyMSM0,115200n8 earlycon=qcom_geni,0x00a9C000 qcom_geni_serial.con_enabled=1 '
 fi
 
+if [ "${VARIANT}" == "gki" ]; then
+	KERNEL_VENDOR_CMDLINE+=' nosoftlockup '
+	VENDOR_EXTRA_CMDLINE=' nosoftlockup '
+fi
+
 KERNEL_VENDOR_CMDLINE+=' bootconfig '
 
 ################################################################################
