@@ -263,6 +263,7 @@
   radix_tree_next_chunk
   radix_tree_preload
   radix_tree_replace_slot
+  rtc_read_alarm
   _raw_read_lock
   _raw_read_unlock
   _raw_spin_lock
