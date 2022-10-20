@@ -152,6 +152,7 @@
 | ysl-p-oss | Redmi S2 | Android P | LA.UM.7.6.r1-03900-89xx.0 | [ysl-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ysl-p-oss) |
 | zeus-s-oss | Mi 12, Mi 12 Pro | Android S | LA.VENDOR.1.0.r1-09100-r1.0.r1 | [zeus-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/zeus-s-oss) |
 | zijin-s-oss | Xiaomi Civi 1S | Android S | LA.UM.9.14.r1-18300.05-LAHAINA.QSSI12.0-1 | [zijin-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/zijin-s-oss) |
+| ziyi-s-oss | Xiaomi Civi s | Android S | LA.VENDOR.1.0.r1-13100-r1.0.r1_00037.0 | [ziyi-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ziyi-s-oss) |
 | munch-s-oss | Redmi K40S | Android S | LA.UM.9.12.r1-13300-SMxx50.QSSI12.0-1 | [munch-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/munch-s-oss) |
 | xaga-s-oss | Redmi Note 11T Pro | Android S | alps-release-s0.mp1.tc8sp2-mt6983 | [xaga-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/xaga-s-oss) |
 公告： 小米内核组招聘（官方）
