@@ -172,6 +172,21 @@ static u32 llcc_offsets_v21[] = {
 	0xD00000
 };
 
+
+static u32 llcc_offsets_v31[] = {
+	0x0,
+	0x100000,
+};
+
+static u32 llcc_offsets_v311_lemans[] = {
+	0x0,
+	0x100000,
+	0x200000,
+	0x300000,
+	0x400000,
+	0x500000,
+};
+
 static u32 llcc_offsets_v41[] = {
 	0x0,
 	0x200000,
@@ -422,6 +437,25 @@ static const struct llcc_slice_config cinder_data_8ch[] =  {
 	{LLCC_WRTCH,   31, 512,  1, 1,   0x3, 0x0, 0, 0, 0, 0, 1, 0, 0 },
 };
 
+static struct llcc_slice_config lemans_data[] =  {
+	{LLCC_CPUSS,    1, 2048, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 1, 0, 0},
+	{LLCC_VIDSC0,   2, 512, 3, 1, 0xFFFF, 0x0, 0, 0, 0, 1, 0, 0, 0},
+	{LLCC_CPUSS1,   3, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0, 0, 0},
+	{LLCC_CPUHWT,   5, 512, 1, 1, 0xFFFF, 0x0, 0, 0, 0, 1, 0, 0, 0},
+	{LLCC_AUDIO,    6, 1024, 1, 1, 0xFFFF, 0x0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_CMPT,     10, 4096, 1, 1, 0xFFFF, 0x0, 0, 0, 0, 1, 0, 0, 0},
+	{LLCC_GPUHTW,   11, 1024, 1, 1, 0x00FF, 0x0, 0, 0, 0, 1, 0, 0, 0},
+	{LLCC_GPU,      12, 1024, 1, 1, 0x00FF, 0x0, 0, 0, 0, 1, 0, 1, 0},
+	{LLCC_MMUHWT,   13, 1024, 1, 1, 0x00FF, 0x0, 0, 0, 0, 0, 1, 0, 0},
+	{LLCC_CMPTDMA,  15, 1024, 1, 1, 0xFFFF, 0x0, 0, 0, 0, 1, 0, 0, 0},
+	{LLCC_DISP,     16, 4096, 2, 1, 0xFFFF, 0x0, 0, 0, 0, 1, 0, 0, 0},
+	{LLCC_VIDFW,    17, 3072, 1, 0, 0xFFFF, 0x0, 0, 0, 0, 1, 0, 0, 0},
+	{LLCC_AUDHW,    22, 1024, 1, 1, 0xFFFF, 0x0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_CVP,      28, 256, 3, 1, 0xFFFF, 0x0, 0, 0, 0, 1, 0, 0, 0},
+	{LLCC_APTCM,    30, 1024, 3, 1, 0x0, 0xF0, 1, 0, 0, 1, 0, 0, 0},
+	{LLCC_WRTCH,    31, 512, 1, 1, 0x00FF, 0x0, 0, 0, 0, 0, 1, 0, 0},
+};
+
 static const struct qcom_llcc_config diwali_cfg = {
 	.sct_data       = diwali_data,
 	.size           = ARRAY_SIZE(diwali_data),
@@ -484,6 +518,11 @@ static const struct qcom_llcc_config cinder_cfg[] = {
 		.sct_data	= cinder_data_4ch,
 		.size		= ARRAY_SIZE(cinder_data_4ch),
 	},
+};
+
+static const struct qcom_llcc_config lemans_cfg = {
+	.sct_data       = lemans_data,
+	.size           = ARRAY_SIZE(lemans_data),
 };
 
 static struct llcc_drv_data *drv_data = (void *) -EPROBE_DEFER;
@@ -939,6 +978,18 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 		llcc_regs = llcc_regs_v21;
 		drv_data->offsets = llcc_offsets_v41;
 	} else if (of_property_match_string(dev->of_node,
+				    "compatible", "qcom,llcc-v31") >= 0) {
+		drv_data->llcc_ver = 31;
+		llcc_regs = llcc_regs_v21;
+		drv_data->offsets = llcc_offsets_v31;
+
+		if (of_property_match_string(dev->of_node,
+					"compatible", "qcom,lemans-llcc") >= 0) {
+			drv_data->offsets = llcc_offsets_v311_lemans;
+			drv_data->num_banks =
+				ARRAY_SIZE(llcc_offsets_v311_lemans);
+		}
+	} else if (of_property_match_string(dev->of_node,
 				    "compatible", "qcom,llcc-v21") >= 0) {
 		drv_data->llcc_ver = 21;
 		llcc_regs = llcc_regs_v21;
@@ -1057,6 +1108,7 @@ static const struct of_device_id qcom_llcc_of_match[] = {
 	{ .compatible = "qcom,diwali-llcc", .data = &diwali_cfg },
 	{ .compatible = "qcom,kalama-llcc", .data = &kalama_cfg },
 	{ .compatible = "qcom,cinder-llcc", .data = &cinder_cfg },
+	{ .compatible = "qcom,lemans-llcc", .data = &lemans_cfg },
 	{ }
 };
 
