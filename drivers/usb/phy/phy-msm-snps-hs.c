@@ -378,6 +378,7 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 				 */
 				msm_usb_write_readback(phy->base,
 					USB2_PHY_USB_PHY_PWRDOWN_CTRL, PWRDOWN_B, 1);
+				msleep(50);
 				return ret;
 			}
 		}
