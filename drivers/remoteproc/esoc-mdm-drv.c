@@ -603,6 +603,10 @@ struct mdm_drv_data sdx_pinn = {
 	.fw = "sdx75m/xbl.elf",
 };
 
+struct mdm_drv_data sdx_baagha = {
+	.fw = "sdx35m/xbl.elf",
+};
+
 struct esoc_compat compat_table[] = {
 	{
 		.name = "MDM9x55",
@@ -623,6 +627,10 @@ struct esoc_compat compat_table[] = {
 	{
 		.name = "SDXPINN",
 		.data = &sdx_pinn,
+	},
+	{
+		.name = "SDXBAAGHA",
+		.data = &sdx_baagha,
 	},
 };
 
