@@ -44,6 +44,7 @@ struct readahead_control;
 #endif /* __GENKSYMS__ */
 struct cma;
 struct swap_slots_cache;
+struct page_vma_mapped_walk;
 
 DECLARE_RESTRICTED_HOOK(android_rvh_set_skip_swapcache_flags,
 			TP_PROTO(gfp_t *flags),
@@ -189,6 +190,9 @@ DECLARE_HOOK(android_vh_pcplist_add_cma_pages_bypass,
 DECLARE_HOOK(android_vh_subpage_dma_contig_alloc,
 	TP_PROTO(bool *allow_subpage_alloc, struct device *dev, size_t *size),
 	TP_ARGS(allow_subpage_alloc, dev, size));
+DECLARE_HOOK(android_vh_ra_tuning_max_page,
+	TP_PROTO(struct readahead_control *ractl, unsigned long *max_page),
+	TP_ARGS(ractl, max_page));
 DECLARE_HOOK(android_vh_handle_pte_fault_end,
 	TP_PROTO(struct vm_fault *vmf, unsigned long highest_memmap_pfn),
 	TP_ARGS(vmf, highest_memmap_pfn));
@@ -233,6 +237,9 @@ DECLARE_HOOK(android_vh_get_swap_page,
 	TP_PROTO(struct page *page, swp_entry_t *entry,
 		struct swap_slots_cache *cache, bool *found),
 	TP_ARGS(page, entry, cache, found));
+DECLARE_HOOK(android_vh_madvise_cold_or_pageout,
+	TP_PROTO(struct vm_area_struct *vma, bool *allow_shared),
+	TP_ARGS(vma, allow_shared));
 DECLARE_HOOK(android_vh_page_isolated_for_reclaim,
 	TP_PROTO(struct mm_struct *mm, struct page *page),
 	TP_ARGS(mm, page));
@@ -260,14 +267,16 @@ DECLARE_HOOK(android_vh_set_shmem_page_flag,
 DECLARE_HOOK(android_vh_remove_vmalloc_stack,
 	TP_PROTO(struct vm_struct *vm),
 	TP_ARGS(vm));
-DECLARE_HOOK(android_vh_alloc_pages_reclaim_bypass,
-	TP_PROTO(gfp_t gfp_mask, int order, int alloc_flags,
-	int migratetype, struct page **page),
-	TP_ARGS(gfp_mask, order, alloc_flags, migratetype, page));
-DECLARE_HOOK(android_vh_alloc_pages_failure_bypass,
-	TP_PROTO(gfp_t gfp_mask, int order, int alloc_flags,
-	int migratetype, struct page **page),
-	TP_ARGS(gfp_mask, order, alloc_flags, migratetype, page));
+DECLARE_HOOK(android_vh_test_clear_look_around_ref,
+	TP_PROTO(struct page *page),
+	TP_ARGS(page));
+DECLARE_HOOK(android_vh_look_around_migrate_page,
+	TP_PROTO(struct page *old_page, struct page *new_page),
+	TP_ARGS(old_page, new_page));
+DECLARE_HOOK(android_vh_look_around,
+	TP_PROTO(struct page_vma_mapped_walk *pvmw, struct page *page,
+		struct vm_area_struct *vma, int *referenced),
+	TP_ARGS(pvmw, page, vma, referenced));
 /* macro versions of hooks are no longer required */
 
 #endif /* _TRACE_HOOK_MM_H */
