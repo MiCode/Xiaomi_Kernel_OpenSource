@@ -2056,6 +2056,7 @@
   tick_nohz_get_sleep_length
   time64_to_tm
   timer_unstable_counter_workaround
+  timespec64_to_jiffies
   topology_clear_scale_freq_source
   topology_set_thermal_pressure
   topology_update_done
