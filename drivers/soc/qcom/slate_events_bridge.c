@@ -15,7 +15,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/wait.h>
-#include <soc/qcom/subsystem_notif.h>
+#include <linux/remoteproc/qcom_rproc.h>
 #include "slate_events_bridge.h"
 #include "slate_events_bridge_rpmsg.h"
 
@@ -541,10 +541,10 @@ static int ssr_slate_cb(struct notifier_block *this,
 				struct seb_priv, lhndl);
 
 	switch (opcode) {
-	case SUBSYS_BEFORE_SHUTDOWN:
+	case QCOM_SSR_BEFORE_SHUTDOWN:
 		queue_work(dev->seb_wq, &dev->slate_down_work);
 		break;
-	case SUBSYS_AFTER_POWERUP:
+	case QCOM_SSR_AFTER_POWERUP:
 		if (dev->seb_current_state == SEB_STATE_INIT)
 			queue_work(dev->seb_wq, &dev->slate_up_work);
 		break;
@@ -575,7 +575,7 @@ static int slate_ssr_register(struct seb_priv *dev)
 
 	nb = &ssr_slate_nb;
 	dev->slate_subsys_handle =
-			subsys_notif_register_notifier(SEB_SLATE_SUBSYS, nb);
+			qcom_register_ssr_notifier(SEB_SLATE_SUBSYS, nb);
 
 	if (!dev->slate_subsys_handle) {
 		dev->slate_subsys_handle = NULL;
