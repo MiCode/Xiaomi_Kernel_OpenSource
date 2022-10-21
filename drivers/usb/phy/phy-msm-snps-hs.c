@@ -543,9 +543,11 @@ suspend:
 			if (!phy->dpdm_enable) {
 				if (!(phy->phy.flags & EUD_SPOOF_DISCONNECT)) {
 					dev_dbg(uphy->dev, "turning off clocks/ldo\n");
-					msm_usb_write_readback(phy->base,
-						USB2_PHY_USB_PHY_PWRDOWN_CTRL,
-						PWRDOWN_B, 0);
+					if (!(phy->phy.flags & PHY_HOST_MODE)) {
+						msm_usb_write_readback(phy->base,
+							USB2_PHY_USB_PHY_PWRDOWN_CTRL,
+							PWRDOWN_B, 0);
+					}
 					msm_hsphy_enable_clocks(phy, false);
 					msm_hsphy_enable_power(phy, false);
 				}
