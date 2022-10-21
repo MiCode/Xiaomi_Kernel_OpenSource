@@ -150,6 +150,9 @@ struct mhi_dev_net_ctxt {
 	void (*net_event_notifier)(struct mhi_dev_client_cb_reason *cb);
 	uint32_t num_mhi_instances;
 	uint32_t eth_iface_out_ch; /* outbound channel that uses eth interface */
+	/* TX and RX Reqs  */
+	u32 tx_reqs;
+	u32 rx_reqs;
 };
 
 static struct mhi_dev_net_ctxt mhi_net_ctxt;
@@ -395,7 +398,7 @@ static int mhi_dev_net_alloc_write_reqs(struct mhi_dev_net_client *client)
 	int nreq = 0, rc = 0;
 	struct mhi_req *wreq;
 
-	while (nreq < MHI_MAX_TX_REQ) {
+	while (nreq < mhi_net_ctxt.tx_reqs) {
 		wreq = kzalloc(sizeof(struct mhi_req), GFP_ATOMIC);
 		if (!wreq)
 			return -ENOMEM;
@@ -414,7 +417,7 @@ static int mhi_dev_net_alloc_read_reqs(struct mhi_dev_net_client *client)
 	int nreq = 0, rc = 0;
 	struct mhi_req *mreq;
 
-	while (nreq < MHI_MAX_RX_REQ) {
+	while (nreq < mhi_net_ctxt.rx_reqs) {
 		mreq = kzalloc(sizeof(struct mhi_req), GFP_ATOMIC);
 		if (!mreq)
 			return -ENOMEM;
@@ -940,6 +943,7 @@ EXPORT_SYMBOL(mhi_dev_net_exit);
 static int mhi_dev_net_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	uint32_t reqs = 0;
 
 	if (pdev->dev.of_node) {
 		mhi_net_ctxt.pdev = pdev;
@@ -951,6 +955,17 @@ static int mhi_dev_net_probe(struct platform_device *pdev)
 			mhi_dev_net_log(MHI_PF_ID, MHI_INFO,
 					"Channel %d uses ethernet interface\n",
 					mhi_net_ctxt.eth_iface_out_ch);
+
+		ret = of_property_read_u32((&mhi_net_ctxt.pdev->dev)->of_node,
+						"qcom,tx_rx_reqs", &reqs);
+		if (ret < 0) {
+			mhi_net_ctxt.tx_reqs = MHI_MAX_TX_REQ;
+			mhi_net_ctxt.rx_reqs = MHI_MAX_RX_REQ;
+		} else {
+			mhi_net_ctxt.tx_reqs = reqs;
+			mhi_net_ctxt.rx_reqs = reqs;
+		}
+
 		mhi_dev_net_log(MHI_PF_ID, MHI_INFO,
 				"MHI Network probe success");
 	}
