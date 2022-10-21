@@ -32,6 +32,25 @@ TRACE_EVENT(sched_kthread_stop,
 	TP_printk("comm=%s pid=%d", __entry->comm, __entry->pid)
 );
 
+TRACE_EVENT(sched_setaffinity,
+
+	TP_PROTO(pid_t pid, const struct cpumask *in_mask),
+
+	TP_ARGS(pid, in_mask),
+
+	TP_STRUCT__entry(
+		__field(pid_t, pid)
+		__field(unsigned long, cpu_mask)
+	),
+
+	TP_fast_assign(
+		__entry->pid	     = pid;
+		__entry->cpu_mask  = cpumask_bits(in_mask)[0];
+	),
+
+	TP_printk(" pid=%d affine=%#lx", __entry->pid, __entry->cpu_mask)
+);
+
 /*
  * Tracepoint for the return value of the kthread stopping:
  */
@@ -692,6 +711,45 @@ DECLARE_EVENT_CLASS(sched_stat_runtime,
 DEFINE_EVENT(sched_stat_runtime, sched_stat_runtime,
 	     TP_PROTO(struct task_struct *tsk, u64 runtime, u64 vruntime),
 	     TP_ARGS(tsk, runtime, vruntime));
+
+/* debug sched event of EAS for tracer: nop  */
+TRACE_EVENT(sched_debug_einfo,
+		TP_PROTO(struct task_struct *tsk,const char *  flag1,const char *  flag2,unsigned int param1, unsigned int param2,u64 se_vr, u64 en_vr,u64 cfq_min_vr),
+		TP_ARGS(tsk,flag1,flag2,param1,param2, se_vr,en_vr,cfq_min_vr),
+		TP_STRUCT__entry(
+			__array( char,	comm,	TASK_COMM_LEN	)
+			__field( pid_t,	pid			)
+			__array( char,	flag1,	TASK_COMM_LEN)
+			__array( char,	flag2,	TASK_COMM_LEN)
+			__field(unsigned int, param1    )
+			__field( unsigned int,	param2)
+			__field( u64,	se_vr )
+			__field( u64,	en_vr )
+			__field( u64,	cfq_min_vr )
+			),
+
+		TP_fast_assign(
+			memcpy(__entry->comm, tsk->comm, TASK_COMM_LEN);
+			__entry->pid		= tsk->pid;
+			memcpy(__entry->flag1, flag1, TASK_COMM_LEN);
+			memcpy(__entry->flag2, flag2, TASK_COMM_LEN);
+			__entry->param1 = param1;
+			__entry->param2 = param2;
+			__entry->se_vr  = se_vr;
+			__entry->en_vr = en_vr;
+			__entry->cfq_min_vr = cfq_min_vr;
+			),
+
+		TP_printk("comm=%s pid=%d,  %s=%d  %s=%d ,  sv=%Lu [ns] ev=%Lu [ns] cv=%Lu [ns]", __entry->comm, __entry->pid,
+				__entry->flag1,
+				__entry->param1,
+				__entry->flag2,
+				__entry->param2,
+				(unsigned long long)__entry->se_vr,
+				(unsigned long long)__entry->en_vr,
+				(unsigned long long)__entry->cfq_min_vr)
+		);
+
 
 /*
  * Tracepoint for showing priority inheritance modifying a tasks
@@ -1361,23 +1419,35 @@ TRACE_EVENT(sched_boost_cpu,
 
 TRACE_EVENT(core_ctl_eval_need,
 
-	TP_PROTO(unsigned int cpu, unsigned int old_need,
-		unsigned int new_need, unsigned int updated),
-	TP_ARGS(cpu, old_need, new_need, updated),
+	TP_PROTO(unsigned int cpu, unsigned int last_need,
+		unsigned int new_need, unsigned int active_cpus,
+		unsigned int adj_now, unsigned int adj_possible,
+		unsigned int updated, s64 need_ts),
+	TP_ARGS(cpu, last_need, new_need, active_cpus, adj_now, adj_possible, updated, need_ts),
 	TP_STRUCT__entry(
 		__field(u32, cpu)
-		__field(u32, old_need)
+		__field(u32, last_need)
 		__field(u32, new_need)
+		__field(u32, active_cpus)
+		__field(u32, adj_now)
+		__field(u32, adj_possible)
 		__field(u32, updated)
+		__field(s64, need_ts)
 	),
 	TP_fast_assign(
-		__entry->cpu = cpu;
-		__entry->old_need = old_need;
-		__entry->new_need = new_need;
-		__entry->updated = updated;
+		__entry->cpu		= cpu;
+		__entry->last_need	= last_need;
+		__entry->new_need	= new_need;
+		__entry->active_cpus	= active_cpus;
+		__entry->adj_now	= adj_now;
+		__entry->adj_possible	= adj_possible;
+		__entry->updated	= updated;
+		__entry->need_ts	= need_ts;
 	),
-	TP_printk("cpu=%u, old_need=%u, new_need=%u, updated=%u", __entry->cpu,
-			__entry->old_need, __entry->new_need, __entry->updated)
+	TP_printk("cpu=%u last_need=%u new_need=%u active_cpus=%u adj_now=%u adj_possible=%u updated=%u need_ts=%llu",
+		  __entry->cpu,	__entry->last_need, __entry->new_need,
+		  __entry->active_cpus, __entry->adj_now, __entry->adj_possible,
+		  __entry->updated, __entry->need_ts)
 );
 
 TRACE_EVENT(core_ctl_set_busy,

@@ -74,7 +74,9 @@ static void mpage_end_io(struct bio *bio)
 		page_endio(page, bio_op(bio),
 			   blk_status_to_errno(bio->bi_status));
 	}
-
+#ifdef CONFIG_PERF_HUMANTASK
+	bio->human_task = 0 ;
+#endif
 	bio_put(bio);
 }
 
@@ -99,6 +101,15 @@ static struct bio *mpage_bio_submit(int op, int op_flags, struct bio *bio)
 		}
 	}
 	bio->bi_end_io = mpage_end_io;
+#ifdef CONFIG_PERF_HUMANTASK
+	if(current->human_task){
+		bio->human_task = current->pid ;
+		//trace_filemap_debug_einfo(first_page,current,"bio_submit",0);
+	}else{
+		bio->human_task = 0 ;
+	}
+#endif
+
 	bio_set_op_attrs(bio, op, op_flags);
 	guard_bio_eod(op, bio);
 	submit_bio(bio);

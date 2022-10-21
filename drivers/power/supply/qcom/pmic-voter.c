@@ -480,6 +480,12 @@ int vote(struct votable *votable, const char *client_str, bool enabled, int val)
 	 */
 	if (!votable->voted_on
 			|| (effective_result != votable->effective_result)) {
+		if (strcmp(votable->name, "FG_WS") != 0) {
+				pr_info("%s: current vote is now %d voted by %s,%d, previous voted %d\n",
+						votable->name, effective_result,
+						get_client_str(votable, effective_id),
+						effective_id, votable->effective_result);
+		}
 		votable->effective_client_id = effective_id;
 		votable->effective_result = effective_result;
 		pr_debug("%s: effective vote is now %d voted by %s,%d\n",

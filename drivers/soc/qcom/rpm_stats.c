@@ -271,7 +271,6 @@ static int msm_rpmstats_probe(struct platform_device *pdev)
 		pdata->num_records = RPM_STATS_NUM_REC;
 
 	msm_rpmstats_create_sysfs(pdev, pdata);
-
 	return 0;
 }
 

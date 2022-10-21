@@ -635,6 +635,7 @@ struct devfreq *devfreq_add_device(struct device *dev,
 	devfreq->previous_freq = profile->initial_freq;
 	devfreq->last_status.current_frequency = profile->initial_freq;
 	devfreq->data = data;
+	devfreq->flag = DF_NORMAL;
 	devfreq->nb.notifier_call = devfreq_notifier_call;
 	devfreq->dev_suspended = false;
 

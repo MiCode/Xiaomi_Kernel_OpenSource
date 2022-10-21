@@ -785,13 +785,6 @@ static int ipa_suspend_work_handler(struct gsi_data_port *d_port)
 		goto done;
 	}
 
-	/*
-	 * Ensure that the DBL is blocked before suspend.
-	 */
-	block_db = true;
-	usb_gsi_ep_op(gsi->d_port.in_ep, (void *)&block_db,
-					GSI_EP_OP_SET_CLR_BLOCK_DBL);
-
 	log_event_dbg("%s: Calling xdci_suspend", __func__);
 	ret = ipa_usb_xdci_suspend(gsi->d_port.out_channel_handle,
 				gsi->d_port.in_channel_handle, gsi->prot_id,
@@ -2792,7 +2785,6 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		if (status < 0)
 			goto fail;
 	}
-
 	status = gsi->data_id = usb_interface_id(c, f);
 	if (status < 0)
 		goto fail;
@@ -2883,8 +2875,11 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		 * Default to rndis over ethernet which loads NDIS6 drivers
 		 * for windows7/windows10 to avoid data stall issues
 		 */
-		if (gsi->rndis_id == RNDIS_ID_UNKNOWN)
+		if (cdev->isMSOS) {
 			gsi->rndis_id = MISC_RNDIS_OVER_ETHERNET;
+		} else {
+			gsi->rndis_id = WIRELESS_CONTROLLER_REMOTE_NDIS;
+		}
 
 		switch (gsi->rndis_id) {
 		default:

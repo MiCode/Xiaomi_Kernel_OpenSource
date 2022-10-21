@@ -63,6 +63,14 @@ struct task_delay_info {
 
 	u32 freepages_count;	/* total count of memory reclaim */
 	u32 thrashing_count;	/* total count of thrash waits */
+
+	u64 binder_start;
+	u64 binder_delay;   /* wait for binder transaction */
+	u32 binder_count;   /* total count of the number of binder transact */
+
+
+	u64 mem_sp_start;
+	u64 mem_sp_delay;	/* wait for memory alloc */
 };
 #endif
 
@@ -83,6 +91,10 @@ extern void __delayacct_freepages_start(void);
 extern void __delayacct_freepages_end(void);
 extern void __delayacct_thrashing_start(void);
 extern void __delayacct_thrashing_end(void);
+extern void __delayacct_slowpath_start(void);
+extern void __delayacct_slowpath_end(void);
+extern void __delayacct_binder_start(void);
+extern void __delayacct_binder_end(void);
 
 static inline int delayacct_is_task_waiting_on_io(struct task_struct *p)
 {
@@ -175,6 +187,30 @@ static inline void delayacct_thrashing_end(void)
 		__delayacct_thrashing_end();
 }
 
+static inline void delayacct_binder_start(void)
+{
+	if (current->delays)
+		__delayacct_binder_start();
+}
+
+static inline void delayacct_binder_end(void)
+{
+	if (current->delays)
+		__delayacct_binder_end();
+}
+
+static inline void delayacct_slowpath_start(void)
+{
+	if (current->delays)
+		__delayacct_slowpath_start();
+}
+
+static inline void delayacct_slowpath_end(void)
+{
+	if (current->delays)
+		__delayacct_slowpath_end();
+}
+
 #else
 static inline void delayacct_set_flag(int flag)
 {}
@@ -204,6 +240,14 @@ static inline void delayacct_freepages_end(void)
 static inline void delayacct_thrashing_start(void)
 {}
 static inline void delayacct_thrashing_end(void)
+{}
+static inline void delayacct_binder_start(void)
+{}
+static inline void delayacct_binder_end(void)
+{}
+static inline void delayacct_slowpath_start(void)
+{}
+static inline void delayacct_slowpath_end(void)
 {}
 
 #endif /* CONFIG_TASK_DELAY_ACCT */

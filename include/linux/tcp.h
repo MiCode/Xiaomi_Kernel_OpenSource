@@ -259,6 +259,7 @@ struct tcp_sock {
 	u32	mdev_max_us;	/* maximal mdev for the last rtt period	*/
 	u32	rttvar_us;	/* smoothed mdev_max			*/
 	u32	rtt_seq;	/* sequence number to update rttvar	*/
+	u32	seq_rtt_us;
 	struct  minmax rtt_min;
 
 	u32	packets_out;	/* Packets which are "in flight"	*/

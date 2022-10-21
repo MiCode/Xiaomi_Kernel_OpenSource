@@ -16,10 +16,11 @@
  * boost is responsible for disabling it as well.
  */
 
+unsigned int mi_sched_boost;
 unsigned int sysctl_sched_boost; /* To/from userspace */
+unsigned int sysctl_sched_boost_top_app;
 unsigned int sched_boost_type; /* currently activated sched boost */
 enum sched_boost_policy boost_policy;
-
 static enum sched_boost_policy boost_policy_dt = SCHED_BOOST_NONE;
 static DEFINE_MUTEX(boost_mutex);
 
@@ -56,11 +57,16 @@ static void set_boost_policy(int type)
 
 static bool verify_boost_params(int type)
 {
-	return type >= RESTRAINED_BOOST_DISABLE && type <= RESTRAINED_BOOST;
+	return type >= RESTRAINED_BOOST_DISABLE && type <= MI_BOOST;
 }
 
 static void sched_no_boost_nop(void)
 {
+}
+
+static bool verify_boost_top_app_params(int type)
+{
+	return type >= 0;
 }
 
 static void sched_full_throttle_boost_enter(void)
@@ -146,7 +152,7 @@ static int sched_effective_boost(void)
 static void sched_boost_disable(int type)
 {
 	struct sched_boost_data *sb = &sched_boosts[type];
-	int next_boost;
+	int next_boost, prev_boost = sched_boost_type;
 
 	if (sb->refcount <= 0)
 		return;
@@ -156,14 +162,15 @@ static void sched_boost_disable(int type)
 	if (sb->refcount)
 		return;
 
+	next_boost = sched_effective_boost();
+	if (next_boost == prev_boost)
+		return;
 	/*
 	 * This boost's refcount becomes zero, so it must
 	 * be disabled. Disable it first and then apply
 	 * the next boost.
 	 */
-	sb->exit();
-
-	next_boost = sched_effective_boost();
+	sched_boosts[prev_boost].exit();
 	sched_boosts[next_boost].enter();
 }
 
@@ -196,17 +203,24 @@ static void sched_boost_enable(int type)
 static void sched_boost_disable_all(void)
 {
 	int i;
+	int prev_boost = sched_boost_type;
 
-	for (i = SCHED_BOOST_START; i < SCHED_BOOST_END; i++) {
-		if (sched_boosts[i].refcount > 0) {
-			sched_boosts[i].exit();
+	if (prev_boost != NO_BOOST) {
+		sched_boosts[prev_boost].exit();
+		for (i = SCHED_BOOST_START; i < SCHED_BOOST_END; i++)
 			sched_boosts[i].refcount = 0;
-		}
 	}
 }
 
 static void _sched_set_boost(int type)
 {
+
+	if (MI_BOOST == type) {
+		type = FULL_THROTTLE_BOOST;
+		mi_sched_boost = MI_BOOST;
+	}else if(FULL_THROTTLE_BOOST + type == NO_BOOST){
+		mi_sched_boost = NO_BOOST;
+	}
 	if (type == 0)
 		sched_boost_disable_all();
 	else if (type > 0)
@@ -225,6 +239,10 @@ static void _sched_set_boost(int type)
 	sysctl_sched_boost = sched_boost_type;
 	set_boost_policy(sysctl_sched_boost);
 	trace_sched_set_boost(sysctl_sched_boost);
+}
+
+static void sched_set_boost_top_app(int type) {
+	sysctl_sched_boost_top_app = type;
 }
 
 void sched_boost_parse_dt(void)
@@ -279,4 +297,34 @@ int sched_boost_handler(struct ctl_table *table, int write,
 done:
 	mutex_unlock(&boost_mutex);
 	return ret;
+}
+
+int sched_boost_top_app_handler(struct ctl_table *table, int write,
+		void __user *buffer, size_t *lenp,
+		loff_t *ppos)
+{
+	int ret;
+	unsigned int *data = (unsigned int *)table->data;
+
+	mutex_lock(&boost_mutex);
+
+	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+
+	if (ret || !write)
+		goto done;
+
+	if (verify_boost_top_app_params(*data))
+		sched_set_boost_top_app(*data);
+	else
+		ret = -EINVAL;
+
+done:
+	mutex_unlock(&boost_mutex);
+	return ret;
+}
+
+bool sched_boost_top_app(void)
+{
+	bool res = sysctl_sched_boost_top_app > 0 &&  mi_sched_boost == MI_BOOST;
+	return  res;
 }

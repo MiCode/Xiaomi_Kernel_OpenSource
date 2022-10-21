@@ -69,6 +69,8 @@ struct backlight_ops {
 struct backlight_properties {
 	/* Current User requested brightness (0 - max_brightness) */
 	int brightness;
+	int brightness_clone;
+	int brightness_clone_backup;
 	/* Maximal value for brightness (read-only) */
 	int max_brightness;
 	/* Current FB Power mode (0: full on, 1..3: power saving
@@ -111,6 +113,8 @@ struct backlight_device {
 	struct thermal_cooling_device *cdev;
 	/* Thermally limited max brightness */
 	int thermal_brightness_limit;
+        /* Thermally limited max brightness clone for 8192 hbm*/
+        int thermal_brightness_clone_limit;
 	/* User brightness request */
 	int usr_brightness_req;
 
@@ -189,6 +193,8 @@ extern void backlight_force_update(struct backlight_device *bd,
 extern int backlight_register_notifier(struct notifier_block *nb);
 extern int backlight_unregister_notifier(struct notifier_block *nb);
 extern struct backlight_device *backlight_device_get_by_type(enum backlight_type type);
+extern struct backlight_device *backlight_device_get_by_type_a(enum backlight_type type);
+extern struct backlight_device *backlight_device_get_by_type_b(enum backlight_type type);
 extern int backlight_device_set_brightness(struct backlight_device *bd, unsigned long brightness);
 
 #define to_backlight_device(obj) container_of(obj, struct backlight_device, dev)

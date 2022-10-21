@@ -11,6 +11,7 @@ menuconfig INPUT_KEYBOARD
 	  If unsure, say Y.
 
 if INPUT_KEYBOARD
+source "drivers/input/keyboard/nanosic_driver/Kconfig"
 
 config KEYBOARD_ADC
 	tristate "ADC Ladder Buttons"

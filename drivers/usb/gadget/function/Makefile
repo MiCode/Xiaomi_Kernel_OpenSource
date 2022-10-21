@@ -69,7 +69,3 @@ usb_f_mtp-y			:= f_mtp.o
 obj-$(CONFIG_USB_F_MTP)		+= usb_f_mtp.o
 usb_f_ptp-y			:= f_ptp.o
 obj-$(CONFIG_USB_F_PTP)		+= usb_f_ptp.o
-usb_f_qcrndis-y			:= f_qc_rndis.o u_data_ipa.o
-obj-$(CONFIG_USB_F_QCRNDIS)	+= usb_f_qcrndis.o
-usb_f_rmnet_bam-y               := f_rmnet.o u_ctrl_qti.o u_bam_dmux.o
-obj-$(CONFIG_USB_F_RMNET_BAM)   += usb_f_rmnet_bam.o

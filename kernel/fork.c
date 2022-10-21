@@ -95,6 +95,7 @@
 #include <linux/thread_info.h>
 #include <linux/cpufreq_times.h>
 #include <linux/scs.h>
+#include <linux/cpuset.h>
 
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
@@ -2041,6 +2042,10 @@ static __latent_entropy struct task_struct *copy_process(
 	p->sequential_io	= 0;
 	p->sequential_io_avg	= 0;
 #endif
+#ifdef CONFIG_KPERFEVENTS
+	rwlock_init(&p->kperfevents_lock);
+	p->kperfevents = NULL;
+#endif
 
 	/* Perform scheduler related setup. Assign this task to a CPU. */
 	retval = sched_fork(clone_flags, p);
@@ -2333,6 +2338,7 @@ bad_fork_cleanup_threadgroup_lock:
 #endif
 	delayacct_tsk_free(p);
 bad_fork_cleanup_count:
+
 	atomic_dec(&p->cred->user->processes);
 	exit_creds(p);
 bad_fork_free:
@@ -2433,6 +2439,23 @@ long _do_fork(unsigned long clone_flags,
 		get_task_struct(p);
 	}
 
+	p->top_app = 0;
+	p->inherit_top_app = 0;
+#ifdef CONFIG_PERF_HUMANTASK
+        p->human_task = 0;
+#endif
+	p->critical_task = 0;
+
+	if (current->critical_task) {
+		cpuset_cpus_allowed_mi(p);
+	}
+
+#ifdef CONFIG_PERF_CRITICAL_RT_TASK
+	p->critical_rt_task = 0;
+#endif
+#ifdef CONFIG_SF_BINDER
+	p->sf_binder_task = 0;
+#endif
 	wake_up_new_task(p);
 
 	/* forking complete and child started to run, tell ptracer */

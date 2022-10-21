@@ -421,8 +421,6 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq)
 		__secure_tz_update_entry3(scm_data, sizeof(scm_data),
 					&val, sizeof(val), priv);
 	}
-	priv->bin.total_time = 0;
-	priv->bin.busy_time = 0;
 
 	/*
 	 * If the decision is to move to a different level, make sure the GPU
@@ -435,6 +433,10 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq)
 	}
 
 	*freq = devfreq->profile->freq_table[level];
+
+	priv->bin.total_time = 0;
+	priv->bin.busy_time = 0;
+
 	return 0;
 }
 

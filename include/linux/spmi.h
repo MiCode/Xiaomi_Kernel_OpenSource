@@ -186,5 +186,6 @@ int spmi_command_reset(struct spmi_device *sdev);
 int spmi_command_sleep(struct spmi_device *sdev);
 int spmi_command_wakeup(struct spmi_device *sdev);
 int spmi_command_shutdown(struct spmi_device *sdev);
+int pmic_gpio_get_external(const char* chip_name, unsigned pin);
 
 #endif

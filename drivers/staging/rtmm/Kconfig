@@ -1,0 +1,6 @@
+config RTMM
+	bool "enable runtime mem optimization"
+	select SYSFS
+	default n
+	help
+	  Thie module is created by MIUI to optimize mem performance.

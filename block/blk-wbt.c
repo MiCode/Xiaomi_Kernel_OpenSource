@@ -617,6 +617,7 @@ static void wbt_cleanup(struct rq_qos *rqos, struct bio *bio)
 {
 	struct rq_wb *rwb = RQWB(rqos);
 	enum wbt_flags flags = bio_to_wbt_flags(rwb, bio);
+	bio->bi_opf &= ~REQ_WBT;
 	__wbt_done(rqos, flags);
 }
 
@@ -638,6 +639,7 @@ static void wbt_wait(struct rq_qos *rqos, struct bio *bio, spinlock_t *lock)
 		return;
 	}
 
+	bio->bi_opf |= REQ_WBT;
 	__wbt_wait(rwb, flags, bio->bi_opf, lock);
 
 	if (!blk_stat_is_active(rwb->cb))
@@ -647,7 +649,8 @@ static void wbt_wait(struct rq_qos *rqos, struct bio *bio, spinlock_t *lock)
 static void wbt_track(struct rq_qos *rqos, struct request *rq, struct bio *bio)
 {
 	struct rq_wb *rwb = RQWB(rqos);
-	rq->wbt_flags |= bio_to_wbt_flags(rwb, bio);
+	if (bio->bi_opf & REQ_WBT)
+		rq->wbt_flags |= bio_to_wbt_flags(rwb, bio);
 }
 
 void wbt_issue(struct rq_qos *rqos, struct request *rq)
