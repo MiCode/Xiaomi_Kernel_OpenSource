@@ -30,6 +30,7 @@
 | courbet-r-oss | Mi 11 Lite | Android R | LA.UM.9.1.r1-06700-SMxxx0.0 | [courbet-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/courbet-r-oss) |   
 | crux-p-oss | Mi9 Pro 5G | Android P | LA.UM.7.1.r1-15600-sm8150.0 | [crux-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/crux-p-oss) |
 | curtana-q-oss | Redmi Note 9 Pro,Redmi Note 9 Pro Max | Android Q | LA.UM.8.9.r1-07100-SM6xx.0 | [curtana-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/curtana-q-oss) |
+| dagu-s-oss | Xiaomi Pad 5 pro 12.4 | Android S | LA.UM.9.12.r1-13300-SMxx50.QSSI12.0-1 | [dagu-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/dagu-s-oss) |
 | daisy-o-oss | Mi A2 lite, Redmi 6pro | Android O | LA.UM.6.6.r1-07400-89xx.0-1 | [daisy-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/daisy-o-oss) |
 | daisy-p-oss | Mi A2 lite | Android P | LA.UM.7.6.r1-02800-89xx.0 | [daisy-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/daisy-p-oss) |
 | daisy-q-oss | Mi A2 Lite| Android Q | LA.UM.8.6.r1-02600-89xx.0 | [daisy-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/daisy-q-oss) |
