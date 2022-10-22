@@ -17,8 +17,10 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/slab.h>
+#include <linux/suspend.h>
 #include <linux/uaccess.h>
 #include <soc/qcom/boot_stats.h>
+#include <soc/qcom/soc_sleep_stats.h>
 #include <linux/hashtable.h>
 
 #define MARKER_STRING_WIDTH 40
@@ -64,6 +66,58 @@ static struct boot_marker boot_marker_list;
 static struct kobject *bootkpi_obj;
 static int num_markers;
 static DECLARE_HASHTABLE(marker_htable, 5);
+
+
+#if IS_ENABLED(CONFIG_QCOM_SOC_SLEEP_STATS)
+static u64 get_time_in_msec(u64 counter)
+{
+	counter *= MSEC_PER_SEC;
+	do_div(counter, MSM_ARCH_TIMER_FREQ);
+	return counter;
+}
+
+static void measure_wake_up_time(void)
+{
+	u64 wake_up_time, deep_sleep_exit_time, current_time;
+	char wakeup_marker[50] = {0,};
+
+	current_time = arch_timer_read_counter();
+	deep_sleep_exit_time = get_aosd_sleep_exit_time();
+
+	if (deep_sleep_exit_time) {
+		wake_up_time = get_time_in_msec(current_time - deep_sleep_exit_time);
+		pr_debug("Current= %llu, wakeup=%llu, kpi=%llu msec\n",
+				current_time, deep_sleep_exit_time,
+				wake_up_time);
+		snprintf(wakeup_marker, sizeof(wakeup_marker),
+				"M - STR Wakeup : %llu ms", wake_up_time);
+		destroy_marker("M - STR Wakeup");
+		place_marker(wakeup_marker);
+	} else
+		destroy_marker("M - STR Wakeup");
+}
+
+/**
+ * boot_kpi_pm_notifier() - PM notifier callback function.
+ * @nb:		Pointer to the notifier block.
+ * @event:	Suspend state event from PM module.
+ * @unused:	Null pointer from PM module.
+ *
+ * This function is register as callback function to get notifications
+ * from the PM module on the system suspend state.
+ */
+static int boot_kpi_pm_notifier(struct notifier_block *nb,
+				  unsigned long event, void *unused)
+{
+	if (event == PM_POST_SUSPEND)
+		measure_wake_up_time();
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block boot_kpi_pm_nb = {
+	.notifier_call = boot_kpi_pm_notifier,
+};
+#endif
 
 unsigned long long msm_timer_get_sclk_ticks(void)
 {
@@ -377,6 +431,13 @@ static int init_bootkpi(void)
 
 	INIT_LIST_HEAD(&boot_marker_list.list);
 	spin_lock_init(&boot_marker_list.slock);
+
+#if IS_ENABLED(CONFIG_QCOM_SOC_SLEEP_STATS)
+	ret = register_pm_notifier(&boot_kpi_pm_nb);
+	if (ret)
+		pr_err("boot_marker: power state notif error\n");
+#endif
+
 	return 0;
 }
 

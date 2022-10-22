@@ -23,6 +23,7 @@
 #include <linux/soc/qcom/smem.h>
 #include <soc/qcom/soc_sleep_stats.h>
 #include <clocksource/arm_arch_timer.h>
+#include <soc/qcom/boot_stats.h>
 
 #define STAT_TYPE_ADDR		0x0
 #define COUNT_ADDR		0x4
@@ -114,6 +115,54 @@ struct ddr_stats_g_data *ddr_gdata;
 #endif
 
 static bool ddr_freq_update;
+
+#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+static struct stats_prv_data *gdata;
+static u64 deep_sleep_last_exited_time;
+
+uint64_t get_aosd_sleep_exit_time(void)
+{
+	int i;
+	uint32_t offset;
+	u64 last_exited_at;
+	u32 count;
+	static u32 saved_deep_sleep_count;
+	u32 s_type = 0;
+	char stat_type[5] = {0};
+	struct stats_prv_data *drv = gdata;
+	void __iomem *reg;
+
+	for (i = 0; i < drv->config->num_records; i++) {
+		offset = STAT_TYPE_ADDR + (i * sizeof(struct sleep_stats));
+
+		if (drv[i].config->appended_stats_avail)
+			offset += i * sizeof(struct appended_stats);
+
+		reg = drv[i].reg + offset;
+
+		s_type = readl_relaxed(reg);
+		memcpy(stat_type, &s_type, sizeof(u32));
+		strim(stat_type);
+
+		if (!memcmp((const void *)stat_type, (const void *)"aosd", 4)) {
+			count = readl_relaxed(reg + COUNT_ADDR);
+
+			if (saved_deep_sleep_count == count)
+				deep_sleep_last_exited_time = 0;
+			else {
+				saved_deep_sleep_count = count;
+				last_exited_at = readq_relaxed(reg + LAST_EXITED_AT_ADDR);
+				deep_sleep_last_exited_time = last_exited_at;
+			}
+			break;
+
+		}
+	}
+
+	return deep_sleep_last_exited_time;
+}
+EXPORT_SYMBOL(get_aosd_sleep_exit_time);
+#endif
 
 static void print_sleep_stats(struct seq_file *s, struct sleep_stats *stat)
 {
@@ -606,6 +655,10 @@ skip_ddr_stats:
 	root = create_debugfs_entries(reg_base, ddr_reg, prv_data,
 				      pdev->dev.of_node);
 	platform_set_drvdata(pdev, root);
+#endif
+
+#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+	gdata = prv_data;
 #endif
 
 	return 0;
