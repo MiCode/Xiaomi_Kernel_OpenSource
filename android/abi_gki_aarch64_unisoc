@@ -171,6 +171,7 @@
   debugfs_create_x32
   debugfs_initialized
   debugfs_lookup
+  debugfs_lookup_and_remove
   debugfs_remove
   debugfs_rename
   dec_zone_page_state
