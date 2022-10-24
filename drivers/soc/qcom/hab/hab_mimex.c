@@ -77,7 +77,6 @@ struct export_desc_super *habmem_add_export(
 		int sizebytes,
 		uint32_t flags)
 {
-	struct uhab_context *ctx = NULL;
 	struct export_desc *exp = NULL;
 	struct export_desc_super *exp_super = NULL;
 
@@ -97,19 +96,10 @@ struct export_desc_super *habmem_add_export(
 	idr_preload_end();
 
 	exp->readonly = flags;
-	exp->vchan = vchan;
 	exp->vcid_local = vchan->id;
 	exp->vcid_remote = vchan->otherend_id;
 	exp->domid_local = vchan->pchan->vmid_local;
 	exp->domid_remote = vchan->pchan->vmid_remote;
-	exp->ctx = vchan->ctx;
-	exp->pchan = vchan->pchan;
-
-	ctx = vchan->ctx;
-	write_lock(&ctx->exp_lock);
-	ctx->export_total++;
-	list_add_tail(&exp->node, &ctx->exp_whse);
-	write_unlock(&ctx->exp_lock);
 
 	return exp_super;
 }
@@ -187,7 +177,7 @@ static int habmem_export_vchan(struct uhab_context *ctx,
 		uint32_t export_id)
 {
 	int ret;
-	struct export_desc *exp;
+	struct export_desc *exp = NULL;
 	uint32_t sizebytes = sizeof(*exp) + payload_size;
 	struct hab_export_ack expected_ack = {0};
 	struct hab_header header = HAB_HEADER_INITIALIZER;
@@ -228,6 +218,14 @@ static int habmem_export_vchan(struct uhab_context *ctx,
 				ret, vchan->id);
 		return ret;
 	}
+
+	exp->pchan = vchan->pchan;
+	exp->vchan = vchan;
+	exp->ctx = ctx;
+	write_lock(&ctx->exp_lock);
+	ctx->export_total++;
+	list_add_tail(&exp->node, &ctx->exp_whse);
+	write_unlock(&ctx->exp_lock);
 
 	return ret;
 }
