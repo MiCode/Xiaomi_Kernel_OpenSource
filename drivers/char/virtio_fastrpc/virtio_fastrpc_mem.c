@@ -224,17 +224,21 @@ void vfastrpc_mmap_add(struct vfastrpc_file *vfl, struct vfastrpc_mmap *map)
 	}
 }
 
-int vfastrpc_mmap_remove(struct vfastrpc_file *vfl, uintptr_t va,
-		size_t len, struct vfastrpc_mmap **ppmap)
+int vfastrpc_mmap_remove(struct vfastrpc_file *vfl, int fd,
+		uintptr_t va, size_t len, struct vfastrpc_mmap **ppmap)
 {
 	struct vfastrpc_mmap *match = NULL, *map;
 	struct fastrpc_file *fl = to_fastrpc_file(vfl);
 	struct hlist_node *n;
 
 	hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
-		if (map->raddr == va &&
-			map->raddr + map->len == va + len &&
-			map->refs == 1) {
+		if ((fd < 0 || map->fd == fd) && map->raddr == va &&
+				map->raddr + map->len == va + len &&
+				(map->refs == 1 ||
+				 (map->refs == 2 &&
+				  map->attr & FASTRPC_ATTR_KEEP_MAP))) {
+			if (map->attr & FASTRPC_ATTR_KEEP_MAP)
+				map->refs--;
 			match = map;
 			hlist_del_init(&map->hn);
 			break;

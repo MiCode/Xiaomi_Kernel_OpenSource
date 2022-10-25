@@ -35,7 +35,9 @@
 #define VIRTIO_FASTRPC_F_VERSION			5
 /* indicates domain num is available in config space */
 #define VIRTIO_FASTRPC_F_DOMAIN_NUM			6
-#define VIRTIO_FASTRPC_F_VQUEUE_SETTING		7
+#define VIRTIO_FASTRPC_F_VQUEUE_SETTING			7
+/* indicates fastrpc_mmap/fastrpc_munmap is supported */
+#define VIRTIO_FASTRPC_F_MEM_MAP			8
 
 #define NUM_CHANNELS			4 /* adsp, mdsp, slpi, cdsp0*/
 #define NUM_DEVICES			2 /* adsprpc-smd, adsprpc-smd-secure */
@@ -58,7 +60,7 @@
  * need to be matched with BE_MINOR_VER. And it will return to 0 when
  * FE_MAJOR_VER is increased.
  */
-#define FE_MINOR_VER 0x3
+#define FE_MINOR_VER 0x4
 #define FE_VERSION (FE_MAJOR_VER << 16 | FE_MINOR_VER)
 #define BE_MAJOR_VER(ver) (((ver) >> 16) & 0xffff)
 
@@ -209,6 +211,40 @@ static int vfastrpc_mmap_ioctl(struct vfastrpc_file *vfl,
 	int err = 0;
 
 	switch (ioctl_num) {
+	case FASTRPC_IOCTL_MEM_MAP:
+		if (!me->has_mem_map) {
+			dev_err(me->dev, "mem_map is not supported\n");
+			return -ENOTTY;
+		}
+		K_COPY_FROM_USER(err, 0, &p->mem_map, param,
+						sizeof(p->mem_map));
+		if (err)
+			return err;
+
+		VERIFY(err, 0 == (err = vfastrpc_internal_mem_map(vfl,
+						&p->mem_map)));
+		if (err)
+			return err;
+
+		K_COPY_TO_USER(err, 0, param, &p->mem_map, sizeof(p->mem_map));
+		if (err)
+			return err;
+		break;
+	case FASTRPC_IOCTL_MEM_UNMAP:
+		if (!me->has_mem_map) {
+			dev_err(me->dev, "mem_unmap is not supported\n");
+			return -ENOTTY;
+		}
+		K_COPY_FROM_USER(err, 0, &p->mem_unmap, param,
+						sizeof(p->mem_unmap));
+		if (err)
+			return err;
+
+		VERIFY(err, 0 == (err = vfastrpc_internal_mem_unmap(vfl,
+						&p->mem_unmap)));
+		if (err)
+			return err;
+		break;
 	case FASTRPC_IOCTL_MMAP:
 		if (!me->has_mmap) {
 			dev_err(me->dev, "mmap is not supported\n");
@@ -493,13 +529,17 @@ int fastrpc_dspsignal_destroy(struct fastrpc_file *fl,
 int fastrpc_internal_mem_unmap(struct fastrpc_file *fl,
 				struct fastrpc_ioctl_mem_unmap *ud)
 {
-	return -ENOTTY;
+	struct vfastrpc_file *vfl = to_vfastrpc_file(fl);
+
+	return vfastrpc_internal_mem_unmap(vfl, ud);
 }
 
 int fastrpc_internal_mem_map(struct fastrpc_file *fl,
 				struct fastrpc_ioctl_mem_map *ud)
 {
-	return -ENOTTY;
+	struct vfastrpc_file *vfl = to_vfastrpc_file(fl);
+
+	return vfastrpc_internal_mem_map(vfl, ud);
 }
 
 static long vfastrpc_ioctl(struct file *file, unsigned int ioctl_num,
@@ -566,6 +606,8 @@ static long vfastrpc_ioctl(struct file *file, unsigned int ioctl_num,
 		}
 		err = vfastrpc_internal_invoke2(vfl, &p.inv2);
 		break;
+	case FASTRPC_IOCTL_MEM_MAP:
+	case FASTRPC_IOCTL_MEM_UNMAP:
 	case FASTRPC_IOCTL_MMAP:
 	case FASTRPC_IOCTL_MUNMAP:
 	case FASTRPC_IOCTL_MMAP_64:
@@ -860,6 +902,9 @@ static int virt_fastrpc_probe(struct virtio_device *vdev)
 	if (virtio_has_feature(vdev, VIRTIO_FASTRPC_F_CONTROL))
 		me->has_control = true;
 
+	if (virtio_has_feature(vdev, VIRTIO_FASTRPC_F_MEM_MAP))
+		me->has_mem_map = true;
+
 	vdev->priv = me;
 	me->vdev = vdev;
 	me->dev = vdev->dev.parent;
@@ -1030,6 +1075,7 @@ static unsigned int features[] = {
 	VIRTIO_FASTRPC_F_VERSION,
 	VIRTIO_FASTRPC_F_DOMAIN_NUM,
 	VIRTIO_FASTRPC_F_VQUEUE_SETTING,
+	VIRTIO_FASTRPC_F_MEM_MAP,
 };
 
 static struct virtio_driver virtio_fastrpc_driver = {
