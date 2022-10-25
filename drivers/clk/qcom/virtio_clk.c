@@ -481,6 +481,7 @@ static int virtclk_init_vqs(struct virtio_clk *vclk)
 static const struct virtio_cc_map clk_virtio_map_table[] = {
 	{ .cc_name = "sm8150-gcc", .desc = &clk_virtio_sm8150_gcc, },
 	{ .cc_name = "sm8150-scc", .desc = &clk_virtio_sm8150_scc, },
+	{ .cc_name = "direwolf-gcc", .desc = &clk_virtio_direwolf_gcc, },
 	{ }
 };
 
