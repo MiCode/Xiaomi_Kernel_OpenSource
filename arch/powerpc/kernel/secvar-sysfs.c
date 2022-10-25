@@ -26,18 +26,15 @@ static ssize_t format_show(struct kobject *kobj, struct kobj_attribute *attr,
 	const char *format;
 
 	node = of_find_compatible_node(NULL, NULL, "ibm,secvar-backend");
-	if (!of_device_is_available(node)) {
-		rc = -ENODEV;
-		goto out;
-	}
+	if (!of_device_is_available(node))
+		return -ENODEV;
 
 	rc = of_property_read_string(node, "format", &format);
 	if (rc)
-		goto out;
+		return rc;
 
 	rc = sprintf(buf, "%s\n", format);
 
-out:
 	of_node_put(node);
 
 	return rc;

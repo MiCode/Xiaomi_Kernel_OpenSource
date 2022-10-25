@@ -225,7 +225,7 @@ static int stm32_usbphyc_pll_enable(struct stm32_usbphyc *usbphyc)
 
 		ret = __stm32_usbphyc_pll_disable(usbphyc);
 		if (ret)
-			goto dec_n_pll_cons;
+			return ret;
 	}
 
 	ret = stm32_usbphyc_regulators_enable(usbphyc);

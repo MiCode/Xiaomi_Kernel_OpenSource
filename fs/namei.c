@@ -2571,7 +2571,7 @@ int kern_path(const char *name, unsigned int flags, struct path *path)
 	return ret;
 
 }
-EXPORT_SYMBOL_NS(kern_path, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(kern_path);
 
 /**
  * vfs_path_lookup - lookup a file path relative to a dentry-vfsmount pair
@@ -2983,7 +2983,7 @@ int vfs_create(struct user_namespace *mnt_userns, struct inode *dir,
 		fsnotify_create(dir, dentry);
 	return error;
 }
-EXPORT_SYMBOL_NS(vfs_create, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(vfs_create);
 
 int vfs_mkobj(struct dentry *dentry, umode_t mode,
 		int (*f)(struct dentry *, umode_t, void *),
@@ -3625,14 +3625,18 @@ static struct dentry *filename_create(int dfd, struct filename *name,
 {
 	struct dentry *dentry = ERR_PTR(-EEXIST);
 	struct qstr last;
-	bool want_dir = lookup_flags & LOOKUP_DIRECTORY;
-	unsigned int reval_flag = lookup_flags & LOOKUP_REVAL;
-	unsigned int create_flags = LOOKUP_CREATE | LOOKUP_EXCL;
 	int type;
 	int err2;
 	int error;
+	bool is_dir = (lookup_flags & LOOKUP_DIRECTORY);
 
-	error = filename_parentat(dfd, name, reval_flag, path, &last, &type);
+	/*
+	 * Note that only LOOKUP_REVAL and LOOKUP_DIRECTORY matter here. Any
+	 * other flags passed in are ignored!
+	 */
+	lookup_flags &= LOOKUP_REVAL;
+
+	error = filename_parentat(dfd, name, lookup_flags, path, &last, &type);
 	if (error)
 		return ERR_PTR(error);
 
@@ -3646,13 +3650,11 @@ static struct dentry *filename_create(int dfd, struct filename *name,
 	/* don't fail immediately if it's r/o, at least try to report other errors */
 	err2 = mnt_want_write(path->mnt);
 	/*
-	 * Do the final lookup.  Suppress 'create' if there is a trailing
-	 * '/', and a directory wasn't requested.
+	 * Do the final lookup.
 	 */
-	if (last.name[last.len] && !want_dir)
-		create_flags = 0;
+	lookup_flags |= LOOKUP_CREATE | LOOKUP_EXCL;
 	inode_lock_nested(path->dentry->d_inode, I_MUTEX_PARENT);
-	dentry = __lookup_hash(&last, path->dentry, reval_flag | create_flags);
+	dentry = __lookup_hash(&last, path->dentry, lookup_flags);
 	if (IS_ERR(dentry))
 		goto unlock;
 
@@ -3666,7 +3668,7 @@ static struct dentry *filename_create(int dfd, struct filename *name,
 	 * all is fine. Let's be bastards - you had / on the end, you've
 	 * been asking for (non-existent) directory. -ENOENT for you.
 	 */
-	if (unlikely(!create_flags)) {
+	if (unlikely(!is_dir && last.name[last.len])) {
 		error = -ENOENT;
 		goto fail;
 	}
@@ -3885,7 +3887,7 @@ int vfs_mkdir(struct user_namespace *mnt_userns, struct inode *dir,
 		fsnotify_mkdir(dir, dentry);
 	return error;
 }
-EXPORT_SYMBOL_NS(vfs_mkdir, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(vfs_mkdir);
 
 int do_mkdirat(int dfd, struct filename *name, umode_t mode)
 {
@@ -3973,15 +3975,16 @@ int vfs_rmdir(struct user_namespace *mnt_userns, struct inode *dir,
 	dentry->d_inode->i_flags |= S_DEAD;
 	dont_mount(dentry);
 	detach_mounts(dentry);
+	fsnotify_rmdir(dir, dentry);
 
 out:
 	inode_unlock(dentry->d_inode);
 	dput(dentry);
 	if (!error)
-		d_delete_notify(dir, dentry);
+		d_delete(dentry);
 	return error;
 }
-EXPORT_SYMBOL_NS(vfs_rmdir, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(vfs_rmdir);
 
 int do_rmdir(int dfd, struct filename *name)
 {
@@ -4100,6 +4103,7 @@ int vfs_unlink(struct user_namespace *mnt_userns, struct inode *dir,
 			if (!error) {
 				dont_mount(dentry);
 				detach_mounts(dentry);
+				fsnotify_unlink(dir, dentry);
 			}
 		}
 	}
@@ -4107,16 +4111,14 @@ out:
 	inode_unlock(target);
 
 	/* We don't d_delete() NFS sillyrenamed files--they still exist. */
-	if (!error && dentry->d_flags & DCACHE_NFSFS_RENAMED) {
-		fsnotify_unlink(dir, dentry);
-	} else if (!error) {
+	if (!error && !(dentry->d_flags & DCACHE_NFSFS_RENAMED)) {
 		fsnotify_link_count(target);
-		d_delete_notify(dir, dentry);
+		d_delete(dentry);
 	}
 
 	return error;
 }
-EXPORT_SYMBOL_NS(vfs_unlink, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(vfs_unlink);
 
 /*
  * Make sure that the actual truncation of the file will occur outside its
@@ -4386,7 +4388,7 @@ int vfs_link(struct dentry *old_dentry, struct user_namespace *mnt_userns,
 		fsnotify_link(dir, inode, new_dentry);
 	return error;
 }
-EXPORT_SYMBOL_NS(vfs_link, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(vfs_link);
 
 /*
  * Hardlinks are often used in delicate situations.  We avoid
@@ -4660,7 +4662,7 @@ out:
 
 	return error;
 }
-EXPORT_SYMBOL_NS(vfs_rename, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(vfs_rename);
 
 int do_renameat2(int olddfd, struct filename *from, int newdfd,
 		 struct filename *to, unsigned int flags)

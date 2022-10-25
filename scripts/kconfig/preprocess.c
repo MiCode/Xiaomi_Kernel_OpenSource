@@ -141,7 +141,7 @@ static char *do_lineno(int argc, char *argv[])
 static char *do_shell(int argc, char *argv[])
 {
 	FILE *p;
-	char buf[4096];
+	char buf[256];
 	char *cmd;
 	size_t nread;
 	int i;

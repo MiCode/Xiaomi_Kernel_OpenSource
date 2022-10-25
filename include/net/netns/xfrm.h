@@ -7,7 +7,6 @@
 #include <linux/workqueue.h>
 #include <linux/rhashtable-types.h>
 #include <linux/xfrm.h>
-#include <linux/android_kabi.h>
 #include <net/dst_ops.h>
 
 struct ctl_table_header;
@@ -67,7 +66,11 @@ struct netns_xfrm {
 	int			sysctl_larval_drop;
 	u32			sysctl_acq_expires;
 
-	u8			policy_default[XFRM_POLICY_MAX];
+	u8			policy_default;
+#define XFRM_POL_DEFAULT_IN	1
+#define XFRM_POL_DEFAULT_OUT	2
+#define XFRM_POL_DEFAULT_FWD	4
+#define XFRM_POL_DEFAULT_MASK	7
 
 #ifdef CONFIG_SYSCTL
 	struct ctl_table_header	*sysctl_hdr;
@@ -83,8 +86,6 @@ struct netns_xfrm {
 
 	spinlock_t xfrm_policy_lock;
 	struct mutex xfrm_cfg_mutex;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 #endif

@@ -181,15 +181,15 @@ static unsigned long um_pci_cfgspace_read(void *priv, unsigned int offset,
 	/* buf->data is maximum size - we may only use parts of it */
 	struct um_pci_message_buffer *buf;
 	u8 *data;
-	unsigned long ret = ULONG_MAX;
+	unsigned long ret = ~0ULL;
 
 	if (!dev)
-		return ULONG_MAX;
+		return ~0ULL;
 
 	buf = get_cpu_var(um_pci_msg_bufs);
 	data = buf->data;
 
-	memset(buf->data, 0xff, sizeof(buf->data));
+	memset(data, 0xff, sizeof(data));
 
 	switch (size) {
 	case 1:
@@ -304,7 +304,7 @@ static unsigned long um_pci_bar_read(void *priv, unsigned int offset,
 	/* buf->data is maximum size - we may only use parts of it */
 	struct um_pci_message_buffer *buf;
 	u8 *data;
-	unsigned long ret = ULONG_MAX;
+	unsigned long ret = ~0ULL;
 
 	buf = get_cpu_var(um_pci_msg_bufs);
 	data = buf->data;

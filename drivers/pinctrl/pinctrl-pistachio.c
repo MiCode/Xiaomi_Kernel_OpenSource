@@ -1374,10 +1374,10 @@ static int pistachio_gpio_register(struct pistachio_pinctrl *pctl)
 		}
 
 		irq = irq_of_parse_and_map(child, 0);
-		if (!irq) {
-			dev_err(pctl->dev, "No IRQ for bank %u\n", i);
+		if (irq < 0) {
+			dev_err(pctl->dev, "No IRQ for bank %u: %d\n", i, irq);
 			of_node_put(child);
-			ret = -EINVAL;
+			ret = irq;
 			goto err;
 		}
 

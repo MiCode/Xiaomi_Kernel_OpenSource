@@ -636,10 +636,8 @@ static int nfc_genl_dump_devices_done(struct netlink_callback *cb)
 {
 	struct class_dev_iter *iter = (struct class_dev_iter *) cb->args[0];
 
-	if (iter) {
-		nfc_device_iter_exit(iter);
-		kfree(iter);
-	}
+	nfc_device_iter_exit(iter);
+	kfree(iter);
 
 	return 0;
 }
@@ -1244,7 +1242,7 @@ int nfc_genl_fw_download_done(struct nfc_dev *dev, const char *firmware_name,
 	struct sk_buff *msg;
 	void *hdr;
 
-	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
 	if (!msg)
 		return -ENOMEM;
 
@@ -1260,7 +1258,7 @@ int nfc_genl_fw_download_done(struct nfc_dev *dev, const char *firmware_name,
 
 	genlmsg_end(msg, hdr);
 
-	genlmsg_multicast(&nfc_genl_family, msg, 0, 0, GFP_ATOMIC);
+	genlmsg_multicast(&nfc_genl_family, msg, 0, 0, GFP_KERNEL);
 
 	return 0;
 
@@ -1394,10 +1392,8 @@ static int nfc_genl_dump_ses_done(struct netlink_callback *cb)
 {
 	struct class_dev_iter *iter = (struct class_dev_iter *) cb->args[0];
 
-	if (iter) {
-		nfc_device_iter_exit(iter);
-		kfree(iter);
-	}
+	nfc_device_iter_exit(iter);
+	kfree(iter);
 
 	return 0;
 }

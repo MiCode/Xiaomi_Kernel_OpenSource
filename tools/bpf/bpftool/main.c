@@ -402,8 +402,6 @@ int main(int argc, char **argv)
 	};
 	int opt, ret;
 
-	setlinebuf(stdout);
-
 	last_do_help = do_help;
 	pretty_output = false;
 	json_output = false;

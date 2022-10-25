@@ -5,7 +5,7 @@
  * Copyright 2007-2009	Johannes Berg <johannes@sipsolutions.net>
  * Copyright 2013-2014  Intel Mobile Communications GmbH
  * Copyright 2017	Intel Deutschland GmbH
- * Copyright (C) 2018-20222 Intel Corporation
+ * Copyright (C) 2018-2020 Intel Corporation
  */
 #include <linux/export.h>
 #include <linux/bitops.h>
@@ -80,7 +80,6 @@ u32 ieee80211_channel_to_freq_khz(int chan, enum nl80211_band band)
 		return 0; /* not supported */
 	switch (band) {
 	case NL80211_BAND_2GHZ:
-	case NL80211_BAND_LC:
 		if (chan == 14)
 			return MHZ_TO_KHZ(2484);
 		else if (chan < 14)
@@ -210,7 +209,6 @@ static void set_mandatory_flags_band(struct ieee80211_supported_band *sband)
 		WARN_ON(want);
 		break;
 	case NL80211_BAND_2GHZ:
-	case NL80211_BAND_LC:
 		want = 7;
 		for (i = 0; i < sband->n_bitrates; i++) {
 			switch (sband->bitrates[i].bitrate) {
@@ -933,13 +931,13 @@ void cfg80211_upload_connect_keys(struct wireless_dev *wdev)
 	for (i = 0; i < CFG80211_MAX_WEP_KEYS; i++) {
 		if (!wdev->connect_keys->params[i].cipher)
 			continue;
-		if (rdev_add_key(rdev, dev, -1, i, false, NULL,
+		if (rdev_add_key(rdev, dev, i, false, NULL,
 				 &wdev->connect_keys->params[i])) {
 			netdev_err(dev, "failed to set key %d\n", i);
 			continue;
 		}
 		if (wdev->connect_keys->def == i &&
-		    rdev_set_default_key(rdev, dev, -1, i, true, true)) {
+		    rdev_set_default_key(rdev, dev, i, true, true)) {
 			netdev_err(dev, "failed to set defkey %d\n", i);
 			continue;
 		}
@@ -1039,14 +1037,14 @@ int cfg80211_change_iface(struct cfg80211_registered_device *rdev,
 			return -EBUSY;
 
 		dev->ieee80211_ptr->use_4addr = false;
+		dev->ieee80211_ptr->mesh_id_up_len = 0;
 		wdev_lock(dev->ieee80211_ptr);
 		rdev_set_qos_map(rdev, dev, NULL);
 		wdev_unlock(dev->ieee80211_ptr);
 
 		switch (otype) {
 		case NL80211_IFTYPE_AP:
-		case NL80211_IFTYPE_P2P_GO:
-			cfg80211_stop_ap(rdev, dev, -1, true);
+			cfg80211_stop_ap(rdev, dev, true);
 			break;
 		case NL80211_IFTYPE_ADHOC:
 			cfg80211_leave_ibss(rdev, dev, false);
@@ -1070,11 +1068,6 @@ int cfg80211_change_iface(struct cfg80211_registered_device *rdev,
 
 		cfg80211_process_rdev_events(rdev);
 		cfg80211_mlme_purge_registrations(dev->ieee80211_ptr);
-
-		memset(&dev->ieee80211_ptr->u, 0,
-		       sizeof(dev->ieee80211_ptr->u));
-		memset(&dev->ieee80211_ptr->links, 0,
-		       sizeof(dev->ieee80211_ptr->links));
 	}
 
 	err = rdev_change_virtual_intf(rdev, dev, ntype, params);
@@ -1432,135 +1425,6 @@ static u32 cfg80211_calculate_bitrate_he(struct rate_info *rate)
 	return result / 10000;
 }
 
-static u32 cfg80211_calculate_bitrate_eht(struct rate_info *rate)
-{
-#define SCALE 6144
-	static const u32 mcs_divisors[16] = {
-		102399, /* 16.666666... */
-		 51201, /*  8.333333... */
-		 34134, /*  5.555555... */
-		 25599, /*  4.166666... */
-		 17067, /*  2.777777... */
-		 12801, /*  2.083333... */
-		 11769, /*  1.851851... */
-		 10239, /*  1.666666... */
-		  8532, /*  1.388888... */
-		  7680, /*  1.250000... */
-		  6828, /*  1.111111... */
-		  6144, /*  1.000000... */
-		  5690, /*  0.926106... */
-		  5120, /*  0.833333... */
-		409600, /* 66.666666... */
-		204800, /* 33.333333... */
-	};
-	static const u32 rates_996[3] =  { 480388888, 453700000, 408333333 };
-	static const u32 rates_484[3] =  { 229411111, 216666666, 195000000 };
-	static const u32 rates_242[3] =  { 114711111, 108333333,  97500000 };
-	static const u32 rates_106[3] =  {  40000000,  37777777,  34000000 };
-	static const u32 rates_52[3]  =  {  18820000,  17777777,  16000000 };
-	static const u32 rates_26[3]  =  {   9411111,   8888888,   8000000 };
-	u64 tmp;
-	u32 result;
-
-	if (WARN_ON_ONCE(rate->mcs > 15))
-		return 0;
-	if (WARN_ON_ONCE(rate->eht_gi > NL80211_RATE_INFO_EHT_GI_3_2))
-		return 0;
-	if (WARN_ON_ONCE(rate->eht_ru_alloc >
-			 NL80211_RATE_INFO_EHT_RU_ALLOC_4x996))
-		return 0;
-	if (WARN_ON_ONCE(rate->nss < 1 || rate->nss > 8))
-		return 0;
-
-	/* Bandwidth checks for MCS 14 */
-	if (rate->mcs == 14) {
-		if ((rate->bw != RATE_INFO_BW_EHT_RU &&
-		     rate->bw != RATE_INFO_BW_80 &&
-		     rate->bw != RATE_INFO_BW_160 &&
-		     rate->bw != RATE_INFO_BW_320) ||
-		    (rate->bw == RATE_INFO_BW_EHT_RU &&
-		     rate->eht_ru_alloc != NL80211_RATE_INFO_EHT_RU_ALLOC_996 &&
-		     rate->eht_ru_alloc != NL80211_RATE_INFO_EHT_RU_ALLOC_2x996 &&
-		     rate->eht_ru_alloc != NL80211_RATE_INFO_EHT_RU_ALLOC_4x996)) {
-			WARN(1, "invalid EHT BW for MCS 14: bw:%d, ru:%d\n",
-			     rate->bw, rate->eht_ru_alloc);
-			return 0;
-		}
-	}
-
-	if (rate->bw == RATE_INFO_BW_320 ||
-	    (rate->bw == RATE_INFO_BW_EHT_RU &&
-	     rate->eht_ru_alloc == NL80211_RATE_INFO_EHT_RU_ALLOC_4x996))
-		result = 4 * rates_996[rate->eht_gi];
-	else if (rate->bw == RATE_INFO_BW_EHT_RU &&
-		 rate->eht_ru_alloc == NL80211_RATE_INFO_EHT_RU_ALLOC_3x996P484)
-		result = 3 * rates_996[rate->eht_gi] + rates_484[rate->eht_gi];
-	else if (rate->bw == RATE_INFO_BW_EHT_RU &&
-		 rate->eht_ru_alloc == NL80211_RATE_INFO_EHT_RU_ALLOC_3x996)
-		result = 3 * rates_996[rate->eht_gi];
-	else if (rate->bw == RATE_INFO_BW_EHT_RU &&
-		 rate->eht_ru_alloc == NL80211_RATE_INFO_EHT_RU_ALLOC_2x996P484)
-		result = 2 * rates_996[rate->eht_gi] + rates_484[rate->eht_gi];
-	else if (rate->bw == RATE_INFO_BW_160 ||
-		 (rate->bw == RATE_INFO_BW_EHT_RU &&
-		  rate->eht_ru_alloc == NL80211_RATE_INFO_EHT_RU_ALLOC_2x996))
-		result = 2 * rates_996[rate->eht_gi];
-	else if (rate->bw == RATE_INFO_BW_EHT_RU &&
-		 rate->eht_ru_alloc ==
-		 NL80211_RATE_INFO_EHT_RU_ALLOC_996P484P242)
-		result = rates_996[rate->eht_gi] + rates_484[rate->eht_gi]
-			 + rates_242[rate->eht_gi];
-	else if (rate->bw == RATE_INFO_BW_EHT_RU &&
-		 rate->eht_ru_alloc == NL80211_RATE_INFO_EHT_RU_ALLOC_996P484)
-		result = rates_996[rate->eht_gi] + rates_484[rate->eht_gi];
-	else if (rate->bw == RATE_INFO_BW_80 ||
-		 (rate->bw == RATE_INFO_BW_EHT_RU &&
-		  rate->eht_ru_alloc == NL80211_RATE_INFO_EHT_RU_ALLOC_996))
-		result = rates_996[rate->eht_gi];
-	else if (rate->bw == RATE_INFO_BW_EHT_RU &&
-		 rate->eht_ru_alloc == NL80211_RATE_INFO_EHT_RU_ALLOC_484P242)
-		result = rates_484[rate->eht_gi] + rates_242[rate->eht_gi];
-	else if (rate->bw == RATE_INFO_BW_40 ||
-		 (rate->bw == RATE_INFO_BW_EHT_RU &&
-		  rate->eht_ru_alloc == NL80211_RATE_INFO_EHT_RU_ALLOC_484))
-		result = rates_484[rate->eht_gi];
-	else if (rate->bw == RATE_INFO_BW_20 ||
-		 (rate->bw == RATE_INFO_BW_EHT_RU &&
-		  rate->eht_ru_alloc == NL80211_RATE_INFO_EHT_RU_ALLOC_242))
-		result = rates_242[rate->eht_gi];
-	else if (rate->bw == RATE_INFO_BW_EHT_RU &&
-		 rate->eht_ru_alloc == NL80211_RATE_INFO_EHT_RU_ALLOC_106P26)
-		result = rates_106[rate->eht_gi] + rates_26[rate->eht_gi];
-	else if (rate->bw == RATE_INFO_BW_EHT_RU &&
-		 rate->eht_ru_alloc == NL80211_RATE_INFO_EHT_RU_ALLOC_106)
-		result = rates_106[rate->eht_gi];
-	else if (rate->bw == RATE_INFO_BW_EHT_RU &&
-		 rate->eht_ru_alloc == NL80211_RATE_INFO_EHT_RU_ALLOC_52P26)
-		result = rates_52[rate->eht_gi] + rates_26[rate->eht_gi];
-	else if (rate->bw == RATE_INFO_BW_EHT_RU &&
-		 rate->eht_ru_alloc == NL80211_RATE_INFO_EHT_RU_ALLOC_52)
-		result = rates_52[rate->eht_gi];
-	else if (rate->bw == RATE_INFO_BW_EHT_RU &&
-		 rate->eht_ru_alloc == NL80211_RATE_INFO_EHT_RU_ALLOC_26)
-		result = rates_26[rate->eht_gi];
-	else {
-		WARN(1, "invalid EHT MCS: bw:%d, ru:%d\n",
-		     rate->bw, rate->eht_ru_alloc);
-		return 0;
-	}
-
-	/* now scale to the appropriate MCS */
-	tmp = result;
-	tmp *= SCALE;
-	do_div(tmp, mcs_divisors[rate->mcs]);
-	result = tmp;
-
-	/* and take NSS */
-	result = (result * rate->nss) / 8;
-
-	return result / 10000;
-}
-
 u32 cfg80211_calculate_bitrate(struct rate_info *rate)
 {
 	if (rate->flags & RATE_INFO_FLAGS_MCS)
@@ -1575,8 +1439,6 @@ u32 cfg80211_calculate_bitrate(struct rate_info *rate)
 		return cfg80211_calculate_bitrate_vht(rate);
 	if (rate->flags & RATE_INFO_FLAGS_HE_MCS)
 		return cfg80211_calculate_bitrate_he(rate);
-	if (rate->flags & RATE_INFO_FLAGS_EHT_MCS)
-		return cfg80211_calculate_bitrate_eht(rate);
 
 	return rate->legacy;
 }
@@ -1932,24 +1794,6 @@ bool ieee80211_chandef_to_operating_class(struct cfg80211_chan_def *chandef,
 }
 EXPORT_SYMBOL(ieee80211_chandef_to_operating_class);
 
-static int cfg80211_wdev_bi(struct wireless_dev *wdev)
-{
-	switch (wdev->iftype) {
-	case NL80211_IFTYPE_AP:
-	case NL80211_IFTYPE_P2P_GO:
-		WARN_ON(wdev->valid_links);
-		return wdev->links[0].ap.beacon_interval;
-	case NL80211_IFTYPE_MESH_POINT:
-		return wdev->u.mesh.beacon_interval;
-	case NL80211_IFTYPE_ADHOC:
-		return wdev->u.ibss.beacon_interval;
-	default:
-		break;
-	}
-
-	return 0;
-}
-
 static void cfg80211_calculate_bi_data(struct wiphy *wiphy, u32 new_beacon_int,
 				       u32 *beacon_int_gcd,
 				       bool *beacon_int_different)
@@ -1960,27 +1804,19 @@ static void cfg80211_calculate_bi_data(struct wiphy *wiphy, u32 new_beacon_int,
 	*beacon_int_different = false;
 
 	list_for_each_entry(wdev, &wiphy->wdev_list, list) {
-		int wdev_bi;
-
-		/* this feature isn't supported with MLO */
-		if (wdev->valid_links)
-			continue;
-
-		wdev_bi = cfg80211_wdev_bi(wdev);
-
-		if (!wdev_bi)
+		if (!wdev->beacon_interval)
 			continue;
 
 		if (!*beacon_int_gcd) {
-			*beacon_int_gcd = wdev_bi;
+			*beacon_int_gcd = wdev->beacon_interval;
 			continue;
 		}
 
-		if (wdev_bi == *beacon_int_gcd)
+		if (wdev->beacon_interval == *beacon_int_gcd)
 			continue;
 
 		*beacon_int_different = true;
-		*beacon_int_gcd = gcd(*beacon_int_gcd, wdev_bi);
+		*beacon_int_gcd = gcd(*beacon_int_gcd, wdev->beacon_interval);
 	}
 
 	if (new_beacon_int && *beacon_int_gcd != new_beacon_int) {

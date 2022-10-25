@@ -406,12 +406,12 @@ static int mcf8390_init(struct net_device *dev)
 static int mcf8390_probe(struct platform_device *pdev)
 {
 	struct net_device *dev;
-	struct resource *mem;
+	struct resource *mem, *irq;
 	resource_size_t msize;
-	int ret, irq;
+	int ret;
 
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
+	irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if (irq == NULL) {
 		dev_err(&pdev->dev, "no IRQ specified?\n");
 		return -ENXIO;
 	}
@@ -434,7 +434,7 @@ static int mcf8390_probe(struct platform_device *pdev)
 	SET_NETDEV_DEV(dev, &pdev->dev);
 	platform_set_drvdata(pdev, dev);
 
-	dev->irq = irq;
+	dev->irq = irq->start;
 	dev->base_addr = mem->start;
 
 	ret = mcf8390_init(dev);

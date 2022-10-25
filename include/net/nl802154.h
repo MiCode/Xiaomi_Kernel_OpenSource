@@ -19,8 +19,6 @@
  *
  */
 
-#include <linux/types.h>
-
 #define NL802154_GENL_NAME "nl802154"
 
 enum nl802154_commands {
@@ -152,9 +150,10 @@ enum nl802154_attrs {
 };
 
 enum nl802154_iftype {
-	NL802154_IFTYPE_UNSPEC = (~(__u32)0),
+	/* for backwards compatibility TODO */
+	NL802154_IFTYPE_UNSPEC = -1,
 
-	NL802154_IFTYPE_NODE = 0,
+	NL802154_IFTYPE_NODE,
 	NL802154_IFTYPE_MONITOR,
 	NL802154_IFTYPE_COORD,
 

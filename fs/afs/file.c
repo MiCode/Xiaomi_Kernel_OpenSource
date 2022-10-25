@@ -502,9 +502,8 @@ static void afs_add_open_mmap(struct afs_vnode *vnode)
 	if (atomic_inc_return(&vnode->cb_nr_mmap) == 1) {
 		down_write(&vnode->volume->cell->fs_open_mmaps_lock);
 
-		if (list_empty(&vnode->cb_mmap_link))
-			list_add_tail(&vnode->cb_mmap_link,
-				      &vnode->volume->cell->fs_open_mmaps);
+		list_add_tail(&vnode->cb_mmap_link,
+			      &vnode->volume->cell->fs_open_mmaps);
 
 		up_write(&vnode->volume->cell->fs_open_mmaps_lock);
 	}

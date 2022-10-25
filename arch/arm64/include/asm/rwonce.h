@@ -5,7 +5,7 @@
 #ifndef __ASM_RWONCE_H
 #define __ASM_RWONCE_H
 
-#if defined(CONFIG_LTO) && !defined(__ASSEMBLY__)
+#ifdef CONFIG_LTO
 
 #include <linux/compiler_types.h>
 #include <asm/alternative-macros.h>
@@ -66,7 +66,7 @@
 })
 
 #endif	/* !BUILD_VDSO */
-#endif	/* CONFIG_LTO && !__ASSEMBLY__ */
+#endif	/* CONFIG_LTO */
 
 #include <asm-generic/rwonce.h>
 

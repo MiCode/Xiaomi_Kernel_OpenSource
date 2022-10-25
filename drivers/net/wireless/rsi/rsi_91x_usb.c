@@ -25,7 +25,10 @@
 /* Default operating mode is wlan STA + BT */
 static u16 dev_oper_mode = DEV_OPMODE_STA_BT_DUAL;
 module_param(dev_oper_mode, ushort, 0444);
-MODULE_PARM_DESC(dev_oper_mode, DEV_OPMODE_PARAM_DESC);
+MODULE_PARM_DESC(dev_oper_mode,
+		 "1[Wi-Fi], 4[BT], 8[BT LE], 5[Wi-Fi STA + BT classic]\n"
+		 "9[Wi-Fi STA + BT LE], 13[Wi-Fi STA + BT classic + BT LE]\n"
+		 "6[AP + BT classic], 14[AP + BT classic + BT LE]");
 
 static int rsi_rx_urb_submit(struct rsi_hw *adapter, u8 ep_num, gfp_t flags);
 
@@ -58,7 +61,7 @@ static int rsi_usb_card_write(struct rsi_hw *adapter,
 			      (void *)seg,
 			      (int)len,
 			      &transfer,
-			      USB_CTRL_SET_TIMEOUT);
+			      HZ * 5);
 
 	if (status < 0) {
 		rsi_dbg(ERR_ZONE,
@@ -269,12 +272,8 @@ static void rsi_rx_done_handler(struct urb *urb)
 	struct rsi_91x_usbdev *dev = (struct rsi_91x_usbdev *)rx_cb->data;
 	int status = -EINVAL;
 
-	if (!rx_cb->rx_skb)
-		return;
-
 	if (urb->status) {
 		dev_kfree_skb(rx_cb->rx_skb);
-		rx_cb->rx_skb = NULL;
 		return;
 	}
 
@@ -298,10 +297,8 @@ out:
 	if (rsi_rx_urb_submit(dev->priv, rx_cb->ep_num, GFP_ATOMIC))
 		rsi_dbg(ERR_ZONE, "%s: Failed in urb submission", __func__);
 
-	if (status) {
+	if (status)
 		dev_kfree_skb(rx_cb->rx_skb);
-		rx_cb->rx_skb = NULL;
-	}
 }
 
 static void rsi_rx_urb_kill(struct rsi_hw *adapter, u8 ep_num)
@@ -330,6 +327,7 @@ static int rsi_rx_urb_submit(struct rsi_hw *adapter, u8 ep_num, gfp_t mem_flags)
 	struct sk_buff *skb;
 	u8 dword_align_bytes = 0;
 
+#define RSI_MAX_RX_USB_PKT_SIZE	3000
 	skb = dev_alloc_skb(RSI_MAX_RX_USB_PKT_SIZE);
 	if (!skb)
 		return -ENOMEM;

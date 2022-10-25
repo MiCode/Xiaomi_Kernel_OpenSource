@@ -16,6 +16,7 @@ struct scpi_pm_domain {
 	struct generic_pm_domain genpd;
 	struct scpi_ops *ops;
 	u32 domain;
+	char name[30];
 };
 
 /*
@@ -109,13 +110,8 @@ static int scpi_pm_domain_probe(struct platform_device *pdev)
 
 		scpi_pd->domain = i;
 		scpi_pd->ops = scpi_ops;
-		scpi_pd->genpd.name = devm_kasprintf(dev, GFP_KERNEL,
-						     "%pOFn.%d", np, i);
-		if (!scpi_pd->genpd.name) {
-			dev_err(dev, "Failed to allocate genpd name:%pOFn.%d\n",
-				np, i);
-			continue;
-		}
+		sprintf(scpi_pd->name, "%pOFn.%d", np, i);
+		scpi_pd->genpd.name = scpi_pd->name;
 		scpi_pd->genpd.power_off = scpi_pd_power_off;
 		scpi_pd->genpd.power_on = scpi_pd_power_on;
 

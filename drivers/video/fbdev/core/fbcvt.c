@@ -214,11 +214,9 @@ static u32 fb_cvt_aspect_ratio(struct fb_cvt_data *cvt)
 static void fb_cvt_print_name(struct fb_cvt_data *cvt)
 {
 	u32 pixcount, pixcount_mod;
-	int size = 256;
-	int off = 0;
-	u8 *buf;
+	int cnt = 255, offset = 0, read = 0;
+	u8 *buf = kzalloc(256, GFP_KERNEL);
 
-	buf = kzalloc(size, GFP_KERNEL);
 	if (!buf)
 		return;
 
@@ -226,30 +224,43 @@ static void fb_cvt_print_name(struct fb_cvt_data *cvt)
 	pixcount_mod = (cvt->xres * (cvt->yres/cvt->interlace)) % 1000000;
 	pixcount_mod /= 1000;
 
-	off += scnprintf(buf + off, size - off, "fbcvt: %dx%d@%d: CVT Name - ",
-			    cvt->xres, cvt->yres, cvt->refresh);
+	read = snprintf(buf+offset, cnt, "fbcvt: %dx%d@%d: CVT Name - ",
+			cvt->xres, cvt->yres, cvt->refresh);
+	offset += read;
+	cnt -= read;
 
-	if (cvt->status) {
-		off += scnprintf(buf + off, size - off,
-				 "Not a CVT standard - %d.%03d Mega Pixel Image\n",
-				 pixcount, pixcount_mod);
-	} else {
-		if (pixcount)
-			off += scnprintf(buf + off, size - off, "%d", pixcount);
+	if (cvt->status)
+		snprintf(buf+offset, cnt, "Not a CVT standard - %d.%03d Mega "
+			 "Pixel Image\n", pixcount, pixcount_mod);
+	else {
+		if (pixcount) {
+			read = snprintf(buf+offset, cnt, "%d", pixcount);
+			cnt -= read;
+			offset += read;
+		}
 
-		off += scnprintf(buf + off, size - off, ".%03dM", pixcount_mod);
+		read = snprintf(buf+offset, cnt, ".%03dM", pixcount_mod);
+		cnt -= read;
+		offset += read;
 
 		if (cvt->aspect_ratio == 0)
-			off += scnprintf(buf + off, size - off, "3");
+			read = snprintf(buf+offset, cnt, "3");
 		else if (cvt->aspect_ratio == 3)
-			off += scnprintf(buf + off, size - off, "4");
+			read = snprintf(buf+offset, cnt, "4");
 		else if (cvt->aspect_ratio == 1 || cvt->aspect_ratio == 4)
-			off += scnprintf(buf + off, size - off, "9");
+			read = snprintf(buf+offset, cnt, "9");
 		else if (cvt->aspect_ratio == 2)
-			off += scnprintf(buf + off, size - off, "A");
+			read = snprintf(buf+offset, cnt, "A");
+		else
+			read = 0;
+		cnt -= read;
+		offset += read;
 
-		if (cvt->flags & FB_CVT_FLAG_REDUCED_BLANK)
-			off += scnprintf(buf + off, size - off, "-R");
+		if (cvt->flags & FB_CVT_FLAG_REDUCED_BLANK) {
+			read = snprintf(buf+offset, cnt, "-R");
+			cnt -= read;
+			offset += read;
+		}
 	}
 
 	printk(KERN_INFO "%s\n", buf);

@@ -5,7 +5,7 @@
 
 char LICENSE[] SEC("license") = "GPL";
 
-SEC("xdp")
+SEC("xdp/handler")
 int xdp_handler(struct xdp_md *xdp)
 {
 	return 0;

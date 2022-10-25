@@ -931,15 +931,26 @@ void kvm_vgic_load(struct kvm_vcpu *vcpu)
 		vgic_v3_load(vcpu);
 }
 
-void kvm_vgic_put(struct kvm_vcpu *vcpu, bool blocking)
+void kvm_vgic_put(struct kvm_vcpu *vcpu)
 {
 	if (unlikely(!vgic_initialized(vcpu->kvm)))
 		return;
 
 	if (kvm_vgic_global_state.type == VGIC_V2)
-		vgic_v2_put(vcpu, blocking);
+		vgic_v2_put(vcpu);
 	else
-		vgic_v3_put(vcpu, blocking);
+		vgic_v3_put(vcpu);
+}
+
+void kvm_vgic_vmcr_sync(struct kvm_vcpu *vcpu)
+{
+	if (unlikely(!irqchip_in_kernel(vcpu->kvm)))
+		return;
+
+	if (kvm_vgic_global_state.type == VGIC_V2)
+		vgic_v2_vmcr_sync(vcpu);
+	else
+		vgic_v3_vmcr_sync(vcpu);
 }
 
 int kvm_vgic_vcpu_pending_irq(struct kvm_vcpu *vcpu)

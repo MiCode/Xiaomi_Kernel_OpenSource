@@ -62,7 +62,6 @@ static int tegra_ahub_put_value_enum(struct snd_kcontrol *kctl,
 	unsigned int *item = uctl->value.enumerated.item;
 	unsigned int value = e->values[item[0]];
 	unsigned int i, bit_pos, reg_idx = 0, reg_val = 0;
-	int change = 0;
 
 	if (item[0] >= e->items)
 		return -EINVAL;
@@ -87,14 +86,12 @@ static int tegra_ahub_put_value_enum(struct snd_kcontrol *kctl,
 
 		/* Update widget power if state has changed */
 		if (snd_soc_component_test_bits(cmpnt, update[i].reg,
-						update[i].mask,
-						update[i].val))
-			change |= snd_soc_dapm_mux_update_power(dapm, kctl,
-								item[0], e,
-								&update[i]);
+						update[i].mask, update[i].val))
+			snd_soc_dapm_mux_update_power(dapm, kctl, item[0], e,
+						      &update[i]);
 	}
 
-	return change;
+	return 0;
 }
 
 static struct snd_soc_dai_driver tegra210_ahub_dais[] = {

@@ -85,7 +85,7 @@ static int change_memory_common(unsigned long addr, int numpages,
 	 */
 	area = find_vm_area((void *)addr);
 	if (!area ||
-	    end > (unsigned long)kasan_reset_tag(area->addr) + area->size ||
+	    end > (unsigned long)area->addr + area->size ||
 	    !(area->flags & VM_ALLOC))
 		return -EINVAL;
 
@@ -152,9 +152,6 @@ int set_memory_valid(unsigned long addr, int numpages, int enable)
 					__pgprot(0),
 					__pgprot(PTE_VALID));
 }
-#if IS_ENABLED(CONFIG_MTK_DCACHE_INVAL)
-EXPORT_SYMBOL(set_memory_valid);
-#endif
 
 int set_direct_map_invalid_noflush(struct page *page)
 {

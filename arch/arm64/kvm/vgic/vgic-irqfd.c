@@ -139,7 +139,7 @@ int kvm_vgic_setup_default_irq_routing(struct kvm *kvm)
 	u32 nr = dist->nr_spis;
 	int i, ret;
 
-	entries = kcalloc(nr, sizeof(*entries), GFP_KERNEL_ACCOUNT);
+	entries = kcalloc(nr, sizeof(*entries), GFP_KERNEL);
 	if (!entries)
 		return -ENOMEM;
 

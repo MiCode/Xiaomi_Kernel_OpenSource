@@ -100,7 +100,6 @@
 #include <linux/kcsan.h>
 #include <linux/init_syscalls.h>
 #include <linux/stackdepot.h>
-#include <net/net_namespace.h>
 
 #include <asm/io.h>
 #include <asm/bugs.h>
@@ -925,9 +924,7 @@ static void __init print_unknown_bootoptions(void)
 	for (p = &envp_init[2]; *p; p++)
 		end += sprintf(end, " %s", *p);
 
-	/* Start at unknown_options[1] to skip the initial space */
-	pr_notice("Unknown kernel command line parameters \"%s\", will be passed to user space.\n",
-		&unknown_options[1]);
+	pr_notice("Unknown command line parameters:%s\n", unknown_options);
 	memblock_free_ptr(unknown_options, len);
 }
 
@@ -1123,7 +1120,6 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	key_init();
 	security_init();
 	dbg_late_init();
-	net_ns_init();
 	vfs_caches_init();
 	pagecache_init();
 	signals_init();
@@ -1198,7 +1194,7 @@ static int __init initcall_blacklist(char *str)
 		}
 	} while (str_entry);
 
-	return 1;
+	return 0;
 }
 
 static bool __init_or_module initcall_blacklisted(initcall_t fn)
@@ -1460,9 +1456,7 @@ static noinline void __init kernel_init_freeable(void);
 bool rodata_enabled __ro_after_init = true;
 static int __init set_debug_rodata(char *str)
 {
-	if (strtobool(str, &rodata_enabled))
-		pr_warn("Invalid option string for rodata: '%s'\n", str);
-	return 1;
+	return strtobool(str, &rodata_enabled);
 }
 __setup("rodata=", set_debug_rodata);
 #endif

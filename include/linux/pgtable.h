@@ -62,7 +62,6 @@ static inline unsigned long pte_index(unsigned long address)
 {
 	return (address >> PAGE_SHIFT) & (PTRS_PER_PTE - 1);
 }
-#define pte_index pte_index
 
 #ifndef pmd_index
 static inline unsigned long pmd_index(unsigned long address)
@@ -212,7 +211,7 @@ static inline int ptep_test_and_clear_young(struct vm_area_struct *vma,
 #endif
 
 #ifndef __HAVE_ARCH_PMDP_TEST_AND_CLEAR_YOUNG
-#if defined(CONFIG_TRANSPARENT_HUGEPAGE) || defined(CONFIG_ARCH_HAS_NONLEAF_PMD_YOUNG)
+#ifdef CONFIG_TRANSPARENT_HUGEPAGE
 static inline int pmdp_test_and_clear_young(struct vm_area_struct *vma,
 					    unsigned long address,
 					    pmd_t *pmdp)
@@ -233,7 +232,7 @@ static inline int pmdp_test_and_clear_young(struct vm_area_struct *vma,
 	BUILD_BUG();
 	return 0;
 }
-#endif /* CONFIG_TRANSPARENT_HUGEPAGE || CONFIG_ARCH_HAS_NONLEAF_PMD_YOUNG */
+#endif /* CONFIG_TRANSPARENT_HUGEPAGE */
 #endif
 
 #ifndef __HAVE_ARCH_PTEP_CLEAR_YOUNG_FLUSH
@@ -257,19 +256,6 @@ static inline int pmdp_clear_flush_young(struct vm_area_struct *vma,
 	return 0;
 }
 #endif /* CONFIG_TRANSPARENT_HUGEPAGE */
-#endif
-
-#ifndef arch_has_hw_pte_young
-/*
- * Return whether the accessed bit is supported on the local CPU.
- *
- * This stub assumes accessing through an old PTE triggers a page fault.
- * Architectures that automatically set the access bit should overwrite it.
- */
-static inline bool arch_has_hw_pte_young(void)
-{
-	return false;
-}
 #endif
 
 #ifndef __HAVE_ARCH_PTEP_GET_AND_CLEAR

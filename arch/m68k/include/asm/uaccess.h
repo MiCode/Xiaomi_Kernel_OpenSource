@@ -12,17 +12,14 @@
 #include <asm/extable.h>
 
 /* We let the MMU do all checking */
-static inline int access_ok(const void __user *ptr,
+static inline int access_ok(const void __user *addr,
 			    unsigned long size)
 {
-	unsigned long limit = TASK_SIZE;
-	unsigned long addr = (unsigned long)ptr;
-
-	if (IS_ENABLED(CONFIG_CPU_HAS_ADDRESS_SPACES) ||
-	    !IS_ENABLED(CONFIG_MMU))
-		return 1;
-
-	return (size <= limit) && (addr <= (limit - size));
+	/*
+	 * XXX: for !CONFIG_CPU_HAS_ADDRESS_SPACES this really needs to check
+	 * for TASK_SIZE!
+	 */
+	return 1;
 }
 
 /*

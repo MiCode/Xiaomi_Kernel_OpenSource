@@ -14,7 +14,6 @@
 #define KMSG_COMPONENT "dasd"
 
 #include <linux/interrupt.h>
-#include <linux/major.h>
 #include <linux/fs.h>
 #include <linux/blkpg.h>
 

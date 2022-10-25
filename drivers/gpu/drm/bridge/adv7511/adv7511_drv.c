@@ -351,17 +351,11 @@ static void __adv7511_power_on(struct adv7511 *adv7511)
 	 * from standby or are enabled. When the HPD goes low the adv7511 is
 	 * reset and the outputs are disabled which might cause the monitor to
 	 * go to standby again. To avoid this we ignore the HPD pin for the
-	 * first few seconds after enabling the output. On the other hand
-	 * adv7535 require to enable HPD Override bit for proper HPD.
+	 * first few seconds after enabling the output.
 	 */
-	if (adv7511->type == ADV7535)
-		regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER2,
-				   ADV7535_REG_POWER2_HPD_OVERRIDE,
-				   ADV7535_REG_POWER2_HPD_OVERRIDE);
-	else
-		regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER2,
-				   ADV7511_REG_POWER2_HPD_SRC_MASK,
-				   ADV7511_REG_POWER2_HPD_SRC_NONE);
+	regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER2,
+			   ADV7511_REG_POWER2_HPD_SRC_MASK,
+			   ADV7511_REG_POWER2_HPD_SRC_NONE);
 }
 
 static void adv7511_power_on(struct adv7511 *adv7511)
@@ -381,10 +375,6 @@ static void adv7511_power_on(struct adv7511 *adv7511)
 static void __adv7511_power_off(struct adv7511 *adv7511)
 {
 	/* TODO: setup additional power down modes */
-	if (adv7511->type == ADV7535)
-		regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER2,
-				   ADV7535_REG_POWER2_HPD_OVERRIDE, 0);
-
 	regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER,
 			   ADV7511_POWER_POWER_DOWN,
 			   ADV7511_POWER_POWER_DOWN);
@@ -682,14 +672,9 @@ adv7511_detect(struct adv7511 *adv7511, struct drm_connector *connector)
 			status = connector_status_disconnected;
 	} else {
 		/* Renable HPD sensing */
-		if (adv7511->type == ADV7535)
-			regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER2,
-					   ADV7535_REG_POWER2_HPD_OVERRIDE,
-					   ADV7535_REG_POWER2_HPD_OVERRIDE);
-		else
-			regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER2,
-					   ADV7511_REG_POWER2_HPD_SRC_MASK,
-					   ADV7511_REG_POWER2_HPD_SRC_BOTH);
+		regmap_update_bits(adv7511->regmap, ADV7511_REG_POWER2,
+				   ADV7511_REG_POWER2_HPD_SRC_MASK,
+				   ADV7511_REG_POWER2_HPD_SRC_BOTH);
 	}
 
 	adv7511->status = status;

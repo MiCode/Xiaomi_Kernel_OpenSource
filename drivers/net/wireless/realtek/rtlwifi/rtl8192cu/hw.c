@@ -1000,7 +1000,6 @@ int rtl92cu_hw_init(struct ieee80211_hw *hw)
 	_initpabias(hw);
 	rtl92c_dm_init(hw);
 exit:
-	local_irq_disable();
 	local_irq_restore(flags);
 	return err;
 }

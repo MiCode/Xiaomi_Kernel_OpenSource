@@ -37,24 +37,11 @@ static const struct regmap_config attiny_regmap_config = {
 static int attiny_lcd_power_enable(struct regulator_dev *rdev)
 {
 	unsigned int data;
-	int ret, i;
 
 	regmap_write(rdev->regmap, REG_POWERON, 1);
-	msleep(80);
-
 	/* Wait for nPWRDWN to go low to indicate poweron is done. */
-	for (i = 0; i < 20; i++) {
-		ret = regmap_read(rdev->regmap, REG_PORTB, &data);
-		if (!ret) {
-			if (data & BIT(0))
-				break;
-		}
-		usleep_range(10000, 12000);
-	}
-	usleep_range(10000, 12000);
-
-	if (ret)
-		pr_err("%s: regmap_read_poll_timeout failed %d\n", __func__, ret);
+	regmap_read_poll_timeout(rdev->regmap, REG_PORTB, data,
+					data & BIT(0), 10, 1000000);
 
 	/* Default to the same orientation as the closed source
 	 * firmware used for the panel.  Runtime rotation
@@ -70,34 +57,23 @@ static int attiny_lcd_power_disable(struct regulator_dev *rdev)
 {
 	regmap_write(rdev->regmap, REG_PWM, 0);
 	regmap_write(rdev->regmap, REG_POWERON, 0);
-	msleep(30);
+	udelay(1);
 	return 0;
 }
 
 static int attiny_lcd_power_is_enabled(struct regulator_dev *rdev)
 {
 	unsigned int data;
-	int ret, i;
+	int ret;
 
-	for (i = 0; i < 10; i++) {
-		ret = regmap_read(rdev->regmap, REG_POWERON, &data);
-		if (!ret)
-			break;
-		usleep_range(10000, 12000);
-	}
+	ret = regmap_read(rdev->regmap, REG_POWERON, &data);
 	if (ret < 0)
 		return ret;
 
 	if (!(data & BIT(0)))
 		return 0;
 
-	for (i = 0; i < 10; i++) {
-		ret = regmap_read(rdev->regmap, REG_PORTB, &data);
-		if (!ret)
-			break;
-		usleep_range(10000, 12000);
-	}
-
+	ret = regmap_read(rdev->regmap, REG_PORTB, &data);
 	if (ret < 0)
 		return ret;
 
@@ -127,32 +103,20 @@ static int attiny_update_status(struct backlight_device *bl)
 {
 	struct regmap *regmap = bl_get_data(bl);
 	int brightness = bl->props.brightness;
-	int ret, i;
 
 	if (bl->props.power != FB_BLANK_UNBLANK ||
 	    bl->props.fb_blank != FB_BLANK_UNBLANK)
 		brightness = 0;
 
-	for (i = 0; i < 10; i++) {
-		ret = regmap_write(regmap, REG_PWM, brightness);
-		if (!ret)
-			break;
-	}
-
-	return ret;
+	return regmap_write(regmap, REG_PWM, brightness);
 }
 
 static int attiny_get_brightness(struct backlight_device *bl)
 {
 	struct regmap *regmap = bl_get_data(bl);
-	int ret, brightness, i;
+	int ret, brightness;
 
-	for (i = 0; i < 10; i++) {
-		ret = regmap_read(regmap, REG_PWM, &brightness);
-		if (!ret)
-			break;
-	}
-
+	ret = regmap_read(regmap, REG_PWM, &brightness);
 	if (ret)
 		return ret;
 
@@ -202,7 +166,7 @@ static int attiny_i2c_probe(struct i2c_client *i2c,
 	}
 
 	regmap_write(regmap, REG_POWERON, 0);
-	msleep(30);
+	mdelay(1);
 
 	config.dev = &i2c->dev;
 	config.regmap = regmap;

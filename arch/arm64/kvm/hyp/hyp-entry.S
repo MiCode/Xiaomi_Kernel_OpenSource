@@ -44,7 +44,7 @@
 el1_sync:				// Guest trapped into EL2
 
 	mrs	x0, esr_el2
-	ubfx	x0, x0, #ESR_ELx_EC_SHIFT, #ESR_ELx_EC_WIDTH
+	lsr	x0, x0, #ESR_ELx_EC_SHIFT
 	cmp	x0, #ESR_ELx_EC_HVC64
 	ccmp	x0, #ESR_ELx_EC_HVC32, #4, ne
 	b.ne	el1_trap
@@ -62,10 +62,6 @@ el1_sync:				// Guest trapped into EL2
 	/* ARM_SMCCC_ARCH_WORKAROUND_2 handling */
 	eor	w1, w1, #(ARM_SMCCC_ARCH_WORKAROUND_1 ^ \
 			  ARM_SMCCC_ARCH_WORKAROUND_2)
-	cbz	w1, wa_epilogue
-
-	eor	w1, w1, #(ARM_SMCCC_ARCH_WORKAROUND_2 ^ \
-			  ARM_SMCCC_ARCH_WORKAROUND_3)
 	cbnz	w1, el1_trap
 
 wa_epilogue:
@@ -196,10 +192,7 @@ SYM_CODE_END(__kvm_hyp_vector)
 	sub	sp, sp, #(8 * 4)
 	stp	x2, x3, [sp, #(8 * 0)]
 	stp	x0, x1, [sp, #(8 * 2)]
-	alternative_cb spectre_bhb_patch_wa3
-	/* Patched to mov WA3 when supported */
 	mov	w0, #ARM_SMCCC_ARCH_WORKAROUND_1
-	alternative_cb_end
 	smc	#0
 	ldp	x2, x3, [sp, #(8 * 0)]
 	add	sp, sp, #(8 * 2)
@@ -212,8 +205,6 @@ SYM_CODE_END(__kvm_hyp_vector)
 	spectrev2_smccc_wa1_smc
 	.else
 	stp	x0, x1, [sp, #-16]!
-	mitigate_spectre_bhb_loop	x0
-	mitigate_spectre_bhb_clear_insn
 	.endif
 	.if \indirect != 0
 	alternative_cb  kvm_patch_vector_branch

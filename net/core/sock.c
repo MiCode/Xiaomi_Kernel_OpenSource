@@ -135,8 +135,6 @@
 #include <net/bpf_sk_storage.h>
 
 #include <trace/events/sock.h>
-#include <trace/hooks/sched.h>
-#include <trace/hooks/net.h>
 
 #include <net/tcp.h>
 #include <net/busy_poll.h>
@@ -832,8 +830,6 @@ static int sock_timestamping_bind_phc(struct sock *sk, int phc_index)
 	}
 
 	num = ethtool_get_phc_vclocks(dev, &vclock_index);
-	dev_put(dev);
-
 	for (i = 0; i < num; i++) {
 		if (*(vclock_index + i) == phc_index) {
 			match = true;
@@ -868,9 +864,9 @@ int sock_set_timestamping(struct sock *sk, int optname,
 			if ((1 << sk->sk_state) &
 			    (TCPF_CLOSE | TCPF_LISTEN))
 				return -EINVAL;
-			atomic_set(&sk->sk_tskey, tcp_sk(sk)->snd_una);
+			sk->sk_tskey = tcp_sk(sk)->snd_una;
 		} else {
-			atomic_set(&sk->sk_tskey, 0);
+			sk->sk_tskey = 0;
 		}
 	}
 
@@ -1846,8 +1842,6 @@ static struct sock *sk_prot_alloc(struct proto *prot, gfp_t priority,
 		if (security_sk_alloc(sk, family, priority))
 			goto out_free;
 
-		trace_android_rvh_sk_alloc(sk);
-
 		if (!try_module_get(prot->owner))
 			goto out_free_sec;
 	}
@@ -1856,7 +1850,6 @@ static struct sock *sk_prot_alloc(struct proto *prot, gfp_t priority,
 
 out_free_sec:
 	security_sk_free(sk);
-	trace_android_rvh_sk_free(sk);
 out_free:
 	if (slab != NULL)
 		kmem_cache_free(slab, sk);
@@ -1876,7 +1869,6 @@ static void sk_prot_free(struct proto *prot, struct sock *sk)
 	cgroup_sk_free(&sk->sk_cgrp_data);
 	mem_cgroup_sk_free(sk);
 	security_sk_free(sk);
-	trace_android_rvh_sk_free(sk);
 	if (slab != NULL)
 		kmem_cache_free(slab, sk);
 	else
@@ -2051,10 +2043,8 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
 	newsk->sk_prot_creator = prot;
 
 	/* SANITY */
-	if (likely(newsk->sk_net_refcnt)) {
+	if (likely(newsk->sk_net_refcnt))
 		get_net(sock_net(newsk));
-		sock_inuse_add(sock_net(newsk), 1);
-	}
 	sk_node_init(&newsk->sk_node);
 	sock_lock_init(newsk);
 	bh_lock_sock(newsk);
@@ -2125,6 +2115,8 @@ struct sock *sk_clone_lock(const struct sock *sk, const gfp_t priority)
 	newsk->sk_err_soft = 0;
 	newsk->sk_priority = 0;
 	newsk->sk_incoming_cpu = raw_smp_processor_id();
+	if (likely(newsk->sk_net_refcnt))
+		sock_inuse_add(sock_net(newsk), 1);
 
 	/* Before updating sk_refcnt, we must commit prior changes to memory
 	 * (Documentation/RCU/rculist_nulls.rst for details)
@@ -3058,19 +3050,9 @@ void sock_def_readable(struct sock *sk)
 
 	rcu_read_lock();
 	wq = rcu_dereference(sk->sk_wq);
-
-	if (skwq_has_sleeper(wq)) {
-		int done = 0;
-
-		trace_android_vh_do_wake_up_sync(&wq->wait, &done);
-		if (done)
-			goto out;
-
+	if (skwq_has_sleeper(wq))
 		wake_up_interruptible_sync_poll(&wq->wait, EPOLLIN | EPOLLPRI |
 						EPOLLRDNORM | EPOLLRDBAND);
-	}
-
-out:
 	sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_IN);
 	rcu_read_unlock();
 }

@@ -16,7 +16,6 @@
 #include <linux/device.h>
 #include <linux/fs.h>
 #include <linux/interrupt.h>
-#include <linux/android_kabi.h>
 
 struct module;
 struct uio_map;
@@ -78,8 +77,6 @@ struct uio_device {
 	struct mutex		info_lock;
 	struct kobject          *map_dir;
 	struct kobject          *portio_dir;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -112,7 +109,6 @@ struct uio_info {
 	int (*open)(struct uio_info *info, struct inode *inode);
 	int (*release)(struct uio_info *info, struct inode *inode);
 	int (*irqcontrol)(struct uio_info *info, s32 irq_on);
-	ANDROID_KABI_RESERVE(1);
 };
 
 extern int __must_check

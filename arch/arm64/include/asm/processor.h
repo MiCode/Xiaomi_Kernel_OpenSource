@@ -21,7 +21,6 @@
 
 #define MTE_CTRL_TCF_SYNC		(1UL << 16)
 #define MTE_CTRL_TCF_ASYNC		(1UL << 17)
-#define MTE_CTRL_TCF_ASYMM		(1UL << 18)
 
 #ifndef __ASSEMBLY__
 

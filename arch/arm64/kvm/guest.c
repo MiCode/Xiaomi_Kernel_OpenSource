@@ -869,9 +869,12 @@ u32 __attribute_const__ kvm_target_cpu(void)
 	return KVM_ARM_TARGET_GENERIC_V8;
 }
 
-void kvm_vcpu_preferred_target(struct kvm_vcpu_init *init)
+int kvm_vcpu_preferred_target(struct kvm_vcpu_init *init)
 {
 	u32 target = kvm_target_cpu();
+
+	if (target < 0)
+		return -ENODEV;
 
 	memset(init, 0, sizeof(*init));
 
@@ -882,6 +885,8 @@ void kvm_vcpu_preferred_target(struct kvm_vcpu_init *init)
 	 * target type.
 	 */
 	init->target = (__u32)target;
+
+	return 0;
 }
 
 int kvm_arch_vcpu_ioctl_get_fpu(struct kvm_vcpu *vcpu, struct kvm_fpu *fpu)

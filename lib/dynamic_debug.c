@@ -622,13 +622,7 @@ static inline char *dynamic_emit_prefix(struct _ddebug *desc, char *buf)
 		return __dynamic_emit_prefix(desc, buf);
 	return buf;
 }
-#if defined(CONFIG_MTK_PRINTK_DEBUG)
-void __dynamic_no_printk(struct _ddebug *descriptor, const char *fmt, ...)
-{
 
-}
-EXPORT_SYMBOL(__dynamic_no_printk);
-#endif
 void __dynamic_pr_debug(struct _ddebug *descriptor, const char *fmt, ...)
 {
 	va_list args;
@@ -766,18 +760,6 @@ static __init int ddebug_setup_query(char *str)
 }
 
 __setup("ddebug_query=", ddebug_setup_query);
-
-/*
- * Install a noop handler to make dyndbg look like a normal kernel cli param.
- * This avoids warnings about dyndbg being an unknown cli param when supplied
- * by a user.
- */
-static __init int dyndbg_setup(char *str)
-{
-	return 1;
-}
-
-__setup("dyndbg=", dyndbg_setup);
 
 /*
  * File_ops->write method for <debugfs>/dynamic_debug/control.  Gathers the

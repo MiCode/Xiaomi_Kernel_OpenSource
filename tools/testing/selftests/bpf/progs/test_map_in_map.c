@@ -23,7 +23,7 @@ struct {
 	__uint(value_size, sizeof(__u32));
 } mim_hash SEC(".maps");
 
-SEC("xdp")
+SEC("xdp_mimtest")
 int xdp_mimtest0(struct xdp_md *ctx)
 {
 	int value = 123;

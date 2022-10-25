@@ -145,11 +145,7 @@ struct sata_dwc_device {
 #endif
 };
 
-/*
- * Allow one extra special slot for commands and DMA management
- * to account for libata internal commands.
- */
-#define SATA_DWC_QCMD_MAX	(ATA_MAX_QUEUE + 1)
+#define SATA_DWC_QCMD_MAX	32
 
 struct sata_dwc_device_port {
 	struct sata_dwc_device	*hsdev;

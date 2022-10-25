@@ -73,25 +73,24 @@ static int try_cancel_split_timeout(struct fw_transaction *t)
 static int close_transaction(struct fw_transaction *transaction,
 			     struct fw_card *card, int rcode)
 {
-	struct fw_transaction *t = NULL, *iter;
+	struct fw_transaction *t;
 	unsigned long flags;
 
 	spin_lock_irqsave(&card->lock, flags);
-	list_for_each_entry(iter, &card->transaction_list, link) {
-		if (iter == transaction) {
-			if (!try_cancel_split_timeout(iter)) {
+	list_for_each_entry(t, &card->transaction_list, link) {
+		if (t == transaction) {
+			if (!try_cancel_split_timeout(t)) {
 				spin_unlock_irqrestore(&card->lock, flags);
 				goto timed_out;
 			}
-			list_del_init(&iter->link);
-			card->tlabel_mask &= ~(1ULL << iter->tlabel);
-			t = iter;
+			list_del_init(&t->link);
+			card->tlabel_mask &= ~(1ULL << t->tlabel);
 			break;
 		}
 	}
 	spin_unlock_irqrestore(&card->lock, flags);
 
-	if (t) {
+	if (&t->link != &card->transaction_list) {
 		t->callback(card, rcode, NULL, 0, t->callback_data);
 		return 0;
 	}
@@ -936,7 +935,7 @@ EXPORT_SYMBOL(fw_core_handle_request);
 
 void fw_core_handle_response(struct fw_card *card, struct fw_packet *p)
 {
-	struct fw_transaction *t = NULL, *iter;
+	struct fw_transaction *t;
 	unsigned long flags;
 	u32 *data;
 	size_t data_length;
@@ -948,21 +947,20 @@ void fw_core_handle_response(struct fw_card *card, struct fw_packet *p)
 	rcode	= HEADER_GET_RCODE(p->header[1]);
 
 	spin_lock_irqsave(&card->lock, flags);
-	list_for_each_entry(iter, &card->transaction_list, link) {
-		if (iter->node_id == source && iter->tlabel == tlabel) {
-			if (!try_cancel_split_timeout(iter)) {
+	list_for_each_entry(t, &card->transaction_list, link) {
+		if (t->node_id == source && t->tlabel == tlabel) {
+			if (!try_cancel_split_timeout(t)) {
 				spin_unlock_irqrestore(&card->lock, flags);
 				goto timed_out;
 			}
-			list_del_init(&iter->link);
-			card->tlabel_mask &= ~(1ULL << iter->tlabel);
-			t = iter;
+			list_del_init(&t->link);
+			card->tlabel_mask &= ~(1ULL << t->tlabel);
 			break;
 		}
 	}
 	spin_unlock_irqrestore(&card->lock, flags);
 
-	if (!t) {
+	if (&t->link == &card->transaction_list) {
  timed_out:
 		fw_notice(card, "unsolicited response (source %x, tlabel %x)\n",
 			  source, tlabel);

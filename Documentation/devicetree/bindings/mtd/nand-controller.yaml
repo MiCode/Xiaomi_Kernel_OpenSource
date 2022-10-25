@@ -55,7 +55,7 @@ patternProperties:
     properties:
       reg:
         description:
-          Contains the chip-select IDs.
+          Contains the native Ready/Busy IDs.
 
       nand-ecc-engine:
         allOf:
@@ -184,7 +184,7 @@ examples:
         nand-use-soft-ecc-engine;
         nand-ecc-algo = "bch";
 
-        /* NAND chip specific properties */
+        /* controller specific properties */
       };
 
       nand@1 {

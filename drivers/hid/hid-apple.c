@@ -429,7 +429,7 @@ static int apple_input_configured(struct hid_device *hdev,
 
 	if ((asc->quirks & APPLE_HAS_FN) && !asc->fn_found) {
 		hid_info(hdev, "Fn key not found (Apple Wireless Keyboard clone?), disabling Fn key handling\n");
-		asc->quirks &= ~APPLE_HAS_FN;
+		asc->quirks = 0;
 	}
 
 	return 0;

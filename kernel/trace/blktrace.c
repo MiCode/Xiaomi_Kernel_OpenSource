@@ -310,20 +310,10 @@ record_it:
 	local_irq_restore(flags);
 }
 
-static void blk_trace_free(struct request_queue *q, struct blk_trace *bt)
+static void blk_trace_free(struct blk_trace *bt)
 {
 	relay_close(bt->rchan);
-
-	/*
-	 * If 'bt->dir' is not set, then both 'dropped' and 'msg' are created
-	 * under 'q->debugfs_dir', thus lookup and remove them.
-	 */
-	if (!bt->dir) {
-		debugfs_remove(debugfs_lookup("dropped", q->debugfs_dir));
-		debugfs_remove(debugfs_lookup("msg", q->debugfs_dir));
-	} else {
-		debugfs_remove(bt->dir);
-	}
+	debugfs_remove(bt->dir);
 	free_percpu(bt->sequence);
 	free_percpu(bt->msg_data);
 	kfree(bt);
@@ -345,10 +335,10 @@ static void put_probe_ref(void)
 	mutex_unlock(&blk_probe_mutex);
 }
 
-static void blk_trace_cleanup(struct request_queue *q, struct blk_trace *bt)
+static void blk_trace_cleanup(struct blk_trace *bt)
 {
 	synchronize_rcu();
-	blk_trace_free(q, bt);
+	blk_trace_free(bt);
 	put_probe_ref();
 }
 
@@ -362,7 +352,7 @@ static int __blk_trace_remove(struct request_queue *q)
 		return -EINVAL;
 
 	if (bt->trace_state != Blktrace_running)
-		blk_trace_cleanup(q, bt);
+		blk_trace_cleanup(bt);
 
 	return 0;
 }
@@ -582,7 +572,7 @@ static int do_blk_trace_setup(struct request_queue *q, char *name, dev_t dev,
 	ret = 0;
 err:
 	if (ret)
-		blk_trace_free(q, bt);
+		blk_trace_free(bt);
 	return ret;
 }
 
@@ -1625,7 +1615,7 @@ static int blk_trace_remove_queue(struct request_queue *q)
 
 	put_probe_ref();
 	synchronize_rcu();
-	blk_trace_free(q, bt);
+	blk_trace_free(bt);
 	return 0;
 }
 
@@ -1656,7 +1646,7 @@ static int blk_trace_setup_queue(struct request_queue *q,
 	return 0;
 
 free_bt:
-	blk_trace_free(q, bt);
+	blk_trace_free(bt);
 	return ret;
 }
 

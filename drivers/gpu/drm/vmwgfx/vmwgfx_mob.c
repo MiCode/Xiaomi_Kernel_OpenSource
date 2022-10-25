@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 OR MIT
 /**************************************************************************
  *
- * Copyright 2012-2021 VMware, Inc., Palo Alto, CA., USA
+ * Copyright 2012-2015 VMware, Inc., Palo Alto, CA., USA
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
@@ -28,6 +28,12 @@
 #include <linux/highmem.h>
 
 #include "vmwgfx_drv.h"
+
+/*
+ * If we set up the screen target otable, screen objects stop working.
+ */
+
+#define VMW_OTABLE_SETUP_SUB ((VMWGFX_ENABLE_SCREEN_TARGET_OTABLE ? 0 : 1))
 
 #ifdef CONFIG_64BIT
 #define VMW_PPN_SIZE 8
@@ -69,7 +75,7 @@ static const struct vmw_otable pre_dx_tables[] = {
 	{VMWGFX_NUM_GB_CONTEXT * sizeof(SVGAOTableContextEntry), NULL, true},
 	{VMWGFX_NUM_GB_SHADER * sizeof(SVGAOTableShaderEntry), NULL, true},
 	{VMWGFX_NUM_GB_SCREEN_TARGET * sizeof(SVGAOTableScreenTargetEntry),
-	 NULL, true}
+	 NULL, VMWGFX_ENABLE_SCREEN_TARGET_OTABLE}
 };
 
 static const struct vmw_otable dx_tables[] = {
@@ -78,7 +84,7 @@ static const struct vmw_otable dx_tables[] = {
 	{VMWGFX_NUM_GB_CONTEXT * sizeof(SVGAOTableContextEntry), NULL, true},
 	{VMWGFX_NUM_GB_SHADER * sizeof(SVGAOTableShaderEntry), NULL, true},
 	{VMWGFX_NUM_GB_SCREEN_TARGET * sizeof(SVGAOTableScreenTargetEntry),
-	 NULL, true},
+	 NULL, VMWGFX_ENABLE_SCREEN_TARGET_OTABLE},
 	{VMWGFX_NUM_DXCONTEXT * sizeof(SVGAOTableDXContextEntry), NULL, true},
 };
 

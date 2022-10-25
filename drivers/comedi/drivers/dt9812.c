@@ -32,7 +32,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/errno.h>
-#include <linux/slab.h>
 #include <linux/uaccess.h>
 
 #include "../comedi_usb.h"
@@ -238,42 +237,22 @@ static int dt9812_read_info(struct comedi_device *dev,
 {
 	struct usb_device *usb = comedi_to_usb_dev(dev);
 	struct dt9812_private *devpriv = dev->private;
-	struct dt9812_usb_cmd *cmd;
-	size_t tbuf_size;
+	struct dt9812_usb_cmd cmd;
 	int count, ret;
-	void *tbuf;
 
-	tbuf_size = max(sizeof(*cmd), buf_size);
-
-	tbuf = kzalloc(tbuf_size, GFP_KERNEL);
-	if (!tbuf)
-		return -ENOMEM;
-
-	cmd = tbuf;
-
-	cmd->cmd = cpu_to_le32(DT9812_R_FLASH_DATA);
-	cmd->u.flash_data_info.address =
+	cmd.cmd = cpu_to_le32(DT9812_R_FLASH_DATA);
+	cmd.u.flash_data_info.address =
 	    cpu_to_le16(DT9812_DIAGS_BOARD_INFO_ADDR + offset);
-	cmd->u.flash_data_info.numbytes = cpu_to_le16(buf_size);
+	cmd.u.flash_data_info.numbytes = cpu_to_le16(buf_size);
 
 	/* DT9812 only responds to 32 byte writes!! */
 	ret = usb_bulk_msg(usb, usb_sndbulkpipe(usb, devpriv->cmd_wr.addr),
-			   cmd, sizeof(*cmd), &count, DT9812_USB_TIMEOUT);
+			   &cmd, 32, &count, DT9812_USB_TIMEOUT);
 	if (ret)
-		goto out;
+		return ret;
 
-	ret = usb_bulk_msg(usb, usb_rcvbulkpipe(usb, devpriv->cmd_rd.addr),
-			   tbuf, buf_size, &count, DT9812_USB_TIMEOUT);
-	if (!ret) {
-		if (count == buf_size)
-			memcpy(buf, tbuf, buf_size);
-		else
-			ret = -EREMOTEIO;
-	}
-out:
-	kfree(tbuf);
-
-	return ret;
+	return usb_bulk_msg(usb, usb_rcvbulkpipe(usb, devpriv->cmd_rd.addr),
+			    buf, buf_size, &count, DT9812_USB_TIMEOUT);
 }
 
 static int dt9812_read_multiple_registers(struct comedi_device *dev,
@@ -282,42 +261,22 @@ static int dt9812_read_multiple_registers(struct comedi_device *dev,
 {
 	struct usb_device *usb = comedi_to_usb_dev(dev);
 	struct dt9812_private *devpriv = dev->private;
-	struct dt9812_usb_cmd *cmd;
+	struct dt9812_usb_cmd cmd;
 	int i, count, ret;
-	size_t buf_size;
-	void *buf;
 
-	buf_size = max_t(size_t, sizeof(*cmd), reg_count);
-
-	buf = kzalloc(buf_size, GFP_KERNEL);
-	if (!buf)
-		return -ENOMEM;
-
-	cmd = buf;
-
-	cmd->cmd = cpu_to_le32(DT9812_R_MULTI_BYTE_REG);
-	cmd->u.read_multi_info.count = reg_count;
+	cmd.cmd = cpu_to_le32(DT9812_R_MULTI_BYTE_REG);
+	cmd.u.read_multi_info.count = reg_count;
 	for (i = 0; i < reg_count; i++)
-		cmd->u.read_multi_info.address[i] = address[i];
+		cmd.u.read_multi_info.address[i] = address[i];
 
 	/* DT9812 only responds to 32 byte writes!! */
 	ret = usb_bulk_msg(usb, usb_sndbulkpipe(usb, devpriv->cmd_wr.addr),
-			   cmd, sizeof(*cmd), &count, DT9812_USB_TIMEOUT);
+			   &cmd, 32, &count, DT9812_USB_TIMEOUT);
 	if (ret)
-		goto out;
+		return ret;
 
-	ret = usb_bulk_msg(usb, usb_rcvbulkpipe(usb, devpriv->cmd_rd.addr),
-			   buf, reg_count, &count, DT9812_USB_TIMEOUT);
-	if (!ret) {
-		if (count == reg_count)
-			memcpy(value, buf, reg_count);
-		else
-			ret = -EREMOTEIO;
-	}
-out:
-	kfree(buf);
-
-	return ret;
+	return usb_bulk_msg(usb, usb_rcvbulkpipe(usb, devpriv->cmd_rd.addr),
+			    value, reg_count, &count, DT9812_USB_TIMEOUT);
 }
 
 static int dt9812_write_multiple_registers(struct comedi_device *dev,
@@ -326,27 +285,19 @@ static int dt9812_write_multiple_registers(struct comedi_device *dev,
 {
 	struct usb_device *usb = comedi_to_usb_dev(dev);
 	struct dt9812_private *devpriv = dev->private;
-	struct dt9812_usb_cmd *cmd;
+	struct dt9812_usb_cmd cmd;
 	int i, count;
-	int ret;
 
-	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
-	if (!cmd)
-		return -ENOMEM;
-
-	cmd->cmd = cpu_to_le32(DT9812_W_MULTI_BYTE_REG);
-	cmd->u.read_multi_info.count = reg_count;
+	cmd.cmd = cpu_to_le32(DT9812_W_MULTI_BYTE_REG);
+	cmd.u.read_multi_info.count = reg_count;
 	for (i = 0; i < reg_count; i++) {
-		cmd->u.write_multi_info.write[i].address = address[i];
-		cmd->u.write_multi_info.write[i].value = value[i];
+		cmd.u.write_multi_info.write[i].address = address[i];
+		cmd.u.write_multi_info.write[i].value = value[i];
 	}
 
 	/* DT9812 only responds to 32 byte writes!! */
-	ret = usb_bulk_msg(usb, usb_sndbulkpipe(usb, devpriv->cmd_wr.addr),
-			   cmd, sizeof(*cmd), &count, DT9812_USB_TIMEOUT);
-	kfree(cmd);
-
-	return ret;
+	return usb_bulk_msg(usb, usb_sndbulkpipe(usb, devpriv->cmd_wr.addr),
+			    &cmd, 32, &count, DT9812_USB_TIMEOUT);
 }
 
 static int dt9812_rmw_multiple_registers(struct comedi_device *dev,
@@ -355,25 +306,17 @@ static int dt9812_rmw_multiple_registers(struct comedi_device *dev,
 {
 	struct usb_device *usb = comedi_to_usb_dev(dev);
 	struct dt9812_private *devpriv = dev->private;
-	struct dt9812_usb_cmd *cmd;
+	struct dt9812_usb_cmd cmd;
 	int i, count;
-	int ret;
 
-	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
-	if (!cmd)
-		return -ENOMEM;
-
-	cmd->cmd = cpu_to_le32(DT9812_RMW_MULTI_BYTE_REG);
-	cmd->u.rmw_multi_info.count = reg_count;
+	cmd.cmd = cpu_to_le32(DT9812_RMW_MULTI_BYTE_REG);
+	cmd.u.rmw_multi_info.count = reg_count;
 	for (i = 0; i < reg_count; i++)
-		cmd->u.rmw_multi_info.rmw[i] = rmw[i];
+		cmd.u.rmw_multi_info.rmw[i] = rmw[i];
 
 	/* DT9812 only responds to 32 byte writes!! */
-	ret = usb_bulk_msg(usb, usb_sndbulkpipe(usb, devpriv->cmd_wr.addr),
-			   cmd, sizeof(*cmd), &count, DT9812_USB_TIMEOUT);
-	kfree(cmd);
-
-	return ret;
+	return usb_bulk_msg(usb, usb_sndbulkpipe(usb, devpriv->cmd_wr.addr),
+			    &cmd, 32, &count, DT9812_USB_TIMEOUT);
 }
 
 static int dt9812_digital_in(struct comedi_device *dev, u8 *bits)

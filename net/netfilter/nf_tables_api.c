@@ -4481,12 +4481,12 @@ struct nft_set_elem_catchall {
 static void nft_set_catchall_destroy(const struct nft_ctx *ctx,
 				     struct nft_set *set)
 {
-	struct nft_set_elem_catchall *next, *catchall;
+	struct nft_set_elem_catchall *catchall;
 
-	list_for_each_entry_safe(catchall, next, &set->catchall_list, list) {
+	list_for_each_entry_rcu(catchall, &set->catchall_list, list) {
 		list_del_rcu(&catchall->list);
 		nft_set_elem_destroy(set, catchall->elem, true);
-		kfree_rcu(catchall, rcu);
+		kfree_rcu(catchall);
 	}
 }
 
@@ -5653,7 +5653,7 @@ static void nft_setelem_catchall_remove(const struct net *net,
 	list_for_each_entry_safe(catchall, next, &set->catchall_list, list) {
 		if (catchall->elem == elem->priv) {
 			list_del_rcu(&catchall->list);
-			kfree_rcu(catchall, rcu);
+			kfree_rcu(catchall);
 			break;
 		}
 	}
@@ -6535,15 +6535,12 @@ static int nf_tables_updobj(const struct nft_ctx *ctx,
 {
 	struct nft_object *newobj;
 	struct nft_trans *trans;
-	int err = -ENOMEM;
-
-	if (!try_module_get(type->owner))
-		return -ENOENT;
+	int err;
 
 	trans = nft_trans_alloc(ctx, NFT_MSG_NEWOBJ,
 				sizeof(struct nft_trans_obj));
 	if (!trans)
-		goto err_trans;
+		return -ENOMEM;
 
 	newobj = nft_obj_init(ctx, type, attr);
 	if (IS_ERR(newobj)) {
@@ -6560,8 +6557,6 @@ static int nf_tables_updobj(const struct nft_ctx *ctx,
 
 err_free_trans:
 	kfree(trans);
-err_trans:
-	module_put(type->owner);
 	return err;
 }
 
@@ -8174,7 +8169,7 @@ static void nft_obj_commit_update(struct nft_trans *trans)
 	if (obj->ops->update)
 		obj->ops->update(obj, newobj);
 
-	nft_obj_destroy(&trans->ctx, newobj);
+	kfree(newobj);
 }
 
 static void nft_commit_release(struct nft_trans *trans)
@@ -8919,7 +8914,7 @@ static int __nf_tables_abort(struct net *net, enum nfnl_abort_action action)
 			break;
 		case NFT_MSG_NEWOBJ:
 			if (nft_trans_obj_update(trans)) {
-				nft_obj_destroy(&trans->ctx, nft_trans_obj_newobj(trans));
+				kfree(nft_trans_obj_newobj(trans));
 				nft_trans_destroy(trans);
 			} else {
 				trans->ctx.table->use--;
@@ -9208,23 +9203,17 @@ int nft_parse_u32_check(const struct nlattr *attr, int max, u32 *dest)
 }
 EXPORT_SYMBOL_GPL(nft_parse_u32_check);
 
-static int nft_parse_register(const struct nlattr *attr, u32 *preg)
+static unsigned int nft_parse_register(const struct nlattr *attr)
 {
 	unsigned int reg;
 
 	reg = ntohl(nla_get_be32(attr));
 	switch (reg) {
 	case NFT_REG_VERDICT...NFT_REG_4:
-		*preg = reg * NFT_REG_SIZE / NFT_REG32_SIZE;
-		break;
-	case NFT_REG32_00...NFT_REG32_15:
-		*preg = reg + NFT_REG_SIZE / NFT_REG32_SIZE - NFT_REG32_00;
-		break;
+		return reg * NFT_REG_SIZE / NFT_REG32_SIZE;
 	default:
-		return -ERANGE;
+		return reg + NFT_REG_SIZE / NFT_REG32_SIZE - NFT_REG32_00;
 	}
-
-	return 0;
 }
 
 /**
@@ -9266,10 +9255,7 @@ int nft_parse_register_load(const struct nlattr *attr, u8 *sreg, u32 len)
 	u32 reg;
 	int err;
 
-	err = nft_parse_register(attr, &reg);
-	if (err < 0)
-		return err;
-
+	reg = nft_parse_register(attr);
 	err = nft_validate_register_load(reg, len);
 	if (err < 0)
 		return err;
@@ -9324,10 +9310,7 @@ int nft_parse_register_store(const struct nft_ctx *ctx,
 	int err;
 	u32 reg;
 
-	err = nft_parse_register(attr, &reg);
-	if (err < 0)
-		return err;
-
+	reg = nft_parse_register(attr);
 	err = nft_validate_register_store(ctx, reg, data, type, len);
 	if (err < 0)
 		return err;
@@ -9591,13 +9574,10 @@ EXPORT_SYMBOL_GPL(__nft_release_basechain);
 
 static void __nft_release_hook(struct net *net, struct nft_table *table)
 {
-	struct nft_flowtable *flowtable;
 	struct nft_chain *chain;
 
 	list_for_each_entry(chain, &table->chains, list)
 		nf_tables_unregister_hook(net, table, chain);
-	list_for_each_entry(flowtable, &table->flowtables, list)
-		nft_unregister_flowtable_net_hooks(net, &flowtable->hook_list);
 }
 
 static void __nft_release_hooks(struct net *net)

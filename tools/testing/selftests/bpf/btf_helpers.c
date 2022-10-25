@@ -246,23 +246,18 @@ const char *btf_type_c_dump(const struct btf *btf)
 	d = btf_dump__new(btf, NULL, &opts, btf_dump_printf);
 	if (libbpf_get_error(d)) {
 		fprintf(stderr, "Failed to create btf_dump instance: %ld\n", libbpf_get_error(d));
-		goto err_out;
+		return NULL;
 	}
 
 	for (i = 1; i <= btf__get_nr_types(btf); i++) {
 		err = btf_dump__dump_type(d, i);
 		if (err) {
 			fprintf(stderr, "Failed to dump type [%d]: %d\n", i, err);
-			goto err_out;
+			return NULL;
 		}
 	}
 
-	btf_dump__free(d);
 	fflush(buf_file);
 	fclose(buf_file);
 	return buf;
-err_out:
-	btf_dump__free(d);
-	fclose(buf_file);
-	return NULL;
 }

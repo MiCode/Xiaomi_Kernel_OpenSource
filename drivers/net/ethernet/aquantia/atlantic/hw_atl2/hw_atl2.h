@@ -9,8 +9,6 @@
 #include "aq_common.h"
 
 extern const struct aq_hw_caps_s hw_atl2_caps_aqc113;
-extern const struct aq_hw_caps_s hw_atl2_caps_aqc115c;
-extern const struct aq_hw_caps_s hw_atl2_caps_aqc116c;
 extern const struct aq_hw_ops hw_atl2_ops;
 
 #endif /* HW_ATL2_H */

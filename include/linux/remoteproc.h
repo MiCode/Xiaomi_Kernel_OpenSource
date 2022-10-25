@@ -530,18 +530,6 @@ struct rproc_dump_segment {
  * @cdev: character device of the rproc
  * @cdev_put_on_release: flag to indicate if remoteproc should be shutdown on @char_dev release
  */
-#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
-#define RPROC_UID_FS  0
-#define RPROC_UID_SC  1
-#define RPROC_UID_CAM 2
-#define RPROC_UID_SENIF 3
-#define RPROC_UID_IMG 4
-#define RPROC_UID_IMG_CMDQ 5
-#define RPROC_UID_MMDVFS 6
-#define RPROC_UID_GCE 7
-#define RPROC_UID_MAX 8
-#endif
-
 struct rproc {
 	struct list_head node;
 	struct iommu_domain *domain;
@@ -580,9 +568,6 @@ struct rproc {
 	u16 elf_machine;
 	struct cdev cdev;
 	bool cdev_put_on_release;
-#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
-	atomic_t bootcnt[RPROC_UID_MAX][5];
-#endif
 };
 
 /**
@@ -671,7 +656,6 @@ struct rproc *devm_rproc_alloc(struct device *dev, const char *name,
 int devm_rproc_add(struct device *dev, struct rproc *rproc);
 
 void rproc_add_carveout(struct rproc *rproc, struct rproc_mem_entry *mem);
-void rproc_del_carveout(struct rproc *rproc, struct rproc_mem_entry *mem);
 
 struct rproc_mem_entry *
 rproc_mem_entry_init(struct device *dev,
@@ -679,20 +663,16 @@ rproc_mem_entry_init(struct device *dev,
 		     int (*alloc)(struct rproc *, struct rproc_mem_entry *),
 		     int (*release)(struct rproc *, struct rproc_mem_entry *),
 		     const char *name, ...);
-void rproc_mem_entry_free(struct rproc_mem_entry *mem);
 
 struct rproc_mem_entry *
 rproc_of_resm_mem_entry_init(struct device *dev, u32 of_resm_idx, size_t len,
 			     u32 da, const char *name, ...);
 
 int rproc_boot(struct rproc *rproc);
-int rproc_bootx(struct rproc *rproc, unsigned int uid);
 void rproc_shutdown(struct rproc *rproc);
-void rproc_shutdownx(struct rproc *rproc, unsigned int uid);
 int rproc_detach(struct rproc *rproc);
 int rproc_set_firmware(struct rproc *rproc, const char *fw_name);
 void rproc_report_crash(struct rproc *rproc, enum rproc_crash_type type);
-void *rproc_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iomem);
 void rproc_coredump_using_sections(struct rproc *rproc);
 int rproc_coredump_add_segment(struct rproc *rproc, dma_addr_t da, size_t size);
 int rproc_coredump_add_custom_segment(struct rproc *rproc,

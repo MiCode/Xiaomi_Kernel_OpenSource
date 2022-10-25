@@ -504,18 +504,16 @@ int kunit_run_tests(struct kunit_suite *suite)
 		struct kunit_result_stats param_stats = { 0 };
 		test_case->status = KUNIT_SKIPPED;
 
-		if (!test_case->generate_params) {
-			/* Non-parameterised test. */
-			kunit_run_case_catch_errors(suite, test_case, &test);
-			kunit_update_stats(&param_stats, test.status);
-		} else {
+		if (test_case->generate_params) {
 			/* Get initial param. */
 			param_desc[0] = '\0';
 			test.param_value = test_case->generate_params(NULL, param_desc);
+		}
 
-			while (test.param_value) {
-				kunit_run_case_catch_errors(suite, test_case, &test);
+		do {
+			kunit_run_case_catch_errors(suite, test_case, &test);
 
+			if (test_case->generate_params) {
 				if (param_desc[0] == '\0') {
 					snprintf(param_desc, sizeof(param_desc),
 						 "param-%d", test.param_index);
@@ -532,11 +530,11 @@ int kunit_run_tests(struct kunit_suite *suite)
 				param_desc[0] = '\0';
 				test.param_value = test_case->generate_params(test.param_value, param_desc);
 				test.param_index++;
-
-				kunit_update_stats(&param_stats, test.status);
 			}
-		}
 
+			kunit_update_stats(&param_stats, test.status);
+
+		} while (test.param_value);
 
 		kunit_print_test_stats(&test, param_stats);
 

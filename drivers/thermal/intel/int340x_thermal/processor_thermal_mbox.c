@@ -7,7 +7,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/pci.h>
-#include <linux/io-64-nonatomic-lo-hi.h>
 #include "processor_thermal_device.h"
 
 #define MBOX_CMD_WORKLOAD_TYPE_READ	0x0E
@@ -24,15 +23,19 @@
 
 static DEFINE_MUTEX(mbox_lock);
 
-static int wait_for_mbox_ready(struct proc_thermal_device *proc_priv)
+static int send_mbox_cmd(struct pci_dev *pdev, u16 cmd_id, u32 cmd_data, u32 *cmd_resp)
 {
+	struct proc_thermal_device *proc_priv;
 	u32 retries, data;
 	int ret;
+
+	mutex_lock(&mbox_lock);
+	proc_priv = pci_get_drvdata(pdev);
 
 	/* Poll for rb bit == 0 */
 	retries = MBOX_RETRY_COUNT;
 	do {
-		data = readl(proc_priv->mmio_base + MBOX_OFFSET_INTERFACE);
+		data = readl((void __iomem *) (proc_priv->mmio_base + MBOX_OFFSET_INTERFACE));
 		if (data & BIT_ULL(MBOX_BUSY_BIT)) {
 			ret = -EBUSY;
 			continue;
@@ -41,78 +44,49 @@ static int wait_for_mbox_ready(struct proc_thermal_device *proc_priv)
 		break;
 	} while (--retries);
 
-	return ret;
-}
-
-static int send_mbox_write_cmd(struct pci_dev *pdev, u16 id, u32 data)
-{
-	struct proc_thermal_device *proc_priv;
-	u32 reg_data;
-	int ret;
-
-	proc_priv = pci_get_drvdata(pdev);
-
-	mutex_lock(&mbox_lock);
-
-	ret = wait_for_mbox_ready(proc_priv);
 	if (ret)
 		goto unlock_mbox;
 
-	writel(data, (proc_priv->mmio_base + MBOX_OFFSET_DATA));
-	/* Write command register */
-	reg_data = BIT_ULL(MBOX_BUSY_BIT) | id;
-	writel(reg_data, (proc_priv->mmio_base + MBOX_OFFSET_INTERFACE));
+	if (cmd_id == MBOX_CMD_WORKLOAD_TYPE_WRITE)
+		writel(cmd_data, (void __iomem *) ((proc_priv->mmio_base + MBOX_OFFSET_DATA)));
 
-	ret = wait_for_mbox_ready(proc_priv);
+	/* Write command register */
+	data = BIT_ULL(MBOX_BUSY_BIT) | cmd_id;
+	writel(data, (void __iomem *) ((proc_priv->mmio_base + MBOX_OFFSET_INTERFACE)));
+
+	/* Poll for rb bit == 0 */
+	retries = MBOX_RETRY_COUNT;
+	do {
+		data = readl((void __iomem *) (proc_priv->mmio_base + MBOX_OFFSET_INTERFACE));
+		if (data & BIT_ULL(MBOX_BUSY_BIT)) {
+			ret = -EBUSY;
+			continue;
+		}
+
+		if (data) {
+			ret = -ENXIO;
+			goto unlock_mbox;
+		}
+
+		if (cmd_id == MBOX_CMD_WORKLOAD_TYPE_READ) {
+			data = readl((void __iomem *) (proc_priv->mmio_base + MBOX_OFFSET_DATA));
+			*cmd_resp = data & 0xff;
+		}
+
+		ret = 0;
+		break;
+	} while (--retries);
 
 unlock_mbox:
 	mutex_unlock(&mbox_lock);
 	return ret;
 }
 
-static int send_mbox_read_cmd(struct pci_dev *pdev, u16 id, u64 *resp)
+int processor_thermal_send_mbox_cmd(struct pci_dev *pdev, u16 cmd_id, u32 cmd_data, u32 *cmd_resp)
 {
-	struct proc_thermal_device *proc_priv;
-	u32 reg_data;
-	int ret;
-
-	proc_priv = pci_get_drvdata(pdev);
-
-	mutex_lock(&mbox_lock);
-
-	ret = wait_for_mbox_ready(proc_priv);
-	if (ret)
-		goto unlock_mbox;
-
-	/* Write command register */
-	reg_data = BIT_ULL(MBOX_BUSY_BIT) | id;
-	writel(reg_data, (proc_priv->mmio_base + MBOX_OFFSET_INTERFACE));
-
-	ret = wait_for_mbox_ready(proc_priv);
-	if (ret)
-		goto unlock_mbox;
-
-	if (id == MBOX_CMD_WORKLOAD_TYPE_READ)
-		*resp = readl(proc_priv->mmio_base + MBOX_OFFSET_DATA);
-	else
-		*resp = readq(proc_priv->mmio_base + MBOX_OFFSET_DATA);
-
-unlock_mbox:
-	mutex_unlock(&mbox_lock);
-	return ret;
+	return send_mbox_cmd(pdev, cmd_id, cmd_data, cmd_resp);
 }
-
-int processor_thermal_send_mbox_read_cmd(struct pci_dev *pdev, u16 id, u64 *resp)
-{
-	return send_mbox_read_cmd(pdev, id, resp);
-}
-EXPORT_SYMBOL_NS_GPL(processor_thermal_send_mbox_read_cmd, INT340X_THERMAL);
-
-int processor_thermal_send_mbox_write_cmd(struct pci_dev *pdev, u16 id, u32 data)
-{
-	return send_mbox_write_cmd(pdev, id, data);
-}
-EXPORT_SYMBOL_NS_GPL(processor_thermal_send_mbox_write_cmd, INT340X_THERMAL);
+EXPORT_SYMBOL_GPL(processor_thermal_send_mbox_cmd);
 
 /* List of workload types */
 static const char * const workload_types[] = {
@@ -124,6 +98,7 @@ static const char * const workload_types[] = {
 	"battery_life",
 	NULL
 };
+
 
 static ssize_t workload_available_types_show(struct device *dev,
 					       struct device_attribute *attr,
@@ -166,7 +141,7 @@ static ssize_t workload_type_store(struct device *dev,
 
 	data |= ret;
 
-	ret = send_mbox_write_cmd(pdev, MBOX_CMD_WORKLOAD_TYPE_WRITE, data);
+	ret = send_mbox_cmd(pdev, MBOX_CMD_WORKLOAD_TYPE_WRITE, data, NULL);
 	if (ret)
 		return false;
 
@@ -178,10 +153,10 @@ static ssize_t workload_type_show(struct device *dev,
 				   char *buf)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
-	u64 cmd_resp;
+	u32 cmd_resp;
 	int ret;
 
-	ret = send_mbox_read_cmd(pdev, MBOX_CMD_WORKLOAD_TYPE_READ, &cmd_resp);
+	ret = send_mbox_cmd(pdev, MBOX_CMD_WORKLOAD_TYPE_READ, 0, &cmd_resp);
 	if (ret)
 		return false;
 
@@ -206,15 +181,17 @@ static const struct attribute_group workload_req_attribute_group = {
 	.name = "workload_request"
 };
 
+
+
 static bool workload_req_created;
 
 int proc_thermal_mbox_add(struct pci_dev *pdev, struct proc_thermal_device *proc_priv)
 {
-	u64 cmd_resp;
+	u32 cmd_resp;
 	int ret;
 
 	/* Check if there is a mailbox support, if fails return success */
-	ret = send_mbox_read_cmd(pdev, MBOX_CMD_WORKLOAD_TYPE_READ, &cmd_resp);
+	ret = send_mbox_cmd(pdev, MBOX_CMD_WORKLOAD_TYPE_READ, 0, &cmd_resp);
 	if (ret)
 		return 0;
 

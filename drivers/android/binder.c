@@ -173,32 +173,8 @@ static inline void binder_stats_created(enum binder_stat_types type)
 	atomic_inc(&binder_stats.obj_created[type]);
 }
 
-struct binder_transaction_log_entry {
-	int debug_id;
-	int debug_id_done;
-	int call_type;
-	int from_proc;
-	int from_thread;
-	int target_handle;
-	int to_proc;
-	int to_thread;
-	int to_node;
-	int data_size;
-	int offsets_size;
-	int return_error_line;
-	uint32_t return_error;
-	uint32_t return_error_param;
-	char context_name[BINDERFS_MAX_NAME + 1];
-};
-
-struct binder_transaction_log {
-	atomic_t cur;
-	bool full;
-	struct binder_transaction_log_entry entry[32];
-};
-
-static struct binder_transaction_log binder_transaction_log;
-static struct binder_transaction_log binder_transaction_log_failed;
+struct binder_transaction_log binder_transaction_log;
+struct binder_transaction_log binder_transaction_log_failed;
 
 static struct binder_transaction_log_entry *binder_transaction_log_add(
 	struct binder_transaction_log *log)
@@ -515,11 +491,6 @@ static void binder_inc_node_tmpref_ilocked(struct binder_node *node);
 static bool binder_has_work_ilocked(struct binder_thread *thread,
 				    bool do_proc_work)
 {
-	int ret = 0;
-
-	trace_android_vh_binder_has_work_ilocked(thread, do_proc_work, &ret);
-	if (ret)
-		return true;
 	return thread->process_todo ||
 		thread->looper_need_return ||
 		(do_proc_work &&
@@ -555,7 +526,7 @@ static void binder_wakeup_poll_threads_ilocked(struct binder_proc *proc,
 		thread = rb_entry(n, struct binder_thread, rb_node);
 		if (thread->looper & BINDER_LOOPER_STATE_POLL &&
 		    binder_available_for_proc_work_ilocked(thread)) {
-			trace_android_vh_binder_wakeup_ilocked(thread->task, sync, proc);
+			trace_android_vh_binder_wakeup_ilocked(thread->task);
 			if (sync)
 				wake_up_interruptible_sync(&thread->wait);
 			else
@@ -615,7 +586,7 @@ static void binder_wakeup_thread_ilocked(struct binder_proc *proc,
 	assert_spin_locked(&proc->inner_lock);
 
 	if (thread) {
-		trace_android_vh_binder_wakeup_ilocked(thread->task, sync, proc);
+		trace_android_vh_binder_wakeup_ilocked(thread->task);
 		if (sync)
 			wake_up_interruptible_sync(&thread->wait);
 		else
@@ -677,26 +648,20 @@ static int to_kernel_prio(int policy, int user_priority)
 		return MAX_RT_PRIO - 1 - user_priority;
 }
 
-static void binder_do_set_priority(struct binder_thread *thread,
-				   const struct binder_priority *desired,
+static void binder_do_set_priority(struct task_struct *task,
+				   struct binder_priority desired,
 				   bool verify)
 {
-	struct task_struct *task = thread->task;
 	int priority; /* user-space prio value */
 	bool has_cap_nice;
-	unsigned int policy = desired->sched_policy;
+	unsigned int policy = desired.sched_policy;
 
-	if (task->policy == policy && task->normal_prio == desired->prio) {
-		spin_lock(&thread->prio_lock);
-		if (thread->prio_state == BINDER_PRIO_PENDING)
-			thread->prio_state = BINDER_PRIO_SET;
-		spin_unlock(&thread->prio_lock);
+	if (task->policy == policy && task->normal_prio == desired.prio)
 		return;
-	}
 
 	has_cap_nice = has_capability_noaudit(task, CAP_SYS_NICE);
 
-	priority = to_userspace_prio(policy, desired->prio);
+	priority = to_userspace_prio(policy, desired.prio);
 
 	if (verify && is_rt_policy(policy) && !has_cap_nice) {
 		long max_rtprio = task_rlimit(task, RLIMIT_RTPRIO);
@@ -721,30 +686,16 @@ static void binder_do_set_priority(struct binder_thread *thread,
 		}
 	}
 
-	if (policy != desired->sched_policy ||
-	    to_kernel_prio(policy, priority) != desired->prio)
+	if (policy != desired.sched_policy ||
+	    to_kernel_prio(policy, priority) != desired.prio)
 		binder_debug(BINDER_DEBUG_PRIORITY_CAP,
 			     "%d: priority %d not allowed, using %d instead\n",
-			      task->pid, desired->prio,
+			      task->pid, desired.prio,
 			      to_kernel_prio(policy, priority));
 
 	trace_binder_set_priority(task->tgid, task->pid, task->normal_prio,
 				  to_kernel_prio(policy, priority),
-				  desired->prio);
-
-	spin_lock(&thread->prio_lock);
-	if (!verify && thread->prio_state == BINDER_PRIO_ABORT) {
-		/*
-		 * A new priority has been set by an incoming nested
-		 * transaction. Abort this priority restore and allow
-		 * the transaction to run at the new desired priority.
-		 */
-		spin_unlock(&thread->prio_lock);
-		binder_debug(BINDER_DEBUG_PRIORITY_CAP,
-			"%d: %s: aborting priority restore\n",
-			thread->pid, __func__);
-		return;
-	}
+				  desired.prio);
 
 	/* Set the actual priority */
 	if (task->policy != policy || is_rt_policy(policy)) {
@@ -758,47 +709,37 @@ static void binder_do_set_priority(struct binder_thread *thread,
 	}
 	if (is_fair_policy(policy))
 		set_user_nice(task, priority);
-
-	thread->prio_state = BINDER_PRIO_SET;
-	spin_unlock(&thread->prio_lock);
 }
 
-static void binder_set_priority(struct binder_thread *thread,
-				const struct binder_priority *desired)
+static void binder_set_priority(struct task_struct *task,
+				struct binder_priority desired)
 {
-	binder_do_set_priority(thread, desired, /* verify = */ true);
+	binder_do_set_priority(task, desired, /* verify = */ true);
 }
 
-static void binder_restore_priority(struct binder_thread *thread,
-				    const struct binder_priority *desired)
+static void binder_restore_priority(struct task_struct *task,
+				    struct binder_priority desired)
 {
-	binder_do_set_priority(thread, desired, /* verify = */ false);
+	binder_do_set_priority(task, desired, /* verify = */ false);
 }
 
-static void binder_transaction_priority(struct binder_thread *thread,
+static void binder_transaction_priority(struct task_struct *task,
 					struct binder_transaction *t,
-					struct binder_node *node)
+					struct binder_priority node_prio,
+					bool inherit_rt)
 {
-	struct task_struct *task = thread->task;
-	struct binder_priority desired = t->priority;
-	const struct binder_priority node_prio = {
-		.sched_policy = node->sched_policy,
-		.prio = node->min_priority,
-	};
-	bool skip = false;
+	struct binder_priority desired_prio = t->priority;
 
 	if (t->set_priority_called)
 		return;
 
 	t->set_priority_called = true;
+	t->saved_priority.sched_policy = task->policy;
+	t->saved_priority.prio = task->normal_prio;
 
-	trace_android_vh_binder_priority_skip(task, &skip);
-	if (skip)
-		return;
-
-	if (!node->inherit_rt && is_rt_policy(desired.sched_policy)) {
-		desired.prio = NICE_TO_PRIO(0);
-		desired.sched_policy = SCHED_NORMAL;
+	if (!inherit_rt && is_rt_policy(desired_prio.sched_policy)) {
+		desired_prio.prio = NICE_TO_PRIO(0);
+		desired_prio.sched_policy = SCHED_NORMAL;
 	}
 
 	if (node_prio.prio < t->priority.prio ||
@@ -811,29 +752,10 @@ static void binder_transaction_priority(struct binder_thread *thread,
 		 * SCHED_FIFO, prefer SCHED_FIFO, since it can
 		 * run unbounded, unlike SCHED_RR.
 		 */
-		desired = node_prio;
+		desired_prio = node_prio;
 	}
 
-	spin_lock(&thread->prio_lock);
-	if (thread->prio_state == BINDER_PRIO_PENDING) {
-		/*
-		 * Task is in the process of changing priorities
-		 * saving its current values would be incorrect.
-		 * Instead, save the pending priority and signal
-		 * the task to abort the priority restore.
-		 */
-		t->saved_priority = thread->prio_next;
-		thread->prio_state = BINDER_PRIO_ABORT;
-		binder_debug(BINDER_DEBUG_PRIORITY_CAP,
-			"%d: saved pending priority %d\n",
-			current->pid, thread->prio_next.prio);
-	} else {
-		t->saved_priority.sched_policy = task->policy;
-		t->saved_priority.prio = task->normal_prio;
-	}
-	spin_unlock(&thread->prio_lock);
-
-	binder_set_priority(thread, &desired);
+	binder_set_priority(task, desired_prio);
 	trace_android_vh_binder_set_priority(t, task);
 }
 
@@ -1275,7 +1197,6 @@ static struct binder_ref *binder_get_ref_for_node_olocked(
 		     "%d new ref %d desc %d for node %d\n",
 		      proc->pid, new_ref->data.debug_id, new_ref->data.desc,
 		      node->debug_id);
-	trace_android_vh_binder_new_ref(proc->tsk, new_ref->data.desc, new_ref->node->debug_id);
 	binder_node_unlock(node);
 	return new_ref;
 }
@@ -1443,7 +1364,6 @@ err_no_ref:
  */
 static void binder_free_ref(struct binder_ref *ref)
 {
-	trace_android_vh_binder_del_ref(ref->proc ? ref->proc->tsk : 0, ref->data.desc);
 	if (ref->node)
 		binder_free_node(ref->node);
 	kfree(ref->death);
@@ -1548,18 +1468,6 @@ static int binder_inc_ref_for_node(struct binder_proc *proc,
 	}
 	ret = binder_inc_ref_olocked(ref, strong, target_list);
 	*rdata = ref->data;
-	if (ret && ref == new_ref) {
-		/*
-		 * Cleanup the failed reference here as the target
-		 * could now be dead and have already released its
-		 * references by now. Calling on the new reference
-		 * with strong=0 and a tmp_refs will not decrement
-		 * the node. The new_ref gets kfree'd below.
-		 */
-		binder_cleanup_ref_olocked(new_ref);
-		ref = NULL;
-	}
-
 	binder_proc_unlock(proc);
 	if (new_ref && ref != new_ref)
 		/*
@@ -1834,21 +1742,15 @@ static void binder_cleanup_transaction(struct binder_transaction *t,
 /**
  * binder_get_object() - gets object and checks for valid metadata
  * @proc:	binder_proc owning the buffer
- * @u:		sender's user pointer to base of buffer
  * @buffer:	binder_buffer that we're parsing.
  * @offset:	offset in the @buffer at which to validate an object.
  * @object:	struct binder_object to read into
  *
- * Copy the binder object at the given offset into @object. If @u is
- * provided then the copy is from the sender's buffer. If not, then
- * it is copied from the target's @buffer.
- *
- * Return:	If there's a valid metadata object at @offset, the
+ * Return:	If there's a valid metadata object at @offset in @buffer, the
  *		size of that object. Otherwise, it returns zero. The object
  *		is read into the struct binder_object pointed to by @object.
  */
 static size_t binder_get_object(struct binder_proc *proc,
-				const void __user *u,
 				struct binder_buffer *buffer,
 				unsigned long offset,
 				struct binder_object *object)
@@ -1858,16 +1760,10 @@ static size_t binder_get_object(struct binder_proc *proc,
 	size_t object_size = 0;
 
 	read_size = min_t(size_t, sizeof(*object), buffer->data_size - offset);
-	if (offset > buffer->data_size || read_size < sizeof(*hdr))
+	if (offset > buffer->data_size || read_size < sizeof(*hdr) ||
+	    binder_alloc_copy_from_buffer(&proc->alloc, object, buffer,
+					  offset, read_size))
 		return 0;
-	if (u) {
-		if (copy_from_user(object, u + offset, read_size))
-			return 0;
-	} else {
-		if (binder_alloc_copy_from_buffer(&proc->alloc, object, buffer,
-						  offset, read_size))
-			return 0;
-	}
 
 	/* Ok, now see if we read a complete object. */
 	hdr = &object->hdr;
@@ -1940,7 +1836,7 @@ static struct binder_buffer_object *binder_validate_ptr(
 					  b, buffer_offset,
 					  sizeof(object_offset)))
 		return NULL;
-	object_size = binder_get_object(proc, NULL, b, object_offset, object);
+	object_size = binder_get_object(proc, b, object_offset, object);
 	if (!object_size || object->hdr.type != BINDER_TYPE_PTR)
 		return NULL;
 	if (object_offsetp)
@@ -2005,8 +1901,7 @@ static bool binder_validate_fixup(struct binder_proc *proc,
 		unsigned long buffer_offset;
 		struct binder_object last_object;
 		struct binder_buffer_object *last_bbo;
-		size_t object_size = binder_get_object(proc, NULL, b,
-						       last_obj_offset,
+		size_t object_size = binder_get_object(proc, b, last_obj_offset,
 						       &last_object);
 		if (object_size != sizeof(*last_bbo))
 			return false;
@@ -2109,7 +2004,7 @@ static void binder_transaction_buffer_release(struct binder_proc *proc,
 		binder_dec_node(buffer->target_node, 1, 0);
 
 	off_start_offset = ALIGN(buffer->data_size, sizeof(void *));
-	off_end_offset = is_failure && failed_at ? failed_at :
+	off_end_offset = is_failure ? failed_at :
 				off_start_offset + buffer->offsets_size;
 	for (buffer_offset = off_start_offset; buffer_offset < off_end_offset;
 	     buffer_offset += sizeof(binder_size_t)) {
@@ -2121,7 +2016,7 @@ static void binder_transaction_buffer_release(struct binder_proc *proc,
 		if (!binder_alloc_copy_from_buffer(&proc->alloc, &object_offset,
 						   buffer, buffer_offset,
 						   sizeof(object_offset)))
-			object_size = binder_get_object(proc, NULL, buffer,
+			object_size = binder_get_object(proc, buffer,
 							object_offset, &object);
 		if (object_size == 0) {
 			pr_err("transaction release %d bad object at offset %lld, size %zd\n",
@@ -2195,8 +2090,9 @@ static void binder_transaction_buffer_release(struct binder_proc *proc,
 			binder_size_t fd_buf_size;
 			binder_size_t num_valid;
 
-			if (is_failure) {
+			if (proc->tsk != current->group_leader) {
 				/*
+				 * Nothing to do if running in sender context
 				 * The fd fixups have not been applied so no
 				 * fds need to be closed.
 				 */
@@ -2294,7 +2190,7 @@ static int binder_translate_binder(struct flat_binder_object *fp,
 		ret = -EINVAL;
 		goto done;
 	}
-	if (security_binder_transfer_binder(proc->cred, target_proc->cred)) {
+	if (security_binder_transfer_binder(proc->tsk, target_proc->tsk)) {
 		ret = -EPERM;
 		goto done;
 	}
@@ -2340,7 +2236,7 @@ static int binder_translate_handle(struct flat_binder_object *fp,
 				  proc->pid, thread->pid, fp->handle);
 		return -EINVAL;
 	}
-	if (security_binder_transfer_binder(proc->cred, target_proc->cred)) {
+	if (security_binder_transfer_binder(proc->tsk, target_proc->tsk)) {
 		ret = -EPERM;
 		goto done;
 	}
@@ -2428,7 +2324,7 @@ static int binder_translate_fd(u32 fd, binder_size_t fd_offset,
 		ret = -EBADF;
 		goto err_fget;
 	}
-	ret = security_binder_transfer_file(proc->cred, target_proc->cred, file);
+	ret = security_binder_transfer_file(proc->tsk, target_proc->tsk, file);
 	if (ret < 0) {
 		ret = -EPERM;
 		goto err_security;
@@ -2508,8 +2404,8 @@ static int binder_translate_fd_array(struct binder_fd_array_object *fda,
 		if (!ret)
 			ret = binder_translate_fd(fd, offset, t, thread,
 						  in_reply_to);
-		if (ret)
-			return ret > 0 ? -EINVAL : ret;
+		if (ret < 0)
+			return ret;
 	}
 	return 0;
 }
@@ -2571,56 +2467,6 @@ static int binder_fixup_parent(struct binder_transaction *t,
 }
 
 /**
- * binder_can_update_transaction() - Can a txn be superseded by an updated one?
- * @t1: the pending async txn in the frozen process
- * @t2: the new async txn to supersede the outdated pending one
- *
- * Return:  true if t2 can supersede t1
- *          false if t2 can not supersede t1
- */
-static bool binder_can_update_transaction(struct binder_transaction *t1,
-					  struct binder_transaction *t2)
-{
-	if ((t1->flags & t2->flags & (TF_ONE_WAY | TF_UPDATE_TXN)) !=
-	    (TF_ONE_WAY | TF_UPDATE_TXN) || !t1->to_proc || !t2->to_proc)
-		return false;
-	if (t1->to_proc->tsk == t2->to_proc->tsk && t1->code == t2->code &&
-	    t1->flags == t2->flags && t1->buffer->pid == t2->buffer->pid &&
-	    t1->buffer->target_node->ptr == t2->buffer->target_node->ptr &&
-	    t1->buffer->target_node->cookie == t2->buffer->target_node->cookie)
-		return true;
-	return false;
-}
-
-/**
- * binder_find_outdated_transaction_ilocked() - Find the outdated transaction
- * @t:		 new async transaction
- * @target_list: list to find outdated transaction
- *
- * Return: the outdated transaction if found
- *         NULL if no outdated transacton can be found
- *
- * Requires the proc->inner_lock to be held.
- */
-static struct binder_transaction *
-binder_find_outdated_transaction_ilocked(struct binder_transaction *t,
-					 struct list_head *target_list)
-{
-	struct binder_work *w;
-
-	list_for_each_entry(w, target_list, entry) {
-		struct binder_transaction *t_queued;
-
-		if (w->type != BINDER_WORK_TRANSACTION)
-			continue;
-		t_queued = container_of(w, struct binder_transaction, work);
-		if (binder_can_update_transaction(t_queued, t))
-			return t_queued;
-	}
-	return NULL;
-}
-
-/**
  * binder_proc_transaction() - sends a transaction to a process and wakes it up
  * @t:		transaction to send
  * @proc:	process to send the transaction to
@@ -2643,13 +2489,14 @@ static int binder_proc_transaction(struct binder_transaction *t,
 				    struct binder_thread *thread)
 {
 	struct binder_node *node = t->buffer->target_node;
+	struct binder_priority node_prio;
 	bool oneway = !!(t->flags & TF_ONE_WAY);
 	bool pending_async = false;
-	bool skip = false;
-	struct binder_transaction *t_outdated = NULL;
 
 	BUG_ON(!node);
 	binder_node_lock(node);
+	node_prio.prio = node->min_priority;
+	node_prio.sched_policy = node->sched_policy;
 
 	if (oneway) {
 		BUG_ON(thread);
@@ -2672,59 +2519,25 @@ static int binder_proc_transaction(struct binder_transaction *t,
 		return proc->is_frozen ? BR_FROZEN_REPLY : BR_DEAD_REPLY;
 	}
 
-	trace_android_vh_binder_proc_transaction_entry(proc, t,
-		&thread, node->debug_id, pending_async, !oneway, &skip);
-
-	if (!thread && !pending_async && !skip)
+	if (!thread && !pending_async)
 		thread = binder_select_thread_ilocked(proc);
 
-	trace_android_vh_binder_proc_transaction(current, proc->tsk,
-		thread ? thread->task : 0, node->debug_id, t->code, pending_async);
-
 	if (thread) {
-		binder_transaction_priority(thread, t, node);
+		binder_transaction_priority(thread->task, t, node_prio,
+					    node->inherit_rt);
 		binder_enqueue_thread_work_ilocked(thread, &t->work);
 	} else if (!pending_async) {
 		binder_enqueue_work_ilocked(&t->work, &proc->todo);
 	} else {
-		if ((t->flags & TF_UPDATE_TXN) && proc->is_frozen) {
-			t_outdated = binder_find_outdated_transaction_ilocked(t,
-									      &node->async_todo);
-			if (t_outdated) {
-				binder_debug(BINDER_DEBUG_TRANSACTION,
-					     "txn %d supersedes %d\n",
-					     t->debug_id, t_outdated->debug_id);
-				list_del_init(&t_outdated->work.entry);
-				proc->outstanding_txns--;
-			}
-		}
 		binder_enqueue_work_ilocked(&t->work, &node->async_todo);
 	}
 
-	trace_android_vh_binder_proc_transaction_finish(proc, t,
-		thread ? thread->task : NULL, pending_async, !oneway);
 	if (!pending_async)
 		binder_wakeup_thread_ilocked(proc, thread, !oneway /* sync */);
 
 	proc->outstanding_txns++;
 	binder_inner_proc_unlock(proc);
 	binder_node_unlock(node);
-
-	/*
-	 * To reduce potential contention, free the outdated transaction and
-	 * buffer after releasing the locks.
-	 */
-	if (t_outdated) {
-		struct binder_buffer *buffer = t_outdated->buffer;
-
-		t_outdated->buffer = NULL;
-		buffer->transaction = NULL;
-		trace_binder_transaction_update_buffer_release(buffer);
-		binder_transaction_buffer_release(proc, NULL, buffer, 0, 0);
-		binder_alloc_free_buf(&proc->alloc, buffer);
-		kfree(t_outdated);
-		binder_stats_deleted(BINDER_STAT_TRANSACTION);
-	}
 
 	return 0;
 }
@@ -2784,7 +2597,6 @@ static void binder_transaction(struct binder_proc *proc,
 	binder_size_t off_start_offset, off_end_offset;
 	binder_size_t off_min;
 	binder_size_t sg_buf_offset, sg_buf_end_offset;
-	binder_size_t user_offset = 0;
 	struct binder_proc *target_proc = NULL;
 	struct binder_thread *target_thread = NULL;
 	struct binder_node *target_node = NULL;
@@ -2799,9 +2611,6 @@ static void binder_transaction(struct binder_proc *proc,
 	int t_debug_id = atomic_inc_return(&binder_last_id);
 	char *secctx = NULL;
 	u32 secctx_sz = 0;
-	const void __user *user_buffer = (const void __user *)
-				(uintptr_t)tr->data.ptr.buffer;
-	bool is_nested = false;
 
 	e = binder_transaction_log_add(&binder_transaction_log);
 	e->debug_id = t_debug_id;
@@ -2868,7 +2677,6 @@ static void binder_transaction(struct binder_proc *proc,
 		target_proc = target_thread->proc;
 		target_proc->tmp_ref++;
 		binder_inner_proc_unlock(target_thread->proc);
-		trace_android_vh_binder_reply(target_proc, proc, thread, tr);
 	} else {
 		if (tr->target.handle) {
 			struct binder_ref *ref;
@@ -2927,9 +2735,8 @@ static void binder_transaction(struct binder_proc *proc,
 			return_error_line = __LINE__;
 			goto err_invalid_target_handle;
 		}
-		trace_android_vh_binder_trans(target_proc, proc, thread, tr);
-		if (security_binder_transaction(proc->cred,
-						target_proc->cred) < 0) {
+		if (security_binder_transaction(proc->tsk,
+						target_proc->tsk) < 0) {
 			return_error = BR_FAILED_REPLY;
 			return_error_param = -EPERM;
 			return_error_line = __LINE__;
@@ -2986,7 +2793,6 @@ static void binder_transaction(struct binder_proc *proc,
 					atomic_inc(&from->tmp_ref);
 					target_thread = from;
 					spin_unlock(&tmp->lock);
-					is_nested = true;
 					break;
 				}
 				spin_unlock(&tmp->lock);
@@ -2998,7 +2804,6 @@ static void binder_transaction(struct binder_proc *proc,
 	if (target_thread)
 		e->to_thread = target_thread->pid;
 	e->to_proc = target_proc->pid;
-	trace_android_rvh_binder_transaction(target_proc, proc, thread, tr);
 
 	/* TODO: reuse incoming transaction for reply */
 	t = kzalloc(sizeof(*t), GFP_KERNEL);
@@ -3052,7 +2857,6 @@ static void binder_transaction(struct binder_proc *proc,
 	t->to_thread = target_thread;
 	t->code = tr->code;
 	t->flags = tr->flags;
-	t->is_nested = is_nested;
 	if (!(t->flags & TF_ONE_WAY) &&
 	    binder_supported_policy(current->policy)) {
 		/* Inherit supported policies for synchronous transactions */
@@ -3067,7 +2871,16 @@ static void binder_transaction(struct binder_proc *proc,
 		u32 secid;
 		size_t added_size;
 
-		security_cred_getsecid(proc->cred, &secid);
+		/*
+		 * Arguably this should be the task's subjective LSM secid but
+		 * we can't reliably access the subjective creds of a task
+		 * other than our own so we must use the objective creds, which
+		 * are safe to access.  The downside is that if a task is
+		 * temporarily overriding it's creds it will not be reflected
+		 * here; however, it isn't clear that binder would handle that
+		 * case well anyway.
+		 */
+		security_task_getsecid_obj(proc->tsk, &secid);
 		ret = security_secid_to_secctx(secid, &secctx, &secctx_sz);
 		if (ret) {
 			return_error = BR_FAILED_REPLY;
@@ -3128,6 +2941,19 @@ static void binder_transaction(struct binder_proc *proc,
 
 	if (binder_alloc_copy_user_to_buffer(
 				&target_proc->alloc,
+				t->buffer, 0,
+				(const void __user *)
+					(uintptr_t)tr->data.ptr.buffer,
+				tr->data_size)) {
+		binder_user_error("%d:%d got transaction with invalid data ptr\n",
+				proc->pid, thread->pid);
+		return_error = BR_FAILED_REPLY;
+		return_error_param = -EFAULT;
+		return_error_line = __LINE__;
+		goto err_copy_data_failed;
+	}
+	if (binder_alloc_copy_user_to_buffer(
+				&target_proc->alloc,
 				t->buffer,
 				ALIGN(tr->data_size, sizeof(void *)),
 				(const void __user *)
@@ -3170,7 +2996,6 @@ static void binder_transaction(struct binder_proc *proc,
 		size_t object_size;
 		struct binder_object object;
 		binder_size_t object_offset;
-		binder_size_t copy_size;
 
 		if (binder_alloc_copy_from_buffer(&target_proc->alloc,
 						  &object_offset,
@@ -3182,27 +3007,8 @@ static void binder_transaction(struct binder_proc *proc,
 			return_error_line = __LINE__;
 			goto err_bad_offset;
 		}
-
-		/*
-		 * Copy the source user buffer up to the next object
-		 * that will be processed.
-		 */
-		copy_size = object_offset - user_offset;
-		if (copy_size && (user_offset > object_offset ||
-				binder_alloc_copy_user_to_buffer(
-					&target_proc->alloc,
-					t->buffer, user_offset,
-					user_buffer + user_offset,
-					copy_size))) {
-			binder_user_error("%d:%d got transaction with invalid data ptr\n",
-					proc->pid, thread->pid);
-			return_error = BR_FAILED_REPLY;
-			return_error_param = -EFAULT;
-			return_error_line = __LINE__;
-			goto err_copy_data_failed;
-		}
-		object_size = binder_get_object(target_proc, user_buffer,
-				t->buffer, object_offset, &object);
+		object_size = binder_get_object(target_proc, t->buffer,
+						object_offset, &object);
 		if (object_size == 0 || object_offset < off_min) {
 			binder_user_error("%d:%d got transaction with invalid offset (%lld, min %lld max %lld) or object.\n",
 					  proc->pid, thread->pid,
@@ -3214,11 +3020,6 @@ static void binder_transaction(struct binder_proc *proc,
 			return_error_line = __LINE__;
 			goto err_bad_offset;
 		}
-		/*
-		 * Set offset to the next buffer fragment to be
-		 * copied
-		 */
-		user_offset = object_offset + object_size;
 
 		hdr = &object.hdr;
 		off_min = object_offset + object_size;
@@ -3314,14 +3115,9 @@ static void binder_transaction(struct binder_proc *proc,
 			}
 			ret = binder_translate_fd_array(fda, parent, t, thread,
 							in_reply_to);
-			if (!ret)
-				ret = binder_alloc_copy_to_buffer(&target_proc->alloc,
-								  t->buffer,
-								  object_offset,
-								  fda, sizeof(*fda));
-			if (ret) {
+			if (ret < 0) {
 				return_error = BR_FAILED_REPLY;
-				return_error_param = ret > 0 ? -EINVAL : ret;
+				return_error_param = ret;
 				return_error_line = __LINE__;
 				goto err_translate_failed;
 			}
@@ -3391,19 +3187,6 @@ static void binder_transaction(struct binder_proc *proc,
 			goto err_bad_object_type;
 		}
 	}
-	/* Done processing objects, copy the rest of the buffer */
-	if (binder_alloc_copy_user_to_buffer(
-				&target_proc->alloc,
-				t->buffer, user_offset,
-				user_buffer + user_offset,
-				tr->data_size - user_offset)) {
-		binder_user_error("%d:%d got transaction with invalid data ptr\n",
-				proc->pid, thread->pid);
-		return_error = BR_FAILED_REPLY;
-		return_error_param = -EFAULT;
-		return_error_line = __LINE__;
-		goto err_copy_data_failed;
-	}
 	if (t->buffer->oneway_spam_suspect)
 		tcomplete->type = BINDER_WORK_TRANSACTION_ONEWAY_SPAM_SUSPECT;
 	else
@@ -3423,15 +3206,9 @@ static void binder_transaction(struct binder_proc *proc,
 		binder_enqueue_thread_work_ilocked(target_thread, &t->work);
 		target_proc->outstanding_txns++;
 		binder_inner_proc_unlock(target_proc);
-		if (in_reply_to->is_nested) {
-			spin_lock(&thread->prio_lock);
-			thread->prio_state = BINDER_PRIO_PENDING;
-			thread->prio_next = in_reply_to->saved_priority;
-			spin_unlock(&thread->prio_lock);
-		}
 		wake_up_interruptible_sync(&target_thread->wait);
 		trace_android_vh_binder_restore_priority(in_reply_to, current);
-		binder_restore_priority(thread, &in_reply_to->saved_priority);
+		binder_restore_priority(current, in_reply_to->saved_priority);
 		binder_free_transaction(in_reply_to);
 	} else if (!(t->flags & TF_ONE_WAY)) {
 		BUG_ON(t->buffer->async_transaction != 0);
@@ -3547,7 +3324,7 @@ err_invalid_target_handle:
 	BUG_ON(thread->return_error.cmd != BR_OK);
 	if (in_reply_to) {
 		trace_android_vh_binder_restore_priority(in_reply_to, current);
-		binder_restore_priority(thread, &in_reply_to->saved_priority);
+		binder_restore_priority(current, in_reply_to->saved_priority);
 		thread->return_error.cmd = BR_TRANSACTION_COMPLETE;
 		binder_enqueue_thread_work(thread, &thread->return_error.work);
 		binder_send_failed_reply(in_reply_to, return_error);
@@ -3561,7 +3338,6 @@ err_invalid_target_handle:
  * binder_free_buf() - free the specified buffer
  * @proc:	binder proc that owns buffer
  * @buffer:	buffer to be freed
- * @is_failure:	failed to send transaction
  *
  * If buffer for an async transaction, enqueue the next async
  * transaction from the node.
@@ -3571,7 +3347,7 @@ err_invalid_target_handle:
 static void
 binder_free_buf(struct binder_proc *proc,
 		struct binder_thread *thread,
-		struct binder_buffer *buffer, bool is_failure)
+		struct binder_buffer *buffer)
 {
 	binder_inner_proc_lock(proc);
 	if (buffer->transaction) {
@@ -3599,7 +3375,7 @@ binder_free_buf(struct binder_proc *proc,
 		binder_node_inner_unlock(buf_node);
 	}
 	trace_binder_transaction_buffer_release(buffer);
-	binder_transaction_buffer_release(proc, thread, buffer, 0, is_failure);
+	binder_transaction_buffer_release(proc, thread, buffer, 0, false);
 	binder_alloc_free_buf(&proc->alloc, buffer);
 }
 
@@ -3801,7 +3577,7 @@ static int binder_thread_write(struct binder_proc *proc,
 				     proc->pid, thread->pid, (u64)data_ptr,
 				     buffer->debug_id,
 				     buffer->transaction ? "active" : "finished");
-			binder_free_buf(proc, thread, buffer, false);
+			binder_free_buf(proc, thread, buffer);
 			break;
 		}
 
@@ -3847,7 +3623,6 @@ static int binder_thread_write(struct binder_proc *proc,
 			}
 			thread->looper |= BINDER_LOOPER_STATE_REGISTERED;
 			binder_inner_proc_unlock(proc);
-			trace_android_vh_binder_looper_state_registered(thread, proc);
 			break;
 		case BC_ENTER_LOOPER:
 			binder_debug(BINDER_DEBUG_THREADS,
@@ -4109,7 +3884,6 @@ static int binder_wait_for_work(struct binder_thread *thread,
 		if (do_proc_work)
 			list_add(&thread->waiting_thread_node,
 				 &proc->waiting_threads);
-		trace_android_vh_binder_wait_for_work(do_proc_work, thread, proc);
 		binder_inner_proc_unlock(proc);
 		schedule();
 		binder_inner_proc_lock(proc);
@@ -4228,7 +4002,7 @@ retry:
 						 binder_stop_on_user_error < 2);
 		}
 		trace_android_vh_binder_restore_priority(NULL, current);
-		binder_restore_priority(thread, &proc->default_priority);
+		binder_restore_priority(current, proc->default_priority);
 	}
 
 	if (non_block) {
@@ -4254,10 +4028,6 @@ retry:
 		size_t trsize = sizeof(*trd);
 
 		binder_inner_proc_lock(proc);
-		trace_android_vh_binder_select_worklist_ilocked(&list, thread,
-						proc, wait_for_proc_work);
-		if (list)
-			goto skip;
 		if (!binder_worklist_empty_ilocked(&thread->todo))
 			list = &thread->todo;
 		else if (!binder_worklist_empty_ilocked(&proc->todo) &&
@@ -4271,12 +4041,11 @@ retry:
 				goto retry;
 			break;
 		}
-skip:
+
 		if (end - ptr < sizeof(tr) + 4) {
 			binder_inner_proc_unlock(proc);
 			break;
 		}
-		trace_android_vh_binder_thread_read(&list, proc, thread);
 		w = binder_dequeue_work_head_ilocked(list);
 		if (binder_worklist_empty_ilocked(&thread->todo))
 			thread->process_todo = false;
@@ -4460,10 +4229,14 @@ skip:
 		BUG_ON(t->buffer == NULL);
 		if (t->buffer->target_node) {
 			struct binder_node *target_node = t->buffer->target_node;
+			struct binder_priority node_prio;
 
 			trd->target.ptr = target_node->ptr;
 			trd->cookie =  target_node->cookie;
-			binder_transaction_priority(thread, t, target_node);
+			node_prio.sched_policy = target_node->sched_policy;
+			node_prio.prio = target_node->min_priority;
+			binder_transaction_priority(current, t, node_prio,
+						    target_node->inherit_rt);
 			cmd = BR_TRANSACTION;
 		} else {
 			trd->target.ptr = 0;
@@ -4481,7 +4254,6 @@ skip:
 			trd->sender_pid =
 				task_tgid_nr_ns(sender,
 						task_active_pid_ns(current));
-			trace_android_vh_sync_txn_recvd(thread->task, t_from->task);
 		} else {
 			trd->sender_pid = 0;
 		}
@@ -4497,7 +4269,7 @@ skip:
 			buffer->transaction = NULL;
 			binder_cleanup_transaction(t, "fd fixups failed",
 						   BR_FAILED_REPLY);
-			binder_free_buf(proc, thread, buffer, true);
+			binder_free_buf(proc, thread, buffer);
 			binder_debug(BINDER_DEBUG_FAILED_TRANSACTION,
 				     "%d:%d %stransaction %d fd fixups failed %d/%d, line %d\n",
 				     proc->pid, thread->pid,
@@ -4694,8 +4466,6 @@ static struct binder_thread *binder_get_thread_ilocked(
 	thread->return_error.cmd = BR_OK;
 	thread->reply_error.work.type = BINDER_WORK_RETURN_ERROR;
 	thread->reply_error.cmd = BR_OK;
-	spin_lock_init(&thread->prio_lock);
-	thread->prio_state = BINDER_PRIO_SET;
 	INIT_LIST_HEAD(&new_thread->waiting_thread_node);
 	return thread;
 }
@@ -4737,9 +4507,7 @@ static void binder_free_proc(struct binder_proc *proc)
 	}
 	binder_alloc_deferred_release(&proc->alloc);
 	put_task_struct(proc->tsk);
-	put_cred(proc->cred);
 	binder_stats_deleted(BINDER_STAT_PROC);
-	trace_android_vh_binder_free_proc(proc);
 	kfree(proc);
 }
 
@@ -4817,20 +4585,23 @@ static int binder_thread_release(struct binder_proc *proc,
 	__release(&t->lock);
 
 	/*
-	 * If this thread used poll, make sure we remove the waitqueue from any
-	 * poll data structures holding it.
+	 * If this thread used poll, make sure we remove the waitqueue
+	 * from any epoll data structures holding it with POLLFREE.
+	 * waitqueue_active() is safe to use here because we're holding
+	 * the inner lock.
 	 */
-	if (thread->looper & BINDER_LOOPER_STATE_POLL)
-		wake_up_pollfree(&thread->wait);
+	if ((thread->looper & BINDER_LOOPER_STATE_POLL) &&
+	    waitqueue_active(&thread->wait)) {
+		wake_up_poll(&thread->wait, EPOLLHUP | POLLFREE);
+	}
 
 	binder_inner_proc_unlock(thread->proc);
 
 	/*
-	 * This is needed to avoid races between wake_up_pollfree() above and
-	 * someone else removing the last entry from the queue for other reasons
-	 * (e.g. ep_remove_wait_queue() being called due to an epoll file
-	 * descriptor being closed).  Such other users hold an RCU read lock, so
-	 * we can be sure they're done after we call synchronize_rcu().
+	 * This is needed to avoid races between wake_up_poll() above and
+	 * and ep_remove_waitqueue() called for other reasons (eg the epoll file
+	 * descriptor being closed); ep_remove_waitqueue() holds an RCU read
+	 * lock, so we can be sure it's done after calling synchronize_rcu().
 	 */
 	if (thread->looper & BINDER_LOOPER_STATE_POLL)
 		synchronize_rcu();
@@ -4838,7 +4609,6 @@ static int binder_thread_release(struct binder_proc *proc,
 	if (send_reply)
 		binder_send_failed_reply(send_reply, BR_DEAD_REPLY);
 	binder_release_work(proc, &thread->todo);
-	trace_android_vh_binder_thread_release(proc, thread);
 	binder_thread_dec_tmpref(thread);
 	return active_transactions;
 }
@@ -4915,7 +4685,6 @@ static int binder_ioctl_write_read(struct file *filp,
 		if (!binder_worklist_empty_ilocked(&proc->todo))
 			binder_wakeup_proc_ilocked(proc);
 		binder_inner_proc_unlock(proc);
-		trace_android_vh_binder_read_done(proc, thread);
 		if (ret < 0) {
 			if (copy_to_user(ubuf, &bwr, sizeof(bwr)))
 				ret = -EFAULT;
@@ -4950,7 +4719,7 @@ static int binder_ioctl_set_ctx_mgr(struct file *filp,
 		ret = -EBUSY;
 		goto out;
 	}
-	ret = security_binder_set_context_mgr(proc->cred);
+	ret = security_binder_set_context_mgr(proc->tsk);
 	if (ret < 0)
 		goto out;
 	if (uid_valid(context->binder_context_mgr_uid)) {
@@ -5441,7 +5210,6 @@ static int binder_open(struct inode *nodp, struct file *filp)
 	spin_lock_init(&proc->outer_lock);
 	get_task_struct(current->group_leader);
 	proc->tsk = current->group_leader;
-	proc->cred = get_cred(filp->f_cred);
 	INIT_LIST_HEAD(&proc->todo);
 	init_waitqueue_head(&proc->freeze_wait);
 	if (binder_supported_policy(current->policy)) {
@@ -5480,7 +5248,7 @@ static int binder_open(struct inode *nodp, struct file *filp)
 	}
 	hlist_add_head(&proc->proc_node, &binder_procs);
 	mutex_unlock(&binder_procs_lock);
-	trace_android_vh_binder_preset(&binder_procs, &binder_procs_lock);
+
 	if (binder_debugfs_dir_entry_proc && !existing_pid) {
 		char strbuf[11];
 
@@ -5774,7 +5542,6 @@ static void print_binder_transaction_ilocked(struct seq_file *m,
 	struct binder_buffer *buffer = t->buffer;
 
 	spin_lock(&t->lock);
-	trace_android_vh_binder_print_transaction_info(m, proc, prefix, t);
 	to_proc = t->to_proc;
 	seq_printf(m,
 		   "%s %d: %pK from %d:%d to %d:%d code %x flags %x pri %d:%d r%d",
@@ -6162,7 +5929,8 @@ static void print_binder_proc_stats(struct seq_file *m,
 	print_binder_stats(m, "  ", &proc->stats);
 }
 
-static int state_show(struct seq_file *m, void *unused)
+
+int binder_state_show(struct seq_file *m, void *unused)
 {
 	struct binder_proc *proc;
 	struct binder_node *node;
@@ -6201,7 +5969,7 @@ static int state_show(struct seq_file *m, void *unused)
 	return 0;
 }
 
-static int stats_show(struct seq_file *m, void *unused)
+int binder_stats_show(struct seq_file *m, void *unused)
 {
 	struct binder_proc *proc;
 
@@ -6217,7 +5985,7 @@ static int stats_show(struct seq_file *m, void *unused)
 	return 0;
 }
 
-static int transactions_show(struct seq_file *m, void *unused)
+int binder_transactions_show(struct seq_file *m, void *unused)
 {
 	struct binder_proc *proc;
 
@@ -6273,7 +6041,7 @@ static void print_binder_transaction_log_entry(struct seq_file *m,
 			"\n" : " (incomplete)\n");
 }
 
-static int transaction_log_show(struct seq_file *m, void *unused)
+int binder_transaction_log_show(struct seq_file *m, void *unused)
 {
 	struct binder_transaction_log *log = m->private;
 	unsigned int log_cur = atomic_read(&log->cur);
@@ -6303,45 +6071,6 @@ const struct file_operations binder_fops = {
 	.open = binder_open,
 	.flush = binder_flush,
 	.release = binder_release,
-};
-
-DEFINE_SHOW_ATTRIBUTE(state);
-DEFINE_SHOW_ATTRIBUTE(stats);
-DEFINE_SHOW_ATTRIBUTE(transactions);
-DEFINE_SHOW_ATTRIBUTE(transaction_log);
-
-const struct binder_debugfs_entry binder_debugfs_entries[] = {
-	{
-		.name = "state",
-		.mode = 0444,
-		.fops = &state_fops,
-		.data = NULL,
-	},
-	{
-		.name = "stats",
-		.mode = 0444,
-		.fops = &stats_fops,
-		.data = NULL,
-	},
-	{
-		.name = "transactions",
-		.mode = 0444,
-		.fops = &transactions_fops,
-		.data = NULL,
-	},
-	{
-		.name = "transaction_log",
-		.mode = 0444,
-		.fops = &transaction_log_fops,
-		.data = &binder_transaction_log,
-	},
-	{
-		.name = "failed_transaction_log",
-		.mode = 0444,
-		.fops = &transaction_log_fops,
-		.data = &binder_transaction_log_failed,
-	},
-	{} /* terminator */
 };
 
 static int __init init_binder_device(const char *name)
@@ -6389,18 +6118,36 @@ static int __init binder_init(void)
 	atomic_set(&binder_transaction_log_failed.cur, ~0U);
 
 	binder_debugfs_dir_entry_root = debugfs_create_dir("binder", NULL);
-	if (binder_debugfs_dir_entry_root) {
-		const struct binder_debugfs_entry *db_entry;
-
-		binder_for_each_debugfs_entry(db_entry)
-			debugfs_create_file(db_entry->name,
-					    db_entry->mode,
-					    binder_debugfs_dir_entry_root,
-					    db_entry->data,
-					    db_entry->fops);
-
+	if (binder_debugfs_dir_entry_root)
 		binder_debugfs_dir_entry_proc = debugfs_create_dir("proc",
 						 binder_debugfs_dir_entry_root);
+
+	if (binder_debugfs_dir_entry_root) {
+		debugfs_create_file("state",
+				    0444,
+				    binder_debugfs_dir_entry_root,
+				    NULL,
+				    &binder_state_fops);
+		debugfs_create_file("stats",
+				    0444,
+				    binder_debugfs_dir_entry_root,
+				    NULL,
+				    &binder_stats_fops);
+		debugfs_create_file("transactions",
+				    0444,
+				    binder_debugfs_dir_entry_root,
+				    NULL,
+				    &binder_transactions_fops);
+		debugfs_create_file("transaction_log",
+				    0444,
+				    binder_debugfs_dir_entry_root,
+				    &binder_transaction_log,
+				    &binder_transaction_log_fops);
+		debugfs_create_file("failed_transaction_log",
+				    0444,
+				    binder_debugfs_dir_entry_root,
+				    &binder_transaction_log_failed,
+				    &binder_transaction_log_fops);
 	}
 
 	if (!IS_ENABLED(CONFIG_ANDROID_BINDERFS) &&
@@ -6449,6 +6196,5 @@ device_initcall(binder_init);
 #define CREATE_TRACE_POINTS
 #include "binder_trace.h"
 EXPORT_TRACEPOINT_SYMBOL_GPL(binder_transaction_received);
-EXPORT_TRACEPOINT_SYMBOL_GPL(binder_txn_latency_free);
 
 MODULE_LICENSE("GPL v2");

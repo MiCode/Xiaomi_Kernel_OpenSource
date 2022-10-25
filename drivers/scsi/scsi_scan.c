@@ -198,53 +198,6 @@ static void scsi_unlock_floptical(struct scsi_device *sdev,
 			 SCSI_TIMEOUT, 3, NULL);
 }
 
-static int scsi_realloc_sdev_budget_map(struct scsi_device *sdev,
-					unsigned int depth)
-{
-	int new_shift = sbitmap_calculate_shift(depth);
-	bool need_alloc = !sdev->budget_map.map;
-	bool need_free = false;
-	int ret;
-	struct sbitmap sb_backup;
-
-	depth = min_t(unsigned int, depth, scsi_device_max_queue_depth(sdev));
-
-	/*
-	 * realloc if new shift is calculated, which is caused by setting
-	 * up one new default queue depth after calling ->slave_configure
-	 */
-	if (!need_alloc && new_shift != sdev->budget_map.shift)
-		need_alloc = need_free = true;
-
-	if (!need_alloc)
-		return 0;
-
-	/*
-	 * Request queue has to be frozen for reallocating budget map,
-	 * and here disk isn't added yet, so freezing is pretty fast
-	 */
-	if (need_free) {
-		blk_mq_freeze_queue(sdev->request_queue);
-		sb_backup = sdev->budget_map;
-	}
-	ret = sbitmap_init_node(&sdev->budget_map,
-				scsi_device_max_queue_depth(sdev),
-				new_shift, GFP_KERNEL,
-				sdev->request_queue->node, false, true);
-	if (!ret)
-		sbitmap_resize(&sdev->budget_map, depth);
-
-	if (need_free) {
-		if (ret)
-			sdev->budget_map = sb_backup;
-		else
-			sbitmap_free(&sb_backup);
-		ret = 0;
-		blk_mq_unfreeze_queue(sdev->request_queue);
-	}
-	return ret;
-}
-
 /**
  * scsi_alloc_sdev - allocate and setup a scsi_Device
  * @starget: which target to allocate a &scsi_device for
@@ -338,7 +291,11 @@ static struct scsi_device *scsi_alloc_sdev(struct scsi_target *starget,
 	 * default device queue depth to figure out sbitmap shift
 	 * since we use this queue depth most of times.
 	 */
-	if (scsi_realloc_sdev_budget_map(sdev, depth)) {
+	if (sbitmap_init_node(&sdev->budget_map,
+				scsi_device_max_queue_depth(sdev),
+				sbitmap_calculate_shift(depth),
+				GFP_KERNEL, sdev->request_queue->node,
+				false, true)) {
 		put_device(&starget->dev);
 		kfree(sdev);
 		goto out;
@@ -1044,13 +1001,6 @@ static int scsi_add_lun(struct scsi_device *sdev, unsigned char *inq_result,
 			}
 			return SCSI_SCAN_NO_RESPONSE;
 		}
-
-		/*
-		 * The queue_depth is often changed in ->slave_configure.
-		 * Set up budget map again since memory consumption of
-		 * the map depends on actual queue depth.
-		 */
-		scsi_realloc_sdev_budget_map(sdev, sdev->queue_depth);
 	}
 
 	if (sdev->scsi_level >= SCSI_3)
@@ -1893,9 +1843,6 @@ static void do_scsi_scan_host(struct Scsi_Host *shost)
 	} else {
 		scsi_scan_host_selected(shost, SCAN_WILD_CARD, SCAN_WILD_CARD,
 				SCAN_WILD_CARD, 0);
-#if IS_ENABLED(CONFIG_MTK_FIX_SCSI_THREAD_RACING_UPDATE)
-		wake_up(&shost->host_wait);
-#endif
 	}
 }
 

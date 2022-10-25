@@ -2060,15 +2060,13 @@ static int atmel_nand_controller_init(struct atmel_nand_controller *nc,
 	nc->mck = of_clk_get(dev->parent->of_node, 0);
 	if (IS_ERR(nc->mck)) {
 		dev_err(dev, "Failed to retrieve MCK clk\n");
-		ret = PTR_ERR(nc->mck);
-		goto out_release_dma;
+		return PTR_ERR(nc->mck);
 	}
 
 	np = of_parse_phandle(dev->parent->of_node, "atmel,smc", 0);
 	if (!np) {
 		dev_err(dev, "Missing or invalid atmel,smc property\n");
-		ret = -EINVAL;
-		goto out_release_dma;
+		return -EINVAL;
 	}
 
 	nc->smc = syscon_node_to_regmap(np);
@@ -2076,16 +2074,10 @@ static int atmel_nand_controller_init(struct atmel_nand_controller *nc,
 	if (IS_ERR(nc->smc)) {
 		ret = PTR_ERR(nc->smc);
 		dev_err(dev, "Could not get SMC regmap (err = %d)\n", ret);
-		goto out_release_dma;
+		return ret;
 	}
 
 	return 0;
-
-out_release_dma:
-	if (nc->dmac)
-		dma_release_channel(nc->dmac);
-
-	return ret;
 }
 
 static int

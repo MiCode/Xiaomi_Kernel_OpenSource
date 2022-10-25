@@ -31,7 +31,6 @@ struct gsc_asic {
 	int version;
 	int type;
 	int eim;
-	struct gsc_irq gsc_irq;
 	int global_irq[32];
 };
 

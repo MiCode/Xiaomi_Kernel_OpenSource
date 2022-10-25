@@ -9,7 +9,6 @@
 #define __LITTLE_ENDIAN_BITFIELD
 #endif
 
-#include <linux/stddef.h>
 #include <linux/types.h>
 #include <linux/swab.h>
 

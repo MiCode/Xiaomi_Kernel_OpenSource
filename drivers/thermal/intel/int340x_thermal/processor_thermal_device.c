@@ -68,7 +68,8 @@ static const struct attribute_group power_limit_attribute_group = {
 	.name = "power_limits"
 };
 
-static int tcc_get_offset(void)
+static ssize_t tcc_offset_degree_celsius_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
 {
 	u64 val;
 	int err;
@@ -77,20 +78,8 @@ static int tcc_get_offset(void)
 	if (err)
 		return err;
 
-	return (val >> 24) & 0x3f;
-}
-
-static ssize_t tcc_offset_degree_celsius_show(struct device *dev,
-					      struct device_attribute *attr,
-					      char *buf)
-{
-	int tcc;
-
-	tcc = tcc_get_offset();
-	if (tcc < 0)
-		return tcc;
-
-	return sprintf(buf, "%d\n", tcc);
+	val = (val >> 24) & 0x3f;
+	return sprintf(buf, "%d\n", (int)val);
 }
 
 static int tcc_offset_update(unsigned int tcc)
@@ -118,6 +107,8 @@ static int tcc_offset_update(unsigned int tcc)
 	return 0;
 }
 
+static int tcc_offset_save = -1;
+
 static ssize_t tcc_offset_degree_celsius_store(struct device *dev,
 				struct device_attribute *attr, const char *buf,
 				size_t count)
@@ -139,6 +130,8 @@ static ssize_t tcc_offset_degree_celsius_store(struct device *dev,
 	err = tcc_offset_update(tcc);
 	if (err)
 		return err;
+
+	tcc_offset_save = tcc;
 
 	return count;
 }
@@ -352,18 +345,6 @@ void proc_thermal_remove(struct proc_thermal_device *proc_priv)
 }
 EXPORT_SYMBOL_GPL(proc_thermal_remove);
 
-static int tcc_offset_save = -1;
-
-int proc_thermal_suspend(struct device *dev)
-{
-	tcc_offset_save = tcc_get_offset();
-	if (tcc_offset_save < 0)
-		dev_warn(dev, "failed to save offset (%d)\n", tcc_offset_save);
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(proc_thermal_suspend);
-
 int proc_thermal_resume(struct device *dev)
 {
 	struct proc_thermal_device *proc_dev;
@@ -371,7 +352,6 @@ int proc_thermal_resume(struct device *dev)
 	proc_dev = dev_get_drvdata(dev);
 	proc_thermal_read_ppcc(proc_dev);
 
-	/* Do not update if saving failed */
 	if (tcc_offset_save >= 0)
 		tcc_offset_update(tcc_offset_save);
 

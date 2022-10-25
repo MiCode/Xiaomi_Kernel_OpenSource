@@ -38,10 +38,11 @@ void bacct_add_tsk(struct user_namespace *user_ns,
 	stats->ac_btime = clamp_t(time64_t, btime, 0, U32_MAX);
 	stats->ac_btime64 = btime;
 
-	if (tsk->flags & PF_EXITING)
+	if (thread_group_leader(tsk)) {
 		stats->ac_exitcode = tsk->exit_code;
-	if (thread_group_leader(tsk) && (tsk->flags & PF_FORKNOEXEC))
-		stats->ac_flag |= AFORK;
+		if (tsk->flags & PF_FORKNOEXEC)
+			stats->ac_flag |= AFORK;
+	}
 	if (tsk->flags & PF_SUPERPRIV)
 		stats->ac_flag |= ASU;
 	if (tsk->flags & PF_DUMPCORE)

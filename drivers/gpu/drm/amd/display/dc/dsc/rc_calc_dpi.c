@@ -22,6 +22,7 @@
  * Authors: AMD
  *
  */
+#include "os_types.h"
 #include <drm/drm_dsc.h>
 #include "dscc_types.h"
 #include "rc_calc.h"

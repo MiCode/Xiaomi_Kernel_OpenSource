@@ -117,15 +117,8 @@ int fqdir_init(struct fqdir **fqdirp, struct inet_frags *f, struct net *net);
 
 static inline void fqdir_pre_exit(struct fqdir *fqdir)
 {
-	/* Prevent creation of new frags.
-	 * Pairs with READ_ONCE() in inet_frag_find().
-	 */
-	WRITE_ONCE(fqdir->high_thresh, 0);
-
-	/* Pairs with READ_ONCE() in inet_frag_kill(), ip_expire()
-	 * and ip6frag_expire_frag_queue().
-	 */
-	WRITE_ONCE(fqdir->dead, true);
+	fqdir->high_thresh = 0; /* prevent creation of new frags */
+	fqdir->dead = true;
 }
 void fqdir_exit(struct fqdir *fqdir);
 

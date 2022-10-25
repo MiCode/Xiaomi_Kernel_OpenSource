@@ -2284,20 +2284,15 @@ static int sec_aead_soft_crypto(struct sec_ctx *ctx,
 				struct aead_request *aead_req,
 				bool encrypt)
 {
+	struct aead_request *subreq = aead_request_ctx(aead_req);
 	struct sec_auth_ctx *a_ctx = &ctx->a_ctx;
 	struct device *dev = ctx->dev;
-	struct aead_request *subreq;
-	int ret;
 
 	/* Kunpeng920 aead mode not support input 0 size */
 	if (!a_ctx->fallback_aead_tfm) {
 		dev_err(dev, "aead fallback tfm is NULL!\n");
 		return -EINVAL;
 	}
-
-	subreq = aead_request_alloc(a_ctx->fallback_aead_tfm, GFP_KERNEL);
-	if (!subreq)
-		return -ENOMEM;
 
 	aead_request_set_tfm(subreq, a_ctx->fallback_aead_tfm);
 	aead_request_set_callback(subreq, aead_req->base.flags,
@@ -2306,13 +2301,8 @@ static int sec_aead_soft_crypto(struct sec_ctx *ctx,
 			       aead_req->cryptlen, aead_req->iv);
 	aead_request_set_ad(subreq, aead_req->assoclen);
 
-	if (encrypt)
-		ret = crypto_aead_encrypt(subreq);
-	else
-		ret = crypto_aead_decrypt(subreq);
-	aead_request_free(subreq);
-
-	return ret;
+	return encrypt ? crypto_aead_encrypt(subreq) :
+		   crypto_aead_decrypt(subreq);
 }
 
 static int sec_aead_crypto(struct aead_request *a_req, bool encrypt)

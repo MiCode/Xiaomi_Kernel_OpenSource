@@ -40,8 +40,7 @@ int ethnl_ops_begin(struct net_device *dev)
 	if (dev->dev.parent)
 		pm_runtime_get_sync(dev->dev.parent);
 
-	if (!netif_device_present(dev) ||
-	    dev->reg_state == NETREG_UNREGISTERING) {
+	if (!netif_device_present(dev)) {
 		ret = -ENODEV;
 		goto err;
 	}

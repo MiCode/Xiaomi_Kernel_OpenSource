@@ -336,6 +336,8 @@ static int pwm_fan_probe(struct platform_device *pdev)
 			return ret;
 	}
 
+	ctx->pwm_value = MAX_PWM;
+
 	pwm_init_state(ctx->pwm, &ctx->pwm_state);
 
 	/*

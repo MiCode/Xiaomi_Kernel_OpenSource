@@ -7,7 +7,6 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/io.h>
-#include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/clkdev.h>
 #include <linux/delay.h>
@@ -386,6 +385,3 @@ void mtk_clk_register_plls(struct device_node *node,
 		clk_data->clks[pll->id] = clk;
 	}
 }
-EXPORT_SYMBOL_GPL(mtk_clk_register_plls);
-
-MODULE_LICENSE("GPL");

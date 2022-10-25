@@ -803,7 +803,7 @@ early_param("coherentio", setcoherentio);
 
 static int __init setnocoherentio(char *str)
 {
-	dma_default_coherent = false;
+	dma_default_coherent = true;
 	pr_info("Software DMA cache coherency (command line)\n");
 	return 0;
 }

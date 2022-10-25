@@ -4,7 +4,6 @@
  * Author: Wendell Lin <wendell.lin@mediatek.com>
  */
 
-#include <linux/module.h>
 #include <linux/clk-provider.h>
 #include <linux/platform_device.h>
 #include <dt-bindings/clock/mt6779-clk.h>
@@ -106,5 +105,4 @@ static struct platform_driver clk_mt6779_mm_drv = {
 	},
 };
 
-module_platform_driver(clk_mt6779_mm_drv);
-MODULE_LICENSE("GPL");
+builtin_platform_driver(clk_mt6779_mm_drv);

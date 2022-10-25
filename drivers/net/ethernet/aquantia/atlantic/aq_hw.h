@@ -80,8 +80,6 @@ struct aq_hw_link_status_s {
 };
 
 struct aq_stats_s {
-	u64 brc;
-	u64 btc;
 	u64 uprc;
 	u64 mprc;
 	u64 bprc;

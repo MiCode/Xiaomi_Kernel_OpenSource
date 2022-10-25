@@ -41,7 +41,8 @@ obj-$(CONFIG_DMADEVICES)	+= dma/
 # SOC specific infrastructure drivers.
 obj-y				+= soc/
 
-obj-y				+= virtio/
+obj-$(CONFIG_VIRTIO)		+= virtio/
+obj-$(CONFIG_VIRTIO_PCI_LIB)	+= virtio/
 obj-$(CONFIG_VDPA)		+= vdpa/
 obj-$(CONFIG_XEN)		+= xen/
 

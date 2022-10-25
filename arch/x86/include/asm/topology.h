@@ -218,7 +218,7 @@ static inline void arch_set_max_freq_ratio(bool turbo_disabled)
 }
 #endif
 
-#if defined(CONFIG_ACPI_CPPC_LIB) && defined(CONFIG_SMP)
+#ifdef CONFIG_ACPI_CPPC_LIB
 void init_freq_invariance_cppc(void);
 #define init_freq_invariance_cppc init_freq_invariance_cppc
 #endif

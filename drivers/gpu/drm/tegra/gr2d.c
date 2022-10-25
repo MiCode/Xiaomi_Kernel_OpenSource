@@ -4,11 +4,9 @@
  */
 
 #include <linux/clk.h>
-#include <linux/delay.h>
 #include <linux/iommu.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
-#include <linux/reset.h>
 
 #include "drm.h"
 #include "gem.h"
@@ -21,7 +19,6 @@ struct gr2d_soc {
 struct gr2d {
 	struct tegra_drm_client client;
 	struct host1x_channel *channel;
-	struct reset_control *rst;
 	struct clk *clk;
 
 	const struct gr2d_soc *soc;
@@ -211,12 +208,6 @@ static int gr2d_probe(struct platform_device *pdev)
 	if (!syncpts)
 		return -ENOMEM;
 
-	gr2d->rst = devm_reset_control_get(dev, NULL);
-	if (IS_ERR(gr2d->rst)) {
-		dev_err(dev, "cannot get reset\n");
-		return PTR_ERR(gr2d->rst);
-	}
-
 	gr2d->clk = devm_clk_get(dev, NULL);
 	if (IS_ERR(gr2d->clk)) {
 		dev_err(dev, "cannot get clock\n");
@@ -227,14 +218,6 @@ static int gr2d_probe(struct platform_device *pdev)
 	if (err) {
 		dev_err(dev, "cannot turn on clock\n");
 		return err;
-	}
-
-	usleep_range(2000, 4000);
-
-	err = reset_control_deassert(gr2d->rst);
-	if (err < 0) {
-		dev_err(dev, "failed to deassert reset: %d\n", err);
-		goto disable_clk;
 	}
 
 	INIT_LIST_HEAD(&gr2d->client.base.list);
@@ -251,7 +234,8 @@ static int gr2d_probe(struct platform_device *pdev)
 	err = host1x_client_register(&gr2d->client.base);
 	if (err < 0) {
 		dev_err(dev, "failed to register host1x client: %d\n", err);
-		goto assert_rst;
+		clk_disable_unprepare(gr2d->clk);
+		return err;
 	}
 
 	/* initialize address register map */
@@ -261,13 +245,6 @@ static int gr2d_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, gr2d);
 
 	return 0;
-
-assert_rst:
-	(void)reset_control_assert(gr2d->rst);
-disable_clk:
-	clk_disable_unprepare(gr2d->clk);
-
-	return err;
 }
 
 static int gr2d_remove(struct platform_device *pdev)
@@ -281,12 +258,6 @@ static int gr2d_remove(struct platform_device *pdev)
 			err);
 		return err;
 	}
-
-	err = reset_control_assert(gr2d->rst);
-	if (err < 0)
-		dev_err(&pdev->dev, "failed to assert reset: %d\n", err);
-
-	usleep_range(2000, 4000);
 
 	clk_disable_unprepare(gr2d->clk);
 

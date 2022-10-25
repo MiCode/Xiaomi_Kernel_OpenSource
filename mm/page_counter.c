@@ -12,7 +12,6 @@
 #include <linux/sched.h>
 #include <linux/bug.h>
 #include <asm/page.h>
-#include <trace/hooks/cgroup.h>
 
 static void propagate_protected_usage(struct page_counter *c,
 				      unsigned long usage)
@@ -84,7 +83,6 @@ void page_counter_charge(struct page_counter *counter, unsigned long nr_pages)
 		 */
 		if (new > READ_ONCE(c->watermark))
 			WRITE_ONCE(c->watermark, new);
-		trace_android_rvh_update_watermark(new, c);
 	}
 }
 
@@ -139,7 +137,6 @@ bool page_counter_try_charge(struct page_counter *counter,
 		 */
 		if (new > READ_ONCE(c->watermark))
 			WRITE_ONCE(c->watermark, new);
-		trace_android_rvh_update_watermark(new, c);
 	}
 	return true;
 

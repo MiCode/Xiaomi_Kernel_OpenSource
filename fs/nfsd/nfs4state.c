@@ -1207,11 +1207,6 @@ hash_delegation_locked(struct nfs4_delegation *dp, struct nfs4_file *fp)
 	return 0;
 }
 
-static bool delegation_hashed(struct nfs4_delegation *dp)
-{
-	return !(list_empty(&dp->dl_perfile));
-}
-
 static bool
 unhash_delegation_locked(struct nfs4_delegation *dp)
 {
@@ -1219,7 +1214,7 @@ unhash_delegation_locked(struct nfs4_delegation *dp)
 
 	lockdep_assert_held(&state_lock);
 
-	if (!delegation_hashed(dp))
+	if (list_empty(&dp->dl_perfile))
 		return false;
 
 	dp->dl_stid.sc_type = NFS4_CLOSED_DELEG_STID;
@@ -4112,10 +4107,8 @@ nfsd4_setclientid_confirm(struct svc_rqst *rqstp,
 			status = nfserr_clid_inuse;
 			if (client_has_state(old)
 					&& !same_creds(&unconf->cl_cred,
-							&old->cl_cred)) {
-				old = NULL;
+							&old->cl_cred))
 				goto out;
-			}
 			status = mark_client_expired_locked(old);
 			if (status) {
 				old = NULL;
@@ -4605,7 +4598,7 @@ static void nfsd4_cb_recall_prepare(struct nfsd4_callback *cb)
 	 * queued for a lease break. Don't queue it again.
 	 */
 	spin_lock(&state_lock);
-	if (delegation_hashed(dp) && dp->dl_time == 0) {
+	if (dp->dl_time == 0) {
 		dp->dl_time = ktime_get_boottime_seconds();
 		list_add_tail(&dp->dl_recall_lru, &nn->del_recall_lru);
 	}
@@ -4693,14 +4686,6 @@ nfsd_break_deleg_cb(struct file_lock *fl)
 	return ret;
 }
 
-/**
- * nfsd_breaker_owns_lease - Check if lease conflict was resolved
- * @fl: Lock state to check
- *
- * Return values:
- *   %true: Lease conflict was resolved
- *   %false: Lease conflict was not resolved.
- */
 static bool nfsd_breaker_owns_lease(struct file_lock *fl)
 {
 	struct nfs4_delegation *dl = fl->fl_owner;
@@ -4708,11 +4693,11 @@ static bool nfsd_breaker_owns_lease(struct file_lock *fl)
 	struct nfs4_client *clp;
 
 	if (!i_am_nfsd())
-		return false;
+		return NULL;
 	rqst = kthread_data(current);
 	/* Note rq_prog == NFS_ACL_PROGRAM is also possible: */
 	if (rqst->rq_prog != NFS_PROGRAM || rqst->rq_vers < 4)
-		return false;
+		return NULL;
 	clp = *(rqst->rq_lease_breaker);
 	return dl->dl_stid.sc_client == clp;
 }
@@ -6050,11 +6035,7 @@ nfs4_preprocess_stateid_op(struct svc_rqst *rqstp,
 		*nfp = NULL;
 
 	if (ZERO_STATEID(stateid) || ONE_STATEID(stateid)) {
-		if (cstid)
-			status = nfserr_bad_stateid;
-		else
-			status = check_special_stateids(net, fhp, stateid,
-									flags);
+		status = check_special_stateids(net, fhp, stateid, flags);
 		goto done;
 	}
 

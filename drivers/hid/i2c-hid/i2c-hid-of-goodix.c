@@ -27,6 +27,7 @@ struct i2c_hid_of_goodix {
 
 	struct regulator *vdd;
 	struct notifier_block nb;
+	struct mutex regulator_mutex;
 	struct gpio_desc *reset_gpio;
 	const struct goodix_i2c_hid_timing_data *timings;
 };
@@ -66,6 +67,8 @@ static int ihid_goodix_vdd_notify(struct notifier_block *nb,
 		container_of(nb, struct i2c_hid_of_goodix, nb);
 	int ret = NOTIFY_OK;
 
+	mutex_lock(&ihid_goodix->regulator_mutex);
+
 	switch (event) {
 	case REGULATOR_EVENT_PRE_DISABLE:
 		gpiod_set_value_cansleep(ihid_goodix->reset_gpio, 1);
@@ -84,6 +87,8 @@ static int ihid_goodix_vdd_notify(struct notifier_block *nb,
 		break;
 	}
 
+	mutex_unlock(&ihid_goodix->regulator_mutex);
+
 	return ret;
 }
 
@@ -96,6 +101,8 @@ static int i2c_hid_of_goodix_probe(struct i2c_client *client,
 				   GFP_KERNEL);
 	if (!ihid_goodix)
 		return -ENOMEM;
+
+	mutex_init(&ihid_goodix->regulator_mutex);
 
 	ihid_goodix->ops.power_up = goodix_i2c_hid_power_up;
 	ihid_goodix->ops.power_down = goodix_i2c_hid_power_down;
@@ -123,30 +130,27 @@ static int i2c_hid_of_goodix_probe(struct i2c_client *client,
 	 *   long. Holding the controller in reset apparently draws extra
 	 *   power.
 	 */
+	mutex_lock(&ihid_goodix->regulator_mutex);
 	ihid_goodix->nb.notifier_call = ihid_goodix_vdd_notify;
 	ret = devm_regulator_register_notifier(ihid_goodix->vdd, &ihid_goodix->nb);
-	if (ret)
+	if (ret) {
+		mutex_unlock(&ihid_goodix->regulator_mutex);
 		return dev_err_probe(&client->dev, ret,
 			"regulator notifier request failed\n");
+	}
 
 	/*
 	 * If someone else is holding the regulator on (or the regulator is
 	 * an always-on one) we might never be told to deassert reset. Do it
-	 * now... and temporarily bump the regulator reference count just to
-	 * make sure it is impossible for this to race with our own notifier!
-	 * We also assume that someone else might have _just barely_ turned
-	 * the regulator on so we'll do the full "post_power_delay" just in
-	 * case.
+	 * now. Here we'll assume that someone else might have _just
+	 * barely_ turned the regulator on so we'll do the full
+	 * "post_power_delay" just in case.
 	 */
-	if (ihid_goodix->reset_gpio && regulator_is_enabled(ihid_goodix->vdd)) {
-		ret = regulator_enable(ihid_goodix->vdd);
-		if (ret)
-			return ret;
+	if (ihid_goodix->reset_gpio && regulator_is_enabled(ihid_goodix->vdd))
 		goodix_i2c_hid_deassert_reset(ihid_goodix, true);
-		regulator_disable(ihid_goodix->vdd);
-	}
+	mutex_unlock(&ihid_goodix->regulator_mutex);
 
-	return i2c_hid_core_probe(client, &ihid_goodix->ops, 0x0001, 0);
+	return i2c_hid_core_probe(client, &ihid_goodix->ops, 0x0001);
 }
 
 static const struct goodix_i2c_hid_timing_data goodix_gt7375p_timing_data = {

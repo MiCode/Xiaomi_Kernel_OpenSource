@@ -3028,7 +3028,7 @@ static const struct reg_sequence mt8195_afe_reg_defaults[] = {
 
 static const struct reg_sequence mt8195_cg_patch[] = {
 	{ AUDIO_TOP_CON0, 0xfffffffb },
-	{ AUDIO_TOP_CON1, 0xfffffff8 },
+	{ AUDIO_TOP_CON1, 0xfffffffa },
 };
 
 static int mt8195_afe_init_registers(struct mtk_base_afe *afe)

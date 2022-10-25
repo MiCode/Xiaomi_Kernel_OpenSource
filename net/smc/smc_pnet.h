@@ -29,7 +29,7 @@ struct smc_link_group;
  * @pnetlist: List of PNETIDs
  */
 struct smc_pnettable {
-	struct mutex lock;
+	rwlock_t lock;
 	struct list_head pnetlist;
 };
 

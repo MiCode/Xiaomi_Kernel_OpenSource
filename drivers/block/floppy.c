@@ -184,7 +184,6 @@ static int print_unex = 1;
 #include <linux/ioport.h>
 #include <linux/interrupt.h>
 #include <linux/init.h>
-#include <linux/major.h>
 #include <linux/platform_device.h>
 #include <linux/mod_devicetable.h>
 #include <linux/mutex.h>
@@ -1015,7 +1014,7 @@ static DECLARE_DELAYED_WORK(fd_timer, fd_timer_workfn);
 static void cancel_activity(void)
 {
 	do_floppy = NULL;
-	cancel_delayed_work(&fd_timer);
+	cancel_delayed_work_sync(&fd_timer);
 	cancel_work_sync(&floppy_work);
 }
 
@@ -2984,8 +2983,6 @@ static const char *drive_name(int type, int drive)
 		return "(null)";
 }
 
-#ifdef CONFIG_BLK_DEV_FD_RAWCMD
-
 /* raw commands */
 static void raw_cmd_done(int flag)
 {
@@ -3083,8 +3080,6 @@ static void raw_cmd_free(struct floppy_raw_cmd **ptr)
 	}
 }
 
-#define MAX_LEN (1UL << MAX_ORDER << PAGE_SHIFT)
-
 static int raw_cmd_copyin(int cmd, void __user *param,
 				 struct floppy_raw_cmd **rcmd)
 {
@@ -3112,7 +3107,7 @@ loop:
 	ptr->resultcode = 0;
 
 	if (ptr->flags & (FD_RAW_READ | FD_RAW_WRITE)) {
-		if (ptr->length <= 0 || ptr->length >= MAX_LEN)
+		if (ptr->length <= 0)
 			return -EINVAL;
 		ptr->kernel_data = (char *)fd_dma_mem_alloc(ptr->length);
 		fallback_on_nodma_alloc(&ptr->kernel_data, ptr->length);
@@ -3184,35 +3179,6 @@ static int raw_cmd_ioctl(int cmd, void __user *param)
 	raw_cmd_free(&my_raw_cmd);
 	return ret;
 }
-
-static int floppy_raw_cmd_ioctl(int type, int drive, int cmd,
-				void __user *param)
-{
-	int ret;
-
-	pr_warn_once("Note: FDRAWCMD is deprecated and will be removed from the kernel in the near future.\n");
-
-	if (type)
-		return -EINVAL;
-	if (lock_fdc(drive))
-		return -EINTR;
-	set_floppy(drive);
-	ret = raw_cmd_ioctl(cmd, param);
-	if (ret == -EINTR)
-		return -EINTR;
-	process_fd_request();
-	return ret;
-}
-
-#else /* CONFIG_BLK_DEV_FD_RAWCMD */
-
-static int floppy_raw_cmd_ioctl(int type, int drive, int cmd,
-				void __user *param)
-{
-	return -EOPNOTSUPP;
-}
-
-#endif
 
 static int invalidate_drive(struct block_device *bdev)
 {
@@ -3402,6 +3368,7 @@ static int fd_locked_ioctl(struct block_device *bdev, fmode_t mode, unsigned int
 {
 	int drive = (long)bdev->bd_disk->private_data;
 	int type = ITYPE(drive_state[drive].fd_device);
+	int i;
 	int ret;
 	int size;
 	union inparam {
@@ -3552,7 +3519,16 @@ static int fd_locked_ioctl(struct block_device *bdev, fmode_t mode, unsigned int
 		outparam = &write_errors[drive];
 		break;
 	case FDRAWCMD:
-		return floppy_raw_cmd_ioctl(type, drive, cmd, (void __user *)param);
+		if (type)
+			return -EINVAL;
+		if (lock_fdc(drive))
+			return -EINTR;
+		set_floppy(drive);
+		i = raw_cmd_ioctl(cmd, (void __user *)param);
+		if (i == -EINTR)
+			return -EINTR;
+		process_fd_request();
+		return i;
 	case FDTWADDLE:
 		if (lock_fdc(drive))
 			return -EINTR;
@@ -4502,7 +4478,6 @@ static const struct blk_mq_ops floppy_mq_ops = {
 };
 
 static struct platform_device floppy_device[N_DRIVE];
-static bool registered[N_DRIVE];
 
 static bool floppy_available(int drive)
 {
@@ -4718,8 +4693,6 @@ static int __init do_floppy_init(void)
 		if (err)
 			goto out_remove_drives;
 
-		registered[drive] = true;
-
 		device_add_disk(&floppy_device[drive].dev, disks[drive][0],
 				NULL);
 	}
@@ -4730,8 +4703,7 @@ out_remove_drives:
 	while (drive--) {
 		if (floppy_available(drive)) {
 			del_gendisk(disks[drive][0]);
-			if (registered[drive])
-				platform_device_unregister(&floppy_device[drive]);
+			platform_device_unregister(&floppy_device[drive]);
 		}
 	}
 out_release_dma:
@@ -4974,8 +4946,7 @@ static void __exit floppy_module_exit(void)
 				if (disks[drive][i])
 					del_gendisk(disks[drive][i]);
 			}
-			if (registered[drive])
-				platform_device_unregister(&floppy_device[drive]);
+			platform_device_unregister(&floppy_device[drive]);
 		}
 		for (i = 0; i < ARRAY_SIZE(floppy_type); i++) {
 			if (disks[drive][i])

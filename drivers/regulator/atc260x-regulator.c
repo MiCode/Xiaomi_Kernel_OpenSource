@@ -292,7 +292,6 @@ enum atc2603c_reg_ids {
 	.bypass_mask = BIT(5), \
 	.active_discharge_reg = ATC2603C_PMU_SWITCH_CTL, \
 	.active_discharge_mask = BIT(1), \
-	.active_discharge_on = BIT(1), \
 	.owner = THIS_MODULE, \
 }
 

@@ -2015,15 +2015,12 @@ static int cxgb4_get_module_info(struct net_device *dev,
 		if (ret)
 			return ret;
 
-		if (!sff8472_comp || (sff_diag_type & SFP_DIAG_ADDRMODE)) {
+		if (!sff8472_comp || (sff_diag_type & 4)) {
 			modinfo->type = ETH_MODULE_SFF_8079;
 			modinfo->eeprom_len = ETH_MODULE_SFF_8079_LEN;
 		} else {
 			modinfo->type = ETH_MODULE_SFF_8472;
-			if (sff_diag_type & SFP_DIAG_IMPLEMENTED)
-				modinfo->eeprom_len = ETH_MODULE_SFF_8472_LEN;
-			else
-				modinfo->eeprom_len = ETH_MODULE_SFF_8472_LEN / 2;
+			modinfo->eeprom_len = ETH_MODULE_SFF_8472_LEN;
 		}
 		break;
 

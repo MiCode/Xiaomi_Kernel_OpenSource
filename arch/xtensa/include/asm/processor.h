@@ -226,8 +226,8 @@ extern unsigned long get_wchan(struct task_struct *p);
 
 #define xtensa_set_sr(x, sr) \
 	({ \
-	 __asm__ __volatile__ ("wsr %0, "__stringify(sr) :: \
-			       "a"((unsigned int)(x))); \
+	 unsigned int v = (unsigned int)(x); \
+	 __asm__ __volatile__ ("wsr %0, "__stringify(sr) :: "a"(v)); \
 	 })
 
 #define xtensa_get_sr(sr) \

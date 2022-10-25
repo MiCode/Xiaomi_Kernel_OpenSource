@@ -72,7 +72,7 @@ L_exit_valid:
 L_exit:
 	popl	%ebx
 	leave
-	RET
+	ret
 
 
 L_zero:
@@ -138,7 +138,7 @@ L_exit_nuo_valid:
 
 	popl	%ebx
 	leave
-	RET
+	ret
 
 L_exit_nuo_zero:
 	movl	TAG_Zero,%eax
@@ -146,5 +146,5 @@ L_exit_nuo_zero:
 
 	popl	%ebx
 	leave
-	RET
+	ret
 SYM_FUNC_END(FPU_normalize_nuo)

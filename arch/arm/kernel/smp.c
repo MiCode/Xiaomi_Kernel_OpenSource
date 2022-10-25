@@ -736,12 +736,7 @@ void __init set_smp_ipi_range(int ipi_base, int n)
 		WARN_ON(err);
 
 		ipi_desc[i] = irq_to_desc(ipi_base + i);
-
-		if (i != IPI_RESCHEDULE)
-			irq_set_status_flags(ipi_base + i, IRQ_HIDDEN);
-		else
-			/* The recheduling IPI is special... */
-			irq_set_status_flags(ipi_base + i, IRQ_HIDDEN|IRQ_RAW);
+		irq_set_status_flags(ipi_base + i, IRQ_HIDDEN);
 	}
 
 	ipi_irq_base = ipi_base;

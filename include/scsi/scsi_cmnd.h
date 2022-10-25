@@ -12,7 +12,6 @@
 #include <scsi/scsi_device.h>
 #include <scsi/scsi_host.h>
 #include <scsi/scsi_request.h>
-#include <linux/android_kabi.h>
 
 struct Scsi_Host;
 struct scsi_driver;
@@ -69,7 +68,7 @@ struct scsi_pointer {
 struct scsi_cmnd {
 	struct scsi_request req;
 	struct scsi_device *device;
-	struct list_head eh_entry; /* entry for the host eh_abort_list/eh_cmd_q */
+	struct list_head eh_entry; /* entry for the host eh_cmd_q */
 	struct delayed_work abort_work;
 
 	struct rcu_head rcu;
@@ -141,11 +140,6 @@ struct scsi_cmnd {
 	unsigned long state;	/* Command completion state */
 
 	unsigned int extra_len;	/* length of alignment and padding */
-
-	ANDROID_KABI_RESERVE(1);
-	ANDROID_KABI_RESERVE(2);
-	ANDROID_KABI_RESERVE(3);
-	ANDROID_KABI_RESERVE(4);
 };
 
 /* Variant of blk_mq_rq_from_pdu() that verifies the type of its argument. */

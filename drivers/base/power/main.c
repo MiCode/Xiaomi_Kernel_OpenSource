@@ -712,7 +712,6 @@ static void dpm_noirq_resume_devices(pm_message_t state)
 		dev = to_device(dpm_noirq_list.next);
 		get_device(dev);
 		list_move_tail(&dev->power.entry, &dpm_late_early_list);
-
 		mutex_unlock(&dpm_list_mtx);
 
 		if (!is_async(dev)) {
@@ -727,9 +726,8 @@ static void dpm_noirq_resume_devices(pm_message_t state)
 			}
 		}
 
-		put_device(dev);
-
 		mutex_lock(&dpm_list_mtx);
+		put_device(dev);
 	}
 	mutex_unlock(&dpm_list_mtx);
 	async_synchronize_full();
@@ -855,7 +853,6 @@ void dpm_resume_early(pm_message_t state)
 		dev = to_device(dpm_late_early_list.next);
 		get_device(dev);
 		list_move_tail(&dev->power.entry, &dpm_suspended_list);
-
 		mutex_unlock(&dpm_list_mtx);
 
 		if (!is_async(dev)) {
@@ -869,10 +866,8 @@ void dpm_resume_early(pm_message_t state)
 				pm_dev_err(dev, state, " early", error);
 			}
 		}
-
-		put_device(dev);
-
 		mutex_lock(&dpm_list_mtx);
+		put_device(dev);
 	}
 	mutex_unlock(&dpm_list_mtx);
 	async_synchronize_full();
@@ -1035,12 +1030,7 @@ void dpm_resume(pm_message_t state)
 		}
 		if (!list_empty(&dev->power.entry))
 			list_move_tail(&dev->power.entry, &dpm_prepared_list);
-
-		mutex_unlock(&dpm_list_mtx);
-
 		put_device(dev);
-
-		mutex_lock(&dpm_list_mtx);
 	}
 	mutex_unlock(&dpm_list_mtx);
 	async_synchronize_full();
@@ -1062,7 +1052,7 @@ static void device_complete(struct device *dev, pm_message_t state)
 	const char *info = NULL;
 
 	if (dev->power.syscore)
-		goto out;
+		return;
 
 	device_lock(dev);
 
@@ -1092,7 +1082,6 @@ static void device_complete(struct device *dev, pm_message_t state)
 
 	device_unlock(dev);
 
-out:
 	pm_runtime_put(dev);
 }
 
@@ -1118,16 +1107,14 @@ void dpm_complete(pm_message_t state)
 		get_device(dev);
 		dev->power.is_prepared = false;
 		list_move(&dev->power.entry, &list);
-
 		mutex_unlock(&dpm_list_mtx);
 
 		trace_device_pm_callback_start(dev, "", state.event);
 		device_complete(dev, state);
 		trace_device_pm_callback_end(dev, 0);
 
-		put_device(dev);
-
 		mutex_lock(&dpm_list_mtx);
+		put_device(dev);
 	}
 	list_splice(&list, &dpm_list);
 	mutex_unlock(&dpm_list_mtx);
@@ -1314,21 +1301,17 @@ static int dpm_noirq_suspend_devices(pm_message_t state)
 		error = device_suspend_noirq(dev);
 
 		mutex_lock(&dpm_list_mtx);
-
 		if (error) {
 			pm_dev_err(dev, state, " noirq", error);
 			dpm_save_failed_dev(dev_name(dev));
-		} else if (!list_empty(&dev->power.entry)) {
-			list_move(&dev->power.entry, &dpm_noirq_list);
+			put_device(dev);
+			break;
 		}
-
-		mutex_unlock(&dpm_list_mtx);
-
+		if (!list_empty(&dev->power.entry))
+			list_move(&dev->power.entry, &dpm_noirq_list);
 		put_device(dev);
 
-		mutex_lock(&dpm_list_mtx);
-
-		if (error || async_error)
+		if (async_error)
 			break;
 	}
 	mutex_unlock(&dpm_list_mtx);
@@ -1497,28 +1480,23 @@ int dpm_suspend_late(pm_message_t state)
 		struct device *dev = to_device(dpm_suspended_list.prev);
 
 		get_device(dev);
-
 		mutex_unlock(&dpm_list_mtx);
 
 		error = device_suspend_late(dev);
 
 		mutex_lock(&dpm_list_mtx);
-
 		if (!list_empty(&dev->power.entry))
 			list_move(&dev->power.entry, &dpm_late_early_list);
 
 		if (error) {
 			pm_dev_err(dev, state, " late", error);
 			dpm_save_failed_dev(dev_name(dev));
+			put_device(dev);
+			break;
 		}
-
-		mutex_unlock(&dpm_list_mtx);
-
 		put_device(dev);
 
-		mutex_lock(&dpm_list_mtx);
-
-		if (error || async_error)
+		if (async_error)
 			break;
 	}
 	mutex_unlock(&dpm_list_mtx);
@@ -1781,27 +1759,21 @@ int dpm_suspend(pm_message_t state)
 		struct device *dev = to_device(dpm_prepared_list.prev);
 
 		get_device(dev);
-
 		mutex_unlock(&dpm_list_mtx);
 
 		error = device_suspend(dev);
 
 		mutex_lock(&dpm_list_mtx);
-
 		if (error) {
 			pm_dev_err(dev, state, "", error);
 			dpm_save_failed_dev(dev_name(dev));
-		} else if (!list_empty(&dev->power.entry)) {
-			list_move(&dev->power.entry, &dpm_suspended_list);
+			put_device(dev);
+			break;
 		}
-
-		mutex_unlock(&dpm_list_mtx);
-
+		if (!list_empty(&dev->power.entry))
+			list_move(&dev->power.entry, &dpm_suspended_list);
 		put_device(dev);
-
-		mutex_lock(&dpm_list_mtx);
-
-		if (error || async_error)
+		if (async_error)
 			break;
 	}
 	mutex_unlock(&dpm_list_mtx);
@@ -1830,6 +1802,9 @@ static int device_prepare(struct device *dev, pm_message_t state)
 	int (*callback)(struct device *) = NULL;
 	int ret = 0;
 
+	if (dev->power.syscore)
+		return 0;
+
 	/*
 	 * If a device's parent goes into runtime suspend at the wrong time,
 	 * it won't be possible to resume the device.  To prevent this we
@@ -1837,9 +1812,6 @@ static int device_prepare(struct device *dev, pm_message_t state)
 	 * it again during the complete phase.
 	 */
 	pm_runtime_get_noresume(dev);
-
-	if (dev->power.syscore)
-		return 0;
 
 	device_lock(dev);
 
@@ -1914,11 +1886,10 @@ int dpm_prepare(pm_message_t state)
 	device_block_probing();
 
 	mutex_lock(&dpm_list_mtx);
-	while (!list_empty(&dpm_list) && !error) {
+	while (!list_empty(&dpm_list)) {
 		struct device *dev = to_device(dpm_list.next);
 
 		get_device(dev);
-
 		mutex_unlock(&dpm_list_mtx);
 
 		trace_device_pm_callback_start(dev, "", state.event);
@@ -1926,26 +1897,24 @@ int dpm_prepare(pm_message_t state)
 		trace_device_pm_callback_end(dev, error);
 
 		mutex_lock(&dpm_list_mtx);
-
-		if (!error) {
-			dev->power.is_prepared = true;
-			if (!list_empty(&dev->power.entry))
-				list_move_tail(&dev->power.entry, &dpm_prepared_list);
-		} else if (error == -EAGAIN) {
-			error = 0;
-		} else {
+		if (error) {
+			if (error == -EAGAIN) {
+				put_device(dev);
+				error = 0;
+				continue;
+			}
 			dev_info(dev, "not prepared for power transition: code %d\n",
 				 error);
 			log_suspend_abort_reason("Device %s not prepared for power transition: code %d",
 						 dev_name(dev), error);
 			dpm_save_failed_dev(dev_name(dev));
+			put_device(dev);
+			break;
 		}
-
-		mutex_unlock(&dpm_list_mtx);
-
+		dev->power.is_prepared = true;
+		if (!list_empty(&dev->power.entry))
+			list_move_tail(&dev->power.entry, &dpm_prepared_list);
 		put_device(dev);
-
-		mutex_lock(&dpm_list_mtx);
 	}
 	mutex_unlock(&dpm_list_mtx);
 	trace_suspend_resume(TPS("dpm_prepare"), state.event, false);
@@ -2033,9 +2002,7 @@ static bool pm_ops_is_empty(const struct dev_pm_ops *ops)
 
 void device_pm_check_callbacks(struct device *dev)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&dev->power.lock, flags);
+	spin_lock_irq(&dev->power.lock);
 	dev->power.no_pm_callbacks =
 		(!dev->bus || (pm_ops_is_empty(dev->bus->pm) &&
 		 !dev->bus->suspend && !dev->bus->resume)) &&
@@ -2044,7 +2011,7 @@ void device_pm_check_callbacks(struct device *dev)
 		(!dev->pm_domain || pm_ops_is_empty(&dev->pm_domain->ops)) &&
 		(!dev->driver || (pm_ops_is_empty(dev->driver->pm) &&
 		 !dev->driver->suspend && !dev->driver->resume));
-	spin_unlock_irqrestore(&dev->power.lock, flags);
+	spin_unlock_irq(&dev->power.lock);
 }
 
 bool dev_pm_skip_suspend(struct device *dev)

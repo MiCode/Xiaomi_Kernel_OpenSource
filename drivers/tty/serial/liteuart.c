@@ -270,10 +270,8 @@ static int liteuart_probe(struct platform_device *pdev)
 
 	/* get membase */
 	port->membase = devm_platform_get_and_ioremap_resource(pdev, 0, NULL);
-	if (IS_ERR(port->membase)) {
-		ret = PTR_ERR(port->membase);
-		goto err_erase_id;
-	}
+	if (IS_ERR(port->membase))
+		return PTR_ERR(port->membase);
 
 	/* values not from device tree */
 	port->dev = &pdev->dev;
@@ -287,18 +285,7 @@ static int liteuart_probe(struct platform_device *pdev)
 	port->line = dev_id;
 	spin_lock_init(&port->lock);
 
-	platform_set_drvdata(pdev, port);
-
-	ret = uart_add_one_port(&liteuart_driver, &uart->port);
-	if (ret)
-		goto err_erase_id;
-
-	return 0;
-
-err_erase_id:
-	xa_erase(&liteuart_array, uart->id);
-
-	return ret;
+	return uart_add_one_port(&liteuart_driver, &uart->port);
 }
 
 static int liteuart_remove(struct platform_device *pdev)
@@ -306,7 +293,6 @@ static int liteuart_remove(struct platform_device *pdev)
 	struct uart_port *port = platform_get_drvdata(pdev);
 	struct liteuart_port *uart = to_liteuart_port(port);
 
-	uart_remove_one_port(&liteuart_driver, port);
 	xa_erase(&liteuart_array, uart->id);
 
 	return 0;
@@ -436,4 +422,4 @@ module_exit(liteuart_exit);
 MODULE_AUTHOR("Antmicro <www.antmicro.com>");
 MODULE_DESCRIPTION("LiteUART serial driver");
 MODULE_LICENSE("GPL v2");
-MODULE_ALIAS("platform:liteuart");
+MODULE_ALIAS("platform: liteuart");

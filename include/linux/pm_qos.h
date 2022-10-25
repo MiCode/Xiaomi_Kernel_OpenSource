@@ -93,7 +93,6 @@ struct freq_qos_request {
 	enum freq_qos_req_type type;
 	struct plist_node pnode;
 	struct freq_constraints *qos;
-	ANDROID_OEM_DATA_ARRAY(1, 2);
 };
 
 

@@ -267,17 +267,6 @@ domain names are in general different. For a detailed discussion
 see the ``hostname(1)`` man page.
 
 
-export_pmu_events (arm64 only)
-==============================
-
-Controls the PMU export bit (PMCR_EL0.X), which enables the exporting of
-events over an IMPLEMENTATION DEFINED PMU event export bus to another device.
-
-0: disables exporting of events (default).
-
-1: enables exporting of events.
-
-
 firmware_config
 ===============
 
@@ -806,7 +795,6 @@ bit 1  print system memory info
 bit 2  print timer info
 bit 3  print locks info if ``CONFIG_LOCKDEP`` is on
 bit 4  print ftrace buffer
-bit 5  print all printk messages in buffer
 =====  ============================================
 
 So for example to print tasks and memory info on panic, user can::
@@ -915,17 +903,6 @@ This can only be done when no events are in use that have callchains
 enabled, otherwise writing to this file will return ``-EBUSY``.
 
 The default value is 8.
-
-
-perf_user_access (arm64 only)
-=================================
-
-Controls user space access for reading perf event counters. When set to 1,
-user space can read performance monitor counter registers directly.
-
-The default value is 0 (access disabled).
-
-See Documentation/arm64/perf.rst for more information.
 
 
 pid_max
@@ -1122,7 +1099,7 @@ task_delayacct
 ===============
 
 Enables/disables task delay accounting (see
-Documentation/accounting/delay-accounting.rst. Enabling this feature incurs
+:doc:`accounting/delay-accounting.rst`). Enabling this feature incurs
 a small amount of overhead in the scheduler but is useful for debugging
 and performance tuning. It is required by some tools such as iotop.
 

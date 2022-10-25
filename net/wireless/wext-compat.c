@@ -7,7 +7,7 @@
  * we directly assign the wireless handlers of wireless interfaces.
  *
  * Copyright 2008-2009	Johannes Berg <johannes@sipsolutions.net>
- * Copyright (C) 2019-2022 Intel Corporation
+ * Copyright (C) 2019-2021 Intel Corporation
  */
 
 #include <linux/export.h>
@@ -415,9 +415,6 @@ static int __cfg80211_set_encryption(struct cfg80211_registered_device *rdev,
 	int err, i;
 	bool rejoin = false;
 
-	if (wdev->valid_links)
-		return -EINVAL;
-
 	if (pairwise && !addr)
 		return -EINVAL;
 
@@ -440,7 +437,7 @@ static int __cfg80211_set_encryption(struct cfg80211_registered_device *rdev,
 		return -EOPNOTSUPP;
 
 	if (params->cipher == WLAN_CIPHER_SUITE_AES_CMAC) {
-		if (!wdev->connected)
+		if (!wdev->current_bss)
 			return -ENOLINK;
 
 		if (!rdev->ops->set_default_mgmt_key)
@@ -453,9 +450,7 @@ static int __cfg80211_set_encryption(struct cfg80211_registered_device *rdev,
 
 	if (remove) {
 		err = 0;
-		if (wdev->connected ||
-		    (wdev->iftype == NL80211_IFTYPE_ADHOC &&
-		     wdev->u.ibss.current_bss)) {
+		if (wdev->current_bss) {
 			/*
 			 * If removing the current TX key, we will need to
 			 * join a new IBSS without the privacy bit clear.
@@ -470,7 +465,7 @@ static int __cfg80211_set_encryption(struct cfg80211_registered_device *rdev,
 			    !(rdev->wiphy.flags & WIPHY_FLAG_IBSS_RSN))
 				err = -ENOENT;
 			else
-				err = rdev_del_key(rdev, dev, -1, idx, pairwise,
+				err = rdev_del_key(rdev, dev, idx, pairwise,
 						   addr);
 		}
 		wdev->wext.connect.privacy = false;
@@ -506,10 +501,8 @@ static int __cfg80211_set_encryption(struct cfg80211_registered_device *rdev,
 		return -EINVAL;
 
 	err = 0;
-	if (wdev->connected ||
-	    (wdev->iftype == NL80211_IFTYPE_ADHOC &&
-	     wdev->u.ibss.current_bss))
-		err = rdev_add_key(rdev, dev, -1, idx, pairwise, addr, params);
+	if (wdev->current_bss)
+		err = rdev_add_key(rdev, dev, idx, pairwise, addr, params);
 	else if (params->cipher != WLAN_CIPHER_SUITE_WEP40 &&
 		 params->cipher != WLAN_CIPHER_SUITE_WEP104)
 		return -EINVAL;
@@ -533,9 +526,7 @@ static int __cfg80211_set_encryption(struct cfg80211_registered_device *rdev,
 	if ((params->cipher == WLAN_CIPHER_SUITE_WEP40 ||
 	     params->cipher == WLAN_CIPHER_SUITE_WEP104) &&
 	    (tx_key || (!addr && wdev->wext.default_key == -1))) {
-		if (wdev->connected ||
-		    (wdev->iftype == NL80211_IFTYPE_ADHOC &&
-		     wdev->u.ibss.current_bss)) {
+		if (wdev->current_bss) {
 			/*
 			 * If we are getting a new TX key from not having
 			 * had one before we need to join a new IBSS with
@@ -546,8 +537,7 @@ static int __cfg80211_set_encryption(struct cfg80211_registered_device *rdev,
 				__cfg80211_leave_ibss(rdev, wdev->netdev, true);
 				rejoin = true;
 			}
-			err = rdev_set_default_key(rdev, dev, -1, idx, true,
-						   true);
+			err = rdev_set_default_key(rdev, dev, idx, true, true);
 		}
 		if (!err) {
 			wdev->wext.default_key = idx;
@@ -559,10 +549,8 @@ static int __cfg80211_set_encryption(struct cfg80211_registered_device *rdev,
 
 	if (params->cipher == WLAN_CIPHER_SUITE_AES_CMAC &&
 	    (tx_key || (!addr && wdev->wext.default_mgmt_key == -1))) {
-		if (wdev->connected ||
-		    (wdev->iftype == NL80211_IFTYPE_ADHOC &&
-		     wdev->u.ibss.current_bss))
-			err = rdev_set_default_mgmt_key(rdev, dev, -1, idx);
+		if (wdev->current_bss)
+			err = rdev_set_default_mgmt_key(rdev, dev, idx);
 		if (!err)
 			wdev->wext.default_mgmt_key = idx;
 		return err;
@@ -607,11 +595,6 @@ static int cfg80211_wext_siwencode(struct net_device *dev,
 		return -EOPNOTSUPP;
 
 	wiphy_lock(&rdev->wiphy);
-	if (wdev->valid_links) {
-		err = -EOPNOTSUPP;
-		goto out;
-	}
-
 	idx = erq->flags & IW_ENCODE_INDEX;
 	if (idx == 0) {
 		idx = wdev->wext.default_key;
@@ -630,10 +613,8 @@ static int cfg80211_wext_siwencode(struct net_device *dev,
 		/* No key data - just set the default TX key index */
 		err = 0;
 		wdev_lock(wdev);
-		if (wdev->connected ||
-		    (wdev->iftype == NL80211_IFTYPE_ADHOC &&
-		     wdev->u.ibss.current_bss))
-			err = rdev_set_default_key(rdev, dev, -1, idx, true,
+		if (wdev->current_bss)
+			err = rdev_set_default_key(rdev, dev, idx, true,
 						   true);
 		if (!err)
 			wdev->wext.default_key = idx;
@@ -685,13 +666,6 @@ static int cfg80211_wext_siwencodeext(struct net_device *dev,
 	    !rdev->ops->add_key ||
 	    !rdev->ops->set_default_key)
 		return -EOPNOTSUPP;
-
-	wdev_lock(wdev);
-	if (wdev->valid_links) {
-		wdev_unlock(wdev);
-		return -EOPNOTSUPP;
-	}
-	wdev_unlock(wdev);
 
 	switch (ext->alg) {
 	case IW_ENCODE_ALG_NONE:
@@ -891,7 +865,7 @@ static int cfg80211_wext_giwfreq(struct net_device *dev,
 			break;
 		}
 
-		ret = rdev_get_channel(rdev, wdev, 0, &chandef);
+		ret = rdev_get_channel(rdev, wdev, &chandef);
 		if (ret)
 			break;
 		freq->m = chandef.chan->center_freq;
@@ -1296,10 +1270,7 @@ static int cfg80211_wext_siwrate(struct net_device *dev,
 		return -EINVAL;
 
 	wiphy_lock(&rdev->wiphy);
-	if (dev->ieee80211_ptr->valid_links)
-		ret = -EOPNOTSUPP;
-	else
-		ret = rdev_set_bitrate_mask(rdev, dev, 0, NULL, &mask);
+	ret = rdev_set_bitrate_mask(rdev, dev, NULL, &mask);
 	wiphy_unlock(&rdev->wiphy);
 
 	return ret;
@@ -1323,9 +1294,8 @@ static int cfg80211_wext_giwrate(struct net_device *dev,
 
 	err = 0;
 	wdev_lock(wdev);
-	if (!wdev->valid_links && wdev->links[0].client.current_bss)
-		memcpy(addr, wdev->links[0].client.current_bss->pub.bssid,
-		       ETH_ALEN);
+	if (wdev->current_bss)
+		memcpy(addr, wdev->current_bss->pub.bssid, ETH_ALEN);
 	else
 		err = -EOPNOTSUPP;
 	wdev_unlock(wdev);
@@ -1369,11 +1339,11 @@ static struct iw_statistics *cfg80211_wireless_stats(struct net_device *dev)
 
 	/* Grab BSSID of current BSS, if any */
 	wdev_lock(wdev);
-	if (wdev->valid_links || !wdev->links[0].client.current_bss) {
+	if (!wdev->current_bss) {
 		wdev_unlock(wdev);
 		return NULL;
 	}
-	memcpy(bssid, wdev->links[0].client.current_bss->pub.bssid, ETH_ALEN);
+	memcpy(bssid, wdev->current_bss->pub.bssid, ETH_ALEN);
 	wdev_unlock(wdev);
 
 	memset(&sinfo, 0, sizeof(sinfo));

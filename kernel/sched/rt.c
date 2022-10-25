@@ -54,8 +54,11 @@ void init_rt_bandwidth(struct rt_bandwidth *rt_b, u64 period, u64 runtime)
 	rt_b->rt_period_timer.function = sched_rt_period_timer;
 }
 
-static inline void do_start_rt_bandwidth(struct rt_bandwidth *rt_b)
+static void start_rt_bandwidth(struct rt_bandwidth *rt_b)
 {
+	if (!rt_bandwidth_enabled() || rt_b->rt_runtime == RUNTIME_INF)
+		return;
+
 	raw_spin_lock(&rt_b->rt_runtime_lock);
 	if (!rt_b->rt_period_active) {
 		rt_b->rt_period_active = 1;
@@ -72,14 +75,6 @@ static inline void do_start_rt_bandwidth(struct rt_bandwidth *rt_b)
 				      HRTIMER_MODE_ABS_PINNED_HARD);
 	}
 	raw_spin_unlock(&rt_b->rt_runtime_lock);
-}
-
-static void start_rt_bandwidth(struct rt_bandwidth *rt_b)
-{
-	if (!rt_bandwidth_enabled() || rt_b->rt_runtime == RUNTIME_INF)
-		return;
-
-	do_start_rt_bandwidth(rt_b);
 }
 
 void init_rt_rq(struct rt_rq *rt_rq)
@@ -144,16 +139,12 @@ static inline struct rq *rq_of_rt_se(struct sched_rt_entity *rt_se)
 	return rt_rq->rq;
 }
 
-void unregister_rt_sched_group(struct task_group *tg)
-{
-	if (tg->rt_se)
-		destroy_rt_bandwidth(&tg->rt_bandwidth);
-
-}
-
 void free_rt_sched_group(struct task_group *tg)
 {
 	int i;
+
+	if (tg->rt_se)
+		destroy_rt_bandwidth(&tg->rt_bandwidth);
 
 	for_each_possible_cpu(i) {
 		if (tg->rt_rq)
@@ -260,8 +251,6 @@ static inline struct rt_rq *rt_rq_of_se(struct sched_rt_entity *rt_se)
 
 	return &rq->rt;
 }
-
-void unregister_rt_sched_group(struct task_group *tg) { }
 
 void free_rt_sched_group(struct task_group *tg) { }
 
@@ -1038,24 +1027,18 @@ static void update_curr_rt(struct rq *rq)
 	curr->se.exec_start = now;
 	cgroup_account_cputime(curr, delta_exec);
 
-	trace_android_vh_sched_stat_runtime_rt(curr, delta_exec);
-
 	if (!rt_bandwidth_enabled())
 		return;
 
 	for_each_sched_rt_entity(rt_se) {
 		struct rt_rq *rt_rq = rt_rq_of_se(rt_se);
-		int exceeded;
 
 		if (sched_rt_runtime(rt_rq) != RUNTIME_INF) {
 			raw_spin_lock(&rt_rq->rt_runtime_lock);
 			rt_rq->rt_time += delta_exec;
-			exceeded = sched_rt_runtime_exceeded(rt_rq);
-			if (exceeded)
+			if (sched_rt_runtime_exceeded(rt_rq))
 				resched_curr(rq);
 			raw_spin_unlock(&rt_rq->rt_runtime_lock);
-			if (exceeded)
-				do_start_rt_bandwidth(sched_rt_bandwidth(rt_rq));
 		}
 	}
 }
@@ -1391,27 +1374,6 @@ static void dequeue_rt_entity(struct sched_rt_entity *rt_se, unsigned int flags)
 	enqueue_top_rt_rq(&rq->rt);
 }
 
-#ifdef CONFIG_SMP
-static inline bool should_honor_rt_sync(struct rq *rq, struct task_struct *p,
-					bool sync)
-{
-	/*
-	 * If the waker is CFS, then an RT sync wakeup would preempt the waker
-	 * and force it to run for a likely small time after the RT wakee is
-	 * done. So, only honor RT sync wakeups from RT wakers.
-	 */
-	return sync && task_has_rt_policy(rq->curr) &&
-		p->prio <= rq->rt.highest_prio.next &&
-		rq->rt.rt_nr_running <= 2;
-}
-#else
-static inline bool should_honor_rt_sync(struct rq *rq, struct task_struct *p,
-					bool sync)
-{
-	return 0;
-}
-#endif
-
 /*
  * Adding/removing a task to/from a priority array:
  */
@@ -1419,15 +1381,13 @@ static void
 enqueue_task_rt(struct rq *rq, struct task_struct *p, int flags)
 {
 	struct sched_rt_entity *rt_se = &p->rt;
-	bool sync = !!(flags & ENQUEUE_WAKEUP_SYNC);
 
 	if (flags & ENQUEUE_WAKEUP)
 		rt_se->timeout = 0;
 
 	enqueue_rt_entity(rt_se, flags);
 
-	if (!task_current(rq, p) && p->nr_cpus_allowed > 1 &&
-	    !should_honor_rt_sync(rq, p, sync))
+	if (!task_current(rq, p) && p->nr_cpus_allowed > 1)
 		enqueue_pushable_task(rq, p);
 }
 
@@ -1496,7 +1456,6 @@ task_may_not_preempt(struct task_struct *task, int cpu)
 		(task == cpu_ksoftirqd ||
 		 task_thread_info(task)->preempt_count & SOFTIRQ_MASK));
 }
-EXPORT_SYMBOL_GPL(task_may_not_preempt);
 #endif /* CONFIG_RT_SOFTINT_OPTIMIZATION */
 
 static int
@@ -1504,12 +1463,9 @@ select_task_rq_rt(struct task_struct *p, int cpu, int flags)
 {
 	struct task_struct *curr;
 	struct rq *rq;
-	struct rq *this_cpu_rq;
 	bool test;
 	int target_cpu = -1;
 	bool may_not_preempt;
-	bool sync = !!(flags & WF_SYNC);
-	int this_cpu;
 
 	trace_android_rvh_select_task_rq_rt(p, cpu, flags & 0xF,
 					flags, &target_cpu);
@@ -1524,8 +1480,6 @@ select_task_rq_rt(struct task_struct *p, int cpu, int flags)
 
 	rcu_read_lock();
 	curr = READ_ONCE(rq->curr); /* unlocked access */
-	this_cpu = smp_processor_id();
-	this_cpu_rq = cpu_rq(this_cpu);
 
 	/*
 	 * If the current task on @p's runqueue is a softirq task,
@@ -1562,15 +1516,6 @@ select_task_rq_rt(struct task_struct *p, int cpu, int flags)
 	test = (curr && (may_not_preempt ||
 			 (unlikely(rt_task(curr)) &&
 			  (curr->nr_cpus_allowed < 2 || curr->prio <= p->prio))));
-
-	/*
-	 * Respect the sync flag as long as the task can run on this CPU.
-	 */
-	if (should_honor_rt_sync(this_cpu_rq, p, sync) &&
-	    cpumask_test_cpu(this_cpu, p->cpus_ptr)) {
-		cpu = this_cpu;
-		goto out_unlock;
-	}
 
 	if (test || !rt_task_fits_capacity(p, cpu)) {
 		int target = find_lowest_rq(p);
@@ -1695,7 +1640,6 @@ static inline void set_next_task_rt(struct rq *rq, struct task_struct *p, bool f
 	 */
 	if (rq->curr->sched_class != &rt_sched_class)
 		update_rt_rq_load_avg(rq_clock_pelt(rq), rq, 0);
-	trace_android_rvh_update_rt_rq_load_avg(rq_clock_pelt(rq), rq, p, 0);
 
 	rt_queue_push_tasks(rq);
 }
@@ -1758,7 +1702,6 @@ static void put_prev_task_rt(struct rq *rq, struct task_struct *p)
 	update_curr_rt(rq);
 
 	update_rt_rq_load_avg(rq_clock_pelt(rq), rq, 1);
-	trace_android_rvh_update_rt_rq_load_avg(rq_clock_pelt(rq), rq, p, 1);
 
 	/*
 	 * The previous task needs to be made eligible for pushing
@@ -1908,25 +1851,10 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 	struct rq *lowest_rq = NULL;
 	int tries;
 	int cpu;
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	u64 ts[9] = {0};
-
-	ts[0] = sched_clock();
-#endif
 
 	for (tries = 0; tries < RT_MAX_TRIES; tries++) {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[1] = sched_clock();
-#endif
 		cpu = find_lowest_rq(task);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[2] = sched_clock();
 
-		if ((ts[2] - ts[1] > 1000000ULL) && in_hardirq()) {
-			printk_deferred("%s duration %llu, ts[1]=%llu, ts[2]=%llu\n",
-					__func__, ts[2] - ts[1], ts[1], ts[2]);
-		}
-#endif
 		if ((cpu == -1) || (cpu == rq->cpu))
 			break;
 
@@ -1941,20 +1869,9 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 			lowest_rq = NULL;
 			break;
 		}
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[3] = sched_clock();
-#endif
+
 		/* if the prio of this runqueue changed, try again */
 		if (double_lock_balance(rq, lowest_rq)) {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			ts[4] = sched_clock();
-
-			if ((ts[4] - ts[3] > 1000000ULL) && in_hardirq()) {
-				printk_deferred("%s duration %llu, ts[3]=%llu, ts[4]=%llu, rq=%d, lowest=%d\n",
-					__func__, ts[4] - ts[3], ts[3], ts[4],
-					rq->cpu, lowest_rq->cpu);
-			}
-#endif
 			/*
 			 * We had to unlock the run queue. In
 			 * the mean time, task could have
@@ -1972,40 +1889,16 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 				break;
 			}
 		}
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[5] = sched_clock();
 
-		if ((ts[5] - ts[3] > 1000000ULL) && in_hardirq()) {
-			printk_deferred("%s duration %llu, ts[3]=%llu, ts[5]=%llu\n",
-					__func__, ts[5] - ts[3], ts[3], ts[5]);
-		}
-#endif
 		/* If this rq is still suitable use it. */
 		if (lowest_rq->rt.highest_prio.curr > task->prio)
 			break;
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[6] = sched_clock();
-#endif
+
 		/* try again */
 		double_unlock_balance(rq, lowest_rq);
 		lowest_rq = NULL;
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[7] = sched_clock();
-#endif
 	}
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[8] = sched_clock();
 
-	if ((ts[8] - ts[0] > 2500000ULL) && in_hardirq()) {
-		int i;
-
-		printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__, ts[8] - ts[0], ts[0]);
-		for (i = 0; i < 8; i++) {
-			printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
-					__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
-		}
-	}
-#endif
 	return lowest_rq;
 }
 
@@ -2039,128 +1932,25 @@ static int push_rt_task(struct rq *rq, bool pull)
 	struct task_struct *next_task;
 	struct rq *lowest_rq;
 	int ret = 0;
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	u64 ts[26] = {0};
-
-	ts[0] = sched_clock();
-#endif
 
 	if (!rq->rt.overloaded)
 		return 0;
 
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[1] = sched_clock();
-#endif
-
 	next_task = pick_next_pushable_task(rq);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[2] = sched_clock();
-#endif
-	if (!next_task) {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		if ((ts[2] - ts[0] > 500000ULL) && in_hardirq()) {
-			int i;
-
-			printk_deferred("%s duration %llu, ts[0]=%llu\n",
-					__func__, ts[2] - ts[0], ts[0]);
-			for (i = 0; i < 2; i++) {
-				printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
-						__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
-			}
-		}
-#endif
+	if (!next_task)
 		return 0;
-	}
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[3] = sched_clock();
-#endif
+
 retry:
-	/*
-	 * It's possible that the next_task slipped in of
-	 * higher priority than current. If that's the case
-	 * just reschedule current.
-	 */
-	if (unlikely(next_task->prio < rq->curr->prio)) {
-		resched_curr(rq);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[4] = sched_clock();
-
-		if ((ts[4] - ts[0] > 600000ULL) && in_hardirq()) {
-			int i;
-
-			printk_deferred("%s duration %llu, ts[0]=%llu\n",
-					__func__, ts[4] - ts[0], ts[0]);
-			for (i = 0; i < 4; i++) {
-				printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
-						__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
-			}
-		}
-#endif
-		return 0;
-	}
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[5] = sched_clock();
-#endif
-
 	if (is_migration_disabled(next_task)) {
 		struct task_struct *push_task = NULL;
 		int cpu;
 
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[6] = sched_clock();
-#endif
-
-		if (!pull || rq->push_busy) {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			if ((ts[6] - ts[0] > 700000ULL) && in_hardirq()) {
-				int i;
-
-				printk_deferred("%s duration %llu, ts[0]=%llu\n",
-						__func__, ts[6] - ts[0], ts[0]);
-				for (i = 0; i < 6; i++) {
-					printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
-						__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
-				}
-			}
-#endif
+		if (!pull || rq->push_busy)
 			return 0;
-		}
-
-		/*
-		 * Invoking find_lowest_rq() on anything but an RT task doesn't
-		 * make sense. Per the above priority check, curr has to
-		 * be of higher priority than next_task, so no need to
-		 * reschedule when bailing out.
-		 *
-		 * Note that the stoppers are masqueraded as SCHED_FIFO
-		 * (cf. sched_set_stop_task()), so we can't rely on rt_task().
-		 */
-		if (rq->curr->sched_class != &rt_sched_class)
-			return 0;
-
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[7] = sched_clock();
-#endif
 
 		cpu = find_lowest_rq(rq->curr);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[8] = sched_clock();
-#endif
-		if (cpu == -1 || cpu == rq->cpu) {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			if ((ts[8] - ts[0] > 800000ULL) && in_hardirq()) {
-				int i;
-
-				printk_deferred("%s duration %llu, ts[0]=%llu\n",
-						__func__, ts[8] - ts[0], ts[0]);
-				for (i = 0; i < 8; i++) {
-					printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
-						__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
-				}
-			}
-#endif
+		if (cpu == -1 || cpu == rq->cpu)
 			return 0;
-		}
 
 		/*
 		 * Given we found a CPU with lower priority than @next_task,
@@ -2169,73 +1959,34 @@ retry:
 		 * running task on this CPU away.
 		 */
 		push_task = get_push_task(rq);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[9] = sched_clock();
-#endif
 		if (push_task) {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			ts[10] = sched_clock();
-#endif
 			raw_spin_rq_unlock(rq);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			ts[11] = sched_clock();
-#endif
 			stop_one_cpu_nowait(rq->cpu, push_cpu_stop,
 					    push_task, &rq->push_work);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			ts[12] = sched_clock();
-#endif
 			raw_spin_rq_lock(rq);
 		}
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[13] = sched_clock();
-
-		if ((ts[13] - ts[0] > 900000ULL) && in_hardirq()) {
-			int i;
-
-			printk_deferred("%s duration %llu, ts[0]=%llu\n",
-					__func__, ts[13] - ts[0], ts[0]);
-			for (i = 0; i < 13; i++) {
-				printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
-					__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
-			}
-		}
-#endif
 
 		return 0;
 	}
 
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[14] = sched_clock();
-#endif
+	if (WARN_ON(next_task == rq->curr))
+		return 0;
 
-	if (WARN_ON(next_task == rq->curr)) {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		if ((ts[14] - ts[0] > 1000000ULL) && in_hardirq()) {
-			int i;
-
-			printk_deferred("%s duration %llu, ts[0]=%llu\n", __func__,
-					ts[14] - ts[0], ts[0]);
-			for (i = 0; i < 14; i++) {
-				printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
-						__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
-			}
-		}
-#endif
+	/*
+	 * It's possible that the next_task slipped in of
+	 * higher priority than current. If that's the case
+	 * just reschedule current.
+	 */
+	if (unlikely(next_task->prio < rq->curr->prio)) {
+		resched_curr(rq);
 		return 0;
 	}
 
 	/* We might release rq lock */
 	get_task_struct(next_task);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[15] = sched_clock();
-#endif
 
 	/* find_lock_lowest_rq locks the rq if found */
 	lowest_rq = find_lock_lowest_rq(next_task, rq);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[16] = sched_clock();
-#endif
 	if (!lowest_rq) {
 		struct task_struct *task;
 		/*
@@ -2247,9 +1998,6 @@ retry:
 		 * pushing.
 		 */
 		task = pick_next_pushable_task(rq);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[17] = sched_clock();
-#endif
 		if (task == next_task) {
 			/*
 			 * The task hasn't migrated, and is still the next
@@ -2269,83 +2017,27 @@ retry:
 		 */
 		put_task_struct(next_task);
 		next_task = task;
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[18] = sched_clock();
-
-		if ((ts[18] - ts[0] > 2500000ULL) && in_hardirq()) {
-			int i;
-
-			printk_deferred("%s duration %llu, ts[0]=%llu\n",
-					__func__, ts[18] - ts[0], ts[0]);
-			for (i = 0; i < 18; i++) {
-				printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
-						__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
-			}
-		}
-#endif
 		goto retry;
 	}
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[19] = sched_clock();
-#endif
+
 	deactivate_task(rq, next_task, 0);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[20] = sched_clock();
-#endif
 	set_task_cpu(next_task, lowest_rq->cpu);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[21] = sched_clock();
-#endif
 	activate_task(lowest_rq, next_task, 0);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[22] = sched_clock();
-#endif
 	resched_curr(lowest_rq);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[23] = sched_clock();
-#endif
 	ret = 1;
 
 	double_unlock_balance(rq, lowest_rq);
 out:
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[24] = sched_clock();
-#endif
 	put_task_struct(next_task);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[25] = sched_clock();
 
-	if ((ts[25] - ts[0] > 2500000ULL) && in_hardirq()) {
-		int i;
-
-		printk_deferred("%s duration %llu, ts[0]=%llu\n",
-				__func__, ts[25] - ts[0], ts[0]);
-		for (i = 0; i < 25; i++) {
-			printk_deferred("%s ts[%d]=%llu, duration=%llu\n",
-					__func__, i+1, ts[i + 1], ts[i + 1] - ts[i]);
-		}
-	}
-#endif
 	return ret;
 }
 
 static void push_rt_tasks(struct rq *rq)
 {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	u64 ts[2] = {0};
-
-	ts[0] = sched_clock();
-#endif
 	/* push_rt_task will return true if it moved an RT */
 	while (push_rt_task(rq, false))
 		;
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[1] = sched_clock();
-	if ((ts[1] - ts[0] > 3000000ULL) && in_hardirq()) {
-		printk_deferred("%s duration %llu, ts[0]=%llu, ts[1]=%llu\n",
-				__func__, ts[1] - ts[0], ts[0], ts[1]);
-	}
-#endif
 }
 
 #ifdef HAVE_RT_PUSH_IPI
@@ -2413,9 +2105,6 @@ static int rto_next_cpu(struct root_domain *rd)
 
 		/* When rto_cpu is -1 this acts like cpumask_first() */
 		cpu = cpumask_next(rd->rto_cpu, rd->rto_mask);
-
-		/* this will be any CPU in the rd->rto_mask, and can be a halted cpu update it */
-		trace_android_rvh_rto_next_cpu(rd->rto_cpu, rd->rto_mask, &cpu);
 
 		rd->rto_cpu = cpu;
 
@@ -2814,7 +2503,6 @@ static void task_tick_rt(struct rq *rq, struct task_struct *p, int queued)
 
 	update_curr_rt(rq);
 	update_rt_rq_load_avg(rq_clock_pelt(rq), rq, 1);
-	trace_android_rvh_update_rt_rq_load_avg(rq_clock_pelt(rq), rq, p, 1);
 
 	watchdog(rq, p);
 
@@ -3147,12 +2835,8 @@ static int sched_rt_global_validate(void)
 
 static void sched_rt_do_global(void)
 {
-	unsigned long flags;
-
-	raw_spin_lock_irqsave(&def_rt_bandwidth.rt_runtime_lock, flags);
 	def_rt_bandwidth.rt_runtime = global_rt_runtime();
 	def_rt_bandwidth.rt_period = ns_to_ktime(global_rt_period());
-	raw_spin_unlock_irqrestore(&def_rt_bandwidth.rt_runtime_lock, flags);
 }
 
 int sched_rt_handler(struct ctl_table *table, int write, void *buffer,

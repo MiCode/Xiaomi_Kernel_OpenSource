@@ -44,5 +44,5 @@ SYM_FUNC_START(FPU_div_small)
 	popl	%esi
 
 	leave
-	RET
+	ret
 SYM_FUNC_END(FPU_div_small)

@@ -708,9 +708,7 @@ static int davinci_i2s_probe(struct platform_device *pdev)
 	dev->clk = clk_get(&pdev->dev, NULL);
 	if (IS_ERR(dev->clk))
 		return -ENODEV;
-	ret = clk_enable(dev->clk);
-	if (ret)
-		goto err_put_clk;
+	clk_enable(dev->clk);
 
 	dev->dev = &pdev->dev;
 	dev_set_drvdata(&pdev->dev, dev);
@@ -732,7 +730,6 @@ err_unregister_component:
 	snd_soc_unregister_component(&pdev->dev);
 err_release_clk:
 	clk_disable(dev->clk);
-err_put_clk:
 	clk_put(dev->clk);
 	return ret;
 }

@@ -207,7 +207,7 @@ int pt_core_init(struct pt_device *pt)
 	if (!cmd_q->qbase) {
 		dev_err(dev, "unable to allocate command queue\n");
 		ret = -ENOMEM;
-		goto e_destroy_pool;
+		goto e_dma_alloc;
 	}
 
 	cmd_q->qidx = 0;
@@ -229,10 +229,8 @@ int pt_core_init(struct pt_device *pt)
 
 	/* Request an irq */
 	ret = request_irq(pt->pt_irq, pt_core_irq_handler, 0, dev_name(pt->dev), pt);
-	if (ret) {
-		dev_err(dev, "unable to allocate an IRQ\n");
-		goto e_free_dma;
-	}
+	if (ret)
+		goto e_pool;
 
 	/* Update the device registers with queue information. */
 	cmd_q->qcontrol &= ~CMD_Q_SIZE;
@@ -252,20 +250,21 @@ int pt_core_init(struct pt_device *pt)
 	/* Register the DMA engine support */
 	ret = pt_dmaengine_register(pt);
 	if (ret)
-		goto e_free_irq;
+		goto e_dmaengine;
 
 	/* Set up debugfs entries */
 	ptdma_debugfs_setup(pt);
 
 	return 0;
 
-e_free_irq:
+e_dmaengine:
 	free_irq(pt->pt_irq, pt);
 
-e_free_dma:
+e_dma_alloc:
 	dma_free_coherent(dev, cmd_q->qsize, cmd_q->qbase, cmd_q->qbase_dma);
 
-e_destroy_pool:
+e_pool:
+	dev_err(dev, "unable to allocate an IRQ\n");
 	dma_pool_destroy(pt->cmd_q.dma_pool);
 
 	return ret;

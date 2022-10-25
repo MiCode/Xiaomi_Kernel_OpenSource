@@ -229,10 +229,8 @@ static int __init parse_pmtmr(char *arg)
 	int ret;
 
 	ret = kstrtouint(arg, 16, &base);
-	if (ret) {
-		pr_warn("PMTMR: invalid 'pmtmr=' value: '%s'\n", arg);
-		return 1;
-	}
+	if (ret)
+		return ret;
 
 	pr_info("PMTMR IOPort override: 0x%04x -> 0x%04x\n", pmtmr_ioport,
 		base);

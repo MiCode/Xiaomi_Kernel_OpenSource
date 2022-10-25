@@ -236,7 +236,7 @@ static int synic_set_msr(struct kvm_vcpu_hv_synic *synic,
 	struct kvm_vcpu *vcpu = hv_synic_to_vcpu(synic);
 	int ret;
 
-	if (!synic->active && (!host || data))
+	if (!synic->active && !host)
 		return 1;
 
 	trace_kvm_hv_synic_set_msr(vcpu->vcpu_id, msr, data, host);
@@ -281,9 +281,6 @@ static int synic_set_msr(struct kvm_vcpu_hv_synic *synic,
 		break;
 	case HV_X64_MSR_EOM: {
 		int i;
-
-		if (!synic->active)
-			break;
 
 		for (i = 0; i < ARRAY_SIZE(synic->sint); i++)
 			kvm_hv_notify_acked_sint(vcpu, i);
@@ -448,9 +445,6 @@ static int synic_set_irq(struct kvm_vcpu_hv_synic *synic, u32 sint)
 	struct kvm_vcpu *vcpu = hv_synic_to_vcpu(synic);
 	struct kvm_lapic_irq irq;
 	int ret, vector;
-
-	if (KVM_BUG_ON(!lapic_in_kernel(vcpu), vcpu->kvm))
-		return -EINVAL;
 
 	if (sint >= ARRAY_SIZE(synic->sint))
 		return -EINVAL;
@@ -664,7 +658,7 @@ static int stimer_set_config(struct kvm_vcpu_hv_stimer *stimer, u64 config,
 	struct kvm_vcpu_hv *hv_vcpu = to_hv_vcpu(vcpu);
 	struct kvm_vcpu_hv_synic *synic = to_hv_synic(vcpu);
 
-	if (!synic->active && (!host || config))
+	if (!synic->active && !host)
 		return 1;
 
 	if (unlikely(!host && hv_vcpu->enforce_cpuid && new_config.direct_mode &&
@@ -693,7 +687,7 @@ static int stimer_set_count(struct kvm_vcpu_hv_stimer *stimer, u64 count,
 	struct kvm_vcpu *vcpu = hv_stimer_to_vcpu(stimer);
 	struct kvm_vcpu_hv_synic *synic = to_hv_synic(vcpu);
 
-	if (!synic->active && (!host || count))
+	if (!synic->active && !host)
 		return 1;
 
 	trace_kvm_hv_stimer_set_count(hv_stimer_to_vcpu(stimer)->vcpu_id,
@@ -1755,7 +1749,7 @@ struct kvm_hv_hcall {
 	sse128_t xmm[HV_HYPERCALL_MAX_XMM_REGISTERS];
 };
 
-static u64 kvm_hv_flush_tlb(struct kvm_vcpu *vcpu, struct kvm_hv_hcall *hc)
+static u64 kvm_hv_flush_tlb(struct kvm_vcpu *vcpu, struct kvm_hv_hcall *hc, bool ex)
 {
 	int i;
 	gpa_t gpa;
@@ -1771,8 +1765,7 @@ static u64 kvm_hv_flush_tlb(struct kvm_vcpu *vcpu, struct kvm_hv_hcall *hc)
 	int sparse_banks_len;
 	bool all_cpus;
 
-	if (hc->code == HVCALL_FLUSH_VIRTUAL_ADDRESS_LIST ||
-	    hc->code == HVCALL_FLUSH_VIRTUAL_ADDRESS_SPACE) {
+	if (!ex) {
 		if (hc->fast) {
 			flush.address_space = hc->ingpa;
 			flush.flags = hc->outgpa;
@@ -1826,8 +1819,7 @@ static u64 kvm_hv_flush_tlb(struct kvm_vcpu *vcpu, struct kvm_hv_hcall *hc)
 
 		if (!all_cpus) {
 			if (hc->fast) {
-				/* XMM0 is already consumed, each XMM holds two sparse banks. */
-				if (sparse_banks_len > 2 * (HV_HYPERCALL_MAX_XMM_REGISTERS - 1))
+				if (sparse_banks_len > HV_HYPERCALL_MAX_XMM_REGISTERS - 1)
 					return HV_STATUS_INVALID_HYPERCALL_INPUT;
 				for (i = 0; i < sparse_banks_len; i += 2) {
 					sparse_banks[i] = sse128_lo(hc->xmm[i / 2 + 1]);
@@ -1882,7 +1874,7 @@ static void kvm_send_ipi_to_many(struct kvm *kvm, u32 vector,
 	}
 }
 
-static u64 kvm_hv_send_ipi(struct kvm_vcpu *vcpu, struct kvm_hv_hcall *hc)
+static u64 kvm_hv_send_ipi(struct kvm_vcpu *vcpu, struct kvm_hv_hcall *hc, bool ex)
 {
 	struct kvm *kvm = vcpu->kvm;
 	struct hv_send_ipi_ex send_ipi_ex;
@@ -1895,9 +1887,8 @@ static u64 kvm_hv_send_ipi(struct kvm_vcpu *vcpu, struct kvm_hv_hcall *hc)
 	int sparse_banks_len;
 	u32 vector;
 	bool all_cpus;
-	int i;
 
-	if (hc->code == HVCALL_SEND_IPI) {
+	if (!ex) {
 		if (!hc->fast) {
 			if (unlikely(kvm_read_guest(kvm, hc->ingpa, &send_ipi,
 						    sizeof(send_ipi))))
@@ -1916,15 +1907,9 @@ static u64 kvm_hv_send_ipi(struct kvm_vcpu *vcpu, struct kvm_hv_hcall *hc)
 
 		trace_kvm_hv_send_ipi(vector, sparse_banks[0]);
 	} else {
-		if (!hc->fast) {
-			if (unlikely(kvm_read_guest(kvm, hc->ingpa, &send_ipi_ex,
-						    sizeof(send_ipi_ex))))
-				return HV_STATUS_INVALID_HYPERCALL_INPUT;
-		} else {
-			send_ipi_ex.vector = (u32)hc->ingpa;
-			send_ipi_ex.vp_set.format = hc->outgpa;
-			send_ipi_ex.vp_set.valid_bank_mask = sse128_lo(hc->xmm[0]);
-		}
+		if (unlikely(kvm_read_guest(kvm, hc->ingpa, &send_ipi_ex,
+					    sizeof(send_ipi_ex))))
+			return HV_STATUS_INVALID_HYPERCALL_INPUT;
 
 		trace_kvm_hv_send_ipi_ex(send_ipi_ex.vector,
 					 send_ipi_ex.vp_set.format,
@@ -1932,40 +1917,23 @@ static u64 kvm_hv_send_ipi(struct kvm_vcpu *vcpu, struct kvm_hv_hcall *hc)
 
 		vector = send_ipi_ex.vector;
 		valid_bank_mask = send_ipi_ex.vp_set.valid_bank_mask;
-		sparse_banks_len = bitmap_weight(&valid_bank_mask, 64);
+		sparse_banks_len = bitmap_weight(&valid_bank_mask, 64) *
+			sizeof(sparse_banks[0]);
 
 		all_cpus = send_ipi_ex.vp_set.format == HV_GENERIC_SET_ALL;
-
-		if (all_cpus)
-			goto check_and_send_ipi;
 
 		if (!sparse_banks_len)
 			goto ret_success;
 
-		if (!hc->fast) {
-			if (kvm_read_guest(kvm,
-					   hc->ingpa + offsetof(struct hv_send_ipi_ex,
-								vp_set.bank_contents),
-					   sparse_banks,
-					   sparse_banks_len * sizeof(sparse_banks[0])))
-				return HV_STATUS_INVALID_HYPERCALL_INPUT;
-		} else {
-			/*
-			 * The lower half of XMM0 is already consumed, each XMM holds
-			 * two sparse banks.
-			 */
-			if (sparse_banks_len > (2 * HV_HYPERCALL_MAX_XMM_REGISTERS - 1))
-				return HV_STATUS_INVALID_HYPERCALL_INPUT;
-			for (i = 0; i < sparse_banks_len; i++) {
-				if (i % 2)
-					sparse_banks[i] = sse128_lo(hc->xmm[(i + 1) / 2]);
-				else
-					sparse_banks[i] = sse128_hi(hc->xmm[i / 2]);
-			}
-		}
+		if (!all_cpus &&
+		    kvm_read_guest(kvm,
+				   hc->ingpa + offsetof(struct hv_send_ipi_ex,
+							vp_set.bank_contents),
+				   sparse_banks,
+				   sparse_banks_len))
+			return HV_STATUS_INVALID_HYPERCALL_INPUT;
 	}
 
-check_and_send_ipi:
 	if ((vector < HV_IPI_LOW_VECTOR) || (vector > HV_IPI_HIGH_VECTOR))
 		return HV_STATUS_INVALID_HYPERCALL_INPUT;
 
@@ -2054,7 +2022,7 @@ static void kvm_hv_hypercall_set_result(struct kvm_vcpu *vcpu, u64 result)
 {
 	bool longmode;
 
-	longmode = is_64_bit_hypercall(vcpu);
+	longmode = is_64_bit_mode(vcpu);
 	if (longmode)
 		kvm_rax_write(vcpu, result);
 	else {
@@ -2124,7 +2092,6 @@ static bool is_xmm_fast_hypercall(struct kvm_hv_hcall *hc)
 	case HVCALL_FLUSH_VIRTUAL_ADDRESS_SPACE:
 	case HVCALL_FLUSH_VIRTUAL_ADDRESS_LIST_EX:
 	case HVCALL_FLUSH_VIRTUAL_ADDRESS_SPACE_EX:
-	case HVCALL_SEND_IPI_EX:
 		return true;
 	}
 
@@ -2204,7 +2171,7 @@ int kvm_hv_hypercall(struct kvm_vcpu *vcpu)
 	}
 
 #ifdef CONFIG_X86_64
-	if (is_64_bit_hypercall(vcpu)) {
+	if (is_64_bit_mode(vcpu)) {
 		hc.param = kvm_rcx_read(vcpu);
 		hc.ingpa = kvm_rdx_read(vcpu);
 		hc.outgpa = kvm_r8_read(vcpu);
@@ -2276,28 +2243,46 @@ int kvm_hv_hypercall(struct kvm_vcpu *vcpu)
 				kvm_hv_hypercall_complete_userspace;
 		return 0;
 	case HVCALL_FLUSH_VIRTUAL_ADDRESS_LIST:
+		if (unlikely(!hc.rep_cnt || hc.rep_idx)) {
+			ret = HV_STATUS_INVALID_HYPERCALL_INPUT;
+			break;
+		}
+		ret = kvm_hv_flush_tlb(vcpu, &hc, false);
+		break;
+	case HVCALL_FLUSH_VIRTUAL_ADDRESS_SPACE:
+		if (unlikely(hc.rep)) {
+			ret = HV_STATUS_INVALID_HYPERCALL_INPUT;
+			break;
+		}
+		ret = kvm_hv_flush_tlb(vcpu, &hc, false);
+		break;
 	case HVCALL_FLUSH_VIRTUAL_ADDRESS_LIST_EX:
 		if (unlikely(!hc.rep_cnt || hc.rep_idx)) {
 			ret = HV_STATUS_INVALID_HYPERCALL_INPUT;
 			break;
 		}
-		ret = kvm_hv_flush_tlb(vcpu, &hc);
+		ret = kvm_hv_flush_tlb(vcpu, &hc, true);
 		break;
-	case HVCALL_FLUSH_VIRTUAL_ADDRESS_SPACE:
 	case HVCALL_FLUSH_VIRTUAL_ADDRESS_SPACE_EX:
 		if (unlikely(hc.rep)) {
 			ret = HV_STATUS_INVALID_HYPERCALL_INPUT;
 			break;
 		}
-		ret = kvm_hv_flush_tlb(vcpu, &hc);
+		ret = kvm_hv_flush_tlb(vcpu, &hc, true);
 		break;
 	case HVCALL_SEND_IPI:
-	case HVCALL_SEND_IPI_EX:
 		if (unlikely(hc.rep)) {
 			ret = HV_STATUS_INVALID_HYPERCALL_INPUT;
 			break;
 		}
-		ret = kvm_hv_send_ipi(vcpu, &hc);
+		ret = kvm_hv_send_ipi(vcpu, &hc, false);
+		break;
+	case HVCALL_SEND_IPI_EX:
+		if (unlikely(hc.fast || hc.rep)) {
+			ret = HV_STATUS_INVALID_HYPERCALL_INPUT;
+			break;
+		}
+		ret = kvm_hv_send_ipi(vcpu, &hc, true);
 		break;
 	case HVCALL_POST_DEBUG_DATA:
 	case HVCALL_RETRIEVE_DEBUG_DATA:

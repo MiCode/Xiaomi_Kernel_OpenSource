@@ -149,7 +149,6 @@ int load_other_segments(struct kimage *image,
 					   initrd_len, cmdline, 0);
 	if (!dtb) {
 		pr_err("Preparing for new dtb failed\n");
-		ret = -EINVAL;
 		goto out_err;
 	}
 

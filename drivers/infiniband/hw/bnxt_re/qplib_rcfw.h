@@ -152,6 +152,7 @@ struct bnxt_qplib_cmdq_ctx {
 	wait_queue_head_t		waitq;
 	unsigned long			flags;
 	unsigned long			*cmdq_bitmap;
+	u32				bmap_size;
 	u32				seq_num;
 };
 

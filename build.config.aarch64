@@ -1,4 +1,10 @@
 ARCH=arm64
+
+LLVM_IAS=1
+CROSS_COMPILE=aarch64-linux-gnu-
+CROSS_COMPILE_COMPAT=arm-linux-gnueabi-
+LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gas/linux-x86
+
 MAKE_GOALS="
 Image
 modules
@@ -12,7 +18,3 @@ vmlinux.symvers
 modules.builtin
 modules.builtin.modinfo
 "
-
-NDK_TRIPLE=aarch64-linux-android31
-
-GKI_MODULES_LIST=android/gki_aarch64_modules

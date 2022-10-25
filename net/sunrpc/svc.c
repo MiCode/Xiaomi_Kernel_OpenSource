@@ -1676,17 +1676,16 @@ EXPORT_SYMBOL_GPL(svc_encode_result_payload);
 /**
  * svc_fill_write_vector - Construct data argument for VFS write call
  * @rqstp: svc_rqst to operate on
- * @payload: xdr_buf containing only the write data payload
+ * @pages: list of pages containing data payload
+ * @first: buffer containing first section of write payload
+ * @total: total number of bytes of write payload
  *
  * Fills in rqstp::rq_vec, and returns the number of elements.
  */
-unsigned int svc_fill_write_vector(struct svc_rqst *rqstp,
-				   struct xdr_buf *payload)
+unsigned int svc_fill_write_vector(struct svc_rqst *rqstp, struct page **pages,
+				   struct kvec *first, size_t total)
 {
-	struct page **pages = payload->pages;
-	struct kvec *first = payload->head;
 	struct kvec *vec = rqstp->rq_vec;
-	size_t total = payload->len;
 	unsigned int i;
 
 	/* Some types of transport can present the write payload

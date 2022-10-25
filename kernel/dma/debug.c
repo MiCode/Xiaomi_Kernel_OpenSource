@@ -352,7 +352,6 @@ static struct dma_debug_entry *bucket_find_contain(struct hash_bucket **bucket,
 
 	unsigned int max_range = dma_get_max_seg_size(ref->dev);
 	struct dma_debug_entry *entry, index = *ref;
-	unsigned int shift = (1 << HASH_FN_SHIFT);
 	unsigned int range = 0;
 
 	while (range <= max_range) {
@@ -361,15 +360,12 @@ static struct dma_debug_entry *bucket_find_contain(struct hash_bucket **bucket,
 		if (entry)
 			return entry;
 
-		if (max_range - range < shift || index.dev_addr < shift)
-			return NULL;
-
 		/*
 		 * Nothing found, go back a hash bucket
 		 */
 		put_hash_bucket(*bucket, *flags);
-		range          += shift;
-		index.dev_addr -= shift;
+		range          += (1 << HASH_FN_SHIFT);
+		index.dev_addr -= (1 << HASH_FN_SHIFT);
 		*bucket = get_hash_bucket(&index, flags);
 	}
 
@@ -570,6 +566,9 @@ static void add_dma_entry(struct dma_debug_entry *entry, unsigned long attrs)
 	if (rc == -ENOMEM) {
 		pr_err("cacheline tracking ENOMEM, dma-debug disabled\n");
 		global_disable = true;
+	} else if (rc == -EEXIST && !(attrs & DMA_ATTR_SKIP_CPU_SYNC)) {
+		err_printk(entry->dev, entry,
+			"cacheline tracking EEXIST, overlapping mappings aren't supported\n");
 	}
 }
 
@@ -928,7 +927,7 @@ static __init int dma_debug_cmdline(char *str)
 		global_disable = true;
 	}
 
-	return 1;
+	return 0;
 }
 
 static __init int dma_debug_entries_cmdline(char *str)
@@ -937,7 +936,7 @@ static __init int dma_debug_entries_cmdline(char *str)
 		return -EINVAL;
 	if (!get_option(&str, &nr_prealloc_entries))
 		nr_prealloc_entries = PREALLOC_DMA_DEBUG_ENTRIES;
-	return 1;
+	return 0;
 }
 
 __setup("dma_debug=", dma_debug_cmdline);
@@ -1137,11 +1136,10 @@ static void check_sync(struct device *dev,
 				dir2name[entry->direction],
 				dir2name[ref->direction]);
 
-	/* sg list count can be less than map count when partial cache sync */
 	if (ref->sg_call_ents && ref->type == dma_debug_sg &&
-	    ref->sg_call_ents > entry->sg_call_ents) {
+	    ref->sg_call_ents != entry->sg_call_ents) {
 		err_printk(ref->dev, entry, "device driver syncs "
-			   "DMA sg list count larger than map count "
+			   "DMA sg list with different entry count "
 			   "[map count=%d] [sync count=%d]\n",
 			   entry->sg_call_ents, ref->sg_call_ents);
 	}

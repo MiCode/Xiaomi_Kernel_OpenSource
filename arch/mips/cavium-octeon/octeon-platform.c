@@ -328,7 +328,6 @@ static int __init octeon_ehci_device_init(void)
 
 	pd->dev.platform_data = &octeon_ehci_pdata;
 	octeon_ehci_hw_start(&pd->dev);
-	put_device(&pd->dev);
 
 	return ret;
 }
@@ -392,7 +391,6 @@ static int __init octeon_ohci_device_init(void)
 
 	pd->dev.platform_data = &octeon_ohci_pdata;
 	octeon_ohci_hw_start(&pd->dev);
-	put_device(&pd->dev);
 
 	return ret;
 }

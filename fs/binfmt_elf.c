@@ -170,8 +170,8 @@ static int padzero(unsigned long elf_bss)
 
 static int
 create_elf_tables(struct linux_binprm *bprm, const struct elfhdr *exec,
-		unsigned long interp_load_addr,
-		unsigned long e_entry, unsigned long phdr_addr)
+		unsigned long load_addr, unsigned long interp_load_addr,
+		unsigned long e_entry)
 {
 	struct mm_struct *mm = current->mm;
 	unsigned long p = bprm->p;
@@ -257,7 +257,7 @@ create_elf_tables(struct linux_binprm *bprm, const struct elfhdr *exec,
 	NEW_AUX_ENT(AT_HWCAP, ELF_HWCAP);
 	NEW_AUX_ENT(AT_PAGESZ, ELF_EXEC_PAGESIZE);
 	NEW_AUX_ENT(AT_CLKTCK, CLOCKS_PER_SEC);
-	NEW_AUX_ENT(AT_PHDR, phdr_addr);
+	NEW_AUX_ENT(AT_PHDR, load_addr + exec->e_phoff);
 	NEW_AUX_ENT(AT_PHENT, sizeof(struct elf_phdr));
 	NEW_AUX_ENT(AT_PHNUM, exec->e_phnum);
 	NEW_AUX_ENT(AT_BASE, interp_load_addr);
@@ -823,7 +823,7 @@ static int parse_elf_properties(struct file *f, const struct elf_phdr *phdr,
 static int load_elf_binary(struct linux_binprm *bprm)
 {
 	struct file *interpreter = NULL; /* to shut gcc up */
-	unsigned long load_addr, load_bias = 0, phdr_addr = 0;
+ 	unsigned long load_addr = 0, load_bias = 0;
 	int load_addr_set = 0;
 	unsigned long error;
 	struct elf_phdr *elf_ppnt, *elf_phdata, *interp_elf_phdata = NULL;
@@ -1156,17 +1156,6 @@ out_free_interp:
 				reloc_func_desc = load_bias;
 			}
 		}
-
-		/*
-		 * Figure out which segment in the file contains the Program
-		 * Header table, and map to the associated memory address.
-		 */
-		if (elf_ppnt->p_offset <= elf_ex->e_phoff &&
-		    elf_ex->e_phoff < elf_ppnt->p_offset + elf_ppnt->p_filesz) {
-			phdr_addr = elf_ex->e_phoff - elf_ppnt->p_offset +
-				    elf_ppnt->p_vaddr;
-		}
-
 		k = elf_ppnt->p_vaddr;
 		if ((elf_ppnt->p_flags & PF_X) && k < start_code)
 			start_code = k;
@@ -1202,7 +1191,6 @@ out_free_interp:
 	}
 
 	e_entry = elf_ex->e_entry + load_bias;
-	phdr_addr += load_bias;
 	elf_bss += load_bias;
 	elf_brk += load_bias;
 	start_code += load_bias;
@@ -1266,8 +1254,8 @@ out_free_interp:
 		goto out;
 #endif /* ARCH_HAS_SETUP_ADDITIONAL_PAGES */
 
-	retval = create_elf_tables(bprm, elf_ex, interp_load_addr,
-				   e_entry, phdr_addr);
+	retval = create_elf_tables(bprm, elf_ex,
+			  load_addr, interp_load_addr, e_entry);
 	if (retval < 0)
 		goto out;
 
@@ -1618,16 +1606,17 @@ static void fill_siginfo_note(struct memelfnote *note, user_siginfo_t *csigdata,
  *   long file_ofs
  * followed by COUNT filenames in ASCII: "FILE1" NUL "FILE2" NUL...
  */
-static int fill_files_note(struct memelfnote *note, struct coredump_params *cprm)
+static int fill_files_note(struct memelfnote *note)
 {
+	struct mm_struct *mm = current->mm;
+	struct vm_area_struct *vma;
 	unsigned count, size, names_ofs, remaining, n;
 	user_long_t *data;
 	user_long_t *start_end_ofs;
 	char *name_base, *name_curpos;
-	int i;
 
 	/* *Estimated* file count and total data size needed */
-	count = cprm->vma_count;
+	count = mm->map_count;
 	if (count > UINT_MAX / 64)
 		return -EINVAL;
 	size = count * 64;
@@ -1649,12 +1638,11 @@ static int fill_files_note(struct memelfnote *note, struct coredump_params *cprm
 	name_base = name_curpos = ((char *)data) + names_ofs;
 	remaining = size - names_ofs;
 	count = 0;
-	for (i = 0; i < cprm->vma_count; i++) {
-		struct core_vma_metadata *m = &cprm->vma_meta[i];
+	for (vma = mm->mmap; vma != NULL; vma = vma->vm_next) {
 		struct file *file;
 		const char *filename;
 
-		file = m->file;
+		file = vma->vm_file;
 		if (!file)
 			continue;
 		filename = file_path(file, name_curpos, remaining);
@@ -1674,9 +1662,9 @@ static int fill_files_note(struct memelfnote *note, struct coredump_params *cprm
 		memmove(name_curpos, filename, n);
 		name_curpos += n;
 
-		*start_end_ofs++ = m->start;
-		*start_end_ofs++ = m->end;
-		*start_end_ofs++ = m->pgoff;
+		*start_end_ofs++ = vma->vm_start;
+		*start_end_ofs++ = vma->vm_end;
+		*start_end_ofs++ = vma->vm_pgoff;
 		count++;
 	}
 
@@ -1687,7 +1675,7 @@ static int fill_files_note(struct memelfnote *note, struct coredump_params *cprm
 	 * Count usually is less than mm->map_count,
 	 * we need to move filenames down.
 	 */
-	n = cprm->vma_count - count;
+	n = mm->map_count - count;
 	if (n != 0) {
 		unsigned shift_bytes = n * 3 * sizeof(data[0]);
 		memmove(name_base - shift_bytes, name_base,
@@ -1799,7 +1787,7 @@ static int fill_thread_core_info(struct elf_thread_core_info *t,
 
 static int fill_note_info(struct elfhdr *elf, int phdrs,
 			  struct elf_note_info *info,
-			  struct coredump_params *cprm)
+			  const kernel_siginfo_t *siginfo, struct pt_regs *regs)
 {
 	struct task_struct *dump_task = current;
 	const struct user_regset_view *view = task_user_regset_view(dump_task);
@@ -1871,7 +1859,7 @@ static int fill_note_info(struct elfhdr *elf, int phdrs,
 	 * Now fill in each thread's information.
 	 */
 	for (t = info->thread; t != NULL; t = t->next)
-		if (!fill_thread_core_info(t, view, cprm->siginfo->si_signo, &info->size))
+		if (!fill_thread_core_info(t, view, siginfo->si_signo, &info->size))
 			return 0;
 
 	/*
@@ -1880,13 +1868,13 @@ static int fill_note_info(struct elfhdr *elf, int phdrs,
 	fill_psinfo(psinfo, dump_task->group_leader, dump_task->mm);
 	info->size += notesize(&info->psinfo);
 
-	fill_siginfo_note(&info->signote, &info->csigdata, cprm->siginfo);
+	fill_siginfo_note(&info->signote, &info->csigdata, siginfo);
 	info->size += notesize(&info->signote);
 
 	fill_auxv_note(&info->auxv, current->mm);
 	info->size += notesize(&info->auxv);
 
-	if (fill_files_note(&info->files, cprm) == 0)
+	if (fill_files_note(&info->files) == 0)
 		info->size += notesize(&info->files);
 
 	return 1;
@@ -2028,7 +2016,7 @@ static int elf_note_info_init(struct elf_note_info *info)
 
 static int fill_note_info(struct elfhdr *elf, int phdrs,
 			  struct elf_note_info *info,
-			  struct coredump_params *cprm)
+			  const kernel_siginfo_t *siginfo, struct pt_regs *regs)
 {
 	struct core_thread *ct;
 	struct elf_thread_status *ets;
@@ -2049,13 +2037,13 @@ static int fill_note_info(struct elfhdr *elf, int phdrs,
 	list_for_each_entry(ets, &info->thread_list, list) {
 		int sz;
 
-		sz = elf_dump_thread_status(cprm->siginfo->si_signo, ets);
+		sz = elf_dump_thread_status(siginfo->si_signo, ets);
 		info->thread_status_size += sz;
 	}
 	/* now collect the dump for the current */
 	memset(info->prstatus, 0, sizeof(*info->prstatus));
-	fill_prstatus(&info->prstatus->common, current, cprm->siginfo->si_signo);
-	elf_core_copy_regs(&info->prstatus->pr_reg, cprm->regs);
+	fill_prstatus(&info->prstatus->common, current, siginfo->si_signo);
+	elf_core_copy_regs(&info->prstatus->pr_reg, regs);
 
 	/* Set up header */
 	fill_elf_header(elf, phdrs, ELF_ARCH, ELF_CORE_EFLAGS);
@@ -2071,18 +2059,18 @@ static int fill_note_info(struct elfhdr *elf, int phdrs,
 	fill_note(info->notes + 1, "CORE", NT_PRPSINFO,
 		  sizeof(*info->psinfo), info->psinfo);
 
-	fill_siginfo_note(info->notes + 2, &info->csigdata, cprm->siginfo);
+	fill_siginfo_note(info->notes + 2, &info->csigdata, siginfo);
 	fill_auxv_note(info->notes + 3, current->mm);
 	info->numnote = 4;
 
-	if (fill_files_note(info->notes + info->numnote, cprm) == 0) {
+	if (fill_files_note(info->notes + info->numnote) == 0) {
 		info->notes_files = info->notes + info->numnote;
 		info->numnote++;
 	}
 
 	/* Try to dump the FPU. */
-	info->prstatus->pr_fpvalid =
-		elf_core_copy_task_fpregs(current, cprm->regs, info->fpu);
+	info->prstatus->pr_fpvalid = elf_core_copy_task_fpregs(current, regs,
+							       info->fpu);
 	if (info->prstatus->pr_fpvalid)
 		fill_note(info->notes + info->numnote++,
 			  "CORE", NT_PRFPREG, sizeof(*info->fpu), info->fpu);
@@ -2168,7 +2156,8 @@ static void fill_extnum_info(struct elfhdr *elf, struct elf_shdr *shdr4extnum,
 static int elf_core_dump(struct coredump_params *cprm)
 {
 	int has_dumped = 0;
-	int segs, i;
+	int vma_count, segs, i;
+	size_t vma_data_size;
 	struct elfhdr elf;
 	loff_t offset = 0, dataoff;
 	struct elf_note_info info = { };
@@ -2176,12 +2165,16 @@ static int elf_core_dump(struct coredump_params *cprm)
 	struct elf_shdr *shdr4extnum = NULL;
 	Elf_Half e_phnum;
 	elf_addr_t e_shoff;
+	struct core_vma_metadata *vma_meta;
+
+	if (dump_vma_snapshot(cprm, &vma_count, &vma_meta, &vma_data_size))
+		return 0;
 
 	/*
 	 * The number of segs are recored into ELF header as 16bit value.
 	 * Please check DEFAULT_MAX_MAP_COUNT definition when you modify here.
 	 */
-	segs = cprm->vma_count + elf_core_extra_phdrs();
+	segs = vma_count + elf_core_extra_phdrs();
 
 	/* for notes section */
 	segs++;
@@ -2195,7 +2188,7 @@ static int elf_core_dump(struct coredump_params *cprm)
 	 * Collect all the non-memory information about the process for the
 	 * notes.  This also sets up the file header.
 	 */
-	if (!fill_note_info(&elf, e_phnum, &info, cprm))
+	if (!fill_note_info(&elf, e_phnum, &info, cprm->siginfo, cprm->regs))
 		goto end_coredump;
 
 	has_dumped = 1;
@@ -2220,7 +2213,7 @@ static int elf_core_dump(struct coredump_params *cprm)
 
 	dataoff = offset = roundup(offset, ELF_EXEC_PAGESIZE);
 
-	offset += cprm->vma_data_size;
+	offset += vma_data_size;
 	offset += elf_core_extra_data_size();
 	e_shoff = offset;
 
@@ -2240,8 +2233,8 @@ static int elf_core_dump(struct coredump_params *cprm)
 		goto end_coredump;
 
 	/* Write program headers for segments dump */
-	for (i = 0; i < cprm->vma_count; i++) {
-		struct core_vma_metadata *meta = cprm->vma_meta + i;
+	for (i = 0; i < vma_count; i++) {
+		struct core_vma_metadata *meta = vma_meta + i;
 		struct elf_phdr phdr;
 
 		phdr.p_type = PT_LOAD;
@@ -2278,8 +2271,8 @@ static int elf_core_dump(struct coredump_params *cprm)
 	/* Align to page */
 	dump_skip_to(cprm, dataoff);
 
-	for (i = 0; i < cprm->vma_count; i++) {
-		struct core_vma_metadata *meta = cprm->vma_meta + i;
+	for (i = 0; i < vma_count; i++) {
+		struct core_vma_metadata *meta = vma_meta + i;
 
 		if (!dump_user_range(cprm, meta->start, meta->dump_size))
 			goto end_coredump;
@@ -2296,6 +2289,7 @@ static int elf_core_dump(struct coredump_params *cprm)
 end_coredump:
 	free_note_info(&info);
 	kfree(shdr4extnum);
+	kvfree(vma_meta);
 	kfree(phdr4note);
 	return has_dumped;
 }

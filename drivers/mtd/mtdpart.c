@@ -312,7 +312,7 @@ static int __mtd_del_partition(struct mtd_info *mtd)
 	if (err)
 		return err;
 
-	list_del(&mtd->part.node);
+	list_del(&child->part.node);
 	free_partition(mtd);
 
 	return 0;

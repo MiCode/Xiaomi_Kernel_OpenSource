@@ -2261,12 +2261,7 @@ irqreturn_t iwl_pcie_irq_msix_handler(int irq, void *dev_id)
 		}
 	}
 
-	/*
-	 * In some rare cases when the HW is in a bad state, we may
-	 * get this interrupt too early, when prph_info is still NULL.
-	 * So make sure that it's not NULL to prevent crashing.
-	 */
-	if (inta_hw & MSIX_HW_INT_CAUSES_REG_WAKEUP && trans_pcie->prph_info) {
+	if (inta_hw & MSIX_HW_INT_CAUSES_REG_WAKEUP) {
 		u32 sleep_notif =
 			le32_to_cpu(trans_pcie->prph_info->sleep_notif);
 		if (sleep_notif == IWL_D3_SLEEP_STATUS_SUSPEND ||

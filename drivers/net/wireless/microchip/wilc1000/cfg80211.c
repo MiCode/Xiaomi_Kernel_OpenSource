@@ -129,7 +129,8 @@ static void cfg_scan_result(enum scan_event scan_event,
 						info->frame_len,
 						(s32)info->rssi * 100,
 						GFP_KERNEL);
-		cfg80211_put_bss(wiphy, bss);
+		if (!bss)
+			cfg80211_put_bss(wiphy, bss);
 	} else if (scan_event == SCAN_EVENT_DONE) {
 		mutex_lock(&priv->scan_req_lock);
 
@@ -539,9 +540,8 @@ static int wilc_wfi_cfg_copy_wpa_info(struct wilc_wfi_key *key_info,
 	return 0;
 }
 
-static int add_key(struct wiphy *wiphy, struct net_device *netdev, int link_id,
-		   u8 key_index, bool pairwise, const u8 *mac_addr,
-		   struct key_params *params)
+static int add_key(struct wiphy *wiphy, struct net_device *netdev, u8 key_index,
+		   bool pairwise, const u8 *mac_addr, struct key_params *params)
 
 {
 	int ret = 0, keylen = params->key_len;
@@ -650,7 +650,7 @@ static int add_key(struct wiphy *wiphy, struct net_device *netdev, int link_id,
 	return ret;
 }
 
-static int del_key(struct wiphy *wiphy, struct net_device *netdev, int link_id,
+static int del_key(struct wiphy *wiphy, struct net_device *netdev,
 		   u8 key_index,
 		   bool pairwise,
 		   const u8 *mac_addr)
@@ -687,9 +687,8 @@ static int del_key(struct wiphy *wiphy, struct net_device *netdev, int link_id,
 	return 0;
 }
 
-static int get_key(struct wiphy *wiphy, struct net_device *netdev, int link_id,
-		   u8 key_index, bool pairwise, const u8 *mac_addr,
-		   void *cookie,
+static int get_key(struct wiphy *wiphy, struct net_device *netdev, u8 key_index,
+		   bool pairwise, const u8 *mac_addr, void *cookie,
 		   void (*callback)(void *cookie, struct key_params *))
 {
 	struct wilc_vif *vif = netdev_priv(netdev);
@@ -716,8 +715,7 @@ static int get_key(struct wiphy *wiphy, struct net_device *netdev, int link_id,
 }
 
 static int set_default_key(struct wiphy *wiphy, struct net_device *netdev,
-			   int link_id, u8 key_index, bool unicast,
-			   bool multicast)
+			   u8 key_index, bool unicast, bool multicast)
 {
 	struct wilc_vif *vif = netdev_priv(netdev);
 
@@ -1377,8 +1375,7 @@ static int change_beacon(struct wiphy *wiphy, struct net_device *dev,
 	return wilc_add_beacon(vif, 0, 0, beacon);
 }
 
-static int stop_ap(struct wiphy *wiphy, struct net_device *dev,
-		   unsigned int link_id)
+static int stop_ap(struct wiphy *wiphy, struct net_device *dev)
 {
 	int ret;
 	struct wilc_vif *vif = netdev_priv(dev);

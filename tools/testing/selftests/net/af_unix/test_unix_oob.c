@@ -218,10 +218,10 @@ main(int argc, char **argv)
 
 	/* Test 1:
 	 * veriyf that SIGURG is
-	 * delivered, 63 bytes are
-	 * read, oob is '@', and POLLPRI works.
+	 * delivered and 63 bytes are
+	 * read and oob is '@'
 	 */
-	wait_for_data(pfd, POLLPRI);
+	wait_for_data(pfd, POLLIN | POLLPRI);
 	read_oob(pfd, &oob);
 	len = read_data(pfd, buf, 1024);
 	if (!signal_recvd || len != 63 || oob != '@') {

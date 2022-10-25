@@ -142,7 +142,7 @@ static int sam9x5_wm8731_driver_probe(struct platform_device *pdev)
 	if (!cpu_np) {
 		dev_err(&pdev->dev, "atmel,ssc-controller node missing\n");
 		ret = -EINVAL;
-		goto out_put_codec_np;
+		goto out;
 	}
 	dai->cpus->of_node = cpu_np;
 	dai->platforms->of_node = cpu_np;
@@ -153,8 +153,11 @@ static int sam9x5_wm8731_driver_probe(struct platform_device *pdev)
 	if (ret != 0) {
 		dev_err(&pdev->dev, "Failed to set SSC %d for audio: %d\n",
 			ret, priv->ssc_id);
-		goto out_put_cpu_np;
+		goto out;
 	}
+
+	of_node_put(codec_np);
+	of_node_put(cpu_np);
 
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret) {
@@ -164,14 +167,10 @@ static int sam9x5_wm8731_driver_probe(struct platform_device *pdev)
 
 	dev_dbg(&pdev->dev, "%s ok\n", __func__);
 
-	goto out_put_cpu_np;
+	return ret;
 
 out_put_audio:
 	atmel_ssc_put_audio(priv->ssc_id);
-out_put_cpu_np:
-	of_node_put(cpu_np);
-out_put_codec_np:
-	of_node_put(codec_np);
 out:
 	return ret;
 }

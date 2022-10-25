@@ -1891,10 +1891,8 @@ subscribe_event_xa_alloc(struct mlx5_devx_event_table *devx_event_table,
 				key_level2,
 				obj_event,
 				GFP_KERNEL);
-		if (err) {
-			kfree(obj_event);
+		if (err)
 			return err;
-		}
 		INIT_LIST_HEAD(&obj_event->obj_sub_list);
 	}
 

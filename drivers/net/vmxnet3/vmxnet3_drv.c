@@ -3261,7 +3261,7 @@ vmxnet3_alloc_intr_resources(struct vmxnet3_adapter *adapter)
 
 #ifdef CONFIG_PCI_MSI
 	if (adapter->intr.type == VMXNET3_IT_MSIX) {
-		int i, nvec, nvec_allocated;
+		int i, nvec;
 
 		nvec  = adapter->share_intr == VMXNET3_INTR_TXSHARE ?
 			1 : adapter->num_tx_queues;
@@ -3274,15 +3274,14 @@ vmxnet3_alloc_intr_resources(struct vmxnet3_adapter *adapter)
 		for (i = 0; i < nvec; i++)
 			adapter->intr.msix_entries[i].entry = i;
 
-		nvec_allocated = vmxnet3_acquire_msix_vectors(adapter, nvec);
-		if (nvec_allocated < 0)
+		nvec = vmxnet3_acquire_msix_vectors(adapter, nvec);
+		if (nvec < 0)
 			goto msix_err;
 
 		/* If we cannot allocate one MSIx vector per queue
 		 * then limit the number of rx queues to 1
 		 */
-		if (nvec_allocated == VMXNET3_LINUX_MIN_MSIX_VECT &&
-		    nvec != VMXNET3_LINUX_MIN_MSIX_VECT) {
+		if (nvec == VMXNET3_LINUX_MIN_MSIX_VECT) {
 			if (adapter->share_intr != VMXNET3_INTR_BUDDYSHARE
 			    || adapter->num_rx_queues != 1) {
 				adapter->share_intr = VMXNET3_INTR_TXSHARE;
@@ -3292,14 +3291,14 @@ vmxnet3_alloc_intr_resources(struct vmxnet3_adapter *adapter)
 			}
 		}
 
-		adapter->intr.num_intrs = nvec_allocated;
+		adapter->intr.num_intrs = nvec;
 		return;
 
 msix_err:
 		/* If we cannot allocate MSIx vectors use only one rx queue */
 		dev_info(&adapter->pdev->dev,
 			 "Failed to enable MSI-X, error %d. "
-			 "Limiting #rx queues to 1, try MSI.\n", nvec_allocated);
+			 "Limiting #rx queues to 1, try MSI.\n", nvec);
 
 		adapter->intr.type = VMXNET3_IT_MSI;
 	}

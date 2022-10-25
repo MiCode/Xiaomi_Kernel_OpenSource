@@ -231,7 +231,6 @@ enum ufs_hs_gear_tag {
 	UFS_HS_G2,		/* HS Gear 2 */
 	UFS_HS_G3,		/* HS Gear 3 */
 	UFS_HS_G4,		/* HS Gear 4 */
-	UFS_HS_G5,		/* HS Gear 5 */
 };
 
 enum ufs_unipro_ver {
@@ -241,12 +240,7 @@ enum ufs_unipro_ver {
 	UFS_UNIPRO_VER_1_6  = 3, /* UniPro version 1.6 */
 	UFS_UNIPRO_VER_1_61 = 4, /* UniPro version 1.61 */
 	UFS_UNIPRO_VER_1_8  = 5, /* UniPro version 1.8 */
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	UFS_UNIPRO_VER_2_0  = 6, /* UniPro version 2.0 */
-	UFS_UNIPRO_VER_MAX  = 7, /* UniPro unsupported version */
-#else
 	UFS_UNIPRO_VER_MAX  = 6, /* UniPro unsupported version */
-#endif
 	/* UniPro version field mask in PA_LOCALVERINFO */
 	UFS_UNIPRO_VER_MASK = 0xF,
 };

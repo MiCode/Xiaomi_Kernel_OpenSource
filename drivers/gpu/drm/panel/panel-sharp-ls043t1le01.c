@@ -296,13 +296,7 @@ static int sharp_nt_panel_probe(struct mipi_dsi_device *dsi)
 	if (ret < 0)
 		return ret;
 
-	ret = mipi_dsi_attach(dsi);
-	if (ret < 0) {
-		sharp_nt_panel_del(sharp_nt);
-		return ret;
-	}
-
-	return 0;
+	return mipi_dsi_attach(dsi);
 }
 
 static int sharp_nt_panel_remove(struct mipi_dsi_device *dsi)

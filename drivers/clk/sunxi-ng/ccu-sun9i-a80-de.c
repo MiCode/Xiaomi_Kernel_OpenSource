@@ -246,7 +246,8 @@ static int sun9i_a80_de_clk_probe(struct platform_device *pdev)
 		goto err_disable_clk;
 	}
 
-	ret = devm_sunxi_ccu_probe(&pdev->dev, reg, &sun9i_a80_de_clk_desc);
+	ret = sunxi_ccu_probe(pdev->dev.of_node, reg,
+			      &sun9i_a80_de_clk_desc);
 	if (ret)
 		goto err_assert_reset;
 

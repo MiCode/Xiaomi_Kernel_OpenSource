@@ -528,8 +528,7 @@ static int st21nfca_hci_i2c_probe(struct i2c_client *client,
 	phy->gpiod_ena = devm_gpiod_get(dev, "enable", GPIOD_OUT_LOW);
 	if (IS_ERR(phy->gpiod_ena)) {
 		nfc_err(dev, "Unable to get ENABLE GPIO\n");
-		r = PTR_ERR(phy->gpiod_ena);
-		goto out_free;
+		return PTR_ERR(phy->gpiod_ena);
 	}
 
 	phy->se_status.is_ese_present =
@@ -540,7 +539,7 @@ static int st21nfca_hci_i2c_probe(struct i2c_client *client,
 	r = st21nfca_hci_platform_init(phy);
 	if (r < 0) {
 		nfc_err(&client->dev, "Unable to reboot st21nfca\n");
-		goto out_free;
+		return r;
 	}
 
 	r = devm_request_threaded_irq(&client->dev, client->irq, NULL,
@@ -549,23 +548,15 @@ static int st21nfca_hci_i2c_probe(struct i2c_client *client,
 				ST21NFCA_HCI_DRIVER_NAME, phy);
 	if (r < 0) {
 		nfc_err(&client->dev, "Unable to register IRQ handler\n");
-		goto out_free;
+		return r;
 	}
 
-	r = st21nfca_hci_probe(phy, &i2c_phy_ops, LLC_SHDLC_NAME,
-			       ST21NFCA_FRAME_HEADROOM,
-			       ST21NFCA_FRAME_TAILROOM,
-			       ST21NFCA_HCI_LLC_MAX_PAYLOAD,
-			       &phy->hdev,
-			       &phy->se_status);
-	if (r)
-		goto out_free;
-
-	return 0;
-
-out_free:
-	kfree_skb(phy->pending_skb);
-	return r;
+	return st21nfca_hci_probe(phy, &i2c_phy_ops, LLC_SHDLC_NAME,
+					ST21NFCA_FRAME_HEADROOM,
+					ST21NFCA_FRAME_TAILROOM,
+					ST21NFCA_HCI_LLC_MAX_PAYLOAD,
+					&phy->hdev,
+					&phy->se_status);
 }
 
 static int st21nfca_hci_i2c_remove(struct i2c_client *client)
@@ -576,8 +567,6 @@ static int st21nfca_hci_i2c_remove(struct i2c_client *client)
 
 	if (phy->powered)
 		st21nfca_hci_i2c_disable(phy);
-	if (phy->pending_skb)
-		kfree_skb(phy->pending_skb);
 
 	return 0;
 }

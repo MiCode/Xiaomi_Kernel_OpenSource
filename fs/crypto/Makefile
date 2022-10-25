@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 obj-$(CONFIG_FS_ENCRYPTION)	+= fscrypto.o
 
-ccflags-y += -DDEFAULT_SYMBOL_NAMESPACE=ANDROID_GKI_VFS_EXPORT_ONLY
-
 fscrypto-y := crypto.o \
 	      fname.o \
 	      hkdf.o \

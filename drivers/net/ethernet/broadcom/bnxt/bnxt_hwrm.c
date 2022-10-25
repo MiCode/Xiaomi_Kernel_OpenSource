@@ -496,7 +496,7 @@ static int __hwrm_send(struct bnxt *bp, struct bnxt_hwrm_ctx *ctx)
 	}
 
 	/* Limit timeout to an upper limit */
-	timeout = min(ctx->timeout, bp->hwrm_cmd_max_timeout ?: HWRM_CMD_MAX_TIMEOUT);
+	timeout = min_t(uint, ctx->timeout, HWRM_CMD_MAX_TIMEOUT);
 	/* convert timeout to usec */
 	timeout *= 1000;
 
@@ -595,24 +595,18 @@ timeout_abort:
 
 		/* Last byte of resp contains valid bit */
 		valid = ((u8 *)ctx->resp) + len - 1;
-		for (j = 0; j < HWRM_VALID_BIT_DELAY_USEC; ) {
+		for (j = 0; j < HWRM_VALID_BIT_DELAY_USEC; j++) {
 			/* make sure we read from updated DMA memory */
 			dma_rmb();
 			if (*valid)
 				break;
-			if (j < 10) {
-				udelay(1);
-				j++;
-			} else {
-				usleep_range(20, 30);
-				j += 20;
-			}
+			usleep_range(1, 5);
 		}
 
 		if (j >= HWRM_VALID_BIT_DELAY_USEC) {
 			if (!(ctx->flags & BNXT_HWRM_CTX_SILENT))
 				netdev_err(bp->dev, "Error (timeout: %u) msg {0x%x 0x%x} len:%d v:%d\n",
-					   hwrm_total_timeout(i) + j,
+					   hwrm_total_timeout(i),
 					   le16_to_cpu(ctx->req->req_type),
 					   le16_to_cpu(ctx->req->seq_id), len,
 					   *valid);

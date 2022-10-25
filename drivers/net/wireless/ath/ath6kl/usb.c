@@ -340,11 +340,6 @@ static int ath6kl_usb_setup_pipe_resources(struct ath6kl_usb *ar_usb)
 				   le16_to_cpu(endpoint->wMaxPacketSize),
 				   endpoint->bInterval);
 		}
-
-		/* Ignore broken descriptors. */
-		if (usb_endpoint_maxp(endpoint) == 0)
-			continue;
-
 		urbcount = 0;
 
 		pipe_num =
@@ -912,7 +907,7 @@ static int ath6kl_usb_submit_ctrl_in(struct ath6kl_usb *ar_usb,
 				 req,
 				 USB_DIR_IN | USB_TYPE_VENDOR |
 				 USB_RECIP_DEVICE, value, index, buf,
-				 size, 2000);
+				 size, 2 * HZ);
 
 	if (ret < 0) {
 		ath6kl_warn("Failed to read usb control message: %d\n", ret);

@@ -110,7 +110,6 @@ int mmc_select_card(struct mmc_card *card)
 
 	return _mmc_select_card(card->host, card);
 }
-EXPORT_SYMBOL_GPL(mmc_select_card);
 
 int mmc_deselect_cards(struct mmc_host *host)
 {
@@ -546,7 +545,6 @@ bool mmc_prepare_busy_cmd(struct mmc_host *host, struct mmc_command *cmd,
 	cmd->busy_timeout = timeout_ms;
 	return true;
 }
-EXPORT_SYMBOL_GPL(mmc_prepare_busy_cmd);
 
 /**
  *	__mmc_switch - modify EXT_CSD register

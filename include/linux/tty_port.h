@@ -6,7 +6,6 @@
 #include <linux/mutex.h>
 #include <linux/tty_buffer.h>
 #include <linux/wait.h>
-#include <linux/android_kabi.h>
 
 /*
  * Port level information. Each device keeps its own port level information
@@ -40,8 +39,6 @@ struct tty_port_operations {
 	int (*activate)(struct tty_port *port, struct tty_struct *tty);
 	/* Called on the final put of a port */
 	void (*destruct)(struct tty_port *port);
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 struct tty_port_client_operations {
@@ -75,8 +72,6 @@ struct tty_port {
 						   set to size of fifo */
 	struct kref		kref;		/* Ref counter */
 	void 			*client_data;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 /* tty_port::iflags bits -- use atomic bit ops */

@@ -768,17 +768,11 @@ int amdgpu_vm_validate_pt_bos(struct amdgpu_device *adev, struct amdgpu_vm *vm,
  * Check if all VM PDs/PTs are ready for updates
  *
  * Returns:
- * True if VM is not evicting.
+ * True if eviction list is empty.
  */
 bool amdgpu_vm_ready(struct amdgpu_vm *vm)
 {
-	bool ret;
-
-	amdgpu_vm_eviction_lock(vm);
-	ret = !vm->evicting;
-	amdgpu_vm_eviction_unlock(vm);
-
-	return ret && list_empty(&vm->evicted);
+	return list_empty(&vm->evicted);
 }
 
 /**

@@ -13,7 +13,7 @@
 	*(__kvm_ex_table)					\
 	__stop___kvm_ex_table = .;
 
-#define HYPERVISOR_RODATA_SECTIONS				\
+#define HYPERVISOR_DATA_SECTIONS				\
 	HYP_SECTION_NAME(.rodata) : {				\
 		. = ALIGN(PAGE_SIZE);				\
 		__hyp_rodata_start = .;				\
@@ -21,15 +21,6 @@
 		*(HYP_SECTION_NAME(.rodata))			\
 		. = ALIGN(PAGE_SIZE);				\
 		__hyp_rodata_end = .;				\
-	}
-
-#define HYPERVISOR_DATA_SECTION					\
-	HYP_SECTION_NAME(.data) : {				\
-		. = ALIGN(PAGE_SIZE);				\
-		__hyp_data_start = .;				\
-		*(HYP_SECTION_NAME(.data))			\
-		. = ALIGN(PAGE_SIZE);				\
-		__hyp_data_end = .;				\
 	}
 
 #define HYPERVISOR_PERCPU_SECTION				\
@@ -60,8 +51,7 @@
 #define SBSS_ALIGN			PAGE_SIZE
 #else /* CONFIG_KVM */
 #define HYPERVISOR_EXTABLE
-#define HYPERVISOR_RODATA_SECTIONS
-#define HYPERVISOR_DATA_SECTION
+#define HYPERVISOR_DATA_SECTIONS
 #define HYPERVISOR_PERCPU_SECTION
 #define HYPERVISOR_RELOC_SECTION
 #define SBSS_ALIGN			0
@@ -191,7 +181,7 @@ SECTIONS
 	/* everything from this point to __init_begin will be marked RO NX */
 	RO_DATA(PAGE_SIZE)
 
-	HYPERVISOR_RODATA_SECTIONS
+	HYPERVISOR_DATA_SECTIONS
 
 	idmap_pg_dir = .;
 	. += IDMAP_DIR_SIZE;
@@ -272,8 +262,6 @@ SECTIONS
 	_sdata = .;
 	RW_DATA(L1_CACHE_BYTES, PAGE_SIZE, THREAD_ALIGN)
 
-	HYPERVISOR_DATA_SECTION
-
 	/*
 	 * Data written with the MMU off but read with the MMU on requires
 	 * cache lines to be invalidated, discarding up to a Cache Writeback
@@ -342,7 +330,7 @@ ASSERT(__hibernate_exit_text_end - (__hibernate_exit_text_start & ~(SZ_4K - 1))
 	<= SZ_4K, "Hibernate exit text too big or misaligned")
 #endif
 #ifdef CONFIG_UNMAP_KERNEL_AT_EL0
-ASSERT((__entry_tramp_text_end - __entry_tramp_text_start) <= 3*PAGE_SIZE,
+ASSERT((__entry_tramp_text_end - __entry_tramp_text_start) == PAGE_SIZE,
 	"Entry trampoline text too big")
 #endif
 #ifdef CONFIG_KVM

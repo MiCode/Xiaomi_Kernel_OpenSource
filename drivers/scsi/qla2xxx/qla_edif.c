@@ -290,6 +290,63 @@ qla_edif_app_check(scsi_qla_host_t *vha, struct app_id appid)
 	return false;
 }
 
+static void qla_edif_reset_auth_wait(struct fc_port *fcport, int state,
+		int waitonly)
+{
+	int cnt, max_cnt = 200;
+	bool traced = false;
+
+	fcport->keep_nport_handle = 1;
+
+	if (!waitonly) {
+		qla2x00_set_fcport_disc_state(fcport, state);
+		qlt_schedule_sess_for_deletion(fcport);
+	} else {
+		qla2x00_set_fcport_disc_state(fcport, state);
+	}
+
+	ql_dbg(ql_dbg_edif, fcport->vha, 0xf086,
+		"%s: waiting for session, max_cnt=%u\n",
+		__func__, max_cnt);
+
+	cnt = 0;
+
+	if (waitonly) {
+		/* Marker wait min 10 msecs. */
+		msleep(50);
+		cnt += 50;
+	}
+	while (1) {
+		if (!traced) {
+			ql_dbg(ql_dbg_edif, fcport->vha, 0xf086,
+			    "%s: session sleep.\n",
+			    __func__);
+			traced = true;
+		}
+		msleep(20);
+		cnt++;
+		if (waitonly && (fcport->disc_state == state ||
+			fcport->disc_state == DSC_LOGIN_COMPLETE))
+			break;
+		if (fcport->disc_state == DSC_LOGIN_AUTH_PEND)
+			break;
+		if (cnt > max_cnt)
+			break;
+	}
+
+	if (!waitonly) {
+		ql_dbg(ql_dbg_edif, fcport->vha, 0xf086,
+		    "%s: waited for session - %8phC, loopid=%x portid=%06x fcport=%p state=%u, cnt=%u\n",
+		    __func__, fcport->port_name, fcport->loop_id,
+		    fcport->d_id.b24, fcport, fcport->disc_state, cnt);
+	} else {
+		ql_dbg(ql_dbg_edif, fcport->vha, 0xf086,
+		    "%s: waited ONLY for session - %8phC, loopid=%x portid=%06x fcport=%p state=%u, cnt=%u\n",
+		    __func__, fcport->port_name, fcport->loop_id,
+		    fcport->d_id.b24, fcport, fcport->disc_state, cnt);
+	}
+}
+
 static void
 qla_edif_free_sa_ctl(fc_port_t *fcport, struct edif_sa_ctl *sa_ctl,
 	int index)
@@ -472,8 +529,7 @@ qla_edif_app_start(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 	struct app_start_reply	appreply;
 	struct fc_port  *fcport, *tf;
 
-	ql_log(ql_log_info, vha, 0x1313,
-	       "EDIF application registration with driver, FC device connections will be re-established.\n");
+	ql_dbg(ql_dbg_edif, vha, 0x911d, "%s app start\n", __func__);
 
 	sg_copy_to_buffer(bsg_job->request_payload.sg_list,
 	    bsg_job->request_payload.sg_cnt, &appstart,
@@ -498,36 +554,37 @@ qla_edif_app_start(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 		qla2xxx_wake_dpc(vha);
 	} else {
 		list_for_each_entry_safe(fcport, tf, &vha->vp_fcports, list) {
-			ql_dbg(ql_dbg_edif, vha, 0x2058,
-			       "FCSP - nn %8phN pn %8phN portid=%06x.\n",
-			       fcport->node_name, fcport->port_name,
-			       fcport->d_id.b24);
 			ql_dbg(ql_dbg_edif, vha, 0xf084,
-			       "%s: se_sess %p / sess %p from port %8phC "
-			       "loop_id %#04x s_id %06x logout %d "
-			       "keep %d els_logo %d disc state %d auth state %d"
-			       "stop state %d\n",
-			       __func__, fcport->se_sess, fcport,
-			       fcport->port_name, fcport->loop_id,
-			       fcport->d_id.b24, fcport->logout_on_delete,
-			       fcport->keep_nport_handle, fcport->send_els_logo,
-			       fcport->disc_state, fcport->edif.auth_state,
-			       fcport->edif.app_stop);
+			       "%s: sess %p %8phC lid %#04x s_id %06x logout %d\n",
+			       __func__, fcport, fcport->port_name,
+			       fcport->loop_id, fcport->d_id.b24,
+			       fcport->logout_on_delete);
+
+			ql_dbg(ql_dbg_edif, vha, 0xf084,
+			       "keep %d els_logo %d disc state %d auth state %d stop state %d\n",
+			       fcport->keep_nport_handle,
+			       fcport->send_els_logo, fcport->disc_state,
+			       fcport->edif.auth_state, fcport->edif.app_stop);
 
 			if (atomic_read(&vha->loop_state) == LOOP_DOWN)
 				break;
+			if (!(fcport->flags & FCF_FCSP_DEVICE))
+				continue;
 
 			fcport->edif.app_started = 1;
-			fcport->login_retry = vha->hw->login_retry_count;
+			if (fcport->edif.app_stop ||
+			    (fcport->disc_state != DSC_LOGIN_COMPLETE &&
+			     fcport->disc_state != DSC_LOGIN_PEND &&
+			     fcport->disc_state != DSC_DELETED)) {
+				/* no activity */
+				fcport->edif.app_stop = 0;
 
-			/* no activity */
-			fcport->edif.app_stop = 0;
-
-			ql_dbg(ql_dbg_edif, vha, 0x911e,
-			       "%s wwpn %8phC calling qla_edif_reset_auth_wait\n",
-			       __func__, fcport->port_name);
-			fcport->edif.app_sess_online = 0;
-			qlt_schedule_sess_for_deletion(fcport);
+				ql_dbg(ql_dbg_edif, vha, 0x911e,
+				       "%s wwpn %8phC calling qla_edif_reset_auth_wait\n",
+				       __func__, fcport->port_name);
+				fcport->edif.app_sess_online = 1;
+				qla_edif_reset_auth_wait(fcport, DSC_LOGIN_PEND, 0);
+			}
 			qla_edif_sa_ctl_init(vha, fcport);
 		}
 	}
@@ -544,14 +601,14 @@ qla_edif_app_start(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 	appreply.edif_enode_active = vha->pur_cinfo.enode_flags;
 	appreply.edif_edb_active = vha->e_dbell.db_flags;
 
-	bsg_job->reply_len = sizeof(struct fc_bsg_reply);
+	bsg_job->reply_len = sizeof(struct fc_bsg_reply) +
+	    sizeof(struct app_start_reply);
 
 	SET_DID_STATUS(bsg_reply->result, DID_OK);
 
-	bsg_reply->reply_payload_rcv_len = sg_copy_from_buffer(bsg_job->reply_payload.sg_list,
-							       bsg_job->reply_payload.sg_cnt,
-							       &appreply,
-							       sizeof(struct app_start_reply));
+	sg_copy_from_buffer(bsg_job->reply_payload.sg_list,
+	    bsg_job->reply_payload.sg_cnt, &appreply,
+	    sizeof(struct app_start_reply));
 
 	ql_dbg(ql_dbg_edif, vha, 0x911d,
 	    "%s app start completed with 0x%x\n",
@@ -668,11 +725,6 @@ qla_edif_app_authok(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 	    bsg_job->request_payload.sg_cnt, &appplogiok,
 	    sizeof(struct auth_complete_cmd));
 
-	/* silent unaligned access warning */
-	portid.b.domain = appplogiok.u.d_id.b.domain;
-	portid.b.area   = appplogiok.u.d_id.b.area;
-	portid.b.al_pa  = appplogiok.u.d_id.b.al_pa;
-
 	switch (appplogiok.type) {
 	case PL_TYPE_WWPN:
 		fcport = qla2x00_find_fcport_by_wwpn(vha,
@@ -683,7 +735,7 @@ qla_edif_app_authok(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 			    __func__, appplogiok.u.wwpn);
 		break;
 	case PL_TYPE_DID:
-		fcport = qla2x00_find_fcport_by_pid(vha, &portid);
+		fcport = qla2x00_find_fcport_by_pid(vha, &appplogiok.u.d_id);
 		if (!fcport)
 			ql_dbg(ql_dbg_edif, vha, 0x911d,
 			    "%s d_id lookup failed: %x\n", __func__,
@@ -748,15 +800,15 @@ qla_edif_app_authok(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 		ql_dbg(ql_dbg_edif, vha, 0x911e,
 		    "%s AUTH complete - RESUME with prli for wwpn %8phC\n",
 		    __func__, fcport->port_name);
+		qla_edif_reset_auth_wait(fcport, DSC_LOGIN_PEND, 1);
 		qla24xx_post_prli_work(vha, fcport);
 	}
 
 errstate_exit:
 	bsg_job->reply_len = sizeof(struct fc_bsg_reply);
-	bsg_reply->reply_payload_rcv_len = sg_copy_from_buffer(bsg_job->reply_payload.sg_list,
-							       bsg_job->reply_payload.sg_cnt,
-							       &appplogireply,
-							       sizeof(struct app_plogi_reply));
+	sg_copy_from_buffer(bsg_job->reply_payload.sg_list,
+	    bsg_job->reply_payload.sg_cnt, &appplogireply,
+	    sizeof(struct app_plogi_reply));
 
 	return rval;
 }
@@ -782,11 +834,6 @@ qla_edif_app_authfail(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 	    bsg_job->request_payload.sg_cnt, &appplogifail,
 	    sizeof(struct auth_complete_cmd));
 
-	/* silent unaligned access warning */
-	portid.b.domain = appplogifail.u.d_id.b.domain;
-	portid.b.area   = appplogifail.u.d_id.b.area;
-	portid.b.al_pa  = appplogifail.u.d_id.b.al_pa;
-
 	/*
 	 * TODO: edif: app has failed this plogi. Inform driver to
 	 * take any action (if any).
@@ -798,7 +845,7 @@ qla_edif_app_authfail(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 		SET_DID_STATUS(bsg_reply->result, DID_OK);
 		break;
 	case PL_TYPE_DID:
-		fcport = qla2x00_find_fcport_by_pid(vha, &portid);
+		fcport = qla2x00_find_fcport_by_pid(vha, &appplogifail.u.d_id);
 		if (!fcport)
 			ql_dbg(ql_dbg_edif, vha, 0x911d,
 			    "%s d_id lookup failed: %x\n", __func__,
@@ -826,7 +873,7 @@ qla_edif_app_authfail(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 
 		if (qla_ini_mode_enabled(fcport->vha)) {
 			fcport->send_els_logo = 1;
-			qlt_schedule_sess_for_deletion(fcport);
+			qla_edif_reset_auth_wait(fcport, DSC_LOGIN_PEND, 0);
 		}
 	}
 
@@ -844,7 +891,7 @@ static int
 qla_edif_app_getfcinfo(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 {
 	int32_t			rval = 0;
-	int32_t			pcnt = 0;
+	int32_t			num_cnt;
 	struct fc_bsg_reply	*bsg_reply = bsg_job->reply;
 	struct app_pinfo_req	app_req;
 	struct app_pinfo_reply	*app_reply;
@@ -856,14 +903,16 @@ qla_edif_app_getfcinfo(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 	    bsg_job->request_payload.sg_cnt, &app_req,
 	    sizeof(struct app_pinfo_req));
 
-	app_reply = kzalloc((sizeof(struct app_pinfo_reply) +
-	    sizeof(struct app_pinfo) * app_req.num_ports), GFP_KERNEL);
+	num_cnt = app_req.num_ports;	/* num of ports alloc'd by app */
 
+	app_reply = kzalloc((sizeof(struct app_pinfo_reply) +
+	    sizeof(struct app_pinfo) * num_cnt), GFP_KERNEL);
 	if (!app_reply) {
 		SET_DID_STATUS(bsg_reply->result, DID_ERROR);
 		rval = -1;
 	} else {
 		struct fc_port	*fcport = NULL, *tf;
+		uint32_t	pcnt = 0;
 
 		list_for_each_entry_safe(fcport, tf, &vha->vp_fcports, list) {
 			if (!(fcport->flags & FCF_FCSP_DEVICE))
@@ -875,7 +924,7 @@ qla_edif_app_getfcinfo(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 			    "APP request entry - portid=%06x.\n", tdid.b24);
 
 			/* Ran out of space */
-			if (pcnt >= app_req.num_ports)
+			if (pcnt > app_req.num_ports)
 				break;
 
 			if (tdid.b24 != 0 && tdid.b24 != fcport->d_id.b24)
@@ -932,11 +981,9 @@ qla_edif_app_getfcinfo(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 		SET_DID_STATUS(bsg_reply->result, DID_OK);
 	}
 
-	bsg_job->reply_len = sizeof(struct fc_bsg_reply);
-	bsg_reply->reply_payload_rcv_len = sg_copy_from_buffer(bsg_job->reply_payload.sg_list,
-							       bsg_job->reply_payload.sg_cnt,
-							       app_reply,
-							       sizeof(struct app_pinfo_reply) + sizeof(struct app_pinfo) * pcnt);
+	sg_copy_from_buffer(bsg_job->reply_payload.sg_list,
+	    bsg_job->reply_payload.sg_cnt, app_reply,
+	    sizeof(struct app_pinfo_reply) + sizeof(struct app_pinfo) * num_cnt);
 
 	kfree(app_reply);
 
@@ -953,11 +1000,10 @@ qla_edif_app_getstats(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 {
 	int32_t			rval = 0;
 	struct fc_bsg_reply	*bsg_reply = bsg_job->reply;
-	uint32_t size;
+	uint32_t ret_size, size;
 
 	struct app_sinfo_req	app_req;
 	struct app_stats_reply	*app_reply;
-	uint32_t pcnt = 0;
 
 	sg_copy_to_buffer(bsg_job->request_payload.sg_list,
 	    bsg_job->request_payload.sg_cnt, &app_req,
@@ -973,12 +1019,18 @@ qla_edif_app_getstats(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 	size = sizeof(struct app_stats_reply) +
 	    (sizeof(struct app_sinfo) * app_req.num_ports);
 
+	if (size > bsg_job->reply_payload.payload_len)
+		ret_size = bsg_job->reply_payload.payload_len;
+	else
+		ret_size = size;
+
 	app_reply = kzalloc(size, GFP_KERNEL);
 	if (!app_reply) {
 		SET_DID_STATUS(bsg_reply->result, DID_ERROR);
 		rval = -1;
 	} else {
 		struct fc_port	*fcport = NULL, *tf;
+		uint32_t	pcnt = 0;
 
 		list_for_each_entry_safe(fcport, tf, &vha->vp_fcports, list) {
 			if (fcport->edif.enable) {
@@ -1002,11 +1054,9 @@ qla_edif_app_getstats(scsi_qla_host_t *vha, struct bsg_job *bsg_job)
 		SET_DID_STATUS(bsg_reply->result, DID_OK);
 	}
 
-	bsg_job->reply_len = sizeof(struct fc_bsg_reply);
 	bsg_reply->reply_payload_rcv_len =
 	    sg_copy_from_buffer(bsg_job->reply_payload.sg_list,
-	       bsg_job->reply_payload.sg_cnt, app_reply,
-	       sizeof(struct app_stats_reply) + (sizeof(struct app_sinfo) * pcnt));
+	       bsg_job->reply_payload.sg_cnt, app_reply, ret_size);
 
 	kfree(app_reply);
 
@@ -1080,7 +1130,8 @@ qla_edif_app_mgmt(struct bsg_job *bsg_job)
 		    __func__,
 		    bsg_request->rqst_data.h_vendor.vendor_cmd[1]);
 		rval = EXT_STATUS_INVALID_PARAM;
-		done = false;
+		bsg_job->reply_len = sizeof(struct fc_bsg_reply);
+		SET_DID_STATUS(bsg_reply->result, DID_ERROR);
 		break;
 	}
 
@@ -1263,7 +1314,6 @@ qla24xx_sadb_update(struct bsg_job *bsg_job)
 	int result = 0;
 	struct qla_sa_update_frame sa_frame;
 	struct srb_iocb *iocb_cmd;
-	port_id_t portid;
 
 	ql_dbg(ql_dbg_edif + ql_dbg_verbose, vha, 0x911d,
 	    "%s entered, vha: 0x%p\n", __func__, vha);
@@ -1287,12 +1337,7 @@ qla24xx_sadb_update(struct bsg_job *bsg_job)
 		goto done;
 	}
 
-	/* silent unaligned access warning */
-	portid.b.domain = sa_frame.port_id.b.domain;
-	portid.b.area   = sa_frame.port_id.b.area;
-	portid.b.al_pa  = sa_frame.port_id.b.al_pa;
-
-	fcport = qla2x00_find_fcport_by_pid(vha, &portid);
+	fcport = qla2x00_find_fcport_by_pid(vha, &sa_frame.port_id);
 	if (fcport) {
 		found = 1;
 		if (sa_frame.flags == QLA_SA_UPDATE_FLAGS_TX_KEY)
@@ -1606,40 +1651,6 @@ qla_enode_stop(scsi_qla_host_t *vha)
 	spin_unlock_irqrestore(&vha->pur_cinfo.pur_lock, flags);
 }
 
-static void qla_enode_clear(scsi_qla_host_t *vha, port_id_t portid)
-{
-	unsigned    long flags;
-	struct enode    *e, *tmp;
-	struct purexevent   *purex;
-	LIST_HEAD(enode_list);
-
-	if (vha->pur_cinfo.enode_flags != ENODE_ACTIVE) {
-		ql_dbg(ql_dbg_edif, vha, 0x09102,
-		       "%s enode not active\n", __func__);
-		return;
-	}
-	spin_lock_irqsave(&vha->pur_cinfo.pur_lock, flags);
-	list_for_each_entry_safe(e, tmp, &vha->pur_cinfo.head, list) {
-		purex = &e->u.purexinfo;
-		if (purex->pur_info.pur_sid.b24 == portid.b24) {
-			ql_dbg(ql_dbg_edif, vha, 0x911d,
-			    "%s free ELS sid=%06x. xchg %x, nb=%xh\n",
-			    __func__, portid.b24,
-			    purex->pur_info.pur_rx_xchg_address,
-			    purex->pur_info.pur_bytes_rcvd);
-
-			list_del_init(&e->list);
-			list_add_tail(&e->list, &enode_list);
-		}
-	}
-	spin_unlock_irqrestore(&vha->pur_cinfo.pur_lock, flags);
-
-	list_for_each_entry_safe(e, tmp, &enode_list, list) {
-		list_del_init(&e->list);
-		qla_enode_free(vha, e);
-	}
-}
-
 /*
  *  allocate enode struct and populate buffer
  *  returns: enode pointer with buffers
@@ -1837,57 +1848,6 @@ qla_edb_node_free(scsi_qla_host_t *vha, struct edb_node *node)
 	}
 
 	node->ntype = N_UNDEF;
-}
-
-static void qla_edb_clear(scsi_qla_host_t *vha, port_id_t portid)
-{
-	unsigned long flags;
-	struct edb_node *e, *tmp;
-	port_id_t sid;
-	LIST_HEAD(edb_list);
-
-	if (vha->e_dbell.db_flags != EDB_ACTIVE) {
-		/* doorbell list not enabled */
-		ql_dbg(ql_dbg_edif, vha, 0x09102,
-		       "%s doorbell not enabled\n", __func__);
-		return;
-	}
-
-	/* grab lock so list doesn't move */
-	spin_lock_irqsave(&vha->e_dbell.db_lock, flags);
-	list_for_each_entry_safe(e, tmp, &vha->e_dbell.head, list) {
-		switch (e->ntype) {
-		case VND_CMD_AUTH_STATE_NEEDED:
-		case VND_CMD_AUTH_STATE_SESSION_SHUTDOWN:
-			sid = e->u.plogi_did;
-			break;
-		case VND_CMD_AUTH_STATE_ELS_RCVD:
-			sid = e->u.els_sid;
-			break;
-		case VND_CMD_AUTH_STATE_SAUPDATE_COMPL:
-			/* app wants to see this  */
-			continue;
-		default:
-			ql_log(ql_log_warn, vha, 0x09102,
-			       "%s unknown node type: %x\n", __func__, e->ntype);
-			sid.b24 = 0;
-			break;
-		}
-		if (sid.b24 == portid.b24) {
-			ql_dbg(ql_dbg_edif, vha, 0x910f,
-			       "%s free doorbell event : node type = %x %p\n",
-			       __func__, e->ntype, e);
-			list_del_init(&e->list);
-			list_add_tail(&e->list, &edb_list);
-		}
-	}
-	spin_unlock_irqrestore(&vha->e_dbell.db_lock, flags);
-
-	list_for_each_entry_safe(e, tmp, &edb_list, list) {
-		qla_edb_node_free(vha, e);
-		list_del_init(&e->list);
-		kfree(e);
-	}
 }
 
 /* function called when app is stopping */
@@ -2177,8 +2137,7 @@ edif_doorbell_show(struct device *dev, struct device_attribute *attr,
 
 static void qla_noop_sp_done(srb_t *sp, int res)
 {
-	/* ref: INIT */
-	kref_put(&sp->cmd_kref, qla2x00_sp_release);
+	sp->free(sp);
 }
 
 /*
@@ -2398,7 +2357,7 @@ void qla24xx_auth_els(scsi_qla_host_t *vha, void **pkt, struct rsp_que **rsp)
 		return;
 	}
 
-	if (totlen > ELS_MAX_PAYLOAD) {
+	if (totlen > MAX_PAYLOAD) {
 		ql_dbg(ql_dbg_edif, vha, 0x0910d,
 		    "%s WARNING: verbose ELS frame received (totlen=%x)\n",
 		    __func__, totlen);
@@ -2477,7 +2436,7 @@ void qla24xx_auth_els(scsi_qla_host_t *vha, void **pkt, struct rsp_que **rsp)
 	ql_dbg(ql_dbg_edif, host, 0x0910c,
 	    "%s COMPLETE purex->pur_info.pur_bytes_rcvd =%xh s:%06x -> d:%06x xchg=%xh\n",
 	    __func__, purex->pur_info.pur_bytes_rcvd, purex->pur_info.pur_sid.b24,
-	    purex->pur_info.pur_did.b24, purex->pur_info.pur_rx_xchg_address);
+	    purex->pur_info.pur_did.b24, p->rx_xchg_addr);
 
 	qla_edb_eventcreate(host, VND_CMD_AUTH_STATE_ELS_RCVD, sid, 0, NULL);
 }
@@ -3499,13 +3458,4 @@ void qla_edif_sess_down(struct scsi_qla_host *vha, struct fc_port *sess)
 		    sess->d_id.b24, 0, sess);
 		qla2x00_post_aen_work(vha, FCH_EVT_PORT_OFFLINE, sess->d_id.b24);
 	}
-}
-
-void qla_edif_clear_appdata(struct scsi_qla_host *vha, struct fc_port *fcport)
-{
-	if (!(fcport->flags & FCF_FCSP_DEVICE))
-		return;
-
-	qla_edb_clear(vha, fcport->d_id);
-	qla_enode_clear(vha, fcport->d_id);
 }

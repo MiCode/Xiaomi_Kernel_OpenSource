@@ -487,7 +487,7 @@ nfs_idmap_new(struct nfs_client *clp)
 err_destroy_pipe:
 	rpc_destroy_pipe_data(idmap->idmap_pipe);
 err:
-	put_user_ns(idmap->user_ns);
+	get_user_ns(idmap->user_ns);
 	kfree(idmap);
 	return error;
 }

@@ -178,8 +178,9 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	main_prog = bpf_object__find_program_by_name(obj,
-						     server ? "xdping_server" : "xdping_client");
+	main_prog = bpf_object__find_program_by_title(obj,
+						      server ? "xdpserver" :
+							       "xdpclient");
 	if (main_prog)
 		prog_fd = bpf_program__fd(main_prog);
 	if (!main_prog || prog_fd < 0) {

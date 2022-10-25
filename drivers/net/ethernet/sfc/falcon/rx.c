@@ -110,8 +110,6 @@ static struct page *ef4_reuse_page(struct ef4_rx_queue *rx_queue)
 	struct ef4_rx_page_state *state;
 	unsigned index;
 
-	if (unlikely(!rx_queue->page_ring))
-		return NULL;
 	index = rx_queue->page_remove & rx_queue->page_ptr_mask;
 	page = rx_queue->page_ring[index];
 	if (page == NULL)
@@ -294,9 +292,6 @@ static void ef4_recycle_rx_pages(struct ef4_channel *channel,
 				 unsigned int n_frags)
 {
 	struct ef4_rx_queue *rx_queue = ef4_channel_get_rx_queue(channel);
-
-	if (unlikely(!rx_queue->page_ring))
-		return;
 
 	do {
 		ef4_recycle_rx_page(channel, rx_buf);
@@ -733,10 +728,7 @@ static void ef4_init_rx_recycle_ring(struct ef4_nic *efx,
 					    efx->rx_bufs_per_page);
 	rx_queue->page_ring = kcalloc(page_ring_size,
 				      sizeof(*rx_queue->page_ring), GFP_KERNEL);
-	if (!rx_queue->page_ring)
-		rx_queue->page_ptr_mask = 0;
-	else
-		rx_queue->page_ptr_mask = page_ring_size - 1;
+	rx_queue->page_ptr_mask = page_ring_size - 1;
 }
 
 void ef4_init_rx_queue(struct ef4_rx_queue *rx_queue)

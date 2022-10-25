@@ -285,9 +285,7 @@ static void nfs42_copy_dest_done(struct inode *inode, loff_t pos, loff_t len)
 	loff_t newsize = pos + len;
 	loff_t end = newsize - 1;
 
-	WARN_ON_ONCE(invalidate_inode_pages2_range(inode->i_mapping,
-				pos >> PAGE_SHIFT, end >> PAGE_SHIFT));
-
+	truncate_pagecache_range(inode, pos, end);
 	spin_lock(&inode->i_lock);
 	if (newsize > i_size_read(inode))
 		i_size_write(inode, newsize);
@@ -586,10 +584,8 @@ static int _nfs42_proc_copy_notify(struct file *src, struct file *dst,
 
 	ctx = get_nfs_open_context(nfs_file_open_context(src));
 	l_ctx = nfs_get_lock_context(ctx);
-	if (IS_ERR(l_ctx)) {
-		status = PTR_ERR(l_ctx);
-		goto out;
-	}
+	if (IS_ERR(l_ctx))
+		return PTR_ERR(l_ctx);
 
 	status = nfs4_set_rw_stateid(&args->cna_src_stateid, ctx, l_ctx,
 				     FMODE_READ);
@@ -597,7 +593,7 @@ static int _nfs42_proc_copy_notify(struct file *src, struct file *dst,
 	if (status) {
 		if (status == -EAGAIN)
 			status = -NFS4ERR_BAD_STATEID;
-		goto out;
+		return status;
 	}
 
 	status = nfs4_call_sync(src_server->client, src_server, &msg,
@@ -605,7 +601,6 @@ static int _nfs42_proc_copy_notify(struct file *src, struct file *dst,
 	if (status == -ENOTSUPP)
 		src_server->caps &= ~NFS_CAP_COPY_NOTIFY;
 
-out:
 	put_nfs_open_context(nfs_file_open_context(src));
 	return status;
 }

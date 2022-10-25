@@ -49,7 +49,7 @@ int erofs_pcpubuf_growsize(unsigned int nrpages)
 {
 	static DEFINE_MUTEX(pcb_resize_mutex);
 	static unsigned int pcb_nrpages;
-	struct page *pagepool = NULL;
+	LIST_HEAD(pagepool);
 	int delta, cpu, ret, i;
 
 	mutex_lock(&pcb_resize_mutex);
@@ -102,13 +102,13 @@ int erofs_pcpubuf_growsize(unsigned int nrpages)
 			vunmap(old_ptr);
 free_pagearray:
 		while (i)
-			erofs_pagepool_add(&pagepool, oldpages[--i]);
+			list_add(&oldpages[--i]->lru, &pagepool);
 		kfree(oldpages);
 		if (ret)
 			break;
 	}
 	pcb_nrpages = nrpages;
-	erofs_release_pages(&pagepool);
+	put_pages_list(&pagepool);
 out:
 	mutex_unlock(&pcb_resize_mutex);
 	return ret;

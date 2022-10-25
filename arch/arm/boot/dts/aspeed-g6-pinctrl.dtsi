@@ -118,7 +118,7 @@
 	};
 
 	pinctrl_fwqspid_default: fwqspid_default {
-		function = "FWSPID";
+		function = "FWQSPID";
 		groups = "FWQSPID";
 	};
 

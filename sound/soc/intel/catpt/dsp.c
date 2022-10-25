@@ -65,7 +65,6 @@ static int catpt_dma_memcpy(struct catpt_dev *cdev, struct dma_chan *chan,
 {
 	struct dma_async_tx_descriptor *desc;
 	enum dma_status status;
-	int ret;
 
 	desc = dmaengine_prep_dma_memcpy(chan, dst_addr, src_addr, size,
 					 DMA_CTRL_ACK);
@@ -78,22 +77,13 @@ static int catpt_dma_memcpy(struct catpt_dev *cdev, struct dma_chan *chan,
 	catpt_updatel_shim(cdev, HMDC,
 			   CATPT_HMDC_HDDA(CATPT_DMA_DEVID, chan->chan_id),
 			   CATPT_HMDC_HDDA(CATPT_DMA_DEVID, chan->chan_id));
-
-	ret = dma_submit_error(dmaengine_submit(desc));
-	if (ret) {
-		dev_err(cdev->dev, "submit tx failed: %d\n", ret);
-		goto clear_hdda;
-	}
-
+	dmaengine_submit(desc);
 	status = dma_wait_for_async_tx(desc);
-	ret = (status == DMA_COMPLETE) ? 0 : -EPROTO;
-
-clear_hdda:
 	/* regardless of status, disable access to HOST memory in demand mode */
 	catpt_updatel_shim(cdev, HMDC,
 			   CATPT_HMDC_HDDA(CATPT_DMA_DEVID, chan->chan_id), 0);
 
-	return ret;
+	return (status == DMA_COMPLETE) ? 0 : -EPROTO;
 }
 
 int catpt_dma_memcpy_todsp(struct catpt_dev *cdev, struct dma_chan *chan,

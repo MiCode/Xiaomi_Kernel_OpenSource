@@ -6,7 +6,6 @@
 # Author: Felix Guo <felixguoxiuping@gmail.com>
 # Author: Brendan Higgins <brendanhiggins@google.com>
 
-import importlib.abc
 import importlib.util
 import logging
 import subprocess

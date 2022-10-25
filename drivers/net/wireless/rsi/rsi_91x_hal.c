@@ -203,7 +203,7 @@ int rsi_prepare_data_desc(struct rsi_common *common, struct sk_buff *skb)
 		wh->frame_control |= cpu_to_le16(RSI_SET_PS_ENABLE);
 
 	if ((!(info->flags & IEEE80211_TX_INTFL_DONT_ENCRYPT)) &&
-	    tx_params->have_key) {
+	    info->control.hw_key) {
 		if (rsi_is_cipher_wep(common))
 			ieee80211_size += 4;
 		else
@@ -214,17 +214,15 @@ int rsi_prepare_data_desc(struct rsi_common *common, struct sk_buff *skb)
 			RSI_WIFI_DATA_Q);
 	data_desc->header_len = ieee80211_size;
 
-	if (common->rate_config[common->band].fixed_enabled) {
+	if (common->min_rate != RSI_RATE_AUTO) {
 		/* Send fixed rate */
-		u16 fixed_rate = common->rate_config[common->band].fixed_hw_rate;
-
 		data_desc->frame_info = cpu_to_le16(RATE_INFO_ENABLE);
-		data_desc->rate_info = cpu_to_le16(fixed_rate);
+		data_desc->rate_info = cpu_to_le16(common->min_rate);
 
 		if (conf_is_ht40(&common->priv->hw->conf))
 			data_desc->bbp_info = cpu_to_le16(FULL40M_ENABLE);
 
-		if (common->vif_info[0].sgi && (fixed_rate & 0x100)) {
+		if ((common->vif_info[0].sgi) && (common->min_rate & 0x100)) {
 		       /* Only MCS rates */
 			data_desc->rate_info |=
 				cpu_to_le16(ENABLE_SHORTGI_RATE);

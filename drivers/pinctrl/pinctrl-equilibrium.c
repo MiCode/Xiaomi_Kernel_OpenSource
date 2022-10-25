@@ -675,11 +675,6 @@ static int eqbr_build_functions(struct eqbr_pinctrl_drv_data *drvdata)
 		return ret;
 
 	for (i = 0; i < nr_funcs; i++) {
-
-		/* Ignore the same function with multiple groups */
-		if (funcs[i].name == NULL)
-			continue;
-
 		ret = pinmux_generic_add_function(drvdata->pctl_dev,
 						  funcs[i].name,
 						  funcs[i].groups,
@@ -820,7 +815,7 @@ static int pinctrl_reg(struct eqbr_pinctrl_drv_data *drvdata)
 
 	ret = eqbr_build_functions(drvdata);
 	if (ret) {
-		dev_err(dev, "Failed to build functions\n");
+		dev_err(dev, "Failed to build groups\n");
 		return ret;
 	}
 

@@ -972,7 +972,7 @@ static void __iomem *cxl_mem_map_regblock(struct cxl_mem *cxlm,
 	if (pci_resource_len(pdev, bar) < offset) {
 		dev_err(dev, "BAR%d: %pr: too small (offset: %#llx)\n", bar,
 			&pdev->resource[bar], (unsigned long long)offset);
-		return NULL;
+		return IOMEM_ERR_PTR(-ENXIO);
 	}
 
 	addr = pci_iomap(pdev, bar, 0);

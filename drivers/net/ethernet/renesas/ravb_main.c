@@ -30,7 +30,8 @@
 #include <linux/spinlock.h>
 #include <linux/sys_soc.h>
 #include <linux/reset.h>
-#include <linux/math64.h>
+
+#include <asm/div64.h>
 
 #include "ravb.h"
 
@@ -2060,7 +2061,8 @@ static int ravb_set_gti(struct net_device *ndev)
 	if (!rate)
 		return -EINVAL;
 
-	inc = div64_ul(1000000000ULL << 20, rate);
+	inc = 1000000000ULL << 20;
+	do_div(inc, rate);
 
 	if (inc < GTI_TIV_MIN || inc > GTI_TIV_MAX) {
 		dev_err(dev, "gti.tiv increment 0x%llx is outside the range 0x%x - 0x%x\n",

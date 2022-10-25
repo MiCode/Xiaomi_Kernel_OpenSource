@@ -4,6 +4,7 @@
  */
 
 #include <linux/kvm_host.h>
+#include "kvm_cache_regs.h"
 
 #include <asm/mshyperv.h>
 

@@ -72,8 +72,6 @@ static int sram_probe(struct platform_device *pdev)
 	if (!info)
 		return -ENOMEM;
 
-	platform_set_drvdata(pdev, info);
-
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res == NULL) {
 		dev_err(&pdev->dev, "no memory resource defined\n");
@@ -109,6 +107,8 @@ static int sram_probe(struct platform_device *pdev)
 	list_add(&info->node, &sram_bank_list);
 	mutex_unlock(&sram_lock);
 
+	platform_set_drvdata(pdev, info);
+
 	dev_info(&pdev->dev, "initialized\n");
 	return 0;
 
@@ -127,19 +127,17 @@ static int sram_remove(struct platform_device *pdev)
 	struct sram_bank_info *info;
 
 	info = platform_get_drvdata(pdev);
+	if (info == NULL)
+		return -ENODEV;
 
-	if (info->sram_size) {
-		mutex_lock(&sram_lock);
-		list_del(&info->node);
-		mutex_unlock(&sram_lock);
+	mutex_lock(&sram_lock);
+	list_del(&info->node);
+	mutex_unlock(&sram_lock);
 
-		gen_pool_destroy(info->gpool);
-		iounmap(info->sram_virt);
-		kfree(info->pool_name);
-	}
-
+	gen_pool_destroy(info->gpool);
+	iounmap(info->sram_virt);
+	kfree(info->pool_name);
 	kfree(info);
-
 	return 0;
 }
 

@@ -122,10 +122,10 @@ struct nbd_device {
 	struct work_struct remove_work;
 
 	struct list_head list;
+	struct task_struct *task_recv;
 	struct task_struct *task_setup;
 
 	unsigned long flags;
-	pid_t pid; /* pid of nbd-client, if attached */
 
 	char *backend;
 };
@@ -217,7 +217,7 @@ static ssize_t pid_show(struct device *dev,
 	struct gendisk *disk = dev_to_disk(dev);
 	struct nbd_device *nbd = (struct nbd_device *)disk->private_data;
 
-	return sprintf(buf, "%d\n", nbd->pid);
+	return sprintf(buf, "%d\n", task_pid_nr(nbd->task_recv));
 }
 
 static const struct device_attribute pid_attr = {
@@ -254,7 +254,7 @@ static void nbd_dev_remove(struct nbd_device *nbd)
 	mutex_lock(&nbd_index_mutex);
 	idr_remove(&nbd_index_idr, nbd->index);
 	mutex_unlock(&nbd_index_mutex);
-	destroy_workqueue(nbd->recv_workq);
+
 	kfree(nbd);
 }
 
@@ -329,7 +329,7 @@ static int nbd_set_size(struct nbd_device *nbd, loff_t bytesize,
 	nbd->config->bytesize = bytesize;
 	nbd->config->blksize_bits = __ffs(blksize);
 
-	if (!nbd->pid)
+	if (!nbd->task_recv)
 		return 0;
 
 	if (nbd->config->flags & NBD_FLAG_SEND_TRIM) {
@@ -1241,7 +1241,7 @@ static void nbd_config_put(struct nbd_device *nbd)
 		if (test_and_clear_bit(NBD_RT_HAS_PID_FILE,
 				       &config->runtime_flags))
 			device_remove_file(disk_to_dev(nbd->disk), &pid_attr);
-		nbd->pid = 0;
+		nbd->task_recv = NULL;
 		if (test_and_clear_bit(NBD_RT_HAS_BACKEND_FILE,
 				       &config->runtime_flags)) {
 			device_remove_file(disk_to_dev(nbd->disk), &backend_attr);
@@ -1259,6 +1259,10 @@ static void nbd_config_put(struct nbd_device *nbd)
 		}
 		kfree(nbd->config);
 		nbd->config = NULL;
+
+		if (nbd->recv_workq)
+			destroy_workqueue(nbd->recv_workq);
+		nbd->recv_workq = NULL;
 
 		nbd->tag_set.timeout = 0;
 		nbd->disk->queue->limits.discard_granularity = 0;
@@ -1278,7 +1282,7 @@ static int nbd_start_device(struct nbd_device *nbd)
 	int num_connections = config->num_connections;
 	int error = 0, i;
 
-	if (nbd->pid)
+	if (nbd->task_recv)
 		return -EBUSY;
 	if (!config->socks)
 		return -EINVAL;
@@ -1288,8 +1292,16 @@ static int nbd_start_device(struct nbd_device *nbd)
 		return -EINVAL;
 	}
 
+	nbd->recv_workq = alloc_workqueue("knbd%d-recv",
+					  WQ_MEM_RECLAIM | WQ_HIGHPRI |
+					  WQ_UNBOUND, 0, nbd->index);
+	if (!nbd->recv_workq) {
+		dev_err(disk_to_dev(nbd->disk), "Could not allocate knbd recv work queue.\n");
+		return -ENOMEM;
+	}
+
 	blk_mq_update_nr_hw_queues(&nbd->tag_set, config->num_connections);
-	nbd->pid = task_pid_nr(current);
+	nbd->task_recv = current;
 
 	nbd_parse_flags(nbd);
 
@@ -1545,8 +1557,8 @@ static int nbd_dbg_tasks_show(struct seq_file *s, void *unused)
 {
 	struct nbd_device *nbd = s->private;
 
-	if (nbd->pid)
-		seq_printf(s, "recv: %d\n", nbd->pid);
+	if (nbd->task_recv)
+		seq_printf(s, "recv: %d\n", task_pid_nr(nbd->task_recv));
 
 	return 0;
 }
@@ -1713,15 +1725,6 @@ static struct nbd_device *nbd_dev_add(int index, unsigned int refs)
 	}
 	nbd->disk = disk;
 
-	nbd->recv_workq = alloc_workqueue("nbd%d-recv",
-					  WQ_MEM_RECLAIM | WQ_HIGHPRI |
-					  WQ_UNBOUND, 0, nbd->index);
-	if (!nbd->recv_workq) {
-		dev_err(disk_to_dev(nbd->disk), "Could not allocate knbd recv work queue.\n");
-		err = -ENOMEM;
-		goto out_err_disk;
-	}
-
 	/*
 	 * Tell the block layer that we are not a rotational device
 	 */
@@ -1746,22 +1749,20 @@ static struct nbd_device *nbd_dev_add(int index, unsigned int refs)
 	disk->major = NBD_MAJOR;
 
 	/* Too big first_minor can cause duplicate creation of
-	 * sysfs files/links, since index << part_shift might overflow, or
-	 * MKDEV() expect that the max bits of first_minor is 20.
+	 * sysfs files/links, since first_minor will be truncated to
+	 * byte in __device_add_disk().
 	 */
 	disk->first_minor = index << part_shift;
-	if (disk->first_minor < index || disk->first_minor > MINORMASK) {
+	if (disk->first_minor > 0xff) {
 		err = -EINVAL;
-		goto out_free_work;
+		goto out_free_idr;
 	}
 
 	disk->minors = 1 << part_shift;
 	disk->fops = &nbd_fops;
 	disk->private_data = nbd;
 	sprintf(disk->disk_name, "nbd%d", index);
-	err = add_disk(disk);
-	if (err)
-		goto out_free_work;
+	add_disk(disk);
 
 	/*
 	 * Now publish the device.
@@ -1770,10 +1771,6 @@ static struct nbd_device *nbd_dev_add(int index, unsigned int refs)
 	nbd_total_devices++;
 	return nbd;
 
-out_free_work:
-	destroy_workqueue(nbd->recv_workq);
-out_err_disk:
-	blk_cleanup_disk(disk);
 out_free_idr:
 	mutex_lock(&nbd_index_mutex);
 	idr_remove(&nbd_index_idr, index);
@@ -2027,10 +2024,13 @@ static void nbd_disconnect_and_put(struct nbd_device *nbd)
 	nbd_disconnect(nbd);
 	sock_shutdown(nbd);
 	/*
-	 * Make sure recv thread has finished, we can safely call nbd_clear_que()
+	 * Make sure recv thread has finished, so it does not drop the last
+	 * config ref and try to destroy the workqueue from inside the work
+	 * queue. And this also ensure that we can safely call nbd_clear_que()
 	 * to cancel the inflight I/Os.
 	 */
-	flush_workqueue(nbd->recv_workq);
+	if (nbd->recv_workq)
+		flush_workqueue(nbd->recv_workq);
 	nbd_clear_que(nbd);
 	nbd->task_setup = NULL;
 	mutex_unlock(&nbd->config_lock);
@@ -2135,7 +2135,7 @@ static int nbd_genl_reconfigure(struct sk_buff *skb, struct genl_info *info)
 	mutex_lock(&nbd->config_lock);
 	config = nbd->config;
 	if (!test_bit(NBD_RT_BOUND, &config->runtime_flags) ||
-	    !nbd->pid) {
+	    !nbd->task_recv) {
 		dev_err(nbd_to_dev(nbd),
 			"not configured, cannot reconfigure\n");
 		ret = -EINVAL;

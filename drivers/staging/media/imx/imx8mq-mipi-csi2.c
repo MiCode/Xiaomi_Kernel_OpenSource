@@ -398,6 +398,9 @@ static int imx8mq_mipi_csi_s_stream(struct v4l2_subdev *sd, int enable)
 	struct csi_state *state = mipi_sd_to_csi2_state(sd);
 	int ret = 0;
 
+	imx8mq_mipi_csi_write(state, CSI2RX_IRQ_MASK,
+			      CSI2RX_IRQ_MASK_ULPS_STATUS_CHANGE);
+
 	if (enable) {
 		ret = pm_runtime_resume_and_get(state->dev);
 		if (ret < 0)
@@ -693,7 +696,7 @@ err_parse:
  * Suspend/resume
  */
 
-static int imx8mq_mipi_csi_pm_suspend(struct device *dev)
+static int imx8mq_mipi_csi_pm_suspend(struct device *dev, bool runtime)
 {
 	struct v4l2_subdev *sd = dev_get_drvdata(dev);
 	struct csi_state *state = mipi_sd_to_csi2_state(sd);
@@ -705,20 +708,35 @@ static int imx8mq_mipi_csi_pm_suspend(struct device *dev)
 		imx8mq_mipi_csi_stop_stream(state);
 		imx8mq_mipi_csi_clk_disable(state);
 		state->state &= ~ST_POWERED;
+		if (!runtime)
+			state->state |= ST_SUSPENDED;
 	}
 
 	mutex_unlock(&state->lock);
 
+	ret = icc_set_bw(state->icc_path, 0, 0);
+	if (ret)
+		dev_err(dev, "icc_set_bw failed with %d\n", ret);
+
 	return ret ? -EAGAIN : 0;
 }
 
-static int imx8mq_mipi_csi_pm_resume(struct device *dev)
+static int imx8mq_mipi_csi_pm_resume(struct device *dev, bool runtime)
 {
 	struct v4l2_subdev *sd = dev_get_drvdata(dev);
 	struct csi_state *state = mipi_sd_to_csi2_state(sd);
 	int ret = 0;
 
+	ret = icc_set_bw(state->icc_path, 0, state->icc_path_bw);
+	if (ret) {
+		dev_err(dev, "icc_set_bw failed with %d\n", ret);
+		return ret;
+	}
+
 	mutex_lock(&state->lock);
+
+	if (!runtime && !(state->state & ST_SUSPENDED))
+		goto unlock;
 
 	if (!(state->state & ST_POWERED)) {
 		state->state |= ST_POWERED;
@@ -740,60 +758,22 @@ unlock:
 
 static int __maybe_unused imx8mq_mipi_csi_suspend(struct device *dev)
 {
-	struct v4l2_subdev *sd = dev_get_drvdata(dev);
-	struct csi_state *state = mipi_sd_to_csi2_state(sd);
-	int ret;
-
-	ret = imx8mq_mipi_csi_pm_suspend(dev);
-	if (ret)
-		return ret;
-
-	state->state |= ST_SUSPENDED;
-
-	return ret;
+	return imx8mq_mipi_csi_pm_suspend(dev, false);
 }
 
 static int __maybe_unused imx8mq_mipi_csi_resume(struct device *dev)
 {
-	struct v4l2_subdev *sd = dev_get_drvdata(dev);
-	struct csi_state *state = mipi_sd_to_csi2_state(sd);
-
-	if (!(state->state & ST_SUSPENDED))
-		return 0;
-
-	return imx8mq_mipi_csi_pm_resume(dev);
+	return imx8mq_mipi_csi_pm_resume(dev, false);
 }
 
 static int __maybe_unused imx8mq_mipi_csi_runtime_suspend(struct device *dev)
 {
-	struct v4l2_subdev *sd = dev_get_drvdata(dev);
-	struct csi_state *state = mipi_sd_to_csi2_state(sd);
-	int ret;
-
-	ret = imx8mq_mipi_csi_pm_suspend(dev);
-	if (ret)
-		return ret;
-
-	ret = icc_set_bw(state->icc_path, 0, 0);
-	if (ret)
-		dev_err(dev, "icc_set_bw failed with %d\n", ret);
-
-	return ret;
+	return imx8mq_mipi_csi_pm_suspend(dev, true);
 }
 
 static int __maybe_unused imx8mq_mipi_csi_runtime_resume(struct device *dev)
 {
-	struct v4l2_subdev *sd = dev_get_drvdata(dev);
-	struct csi_state *state = mipi_sd_to_csi2_state(sd);
-	int ret;
-
-	ret = icc_set_bw(state->icc_path, 0, state->icc_path_bw);
-	if (ret) {
-		dev_err(dev, "icc_set_bw failed with %d\n", ret);
-		return ret;
-	}
-
-	return imx8mq_mipi_csi_pm_resume(dev);
+	return imx8mq_mipi_csi_pm_resume(dev, true);
 }
 
 static const struct dev_pm_ops imx8mq_mipi_csi_pm_ops = {
@@ -941,7 +921,7 @@ static int imx8mq_mipi_csi_probe(struct platform_device *pdev)
 	/* Enable runtime PM. */
 	pm_runtime_enable(dev);
 	if (!pm_runtime_enabled(dev)) {
-		ret = imx8mq_mipi_csi_runtime_resume(dev);
+		ret = imx8mq_mipi_csi_pm_resume(dev, true);
 		if (ret < 0)
 			goto icc;
 	}
@@ -954,7 +934,7 @@ static int imx8mq_mipi_csi_probe(struct platform_device *pdev)
 
 cleanup:
 	pm_runtime_disable(&pdev->dev);
-	imx8mq_mipi_csi_runtime_suspend(&pdev->dev);
+	imx8mq_mipi_csi_pm_suspend(&pdev->dev, true);
 
 	media_entity_cleanup(&state->sd.entity);
 	v4l2_async_notifier_unregister(&state->notifier);
@@ -978,7 +958,7 @@ static int imx8mq_mipi_csi_remove(struct platform_device *pdev)
 	v4l2_async_unregister_subdev(&state->sd);
 
 	pm_runtime_disable(&pdev->dev);
-	imx8mq_mipi_csi_runtime_suspend(&pdev->dev);
+	imx8mq_mipi_csi_pm_suspend(&pdev->dev, true);
 	media_entity_cleanup(&state->sd.entity);
 	mutex_destroy(&state->lock);
 	pm_runtime_set_suspended(&pdev->dev);

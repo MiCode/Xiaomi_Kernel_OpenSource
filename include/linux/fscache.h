@@ -167,7 +167,7 @@ struct fscache_cookie {
 
 static inline bool fscache_cookie_enabled(struct fscache_cookie *cookie)
 {
-	return fscache_cookie_valid(cookie) && test_bit(FSCACHE_COOKIE_ENABLED, &cookie->flags);
+	return test_bit(FSCACHE_COOKIE_ENABLED, &cookie->flags);
 }
 
 /*

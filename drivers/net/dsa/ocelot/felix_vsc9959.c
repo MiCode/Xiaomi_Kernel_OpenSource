@@ -1066,7 +1066,7 @@ static int vsc9959_mdio_bus_alloc(struct ocelot *ocelot)
 		return PTR_ERR(hw);
 	}
 
-	bus = mdiobus_alloc_size(sizeof(*mdio_priv));
+	bus = devm_mdiobus_alloc_size(dev, sizeof(*mdio_priv));
 	if (!bus)
 		return -ENOMEM;
 
@@ -1086,7 +1086,6 @@ static int vsc9959_mdio_bus_alloc(struct ocelot *ocelot)
 	rc = mdiobus_register(bus);
 	if (rc < 0) {
 		dev_err(dev, "failed to register MDIO bus\n");
-		mdiobus_free(bus);
 		return rc;
 	}
 
@@ -1136,7 +1135,6 @@ static void vsc9959_mdio_bus_free(struct ocelot *ocelot)
 		lynx_pcs_destroy(pcs);
 	}
 	mdiobus_unregister(felix->imdio);
-	mdiobus_free(felix->imdio);
 }
 
 static void vsc9959_sched_speed_set(struct ocelot *ocelot, int port,
@@ -1455,7 +1453,7 @@ static int felix_pci_probe(struct pci_dev *pdev,
 
 	err = dsa_register_switch(ds);
 	if (err) {
-		dev_err_probe(&pdev->dev, err, "Failed to register DSA switch\n");
+		dev_err(&pdev->dev, "Failed to register DSA switch: %d\n", err);
 		goto err_register_ds;
 	}
 

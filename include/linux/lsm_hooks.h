@@ -1313,22 +1313,22 @@
  *
  * @binder_set_context_mgr:
  *	Check whether @mgr is allowed to be the binder context manager.
- *	@mgr contains the struct cred for the current binder process.
+ *	@mgr contains the task_struct for the task being registered.
  *	Return 0 if permission is granted.
  * @binder_transaction:
  *	Check whether @from is allowed to invoke a binder transaction call
  *	to @to.
- *	@from contains the struct cred for the sending process.
- *	@to contains the struct cred for the receiving process.
+ *	@from contains the task_struct for the sending task.
+ *	@to contains the task_struct for the receiving task.
  * @binder_transfer_binder:
  *	Check whether @from is allowed to transfer a binder reference to @to.
- *	@from contains the struct cred for the sending process.
- *	@to contains the struct cred for the receiving process.
+ *	@from contains the task_struct for the sending task.
+ *	@to contains the task_struct for the receiving task.
  * @binder_transfer_file:
  *	Check whether @from is allowed to transfer @file to @to.
- *	@from contains the struct cred for the sending process.
+ *	@from contains the task_struct for the sending task.
  *	@file contains the struct file being transferred.
- *	@to contains the struct cred for the receiving process.
+ *	@to contains the task_struct for the receiving task.
  *
  * @ptrace_access_check:
  *	Check permission before allowing the current process to trace the

@@ -791,7 +791,7 @@ static int cscfg_create_device(void)
 
 	err = device_register(dev);
 	if (err)
-		put_device(dev);
+		cscfg_dev_release(dev);
 
 create_dev_exit_unlock:
 	mutex_unlock(&cscfg_mutex);

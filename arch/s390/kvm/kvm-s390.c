@@ -3447,7 +3447,7 @@ bool kvm_arch_no_poll(struct kvm_vcpu *vcpu)
 {
 	/* do not poll with more than halt_poll_max_steal percent of steal time */
 	if (S390_lowcore.avg_steal_timer * 100 / (TICK_USEC << 12) >=
-	    READ_ONCE(halt_poll_max_steal)) {
+	    halt_poll_max_steal) {
 		vcpu->stat.halt_no_poll_steal++;
 		return true;
 	}
@@ -4642,15 +4642,10 @@ int kvm_s390_vcpu_stop(struct kvm_vcpu *vcpu)
 		}
 	}
 
-	/*
-	 * Set the VCPU to STOPPED and THEN clear the interrupt flag,
-	 * now that the SIGP STOP and SIGP STOP AND STORE STATUS orders
-	 * have been fully processed. This will ensure that the VCPU
-	 * is kept BUSY if another VCPU is inquiring with SIGP SENSE.
-	 */
-	kvm_s390_set_cpuflags(vcpu, CPUSTAT_STOPPED);
+	/* SIGP STOP and SIGP STOP AND STORE STATUS has been fully processed */
 	kvm_s390_clear_stop_irq(vcpu);
 
+	kvm_s390_set_cpuflags(vcpu, CPUSTAT_STOPPED);
 	__disable_ibs_on_vcpu(vcpu);
 
 	for (i = 0; i < online_vcpus; i++) {
@@ -4708,8 +4703,6 @@ static long kvm_s390_guest_sida_op(struct kvm_vcpu *vcpu,
 		return -EINVAL;
 	if (mop->size + mop->sida_offset > sida_size(vcpu->arch.sie_block))
 		return -E2BIG;
-	if (!kvm_s390_pv_cpu_is_protected(vcpu))
-		return -EINVAL;
 
 	switch (mop->op) {
 	case KVM_S390_MEMOP_SIDA_READ:

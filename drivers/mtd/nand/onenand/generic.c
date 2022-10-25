@@ -53,12 +53,7 @@ static int generic_onenand_probe(struct platform_device *pdev)
 	}
 
 	info->onenand.mmcontrol = pdata ? pdata->mmcontrol : NULL;
-
-	err = platform_get_irq(pdev, 0);
-	if (err < 0)
-		goto out_iounmap;
-
-	info->onenand.irq = err;
+	info->onenand.irq = platform_get_irq(pdev, 0);
 
 	info->mtd.dev.parent = &pdev->dev;
 	info->mtd.priv = &info->onenand;

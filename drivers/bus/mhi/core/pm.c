@@ -218,7 +218,7 @@ int mhi_ready_state_transition(struct mhi_controller *mhi_cntrl)
 			continue;
 
 		ring->wp = ring->base + ring->len - ring->el_size;
-		*ring->ctxt_wp = cpu_to_le64(ring->iommu_base + ring->len - ring->el_size);
+		*ring->ctxt_wp = ring->iommu_base + ring->len - ring->el_size;
 		/* Update all cores */
 		smp_wmb();
 
@@ -420,7 +420,7 @@ static int mhi_pm_mission_mode_transition(struct mhi_controller *mhi_cntrl)
 			continue;
 
 		ring->wp = ring->base + ring->len - ring->el_size;
-		*ring->ctxt_wp = cpu_to_le64(ring->iommu_base + ring->len - ring->el_size);
+		*ring->ctxt_wp = ring->iommu_base + ring->len - ring->el_size;
 		/* Update to all cores */
 		smp_wmb();
 
@@ -881,7 +881,7 @@ int mhi_pm_suspend(struct mhi_controller *mhi_cntrl)
 }
 EXPORT_SYMBOL_GPL(mhi_pm_suspend);
 
-static int __mhi_pm_resume(struct mhi_controller *mhi_cntrl, bool force)
+int mhi_pm_resume(struct mhi_controller *mhi_cntrl)
 {
 	struct mhi_chan *itr, *tmp;
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
@@ -898,12 +898,8 @@ static int __mhi_pm_resume(struct mhi_controller *mhi_cntrl, bool force)
 	if (MHI_PM_IN_ERROR_STATE(mhi_cntrl->pm_state))
 		return -EIO;
 
-	if (mhi_get_mhi_state(mhi_cntrl) != MHI_STATE_M3) {
-		dev_warn(dev, "Resuming from non M3 state (%s)\n",
-			 TO_MHI_STATE_STR(mhi_get_mhi_state(mhi_cntrl)));
-		if (!force)
-			return -EINVAL;
-	}
+	if (mhi_get_mhi_state(mhi_cntrl) != MHI_STATE_M3)
+		return -EINVAL;
 
 	/* Notify clients about exiting LPM */
 	list_for_each_entry_safe(itr, tmp, &mhi_cntrl->lpm_chans, node) {
@@ -944,18 +940,7 @@ static int __mhi_pm_resume(struct mhi_controller *mhi_cntrl, bool force)
 
 	return 0;
 }
-
-int mhi_pm_resume(struct mhi_controller *mhi_cntrl)
-{
-	return __mhi_pm_resume(mhi_cntrl, false);
-}
 EXPORT_SYMBOL_GPL(mhi_pm_resume);
-
-int mhi_pm_resume_force(struct mhi_controller *mhi_cntrl)
-{
-	return __mhi_pm_resume(mhi_cntrl, true);
-}
-EXPORT_SYMBOL_GPL(mhi_pm_resume_force);
 
 int __mhi_device_get_sync(struct mhi_controller *mhi_cntrl)
 {
@@ -1053,7 +1038,7 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 	enum mhi_ee_type current_ee;
 	enum dev_st_transition next_state;
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
-	u32 interval_us = 25000; /* poll register field every 25 milliseconds */
+	u32 val;
 	int ret;
 
 	dev_info(dev, "Requested to power ON\n");
@@ -1070,6 +1055,10 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 	mutex_lock(&mhi_cntrl->pm_mutex);
 	mhi_cntrl->pm_state = MHI_PM_DISABLE;
 
+	ret = mhi_init_irq_setup(mhi_cntrl);
+	if (ret)
+		goto error_setup_irq;
+
 	/* Setup BHI INTVEC */
 	write_lock_irq(&mhi_cntrl->pm_lock);
 	mhi_write_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_INTVEC, 0);
@@ -1083,7 +1072,7 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 		dev_err(dev, "%s is not a valid EE for power on\n",
 			TO_MHI_EXEC_STR(current_ee));
 		ret = -EIO;
-		goto error_exit;
+		goto error_async_power_up;
 	}
 
 	state = mhi_get_mhi_state(mhi_cntrl);
@@ -1092,12 +1081,20 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 
 	if (state == MHI_STATE_SYS_ERR) {
 		mhi_set_mhi_state(mhi_cntrl, MHI_STATE_RESET);
-		ret = mhi_poll_reg_field(mhi_cntrl, mhi_cntrl->regs, MHICTRL,
-				 MHICTRL_RESET_MASK, MHICTRL_RESET_SHIFT, 0,
-				 interval_us);
-		if (ret) {
+		ret = wait_event_timeout(mhi_cntrl->state_event,
+				MHI_PM_IN_FATAL_STATE(mhi_cntrl->pm_state) ||
+					mhi_read_reg_field(mhi_cntrl,
+							   mhi_cntrl->regs,
+							   MHICTRL,
+							   MHICTRL_RESET_MASK,
+							   MHICTRL_RESET_SHIFT,
+							   &val) ||
+					!val,
+				msecs_to_jiffies(mhi_cntrl->timeout_ms));
+		if (!ret) {
+			ret = -EIO;
 			dev_info(dev, "Failed to reset MHI due to syserr state\n");
-			goto error_exit;
+			goto error_async_power_up;
 		}
 
 		/*
@@ -1106,10 +1103,6 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 		 */
 		mhi_write_reg(mhi_cntrl, mhi_cntrl->bhi, BHI_INTVEC, 0);
 	}
-
-	ret = mhi_init_irq_setup(mhi_cntrl);
-	if (ret)
-		goto error_exit;
 
 	/* Transition to next state */
 	next_state = MHI_IN_PBL(current_ee) ?
@@ -1123,7 +1116,10 @@ int mhi_async_power_up(struct mhi_controller *mhi_cntrl)
 
 	return 0;
 
-error_exit:
+error_async_power_up:
+	mhi_deinit_free_irq(mhi_cntrl);
+
+error_setup_irq:
 	mhi_cntrl->pm_state = MHI_PM_DISABLE;
 	mutex_unlock(&mhi_cntrl->pm_mutex);
 

@@ -394,12 +394,9 @@ static int fuse_priv_ioctl(struct inode *inode, struct fuse_file *ff,
 	args.out_args[1].value = ptr;
 
 	err = fuse_simple_request(fm, &args);
-	if (!err) {
-		if (outarg.result < 0)
-			err = outarg.result;
-		else if (outarg.flags & FUSE_IOCTL_RETRY)
-			err = -EIO;
-	}
+	if (!err && outarg.flags & FUSE_IOCTL_RETRY)
+		err = -EIO;
+
 	return err;
 }
 

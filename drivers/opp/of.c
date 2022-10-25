@@ -921,7 +921,7 @@ free_required_opps:
 free_opp:
 	_opp_free(new_opp);
 
-	return ret ? ERR_PTR(ret) : NULL;
+	return ERR_PTR(ret);
 }
 
 /* Initializes OPP tables based on new bindings */

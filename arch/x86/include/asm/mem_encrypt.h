@@ -13,7 +13,6 @@
 #ifndef __ASSEMBLY__
 
 #include <linux/init.h>
-#include <linux/cc_platform.h>
 
 #include <asm/bootparam.h>
 

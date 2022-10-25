@@ -708,9 +708,7 @@ static int bcm4908_enet_probe(struct platform_device *pdev)
 
 	enet->irq_tx = platform_get_irq_byname(pdev, "tx");
 
-	err = dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
-	if (err)
-		return err;
+	dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
 
 	err = bcm4908_enet_dma_alloc(enet);
 	if (err)

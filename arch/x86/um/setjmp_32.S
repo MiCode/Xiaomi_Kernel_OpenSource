@@ -34,7 +34,7 @@ kernel_setjmp:
 	movl %esi,12(%edx)
 	movl %edi,16(%edx)
 	movl %ecx,20(%edx)		# Return address
-	RET
+	ret
 
 	.size kernel_setjmp,.-kernel_setjmp
 

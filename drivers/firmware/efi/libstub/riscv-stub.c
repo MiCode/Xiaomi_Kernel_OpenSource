@@ -25,7 +25,7 @@ typedef void __noreturn (*jump_kernel_func)(unsigned int, unsigned long);
 
 static u32 hartid;
 
-static int get_boot_hartid_from_fdt(void)
+static u32 get_boot_hartid_from_fdt(void)
 {
 	const void *fdt;
 	int chosen_node, len;
@@ -33,26 +33,23 @@ static int get_boot_hartid_from_fdt(void)
 
 	fdt = get_efi_config_table(DEVICE_TREE_GUID);
 	if (!fdt)
-		return -EINVAL;
+		return U32_MAX;
 
 	chosen_node = fdt_path_offset(fdt, "/chosen");
 	if (chosen_node < 0)
-		return -EINVAL;
+		return U32_MAX;
 
 	prop = fdt_getprop((void *)fdt, chosen_node, "boot-hartid", &len);
 	if (!prop || len != sizeof(u32))
-		return -EINVAL;
+		return U32_MAX;
 
-	hartid = fdt32_to_cpu(*prop);
-	return 0;
+	return fdt32_to_cpu(*prop);
 }
 
 efi_status_t check_platform_features(void)
 {
-	int ret;
-
-	ret = get_boot_hartid_from_fdt();
-	if (ret) {
+	hartid = get_boot_hartid_from_fdt();
+	if (hartid == U32_MAX) {
 		efi_err("/chosen/boot-hartid missing or invalid!\n");
 		return EFI_UNSUPPORTED;
 	}

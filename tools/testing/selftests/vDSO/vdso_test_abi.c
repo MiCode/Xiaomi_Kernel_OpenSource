@@ -33,114 +33,110 @@ typedef long (*vdso_clock_gettime_t)(clockid_t clk_id, struct timespec *ts);
 typedef long (*vdso_clock_getres_t)(clockid_t clk_id, struct timespec *ts);
 typedef time_t (*vdso_time_t)(time_t *t);
 
-#define VDSO_TEST_PASS_MSG()	"\n%s(): PASS\n", __func__
-#define VDSO_TEST_FAIL_MSG(x)	"\n%s(): %s FAIL\n", __func__, x
-#define VDSO_TEST_SKIP_MSG(x)	"\n%s(): SKIP: Could not find %s\n", __func__, x
-
-static void vdso_test_gettimeofday(void)
+static int vdso_test_gettimeofday(void)
 {
 	/* Find gettimeofday. */
 	vdso_gettimeofday_t vdso_gettimeofday =
 		(vdso_gettimeofday_t)vdso_sym(version, name[0]);
 
 	if (!vdso_gettimeofday) {
-		ksft_test_result_skip(VDSO_TEST_SKIP_MSG(name[0]));
-		return;
+		printf("Could not find %s\n", name[0]);
+		return KSFT_SKIP;
 	}
 
 	struct timeval tv;
 	long ret = vdso_gettimeofday(&tv, 0);
 
 	if (ret == 0) {
-		ksft_print_msg("The time is %lld.%06lld\n",
-			       (long long)tv.tv_sec, (long long)tv.tv_usec);
-		ksft_test_result_pass(VDSO_TEST_PASS_MSG());
+		printf("The time is %lld.%06lld\n",
+		       (long long)tv.tv_sec, (long long)tv.tv_usec);
 	} else {
-		ksft_test_result_fail(VDSO_TEST_FAIL_MSG(name[0]));
+		printf("%s failed\n", name[0]);
+		return KSFT_FAIL;
 	}
+
+	return KSFT_PASS;
 }
 
-static void vdso_test_clock_gettime(clockid_t clk_id)
+static int vdso_test_clock_gettime(clockid_t clk_id)
 {
 	/* Find clock_gettime. */
 	vdso_clock_gettime_t vdso_clock_gettime =
 		(vdso_clock_gettime_t)vdso_sym(version, name[1]);
 
 	if (!vdso_clock_gettime) {
-		ksft_test_result_skip(VDSO_TEST_SKIP_MSG(name[1]));
-		return;
+		printf("Could not find %s\n", name[1]);
+		return KSFT_SKIP;
 	}
 
 	struct timespec ts;
 	long ret = vdso_clock_gettime(clk_id, &ts);
 
 	if (ret == 0) {
-		ksft_print_msg("The time is %lld.%06lld\n",
-			       (long long)ts.tv_sec, (long long)ts.tv_nsec);
-		ksft_test_result_pass(VDSO_TEST_PASS_MSG());
+		printf("The time is %lld.%06lld\n",
+		       (long long)ts.tv_sec, (long long)ts.tv_nsec);
 	} else {
-		ksft_test_result_fail(VDSO_TEST_FAIL_MSG(name[1]));
+		printf("%s failed\n", name[1]);
+		return KSFT_FAIL;
 	}
+
+	return KSFT_PASS;
 }
 
-static void vdso_test_time(void)
+static int vdso_test_time(void)
 {
 	/* Find time. */
 	vdso_time_t vdso_time =
 		(vdso_time_t)vdso_sym(version, name[2]);
 
 	if (!vdso_time) {
-		ksft_test_result_skip(VDSO_TEST_SKIP_MSG(name[2]));
-		return;
+		printf("Could not find %s\n", name[2]);
+		return KSFT_SKIP;
 	}
 
 	long ret = vdso_time(NULL);
 
 	if (ret > 0) {
-		ksft_print_msg("The time in hours since January 1, 1970 is %lld\n",
+		printf("The time in hours since January 1, 1970 is %lld\n",
 				(long long)(ret / 3600));
-		ksft_test_result_pass(VDSO_TEST_PASS_MSG());
 	} else {
-		ksft_test_result_fail(VDSO_TEST_FAIL_MSG(name[2]));
+		printf("%s failed\n", name[2]);
+		return KSFT_FAIL;
 	}
+
+	return KSFT_PASS;
 }
 
-static void vdso_test_clock_getres(clockid_t clk_id)
+static int vdso_test_clock_getres(clockid_t clk_id)
 {
-	int clock_getres_fail = 0;
-
 	/* Find clock_getres. */
 	vdso_clock_getres_t vdso_clock_getres =
 		(vdso_clock_getres_t)vdso_sym(version, name[3]);
 
 	if (!vdso_clock_getres) {
-		ksft_test_result_skip(VDSO_TEST_SKIP_MSG(name[3]));
-		return;
+		printf("Could not find %s\n", name[3]);
+		return KSFT_SKIP;
 	}
 
 	struct timespec ts, sys_ts;
 	long ret = vdso_clock_getres(clk_id, &ts);
 
 	if (ret == 0) {
-		ksft_print_msg("The vdso resolution is %lld %lld\n",
-			       (long long)ts.tv_sec, (long long)ts.tv_nsec);
+		printf("The resolution is %lld %lld\n",
+		       (long long)ts.tv_sec, (long long)ts.tv_nsec);
 	} else {
-		clock_getres_fail++;
+		printf("%s failed\n", name[3]);
+		return KSFT_FAIL;
 	}
 
 	ret = syscall(SYS_clock_getres, clk_id, &sys_ts);
 
-	ksft_print_msg("The syscall resolution is %lld %lld\n",
-			(long long)sys_ts.tv_sec, (long long)sys_ts.tv_nsec);
-
-	if ((sys_ts.tv_sec != ts.tv_sec) || (sys_ts.tv_nsec != ts.tv_nsec))
-		clock_getres_fail++;
-
-	if (clock_getres_fail > 0) {
-		ksft_test_result_fail(VDSO_TEST_FAIL_MSG(name[3]));
-	} else {
-		ksft_test_result_pass(VDSO_TEST_PASS_MSG());
+	if ((sys_ts.tv_sec != ts.tv_sec) || (sys_ts.tv_nsec != ts.tv_nsec)) {
+		printf("%s failed\n", name[3]);
+		return KSFT_FAIL;
 	}
+
+	return KSFT_PASS;
 }
 
 const char *vdso_clock_name[12] = {
@@ -162,23 +158,36 @@ const char *vdso_clock_name[12] = {
  * This function calls vdso_test_clock_gettime and vdso_test_clock_getres
  * with different values for clock_id.
  */
-static inline void vdso_test_clock(clockid_t clock_id)
+static inline int vdso_test_clock(clockid_t clock_id)
 {
-	ksft_print_msg("\nclock_id: %s\n", vdso_clock_name[clock_id]);
+	int ret0, ret1;
 
-	vdso_test_clock_gettime(clock_id);
+	ret0 = vdso_test_clock_gettime(clock_id);
+	/* A skipped test is considered passed */
+	if (ret0 == KSFT_SKIP)
+		ret0 = KSFT_PASS;
 
-	vdso_test_clock_getres(clock_id);
+	ret1 = vdso_test_clock_getres(clock_id);
+	/* A skipped test is considered passed */
+	if (ret1 == KSFT_SKIP)
+		ret1 = KSFT_PASS;
+
+	ret0 += ret1;
+
+	printf("clock_id: %s", vdso_clock_name[clock_id]);
+
+	if (ret0 > 0)
+		printf(" [FAIL]\n");
+	else
+		printf(" [PASS]\n");
+
+	return ret0;
 }
-
-#define VDSO_TEST_PLAN	16
 
 int main(int argc, char **argv)
 {
 	unsigned long sysinfo_ehdr = getauxval(AT_SYSINFO_EHDR);
-
-	ksft_print_header();
-	ksft_set_plan(VDSO_TEST_PLAN);
+	int ret;
 
 	if (!sysinfo_ehdr) {
 		printf("AT_SYSINFO_EHDR is not present!\n");
@@ -192,42 +201,44 @@ int main(int argc, char **argv)
 
 	vdso_init_from_sysinfo_ehdr(getauxval(AT_SYSINFO_EHDR));
 
-	vdso_test_gettimeofday();
+	ret = vdso_test_gettimeofday();
 
 #if _POSIX_TIMERS > 0
 
 #ifdef CLOCK_REALTIME
-	vdso_test_clock(CLOCK_REALTIME);
+	ret += vdso_test_clock(CLOCK_REALTIME);
 #endif
 
 #ifdef CLOCK_BOOTTIME
-	vdso_test_clock(CLOCK_BOOTTIME);
+	ret += vdso_test_clock(CLOCK_BOOTTIME);
 #endif
 
 #ifdef CLOCK_TAI
-	vdso_test_clock(CLOCK_TAI);
+	ret += vdso_test_clock(CLOCK_TAI);
 #endif
 
 #ifdef CLOCK_REALTIME_COARSE
-	vdso_test_clock(CLOCK_REALTIME_COARSE);
+	ret += vdso_test_clock(CLOCK_REALTIME_COARSE);
 #endif
 
 #ifdef CLOCK_MONOTONIC
-	vdso_test_clock(CLOCK_MONOTONIC);
+	ret += vdso_test_clock(CLOCK_MONOTONIC);
 #endif
 
 #ifdef CLOCK_MONOTONIC_RAW
-	vdso_test_clock(CLOCK_MONOTONIC_RAW);
+	ret += vdso_test_clock(CLOCK_MONOTONIC_RAW);
 #endif
 
 #ifdef CLOCK_MONOTONIC_COARSE
-	vdso_test_clock(CLOCK_MONOTONIC_COARSE);
+	ret += vdso_test_clock(CLOCK_MONOTONIC_COARSE);
 #endif
 
 #endif
 
-	vdso_test_time();
+	ret += vdso_test_time();
 
-	ksft_print_cnts();
-	return ksft_get_fail_cnt() == 0 ? KSFT_PASS : KSFT_FAIL;
+	if (ret > 0)
+		return KSFT_FAIL;
+
+	return KSFT_PASS;
 }

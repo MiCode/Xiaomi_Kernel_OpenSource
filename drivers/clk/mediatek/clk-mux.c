@@ -8,7 +8,6 @@
 #include <linux/of_address.h>
 #include <linux/slab.h>
 #include <linux/mfd/syscon.h>
-#include <linux/module.h>
 
 #include "clk-mtk.h"
 #include "clk-mux.h"
@@ -121,7 +120,6 @@ const struct clk_ops mtk_mux_clr_set_upd_ops = {
 	.get_parent = mtk_clk_mux_get_parent,
 	.set_parent = mtk_clk_mux_set_parent_setclr_lock,
 };
-EXPORT_SYMBOL_GPL(mtk_mux_clr_set_upd_ops);
 
 const struct clk_ops mtk_mux_gate_clr_set_upd_ops  = {
 	.enable = mtk_clk_mux_enable_setclr,
@@ -130,7 +128,6 @@ const struct clk_ops mtk_mux_gate_clr_set_upd_ops  = {
 	.get_parent = mtk_clk_mux_get_parent,
 	.set_parent = mtk_clk_mux_set_parent_setclr_lock,
 };
-EXPORT_SYMBOL_GPL(mtk_mux_gate_clr_set_upd_ops);
 
 static struct clk *mtk_clk_register_mux(const struct mtk_mux *mux,
 				 struct regmap *regmap,
@@ -198,6 +195,3 @@ int mtk_clk_register_muxes(const struct mtk_mux *muxes,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(mtk_clk_register_muxes);
-
-MODULE_LICENSE("GPL");

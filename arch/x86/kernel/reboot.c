@@ -113,9 +113,17 @@ void __noreturn machine_real_restart(unsigned int type)
 	spin_unlock(&rtc_lock);
 
 	/*
-	 * Switch to the trampoline page table.
+	 * Switch back to the initial page table.
 	 */
-	load_trampoline_pgtable();
+#ifdef CONFIG_X86_32
+	load_cr3(initial_page_table);
+#else
+	write_cr3(real_mode_header->trampoline_pgd);
+
+	/* Exiting long mode will fail if CR4.PCIDE is set. */
+	if (boot_cpu_has(X86_FEATURE_PCID))
+		cr4_clear_bits(X86_CR4_PCIDE);
+#endif
 
 	/* Jump to the identity-mapped low memory code */
 #ifdef CONFIG_X86_32

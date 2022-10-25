@@ -259,13 +259,10 @@ static void nft_ct_set_zone_eval(const struct nft_expr *expr,
 
 	ct = this_cpu_read(nft_ct_pcpu_template);
 
-	if (likely(refcount_read(&ct->ct_general.use) == 1)) {
-		refcount_inc(&ct->ct_general.use);
+	if (likely(atomic_read(&ct->ct_general.use) == 1)) {
 		nf_ct_zone_add(ct, &zone);
 	} else {
-		/* previous skb got queued to userspace, allocate temporary
-		 * one until percpu template can be reused.
-		 */
+		/* previous skb got queued to userspace */
 		ct = nf_ct_tmpl_alloc(nft_net(pkt), &zone, GFP_ATOMIC);
 		if (!ct) {
 			regs->verdict.code = NF_DROP;
@@ -273,6 +270,7 @@ static void nft_ct_set_zone_eval(const struct nft_expr *expr,
 		}
 	}
 
+	atomic_inc(&ct->ct_general.use);
 	nf_ct_set(skb, ct, IP_CT_NEW);
 }
 #endif
@@ -377,6 +375,7 @@ static bool nft_ct_tmpl_alloc_pcpu(void)
 			return false;
 		}
 
+		atomic_set(&tmp->ct_general.use, 1);
 		per_cpu(nft_ct_pcpu_template, cpu) = tmp;
 	}
 
@@ -1040,9 +1039,6 @@ static int nft_ct_helper_obj_init(const struct nft_ctx *ctx,
 	err = nf_ct_netns_get(ctx->net, ctx->family);
 	if (err < 0)
 		goto err_put_helper;
-
-	/* Avoid the bogus warning, helper will be assigned after CT init */
-	nf_ct_set_auto_assign_helper_warned(ctx->net);
 
 	return 0;
 

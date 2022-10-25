@@ -24,8 +24,6 @@
 #include <linux/blkzoned.h>
 #include <linux/pm.h>
 #include <linux/sbitmap.h>
-#include <linux/android_kabi.h>
-#include <linux/android_vendor.h>
 
 struct module;
 struct request_queue;
@@ -235,17 +233,7 @@ struct request {
 	 */
 	rq_end_io_fn *end_io;
 	void *end_io_data;
-
-	ANDROID_KABI_RESERVE(1);
 };
-
-static inline int blk_validate_block_size(unsigned int bsize)
-{
-	if (bsize < 512 || bsize > PAGE_SIZE || !is_power_of_2(bsize))
-		return -EINVAL;
-
-	return 0;
-}
 
 static inline bool blk_op_is_passthrough(unsigned int op)
 {
@@ -335,10 +323,6 @@ struct queue_limits {
 	unsigned char		discard_misaligned;
 	unsigned char		raid_partial_stripes_expensive;
 	enum blk_zoned_model	zoned;
-
-	ANDROID_KABI_RESERVE(1);
-
-	ANDROID_OEM_DATA(1);
 };
 
 typedef int (*report_zones_cb)(struct blk_zone *zone, unsigned int idx,
@@ -569,13 +553,6 @@ struct request_queue {
 
 #define BLK_MAX_WRITE_HINTS	5
 	u64			write_hints[BLK_MAX_WRITE_HINTS];
-
-	ANDROID_KABI_RESERVE(1);
-	ANDROID_KABI_RESERVE(2);
-	ANDROID_KABI_RESERVE(3);
-	ANDROID_KABI_RESERVE(4);
-
-	ANDROID_OEM_DATA(1);
 };
 
 /* Keep blk_queue_flag_name[] in sync with the definitions below */
@@ -1199,8 +1176,7 @@ extern void blk_dump_rq_flags(struct request *, char *);
 
 bool __must_check blk_get_queue(struct request_queue *);
 extern void blk_put_queue(struct request_queue *);
-
-void blk_mark_disk_dead(struct gendisk *disk);
+extern void blk_set_queue_dying(struct request_queue *);
 
 #ifdef CONFIG_BLOCK
 /*
@@ -1222,6 +1198,8 @@ struct blk_plug {
 	bool multiple_queues;
 	bool nowait;
 };
+#define BLK_MAX_REQUEST_COUNT 16
+#define BLK_PLUG_FLUSH_SIZE (128 * 1024)
 
 struct blk_plug_cb;
 typedef void (*blk_plug_cb_fn)(struct blk_plug_cb *, bool);
@@ -1878,10 +1856,6 @@ struct block_device_operations {
 	 * driver.
 	 */
 	int (*alternative_gpt_sector)(struct gendisk *disk, sector_t *sector);
-
-	ANDROID_KABI_RESERVE(1);
-	ANDROID_KABI_RESERVE(2);
-	ANDROID_OEM_DATA(1);
 };
 
 #ifdef CONFIG_COMPAT
@@ -1967,7 +1941,6 @@ unsigned long disk_start_io_acct(struct gendisk *disk, unsigned int sectors,
 void disk_end_io_acct(struct gendisk *disk, unsigned int op,
 		unsigned long start_time);
 
-void bio_start_io_acct_time(struct bio *bio, unsigned long start_time);
 unsigned long bio_start_io_acct(struct bio *bio);
 void bio_end_io_acct_remapped(struct bio *bio, unsigned long start_time,
 		struct block_device *orig_bdev);
@@ -2018,8 +1991,6 @@ int truncate_bdev_range(struct block_device *bdev, fmode_t mode, loff_t lstart,
 #ifdef CONFIG_BLOCK
 void invalidate_bdev(struct block_device *bdev);
 int sync_blockdev(struct block_device *bdev);
-int sync_blockdev_nowait(struct block_device *bdev);
-void sync_bdevs(bool wait);
 #else
 static inline void invalidate_bdev(struct block_device *bdev)
 {
@@ -2027,13 +1998,6 @@ static inline void invalidate_bdev(struct block_device *bdev)
 static inline int sync_blockdev(struct block_device *bdev)
 {
 	return 0;
-}
-static inline int sync_blockdev_nowait(struct block_device *bdev)
-{
-	return 0;
-}
-static inline void sync_bdevs(bool wait)
-{
 }
 #endif
 int fsync_bdev(struct block_device *bdev);

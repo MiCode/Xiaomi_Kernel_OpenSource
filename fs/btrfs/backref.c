@@ -1214,12 +1214,7 @@ again:
 	ret = btrfs_search_slot(NULL, fs_info->extent_root, &key, path, 0, 0);
 	if (ret < 0)
 		goto out;
-	if (ret == 0) {
-		/* This shouldn't happen, indicates a bug or fs corruption. */
-		ASSERT(ret != 0);
-		ret = -EUCLEAN;
-		goto out;
-	}
+	BUG_ON(ret == 0);
 
 #ifdef CONFIG_BTRFS_FS_RUN_SANITY_TESTS
 	if (trans && likely(trans->type != __TRANS_DUMMY) &&
@@ -1365,18 +1360,10 @@ again:
 				goto out;
 			if (!ret && extent_item_pos) {
 				/*
-				 * We've recorded that parent, so we must extend
-				 * its inode list here.
-				 *
-				 * However if there was corruption we may not
-				 * have found an eie, return an error in this
-				 * case.
+				 * we've recorded that parent, so we must extend
+				 * its inode list here
 				 */
-				ASSERT(eie);
-				if (!eie) {
-					ret = -EUCLEAN;
-					goto out;
-				}
+				BUG_ON(!eie);
 				while (eie->next)
 					eie = eie->next;
 				eie->next = ref->inode_list;

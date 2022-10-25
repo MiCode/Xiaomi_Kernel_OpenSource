@@ -578,4 +578,3 @@ module_init(init_nls_euc_jp)
 module_exit(exit_nls_euc_jp)
 
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_IMPORT_NS(ANDROID_GKI_VFS_EXPORT_ONLY);

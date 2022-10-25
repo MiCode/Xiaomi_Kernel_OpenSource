@@ -4,7 +4,6 @@
  * Author: Wendell Lin <wendell.lin@mediatek.com>
  */
 
-#include <linux/module.h>
 #include <linux/clk-provider.h>
 #include <linux/platform_device.h>
 
@@ -56,5 +55,4 @@ static struct platform_driver clk_mt6779_venc_drv = {
 	},
 };
 
-module_platform_driver(clk_mt6779_venc_drv);
-MODULE_LICENSE("GPL");
+builtin_platform_driver(clk_mt6779_venc_drv);

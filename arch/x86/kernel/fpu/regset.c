@@ -87,8 +87,10 @@ int xfpregs_set(struct task_struct *target, const struct user_regset *regset,
 		const void *kbuf, const void __user *ubuf)
 {
 	struct fpu *fpu = &target->thread.fpu;
-	struct fxregs_state newstate;
+	struct user32_fxsr_struct newstate;
 	int ret;
+
+	BUILD_BUG_ON(sizeof(newstate) != sizeof(struct fxregs_state));
 
 	if (!cpu_feature_enabled(X86_FEATURE_FXSR))
 		return -ENODEV;
@@ -110,10 +112,9 @@ int xfpregs_set(struct task_struct *target, const struct user_regset *regset,
 	/* Copy the state  */
 	memcpy(&fpu->state.fxsave, &newstate, sizeof(newstate));
 
-	/* Clear xmm8..15 for 32-bit callers */
+	/* Clear xmm8..15 */
 	BUILD_BUG_ON(sizeof(fpu->state.fxsave.xmm_space) != 16 * 16);
-	if (in_ia32_syscall())
-		memset(&fpu->state.fxsave.xmm_space[8*4], 0, 8 * 16);
+	memset(&fpu->state.fxsave.xmm_space[8], 0, 8 * 16);
 
 	/* Mark FP and SSE as in use when XSAVE is enabled */
 	if (use_xsave())

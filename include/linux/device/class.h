@@ -18,7 +18,6 @@
 #include <linux/klist.h>
 #include <linux/pm.h>
 #include <linux/device/bus.h>
-#include <linux/android_kabi.h>
 
 struct device;
 struct fwnode_handle;
@@ -76,11 +75,6 @@ struct class {
 	const struct dev_pm_ops *pm;
 
 	struct subsys_private *p;
-
-	ANDROID_KABI_RESERVE(1);
-	ANDROID_KABI_RESERVE(2);
-	ANDROID_KABI_RESERVE(3);
-	ANDROID_KABI_RESERVE(4);
 };
 
 struct class_dev_iter {

@@ -186,6 +186,7 @@ static int axp20x_battery_get_prop(struct power_supply *psy,
 				   union power_supply_propval *val)
 {
 	struct axp20x_batt_ps *axp20x_batt = power_supply_get_drvdata(psy);
+	struct iio_channel *chan;
 	int ret = 0, reg, val1;
 
 	switch (psp) {
@@ -265,12 +266,12 @@ static int axp20x_battery_get_prop(struct power_supply *psy,
 		if (ret)
 			return ret;
 
-		if (reg & AXP20X_PWR_STATUS_BAT_CHARGING) {
-			ret = iio_read_channel_processed(axp20x_batt->batt_chrg_i, &val->intval);
-		} else {
-			ret = iio_read_channel_processed(axp20x_batt->batt_dischrg_i, &val1);
-			val->intval = -val1;
-		}
+		if (reg & AXP20X_PWR_STATUS_BAT_CHARGING)
+			chan = axp20x_batt->batt_chrg_i;
+		else
+			chan = axp20x_batt->batt_dischrg_i;
+
+		ret = iio_read_channel_processed(chan, &val->intval);
 		if (ret)
 			return ret;
 

@@ -1,2 +1,0 @@
-# To boot Linux distributions like Debian
-CONFIG_DEVTMPFS=y

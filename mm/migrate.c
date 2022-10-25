@@ -106,7 +106,7 @@ int isolate_movable_page(struct page *page, isolate_mode_t mode)
 
 	/* Driver shouldn't use PG_isolated bit of page->flags */
 	WARN_ON_ONCE(PageIsolated(page));
-	SetPageIsolated(page);
+	__SetPageIsolated(page);
 	unlock_page(page);
 
 	return 0;
@@ -125,7 +125,7 @@ static void putback_movable_page(struct page *page)
 
 	mapping = page_mapping(page);
 	mapping->a_ops->putback_page(page);
-	ClearPageIsolated(page);
+	__ClearPageIsolated(page);
 }
 
 /*
@@ -158,7 +158,7 @@ void putback_movable_pages(struct list_head *l)
 			if (PageMovable(page))
 				putback_movable_page(page);
 			else
-				ClearPageIsolated(page);
+				__ClearPageIsolated(page);
 			unlock_page(page);
 			put_page(page);
 		} else {
@@ -168,7 +168,6 @@ void putback_movable_pages(struct list_head *l)
 		}
 	}
 }
-EXPORT_SYMBOL_GPL(putback_movable_pages);
 
 /*
  * Restore a potential migration pte to a working pte entry
@@ -916,7 +915,7 @@ static int move_to_new_page(struct page *newpage, struct page *page,
 		VM_BUG_ON_PAGE(!PageIsolated(page), page);
 		if (!PageMovable(page)) {
 			rc = MIGRATEPAGE_SUCCESS;
-			ClearPageIsolated(page);
+			__ClearPageIsolated(page);
 			goto out;
 		}
 
@@ -938,7 +937,7 @@ static int move_to_new_page(struct page *newpage, struct page *page,
 			 * We clear PG_movable under page_lock so any compactor
 			 * cannot try to migrate this page.
 			 */
-			ClearPageIsolated(page);
+			__ClearPageIsolated(page);
 		}
 
 		/*
@@ -949,12 +948,9 @@ static int move_to_new_page(struct page *newpage, struct page *page,
 		if (!PageMappingFlags(page))
 			page->mapping = NULL;
 
-		if (likely(!is_zone_device_page(newpage))) {
-			int i, nr = compound_nr(newpage);
+		if (likely(!is_zone_device_page(newpage)))
+			flush_dcache_page(newpage);
 
-			for (i = 0; i < nr; i++)
-				flush_dcache_page(newpage + i);
-		}
 	}
 out:
 	return rc;
@@ -1202,7 +1198,7 @@ static int unmap_and_move(new_page_t get_new_page,
 		if (unlikely(__PageMovable(page))) {
 			lock_page(page);
 			if (!PageMovable(page))
-				ClearPageIsolated(page);
+				__ClearPageIsolated(page);
 			unlock_page(page);
 		}
 		goto out;
@@ -1605,7 +1601,6 @@ out:
 
 	return rc;
 }
-EXPORT_SYMBOL_GPL(migrate_pages);
 
 struct page *alloc_migration_target(struct page *page, unsigned long private)
 {

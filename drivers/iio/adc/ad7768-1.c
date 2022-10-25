@@ -480,8 +480,8 @@ static irqreturn_t ad7768_trigger_handler(int irq, void *p)
 	iio_push_to_buffers_with_timestamp(indio_dev, &st->data.scan,
 					   iio_get_time_ns(indio_dev));
 
-err_unlock:
 	iio_trigger_notify_done(indio_dev->trig);
+err_unlock:
 	mutex_unlock(&st->lock);
 
 	return IRQ_HANDLED;

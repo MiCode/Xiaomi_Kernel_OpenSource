@@ -311,8 +311,7 @@ static struct gpio_desc *acpi_request_own_gpiod(struct gpio_chip *chip,
 	if (IS_ERR(desc))
 		return desc;
 
-	/* ACPI uses hundredths of milliseconds units */
-	ret = gpio_set_debounce_timeout(desc, agpio->debounce_timeout * 10);
+	ret = gpio_set_debounce_timeout(desc, agpio->debounce_timeout);
 	if (ret)
 		dev_warn(chip->parent,
 			 "Failed to set debounce-timeout for pin 0x%04X, err %d\n",
@@ -392,8 +391,8 @@ static acpi_status acpi_gpiochip_alloc_event(struct acpi_resource *ares,
 	pin = agpio->pin_table[0];
 
 	if (pin <= 255) {
-		char ev_name[8];
-		sprintf(ev_name, "_%c%02X",
+		char ev_name[5];
+		sprintf(ev_name, "_%c%02hhX",
 			agpio->triggering == ACPI_EDGE_SENSITIVE ? 'E' : 'L',
 			pin);
 		if (ACPI_SUCCESS(acpi_get_handle(handle, ev_name, &evt_handle)))
@@ -1053,25 +1052,17 @@ int acpi_dev_gpio_irq_get_by(struct acpi_device *adev, const char *name, int ind
 			if (ret < 0)
 				return ret;
 
-			/* ACPI uses hundredths of milliseconds units */
-			ret = gpio_set_debounce_timeout(desc, info.debounce * 10);
+			ret = gpio_set_debounce_timeout(desc, info.debounce);
 			if (ret)
 				return ret;
 
 			irq_flags = acpi_dev_get_irq_type(info.triggering,
 							  info.polarity);
 
-			/*
-			 * If the IRQ is not already in use then set type
-			 * if specified and different than the current one.
-			 */
-			if (can_request_irq(irq, irq_flags)) {
-				if (irq_flags != IRQ_TYPE_NONE &&
-				    irq_flags != irq_get_trigger_type(irq))
-					irq_set_irq_type(irq, irq_flags);
-			} else {
-				dev_dbg(&adev->dev, "IRQ %d already in use\n", irq);
-			}
+			/* Set type if specified and different than the current one */
+			if (irq_flags != IRQ_TYPE_NONE &&
+			    irq_flags != irq_get_trigger_type(irq))
+				irq_set_irq_type(irq, irq_flags);
 
 			return irq;
 		}

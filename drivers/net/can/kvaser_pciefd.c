@@ -248,9 +248,6 @@ MODULE_DESCRIPTION("CAN driver for Kvaser CAN/PCIe devices");
 #define KVASER_PCIEFD_SPACK_EWLR BIT(23)
 #define KVASER_PCIEFD_SPACK_EPLR BIT(24)
 
-/* Kvaser KCAN_EPACK second word */
-#define KVASER_PCIEFD_EPACK_DIR_TX BIT(0)
-
 struct kvaser_pciefd;
 
 struct kvaser_pciefd_can {
@@ -1288,10 +1285,7 @@ static int kvaser_pciefd_rx_error_frame(struct kvaser_pciefd_can *can,
 
 	can->err_rep_cnt++;
 	can->can.can_stats.bus_error++;
-	if (p->header[1] & KVASER_PCIEFD_EPACK_DIR_TX)
-		stats->tx_errors++;
-	else
-		stats->rx_errors++;
+	stats->rx_errors++;
 
 	can->bec.txerr = bec.txerr;
 	can->bec.rxerr = bec.rxerr;

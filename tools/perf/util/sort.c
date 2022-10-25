@@ -1325,68 +1325,88 @@ struct sort_entry sort_mispredict = {
 	.se_width_idx	= HISTC_MISPREDICT,
 };
 
-static int64_t
-sort__weight_cmp(struct hist_entry *left, struct hist_entry *right)
+static u64 he_weight(struct hist_entry *he)
 {
-	return left->weight - right->weight;
+	return he->stat.nr_events ? he->stat.weight / he->stat.nr_events : 0;
+}
+
+static int64_t
+sort__local_weight_cmp(struct hist_entry *left, struct hist_entry *right)
+{
+	return he_weight(left) - he_weight(right);
 }
 
 static int hist_entry__local_weight_snprintf(struct hist_entry *he, char *bf,
 				    size_t size, unsigned int width)
 {
-	return repsep_snprintf(bf, size, "%-*llu", width, he->weight);
+	return repsep_snprintf(bf, size, "%-*llu", width, he_weight(he));
 }
 
 struct sort_entry sort_local_weight = {
 	.se_header	= "Local Weight",
-	.se_cmp		= sort__weight_cmp,
+	.se_cmp		= sort__local_weight_cmp,
 	.se_snprintf	= hist_entry__local_weight_snprintf,
 	.se_width_idx	= HISTC_LOCAL_WEIGHT,
 };
 
+static int64_t
+sort__global_weight_cmp(struct hist_entry *left, struct hist_entry *right)
+{
+	return left->stat.weight - right->stat.weight;
+}
+
 static int hist_entry__global_weight_snprintf(struct hist_entry *he, char *bf,
 					      size_t size, unsigned int width)
 {
-	return repsep_snprintf(bf, size, "%-*llu", width,
-			       he->weight * he->stat.nr_events);
+	return repsep_snprintf(bf, size, "%-*llu", width, he->stat.weight);
 }
 
 struct sort_entry sort_global_weight = {
 	.se_header	= "Weight",
-	.se_cmp		= sort__weight_cmp,
+	.se_cmp		= sort__global_weight_cmp,
 	.se_snprintf	= hist_entry__global_weight_snprintf,
 	.se_width_idx	= HISTC_GLOBAL_WEIGHT,
 };
 
-static int64_t
-sort__ins_lat_cmp(struct hist_entry *left, struct hist_entry *right)
+static u64 he_ins_lat(struct hist_entry *he)
 {
-	return left->ins_lat - right->ins_lat;
+		return he->stat.nr_events ? he->stat.ins_lat / he->stat.nr_events : 0;
+}
+
+static int64_t
+sort__local_ins_lat_cmp(struct hist_entry *left, struct hist_entry *right)
+{
+		return he_ins_lat(left) - he_ins_lat(right);
 }
 
 static int hist_entry__local_ins_lat_snprintf(struct hist_entry *he, char *bf,
 					      size_t size, unsigned int width)
 {
-	return repsep_snprintf(bf, size, "%-*u", width, he->ins_lat);
+		return repsep_snprintf(bf, size, "%-*u", width, he_ins_lat(he));
 }
 
 struct sort_entry sort_local_ins_lat = {
 	.se_header	= "Local INSTR Latency",
-	.se_cmp		= sort__ins_lat_cmp,
+	.se_cmp		= sort__local_ins_lat_cmp,
 	.se_snprintf	= hist_entry__local_ins_lat_snprintf,
 	.se_width_idx	= HISTC_LOCAL_INS_LAT,
 };
 
+static int64_t
+sort__global_ins_lat_cmp(struct hist_entry *left, struct hist_entry *right)
+{
+		return left->stat.ins_lat - right->stat.ins_lat;
+}
+
 static int hist_entry__global_ins_lat_snprintf(struct hist_entry *he, char *bf,
 					       size_t size, unsigned int width)
 {
-	return repsep_snprintf(bf, size, "%-*u", width,
-			       he->ins_lat * he->stat.nr_events);
+		return repsep_snprintf(bf, size, "%-*u", width, he->stat.ins_lat);
 }
 
 struct sort_entry sort_global_ins_lat = {
 	.se_header	= "INSTR Latency",
-	.se_cmp		= sort__ins_lat_cmp,
+	.se_cmp		= sort__global_ins_lat_cmp,
 	.se_snprintf	= hist_entry__global_ins_lat_snprintf,
 	.se_width_idx	= HISTC_GLOBAL_INS_LAT,
 };
@@ -1394,13 +1414,13 @@ struct sort_entry sort_global_ins_lat = {
 static int64_t
 sort__global_p_stage_cyc_cmp(struct hist_entry *left, struct hist_entry *right)
 {
-	return left->p_stage_cyc - right->p_stage_cyc;
+	return left->stat.p_stage_cyc - right->stat.p_stage_cyc;
 }
 
 static int hist_entry__p_stage_cyc_snprintf(struct hist_entry *he, char *bf,
 					size_t size, unsigned int width)
 {
-	return repsep_snprintf(bf, size, "%-*u", width, he->p_stage_cyc);
+	return repsep_snprintf(bf, size, "%-*u", width, he->stat.p_stage_cyc);
 }
 
 struct sort_entry sort_p_stage_cyc = {

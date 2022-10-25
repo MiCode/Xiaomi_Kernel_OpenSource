@@ -1803,6 +1803,8 @@ static int rtsx_pci_runtime_suspend(struct device *device)
 	mutex_lock(&pcr->pcr_mutex);
 	rtsx_pci_power_off(pcr, HOST_ENTER_S3);
 
+	free_irq(pcr->irq, (void *)pcr);
+
 	mutex_unlock(&pcr->pcr_mutex);
 
 	pcr->is_runtime_suspended = true;
@@ -1823,6 +1825,8 @@ static int rtsx_pci_runtime_resume(struct device *device)
 	mutex_lock(&pcr->pcr_mutex);
 
 	rtsx_pci_write_register(pcr, HOST_SLEEP_STATE, 0x03, 0x00);
+	rtsx_pci_acquire_irq(pcr);
+	synchronize_irq(pcr->irq);
 
 	if (pcr->ops->fetch_vendor_settings)
 		pcr->ops->fetch_vendor_settings(pcr);

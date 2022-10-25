@@ -117,12 +117,8 @@ nvkm_falcon_disable(struct nvkm_falcon *falcon)
 int
 nvkm_falcon_reset(struct nvkm_falcon *falcon)
 {
-	if (!falcon->func->reset) {
-		nvkm_falcon_disable(falcon);
-		return nvkm_falcon_enable(falcon);
-	}
-
-	return falcon->func->reset(falcon);
+	nvkm_falcon_disable(falcon);
+	return nvkm_falcon_enable(falcon);
 }
 
 int

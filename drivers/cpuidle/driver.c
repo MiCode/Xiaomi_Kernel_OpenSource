@@ -385,4 +385,3 @@ unlock:
 
 	mutex_unlock(&cpuidle_lock);
 }
-EXPORT_SYMBOL_GPL(cpuidle_driver_state_disabled);

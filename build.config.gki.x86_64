@@ -2,8 +2,3 @@
 . ${ROOT_DIR}/${KERNEL_DIR}/build.config.x86_64
 . ${ROOT_DIR}/${KERNEL_DIR}/build.config.gki
 
-BUILD_SYSTEM_DLKM=1
-MODULES_LIST=${ROOT_DIR}/${KERNEL_DIR}/android/gki_system_dlkm_modules
-
-BUILD_GKI_ARTIFACTS=1
-BUILD_GKI_BOOT_IMG_SIZE=67108864

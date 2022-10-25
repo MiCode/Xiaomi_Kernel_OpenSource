@@ -77,7 +77,7 @@ void selinux_ima_measure_state_locked(struct selinux_state *state)
 	size_t policy_len;
 	int rc = 0;
 
-	lockdep_assert_held(&state->policy_mutex);
+	WARN_ON(!mutex_is_locked(&state->policy_mutex));
 
 	state_str = selinux_ima_collect_state(state);
 	if (!state_str) {
@@ -117,7 +117,7 @@ void selinux_ima_measure_state_locked(struct selinux_state *state)
  */
 void selinux_ima_measure_state(struct selinux_state *state)
 {
-	lockdep_assert_not_held(&state->policy_mutex);
+	WARN_ON(mutex_is_locked(&state->policy_mutex));
 
 	mutex_lock(&state->policy_mutex);
 	selinux_ima_measure_state_locked(state);

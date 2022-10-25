@@ -449,9 +449,9 @@ static int wkup_m3_ipc_probe(struct platform_device *pdev)
 		return PTR_ERR(m3_ipc->ipc_mem_base);
 
 	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
+	if (!irq) {
 		dev_err(&pdev->dev, "no irq resource\n");
-		return irq;
+		return -ENXIO;
 	}
 
 	ret = devm_request_irq(dev, irq, wkup_m3_txev_handler,

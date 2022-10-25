@@ -1188,12 +1188,7 @@ static int bcm_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	dev->dev = &pdev->dev;
-
-	ret = platform_get_irq(pdev, 0);
-	if (ret < 0)
-		return ret;
-
-	dev->irq = ret;
+	dev->irq = platform_get_irq(pdev, 0);
 
 	/* Initialize routing field to an unused value */
 	dev->pcm_int_params[0] = 0xff;

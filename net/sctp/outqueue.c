@@ -911,7 +911,6 @@ static void sctp_outq_flush_ctrl(struct sctp_flush_ctx *ctx)
 				ctx->asoc->base.sk->sk_err = -error;
 				return;
 			}
-			ctx->asoc->stats.octrlchunks++;
 			break;
 
 		case SCTP_CID_ABORT:
@@ -936,10 +935,7 @@ static void sctp_outq_flush_ctrl(struct sctp_flush_ctx *ctx)
 
 		case SCTP_CID_HEARTBEAT:
 			if (chunk->pmtu_probe) {
-				error = sctp_packet_singleton(ctx->transport,
-							      chunk, ctx->gfp);
-				if (!error)
-					ctx->asoc->stats.octrlchunks++;
+				sctp_packet_singleton(ctx->transport, chunk, ctx->gfp);
 				break;
 			}
 			fallthrough;

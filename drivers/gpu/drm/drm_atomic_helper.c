@@ -42,8 +42,6 @@
 #include <drm/drm_vblank.h>
 #include <drm/drm_writeback.h>
 
-#include <trace/hooks/drm_atomic.h>
-
 #include "drm_crtc_helper_internal.h"
 #include "drm_crtc_internal.h"
 
@@ -613,7 +611,6 @@ drm_atomic_helper_check_modeset(struct drm_device *dev,
 	struct drm_connector_state *old_connector_state, *new_connector_state;
 	int i, ret;
 	unsigned int connectors_mask = 0;
-	bool allow = false;
 
 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
 		bool has_connectors =
@@ -719,10 +716,6 @@ drm_atomic_helper_check_modeset(struct drm_device *dev,
 		ret = drm_atomic_add_affected_connectors(state, crtc);
 		if (ret != 0)
 			return ret;
-
-		trace_android_vh_drm_atomic_check_modeset(state, crtc, &allow);
-		if (allow)
-			continue;
 
 		ret = drm_atomic_add_affected_planes(state, crtc);
 		if (ret != 0)
@@ -1008,7 +1001,7 @@ crtc_needs_disable(struct drm_crtc_state *old_state,
 	 * it's in self refresh mode and needs to be fully disabled.
 	 */
 	return old_state->active ||
-	       (old_state->self_refresh_active && !new_state->active) ||
+	       (old_state->self_refresh_active && !new_state->enable) ||
 	       new_state->self_refresh_active;
 }
 

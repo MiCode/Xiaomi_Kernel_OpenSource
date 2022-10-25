@@ -4,7 +4,6 @@
  */
 
 #include "queueing.h"
-#include <linux/skb_array.h>
 
 struct multicore_worker __percpu *
 wg_packet_percpu_multicore_worker_alloc(work_func_t function, void *ptr)
@@ -39,11 +38,11 @@ int wg_packet_queue_init(struct crypt_queue *queue, work_func_t function,
 	return 0;
 }
 
-void wg_packet_queue_free(struct crypt_queue *queue, bool purge)
+void wg_packet_queue_free(struct crypt_queue *queue)
 {
 	free_percpu(queue->worker);
-	WARN_ON(!purge && !__ptr_ring_empty(&queue->ring));
-	ptr_ring_cleanup(&queue->ring, purge ? __skb_array_destroy_skb : NULL);
+	WARN_ON(!__ptr_ring_empty(&queue->ring));
+	ptr_ring_cleanup(&queue->ring, NULL);
 }
 
 #define NEXT(skb) ((skb)->prev)

@@ -114,8 +114,7 @@ int hclgevf_send_mbx_msg(struct hclgevf_dev *hdev,
 
 	memcpy(&req->msg, send_msg, sizeof(struct hclge_vf_to_pf_msg));
 
-	if (test_bit(HCLGEVF_STATE_NIC_REGISTERED, &hdev->state))
-		trace_hclge_vf_mbx_send(hdev, req);
+	trace_hclge_vf_mbx_send(hdev, req);
 
 	/* synchronous send */
 	if (need_resp) {

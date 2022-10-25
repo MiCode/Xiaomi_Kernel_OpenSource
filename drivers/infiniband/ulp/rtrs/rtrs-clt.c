@@ -867,7 +867,7 @@ static struct rtrs_clt_sess *get_next_path_min_latency(struct path_it *it)
 	struct rtrs_clt_sess *min_path = NULL;
 	struct rtrs_clt *clt = it->clt;
 	struct rtrs_clt_sess *sess;
-	ktime_t min_latency = KTIME_MAX;
+	ktime_t min_latency = INT_MAX;
 	ktime_t latency;
 
 	list_for_each_entry_rcu(sess, &clt->paths_list, s.entry) {
@@ -2664,8 +2664,6 @@ static void rtrs_clt_dev_release(struct device *dev)
 {
 	struct rtrs_clt *clt = container_of(dev, struct rtrs_clt, dev);
 
-	mutex_destroy(&clt->paths_ev_mutex);
-	mutex_destroy(&clt->paths_mutex);
 	kfree(clt);
 }
 
@@ -2695,8 +2693,6 @@ static struct rtrs_clt *alloc_clt(const char *sessname, size_t paths_num,
 		return ERR_PTR(-ENOMEM);
 	}
 
-	clt->dev.class = rtrs_clt_dev_class;
-	clt->dev.release = rtrs_clt_dev_release;
 	uuid_gen(&clt->paths_uuid);
 	INIT_LIST_HEAD_RCU(&clt->paths_list);
 	clt->paths_num = paths_num;
@@ -2713,51 +2709,53 @@ static struct rtrs_clt *alloc_clt(const char *sessname, size_t paths_num,
 	init_waitqueue_head(&clt->permits_wait);
 	mutex_init(&clt->paths_ev_mutex);
 	mutex_init(&clt->paths_mutex);
-	device_initialize(&clt->dev);
 
+	clt->dev.class = rtrs_clt_dev_class;
+	clt->dev.release = rtrs_clt_dev_release;
 	err = dev_set_name(&clt->dev, "%s", sessname);
 	if (err)
-		goto err_put;
-
+		goto err;
 	/*
 	 * Suppress user space notification until
 	 * sysfs files are created
 	 */
 	dev_set_uevent_suppress(&clt->dev, true);
-	err = device_add(&clt->dev);
-	if (err)
-		goto err_put;
+	err = device_register(&clt->dev);
+	if (err) {
+		put_device(&clt->dev);
+		goto err;
+	}
 
 	clt->kobj_paths = kobject_create_and_add("paths", &clt->dev.kobj);
 	if (!clt->kobj_paths) {
 		err = -ENOMEM;
-		goto err_del;
+		goto err_dev;
 	}
 	err = rtrs_clt_create_sysfs_root_files(clt);
 	if (err) {
 		kobject_del(clt->kobj_paths);
 		kobject_put(clt->kobj_paths);
-		goto err_del;
+		goto err_dev;
 	}
 	dev_set_uevent_suppress(&clt->dev, false);
 	kobject_uevent(&clt->dev.kobj, KOBJ_ADD);
 
 	return clt;
-err_del:
-	device_del(&clt->dev);
-err_put:
+err_dev:
+	device_unregister(&clt->dev);
+err:
 	free_percpu(clt->pcpu_path);
-	put_device(&clt->dev);
+	kfree(clt);
 	return ERR_PTR(err);
 }
 
 static void free_clt(struct rtrs_clt *clt)
 {
+	free_permits(clt);
 	free_percpu(clt->pcpu_path);
-
-	/*
-	 * release callback will free clt and destroy mutexes in last put
-	 */
+	mutex_destroy(&clt->paths_ev_mutex);
+	mutex_destroy(&clt->paths_mutex);
+	/* release callback will free clt in last put */
 	device_unregister(&clt->dev);
 }
 
@@ -2868,7 +2866,6 @@ void rtrs_clt_close(struct rtrs_clt *clt)
 		rtrs_clt_destroy_sess_files(sess, NULL);
 		kobject_put(&sess->kobj);
 	}
-	free_permits(clt);
 	free_clt(clt);
 }
 EXPORT_SYMBOL(rtrs_clt_close);

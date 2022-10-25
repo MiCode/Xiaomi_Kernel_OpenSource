@@ -379,32 +379,32 @@ fetch_kernel_version(unsigned int *puint, char *str,
 	return 0;
 }
 
-int perf_tip(char **strp, const char *dirpath)
+const char *perf_tip(const char *dirpath)
 {
 	struct strlist *tips;
 	struct str_node *node;
+	char *tip = NULL;
 	struct strlist_config conf = {
 		.dirname = dirpath,
 		.file_only = true,
 	};
-	int ret = 0;
 
-	*strp = NULL;
 	tips = strlist__new("tips.txt", &conf);
 	if (tips == NULL)
-		return -errno;
+		return errno == ENOENT ? NULL :
+			"Tip: check path of tips.txt or get more memory! ;-p";
 
 	if (strlist__nr_entries(tips) == 0)
 		goto out;
 
 	node = strlist__entry(tips, random() % strlist__nr_entries(tips));
-	if (asprintf(strp, "Tip: %s", node->s) < 0)
-		ret = -ENOMEM;
+	if (asprintf(&tip, "Tip: %s", node->s) < 0)
+		tip = (char *)"Tip: get more memory! ;-)";
 
 out:
 	strlist__delete(tips);
 
-	return ret;
+	return tip;
 }
 
 char *perf_exe(char *buf, int len)

@@ -42,7 +42,7 @@
 		#size-cells = <1>;
 		ranges = <0x0 0x0 0x00100000 0x1c000>;
 
-		serdes_ln_ctrl: mux-controller@4080 {
+		serdes_ln_ctrl: mux@4080 {
 			compatible = "mmio-mux";
 			reg = <0x00004080 0x50>;
 			#mux-control-cells = <1>;
@@ -76,10 +76,7 @@
 		#interrupt-cells = <3>;
 		interrupt-controller;
 		reg = <0x00 0x01800000 0x00 0x10000>,	/* GICD */
-		      <0x00 0x01900000 0x00 0x100000>,	/* GICR */
-		      <0x00 0x6f000000 0x00 0x2000>,	/* GICC */
-		      <0x00 0x6f010000 0x00 0x1000>,	/* GICH */
-		      <0x00 0x6f020000 0x00 0x2000>;	/* GICV */
+		      <0x00 0x01900000 0x00 0x100000>;	/* GICR */
 
 		/* vcpumntirq: virtual CPU interface maintenance interrupt */
 		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
@@ -613,7 +610,7 @@
 		clock-names = "fck";
 		#address-cells = <3>;
 		#size-cells = <2>;
-		bus-range = <0x0 0xff>;
+		bus-range = <0x0 0xf>;
 		vendor-id = <0x104c>;
 		device-id = <0xb00d>;
 		msi-map = <0x0 &gic_its 0x0 0x10000>;
@@ -639,7 +636,7 @@
 		clocks = <&k3_clks 239 1>;
 		clock-names = "fck";
 		max-functions = /bits/ 8 <6>;
-		max-virtual-functions = /bits/ 8 <4 4 4 4 0 0>;
+		max-virtual-functions = /bits/ 16 <4 4 4 4 0 0>;
 		dma-coherent;
 	};
 
@@ -661,7 +658,7 @@
 		clock-names = "fck";
 		#address-cells = <3>;
 		#size-cells = <2>;
-		bus-range = <0x0 0xff>;
+		bus-range = <0x0 0xf>;
 		vendor-id = <0x104c>;
 		device-id = <0xb00d>;
 		msi-map = <0x0 &gic_its 0x10000 0x10000>;
@@ -687,7 +684,7 @@
 		clocks = <&k3_clks 240 1>;
 		clock-names = "fck";
 		max-functions = /bits/ 8 <6>;
-		max-virtual-functions = /bits/ 8 <4 4 4 4 0 0>;
+		max-virtual-functions = /bits/ 16 <4 4 4 4 0 0>;
 		dma-coherent;
 	};
 
@@ -709,7 +706,7 @@
 		clock-names = "fck";
 		#address-cells = <3>;
 		#size-cells = <2>;
-		bus-range = <0x0 0xff>;
+		bus-range = <0x0 0xf>;
 		vendor-id = <0x104c>;
 		device-id = <0xb00d>;
 		msi-map = <0x0 &gic_its 0x20000 0x10000>;
@@ -735,7 +732,7 @@
 		clocks = <&k3_clks 241 1>;
 		clock-names = "fck";
 		max-functions = /bits/ 8 <6>;
-		max-virtual-functions = /bits/ 8 <4 4 4 4 0 0>;
+		max-virtual-functions = /bits/ 16 <4 4 4 4 0 0>;
 		dma-coherent;
 	};
 
@@ -757,7 +754,7 @@
 		clock-names = "fck";
 		#address-cells = <3>;
 		#size-cells = <2>;
-		bus-range = <0x0 0xff>;
+		bus-range = <0x0 0xf>;
 		vendor-id = <0x104c>;
 		device-id = <0xb00d>;
 		msi-map = <0x0 &gic_its 0x30000 0x10000>;
@@ -783,7 +780,7 @@
 		clocks = <&k3_clks 242 1>;
 		clock-names = "fck";
 		max-functions = /bits/ 8 <6>;
-		max-virtual-functions = /bits/ 8 <4 4 4 4 0 0>;
+		max-virtual-functions = /bits/ 16 <4 4 4 4 0 0>;
 		dma-coherent;
 		#address-cells = <2>;
 		#size-cells = <2>;

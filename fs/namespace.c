@@ -423,7 +423,7 @@ int mnt_want_write_file(struct file *file)
 		sb_end_write(file_inode(file)->i_sb);
 	return ret;
 }
-EXPORT_SYMBOL_NS_GPL(mnt_want_write_file, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL_GPL(mnt_want_write_file);
 
 /**
  * __mnt_drop_write - give up write access to a mount
@@ -466,7 +466,7 @@ void mnt_drop_write_file(struct file *file)
 	__mnt_drop_write_file(file);
 	sb_end_write(file_inode(file)->i_sb);
 }
-EXPORT_SYMBOL_NS(mnt_drop_write_file, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(mnt_drop_write_file);
 
 static inline int mnt_hold_writers(struct mount *mnt)
 {
@@ -4263,11 +4263,12 @@ SYSCALL_DEFINE5(mount_setattr, int, dfd, const char __user *, path,
 		return err;
 
 	err = user_path_at(dfd, path, kattr.lookup_flags, &target);
-	if (!err) {
-		err = do_mount_setattr(&target, &kattr);
-		path_put(&target);
-	}
+	if (err)
+		return err;
+
+	err = do_mount_setattr(&target, &kattr);
 	finish_mount_kattr(&kattr);
+	path_put(&target);
 	return err;
 }
 

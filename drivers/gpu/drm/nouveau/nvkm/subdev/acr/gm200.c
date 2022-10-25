@@ -207,13 +207,11 @@ int
 gm200_acr_wpr_parse(struct nvkm_acr *acr)
 {
 	const struct wpr_header *hdr = (void *)acr->wpr_fw->data;
-	struct nvkm_acr_lsfw *lsfw;
 
 	while (hdr->falcon_id != WPR_HEADER_V0_FALCON_ID_INVALID) {
 		wpr_header_dump(&acr->subdev, hdr);
-		lsfw = nvkm_acr_lsfw_add(NULL, acr, NULL, (hdr++)->falcon_id);
-		if (IS_ERR(lsfw))
-			return PTR_ERR(lsfw);
+		if (!nvkm_acr_lsfw_add(NULL, acr, NULL, (hdr++)->falcon_id))
+			return -ENOMEM;
 	}
 
 	return 0;

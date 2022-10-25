@@ -4,8 +4,6 @@
 #include <linux/sched.h> /* for wake_up_process() */
 #include <linux/ftrace.h>
 
-extern void my_direct_func(struct task_struct *p);
-
 void my_direct_func(struct task_struct *p)
 {
 	trace_printk("waking up %s-%d\n", p->comm, p->pid);
@@ -24,7 +22,7 @@ asm (
 "	call my_direct_func\n"
 "	popq %rdi\n"
 "	leave\n"
-	ASM_RET
+"	ret\n"
 "	.size		my_tramp, .-my_tramp\n"
 "	.popsection\n"
 );

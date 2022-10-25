@@ -1295,7 +1295,7 @@ struct journal_s
 	 * Clean-up after fast commit or full commit. JBD2 calls this function
 	 * after every commit operation.
 	 */
-	void (*j_fc_cleanup_callback)(struct journal_s *journal, int full, tid_t tid);
+	void (*j_fc_cleanup_callback)(struct journal_s *journal, int);
 
 	/**
 	 * @j_fc_replay_callback:

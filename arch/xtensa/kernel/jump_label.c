@@ -40,7 +40,7 @@ static int patch_text_stop_machine(void *data)
 {
 	struct patch *patch = data;
 
-	if (atomic_inc_return(&patch->cpu_count) == num_online_cpus()) {
+	if (atomic_inc_return(&patch->cpu_count) == 1) {
 		local_patch_text(patch->addr, patch->data, patch->sz);
 		atomic_inc(&patch->cpu_count);
 	} else {
@@ -61,7 +61,7 @@ static void patch_text(unsigned long addr, const void *data, size_t sz)
 			.data = data,
 		};
 		stop_machine_cpuslocked(patch_text_stop_machine,
-					&patch, cpu_online_mask);
+					&patch, NULL);
 	} else {
 		unsigned long flags;
 

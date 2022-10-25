@@ -6,7 +6,6 @@
 
 #include <linux/clk-provider.h>
 #include <linux/mfd/syscon.h>
-#include <linux/module.h>
 #include <linux/slab.h>
 
 #include "clk-mtk.h"
@@ -107,5 +106,3 @@ int mtk_clk_register_cpumuxes(struct device_node *node,
 
 	return 0;
 }
-
-MODULE_LICENSE("GPL");

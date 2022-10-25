@@ -214,14 +214,12 @@ static int hwmon_thermal_add_sensor(struct device *dev, int index)
 
 	tzd = devm_thermal_zone_of_sensor_register(dev, index, tdata,
 						   &hwmon_thermal_ops);
-	if (IS_ERR(tzd)) {
-		if (PTR_ERR(tzd) != -ENODEV)
-			return PTR_ERR(tzd);
-		dev_info(dev, "temp%d_input not attached to any thermal zone\n",
-			 index + 1);
-		devm_kfree(dev, tdata);
-		return 0;
-	}
+	/*
+	 * If CONFIG_THERMAL_OF is disabled, this returns -ENODEV,
+	 * so ignore that error but forward any other error.
+	 */
+	if (IS_ERR(tzd) && (PTR_ERR(tzd) != -ENODEV))
+		return PTR_ERR(tzd);
 
 	err = devm_add_action(dev, hwmon_thermal_remove_sensor, &tdata->node);
 	if (err)
@@ -798,10 +796,8 @@ __hwmon_device_register(struct device *dev, const char *name, void *drvdata,
 	dev_set_drvdata(hdev, drvdata);
 	dev_set_name(hdev, HWMON_ID_FORMAT, id);
 	err = device_register(hdev);
-	if (err) {
-		put_device(hdev);
-		goto ida_remove;
-	}
+	if (err)
+		goto free_hwmon;
 
 	INIT_LIST_HEAD(&hwdev->tzdata);
 

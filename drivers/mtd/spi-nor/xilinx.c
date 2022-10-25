@@ -66,8 +66,7 @@ static int xilinx_nor_setup(struct spi_nor *nor,
 		/* Flash in Power of 2 mode */
 		nor->page_size = (nor->page_size == 264) ? 256 : 512;
 		nor->mtd.writebufsize = nor->page_size;
-		nor->params->size = 8 * nor->page_size * nor->info->n_sectors;
-		nor->mtd.size = nor->params->size;
+		nor->mtd.size = 8 * nor->page_size * nor->info->n_sectors;
 		nor->mtd.erasesize = 8 * nor->page_size;
 	} else {
 		/* Flash in Default addressing mode */

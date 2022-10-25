@@ -19,7 +19,6 @@
 #include <linux/lockdep.h>
 #include <linux/iopoll.h>
 #include <linux/fwnode.h>
-#include <linux/android_kabi.h>
 
 struct module;
 struct clk;
@@ -291,11 +290,6 @@ typedef void (*regmap_unlock)(void *);
  *		  read operation on a bus such as SPI, I2C, etc. Most of the
  *		  devices do not need this.
  * @reg_write:	  Same as above for writing.
- * @reg_update_bits: Optional callback that if filled will be used to perform
- *		     all the update_bits(rmw) operation. Should only be provided
- *		     if the function require special handling with lock and reg
- *		     handling and the operation cannot be represented as a simple
- *		     update_bits operation on a bus such as SPI, I2C, etc.
  * @fast_io:	  Register IO is fast. Use a spinlock instead of a mutex
  *	     	  to perform locking. This field is ignored if custom lock/unlock
  *	     	  functions are used (see fields lock/unlock of struct regmap_config).
@@ -378,8 +372,6 @@ struct regmap_config {
 
 	int (*reg_read)(void *context, unsigned int reg, unsigned int *val);
 	int (*reg_write)(void *context, unsigned int reg, unsigned int val);
-	int (*reg_update_bits)(void *context, unsigned int reg,
-			       unsigned int mask, unsigned int val);
 
 	bool fast_io;
 
@@ -417,8 +409,6 @@ struct regmap_config {
 	unsigned int hwlock_mode;
 
 	bool can_sleep;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -456,8 +446,6 @@ struct regmap_range_cfg {
 	/* Data window (per each page) */
 	unsigned int window_start;
 	unsigned int window_len;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 struct regmap_async;
@@ -536,8 +524,6 @@ struct regmap_bus {
 	size_t max_raw_read;
 	size_t max_raw_write;
 	bool free_on_exit;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 /*

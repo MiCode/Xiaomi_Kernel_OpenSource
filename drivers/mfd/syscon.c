@@ -22,7 +22,6 @@
 #include <linux/regmap.h>
 #include <linux/mfd/syscon.h>
 #include <linux/slab.h>
-#include <trace/hooks/regmap.h>
 
 static struct platform_driver syscon_driver;
 
@@ -130,7 +129,6 @@ static struct syscon *of_syscon_register(struct device_node *np, bool check_clk)
 		}
 	}
 
-	trace_android_vh_regmap_update(&syscon_config, regmap);
 	syscon->regmap = regmap;
 	syscon->np = np;
 

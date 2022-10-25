@@ -21,7 +21,6 @@
 
 #include <linux/delay.h>
 #include <linux/device.h>
-#include <linux/hid.h>
 #include <linux/i2c.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -72,7 +71,6 @@ static int i2c_hid_of_probe(struct i2c_client *client,
 	struct device *dev = &client->dev;
 	struct i2c_hid_of *ihid_of;
 	u16 hid_descriptor_address;
-	u32 quirks = 0;
 	int ret;
 	u32 val;
 
@@ -107,14 +105,8 @@ static int i2c_hid_of_probe(struct i2c_client *client,
 	if (ret)
 		return ret;
 
-	if (device_property_read_bool(dev, "touchscreen-inverted-x"))
-		quirks |= HID_QUIRK_X_INVERT;
-
-	if (device_property_read_bool(dev, "touchscreen-inverted-y"))
-		quirks |= HID_QUIRK_Y_INVERT;
-
 	return i2c_hid_core_probe(client, &ihid_of->ops,
-				  hid_descriptor_address, quirks);
+				  hid_descriptor_address);
 }
 
 static const struct of_device_id i2c_hid_of_match[] = {

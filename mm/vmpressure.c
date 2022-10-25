@@ -21,8 +21,6 @@
 #include <linux/printk.h>
 #include <linux/vmpressure.h>
 
-#include <trace/hooks/mm.h>
-
 /*
  * The window size (vmpressure_win) is the number of scanned pages before
  * we try to analyze scanned/reclaimed ratio. So the window is used as a
@@ -242,13 +240,8 @@ void vmpressure(gfp_t gfp, struct mem_cgroup *memcg, bool tree,
 		unsigned long scanned, unsigned long reclaimed)
 {
 	struct vmpressure *vmpr;
-	bool bypass = false;
 
 	if (mem_cgroup_disabled())
-		return;
-
-	trace_android_vh_vmpressure(memcg, &bypass);
-	if (bypass)
 		return;
 
 	vmpr = memcg_to_vmpressure(memcg);

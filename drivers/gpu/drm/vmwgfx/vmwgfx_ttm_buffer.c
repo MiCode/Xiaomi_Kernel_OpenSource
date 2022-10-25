@@ -92,13 +92,6 @@ static const struct ttm_place gmr_vram_placement_flags[] = {
 	}
 };
 
-static const struct ttm_place vmw_sys_placement_flags = {
-	.fpfn = 0,
-	.lpfn = 0,
-	.mem_type = VMW_PL_SYSTEM,
-	.flags = 0
-};
-
 struct ttm_placement vmw_vram_gmr_placement = {
 	.num_placement = 2,
 	.placement = vram_gmr_placement_flags,
@@ -120,11 +113,28 @@ struct ttm_placement vmw_sys_placement = {
 	.busy_placement = &sys_placement_flags
 };
 
-struct ttm_placement vmw_pt_sys_placement = {
-	.num_placement = 1,
-	.placement = &vmw_sys_placement_flags,
-	.num_busy_placement = 1,
-	.busy_placement = &vmw_sys_placement_flags
+static const struct ttm_place evictable_placement_flags[] = {
+	{
+		.fpfn = 0,
+		.lpfn = 0,
+		.mem_type = TTM_PL_SYSTEM,
+		.flags = 0
+	}, {
+		.fpfn = 0,
+		.lpfn = 0,
+		.mem_type = TTM_PL_VRAM,
+		.flags = 0
+	}, {
+		.fpfn = 0,
+		.lpfn = 0,
+		.mem_type = VMW_PL_GMR,
+		.flags = 0
+	}, {
+		.fpfn = 0,
+		.lpfn = 0,
+		.mem_type = VMW_PL_MOB,
+		.flags = 0
+	}
 };
 
 static const struct ttm_place nonfixed_placement_flags[] = {
@@ -144,6 +154,13 @@ static const struct ttm_place nonfixed_placement_flags[] = {
 		.mem_type = VMW_PL_MOB,
 		.flags = 0
 	}
+};
+
+struct ttm_placement vmw_evictable_placement = {
+	.num_placement = 4,
+	.placement = evictable_placement_flags,
+	.num_busy_placement = 1,
+	.busy_placement = &sys_placement_flags
 };
 
 struct ttm_placement vmw_srf_placement = {
@@ -467,9 +484,6 @@ static int vmw_ttm_bind(struct ttm_device *bdev,
 				    &vmw_be->vsgt, ttm->num_pages,
 				    vmw_be->gmr_id);
 		break;
-	case VMW_PL_SYSTEM:
-		/* Nothing to be done for a system bind */
-		break;
 	default:
 		BUG();
 	}
@@ -492,8 +506,6 @@ static void vmw_ttm_unbind(struct ttm_device *bdev,
 		break;
 	case VMW_PL_MOB:
 		vmw_mob_unbind(vmw_be->dev_priv, vmw_be->mob);
-		break;
-	case VMW_PL_SYSTEM:
 		break;
 	default:
 		BUG();
@@ -616,7 +628,6 @@ static int vmw_ttm_io_mem_reserve(struct ttm_device *bdev, struct ttm_resource *
 
 	switch (mem->mem_type) {
 	case TTM_PL_SYSTEM:
-	case VMW_PL_SYSTEM:
 	case VMW_PL_GMR:
 	case VMW_PL_MOB:
 		return 0;
@@ -663,11 +674,6 @@ static void vmw_swap_notify(struct ttm_buffer_object *bo)
 	(void) ttm_bo_wait(bo, false, false);
 }
 
-static bool vmw_memtype_is_system(uint32_t mem_type)
-{
-	return mem_type == TTM_PL_SYSTEM || mem_type == VMW_PL_SYSTEM;
-}
-
 static int vmw_move(struct ttm_buffer_object *bo,
 		    bool evict,
 		    struct ttm_operation_ctx *ctx,
@@ -678,7 +684,7 @@ static int vmw_move(struct ttm_buffer_object *bo,
 	struct ttm_resource_manager *new_man = ttm_manager_type(bo->bdev, new_mem->mem_type);
 	int ret;
 
-	if (new_man->use_tt && !vmw_memtype_is_system(new_mem->mem_type)) {
+	if (new_man->use_tt && new_mem->mem_type != TTM_PL_SYSTEM) {
 		ret = vmw_ttm_bind(bo->bdev, bo->ttm, new_mem);
 		if (ret)
 			return ret;
@@ -687,7 +693,7 @@ static int vmw_move(struct ttm_buffer_object *bo,
 	vmw_move_notify(bo, bo->resource, new_mem);
 
 	if (old_man->use_tt && new_man->use_tt) {
-		if (vmw_memtype_is_system(bo->resource->mem_type)) {
+		if (bo->resource->mem_type == TTM_PL_SYSTEM) {
 			ttm_bo_move_null(bo, new_mem);
 			return 0;
 		}
@@ -734,7 +740,7 @@ int vmw_bo_create_and_populate(struct vmw_private *dev_priv,
 	int ret;
 
 	ret = vmw_bo_create_kernel(dev_priv, bo_size,
-				   &vmw_pt_sys_placement,
+				   &vmw_sys_placement,
 				   &bo);
 	if (unlikely(ret != 0))
 		return ret;

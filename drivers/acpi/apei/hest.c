@@ -223,7 +223,7 @@ err:
 static int __init setup_hest_disable(char *str)
 {
 	hest_disable = HEST_DISABLED;
-	return 1;
+	return 0;
 }
 
 __setup("hest_disable", setup_hest_disable);

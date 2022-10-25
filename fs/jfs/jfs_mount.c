@@ -81,14 +81,14 @@ int jfs_mount(struct super_block *sb)
 	 * (initialize mount inode from the superblock)
 	 */
 	if ((rc = chkSuper(sb))) {
-		goto out;
+		goto errout20;
 	}
 
 	ipaimap = diReadSpecial(sb, AGGREGATE_I, 0);
 	if (ipaimap == NULL) {
 		jfs_err("jfs_mount: Failed to read AGGREGATE_I");
 		rc = -EIO;
-		goto out;
+		goto errout20;
 	}
 	sbi->ipaimap = ipaimap;
 
@@ -99,7 +99,7 @@ int jfs_mount(struct super_block *sb)
 	 */
 	if ((rc = diMount(ipaimap))) {
 		jfs_err("jfs_mount: diMount(ipaimap) failed w/rc = %d", rc);
-		goto err_ipaimap;
+		goto errout21;
 	}
 
 	/*
@@ -108,7 +108,7 @@ int jfs_mount(struct super_block *sb)
 	ipbmap = diReadSpecial(sb, BMAP_I, 0);
 	if (ipbmap == NULL) {
 		rc = -EIO;
-		goto err_umount_ipaimap;
+		goto errout22;
 	}
 
 	jfs_info("jfs_mount: ipbmap:0x%p", ipbmap);
@@ -120,7 +120,7 @@ int jfs_mount(struct super_block *sb)
 	 */
 	if ((rc = dbMount(ipbmap))) {
 		jfs_err("jfs_mount: dbMount failed w/rc = %d", rc);
-		goto err_ipbmap;
+		goto errout22;
 	}
 
 	/*
@@ -139,7 +139,7 @@ int jfs_mount(struct super_block *sb)
 		if (!ipaimap2) {
 			jfs_err("jfs_mount: Failed to read AGGREGATE_I");
 			rc = -EIO;
-			goto err_umount_ipbmap;
+			goto errout35;
 		}
 		sbi->ipaimap2 = ipaimap2;
 
@@ -151,7 +151,7 @@ int jfs_mount(struct super_block *sb)
 		if ((rc = diMount(ipaimap2))) {
 			jfs_err("jfs_mount: diMount(ipaimap2) failed, rc = %d",
 				rc);
-			goto err_ipaimap2;
+			goto errout35;
 		}
 	} else
 		/* Secondary aggregate inode table is not valid */
@@ -168,7 +168,7 @@ int jfs_mount(struct super_block *sb)
 		jfs_err("jfs_mount: Failed to read FILESYSTEM_I");
 		/* open fileset secondary inode allocation map */
 		rc = -EIO;
-		goto err_umount_ipaimap2;
+		goto errout40;
 	}
 	jfs_info("jfs_mount: ipimap:0x%p", ipimap);
 
@@ -178,34 +178,41 @@ int jfs_mount(struct super_block *sb)
 	/* initialize fileset inode allocation map */
 	if ((rc = diMount(ipimap))) {
 		jfs_err("jfs_mount: diMount failed w/rc = %d", rc);
-		goto err_ipimap;
+		goto errout41;
 	}
 
-	return rc;
+	goto out;
 
 	/*
 	 *	unwind on error
 	 */
-err_ipimap:
-	/* close fileset inode allocation map inode */
+      errout41:		/* close fileset inode allocation map inode */
 	diFreeSpecial(ipimap);
-err_umount_ipaimap2:
+
+      errout40:		/* fileset closed */
+
 	/* close secondary aggregate inode allocation map */
-	if (ipaimap2)
+	if (ipaimap2) {
 		diUnmount(ipaimap2, 1);
-err_ipaimap2:
-	/* close aggregate inodes */
-	if (ipaimap2)
 		diFreeSpecial(ipaimap2);
-err_umount_ipbmap:	/* close aggregate block allocation map */
+	}
+
+      errout35:
+
+	/* close aggregate block allocation map */
 	dbUnmount(ipbmap, 1);
-err_ipbmap:		/* close aggregate inodes */
 	diFreeSpecial(ipbmap);
-err_umount_ipaimap:	/* close aggregate inode allocation map */
+
+      errout22:		/* close aggregate inode allocation map */
+
 	diUnmount(ipaimap, 1);
-err_ipaimap:		/* close aggregate inodes */
+
+      errout21:		/* close aggregate inodes */
 	diFreeSpecial(ipaimap);
-out:
+      errout20:		/* aggregate closed */
+
+      out:
+
 	if (rc)
 		jfs_err("Mount JFS Failure: %d", rc);
 

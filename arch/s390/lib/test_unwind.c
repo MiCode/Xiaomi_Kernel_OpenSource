@@ -171,11 +171,10 @@ static noinline int unwindme_func4(struct unwindme *u)
 		}
 
 		/*
-		 * Trigger operation exception; use insn notation to bypass
-		 * llvm's integrated assembler sanity checks.
+		 * trigger specification exception
 		 */
 		asm volatile(
-			"	.insn	e,0x0000\n"	/* illegal opcode */
+			"	mvcl	%%r1,%%r1\n"
 			"0:	nopr	%%r7\n"
 			EX_TABLE(0b, 0b)
 			:);

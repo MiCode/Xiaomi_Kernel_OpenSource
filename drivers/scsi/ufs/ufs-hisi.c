@@ -396,13 +396,9 @@ out:
 	return ret;
 }
 
-static int ufs_hisi_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op,
-	enum ufs_notify_change_status status)
+static int ufs_hisi_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	struct ufs_hisi_host *host = ufshcd_get_variant(hba);
-
-	if (status == PRE_CHANGE)
-		return 0;
 
 	if (pm_op == UFS_RUNTIME_PM)
 		return 0;

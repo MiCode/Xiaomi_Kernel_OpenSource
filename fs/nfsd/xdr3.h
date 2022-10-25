@@ -40,7 +40,7 @@ struct nfsd3_writeargs {
 	__u32			count;
 	int			stable;
 	__u32			len;
-	struct xdr_buf		payload;
+	struct kvec		first;
 };
 
 struct nfsd3_createargs {

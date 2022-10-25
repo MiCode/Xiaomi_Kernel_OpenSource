@@ -3,7 +3,6 @@
 #define __NET_GENERIC_NETLINK_H
 
 #include <linux/genetlink.h>
-#include <linux/android_kabi.h>
 #include <net/netlink.h>
 #include <net/net_namespace.h>
 
@@ -69,8 +68,6 @@ struct genl_family {
 	const struct genl_small_ops *small_ops;
 	const struct genl_multicast_group *mcgrps;
 	struct module		*module;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -162,8 +159,6 @@ struct genl_ops {
 	u8			internal_flags;
 	u8			flags;
 	u8			validate;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 /**

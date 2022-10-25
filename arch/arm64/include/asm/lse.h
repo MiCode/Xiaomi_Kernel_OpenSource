@@ -4,7 +4,7 @@
 
 #include <asm/atomic_ll_sc.h>
 
-#if defined(CONFIG_ARM64_LSE_ATOMICS) && !defined(BUILD_FIPS140_KO)
+#ifdef CONFIG_ARM64_LSE_ATOMICS
 
 #define __LSE_PREAMBLE	".arch_extension lse\n"
 

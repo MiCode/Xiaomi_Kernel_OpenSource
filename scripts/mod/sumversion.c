@@ -387,7 +387,7 @@ out_file:
 /* Calc and record src checksum. */
 void get_src_version(const char *modname, char sum[], unsigned sumlen)
 {
-	char *buf;
+	char *buf, *pos, *firstline;
 	struct md4_ctx md;
 	char *fname;
 	char filelist[PATH_MAX + 1];
@@ -397,8 +397,15 @@ void get_src_version(const char *modname, char sum[], unsigned sumlen)
 
 	buf = read_text_file(filelist);
 
+	pos = buf;
+	firstline = get_line(&pos);
+	if (!firstline) {
+		warn("bad ending versions file for %s\n", modname);
+		goto free;
+	}
+
 	md4_init(&md);
-	while ((fname = strsep(&buf, "\n"))) {
+	while ((fname = strsep(&firstline, " "))) {
 		if (!*fname)
 			continue;
 		if (!(is_static_library(fname)) &&

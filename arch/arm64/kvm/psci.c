@@ -21,6 +21,16 @@
  * as described in ARM document number ARM DEN 0022A.
  */
 
+#define AFFINITY_MASK(level)	~((0x1UL << ((level) * MPIDR_LEVEL_BITS)) - 1)
+
+static unsigned long psci_affinity_mask(unsigned long affinity_level)
+{
+	if (affinity_level <= 3)
+		return MPIDR_HWID_BITMASK & AFFINITY_MASK(affinity_level);
+
+	return 0;
+}
+
 static unsigned long kvm_psci_vcpu_suspend(struct kvm_vcpu *vcpu)
 {
 	/*
@@ -47,6 +57,12 @@ static void kvm_psci_vcpu_off(struct kvm_vcpu *vcpu)
 	vcpu->arch.power_off = true;
 	kvm_make_request(KVM_REQ_SLEEP, vcpu);
 	kvm_vcpu_kick(vcpu);
+}
+
+static inline bool kvm_psci_valid_affinity(struct kvm_vcpu *vcpu,
+					   unsigned long affinity)
+{
+	return !(affinity & ~MPIDR_HWID_BITMASK);
 }
 
 static unsigned long kvm_psci_vcpu_on(struct kvm_vcpu *source_vcpu)
@@ -93,7 +109,7 @@ static unsigned long kvm_psci_vcpu_on(struct kvm_vcpu *source_vcpu)
 
 	/*
 	 * Make sure the reset request is observed if the change to
-	 * power_off is observed.
+	 * power_state is observed.
 	 */
 	smp_wmb();
 
@@ -146,7 +162,7 @@ static unsigned long kvm_psci_vcpu_affinity_info(struct kvm_vcpu *vcpu)
 	return PSCI_0_2_AFFINITY_LEVEL_OFF;
 }
 
-static void kvm_prepare_system_event(struct kvm_vcpu *vcpu, u32 type, u64 flags)
+static void kvm_prepare_system_event(struct kvm_vcpu *vcpu, u32 type)
 {
 	int i;
 	struct kvm_vcpu *tmp;
@@ -166,24 +182,29 @@ static void kvm_prepare_system_event(struct kvm_vcpu *vcpu, u32 type, u64 flags)
 
 	memset(&vcpu->run->system_event, 0, sizeof(vcpu->run->system_event));
 	vcpu->run->system_event.type = type;
-	vcpu->run->system_event.flags = flags;
 	vcpu->run->exit_reason = KVM_EXIT_SYSTEM_EVENT;
 }
 
 static void kvm_psci_system_off(struct kvm_vcpu *vcpu)
 {
-	kvm_prepare_system_event(vcpu, KVM_SYSTEM_EVENT_SHUTDOWN, 0);
+	kvm_prepare_system_event(vcpu, KVM_SYSTEM_EVENT_SHUTDOWN);
 }
 
 static void kvm_psci_system_reset(struct kvm_vcpu *vcpu)
 {
-	kvm_prepare_system_event(vcpu, KVM_SYSTEM_EVENT_RESET, 0);
+	kvm_prepare_system_event(vcpu, KVM_SYSTEM_EVENT_RESET);
 }
 
-static void kvm_psci_system_reset2(struct kvm_vcpu *vcpu)
+static void kvm_psci_narrow_to_32bit(struct kvm_vcpu *vcpu)
 {
-	kvm_prepare_system_event(vcpu, KVM_SYSTEM_EVENT_RESET,
-				 KVM_SYSTEM_EVENT_RESET_FLAG_PSCI_RESET2);
+	int i;
+
+	/*
+	 * Zero the input registers' upper 32 bits. They will be fully
+	 * zeroed on exit, so we're fine changing them in place.
+	 */
+	for (i = 1; i < 4; i++)
+		vcpu_set_reg(vcpu, i, lower_32_bits(vcpu_get_reg(vcpu, i)));
 }
 
 static unsigned long kvm_psci_check_allowed_function(struct kvm_vcpu *vcpu, u32 fn)
@@ -284,27 +305,24 @@ out:
 	return ret;
 }
 
-static int kvm_psci_1_x_call(struct kvm_vcpu *vcpu, u32 minor)
+static int kvm_psci_1_0_call(struct kvm_vcpu *vcpu)
 {
 	u32 psci_fn = smccc_get_function(vcpu);
-	u32 arg;
+	u32 feature;
 	unsigned long val;
 	int ret = 1;
 
-	if (minor > 1)
-		return -EINVAL;
-
 	switch(psci_fn) {
 	case PSCI_0_2_FN_PSCI_VERSION:
-		val = minor == 0 ? KVM_ARM_PSCI_1_0 : KVM_ARM_PSCI_1_1;
+		val = KVM_ARM_PSCI_1_0;
 		break;
 	case PSCI_1_0_FN_PSCI_FEATURES:
-		arg = smccc_get_arg1(vcpu);
-		val = kvm_psci_check_allowed_function(vcpu, arg);
+		feature = smccc_get_arg1(vcpu);
+		val = kvm_psci_check_allowed_function(vcpu, feature);
 		if (val)
 			break;
 
-		switch(arg) {
+		switch(feature) {
 		case PSCI_0_2_FN_PSCI_VERSION:
 		case PSCI_0_2_FN_CPU_SUSPEND:
 		case PSCI_0_2_FN64_CPU_SUSPEND:
@@ -320,36 +338,11 @@ static int kvm_psci_1_x_call(struct kvm_vcpu *vcpu, u32 minor)
 		case ARM_SMCCC_VERSION_FUNC_ID:
 			val = 0;
 			break;
-		case PSCI_1_1_FN_SYSTEM_RESET2:
-		case PSCI_1_1_FN64_SYSTEM_RESET2:
-			if (minor >= 1) {
-				val = 0;
-				break;
-			}
-			fallthrough;
 		default:
 			val = PSCI_RET_NOT_SUPPORTED;
 			break;
 		}
 		break;
-	case PSCI_1_1_FN_SYSTEM_RESET2:
-		kvm_psci_narrow_to_32bit(vcpu);
-		fallthrough;
-	case PSCI_1_1_FN64_SYSTEM_RESET2:
-		if (minor >= 1) {
-			arg = smccc_get_arg1(vcpu);
-
-			if (arg <= PSCI_1_1_RESET_TYPE_SYSTEM_WARM_RESET ||
-			    arg >= PSCI_1_1_RESET_TYPE_VENDOR_START) {
-				kvm_psci_system_reset2(vcpu);
-				vcpu_set_reg(vcpu, 0, PSCI_RET_INTERNAL_FAILURE);
-				return 0;
-			}
-
-			val = PSCI_RET_INVALID_PARAMS;
-			break;
-		};
-		fallthrough;
 	default:
 		return kvm_psci_0_2_call(vcpu);
 	}
@@ -400,10 +393,8 @@ static int kvm_psci_0_1_call(struct kvm_vcpu *vcpu)
 int kvm_psci_call(struct kvm_vcpu *vcpu)
 {
 	switch (kvm_psci_version(vcpu, vcpu->kvm)) {
-	case KVM_ARM_PSCI_1_1:
-		return kvm_psci_1_x_call(vcpu, 1);
 	case KVM_ARM_PSCI_1_0:
-		return kvm_psci_1_x_call(vcpu, 0);
+		return kvm_psci_1_0_call(vcpu);
 	case KVM_ARM_PSCI_0_2:
 		return kvm_psci_0_2_call(vcpu);
 	case KVM_ARM_PSCI_0_1:
@@ -415,7 +406,7 @@ int kvm_psci_call(struct kvm_vcpu *vcpu)
 
 int kvm_arm_get_fw_num_regs(struct kvm_vcpu *vcpu)
 {
-	return 4;		/* PSCI version and three workaround registers */
+	return 3;		/* PSCI version and two workaround registers */
 }
 
 int kvm_arm_copy_fw_reg_indices(struct kvm_vcpu *vcpu, u64 __user *uindices)
@@ -427,9 +418,6 @@ int kvm_arm_copy_fw_reg_indices(struct kvm_vcpu *vcpu, u64 __user *uindices)
 		return -EFAULT;
 
 	if (put_user(KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_2, uindices++))
-		return -EFAULT;
-
-	if (put_user(KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_3, uindices++))
 		return -EFAULT;
 
 	return 0;
@@ -471,17 +459,6 @@ static int get_kernel_wa_level(u64 regid)
 		case SPECTRE_VULNERABLE:
 			return KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_2_NOT_AVAIL;
 		}
-		break;
-	case KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_3:
-		switch (arm64_get_spectre_bhb_state()) {
-		case SPECTRE_VULNERABLE:
-			return KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_3_NOT_AVAIL;
-		case SPECTRE_MITIGATED:
-			return KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_3_AVAIL;
-		case SPECTRE_UNAFFECTED:
-			return KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_3_NOT_REQUIRED;
-		}
-		return KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_3_NOT_AVAIL;
 	}
 
 	return -EINVAL;
@@ -498,7 +475,6 @@ int kvm_arm_get_fw_reg(struct kvm_vcpu *vcpu, const struct kvm_one_reg *reg)
 		break;
 	case KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_1:
 	case KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_2:
-	case KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_3:
 		val = get_kernel_wa_level(reg->id) & KVM_REG_FEATURE_LEVEL_MASK;
 		break;
 	default:
@@ -535,7 +511,6 @@ int kvm_arm_set_fw_reg(struct kvm_vcpu *vcpu, const struct kvm_one_reg *reg)
 			return 0;
 		case KVM_ARM_PSCI_0_2:
 		case KVM_ARM_PSCI_1_0:
-		case KVM_ARM_PSCI_1_1:
 			if (!wants_02)
 				return -EINVAL;
 			vcpu->kvm->arch.psci_version = val;
@@ -545,7 +520,6 @@ int kvm_arm_set_fw_reg(struct kvm_vcpu *vcpu, const struct kvm_one_reg *reg)
 	}
 
 	case KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_1:
-	case KVM_REG_ARM_SMCCC_ARCH_WORKAROUND_3:
 		if (val & ~KVM_REG_FEATURE_LEVEL_MASK)
 			return -EINVAL;
 

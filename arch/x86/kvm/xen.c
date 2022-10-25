@@ -93,57 +93,32 @@ static void kvm_xen_update_runstate(struct kvm_vcpu *v, int state)
 void kvm_xen_update_runstate_guest(struct kvm_vcpu *v, int state)
 {
 	struct kvm_vcpu_xen *vx = &v->arch.xen;
-	struct gfn_to_hva_cache *ghc = &vx->runstate_cache;
-	struct kvm_memslots *slots = kvm_memslots(v->kvm);
-	bool atomic = (state == RUNSTATE_runnable);
 	uint64_t state_entry_time;
-	int __user *user_state;
-	uint64_t __user *user_times;
+	unsigned int offset;
 
 	kvm_xen_update_runstate(v, state);
 
 	if (!vx->runstate_set)
 		return;
 
-	if (unlikely(slots->generation != ghc->generation || kvm_is_error_hva(ghc->hva)) &&
-	    kvm_gfn_to_hva_cache_init(v->kvm, ghc, ghc->gpa, ghc->len))
-		return;
-
-	/* We made sure it fits in a single page */
-	BUG_ON(!ghc->memslot);
-
-	if (atomic)
-		pagefault_disable();
-
-	/*
-	 * The only difference between 32-bit and 64-bit versions of the
-	 * runstate struct us the alignment of uint64_t in 32-bit, which
-	 * means that the 64-bit version has an additional 4 bytes of
-	 * padding after the first field 'state'.
-	 *
-	 * So we use 'int __user *user_state' to point to the state field,
-	 * and 'uint64_t __user *user_times' for runstate_entry_time. So
-	 * the actual array of time[] in each state starts at user_times[1].
-	 */
-	BUILD_BUG_ON(offsetof(struct vcpu_runstate_info, state) != 0);
-	BUILD_BUG_ON(offsetof(struct compat_vcpu_runstate_info, state) != 0);
-	user_state = (int __user *)ghc->hva;
-
 	BUILD_BUG_ON(sizeof(struct compat_vcpu_runstate_info) != 0x2c);
 
-	user_times = (uint64_t __user *)(ghc->hva +
-					 offsetof(struct compat_vcpu_runstate_info,
-						  state_entry_time));
+	offset = offsetof(struct compat_vcpu_runstate_info, state_entry_time);
 #ifdef CONFIG_X86_64
+	/*
+	 * The only difference is alignment of uint64_t in 32-bit.
+	 * So the first field 'state' is accessed directly using
+	 * offsetof() (where its offset happens to be zero), while the
+	 * remaining fields which are all uint64_t, start at 'offset'
+	 * which we tweak here by adding 4.
+	 */
 	BUILD_BUG_ON(offsetof(struct vcpu_runstate_info, state_entry_time) !=
 		     offsetof(struct compat_vcpu_runstate_info, state_entry_time) + 4);
 	BUILD_BUG_ON(offsetof(struct vcpu_runstate_info, time) !=
 		     offsetof(struct compat_vcpu_runstate_info, time) + 4);
 
 	if (v->kvm->arch.xen.long_mode)
-		user_times = (uint64_t __user *)(ghc->hva +
-						 offsetof(struct vcpu_runstate_info,
-							  state_entry_time));
+		offset = offsetof(struct vcpu_runstate_info, state_entry_time);
 #endif
 	/*
 	 * First write the updated state_entry_time at the appropriate
@@ -157,8 +132,10 @@ void kvm_xen_update_runstate_guest(struct kvm_vcpu *v, int state)
 	BUILD_BUG_ON(sizeof(((struct compat_vcpu_runstate_info *)0)->state_entry_time) !=
 		     sizeof(state_entry_time));
 
-	if (__put_user(state_entry_time, user_times))
-		goto out;
+	if (kvm_write_guest_offset_cached(v->kvm, &v->arch.xen.runstate_cache,
+					  &state_entry_time, offset,
+					  sizeof(state_entry_time)))
+		return;
 	smp_wmb();
 
 	/*
@@ -172,8 +149,11 @@ void kvm_xen_update_runstate_guest(struct kvm_vcpu *v, int state)
 	BUILD_BUG_ON(sizeof(((struct compat_vcpu_runstate_info *)0)->state) !=
 		     sizeof(vx->current_runstate));
 
-	if (__put_user(vx->current_runstate, user_state))
-		goto out;
+	if (kvm_write_guest_offset_cached(v->kvm, &v->arch.xen.runstate_cache,
+					  &vx->current_runstate,
+					  offsetof(struct vcpu_runstate_info, state),
+					  sizeof(vx->current_runstate)))
+		return;
 
 	/*
 	 * Write the actual runstate times immediately after the
@@ -188,23 +168,24 @@ void kvm_xen_update_runstate_guest(struct kvm_vcpu *v, int state)
 	BUILD_BUG_ON(sizeof(((struct vcpu_runstate_info *)0)->time) !=
 		     sizeof(vx->runstate_times));
 
-	if (__copy_to_user(user_times + 1, vx->runstate_times, sizeof(vx->runstate_times)))
-		goto out;
+	if (kvm_write_guest_offset_cached(v->kvm, &v->arch.xen.runstate_cache,
+					  &vx->runstate_times[0],
+					  offset + sizeof(u64),
+					  sizeof(vx->runstate_times)))
+		return;
+
 	smp_wmb();
 
 	/*
 	 * Finally, clear the XEN_RUNSTATE_UPDATE bit in the guest's
 	 * runstate_entry_time field.
 	 */
+
 	state_entry_time &= ~XEN_RUNSTATE_UPDATE;
-	__put_user(state_entry_time, user_times);
-	smp_wmb();
-
- out:
-	mark_page_dirty_in_slot(v->kvm, ghc->memslot, ghc->gpa >> PAGE_SHIFT);
-
-	if (atomic)
-		pagefault_enable();
+	if (kvm_write_guest_offset_cached(v->kvm, &v->arch.xen.runstate_cache,
+					  &state_entry_time, offset,
+					  sizeof(state_entry_time)))
+		return;
 }
 
 int __kvm_xen_has_interrupt(struct kvm_vcpu *v)
@@ -318,7 +299,7 @@ int kvm_xen_hvm_get_attr(struct kvm *kvm, struct kvm_xen_hvm_attr *data)
 		break;
 
 	case KVM_XEN_ATTR_TYPE_SHARED_INFO:
-		data->u.shared_info.gfn = kvm->arch.xen.shinfo_gfn;
+		data->u.shared_info.gfn = gpa_to_gfn(kvm->arch.xen.shinfo_gfn);
 		r = 0;
 		break;
 
@@ -356,12 +337,6 @@ int kvm_xen_vcpu_set_attr(struct kvm_vcpu *vcpu, struct kvm_xen_vcpu_attr *data)
 			break;
 		}
 
-		/* It must fit within a single page */
-		if ((data->u.gpa & ~PAGE_MASK) + sizeof(struct vcpu_info) > PAGE_SIZE) {
-			r = -EINVAL;
-			break;
-		}
-
 		r = kvm_gfn_to_hva_cache_init(vcpu->kvm,
 					      &vcpu->arch.xen.vcpu_info_cache,
 					      data->u.gpa,
@@ -376,12 +351,6 @@ int kvm_xen_vcpu_set_attr(struct kvm_vcpu *vcpu, struct kvm_xen_vcpu_attr *data)
 		if (data->u.gpa == GPA_INVALID) {
 			vcpu->arch.xen.vcpu_time_info_set = false;
 			r = 0;
-			break;
-		}
-
-		/* It must fit within a single page */
-		if ((data->u.gpa & ~PAGE_MASK) + sizeof(struct pvclock_vcpu_time_info) > PAGE_SIZE) {
-			r = -EINVAL;
 			break;
 		}
 
@@ -403,12 +372,6 @@ int kvm_xen_vcpu_set_attr(struct kvm_vcpu *vcpu, struct kvm_xen_vcpu_attr *data)
 		if (data->u.gpa == GPA_INVALID) {
 			vcpu->arch.xen.runstate_set = false;
 			r = 0;
-			break;
-		}
-
-		/* It must fit within a single page */
-		if ((data->u.gpa & ~PAGE_MASK) + sizeof(struct vcpu_runstate_info) > PAGE_SIZE) {
-			r = -EINVAL;
 			break;
 		}
 
@@ -735,7 +698,7 @@ int kvm_xen_hypercall(struct kvm_vcpu *vcpu)
 	    kvm_hv_hypercall_enabled(vcpu))
 		return kvm_hv_hypercall(vcpu);
 
-	longmode = is_64_bit_hypercall(vcpu);
+	longmode = is_64_bit_mode(vcpu);
 	if (!longmode) {
 		params[0] = (u32)kvm_rbx_read(vcpu);
 		params[1] = (u32)kvm_rcx_read(vcpu);

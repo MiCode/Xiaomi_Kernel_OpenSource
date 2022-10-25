@@ -54,7 +54,6 @@ static void watch_queue_pipe_buf_release(struct pipe_inode_info *pipe,
 	bit += page->index;
 
 	set_bit(bit, wqueue->notes_bitmap);
-	generic_pipe_buf_release(pipe, buf);
 }
 
 // No try_steal function => no stealing
@@ -113,7 +112,7 @@ static bool post_one_notification(struct watch_queue *wqueue,
 	buf->offset = offset;
 	buf->len = len;
 	buf->flags = PIPE_BUF_FLAG_WHOLE;
-	smp_store_release(&pipe->head, head + 1); /* vs pipe_read() */
+	pipe->head = head + 1;
 
 	if (!test_and_clear_bit(note, wqueue->notes_bitmap)) {
 		spin_unlock_irq(&pipe->rd_wait.lock);
@@ -244,8 +243,7 @@ long watch_queue_set_size(struct pipe_inode_info *pipe, unsigned int nr_notes)
 		goto error;
 	}
 
-	nr_notes = nr_pages * WATCH_QUEUE_NOTES_PER_PAGE;
-	ret = pipe_resize_ring(pipe, roundup_pow_of_two(nr_notes));
+	ret = pipe_resize_ring(pipe, nr_notes);
 	if (ret < 0)
 		goto error;
 
@@ -270,11 +268,11 @@ long watch_queue_set_size(struct pipe_inode_info *pipe, unsigned int nr_notes)
 	wqueue->notes = pages;
 	wqueue->notes_bitmap = bitmap;
 	wqueue->nr_pages = nr_pages;
-	wqueue->nr_notes = nr_notes;
+	wqueue->nr_notes = nr_pages * WATCH_QUEUE_NOTES_PER_PAGE;
 	return 0;
 
 error_p:
-	while (--i >= 0)
+	for (i = 0; i < nr_pages; i++)
 		__free_page(pages[i]);
 	kfree(pages);
 error:
@@ -322,7 +320,7 @@ long watch_queue_set_filter(struct pipe_inode_info *pipe,
 		    tf[i].info_mask & WATCH_INFO_LENGTH)
 			goto err_filter;
 		/* Ignore any unknown types */
-		if (tf[i].type >= WATCH_TYPE__NR)
+		if (tf[i].type >= sizeof(wfilter->type_filter) * 8)
 			continue;
 		nr_filter++;
 	}
@@ -338,7 +336,7 @@ long watch_queue_set_filter(struct pipe_inode_info *pipe,
 
 	q = wfilter->filters;
 	for (i = 0; i < filter.nr_filters; i++) {
-		if (tf[i].type >= WATCH_TYPE__NR)
+		if (tf[i].type >= sizeof(wfilter->type_filter) * BITS_PER_LONG)
 			continue;
 
 		q->type			= tf[i].type;
@@ -373,8 +371,6 @@ static void __put_watch_queue(struct kref *kref)
 
 	for (i = 0; i < wqueue->nr_pages; i++)
 		__free_page(wqueue->notes[i]);
-	kfree(wqueue->notes);
-	bitmap_free(wqueue->notes_bitmap);
 
 	wfilter = rcu_access_pointer(wqueue->filter);
 	if (wfilter)
@@ -399,7 +395,6 @@ static void free_watch(struct rcu_head *rcu)
 	put_watch_queue(rcu_access_pointer(watch->queue));
 	atomic_dec(&watch->cred->user->nr_watches);
 	put_cred(watch->cred);
-	kfree(watch);
 }
 
 static void __put_watch(struct kref *kref)
@@ -571,7 +566,7 @@ void watch_queue_clear(struct watch_queue *wqueue)
 	rcu_read_lock();
 	spin_lock_bh(&wqueue->lock);
 
-	/* Prevent new notifications from being stored. */
+	/* Prevent new additions and prevent notifications from happening */
 	wqueue->defunct = true;
 
 	while (!hlist_empty(&wqueue->watches)) {

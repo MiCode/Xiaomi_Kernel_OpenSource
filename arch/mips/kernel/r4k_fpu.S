@@ -31,7 +31,7 @@
 .ex\@:	\insn	\reg, \src
 	.set	pop
 	.section __ex_table,"a"
-	PTR_WD	.ex\@, fault
+	PTR	.ex\@, fault
 	.previous
 	.endm
 

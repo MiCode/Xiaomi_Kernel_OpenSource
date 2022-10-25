@@ -50,6 +50,20 @@ struct redist_region {
 	bool			single_redist;
 };
 
+struct gic_chip_data {
+	struct fwnode_handle	*fwnode;
+	void __iomem		*dist_base;
+	struct redist_region	*redist_regions;
+	struct rdists		rdists;
+	struct irq_domain	*domain;
+	u64			redist_stride;
+	u32			nr_redist_regions;
+	u64			flags;
+	bool			has_rss;
+	unsigned int		ppi_nr;
+	struct partition_desc	**ppi_descs;
+};
+
 static struct gic_chip_data gic_data __read_mostly;
 static DEFINE_STATIC_KEY_TRUE(supports_deactivate_key);
 
@@ -198,11 +212,11 @@ static inline void __iomem *gic_dist_base(struct irq_data *d)
 	}
 }
 
-static void gic_do_wait_for_rwp(void __iomem *base, u32 bit)
+static void gic_do_wait_for_rwp(void __iomem *base)
 {
 	u32 count = 1000000;	/* 1s! */
 
-	while (readl_relaxed(base + GICD_CTLR) & bit) {
+	while (readl_relaxed(base + GICD_CTLR) & GICD_CTLR_RWP) {
 		count--;
 		if (!count) {
 			pr_err_ratelimited("RWP timeout, gone fishing\n");
@@ -216,13 +230,13 @@ static void gic_do_wait_for_rwp(void __iomem *base, u32 bit)
 /* Wait for completion of a distributor change */
 static void gic_dist_wait_for_rwp(void)
 {
-	gic_do_wait_for_rwp(gic_data.dist_base, GICD_CTLR_RWP);
+	gic_do_wait_for_rwp(gic_data.dist_base);
 }
 
 /* Wait for completion of a redistributor change */
 static void gic_redist_wait_for_rwp(void)
 {
-	gic_do_wait_for_rwp(gic_data_rdist_rd_base(), GICR_CTLR_RWP);
+	gic_do_wait_for_rwp(gic_data_rdist_rd_base());
 }
 
 #ifdef CONFIG_ARM64
@@ -917,22 +931,6 @@ static int __gic_update_rdist_properties(struct redist_region *region,
 {
 	u64 typer = gic_read_typer(ptr + GICR_TYPER);
 
-	/* Boot-time cleanip */
-	if ((typer & GICR_TYPER_VLPIS) && (typer & GICR_TYPER_RVPEID)) {
-		u64 val;
-
-		/* Deactivate any present vPE */
-		val = gicr_read_vpendbaser(ptr + SZ_128K + GICR_VPENDBASER);
-		if (val & GICR_VPENDBASER_Valid)
-			gicr_write_vpendbaser(GICR_VPENDBASER_PendingLast,
-					      ptr + SZ_128K + GICR_VPENDBASER);
-
-		/* Mark the VPE table as invalid */
-		val = gicr_read_vpropbaser(ptr + SZ_128K + GICR_VPROPBASER);
-		val &= ~GICR_VPROPBASER_4_1_VALID;
-		gicr_write_vpropbaser(val, ptr + SZ_128K + GICR_VPROPBASER);
-	}
-
 	gic_data.rdists.has_vlpis &= !!(typer & GICR_TYPER_VLPIS);
 
 	/* RVPEID implies some form of DirectLPI, no matter what the doc says... :-/ */
@@ -1273,9 +1271,7 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 	reg = gic_dist_base(d) + offset + (index * 8);
 	val = gic_mpidr_to_affinity(cpu_logical_map(cpu));
 
-	trace_android_rvh_gic_v3_set_affinity(d, mask_val, &val, force, gic_dist_base(d),
-					gic_data.redist_regions[0].redist_base,
-					gic_data.redist_stride);
+	trace_android_vh_gic_v3_set_affinity(d, mask_val, &val);
 	gic_write_irouter(val, reg);
 
 	/*
@@ -1333,7 +1329,7 @@ static inline void gic_cpu_pm_init(void) { }
 #ifdef CONFIG_PM
 void gic_resume(void)
 {
-	trace_android_vh_gic_resume(&gic_data);
+	trace_android_vh_gic_resume(gic_data.domain, gic_data.dist_base);
 }
 EXPORT_SYMBOL_GPL(gic_resume);
 
@@ -1487,12 +1483,6 @@ static int gic_irq_domain_translate(struct irq_domain *d,
 	if (is_fwnode_irqchip(fwspec->fwnode)) {
 		if(fwspec->param_count != 2)
 			return -EINVAL;
-
-		if (fwspec->param[0] < 16) {
-			pr_err(FW_BUG "Illegal GSI%d translation request\n",
-			       fwspec->param[0]);
-			return -EINVAL;
-		}
 
 		*hwirq = fwspec->param[0];
 		*type = fwspec->param[1];

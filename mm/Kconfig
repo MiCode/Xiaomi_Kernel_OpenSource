@@ -2,17 +2,6 @@
 
 menu "Memory Management options"
 
-config MTK_KASAN_MEMBLOCK_SKIP
-	bool "mtk kasan memblock skip"
-	depends on KASAN
-	help
-	  This option allows memblock.o to skip kasan/khwasan
-	  sanitize checks. Kasan shadow memory initialization
-	  uses memblock to allocate page and checks every page.
-
-	  Users select this option to speed up kasan shadow
-	  initialization when system boots.
-
 config SELECT_MEMORY_MODEL
 	def_bool y
 	depends on ARCH_SELECT_MEMORY_MODEL
@@ -898,9 +887,6 @@ config MAPPING_DIRTY_HELPERS
 config KMAP_LOCAL
 	bool
 
-config KMAP_LOCAL_NON_LINEAR_PTE_ARRAY
-	bool
-
 # struct io_mapping based helper.  Selected by drivers that need them
 config IO_MAPPING
 	bool
@@ -908,73 +894,6 @@ config IO_MAPPING
 config SECRETMEM
 	def_bool ARCH_HAS_SET_DIRECT_MAP && !EMBEDDED
 
-# Some architectures want callbacks for all IO mappings in order to
-# track the physical addresses that get used as devices.
-config ARCH_HAS_IOREMAP_PHYS_HOOKS
-	bool
-
-config ANON_VMA_NAME
-	bool "Anonymous VMA name support"
-	depends on PROC_FS && ADVISE_SYSCALLS && MMU
-
-	help
-	  Allow naming anonymous virtual memory areas.
-
-	  This feature allows assigning names to virtual memory areas. Assigned
-	  names can be later retrieved from /proc/pid/maps and /proc/pid/smaps
-	  and help identifying individual anonymous memory areas.
-	  Assigning a name to anonymous virtual memory area might prevent that
-	  area from being merged with adjacent virtual memory areas due to the
-	  difference in their name.
-
-# multi-gen LRU {
-config LRU_GEN
-	bool "Multi-Gen LRU"
-	depends on MMU
-	# the following options can use up the spare bits in page flags
-	depends on !MAXSMP && (64BIT || !SPARSEMEM || SPARSEMEM_VMEMMAP)
-	help
-	  A high performance LRU implementation to overcommit memory. See
-	  Documentation/admin-guide/mm/multigen_lru.rst for details.
-
-config LRU_GEN_ENABLED
-	bool "Enable by default"
-	depends on LRU_GEN
-	help
-	  This option enables the multi-gen LRU by default.
-
-config LRU_GEN_STATS
-	bool "Full stats for debugging"
-	depends on LRU_GEN
-	help
-	  Do not enable this option unless you plan to look at historical stats
-	  from evicted generations for debugging purpose.
-
-	  This option has a per-memcg and per-node memory overhead.
-# }
-
 source "mm/damon/Kconfig"
-
-config ARCH_SUPPORTS_SPECULATIVE_PAGE_FAULT
-       def_bool n
-
-config SPECULATIVE_PAGE_FAULT
-	bool "Speculative page faults"
-	default y
-	depends on ARCH_SUPPORTS_SPECULATIVE_PAGE_FAULT && MMU && SMP
-	help
-	  Try to handle user space page faults without holding the mmap lock.
-
-	  Instead of blocking writers through the use of mmap lock,
-	  the page fault handler merely verifies, at the end of the page
-	  fault, that no writers have been running concurrently with it.
-
-	  In high concurrency situations, the speculative fault handler
-	  gains a throughput advantage by avoiding having to update the
-	  mmap lock reader count.
-
-	  If the check fails due to a concurrent writer, or due to hitting
-	  an unsupported case, the fault handler falls back to classical
-	  processing using the mmap read lock.
 
 endmenu

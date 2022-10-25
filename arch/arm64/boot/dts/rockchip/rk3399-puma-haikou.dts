@@ -232,7 +232,6 @@
 
 &usbdrd_dwc3_0 {
 	dr_mode = "otg";
-	extcon = <&extcon_usb3>;
 	status = "okay";
 };
 

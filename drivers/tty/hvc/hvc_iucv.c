@@ -1417,9 +1417,7 @@ out_error:
  */
 static	int __init hvc_iucv_config(char *val)
 {
-	if (kstrtoul(val, 10, &hvc_iucv_devices))
-		pr_warn("hvc_iucv= invalid parameter value '%s'\n", val);
-	return 1;
+	 return kstrtoul(val, 10, &hvc_iucv_devices);
 }
 
 

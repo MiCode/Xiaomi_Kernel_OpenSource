@@ -2900,9 +2900,11 @@ static netdev_tx_t myri10ge_sw_tso(struct sk_buff *skb,
 		status = myri10ge_xmit(curr, dev);
 		if (status != 0) {
 			dev_kfree_skb_any(curr);
-			skb_list_walk_safe(next, curr, next) {
+			if (segs != NULL) {
+				curr = segs;
+				segs = next;
 				curr->next = NULL;
-				dev_kfree_skb_any(curr);
+				dev_kfree_skb_any(segs);
 			}
 			goto drop;
 		}

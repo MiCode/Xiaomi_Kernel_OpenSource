@@ -770,18 +770,12 @@ out:
 		fb_dealloc_cmap(&info->cmap);
 		kfree(info->pseudo_palette);
 	}
-	if (remapped_fbuf != NULL) {
+	if (remapped_fbuf != NULL)
 		iounmap(remapped_fbuf);
-		remapped_fbuf = NULL;
-	}
-	if (remapped_regs != NULL) {
+	if (remapped_regs != NULL)
 		iounmap(remapped_regs);
-		remapped_regs = NULL;
-	}
-	if (remapped_base != NULL) {
+	if (remapped_base != NULL)
 		iounmap(remapped_base);
-		remapped_base = NULL;
-	}
 	if (info)
 		framebuffer_release(info);
 	return err;
@@ -801,11 +795,8 @@ static int w100fb_remove(struct platform_device *pdev)
 	fb_dealloc_cmap(&info->cmap);
 
 	iounmap(remapped_base);
-	remapped_base = NULL;
 	iounmap(remapped_regs);
-	remapped_regs = NULL;
 	iounmap(remapped_fbuf);
-	remapped_fbuf = NULL;
 
 	framebuffer_release(info);
 

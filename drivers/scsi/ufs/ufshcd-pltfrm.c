@@ -91,12 +91,7 @@ static int ufshcd_parse_clock_info(struct ufs_hba *hba)
 
 		clki->min_freq = clkfreq[i];
 		clki->max_freq = clkfreq[i+1];
-		clki->name = devm_kstrdup(dev, name, GFP_KERNEL);
-		if (!clki->name) {
-			ret = -ENOMEM;
-			goto out;
-		}
-
+		clki->name = kstrdup(name, GFP_KERNEL);
 		if (!strcmp(name, "ref_clk"))
 			clki->keep_link_active = true;
 		dev_dbg(dev, "%s: min %u max %u name %s\n", "freq-table-hz",
@@ -108,8 +103,8 @@ out:
 }
 
 #define MAX_PROP_SIZE 32
-int ufshcd_populate_vreg(struct device *dev, const char *name,
-			 struct ufs_vreg **out_vreg)
+static int ufshcd_populate_vreg(struct device *dev, const char *name,
+		struct ufs_vreg **out_vreg)
 {
 	char prop_name[MAX_PROP_SIZE];
 	struct ufs_vreg *vreg = NULL;
@@ -131,9 +126,7 @@ int ufshcd_populate_vreg(struct device *dev, const char *name,
 	if (!vreg)
 		return -ENOMEM;
 
-	vreg->name = devm_kstrdup(dev, name, GFP_KERNEL);
-	if (!vreg->name)
-		return -ENOMEM;
+	vreg->name = kstrdup(name, GFP_KERNEL);
 
 	snprintf(prop_name, MAX_PROP_SIZE, "%s-max-microamp", name);
 	if (of_property_read_u32(np, prop_name, &vreg->max_uA)) {
@@ -144,7 +137,6 @@ out:
 	*out_vreg = vreg;
 	return 0;
 }
-EXPORT_SYMBOL_GPL(ufshcd_populate_vreg);
 
 /**
  * ufshcd_parse_regulator_info - get regulator info from device tree
@@ -368,6 +360,8 @@ int ufshcd_pltfrm_init(struct platform_device *pdev,
 		dev_err(dev, "Initialization failed\n");
 		goto dealloc_host;
 	}
+
+	platform_set_drvdata(pdev, hba);
 
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);

@@ -12,9 +12,6 @@
  *  Copyright (C) 2004-2006 Ingo Molnar
  *  Copyright (C) 2004 Nadia Yvette Chambers
  */
-#ifdef CONFIG_MTK_FTRACER
-#define DEBUG 1
-#endif
 #include <linux/ring_buffer.h>
 #include <generated/utsrelease.h>
 #include <linux/stacktrace.h>
@@ -57,9 +54,6 @@
 #include "trace.h"
 #include "trace_output.h"
 
-#ifdef CONFIG_MTK_FTRACER
-#include "mtk_ftrace.h"
-#endif
 /*
  * On boot up, the ring buffer is set to the minimum size, so that
  * we do not waste memory on systems that are not using tracing.
@@ -242,7 +236,7 @@ static char trace_boot_options_buf[MAX_TRACER_SIZE] __initdata;
 static int __init set_trace_boot_options(char *str)
 {
 	strlcpy(trace_boot_options_buf, str, MAX_TRACER_SIZE);
-	return 1;
+	return 0;
 }
 __setup("trace_options=", set_trace_boot_options);
 
@@ -253,16 +247,12 @@ static int __init set_trace_boot_clock(char *str)
 {
 	strlcpy(trace_boot_clock_buf, str, MAX_TRACER_SIZE);
 	trace_boot_clock = trace_boot_clock_buf;
-	return 1;
+	return 0;
 }
 __setup("trace_clock=", set_trace_boot_clock);
 
 static int __init set_tracepoint_printk(char *str)
 {
-	/* Ignore the "tp_printk_stop_on_boot" param */
-	if (*str == '_')
-		return 0;
-
 	if ((strcmp(str, "=0") != 0 && strcmp(str, "=off") != 0))
 		tracepoint_printk = 1;
 	return 1;
@@ -832,20 +822,9 @@ int tracing_is_enabled(void)
  * to not have to wait for all that output. Anyway this can be
  * boot time and run time configurable.
  */
-#ifdef CONFIG_MTK_FTRACE_DEFAULT_ENABLE
-#define TRACE_BUF_SIZE_DEFAULT	4194304UL
-#else
 #define TRACE_BUF_SIZE_DEFAULT	1441792UL /* 16384 * 88 (sizeof(entry)) */
-#endif
 
 static unsigned long		trace_buf_size = TRACE_BUF_SIZE_DEFAULT;
-
-#ifdef CONFIG_MTK_FTRACER
-void update_buf_size(unsigned long size)
-{
-	trace_buf_size = size;
-}
-#endif
 
 /* trace_types holds a link list of available tracers. */
 static struct tracer		*trace_types __read_mostly;
@@ -1011,9 +990,6 @@ void tracer_tracing_on(struct trace_array *tr)
 void tracing_on(void)
 {
 	tracer_tracing_on(&global_trace);
-#ifdef CONFIG_MTK_FTRACER
-	trace_tracing_on(1, CALLER_ADDR0);
-#endif
 }
 EXPORT_SYMBOL_GPL(tracing_on);
 
@@ -1475,9 +1451,6 @@ void tracer_tracing_off(struct trace_array *tr)
  */
 void tracing_off(void)
 {
-#ifdef CONFIG_MTK_FTRACER
-	trace_tracing_on(0, CALLER_ADDR0);
-#endif
 	tracer_tracing_off(&global_trace);
 }
 EXPORT_SYMBOL_GPL(tracing_off);
@@ -1520,12 +1493,10 @@ static int __init set_buf_size(char *str)
 	if (!str)
 		return 0;
 	buf_size = memparse(str, &str);
-	/*
-	 * nr_entries can not be zero and the startup
-	 * tests require some buffer space. Therefore
-	 * ensure we have at least 4096 bytes of buffer.
-	 */
-	trace_buf_size = max(4096UL, buf_size);
+	/* nr_entries can not be zero */
+	if (buf_size == 0)
+		return 0;
+	trace_buf_size = buf_size;
 	return 1;
 }
 __setup("trace_buf_size=", set_buf_size);
@@ -3260,7 +3231,7 @@ struct trace_buffer_struct {
 	char buffer[4][TRACE_BUF_SIZE];
 };
 
-static struct trace_buffer_struct __percpu *trace_percpu_buffer;
+static struct trace_buffer_struct *trace_percpu_buffer;
 
 /*
  * This allows for lockless recording.  If we're nested too deeply, then
@@ -3270,7 +3241,7 @@ static char *get_trace_buf(void)
 {
 	struct trace_buffer_struct *buffer = this_cpu_ptr(trace_percpu_buffer);
 
-	if (!trace_percpu_buffer || buffer->nesting >= 4)
+	if (!buffer || buffer->nesting >= 4)
 		return NULL;
 
 	buffer->nesting++;
@@ -3289,7 +3260,7 @@ static void put_trace_buf(void)
 
 static int alloc_percpu_trace_buffer(void)
 {
-	struct trace_buffer_struct __percpu *buffers;
+	struct trace_buffer_struct *buffers;
 
 	if (trace_percpu_buffer)
 		return 0;
@@ -3701,16 +3672,11 @@ static char *trace_iter_expand_format(struct trace_iterator *iter)
 }
 
 /* Returns true if the string is safe to dereference from an event */
-static bool trace_safe_str(struct trace_iterator *iter, const char *str,
-			   bool star, int len)
+static bool trace_safe_str(struct trace_iterator *iter, const char *str)
 {
 	unsigned long addr = (unsigned long)str;
 	struct trace_event *trace_event;
 	struct trace_event_call *event;
-
-	/* Ignore strings with no length */
-	if (star && !len)
-		return true;
 
 	/* OK if part of the event data */
 	if ((addr >= (unsigned long)iter->ent) &&
@@ -3870,18 +3836,6 @@ void trace_check_vprintf(struct trace_iterator *iter, const char *fmt,
 		iter->fmt[i] = '\0';
 		trace_seq_vprintf(&iter->seq, iter->fmt, ap);
 
-		/*
-		 * If iter->seq is full, the above call no longer guarantees
-		 * that ap is in sync with fmt processing, and further calls
-		 * to va_arg() can return wrong positional arguments.
-		 *
-		 * Ensure that ap is no longer used in this case.
-		 */
-		if (iter->seq.full) {
-			p = "";
-			break;
-		}
-
 		if (star)
 			len = va_arg(ap, int);
 
@@ -3897,7 +3851,7 @@ void trace_check_vprintf(struct trace_iterator *iter, const char *fmt,
 		 * instead. See samples/trace_events/trace-events-sample.h
 		 * for reference.
 		 */
-		if (WARN_ONCE(!trace_safe_str(iter, str, star, len),
+		if (WARN_ONCE(!trace_safe_str(iter, str),
 			      "fmt: '%s' current_buffer: '%s'",
 			      fmt, show_buffer(&iter->seq))) {
 			int ret;
@@ -4259,9 +4213,6 @@ static void print_event_info(struct array_buffer *buf, struct seq_file *m)
 	get_total_entries(buf, &total, &entries);
 	seq_printf(m, "# entries-in-buffer/entries-written: %lu/%lu   #P:%d\n",
 		   entries, total, num_online_cpus());
-#ifdef CONFIG_MTK_FTRACER
-	print_enabled_events(buf, m);
-#endif
 	seq_puts(m, "#\n");
 }
 
@@ -4918,9 +4869,6 @@ static int tracing_release(struct inode *inode, struct file *file)
 
 	if (iter->trace && iter->trace->close)
 		iter->trace->close(iter);
-#ifdef CONFIG_MTK_FTRACER
-	pr_debug("[ftrace]end reading trace file\n");
-#endif
 
 	if (!iter->snapshot && tr->stop_count)
 		/* reenable tracing if it was previously enabled */
@@ -4985,9 +4933,6 @@ static int tracing_open(struct inode *inode, struct file *file)
 	}
 
 	if (file->f_mode & FMODE_READ) {
-#ifdef CONFIG_MTK_FTRACER
-		pr_debug("[ftrace]start reading trace file\n");
-#endif
 		iter = __tracing_open(inode, file, false);
 		if (IS_ERR(iter))
 			ret = PTR_ERR(iter);
@@ -5684,7 +5629,6 @@ static const char readme_msg[] =
 #ifdef CONFIG_HIST_TRIGGERS
 	"      hist trigger\t- If set, event hits are aggregated into a hash table\n"
 	"\t    Format: hist:keys=<field1[,field2,...]>\n"
-	"\t            [:<var1>=<field|var_ref|numeric_literal>[,<var2>=...]]\n"
 	"\t            [:values=<field1[,field2,...]>]\n"
 	"\t            [:sort=<field1[,field2,...]>]\n"
 	"\t            [:size=#entries]\n"
@@ -5695,16 +5639,6 @@ static const char readme_msg[] =
 	"\t    Note, special fields can be used as well:\n"
 	"\t            common_timestamp - to record current timestamp\n"
 	"\t            common_cpu - to record the CPU the event happened on\n"
-	"\n"
-	"\t    A hist trigger variable can be:\n"
-	"\t        - a reference to a field e.g. x=current_timestamp,\n"
-	"\t        - a reference to another variable e.g. y=$x,\n"
-	"\t        - a numeric literal: e.g. ms_per_sec=1000,\n"
-	"\t        - an arithmetic expression: e.g. time_secs=current_timestamp/1000\n"
-	"\n"
-	"\t    hist trigger aritmethic expressions support addition(+), subtraction(-),\n"
-	"\t    multiplication(*) and division(/) operators. An operand can be either a\n"
-	"\t    variable reference, field or numeric literal.\n"
 	"\n"
 	"\t    When a matching event is hit, an entry is added to a hash\n"
 	"\t    table using the key(s) and value(s) named, and the value of a\n"
@@ -7803,8 +7737,7 @@ static struct tracing_log_err *get_tracing_log_err(struct trace_array *tr)
 		err = kzalloc(sizeof(*err), GFP_KERNEL);
 		if (!err)
 			err = ERR_PTR(-ENOMEM);
-		else
-			tr->n_err_log_entries++;
+		tr->n_err_log_entries++;
 
 		return err;
 	}
@@ -9009,29 +8942,15 @@ rb_simple_write(struct file *filp, const char __user *ubuf,
 	if (ret)
 		return ret;
 
-#ifdef CONFIG_MTK_FTRACER
-	if (boot_ftrace_check(val))
-		return -EPERM;
-#endif
 	if (buffer) {
-#ifdef CONFIG_MTK_FTRACER
-	//	if (ring_buffer_record_is_on(buffer) ^ val)
-	//		pr_debug("[ftrace]tracing_on is toggled to %lu\n", val);
-#endif
 		mutex_lock(&trace_types_lock);
 		if (!!val == tracer_tracing_is_on(tr)) {
 			val = 0; /* do nothing */
 		} else if (val) {
 			tracer_tracing_on(tr);
-#ifdef CONFIG_MTK_FTRACER
-			trace_tracing_on(val, CALLER_ADDR0);
-#endif
 			if (tr->current_trace->start)
 				tr->current_trace->start(tr);
 		} else {
-#ifdef CONFIG_MTK_FTRACER
-			trace_tracing_on(val, CALLER_ADDR0);
-#endif
 			tracer_tracing_off(tr);
 			if (tr->current_trace->stop)
 				tr->current_trace->stop(tr);

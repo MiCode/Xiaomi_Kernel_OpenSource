@@ -228,7 +228,7 @@ static struct ima_rule_entry *arch_policy_entry __ro_after_init;
 static LIST_HEAD(ima_default_rules);
 static LIST_HEAD(ima_policy_rules);
 static LIST_HEAD(ima_temp_rules);
-static struct list_head __rcu *ima_rules = (struct list_head __rcu *)(&ima_default_rules);
+static struct list_head *ima_rules = &ima_default_rules;
 
 static int ima_policy __initdata;
 
@@ -675,14 +675,12 @@ int ima_match_policy(struct user_namespace *mnt_userns, struct inode *inode,
 {
 	struct ima_rule_entry *entry;
 	int action = 0, actmask = flags | (flags << 1);
-	struct list_head *ima_rules_tmp;
 
 	if (template_desc && !*template_desc)
 		*template_desc = ima_template_desc_current();
 
 	rcu_read_lock();
-	ima_rules_tmp = rcu_dereference(ima_rules);
-	list_for_each_entry_rcu(entry, ima_rules_tmp, list) {
+	list_for_each_entry_rcu(entry, ima_rules, list) {
 
 		if (!(entry->action & actmask))
 			continue;
@@ -743,11 +741,9 @@ void ima_update_policy_flags(void)
 {
 	struct ima_rule_entry *entry;
 	int new_policy_flag = 0;
-	struct list_head *ima_rules_tmp;
 
 	rcu_read_lock();
-	ima_rules_tmp = rcu_dereference(ima_rules);
-	list_for_each_entry_rcu(entry, ima_rules_tmp, list) {
+	list_for_each_entry(entry, ima_rules, list) {
 		/*
 		 * SETXATTR_CHECK rules do not implement a full policy check
 		 * because rule checking would probably have an important
@@ -972,10 +968,10 @@ void ima_update_policy(void)
 
 	list_splice_tail_init_rcu(&ima_temp_rules, policy, synchronize_rcu);
 
-	if (ima_rules != (struct list_head __rcu *)policy) {
+	if (ima_rules != policy) {
 		ima_policy_flag = 0;
+		ima_rules = policy;
 
-		rcu_assign_pointer(ima_rules, policy);
 		/*
 		 * IMA architecture specific policy rules are specified
 		 * as strings and converted to an array of ima_entry_rules
@@ -1065,7 +1061,7 @@ static int ima_lsm_rule_init(struct ima_rule_entry *entry,
 		pr_warn("rule for LSM \'%s\' is undefined\n",
 			entry->lsm[lsm_rule].args_p);
 
-		if (ima_rules == (struct list_head __rcu *)(&ima_default_rules)) {
+		if (ima_rules == &ima_default_rules) {
 			kfree(entry->lsm[lsm_rule].args_p);
 			entry->lsm[lsm_rule].args_p = NULL;
 			result = -EINVAL;
@@ -1772,11 +1768,9 @@ void *ima_policy_start(struct seq_file *m, loff_t *pos)
 {
 	loff_t l = *pos;
 	struct ima_rule_entry *entry;
-	struct list_head *ima_rules_tmp;
 
 	rcu_read_lock();
-	ima_rules_tmp = rcu_dereference(ima_rules);
-	list_for_each_entry_rcu(entry, ima_rules_tmp, list) {
+	list_for_each_entry_rcu(entry, ima_rules, list) {
 		if (!l--) {
 			rcu_read_unlock();
 			return entry;
@@ -1795,8 +1789,7 @@ void *ima_policy_next(struct seq_file *m, void *v, loff_t *pos)
 	rcu_read_unlock();
 	(*pos)++;
 
-	return (&entry->list == &ima_default_rules ||
-		&entry->list == &ima_policy_rules) ? NULL : entry;
+	return (&entry->list == ima_rules) ? NULL : entry;
 }
 
 void ima_policy_stop(struct seq_file *m, void *v)
@@ -1851,14 +1844,6 @@ int ima_policy_show(struct seq_file *m, void *v)
 	int offset = 0;
 
 	rcu_read_lock();
-
-	/* Do not print rules with inactive LSM labels */
-	for (i = 0; i < MAX_LSM_RULES; i++) {
-		if (entry->lsm[i].args_p && !entry->lsm[i].rule) {
-			rcu_read_unlock();
-			return 0;
-		}
-	}
 
 	if (entry->action & MEASURE)
 		seq_puts(m, pt(Opt_measure));
@@ -2029,7 +2014,6 @@ bool ima_appraise_signature(enum kernel_read_file_id id)
 	struct ima_rule_entry *entry;
 	bool found = false;
 	enum ima_hooks func;
-	struct list_head *ima_rules_tmp;
 
 	if (id >= READING_MAX_ID)
 		return false;
@@ -2037,8 +2021,7 @@ bool ima_appraise_signature(enum kernel_read_file_id id)
 	func = read_idmap[id] ?: FILE_CHECK;
 
 	rcu_read_lock();
-	ima_rules_tmp = rcu_dereference(ima_rules);
-	list_for_each_entry_rcu(entry, ima_rules_tmp, list) {
+	list_for_each_entry_rcu(entry, ima_rules, list) {
 		if (entry->action != APPRAISE)
 			continue;
 

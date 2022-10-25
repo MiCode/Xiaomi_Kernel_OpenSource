@@ -49,9 +49,6 @@
 #include "blk-mq.h"
 #include "blk-mq-sched.h"
 #include "blk-pm.h"
-#ifndef __GENKSYMS__
-#include "blk-rq-qos.h"
-#endif
 
 struct dentry *blk_debugfs_root;
 
@@ -353,6 +350,13 @@ void blk_queue_start_drain(struct request_queue *q)
 	wake_up_all(&q->mq_freeze_wq);
 }
 
+void blk_set_queue_dying(struct request_queue *q)
+{
+	blk_queue_flag_set(QUEUE_FLAG_DYING, q);
+	blk_queue_start_drain(q);
+}
+EXPORT_SYMBOL_GPL(blk_set_queue_dying);
+
 /**
  * blk_cleanup_queue - shutdown a request queue
  * @q: request queue to shutdown
@@ -370,8 +374,7 @@ void blk_cleanup_queue(struct request_queue *q)
 	WARN_ON_ONCE(blk_queue_registered(q));
 
 	/* mark @q DYING, no new request or merges will be allowed afterwards */
-	blk_queue_flag_set(QUEUE_FLAG_DYING, q);
-	blk_queue_start_drain(q);
+	blk_set_queue_dying(q);
 
 	blk_queue_flag_set(QUEUE_FLAG_NOMERGES, q);
 	blk_queue_flag_set(QUEUE_FLAG_NOXMERGES, q);
@@ -383,16 +386,11 @@ void blk_cleanup_queue(struct request_queue *q)
 	 */
 	blk_freeze_queue(q);
 
-	/* cleanup rq qos structures for queue without disk */
-	rq_qos_exit(q);
-
 	blk_queue_flag_set(QUEUE_FLAG_DEAD, q);
 
 	blk_sync_queue(q);
-	if (queue_is_mq(q)) {
-		blk_mq_cancel_work_sync(q);
+	if (queue_is_mq(q))
 		blk_mq_exit_queue(q);
-	}
 
 	/*
 	 * In theory, request pool of sched_tags belongs to request queue.
@@ -459,16 +457,10 @@ int blk_queue_enter(struct request_queue *q, blk_mq_req_flags_t flags)
 		 * reordered.
 		 */
 		smp_rmb();
-#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
-		trace_blk_queue_enter_sleep(q);
-#endif
 		wait_event(q->mq_freeze_wq,
 			   (!q->mq_freeze_depth &&
 			    blk_pm_resume_queue(pm, q)) ||
 			   blk_queue_dying(q));
-#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
-		trace_blk_queue_enter_wakeup(q);
-#endif
 		if (blk_queue_dying(q))
 			return -ENODEV;
 	}
@@ -497,16 +489,10 @@ static inline int bio_queue_enter(struct bio *bio)
 		 * reordered.
 		 */
 		smp_rmb();
-#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
-		trace_bio_queue_enter_sleep(q);
-#endif
 		wait_event(q->mq_freeze_wq,
 			   (!q->mq_freeze_depth &&
 			    blk_pm_resume_queue(false, q)) ||
 			   test_bit(GD_DEAD, &disk->state));
-#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
-		trace_bio_queue_enter_wakeup(q);
-#endif
 		if (test_bit(GD_DEAD, &disk->state))
 			goto dead;
 	}
@@ -901,8 +887,10 @@ static noinline_for_stack bool submit_bio_checks(struct bio *bio)
 	if (unlikely(!current->io_context))
 		create_task_io_context(current, GFP_ATOMIC, q->node);
 
-	if (blk_throtl_bio(bio))
+	if (blk_throtl_bio(bio)) {
+		blkcg_bio_issue_init(bio);
 		return false;
+	}
 
 	blk_cgroup_bio_start(bio);
 	blkcg_bio_issue_init(bio);
@@ -1305,32 +1293,20 @@ void blk_account_io_start(struct request *rq)
 }
 
 static unsigned long __part_start_io_acct(struct block_device *part,
-					  unsigned int sectors, unsigned int op,
-					  unsigned long start_time)
+					  unsigned int sectors, unsigned int op)
 {
 	const int sgrp = op_stat_group(op);
+	unsigned long now = READ_ONCE(jiffies);
 
 	part_stat_lock();
-	update_io_ticks(part, start_time, false);
+	update_io_ticks(part, now, false);
 	part_stat_inc(part, ios[sgrp]);
 	part_stat_add(part, sectors[sgrp], sectors);
 	part_stat_local_inc(part, in_flight[op_is_write(op)]);
 	part_stat_unlock();
 
-	return start_time;
+	return now;
 }
-
-/**
- * bio_start_io_acct_time - start I/O accounting for bio based drivers
- * @bio:	bio to start account for
- * @start_time:	start time that should be passed back to bio_end_io_acct().
- */
-void bio_start_io_acct_time(struct bio *bio, unsigned long start_time)
-{
-	__part_start_io_acct(bio->bi_bdev, bio_sectors(bio),
-			     bio_op(bio), start_time);
-}
-EXPORT_SYMBOL_GPL(bio_start_io_acct_time);
 
 /**
  * bio_start_io_acct - start I/O accounting for bio based drivers
@@ -1340,15 +1316,14 @@ EXPORT_SYMBOL_GPL(bio_start_io_acct_time);
  */
 unsigned long bio_start_io_acct(struct bio *bio)
 {
-	return __part_start_io_acct(bio->bi_bdev, bio_sectors(bio),
-				    bio_op(bio), jiffies);
+	return __part_start_io_acct(bio->bi_bdev, bio_sectors(bio), bio_op(bio));
 }
 EXPORT_SYMBOL_GPL(bio_start_io_acct);
 
 unsigned long disk_start_io_acct(struct gendisk *disk, unsigned int sectors,
 				 unsigned int op)
 {
-	return __part_start_io_acct(disk->part0, sectors, op, jiffies);
+	return __part_start_io_acct(disk->part0, sectors, op);
 }
 EXPORT_SYMBOL(disk_start_io_acct);
 

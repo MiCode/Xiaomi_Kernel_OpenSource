@@ -42,7 +42,6 @@ descriptions of data structures and algorithms.
    ksm
    memory-model
    mmu_notifier
-   multigen_lru
    numa
    overcommit-accounting
    page_migration

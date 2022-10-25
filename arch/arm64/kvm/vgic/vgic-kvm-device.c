@@ -14,21 +14,17 @@
 
 /* common helpers */
 
-int vgic_check_iorange(struct kvm *kvm, phys_addr_t ioaddr,
-		       phys_addr_t addr, phys_addr_t alignment,
-		       phys_addr_t size)
+int vgic_check_ioaddr(struct kvm *kvm, phys_addr_t *ioaddr,
+		      phys_addr_t addr, phys_addr_t alignment)
 {
-	if (!IS_VGIC_ADDR_UNDEF(ioaddr))
-		return -EEXIST;
-
-	if (!IS_ALIGNED(addr, alignment) || !IS_ALIGNED(size, alignment))
-		return -EINVAL;
-
-	if (addr + size < addr)
-		return -EINVAL;
-
-	if (addr & ~kvm_phys_mask(kvm) || addr + size > kvm_phys_size(kvm))
+	if (addr & ~kvm_phys_mask(kvm))
 		return -E2BIG;
+
+	if (!IS_ALIGNED(addr, alignment))
+		return -EINVAL;
+
+	if (!IS_VGIC_ADDR_UNDEF(*ioaddr))
+		return -EEXIST;
 
 	return 0;
 }
@@ -61,7 +57,7 @@ int kvm_vgic_addr(struct kvm *kvm, unsigned long type, u64 *addr, bool write)
 {
 	int r = 0;
 	struct vgic_dist *vgic = &kvm->arch.vgic;
-	phys_addr_t *addr_ptr, alignment, size;
+	phys_addr_t *addr_ptr, alignment;
 	u64 undef_value = VGIC_ADDR_UNDEF;
 
 	mutex_lock(&kvm->lock);
@@ -70,19 +66,16 @@ int kvm_vgic_addr(struct kvm *kvm, unsigned long type, u64 *addr, bool write)
 		r = vgic_check_type(kvm, KVM_DEV_TYPE_ARM_VGIC_V2);
 		addr_ptr = &vgic->vgic_dist_base;
 		alignment = SZ_4K;
-		size = KVM_VGIC_V2_DIST_SIZE;
 		break;
 	case KVM_VGIC_V2_ADDR_TYPE_CPU:
 		r = vgic_check_type(kvm, KVM_DEV_TYPE_ARM_VGIC_V2);
 		addr_ptr = &vgic->vgic_cpu_base;
 		alignment = SZ_4K;
-		size = KVM_VGIC_V2_CPU_SIZE;
 		break;
 	case KVM_VGIC_V3_ADDR_TYPE_DIST:
 		r = vgic_check_type(kvm, KVM_DEV_TYPE_ARM_VGIC_V3);
 		addr_ptr = &vgic->vgic_dist_base;
 		alignment = SZ_64K;
-		size = KVM_VGIC_V3_DIST_SIZE;
 		break;
 	case KVM_VGIC_V3_ADDR_TYPE_REDIST: {
 		struct vgic_redist_region *rdreg;
@@ -147,7 +140,7 @@ int kvm_vgic_addr(struct kvm *kvm, unsigned long type, u64 *addr, bool write)
 		goto out;
 
 	if (write) {
-		r = vgic_check_iorange(kvm, *addr_ptr, *addr, alignment, size);
+		r = vgic_check_ioaddr(kvm, addr_ptr, *addr, alignment);
 		if (!r)
 			*addr_ptr = *addr;
 	} else {

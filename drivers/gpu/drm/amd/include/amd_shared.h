@@ -98,8 +98,7 @@ enum amd_ip_block_type {
 	AMD_IP_BLOCK_TYPE_ACP,
 	AMD_IP_BLOCK_TYPE_VCN,
 	AMD_IP_BLOCK_TYPE_MES,
-	AMD_IP_BLOCK_TYPE_JPEG,
-	AMD_IP_BLOCK_TYPE_NUM,
+	AMD_IP_BLOCK_TYPE_JPEG
 };
 
 enum amd_clockgating_state {

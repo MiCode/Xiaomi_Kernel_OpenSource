@@ -1,8 +1,4 @@
 // SPDX-License-Identifier: GPL-2.0
-/*
- * Portions
- * Copyright (C) 2022 Intel Corporation
- */
 #include <linux/ieee80211.h>
 #include <linux/export.h>
 #include <net/cfg80211.h>
@@ -118,7 +114,7 @@ int __cfg80211_join_mesh(struct cfg80211_registered_device *rdev,
 	      setup->is_secure)
 		return -EOPNOTSUPP;
 
-	if (wdev->u.mesh.id_len)
+	if (wdev->mesh_id_len)
 		return -EALREADY;
 
 	if (!setup->mesh_id_len)
@@ -129,7 +125,7 @@ int __cfg80211_join_mesh(struct cfg80211_registered_device *rdev,
 
 	if (!setup->chandef.chan) {
 		/* if no channel explicitly given, use preset channel */
-		setup->chandef = wdev->u.mesh.preset_chandef;
+		setup->chandef = wdev->preset_chandef;
 	}
 
 	if (!setup->chandef.chan) {
@@ -213,10 +209,10 @@ int __cfg80211_join_mesh(struct cfg80211_registered_device *rdev,
 
 	err = rdev_join_mesh(rdev, dev, conf, setup);
 	if (!err) {
-		memcpy(wdev->u.mesh.id, setup->mesh_id, setup->mesh_id_len);
-		wdev->u.mesh.id_len = setup->mesh_id_len;
-		wdev->u.mesh.chandef = setup->chandef;
-		wdev->u.mesh.beacon_interval = setup->beacon_interval;
+		memcpy(wdev->ssid, setup->mesh_id, setup->mesh_id_len);
+		wdev->mesh_id_len = setup->mesh_id_len;
+		wdev->chandef = setup->chandef;
+		wdev->beacon_interval = setup->beacon_interval;
 	}
 
 	return err;
@@ -245,15 +241,15 @@ int cfg80211_set_mesh_channel(struct cfg80211_registered_device *rdev,
 		err = rdev_libertas_set_mesh_channel(rdev, wdev->netdev,
 						     chandef->chan);
 		if (!err)
-			wdev->u.mesh.chandef = *chandef;
+			wdev->chandef = *chandef;
 
 		return err;
 	}
 
-	if (wdev->u.mesh.id_len)
+	if (wdev->mesh_id_len)
 		return -EBUSY;
 
-	wdev->u.mesh.preset_chandef = *chandef;
+	wdev->preset_chandef = *chandef;
 	return 0;
 }
 
@@ -271,16 +267,15 @@ int __cfg80211_leave_mesh(struct cfg80211_registered_device *rdev,
 	if (!rdev->ops->leave_mesh)
 		return -EOPNOTSUPP;
 
-	if (!wdev->u.mesh.id_len)
+	if (!wdev->mesh_id_len)
 		return -ENOTCONN;
 
 	err = rdev_leave_mesh(rdev, dev);
 	if (!err) {
 		wdev->conn_owner_nlportid = 0;
-		wdev->u.mesh.id_len = 0;
-		wdev->u.mesh.beacon_interval = 0;
-		memset(&wdev->u.mesh.chandef, 0,
-		       sizeof(wdev->u.mesh.chandef));
+		wdev->mesh_id_len = 0;
+		wdev->beacon_interval = 0;
+		memset(&wdev->chandef, 0, sizeof(wdev->chandef));
 		rdev_set_qos_map(rdev, dev, NULL);
 		cfg80211_sched_dfs_chan_update(rdev);
 	}

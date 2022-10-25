@@ -175,11 +175,8 @@ static void __ath11k_ahb_ext_irq_disable(struct ath11k_base *ab)
 
 		ath11k_ahb_ext_grp_disable(irq_grp);
 
-		if (irq_grp->napi_enabled) {
-			napi_synchronize(&irq_grp->napi);
-			napi_disable(&irq_grp->napi);
-			irq_grp->napi_enabled = false;
-		}
+		napi_synchronize(&irq_grp->napi);
+		napi_disable(&irq_grp->napi);
 	}
 }
 
@@ -209,13 +206,13 @@ static void ath11k_ahb_clearbit32(struct ath11k_base *ab, u8 bit, u32 offset)
 
 static void ath11k_ahb_ce_irq_enable(struct ath11k_base *ab, u16 ce_id)
 {
-	const struct ce_attr *ce_attr;
+	const struct ce_pipe_config *ce_config;
 
-	ce_attr = &ab->hw_params.host_ce_config[ce_id];
-	if (ce_attr->src_nentries)
+	ce_config = &ab->hw_params.target_ce_config[ce_id];
+	if (__le32_to_cpu(ce_config->pipedir) & PIPEDIR_OUT)
 		ath11k_ahb_setbit32(ab, ce_id, CE_HOST_IE_ADDRESS);
 
-	if (ce_attr->dest_nentries) {
+	if (__le32_to_cpu(ce_config->pipedir) & PIPEDIR_IN) {
 		ath11k_ahb_setbit32(ab, ce_id, CE_HOST_IE_2_ADDRESS);
 		ath11k_ahb_setbit32(ab, ce_id + CE_HOST_IE_3_SHIFT,
 				    CE_HOST_IE_3_ADDRESS);
@@ -224,13 +221,13 @@ static void ath11k_ahb_ce_irq_enable(struct ath11k_base *ab, u16 ce_id)
 
 static void ath11k_ahb_ce_irq_disable(struct ath11k_base *ab, u16 ce_id)
 {
-	const struct ce_attr *ce_attr;
+	const struct ce_pipe_config *ce_config;
 
-	ce_attr = &ab->hw_params.host_ce_config[ce_id];
-	if (ce_attr->src_nentries)
+	ce_config = &ab->hw_params.target_ce_config[ce_id];
+	if (__le32_to_cpu(ce_config->pipedir) & PIPEDIR_OUT)
 		ath11k_ahb_clearbit32(ab, ce_id, CE_HOST_IE_ADDRESS);
 
-	if (ce_attr->dest_nentries) {
+	if (__le32_to_cpu(ce_config->pipedir) & PIPEDIR_IN) {
 		ath11k_ahb_clearbit32(ab, ce_id, CE_HOST_IE_2_ADDRESS);
 		ath11k_ahb_clearbit32(ab, ce_id + CE_HOST_IE_3_SHIFT,
 				      CE_HOST_IE_3_ADDRESS);
@@ -303,10 +300,7 @@ static void ath11k_ahb_ext_irq_enable(struct ath11k_base *ab)
 	for (i = 0; i < ATH11K_EXT_IRQ_GRP_NUM_MAX; i++) {
 		struct ath11k_ext_irq_grp *irq_grp = &ab->ext_irq_grp[i];
 
-		if (!irq_grp->napi_enabled) {
-			napi_enable(&irq_grp->napi);
-			irq_grp->napi_enabled = true;
-		}
+		napi_enable(&irq_grp->napi);
 		ath11k_ahb_ext_grp_enable(irq_grp);
 	}
 }
@@ -391,8 +385,6 @@ static void ath11k_ahb_free_ext_irq(struct ath11k_base *ab)
 
 		for (j = 0; j < irq_grp->num_irq; j++)
 			free_irq(ab->irq_num[irq_grp->irqs[j]], irq_grp);
-
-		netif_napi_del(&irq_grp->napi);
 	}
 }
 

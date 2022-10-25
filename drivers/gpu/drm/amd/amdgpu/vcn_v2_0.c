@@ -22,7 +22,6 @@
  */
 
 #include <linux/firmware.h>
-#include <drm/drm_drv.h>
 
 #include "amdgpu.h"
 #include "amdgpu_vcn.h"
@@ -193,14 +192,11 @@ static int vcn_v2_0_sw_init(void *handle)
  */
 static int vcn_v2_0_sw_fini(void *handle)
 {
-	int r, idx;
+	int r;
 	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
 	volatile struct amdgpu_fw_shared *fw_shared = adev->vcn.inst->fw_shared_cpu_addr;
 
-	if (drm_dev_enter(&adev->ddev, &idx)) {
-		fw_shared->present_flag_0 = 0;
-		drm_dev_exit(idx);
-	}
+	fw_shared->present_flag_0 = 0;
 
 	amdgpu_virt_free_mm_table(adev);
 

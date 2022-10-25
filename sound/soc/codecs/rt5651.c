@@ -2261,8 +2261,11 @@ static int rt5651_i2c_probe(struct i2c_client *i2c,
 
 	ret = devm_request_irq(&i2c->dev, rt5651->irq, rt5651_irq,
 			       IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING
-			       | IRQF_ONESHOT | IRQF_NO_AUTOEN, "rt5651", rt5651);
-	if (ret) {
+			       | IRQF_ONESHOT, "rt5651", rt5651);
+	if (ret == 0) {
+		/* Gets re-enabled by rt5651_set_jack() */
+		disable_irq(rt5651->irq);
+	} else {
 		dev_warn(&i2c->dev, "Failed to reguest IRQ %d: %d\n",
 			 rt5651->irq, ret);
 		rt5651->irq = -ENXIO;

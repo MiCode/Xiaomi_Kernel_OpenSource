@@ -2587,7 +2587,7 @@ static int __devinet_sysctl_register(struct net *net, char *dev_name,
 free:
 	kfree(t);
 out:
-	return -ENOMEM;
+	return -ENOBUFS;
 }
 
 static void __devinet_sysctl_unregister(struct net *net,

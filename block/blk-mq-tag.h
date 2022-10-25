@@ -26,8 +26,6 @@ struct blk_mq_tags {
 	 * request pool
 	 */
 	spinlock_t lock;
-
-	ANDROID_OEM_DATA(1);
 };
 
 extern struct blk_mq_tags *blk_mq_init_tags(unsigned int nr_tags,

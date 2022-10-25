@@ -6,7 +6,6 @@
 #include <linux/slab.h>
 #include <asm/unaligned.h>
 #include <linux/buffer_head.h>
-#include <linux/blk_types.h>
 
 #include "exfat_raw.h"
 #include "exfat_fs.h"
@@ -277,10 +276,10 @@ int exfat_zeroed_cluster(struct inode *dir, unsigned int clu)
 {
 	struct super_block *sb = dir->i_sb;
 	struct exfat_sb_info *sbi = EXFAT_SB(sb);
-	struct buffer_head *bh;
-	struct address_space *mapping = sb->s_bdev->bd_inode->i_mapping;
+	struct buffer_head *bhs[MAX_BUF_PER_PAGE];
+	int nr_bhs = MAX_BUF_PER_PAGE;
 	sector_t blknr, last_blknr;
-	int i;
+	int err, i, n;
 
 	blknr = exfat_cluster_to_sector(sbi, clu);
 	last_blknr = blknr + sbi->sect_per_clus;
@@ -294,22 +293,30 @@ int exfat_zeroed_cluster(struct inode *dir, unsigned int clu)
 	}
 
 	/* Zeroing the unused blocks on this cluster */
-	for (i = blknr; i < last_blknr; i++) {
-		bh = sb_getblk(sb, i);
-		if (!bh)
-			return -ENOMEM;
+	while (blknr < last_blknr) {
+		for (n = 0; n < nr_bhs && blknr < last_blknr; n++, blknr++) {
+			bhs[n] = sb_getblk(sb, blknr);
+			if (!bhs[n]) {
+				err = -ENOMEM;
+				goto release_bhs;
+			}
+			memset(bhs[n]->b_data, 0, sb->s_blocksize);
+		}
 
-		memset(bh->b_data, 0, sb->s_blocksize);
-		set_buffer_uptodate(bh);
-		mark_buffer_dirty(bh);
-		brelse(bh);
+		err = exfat_update_bhs(bhs, n, IS_DIRSYNC(dir));
+		if (err)
+			goto release_bhs;
+
+		for (i = 0; i < n; i++)
+			brelse(bhs[i]);
 	}
-	if (IS_DIRSYNC(dir))
-		return filemap_write_and_wait_range(mapping,
-				EXFAT_BLK_TO_B(blknr, sb),
-				EXFAT_BLK_TO_B(last_blknr, sb) - 1);
-
 	return 0;
+
+release_bhs:
+	exfat_err(sb, "failed zeroed sect %llu\n", (unsigned long long)blknr);
+	for (i = 0; i < n; i++)
+		bforget(bhs[i]);
+	return err;
 }
 
 int exfat_alloc_cluster(struct inode *inode, unsigned int num_alloc,

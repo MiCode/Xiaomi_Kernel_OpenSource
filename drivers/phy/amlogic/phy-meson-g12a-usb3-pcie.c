@@ -414,19 +414,19 @@ static int phy_g12a_usb3_pcie_probe(struct platform_device *pdev)
 
 	ret = clk_prepare_enable(priv->clk_ref);
 	if (ret)
-		return ret;
+		goto err_disable_clk_ref;
 
 	priv->reset = devm_reset_control_array_get_exclusive(dev);
-	if (IS_ERR(priv->reset)) {
-		ret = PTR_ERR(priv->reset);
-		goto err_disable_clk_ref;
-	}
+	if (IS_ERR(priv->reset))
+		return PTR_ERR(priv->reset);
 
 	priv->phy = devm_phy_create(dev, np, &phy_g12a_usb3_pcie_ops);
 	if (IS_ERR(priv->phy)) {
 		ret = PTR_ERR(priv->phy);
-		dev_err_probe(dev, ret, "failed to create PHY\n");
-		goto err_disable_clk_ref;
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "failed to create PHY\n");
+
+		return ret;
 	}
 
 	phy_set_drvdata(priv->phy, priv);
@@ -434,12 +434,8 @@ static int phy_g12a_usb3_pcie_probe(struct platform_device *pdev)
 
 	phy_provider = devm_of_phy_provider_register(dev,
 						     phy_g12a_usb3_pcie_xlate);
-	if (IS_ERR(phy_provider)) {
-		ret = PTR_ERR(phy_provider);
-		goto err_disable_clk_ref;
-	}
 
-	return 0;
+	return PTR_ERR_OR_ZERO(phy_provider);
 
 err_disable_clk_ref:
 	clk_disable_unprepare(priv->clk_ref);

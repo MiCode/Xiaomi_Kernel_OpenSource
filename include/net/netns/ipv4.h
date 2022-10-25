@@ -10,7 +10,6 @@
 #include <net/inet_frag.h>
 #include <linux/rcupdate.h>
 #include <linux/siphash.h>
-#include <linux/android_kabi.h>
 
 struct ctl_table_header;
 struct ipv4_devconf;
@@ -66,7 +65,7 @@ struct netns_ipv4 {
 	bool			fib_has_custom_local_routes;
 	bool			fib_offload_disabled;
 #ifdef CONFIG_IP_ROUTE_CLASSID
-	atomic_t		fib_num_tclassid_users;
+	int			fib_num_tclassid_users;
 #endif
 	struct hlist_head	*fib_table_hash;
 	struct sock		*fibnl;
@@ -199,7 +198,6 @@ struct netns_ipv4 {
 
 #ifdef CONFIG_SYSCTL
 	unsigned long *sysctl_local_reserved_ports;
-	unsigned long *sysctl_local_unbindable_ports;
 	int sysctl_ip_prot_sock;
 #endif
 
@@ -225,7 +223,5 @@ struct netns_ipv4 {
 
 	atomic_t	rt_genid;
 	siphash_key_t	ip_id_key;
-
-	ANDROID_KABI_RESERVE(1);
 };
 #endif

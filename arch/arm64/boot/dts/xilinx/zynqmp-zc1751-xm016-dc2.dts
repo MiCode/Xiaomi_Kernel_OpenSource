@@ -131,7 +131,7 @@
 		reg = <0>;
 
 		partition@0 {
-			label = "spi0-data";
+			label = "data";
 			reg = <0x0 0x100000>;
 		};
 	};
@@ -149,7 +149,7 @@
 		reg = <0>;
 
 		partition@0 {
-			label = "spi1-data";
+			label = "data";
 			reg = <0x0 0x84000>;
 		};
 	};

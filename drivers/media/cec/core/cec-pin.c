@@ -1033,7 +1033,6 @@ static int cec_pin_thread_func(void *_adap)
 {
 	struct cec_adapter *adap = _adap;
 	struct cec_pin *pin = adap->pin;
-	bool irq_enabled = false;
 
 	for (;;) {
 		wait_event_interruptible(pin->kthread_waitq,
@@ -1061,7 +1060,6 @@ static int cec_pin_thread_func(void *_adap)
 				ns_to_ktime(pin->work_rx_msg.rx_ts));
 			msg->len = 0;
 		}
-
 		if (pin->work_tx_status) {
 			unsigned int tx_status = pin->work_tx_status;
 
@@ -1085,39 +1083,27 @@ static int cec_pin_thread_func(void *_adap)
 		switch (atomic_xchg(&pin->work_irq_change,
 				    CEC_PIN_IRQ_UNCHANGED)) {
 		case CEC_PIN_IRQ_DISABLE:
-			if (irq_enabled) {
-				pin->ops->disable_irq(adap);
-				irq_enabled = false;
-			}
+			pin->ops->disable_irq(adap);
 			cec_pin_high(pin);
 			cec_pin_to_idle(pin);
 			hrtimer_start(&pin->timer, ns_to_ktime(0),
 				      HRTIMER_MODE_REL);
 			break;
 		case CEC_PIN_IRQ_ENABLE:
-			if (irq_enabled)
-				break;
 			pin->enable_irq_failed = !pin->ops->enable_irq(adap);
 			if (pin->enable_irq_failed) {
 				cec_pin_to_idle(pin);
 				hrtimer_start(&pin->timer, ns_to_ktime(0),
 					      HRTIMER_MODE_REL);
-			} else {
-				irq_enabled = true;
 			}
 			break;
 		default:
 			break;
 		}
+
 		if (kthread_should_stop())
 			break;
 	}
-	if (pin->ops->disable_irq && irq_enabled)
-		pin->ops->disable_irq(adap);
-	hrtimer_cancel(&pin->timer);
-	cec_pin_read(pin);
-	cec_pin_to_idle(pin);
-	pin->state = CEC_ST_OFF;
 	return 0;
 }
 
@@ -1144,7 +1130,13 @@ static int cec_pin_adap_enable(struct cec_adapter *adap, bool enable)
 		hrtimer_start(&pin->timer, ns_to_ktime(0),
 			      HRTIMER_MODE_REL);
 	} else {
+		if (pin->ops->disable_irq)
+			pin->ops->disable_irq(adap);
+		hrtimer_cancel(&pin->timer);
 		kthread_stop(pin->kthread);
+		cec_pin_read(pin);
+		cec_pin_to_idle(pin);
+		pin->state = CEC_ST_OFF;
 	}
 	return 0;
 }
@@ -1165,8 +1157,11 @@ void cec_pin_start_timer(struct cec_pin *pin)
 	if (pin->state != CEC_ST_RX_IRQ)
 		return;
 
-	atomic_set(&pin->work_irq_change, CEC_PIN_IRQ_DISABLE);
-	wake_up_interruptible(&pin->kthread_waitq);
+	atomic_set(&pin->work_irq_change, CEC_PIN_IRQ_UNCHANGED);
+	pin->ops->disable_irq(pin->adap);
+	cec_pin_high(pin);
+	cec_pin_to_idle(pin);
+	hrtimer_start(&pin->timer, ns_to_ktime(0), HRTIMER_MODE_REL);
 }
 
 static int cec_pin_adap_transmit(struct cec_adapter *adap, u8 attempts,

@@ -53,7 +53,7 @@
  * @setup_ready_irq:	IPA interrupt triggered by modem to signal GSI ready
  * @power_on:		Whether IPA power is on
  * @notified:		Whether modem has been notified of power state
- * @setup_disabled:	Whether setup ready interrupt handler is disabled
+ * @disabled:		Whether setup ready interrupt handling is disabled
  * @mutex:		Mutex protecting ready-interrupt/shutdown interlock
  * @panic_notifier:	Panic notifier structure
 */
@@ -67,7 +67,7 @@ struct ipa_smp2p {
 	u32 setup_ready_irq;
 	bool power_on;
 	bool notified;
-	bool setup_disabled;
+	bool disabled;
 	struct mutex mutex;
 	struct notifier_block panic_notifier;
 };
@@ -155,9 +155,11 @@ static irqreturn_t ipa_smp2p_modem_setup_ready_isr(int irq, void *dev_id)
 	struct device *dev;
 	int ret;
 
-	/* Ignore any (spurious) interrupts received after the first */
-	if (smp2p->ipa->setup_complete)
-		return IRQ_HANDLED;
+	mutex_lock(&smp2p->mutex);
+
+	if (smp2p->disabled)
+		goto out_mutex_unlock;
+	smp2p->disabled = true;		/* If any others arrive, ignore them */
 
 	/* Power needs to be active for setup */
 	dev = &smp2p->ipa->pdev->dev;
@@ -174,6 +176,8 @@ static irqreturn_t ipa_smp2p_modem_setup_ready_isr(int irq, void *dev_id)
 out_power_put:
 	pm_runtime_mark_last_busy(dev);
 	(void)pm_runtime_put_autosuspend(dev);
+out_mutex_unlock:
+	mutex_unlock(&smp2p->mutex);
 
 	return IRQ_HANDLED;
 }
@@ -309,7 +313,7 @@ void ipa_smp2p_exit(struct ipa *ipa)
 	kfree(smp2p);
 }
 
-void ipa_smp2p_irq_disable_setup(struct ipa *ipa)
+void ipa_smp2p_disable(struct ipa *ipa)
 {
 	struct ipa_smp2p *smp2p = ipa->smp2p;
 
@@ -318,10 +322,7 @@ void ipa_smp2p_irq_disable_setup(struct ipa *ipa)
 
 	mutex_lock(&smp2p->mutex);
 
-	if (!smp2p->setup_disabled) {
-		disable_irq(smp2p->setup_ready_irq);
-		smp2p->setup_disabled = true;
-	}
+	smp2p->disabled = true;
 
 	mutex_unlock(&smp2p->mutex);
 }

@@ -341,7 +341,7 @@ L_exit:
 	popl	%esi
 
 	leave
-	RET
+	ret
 
 
 #ifdef PARANOID

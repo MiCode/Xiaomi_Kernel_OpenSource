@@ -381,7 +381,7 @@ mISDNInit(void)
 	err = mISDN_inittimer(&debug);
 	if (err)
 		goto error2;
-	err = Isdnl1_Init(&debug);
+	err = l1_init(&debug);
 	if (err)
 		goto error3;
 	err = Isdnl2_Init(&debug);
@@ -395,7 +395,7 @@ mISDNInit(void)
 error5:
 	Isdnl2_cleanup();
 error4:
-	Isdnl1_cleanup();
+	l1_cleanup();
 error3:
 	mISDN_timer_cleanup();
 error2:
@@ -408,7 +408,7 @@ static void mISDN_cleanup(void)
 {
 	misdn_sock_cleanup();
 	Isdnl2_cleanup();
-	Isdnl1_cleanup();
+	l1_cleanup();
 	mISDN_timer_cleanup();
 	class_unregister(&mISDN_class);
 

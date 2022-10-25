@@ -22,24 +22,24 @@
 /**
  * struct virtio_i2c - virtio I2C data
  * @vdev: virtio device for this controller
+ * @completion: completion of virtio I2C message
  * @adap: I2C adapter for this controller
  * @vq: the virtio virtqueue for communication
  */
 struct virtio_i2c {
 	struct virtio_device *vdev;
+	struct completion completion;
 	struct i2c_adapter adap;
 	struct virtqueue *vq;
 };
 
 /**
  * struct virtio_i2c_req - the virtio I2C request structure
- * @completion: completion of virtio I2C message
  * @out_hdr: the OUT header of the virtio I2C message
  * @buf: the buffer into which data is read, or from which it's written
  * @in_hdr: the IN header of the virtio I2C message
  */
 struct virtio_i2c_req {
-	struct completion completion;
 	struct virtio_i2c_out_hdr out_hdr	____cacheline_aligned;
 	uint8_t *buf				____cacheline_aligned;
 	struct virtio_i2c_in_hdr in_hdr		____cacheline_aligned;
@@ -47,11 +47,9 @@ struct virtio_i2c_req {
 
 static void virtio_i2c_msg_done(struct virtqueue *vq)
 {
-	struct virtio_i2c_req *req;
-	unsigned int len;
+	struct virtio_i2c *vi = vq->vdev->priv;
 
-	while ((req = virtqueue_get_buf(vq, &len)))
-		complete(&req->completion);
+	complete(&vi->completion);
 }
 
 static int virtio_i2c_prepare_reqs(struct virtqueue *vq,
@@ -63,8 +61,6 @@ static int virtio_i2c_prepare_reqs(struct virtqueue *vq,
 
 	for (i = 0; i < num; i++) {
 		int outcnt = 0, incnt = 0;
-
-		init_completion(&reqs[i].completion);
 
 		/*
 		 * We don't support 0 length messages and so filter out
@@ -110,17 +106,24 @@ static int virtio_i2c_prepare_reqs(struct virtqueue *vq,
 
 static int virtio_i2c_complete_reqs(struct virtqueue *vq,
 				    struct virtio_i2c_req *reqs,
-				    struct i2c_msg *msgs, int num)
+				    struct i2c_msg *msgs, int num,
+				    bool timedout)
 {
-	bool failed = false;
+	struct virtio_i2c_req *req;
+	bool failed = timedout;
+	unsigned int len;
 	int i, j = 0;
 
 	for (i = 0; i < num; i++) {
-		struct virtio_i2c_req *req = &reqs[i];
+		/* Detach the ith request from the vq */
+		req = virtqueue_get_buf(vq, &len);
 
-		wait_for_completion(&req->completion);
-
-		if (!failed && req->in_hdr.status != VIRTIO_I2C_MSG_OK)
+		/*
+		 * Condition req == &reqs[i] should always meet since we have
+		 * total num requests in the vq. reqs[i] can never be NULL here.
+		 */
+		if (!failed && (WARN_ON(req != &reqs[i]) ||
+				req->in_hdr.status != VIRTIO_I2C_MSG_OK))
 			failed = true;
 
 		i2c_put_dma_safe_msg_buf(reqs[i].buf, &msgs[i], !failed);
@@ -129,7 +132,7 @@ static int virtio_i2c_complete_reqs(struct virtqueue *vq,
 			j++;
 	}
 
-	return j;
+	return timedout ? -ETIMEDOUT : j;
 }
 
 static int virtio_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
@@ -138,6 +141,7 @@ static int virtio_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
 	struct virtio_i2c *vi = i2c_get_adapdata(adap);
 	struct virtqueue *vq = vi->vq;
 	struct virtio_i2c_req *reqs;
+	unsigned long time_left;
 	int count;
 
 	reqs = kcalloc(num, sizeof(*reqs), GFP_KERNEL);
@@ -156,9 +160,15 @@ static int virtio_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
 	 * remote here to clear the virtqueue, so we can try another set of
 	 * messages later on.
 	 */
+
+	reinit_completion(&vi->completion);
 	virtqueue_kick(vq);
 
-	count = virtio_i2c_complete_reqs(vq, reqs, msgs, count);
+	time_left = wait_for_completion_timeout(&vi->completion, adap->timeout);
+	if (!time_left)
+		dev_err(&adap->dev, "virtio i2c backend timeout.\n");
+
+	count = virtio_i2c_complete_reqs(vq, reqs, msgs, count, !time_left);
 
 err_free:
 	kfree(reqs);
@@ -204,6 +214,8 @@ static int virtio_i2c_probe(struct virtio_device *vdev)
 
 	vdev->priv = vi;
 	vi->vdev = vdev;
+
+	init_completion(&vi->completion);
 
 	ret = virtio_i2c_setup_vqs(vi);
 	if (ret)

@@ -1464,7 +1464,7 @@ static void __init sun4i_ccu_init(struct device_node *node,
 	val &= ~GENMASK(7, 6);
 	writel(val | (2 << 6), reg + SUN4I_AHB_REG);
 
-	of_sunxi_ccu_probe(node, reg, desc);
+	sunxi_ccu_probe(node, reg, desc);
 }
 
 static void __init sun4i_a10_ccu_setup(struct device_node *node)

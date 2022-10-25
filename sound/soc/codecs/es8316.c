@@ -811,9 +811,12 @@ static int es8316_i2c_probe(struct i2c_client *i2c_client,
 	mutex_init(&es8316->lock);
 
 	ret = devm_request_threaded_irq(dev, es8316->irq, NULL, es8316_irq,
-					IRQF_TRIGGER_HIGH | IRQF_ONESHOT | IRQF_NO_AUTOEN,
+					IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
 					"es8316", es8316);
-	if (ret) {
+	if (ret == 0) {
+		/* Gets re-enabled by es8316_set_jack() */
+		disable_irq(es8316->irq);
+	} else {
 		dev_warn(dev, "Failed to get IRQ %d: %d\n", es8316->irq, ret);
 		es8316->irq = -ENXIO;
 	}

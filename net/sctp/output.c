@@ -581,16 +581,13 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
 	chunk = list_entry(packet->chunk_list.next, struct sctp_chunk, list);
 	sk = chunk->skb->sk;
 
+	/* check gso */
 	if (packet->size > tp->pathmtu && !packet->ipfragok && !chunk->pmtu_probe) {
-		if (tp->pl.state == SCTP_PL_ERROR) { /* do IP fragmentation if in Error state */
-			packet->ipfragok = 1;
-		} else {
-			if (!sk_can_gso(sk)) { /* check gso */
-				pr_err_once("Trying to GSO but underlying device doesn't support it.");
-				goto out;
-			}
-			gso = 1;
+		if (!sk_can_gso(sk)) {
+			pr_err_once("Trying to GSO but underlying device doesn't support it.");
+			goto out;
 		}
+		gso = 1;
 	}
 
 	/* alloc head skb */

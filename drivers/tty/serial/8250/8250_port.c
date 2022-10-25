@@ -37,11 +37,6 @@
 
 #include "8250.h"
 
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-#include <linux/sched.h>
-#include <linux/sched/clock.h>
-#endif
-
 /* Nuvoton NPCM timeout register */
 #define UART_NPCM_TOR          7
 #define UART_NPCM_TOIE         BIT(7)  /* Timeout Interrupt Enable */
@@ -311,14 +306,6 @@ static const struct serial8250_config uart_config[] = {
 		.fcr		= UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_10,
 		.rxtrig_bytes	= {1, 32, 64, 112},
 		.flags		= UART_CAP_FIFO | UART_CAP_SLEEP,
-	},
-	[PORT_ASPEED_VUART] = {
-		.name		= "ASPEED VUART",
-		.fifo_size	= 16,
-		.tx_loadsz	= 16,
-		.fcr		= UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_00,
-		.rxtrig_bytes	= {1, 4, 8, 14},
-		.flags		= UART_CAP_FIFO,
 	},
 };
 
@@ -1628,18 +1615,6 @@ static inline void start_tx_rs485(struct uart_port *port)
 	struct uart_8250_port *up = up_to_u8250p(port);
 	struct uart_8250_em485 *em485 = up->em485;
 
-	/*
-	 * While serial8250_em485_handle_stop_tx() is a noop if
-	 * em485->active_timer != &em485->stop_tx_timer, it might happen that
-	 * the timer is still armed and triggers only after the current bunch of
-	 * chars is send and em485->active_timer == &em485->stop_tx_timer again.
-	 * So cancel the timer. There is still a theoretical race condition if
-	 * the timer is already running and only comes around to check for
-	 * em485->active_timer when &em485->stop_tx_timer is armed again.
-	 */
-	if (em485->active_timer == &em485->stop_tx_timer)
-		hrtimer_try_to_cancel(&em485->stop_tx_timer);
-
 	em485->active_timer = NULL;
 
 	if (em485->tx_stopped) {
@@ -1824,7 +1799,9 @@ void serial8250_tx_chars(struct uart_8250_port *up)
 	int count;
 
 	if (port->x_char) {
-		uart_xchar_out(port, UART_TX);
+		serial_out(up, UART_TX, port->x_char);
+		port->icount.tx++;
+		port->x_char = 0;
 		return;
 	}
 	if (uart_tx_stopped(port)) {
@@ -1924,23 +1901,11 @@ int serial8250_handle_irq(struct uart_port *port, unsigned int iir)
 	struct uart_8250_port *up = up_to_u8250p(port);
 	bool skip_rx = false;
 	unsigned long flags;
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	u64 ts[9] = {0};
-	u64 THRESHOLD = 5 * 1000 * 1000;
-#endif
 
 	if (iir & UART_IIR_NO_INT)
 		return 0;
 
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[0] = sched_clock();
-#endif
-
 	spin_lock_irqsave(&port->lock, flags);
-
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[1] = sched_clock();
-#endif
 
 	status = serial_port_in(port, UART_LSR);
 
@@ -1958,45 +1923,16 @@ int serial8250_handle_irq(struct uart_port *port, unsigned int iir)
 		skip_rx = true;
 
 	if (status & (UART_LSR_DR | UART_LSR_BI) && !skip_rx) {
-		if (!up->dma || handle_rx_dma(up, iir)) {
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			ts[2] = sched_clock();
-#endif
+		if (!up->dma || handle_rx_dma(up, iir))
 			status = serial8250_rx_chars(up, status);
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-			ts[3] = sched_clock();
-#endif
-			}
 	}
 	serial8250_modem_status(up);
 	if ((!up->dma || up->dma->tx_err) && (status & UART_LSR_THRE) &&
-		(up->ier & UART_IER_THRI)) {
-
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[4] = sched_clock();
-#endif
-
+		(up->ier & UART_IER_THRI))
 		serial8250_tx_chars(up);
 
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		ts[5] = sched_clock();
-#endif
-	}
-
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[6] = sched_clock();
-#endif
 	uart_unlock_and_check_sysrq_irqrestore(port, flags);
 
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	ts[7] = sched_clock();
-
-	if ((ts[7] - ts[0]) > THRESHOLD)
-		pr_info("[%s]: ts0[%lld], 1[%lld], 2[%lld], 3[%lld], 1-0[%lld],\n"
-			"3-2[%lld], 3-0[%lld], 5-4[%lld], 7-0[%lld]\n", __func__,
-			ts[0], ts[1], ts[2], ts[3], ts[1]-ts[0], ts[3]-ts[2], ts[3]-ts[0],
-			ts[5]-ts[4], ts[7]-ts[0]);
-#endif
 	return 1;
 }
 EXPORT_SYMBOL_GPL(serial8250_handle_irq);
@@ -2087,6 +2023,13 @@ void serial8250_do_set_mctrl(struct uart_port *port, unsigned int mctrl)
 {
 	struct uart_8250_port *up = up_to_u8250p(port);
 	unsigned char mcr;
+
+	if (port->rs485.flags & SER_RS485_ENABLED) {
+		if (serial8250_in_MCR(up) & UART_MCR_RTS)
+			mctrl |= TIOCM_RTS;
+		else
+			mctrl &= ~TIOCM_RTS;
+	}
 
 	mcr = serial8250_TIOCM_to_MCR(mctrl);
 
@@ -2753,32 +2696,21 @@ static unsigned int serial8250_get_baud_rate(struct uart_port *port,
 void serial8250_update_uartclk(struct uart_port *port, unsigned int uartclk)
 {
 	struct uart_8250_port *up = up_to_u8250p(port);
-	struct tty_port *tport = &port->state->port;
 	unsigned int baud, quot, frac = 0;
 	struct ktermios *termios;
-	struct tty_struct *tty;
 	unsigned long flags;
 
-	tty = tty_port_tty_get(tport);
-	if (!tty) {
-		mutex_lock(&tport->mutex);
-		port->uartclk = uartclk;
-		mutex_unlock(&tport->mutex);
-		return;
-	}
-
-	down_write(&tty->termios_rwsem);
-	mutex_lock(&tport->mutex);
+	mutex_lock(&port->state->port.mutex);
 
 	if (port->uartclk == uartclk)
 		goto out_lock;
 
 	port->uartclk = uartclk;
 
-	if (!tty_port_initialized(tport))
+	if (!tty_port_initialized(&port->state->port))
 		goto out_lock;
 
-	termios = &tty->termios;
+	termios = &port->state->port.tty->termios;
 
 	baud = serial8250_get_baud_rate(port, termios, NULL);
 	quot = serial8250_get_divisor(port, baud, &frac);
@@ -2795,9 +2727,7 @@ void serial8250_update_uartclk(struct uart_port *port, unsigned int uartclk)
 	serial8250_rpm_put(up);
 
 out_lock:
-	mutex_unlock(&tport->mutex);
-	up_write(&tty->termios_rwsem);
-	tty_kref_put(tty);
+	mutex_unlock(&port->state->port.mutex);
 }
 EXPORT_SYMBOL_GPL(serial8250_update_uartclk);
 
@@ -3386,7 +3316,7 @@ static void serial8250_console_restore(struct uart_8250_port *up)
 
 	serial8250_set_divisor(port, baud, quot, frac);
 	serial_port_out(port, UART_LCR, up->lcr);
-	serial8250_out_MCR(up, up->mcr | UART_MCR_DTR | UART_MCR_RTS);
+	serial8250_out_MCR(up, UART_MCR_DTR | UART_MCR_RTS);
 }
 
 /*

@@ -16,7 +16,6 @@
 
 #include <linux/skbuff.h>
 #include <linux/win_minmax.h>
-#include <linux/android_kabi.h>
 #include <net/sock.h>
 #include <net/inet_connection_sock.h>
 #include <net/inet_timewait_sock.h>
@@ -413,8 +412,6 @@ struct tcp_sock {
 	 */
 	struct request_sock __rcu *fastopen_rsk;
 	struct saved_syn *saved_syn;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 enum tsq_enum {

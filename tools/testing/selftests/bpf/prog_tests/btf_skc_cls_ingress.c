@@ -90,7 +90,7 @@ static void print_err_line(void)
 
 static void test_conn(void)
 {
-	int listen_fd = -1, cli_fd = -1, srv_fd = -1, err;
+	int listen_fd = -1, cli_fd = -1, err;
 	socklen_t addrlen = sizeof(srv_sa6);
 	int srv_port;
 
@@ -110,10 +110,6 @@ static void test_conn(void)
 
 	cli_fd = connect_to_fd(listen_fd, 0);
 	if (CHECK_FAIL(cli_fd == -1))
-		goto done;
-
-	srv_fd = accept(listen_fd, NULL, NULL);
-	if (CHECK_FAIL(srv_fd == -1))
 		goto done;
 
 	if (CHECK(skel->bss->listen_tp_sport != srv_port ||
@@ -138,13 +134,11 @@ done:
 		close(listen_fd);
 	if (cli_fd != -1)
 		close(cli_fd);
-	if (srv_fd != -1)
-		close(srv_fd);
 }
 
 static void test_syncookie(void)
 {
-	int listen_fd = -1, cli_fd = -1, srv_fd = -1, err;
+	int listen_fd = -1, cli_fd = -1, err;
 	socklen_t addrlen = sizeof(srv_sa6);
 	int srv_port;
 
@@ -165,10 +159,6 @@ static void test_syncookie(void)
 
 	cli_fd = connect_to_fd(listen_fd, 0);
 	if (CHECK_FAIL(cli_fd == -1))
-		goto done;
-
-	srv_fd = accept(listen_fd, NULL, NULL);
-	if (CHECK_FAIL(srv_fd == -1))
 		goto done;
 
 	if (CHECK(skel->bss->listen_tp_sport != srv_port,
@@ -198,8 +188,6 @@ done:
 		close(listen_fd);
 	if (cli_fd != -1)
 		close(cli_fd);
-	if (srv_fd != -1)
-		close(srv_fd);
 }
 
 struct test {

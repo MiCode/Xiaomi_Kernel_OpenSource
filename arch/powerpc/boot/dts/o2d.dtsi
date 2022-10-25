@@ -19,7 +19,7 @@
 	model = "ifm,o2d";
 	compatible = "ifm,o2d";
 
-	memory@0 {
+	memory {
 		reg = <0x00000000 0x04000000>;	// 64MB
 	};
 

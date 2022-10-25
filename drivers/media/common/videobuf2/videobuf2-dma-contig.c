@@ -40,8 +40,6 @@ struct vb2_dc_buf {
 
 	/* DMABUF related */
 	struct dma_buf_attachment	*db_attach;
-
-	struct vb2_buffer		*vb;
 };
 
 /*********************************************/
@@ -68,14 +66,14 @@ static unsigned long vb2_dc_get_contiguous_size(struct sg_table *sgt)
 /*         callbacks for all buffers         */
 /*********************************************/
 
-static void *vb2_dc_cookie(struct vb2_buffer *vb, void *buf_priv)
+static void *vb2_dc_cookie(void *buf_priv)
 {
 	struct vb2_dc_buf *buf = buf_priv;
 
 	return &buf->dma_addr;
 }
 
-static void *vb2_dc_vaddr(struct vb2_buffer *vb, void *buf_priv)
+static void *vb2_dc_vaddr(void *buf_priv)
 {
 	struct vb2_dc_buf *buf = buf_priv;
 	struct dma_buf_map map;
@@ -139,9 +137,9 @@ static void vb2_dc_put(void *buf_priv)
 	kfree(buf);
 }
 
-static void *vb2_dc_alloc(struct vb2_buffer *vb,
-			  struct device *dev,
-			  unsigned long size)
+static void *vb2_dc_alloc(struct device *dev, unsigned long attrs,
+			  unsigned long size, enum dma_data_direction dma_dir,
+			  gfp_t gfp_flags)
 {
 	struct vb2_dc_buf *buf;
 
@@ -152,12 +150,11 @@ static void *vb2_dc_alloc(struct vb2_buffer *vb,
 	if (!buf)
 		return ERR_PTR(-ENOMEM);
 
-	buf->attrs = vb->vb2_queue->dma_attrs;
+	buf->attrs = attrs;
 	buf->cookie = dma_alloc_attrs(dev, size, &buf->dma_addr,
-				      GFP_KERNEL | vb->vb2_queue->gfp_flags,
-				      buf->attrs);
+					GFP_KERNEL | gfp_flags, buf->attrs);
 	if (!buf->cookie) {
-		dev_err(dev, "dma_alloc_coherent of size %lu failed\n", size);
+		dev_err(dev, "dma_alloc_coherent of size %ld failed\n", size);
 		kfree(buf);
 		return ERR_PTR(-ENOMEM);
 	}
@@ -168,12 +165,11 @@ static void *vb2_dc_alloc(struct vb2_buffer *vb,
 	/* Prevent the device from being released while the buffer is used */
 	buf->dev = get_device(dev);
 	buf->size = size;
-	buf->dma_dir = vb->vb2_queue->dma_dir;
+	buf->dma_dir = dma_dir;
 
 	buf->handler.refcount = &buf->refcount;
 	buf->handler.put = vb2_dc_put;
 	buf->handler.arg = buf;
-	buf->vb = vb;
 
 	refcount_set(&buf->refcount, 1);
 
@@ -204,9 +200,9 @@ static int vb2_dc_mmap(void *buf_priv, struct vm_area_struct *vma)
 
 	vma->vm_ops->open(vma);
 
-	pr_debug("%s: mapped dma addr 0x%08lx at 0x%08lx, size %lu\n",
-		 __func__, (unsigned long)buf->dma_addr, vma->vm_start,
-		 buf->size);
+	pr_debug("%s: mapped dma addr 0x%08lx at 0x%08lx, size %ld\n",
+		__func__, (unsigned long)buf->dma_addr, vma->vm_start,
+		buf->size);
 
 	return 0;
 }
@@ -401,9 +397,7 @@ static struct sg_table *vb2_dc_get_base_sgt(struct vb2_dc_buf *buf)
 	return sgt;
 }
 
-static struct dma_buf *vb2_dc_get_dmabuf(struct vb2_buffer *vb,
-					 void *buf_priv,
-					 unsigned long flags)
+static struct dma_buf *vb2_dc_get_dmabuf(void *buf_priv, unsigned long flags)
 {
 	struct vb2_dc_buf *buf = buf_priv;
 	struct dma_buf *dbuf;
@@ -465,8 +459,8 @@ static void vb2_dc_put_userptr(void *buf_priv)
 	kfree(buf);
 }
 
-static void *vb2_dc_get_userptr(struct vb2_buffer *vb, struct device *dev,
-				unsigned long vaddr, unsigned long size)
+static void *vb2_dc_get_userptr(struct device *dev, unsigned long vaddr,
+	unsigned long size, enum dma_data_direction dma_dir)
 {
 	struct vb2_dc_buf *buf;
 	struct frame_vector *vec;
@@ -496,8 +490,7 @@ static void *vb2_dc_get_userptr(struct vb2_buffer *vb, struct device *dev,
 		return ERR_PTR(-ENOMEM);
 
 	buf->dev = dev;
-	buf->dma_dir = vb->vb2_queue->dma_dir;
-	buf->vb = vb;
+	buf->dma_dir = dma_dir;
 
 	offset = lower_32_bits(offset_in_page(vaddr));
 	vec = vb2_create_framevec(vaddr, size);
@@ -667,8 +660,8 @@ static void vb2_dc_detach_dmabuf(void *mem_priv)
 	kfree(buf);
 }
 
-static void *vb2_dc_attach_dmabuf(struct vb2_buffer *vb, struct device *dev,
-				  struct dma_buf *dbuf, unsigned long size)
+static void *vb2_dc_attach_dmabuf(struct device *dev, struct dma_buf *dbuf,
+	unsigned long size, enum dma_data_direction dma_dir)
 {
 	struct vb2_dc_buf *buf;
 	struct dma_buf_attachment *dba;
@@ -684,8 +677,6 @@ static void *vb2_dc_attach_dmabuf(struct vb2_buffer *vb, struct device *dev,
 		return ERR_PTR(-ENOMEM);
 
 	buf->dev = dev;
-	buf->vb = vb;
-
 	/* create attachment for the dmabuf with the user device */
 	dba = dma_buf_attach(dbuf, buf->dev);
 	if (IS_ERR(dba)) {
@@ -694,7 +685,7 @@ static void *vb2_dc_attach_dmabuf(struct vb2_buffer *vb, struct device *dev,
 		return dba;
 	}
 
-	buf->dma_dir = vb->vb2_queue->dma_dir;
+	buf->dma_dir = dma_dir;
 	buf->size = size;
 	buf->db_attach = dba;
 

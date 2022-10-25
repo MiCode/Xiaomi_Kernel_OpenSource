@@ -596,10 +596,7 @@ static long isst_if_def_ioctl(struct file *file, unsigned int cmd,
 	return ret;
 }
 
-/* Lock to prevent module registration when already opened by user space */
-static DEFINE_MUTEX(punit_misc_dev_open_lock);
-/* Lock to allow one share misc device for all ISST interace */
-static DEFINE_MUTEX(punit_misc_dev_reg_lock);
+static DEFINE_MUTEX(punit_misc_dev_lock);
 static int misc_usage_count;
 static int misc_device_ret;
 static int misc_device_open;
@@ -609,7 +606,7 @@ static int isst_if_open(struct inode *inode, struct file *file)
 	int i, ret = 0;
 
 	/* Fail open, if a module is going away */
-	mutex_lock(&punit_misc_dev_open_lock);
+	mutex_lock(&punit_misc_dev_lock);
 	for (i = 0; i < ISST_IF_DEV_MAX; ++i) {
 		struct isst_if_cmd_cb *cb = &punit_callbacks[i];
 
@@ -631,7 +628,7 @@ static int isst_if_open(struct inode *inode, struct file *file)
 	} else {
 		misc_device_open++;
 	}
-	mutex_unlock(&punit_misc_dev_open_lock);
+	mutex_unlock(&punit_misc_dev_lock);
 
 	return ret;
 }
@@ -640,7 +637,7 @@ static int isst_if_relase(struct inode *inode, struct file *f)
 {
 	int i;
 
-	mutex_lock(&punit_misc_dev_open_lock);
+	mutex_lock(&punit_misc_dev_lock);
 	misc_device_open--;
 	for (i = 0; i < ISST_IF_DEV_MAX; ++i) {
 		struct isst_if_cmd_cb *cb = &punit_callbacks[i];
@@ -648,7 +645,7 @@ static int isst_if_relase(struct inode *inode, struct file *f)
 		if (cb->registered)
 			module_put(cb->owner);
 	}
-	mutex_unlock(&punit_misc_dev_open_lock);
+	mutex_unlock(&punit_misc_dev_lock);
 
 	return 0;
 }
@@ -664,43 +661,6 @@ static struct miscdevice isst_if_char_driver = {
 	.name		= "isst_interface",
 	.fops		= &isst_if_char_driver_ops,
 };
-
-static int isst_misc_reg(void)
-{
-	mutex_lock(&punit_misc_dev_reg_lock);
-	if (misc_device_ret)
-		goto unlock_exit;
-
-	if (!misc_usage_count) {
-		misc_device_ret = isst_if_cpu_info_init();
-		if (misc_device_ret)
-			goto unlock_exit;
-
-		misc_device_ret = misc_register(&isst_if_char_driver);
-		if (misc_device_ret) {
-			isst_if_cpu_info_exit();
-			goto unlock_exit;
-		}
-	}
-	misc_usage_count++;
-
-unlock_exit:
-	mutex_unlock(&punit_misc_dev_reg_lock);
-
-	return misc_device_ret;
-}
-
-static void isst_misc_unreg(void)
-{
-	mutex_lock(&punit_misc_dev_reg_lock);
-	if (misc_usage_count)
-		misc_usage_count--;
-	if (!misc_usage_count && !misc_device_ret) {
-		misc_deregister(&isst_if_char_driver);
-		isst_if_cpu_info_exit();
-	}
-	mutex_unlock(&punit_misc_dev_reg_lock);
-}
 
 /**
  * isst_if_cdev_register() - Register callback for IOCTL
@@ -719,31 +679,38 @@ static void isst_misc_unreg(void)
  */
 int isst_if_cdev_register(int device_type, struct isst_if_cmd_cb *cb)
 {
-	int ret;
+	if (misc_device_ret)
+		return misc_device_ret;
 
 	if (device_type >= ISST_IF_DEV_MAX)
 		return -EINVAL;
 
-	mutex_lock(&punit_misc_dev_open_lock);
-	/* Device is already open, we don't want to add new callbacks */
+	mutex_lock(&punit_misc_dev_lock);
 	if (misc_device_open) {
-		mutex_unlock(&punit_misc_dev_open_lock);
+		mutex_unlock(&punit_misc_dev_lock);
 		return -EAGAIN;
+	}
+	if (!misc_usage_count) {
+		int ret;
+
+		misc_device_ret = misc_register(&isst_if_char_driver);
+		if (misc_device_ret)
+			goto unlock_exit;
+
+		ret = isst_if_cpu_info_init();
+		if (ret) {
+			misc_deregister(&isst_if_char_driver);
+			misc_device_ret = ret;
+			goto unlock_exit;
+		}
 	}
 	memcpy(&punit_callbacks[device_type], cb, sizeof(*cb));
 	punit_callbacks[device_type].registered = 1;
-	mutex_unlock(&punit_misc_dev_open_lock);
+	misc_usage_count++;
+unlock_exit:
+	mutex_unlock(&punit_misc_dev_lock);
 
-	ret = isst_misc_reg();
-	if (ret) {
-		/*
-		 * No need of mutex as the misc device register failed
-		 * as no one can open device yet. Hence no contention.
-		 */
-		punit_callbacks[device_type].registered = 0;
-		return ret;
-	}
-	return 0;
+	return misc_device_ret;
 }
 EXPORT_SYMBOL_GPL(isst_if_cdev_register);
 
@@ -758,12 +725,16 @@ EXPORT_SYMBOL_GPL(isst_if_cdev_register);
  */
 void isst_if_cdev_unregister(int device_type)
 {
-	isst_misc_unreg();
-	mutex_lock(&punit_misc_dev_open_lock);
+	mutex_lock(&punit_misc_dev_lock);
+	misc_usage_count--;
 	punit_callbacks[device_type].registered = 0;
 	if (device_type == ISST_IF_DEV_MBOX)
 		isst_delete_hash();
-	mutex_unlock(&punit_misc_dev_open_lock);
+	if (!misc_usage_count && !misc_device_ret) {
+		misc_deregister(&isst_if_char_driver);
+		isst_if_cpu_info_exit();
+	}
+	mutex_unlock(&punit_misc_dev_lock);
 }
 EXPORT_SYMBOL_GPL(isst_if_cdev_unregister);
 

@@ -248,7 +248,10 @@ static inline int static_call_text_reserved(void *start, void *end)
 	return 0;
 }
 
-extern long __static_call_return0(void);
+static inline long __static_call_return0(void)
+{
+	return 0;
+}
 
 #define EXPORT_STATIC_CALL(name)					\
 	EXPORT_SYMBOL(STATIC_CALL_KEY(name));				\

@@ -50,7 +50,7 @@ struct elan_drvdata {
 
 static int is_not_elan_touchpad(struct hid_device *hdev)
 {
-	if (hid_is_usb(hdev)) {
+	if (hdev->bus == BUS_USB) {
 		struct usb_interface *intf = to_usb_interface(hdev->dev.parent);
 
 		return (intf->altsetting->desc.bInterfaceNumber !=

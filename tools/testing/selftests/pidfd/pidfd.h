@@ -68,7 +68,7 @@
 #define PIDFD_SKIP 3
 #define PIDFD_XFAIL 4
 
-static inline int wait_for_pid(pid_t pid)
+int wait_for_pid(pid_t pid)
 {
 	int status, ret;
 
@@ -78,20 +78,13 @@ again:
 		if (errno == EINTR)
 			goto again;
 
-		ksft_print_msg("waitpid returned -1, errno=%d\n", errno);
 		return -1;
 	}
 
-	if (!WIFEXITED(status)) {
-		ksft_print_msg(
-		       "waitpid !WIFEXITED, WIFSIGNALED=%d, WTERMSIG=%d\n",
-		       WIFSIGNALED(status), WTERMSIG(status));
+	if (!WIFEXITED(status))
 		return -1;
-	}
 
-	ret = WEXITSTATUS(status);
-	ksft_print_msg("waitpid WEXITSTATUS=%d\n", ret);
-	return ret;
+	return WEXITSTATUS(status);
 }
 
 static inline int sys_pidfd_open(pid_t pid, unsigned int flags)

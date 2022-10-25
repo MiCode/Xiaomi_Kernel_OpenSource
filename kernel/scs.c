@@ -32,19 +32,15 @@ static void *__scs_alloc(int node)
 	for (i = 0; i < NR_CACHED_SCS; i++) {
 		s = this_cpu_xchg(scs_cache[i], NULL);
 		if (s) {
-			s = kasan_unpoison_vmalloc(s, SCS_SIZE,
-						   KASAN_VMALLOC_PROT_NORMAL);
+			kasan_unpoison_vmalloc(s, SCS_SIZE);
 			memset(s, 0, SCS_SIZE);
-			goto out;
+			return s;
 		}
 	}
 
-	s = __vmalloc_node_range(SCS_SIZE, 1, VMALLOC_START, VMALLOC_END,
+	return __vmalloc_node_range(SCS_SIZE, 1, VMALLOC_START, VMALLOC_END,
 				    GFP_SCS, PAGE_KERNEL, 0, node,
 				    __builtin_return_address(0));
-
-out:
-	return kasan_reset_tag(s);
 }
 
 void *scs_alloc(int node)
@@ -82,7 +78,6 @@ void scs_free(void *s)
 		if (this_cpu_cmpxchg(scs_cache[i], 0, s) == NULL)
 			return;
 
-	kasan_unpoison_vmalloc(s, SCS_SIZE, KASAN_VMALLOC_PROT_NORMAL);
 	vfree_atomic(s);
 }
 

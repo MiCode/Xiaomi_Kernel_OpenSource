@@ -208,18 +208,11 @@ static int __blk_mq_do_dispatch_sched(struct blk_mq_hw_ctx *hctx)
 
 static int blk_mq_do_dispatch_sched(struct blk_mq_hw_ctx *hctx)
 {
-	unsigned long end = jiffies + HZ;
 	int ret;
 
 	do {
 		ret = __blk_mq_do_dispatch_sched(hctx);
-		if (ret != 1)
-			break;
-		if (need_resched() || time_is_before_jiffies(end)) {
-			blk_mq_delay_run_hw_queue(hctx, 0);
-			break;
-		}
-	} while (1);
+	} while (ret == 1);
 
 	return ret;
 }

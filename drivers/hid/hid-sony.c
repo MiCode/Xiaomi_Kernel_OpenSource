@@ -3000,6 +3000,7 @@ static int sony_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	sc->quirks = quirks;
 	hid_set_drvdata(hdev, sc);
 	sc->hdev = hdev;
+	usbdev = to_usb_device(sc->hdev->dev.parent->parent);
 
 	ret = hid_parse(hdev);
 	if (ret) {
@@ -3037,23 +3038,14 @@ static int sony_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	 */
 	if (!(hdev->claimed & HID_CLAIMED_INPUT)) {
 		hid_err(hdev, "failed to claim input\n");
-		ret = -ENODEV;
-		goto err;
+		hid_hw_stop(hdev);
+		return -ENODEV;
 	}
 
 	if (sc->quirks & (GHL_GUITAR_PS3WIIU | GHL_GUITAR_PS4)) {
-		if (!hid_is_usb(hdev)) {
-			ret = -EINVAL;
-			goto err;
-		}
-
-		usbdev = to_usb_device(sc->hdev->dev.parent->parent);
-
 		sc->ghl_urb = usb_alloc_urb(0, GFP_ATOMIC);
-		if (!sc->ghl_urb) {
-			ret = -ENOMEM;
-			goto err;
-		}
+		if (!sc->ghl_urb)
+			return -ENOMEM;
 
 		if (sc->quirks & GHL_GUITAR_PS3WIIU)
 			ret = ghl_init_urb(sc, usbdev, ghl_ps3wiiu_magic_data,
@@ -3063,7 +3055,7 @@ static int sony_probe(struct hid_device *hdev, const struct hid_device_id *id)
 							   ARRAY_SIZE(ghl_ps4_magic_data));
 		if (ret) {
 			hid_err(hdev, "error preparing URB\n");
-			goto err;
+			return ret;
 		}
 
 		timer_setup(&sc->ghl_poke_timer, ghl_magic_poke, 0);
@@ -3071,10 +3063,6 @@ static int sony_probe(struct hid_device *hdev, const struct hid_device_id *id)
 			  jiffies + GHL_GUITAR_POKE_INTERVAL*HZ);
 	}
 
-	return ret;
-
-err:
-	hid_hw_stop(hdev);
 	return ret;
 }
 

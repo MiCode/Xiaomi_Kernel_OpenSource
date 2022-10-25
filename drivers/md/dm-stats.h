@@ -13,7 +13,8 @@ struct dm_stats {
 	struct mutex mutex;
 	struct list_head list;	/* list of struct dm_stat */
 	struct dm_stats_last_position __percpu *last;
-	bool precise_timestamps;
+	sector_t last_sector;
+	unsigned last_rw;
 };
 
 struct dm_stats_aux {
@@ -31,18 +32,12 @@ int dm_stats_message(struct mapped_device *md, unsigned argc, char **argv,
 
 void dm_stats_account_io(struct dm_stats *stats, unsigned long bi_rw,
 			 sector_t bi_sector, unsigned bi_sectors, bool end,
-			 unsigned long start_time,
+			 unsigned long duration_jiffies,
 			 struct dm_stats_aux *aux);
 
 static inline bool dm_stats_used(struct dm_stats *st)
 {
 	return !list_empty(&st->list);
-}
-
-static inline void dm_stats_record_start(struct dm_stats *stats, struct dm_stats_aux *aux)
-{
-	if (unlikely(stats->precise_timestamps))
-		aux->duration_ns = ktime_to_ns(ktime_get());
 }
 
 #endif

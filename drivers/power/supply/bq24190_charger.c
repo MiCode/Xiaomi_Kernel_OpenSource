@@ -39,7 +39,6 @@
 #define BQ24190_REG_POC_CHG_CONFIG_DISABLE		0x0
 #define BQ24190_REG_POC_CHG_CONFIG_CHARGE		0x1
 #define BQ24190_REG_POC_CHG_CONFIG_OTG			0x2
-#define BQ24190_REG_POC_CHG_CONFIG_OTG_ALT		0x3
 #define BQ24190_REG_POC_SYS_MIN_MASK		(BIT(3) | BIT(2) | BIT(1))
 #define BQ24190_REG_POC_SYS_MIN_SHIFT		1
 #define BQ24190_REG_POC_SYS_MIN_MIN			3000
@@ -551,11 +550,7 @@ static int bq24190_vbus_is_enabled(struct regulator_dev *dev)
 	pm_runtime_mark_last_busy(bdi->dev);
 	pm_runtime_put_autosuspend(bdi->dev);
 
-	if (ret)
-		return ret;
-
-	return (val == BQ24190_REG_POC_CHG_CONFIG_OTG ||
-		val == BQ24190_REG_POC_CHG_CONFIG_OTG_ALT);
+	return ret ? ret : val == BQ24190_REG_POC_CHG_CONFIG_OTG;
 }
 
 static const struct regulator_ops bq24190_vbus_ops = {

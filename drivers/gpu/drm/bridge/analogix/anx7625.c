@@ -720,7 +720,7 @@ static int edid_read(struct anx7625_data *ctx,
 		ret = sp_tx_aux_rd(ctx, 0xf1);
 
 		if (ret) {
-			ret = sp_tx_rst_aux(ctx);
+			sp_tx_rst_aux(ctx);
 			DRM_DEV_DEBUG_DRIVER(dev, "edid read fail, reset!\n");
 		} else {
 			ret = anx7625_reg_block_read(ctx, ctx->i2c.rx_p0_client,
@@ -735,7 +735,7 @@ static int edid_read(struct anx7625_data *ctx,
 	if (cnt > EDID_TRY_CNT)
 		return -EIO;
 
-	return ret;
+	return 0;
 }
 
 static int segments_edid_read(struct anx7625_data *ctx,
@@ -785,14 +785,13 @@ static int segments_edid_read(struct anx7625_data *ctx,
 	if (cnt > EDID_TRY_CNT)
 		return -EIO;
 
-	return ret;
+	return 0;
 }
 
 static int sp_tx_edid_read(struct anx7625_data *ctx,
 			   u8 *pedid_blocks_buf)
 {
-	u8 offset;
-	int edid_pos;
+	u8 offset, edid_pos;
 	int count, blocks_num;
 	u8 pblock_buf[MAX_DPCD_BUFFER_SIZE];
 	u8 i, j;
@@ -888,11 +887,7 @@ static int sp_tx_edid_read(struct anx7625_data *ctx,
 	}
 
 	/* Reset aux channel */
-	ret = sp_tx_rst_aux(ctx);
-	if (ret < 0) {
-		DRM_DEV_ERROR(dev, "Failed to reset aux channel!\n");
-		return ret;
-	}
+	sp_tx_rst_aux(ctx);
 
 	return (blocks_num + 1);
 }

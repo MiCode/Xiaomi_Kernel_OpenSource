@@ -30,11 +30,7 @@
 #define  INTSRC_LINK_DOWN	BIT(4)
 #define  INTSRC_REMOTE_FAULT	BIT(5)
 #define  INTSRC_ANEG_COMPLETE	BIT(6)
-#define  INTSRC_ENERGY_DETECT	BIT(7)
 #define INTSRC_MASK	30
-
-#define INT_SOURCES (INTSRC_LINK_DOWN | INTSRC_ANEG_COMPLETE | \
-		     INTSRC_ENERGY_DETECT)
 
 #define BANK_ANALOG_DSP		0
 #define BANK_WOL		1
@@ -204,6 +200,7 @@ static int meson_gxl_ack_interrupt(struct phy_device *phydev)
 
 static int meson_gxl_config_intr(struct phy_device *phydev)
 {
+	u16 val;
 	int ret;
 
 	if (phydev->interrupts == PHY_INTERRUPT_ENABLED) {
@@ -212,9 +209,16 @@ static int meson_gxl_config_intr(struct phy_device *phydev)
 		if (ret)
 			return ret;
 
-		ret = phy_write(phydev, INTSRC_MASK, INT_SOURCES);
+		val = INTSRC_ANEG_PR
+			| INTSRC_PARALLEL_FAULT
+			| INTSRC_ANEG_LP_ACK
+			| INTSRC_LINK_DOWN
+			| INTSRC_REMOTE_FAULT
+			| INTSRC_ANEG_COMPLETE;
+		ret = phy_write(phydev, INTSRC_MASK, val);
 	} else {
-		ret = phy_write(phydev, INTSRC_MASK, 0);
+		val = 0;
+		ret = phy_write(phydev, INTSRC_MASK, val);
 
 		/* Ack any pending IRQ */
 		ret = meson_gxl_ack_interrupt(phydev);
@@ -233,23 +237,10 @@ static irqreturn_t meson_gxl_handle_interrupt(struct phy_device *phydev)
 		return IRQ_NONE;
 	}
 
-	irq_status &= INT_SOURCES;
-
 	if (irq_status == 0)
 		return IRQ_NONE;
 
-	/* Aneg-complete interrupt is used for link-up detection */
-	if (phydev->autoneg == AUTONEG_ENABLE &&
-	    irq_status == INTSRC_ENERGY_DETECT)
-		return IRQ_HANDLED;
-
-	/* Give PHY some time before MAC starts sending data. This works
-	 * around an issue where network doesn't come up properly.
-	 */
-	if (!(irq_status & INTSRC_LINK_DOWN))
-		phy_queue_state_machine(phydev, msecs_to_jiffies(100));
-	else
-		phy_trigger_machine(phydev);
+	phy_trigger_machine(phydev);
 
 	return IRQ_HANDLED;
 }

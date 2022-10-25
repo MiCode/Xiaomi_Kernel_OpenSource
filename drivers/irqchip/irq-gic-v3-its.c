@@ -19,7 +19,6 @@
 #include <linux/list.h>
 #include <linux/log2.h>
 #include <linux/memblock.h>
-#include <linux/mem_encrypt.h>
 #include <linux/mm.h>
 #include <linux/msi.h>
 #include <linux/of.h>
@@ -28,7 +27,6 @@
 #include <linux/of_pci.h>
 #include <linux/of_platform.h>
 #include <linux/percpu.h>
-#include <linux/set_memory.h>
 #include <linux/slab.h>
 #include <linux/syscore_ops.h>
 
@@ -744,7 +742,7 @@ static struct its_collection *its_build_invall_cmd(struct its_node *its,
 
 	its_fixup_cmd(cmd);
 
-	return desc->its_invall_cmd.col;
+	return NULL;
 }
 
 static struct its_vpe *its_build_vinvall_cmd(struct its_node *its,
@@ -2168,7 +2166,6 @@ static void gic_reset_prop_table(void *va)
 
 	/* Make sure the GIC will observe the written configuration */
 	gic_flush_dcache_to_poc(va, LPI_PROPBASE_SZ);
-	set_memory_decrypted((unsigned long)va, LPI_PROPBASE_SZ >> PAGE_SHIFT);
 }
 
 static struct page *its_allocate_prop_table(gfp_t gfp_flags)
@@ -2186,10 +2183,8 @@ static struct page *its_allocate_prop_table(gfp_t gfp_flags)
 
 static void its_free_prop_table(struct page *prop_page)
 {
-	unsigned long va = (unsigned long)page_address(prop_page);
-
-	set_memory_encrypted(va, LPI_PROPBASE_SZ >> PAGE_SHIFT);
-	free_pages(va, get_order(LPI_PROPBASE_SZ));
+	free_pages((unsigned long)page_address(prop_page),
+		   get_order(LPI_PROPBASE_SZ));
 }
 
 static bool gic_check_reserved_range(phys_addr_t addr, unsigned long size)
@@ -2382,8 +2377,6 @@ retry_baser:
 		return -ENXIO;
 	}
 
-	set_memory_decrypted((unsigned long)base,
-			     PAGE_ORDER_TO_SIZE(order) >> PAGE_SHIFT);
 	baser->order = order;
 	baser->base = base;
 	baser->psz = psz;
@@ -2519,12 +2512,8 @@ static void its_free_tables(struct its_node *its)
 
 	for (i = 0; i < GITS_BASER_NR_REGS; i++) {
 		if (its->tables[i].base) {
-			unsigned long base = (unsigned long)its->tables[i].base;
-			u32 order = its->tables[i].order;
-			u32 npages = PAGE_ORDER_TO_SIZE(order) >> PAGE_SHIFT;
-
-			set_memory_encrypted(base, npages);
-			free_pages(base, order);
+			free_pages((unsigned long)its->tables[i].base,
+				   its->tables[i].order);
 			its->tables[i].base = NULL;
 		}
 	}
@@ -2945,7 +2934,6 @@ static int its_alloc_collections(struct its_node *its)
 static struct page *its_allocate_pending_table(gfp_t gfp_flags)
 {
 	struct page *pend_page;
-	void *va;
 
 	pend_page = alloc_pages(gfp_flags | __GFP_ZERO,
 				get_order(LPI_PENDBASE_SZ));
@@ -2953,19 +2941,14 @@ static struct page *its_allocate_pending_table(gfp_t gfp_flags)
 		return NULL;
 
 	/* Make sure the GIC will observe the zero-ed page */
-	va = page_address(pend_page);
-	gic_flush_dcache_to_poc(va, LPI_PENDBASE_SZ);
-	set_memory_decrypted((unsigned long)va, LPI_PENDBASE_SZ >> PAGE_SHIFT);
+	gic_flush_dcache_to_poc(page_address(pend_page), LPI_PENDBASE_SZ);
 
 	return pend_page;
 }
 
 static void its_free_pending_table(struct page *pt)
 {
-	unsigned long va = (unsigned long)page_address(pt);
-
-	set_memory_encrypted(va, LPI_PENDBASE_SZ >> PAGE_SHIFT);
-	free_pages(va, get_order(LPI_PENDBASE_SZ));
+	free_pages((unsigned long)page_address(pt), get_order(LPI_PENDBASE_SZ));
 }
 
 /*
@@ -3024,11 +3007,17 @@ static int __init allocate_lpi_tables(void)
 	return 0;
 }
 
-static u64 read_vpend_dirty_clear(void __iomem *vlpi_base)
+static u64 its_clear_vpend_valid(void __iomem *vlpi_base, u64 clr, u64 set)
 {
 	u32 count = 1000000;	/* 1s! */
 	bool clean;
 	u64 val;
+
+	val = gicr_read_vpendbaser(vlpi_base + GICR_VPENDBASER);
+	val &= ~GICR_VPENDBASER_Valid;
+	val &= ~clr;
+	val |= set;
+	gicr_write_vpendbaser(val, vlpi_base + GICR_VPENDBASER);
 
 	do {
 		val = gicr_read_vpendbaser(vlpi_base + GICR_VPENDBASER);
@@ -3040,26 +3029,10 @@ static u64 read_vpend_dirty_clear(void __iomem *vlpi_base)
 		}
 	} while (!clean && count);
 
-	if (unlikely(!clean))
+	if (unlikely(val & GICR_VPENDBASER_Dirty)) {
 		pr_err_ratelimited("ITS virtual pending table not cleaning\n");
-
-	return val;
-}
-
-static u64 its_clear_vpend_valid(void __iomem *vlpi_base, u64 clr, u64 set)
-{
-	u64 val;
-
-	/* Make sure we wait until the RD is done with the initial scan */
-	val = read_vpend_dirty_clear(vlpi_base);
-	val &= ~GICR_VPENDBASER_Valid;
-	val &= ~clr;
-	val |= set;
-	gicr_write_vpendbaser(val, vlpi_base + GICR_VPENDBASER);
-
-	val = read_vpend_dirty_clear(vlpi_base);
-	if (unlikely(val & GICR_VPENDBASER_Dirty))
 		val |= GICR_VPENDBASER_PendingLast;
+	}
 
 	return val;
 }
@@ -3295,20 +3268,14 @@ static bool its_alloc_table_entry(struct its_node *its,
 
 	/* Allocate memory for 2nd level table */
 	if (!table[idx]) {
-		void *l2addr;
-
 		page = alloc_pages_node(its->numa_node, GFP_KERNEL | __GFP_ZERO,
 					get_order(baser->psz));
 		if (!page)
 			return false;
 
-		l2addr = page_address(page);
-		set_memory_decrypted((unsigned long)l2addr,
-				     baser->psz >> PAGE_SHIFT);
-
 		/* Flush Lvl2 table to PoC if hw doesn't support coherency */
 		if (!(baser->val & GITS_BASER_SHAREABILITY_MASK))
-			gic_flush_dcache_to_poc(l2addr, baser->psz);
+			gic_flush_dcache_to_poc(page_address(page), baser->psz);
 
 		table[idx] = cpu_to_le64(page_to_phys(page) | GITS_BASER_VALID);
 
@@ -5076,8 +5043,6 @@ static int __init its_probe_one(struct resource *res,
 	its->fwnode_handle = handle;
 	its->get_msi_base = its_irq_get_msi_base;
 	its->msi_domain_flags = IRQ_DOMAIN_FLAG_MSI_REMAP;
-	set_memory_decrypted((unsigned long)its->cmd_base,
-			     ITS_CMD_QUEUE_SZ >> PAGE_SHIFT);
 
 	its_enable_quirks(its);
 
@@ -5134,8 +5099,6 @@ static int __init its_probe_one(struct resource *res,
 out_free_tables:
 	its_free_tables(its);
 out_free_cmd:
-	set_memory_encrypted((unsigned long)its->cmd_base,
-			     ITS_CMD_QUEUE_SZ >> PAGE_SHIFT);
 	free_pages((unsigned long)its->cmd_base, get_order(ITS_CMD_QUEUE_SZ));
 out_unmap_sgir:
 	if (its->sgir_base)

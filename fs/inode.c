@@ -310,7 +310,7 @@ void drop_nlink(struct inode *inode)
 	if (!inode->i_nlink)
 		atomic_long_inc(&inode->i_sb->s_remove_count);
 }
-EXPORT_SYMBOL_NS(drop_nlink, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(drop_nlink);
 
 /**
  * clear_nlink - directly zero an inode's link count
@@ -349,7 +349,7 @@ void set_nlink(struct inode *inode, unsigned int nlink)
 		inode->__i_nlink = nlink;
 	}
 }
-EXPORT_SYMBOL_NS(set_nlink, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(set_nlink);
 
 /**
  * inc_nlink - directly increment an inode's link count
@@ -402,7 +402,7 @@ void inode_init_once(struct inode *inode)
 	__address_space_init_once(&inode->i_data);
 	i_size_ordered_init(inode);
 }
-EXPORT_SYMBOL_NS(inode_init_once, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(inode_init_once);
 
 static void init_once(void *foo)
 {
@@ -426,7 +426,7 @@ void ihold(struct inode *inode)
 {
 	WARN_ON(atomic_inc_return(&inode->i_count) < 2);
 }
-EXPORT_SYMBOL_NS(ihold, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(ihold);
 
 static void inode_lru_list_add(struct inode *inode)
 {
@@ -506,7 +506,7 @@ void __insert_inode_hash(struct inode *inode, unsigned long hashval)
 	spin_unlock(&inode->i_lock);
 	spin_unlock(&inode_hash_lock);
 }
-EXPORT_SYMBOL_NS(__insert_inode_hash, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(__insert_inode_hash);
 
 /**
  *	__remove_inode_hash - remove an inode from the hash
@@ -522,7 +522,7 @@ void __remove_inode_hash(struct inode *inode)
 	spin_unlock(&inode->i_lock);
 	spin_unlock(&inode_hash_lock);
 }
-EXPORT_SYMBOL_NS(__remove_inode_hash, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(__remove_inode_hash);
 
 void clear_inode(struct inode *inode)
 {
@@ -549,7 +549,7 @@ void clear_inode(struct inode *inode)
 	/* don't need i_lock here, no concurrent mods to i_state */
 	inode->i_state = I_FREEING | I_CLEAR;
 }
-EXPORT_SYMBOL_NS(clear_inode, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(clear_inode);
 
 /*
  * Free the inode passed in, removing it from the lists it is still connected
@@ -1009,7 +1009,7 @@ void unlock_new_inode(struct inode *inode)
 	wake_up_bit(&inode->i_state, __I_NEW);
 	spin_unlock(&inode->i_lock);
 }
-EXPORT_SYMBOL_NS(unlock_new_inode, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(unlock_new_inode);
 
 void discard_new_inode(struct inode *inode)
 {
@@ -1166,7 +1166,7 @@ struct inode *iget5_locked(struct super_block *sb, unsigned long hashval,
 	}
 	return inode;
 }
-EXPORT_SYMBOL_NS(iget5_locked, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(iget5_locked);
 
 /**
  * iget_locked - obtain an inode from a mounted file system
@@ -1298,7 +1298,7 @@ ino_t iunique(struct super_block *sb, ino_t max_reserved)
 
 	return res;
 }
-EXPORT_SYMBOL_NS(iunique, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(iunique);
 
 struct inode *igrab(struct inode *inode)
 {
@@ -1381,7 +1381,7 @@ again:
 	}
 	return inode;
 }
-EXPORT_SYMBOL_NS(ilookup5, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(ilookup5);
 
 /**
  * ilookup - search for an inode in the inode cache
@@ -1782,13 +1782,12 @@ EXPORT_SYMBOL(generic_update_time);
  * This does the actual work of updating an inodes time or version.  Must have
  * had called mnt_want_write() before calling this.
  */
-int inode_update_time(struct inode *inode, struct timespec64 *time, int flags)
+static int update_time(struct inode *inode, struct timespec64 *time, int flags)
 {
 	if (inode->i_op->update_time)
 		return inode->i_op->update_time(inode, time, flags);
 	return generic_update_time(inode, time, flags);
 }
-EXPORT_SYMBOL(inode_update_time);
 
 /**
  *	atime_needs_update	-	update the access time
@@ -1858,12 +1857,12 @@ void touch_atime(const struct path *path)
 	 * of the fs read only, e.g. subvolumes in Btrfs.
 	 */
 	now = current_time(inode);
-	inode_update_time(inode, &now, S_ATIME);
+	update_time(inode, &now, S_ATIME);
 	__mnt_drop_write(mnt);
 skip_update:
 	sb_end_write(inode->i_sb);
 }
-EXPORT_SYMBOL_NS(touch_atime, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(touch_atime);
 
 /*
  * The logic we want is
@@ -1960,7 +1959,7 @@ int file_remove_privs(struct file *file)
 
 	return error;
 }
-EXPORT_SYMBOL_NS(file_remove_privs, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(file_remove_privs);
 
 /**
  *	file_update_time	-	update mtime and ctime time
@@ -2003,7 +2002,7 @@ int file_update_time(struct file *file)
 	if (__mnt_want_write_file(file))
 		return 0;
 
-	ret = inode_update_time(inode, &now, sync_it);
+	ret = update_time(inode, &now, sync_it);
 	__mnt_drop_write_file(file);
 
 	return ret;
@@ -2141,7 +2140,7 @@ void init_special_inode(struct inode *inode, umode_t mode, dev_t rdev)
 				  " inode %s:%lu\n", mode, inode->i_sb->s_id,
 				  inode->i_ino);
 }
-EXPORT_SYMBOL_NS(init_special_inode, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(init_special_inode);
 
 /**
  * inode_init_owner - Init uid,gid,mode for new inode according to posix standards
@@ -2174,7 +2173,7 @@ void inode_init_owner(struct user_namespace *mnt_userns, struct inode *inode,
 		inode_fsgid_set(inode, mnt_userns);
 	inode->i_mode = mode;
 }
-EXPORT_SYMBOL_NS(inode_init_owner, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(inode_init_owner);
 
 /**
  * inode_owner_or_capable - check current task permissions to inode
@@ -2238,7 +2237,7 @@ void inode_dio_wait(struct inode *inode)
 	if (atomic_read(&inode->i_dio_count))
 		__inode_dio_wait(inode);
 }
-EXPORT_SYMBOL_NS(inode_dio_wait, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(inode_dio_wait);
 
 /*
  * inode_set_flags - atomically set some inode flags
@@ -2262,7 +2261,7 @@ void inode_set_flags(struct inode *inode, unsigned int flags,
 	WARN_ON_ONCE(flags & ~mask);
 	set_mask_bits(&inode->i_flags, mask, flags);
 }
-EXPORT_SYMBOL_NS(inode_set_flags, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(inode_set_flags);
 
 void inode_nohighmem(struct inode *inode)
 {
@@ -2299,7 +2298,7 @@ struct timespec64 timestamp_truncate(struct timespec64 t, struct inode *inode)
 		WARN(1, "invalid file time granularity: %u", gran);
 	return t;
 }
-EXPORT_SYMBOL_NS(timestamp_truncate, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(timestamp_truncate);
 
 /**
  * current_time - Return FS time

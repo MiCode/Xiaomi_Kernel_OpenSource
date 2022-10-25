@@ -9,7 +9,6 @@
  */
 
 #include <sound/core.h>
-#include <linux/android_kabi.h>
 
 struct input_dev;
 
@@ -71,8 +70,6 @@ struct snd_jack {
 	int hw_status_cache;
 	void *private_data;
 	void (*private_free)(struct snd_jack *);
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 #ifdef CONFIG_SND_JACK

@@ -8,12 +8,10 @@
 #include <linux/io.h>
 #include <linux/mailbox_client.h>
 #include <linux/module.h>
-#include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/pm_domain.h>
 #include <linux/thermal.h>
 #include <linux/slab.h>
-#include <linux/soc/qcom/qcom_aoss.h>
 
 #define QMP_DESC_MAGIC			0x0
 #define QMP_DESC_VERSION		0x4
@@ -225,13 +223,10 @@ static bool qmp_message_empty(struct qmp *qmp)
  *
  * Return: 0 on success, negative errno on failure
  */
-int qmp_send(struct qmp *qmp, const void *data, size_t len)
+static int qmp_send(struct qmp *qmp, const void *data, size_t len)
 {
 	long time_left;
 	int ret;
-
-	if (WARN_ON(IS_ERR_OR_NULL(qmp) || !data))
-		return -EINVAL;
 
 	if (WARN_ON(len + sizeof(u32) > qmp->size))
 		return -EINVAL;
@@ -266,7 +261,6 @@ int qmp_send(struct qmp *qmp, const void *data, size_t len)
 
 	return ret;
 }
-EXPORT_SYMBOL(qmp_send);
 
 static int qmp_qdss_clk_prepare(struct clk_hw *hw)
 {
@@ -525,55 +519,6 @@ static void qmp_cooling_devices_remove(struct qmp *qmp)
 		thermal_cooling_device_unregister(qmp->cooling_devs[i].cdev);
 }
 
-/**
- * qmp_get() - get a qmp handle from a device
- * @dev: client device pointer
- *
- * Return: handle to qmp device on success, ERR_PTR() on failure
- */
-struct qmp *qmp_get(struct device *dev)
-{
-	struct platform_device *pdev;
-	struct device_node *np;
-	struct qmp *qmp;
-
-	if (!dev || !dev->of_node)
-		return ERR_PTR(-EINVAL);
-
-	np = of_parse_phandle(dev->of_node, "qcom,qmp", 0);
-	if (!np)
-		return ERR_PTR(-ENODEV);
-
-	pdev = of_find_device_by_node(np);
-	of_node_put(np);
-	if (!pdev)
-		return ERR_PTR(-EINVAL);
-
-	qmp = platform_get_drvdata(pdev);
-
-	if (!qmp) {
-		put_device(&pdev->dev);
-		return ERR_PTR(-EPROBE_DEFER);
-	}
-	return qmp;
-}
-EXPORT_SYMBOL(qmp_get);
-
-/**
- * qmp_put() - release a qmp handle
- * @qmp: qmp handle obtained from qmp_get()
- */
-void qmp_put(struct qmp *qmp)
-{
-	/*
-	 * Match get_device() inside of_find_device_by_node() in
-	 * qmp_get()
-	 */
-	if (!IS_ERR_OR_NULL(qmp))
-		put_device(qmp->dev);
-}
-EXPORT_SYMBOL(qmp_put);
-
 static int qmp_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -603,7 +548,7 @@ static int qmp_probe(struct platform_device *pdev)
 	}
 
 	irq = platform_get_irq(pdev, 0);
-	ret = devm_request_irq(&pdev->dev, irq, qmp_intr, 0,
+	ret = devm_request_irq(&pdev->dev, irq, qmp_intr, IRQF_ONESHOT,
 			       "aoss-qmp", qmp);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "failed to request interrupt\n");
@@ -670,7 +615,6 @@ static struct platform_driver qmp_driver = {
 	.driver = {
 		.name		= "qcom_aoss_qmp",
 		.of_match_table	= qmp_dt_match,
-		.suppress_bind_attrs = true,
 	},
 	.probe = qmp_probe,
 	.remove	= qmp_remove,

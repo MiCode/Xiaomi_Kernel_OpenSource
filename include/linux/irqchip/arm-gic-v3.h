@@ -599,9 +599,7 @@
 #define ICC_SGI1R_AFFINITY_3_SHIFT	48
 #define ICC_SGI1R_AFFINITY_3_MASK	(0xffULL << ICC_SGI1R_AFFINITY_3_SHIFT)
 
-#if defined(CONFIG_ARM64) || defined(CONFIG_ARM)
 #include <asm/arch_gicv3.h>
-#endif
 
 #ifndef __ASSEMBLY__
 
@@ -639,21 +637,6 @@ int its_init(struct fwnode_handle *handle, struct rdists *rdists,
 	     struct irq_domain *domain);
 int mbi_init(struct fwnode_handle *fwnode, struct irq_domain *parent);
 
-struct gic_chip_data {
-	struct fwnode_handle	*fwnode;
-	void __iomem		*dist_base;
-	struct redist_region	*redist_regions;
-	struct rdists		rdists;
-	struct irq_domain	*domain;
-	u64			redist_stride;
-	u32			nr_redist_regions;
-	u64			flags;
-	bool			has_rss;
-	unsigned int		ppi_nr;
-	struct partition_desc	**ppi_descs;
-};
-
-#if defined(CONFIG_ARM64) || defined(CONFIG_ARM)
 static inline bool gic_enable_sre(void)
 {
 	u32 val;
@@ -668,12 +651,6 @@ static inline bool gic_enable_sre(void)
 
 	return !!(val & ICC_SRE_EL1_SRE);
 }
-#else
-static inline bool gic_enable_sre(void)
-{
-	return false;
-}
-#endif
 
 void gic_resume(void);
 

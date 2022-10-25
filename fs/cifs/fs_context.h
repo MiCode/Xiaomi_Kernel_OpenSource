@@ -166,7 +166,6 @@ struct smb3_fs_context {
 	char *password;
 	char *domainname;
 	char *source;
-	char *server_hostname;
 	char *UNC;
 	char *nodename;
 	char *iocharset;  /* local code page for mapping to and from Unicode */

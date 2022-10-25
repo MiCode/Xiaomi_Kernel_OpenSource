@@ -81,6 +81,7 @@ static int build_info_set(const char *str, const struct kernel_param *kp)
 	}
 
 Exit:
+	vunmap(all_info_addr);
 	return ret;
 }
 

@@ -11,7 +11,6 @@
 #include <linux/syscalls.h>
 #include <linux/freezer.h>
 #include <linux/kthread.h>
-#include <linux/mmu_context.h>
 
 /* total number of freezing conditions in effect */
 atomic_t system_freezing_cnt = ATOMIC_INIT(0);
@@ -53,9 +52,6 @@ bool freezing_slow_path(struct task_struct *p)
 }
 EXPORT_SYMBOL(freezing_slow_path);
 
-#undef CREATE_TRACE_POINT
-#include <trace/hooks/cgroup.h>
-
 /* Refrigerator is place where frozen processes are stored :-). */
 bool __refrigerator(bool check_kthr_stop)
 {
@@ -74,7 +70,6 @@ bool __refrigerator(bool check_kthr_stop)
 		if (!freezing(current) ||
 		    (check_kthr_stop && kthread_should_stop()))
 			current->flags &= ~PF_FROZEN;
-		trace_android_rvh_refrigerator(pm_nosig_freezing);
 		spin_unlock_irq(&freezer_lock);
 
 		if (!(current->flags & PF_FROZEN))
@@ -151,16 +146,9 @@ bool freeze_task(struct task_struct *p)
 void __thaw_task(struct task_struct *p)
 {
 	unsigned long flags;
-	const struct cpumask *mask = task_cpu_possible_mask(p);
 
 	spin_lock_irqsave(&freezer_lock, flags);
-	/*
-	 * Wake up frozen tasks. On asymmetric systems where tasks cannot
-	 * run on all CPUs, ttwu() may have deferred a wakeup generated
-	 * before thaw_secondary_cpus() had completed so we generate
-	 * additional wakeups here for tasks in the PF_FREEZER_SKIP state.
-	 */
-	if (frozen(p) || (frozen_or_skipped(p) && mask != cpu_possible_mask))
+	if (frozen(p))
 		wake_up_process(p);
 	spin_unlock_irqrestore(&freezer_lock, flags);
 }

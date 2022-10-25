@@ -235,7 +235,7 @@ SEC("sk_msg1")
 int bpf_prog4(struct sk_msg_md *msg)
 {
 	int *bytes, zero = 0, one = 1, two = 2, three = 3, four = 4, five = 5;
-	int *start, *end, *start_push, *end_push, *start_pop, *pop, err = 0;
+	int *start, *end, *start_push, *end_push, *start_pop, *pop;
 
 	bytes = bpf_map_lookup_elem(&sock_apply_bytes, &zero);
 	if (bytes)
@@ -249,11 +249,8 @@ int bpf_prog4(struct sk_msg_md *msg)
 		bpf_msg_pull_data(msg, *start, *end, 0);
 	start_push = bpf_map_lookup_elem(&sock_bytes, &two);
 	end_push = bpf_map_lookup_elem(&sock_bytes, &three);
-	if (start_push && end_push) {
-		err = bpf_msg_push_data(msg, *start_push, *end_push, 0);
-		if (err)
-			return SK_DROP;
-	}
+	if (start_push && end_push)
+		bpf_msg_push_data(msg, *start_push, *end_push, 0);
 	start_pop = bpf_map_lookup_elem(&sock_bytes, &four);
 	pop = bpf_map_lookup_elem(&sock_bytes, &five);
 	if (start_pop && pop)
@@ -266,7 +263,6 @@ int bpf_prog6(struct sk_msg_md *msg)
 {
 	int zero = 0, one = 1, two = 2, three = 3, four = 4, five = 5, key = 0;
 	int *bytes, *start, *end, *start_push, *end_push, *start_pop, *pop, *f;
-	int err = 0;
 	__u64 flags = 0;
 
 	bytes = bpf_map_lookup_elem(&sock_apply_bytes, &zero);
@@ -283,11 +279,8 @@ int bpf_prog6(struct sk_msg_md *msg)
 
 	start_push = bpf_map_lookup_elem(&sock_bytes, &two);
 	end_push = bpf_map_lookup_elem(&sock_bytes, &three);
-	if (start_push && end_push) {
-		err = bpf_msg_push_data(msg, *start_push, *end_push, 0);
-		if (err)
-			return SK_DROP;
-	}
+	if (start_push && end_push)
+		bpf_msg_push_data(msg, *start_push, *end_push, 0);
 
 	start_pop = bpf_map_lookup_elem(&sock_bytes, &four);
 	pop = bpf_map_lookup_elem(&sock_bytes, &five);
@@ -345,7 +338,7 @@ SEC("sk_msg5")
 int bpf_prog10(struct sk_msg_md *msg)
 {
 	int *bytes, *start, *end, *start_push, *end_push, *start_pop, *pop;
-	int zero = 0, one = 1, two = 2, three = 3, four = 4, five = 5, err = 0;
+	int zero = 0, one = 1, two = 2, three = 3, four = 4, five = 5;
 
 	bytes = bpf_map_lookup_elem(&sock_apply_bytes, &zero);
 	if (bytes)
@@ -359,11 +352,8 @@ int bpf_prog10(struct sk_msg_md *msg)
 		bpf_msg_pull_data(msg, *start, *end, 0);
 	start_push = bpf_map_lookup_elem(&sock_bytes, &two);
 	end_push = bpf_map_lookup_elem(&sock_bytes, &three);
-	if (start_push && end_push) {
-		err = bpf_msg_push_data(msg, *start_push, *end_push, 0);
-		if (err)
-			return SK_PASS;
-	}
+	if (start_push && end_push)
+		bpf_msg_push_data(msg, *start_push, *end_push, 0);
 	start_pop = bpf_map_lookup_elem(&sock_bytes, &four);
 	pop = bpf_map_lookup_elem(&sock_bytes, &five);
 	if (start_pop && pop)

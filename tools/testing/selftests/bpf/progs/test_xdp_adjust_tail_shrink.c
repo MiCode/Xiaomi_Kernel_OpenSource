@@ -9,7 +9,9 @@
 #include <linux/if_ether.h>
 #include <bpf/bpf_helpers.h>
 
-SEC("xdp")
+int _version SEC("version") = 1;
+
+SEC("xdp_adjust_tail_shrink")
 int _xdp_adjust_tail_shrink(struct xdp_md *xdp)
 {
 	void *data_end = (void *)(long)xdp->data_end;

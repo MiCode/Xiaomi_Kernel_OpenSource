@@ -352,8 +352,7 @@ static int qtnf_start_ap(struct wiphy *wiphy, struct net_device *dev,
 	return ret;
 }
 
-static int qtnf_stop_ap(struct wiphy *wiphy, struct net_device *dev,
-			unsigned int link_id)
+static int qtnf_stop_ap(struct wiphy *wiphy, struct net_device *dev)
 {
 	struct qtnf_vif *vif = qtnf_netdev_get_priv(dev);
 	int ret;
@@ -501,7 +500,7 @@ qtnf_dump_station(struct wiphy *wiphy, struct net_device *dev,
 
 	switch (vif->wdev.iftype) {
 	case NL80211_IFTYPE_STATION:
-		if (idx != 0 || !vif->wdev.connected)
+		if (idx != 0 || !vif->wdev.current_bss)
 			return -ENOENT;
 
 		ether_addr_copy(mac, vif->bssid);
@@ -532,8 +531,8 @@ qtnf_dump_station(struct wiphy *wiphy, struct net_device *dev,
 }
 
 static int qtnf_add_key(struct wiphy *wiphy, struct net_device *dev,
-			int link_id, u8 key_index, bool pairwise,
-			const u8 *mac_addr, struct key_params *params)
+			u8 key_index, bool pairwise, const u8 *mac_addr,
+			struct key_params *params)
 {
 	struct qtnf_vif *vif = qtnf_netdev_get_priv(dev);
 	int ret;
@@ -548,8 +547,7 @@ static int qtnf_add_key(struct wiphy *wiphy, struct net_device *dev,
 }
 
 static int qtnf_del_key(struct wiphy *wiphy, struct net_device *dev,
-			int link_id, u8 key_index, bool pairwise,
-			const u8 *mac_addr)
+			u8 key_index, bool pairwise, const u8 *mac_addr)
 {
 	struct qtnf_vif *vif = qtnf_netdev_get_priv(dev);
 	int ret;
@@ -570,8 +568,7 @@ static int qtnf_del_key(struct wiphy *wiphy, struct net_device *dev,
 }
 
 static int qtnf_set_default_key(struct wiphy *wiphy, struct net_device *dev,
-				int link_id, u8 key_index, bool unicast,
-				bool multicast)
+				u8 key_index, bool unicast, bool multicast)
 {
 	struct qtnf_vif *vif = qtnf_netdev_get_priv(dev);
 	int ret;
@@ -587,7 +584,7 @@ static int qtnf_set_default_key(struct wiphy *wiphy, struct net_device *dev,
 
 static int
 qtnf_set_default_mgmt_key(struct wiphy *wiphy, struct net_device *dev,
-			  int link_id, u8 key_index)
+			  u8 key_index)
 {
 	struct qtnf_vif *vif = qtnf_netdev_get_priv(dev);
 	int ret;
@@ -732,7 +729,7 @@ qtnf_disconnect(struct wiphy *wiphy, struct net_device *dev,
 		pr_err("VIF%u.%u: failed to disconnect\n",
 		       mac->macid, vif->vifid);
 
-	if (vif->wdev.connected) {
+	if (vif->wdev.current_bss) {
 		netif_carrier_off(vif->netdev);
 		cfg80211_disconnected(vif->netdev, reason_code,
 				      NULL, 0, true, GFP_KERNEL);
@@ -748,10 +745,9 @@ qtnf_dump_survey(struct wiphy *wiphy, struct net_device *dev,
 	struct qtnf_wmac *mac = wiphy_priv(wiphy);
 	struct wireless_dev *wdev = dev->ieee80211_ptr;
 	struct ieee80211_supported_band *sband;
-	const struct cfg80211_chan_def *chandef = wdev_chandef(wdev, 0);
+	const struct cfg80211_chan_def *chandef = &wdev->chandef;
 	struct ieee80211_channel *chan;
 	int ret;
-
 
 	sband = wiphy->bands[NL80211_BAND_2GHZ];
 	if (sband && idx >= sband->n_channels) {
@@ -769,7 +765,7 @@ qtnf_dump_survey(struct wiphy *wiphy, struct net_device *dev,
 	survey->channel = chan;
 	survey->filled = 0x0;
 
-	if (chandef && chan == chandef->chan)
+	if (chan == chandef->chan)
 		survey->filled = SURVEY_INFO_IN_USE;
 
 	ret = qtnf_cmd_get_chan_stats(mac, chan->center_freq, survey);
@@ -782,7 +778,7 @@ qtnf_dump_survey(struct wiphy *wiphy, struct net_device *dev,
 
 static int
 qtnf_get_channel(struct wiphy *wiphy, struct wireless_dev *wdev,
-		 unsigned int link_id, struct cfg80211_chan_def *chandef)
+		 struct cfg80211_chan_def *chandef)
 {
 	struct net_device *ndev = wdev->netdev;
 	struct qtnf_vif *vif;

@@ -968,15 +968,14 @@ static void siw_accept_newconn(struct siw_cep *cep)
 
 		siw_cep_set_inuse(new_cep);
 		rv = siw_proc_mpareq(new_cep);
+		siw_cep_set_free(new_cep);
+
 		if (rv != -EAGAIN) {
 			siw_cep_put(cep);
 			new_cep->listen_cep = NULL;
-			if (rv) {
-				siw_cep_set_free(new_cep);
+			if (rv)
 				goto error;
-			}
 		}
-		siw_cep_set_free(new_cep);
 	}
 	return;
 

@@ -27,7 +27,6 @@
 #include <asm/system_misc.h>
 #include <asm/smp_plat.h>
 #include <asm/suspend.h>
-#include <trace/hooks/psci.h>
 
 /*
  * While a 64-bit OS can make calls with SMC32 calling conventions, for some
@@ -53,12 +52,6 @@ static enum arm_smccc_conduit psci_conduit = SMCCC_CONDUIT_NONE;
 
 bool psci_tos_resident_on(int cpu)
 {
-	bool resident = false;
-
-	trace_android_rvh_psci_tos_resident_on(cpu, &resident);
-	if (resident)
-		return resident;
-
 	return cpu == resident_cpu;
 }
 
@@ -176,11 +169,6 @@ int psci_set_osi_mode(bool enable)
 static int __psci_cpu_suspend(u32 fn, u32 state, unsigned long entry_point)
 {
 	int err;
-	bool deny = false;
-
-	trace_android_rvh_psci_cpu_suspend(state, &deny);
-	if (deny)
-		return -EPERM;
 
 	err = invoke_psci_fn(fn, state, entry_point, 0);
 	return psci_to_linux_errno(err);

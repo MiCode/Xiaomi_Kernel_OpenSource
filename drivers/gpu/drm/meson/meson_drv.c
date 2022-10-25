@@ -32,7 +32,6 @@
 #include "meson_osd_afbcd.h"
 #include "meson_registers.h"
 #include "meson_venc_cvbs.h"
-#include "meson_encoder_hdmi.h"
 #include "meson_viu.h"
 #include "meson_vpp.h"
 #include "meson_rdma.h"
@@ -207,7 +206,8 @@ static int meson_drv_bind_master(struct device *dev, bool has_components)
 	priv->compat = match->compat;
 	priv->afbcd.ops = match->afbcd_ops;
 
-	regs = devm_platform_ioremap_resource_byname(pdev, "vpu");
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vpu");
+	regs = devm_ioremap_resource(dev, res);
 	if (IS_ERR(regs)) {
 		ret = PTR_ERR(regs);
 		goto free_drm;
@@ -302,42 +302,38 @@ static int meson_drv_bind_master(struct device *dev, bool has_components)
 	if (priv->afbcd.ops) {
 		ret = priv->afbcd.ops->init(priv);
 		if (ret)
-			goto free_drm;
+			return ret;
 	}
 
 	/* Encoder Initialization */
 
 	ret = meson_venc_cvbs_create(priv);
 	if (ret)
-		goto exit_afbcd;
+		goto free_drm;
 
 	if (has_components) {
 		ret = component_bind_all(drm->dev, drm);
 		if (ret) {
 			dev_err(drm->dev, "Couldn't bind all components\n");
-			goto exit_afbcd;
+			goto free_drm;
 		}
 	}
 
-	ret = meson_encoder_hdmi_init(priv);
-	if (ret)
-		goto exit_afbcd;
-
 	ret = meson_plane_create(priv);
 	if (ret)
-		goto exit_afbcd;
+		goto free_drm;
 
 	ret = meson_overlay_create(priv);
 	if (ret)
-		goto exit_afbcd;
+		goto free_drm;
 
 	ret = meson_crtc_create(priv);
 	if (ret)
-		goto exit_afbcd;
+		goto free_drm;
 
 	ret = request_irq(priv->vsync_irq, meson_irq, 0, drm->driver->name, drm);
 	if (ret)
-		goto exit_afbcd;
+		goto free_drm;
 
 	drm_mode_config_reset(drm);
 
@@ -355,9 +351,6 @@ static int meson_drv_bind_master(struct device *dev, bool has_components)
 
 uninstall_irq:
 	free_irq(priv->vsync_irq, drm);
-exit_afbcd:
-	if (priv->afbcd.ops)
-		priv->afbcd.ops->exit(priv);
 free_drm:
 	drm_dev_put(drm);
 
@@ -388,8 +381,10 @@ static void meson_drv_unbind(struct device *dev)
 	free_irq(priv->vsync_irq, drm);
 	drm_dev_put(drm);
 
-	if (priv->afbcd.ops)
-		priv->afbcd.ops->exit(priv);
+	if (priv->afbcd.ops) {
+		priv->afbcd.ops->reset(priv);
+		meson_rdma_free(priv);
+	}
 }
 
 static const struct component_master_ops meson_drv_master_ops = {

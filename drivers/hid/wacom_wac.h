@@ -301,7 +301,6 @@ struct hid_data {
 	bool barrelswitch;
 	bool barrelswitch2;
 	bool serialhi;
-	bool confidence;
 	int x;
 	int y;
 	int pressure;

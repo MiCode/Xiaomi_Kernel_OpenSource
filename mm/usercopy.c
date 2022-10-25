@@ -294,10 +294,7 @@ static bool enable_checks __initdata = true;
 
 static int __init parse_hardened_usercopy(char *str)
 {
-	if (strtobool(str, &enable_checks))
-		pr_warn("Invalid option string for hardened_usercopy: '%s'\n",
-			str);
-	return 1;
+	return strtobool(str, &enable_checks);
 }
 
 __setup("hardened_usercopy=", parse_hardened_usercopy);

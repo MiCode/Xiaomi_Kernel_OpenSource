@@ -753,12 +753,8 @@ static loff_t ext2_max_size(int bits)
 	res += 1LL << (bits-2);
 	res += 1LL << (2*(bits-2));
 	res += 1LL << (3*(bits-2));
-	/* Compute how many metadata blocks are needed */
-	meta_blocks = 1;
-	meta_blocks += 1 + ppb;
-	meta_blocks += 1 + ppb + ppb * ppb;
 	/* Does block tree limit file size? */
-	if (res + meta_blocks <= upper_limit)
+	if (res < upper_limit)
 		goto check_lfs;
 
 	res = upper_limit;
@@ -1649,6 +1645,5 @@ static void __exit exit_ext2_fs(void)
 MODULE_AUTHOR("Remy Card and others");
 MODULE_DESCRIPTION("Second Extended Filesystem");
 MODULE_LICENSE("GPL");
-MODULE_IMPORT_NS(ANDROID_GKI_VFS_EXPORT_ONLY);
 module_init(init_ext2_fs)
 module_exit(exit_ext2_fs)

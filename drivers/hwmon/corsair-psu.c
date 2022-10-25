@@ -729,7 +729,7 @@ static int corsairpsu_probe(struct hid_device *hdev, const struct hid_device_id 
 	corsairpsu_check_cmd_support(priv);
 
 	priv->hwmon_dev = hwmon_device_register_with_info(&hdev->dev, "corsairpsu", priv,
-							  &corsairpsu_chip_info, NULL);
+							  &corsairpsu_chip_info, 0);
 
 	if (IS_ERR(priv->hwmon_dev)) {
 		ret = PTR_ERR(priv->hwmon_dev);

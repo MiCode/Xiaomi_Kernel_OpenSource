@@ -116,8 +116,8 @@ static void wg_receive_handshake_packet(struct wg_device *wg,
 		return;
 	}
 
-	under_load = atomic_read(&wg->handshake_queue_len) >=
-			MAX_QUEUED_INCOMING_HANDSHAKES / 8;
+	under_load = skb_queue_len(&wg->incoming_handshakes) >=
+		     MAX_QUEUED_INCOMING_HANDSHAKES / 8;
 	if (under_load) {
 		last_under_load = ktime_get_coarse_boottime_ns();
 	} else if (last_under_load) {
@@ -212,14 +212,13 @@ static void wg_receive_handshake_packet(struct wg_device *wg,
 
 void wg_packet_handshake_receive_worker(struct work_struct *work)
 {
-	struct crypt_queue *queue = container_of(work, struct multicore_worker, work)->ptr;
-	struct wg_device *wg = container_of(queue, struct wg_device, handshake_queue);
+	struct wg_device *wg = container_of(work, struct multicore_worker,
+					    work)->ptr;
 	struct sk_buff *skb;
 
-	while ((skb = ptr_ring_consume_bh(&queue->ring)) != NULL) {
+	while ((skb = skb_dequeue(&wg->incoming_handshakes)) != NULL) {
 		wg_receive_handshake_packet(wg, skb);
 		dev_kfree_skb(skb);
-		atomic_dec(&wg->handshake_queue_len);
 		cond_resched();
 	}
 }
@@ -554,28 +553,22 @@ void wg_packet_receive(struct wg_device *wg, struct sk_buff *skb)
 	case cpu_to_le32(MESSAGE_HANDSHAKE_INITIATION):
 	case cpu_to_le32(MESSAGE_HANDSHAKE_RESPONSE):
 	case cpu_to_le32(MESSAGE_HANDSHAKE_COOKIE): {
-		int cpu, ret = -EBUSY;
+		int cpu;
 
-		if (unlikely(!rng_is_initialized()))
-			goto drop;
-		if (atomic_read(&wg->handshake_queue_len) > MAX_QUEUED_INCOMING_HANDSHAKES / 2) {
-			if (spin_trylock_bh(&wg->handshake_queue.ring.producer_lock)) {
-				ret = __ptr_ring_produce(&wg->handshake_queue.ring, skb);
-				spin_unlock_bh(&wg->handshake_queue.ring.producer_lock);
-			}
-		} else
-			ret = ptr_ring_produce_bh(&wg->handshake_queue.ring, skb);
-		if (ret) {
-	drop:
+		if (skb_queue_len(&wg->incoming_handshakes) >
+			    MAX_QUEUED_INCOMING_HANDSHAKES ||
+		    unlikely(!rng_is_initialized())) {
 			net_dbg_skb_ratelimited("%s: Dropping handshake packet from %pISpfsc\n",
 						wg->dev->name, skb);
 			goto err;
 		}
-		atomic_inc(&wg->handshake_queue_len);
-		cpu = wg_cpumask_next_online(&wg->handshake_queue.last_cpu);
-		/* Queues up a call to packet_process_queued_handshake_packets(skb): */
+		skb_queue_tail(&wg->incoming_handshakes, skb);
+		/* Queues up a call to packet_process_queued_handshake_
+		 * packets(skb):
+		 */
+		cpu = wg_cpumask_next_online(&wg->incoming_handshake_cpu);
 		queue_work_on(cpu, wg->handshake_receive_wq,
-			      &per_cpu_ptr(wg->handshake_queue.worker, cpu)->work);
+			&per_cpu_ptr(wg->incoming_handshakes_worker, cpu)->work);
 		break;
 	}
 	case cpu_to_le32(MESSAGE_DATA):

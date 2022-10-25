@@ -352,14 +352,6 @@ static const struct dce110_clk_src_regs clk_src_regs[] = {
 	clk_src_regs(3, D),
 	clk_src_regs(4, E)
 };
-/*pll_id being rempped in dmub, in driver it is logical instance*/
-static const struct dce110_clk_src_regs clk_src_regs_b0[] = {
-	clk_src_regs(0, A),
-	clk_src_regs(1, B),
-	clk_src_regs(2, F),
-	clk_src_regs(3, G),
-	clk_src_regs(4, E)
-};
 
 static const struct dce110_clk_src_shift cs_shift = {
 		CS_COMMON_MASK_SH_LIST_DCN2_0(__SHIFT)
@@ -470,8 +462,7 @@ static const struct dcn30_afmt_mask afmt_mask = {
 	SE_DCN3_REG_LIST(id)\
 }
 
-/* Some encoders won't be initialized here - but they're logical, not physical. */
-static const struct dcn10_stream_enc_registers stream_enc_regs[ENGINE_ID_COUNT] = {
+static const struct dcn10_stream_enc_registers stream_enc_regs[] = {
 	stream_enc_regs(0),
 	stream_enc_regs(1),
 	stream_enc_regs(2),
@@ -932,7 +923,7 @@ static const struct dc_debug_options debug_defaults_drv = {
 	.timing_trace = false,
 	.clock_trace = true,
 	.disable_pplib_clock_request = false,
-	.pipe_split_policy = MPC_SPLIT_DYNAMIC,
+	.pipe_split_policy = MPC_SPLIT_AVOID,
 	.force_single_disp_pipe_split = false,
 	.disable_dcc = DCC_ENABLE,
 	.vsr_support = true,
@@ -940,7 +931,7 @@ static const struct dc_debug_options debug_defaults_drv = {
 	.max_downscale_src_width = 4096,/*upto true 4K*/
 	.disable_pplib_wm_range = false,
 	.scl_reset_length10 = true,
-	.sanity_checks = true,
+	.sanity_checks = false,
 	.underflow_assert_delay_us = 0xFFFFFFFF,
 	.dwb_fi_phase = -1, // -1 = disable,
 	.dmub_command_table = true,
@@ -2028,27 +2019,14 @@ static bool dcn31_resource_construct(
 			dcn30_clock_source_create(ctx, ctx->dc_bios,
 				CLOCK_SOURCE_COMBO_PHY_PLL1,
 				&clk_src_regs[1], false);
-	/*move phypllx_pixclk_resync to dmub next*/
-	if (dc->ctx->asic_id.hw_internal_rev == YELLOW_CARP_B0) {
-		pool->base.clock_sources[DCN31_CLK_SRC_PLL2] =
-			dcn30_clock_source_create(ctx, ctx->dc_bios,
-				CLOCK_SOURCE_COMBO_PHY_PLL2,
-				&clk_src_regs_b0[2], false);
-		pool->base.clock_sources[DCN31_CLK_SRC_PLL3] =
-			dcn30_clock_source_create(ctx, ctx->dc_bios,
-				CLOCK_SOURCE_COMBO_PHY_PLL3,
-				&clk_src_regs_b0[3], false);
-	} else {
-		pool->base.clock_sources[DCN31_CLK_SRC_PLL2] =
+	pool->base.clock_sources[DCN31_CLK_SRC_PLL2] =
 			dcn30_clock_source_create(ctx, ctx->dc_bios,
 				CLOCK_SOURCE_COMBO_PHY_PLL2,
 				&clk_src_regs[2], false);
-		pool->base.clock_sources[DCN31_CLK_SRC_PLL3] =
+	pool->base.clock_sources[DCN31_CLK_SRC_PLL3] =
 			dcn30_clock_source_create(ctx, ctx->dc_bios,
 				CLOCK_SOURCE_COMBO_PHY_PLL3,
 				&clk_src_regs[3], false);
-	}
-
 	pool->base.clock_sources[DCN31_CLK_SRC_PLL4] =
 			dcn30_clock_source_create(ctx, ctx->dc_bios,
 				CLOCK_SOURCE_COMBO_PHY_PLL4,

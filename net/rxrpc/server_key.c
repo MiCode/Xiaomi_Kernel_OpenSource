@@ -84,9 +84,6 @@ static int rxrpc_preparse_s(struct key_preparsed_payload *prep)
 
 	prep->payload.data[1] = (struct rxrpc_security *)sec;
 
-	if (!sec->preparse_server_key)
-		return -EINVAL;
-
 	return sec->preparse_server_key(prep);
 }
 
@@ -94,7 +91,7 @@ static void rxrpc_free_preparse_s(struct key_preparsed_payload *prep)
 {
 	const struct rxrpc_security *sec = prep->payload.data[1];
 
-	if (sec && sec->free_preparse_server_key)
+	if (sec)
 		sec->free_preparse_server_key(prep);
 }
 
@@ -102,7 +99,7 @@ static void rxrpc_destroy_s(struct key *key)
 {
 	const struct rxrpc_security *sec = key->payload.data[1];
 
-	if (sec && sec->destroy_server_key)
+	if (sec)
 		sec->destroy_server_key(key);
 }
 

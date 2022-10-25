@@ -7,9 +7,7 @@
  *  will override the DECLARE_RESTRICTED_HOOK and break the second include.
  */
 
-#ifndef __GENKSYMS__
 #include <linux/tracepoint.h>
-#endif
 
 #if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
 
@@ -35,7 +33,7 @@ int android_rvh_probe_register(struct tracepoint *tp, void *probe, void *data);
 		.unregfunc = _unreg,					\
 		.funcs = NULL };					\
 	__TRACEPOINT_ENTRY(_name);					\
-	int __nocfi __traceiter_##_name(void *__data, proto)			\
+	int __traceiter_##_name(void *__data, proto)			\
 	{								\
 		struct tracepoint_func *it_func_ptr;			\
 		void *it_func;						\
@@ -86,7 +84,7 @@ int android_rvh_probe_register(struct tracepoint *tp, void *probe, void *data);
 	extern int __traceiter_##name(data_proto);			\
 	DECLARE_STATIC_CALL(tp_func_##name, __traceiter_##name);	\
 	extern struct tracepoint __tracepoint_##name;			\
-	static inline void __nocfi trace_##name(proto)			\
+	static inline void trace_##name(proto)				\
 	{								\
 		if (static_key_false(&__tracepoint_##name.key))		\
 			DO_RESTRICTED_HOOK(name,			\

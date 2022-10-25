@@ -232,12 +232,16 @@ static int armada_370_xp_msi_alloc(struct irq_domain *domain, unsigned int virq,
 	int hwirq, i;
 
 	mutex_lock(&msi_used_lock);
-	hwirq = bitmap_find_free_region(msi_used, PCI_MSI_DOORBELL_NR,
-					order_base_2(nr_irqs));
-	mutex_unlock(&msi_used_lock);
 
-	if (hwirq < 0)
+	hwirq = bitmap_find_next_zero_area(msi_used, PCI_MSI_DOORBELL_NR,
+					   0, nr_irqs, 0);
+	if (hwirq >= PCI_MSI_DOORBELL_NR) {
+		mutex_unlock(&msi_used_lock);
 		return -ENOSPC;
+	}
+
+	bitmap_set(msi_used, hwirq, nr_irqs);
+	mutex_unlock(&msi_used_lock);
 
 	for (i = 0; i < nr_irqs; i++) {
 		irq_domain_set_info(domain, virq + i, hwirq + i,
@@ -246,7 +250,7 @@ static int armada_370_xp_msi_alloc(struct irq_domain *domain, unsigned int virq,
 				    NULL, NULL);
 	}
 
-	return 0;
+	return hwirq;
 }
 
 static void armada_370_xp_msi_free(struct irq_domain *domain,
@@ -255,7 +259,7 @@ static void armada_370_xp_msi_free(struct irq_domain *domain,
 	struct irq_data *d = irq_domain_get_irq_data(domain, virq);
 
 	mutex_lock(&msi_used_lock);
-	bitmap_release_region(msi_used, d->hwirq, order_base_2(nr_irqs));
+	bitmap_clear(msi_used, d->hwirq, nr_irqs);
 	mutex_unlock(&msi_used_lock);
 }
 

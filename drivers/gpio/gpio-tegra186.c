@@ -337,12 +337,9 @@ static int tegra186_gpio_of_xlate(struct gpio_chip *chip,
 	return offset + pin;
 }
 
-#define to_tegra_gpio(x) container_of((x), struct tegra_gpio, gpio)
-
 static void tegra186_irq_ack(struct irq_data *data)
 {
-	struct gpio_chip *gc = irq_data_get_irq_chip_data(data);
-	struct tegra_gpio *gpio = to_tegra_gpio(gc);
+	struct tegra_gpio *gpio = irq_data_get_irq_chip_data(data);
 	void __iomem *base;
 
 	base = tegra186_gpio_get_base(gpio, data->hwirq);
@@ -354,8 +351,7 @@ static void tegra186_irq_ack(struct irq_data *data)
 
 static void tegra186_irq_mask(struct irq_data *data)
 {
-	struct gpio_chip *gc = irq_data_get_irq_chip_data(data);
-	struct tegra_gpio *gpio = to_tegra_gpio(gc);
+	struct tegra_gpio *gpio = irq_data_get_irq_chip_data(data);
 	void __iomem *base;
 	u32 value;
 
@@ -370,8 +366,7 @@ static void tegra186_irq_mask(struct irq_data *data)
 
 static void tegra186_irq_unmask(struct irq_data *data)
 {
-	struct gpio_chip *gc = irq_data_get_irq_chip_data(data);
-	struct tegra_gpio *gpio = to_tegra_gpio(gc);
+	struct tegra_gpio *gpio = irq_data_get_irq_chip_data(data);
 	void __iomem *base;
 	u32 value;
 
@@ -386,8 +381,7 @@ static void tegra186_irq_unmask(struct irq_data *data)
 
 static int tegra186_irq_set_type(struct irq_data *data, unsigned int type)
 {
-	struct gpio_chip *gc = irq_data_get_irq_chip_data(data);
-	struct tegra_gpio *gpio = to_tegra_gpio(gc);
+	struct tegra_gpio *gpio = irq_data_get_irq_chip_data(data);
 	void __iomem *base;
 	u32 value;
 

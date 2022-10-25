@@ -456,10 +456,9 @@ struct iqs626_private {
 	unsigned int suspend_mode;
 };
 
-static noinline_for_stack int
-iqs626_parse_events(struct iqs626_private *iqs626,
-		    const struct fwnode_handle *ch_node,
-		    enum iqs626_ch_id ch_id)
+static int iqs626_parse_events(struct iqs626_private *iqs626,
+			       const struct fwnode_handle *ch_node,
+			       enum iqs626_ch_id ch_id)
 {
 	struct iqs626_sys_reg *sys_reg = &iqs626->sys_reg;
 	struct i2c_client *client = iqs626->client;
@@ -605,10 +604,9 @@ iqs626_parse_events(struct iqs626_private *iqs626,
 	return 0;
 }
 
-static noinline_for_stack int
-iqs626_parse_ati_target(struct iqs626_private *iqs626,
-			const struct fwnode_handle *ch_node,
-			enum iqs626_ch_id ch_id)
+static int iqs626_parse_ati_target(struct iqs626_private *iqs626,
+				   const struct fwnode_handle *ch_node,
+				   enum iqs626_ch_id ch_id)
 {
 	struct iqs626_sys_reg *sys_reg = &iqs626->sys_reg;
 	struct i2c_client *client = iqs626->client;
@@ -887,10 +885,9 @@ static int iqs626_parse_trackpad(struct iqs626_private *iqs626,
 	return 0;
 }
 
-static noinline_for_stack int
-iqs626_parse_channel(struct iqs626_private *iqs626,
-		     const struct fwnode_handle *ch_node,
-		     enum iqs626_ch_id ch_id)
+static int iqs626_parse_channel(struct iqs626_private *iqs626,
+				const struct fwnode_handle *ch_node,
+				enum iqs626_ch_id ch_id)
 {
 	struct iqs626_sys_reg *sys_reg = &iqs626->sys_reg;
 	struct i2c_client *client = iqs626->client;

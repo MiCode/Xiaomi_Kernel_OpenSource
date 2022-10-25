@@ -46,7 +46,7 @@
 #include <dt-bindings/thermal/thermal.h>
 
 / {
-	cpu0_opp_table: opp-table-cpu {
+	cpu0_opp_table: opp_table0 {
 		compatible = "operating-points-v2";
 		opp-shared;
 
@@ -164,7 +164,7 @@
 		io-channels = <&ths>;
 	};
 
-	mali_opp_table: opp-table-gpu {
+	mali_opp_table: gpu-opp-table {
 		compatible = "operating-points-v2";
 
 		opp-144000000 {

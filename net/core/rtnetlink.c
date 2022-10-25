@@ -57,79 +57,6 @@
 #define RTNL_MAX_TYPE		50
 #define RTNL_SLAVE_MAX_TYPE	40
 
-#if IS_ENABLED(CONFIG_MTK_RTNL_LOCK_DEBUG)
-#include <linux/sched/debug.h>
-#include <linux/stacktrace.h>
-
-/* Debug log and btrace will be printed when the rtnl_lock
- * is held for more than RTNL_LOCK_MAX_HOLD_TIME seconds
- */
-#define RTNL_LOCK_MAX_HOLD_TIME 2
-#define RTNL_LOCK_MAX_TRACE     10    /* stack trace length */
-
-struct rtnl_debug_btrace_t {
-	struct task_struct *task;
-	int pid;
-	unsigned long long start_time;
-	unsigned long long end_time;
-	unsigned long addrs[RTNL_LOCK_MAX_TRACE];
-	unsigned int  nr_entries;
-};
-
-static struct rtnl_debug_btrace_t rtnl_instance;
-
-static void rtnl_print_btrace(struct timer_list *unused);
-static DEFINE_TIMER(rtnl_chk_timer, rtnl_print_btrace);
-
-/* Save stack trace to the given array of RTNL_LOCK_MAX_TRACE size.
- */
-static int __save_stack_trace(unsigned long *trace)
-{
-	return stack_trace_save(trace, RTNL_LOCK_MAX_TRACE, 0);
-}
-
-static void rtnl_get_btrace(struct task_struct *who)
-{
-	unsigned long expires;
-
-	rtnl_instance.task = who;
-	rtnl_instance.pid = who->pid;
-	rtnl_instance.start_time = sched_clock();
-	rtnl_instance.end_time = 0;
-	rtnl_instance.nr_entries = __save_stack_trace(rtnl_instance.addrs);
-
-	expires = jiffies + RTNL_LOCK_MAX_HOLD_TIME * HZ;
-	mod_timer(&rtnl_chk_timer, expires);
-}
-
-static void rtnl_print_btrace(struct timer_list *unused)
-{
-	pr_info("rtnetlink: -- %s start --\n", __func__);
-	pr_info("rtnetlink: %s[%d][%c] hold rtnl_lock more than %d sec, start time: %llu\n",
-		rtnl_instance.task->comm,
-		rtnl_instance.pid,
-		task_state_to_char(rtnl_instance.task),
-		RTNL_LOCK_MAX_HOLD_TIME,
-		rtnl_instance.start_time);
-	stack_trace_print(rtnl_instance.addrs, rtnl_instance.nr_entries, 0);
-	show_stack(rtnl_instance.task, NULL, KERN_INFO);
-	pr_info("rtnetlink: -- %s end --\n", __func__);
-}
-
-static void rtnl_relase_btrace(void)
-{
-	rtnl_instance.end_time = sched_clock();
-	del_timer_sync(&rtnl_chk_timer);
-
-	if (rtnl_instance.end_time - rtnl_instance.start_time > 2 * NSEC_PER_SEC) {
-		pr_info("rtnetlink: rtnl_lock is held by [%d] from [%llu] to [%llu]\n",
-			rtnl_instance.pid,
-			rtnl_instance.start_time,
-			rtnl_instance.end_time);
-	}
-}
-#endif
-
 struct rtnl_link {
 	rtnl_doit_func		doit;
 	rtnl_dumpit_func	dumpit;
@@ -143,10 +70,6 @@ static DEFINE_MUTEX(rtnl_mutex);
 void rtnl_lock(void)
 {
 	mutex_lock(&rtnl_mutex);
-
-#if IS_ENABLED(CONFIG_MTK_RTNL_LOCK_DEBUG)
-	rtnl_get_btrace(current);
-#endif
 }
 EXPORT_SYMBOL(rtnl_lock);
 
@@ -171,10 +94,6 @@ void __rtnl_unlock(void)
 	struct sk_buff *head = defer_kfree_skb_list;
 
 	defer_kfree_skb_list = NULL;
-
-#if IS_ENABLED(CONFIG_MTK_RTNL_LOCK_DEBUG)
-	rtnl_relase_btrace();
-#endif
 
 	mutex_unlock(&rtnl_mutex);
 
@@ -1779,7 +1698,6 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb,
 {
 	struct ifinfomsg *ifm;
 	struct nlmsghdr *nlh;
-	struct Qdisc *qdisc;
 
 	ASSERT_RTNL();
 	nlh = nlmsg_put(skb, pid, seq, type, sizeof(*ifm), flags);
@@ -1797,7 +1715,6 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb,
 	if (tgt_netnsid >= 0 && nla_put_s32(skb, IFLA_TARGET_NETNSID, tgt_netnsid))
 		goto nla_put_failure;
 
-	qdisc = rtnl_dereference(dev->qdisc);
 	if (nla_put_string(skb, IFLA_IFNAME, dev->name) ||
 	    nla_put_u32(skb, IFLA_TXQLEN, dev->tx_queue_len) ||
 	    nla_put_u8(skb, IFLA_OPERSTATE,
@@ -1816,8 +1733,8 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb,
 #endif
 	    put_master_ifindex(skb, dev) ||
 	    nla_put_u8(skb, IFLA_CARRIER, netif_carrier_ok(dev)) ||
-	    (qdisc &&
-	     nla_put_string(skb, IFLA_QDISC, qdisc->ops->id)) ||
+	    (dev->qdisc &&
+	     nla_put_string(skb, IFLA_QDISC, dev->qdisc->ops->id)) ||
 	    nla_put_ifalias(skb, dev) ||
 	    nla_put_u32(skb, IFLA_CARRIER_CHANGES,
 			atomic_read(&dev->carrier_up_count) +
@@ -3337,8 +3254,8 @@ static int __rtnl_newlink(struct sk_buff *skb, struct nlmsghdr *nlh,
 	struct nlattr *slave_attr[RTNL_SLAVE_MAX_TYPE + 1];
 	unsigned char name_assign_type = NET_NAME_USER;
 	struct nlattr *linkinfo[IFLA_INFO_MAX + 1];
-	const struct rtnl_link_ops *m_ops;
-	struct net_device *master_dev;
+	const struct rtnl_link_ops *m_ops = NULL;
+	struct net_device *master_dev = NULL;
 	struct net *net = sock_net(skb->sk);
 	const struct rtnl_link_ops *ops;
 	struct nlattr *tb[IFLA_MAX + 1];
@@ -3376,8 +3293,6 @@ replay:
 	else
 		dev = NULL;
 
-	master_dev = NULL;
-	m_ops = NULL;
 	if (dev) {
 		master_dev = netdev_master_upper_dev_get(dev);
 		if (master_dev)
@@ -3712,24 +3627,13 @@ static int rtnl_alt_ifname(int cmd, struct net_device *dev, struct nlattr *attr,
 			   bool *changed, struct netlink_ext_ack *extack)
 {
 	char *alt_ifname;
-	size_t size;
 	int err;
 
 	err = nla_validate(attr, attr->nla_len, IFLA_MAX, ifla_policy, extack);
 	if (err)
 		return err;
 
-	if (cmd == RTM_NEWLINKPROP) {
-		size = rtnl_prop_list_size(dev);
-		size += nla_total_size(ALTIFNAMSIZ);
-		if (size >= U16_MAX) {
-			NL_SET_ERR_MSG(extack,
-				       "effective property list too long");
-			return -EINVAL;
-		}
-	}
-
-	alt_ifname = nla_strdup(attr, GFP_KERNEL_ACCOUNT);
+	alt_ifname = nla_strdup(attr, GFP_KERNEL);
 	if (!alt_ifname)
 		return -ENOMEM;
 

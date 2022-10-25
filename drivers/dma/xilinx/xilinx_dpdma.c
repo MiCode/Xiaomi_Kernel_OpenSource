@@ -271,6 +271,9 @@ struct xilinx_dpdma_device {
 /* -----------------------------------------------------------------------------
  * DebugFS
  */
+
+#ifdef CONFIG_DEBUG_FS
+
 #define XILINX_DPDMA_DEBUGFS_READ_MAX_SIZE	32
 #define XILINX_DPDMA_DEBUGFS_UINT16_MAX_STR	"65535"
 
@@ -296,7 +299,7 @@ struct xilinx_dpdma_debugfs_request {
 
 static void xilinx_dpdma_debugfs_desc_done_irq(struct xilinx_dpdma_chan *chan)
 {
-	if (IS_ENABLED(CONFIG_DEBUG_FS) && chan->id == dpdma_debugfs.chan_id)
+	if (chan->id == dpdma_debugfs.chan_id)
 		dpdma_debugfs.xilinx_dpdma_irq_done_count++;
 }
 
@@ -458,6 +461,16 @@ static void xilinx_dpdma_debugfs_init(struct xilinx_dpdma_device *xdev)
 	if (IS_ERR(dent))
 		dev_err(xdev->dev, "Failed to create debugfs testcase file\n");
 }
+
+#else
+static void xilinx_dpdma_debugfs_init(struct xilinx_dpdma_device *xdev)
+{
+}
+
+static void xilinx_dpdma_debugfs_desc_done_irq(struct xilinx_dpdma_chan *chan)
+{
+}
+#endif /* CONFIG_DEBUG_FS */
 
 /* -----------------------------------------------------------------------------
  * I/O Accessors

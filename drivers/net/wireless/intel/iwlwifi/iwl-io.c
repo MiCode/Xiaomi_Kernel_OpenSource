@@ -218,7 +218,7 @@ void iwl_force_nmi(struct iwl_trans *trans)
 				    UREG_DOORBELL_TO_ISR6_NMI_BIT);
 	else
 		iwl_write32(trans, CSR_DOORBELL_VECTOR,
-			    UREG_DOORBELL_TO_ISR6_NMI_BIT);
+			    CSR_DOORBELL_VECTOR_NMI);
 }
 IWL_EXPORT_SYMBOL(iwl_force_nmi);
 

@@ -193,7 +193,7 @@ int spectre_v2_test(void)
 			 * We are not vulnerable and reporting otherwise, so
 			 * missing such a mismatch is safe.
 			 */
-			if (miss_percent > 95)
+			if (state == VULNERABLE)
 				return 4;
 
 			return 1;

@@ -2853,10 +2853,8 @@ static void futex_wait_queue_me(struct futex_hash_bucket *hb, struct futex_q *q,
 		 * flagged for rescheduling. Only call schedule if there
 		 * is no timeout, or if it has yet to expire.
 		 */
-		if (!timeout || timeout->task) {
-			trace_android_vh_futex_sleep_start(current);
+		if (!timeout || timeout->task)
 			freezable_schedule();
-		}
 	}
 	__set_current_state(TASK_RUNNING);
 }

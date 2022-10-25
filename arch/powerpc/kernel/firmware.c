@@ -31,10 +31,11 @@ int __init check_kvm_guest(void)
 	if (!hyper_node)
 		return 0;
 
-	if (of_device_is_compatible(hyper_node, "linux,kvm"))
-		static_branch_enable(&kvm_guest);
+	if (!of_device_is_compatible(hyper_node, "linux,kvm"))
+		return 0;
 
-	of_node_put(hyper_node);
+	static_branch_enable(&kvm_guest);
+
 	return 0;
 }
 core_initcall(check_kvm_guest); // before kvm_guest_init()

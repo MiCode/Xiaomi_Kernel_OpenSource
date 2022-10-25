@@ -95,8 +95,9 @@ static void kvm_perf_overflow_intr(struct perf_event *perf_event,
 }
 
 static void pmc_reprogram_counter(struct kvm_pmc *pmc, u32 type,
-				  u64 config, bool exclude_user,
-				  bool exclude_kernel, bool intr)
+				  unsigned config, bool exclude_user,
+				  bool exclude_kernel, bool intr,
+				  bool in_tx, bool in_tx_cp)
 {
 	struct perf_event *event;
 	struct perf_event_attr attr = {
@@ -112,14 +113,16 @@ static void pmc_reprogram_counter(struct kvm_pmc *pmc, u32 type,
 
 	attr.sample_period = get_sample_period(pmc, pmc->counter);
 
-	if ((attr.config & HSW_IN_TX_CHECKPOINTED) &&
-	    guest_cpuid_is_intel(pmc->vcpu)) {
+	if (in_tx)
+		attr.config |= HSW_IN_TX;
+	if (in_tx_cp) {
 		/*
 		 * HSW_IN_TX_CHECKPOINTED is not supported with nonzero
 		 * period. Just clear the sample period so at least
 		 * allocating the counter doesn't fail.
 		 */
 		attr.sample_period = 0;
+		attr.config |= HSW_IN_TX_CHECKPOINTED;
 	}
 
 	event = perf_event_create_kernel_counter(&attr, -1, current,
@@ -170,12 +173,11 @@ static bool pmc_resume_counter(struct kvm_pmc *pmc)
 
 void reprogram_gp_counter(struct kvm_pmc *pmc, u64 eventsel)
 {
-	u64 config;
-	u32 type = PERF_TYPE_RAW;
+	unsigned config, type = PERF_TYPE_RAW;
+	u8 event_select, unit_mask;
 	struct kvm *kvm = pmc->vcpu->kvm;
 	struct kvm_pmu_event_filter *filter;
 	int i;
-	struct kvm_pmu *pmu = vcpu_to_pmu(pmc->vcpu);
 	bool allow_event = true;
 
 	if (eventsel & ARCH_PERFMON_EVENTSEL_PIN_CONTROL)
@@ -204,18 +206,23 @@ void reprogram_gp_counter(struct kvm_pmc *pmc, u64 eventsel)
 	if (!allow_event)
 		return;
 
+	event_select = eventsel & ARCH_PERFMON_EVENTSEL_EVENT;
+	unit_mask = (eventsel & ARCH_PERFMON_EVENTSEL_UMASK) >> 8;
+
 	if (!(eventsel & (ARCH_PERFMON_EVENTSEL_EDGE |
 			  ARCH_PERFMON_EVENTSEL_INV |
 			  ARCH_PERFMON_EVENTSEL_CMASK |
 			  HSW_IN_TX |
 			  HSW_IN_TX_CHECKPOINTED))) {
-		config = kvm_x86_ops.pmu_ops->pmc_perf_hw_id(pmc);
+		config = kvm_x86_ops.pmu_ops->find_arch_event(pmc_to_pmu(pmc),
+						      event_select,
+						      unit_mask);
 		if (config != PERF_COUNT_HW_MAX)
 			type = PERF_TYPE_HARDWARE;
 	}
 
 	if (type == PERF_TYPE_RAW)
-		config = eventsel & pmu->raw_event_mask;
+		config = eventsel & X86_RAW_EVENT_MASK;
 
 	if (pmc->current_config == eventsel && pmc_resume_counter(pmc))
 		return;
@@ -226,7 +233,9 @@ void reprogram_gp_counter(struct kvm_pmc *pmc, u64 eventsel)
 	pmc_reprogram_counter(pmc, type, config,
 			      !(eventsel & ARCH_PERFMON_EVENTSEL_USR),
 			      !(eventsel & ARCH_PERFMON_EVENTSEL_OS),
-			      eventsel & ARCH_PERFMON_EVENTSEL_INT);
+			      eventsel & ARCH_PERFMON_EVENTSEL_INT,
+			      (eventsel & HSW_IN_TX),
+			      (eventsel & HSW_IN_TX_CHECKPOINTED));
 }
 EXPORT_SYMBOL_GPL(reprogram_gp_counter);
 
@@ -262,7 +271,7 @@ void reprogram_fixed_counter(struct kvm_pmc *pmc, u8 ctrl, int idx)
 			      kvm_x86_ops.pmu_ops->find_fixed_event(idx),
 			      !(en_field & 0x2), /* exclude user */
 			      !(en_field & 0x1), /* exclude kernel */
-			      pmi);
+			      pmi, false, false);
 }
 EXPORT_SYMBOL_GPL(reprogram_fixed_counter);
 

@@ -35,7 +35,7 @@ static bool chown_ok(struct user_namespace *mnt_userns,
 		     kuid_t uid)
 {
 	kuid_t kuid = i_uid_into_mnt(mnt_userns, inode);
-	if (uid_eq(current_fsuid(), kuid) && uid_eq(uid, inode->i_uid))
+	if (uid_eq(current_fsuid(), kuid) && uid_eq(uid, kuid))
 		return true;
 	if (capable_wrt_inode_uidgid(mnt_userns, inode, CAP_CHOWN))
 		return true;
@@ -62,7 +62,7 @@ static bool chgrp_ok(struct user_namespace *mnt_userns,
 {
 	kgid_t kgid = i_gid_into_mnt(mnt_userns, inode);
 	if (uid_eq(current_fsuid(), i_uid_into_mnt(mnt_userns, inode)) &&
-	    (in_group_p(gid) || gid_eq(gid, inode->i_gid)))
+	    (in_group_p(gid) || gid_eq(gid, kgid)))
 		return true;
 	if (capable_wrt_inode_uidgid(mnt_userns, inode, CAP_CHOWN))
 		return true;
@@ -150,7 +150,7 @@ kill_priv:
 
 	return 0;
 }
-EXPORT_SYMBOL_NS(setattr_prepare, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(setattr_prepare);
 
 /**
  * inode_newsize_ok - may this inode be truncated to a given size
@@ -194,7 +194,7 @@ out_sig:
 out_big:
 	return -EFBIG;
 }
-EXPORT_SYMBOL_NS(inode_newsize_ok, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(inode_newsize_ok);
 
 /**
  * setattr_copy - copy simple metadata updates into the generic inode
@@ -419,4 +419,4 @@ int notify_change(struct user_namespace *mnt_userns, struct dentry *dentry,
 
 	return error;
 }
-EXPORT_SYMBOL_NS(notify_change, ANDROID_GKI_VFS_EXPORT_ONLY);
+EXPORT_SYMBOL(notify_change);

@@ -2055,7 +2055,7 @@ lpfc_handle_eratt_s4(struct lpfc_hba *phba)
 		}
 		if (reg_err1 == SLIPORT_ERR1_REG_ERR_CODE_2 &&
 		    reg_err2 == SLIPORT_ERR2_REG_FW_RESTART) {
-			lpfc_printf_log(phba, KERN_ERR, LOG_SLI,
+			lpfc_printf_log(phba, KERN_ERR, LOG_TRACE_EVENT,
 					"3143 Port Down: Firmware Update "
 					"Detected\n");
 			en_rn_msg = false;
@@ -3694,16 +3694,12 @@ lpfc_offline_prep(struct lpfc_hba *phba, int mbx_action)
 					lpfc_disc_state_machine(vports[i], ndlp,
 						NULL, NLP_EVT_DEVICE_RECOVERY);
 
-					/* Don't remove the node unless the node
+					/* Don't remove the node unless the
 					 * has been unregistered with the
-					 * transport, and we're not in recovery
-					 * before dev_loss_tmo triggered.
-					 * Otherwise, let dev_loss take care of
-					 * the node.
+					 * transport.  If so, let dev_loss
+					 * take care of the node.
 					 */
-					if (!(ndlp->save_flags &
-					      NLP_IN_RECOV_POST_DEV_LOSS) &&
-					    !(ndlp->fc4_xpt_flags &
+					if (!(ndlp->fc4_xpt_flags &
 					      (NVME_XPT_REGD | SCSI_XPT_REGD)))
 						lpfc_disc_state_machine
 							(vports[i], ndlp,
@@ -5314,10 +5310,8 @@ lpfc_sli4_async_link_evt(struct lpfc_hba *phba,
 	 */
 	if (!(phba->hba_flag & HBA_FCOE_MODE)) {
 		rc = lpfc_sli_issue_mbox(phba, pmb, MBX_NOWAIT);
-		if (rc == MBX_NOT_FINISHED) {
-			lpfc_mbuf_free(phba, mp->virt, mp->phys);
+		if (rc == MBX_NOT_FINISHED)
 			goto out_free_dmabuf;
-		}
 		return;
 	}
 	/*
@@ -6268,10 +6262,8 @@ lpfc_sli4_async_fc_evt(struct lpfc_hba *phba, struct lpfc_acqe_fc_la *acqe_fc)
 	}
 
 	rc = lpfc_sli_issue_mbox(phba, pmb, MBX_NOWAIT);
-	if (rc == MBX_NOT_FINISHED) {
-		lpfc_mbuf_free(phba, mp->virt, mp->phys);
+	if (rc == MBX_NOT_FINISHED)
 		goto out_free_dmabuf;
-	}
 	return;
 
 out_free_dmabuf:
@@ -15105,8 +15097,6 @@ lpfc_io_slot_reset_s4(struct pci_dev *pdev)
 	psli->sli_flag &= ~LPFC_SLI_ACTIVE;
 	spin_unlock_irq(&phba->hbalock);
 
-	/* Init cpu_map array */
-	lpfc_cpu_map_array_init(phba);
 	/* Configure and enable interrupt */
 	intr_mode = lpfc_sli4_enable_intr(phba, phba->intr_mode);
 	if (intr_mode == LPFC_INTR_ERROR) {

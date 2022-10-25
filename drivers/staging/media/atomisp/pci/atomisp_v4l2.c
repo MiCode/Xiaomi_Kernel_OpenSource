@@ -447,8 +447,7 @@ const struct atomisp_dfs_config dfs_config_cht_soc = {
 	.dfs_table_size = ARRAY_SIZE(dfs_rules_cht_soc),
 };
 
-int atomisp_video_init(struct atomisp_video_pipe *video, const char *name,
-		       unsigned int run_mode)
+int atomisp_video_init(struct atomisp_video_pipe *video, const char *name)
 {
 	int ret;
 	const char *direction;
@@ -479,7 +478,6 @@ int atomisp_video_init(struct atomisp_video_pipe *video, const char *name,
 		 "ATOMISP ISP %s %s", name, direction);
 	video->vdev.release = video_device_release_empty;
 	video_set_drvdata(&video->vdev, video->isp);
-	video->default_run_mode = run_mode;
 
 	return 0;
 }
@@ -713,15 +711,15 @@ static int atomisp_mrfld_power(struct atomisp_device *isp, bool enable)
 
 	dev_dbg(isp->dev, "IUNIT power-%s.\n", enable ? "on" : "off");
 
-	/* WA for P-Unit, if DVFS enabled, ISP timeout observed */
+	/*WA:Enable DVFS*/
 	if (IS_CHT && enable)
-		punit_ddr_dvfs_enable(false);
+		punit_ddr_dvfs_enable(true);
 
 	/*
 	 * FIXME:WA for ECS28A, with this sleep, CTS
 	 * android.hardware.camera2.cts.CameraDeviceTest#testCameraDeviceAbort
 	 * PASS, no impact on other platforms
-	 */
+	*/
 	if (IS_BYT && enable)
 		msleep(10);
 
@@ -729,7 +727,7 @@ static int atomisp_mrfld_power(struct atomisp_device *isp, bool enable)
 	iosf_mbi_modify(BT_MBI_UNIT_PMC, MBI_REG_READ, MRFLD_ISPSSPM0,
 			val, MRFLD_ISPSSPM0_ISPSSC_MASK);
 
-	/* WA:Enable DVFS */
+	/*WA:Enable DVFS*/
 	if (IS_CHT && !enable)
 		punit_ddr_dvfs_enable(true);
 
@@ -1184,7 +1182,6 @@ static void atomisp_unregister_entities(struct atomisp_device *isp)
 
 	v4l2_device_unregister(&isp->v4l2_dev);
 	media_device_unregister(&isp->media_dev);
-	media_device_cleanup(&isp->media_dev);
 }
 
 static int atomisp_register_entities(struct atomisp_device *isp)

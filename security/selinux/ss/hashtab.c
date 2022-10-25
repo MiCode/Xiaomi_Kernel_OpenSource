@@ -30,20 +30,13 @@ static u32 hashtab_compute_size(u32 nel)
 
 int hashtab_init(struct hashtab *h, u32 nel_hint)
 {
-	u32 size = hashtab_compute_size(nel_hint);
-
-	/* should already be zeroed, but better be safe */
+	h->size = hashtab_compute_size(nel_hint);
 	h->nel = 0;
-	h->size = 0;
-	h->htable = NULL;
+	if (!h->size)
+		return 0;
 
-	if (size) {
-		h->htable = kcalloc(size, sizeof(*h->htable), GFP_KERNEL);
-		if (!h->htable)
-			return -ENOMEM;
-		h->size = size;
-	}
-	return 0;
+	h->htable = kcalloc(h->size, sizeof(*h->htable), GFP_KERNEL);
+	return h->htable ? 0 : -ENOMEM;
 }
 
 int __hashtab_insert(struct hashtab *h, struct hashtab_node **dst,

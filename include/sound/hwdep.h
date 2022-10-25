@@ -9,7 +9,6 @@
 
 #include <sound/asound.h>
 #include <linux/poll.h>
-#include <linux/android_kabi.h>
 
 struct snd_hwdep;
 
@@ -35,8 +34,6 @@ struct snd_hwdep_ops {
 			  struct snd_hwdep_dsp_status *status);
 	int (*dsp_load)(struct snd_hwdep *hw,
 			struct snd_hwdep_dsp_image *image);
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 struct snd_hwdep {
@@ -62,8 +59,6 @@ struct snd_hwdep {
 	int used;			/* reference counter */
 	unsigned int dsp_loaded;	/* bit fields of loaded dsp indices */
 	unsigned int exclusive:1;	/* exclusive access mode */
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 extern int snd_hwdep_new(struct snd_card *card, char *id, int device,

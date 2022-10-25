@@ -71,19 +71,21 @@ struct ext4_fc_tail {
 };
 
 /*
- * Fast commit status codes
+ * Fast commit reason codes
  */
 enum {
-	EXT4_FC_STATUS_OK = 0,
-	EXT4_FC_STATUS_INELIGIBLE,
-	EXT4_FC_STATUS_SKIPPED,
-	EXT4_FC_STATUS_FAILED,
-};
+	/*
+	 * Commit status codes:
+	 */
+	EXT4_FC_REASON_OK = 0,
+	EXT4_FC_REASON_INELIGIBLE,
+	EXT4_FC_REASON_ALREADY_COMMITTED,
+	EXT4_FC_REASON_FC_START_FAILED,
+	EXT4_FC_REASON_FC_FAILED,
 
-/*
- * Fast commit ineligiblity reasons:
- */
-enum {
+	/*
+	 * Fast commit ineligiblity reasons:
+	 */
 	EXT4_FC_REASON_XATTR = 0,
 	EXT4_FC_REASON_CROSS_RENAME,
 	EXT4_FC_REASON_JOURNAL_FLAG_CHANGE,
@@ -115,10 +117,7 @@ struct ext4_fc_stats {
 	unsigned int fc_ineligible_reason_count[EXT4_FC_REASON_MAX];
 	unsigned long fc_num_commits;
 	unsigned long fc_ineligible_commits;
-	unsigned long fc_failed_commits;
-	unsigned long fc_skipped_commits;
 	unsigned long fc_numblks;
-	u64 s_fc_avg_commit_time;
 };
 
 #define EXT4_FC_REPLAY_REALLOC_INCREMENT	4

@@ -15,7 +15,6 @@
 #include <linux/scatterlist.h>
 #include <linux/gpio/consumer.h>
 #include <linux/ptp_clock_kernel.h>
-#include <linux/android_kabi.h>
 
 #include <uapi/linux/spi/spi.h>
 
@@ -201,9 +200,6 @@ struct spi_device {
 	/* the statistics */
 	struct spi_statistics	statistics;
 
-	ANDROID_KABI_RESERVE(1);
-	ANDROID_KABI_RESERVE(2);
-
 	/*
 	 * likely need more hooks for more protocol options affecting how
 	 * the controller talks to each chip, like:
@@ -291,8 +287,6 @@ struct spi_driver {
 	int			(*remove)(struct spi_device *spi);
 	void			(*shutdown)(struct spi_device *spi);
 	struct device_driver	driver;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 static inline struct spi_driver *to_spi_driver(struct device_driver *drv)
@@ -678,9 +672,6 @@ struct spi_controller {
 
 	/* Interrupt enable state during PTP system timestamping */
 	unsigned long		irq_flags;
-
-	ANDROID_KABI_RESERVE(1);
-	ANDROID_KABI_RESERVE(2);
 };
 
 static inline void *spi_controller_get_devdata(struct spi_controller *ctlr)
@@ -976,8 +967,6 @@ struct spi_transfer {
 
 #define SPI_TRANS_FAIL_NO_START	BIT(0)
 	u16		error;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -1044,8 +1033,6 @@ struct spi_message {
 
 	/* list of spi_res reources when the spi message is processed */
 	struct list_head        resources;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 static inline void spi_message_init_no_memset(struct spi_message *m)
@@ -1469,8 +1456,6 @@ struct spi_board_info {
 	 * where the default of SPI_CS_HIGH = 0 is wrong.
 	 */
 	u32		mode;
-
-	ANDROID_KABI_RESERVE(1);
 
 	/* ... may need additional spi_device chip config data here.
 	 * avoid stuff protocol drivers can set; but include stuff

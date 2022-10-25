@@ -1029,8 +1029,6 @@ static void cdnsp_process_ctrl_td(struct cdnsp_device *pdev,
 		return;
 	}
 
-	*status = 0;
-
 	cdnsp_finish_td(pdev, td, event, pep, status);
 }
 
@@ -1525,14 +1523,7 @@ irqreturn_t cdnsp_thread_irq_handler(int irq, void *data)
 	spin_lock_irqsave(&pdev->lock, flags);
 
 	if (pdev->cdnsp_state & (CDNSP_STATE_HALTED | CDNSP_STATE_DYING)) {
-		/*
-		 * While removing or stopping driver there may still be deferred
-		 * not handled interrupt which should not be treated as error.
-		 * Driver should simply ignore it.
-		 */
-		if (pdev->gadget_driver)
-			cdnsp_died(pdev);
-
+		cdnsp_died(pdev);
 		spin_unlock_irqrestore(&pdev->lock, flags);
 		return IRQ_HANDLED;
 	}

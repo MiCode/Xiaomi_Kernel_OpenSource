@@ -212,7 +212,7 @@ again:
 	uaddr = __gmap_translate(gmap, gaddr);
 	if (IS_ERR_VALUE(uaddr))
 		goto out;
-	vma = vma_lookup(gmap->mm, uaddr);
+	vma = find_vma(gmap->mm, uaddr);
 	if (!vma)
 		goto out;
 	/*

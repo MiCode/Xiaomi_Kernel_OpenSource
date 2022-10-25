@@ -162,10 +162,8 @@ static int rpc_parse_scope_id(struct net *net, const char *buf,
 			      const size_t buflen, const char *delim,
 			      struct sockaddr_in6 *sin6)
 {
-	char p[IPV6_SCOPE_ID_LEN + 1];
+	char *p;
 	size_t len;
-	u32 scope_id = 0;
-	struct net_device *dev;
 
 	if ((buf + buflen) == delim)
 		return 1;
@@ -177,23 +175,29 @@ static int rpc_parse_scope_id(struct net *net, const char *buf,
 		return 0;
 
 	len = (buf + buflen) - delim - 1;
-	if (len > IPV6_SCOPE_ID_LEN)
-		return 0;
+	p = kmemdup_nul(delim + 1, len, GFP_KERNEL);
+	if (p) {
+		u32 scope_id = 0;
+		struct net_device *dev;
 
-	memcpy(p, delim + 1, len);
-	p[len] = 0;
+		dev = dev_get_by_name(net, p);
+		if (dev != NULL) {
+			scope_id = dev->ifindex;
+			dev_put(dev);
+		} else {
+			if (kstrtou32(p, 10, &scope_id) != 0) {
+				kfree(p);
+				return 0;
+			}
+		}
 
-	dev = dev_get_by_name(net, p);
-	if (dev != NULL) {
-		scope_id = dev->ifindex;
-		dev_put(dev);
-	} else {
-		if (kstrtou32(p, 10, &scope_id) != 0)
-			return 0;
+		kfree(p);
+
+		sin6->sin6_scope_id = scope_id;
+		return 1;
 	}
 
-	sin6->sin6_scope_id = scope_id;
-	return 1;
+	return 0;
 }
 
 static size_t rpc_pton6(struct net *net, const char *buf, const size_t buflen,

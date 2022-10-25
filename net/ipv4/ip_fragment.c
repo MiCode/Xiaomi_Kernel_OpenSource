@@ -144,8 +144,7 @@ static void ip_expire(struct timer_list *t)
 
 	rcu_read_lock();
 
-	/* Paired with WRITE_ONCE() in fqdir_pre_exit(). */
-	if (READ_ONCE(qp->q.fqdir->dead))
+	if (qp->q.fqdir->dead)
 		goto out_rcu_unlock;
 
 	spin_lock(&qp->q.lock);
