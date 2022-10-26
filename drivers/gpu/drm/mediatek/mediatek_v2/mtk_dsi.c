@@ -347,7 +347,6 @@ static struct mtk_drm_property mtk_connector_property[CONNECTOR_PROP_MAX] = {
 #define DSI_GERNERIC_READ_LONG_PACKET_ID 0x14
 
 struct phy;
-unsigned int bdg_rxtx_ratio = 229;
 unsigned int line_back_to_LP = 1;
 
 unsigned int data_phy_cycle;
@@ -1946,7 +1945,7 @@ void DSI_Config_VDO_Timing_with_DSC(struct mtk_dsi *dsi)
 	writel(ALIGN_TO((t_hbp), 4), dsi->regs + DSI_HBP_WC);
 	writel(ALIGN_TO((t_hfp), 4), dsi->regs + DSI_HFP_WC);
 	writel(ALIGN_TO((t_hbllp), 4), dsi->regs + DSI_BLLP_WC);
-	}
+}
 
 static void mtk_dsi_config_vdo_timing(struct mtk_dsi *dsi)
 {
@@ -3541,7 +3540,7 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 			bdg_tx_reset(DISP_BDG_DSI0, NULL);
 		}
 
-		if (get_ap_data_rate() > RX_V12)
+		if (get_ap_data_rate() > bdg_rx_v12)
 			DSI_MIPI_deskew(dsi);
 	}
 #ifdef DSI_SELF_PATTERN

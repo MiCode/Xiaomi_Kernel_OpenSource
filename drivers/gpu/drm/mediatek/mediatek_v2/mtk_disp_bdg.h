@@ -11,19 +11,13 @@
 #include <linux/interrupt.h>
 
 #define HW_NUM			(2)
-#define RX_V12			(1700)
-
-#ifdef _90HZ_
-#define _Disable_HS_DCO_
-#define _Disable_LP_TX_L023_
-#else
-#define _G_MODE_EN_
-#endif
+#define RX_V12			(1500)
 
 extern unsigned int need_6382_init;
 extern atomic_t bdg_eint_wakeup;
 extern unsigned int line_back_to_LP;
 extern unsigned int bdg_rxtx_ratio;
+extern unsigned int bdg_rx_v12;
 
 enum DISP_BDG_ENUM {
 	DISP_BDG_DSI0 = 0,

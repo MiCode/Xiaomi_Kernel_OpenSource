@@ -104,6 +104,66 @@ struct lcm_setting_table {
 #define BURST_MODE 3
 
 static int is_support_bdg = -1;
+static unsigned int bdg_mm_clk = MM_CLK;
+static unsigned int hs_dco_enable = 1; /* _Disable_HS_DCO_ */
+static unsigned int lp_tx_l023_enable = 1; /* _Disable_LP_TX_L023_ */
+static unsigned int g_mode_enable = 1; /* _G_MODE_EN_ */
+unsigned int bdg_rxtx_ratio = 229;
+unsigned int bdg_rx_v12 = RX_V12; /* RX_V12 */
+
+static void bdg_config_init(struct device_node *node)
+{
+	int ret = 0;
+
+	ret = of_property_read_u32(node, "bdg_mm_clk", &bdg_mm_clk);
+	if (!ret) {
+		DDPINFO("%s: read bdg_mm_clk:%d,", __func__, bdg_mm_clk);
+	} else {
+		bdg_mm_clk = MM_CLK;
+		DDPINFO("%s: not find bdg_mm_clk, set as: %d!", __func__, bdg_mm_clk);
+	}
+
+	ret = of_property_read_u32(node, "bdg_rx_v12", &bdg_rx_v12);
+	if (!ret) {
+		DDPINFO("%s: read bdg_rx_v12:%d,", __func__, bdg_rx_v12);
+	} else {
+		bdg_rx_v12 = RX_V12;
+		DDPINFO("%s: not find bdg_rx_v12, set as: %d!", __func__, bdg_rx_v12);
+	}
+
+	ret = of_property_read_u32(node, "bdg_rxtx_ratio", &bdg_rxtx_ratio);
+	if (!ret) {
+		DDPINFO("%s: read bdg_rxtx_ratio:%d,", __func__, bdg_rxtx_ratio);
+	} else {
+		bdg_rxtx_ratio = 229;
+		DDPINFO("%s: not find bdg_rxtx_ratio, set as: %d!", __func__, bdg_rxtx_ratio);
+	}
+
+	ret = of_property_read_u32(node, "hs_dco_enable", &hs_dco_enable);
+	if (!ret) {
+		DDPINFO("%s: read hs_dco_enable:%d,", __func__, hs_dco_enable);
+	} else {
+		hs_dco_enable = 1;
+		DDPINFO("%s: not find hs_dco_enable, set as: %d!", __func__, hs_dco_enable);
+	}
+
+	ret = of_property_read_u32(node, "lp_tx_l023_enable", &lp_tx_l023_enable);
+	if (!ret) {
+		DDPINFO("%s: read lp_tx_l023_enable:%d,", __func__, lp_tx_l023_enable);
+	} else {
+		lp_tx_l023_enable = 1;
+		DDPINFO("%s: not find lp_tx_l023_enable, set as: %d!", __func__, lp_tx_l023_enable);
+	}
+
+	ret = of_property_read_u32(node, "g_mode_enable", &g_mode_enable);
+	if (!ret) {
+		DDPINFO("%s: read g_mode_enable:%d,", __func__, g_mode_enable);
+	} else {
+		g_mode_enable = 1;
+		DDPINFO("%s: not find g_mode_enable, set as: %d!", __func__, g_mode_enable);
+	}
+}
+
 bool is_bdg_supported(void)
 {
 	if (is_support_bdg == -1) {
@@ -112,8 +172,10 @@ bool is_bdg_supported(void)
 		node = of_find_compatible_node(NULL, NULL, "mediatek,disp,bdg_enabled");
 		if (!node)
 			is_support_bdg = 0;
-		else
+		else {
 			is_support_bdg = 1;
+			bdg_config_init(node);
+		}
 		DDPINFO("%s: is_support_bdg = %d", __func__, is_support_bdg);
 	}
 	if (is_support_bdg == 1)
@@ -533,14 +595,14 @@ void ana_macro_on(void *cmdq)
 	 * bit 16-17 is display mm clk 1(270m)/2(405m)/3(540m)
 	 * dsc_on:vact * hact * vrefresh * (vtotal / vact) * bubble_ratio
 	 */
-	switch (MM_CLK) {
+	switch (bdg_mm_clk) {
 	case 546:
 		DDPMSG("%s, 6382 mmclk 546M\n", __func__);
 		reg = (3 << 24) | (3 << 16) | (1 << 8) | (1 << 0); //540M
 		break;
 	case 405:
 		DDPMSG("%s, 6382 mmclk 405M\n", __func__);
-	reg = (3 << 24) | (2 << 16) | (1 << 8) | (1 << 0); //405M for 120Hz
+		reg = (3 << 24) | (2 << 16) | (1 << 8) | (1 << 0); //405M for 120Hz
 		break;
 	case 270:
 		DDPMSG("%s, 6382 mmclk 270M\n", __func__);
@@ -1448,10 +1510,23 @@ int bdg_tx_vdo_timing_set(enum DISP_BDG_ENUM module,
 	u32 t_hbp = vm->hback_porch;
 	u32 t_hsa = vm->hsync_len;
 
-	if (dsi->format == MIPI_DSI_FMT_RGB565)
-		dsi_buf_bpp = 16;
-	else
+	switch (dsi->format) {
+	case MIPI_DSI_FMT_RGB888:
 		dsi_buf_bpp = 24;
+		break;
+	case MIPI_DSI_FMT_RGB666:
+		dsi_buf_bpp = 18;
+		break;
+	case MIPI_DSI_FMT_RGB666_PACKED:
+		dsi_buf_bpp = 24;
+		break;
+	case MIPI_DSI_FMT_RGB565:
+		dsi_buf_bpp = 16;
+		break;
+	default:
+		DDPMSG("format not support!!!\n");
+		return -1;
+	}
 
 	if (dsi->ext->params->is_cphy) {
 		DDPMSG("C-PHY mode, need check!!!\n");
@@ -1929,7 +2004,7 @@ int bdg_dsi_line_timing_dphy_setting(enum DISP_BDG_ENUM module,
 	bg_tx_line_cycle = (bg_tx_total_word_cnt + (lanes - 1)) / lanes;
 	bg_tx_line_time = bg_tx_line_cycle * 8000 / tx_data_rate;
 
-	disp_pipe_line_time = width * 1000 / MM_CLK;
+	disp_pipe_line_time = width * 1000 / bdg_mm_clk;
 
 	DDPMSG("bg_tx_total_word_cnt=%d, bg_tx_line_cycle=%d\n",
 		bg_tx_total_word_cnt, bg_tx_line_cycle);
@@ -3727,11 +3802,17 @@ void startup_seq_common(void *cmdq)
 	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + PPI_RW_LPDCOCAL_COARSE_CFG * 4,
 		PPI_RW_LPDCOCAL_COARSE_CFG_NCOARSE_START_MASK, 1);
 
-	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
-		CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6 * 4,
-		CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6_OA_CB_HSTXLB_DCO_PON_OVR_EN_MASK,
-		0);
-
+	if (hs_dco_enable) {
+		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
+			CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6 * 4,
+			CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6_OA_CB_HSTXLB_DCO_PON_OVR_EN_MASK,
+			0);
+	} else {
+		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
+			CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6 * 4,
+			CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6_OA_CB_HSTXLB_DCO_PON_OVR_EN_MASK,
+			1);
+	}
 	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + PPI_RW_COMMON_CFG * 4,
 		PPI_RW_COMMON_CFG_CFG_CLK_DIV_FACTOR_MASK, 3);
 }
@@ -4018,7 +4099,11 @@ int mipi_dsi_rx_mac_init(enum DISP_BDG_ENUM module,
 	BDG_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_DDI_RDY_TO_CNT_OS, 0);
 	BDG_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_DDI_RESP_TO_CNT_OS, 0);
 	BDG_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_DDI_VALID_VC_CFG_OS, 0xf);
-	BDG_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_DDI_CLK_MGR_CFG_OS, 0x37);
+	/* 0x1b for MMCLK 270M 0x37 for MMCLK 405M */
+	if (bdg_mm_clk == 270)
+		BDG_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_DDI_CLK_MGR_CFG_OS, 0x1b);
+	else
+		BDG_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_DDI_CLK_MGR_CFG_OS, 0x37);
 //	}
 
 	//video mode/ipi
@@ -4028,9 +4113,9 @@ int mipi_dsi_rx_mac_init(enum DISP_BDG_ENUM module,
 		if (ipi_mode_qst)
 			BDG_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_IPI_MODE_CFG_OS, 1);
 
-		t_ipi_clk  = 1000 / MM_CLK;
+		t_ipi_clk  = 1000 / bdg_mm_clk;
 		//t_hact_ipi = frame_width * t_ipi_clk;
-		t_hact_ipi = frame_width * 1000 / MM_CLK;
+		t_hact_ipi = frame_width * 1000 / bdg_mm_clk;
 		if (dsi->ext->params->is_cphy) { //c-phy
 			temp = 7000;
 			t_ppi_clk = temp / ap_tx_data_rate;
@@ -4046,11 +4131,11 @@ int mipi_dsi_rx_mac_init(enum DISP_BDG_ENUM module,
 		}
 
 		if (t_hact_ppi > t_hact_ipi)
-			ipi_tx_delay_qst = ((t_hact_ppi - t_hact_ipi) * MM_CLK +
-					20 * temp * MM_CLK / ap_tx_data_rate) / 1000 + 4;
+			ipi_tx_delay_qst = ((t_hact_ppi - t_hact_ipi) * bdg_mm_clk +
+					20 * temp * bdg_mm_clk / ap_tx_data_rate) / 1000 + 4;
 		else
-		//ipi_tx_delay_qst =  (20 * (temp * MM_CLK / tx_data_rate / 1000) + 4);
-			ipi_tx_delay_qst =  20 * temp * MM_CLK /
+		//ipi_tx_delay_qst =  (20 * (temp * bdg_mm_clk / tx_data_rate / 1000) + 4);
+			ipi_tx_delay_qst =  20 * temp * bdg_mm_clk /
 				ap_tx_data_rate / 1000 + 4;
 
 		DDPINFO("ap_tx_data_rate=%d, temp=%d, t_ppi_clk=%d, t_ipi_clk=%d\n",
@@ -4058,7 +4143,7 @@ int mipi_dsi_rx_mac_init(enum DISP_BDG_ENUM module,
 		DDPINFO("t_hact_ppi=%d, t_hact_ipi=%d\n", t_hact_ppi, t_hact_ipi);
 
 		//t_ipi_tx_delay = ipi_tx_delay_qst_i * t_ipi_clk;
-		t_ipi_tx_delay = ipi_tx_delay_qst * 1000 / MM_CLK;
+		t_ipi_tx_delay = ipi_tx_delay_qst * 1000 / bdg_mm_clk;
 
 		DDPINFO("ipi_tx_delay_qst=%d, t_ipi_tx_delay=%d\n",
 			ipi_tx_delay_qst, t_ipi_tx_delay);
@@ -4113,7 +4198,7 @@ void startup_seq_dphy_specific(unsigned int data_rate)
 		CORE_DIG_RW_COMMON_7_LANE4_HSRX_WORD_CLK_SEL_GATING_REG_MASK,
 		0);
 
-	if (data_rate >= 1500)
+	if (data_rate > bdg_rx_v12)
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
 		PPI_STARTUP_RW_COMMON_DPHY_7 * 4,
 		PPI_STARTUP_RW_COMMON_DPHY_7_DPHY_DDL_CAL_addr_MASK,
@@ -4265,7 +4350,7 @@ void startup_seq_dphy_specific(unsigned int data_rate)
 		CORE_DIG_RW_COMMON_6_DESERIALIZER_DIV_EN_DELAY_THRESH_D_MASK,
 		1);
 
-	if (data_rate > 1500) {
+	if (data_rate > bdg_rx_v12) {
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
 		CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_12 * 4,
 		CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_12_OA_L0_HSRX_DPHY_DDL_BYPASS_EN_OVR_VAL_MASK,
@@ -4402,7 +4487,7 @@ void startup_seq_dphy_specific(unsigned int data_rate)
 		CORE_DIG_DLANE_3_RW_HS_RX_0_HS_RX_0_THSSETTLE_REG_MASK,
 		hs_thssettle);
 
-	if (data_rate > 1500) {
+	if (data_rate > bdg_rx_v12) {
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
 			CORE_DIG_DLANE_0_RW_CFG_1 * 4,
 			CORE_DIG_DLANE_0_RW_CFG_1_CFG_1_DESKEW_SUPPORTED_REG_MASK,
@@ -5159,7 +5244,7 @@ void startup_seq_dphy_specific(unsigned int data_rate)
 	mtk_spi_write(MIPI_RX_PHY_BASE + CORE_DIG_COMMON_RW_DESKEW_FINE_MEM * 4,
 		0x07FC);
 
-#ifdef _Disable_HS_DCO_
+	if (!hs_dco_enable) {
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
 			CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6 * 4,
 			CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6_OA_CB_HSTXLB_DCO_EN_OVR_EN_MASK,
@@ -5176,8 +5261,9 @@ void startup_seq_dphy_specific(unsigned int data_rate)
 			CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6 * 4,
 			CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6_OA_CB_LP_DCO_PON_OVR_VAL_MASK,
 			0);
-#endif
-#ifdef _Disable_LP_TX_L023_
+	}
+
+	if (!lp_tx_l023_enable) {
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1028 * 4, 0x80, 1);
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1028 * 4, 0x40, 1);
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1428 * 4, 0x80, 1);
@@ -5190,8 +5276,9 @@ void startup_seq_dphy_specific(unsigned int data_rate)
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1427 * 4, 0xf, 0);
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1627 * 4, 0xf, 0);
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1827 * 4, 0xf, 0);
-#endif
-#ifdef _G_MODE_EN_
+	}
+
+	if (g_mode_enable) {
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
 			CORE_DIG_IOCTRL_RW_AFE_LANE0_CTRL_2_9 * 4, 0x18, 0);
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
@@ -5202,8 +5289,7 @@ void startup_seq_dphy_specific(unsigned int data_rate)
 			CORE_DIG_IOCTRL_RW_AFE_LANE3_CTRL_2_9 * 4, 0x18, 0);
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
 			CORE_DIG_IOCTRL_RW_AFE_LANE4_CTRL_2_9 * 4, 0x18, 0);
-#endif
-
+	}
 }
 
 /* for debug use */
@@ -5431,6 +5517,11 @@ int bdg_common_init_for_rx_pat(enum DISP_BDG_ENUM module,
 	int ret = 0;
 	unsigned int vact = 0;
 	unsigned int hact = 0;
+	struct videomode *vm = &dsi->vm;
+
+	unsigned int vfp = vm->vfront_porch;
+	unsigned int vbp = vm->vback_porch;
+	unsigned int vsa = vm->vsync_len;
 
 	DISPSYS_REG = (struct BDG_DISPSYS_CONFIG_REGS *)DISPSYS_BDG_MMSYS_CONFIG_BASE;
 	DSI2_REG = (struct BDG_MIPIDSI2_REGS *)DISPSYS_BDG_MIPIDSI2_DEVICE_BASE;
@@ -5521,7 +5612,7 @@ int bdg_common_init_for_rx_pat(enum DISP_BDG_ENUM module,
 #ifdef DSC_RELAY_MODE_EN
 		bdg_dsc_init(module, cmdq, dsi);
 		BDG_OUTREGBIT(cmdq, struct DISP_DSC_CON_REG,
-	DSC_REG->DISP_DSC_CON, DSC_PT_MEM_EN, 1);
+				DSC_REG->DISP_DSC_CON, DSC_PT_MEM_EN, 1);
 		BDG_OUTREGBIT(cmdq, struct DISP_DSC_CON_REG,
 				DSC_REG->DISP_DSC_CON, DSC_RELAY, 1);
 		BDG_OUTREGBIT(cmdq, struct DISP_DSC_CON_REG,
@@ -5556,10 +5647,10 @@ int bdg_common_init_for_rx_pat(enum DISP_BDG_ENUM module,
 		BDG_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_IPI_PG_HLINE_TIME_OS,
 			(hact + 73 + 73 + 2998));
 	}
-	BDG_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_IPI_PG_VSA_LINES_OS, 20);
-	BDG_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_IPI_PG_VBP_LINES_OS, 20);
-	BDG_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_IPI_PG_VFP_LINES_OS, 100);
-	BDG_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_IPI_PG_VACTIVE_LINES_OS, 2400);
+	BDG_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_IPI_PG_VSA_LINES_OS, vsa);
+	BDG_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_IPI_PG_VBP_LINES_OS, vbp);
+	BDG_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_IPI_PG_VFP_LINES_OS, vfp);
+	BDG_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_IPI_PG_VACTIVE_LINES_OS, vact);
 	BDG_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_IPI_PG_EN_OS, 1);
 	BDG_OUTREG32(cmdq, DSI2_REG->DSI2_DEVICE_SOFT_RSTN_OS, 1);
 
