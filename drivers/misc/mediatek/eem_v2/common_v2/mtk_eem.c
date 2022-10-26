@@ -103,7 +103,6 @@ struct regulator *eem_regulator_vproc1;
 struct regulator *eem_regulator_vproc2;
 
 static int create_procfs(void);
-static int *get_devinfo_by_nvmem(struct platform_device *pdev);
 static void eem_set_eem_volt(struct eem_det *det);
 static void eem_restore_eem_volt(struct eem_det *det);
 #if !EARLY_PORTING
@@ -250,7 +249,7 @@ static int get_devinfo(struct platform_device *pdev)
 	FUNC_ENTER(FUNC_LV_HELP);
 	val = (int *)&eem_devinfo;
 
-	buf = get_devinfo_by_nvmem(pdev);
+//	buf = get_devinfo_by_nvmem(pdev);
 
 	FT_VAL = buf[0];
 	FT_VAL = (FT_VAL >> 4) & 0xF;
@@ -3678,38 +3677,6 @@ static void eem_dconfig_set_det(struct eem_det *det, struct device_node *node)
 
 }
 #endif
-
-static int *get_devinfo_by_nvmem(struct platform_device *pdev)
-{
-	struct nvmem_cell *cell;
-	size_t len;
-	int *buf, *data;
-
-	cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
-	if (IS_ERR(cell)) {
-		pr_err("can't get nvmem_cell_get, ignore it\n");
-		return 0;
-	}
-
-	buf = nvmem_cell_read(cell, &len);
-	nvmem_cell_put(cell);
-
-	if (IS_ERR(buf)) {
-		pr_err("can't get data, ignore it\n");
-		return 0;
-	}
-
-	if (len < 15  * sizeof(int)) {
-		pr_err("invalid calibration data\n");
-		kfree(buf);
-		return 0;
-	}
-
-	data = buf;
-	kfree(buf);
-
-	return data;
-}
 
 static int eem_probe(struct platform_device *pdev)
 {
