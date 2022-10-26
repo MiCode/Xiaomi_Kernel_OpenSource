@@ -1089,6 +1089,8 @@ static void sugov_limits(struct cpufreq_policy *policy)
 	}
 
 	sg_policy->limits_changed = true;
+	if (trace_sugov_ext_limits_changed_enabled())
+		trace_sugov_ext_limits_changed(policy->cpu, policy->cur, policy->min, policy->max);
 }
 
 struct cpufreq_governor mtk_gov = {

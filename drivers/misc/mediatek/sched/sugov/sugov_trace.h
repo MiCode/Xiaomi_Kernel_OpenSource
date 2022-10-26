@@ -34,6 +34,30 @@ TRACE_EVENT(sugov_ext_util,
 		__entry->min,
 		__entry->max)
 );
+
+TRACE_EVENT(sugov_ext_limits_changed,
+	TP_PROTO(unsigned int cpu, unsigned int cur,
+		unsigned int min, unsigned int max),
+	TP_ARGS(cpu, cur, min, max),
+	TP_STRUCT__entry(
+		__field(unsigned int, cpu)
+		__field(unsigned int, cur)
+		__field(unsigned int, min)
+		__field(unsigned int, max)
+	),
+	TP_fast_assign(
+		__entry->cpu = cpu;
+		__entry->cur = cur;
+		__entry->min = min;
+		__entry->max = max;
+	),
+	TP_printk(
+		"cpu=%u cur=%u min=%u max=%u",
+		__entry->cpu,
+		__entry->cur,
+		__entry->min,
+		__entry->max)
+);
 #endif /* _TRACE_SCHEDULER_H */
 
 #undef TRACE_INCLUDE_PATH
