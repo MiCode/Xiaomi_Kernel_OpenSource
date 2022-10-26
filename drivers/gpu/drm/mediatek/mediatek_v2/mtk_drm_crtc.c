@@ -6253,6 +6253,10 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
+		/*dsc will be config at addon connect*/
+		/*remove dsc config here to avoid config twice unexpect*/
+		if (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_DSC)
+			continue;
 		mtk_ddp_comp_config(comp, &cfg, cmdq_handle);
 		mtk_ddp_comp_start(comp, cmdq_handle);
 		mtk_ddp_comp_io_cmd(comp, cmdq_handle, IRQ_LEVEL_NORMAL, NULL);
@@ -6270,6 +6274,10 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 
 	if (mtk_crtc->is_dual_pipe) {
 		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+			/*dsc will be config at addon connect*/
+			/*remove dsc config here to avoid config twice unexpect*/
+			if (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_DSC)
+				continue;
 			mtk_ddp_comp_config(comp, &cfg, cmdq_handle);
 			mtk_ddp_comp_start(comp, cmdq_handle);
 
