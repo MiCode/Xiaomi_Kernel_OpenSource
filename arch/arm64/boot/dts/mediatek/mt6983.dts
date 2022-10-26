@@ -1071,7 +1071,13 @@
 				max-hw-brightness = <2047>;
 			};
 		};
-
+		mtk_leds1: mtk_leds1 {
+			backlight {
+				label = "lcd-backlight1";
+				max-brightness = <255>;
+				max-hw-brightness = <255>;
+			};
+		};
 		dpmaif:dpmaif@10014000 {
 			compatible = "mediatek,dpmaif";
 			reg = <0 0x10014000 0 0x1000>, /*AO_UL*/
