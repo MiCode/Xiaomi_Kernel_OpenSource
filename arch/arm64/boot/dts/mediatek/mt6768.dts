@@ -434,6 +434,10 @@ aliases {
 			phy-names = "dphy";
 		};
 
+		bdg_support: bdg_support {
+			compatible = "mediatek,disp,6382,bdg";
+		};
+
 		dsi_te: dsi_te {
 			compatible = "mediatek, dsi_te-eint";
 			status = "disabled";
