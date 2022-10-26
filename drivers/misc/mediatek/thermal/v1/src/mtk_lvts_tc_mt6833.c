@@ -66,7 +66,7 @@ int fast_polling_factor = 1;
 int tscpu_cur_fp_factor = 1;
 int tscpu_next_fp_factor = 1;
 #endif
-int tscpu_debug_log = 1;
+int tscpu_debug_log;
 int tscpu_sspm_thermal_throttle;
  #if IS_ENABLED(CONFIG_OF)
 const struct of_device_id mt_thermal_of_match[2] = {
