@@ -1613,8 +1613,10 @@ static void vow_service_GetVowDumpData(void)
 					   size_left);
 				mutex_unlock(&vow_vmalloc_lock);
 				temp_dump_info.kernel_dump_idx = size_left;
-			} else
+			} else {
 				temp_dump_info.kernel_dump_idx = 0;
+				temp_dump_info.user_dump_idx = 0;
+			}
 			spin_lock_irqsave(&vowdrv_dump_lock, flags);
 			vow_dump_info[i].kernel_dump_idx = temp_dump_info.kernel_dump_idx;
 			vow_dump_info[i].user_dump_idx = temp_dump_info.user_dump_idx;
