@@ -194,6 +194,7 @@ static struct gpufreq_mtcmos_info *g_mtcmos;
 
 static enum gpufreq_dvfs_state g_dvfs_state;
 static DEFINE_MUTEX(gpufreq_lock);
+static DEFINE_MUTEX(ptpod_lock);
 
 static struct gpufreq_platform_fp platform_ap_fp = {
 	.bringup = __gpufreq_bringup,
@@ -464,7 +465,7 @@ static void __mt_gpufreq_vgpu_set_mode(unsigned int mode)
  */
 void mt_gpufreq_enable_by_ptpod(void)
 {
-	mutex_lock(&gpufreq_lock);
+	mutex_lock(&ptpod_lock);
 	/* Set GPU Buck to leave PWM mode */
 	__mt_gpufreq_vgpu_set_mode(REGULATOR_MODE_NORMAL);
 
@@ -485,7 +486,7 @@ void mt_gpufreq_enable_by_ptpod(void)
 #endif
 
 	GPUFREQ_LOGD("@%s: DVFS is enabled by ptpod\n", __func__);
-	mutex_unlock(&gpufreq_lock);
+	mutex_unlock(&ptpod_lock);
 }
 EXPORT_SYMBOL(mt_gpufreq_enable_by_ptpod);
 
@@ -497,7 +498,7 @@ void mt_gpufreq_disable_by_ptpod(void)
 	int i = 0;
 	int target_idx = g_gpu.max_oppidx;
 
-	mutex_lock(&gpufreq_lock);
+	mutex_lock(&ptpod_lock);
 
 	__gpufreq_power_control(POWER_ON);
 
@@ -515,7 +516,7 @@ void mt_gpufreq_disable_by_ptpod(void)
 
 	GPUFREQ_LOGD("@%s: DVFS is disabled by ptpod, g_DVFS_off_by_ptpod_idx: %d\n",
 		__func__, target_idx);
-	mutex_unlock(&gpufreq_lock);
+	mutex_unlock(&ptpod_lock);
 }
 EXPORT_SYMBOL(mt_gpufreq_disable_by_ptpod);
 
@@ -551,7 +552,7 @@ void mt_gpufreq_restore_default_volt(void)
 	int i;
 	struct gpufreq_opp_info *signed_table = g_gpu.signed_table;
 
-	mutex_lock(&gpufreq_lock);
+	mutex_lock(&ptpod_lock);
 
 	GPUFREQ_LOGD("@%s: restore OPP table to default voltage\n", __func__);
 
@@ -575,10 +576,62 @@ void mt_gpufreq_restore_default_volt(void)
 	__mt_gpufreq_volt_switch_without_vsram_volt(g_gpu.cur_volt,
 		g_gpu.working_table[g_gpu.cur_oppidx].volt);
 
-	mutex_unlock(&gpufreq_lock);
+	mutex_unlock(&ptpod_lock);
 }
 EXPORT_SYMBOL(mt_gpufreq_restore_default_volt);
 
+/*
+ * API : get current voltage
+ */
+unsigned int mt_gpufreq_get_cur_volt(void)
+{
+	return (__gpufreq_get_power_state() == POWER_ON) ? g_gpu.cur_volt : 0;
+}
+EXPORT_SYMBOL(mt_gpufreq_get_cur_volt);
+
+/* API : get frequency via OPP table index */
+unsigned int mt_gpufreq_get_freq_by_idx(unsigned int idx)
+{
+	return __gpufreq_get_fgpu_by_idx(idx);
+}
+EXPORT_SYMBOL(mt_gpufreq_get_freq_by_idx);
+
+/* API: get opp idx in original opp tables */
+/* This is usually for ptpod use */
+unsigned int mt_gpufreq_get_ori_opp_idx(unsigned int idx)
+{
+
+	unsigned int ptpod_opp_idx_num;
+
+	ptpod_opp_idx_num = ARRAY_SIZE(g_ptpod_opp_idx_table);
+
+	if (idx < ptpod_opp_idx_num && idx >= 0)
+		return g_ptpod_opp_idx_table[idx];
+	else
+		return idx;
+
+}
+EXPORT_SYMBOL(mt_gpufreq_get_ori_opp_idx);
+
+/* API : get voltage via OPP table real index */
+unsigned int mt_gpufreq_get_volt_by_real_idx(unsigned int idx)
+{
+	if (idx >= 0 && idx < g_gpu.signed_opp_num)
+		return g_gpu.signed_table[idx].volt;
+	else
+		return 0;
+}
+EXPORT_SYMBOL(mt_gpufreq_get_volt_by_real_idx);
+
+/* API : get frequency via OPP table real index */
+unsigned int mt_gpufreq_get_freq_by_real_idx(unsigned int idx)
+{
+	if (idx < g_gpu.signed_opp_num)
+		return g_gpu.signed_table[idx].freq;
+	else
+		return 0;
+}
+EXPORT_SYMBOL(mt_gpufreq_get_freq_by_real_idx);
 /*
  * API : update OPP and set voltage because PTPOD modified voltage table by PMIC wrapper
  */
@@ -588,7 +641,7 @@ unsigned int mt_gpufreq_update_volt(unsigned int pmic_volt[], unsigned int array
 	int target_idx;
 	struct gpufreq_opp_info *signed_table = g_gpu.signed_table;
 
-	mutex_lock(&gpufreq_lock);
+	mutex_lock(&ptpod_lock);
 
 	GPUFREQ_LOGD("@%s: update OPP table to given voltage\n", __func__);
 
@@ -635,7 +688,7 @@ unsigned int mt_gpufreq_update_volt(unsigned int pmic_volt[], unsigned int array
 
 	__gpufreq_set_springboard();
 
-	mutex_unlock(&gpufreq_lock);
+	mutex_unlock(&ptpod_lock);
 
 	return 0;
 }
@@ -2315,7 +2368,6 @@ static void __gpufreq_resume_dvfs(void)
 static int __gpufreq_pause_dvfs(unsigned int oppidx)
 {
 	int ret = GPUFREQ_SUCCESS;
-	mutex_lock(&gpufreq_lock);
 
 	GPUFREQ_TRACE_START();
 
@@ -2340,7 +2392,6 @@ static int __gpufreq_pause_dvfs(unsigned int oppidx)
 		oppidx, g_dvfs_state);
 
 done_unlock:
-	mutex_unlock(&gpufreq_lock);
 	GPUFREQ_TRACE_END();
 	return ret;
 }
