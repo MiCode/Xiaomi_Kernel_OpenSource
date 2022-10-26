@@ -8,6 +8,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/kernel.h>
 #include <mt-plat/mtk_devinfo.h>
+#include <linux/nvmem-consumer.h>
 
 #if IS_ENABLED(CONFIG_MTK_FREQ_HOPPING)
 #include <mtk_freqhopping_drv.h>
@@ -618,9 +619,29 @@ int mt_cpufreq_dts_map(void)
 unsigned int _mt_cpufreq_get_cpu_level(void)
 {
 	unsigned int lv = CPU_LEVEL_0;
+	struct device_node *node;
+	struct nvmem_cell *efuse_cell;
+	size_t efuse_len;
+	unsigned int *efuse_buf;
+	unsigned int val = 0;
 
-	int val = 6;	//for build pass
 	/* val = get_devinfo_with_index(7) & 0xF; segment code */
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6833-dvfsp");
+	if (!node) {
+		tag_pr_info("%s fail to get device node\n", __func__);
+		return 0;
+	}
+	efuse_cell = of_nvmem_cell_get(node, "efuse_segment_cell");
+	if (IS_ERR(efuse_cell)) {
+		tag_pr_info("@%s: cannot get efuse_cell, errno %ld\n",
+			__func__, PTR_ERR(efuse_cell));
+		return 0;
+	}
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	val = *efuse_buf;
+	nvmem_cell_put(efuse_cell);
+	kfree(efuse_buf);
+
 	if (val < 3 && val > 0)
 		lv = CPU_LEVEL_0;
 	else if (val == 6)
