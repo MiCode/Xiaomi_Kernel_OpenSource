@@ -50,3 +50,8 @@ obj-$(CONFIG_MTK_LPM_MT6983) += mt6983/
 endif
 endif
 
+ifeq ($(CONFIG_MTK_LPM_MT6833),m)
+ifneq ($(wildcard $(srctree)/$(src)/mt6833),)
+obj-$(CONFIG_MTK_LPM_MT6833) += mt6833/
+endif
+endif
