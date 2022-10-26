@@ -124,7 +124,7 @@
 #if defined(HX_ZERO_FLASH)
 /*zero flash case, you need to setup the fix_touch_info of module*/
 /*Please set the size according to IC*/
-#define DSRAM_SIZE HX_32K_SZ
+#define DSRAM_SIZE HX_48K_SZ
 #define HX_RESUME_SET_FW
 /* used for 102p overlay */
 /*#define HX_ALG_OVERLAY*/
