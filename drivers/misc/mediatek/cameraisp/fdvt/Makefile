@@ -1,10 +1,21 @@
 
 MTK_CUSTOM_PATH  := $(srctree)/drivers/misc/mediatek
 
-MTKCAM_FDVT_VERSION := 5.1
-MTKCAM_FDVT_PATH := $(MTK_CUSTOM_PATH)/cameraisp/fdvt/5.1
-subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/cameraisp/fdvt/5.1/inc
-$(info fdvt tina)
+ifeq ($(CONFIG_MTK_CAMERA_FD_VERSION40),m)
+  $(info FDVT LBJ: Drv use 4.0 folder)
+  MTKCAM_FDVT_VERSION := 4.0
+  MTKCAM_FDVT_PATH := $(MTK_CUSTOM_PATH)/cameraisp/fdvt/4.0
+  subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/cameraisp/fdvt/4.0/inc
+  obj-y += 4.0/
+endif
+
+ifeq ($(CONFIG_MTK_CAMERA_FD_ISP6S),m)
+  $(info FDVT: Drv use 5.1 folder)
+  MTKCAM_FDVT_VERSION := 5.1
+  MTKCAM_FDVT_PATH := $(MTK_CUSTOM_PATH)/cameraisp/fdvt/5.1
+  subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/cameraisp/fdvt/5.1/inc
+  $(info fdvt tina)
+endif
 
 #ifdef CONFIG_MTK_M4U
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)/
@@ -29,6 +40,13 @@ endif
 obj-$(CONFIG_MTK_CAMERA_FD_ISP6S) += camera_fdvt_isp51.o
 camera_fdvt_isp51-objs += 5.1/camera_fdvt.o
 
+obj-$(CONFIG_MTK_CAMERA_FD_VERSION40) += camera_fdvt_isp40.o
+camera_fdvt_isp40-objs += 4.0/camera_fdvt.o
+
 ifeq ($(strip $(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)),y)
-  subdir-ccflags-y += -DMTK_SECURE_FD_SUPPORT
+  MTK_SECURE_FD_SUPPORT := 1
+else
+  MTK_SECURE_FD_SUPPORT := 0
 endif
+
+subdir-ccflags-y += -DMTK_SECURE_FD_SUPPORT=$(MTK_SECURE_FD_SUPPORT)

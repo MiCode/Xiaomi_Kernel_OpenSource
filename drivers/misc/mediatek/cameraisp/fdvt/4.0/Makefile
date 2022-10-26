@@ -1,4 +1,4 @@
-MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_CAMERA_ISP_PLATFORM)
+MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_CAMERA_ISP_PLATFORM))
 
 $(info $(srctree))
 #ifdef CONFIG_MTK_M4U
@@ -14,5 +14,5 @@ ccflags-y += -I$(srctree)/drivers/staging/android/ion \
              -I$(srctree)/drivers/staging/android/ion/mtk
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 
-obj-$(CONFIG_MTK_CAMERA_FD_VERSION40) += camera_fdvt.o
+obj-$(CONFIG_MTK_CAMERA_ISP_FD_SUPPORT) += camera_fdvt.o
 

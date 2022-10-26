@@ -23,8 +23,18 @@
 #include <linux/interrupt.h>
 #include <linux/wait.h>
 #include <linux/slab.h>
-#include <mt-plat/sync_write.h>
 
+#define CHECK_SERVICE_IF_0	0
+#if CHECK_SERVICE_IF_0
+#include <mt-plat/sync_write.h>
+#endif
+#include <linux/dma-heap.h>
+#include "mtk_heap.h"
+#include <uapi/linux/dma-heap.h>
+#include <linux/pm_runtime.h>
+#include <linux/dma-buf.h>
+#include <soc/mediatek/smi.h>
+#include "linux/soc/mediatek/mtk-cmdq-ext.h"
 #include <linux/of_platform.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
@@ -34,10 +44,9 @@
 #include <asm/cacheflush.h>
 
 #define FDVT_USE_GCE
-
 #ifdef FDVT_USE_GCE
-#include <cmdq_core.h>
-#include <cmdq_record.h>
+//#include <cmdq_core.h>
+//#include <cmdq_record.h>
 #define CMDQ_REG_MASK 0xffffffff
 #endif
 
@@ -63,9 +72,19 @@
 struct wakeup_source fdvt_wake_lock;
 #endif
 
+#if CHECK_SERVICE_IF_0
 #include <smi_public.h>
+#endif
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+#include <mach/mt_iommu.h>
+#else /* CONFIG_MTK_IOMMU_V2 */
+#if CHECK_SERVICE_IF_0
 #include <m4u.h>
+#endif
+#endif /* CONFIG_MTK_IOMMU_V2 */
+
+#define CMDQ_MAIL_BOX
 
 #define FDVT_DEVNAME     "camera-fdvt"
 
@@ -101,9 +120,14 @@ static u8 *pBuff;
 static u8 *pread_buf;
 static u32 buf_size = 1024;
 
+#ifdef CMDQ_MAIL_BOX
+static struct cmdq_client *fdvt_clt;
+#endif
+
 #define FDVT_DRAM_REGCNT 208
 
-#define FDVT_WR32(data, addr)    mt_reg_sync_writel(data, addr)
+//#define FDVT_WR32(data, addr)    mt_reg_sync_writel(data, addr)
+#define FDVT_WR32(data, addr)    writel(data, addr)
 
 struct FDVTDBuffRegMap {
 	unsigned int u4Addr[FDVT_DRAM_REGCNT];
@@ -132,6 +156,16 @@ struct FD_CLK_STRUCT {
 struct FD_CLK_STRUCT fd_clk;
 #endif
 
+struct fdvt_device {
+	void __iomem *regs[FDVT_BASEADDR_NUM];
+	struct device *dev;
+	int irq[FDVT_IRQ_IDX_NUM];
+	struct device *larb;
+};
+
+static struct fdvt_device *fdvt_devs;
+static int nr_fdvt_devs;
+
 static unsigned long gFDVT_Irq[FDVT_IRQ_IDX_NUM];
 static unsigned long gFDVT_Reg[FDVT_BASEADDR_NUM];
 
@@ -139,8 +173,11 @@ static unsigned long gFDVT_Reg[FDVT_BASEADDR_NUM];
 /* static void __iomem *g_isp_inner_base_dase; */
 /* static void __iomem *g_imgsys_config_base_dase; */
 
+/* Get HW modules' base address from device nodes */
+#define FDVT_DEV_NODE_IDX 0
+#define IPESYS_DEV_MODE_IDX 1
 
-#define FDVT_ADDR                        (gFDVT_Reg[FDVT_BASE_ADDR])
+#define FDVT_ADDR                        (fdvt_devs[FDVT_DEV_NODE_IDX].regs)
 
 #else
 #define FDVT_ADDR                        FDVT_BASE
@@ -386,17 +423,6 @@ static FDVTSecureMeta  g_fdvt_secmeta;
 
 #define FDVT_MAX_OFFSET            0x1DC
 
-#if IS_ENABLED(CONFIG_OF)
-struct fdvt_device {
-	void __iomem *regs[FDVT_BASEADDR_NUM];
-	struct device *dev;
-	int irq[FDVT_IRQ_IDX_NUM];
-};
-
-static struct fdvt_device *fdvt_devs;
-static int nr_fdvt_devs;
-#endif
-
 bool haveConfig;
 #if (MTK_SECURE_FD_SUPPORT == 1)
 bool g_isSecure;
@@ -404,6 +430,12 @@ bool g_isSecure;
 
 void FDVT_basic_config(void)
 {
+	LOG_INF("FDVT FDVT_basic_config0!!!\n");
+	LOG_INF("FDVT FDVT_basic_config1!!!\n");
+	LOG_INF("FDVT FDVT_basic_config2!!!\n");
+	LOG_INF("FDVT FDVT_basic_config3!!!\n");
+	LOG_INF("FDVT FDVT_basic_config4!!!\n");
+
 	FDVT_WR32(0x00000111, FDVT_ENABLE);
 	FDVT_WR32(0x0000040C, FDVT_RS);
 	FDVT_WR32(0x0C000000, FDVT_RSCON_BASE_ADR);
@@ -505,13 +537,24 @@ void FDVT_basic_config(void)
 	FDVT_WR32(0x00000000, FDVT_LFD_INFO_YPOS_14);
 	FDVT_WR32(0x00000000, FDVT_INT_EN);
 	FDVT_WR32(0x0190012C, FDVT_SRC_WD_HT);
+
+	LOG_INF("FDVT FDVT_basic_config5!!!\n");
+	LOG_INF("FDVT FDVT_basic_config6!!!\n");
 }
 
 /**************************************************************
  *
  **************************************************************/
+#if CHECK_SERVICE_IF_0
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+enum mtk_iommu_callback_ret_t
+	FDVT_M4U_TranslationFault_callback(int port,
+					   unsigned int mva,
+					   void *data)
+#else
 enum m4u_callback_ret_t FDVT_M4U_TranslationFault_callback(int port,
 	unsigned int mva, void *data)
+#endif
 {
 	unsigned int u4RegValue = 0;
 	unsigned int u4Index = 0;
@@ -523,9 +566,13 @@ enum m4u_callback_ret_t FDVT_M4U_TranslationFault_callback(int port,
 		LOG_DBG("+0x%x 0x%x\n", u4Index, u4RegValue);
 	}
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+	return MTK_IOMMU_CALLBACK_HANDLED;
+#else
 	return M4U_CALLBACK_HANDLED;
+#endif
 }
-
+#endif
 /***********************************************************
  * Clock to ms
  ************************************************************/
@@ -551,26 +598,36 @@ static inline void FD_Prepare_Enable_ccf_clock(void)
 {
 	int ret;
 
+#if CHECK_SERVICE_IF_0
 #if (MTK_FD_LARB == 2)
 	smi_bus_prepare_enable(SMI_LARB2, "camera_fdvt");
 #else
 	smi_bus_prepare_enable(SMI_LARB5, "camera_fdvt");
 #endif
+#endif
+
+	pm_runtime_get_sync(fdvt_devs->dev);
+	ret = mtk_smi_larb_get(fdvt_devs->larb);
+	if (ret)
+		LOG_ERR("mtk_smi_larb_get larbvdec fail %d\n", ret);
 
 	ret = clk_prepare_enable(fd_clk.CG_IMGSYS_FDVT);
 	if (ret)
 		LOG_ERR("cannot prepare and enable CG_IMGSYS_FDVT clock\n");
-
-
 }
 
 static inline void FD_Disable_Unprepare_ccf_clock(void)
 {
 	clk_disable_unprepare(fd_clk.CG_IMGSYS_FDVT);
+	mtk_smi_larb_put(fdvt_devs->larb);
+	pm_runtime_put_sync(fdvt_devs->dev);
+
+#if CHECK_SERVICE_IF_0
 #if (MTK_FD_LARB == 2)
 	smi_bus_disable_unprepare(SMI_LARB2, "camera_fdvt");
 #else
 	smi_bus_disable_unprepare(SMI_LARB5, "camera_fdvt");
+#endif
 #endif
 }
 #endif
@@ -624,7 +681,7 @@ static inline int FDVT_switchCmdqToSecure(void *handle)
 /*****************************************************************************
  *
  *****************************************************************************/
-
+#if (MTK_SECURE_FD_SUPPORT == 1)
 static inline int FDVT_switchPortToNonSecure(void)
 {
 	struct cmdqRecStruct *handle;
@@ -641,7 +698,7 @@ static inline int FDVT_switchPortToNonSecure(void)
 
 	return 0;
 }
-
+#endif
 /***********************************************************
  * Set FDVT Meta Data
  ************************************************************/
@@ -793,9 +850,14 @@ void FDVT_DUMPREG(void)
 static int FDVT_SetRegHW(FDVTRegIO *a_pstCfg)
 {
 	#ifdef FDVT_USE_GCE
+	#ifdef CMDQ_MAIL_BOX
+		struct cmdq_pkt *pkt;
+	#else /* CMDQ_MAIL_BOX */
 		struct cmdqRecStruct *handle;
 		uint64_t engineFlag = (uint64_t)(1LL << CMDQ_ENG_FDVT);
-	#endif
+	#endif /* CMDQ_MAIL_BOX */
+	#endif /* FDVT_USE_GCE */
+
 	FDVTRegIO *pREGIO = NULL;
 	u32 i = 0;
 
@@ -828,7 +890,12 @@ static int FDVT_SetRegHW(FDVTRegIO *a_pstCfg)
 	}
 
 #ifdef FDVT_USE_GCE
+#ifdef CMDQ_MAIL_BOX
+	pkt = cmdq_pkt_create(fdvt_clt);
+#else /* CMDQ_MAIL_BOX */
 	cmdqRecCreate(CMDQ_SCENARIO_ISP_FDVT, &handle);
+	cmdqRecSetEngine(handle, engineFlag);
+#endif
 
 #if (MTK_SECURE_FD_SUPPORT == 1)
 	LOG_DBG("FDVT isSecure: %d\n", g_isSecure);
@@ -837,7 +904,6 @@ static int FDVT_SetRegHW(FDVTRegIO *a_pstCfg)
 		FDVT_switchCmdqToSecure(handle);
 #endif
 
-	cmdqRecSetEngine(handle, engineFlag);
 
 	for (i = 0; i < pREGIO->u4Count; i++) {
 		if ((FDVT_BASE_HW + pFDVTWriteBuffer.u4Addr[i]) >=
@@ -848,11 +914,20 @@ static int FDVT_SetRegHW(FDVTRegIO *a_pstCfg)
 		/*(unsigned long)pFDVTWriteBuffer.u4Addr[i], */
 		/*(unsigned long)(FDVT_ADDR + pFDVTWriteBuffer.u4Addr[i]),*/
 		/*(unsigned long)pFDVTWriteBuffer.u4Data[i]); */
+#ifdef CMDQ_MAIL_BOX
+			cmdq_pkt_write(
+				pkt,
+				NULL,
+				FDVT_BASE_HW + pFDVTWriteBuffer.u4Addr[i],
+				pFDVTWriteBuffer.u4Data[i],
+				CMDQ_REG_MASK);
+#else
 			cmdqRecWrite(
 				handle,
 				FDVT_BASE_HW + pFDVTWriteBuffer.u4Addr[i],
 				pFDVTWriteBuffer.u4Data[i],
 				CMDQ_REG_MASK);
+#endif
 		} else {
 		/* LOG_DBG("Error: Writing Addr(0x%8x) Excess FDVT Range!*/
 		/* FD Offset: 0x%x\n",*/
@@ -1171,12 +1246,22 @@ static int FDVT_SetRegHW(FDVTRegIO *a_pstCfg)
 			sizeof(FDVTSecureMeta));
 	}
 #endif
+#ifdef CMDQ_MAIL_BOX
+	cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x1, CMDQ_REG_MASK);
+	cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
+	cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
+	cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
+
+	cmdq_pkt_flush(pkt);
+	cmdq_pkt_destroy(pkt);
+#else
 	cmdqRecWrite(handle, FDVT_INT_EN_HW, 0x1, CMDQ_REG_MASK);
 	cmdqRecWrite(handle, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
 	cmdqRecWrite(handle, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
 	cmdqRecWrite(handle, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
 
 	cmdq_task_flush_async_destroy(handle);	/* flush and destroy in cmdq */
+#endif
 #else
 	/* pFDVTWriteBuffer.u4Counter=pREGIO->u4Count; */
 	/* LOG_DBG("Count = %d\n", pREGIO->u4Count); */
@@ -1655,14 +1740,9 @@ static int FDVT_open(struct inode *inode, struct file *file)
 	g_drvOpened = 1;
 	spin_unlock(&g_spinLock);
 
-#if IS_ENABLED(CONFIG_PM_SLEEP)
-	__pm_stay_awake(&fdvt_wake_lock);
-#endif
-
 	mt_fdvt_clk_ctrl(1);
-
-#if IS_ENABLED(CONFIG_PM_SLEEP)
-	__pm_relax(&fdvt_wake_lock);
+#ifdef CMDQ_MAIL_BOX
+	cmdq_mbox_enable(fdvt_clt->chan);
 #endif
 
 	if (pBuff != NULL)
@@ -1721,15 +1801,7 @@ static int FDVT_release(struct inode *inode, struct file *file)
 	FDVT_WR32(0x00000000, FDVT_INT_EN);
 	g_FDVTIRQ = ioread32((void *)FDVT_INT);
 
-#if IS_ENABLED(CONFIG_PM_SLEEP)
-	__pm_stay_awake(&fdvt_wake_lock);
-#endif
-
 	mt_fdvt_clk_ctrl(0);
-
-#if IS_ENABLED(CONFIG_PM_SLEEP)
-	__pm_relax(&fdvt_wake_lock);
-#endif
 
 	spin_lock(&g_spinLock);
 	g_drvOpened = 0;
@@ -1757,8 +1829,12 @@ static int FDVT_probe(struct platform_device *dev)
 	int ret;
 	int i = 0;
 	int new_count;
+	unsigned int irq_info[3]; /* Record interrupts info from device tree */
 	struct class_device *class_dev = NULL;
 	struct fdvt_device *tempFdvt;
+	struct device_node *node;
+	struct platform_device *pdev;
+
 #if IS_ENABLED(CONFIG_OF)
 	struct fdvt_device *fdvt_dev;
 #endif
@@ -1795,8 +1871,8 @@ static int FDVT_probe(struct platform_device *dev)
 	nr_fdvt_devs = 0;
 
 	LOG_INF("FDVT PROBE!!!\n");
-#if IS_ENABLED(CONFIG_OF)
 
+#if IS_ENABLED(CONFIG_OF)
 	LOG_DBG("[FDVT_DEBUG]\n");
 
 	if (dev == NULL) {
@@ -1817,6 +1893,16 @@ static int FDVT_probe(struct platform_device *dev)
 	fdvt_dev = &(fdvt_devs[nr_fdvt_devs]);
 	fdvt_dev->dev = &dev->dev;
 
+#if IS_ENABLED(CONFIG_ARM64)
+	if (dma_set_mask_and_coherent(&dev->dev, DMA_BIT_MASK(34)))
+		dev_info(&dev->dev, "%s: arm64: No suitable DMA available, DMA_BIT_MASK(34)\n",
+			dev->dev.of_node->name);
+#else
+	if (dma_set_mask_and_coherent(&dev->dev, DMA_BIT_MASK(31)))
+		dev_info(&dev->dev, "%s: arm: No suitable DMA available, DMA_BIT_MASK(31)\n",
+			dev->dev->of_node->name);
+#endif
+
 	/* iomap registers and irq*/
 	for (i = 0; i < FDVT_BASEADDR_NUM; i++)	{
 		fdvt_dev->regs[i] = of_iomap(dev->dev.of_node, i);
@@ -1828,18 +1914,39 @@ static int FDVT_probe(struct platform_device *dev)
 		LOG_INF("DT, i=%d, map_addr=0x%lx\n", i, gFDVT_Reg[i]);
 	}
 
-	/* get IRQ ID and request IRQ */
+	/*temperate: power for larb2*/
+	node = of_parse_phandle(fdvt_dev->dev->of_node, "mediatek,larb", 0);
+	if (!node && new_count == 1)
+		return -EINVAL;
+	pdev = of_find_device_by_node(node);
+	if (WARN_ON(!pdev) && new_count == 1) {
+		of_node_put(node);
+		return -EINVAL;
+	}
 
+	of_node_put(node);
+	fdvt_dev->larb = &pdev->dev;
+
+	/* get IRQ ID and request IRQ */
 	for (i = 0; i < FDVT_IRQ_IDX_NUM; i++) {
 		fdvt_dev->irq[i] = irq_of_parse_and_map(dev->dev.of_node, i);
 		gFDVT_Irq[i] = fdvt_dev->irq[i];
+
+		/* Get IRQ Flag from device node */
+		if (of_property_read_u32_array
+			(dev->dev.of_node, "interrupts",
+			irq_info, ARRAY_SIZE(irq_info))) {
+			dev_dbg(&dev->dev, "get irq flags from DTS fail!!\n");
+			return -ENODEV;
+		}
+
 		if (i == FDVT_IRQ_IDX) {
 			/* IRQF_TRIGGER_NONE dose not take effect here*/
 			/* real trigger mode set in dts file */
 			ret = request_irq(
 				fdvt_dev->irq[i],
 				(irq_handler_t)FDVT_irq,
-				IRQF_TRIGGER_NONE,
+				irq_info[2],
 				FDVT_DEVNAME,
 				NULL);
 			/* request_irq( */
@@ -1850,8 +1957,8 @@ static int FDVT_probe(struct platform_device *dev)
 			/* NULL) */
 		}
 		if (ret) {
-			dev_info(&dev->dev, "request_irq fail, i=%d, irq=%d\n",
-				i, fdvt_dev->irq[i]);
+			dev_info(&dev->dev, "request_irq fail, i=%d, irq=%d, ret=%d\n",
+				i, fdvt_dev->irq[i], ret);
 			return ret;
 		}
 		LOG_INF("DT, i=%d, map_irq=%d\n", i, fdvt_dev->irq[i]);
@@ -1861,10 +1968,23 @@ static int FDVT_probe(struct platform_device *dev)
 
 #endif
 
+#ifdef CMDQ_MAIL_BOX
+	if (nr_fdvt_devs == 1) {
+		fdvt_clt = cmdq_mbox_create(fdvt_dev->dev, 0);
+		if (!fdvt_clt)
+			LOG_ERR("cmdq mbox create fail\n");
+		else
+			LOG_INF("cmdq mbox create done\n");
+	}
+#endif
+
+	/* Only register char driver in the 1st time */
+
 	ret = alloc_chrdev_region(&FDVT_devno, 0, 1, FDVT_DEVNAME);
 
 	if (ret)
 		LOG_DBG("[FDVT_DEBUG]Can't get major number for FDVT device\n");
+
 
 	FDVT_cdev = cdev_alloc();
 
@@ -1911,15 +2031,19 @@ static int FDVT_probe(struct platform_device *dev)
 							NULL,
 							FDVT_DEVNAME
 							);
+
+	pm_runtime_enable(fdvt_devs->dev);
+
 	/* Initialize waitqueue */
 	init_waitqueue_head(&g_FDVTWQ);
 
 #if IS_ENABLED(CONFIG_PM_SLEEP)
+#if CHECK_SERVICE_IF_0
 	wakeup_source_init(
 		&fdvt_wake_lock,
 		"fdvt_lock_wakelock");
 #endif
-
+#endif
 	LOG_DBG("[FDVT_DEBUG] Done\n");
 
 	return 0;
@@ -1933,15 +2057,7 @@ static int FDVT_remove(struct platform_device *dev)
 	FDVT_WR32(0x00000000, FDVT_INT_EN);
 	g_FDVTIRQ = ioread32((void *)FDVT_INT);
 
-#if IS_ENABLED(CONFIG_PM_SLEEP)
-	__pm_stay_awake(&fdvt_wake_lock);
-#endif
-
 	mt_fdvt_clk_ctrl(0);
-
-#if IS_ENABLED(CONFIG_PM_SLEEP)
-	__pm_relax(&fdvt_wake_lock);
-#endif
 
 	device_destroy(FDVT_class, FDVT_devno);
 	class_destroy(FDVT_class);
@@ -2051,6 +2167,24 @@ static int __init FDVT_driver_init(void)
 	register_early_suspend(&FDVT_early_suspend_desc);
 	#endif
 
+#if CHECK_SERVICE_IF_0
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+#if (MTK_FD_LARB == 2)
+	mtk_iommu_register_fault_callback(M4U_PORT_CAM_FD_RP,
+			FDVT_M4U_TranslationFault_callback, NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_CAM_FD_WR,
+			FDVT_M4U_TranslationFault_callback, NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_CAM_FD_RB,
+			FDVT_M4U_TranslationFault_callback, NULL);
+#else
+	mtk_iommu_register_fault_callback(M4U_PORT_CAM_FDVT_RP,
+			FDVT_M4U_TranslationFault_callback, NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_CAM_FDVT_WR,
+			FDVT_M4U_TranslationFault_callback, NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_CAM_FDVT_RB,
+			FDVT_M4U_TranslationFault_callback, NULL);
+#endif
+#else
 #if (MTK_FD_LARB == 2)
 	m4u_register_fault_callback(M4U_PORT_CAM_FD_RP,
 			FDVT_M4U_TranslationFault_callback, NULL);
@@ -2065,6 +2199,8 @@ static int __init FDVT_driver_init(void)
 			FDVT_M4U_TranslationFault_callback, NULL);
 	m4u_register_fault_callback(M4U_PORT_CAM_FDVT_RB,
 			FDVT_M4U_TranslationFault_callback, NULL);
+#endif
+#endif
 #endif
 	LOG_DBG("[FDVT_DEBUG] Done\n");
 
