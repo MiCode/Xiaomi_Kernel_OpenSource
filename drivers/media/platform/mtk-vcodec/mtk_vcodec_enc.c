@@ -3544,8 +3544,8 @@ int mtk_vcodec_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->allow_zero_bytesused = 1;
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	if (ctx->dev->unique_domain == 1) {
-		dst_vq->dev		= vcp_get_io_device(VCP_IOMMU_VENC_512MB2);
-		mtk_v4l2_debug(4, "use VCP_IOMMU_VENC_512MB2 domain, enc_cnt:%d",
+		dst_vq->dev = &ctx->dev->plat_dev->dev;
+		mtk_v4l2_debug(4, "unique_domain use plat_dev domain, enc_cnt:%d",
 						ctx->dev->enc_cnt);
 	} else {
 		if (ctx->dev->enc_cnt & 1) {
