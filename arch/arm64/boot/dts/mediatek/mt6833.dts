@@ -6094,7 +6094,7 @@
 		#size-cells = <2>;
 		ranges;
 		lpm-kernel-suspend = <0>;
-		suspend-method = "enable";
+		suspend-method = "disable";
 		logger-enable-states = "mcusysoff";
 		cpupm-method = "mcu";
 
