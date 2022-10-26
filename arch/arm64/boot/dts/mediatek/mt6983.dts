@@ -49,6 +49,8 @@
 		i2c11 = &i2c11;
 		i2c12 = &i2c12;
 		i2c13 = &i2c13;
+		serial0 = &uart0;
+		serial1 = &uart1;
 		ovl0 = &disp_ovl0;
 		ovl1 = &disp_ovl1;
 		ovl3 = &disp_ovl0_2l;
