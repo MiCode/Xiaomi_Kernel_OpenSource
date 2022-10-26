@@ -9,7 +9,6 @@
 #include <linux/syscalls.h>
 #include <linux/fcntl.h>
 #include <linux/uaccess.h>
-#include <linux/clk-provider.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/slab.h>

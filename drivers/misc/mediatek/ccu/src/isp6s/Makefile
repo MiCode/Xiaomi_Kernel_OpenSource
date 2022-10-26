@@ -8,17 +8,11 @@ $(info $(platform))
 $(info $(srctree))
 
 #ion
-ccflags-y += -I$(srctree)/drivers/staging/android/ion \
-             -I$(srctree)/drivers/staging/android/ion/mtk \
-             -I$(srctree)/drivers/iommu/
+ccflags-y += -I$(srctree)/drivers/iommu/
 #for sensorType in ccu_set_sensor_info
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/imgsensor/inc
 #
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/mt6873/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mach/mt6873/include/mach
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/irq/mt6873/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6873/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccu/inc/
