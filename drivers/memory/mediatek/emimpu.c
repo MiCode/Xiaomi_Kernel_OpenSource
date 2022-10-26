@@ -849,7 +849,7 @@ static struct platform_driver emimpu_drv = {
 	.probe = emimpu_probe,
 	.remove = emimpu_remove,
 	.driver = {
-		.name = "emimpu_drv",
+		.name = "emimpu_driver",
 		.owner = THIS_MODULE,
 		.of_match_table = emimpu_of_ids,
 	},
