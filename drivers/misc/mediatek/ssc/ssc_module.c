@@ -299,6 +299,39 @@ static const struct of_device_id ssc_of_ids[] = {
 };
 static int mt_ssc_pdrv_probe(struct platform_device *pdev)
 {
+	struct device_node *ssc_node;
+	int ret;
+	unsigned long flags;
+#if IS_ENABLED(CONFIG_ARM_SCMI_PROTOCOL)
+	struct scmi_tinysys_info_st *tinfo = NULL;
+#endif
+	/* scmi interface initialization */
+#if IS_ENABLED(CONFIG_ARM_SCMI_PROTOCOL)
+	tinfo = get_scmi_tinysys_info();
+	if (!tinfo) {
+		pr_info("[SSC] get SCMI info fail\n");
+		return -EPROBE_DEFER;
+	}
+	ret = of_property_read_u32(tinfo->sdev->dev.of_node, "scmi_ssc", &ssc_scmi_feature_id);
+
+	pr_info("[SSC] ssc scmi id = %d\n", ssc_scmi_feature_id);
+
+	scmi_tinysys_register_event_notifier(ssc_scmi_feature_id,
+			(f_handler_t)ssc_notification_handler);
+
+	ret = scmi_tinysys_event_notify(ssc_scmi_feature_id, 1);
+	if (ret < 0)
+		pr_info("[SSC] SCMI notify register fail\n");
+
+	ret = of_property_read_u32(tinfo->sdev->dev.of_node, "scmi_plt", &plt_scmi_feature_id);
+	ret = scmi_tinysys_common_set(tinfo->ph, plt_scmi_feature_id, PLT_SSC_INIT,
+					0, 0, 0, 0);
+
+	if (ret)
+		ssc_aee_print("[SSC] SCMI common set fail!\n");
+	else
+		pr_info("[SSC] notify done!\n");
+#endif
 
 	ssc_vcore_voter = regulator_get(&pdev->dev, SSC_VCORE_REGULATOR);
 	if (IS_ERR(ssc_vcore_voter)) {
@@ -306,37 +339,6 @@ static int mt_ssc_pdrv_probe(struct platform_device *pdev)
 		ssc_vcore_voter = NULL;
 		return -1;
 	}
-	return 0;
-}
-static int mt_ssc_pdrv_remove(struct platform_device *pdev)
-{
-	return 0;
-}
-static struct platform_driver mt_ssc_pdrv = {
-	.probe = mt_ssc_pdrv_probe,
-	.remove = mt_ssc_pdrv_remove,
-	.driver = {
-		.name = "ssc_dvfs",
-		.owner = THIS_MODULE,
-		.of_match_table = ssc_of_ids,
-	},
-
-};
-
-static int __init ssc_init(void)
-{
-	struct device_node *ssc_node;
-	int ret;
-	unsigned long flags;
-#if IS_ENABLED(CONFIG_ARM_SCMI_PROTOCOL)
-	struct scmi_tinysys_info_st *tinfo = NULL;
-#endif
-
-	pr_info("[SSC] %s\n", __func__);
-
-	ret = platform_driver_register(&mt_ssc_pdrv);
-	if (ret)
-		pr_info("[SSC] fail to register SSC platform driver\n");
 
 	spin_lock_irqsave(&ssc_locker, flags);
 
@@ -384,36 +386,6 @@ static int __init ssc_init(void)
 #endif
 	spin_unlock_irqrestore(&ssc_locker, flags);
 
-	/* scmi interface initialization */
-
-#if IS_ENABLED(CONFIG_ARM_SCMI_PROTOCOL)
-	tinfo = get_scmi_tinysys_info();
-	if (!tinfo) {
-		pr_info("[SSC] get SCMI info fail\n");
-		goto SKIP_SCMI;
-	}
-	ret = of_property_read_u32(tinfo->sdev->dev.of_node, "scmi_ssc", &ssc_scmi_feature_id);
-
-	pr_info("[SSC] ssc scmi id = %d\n", ssc_scmi_feature_id);
-
-	scmi_tinysys_register_event_notifier(ssc_scmi_feature_id,
-			(f_handler_t)ssc_notification_handler);
-
-	ret = scmi_tinysys_event_notify(ssc_scmi_feature_id, 1);
-	if (ret < 0)
-		pr_info("[SSC] SCMI notify register fail\n");
-
-	ret = of_property_read_u32(tinfo->sdev->dev.of_node, "scmi_plt", &plt_scmi_feature_id);
-	ret = scmi_tinysys_common_set(tinfo->ph, plt_scmi_feature_id, PLT_SSC_INIT,
-					0, 0, 0, 0);
-
-	if (ret)
-		ssc_aee_print("[SSC] SCMI common set fail!\n");
-	else
-		pr_info("[SSC] notify done!\n");
-SKIP_SCMI:
-#endif
-
 	ssc_vlogic_bound_register_notifier(&ssc_vlogic_notifier_func);
 	atomic_set(&vlogic_bound_counter, 0);
 	/* create sysfs entry for voltage bound */
@@ -423,6 +395,35 @@ SKIP_SCMI:
 	if (ssc_kobj)
 		ret = sysfs_create_file(ssc_kobj, __ATTR_OF(vlogic_bound));
 #endif
+
+	pr_info("[SSC] %s done\n", __func__);
+	return 0;
+}
+static int mt_ssc_pdrv_remove(struct platform_device *pdev)
+{
+	return 0;
+}
+static struct platform_driver mt_ssc_pdrv = {
+	.probe = mt_ssc_pdrv_probe,
+	.remove = mt_ssc_pdrv_remove,
+	.driver = {
+		.name = "ssc_dvfs",
+		.owner = THIS_MODULE,
+		.of_match_table = ssc_of_ids,
+	},
+
+};
+
+static int __init ssc_init(void)
+{
+	int ret;
+
+	pr_info("[SSC] %s\n", __func__);
+
+	ret = platform_driver_register(&mt_ssc_pdrv);
+	if (ret)
+		pr_info("[SSC] fail to register SSC platform driver\n");
+
 	return 0;
 }
 static void __exit ssc_deinit(void)

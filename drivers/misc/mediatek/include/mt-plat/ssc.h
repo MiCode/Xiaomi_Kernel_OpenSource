@@ -10,7 +10,7 @@
 #include <linux/notifier.h>
 
 #define MTK_SSC_DTS_COMPATIBLE "mediatek,ssc"
-#define MTK_SSC_SAFE_VLOGIC_STRING "safe-vlogic-uV"
+#define MTK_SSC_SAFE_VLOGIC_STRING "safe-vlogic-uv"
 
 enum ssc_notifier {
 	SSC_ENABLE_VLOGIC_BOUND = 1,
