@@ -4846,6 +4846,10 @@ cma=64M transparent_hugepage=never";
 		};
 	};
 
+	camera_af_hw_node: camera_af_hw_node {
+		compatible = "mediatek,camera_af_lens";
+	};
+
 	camsv1@1a050000 {
 		compatible = "mediatek,camsv1";
 		reg = <0 0x1a050000 0 0x1000>;
