@@ -8,6 +8,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
+#include <linux/gpio/consumer.h>
 #include <linux/iopoll.h>
 #include <linux/ioport.h>
 #include <linux/irq.h>
@@ -31,6 +32,7 @@
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/sd.h>
 #include <linux/mmc/sdio.h>
+#include <linux/mmc/sdio_func.h>
 #include <linux/mmc/slot-gpio.h>
 
 #include "cqhci.h"
@@ -305,6 +307,9 @@
 #define DEFAULT_DEBOUNCE	(8)	/* 8 cycles CD debounce */
 
 #define PAD_DELAY_MAX	32 /* PAD delay cells */
+#define SDIO_CCCR_INTERRUPT_EXT	0x16
+#define SDIO_INTERRUPT_EXT_SAI	(1 << 0)
+#define SDIO_INTERRUPT_EXT_EAI	(1 << 1)
 /*--------------------------------------------------------------------------*/
 /* Descriptor Structure                                                     */
 /*--------------------------------------------------------------------------*/
@@ -418,8 +423,12 @@ struct msdc_host {
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_uhs;
+	struct pinctrl_state *pins_eint;
+	struct pinctrl_state *pins_dat1;
 	struct delayed_work req_timeout;
 	int irq;		/* host interrupt */
+	int eint_irq;           /* device interrupt */
+	int sdio_irq_cnt;       /* irq enable cnt */
 	struct reset_control *reset;
 
 	struct clk *p_clk;		/* msdc power clock */
@@ -443,6 +452,8 @@ struct msdc_host {
 	bool hs400_mode;	/* current eMMC will run at hs400 mode */
 	bool internal_cd;	/* Use internal card-detect logic */
 	bool cqhci;		/* support eMMC hw cmdq */
+	bool sdio_eint_ready;   /* Ready to support SDIO eint interrupt */
+	bool enable_async_irq;
 	struct msdc_save_para save_para; /* used when gate HCLK */
 	struct msdc_tune_para def_tune_para; /* default tune setting */
 	struct msdc_tune_para saved_tune_para; /* tune result of CMD21/CMD19 */
@@ -1547,15 +1558,44 @@ static void msdc_enable_sdio_irq(struct mmc_host *mmc, int enb)
 {
 	unsigned long flags;
 	struct msdc_host *host = mmc_priv(mmc);
+	int ret;
+	unsigned char data;
+	struct sdio_func *func;
 
 	spin_lock_irqsave(&host->lock, flags);
 	__msdc_enable_sdio_irq(host, enb);
 	spin_unlock_irqrestore(&host->lock, flags);
 
-	if (enb)
-		pm_runtime_get_noresume(host->dev);
-	else
-		pm_runtime_put_noidle(host->dev);
+	if (host->enable_async_irq && enb) {
+		func = mmc->card->sdio_func[0];
+		func->card->quirks |= MMC_QUIRK_LENIENT_FN0;
+		data = sdio_f0_readb(func, SDIO_CCCR_INTERRUPT_EXT, &ret);
+		if (ret) {
+			dev_info(host->dev, "Failed to read SDIO_CCCR_INTERRUPT_EXT\n");
+			host->enable_async_irq = false;
+			host->sdio_eint_ready = false;
+			goto out;
+		}
+
+		if (data & SDIO_INTERRUPT_EXT_SAI) {
+			data |= SDIO_INTERRUPT_EXT_EAI;
+			sdio_f0_writeb(func, data, SDIO_CCCR_INTERRUPT_EXT, &ret);
+			if (ret) {
+				dev_info(host->dev, "Failed to write SDIO_CCCR_INTERRUPT_EXT\n");
+				host->enable_async_irq = false;
+				host->sdio_eint_ready = false;
+				goto out;
+			}
+		}
+	}
+
+out:
+	if (mmc->card && !host->enable_async_irq) {
+		if (enb)
+			pm_runtime_get_noresume(host->dev);
+		else
+			pm_runtime_put_noidle(host->dev);
+	}
 }
 
 static irqreturn_t msdc_cmdq_irq(struct msdc_host *host, u32 intsts)
@@ -2392,6 +2432,49 @@ static const struct mmc_host_ops mt_msdc_ops = {
 	.hw_reset = msdc_hw_reset,
 };
 
+static irqreturn_t msdc_sdio_eint_irq(int irq, void *dev_id)
+{
+	struct msdc_host *host = dev_id;
+	struct mmc_host *mmc = mmc_from_priv(host);
+	unsigned long flags;
+
+	spin_lock_irqsave(&host->lock, flags);
+	if (likely(host->sdio_irq_cnt > 0)) {
+		disable_irq_nosync(host->eint_irq);
+		disable_irq_wake(host->eint_irq);
+		host->sdio_irq_cnt--;
+	}
+	spin_unlock_irqrestore(&host->lock, flags);
+
+	sdio_signal_irq(mmc);
+
+	return IRQ_HANDLED;
+}
+
+static int msdc_request_dat1_eint_irq(struct msdc_host *host)
+{
+	struct gpio_desc *desc;
+	int irq, ret;
+
+	desc = devm_gpiod_get(host->dev, "eint", GPIOD_IN);
+	if (IS_ERR(desc))
+		return PTR_ERR(desc);
+
+	irq = gpiod_to_irq(desc);
+	if (irq < 0)
+		return irq;
+
+	ret = devm_request_threaded_irq(host->dev, irq, NULL, msdc_sdio_eint_irq,
+					IRQF_TRIGGER_LOW | IRQF_ONESHOT | IRQ_NOAUTOEN,
+					"sdio-eint", host);
+	if (ret)
+		return ret;
+
+	host->eint_irq = irq;
+
+	return 0;
+}
+
 static const struct cqhci_host_ops msdc_cmdq_ops = {
 	.enable         = msdc_cqe_enable,
 	.disable        = msdc_cqe_disable,
@@ -2450,6 +2533,9 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	ret = mmc_of_parse(mmc);
 	if (ret)
 		goto host_free;
+
+	if (device_property_read_bool(mmc->parent, "cap-sdio-async-int"))
+		host->enable_async_irq = true;
 
 	host->base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(host->base)) {
@@ -2533,6 +2619,22 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		ret = PTR_ERR(host->pins_uhs);
 		dev_err(&pdev->dev, "Cannot find pinctrl uhs!\n");
 		goto host_free;
+	}
+
+	if (!(mmc->caps2 & MMC_CAP2_NO_SDIO) && host->enable_async_irq) {
+		/* Support for SDIO eint irq */
+		host->pins_eint = pinctrl_lookup_state(host->pinctrl, "state_eint");
+		if (IS_ERR(host->pins_eint)) {
+			dev_dbg(&pdev->dev, "Cannot find pinctrl eint!\n");
+		} else {
+			host->pins_dat1 = pinctrl_lookup_state(host->pinctrl, "state_dat1");
+			if (IS_ERR(host->pins_dat1)) {
+				dev_info(&pdev->dev, "Cannot find pinctrl dat1!\n");
+				goto host_free;
+			}
+
+			host->sdio_eint_ready = true;
+		}
 	}
 
 	msdc_of_property_parse(pdev, host);
@@ -2621,6 +2723,16 @@ static int msdc_drv_probe(struct platform_device *pdev)
 			       IRQF_TRIGGER_NONE, pdev->name, host);
 	if (ret)
 		goto release;
+
+	if (host->sdio_eint_ready) {
+		ret = msdc_request_dat1_eint_irq(host);
+		if (ret) {
+			dev_info(host->dev, "Failed to register data1 eint irq!\n");
+			goto release;
+		}
+
+		pinctrl_select_state(host->pinctrl, host->pins_dat1);
+	}
 
 	pm_runtime_set_active(host->dev);
 	pm_runtime_set_autosuspend_delay(host->dev, MTK_MMC_AUTOSUSPEND_DELAY);
@@ -2745,10 +2857,24 @@ static int __maybe_unused msdc_runtime_suspend(struct device *dev)
 {
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msdc_host *host = mmc_priv(mmc);
+	unsigned long flags;
 
 	if (mmc->caps2 & MMC_CAP2_CQE)
 		cqhci_suspend(mmc);
 	msdc_save_reg(host);
+
+	if (host->sdio_eint_ready) {
+		disable_irq(host->irq);
+		pinctrl_select_state(host->pinctrl, host->pins_eint);
+		spin_lock_irqsave(&host->lock, flags);
+		if (host->sdio_irq_cnt == 0) {
+			enable_irq(host->eint_irq);
+			enable_irq_wake(host->eint_irq);
+			host->sdio_irq_cnt++;
+		}
+		sdr_clr_bits(host->base + SDC_CFG, SDC_CFG_SDIOIDE);
+		spin_unlock_irqrestore(&host->lock, flags);
+	}
 	msdc_gate_clock(host);
 	return 0;
 }
@@ -2757,15 +2883,31 @@ static int __maybe_unused msdc_runtime_resume(struct device *dev)
 {
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msdc_host *host = mmc_priv(mmc);
+	unsigned long flags;
 
 	if (mmc->caps2 & MMC_CAP2_CQE)
 		cqhci_resume(mmc);
 	msdc_ungate_clock(host);
 	msdc_restore_reg(host);
+
+	if (host->sdio_eint_ready) {
+		spin_lock_irqsave(&host->lock, flags);
+		if (host->sdio_irq_cnt > 0) {
+			disable_irq_nosync(host->eint_irq);
+			disable_irq_wake(host->eint_irq);
+			host->sdio_irq_cnt--;
+			sdr_set_bits(host->base + SDC_CFG, SDC_CFG_SDIOIDE);
+		} else {
+			sdr_clr_bits(host->base + MSDC_INTEN, MSDC_INTEN_SDIOIRQ);
+		}
+		spin_unlock_irqrestore(&host->lock, flags);
+		pinctrl_select_state(host->pinctrl, host->pins_uhs);
+		enable_irq(host->irq);
+	}
 	return 0;
 }
 
-static int __maybe_unused msdc_suspend(struct device *dev)
+static int __maybe_unused msdc_suspend_noirq(struct device *dev)
 {
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	int ret;
@@ -2779,13 +2921,13 @@ static int __maybe_unused msdc_suspend(struct device *dev)
 	return pm_runtime_force_suspend(dev);
 }
 
-static int __maybe_unused msdc_resume(struct device *dev)
+static int __maybe_unused msdc_resume_noirq(struct device *dev)
 {
 	return pm_runtime_force_resume(dev);
 }
 
 static const struct dev_pm_ops msdc_dev_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(msdc_suspend, msdc_resume)
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(msdc_suspend_noirq, msdc_resume_noirq)
 	SET_RUNTIME_PM_OPS(msdc_runtime_suspend, msdc_runtime_resume, NULL)
 };
 
