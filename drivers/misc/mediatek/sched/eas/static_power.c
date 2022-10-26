@@ -22,6 +22,7 @@
 #include <linux/uaccess.h>
 #include <linux/delay.h>
 #include <linux/cpufreq.h>
+
 #if IS_ENABLED(CONFIG_MTK_LEAKAGE_AWARE_TEMP)
 #define __LKG_PROCFS__ 1
 #define __LKG_DEBUG__ 0
@@ -42,6 +43,29 @@ struct leakage_data {
 
 struct leakage_data info;
 
+#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6833)
+#include <mtk_ppm_api.h>
+
+enum ppm_cluster {
+	PPM_CLUSTER_L = 0,
+	PPM_CLUSTER_B,
+	NR_PPM_CLUSTERS,
+};
+
+#define get_cluster_id(id)       \
+		(id < 6 ? PPM_CLUSTER_L : PPM_CLUSTER_B)
+
+unsigned int mtk_get_leakage(unsigned int cpu, unsigned int opp, unsigned int temperature)
+{
+	unsigned int cluster_id, power;
+
+	cluster_id = get_cluster_id(cpu);
+	power = mt_ppm_get_leakage_mw(cluster_id) * 1000; //mW to uW
+	return power;
+}
+EXPORT_SYMBOL_GPL(mtk_get_leakage);
+
+#else
 unsigned int mtk_get_leakage(unsigned int cpu, unsigned int opp, unsigned int temperature)
 {
 	int i, j;
@@ -79,6 +103,7 @@ unsigned int mtk_get_leakage(unsigned int cpu, unsigned int opp, unsigned int te
 	return power;
 }
 EXPORT_SYMBOL_GPL(mtk_get_leakage);
+#endif
 
 #if __LKG_PROCFS__
 #define PROC_FOPS_RW(name)                                              \
@@ -290,4 +315,3 @@ int mtk_static_power_init(void)
 MODULE_DESCRIPTION("MTK static power Platform Driver v0.1.1");
 MODULE_AUTHOR("Chienwei Chang <chiewei.chang@mediatek.com>");
 MODULE_LICENSE("GPL v2");
-
