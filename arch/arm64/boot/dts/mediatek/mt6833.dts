@@ -4330,6 +4330,11 @@
 		mediatek,larb = <&smi_larb20>;
 	};
 
+	mtk_iommu_fake_aie@0 {
+		compatible = "mediatek,mtk_iommu_fake_aie";
+		iommus = <&iommu0 M4U_PORT_L1_DISP_FAKE1>;
+	};
+
 	rsc@1b003000 {
 		compatible = "mediatek,rsc";
 		mediatek,larb = <&smi_larb20>;
