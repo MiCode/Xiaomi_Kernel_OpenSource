@@ -160,7 +160,7 @@ void parse_log_content(unsigned int *local_buf, int idx)
 
 spinlock_t cpudvfs_lock;
 static struct task_struct *Ripi_cpu_dvfs_task;
-#ifndef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
+#if !IS_ENABLED(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT)
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_SSPM_VER_V2)
 static DECLARE_COMPLETION(cpuhvfs_setup_done);
 #elif IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_SSPM_VER_V1)
@@ -189,7 +189,7 @@ int Ripi_cpu_dvfs_thread(void *data)
 	unsigned int buf_freq;
 	unsigned long long tf_sum, t_diff, avg_f;
 	int j = 0;
-#ifndef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
+#if !IS_ENABLED(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT)
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_SSPM_VER_V2)
 #elif IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_SSPM_VER_V1)
 	int ret;
@@ -199,7 +199,7 @@ int Ripi_cpu_dvfs_thread(void *data)
 #endif
 	memset(pwdata, 0, sizeof(pwdata));
 	/* tag_pr_info("CPU DVFS received thread\n"); */
-#ifndef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
+#if !IS_ENABLED(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT)
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_SSPM_VER_V2)
 	wait_for_completion(&cpuhvfs_setup_done);
 #elif IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_SSPM_VER_V1)

@@ -136,8 +136,6 @@ static void mtk_spm_unmask_edge_trig_irqs_for_cirq(void)
 			/* unmask edge trigger irqs */
 			//mt_irq_unmask_for_sleep_ex(edge_trig_irqs[i]);
 			hwirq = virq_to_hwirq(edge_trig_irqs[i]);
-			pr_info("[SPM] start to unmask edge trigger irq: %d, hwirq: %d\n",
-					edge_trig_irqs[i], hwirq);
 			arm_smccc_smc(MTK_SIP_MTK_LPM_CONTROL,
 				MTK_SPM_IRQ_SMC_UNMASK_FOR_SLEEP_EX,
 				hwirq, 0, 0, 0, 0, 0, &smc_res);
@@ -163,8 +161,6 @@ static int cpu_pm_callback_wakeup_src_restore(
 			if (spm_read(SPM_SW_RSV_0) & list[i].wakesrc)
 				//mt_irq_set_pending(edge_trig_irqs[i]);
 				hwirq = virq_to_hwirq(edge_trig_irqs[i]);
-				pr_info("[SPM] start to pending edge trigger irq: %d, hwirq: %d\n",
-					edge_trig_irqs[i], hwirq);
 				arm_smccc_smc(MTK_SIP_MTK_LPM_CONTROL,
 					MTK_SPM_IRQ_SMC_SET_PENDING,
 					hwirq, 0, 0, 0, 0, 0, &smc_res);
@@ -195,14 +191,12 @@ void mtk_spm_irq_backup(void)
 //#if IS_ENABLED(CONFIG_MTK_GIC_V3_EXT)
 	spm_in_idle = true;
 	//mt_irq_mask_all(&irq_mask);
-	pr_info("[SPM] start to mask all trigger irqs\n");
 	arm_smccc_smc(MTK_SIP_MTK_LPM_CONTROL, MTK_SPM_IRQ_SMC_MASK_ALL,
 		0, 0, 0, 0, 0, 0, &smc_res);
 	if (smc_res.a0)
 		pr_info("[SPM] fail to mask all trigger irqs, ret=0x%lx\n", smc_res.a0);
 	//mt_irq_unmask_for_sleep_ex(spm_irq_0);
 	hwirq = virq_to_hwirq(spm_irq_0);
-	pr_info("[SPM] start to unmask spm irq 0: %d, hwirq: %d\n", spm_irq_0, hwirq);
 	arm_smccc_smc(MTK_SIP_MTK_LPM_CONTROL, MTK_SPM_IRQ_SMC_UNMASK_FOR_SLEEP_EX,
 		hwirq, 0, 0, 0, 0, 0, &smc_res);
 	if (smc_res.a0)
@@ -212,13 +206,11 @@ void mtk_spm_irq_backup(void)
 
 //#if IS_ENABLED(CONFIG_MTK_SYS_CIRQ)
 	//mt_cirq_clone_gic();
-	pr_info("[SPM] start to clone gic\n");
 	arm_smccc_smc(MTK_SIP_MTK_LPM_CONTROL, MTK_SPM_CIRQ_SMC_CLONE_GIC,
 		0, 0, 0, 0, 0, 0, &smc_res);
 	if (smc_res.a0)
 		pr_info("[SPM] fail to clone gic, ret=0x%lx\n", smc_res.a0);
 	//mt_cirq_enable();
-	pr_info("[SPM] start to enable cirq\n");
 	arm_smccc_smc(MTK_SIP_MTK_LPM_CONTROL, MTK_SPM_CIRQ_SMC_ENABLE,
 		0, 0, 0, 0, 0, 0, &smc_res);
 	if (smc_res.a0)
@@ -231,13 +223,11 @@ void mtk_spm_irq_restore(void)
 	struct arm_smccc_res smc_res;
 //#if IS_ENABLED(CONFIG_MTK_SYS_CIRQ)
 	//mt_cirq_flush();
-	pr_info("[SPM] start to flush cirq\n");
 	arm_smccc_smc(MTK_SIP_MTK_LPM_CONTROL, MTK_SPM_CIRQ_SMC_FLUSH,
 		0, 0, 0, 0, 0, 0, &smc_res);
 	if (smc_res.a0)
 		pr_info("[SPM] fail to flush cirq, ret=0x%lx\n", smc_res.a0);
 	//mt_cirq_disable();
-	pr_info("[SPM] start to disable cirq\n");
 	arm_smccc_smc(MTK_SIP_MTK_LPM_CONTROL, MTK_SPM_CIRQ_SMC_DISABLE,
 		0, 0, 0, 0, 0, 0, &smc_res);
 	if (smc_res.a0)
@@ -246,7 +236,6 @@ void mtk_spm_irq_restore(void)
 
 //#if IS_ENABLED(CONFIG_MTK_GIC_V3_EXT)
 	//mt_irq_mask_restore(&irq_mask);
-	pr_info("[SPM] start to restore irq mask\n");
 	arm_smccc_smc(MTK_SIP_MTK_LPM_CONTROL, MTK_SPM_IRQ_SMC_MASK_RESTORE,
 		0, 0, 0, 0, 0, 0, &smc_res);
 	if (smc_res.a0)
