@@ -26,6 +26,11 @@ enum {
 #define APMCU_MCUPM_MBOX_ARMPLL_MODE    7
 /* Read only */
 #define APMCU_MCUPM_MBOX_TASK_STA       8
+#define APMCU_MCUPM_MBOX_RESERVED_9     9
+#define APMCU_MCUPM_MBOX_RESERVED_10    10
+#define APMCU_MCUPM_MBOX_RESERVED_11    11
+/* CPC mode - Read/Write */
+#define APMCU_MCUPM_MBOX_WAKEUP_CPU     12
 
 /* Mbox Slot: APMCU_MCUPM_MBOX_PWR_CTRL_EN (4) */
 #define MCUPM_MCUSYS_CTRL               (1 << 0)
@@ -53,5 +58,11 @@ enum {
 #define MCUPM_TASK_WAIT                 3
 #define MCUPM_TASK_RUN                  4
 #define MCUPM_TASK_PAUSE                5
+
+#if IS_ENABLED(CONFIG_MTK_LPM_MT6833)
+bool mtk_mcupm_is_ready(void);
+void mtk_wait_mbox_init_done(void);
+void mtk_notify_subsys_ap_ready(void);
+#endif
 
 #endif

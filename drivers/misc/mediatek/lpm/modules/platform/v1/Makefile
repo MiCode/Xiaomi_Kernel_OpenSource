@@ -1,12 +1,15 @@
 #source files
 LPM_MODULE_PLAT_PLATFORM_OBJS += lpm_plat.o
 LPM_MODULE_PLAT_PLATFORM_OBJS += lpm_plat_apmcu.o
+ifeq ($(CONFIG_MTK_LPM_MT6833),m)
+LPM_MODULE_PLAT_PLATFORM_OBJS += lpm_plat_apmcu_mbox.o
+endif
 
 LPM_MODULES_FOLDER=$(srctree)/drivers/misc/mediatek/lpm/modules/
 
 
 ccflags-y += -I$(LPM_MODULES_FOLDER)/include/
-
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/include/
 
 MTK_LPM_MODULE_PLATFORM_PLAT_NAME=v1
 MTK_LPM_SUSPEND_VERSION = suspend_v1
