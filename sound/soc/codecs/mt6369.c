@@ -2838,12 +2838,35 @@ static int mt_adc_l_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	unsigned int rc_tune = 0;
 
 	dev_info(priv->dev, "%s(), event = 0x%x\n", __func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
-		usleep_range(100, 120);
+		usleep_range(500, 520);
+
+		/* adc reset mechanism */
+		regmap_read(priv->regmap, MT6369_AUDENC_ANA_CON10, &rc_tune);
+		dev_vdbg(priv->dev, "%s(), rc_tune_l = 0x%x\n", __func__, rc_tune);
+		rc_tune = rc_tune & 0x1f;
+		if (rc_tune == 0x0 || rc_tune == 0x1f) {
+			dev_info(priv->dev, "%s(), adc_l calibration fail, resetting...\n",
+				 __func__);
+			/* Disable audio L ADC */
+			regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON1,
+					   RG_AUDADCLPWRUP_MASK_SFT,
+					   0x0 << RG_AUDADCLPWRUP_SFT);
+			/* Enable audio L ADC */
+			regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON1,
+					   RG_AUDADCLPWRUP_MASK_SFT,
+					   0x1 << RG_AUDADCLPWRUP_SFT);
+		}
+		usleep_range(500, 520);
+		regmap_read(priv->regmap, MT6369_AUDENC_ANA_CON10, &rc_tune);
+		dev_vdbg(priv->dev, "%s(), after reset: rc_tune_l = 0x%x\n",
+			__func__, rc_tune);
+
 		/* Audio L preamplifier DCC precharge off */
 		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON0,
 				   RG_AUDPREAMPLDCPRECHARGE_MASK_SFT,
@@ -2862,12 +2885,35 @@ static int mt_adc_r_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	unsigned int rc_tune = 0;
 
 	dev_info(priv->dev, "%s(), event = 0x%x\n", __func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
-		usleep_range(100, 120);
+		usleep_range(500, 520);
+
+		/* adc reset mechanism */
+		regmap_read(priv->regmap, MT6369_AUDENC_ANA_CON11, &rc_tune);
+		dev_vdbg(priv->dev, "%s(), rc_tune_r = 0x%x\n", __func__, rc_tune);
+		rc_tune = rc_tune & 0x1f;
+		if (rc_tune == 0x0 || rc_tune == 0x1f) {
+			dev_info(priv->dev, "%s(), adc_r calibration fail, resetting...\n",
+				 __func__);
+			/* Disable audio R ADC */
+			regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON3,
+					   RG_AUDADCRPWRUP_MASK_SFT,
+					   0x0 << RG_AUDADCRPWRUP_SFT);
+			/* Enable audio R ADC */
+			regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON3,
+					   RG_AUDADCRPWRUP_MASK_SFT,
+					   0x1 << RG_AUDADCRPWRUP_SFT);
+		}
+		usleep_range(500, 520);
+		regmap_read(priv->regmap, MT6369_AUDENC_ANA_CON11, &rc_tune);
+		dev_vdbg(priv->dev, "%s(), after reset: rc_tune_r = 0x%x\n",
+			__func__, rc_tune);
+
 		/* Audio R preamplifier DCC precharge off */
 		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON2,
 				   RG_AUDPREAMPRDCPRECHARGE_MASK_SFT,
@@ -2953,18 +2999,7 @@ static int mt_pga_l_event(struct snd_soc_dapm_widget *w,
 				   RG_AUDPREAMPLGAIN_MASK_SFT,
 				   mic_gain_l << RG_AUDPREAMPLGAIN_SFT);
 
-		if (IS_DCC_BASE(mic_type)) {
-			/* L preamplifier DCCEN */
-			regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON0,
-					   RG_AUDPREAMPLDCCEN_MASK_SFT,
-					   0x1 << RG_AUDPREAMPLDCCEN_SFT);
-		}
-		break;
-	case SND_SOC_DAPM_POST_PMD:
-		/* L preamplifier DCCEN */
-		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON0,
-				   RG_AUDPREAMPLDCCEN_MASK_SFT,
-				   0x0 << RG_AUDPREAMPLDCCEN_SFT);
+		usleep_range(1000, 1050);
 		break;
 	default:
 		break;
@@ -3020,18 +3055,7 @@ static int mt_pga_r_event(struct snd_soc_dapm_widget *w,
 				   RG_AUDPREAMPRGAIN_MASK_SFT,
 				   mic_gain_r << RG_AUDPREAMPRGAIN_SFT);
 
-		if (IS_DCC_BASE(mic_type)) {
-			/* R preamplifier DCCEN */
-			regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON2,
-					   RG_AUDPREAMPRDCCEN_MASK_SFT,
-					   0x1 << RG_AUDPREAMPRDCCEN_SFT);
-		}
-		break;
-	case SND_SOC_DAPM_POST_PMD:
-		/* R preamplifier DCCEN */
-		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON2,
-				   RG_AUDPREAMPRDCCEN_MASK_SFT,
-				   0x0 << RG_AUDPREAMPRDCCEN_SFT);
+		usleep_range(1000, 1050);
 		break;
 	default:
 		break;
@@ -3710,15 +3734,13 @@ static const struct snd_soc_dapm_widget mt6369_dapm_widgets[] = {
 			      RG_AUDPREAMPLON_SFT, 0,
 			      mt_pga_l_event,
 			      SND_SOC_DAPM_PRE_PMU |
-			      SND_SOC_DAPM_POST_PMU |
-			      SND_SOC_DAPM_POST_PMD),
+			      SND_SOC_DAPM_POST_PMU),
 	SND_SOC_DAPM_SUPPLY_S("PGA_R_EN", SUPPLY_SEQ_UL_PGA,
 			      MT6369_AUDENC_ANA_CON2,
 			      RG_AUDPREAMPRON_SFT, 0,
 			      mt_pga_r_event,
 			      SND_SOC_DAPM_PRE_PMU |
-			      SND_SOC_DAPM_POST_PMU |
-			      SND_SOC_DAPM_POST_PMD),
+			      SND_SOC_DAPM_POST_PMU),
 
 	/* UL input */
 	SND_SOC_DAPM_INPUT("AIN0"),
@@ -4989,6 +5011,21 @@ static void get_hp_trim_offset(struct mt6369_priv *priv, bool force)
 #endif
 }
 
+static void mic_type_default_init(struct mt6369_priv *priv)
+{
+	if (IS_DCC_BASE(priv->mux_select[MUX_MIC_TYPE_0])) {
+		dev_info(priv->dev, "%s(), DCCEN default on", __func__);
+		/* L preamplifier DCCEN */
+		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON0,
+				   RG_AUDPREAMPLDCCEN_MASK_SFT,
+				   0x1 << RG_AUDPREAMPLDCCEN_SFT);
+		/* R preamplifier DCCEN */
+		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON2,
+				   RG_AUDPREAMPRDCCEN_MASK_SFT,
+				   0x1 << RG_AUDPREAMPRDCCEN_SFT);
+	}
+}
+
 static int dc_trim_thread(void *arg)
 {
 	struct mt6369_priv *priv = arg;
@@ -5743,6 +5780,9 @@ static int mt6369_codec_init_reg(struct snd_soc_component *cmpnt)
 #endif
 	/* this will trigger widget "DC trim" power down event */
 	enable_trim_buf(priv, true);
+
+	mic_type_default_init(priv);
+
 	dev_info(priv->dev, "-%s()\n", __func__);
 	return 0;
 }
