@@ -94,7 +94,5 @@ MTK_INTERNAL_SPM-y += ../common_v1/mtk_idle_export_legacy.o
 MTK_INTERNAL_SPM-y += ../common_v1/mtk_idle_fs/mtk_idle_sysfs.o
 MTK_INTERNAL_SPM-y += ../common_v1/mtk_idle_fs/mtk_lp_kernfs.o
 MTK_INTERNAL_SPM-y += ../common_v1/mtk_idle_fs/mtk_lp_sysfs.o
-MTK_INTERNAL_SPM-y += ../common_v1/mtk_idle_fs/mtk_lp_sysfs_debugfs.o
-MTK_INTERNAL_SPM-y += ../common_v1/mtk_idle_fs/mtk_lp_sysfs_kernfs.o
 MTK_INTERNAL_SPM-y += ../common_v1/mtk_idle_fs/mtk_lp_sysfs_procfs.o
 

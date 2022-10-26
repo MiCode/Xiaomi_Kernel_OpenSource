@@ -24,7 +24,7 @@ bool mtk_spm_drv_ready(void)
 static int __init mtk_sleep_init(void)
 {
 	int ret = -1;
-
+	mtk_cpuidle_framework_init();
 	mtk_idle_cond_check_init();
 	spm_resource_console_init();
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)

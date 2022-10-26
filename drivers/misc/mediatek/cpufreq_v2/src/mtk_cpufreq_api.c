@@ -220,7 +220,26 @@ EXPORT_SYMBOL(mt_cpufreq_set_ptbl_registerCB);
 
 unsigned int mt_cpufreq_get_cur_volt(enum mt_cpu_dvfs_id id)
 {
+#ifdef CPU_DVFS_NOT_READY
 	return 0;
+#else
+#ifdef HYBRID_CPU_DVFS
+#ifdef ENABLE_DOE
+	if (!dvfs_doe.state)
+		return 0;
+#endif
+	return cpuhvfs_get_cur_volt(id);
+#else
+	struct mt_cpu_dvfs *p = id_to_cpu_dvfs(id);
+	struct buck_ctrl_t *vproc_p = id_to_buck_ctrl(p->Vproc_buck_id);
+
+#ifdef ENABLE_DOE
+	if (!dvfs_doe.state)
+		return 0;
+#endif
+	return vproc_p->cur_volt;
+#endif
+#endif
 }
 EXPORT_SYMBOL(mt_cpufreq_get_cur_volt);
 

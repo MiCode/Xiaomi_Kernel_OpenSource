@@ -17,14 +17,14 @@
 #define LP_SYSFS_STATUS_READY			(1<<0)
 #define LP_SYSFS_STATUS_READ_MORE		(1<<1)
 #define LP_SYSFS_STATUS_IDIO_TYPE		(1<<2)
-
+#ifdef UN_KKI
 struct mtk_lp_kernfs_info {
 	int status;
 	struct mutex locker;
 };
 
 #define MTK_LP_INFO_SZ	sizeof(struct mtk_lp_kernfs_info)
-#ifdef UN_GKI
+
 static const struct sysfs_ops *mtk_lp_file_ops(struct kernfs_node *kn)
 {
 	struct kobject *kobj = kn->parent->priv;
@@ -73,7 +73,7 @@ static int __mtk_lp_kernfs_seq_show(struct seq_file *sf,
 
 	return 0;
 }
-#endif
+
 
 void *mtk_lp_kernfs_seq_start(struct seq_file *sf, loff_t *ppos)
 {
@@ -109,19 +109,19 @@ void *mtk_lp_kernfs_seq_next(struct seq_file *sf, void *v, loff_t *ppos)
 
 	return bRet;
 }
-#ifdef UN_GKI
+
 static int mtk_lp_kernfs_seq_show(struct seq_file *sf, void *v)
 {
 	return __mtk_lp_kernfs_seq_show(sf,
 			(struct mtk_lp_kernfs_info *)v);
 }
-#endif
+
 void mtk_lp_kernfs_seq_stop(struct seq_file *sf, void *v)
 {
 	kfree(v);
 	v = NULL;
 }
-#ifdef UN_GKI
+
 static ssize_t mtk_lp_kernfs_write(struct kernfs_open_file *of, char *buf,
 			      size_t count, loff_t pos)
 {
@@ -173,14 +173,13 @@ static struct kernfs_ops mtk_lp_kernfs_kfops_idiotype = {
 	.seq_stop = mtk_lp_kernfs_seq_stop,
 	.write = mtk_lp_kernfs_idio_write,
 };
-#endif
+
 int mtk_lp_kernfs_create_file(struct kernfs_node *parent,
 				  struct kernfs_node **node,
 				  unsigned int flag,
 				  const char *name, umode_t mode,
 				  void *attr)
 {
-#ifdef UN_GKI
 	struct kernfs_node *kn;
 	struct kernfs_ops *ops;
 
@@ -200,13 +199,12 @@ int mtk_lp_kernfs_create_file(struct kernfs_node *parent,
 
 	if (node)
 		*node = kn;
-#endif
 	return 0;
 }
 
 int mtk_lp_kernfs_remove_file(struct kernfs_node *node)
 {
-	//kernfs_remove(node);
+	kernfs_remove(node);
 	return 0;
 }
 EXPORT_SYMBOL(mtk_lp_kernfs_remove_file);
@@ -215,14 +213,12 @@ struct kernfs_node *
 mtk_lp_kernfs_create_dir(struct kobject *kobj,
 			      const char *name, umode_t mode)
 {
-	//return kernfs_create_dir(kobj->sd, name, mode, kobj);
-	return 0;
+	return kernfs_create_dir(kobj->sd, name, mode, kobj);
 }
 
 int mtk_lp_kernfs_create_group(struct kobject *kobj
 						, struct attribute_group *grp)
 {
-#ifdef UN_GKI
 	struct kernfs_node *kn;
 	struct attribute *const *attr;
 	int error = 0, i;
@@ -240,13 +236,13 @@ int mtk_lp_kernfs_create_group(struct kobject *kobj
 						  (void *)*attr);
 	}
 	kernfs_put(kn);
-#endif
 	return 0;
 }
-
+#endif
 size_t get_mtk_lp_kernfs_bufsz_max(void)
 {
 	return MTK_LP_SYSFS_POWER_BUFFER_SZ;
 }
+
 MODULE_LICENSE("GPL");
 

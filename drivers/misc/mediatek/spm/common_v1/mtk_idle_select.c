@@ -148,9 +148,9 @@ int mtk_idle_entrance(struct mtk_idle_info *info
 		}
 	}
 	#endif
-	/* 4. tee is ready ? */
+	/* 4. No macro can distinguish whether Tee should be ready */
 	#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING) && \
-		IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+		IS_ENABLED(CONFIG_MICROTRUST_TEEI_LOAD)
 	if (!is_teei_ready()) {
 		reason = BY_TEE;
 		goto get_idle_idx;

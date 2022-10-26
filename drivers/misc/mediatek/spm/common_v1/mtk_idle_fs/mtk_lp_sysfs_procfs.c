@@ -122,12 +122,12 @@ static ssize_t mtk_lp_sysfs_procfs_write(struct file *filp,
 	return bSz;
 }
 
-static const struct file_operations mtk_lpsysfs_proc_op = {
-	.open = mtk_lp_sysfs_procfs_open,
-	.read = mtk_lp_sysfs_procfs_read,
-	.write = mtk_lp_sysfs_procfs_write,
-	.llseek = seq_lseek,
-	.release = mtk_lp_sysfs_procfs_close,
+static const struct proc_ops mtk_lpsysfs_proc_op = {
+	.proc_open = mtk_lp_sysfs_procfs_open,
+	.proc_read = mtk_lp_sysfs_procfs_read,
+	.proc_write = mtk_lp_sysfs_procfs_write,
+	.proc_lseek = seq_lseek,
+	.proc_release = mtk_lp_sysfs_procfs_close,
 };
 
 #if MTK_LP_SYSFS_HAS_ENTRY
@@ -159,7 +159,7 @@ int mtk_lp_proc_root_put(void)
 }
 #endif
 
-int mtk_lp_sysfs_procfs_entry_create_plat(const char *name,
+int mtk_lp_sysfs_entry_create_plat(const char *name,
 		int mode, struct mtk_lp_sysfs_handle *parent,
 		struct mtk_lp_sysfs_handle *handle)
 {
@@ -195,7 +195,7 @@ int mtk_lp_sysfs_procfs_entry_create_plat(const char *name,
 	return bRet;
 }
 
-int mtk_lp_sysfs_procfs_entry_node_add_plat(const char *name,
+int mtk_lp_sysfs_entry_node_add_plat(const char *name,
 		int mode, const struct mtk_lp_sysfs_op *op,
 		struct mtk_lp_sysfs_handle *parent,
 		struct mtk_lp_sysfs_handle *node)
@@ -227,7 +227,7 @@ int mtk_lp_sysfs_procfs_entry_node_add_plat(const char *name,
 	return bRet;
 }
 
-int mtk_lp_sysfs_procfs_entry_node_remove_plat(
+int mtk_lp_sysfs_entry_node_remove_plat(
 		struct mtk_lp_sysfs_handle *node)
 {
 	int bRet = 0;
@@ -237,7 +237,7 @@ int mtk_lp_sysfs_procfs_entry_node_remove_plat(
 	return bRet;
 }
 
-int mtk_lp_sysfs_procfs_entry_group_create_plat(const char *name,
+int mtk_lp_sysfs_entry_group_create_plat(const char *name,
 		int mode, struct mtk_lp_sysfs_group *_group,
 		struct mtk_lp_sysfs_handle *parent,
 		struct mtk_lp_sysfs_handle *handle)
@@ -250,7 +250,7 @@ int mtk_lp_sysfs_procfs_entry_group_create_plat(const char *name,
 	if (handle)
 		pGrouper = handle;
 
-	mtk_lp_sysfs_procfs_entry_create_plat(name, mode, parent, pGrouper);
+	mtk_lp_sysfs_entry_create_plat(name, mode, parent, pGrouper);
 
 	if (_group && IS_MTK_LP_SYS_HANDLE_VALID(pGrouper)) {
 		for (idx = 0;; ++idx) {
@@ -258,7 +258,7 @@ int mtk_lp_sysfs_procfs_entry_group_create_plat(const char *name,
 				(idx >= _group->attr_num))
 				break;
 
-			mtk_lp_sysfs_procfs_entry_node_add_plat(
+			mtk_lp_sysfs_entry_node_add_plat(
 				_group->attrs[idx]->name
 				, _group->attrs[idx]->mode
 				, &_group->attrs[idx]->sysfs_op

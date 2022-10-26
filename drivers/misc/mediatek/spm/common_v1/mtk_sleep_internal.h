@@ -40,6 +40,7 @@ void slp_module_init(void);
 extern void subsys_if_on(void);
 extern void pll_if_on(void);
 extern void gpio_dump_regs(void);
+extern void __init mtk_cpuidle_framework_init(void);
 
 enum gs_flag {
 	GS_PMIC = (0x1 << 0),

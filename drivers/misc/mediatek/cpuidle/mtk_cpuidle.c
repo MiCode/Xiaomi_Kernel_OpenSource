@@ -329,8 +329,6 @@ int mtk_enter_idle_state(int mode)
 	 * parameter.
 	 */
 	ret = enter(NULL, NULL, mode);
-	if (!ret)
-		pr_notice("cpuidle arm driver is NULL!");
 	cpuidle_fp(cpu, CPUIDLE_FP_AFTER_ATF);
 	cpuidle_ts(cpu, CPUIDLE_TS_AFTER_ATF);
 
@@ -341,7 +339,7 @@ int mtk_enter_idle_state(int mode)
 
 	cpuidle_perf_print(cpu, mode);
 
-	return ret ? -1 : mode;
+	return ret < 0 ? -1 : mode;
 }
 EXPORT_SYMBOL(mtk_enter_idle_state);
 
@@ -351,7 +349,10 @@ static int mtk_cpuidle_init(void)
 		return 0;
 	wakeup_source_lookup();
 	cpuidle_arm_drv = cpuidle_get_driver();
-	enter = cpuidle_arm_drv->states[1].enter;
+	if (!cpuidle_arm_drv)
+		pr_info("cpuidle : cpuidle driver register fail!\n");
+	else
+		enter = cpuidle_arm_drv->states[1].enter;
 	/* cpuidle footprint init */
 	cpuidle_fp_init();
 
