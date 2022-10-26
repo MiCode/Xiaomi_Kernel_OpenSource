@@ -299,6 +299,8 @@ void init_crtc_mmp_event(void)
 			crtc_mmp_root, "gamma_ioctl");
 		g_CRTC_MMP_Events[i].gamma_sof = mmprofile_register_event(
 			crtc_mmp_root, "gamma_sof");
+		g_CRTC_MMP_Events[i].bdg_gce_irq = mmprofile_register_event(
+			crtc_mmp_root, "bdg_gce_irq");
 	}
 }
 void drm_mmp_init(void)

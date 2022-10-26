@@ -128,6 +128,7 @@ struct CRTC_MMP_Events {
 	/*Gamma mmp mark*/
 	mmp_event gamma_ioctl;
 	mmp_event gamma_sof;
+	mmp_event bdg_gce_irq;
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);

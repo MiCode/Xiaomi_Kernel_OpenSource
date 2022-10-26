@@ -20,6 +20,7 @@
 #include "mtk_drm_drv.h"
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_assert.h"
+#include "mtk_disp_bdg.h"
 /* ************************************************************************* */
 /* This part is for customization parameters of D-IC and DSI . */
 /* ************************************************************************* */
@@ -245,11 +246,11 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 		qos_info.idle = mtk_crtc->idlemgr->idlemgr_ctx->is_idle;
 		qos_info.bdg_rxtx_ratio = 1;
 		qos_info.dal_enable = mtk_drm_dal_enable();
-#ifdef CONFIG_MTK_MT6382_BDG
-		qos_info.bdg_rxtx_ratio = 229;
-		if ((qos_info.mode & MIPI_DSI_MODE_VIDEO) == 0)
-			qos_info.bdg_rxtx_ratio = 300;
-#endif
+		if (is_bdg_supported()) {
+			qos_info.bdg_rxtx_ratio = 229;
+			if ((qos_info.mode & MIPI_DSI_MODE_VIDEO) == 0)
+				qos_info.bdg_rxtx_ratio = 300;
+		}
 		return copy_to_user(argp, &qos_info,
 			sizeof(qos_info)) ? -EFAULT : 0;
 	}
