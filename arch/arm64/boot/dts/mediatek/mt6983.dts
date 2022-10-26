@@ -3161,6 +3161,11 @@
 		};
 	};
 
+	mtk_ssc: mtk_ssc@1c01f000 {
+		compatible = "mediatek,ssc";
+		safe-vlogic-uv = <600000>;
+	};
+
 	vlp_cksys_clk: syscon@1c013000 {
 		compatible = "mediatek,mt6983-vlp_cksys", "syscon";
 		reg = <0 0x1c013000 0 0x1000>;
