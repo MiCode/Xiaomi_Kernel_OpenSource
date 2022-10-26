@@ -1921,6 +1921,7 @@
 		#mbox-cells = <3>;
 		#gce-event-cells = <1>;
 		#gce-subsys-cells = <2>;
+		cpr-not-support-cookie;
 		default_tokens = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>,
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_1>,
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_2>,
@@ -1928,6 +1929,7 @@
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>,
 				 /bits/ 16 <CMDQ_SYNC_RESOURCE_WROT0>,
 				 /bits/ 16 <CMDQ_SYNC_RESOURCE_WROT1>;
+		mboxes = <&gce 14 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
 		clocks = <&infracfg_ao_clk CLK_IFRAO_GCE>,
 			 <&infracfg_ao_clk CLK_IFRAO_GCE_26M>;
 		clock-names = "gce", "gce-timer";
