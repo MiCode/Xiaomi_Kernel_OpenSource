@@ -27,7 +27,7 @@
 //#include <trace/events/mtk_idle_event.h>
 #define RESOLUTION 1024
 #define DECAY 8
-#define BOOT_TIME_LIMIT             10      /* sec */
+#define BOOT_TIME_LIMIT             30      /* sec */
 #define TMR_RESIDENCY_US           200
 
 #define GET_STATE_RES(cpu, state) ({					\
