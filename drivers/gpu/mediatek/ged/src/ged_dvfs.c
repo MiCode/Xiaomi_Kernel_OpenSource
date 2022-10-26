@@ -998,13 +998,14 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu_done_interval, int t_gpu_target,
 	} else {   // WORKLOAD_ACTIVE or unknown mode
 		ap_workload = ap_workload_active;
 	}
-
+#if defined(MTK_GPU_EB_SUPPORT)
 	if (ged_is_fdvfs_support() && is_fb_dvfs_triggered && is_fdvfs_enable()
 		&& g_eb_workload != 0xFFFF) {
 		g_eb_workload /= 100;
 		busy_cycle_cur = (g_eb_workload < ap_workload) ? g_eb_workload : ap_workload;
 	}
 	else
+#endif
 		busy_cycle_cur = ap_workload;
 
 	busy_cycle[cur_frame_idx] = busy_cycle_cur;
