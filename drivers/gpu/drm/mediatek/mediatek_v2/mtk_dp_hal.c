@@ -311,7 +311,7 @@ void mhal_DPTx_Set_BS2BS_Cnt(struct mtk_dp *mtk_dp, bool bEnable, DWORD uiHTT)
 	if (mtk_dp->priv && mtk_dp->priv->data)
 		id = mtk_dp->priv->data->mmsys_id;
 
-	if (id != MMSYS_MT6983)
+	if (id != MMSYS_MT6983 && id != MMSYS_MT6895)
 		return;
 
 	//For DTPX_BS2BS_CNT_SWMODE_DSCBYPASS, uiPara is HTotal
