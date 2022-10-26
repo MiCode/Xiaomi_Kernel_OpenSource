@@ -60,6 +60,7 @@
 
 #define CCU_DEV_NAME            "ccu"
 
+static int32_t _user_count;
 /* [0]: CCU_CLK_TOP_MUX, [1]: MDP_PWR, [2]: CAM_PWR, [3]: CCU_CLK_CAM_CCU */
 struct clk *ccu_clk_pwr_ctrl[CCU_CLK_PWR_NUM];
 
@@ -450,22 +451,45 @@ static int ccu_open(struct inode *inode, struct file *flip)
 {
 	int ret = 0;
 	struct ccu_user_s *user;
+	struct CcuMemHandle handle = {0};
 
-	_clk_count = 0;
-	iova_buf_count = 0;
+	mutex_lock(&g_ccu_device->dev_mutex);
+
+	LOG_INF_MUST("%s pid:%d tid:%d cnt:%d+\n",
+		__func__, current->pid, current->tgid, _user_count);
 
 	ccu_create_user(&user);
 	if (IS_ERR_OR_NULL(user)) {
 		LOG_ERR("fail to create user\n");
+		mutex_unlock(&g_ccu_device->dev_mutex);
 		return -ENOMEM;
 	}
 
 	flip->private_data = user;
+
+	_user_count++;
+
+	if (_user_count > 1) {
+		LOG_INF_MUST("%s clean legacy data flow-\n", __func__);
+		ccu_force_powerdown();
+
+		handle.meminfo.cached = 0;
+		ccu_deallocate_mem(g_ccu_device, &handle);
+		handle.meminfo.cached = 1;
+		ccu_deallocate_mem(g_ccu_device, &handle);
+	}
+
+	// _clk_count = 0;
+	iova_buf_count = 0;
+
 	// ccu_ion_init();
 
 	// for (int i = 0; i < CCU_IMPORT_BUF_NUM; i++)
 	//	import_buffer_handle[i] =
 	//		(struct ion_handle *)CCU_IMPORT_BUF_UNDEF;
+
+	mutex_unlock(&g_ccu_device->dev_mutex);
+
 
 	return ret;
 }
@@ -599,13 +623,21 @@ int ccu_clock_enable(void)
 	int ret = 0;
 	int i = 0;
 
-	LOG_INF_MUST("%s, 6 clks, 1 pwr. %d\n", __func__, _clk_count);
+	LOG_INF_MUST("%s, 6 clks, 2 pwr. %d\n", __func__, _clk_count);
 
 	mutex_lock(&g_ccu_device->clk_mutex);
+
+	++_clk_count;
+
+	if (_clk_count > 1) {
+		mutex_unlock(&g_ccu_device->clk_mutex);
+		return ret;
+	}
 
 	ret = mtk_smi_larb_get(g_ccu_device->smi_dev);
 	if (ret) {
 		LOG_ERR("mtk_smi_larb_get fail.\n");
+		--_clk_count;
 		mutex_unlock(&g_ccu_device->clk_mutex);
 		return ret;
 	}
@@ -614,6 +646,7 @@ int ccu_clock_enable(void)
 	if (ret) {
 		mtk_smi_larb_put(g_ccu_device->smi_dev);
 		LOG_ERR("pm_runtime_get_sync fail.\n");
+		--_clk_count;
 		mutex_unlock(&g_ccu_device->clk_mutex);
 		return ret;
 	}
@@ -631,17 +664,20 @@ int ccu_clock_enable(void)
 		}
 	}
 
-	_clk_count++;
 	mutex_unlock(&g_ccu_device->clk_mutex);
 	return ret;
 
 ERROR:
+#ifdef CCU_QOS_SUPPORT_ENABLE
+	ccu_qos_uninit(g_ccu_device);
+#endif
 	for (--i; i >= 0 ; --i)
 		clk_disable_unprepare(ccu_clk_pwr_ctrl[i]);
 
 	pm_runtime_put_sync(g_ccu_device->dev);
 	mtk_smi_larb_put(g_ccu_device->smi_dev);
 
+	--_clk_count;
 #endif
 	mutex_unlock(&g_ccu_device->clk_mutex);
 	return ret;
@@ -655,19 +691,19 @@ void ccu_clock_disable(void)
 
 	mutex_lock(&g_ccu_device->clk_mutex);
 #ifndef CCU_LDVT
-	if (_clk_count > 0) {
+	if (_clk_count == 1) {
 		for (i = 0; (i < clock_num) && (i < CCU_CLK_PWR_NUM); ++i)
 			clk_disable_unprepare(ccu_clk_pwr_ctrl[i]);
 
 		pm_runtime_put_sync(g_ccu_device->dev);
 		mtk_smi_larb_put(g_ccu_device->smi_dev);
-		_clk_count--;
+#ifdef CCU_QOS_SUPPORT_ENABLE
+		ccu_qos_uninit(g_ccu_device);
+#endif
 	}
 #endif
+	--_clk_count;
 
-#ifdef CCU_QOS_SUPPORT_ENABLE
-	ccu_qos_uninit(g_ccu_device);
-#endif
 	mutex_unlock(&g_ccu_device->clk_mutex);
 }
 
@@ -682,6 +718,9 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 	enum CCU_BIN_TYPE type;
 	struct ccu_run_s ccu_run_info;
 
+	if ((cmd != CCU_IOCTL_WAIT_IRQ) && (cmd != CCU_IOCTL_WAIT_AF_IRQ))
+		mutex_lock(&g_ccu_device->dev_mutex);
+
 	LOG_DBG("%s+, cmd:%d\n", __func__, cmd);
 
 	if ((cmd != CCU_IOCTL_SET_POWER) && (cmd != CCU_IOCTL_FLUSH_LOG) &&
@@ -692,6 +731,8 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		powert_stat = ccu_query_power_status();
 		if (powert_stat == 0) {
 			LOG_WARN("ccuk: ioctl without powered on\n");
+			if (cmd != CCU_IOCTL_WAIT_AF_IRQ)
+				mutex_unlock(&g_ccu_device->dev_mutex);
 			return -EFAULT;
 		}
 	}
@@ -706,6 +747,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		if (ret != 0) {
 			LOG_ERR(
 			"[SET_POWER] copy_from_user failed, ret=%d\n", ret);
+			mutex_unlock(&g_ccu_device->dev_mutex);
 			return -EFAULT;
 		}
 		ret = ccu_set_power(&power);
@@ -739,6 +781,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		if (ret != 0) {
 			LOG_ERR(
 			"[ENQUE_COMMAND] copy_from_user failed, ret=%d\n", ret);
+			mutex_unlock(&g_ccu_device->dev_mutex);
 			return -EFAULT;
 		}
 
@@ -754,18 +797,21 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		if (ret != 0) {
 			LOG_ERR(
 			"[DEQUE_COMMAND] pop command failed, ret=%d\n", ret);
+			mutex_unlock(&g_ccu_device->dev_mutex);
 			return -EFAULT;
 		}
 		ret = copy_to_user((void *)arg, cmd, sizeof(struct ccu_cmd_s));
 		if (ret != 0) {
 			LOG_ERR(
 			"[DEQUE_COMMAND] copy_to_user failed, ret=%d\n", ret);
+			mutex_unlock(&g_ccu_device->dev_mutex);
 			return -EFAULT;
 		}
 		ret = ccu_free_command(cmd);
 		if (ret != 0) {
 			LOG_ERR(
 			"[DEQUE_COMMAND] free command, ret=%d\n", ret);
+			mutex_unlock(&g_ccu_device->dev_mutex);
 			return -EFAULT;
 		}
 
@@ -778,6 +824,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		if (ret != 0) {
 			LOG_ERR(
 			"[FLUSH_COMMAND] flush command failed, ret=%d\n", ret);
+			mutex_unlock(&g_ccu_device->dev_mutex);
 			return -EFAULT;
 		}
 
@@ -933,6 +980,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 			LOG_ERR(
 			"[CCU_IOCTL_SEND_CMD] copy_from_user failed, ret=%d\n",
 			ret);
+			mutex_unlock(&g_ccu_device->dev_mutex);
 			return -EFAULT;
 		}
 		ccu_send_command(&cmd);
@@ -1186,6 +1234,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		if (IS_ERR(buf)) {
 			LOG_ERR(
 			"[CCU_IOCTL_GET_IOVA] dma_buf_get failed, ret=%d va=%d\n", buf, va);
+			mutex_unlock(&g_ccu_device->dev_mutex);
 			return false;
 		}
 		LOG_ERR(
@@ -1226,9 +1275,9 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		if (ret != 0) {
 			LOG_ERR(
 			"[CCU_IOCTL_GET_IOVA] copy_to_user failed, ret=%d\n", ret);
+			mutex_unlock(&g_ccu_device->dev_mutex);
 			return -EFAULT;
 		}
-
 
 		break;
 err_map:
@@ -1238,6 +1287,7 @@ err_attach:
 		dma_buf_put(ccu_iova[iova_buf_count].dma_buf);
 		memset(&(ccu_iova[iova_buf_count]), 0,
 			sizeof(struct ccu_iova_t));
+		mutex_unlock(&g_ccu_device->dev_mutex);
 		return -EFAULT;
 	}
 
@@ -1246,6 +1296,12 @@ err_attach:
 		ret = copy_from_user(&type,
 			(void *)arg, sizeof(enum CCU_BIN_TYPE));
 		LOG_INF_MUST("load ccu bin %d\n", type);
+		powert_stat = ccu_query_power_status();
+		if (type == 0 && powert_stat == 0) {
+			LOG_WARN("ccuk: ioctl without powered on\n");
+			mutex_unlock(&g_ccu_device->dev_mutex);
+			return -EFAULT;
+		}
 		ret = ccu_load_bin(g_ccu_device, type);
 
 		break;
@@ -1306,7 +1362,7 @@ err_attach:
 		ret = ccu_deallocate_mem(g_ccu_device, &handle);
 		if (ret != 0) {
 			LOG_ERR(
-			"CCU_IOCTL_ALLOC_MEM ccu_allocate_mem failed: %d\n",
+			"CCU_IOCTL_DEALLOC_MEM ccu_deallocate_mem failed: %d\n",
 			ret);
 			break;
 		}
@@ -1331,16 +1387,32 @@ EXIT:
 			current->comm, current->pid, current->tgid);
 	}
 
+	if ((cmd != CCU_IOCTL_WAIT_IRQ) && (cmd != CCU_IOCTL_WAIT_AF_IRQ))
+		mutex_unlock(&g_ccu_device->dev_mutex);
+
 	return ret;
 }
 
 static int ccu_release(struct inode *inode, struct file *flip)
 {
 	struct ccu_user_s *user = flip->private_data;
-	struct CcuMemHandle handle;
+	struct CcuMemHandle handle = {0};
 	int i = 0;
 
-	LOG_INF_MUST("%s +\n", __func__);
+	mutex_lock(&g_ccu_device->dev_mutex);
+
+	LOG_INF_MUST("%s pid:%d tid:%d cnt:%d+\n",
+		__func__, user->open_pid, user->open_tgid, _user_count);
+
+	ccu_delete_user(user);
+	_user_count--;
+
+	if (_user_count > 0) {
+		LOG_INF_MUST("%s bypass release flow-", __func__);
+		mutex_unlock(&g_ccu_device->dev_mutex);
+		return 0;
+	}
+
 	ccu_force_powerdown();
 	for (i = 0; i < CCU_IOVA_BUFFER_MAX; i++) {
 		if (ccu_iova[i].dma_buf) {
@@ -1369,11 +1441,11 @@ static int ccu_release(struct inode *inode, struct file *flip)
 	//	ccu_ion_free_import_handle(import_buffer_handle[i]);
 	// }
 
-	ccu_delete_user(user);
-
 	// ccu_ion_uninit();
 
 	LOG_INF_MUST("%s -\n", __func__);
+
+	mutex_unlock(&g_ccu_device->dev_mutex);
 
 	return 0;
 }
@@ -1762,6 +1834,7 @@ static int __init CCU_INIT(void)
 	/*g_ccu_device = dma_cache_coherent();*/
 
 	INIT_LIST_HEAD(&g_ccu_device->user_list);
+	mutex_init(&g_ccu_device->dev_mutex);
 	mutex_init(&g_ccu_device->user_mutex);
 	mutex_init(&g_ccu_device->clk_mutex);
 	mutex_init(&g_ccu_device->ion_client_mutex);
