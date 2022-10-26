@@ -12,25 +12,27 @@
 #
 
 ccflags-y += \
-	-I$(srctree)/drivers/misc/mediatek/ppm_v3/inc \
-	-I$(srctree)/drivers/gpu/mediatek/gpufreq/include	\
-	-I$(srctree)/drivers/misc/mediatek/power_throttling	\
-	-I$(srctree)/drivers/misc/mediatek/include/ppm_v3	\
-	-I$(srctree)/drivers/misc/mediatek/include/upower	\
+	-I$(srctree)/drivers/misc/mediatek/ppm_v3/inc			\
+	-I$(srctree)/drivers/gpu/mediatek/gpufreq/include		\
+	-I$(srctree)/drivers/misc/mediatek/power_throttling		\
+	-I$(srctree)/drivers/misc/mediatek/include/			\
+	-I$(srctree)/drivers/misc/mediatek/include/ppm_v3		\
+	-I$(srctree)/drivers/misc/mediatek/include/upower		\
 	-I$(srctree)/drivers/misc/mediatek/include/leakage_table_v2	\
 	-I$(srctree)/drivers/misc/mediatek/cpufreq_v2/inc
-
 
 ifneq ($(CONFIG_FPGA_EARLY_PORTING),y)
 
 obj-$(CONFIG_MTK_PPM_V3) += mtk_ppm_v3.o
 
-mtk_ppm_v3-objs := mtk_ppm_main.o mtk_ppm_interface.o mtk_ppm_api.o mtk_ppm_profile.o mtk_ppm_cpi.o mtk_ppm_ipi.o mtk_ppm_policy_dlpt.o mtk_ppm_policy_sys_boost.o mtk_ppm_policy_ptpod.o mtk_ppm_policy_pwr_thro.o mtk_ppm_policy_thermal.o mtk_ppm_policy_lcm_off.o mtk_ppm_policy_hard_user_limit.o mtk_ppm_policy_user_limit.o mtk_ppm_policy_force_limit.o mtk_ppm_policy_ut.o mtk_ppm_power_data.o mtk_ppm_cobra_algo.o
+mtk_ppm_v3-objs := mtk_ppm_main.o mtk_ppm_interface.o mtk_ppm_api.o mtk_ppm_profile.o mtk_ppm_cpi.o mtk_ppm_ipi.o mtk_ppm_policy_dlpt.o mtk_ppm_policy_sys_boost.o mtk_ppm_policy_ptpod.o mtk_ppm_policy_pwr_thro.o mtk_ppm_policy_thermal.o mtk_ppm_policy_lcm_off.o mtk_ppm_policy_hard_user_limit.o mtk_ppm_policy_user_limit.o mtk_ppm_policy_force_limit.o mtk_ppm_policy_ut.o
 
 ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6768)),)
-mtk_ppm_v3-y += mtk_ppm_platform.o
+mtk_ppm_v3-objs += mtk_ppm_platform.o mtk_ppm_power_data.o mtk_ppm_cobra_algo.o
 else ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6765)),)
-mtk_ppm_v3-y += mtk_ppm_platform_6765.o
+mtk_ppm_v3-objs += mtk_ppm_platform.o mtk_ppm_power_data.o mtk_ppm_cobra_algo.o
+else ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6833)),)
+mtk_ppm_v3-objs += mtk_ppm_platform_6833.o mtk_ppm_cobra_algo_6833.o mtk_ppm_power_data_6833.o
 endif
 
 else

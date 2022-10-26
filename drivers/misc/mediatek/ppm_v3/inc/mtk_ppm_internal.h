@@ -24,11 +24,10 @@ extern "C" {
 #include <linux/topology.h>
 
 #include "mtk_ppm_api.h"
-#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6765)
-#include "mtk_ppm_platform_6765.h"
-#else
+
 #include "mtk_ppm_platform.h"
-#endif
+
+
 #include "mtk_ppm_ipi.h"
 
 /*==============================================================*/
