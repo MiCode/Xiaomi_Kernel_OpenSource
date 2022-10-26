@@ -2842,6 +2842,7 @@ static void mtk_dsi_encoder_disable(struct drm_encoder *encoder)
 {
 	struct mtk_dsi *dsi = encoder_to_dsi(encoder);
 	struct drm_crtc *crtc = encoder->crtc;
+	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
 	int index = drm_crtc_index(crtc);
 	int data = MTK_DISP_BLANK_POWERDOWN;
 
@@ -2851,14 +2852,20 @@ static void mtk_dsi_encoder_disable(struct drm_encoder *encoder)
 	DDPINFO("%s\n", __func__);
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
-	if (index == 0)
+	/* TODO: assume DSI0 would use for primary display so far */
+	if (comp->id == DDP_COMPONENT_DSI0)
 		mtk_disp_notifier_call_chain(MTK_DISP_EARLY_EVENT_BLANK,
 					&data);
-
+	else if (comp->id == DDP_COMPONENT_DSI1)
+		mtk_disp_sub_notifier_call_chain(MTK_DISP_EARLY_EVENT_BLANK,
+					&data);
 	mtk_output_dsi_disable(dsi, NULL, false, true);
 
-	if (index == 0)
+	if (comp->id == DDP_COMPONENT_DSI0)
 		mtk_disp_notifier_call_chain(MTK_DISP_EVENT_BLANK,
+					&data);
+	else if (comp->id == DDP_COMPONENT_DSI1)
+		mtk_disp_sub_notifier_call_chain(MTK_DISP_EVENT_BLANK,
 					&data);
 
 	CRTC_MMP_EVENT_END(index, dsi_suspend,
@@ -2869,6 +2876,7 @@ static void mtk_dsi_encoder_enable(struct drm_encoder *encoder)
 {
 	struct mtk_dsi *dsi = encoder_to_dsi(encoder);
 	struct drm_crtc *crtc = encoder->crtc;
+	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
 	int index = drm_crtc_index(crtc);
 	int data = MTK_DISP_BLANK_UNBLANK;
 
@@ -2877,18 +2885,28 @@ static void mtk_dsi_encoder_enable(struct drm_encoder *encoder)
 
 	DDPINFO("%s\n", __func__);
 
-	if (index == 0) {
+	/* TODO: assume DSI0 would use for primary display so far */
+	if (comp->id == DDP_COMPONENT_DSI0) {
 		DDP_PROFILE("[PROFILE] %s before notify start\n", __func__);
 		mtk_disp_notifier_call_chain(MTK_DISP_EARLY_EVENT_BLANK,
+					&data);
+		DDP_PROFILE("[PROFILE] %s before notify end\n", __func__);
+	} else if (comp->id == DDP_COMPONENT_DSI1) {
+		DDP_PROFILE("[PROFILE] %s before notify start\n", __func__);
+		mtk_disp_sub_notifier_call_chain(MTK_DISP_EARLY_EVENT_BLANK,
 					&data);
 		DDP_PROFILE("[PROFILE] %s before notify end\n", __func__);
 	}
 
 	mtk_output_dsi_enable(dsi, false);
-
-	if (index == 0) {
+	if (comp->id == DDP_COMPONENT_DSI0) {
 		DDP_PROFILE("[PROFILE] %s after notify start\n", __func__);
 		mtk_disp_notifier_call_chain(MTK_DISP_EVENT_BLANK,
+					&data);
+		DDP_PROFILE("[PROFILE] %s after notify end\n", __func__);
+	} else if (comp->id == DDP_COMPONENT_DSI1) {
+		DDP_PROFILE("[PROFILE] %s after notify start\n", __func__);
+		mtk_disp_sub_notifier_call_chain(MTK_DISP_EVENT_BLANK,
 					&data);
 		DDP_PROFILE("[PROFILE] %s after notify end\n", __func__);
 	}
