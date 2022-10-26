@@ -260,7 +260,7 @@ static int fan53870_regulator_init(struct fan53870 *chip)
 				"Failed to read the ldo register\n");
 			return ret;
 		}
-		dev_info(chip->dev, "%s: LDO%d, init value:0x%x",
+		dev_info(chip->dev, "%s: LDO%d, init value:0x%x\n",
 			__func__, (id+1), vsel_range[0]);
 
 
