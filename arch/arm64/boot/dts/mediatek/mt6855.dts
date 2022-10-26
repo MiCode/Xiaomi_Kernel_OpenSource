@@ -378,6 +378,11 @@
 		#clock-cells = <1>;
 	};
 
+	mtk_ssc: mtk_ssc@1c01f000 {
+		compatible = "mediatek,ssc";
+		safe-vlogic-uv = <600000>;
+	};
+
 	camsys_main_clk: syscon@1a000000 {
 		compatible = "mediatek,mt6855-camsys_main", "syscon";
 		reg = <0 0x1a000000 0 0x1000>;
