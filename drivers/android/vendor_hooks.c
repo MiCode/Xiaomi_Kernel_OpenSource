@@ -11,8 +11,6 @@
 #include <trace/hooks/sched.h>
 #include <trace/hooks/fpsimd.h>
 #include <trace/hooks/binder.h>
-#include <trace/hooks/rwsem.h>
-#include <trace/hooks/futex.h>
 #include <trace/hooks/dtask.h>
 #include <trace/hooks/cpuidle.h>
 #include <trace/hooks/topology.h>
@@ -67,15 +65,6 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_binder_transaction_init);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_binder_set_priority);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_binder_restore_priority);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_binder_wakeup_ilocked);
-EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_init);
-EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_wake);
-EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_write_finished);
-EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alter_rwsem_list_add);
-EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alter_futex_plist_add);
-EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_read_wait_start);
-EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_read_wait_finish);
-EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_write_wait_start);
-EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_write_wait_finish);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_sched_show_task);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cpu_idle_enter);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cpu_idle_exit);
@@ -164,6 +153,8 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_cgroup_force_kthread_migration);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_check_preempt_tick);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_check_preempt_wakeup_ignore);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_replace_next_task_fair);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_binder_wait_for_work);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_sync_txn_recvd);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_build_sched_domains);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_update_topology_flags_workfn);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_sched_balance_rt);
