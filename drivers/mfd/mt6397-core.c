@@ -498,6 +498,9 @@ static const struct mfd_cell mt6358_devs[] = {
 	}, {
 		.name = "mt-pmic",
 		.of_compatible = "mediatek,mt63xx-debug",
+	}, {
+		.name = "mtk-clock-buffer",
+		.of_compatible = "mediatek,clock_buffer",
 	},
 };
 
