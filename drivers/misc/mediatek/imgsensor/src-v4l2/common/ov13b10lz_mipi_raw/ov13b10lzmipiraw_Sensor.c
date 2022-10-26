@@ -55,8 +55,8 @@
 
 #define MULTI_WRITE 1
 #define _I2C_BUF_SIZE 4096
-static kal_uint16 _i2c_data[_I2C_BUF_SIZE];
-static unsigned int _size_to_write;
+
+
 static struct imgsensor_info_struct imgsensor_info = {
 	.sensor_id = OV13B10LZ_SENSOR_ID,
 
@@ -2101,52 +2101,18 @@ static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 modes
 {
 	if (modes != ctx->test_pattern)
 		pr_debug("Test_Pattern modes: %d -> %d\n", ctx->test_pattern, modes);
-	memset(_i2c_data, 0x0, sizeof(_i2c_data));
-	_size_to_write = 0;
-	if (modes == 2) {
-		_i2c_data[_size_to_write++] = 0x5000;
-		_i2c_data[_size_to_write++] = 0x81;//10000001
-		_i2c_data[_size_to_write++] = 0x5001;
-		_i2c_data[_size_to_write++] = 0x00;
-		_i2c_data[_size_to_write++] = 0x5002;
-		_i2c_data[_size_to_write++] = 0x92;//10010010
-		/* need check with vendor */
-		_i2c_data[_size_to_write++] = 0x5081;
-		_i2c_data[_size_to_write++] = 0x01;
-	} else if (modes == 5) { //black
-		//@@ Solid color BLACK - on
-		//6c 3019 f0; d2
-		//6c 4308 01 ;
-		_i2c_data[_size_to_write++] = 0x3019;
-		_i2c_data[_size_to_write++] = 0xf0;
-		_i2c_data[_size_to_write++] = 0x4308;
-		_i2c_data[_size_to_write++] = 0x01;
-	}
-	//check if it is off or changed
-	if ((modes != 2) && (ctx->test_pattern == 2)) {
-		_i2c_data[_size_to_write++] = 0x5000;
-		_i2c_data[_size_to_write++] = 0xCB;//11001011
-		_i2c_data[_size_to_write++] = 0x5001;
-		_i2c_data[_size_to_write++] = 0x43;//01000011
-		_i2c_data[_size_to_write++] = 0x5002;
-		_i2c_data[_size_to_write++] = 0x9E;//10011110
-		/* need check with vendor */
-		_i2c_data[_size_to_write++] = 0x5081;
-		_i2c_data[_size_to_write++] = 0x0;
-	} else if ((modes != 5) && (ctx->test_pattern == 5)) {
-		//@@ Solid color BLACK - off
-		//6c 3019 d2
-		//6c 4308 00
-		_i2c_data[_size_to_write++] = 0x3019;
-		_i2c_data[_size_to_write++] = 0xd2;
-		_i2c_data[_size_to_write++] = 0x4308;
-		_i2c_data[_size_to_write++] = 0x00;
-	}
-	if (_size_to_write > 0) {
-		ov13b10lz_table_write_cmos_sensor(ctx,
-			_i2c_data,
-			_size_to_write);
-	}
+
+	if (modes) {
+		write_cmos_sensor(ctx, 0x5000, 0x81);
+		write_cmos_sensor(ctx, 0x5080, 0x80);
+		if (modes == 5) { //black Color
+			write_cmos_sensor(ctx, 0x5080, 0x81);
+		}
+	} else {
+		write_cmos_sensor(ctx, 0x5000, 0xff);
+		write_cmos_sensor(ctx, 0x5080, 0x00);
+	} /*No pattern*/
+
 	ctx->test_pattern = modes;
 	return ERROR_NONE;
 }
