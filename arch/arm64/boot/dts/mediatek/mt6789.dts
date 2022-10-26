@@ -6538,6 +6538,7 @@
 
 	mtk_ssc: mtk_ssc {
 		compatible = "mediatek,ssc";
+		safe-vlogic-uv = <600000>;
 		ssc_disable = <0x1>;
 	};
 
