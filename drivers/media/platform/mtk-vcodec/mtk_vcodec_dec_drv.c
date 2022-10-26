@@ -181,6 +181,15 @@ static int fops_vcodec_release(struct file *file)
 	mutex_lock(&dev->dev_mutex);
 
 	/*
+	 * Check no more ipi in progress, to avoid inst abort since vcp
+	 * wdt but still has another kind of ipi is waiting timeout
+	 */
+	mutex_lock(&dev->ipi_mutex);
+	mutex_unlock(&dev->ipi_mutex);
+	mutex_lock(&dev->ipi_mutex_res);
+	mutex_unlock(&dev->ipi_mutex_res);
+
+	/*
 	 * Call v4l2_m2m_ctx_release before mtk_vcodec_dec_release. First, it
 	 * makes sure the worker thread is not running after vdec_if_deinit.
 	 * Second, the decoder will be flushed and all the buffers will be
