@@ -57,9 +57,9 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
 		SENSOR_DRVNAME_SC800CS_MIPI_RAW,
 		{
 			{RST, Vol_Low, 0},
-			{DOVDD, Vol_1800, 2},
+			{DOVDD, Vol_1804, 2},
 			{DVDD, Vol_1200, 1},
-			{AVDD, Vol_2800, 0},
+			{AVDD, Vol_2900, 0},
 			{RST, Vol_High, 1},
 			{SensorMCLK, Vol_High, 4}
 		},
