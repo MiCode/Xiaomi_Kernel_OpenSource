@@ -30,6 +30,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/dma-buf/heaps/
 ccflags-y += -I$(srctree)/drivers/staging/android/ion \
 	     -I$(srctree)/drivers/staging/android/ion/mtk
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 
 $(info Tina add dma: $(CONFIG_MTK_CAM_SECURE_FD_SUPPORT))
 ifeq ($(strip $(CONFIG_MTK_CAM_SECURE_FD_SUPPORT)),y)

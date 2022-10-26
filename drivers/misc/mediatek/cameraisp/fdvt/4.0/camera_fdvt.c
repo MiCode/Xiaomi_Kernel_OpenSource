@@ -24,10 +24,7 @@
 #include <linux/wait.h>
 #include <linux/slab.h>
 
-#define CHECK_SERVICE_IF_0	0
-#if CHECK_SERVICE_IF_0
 #include <mt-plat/sync_write.h>
-#endif
 #include <linux/dma-heap.h>
 #include "mtk_heap.h"
 #include <uapi/linux/dma-heap.h>
@@ -71,6 +68,8 @@
 #if IS_ENABLED(CONFIG_PM_SLEEP)
 struct wakeup_source fdvt_wake_lock;
 #endif
+
+#define CHECK_SERVICE_IF_0	0
 
 #if CHECK_SERVICE_IF_0
 #include <smi_public.h>
@@ -126,8 +125,8 @@ static struct cmdq_client *fdvt_clt;
 
 #define FDVT_DRAM_REGCNT 208
 
-//#define FDVT_WR32(data, addr)    mt_reg_sync_writel(data, addr)
-#define FDVT_WR32(data, addr)    writel(data, addr)
+#define FDVT_WR32(data, addr)    mt_reg_sync_writel(data, addr)
+//#define FDVT_WR32(data, addr)    writel(data, addr)
 
 struct FDVTDBuffRegMap {
 	unsigned int u4Addr[FDVT_DRAM_REGCNT];
@@ -177,7 +176,7 @@ static unsigned long gFDVT_Reg[FDVT_BASEADDR_NUM];
 #define FDVT_DEV_NODE_IDX 0
 #define IPESYS_DEV_MODE_IDX 1
 
-#define FDVT_ADDR                        (fdvt_devs[FDVT_DEV_NODE_IDX].regs)
+#define FDVT_ADDR                        (gFDVT_Reg[FDVT_DEV_NODE_IDX])
 
 #else
 #define FDVT_ADDR                        FDVT_BASE
