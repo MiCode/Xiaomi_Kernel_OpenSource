@@ -621,7 +621,6 @@ cma=64M transparent_hugepage=never";
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <495>;
-			#cooling-cells = <2>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
 		};
@@ -635,7 +634,6 @@ cma=64M transparent_hugepage=never";
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <495>;
-			#cooling-cells = <2>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
 		};
@@ -649,7 +647,6 @@ cma=64M transparent_hugepage=never";
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <495>;
-			#cooling-cells = <2>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
 		};
@@ -663,7 +660,6 @@ cma=64M transparent_hugepage=never";
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <495>;
-			#cooling-cells = <2>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
 		};
@@ -677,7 +673,6 @@ cma=64M transparent_hugepage=never";
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <495>;
-			#cooling-cells = <2>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
 		};
@@ -691,7 +686,6 @@ cma=64M transparent_hugepage=never";
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <495>;
-			#cooling-cells = <2>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
 		};
@@ -705,7 +699,6 @@ cma=64M transparent_hugepage=never";
 			operating-points-v2 = <&cluster1_opp>;
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1024>;
-			#cooling-cells = <2>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
 		};
@@ -719,7 +712,6 @@ cma=64M transparent_hugepage=never";
 			operating-points-v2 = <&cluster1_opp>;
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1024>;
-			#cooling-cells = <2>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
 		};
@@ -3817,7 +3809,6 @@ cma=64M transparent_hugepage=never";
 			"EVENT",
 			"PWR";
 		operating-points-v2 = <&gpu_mali_opp>;
-		#cooling-cells = <2>;
 		ged-supply = <&ged>;
 	};
 
