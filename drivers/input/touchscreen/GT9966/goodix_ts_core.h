@@ -40,7 +40,7 @@
 #include <linux/fb.h>
 #endif
 
-#define GOODIX_CORE_DRIVER_NAME			"goodix_ts"
+#define GOODIX_CORE_DRIVER_NAME			"mtk-tpd"
 #define GOODIX_PEN_DRIVER_NAME			"goodix_ts,pen"
 #define GOODIX_DRIVER_VERSION			"v1.2.6"
 #define GOODIX_MAX_TOUCH				10
