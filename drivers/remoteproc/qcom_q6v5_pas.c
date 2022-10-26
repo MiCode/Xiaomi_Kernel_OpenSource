@@ -579,11 +579,7 @@ static int adsp_attach(struct rproc *rproc)
 		goto begin_attach;
 	}
 
-	ret = qcom_register_dump_segments(rproc, fw);
-	if (ret) {
-		dev_err(adsp->dev, "Failed to register dump segments\n");
-		dev_err(adsp->dev, "Dumps will not be available\n");
-	}
+	adsp_add_coredump_segments(adsp, fw);
 	release_firmware(fw);
 
 begin_attach:
@@ -705,7 +701,6 @@ static const struct rproc_ops adsp_minidump_ops = {
 	.start = adsp_start,
 	.stop = adsp_stop,
 	.da_to_va = adsp_da_to_va,
-	.parse_fw = qcom_register_dump_segments,
 	.load = adsp_load,
 	.panic = adsp_panic,
 	.coredump = adsp_minidump,
