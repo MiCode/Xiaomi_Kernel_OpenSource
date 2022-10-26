@@ -651,8 +651,23 @@ static void ke_destroy_log(void)
 
 static int ke_log_avail(void)
 {
-	if (aed_dev.kerec.lastlog)
+	if (aed_dev.kerec.lastlog != NULL) {
+#ifdef __aarch64__
+		if (is_compat_task() !=
+			((aed_dev.kerec.lastlog->dump_option & DB_OPT_AARCH64)
+			== 0))
+			return 0;
+#endif
+		/* remove the log to reduce risk of dead loop:
+		 * cpux keep moving log from buffer to console and can not
+		 * process debuggerd work flow, meanwhile aed keep calling poll
+		 * which produce more log into buffer and cpux stucked whith
+		 * these log.
+		 * LOGI("AEE api log available\n");
+		 */
 		return 1;
+	}
+
 	return 0;
 }
 
@@ -2294,6 +2309,10 @@ static void kernel_reportAPI(const enum AE_DEFECT_ATTR attr, const int db_opt,
 		oops->detail = (char *)(oops->backtrace);
 		oops->detail_len = strlen(oops->backtrace) + 1;
 		oops->dump_option = db_opt;
+#ifdef __aarch64__
+	if ((db_opt & DB_OPT_NATIVE_BACKTRACE)  && !is_compat_task())
+		oops->dump_option |= DB_OPT_AARCH64;
+#endif
 
 		pr_debug("%s,%s,%s,0x%x\n", __func__, module, msg, db_opt);
 		ke_queue_request(oops);
