@@ -10,7 +10,7 @@
 #include "mtk_dsi.h"
 #include <linux/interrupt.h>
 
-#define HW_NUM			(1)
+#define HW_NUM			(2)
 #define RX_V12			(1700)
 
 #ifdef _90HZ_
