@@ -574,12 +574,24 @@ static int mtk_stf_event(struct snd_soc_dapm_widget *w,
 	if (ul_rate == MTK_AFE_ADDA_UL_RATE_48K) {
 		half_tap_num = ARRAY_SIZE(stf_coeff_table_48k);
 		stf_coeff_table = stf_coeff_table_48k;
+		regmap_update_bits(afe->regmap,
+				   AFE_SIDETONE_DEBUG,
+				   STF_EN_SEL_MASK_SFT,
+				   10 << STF_EN_SEL_SFT);
 	} else if (ul_rate == MTK_AFE_ADDA_UL_RATE_32K) {
 		half_tap_num = ARRAY_SIZE(stf_coeff_table_32k);
 		stf_coeff_table = stf_coeff_table_32k;
+		regmap_update_bits(afe->regmap,
+				   AFE_SIDETONE_DEBUG,
+				   STF_EN_SEL_MASK_SFT,
+				   8 << STF_EN_SEL_SFT);
 	} else {
 		half_tap_num = ARRAY_SIZE(stf_coeff_table_16k);
 		stf_coeff_table = stf_coeff_table_16k;
+		regmap_update_bits(afe->regmap,
+				   AFE_SIDETONE_DEBUG,
+				   STF_EN_SEL_MASK_SFT,
+				   4 << STF_EN_SEL_SFT);
 	}
 
 	regmap_read(afe->regmap, AFE_SIDETONE_CON1, &reg_value);
@@ -667,6 +679,10 @@ static int mtk_stf_event(struct snd_soc_dapm_widget *w,
 				   AFE_SIDETONE_GAIN,
 				   POSITIVE_GAIN_MASK_SFT,
 				   0);
+		regmap_update_bits(afe->regmap,
+				   AFE_SIDETONE_DEBUG,
+				   STF_EN_SEL_MASK_SFT,
+				   0 << STF_EN_SEL_SFT);
 		break;
 	default:
 		break;
@@ -874,6 +890,8 @@ static const struct snd_soc_dapm_route mtk_dai_adda_routes[] = {
 	{"AP DMIC Capture", NULL, "AP_DMIC_INPUT"},
 
 	/* sidetone filter */
+	{"STF_CH1", "ADDA_UL_CH1", "ADDA_UL_Mux"},
+	{"STF_CH2", "ADDA_UL_CH2", "ADDA_UL_Mux"},
 	{"Sidetone Filter", "Switch", "STF_CH1"},
 	{"Sidetone Filter", "Switch", "STF_CH2"},
 

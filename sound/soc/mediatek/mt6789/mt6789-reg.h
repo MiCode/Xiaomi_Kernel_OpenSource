@@ -797,6 +797,11 @@ enum {
 #define ADDA_AFE_ON_MASK                               0x1
 #define ADDA_AFE_ON_MASK_SFT                           (0x1 << 0)
 
+/* AFE_SIDETONE_DEBUG */
+#define STF_EN_SEL_SFT                                 16
+#define STF_EN_SEL_MASK                                0xf
+#define STF_EN_SEL_MASK_SFT                            (0xf << 16)
+
 /* AFE_SIDETONE_CON0 */
 #define R_RDY_SFT                                      30
 #define R_RDY_MASK                                     0x1
