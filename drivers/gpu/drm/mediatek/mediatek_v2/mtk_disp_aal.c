@@ -75,6 +75,7 @@ static struct DISP_AAL_HIST g_aal_hist_db;
 //static ddp_module_notify g_ddp_notify;
 static atomic_t g_aal0_hist_available = ATOMIC_INIT(0);
 static atomic_t g_aal1_hist_available = ATOMIC_INIT(0);
+static atomic_t g_aal_hist_wait_dualpipe = ATOMIC_INIT(0);
 static atomic_t g_aal0_dre20_hist_is_ready = ATOMIC_INIT(0);
 static atomic_t g_aal1_dre20_hist_is_ready = ATOMIC_INIT(0);
 static atomic_t g_aal_sof_irq_available = ATOMIC_INIT(0);
@@ -805,11 +806,13 @@ static void disp_aal_wait_hist(void)
 	if (isDualPQ) {
 		if ((atomic_read(&g_aal0_hist_available) == 0) ||
 				(atomic_read(&g_aal1_hist_available) == 0))
+			atomic_set(&g_aal_hist_wait_dualpipe, 1);
 			ret = wait_event_interruptible(g_aal_hist_wq,
 					(atomic_read(&g_aal0_hist_available) == 1) &&
 					(atomic_read(&g_aal1_hist_available) == 1));
 		AALFLOW_LOG("aal0 and aal1 hist_available = 1, waken up, ret = %d", ret);
 	} else if (atomic_read(&g_aal0_hist_available) == 0) {
+		atomic_set(&g_aal_hist_wait_dualpipe, 0);
 		AALFLOW_LOG("wait_event_interruptible\n");
 		ret = wait_event_interruptible(g_aal_hist_wq,
 				atomic_read(&g_aal0_hist_available) == 1);
@@ -1785,8 +1788,11 @@ static void disp_aal_update_dre3_sram(struct mtk_ddp_comp *comp,
 					atomic_set(&g_aal0_hist_available, 1);
 				else if (comp->id == DDP_COMPONENT_AAL1)
 					atomic_set(&g_aal1_hist_available, 1);
-			} else
+			} else {
 				atomic_set(&g_aal0_hist_available, 1);
+				if (atomic_read(&g_aal_hist_wait_dualpipe) == 1)
+					atomic_set(&g_aal1_hist_available, 1);
+			}
 		}
 		spin_unlock_irqrestore(&g_aal_hist_lock, flags);
 		if (result) {
@@ -2701,6 +2707,8 @@ void disp_aal_on_start_of_frame(void)
 		} else {
 			if (atomic_read(&g_aal0_dre20_hist_is_ready)) {
 				atomic_set(&g_aal0_hist_available, 1);
+				if (atomic_read(&g_aal_hist_wait_dualpipe) == 1)
+					atomic_set(&g_aal1_hist_available, 1);
 				wake_up_interruptible(&g_aal_hist_wq);
 			}
 		}
