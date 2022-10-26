@@ -5173,6 +5173,11 @@
 			#clock-cells = <1>;
 		};
 
+		mtk_ssc: mtk_ssc@1c01f000 {
+			compatible = "mediatek,ssc";
+			safe-vlogic-uv = <600000>;
+		};
+
 		cam_main_r1a_clk: syscon@1a000000 {
 			compatible = "mediatek,mt6879-cam_main_r1a", "syscon";
 			reg = <0 0x1a000000 0 0x1000>;
