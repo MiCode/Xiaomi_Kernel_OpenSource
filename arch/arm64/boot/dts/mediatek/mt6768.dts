@@ -4108,6 +4108,8 @@ cma=64M transparent_hugepage=never";
 		mediatek,larbs = <&smi_larb0 &smi_larb1 &smi_larb2
 					&smi_larb3 &smi_larb4>;
 		mediatek,commons = <&smi_common>;
+		disable-ostd;
+		disable-bwl;
 		clocks = <&topckgen CLK_TOP_MM_SEL>;
 		clock-names = "mm";
 		interconnects = <&dvfsrc MT6873_MASTER_MMSYS &dvfsrc MT6873_SLAVE_DDR_EMI>,
