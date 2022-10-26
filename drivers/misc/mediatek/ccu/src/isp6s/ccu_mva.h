@@ -30,6 +30,7 @@ struct CcuMemInfo {
 struct CcuMemHandle {
 	struct CcuMemInfo meminfo;
 	dma_addr_t  mva;
+	dma_addr_t  align_mva;
 };
 
 int ccu_allocate_mem(struct ccu_device_s *dev, struct CcuMemHandle *memHandle,

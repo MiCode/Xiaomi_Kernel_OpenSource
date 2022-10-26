@@ -733,7 +733,7 @@ int ccu_run(struct ccu_run_s *info)
 		LOG_ERR("CCU RUN failed, bin_mem NULL\n");
 		return -EINVAL;
 	}
-	remapOffset = bin_mem->mva - CCU_CACHE_BASE;
+	remapOffset = bin_mem->align_mva - CCU_CACHE_BASE;
 	ccu_H2X_MSB = ccu_read_reg_bit(ccu_base, CTRL, H2X_MSB);
 	ccu_write_reg(ccu_base, AXI_REMAP, remapOffset);
 	LOG_INF_MUST("set CCU remap offset: %x\n", remapOffset);
@@ -1404,6 +1404,7 @@ void *ccu_da_to_va(u64 da, int len)
 {
 	int offset;
 	struct CcuMemInfo *bin_mem = ccu_get_binary_memory();
+	uint32_t mva_offset = bin_mem->align_mva - bin_mem->mva;
 
 	if (bin_mem == NULL) {
 		LOG_ERR("failed lookup da(%lx), bin_mem NULL", da);
@@ -1428,8 +1429,8 @@ void *ccu_da_to_va(u64 da, int len)
 		if ((offset >= 0) &&
 		((offset + len) < CCU_CTRL_BUF_TOTAL_SIZE)) {
 			LOG_INF_MUST("da(0x%lx) to va(0x%lx)",
-				da, bin_mem->va + offset);
-			return (uint32_t *)(bin_mem->va + offset);
+				da, bin_mem->va + mva_offset + offset);
+			return (uint32_t *)(bin_mem->va + mva_offset + offset);
 		}
 	}
 

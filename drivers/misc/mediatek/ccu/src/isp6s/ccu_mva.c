@@ -15,12 +15,15 @@ struct CcuMemHandle ccu_buffer_handle[2];
 int ccu_allocate_mem(struct ccu_device_s *dev, struct CcuMemHandle *memHandle,
 			 int size, bool cached)
 {
-	LOG_DBG("size(%d) cached(%d)\n", size, cached);
+	int ssize = size << 1;
+	dma_addr_t dsize = size;
+
+	LOG_DBG("size(%d) cached(%d)\n", ssize, cached);
 	// get buffer virtual address
-	memHandle->meminfo.size = size;
+	memHandle->meminfo.size = ssize;
 	memHandle->meminfo.cached = cached;
 
-	memHandle->meminfo.va = dma_alloc_attrs(dev->dev, size,
+	memHandle->meminfo.va = dma_alloc_attrs(dev->dev, ssize,
 		&memHandle->mva, GFP_KERNEL, DMA_ATTR_WRITE_COMBINE);
 
 	if (memHandle->meminfo.va == NULL) {
@@ -28,11 +31,15 @@ int ccu_allocate_mem(struct ccu_device_s *dev, struct CcuMemHandle *memHandle,
 		return -1;
 	}
 
-	LOG_DBG("success: share_fd(%d), size(%x), cached(%d), va(%lx), mva(%lx)\n",
+	memHandle->align_mva = (memHandle->mva + (dsize - 1)) & ~(dsize - 1);
+
+	LOG_DBG("success: share_fd(%d), size(%x), cached(%d), va(%lx), mva(%lx) align_mva(%lx)\n",
 	memHandle->meminfo.shareFd, memHandle->meminfo.size,
-	memHandle->meminfo.cached, memHandle->meminfo.va, memHandle->mva);
+	memHandle->meminfo.cached, memHandle->meminfo.va, memHandle->mva,
+	memHandle->align_mva);
 
 	memHandle->meminfo.mva = (uint32_t)memHandle->mva;
+	memHandle->meminfo.align_mva = (uint32_t)memHandle->align_mva;
 
 	ccu_buffer_handle[memHandle->meminfo.cached] = *memHandle;
 
