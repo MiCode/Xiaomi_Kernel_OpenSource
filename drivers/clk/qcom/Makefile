@@ -101,6 +101,7 @@ obj-$(CONFIG_SDW_DEBUGCC_MONACO) += debugcc-monaco.o
 obj-$(CONFIG_SDW_DISPCC_MONACO) += dispcc-monaco.o
 obj-$(CONFIG_SDW_GCC_MONACO) += gcc-monaco.o
 obj-$(CONFIG_SDW_GPUCC_MONACO) += gpucc-monaco.o
+obj-$(CONFIG_SDX_DEBUGCC_BAAGHA) += debugcc-sdxbaagha.o
 obj-$(CONFIG_SDX_DEBUGCC_PINN) += debugcc-sdxpinn.o
 obj-$(CONFIG_SDX_GCC_55) += gcc-sdx55.o
 obj-$(CONFIG_SDX_GCC_BAAGHA) += gcc-sdxbaagha.o
