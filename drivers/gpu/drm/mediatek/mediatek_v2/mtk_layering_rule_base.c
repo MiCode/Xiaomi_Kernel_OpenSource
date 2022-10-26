@@ -2980,13 +2980,8 @@ static int get_crtc_num(
 		}
 	}
 
-	if (input_config_num != crtc_num) {
-		DDPPR_ERR("%s:%d mode[%d] num:%d not matched config num:%d\n",
-				__func__, __LINE__,
-				disp_info_user->disp_mode[0],
-				crtc_num, input_config_num);
+	if (input_config_num != crtc_num)
 		crtc_num = min(crtc_num, input_config_num);
-	}
 
 	return crtc_num;
 }
