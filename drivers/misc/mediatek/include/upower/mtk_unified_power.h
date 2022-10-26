@@ -14,6 +14,8 @@ extern "C" {
 #include <linux/sched.h>
 #if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6765)
 #include "mtk_unified_power_6765.h"
+#elif IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6833)
+#include "mtk_unified_power_6833.h"
 #else
 #include "mtk_unified_power_plat.h"
 #endif

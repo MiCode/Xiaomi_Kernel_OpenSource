@@ -54,6 +54,14 @@ config MTK_PLAT_POWER_MT6765
 	  If the macro is enabled, compile the mt6765 related code.
 	  If unsure, say N.
 
+config MTK_PLAT_POWER_MT6833
+	tristate "Platform power specified macro"
+	help
+	  This macro is used to distinguish the platform dependent parts
+	  from those power related features.
+	  If the macro is enabled, compile the mt6833 related code.
+	  If unsure, say N.
+
 endmenu # Power
 
 menu "MultiMedia, Display, Camera"
@@ -215,8 +223,6 @@ config FPGA_EARLY_PORTING
 	  platform and non-FPGA platform.
 	  Say Y here if you are doing FPGA early porting.
 	  If unsure, say N
-
-
 endmenu # Misc
 
 menu "PPM V3"
@@ -247,4 +253,3 @@ endmenu # Sensors
 menu "MultiMedia, Display, Camera related configs"
 source "drivers/misc/mediatek/videocodec/Kconfig"
 endmenu # MultiMedia, Display, Camera related configs
-
