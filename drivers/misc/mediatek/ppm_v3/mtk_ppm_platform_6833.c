@@ -27,11 +27,7 @@ unsigned int __attribute__((weak)) mt_cpufreq_get_cur_volt(unsigned int id)
 {
 	return 0;
 }
-int __attribute__((weak)) mt_spower_get_leakage(
-	int dev, unsigned int voltage, int degree)
-{
-	return 0;
-}
+
 
 #ifdef PPM_SSPM_SUPPORT
 static void *online_core;
