@@ -58,6 +58,8 @@ static const u32 bq2589x_otg_oc_threshold[] = {
 	500000, 700000, 1100000, 1300000, 1800000, 2100000, 2400000, 3000000,
 }; /* uA */
 
+#define BQ2589X_VBUS_UVLO (3600 * 1000)
+
 static int pn_data[] = {
 	[PN_BQ25890] = 0x03,
 	[PN_BQ25892] = 0x00,
@@ -96,6 +98,7 @@ static const struct charger_properties bq2589x_chg_props = {
 extern void Charger_Detect_Init(void);
 extern void Charger_Detect_Release(void);
 static void bq2589x_dump_regs(struct bq2589x *bq);
+static int bq2589x_get_vbus(struct charger_device *chgdev, u32 *vbus);
 static int __bq2589x_read_reg(struct bq2589x *bq, u8 reg, u8 *data)
 {
 	s32 ret;
@@ -338,6 +341,8 @@ int bq2589x_adc_read_vbus_volt(struct bq2589x *bq, u32 *vol)
 		dev_err(bq->dev, "read vbus voltage failed :%d\n", ret);
 	} else{
 		volt = BQ2589X_VBUSV_BASE + ((val & BQ2589X_VBUSV_MASK) >> BQ2589X_VBUSV_SHIFT) * BQ2589X_VBUSV_LSB ;
+		if (volt == BQ2589X_VBUSV_BASE)
+			volt = 0;
 		*vol = volt * 1000;
 	}
 
@@ -956,7 +961,9 @@ static int bq2589x_get_charge_stat(struct bq2589x *bq, int *state)
 {
     	int ret;
 	u8 val;
+	u32 vbus;
 
+	bq2589x_get_vbus(bq->chg_dev, &vbus);
 	ret = bq2589x_read_byte(bq, BQ2589X_REG_0B, &val);
 	if (!ret) {
         if ((val & BQ2589X_VBUS_STAT_MASK) >> BQ2589X_VBUS_STAT_SHIFT
@@ -971,7 +978,10 @@ static int bq2589x_get_charge_stat(struct bq2589x *bq, int *state)
 	switch (val)
         {
         case BQ2589X_CHRG_STAT_IDLE:
-            *state = POWER_SUPPLY_STATUS_NOT_CHARGING;
+			if ((bq->power_good) && (vbus > BQ2589X_VBUS_UVLO))
+				*state = POWER_SUPPLY_STATUS_CHARGING;
+			else
+				*state = POWER_SUPPLY_STATUS_NOT_CHARGING;
             break;
         case BQ2589X_CHRG_STAT_PRECHG:
         case BQ2589X_CHRG_STAT_FASTCHG:
@@ -985,7 +995,8 @@ static int bq2589x_get_charge_stat(struct bq2589x *bq, int *state)
             break;
         }
 	}
-	pr_info("%s, charge stat = %d\n", __func__, *state);
+	pr_info("%s, charge stat = %d,bq->charge_enabled(%d)\n",
+		__func__, *state, bq->charge_enabled);
 
 	return ret;
 }
@@ -1058,6 +1069,7 @@ static void bq2589x_read_byte_work(struct work_struct *work)
 	u8 reg_val;
 	bool prev_pg = 0;
 	bool prev_sc_pd;
+	u32 vbus = 0;
 	struct bq2589x *bq = container_of(work, struct bq2589x, read_byte_work.work);
 
 	pr_info("%s:%d: start\n", __func__, __LINE__);
@@ -1083,9 +1095,17 @@ static void bq2589x_read_byte_work(struct work_struct *work)
 		pr_info("%s 0x0B = %X, bq->power_good = %d, prev_pg = %d\n",__func__, reg_val, bq->power_good, prev_pg);
 		bq2589x_dump_regs(bq);
 	}
-	pr_info("%s: %d: bq->power_good(%d), prev_pg(%d)\n", __func__, __LINE__, bq->power_good, prev_pg);
 
-	if (!prev_pg && bq->power_good) {
+	if (bq2589x_adc_read_vbus_volt(bq, &vbus))
+		pr_info("%s get vbus fail\n", __func__);
+
+	pr_info("%s: %d: bq->power_good(%d), prev_pg(%d), vbus(%d)\n",
+		__func__, __LINE__, bq->power_good, prev_pg, vbus);
+
+	if (!(bq->power_good) && vbus > BQ2589X_VBUS_UVLO)
+		bq->power_good = 1;
+
+	if (!prev_pg && bq->power_good && (vbus > BQ2589X_VBUS_UVLO)) {
 		pr_err("%s, plug in\n", __func__);
 		ret = bq2589x_get_usb_type(bq, &bq->psy_usb_type);
 		if (bq->psy_desc.type != POWER_SUPPLY_TYPE_USB_DCP) {
@@ -1752,6 +1772,7 @@ static int bq2589x_chg_get_property(struct power_supply *psy,
 	//int vbus_volt = 0;
 	u32 _val;
 	u32 data;
+	u32 vbus = 0;
 	struct bq2589x *bq = power_supply_get_drvdata(psy);
 
 	mt_dbg(bq->dev, "psp=%d\n", psp);
@@ -1763,8 +1784,15 @@ static int bq2589x_chg_get_property(struct power_supply *psy,
             val->strval = "Silergy";
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
-		pr_info("%s usb online-->%d\n",__func__,bq->power_good);
-		val->intval = bq->power_good;
+		bq2589x_get_vbus(bq->chg_dev, &vbus);
+		if (!bq->power_good && vbus < BQ2589X_VBUS_UVLO)
+			val->intval = 0;
+		else if (vbus < BQ2589X_VBUS_UVLO)
+			val->intval = 0;
+		else
+			val->intval = 1;
+		pr_info("%s usb online(%d),pd(%d), vbus(%d)\n",
+			__func__, val->intval, bq->power_good, vbus);
 		break;
 	case POWER_SUPPLY_PROP_STATUS:
 		ret = bq2589x_get_charge_stat(bq, &_val);
@@ -1803,8 +1831,8 @@ static int bq2589x_chg_get_property(struct power_supply *psy,
         val->intval = data;
 		break;
 	case POWER_SUPPLY_PROP_USB_TYPE:
-		pr_info("bq2589x:bq->psy_usb_type:%d\n",bq->psy_usb_type);
 		val->intval = bq->psy_usb_type;
+		pr_info("bq2589x:bq->psy_usb_type:%d\n", bq->psy_usb_type);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		if (bq->psy_desc.type == POWER_SUPPLY_TYPE_USB)
@@ -1843,7 +1871,7 @@ static int bq2589x_chg_set_property(struct power_supply *psy,
 		bq->attach = val->intval;
 		if (!prev_attach && bq->attach) {
 			Charger_Detect_Init();
-			bq2589x_force_dpdm(bq);
+			schedule_delayed_work(&bq->read_byte_work, msecs_to_jiffies(0));
 			bq->dpdm = 1;
 		} else if (prev_attach && !(bq->attach)) {
 			schedule_delayed_work(&(bq->read_byte_work), 0);
