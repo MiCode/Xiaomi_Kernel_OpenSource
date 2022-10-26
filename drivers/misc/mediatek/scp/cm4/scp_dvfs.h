@@ -149,8 +149,8 @@ struct dvfs_data {
 	struct dvfs_opp *opp;
 	int scp_opp_num;
 	int dvfsrc_opp_num;
-	bool platform_mt6768;
-	bool platform_mt6781;
+	bool legacy_support_v1;
+	bool legacy_support_v2;
 };
 
 extern int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel);
