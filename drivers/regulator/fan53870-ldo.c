@@ -208,6 +208,36 @@ static int fan53870_regulator_init(struct fan53870 *chip)
 	struct regulator_config config = { };
 	struct regulator_desc *rdesc;
 	int id, ret = 0;
+	u8 vsel_range[1];
+
+
+	const unsigned int ldo_regs[fan53870_MAX_REGULATORS] = {
+		fan53870_LDO1_VOUT,
+		fan53870_LDO2_VOUT,
+		fan53870_LDO3_VOUT,
+		fan53870_LDO4_VOUT,
+		fan53870_LDO5_VOUT,
+		fan53870_LDO6_VOUT,
+		fan53870_LDO7_VOUT,
+	};
+
+	const unsigned int initial_voltage[fan53870_MAX_REGULATORS] = {
+		0x00,//LDO1 1.2V main DVDD
+		0x00,//LDO2 1.2V sub  DVDD2
+		0x00,//LDO3 2.8V main AFVDD
+		0x00,//LDO4 2.8V sub AVDD
+		0x00,//LDO5 1.8V DOVDD
+		0x00,//LDO6 2.8V main AVDD
+		0xF1,//LDO7 3.3V p_sensor
+	};
+
+	/*Disable all ldo output by default*/
+	ret = regmap_write(chip->regmap, fan53870_LDO_EN, 0);
+	if (ret < 0) {
+		dev_info(chip->dev,
+			"Disable all LDO output failed!!!\n");
+		return ret;
+	}
 
 	for (id = 0; id < fan53870_MAX_REGULATORS; id++) {
 		chip->rdesc[id] = &fan53870_regls_desc[id];
@@ -215,6 +245,24 @@ static int fan53870_regulator_init(struct fan53870 *chip)
 		config.regmap = chip->regmap;
 		config.dev = chip->dev;
 		config.driver_data = chip;
+
+		ret = regmap_write(chip->regmap, ldo_regs[id], initial_voltage[id]);
+		if (ret < 0) {
+			dev_info(chip->dev,
+			"Failed to write init voltage register\n");
+			return ret;
+		}
+
+		ret = regmap_bulk_read(chip->regmap, fan53870_LDO1_VOUT + id,
+				       vsel_range, 1);
+		if (ret < 0) {
+			dev_info(chip->dev,
+				"Failed to read the ldo register\n");
+			return ret;
+		}
+		dev_info(chip->dev, "%s: LDO%d, init value:0x%x",
+			__func__, (id+1), vsel_range[0]);
+
 
 		chip->rdev[id] = devm_regulator_register(chip->dev, rdesc,
 							 &config);
@@ -226,6 +274,23 @@ static int fan53870_regulator_init(struct fan53870 *chip)
 			return ret;
 		}
 	}
+
+
+	ret = regmap_write(chip->regmap, fan53870_LDO_EN, 0x40);
+	if (ret < 0) {
+		dev_info(chip->dev,
+		"Failed to write init voltage register\n");
+		return ret;
+	}
+	ret = regmap_bulk_read(chip->regmap, fan53870_LDO_EN,
+				       vsel_range, 1);
+	if (ret < 0) {
+		dev_info(chip->dev,
+			"Failed to read the ldo register\n");
+		return ret;
+	}
+	if (vsel_range[0] == 0x40)
+		pr_info("%s 3.3v enable success\n", __func__);
 
 	return 0;
 }
