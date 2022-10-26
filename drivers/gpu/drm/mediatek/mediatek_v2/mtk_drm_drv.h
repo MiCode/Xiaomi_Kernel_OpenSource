@@ -336,7 +336,7 @@ int lcm_fps_ctx_reset(struct drm_crtc *crtc);
 int lcm_fps_ctx_update(unsigned long long cur_ns,
 		unsigned int crtc_id, unsigned int mode);
 int mtk_mipi_clk_change(struct drm_crtc *crtc, unsigned int data_rate);
-bool mtk_drm_lcm_is_connect(void);
+bool mtk_drm_lcm_is_connect(struct mtk_drm_crtc *mtk_crtc);
 size_t mtk_gce_get_dummy_table(unsigned int mmsys_id, struct dummy_mapping **table);
 
 

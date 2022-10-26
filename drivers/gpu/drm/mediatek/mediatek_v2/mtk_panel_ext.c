@@ -116,6 +116,7 @@ int mtk_panel_ext_create(struct device *dev,
 	mtk_panel_init(ext_ctx);
 	ext->params = ext_params;
 	ext->funcs = ext_funcs;
+	ext->is_connected = -1;
 	ext_ctx->ext = ext;
 
 	mtk_panel_add(ext_ctx);
