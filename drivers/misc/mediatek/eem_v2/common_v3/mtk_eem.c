@@ -55,8 +55,8 @@
 // #include <mt-plat/mtk_chip.h>
 /* #include <mt-plat/mtk_gpio.h> */
 // #include "upmu_common.h"
-#if IS_ENABLED(CONFIG_THERMAL)
-//#include "mtk_thermal.h"
+#if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
+#include "mach/mtk_thermal.h"
 #endif
 #include "mtk_ppm_api.h"
 #include "mtk_cpufreq_api.h"
@@ -471,41 +471,24 @@ static int get_devinfo(void)
  *=============================================================
  */
 
-// #if IS_ENABLED(CONFIG_THERMAL)
-// /* common part in thermal */
-// int __attribute__((weak))
-// tscpu_get_temp_by_bank(enum thermal_bank_name ts_bank)
-// {
-//	eem_error("cannot find %s (thermal has not ready yet!)\n", __func__);
-//	return 0;
-// }
-
-// int __attribute__((weak))
-// tscpu_is_temp_valid(void)
-// {
-//	eem_error("cannot find %s (thermal has not ready yet!)\n", __func__);
-//	return 0;
-// }
-// #endif
-
 int base_ops_get_temp(struct eemsn_det *det)
 {
-//#if IS_ENABLED(CONFIG_THERMAL)
-//	enum thermal_bank_name ts_bank;
+#if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
+	enum thermal_bank_name ts_bank;
 
-//	if (det_to_id(det) == EEMSN_DET_L)
-//		ts_bank = THERMAL_BANK2;
-//	else if (det_to_id(det) == EEMSN_DET_B)
-//		ts_bank = THERMAL_BANK0;
-//	else if (det_to_id(det) == EEMSN_DET_CCI)
-//		ts_bank = THERMAL_BANK2;
-//	else
-//		ts_bank = THERMAL_BANK0;
+	if (det_to_id(det) == EEMSN_DET_L)
+		ts_bank = THERMAL_BANK2;
+	else if (det_to_id(det) == EEMSN_DET_B)
+		ts_bank = THERMAL_BANK0;
+	else if (det_to_id(det) == EEMSN_DET_CCI)
+		ts_bank = THERMAL_BANK2;
+	else
+		ts_bank = THERMAL_BANK0;
 
-//	return tscpu_get_temp_by_bank(ts_bank);
-// #else
+	return tscpu_get_temp_by_bank(ts_bank);
+ #else
 	return 0;
-// #endif
+ #endif
 }
 
 
