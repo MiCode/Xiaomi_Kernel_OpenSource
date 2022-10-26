@@ -25,7 +25,7 @@
 		interrupts = <8 IRQ_TYPE_EDGE_FALLING 8 0>;
 		focaltech,irq-gpio = <&pio 8 0x0>;
 		focaltech,max-touch-number = <10>;
-		focaltech,display-coords =  <0 0 2296 2000>;
+		focaltech,display-coords =  <0 0 2000 2296>;
 		focaltech,double-tp;
 		status = "okay";
 	};
