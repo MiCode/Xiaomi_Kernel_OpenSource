@@ -1404,12 +1404,15 @@ void *ccu_da_to_va(u64 da, int len)
 {
 	int offset;
 	struct CcuMemInfo *bin_mem = ccu_get_binary_memory();
-	uint32_t mva_offset = bin_mem->align_mva - bin_mem->mva;
+	uint32_t mva_offset;
 
 	if (bin_mem == NULL) {
 		LOG_ERR("failed lookup da(%lx), bin_mem NULL", da);
 		return NULL;
 	}
+
+	mva_offset = bin_mem->align_mva - bin_mem->mva;
+
 	if (da < CCU_CACHE_BASE) {
 		offset = da;
 		if ((offset >= 0) && ((offset + len) < CCU_PMEM_SIZE)) {
