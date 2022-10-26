@@ -122,13 +122,12 @@ static int clmutt_ ## name ## _proc_open(                                     \
 	return single_open(file, clmutt_ ## name ## _proc_read,               \
 		PDE_DATA(inode));                                             \
 }                                                                             \
-static const struct file_operations clmutt_ ## name ## _proc_fops = {         \
-	.owner	= THIS_MODULE,                                                \
-	.open	= clmutt_ ## name ## _proc_open,                              \
-	.read	= seq_read,                                                   \
-	.llseek	= seq_lseek,                                                  \
-	.release	= single_release,                                     \
-	.write	= clmutt_ ## name ## _proc_write,                             \
+static const struct proc_ops clmutt_ ## name ## _proc_fops = {         \
+	.proc_open	= clmutt_ ## name ## _proc_open,                              \
+	.proc_read	= seq_read,                                                   \
+	.proc_lseek	= seq_lseek,                                                  \
+	.proc_release	= single_release,                                     \
+	.proc_write	= clmutt_ ## name ## _proc_write,                             \
 }
 
 enum mutt_type {
@@ -508,8 +507,9 @@ static int clmutt_send_tmd_signal(int level)
 	}
 
 	if (ret == 0 && clmutt_data.ptmd_task) {
-		siginfo_t info;
+		struct kernel_siginfo info;
 
+		clear_siginfo(&info);
 		info.si_signo = SIGIO;
 		info.si_errno = 0;
 		info.si_code = level;
@@ -575,8 +575,9 @@ static int clmutt_send_tm_signal(enum mutt_type type, unsigned long state)
 	}
 
 	if (ret == 0 && clmutt_data.pg_task) {
-		siginfo_t info;
+		struct kernel_siginfo info;
 
+		clear_siginfo(&info);
 		info.si_signo = SIGIO;
 		info.si_errno = TM_CLIENT_clmutt;
 		info.si_code = state; /* Toggle MD ON: 0 OFF: 1*/
@@ -2067,7 +2068,7 @@ PROC_FOPS_RW(cooler_lv);
 PROC_FOPS_RW(scg_off);
 PROC_FOPS_RW(tx_pwr);
 
-static int __init mtk_cooler_mutt_init(void)
+int  mtk_cooler_mutt_init(void)
 {
 	int err = 0;
 
@@ -2082,7 +2083,7 @@ static int __init mtk_cooler_mutt_init(void)
 		struct proc_dir_entry *dir_entry = NULL;
 		struct pentry {
 			const char *name;
-			const struct file_operations *fops;
+			const struct proc_ops *fops;
 		};
 
 		const struct pentry entries[] = {
@@ -2127,7 +2128,7 @@ err_unreg:
 	return err;
 }
 
-static void __exit mtk_cooler_mutt_exit(void)
+void  mtk_cooler_mutt_exit(void)
 {
 	mtk_cooler_mutt_dprintk("exit\n");
 
@@ -2136,5 +2137,5 @@ static void __exit mtk_cooler_mutt_exit(void)
 
 	mtk_cooler_mutt_unregister_ltf();
 }
-module_init(mtk_cooler_mutt_init);
-module_exit(mtk_cooler_mutt_exit);
+//module_init(mtk_cooler_mutt_init);
+//module_exit(mtk_cooler_mutt_exit);

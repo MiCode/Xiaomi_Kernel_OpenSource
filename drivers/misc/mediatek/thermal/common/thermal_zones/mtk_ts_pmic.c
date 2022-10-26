@@ -682,6 +682,8 @@ static int mtk_ts_pmic_probe(struct platform_device *pdev)
 	 *				"Need to checking this !!!!!\n");
 	 */
 
+	if (chip == NULL)
+		return 0;
 	mtktspmic_cali_prepare(chip->regmap);
 	mtktspmic_cali_prepare2();
 

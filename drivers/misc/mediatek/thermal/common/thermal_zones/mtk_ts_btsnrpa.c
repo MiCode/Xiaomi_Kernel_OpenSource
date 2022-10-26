@@ -860,14 +860,9 @@ static int mtkts_btsnrpa_unbind(struct thermal_zone_device *thermal,
 	return 0;
 }
 
-static int mtkts_btsnrpa_get_mode(struct thermal_zone_device *thermal,
-				  enum thermal_device_mode *mode)
-{
-	*mode = (kernelmode) ? THERMAL_DEVICE_ENABLED : THERMAL_DEVICE_DISABLED;
-	return 0;
-}
 
-static int mtkts_btsnrpa_set_mode(struct thermal_zone_device *thermal,
+
+static int mtkts_btsnrpa_change_mode(struct thermal_zone_device *thermal,
 				  enum thermal_device_mode mode)
 {
 	kernelmode = mode;
@@ -900,8 +895,7 @@ static struct thermal_zone_device_ops mtkts_btsnrpa_dev_ops = {
 	.bind = mtkts_btsnrpa_bind,
 	.unbind = mtkts_btsnrpa_unbind,
 	.get_temp = mtkts_btsnrpa_get_temp,
-	.get_mode = mtkts_btsnrpa_get_mode,
-	.set_mode = mtkts_btsnrpa_set_mode,
+	.change_mode = mtkts_btsnrpa_change_mode,
 	.get_trip_type = mtkts_btsnrpa_get_trip_type,
 	.get_trip_temp = mtkts_btsnrpa_get_trip_temp,
 	.get_crit_temp = mtkts_btsnrpa_get_crit_temp,
@@ -1330,13 +1324,12 @@ static int mtkts_btsnrpa_open(struct inode *inode, struct file *file)
 	return single_open(file, mtkts_btsnrpa_read, NULL);
 }
 
-static const struct file_operations mtkts_btsnrpa_fops = {
-	.owner = THIS_MODULE,
-	.open = mtkts_btsnrpa_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.write = mtkts_btsnrpa_write,
-	.release = single_release,
+static const struct proc_ops mtkts_btsnrpa_fops = {
+	.proc_open = mtkts_btsnrpa_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_write = mtkts_btsnrpa_write,
+	.proc_release = single_release,
 };
 
 
@@ -1345,13 +1338,12 @@ static int mtkts_btsnrpa_param_open(struct inode *inode, struct file *file)
 	return single_open(file, mtkts_btsnrpa_param_read, NULL);
 }
 
-static const struct file_operations mtkts_btsnrpa_param_fops = {
-	.owner = THIS_MODULE,
-	.open = mtkts_btsnrpa_param_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.write = mtkts_btsnrpa_param_write,
-	.release = single_release,
+static const struct proc_ops mtkts_btsnrpa_param_fops = {
+	.proc_open = mtkts_btsnrpa_param_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_write = mtkts_btsnrpa_param_write,
+	.proc_release = single_release,
 };
 
 
@@ -1413,7 +1405,7 @@ static struct platform_driver mtk_thermal_btsnrpa_driver = {
 };
 #endif /*CONFIG_MEDIATEK_MT6577_AUXADC*/
 
-static int __init mtkts_btsnrpa_init(void)
+int  mtkts_btsnrpa_init(void)
 {
 	struct proc_dir_entry *entry = NULL;
 	struct proc_dir_entry *mtkts_btsnrpa_dir = NULL;
@@ -1454,14 +1446,15 @@ static int __init mtkts_btsnrpa_init(void)
 	return 0;
 }
 
-static void __exit mtkts_btsnrpa_exit(void)
+void  mtkts_btsnrpa_exit(void)
 {
 	mtkts_btsnrpa_dprintk("[%s]\n", __func__);
 	mtkts_btsnrpa_unregister_thermal();
+	platform_driver_unregister(&mtk_thermal_btsnrpa_driver);
 	/* mtkts_btsnrpa_unregister_cooler(); */
 }
 
-module_init(mtkts_btsnrpa_init);
-module_exit(mtkts_btsnrpa_exit);
+//module_init(mtkts_btsnrpa_init);
+//module_exit(mtkts_btsnrpa_exit);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("MediaTek Inc.");
