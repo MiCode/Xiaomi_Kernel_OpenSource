@@ -31,6 +31,12 @@ struct cm_mgr_hook {
 	void (*cm_mgr_perf_set_status)(int);
 };
 
+enum cm_mgr_display_ {
+	CM_MGR_MAIN_SCREEN = 0,
+	CM_MGR_SUB_SCREEN,
+	CM_MGR_DISPLAY_MAX,
+};
+
 #if !IS_ENABLED(CONFIG_MTK_CM_IPI)
 #define CM_MGR_D_LEN		(2)
 #define IPI_CM_MGR_INIT 0
