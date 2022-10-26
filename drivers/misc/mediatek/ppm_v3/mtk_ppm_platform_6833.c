@@ -18,9 +18,9 @@
 #include "mtk_unified_power.h"
 
 // todo: thermal by pass
-//#if IS_ENABLED(CONFIG_THERMAL)
-//#include "mach/mtk_thermal.h"
-//#endif
+#if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
+#include "mach/mtk_thermal.h"
+#endif
 
 
 unsigned int __attribute__((weak)) mt_cpufreq_get_cur_volt(unsigned int id)
@@ -126,26 +126,25 @@ static int ppm_cpu_up(unsigned int cpu)
 	return 0;
 }
 
-// #if IS_ENABLED(CONFIG_THERMAL)
-// static unsigned int ppm_get_cpu_temp(enum ppm_cluster cluster)
-// {
-//	unsigned int temp = 85;
+#if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
+static unsigned int ppm_get_cpu_temp(enum ppm_cluster cluster)
+{
+	unsigned int temp = 85;
 
-//	switch (cluster) {
-//	case PPM_CLUSTER_L:
-//		temp = get_immediate_cpuL_wrap() / 1000;
-//		break;
-//	case PPM_CLUSTER_B:
-//		temp = get_immediate_cpuB_wrap() / 1000;
-//		break;
-//	default:
-//		ppm_err("@%s: invalid cluster id = %d\n", __func__, cluster);
-//		break;
-//	}
-
-//	return temp;
-// }
-// #endif
+	switch (cluster) {
+	case PPM_CLUSTER_L:
+		temp = get_immediate_cpuL_wrap() / 1000;
+		break;
+	case PPM_CLUSTER_B:
+		temp = get_immediate_cpuB_wrap() / 1000;
+		break;
+	default:
+		ppm_err("@%s: invalid cluster id = %d\n", __func__, cluster);
+		break;
+	}
+	return temp;
+}
+#endif
 
 static int ppm_get_spower_devid(enum ppm_cluster cluster)
 {
@@ -314,11 +313,11 @@ unsigned int mt_ppm_get_leakage_mw(enum ppm_cluster_lkg cluster)
 		for_each_ppm_clusters(i) {
 			if (!cl_status[i].core_num)
 				continue;
-// #if IS_ENABLED(CONFIG_THERMAL)
-//			temp = ppm_get_cpu_temp((enum ppm_cluster)i);
-// #else
+#if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
+			temp = ppm_get_cpu_temp((enum ppm_cluster)i);
+ #else
 			temp = 85;
-// #endif
+ #endif
 			volt = mt_cpufreq_get_cur_volt(i) / 100;
 			dev_id = ppm_get_spower_devid((enum ppm_cluster)i);
 			if (dev_id < 0)
@@ -327,11 +326,11 @@ unsigned int mt_ppm_get_leakage_mw(enum ppm_cluster_lkg cluster)
 			mw += mt_spower_get_leakage(dev_id, volt, temp);
 		}
 	} else {
-// #if IS_ENABLED(CONFIG_THERMAL)
-//		temp = ppm_get_cpu_temp((enum ppm_cluster)cluster);
-// #else
+ #if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
+		temp = ppm_get_cpu_temp((enum ppm_cluster)cluster);
+ #else
 		temp = 85;
-// #endif
+ #endif
 		volt = mt_cpufreq_get_cur_volt(cluster) / 100;
 		dev_id = ppm_get_spower_devid((enum ppm_cluster)cluster);
 		if (dev_id < 0)

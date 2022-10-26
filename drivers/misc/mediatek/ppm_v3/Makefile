@@ -18,6 +18,8 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/include/			\
 	-I$(srctree)/drivers/misc/mediatek/include/ppm_v3		\
 	-I$(srctree)/drivers/misc/mediatek/include/upower		\
+	-I$(srctree)/drivers/gpu/mediatek/gpufreq/			\
+	-I$(srctree)/drivers/misc/mediatek/thermal/inc/			\
 	-I$(srctree)/drivers/misc/mediatek/include/leakage_table_v2	\
 	-I$(srctree)/drivers/misc/mediatek/cpufreq_v2/inc
 
