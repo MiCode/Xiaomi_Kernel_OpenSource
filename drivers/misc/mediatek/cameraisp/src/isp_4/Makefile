@@ -20,7 +20,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cam_timesync/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccu/inc/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccu/src/
-
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mdp/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
 

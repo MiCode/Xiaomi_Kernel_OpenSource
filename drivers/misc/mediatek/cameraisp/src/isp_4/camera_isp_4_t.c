@@ -66,6 +66,8 @@
 /*for kernel log count*/
 #define _K_LOG_ADJUST (0)//wait log owner rdy
 
+#include <cmdq_helper_ext.h>
+
 #if IS_ENABLED(CONFIG_COMPAT)
 /* 64 bit */
 #include <linux/fs.h>
@@ -174,7 +176,6 @@ do {    \
 /******************************************************************************
  *
  *****************************************************************************/
-#define DUMP_GCE_TPIPE  0
 
 
 /**
@@ -484,24 +485,10 @@ static struct isp_sec_dapc_reg lock_reg;
 static unsigned int sec_on;
 #endif
 
-// #define AEE_DUMP_BY_USING_ION_MEMORY
 #define AEE_DUMP_REDUCE_MEMORY
 #ifdef AEE_DUMP_REDUCE_MEMORY
 /* ion */
 
-#ifdef AEE_DUMP_BY_USING_ION_MEMORY
-
-
-struct isp_imem_memory {
-	void *handle;
-	int ion_fd;
-	uint64_t va;
-	uint32_t pa;
-	uint32_t length;
-};
-
-static struct isp_imem_memory g_isp_p2_imem_buf;
-#endif
 static bool g_bIonBufferAllocated;
 static unsigned int *g_pPhyISPBuffer;
 /* Kernel Warning */
@@ -3941,98 +3928,6 @@ static int32_t ISP_GetWaitQCamsvIrqIndex(
 
 	return index;
 }
-
-/******************************************************************************
- *
- *****************************************************************************/
-#ifdef AEE_DUMP_BY_USING_ION_MEMORY
-#ifdef P2_HELP
-// k69v1_64_k510 FIXME
-static int isp_allocbuf(struct isp_imem_memory *pMemInfo)
-{
-	int ret = 0;
-	struct ion_mm_data mm_data;
-	struct ion_sys_data sys_data;
-	struct ion_handle *handle = NULL;
-
-	if (pMemInfo == NULL) {
-		LOG_NOTICE("pMemInfo is NULL!!\n");
-		ret = -ENOMEM;
-		goto isp_allocbuf_exit;
-	}
-
-	if (isp_p2_ion_client == NULL) {
-		LOG_NOTICE("isp_p2_ion_client is NULL!!\n");
-		ret = -ENOMEM;
-		goto isp_allocbuf_exit;
-	}
-
-	handle = ion_alloc(isp_p2_ion_client, pMemInfo->length, 0,
-				ION_HEAP_MULTIMEDIA_MASK, 0);
-	if (handle == NULL) {
-		LOG_NOTICE("fail to alloc ion buffer, ret=%d\n", ret);
-		ret = -ENOMEM;
-		goto isp_allocbuf_exit;
-	}
-	pMemInfo->handle = (void *) handle;
-
-	pMemInfo->va = (uintptr_t) ion_map_kernel(isp_p2_ion_client, handle);
-	if (pMemInfo->va == 0) {
-		LOG_NOTICE("fail to map va of buffer!\n");
-		ret = -ENOMEM;
-		goto isp_allocbuf_exit;
-	}
-
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
-	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.config_buffer_param.module_id = 0;
-	mm_data.config_buffer_param.security = 0;
-	mm_data.config_buffer_param.coherent = 1;
-	ret = ion_kernel_ioctl(isp_p2_ion_client, ION_CMD_MULTIMEDIA,
-				(unsigned long)&mm_data);
-	if (ret) {
-		LOG_NOTICE("fail to config ion buffer, ret=%d\n", ret);
-		ret = -ENOMEM;
-		goto isp_allocbuf_exit;
-	}
-
-	sys_data.sys_cmd = ION_SYS_GET_PHYS;
-	sys_data.get_phys_param.kernel_handle = handle;
-	ret = ion_kernel_ioctl(isp_p2_ion_client, ION_CMD_SYSTEM,
-				(unsigned long)&sys_data);
-	pMemInfo->pa = sys_data.get_phys_param.phy_addr;
-
-isp_allocbuf_exit:
-
-	if (ret < 0) {
-		if (handle)
-			ion_free(isp_p2_ion_client, handle);
-	}
-
-	return ret;
-}
-
-/******************************************************************************
- *
- *****************************************************************************/
-static void isp_freebuf(struct isp_imem_memory *pMemInfo)
-{
-	struct ion_handle *handle;
-
-	if (pMemInfo == NULL) {
-		LOG_NOTICE("pMemInfo is NULL!!\n");
-		return;
-	}
-
-	handle = (struct ion_handle *) pMemInfo->handle;
-	if (handle != NULL) {
-		ion_unmap_kernel(isp_p2_ion_client, handle);
-		ion_free(isp_p2_ion_client, handle);
-	}
-
-}
-#endif
-#endif
 
 /******************************************************************************
  *
@@ -8220,31 +8115,6 @@ static int ISP_open(
 
 	/* mutex_lock(&gDipMutex); */  /* Protect the Multi Process */
 	g_bIonBufferAllocated = MFALSE;
-#ifdef AEE_DUMP_BY_USING_ION_MEMORY
-	g_isp_p2_imem_buf.handle = NULL;
-	g_isp_p2_imem_buf.ion_fd = 0;
-	g_isp_p2_imem_buf.va = 0;
-	g_isp_p2_imem_buf.pa = 0;
-	g_isp_p2_imem_buf.length = ((4*ISP_DIP_REG_SIZE)
-	 + (2*MAX_ISP_TILE_TDR_HEX_NO)
-	 + (2*MAX_ISP_CMDQ_BUFFER_SIZE) + (8*0x400));
-#ifdef P2_HELP
-	// k69v1_64_k510 FIXME
-	isp_p2_ion_client = NULL;
-	if ((isp_p2_ion_client == NULL) && (g_ion_device))
-		isp_p2_ion_client = ion_client_create(g_ion_device, "isp_p2");
-	if (isp_p2_ion_client == NULL) {
-		LOG_NOTICE("invalid isp_p2_ion_client client!\n");
-	} else {
-		if (isp_allocbuf(&g_isp_p2_imem_buf) >= 0)
-			g_bIonBufferAllocated = MTRUE;
-	}
-#endif
-	if (g_bIonBufferAllocated == MTRUE)
-		g_pPhyISPBuffer = (unsigned int *)(uintptr_t)
-			(g_isp_p2_imem_buf.va);
-
-#endif
 	if (g_bIonBufferAllocated == MTRUE) {
 		g_pTuningBuffer = (unsigned int *)((
 			(uintptr_t)g_pPhyISPBuffer) + ISP_DIP_REG_SIZE);
@@ -8586,44 +8456,9 @@ static int ISP_release(
 			vfree(g_pKWVirISPBuffer);
 			g_pKWVirISPBuffer = NULL;
 		}
-	} else {
-#ifdef AEE_DUMP_BY_USING_ION_MEMORY
-		if (g_isp_p2_imem_buf.handle != NULL) {
-#ifdef P2_HELP
-			// k69v1_64_k510 FIXME:
-			isp_freebuf(&g_isp_p2_imem_buf);
-#endif
-			g_isp_p2_imem_buf.handle = NULL;
-			g_isp_p2_imem_buf.ion_fd = 0;
-			g_isp_p2_imem_buf.va = 0;
-			g_isp_p2_imem_buf.pa = 0;
-		}
-		g_bIonBufferAllocated = MFALSE;
-		/* Navtive Exception */
-		g_pPhyISPBuffer = NULL;
-		g_pTuningBuffer = NULL;
-		g_pTpipeBuffer = NULL;
-		g_pVirISPBuffer = NULL;
-		g_pCmdqBuffer = NULL;
-		/* Kernel Exception */
-		g_pKWTpipeBuffer = NULL;
-		g_pKWCmdqBuffer = NULL;
-		g_pKWVirISPBuffer = NULL;
-#endif
 	}
 	/* mutex_unlock(&gDipMutex); */
 
-#ifdef AEE_DUMP_BY_USING_ION_MEMORY
-#ifdef P2_HELP
-	// k69v1_64_k510 FIXME
-	if (isp_p2_ion_client != NULL) {
-		ion_client_destroy(isp_p2_ion_client);
-		isp_p2_ion_client = NULL;
-	} else {
-		LOG_NOTICE("isp_p2_ion_client is NULL!!\n");
-	}
-#endif
-#endif
 	/* reset backup regs*/
 	memset(g_BkReg, 0, sizeof(struct _isp_bk_reg_t) * ISP_IRQ_TYPE_AMOUNT);
 
@@ -10141,9 +9976,7 @@ static int __init ISP_Init(void)
 #ifndef EP_CODE_MARK_CMDQ
 	/* Register ISP callback */
 	pr_info("register isp callback for MDP");
-#ifdef P2_HELP
-	// k69v1_64_k510 FIXME:
-	cmdqCoreRegisterCB(CMDQ_GROUP_ISP,
+	cmdqCoreRegisterCB(mdp_get_group_isp(),
 		ISP_MDPClockOnCallback,
 		ISP_MDPDumpCallback,
 		ISP_MDPResetCallback,
@@ -10153,7 +9986,6 @@ static int __init ISP_Init(void)
 	// k69v1_64_k510 FIXME:
 	cmdqCoreRegisterDebugRegDumpCB(ISP_BeginGCECallback,
 		ISP_EndGCECallback);
-#endif
 #endif
 	/* m4u_enable_tf(M4U_PORT_CAM_IMGI, 0);*/
 
@@ -10185,9 +10017,7 @@ static void __exit ISP_Exit(void)
 	/*  */
 #ifndef EP_CODE_MARK_CMDQ
 	/* Unregister ISP callback */
-#ifdef P2_HELP
-	// k69v1_64_k510 FIXME:
-	cmdqCoreRegisterCB(CMDQ_GROUP_ISP,
+	cmdqCoreRegisterCB(mdp_get_group_isp(),
 			NULL,
 			NULL,
 			NULL,
@@ -10196,7 +10026,6 @@ static void __exit ISP_Exit(void)
 	pr_info("Un-register isp callback for GCE");
 	// k69v1_64_k510 FIXME:
 	cmdqCoreRegisterDebugRegDumpCB(NULL, NULL);
-#endif
 #endif
 
 
@@ -10295,15 +10124,6 @@ int32_t ISP_EndGCECallback(uint32_t taskID, uint32_t regCount,
 	uint32_t add[PER_LINE_LOG_SIZE];
 	uint32_t val[PER_LINE_LOG_SIZE];
 
-#if DUMP_GCE_TPIPE
-	int32_t tpipePA;
-	int32_t ctlStart;
-	unsigned long map_va = 0;
-	uint32_t map_size;
-	int32_t *pMapVa;
-	#define TPIPE_DUMP_SIZE    200
-#endif
-
 	pr_info("End taskID(%d),regCount(%d)", taskID, regCount);
 
 	for (i = 0; i < regCount; i += PER_LINE_LOG_SIZE) {
@@ -10322,55 +10142,6 @@ int32_t ISP_EndGCECallback(uint32_t taskID, uint32_t regCount,
 			add[5], val[5], add[6], val[6], add[7], val[7],
 			add[8], val[8], add[9], val[9]);
 	}
-
-#if DUMP_GCE_TPIPE
-	/* tpipePA = ISP_RD32(ISP_IMGSYS_BASE_PHY_KK + 0x204); */
-	tpipePA = val[7];
-	/* ctlStart = ISP_RD32(ISP_IMGSYS_BASE_PHY_KK + 0x000); */
-	ctlStart = val[0];
-
-	pr_info("kk:tpipePA(0x%x), ctlStart(0x%x)", tpipePA, ctlStart);
-
-	if ((tpipePA)) {
-#ifdef AEE_DUMP_BY_USING_ION_MEMORY
-		tpipePA = tpipePA&0xfffff000;
-		struct isp_imem_memory isp_p2GCEdump_imem_buf;
-
-		struct ion_client *isp_p2GCEdump_ion_client;
-
-		isp_p2GCEdump_imem_buf.handle = NULL;
-		isp_p2GCEdump_imem_buf.ion_fd = 0;
-		isp_p2GCEdump_imem_buf.va = 0;
-		isp_p2GCEdump_imem_buf.pa = 0;
-		isp_p2GCEdump_imem_buf.length = TPIPE_DUMP_SIZE;
-		if ((isp_p2_ion_client == NULL) && (g_ion_device)) {
-			isp_p2_ion_client =
-				ion_client_create(g_ion_device, "isp_p2");
-		}
-		if (isp_p2_ion_client == NULL)
-			LOG_NOTICE("invalid isp_p2_ion_client client!\n");
-		if (isp_allocbuf(&isp_p2GCEdump_imem_buf) >= 0) {
-			pMapVa = (int *)isp_p2GCEdump_imem_buf.va;
-		pr_info("ctlStart(0x%x),tpipePA(0x%x)", ctlStart, tpipePA);
-
-		if (pMapVa) {
-			for (i = 0; i < TPIPE_DUMP_SIZE; i += 10) {
-				pr_info("[idx(%d)]%08X-%08X-%08X-%08X-%08X-%08X-%08X-%08X-%08X-%08X",
-					i, pMapVa[i], pMapVa[i+1], pMapVa[i+2],
-					pMapVa[i+3], pMapVa[i+4],
-					pMapVa[i+5], pMapVa[i+6], pMapVa[i+7],
-					pMapVa[i+8], pMapVa[i+9]);
-			}
-		}
-			isp_freebuf(&isp_p2GCEdump_imem_buf);
-			isp_p2GCEdump_imem_buf.handle = NULL;
-			isp_p2GCEdump_imem_buf.ion_fd = 0;
-			isp_p2GCEdump_imem_buf.va = 0;
-			isp_p2GCEdump_imem_buf.pa = 0;
-		}
-#endif
-	}
-#endif
 
 	return 0;
 }
