@@ -841,7 +841,7 @@
 	};
 
 	atf_logger: atf_logger {
-		compatible = "mediatek,tfa_debug";
+		compatible = "mediatek,atf_logger";
 	};
 
 	dcm: dcm@10001000 {
