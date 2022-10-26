@@ -342,6 +342,7 @@ enum KERN_FUNC_ID {
 	ID_LWA_CONTROL_MSG,	/* for Wi-Fi driver */
 	ID_UPDATE_TX_POWER,	/* for SWTP */
 	ID_AP2MD_LOWPWR,	/* for AP2MD LOWPWR*/
+	ID_GET_MD_BOOT_CNT,	/* for thermal */
 };
 
 /* AP<->MD messages on control or system channel */

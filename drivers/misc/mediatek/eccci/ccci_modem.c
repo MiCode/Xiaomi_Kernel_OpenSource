@@ -2459,6 +2459,9 @@ int exec_ccci_kern_func_by_md_id(int md_id, unsigned int id, char *buf,
 		ret = ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX,
 			id, tmp_data, 0);
 		break;
+	case ID_GET_MD_BOOT_CNT:
+		ret = ccci_get_md_boot_count(md_id);
+		break;
 	default:
 		ret = -CCCI_ERR_FUNC_ID_ERROR;
 		break;
