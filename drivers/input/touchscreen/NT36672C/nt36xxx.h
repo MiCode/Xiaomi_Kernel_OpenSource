@@ -66,7 +66,7 @@
 #define NVT_ERR(fmt, args...)    pr_info("[%s] %s %d: " fmt, NVT_SPI_NAME, __func__, __LINE__, ##args)
 
 //---Input device info.---
-#define NVT_TS_NAME "NVTCapacitiveTouchScreen"
+#define NVT_TS_NAME "mtk-tpd"
 
 
 //---Touch info.---
