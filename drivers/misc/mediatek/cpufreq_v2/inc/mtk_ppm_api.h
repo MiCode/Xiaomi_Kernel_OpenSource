@@ -104,6 +104,9 @@ extern void mt_ppm_set_dvfs_table(unsigned int cpu,
 extern void mt_ppm_register_client(enum ppm_client client,
 	void (*limit)(struct ppm_client_req req));
 
+/* DVFS */
+extern void mt_cpufreq_get_cur_volt_register(void *callback);
+
 /* SYS boost policy */
 extern void mt_ppm_sysboost_core(enum ppm_sysboost_user user,
 	unsigned int core_num);

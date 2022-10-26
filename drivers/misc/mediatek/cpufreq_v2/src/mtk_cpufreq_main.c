@@ -1749,7 +1749,9 @@ static int _mt_cpufreq_pdrv_probe(struct platform_device *pdev)
 	}
 	mt_ppm_register_client(PPM_CLIENT_DVFS, &ppm_limit_callback);
 	pm_notifier(_mt_cpufreq_pm_callback, 0);
-
+#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6833)
+	mt_cpufreq_get_cur_volt_register(mt_cpufreq_get_cur_volt);
+#endif
 	mt_ppm_get_cluster_ptpod_fix_freq_idx_register(mt_cpufreq_find_Vboot_idx);
 	FUNC_EXIT(FUNC_LV_MODULE);
 

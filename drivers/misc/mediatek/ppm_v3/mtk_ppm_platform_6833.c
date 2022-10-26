@@ -17,17 +17,23 @@
 #include "mtk_static_power.h"
 #include "mtk_unified_power.h"
 
-// todo: thermal by pass
 #if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
 #include "mach/mtk_thermal.h"
 #endif
 
 
-unsigned int __attribute__((weak)) mt_cpufreq_get_cur_volt(unsigned int id)
-{
-	return 0;
-}
+static unsigned int (*mt_cpufreq_get_cur_volt_cb)(unsigned int);
 
+void mt_cpufreq_get_cur_volt_register(void *cb)
+{
+	mt_cpufreq_get_cur_volt_cb = cb;
+}
+EXPORT_SYMBOL(mt_cpufreq_get_cur_volt_register);
+
+static unsigned int mt_cpufreq_get_cur_volt_get(i)
+{
+	return mt_cpufreq_get_cur_volt_cb ? mt_cpufreq_get_cur_volt_cb(i) : 0;
+}
 
 #ifdef PPM_SSPM_SUPPORT
 static void *online_core;
@@ -42,7 +48,7 @@ static void ppm_get_cluster_status(struct ppm_cluster_status *cl_status)
 		cpumask_and(&online_cpu, &cluster_cpu, cpu_online_mask);
 
 		cl_status[i].core_num = cpumask_weight(&online_cpu);
-		cl_status[i].volt = mt_cpufreq_get_cur_volt(i) / 100;
+		cl_status[i].volt = mt_cpufreq_get_cur_volt_get(i) / 100;
 		cl_status[i].freq_idx =
 			ppm_main_freq_to_idx(i,
 					mt_cpufreq_get_cur_phy_freq_no_lock(i),
@@ -315,10 +321,10 @@ unsigned int mt_ppm_get_leakage_mw(enum ppm_cluster_lkg cluster)
 				continue;
 #if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
 			temp = ppm_get_cpu_temp((enum ppm_cluster)i);
- #else
+#else
 			temp = 85;
- #endif
-			volt = mt_cpufreq_get_cur_volt(i) / 100;
+#endif
+			volt = mt_cpufreq_get_cur_volt_get(i) / 100;
 			dev_id = ppm_get_spower_devid((enum ppm_cluster)i);
 			if (dev_id < 0)
 				return 0;
@@ -326,12 +332,12 @@ unsigned int mt_ppm_get_leakage_mw(enum ppm_cluster_lkg cluster)
 			mw += mt_spower_get_leakage(dev_id, volt, temp);
 		}
 	} else {
- #if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
+#if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
 		temp = ppm_get_cpu_temp((enum ppm_cluster)cluster);
- #else
+#else
 		temp = 85;
- #endif
-		volt = mt_cpufreq_get_cur_volt(cluster) / 100;
+#endif
+		volt = mt_cpufreq_get_cur_volt_get(cluster) / 100;
 		dev_id = ppm_get_spower_devid((enum ppm_cluster)cluster);
 		if (dev_id < 0)
 			return 0;
