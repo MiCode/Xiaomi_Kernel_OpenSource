@@ -735,11 +735,13 @@ int mtk_mmqos_probe(struct platform_device *pdev)
 
 	mmqos->max_ratio = mmqos_desc->max_ratio;
 
-	pr_notice("[mmqos] mmqos probe state: %d", mmqos_state);
-	if (of_property_read_bool(pdev->dev.of_node, "disable-mmqos")) {
+	if (of_property_read_bool(pdev->dev.of_node, "disable-mmqos"))
 		mmqos_state = MMQOS_DISABLE;
-		pr_notice("[mmqos] mmqos init disable: %d", mmqos_state);
-	}
+	if (of_property_read_bool(pdev->dev.of_node, "disable-ostd"))
+		mmqos_state &= ~OSTD_ENABLE;
+	if (of_property_read_bool(pdev->dev.of_node, "disable-bwl"))
+		mmqos_state &= ~BWL_ENABLE;
+	pr_notice("[mmqos] mmqos probe state: %d", mmqos_state);
 
 	/*
 	mmqos->wq = create_singlethread_workqueue("mmqos_work_queue");
