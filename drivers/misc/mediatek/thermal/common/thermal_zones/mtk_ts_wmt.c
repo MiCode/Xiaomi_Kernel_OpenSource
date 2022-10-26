@@ -480,8 +480,8 @@ static void wmt_cal_stats(struct timer_list *t)
 		if (tx_bytes > stats_info->pre_tx_bytes) {
 
 			tx_throughput =
-			    ((tx_bytes - stats_info->pre_tx_bytes)
-					/ (cur_time.tv_sec - pre_time)) >> 7;
+			    div_u64((tx_bytes - stats_info->pre_tx_bytes),
+					(cur_time.tv_sec - pre_time)) >> 7;
 
 			wmt_tm_dprintk(
 				"[%s] cur_time=%lu, cur_data=%lu, tx_throughput=%luK bit/s(%luK Byte/s)\n",
@@ -491,9 +491,9 @@ static void wmt_cal_stats(struct timer_list *t)
 			stats_info->pre_tx_bytes = tx_bytes;
 		} else if (tx_bytes < stats_info->pre_tx_bytes) {
 			/* Overflow */
-			tx_throughput = ((0xffffffff -
-					stats_info->pre_tx_bytes + tx_bytes)
-					/ (cur_time.tv_sec - pre_time)) >> 7;
+			tx_throughput = div_u64((0xffffffff -
+					stats_info->pre_tx_bytes + tx_bytes),
+					(cur_time.tv_sec - pre_time)) >> 7;
 
 			stats_info->pre_tx_bytes = tx_bytes;
 			wmt_tm_dprintk("[%s] cur_tx(%lu) < pre_tx\n", __func__,
