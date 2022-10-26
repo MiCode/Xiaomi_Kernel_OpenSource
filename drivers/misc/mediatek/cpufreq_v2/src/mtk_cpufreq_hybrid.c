@@ -228,7 +228,7 @@ int Ripi_cpu_dvfs_thread(void *data)
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_SSPM_VER_V2)
 		mtk_ipi_recv(&sspm_ipidev, IPIR_C_GPU_DVFS);
 #else
-		mtk_ipi_recv(&mcupm_ipidev, CH_S_CPU_DVFS);
+		mtk_ipi_recv(get_mcupm_ipidev(), CH_S_CPU_DVFS);
 #endif
 #else
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_SSPM_VER_V2)
@@ -429,7 +429,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 #if defined(USE_SSPM_VER_V2)
 		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_GPU_DVFS,
 #else
-		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
+		ret = mtk_ipi_send_compl(get_mcupm_ipidev(), CH_S_CPU_DVFS,
 #endif
 			IPI_SEND_POLLING, cdvfs_d,
 			sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
@@ -452,7 +452,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 #if defined(USE_SSPM_VER_V2)
 		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_GPU_DVFS,
 #else
-		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
+		ret = mtk_ipi_send_compl(get_mcupm_ipidev(), CH_S_CPU_DVFS,
 #endif
 			IPI_SEND_POLLING, cdvfs_d,
 			sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
@@ -476,7 +476,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 #if defined(USE_SSPM_VER_V2)
 		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_GPU_DVFS,
 #else
-		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
+		ret = mtk_ipi_send_compl(get_mcupm_ipidev(), CH_S_CPU_DVFS,
 #endif
 				IPI_SEND_POLLING, cdvfs_d,
 				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE,
@@ -506,7 +506,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 #if defined(USE_SSPM_VER_V2)
 		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_GPU_DVFS,
 #else
-		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
+		ret = mtk_ipi_send_compl(get_mcupm_ipidev(), CH_S_CPU_DVFS,
 #endif
 			IPI_SEND_POLLING, cdvfs_d,
 			sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
@@ -528,7 +528,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 #if defined(USE_SSPM_VER_V2)
 		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_GPU_DVFS,
 #else
-		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
+		ret = mtk_ipi_send_compl(get_mcupm_ipidev(), CH_S_CPU_DVFS,
 #endif
 			IPI_SEND_POLLING, cdvfs_d,
 			sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
@@ -550,7 +550,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 #if defined(USE_SSPM_VER_V2)
 		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_GPU_DVFS,
 #else
-		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
+		ret = mtk_ipi_send_compl(get_mcupm_ipidev(), CH_S_CPU_DVFS,
 #endif
 			IPI_SEND_POLLING, cdvfs_d,
 			sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
@@ -574,7 +574,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 #if defined(USE_SSPM_VER_V2)
 		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_GPU_DVFS,
 #else
-		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
+		ret = mtk_ipi_send_compl(get_mcupm_ipidev(), CH_S_CPU_DVFS,
 #endif
 			IPI_SEND_POLLING, cdvfs_d,
 			sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
@@ -599,7 +599,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 #if defined(USE_SSPM_VER_V2)
 		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_GPU_DVFS,
 #else
-		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
+		ret = mtk_ipi_send_compl(get_mcupm_ipidev(), CH_S_CPU_DVFS,
 #endif
 			IPI_SEND_POLLING, cdvfs_d,
 			sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 4000);
@@ -622,7 +622,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 #if defined(USE_SSPM_VER_V2)
 		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_GPU_DVFS,
 #else
-		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
+		ret = mtk_ipi_send_compl(get_mcupm_ipidev(), CH_S_CPU_DVFS,
 #endif
 			IPI_SEND_POLLING, cdvfs_d,
 			sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
@@ -647,7 +647,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 #if defined(USE_SSPM_VER_V2)
 		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_GPU_DVFS,
 #else
-		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_CPU_DVFS,
+		ret = mtk_ipi_send_compl(get_mcupm_ipidev(), CH_S_CPU_DVFS,
 #endif
 				IPI_SEND_POLLING, cdvfs_d,
 				sizeof(struct cdvfs_data)/MBOX_SLOT_SIZE, 2000);
@@ -1908,7 +1908,7 @@ int cpuhvfs_pre_module_init(void)
 	if (ret)
 		return -1;
 #else
-	mtk_ipi_register(&mcupm_ipidev, CH_S_CPU_DVFS, NULL, NULL,
+	mtk_ipi_register(get_mcupm_ipidev(), CH_S_CPU_DVFS, NULL, NULL,
 		(void *) &cpufreq_buf);
 #endif
 #else

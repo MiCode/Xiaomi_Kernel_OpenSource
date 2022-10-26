@@ -24,3 +24,11 @@ config MEDIATEK_CPU_DVFS_MT6765
 	  for power management.
 	  Set Y to select this feature for specific platform-MT6765.
 	  If unsure, set N to disable.
+config MEDIATEK_CPU_DVFS_MT6833
+	tristate "Specify Mediatek CPU_DVFS Platform is MT6765"
+	depends on MEDIATEK_CPU_DVFS
+	help
+	  Select MediaTek Low Power Module Platform is MT6765
+	  for power management.
+	  Set Y to select this feature for specific platform-MT6765.
+	  If unsure, set N to disable.

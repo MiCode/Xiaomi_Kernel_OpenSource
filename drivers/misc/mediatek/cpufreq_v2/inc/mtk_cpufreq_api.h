@@ -46,7 +46,8 @@ extern unsigned int mt_cpufreq_get_cur_volt(unsigned int cluster_id);
 typedef void (*mt_cpufreq_set_ptbl_funcPTP)(unsigned int cluster_id,
 	int restore);
 extern void mt_cpufreq_set_ptbl_registerCB(mt_cpufreq_set_ptbl_funcPTP pCB);
-
+extern int mt_cpufreq_update_legacy_volt(unsigned int cluster_id,
+			unsigned int *volt_tbl, int nr_volt_tbl);
 extern int mt_cpufreq_update_volt(unsigned int cluster_id,
 	unsigned int *volt_tbl, int nr_volt_tbl);
 extern unsigned int mt_cpufreq_get_cur_volt(unsigned int cluster_id);
