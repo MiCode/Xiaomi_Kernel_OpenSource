@@ -12,5 +12,5 @@
 #
 
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += mailbox/
-
+obj-$(CONFIG_MTK_MT6382_BDG) += bridge/
 # EOF

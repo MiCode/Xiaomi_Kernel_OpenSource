@@ -172,7 +172,10 @@ struct cmdq_pkt {
 	struct cmdq_pkt_err	err_data;
 	cmdq_aee_cb		aee_cb;
 	u32			vcp_eng;
-
+#if IS_ENABLED(CONFIG_MTK_MT6382_BDG)
+	void			*bdg_data;
+	bool			reuse;
+#endif
 	struct work_struct	destroy_work;
 };
 
