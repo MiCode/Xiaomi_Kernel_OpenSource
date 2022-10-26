@@ -547,7 +547,7 @@ static int mtk8250_probe(struct platform_device *pdev)
 	struct uart_8250_port uart = {};
 	struct mtk8250_data *data;
 	struct resource *regs;
-	int irq, err;
+	int irq, err, id;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
@@ -596,6 +596,12 @@ static int mtk8250_probe(struct platform_device *pdev)
 	if (data->dma)
 		uart.dma = data->dma;
 #endif
+	/* Get serial line which configed in DT aliases */
+	id = of_alias_get_id(pdev->dev.of_node, "serial");
+	if (id >= 0) {
+		uart.port.line = id;
+		data->line = id;
+	}
 
 	/* Disable Rate Fix function */
 	writel(0x0, uart.port.membase +
