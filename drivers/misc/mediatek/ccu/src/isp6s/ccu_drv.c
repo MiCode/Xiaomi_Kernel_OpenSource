@@ -597,40 +597,50 @@ static int ccu_free_command(struct ccu_cmd_s *cmd)
 int ccu_clock_enable(void)
 {
 	int ret = 0;
+	int i = 0;
 
-	LOG_INF_MUST("%s, 2 clks, 2 pwr. %d\n", __func__, _clk_count);
+	LOG_INF_MUST("%s, 6 clks, 1 pwr. %d\n", __func__, _clk_count);
 
 	mutex_lock(&g_ccu_device->clk_mutex);
 
 	ret = mtk_smi_larb_get(g_ccu_device->smi_dev);
-	if (ret)
+	if (ret) {
 		LOG_ERR("mtk_smi_larb_get fail.\n");
+		mutex_unlock(&g_ccu_device->clk_mutex);
+		return ret;
+	}
 
 	ret = pm_runtime_get_sync(g_ccu_device->dev);
-	if (ret)
+	if (ret) {
+		mtk_smi_larb_put(g_ccu_device->smi_dev);
 		LOG_ERR("pm_runtime_get_sync fail.\n");
+		mutex_unlock(&g_ccu_device->clk_mutex);
+		return ret;
+	}
 
-	_clk_count++;
 #ifdef CCU_QOS_SUPPORT_ENABLE
 	ccu_qos_init(g_ccu_device);
 #endif
 #ifndef CCU_LDVT
-	ret = clk_prepare_enable(ccu_clk_pwr_ctrl[0]);
-	if (ret)
-		LOG_ERR("CCU_CLK_TOP_MUX enable fail.\n");
+	for (i = 0; (i < clock_num) && (i < CCU_CLK_PWR_NUM); ++i) {
+		ret = clk_prepare_enable(ccu_clk_pwr_ctrl[i]);
+		if (ret) {
+			LOG_ERR("failed to enable CCU clocks #%d %s\n",
+				i, clock_name[i].name);
+			goto ERROR;
+		}
+	}
 
-	// ret = clk_prepare_enable(ccu_clk_pwr_ctrl[1]);
-	// if (ret)
-	//	LOG_ERR("MDP_PWR enable fail.\n");
+	_clk_count++;
+	mutex_unlock(&g_ccu_device->clk_mutex);
+	return ret;
 
-	// ret = clk_prepare_enable(ccu_clk_pwr_ctrl[2]);
-	// if (ret)
-	//	LOG_ERR("CAM_PWR enable fail.\n");
+ERROR:
+	for (--i; i >= 0 ; --i)
+		clk_disable_unprepare(ccu_clk_pwr_ctrl[i]);
 
-	ret = clk_prepare_enable(ccu_clk_pwr_ctrl[1]);
-	if (ret)
-		LOG_ERR("CCU_CLK_CAM_CCU enable fail.\n");
-
+	pm_runtime_put_sync(g_ccu_device->dev);
+	mtk_smi_larb_put(g_ccu_device->smi_dev);
 
 #endif
 	mutex_unlock(&g_ccu_device->clk_mutex);
@@ -639,16 +649,16 @@ int ccu_clock_enable(void)
 
 void ccu_clock_disable(void)
 {
+	int i = 0;
+
 	LOG_DBG_MUST("%s. %d\n", __func__, _clk_count);
 
 	mutex_lock(&g_ccu_device->clk_mutex);
 #ifndef CCU_LDVT
 	if (_clk_count > 0) {
-		// clk_disable_unprepare(ccu_clk_pwr_ctrl[3]);
-		// clk_disable_unprepare(ccu_clk_pwr_ctrl[2]);
+		for (i = 0; (i < clock_num) && (i < CCU_CLK_PWR_NUM); ++i)
+			clk_disable_unprepare(ccu_clk_pwr_ctrl[i]);
 
-		clk_disable_unprepare(ccu_clk_pwr_ctrl[1]);
-		clk_disable_unprepare(ccu_clk_pwr_ctrl[0]);
 		pm_runtime_put_sync(g_ccu_device->dev);
 		mtk_smi_larb_put(g_ccu_device->smi_dev);
 		_clk_count--;
