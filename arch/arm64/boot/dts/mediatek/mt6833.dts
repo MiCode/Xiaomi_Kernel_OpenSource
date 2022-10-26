@@ -4437,7 +4437,7 @@
 		compatible = "mediatek,mt6873-i2c";
 		reg = <0 0x11f00000 0 0x1000>,
 			<0 0x10217580 0 0x80>;
-		interrupts = <GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&imp_iic_wrap_n_clk CLK_IMPN_I2C6_AP_CLOCK>,
 				<&infracfg_ao_clk CLK_IFRAO_AP_DMA>;
 		clock-names = "main", "dma";
