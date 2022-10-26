@@ -346,7 +346,7 @@ static int mtk_linear_chr_topoff(struct mtk_charger *info)
 	charging_time = ktime_to_timespec64(ktime_diff);
 
 	ktime_diff = ktime_sub(ktime_now, timespec64_to_ktime(algo_data->topoff_begin_time));
-	charging_time = ktime_to_timespec64(ktime_diff);
+	topoff_time = ktime_to_timespec64(ktime_diff);
 
 	algo_data->cc_charging_time = 0;
 	algo_data->topoff_charging_time = topoff_time.tv_sec;
@@ -498,7 +498,7 @@ static void mtk_pulse_charger_parse_dt(struct mtk_charger *info,
 				struct device *dev)
 {
 	struct device_node *np = dev->of_node;
-	u32 val;
+	u32 val = 0;
 	struct pcharger_data *algo_data;
 
 	algo_data = info->algo.algo_data;
