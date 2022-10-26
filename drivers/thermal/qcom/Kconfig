@@ -266,3 +266,10 @@ config QTI_BCL_OFF_COOLING_DEVICE
 	   These cooling devices will be used to disable bcl
 	   whenever RF calibration is performed.
 
+config QTI_VIRTUAL_SENSOR
+	tristate "QTI Virtual Thermal Sensor"
+	depends on THERMAL && THERMAL_OF
+	help
+	   This driver implements virtual sensors , which takes inputs from
+	   devicetree to give aggregated temperature of a set of thermal
+	   zones based on configurable aggregation logic.
