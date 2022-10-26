@@ -4478,10 +4478,15 @@ static int musb_probe(struct platform_device *pdev)
 
 	DBG(0, "get dr_mode: %d\n", pdata->dr_mode);
 
-
 #if IS_ENABLED(CONFIG_MTK_MUSB_DUAL_ROLE)
 	/* assign usb-role-sw */
 	otg_sx = &glue->otg_sx;
+
+	otg_sx->vbus = devm_regulator_get(&pdev->dev, "vbus");
+	if (IS_ERR(otg_sx->vbus)) {
+		dev_info(&pdev->dev, "failed to get vbus\n");
+		return PTR_ERR(otg_sx->vbus);
+	}
 
 	otg_sx->manual_drd_enabled =
 		of_property_read_bool(np, "enable-manual-drd");
