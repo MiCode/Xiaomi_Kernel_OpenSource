@@ -13,3 +13,4 @@ obj-$(CONFIG_TYPEC_MUX_DP_SELECTOR) += usb_dp_selector.o
 ifneq ($(wildcard $(srctree)/$(src)/k6983v1_64_alpha),)
 obj-$(CONFIG_TYPEC_MUX_ALPHA_FSA4480) += k6983v1_64_alpha/
 endif
+obj-$(CONFIG_OCP96011_I2C) += ocp96011-i2c.o

@@ -65,3 +65,11 @@ config TYPEC_MUX_ALPHA_FSA4480
 	  Support DP aux channel switch function.
 	  Support typec analog audio switch.
 	  Support turn on source vbus function.
+
+config OCP96011_I2C
+	tristate "analog audio switch"
+	depends on I2C
+	help
+	  The OCP96011 is a high-performance USB Type-C port multimedia swith.
+	  The OCP96011 supports USB2.0 signal, analog audio, sideband use wires
+	  and analog microphone signal.
