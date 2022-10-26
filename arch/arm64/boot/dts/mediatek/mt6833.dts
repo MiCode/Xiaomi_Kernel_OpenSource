@@ -7,6 +7,7 @@
 #include <dt-bindings/clock/mt6833-clk.h>
 #include <dt-bindings/gce/mt6833-gce.h>
 #include <dt-bindings/iio/mt635x-auxadc.h>
+#include <dt-bindings/gce/mt6382-gce.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/spmi/spmi.h>
@@ -1948,6 +1949,24 @@
 		mediatek,gce-subsys = <99>, <SUBSYS_1400XXXX>;
 		mboxes = <&gce 23 0 CMDQ_THR_PRIO_1>,
 			 <&gce 10 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
+		token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
+		token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
+	};
+
+	gce_mbox_bdg: gce_mbox_bdg {
+		compatible = "mediatek,mailbox-gce-bdg";
+		#mbox-cells = <3>;
+		#gce-event-cells = <1>;
+		#gce-subsys-cells = <2>;
+		mboxes = <&gce_mbox_bdg 20 0 CMDQ_THR_PRIO_2>,
+			 <&gce_mbox_bdg 21 0 CMDQ_THR_PRIO_1>;
+	};
+
+	cmdq-bdg-test {
+		compatible = "mediatek,cmdq-bdg-test";
+		mediatek,gce = <&gce_mbox_bdg>;
+		mboxes = <&gce_mbox_bdg 22 0 CMDQ_THR_PRIO_2>,
+			 <&gce_mbox_bdg 23 0 CMDQ_THR_PRIO_1>;
 		token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
 		token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
 	};
@@ -5456,14 +5475,24 @@
 			<&gce 2 0 CMDQ_THR_PRIO_4>,
 			<&gce 3 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
 			<&gce 4 0 CMDQ_THR_PRIO_4>,
-			<&gce 6 0 CMDQ_THR_PRIO_3>;
+			<&gce 6 0 CMDQ_THR_PRIO_3>,
+			<&gce_mbox_bdg 0 0 CMDQ_THR_PRIO_4>,
+			<&gce_mbox_bdg 1 0 CMDQ_THR_PRIO_4>,
+			<&gce_mbox_bdg 2 0 CMDQ_THR_PRIO_4>,
+			<&gce_mbox_bdg 3 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
+			<&gce_mbox_bdg 5 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>;
 
 		gce-client-names = "CLIENT_CFG0",
 			"CLIENT_CFG1",
 			"CLIENT_CFG2",
 			"CLIENT_TRIG_LOOP0",
 			"CLIENT_SUB_CFG0",
-			"CLIENT_DSI_CFG0";
+			"CLIENT_DSI_CFG0",
+			"BDG_CLIENT_CFG0",
+			"BDG_CLIENT_CFG1",
+			"BDG_CLIENT_CFG2",
+			"BDG_CLIENT_TRIG_LOOP0",
+			"BDG_CLIENT_TRIG_LOOP1";
 
 		gce-subsys = <&gce 0x14000000 SUBSYS_1400XXXX>,
 			<&gce 0x14010000 SUBSYS_1401XXXX>,
@@ -5484,7 +5513,15 @@
 			"disp_token_disp_va_start0",
 			"disp_token_disp_va_end0",
 			"disp_token_disp_va_start2",
-			"disp_token_disp_va_end2";
+			"disp_token_disp_va_end2",
+			"bdg_dsi0_sof",
+			"bdg_dsi0_eof",
+			"bdg_rdma0_sof",
+			"bdg_rdma0_eof",
+			"bdg_dsi0_te",
+			"bdg_dsi0_irq",
+			"bdg_dsi0_done",
+			"bdg_dsi0_target_line";
 
 		gce-events =
 			<&gce CMDQ_EVENT_DISP_STREAM_DONE_ENG_EVENT_0>,
@@ -5502,7 +5539,15 @@
 			<&gce CMDQ_SYNC_TOKEN_DISP_VA_START>,
 			<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>,
 			<&gce CMDQ_SYNC_TOKEN_DISP_VA_START>,
-			<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>;
+			<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>,
+			<&gce_mbox_bdg CMDQ_BRIDGE_EVENT_DISP_DSI0_SOF>,
+			<&gce_mbox_bdg CMDQ_BRIDGE_EVENT_DSI_FRAME_DONE>,
+			<&gce_mbox_bdg CMDQ_BRIDGE_EVENT_DISP_RDMA0_SOF>,
+			<&gce_mbox_bdg CMDQ_BRIDGE_EVENT_DISP_RDMA0_FRAME_DONE>,
+			<&gce_mbox_bdg CMDQ_BRIDGE_EVENT_DSI0_TE_ENG_EVENT>,
+			<&gce_mbox_bdg CMDQ_BRIDGE_EVENT_DSI0_IRQ_ENG_EVENT>,
+			<&gce_mbox_bdg CMDQ_BRIDGE_EVENT_DSI0_DONE_ENG_EVENT>,
+			<&gce_mbox_bdg CMDQ_BRIDGE_EVENT_DSI0_TARGET_LINE_EVENT>;
 
 		helper-name = "MTK_DRM_OPT_STAGE",
 			"MTK_DRM_OPT_USE_CMDQ",
@@ -5570,7 +5615,7 @@
 			<1>, /*MTK_DRM_OPT_ESD_CHECK_RECOVERY*/
 			<1>, /*MTK_DRM_OPT_ESD_CHECK_SWITCH*/
 			<1>, /*MTK_DRM_OPT_PRESENT_FENCE*/
-			<0>, /*MTK_DRM_OPT_RDMA_UNDERFLOW_AEE*/
+			<1>, /*MTK_DRM_OPT_RDMA_UNDERFLOW_AEE*/
 			<0>, /*MTK_DRM_OPT_DSI_UNDERRUN_AEE*/
 			<1>, /*MTK_DRM_OPT_HRT*/
 			<1>, /*MTK_DRM_OPT_HRT_MODE*/
@@ -5814,6 +5859,25 @@
 	dsi_te: dsi_te {
 		compatible = "mediatek, dsi_te-eint";
 		status = "disabled";
+	};
+
+	mt6382_nfc: mt6382_nfc {
+		compatible = "mediatek, mt6382_nfc-eint";
+		interrupt-parent = <&pio>;
+		interrupts = <25 IRQ_TYPE_EDGE_BOTH 25 0>;
+		mt6382_nfc_srclk = <&pio 25 0x0>;
+		status = "okay";
+	};
+
+	mt6382_eint: mt6382_eint {
+		compatible = "mediatek, mt6382_eint";
+		interrupt-parent = <&pio>;
+		interrupts = <5 IRQ_TYPE_LEVEL_HIGH 5 0>;
+		status = "okay";
+	};
+
+	bdg_support: bdg_support {
+		compatible = "mediatek,disp,6382,bdg";
 	};
 
 	disp_wdma0: disp_wdma0@14014000 {
