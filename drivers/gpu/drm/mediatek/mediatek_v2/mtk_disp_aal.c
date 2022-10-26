@@ -805,11 +805,12 @@ static void disp_aal_wait_hist(void)
 
 	if (isDualPQ) {
 		if ((atomic_read(&g_aal0_hist_available) == 0) ||
-				(atomic_read(&g_aal1_hist_available) == 0))
+				(atomic_read(&g_aal1_hist_available) == 0)) {
 			atomic_set(&g_aal_hist_wait_dualpipe, 1);
 			ret = wait_event_interruptible(g_aal_hist_wq,
 					(atomic_read(&g_aal0_hist_available) == 1) &&
 					(atomic_read(&g_aal1_hist_available) == 1));
+		}
 		AALFLOW_LOG("aal0 and aal1 hist_available = 1, waken up, ret = %d", ret);
 	} else if (atomic_read(&g_aal0_hist_available) == 0) {
 		atomic_set(&g_aal_hist_wait_dualpipe, 0);
