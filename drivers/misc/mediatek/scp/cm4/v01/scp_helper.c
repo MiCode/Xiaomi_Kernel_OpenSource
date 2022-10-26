@@ -43,11 +43,7 @@
 #endif
 
 #if ENABLE_SCP_EMI_PROTECTION
-#if IS_ENABLED(CONFIG_MTK_EMI_LEGACY)
-#include <mt_emi_api.h>
-#else
-#include "memory/mediatek/emi.h"
-#endif
+#include "soc/mediatek/emi.h"
 #endif
 
 /* scp semaphore timeout count definition */
@@ -1227,30 +1223,6 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 #endif
 
 #if ENABLE_SCP_EMI_PROTECTION
-#if IS_ENABLED(CONFIG_MTK_EMI_LEGACY)
-void set_scp_mpu(void)
-{
-	struct emi_region_info_t region_info;
-
-	region_info.region = mpu_region_id;
-	region_info.start = scp_mem_base_phys;
-	region_info.end =  scp_mem_base_phys + scp_mem_size - 0x1;
-
-	SET_ACCESS_PERMISSION(region_info.apc, UNLOCK,
-			FORBIDDEN, FORBIDDEN, FORBIDDEN, FORBIDDEN,
-			FORBIDDEN, FORBIDDEN, FORBIDDEN, FORBIDDEN,
-			FORBIDDEN, FORBIDDEN, FORBIDDEN, FORBIDDEN,
-			NO_PROTECTION, FORBIDDEN, FORBIDDEN, NO_PROTECTION);
-
-	pr_notice("[SCP] MPU protect SCP Share region<%d:%08llx:%08llx> %x, %x\n",
-			region_info.region,
-			(uint64_t)region_info.start,
-			(uint64_t)region_info.end,
-			region_info.apc[1], region_info.apc[1]);
-
-	emi_mpu_set_protection(&region_info);
-}
-#else
 void set_scp_mpu(void)
 {
 	struct emimpu_region_t md_region;
@@ -1271,7 +1243,6 @@ void set_scp_mpu(void)
 			(uint64_t)md_region.end);
 
 }
-#endif
 #endif
 
 void scp_register_feature(enum feature_id id)
