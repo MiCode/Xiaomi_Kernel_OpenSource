@@ -34,7 +34,70 @@
 			nvmem-names = "mt63xx-accdet-efuse";
 			status = "okay";
 		};
+		mt6359vcore: mt6359vcore {
+				compatible = "mediatek,mt6359vcore";
+				io-channels =
+					<&pmic_auxadc AUXADC_VCORE_TEMP>;
+				io-channel-names =
+					"pmic_buck1_temp";
+				interconnects = <&mtk_ts_pmic 1>;
+		};
 
+		mt6359vproc: mt6359vproc {
+				compatible = "mediatek,mt6359vproc";
+				io-channels =
+					<&pmic_auxadc AUXADC_VPROC_TEMP>;
+				io-channel-names =
+					"pmic_buck2_temp";
+				interconnects = <&mtk_ts_pmic 1>;
+		};
+
+		mt6359vgpu: mt6359vgpu {
+				compatible = "mediatek,mt6359vgpu";
+				io-channels =
+					<&pmic_auxadc AUXADC_VGPU_TEMP>;
+				io-channel-names =
+					"pmic_buck3_temp";
+				interconnects = <&mtk_ts_pmic 1>;
+		};
+
+		mt6359tsx: mt6359tsx {
+				compatible = "mediatek,mt6359tsx";
+				io-channels =
+					<&pmic_auxadc AUXADC_TSX_TEMP>;
+				io-channel-names =
+					"pmic_tsx_temp";
+				interconnects = <&mtk_ts_pmic 1>;
+		};
+
+		mt6359dcxo: mt6359dcxo {
+				compatible = "mediatek,mt6359dcxo";
+				io-channels =
+					<&pmic_auxadc AUXADC_DCXO_TEMP>;
+				io-channel-names =
+					"pmic_dcxo_temp";
+				interconnects = <&mtk_ts_pmic 1>;
+		};
+
+		mtk_ts_pmic: mtk_ts_pmic {
+				compatible = "mediatek,mtk_ts_pmic";
+				io-channels =
+					<&pmic_auxadc AUXADC_CHIP_TEMP>,
+					<&pmic_auxadc AUXADC_VCORE_TEMP>,
+					<&pmic_auxadc AUXADC_VPROC_TEMP>,
+					<&pmic_auxadc AUXADC_VGPU_TEMP>,
+					<&pmic_auxadc AUXADC_TSX_TEMP>,
+					<&pmic_auxadc AUXADC_DCXO_TEMP>;
+				io-channel-names =
+					"pmic_chip_temp",
+					"pmic_buck1_temp",
+					"pmic_buck2_temp",
+					"pmic_buck3_temp",
+					"pmic_tsx_temp",
+					"pmic_dcxo_temp";
+				interconnects = <&pmic_auxadc 1>;
+				#interconnect-cells = <1>;
+		};
 		mt6359pregulator: mt6359pregulator {
 			compatible = "mediatek,mt6359p-regulator";
 
