@@ -4,7 +4,6 @@
 #define TRACE_INCLUDE_PATH trace/hooks
 #if !defined(_TRACE_HOOK_GIC_V3_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_HOOK_GIC_V3_H
-#include <linux/tracepoint.h>
 #include <trace/hooks/vendor_hooks.h>
 /*
  * Following tracepoints are not exported in tracefs and provide a
@@ -17,8 +16,8 @@ DECLARE_HOOK(android_vh_gic_v3_affinity_init,
 	TP_ARGS(irq, offset, affinity));
 DECLARE_HOOK(android_vh_gic_v3_set_affinity,
 	TP_PROTO(struct irq_data *d, const struct cpumask *mask_val,
-		 u64 *affinity),
-	TP_ARGS(d, mask_val, affinity));
+		 u64 *affinity, bool force, void __iomem *base),
+	TP_ARGS(d, mask_val, affinity, force, base));
 
 #endif /* _TRACE_HOOK_GIC_V3_H */
 /* This part must be outside protection */

@@ -1,13 +1,17 @@
 .. SPDX-License-Identifier: GPL-2.0
 
-=========================================
-KUnit - Unit Testing for the Linux Kernel
-=========================================
+=================================
+KUnit - Linux Kernel Unit Testing
+=================================
 
 .. toctree::
 	:maxdepth: 2
+	:caption: Contents:
 
 	start
+	architecture
+	run_wrapper
+	run_manual
 	usage
 	kunit-tool
 	api/index
@@ -16,82 +20,103 @@ KUnit - Unit Testing for the Linux Kernel
 	tips
 	running_tips
 
-What is KUnit?
-==============
+.. warning::
+	AOSP only supports running tests loaded with modules. Built-in
+	test execution support has been disabled. In addition, in order
+	to fully enable running module loaded tests both CONFIG_KUNIT
+	needs to be enabled and kernel command line  argument
+	`kunit.enable` needs to be set to 1.
 
-KUnit is a lightweight unit testing and mocking framework for the Linux kernel.
+	The remaining KUnit documentation has been left as-is.
 
-KUnit is heavily inspired by JUnit, Python's unittest.mock, and
-Googletest/Googlemock for C++. KUnit provides facilities for defining unit test
-cases, grouping related test cases into test suites, providing common
-infrastructure for running tests, and much more.
+This section details the kernel unit testing framework.
 
-KUnit consists of a kernel component, which provides a set of macros for easily
-writing unit tests. Tests written against KUnit will run on kernel boot if
-built-in, or when loaded if built as a module. These tests write out results to
-the kernel log in `TAP <https://testanything.org/>`_ format.
+Introduction
+============
 
-To make running these tests (and reading the results) easier, KUnit offers
-:doc:`kunit_tool <kunit-tool>`, which builds a `User Mode Linux
-<http://user-mode-linux.sourceforge.net>`_ kernel, runs it, and parses the test
-results. This provides a quick way of running KUnit tests during development,
-without requiring a virtual machine or separate hardware.
+KUnit (Kernel unit testing framework) provides a common framework for
+unit tests within the Linux kernel. Using KUnit, you can define groups
+of test cases called test suites. The tests either run on kernel boot
+if built-in, or load as a module. KUnit automatically flags and reports
+failed test cases in the kernel log. The test results appear in `TAP
+(Test Anything Protocol) format <https://testanything.org/>`_. It is inspired by
+JUnit, Python’s unittest.mock, and GoogleTest/GoogleMock (C++ unit testing
+framework).
 
-Get started now: Documentation/dev-tools/kunit/start.rst
+KUnit tests are part of the kernel, written in the C (programming)
+language, and test parts of the Kernel implementation (example: a C
+language function). Excluding build time, from invocation to
+completion, KUnit can run around 100 tests in less than 10 seconds.
+KUnit can test any kernel component, for example: file system, system
+calls, memory management, device drivers and so on.
 
-Why KUnit?
-==========
+KUnit follows the white-box testing approach. The test has access to
+internal system functionality. KUnit runs in kernel space and is not
+restricted to things exposed to user-space.
 
-A unit test is supposed to test a single unit of code in isolation, hence the
-name. A unit test should be the finest granularity of testing and as such should
-allow all possible code paths to be tested in the code under test; this is only
-possible if the code under test is very small and does not have any external
-dependencies outside of the test's control like hardware.
+In addition, KUnit has kunit_tool, a script (``tools/testing/kunit/kunit.py``)
+that configures the Linux kernel, runs KUnit tests under QEMU or UML (`User Mode
+Linux <http://user-mode-linux.sourceforge.net/>`_), parses the test results and
+displays them in a user friendly manner.
 
-KUnit provides a common framework for unit tests within the kernel.
+Features
+--------
 
-KUnit tests can be run on most architectures, and most tests are architecture
-independent. All built-in KUnit tests run on kernel startup.  Alternatively,
-KUnit and KUnit tests can be built as modules and tests will run when the test
-module is loaded.
+- Provides a framework for writing unit tests.
+- Runs tests on any kernel architecture.
+- Runs a test in milliseconds.
 
-.. note::
+Prerequisites
+-------------
 
-        KUnit can also run tests without needing a virtual machine or actual
-        hardware under User Mode Linux. User Mode Linux is a Linux architecture,
-        like ARM or x86, which compiles the kernel as a Linux executable. KUnit
-        can be used with UML either by building with ``ARCH=um`` (like any other
-        architecture), or by using :doc:`kunit_tool <kunit-tool>`.
+- Any Linux kernel compatible hardware.
+- For Kernel under test, Linux kernel version 5.5 or greater.
 
-KUnit is fast. Excluding build time, from invocation to completion KUnit can run
-several dozen tests in only 10 to 20 seconds; this might not sound like a big
-deal to some people, but having such fast and easy to run tests fundamentally
-changes the way you go about testing and even writing code in the first place.
-Linus himself said in his `git talk at Google
-<https://gist.github.com/lorn/1272686/revisions#diff-53c65572127855f1b003db4064a94573R874>`_:
+Unit Testing
+============
 
-	"... a lot of people seem to think that performance is about doing the
-	same thing, just doing it faster, and that is not true. That is not what
-	performance is all about. If you can do something really fast, really
-	well, people will start using it differently."
+A unit test tests a single unit of code in isolation. A unit test is the finest
+granularity of testing and allows all possible code paths to be tested in the
+code under test. This is possible if the code under test is small and does not
+have any external dependencies outside of the test's control like hardware.
 
-In this context Linus was talking about branching and merging,
-but this point also applies to testing. If your tests are slow, unreliable, are
-difficult to write, and require a special setup or special hardware to run,
-then you wait a lot longer to write tests, and you wait a lot longer to run
-tests; this means that tests are likely to break, unlikely to test a lot of
-things, and are unlikely to be rerun once they pass. If your tests are really
-fast, you run them all the time, every time you make a change, and every time
-someone sends you some code. Why trust that someone ran all their tests
-correctly on every change when you can just run them yourself in less time than
-it takes to read their test log?
+
+Write Unit Tests
+----------------
+
+To write good unit tests, there is a simple but powerful pattern:
+Arrange-Act-Assert. This is a great way to structure test cases and
+defines an order of operations.
+
+- Arrange inputs and targets: At the start of the test, arrange the data
+  that allows a function to work. Example: initialize a statement or
+  object.
+- Act on the target behavior: Call your function/code under test.
+- Assert expected outcome: Verify that the result (or resulting state) is as
+  expected.
+
+Unit Testing Advantages
+-----------------------
+
+- Increases testing speed and development in the long run.
+- Detects bugs at initial stage and therefore decreases bug fix cost
+  compared to acceptance testing.
+- Improves code quality.
+- Encourages writing testable code.
 
 How do I use it?
 ================
 
-*   Documentation/dev-tools/kunit/start.rst - for new users of KUnit
-*   Documentation/dev-tools/kunit/tips.rst - for short examples of best practices
-*   Documentation/dev-tools/kunit/usage.rst - for a more detailed explanation of KUnit features
-*   Documentation/dev-tools/kunit/api/index.rst - for the list of KUnit APIs used for testing
-*   Documentation/dev-tools/kunit/kunit-tool.rst - for more information on the kunit_tool helper script
-*   Documentation/dev-tools/kunit/faq.rst - for answers to some common questions about KUnit
+*   Documentation/dev-tools/kunit/start.rst - for KUnit new users.
+*   Documentation/dev-tools/kunit/architecture.rst - KUnit architecture.
+*   Documentation/dev-tools/kunit/run_wrapper.rst - run kunit_tool.
+*   Documentation/dev-tools/kunit/run_manual.rst - run tests without kunit_tool.
+*   Documentation/dev-tools/kunit/usage.rst - write tests.
+*   Documentation/dev-tools/kunit/tips.rst - best practices with
+    examples.
+*   Documentation/dev-tools/kunit/api/index.rst - KUnit APIs
+    used for testing.
+*   Documentation/dev-tools/kunit/kunit-tool.rst - kunit_tool helper
+    script.
+*   Documentation/dev-tools/kunit/faq.rst - KUnit common questions and
+    answers.

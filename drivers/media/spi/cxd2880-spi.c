@@ -625,22 +625,11 @@ fail_regulator:
 	return ret;
 }
 
-static int
+static void
 cxd2880_spi_remove(struct spi_device *spi)
 {
-	struct cxd2880_dvb_spi *dvb_spi;
+	struct cxd2880_dvb_spi *dvb_spi = spi_get_drvdata(spi);
 
-	if (!spi) {
-		pr_err("invalid arg\n");
-		return -EINVAL;
-	}
-
-	dvb_spi = spi_get_drvdata(spi);
-
-	if (!dvb_spi) {
-		pr_err("failed\n");
-		return -EINVAL;
-	}
 	dvb_spi->demux.dmx.remove_frontend(&dvb_spi->demux.dmx,
 					   &dvb_spi->dmx_fe);
 	dvb_dmxdev_release(&dvb_spi->dmxdev);
@@ -654,8 +643,6 @@ cxd2880_spi_remove(struct spi_device *spi)
 
 	kfree(dvb_spi);
 	pr_info("cxd2880_spi remove ok.\n");
-
-	return 0;
 }
 
 static const struct spi_device_id cxd2880_spi_id[] = {

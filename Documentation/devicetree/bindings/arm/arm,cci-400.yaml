@@ -119,6 +119,11 @@ examples:
           arm,hbi = <0x249>;
           interrupt-parent = <&gic>;
 
+          gic: interrupt-controller {
+              interrupt-controller;
+              #interrupt-cells = <3>;
+          };
+
           /*
            * This CCI node corresponds to a CCI component whose control
            * registers sits at address 0x000000002c090000.
@@ -164,16 +169,6 @@ examples:
                   cci-control-port = <&cci_control2>;
                   reg = <0x101>;
               };
-          };
-
-          dma0: dma@3000000 {
-              /* compatible = "arm,pl330", "arm,primecell"; */
-              cci-control-port = <&cci_control0>;
-              reg = <0x0 0x3000000 0x0 0x1000>;
-              interrupts = <10>;
-              #dma-cells = <1>;
-              #dma-channels = <8>;
-              #dma-requests = <32>;
           };
 
           cci@2c090000 {

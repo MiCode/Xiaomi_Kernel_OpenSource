@@ -7,7 +7,7 @@ $schema: http://devicetree.org/meta-schemas/core.yaml#
 title: Samsung S5M8767 Power Management IC regulators
 
 maintainers:
-  - Krzysztof Kozlowski <krzysztof.kozlowski@canonical.com>
+  - Krzysztof Kozlowski <krzk@kernel.org>
 
 description: |
   This is a part of device tree bindings for S2M and S5M family of Power
@@ -67,8 +67,9 @@ patternProperties:
     required:
       - regulator-name
 
+properties:
   # 9 buck
-  "^BUCK9$":
+  BUCK9:
     type: object
     $ref: regulator.yaml#
     unevaluatedProperties: false

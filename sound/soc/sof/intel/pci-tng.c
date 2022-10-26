@@ -25,7 +25,6 @@ static struct snd_soc_acpi_mach sof_tng_machines[] = {
 	{
 		.id = "INT343A",
 		.drv_name = "edison",
-		.sof_fw_filename = "sof-byt.ri",
 		.sof_tplg_filename = "sof-byt.tplg",
 	},
 	{}
@@ -55,8 +54,17 @@ static int tangier_pci_probe(struct snd_sof_dev *sdev)
 	struct snd_sof_pdata *pdata = sdev->pdata;
 	const struct sof_dev_desc *desc = pdata->desc;
 	struct pci_dev *pci = to_pci_dev(sdev->dev);
+	const struct sof_intel_dsp_desc *chip;
 	u32 base, size;
 	int ret;
+
+	chip = get_chip_info(sdev->pdata);
+	if (!chip) {
+		dev_err(sdev->dev, "error: no such device supported\n");
+		return -EIO;
+	}
+
+	sdev->num_cores = chip->cores_num;
 
 	/* DSP DMA can only access low 31 bits of host memory */
 	ret = dma_coerce_mask_and_coherent(&pci->dev, DMA_BIT_MASK(31));
@@ -157,7 +165,7 @@ const struct snd_sof_dsp_ops sof_tng_ops = {
 	.get_window_offset = atom_get_window_offset,
 
 	.ipc_msg_data	= sof_ipc_msg_data,
-	.ipc_pcm_params	= sof_ipc_pcm_params,
+	.set_stream_data_offset = sof_set_stream_data_offset,
 
 	/* machine driver */
 	.machine_select = atom_machine_select,

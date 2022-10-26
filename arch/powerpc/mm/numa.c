@@ -134,7 +134,7 @@ static int __init fake_numa_create_new_node(unsigned long end_pfn,
 	return 0;
 }
 
-static void reset_numa_cpu_lookup_table(void)
+static void __init reset_numa_cpu_lookup_table(void)
 {
 	unsigned int cpu;
 
@@ -372,7 +372,7 @@ void update_numa_distance(struct device_node *node)
  * ibm,numa-lookup-index-table= {N, domainid1, domainid2, ..... domainidN}
  * ibm,numa-distance-table = { N, 1, 2, 4, 5, 1, 6, .... N elements}
  */
-static void initialize_form2_numa_distance_lookup_table(void)
+static void __init initialize_form2_numa_distance_lookup_table(void)
 {
 	int i, j;
 	struct device_node *root;
@@ -581,7 +581,7 @@ static int of_get_assoc_arrays(struct assoc_arrays *aa)
 	return 0;
 }
 
-static int get_nid_and_numa_distance(struct drmem_lmb *lmb)
+static int __init get_nid_and_numa_distance(struct drmem_lmb *lmb)
 {
 	struct assoc_arrays aa = { .arrays = NULL };
 	int default_nid = NUMA_NO_NODE;
@@ -956,7 +956,9 @@ static int __init parse_numa_properties(void)
 			of_node_put(cpu);
 		}
 
-		node_set_online(nid);
+		/* node_set_online() is an UB if 'nid' is negative */
+		if (likely(nid >= 0))
+			node_set_online(nid);
 	}
 
 	get_n_mem_cells(&n_mem_addr_cells, &n_mem_size_cells);
@@ -1434,7 +1436,7 @@ int find_and_online_cpu_nid(int cpu)
 	if (new_nid < 0 || !node_possible(new_nid))
 		new_nid = first_online_node;
 
-	if (NODE_DATA(new_nid) == NULL) {
+	if (!node_online(new_nid)) {
 #ifdef CONFIG_MEMORY_HOTPLUG
 		/*
 		 * Need to ensure that NODE_DATA is initialized for a node from

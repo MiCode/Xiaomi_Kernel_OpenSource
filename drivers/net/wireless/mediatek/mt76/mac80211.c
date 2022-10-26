@@ -180,12 +180,11 @@ static const struct cfg80211_sar_freq_ranges mt76_sar_freq_ranges[] = {
 	{ .start_freq = 5725, .end_freq = 5950, },
 };
 
-const struct cfg80211_sar_capa mt76_sar_capa = {
+static const struct cfg80211_sar_capa mt76_sar_capa = {
 	.type = NL80211_SAR_TYPE_POWER,
 	.num_freq_ranges = ARRAY_SIZE(mt76_sar_freq_ranges),
 	.freq_ranges = &mt76_sar_freq_ranges[0],
 };
-EXPORT_SYMBOL_GPL(mt76_sar_capa);
 
 static int mt76_led_init(struct mt76_dev *dev)
 {
@@ -393,7 +392,7 @@ mt76_check_sband(struct mt76_phy *phy, struct mt76_sband *msband,
 	phy->hw->wiphy->bands[band] = NULL;
 }
 
-static void
+static int
 mt76_phy_init(struct mt76_phy *phy, struct ieee80211_hw *hw)
 {
 	struct mt76_dev *dev = phy->dev;
@@ -411,8 +410,15 @@ mt76_phy_init(struct mt76_phy *phy, struct ieee80211_hw *hw)
 	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_AIRTIME_FAIRNESS);
 	wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_AQL);
 
-	wiphy->available_antennas_tx = dev->phy.antenna_mask;
-	wiphy->available_antennas_rx = dev->phy.antenna_mask;
+	wiphy->available_antennas_tx = phy->antenna_mask;
+	wiphy->available_antennas_rx = phy->antenna_mask;
+
+	wiphy->sar_capa = &mt76_sar_capa;
+	phy->frp = devm_kcalloc(dev->dev, wiphy->sar_capa->num_freq_ranges,
+				sizeof(struct mt76_freq_range_power),
+				GFP_KERNEL);
+	if (!phy->frp)
+		return -ENOMEM;
 
 	hw->txq_data_size = sizeof(struct mt76_txq);
 	hw->uapsd_max_sp_len = IEEE80211_WMM_IE_STA_QOSINFO_SP_ALL;
@@ -432,6 +438,8 @@ mt76_phy_init(struct mt76_phy *phy, struct ieee80211_hw *hw)
 	ieee80211_hw_set(hw, MFP_CAPABLE);
 	ieee80211_hw_set(hw, AP_LINK_PS);
 	ieee80211_hw_set(hw, REPORTS_TX_ACK_STATUS);
+
+	return 0;
 }
 
 struct mt76_phy *
@@ -472,7 +480,9 @@ int mt76_register_phy(struct mt76_phy *phy, bool vht,
 {
 	int ret;
 
-	mt76_phy_init(phy, phy->hw);
+	ret = mt76_phy_init(phy, phy->hw);
+	if (ret)
+		return ret;
 
 	if (phy->cap.has_2ghz) {
 		ret = mt76_init_sband_2g(phy, rates, n_rates);
@@ -591,7 +601,9 @@ int mt76_register_device(struct mt76_dev *dev, bool vht,
 	int ret;
 
 	dev_set_drvdata(dev->dev, dev);
-	mt76_phy_init(phy, hw);
+	ret = mt76_phy_init(phy, hw);
+	if (ret)
+		return ret;
 
 	if (phy->cap.has_2ghz) {
 		ret = mt76_init_sband_2g(phy, rates, n_rates);
@@ -811,6 +823,10 @@ void mt76_set_channel(struct mt76_phy *phy)
 	wait_event_timeout(dev->tx_wait, !mt76_has_tx_pending(phy), timeout);
 	mt76_update_survey(phy);
 
+	if (phy->chandef.chan->center_freq != chandef->chan->center_freq ||
+	    phy->chandef.width != chandef->width)
+		phy->dfs_state = MT_DFS_STATE_UNKNOWN;
+
 	phy->chandef = *chandef;
 	phy->chan_state = mt76_channel_state(phy, chandef->chan);
 
@@ -916,6 +932,36 @@ void mt76_wcid_key_setup(struct mt76_dev *dev, struct mt76_wcid *wcid,
 }
 EXPORT_SYMBOL(mt76_wcid_key_setup);
 
+static int
+mt76_rx_signal(struct mt76_rx_status *status)
+{
+	s8 *chain_signal = status->chain_signal;
+	int signal = -128;
+	u8 chains;
+
+	for (chains = status->chains; chains; chains >>= 1, chain_signal++) {
+		int cur, diff;
+
+		cur = *chain_signal;
+		if (!(chains & BIT(0)) ||
+		    cur > 0)
+			continue;
+
+		if (cur > signal)
+			swap(cur, signal);
+
+		diff = signal - cur;
+		if (diff == 0)
+			signal += 3;
+		else if (diff <= 2)
+			signal += 2;
+		else if (diff <= 6)
+			signal += 1;
+	}
+
+	return signal;
+}
+
 static void
 mt76_rx_convert(struct mt76_dev *dev, struct sk_buff *skb,
 		struct ieee80211_hw **hw,
@@ -944,6 +990,9 @@ mt76_rx_convert(struct mt76_dev *dev, struct sk_buff *skb,
 	status->ampdu_reference = mstat.ampdu_ref;
 	status->device_timestamp = mstat.timestamp;
 	status->mactime = mstat.timestamp;
+	status->signal = mt76_rx_signal(&mstat);
+	if (status->signal <= -128)
+		status->flag |= RX_FLAG_NO_SIGNAL_VAL;
 
 	if (ieee80211_is_beacon(hdr->frame_control) ||
 	    ieee80211_is_probe_resp(hdr->frame_control))
@@ -1163,10 +1212,12 @@ mt76_check_sta(struct mt76_dev *dev, struct sk_buff *skb)
 
 	if (ps)
 		set_bit(MT_WCID_FLAG_PS, &wcid->flags);
-	else
-		clear_bit(MT_WCID_FLAG_PS, &wcid->flags);
 
 	dev->drv->sta_ps(dev, sta, ps);
+
+	if (!ps)
+		clear_bit(MT_WCID_FLAG_PS, &wcid->flags);
+
 	ieee80211_sta_ps_transition(sta, ps);
 }
 
@@ -1348,6 +1399,59 @@ int mt76_get_txpower(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 }
 EXPORT_SYMBOL_GPL(mt76_get_txpower);
 
+int mt76_init_sar_power(struct ieee80211_hw *hw,
+			const struct cfg80211_sar_specs *sar)
+{
+	struct mt76_phy *phy = hw->priv;
+	const struct cfg80211_sar_capa *capa = hw->wiphy->sar_capa;
+	int i;
+
+	if (sar->type != NL80211_SAR_TYPE_POWER || !sar->num_sub_specs)
+		return -EINVAL;
+
+	for (i = 0; i < sar->num_sub_specs; i++) {
+		u32 index = sar->sub_specs[i].freq_range_index;
+		/* SAR specifies power limitaton in 0.25dbm */
+		s32 power = sar->sub_specs[i].power >> 1;
+
+		if (power > 127 || power < -127)
+			power = 127;
+
+		phy->frp[index].range = &capa->freq_ranges[index];
+		phy->frp[index].power = power;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt76_init_sar_power);
+
+int mt76_get_sar_power(struct mt76_phy *phy,
+		       struct ieee80211_channel *chan,
+		       int power)
+{
+	const struct cfg80211_sar_capa *capa = phy->hw->wiphy->sar_capa;
+	int freq, i;
+
+	if (!capa || !phy->frp)
+		return power;
+
+	if (power > 127 || power < -127)
+		power = 127;
+
+	freq = ieee80211_channel_to_frequency(chan->hw_value, chan->band);
+	for (i = 0 ; i < capa->num_freq_ranges; i++) {
+		if (phy->frp[i].range &&
+		    freq >= phy->frp[i].range->start_freq &&
+		    freq < phy->frp[i].range->end_freq) {
+			power = min_t(int, phy->frp[i].power, power);
+			break;
+		}
+	}
+
+	return power;
+}
+EXPORT_SYMBOL_GPL(mt76_get_sar_power);
+
 static void
 __mt76_csa_finish(void *priv, u8 *mac, struct ieee80211_vif *vif)
 {
@@ -1494,7 +1598,6 @@ EXPORT_SYMBOL_GPL(mt76_init_queue);
 u16 mt76_calculate_default_rate(struct mt76_phy *phy, int rateidx)
 {
 	int offset = 0;
-	struct ieee80211_rate *rate;
 
 	if (phy->chandef.chan->band != NL80211_BAND_2GHZ)
 		offset = 4;
@@ -1503,9 +1606,11 @@ u16 mt76_calculate_default_rate(struct mt76_phy *phy, int rateidx)
 	if (rateidx < 0)
 		rateidx = 0;
 
-	rate = &mt76_rates[offset + rateidx];
+	rateidx += offset;
+	if (rateidx >= ARRAY_SIZE(mt76_rates))
+		rateidx = offset;
 
-	return rate->hw_value;
+	return mt76_rates[rateidx].hw_value;
 }
 EXPORT_SYMBOL_GPL(mt76_calculate_default_rate);
 
@@ -1536,3 +1641,27 @@ void mt76_ethtool_worker(struct mt76_ethtool_worker_info *wi,
 	wi->worker_stat_count = ei - wi->initial_stat_idx;
 }
 EXPORT_SYMBOL_GPL(mt76_ethtool_worker);
+
+enum mt76_dfs_state mt76_phy_dfs_state(struct mt76_phy *phy)
+{
+	struct ieee80211_hw *hw = phy->hw;
+	struct mt76_dev *dev = phy->dev;
+
+	if (dev->region == NL80211_DFS_UNSET ||
+	    test_bit(MT76_SCANNING, &phy->state))
+		return MT_DFS_STATE_DISABLED;
+
+	if (!hw->conf.radar_enabled) {
+		if ((hw->conf.flags & IEEE80211_CONF_MONITOR) &&
+		    (phy->chandef.chan->flags & IEEE80211_CHAN_RADAR))
+			return MT_DFS_STATE_ACTIVE;
+
+		return MT_DFS_STATE_DISABLED;
+	}
+
+	if (!cfg80211_reg_can_beacon(hw->wiphy, &phy->chandef, NL80211_IFTYPE_AP))
+		return MT_DFS_STATE_CAC;
+
+	return MT_DFS_STATE_ACTIVE;
+}
+EXPORT_SYMBOL_GPL(mt76_phy_dfs_state);

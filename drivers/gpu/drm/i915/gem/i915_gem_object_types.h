@@ -15,6 +15,7 @@
 
 #include "i915_active.h"
 #include "i915_selftest.h"
+#include "i915_vma_resource.h"
 
 struct drm_i915_gem_object;
 struct intel_fronbuffer;
@@ -34,9 +35,11 @@ struct i915_lut_handle {
 
 struct drm_i915_gem_object_ops {
 	unsigned int flags;
-#define I915_GEM_OBJECT_IS_SHRINKABLE	BIT(1)
-#define I915_GEM_OBJECT_IS_PROXY	BIT(2)
-#define I915_GEM_OBJECT_NO_MMAP		BIT(3)
+#define I915_GEM_OBJECT_IS_SHRINKABLE			BIT(1)
+/* Skip the shrinker management in set_pages/unset_pages */
+#define I915_GEM_OBJECT_SELF_MANAGED_SHRINK_LIST	BIT(2)
+#define I915_GEM_OBJECT_IS_PROXY			BIT(3)
+#define I915_GEM_OBJECT_NO_MMAP				BIT(4)
 
 	/* Interface between the GEM object and its backing storage.
 	 * get_pages() is called once prior to the use of the associated set
@@ -54,14 +57,34 @@ struct drm_i915_gem_object_ops {
 	int (*get_pages)(struct drm_i915_gem_object *obj);
 	void (*put_pages)(struct drm_i915_gem_object *obj,
 			  struct sg_table *pages);
-	void (*truncate)(struct drm_i915_gem_object *obj);
-	void (*writeback)(struct drm_i915_gem_object *obj);
+	int (*truncate)(struct drm_i915_gem_object *obj);
+	/**
+	 * shrink - Perform further backend specific actions to facilate
+	 * shrinking.
+	 * @obj: The gem object
+	 * @flags: Extra flags to control shrinking behaviour in the backend
+	 *
+	 * Possible values for @flags:
+	 *
+	 * I915_GEM_OBJECT_SHRINK_WRITEBACK - Try to perform writeback of the
+	 * backing pages, if supported.
+	 *
+	 * I915_GEM_OBJECT_SHRINK_NO_GPU_WAIT - Don't wait for the object to
+	 * idle.  Active objects can be considered later. The TTM backend for
+	 * example might have aync migrations going on, which don't use any
+	 * i915_vma to track the active GTT binding, and hence having an unbound
+	 * object might not be enough.
+	 */
+#define I915_GEM_OBJECT_SHRINK_WRITEBACK   BIT(0)
+#define I915_GEM_OBJECT_SHRINK_NO_GPU_WAIT BIT(1)
+	int (*shrink)(struct drm_i915_gem_object *obj, unsigned int flags);
 
 	int (*pread)(struct drm_i915_gem_object *obj,
 		     const struct drm_i915_gem_pread *arg);
 	int (*pwrite)(struct drm_i915_gem_object *obj,
 		      const struct drm_i915_gem_pwrite *arg);
 	u64 (*mmap_offset)(struct drm_i915_gem_object *obj);
+	void (*unmap_virtual)(struct drm_i915_gem_object *obj);
 
 	int (*dmabuf_export)(struct drm_i915_gem_object *obj);
 
@@ -296,15 +319,23 @@ struct drm_i915_gem_object {
 #define I915_BO_ALLOC_PM_VOLATILE BIT(4)
 /* Object needs to be restored early using memcpy during resume */
 #define I915_BO_ALLOC_PM_EARLY    BIT(5)
+/*
+ * Object is likely never accessed by the CPU. This will prioritise the BO to be
+ * allocated in the non-mappable portion of lmem. This is merely a hint, and if
+ * dealing with userspace objects the CPU fault handler is free to ignore this.
+ */
+#define I915_BO_ALLOC_GPU_ONLY	  BIT(6)
 #define I915_BO_ALLOC_FLAGS (I915_BO_ALLOC_CONTIGUOUS | \
 			     I915_BO_ALLOC_VOLATILE | \
 			     I915_BO_ALLOC_CPU_CLEAR | \
 			     I915_BO_ALLOC_USER | \
 			     I915_BO_ALLOC_PM_VOLATILE | \
-			     I915_BO_ALLOC_PM_EARLY)
-#define I915_BO_READONLY          BIT(6)
-#define I915_TILING_QUIRK_BIT     7 /* unknown swizzling; do not release! */
-#define I915_BO_PROTECTED         BIT(8)
+			     I915_BO_ALLOC_PM_EARLY | \
+			     I915_BO_ALLOC_GPU_ONLY)
+#define I915_BO_READONLY          BIT(7)
+#define I915_TILING_QUIRK_BIT     8 /* unknown swizzling; do not release! */
+#define I915_BO_PROTECTED         BIT(9)
+#define I915_BO_WAS_BOUND_BIT     10
 	/**
 	 * @mem_flags - Mutable placement-related flags
 	 *
@@ -486,7 +517,35 @@ struct drm_i915_gem_object {
 		 * instead go through the pin/unpin interfaces.
 		 */
 		atomic_t pages_pin_count;
+
+		/**
+		 * @shrink_pin: Prevents the pages from being made visible to
+		 * the shrinker, while the shrink_pin is non-zero. Most users
+		 * should pretty much never have to care about this, outside of
+		 * some special use cases.
+		 *
+		 * By default most objects will start out as visible to the
+		 * shrinker(if I915_GEM_OBJECT_IS_SHRINKABLE) as soon as the
+		 * backing pages are attached to the object, like in
+		 * __i915_gem_object_set_pages(). They will then be removed the
+		 * shrinker list once the pages are released.
+		 *
+		 * The @shrink_pin is incremented by calling
+		 * i915_gem_object_make_unshrinkable(), which will also remove
+		 * the object from the shrinker list, if the pin count was zero.
+		 *
+		 * Callers will then typically call
+		 * i915_gem_object_make_shrinkable() or
+		 * i915_gem_object_make_purgeable() to decrement the pin count,
+		 * and make the pages visible again.
+		 */
 		atomic_t shrink_pin;
+
+		/**
+		 * @ttm_shrinkable: True when the object is using shmem pages
+		 * underneath. Protected by the object lock.
+		 */
+		bool ttm_shrinkable;
 
 		/**
 		 * Priority list of potential placements for this object.
@@ -512,34 +571,11 @@ struct drm_i915_gem_object {
 		 */
 		struct list_head region_link;
 
+		struct i915_refct_sgt *rsgt;
 		struct sg_table *pages;
 		void *mapping;
 
-		struct i915_page_sizes {
-			/**
-			 * The sg mask of the pages sg_table. i.e the mask of
-			 * of the lengths for each sg entry.
-			 */
-			unsigned int phys;
-
-			/**
-			 * The gtt page sizes we are allowed to use given the
-			 * sg mask and the supported page sizes. This will
-			 * express the smallest unit we can use for the whole
-			 * object, as well as the larger sizes we may be able
-			 * to use opportunistically.
-			 */
-			unsigned int sg;
-
-			/**
-			 * The actual gtt page size usage. Since we can have
-			 * multiple vma associated with this object we need to
-			 * prevent any trampling of state, hence a copy of this
-			 * struct also lives in each vma, therefore the gtt
-			 * value here should only be read/write through the vma.
-			 */
-			unsigned int gtt;
-		} page_sizes;
+		struct i915_page_sizes page_sizes;
 
 		I915_SELFTEST_DECLARE(unsigned int page_mask);
 
@@ -547,7 +583,7 @@ struct drm_i915_gem_object {
 		struct i915_gem_object_page_iter get_dma_page;
 
 		/**
-		 * Element within i915->mm.unbound_list or i915->mm.bound_list,
+		 * Element within i915->mm.shrink_list or i915->mm.purge_list,
 		 * locked by i915->mm.obj_lock.
 		 */
 		struct list_head link;
@@ -565,7 +601,7 @@ struct drm_i915_gem_object {
 	} mm;
 
 	struct {
-		struct sg_table *cached_io_st;
+		struct i915_refct_sgt *cached_io_rsgt;
 		struct i915_gem_object_page_iter get_io_page;
 		struct drm_i915_gem_object *backup;
 		bool created:1;

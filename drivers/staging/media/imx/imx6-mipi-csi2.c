@@ -303,7 +303,6 @@ static void csi2ipu_gasket_init(struct csi2_dev *csi2)
 static int csi2_get_active_lanes(struct csi2_dev *csi2, unsigned int *lanes)
 {
 	struct v4l2_mbus_config mbus_config = { 0 };
-	unsigned int num_lanes = UINT_MAX;
 	int ret;
 
 	*lanes = csi2->data_lanes;
@@ -326,32 +325,14 @@ static int csi2_get_active_lanes(struct csi2_dev *csi2, unsigned int *lanes)
 		return -EINVAL;
 	}
 
-	switch (mbus_config.flags & V4L2_MBUS_CSI2_LANES) {
-	case V4L2_MBUS_CSI2_1_LANE:
-		num_lanes = 1;
-		break;
-	case V4L2_MBUS_CSI2_2_LANE:
-		num_lanes = 2;
-		break;
-	case V4L2_MBUS_CSI2_3_LANE:
-		num_lanes = 3;
-		break;
-	case V4L2_MBUS_CSI2_4_LANE:
-		num_lanes = 4;
-		break;
-	default:
-		num_lanes = csi2->data_lanes;
-		break;
-	}
-
-	if (num_lanes > csi2->data_lanes) {
+	if (mbus_config.bus.mipi_csi2.num_data_lanes > csi2->data_lanes) {
 		dev_err(csi2->dev,
 			"Unsupported mbus config: too many data lanes %u\n",
-			num_lanes);
+			mbus_config.bus.mipi_csi2.num_data_lanes);
 		return -EINVAL;
 	}
 
-	*lanes = num_lanes;
+	*lanes = mbus_config.bus.mipi_csi2.num_data_lanes;
 
 	return 0;
 }
@@ -382,13 +363,17 @@ static int csi2_start(struct csi2_dev *csi2)
 	csi2_enable(csi2, true);
 
 	/* Step 5 */
+	ret = v4l2_subdev_call(csi2->src_sd, video, pre_streamon,
+			       V4L2_SUBDEV_PRE_STREAMON_FL_MANUAL_LP);
+	if (ret && ret != -ENOIOCTLCMD)
+		goto err_assert_reset;
 	csi2_dphy_wait_stopstate(csi2, lanes);
 
 	/* Step 6 */
 	ret = v4l2_subdev_call(csi2->src_sd, video, s_stream, 1);
 	ret = (ret && ret != -ENOIOCTLCMD) ? ret : 0;
 	if (ret)
-		goto err_assert_reset;
+		goto err_stop_lp11;
 
 	/* Step 7 */
 	ret = csi2_dphy_wait_clock_lane(csi2);
@@ -399,6 +384,8 @@ static int csi2_start(struct csi2_dev *csi2)
 
 err_stop_upstream:
 	v4l2_subdev_call(csi2->src_sd, video, s_stream, 0);
+err_stop_lp11:
+	v4l2_subdev_call(csi2->src_sd, video, post_streamoff);
 err_assert_reset:
 	csi2_enable(csi2, false);
 err_disable_clk:
@@ -410,6 +397,7 @@ static void csi2_stop(struct csi2_dev *csi2)
 {
 	/* stop upstream */
 	v4l2_subdev_call(csi2->src_sd, video, s_stream, 0);
+	v4l2_subdev_call(csi2->src_sd, video, post_streamoff);
 
 	csi2_enable(csi2, false);
 	clk_disable_unprepare(csi2->pix_clk);

@@ -33,13 +33,15 @@
  * struct cxl_memdev - CXL bus object representing a Type-3 Memory Device
  * @dev: driver core device object
  * @cdev: char dev core object for ioctl operations
- * @cxlm: pointer to the parent device driver data
+ * @cxlds: The device state backing this device
+ * @detach_work: active memdev lost a port in its ancestry
  * @id: id number of this memdev instance.
  */
 struct cxl_memdev {
 	struct device dev;
 	struct cdev cdev;
-	struct cxl_mem *cxlm;
+	struct cxl_dev_state *cxlds;
+	struct work_struct detach_work;
 	int id;
 };
 
@@ -48,7 +50,13 @@ static inline struct cxl_memdev *to_cxl_memdev(struct device *dev)
 	return container_of(dev, struct cxl_memdev, dev);
 }
 
-struct cxl_memdev *devm_cxl_add_memdev(struct cxl_mem *cxlm);
+bool is_cxl_memdev(struct device *dev);
+static inline bool is_cxl_endpoint(struct cxl_port *port)
+{
+	return is_cxl_memdev(port->uport);
+}
+
+struct cxl_memdev *devm_cxl_add_memdev(struct cxl_dev_state *cxlds);
 
 /**
  * struct cxl_mbox_cmd - A command to be submitted to hardware.
@@ -90,10 +98,27 @@ struct cxl_mbox_cmd {
 #define CXL_CAPACITY_MULTIPLIER SZ_256M
 
 /**
- * struct cxl_mem - A CXL memory device
- * @dev: The device associated with this CXL device.
- * @cxlmd: Logical memory device chardev / interface
+ * struct cxl_endpoint_dvsec_info - Cached DVSEC info
+ * @mem_enabled: cached value of mem_enabled in the DVSEC, PCIE_DEVICE
+ * @ranges: Number of active HDM ranges this device uses.
+ * @dvsec_range: cached attributes of the ranges in the DVSEC, PCIE_DEVICE
+ */
+struct cxl_endpoint_dvsec_info {
+	bool mem_enabled;
+	int ranges;
+	struct range dvsec_range[2];
+};
+
+/**
+ * struct cxl_dev_state - The driver device state
+ *
+ * cxl_dev_state represents the CXL driver/device state.  It provides an
+ * interface to mailbox commands as well as some cached data about the device.
+ * Currently only memory devices are represented.
+ *
+ * @dev: The device associated with this CXL state
  * @regs: Parsed register blocks
+ * @cxl_dvsec: Offset to the PCIe device DVSEC
  * @payload_size: Size of space for payload
  *                (CXL 2.0 8.2.8.4.3 Mailbox Capabilities Register)
  * @lsa_size: Size of Label Storage Area
@@ -112,16 +137,20 @@ struct cxl_mbox_cmd {
  * @active_persistent_bytes: sum of hard + soft persistent
  * @next_volatile_bytes: volatile capacity change pending device reset
  * @next_persistent_bytes: persistent capacity change pending device reset
+ * @component_reg_phys: register base of component registers
+ * @info: Cached DVSEC information about the device.
+ * @serial: PCIe Device Serial Number
  * @mbox_send: @dev specific transport for transmitting mailbox commands
+ * @wait_media_ready: @dev specific method to await media ready
  *
  * See section 8.2.9.5.2 Capacity Configuration and Label Storage for
  * details on capacity parameters.
  */
-struct cxl_mem {
+struct cxl_dev_state {
 	struct device *dev;
-	struct cxl_memdev *cxlmd;
 
 	struct cxl_regs regs;
+	int cxl_dvsec;
 
 	size_t payload_size;
 	size_t lsa_size;
@@ -142,7 +171,12 @@ struct cxl_mem {
 	u64 next_volatile_bytes;
 	u64 next_persistent_bytes;
 
-	int (*mbox_send)(struct cxl_mem *cxlm, struct cxl_mbox_cmd *cmd);
+	resource_size_t component_reg_phys;
+	struct cxl_endpoint_dvsec_info info;
+	u64 serial;
+
+	int (*mbox_send)(struct cxl_dev_state *cxlds, struct cxl_mbox_cmd *cmd);
+	int (*wait_media_ready)(struct cxl_dev_state *cxlds);
 };
 
 enum cxl_opcode {
@@ -253,12 +287,20 @@ struct cxl_mem_command {
 #define CXL_CMD_FLAG_FORCE_ENABLE BIT(0)
 };
 
-int cxl_mem_mbox_send_cmd(struct cxl_mem *cxlm, u16 opcode, void *in,
-			  size_t in_size, void *out, size_t out_size);
-int cxl_mem_identify(struct cxl_mem *cxlm);
-int cxl_mem_enumerate_cmds(struct cxl_mem *cxlm);
-int cxl_mem_create_range_info(struct cxl_mem *cxlm);
-struct cxl_mem *cxl_mem_create(struct device *dev);
-void set_exclusive_cxl_commands(struct cxl_mem *cxlm, unsigned long *cmds);
-void clear_exclusive_cxl_commands(struct cxl_mem *cxlm, unsigned long *cmds);
+int cxl_mbox_send_cmd(struct cxl_dev_state *cxlds, u16 opcode, void *in,
+		      size_t in_size, void *out, size_t out_size);
+int cxl_dev_state_identify(struct cxl_dev_state *cxlds);
+int cxl_enumerate_cmds(struct cxl_dev_state *cxlds);
+int cxl_mem_create_range_info(struct cxl_dev_state *cxlds);
+struct cxl_dev_state *cxl_dev_state_create(struct device *dev);
+void set_exclusive_cxl_commands(struct cxl_dev_state *cxlds, unsigned long *cmds);
+void clear_exclusive_cxl_commands(struct cxl_dev_state *cxlds, unsigned long *cmds);
+
+struct cxl_hdm {
+	struct cxl_component_regs regs;
+	unsigned int decoder_count;
+	unsigned int target_count;
+	unsigned int interleave_mask;
+	struct cxl_port *port;
+};
 #endif /* __CXL_MEM_H__ */

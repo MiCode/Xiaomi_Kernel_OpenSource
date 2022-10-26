@@ -162,11 +162,6 @@ struct rt_channel_plan {
 	unsigned char	Len;
 };
 
-struct rt_channel_plan_2g {
-	unsigned char	Channel[MAX_CHANNEL_NUM_2G];
-	unsigned char	Len;
-};
-
 struct rt_channel_plan_map {
 	unsigned char	Index2G;
 };
@@ -513,7 +508,7 @@ unsigned int receive_disconnect(struct adapter *padapter,
 
 unsigned char get_highest_rate_idx(u32 mask);
 int support_short_GI(struct adapter *padapter, struct HT_caps_element *caps);
-unsigned int is_ap_in_tkip(struct adapter *padapter);
+bool is_ap_in_tkip(struct adapter *padapter);
 
 void report_join_res(struct adapter *padapter, int res);
 void report_survey_event(struct adapter *padapter, struct recv_frame *precv_frame);
@@ -637,8 +632,8 @@ void addba_timer_hdl(struct sta_info *psta);
 		_set_timer(&(mlmeext)->link_timer, (ms)); \
 	} while (0)
 
-int cckrates_included(unsigned char *rate, int ratelen);
-int cckratesonly_included(unsigned char *rate, int ratelen);
+bool cckrates_included(unsigned char *rate, int ratelen);
+bool cckratesonly_included(unsigned char *rate, int ratelen);
 
 void process_addba_req(struct adapter *padapter, u8 *paddba_req, u8 *addr);
 

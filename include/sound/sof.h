@@ -17,6 +17,36 @@
 
 struct snd_sof_dsp_ops;
 
+/**
+ * enum sof_fw_state - DSP firmware state definitions
+ * @SOF_FW_BOOT_NOT_STARTED:	firmware boot is not yet started
+ * @SOF_FW_BOOT_PREPARE:	preparing for boot (firmware loading for exaqmple)
+ * @SOF_FW_BOOT_IN_PROGRESS:	firmware boot is in progress
+ * @SOF_FW_BOOT_FAILED:		firmware boot failed
+ * @SOF_FW_BOOT_READY_FAILED:	firmware booted but fw_ready op failed
+ * @SOF_FW_BOOT_READY_OK:	firmware booted and fw_ready op passed
+ * @SOF_FW_BOOT_COMPLETE:	firmware is booted up and functional
+ * @SOF_FW_CRASHED:		firmware crashed after successful boot
+ */
+enum sof_fw_state {
+	SOF_FW_BOOT_NOT_STARTED = 0,
+	SOF_FW_BOOT_PREPARE,
+	SOF_FW_BOOT_IN_PROGRESS,
+	SOF_FW_BOOT_FAILED,
+	SOF_FW_BOOT_READY_FAILED,
+	SOF_FW_BOOT_READY_OK,
+	SOF_FW_BOOT_COMPLETE,
+	SOF_FW_CRASHED,
+};
+
+/* DSP power states */
+enum sof_dsp_power_states {
+	SOF_DSP_PM_D0,
+	SOF_DSP_PM_D1,
+	SOF_DSP_PM_D2,
+	SOF_DSP_PM_D3,
+};
+
 /*
  * SOF Platform data.
  */

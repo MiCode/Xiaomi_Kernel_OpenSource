@@ -503,6 +503,10 @@ static int __graph_parse_node(struct asoc_simple_priv *priv,
 	if (ret < 0)
 		return ret;
 
+	ret = asoc_simple_parse_tdm_width_map(dev, ep, dai);
+	if (ret < 0)
+		return ret;
+
 	ret = asoc_simple_parse_clk(dev, ep, dai, dlc);
 	if (ret < 0)
 		return ret;
@@ -1238,8 +1242,8 @@ int audio_graph2_parse_of(struct asoc_simple_priv *priv, struct device *dev,
 err:
 	devm_kfree(dev, li);
 
-	if ((ret < 0) && (ret != -EPROBE_DEFER))
-		dev_err(dev, "parse error %d\n", ret);
+	if (ret < 0)
+		dev_err_probe(dev, ret, "parse error\n");
 
 	return ret;
 }

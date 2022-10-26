@@ -43,7 +43,7 @@ static void mlx5e_build_xsk_cparam(struct mlx5_core_dev *mdev,
 				   struct mlx5e_channel_param *cparam)
 {
 	mlx5e_build_rq_param(mdev, params, xsk, q_counter, &cparam->rq);
-	mlx5e_build_xdpsq_param(mdev, params, &cparam->xdp_sq);
+	mlx5e_build_xdpsq_param(mdev, params, xsk, &cparam->xdp_sq);
 }
 
 static int mlx5e_init_xsk_rq(struct mlx5e_channel *c,
@@ -68,7 +68,7 @@ static int mlx5e_init_xsk_rq(struct mlx5e_channel *c,
 	rq->hw_mtu       = MLX5E_SW2HW_MTU(params, params->sw_mtu);
 	rq->xdpsq        = &c->rq_xdpsq;
 	rq->xsk_pool     = pool;
-	rq->stats        = &c->priv->channel_stats[c->ix].xskrq;
+	rq->stats        = &c->priv->channel_stats[c->ix]->xskrq;
 	rq->ptp_cyc2time = mlx5_rq_ts_translator(mdev);
 	rq_xdp_ix        = c->ix + params->num_channels * MLX5E_RQ_GROUP_XSK;
 	err = mlx5e_rq_set_handlers(rq, params, xsk);

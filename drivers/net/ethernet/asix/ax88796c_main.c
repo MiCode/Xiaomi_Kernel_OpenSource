@@ -144,12 +144,13 @@ static void ax88796c_set_mac_addr(struct net_device *ndev)
 static void ax88796c_load_mac_addr(struct net_device *ndev)
 {
 	struct ax88796c_device *ax_local = to_ax88796c_device(ndev);
+	u8 addr[ETH_ALEN];
 	u16 temp;
 
 	lockdep_assert_held(&ax_local->spi_lock);
 
 	/* Try the device tree first */
-	if (!eth_platform_get_mac_address(&ax_local->spi->dev, ndev->dev_addr) &&
+	if (!platform_get_ethdev_address(&ax_local->spi->dev, ndev) &&
 	    is_valid_ether_addr(ndev->dev_addr)) {
 		if (netif_msg_probe(ax_local))
 			dev_info(&ax_local->spi->dev,
@@ -159,18 +160,19 @@ static void ax88796c_load_mac_addr(struct net_device *ndev)
 
 	/* Read the MAC address from AX88796C */
 	temp = AX_READ(&ax_local->ax_spi, P3_MACASR0);
-	ndev->dev_addr[5] = (u8)temp;
-	ndev->dev_addr[4] = (u8)(temp >> 8);
+	addr[5] = (u8)temp;
+	addr[4] = (u8)(temp >> 8);
 
 	temp = AX_READ(&ax_local->ax_spi, P3_MACASR1);
-	ndev->dev_addr[3] = (u8)temp;
-	ndev->dev_addr[2] = (u8)(temp >> 8);
+	addr[3] = (u8)temp;
+	addr[2] = (u8)(temp >> 8);
 
 	temp = AX_READ(&ax_local->ax_spi, P3_MACASR2);
-	ndev->dev_addr[1] = (u8)temp;
-	ndev->dev_addr[0] = (u8)(temp >> 8);
+	addr[1] = (u8)temp;
+	addr[0] = (u8)(temp >> 8);
 
-	if (is_valid_ether_addr(ndev->dev_addr)) {
+	if (is_valid_ether_addr(addr)) {
+		eth_hw_addr_set(ndev, addr);
 		if (netif_msg_probe(ax_local))
 			dev_info(&ax_local->spi->dev,
 				 "MAC address read from ASIX chip\n");
@@ -431,7 +433,7 @@ ax88796c_skb_return(struct ax88796c_device *ax_local,
 	netif_info(ax_local, rx_status, ndev, "< rx, len %zu, type 0x%x\n",
 		   skb->len + sizeof(struct ethhdr), skb->protocol);
 
-	status = netif_rx_ni(skb);
+	status = netif_rx(skb);
 	if (status != NET_RX_SUCCESS && net_ratelimit())
 		netif_info(ax_local, rx_err, ndev,
 			   "netif_rx status %d\n", status);
@@ -1100,7 +1102,7 @@ err:
 	return ret;
 }
 
-static int ax88796c_remove(struct spi_device *spi)
+static void ax88796c_remove(struct spi_device *spi)
 {
 	struct ax88796c_device *ax_local = dev_get_drvdata(&spi->dev);
 	struct net_device *ndev = ax_local->ndev;
@@ -1110,8 +1112,6 @@ static int ax88796c_remove(struct spi_device *spi)
 	netif_info(ax_local, probe, ndev, "removing network device %s %s\n",
 		   dev_driver_string(&spi->dev),
 		   dev_name(&spi->dev));
-
-	return 0;
 }
 
 #ifdef CONFIG_OF

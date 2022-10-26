@@ -603,8 +603,6 @@
 		cdns,tchsh-ns = <60>;
 		cdns,tslch-ns = <60>;
 		cdns,read-delay = <2>;
-		#address-cells = <1>;
-		#size-cells = <1>;
 	};
 };
 
@@ -644,6 +642,14 @@
 	phys = <&serdes1 PHY_TYPE_PCIE 0>;
 	phy-names = "pcie-phy0";
 	reset-gpios = <&wkup_gpio0 27 GPIO_ACTIVE_HIGH>;
+};
+
+&m_can0 {
+	status = "disabled";
+};
+
+&m_can1 {
+	status = "disabled";
 };
 
 &pcie1_ep {
@@ -729,5 +735,17 @@
 };
 
 &icssg2_mdio {
+	status = "disabled";
+};
+
+&mcasp0 {
+	status = "disabled";
+};
+
+&mcasp1 {
+	status = "disabled";
+};
+
+&mcasp2 {
 	status = "disabled";
 };

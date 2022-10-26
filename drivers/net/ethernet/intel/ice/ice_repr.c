@@ -4,7 +4,7 @@
 #include "ice.h"
 #include "ice_eswitch.h"
 #include "ice_devlink.h"
-#include "ice_virtchnl_pf.h"
+#include "ice_sriov.h"
 #include "ice_tc_lib.h"
 
 /**
@@ -142,6 +142,59 @@ ice_repr_get_devlink_port(struct net_device *netdev)
 	return &repr->vf->devlink_port;
 }
 
+/**
+ * ice_repr_sp_stats64 - get slow path stats for port representor
+ * @dev: network interface device structure
+ * @stats: netlink stats structure
+ *
+ * RX/TX stats are being swapped here to be consistent with VF stats. In slow
+ * path, port representor receives data when the corresponding VF is sending it
+ * (and vice versa), TX and RX bytes/packets are effectively swapped on port
+ * representor.
+ */
+static int
+ice_repr_sp_stats64(const struct net_device *dev,
+		    struct rtnl_link_stats64 *stats)
+{
+	struct ice_netdev_priv *np = netdev_priv(dev);
+	int vf_id = np->repr->vf->vf_id;
+	struct ice_tx_ring *tx_ring;
+	struct ice_rx_ring *rx_ring;
+	u64 pkts, bytes;
+
+	tx_ring = np->vsi->tx_rings[vf_id];
+	ice_fetch_u64_stats_per_ring(&tx_ring->syncp, tx_ring->stats,
+				     &pkts, &bytes);
+	stats->rx_packets = pkts;
+	stats->rx_bytes = bytes;
+
+	rx_ring = np->vsi->rx_rings[vf_id];
+	ice_fetch_u64_stats_per_ring(&rx_ring->syncp, rx_ring->stats,
+				     &pkts, &bytes);
+	stats->tx_packets = pkts;
+	stats->tx_bytes = bytes;
+	stats->tx_dropped = rx_ring->rx_stats.alloc_page_failed +
+			    rx_ring->rx_stats.alloc_buf_failed;
+
+	return 0;
+}
+
+static bool
+ice_repr_ndo_has_offload_stats(const struct net_device *dev, int attr_id)
+{
+	return attr_id == IFLA_OFFLOAD_XSTATS_CPU_HIT;
+}
+
+static int
+ice_repr_ndo_get_offload_stats(int attr_id, const struct net_device *dev,
+			       void *sp)
+{
+	if (attr_id == IFLA_OFFLOAD_XSTATS_CPU_HIT)
+		return ice_repr_sp_stats64(dev, (struct rtnl_link_stats64 *)sp);
+
+	return -EINVAL;
+}
+
 static int
 ice_repr_setup_tc_cls_flower(struct ice_repr *repr,
 			     struct flow_cls_offload *flower)
@@ -199,6 +252,8 @@ static const struct net_device_ops ice_repr_netdev_ops = {
 	.ndo_start_xmit = ice_eswitch_port_start_xmit,
 	.ndo_get_devlink_port = ice_repr_get_devlink_port,
 	.ndo_setup_tc = ice_repr_setup_tc,
+	.ndo_has_offload_stats = ice_repr_ndo_has_offload_stats,
+	.ndo_get_offload_stats = ice_repr_ndo_get_offload_stats,
 };
 
 /**
@@ -244,6 +299,14 @@ static int ice_repr_add(struct ice_vf *vf)
 	if (!repr)
 		return -ENOMEM;
 
+#ifdef CONFIG_ICE_SWITCHDEV
+	repr->mac_rule = kzalloc(sizeof(*repr->mac_rule), GFP_KERNEL);
+	if (!repr->mac_rule) {
+		err = -ENOMEM;
+		goto err_alloc_rule;
+	}
+#endif
+
 	repr->netdev = alloc_etherdev(sizeof(struct ice_netdev_priv));
 	if (!repr->netdev) {
 		err =  -ENOMEM;
@@ -276,6 +339,8 @@ static int ice_repr_add(struct ice_vf *vf)
 
 	devlink_port_type_eth_set(&vf->devlink_port, repr->netdev);
 
+	ice_virtchnl_set_repr_ops(vf);
+
 	return 0;
 
 err_netdev:
@@ -287,6 +352,11 @@ err_alloc_q_vector:
 	free_netdev(repr->netdev);
 	repr->netdev = NULL;
 err_alloc:
+#ifdef CONFIG_ICE_SWITCHDEV
+	kfree(repr->mac_rule);
+	repr->mac_rule = NULL;
+err_alloc_rule:
+#endif
 	kfree(repr);
 	vf->repr = NULL;
 	return err;
@@ -298,46 +368,23 @@ err_alloc:
  */
 static void ice_repr_rem(struct ice_vf *vf)
 {
+	if (!vf->repr)
+		return;
+
 	ice_devlink_destroy_vf_port(vf);
 	kfree(vf->repr->q_vector);
 	vf->repr->q_vector = NULL;
 	unregister_netdev(vf->repr->netdev);
 	free_netdev(vf->repr->netdev);
 	vf->repr->netdev = NULL;
+#ifdef CONFIG_ICE_SWITCHDEV
+	kfree(vf->repr->mac_rule);
+	vf->repr->mac_rule = NULL;
+#endif
 	kfree(vf->repr);
 	vf->repr = NULL;
-}
 
-/**
- * ice_repr_add_for_all_vfs - add port representor for all VFs
- * @pf: pointer to PF structure
- */
-int ice_repr_add_for_all_vfs(struct ice_pf *pf)
-{
-	int err;
-	int i;
-
-	ice_for_each_vf(pf, i) {
-		struct ice_vf *vf = &pf->vf[i];
-
-		err = ice_repr_add(vf);
-		if (err)
-			goto err;
-
-		ice_vc_change_ops_to_repr(&vf->vc_ops);
-	}
-
-	return 0;
-
-err:
-	for (i = i - 1; i >= 0; i--) {
-		struct ice_vf *vf = &pf->vf[i];
-
-		ice_repr_rem(vf);
-		ice_vc_set_dflt_vf_ops(&vf->vc_ops);
-	}
-
-	return err;
+	ice_virtchnl_set_dflt_ops(vf);
 }
 
 /**
@@ -346,14 +393,39 @@ err:
  */
 void ice_repr_rem_from_all_vfs(struct ice_pf *pf)
 {
-	int i;
+	struct ice_vf *vf;
+	unsigned int bkt;
 
-	ice_for_each_vf(pf, i) {
-		struct ice_vf *vf = &pf->vf[i];
+	lockdep_assert_held(&pf->vfs.table_lock);
 
+	ice_for_each_vf(pf, bkt, vf)
 		ice_repr_rem(vf);
-		ice_vc_set_dflt_vf_ops(&vf->vc_ops);
+}
+
+/**
+ * ice_repr_add_for_all_vfs - add port representor for all VFs
+ * @pf: pointer to PF structure
+ */
+int ice_repr_add_for_all_vfs(struct ice_pf *pf)
+{
+	struct ice_vf *vf;
+	unsigned int bkt;
+	int err;
+
+	lockdep_assert_held(&pf->vfs.table_lock);
+
+	ice_for_each_vf(pf, bkt, vf) {
+		err = ice_repr_add(vf);
+		if (err)
+			goto err;
 	}
+
+	return 0;
+
+err:
+	ice_repr_rem_from_all_vfs(pf);
+
+	return err;
 }
 
 /**

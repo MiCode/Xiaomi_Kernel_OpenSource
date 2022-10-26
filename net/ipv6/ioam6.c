@@ -13,10 +13,12 @@
 #include <linux/ioam6.h>
 #include <linux/ioam6_genl.h>
 #include <linux/rhashtable.h>
+#include <linux/netdevice.h>
 
 #include <net/addrconf.h>
 #include <net/genetlink.h>
 #include <net/ioam6.h>
+#include <net/sch_generic.h>
 
 static void ioam6_ns_release(struct ioam6_namespace *ns)
 {
@@ -633,7 +635,8 @@ static void __ioam6_fill_trace_data(struct sk_buff *skb,
 				    struct ioam6_schema *sc,
 				    u8 sclen, bool is_input)
 {
-	struct __kernel_sock_timeval ts;
+	struct timespec64 ts;
+	ktime_t tstamp;
 	u64 raw64;
 	u32 raw32;
 	u16 raw16;
@@ -678,10 +681,9 @@ static void __ioam6_fill_trace_data(struct sk_buff *skb,
 		if (!skb->dev) {
 			*(__be32 *)data = cpu_to_be32(IOAM6_U32_UNAVAILABLE);
 		} else {
-			if (!skb->tstamp)
-				__net_timestamp(skb);
+			tstamp = skb_tstamp_cond(skb, true);
+			ts = ktime_to_timespec64(tstamp);
 
-			skb_get_new_timestamp(skb, &ts);
 			*(__be32 *)data = cpu_to_be32((u32)ts.tv_sec);
 		}
 		data += sizeof(__be32);
@@ -692,13 +694,12 @@ static void __ioam6_fill_trace_data(struct sk_buff *skb,
 		if (!skb->dev) {
 			*(__be32 *)data = cpu_to_be32(IOAM6_U32_UNAVAILABLE);
 		} else {
-			if (!skb->tstamp)
-				__net_timestamp(skb);
+			if (!trace->type.bit2) {
+				tstamp = skb_tstamp_cond(skb, true);
+				ts = ktime_to_timespec64(tstamp);
+			}
 
-			if (!trace->type.bit2)
-				skb_get_new_timestamp(skb, &ts);
-
-			*(__be32 *)data = cpu_to_be32((u32)ts.tv_usec);
+			*(__be32 *)data = cpu_to_be32((u32)(ts.tv_nsec / NSEC_PER_USEC));
 		}
 		data += sizeof(__be32);
 	}
@@ -717,7 +718,19 @@ static void __ioam6_fill_trace_data(struct sk_buff *skb,
 
 	/* queue depth */
 	if (trace->type.bit6) {
-		*(__be32 *)data = cpu_to_be32(IOAM6_U32_UNAVAILABLE);
+		struct netdev_queue *queue;
+		struct Qdisc *qdisc;
+		__u32 qlen, backlog;
+
+		if (skb_dst(skb)->dev->flags & IFF_LOOPBACK) {
+			*(__be32 *)data = cpu_to_be32(IOAM6_U32_UNAVAILABLE);
+		} else {
+			queue = skb_get_tx_queue(skb_dst(skb)->dev, skb);
+			qdisc = rcu_dereference(queue->qdisc);
+			qdisc_qstats_qlen_backlog(qdisc, &qlen, &backlog);
+
+			*(__be32 *)data = cpu_to_be32(backlog);
+		}
 		data += sizeof(__be32);
 	}
 

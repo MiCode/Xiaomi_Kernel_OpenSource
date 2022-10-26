@@ -18,6 +18,7 @@
 #include "prestera_rxtx.h"
 #include "prestera_devlink.h"
 #include "prestera_ethtool.h"
+#include "prestera_counter.h"
 #include "prestera_switchdev.h"
 
 #define PRESTERA_MTU_DEFAULT	1536
@@ -27,6 +28,12 @@
 #define PRESTERA_MAC_ADDR_NUM_MAX	255
 
 static struct workqueue_struct *prestera_wq;
+static struct workqueue_struct *prestera_owq;
+
+void prestera_queue_work(struct work_struct *work)
+{
+	queue_work(prestera_owq, work);
+}
 
 int prestera_port_pvid_set(struct prestera_port *port, u16 vid)
 {
@@ -162,7 +169,7 @@ static netdev_tx_t prestera_port_xmit(struct sk_buff *skb,
 	return prestera_rxtx_xmit(netdev_priv(dev), skb);
 }
 
-static int prestera_is_valid_mac_addr(struct prestera_port *port, u8 *addr)
+int prestera_is_valid_mac_addr(struct prestera_port *port, const u8 *addr)
 {
 	if (!is_valid_ether_addr(addr))
 		return -EADDRNOTAVAIL;
@@ -553,6 +560,7 @@ static int prestera_switch_set_base_mac_addr(struct prestera_switch *sw)
 		dev_info(prestera_dev(sw), "using random base mac address\n");
 	}
 	of_node_put(base_mac_np);
+	of_node_put(np);
 
 	return prestera_hw_switch_mac_set(sw, sw->base_mac);
 }
@@ -901,6 +909,10 @@ static int prestera_switch_init(struct prestera_switch *sw)
 	if (err)
 		return err;
 
+	err = prestera_router_init(sw);
+	if (err)
+		goto err_router_init;
+
 	err = prestera_switchdev_init(sw);
 	if (err)
 		goto err_swdev_register;
@@ -912,6 +924,10 @@ static int prestera_switch_init(struct prestera_switch *sw)
 	err = prestera_event_handlers_register(sw);
 	if (err)
 		goto err_handlers_register;
+
+	err = prestera_counter_init(sw);
+	if (err)
+		goto err_counter_init;
 
 	err = prestera_acl_init(sw);
 	if (err)
@@ -945,12 +961,16 @@ err_dl_register:
 err_span_init:
 	prestera_acl_fini(sw);
 err_acl_init:
+	prestera_counter_fini(sw);
+err_counter_init:
 	prestera_event_handlers_unregister(sw);
 err_handlers_register:
 	prestera_rxtx_switch_fini(sw);
 err_rxtx_register:
 	prestera_switchdev_fini(sw);
 err_swdev_register:
+	prestera_router_fini(sw);
+err_router_init:
 	prestera_netdev_event_handler_unregister(sw);
 	prestera_hw_switch_fini(sw);
 
@@ -965,9 +985,11 @@ static void prestera_switch_fini(struct prestera_switch *sw)
 	prestera_devlink_traps_unregister(sw);
 	prestera_span_fini(sw);
 	prestera_acl_fini(sw);
+	prestera_counter_fini(sw);
 	prestera_event_handlers_unregister(sw);
 	prestera_rxtx_switch_fini(sw);
 	prestera_switchdev_fini(sw);
+	prestera_router_fini(sw);
 	prestera_netdev_event_handler_unregister(sw);
 	prestera_hw_switch_fini(sw);
 }
@@ -1009,12 +1031,19 @@ static int __init prestera_module_init(void)
 	if (!prestera_wq)
 		return -ENOMEM;
 
+	prestera_owq = alloc_ordered_workqueue("prestera_ordered", 0);
+	if (!prestera_owq) {
+		destroy_workqueue(prestera_wq);
+		return -ENOMEM;
+	}
+
 	return 0;
 }
 
 static void __exit prestera_module_exit(void)
 {
 	destroy_workqueue(prestera_wq);
+	destroy_workqueue(prestera_owq);
 }
 
 module_init(prestera_module_init);

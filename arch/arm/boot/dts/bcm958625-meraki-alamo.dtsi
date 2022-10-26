@@ -57,10 +57,9 @@
 
 		led-4 {
 			/* amber:power */
-			function = LED_FUNCTION_POWER;
+			function = LED_FUNCTION_FAULT;
 			color = <LED_COLOR_ID_AMBER>;
 			gpios = <&gpioa 3 GPIO_ACTIVE_HIGH>;
-			default-state = "on";
 		};
 
 		led-5 {
@@ -118,6 +117,8 @@
 						reg = <0>;
 						ethernet = <&sgmii1>;
 						phy-mode = "sgmii";
+						qca,sgmii-enable-pll;
+						qca,sgmii-txclk-falling-edge;
 						fixed-link {
 							speed = <1000>;
 							full-duplex;
@@ -194,6 +195,8 @@
 						reg = <0>;
 						ethernet = <&sgmii0>;
 						phy-mode = "sgmii";
+						qca,sgmii-enable-pll;
+						qca,sgmii-txclk-falling-edge;
 						fixed-link {
 							speed = <1000>;
 							full-duplex;

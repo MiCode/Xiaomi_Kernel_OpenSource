@@ -192,7 +192,7 @@ static struct uiscmdrsp *get_scsipending_cmdrsp(struct visorhba_devdata *ddata,
  * @result:   The location to place the result of the event handle into
  */
 static int setup_scsitaskmgmt_handles(struct xarray *xa, struct uiscmdrsp *cmdrsp,
-				       wait_queue_head_t *event, int *result)
+				      wait_queue_head_t *event, int *result)
 {
 	int ret;
 	u32 id;
@@ -266,7 +266,7 @@ static int forward_taskmgmt_command(enum task_mgmt_types tasktype,
 					 &notifyevent, &notifyresult);
 	if (ret) {
 		dev_dbg(&scsidev->sdev_gendev,
-		        "visorhba: setup_scsitaskmgmt_handles returned %d\n", ret);
+			"visorhba: setup_scsitaskmgmt_handles returned %d\n", ret);
 		return FAILED;
 	}
 

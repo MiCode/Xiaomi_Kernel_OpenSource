@@ -41,6 +41,7 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_ADS117X
 	imply SND_SOC_AK4104
 	imply SND_SOC_AK4118
+	imply SND_SOC_AK4375
 	imply SND_SOC_AK4458
 	imply SND_SOC_AK4535
 	imply SND_SOC_AK4554
@@ -52,6 +53,7 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_AK5558
 	imply SND_SOC_ALC5623
 	imply SND_SOC_ALC5632
+	imply SND_SOC_AW8738
 	imply SND_SOC_BT_SCO
 	imply SND_SOC_BD28623
 	imply SND_SOC_CQ0093VC
@@ -220,6 +222,7 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_TDA7419
 	imply SND_SOC_TFA9879
 	imply SND_SOC_TFA989X
+	imply SND_SOC_TLV320ADC3XXX
 	imply SND_SOC_TLV320ADCX140
 	imply SND_SOC_TLV320AIC23_I2C
 	imply SND_SOC_TLV320AIC23_SPI
@@ -241,8 +244,8 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_UDA1380
 	imply SND_SOC_WCD9335
 	imply SND_SOC_WCD934X
-	imply SND_SOC_WCD937X
-	imply SND_SOC_WCD938X
+	imply SND_SOC_WCD938X_SDW
+	imply SND_SOC_LPASS_MACRO_COMMON
 	imply SND_SOC_LPASS_RX_MACRO
 	imply SND_SOC_LPASS_TX_MACRO
 	imply SND_SOC_WL1273
@@ -343,11 +346,15 @@ config SND_SOC_WM_ADSP
 	default y if SND_SOC_WM5102=y
 	default y if SND_SOC_WM5110=y
 	default y if SND_SOC_WM2200=y
+	default y if SND_SOC_CS35L41_SPI=y
+	default y if SND_SOC_CS35L41_I2C=y
 	default m if SND_SOC_MADERA=m
 	default m if SND_SOC_CS47L24=m
 	default m if SND_SOC_WM5102=m
 	default m if SND_SOC_WM5110=m
 	default m if SND_SOC_WM2200=m
+	default m if SND_SOC_CS35L41_SPI=m
+	default m if SND_SOC_CS35L41_I2C=m
 
 config SND_SOC_AB8500_CODEC
 	tristate
@@ -519,6 +526,16 @@ config SND_SOC_AK4118
 	depends on I2C
 	select REGMAP_I2C
 
+config SND_SOC_AK4375
+	tristate "AKM AK4375 CODEC"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  Enable support for the Asahi-Kasei AK4375 codec.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called snd-soc-ak4375.
+
 config SND_SOC_AK4458
 	tristate "AKM AK4458 CODEC"
 	depends on I2C
@@ -562,6 +579,15 @@ config SND_SOC_ALC5623
 config SND_SOC_ALC5632
 	tristate
 	depends on I2C
+
+config SND_SOC_AW8738
+	tristate "Awinic AW8738 Audio Amplifier"
+	select GPIOLIB
+	help
+	  Enable support for the Awinic AW8738 audio amplifier (or similar).
+	  The driver supports simple audio amplifiers similar to
+	  SND_SOC_SIMPLE_AMPLIFIER, but additionally allows setting the
+	  operation mode using the Awinic-specific one-wire pulse control.
 
 config SND_SOC_BD28623
 	tristate "ROHM BD28623 CODEC"
@@ -609,14 +635,24 @@ config SND_SOC_CS35L36
 	tristate "Cirrus Logic CS35L36 CODEC"
 	depends on I2C
 
+config SND_SOC_CS35L41_LIB
+	tristate
+
+config SND_SOC_CS35L41
+	tristate
+
 config SND_SOC_CS35L41_SPI
 	tristate "Cirrus Logic CS35L41 CODEC (SPI)"
 	depends on SPI_MASTER
+	select SND_SOC_CS35L41_LIB
+	select SND_SOC_CS35L41
 	select REGMAP_SPI
 
 config SND_SOC_CS35L41_I2C
 	tristate "Cirrus Logic CS35L41 CODEC (I2C)"
 	depends on I2C
+	select SND_SOC_CS35L41_LIB
+	select SND_SOC_CS35L41
 	select REGMAP_I2C
 
 config SND_SOC_CS42L42
@@ -708,6 +744,7 @@ config SND_SOC_CS4349
 
 config SND_SOC_CS47L15
 	tristate
+	depends on MFD_CS47L15
 
 config SND_SOC_CS47L24
 	tristate
@@ -715,15 +752,19 @@ config SND_SOC_CS47L24
 
 config SND_SOC_CS47L35
 	tristate
+	depends on MFD_CS47L35
 
 config SND_SOC_CS47L85
 	tristate
+	depends on MFD_CS47L85
 
 config SND_SOC_CS47L90
 	tristate
+	depends on MFD_CS47L90
 
 config SND_SOC_CS47L92
 	tristate
+	depends on MFD_CS47L92
 
 # Cirrus Logic Quad-Channel ADC
 config SND_SOC_CS53L30
@@ -817,7 +858,6 @@ config SND_SOC_DA9055
 
 config SND_SOC_DMIC
 	tristate "Generic Digital Microphone CODEC"
-	depends on GPIOLIB
 	help
 	  Enable support for the Generic Digital Microphone CODEC.
 	  Select this if your sound card has DMICs.
@@ -1324,7 +1364,6 @@ config SND_SOC_RT9120
 	tristate "Richtek RT9120 Stereo Class-D Amplifier"
 	depends on I2C
 	select REGMAP_I2C
-	select GPIOLIB
 	help
 	  Enable support for Richtek RT9120 20W, stereo, inductor-less,
 	  high-efficiency Class-D audio amplifier.
@@ -1368,11 +1407,10 @@ config SND_SOC_SIGMADSP_REGMAP
 
 config SND_SOC_SIMPLE_AMPLIFIER
 	tristate "Simple Audio Amplifier"
-	select GPIOLIB
 
 config SND_SOC_SIMPLE_MUX
 	tristate "Simple Audio Mux"
-	select GPIOLIB
+	depends on GPIOLIB
 
 config SND_SOC_SPDIF
 	tristate "S/PDIF CODEC"
@@ -1460,6 +1498,15 @@ config SND_SOC_TAS5720
 	  Enable support for Texas Instruments TAS5720L/M high-efficiency mono
 	  Class-D audio power amplifiers.
 
+config SND_SOC_TAS5805M
+	tristate "Texas Instruments TAS5805M speaker amplifier"
+	depends on I2C
+	help
+	  Enable support for Texas Instruments TAS5805M Class-D
+	  amplifiers. This is a speaker amplifier with an integrated
+	  DSP. DSP configuration for each instance needs to be supplied
+	  via a device-tree attribute.
+
 config SND_SOC_TAS6424
 	tristate "Texas Instruments TAS6424 Quad-Channel Audio amplifier"
 	depends on I2C
@@ -1485,6 +1532,13 @@ config SND_SOC_TFA989X
 	  amplifiers, e.g. TFA9895.
 	  Note that the driver currently bypasses the built-in "CoolFlux DSP"
 	  and does not support (hardware) volume control.
+
+config SND_SOC_TLV320ADC3XXX
+	tristate "Texas Instruments TLV320ADC3001/3101 audio ADC"
+	depends on I2C
+	help
+	 Enable support for Texas Instruments TLV320ADC3001 and TLV320ADC3101
+	 ADCs.
 
 config SND_SOC_TLV320AIC23
 	tristate
@@ -1869,7 +1923,6 @@ config SND_SOC_WSA881X
 config SND_SOC_ZL38060
 	tristate "Microsemi ZL38060 Connected Home Audio Processor"
 	depends on SPI_MASTER
-	select GPIOLIB
 	select REGMAP
 	help
 	  Support for ZL38060 Connected Home Audio Processor from Microsemi,
@@ -1883,7 +1936,7 @@ config SND_SOC_LM4857
 
 config SND_SOC_MAX9759
 	tristate "Maxim MAX9759 speaker Amplifier"
-	select GPIOLIB
+	depends on GPIOLIB
 
 config SND_SOC_MAX9768
 	tristate
@@ -1966,6 +2019,9 @@ config SND_SOC_TPA6130A2
 	tristate "Texas Instruments TPA6130A2 headphone amplifier"
 	depends on I2C
 
+config SND_SOC_LPASS_MACRO_COMMON
+        tristate
+
 config SND_SOC_LPASS_WSA_MACRO
 	depends on COMMON_CLK
 	select REGMAP_MMIO
@@ -1974,16 +2030,19 @@ config SND_SOC_LPASS_WSA_MACRO
 config SND_SOC_LPASS_VA_MACRO
 	depends on COMMON_CLK
 	select REGMAP_MMIO
+	select SND_SOC_LPASS_MACRO_COMMON
 	tristate "Qualcomm VA Macro in LPASS(Low Power Audio SubSystem)"
 
 config SND_SOC_LPASS_RX_MACRO
 	depends on COMMON_CLK
 	select REGMAP_MMIO
+	select SND_SOC_LPASS_MACRO_COMMON
 	tristate "Qualcomm RX Macro in LPASS(Low Power Audio SubSystem)"
 
 config SND_SOC_LPASS_TX_MACRO
 	depends on COMMON_CLK
 	select REGMAP_MMIO
+	select SND_SOC_LPASS_MACRO_COMMON
 	tristate "Qualcomm TX Macro in LPASS(Low Power Audio SubSystem)"
 
 endmenu

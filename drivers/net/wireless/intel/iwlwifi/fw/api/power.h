@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
- * Copyright (C) 2012-2014, 2018-2021 Intel Corporation
+ * Copyright (C) 2012-2014, 2018-2022 Intel Corporation
  * Copyright (C) 2013-2014 Intel Mobile Communications GmbH
  * Copyright (C) 2015-2017 Intel Deutschland GmbH
  */
@@ -340,7 +340,7 @@ struct iwl_dev_tx_power_cmd_v5 {
 } __packed; /* TX_REDUCED_POWER_API_S_VER_5 */
 
 /**
- * struct iwl_dev_tx_power_cmd_v5 - TX power reduction command version 5
+ * struct iwl_dev_tx_power_cmd_v6 - TX power reduction command version 6
  * @per_chain: per chain restrictions
  * @enable_ack_reduction: enable or disable close range ack TX power
  *	reduction.
@@ -361,6 +361,28 @@ struct iwl_dev_tx_power_cmd_v6 {
 } __packed; /* TX_REDUCED_POWER_API_S_VER_6 */
 
 /**
+ * struct iwl_dev_tx_power_cmd_v7 - TX power reduction command version 7
+ * @per_chain: per chain restrictions
+ * @enable_ack_reduction: enable or disable close range ack TX power
+ *	reduction.
+ * @per_chain_restriction_changed: is per_chain_restriction has changed
+ *	from last command. used if set_mode is
+ *	IWL_TX_POWER_MODE_SET_SAR_TIMER.
+ *	note: if not changed, the command is used for keep alive only.
+ * @reserved: reserved (padding)
+ * @timer_period: timer in milliseconds. if expires FW will change to default
+ *	BIOS values. relevant if setMode is IWL_TX_POWER_MODE_SET_SAR_TIMER
+ * @flags: reduce power flags.
+ */
+struct iwl_dev_tx_power_cmd_v7 {
+	__le16 per_chain[IWL_NUM_CHAIN_TABLES_V2][IWL_NUM_CHAIN_LIMITS][IWL_NUM_SUB_BANDS_V2];
+	u8 enable_ack_reduction;
+	u8 per_chain_restriction_changed;
+	u8 reserved[2];
+	__le32 timer_period;
+	__le32 flags;
+} __packed; /* TX_REDUCED_POWER_API_S_VER_7 */
+/**
  * struct iwl_dev_tx_power_cmd - TX power reduction command (multiversion)
  * @common: common part of the command
  * @v3: version 3 part of the command
@@ -375,6 +397,7 @@ struct iwl_dev_tx_power_cmd {
 		struct iwl_dev_tx_power_cmd_v4 v4;
 		struct iwl_dev_tx_power_cmd_v5 v5;
 		struct iwl_dev_tx_power_cmd_v6 v6;
+		struct iwl_dev_tx_power_cmd_v7 v7;
 	};
 };
 
@@ -419,7 +442,7 @@ struct iwl_geo_tx_power_profiles_cmd_v1 {
  * struct iwl_geo_tx_power_profile_cmd_v2 - struct for PER_CHAIN_LIMIT_OFFSET_CMD cmd.
  * @ops: operations, value from &enum iwl_geo_per_chain_offset_operation
  * @table: offset profile per band.
- * @table_revision: BIOS table revision.
+ * @table_revision: 0 for not-South Korea, 1 for South Korea (the name is misleading)
  */
 struct iwl_geo_tx_power_profiles_cmd_v2 {
 	__le32 ops;
@@ -431,7 +454,7 @@ struct iwl_geo_tx_power_profiles_cmd_v2 {
  * struct iwl_geo_tx_power_profile_cmd_v3 - struct for PER_CHAIN_LIMIT_OFFSET_CMD cmd.
  * @ops: operations, value from &enum iwl_geo_per_chain_offset_operation
  * @table: offset profile per band.
- * @table_revision: BIOS table revision.
+ * @table_revision: 0 for not-South Korea, 1 for South Korea (the name is misleading)
  */
 struct iwl_geo_tx_power_profiles_cmd_v3 {
 	__le32 ops;
@@ -443,7 +466,7 @@ struct iwl_geo_tx_power_profiles_cmd_v3 {
  * struct iwl_geo_tx_power_profile_cmd_v4 - struct for PER_CHAIN_LIMIT_OFFSET_CMD cmd.
  * @ops: operations, value from &enum iwl_geo_per_chain_offset_operation
  * @table: offset profile per band.
- * @table_revision: BIOS table revision.
+ * @table_revision: 0 for not-South Korea, 1 for South Korea (the name is misleading)
  */
 struct iwl_geo_tx_power_profiles_cmd_v4 {
 	__le32 ops;
@@ -455,7 +478,7 @@ struct iwl_geo_tx_power_profiles_cmd_v4 {
  * struct iwl_geo_tx_power_profile_cmd_v5 - struct for PER_CHAIN_LIMIT_OFFSET_CMD cmd.
  * @ops: operations, value from &enum iwl_geo_per_chain_offset_operation
  * @table: offset profile per band.
- * @table_revision: BIOS table revision.
+ * @table_revision: 0 for not-South Korea, 1 for South Korea (the name is misleading)
  */
 struct iwl_geo_tx_power_profiles_cmd_v5 {
 	__le32 ops;
@@ -502,6 +525,20 @@ union iwl_ppag_table_cmd {
 		s8 reserved[2];
 	} v2;
 } __packed;
+
+#define MCC_TO_SAR_OFFSET_TABLE_ROW_SIZE	26
+#define MCC_TO_SAR_OFFSET_TABLE_COL_SIZE	13
+
+/**
+ * struct iwl_sar_offset_mapping_cmd - struct for SAR_OFFSET_MAPPING_TABLE_CMD
+ * @offset_map: mapping a mcc to a geo sar group
+ * @reserved: reserved
+ */
+struct iwl_sar_offset_mapping_cmd {
+	u8 offset_map[MCC_TO_SAR_OFFSET_TABLE_ROW_SIZE]
+		[MCC_TO_SAR_OFFSET_TABLE_COL_SIZE];
+	u16 reserved;
+} __packed; /*SAR_OFFSET_MAPPING_TABLE_CMD_API_S*/
 
 /**
  * struct iwl_beacon_filter_cmd

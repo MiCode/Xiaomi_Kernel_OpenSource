@@ -656,7 +656,9 @@ static int etm4_parse_event_config(struct coresight_device *csdev,
 		config->cfg |= BIT(11);
 	}
 
-	if (attr->config & BIT(ETM_OPT_CTXTID))
+	/* Only trace contextID when runs in root PID namespace */
+	if ((attr->config & BIT(ETM_OPT_CTXTID)) &&
+	    task_is_in_init_pid_ns(current))
 		/* bit[6], Context ID tracing bit */
 		config->cfg |= BIT(ETM4_CFG_BIT_CTXTID);
 
@@ -670,7 +672,11 @@ static int etm4_parse_event_config(struct coresight_device *csdev,
 			ret = -EINVAL;
 			goto out;
 		}
-		config->cfg |= BIT(ETM4_CFG_BIT_VMID) | BIT(ETM4_CFG_BIT_VMID_OPT);
+
+		/* Only trace virtual contextID when runs in root PID namespace */
+		if (task_is_in_init_pid_ns(current))
+			config->cfg |= BIT(ETM4_CFG_BIT_VMID) |
+				       BIT(ETM4_CFG_BIT_VMID_OPT);
 	}
 
 	/* return stack - enable if selected and supported */
@@ -722,7 +728,16 @@ static int etm4_enable_sysfs(struct coresight_device *csdev)
 {
 	struct etmv4_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 	struct etm4_enable_arg arg = { };
-	int ret;
+	unsigned long cfg_hash;
+	int ret, preset;
+
+	/* enable any config activated by configfs */
+	cscfg_config_sysfs_get_active_cfg(&cfg_hash, &preset);
+	if (cfg_hash) {
+		ret = cscfg_csdev_enable_active_config(csdev, cfg_hash, preset);
+		if (ret)
+			return ret;
+	}
 
 	spin_lock(&drvdata->spinlock);
 
@@ -1082,7 +1097,7 @@ static void etm4_init_arch_data(void *info)
 	etmidr0 = etm4x_relaxed_read32(csa, TRCIDR0);
 
 	/* INSTP0, bits[2:1] P0 tracing support field */
-	if (BMVAL(etmidr0, 1, 1) && BMVAL(etmidr0, 2, 2))
+	if (BMVAL(etmidr0, 1, 2) == 0b11)
 		drvdata->instrp0 = true;
 	else
 		drvdata->instrp0 = false;

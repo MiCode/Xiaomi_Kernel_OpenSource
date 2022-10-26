@@ -106,9 +106,9 @@ int rxe_cq_resize_queue(struct rxe_cq *cq, int cqe,
 int rxe_cq_post(struct rxe_cq *cq, struct rxe_cqe *cqe, int solicited)
 {
 	struct ib_event ev;
-	unsigned long flags;
 	int full;
 	void *addr;
+	unsigned long flags;
 
 	spin_lock_irqsave(&cq->cq_lock, flags);
 
@@ -150,9 +150,9 @@ void rxe_cq_disable(struct rxe_cq *cq)
 	spin_unlock_irqrestore(&cq->cq_lock, flags);
 }
 
-void rxe_cq_cleanup(struct rxe_pool_entry *arg)
+void rxe_cq_cleanup(struct rxe_pool_elem *elem)
 {
-	struct rxe_cq *cq = container_of(arg, typeof(*cq), pelem);
+	struct rxe_cq *cq = container_of(elem, typeof(*cq), elem);
 
 	if (cq->queue)
 		rxe_queue_cleanup(cq->queue);

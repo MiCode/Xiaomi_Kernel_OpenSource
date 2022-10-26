@@ -12,6 +12,7 @@
 #ifndef __CS42L42_H__
 #define __CS42L42_H__
 
+#include <linux/mutex.h>
 #include <sound/jack.h>
 
 #define CS42L42_PAGE_REGISTER	0x00	/* Page Select Register */
@@ -62,6 +63,9 @@
 #define CS42L42_INTERNAL_FS_MASK	(1 << CS42L42_INTERNAL_FS_SHIFT)
 
 #define CS42L42_SFTRAMP_RATE		(CS42L42_PAGE_10 + 0x0A)
+#define CS42L42_SLOW_START_ENABLE	(CS42L42_PAGE_10 + 0x0B)
+#define CS42L42_SLOW_START_EN_MASK	GENMASK(6, 4)
+#define CS42L42_SLOW_START_EN_SHIFT	4
 #define CS42L42_I2C_DEBOUNCE		(CS42L42_PAGE_10 + 0x0E)
 #define CS42L42_I2C_STRETCH		(CS42L42_PAGE_10 + 0x0F)
 #define CS42L42_I2C_TIMEOUT		(CS42L42_PAGE_10 + 0x10)
@@ -487,7 +491,10 @@
 #define CS42L42_TS_UNPLUG		0
 #define CS42L42_TS_TRANS		1
 
-/* Page 0x15 Fractional-N PLL Registers */
+/*
+ * NOTE: PLL_START must be 0 while both ADC_PDN=1 and HP_PDN=1.
+ * Otherwise it will prevent FILT+ from charging properly.
+ */
 #define CS42L42_PLL_CTL1		(CS42L42_PAGE_15 + 0x01)
 #define CS42L42_PLL_START_SHIFT		0
 #define CS42L42_PLL_START_MASK		(1 << CS42L42_PLL_START_SHIFT)
@@ -570,6 +577,10 @@
 #define CS42L42_TIP_SENSE_CTRL_MASK		(3 << \
 					CS42L42_TIP_SENSE_CTRL_SHIFT)
 
+/*
+ * NOTE: DETECT_MODE must be 0 while both ADC_PDN=1 and HP_PDN=1.
+ * Otherwise it will prevent FILT+ from charging properly.
+ */
 #define CS42L42_MISC_DET_CTL		(CS42L42_PAGE_1B + 0x74)
 #define CS42L42_PDN_MIC_LVL_DET_SHIFT	0
 #define CS42L42_PDN_MIC_LVL_DET_MASK	(1 << CS42L42_PDN_MIC_LVL_DET_SHIFT)
@@ -822,6 +833,10 @@
 #define CS42L42_PLL_LOCK_POLL_US	250
 #define CS42L42_PLL_LOCK_TIMEOUT_US	1250
 #define CS42L42_HP_ADC_EN_TIME_US	20000
+#define CS42L42_PDN_DONE_POLL_US	1000
+#define CS42L42_PDN_DONE_TIMEOUT_US	200000
+#define CS42L42_PDN_DONE_TIME_MS	100
+#define CS42L42_FILT_DISCHARGE_TIME_MS	46
 
 static const char *const cs42l42_supply_names[CS42L42_NUM_SUPPLIES] = {
 	"VA",
@@ -838,11 +853,11 @@ struct  cs42l42_private {
 	struct gpio_desc *reset_gpio;
 	struct completion pdn_done;
 	struct snd_soc_jack *jack;
+	struct mutex irq_lock;
 	int pll_config;
 	int bclk;
 	u32 sclk;
 	u32 srate;
-	u8 pll_divout;
 	u8 plug_state;
 	u8 hs_type;
 	u8 ts_inv;
@@ -856,6 +871,7 @@ struct  cs42l42_private {
 	u8 hs_bias_sense_en;
 	u8 stream_use;
 	bool hp_adc_up_pending;
+	bool suspended;
 };
 
 #endif /* __CS42L42_H__ */

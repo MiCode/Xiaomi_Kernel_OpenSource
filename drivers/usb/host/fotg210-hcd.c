@@ -4014,10 +4014,8 @@ static struct fotg210_iso_sched *iso_sched_alloc(unsigned packets,
 		gfp_t mem_flags)
 {
 	struct fotg210_iso_sched *iso_sched;
-	int size = sizeof(*iso_sched);
 
-	size += packets * sizeof(struct fotg210_iso_packet);
-	iso_sched = kzalloc(size, mem_flags);
+	iso_sched = kzalloc(struct_size(iso_sched, packet, packets), mem_flags);
 	if (likely(iso_sched != NULL))
 		INIT_LIST_HEAD(&iso_sched->td_list);
 
@@ -5576,14 +5574,9 @@ static int fotg210_hcd_probe(struct platform_device *pdev)
 
 	pdev->dev.power.power_state = PMSG_ON;
 
-	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (!res) {
-		dev_err(dev, "Found HC with no IRQ. Check %s setup!\n",
-				dev_name(dev));
-		return -ENODEV;
-	}
-
-	irq = res->start;
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0)
+		return irq;
 
 	hcd = usb_create_hcd(&fotg210_fotg210_hc_driver, dev,
 			dev_name(dev));

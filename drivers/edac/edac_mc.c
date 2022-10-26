@@ -162,6 +162,8 @@ const char * const edac_mem_types[] = {
 	[MEM_LPDDR4]	= "Low-Power-DDR4-RAM",
 	[MEM_LRDDR4]	= "Load-Reduced-DDR4-RAM",
 	[MEM_DDR5]	= "Unbuffered-DDR5",
+	[MEM_RDDR5]	= "Registered-DDR5",
+	[MEM_LRDDR5]	= "Load-Reduced-DDR5-RAM",
 	[MEM_NVDIMM]	= "Non-volatile-RAM",
 	[MEM_WIO2]	= "Wide-IO-2",
 	[MEM_HBM2]	= "High-bandwidth-memory-Gen2",
@@ -211,12 +213,12 @@ void *edac_align_ptr(void **p, unsigned int size, int n_elems)
 	else if (size > sizeof(char))
 		align = sizeof(short);
 	else
-		return (char *)ptr;
+		return ptr;
 
-	r = (unsigned long)p % align;
+	r = (unsigned long)ptr % align;
 
 	if (r == 0)
-		return (char *)ptr;
+		return ptr;
 
 	*p += align - r;
 

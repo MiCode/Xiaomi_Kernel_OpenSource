@@ -15,6 +15,8 @@
 #include "qed_hsi.h"
 #include "qed_dev_api.h"
 
+#define QED_MFW_REPORT_STR_SIZE	256
+
 struct qed_mcp_link_speed_params {
 	bool					autoneg;
 
@@ -391,11 +393,12 @@ int qed_mcp_get_board_config(struct qed_hwfn *p_hwfn,
 			     struct qed_ptt *p_ptt, u32 *p_board_config);
 
 /**
- * qed_mcp_cmd(): General function for sending commands to the MCP
+ * qed_mcp_cmd(): Sleepable function for sending commands to the MCP
  *                mailbox. It acquire mutex lock for the entire
  *                operation, from sending the request until the MCP
  *                response. Waiting for MCP response will be checked up
- *                to 5 seconds every 5ms.
+ *                to 5 seconds every 10ms. Should not be called from atomic
+ *                context.
  *
  * @p_hwfn: HW device data.
  * @p_ptt: PTT required for register access.
@@ -413,6 +416,31 @@ int qed_mcp_cmd(struct qed_hwfn *p_hwfn,
 		u32 param,
 		u32 *o_mcp_resp,
 		u32 *o_mcp_param);
+
+/**
+ * qed_mcp_cmd_nosleep(): Function for sending commands to the MCP
+ *                        mailbox. It acquire mutex lock for the entire
+ *                        operation, from sending the request until the MCP
+ *                        response. Waiting for MCP response will be checked up
+ *                        to 5 seconds every 10us. Should be called when sleep
+ *                        is not allowed.
+ *
+ * @p_hwfn: HW device data.
+ * @p_ptt: PTT required for register access.
+ * @cmd: command to be sent to the MCP.
+ * @param: Optional param
+ * @o_mcp_resp: The MCP response code (exclude sequence).
+ * @o_mcp_param: Optional parameter provided by the MCP
+ *                     response
+ *
+ * Return: Int - 0 - Operation was successul.
+ */
+int qed_mcp_cmd_nosleep(struct qed_hwfn *p_hwfn,
+			struct qed_ptt *p_ptt,
+			u32 cmd,
+			u32 param,
+			u32 *o_mcp_resp,
+			u32 *o_mcp_param);
 
 /**
  * qed_mcp_drain(): drains the nig, allowing completion to pass in
@@ -760,6 +788,14 @@ struct qed_mcp_info {
 
 	/* S/N for debug data mailbox commands */
 	atomic_t dbg_data_seq;
+
+	/* Spinlock used to sync the flag mcp_handling_status with
+	 * the mfw events handler
+	 */
+	spinlock_t unload_lock;
+	unsigned long mcp_handling_status;
+#define QED_MCP_BYPASS_PROC_BIT 0
+#define QED_MCP_IN_PROCESSING_BIT       1
 };
 
 struct qed_mcp_mb_params {
@@ -1337,4 +1373,24 @@ int qed_mcp_nvm_get_cfg(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
 int qed_mcp_nvm_set_cfg(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt,
 			u16 option_id, u8 entity_id, u16 flags, u8 *p_buf,
 			u32 len);
+
+/**
+ * qed_mcp_is_esl_supported(): Return whether management firmware support ESL or not.
+ *
+ * @p_hwfn: hw function pointer
+ *
+ * Return: true if esl is supported, otherwise return false
+ */
+bool qed_mcp_is_esl_supported(struct qed_hwfn *p_hwfn);
+
+/**
+ * qed_mcp_get_esl_status(): Get enhanced system lockdown status
+ *
+ * @p_hwfn: hw function pointer
+ * @p_ptt: ptt resource pointer
+ * @active: ESL active status data pointer
+ *
+ * Return: 0 with esl status info on success, otherwise return error
+ */
+int qed_mcp_get_esl_status(struct qed_hwfn *p_hwfn, struct qed_ptt *p_ptt, bool *active);
 #endif

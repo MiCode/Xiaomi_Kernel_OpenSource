@@ -26,7 +26,11 @@
 #include <asm/ptrace.h>
 #include <asm/processor.h>
 #include <asm/pdc.h>
+#include <uapi/asm/sigcontext.h>
+#include <asm/ucontext.h>
+#include <asm/rt_sigframe.h>
 #include <linux/uaccess.h>
+#include "signal32.h"
 
 /* Add FRAME_SIZE to the size x and align it to y. All definitions
  * that use align_frame will include space for a frame.
@@ -36,7 +40,11 @@
 int main(void)
 {
 	DEFINE(TASK_TI_FLAGS, offsetof(struct task_struct, thread_info.flags));
+#ifdef CONFIG_SMP
+	DEFINE(TASK_TI_CPU, offsetof(struct task_struct, thread_info.cpu));
+#endif
 	DEFINE(TASK_STACK, offsetof(struct task_struct, stack));
+	DEFINE(TASK_PAGEFAULT_DISABLED, offsetof(struct task_struct, pagefault_disabled));
 	BLANK();
 	DEFINE(TASK_REGS, offsetof(struct task_struct, thread.regs));
 	DEFINE(TASK_PT_PSW, offsetof(struct task_struct, thread.regs.gr[ 0]));
@@ -213,6 +221,11 @@ int main(void)
 	BLANK();
 	DEFINE(TI_FLAGS, offsetof(struct thread_info, flags));
 	DEFINE(TI_PRE_COUNT, offsetof(struct task_struct, thread_info.preempt_count));
+	BLANK();
+	DEFINE(ASM_SIGFRAME_SIZE, PARISC_RT_SIGFRAME_SIZE);
+	DEFINE(SIGFRAME_CONTEXT_REGS, offsetof(struct rt_sigframe, uc.uc_mcontext) - PARISC_RT_SIGFRAME_SIZE);
+	DEFINE(ASM_SIGFRAME_SIZE32, PARISC_RT_SIGFRAME_SIZE32);
+	DEFINE(SIGFRAME_CONTEXT_REGS32, offsetof(struct compat_rt_sigframe, uc.uc_mcontext) - PARISC_RT_SIGFRAME_SIZE32);
 	BLANK();
 	DEFINE(ICACHE_BASE, offsetof(struct pdc_cache_info, ic_base));
 	DEFINE(ICACHE_STRIDE, offsetof(struct pdc_cache_info, ic_stride));

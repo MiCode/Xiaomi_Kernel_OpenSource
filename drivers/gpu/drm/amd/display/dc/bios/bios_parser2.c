@@ -1692,7 +1692,6 @@ static enum bp_result bios_parser_get_encoder_cap_info(
 			ATOM_ENCODER_CAP_RECORD_HBR3_EN) ? 1 : 0;
 	info->HDMI_6GB_EN = (record->encodercaps &
 			ATOM_ENCODER_CAP_RECORD_HDMI6Gbps_EN) ? 1 : 0;
-#if defined(CONFIG_DRM_AMD_DC_DCN)
 	info->IS_DP2_CAPABLE = (record->encodercaps &
 			ATOM_ENCODER_CAP_RECORD_DP2) ? 1 : 0;
 	info->DP_UHBR10_EN = (record->encodercaps &
@@ -1701,7 +1700,6 @@ static enum bp_result bios_parser_get_encoder_cap_info(
 			ATOM_ENCODER_CAP_RECORD_UHBR13_5_EN) ? 1 : 0;
 	info->DP_UHBR20_EN = (record->encodercaps &
 			ATOM_ENCODER_CAP_RECORD_UHBR20_EN) ? 1 : 0;
-#endif
 	info->DP_IS_USB_C = (record->encodercaps &
 			ATOM_ENCODER_CAP_RECORD_USB_C_TYPE) ? 1 : 0;
 
@@ -2995,7 +2993,7 @@ static bool bios_parser2_construct(
 		&bp->object_info_tbl.revision);
 
 	if (bp->object_info_tbl.revision.major == 1
-		&& bp->object_info_tbl.revision.minor >= 4) {
+		&& bp->object_info_tbl.revision.minor == 4) {
 		struct display_object_info_table_v1_4 *tbl_v1_4;
 
 		tbl_v1_4 = GET_IMAGE(struct display_object_info_table_v1_4,
@@ -3004,8 +3002,10 @@ static bool bios_parser2_construct(
 			return false;
 
 		bp->object_info_tbl.v1_4 = tbl_v1_4;
-	} else
+	} else {
+		ASSERT(0);
 		return false;
+	}
 
 	dal_firmware_parser_init_cmd_tbl(bp);
 	dal_bios_parser_init_cmd_tbl_helper2(&bp->cmd_helper, dce_version);

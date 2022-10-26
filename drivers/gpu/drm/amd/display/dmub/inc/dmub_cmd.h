@@ -46,10 +46,10 @@
 
 /* Firmware versioning. */
 #ifdef DMUB_EXPOSE_VERSION
-#define DMUB_FW_VERSION_GIT_HASH 0x1d82d23e
+#define DMUB_FW_VERSION_GIT_HASH 0x929554ba
 #define DMUB_FW_VERSION_MAJOR 0
 #define DMUB_FW_VERSION_MINOR 0
-#define DMUB_FW_VERSION_REVISION 91
+#define DMUB_FW_VERSION_REVISION 108
 #define DMUB_FW_VERSION_TEST 0
 #define DMUB_FW_VERSION_VBIOS 0
 #define DMUB_FW_VERSION_HOTFIX 0
@@ -173,13 +173,6 @@ extern "C" {
 #endif
 
 /**
- * Number of nanoseconds per DMUB tick.
- * DMCUB_TIMER_CURRENT increments in DMUB ticks, which are 10ns by default.
- * If DMCUB_TIMER_WINDOW is non-zero this will no longer be true.
- */
-#define NS_PER_DMUB_TICK 10
-
-/**
  * union dmub_addr - DMUB physical/virtual 64-bit address.
  */
 union dmub_addr {
@@ -208,10 +201,9 @@ union dmub_psr_debug_flags {
 		uint32_t use_hw_lock_mgr : 1;
 
 		/**
-		 * Unused.
-		 * TODO: Remove.
+		 * Use TPS3 signal when restore main link.
 		 */
-		uint32_t log_line_nums : 1;
+		uint32_t force_wakeup_by_tps3 : 1;
 	} bitfields;
 
 	/**
@@ -375,8 +367,9 @@ union dmub_fw_boot_options {
 		/**< 1 if all root clock gating is enabled and low power memory is enabled*/
 		uint32_t power_optimization: 1;
 		uint32_t diag_env: 1; /* 1 if diagnostic environment */
+		uint32_t gpint_scratch8: 1; /* 1 if GPINT is in scratch8*/
 
-		uint32_t reserved : 19; /**< reserved */
+		uint32_t reserved : 18; /**< reserved */
 	} bits; /**< boot bits */
 	uint32_t all; /**< 32-bit access to bits */
 };
@@ -416,7 +409,14 @@ enum dmub_cmd_vbios_type {
 	 * Enables or disables power gating.
 	 */
 	DMUB_CMD__VBIOS_ENABLE_DISP_POWER_GATING = 3,
+	/**
+	 * Controls embedded panels.
+	 */
 	DMUB_CMD__VBIOS_LVTMA_CONTROL = 15,
+	/**
+	 * Query DP alt status on a transmitter.
+	 */
+	DMUB_CMD__VBIOS_TRANSMITTER_QUERY_DP_ALT  = 26,
 };
 
 //==============================================================================
@@ -524,7 +524,7 @@ union dmub_inbox0_cmd_lock_hw {
 		uint32_t command_code: 8;
 
 		/* NOTE: Must be have enough bits to match: enum hw_lock_client */
-		uint32_t hw_lock_client: 1;
+		uint32_t hw_lock_client: 2;
 
 		/* NOTE: Below fields must match with: struct dmub_hw_lock_inst_flags */
 		uint32_t otg_inst: 3;
@@ -539,7 +539,7 @@ union dmub_inbox0_cmd_lock_hw {
 
 		uint32_t lock: 1;				/**< Lock */
 		uint32_t should_release: 1;		/**< Release */
-		uint32_t reserved: 8; 			/**< Reserved for extending more clients, HW, etc. */
+		uint32_t reserved: 7; 			/**< Reserved for extending more clients, HW, etc. */
 	} bits;
 	uint32_t all;
 };
@@ -645,6 +645,7 @@ enum dmub_cmd_type {
 	 * Command type used for OUTBOX1 notification enable
 	 */
 	DMUB_CMD__OUTBOX1_ENABLE = 71,
+
 	/**
 	 * Command type used for all idle optimization commands.
 	 */
@@ -657,6 +658,7 @@ enum dmub_cmd_type {
 	 * Command type used for all panel control commands.
 	 */
 	DMUB_CMD__PANEL_CNTL = 74,
+
 	/**
 	 * Command type used for interfacing with DPIA.
 	 */
@@ -665,6 +667,10 @@ enum dmub_cmd_type {
 	 * Command type used for EDID CEA parsing
 	 */
 	DMUB_CMD__EDID_CEA = 79,
+	/**
+	 * Command type used for getting usbc cable ID
+	 */
+	DMUB_CMD_GET_USBC_CABLE_ID = 81,
 	/**
 	 * Command type used for all VBIOS interface commands.
 	 */
@@ -1444,6 +1450,80 @@ enum dmub_cmd_mall_type {
 	DMUB_CMD__MALL_ACTION_NO_DF_REQ = 3,
 };
 
+/**
+ * PHY Link rate for DP.
+ */
+enum phy_link_rate {
+	/**
+	 * not supported.
+	 */
+	PHY_RATE_UNKNOWN = 0,
+	/**
+	 * Rate_1 (RBR)	- 1.62 Gbps/Lane
+	 */
+	PHY_RATE_162 = 1,
+	/**
+	 * Rate_2		- 2.16 Gbps/Lane
+	 */
+	PHY_RATE_216 = 2,
+	/**
+	 * Rate_3		- 2.43 Gbps/Lane
+	 */
+	PHY_RATE_243 = 3,
+	/**
+	 * Rate_4 (HBR)	- 2.70 Gbps/Lane
+	 */
+	PHY_RATE_270 = 4,
+	/**
+	 * Rate_5 (RBR2)- 3.24 Gbps/Lane
+	 */
+	PHY_RATE_324 = 5,
+	/**
+	 * Rate_6		- 4.32 Gbps/Lane
+	 */
+	PHY_RATE_432 = 6,
+	/**
+	 * Rate_7 (HBR2)- 5.40 Gbps/Lane
+	 */
+	PHY_RATE_540 = 7,
+	/**
+	 * Rate_8 (HBR3)- 8.10 Gbps/Lane
+	 */
+	PHY_RATE_810 = 8,
+	/**
+	 * UHBR10 - 10.0 Gbps/Lane
+	 */
+	PHY_RATE_1000 = 9,
+	/**
+	 * UHBR13.5 - 13.5 Gbps/Lane
+	 */
+	PHY_RATE_1350 = 10,
+	/**
+	 * UHBR10 - 20.0 Gbps/Lane
+	 */
+	PHY_RATE_2000 = 11,
+};
+
+/**
+ * enum dmub_phy_fsm_state - PHY FSM states.
+ * PHY FSM state to transit to during PSR enable/disable.
+ */
+enum dmub_phy_fsm_state {
+	DMUB_PHY_FSM_POWER_UP_DEFAULT = 0,
+	DMUB_PHY_FSM_RESET,
+	DMUB_PHY_FSM_RESET_RELEASED,
+	DMUB_PHY_FSM_SRAM_LOAD_DONE,
+	DMUB_PHY_FSM_INITIALIZED,
+	DMUB_PHY_FSM_CALIBRATED,
+	DMUB_PHY_FSM_CALIBRATED_LP,
+	DMUB_PHY_FSM_CALIBRATED_PG,
+	DMUB_PHY_FSM_POWER_DOWN,
+	DMUB_PHY_FSM_PLL_EN,
+	DMUB_PHY_FSM_TX_EN,
+	DMUB_PHY_FSM_FAST_LP,
+};
+
+
 
 /**
  * Data passed from driver to FW in a DMUB_CMD__PSR_COPY_SETTINGS command.
@@ -1550,10 +1630,18 @@ struct dmub_cmd_psr_copy_settings_data {
 	 * Currently the support is only for 0 or 1
 	 */
 	uint8_t panel_inst;
-	/**
-	 * Explicit padding to 4 byte boundary.
+	/*
+	 * DSC enable status in driver
 	 */
-	uint8_t pad3[4];
+	uint8_t dsc_enable_status;
+	/*
+	 * Use FSM state for PSR power up/down
+	 */
+	uint8_t use_phy_fsm;
+	/**
+	 * Explicit padding to 2 byte boundary.
+	 */
+	uint8_t pad3[2];
 };
 
 /**
@@ -1684,9 +1772,16 @@ struct dmub_cmd_psr_force_static_data {
 	 */
 	uint8_t panel_inst;
 	/**
-	 * Explicit padding to 4 byte boundary.
+	 * Phy state to enter.
+	 * Values to use are defined in dmub_phy_fsm_state
 	 */
-	uint8_t pad[2];
+	uint8_t phy_fsm_state;
+	/**
+	 * Phy rate for DP - RBR/HBR/HBR2/HBR3.
+	 * Set this using enum phy_link_rate.
+	 * This does not support HDMI/DP2 for now.
+	 */
+	uint8_t phy_rate;
 };
 
 /**
@@ -2363,6 +2458,9 @@ struct dmub_cmd_panel_cntl_data {
 	uint32_t bl_pwm_ref_div1; /* in/out */
 	uint8_t is_backlight_on : 1; /* in/out */
 	uint8_t is_powered_on : 1; /* in/out */
+	uint8_t padding[3];
+	uint32_t bl_pwm_ref_div2; /* in/out */
+	uint8_t reserved[4];
 };
 
 /**
@@ -2398,6 +2496,24 @@ struct dmub_rb_cmd_lvtma_control {
 };
 
 /**
+ * Data passed in/out in a DMUB_CMD__VBIOS_TRANSMITTER_QUERY_DP_ALT command.
+ */
+struct dmub_rb_cmd_transmitter_query_dp_alt_data {
+	uint8_t phy_id; /**< 0=UNIPHYA, 1=UNIPHYB, 2=UNIPHYC, 3=UNIPHYD, 4=UNIPHYE, 5=UNIPHYF */
+	uint8_t is_usb; /**< is phy is usb */
+	uint8_t is_dp_alt_disable; /**< is dp alt disable */
+	uint8_t is_dp4; /**< is dp in 4 lane */
+};
+
+/**
+ * Definition of a DMUB_CMD__VBIOS_TRANSMITTER_QUERY_DP_ALT command.
+ */
+struct dmub_rb_cmd_transmitter_query_dp_alt {
+	struct dmub_cmd_header header; /**< header */
+	struct dmub_rb_cmd_transmitter_query_dp_alt_data data; /**< payload */
+};
+
+/**
  * Maximum number of bytes a chunk sent to DMUB for parsing
  */
 #define DMUB_EDID_CEA_DATA_CHUNK_BYTES 8
@@ -2408,7 +2524,7 @@ struct dmub_rb_cmd_lvtma_control {
 struct dmub_cmd_send_edid_cea {
 	uint16_t offset;	/**< offset into the CEA block */
 	uint8_t length;	/**< number of bytes in payload to copy as part of CEA block */
-	uint16_t total_length;  /**< total length of the CEA block */
+	uint16_t cea_total_length;  /**< total length of the CEA block */
 	uint8_t payload[DMUB_EDID_CEA_DATA_CHUNK_BYTES]; /**< data chunk of the CEA block */
 	uint8_t pad[3]; /**< padding and for future expansion */
 };
@@ -2457,6 +2573,38 @@ struct dmub_rb_cmd_edid_cea {
 		} output;	/**< output to retrieve ACK/NACK or VSDB parsing results */
 	} data;	/**< Command data */
 
+};
+
+/**
+ * struct dmub_cmd_cable_id_input - Defines the input of DMUB_CMD_GET_USBC_CABLE_ID command.
+ */
+struct dmub_cmd_cable_id_input {
+	uint8_t phy_inst;  /**< phy inst for cable id data */
+};
+
+/**
+ * struct dmub_cmd_cable_id_input - Defines the output of DMUB_CMD_GET_USBC_CABLE_ID command.
+ */
+struct dmub_cmd_cable_id_output {
+	uint8_t UHBR10_20_CAPABILITY	:2; /**< b'01 for UHBR10 support, b'10 for both UHBR10 and UHBR20 support */
+	uint8_t UHBR13_5_CAPABILITY	:1; /**< b'1 for UHBR13.5 support */
+	uint8_t CABLE_TYPE		:3; /**< b'01 for passive cable, b'10 for active LRD cable, b'11 for active retimer cable */
+	uint8_t RESERVED		:2; /**< reserved means not defined */
+};
+
+/**
+ * Definition of a DMUB_CMD_GET_USBC_CABLE_ID command
+ */
+struct dmub_rb_cmd_get_usbc_cable_id {
+	struct dmub_cmd_header header; /**< Command header */
+	/**
+	 * Data passed from driver to FW in a DMUB_CMD_GET_USBC_CABLE_ID command.
+	 */
+	union dmub_cmd_cable_id_data {
+		struct dmub_cmd_cable_id_input input; /**< Input */
+		struct dmub_cmd_cable_id_output output; /**< Output */
+		uint8_t output_raw; /**< Raw data output */
+	} data;
 };
 
 /**
@@ -2605,6 +2753,10 @@ union dmub_rb_cmd {
 	 */
 	struct dmub_rb_cmd_lvtma_control lvtma_control;
 	/**
+	 * Definition of a DMUB_CMD__VBIOS_TRANSMITTER_QUERY_DP_ALT command.
+	 */
+	struct dmub_rb_cmd_transmitter_query_dp_alt query_dp_alt;
+	/**
 	 * Definition of a DMUB_CMD__DPIA_DIG1_CONTROL command.
 	 */
 	struct dmub_rb_cmd_dig1_dpia_control dig1_dpia_control;
@@ -2620,6 +2772,10 @@ union dmub_rb_cmd {
 	 * Definition of a DMUB_CMD__EDID_CEA command.
 	 */
 	struct dmub_rb_cmd_edid_cea edid_cea;
+	/**
+	 * Definition of a DMUB_CMD_GET_USBC_CABLE_ID command.
+	 */
+	struct dmub_rb_cmd_get_usbc_cable_id cable_id;
 };
 
 /**
@@ -2722,7 +2878,7 @@ static inline bool dmub_rb_full(struct dmub_rb *rb)
 static inline bool dmub_rb_push_front(struct dmub_rb *rb,
 				      const union dmub_rb_cmd *cmd)
 {
-	uint64_t volatile *dst = (uint64_t volatile *)(rb->base_address) + rb->wrpt / sizeof(uint64_t);
+	uint64_t volatile *dst = (uint64_t volatile *)((uint8_t *)(rb->base_address) + rb->wrpt);
 	const uint64_t *src = (const uint64_t *)cmd;
 	uint8_t i;
 
@@ -2840,7 +2996,7 @@ static inline bool dmub_rb_peek_offset(struct dmub_rb *rb,
 static inline bool dmub_rb_out_front(struct dmub_rb *rb,
 				 union dmub_rb_out_cmd *cmd)
 {
-	const uint64_t volatile *src = (const uint64_t volatile *)(rb->base_address) + rb->rptr / sizeof(uint64_t);
+	const uint64_t volatile *src = (const uint64_t volatile *)((uint8_t *)(rb->base_address) + rb->rptr);
 	uint64_t *dst = (uint64_t *)cmd;
 	uint8_t i;
 
@@ -2888,11 +3044,15 @@ static inline void dmub_rb_flush_pending(const struct dmub_rb *rb)
 	uint32_t wptr = rb->wrpt;
 
 	while (rptr != wptr) {
-		uint64_t volatile *data = (uint64_t volatile *)rb->base_address + rptr / sizeof(uint64_t);
+		uint64_t volatile *data = (uint64_t volatile *)((uint8_t *)(rb->base_address) + rptr);
 		//uint64_t volatile *p = (uint64_t volatile *)data;
 		uint64_t temp;
 		uint8_t i;
 
+		/* Don't remove this.
+		 * The contents need to actually be read from the ring buffer
+		 * for this function to be effective.
+		 */
 		for (i = 0; i < DMUB_RB_CMD_SIZE / sizeof(uint64_t); i++)
 			temp = *data++;
 

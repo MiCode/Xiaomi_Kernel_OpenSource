@@ -8,6 +8,7 @@
 #include <linux/nexthop.h>
 #include <linux/rtnetlink.h>
 #include <linux/slab.h>
+#include <linux/vmalloc.h>
 #include <net/arp.h>
 #include <net/ipv6_stubs.h>
 #include <net/lwtunnel.h>
@@ -1918,9 +1919,6 @@ static void nh_rt_cache_flush(struct net *net, struct nexthop *nh,
 	if (!replaced_nh->is_group)
 		return;
 
-	/* new dsts must use only the new nexthop group */
-	synchronize_net();
-
 	nhg = rtnl_dereference(replaced_nh->nh_grp);
 	for (i = 0; i < nhg->num_nh; i++) {
 		struct nh_grp_entry *nhge = &nhg->nh_entries[i];
@@ -2002,9 +2000,10 @@ static int replace_nexthop_grp(struct net *net, struct nexthop *old,
 
 	rcu_assign_pointer(old->nh_grp, newg);
 
+	/* Make sure concurrent readers are not using 'oldg' anymore. */
+	synchronize_net();
+
 	if (newg->resilient) {
-		/* Make sure concurrent readers are not using 'oldg' anymore. */
-		synchronize_net();
 		rcu_assign_pointer(oldg->res_table, tmp_table);
 		rcu_assign_pointer(oldg->spare->res_table, tmp_table);
 	}
@@ -3734,12 +3733,16 @@ out:
 }
 EXPORT_SYMBOL(nexthop_res_grp_activity_update);
 
-static void __net_exit nexthop_net_exit(struct net *net)
+static void __net_exit nexthop_net_exit_batch(struct list_head *net_list)
 {
+	struct net *net;
+
 	rtnl_lock();
-	flush_all_nexthops(net);
+	list_for_each_entry(net, net_list, exit_list) {
+		flush_all_nexthops(net);
+		kfree(net->nexthop.devhash);
+	}
 	rtnl_unlock();
-	kfree(net->nexthop.devhash);
 }
 
 static int __net_init nexthop_net_init(struct net *net)
@@ -3757,7 +3760,7 @@ static int __net_init nexthop_net_init(struct net *net)
 
 static struct pernet_operations nexthop_net_ops = {
 	.init = nexthop_net_init,
-	.exit = nexthop_net_exit,
+	.exit_batch = nexthop_net_exit_batch,
 };
 
 static int __init nexthop_init(void)

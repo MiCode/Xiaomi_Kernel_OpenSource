@@ -50,7 +50,7 @@ int mr_check_range(struct rxe_mr *mr, u64 iova, size_t length)
 
 static void rxe_mr_init(int access, struct rxe_mr *mr)
 {
-	u32 lkey = mr->pelem.index << 8 | rxe_get_next_key(-1);
+	u32 lkey = mr->elem.index << 8 | rxe_get_next_key(-1);
 	u32 rkey = (access & IB_ACCESS_REMOTE) ? lkey : 0;
 
 	/* set ibmr->l/rkey and also copy into private l/rkey
@@ -459,7 +459,7 @@ int copy_data(
 
 		if (offset >= sge->length) {
 			if (mr) {
-				rxe_drop_ref(mr);
+				rxe_put(mr);
 				mr = NULL;
 			}
 			sge++;
@@ -504,13 +504,13 @@ int copy_data(
 	dma->resid	= resid;
 
 	if (mr)
-		rxe_drop_ref(mr);
+		rxe_put(mr);
 
 	return 0;
 
 err2:
 	if (mr)
-		rxe_drop_ref(mr);
+		rxe_put(mr);
 err1:
 	return err;
 }
@@ -569,7 +569,7 @@ struct rxe_mr *lookup_mr(struct rxe_pd *pd, int access, u32 key,
 		     (type == RXE_LOOKUP_REMOTE && mr->rkey != key) ||
 		     mr_pd(mr) != pd || (access && !(access & mr->access)) ||
 		     mr->state != RXE_MR_STATE_VALID)) {
-		rxe_drop_ref(mr);
+		rxe_put(mr);
 		mr = NULL;
 	}
 
@@ -613,7 +613,7 @@ int rxe_invalidate_mr(struct rxe_qp *qp, u32 rkey)
 	ret = 0;
 
 err_drop_ref:
-	rxe_drop_ref(mr);
+	rxe_put(mr);
 err:
 	return ret;
 }
@@ -690,16 +690,15 @@ int rxe_dereg_mr(struct ib_mr *ibmr, struct ib_udata *udata)
 	}
 
 	mr->state = RXE_MR_STATE_INVALID;
-	rxe_drop_ref(mr_pd(mr));
-	rxe_drop_index(mr);
-	rxe_drop_ref(mr);
+	rxe_put(mr_pd(mr));
+	rxe_put(mr);
 
 	return 0;
 }
 
-void rxe_mr_cleanup(struct rxe_pool_entry *arg)
+void rxe_mr_cleanup(struct rxe_pool_elem *elem)
 {
-	struct rxe_mr *mr = container_of(arg, typeof(*mr), pelem);
+	struct rxe_mr *mr = container_of(elem, typeof(*mr), elem);
 
 	ib_umem_release(mr->umem);
 

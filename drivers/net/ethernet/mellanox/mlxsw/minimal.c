@@ -38,7 +38,7 @@ struct mlxsw_m {
 struct mlxsw_m_port {
 	struct net_device *dev;
 	struct mlxsw_m *mlxsw_m;
-	u8 local_port;
+	u16 local_port;
 	u8 module;
 };
 
@@ -110,7 +110,8 @@ static int mlxsw_m_get_module_info(struct net_device *netdev,
 	struct mlxsw_m_port *mlxsw_m_port = netdev_priv(netdev);
 	struct mlxsw_core *core = mlxsw_m_port->mlxsw_m->core;
 
-	return mlxsw_env_get_module_info(core, mlxsw_m_port->module, modinfo);
+	return mlxsw_env_get_module_info(netdev, core, mlxsw_m_port->module,
+					 modinfo);
 }
 
 static int
@@ -180,7 +181,7 @@ static const struct ethtool_ops mlxsw_m_port_ethtool_ops = {
 };
 
 static int
-mlxsw_m_port_module_info_get(struct mlxsw_m *mlxsw_m, u8 local_port,
+mlxsw_m_port_module_info_get(struct mlxsw_m *mlxsw_m, u16 local_port,
 			     u8 *p_module, u8 *p_width)
 {
 	char pmlp_pl[MLXSW_REG_PMLP_LEN];
@@ -214,7 +215,7 @@ mlxsw_m_port_dev_addr_get(struct mlxsw_m_port *mlxsw_m_port)
 }
 
 static int
-mlxsw_m_port_create(struct mlxsw_m *mlxsw_m, u8 local_port, u8 module)
+mlxsw_m_port_create(struct mlxsw_m *mlxsw_m, u16 local_port, u8 module)
 {
 	struct mlxsw_m_port *mlxsw_m_port;
 	struct net_device *dev;
@@ -277,7 +278,7 @@ err_alloc_etherdev:
 	return err;
 }
 
-static void mlxsw_m_port_remove(struct mlxsw_m *mlxsw_m, u8 local_port)
+static void mlxsw_m_port_remove(struct mlxsw_m *mlxsw_m, u16 local_port)
 {
 	struct mlxsw_m_port *mlxsw_m_port = mlxsw_m->ports[local_port];
 
@@ -288,7 +289,7 @@ static void mlxsw_m_port_remove(struct mlxsw_m *mlxsw_m, u8 local_port)
 	mlxsw_core_port_fini(mlxsw_m->core, local_port);
 }
 
-static int mlxsw_m_port_module_map(struct mlxsw_m *mlxsw_m, u8 local_port,
+static int mlxsw_m_port_module_map(struct mlxsw_m *mlxsw_m, u16 local_port,
 				   u8 *last_module)
 {
 	unsigned int max_ports = mlxsw_core_max_ports(mlxsw_m->core);
@@ -421,6 +422,7 @@ static int mlxsw_m_init(struct mlxsw_core *mlxsw_core,
 			struct netlink_ext_ack *extack)
 {
 	struct mlxsw_m *mlxsw_m = mlxsw_core_driver_priv(mlxsw_core);
+	struct devlink *devlink = priv_to_devlink(mlxsw_core);
 	int err;
 
 	mlxsw_m->core = mlxsw_core;
@@ -436,7 +438,9 @@ static int mlxsw_m_init(struct mlxsw_core *mlxsw_core,
 		return err;
 	}
 
+	devl_lock(devlink);
 	err = mlxsw_m_ports_create(mlxsw_m);
+	devl_unlock(devlink);
 	if (err) {
 		dev_err(mlxsw_m->bus_info->dev, "Failed to create ports\n");
 		return err;
@@ -448,8 +452,11 @@ static int mlxsw_m_init(struct mlxsw_core *mlxsw_core,
 static void mlxsw_m_fini(struct mlxsw_core *mlxsw_core)
 {
 	struct mlxsw_m *mlxsw_m = mlxsw_core_driver_priv(mlxsw_core);
+	struct devlink *devlink = priv_to_devlink(mlxsw_core);
 
+	devl_lock(devlink);
 	mlxsw_m_ports_remove(mlxsw_m);
+	devl_unlock(devlink);
 }
 
 static const struct mlxsw_config_profile mlxsw_m_config_profile;
@@ -460,7 +467,6 @@ static struct mlxsw_driver mlxsw_m_driver = {
 	.init			= mlxsw_m_init,
 	.fini			= mlxsw_m_fini,
 	.profile		= &mlxsw_m_config_profile,
-	.res_query_enabled	= true,
 };
 
 static const struct i2c_device_id mlxsw_m_i2c_id[] = {

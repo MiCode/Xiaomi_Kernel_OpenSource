@@ -11,6 +11,7 @@
 
 #include <linux/uaccess.h>
 #include <linux/slab.h>
+#include <linux/vmalloc.h>
 #include <linux/pci-p2pdma.h>
 
 MODULE_IMPORT_NS(DMA_BUF);
@@ -19,6 +20,34 @@ MODULE_IMPORT_NS(DMA_BUF);
 
 /* use small pages for supporting non-pow2 (32M/40M/48M) DRAM phys page sizes */
 #define DRAM_POOL_PAGE_SIZE SZ_8M
+
+static int allocate_timestamps_buffers(struct hl_fpriv *hpriv,
+			struct hl_mem_in *args, u64 *handle);
+
+static int set_alloc_page_size(struct hl_device *hdev, struct hl_mem_in *args, u32 *page_size)
+{
+	struct asic_fixed_properties *prop = &hdev->asic_prop;
+	u32 psize;
+
+	/*
+	 * for ASIC that supports setting the allocation page size by user we will address
+	 * user's choice only if it is not 0 (as 0 means taking the default page size)
+	 */
+	if (prop->supports_user_set_page_size && args->alloc.page_size) {
+		psize = args->alloc.page_size;
+
+		if (!hdev->asic_funcs->is_valid_dram_page_size(psize)) {
+			dev_err(hdev->dev, "user page size (%#x) is not valid\n", psize);
+			return -EINVAL;
+		}
+	} else {
+		psize = hdev->asic_prop.dram_page_size;
+	}
+
+	*page_size = psize;
+
+	return 0;
+}
 
 /*
  * The va ranges in context object contain a list with the available chunks of
@@ -61,11 +90,15 @@ static int alloc_device_memory(struct hl_ctx *ctx, struct hl_mem_in *args,
 	struct hl_vm_phys_pg_pack *phys_pg_pack;
 	u64 paddr = 0, total_size, num_pgs, i;
 	u32 num_curr_pgs, page_size;
-	int handle, rc;
 	bool contiguous;
+	int handle, rc;
 
 	num_curr_pgs = 0;
-	page_size = hdev->asic_prop.dram_page_size;
+
+	rc = set_alloc_page_size(hdev, args, &page_size);
+	if (rc)
+		return rc;
+
 	num_pgs = DIV_ROUND_UP_ULL(args->alloc.mem_size, page_size);
 	total_size = num_pgs * page_size;
 
@@ -77,7 +110,11 @@ static int alloc_device_memory(struct hl_ctx *ctx, struct hl_mem_in *args,
 	contiguous = args->flags & HL_MEM_CONTIGUOUS;
 
 	if (contiguous) {
-		paddr = (u64) gen_pool_alloc(vm->dram_pg_pool, total_size);
+		if (is_power_of_2(page_size))
+			paddr = (uintptr_t) gen_pool_dma_alloc_align(vm->dram_pg_pool,
+								     total_size, NULL, page_size);
+		else
+			paddr = gen_pool_alloc(vm->dram_pg_pool, total_size);
 		if (!paddr) {
 			dev_err(hdev->dev,
 				"failed to allocate %llu contiguous pages with total size of %llu\n",
@@ -111,9 +148,14 @@ static int alloc_device_memory(struct hl_ctx *ctx, struct hl_mem_in *args,
 			phys_pg_pack->pages[i] = paddr + i * page_size;
 	} else {
 		for (i = 0 ; i < num_pgs ; i++) {
-			phys_pg_pack->pages[i] = (u64) gen_pool_alloc(
-							vm->dram_pg_pool,
-							page_size);
+			if (is_power_of_2(page_size))
+				phys_pg_pack->pages[i] =
+					(uintptr_t)gen_pool_dma_alloc_align(vm->dram_pg_pool,
+									    page_size, NULL,
+									    page_size);
+			else
+				phys_pg_pack->pages[i] = gen_pool_alloc(vm->dram_pg_pool,
+									page_size);
 			if (!phys_pg_pack->pages[i]) {
 				dev_err(hdev->dev,
 					"Failed to allocate device memory (out of memory)\n");
@@ -316,7 +358,7 @@ static int free_phys_pg_pack(struct hl_device *hdev,
 	}
 
 	if (rc && !hdev->disabled)
-		hl_device_reset(hdev, HL_RESET_HARD);
+		hl_device_reset(hdev, HL_DRV_RESET_HARD);
 
 end:
 	kvfree(phys_pg_pack->pages);
@@ -477,7 +519,7 @@ static int add_va_block_locked(struct hl_device *hdev,
 		struct list_head *va_list, u64 start, u64 end)
 {
 	struct hl_vm_va_block *va_block, *res = NULL;
-	u64 size = end - start;
+	u64 size = end - start + 1;
 
 	print_va_list_locked(hdev, va_list);
 
@@ -518,7 +560,7 @@ static int add_va_block_locked(struct hl_device *hdev,
 /**
  * add_va_block() - wrapper for add_va_block_locked.
  * @hdev: pointer to the habanalabs device structure.
- * @va_list: pointer to the virtual addresses block list.
+ * @va_range: pointer to the virtual addresses range object.
  * @start: start virtual address.
  * @end: end virtual address.
  *
@@ -538,8 +580,11 @@ static inline int add_va_block(struct hl_device *hdev,
 }
 
 /**
- * is_hint_crossing_range() - check if hint address crossing specified reserved
- * range.
+ * is_hint_crossing_range() - check if hint address crossing specified reserved.
+ * @range_type: virtual space range type.
+ * @start_addr: start virtual address.
+ * @size: block size.
+ * @prop: asic properties structure to retrieve reserved ranges from.
  */
 static inline bool is_hint_crossing_range(enum hl_va_range_type range_type,
 		u64 start_addr, u32 size, struct asic_fixed_properties *prop) {
@@ -644,12 +689,12 @@ static u64 get_va_block(struct hl_device *hdev,
 				continue;
 		}
 
-		valid_size = va_block->end - valid_start;
+		valid_size = va_block->end - valid_start + 1;
 		if (valid_size < size)
 			continue;
 
 		/*
-		 * In case hint address is 0, and arc_hints_range_reservation
+		 * In case hint address is 0, and hints_range_reservation
 		 * property enabled, then avoid allocating va blocks from the
 		 * range reserved for hint addresses
 		 */
@@ -707,7 +752,7 @@ static u64 get_va_block(struct hl_device *hdev,
 
 	if (new_va_block->size > size) {
 		new_va_block->start += size;
-		new_va_block->size = new_va_block->end - new_va_block->start;
+		new_va_block->size = new_va_block->end - new_va_block->start + 1;
 	} else {
 		list_del(&new_va_block->node);
 		kfree(new_va_block);
@@ -749,6 +794,7 @@ u64 hl_reserve_va_block(struct hl_device *hdev, struct hl_ctx *ctx,
 
 /**
  * hl_get_va_range_type() - get va_range type for the given address and size.
+ * @ctx: context to fetch va_range from.
  * @address: the start address of the area we want to validate.
  * @size: the size in bytes of the area we want to validate.
  * @type: returned va_range type.
@@ -776,8 +822,8 @@ static int hl_get_va_range_type(struct hl_ctx *ctx, u64 address, u64 size,
  * hl_unreserve_va_block() - wrapper for add_va_block to unreserve a va block.
  * @hdev: pointer to the habanalabs device structure
  * @ctx: pointer to the context structure.
- * @start: start virtual address.
- * @end: end virtual address.
+ * @start_addr: start virtual address.
+ * @size: number of bytes to unreserve.
  *
  * This function does the following:
  * - Takes the list lock and calls add_va_block_locked.
@@ -1201,17 +1247,13 @@ static int map_device_va(struct hl_ctx *ctx, struct hl_mem_in *args,
 		goto map_err;
 	}
 
-	rc = hdev->asic_funcs->mmu_invalidate_cache_range(hdev, false,
-		*vm_type, ctx->asid, ret_vaddr, phys_pg_pack->total_size);
+	rc = hl_mmu_invalidate_cache_range(hdev, false, *vm_type | MMU_OP_SKIP_LOW_CACHE_INV,
+				ctx->asid, ret_vaddr, phys_pg_pack->total_size);
 
 	mutex_unlock(&ctx->mmu_lock);
 
-	if (rc) {
-		dev_err(hdev->dev,
-			"mapping handle %u failed due to MMU cache invalidation\n",
-			handle);
+	if (rc)
 		goto map_err;
-	}
 
 	ret_vaddr += phys_pg_pack->offset;
 
@@ -1349,9 +1391,8 @@ static int unmap_device_va(struct hl_ctx *ctx, struct hl_mem_in *args,
 	 * at the loop end rather than for each iteration
 	 */
 	if (!ctx_free)
-		rc = hdev->asic_funcs->mmu_invalidate_cache_range(hdev, true,
-				*vm_type, ctx->asid, vaddr,
-				phys_pg_pack->total_size);
+		rc = hl_mmu_invalidate_cache_range(hdev, true, *vm_type, ctx->asid, vaddr,
+							phys_pg_pack->total_size);
 
 	mutex_unlock(&ctx->mmu_lock);
 
@@ -1363,11 +1404,6 @@ static int unmap_device_va(struct hl_ctx *ctx, struct hl_mem_in *args,
 	 */
 	if (!ctx_free) {
 		int tmp_rc;
-
-		if (rc)
-			dev_err(hdev->dev,
-				"unmapping vaddr 0x%llx failed due to MMU cache invalidation\n",
-				vaddr);
 
 		tmp_rc = add_va_block(hdev, va_range, vaddr,
 					vaddr + phys_pg_pack->total_size - 1);
@@ -1973,16 +2009,15 @@ err_dec_exporting_cnt:
 static int mem_ioctl_no_mmu(struct hl_fpriv *hpriv, union hl_mem_args *args)
 {
 	struct hl_device *hdev = hpriv->hdev;
-	struct hl_ctx *ctx = hpriv->ctx;
 	u64 block_handle, device_addr = 0;
+	struct hl_ctx *ctx = hpriv->ctx;
 	u32 handle = 0, block_size;
-	int rc, dmabuf_fd = -EBADF;
+	int rc;
 
 	switch (args->in.op) {
 	case HL_MEM_OP_ALLOC:
 		if (args->in.alloc.mem_size == 0) {
-			dev_err(hdev->dev,
-				"alloc size must be larger than 0\n");
+			dev_err(hdev->dev, "alloc size must be larger than 0\n");
 			rc = -EINVAL;
 			goto out;
 		}
@@ -2003,15 +2038,14 @@ static int mem_ioctl_no_mmu(struct hl_fpriv *hpriv, union hl_mem_args *args)
 
 	case HL_MEM_OP_MAP:
 		if (args->in.flags & HL_MEM_USERPTR) {
-			device_addr = args->in.map_host.host_virt_addr;
-			rc = 0;
+			dev_err(hdev->dev, "Failed to map host memory when MMU is disabled\n");
+			rc = -EPERM;
 		} else {
-			rc = get_paddr_from_handle(ctx, &args->in,
-							&device_addr);
+			rc = get_paddr_from_handle(ctx, &args->in, &device_addr);
+			memset(args, 0, sizeof(*args));
+			args->out.device_virt_addr = device_addr;
 		}
 
-		memset(args, 0, sizeof(*args));
-		args->out.device_virt_addr = device_addr;
 		break;
 
 	case HL_MEM_OP_UNMAP:
@@ -2019,29 +2053,278 @@ static int mem_ioctl_no_mmu(struct hl_fpriv *hpriv, union hl_mem_args *args)
 		break;
 
 	case HL_MEM_OP_MAP_BLOCK:
-		rc = map_block(hdev, args->in.map_block.block_addr,
-				&block_handle, &block_size);
+		rc = map_block(hdev, args->in.map_block.block_addr, &block_handle, &block_size);
 		args->out.block_handle = block_handle;
 		args->out.block_size = block_size;
 		break;
 
 	case HL_MEM_OP_EXPORT_DMABUF_FD:
-		rc = export_dmabuf_from_addr(ctx,
-				args->in.export_dmabuf_fd.handle,
-				args->in.export_dmabuf_fd.mem_size,
-				args->in.flags,
-				&dmabuf_fd);
-		memset(args, 0, sizeof(*args));
-		args->out.fd = dmabuf_fd;
+		dev_err(hdev->dev, "Failed to export dma-buf object when MMU is disabled\n");
+		rc = -EPERM;
 		break;
 
+	case HL_MEM_OP_TS_ALLOC:
+		rc = allocate_timestamps_buffers(hpriv, &args->in, &args->out.handle);
+		break;
 	default:
 		dev_err(hdev->dev, "Unknown opcode for memory IOCTL\n");
-		rc = -ENOTTY;
+		rc = -EINVAL;
 		break;
 	}
 
 out:
+	return rc;
+}
+
+static void ts_buff_release(struct kref *ref)
+{
+	struct hl_ts_buff *buff;
+
+	buff = container_of(ref, struct hl_ts_buff, refcount);
+
+	vfree(buff->kernel_buff_address);
+	vfree(buff->user_buff_address);
+	kfree(buff);
+}
+
+struct hl_ts_buff *hl_ts_get(struct hl_device *hdev, struct hl_ts_mgr *mgr,
+					u32 handle)
+{
+	struct hl_ts_buff *buff;
+
+	spin_lock(&mgr->ts_lock);
+	buff = idr_find(&mgr->ts_handles, handle);
+	if (!buff) {
+		spin_unlock(&mgr->ts_lock);
+		dev_warn(hdev->dev,
+			"TS buff get failed, no match to handle 0x%x\n", handle);
+		return NULL;
+	}
+	kref_get(&buff->refcount);
+	spin_unlock(&mgr->ts_lock);
+
+	return buff;
+}
+
+void hl_ts_put(struct hl_ts_buff *buff)
+{
+	kref_put(&buff->refcount, ts_buff_release);
+}
+
+static void buff_vm_close(struct vm_area_struct *vma)
+{
+	struct hl_ts_buff *buff = (struct hl_ts_buff *) vma->vm_private_data;
+	long new_mmap_size;
+
+	new_mmap_size = buff->mmap_size - (vma->vm_end - vma->vm_start);
+
+	if (new_mmap_size > 0) {
+		buff->mmap_size = new_mmap_size;
+		return;
+	}
+
+	atomic_set(&buff->mmap, 0);
+	hl_ts_put(buff);
+	vma->vm_private_data = NULL;
+}
+
+static const struct vm_operations_struct ts_buff_vm_ops = {
+	.close = buff_vm_close
+};
+
+int hl_ts_mmap(struct hl_fpriv *hpriv, struct vm_area_struct *vma)
+{
+	struct hl_device *hdev = hpriv->hdev;
+	struct hl_ts_buff *buff;
+	u32 handle, user_buff_size;
+	int rc;
+
+	/* We use the page offset to hold the idr and thus we need to clear
+	 * it before doing the mmap itself
+	 */
+	handle = vma->vm_pgoff;
+	vma->vm_pgoff = 0;
+
+	buff = hl_ts_get(hdev, &hpriv->ts_mem_mgr, handle);
+	if (!buff) {
+		dev_err(hdev->dev,
+			"TS buff mmap failed, no match to handle 0x%x\n", handle);
+		return -EINVAL;
+	}
+
+	/* Validation check */
+	user_buff_size = vma->vm_end - vma->vm_start;
+	if (user_buff_size != ALIGN(buff->user_buff_size, PAGE_SIZE)) {
+		dev_err(hdev->dev,
+			"TS buff mmap failed, mmap size 0x%x != 0x%x buff size\n",
+			user_buff_size, ALIGN(buff->user_buff_size, PAGE_SIZE));
+		rc = -EINVAL;
+		goto put_buff;
+	}
+
+#ifdef _HAS_TYPE_ARG_IN_ACCESS_OK
+	if (!access_ok(VERIFY_WRITE,
+		(void __user *) (uintptr_t) vma->vm_start, user_buff_size)) {
+#else
+	if (!access_ok((void __user *) (uintptr_t) vma->vm_start,
+						user_buff_size)) {
+#endif
+		dev_err(hdev->dev,
+			"user pointer is invalid - 0x%lx\n",
+			vma->vm_start);
+
+		rc = -EINVAL;
+		goto put_buff;
+	}
+
+	if (atomic_cmpxchg(&buff->mmap, 0, 1)) {
+		dev_err(hdev->dev, "TS buff memory mmap failed, already mmaped to user\n");
+		rc = -EINVAL;
+		goto put_buff;
+	}
+
+	vma->vm_ops = &ts_buff_vm_ops;
+	vma->vm_private_data = buff;
+	vma->vm_flags |= VM_DONTEXPAND | VM_DONTDUMP | VM_DONTCOPY | VM_NORESERVE;
+	rc = remap_vmalloc_range(vma, buff->user_buff_address, 0);
+	if (rc) {
+		atomic_set(&buff->mmap, 0);
+		goto put_buff;
+	}
+
+	buff->mmap_size = buff->user_buff_size;
+	vma->vm_pgoff = handle;
+
+	return 0;
+
+put_buff:
+	hl_ts_put(buff);
+	return rc;
+}
+
+void hl_ts_mgr_init(struct hl_ts_mgr *mgr)
+{
+	spin_lock_init(&mgr->ts_lock);
+	idr_init(&mgr->ts_handles);
+}
+
+void hl_ts_mgr_fini(struct hl_device *hdev, struct hl_ts_mgr *mgr)
+{
+	struct hl_ts_buff *buff;
+	struct idr *idp;
+	u32 id;
+
+	idp = &mgr->ts_handles;
+
+	idr_for_each_entry(idp, buff, id) {
+		if (kref_put(&buff->refcount, ts_buff_release) != 1)
+			dev_err(hdev->dev, "TS buff handle %d for CTX is still alive\n",
+							id);
+	}
+
+	idr_destroy(&mgr->ts_handles);
+}
+
+static struct hl_ts_buff *hl_ts_alloc_buff(struct hl_device *hdev, u32 num_elements)
+{
+	struct hl_ts_buff *ts_buff = NULL;
+	u32 size;
+	void *p;
+
+	ts_buff = kzalloc(sizeof(*ts_buff), GFP_KERNEL);
+	if (!ts_buff)
+		return NULL;
+
+	/* Allocate the user buffer */
+	size = num_elements * sizeof(u64);
+	p = vmalloc_user(size);
+	if (!p)
+		goto free_mem;
+
+	ts_buff->user_buff_address = p;
+	ts_buff->user_buff_size = size;
+
+	/* Allocate the internal kernel buffer */
+	size = num_elements * sizeof(struct hl_user_pending_interrupt);
+	p = vmalloc(size);
+	if (!p)
+		goto free_user_buff;
+
+	ts_buff->kernel_buff_address = p;
+	ts_buff->kernel_buff_size = size;
+
+	return ts_buff;
+
+free_user_buff:
+	vfree(ts_buff->user_buff_address);
+free_mem:
+	kfree(ts_buff);
+	return NULL;
+}
+
+/**
+ * allocate_timestamps_buffers() - allocate timestamps buffers
+ * This function will allocate ts buffer that will later on be mapped to the user
+ * in order to be able to read the timestamp.
+ * in additon it'll allocate an extra buffer for registration management.
+ * since we cannot fail during registration for out-of-memory situation, so
+ * we'll prepare a pool which will be used as user interrupt nodes and instead
+ * of dynamically allocating nodes while registration we'll pick the node from
+ * this pool. in addtion it'll add node to the mapping hash which will be used
+ * to map user ts buffer to the internal kernel ts buffer.
+ * @hpriv: pointer to the private data of the fd
+ * @args: ioctl input
+ * @handle: user timestamp buffer handle as an output
+ */
+static int allocate_timestamps_buffers(struct hl_fpriv *hpriv, struct hl_mem_in *args, u64 *handle)
+{
+	struct hl_ts_mgr *ts_mgr = &hpriv->ts_mem_mgr;
+	struct hl_device *hdev = hpriv->hdev;
+	struct hl_ts_buff *ts_buff;
+	int rc = 0;
+
+	if (args->num_of_elements > TS_MAX_ELEMENTS_NUM) {
+		dev_err(hdev->dev, "Num of elements exceeds Max allowed number (0x%x > 0x%x)\n",
+				args->num_of_elements, TS_MAX_ELEMENTS_NUM);
+		return -EINVAL;
+	}
+
+	/* Allocate ts buffer object
+	 * This object will contain two buffers one that will be mapped to the user
+	 * and another internal buffer for the driver use only, which won't be mapped
+	 * to the user.
+	 */
+	ts_buff = hl_ts_alloc_buff(hdev, args->num_of_elements);
+	if (!ts_buff) {
+		rc = -ENOMEM;
+		goto out_err;
+	}
+
+	spin_lock(&ts_mgr->ts_lock);
+	rc = idr_alloc(&ts_mgr->ts_handles, ts_buff, 1, 0, GFP_ATOMIC);
+	spin_unlock(&ts_mgr->ts_lock);
+	if (rc < 0) {
+		dev_err(hdev->dev, "Failed to allocate IDR for a new ts buffer\n");
+		goto release_ts_buff;
+	}
+
+	ts_buff->id = rc;
+	ts_buff->hdev = hdev;
+
+	kref_init(&ts_buff->refcount);
+
+	/* idr is 32-bit so we can safely OR it with a mask that is above 32 bit */
+	*handle = (u64) ts_buff->id | HL_MMAP_TYPE_TS_BUFF;
+	*handle <<= PAGE_SHIFT;
+
+	dev_dbg(hdev->dev, "Created ts buff object handle(%u)\n", ts_buff->id);
+
+	return 0;
+
+release_ts_buff:
+	kref_put(&ts_buff->refcount, ts_buff_release);
+out_err:
+	*handle = 0;
 	return rc;
 }
 
@@ -2160,9 +2443,12 @@ int hl_mem_ioctl(struct hl_fpriv *hpriv, void *data)
 		args->out.fd = dmabuf_fd;
 		break;
 
+	case HL_MEM_OP_TS_ALLOC:
+		rc = allocate_timestamps_buffers(hpriv, &args->in, &args->out.handle);
+		break;
 	default:
 		dev_err(hdev->dev, "Unknown opcode for memory IOCTL\n");
-		rc = -ENOTTY;
+		rc = -EINVAL;
 		break;
 	}
 
@@ -2339,6 +2625,8 @@ void hl_userptr_delete_list(struct hl_device *hdev,
 /**
  * hl_userptr_is_pinned() - returns whether the given userptr is pinned.
  * @hdev: pointer to the habanalabs device structure.
+ * @addr: user address to check.
+ * @size: user block size to check.
  * @userptr_list: pointer to the list to clear.
  * @userptr: pointer to userptr to check.
  *
@@ -2361,9 +2649,10 @@ bool hl_userptr_is_pinned(struct hl_device *hdev, u64 addr,
 /**
  * va_range_init() - initialize virtual addresses range.
  * @hdev: pointer to the habanalabs device structure.
- * @va_range: pointer to the range to initialize.
+ * @va_ranges: pointer to va_ranges array.
  * @start: range start address.
  * @end: range end address.
+ * @page_size: page size for this va_range.
  *
  * This function does the following:
  * - Initializes the virtual addresses list of the given range with the given
@@ -2388,8 +2677,14 @@ static int va_range_init(struct hl_device *hdev, struct hl_va_range *va_range,
 			start += PAGE_SIZE;
 		}
 
-		if (end & (PAGE_SIZE - 1))
-			end &= PAGE_MASK;
+		/*
+		 * The end of the range is inclusive, hence we need to align it
+		 * to the end of the last full page in the range. For example if
+		 * end = 0x3ff5 with page size 0x1000, we need to align it to
+		 * 0x2fff. The remainig 0xff5 bytes do not form a full page.
+		 */
+		if ((end + 1) & (PAGE_SIZE - 1))
+			end = ((end + 1) & PAGE_MASK) - 1;
 	}
 
 	if (start >= end) {
@@ -2414,7 +2709,7 @@ static int va_range_init(struct hl_device *hdev, struct hl_va_range *va_range,
 /**
  * va_range_fini() - clear a virtual addresses range.
  * @hdev: pointer to the habanalabs structure.
- * va_range: pointer to virtual addresses rang.e
+ * @va_range: pointer to virtual addresses range.
  *
  * This function does the following:
  * - Frees the virtual addresses block list and its lock.
@@ -2434,12 +2729,15 @@ static void va_range_fini(struct hl_device *hdev, struct hl_va_range *va_range)
  * @ctx: pointer to the habanalabs context structure.
  * @host_range_start: host virtual addresses range start.
  * @host_range_end: host virtual addresses range end.
+ * @host_page_size: host page size.
  * @host_huge_range_start: host virtual addresses range start for memory
  *                         allocated with huge pages.
  * @host_huge_range_end: host virtual addresses range end for memory allocated
  *                        with huge pages.
+ * @host_huge_page_size: host huge page size.
  * @dram_range_start: dram virtual addresses range start.
  * @dram_range_end: dram virtual addresses range end.
+ * @dram_page_size: dram page size.
  *
  * This function initializes the following:
  * - MMU for context.
@@ -2564,14 +2862,14 @@ int hl_vm_ctx_init(struct hl_ctx *ctx)
 		return 0;
 
 	dram_range_start = prop->dmmu.start_addr;
-	dram_range_end = prop->dmmu.end_addr;
+	dram_range_end = prop->dmmu.end_addr - 1;
 	dram_page_size = prop->dram_page_size ?
 				prop->dram_page_size : prop->dmmu.page_size;
 	host_range_start = prop->pmmu.start_addr;
-	host_range_end = prop->pmmu.end_addr;
+	host_range_end = prop->pmmu.end_addr - 1;
 	host_page_size = prop->pmmu.page_size;
 	host_huge_range_start = prop->pmmu_huge.start_addr;
-	host_huge_range_end = prop->pmmu_huge.end_addr;
+	host_huge_range_end = prop->pmmu_huge.end_addr - 1;
 	host_huge_page_size = prop->pmmu_huge.page_size;
 
 	return vm_ctx_init_with_ranges(ctx, host_range_start, host_range_end,
@@ -2601,11 +2899,12 @@ int hl_vm_ctx_init(struct hl_ctx *ctx)
  */
 void hl_vm_ctx_fini(struct hl_ctx *ctx)
 {
+	struct hl_vm_phys_pg_pack *phys_pg_list, *tmp_phys_node;
 	struct hl_device *hdev = ctx->hdev;
-	struct hl_vm *vm = &hdev->vm;
-	struct hl_vm_phys_pg_pack *phys_pg_list;
 	struct hl_vm_hash_node *hnode;
+	struct hl_vm *vm = &hdev->vm;
 	struct hlist_node *tmp_node;
+	struct list_head free_list;
 	struct hl_mem_in args;
 	int i;
 
@@ -2618,7 +2917,7 @@ void hl_vm_ctx_fini(struct hl_ctx *ctx)
 	 * Clearly something went wrong on hard reset so no point in printing
 	 * another side effect error
 	 */
-	if (!hdev->hard_reset_pending && !hash_empty(ctx->mem_hash))
+	if (!hdev->reset_info.hard_reset_pending && !hash_empty(ctx->mem_hash))
 		dev_dbg(hdev->dev,
 			"user released device without removing its memory mappings\n");
 
@@ -2633,10 +2932,12 @@ void hl_vm_ctx_fini(struct hl_ctx *ctx)
 	mutex_lock(&ctx->mmu_lock);
 
 	/* invalidate the cache once after the unmapping loop */
-	hdev->asic_funcs->mmu_invalidate_cache(hdev, true, VM_TYPE_USERPTR);
-	hdev->asic_funcs->mmu_invalidate_cache(hdev, true, VM_TYPE_PHYS_PACK);
+	hl_mmu_invalidate_cache(hdev, true, MMU_OP_USERPTR);
+	hl_mmu_invalidate_cache(hdev, true, MMU_OP_PHYS_PACK);
 
 	mutex_unlock(&ctx->mmu_lock);
+
+	INIT_LIST_HEAD(&free_list);
 
 	spin_lock(&vm->idr_lock);
 	idr_for_each_entry(&vm->phys_pg_pack_handles, phys_pg_list, i)
@@ -2644,12 +2945,15 @@ void hl_vm_ctx_fini(struct hl_ctx *ctx)
 			dev_dbg(hdev->dev,
 				"page list 0x%px of asid %d is still alive\n",
 				phys_pg_list, ctx->asid);
-			atomic64_sub(phys_pg_list->total_size,
-					&hdev->dram_used_mem);
-			free_phys_pg_pack(hdev, phys_pg_list);
+
+			atomic64_sub(phys_pg_list->total_size, &hdev->dram_used_mem);
 			idr_remove(&vm->phys_pg_pack_handles, i);
+			list_add(&phys_pg_list->node, &free_list);
 		}
 	spin_unlock(&vm->idr_lock);
+
+	list_for_each_entry_safe(phys_pg_list, tmp_phys_node, &free_list, node)
+		free_phys_pg_pack(hdev, phys_pg_list);
 
 	va_range_fini(hdev, ctx->va_range[HL_VA_RANGE_TYPE_DRAM]);
 	va_range_fini(hdev, ctx->va_range[HL_VA_RANGE_TYPE_HOST]);

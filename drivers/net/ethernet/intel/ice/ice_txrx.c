@@ -3,8 +3,9 @@
 
 /* The driver transmit and receive code */
 
-#include <linux/prefetch.h>
 #include <linux/mm.h>
+#include <linux/netdevice.h>
+#include <linux/prefetch.h>
 #include <linux/bpf_trace.h>
 #include <net/dsfield.h>
 #include <net/xdp.h>
@@ -172,6 +173,8 @@ tx_skip_free:
 
 	tx_ring->next_to_use = 0;
 	tx_ring->next_to_clean = 0;
+	tx_ring->next_dd = ICE_RING_QUARTER(tx_ring) - 1;
+	tx_ring->next_rs = ICE_RING_QUARTER(tx_ring) - 1;
 
 	if (!tx_ring->netdev)
 		return;
@@ -219,6 +222,9 @@ static bool ice_clean_tx_irq(struct ice_tx_ring *tx_ring, int napi_budget)
 	struct ice_tx_desc *tx_desc;
 	struct ice_tx_buf *tx_buf;
 
+	/* get the bql data ready */
+	netdev_txq_bql_complete_prefetchw(txring_txq(tx_ring));
+
 	tx_buf = &tx_ring->tx_buf[i];
 	tx_desc = ICE_TX_DESC(tx_ring, i);
 	i -= tx_ring->count;
@@ -231,6 +237,9 @@ static bool ice_clean_tx_irq(struct ice_tx_ring *tx_ring, int napi_budget)
 		/* if next_to_watch is not set then there is no work pending */
 		if (!eop_desc)
 			break;
+
+		/* follow the guidelines of other drivers */
+		prefetchw(&tx_buf->skb->users);
 
 		smp_rmb();	/* prevent any other reads prior to eop_desc */
 
@@ -303,9 +312,7 @@ static bool ice_clean_tx_irq(struct ice_tx_ring *tx_ring, int napi_budget)
 	tx_ring->next_to_clean = i;
 
 	ice_update_tx_ring_stats(tx_ring, total_pkts, total_bytes);
-
-	netdev_tx_completed_queue(txring_txq(tx_ring), total_pkts,
-				  total_bytes);
+	netdev_tx_completed_queue(txring_txq(tx_ring), total_pkts, total_bytes);
 
 #define TX_WAKE_THRESHOLD ((s16)(DESC_NEEDED * 2))
 	if (unlikely(total_pkts && netif_carrier_ok(tx_ring->netdev) &&
@@ -314,11 +321,9 @@ static bool ice_clean_tx_irq(struct ice_tx_ring *tx_ring, int napi_budget)
 		 * sees the new next_to_clean.
 		 */
 		smp_mb();
-		if (__netif_subqueue_stopped(tx_ring->netdev,
-					     tx_ring->q_index) &&
+		if (netif_tx_queue_stopped(txring_txq(tx_ring)) &&
 		    !test_bit(ICE_VSI_DOWN, vsi->state)) {
-			netif_wake_subqueue(tx_ring->netdev,
-					    tx_ring->q_index);
+			netif_tx_wake_queue(txring_txq(tx_ring));
 			++tx_ring->tx_stats.restart_q;
 		}
 	}
@@ -568,7 +573,7 @@ ice_run_xdp(struct ice_rx_ring *rx_ring, struct xdp_buff *xdp,
 			goto out_failure;
 		return ICE_XDP_REDIR;
 	default:
-		bpf_warn_invalid_xdp_action(act);
+		bpf_warn_invalid_xdp_action(rx_ring->netdev, xdp_prog, act);
 		fallthrough;
 	case XDP_ABORTED:
 out_failure:
@@ -940,7 +945,7 @@ ice_build_skb(struct ice_rx_ring *rx_ring, struct ice_rx_buf *rx_buf,
 	 */
 	net_prefetch(xdp->data_meta);
 	/* build an skb around the page buffer */
-	skb = build_skb(xdp->data_hard_start, truesize);
+	skb = napi_build_skb(xdp->data_hard_start, truesize);
 	if (unlikely(!skb))
 		return NULL;
 
@@ -975,15 +980,17 @@ static struct sk_buff *
 ice_construct_skb(struct ice_rx_ring *rx_ring, struct ice_rx_buf *rx_buf,
 		  struct xdp_buff *xdp)
 {
+	unsigned int metasize = xdp->data - xdp->data_meta;
 	unsigned int size = xdp->data_end - xdp->data;
 	unsigned int headlen;
 	struct sk_buff *skb;
 
 	/* prefetch first cache line of first page */
-	net_prefetch(xdp->data);
+	net_prefetch(xdp->data_meta);
 
 	/* allocate a skb to store the frags */
-	skb = __napi_alloc_skb(&rx_ring->q_vector->napi, ICE_RX_HDR_SIZE,
+	skb = __napi_alloc_skb(&rx_ring->q_vector->napi,
+			       ICE_RX_HDR_SIZE + metasize,
 			       GFP_ATOMIC | __GFP_NOWARN);
 	if (unlikely(!skb))
 		return NULL;
@@ -995,8 +1002,13 @@ ice_construct_skb(struct ice_rx_ring *rx_ring, struct ice_rx_buf *rx_buf,
 		headlen = eth_get_headlen(skb->dev, xdp->data, ICE_RX_HDR_SIZE);
 
 	/* align pull length to size of long to optimize memcpy performance */
-	memcpy(__skb_put(skb, headlen), xdp->data, ALIGN(headlen,
-							 sizeof(long)));
+	memcpy(__skb_put(skb, headlen + metasize), xdp->data_meta,
+	       ALIGN(headlen + metasize, sizeof(long)));
+
+	if (metasize) {
+		skb_metadata_set(skb, metasize);
+		__skb_pull(skb, metasize);
+	}
 
 	/* if we exhaust the linear part then add what is left as a frag */
 	size -= headlen;
@@ -1072,7 +1084,7 @@ ice_is_non_eop(struct ice_rx_ring *rx_ring, union ice_32b_rx_flex_desc *rx_desc)
 {
 	/* if we are the last buffer then there is nothing else to do */
 #define ICE_RXD_EOF BIT(ICE_RX_FLEX_DESC_STATUS0_EOF_S)
-	if (likely(ice_test_staterr(rx_desc, ICE_RXD_EOF)))
+	if (likely(ice_test_staterr(rx_desc->wb.status_error0, ICE_RXD_EOF)))
 		return false;
 
 	rx_ring->rx_stats.non_eop_descs++;
@@ -1134,7 +1146,7 @@ int ice_clean_rx_irq(struct ice_rx_ring *rx_ring, int budget)
 		 * hardware wrote DD then it will be non-zero
 		 */
 		stat_err_bits = BIT(ICE_RX_FLEX_DESC_STATUS0_DD_S);
-		if (!ice_test_staterr(rx_desc, stat_err_bits))
+		if (!ice_test_staterr(rx_desc->wb.status_error0, stat_err_bits))
 			break;
 
 		/* This memory barrier is needed to keep us from reading
@@ -1148,7 +1160,7 @@ int ice_clean_rx_irq(struct ice_rx_ring *rx_ring, int budget)
 			struct ice_vsi *ctrl_vsi = rx_ring->vsi;
 
 			if (rx_desc->wb.rxdid == FDIR_DESC_RXDID &&
-			    ctrl_vsi->vf_id != ICE_INVAL_VFID)
+			    ctrl_vsi->vf)
 				ice_vc_fdir_irq_handler(ctrl_vsi, rx_desc);
 			ice_put_rx_buf(rx_ring, NULL, 0);
 			cleaned_count++;
@@ -1220,14 +1232,13 @@ construct_skb:
 			continue;
 
 		stat_err_bits = BIT(ICE_RX_FLEX_DESC_STATUS0_RXE_S);
-		if (unlikely(ice_test_staterr(rx_desc, stat_err_bits))) {
+		if (unlikely(ice_test_staterr(rx_desc->wb.status_error0,
+					      stat_err_bits))) {
 			dev_kfree_skb_any(skb);
 			continue;
 		}
 
-		stat_err_bits = BIT(ICE_RX_FLEX_DESC_STATUS0_L2TAG1P_S);
-		if (ice_test_staterr(rx_desc, stat_err_bits))
-			vlan_tag = le16_to_cpu(rx_desc->wb.l2tag1);
+		vlan_tag = ice_get_vlan_tag_from_rx_desc(rx_desc);
 
 		/* pad the skb if needed, to make a valid ethernet frame */
 		if (eth_skb_pad(skb)) {
@@ -1452,7 +1463,7 @@ int ice_napi_poll(struct napi_struct *napi, int budget)
 		bool wd;
 
 		if (tx_ring->xsk_pool)
-			wd = ice_clean_tx_irq_zc(tx_ring, budget);
+			wd = ice_xmit_zc(tx_ring, ICE_DESC_UNUSED(tx_ring), budget);
 		else if (ice_ring_is_xdp(tx_ring))
 			wd = true;
 		else
@@ -1505,7 +1516,7 @@ int ice_napi_poll(struct napi_struct *napi, int budget)
 	/* Exit the polling mode, but don't re-enable interrupts if stack might
 	 * poll us due to busy-polling
 	 */
-	if (likely(napi_complete_done(napi, work_done))) {
+	if (napi_complete_done(napi, work_done)) {
 		ice_net_dim(q_vector);
 		ice_enable_interrupt(q_vector);
 	} else {
@@ -1524,7 +1535,7 @@ int ice_napi_poll(struct napi_struct *napi, int budget)
  */
 static int __ice_maybe_stop_tx(struct ice_tx_ring *tx_ring, unsigned int size)
 {
-	netif_stop_subqueue(tx_ring->netdev, tx_ring->q_index);
+	netif_tx_stop_queue(txring_txq(tx_ring));
 	/* Memory barrier before checking head and tail */
 	smp_mb();
 
@@ -1532,8 +1543,8 @@ static int __ice_maybe_stop_tx(struct ice_tx_ring *tx_ring, unsigned int size)
 	if (likely(ICE_DESC_UNUSED(tx_ring) < size))
 		return -EBUSY;
 
-	/* A reprieve! - use start_subqueue because it doesn't call schedule */
-	netif_start_subqueue(tx_ring->netdev, tx_ring->q_index);
+	/* A reprieve! - use start_queue because it doesn't call schedule */
+	netif_tx_start_queue(txring_txq(tx_ring));
 	++tx_ring->tx_stats.restart_q;
 	return 0;
 }
@@ -1575,6 +1586,7 @@ ice_tx_map(struct ice_tx_ring *tx_ring, struct ice_tx_buf *first,
 	struct sk_buff *skb;
 	skb_frag_t *frag;
 	dma_addr_t dma;
+	bool kick;
 
 	td_tag = off->td_l2tag1;
 	td_cmd = off->td_cmd;
@@ -1656,9 +1668,6 @@ ice_tx_map(struct ice_tx_ring *tx_ring, struct ice_tx_buf *first,
 		tx_buf = &tx_ring->tx_buf[i];
 	}
 
-	/* record bytecount for BQL */
-	netdev_tx_sent_queue(txring_txq(tx_ring), first->bytecount);
-
 	/* record SW timestamp if HW timestamp is not available */
 	skb_tx_timestamp(first->skb);
 
@@ -1687,7 +1696,10 @@ ice_tx_map(struct ice_tx_ring *tx_ring, struct ice_tx_buf *first,
 	ice_maybe_stop_tx(tx_ring, DESC_NEEDED);
 
 	/* notify HW of packet */
-	if (netif_xmit_stopped(txring_txq(tx_ring)) || !netdev_xmit_more())
+	kick = __netdev_tx_sent_queue(txring_txq(tx_ring), first->bytecount,
+				      netdev_xmit_more());
+	if (kick)
+		/* notify HW of packet */
 		writel(i, tx_ring->tail);
 
 	return;
@@ -1908,12 +1920,16 @@ ice_tx_prepare_vlan_flags(struct ice_tx_ring *tx_ring, struct ice_tx_buf *first)
 	if (!skb_vlan_tag_present(skb) && eth_type_vlan(skb->protocol))
 		return;
 
-	/* currently, we always assume 802.1Q for VLAN insertion as VLAN
-	 * insertion for 802.1AD is not supported
+	/* the VLAN ethertype/tpid is determined by VSI configuration and netdev
+	 * feature flags, which the driver only allows either 802.1Q or 802.1ad
+	 * VLAN offloads exclusively so we only care about the VLAN ID here
 	 */
 	if (skb_vlan_tag_present(skb)) {
 		first->tx_flags |= skb_vlan_tag_get(skb) << ICE_TX_FLAGS_VLAN_S;
-		first->tx_flags |= ICE_TX_FLAGS_HW_VLAN;
+		if (tx_ring->flags & ICE_TX_FLAGS_RING_VLAN_L2TAG2)
+			first->tx_flags |= ICE_TX_FLAGS_HW_OUTER_SINGLE_VLAN;
+		else
+			first->tx_flags |= ICE_TX_FLAGS_HW_VLAN;
 	}
 
 	ice_tx_prepare_vlan_flags_dcb(tx_ring, first);
@@ -2272,6 +2288,9 @@ ice_xmit_frame_ring(struct sk_buff *skb, struct ice_tx_ring *tx_ring)
 		return NETDEV_TX_BUSY;
 	}
 
+	/* prefetch for bql data which is infrequently used */
+	netdev_txq_bql_enqueue_prefetchw(txring_txq(tx_ring));
+
 	offload.tx_ring = tx_ring;
 
 	/* record the location of the first descriptor for this packet */
@@ -2283,6 +2302,13 @@ ice_xmit_frame_ring(struct sk_buff *skb, struct ice_tx_ring *tx_ring)
 
 	/* prepare the VLAN tagging flags for Tx */
 	ice_tx_prepare_vlan_flags(tx_ring, first);
+	if (first->tx_flags & ICE_TX_FLAGS_HW_OUTER_SINGLE_VLAN) {
+		offload.cd_qw1 |= (u64)(ICE_TX_DESC_DTYPE_CTX |
+					(ICE_TX_CTX_DESC_IL2TAG2 <<
+					ICE_TXD_CTX_QW1_CMD_S));
+		offload.cd_l2tag2 = (first->tx_flags & ICE_TX_FLAGS_VLAN_M) >>
+			ICE_TX_FLAGS_VLAN_S;
+	}
 
 	/* set up TSO offload */
 	tso = ice_tso(first, &offload);

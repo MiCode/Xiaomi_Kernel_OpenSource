@@ -187,17 +187,11 @@ typedef struct {
 
 typedef struct ax25_route {
 	struct ax25_route	*next;
-	refcount_t		refcount;
 	ax25_address		callsign;
 	struct net_device	*dev;
 	ax25_digi		*digipeat;
 	char			ip_mode;
 } ax25_route;
-
-static inline void ax25_hold_route(ax25_route *ax25_rt)
-{
-	refcount_inc(&ax25_rt->refcount);
-}
 
 void __ax25_put_route(ax25_route *ax25_rt);
 
@@ -213,12 +207,6 @@ static inline void ax25_route_lock_unuse(void)
 	read_unlock(&ax25_route_lock);
 }
 
-static inline void ax25_put_route(ax25_route *ax25_rt)
-{
-	if (refcount_dec_and_test(&ax25_rt->refcount))
-		__ax25_put_route(ax25_rt);
-}
-
 typedef struct {
 	char			slave;			/* slave_mode?   */
 	struct timer_list	slave_timer;		/* timeout timer */
@@ -229,13 +217,17 @@ struct ctl_table;
 
 typedef struct ax25_dev {
 	struct ax25_dev		*next;
+
 	struct net_device	*dev;
+	netdevice_tracker	dev_tracker;
+
 	struct net_device	*forward;
 	struct ctl_table_header *sysheader;
 	int			values[AX25_MAX_VALUES];
 #if defined(CONFIG_AX25_DAMA_SLAVE) || defined(CONFIG_AX25_DAMA_MASTER)
 	ax25_dama_info		dama;
 #endif
+	refcount_t		refcount;
 } ax25_dev;
 
 typedef struct ax25_cb {
@@ -290,6 +282,17 @@ static __inline__ void ax25_cb_put(ax25_cb *ax25)
 	}
 }
 
+static inline void ax25_dev_hold(ax25_dev *ax25_dev)
+{
+	refcount_inc(&ax25_dev->refcount);
+}
+
+static inline void ax25_dev_put(ax25_dev *ax25_dev)
+{
+	if (refcount_dec_and_test(&ax25_dev->refcount)) {
+		kfree(ax25_dev);
+	}
+}
 static inline __be16 ax25_type_trans(struct sk_buff *skb, struct net_device *dev)
 {
 	skb->dev      = dev;

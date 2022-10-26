@@ -28,6 +28,7 @@ struct wm_adsp {
 	struct cs_dsp cs_dsp;
 	const char *part;
 	const char *fwf_name;
+	const char *system_name;
 	struct snd_soc_component *component;
 
 	unsigned int sys_config_size;
@@ -41,6 +42,14 @@ struct wm_adsp {
 
 	struct list_head compr_list;
 	struct list_head buffer_list;
+
+	/*
+	 * Flag indicating the preloader widget only needs power toggled
+	 * on state change rather than held on for the duration of the
+	 * preload, useful for devices that can retain firmware memory
+	 * across power down.
+	 */
+	bool toggle_preload;
 };
 
 #define WM_ADSP1(wname, num) \

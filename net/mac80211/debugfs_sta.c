@@ -441,7 +441,7 @@ static ssize_t sta_ht_capa_read(struct file *file, char __user *userbuf,
 #define PRINT_HT_CAP(_cond, _str) \
 	do { \
 	if (_cond) \
-			p += scnprintf(p, sizeof(buf)+buf-p, "\t" _str "\n"); \
+			p += scnprintf(p, bufsz + buf - p, "\t" _str "\n"); \
 	} while (0)
 	char *buf, *p;
 	int i;
@@ -936,14 +936,15 @@ static ssize_t sta_he_capa_read(struct file *file, char __user *userbuf,
 	PFLAG(PHY, 9, RX_FULL_BW_SU_USING_MU_WITH_NON_COMP_SIGB,
 	      "RX-FULL-BW-SU-USING-MU-WITH-NON-COMP-SIGB");
 
-	switch (cap[9] & IEEE80211_HE_PHY_CAP9_NOMIMAL_PKT_PADDING_MASK) {
-	case IEEE80211_HE_PHY_CAP9_NOMIMAL_PKT_PADDING_0US:
+	switch (u8_get_bits(cap[9],
+			    IEEE80211_HE_PHY_CAP9_NOMINAL_PKT_PADDING_MASK)) {
+	case IEEE80211_HE_PHY_CAP9_NOMINAL_PKT_PADDING_0US:
 		PRINT("NOMINAL-PACKET-PADDING-0US");
 		break;
-	case IEEE80211_HE_PHY_CAP9_NOMIMAL_PKT_PADDING_8US:
+	case IEEE80211_HE_PHY_CAP9_NOMINAL_PKT_PADDING_8US:
 		PRINT("NOMINAL-PACKET-PADDING-8US");
 		break;
-	case IEEE80211_HE_PHY_CAP9_NOMIMAL_PKT_PADDING_16US:
+	case IEEE80211_HE_PHY_CAP9_NOMINAL_PKT_PADDING_16US:
 		PRINT("NOMINAL-PACKET-PADDING-16US");
 		break;
 	}

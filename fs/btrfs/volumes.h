@@ -72,6 +72,11 @@ struct btrfs_device {
 	/* the mode sent to blkdev_get */
 	fmode_t mode;
 
+	/*
+	 * Device's major-minor number. Must be set even if the device is not
+	 * opened (bdev == NULL), unless the device is missing.
+	 */
+	dev_t devt;
 	unsigned long dev_state;
 	blk_status_t last_flush_error;
 
@@ -122,13 +127,6 @@ struct btrfs_device {
 
 	/* per-device scrub information */
 	struct scrub_ctx *scrub_ctx;
-
-	/* readahead state */
-	atomic_t reada_in_flight;
-	u64 reada_next;
-	struct reada_zone *reada_curr_zone;
-	struct radix_tree_root reada_zones;
-	struct radix_tree_root reada_extents;
 
 	/* disk I/O failure stats. For detailed description refer to
 	 * enum btrfs_dev_stat_values in ioctl.h */
@@ -330,6 +328,9 @@ struct btrfs_fs_devices {
 struct btrfs_bio {
 	unsigned int mirror_num;
 
+	/* for direct I/O */
+	u64 file_offset;
+
 	/* @device is for stripe IO submission. */
 	struct btrfs_device *device;
 	u8 *csum;
@@ -512,7 +513,7 @@ int btrfs_open_devices(struct btrfs_fs_devices *fs_devices,
 		       fmode_t flags, void *holder);
 struct btrfs_device *btrfs_scan_one_device(const char *path,
 					   fmode_t flags, void *holder);
-int btrfs_forget_devices(const char *path);
+int btrfs_forget_devices(dev_t devt);
 void btrfs_close_devices(struct btrfs_fs_devices *fs_devices);
 void btrfs_free_extra_devids(struct btrfs_fs_devices *fs_devices);
 void btrfs_assign_next_active_device(struct btrfs_device *device,
@@ -637,6 +638,6 @@ enum btrfs_raid_types __attribute_const__ btrfs_bg_flags_to_raid_index(u64 flags
 int btrfs_bg_type_to_factor(u64 flags);
 const char *btrfs_bg_type_to_raid_name(u64 flags);
 int btrfs_verify_dev_extents(struct btrfs_fs_info *fs_info);
-int btrfs_repair_one_zone(struct btrfs_fs_info *fs_info, u64 logical);
+bool btrfs_repair_one_zone(struct btrfs_fs_info *fs_info, u64 logical);
 
 #endif

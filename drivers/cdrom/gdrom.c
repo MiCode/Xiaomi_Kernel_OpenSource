@@ -15,7 +15,6 @@
 #include <linux/slab.h>
 #include <linux/dma-mapping.h>
 #include <linux/cdrom.h>
-#include <linux/genhd.h>
 #include <linux/bio.h>
 #include <linux/blk-mq.h>
 #include <linux/interrupt.h>
@@ -719,6 +718,7 @@ static void probe_gdrom_setupdisk(void)
 	gd.disk->major = gdrom_major;
 	gd.disk->first_minor = 1;
 	gd.disk->minors = 1;
+	gd.disk->flags |= GENHD_FL_NO_PART;
 	strcpy(gd.disk->disk_name, GDROM_DEV_NAME);
 }
 

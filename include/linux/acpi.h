@@ -133,12 +133,16 @@ union acpi_subtable_headers {
 	struct acpi_subtable_header common;
 	struct acpi_hmat_structure hmat;
 	struct acpi_prmt_module_header prmt;
+	struct acpi_cedt_header cedt;
 };
 
 typedef int (*acpi_tbl_table_handler)(struct acpi_table_header *table);
 
 typedef int (*acpi_tbl_entry_handler)(union acpi_subtable_headers *header,
 				      const unsigned long end);
+
+typedef int (*acpi_tbl_entry_handler_arg)(union acpi_subtable_headers *header,
+					  void *arg, const unsigned long end);
 
 /* Debugger support */
 
@@ -216,6 +220,8 @@ static inline int acpi_debugger_notify_command_complete(void)
 struct acpi_subtable_proc {
 	int id;
 	acpi_tbl_entry_handler handler;
+	acpi_tbl_entry_handler_arg handler_arg;
+	void *arg;
 	int count;
 };
 
@@ -232,17 +238,31 @@ int acpi_locate_initial_tables (void);
 void acpi_reserve_initial_tables (void);
 void acpi_table_init_complete (void);
 int acpi_table_init (void);
+
+#ifdef CONFIG_ACPI_TABLE_LIB
+#define EXPORT_SYMBOL_ACPI_LIB(x) EXPORT_SYMBOL_NS_GPL(x, ACPI)
+#define __init_or_acpilib
+#define __initdata_or_acpilib
+#else
+#define EXPORT_SYMBOL_ACPI_LIB(x)
+#define __init_or_acpilib __init
+#define __initdata_or_acpilib __initdata
+#endif
+
 int acpi_table_parse(char *id, acpi_tbl_table_handler handler);
-int __init acpi_table_parse_entries(char *id, unsigned long table_size,
-			      int entry_id,
-			      acpi_tbl_entry_handler handler,
-			      unsigned int max_entries);
-int __init acpi_table_parse_entries_array(char *id, unsigned long table_size,
-			      struct acpi_subtable_proc *proc, int proc_num,
-			      unsigned int max_entries);
+int __init_or_acpilib acpi_table_parse_entries(char *id,
+		unsigned long table_size, int entry_id,
+		acpi_tbl_entry_handler handler, unsigned int max_entries);
+int __init_or_acpilib acpi_table_parse_entries_array(char *id,
+		unsigned long table_size, struct acpi_subtable_proc *proc,
+		int proc_num, unsigned int max_entries);
 int acpi_table_parse_madt(enum acpi_madt_type id,
 			  acpi_tbl_entry_handler handler,
 			  unsigned int max_entries);
+int __init_or_acpilib
+acpi_table_parse_cedt(enum acpi_cedt_type id,
+		      acpi_tbl_entry_handler_arg handler_arg, void *arg);
+
 int acpi_parse_mcfg (struct acpi_table_header *header);
 void acpi_table_print_madt_entry (struct acpi_subtable_header *madt);
 
@@ -506,7 +526,7 @@ acpi_status acpi_release_memory(acpi_handle handle, struct resource *res,
 int acpi_resources_are_enforced(void);
 
 #ifdef CONFIG_HIBERNATION
-void __init acpi_no_s4_hw_signature(void);
+extern int acpi_check_s4_hw_signature;
 #endif
 
 #ifdef CONFIG_PM_SLEEP
@@ -560,6 +580,7 @@ acpi_status acpi_run_osc(acpi_handle handle, struct acpi_osc_context *context);
 extern bool osc_sb_apei_support_acked;
 extern bool osc_pc_lpi_support_confirmed;
 extern bool osc_sb_native_usb4_support_confirmed;
+extern bool osc_sb_cppc_not_supported;
 
 /* USB4 Capabilities */
 #define OSC_USB_USB3_TUNNELING			0x00000001
@@ -671,7 +692,7 @@ int acpi_device_uevent_modalias(struct device *, struct kobj_uevent_env *);
 int acpi_device_modalias(struct device *, char *, int);
 
 struct platform_device *acpi_create_platform_device(struct acpi_device *,
-						    struct property_entry *);
+						    const struct property_entry *);
 #define ACPI_PTR(_ptr)	(_ptr)
 
 static inline void acpi_device_set_enumerated(struct acpi_device *adev)
@@ -910,7 +931,7 @@ static inline int acpi_device_modalias(struct device *dev,
 
 static inline struct platform_device *
 acpi_create_platform_device(struct acpi_device *adev,
-			    struct property_entry *properties)
+			    const struct property_entry *properties)
 {
 	return NULL;
 }
@@ -1003,7 +1024,15 @@ void acpi_os_set_prepare_extended_sleep(int (*func)(u8 sleep_state,
 
 acpi_status acpi_os_prepare_extended_sleep(u8 sleep_state,
 					   u32 val_a, u32 val_b);
-
+#ifdef CONFIG_X86
+struct acpi_s2idle_dev_ops {
+	struct list_head list_node;
+	void (*prepare)(void);
+	void (*restore)(void);
+};
+int acpi_register_lps0_dev(struct acpi_s2idle_dev_ops *arg);
+void acpi_unregister_lps0_dev(struct acpi_s2idle_dev_ops *arg);
+#endif /* CONFIG_X86 */
 #ifndef CONFIG_IA64
 void arch_reserve_mem_area(acpi_physical_address addr, size_t size);
 #else
@@ -1387,6 +1416,12 @@ static inline int find_acpi_cpu_cache_topology(unsigned int cpu, int level)
 {
 	return -EINVAL;
 }
+#endif
+
+#ifdef CONFIG_ACPI_PCC
+void acpi_init_pcc(void);
+#else
+static inline void acpi_init_pcc(void) { }
 #endif
 
 #ifdef CONFIG_ACPI

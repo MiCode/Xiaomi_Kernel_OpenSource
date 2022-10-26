@@ -47,6 +47,12 @@
 #define PRIV_USER	3
 #define PRIV_KERNEL	0
 
+/* Space register used inside kernel */
+#define SR_KERNEL	0
+#define SR_TEMP1	1
+#define SR_TEMP2	2
+#define SR_USER		3
+
 #ifdef __ASSEMBLY__
 
 #ifdef CONFIG_64BIT
@@ -155,6 +161,16 @@
 	extrd,u	\r, 32+(\p), \len, \t
 #else
 	extru	\r, \p, \len, \t
+#endif
+	.endm
+
+	/* The depi instruction leaves the most significant 32 bits of the
+	 * target register in an undefined state on PA 2.0 systems. */
+	.macro depi_safe i, p, len, t
+#ifdef CONFIG_64BIT
+	depdi	\i, 32+(\p), \len, \t
+#else
+	depi	\i, \p, \len, \t
 #endif
 	.endm
 

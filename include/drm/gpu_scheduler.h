@@ -28,6 +28,7 @@
 #include <linux/dma-fence.h>
 #include <linux/completion.h>
 #include <linux/xarray.h>
+#include <linux/irq_work.h>
 
 #define MAX_WAIT_SCHED_ENTITY_Q_EMPTY msecs_to_jiffies(1000)
 
@@ -286,7 +287,16 @@ struct drm_sched_job {
 	struct list_head		list;
 	struct drm_gpu_scheduler	*sched;
 	struct drm_sched_fence		*s_fence;
-	struct dma_fence_cb		finish_cb;
+
+	/*
+	 * work is used only after finish_cb has been used and will not be
+	 * accessed anymore.
+	 */
+	union {
+		struct dma_fence_cb		finish_cb;
+		struct irq_work 		work;
+	};
+
 	uint64_t			id;
 	atomic_t			karma;
 	enum drm_sched_priority		s_priority;
@@ -447,13 +457,14 @@ struct drm_gpu_scheduler {
 	atomic_t                        _score;
 	bool				ready;
 	bool				free_guilty;
+	struct device			*dev;
 };
 
 int drm_sched_init(struct drm_gpu_scheduler *sched,
 		   const struct drm_sched_backend_ops *ops,
 		   uint32_t hw_submission, unsigned hang_limit,
 		   long timeout, struct workqueue_struct *timeout_wq,
-		   atomic_t *score, const char *name);
+		   atomic_t *score, const char *name, struct device *dev);
 
 void drm_sched_fini(struct drm_gpu_scheduler *sched);
 int drm_sched_job_init(struct drm_sched_job *job,

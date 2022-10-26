@@ -11,6 +11,7 @@
 #include <linux/net.h>
 #include <linux/igmp.h>
 #include <linux/workqueue.h>
+#include <net/sch_generic.h>
 #include <net/net_namespace.h>
 #include <net/ip.h>
 #include <net/udp.h>
@@ -1106,7 +1107,7 @@ static bool amt_send_membership_query(struct amt_dev *amt,
 	rt = ip_route_output_key(amt->net, &fl4);
 	if (IS_ERR(rt)) {
 		netdev_dbg(amt->dev, "no route to %pI4\n", &tunnel->ip4);
-		return -1;
+		return true;
 	}
 
 	amtmq		= skb_push(skb, sizeof(*amtmq));
@@ -2372,7 +2373,7 @@ static bool amt_membership_query_handler(struct amt_dev *amt,
 	skb->pkt_type = PACKET_MULTICAST;
 	skb->ip_summed = CHECKSUM_NONE;
 	len = skb->len;
-	if (netif_rx(skb) == NET_RX_SUCCESS) {
+	if (__netif_rx(skb) == NET_RX_SUCCESS) {
 		amt_update_gw_status(amt, AMT_STATUS_RECEIVED_QUERY, true);
 		dev_sw_netstats_rx_add(amt->dev, len);
 	} else {
@@ -2469,7 +2470,7 @@ report:
 	skb->pkt_type = PACKET_MULTICAST;
 	skb->ip_summed = CHECKSUM_NONE;
 	len = skb->len;
-	if (netif_rx(skb) == NET_RX_SUCCESS) {
+	if (__netif_rx(skb) == NET_RX_SUCCESS) {
 		amt_update_relay_status(tunnel, AMT_STATUS_RECEIVED_UPDATE,
 					true);
 		dev_sw_netstats_rx_add(amt->dev, len);

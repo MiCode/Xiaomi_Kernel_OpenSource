@@ -58,14 +58,19 @@ static void test_fexit_bpf2bpf_common(const char *obj_file,
 				      test_cb cb)
 {
 	struct bpf_object *obj = NULL, *tgt_obj;
-	__u32 retval, tgt_prog_id, info_len;
+	__u32 tgt_prog_id, info_len;
 	struct bpf_prog_info prog_info = {};
 	struct bpf_program **prog = NULL, *p;
 	struct bpf_link **link = NULL;
 	int err, tgt_fd, i;
 	struct btf *btf;
+	LIBBPF_OPTS(bpf_test_run_opts, topts,
+		.data_in = &pkt_v6,
+		.data_size_in = sizeof(pkt_v6),
+		.repeat = 1,
+	);
 
-	err = bpf_prog_load(target_obj_file, BPF_PROG_TYPE_UNSPEC,
+	err = bpf_prog_test_load(target_obj_file, BPF_PROG_TYPE_UNSPEC,
 			    &tgt_obj, &tgt_fd);
 	if (!ASSERT_OK(err, "tgt_prog_load"))
 		return;
@@ -101,6 +106,8 @@ static void test_fexit_bpf2bpf_common(const char *obj_file,
 
 	for (i = 0; i < prog_cnt; i++) {
 		struct bpf_link_info link_info;
+		struct bpf_program *pos;
+		const char *pos_sec_name;
 		char *tgt_name;
 		__s32 btf_id;
 
@@ -109,7 +116,14 @@ static void test_fexit_bpf2bpf_common(const char *obj_file,
 			goto close_prog;
 		btf_id = btf__find_by_name_kind(btf, tgt_name + 1, BTF_KIND_FUNC);
 
-		prog[i] = bpf_object__find_program_by_title(obj, prog_name[i]);
+		prog[i] = NULL;
+		bpf_object__for_each_program(pos, obj) {
+			pos_sec_name = bpf_program__section_name(pos);
+			if (pos_sec_name && !strcmp(pos_sec_name, prog_name[i])) {
+				prog[i] = pos;
+				break;
+			}
+		}
 		if (!ASSERT_OK_PTR(prog[i], prog_name[i]))
 			goto close_prog;
 
@@ -123,7 +137,7 @@ static void test_fexit_bpf2bpf_common(const char *obj_file,
 					     &link_info, &info_len);
 		ASSERT_OK(err, "link_fd_get_info");
 		ASSERT_EQ(link_info.tracing.attach_type,
-			  bpf_program__get_expected_attach_type(prog[i]),
+			  bpf_program__expected_attach_type(prog[i]),
 			  "link_attach_type");
 		ASSERT_EQ(link_info.tracing.target_obj_id, tgt_prog_id, "link_tgt_obj_id");
 		ASSERT_EQ(link_info.tracing.target_btf_id, btf_id, "link_tgt_btf_id");
@@ -138,10 +152,9 @@ static void test_fexit_bpf2bpf_common(const char *obj_file,
 	if (!run_prog)
 		goto close_prog;
 
-	err = bpf_prog_test_run(tgt_fd, 1, &pkt_v6, sizeof(pkt_v6),
-				NULL, NULL, &retval, NULL);
+	err = bpf_prog_test_run_opts(tgt_fd, &topts);
 	ASSERT_OK(err, "prog_run");
-	ASSERT_EQ(retval, 0, "prog_run_ret");
+	ASSERT_EQ(topts.retval, 0, "prog_run_ret");
 
 	if (check_data_map(obj, prog_cnt, false))
 		goto close_prog;
@@ -211,34 +224,36 @@ static void test_func_replace_verify(void)
 
 static int test_second_attach(struct bpf_object *obj)
 {
-	const char *prog_name = "freplace/get_constant";
-	const char *tgt_name = prog_name + 9; /* cut off freplace/ */
+	const char *prog_name = "security_new_get_constant";
+	const char *tgt_name = "get_constant";
 	const char *tgt_obj_file = "./test_pkt_access.o";
 	struct bpf_program *prog = NULL;
 	struct bpf_object *tgt_obj;
-	__u32 duration = 0, retval;
 	struct bpf_link *link;
 	int err = 0, tgt_fd;
+	LIBBPF_OPTS(bpf_test_run_opts, topts,
+		.data_in = &pkt_v6,
+		.data_size_in = sizeof(pkt_v6),
+		.repeat = 1,
+	);
 
-	prog = bpf_object__find_program_by_title(obj, prog_name);
-	if (CHECK(!prog, "find_prog", "prog %s not found\n", prog_name))
+	prog = bpf_object__find_program_by_name(obj, prog_name);
+	if (!ASSERT_OK_PTR(prog, "find_prog"))
 		return -ENOENT;
 
-	err = bpf_prog_load(tgt_obj_file, BPF_PROG_TYPE_UNSPEC,
+	err = bpf_prog_test_load(tgt_obj_file, BPF_PROG_TYPE_UNSPEC,
 			    &tgt_obj, &tgt_fd);
-	if (CHECK(err, "second_prog_load", "file %s err %d errno %d\n",
-		  tgt_obj_file, err, errno))
+	if (!ASSERT_OK(err, "second_prog_load"))
 		return err;
 
 	link = bpf_program__attach_freplace(prog, tgt_fd, tgt_name);
 	if (!ASSERT_OK_PTR(link, "second_link"))
 		goto out;
 
-	err = bpf_prog_test_run(tgt_fd, 1, &pkt_v6, sizeof(pkt_v6),
-				NULL, NULL, &retval, &duration);
-	if (CHECK(err || retval, "ipv6",
-		  "err %d errno %d retval %d duration %d\n",
-		  err, errno, retval, duration))
+	err = bpf_prog_test_run_opts(tgt_fd, &topts);
+	if (!ASSERT_OK(err, "ipv6 test_run"))
+		goto out;
+	if (!ASSERT_OK(topts.retval, "ipv6 retval"))
 		goto out;
 
 	err = check_data_map(obj, 1, true);
@@ -274,7 +289,7 @@ static void test_fmod_ret_freplace(void)
 	__u32 duration = 0;
 	int err, pkt_fd, attach_prog_fd;
 
-	err = bpf_prog_load(tgt_name, BPF_PROG_TYPE_UNSPEC,
+	err = bpf_prog_test_load(tgt_name, BPF_PROG_TYPE_UNSPEC,
 			    &pkt_obj, &pkt_fd);
 	/* the target prog should load fine */
 	if (CHECK(err, "tgt_prog_load", "file %s err %d errno %d\n",
@@ -341,7 +356,7 @@ static void test_obj_load_failure_common(const char *obj_file,
 	int err, pkt_fd;
 	__u32 duration = 0;
 
-	err = bpf_prog_load(target_obj_file, BPF_PROG_TYPE_UNSPEC,
+	err = bpf_prog_test_load(target_obj_file, BPF_PROG_TYPE_UNSPEC,
 			    &pkt_obj, &pkt_fd);
 	/* the target prog should load fine */
 	if (CHECK(err, "tgt_prog_load", "file %s err %d errno %d\n",

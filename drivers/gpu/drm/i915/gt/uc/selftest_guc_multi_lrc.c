@@ -154,6 +154,10 @@ static int intel_guc_multi_lrc_basic(void *arg)
 	int ret;
 
 	for (class = 0; class < MAX_ENGINE_CLASS + 1; ++class) {
+		/* We don't support breadcrumb handshake on these classes */
+		if (class == COMPUTE_CLASS || class == RENDER_CLASS)
+			continue;
+
 		ret = __intel_guc_multi_lrc_basic(gt, class);
 		if (ret)
 			return ret;
@@ -167,7 +171,7 @@ int intel_guc_multi_lrc_live_selftests(struct drm_i915_private *i915)
 	static const struct i915_subtest tests[] = {
 		SUBTEST(intel_guc_multi_lrc_basic),
 	};
-	struct intel_gt *gt = &i915->gt;
+	struct intel_gt *gt = to_gt(i915);
 
 	if (intel_gt_is_wedged(gt))
 		return 0;

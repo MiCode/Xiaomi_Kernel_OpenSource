@@ -137,7 +137,6 @@ SECTIONS
 		ALIGN_ENTRY_TEXT_END
 		SOFTIRQENTRY_TEXT
 		STATIC_CALL_TEXT
-		*(.fixup)
 		*(.gnu.warning)
 
 #ifdef CONFIG_RETPOLINE
@@ -283,6 +282,15 @@ SECTIONS
 		__retpoline_sites = .;
 		*(.retpoline_sites)
 		__retpoline_sites_end = .;
+	}
+#endif
+
+#ifdef CONFIG_X86_KERNEL_IBT
+	. = ALIGN(8);
+	.ibt_endbr_seal : AT(ADDR(.ibt_endbr_seal) - LOAD_OFFSET) {
+		__ibt_endbr_seal = .;
+		*(.ibt_endbr_seal)
+		__ibt_endbr_seal_end = .;
 	}
 #endif
 

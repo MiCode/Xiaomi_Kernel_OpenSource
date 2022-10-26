@@ -3821,7 +3821,7 @@ struct ieee80211_txq *ieee80211_next_txq(struct ieee80211_hw *hw, u8 ac)
 {
 	struct ieee80211_local *local = hw_to_local(hw);
 	struct airtime_sched_info *air_sched;
-	u64 now = ktime_get_boottime_ns();
+	u64 now = ktime_get_coarse_boottime_ns();
 	struct ieee80211_txq *ret = NULL;
 	struct airtime_info *air_info;
 	struct txq_info *txqi = NULL;
@@ -3948,7 +3948,7 @@ void ieee80211_update_airtime_weight(struct ieee80211_local *local,
 	u64 weight_sum = 0;
 
 	if (unlikely(!now))
-		now = ktime_get_boottime_ns();
+		now = ktime_get_coarse_boottime_ns();
 
 	lockdep_assert_held(&air_sched->lock);
 
@@ -3974,7 +3974,7 @@ void ieee80211_schedule_txq(struct ieee80211_hw *hw,
 	struct ieee80211_local *local = hw_to_local(hw);
 	struct txq_info *txqi = to_txq_info(txq);
 	struct airtime_sched_info *air_sched;
-	u64 now = ktime_get_boottime_ns();
+	u64 now = ktime_get_coarse_boottime_ns();
 	struct airtime_info *air_info;
 	u8 ac = txq->ac;
 	bool was_active;
@@ -4032,7 +4032,7 @@ static void __ieee80211_unschedule_txq(struct ieee80211_hw *hw,
 
 	if (!purge)
 		airtime_set_active(air_sched, air_info,
-				   ktime_get_boottime_ns());
+				   ktime_get_coarse_boottime_ns());
 
 	rb_erase_cached(&txqi->schedule_order,
 			&air_sched->active_txqs);
@@ -4120,7 +4120,7 @@ bool ieee80211_txq_may_transmit(struct ieee80211_hw *hw,
 	if (RB_EMPTY_NODE(&txqi->schedule_order))
 		goto out;
 
-	now = ktime_get_boottime_ns();
+	now = ktime_get_coarse_boottime_ns();
 
 	/* Like in ieee80211_next_txq(), make sure the first station in the
 	 * scheduling order is eligible for transmission to avoid starvation.
@@ -5042,6 +5042,19 @@ ieee80211_beacon_get_finish(struct ieee80211_hw *hw,
 		       IEEE80211_TX_CTL_FIRST_FRAGMENT;
 }
 
+static void
+ieee80211_beacon_add_mbssid(struct sk_buff *skb, struct beacon_data *beacon)
+{
+	int i;
+
+	if (!beacon->mbssid_ies)
+		return;
+
+	for (i = 0; i < beacon->mbssid_ies->cnt; i++)
+		skb_put_data(skb, beacon->mbssid_ies->elem[i].data,
+			     beacon->mbssid_ies->elem[i].len);
+}
+
 static struct sk_buff *
 ieee80211_beacon_get_ap(struct ieee80211_hw *hw,
 			struct ieee80211_vif *vif,
@@ -5055,6 +5068,7 @@ ieee80211_beacon_get_ap(struct ieee80211_hw *hw,
 	struct ieee80211_if_ap *ap = &sdata->u.ap;
 	struct sk_buff *skb = NULL;
 	u16 csa_off_base = 0;
+	int mbssid_len;
 
 	if (beacon->cntdwn_counter_offsets[0]) {
 		if (!is_template)
@@ -5064,11 +5078,12 @@ ieee80211_beacon_get_ap(struct ieee80211_hw *hw,
 	}
 
 	/* headroom, head length,
-	 * tail length and maximum TIM length
+	 * tail length, maximum TIM length and multiple BSSID length
 	 */
+	mbssid_len = ieee80211_get_mbssid_beacon_len(beacon->mbssid_ies);
 	skb = dev_alloc_skb(local->tx_headroom + beacon->head_len +
 			    beacon->tail_len + 256 +
-			    local->hw.extra_beacon_tailroom);
+			    local->hw.extra_beacon_tailroom + mbssid_len);
 	if (!skb)
 		return NULL;
 
@@ -5081,6 +5096,11 @@ ieee80211_beacon_get_ap(struct ieee80211_hw *hw,
 		offs->tim_offset = beacon->head_len;
 		offs->tim_length = skb->len - beacon->head_len;
 		offs->cntdwn_counter_offs[0] = beacon->cntdwn_counter_offsets[0];
+
+		if (mbssid_len) {
+			ieee80211_beacon_add_mbssid(skb, beacon);
+			offs->mbssid_off = skb->len - mbssid_len;
+		}
 
 		/* for AP the csa offsets are from tail */
 		csa_off_base = skb->len;

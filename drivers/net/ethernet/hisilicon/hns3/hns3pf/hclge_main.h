@@ -13,6 +13,8 @@
 #include "hclge_cmd.h"
 #include "hclge_ptp.h"
 #include "hnae3.h"
+#include "hclge_comm_rss.h"
+#include "hclge_comm_tqp_stats.h"
 
 #define HCLGE_MOD_VERSION "1.0"
 #define HCLGE_DRIVER_NAME "hclge"
@@ -38,20 +40,7 @@
 #define HCLGE_VECTOR_REG_OFFSET_H	0x1000
 #define HCLGE_VECTOR_VF_OFFSET		0x100000
 
-#define HCLGE_NIC_CSQ_BASEADDR_L_REG	0x27000
-#define HCLGE_NIC_CSQ_BASEADDR_H_REG	0x27004
 #define HCLGE_NIC_CSQ_DEPTH_REG		0x27008
-#define HCLGE_NIC_CSQ_TAIL_REG		0x27010
-#define HCLGE_NIC_CSQ_HEAD_REG		0x27014
-#define HCLGE_NIC_CRQ_BASEADDR_L_REG	0x27018
-#define HCLGE_NIC_CRQ_BASEADDR_H_REG	0x2701C
-#define HCLGE_NIC_CRQ_DEPTH_REG		0x27020
-#define HCLGE_NIC_CRQ_TAIL_REG		0x27024
-#define HCLGE_NIC_CRQ_HEAD_REG		0x27028
-
-#define HCLGE_CMDQ_INTR_STS_REG		0x27104
-#define HCLGE_CMDQ_INTR_EN_REG		0x27108
-#define HCLGE_CMDQ_INTR_GEN_REG		0x2710C
 
 /* bar registers for common func */
 #define HCLGE_GRO_EN_REG		0x28000
@@ -93,22 +82,6 @@
 #define HCLGE_TQP_INTR_RL_REG		0x20900
 
 #define HCLGE_RSS_IND_TBL_SIZE		512
-#define HCLGE_RSS_SET_BITMAP_MSK	GENMASK(15, 0)
-#define HCLGE_RSS_KEY_SIZE		40
-#define HCLGE_RSS_HASH_ALGO_TOEPLITZ	0
-#define HCLGE_RSS_HASH_ALGO_SIMPLE	1
-#define HCLGE_RSS_HASH_ALGO_SYMMETRIC	2
-#define HCLGE_RSS_HASH_ALGO_MASK	GENMASK(3, 0)
-
-#define HCLGE_RSS_INPUT_TUPLE_OTHER	GENMASK(3, 0)
-#define HCLGE_RSS_INPUT_TUPLE_SCTP	GENMASK(4, 0)
-#define HCLGE_D_PORT_BIT		BIT(0)
-#define HCLGE_S_PORT_BIT		BIT(1)
-#define HCLGE_D_IP_BIT			BIT(2)
-#define HCLGE_S_IP_BIT			BIT(3)
-#define HCLGE_V_TAG_BIT			BIT(4)
-#define HCLGE_RSS_INPUT_TUPLE_SCTP_NO_PORT	\
-		(HCLGE_D_IP_BIT | HCLGE_S_IP_BIT | HCLGE_V_TAG_BIT)
 
 #define HCLGE_RSS_TC_SIZE_0		1
 #define HCLGE_RSS_TC_SIZE_1		2
@@ -196,6 +169,14 @@ enum HLCGE_PORT_TYPE {
 #define HCLGE_VECTOR0_ALL_MSIX_ERR_B	6U
 #define HCLGE_TRIGGER_IMP_RESET_B	7U
 
+#define HCLGE_TQP_MEM_SIZE		0x10000
+#define HCLGE_MEM_BAR			4
+/* in the bar4, the first half is for roce, and the second half is for nic */
+#define HCLGE_NIC_MEM_OFFSET(hdev)	\
+	(pci_resource_len((hdev)->pdev, HCLGE_MEM_BAR) >> 1)
+#define HCLGE_TQP_MEM_OFFSET(hdev, i)	\
+	(HCLGE_NIC_MEM_OFFSET(hdev) + HCLGE_TQP_MEM_SIZE * (i))
+
 #define HCLGE_MAC_DEFAULT_FRAME \
 	(ETH_HLEN + ETH_FCS_LEN + 2 * VLAN_HLEN + ETH_DATA_LEN)
 #define HCLGE_MAC_MIN_FRAME		64
@@ -228,7 +209,6 @@ enum HCLGE_DEV_STATE {
 	HCLGE_STATE_MBX_HANDLING,
 	HCLGE_STATE_ERR_SERVICE_SCHED,
 	HCLGE_STATE_STATISTICS_UPDATING,
-	HCLGE_STATE_CMD_DISABLE,
 	HCLGE_STATE_LINK_UPDATING,
 	HCLGE_STATE_RST_FAIL,
 	HCLGE_STATE_FD_TBL_CHANGED,
@@ -294,31 +274,9 @@ struct hclge_mac {
 };
 
 struct hclge_hw {
-	void __iomem *io_base;
-	void __iomem *mem_base;
+	struct hclge_comm_hw hw;
 	struct hclge_mac mac;
 	int num_vec;
-	struct hclge_cmq cmq;
-};
-
-/* TQP stats */
-struct hlcge_tqp_stats {
-	/* query_tqp_tx_queue_statistics ,opcode id:  0x0B03 */
-	u64 rcb_tx_ring_pktnum_rcd; /* 32bit */
-	/* query_tqp_rx_queue_statistics ,opcode id:  0x0B13 */
-	u64 rcb_rx_ring_pktnum_rcd; /* 32bit */
-};
-
-struct hclge_tqp {
-	/* copy of device pointer from pci_dev,
-	 * used when perform DMA mapping
-	 */
-	struct device *dev;
-	struct hnae3_queue q;
-	struct hlcge_tqp_stats tqp_stats;
-	u16 index;	/* Global index in a NIC controller */
-
-	bool alloced;
 };
 
 enum hclge_fc_mode {
@@ -641,6 +599,11 @@ struct key_info {
 #define MAX_FD_FILTER_NUM	4096
 #define HCLGE_ARFS_EXPIRE_INTERVAL	5UL
 
+#define hclge_read_dev(a, reg) \
+	hclge_comm_read_reg((a)->hw.io_base, reg)
+#define hclge_write_dev(a, reg, value) \
+	hclge_comm_write_reg((a)->hw.io_base, reg, value)
+
 enum HCLGE_FD_ACTIVE_RULE_TYPE {
 	HCLGE_FD_RULE_NONE,
 	HCLGE_FD_ARFS_ACTIVE,
@@ -920,7 +883,7 @@ struct hclge_dev {
 	bool cur_promisc;
 	int num_alloc_vfs;	/* Actual number of VFs allocated */
 
-	struct hclge_tqp *htqp;
+	struct hclge_comm_tqp *htqp;
 	struct hclge_vport *vport;
 
 	struct dentry *hclge_dbgfs;
@@ -955,6 +918,8 @@ struct hclge_dev {
 	u16 hclge_fd_rule_num;
 	unsigned long serv_processed_cnt;
 	unsigned long last_serv_processed;
+	unsigned long last_rst_scheduled;
+	unsigned long last_mbx_scheduled;
 	unsigned long fd_bmap[BITS_TO_LONGS(MAX_FD_FILTER_NUM)];
 	enum HCLGE_FD_ACTIVE_RULE_TYPE fd_active_type;
 	u8 fd_en;
@@ -977,6 +942,7 @@ struct hclge_dev {
 	cpumask_t affinity_mask;
 	struct hclge_ptp *ptp;
 	struct devlink *devlink;
+	struct hclge_comm_rss_cfg rss_cfg;
 };
 
 /* VPort level vlan tag configuration for TX direction */
@@ -1003,17 +969,6 @@ struct hclge_rx_vtag_cfg {
 	bool strip_tag2_discard_en; /* Outer vlan tag discard for BD enable */
 };
 
-struct hclge_rss_tuple_cfg {
-	u8 ipv4_tcp_en;
-	u8 ipv4_udp_en;
-	u8 ipv4_sctp_en;
-	u8 ipv4_fragment_en;
-	u8 ipv6_tcp_en;
-	u8 ipv6_udp_en;
-	u8 ipv6_sctp_en;
-	u8 ipv6_fragment_en;
-};
-
 enum HCLGE_VPORT_STATE {
 	HCLGE_VPORT_STATE_ALIVE,
 	HCLGE_VPORT_STATE_MAC_TBL_CHANGE,
@@ -1030,7 +985,9 @@ struct hclge_vlan_info {
 
 struct hclge_port_base_vlan_config {
 	u16 state;
+	bool tbl_sta;
 	struct hclge_vlan_info vlan_info;
+	struct hclge_vlan_info old_vlan_info;
 };
 
 struct hclge_vf_info {
@@ -1046,15 +1003,6 @@ struct hclge_vf_info {
 
 struct hclge_vport {
 	u16 alloc_tqps;	/* Allocated Tx/Rx queues */
-
-	u8  rss_hash_key[HCLGE_RSS_KEY_SIZE]; /* User configured hash keys */
-	/* User configured lookup table entries */
-	u16 *rss_indirection_tbl;
-	int rss_algo;		/* User configured hash algorithm */
-	/* User configured rss tuple sets */
-	struct hclge_rss_tuple_cfg rss_tuple_sets;
-
-	u16 alloc_rss_size;
 
 	u16 qs_offset;
 	u32 bw_limit;		/* VSI BW Limit (0 = disabled) */
@@ -1085,12 +1033,18 @@ struct hclge_vport {
 	spinlock_t mac_list_lock; /* protect mac address need to add/detele */
 	struct list_head uc_mac_list;   /* Store VF unicast table */
 	struct list_head mc_mac_list;   /* Store VF multicast table */
+
 	struct list_head vlan_list;     /* Store VF vlan table */
 };
 
 struct hclge_speed_bit_map {
 	u32 speed;
 	u32 speed_bit;
+};
+
+struct hclge_mac_speed_map {
+	u32 speed_drv; /* speed defined in driver */
+	u32 speed_fw; /* speed defined in firmware */
 };
 
 int hclge_set_vport_promisc_mode(struct hclge_vport *vport, bool en_uc_pmc,
@@ -1111,14 +1065,10 @@ int hclge_bind_ring_with_vector(struct hclge_vport *vport,
 
 static inline int hclge_get_queue_id(struct hnae3_queue *queue)
 {
-	struct hclge_tqp *tqp = container_of(queue, struct hclge_tqp, q);
+	struct hclge_comm_tqp *tqp =
+			container_of(queue, struct hclge_comm_tqp, q);
 
 	return tqp->index;
-}
-
-static inline bool hclge_is_reset_pending(struct hclge_dev *hdev)
-{
-	return !!hdev->reset_pending;
 }
 
 int hclge_inform_reset_assert_to_vf(struct hclge_vport *vport);
@@ -1129,7 +1079,6 @@ int hclge_en_hw_strip_rxvtag(struct hnae3_handle *handle, bool enable);
 
 int hclge_buffer_alloc(struct hclge_dev *hdev);
 int hclge_rss_init_hw(struct hclge_dev *hdev);
-void hclge_rss_indir_init_cfg(struct hclge_dev *hdev);
 
 void hclge_mbx_handler(struct hclge_dev *hdev);
 int hclge_reset_tqp(struct hnae3_handle *handle);
@@ -1154,6 +1103,7 @@ void hclge_rm_vport_all_mac_table(struct hclge_vport *vport, bool is_del_list,
 void hclge_rm_vport_all_vlan_table(struct hclge_vport *vport, bool is_del_list);
 void hclge_uninit_vport_vlan_table(struct hclge_dev *hdev);
 void hclge_restore_mac_table_common(struct hclge_vport *vport);
+void hclge_restore_vport_port_base_vlan_config(struct hclge_dev *hdev);
 void hclge_restore_vport_vlan_table(struct hclge_vport *vport);
 int hclge_update_port_base_vlan_cfg(struct hclge_vport *vport, u16 state,
 				    struct hclge_vlan_info *vlan_info);

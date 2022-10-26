@@ -10,6 +10,7 @@
 #include <linux/bpf_trace.h>
 #include <net/udp_tunnel.h>
 #include <linux/ip.h>
+#include <net/gro.h>
 #include <net/ipv6.h>
 #include <net/tcp.h>
 #include <linux/if_ether.h>
@@ -747,6 +748,9 @@ qede_build_skb(struct qede_rx_queue *rxq,
 	buf = page_address(bd->data) + bd->page_offset;
 	skb = build_skb(buf, rxq->rx_buf_seg_size);
 
+	if (unlikely(!skb))
+		return NULL;
+
 	skb_reserve(skb, pad);
 	skb_put(skb, len);
 
@@ -1152,7 +1156,7 @@ static bool qede_rx_xdp(struct qede_dev *edev,
 		qede_rx_bd_ring_consume(rxq);
 		break;
 	default:
-		bpf_warn_invalid_xdp_action(act);
+		bpf_warn_invalid_xdp_action(edev->ndev, prog, act);
 		fallthrough;
 	case XDP_ABORTED:
 		trace_xdp_exception(edev->ndev, prog, act);

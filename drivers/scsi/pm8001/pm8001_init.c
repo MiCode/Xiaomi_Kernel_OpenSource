@@ -122,13 +122,14 @@ static struct sas_domain_function_template pm8001_transport_ops = {
 	.lldd_control_phy	= pm8001_phy_control,
 
 	.lldd_abort_task	= pm8001_abort_task,
-	.lldd_abort_task_set	= pm8001_abort_task_set,
-	.lldd_clear_aca		= pm8001_clear_aca,
+	.lldd_abort_task_set	= sas_abort_task_set,
 	.lldd_clear_task_set	= pm8001_clear_task_set,
 	.lldd_I_T_nexus_reset   = pm8001_I_T_nexus_reset,
 	.lldd_lu_reset		= pm8001_lu_reset,
 	.lldd_query_task	= pm8001_query_task,
 	.lldd_port_formed	= pm8001_port_formed,
+	.lldd_tmf_exec_complete = pm8001_setds_completion,
+	.lldd_tmf_aborted	= pm8001_tmf_aborted,
 };
 
 /**
@@ -179,7 +180,7 @@ static void pm8001_free(struct pm8001_hba_info *pm8001_ha)
 	}
 	PM8001_CHIP_DISP->chip_iounmap(pm8001_ha);
 	flush_workqueue(pm8001_wq);
-	kfree(pm8001_ha->tags);
+	bitmap_free(pm8001_ha->tags);
 	kfree(pm8001_ha);
 }
 
@@ -1192,7 +1193,7 @@ pm8001_init_ccb_tag(struct pm8001_hba_info *pm8001_ha, struct Scsi_Host *shost,
 	can_queue = ccb_count - PM8001_RESERVE_SLOT;
 	shost->can_queue = can_queue;
 
-	pm8001_ha->tags = kzalloc(ccb_count, GFP_KERNEL);
+	pm8001_ha->tags = bitmap_zalloc(ccb_count, GFP_KERNEL);
 	if (!pm8001_ha->tags)
 		goto err_out;
 
@@ -1216,10 +1217,11 @@ pm8001_init_ccb_tag(struct pm8001_hba_info *pm8001_ha, struct Scsi_Host *shost,
 			goto err_out;
 		}
 		pm8001_ha->ccb_info[i].task = NULL;
-		pm8001_ha->ccb_info[i].ccb_tag = 0xffffffff;
+		pm8001_ha->ccb_info[i].ccb_tag = PM8001_INVALID_TAG;
 		pm8001_ha->ccb_info[i].device = NULL;
 		++pm8001_ha->tags_num;
 	}
+
 	return 0;
 
 err_out_noccb:
@@ -1335,13 +1337,13 @@ static int __maybe_unused pm8001_pci_resume(struct device *dev)
 	struct pm8001_hba_info *pm8001_ha;
 	int rc;
 	u8 i = 0, j;
-	u32 device_state;
 	DECLARE_COMPLETION_ONSTACK(completion);
-	pm8001_ha = sha->lldd_ha;
-	device_state = pdev->current_state;
 
-	pm8001_info(pm8001_ha, "pdev=0x%p, slot=%s, resuming from previous operating state [D%d]\n",
-		      pdev, pm8001_ha->name, device_state);
+	pm8001_ha = sha->lldd_ha;
+
+	pm8001_info(pm8001_ha,
+		    "pdev=0x%p, slot=%s, resuming from previous operating state [D%d]\n",
+		    pdev, pm8001_ha->name, pdev->current_state);
 
 	rc = pci_go_44(pdev);
 	if (rc)

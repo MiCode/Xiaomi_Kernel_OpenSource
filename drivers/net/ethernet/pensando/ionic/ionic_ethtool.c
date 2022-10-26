@@ -74,10 +74,10 @@ static void ionic_get_drvinfo(struct net_device *netdev,
 	struct ionic_lif *lif = netdev_priv(netdev);
 	struct ionic *ionic = lif->ionic;
 
-	strlcpy(drvinfo->driver, IONIC_DRV_NAME, sizeof(drvinfo->driver));
-	strlcpy(drvinfo->fw_version, ionic->idev.dev_info.fw_version,
+	strscpy(drvinfo->driver, IONIC_DRV_NAME, sizeof(drvinfo->driver));
+	strscpy(drvinfo->fw_version, ionic->idev.dev_info.fw_version,
 		sizeof(drvinfo->fw_version));
-	strlcpy(drvinfo->bus_info, ionic_bus_info(ionic),
+	strscpy(drvinfo->bus_info, ionic_bus_info(ionic),
 		sizeof(drvinfo->bus_info));
 }
 
@@ -512,7 +512,9 @@ static int ionic_set_coalesce(struct net_device *netdev,
 }
 
 static void ionic_get_ringparam(struct net_device *netdev,
-				struct ethtool_ringparam *ring)
+				struct ethtool_ringparam *ring,
+				struct kernel_ethtool_ringparam *kernel_ring,
+				struct netlink_ext_ack *extack)
 {
 	struct ionic_lif *lif = netdev_priv(netdev);
 
@@ -523,7 +525,9 @@ static void ionic_get_ringparam(struct net_device *netdev,
 }
 
 static int ionic_set_ringparam(struct net_device *netdev,
-			       struct ethtool_ringparam *ring)
+			       struct ethtool_ringparam *ring,
+			       struct kernel_ethtool_ringparam *kernel_ring,
+			       struct netlink_ext_ack *extack)
 {
 	struct ionic_lif *lif = netdev_priv(netdev);
 	struct ionic_queue_params qparam;

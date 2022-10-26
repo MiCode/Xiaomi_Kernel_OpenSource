@@ -1136,17 +1136,20 @@ static int xudc_ep_queue(struct usb_ep *_ep, struct usb_request *_req,
 static int xudc_ep_dequeue(struct usb_ep *_ep, struct usb_request *_req)
 {
 	struct xusb_ep *ep	= to_xusb_ep(_ep);
-	struct xusb_req *req	= to_xusb_req(_req);
+	struct xusb_req *req	= NULL;
+	struct xusb_req *iter;
 	struct xusb_udc *udc	= ep->udc;
 	unsigned long flags;
 
 	spin_lock_irqsave(&udc->lock, flags);
 	/* Make sure it's actually queued on this endpoint */
-	list_for_each_entry(req, &ep->queue, queue) {
-		if (&req->usb_req == _req)
-			break;
+	list_for_each_entry(iter, &ep->queue, queue) {
+		if (&iter->usb_req != _req)
+			continue;
+		req = iter;
+		break;
 	}
-	if (&req->usb_req != _req) {
+	if (!req) {
 		spin_unlock_irqrestore(&udc->lock, flags);
 		return -EINVAL;
 	}
@@ -1615,6 +1618,8 @@ static void xudc_getstatus(struct xusb_udc *udc)
 		break;
 	case USB_RECIP_ENDPOINT:
 		epnum = udc->setup.wIndex & USB_ENDPOINT_NUMBER_MASK;
+		if (epnum >= XUSB_MAX_ENDPOINTS)
+			goto stall;
 		target_ep = &udc->ep[epnum];
 		epcfgreg = udc->read_fn(udc->addr + target_ep->offset);
 		halt = epcfgreg & XUSB_EP_CFG_STALL_MASK;
@@ -1682,6 +1687,10 @@ static void xudc_set_clear_feature(struct xusb_udc *udc)
 	case USB_RECIP_ENDPOINT:
 		if (!udc->setup.wValue) {
 			endpoint = udc->setup.wIndex & USB_ENDPOINT_NUMBER_MASK;
+			if (endpoint >= XUSB_MAX_ENDPOINTS) {
+				xudc_ep0_stall(udc);
+				return;
+			}
 			target_ep = &udc->ep[endpoint];
 			outinbit = udc->setup.wIndex & USB_ENDPOINT_DIR_MASK;
 			outinbit = outinbit >> 7;
@@ -2179,6 +2188,61 @@ static int xudc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int xudc_suspend(struct device *dev)
+{
+	struct xusb_udc *udc;
+	u32 crtlreg;
+	unsigned long flags;
+
+	udc = dev_get_drvdata(dev);
+
+	spin_lock_irqsave(&udc->lock, flags);
+
+	crtlreg = udc->read_fn(udc->addr + XUSB_CONTROL_OFFSET);
+	crtlreg &= ~XUSB_CONTROL_USB_READY_MASK;
+
+	udc->write_fn(udc->addr, XUSB_CONTROL_OFFSET, crtlreg);
+
+	spin_unlock_irqrestore(&udc->lock, flags);
+	if (udc->driver && udc->driver->suspend)
+		udc->driver->suspend(&udc->gadget);
+
+	clk_disable(udc->clk);
+
+	return 0;
+}
+
+static int xudc_resume(struct device *dev)
+{
+	struct xusb_udc *udc;
+	u32 crtlreg;
+	unsigned long flags;
+	int ret;
+
+	udc = dev_get_drvdata(dev);
+
+	ret = clk_enable(udc->clk);
+	if (ret < 0)
+		return ret;
+
+	spin_lock_irqsave(&udc->lock, flags);
+
+	crtlreg = udc->read_fn(udc->addr + XUSB_CONTROL_OFFSET);
+	crtlreg |= XUSB_CONTROL_USB_READY_MASK;
+
+	udc->write_fn(udc->addr, XUSB_CONTROL_OFFSET, crtlreg);
+
+	spin_unlock_irqrestore(&udc->lock, flags);
+
+	return 0;
+}
+#endif /* CONFIG_PM_SLEEP */
+
+static const struct dev_pm_ops xudc_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(xudc_suspend, xudc_resume)
+};
+
 /* Match table for of_platform binding */
 static const struct of_device_id usb_of_match[] = {
 	{ .compatible = "xlnx,usb2-device-4.00.a", },
@@ -2190,6 +2254,7 @@ static struct platform_driver xudc_driver = {
 	.driver = {
 		.name = driver_name,
 		.of_match_table = usb_of_match,
+		.pm	= &xudc_pm_ops,
 	},
 	.probe = xudc_probe,
 	.remove = xudc_remove,

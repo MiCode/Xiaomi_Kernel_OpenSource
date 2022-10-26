@@ -7,6 +7,8 @@
 #include <linux/export.h>
 #include <linux/acpi.h>
 #include <linux/pci.h>
+#include <cxlmem.h>
+#include <cxlpci.h>
 #include "mock.h"
 
 static LIST_HEAD(mock);
@@ -58,36 +60,23 @@ bool __wrap_is_acpi_device_node(const struct fwnode_handle *fwnode)
 }
 EXPORT_SYMBOL(__wrap_is_acpi_device_node);
 
-acpi_status __wrap_acpi_get_table(char *signature, u32 instance,
-				  struct acpi_table_header **out_table)
+int __wrap_acpi_table_parse_cedt(enum acpi_cedt_type id,
+				 acpi_tbl_entry_handler_arg handler_arg,
+				 void *arg)
 {
-	int index;
-	struct cxl_mock_ops *ops = get_cxl_mock_ops(&index);
-	acpi_status status;
-
-	if (ops)
-		status = ops->acpi_get_table(signature, instance, out_table);
-	else
-		status = acpi_get_table(signature, instance, out_table);
-
-	put_cxl_mock_ops(index);
-
-	return status;
-}
-EXPORT_SYMBOL(__wrap_acpi_get_table);
-
-void __wrap_acpi_put_table(struct acpi_table_header *table)
-{
-	int index;
+	int index, rc;
 	struct cxl_mock_ops *ops = get_cxl_mock_ops(&index);
 
 	if (ops)
-		ops->acpi_put_table(table);
+		rc = ops->acpi_table_parse_cedt(id, handler_arg, arg);
 	else
-		acpi_put_table(table);
+		rc = acpi_table_parse_cedt(id, handler_arg, arg);
+
 	put_cxl_mock_ops(index);
+
+	return rc;
 }
-EXPORT_SYMBOL(__wrap_acpi_put_table);
+EXPORT_SYMBOL_NS_GPL(__wrap_acpi_table_parse_cedt, ACPI);
 
 acpi_status __wrap_acpi_evaluate_integer(acpi_handle handle,
 					 acpi_string pathname,
@@ -127,32 +116,6 @@ struct acpi_pci_root *__wrap_acpi_pci_find_root(acpi_handle handle)
 }
 EXPORT_SYMBOL_GPL(__wrap_acpi_pci_find_root);
 
-void __wrap_pci_walk_bus(struct pci_bus *bus,
-			 int (*cb)(struct pci_dev *, void *), void *userdata)
-{
-	int index;
-	struct cxl_mock_ops *ops = get_cxl_mock_ops(&index);
-
-	if (ops && ops->is_mock_bus(bus)) {
-		int rc, i;
-
-		/*
-		 * Simulate 2 root ports per host-bridge and no
-		 * depth recursion.
-		 */
-		for (i = 0; i < 2; i++) {
-			rc = cb((struct pci_dev *) ops->mock_port(bus, i),
-				userdata);
-			if (rc)
-				break;
-		}
-	} else
-		pci_walk_bus(bus, cb, userdata);
-
-	put_cxl_mock_ops(index);
-}
-EXPORT_SYMBOL_GPL(__wrap_pci_walk_bus);
-
 struct nvdimm_bus *
 __wrap_nvdimm_bus_register(struct device *dev,
 			   struct nvdimm_bus_descriptor *nd_desc)
@@ -168,4 +131,68 @@ __wrap_nvdimm_bus_register(struct device *dev,
 }
 EXPORT_SYMBOL_GPL(__wrap_nvdimm_bus_register);
 
+struct cxl_hdm *__wrap_devm_cxl_setup_hdm(struct cxl_port *port)
+{
+	int index;
+	struct cxl_hdm *cxlhdm;
+	struct cxl_mock_ops *ops = get_cxl_mock_ops(&index);
+
+	if (ops && ops->is_mock_port(port->uport))
+		cxlhdm = ops->devm_cxl_setup_hdm(port);
+	else
+		cxlhdm = devm_cxl_setup_hdm(port);
+	put_cxl_mock_ops(index);
+
+	return cxlhdm;
+}
+EXPORT_SYMBOL_NS_GPL(__wrap_devm_cxl_setup_hdm, CXL);
+
+int __wrap_devm_cxl_add_passthrough_decoder(struct cxl_port *port)
+{
+	int rc, index;
+	struct cxl_mock_ops *ops = get_cxl_mock_ops(&index);
+
+	if (ops && ops->is_mock_port(port->uport))
+		rc = ops->devm_cxl_add_passthrough_decoder(port);
+	else
+		rc = devm_cxl_add_passthrough_decoder(port);
+	put_cxl_mock_ops(index);
+
+	return rc;
+}
+EXPORT_SYMBOL_NS_GPL(__wrap_devm_cxl_add_passthrough_decoder, CXL);
+
+int __wrap_devm_cxl_enumerate_decoders(struct cxl_hdm *cxlhdm)
+{
+	int rc, index;
+	struct cxl_port *port = cxlhdm->port;
+	struct cxl_mock_ops *ops = get_cxl_mock_ops(&index);
+
+	if (ops && ops->is_mock_port(port->uport))
+		rc = ops->devm_cxl_enumerate_decoders(cxlhdm);
+	else
+		rc = devm_cxl_enumerate_decoders(cxlhdm);
+	put_cxl_mock_ops(index);
+
+	return rc;
+}
+EXPORT_SYMBOL_NS_GPL(__wrap_devm_cxl_enumerate_decoders, CXL);
+
+int __wrap_devm_cxl_port_enumerate_dports(struct cxl_port *port)
+{
+	int rc, index;
+	struct cxl_mock_ops *ops = get_cxl_mock_ops(&index);
+
+	if (ops && ops->is_mock_port(port->uport))
+		rc = ops->devm_cxl_port_enumerate_dports(port);
+	else
+		rc = devm_cxl_port_enumerate_dports(port);
+	put_cxl_mock_ops(index);
+
+	return rc;
+}
+EXPORT_SYMBOL_NS_GPL(__wrap_devm_cxl_port_enumerate_dports, CXL);
+
 MODULE_LICENSE("GPL v2");
+MODULE_IMPORT_NS(ACPI);
+MODULE_IMPORT_NS(CXL);

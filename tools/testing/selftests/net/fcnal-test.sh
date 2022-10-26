@@ -66,6 +66,10 @@ NSB_LO_IP=172.16.2.2
 NSA_LO_IP6=2001:db8:2::1
 NSB_LO_IP6=2001:db8:2::2
 
+# non-local addresses for freebind tests
+NL_IP=172.17.1.1
+NL_IP6=2001:db8:4::1
+
 MD5_PW=abc123
 MD5_WRONG_PW=abc1234
 
@@ -315,6 +319,9 @@ addr2str()
 	${NSB_LO_IP})	echo "ns-B loopback IP";;
 	${NSB_LO_IP6})	echo "ns-B loopback IPv6";;
 	${NSB_LINKIP6}|${NSB_LINKIP6}%*) echo "ns-B IPv6 LLA";;
+
+	${NL_IP})       echo "nonlocal IP";;
+	${NL_IP6})      echo "nonlocal IPv6";;
 
 	${VRF_IP})	echo "VRF IP";;
 	${VRF_IP6})	echo "VRF IPv6";;
@@ -743,7 +750,7 @@ ipv4_ping_vrf()
 		log_start
 		show_hint "Fails since address on vrf device is out of device scope"
 		run_cmd ping -c1 -w1 -I ${NSA_DEV} ${a}
-		log_test_addr ${a} $? 1 "ping local, device bind"
+		log_test_addr ${a} $? 2 "ping local, device bind"
 	done
 
 	#
@@ -803,9 +810,15 @@ ipv4_ping()
 	setup
 	set_sysctl net.ipv4.raw_l3mdev_accept=1 2>/dev/null
 	ipv4_ping_novrf
+	setup
+	set_sysctl net.ipv4.ping_group_range='0 2147483647' 2>/dev/null
+	ipv4_ping_novrf
 
 	log_subsection "With VRF"
 	setup "yes"
+	ipv4_ping_vrf
+	setup "yes"
+	set_sysctl net.ipv4.ping_group_range='0 2147483647' 2>/dev/null
 	ipv4_ping_vrf
 }
 
@@ -1780,6 +1793,14 @@ ipv4_addr_bind_novrf()
 	done
 
 	#
+	# raw socket with nonlocal bind
+	#
+	a=${NL_IP}
+	log_start
+	run_cmd nettest -s -R -P icmp -f -l ${a} -I ${NSA_DEV} -b
+	log_test_addr ${a} $? 0 "Raw socket bind to nonlocal address after device bind"
+
+	#
 	# tcp sockets
 	#
 	a=${NSA_IP}
@@ -1827,6 +1848,14 @@ ipv4_addr_bind_vrf()
 	show_hint "Address on loopback is out of VRF scope"
 	run_cmd nettest -s -R -P icmp -l ${a} -I ${VRF} -b
 	log_test_addr ${a} $? 1 "Raw socket bind to out of scope address after VRF bind"
+
+	#
+	# raw socket with nonlocal bind
+	#
+	a=${NL_IP}
+	log_start
+	run_cmd nettest -s -R -P icmp -f -l ${a} -I ${VRF} -b
+	log_test_addr ${a} $? 0 "Raw socket bind to nonlocal address after VRF bind"
 
 	#
 	# tcp sockets
@@ -1978,6 +2007,7 @@ ipv4_rt()
 
 	a=${NSA_IP}
 	log_start
+
 	run_cmd nettest ${varg} -s &
 	sleep 1
 	run_cmd nettest ${varg} -d ${NSA_DEV} -r ${a} &
@@ -2324,9 +2354,15 @@ ipv6_ping()
 	log_subsection "No VRF"
 	setup
 	ipv6_ping_novrf
+	setup
+	set_sysctl net.ipv4.ping_group_range='0 2147483647' 2>/dev/null
+	ipv6_ping_novrf
 
 	log_subsection "With VRF"
 	setup "yes"
+	ipv6_ping_vrf
+	setup "yes"
+	set_sysctl net.ipv4.ping_group_range='0 2147483647' 2>/dev/null
 	ipv6_ping_vrf
 }
 
@@ -3418,6 +3454,14 @@ ipv6_addr_bind_novrf()
 	done
 
 	#
+	# raw socket with nonlocal bind
+	#
+	a=${NL_IP6}
+	log_start
+	run_cmd nettest -6 -s -R -P icmp -f -l ${a} -I ${NSA_DEV} -b
+	log_test_addr ${a} $? 0 "Raw socket bind to nonlocal address"
+
+	#
 	# tcp sockets
 	#
 	a=${NSA_IP6}
@@ -3460,6 +3504,14 @@ ipv6_addr_bind_vrf()
 	show_hint "Address on loopback is out of VRF scope"
 	run_cmd nettest -6 -s -R -P ipv6-icmp -l ${a} -I ${VRF} -b
 	log_test_addr ${a} $? 1 "Raw socket bind to invalid local address after vrf bind"
+
+	#
+	# raw socket with nonlocal bind
+	#
+	a=${NL_IP6}
+	log_start
+	run_cmd nettest -6 -s -R -P icmp -f -l ${a} -I ${VRF} -b
+	log_test_addr ${a} $? 0 "Raw socket bind to nonlocal address after VRF bind"
 
 	#
 	# tcp sockets
@@ -4019,6 +4071,9 @@ usage: ${0##*/} OPTS
 	-p          Pause on fail
 	-P          Pause after each test
 	-v          Be verbose
+
+Tests:
+	$TESTS_IPV4 $TESTS_IPV6 $TESTS_OTHER
 EOF
 }
 
@@ -4091,8 +4146,6 @@ do
 	# setup namespaces and config, but do not run any tests
 	setup)		 setup; exit 0;;
 	vrf_setup)	 setup "yes"; exit 0;;
-
-	help)            echo "Test names: $TESTS"; exit 0;;
 	esac
 done
 

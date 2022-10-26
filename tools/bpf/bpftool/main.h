@@ -8,10 +8,10 @@
 #undef GCC_VERSION
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <linux/bpf.h>
 #include <linux/compiler.h>
 #include <linux/kernel.h>
-#include <tools/libc_compat.h>
 
 #include <bpf/hashmap.h>
 #include <bpf/libbpf.h>
@@ -57,7 +57,7 @@ static inline void *u64_to_ptr(__u64 ptr)
 #define HELP_SPEC_PROGRAM						\
 	"PROG := { id PROG_ID | pinned FILE | tag PROG_TAG | name PROG_NAME }"
 #define HELP_SPEC_OPTIONS						\
-	"OPTIONS := { {-j|--json} [{-p|--pretty}] | {-d|--debug}"
+	"OPTIONS := { {-j|--json} [{-p|--pretty}] | {-d|--debug} | {-l|--legacy}"
 #define HELP_SPEC_MAP							\
 	"MAP := { id MAP_ID | pinned FILE | name MAP_NAME }"
 #define HELP_SPEC_LINK							\
@@ -90,6 +90,7 @@ extern bool block_mount;
 extern bool verifier_logs;
 extern bool relaxed_maps;
 extern bool use_loader;
+extern bool legacy_libbpf;
 extern struct btf *base_btf;
 extern struct hashmap *refs_table;
 
@@ -112,7 +113,9 @@ struct obj_ref {
 
 struct obj_refs {
 	int ref_cnt;
+	bool has_bpf_cookie;
 	struct obj_ref *refs;
+	__u64 bpf_cookie;
 };
 
 struct btf;
@@ -138,6 +141,10 @@ struct cmd {
 
 int cmd_select(const struct cmd *cmds, int argc, char **argv,
 	       int (*help)(int argc, char **argv));
+
+#define MAX_PROG_FULL_NAME 128
+void get_prog_full_name(const struct bpf_prog_info *prog_info, int prog_fd,
+			char *name_buff, size_t buff_len);
 
 int get_fd_type(int fd);
 const char *get_fd_type_name(enum bpf_obj_type type);

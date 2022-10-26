@@ -2531,13 +2531,13 @@ static short rtl8192_init(struct net_device *dev)
 #ifdef PIPE12
 	{
 		int i = 0;
-		u8 queuetopipe[] = {3, 2, 1, 0, 4, 8, 7, 6, 5};
+		static const u8 queuetopipe[] = {3, 2, 1, 0, 4, 8, 7, 6, 5};
 
 		memcpy(priv->txqueue_to_outpipemap, queuetopipe, 9);
 	}
 #else
 	{
-		u8 queuetopipe[] = {3, 2, 1, 0, 4, 4, 0, 4, 4};
+		const u8 queuetopipe[] = {3, 2, 1, 0, 4, 4, 0, 4, 4};
 
 		memcpy(priv->txqueue_to_outpipemap, queuetopipe, 9);
 	}
@@ -2666,14 +2666,7 @@ static bool rtl8192_adapter_start(struct net_device *dev)
 	/* config CPUReset Register */
 	/* Firmware Reset or not? */
 	read_nic_dword(dev, CPU_GEN, &dwRegRead);
-	if (priv->pFirmware->firmware_status == FW_STATUS_0_INIT)
-		dwRegRead |= CPU_GEN_SYSTEM_RESET; /* do nothing here? */
-	else if (priv->pFirmware->firmware_status == FW_STATUS_5_READY)
-		dwRegRead |= CPU_GEN_FIRMWARE_RESET;
-	else
-		RT_TRACE(COMP_ERR,
-			 "ERROR in %s(): undefined firmware state(%d)\n",
-			 __func__,   priv->pFirmware->firmware_status);
+	dwRegRead |= CPU_GEN_SYSTEM_RESET; /* do nothing here? */
 
 	write_nic_dword(dev, CPU_GEN, dwRegRead);
 	/* config BB. */
@@ -4790,49 +4783,70 @@ static int __init rtl8192_usb_module_init(void)
 {
 	int ret;
 
-#ifdef CONFIG_IEEE80211_DEBUG
+	pr_info("\nLinux kernel driver for RTL8192 based WLAN cards\n");
+	pr_info("Copyright (c) 2007-2008, Realsil Wlan\n");
+	RT_TRACE(COMP_INIT, "Initializing module");
+	RT_TRACE(COMP_INIT, "Wireless extensions version %d", WIRELESS_EXT);
+
 	ret = ieee80211_debug_init();
 	if (ret) {
 		pr_err("ieee80211_debug_init() failed %d\n", ret);
 		return ret;
 	}
-#endif
+
 	ret = ieee80211_crypto_init();
 	if (ret) {
 		pr_err("ieee80211_crypto_init() failed %d\n", ret);
-		return ret;
+		goto debug_exit;
 	}
 
 	ret = ieee80211_crypto_tkip_init();
 	if (ret) {
 		pr_err("ieee80211_crypto_tkip_init() failed %d\n", ret);
-		return ret;
+		goto crypto_exit;
 	}
 
 	ret = ieee80211_crypto_ccmp_init();
 	if (ret) {
 		pr_err("ieee80211_crypto_ccmp_init() failed %d\n", ret);
-		return ret;
+		goto crypto_tkip_exit;
 	}
 
 	ret = ieee80211_crypto_wep_init();
 	if (ret) {
 		pr_err("ieee80211_crypto_wep_init() failed %d\n", ret);
-		return ret;
+		goto crypto_ccmp_exit;
 	}
 
-	pr_info("\nLinux kernel driver for RTL8192 based WLAN cards\n");
-	pr_info("Copyright (c) 2007-2008, Realsil Wlan\n");
-	RT_TRACE(COMP_INIT, "Initializing module");
-	RT_TRACE(COMP_INIT, "Wireless extensions version %d", WIRELESS_EXT);
 	rtl8192_proc_module_init();
-	return usb_register(&rtl8192_usb_driver);
+	ret = usb_register(&rtl8192_usb_driver);
+	if (ret)
+		goto rtl8192_proc_module_exit;
+	return ret;
+
+rtl8192_proc_module_exit:
+	remove_proc_entry(RTL819XU_MODULE_NAME, init_net.proc_net);
+	ieee80211_crypto_wep_exit();
+crypto_ccmp_exit:
+	ieee80211_crypto_ccmp_exit();
+crypto_tkip_exit:
+	ieee80211_crypto_tkip_exit();
+crypto_exit:
+	ieee80211_crypto_deinit();
+debug_exit:
+	ieee80211_debug_exit();
+	return ret;
 }
 
 static void __exit rtl8192_usb_module_exit(void)
 {
 	usb_deregister(&rtl8192_usb_driver);
-
+	remove_proc_entry(RTL819XU_MODULE_NAME, init_net.proc_net);
+	ieee80211_crypto_wep_exit();
+	ieee80211_crypto_ccmp_exit();
+	ieee80211_crypto_tkip_exit();
+	ieee80211_crypto_deinit();
+	ieee80211_debug_exit();
 	RT_TRACE(COMP_DOWN, "Exiting");
 }
 

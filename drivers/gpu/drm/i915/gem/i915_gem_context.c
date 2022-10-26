@@ -67,6 +67,7 @@
 #include <linux/log2.h>
 #include <linux/nospec.h>
 
+#include <drm/drm_cache.h>
 #include <drm/drm_syncobj.h>
 
 #include "gt/gen6_ppgtt.h"
@@ -79,6 +80,7 @@
 
 #include "pxp/intel_pxp.h"
 
+#include "i915_file_private.h"
 #include "i915_gem_context.h"
 #include "i915_trace.h"
 #include "i915_user_extensions.h"
@@ -237,7 +239,7 @@ static int proto_context_set_persistence(struct drm_i915_private *i915,
 		 * colateral damage, and we should not pretend we can by
 		 * exposing the interface.
 		 */
-		if (!intel_has_reset_engine(&i915->gt))
+		if (!intel_has_reset_engine(to_gt(i915)))
 			return -ENODEV;
 
 		pc->user_flags &= ~BIT(UCONTEXT_PERSISTENCE);
@@ -254,7 +256,7 @@ static int proto_context_set_protected(struct drm_i915_private *i915,
 
 	if (!protected) {
 		pc->uses_protected_content = false;
-	} else if (!intel_pxp_is_enabled(&i915->gt.pxp)) {
+	} else if (!intel_pxp_is_enabled(&to_gt(i915)->pxp)) {
 		ret = -ENODEV;
 	} else if ((pc->user_flags & BIT(UCONTEXT_RECOVERABLE)) ||
 		   !(pc->user_flags & BIT(UCONTEXT_BANNABLE))) {
@@ -268,8 +270,8 @@ static int proto_context_set_protected(struct drm_i915_private *i915,
 		 */
 		pc->pxp_wakeref = intel_runtime_pm_get(&i915->runtime_pm);
 
-		if (!intel_pxp_is_active(&i915->gt.pxp))
-			ret = intel_pxp_start(&i915->gt.pxp);
+		if (!intel_pxp_is_active(&to_gt(i915)->pxp))
+			ret = intel_pxp_start(&to_gt(i915)->pxp);
 	}
 
 	return ret;
@@ -341,6 +343,20 @@ static int proto_context_register(struct drm_i915_file_private *fpriv,
 	mutex_unlock(&fpriv->proto_context_lock);
 
 	return ret;
+}
+
+static struct i915_address_space *
+i915_gem_vm_lookup(struct drm_i915_file_private *file_priv, u32 id)
+{
+	struct i915_address_space *vm;
+
+	xa_lock(&file_priv->vm_xa);
+	vm = xa_load(&file_priv->vm_xa, id);
+	if (vm)
+		kref_get(&vm->ref);
+	xa_unlock(&file_priv->vm_xa);
+
+	return vm;
 }
 
 static int set_proto_ctx_vm(struct drm_i915_file_private *fpriv,
@@ -479,7 +495,7 @@ set_proto_ctx_engines_bond(struct i915_user_extension __user *base, void *data)
 	if (GRAPHICS_VER(i915) >= 12 && !IS_TIGERLAKE(i915) &&
 	    !IS_ROCKETLAKE(i915) && !IS_ALDERLAKE_S(i915)) {
 		drm_dbg(&i915->drm,
-			"Bonding on gen12+ aside from TGL, RKL, and ADL_S not supported\n");
+			"Bonding not supported on this platform\n");
 		return -ENODEV;
 	}
 
@@ -571,10 +587,6 @@ set_proto_ctx_engines_parallel_submit(struct i915_user_extension __user *base,
 	struct intel_engine_cs **siblings = NULL;
 	intel_engine_mask_t prev_mask;
 
-	/* FIXME: This is NIY for execlists */
-	if (!(intel_uc_uses_guc_submission(&i915->gt.uc)))
-		return -ENODEV;
-
 	if (get_user(slot, &ext->engine_index))
 		return -EFAULT;
 
@@ -583,6 +595,13 @@ set_proto_ctx_engines_parallel_submit(struct i915_user_extension __user *base,
 
 	if (get_user(num_siblings, &ext->num_siblings))
 		return -EFAULT;
+
+	if (!intel_uc_uses_guc_submission(&to_gt(i915)->uc) &&
+	    num_siblings != 1) {
+		drm_dbg(&i915->drm, "Only 1 sibling (%d) supported in non-GuC mode\n",
+			num_siblings);
+		return -EINVAL;
+	}
 
 	if (slot >= set->num_engines) {
 		drm_dbg(&i915->drm, "Invalid placement value, %d >= %d\n",
@@ -647,6 +666,16 @@ set_proto_ctx_engines_parallel_submit(struct i915_user_extension __user *base,
 				drm_dbg(&i915->drm,
 					"Invalid sibling[%d]: { class:%d, inst:%d }\n",
 					n, ci.engine_class, ci.engine_instance);
+				err = -EINVAL;
+				goto out_err;
+			}
+
+			/*
+			 * We don't support breadcrumb handshake on these
+			 * classes
+			 */
+			if (siblings[n]->class == RENDER_CLASS ||
+			    siblings[n]->class == COMPUTE_CLASS) {
 				err = -EINVAL;
 				goto out_err;
 			}
@@ -833,7 +862,7 @@ static int set_proto_ctx_sseu(struct drm_i915_file_private *fpriv,
 		sseu = &pc->legacy_rcs_sseu;
 	}
 
-	ret = i915_gem_user_to_context_sseu(&i915->gt, &user_sseu, sseu);
+	ret = i915_gem_user_to_context_sseu(to_gt(i915), &user_sseu, sseu);
 	if (ret)
 		return ret;
 
@@ -1001,7 +1030,7 @@ static void free_engines_rcu(struct rcu_head *rcu)
 	free_engines(engines);
 }
 
-static int __i915_sw_fence_call
+static int
 engines_notify(struct i915_sw_fence *fence, enum i915_sw_fence_notify state)
 {
 	struct i915_gem_engines *engines =
@@ -1044,7 +1073,7 @@ static struct i915_gem_engines *alloc_engines(unsigned int count)
 static struct i915_gem_engines *default_engines(struct i915_gem_context *ctx,
 						struct intel_sseu rcs_sseu)
 {
-	const struct intel_gt *gt = &ctx->i915->gt;
+	const struct intel_gt *gt = to_gt(ctx->i915);
 	struct intel_engine_cs *engine;
 	struct i915_gem_engines *e, *err;
 	enum intel_engine_id id;
@@ -1521,7 +1550,7 @@ static int __context_set_persistence(struct i915_gem_context *ctx, bool state)
 		 * colateral damage, and we should not pretend we can by
 		 * exposing the interface.
 		 */
-		if (!intel_has_reset_engine(&ctx->i915->gt))
+		if (!intel_has_reset_engine(to_gt(ctx->i915)))
 			return -ENODEV;
 
 		i915_gem_context_clear_persistence(ctx);
@@ -1559,7 +1588,7 @@ i915_gem_create_context(struct drm_i915_private *i915,
 	} else if (HAS_FULL_PPGTT(i915)) {
 		struct i915_ppgtt *ppgtt;
 
-		ppgtt = i915_ppgtt_create(&i915->gt, 0);
+		ppgtt = i915_ppgtt_create(to_gt(i915), 0);
 		if (IS_ERR(ppgtt)) {
 			drm_dbg(&i915->drm, "PPGTT setup failed (%ld)\n",
 				PTR_ERR(ppgtt));
@@ -1742,7 +1771,7 @@ int i915_gem_vm_create_ioctl(struct drm_device *dev, void *data,
 	if (args->flags)
 		return -EINVAL;
 
-	ppgtt = i915_ppgtt_create(&i915->gt, 0);
+	ppgtt = i915_ppgtt_create(to_gt(i915), 0);
 	if (IS_ERR(ppgtt))
 		return PTR_ERR(ppgtt);
 
@@ -2194,7 +2223,7 @@ int i915_gem_context_create_ioctl(struct drm_device *dev, void *data,
 	if (args->flags & I915_CONTEXT_CREATE_FLAGS_UNKNOWN)
 		return -EINVAL;
 
-	ret = intel_gt_terminally_wedged(&i915->gt);
+	ret = intel_gt_terminally_wedged(to_gt(i915));
 	if (ret)
 		return ret;
 

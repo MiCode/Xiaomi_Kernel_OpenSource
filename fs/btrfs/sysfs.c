@@ -283,9 +283,11 @@ BTRFS_FEAT_ATTR_INCOMPAT(no_holes, NO_HOLES);
 BTRFS_FEAT_ATTR_INCOMPAT(metadata_uuid, METADATA_UUID);
 BTRFS_FEAT_ATTR_COMPAT_RO(free_space_tree, FREE_SPACE_TREE);
 BTRFS_FEAT_ATTR_INCOMPAT(raid1c34, RAID1C34);
-/* Remove once support for zoned allocation is feature complete */
 #ifdef CONFIG_BTRFS_DEBUG
+/* Remove once support for zoned allocation is feature complete */
 BTRFS_FEAT_ATTR_INCOMPAT(zoned, ZONED);
+/* Remove once support for extent tree v2 is feature complete */
+BTRFS_FEAT_ATTR_INCOMPAT(extent_tree_v2, EXTENT_TREE_V2);
 #endif
 #ifdef CONFIG_FS_VERITY
 BTRFS_FEAT_ATTR_COMPAT_RO(verity, VERITY);
@@ -314,6 +316,7 @@ static struct attribute *btrfs_supported_feature_attrs[] = {
 	BTRFS_FEAT_ATTR_PTR(raid1c34),
 #ifdef CONFIG_BTRFS_DEBUG
 	BTRFS_FEAT_ATTR_PTR(zoned),
+	BTRFS_FEAT_ATTR_PTR(extent_tree_v2),
 #endif
 #ifdef CONFIG_FS_VERITY
 	BTRFS_FEAT_ATTR_PTR(verity),
@@ -919,6 +922,9 @@ static ssize_t btrfs_exclusive_operation_show(struct kobject *kobj,
 		case BTRFS_EXCLOP_BALANCE:
 			str = "balance\n";
 			break;
+		case BTRFS_EXCLOP_BALANCE_PAUSED:
+			str = "balance paused\n";
+			break;
 		case BTRFS_EXCLOP_DEV_ADD:
 			str = "device add\n";
 			break;
@@ -1104,6 +1110,11 @@ static inline struct btrfs_fs_info *to_fs_info(struct kobject *kobj)
 static char btrfs_unknown_feature_names[FEAT_MAX][NUM_FEATURE_BITS][BTRFS_FEATURE_NAME_MAX];
 static struct btrfs_feature_attr btrfs_feature_attrs[FEAT_MAX][NUM_FEATURE_BITS];
 
+static_assert(ARRAY_SIZE(btrfs_unknown_feature_names) ==
+	      ARRAY_SIZE(btrfs_feature_attrs));
+static_assert(ARRAY_SIZE(btrfs_unknown_feature_names[0]) ==
+	      ARRAY_SIZE(btrfs_feature_attrs[0]));
+
 static const u64 supported_feature_masks[FEAT_MAX] = {
 	[FEAT_COMPAT]    = BTRFS_FEATURE_COMPAT_SUPP,
 	[FEAT_COMPAT_RO] = BTRFS_FEATURE_COMPAT_RO_SUPP,
@@ -1271,11 +1282,6 @@ static void init_feature_attrs(void)
 {
 	struct btrfs_feature_attr *fa;
 	int set, i;
-
-	BUILD_BUG_ON(ARRAY_SIZE(btrfs_unknown_feature_names) !=
-		     ARRAY_SIZE(btrfs_feature_attrs));
-	BUILD_BUG_ON(ARRAY_SIZE(btrfs_unknown_feature_names[0]) !=
-		     ARRAY_SIZE(btrfs_feature_attrs[0]));
 
 	memset(btrfs_feature_attrs, 0, sizeof(btrfs_feature_attrs));
 	memset(btrfs_unknown_feature_names, 0,
@@ -1537,6 +1543,16 @@ static ssize_t btrfs_devinfo_writeable_show(struct kobject *kobj,
 }
 BTRFS_ATTR(devid, writeable, btrfs_devinfo_writeable_show);
 
+static ssize_t btrfs_devinfo_fsid_show(struct kobject *kobj,
+				       struct kobj_attribute *a, char *buf)
+{
+	struct btrfs_device *device = container_of(kobj, struct btrfs_device,
+						   devid_kobj);
+
+	return sysfs_emit(buf, "%pU\n", device->fs_devices->fsid);
+}
+BTRFS_ATTR(devid, fsid, btrfs_devinfo_fsid_show);
+
 static ssize_t btrfs_devinfo_error_stats_show(struct kobject *kobj,
 		struct kobj_attribute *a, char *buf)
 {
@@ -1572,6 +1588,7 @@ BTRFS_ATTR(devid, error_stats, btrfs_devinfo_error_stats_show);
  */
 static struct attribute *devid_attrs[] = {
 	BTRFS_ATTR_PTR(devid, error_stats),
+	BTRFS_ATTR_PTR(devid, fsid),
 	BTRFS_ATTR_PTR(devid, in_fs_metadata),
 	BTRFS_ATTR_PTR(devid, missing),
 	BTRFS_ATTR_PTR(devid, replace_target),

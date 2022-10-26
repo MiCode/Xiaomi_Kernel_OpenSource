@@ -42,6 +42,7 @@
 #include "i915_drv.h"
 #include "i915_gem_ioctls.h"
 #include "i915_gem_object.h"
+#include "i915_gem_userptr.h"
 #include "i915_scatterlist.h"
 
 #ifdef CONFIG_MMU_NOTIFIER
@@ -529,7 +530,7 @@ i915_gem_userptr_ioctl(struct drm_device *dev,
 		 * On almost all of the older hw, we cannot tell the GPU that
 		 * a page is readonly.
 		 */
-		if (!dev_priv->gt.vm->has_read_only)
+		if (!to_gt(dev_priv)->vm->has_read_only)
 			return -ENODEV;
 	}
 

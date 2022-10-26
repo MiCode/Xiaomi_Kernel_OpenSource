@@ -73,6 +73,7 @@ enum mlx5_flow_namespace_type {
 	MLX5_FLOW_NAMESPACE_KERNEL,
 	MLX5_FLOW_NAMESPACE_LEFTOVERS,
 	MLX5_FLOW_NAMESPACE_ANCHOR,
+	MLX5_FLOW_NAMESPACE_FDB_BYPASS,
 	MLX5_FLOW_NAMESPACE_FDB,
 	MLX5_FLOW_NAMESPACE_ESW_EGRESS,
 	MLX5_FLOW_NAMESPACE_ESW_INGRESS,
@@ -223,6 +224,7 @@ struct mlx5_flow_act {
 	u32 flags;
 	struct mlx5_fs_vlan vlan[MLX5_FS_VLAN_DEPTH];
 	struct ib_counters *counters;
+	struct mlx5_flow_group *fg;
 };
 
 #define MLX5_DECLARE_FLOW_ACT(name) \

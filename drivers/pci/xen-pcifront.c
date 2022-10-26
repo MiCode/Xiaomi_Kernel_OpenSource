@@ -262,8 +262,8 @@ static int pci_frontend_enable_msix(struct pci_dev *dev,
 	}
 
 	i = 0;
-	for_each_pci_msi_entry(entry, dev) {
-		op.msix_entries[i].entry = entry->msi_attrib.entry_nr;
+	msi_for_each_desc(entry, &dev->dev, MSI_DESC_NOTASSOCIATED) {
+		op.msix_entries[i].entry = entry->msi_index;
 		/* Vector is useless at this point. */
 		op.msix_entries[i].vector = -1;
 		i++;
@@ -755,7 +755,7 @@ static void free_pdev(struct pcifront_device *pdev)
 		xenbus_free_evtchn(pdev->xdev, pdev->evtchn);
 
 	if (pdev->gnt_ref != INVALID_GRANT_REF)
-		gnttab_end_foreign_access(pdev->gnt_ref, 0 /* r/w page */,
+		gnttab_end_foreign_access(pdev->gnt_ref,
 					  (unsigned long)pdev->sh_info);
 	else
 		free_page((unsigned long)pdev->sh_info);

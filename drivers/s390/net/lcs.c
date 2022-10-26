@@ -223,7 +223,7 @@ lcs_setup_read_ccws(struct lcs_card *card)
 		 * we do not need to do set_normalized_cda.
 		 */
 		card->read.ccws[cnt].cda =
-			(__u32) __pa(card->read.iob[cnt].data);
+			(__u32)virt_to_phys(card->read.iob[cnt].data);
 		((struct lcs_header *)
 		 card->read.iob[cnt].data)->offset = LCS_ILLEGAL_OFFSET;
 		card->read.iob[cnt].callback = lcs_get_frames_cb;
@@ -236,7 +236,7 @@ lcs_setup_read_ccws(struct lcs_card *card)
 	/* Last ccw is a tic (transfer in channel). */
 	card->read.ccws[LCS_NUM_BUFFS].cmd_code = LCS_CCW_TRANSFER;
 	card->read.ccws[LCS_NUM_BUFFS].cda =
-		(__u32) __pa(card->read.ccws);
+		(__u32)virt_to_phys(card->read.ccws);
 	/* Setg initial state of the read channel. */
 	card->read.state = LCS_CH_STATE_INIT;
 
@@ -278,12 +278,12 @@ lcs_setup_write_ccws(struct lcs_card *card)
 		 * we do not need to do set_normalized_cda.
 		 */
 		card->write.ccws[cnt].cda =
-			(__u32) __pa(card->write.iob[cnt].data);
+			(__u32)virt_to_phys(card->write.iob[cnt].data);
 	}
 	/* Last ccw is a tic (transfer in channel). */
 	card->write.ccws[LCS_NUM_BUFFS].cmd_code = LCS_CCW_TRANSFER;
 	card->write.ccws[LCS_NUM_BUFFS].cda =
-		(__u32) __pa(card->write.ccws);
+		(__u32)virt_to_phys(card->write.ccws);
 	/* Set initial state of the write channel. */
 	card->read.state = LCS_CH_STATE_INIT;
 
@@ -1736,10 +1736,11 @@ lcs_get_control(struct lcs_card *card, struct lcs_cmd *cmd)
 			lcs_schedule_recovery(card);
 			break;
 		case LCS_CMD_STOPLAN:
-			pr_warn("Stoplan for %s initiated by LGW\n",
-				card->dev->name);
-			if (card->dev)
+			if (card->dev) {
+				pr_warn("Stoplan for %s initiated by LGW\n",
+					card->dev->name);
 				netif_carrier_off(card->dev);
+			}
 			break;
 		default:
 			LCS_DBF_TEXT(5, trace, "noLGWcmd");
@@ -1808,19 +1809,20 @@ lcs_get_frames_cb(struct lcs_channel *channel, struct lcs_buffer *buffer)
 			return;
 		}
 		/* What kind of frame is it? */
-		if (lcs_hdr->type == LCS_FRAME_TYPE_CONTROL)
+		if (lcs_hdr->type == LCS_FRAME_TYPE_CONTROL) {
 			/* Control frame. */
 			lcs_get_control(card, (struct lcs_cmd *) lcs_hdr);
-		else if (lcs_hdr->type == LCS_FRAME_TYPE_ENET ||
-			 lcs_hdr->type == LCS_FRAME_TYPE_TR ||
-			 lcs_hdr->type == LCS_FRAME_TYPE_FDDI)
+		} else if (lcs_hdr->type == LCS_FRAME_TYPE_ENET ||
+			   lcs_hdr->type == LCS_FRAME_TYPE_TR ||
+			   lcs_hdr->type == LCS_FRAME_TYPE_FDDI) {
 			/* Normal network packet. */
 			lcs_get_skb(card, (char *)(lcs_hdr + 1),
 				    lcs_hdr->offset - offset -
 				    sizeof(struct lcs_header));
-		else
+		} else {
 			/* Unknown frame type. */
 			; // FIXME: error message ?
+		}
 		/* Proceed to next frame. */
 		offset = lcs_hdr->offset;
 		lcs_hdr->offset = LCS_ILLEGAL_OFFSET;

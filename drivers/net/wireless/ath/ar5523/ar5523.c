@@ -104,7 +104,7 @@ static void ar5523_cmd_rx_cb(struct urb *urb)
 	}
 
 	if (urb->actual_length < sizeof(struct ar5523_cmd_hdr)) {
-		ar5523_err(ar, "RX USB to short.\n");
+		ar5523_err(ar, "RX USB too short.\n");
 		goto skip;
 	}
 
@@ -151,6 +151,10 @@ static void ar5523_cmd_rx_cb(struct urb *urb)
 		dlen = hdrlen - sizeof(*hdr);
 		if (dlen != (int)sizeof(u32)) {
 			ar5523_err(ar, "Invalid reply to WDCMSG_TARGET_START");
+			return;
+		}
+		if (!cmd->odata) {
+			ar5523_err(ar, "Unexpected WDCMSG_TARGET_START reply");
 			return;
 		}
 		memcpy(cmd->odata, hdr + 1, sizeof(u32));

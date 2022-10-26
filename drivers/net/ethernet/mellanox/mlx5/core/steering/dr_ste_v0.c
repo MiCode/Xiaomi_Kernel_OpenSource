@@ -80,6 +80,7 @@ enum {
 	DR_STE_V0_LU_TYPE_GENERAL_PURPOSE		= 0x18,
 	DR_STE_V0_LU_TYPE_STEERING_REGISTERS_0		= 0x2f,
 	DR_STE_V0_LU_TYPE_STEERING_REGISTERS_1		= 0x30,
+	DR_STE_V0_LU_TYPE_TUNNEL_HEADER			= 0x34,
 	DR_STE_V0_LU_TYPE_DONT_CARE			= MLX5DR_STE_LU_TYPE_DONT_CARE,
 };
 
@@ -407,6 +408,7 @@ static void dr_ste_v0_arr_init_next(u8 **last_ste,
 static void
 dr_ste_v0_set_actions_tx(struct mlx5dr_domain *dmn,
 			 u8 *action_type_set,
+			 u32 actions_caps,
 			 u8 *last_ste,
 			 struct mlx5dr_ste_actions_attr *attr,
 			 u32 *added_stes)
@@ -418,7 +420,7 @@ dr_ste_v0_set_actions_tx(struct mlx5dr_domain *dmn,
 	 * encapsulation. The reason for that is that we support
 	 * modify headers for outer headers only
 	 */
-	if (action_type_set[DR_ACTION_TYP_MODIFY_HDR]) {
+	if (action_type_set[DR_ACTION_TYP_MODIFY_HDR] && attr->modify_actions) {
 		dr_ste_v0_set_entry_type(last_ste, DR_STE_TYPE_MODIFY_PKT);
 		dr_ste_v0_set_rewrite_actions(last_ste,
 					      attr->modify_actions,
@@ -476,6 +478,7 @@ dr_ste_v0_set_actions_tx(struct mlx5dr_domain *dmn,
 static void
 dr_ste_v0_set_actions_rx(struct mlx5dr_domain *dmn,
 			 u8 *action_type_set,
+			 u32 actions_caps,
 			 u8 *last_ste,
 			 struct mlx5dr_ste_actions_attr *attr,
 			 u32 *added_stes)
@@ -510,7 +513,7 @@ dr_ste_v0_set_actions_rx(struct mlx5dr_domain *dmn,
 		}
 	}
 
-	if (action_type_set[DR_ACTION_TYP_MODIFY_HDR]) {
+	if (action_type_set[DR_ACTION_TYP_MODIFY_HDR] && attr->modify_actions) {
 		if (dr_ste_v0_get_entry_type(last_ste) == DR_STE_TYPE_MODIFY_PKT)
 			dr_ste_v0_arr_init_next(&last_ste,
 						added_stes,
@@ -1151,6 +1154,7 @@ dr_ste_v0_build_eth_l3_ipv4_misc_tag(struct mlx5dr_match_param *value,
 	struct mlx5dr_match_spec *spec = sb->inner ? &value->inner : &value->outer;
 
 	DR_STE_SET_TAG(eth_l3_ipv4_misc, tag, time_to_live, spec, ttl_hoplimit);
+	DR_STE_SET_TAG(eth_l3_ipv4_misc, tag, ihl, spec, ipv4_ihl);
 
 	return 0;
 }
@@ -1704,7 +1708,7 @@ static void dr_ste_v0_set_flex_parser(u32 *misc4_field_id,
 	u32 id = *misc4_field_id;
 	u8 *parser_ptr;
 
-	if (parser_is_used[id])
+	if (id >= DR_NUM_OF_FLEX_PARSERS || parser_is_used[id])
 		return;
 
 	parser_is_used[id] = true;
@@ -1875,7 +1879,28 @@ dr_ste_v0_build_tnl_gtpu_flex_parser_1_init(struct mlx5dr_ste_build *sb,
 	sb->ste_build_tag_func = &dr_ste_v0_build_tnl_gtpu_flex_parser_1_tag;
 }
 
-struct mlx5dr_ste_ctx ste_ctx_v0 = {
+static int dr_ste_v0_build_tnl_header_0_1_tag(struct mlx5dr_match_param *value,
+					      struct mlx5dr_ste_build *sb,
+					      uint8_t *tag)
+{
+	struct mlx5dr_match_misc5 *misc5 = &value->misc5;
+
+	DR_STE_SET_TAG(tunnel_header, tag, tunnel_header_0, misc5, tunnel_header_0);
+	DR_STE_SET_TAG(tunnel_header, tag, tunnel_header_1, misc5, tunnel_header_1);
+
+	return 0;
+}
+
+static void dr_ste_v0_build_tnl_header_0_1_init(struct mlx5dr_ste_build *sb,
+						struct mlx5dr_match_param *mask)
+{
+	sb->lu_type = DR_STE_V0_LU_TYPE_TUNNEL_HEADER;
+	dr_ste_v0_build_tnl_header_0_1_tag(mask, sb, sb->bit_mask);
+	sb->byte_mask = mlx5dr_ste_conv_bit_to_byte_mask(sb->bit_mask);
+	sb->ste_build_tag_func = &dr_ste_v0_build_tnl_header_0_1_tag;
+}
+
+static struct mlx5dr_ste_ctx ste_ctx_v0 = {
 	/* Builders */
 	.build_eth_l2_src_dst_init	= &dr_ste_v0_build_eth_l2_src_dst_init,
 	.build_eth_l3_ipv6_src_init	= &dr_ste_v0_build_eth_l3_ipv6_src_init,
@@ -1903,6 +1928,7 @@ struct mlx5dr_ste_ctx ste_ctx_v0 = {
 	.build_flex_parser_0_init	= &dr_ste_v0_build_flex_parser_0_init,
 	.build_flex_parser_1_init	= &dr_ste_v0_build_flex_parser_1_init,
 	.build_tnl_gtpu_init		= &dr_ste_v0_build_flex_parser_tnl_gtpu_init,
+	.build_tnl_header_0_1_init	= &dr_ste_v0_build_tnl_header_0_1_init,
 	.build_tnl_gtpu_flex_parser_0_init   = &dr_ste_v0_build_tnl_gtpu_flex_parser_0_init,
 	.build_tnl_gtpu_flex_parser_1_init   = &dr_ste_v0_build_tnl_gtpu_flex_parser_1_init,
 
@@ -1927,3 +1953,8 @@ struct mlx5dr_ste_ctx ste_ctx_v0 = {
 	.set_action_copy		= &dr_ste_v0_set_action_copy,
 	.set_action_decap_l3_list	= &dr_ste_v0_set_action_decap_l3_list,
 };
+
+struct mlx5dr_ste_ctx *mlx5dr_ste_get_ctx_v0(void)
+{
+	return &ste_ctx_v0;
+}

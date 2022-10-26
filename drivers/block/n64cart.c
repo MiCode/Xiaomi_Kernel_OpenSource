@@ -88,7 +88,7 @@ static void n64cart_submit_bio(struct bio *bio)
 {
 	struct bio_vec bvec;
 	struct bvec_iter iter;
-	struct device *dev = bio->bi_disk->private_data;
+	struct device *dev = bio->bi_bdev->bd_disk->private_data;
 	u32 pos = bio->bi_iter.bi_sector << SECTOR_SHIFT;
 
 	bio_for_each_segment(bvec, bio, iter) {
@@ -136,7 +136,7 @@ static int __init n64cart_probe(struct platform_device *pdev)
 		goto out;
 
 	disk->first_minor = 0;
-	disk->flags = GENHD_FL_NO_PART_SCAN;
+	disk->flags = GENHD_FL_NO_PART;
 	disk->fops = &n64cart_fops;
 	disk->private_data = &pdev->dev;
 	strcpy(disk->disk_name, "n64cart");

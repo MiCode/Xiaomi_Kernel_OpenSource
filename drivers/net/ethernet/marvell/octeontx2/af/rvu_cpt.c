@@ -172,14 +172,13 @@ static int cpt_10k_register_interrupts(struct rvu_block *block, int off)
 {
 	struct rvu *rvu = block->rvu;
 	int blkaddr = block->addr;
-	char irq_name[16];
 	int i, ret;
 
 	for (i = CPT_10K_AF_INT_VEC_FLT0; i < CPT_10K_AF_INT_VEC_RVU; i++) {
-		snprintf(irq_name, sizeof(irq_name), "CPTAF FLT%d", i);
+		sprintf(&rvu->irq_name[(off + i) * NAME_SIZE], "CPTAF FLT%d", i);
 		ret = rvu_cpt_do_register_interrupt(block, off + i,
 						    rvu_cpt_af_flt_intr_handler,
-						    irq_name);
+						    &rvu->irq_name[(off + i) * NAME_SIZE]);
 		if (ret)
 			goto err;
 		rvu_write64(rvu, blkaddr, CPT_AF_FLTX_INT_ENA_W1S(i), 0x1);
@@ -606,6 +605,7 @@ static bool is_valid_offset(struct rvu *rvu, struct cpt_rd_wr_reg_msg *req)
 	} else if (!(req->hdr.pcifunc & RVU_PFVF_FUNC_MASK)) {
 		/* Registers that can be accessed from PF */
 		switch (offset) {
+		case CPT_AF_DIAG:
 		case CPT_AF_CTL:
 		case CPT_AF_PF_FUNC:
 		case CPT_AF_BLK_RST:

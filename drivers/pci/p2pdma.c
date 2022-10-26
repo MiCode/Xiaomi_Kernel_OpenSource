@@ -219,7 +219,7 @@ int pci_p2pdma_add_resource(struct pci_dev *pdev, int bar, size_t size,
 	error = gen_pool_add_owner(p2pdma->pool, (unsigned long)addr,
 			pci_bus_address(pdev, bar) + offset,
 			range_len(&pgmap->range), dev_to_node(&pdev->dev),
-			pgmap->ref);
+			&pgmap->ref);
 	if (error)
 		goto pages_free;
 
@@ -321,6 +321,7 @@ static const struct pci_p2pdma_whitelist_entry {
 	{PCI_VENDOR_ID_INTEL,	0x2032, 0},
 	{PCI_VENDOR_ID_INTEL,	0x2033, 0},
 	{PCI_VENDOR_ID_INTEL,	0x2020, 0},
+	{PCI_VENDOR_ID_INTEL,	0x09a2, 0},
 	{}
 };
 
@@ -710,7 +711,7 @@ void *pci_alloc_p2pmem(struct pci_dev *pdev, size_t size)
 	if (!ret)
 		goto out;
 
-	if (unlikely(!percpu_ref_tryget_live(ref))) {
+	if (unlikely(!percpu_ref_tryget_live_rcu(ref))) {
 		gen_pool_free(p2pdma->pool, (unsigned long) ret, size);
 		ret = NULL;
 		goto out;

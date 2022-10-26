@@ -12,6 +12,10 @@
 void topology_normalize_cpu_scale(void);
 int topology_update_cpu_topology(void);
 
+#ifdef CONFIG_ACPI_CPPC_LIB
+void topology_init_cpu_capacity_cppc(void);
+#endif
+
 struct device_node;
 bool topology_parse_cpu_capacity(struct device_node *cpu_node, int cpu);
 
@@ -57,8 +61,8 @@ static inline unsigned long topology_get_thermal_pressure(int cpu)
 	return per_cpu(thermal_pressure, cpu);
 }
 
-void topology_set_thermal_pressure(const struct cpumask *cpus,
-				   unsigned long th_pressure);
+void topology_update_thermal_pressure(const struct cpumask *cpus,
+				      unsigned long capped_freq);
 
 struct cpu_topology {
 	int thread_id;

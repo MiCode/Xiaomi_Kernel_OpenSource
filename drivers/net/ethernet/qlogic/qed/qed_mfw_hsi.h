@@ -1191,6 +1191,7 @@ enum drv_msg_code_enum {
 	DRV_MSG_CODE_CFG_VF_MSIX = DRV_MSG_CODE(0xc001),
 	DRV_MSG_CODE_CFG_PF_VFS_MSIX = DRV_MSG_CODE(0xc002),
 	DRV_MSG_CODE_DEBUG_DATA_SEND = DRV_MSG_CODE(0xc004),
+	DRV_MSG_CODE_GET_MANAGEMENT_STATUS = DRV_MSG_CODE(0xc007),
 };
 
 #define DRV_MSG_CODE_VMAC_TYPE_SHIFT            4
@@ -2469,6 +2470,6 @@ struct nvm_meta_bin_t {
 	u32 version;
 #define NVM_META_BIN_VERSION 1
 	u32 num_options;
-	u32 options[0];
+	u32 options[];
 };
 #endif

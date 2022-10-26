@@ -721,12 +721,15 @@ static int pm8001_update_flash(struct pm8001_hba_info *pm8001_ha)
 	DECLARE_COMPLETION_ONSTACK(completion);
 	u8		*ioctlbuffer;
 	struct fw_control_info	*fwControl;
-	u32		partitionSize, partitionSizeTmp;
+	__be32		partitionSizeTmp;
+	u32		partitionSize;
 	u32		loopNumber, loopcount;
 	struct pm8001_fw_image_header *image_hdr;
 	u32		sizeRead = 0;
 	u32		ret = 0;
 	u32		length = 1024 * 16 + sizeof(*payload) - 1;
+	u32		fc_len;
+	u8		*read_buf;
 
 	if (pm8001_ha->fw_image->size < 28) {
 		pm8001_ha->fw_status = FAIL_FILE_SIZE;
@@ -740,7 +743,7 @@ static int pm8001_update_flash(struct pm8001_hba_info *pm8001_ha)
 	image_hdr = (struct pm8001_fw_image_header *)pm8001_ha->fw_image->data;
 	while (sizeRead < pm8001_ha->fw_image->size) {
 		partitionSizeTmp =
-			*(u32 *)((u8 *)&image_hdr->image_length + sizeRead);
+			*(__be32 *)((u8 *)&image_hdr->image_length + sizeRead);
 		partitionSize = be32_to_cpu(partitionSizeTmp);
 		loopcount = DIV_ROUND_UP(partitionSize + HEADER_LEN,
 					IOCTL_BUF_SIZE);
@@ -755,36 +758,35 @@ static int pm8001_update_flash(struct pm8001_hba_info *pm8001_ha)
 			fwControl->retcode = 0;/* OUT */
 			fwControl->offset = loopNumber * IOCTL_BUF_SIZE;/*OUT */
 
-		/* for the last chunk of data in case file size is not even with
-		4k, load only the rest*/
-		if (((loopcount-loopNumber) == 1) &&
-			((partitionSize + HEADER_LEN) % IOCTL_BUF_SIZE)) {
-			fwControl->len =
-				(partitionSize + HEADER_LEN) % IOCTL_BUF_SIZE;
-			memcpy((u8 *)fwControl->buffer,
-				(u8 *)pm8001_ha->fw_image->data + sizeRead,
-				(partitionSize + HEADER_LEN) % IOCTL_BUF_SIZE);
-			sizeRead +=
-				(partitionSize + HEADER_LEN) % IOCTL_BUF_SIZE;
-		} else {
-			memcpy((u8 *)fwControl->buffer,
-				(u8 *)pm8001_ha->fw_image->data + sizeRead,
-				IOCTL_BUF_SIZE);
-			sizeRead += IOCTL_BUF_SIZE;
-		}
+			/*
+			 * for the last chunk of data in case file size is
+			 * not even with 4k, load only the rest
+			 */
 
-		pm8001_ha->nvmd_completion = &completion;
-		ret = PM8001_CHIP_DISP->fw_flash_update_req(pm8001_ha, payload);
-		if (ret) {
-			pm8001_ha->fw_status = FAIL_OUT_MEMORY;
-			goto out;
-		}
-		wait_for_completion(&completion);
-		if (fwControl->retcode > FLASH_UPDATE_IN_PROGRESS) {
-			pm8001_ha->fw_status = fwControl->retcode;
-			ret = -EFAULT;
-			goto out;
-		}
+			read_buf  = (u8 *)pm8001_ha->fw_image->data + sizeRead;
+			fc_len = (partitionSize + HEADER_LEN) % IOCTL_BUF_SIZE;
+
+			if (loopcount - loopNumber == 1 && fc_len) {
+				fwControl->len = fc_len;
+				memcpy((u8 *)fwControl->buffer, read_buf, fc_len);
+				sizeRead += fc_len;
+			} else {
+				memcpy((u8 *)fwControl->buffer, read_buf, IOCTL_BUF_SIZE);
+				sizeRead += IOCTL_BUF_SIZE;
+			}
+
+			pm8001_ha->nvmd_completion = &completion;
+			ret = PM8001_CHIP_DISP->fw_flash_update_req(pm8001_ha, payload);
+			if (ret) {
+				pm8001_ha->fw_status = FAIL_OUT_MEMORY;
+				goto out;
+			}
+			wait_for_completion(&completion);
+			if (fwControl->retcode > FLASH_UPDATE_IN_PROGRESS) {
+				pm8001_ha->fw_status = fwControl->retcode;
+				ret = -EFAULT;
+				goto out;
+			}
 		}
 	}
 out:
@@ -889,14 +891,6 @@ static ssize_t pm8001_show_update_fw(struct device *cdev,
 static DEVICE_ATTR(update_fw, S_IRUGO|S_IWUSR|S_IWGRP,
 	pm8001_show_update_fw, pm8001_store_update_fw);
 
-/**
- * ctl_mpi_state_show - controller MPI state check
- * @cdev: pointer to embedded class device
- * @buf: the buffer returned
- *
- * A sysfs 'read-only' shost attribute.
- */
-
 static const char *const mpiStateText[] = {
 	"MPI is not initialized",
 	"MPI is successfully initialized",
@@ -904,6 +898,14 @@ static const char *const mpiStateText[] = {
 	"MPI initialization failed with error in [31:16]"
 };
 
+/**
+ * ctl_mpi_state_show - controller MPI state check
+ * @cdev: pointer to embedded class device
+ * @attr: device attribute (unused)
+ * @buf: the buffer returned
+ *
+ * A sysfs 'read-only' shost attribute.
+ */
 static ssize_t ctl_mpi_state_show(struct device *cdev,
 		struct device_attribute *attr, char *buf)
 {
@@ -920,11 +922,11 @@ static DEVICE_ATTR_RO(ctl_mpi_state);
 /**
  * ctl_hmi_error_show - controller MPI initialization fails
  * @cdev: pointer to embedded class device
+ * @attr: device attribute (unused)
  * @buf: the buffer returned
  *
  * A sysfs 'read-only' shost attribute.
  */
-
 static ssize_t ctl_hmi_error_show(struct device *cdev,
 		struct device_attribute *attr, char *buf)
 {
@@ -941,11 +943,11 @@ static DEVICE_ATTR_RO(ctl_hmi_error);
 /**
  * ctl_raae_count_show - controller raae count check
  * @cdev: pointer to embedded class device
+ * @attr: device attribute (unused)
  * @buf: the buffer returned
  *
  * A sysfs 'read-only' shost attribute.
  */
-
 static ssize_t ctl_raae_count_show(struct device *cdev,
 		struct device_attribute *attr, char *buf)
 {
@@ -962,11 +964,11 @@ static DEVICE_ATTR_RO(ctl_raae_count);
 /**
  * ctl_iop0_count_show - controller iop0 count check
  * @cdev: pointer to embedded class device
+ * @attr: device attribute (unused)
  * @buf: the buffer returned
  *
  * A sysfs 'read-only' shost attribute.
  */
-
 static ssize_t ctl_iop0_count_show(struct device *cdev,
 		struct device_attribute *attr, char *buf)
 {
@@ -983,11 +985,11 @@ static DEVICE_ATTR_RO(ctl_iop0_count);
 /**
  * ctl_iop1_count_show - controller iop1 count check
  * @cdev: pointer to embedded class device
+ * @attr: device attribute (unused)
  * @buf: the buffer returned
  *
  * A sysfs 'read-only' shost attribute.
  */
-
 static ssize_t ctl_iop1_count_show(struct device *cdev,
 		struct device_attribute *attr, char *buf)
 {

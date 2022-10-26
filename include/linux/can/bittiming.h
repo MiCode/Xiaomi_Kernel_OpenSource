@@ -12,13 +12,6 @@
 #define CAN_SYNC_SEG 1
 
 
-/* Kilobits and Megabits per second */
-#define CAN_KBPS 1000UL
-#define CAN_MBPS 1000000UL
-
-/* Megahertz */
-#define CAN_MHZ 1000000UL
-
 #define CAN_CTRLMODE_TDC_MASK					\
 	(CAN_CTRLMODE_TDC_AUTO | CAN_CTRLMODE_TDC_MANUAL)
 
@@ -120,7 +113,7 @@ struct can_tdc_const {
 };
 
 #ifdef CONFIG_CAN_CALC_BITTIMING
-int can_calc_bittiming(struct net_device *dev, struct can_bittiming *bt,
+int can_calc_bittiming(const struct net_device *dev, struct can_bittiming *bt,
 		       const struct can_bittiming_const *btc);
 
 void can_calc_tdco(struct can_tdc *tdc, const struct can_tdc_const *tdc_const,
@@ -128,7 +121,7 @@ void can_calc_tdco(struct can_tdc *tdc, const struct can_tdc_const *tdc_const,
 		   u32 *ctrlmode, u32 ctrlmode_supported);
 #else /* !CONFIG_CAN_CALC_BITTIMING */
 static inline int
-can_calc_bittiming(struct net_device *dev, struct can_bittiming *bt,
+can_calc_bittiming(const struct net_device *dev, struct can_bittiming *bt,
 		   const struct can_bittiming_const *btc)
 {
 	netdev_err(dev, "bit-timing calculation not available\n");
@@ -143,7 +136,7 @@ can_calc_tdco(struct can_tdc *tdc, const struct can_tdc_const *tdc_const,
 }
 #endif /* CONFIG_CAN_CALC_BITTIMING */
 
-int can_get_bittiming(struct net_device *dev, struct can_bittiming *bt,
+int can_get_bittiming(const struct net_device *dev, struct can_bittiming *bt,
 		      const struct can_bittiming_const *btc,
 		      const u32 *bitrate_const,
 		      const unsigned int bitrate_const_cnt);

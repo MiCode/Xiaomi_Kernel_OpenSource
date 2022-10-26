@@ -10,6 +10,8 @@
 #include "iosm_ipc_flash.h"
 #include "iosm_ipc_imem.h"
 #include "iosm_ipc_port.h"
+#include "iosm_ipc_trace.h"
+#include "iosm_ipc_debugfs.h"
 
 /* Check the wwan ips if it is valid with Channel as input. */
 static int ipc_imem_check_wwan_ips(struct ipc_mem_channel *chnl)
@@ -112,17 +114,35 @@ ipc_imem_fast_update_timer_cb(struct hrtimer *hr_timer)
 	return HRTIMER_NORESTART;
 }
 
+static int ipc_imem_tq_adb_timer_cb(struct iosm_imem *ipc_imem, int arg,
+				    void *msg, size_t size)
+{
+	ipc_mux_ul_adb_finish(ipc_imem->mux);
+	return 0;
+}
+
+static enum hrtimer_restart
+ipc_imem_adb_timer_cb(struct hrtimer *hr_timer)
+{
+	struct iosm_imem *ipc_imem =
+		container_of(hr_timer, struct iosm_imem, adb_timer);
+
+	ipc_task_queue_send_task(ipc_imem, ipc_imem_tq_adb_timer_cb, 0,
+				 NULL, 0, false);
+	return HRTIMER_NORESTART;
+}
+
 static int ipc_imem_setup_cp_mux_cap_init(struct iosm_imem *ipc_imem,
 					  struct ipc_mux_config *cfg)
 {
 	ipc_mmio_update_cp_capability(ipc_imem->mmio);
 
-	if (!ipc_imem->mmio->has_mux_lite) {
+	if (ipc_imem->mmio->mux_protocol == MUX_UNKNOWN) {
 		dev_err(ipc_imem->dev, "Failed to get Mux capability.");
 		return -EINVAL;
 	}
 
-	cfg->protocol = MUX_LITE;
+	cfg->protocol = ipc_imem->mmio->mux_protocol;
 
 	cfg->ul_flow = (ipc_imem->mmio->has_ul_flow_credit == 1) ?
 			       MUX_UL_ON_CREDITS :
@@ -132,7 +152,6 @@ static int ipc_imem_setup_cp_mux_cap_init(struct iosm_imem *ipc_imem,
 	 * for channel alloc function.
 	 */
 	cfg->instance_id = IPC_MEM_MUX_IP_CH_IF_ID;
-	cfg->nr_sessions = IPC_MEM_MUX_IP_SESSION_ENTRIES;
 
 	return 0;
 }
@@ -152,6 +171,10 @@ void ipc_imem_msg_send_feature_set(struct iosm_imem *ipc_imem,
 				      IPC_MSG_PREP_FEATURE_SET, &prep_args);
 }
 
+/**
+ * ipc_imem_td_update_timer_start - Starts the TD Update Timer if not started.
+ * @ipc_imem:                       Pointer to imem data-struct
+ */
 void ipc_imem_td_update_timer_start(struct iosm_imem *ipc_imem)
 {
 	/* Use the TD update timer only in the runtime phase */
@@ -176,6 +199,21 @@ void ipc_imem_hrtimer_stop(struct hrtimer *hr_timer)
 {
 	if (hrtimer_active(hr_timer))
 		hrtimer_cancel(hr_timer);
+}
+
+/**
+ * ipc_imem_adb_timer_start -	Starts the adb Timer if not starting.
+ * @ipc_imem:			Pointer to imem data-struct
+ */
+void ipc_imem_adb_timer_start(struct iosm_imem *ipc_imem)
+{
+	if (!hrtimer_active(&ipc_imem->adb_timer)) {
+		ipc_imem->hrtimer_period =
+			ktime_set(0, IOSM_AGGR_MUX_ADB_FINISH_TIMEOUT_NSEC);
+		hrtimer_start(&ipc_imem->adb_timer,
+			      ipc_imem->hrtimer_period,
+			      HRTIMER_MODE_REL);
+	}
 }
 
 bool ipc_imem_ul_write_td(struct iosm_imem *ipc_imem)
@@ -269,9 +307,14 @@ static void ipc_imem_dl_skb_process(struct iosm_imem *ipc_imem,
 	switch (pipe->channel->ctype) {
 	case IPC_CTYPE_CTRL:
 		port_id = pipe->channel->channel_id;
+		ipc_pcie_addr_unmap(ipc_imem->pcie, IPC_CB(skb)->len,
+				    IPC_CB(skb)->mapping,
+				    IPC_CB(skb)->direction);
 		if (port_id == IPC_MEM_CTRL_CHL_ID_7)
 			ipc_imem_sys_devlink_notify_rx(ipc_imem->ipc_devlink,
 						       skb);
+		else if (ipc_is_trace_channel(ipc_imem, port_id))
+			ipc_trace_port_rx(ipc_imem, skb);
 		else
 			wwan_port_rx(ipc_imem->ipc_port[port_id]->iosm_port,
 				     skb);
@@ -544,6 +587,11 @@ static void ipc_imem_run_state_worker(struct work_struct *instance)
 	while (ctrl_chl_idx < IPC_MEM_MAX_CHANNELS) {
 		if (!ipc_chnl_cfg_get(&chnl_cfg_port, ctrl_chl_idx)) {
 			ipc_imem->ipc_port[ctrl_chl_idx] = NULL;
+			if (ipc_imem->pcie->pci->device == INTEL_CP_DEVICE_7360_ID &&
+			    chnl_cfg_port.wwan_port_type == WWAN_PORT_MBIM) {
+				ctrl_chl_idx++;
+				continue;
+			}
 			if (chnl_cfg_port.wwan_port_type != WWAN_PORT_UNKNOWN) {
 				ipc_imem_channel_init(ipc_imem, IPC_CTYPE_CTRL,
 						      chnl_cfg_port,
@@ -554,6 +602,8 @@ static void ipc_imem_run_state_worker(struct work_struct *instance)
 		}
 		ctrl_chl_idx++;
 	}
+
+	ipc_debugfs_init(ipc_imem);
 
 	ipc_task_queue_send_task(ipc_imem, ipc_imem_send_mdm_rdy_cb, 0, NULL, 0,
 				 false);
@@ -672,8 +722,11 @@ static void ipc_imem_handle_irq(struct iosm_imem *ipc_imem, int irq)
 	}
 
 	/* Try to generate new ADB or ADGH. */
-	if (ipc_mux_ul_data_encode(ipc_imem->mux))
+	if (ipc_mux_ul_data_encode(ipc_imem->mux)) {
 		ipc_imem_td_update_timer_start(ipc_imem);
+		if (ipc_imem->mux->protocol == MUX_AGGREGATION)
+			ipc_imem_adb_timer_start(ipc_imem);
+	}
 
 	/* Continue the send procedure with accumulated SIO or NETIF packets.
 	 * Reset the debounce flags.
@@ -1170,6 +1223,7 @@ void ipc_imem_cleanup(struct iosm_imem *ipc_imem)
 
 	if (test_and_clear_bit(FULLY_FUNCTIONAL, &ipc_imem->flag)) {
 		ipc_mux_deinit(ipc_imem->mux);
+		ipc_debugfs_deinit(ipc_imem);
 		ipc_wwan_deinit(ipc_imem->wwan);
 		ipc_port_deinit(ipc_imem->ipc_port);
 	}
@@ -1320,6 +1374,9 @@ struct iosm_imem *ipc_imem_init(struct iosm_pcie *pcie, unsigned int device_id,
 	hrtimer_init(&ipc_imem->td_alloc_timer, CLOCK_MONOTONIC,
 		     HRTIMER_MODE_REL);
 	ipc_imem->td_alloc_timer.function = ipc_imem_td_alloc_timer_cb;
+
+	hrtimer_init(&ipc_imem->adb_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	ipc_imem->adb_timer.function = ipc_imem_adb_timer_cb;
 
 	if (ipc_imem_config(ipc_imem)) {
 		dev_err(ipc_imem->dev, "failed to initialize the imem");

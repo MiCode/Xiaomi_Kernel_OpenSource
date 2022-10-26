@@ -228,13 +228,9 @@ struct inode *v9fs_alloc_inode(struct super_block *sb)
 {
 	struct v9fs_inode *v9inode;
 
-	v9inode = kmem_cache_alloc(v9fs_inode_cache, GFP_KERNEL);
+	v9inode = alloc_inode_sb(sb, v9fs_inode_cache, GFP_KERNEL);
 	if (!v9inode)
 		return NULL;
-#ifdef CONFIG_9P_FSCACHE
-	v9inode->fscache = NULL;
-	mutex_init(&v9inode->fscache_lock);
-#endif
 	v9inode->writeback_fid = NULL;
 	v9inode->cache_validity = 0;
 	mutex_init(&v9inode->v_mutex);
@@ -249,6 +245,14 @@ struct inode *v9fs_alloc_inode(struct super_block *sb)
 void v9fs_free_inode(struct inode *inode)
 {
 	kmem_cache_free(v9fs_inode_cache, V9FS_I(inode));
+}
+
+/*
+ * Set parameters for the netfs library
+ */
+static void v9fs_set_netfs_context(struct inode *inode)
+{
+	netfs_i_context_init(inode, &v9fs_req_ops);
 }
 
 int v9fs_init_inode(struct v9fs_session_info *v9ses,
@@ -339,6 +343,8 @@ int v9fs_init_inode(struct v9fs_session_info *v9ses,
 		err = -EINVAL;
 		goto error;
 	}
+
+	v9fs_set_netfs_context(inode);
 error:
 	return err;
 
@@ -381,12 +387,16 @@ struct inode *v9fs_get_inode(struct super_block *sb, umode_t mode, dev_t rdev)
 void v9fs_evict_inode(struct inode *inode)
 {
 	struct v9fs_inode *v9inode = V9FS_I(inode);
+	__le32 version;
 
 	truncate_inode_pages_final(&inode->i_data);
+	version = cpu_to_le32(v9inode->qid.version);
+	fscache_clear_inode_writeback(v9fs_inode_cookie(v9inode), inode,
+				      &version);
 	clear_inode(inode);
 	filemap_fdatawrite(&inode->i_data);
 
-	v9fs_cache_inode_put_cookie(inode);
+	fscache_relinquish_cookie(v9fs_inode_cookie(v9inode), false);
 	/* clunk the fid stashed in writeback_fid */
 	if (v9inode->writeback_fid) {
 		p9_client_clunk(v9inode->writeback_fid);
@@ -869,7 +879,8 @@ v9fs_vfs_atomic_open(struct inode *dir, struct dentry *dentry,
 
 	file->private_data = fid;
 	if (v9ses->cache == CACHE_LOOSE || v9ses->cache == CACHE_FSCACHE)
-		v9fs_cache_inode_set_cookie(d_inode(dentry), file);
+		fscache_use_cookie(v9fs_inode_cookie(v9inode),
+				   file->f_mode & FMODE_WRITE);
 	v9fs_open_fid_add(inode, fid);
 
 	file->f_mode |= FMODE_CREATED;
@@ -1072,6 +1083,8 @@ static int v9fs_vfs_setattr(struct user_namespace *mnt_userns,
 			    struct dentry *dentry, struct iattr *iattr)
 {
 	int retval, use_dentry = 0;
+	struct inode *inode = d_inode(dentry);
+	struct v9fs_inode *v9inode = V9FS_I(inode);
 	struct v9fs_session_info *v9ses;
 	struct p9_fid *fid = NULL;
 	struct p9_wstat wstat;
@@ -1117,7 +1130,7 @@ static int v9fs_vfs_setattr(struct user_namespace *mnt_userns,
 
 	/* Write all dirty data */
 	if (d_is_reg(dentry))
-		filemap_write_and_wait(d_inode(dentry)->i_mapping);
+		filemap_write_and_wait(inode->i_mapping);
 
 	retval = p9_client_wstat(fid, &wstat);
 
@@ -1128,13 +1141,15 @@ static int v9fs_vfs_setattr(struct user_namespace *mnt_userns,
 		return retval;
 
 	if ((iattr->ia_valid & ATTR_SIZE) &&
-	    iattr->ia_size != i_size_read(d_inode(dentry)))
-		truncate_setsize(d_inode(dentry), iattr->ia_size);
+	    iattr->ia_size != i_size_read(inode)) {
+		truncate_setsize(inode, iattr->ia_size);
+		fscache_resize_cookie(v9fs_inode_cookie(v9inode), iattr->ia_size);
+	}
 
-	v9fs_invalidate_inode_attr(d_inode(dentry));
+	v9fs_invalidate_inode_attr(inode);
 
-	setattr_copy(&init_user_ns, d_inode(dentry), iattr);
-	mark_inode_dirty(d_inode(dentry));
+	setattr_copy(&init_user_ns, inode, iattr);
+	mark_inode_dirty(inode);
 	return 0;
 }
 

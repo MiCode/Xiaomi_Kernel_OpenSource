@@ -16,6 +16,7 @@
 #include <linux/pagemap.h>
 #include <linux/idr.h>
 #include <linux/sched.h>
+#include <linux/swap.h>
 #include <linux/uio.h>
 #include <linux/netfs.h>
 #include <net/9p/9p.h>
@@ -27,12 +28,12 @@
 #include "fid.h"
 
 /**
- * v9fs_req_issue_op - Issue a read from 9P
+ * v9fs_issue_read - Issue a read from 9P
  * @subreq: The read to make
  */
-static void v9fs_req_issue_op(struct netfs_read_subrequest *subreq)
+static void v9fs_issue_read(struct netfs_io_subrequest *subreq)
 {
-	struct netfs_read_request *rreq = subreq->rreq;
+	struct netfs_io_request *rreq = subreq->rreq;
 	struct p9_fid *fid = rreq->netfs_priv;
 	struct iov_iter to;
 	loff_t pos = subreq->start + subreq->transferred;
@@ -42,24 +43,30 @@ static void v9fs_req_issue_op(struct netfs_read_subrequest *subreq)
 	iov_iter_xarray(&to, READ, &rreq->mapping->i_pages, pos, len);
 
 	total = p9_client_read(fid, pos, &to, &err);
+
+	/* if we just extended the file size, any portion not in
+	 * cache won't be on server and is zeroes */
+	__set_bit(NETFS_SREQ_CLEAR_TAIL, &subreq->flags);
+
 	netfs_subreq_terminated(subreq, err ?: total, false);
 }
 
 /**
- * v9fs_init_rreq - Initialise a read request
+ * v9fs_init_request - Initialise a read request
  * @rreq: The read request
  * @file: The file being read from
  */
-static void v9fs_init_rreq(struct netfs_read_request *rreq, struct file *file)
+static int v9fs_init_request(struct netfs_io_request *rreq, struct file *file)
 {
 	struct p9_fid *fid = file->private_data;
 
 	refcount_inc(&fid->count);
 	rreq->netfs_priv = fid;
+	return 0;
 }
 
 /**
- * v9fs_req_cleanup - Cleanup request initialized by v9fs_init_rreq
+ * v9fs_req_cleanup - Cleanup request initialized by v9fs_init_request
  * @mapping: unused mapping of request to cleanup
  * @priv: private data to cleanup, a fid, guaranted non-null.
  */
@@ -71,56 +78,26 @@ static void v9fs_req_cleanup(struct address_space *mapping, void *priv)
 }
 
 /**
- * v9fs_is_cache_enabled - Determine if caching is enabled for an inode
- * @inode: The inode to check
- */
-static bool v9fs_is_cache_enabled(struct inode *inode)
-{
-	struct fscache_cookie *cookie = v9fs_inode_cookie(V9FS_I(inode));
-
-	return fscache_cookie_enabled(cookie) && !hlist_empty(&cookie->backing_objects);
-}
-
-/**
  * v9fs_begin_cache_operation - Begin a cache operation for a read
  * @rreq: The read request
  */
-static int v9fs_begin_cache_operation(struct netfs_read_request *rreq)
+static int v9fs_begin_cache_operation(struct netfs_io_request *rreq)
 {
+#ifdef CONFIG_9P_FSCACHE
 	struct fscache_cookie *cookie = v9fs_inode_cookie(V9FS_I(rreq->inode));
 
-	return fscache_begin_read_operation(rreq, cookie);
+	return fscache_begin_read_operation(&rreq->cache_resources, cookie);
+#else
+	return -ENOBUFS;
+#endif
 }
 
-static const struct netfs_read_request_ops v9fs_req_ops = {
-	.init_rreq		= v9fs_init_rreq,
-	.is_cache_enabled	= v9fs_is_cache_enabled,
+const struct netfs_request_ops v9fs_req_ops = {
+	.init_request		= v9fs_init_request,
 	.begin_cache_operation	= v9fs_begin_cache_operation,
-	.issue_op		= v9fs_req_issue_op,
+	.issue_read		= v9fs_issue_read,
 	.cleanup		= v9fs_req_cleanup,
 };
-
-/**
- * v9fs_vfs_readpage - read an entire page in from 9P
- * @file: file being read
- * @page: structure to page
- *
- */
-static int v9fs_vfs_readpage(struct file *file, struct page *page)
-{
-	struct folio *folio = page_folio(page);
-
-	return netfs_readpage(file, folio, &v9fs_req_ops, NULL);
-}
-
-/**
- * v9fs_vfs_readahead - read a set of pages from 9P
- * @ractl: The readahead parameters
- */
-static void v9fs_vfs_readahead(struct readahead_control *ractl)
-{
-	netfs_readahead(ractl, &v9fs_req_ops, NULL);
-}
 
 /**
  * v9fs_release_page - release the private state associated with a page
@@ -133,38 +110,46 @@ static void v9fs_vfs_readahead(struct readahead_control *ractl)
 static int v9fs_release_page(struct page *page, gfp_t gfp)
 {
 	struct folio *folio = page_folio(page);
+	struct inode *inode = folio_inode(folio);
 
 	if (folio_test_private(folio))
 		return 0;
 #ifdef CONFIG_9P_FSCACHE
 	if (folio_test_fscache(folio)) {
-		if (!(gfp & __GFP_DIRECT_RECLAIM) || !(gfp & __GFP_FS))
+		if (current_is_kswapd() || !(gfp & __GFP_FS))
 			return 0;
 		folio_wait_fscache(folio);
 	}
 #endif
+	fscache_note_page_release(v9fs_inode_cookie(V9FS_I(inode)));
 	return 1;
 }
 
-/**
- * v9fs_invalidate_page - Invalidate a page completely or partially
- * @page: The page to be invalidated
- * @offset: offset of the invalidated region
- * @length: length of the invalidated region
- */
-
-static void v9fs_invalidate_page(struct page *page, unsigned int offset,
-				 unsigned int length)
+static void v9fs_invalidate_folio(struct folio *folio, size_t offset,
+				 size_t length)
 {
-	struct folio *folio = page_folio(page);
-
 	folio_wait_fscache(folio);
+}
+
+static void v9fs_write_to_cache_done(void *priv, ssize_t transferred_or_error,
+				     bool was_async)
+{
+	struct v9fs_inode *v9inode = priv;
+	__le32 version;
+
+	if (IS_ERR_VALUE(transferred_or_error) &&
+	    transferred_or_error != -ENOBUFS) {
+		version = cpu_to_le32(v9inode->qid.version);
+		fscache_invalidate(v9fs_inode_cookie(v9inode), &version,
+				   i_size_read(&v9inode->vfs_inode), 0);
+	}
 }
 
 static int v9fs_vfs_write_folio_locked(struct folio *folio)
 {
 	struct inode *inode = folio_inode(folio);
 	struct v9fs_inode *v9inode = V9FS_I(inode);
+	struct fscache_cookie *cookie = v9fs_inode_cookie(v9inode);
 	loff_t start = folio_pos(folio);
 	loff_t i_size = i_size_read(inode);
 	struct iov_iter from;
@@ -181,9 +166,20 @@ static int v9fs_vfs_write_folio_locked(struct folio *folio)
 	/* We should have writeback_fid always set */
 	BUG_ON(!v9inode->writeback_fid);
 
+	folio_wait_fscache(folio);
 	folio_start_writeback(folio);
 
 	p9_client_write(v9inode->writeback_fid, start, &from, &err);
+
+	if (err == 0 &&
+	    fscache_cookie_enabled(cookie) &&
+	    test_bit(FSCACHE_COOKIE_IS_CACHING, &cookie->flags)) {
+		folio_start_fscache(folio);
+		fscache_write_to_cache(v9fs_inode_cookie(v9inode),
+				       folio_mapping(folio), start, len, i_size,
+				       v9fs_write_to_cache_done, v9inode,
+				       true);
+	}
 
 	folio_end_writeback(folio);
 	return err;
@@ -211,16 +207,8 @@ static int v9fs_vfs_writepage(struct page *page, struct writeback_control *wbc)
 	return retval;
 }
 
-/**
- * v9fs_launder_page - Writeback a dirty page
- * @page: The page to be cleaned up
- *
- * Returns 0 on success.
- */
-
-static int v9fs_launder_page(struct page *page)
+static int v9fs_launder_folio(struct folio *folio)
 {
-	struct folio *folio = page_folio(page);
 	int retval;
 
 	if (folio_clear_dirty_for_io(folio)) {
@@ -287,8 +275,7 @@ static int v9fs_write_begin(struct file *filp, struct address_space *mapping,
 	 * file.  We need to do this before we get a lock on the page in case
 	 * there's more than one writer competing for the same cache block.
 	 */
-	retval = netfs_write_begin(filp, mapping, pos, len, flags, &folio, fsdata,
-				   &v9fs_req_ops, NULL);
+	retval = netfs_write_begin(filp, mapping, pos, len, flags, &folio, fsdata);
 	if (retval < 0)
 		return retval;
 
@@ -303,6 +290,7 @@ static int v9fs_write_end(struct file *filp, struct address_space *mapping,
 	loff_t last_pos = pos + copied;
 	struct folio *folio = page_folio(subpage);
 	struct inode *inode = mapping->host;
+	struct v9fs_inode *v9inode = V9FS_I(inode);
 
 	p9_debug(P9_DEBUG_VFS, "filp %p, mapping %p\n", filp, mapping);
 
@@ -322,6 +310,7 @@ static int v9fs_write_end(struct file *filp, struct address_space *mapping,
 	if (last_pos > inode->i_size) {
 		inode_add_bytes(inode, last_pos - inode->i_size);
 		i_size_write(inode, last_pos);
+		fscache_update_cookie(v9fs_inode_cookie(v9inode), NULL, &last_pos);
 	}
 	folio_mark_dirty(folio);
 out:
@@ -331,16 +320,30 @@ out:
 	return copied;
 }
 
+#ifdef CONFIG_9P_FSCACHE
+/*
+ * Mark a page as having been made dirty and thus needing writeback.  We also
+ * need to pin the cache object to write back to.
+ */
+static bool v9fs_dirty_folio(struct address_space *mapping, struct folio *folio)
+{
+	struct v9fs_inode *v9inode = V9FS_I(mapping->host);
+
+	return fscache_dirty_folio(mapping, folio, v9fs_inode_cookie(v9inode));
+}
+#else
+#define v9fs_dirty_folio filemap_dirty_folio
+#endif
 
 const struct address_space_operations v9fs_addr_operations = {
-	.readpage = v9fs_vfs_readpage,
-	.readahead = v9fs_vfs_readahead,
-	.set_page_dirty = __set_page_dirty_nobuffers,
+	.readpage = netfs_readpage,
+	.readahead = netfs_readahead,
+	.dirty_folio = v9fs_dirty_folio,
 	.writepage = v9fs_vfs_writepage,
 	.write_begin = v9fs_write_begin,
 	.write_end = v9fs_write_end,
 	.releasepage = v9fs_release_page,
-	.invalidatepage = v9fs_invalidate_page,
-	.launder_page = v9fs_launder_page,
+	.invalidate_folio = v9fs_invalidate_folio,
+	.launder_folio = v9fs_launder_folio,
 	.direct_IO = v9fs_direct_IO,
 };

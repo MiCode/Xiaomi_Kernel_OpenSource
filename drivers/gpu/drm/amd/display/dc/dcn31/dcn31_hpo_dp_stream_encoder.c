@@ -358,8 +358,8 @@ static void dcn31_hpo_dp_stream_enc_set_stream_attribute(
 
 	h_width = hw_crtc_timing.h_border_left + hw_crtc_timing.h_addressable + hw_crtc_timing.h_border_right;
 	v_height = hw_crtc_timing.v_border_top + hw_crtc_timing.v_addressable + hw_crtc_timing.v_border_bottom;
-	hsp = hw_crtc_timing.flags.HSYNC_POSITIVE_POLARITY ? 0x80 : 0;
-	vsp = hw_crtc_timing.flags.VSYNC_POSITIVE_POLARITY ? 0x80 : 0;
+	hsp = hw_crtc_timing.flags.HSYNC_POSITIVE_POLARITY ? 0 : 0x80;
+	vsp = hw_crtc_timing.flags.VSYNC_POSITIVE_POLARITY ? 0 : 0x80;
 	v_freq = hw_crtc_timing.pix_clk_100hz * 100;
 
 	/*   MSA Packet Mapping to 32-bit Link Symbols - DP2 spec, section 2.7.4.1
@@ -710,6 +710,16 @@ static void dcn31_hpo_dp_stream_enc_read_state(
 	}
 }
 
+static void dcn31_set_hblank_min_symbol_width(
+		struct hpo_dp_stream_encoder *enc,
+		uint16_t width)
+{
+	struct dcn31_hpo_dp_stream_encoder *enc3 = DCN3_1_HPO_DP_STREAM_ENC_FROM_HPO_STREAM_ENC(enc);
+
+	REG_SET(DP_SYM32_ENC_HBLANK_CONTROL, 0,
+			HBLANK_MINIMUM_SYMBOL_WIDTH, width);
+}
+
 static const struct hpo_dp_stream_encoder_funcs dcn30_str_enc_funcs = {
 	.enable_stream = dcn31_hpo_dp_stream_enc_enable_stream,
 	.dp_unblank = dcn31_hpo_dp_stream_enc_dp_unblank,
@@ -725,6 +735,7 @@ static const struct hpo_dp_stream_encoder_funcs dcn30_str_enc_funcs = {
 	.dp_audio_enable = dcn31_hpo_dp_stream_enc_audio_enable,
 	.dp_audio_disable = dcn31_hpo_dp_stream_enc_audio_disable,
 	.read_state = dcn31_hpo_dp_stream_enc_read_state,
+	.set_hblank_min_symbol_width = dcn31_set_hblank_min_symbol_width,
 };
 
 void dcn31_hpo_dp_stream_encoder_construct(

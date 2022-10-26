@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
- * Copyright (C) 2012-2014, 2018-2021 Intel Corporation
+ * Copyright (C) 2012-2014, 2018-2022 Intel Corporation
  * Copyright (C) 2016-2017 Intel Deutschland GmbH
  */
 #ifndef __iwl_fw_api_tx_h__
@@ -177,6 +177,17 @@ enum iwl_tx_offload_assist_flags_pos {
 #define IWL_TX_CMD_OFFLD_MH_MASK	0x1f
 #define IWL_TX_CMD_OFFLD_IP_HDR_MASK	0x3f
 
+enum iwl_tx_offload_assist_bz {
+	IWL_TX_CMD_OFFLD_BZ_RESULT_OFFS		= 0x000003ff,
+	IWL_TX_CMD_OFFLD_BZ_START_OFFS		= 0x001ff800,
+	IWL_TX_CMD_OFFLD_BZ_MH_LEN		= 0x07c00000,
+	IWL_TX_CMD_OFFLD_BZ_MH_PAD		= 0x08000000,
+	IWL_TX_CMD_OFFLD_BZ_AMSDU		= 0x10000000,
+	IWL_TX_CMD_OFFLD_BZ_ZERO2ONES		= 0x20000000,
+	IWL_TX_CMD_OFFLD_BZ_ENABLE_CSUM		= 0x40000000,
+	IWL_TX_CMD_OFFLD_BZ_PARTIAL_CSUM	= 0x80000000,
+};
+
 /* TODO: complete documentation for try_cnt and btkill_cnt */
 /**
  * struct iwl_tx_cmd - TX command struct to FW
@@ -285,8 +296,7 @@ struct iwl_tx_cmd_gen2 {
  * @dram_info: FW internal DRAM storage
  * @rate_n_flags: rate for *all* Tx attempts, if TX_CMD_FLG_STA_RATE_MSK is
  *	cleared. Combination of RATE_MCS_*
- * @ttl: time to live - packet lifetime limit. The FW should drop if
- *	passed.
+ * @reserved: reserved
  * @hdr: 802.11 header
  */
 struct iwl_tx_cmd_gen3 {
@@ -295,7 +305,7 @@ struct iwl_tx_cmd_gen3 {
 	__le32 offload_assist;
 	struct iwl_dram_sec_info dram_info;
 	__le32 rate_n_flags;
-	__le64 ttl;
+	u8 reserved[8];
 	struct ieee80211_hdr hdr[];
 } __packed; /* TX_CMD_API_S_VER_8,
 	       TX_CMD_API_S_VER_10 */

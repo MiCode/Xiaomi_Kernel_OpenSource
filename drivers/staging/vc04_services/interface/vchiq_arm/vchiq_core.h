@@ -74,8 +74,6 @@
 	((fourcc) >>  8) & 0xff, \
 	(fourcc) & 0xff
 
-static_assert((sizeof(u32) * 8) == 32);
-
 #define BITSET_SIZE(b)        ((b + 31) >> 5)
 #define BITSET_WORD(b)        (b >> 5)
 #define BITSET_BIT(b)         (1 << (b & 31))
@@ -526,7 +524,7 @@ extern struct vchiq_service *
 find_service_by_handle(unsigned int handle);
 
 extern struct vchiq_service *
-find_service_by_port(struct vchiq_state *state, int localport);
+find_service_by_port(struct vchiq_state *state, unsigned int localport);
 
 extern struct vchiq_service *
 find_service_for_instance(struct vchiq_instance *instance, unsigned int handle);
