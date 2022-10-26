@@ -480,8 +480,10 @@ static int reg_to_current(struct mtk_gauge *gauge, unsigned int regval)
 		regval, uvalue16, dvalue, (int)temp_value,
 		retval, is_charging);
 
-	if (is_charging == false)
+	if (is_charging == false) {
+		bm_err("[%s], is_charging=%d\n", __func__, is_charging);
 		return -retval;
+	}
 
 	return retval;
 }
@@ -3741,8 +3743,11 @@ struct file *filp, unsigned int cmd, unsigned long arg)
 		return -ENOTTY;
 	}
 
-	if (sizeof(arg) != sizeof(adc_out_datas))
+	if (sizeof(arg) != sizeof(adc_out_datas)) {
+		bm_err("%s sizeof(arg)=%d sizeof(adc_out_data)=%d\n",
+			__func__, sizeof(arg), sizeof(adc_out_datas));
 		return -EFAULT;
+	}
 
 	switch (cmd) {
 	case Get_META_BAT_VOL:
@@ -3803,6 +3808,7 @@ static long adc_cali_ioctl(
 			gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE);
 		if (copy_to_user(user_data_addr, adc_out_data,
 			sizeof(adc_out_data))) {
+			bm_err("%s copy META_BAT_VOL to user fail\n", __func__);
 			mutex_unlock(&gm->gauge->fg_mutex);
 			return -EFAULT;
 		}
@@ -3814,6 +3820,7 @@ static long adc_cali_ioctl(
 
 		if (copy_to_user(user_data_addr, adc_out_data,
 			sizeof(adc_out_data))) {
+			bm_err("%s copy META_BAT_SOC to user fail\n", __func__);
 			mutex_unlock(&gm->gauge->fg_mutex);
 			return -EFAULT;
 		}
@@ -3827,6 +3834,7 @@ static long adc_cali_ioctl(
 
 		if (copy_to_user(user_data_addr, adc_out_data,
 			sizeof(adc_out_data))) {
+			bm_err("%s copy META_BAT_CAR_TUNE_VALUE to user fail\n", __func__);
 			mutex_unlock(&gm->gauge->fg_mutex);
 			return -EFAULT;
 		}
@@ -3850,6 +3858,7 @@ static long adc_cali_ioctl(
 
 		if (copy_to_user(user_data_addr, adc_out_data,
 			sizeof(adc_out_data))) {
+			bm_err("%s copy Set_META_BAT_CAR_TUNE_VALUE to user fail\n", __func__);
 			mutex_unlock(&gm->gauge->fg_mutex);
 			return -EFAULT;
 		}
@@ -4069,8 +4078,10 @@ static int mt6358_gauge_probe(struct platform_device *pdev)
 	gauge->hw_status.r_fg_value = 50;
 	gauge->attr = mt6358_sysfs_field_tbl;
 
-	if (battery_psy_init(pdev))
+	if (battery_psy_init(pdev)) {
+		bm_err("battery_psy_init fail\n");
 		return -ENOMEM;
+	}
 
 	gauge->psy_desc.name = "mtk-gauge";
 	gauge->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
