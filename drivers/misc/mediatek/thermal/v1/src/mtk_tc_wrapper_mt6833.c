@@ -80,6 +80,8 @@ int get_immediate_cpuL_wrap(void)
 	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
 	return curr_temp;
 }
+EXPORT_SYMBOL(get_immediate_cpuL_wrap);
+
 int get_immediate_cpuB_LVTS1_wrap(void)
 {
 	int curr_temp;
@@ -156,6 +158,8 @@ int get_immediate_cpuB_wrap(void)
 	tscpu_dprintk("%s curr_temp=%d\n", __func__, curr_temp);
 	return curr_temp;
 }
+EXPORT_SYMBOL(get_immediate_cpuB_wrap);
+
 int get_immediate_ts0_wrap(void)
 {
 	int curr_temp;

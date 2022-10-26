@@ -1943,6 +1943,7 @@ int tscpu_get_temp_by_bank(enum thermal_bank_name ts_bank)
 
 	return bank_T;
 }
+EXPORT_SYMBOL(tscpu_get_temp_by_bank);
 
 
 #if THERMAL_GPIO_OUT_TOGGLE
