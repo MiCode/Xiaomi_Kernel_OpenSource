@@ -806,11 +806,64 @@ static int push_msgfifo(struct mtk_camsv_device *dev,
 
 void sv_reset(struct mtk_camsv_device *dev)
 {
-	int sw_ctl;
+	int sw_ctl, smi_dbg_data;
 	int ret;
 
 	dev_dbg(dev->dev, "%s camsv_id:%d\n", __func__, dev->id);
 
+	writel(0, dev->base + REG_CAMSV_SW_CTL);
+	writel(1, dev->base + REG_CAMSV_SW_CTL);
+	wmb(); /* make sure committed */
+
+	ret = readx_poll_timeout(readl, dev->base + REG_CAMSV_SW_CTL, sw_ctl,
+				 sw_ctl & 0x2,
+				 1 /* delay, us */,
+				 100000 /* timeout, us */);
+	if (ret < 0) {
+		dev_info(dev->dev, "%s: timeout\n", __func__);
+
+		dev_info(dev->dev,
+			 "tg_sen_mode: 0x%x, ctl_en: 0x%x, ctl_sw_ctl:0x%x, frame_no:0x%x\n",
+			 readl(dev->base + REG_CAMSV_TG_SEN_MODE),
+			 readl(dev->base + REG_CAMSV_MODULE_EN),
+			 readl(dev->base + REG_CAMSV_SW_CTL),
+			 readl(dev->base + REG_CAMSV_FRAME_SEQ_NO)
+			);
+
+		mtk_smi_dbg_hang_detect("camsys-camsv");
+
+		goto RESET_FAILURE;
+	}
+
+	/* wait for fifo to be empty before adjust max burst length */
+	writel(0x00000800, dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
+	wmb(); /* make sure committed */
+	ret = readx_poll_timeout(readl, dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_PORT, smi_dbg_data,
+				 smi_dbg_data & 0x2000,
+				 1 /* delay, us */,
+				 1000 /* timeout, us */);
+	if (ret < 0)
+		dev_info(dev->dev, "%s: wait for fifo to be empty timeout(smi debug data:0x%x)\n",
+			__func__, readl(dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_PORT));
+	else {
+		dev_info(dev->dev, "%s: set max burst length to 1\n", __func__);
+		if (dev->id < CAMSV_10)
+			writel(0x01000300, dev->base_inner + REG_CAMSV_IMGO_CON0);
+		else
+			writel(0x01000080, dev->base_inner + REG_CAMSV_IMGO_CON0);
+	}
+	/* wait for fifo to be empty after adjust max burst length */
+	writel(0x00000800, dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
+	wmb(); /* make sure committed */
+	ret = readx_poll_timeout(readl, dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_PORT, smi_dbg_data,
+				 smi_dbg_data & 0x2000,
+				 1 /* delay, us */,
+				 1000 /* timeout, us */);
+	if (ret < 0)
+		dev_info(dev->dev, "%s: wait for fifo to be empty timeout(smi debug data:0x%x)\n",
+			__func__, readl(dev->base + REG_CAMSV_DMATOP_DMA_DEBUG_PORT));
+
+	/* reset dma again */
 	writel(0, dev->base + REG_CAMSV_SW_CTL);
 	writel(1, dev->base + REG_CAMSV_SW_CTL);
 	wmb(); /* make sure committed */
