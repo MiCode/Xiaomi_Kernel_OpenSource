@@ -156,6 +156,15 @@
 })
 
 /* =============================================================================
+ * Secure camera TZMP1
+ */
+
+#define IS_SECURE_TZMP1(id)	(			\
+					IS_MT6789(id) ||	\
+					IS_MT6833(id))
+
+
+/* =============================================================================
  * Get platform id from dts node with "compatible_name".
  * The platform id is got from the member, "mediatek,platform".
  * Must add the platform id in the following macro.

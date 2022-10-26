@@ -574,7 +574,7 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 
 			/* Map iova. */
 			/*TZMP1 non-support get iova, support get secure handle*/
-			if (unlikely((IS_MT6789(g_platform_id)) && IonNode.need_sec_handle)) {
+			if (unlikely((IS_SECURE_TZMP1(g_platform_id)) && IonNode.need_sec_handle)) {
 				if (unlikely(cam_mem_get_secure_handle(&mmu, &IonNode) == false)) {
 					LOG_NOTICE(
 					"CAM_MEM_ION_MAP_PA: cam_mem_get_secure_handle fail, memID(%d)\n",
