@@ -2094,6 +2094,17 @@ static int vcu_alloc_d_ext_mem(struct mtk_vcu *vcu, unsigned long len)
 	return 0;
 }
 
+static void mtk_vcu_page_vm_open(struct vm_area_struct *vma)
+{
+	struct vcu_pa_pages *vcu_page = (struct vcu_pa_pages *)vma->vm_private_data;
+
+	atomic_inc(&vcu_page->ref_cnt);
+
+	vcu_dbg_log("[VCU] %s vma->start 0x%lx, end 0x%lx, pgoff 0x%lx, ref_cnt %d\n",
+		__func__, vma->vm_start, vma->vm_end, vma->vm_pgoff,
+		atomic_read(&vcu_page->ref_cnt));
+}
+
 static void mtk_vcu_page_vm_close(struct vm_area_struct *vma)
 {
 	struct vcu_pa_pages *vcu_page = (struct vcu_pa_pages *)vma->vm_private_data;
@@ -2103,11 +2114,13 @@ static void mtk_vcu_page_vm_close(struct vm_area_struct *vma)
 	else
 		pr_info("[VCU][Error] %s ummap fail\n", __func__);
 
-	vcu_dbg_log("[VCU] %s vma->start 0x%lx, end 0x%lx, pgoff 0x%lx\n",
-		__func__, vma->vm_start, vma->vm_end, vma->vm_pgoff);
+	vcu_dbg_log("[VCU] %s vma->start 0x%lx, end 0x%lx, pgoff 0x%lx, ref_cnt %d\n",
+		__func__, vma->vm_start, vma->vm_end, vma->vm_pgoff,
+		atomic_read(&vcu_page->ref_cnt));
 }
 
 const struct vm_operations_struct mtk_vcu_page_vm_ops = {
+	.open = mtk_vcu_page_vm_open,
 	.close = mtk_vcu_page_vm_close,
 };
 
@@ -2160,10 +2173,10 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 	// First handle map pa case, because maybe pa will smaller than
 	// MAP_PA_BASE_1GB in 32bit project
 	if (vcu_queue->map_buf_pa >= MAP_SHMEM_PA_BASE) {
+		mutex_lock(&vcu_queue->mmap_lock);
 		vcu_queue->map_buf_pa = 0;
 		ret = vcu_check_gce_pa_base(vcu_queue, pa_start, length, true);
 		if (ret != NULL) {
-			atomic_inc(&((struct vcu_pa_pages *)ret)->ref_cnt);
 			vma->vm_ops = &mtk_vcu_page_vm_ops;
 			vma->vm_private_data = ret;
 			if (vcu_queue->cmdq_clt->use_iommu) {
@@ -2175,8 +2188,11 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 			vma->vm_pgoff = pa_start >> PAGE_SHIFT;
 			vma->vm_page_prot =
 				pgprot_writecombine(vma->vm_page_prot);
+			mtk_vcu_page_vm_open(vma);
+			mutex_unlock(&vcu_queue->mmap_lock);
 			goto valid_map;
 		}
+		mutex_unlock(&vcu_queue->mmap_lock);
 		pr_info("[VCU] map pa fail with pa_start=0x%lx\n",
 			pa_start);
 		return -EINVAL;
