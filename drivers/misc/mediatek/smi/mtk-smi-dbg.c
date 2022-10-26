@@ -1044,7 +1044,11 @@ static struct kernel_param_ops smi_put_larb_ops = {
 module_param_cb(smi_larb_disable, &smi_put_larb_ops, NULL, 0644);
 MODULE_PARM_DESC(smi_larb_disable, "disable smi larb");
 
+#if IS_MODULE(CONFIG_MTK_SMI)
 module_init(mtk_smi_dbg_init);
+#else
+late_initcall(mtk_smi_dbg_init);
+#endif
 MODULE_LICENSE("GPL v2");
 
 int smi_larb_force_all_on(char *buf, const struct kernel_param *kp)
