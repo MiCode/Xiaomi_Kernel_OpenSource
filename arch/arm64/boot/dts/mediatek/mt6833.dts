@@ -2193,6 +2193,19 @@
 		efuse_segment: segment@78 {
 			reg = <0x78 0x4>;
 		};
+
+		efuse_ptpod_1: ptpod_1@c8{
+			reg = <0xc8 0x64>;
+		};
+
+		efuse_ptpod_2: ptpod_2@340{
+			reg = <0x340 0xc>;
+		};
+
+		efuse_ptpod_3: ptpod_3@30{
+			reg = <0x30 10>;
+		};
+
 		lvts_e_data1: data1 {
 			reg = <0x1D0 0x10>;
 		};
@@ -6621,6 +6634,34 @@
 		ranges;
 		lpm-kernel-suspend = <1>;
 		suspend-method = "disable";
+	};
+
+	eem_fsm: eem_fsm@11278000 {
+		compatible = "mediatek,eem_fsm";
+		reg = <0 0x11278000 0 0x1000>;
+		interrupts = <GIC_SPI 168 IRQ_TYPE_LEVEL_HIGH>;
+		eem-status = <1>;
+		sn-status = <1>;
+		eem-initmon-little = <0xff>;
+		eem-initmon-big = <0xff>;
+		eem-initmon-cci = <0xff>;
+		eem-initmon-gpu = <0xff>;
+		eem-clamp-little = <0>;
+		eem-clamp-big = <0>;
+		eem-clamp-cci = <0>;
+		eem-clamp-gpu = <0>;
+		eem-offset-little = <0xff>;
+		eem-offset-big = <0xff>;
+		eem-offset-cci = <0xff>;
+		eem-offset-gpu = <0xff>;
+		nvmem = <&efuse>;
+		nvmem-names = "mtk_efuse";
+		nvmem-cells = <&efuse_segment &efuse_ptpod_1
+				&efuse_ptpod_2 &efuse_ptpod_3>;
+		nvmem-cell-names = "efuse_segment_cell", "ptpod_1_cell",
+				"ptpod_2_cell", "ptpod_3_cell";
+		proc1-supply = <&mt6359p_vgpu11_reg>;
+		proc2-supply = <&mt6359p_vproc2_reg>;
 	};
 
 	drm_wv: drm_wv {
