@@ -628,6 +628,8 @@
 		little-down-time = <750>;
 		big-rise-time = <1000>;
 		big-down-time = <750>;
+		nvmem-cells = <&efuse_segment>;
+		nvmem-cell-names = "efuse_segment_cell";
 		L-table = <2000 96 1 1
 			   1916 92 1 1
 			   1812 87 1 1
