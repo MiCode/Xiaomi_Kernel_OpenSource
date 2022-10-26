@@ -4873,9 +4873,9 @@
 			   <&dispsys_config_clk CLK_MM_DISP_MUTEX0>;
 		clock-num = <3>;
 		operating-points-v2 = <&opp_table_disp>;
-		// dvfsrc-vcore-supply = <&dvfsrc_vcore>;
-		// interconnects = <&mmqos SLAVE_LARB(31) &mmqos SLAVE_COMMON(0)>;
-		// interconnect-names = "disp_hrt_qos";
+		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		interconnects = <&mmqos SLAVE_LARB(31) &mmqos SLAVE_COMMON(0)>;
+		interconnect-names = "disp_hrt_qos";
 
 		/* define threads, see mt6833-gce.h */
 		mediatek,mailbox-gce = <&gce>;
@@ -5054,6 +5054,19 @@
 			<1>, /*MTK_DRM_OPT_VIRTUAL_DISP*/
 			<0>; /*MTK_DRM_OPT_MML_PRIMARY*/
 	};
+
+	disp_mtee_sec: disp_mtee_sec {
+		compatible = "mediatek,disp_mtee";
+
+		mediatek,mailbox-gce = <&gce>;
+		mboxes = <&gce_sec 8 0 CMDQ_THR_PRIO_3>,
+			<&gce_sec 9 0 CMDQ_THR_PRIO_3>,
+			<&gce_sec 9 0 CMDQ_THR_PRIO_3>;
+
+		gce-client-names = "CLIENT_SEC_CFG0",
+				"CLIENT_SEC_CFG1",
+				"CLIENT_SEC_CFG2";
+		};
 
 	disp_mutex0: disp_mutex@14001000 {
 		compatible = "mediatek,disp_mutex0",
