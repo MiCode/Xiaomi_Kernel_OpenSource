@@ -22,7 +22,7 @@
  * variables
  ***************************************************************************/
 #undef pr_fmt
-#define pr_fmt(fmt) KBUILD_MODNAME " %s(%d) :" fmt, __func__, __LINE__
+#define pr_fmt(fmt) KBUILD_MODNAME " %s(%d) :" fmt"\n", __func__, __LINE__
 
 static int mtk_set_brightness(struct led_classdev *led_cdev,
 					 enum led_brightness brightness);
@@ -66,6 +66,56 @@ static int  __maybe_unused call_notifier(int event, struct led_conf_info *led_co
 	}
 	return err;
 }
+
+static ssize_t min_brightness_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct led_conf_info *led_conf =
+		container_of(led_cdev, struct led_conf_info, cdev);
+
+	return sprintf(buf, "%u\n", led_conf->min_brightness);
+}
+static DEVICE_ATTR_RO(min_brightness);
+
+static ssize_t max_hw_brightness_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct led_conf_info *led_conf =
+		container_of(led_cdev, struct led_conf_info, cdev);
+
+	return sprintf(buf, "%u\n", led_conf->max_hw_brightness);
+}
+static DEVICE_ATTR_RO(max_hw_brightness);
+
+static ssize_t led_mode_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct led_conf_info *led_conf =
+		container_of(led_cdev, struct led_conf_info, cdev);
+
+	return sprintf(buf, "%u\n", led_conf->mode);
+}
+static DEVICE_ATTR_RO(led_mode);
+static ssize_t connector_id_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct led_conf_info *led_conf =
+		container_of(led_cdev, struct led_conf_info, cdev);
+
+
+	if (led_conf->connector_id <= 0) {
+		struct mt_led_data *led_dat =
+			container_of(led_conf, struct mt_led_data, conf);
+		led_dat->mtk_conn_id_get(led_dat, led_dat->desp.index);
+	}
+
+	return sprintf(buf, "%u\n", led_conf->connector_id);
+}
+static DEVICE_ATTR_RO(connector_id);
 
 #ifdef CONFIG_LEDS_MT_BRIGHTNESS_HW_CHANGED
 static ssize_t mt_brightness_hw_changed_show(struct device *dev,
@@ -252,6 +302,12 @@ static int mtk_set_brightness(struct led_classdev *led_cdev,
 	struct mt_led_data *led_dat =
 		container_of(led_conf, struct mt_led_data, conf);
 
+	if (led_conf->connector_id <= 0) {
+		struct mt_led_data *led_dat =
+			container_of(led_conf, struct mt_led_data, conf);
+		led_dat->mtk_conn_id_get(led_dat, led_dat->desp.index);
+	}
+
 	if (led_dat->last_brightness == brightness)
 		return 0;
 
@@ -342,6 +398,12 @@ int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode)
 		pr_info("No max-hw-brightness, use default value 1023");
 		mdev->conf.max_hw_brightness = 1023;
 	}
+	ret = fwnode_property_read_u32(fwnode,
+		"led_mode", &(mdev->conf.mode));
+	if (ret) {
+		pr_info("No min-brightness, use default value 1");
+		mdev->conf.mode = MT_LED_MODE_CUST_BLS_I2C;
+	}
 	mdev->conf.limit_hw_brightness = mdev->conf.max_hw_brightness;
 	ret = fwnode_property_read_string(fwnode, "default-state", &state);
 	if (!ret) {
@@ -354,10 +416,18 @@ int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode)
 	} else {
 		mdev->conf.cdev.brightness = mdev->conf.cdev.max_brightness * 40 / 100;
 	}
+	ret = fwnode_property_read_u32(fwnode,
+		"min-brightness", &(mdev->conf.min_brightness));
+	if (ret) {
+		pr_info("No min-brightness, use default value 1");
+		mdev->conf.min_brightness = 1;
+	}
 
 	strlcpy(mdev->desp.name, mdev->conf.cdev.name,
 		sizeof(mdev->desp.name));
 	mdev->desp.index = leds_info->lens;
+
+	mdev->conf.connector_id = -1;
 
 	nleds_info = krealloc(leds_info, sizeof(struct mt_leds_desp_info) +
 		sizeof(struct led_desp *) * (leds_info->lens + 1),
@@ -373,16 +443,35 @@ int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode)
 	mdev->conf.aal_enable = 0;
 	mutex_init(&mdev->led_access);
 
-	pr_info("parse led: %s, num: %d, max: %d, max_hw: %d, brightness: %d",
+	pr_info("parse led: %s, num: %d, connector_id: %d, max: %d, min: %d, max_hw: %d, brightness: %d",
 		mdev->conf.cdev.name,
 		leds_info->lens,
+		mdev->conf.connector_id,
 		mdev->conf.cdev.max_brightness,
+		mdev->conf.min_brightness,
 		mdev->conf.max_hw_brightness,
 		mdev->conf.cdev.brightness);
 
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mt_leds_parse_dt);
+
+static struct attribute *led_class_attrs[] = {
+	&dev_attr_min_brightness.attr,
+	&dev_attr_max_hw_brightness.attr,
+	&dev_attr_led_mode.attr,
+	&dev_attr_connector_id.attr,
+	NULL,
+};
+
+static const struct attribute_group mt_led_group = {
+	.attrs = led_class_attrs,
+};
+
+static const struct attribute_group *mt_led_groups[] = {
+	&mt_led_group,
+	NULL,
+};
 
 int mt_leds_classdev_register(struct device *parent,
 				     struct mt_led_data *led_dat)
@@ -395,6 +484,8 @@ int mt_leds_classdev_register(struct device *parent,
 #ifdef CONFIG_LEDS_MT_BRIGHTNESS_HW_CHANGED
 	led_dat->conf.brightness_hw_changed = -1;
 #endif
+
+	led_dat->conf.cdev.groups = mt_led_groups;
 
 	ret = devm_led_classdev_register(parent, &(led_dat->conf.cdev));
 	if (ret < 0) {
@@ -418,6 +509,9 @@ int mt_leds_classdev_register(struct device *parent,
 		pr_info("print log init error!");
 
 	led_dat->last_brightness = led_dat->conf.cdev.brightness;
+
+	if (led_dat->mtk_conn_id_get(led_dat, 1) >= 0)
+		pr_notice("get connector id failed!");
 
 	mtk_set_hw_brightness(led_dat,
 		brightness_maptolevel(&led_dat->conf, led_dat->last_brightness));

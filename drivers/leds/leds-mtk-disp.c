@@ -17,12 +17,20 @@ extern int __attribute__ ((weak)) mtk_drm_gateic_set_backlight(unsigned int leve
 extern int __attribute__ ((weak)) _gate_ic_backlight_set(unsigned int brightness);
 
 #undef pr_fmt
-#define pr_fmt(fmt) KBUILD_MODNAME " %s(%d) :" fmt, __func__, __LINE__
+#define pr_fmt(fmt) KBUILD_MODNAME " %s(%d) :" fmt"\n", __func__, __LINE__
 
 struct mt_leds_disp {
 	int num_leds;
 	struct mt_led_data leds[];
 };
+
+static int __maybe_unused led_disp_get_conn_id(struct mt_led_data *mdev,
+		       int flag)
+{
+	mdev->conf.connector_id = mtk_drm_get_conn_obj_id_from_idx(mdev->desp.index, flag);
+	pr_debug("disp_id: %d, get connector id %d", mdev->desp.index, mdev->conf.connector_id);
+	return 0;
+}
 
 static int led_disp_create_fwnode(struct device *dev, struct mt_leds_disp *priv)
 {
@@ -40,6 +48,7 @@ static int led_disp_create_fwnode(struct device *dev, struct mt_leds_disp *priv)
 			return -EINVAL;
 		}
 		led_data->mtk_hw_brightness_set = of_device_get_match_data(dev);
+		led_data->mtk_conn_id_get = led_disp_get_conn_id;
 		ret = mt_leds_classdev_register(dev, led_data);
 		if (ret < 0) {
 			dev_notice(dev, "failed to register led for %s: %d\n",
@@ -115,6 +124,13 @@ static int __maybe_unused led_disp_set(struct mt_led_data *mdev,
 	return mtkfb_set_backlight_level(brightness);
 }
 
+static int __maybe_unused led_disp_conn_set(struct mt_led_data *mdev,
+		       int brightness)
+{
+	pr_debug("set %d brightness %d", mdev->conf.connector_id, brightness);
+	return mtk_drm_set_conn_backlight_level(mdev->conf.connector_id, brightness);
+}
+
 static int __maybe_unused led_i2c_set(struct mt_led_data *mdev,
 		       int brightness)
 {
@@ -139,6 +155,7 @@ static int __maybe_unused led_set_virtual(struct mt_led_data *mdev,
 
 static const struct of_device_id of_disp_leds_match[] = {
 	{ .compatible = "mediatek,disp-leds", .data = (int *)led_disp_set},
+	{ .compatible = "mediatek,disp-conn-leds", .data = (int *)led_disp_conn_set},
 	{ .compatible = "mediatek,i2c-leds", .data = (int *)led_i2c_set},
 	{ .compatible = "mediatek,mtk-leds", .data = (int *)led_set_virtual},
 	{},
