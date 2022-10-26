@@ -84,7 +84,7 @@ struct mtk_thermal_tz_data {
 	unsigned int curr_idx_ma_len;
 	unsigned int ma_lens[MAX_STEP_MA_LEN];
 	long msma_ht[MAX_STEP_MA_LEN];
-	/**< multi-step moving avg. high threshold array. */Z
+	/**< multi-step moving avg. high threshold array. */
 #endif
 	long fake_temp;
 	/* to store the Tfake, range from -275000 to MAX positive of int...

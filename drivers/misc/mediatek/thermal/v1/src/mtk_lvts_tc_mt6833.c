@@ -520,25 +520,6 @@ static void lvts_device_check_counting_status(int tc_num)
 	}
 }
 
-static void lvts_device_check_read_write_status(int tc_num)
-{
-	/* Check this when LVTS device is doing a register
-	 * read or write operation
-	 */
-	int offset, cnt;
-
-	offset = lvts_tscpu_g_tc[tc_num].tc_offset;
-	cnt = 0;
-	while ((readl(LVTS_CONFIG_0 + offset) & _BIT_(24))) {
-		cnt++;
-		if (cnt == 100) {
-			lvts_printk("Error: DEVICE_ACCESS_START didn't ready\n");
-			break;
-		}
-		udelay(2);
-	}
-}
-
 #if defined(CFG_THERM_USE_BOOTUP_COUNT_RC)
 void lvts_device_read_count_RC_N_resume(void)
 {
