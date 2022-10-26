@@ -264,12 +264,7 @@ static int g_is_TempOutsideNormalRange;
  *Weak functions
  *=============================================================
  */
-	unsigned int  __attribute__((weak))
-mt_gpufreq_get_max_power(void)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
+
 
 #if !IS_ENABLED(CONFIG_MEDIATEK_MT6577_AUXADC)
 int __attribute__ ((weak))
@@ -279,17 +274,6 @@ IMM_IsAdcInitReady(void)
 	return 0;
 }
 #endif
-
-
-	bool __attribute__ ((weak))
-mtk_get_gpu_loading(unsigned int *pLoading)
-{
-#if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-#endif
-	return 0;
-}
-
 
 	void __attribute__ ((weak))
 mt_ptp_lock(unsigned long *flags)
@@ -316,12 +300,6 @@ mt_gpufreq_get_cur_freq(void)
 	return 0;
 }
 
-	unsigned int __attribute__ ((weak))
-mt_ppm_thermal_get_max_power(void)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
 
 	unsigned int  __attribute__((weak))
 mt_gpufreq_get_seg_max_opp_index(void)
@@ -337,6 +315,12 @@ mt_gpufreq_get_dvfs_table_num(void)
 	return 0;
 }
 
+	unsigned int __attribute__ ((weak))
+mt_ppm_thermal_get_max_power(void)
+{
+	pr_notice("E_WF: %s doesn't exist\n", __func__);
+	return 0;
+}
 /*=============================================================*/
 long long thermal_get_current_time_us(void)
 {
@@ -2110,7 +2094,7 @@ static int tscpu_read_ttpct(struct seq_file *m, void *v)
 #else
 	max_cpu_pwr = 3000;
 #endif
-	max_gpu_pwr = mt_gpufreq_get_max_power() + 1;
+	max_gpu_pwr = gpufreq_get_max_power(TARGET_DEFAULT) + 1;
 	cpu_power = apthermolmt_get_cpu_power_limit();
 	gpu_power = apthermolmt_get_gpu_power_limit();
 

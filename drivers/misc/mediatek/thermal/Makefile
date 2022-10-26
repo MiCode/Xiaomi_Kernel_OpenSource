@@ -94,6 +94,7 @@ else ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6833)),)
 
 include $(srctree)/drivers/misc/mediatek/thermal/v1/src/Makefile
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/v1/inc
+ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/v2/include/
 thermal_monitor-y += v1/mtk_thermal_monitor.o
 thermal_monitor-y += v1/src/mtk_pmic_efuse_mt6833.o
 thermal_monitor-y += v1/src/mtk_thermal_ipi_mt6833.o

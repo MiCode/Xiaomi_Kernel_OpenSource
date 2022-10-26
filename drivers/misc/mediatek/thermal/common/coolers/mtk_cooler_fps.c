@@ -176,15 +176,6 @@ ged_query_info(GED_INFO eType)
 	return 0;
 }
 
-bool  __attribute__ ((weak))
-mtk_get_gpu_loading(unsigned int *pLoading)
-{
-#if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-#endif
-	return 0;
-}
-
 #if FPS_COOLER_USE_DFPS
 void dfrc_fps_limit_cb(int fps_limit)
 {

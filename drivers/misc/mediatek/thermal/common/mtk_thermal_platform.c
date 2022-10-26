@@ -37,15 +37,6 @@
 unsigned long (*mtk_thermal_get_gpu_loading_fp)(void) = NULL;
 EXPORT_SYMBOL(mtk_thermal_get_gpu_loading_fp);
 
-bool __attribute__ ((weak))
-mtk_get_gpu_loading(unsigned int *pLoading)
-{
-#if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-#endif
-	return 0;
-}
-
 int __attribute__ ((weak))
 force_get_tbat(void)
 {
