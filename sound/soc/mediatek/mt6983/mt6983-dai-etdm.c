@@ -250,11 +250,11 @@ static int etdm_out_sgen_get(struct snd_kcontrol *kcontrol,
 
 	if (!strcmp(kcontrol->id.name, "ETDM_OUT1_SGEN")) {
 		reg = ETDM_0_3_COWORK_CON3;
-		mask = ETDM_OUT1_USE_SGEN_MASK;
+		mask = ETDM_OUT1_USE_SGEN_MASK_SFT;
 		shift = ETDM_OUT1_USE_SGEN_SFT;
 	} else if (!strcmp(kcontrol->id.name, "ETDM_OUT0_SGEN")) {
 		reg = ETDM_0_3_COWORK_CON3;
-		mask = ETDM_OUT1_USE_SGEN_MASK;
+		mask = ETDM_OUT1_USE_SGEN_MASK_SFT;
 		shift = ETDM_OUT1_USE_SGEN_SFT;
 	}
 
@@ -300,6 +300,8 @@ static SOC_ENUM_SINGLE_EXT_DECL(etdm_out_sgen_map_enum,
 				etdm_out_sgen_map);
 
 /* lpbk */
+static unsigned int is_etdm_lpbk_test;
+
 static const int etdm_lpbk_idx[] = {
 	0x0, 0xa,
 };
@@ -316,11 +318,11 @@ static int etdm_lpbk_get(struct snd_kcontrol *kcontrol,
 
 	if (!strcmp(kcontrol->id.name, "ETDM_LPBK_0")) {
 		reg = ETDM_0_3_COWORK_CON1;
-		mask = ETDM_IN1_SDATA0_SEL_MASK;
+		mask = ETDM_IN1_SDATA0_SEL_MASK_SFT;
 		shift = ETDM_IN1_SDATA0_SEL_SFT;
 	} else if (!strcmp(kcontrol->id.name, "ETDM_LPBK_1")) {
 		reg = ETDM_0_3_COWORK_CON1;
-		mask = ETDM_IN1_SDATA1_15_SEL_MASK;
+		mask = ETDM_IN1_SDATA1_15_SEL_MASK_SFT;
 		shift = ETDM_IN1_SDATA1_15_SEL_SFT;
 	}
 
@@ -330,6 +332,15 @@ static int etdm_lpbk_get(struct snd_kcontrol *kcontrol,
 	value &= mask;
 	value >>= shift;
 	ucontrol->value.enumerated.item[0] = value;
+
+	if (value == 0xa)
+		ucontrol->value.enumerated.item[0] = 1;
+	else
+		ucontrol->value.enumerated.item[0] = 0;
+
+	dev_info(afe->dev, "etdm lpbk setting : %d (flag = %d)\n",
+			 __func__, ucontrol->value.enumerated.item[0], is_etdm_lpbk_test);
+
 	return 0;
 }
 
@@ -343,6 +354,9 @@ static int etdm_lpbk_put(struct snd_kcontrol *kcontrol,
 	unsigned int val = 0;
 	unsigned int mask = 0;
 
+	if (value >= ARRAY_SIZE(etdm_lpbk_idx))
+		return -EINVAL;
+
 	if (!strcmp(kcontrol->id.name, "ETDM_LPBK_0")) {
 		reg = ETDM_0_3_COWORK_CON1;
 		mask = ETDM_IN1_SDATA0_SEL_MASK_SFT;
@@ -352,6 +366,8 @@ static int etdm_lpbk_put(struct snd_kcontrol *kcontrol,
 		mask = ETDM_IN1_SDATA1_15_SEL_MASK_SFT;
 		val = etdm_lpbk_idx[value] << ETDM_IN1_SDATA1_15_SEL_SFT;
 	}
+
+	is_etdm_lpbk_test = val;
 
 	if (reg)
 		regmap_update_bits(afe->regmap, reg, mask, val);
