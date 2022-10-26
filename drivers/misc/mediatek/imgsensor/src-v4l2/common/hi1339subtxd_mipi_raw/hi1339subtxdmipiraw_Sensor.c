@@ -132,13 +132,13 @@ static struct imgsensor_info_struct imgsensor_info = {
 
 	.margin = 4,		/* sensor framelength & shutter margin */
 	.min_shutter = 4,	/* min shutter */
-	.min_gain = 64,	// 66*16=1056
+	.min_gain = BASEGAIN,// 66*16=1056
 	.max_gain = 16 * BASEGAIN,	//65536
 	.min_gain_iso = 100,
-	.exp_step = 1,	
+	.exp_step = 2,
 	.gain_step = 4, // 4*16=64
 	.gain_type = 3,
-	.max_frame_length = 0xffffff,
+	.max_frame_length = 0xffff,
 	.ae_shut_delay_frame = 0,
 	.ae_sensor_gain_delay_frame = 0,
 	.ae_ispGain_delay_frame = 2,	/* isp gain delay frame for AE cycle */
@@ -454,10 +454,11 @@ static void set_shutter_frame_length(struct subdrv_ctx *ctx,kal_uint16 shutter,
 
 static kal_uint16 gain2reg(struct subdrv_ctx *ctx,const kal_uint16 gain)
 {
-    kal_uint16 reg_gain = 0x0000;
-    reg_gain = gain / 4 - 16;
+	kal_uint16 reg_gain = 0x0000;
 
-    return (kal_uint16)reg_gain;
+	reg_gain = gain/64 - 16;
+
+	return (kal_uint16)reg_gain;
 }
 
 /*************************************************************************
