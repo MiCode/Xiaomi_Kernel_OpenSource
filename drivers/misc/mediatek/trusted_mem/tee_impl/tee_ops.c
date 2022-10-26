@@ -98,7 +98,7 @@ static int tee_session_open_single_session_unlocked(void)
 		goto err_create_wsm_buffer;
 	}
 
-	ret = TEEC_InitializeContext(SECMEM_TL_GP_UUID_STRING,
+	ret = TEEC_InitializeContext(NULL,/*SECMEM_TL_GP_UUID_STRING*/
 				     &g_sess_data->context);
 	if (ret != TEEC_SUCCESS) {
 		pr_err("TEEC_InitializeContext failed: %x\n", ret);
