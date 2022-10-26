@@ -11,6 +11,8 @@
 /* #define MTK_SPOWER_UT */
 #if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6765)
 #include "mtk_static_power_6765.h"
+#elif IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6833)
+#include "mtk_static_power_6833.h"
 #else
 #include "mtk_static_power_plat.h"
 #endif
