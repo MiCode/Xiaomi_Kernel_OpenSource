@@ -179,7 +179,7 @@ void upower_ut(void)
 	}
 }
 #endif
-static void upower_update_dyn_pwr(void)
+void upower_update_dyn_pwr(void)
 {
 	unsigned long long refPower, newVolt, refVolt, newPower;
 	unsigned long long temp1, temp2;
@@ -260,7 +260,7 @@ static void upower_get_c_state_lkg(unsigned int bank,
 		}
 	}
 }
-static void upower_update_lkg_pwr(void)
+void upower_update_lkg_pwr(void)
 {
 	int i;
 	struct upower_tbl *tbl;
@@ -332,62 +332,7 @@ static void upower_init_rownum(void)
 	for (i = 0; i < NR_UPOWER_BANK; i++)
 		upower_tbl_ref[i].row_num = UPOWER_OPP_NUM;
 }
-#if IS_ENABLED(CONFIG_MTK_EEM_READY)
-static unsigned int eem_is_enabled(void)
-{
-/* #ifndef EARLY_PORTING_EEM */
-	return mt_eem_is_enabled();
-}
 
-static void upower_wait_for_eem_volt_done(void)
-{
-#ifndef EEM_NOT_SET_VOLT
-	unsigned char eem_volt_not_ready = 0;
-	int i;
-
-	udelay(100);
-	while (1) {
-		eem_volt_not_ready = 0;
-		for (i = 0; i < NR_UPOWER_BANK; i++) {
-			if (upower_tbl_ref[i].row[UPOWER_OPP_NUM - 1].volt == 0)
-				eem_volt_not_ready = 1;
-		}
-		if (!eem_volt_not_ready)
-			break;
-		/* if eem volt not ready, wait 100us */
-		upower_debug("wait for eem update\n");
-		udelay(100);
-	}
-#endif
-}
-#endif
-#ifdef UPOWER_NUM_LARGER
-static void upower_wait_for_eem_volt_done_upn_larger(void)
-{
-	unsigned char eem_volt_not_ready = 0;
-	int i;
-
-	/* ensure upower bank num does not larger than eem det num */
-	iter =
-	(int)NR_EEM_DET < (int)NR_UPOWER_BANK ? NR_EEM_DET:NR_UPOWER_BANK;
-	udelay(100);
-	while (1) {
-		eem_volt_not_ready = 0;
-		for (i = 0; i < iter; i++) {
-			upower_debug("tbl_ref = %d iter %d\n",
-				upower_tbl_ref[i].row[UPOWER_OPP_NUM - 1].volt,
-				iter);
-			if (upower_tbl_ref[i].row[UPOWER_OPP_NUM - 1].volt == 0)
-				eem_volt_not_ready = 1;
-		}
-		if (!eem_volt_not_ready)
-			break;
-		/* if eem volt not ready, wait 100us */
-		udelay(100);
-	}
-}
-#endif
-#if IS_ENABLED(CONFIG_MTK_EEM_READY)
 static void upower_init_lkgidx(void)
 {
 	int i;
@@ -406,9 +351,10 @@ static void upower_init_volt(void)
 			upower_tbl_ref[i].row[j].volt = tbl->row[j].volt;
 	}
 }
-#endif
+
+#if IS_ENABLED(CONFIG_MTK_EEM_READY)
 #ifdef UPOWER_USE_DEF_CCI_TBL
-static void upower_init_volt_cci(void)
+void upower_init_volt_cci(void)
 {
 	int j;
 	struct upower_tbl *tbl;
@@ -419,20 +365,22 @@ static void upower_init_volt_cci(void)
 }
 #endif
 
-
 #ifdef UPOWER_NUM_LARGER
-static void confirm_volt(void)
+void confirm_volt(void)
 {
 	int i, j;
 	struct upower_tbl *tbl;
 
-	for (i = iter; i < NR_UPOWER_BANK; i++) {
+	i = (int)NR_EEM_DET < (int)NR_UPOWER_BANK ? NR_EEM_DET : NR_UPOWER_BANK;
+
+	for (; i < NR_UPOWER_BANK; i++) {
 		tbl = upower_tbl_infos[i].p_upower_tbl;
 		for (j = 0; j < UPOWER_OPP_NUM; j++)
 			upower_tbl_ref[i].row[j].volt = tbl->row[j].volt;
 	}
 
 }
+#endif
 #endif
 
 static int upower_update_tbl_ref(void)
@@ -481,7 +429,98 @@ static int upower_update_tbl_ref(void)
 	return ret;
 }
 
-static int upower_cal_turn_point(void)
+void get_L_pwr_efficiency(void)
+{
+#ifndef DISABLE_TP
+	int i;
+	unsigned int max = 0;
+	unsigned int min = ~0U;
+	unsigned long long sum;
+	struct upower_tbl *tbl;
+
+	for (i = 0; i < UPOWER_OPP_NUM; i++) {
+		tbl = &upower_tbl_ref[UPOWER_BANK_L];
+		sum = (unsigned long long)(tbl->row[i].lkg_pwr[LKG_IDX] +
+				tbl->row[i].dyn_pwr);
+#if defined(__LP64__) || defined(_LP64)
+		tbl->row[i].pwr_efficiency =
+			sum / (unsigned long long)tbl->row[i].cap;
+
+#else
+		tbl->row[i].pwr_efficiency =
+			div64_u64(sum, (unsigned long long)tbl->row[i].cap);
+#endif
+
+		upower_debug("L[%d] eff = %d dyn = %d lkg = %d cap = %d\n",
+			i, tbl->row[i].pwr_efficiency,
+			tbl->row[i].dyn_pwr,
+			tbl->row[i].lkg_pwr[LKG_IDX],
+			tbl->row[i].cap
+			);
+
+		if (tbl->row[i].pwr_efficiency > max)
+			max = tbl->row[i].pwr_efficiency;
+		if (tbl->row[i].pwr_efficiency < min)
+			min = tbl->row[i].pwr_efficiency;
+	}
+
+	tbl->max_efficiency = max;
+	tbl->min_efficiency = min;
+#endif
+}
+
+void get_LL_pwr_efficiency(void)
+{
+
+#ifndef DISABLE_TP
+	int i;
+	unsigned int max = 0;
+	unsigned int min = ~0U;
+	unsigned long long LL_pwr, CCI_pwr;
+	unsigned long long sum;
+	struct upower_tbl *tbl, *ctbl;
+
+	tbl = &upower_tbl_ref[UPOWER_BANK_LL];
+	ctbl = &upower_tbl_ref[UPOWER_BANK_CCI];
+	for (i = 0; i < UPOWER_OPP_NUM; i++) {
+		LL_pwr = (unsigned long long)(tbl->row[i].lkg_pwr[LKG_IDX] +
+				tbl->row[i].dyn_pwr);
+#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6833)
+		CCI_pwr = 0;
+#else
+		CCI_pwr = (unsigned long long)(ctbl->row[i].lkg_pwr[LKG_IDX] +
+				ctbl->row[i].dyn_pwr);
+#endif
+		sum = (unsigned long long)LL_CORE_NUM * LL_pwr + CCI_pwr;
+#if defined(__LP64__) || defined(_LP64)
+		tbl->row[i].pwr_efficiency =
+		sum / (unsigned long long)(LL_CORE_NUM * tbl->row[i].cap);
+
+#else
+		tbl->row[i].pwr_efficiency =
+			div64_u64(LL_CORE_NUM * LL_pwr + CCI_pwr,
+			(unsigned long long)(LL_CORE_NUM * tbl->row[i].cap))
+#endif
+
+		upower_debug("LL[%d] eff = %d dyn = %d lkg = %d cap = %d\n",
+			i, tbl->row[i].pwr_efficiency,
+			tbl->row[i].dyn_pwr,
+			tbl->row[i].lkg_pwr[LKG_IDX],
+			tbl->row[i].cap
+			);
+
+		if (tbl->row[i].pwr_efficiency > max)
+			max = tbl->row[i].pwr_efficiency;
+		if (tbl->row[i].pwr_efficiency < min)
+			min = tbl->row[i].pwr_efficiency;
+	}
+
+	tbl->max_efficiency = max;
+	tbl->min_efficiency = min;
+#endif
+}
+
+int upower_cal_turn_point(void)
 {
 	int i;
 #ifndef DISABLE_TP
@@ -750,25 +789,15 @@ static int __init upower_init(void)
 
 	upower_init_cap();
 
-#if IS_ENABLED(CONFIG_MTK_EEM_READY)
-	/* apply orig volt and lkgidx, if eem is not enabled*/
-	if (!eem_is_enabled()) {
-		upower_debug("eem is not enabled\n");
-		upower_init_lkgidx();
-		upower_init_volt();
-	} else {
-#ifdef UPOWER_USE_DEF_CCI_TBL
-		upower_init_volt_cci();
-#endif
-#ifdef UPOWER_NUM_LARGER
-		upower_wait_for_eem_volt_done_upn_larger();
-		confirm_volt();
-#endif
-		upower_wait_for_eem_volt_done();
-	}
-#endif
+	/* apply orig volt and lkgidx */
+	upower_init_lkgidx();
+	upower_init_volt();
+
 	upower_update_dyn_pwr();
 	upower_update_lkg_pwr();
+
+	get_L_pwr_efficiency();
+	get_LL_pwr_efficiency();
 	turn = upower_cal_turn_point();
 	/* set_sched_turn_point_cap(); */
 	upower_debug("@@~turn point is %d\n", turn);
@@ -776,6 +805,7 @@ static int __init upower_init(void)
 	upower_update_L_plus_cap();
 	upower_update_L_plus_lkg_pwr();
 #endif
+
 	upower_update_tbl_ref();
 
 #ifdef UPOWER_UT
@@ -792,6 +822,7 @@ static int __init upower_init(void)
 	/* print_tbl(); */
 	return 0;
 }
+
 static void __exit upower_exit(void)
 {
 

@@ -8,7 +8,7 @@ config MTK_UNIFIED_POWER
 
 config MTK_EEM_READY
 	def_bool y
-	depends on MTK_EEM
+	depends on MTK_PTPOD_LEGACY
 	help
 	  This driver depends PPM
 	  Select "y" if you want to enable this features.

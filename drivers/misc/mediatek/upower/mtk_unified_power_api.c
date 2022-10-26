@@ -70,6 +70,29 @@ void upower_update_degree_by_eem(enum upower_bank bank, int deg)
 	}
 }
 EXPORT_SYMBOL(upower_update_degree_by_eem);
+
+/* Update dyn and lkg power along wirh L and LL
+ * efficiency after volt update from eem
+ */
+void upower_update_tables_by_eem(void)
+{
+#ifdef UPOWER_USE_DEF_CCI_TBL
+	upower_init_volt_cci();
+#endif
+#ifdef UPOWER_NUM_LARGER
+	confirm_volt();
+#endif
+
+	upower_update_dyn_pwr();
+	upower_update_lkg_pwr();
+
+	get_L_pwr_efficiency();
+	get_LL_pwr_efficiency();
+
+	upower_cal_turn_point();
+}
+EXPORT_SYMBOL(upower_update_tables_by_eem);
+
 /* for EAS to get pointer of tbl */
 struct upower_tbl_info **upower_get_tbl(void)
 {

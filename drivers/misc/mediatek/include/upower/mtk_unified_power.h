@@ -81,28 +81,37 @@ void set_sched_turn_point_cap(void);
 /***************************
  * APIs                    *
  **************************/
+
 /* provided by eem */
 extern unsigned int mt_eem_is_enabled(void);
+
 /* PPM */
 extern unsigned int upower_get_power(enum upower_bank bank, unsigned int opp,
 	enum upower_dtype type);
+
 /* EAS */
 extern struct upower_tbl_info **upower_get_tbl(void);
 extern int upower_get_turn_point(void);
 extern struct upower_tbl *upower_get_core_tbl(unsigned int cpu);
+
 /* EEM */
-
-
 extern void upower_update_volt_by_eem(enum upower_bank bank,
 	unsigned int *volt, unsigned int opp_num);
 extern void upower_update_degree_by_eem(enum upower_bank bank, int deg);
+extern void upower_update_tables_by_eem(void);
 
 /* platform part */
 extern int upower_bank_to_spower_bank(int upower_bank);
 extern void get_original_table(void);
 extern void upower_update_L_plus_cap(void);
 extern void upower_update_L_plus_lkg_pwr(void);
-
+extern void upower_update_dyn_pwr(void);
+extern void upower_update_lkg_pwr(void);
+extern void upower_init_volt_cci(void);
+extern void confirm_volt(void);
+extern void get_L_pwr_efficiency(void);
+extern void get_LL_pwr_efficiency(void);
+extern int upower_cal_turn_point(void);
 #ifdef UPOWER_RCU_LOCK
 extern void upower_read_lock(void);
 extern void upower_read_unlock(void);

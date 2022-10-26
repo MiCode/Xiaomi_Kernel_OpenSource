@@ -831,6 +831,7 @@ static int eem_probe(struct platform_device *pdev)
 				det->volt_tbl_pmic);
 		}
 	}
+upower_update_tables_by_eem();
 #endif
 
 
