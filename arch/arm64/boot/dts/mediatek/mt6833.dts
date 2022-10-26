@@ -3906,6 +3906,8 @@
 			"l9_img_timgo_d1",
 			"l9_img_ufbc_w0",
 			"l9_img_ufbc_r0";
+		operating-points-v2 = <&opp_table_mdp>, <&opp_table_img>;
+		mdp-opp = <&opp_table_mdp>;
 		isp-opp = <&opp_table_img>;
 		mdp-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		isp-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
