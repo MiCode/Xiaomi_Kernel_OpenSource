@@ -5228,12 +5228,34 @@
 		clocks = <&dispsys_config_clk CLK_MM_SMI_IOMMU>;
 		clock-names = "bclk";
 		#iommu-cells = <1>;
-	};
+		};
+	iommu_test {
+			compatible = "mediatek,ktf-iommu-test";
+			iommus = <&iommu0 M4U_PORT_L0_DISP_POSTMASK0>;
+		};
 
 	mtk_iommu_debug {
 		compatible = "mediatek,mt6833-iommu-debug";
-	};
-
+		};
+	mtk_iommu_test_dmaheap_normal {
+			compatible = "mediatek,dmaheap-normal";
+			iommus = <&iommu0 M4U_PORT_L0_DISP_POSTMASK0>;
+		};
+	mtk_iommu_test0 {
+			compatible = "mediatek,iommu-test-dom0";
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			iommus = <&iommu0 M4U_PORT_L0_DISP_POSTMASK0>;
+		};
+	mtk_iommu_test1 {
+			compatible = "mediatek,iommu-test-dom1";
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			iommus = <&iommu0 M4U_PORT_L4_VDEC_MC_EXT>;
+		};
+	mtk_iommu_test2 {
+			compatible = "mediatek,iommu-test-dom2";
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			iommus = <&iommu0 M4U_PORT_L2_MDP_RDMA0>;
+		};
 	mtk_iommu_pseudo {
 		compatible = "mediatek,mt6833-iommu-pseudo";
 		mediatek,larbs = <&smi_larb0 &smi_larb1 &smi_larb2
@@ -5242,7 +5264,6 @@
 				  &smi_larb14 &smi_larb16 &smi_larb17
 				  &smi_larb19 &smi_larb20>;
 	};
-
 	mtk_sec_dmaheap {
 		compatible = "mediatek,dmaheap-region-base";
 		iommus = <&iommu0 M4U_PORT_L0_DISP_POSTMASK0>;
