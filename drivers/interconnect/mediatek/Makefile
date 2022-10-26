@@ -5,7 +5,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/qos
 obj-$(CONFIG_INTERCONNECT_MTK_EMI) += mtk-emi.o
 obj-$(CONFIG_INTERCONNECT_MTK_MMQOS_COMMON) += mmqos-common.o
-ifeq ($(CONFIG_MTK_ECCCI_DRIVER), m)
+ifneq ($(filter y m,$(CONFIG_MTK_ECCCI_DRIVER)),)
 obj-$(CONFIG_INTERCONNECT_MTK_MMQOS_COMMON) += mmqos-md.o
 endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs
