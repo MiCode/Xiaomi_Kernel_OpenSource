@@ -63,9 +63,6 @@ def main(**args):
     if not os.path.exists(gen_build_config_dir):
         os.makedirs(gen_build_config_dir)
 
-    mode_config = ''
-    if (build_mode == 'eng') or (build_mode == 'userdebug'):
-        mode_config = '%s.config' % (build_mode)
     project_defconfig_name = ''
     if kernel_defconfig:
         project_defconfig_name = kernel_defconfig
@@ -85,6 +82,13 @@ def main(**args):
         print 'Error: cannot find project defconfig file under ' + abs_kernel_dir
         sys.exit(2)
     project_defconfig = '%s/%s/%s' % (abs_kernel_dir, defconfig_dir, project_defconfig_name)
+
+    mode_config = ''
+    if (build_mode == 'eng') or (build_mode == 'userdebug'):
+        kernel_bit = ''
+        if kernel_arch == 'arm':
+            kernel_bit = '_32'
+        mode_config = '%s%s.config' % (build_mode, kernel_bit)
 
     special_defconfig = ''
     build_config = ''
@@ -132,7 +136,7 @@ def main(**args):
 
     all_defconfig = ''
     pre_defconfig_cmds = ''
-    if not special_defconfig:
+    if (not special_defconfig) or (kernel_arch == 'arm'):
         all_defconfig = '%s %s %s' % (project_defconfig_name, kernel_defconfig_overlays, mode_config)
     else:
         # get relative path from {kernel dir} to curret working dir
