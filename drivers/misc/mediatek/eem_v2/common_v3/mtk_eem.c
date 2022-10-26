@@ -273,16 +273,21 @@ static void get_picachu_efuse(void)
 #endif
 #endif
 
+/* Read efuse values from given cell name defined in dts
+ * Input  : Takes cell name to read data from
+ * Output : Return pointer to the data buffer
+ */
+
 static void *read_mtk_efuse_cell(char *nvmem_cell_name)
 {
 struct nvmem_cell *efuse_cell;
-	u32 *efuse_buf = NULL, *data = NULL;
+	u32 *efuse_buf = NULL;
 	size_t len;
 	struct device_node *dev_node;
 
 	dev_node = of_find_node_by_name(NULL, "eem_fsm");
 	if (!dev_node) {
-		pr_info("get mt_cpufreq node fail\n");
+		pr_info("get eem_fsm node fail\n");
 		return NULL;
 	}
 
@@ -298,9 +303,8 @@ struct nvmem_cell *efuse_cell;
 		pr_info("@%s: cannot get efuse_buf : %s\n", __func__, nvmem_cell_name);
 		return NULL;
 	}
-	data = efuse_buf;
-	kfree(efuse_buf);
-	return data;
+
+	return efuse_buf;
 }
 
 static int get_devinfo(void)
@@ -318,6 +322,7 @@ static int get_devinfo(void)
 		safeEfuse = 1;
 		eem_error("No EFUSE , use safe efuse\n");
 	}
+
 	/* FTPGM */
 	val[0] = efuse_buf[0];
 	val[1] = efuse_buf[1];
@@ -341,15 +346,16 @@ static int get_devinfo(void)
 	val[19] = efuse_buf[22];
 	val[20] = efuse_buf[23];
 	val[21] = efuse_buf[24];
-
+	kfree(efuse_buf);
 	efuse_buf = read_mtk_efuse_cell("ptpod_2_cell");
 	if (!efuse_buf) {
 		safeEfuse = 1;
 		eem_error("No EFUSE , use safe efuse\n");
 	}
+
 	val[22] = efuse_buf[0];
 	val[23] = efuse_buf[2];
-
+	kfree(efuse_buf);
 #if EEM_FAKE_EFUSE
 	/* for verification */
 	val[0] = DEVINFO_0;
@@ -1435,9 +1441,11 @@ static int eem_hrid_proc_show(struct seq_file *m, void *v)
 
 	FUNC_ENTER(FUNC_LV_HELP);
 	efuse_buf = read_mtk_efuse_cell("ptpod_3_cell");
+
 	for (i = 0; i < 4; i++)
 		seq_printf(m, "%s[HRID][%d]: 0x%08X\n", EEM_TAG, i,
 			efuse_buf[i]);
+	kfree(efuse_buf);
 	FUNC_EXIT(FUNC_LV_HELP);
 	return 0;
 }
@@ -1450,12 +1458,14 @@ static int eem_efuse_proc_show(struct seq_file *m, void *v)
 
 	FUNC_ENTER(FUNC_LV_HELP);
 	efuse_buf = read_mtk_efuse_cell("ptpod_1_cell");
+
 	if (!efuse_buf)
 		return 0;
 
 	for (i = 0; i < 25; i++)
 		seq_printf(m, "%s[PTP_DUMP] ORIG_RES%d: 0x%08X\n", EEM_TAG, i,
 			efuse_buf[i]);
+	kfree(efuse_buf);
 
 	efuse_buf = read_mtk_efuse_cell("ptpod_2_cell");
 	if (!efuse_buf)
@@ -1465,6 +1475,7 @@ static int eem_efuse_proc_show(struct seq_file *m, void *v)
 		efuse_buf[0]);
 	seq_printf(m, "%s[PTP_DUMP] ORIG_RES%d: 0x%08X\n", EEM_TAG, 27,
 		efuse_buf[2]);
+	kfree(efuse_buf);
 
 	/* Depend on EFUSE location */
 	for (i = 0; i < IDX_HW_RES_SN;
@@ -2109,6 +2120,7 @@ static int eem_init(void)
 
 	efuse_buf = read_mtk_efuse_cell("efuse_segment_cell");
 	eemsn_log->segCode = efuse_buf[0] & 0xFF;
+	kfree(efuse_buf);
 	eem_info("Segment Code : 0x%x", eemsn_log->segCode);
 	/* eemsn_log->efuse_sv = eem_read(EEM_TEMPSPARE1); */
 
