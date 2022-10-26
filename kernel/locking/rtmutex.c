@@ -1471,7 +1471,6 @@ static inline void __rt_mutex_lock(struct rt_mutex *lock, unsigned int subclass)
 
 	mutex_acquire(&lock->dep_map, subclass, 0, _RET_IP_);
 	rt_mutex_fastlock(lock, TASK_UNINTERRUPTIBLE, rt_mutex_slowlock);
-	trace_android_vh_record_rtmutex_lock_starttime(current, jiffies);
 }
 
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
@@ -1520,8 +1519,6 @@ int __sched rt_mutex_lock_interruptible(struct rt_mutex *lock)
 	ret = rt_mutex_fastlock(lock, TASK_INTERRUPTIBLE, rt_mutex_slowlock);
 	if (ret)
 		mutex_release(&lock->dep_map, _RET_IP_);
-	else
-		trace_android_vh_record_rtmutex_lock_starttime(current, jiffies);
 
 	return ret;
 }
@@ -1566,8 +1563,6 @@ rt_mutex_timed_lock(struct rt_mutex *lock, struct hrtimer_sleeper *timeout)
 				       rt_mutex_slowlock);
 	if (ret)
 		mutex_release(&lock->dep_map, _RET_IP_);
-	else
-		trace_android_vh_record_rtmutex_lock_starttime(current, jiffies);
 
 	return ret;
 }
@@ -1594,8 +1589,6 @@ int __sched rt_mutex_trylock(struct rt_mutex *lock)
 	ret = rt_mutex_fasttrylock(lock, rt_mutex_slowtrylock);
 	if (ret)
 		mutex_acquire(&lock->dep_map, 0, 1, _RET_IP_);
-	else
-		trace_android_vh_record_rtmutex_lock_starttime(current, jiffies);
 
 	return ret;
 }
@@ -1610,7 +1603,6 @@ void __sched rt_mutex_unlock(struct rt_mutex *lock)
 {
 	mutex_release(&lock->dep_map, _RET_IP_);
 	rt_mutex_fastunlock(lock, rt_mutex_slowunlock);
-	trace_android_vh_record_rtmutex_lock_starttime(current, 0);
 }
 EXPORT_SYMBOL_GPL(rt_mutex_unlock);
 

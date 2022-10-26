@@ -1863,27 +1863,15 @@ int f2fs_start_ckpt_thread(struct f2fs_sb_info *sbi)
 void f2fs_stop_ckpt_thread(struct f2fs_sb_info *sbi)
 {
 	struct ckpt_req_control *cprc = &sbi->cprc_info;
-	struct task_struct *ckpt_task;
 
-	if (!cprc->f2fs_issue_ckpt)
-		return;
+	if (cprc->f2fs_issue_ckpt) {
+		struct task_struct *ckpt_task = cprc->f2fs_issue_ckpt;
 
-	ckpt_task = cprc->f2fs_issue_ckpt;
-	cprc->f2fs_issue_ckpt = NULL;
-	kthread_stop(ckpt_task);
+		cprc->f2fs_issue_ckpt = NULL;
+		kthread_stop(ckpt_task);
 
-	f2fs_flush_ckpt_thread(sbi);
-}
-
-void f2fs_flush_ckpt_thread(struct f2fs_sb_info *sbi)
-{
-	struct ckpt_req_control *cprc = &sbi->cprc_info;
-
-	flush_remained_ckpt_reqs(sbi, NULL);
-
-	/* Let's wait for the previous dispatched checkpoint. */
-	while (atomic_read(&cprc->queued_ckpt))
-		io_schedule_timeout(DEFAULT_IO_TIMEOUT);
+		flush_remained_ckpt_reqs(sbi, NULL);
+	}
 }
 
 void f2fs_init_ckpt_req_control(struct f2fs_sb_info *sbi)
