@@ -53,12 +53,14 @@ static int jpeg_isr_hybrid_dec_lisr(int id)
 {
 	unsigned int tmp = 0;
 
-	tmp = IMG_REG_READ(REG_JPGDEC_HYBRID_274(id));
-	if (tmp) {
-		_jpeg_hybrid_dec_int_status[id] = tmp;
-		IMG_REG_WRITE(tmp, REG_JPGDEC_HYBRID_274(id));
-		JPEG_LOG(1, "return 0");
-		return 0;
+	if (dec_hwlocked[id]) {
+		tmp = IMG_REG_READ(REG_JPGDEC_HYBRID_274(id));
+		if (tmp) {
+			_jpeg_hybrid_dec_int_status[id] = tmp;
+			IMG_REG_WRITE(tmp, REG_JPGDEC_HYBRID_274(id));
+			JPEG_LOG(1, "return 0");
+			return 0;
+		}
 	}
 	JPEG_LOG(1, "return -1");
 	return -1;
@@ -120,6 +122,13 @@ static int jpeg_drv_hybrid_dec_start(unsigned int data[],
 		return ret;
 	}
 
+	mutex_lock(&jpeg_hybrid_dec_lock);
+	if (!dec_hwlocked[id]) {
+		mutex_unlock(&jpeg_hybrid_dec_lock);
+		JPEG_LOG(0, "hw %d unlocked, start fail", id);
+		return -1;
+	}
+
 	IMG_REG_WRITE(data[0], REG_JPGDEC_HYBRID_090(id));
 	IMG_REG_WRITE(data[1], REG_JPGDEC_HYBRID_090(id));
 	IMG_REG_WRITE(data[2], REG_JPGDEC_HYBRID_0FC(id));
@@ -146,6 +155,8 @@ static int jpeg_drv_hybrid_dec_start(unsigned int data[],
 	IMG_REG_WRITE(data[17], REG_JPGDEC_HYBRID_33C(id));
 	IMG_REG_WRITE(data[18], REG_JPGDEC_HYBRID_344(id));
 	IMG_REG_WRITE(data[19], REG_JPGDEC_HYBRID_240(id));
+
+	mutex_unlock(&jpeg_hybrid_dec_lock);
 
 	JPEG_LOG(1, "-");
 	return ret;
@@ -599,8 +610,12 @@ static int jpeg_hybrid_dec_ioctl(unsigned int cmd, unsigned long arg,
 			return -EFAULT;
 		}
 
-		IMG_REG_WRITE(0x0, REG_JPGDEC_HYBRID_090(hwid));
-		IMG_REG_WRITE(0x00000010, REG_JPGDEC_HYBRID_090(hwid));
+		mutex_lock(&jpeg_hybrid_dec_lock);
+		if (dec_hwlocked[hwid]) {
+			IMG_REG_WRITE(0x0, REG_JPGDEC_HYBRID_090(hwid));
+			IMG_REG_WRITE(0x00000010, REG_JPGDEC_HYBRID_090(hwid));
+		}
+		mutex_unlock(&jpeg_hybrid_dec_lock);
 
 		jpeg_drv_hybrid_dec_unlock(hwid);
 		break;
