@@ -206,8 +206,8 @@ static int tskinTransient(int tpcb)
 		rhs[i] = div_s64(CapMatrix[i] * tn_1[i], SCALE_UNIT_CAP);
 		tn[i] = 0;
 	}
-	rhs[TSKINNODE] += tamb_coef * tamb;
-	rhs[TPCBNODE]  += tpcb_coef * tpcb;
+	rhs[TSKINNODE] += (long long)tamb_coef * tamb;
+	rhs[TPCBNODE]  += (long long)tpcb_coef * tpcb;
 
 	for (i = 0; i < ACNZ; i++)
 		tn[AcMatrixNzRow[i]] += AcMatrixNz[i] *
@@ -340,11 +340,11 @@ static int mtkts_dctm_unbind(struct thermal_zone_device *thermal,
 	if (table_val == 10)
 		return -EINVAL; /* Not match */
 
-	//if (thermal_zone_unbind_cooling_device(thermal, table_val, cdev)) {
-	//	mtkts_dctm_dprintk("[%s] error unbinding cooling dev %s\n",
-	//		__func__, cdev->type);
-	//	return -EINVAL;
-	//}
+	if (thermal_zone_unbind_cooling_device(thermal, table_val, cdev)) {
+		mtkts_dctm_dprintk("[%s] error unbinding cooling dev %s\n",
+			__func__, cdev->type);
+		return -EINVAL;
+	}
 
 	mtkts_dctm_dprintk("[%s] unbinding OK %s, trip %d\n",
 		__func__, cdev->type, table_val);

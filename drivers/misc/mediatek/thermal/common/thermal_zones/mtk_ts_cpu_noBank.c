@@ -537,10 +537,10 @@ static int tscpu_unbind
 		return 0;
 
 
-	//if (thermal_zone_unbind_cooling_device(thermal, table_val, cdev)) {
-	//	tscpu_warn("%s error unbinding cooling dev\n", __func__);
-	//	return -EINVAL;
-//	}
+	if (thermal_zone_unbind_cooling_device(thermal, table_val, cdev)) {
+		tscpu_warn("%s error unbinding cooling dev\n", __func__);
+		return -EINVAL;
+	}
 
 	tscpu_printk("%s unbinding OK\n", __func__);
 	return 0;
@@ -1941,6 +1941,7 @@ int tscpu_get_temp_by_bank(enum thermal_bank_name ts_bank)
 
 	return bank_T;
 }
+EXPORT_SYMBOL(tscpu_get_temp_by_bank);
 
 
 #if THERMAL_GPIO_OUT_TOGGLE
@@ -2234,7 +2235,7 @@ int tscpu_is_temp_valid(void)
 
 	return is_valid;
 }
-
+EXPORT_SYMBOL(tscpu_is_temp_valid);
 
 
 void tscpu_update_tempinfo(void)

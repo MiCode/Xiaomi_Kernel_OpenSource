@@ -20,6 +20,7 @@ ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/include/gpufreq_v1/
+ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/v2/include/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/common/inc/
 
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/vpu/

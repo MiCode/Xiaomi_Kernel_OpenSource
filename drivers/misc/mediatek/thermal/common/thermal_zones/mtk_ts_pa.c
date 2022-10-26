@@ -338,12 +338,12 @@ struct thermal_zone_device *thermal, struct thermal_cooling_device *cdev)
 	} else
 		return 0;
 
-	//if (thermal_zone_unbind_cooling_device(thermal, table_val, cdev)) {
-	//	mtktspa_dprintk(
-	//		"[%s] error unbinding cooling dev\n", __func__);
-//
-	//	return -EINVAL;
-//	}
+	if (thermal_zone_unbind_cooling_device(thermal, table_val, cdev)) {
+		mtktspa_dprintk(
+			"[%s] error unbinding cooling dev\n", __func__);
+
+		return -EINVAL;
+	}
 
 	mtktspa_dprintk("[%s] unbinding OK\n", __func__);
 	return 0;

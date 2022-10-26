@@ -523,10 +523,10 @@ static int tscpu_unbind
 		return 0;
 
 
-	//if (thermal_zone_unbind_cooling_device(thermal, table_val, cdev)) {
-	//	tscpu_warn("%s error unbinding cooling dev\n", __func__);
-	//	return -EINVAL;
-//	}
+	if (thermal_zone_unbind_cooling_device(thermal, table_val, cdev)) {
+		tscpu_warn("%s error unbinding cooling dev\n", __func__);
+		return -EINVAL;
+	}
 
 	tscpu_printk("%s unbinding OK\n", __func__);
 	return 0;

@@ -622,10 +622,10 @@ static int wmt_thz_unbind(struct thermal_zone_device *thz_dev,
 	} else
 		return 0;
 
-	//if (thermal_zone_unbind_cooling_device(thz_dev, table_val, cool_dev)) {
-	//	wmt_tm_info("%s error unbinding cooling dev\n", __func__);
-	//	return -EINVAL;
-	//}
+	if (thermal_zone_unbind_cooling_device(thz_dev, table_val, cool_dev)) {
+		wmt_tm_info("%s error unbinding cooling dev\n", __func__);
+		return -EINVAL;
+	}
 
 	wmt_tm_dprintk("%s unbinding OK\n", __func__);
 	return 0;

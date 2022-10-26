@@ -274,11 +274,11 @@ static int mtktscharger_unbind(struct thermal_zone_device *thermal,
 	else
 		return 0;
 
-	//if (thermal_zone_unbind_cooling_device(thermal, table_val, cdev)) {
-	//	mtktscharger_dprintk("%s error unbinding %s\n", __func__,
-	//							cdev->type);
-	//	return -EINVAL;
-//	}
+	if (thermal_zone_unbind_cooling_device(thermal, table_val, cdev)) {
+		mtktscharger_dprintk("%s error unbinding %s\n", __func__,
+								cdev->type);
+		return -EINVAL;
+	}
 
 	mtktscharger_dprintk("%s unbinding OK\n", __func__);
 	return 0;

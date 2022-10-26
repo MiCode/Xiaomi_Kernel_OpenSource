@@ -313,12 +313,12 @@ static int mtktsbattery_unbind(struct thermal_zone_device *thermal,
 	} else
 		return 0;
 
-	//if (thermal_zone_unbind_cooling_device(thermal, table_val, cdev)) {
-	//	mtktsbattery_dprintk(
-	//			"[%s] error unbinding cooling dev\n", __func__);
-//
-	//	return -EINVAL;
-//	}
+	if (thermal_zone_unbind_cooling_device(thermal, table_val, cdev)) {
+		mtktsbattery_dprintk(
+				"[%s] error unbinding cooling dev\n", __func__);
+
+		return -EINVAL;
+	}
 
 	mtktsbattery_dprintk("[%s] unbinding OK\n", __func__);
 	return 0;

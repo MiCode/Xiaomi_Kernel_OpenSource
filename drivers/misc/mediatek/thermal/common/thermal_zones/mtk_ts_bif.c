@@ -161,11 +161,11 @@ static int mtkts_bif_unbind(struct thermal_zone_device *thermal,
 	if (table_val == 10)
 		return -EINVAL; /* Not match */
 
-	//if (thermal_zone_unbind_cooling_device(thermal, table_val, cdev)) {
-		//mtkts_bif_dprintk("[%s] error unbinding cooling dev %s\n",
-		//					__func__, cdev->type);
-		//return -EINVAL;
-//	}
+	if (thermal_zone_unbind_cooling_device(thermal, table_val, cdev)) {
+		mtkts_bif_dprintk("[%s] error unbinding cooling dev %s\n",
+							__func__, cdev->type);
+		return -EINVAL;
+	}
 
 	mtkts_bif_dprintk("[%s] unbinding OK %s, trip %d\n", __func__,
 							cdev->type, table_val);
