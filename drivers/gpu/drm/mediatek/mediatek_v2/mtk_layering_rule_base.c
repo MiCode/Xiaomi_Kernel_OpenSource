@@ -55,6 +55,8 @@ static struct layering_rule_ops *l_rule_ops;
 static int ext_id_tuning(struct drm_device *dev,
 			  struct drm_mtk_layering_info *disp_info,
 			  int disp_idx);
+static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev, struct drm_crtc *crtc,
+					struct mml_frame_info *mml_info);
 static unsigned int roll_gpu_for_idle;
 static int g_emi_bound_table[HRT_LEVEL_NUM];
 
@@ -1789,11 +1791,13 @@ static void clear_layer(struct drm_mtk_layering_info *disp_info)
 	}
 }
 
-static void clear_mml_caps_for_gles_layer(struct drm_mtk_layering_info *disp_info)
+static void clear_mml_caps_for_gles_layer(struct drm_mtk_layering_info *disp_info,
+					  struct drm_device *drm_dev)
 {
 	int di = 0;
 	int i = 0;
 	struct drm_mtk_layer_config *c;
+	struct mtk_drm_private *priv = drm_dev->dev_private;
 
 	for (di = 0; di < HRT_DISP_TYPE_NUM; di++) {
 		for (i = 0; i < disp_info->layer_num[di]; i++) {
@@ -1802,11 +1806,15 @@ static void clear_mml_caps_for_gles_layer(struct drm_mtk_layering_info *disp_inf
 			c = &disp_info->input_config[di][i];
 			c->ext_sel_layer = -1;
 			if (MTK_MML_OVL_LAYER & c->layer_caps) {
-				c->layer_caps &= ~(MTK_MML_DISP_DIRECT_LINK_LAYER |
-					MTK_MML_DISP_DIRECT_DECOUPLE_LAYER |
-					MTK_MML_DISP_DECOUPLE_LAYER |
-					MTK_MML_DISP_MDP_LAYER);
-				c->layer_caps |= MTK_MML_DISP_NOT_SUPPORT;
+				c->layer_caps &= ~(DISP_MML_CAPS_MASK|MTK_MML_DISP_NOT_SUPPORT);
+				if (mtk_has_layer_cap(c, MTK_DISP_CLIENT_CLEAR_LAYER)) {
+					disp_info->mml_cfg[di][i].mode = MML_MODE_MML_DECOUPLE;
+					c->layer_caps |= query_MML(drm_dev, priv->crtc[di],
+								   &(disp_info->mml_cfg[di][i]));
+					if (mtk_has_layer_cap(c, MTK_MML_DISP_NOT_SUPPORT))
+						c->layer_caps &= ~MTK_DISP_CLIENT_CLEAR_LAYER;
+				} else
+					c->layer_caps |= MTK_MML_DISP_NOT_SUPPORT;
 			}
 		}
 	}
@@ -1973,7 +1981,7 @@ static int dispatch_gles_range(struct drm_mtk_layering_info *disp_info,
 	}
 
 	clear_layer(disp_info);
-	clear_mml_caps_for_gles_layer(disp_info);
+	clear_mml_caps_for_gles_layer(disp_info, drm_dev);
 
 	return 0;
 }
