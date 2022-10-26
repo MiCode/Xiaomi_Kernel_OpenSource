@@ -4826,6 +4826,12 @@ enum {
 };
 
 enum {
+	AUDIO_ANALOG_CHANNELS_L = 0,
+	AUDIO_ANALOG_CHANNELS_R,
+	AUDIO_ANALOG_CHANNELS_3,
+};
+
+enum {
 	MUX_MIC_TYPE_0,	/* ain0, micbias 0 */
 	MUX_MIC_TYPE_1,	/* ain1, micbias 1 */
 	MUX_MIC_TYPE_2,	/* ain2/3, micbias 2 */

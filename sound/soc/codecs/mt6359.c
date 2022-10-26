@@ -2340,7 +2340,57 @@ static int mt_ul_src_34_dmic_event(struct snd_soc_dapm_widget *w,
 
 	return 0;
 }
+static int mt6359_rc_reset(struct mt6359_priv *priv, int ch)
+{
+	unsigned int reg = 0, reg_shift = 0, reg_reset = 0;
+	unsigned int reg_value = 0, rc = 0;
 
+	switch (ch) {
+	case AUDIO_ANALOG_CHANNELS_L:
+		reg = MT6359_AUDENC_ANA_CON10;
+		reg_shift = 0;
+		reg_reset = MT6359_AUDENC_ANA_CON0;
+		/* [12] RG_AUDADCLPWRUP */
+		break;
+	case AUDIO_ANALOG_CHANNELS_R:
+		reg = MT6359_AUDENC_ANA_CON10;
+		reg_shift = 8;
+		reg_reset = MT6359_AUDENC_ANA_CON1;
+		/* [12] RG_AUDADCRPWRUP */
+		break;
+	case AUDIO_ANALOG_CHANNELS_3:
+		reg = MT6359_AUDENC_ANA_CON9;
+		reg_shift = 6;
+		reg_reset = MT6359_AUDENC_ANA_CON2;
+		/* [12] RG_AUDADC3PWRUP */
+		break;
+	default:
+		break;
+	}
+	dev_dbg(priv->dev, "%s(), reg: 0x%x(reg_shift), reg_reset: 0x%x\n",
+		__func__, reg, reg_shift, reg_reset);
+	usleep_range(500, 520);
+	regmap_read(priv->regmap, reg, &reg_value);
+	rc = (reg_value >> reg_shift) & 0x1f;
+	dev_dbg(priv->dev, "%s(), reg(rc) = 0x%x(0x%x)\n",
+		__func__, reg, reg_value, rc);
+	if ((rc == 0) || (rc == 0x1f)) {
+		/* Disable audio x ADC */
+		regmap_update_bits(priv->regmap, reg_reset,
+				   RG_AUDADCLPWRUP_MASK_SFT,
+				   0x0 << RG_AUDADCLPWRUP_SFT);
+		/* Enable audio x ADC */
+		regmap_update_bits(priv->regmap, reg_reset,
+				   RG_AUDADCLPWRUP_MASK_SFT,
+				   0x1 << RG_AUDADCLPWRUP_SFT);
+		regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON10, &reg_value);
+		dev_info(priv->dev, "%s(), final: MT6359_AUDENC_ANA_CON10 = 0x%x\n",
+			 __func__, reg_value);
+	}
+	usleep_range(500, 520);
+	return 0;
+
+}
 static int mt_adc_l_event(struct snd_soc_dapm_widget *w,
 			  struct snd_kcontrol *kcontrol,
 			  int event)
@@ -2352,7 +2402,7 @@ static int mt_adc_l_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
-		usleep_range(100, 120);
+		mt6359_rc_reset(priv, AUDIO_ANALOG_CHANNELS_L);
 		/* Audio L preamplifier DCC precharge off */
 		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON0,
 				   RG_AUDPREAMPLDCPRECHARGE_MASK_SFT,
@@ -2376,7 +2426,7 @@ static int mt_adc_r_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
-		usleep_range(100, 120);
+		mt6359_rc_reset(priv, AUDIO_ANALOG_CHANNELS_R);
 		/* Audio R preamplifier DCC precharge off */
 		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON1,
 				   RG_AUDPREAMPRDCPRECHARGE_MASK_SFT,
@@ -2400,7 +2450,7 @@ static int mt_adc_3_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
-		usleep_range(100, 120);
+		mt6359_rc_reset(priv, AUDIO_ANALOG_CHANNELS_3);
 		/* Audio R preamplifier DCC precharge off */
 		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON2,
 				   RG_AUDPREAMP3DCPRECHARGE_MASK_SFT,
@@ -2495,19 +2545,7 @@ static int mt_pga_l_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON0,
 				   RG_AUDPREAMPLGAIN_MASK_SFT,
 				   mic_gain_l << RG_AUDPREAMPLGAIN_SFT);
-
-		if (IS_DCC_BASE(mic_type)) {
-			/* L preamplifier DCCEN */
-			regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON0,
-					   RG_AUDPREAMPLDCCEN_MASK_SFT,
-					   0x1 << RG_AUDPREAMPLDCCEN_SFT);
-		}
-		break;
-	case SND_SOC_DAPM_POST_PMD:
-		/* L preamplifier DCCEN */
-		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON0,
-				   RG_AUDPREAMPLDCCEN_MASK_SFT,
-				   0x0 << RG_AUDPREAMPLDCCEN_SFT);
+		usleep_range(1000, 1050);
 		break;
 	default:
 		break;
@@ -2560,19 +2598,7 @@ static int mt_pga_r_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON1,
 				   RG_AUDPREAMPRGAIN_MASK_SFT,
 				   mic_gain_r << RG_AUDPREAMPRGAIN_SFT);
-
-		if (IS_DCC_BASE(mic_type)) {
-			/* R preamplifier DCCEN */
-			regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON1,
-					   RG_AUDPREAMPRDCCEN_MASK_SFT,
-					   0x1 << RG_AUDPREAMPRDCCEN_SFT);
-		}
-		break;
-	case SND_SOC_DAPM_POST_PMD:
-		/* R preamplifier DCCEN */
-		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON1,
-				   RG_AUDPREAMPRDCCEN_MASK_SFT,
-				   0x0 << RG_AUDPREAMPRDCCEN_SFT);
+		usleep_range(1000, 1050);
 		break;
 	default:
 		break;
@@ -2623,19 +2649,7 @@ static int mt_pga_3_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON2,
 				   RG_AUDPREAMP3GAIN_MASK_SFT,
 				   mic_gain_3 << RG_AUDPREAMP3GAIN_SFT);
-
-		if (IS_DCC_BASE(mic_type)) {
-			/* 3 preamplifier DCCEN */
-			regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON2,
-					   RG_AUDPREAMP3DCCEN_MASK_SFT,
-					   0x1 << RG_AUDPREAMP3DCCEN_SFT);
-		}
-		break;
-	case SND_SOC_DAPM_POST_PMD:
-		/* 3 preamplifier DCCEN */
-		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON2,
-				   RG_AUDPREAMP3DCCEN_MASK_SFT,
-				   0x0 << RG_AUDPREAMP3DCCEN_SFT);
+		usleep_range(1000, 1050);
 		break;
 	default:
 		break;
@@ -4619,6 +4633,25 @@ EXIT:
 		 __func__, hpr_trim_code, hpl_trim_code);
 }
 #endif /* #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING) */
+static void mic_type_default_init(struct mt6359_priv *priv)
+{
+	if (priv->mux_select[MUX_MIC_TYPE_0] == MIC_TYPE_MUX_DCC)
+		/* L preamplifier DCCEN */
+		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON0,
+				   RG_AUDPREAMPLDCCEN_MASK_SFT,
+				   0x1 << RG_AUDPREAMPLDCCEN_SFT);
+	if (priv->mux_select[MUX_MIC_TYPE_1] == MIC_TYPE_MUX_DCC)
+		/* R preamplifier DCCEN */
+		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON1,
+				   RG_AUDPREAMPRDCCEN_MASK_SFT,
+				   0x1 << RG_AUDPREAMPRDCCEN_SFT);
+	if (priv->mux_select[MUX_MIC_TYPE_2] == MIC_TYPE_MUX_DCC)
+		/* 3 preamplifier DCCEN */
+		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON2,
+				   RG_AUDPREAMP3DCCEN_MASK_SFT,
+				   0x1 << RG_AUDPREAMP3DCCEN_SFT);
+
+}
 
 static void get_hp_trim_offset(struct mt6359_priv *priv, bool force)
 {
@@ -4665,6 +4698,8 @@ static int dc_trim_thread(void *arg)
 #if IS_ENABLED(CONFIG_SND_SOC_MT6359P_ACCDET)
 	accdet_late_init(0);
 #endif
+	mic_type_default_init(priv);
+
 	do_exit(0);
 
 	return 0;
