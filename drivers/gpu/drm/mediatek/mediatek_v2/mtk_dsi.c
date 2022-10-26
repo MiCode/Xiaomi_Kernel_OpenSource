@@ -473,6 +473,14 @@ static bool mtk_dsi_doze_state(struct mtk_dsi *dsi)
 	return state->prop_val[CRTC_PROP_DOZE_ACTIVE];
 }
 
+static bool mtk_dsi_skip_panel_switch(struct mtk_dsi *dsi)
+{
+	struct drm_crtc *crtc = dsi->encoder.crtc;
+	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
+
+	return (state->prop_val[CRTC_PROP_USER_SCEN] & USER_SCEN_SKIP_PANEL_SWITCH);
+}
+
 static bool mtk_dsi_doze_status_change(struct mtk_dsi *dsi)
 {
 	bool doze_enabled = mtk_dsi_doze_state(dsi);
@@ -3453,7 +3461,7 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 
 	if (dsi->panel) {
 		DDP_PROFILE("[PROFILE] %s panel init start\n", __func__);
-		if ((!dsi->doze_enabled || force_lcm_update)
+		if (((!dsi->doze_enabled && !dsi->pending_switch) || force_lcm_update)
 			&& drm_panel_prepare(dsi->panel)) {
 			DDPPR_ERR("failed to prepare the panel\n");
 			return;
@@ -3547,7 +3555,7 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 		mtk_dsi_start(dsi);
 
 	if (dsi->panel) {
-		if (drm_panel_enable(dsi->panel)) {
+		if (!dsi->pending_switch && drm_panel_enable(dsi->panel)) {
 			DDPPR_ERR("failed to enable the panel\n");
 			goto err_dsi_power_off;
 		}
@@ -3568,6 +3576,7 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 	if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp) && dsi->ext && dsi->ext->is_connected == -1)
 		check_panel_connection(crtc, dsi);
 
+	dsi->pending_switch = false;
 	dsi->output_en = true;
 	dsi->doze_enabled = new_doze_state;
 
@@ -3640,6 +3649,7 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi, struct cmdq_pkt *cmdq_ha
 {
 	bool new_doze_state = mtk_dsi_doze_state(dsi);
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(dsi->encoder.crtc);
+	bool skip_panel_switch = mtk_dsi_skip_panel_switch(dsi);
 
 	DDPINFO("%s+ doze_enabled:%d\n", __func__, new_doze_state);
 	if (!dsi->output_en)
@@ -3648,12 +3658,13 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi, struct cmdq_pkt *cmdq_ha
 	mtk_drm_crtc_wait_blank(mtk_crtc);
 
 	/* 1. If not doze mode, turn off backlight */
-	if (dsi->panel && (!new_doze_state || force_lcm_update)) {
+	if (dsi->panel && ((!new_doze_state && !skip_panel_switch) || force_lcm_update)) {
 		if (drm_panel_disable(dsi->panel)) {
 			DRM_ERROR("failed to disable the panel\n");
 			return;
 		}
 	}
+	dsi->pending_switch = skip_panel_switch;
 
 	/* 2. If VDO mode, stop it and set to CMD mode */
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
@@ -3679,7 +3690,7 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi, struct cmdq_pkt *cmdq_ha
 
 	/* 3. turn off panel or set to doze mode */
 	if (dsi->panel) {
-		if (!new_doze_state || force_lcm_update) {
+		if ((!new_doze_state && !skip_panel_switch) || force_lcm_update) {
 			if (drm_panel_unprepare(dsi->panel))
 				DRM_ERROR("failed to unprepare the panel\n");
 		} else if (new_doze_state && !dsi->doze_enabled) {

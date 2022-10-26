@@ -6864,6 +6864,7 @@ void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
 	/* hold wakelock */
 	mtk_drm_crtc_wk_lock(crtc, 1, __func__, __LINE__);
 
+	mtk_crtc->resume_frame = true;
 	/*update interface when connector is changed*/
 	if (of_property_read_bool(priv->mmsys_dev->of_node, "enable_output_int_switch"))
 		mtk_drm_crtc_update_interface(crtc, old_crtc_state->state);
@@ -9261,6 +9262,7 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 		cmdq_pkt_clear_event(cmdq_handle, mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]);
 	}
 
+	mtk_crtc->resume_frame = false;
 #ifdef MTK_DRM_CMDQ_ASYNC
 #ifdef MTK_DRM_FB_LEAK
 	if (cmdq_pkt_flush_async(cmdq_handle,

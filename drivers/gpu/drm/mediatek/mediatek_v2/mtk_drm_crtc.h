@@ -377,6 +377,7 @@ enum MTK_CRTC_PROP {
 };
 
 #define USER_SCEN_BLANK (BIT(0))
+#define USER_SCEN_SKIP_PANEL_SWITCH (BIT(1))
 
 enum MTK_CRTC_COLOR_FMT {
 	CRTC_COLOR_FMT_UNKNOWN = 0,
@@ -850,6 +851,7 @@ struct mtk_drm_crtc {
 	atomic_t force_high_step;
 	int force_high_enabled;
 	bool is_dsc_output_swap;
+	bool resume_frame;
 };
 
 struct mtk_crtc_state {
