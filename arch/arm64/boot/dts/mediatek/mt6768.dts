@@ -1172,7 +1172,7 @@ cma=64M transparent_hugepage=never";
 		gpio-mode-reg = <0x430 0x7 8 1>;
 
 		dvfsrc-vscp-supply = <&dvfsrc_vscp>;
-		platform-mt6768-support;
+		legacy_support_v1;
 
 	};
 
