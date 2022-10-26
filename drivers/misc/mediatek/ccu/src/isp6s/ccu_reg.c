@@ -9,4 +9,4 @@
 #include "CCU_A_c_header.h"
 struct CCU_A_REGS *g_CCU_A_BASE;
 
-uint64_t ccu_base;
+void __iomem *ccu_base;

@@ -1,14 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0
 #
-# Copyright (C) 2016 MediaTek Inc.
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License version 2 as
-# published by the Free Software Foundation.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
+# Copyright (c) 2016 MediaTek Inc.
 #
 
 $(info $(MTK_PLATFORM))
@@ -37,15 +29,14 @@ ccflags-y += -I$(srctree)/drivers/i2c/busses/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs/
 ccflags-y += -I$(srctree)/include/dt-bindings/memory/
 
-obj-$(CONFIG_MTK_CCU) += ccu.o
+obj-$(CONFIG_MTK_CCU) += ccu_isp6s.o
 
-
-ccu-objs += ccu_hw.o
-ccu-objs += ccu_reg.o
-ccu-objs += ccu_kd_mailbox.o
-ccu-objs += ccu_imgsensor.o
-ccu-objs += ccu_qos.o
-ccu-objs += ccu_drv.o
-ccu-objs += ccu_ipc.o
-ccu-objs += ccu_mva.o
+ccu_isp6s-objs += ccu_hw.o
+ccu_isp6s-objs += ccu_reg.o
+ccu_isp6s-objs += ccu_kd_mailbox.o
+ccu_isp6s-objs += ccu_imgsensor.o
+ccu_isp6s-objs += ccu_qos.o
+ccu_isp6s-objs += ccu_drv.o
+ccu_isp6s-objs += ccu_ipc.o
+ccu_isp6s-objs += ccu_mva.o
 

@@ -25,19 +25,17 @@ struct ccu_device_s {
 	struct device *dev;
 	struct device *smi_dev;
 	struct dentry *debug_root;
-	unsigned long ccu_base;
-	unsigned long camsys_base;
-	unsigned long bin_base;
-	unsigned long dmem_base;
-	unsigned long pmem_base;
-	unsigned long ddrmem_base;
+	void __iomem *ccu_base;
+	void __iomem *camsys_base;
+	void __iomem *bin_base;
+	void __iomem *dmem_base;
+	void __iomem *pmem_base;
+	void __iomem *ddrmem_base;
 	unsigned int irq_num;
 	struct mutex user_mutex;
 	struct mutex clk_mutex;
 	struct mutex ion_client_mutex;
-	u8 *i2c_dma_vaddr;
-	dma_addr_t i2c_dma_paddr;
-	uint32_t i2c_dma_mva;
+
 	/* list of vlist_type(ccu_user_t) */
 	struct list_head user_list;
 	/* notify enque thread */

@@ -23,6 +23,6 @@ writel(val, &(((struct CCU_A_REGS *)(uintptr_t)base)->regName))
 #define CCU_CLR_BIT(reg, bit) \
 ((*(unsigned int *)(reg)) &= ~((unsigned int)(1 << (bit))))
 
-extern uint64_t ccu_base;
+extern void __iomem *ccu_base;
 
 #endif

@@ -10,6 +10,8 @@
 #include "ccu_drv.h"
 extern void cam_mtcmos_check(void);
 
+#define CCU_FW_VERIFY    0
+
 #define SPREG_00_MB_CCU2AP            CCU_INFO00
 #define SPREG_01_MB_AP2CCU            CCU_INFO01
 #define SPREG_02_LOG_DRAM_ADDR1       CCU_INFO02

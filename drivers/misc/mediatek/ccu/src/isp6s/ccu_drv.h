@@ -22,7 +22,7 @@
 /*---------------------------------------------------------------------------*/
 #define IRQ_USER_NUM_MAX        32
 #define SUPPORT_MAX_IRQ         32
-
+#define REQUEST_IRQ_IN_INIT
 
 enum CCU_IRQ_CLEAR_ENUM {
 	CCU_IRQ_CLEAR_NONE,	/* non-clear wait, clear after wait */
@@ -213,6 +213,20 @@ struct CCU_INFO_STRUCT {
 };
 #endif
 
+#define CCU_CLK_PWR_NUM 20
+#define CCU_CLK_NAME_LEN 32
+#define CCU_VER_MT6885 6885
+#define CCU_VER_MT6873 6873
+#define CCU_VER_MT6853 6853
+#define CCU_VER_MT6833 6833
+#define CCU_VER_MT6877 6877
+#define CCU_VER_MT6893 6893
+
+struct mtk_ccu_clk_name {
+	bool enable;
+	char name[CCU_CLK_NAME_LEN];
+};
+
 /*---------------------------------------------------------------------------*/
 /*  CCU working buffer                                                       */
 /*---------------------------------------------------------------------------*/
@@ -377,4 +391,7 @@ struct ccu_reg_s {
 #define CCU_READ_STRUCT_SIZE                _IOWR(CCU_MAGICNO, 36, int)
 #define CCU_IOCTL_PRINT_REG                 _IOR(CCU_MAGICNO,  37, int)
 #define CCU_IOCTL_PRINT_SRAM_LOG            _IOR(CCU_MAGICNO,  38, int)
+
+#define CCU_MAGIC_CHK      0x3B7A5D9E
+
 #endif

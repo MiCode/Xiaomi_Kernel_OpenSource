@@ -33,22 +33,9 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/io.h>
-#include <linux/i2c.h>
-// #include "i2c-mtk.h"
 
-// #include "mtk_ion.h"
-// #include "ion_drv.h"
 #include <linux/iommu.h>
 #include <soc/mediatek/smi.h>
-
-#ifdef CONFIG_MTK_IOMMU_V2
-#include "mtk_iommu.h"
-#include <dt-bindings/memory/mt6873-larb-port.h>
-#else
-#include <dt-bindings/memory/mt6873-larb-port.h>
-// #include "m4u.h"
-#endif
-
 
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
@@ -73,7 +60,6 @@
 
 #define CCU_DEV_NAME            "ccu"
 
-#define CCU_CLK_PWR_NUM 4
 /* [0]: CCU_CLK_TOP_MUX, [1]: MDP_PWR, [2]: CAM_PWR, [3]: CCU_CLK_CAM_CCU */
 struct clk *ccu_clk_pwr_ctrl[CCU_CLK_PWR_NUM];
 
@@ -85,7 +71,17 @@ static wait_queue_head_t wait_queue_deque;
 static wait_queue_head_t wait_queue_enque;
 
 #include <linux/dma-buf.h>
-struct device *dev;
+
+static uint32_t ccu_version;
+static uint32_t clock_num;
+static struct mtk_ccu_clk_name clock_name[] = {
+	{true, "TOP_CCU_CLK"},
+	{true, "CCU_CLK_CAM_CAM"},
+	{true, "CCU_CLK_CAM_LARB13"},
+	{true, "CCU_CLK_CAM_CCU0"},
+	{true, "CCU_CLK_CAM_GALS"},
+	{true, "CCU_CLK_CAM_CCU_GALS"},
+	{false, ""}};
 
 struct ccu_iova_t ccu_iova[CCU_IOVA_BUFFER_MAX];
 int iova_buf_count;
@@ -124,6 +120,25 @@ static irqreturn_t ccu_isr_callback_xxx(int irq, void *device_id)
 	LOG_DBG("%s:0x%x\n", __func__, irq);
 	return IRQ_HANDLED;
 }
+
+static uint32_t get_checksum(uint8_t *data, uint32_t size)
+{
+	uint32_t i, val, tv, sz, *ptr;
+
+	if (!data)
+		return 0;
+
+	sz = size >> 2;
+	ptr = (uint32_t *)data;
+	for (i = 0, val = 0; i < sz; ++i)
+		val += ptr[i];
+	for (i = size & ~3, tv = 0; i < size; ++i)
+		tv += ((uint32_t)(data[i])) << ((i & 3) << 3);
+	val = (val + tv) ^ CCU_MAGIC_CHK;
+
+	return val;
+}
+
 #ifdef CCU_QOS_SUPPORT_ENABLE
 static struct regulator *_ccu_qos_request;
 static u64 *_g_freq_steps;
@@ -223,9 +238,6 @@ static int ccu_open(struct inode *inode, struct file *flip);
 
 static int ccu_release(struct inode *inode, struct file *flip);
 
-static int ccu_mmap(struct file *flip,
-		    struct vm_area_struct *vma);
-
 static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		      unsigned long arg);
 
@@ -238,7 +250,6 @@ static const struct file_operations ccu_fops = {
 	.owner = THIS_MODULE,
 	.open = ccu_open,
 	.release = ccu_release,
-	.mmap = ccu_mmap,
 	.unlocked_ioctl = ccu_ioctl,
 #ifdef CONFIG_COMPAT
 	/*for 32bit usersapce program doing ioctl, compat_ioctl will be called*/
@@ -1233,6 +1244,7 @@ err_attach:
 	case CCU_IOCTL_ALLOC_MEM:
 	{
 		struct CcuMemHandle handle;
+		uint32_t cs;
 
 		ret = copy_from_user(&(handle.meminfo),
 			(void *)arg, sizeof(struct CcuMemInfo));
@@ -1242,6 +1254,13 @@ err_attach:
 			ret);
 			break;
 		}
+		cs = get_checksum((uint8_t *)&(handle.meminfo.shareFd),
+			sizeof(struct CcuMemInfo) - sizeof(unsigned int));
+		if (cs != handle.meminfo.chksum) {
+			ret = -EINVAL;
+			break;
+		}
+
 		ret = ccu_allocate_mem(g_ccu_device, &handle, handle.meminfo.size,
 			handle.meminfo.cached);
 		if (ret != 0) {
@@ -1256,6 +1275,7 @@ err_attach:
 	case CCU_IOCTL_DEALLOC_MEM:
 	{
 		struct CcuMemHandle handle;
+		uint32_t cs;
 
 		ret = copy_from_user(&(handle.meminfo),
 			(void *)arg, sizeof(struct CcuMemInfo));
@@ -1263,6 +1283,13 @@ err_attach:
 			LOG_ERR(
 			"CCU_IOCTL_ALLOC_MEM copy_to_user failed: %d\n",
 			ret);
+			break;
+		}
+
+		cs = get_checksum((uint8_t *)&(handle.meminfo.shareFd),
+				sizeof(struct CcuMemInfo) - sizeof(unsigned int));
+		if (cs != handle.meminfo.chksum) {
+			ret = -EINVAL;
 			break;
 		}
 
@@ -1345,83 +1372,6 @@ static int ccu_release(struct inode *inode, struct file *flip)
 /******************************************************************************
  *
  *****************************************************************************/
-static int ccu_mmap(struct file *flip, struct vm_area_struct *vma)
-{
-	unsigned long length = 0;
-	unsigned int pfn = 0x0;
-
-	length = (vma->vm_end - vma->vm_start);
-	/*  */
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-	pfn = vma->vm_pgoff << PAGE_SHIFT;
-
-	LOG_DBG
-	("CCU_mmap: vm_pgoff(0x%lx),pfn(0x%x),phy(0x%lx)\n",
-	vma->vm_pgoff, pfn, vma->vm_pgoff << PAGE_SHIFT);
-	LOG_DBG
-	("vm_start(0x%lx),vm_end(0x%lx),length(0x%lx)\n",
-	vma->vm_start, vma->vm_end, length);
-
-	/*if (pfn >= CCU_REG_BASE_HW) {*/
-
-	if (pfn == (ccu_hw_base - CCU_HW_OFFSET)) {
-		if (length > PAGE_SIZE) {
-			LOG_ERR("mmap range error :");
-			LOG_ERR
-		    ("module(0x%x),length(0x%lx),CCU_HW_BASE(0x%x)!\n",
-		     pfn, length, 0x4000);
-			return -EAGAIN;
-		}
-	} else if (pfn == CCU_CAMSYS_BASE) {
-		if (length > CCU_CAMSYS_SIZE) {
-			LOG_ERR("mmap range error :");
-			LOG_ERR
-		    ("module(0x%x),length(0x%lx),CCU_CAMSYS_BASE_HW(0x%x)!\n",
-		     pfn, length, 0x4000);
-			return -EAGAIN;
-		}
-	} else if (pfn == CCU_PMEM_BASE) {
-		if (length > CCU_PMEM_SIZE) {
-			LOG_ERR("mmap range error :");
-			LOG_ERR
-		    ("module(0x%x),length(0x%lx),CCU_PMEM_BASE_HW(0x%x)!\n",
-		     pfn, length, 0x4000);
-			return -EAGAIN;
-		}
-	} else if (pfn == CCU_DMEM_BASE) {
-		if (length > CCU_DMEM_SIZE) {
-			LOG_ERR("mmap range error :");
-			LOG_ERR
-		    ("module(0x%x),length(0x%lx),CCU_PMEM_BASE_HW(0x%x)!\n",
-		     pfn, length, 0x4000);
-			return -EAGAIN;
-		}
-	} else {
-		LOG_ERR("Illegal starting HW addr for mmap!\n");
-		return -EAGAIN;
-	}
-
-	if (remap_pfn_range
-	    (vma, vma->vm_start, vma->vm_pgoff,
-	    vma->vm_end - vma->vm_start, vma->vm_page_prot)) {
-		LOG_ERR("remap_pfn_range\n");
-		return -EAGAIN;
-	}
-	LOG_DBG("map_check_1\n");
-
-	/*
-	 * } else {
-	 *	LOG_DBG("map_check_2\n");
-	 *	return ccu_mmap_hw(flip, vma);
-	 *}
-	 */
-
-	return 0;
-}
-
-/******************************************************************************
- *
- *****************************************************************************/
 static dev_t ccu_devt;
 static struct cdev *ccu_chardev;
 static struct class *ccu_class;
@@ -1489,7 +1439,11 @@ static int ccu_read_platform_info_from_dt(struct device_node
 
 	ccu_hw_base = reg[1];
 
-	LOG_DBG("ccu read dt property ccu_hw_base = %x\n", ccu_hw_base);
+	ret = of_property_read_u32(node, "ccu_version", reg);
+	ccu_version = (ret < 0) ? CCU_VER_MT6885 : reg[0];
+
+	LOG_DBG("ccu mt%u read dt property ccu_hw_base = %x\n",
+		ccu_version, ccu_hw_base);
 
 	return ret;
 }
@@ -1498,13 +1452,14 @@ static int ccu_probe(struct platform_device *pdev)
 {
 #ifdef CONFIG_OF
 
+	struct device *dev = &pdev->dev;
 	struct device_node *node;
 	struct device_node *smi_node;
 	struct platform_device *smi_pdev;
 	int ret = 0;
 	uint32_t phy_addr;
 	uint32_t phy_size;
-
+	uint32_t clki;
 
 	node = pdev->dev.of_node;
 	g_ccu_device->dev = &pdev->dev;
@@ -1518,211 +1473,207 @@ static int ccu_probe(struct platform_device *pdev)
 	/*ccu_init_emulator(g_ccu_device);*/
 #else
 	/* get register address */
-if ((strcmp("ccu", g_ccu_device->dev->of_node->name) == 0)) {
+	if ((strcmp("ccu", g_ccu_device->dev->of_node->name) == 0)) {
 
-/* get physical address of pmem  */
-/* ioremap_wc() has no access 4 bytes alignmen
- * limitation as of_iomap() does?
- * https://forums.xilinx.com/xlnx/attachments/
- * xlnx/ELINUX/11158/1/Linux%20CPU%20to%20PL%20Access.pdf
- */
+		/* get physical address of pmem  */
+		/* ioremap_wc() has no access 4 bytes alignmen
+		 * limitation as of_iomap() does?
+		 * https://forums.xilinx.com/xlnx/attachments/
+		 * xlnx/ELINUX/11158/1/Linux%20CPU%20to%20PL%20Access.pdf
+		 */
 
-	/*remap ccu_base*/
-	phy_addr = ccu_hw_base;
-	phy_size = 0x1000;
+		/*remap ccu_base*/
+		phy_addr = ccu_hw_base;
+		phy_size = 0x1000;
 #ifdef CCU_LDVT
-	g_ccu_device->ccu_base =
-		(unsigned long)ioremap_wc(phy_addr, phy_size);
+		g_ccu_device->ccu_base =
+			devm_ioremap_wc(dev, phy_addr, phy_size);
 #else
-	g_ccu_device->ccu_base =
-		(unsigned long)ioremap(phy_addr, phy_size);
+		g_ccu_device->ccu_base =
+			devm_ioremap(dev, phy_addr, phy_size);
 #endif
-	LOG_INF("ccu_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
-	LOG_INF("ccu_base va: 0x%lx\n", g_ccu_device->ccu_base);
+		LOG_INF("ccu_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
+		LOG_INF("ccu_base va: 0x%lx\n", (uint64_t)g_ccu_device->ccu_base);
 
-	/*remap dmem_base*/
-	phy_addr = CCU_DMEM_BASE;
-	phy_size = CCU_DMEM_SIZE;
+		/*remap dmem_base*/
+		phy_addr = CCU_DMEM_BASE;
+		phy_size = CCU_DMEM_SIZE;
 #ifdef CCU_LDVT
-	g_ccu_device->dmem_base =
-		(unsigned long)ioremap_wc(phy_addr, phy_size);
+		g_ccu_device->dmem_base =
+			devm_ioremap_wc(dev, phy_addr, phy_size);
 #else
-	g_ccu_device->dmem_base =
-		(unsigned long)ioremap(phy_addr, phy_size);
+		g_ccu_device->dmem_base =
+			devm_ioremap(dev, phy_addr, phy_size);
 #endif
-	LOG_INF("dmem_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
-	LOG_INF("dmem_base va: 0x%lx\n", g_ccu_device->dmem_base);
+		LOG_INF("dmem_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
+		LOG_INF("dmem_base va: 0x%lx\n", (uint64_t)g_ccu_device->dmem_base);
 
-	phy_addr = CCU_PMEM_BASE;
-	phy_size = CCU_PMEM_SIZE;
+		phy_addr = CCU_PMEM_BASE;
+		phy_size = CCU_PMEM_SIZE;
 #ifdef CCU_LDVT
-	g_ccu_device->pmem_base =
-		(unsigned long)ioremap_wc(phy_addr, phy_size);
+		g_ccu_device->pmem_base =
+			devm_ioremap_wc(dev, phy_addr, phy_size);
 #else
-	g_ccu_device->pmem_base =
-		(unsigned long)ioremap(phy_addr, phy_size);
+		g_ccu_device->pmem_base =
+			devm_ioremap(dev, phy_addr, phy_size);
 #endif
-	LOG_DBG_MUST("pmem_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
-	LOG_DBG_MUST("pmem_base va: 0x%lx\n", g_ccu_device->pmem_base);
+		LOG_DBG_MUST("pmem_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
+		LOG_DBG_MUST("pmem_base va: 0x%lx\n", (uint64_t)g_ccu_device->pmem_base);
 
-	/*remap camsys_base*/
-	phy_addr = CCU_CAMSYS_BASE;
-	phy_size = CCU_CAMSYS_SIZE;
+		/*remap camsys_base*/
+		phy_addr = CCU_CAMSYS_BASE;
+		phy_size = CCU_CAMSYS_SIZE;
 #ifdef CCU_LDVT
-	g_ccu_device->camsys_base =
-		(unsigned long)ioremap_wc(phy_addr, phy_size);
+		g_ccu_device->camsys_base =
+			devm_ioremap_wc(dev, phy_addr, phy_size);
 #else
-	g_ccu_device->camsys_base =
-		(unsigned long)ioremap(phy_addr, phy_size);
+		g_ccu_device->camsys_base =
+			devm_ioremap(dev, phy_addr, phy_size);
 #endif
-	LOG_INF("camsys_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
-	LOG_INF("camsys_base va: 0x%lx\n", g_ccu_device->camsys_base);
+		LOG_INF("camsys_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
+		LOG_INF("camsys_base va: 0x%lx\n", (uint64_t)g_ccu_device->camsys_base);
 
-	/* get Clock control from device tree.  */
-	ccu_clk_pwr_ctrl[0] = devm_clk_get(g_ccu_device->dev,
-		"CCU_CLK_TOP_MUX");
-	if (ccu_clk_pwr_ctrl[0] == NULL)
-		LOG_ERR("Get CCU_CLK_TOP_MUX fail.\n");
+		/* get Clock control from device tree.  */
+		for (clki = 0; clki < CCU_CLK_PWR_NUM; ++clki) {
+			if (!clock_name[clki].enable)
+				break;
+			ccu_clk_pwr_ctrl[clki] = devm_clk_get(g_ccu_device->dev,
+				clock_name[clki].name);
+			if (IS_ERR(ccu_clk_pwr_ctrl[clki]))
+				LOG_ERR("Get %s fail.\n", clock_name[clki].name);
+		}
 
-	// ccu_clk_pwr_ctrl[1] = devm_clk_get(g_ccu_device->dev,
-	//	"MDP_PWR");
-	// if (ccu_clk_pwr_ctrl[1] == NULL)
-	//	LOG_ERR("Get MDP_PWR fail.\n");
+		if (clki >= CCU_CLK_PWR_NUM) {
+			LOG_ERR("ccu_clk_pwr_ctrl[] too small(%d).\n", clki);
+			return -EINVAL;
+		}
 
-	// ccu_clk_pwr_ctrl[2] = devm_clk_get(g_ccu_device->dev,
-	//	"CAM_PWR");
-	// if (ccu_clk_pwr_ctrl[2] == NULL)
-	//	LOG_ERR("Get CAM_PWR fail.\n");
+		clock_num = clki;
+		LOG_DBG("CCU got %d clocks\n", clki);
 
-	ccu_clk_pwr_ctrl[1] = devm_clk_get(g_ccu_device->dev,
-		"CCU_CLK_CAM_CCU");
-	if (ccu_clk_pwr_ctrl[1] == NULL)
-		LOG_ERR("Get CCU_CLK_CAM_CCU fail.\n");
+		pm_runtime_enable(g_ccu_device->dev);
 
-	pm_runtime_enable(g_ccu_device->dev);
-
-	smi_node = of_parse_phandle(node, "mediatek,larbs", 0);
-	if (!smi_node) {
-		LOG_DERR(
-		g_ccu_device->dev, "get smi larb from DTS fail!\n");
-		return -ENODEV;
-	}
-	smi_pdev = of_find_device_by_node(smi_node);
-	if(WARN_ON(!smi_pdev)) {
-		of_node_put(smi_node);
-		return -ENODEV;
-	}
-	of_node_put(smi_node);
-	g_ccu_device->smi_dev = &smi_pdev->dev;
-#ifdef CCU_QOS_SUPPORT_ENABLE
-	g_ccu_device->path_ccuo = of_mtk_icc_get(g_ccu_device->dev, "ccu_o");
-	g_ccu_device->path_ccui = of_mtk_icc_get(g_ccu_device->dev, "ccu_i");
-	g_ccu_device->path_ccug = of_mtk_icc_get(g_ccu_device->dev, "ccu_g");
-#endif
-	g_ccu_device->irq_num = irq_of_parse_and_map(node, 0);
-	LOG_INF_MUST("probe 1, ccu_base: 0x%lx, bin_base: 0x%lx,",
-		g_ccu_device->ccu_base, g_ccu_device->bin_base);
-	LOG_INF_MUST("probe 1, ccu_base:irq_num: %d, pdev: %p\n",
-		g_ccu_device->irq_num, g_ccu_device->dev);
-
-	if (g_ccu_device->irq_num > 0) {
-		/* get IRQ flag from device node */
-		unsigned int irq_info[3];
-
-		if (of_property_read_u32_array
-		    (node, "interrupts", irq_info, ARRAY_SIZE(irq_info))) {
-			LOG_DERR(
-			g_ccu_device->dev, "get irq flags from DTS fail!\n");
+		smi_node = of_parse_phandle(node, "mediatek,larbs", 0);
+		if (!smi_node) {
+			LOG_DERR(g_ccu_device->dev, "get smi larb from DTS fail!\n");
 			return -ENODEV;
 		}
-	} else {
-		LOG_DBG("No IRQ!!: ccu_num_devs=%d, devnode(%s), irq=%d\n",
-			ccu_num_devs, g_ccu_device->dev->of_node->name,
-			g_ccu_device->irq_num);
-	}
-
-	/* Only register char driver in the 1st time */
-	if (++ccu_num_devs == 1) {
-
-		/* Register char driver */
-		ret = ccu_reg_chardev();
-		if (ret) {
-			LOG_DERR(g_ccu_device->dev, "register char failed");
-			return ret;
+		smi_pdev = of_find_device_by_node(smi_node);
+		if (WARN_ON(!smi_pdev)) {
+			of_node_put(smi_node);
+			return -ENODEV;
 		}
+		of_node_put(smi_node);
+		g_ccu_device->smi_dev = &smi_pdev->dev;
 
-		/* Create class register */
-		ccu_class = class_create(THIS_MODULE, "ccudrv");
-		if (IS_ERR(ccu_class)) {
-			ret = PTR_ERR(ccu_class);
-			LOG_ERR("Unable to create class, err = %d\n", ret);
-			goto EXIT;
-		}
+#ifdef CCU_QOS_SUPPORT_ENABLE
+		g_ccu_device->path_ccuo = of_mtk_icc_get(g_ccu_device->dev, "ccu_o");
+		g_ccu_device->path_ccui = of_mtk_icc_get(g_ccu_device->dev, "ccu_i");
+		g_ccu_device->path_ccug = of_mtk_icc_get(g_ccu_device->dev, "ccu_g");
+#endif
+		g_ccu_device->irq_num = irq_of_parse_and_map(node, 0);
+		LOG_INF_MUST("probe 1, ccu_base: 0x%lx, bin_base: 0x%lx,",
+		(uint64_t)g_ccu_device->ccu_base, (uint64_t)g_ccu_device->bin_base);
+		LOG_INF_MUST("probe 1, ccu_base:irq_num: %d, pdev: %p\n",
+		g_ccu_device->irq_num, g_ccu_device->dev);
 
-		dev = device_create(
-		ccu_class, NULL, ccu_devt, NULL, CCU_DEV_NAME);
-		if (IS_ERR(dev)) {
-			ret = PTR_ERR(dev);
+		if (g_ccu_device->irq_num > 0) {
+			/* get IRQ flag from device node */
+			unsigned int irq_info[3];
+
+			if (of_property_read_u32_array
+			    (node, "interrupts", irq_info, ARRAY_SIZE(irq_info))) {
+				LOG_DERR(g_ccu_device->dev, "get irq flags from DTS fail!\n");
+				return -ENODEV;
+			}
+		} else {
 			LOG_DERR(g_ccu_device->dev,
-			"Failed to create device: /dev/%s, err = %d",
-			CCU_DEV_NAME, ret);
-			goto EXIT;
+				"No IRQ!!: ccu_num_devs=%d, devnode(%s), irq=%d\n",
+				ccu_num_devs, g_ccu_device->dev->of_node->name,
+				g_ccu_device->irq_num);
 		}
+
+		/* Only register char driver in the 1st time */
+		if (++ccu_num_devs == 1) {
+
+			/* Register char driver */
+			ret = ccu_reg_chardev();
+			if (ret) {
+				LOG_DERR(g_ccu_device->dev, "register char failed");
+				return ret;
+			}
+
+			/* Create class register */
+			ccu_class = class_create(THIS_MODULE, "ccudrv");
+			if (IS_ERR(ccu_class)) {
+				ret = PTR_ERR(ccu_class);
+				LOG_ERR("Unable to create class, err = %d\n", ret);
+				goto EXIT;
+			}
+
+			dev = device_create(ccu_class, NULL, ccu_devt, NULL, CCU_DEV_NAME);
+			if (IS_ERR(dev)) {
+				ret = PTR_ERR(dev);
+				LOG_DERR(g_ccu_device->dev,
+					"Failed to create device: /dev/%s, err = %d",
+					CCU_DEV_NAME, ret);
+				goto EXIT;
+			}
 
 // #ifdef CONFIG_PM_WAKELOCKS
-//	wakeup_source_init(&ccu_wake_lock, "ccu_lock_wakelock");
+//			wakeup_source_init(&ccu_wake_lock, "ccu_lock_wakelock");
 // #else
 //			wake_lock_init(&ccu_wake_lock, WAKE_LOCK_SUSPEND,
 //					"ccu_lock_wakelock");
 // #endif
 
-		/* enqueue/dequeue control in ihalpipe wrapper */
-		init_waitqueue_head(&wait_queue_deque);
-		init_waitqueue_head(&wait_queue_enque);
+			/* enqueue/dequeue control in ihalpipe wrapper */
+			init_waitqueue_head(&wait_queue_deque);
+			init_waitqueue_head(&wait_queue_enque);
 
 			/*for (i = 0; i < CCU_IRQ_NUM_TYPES; i++) {*/
 			/*	tasklet_init(ccu_tasklet[i].pCCU_tkt, */
 			/* ccu_tasklet[i].tkt_cb, 0);*/
 			/*}*/
 
-		// /*register i2c driver callback*/
-		// ret = ccu_i2c_register_driver();
-		// if (ret < 0)
-		//	goto EXIT;
-		// ret = ccu_i2c_set_n3d_base(g_ccu_device->n3d_a_base);
-		// if (ret < 0)
-		//	goto EXIT;
+			// /*register i2c driver callback*/
+			// ret = ccu_i2c_register_driver();
+			// if (ret < 0)
+			//	goto EXIT;
+			// ret = ccu_i2c_set_n3d_base(g_ccu_device->n3d_a_base);
+			// if (ret < 0)
+			//	goto EXIT;
 
-		// /*allocate dma buffer for i2c*/
-		if (dma_set_mask_and_coherent(g_ccu_device->dev, DMA_BIT_MASK(36))) {
-			LOG_DERR(g_ccu_device->dev,
-				"dma_set_mask_and_coherent return error.");
-			goto EXIT;
-		}
-		// g_ccu_device->i2c_dma_vaddr =
-		// dma_alloc_coherent(g_ccu_device->dev, CCU_I2C_DMA_BUF_SIZE,
-		//		&g_ccu_device->i2c_dma_paddr, GFP_KERNEL);
-		// if (g_ccu_device->i2c_dma_vaddr == NULL) {
-		//		LOG_DERR(g_ccu_device->dev,
-		//			"dma_alloc_coherent fail\n");
-		//		ret = -ENOMEM;
-		//		goto EXIT;
-		// }
+			// /*allocate dma buffer for i2c*/
+			if (dma_set_mask_and_coherent(g_ccu_device->dev, DMA_BIT_MASK(36))) {
+				LOG_DERR(g_ccu_device->dev,
+					"dma_set_mask_and_coherent return error.");
+				goto EXIT;
+			}
+			// g_ccu_device->i2c_dma_vaddr =
+			// dma_alloc_coherent(g_ccu_device->dev, CCU_I2C_DMA_BUF_SIZE,
+			//		&g_ccu_device->i2c_dma_paddr, GFP_KERNEL);
+			// if (g_ccu_device->i2c_dma_vaddr == NULL) {
+			//		LOG_DERR(g_ccu_device->dev,
+			//			"dma_alloc_coherent fail\n");
+			//		ret = -ENOMEM;
+			//		goto EXIT;
+			// }
 
-		// g_ccu_device->i2c_dma_mva = 0;
+			// g_ccu_device->i2c_dma_mva = 0;
 
 EXIT:
-		if (ret < 0)
-			ccu_unreg_chardev();
+			if (ret < 0)
+				ccu_unreg_chardev();
 		}
 
 		ccu_init_hw(g_ccu_device);
 
-		LOG_INF_MUST("ccu probe cuccess...\n");
+		LOG_INF_MUST("ccu probe succeed...\n");
 
 	}
-#endif
-#endif
+#endif /* !MTK_CCU_EMULATOR */
+#endif /* CONFIG_OF */
 
 	LOG_DBG("- X. CCU driver probe.\n");
 
@@ -1733,7 +1684,6 @@ EXIT:
 static int ccu_remove(struct platform_device *pDev)
 {
 	/*    struct resource *pRes; */
-	int irq_num;
 
 	/*  */
 	LOG_DBG("- E.");
@@ -1753,8 +1703,7 @@ static int ccu_remove(struct platform_device *pDev)
 
 	/* Release IRQ */
 	disable_irq(g_ccu_device->irq_num);
-	irq_num = platform_get_irq(pDev, 0);
-	free_irq(irq_num, (void *)ccu_chardev);
+	devm_free_irq(g_ccu_device->dev, g_ccu_device->irq_num, (void *)g_ccu_device);
 
 	/* kill tasklet */
 	/*for (i = 0; i < CCU_IRQ_NUM_TYPES; i++) {*/
@@ -1796,6 +1745,10 @@ static int __init CCU_INIT(void)
 	/*struct device_node *node = NULL;*/
 
 	g_ccu_device = kzalloc(sizeof(struct ccu_device_s), GFP_KERNEL);
+	if (!g_ccu_device) {
+		LOG_ERR("failed to allocate CCU device memory");
+		return -ENOMEM;
+	}
 	/*g_ccu_device = dma_cache_coherent();*/
 
 	INIT_LIST_HEAD(&g_ccu_device->user_list);
@@ -1827,8 +1780,8 @@ static int __init CCU_INIT(void)
 		i++;
 		dev_pm_opp_put(opp);
 	}
-
 #endif
+
 	if (result < 0)
 		LOG_ERR("get MMDVFS freq steps failed, result: %d\n", result);
 

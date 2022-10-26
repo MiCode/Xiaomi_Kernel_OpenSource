@@ -15,8 +15,7 @@ struct CcuMemHandle ccu_buffer_handle[2];
 int ccu_allocate_mem(struct ccu_device_s *dev, struct CcuMemHandle *memHandle,
 			 int size, bool cached)
 {
-	LOG_DBG("size(%d) cached(%d) memHandle->ionHandleKd(%d)\n",
-			 size, cached, memHandle->ionHandleKd);
+	LOG_DBG("size(%d) cached(%d)\n", size, cached);
 	// get buffer virtual address
 	memHandle->meminfo.size = size;
 	memHandle->meminfo.cached = cached;
@@ -29,9 +28,8 @@ int ccu_allocate_mem(struct ccu_device_s *dev, struct CcuMemHandle *memHandle,
 		return -1;
 	}
 
-	LOG_DBG("memHandle->ionHandleKd(%d)\n", memHandle->ionHandleKd);
-	LOG_DBG("success: ionHandleKd(%d), share_fd(%d), size(%x), cached(%d), va(%lx), mva(%lx)\n",
-	memHandle->ionHandleKd, memHandle->meminfo.shareFd, memHandle->meminfo.size,
+	LOG_DBG("success: share_fd(%d), size(%x), cached(%d), va(%lx), mva(%lx)\n",
+	memHandle->meminfo.shareFd, memHandle->meminfo.size,
 	memHandle->meminfo.cached, memHandle->meminfo.va, memHandle->mva);
 
 	memHandle->meminfo.mva = (uint32_t)memHandle->mva;

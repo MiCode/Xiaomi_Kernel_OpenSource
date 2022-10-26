@@ -17,16 +17,17 @@
 
 #endif
 struct CcuMemInfo {
+	unsigned int chksum;
 	int shareFd;
 	char *va;
 	unsigned int align_mva;
 	unsigned int mva;
 	unsigned int size;
 	unsigned int occupiedSize;
-	bool cached;
+	unsigned int cached;
+	bool ion_log;
 };
 struct CcuMemHandle {
-	struct ion_handle *ionHandleKd;
 	struct CcuMemInfo meminfo;
 	dma_addr_t  mva;
 };

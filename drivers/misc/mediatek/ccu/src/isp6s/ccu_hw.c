@@ -19,19 +19,17 @@
 #include <linux/dma-mapping.h>
 #include <linux/spinlock.h>
 #include <linux/iommu.h>
-
 #include <linux/firmware.h>
-
-#ifdef CONFIG_MTK_IOMMU_V2
-#include "mtk_iommu.h"
-#include <dt-bindings/memory/mt6873-larb-port.h>
-#else
-#include <dt-bindings/memory/mt6873-larb-port.h>
-#endif
+#include <crypto/hash.h>
+#include <crypto/akcipher.h>
 
 #include <linux/io.h> /*for mb();*/
 
+#include "ccu_drv.h"
 #include "ccu_hw.h"
+#if (CCU_FW_VERIFY)
+#include "ccu_fw_pubk.h"
+#endif
 #include "ccu_reg.h"
 #include "ccu_cmn.h"
 #include "ccu_kd_mailbox.h"
@@ -40,10 +38,10 @@
 #include "kd_camera_feature.h"/*for sensorType in ccu_set_sensor_info*/
 #include "ccu_ipc.h"
 
-static uint64_t camsys_base;
-static uint64_t bin_base;
-static uint64_t dmem_base;
-static uint64_t pmem_base;
+static void __iomem *camsys_base;
+static void __iomem *bin_base;
+static void __iomem *dmem_base;
+static void __iomem *pmem_base;
 
 static struct ccu_device_s *ccu_dev;
 static struct task_struct *enque_task;
@@ -63,8 +61,14 @@ struct ap_task_manage_t {
 	struct list_head ApTskWorkList;
 };
 
-struct ap_task_manage_t ap_task_manage;
+#if (CCU_FW_VERIFY)
+struct sdesc {
+	struct shash_desc shash;
+	char ctx[];
+};
+#endif
 
+struct ap_task_manage_t ap_task_manage;
 
 static struct CCU_INFO_STRUCT ccuInfo;
 static bool bWaitCond;
@@ -79,6 +83,9 @@ static int ccu_load_segments(const struct firmware *fw,
 	enum CCU_BIN_TYPE type);
 static void *ccu_da_to_va(u64 da, int len);
 static int ccu_sanity_check(const struct firmware *fw);
+#if (CCU_FW_VERIFY)
+static int ccu_cert_check(const struct firmware *fw);
+#endif
 
 static inline unsigned int CCU_MsToJiffies(unsigned int Ms)
 {
@@ -400,12 +407,18 @@ int ccu_init_hw(struct ccu_device_s *device)
 	LOG_DBG("(0x%llx),(0x%llx),(0x%llx)\n",
 		ccu_base, camsys_base, bin_base);
 
-	if (request_irq(device->irq_num,
-		ccu_isr_handler, IRQF_TRIGGER_NONE, "ccu", NULL)) {
-		LOG_ERR("fail to request ccu irq!\n");
+#ifdef REQUEST_IRQ_IN_INIT
+	if (devm_request_threaded_irq(device->dev, device->irq_num, NULL,
+		ccu_isr_handler, IRQF_ONESHOT, "ccu", (void *)ccu_dev)) {
+
+		LOG_ERR("fail to request ccu irq(%d)!\n", device->irq_num);
 		ret = -ENODEV;
 		goto out;
 	}
+
+	disable_irq(device->irq_num);
+	LOG_INF_MUST("request irq %d\n", device->irq_num);
+#endif
 
 	LOG_DBG("create ccu_enque_cmd_loop\n");
 	enque_task = kthread_create(ccu_enque_cmd_loop, NULL, "ccu-enque");
@@ -422,7 +435,6 @@ out:
 
 int ccu_uninit_hw(struct ccu_device_s *device)
 {
-	device->i2c_dma_mva = 0;
 	if (enque_task) {
 		kthread_stop(enque_task);
 		enque_task = NULL;
@@ -697,7 +709,6 @@ CCU_PWDN_SKIP_STAT_CHK:
 	/*CCF & i2c uninit*/
 	ccu_irq_disable();
 	ccu_clock_disable();
-	ccu_dev->i2c_dma_mva = 0;
 	ccuInfo.IsCcuPoweredOn = 0;
 
 	return 0;
@@ -1029,20 +1040,28 @@ int ccu_irq_enable(void)
 
 	ccu_write_reg(ccu_base, EINTC_CLR, 0xFF);
 	ccu_read_reg(ccu_base, EINTC_ST);
-	if (request_irq(ccu_dev->irq_num, ccu_isr_handler,
-		IRQF_TRIGGER_NONE, "ccu", NULL)) {
+#ifdef REQUEST_IRQ_IN_INIT
+	enable_irq(ccu_dev->irq_num);
+#else
+	if (devm_request_threaded_irq(ccu_dev->dev, ccu_dev->irq_num, NULL,
+		ccu_isr_handler, IRQF_ONESHOT, "ccu", (void *)ccu_dev)) {
 		LOG_ERR("fail to request ccu irq(%d)!\n", ccu_dev->irq_num);
 		ret = -ENODEV;
 	}
+#endif
 
-	return 0;
+	return ret;
 }
 
 int ccu_irq_disable(void)
 {
 	LOG_DBG_MUST("%s+.\n", __func__);
 
-	free_irq(ccu_dev->irq_num, NULL);
+#ifdef REQUEST_IRQ_IN_INIT
+	disable_irq(ccu_dev->irq_num);
+#else
+	devm_free_irq(ccu_dev->dev, ccu_dev->irq_num, (void *)ccu_dev);
+#endif
 	ccu_write_reg(ccu_base, EINTC_CLR, 0xFF);
 	ccu_read_reg(ccu_base, EINTC_ST);
 
@@ -1066,6 +1085,14 @@ int ccu_load_bin(struct ccu_device_s *device, enum CCU_BIN_TYPE type)
 		goto EXIT;
 	}
 
+#if (CCU_FW_VERIFY)
+	ret = ccu_cert_check(firmware_p);
+	if (ret < 0) {
+		LOG_ERR("cert check failed: %d\n", ret);
+		goto EXIT;
+	}
+#endif
+
 	ret = ccu_load_segments(firmware_p, type);
 	if (ret < 0)
 		LOG_ERR("load segments failed: %d\n", ret);
@@ -1073,6 +1100,119 @@ EXIT:
 	release_firmware(firmware_p);
 	return ret;
 }
+
+#if (CCU_FW_VERIFY)
+
+CCU_FW_PUBK;
+
+int ccu_cert_check(const struct firmware *fw)
+{
+	uint8_t hash[32];
+	uint8_t *cert = NULL;
+	uint8_t *sign = NULL;
+	uint8_t *digest = NULL;
+	int cert_len = 0x110;
+	int block_len = 0x100;
+	struct crypto_wait wait;
+	struct crypto_shash *alg = NULL;
+	struct crypto_akcipher *rsa_alg = NULL;
+	struct akcipher_request *req = NULL;
+	struct sdesc *sdesc = NULL;
+	struct scatterlist sg_in;
+	struct scatterlist sg_out;
+	uint32_t firmware_size, size;
+	int ret, i;
+
+	LOG_DBG_MUST("%s+\n", __func__);
+	if (fw->size < cert_len) {
+		LOG_ERR("firmware size small than cert\n");
+		return -EINVAL;
+	}
+	cert = (uint8_t *)fw->data + fw->size - cert_len;
+	alg = crypto_alloc_shash("sha256", 0, 0);
+	if (IS_ERR(alg)) {
+		LOG_ERR("can't alloc alg sha256\n");
+		ret = -EINVAL;
+		goto free_req;
+	}
+	size = sizeof(struct shash_desc) + crypto_shash_descsize(alg);
+	sdesc = kmalloc(size, GFP_KERNEL);
+	if (!sdesc) {
+		LOG_ERR("can't alloc sdesc\n");
+		ret = -ENOMEM;
+		goto free_req;
+	}
+	digest = kmalloc(block_len, GFP_KERNEL);
+	if (!digest) {
+		LOG_ERR("can't alloc sdesc\n");
+		ret = -ENOMEM;
+		goto free_req;
+	}
+	sign = kmalloc(block_len, GFP_KERNEL);
+	if (!sign) {
+		LOG_ERR("can't alloc sdesc\n");
+		ret = -ENOMEM;
+		goto free_req;
+	}
+	firmware_size = *(uint32_t *)(cert);
+	LOG_DBG_MUST("firmware_size 0x%x\n", firmware_size);
+	sdesc->shash.tfm = alg;
+	ret = crypto_shash_digest(&sdesc->shash, fw->data, firmware_size, hash);
+	memcpy(sign, cert + 0x10, block_len);
+	rsa_alg = crypto_alloc_akcipher("rsa", 0, 0);
+	if (IS_ERR(rsa_alg)) {
+		LOG_ERR("can't alloc alg %ld\n", PTR_ERR(rsa_alg));
+		goto free_req;
+	}
+	req = akcipher_request_alloc(rsa_alg, GFP_KERNEL);
+	if (!req) {
+		LOG_ERR("can't request alg rsa\n");
+		goto free_req;
+	}
+	crypto_init_wait(&wait);
+	ret = crypto_akcipher_set_pub_key(rsa_alg, g_ccu_pubk, CCU_FW_PUBK_SZ);
+	if (ret) {
+		LOG_ERR("set pubkey err %d %d\n", ret, CCU_FW_PUBK_SZ);
+		goto free_req;
+	}
+	sg_init_one(&sg_in, sign, block_len);
+	sg_init_one(&sg_out, digest, block_len);
+	akcipher_request_set_crypt(req, &sg_in, &sg_out, block_len, block_len);
+	akcipher_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
+		crypto_req_done, &wait);
+	ret = crypto_wait_req(crypto_akcipher_encrypt(req), &wait);
+	if (ret) {
+		LOG_ERR("verify err %d\n", ret);
+		goto free_req;
+	}
+	if (memcmp(digest + 0xE0, hash, 0x20)) {
+		LOG_ERR("firmware is corrupted\n");
+		LOG_ERR("digest:\n");
+		for (i = 0xE0; i < 0x100; i += 8) {
+			LOG_ERR("%02x%02x%02x%02x%02x%02x%02x%02x\n",
+			digest[i], digest[i+1], digest[i+2], digest[i+3],
+			digest[i+4], digest[i+5], digest[i+6], digest[i+7]);
+		}
+		LOG_ERR("hash:\n");
+		for (i = 0; i < 32; i += 8) {
+			LOG_INF_MUST("%02x%02x%02x%02x%02x%02x%02x%02x\n",
+			hash[i], hash[i+1], hash[i+2], hash[i+3],
+			hash[i+4], hash[i+5], hash[i+6], hash[i+7]);
+		}
+		ret = -EINVAL;
+	}
+free_req:
+	if (rsa_alg)
+		crypto_free_akcipher(rsa_alg);
+	if (req)
+		akcipher_request_free(req);
+	if (alg)
+		crypto_free_shash(alg);
+	kfree(sdesc);
+	LOG_DBG_MUST("%s-\n", __func__);
+	return ret;
+}
+#endif /* CCU_FW_VERIFY */
 
 int ccu_sanity_check(const struct firmware *fw)
 {
