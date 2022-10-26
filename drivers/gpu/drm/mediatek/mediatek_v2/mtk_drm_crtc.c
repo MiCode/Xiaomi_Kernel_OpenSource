@@ -4690,7 +4690,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		mtk_crtc->pending_needs_vblank = false;
 	}
 
-	mtk_atomic_state_put_queue(atomic_state);
+	drm_atomic_state_put(atomic_state);
 
 	if (mtk_crtc->wb_enable == true) {
 		mtk_crtc->wb_enable = false;
