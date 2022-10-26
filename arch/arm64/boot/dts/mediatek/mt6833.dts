@@ -1363,6 +1363,41 @@
 	subpmic_pmu_eint:subpmic_pmu_eint {
 	};
 
+	ccu: ccu@1a101000 {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		compatible = "mediatek,ccu";
+		power-domains = <&scpsys MT6833_POWER_DOMAIN_CAM>;
+		dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+		iommus = <&iommu0 M4U_PORT_L13_CAM_CCUI>,
+			 <&iommu0 M4U_PORT_L13_CAM_CCUO>;
+		reg = <0 0x1a101000 0 0x1000>;
+		interrupts = <GIC_SPI 331 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&topckgen_clk CLK_TOP_CCU_SEL>,
+			<&camsys_main_clk CLK_CAM_M_CAM>,
+			<&camsys_main_clk CLK_CAM_M_LARB13>,
+			<&camsys_main_clk CLK_CAM_M_CCU0>,
+			<&camsys_main_clk CLK_CAM_M_CAM2MM_GALS>,
+			<&camsys_main_clk CLK_CAM_M_CCU_GALS>;
+		clock-names = "TOP_CCU_CLK",
+			"CCU_CLK_CAM_CAM",
+			"CCU_CLK_CAM_LARB13",
+			"CCU_CLK_CAM_CCU0",
+			"CCU_CLK_CAM_GALS",
+			"CCU_CLK_CAM_CCU_GALS";
+		mediatek,larbs = <&smi_larb13>;
+		interconnects =
+			<&mmqos SLAVE_LARB(21) &mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L13_CAM_CCUI) &mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L13_CAM_CCUO) &mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+					"ccu_g",
+				    "ccu_i",
+				    "ccu_o";
+		operating-points-v2 = <&opp_table_ccu>;
+		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+	};
+
 	btif@1100c000 {
 		compatible = "mediatek,btif";
 			/*btif base*/
