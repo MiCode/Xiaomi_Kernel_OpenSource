@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/notifier.h>
@@ -1130,6 +1131,9 @@ void kgsl_device_snapshot_close(struct kgsl_device *device)
 
 	kgsl_remove_from_minidump("GPU_SNAPSHOT", (u64) device->snapshot_memory.ptr,
 			snapshot_phy_addr(device), device->snapshot_memory.size);
+
+	atomic_notifier_chain_unregister(&panic_notifier_list,
+					 &device->panic_nb);
 
 	sysfs_remove_bin_file(&device->snapshot_kobj, &snapshot_attr);
 	sysfs_remove_files(&device->snapshot_kobj, snapshot_attrs);
