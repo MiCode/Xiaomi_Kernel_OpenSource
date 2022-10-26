@@ -30,6 +30,13 @@
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 #include "scp.h"
 #endif
+#if IS_ENABLED(CONFIG_OCP96011_I2C)
+#include "../../../drivers/misc/mediatek/typec/mux/ocp96011-i2c.h"
+#endif
+
+#ifndef __weak
+#define __weak __attribute__((weak))
+#endif
 
 /* SCP -> AP ipi structure */
 /* 2 x 4-byte(unit) = 8 */
@@ -72,6 +79,9 @@ struct accdet_ipi_rx_info_t {
 #define EINT_PIN_PLUG_IN		(1)
 #define EINT_PIN_PLUG_OUT		(0)
 #define EINT_PIN_MOISTURE_DETECTED	(2)
+#if IS_ENABLED(CONFIG_OCP96011_I2C)
+#define EINT_PIN_PLUG_IN_2		(3)
+#endif
 
 struct mt63xx_accdet_data {
 	struct snd_soc_jack jack;
@@ -131,6 +141,10 @@ struct mt63xx_accdet_data {
 	u32 moisture_vdd_offset;
 	u32 moisture_offset;
 	u32 moisture_eint_offset;
+#if IS_ENABLED(CONFIG_OCP96011_I2C)
+	u32 double_head_state;
+	struct notifier_block fsa_nb;
+#endif
 };
 static struct mt63xx_accdet_data *accdet;
 
@@ -177,6 +191,16 @@ static struct task_struct *thread;
 
 static u32 button_press_debounce = 0x400;
 static u32 button_press_debounce_01 = 0x800;
+
+#if IS_ENABLED(CONFIG_OCP96011_I2C)
+static u32 accdet_typec_headset = 0;
+
+u32 __weak ocp96011_get_headset_status(void);
+int __weak ocp960_get_headset_count(void);
+int __weak ocp96011_reg_notifier(struct notifier_block *nb);
+int __weak ocp96011_unreg_notifier(struct notifier_block *nb);
+int __weak ocp96011_switch_event( enum fsa_function event, struct ocp96011_priv *fsa_priv);
+#endif
 
 /*******************local function declaration******************/
 static u32 config_moisture_detect_1_0(void);
@@ -1613,6 +1637,21 @@ static void eint_work_callback(struct work_struct *work)
 		accdet_init();
 
 		enable_accdet(0);
+#if IS_ENABLED(CONFIG_OCP96011_I2C)
+	} else if ((accdet_typec_headset == 1) && (accdet->cur_eint_state == EINT_PIN_PLUG_IN_2)) {
+		mutex_lock(&accdet->res_lock);
+		accdet->eint_sync_flag = false;
+		accdet->thing_in_flag = false;
+		mutex_unlock(&accdet->res_lock);
+		if (accdet_dts.moisture_detect_mode != 0x5)
+			del_timer_sync(&micbias_timer);
+		/* disable accdet_sw_en=0
+		 */
+		pmic_write_clr(MT6338_ACCDET_SW_EN_ADDR,
+			       MT6338_ACCDET_SW_EN_SHIFT);
+		disable_accdet();
+		accdet->cur_eint_state = EINT_PIN_PLUG_OUT;
+#endif
 	} else {
 		mutex_lock(&accdet->res_lock);
 		accdet->eint_sync_flag = false;
@@ -2401,6 +2440,14 @@ static int accdet_get_dts_data(void)
 		/* eint use internal resister */
 		accdet_dts.eint_use_ext_res = 0x0;
 	}
+#if IS_ENABLED(CONFIG_OCP96011_I2C)
+	ret = of_property_read_u32(node,
+			"accdet-typec-headset", &tmp);
+	if (ret)
+		accdet_typec_headset = 0;
+	if (tmp == 1)
+		accdet_typec_headset = 1;
+#endif
 	return 0;
 }
 
@@ -2779,15 +2826,80 @@ static inline void accdet_init(void)
 	pr_info("%s() done.\n", __func__);
 }
 
+#if IS_ENABLED(CONFIG_OCP96011_I2C)
+static int typec_headphone_irq_handler(struct notifier_block *nb,
+					   unsigned long state, void *ptr)
+{
+	u32 reg17 = ocp96011_get_headset_status();
+
+	pr_info("%s() enter, state = %d, reg17 = %d\n", __func__, state, reg17);
+	switch (reg17) 	{
+		//3hole-headset
+		case 0x2:
+			//cur_eint_state = !cur_eint_state;
+			//queue_work(eint_workqueue, &eint_work);
+			send_accdet_status_event(HEADSET_NO_MIC, state);
+			break;
+		//No audio accessory
+		case 0x0:
+			send_accdet_status_event(NO_DEVICE, state);
+			break;
+		//OMTP
+		case 0x8:
+		//CTIA
+		case 0x4:
+		//dio
+		case 0x1:
+			pr_info("%s:[cur_eint_state = %d] [headset_count = %d]\n", __func__, accdet->cur_eint_state, ocp960_get_headset_count());
+			if (ocp960_get_headset_count() == 2) {
+				accdet->double_head_state = 1;
+				accdet->cur_eint_state = EINT_PIN_PLUG_IN_2;
+				mod_timer(&micbias_timer, (jiffies + MICBIAS_DISABLE_TIMER));
+				queue_work(accdet->eint_workqueue, &accdet->eint_work);
+				break;
+			}
+
+			if ((accdet->cur_eint_state == EINT_PIN_PLUG_OUT) && (accdet->double_head_state == 1)) {
+				accdet->cur_eint_state = EINT_PIN_PLUG_IN;
+				mod_timer(&micbias_timer, (jiffies + MICBIAS_DISABLE_TIMER));
+				accdet->double_head_state = 2;
+			} else if (accdet->cur_eint_state == EINT_PIN_PLUG_IN) {
+				accdet->cur_eint_state = EINT_PIN_PLUG_OUT;
+			} else if (accdet->cur_eint_state == EINT_PIN_PLUG_OUT) {
+				accdet->cur_eint_state = EINT_PIN_PLUG_IN;
+				mod_timer(&micbias_timer, (jiffies + MICBIAS_DISABLE_TIMER));
+			}
+			queue_work(accdet->eint_workqueue, &accdet->eint_work);
+			break;
+	}
+
+	return 0;
+}
+#endif
+
 /* late init for DC trim, and this API Will be called by audio */
 void mt6338_accdet_late_init(unsigned long data)
 {
+#if IS_ENABLED(CONFIG_OCP96011_I2C)
+	int ret = 0;
+#endif
 	pr_info("%s()  now init accdet!\n", __func__);
 	if (atomic_cmpxchg(&accdet_first, 1, 0)) {
 		del_timer_sync(&accdet_init_timer);
 		accdet_init();
 		accdet_init_debounce();
 		accdet_init_once();
+#if IS_ENABLED(CONFIG_OCP96011_I2C)
+		if (accdet_typec_headset == 1) {
+			accdet->fsa_nb.notifier_call = typec_headphone_irq_handler;
+			accdet->fsa_nb.priority = 0;
+			ret = ocp96011_reg_notifier(&accdet->fsa_nb);
+			if (ret) {
+				pr_notice("%s ocp96011_reg_notifier fail, ret = %d\n", __func__, ret);
+			}
+			accdet->double_head_state = 2;
+	}
+#endif
 	} else
 		pr_info("%s inited dts fail\n", __func__);
 }
@@ -3059,6 +3171,11 @@ static int accdet_remove(struct platform_device *pdev)
 	destroy_workqueue(accdet->delay_init_workqueue);
 	class_destroy(accdet->accdet_class);
 	unregister_chrdev_region(accdet->accdet_devno, 1);
+#if IS_ENABLED(CONFIG_OCP96011_I2C)
+	if (accdet_typec_headset == 1) {
+		ocp96011_unreg_notifier(&accdet->fsa_nb);
+	}
+#endif
 	devm_kfree(&pdev->dev, accdet);
 	return 0;
 }
