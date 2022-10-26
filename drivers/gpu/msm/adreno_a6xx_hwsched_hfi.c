@@ -140,7 +140,7 @@ static void log_profiling_info(struct adreno_device *adreno_dev, u32 *rcvd)
 		return;
 
 	info.timestamp = cmd->ts;
-	info.rb_id = adreno_get_level(context->priority);
+	info.rb_id = adreno_get_level(context);
 	info.gmu_dispatch_queue = context->gmu_dispatch_queue;
 	info.submitted_to_rb = cmd->submitted_to_rb;
 	info.sop = cmd->sop;
@@ -1291,7 +1291,7 @@ static void add_profile_events(struct adreno_device *adreno_dev,
 	time_in_ns = do_div(time_in_s, 1000000000);
 
 	info.inflight = -1;
-	info.rb_id = adreno_get_level(context->priority);
+	info.rb_id = adreno_get_level(context);
 	info.gmu_dispatch_queue = context->gmu_dispatch_queue;
 
 	trace_adreno_cmdbatch_submitted(drawobj, &info, time->ticks,
@@ -1311,9 +1311,9 @@ static u32 get_next_dq(u32 priority)
 	return next;
 }
 
-static u32 get_dq_id(u32 priority)
+static u32 get_dq_id(struct kgsl_context *context)
 {
-	u32 level = adreno_get_level(priority);
+	u32 level = adreno_get_level(context);
 
 	return get_next_dq(level);
 }
@@ -1333,7 +1333,7 @@ static int send_context_register(struct adreno_device *adreno_dev,
 	cmd.flags = HFI_CTXT_FLAG_NOTIFY | context->flags;
 	cmd.pt_addr = kgsl_mmu_pagetable_get_ttbr0(pt);
 	cmd.ctxt_idr = pid_nr(context->proc_priv->pid);
-	cmd.ctxt_bank = kgsl_mmu_pagetable_get_context_bank(pt);
+	cmd.ctxt_bank = kgsl_mmu_pagetable_get_context_bank(pt, context);
 
 	return a6xx_hfi_send_cmd_async(adreno_dev, &cmd);
 }
@@ -1396,7 +1396,7 @@ static int hfi_context_register(struct adreno_device *adreno_dev,
 	}
 
 	context->gmu_registered = true;
-	context->gmu_dispatch_queue = get_dq_id(context->priority);
+	context->gmu_dispatch_queue = get_dq_id(context);
 
 	return 0;
 }

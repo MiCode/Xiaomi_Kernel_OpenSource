@@ -538,6 +538,12 @@ static int gen7_hwsched_gpu_boot(struct adreno_device *adreno_dev)
 		goto err;
 	}
 
+	ret = gen7_hwsched_lpac_cp_init(adreno_dev);
+	if (ret) {
+		gen7_disable_gpu_irq(adreno_dev);
+		goto err;
+	}
+
 	/*
 	 * At this point it is safe to assume that we recovered. Setting
 	 * this field allows us to take a new snapshot for the next failure
@@ -1176,6 +1182,9 @@ int gen7_hwsched_probe(struct platform_device *pdev,
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
 		set_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_LPAC))
+		adreno_dev->lpac_enabled = true;
 
 	return adreno_hwsched_init(adreno_dev, &gen7_hwsched_ops);
 }

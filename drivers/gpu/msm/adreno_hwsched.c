@@ -1279,7 +1279,7 @@ static void do_fault_header(struct adreno_device *adreno_dev,
 
 	trace_adreno_gpu_fault(drawobj->context->id, drawobj->timestamp, status,
 		rptr, wptr, ib1base, ib1sz, ib2base, ib2sz,
-		adreno_get_level(drawobj->context->priority));
+		adreno_get_level(drawobj->context));
 }
 
 static struct cmd_list_obj *get_active_cmdobj(
@@ -1308,14 +1308,14 @@ static struct cmd_list_obj *get_active_cmdobj(
 		/* Find the first submission that started but didn't finish */
 		if (!active_obj) {
 			active_obj = obj;
-			prio = adreno_get_level(drawobj->context->priority);
+			prio = adreno_get_level(drawobj->context);
 			continue;
 		}
 
 		/* Find the highest priority active submission */
-		if (adreno_get_level(drawobj->context->priority) < prio) {
+		if (adreno_get_level(drawobj->context) < prio) {
 			active_obj = obj;
-			prio = adreno_get_level(drawobj->context->priority);
+			prio = adreno_get_level(drawobj->context);
 		}
 	}
 

@@ -734,15 +734,16 @@ static void dump_object(struct kgsl_device *device, int obj,
  */
 static void setup_fault_process(struct kgsl_device *device,
 				struct kgsl_snapshot *snapshot,
-				struct kgsl_process_private *process)
+				struct kgsl_context *context)
 {
 	u64 hw_ptbase, proc_ptbase;
+	struct kgsl_process_private *process = context ? context->proc_priv : NULL;
 
 	if (process != NULL && !kgsl_process_private_get(process))
 		process = NULL;
 
 	/* Get the physical address of the MMU pagetable */
-	hw_ptbase = kgsl_mmu_get_current_ttbr0(&device->mmu);
+	hw_ptbase = kgsl_mmu_get_current_ttbr0(&device->mmu, context);
 
 	/* if we have an input process, make sure the ptbases match */
 	if (process) {
@@ -876,7 +877,7 @@ static void adreno_snapshot_os(struct kgsl_device *device,
 	header->grpclk = clk_get_rate(device->pwrctrl.grp_clks[0]);
 
 	/* Get the current PT base */
-	header->ptbase = kgsl_mmu_get_current_ttbr0(&device->mmu);
+	header->ptbase = kgsl_mmu_get_current_ttbr0(&device->mmu, guilty);
 	header->ctxtcount = 0;
 
 	/* If we know the guilty context then dump it */
@@ -959,8 +960,7 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 
 	snapshot_frozen_objsize = 0;
 
-	setup_fault_process(device, snapshot,
-			context ? context->proc_priv : NULL);
+	setup_fault_process(device, snapshot, context);
 
 	/* Add GPU specific sections - registers mainly, but other stuff too */
 	if (gpudev->snapshot)

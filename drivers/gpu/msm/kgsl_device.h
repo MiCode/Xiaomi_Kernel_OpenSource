@@ -70,6 +70,7 @@ enum kgsl_event_results {
 	{ KGSL_CONTEXT_SAVE_GMEM, "SAVE_GMEM" }, \
 	{ KGSL_CONTEXT_IFH_NOP, "IFH_NOP" }, \
 	{ KGSL_CONTEXT_SECURE, "SECURE" }, \
+	{ KGSL_CONTEXT_LPAC, "LPAC" }, \
 	{ KGSL_CONTEXT_NO_SNAPSHOT, "NO_SNAPSHOT" }
 
 #define KGSL_CONTEXT_ID(_context) \
@@ -1035,5 +1036,19 @@ static inline void kgsl_trace_gpu_mem_total(struct kgsl_device *device,
 static inline void kgsl_trace_gpu_mem_total(struct kgsl_device *device,
 						s64 delta) {}
 #endif
+
+/*
+ * kgsl_context_is_lpac() - Checks if context is LPAC
+ * @context: KGSL context to check
+ *
+ * Function returns true if context is LPAC else false
+ */
+static inline bool kgsl_context_is_lpac(struct kgsl_context *context)
+{
+	if (context == NULL)
+		return false;
+
+	return (context->flags & KGSL_CONTEXT_LPAC) ? true : false;
+}
 
 #endif  /* __KGSL_DEVICE_H */

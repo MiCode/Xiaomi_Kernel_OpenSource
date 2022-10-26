@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -338,6 +339,7 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 		KGSL_CONTEXT_IFH_NOP |
 		KGSL_CONTEXT_SECURE |
 		KGSL_CONTEXT_PREEMPT_STYLE_MASK |
+		KGSL_CONTEXT_LPAC |
 		KGSL_CONTEXT_NO_SNAPSHOT |
 		KGSL_CONTEXT_FAULT_INFO);
 
@@ -359,6 +361,17 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 	if (!kgsl_mmu_is_secured(&dev_priv->device->mmu) &&
 			(local & KGSL_CONTEXT_SECURE)) {
 		dev_err_once(device->dev, "Secure context not supported\n");
+		return ERR_PTR(-EOPNOTSUPP);
+	}
+
+	if ((local & KGSL_CONTEXT_LPAC) &&
+			(!(adreno_dev->lpac_enabled))) {
+		dev_err_once(device->dev, "LPAC context not supported\n");
+		return ERR_PTR(-EOPNOTSUPP);
+	}
+
+	if ((local & KGSL_CONTEXT_LPAC) && (local & KGSL_CONTEXT_SECURE)) {
+		dev_err_once(device->dev, "LPAC secure context not supported\n");
 		return ERR_PTR(-EOPNOTSUPP);
 	}
 

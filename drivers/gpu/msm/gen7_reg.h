@@ -132,6 +132,8 @@
 #define GEN7_CP_BV_CHICKEN_DBG           0xada
 
 /* LPAC registers */
+#define GEN7_CP_LPAC_RB_RPTR             0xb06
+#define GEN7_CP_LPAC_RB_WPTR             0xb07
 #define GEN7_CP_LPAC_DRAW_STATE_ADDR     0xb0a
 #define GEN7_CP_LPAC_DRAW_STATE_DATA     0xb0b
 #define GEN7_CP_LPAC_ROQ_DBG_ADDR        0xb0c
@@ -1164,6 +1166,7 @@
 #define GEN7_GMU_AHB_FENCE_STATUS_CLR		0x23b14
 #define GEN7_GMU_RBBM_INT_UNMASKED_STATUS	0x23b15
 #define GEN7_GMU_AO_SPARE_CNTL			0x23b16
+#define GEN7_GPU_GMU_AO_GPU_LPAC_BUSY_STATUS	0x23b30
 
 /* GMU RSC control registers */
 #define GEN7_GMU_RSCC_CONTROL_REQ		0x23b07

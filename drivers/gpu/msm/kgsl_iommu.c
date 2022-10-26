@@ -1186,7 +1186,8 @@ static int kgsl_iommu_lpac_fault_handler(struct iommu_domain *domain,
 		"LPAC PAGE FAULT iova=0x%16lx, fsynr0=0x%x, fsynr1=0x%x\n",
 		addr, fsynr0, fsynr1);
 
-	return 0;
+	return kgsl_iommu_fault_handler(mmu, &iommu->lpac_context,
+		addr, flags);
 }
 
 static int kgsl_iommu_secure_fault_handler(struct iommu_domain *domain,
@@ -1264,11 +1265,15 @@ static void kgsl_iommu_set_ttbr0(struct kgsl_iommu_context *context,
 	kgsl_iommu_disable_clk(mmu);
 }
 
-/* FIXME: This is broken for LPAC.  For now return the default context bank */
-static int kgsl_iommu_get_context_bank(struct kgsl_pagetable *pt)
+static int kgsl_iommu_get_context_bank(struct kgsl_pagetable *pt, struct kgsl_context *context)
 {
 	struct kgsl_iommu *iommu = to_kgsl_iommu(pt);
-	struct iommu_domain *domain = to_iommu_domain(&iommu->user_context);
+	struct iommu_domain *domain;
+
+	if (kgsl_context_is_lpac(context))
+		domain = to_iommu_domain(&iommu->lpac_context);
+	else
+		domain = to_iommu_domain(&iommu->user_context);
 
 	return _iommu_domain_context_bank(domain);
 }
@@ -1324,6 +1329,25 @@ static int set_smmu_aperture(struct kgsl_device *device,
 
 	if (ret)
 		dev_err(device->dev, "Unable to set the SMMU aperture: %d. The aperture needs to be set to use per-process pagetables\n",
+			ret);
+
+	return ret;
+}
+
+static int set_smmu_lpac_aperture(struct kgsl_device *device,
+		struct kgsl_iommu_context *context)
+{
+	int ret;
+
+	if (!test_bit(KGSL_MMU_SMMU_APERTURE, &device->mmu.features))
+		return 0;
+
+	ret = qcom_scm_kgsl_set_smmu_lpac_aperture(context->cb_num);
+	if (ret == -EBUSY)
+		ret = qcom_scm_kgsl_set_smmu_lpac_aperture(context->cb_num);
+
+	if (ret)
+		dev_err(device->dev, "Unable to set the LPAC SMMU aperture: %d. The aperture needs to be set to use per-process pagetables\n",
 			ret);
 
 	return ret;
@@ -1606,10 +1630,9 @@ static void _iommu_context_set_prr(struct kgsl_mmu *mmu,
 	wmb();
 }
 
-static void _setup_user_context(struct kgsl_mmu *mmu)
+static void _setup_context(struct kgsl_mmu *mmu, struct kgsl_iommu_context *ctx)
 {
 	unsigned int  sctlr_val;
-	struct kgsl_iommu_context *ctx = &mmu->iommu.user_context;
 
 	sctlr_val = KGSL_IOMMU_GET_CTX_REG(ctx, KGSL_IOMMU_CTX_SCTLR);
 
@@ -1652,22 +1675,23 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 		wmb();
 	}
 
-	/* FIXME: We would need to program stall on fault for LPAC too */
-	_setup_user_context(mmu);
+	_setup_context(mmu, &iommu->user_context);
 
 	_iommu_context_set_prr(mmu, &iommu->user_context);
 	if (mmu->secured)
 		_iommu_context_set_prr(mmu, &iommu->secure_context);
-	_iommu_context_set_prr(mmu, &iommu->lpac_context);
+
+	if (iommu->lpac_context.domain) {
+		_setup_context(mmu, &iommu->lpac_context);
+		_iommu_context_set_prr(mmu, &iommu->lpac_context);
+	}
 
 	kgsl_iommu_disable_clk(mmu);
 	return 0;
 }
 
-static void kgsl_iommu_clear_fsr(struct kgsl_mmu *mmu)
+static void kgsl_iommu_context_clear_fsr(struct kgsl_mmu *mmu, struct kgsl_iommu_context *ctx)
 {
-	struct kgsl_iommu *iommu = &mmu->iommu;
-	struct kgsl_iommu_context  *ctx = &iommu->user_context;
 	unsigned int sctlr_val;
 
 	if (ctx->stalled_on_fault) {
@@ -1691,10 +1715,19 @@ static void kgsl_iommu_clear_fsr(struct kgsl_mmu *mmu)
 	}
 }
 
-static void kgsl_iommu_pagefault_resume(struct kgsl_mmu *mmu, bool terminate)
+static void kgsl_iommu_clear_fsr(struct kgsl_mmu *mmu)
 {
 	struct kgsl_iommu *iommu = &mmu->iommu;
-	struct kgsl_iommu_context *ctx = &iommu->user_context;
+
+	kgsl_iommu_context_clear_fsr(mmu, &iommu->user_context);
+
+	if (iommu->lpac_context.domain)
+		kgsl_iommu_context_clear_fsr(mmu, &iommu->lpac_context);
+}
+
+static void kgsl_iommu_context_pagefault_resume(struct kgsl_iommu *iommu,
+		struct kgsl_iommu_context *ctx, bool terminate)
+{
 	u32 sctlr_val = 0;
 
 	if (!ctx->stalled_on_fault)
@@ -1746,12 +1779,25 @@ clear_fsr:
 	wmb();
 }
 
+static void kgsl_iommu_pagefault_resume(struct kgsl_mmu *mmu, bool terminate)
+{
+	struct kgsl_iommu *iommu = &mmu->iommu;
+
+	kgsl_iommu_context_pagefault_resume(iommu, &iommu->user_context, terminate);
+
+	if (iommu->lpac_context.domain)
+		kgsl_iommu_context_pagefault_resume(iommu, &iommu->lpac_context, terminate);
+}
+
 static u64
-kgsl_iommu_get_current_ttbr0(struct kgsl_mmu *mmu)
+kgsl_iommu_get_current_ttbr0(struct kgsl_mmu *mmu, struct kgsl_context *context)
 {
 	u64 val;
 	struct kgsl_iommu *iommu = &mmu->iommu;
 	struct kgsl_iommu_context *ctx = &iommu->user_context;
+
+	if (kgsl_context_is_lpac(context))
+		ctx = &iommu->lpac_context;
 
 	/*
 	 * We cannot enable or disable the clocks in interrupt context, this
@@ -1777,11 +1823,9 @@ kgsl_iommu_get_current_ttbr0(struct kgsl_mmu *mmu)
  * Check if the new policy indicated by pf_policy is same as current
  * policy, if same then return else set the policy
  */
-static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
-				unsigned long pf_policy)
+static int kgsl_iommu_set_pf_policy_ctxt(struct kgsl_mmu *mmu,
+				unsigned long pf_policy, struct kgsl_iommu_context *ctx)
 {
-	struct kgsl_iommu *iommu = &mmu->iommu;
-	struct kgsl_iommu_context *ctx = &iommu->user_context;
 	unsigned int sctlr_val;
 	int cur, new;
 
@@ -1806,6 +1850,19 @@ static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
 	KGSL_IOMMU_SET_CTX_REG(ctx, KGSL_IOMMU_CTX_SCTLR, sctlr_val);
 
 	kgsl_iommu_disable_clk(mmu);
+	return 0;
+}
+
+static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
+				unsigned long pf_policy)
+{
+	struct kgsl_iommu *iommu = &mmu->iommu;
+
+	kgsl_iommu_set_pf_policy_ctxt(mmu, pf_policy, &iommu->user_context);
+
+	if (iommu->lpac_context.domain)
+		kgsl_iommu_set_pf_policy_ctxt(mmu, pf_policy, &iommu->lpac_context);
+
 	return 0;
 }
 
@@ -2241,6 +2298,7 @@ static int iommu_probe_user_context(struct kgsl_device *device,
 		struct device_node *node)
 {
 	struct kgsl_iommu *iommu = KGSL_IOMMU(device);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_mmu *mmu = &device->mmu;
 	struct kgsl_iommu_pt *pt;
 	int ret;
@@ -2291,7 +2349,9 @@ static int iommu_probe_user_context(struct kgsl_device *device,
 
 	kgsl_iommu_set_ttbr0(&iommu->lpac_context, mmu, &pt->info.cfg);
 
-	/* FIXME: set LPAC SMMU aperture */
+	if (adreno_dev->lpac_enabled)
+		set_smmu_lpac_aperture(device, &iommu->lpac_context);
+
 	return 0;
 }
 
