@@ -1,0 +1,7 @@
+config MTK_CAMERA_ISP_RAW_SUPPORT_MT6768
+	tristate "[ISP] Image Signal Processor - mt6768"
+	help
+	  Enable to build mt6768 camera isp driver which
+	  processes and enhances the image raw data
+	  from the imgsensor.
+	  Disable if it is not supported or not wanted.

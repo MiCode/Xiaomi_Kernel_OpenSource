@@ -6,3 +6,5 @@ config MTK_CAMERA_ISP_RAW_SUPPORT
 	  processes and enhances the image raw data
 	  from the imgsensor.
 	  Disable if it is not supported or not wanted.
+
+source "drivers/misc/mediatek/cameraisp/src/isp_4/Kconfig"
