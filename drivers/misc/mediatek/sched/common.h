@@ -24,4 +24,18 @@ __always_inline
 unsigned long mtk_uclamp_rq_util_with(struct rq *rq, unsigned long util,
 				  struct task_struct *p);
 
+#define EAS_NODE_NAME "eas_info"
+#define EAS_PROP_CSRAM "csram-base"
+#define EAS_PROP_OFFS_CAP "offs-cap"
+#define EAS_PROP_OFFS_THERMAL_S "offs-thermal-limit"
+
+struct eas_info {
+	unsigned int csram_base;
+	unsigned int offs_cap;
+	unsigned int offs_thermal_limit_s;
+	bool available;
+};
+
+void parse_eas_data(struct eas_info *info);
+
 #endif /* _SCHED_COMMON_H */

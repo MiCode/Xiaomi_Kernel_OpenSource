@@ -4,6 +4,8 @@
  */
 #include <linux/module.h>
 #include <sched/sched.h>
+#include <linux/of.h>
+#include "common.h"
 
 MODULE_LICENSE("GPL");
 
@@ -115,3 +117,24 @@ unsigned long mtk_uclamp_rq_util_with(struct rq *rq, unsigned long util,
 	return util;
 }
 #endif /* CONFIG_UCLAMP_TASK */
+
+void parse_eas_data(struct eas_info *info)
+{
+	struct device_node *dn = NULL;
+	int ret;
+
+	dn = of_find_node_by_name(NULL, EAS_NODE_NAME);
+	if (dn) {
+		ret = of_property_read_u32(dn, EAS_PROP_CSRAM, &info->csram_base);
+		ret |= of_property_read_u32(dn, EAS_PROP_OFFS_CAP, &info->offs_cap);
+		ret |= of_property_read_u32_index(dn, EAS_PROP_OFFS_THERMAL_S, 0,
+					&info->offs_thermal_limit_s);
+		info->available = !ret;
+		pr_info("Get info: base_addr=0x%x, cap=0x%x, thermal=0x%x, avai=%d\n",
+					info->csram_base, info->offs_cap,
+					info->offs_thermal_limit_s, info->available);
+	} else {
+		pr_info("No EAS node!\n");
+		info->available = false;
+	}
+}

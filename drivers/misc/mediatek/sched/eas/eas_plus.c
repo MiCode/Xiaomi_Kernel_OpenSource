@@ -313,33 +313,29 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 	return energy;
 }
 
-#if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
-#define CSRAM_BASE 0x0011BC00
-#define OFFS_THERMAL_LIMIT_S 0x1208
 #define THERMAL_INFO_SIZE 200
 
 static void __iomem *sram_base_addr;
+static struct eas_info eas_node;
+
 int init_sram_info(void)
 {
-	sram_base_addr =
-		ioremap(CSRAM_BASE + OFFS_THERMAL_LIMIT_S, THERMAL_INFO_SIZE);
-
-	if (!sram_base_addr) {
-		pr_info("Remap thermal info failed\n");
-
-		return -EIO;
+	parse_eas_data(&eas_node);
+	if (eas_node.available) {
+		sram_base_addr = ioremap(eas_node.csram_base + eas_node.offs_thermal_limit_s,
+					THERMAL_INFO_SIZE);
+		if (!sram_base_addr) {
+			pr_info("Remap thermal info failed\n");
+			return -EIO;
+		}
 	}
 
 	return 0;
 }
-#else
-int init_sram_info(void) { return 0; }
-#endif
+
 void mtk_tick_entry(void *data, struct rq *rq)
 {
-#if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
 	void __iomem *base = sram_base_addr;
-#endif
 	struct em_perf_domain *pd;
 	int this_cpu, gear_id, opp_idx, offset;
 	unsigned int freq_thermal;
@@ -360,11 +356,10 @@ void mtk_tick_entry(void *data, struct rq *rq)
 
 	gear_id = topology_physical_package_id(this_cpu);
 	offset = gear_id << 2;
-#if IS_ENABLED(CONFIG_MTK_THERMAL_AWARE_SCHEDULING)
-	opp_ceiling = ioread32(base + offset);
-#else
-	opp_ceiling = 0;
-#endif
+	if (eas_node.available)
+		opp_ceiling = ioread32(base + offset);
+	else
+		opp_ceiling = 0;
 	opp_idx = pd->nr_perf_states - opp_ceiling - 1;
 	freq_thermal = pd->table[opp_idx].frequency;
 

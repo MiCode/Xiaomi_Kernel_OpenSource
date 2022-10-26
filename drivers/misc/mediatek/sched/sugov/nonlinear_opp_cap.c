@@ -6,18 +6,18 @@
 #include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/cpumask.h>
-#include <linux/of.h>
 #include <linux/percpu.h>
 #include <sched/sched.h>
 #include "cpufreq.h"
 #include "mtk_unified_power.h"
+#include "common.h"
 
 #if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
 static void __iomem *sram_base_addr;
 static struct pd_capacity_info *pd_capacity_tbl;
 static int pd_count;
 static int entry_count;
-static bool has_eas_info_node;
+static struct eas_info eas_node;
 
 unsigned long pd_get_opp_capacity(int cpu, int opp)
 {
@@ -77,7 +77,7 @@ static int init_capacity_table(void)
 		pd = em_cpu_get(cpu);
 		if (!pd)
 			goto err;
-		if (!has_eas_info_node) {
+		if (!eas_node.available) {
 #if IS_ENABLED(CONFIG_MTK_UNIFIED_POWER)
 			tbl = upower_get_core_tbl(cpu);
 #endif
@@ -85,7 +85,7 @@ static int init_capacity_table(void)
 				goto err;
 		}
 		for (j = 0; j < pd_info->nr_caps; j++) {
-			if (has_eas_info_node) {
+			if (eas_node.available) {
 				cap = ioread16(base + offset);
 				next_cap = ioread16(base + offset + CAPACITY_ENTRY_SIZE);
 			} else {
@@ -124,16 +124,17 @@ static int init_capacity_table(void)
 			}
 
 			count += 1;
-			offset += CAPACITY_ENTRY_SIZE;
+			if (eas_node.available)
+				offset += CAPACITY_ENTRY_SIZE;
 		}
 
 		/* repeated last cap 0 between each cluster */
-		if (has_eas_info_node) {
+		if (eas_node.available) {
 			end_cap = ioread16(base + offset);
 			if (end_cap != cap)
 				goto err;
+			offset += CAPACITY_ENTRY_SIZE;
 		}
-		offset += CAPACITY_ENTRY_SIZE;
 
 		for_each_cpu(j, &pd_info->cpus) {
 			if (per_cpu(cpu_scale, j) != pd_info->caps[0]) {
@@ -212,7 +213,7 @@ nomem:
 
 static int init_sram_mapping(void)
 {
-	sram_base_addr = ioremap(DVFS_TBL_BASE_PHYS + CAPACITY_TBL_OFFSET, CAPACITY_TBL_SIZE);
+	sram_base_addr = ioremap(eas_node.csram_base + eas_node.offs_cap, CAPACITY_TBL_SIZE);
 
 	if (!sram_base_addr) {
 		pr_info("Remap capacity table failed!\n");
@@ -257,18 +258,10 @@ int init_opp_cap_info(struct proc_dir_entry *dir)
 {
 	int ret;
 	struct proc_dir_entry *entry;
-	struct device_node *dn = NULL;
 
-	dn = of_find_node_by_name(NULL, "eas_info");
-	if (dn) {
-		pr_info("Get info from sram!\n");
-		has_eas_info_node = true;
-	} else {
-		pr_info("Get info from API!\n");
-		has_eas_info_node = false;
-	}
+	parse_eas_data(&eas_node);
 
-	if (has_eas_info_node) {
+	if (eas_node.available) {
 		ret = init_sram_mapping();
 		if (ret)
 			return ret;
