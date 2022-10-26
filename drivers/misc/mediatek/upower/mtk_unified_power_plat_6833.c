@@ -17,9 +17,12 @@
 #include <linux/seq_file.h>
 #include <linux/sched.h>
 #include <linux/types.h>
+#include <linux/of.h>
+#include <linux/nvmem-consumer.h>
 
 /* local include */
 #include "inc/mtk_cpufreq_api.h"
+#include "mtk_cpufreq_config.h"
 #include "mtk_unified_power.h"
 #include "mtk_unified_power_data.h"
 #include "mtk_devinfo.h"
@@ -215,17 +218,51 @@ int cpu_cluster_mapping(unsigned int cpu)
 	return bank;
 }
 
+int get_cpu_level(void)
+{
+	unsigned int lv = CPU_LEVEL_0;
+	struct device_node *node;
+	struct nvmem_cell *efuse_cell;
+	size_t efuse_len;
+	unsigned int *efuse_buf;
+	unsigned int val = 0;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6833-dvfsp");
+	if (!node) {
+		pr_info("%s: fail to get device node\n", __func__);
+		return 0;
+	}
+	efuse_cell = of_nvmem_cell_get(node, "efuse_segment_cell");
+	if (IS_ERR(efuse_cell)) {
+		pr_info("@%s: cannot get efuse_cell, errno %ld\n",
+			__func__, PTR_ERR(efuse_cell));
+		return 0;
+	}
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	val = *efuse_buf;
+	nvmem_cell_put(efuse_cell);
+	kfree(efuse_buf);
+	if (val < 3 && val > 0)
+		lv = CPU_LEVEL_0;
+	else if (val == 6)
+		lv = CPU_LEVEL_2;
+	else
+		lv = CPU_LEVEL_1;
+#ifdef MTK_5GCM_PROJECT
+	lv = CPU_LEVEL_1;
+#endif
+
+	upower_debug("CPU Level Returned : %d\n", lv);
+
+	return lv;
+}
 
 void get_original_table(void)
 {
 	unsigned short idx = 0; /* default use MT6771T_6785 */
 	int i, j;
 
-#if IS_ENABLED(CONFIG_MTK_CPU_FREQ)
-	idx = mt_cpufreq_get_cpu_level();
-#else
-	idx = 0;
-#endif
+	idx = get_cpu_level();
 
 	/* get location of reference table */
 	upower_tbl_infos = &upower_tbl_infos_list[idx][0];
