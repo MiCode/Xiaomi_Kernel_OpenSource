@@ -1900,7 +1900,7 @@ static int FDVT_probe(struct platform_device *dev)
 #else
 	if (dma_set_mask_and_coherent(&dev->dev, DMA_BIT_MASK(31)))
 		dev_info(&dev->dev, "%s: arm: No suitable DMA available, DMA_BIT_MASK(31)\n",
-			dev->dev->of_node->name);
+			dev->dev.of_node->name);
 #endif
 
 	/* iomap registers and irq*/
