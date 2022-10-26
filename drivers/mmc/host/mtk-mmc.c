@@ -1314,10 +1314,13 @@ static int msdc_ops_switch_volt(struct mmc_host *mmc, struct mmc_ios *ios)
 		}
 
 		/* Apply different pinctrl settings for different signal voltage */
-		if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_180)
+		if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_180) {
+			host->pins_state = PINS_UHS;
 			pinctrl_select_state(host->pinctrl, host->pins_uhs);
-		else
+		} else {
+			host->pins_state = PINS_DEFAULT;
 			pinctrl_select_state(host->pinctrl, host->pins_default);
+		}
 	}
 #endif
 	return 0;
@@ -2936,9 +2939,18 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Cannot find pinctrl uhs!\n");
 		goto host_free;
 	}
+
+	host->pins_pull_down = pinctrl_lookup_state(host->pinctrl, "pull_down");
+	if (IS_ERR(host->pins_pull_down)) {
+		ret = PTR_ERR(host->pins_pull_down);
+		dev_info(&pdev->dev, "Cannot find pinctrl pull_down!\n");
+		host->pins_pull_down = NULL;
+	}
 #endif
 
 	msdc_of_property_parse(pdev, host);
+
+	host->pins_state = PINS_DEFAULT;
 
 	if (host->id == MSDC_SD) {
 		host->sd_oc.nb.notifier_call = msdc_sd_event;
@@ -3333,6 +3345,10 @@ static int __maybe_unused msdc_runtime_suspend(struct device *dev)
 	mmc_mtk_biolog_clk_gating(false);
 	set_mmc_perf_mode(mmc, false);
 
+	if (!(mmc->caps2 & MMC_CAP2_NO_SD))
+		if (host->pins_pull_down)
+			pinctrl_select_state(host->pinctrl, host->pins_pull_down);
+
 	return 0;
 }
 
@@ -3340,6 +3356,13 @@ static int __maybe_unused msdc_runtime_resume(struct device *dev)
 {
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msdc_host *host = mmc_priv(mmc);
+
+	if (!(mmc->caps2 & MMC_CAP2_NO_SD)) {
+		if (host->pins_state == PINS_DEFAULT && host->pins_default)
+			pinctrl_select_state(host->pinctrl, host->pins_default);
+		else if (host->pins_state == PINS_UHS && host->pins_uhs)
+			pinctrl_select_state(host->pinctrl, host->pins_uhs);
+	}
 
 	cpu_latency_qos_update_request(&host->pm_qos_req, 0);
 	if (host->dvfsrc_vcore_power && host->req_vcore) {
