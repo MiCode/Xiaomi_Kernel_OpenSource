@@ -2932,13 +2932,19 @@ static void mtk_dsi_porch_setting_6382(struct mtk_dsi *dsi, struct cmdq_pkt *han
 	u32 dsi_buf_bpp = 0, data_init_byte = 0;
 	struct mtk_panel_ext *ext = dsi->ext;
 	u32 t_hfp, t_hbp, t_hsa;
-	u32 hsa = 0, hbp = 0, hfp = 0;
+	u32 hbp = 0, hfp = 0;
+	int hsa = 0;
 	struct dynamic_mipi_params *dyn = NULL;
 	struct videomode *vm = &dsi->vm;
 	u32 value = 0;
 
 	if (ext && ext->params)
 		dyn = &ext->params->dyn;
+
+	if (!dyn) {
+		DDPMSG("[error]%s, the dyn is null\n", __func__);
+		return;
+	}
 
 	if (!dyn->hfp && !dyn->hbp && !dyn->hsa) {
 		DDPMSG("[error]%s, the dyn h porch is null\n", __func__);
