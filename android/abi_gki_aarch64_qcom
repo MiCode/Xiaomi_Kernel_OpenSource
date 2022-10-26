@@ -1138,6 +1138,10 @@
   __local_bh_enable_ip
   __lock_page
   lock_sock_nested
+  log_post_read_mmio
+  log_post_write_mmio
+  log_read_mmio
+  log_write_mmio
   lookup_page_ext
   match_string
   mbox_chan_received_data
