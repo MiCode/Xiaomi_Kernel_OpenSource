@@ -12,16 +12,21 @@
 #
 
 ccflags-y += \
-	-I$(srctree)/drivers/misc/mediatek/include/	\
-	-I$(srctree)/drivers/misc/mediatek/include/ppm_v3/	\
-	-I$(srctree)/drivers/misc/mediatek/include/upower/	\
-	-I$(srctree)/drivers/misc/mediatek/include/spm/	\
-	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/	\
-	-I$(srctree)/include/linux/	\
-	-I$(srctree)/drivers/misc/mediatek/mcdi/include/	\
-	-I$(srctree)/drivers/misc/mediatek/cpufreq_v2/inc \
-	-I$(srctree)/drivers/gpu/mediatek/gpufreq/v2/include \
-	-I$(srctree)/drivers/misc/mediatek/mcdi/include/	\
+	-I$(srctree)/drivers/misc/mediatek/include/	         \
+	-I$(srctree)/drivers/misc/mediatek/include/ppm_v3/	 \
+	-I$(srctree)/drivers/misc/mediatek/include/upower/	 \
+	-I$(srctree)/drivers/misc/mediatek/include/spm/	         \
+	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/	 \
+	-I$(srctree)/include/linux/	                         \
+	-I$(srctree)/drivers/misc/mediatek/mcdi/include/	 \
+	-I$(srctree)/drivers/misc/mediatek/cpufreq_v2/inc/   	 \
+	-I$(srctree)/drivers/gpu/mediatek/gpufreq/           	 \
+	-I$(srctree)/drivers/misc/mediatek/mcupm/include/    	 \
+	-I$(srctree)/drivers/misc/mediatek/mcdi/include/	 \
+	-I$(srctree)/include/linux/soc/mediatek/
+
+
+
 
 ifneq (,$(filter y m, $(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)))
 ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_V0)),)
@@ -52,6 +57,7 @@ mediatek_eem-y += mtk_eem.o
 mediatek_eem-y += mtk_eem_platform.o
 mediatek_eem-y += mtk_eem_internal.o
 mediatek_eem-y += mtk_eem_api.o
+
 else ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6765)),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eem_v2/common_v2/inc
 obj-$(CONFIG_MTK_PTPOD_LEGACY) += mediatek_eem.o
@@ -59,4 +65,13 @@ mediatek_eem-y += common_v2/mtk_eem.o
 mediatek_eem-y += common_v2/mtk_eem_platform.o
 mediatek_eem-y += common_v2/mtk_eem_internal.o
 mediatek_eem-y += common_v2/mtk_eem_api.o
+
+else ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6833)),)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/eem_v2/common_v3/inc
+obj-$(CONFIG_MTK_PTPOD_LEGACY) += mediatek_eem.o
+mediatek_eem-y += common_v3/mtk_eem.o
+mediatek_eem-y += common_v3/mtk_eem_platform.o
+mediatek_eem-y += common_v3/mtk_eem_internal.o
+obj-m += mtk_picachu.o
+mtk_picachu-y += common_v3/mtk_picachu.o
 endif
