@@ -92,6 +92,8 @@ static spinlock_t g_PDA_SpinLock;
 
 wait_queue_head_t g_wait_queue_head;
 
+static DEFINE_MUTEX(pda_mutex);
+
 // PDA HW quantity
 static unsigned int g_PDA_quantity;
 
@@ -1988,6 +1990,9 @@ static long PDA_Ioctl(struct file *a_pstFile,
 			break;
 		}
 
+		/* Protect the Multi Process */
+		mutex_lock(&pda_mutex);
+
 		ret = g_pda_Pdadata.ROInumber == 0 && g_pda_Pdadata.nNumerousROI == 0;
 		if (g_pda_Pdadata.ROInumber > PDAROIARRAYMAX || ret) {
 			g_pda_Pdadata.Status = -28;
@@ -2140,6 +2145,8 @@ EXIT_WITHOUT_FREE_IOVA:
 #ifdef FOR_DEBUG
 		LOG_INF("Exit\n");
 #endif
+
+		mutex_unlock(&pda_mutex);
 
 		// reset flow
 		for (i = 0; i < g_PDA_quantity; i++) {
