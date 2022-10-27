@@ -140,6 +140,7 @@
   blk_set_stacking_limits
   blk_start_plug
   blk_sync_queue
+  blkdev_compat_ptr_ioctl
   blocking_notifier_call_chain
   blocking_notifier_chain_register
   blocking_notifier_chain_unregister
@@ -1165,6 +1166,7 @@
   kthread_should_stop
   kthread_stop
   kthread_worker_fn
+  ktime_add_safe
   ktime_get
   ktime_get_mono_fast_ns
   ktime_get_real_ts64
