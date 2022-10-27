@@ -39,9 +39,10 @@ int tmc_eth_enable(struct tmc_eth_data *eth_data)
 
 	tmc_write_dba(tmcdrvdata, 0);
 
-	writel_relaxed(TMC_FFCR_EN_FMT | TMC_FFCR_EN_TI
-			| TMC_FFCR_FONFLIN_BIT | TMC_FFCR_STOP_ON_FLUSH,
-			tmcdrvdata->base + TMC_FFCR);
+	writel_relaxed(TMC_FFCR_EN_FMT | TMC_FFCR_EN_TI |
+		       TMC_FFCR_FON_FLIN | TMC_FFCR_FON_TRIG_EVT |
+		       TMC_FFCR_TRIGON_TRIGIN,
+		       tmcdrvdata->base + TMC_FFCR);
 
 	msm_qdss_csr_enable_eth(tmcdrvdata->csr);
 
@@ -57,7 +58,10 @@ void tmc_eth_disable(struct tmc_eth_data *eth_data)
 {
 	struct tmc_drvdata *tmcdrvdata = eth_data->tmcdrvdata;
 
+	CS_UNLOCK(tmcdrvdata->base);
+	tmc_flush_and_stop(tmcdrvdata);
 	tmc_disable_hw(tmcdrvdata);
+	CS_LOCK(tmcdrvdata->base);
 	msm_qdss_csr_disable_eth(tmcdrvdata->csr);
 	pr_info("Disable ETR ethernet mode.\n");
 }
