@@ -506,6 +506,10 @@ struct kgsl_process_private {
 	 * @private_mutex: Mutex lock to protect kgsl_process_private
 	 */
 	struct mutex private_mutex;
+	/**
+	 * @cmdline: Cmdline string of the process
+	 */
+	char *cmdline;
 };
 
 struct kgsl_device_private {
