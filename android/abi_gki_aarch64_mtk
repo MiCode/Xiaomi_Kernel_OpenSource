@@ -1596,6 +1596,7 @@
   register_shrinker
   register_syscore_ops
   register_sysctl_table
+  register_tracepoint_module_notifier
   register_virtio_device
   register_virtio_driver
   regmap_bulk_read
