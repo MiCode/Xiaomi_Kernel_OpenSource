@@ -271,6 +271,14 @@ if [ -n "${EXTRA_CONFIGS}" ]; then
   done
 fi
 
+## Generate extra_cmdline for vendor
+function generate_extra_cmdline() {
+  echo "$VENDOR_EXTRA_CMDLINE" > "${DIST_DIR}/extra_cmdline"
+}
+if [ -n "${VENDOR_EXTRA_CMDLINE}" ]; then
+  append_cmd DIST_CMDS 'generate_extra_cmdline'
+fi
+
 ################################################################################
 ## Copy prebuilt files to ${COMMON_OUT_DIR}/host/bin to be used by CI tools
 DIST_BINS="""
