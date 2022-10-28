@@ -509,8 +509,11 @@ int kgsl_busmon_target(struct device *dev, unsigned long *freq, u32 flags)
 		 * When gpu is thermally throttled to its lowest power level,
 		 * drop GPU's AB vote as a last resort to lower CX voltage and
 		 * to prevent thermal reset.
+		 * Ignore this check when only single power level in use to
+		 * avoid setting default AB vote in normal situations too.
 		 */
-		if (pwr->thermal_pwrlevel != pwr->num_pwrlevels - 1)
+		if (pwr->thermal_pwrlevel != pwr->num_pwrlevels - 1 ||
+			pwr->num_pwrlevels == 1)
 			pwr->bus_ab_mbytes = ab_mbytes;
 		else
 			pwr->bus_ab_mbytes = 0;
