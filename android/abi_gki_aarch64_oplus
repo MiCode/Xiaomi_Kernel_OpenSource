@@ -233,6 +233,7 @@
   __page_mapcount
   page_mapping
   param_ops_uint
+  page_to_lruvec
   __per_cpu_offset
   platform_device_add
   platform_device_alloc
