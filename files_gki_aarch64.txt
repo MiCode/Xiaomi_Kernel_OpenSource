@@ -4044,6 +4044,7 @@ include/trace/events/xdp.h
 include/trace/hooks/audio_usboffload.h
 include/trace/hooks/avc.h
 include/trace/hooks/binder.h
+include/trace/hooks/bl_hib.h
 include/trace/hooks/block.h
 include/trace/hooks/bug.h
 include/trace/hooks/cfg80211.h
