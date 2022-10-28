@@ -7,7 +7,6 @@
 #include <linux/i2c.h>
 #include <linux/module.h>
 #include <linux/of_gpio.h>
-#include <linux/power_supply.h>
 #include <linux/regulator/consumer.h>
 #include <linux/thermal.h>
 
@@ -42,8 +41,6 @@ struct max31760_data {
 	u32 pwr_en_gpio;
 	unsigned int cur_state;
 	atomic_t in_suspend;
-	bool debug;
-	struct delayed_work work;
 };
 
 static int max31760_speed_map[FAN_SPEED_MAX] = {0x00, 0x30, 0x85, 0xCF, 0xFF};
@@ -125,45 +122,6 @@ static struct thermal_cooling_device_ops max31760_cooling_ops = {
 	.set_cur_state = max31760_set_cur_state,
 };
 
-static void max31760_get_charging_status(struct max31760_data *pdata)
-{
-	static struct power_supply *batt_psy;
-	union power_supply_propval ret = {0,};
-	int err = 0;
-
-	if (!batt_psy)
-		batt_psy = power_supply_get_by_name("battery");
-	if (batt_psy) {
-		err = power_supply_get_property(batt_psy,
-				POWER_SUPPLY_PROP_STATUS, &ret);
-		if (err) {
-			dev_err(pdata->dev, "failed to get charging status, error:%d\n", err);
-			return;
-		}
-	}
-
-	mutex_lock(&pdata->update_lock);
-	if (pdata->debug) {
-		dev_err(pdata->dev, "debug mode is on and speed is controlled manually.\n");
-		mutex_unlock(&pdata->update_lock);
-		return;
-	}
-	if (ret.intval == POWER_SUPPLY_STATUS_CHARGING)
-		max31760_set_cur_state_common(pdata, FAN_SPEED_LEVEL4);
-	else if (ret.intval == POWER_SUPPLY_STATUS_DISCHARGING)
-		max31760_set_cur_state_common(pdata, FAN_SPEED_LEVEL0);
-	mutex_unlock(&pdata->update_lock);
-}
-
-static void max31760_charging_check(struct work_struct *work)
-{
-	struct max31760_data *pdata = container_of(work,
-			struct max31760_data, work.work);
-
-	max31760_get_charging_status(pdata);
-	schedule_delayed_work(&pdata->work, msecs_to_jiffies(2000));
-}
-
 static ssize_t speed_control_show(struct device *dev, struct device_attribute *attr,
 				char *buf)
 {
@@ -191,12 +149,6 @@ static ssize_t speed_control_store(struct device *dev,
 		return -EINVAL;
 
 	mutex_lock(&data->update_lock);
-	if (!data->debug) {
-		dev_err(data->dev, "debug mode is off and speed isn't controlled manually.\n");
-		mutex_unlock(&data->update_lock);
-		return count;
-	}
-
 	if (value == 0x0)
 		max31760_set_cur_state_common(data, FAN_SPEED_LEVEL0);
 	else if (value == 0x1)
@@ -214,46 +166,8 @@ static ssize_t speed_control_store(struct device *dev,
 
 static DEVICE_ATTR_RW(speed_control);
 
-static ssize_t debug_show(struct device *dev, struct device_attribute *attr,
-				char *buf)
-{
-	struct max31760_data *data = dev_get_drvdata(dev);
-	int ret;
-
-	if (!data) {
-		pr_err("invalid driver pointer\n");
-		return -ENODEV;
-	}
-
-	ret = scnprintf(buf, PAGE_SIZE, "%d\n", data->debug);
-	return ret;
-}
-
-static ssize_t debug_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t count)
-{
-	struct max31760_data *data = dev_get_drvdata(dev);
-	unsigned long value;
-
-	if (kstrtoul(buf, 0, &value))
-		return -EINVAL;
-
-	mutex_lock(&data->update_lock);
-	if (value == 0x0)
-		data->debug = false;
-	else if (value == 0x1)
-		data->debug = true;
-	mutex_unlock(&data->update_lock);
-
-	return count;
-}
-
-static DEVICE_ATTR_RW(debug);
-
 static struct attribute *max31760_sysfs_attrs[] = {
 	&dev_attr_speed_control.attr,
-	&dev_attr_debug.attr,
 	NULL
 };
 
@@ -433,11 +347,6 @@ static int max31760_probe(struct i2c_client *client, const struct i2c_device_id 
 		dev_err(pdata->dev, "couldn't register sysfs group\n");
 		return ret;
 	}
-
-	pdata->debug = false;
-
-	INIT_DELAYED_WORK(&pdata->work, max31760_charging_check);
-	schedule_delayed_work(&pdata->work, msecs_to_jiffies(45000));
 
 	return ret;
 
