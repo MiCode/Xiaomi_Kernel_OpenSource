@@ -18,7 +18,7 @@ struct pmu_map_msg {
 static int scmi_send_pmu_map(const struct scmi_protocol_handle *ph,
 				     void *buf, u32 msg_id)
 {
-	int ret, i, j;
+	int ret, j, cpu;
 	struct scmi_xfer *t;
 	struct pmu_map_msg *msg;
 	uint8_t *src = buf;
@@ -30,9 +30,9 @@ static int scmi_send_pmu_map(const struct scmi_protocol_handle *ph,
 
 	msg = t->tx.buf;
 
-	for (i = 0; i < MAX_NUM_CPUS; i++)
+	for_each_possible_cpu(cpu)
 		for (j = 0; j < MAX_CPUCP_EVT; j++)
-			msg->hw_cntrs[i][j] = *((src + i * MAX_NUM_CPUS) + j);
+			msg->hw_cntrs[cpu][j] = *((src + cpu * MAX_CPUCP_EVT) + j);
 
 	ret = ph->xops->do_xfer(ph, t);
 	ph->xops->xfer_put(ph, t);
