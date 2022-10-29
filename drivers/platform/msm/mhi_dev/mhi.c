@@ -71,8 +71,6 @@
 #define MHI_DEV_CH_CLOSE_TIMEOUT_MAX	5100
 #define MHI_DEV_CH_CLOSE_TIMEOUT_COUNT	200
 
-/* TODO: Extract this info from pcie driver */
-#define MHI_NUM_VIRT_INSTANCES		4
 #define IGNORE_CH_SIZE			2
 int ignore_ch_channel[IGNORE_CH_SIZE] = {2, 3};
 
@@ -4773,6 +4771,9 @@ static void mhi_dev_pcie_handle_event(struct work_struct *work)
 		return;
 	}
 
+	/* Get EP PCIe capabilities to check if it supports SRIOV capability */
+	ep_pcie_core_get_capability(mhi_hw_ctx->phandle, &mhi_hw_ctx->ep_cap);
+
 	/*
 	 * Setup all virtual device prior to PF Mission mode
 	 * completion to make sure VF's are initialized in mission
@@ -4805,11 +4806,7 @@ static void mhi_dev_setup_virt_device(struct mhi_dev_ctx *mhictx)
 	struct mhi_dev *mhi_vf;
 	u32 i, rc;
 
-	/**
-	 * TO DO: change marco MHI_NUM_VIRT_INSTANCES to a new API call to PCIE
-	 * to know SRIOV capability and number of instances.
-	 */
-	for (i = 1; i <= MHI_NUM_VIRT_INSTANCES; i++) {
+	for (i = 1; i <= mhictx->ep_cap.num_vfs; i++) {
 		mhi_vf = mhi_get_dev_ctx(mhi_hw_ctx, i);
 
 		if (!mhi_vf) {

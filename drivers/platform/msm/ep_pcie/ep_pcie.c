@@ -210,3 +210,13 @@ int ep_pcie_mask_irq_event(struct ep_pcie_hw *phandle,
 	return phandle->mask_irq_event(event, enable);
 }
 EXPORT_SYMBOL(ep_pcie_mask_irq_event);
+
+int ep_pcie_core_get_capability(struct ep_pcie_hw *phandle,
+		struct ep_pcie_cap *ep_cap)
+{
+	if (WARN_ON(!phandle))
+		return -EINVAL;
+
+	return phandle->get_capability(ep_cap);
+}
+EXPORT_SYMBOL(ep_pcie_core_get_capability);
