@@ -1679,7 +1679,7 @@ static int geni_i2c_probe(struct platform_device *pdev)
 			gi2c->i2c_rsc.icc_paths[CPU_TO_GENI].avg_bw = GENI_DEFAULT_BW;
 		} else {
 			ret = geni_se_common_resources_init(&gi2c->i2c_rsc,
-					I2C_CORE2X_VOTE, APPS_PROC_TO_QUP_VOTE,
+					GENI_DEFAULT_BW, GENI_DEFAULT_BW,
 					(DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
 			if (ret) {
 				dev_err(&pdev->dev, "%s: Error - resources_init ret:%d\n",
