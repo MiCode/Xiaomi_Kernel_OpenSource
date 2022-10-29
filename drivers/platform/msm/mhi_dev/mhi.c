@@ -4830,21 +4830,45 @@ static void mhi_dev_setup_virt_device(struct mhi_dev_ctx *mhictx)
 	}
 }
 
-static int mhi_edma_init(struct mhi_dev_ctx *mhi_hw_ctx, struct device *dev)
+int mhi_edma_release(void)
 {
-	mhi_hw_ctx->tx_dma_chan = dma_request_slave_channel(dev, "tx");
-	if (IS_ERR_OR_NULL(mhi_hw_ctx->tx_dma_chan)) {
-		mhi_log(MHI_MSG_ERROR, "%s(): request for TX chan failed\n", __func__);
-		return -EIO;
-	}
+	dma_release_channel(mhi_hw_ctx->tx_dma_chan);
+	mhi_hw_ctx->tx_dma_chan = NULL;
+	dma_release_channel(mhi_hw_ctx->rx_dma_chan);
+	mhi_hw_ctx->rx_dma_chan = NULL;
+	return 0;
+}
 
+int mhi_edma_status(void)
+{
+	int ret = 0;
+
+	if (dmaengine_tx_status(mhi_hw_ctx->tx_dma_chan, 0, NULL) == DMA_IN_PROGRESS)
+		ret = -EBUSY;
+	if (dmaengine_tx_status(mhi_hw_ctx->rx_dma_chan, 0, NULL) == DMA_IN_PROGRESS)
+		ret = -EBUSY;
+
+	return ret;
+}
+
+int mhi_edma_init(struct device *dev)
+{
+	if (!mhi_hw_ctx->tx_dma_chan) {
+		mhi_hw_ctx->tx_dma_chan = dma_request_slave_channel(dev, "tx");
+		if (IS_ERR_OR_NULL(mhi_hw_ctx->tx_dma_chan)) {
+			pr_err("%s(): request for TX chan failed\n", __func__);
+			return -EIO;
+		}
+	}
 	mhi_log(MHI_MSG_VERBOSE, "request for TX chan returned :%pK\n",
 			mhi_hw_ctx->tx_dma_chan);
 
-	mhi_hw_ctx->rx_dma_chan = dma_request_slave_channel(dev, "rx");
-	if (IS_ERR_OR_NULL(mhi_hw_ctx->rx_dma_chan)) {
-		mhi_log(MHI_MSG_ERROR, "%s(): request for RX chan failed\n", __func__);
-		return -EIO;
+	if (!mhi_hw_ctx->rx_dma_chan) {
+		mhi_hw_ctx->rx_dma_chan = dma_request_slave_channel(dev, "rx");
+		if (IS_ERR_OR_NULL(mhi_hw_ctx->rx_dma_chan)) {
+			pr_err("%s(): request for RX chan failed\n", __func__);
+			return -EIO;
+		}
 	}
 	mhi_log(MHI_MSG_VERBOSE, "request for RX chan returned :%pK\n",
 			mhi_hw_ctx->rx_dma_chan);
@@ -4883,7 +4907,7 @@ static int mhi_dev_probe(struct platform_device *pdev)
 	}
 
 	if (mhi_pf->use_edma) {
-		rc = mhi_edma_init(mhi_hw_ctx, &pdev->dev);
+		rc = mhi_edma_init(&pdev->dev);
 		if (rc) {
 			pr_err("MHI: mhi edma init failed, rc = %d\n", rc);
 			return rc;
