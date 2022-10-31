@@ -1,0 +1,6 @@
+[abi_symbol_list]
+
+# for type visibility
+  GKI_struct_selinux_state
+  GKI_struct_readahead_control
+  GKI_struct_blk_mq_alloc_data

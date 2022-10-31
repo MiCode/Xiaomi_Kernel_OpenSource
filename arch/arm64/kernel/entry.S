@@ -691,9 +691,7 @@ alternative_else_nop_endif
 	tramp_map_kernel	x30
 alternative_insn isb, nop, ARM64_WORKAROUND_QCOM_FALKOR_E1003
 	tramp_data_read_var	x30, vectors
-alternative_if_not ARM64_WORKAROUND_CAVIUM_TX2_219_PRFM
 	prfm	plil1strm, [x30, #(1b - \vector_start)]
-alternative_else_nop_endif
 
 	msr	vbar_el1, x30
 	isb

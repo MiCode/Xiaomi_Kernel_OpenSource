@@ -651,6 +651,7 @@
   extcon_get_edev_name
   extcon_get_extcon_dev
   extcon_get_property
+  extcon_get_property_capability
   extcon_get_state
   extcon_register_notifier
   extcon_set_property
@@ -1133,6 +1134,10 @@
   __local_bh_enable_ip
   __lock_page
   lock_sock_nested
+  log_post_read_mmio
+  log_post_write_mmio
+  log_read_mmio
+  log_write_mmio
   lookup_page_ext
   match_string
   mbox_chan_received_data
@@ -2051,6 +2056,7 @@
   tick_nohz_get_sleep_length
   time64_to_tm
   timer_unstable_counter_workaround
+  timespec64_to_jiffies
   topology_clear_scale_freq_source
   topology_set_thermal_pressure
   topology_update_done
@@ -2118,6 +2124,7 @@
   __tracepoint_android_rvh_update_cpu_capacity
   __tracepoint_android_rvh_update_cpus_allowed
   __tracepoint_android_rvh_update_misfit_status
+  __tracepoint_android_rvh_update_readahead_gfp_mask
   __tracepoint_android_rvh_update_thermal_stats
   __tracepoint_android_rvh_wake_up_new_task
   __tracepoint_android_vh_audio_usb_offload_connect
@@ -2147,6 +2154,7 @@
   __tracepoint_android_vh_logbuf
   __tracepoint_android_vh_logbuf_pr_cont
   __tracepoint_android_vh_mmc_sdio_pm_flag_set
+  __tracepoint_android_vh_mmc_sd_update_cmdline_timing
   __tracepoint_android_vh_printk_hotplug
   __tracepoint_android_vh_rproc_recovery
   __tracepoint_android_vh_rproc_recovery_set
