@@ -1200,6 +1200,7 @@
   misc_register
   mmc_cqe_request_done
   mmc_execute_tuning
+  mmc_get_ext_csd
   mmc_of_parse
   __mmc_poll_for_busy
   mmc_prepare_busy_cmd
@@ -1214,6 +1215,7 @@
   mmc_set_bus_width
   mmc_set_clock
   mmc_set_timing
+  mmc_wait_for_cmd
   mmput
   mod_delayed_work_on
   mod_node_page_state
