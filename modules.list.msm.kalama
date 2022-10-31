@@ -8,6 +8,7 @@ camcc-kalama.ko
 qcom_ipcc.ko
 qcom_ipc_logging.ko
 qcom-pdc.ko
+thermal_minidump.ko
 qcom_tsens.ko
 rpmh-regulator.ko
 bwmon.ko

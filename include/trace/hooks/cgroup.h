@@ -7,16 +7,18 @@
 #define _TRACE_HOOK_CGROUP_H
 #include <trace/hooks/vendor_hooks.h>
 
-#ifndef __GENKSYMS__
-struct cgroup_taskset;
-#else
-/* struct cgroup_taskset */
+#ifdef __GENKSYMS__
 #include <../kernel/cgroup/cgroup-internal.h>
-#endif
-/* struct cgroup_subsys */
 #include <linux/cgroup-defs.h>
-/* struct task_struct */
 #include <linux/sched.h>
+#endif
+
+struct cgroup;
+struct cgroup_taskset;
+struct cgroup_subsys;
+struct cgroup_subsys_state;
+struct task_struct;
+
 DECLARE_HOOK(android_vh_cgroup_set_task,
 	TP_PROTO(int ret, struct task_struct *task),
 	TP_ARGS(ret, task));
@@ -45,6 +47,18 @@ struct page_counter;
 DECLARE_HOOK(android_rvh_update_watermark,
 	TP_PROTO(u64 new, struct page_counter *counter),
 	TP_ARGS(new, counter));
+
+DECLARE_RESTRICTED_HOOK(android_rvh_cpu_cgroup_attach,
+	TP_PROTO(struct cgroup_taskset *tset),
+	TP_ARGS(tset), 1);
+
+DECLARE_RESTRICTED_HOOK(android_rvh_cpu_cgroup_can_attach,
+	TP_PROTO(struct cgroup_taskset *tset, int *retval),
+	TP_ARGS(tset, retval), 1);
+
+DECLARE_RESTRICTED_HOOK(android_rvh_cpu_cgroup_online,
+	TP_PROTO(struct cgroup_subsys_state *css),
+	TP_ARGS(css), 1);
 #endif
 
 #include <trace/define_trace.h>

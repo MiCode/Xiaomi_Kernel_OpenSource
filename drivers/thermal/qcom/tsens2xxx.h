@@ -161,10 +161,8 @@ struct tsens_ops {
 								int *temp);
 	int (*sensor_en)(struct tsens_device *tmdev, u32 sensor_id);
 	int (*calibrate)(struct tsens_device *tmdev);
-#ifdef CONFIG_DEEPSLEEP
 	int (*suspend)(struct tsens_device *tmdev);
 	int (*resume)(struct tsens_device *tmdev);
-#endif
 };
 
 struct tsens_irqs {

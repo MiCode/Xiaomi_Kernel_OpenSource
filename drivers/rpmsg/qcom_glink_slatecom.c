@@ -243,6 +243,8 @@ struct glink_slatecom_channel {
 	struct completion open_ack;
 	struct completion open_req;
 
+	struct completion close_ack;
+
 	struct mutex intent_req_lock;
 	bool intent_req_result;
 	struct completion intent_req_comp;
@@ -260,8 +262,6 @@ struct rx_pkt {
 			struct glink_slatecom_channel, ept)
 
 static const struct rpmsg_endpoint_ops glink_endpoint_ops;
-static unsigned int glink_slatecom_wakeup_ms =
-			CONFIG_RPMSG_GLINK_SLATECOM_WAKEUP_MS;
 
 #define SLATECOM_CMD_VERSION			0
 #define SLATECOM_CMD_VERSION_ACK			1
@@ -304,6 +304,9 @@ glink_slatecom_alloc_channel(struct glink_slatecom *glink, const char *name)
 
 	init_completion(&channel->open_req);
 	init_completion(&channel->open_ack);
+
+	init_completion(&channel->close_ack);
+
 	init_completion(&channel->intent_req_comp);
 	init_completion(&channel->intent_alloc_comp);
 
@@ -916,6 +919,7 @@ static void glink_slatecom_send_version_ack(struct glink_slatecom *glink)
 static void glink_slatecom_send_close_req(struct glink_slatecom *glink,
 				     struct glink_slatecom_channel *channel)
 {
+	int ret;
 	struct glink_slatecom_msg req = { 0 };
 
 	req.cmd = cpu_to_le16(SLATECOM_CMD_CLOSE);
@@ -923,6 +927,12 @@ static void glink_slatecom_send_close_req(struct glink_slatecom *glink,
 
 	CH_INFO(channel, "\n");
 	glink_slatecom_tx(glink, &req, sizeof(req), true);
+
+	ret = wait_for_completion_timeout(&channel->close_ack, 2 * HZ);
+	if (!ret) {
+		GLINK_ERR(glink, "rx_close_ack timedout[%d]:[%d]\n",
+				 channel->rcid, channel->lcid);
+	}
 }
 
 /**
@@ -1189,6 +1199,8 @@ static void glink_slatecom_destroy_ept(struct rpmsg_endpoint *ept)
 	struct glink_slatecom *glink = channel->glink;
 	unsigned long flags;
 
+	CH_INFO(channel, "\n");
+
 	spin_lock_irqsave(&channel->recv_lock, flags);
 	if (!channel->ept.cb) {
 		spin_unlock_irqrestore(&channel->recv_lock, flags);
@@ -1270,6 +1282,7 @@ static void glink_slatecom_rx_close_ack(struct glink_slatecom *glink,
 
 		rpmsg_unregister_device(glink->dev, &chinfo);
 	}
+	complete_all(&channel->close_ack);
 	channel->rpdev = NULL;
 
 	kref_put(&channel->refcount, glink_slatecom_channel_release);
@@ -1414,6 +1427,7 @@ static int glink_slatecom_rx_open(struct glink_slatecom *glink, unsigned int rci
 		create_device = true;
 	}
 
+	CH_INFO(channel, "start\n");
 	mutex_lock(&glink->idr_lock);
 	ret = idr_alloc(&glink->rcids, channel, rcid, rcid + 1, GFP_ATOMIC);
 	if (ret < 0) {
@@ -1450,7 +1464,7 @@ static int glink_slatecom_rx_open(struct glink_slatecom *glink, unsigned int rci
 
 		channel->rpdev = rpdev;
 	}
-	CH_INFO(channel, "\n");
+	CH_INFO(channel, "end\n");
 
 	return 0;
 
@@ -1986,9 +2000,13 @@ static void __rx_worker(struct rx_pkt *rx_pkt_info)
 static void rx_worker(struct kthread_work *work)
 {
 	struct rx_pkt *rx_pkt_info;
+	struct glink_slatecom *glink;
 
 	rx_pkt_info = container_of(work, struct rx_pkt, kwork);
+	glink = rx_pkt_info->glink;
 	__rx_worker(rx_pkt_info);
+
+	__pm_relax(glink->ws);
 };
 
 static void glink_slatecom_linkup(struct glink_slatecom *glink)
@@ -2101,7 +2119,7 @@ static void glink_slatecom_event_handler(void *handle,
 		rx_pkt_info->rx_len = data->fifo_data.to_master_fifo_used;
 		rx_pkt_info->glink = glink;
 		kthread_init_work(&rx_pkt_info->kwork, rx_worker);
-		pm_wakeup_ws_event(glink->ws, glink_slatecom_wakeup_ms, true);
+		__pm_stay_awake(glink->ws);
 		kthread_queue_work(&glink->kworker, &rx_pkt_info->kwork);
 		break;
 	case SLATECOM_EVENT_TO_SLAVE_FIFO_FREE:

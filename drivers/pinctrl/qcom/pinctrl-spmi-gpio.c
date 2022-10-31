@@ -1198,6 +1198,7 @@ static const struct of_device_id pmic_gpio_of_match[] = {
 	{ .compatible = "qcom,pmx55-gpio", .data = (void *) 11 },
 	{ .compatible = "qcom,pmx65-gpio", .data = (void *) 16 },
 	{ .compatible = "qcom,pmx75-gpio", .data = (void *) 16 },
+	{ .compatible = "qcom,pmx35-gpio", .data = (void *) 8 },
 	{ .compatible = "qcom,pm7550ba-gpio", .data = (void *) 8 },
 	{ .compatible = "qcom,pm8550-gpio", .data = (void *) 12 },
 	{ .compatible = "qcom,pm8550b-gpio", .data = (void *) 12 },
@@ -1207,6 +1208,7 @@ static const struct of_device_id pmic_gpio_of_match[] = {
 	{ .compatible = "qcom,pmr735d-gpio", .data = (void *) 2 },
 	{ .compatible = "qcom,pm8775-gpio", .data = (void *) 12 },
 	{ .compatible = "qcom,pm5100-gpio", .data = (void *) 16 },
+	{ .compatible = "qcom,pm2250-gpio", .data = (void *) 10 },
 	{ },
 };
 

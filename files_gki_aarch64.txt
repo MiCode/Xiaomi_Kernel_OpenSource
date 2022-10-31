@@ -1663,6 +1663,8 @@ drivers/usb/gadget/function/f_midi.c
 drivers/usb/gadget/function/f_ncm.c
 drivers/usb/gadget/function/f_serial.c
 drivers/usb/gadget/function/f_uac2.c
+drivers/usb/gadget/function/f_uvc.c
+drivers/usb/gadget/function/f_uvc.h
 drivers/usb/gadget/functions.c
 drivers/usb/gadget/function/storage_common.c
 drivers/usb/gadget/function/storage_common.h
@@ -1680,6 +1682,16 @@ drivers/usb/gadget/function/u_ncm.h
 drivers/usb/gadget/function/u_serial.c
 drivers/usb/gadget/function/u_serial.h
 drivers/usb/gadget/function/u_uac2.h
+drivers/usb/gadget/function/u_uvc.h
+drivers/usb/gadget/function/uvc_configfs.c
+drivers/usb/gadget/function/uvc_configfs.h
+drivers/usb/gadget/function/uvc.h
+drivers/usb/gadget/function/uvc_queue.c
+drivers/usb/gadget/function/uvc_queue.h
+drivers/usb/gadget/function/uvc_v4l2.c
+drivers/usb/gadget/function/uvc_v4l2.h
+drivers/usb/gadget/function/uvc_video.c
+drivers/usb/gadget/function/uvc_video.h
 drivers/usb/gadget/udc/core.c
 drivers/usb/gadget/udc/trace.c
 drivers/usb/gadget/udc/trace.h
@@ -3055,6 +3067,7 @@ include/linux/msdos_fs.h
 include/linux/msdos_partition.h
 include/linux/msg.h
 include/linux/msi.h
+include/linux/mtd/mtd.h
 include/linux/mutex.h
 include/linux/namei.h
 include/linux/ndctl.h
@@ -3764,6 +3777,7 @@ include/net/netfilter/nf_conntrack_timeout.h
 include/net/netfilter/nf_conntrack_timestamp.h
 include/net/netfilter/nf_conntrack_tuple.h
 include/net/netfilter/nf_conntrack_zones.h
+include/net/netfilter/nf_flow_table.h
 include/net/netfilter/nf_log.h
 include/net/netfilter/nf_nat.h
 include/net/netfilter/nf_nat_helper.h
@@ -3838,6 +3852,7 @@ include/net/seg6.h
 include/net/seg6_local.h
 include/net/selftests.h
 include/net/slhc_vj.h
+include/net/smc.h
 include/net/snmp.h
 include/net/sock.h
 include/net/sock_reuseport.h
@@ -4029,6 +4044,7 @@ include/trace/events/xdp.h
 include/trace/hooks/audio_usboffload.h
 include/trace/hooks/avc.h
 include/trace/hooks/binder.h
+include/trace/hooks/bl_hib.h
 include/trace/hooks/block.h
 include/trace/hooks/bug.h
 include/trace/hooks/cfg80211.h
@@ -4505,6 +4521,7 @@ include/uapi/linux/usb/charger.h
 include/uapi/linux/usbdevice_fs.h
 include/uapi/linux/usb/f_accessory.h
 include/uapi/linux/usb/functionfs.h
+include/uapi/linux/usb/g_uvc.h
 include/uapi/linux/usb/midi.h
 include/uapi/linux/usb/video.h
 include/uapi/linux/userfaultfd.h
@@ -4541,6 +4558,7 @@ include/uapi/linux/wireguard.h
 include/uapi/linux/wireless.h
 include/uapi/linux/xattr.h
 include/uapi/linux/xfrm.h
+include/uapi/mtd/mtd-abi.h
 include/uapi/rdma/hfi/hfi1_ioctl.h
 include/uapi/rdma/ib_user_ioctl_verbs.h
 include/uapi/rdma/ib_user_mad.h
@@ -4811,6 +4829,7 @@ kernel/sched/stats.h
 kernel/sched/stop_task.c
 kernel/sched/swait.c
 kernel/sched/topology.c
+kernel/sched/vendor_hooks.c
 kernel/sched/wait_bit.c
 kernel/sched/wait.c
 kernel/scs.c

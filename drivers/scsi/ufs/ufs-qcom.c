@@ -31,6 +31,10 @@
 #include "ufshcd-pltfrm.h"
 #include "unipro.h"
 #include "ufs-qcom.h"
+
+#define CREATE_TRACE_POINTS
+#include "ufs-qcom-trace.h"
+
 #include "ufshci.h"
 #include "ufs_quirks.h"
 #include "ufshcd-crypto-qti.h"
@@ -115,6 +119,11 @@ enum ufs_msg_level {
 	WARN = 4,
 	INFO = 6,
 	DBG = 7,
+};
+
+enum {
+	UFS_QCOM_CMD_SEND,
+	UFS_QCOM_CMD_COMPL,
 };
 
 struct ufs_qcom_dev_params {
@@ -539,6 +548,8 @@ static int ufs_qcom_host_reset(struct ufs_hba *hba)
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	bool reenable_intr = false;
 
+	host->reset_in_progress = true;
+
 	if (!host->core_reset) {
 		ufs_qcom_msg(WARN, hba->dev, "%s: reset control not set\n", __func__);
 		goto out;
@@ -583,6 +594,7 @@ static int ufs_qcom_host_reset(struct ufs_hba *hba)
 
 out:
 	host->vdd_hba_pc = false;
+	host->reset_in_progress = false;
 	return ret;
 }
 
@@ -791,6 +803,7 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 	}
 
 	ufs_qcom_log_str(host, "-,%d,%d\n", status, err);
+	trace_ufs_qcom_hce_enable_notify(dev_name(hba->dev), status, err);
 	return err;
 }
 
@@ -1170,6 +1183,7 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 
 out:
 	ufs_qcom_log_str(host, "*,%d,%d\n", status, err);
+	trace_ufs_qcom_link_startup_notify(dev_name(hba->dev), status, err);
 	return err;
 }
 
@@ -1448,6 +1462,8 @@ out:
 	ufs_qcom_log_str(host, "&,%d,%d,%d,%d,%d,%d\n",
 			pm_op, hba->rpm_lvl, hba->spm_lvl, hba->uic_link_state,
 			hba->curr_dev_pwr_mode, err);
+	trace_ufs_qcom_suspend(dev_name(hba->dev), pm_op, hba->rpm_lvl, hba->spm_lvl,
+			hba->uic_link_state, hba->curr_dev_pwr_mode, err);
 	ufs_qcom_ice_disable(host);
 
 	cancel_dwork_unvote_cpufreq(hba);
@@ -1482,6 +1498,8 @@ out:
 	ufs_qcom_log_str(host, "$,%d,%d,%d,%d,%d,%d\n",
 			pm_op, hba->rpm_lvl, hba->spm_lvl, hba->uic_link_state,
 			hba->curr_dev_pwr_mode, err);
+	trace_ufs_qcom_resume(dev_name(hba->dev), pm_op, hba->rpm_lvl, hba->spm_lvl,
+			hba->uic_link_state, hba->curr_dev_pwr_mode, err);
 	return err;
 }
 
@@ -1890,7 +1908,7 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 	u32 val;
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct phy *phy = host->generic_phy;
-	struct ufs_qcom_dev_params ufs_qcom_cap;
+struct ufs_qcom_dev_params ufs_qcom_cap;
 	int ret = 0;
 
 	if (!dev_req_params) {
@@ -1979,13 +1997,20 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 		break;
 	}
 out:
-	if (dev_req_params)
+	if (dev_req_params) {
 		ufs_qcom_log_str(host, "@,%d,%d,%d,%d,%d\n", status,
 			dev_req_params->gear_rx, dev_req_params->pwr_rx,
 			dev_req_params->hs_rate, ret);
-	else
+		trace_ufs_qcom_pwr_change_notify(dev_name(hba->dev),
+			status, dev_req_params->gear_rx,
+			dev_req_params->pwr_rx,
+			dev_req_params->hs_rate, ret);
+	} else {
 		ufs_qcom_log_str(host, "@,%d,%d,%d,%d,%d\n", status,
 			0, 0, 0, ret);
+		trace_ufs_qcom_pwr_change_notify(dev_name(hba->dev),
+			status, 0, 0, 0, ret);
+	}
 	return ret;
 }
 
@@ -2199,7 +2224,9 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 	if (!host->disable_lpm) {
 		hba->caps |= UFSHCD_CAP_CLK_GATING |
 		UFSHCD_CAP_HIBERN8_WITH_CLK_GATING |
-		UFSHCD_CAP_CLK_SCALING | UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
+		UFSHCD_CAP_CLK_SCALING |
+		UFSHCD_CAP_WB_WITH_CLK_SCALING |
+		UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
 		hba->caps |= UFSHCD_CAP_WB_EN;
 		hba->caps |= UFSHCD_CAP_AGGR_POWER_COLLAPSE;
 	}
@@ -2346,6 +2373,7 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 		break;
 	}
 	ufs_qcom_log_str(host, "#,%d,%d,%d\n", status, on, err);
+	trace_ufs_qcom_setup_clocks(dev_name(hba->dev), status, on, err);
 
 	return err;
 }
@@ -3820,6 +3848,7 @@ out:
 		ufs_qcom_log_str(host, "^,%d,%d\n", status, err);
 	else
 		ufs_qcom_log_str(host, "v,%d,%d\n", status, err);
+	trace_ufs_qcom_clk_scale_notify(dev_name(hba->dev), status, scale_up, err);
 	return err;
 }
 
@@ -4524,6 +4553,12 @@ static void ufs_qcom_hook_send_command(void *param, struct ufs_hba *hba,
 				ufshcd_readl(hba,
 					REG_UTP_TRANSFER_REQ_DOOR_BELL),
 				sz);
+		trace_ufs_qcom_command(dev_name(hba->dev), UFS_QCOM_CMD_SEND,
+				lrbp->cmd->cmnd[0],
+				lrbp->task_tag,
+				ufshcd_readl(hba,
+					REG_UTP_TRANSFER_REQ_DOOR_BELL),
+				sz);
 		if (atomic_read(&host->hi_pri_en) && rq)
 			rq->cmd_flags |= REQ_HIPRI;
 	}
@@ -4539,6 +4574,12 @@ static void ufs_qcom_hook_compl_command(void *param, struct ufs_hba *hba,
 		int sz = scsi_cmd_to_rq(lrbp->cmd) ?
 				blk_rq_sectors(scsi_cmd_to_rq(lrbp->cmd)) : 0;
 		ufs_qcom_log_str(host, ">,%x,%d,%x,%d\n",
+				lrbp->cmd->cmnd[0],
+				lrbp->task_tag,
+				ufshcd_readl(hba,
+					REG_UTP_TRANSFER_REQ_DOOR_BELL),
+				sz);
+		trace_ufs_qcom_command(dev_name(hba->dev), UFS_QCOM_CMD_COMPL,
 				lrbp->cmd->cmnd[0],
 				lrbp->task_tag,
 				ufshcd_readl(hba,
@@ -4561,12 +4602,16 @@ static void ufs_qcom_hook_send_uic_command(void *param, struct ufs_hba *hba,
 		c = ucmd->argument3;
 		cmd = ucmd->command;
 		ch = '(';
+		trace_ufs_qcom_uic(dev_name(hba->dev), UFS_QCOM_CMD_SEND,
+				cmd, a, b, c);
 	} else {
 		a = ufshcd_readl(hba, REG_UIC_COMMAND_ARG_1),
 		b = ufshcd_readl(hba, REG_UIC_COMMAND_ARG_2),
 		c = ufshcd_readl(hba, REG_UIC_COMMAND_ARG_3);
 		cmd = ufshcd_readl(hba, REG_UIC_COMMAND);
 		ch = ')';
+		trace_ufs_qcom_uic(dev_name(hba->dev), UFS_QCOM_CMD_COMPL,
+				cmd, a, b, c);
 	}
 	ufs_qcom_log_str(host, "%c,%x,%x,%x,%x\n",
 				ch, cmd, a, b, c);
@@ -4586,6 +4631,7 @@ static void ufs_qcom_hook_check_int_errors(void *param, struct ufs_hba *hba,
 	if (queue_eh_work)
 		ufs_qcom_log_str(host, "_,%x,%x\n",
 					hba->errors, hba->uic_error);
+	trace_ufs_qcom_hook_check_int_errors(dev_name(hba->dev), hba->errors, hba->uic_error);
 }
 
 static void ufs_qcom_update_sdev(void *param, struct scsi_device *sdev)

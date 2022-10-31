@@ -193,7 +193,9 @@
   clk_notifier_unregister
   clk_prepare
   clk_put
+  clk_restore_context
   clk_round_rate
+  clk_save_context
   clk_set_parent
   clk_set_rate
   clk_sync_state
@@ -882,7 +884,9 @@
   inc_zone_page_state
   in_egroup_p
   inet6_ioctl
+  __inet6_lookup_established
   inet_ioctl
+  __inet_lookup_established
   init_iova_domain
   init_net
   init_pid_ns
@@ -1178,11 +1182,21 @@
   misc_deregister
   misc_register
   mmc_cqe_request_done
+  mmc_execute_tuning
   mmc_of_parse
+  __mmc_poll_for_busy
+  mmc_prepare_busy_cmd
   mmc_regulator_get_supply
   mmc_regulator_set_ocr
   mmc_regulator_set_vqmmc
+  mmc_retune_hold
+  mmc_retune_release
+  mmc_select_card
   mmc_send_tuning
+  mmc_set_bus_mode
+  mmc_set_bus_width
+  mmc_set_clock
+  mmc_set_timing
   mmput
   mod_delayed_work_on
   mod_node_page_state
@@ -1787,6 +1801,7 @@
   sdhci_cqe_disable
   sdhci_cqe_enable
   sdhci_cqe_irq
+  sdhci_dumpregs
   sdhci_enable_clk
   sdhci_get_property
   sdhci_pltfm_free
@@ -1890,6 +1905,7 @@
   sock_alloc_send_pskb
   sock_alloc_send_skb
   sock_create_kern
+  sock_edemux
   sock_gettstamp
   sock_init_data
   sock_no_accept
@@ -2014,6 +2030,7 @@
   task_may_not_preempt
   __task_pid_nr_ns
   __task_rq_lock
+  tcp_hashinfo
   thermal_cooling_device_register
   thermal_cooling_device_unregister
   thermal_of_cooling_device_register
@@ -2100,6 +2117,7 @@
   __tracepoint_android_vh_binder_restore_priority
   __tracepoint_android_vh_binder_set_priority
   __tracepoint_android_vh_binder_wakeup_ilocked
+  __tracepoint_android_vh_check_hibernation_swap
   __tracepoint_android_vh_check_uninterruptible_tasks
   __tracepoint_android_vh_check_uninterruptible_tasks_dn
   __tracepoint_android_vh_cpu_idle_enter
@@ -2125,6 +2143,8 @@
   __tracepoint_android_vh_printk_hotplug
   __tracepoint_android_vh_rproc_recovery
   __tracepoint_android_vh_rproc_recovery_set
+  __tracepoint_android_vh_save_cpu_resume
+  __tracepoint_android_vh_save_hib_resume_bdev
   __tracepoint_android_vh_scheduler_tick
   __tracepoint_android_vh_show_resume_epoch_val
   __tracepoint_android_vh_show_suspend_epoch_val
@@ -2189,6 +2209,9 @@
   ucsi_set_drvdata
   ucsi_unregister
   __udelay
+  __udp4_lib_lookup
+  __udp6_lib_lookup
+  udp_table
   ufshcd_auto_hibern8_update
   ufshcd_dme_get_attr
   ufshcd_dme_set_attr

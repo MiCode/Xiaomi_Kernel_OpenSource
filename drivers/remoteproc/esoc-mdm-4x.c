@@ -1073,7 +1073,7 @@ err_destroy_wrkq:
 	return ret;
 }
 
-static int lemur_setup_regulators(struct mdm_ctrl *mdm)
+static int sdx_setup_regulators(struct mdm_ctrl *mdm)
 {
 	int len;
 	int i, rc;
@@ -1145,7 +1145,7 @@ static int lemur_setup_hw(struct mdm_ctrl *mdm, const struct mdm_ops *ops,
 		return ret;
 	}
 
-	ret = lemur_setup_regulators(mdm);
+	ret = sdx_setup_regulators(mdm);
 	if (ret) {
 		dev_err(mdm->dev, "Failed to setup regulators: %d\n", ret);
 		esoc_mdm_log("Failed to setup regulators: %d\n", ret);
@@ -1180,13 +1180,48 @@ static int pinn_setup_hw(struct mdm_ctrl *mdm, const struct mdm_ops *ops,
 		return ret;
 	}
 
-	ret = lemur_setup_regulators(mdm);
+	ret = sdx_setup_regulators(mdm);
 	if (ret) {
 		dev_err(mdm->dev, "Failed to setup regulators: %d\n", ret);
 		esoc_mdm_log("Failed to setup regulators: %d\n", ret);
 	}
 
 	esoc_mdm_log("Hardware setup done for pinn\n");
+
+	return ret;
+}
+
+static int baagha_setup_hw(struct mdm_ctrl *mdm, const struct mdm_ops *ops,
+			  struct platform_device *pdev)
+{
+	int ret;
+	struct esoc_clink *esoc;
+
+	/* Same configuration as that of sdx75, except for the name */
+	esoc = devm_kzalloc(&pdev->dev, sizeof(*esoc), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(esoc)) {
+		dev_err(&pdev->dev, "cannot allocate esoc device\n");
+		return PTR_ERR(esoc);
+	}
+
+	esoc->name = BAAGHA_LABEL;
+	esoc->link_name = BAAGHA_PCIE;
+	esoc->sysmon_name = BAAGHA_LABEL;
+
+	ret = sdx_setup_hw(mdm, ops, pdev, esoc);
+	if (ret) {
+		dev_err(mdm->dev, "Hardware setup failed for baagha\n");
+		esoc_mdm_log("Hardware setup failed for baahga\n");
+		return ret;
+	}
+
+	ret = sdx_setup_regulators(mdm);
+	if (ret) {
+		dev_err(mdm->dev, "Failed to setup regulators: %d\n", ret);
+		esoc_mdm_log("Failed to setup regulators: %d\n", ret);
+	}
+
+	esoc_mdm_log("Hardware setup done for baagha\n");
 
 	return ret;
 }
@@ -1228,6 +1263,12 @@ static struct mdm_ops pinn_ops = {
 	.pon_ops = &sdx50m_pon_ops,
 };
 
+static struct mdm_ops baagha_ops = {
+	.clink_ops = &mdm_cops,
+	.config_hw = baagha_setup_hw,
+	.pon_ops = &sdx50m_pon_ops,
+};
+
 static const struct of_device_id mdm_dt_match[] = {
 	{ .compatible = "qcom,ext-mdm9x55",
 		.data = &mdm9x55_ops, },
@@ -1239,6 +1280,8 @@ static const struct of_device_id mdm_dt_match[] = {
 		.data = &lemur_ops, },
 	{ .compatible = "qcom,ext-pinn",
 		.data = &pinn_ops, },
+	{ .compatible = "qcom,ext-baagha",
+		.data = &baagha_ops, },
 	{},
 };
 MODULE_DEVICE_TABLE(of, mdm_dt_match);

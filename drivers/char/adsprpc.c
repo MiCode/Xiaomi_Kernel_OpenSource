@@ -206,6 +206,8 @@
 /* Convert the 19.2MHz clock count to micro-seconds */
 #define CONVERT_CNT_TO_US(CNT) (CNT * 10ull / 192ull)
 
+#define FASTRPC_USER_PD_FORCE_KILL 2
+
 /* Unique index flag used for mini dump */
 static int md_unique_index_flag[MAX_UNIQUE_ID] = { 0, 0, 0, 0, 0 };
 
@@ -1170,7 +1172,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, struct dma_buf *
 		map->size = len;
 		map->flags = FASTRPC_MAP_FD_DELAYED;
 		trace_fastrpc_dma_map(cid, fd, map->phys, map->size,
-			len, mflags, map->attach->dma_map_attrs);
+			len, map->attach->dma_map_attrs, mflags);
 	} else {
 		if (map->attr && (map->attr & FASTRPC_ATTR_KEEP_MAP)) {
 			ADSPRPC_INFO("buffer mapped with persist attr 0x%x\n",
@@ -1276,7 +1278,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, struct dma_buf *
 			map->size = buf_page_size(len);
 		}
 		trace_fastrpc_dma_map(cid, fd, map->phys, map->size,
-			len, mflags, map->attach->dma_map_attrs);
+			len, map->attach->dma_map_attrs, mflags);
 
 		VERIFY(err, map->size >= len && map->size < me->max_size_limit);
 		if (err) {
@@ -3288,7 +3290,7 @@ static int fastrpc_wait_on_notif_queue(
 read_notif_status:
 	interrupted = wait_event_interruptible(fl->proc_state_notif.notif_wait_queue,
 				atomic_read(&fl->proc_state_notif.notif_queue_count));
-	if (!fl || fl->file_close >= FASTRPC_PROCESS_EXIT_START) {
+	if (!fl) {
 		err = -EBADF;
 		goto bail;
 	}
@@ -3973,6 +3975,10 @@ bail:
 	return err;
 }
 
+/*
+ * This function sets fastrpc service location name
+ * based on ioctl init flags.
+ */
 static void fastrpc_set_servloc(struct fastrpc_file *fl,
 				struct fastrpc_ioctl_init *init)
 {
@@ -6046,6 +6052,7 @@ int fastrpc_internal_control(struct fastrpc_file *fl,
 	int err = 0;
 	unsigned int latency;
 	struct fastrpc_apps *me = &gfa;
+	int sessionid = 0;
 	u32 silver_core_count = me->silvercores.corecount, ii = 0, cpu;
 
 	VERIFY(err, !IS_ERR_OR_NULL(fl) && !IS_ERR_OR_NULL(fl->apps));
@@ -6135,6 +6142,9 @@ int fastrpc_internal_control(struct fastrpc_file *fl,
 		break;
 	case FASTRPC_CONTROL_DSPPROCESS_CLEAN:
 		(void)fastrpc_release_current_dsp_process(fl);
+		if (fl->tgid & SESSION_ID_MASK)
+			sessionid = 1;
+		fastrpc_queue_pd_status(fl, fl->cid, FASTRPC_USER_PD_FORCE_KILL, sessionid);
 		break;
 	case FASTRPC_CONTROL_RPC_POLL:
 		err = fastrpc_manage_poll_mode(fl, cp->lp.enable, cp->lp.latency);

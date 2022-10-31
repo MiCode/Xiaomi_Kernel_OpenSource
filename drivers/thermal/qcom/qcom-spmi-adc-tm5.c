@@ -4,6 +4,7 @@
  *
  * Based on original driver:
  * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #include <linux/bitfield.h>
 #include <linux/iio/adc/qcom-vadc-common.h>
@@ -598,11 +599,10 @@ static int adc_tm5_probe(struct platform_device *pdev)
 
 	if (of_device_is_compatible(node, "qcom,spmi-adc-tm5-iio")) {
 		ret = adc_tm5_register_tzd(adc_tm, false);
-		if (ret) {
+		if (ret)
 			dev_err(dev, "tzd register failed for adc tm5 iio channel\n");
-			return ret;
-		}
-		return 0;
+
+		return ret;
 	}
 
 	irq = platform_get_irq(pdev, 0);

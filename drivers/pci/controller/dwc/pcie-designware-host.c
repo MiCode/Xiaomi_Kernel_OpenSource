@@ -373,9 +373,22 @@ int dw_pcie_host_init(struct pcie_port *pp)
 			msi_vaddr = dmam_alloc_coherent(dev, sizeof(u64), &pp->msi_data,
 							GFP_KERNEL);
 			if (!msi_vaddr) {
-				dev_err(dev, "Failed to alloc and map MSI data\n");
-				ret = -ENOMEM;
-				goto err_free_msi;
+				u16 msi_capabilities;
+
+				/* Retry the allocation with a 64-bit mask if supported. */
+				msi_capabilities = dw_pcie_msi_capabilities(pci);
+				if ((msi_capabilities & PCI_MSI_FLAGS_ENABLE) &&
+				    (msi_capabilities & PCI_MSI_FLAGS_64BIT)) {
+					dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
+					msi_vaddr = dmam_alloc_coherent(dev, sizeof(u64),
+									&pp->msi_data,
+									GFP_KERNEL);
+				}
+				if (!msi_vaddr) {
+					dev_err(dev, "Failed to alloc and map MSI data\n");
+					ret = -ENOMEM;
+					goto err_free_msi;
+				}
 			}
 		}
 	}

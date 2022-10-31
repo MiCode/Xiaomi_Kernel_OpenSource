@@ -1147,6 +1147,7 @@ static const struct adc5_data adc5_data_pmic5_lite = {
 	/* On PMI632, IBAT LSB = 5A/32767 */
 	.full_scale_code_cur = 5000,
 	.adc_chans = adc5_chans_pmic,
+	.info = &adc5_info,
 	.decimation = (unsigned int []) {250, 420, 840},
 	.hw_settle_1 = (unsigned int []) {15, 100, 200, 300, 400, 500, 600, 700,
 					800, 900, 1, 2, 4, 6, 8, 10},

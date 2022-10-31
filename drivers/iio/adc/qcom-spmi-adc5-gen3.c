@@ -19,6 +19,7 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/thermal.h>
+#include <linux/thermal_minidump.h>
 #include <linux/slab.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/adc/qcom-vadc-common.h>
@@ -242,6 +243,7 @@ struct adc5_chip {
 	struct adc5_base_data		*base;
 	u16				debug_base;
 	unsigned int			num_sdams;
+	unsigned int                    num_interrupts;
 	unsigned int			nchannels;
 	struct adc5_channel_prop	*chan_props;
 	struct iio_chan_spec		*iio_chans;
@@ -253,6 +255,7 @@ struct adc5_chip {
 	struct list_head		list;
 	struct list_head		*device_list;
 	struct work_struct		tm_handler_work;
+	struct minidump_data		*adc_md;
 };
 
 static int adc5_read(struct adc5_chip *adc, unsigned int sdam_index, u16 offset, u8 *data, int len)
@@ -402,18 +405,26 @@ static int adc5_gen3_configure(struct adc5_chip *adc,
 #define ADC5_GEN3_HS_DELAY_MAX_US		110
 #define ADC5_GEN3_HS_RETRY_COUNT		150
 
-static int adc5_gen3_poll_wait_hs(struct adc5_chip *adc, struct adc5_channel_prop *prop)
+static int adc5_gen3_poll_wait_hs(struct adc5_chip *adc,
+				unsigned int sdam_index)
 {
 	int ret, count;
-	u8 status = 0;
+	u8 status = 0, conv_req = ADC5_GEN3_CONV_REQ_REQ;
 
 	for (count = 0; count < ADC5_GEN3_HS_RETRY_COUNT; count++) {
-		ret = adc5_read(adc, prop->sdam_index, ADC5_GEN3_HS, &status, 1);
+		ret = adc5_read(adc, sdam_index, ADC5_GEN3_HS, &status, 1);
 		if (ret < 0)
 			return ret;
 
-		if (status == ADC5_GEN3_HS_READY)
-			break;
+		if (status == ADC5_GEN3_HS_READY) {
+			ret = adc5_read(adc, sdam_index, ADC5_GEN3_CONV_REQ,
+					&conv_req, 1);
+			if (ret < 0)
+				return ret;
+
+			if (!conv_req)
+				break;
+		}
 
 		usleep_range(ADC5_GEN3_HS_DELAY_MIN_US,
 			ADC5_GEN3_HS_DELAY_MAX_US);
@@ -439,7 +450,7 @@ static int adc5_gen3_do_conversion(struct adc5_chip *adc,
 	u8 val;
 
 	mutex_lock(&adc->lock);
-	ret = adc5_gen3_poll_wait_hs(adc, prop);
+	ret = adc5_gen3_poll_wait_hs(adc, 0);
 	if (ret < 0)
 		goto unlock;
 
@@ -523,7 +534,7 @@ static int get_sdam_from_irq(struct adc5_chip *adc, int irq)
 {
 	int i;
 
-	for (i = 0; i < adc->num_sdams; i++) {
+	for (i = 0; i < adc->num_interrupts; i++) {
 		if (adc->base[i].irq == irq)
 			return i;
 	}
@@ -796,9 +807,16 @@ int adc_tm_gen3_get_temp(void *data, int *temp)
 	if (ret < 0)
 		return ret;
 
-	return qcom_adc5_hw_scale(prop->scale_fn_type,
+	ret = qcom_adc5_hw_scale(prop->scale_fn_type,
 		prop->prescale, adc->data,
 		adc_code_volt, temp);
+
+	/* Save temperature data to minidump */
+	if (prop->chip->adc_md != NULL && prop->tzd)
+		thermal_minidump_update_data(prop->chip->adc_md,
+			prop->tzd->type, temp);
+
+	return ret;
 }
 
 static int adc_tm5_gen3_configure(struct adc5_channel_prop *prop)
@@ -808,7 +826,7 @@ static int adc_tm5_gen3_configure(struct adc5_channel_prop *prop)
 	u32 mask = 0;
 	struct adc5_chip *adc = prop->chip;
 
-	ret = adc5_gen3_poll_wait_hs(adc, prop);
+	ret = adc5_gen3_poll_wait_hs(adc, prop->sdam_index);
 	if (ret < 0)
 		return ret;
 
@@ -1658,6 +1676,10 @@ static int adc5_gen3_probe(struct platform_device *pdev)
 
 	adc->num_sdams = ret;
 
+	adc->num_interrupts = of_property_count_strings(node, "interrupt-names");
+	if (adc->num_interrupts < 0)
+		adc->num_interrupts = 0;
+
 	adc->base = devm_kcalloc(adc->dev, adc->num_sdams, sizeof(*adc->base), GFP_KERNEL);
 	if (!adc->base)
 		return -ENOMEM;
@@ -1668,7 +1690,9 @@ static int adc5_gen3_probe(struct platform_device *pdev)
 			return ret;
 
 		adc->base[i].base_addr = reg;
+	}
 
+	for (i = 0; i < adc->num_interrupts; i++) {
 		scnprintf(buf, sizeof(buf), "adc-sdam%d", i);
 		ret = of_irq_get_byname(node, buf);
 		if (ret < 0) {
@@ -1698,7 +1722,7 @@ static int adc5_gen3_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
-	for (i = 0; i < adc->num_sdams; i++) {
+	for (i = 0; i < adc->num_interrupts; i++) {
 		ret = devm_request_irq(dev, adc->base[i].irq, adc5_gen3_isr,
 					0, adc->base[i].irq_name, adc);
 		if (ret < 0)
@@ -1708,6 +1732,8 @@ static int adc5_gen3_probe(struct platform_device *pdev)
 	ret = adc_tm_register_tzd(adc);
 	if (ret < 0)
 		goto fail;
+
+	adc->adc_md = thermal_minidump_register("adc5_gen3");
 
 	if (adc->n_tm_channels)
 		INIT_WORK(&adc->tm_handler_work, tm_handler_work);
@@ -1770,6 +1796,8 @@ static int adc5_gen3_exit(struct platform_device *pdev)
 
 	list_del(&adc->list);
 
+	thermal_minidump_unregister(adc->adc_md);
+
 	return 0;
 }
 
@@ -1780,7 +1808,7 @@ static int adc5_gen3_freeze(struct device *dev)
 
 	mutex_lock(&adc->lock);
 
-	for (i = 0; i < adc->num_sdams; i++)
+	for (i = 0; i < adc->num_interrupts; i++)
 		devm_free_irq(dev, adc->base[i].irq, adc);
 
 	mutex_unlock(&adc->lock);
@@ -1794,7 +1822,7 @@ static int adc5_gen3_restore(struct device *dev)
 	int i = 0;
 	int ret = 0;
 
-	for (i = 0; i < adc->num_sdams; i++) {
+	for (i = 0; i < adc->num_interrupts; i++) {
 		ret = devm_request_irq(dev, adc->base[i].irq, adc5_gen3_isr,
 				0, adc->base[i].irq_name, adc);
 		if (ret < 0)

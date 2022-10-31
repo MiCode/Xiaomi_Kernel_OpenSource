@@ -34,6 +34,7 @@ obj-$(CONFIG_QCOM_SECURE_BUFFER) += secure_buffer.o
 obj-$(CONFIG_QCOM_MEM_HOOKS) += mem-hooks.o
 obj-$(CONFIG_QCOM_MEM_BUF) += mem_buf/
 obj-$(CONFIG_QCOM_SOCINFO)	+= socinfo.o
+obj-$(CONFIG_QCOM_SOCINFO_DT)	+= socinfo_dt.o
 obj-$(CONFIG_QCOM_SOC_SLEEP_STATS)	+= soc_sleep_stats.o
 obj-$(CONFIG_QTI_RPM_STATS_LOG) += rpm_master_stat.o
 obj-$(CONFIG_QCOM_CDSP_RM) += cdsprm.o

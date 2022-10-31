@@ -85,6 +85,7 @@
   bpf_trace_run8
   bpf_trace_run9
   bsearch
+  build_skb
   bus_find_device
   bus_for_each_dev
   bus_register
@@ -356,6 +357,7 @@
   devm_pinctrl_put
   devm_pinctrl_register
   devm_platform_ioremap_resource
+  devm_platform_ioremap_resource_byname
   __devm_regmap_init_i2c
   __devm_regmap_init_mmio_clk
   devm_regulator_bulk_get
@@ -504,6 +506,8 @@
   down_write
   down_write_trylock
   d_path
+  dql_completed
+  dql_reset
   drain_workqueue
   driver_register
   driver_unregister
@@ -951,6 +955,8 @@
   iio_device_free
   __iio_device_register
   iio_device_unregister
+  in4_pton
+  in6_pton
   inc_zone_page_state
   inet_csk_get_port
   init_dummy_netdev
@@ -988,6 +994,7 @@
   iommu_device_sysfs_remove
   iommu_device_unlink
   iommu_device_unregister
+  iommu_dma_enable_best_fit_algo
   iommu_fwspec_add_ids
   iommu_fwspec_free
   iommu_get_dma_cookie
@@ -1224,6 +1231,7 @@
   __netif_napi_del
   netif_receive_skb
   netif_rx_ni
+  netif_schedule_queue
   netif_tx_stop_all_queues
   netif_tx_wake_queue
   netlink_broadcast
@@ -1741,6 +1749,7 @@
   snd_soc_component_force_enable_pin
   snd_soc_component_init_regmap
   snd_soc_component_read
+  snd_soc_component_set_pll
   snd_soc_component_set_sysclk
   snd_soc_component_update_bits
   snd_soc_component_update_bits_async
@@ -2037,6 +2046,7 @@
   __tracepoint_android_vh_binder_wakeup_ilocked
   __tracepoint_android_vh_cpu_idle_enter
   __tracepoint_android_vh_cpu_idle_exit
+  __tracepoint_android_vh_do_wake_up_sync
   __tracepoint_android_vh_gic_set_affinity
   __tracepoint_android_vh_ipi_stop
   __tracepoint_android_vh_logbuf
