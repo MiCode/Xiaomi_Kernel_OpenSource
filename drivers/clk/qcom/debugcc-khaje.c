@@ -229,7 +229,7 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"measure_only_gcc_disp_xo_clk",
 	"measure_only_gcc_gpu_cfg_ahb_clk",
 	"measure_only_ipa_2x_clk",
-	"measure_only_mccc_clk",
+	"mc_cc_debug_mux",
 	"measure_only_snoc_clk",
 	"measure_only_usb3_phy_wrapper_gcc_usb30_pipe_clk",
 	"ufs_phy_rx_symbol_0_clk",
@@ -353,7 +353,7 @@ static int gcc_debug_mux_sels[] = {
 	0x43,		/* measure_only_gcc_disp_xo_clk */
 	0xEB,		/* measure_only_gcc_gpu_cfg_ahb_clk */
 	0xCD,		/* measure_only_ipa_2x_clk */
-	0xA5,		/* measure_only_mccc_clk */
+	0xA5,		/* mc_cc_debug_mux or ddrss_gcc_debug_clk */
 	0x7,		/* measure_only_snoc_clk */
 	0x68,		/* measure_only_usb3_phy_wrapper_gcc_usb30_pipe_clk */
 	0x11B,		/* ufs_phy_rx_symbol_0_clk */
@@ -429,11 +429,26 @@ static struct clk_debug_mux gpu_cc_debug_mux = {
 	},
 };
 
+static const char *const mc_cc_debug_mux_parent_names[] = {
+	"measure_only_mccc_clk",
+};
+
+static struct clk_debug_mux mc_cc_debug_mux = {
+	.period_offset = 0x20,
+	.hw.init = &(struct clk_init_data){
+		.name = "mc_cc_debug_mux",
+		.ops = &clk_debug_mux_ops,
+		.parent_names = mc_cc_debug_mux_parent_names,
+		.num_parents = ARRAY_SIZE(mc_cc_debug_mux_parent_names),
+	},
+};
+
 static struct mux_regmap_names mux_list[] = {
 	{ .mux = &apss_cc_debug_mux, .regmap_name = "qcom,apsscc" },
 	{ .mux = &disp_cc_debug_mux, .regmap_name = "qcom,dispcc" },
 	{ .mux = &gcc_debug_mux, .regmap_name = "qcom,gcc" },
 	{ .mux = &gpu_cc_debug_mux, .regmap_name = "qcom,gpucc" },
+	{ .mux = &mc_cc_debug_mux, .regmap_name = "qcom,mccc" },
 };
 
 static struct clk_dummy measure_only_cnoc_clk = {
