@@ -45,6 +45,16 @@ static inline bool usb_gsi_remote_wakeup_allowed(struct usb_function *f)
 	return remote_wakeup_allowed;
 }
 
+static void ipa_ready_callback(void *user_data)
+{
+	struct f_gsi *gsi = user_data;
+
+	log_event_info("%s: ipa is ready\n", __func__);
+
+	gsi->d_port.ipa_ready = true;
+	wake_up_interruptible(&gsi->d_port.wait_for_ipa_ready);
+}
+
 static void post_event(struct gsi_data_port *port, u8 event)
 {
 	unsigned long flags;
@@ -627,6 +637,19 @@ static int ipa_connect_channels(struct gsi_data_port *d_port)
 				sizeof(ipa_in_channel_out_params));
 	memset(&ipa_out_channel_out_params, 0x0,
 				sizeof(ipa_out_channel_out_params));
+
+	ret = ipa_register_ipa_ready_cb(ipa_ready_callback, gsi);
+	if (!ret) {
+		log_event_info("%s: ipa is not ready", __func__);
+		ret = wait_event_interruptible_timeout(
+			gsi->d_port.wait_for_ipa_ready, gsi->d_port.ipa_ready,
+			msecs_to_jiffies(GSI_IPA_READY_TIMEOUT));
+		if (!ret) {
+			log_event_err("%s: ipa ready timeout", __func__);
+			goto end_xfer_ep_out;
+		}
+		gsi->d_port.ipa_ready = false;
+	}
 
 	log_event_dbg("%s: Calling xdci_connect", __func__);
 	ret = ipa_usb_xdci_connect(out_params, in_params,
@@ -2832,16 +2855,6 @@ fail:
 	return -ENOMEM;
 }
 
-static void ipa_ready_callback(void *user_data)
-{
-	struct f_gsi *gsi = user_data;
-
-	log_event_info("%s: ipa is ready\n", __func__);
-
-	gsi->d_port.ipa_ready = true;
-	wake_up_interruptible(&gsi->d_port.wait_for_ipa_ready);
-}
-
 static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct usb_composite_dev *cdev = c->cdev;
@@ -3160,6 +3173,7 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 			status = -ETIMEDOUT;
 			goto dereg_rndis;
 		}
+		gsi->d_port.ipa_ready = false;
 	}
 
 	gsi->d_port.ipa_usb_notify_cb = ipa_usb_notify_cb;
