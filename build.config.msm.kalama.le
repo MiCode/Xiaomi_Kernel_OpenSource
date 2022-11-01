@@ -33,3 +33,5 @@ KERNEL_VENDOR_CMDLINE+=' bootconfig '
 ## Inheriting MSM configs
 . ${KERNEL_DIR}/build.config.msm.common
 . ${KERNEL_DIR}/build.config.msm.gki
+
+GKI_GKI_BUILD_CONFIG_FRAGMENT=${KERNEL_DIR}/build.config.msm.gki_fragement.${MSM_ARCH}
