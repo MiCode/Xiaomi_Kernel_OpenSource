@@ -402,7 +402,7 @@ static void gic_handle_cascade_irq(struct irq_desc *desc)
 #ifdef CONFIG_PM
 void gic_v2_resume(void)
 {
-	trace_android_vh_gic_v2_resume(gic_data_dist_base(&gic_data[0]), &gic_data[0].domain);
+	trace_android_vh_gic_v2_resume(gic_data[0].domain, gic_data_dist_base(&gic_data[0]));
 }
 EXPORT_SYMBOL_GPL(gic_v2_resume);
 

@@ -14,6 +14,13 @@
   blk_mq_sched_try_insert_merge
   blk_mq_sched_try_merge
   blk_queue_rq_timeout
+  cdc_ncm_bind_common
+  cdc_ncm_change_mtu
+  cdc_ncm_fill_tx_frame
+  cdc_ncm_rx_verify_ndp16
+  cdc_ncm_rx_verify_nth16
+  cdc_ncm_select_altsetting
+  cdc_ncm_unbind
   class_create_file_ns
   class_remove_file_ns
   cleancache_register_ops
@@ -22,6 +29,7 @@
   create_function_device
   css_next_descendant_pre
   _dev_alert
+  devm_bitmap_zalloc
   drm_edid_get_monitor_name
   drm_edid_is_valid
   elevator_alloc
@@ -46,9 +54,12 @@
   gserial_resume
   gserial_suspend
   gs_free_req
+  hid_hw_close
+  hid_hw_open
   __kfifo_out_peek
   __kfree_skb
   kmsg_dump_get_line
+  kstrtos16
   kthread_blkcg
   name_to_dev_t
   netlink_ack
@@ -63,6 +74,7 @@
   pstore_unregister
   pwm_put
   regulator_get_current_limit
+  rfkill_set_sw_state
   sbitmap_queue_min_shallow_depth
   skb_copy_ubufs
   smpboot_unregister_percpu_thread
@@ -102,6 +114,16 @@
   __tracepoint_irq_handler_exit
   __tracepoint_kfree_skb
   __tracepoint_workqueue_execute_start
+  _trace_android_vh_record_pcpu_rwsem_starttime
+  usb_alloc_dev
+  usb_deregister_dev
+  usb_find_interface
+  usb_hid_driver
+  usbnet_cdc_unbind
   usbnet_defer_kevent
+  usbnet_generic_cdc_bind
+  usb_poison_anchored_urbs
+  usb_register_dev
   usb_set_device_state
   vfs_fsync_range
+  __vlan_find_dev_deep_rcu
