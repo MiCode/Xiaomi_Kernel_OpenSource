@@ -877,14 +877,21 @@ static void msm_geni_serial_set_mctrl(struct uart_port *uport,
 	}
 
 	if (!(mctrl & TIOCM_RTS)) {
-		uart_manual_rfr |= (UART_MANUAL_RFR_EN | UART_RFR_NOT_READY);
+		uart_manual_rfr |= (UART_MANUAL_RFR_EN);
+		geni_write_reg_nolog(uart_manual_rfr, port->uport.membase,
+				     SE_UART_MANUAL_RFR);
+		/* UART FW needs delay per HW experts recommendation */
+		udelay(10);
+		uart_manual_rfr |= (UART_RFR_NOT_READY);
+		geni_write_reg_nolog(uart_manual_rfr, port->uport.membase,
+				     SE_UART_MANUAL_RFR);
 		port->manual_flow = true;
 	} else {
+		geni_write_reg_nolog(uart_manual_rfr, uport->membase,
+				     SE_UART_MANUAL_RFR);
 		port->manual_flow = false;
 	}
 
-	geni_write_reg_nolog(uart_manual_rfr, uport->membase,
-			     SE_UART_MANUAL_RFR);
 	/* Write to flow control must complete before return to client*/
 	mb();
 
