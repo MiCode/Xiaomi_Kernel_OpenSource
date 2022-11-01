@@ -348,6 +348,15 @@ static int smblite_parse_dt_misc(struct smblite *chip, struct device_node *node)
 				dev_err(chg->dev, "Failed to get nvmem-cells, rc=%d\n", rc);
 			return rc;
 		}
+
+		chg->soc_nvmem = devm_nvmem_cell_get(chg->dev, "charger_soc");
+		if (IS_ERR(chg->soc_nvmem)) {
+			rc = PTR_ERR(chg->soc_nvmem);
+			if (rc != -EPROBE_DEFER)
+				dev_err(chg->dev, "Failed to get charger_soc nvmem-cells, rc=%d\n",
+						rc);
+			return rc;
+		}
 	}
 
 	return 0;
