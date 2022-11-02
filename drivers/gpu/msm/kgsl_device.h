@@ -70,6 +70,7 @@ enum kgsl_event_results {
 	{ KGSL_CONTEXT_SAVE_GMEM, "SAVE_GMEM" }, \
 	{ KGSL_CONTEXT_IFH_NOP, "IFH_NOP" }, \
 	{ KGSL_CONTEXT_SECURE, "SECURE" }, \
+	{ KGSL_CONTEXT_LPAC, "LPAC" }, \
 	{ KGSL_CONTEXT_NO_SNAPSHOT, "NO_SNAPSHOT" }
 
 #define KGSL_CONTEXT_ID(_context) \
@@ -108,7 +109,8 @@ struct kgsl_functable {
 	void (*power_stats)(struct kgsl_device *device,
 		struct kgsl_power_stats *stats);
 	void (*snapshot)(struct kgsl_device *device,
-		struct kgsl_snapshot *snapshot, struct kgsl_context *context);
+		struct kgsl_snapshot *snapshot, struct kgsl_context *context,
+		struct kgsl_context *context_lpac);
 	/** @drain_and_idle: Drain the GPU and wait for it to idle */
 	int (*drain_and_idle)(struct kgsl_device *device);
 	struct kgsl_device_private * (*device_private_create)(void);
@@ -544,6 +546,12 @@ struct kgsl_snapshot {
 	unsigned int ib2size;
 	bool ib1dumped;
 	bool ib2dumped;
+	u64 ib1base_lpac;
+	u64 ib2base_lpac;
+	u32 ib1size_lpac;
+	u32 ib2size_lpac;
+	bool ib1dumped_lpac;
+	bool ib2dumped_lpac;
 	u8 *start;
 	size_t size;
 	u8 *ptr;
@@ -556,6 +564,7 @@ struct kgsl_snapshot {
 	struct work_struct work;
 	struct completion dump_gate;
 	struct kgsl_process_private *process;
+	struct kgsl_process_private *process_lpac;
 	unsigned int sysfs_read;
 	bool first_read;
 	bool recovered;
@@ -650,7 +659,8 @@ const char *kgsl_pwrstate_to_str(unsigned int state);
 void kgsl_device_snapshot_probe(struct kgsl_device *device, u32 size);
 
 void kgsl_device_snapshot(struct kgsl_device *device,
-			struct kgsl_context *context, bool gmu_fault);
+			struct kgsl_context *context, struct kgsl_context *context_lpac,
+			bool gmu_fault);
 void kgsl_device_snapshot_close(struct kgsl_device *device);
 
 void kgsl_events_init(void);
@@ -1035,5 +1045,19 @@ static inline void kgsl_trace_gpu_mem_total(struct kgsl_device *device,
 static inline void kgsl_trace_gpu_mem_total(struct kgsl_device *device,
 						s64 delta) {}
 #endif
+
+/*
+ * kgsl_context_is_lpac() - Checks if context is LPAC
+ * @context: KGSL context to check
+ *
+ * Function returns true if context is LPAC else false
+ */
+static inline bool kgsl_context_is_lpac(struct kgsl_context *context)
+{
+	if (context == NULL)
+		return false;
+
+	return (context->flags & KGSL_CONTEXT_LPAC) ? true : false;
+}
 
 #endif  /* __KGSL_DEVICE_H */

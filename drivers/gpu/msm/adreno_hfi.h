@@ -70,8 +70,8 @@
 #define HFI_FEATURE_MINBW	20
 #define HFI_FEATURE_CLX		21
 #define HFI_FEATURE_LSR		23
+#define HFI_FEATURE_LPAC	24
 #define HFI_FEATURE_PERF_NORETAIN       26
-
 
 /* A6xx uses a different value for KPROF */
 #define HFI_FEATURE_A6XX_KPROF	14
@@ -400,6 +400,7 @@ struct hfi_queue_table {
 #define H2F_MSG_TS_NOTIFY		132
 #define F2H_MSG_TS_RETIRE		133
 #define H2F_MSG_CONTEXT_POINTERS	134
+#define H2F_MSG_ISSUE_LPAC_CMD_RAW	135
 #define H2F_MSG_CONTEXT_RULE		140 /* AKA constraint */
 #define H2F_MSG_ISSUE_RECURRING_CMD	141
 #define F2H_MSG_CONTEXT_BAD		150
@@ -700,8 +701,24 @@ struct hfi_context_rule_cmd {
 	u32 status;
 } __packed;
 
+struct fault_info {
+	u32 ctxt_id;
+	u32 policy;
+	u32 ts;
+} __packed;
+
 /* F2H */
 struct hfi_context_bad_cmd {
+	u32 hdr;
+	u32 version;
+	struct fault_info gc;
+	struct fault_info lpac;
+	u32 error;
+	u32 payload[];
+} __packed;
+
+/* F2H */
+struct hfi_context_bad_cmd_legacy {
 	u32 hdr;
 	u32 ctxt_id;
 	u32 policy;
@@ -796,6 +813,9 @@ struct payload_section {
 #define KEY_CP_BV_OPCODE_ERROR 4
 #define KEY_CP_BV_PROTECTED_ERROR 5
 #define KEY_CP_BV_HW_FAULT 6
+#define KEY_CP_LPAC_OPCODE_ERROR 7
+#define KEY_CP_LPAC_PROTECTED_ERROR 8
+#define KEY_CP_LPAC_HW_FAULT 9
 
 /* Keys for PAYLOAD_RB type payload */
 #define KEY_RB_ID 1
@@ -843,6 +863,18 @@ struct payload_section {
 #define GMU_CP_BV_UCODE_ERROR 613
 /* GPU BV encountered an illegal instruction */
 #define GMU_CP_BV_ILLEGAL_INST_ERROR 614
+/* GPU encountered a bad LPAC opcode */
+#define GMU_CP_LPAC_OPCODE_ERROR 615
+/* GPU LPAC encountered a CP ucode error */
+#define GMU_CP_LPAC_UCODE_ERROR 616
+/* GPU LPAC encountered a CP hw fault error */
+#define GMU_CP_LPAC_HW_FAULT_ERROR 617
+/* GPU LPAC encountered protected mode error */
+#define GMU_CP_LPAC_PROTECTED_ERROR 618
+/* GPU LPAC encountered an illegal instruction */
+#define GMU_CP_LPAC_ILLEGAL_INST_ERROR 619
+/* Fault due to LPAC Long IB timeout */
+#define GMU_GPU_LPAC_SW_HANG 620
 /* GPU encountered an unknown CP error */
 #define GMU_CP_UNKNOWN_ERROR 700
 

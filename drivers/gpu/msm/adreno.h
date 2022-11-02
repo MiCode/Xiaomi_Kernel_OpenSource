@@ -123,6 +123,8 @@
 #define ADRENO_BCL BIT(12)
 /* L3 voting is supported with L3 constraints */
 #define ADRENO_L3_VOTE BIT(13)
+/* LPAC is supported  */
+#define ADRENO_LPAC BIT(14)
 /* Late Stage Reprojection (LSR) enablment for GMU */
 #define ADRENO_LSR BIT(15)
 
@@ -589,6 +591,8 @@ struct adreno_device {
 	bool sptp_pc_enabled;
 	/** @bcl_enabled: True if BCL is enabled */
 	bool bcl_enabled;
+	/** @lpac_enabled: True if LPAC is enabled */
+	bool lpac_enabled;
 	struct kgsl_memdesc *profile_buffer;
 	unsigned int profile_index;
 	struct kgsl_memdesc *pwrup_reglist;
@@ -879,6 +883,10 @@ struct adreno_gpudev {
 	 */
 	int (*send_recurring_cmdobj)(struct adreno_device *adreno_dev,
 		struct kgsl_drawobj_cmd *cmdobj);
+	/**
+	 * @reset_and_snapshot - Target specific function to do reset and snapshot
+	 */
+	void (*reset_and_snapshot)(struct adreno_device *adreno_dev, int fault);
 };
 
 /**
@@ -954,7 +962,7 @@ int adreno_set_constraint(struct kgsl_device *device,
 
 void adreno_snapshot(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot,
-		struct kgsl_context *context);
+		struct kgsl_context *context, struct kgsl_context *context_lpac);
 
 int adreno_reset(struct kgsl_device *device, int fault);
 
@@ -1621,9 +1629,14 @@ static inline void adreno_reg_offset_init(u32 *reg_offsets)
 	}
 }
 
-static inline u32 adreno_get_level(u32 priority)
+static inline u32 adreno_get_level(struct kgsl_context *context)
 {
-	u32 level = priority / KGSL_PRIORITY_MAX_RB_LEVELS;
+	u32 level;
+
+	if (kgsl_context_is_lpac(context))
+		return KGSL_LPAC_RB_ID;
+
+	level = context->priority / KGSL_PRIORITY_MAX_RB_LEVELS;
 
 	return min_t(u32, level, KGSL_PRIORITY_MAX_RB_LEVELS - 1);
 }

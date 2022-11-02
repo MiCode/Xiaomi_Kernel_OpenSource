@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2013-2015,2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef __ADRENO_SNAPSHOT_H
 #define __ADRENO_SNAPSHOT_H
@@ -71,6 +72,25 @@ void adreno_parse_ib(struct kgsl_device *device,
 	struct kgsl_snapshot *snapshot,
 	struct kgsl_process_private *process,
 	u64 gpuaddr, u64 dwords);
+
+/**
+ * adreno_parse_ib_lpac - Parse the given LPAC IB
+ * @device: Pointer to the kgsl device
+ * @snapshot: Pointer to the snapshot structure
+ * @process: Process to which this LPAC IB belongs
+ * @gpuaddr: Gpu address of the LPAC IB
+ * @dwords: Size in dwords of the LPAC IB
+ *
+ * We want to store the last executed LPAC IB1 and IB2 in the static region to ensure
+ * that we get at least some information out of the snapshot even if we can't
+ * access the dynamic data from the sysfs file.  Push all other IBs on the
+ * dynamic list
+ */
+void adreno_parse_ib_lpac(struct kgsl_device *device,
+	struct kgsl_snapshot *snapshot,
+	struct kgsl_process_private *process,
+	u64 gpuaddr, u64 dwords);
+
 /**
  * adreno_snapshot_global - Add global buffer to snapshot
  * @device: Pointer to the kgsl device

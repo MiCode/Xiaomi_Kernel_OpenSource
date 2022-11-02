@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _ADRENO_GEN7_HWSCHED_HFI_H_
@@ -154,4 +155,23 @@ u32 gen7_hwsched_parse_payload(struct payload_section *payload, u32 key);
  * queue
  */
 void gen7_hwsched_process_msgq(struct adreno_device *adreno_dev);
+
+/**
+ * gen7_hwsched_lpac_cp_init - Send CP_INIT to LPAC via HFI
+ * @adreno_dev: Pointer to adreno device structure
+ *
+ * This function is used to send CP INIT packet to LPAC and
+ * enable submission to LPAC queue.
+ *
+ * Return: 0 on success and negative error on failure.
+ */
+int gen7_hwsched_lpac_cp_init(struct adreno_device *adreno_dev);
+
+/**
+ * gen7_hfi_send_lpac_feature_ctrl - Send the lpac feature hfi packet
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int gen7_hfi_send_lpac_feature_ctrl(struct adreno_device *adreno_dev);
 #endif

@@ -1277,6 +1277,19 @@ void gen7_snapshot(struct adreno_device *adreno_dev,
 	kgsl_regread(device, GEN7_CP_IB1_REM_SIZE, &snapshot->ib1size);
 	kgsl_regread(device, GEN7_CP_IB2_REM_SIZE, &snapshot->ib2size);
 
+	kgsl_regread(device, GEN7_CP_LPAC_IB1_BASE, &lo);
+	kgsl_regread(device, GEN7_CP_LPAC_IB1_BASE_HI, &hi);
+
+	snapshot->ib1base_lpac = (((u64) hi) << 32) | lo;
+
+	kgsl_regread(device, GEN7_CP_LPAC_IB2_BASE, &lo);
+	kgsl_regread(device, GEN7_CP_LPAC_IB2_BASE_HI, &hi);
+
+	snapshot->ib2base_lpac = (((u64) hi) << 32) | lo;
+
+	kgsl_regread(device, GEN7_CP_LPAC_IB1_REM_SIZE, &snapshot->ib1size_lpac);
+	kgsl_regread(device, GEN7_CP_LPAC_IB2_REM_SIZE, &snapshot->ib2size_lpac);
+
 	/* Assert the isStatic bit before triggering snapshot */
 	kgsl_regwrite(device, GEN7_RBBM_SNAPSHOT_STATUS, 0x1);
 
