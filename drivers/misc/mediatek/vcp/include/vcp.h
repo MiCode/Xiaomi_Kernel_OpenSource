@@ -123,6 +123,7 @@ enum vcp_ipi_status {
 enum VCP_NOTIFY_EVENT {
 	VCP_EVENT_READY = 0,
 	VCP_EVENT_STOP,
+	VCP_EVENT_SUSPEND,
 };
 /* the order of ipi_id should be consistent with IPI_LEGACY_GROUP */
 enum vcp_ipi_id {

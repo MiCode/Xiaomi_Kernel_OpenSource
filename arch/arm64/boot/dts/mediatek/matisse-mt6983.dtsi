@@ -1,0 +1,446 @@
+/*
+this file is only for attribution of matisse
+*/
+#include "mediatek/xiaomi-mt6983-common.dtsi"
+#include "mediatek/matisse_mt6983_camera_v4l2.dtsi"
+#include "mediatek/xiaomi_matisse_mt6983_touch.dtsi"
+
+&odm {
+	xiaomi_touch: xiaomi_touch {
+		compatible = "xiaomi-touch";
+		status = "ok";
+		touch,name = "xiaomi-touch";
+	};
+};
+
+&pio {
+	xmusb350_rst_normal: xmusb350_rst_normal {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO226__FUNC_GPIO226>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+};
+
+&i2c0 {
+       clock-frequency = <400000>;
+	xmusb350@35 {
+		compatible = "xmusb350";
+		reg = <0x35>;
+		pinctrl-names = "xmusb350_normal";
+		pinctrl-0 = <&xmusb350_rst_normal>;
+		xmusb350_rst_gpio = <&pio 226 0x00>;
+		xmusb350_irq_gpio = <&pio 5 0x00>;
+		charger = <&mt6375_chg>;
+	};
+};
+
+&pio {
+	test_mode_irq38: test_mode_irq38 {
+                pins_cmd_dat {
+			pinmux = <PINMUX_GPIO38__FUNC_GPIO38>;
+			drive-strength = <2>;
+			bias-disable;
+			input-enable;
+		};
+	};
+
+        test_mode_irq39: test_mode_irq39 {
+        	pins_cmd_dat {
+			pinmux = <PINMUX_GPIO39__FUNC_GPIO39>;
+			drive-strength = <2>;
+			bias-disable;
+			input-enable;
+		};
+        };
+};
+
+&odm {
+	testing-mode {
+		compatible = "modem,testing-mode";
+		status-gpio = <&pio 38 0>, <&pio 39 0>;
+		debounce-time = <30>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&test_mode_irq38 &test_mode_irq39>;
+	};
+};
+
+&odm {
+	mi_game_plaid {
+		compatible = "xiaomi-gpu-plaid";
+	};
+};
+
+/* IRTX GPIO Start */
+&irtx_pwm {
+	pwm_ch = <3>;
+	pinctrl-names = "irtx_gpio_led_default", "irtx_gpio_led_set";
+	pinctrl-0 = <&irtx_gpio_led_default>;
+	pinctrl-1 = <&irtx_gpio_led_set>;
+	status = "okay";
+};
+&pio {
+	/* IRTX GPIO Settings -Start */
+	/* default: GPIO0, output, high */
+	irtx_gpio_led_default:irtx_gpio_led_def@gpio37 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO37__FUNC_GPIO37>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+			input-schmitt-enable = <0>;
+		};
+	};
+	irtx_gpio_led_set:irtx_gpio_led_set@gpio37 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO37__FUNC_PWM_3>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+}; /* IRTX GPIO Settings -End */
+
+&i2c9 {
+	clock-frequency = <400000>;
+	bq28z610@55 {
+		compatible = "bq28z610";
+		reg = <0x55>;
+		enable_shutdown_delay;
+		normal_shutdown_vbat_1s = <3400>;
+		critical_shutdown_vbat_1s = <3340>;
+		report_full_rsoc_1s = <9500>;
+		max_chg_power_120w;               
+		soc_gap_1s = <4>;
+		soc_decimal_rate = <
+			0  38
+			10 35
+			20 33
+			30 33
+			40 33
+			50 33
+			60 33
+			70 30
+			80 25
+			90 20
+			95 10 >;
+	};
+};
+
+&i2c12 {
+	clock-frequency = <400000>;
+	sc8561_master@64 {
+		compatible = "sc8561_master";
+		reg = <0x64>;
+		sc8561_irq_gpio = <&pio 13 0x0>;
+	};
+	sc8561_slave@65 {
+		compatible = "sc8561_slave";
+		reg = <0x65>;
+		sc8561_irq_gpio = <&pio 14 0x0>;
+	};
+};
+
+&charger {
+		max_charger_voltage = <12000000>;
+		vbus_control-supply = <&mt6373_vcn33_3>;
+		fv = <4450>;
+		fv_ffc = <4500>;
+		iterm = <200>;
+		iterm_ffc = <2795>;
+		iterm_ffc_warm = <3972>;
+		usb_charger_current = <500000>;
+		ac_charger_current = <1600000>;
+		ac_charger_input_current = <1600000>;
+		charging_host_charger_current = <1500000>;
+		ffc_low_tbat = <150>;
+		ffc_high_tbat = <480>;
+		ffc_medium_tbat = <350>;
+		ffc_high_soc = <95>;
+		step_fallback_hyst = <25>;
+		step_forward_hyst = <5>;
+		jeita_fallback_hyst = <10>;
+		jeita_forward_hyst = <10>;
+		max_fcc = <21900>;
+		sic_support;
+		jeita_fcc_cfg = <(-100)	0	4150	2440	976
+				1	50	4150	3416	3416
+				51	100	4150	5856	5856
+				101	150	4150	9760	9760
+				151	470	4150	21800	21800
+				471	600	4150	2440	2440>;
+		jeita_fv_cfg = <(-100)	0	4450
+				1	50	4450
+				51	100	4450
+				101	150	4450
+				151	470	4500
+				471	600	4100>;
+		step_chg_cfg_low_cycle = <3000	3595	21800
+					3596	4095	21800
+					4096	4145	20000
+					4146	4245	16000
+					4246	4395	12400
+					4396	4500	9760>;
+		step_chg_cfg_high_cycle = <3000	3595	21800
+					3596	4075	21800
+					4076	4115	20000
+					4116	4245	16000
+					4246	4395	12400
+					4396	4500	9760>;
+		thermal_limit_dcp = <1800 1800 1800 1800 1800 1800 1800 1800 1800 1800 1800 1800 1700 1600 1400 1200>;
+		thermal_limit_qc2 = <2500 2500 2500 2500 2500 2500 2400 2300 2200 2100 1500 1000 800 700 600 500>;
+		thermal_limit_qc3_18w = <3500 3500 3500 3400 3300 3300 3200 3100 3000 2800 2600 2400 2200 2000 1000 700>;
+		thermal_limit_qc3_27w = <5400 5100 4700 4300 4000 3600 3400 3400 3400 3200 2500 2200 2000 1300 1000 700>;
+		thermal_limit_qc35 = <4500 4200 4000 3800 3600 3400 3200 3100 3000 2800 2600 2400 2200 2000 1000 700>;
+		thermal_limit_pd = <21800 20000 18000 16000 12000 10000 8000 6800 6000 5000 5000 4000 3000 2000 1000 500>;
+};
+
+&lk_charger {
+		/* charging current */
+		usb_charger_current = <500000>;
+		ac_charger_current = <1600000>;
+		ac_charger_input_current = <1600000>;
+		non_std_ac_charger_current = <500000>;
+		charging_host_charger_current = <1500000>;
+		ta_ac_charger_current = <3000000>;
+		pd_charger_current = <500000>;
+		pre_charger_current = <250000>;
+
+		/* battery temperature protection */
+		temp_t4_threshold = <60>;
+		temp_t3_threshold = <45>;
+		temp_t1_threshold = <(-10)>;
+		fast_charge_voltage = <3100>;
+	};
+
+&mtk_gauge {
+        DISABLE_MTKBATTERY = <(1)>;
+};
+
+&pd_cp_manager {
+		compatible = "pd_cp_manager";
+		fv = <4450>;
+		fv_ffc = <4495>;
+		max_fcc = <21800>;
+		max_vbus = <21000>;
+		max_ibus = <6200>;
+		fcc_low_hyst = <120>;
+		fcc_high_hyst = <0>;
+		low_tbat = <100>;
+		high_tbat = <480>;
+		high_vbat = <4400>;
+		high_soc = <95>;
+		low_fcc = <2000>;
+		cv_vbat = <4440>;
+		cv_vbat_ffc = <4490>;
+		cv_ibat = <2500>;
+		vbus_low_gap_div = <500>;
+		vbus_high_gap_div = <600>;
+		min_pdo_vbus = <8000>;
+		max_pdo_vbus = <21000>;
+		mt6375_control_gpio = <&pio 26 0x0>;
+};
+
+&qc_cp_manager {
+		compatible = "qc_cp_manager";
+		max_vbus = <12000>;
+		max_ibus_qc3_18w = <2000>;
+		max_ibat_qc3_18w = <3500>;
+		max_ibus_qc3_27w = <3000>;
+		max_ibat_qc3_27w = <5400>;
+		max_ibus_qc35 = <2250>;
+		max_ibat_qc35 = <4400>;
+		tune_step_ibat_qc3_27 = <2000>;
+		tune_step_ibat_qc3_18 = <1900>;
+		tune_step_ibat_qc35 = <200>;
+		tune_step_ibus_qc3_27 = <1000>;
+		tune_step_ibus_qc3_18 = <950>;
+		tune_step_ibus_qc35 = <50>;
+		high_soc = <95>;
+		cv_vbat = <4440>;
+		cv_vbat_ffc = <4450>;
+		cv_ibat = <2000>;
+};
+
+&odm {
+	simtray {
+		compatible = "xiaomi,simtray-status";
+		status-gpio =	<&pio 87 0>;
+	};
+};
+
+&mtk_leds {
+	compatible = "mediatek,disp-leds";
+	backlight {
+		label = "lcd-backlight";
+		led_mode = <4>;
+		max-brightness = <16383>;
+		max-hw-brightness = <4095>;
+		default-state = "quarter";
+	};
+};
+
+&mt6373_vaud18 {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+};
+
+&mt6373_vibr {
+	regulator-min-microvolt = <3000000>;
+	regulator-max-microvolt = <3000000>;
+};
+
+&pio {
+	mtkfb_pins_lcd_bias_enp1: lcd_bias_enp1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO84__FUNC_GPIO84>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enp0: lcd_bias_enp0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO84__FUNC_GPIO84>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enn1: lcd_bias_enn1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO84__FUNC_GPIO84>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enn0: lcd_bias_enn0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO84__FUNC_GPIO84>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_rst_out1_gpio: lcm_rst_out1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO86__FUNC_GPIO86>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_rst_out0_gpio: lcm_rst_out0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO86__FUNC_GPIO86>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	mtkfb_pins_lcm_dsi_te: lcm_dsi_te {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO85__FUNC_DSI_TE>;
+		};
+	};
+
+	mtkfb_pins_lcm_dvdd_en1: lcm_dvdd_en1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO193__FUNC_GPIO193>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_dvdd_en0: lcm_dvdd_en0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO193__FUNC_GPIO193>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+};
+
+&mtkfb {
+	pinctrl-names = "lcd_bias_enp1_gpio", "lcd_bias_enp0_gpio",
+		"lcd_bias_enn1_gpio", "lcd_bias_enn0_gpio",
+		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
+		"mode_te_te", "lcm_dvdd_en1_gpio",
+		"lcm_dvdd_en0_gpio";
+	pinctrl-0 = <&mtkfb_pins_lcd_bias_enp1>;
+	pinctrl-1 = <&mtkfb_pins_lcd_bias_enp0>;
+	pinctrl-2 = <&mtkfb_pins_lcd_bias_enn1>;
+	pinctrl-3 = <&mtkfb_pins_lcd_bias_enn0>;
+	pinctrl-4 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-5 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	pinctrl-6 = <&mtkfb_pins_lcm_dsi_te>;
+	pinctrl-7 = <&mtkfb_pins_lcm_dvdd_en1>;
+	pinctrl-8 = <&mtkfb_pins_lcm_dvdd_en0>;
+
+	status = "okay";
+};
+&dispsys_config {
+	pinctrl-names =
+		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
+		"mode_te_te", "lcm_dvdd_en1_gpio",
+		"lcm_dvdd_en0_gpio";
+	pinctrl-0 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-1 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	pinctrl-2 = <&mtkfb_pins_lcm_dsi_te>;
+	pinctrl-3 = <&mtkfb_pins_lcm_dvdd_en1>;
+	pinctrl-4 = <&mtkfb_pins_lcm_dvdd_en0>;
+	status = "okay";
+};
+
+&dsi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	panel1@0 {
+		compatible = "l11_38_0a_0a_dsc_cmd,lcm";
+		reg = <0>;
+		reset-gpios = <&pio 86 0>;
+		dvdd-gpios = <&pio 193 0>;
+		vibr-supply = <&mt6373_vibr>;
+		vaud18-supply = <&mt6373_vaud18>;
+		pinctrl-names = "default";
+		port {
+			panel_in1: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	ports {
+		port {
+			dsi_out: endpoint {
+				remote-endpoint = <&panel_in1>;
+			};
+		};
+	};
+};
+
+&u2port0{
+		mediatek,eye-vrt = <6>;
+		mediatek,eye-term = <6>;
+		mediatek,rev6 = <2>;
+		mediatek,eye-vrt-host = <6>;
+};
+
+&disp_aal0 {
+	mtk_dre30_support = <1>;
+};
+
+&disp_aal1 {
+	mtk_dre30_support = <1>;
+};
+
+&mtee_svp {
+	mtee: MTEE {
+                   compatible = "mediatek,mtk_svp_on_mtee_support";
+	};
+
+	svp: SecureVideoPath {
+                   compatible = "mediatek,mtk_sec_video_path_support";
+	};
+};

@@ -825,6 +825,7 @@ static struct notifier_block scp_pm_notifier_block = {
 };
 
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 static inline ssize_t scp_A_status_show(struct device *kobj
 			, struct device_attribute *attr, char *buf)
 {
@@ -932,7 +933,6 @@ static inline ssize_t scp_A_db_test_store(struct device *kobj
 
 DEVICE_ATTR_WO(scp_A_db_test);
 
-#ifdef SCP_DEBUG_NODE_ENABLE
 static ssize_t scp_ee_enable_show(struct device *kobj
 	, struct device_attribute *attr, char *buf)
 {
@@ -1025,8 +1025,8 @@ static inline ssize_t scp_ipi_test_store(struct device *kobj
 }
 
 DEVICE_ATTR_RW(scp_ipi_test);
-
 #endif
+
 
 #if SCP_RECOVERY_SUPPORT
 void scp_wdt_reset(int cpu_id)
@@ -1057,6 +1057,7 @@ void scp_wdt_reset(int cpu_id)
 }
 EXPORT_SYMBOL(scp_wdt_reset);
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 /*
  * trigger wdt manually (debug use)
  * Warning! watch dog may be refresh just after you set
@@ -1131,13 +1132,16 @@ static ssize_t recovery_flag_store(struct device *dev
 DEVICE_ATTR_RW(recovery_flag);
 
 #endif
+#endif
 
 /******************************************************************************
  *****************************************************************************/
 static struct miscdevice scp_device = {
 	.minor = MISC_DYNAMIC_MINOR,
 	.name = "scp",
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 	.fops = &scp_A_log_file_ops
+#endif
 };
 
 
@@ -1155,6 +1159,7 @@ static int create_files(void)
 		return ret;
 	}
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 #if SCP_LOGGER_ENABLE
 	ret = device_create_file(scp_device.this_device
 					, &dev_attr_scp_mobile_log);
@@ -1166,12 +1171,10 @@ static int create_files(void)
 	if (unlikely(ret != 0))
 		return ret;
 
-#ifdef SCP_DEBUG_NODE_ENABLE
 	ret = device_create_file(scp_device.this_device
 					, &dev_attr_scp_A_mobile_log_UT);
 	if (unlikely(ret != 0))
 		return ret;
-#endif  // SCP_DEBUG_NODE_ENABLE
 
 	ret = device_create_file(scp_device.this_device
 					, &dev_attr_scp_A_get_last_log);
@@ -1183,12 +1186,14 @@ static int create_files(void)
 					, &dev_attr_scp_A_status);
 	if (unlikely(ret != 0))
 		return ret;
+#endif
 
 	ret = device_create_bin_file(scp_device.this_device
 					, &bin_attr_scp_dump);
 	if (unlikely(ret != 0))
 		return ret;
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 	ret = device_create_file(scp_device.this_device
 					, &dev_attr_scp_A_reg_status);
 	if (unlikely(ret != 0))
@@ -1200,7 +1205,6 @@ static int create_files(void)
 	if (unlikely(ret != 0))
 		return ret;
 
-#ifdef SCP_DEBUG_NODE_ENABLE
 	ret = device_create_file(scp_device.this_device
 					, &dev_attr_scp_ee_enable);
 	if (unlikely(ret != 0))
@@ -1221,7 +1225,6 @@ static int create_files(void)
 					, &dev_attr_scp_ipi_test);
 	if (unlikely(ret != 0))
 		return ret;
-#endif  // SCP_DEBUG_NODE_ENABLE
 
 #if SCP_RECOVERY_SUPPORT
 	ret = device_create_file(scp_device.this_device
@@ -1250,6 +1253,7 @@ static int create_files(void)
 
 	if (unlikely(ret != 0))
 		return ret;
+#endif
 
 	return 0;
 }
@@ -1429,7 +1433,7 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 			(uint64_t)scp_reserve_mblock[id].size);
 #endif  // DEBUG
 	}
-#ifdef SCP_DEBUG_NODE_ENABLE
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 	BUG_ON(accumlate_memory_size > scp_mem_size);
 #endif
 #ifdef DEBUG
@@ -1555,6 +1559,11 @@ void scp_register_sensor(enum feature_id id, int sensor_id)
 		pr_debug("[SCP]register sensor id err");
 		return;
 	}
+
+	if (sensor_id >= NUM_SENSOR_TYPE) {
+		pr_info("[SCP] sensor id not in sensor freq table");
+		return;
+	}
 	/* because feature_table is a global variable
 	 * use mutex lock to protect it from
 	 * accessing in the same time
@@ -1583,6 +1592,11 @@ void scp_deregister_sensor(enum feature_id id, int sensor_id)
 
 	if (id != SENS_FEATURE_ID) {
 		pr_debug("[SCP]deregister sensor id err");
+		return;
+	}
+
+	if (sensor_id >= NUM_SENSOR_TYPE) {
+		pr_info("[SCP] sensor id not in sensor freq table");
 		return;
 	}
 	/* because feature_table is a global variable
@@ -2462,15 +2476,15 @@ static int scp_device_probe(struct platform_device *pdev)
 static int scp_device_remove(struct platform_device *dev)
 {
 	if (scp_mbox_info) {
-		kfree(scp_mbox_info);
+		kvfree(scp_mbox_info);
 		scp_mbox_info = NULL;
 	}
 	if (scp_mbox_pin_recv) {
-		kfree(scp_mbox_pin_recv);
+		kvfree(scp_mbox_pin_recv);
 		scp_mbox_pin_recv = NULL;
 	}
 	if (scp_mbox_pin_send) {
-		kfree(scp_mbox_pin_send);
+		kvfree(scp_mbox_pin_send);
 		scp_mbox_pin_send = NULL;
 	}
 
@@ -2584,11 +2598,15 @@ static int __init scp_init(void)
 	}
 #endif /* SCP_DVFS_INIT_ENABLE */
 
-	if (platform_driver_register(&mtk_scp_device))
+	if (platform_driver_register(&mtk_scp_device)) {
 		pr_notice("[SCP] scp probe fail\n");
+		goto err_without_unregister;
+	}
 
-	if (platform_driver_probe(&mtk_scpsys_device, scpsys_device_probe))
+	if (platform_driver_probe(&mtk_scpsys_device, scpsys_device_probe)) {
 		pr_notice("[SCP] scpsys probe fail\n");
+		goto err;
+	}
 
 	/* skip initial if dts status = "disable" */
 	if (!scp_enable[SCP_A_ID]) {
@@ -2691,6 +2709,8 @@ static int __init scp_init(void)
 
 	return ret;
 err:
+	platform_driver_unregister(&mtk_scp_device);
+err_without_unregister:
 #if SCP_DVFS_INIT_ENABLE
 	/* remember to release scp_dvfs resource */
 	if (scp_dvfs_feature_enable()) {

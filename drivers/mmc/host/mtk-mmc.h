@@ -25,6 +25,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/interconnect.h>
 #include <linux/interrupt.h>
 #include <linux/reset.h>
 
@@ -38,7 +39,6 @@
 
 #include "cqhci.h"
 #include "mtk-mmc-autok.h"
-#include "rpmb-mtk.h"
 
 #define MAX_BD_NUM          1024
 #define MSDC_NR_CLOCKS      3
@@ -656,6 +656,9 @@ struct msdc_host {
 	struct regulator *dvfsrc_vcore_power;
 	bool use_cmd_intr;
 	struct pm_qos_request pm_qos_req;
+	bool qos_enable;
+	struct icc_path *bw_path;
+	unsigned int peak_bw;
 };
 
 /*--------------------------------------------------------------------------*/

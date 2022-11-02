@@ -60,7 +60,8 @@
 
 #define R_CORE0_STATUS			(vcpreg.cfg_core0 + 0x0070)
 	#define B_CORE_GATED		(1 << 0)
-	#define B_CORE_HALT		(1 << 1)
+	#define B_HART0_HALT		(1 << 1)
+	#define B_HART1_HALT		(1 << 2)
 #define R_CORE0_MON_PC			(vcpreg.cfg_core0 + 0x0080)
 #define R_CORE0_MON_LR			(vcpreg.cfg_core0 + 0x0084)
 #define R_CORE0_MON_SP			(vcpreg.cfg_core0 + 0x0088)
@@ -137,6 +138,7 @@
 
 #define VCP_A_GENERAL_REG6		(vcpreg.cfg_core0 + 0x0058)
 #define VCP_A_GENERAL_REG7		(vcpreg.cfg_core0 + 0x005C)
+
 /* bus tracker reg */
 #define VCP_BUS_DBG_CON			(vcpreg.bus_tracker)
 #define VCP_BUS_DBG_AR_TRACK0_L		(vcpreg.bus_tracker + 0x100)

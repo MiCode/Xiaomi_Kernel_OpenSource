@@ -31,7 +31,9 @@
 #include "mtk_drm_assert.h"
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_trace.h"
-
+#ifdef CONFIG_MI_DISP
+#include "mi_disp/mi_disp_feature.h"
+#endif
 #define ESD_TRY_CNT 5
 #define ESD_CHECK_PERIOD 2000 /* ms */
 
@@ -152,7 +154,6 @@ static void esd_cmdq_timeout_cb(struct cmdq_cb_data data)
 	mtk_drm_crtc_dump(crtc);
 }
 
-
 int _mtk_esd_check_read(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -237,8 +238,6 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 	}
 	esd_ctx = mtk_crtc->esd_ctx;
 	esd_ctx->chk_sta = 0;
-
-	cmdq_pkt_flush(cmdq_handle);
 
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_check, 2, 4);
 
@@ -412,6 +411,17 @@ done:
 	return ret;
 }
 
+static atomic_t panel_dead;
+int get_panel_dead_flag(void) {
+	return atomic_read(&panel_dead);
+}
+EXPORT_SYMBOL(get_panel_dead_flag);
+
+void set_panel_dead_flag(int value) {
+	atomic_set(&panel_dead, value);
+}
+EXPORT_SYMBOL(set_panel_dead_flag);
+
 static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -479,6 +489,9 @@ done:
 	return 0;
 }
 
+struct mtk_drm_esd_ctx *g_esd_ctx;
+EXPORT_SYMBOL(g_esd_ctx);
+
 static int mtk_drm_esd_check_worker_kthread(void *data)
 {
 	struct sched_param param = {.sched_priority = 87};
@@ -489,6 +502,8 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 	int ret = 0;
 	int i = 0;
 	int recovery_flg = 0;
+
+	g_esd_ctx = esd_ctx;
 
 	sched_setscheduler(current, SCHED_RR, &param);
 

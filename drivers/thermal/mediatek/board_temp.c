@@ -219,7 +219,7 @@ static int board_ntc_get_temp(void *data, int *temp)
 		*temp = board_ntc_r_to_temp(ntc_info, r_ntc);
 	}
 
-	dev_dbg(ntc_info->dev, "val=0x%x, v_in/r_type/r_ntc/t=%d/%d/%d/%d\n",
+	dev_dbg_ratelimited(ntc_info->dev, "val=0x%x, v_in/r_type/r_ntc/t=%d/%d/%d/%d\n",
 		val, v_in, r_type, r_ntc, *temp);
 
 	return 0;

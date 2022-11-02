@@ -1323,7 +1323,7 @@ static void mtk_btag_seq_main_info(char **buff, unsigned long *size,
 #endif
 #if IS_ENABLED(CONFIG_MTK_FSCMD_TRACER)
 	SPREAD_PRINTF(buff, size, seq, "[FS_CMD]\n");
-	used_mem += mtk_fscmd_usedmem(buff, size, seq);
+	mtk_fscmd_show(buff, size, seq);
 #endif
 	SPREAD_PRINTF(buff, size, seq, "[Memory Usage]\n");
 	list_for_each_entry_safe(btag, n, &mtk_btag_list, list)

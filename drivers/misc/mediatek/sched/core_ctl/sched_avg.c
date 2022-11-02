@@ -83,6 +83,8 @@ void sched_max_util_task(int *util)
 	/* update last update time for tracker */
 	max_util_tracker_last_update = now;
 
+	global_task_util = 0;
+
 	for_each_possible_cpu(cpu) {
 		cpu_over_thres = &per_cpu(cpu_over_thres_state, cpu);
 		max_util = atomic_long_read(&cpu_over_thres->max_task_util);
@@ -498,7 +500,6 @@ void sched_update_nr_over_thres_prod(struct task_struct *p, int cpu, int over_th
 	if (over_type) {
 		s64 diff;
 		u64 curr_time;
-
 		/* track task with max utilization */
 		/* check 64-bit or not if mismatch 32bit platform */
 		if (cpumask_test_cpu(mismatch_cpu, p->cpus_ptr) &&
@@ -509,7 +510,7 @@ void sched_update_nr_over_thres_prod(struct task_struct *p, int cpu, int over_th
 		if (over_type == OVER_UP_THRES) {
 			/* OVER_UP_THRES */
 			diff = (s64) (curr_time -
-					cpu_over_thres->dn_last_update_time);
+				cpu_over_thres->up_last_update_time);
 			/* update over_thres for degrading threshold */
 			if (diff >= 0) {
 				cpu_over_thres->dn_last_update_time = curr_time;

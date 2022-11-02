@@ -217,6 +217,7 @@ struct mml_comp_tdshp {
 /* meta data for each different frame config */
 struct tdshp_frame_data {
 	u16 labels[DS_REG_NUM];
+	bool config_success;
 };
 
 #define tdshp_frm_data(i)	((struct tdshp_frame_data *)(i->data))
@@ -346,7 +347,8 @@ static s32 tdshp_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	const phys_addr_t base_pa = comp->base_pa;
 	struct mml_pq_comp_config_result *result;
-	s32 ret;
+	s32 ret = 0, i = 0;
+	struct mml_pq_reg *regs = NULL;
 
 	if (MML_FMT_10BIT(src->format) || MML_FMT_10BIT(dest->data.format))
 		cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CTRL, 0, 0x00000004);
@@ -361,30 +363,40 @@ static s32 tdshp_config_frame(struct mml_comp *comp, struct mml_task *task,
 	tdshp_relay(pkt, base_pa, 0x0);
 
 	ret = mml_pq_get_comp_config_result(task, TDSHP_WAIT_TIMEOUT_MS);
-	if (!ret) {
-		result = get_tdshp_comp_config_result(task);
-		if (result) {
-			s32 i;
-			struct mml_pq_reg *regs = result->ds_regs;
-
-			/* TODO: use different regs */
-			mml_pq_msg("%s:config ds regs, count: %d", __func__, result->ds_reg_cnt);
-			for (i = 0; i < result->ds_reg_cnt; i++) {
-				mml_write(pkt, base_pa + regs[i].offset, regs[i].value,
-					regs[i].mask, reuse, cache,
-					&tdshp_frm->labels[i]);
-				mml_pq_msg("[ds][config][%x] = %#x mask(%#x)",
-					regs[i].offset, regs[i].value, regs[i].mask);
-			}
-		} else {
-			mml_pq_err("%s: not get result from user lib", __func__);
-		}
-	} else {
+	if (ret) {
 		mml_pq_comp_config_clear(task);
-		mml_pq_err("get ds param timeout: %d in %dms",
-			ret, TDSHP_WAIT_TIMEOUT_MS);
+		ret = -ETIMEDOUT;
+		mml_pq_err("%s get ds param timeout: %d in %dms",
+			__func__, ret, TDSHP_WAIT_TIMEOUT_MS);
+	}
+	result = get_tdshp_comp_config_result(task);
+
+	if (!result) {
+		mml_pq_err("%s: not get result from user lib", __func__);
+		ret = -EBUSY;
+		goto exit;
 	}
 
+	if (!result->ds_reg_cnt) {
+		mml_pq_err("%s: not get correct reg count", __func__);
+		ret = -EBUSY;
+		goto exit;
+	}
+
+	regs = result->ds_regs;
+
+	/* TODO: use different regs */
+	mml_pq_msg("%s:config ds regs, count: %d", __func__, result->ds_reg_cnt);
+		tdshp_frm->config_success = true;
+	for (i = 0; i < result->ds_reg_cnt; i++) {
+		mml_write(pkt, base_pa + regs[i].offset, regs[i].value,
+			regs[i].mask, reuse, cache,
+			&tdshp_frm->labels[i]);
+		mml_pq_msg("[ds][config][%x] = %#x mask(%#x)",
+			regs[i].offset, regs[i].value, regs[i].mask);
+	}
+
+exit:
 	return ret;
 }
 
@@ -461,24 +473,25 @@ static s32 tdshp_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 		return ret;
 
 	ret = mml_pq_get_comp_config_result(task, TDSHP_WAIT_TIMEOUT_MS);
-	if (!ret) {
-		result = get_tdshp_comp_config_result(task);
-		if (result) {
-			s32 i;
-			struct mml_pq_reg *regs = result->ds_regs;
-			//TODO: use different regs
-			mml_pq_msg("%s:config ds regs, count: %d", __func__, result->ds_reg_cnt);
-			for (i = 0; i < result->ds_reg_cnt; i++) {
-				mml_update(reuse, tdshp_frm->labels[i], regs[i].value);
-				mml_pq_msg("[ds][config][%x] = %#x mask(%#x)",
-					regs[i].offset, regs[i].value, regs[i].mask);
-			}
-		} else {
-			mml_pq_err("%s: not get result from user lib", __func__);
-		}
-	} else {
+	if (ret) {
+		mml_pq_comp_config_clear(task);
 		mml_pq_err("get ds param timeout: %d in %dms",
 			ret, TDSHP_WAIT_TIMEOUT_MS);
+	}
+
+	result = get_tdshp_comp_config_result(task);
+	if (result && tdshp_frm->config_success) {
+		s32 i;
+		struct mml_pq_reg *regs = result->ds_regs;
+		//TODO: use different regs
+		mml_pq_msg("%s:config ds regs, count: %d", __func__, result->ds_reg_cnt);
+		for (i = 0; i < result->ds_reg_cnt; i++) {
+			mml_update(reuse, tdshp_frm->labels[i], regs[i].value);
+			mml_pq_msg("[ds][config][%x] = %#x mask(%#x)",
+				regs[i].offset, regs[i].value, regs[i].mask);
+		}
+	} else {
+		mml_pq_err("%s: not get result from user lib", __func__);
 	}
 
 	return ret;
@@ -494,6 +507,7 @@ static const struct mml_comp_config_ops tdshp_cfg_ops = {
 	.tile = tdshp_config_tile,
 	.post = tdshp_config_post,
 	.reframe = tdshp_reconfig_frame,
+	.repost = tdshp_config_post,
 };
 
 static void tdshp_debug_dump(struct mml_comp *comp)

@@ -245,8 +245,22 @@ static int set_sensor_mode(struct adaptor_ctx *ctx,
 		struct sensor_mode *mode, char update_ctrl_defs)
 {
 	s64 min, max, def;
+#ifdef __XIAOMI_CAMERA__
+	u32 update_seamless = 0;
+	union feature_para para;
+	u32 len;
+#endif
 
 	if (ctx->cur_mode == mode) {
+#ifdef __XIAOMI_CAMERA__
+		para.u32[0] = 0;
+		subdrv_call(ctx, feature_control,
+			XIAOMI_FEATURE_GET_NEED_UPDATE_SEAMLESS_SETTING,
+			para.u8, &len);
+		update_seamless = para.u32[0];
+		if (update_seamless)
+			ctx->is_sensor_scenario_inited = 0;
+#endif
 		if (update_ctrl_defs)
 			control_sensor(ctx);
 		return 0;
@@ -1283,6 +1297,11 @@ static int imgsensor_probe(struct i2c_client *client)
 	if (ret)
 		dev_info(dev, "failed to create sysfs debug_i2c_ops\n");
 
+	ctx->sensor_ws = wakeup_source_register(dev, ctx->sd.name);
+
+	if (!ctx->sensor_ws)
+		dev_info(dev, "failed to wakeup_source_register\n");
+
 	return 0;
 
 free_entity:
@@ -1305,6 +1324,10 @@ static int imgsensor_remove(struct i2c_client *client)
 	v4l2_ctrl_handler_free(sd->ctrl_handler);
 
 	notify_fsync_mgr(ctx, 0);
+
+	if (!ctx->sensor_ws)
+		wakeup_source_unregister(ctx->sensor_ws);
+	ctx->sensor_ws = NULL;
 
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
 	pm_runtime_disable(&client->dev);
@@ -1333,7 +1356,12 @@ static const struct i2c_device_id imgsensor_id[] = {
 MODULE_DEVICE_TABLE(i2c, imgsensor_id);
 
 static const struct of_device_id imgsensor_of_match[] = {
-	{.compatible = "mediatek,imgsensor"},
+	{.compatible = "mediatek,imgsensor0"},
+	{.compatible = "mediatek,imgsensor1"},
+	{.compatible = "mediatek,imgsensor2"},
+	{.compatible = "mediatek,imgsensor3"},
+	{.compatible = "mediatek,imgsensor4"},
+	{.compatible = "mediatek,imgsensor5"},
 	{}
 };
 MODULE_DEVICE_TABLE(of, imgsensor_of_match);

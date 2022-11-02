@@ -87,7 +87,7 @@ enum {CMDQ_PREBUILT_MDP, CMDQ_PREBUILT_MML, CMDQ_PREBUILT_VFMT,
 extern int gce_shift_bit;
 extern int gce_mminfra;
 extern bool skip_poll_sleep;
-
+extern bool gce_in_vcp;
 #define CMDQ_REG_SHIFT_ADDR(addr) (((addr) + gce_mminfra) >> gce_shift_bit)
 #define CMDQ_REG_REVERT_ADDR(addr) (((addr) << gce_shift_bit) - gce_mminfra)
 
@@ -247,10 +247,10 @@ struct cmdq_flush_completion {
 };
 
 struct cmdq_reuse {
-	enum cmdq_code op;
 	u64 *va;
 	u32 val;
-	u32 offset;
+	u16 offset;
+	u8 op;
 };
 
 struct cmdq_poll_reuse {

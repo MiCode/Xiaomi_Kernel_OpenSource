@@ -204,6 +204,45 @@ static const struct mtk_swpm_sysfs_op swpm_pmsr_en_fops = {
 	.fs_write = swpm_pmsr_en_write,
 };
 
+static unsigned int core_static_data_tmp;
+static ssize_t core_static_replace_read(char *ToUser, size_t sz, void *priv)
+{
+	char *p = ToUser;
+
+	if (!ToUser)
+		return -EINVAL;
+
+	swpm_dbg_log("echo <val> > /proc/swpm/core_static_replace\n");
+	swpm_dbg_log("default: %d, replaced %d (valid:0~999)\n",
+		   swpm_core_static_data_get(),
+		   core_static_data_tmp);
+
+	return p - ToUser;
+}
+
+static ssize_t core_static_replace_write(char *FromUser, size_t sz, void *priv)
+{
+	unsigned int val = 0;
+
+	if (!FromUser)
+		return -EINVAL;
+
+	if (!kstrtouint(FromUser, 0, &val)) {
+		core_static_data_tmp = (val < 1000) ? val : 0;
+
+		/* reset core static power data */
+		swpm_core_static_replaced_data_set(core_static_data_tmp);
+		swpm_core_static_data_init();
+	}
+
+	return sz;
+}
+
+static const struct mtk_swpm_sysfs_op core_static_replace_fops = {
+	.fs_read = core_static_replace_read,
+	.fs_write = core_static_replace_write,
+};
+
 #if SWPM_EXT_DBG
 static ssize_t swpm_sp_test_read(char *ToUser, size_t sz, void *priv)
 {
@@ -371,6 +410,8 @@ static void swpm_v6983_dbg_fs_init(void)
 			, 0644, &pmu_ms_mode_fops, NULL, NULL);
 	mtk_swpm_sysfs_entry_func_node_add("swpm_pmsr_en"
 			, 0644, &swpm_pmsr_en_fops, NULL, NULL);
+	mtk_swpm_sysfs_entry_func_node_add("core_static"
+			, 0644, &core_static_replace_fops, NULL, NULL);
 #if SWPM_EXT_DBG
 	mtk_swpm_sysfs_entry_func_node_add("swpm_sp_ddr_idx"
 			, 0444, &swpm_sp_ddr_idx_fops, NULL, NULL);

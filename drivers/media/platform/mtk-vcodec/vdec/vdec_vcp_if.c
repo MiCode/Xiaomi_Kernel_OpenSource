@@ -109,9 +109,21 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 	struct mutex *msg_mutex;
 	unsigned int *msg_signaled;
 	wait_queue_head_t *msg_wq;
+	struct vdec_ap_ipi_cmd *reset_msg = NULL;
 
 	if (inst->vcu.abort || inst->vcu.daemon_pid != get_vcp_generation())
 		return -EIO;
+
+	if (!is_ack && *(__u32 *)msg != AP_IPIMSG_DEC_BACKUP) {
+		while (inst->ctx->dev->is_codec_suspending == 1) {
+			suspend_block_cnt++;
+			if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
+				mtk_v4l2_debug(0, "VDEC blocked by suspend\n");
+				suspend_block_cnt = 0;
+			}
+			usleep_range(10000, 20000);
+		}
+	}
 
 	while (!is_vcp_ready(VCP_A_ID)) {
 		mtk_v4l2_debug((((timeout % 20) == 10) ? 0 : 4), "[VCP] wait ready %d ms", timeout);
@@ -120,7 +132,8 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 		if (timeout > VCP_SYNC_TIMEOUT_MS) {
 			mtk_vcodec_err(inst, "VCP_A_ID not ready");
 			mtk_smi_dbg_hang_detect("VDEC VCP");
-			break;
+			inst->vcu.abort = 1;
+			return -EIO;
 		}
 	}
 
@@ -128,17 +141,6 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 		mtk_vcodec_err(inst, "ipi data size wrong %d > %d", len, sizeof(struct share_obj));
 		inst->vcu.abort = 1;
 		return -EIO;
-	}
-
-	if (!is_ack) {
-		while (inst->ctx->dev->is_codec_suspending == 1) {
-			suspend_block_cnt++;
-			if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
-				mtk_v4l2_debug(4, "VDEC blocked by suspend\n");
-				suspend_block_cnt = 0;
-			}
-			usleep_range(10000, 20000);
-		}
 	}
 
 	memset(&obj, 0, sizeof(obj));
@@ -186,6 +188,19 @@ wait_ack:
 		/* wait for VCP's ACK */
 		timeout = msecs_to_jiffies(IPI_TIMEOUT_MS);
 		ret = wait_event_timeout(*msg_wq, *msg_signaled, timeout);
+		if (ret == 0 && *(__u32 *)msg == AP_IPIMSG_DEC_RESET) {
+			reset_msg = (struct vdec_ap_ipi_cmd *)msg;
+			if (reset_msg->reserved != VDEC_FLUSH && inst->ctx->input_driven) {
+				mtk_vcodec_err(inst, "inst reset abort %X type %d",
+					*(u32 *)msg, reset_msg->reserved);
+				vdec_if_set_param(inst->ctx, SET_PARAM_FRAME_BUFFER, NULL);
+				ret = wait_event_timeout(*msg_wq, *msg_signaled, timeout / 2);
+				mutex_unlock(msg_mutex);
+				inst->vcu.failure = VDEC_IPI_MSG_STATUS_FAIL;
+				inst->vcu.abort = 1;
+				return -EIO;
+			}
+		}
 		*msg_signaled = false;
 
 		if (ret == 0 || inst->vcu.failure) {
@@ -459,7 +474,6 @@ int vcp_dec_ipi_handler(void *arg)
 	struct mtk_vcodec_msg_node *mq_node;
 	struct vdec_vcu_ipi_mem_op *shem_msg;
 	unsigned long flags;
-	unsigned int suspend_block_cnt = 0;
 	struct list_head *p, *q;
 	struct mtk_vcodec_ctx *temp_ctx;
 	int msg_valid = 0;
@@ -477,15 +491,9 @@ int vcp_dec_ipi_handler(void *arg)
 
 	do {
 		ret = wait_event_interruptible(dev->mq.wq, atomic_read(&dev->mq.cnt) > 0);
-		if (ret) {
-			while (dev->is_codec_suspending == 1) {
-				suspend_block_cnt++;
-				if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
-					mtk_v4l2_debug(4, "blocked by suspend\n");
-					suspend_block_cnt = 0;
-				}
-				usleep_range(10000, 20000);
-			}
+		if (ret < 0) {
+			mtk_v4l2_debug(0, "wait event return %d (suspending %d)\n",
+				ret, atomic_read(&dev->mq.cnt));
 			continue;
 		}
 
@@ -509,6 +517,10 @@ int vcp_dec_ipi_handler(void *arg)
 			shem_msg = (struct vdec_vcu_ipi_mem_op *)obj->share_buf;
 			if (shem_msg->mem.type == MEM_TYPE_FOR_SHM) {
 				handle_vdec_mem_alloc((void *)shem_msg);
+				shem_msg->reserved[0] = (__u32)VCP_PACK_IOVA(
+					vcp_get_reserve_mem_phys(VDEC_SET_PROP_MEM_ID));
+				shem_msg->reserved[1] = (__u32)VCP_PACK_IOVA(
+					vcp_get_reserve_mem_phys(VDEC_VCP_LOG_INFO_ID));
 				shem_msg->msg_id = AP_IPIMSG_DEC_MEM_ALLOC_DONE;
 				ret = mtk_ipi_send(&vcp_ipidev, IPI_OUT_VDEC_1, IPI_SEND_WAIT, obj,
 					PIN_OUT_SIZE_VDEC, 100);
@@ -577,6 +589,7 @@ int vcp_dec_ipi_handler(void *arg)
 			case VCU_IPIMSG_DEC_DEINIT_DONE:
 			case VCU_IPIMSG_DEC_RESET_DONE:
 			case VCU_IPIMSG_DEC_SET_PARAM_DONE:
+			case VCU_IPIMSG_DEC_BACKUP_DONE:
 				vcu->signaled = true;
 				wake_up(&vcu->wq);
 				break;
@@ -653,6 +666,7 @@ int vcp_dec_ipi_handler(void *arg)
 			case VCU_IPIMSG_DEC_RESET_DONE:
 			case VCU_IPIMSG_DEC_SET_PARAM_DONE:
 			case VCU_IPIMSG_DEC_QUERY_CAP_DONE:
+			case VCU_IPIMSG_DEC_BACKUP_DONE:
 				vcu->signaled = true;
 				wake_up(&vcu->wq);
 				break;
@@ -713,17 +727,48 @@ static int vdec_vcp_ipi_isr(unsigned int id, void *prdata, void *data,
 	return 0;
 }
 
+static int vdec_vcp_backup(struct vdec_inst *inst)
+{
+	struct vdec_ap_ipi_cmd msg;
+	int err = 0;
+
+	mtk_vcodec_debug_enter(inst);
+
+	memset(&msg, 0, sizeof(msg));
+	msg.msg_id = AP_IPIMSG_DEC_BACKUP;
+	msg.ctx_id = inst->ctx->id;
+	msg.vcu_inst_addr = inst->vcu.inst_addr;
+
+	err = vdec_vcp_ipi_send(inst, &msg, sizeof(msg), 0);
+	mtk_vcodec_debug(inst, "- ret=%d", err);
+
+	return err;
+}
+
 static int vcp_vdec_notify_callback(struct notifier_block *this,
 	unsigned long event, void *ptr)
 {
 	struct mtk_vcodec_dev *dev;
 	struct list_head *p, *q;
 	struct mtk_vcodec_ctx *ctx;
+	int timeout = 0;
+	bool backup = false;
+
+	if (!(mtk_vcodec_vcp & (1 << MTK_INST_DECODER)))
+		return 0;
 
 	dev = container_of(this, struct mtk_vcodec_dev, vcp_notify);
 
 	switch (event) {
 	case VCP_EVENT_STOP:
+		while (atomic_read(&dev->mq.cnt)) {
+			timeout++;
+			mdelay(1);
+			if (timeout > VCP_SYNC_TIMEOUT_MS) {
+				mtk_v4l2_debug(0, "VCP_EVENT_STOP timeout\n");
+				break;
+			}
+		}
 		mutex_lock(&dev->ctx_mutex);
 		// check release all ctx lock
 		list_for_each_safe(p, q, &dev->ctx_list) {
@@ -735,6 +780,35 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 			}
 		}
 		mutex_unlock(&dev->ctx_mutex);
+	break;
+	case VCP_EVENT_SUSPEND:
+		dev->is_codec_suspending = 1;
+		while (atomic_read(&dev->mq.cnt)) {
+			timeout += 20;
+			usleep_range(10000, 20000);
+			if (timeout > VCP_SYNC_TIMEOUT_MS) {
+				mtk_v4l2_debug(0, "VCP_EVENT_SUSPEND timeout\n");
+				break;
+			}
+		}
+		// check no more ipi in progress
+		mutex_lock(&dev->ipi_mutex);
+		mutex_lock(&dev->ipi_mutex_res);
+		mutex_unlock(&dev->ipi_mutex_res);
+		mutex_unlock(&dev->ipi_mutex);
+		mutex_lock(&dev->ctx_mutex);
+		// send backup ipi to vcp by one of any instances
+		list_for_each_safe(p, q, &dev->ctx_list) {
+			ctx = list_entry(p, struct mtk_vcodec_ctx, list);
+			if (ctx != NULL && ctx->state != MTK_STATE_ABORT) {
+				mutex_unlock(&dev->ctx_mutex);
+				backup = true;
+				vdec_vcp_backup((struct vdec_inst *)ctx->drv_handle);
+				break;
+			}
+		}
+		if (!backup)
+			mutex_unlock(&dev->ctx_mutex);
 	break;
 	}
 	return NOTIFY_DONE;
@@ -1054,7 +1128,6 @@ void set_vdec_vcp_data(struct vdec_inst *inst, enum vcp_reserve_mem_id_t id, voi
 
 	mtk_vcodec_debug(inst, "msg.id %d msg.data[0]:0x%08x, msg.data[1]:0x%08x\n",
 		msg.id, msg.data[0], msg.data[1]);
-	vdec_vcp_ipi_send(inst, &msg, sizeof(msg), 1);
 }
 
 
@@ -1176,9 +1249,11 @@ static void vdec_get_fb(struct vdec_inst *inst,
 		return;
 	fb->timestamp = list->fb_list[list->read_idx].timestamp;
 
-	if (disp_list)
+	if (disp_list) {
 		fb->status |= FB_ST_DISPLAY;
-	else {
+		if (list->fb_list[list->read_idx].reserved)
+			fb->status |= FB_ST_NO_GENERATED;
+	} else {
 		fb->status |= FB_ST_FREE;
 		if (list->fb_list[list->read_idx].reserved)
 			fb->status |= FB_ST_EOS;

@@ -17,6 +17,9 @@
 
 #define OFFS_CCI_TBL_MODE (0x0F9C)
 
+#define OFFS_CM_HINT (0x12D4)
+#define OFFS_CM_THRESH (0x12D8)
+
 enum {
 	CM_MGR_LP4 = 0,
 	CM_MGR_MAX,

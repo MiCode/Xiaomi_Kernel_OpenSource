@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
+//#define DEBUG
 #include <linux/kthread.h>
 #include <sched/sched.h>
 #include <linux/unistd.h>
@@ -27,6 +28,7 @@
 #include "mtk_drm_arr.h"
 #include "uboost.h"
 #include "gbe_common.h"
+
 
 #define CREATE_TRACE_POINTS
 
@@ -603,7 +605,6 @@ void fpsgo_switch_enable(int enable)
 int fpsgo_is_force_enable(void)
 {
 	int temp_onoff;
-
 	mutex_lock(&notify_lock);
 	temp_onoff = fpsgo_force_onoff;
 	mutex_unlock(&notify_lock);
@@ -823,6 +824,7 @@ fail_reg_cpu_frequency_entry:
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 	drm_register_fps_chg_callback(dfrc_fps_limit_cb);
 #endif
+
 
 	return 0;
 }

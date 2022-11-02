@@ -405,6 +405,15 @@ void mtk_venc_pmqos_begin_inst(struct mtk_vcodec_ctx *ctx)
 
 	dev = ctx->dev;
 
+	if ((dev->venc_dvfs_params.target_freq == dev->venc_dvfs_params.min_freq) &&
+		(dev->venc_dvfs_params.target_freq >
+		(dev->venc_dvfs_params.freq_sum * 3))) {
+		mtk_v4l2_debug(6, "[VENC] Loading too low %u / %u, 0 QoS BW",
+			dev->venc_dvfs_params.freq_sum,
+			dev->venc_dvfs_params.target_freq);
+		return;
+	}
+
 	for (i = 0; i < dev->venc_port_cnt; i++) {
 		target_bw = (u64)dev->venc_port_bw[i].port_base_bw *
 			dev->venc_dvfs_params.target_freq /

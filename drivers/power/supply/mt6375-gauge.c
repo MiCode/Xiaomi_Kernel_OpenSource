@@ -184,7 +184,7 @@
 
 #define HTOL_THRESHOLD_MAX			20
 #define HTOL_THRESHOLD_MIN			5
-#define HTOL_CALI_MAX				120
+#define HTOL_CALI_MAX				267
 
 /* mt6359 610.352 uA */
 #define UNIT_FGCURRENT				610352
@@ -534,6 +534,8 @@ static void pre_gauge_update(struct mtk_gauge *gauge)
 	unsigned int reg_val = 0;
 	int ret = 0;
 
+	/*not use mt6375 gauge*/
+	return;
 	if (gauge->gm->disableGM30) {
 		return;
 	}
@@ -3043,8 +3045,11 @@ static int bat_vol_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_inf
 				  0x410, 0x411, 0x416, 0x417, 0x41E, 0x41F, 0x422,
 				  0x423, 0x45C, 0x46E, 0x46F, 0x470, 0x471 };
 
+	/*not use mt6375 gauge*/
+	*val = 0;
+	return 0;
 	if (IS_ERR(gauge->chan_bat_voltage)) {
-		bm_err("[%s]chan error\n", __func__);
+		bm_err("[%s]gerrr error\n", __func__);
 		return -ENOTSUPP;
 	}
 

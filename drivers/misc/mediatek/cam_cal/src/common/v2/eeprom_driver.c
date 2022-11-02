@@ -56,7 +56,7 @@ static unsigned int read_region(struct EEPROM_DRV_FD_DATA *pdata,
 	unsigned short dts_addr;
 	struct stCAM_CAL_LIST_STRUCT *plist = get_list(&pdata->sensor_info);
 	unsigned int size_limit = (plist && plist->maxEepromSize > 0)
-		? plist->maxEepromSize : DEFAULT_MAX_EEPROM_SIZE_8K;
+		? plist->maxEepromSize : DEFAULT_MAX_EEPROM_SIZE_16K;
 
 	if (offset + size > size_limit) {
 		error_log("Not support address >= 0x%x!!\n", size_limit);
@@ -91,7 +91,7 @@ static unsigned int write_region(struct EEPROM_DRV_FD_DATA *pdata,
 	unsigned short dts_addr;
 	struct stCAM_CAL_LIST_STRUCT *plist = get_list(&pdata->sensor_info);
 	unsigned int size_limit = (plist && plist->maxEepromSize > 0)
-		? plist->maxEepromSize : DEFAULT_MAX_EEPROM_SIZE_8K;
+		? plist->maxEepromSize : DEFAULT_MAX_EEPROM_SIZE_16K;
 
 	if (offset + size > size_limit) {
 		error_log("Not support address >= 0x%x!!\n", size_limit);
@@ -238,7 +238,7 @@ static long eeprom_ioctl(struct file *a_file, unsigned int a_cmd,
 	pBuff = kzalloc(_IOC_SIZE(a_cmd), GFP_KERNEL);
 	if (pBuff == NULL)
 		return -ENOMEM;
-	((struct CAM_CAL_SENSOR_INFO *)pBuff)->sensor_id = 0;
+	memset(pBuff, 0, _IOC_SIZE(a_cmd));
 
 	if ((_IOC_WRITE & _IOC_DIR(a_cmd)) &&
 	    copy_from_user(pBuff,

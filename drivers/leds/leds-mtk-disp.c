@@ -112,6 +112,7 @@ static int __maybe_unused led_disp_set(struct mt_led_data *mdev,
 		       int brightness)
 {
 	pr_debug("set brightness %d", brightness);
+	sysfs_notify(&mdev->conf.cdev.dev->kobj, NULL, "brightness");
 	return mtkfb_set_backlight_level(brightness);
 }
 

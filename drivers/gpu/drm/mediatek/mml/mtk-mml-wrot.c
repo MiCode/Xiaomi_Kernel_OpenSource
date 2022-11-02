@@ -1009,7 +1009,7 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 		wrot_frm->mat_en = 0;
 
 		/* TODO: check if still need this sw workaround */
-		if (!MML_FMT_COMPRESS(src_fmt) || MML_FMT_10BIT(src_fmt))
+		if (!MML_FMT_COMPRESS(src_fmt) && !MML_FMT_10BIT(src_fmt))
 			out_swap ^= MML_FMT_SWAP(src_fmt);
 	}
 

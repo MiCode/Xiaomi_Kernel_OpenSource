@@ -85,6 +85,7 @@ struct mtk_raw_pipeline;
 #define MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_COMPLETE	BIT(7)
 
 #define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED	BIT(8)
+#define MTK_CAM_REQ_S_DATA_FLAG_INCOMPLETE BIT(9)
 
 #define v4l2_subdev_format_request_fd(x) x->reserved[0]
 #define v4l2_frame_interval_which(x) x->reserved[0]
@@ -432,13 +433,16 @@ struct mtk_cam_ctx {
 	struct mtk_cam_working_buf_list processing_img_buffer_list;
 
 	atomic_t enqueued_frame_seq_no;
+	atomic_t composed_delay_seq_no;
 	unsigned int composed_frame_seq_no;
 	unsigned int dequeued_frame_seq_no;
-
+	unsigned int component_dequeued_frame_seq_no;
 	/* mstream */
 	unsigned int enqueued_request_cnt;
 	unsigned int next_sof_mask_frame_seq_no;
+	unsigned int next_sof_frame_seq_no;
 	unsigned int working_request_seq;
+	bool trigger_next_drain;
 
 	unsigned int sv_dequeued_frame_seq_no[MAX_SV_PIPES_PER_STREAM];
 
@@ -868,6 +872,18 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 int mtk_cam_s_data_sv_dev_config(struct mtk_cam_request_stream_data *s_data);
 
 int mtk_cam_link_validate(struct v4l2_subdev *sd,
+			  struct media_link *link,
+			  struct v4l2_subdev_format *source_fmt,
+			  struct v4l2_subdev_format *sink_fmt);
+int mtk_cam_seninf_link_validate(struct v4l2_subdev *sd,
+			  struct media_link *link,
+			  struct v4l2_subdev_format *source_fmt,
+			  struct v4l2_subdev_format *sink_fmt);
+int mtk_cam_sv_link_validate(struct v4l2_subdev *sd,
+			  struct media_link *link,
+			  struct v4l2_subdev_format *source_fmt,
+			  struct v4l2_subdev_format *sink_fmt);
+int mtk_cam_mraw_link_validate(struct v4l2_subdev *sd,
 			  struct media_link *link,
 			  struct v4l2_subdev_format *source_fmt,
 			  struct v4l2_subdev_format *sink_fmt);

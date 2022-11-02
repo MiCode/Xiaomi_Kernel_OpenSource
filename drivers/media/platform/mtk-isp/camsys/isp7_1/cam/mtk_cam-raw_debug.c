@@ -160,6 +160,29 @@ void mtk_cam_log_push(struct buffered_logger *log, const char *fmt, ...)
 			 LOGGER_BUFSIZE);
 }
 
+void debug_dma_fbc(struct device *dev,
+			  void __iomem *base, void __iomem *yuvbase)
+{
+	u32 fbc_r1_ctl[ARRAY_SIZE(fbc_r1_list)];
+	u32 fbc_r2_ctl[ARRAY_SIZE(fbc_r2_list)];
+	u32 fbc_r1_ctl2[ARRAY_SIZE(fbc_r1_list)];
+	u32 fbc_r2_ctl2[ARRAY_SIZE(fbc_r2_list)];
+	u32 i;
+
+	for (i = 0; i < ARRAY_SIZE(fbc_r1_list); i++) {
+		fbc_r1_ctl[i] = readl_relaxed(base + REG_FBC_CTL1(FBC_R1A_BASE, i));
+		fbc_r1_ctl2[i] = readl_relaxed(base + REG_FBC_CTL2(FBC_R1A_BASE, i));
+		dev_info(dev, "%s:RAW FBC:%s: ctl1:0x%08x, ctl2:0x%08x\n", __func__,
+			fbc_r1_list[i], fbc_r1_ctl[i], fbc_r1_ctl2[i]);
+	}
+	for (i = 0; i < ARRAY_SIZE(fbc_r2_list); i++) {
+		fbc_r2_ctl[i] = readl_relaxed(yuvbase + REG_FBC_CTL1(FBC_R2A_BASE, i));
+		fbc_r2_ctl2[i] = readl_relaxed(yuvbase + REG_FBC_CTL2(FBC_R2A_BASE, i));
+		dev_info(dev, "%s:YUV FBC:%s: ctl1:0x%08x, ctl2:0x%08x\n", __func__,
+			fbc_r2_list[i], fbc_r2_ctl[i], fbc_r2_ctl2[i]);
+	}
+}
+
 void mtk_cam_raw_dump_fbc(struct device *dev,
 			  void __iomem *base, void __iomem *yuvbase)
 {

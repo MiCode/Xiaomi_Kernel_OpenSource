@@ -13,6 +13,7 @@
 #include "vcp_ipi_pin.h"
 #include "vcp_helper.h"
 #include "vcp_excep.h"
+#include "vcp_status.h"
 
 /*
  * handler for wdt irq for vcp
@@ -21,7 +22,7 @@
 static void vcp_A_wdt_handler(void)
 {
 	pr_notice("[VCP] %s\n", __func__);
-	vcp_dump_last_regs();
+	vcp_dump_last_regs(mmup_enable_count());
 #if VCP_RECOVERY_SUPPORT
 	if (vcp_set_reset_status() == RESET_STATUS_STOP) {
 		pr_debug("[VCP] start to reset vcp...\n");
@@ -50,7 +51,8 @@ void wait_vcp_wdt_irq_done(void)
 	}
 
 	if (retry == 0)
-		pr_debug("[VCP] VCP wakeup timeout c0:%x c1:%x\n", c0, c1);
+		pr_notice("[VCP] VCP wakeup timeout c0:0x%x c1:0x%x, Status: 0x%x\n",
+			c0, c1, readl(R_CORE0_STATUS));
 
 	udelay(10);
 }

@@ -19,6 +19,8 @@
 #define SPARE_DBG_REG16		0x440	// mbox4_dummy16
 #define SPARE_DBG_REG17		0x444	// mbox4_dummy17
 
+#define VSRAM_VB_SYNC_REG	SPARE_DBG_REG17
+
 #define ACX0_LIMIT_OPP_REG      SPARE_DBG_REG10
 #define ACX1_LIMIT_OPP_REG      SPARE_DBG_REG11
 #define DEV_OPP_SYNC_REG        SPARE_DBG_REG12
@@ -54,6 +56,7 @@ struct drv_cfg_data {
 struct plat_cfg_data {
 	int8_t aging_flag:4,
 	       hw_id:4;
+	int8_t vsram_vb_en;
 };
 
 struct device_opp_limit {
@@ -84,12 +87,13 @@ struct apu_pwr_curr_info {
 /*
  * for satisfy size limitation of rpmsg data exchange is 256 bytes
  * we only put necessary information for opp table here
- * opp entries : 4 bytes * 5 struct members * 10 opp entries = 200 bytes
+ * opp entries : 4 bytes * 6 struct members * 10 opp entries = 240 bytes
  * tbl_size : 4 bytes
- * total : 200 + 4 = 204 bytes
+ * total : 240 + 4 = 244 bytes
  */
 struct tiny_dvfs_opp_entry {
 	int vapu;       // = volt_bin - volt_age + volt_avs
+	int vsram;
 	int pll_freq[PLL_NUM];
 };
 

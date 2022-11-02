@@ -1085,10 +1085,21 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			struct mtk_seamless_switch_param *info = ctrl->p_new.p;
 			u64 time_boot = ktime_get_boottime_ns();
 			u64 time_mono = ktime_get_ns();
+#ifdef __XIAOMI_CAMERA__
+			struct SET_SENSOR_AWB_GAIN awb_gain = {
+				.ABS_GAIN_GR = info->awb_gain.abs_gain_gr,
+				.ABS_GAIN_R  = info->awb_gain.abs_gain_r,
+				.ABS_GAIN_B  = info->awb_gain.abs_gain_b,
+				.ABS_GAIN_GB = info->awb_gain.abs_gain_gb,
+			};
+#endif
 
 			para.u64[0] = info->target_scenario_id;
 			para.u64[1] = (uintptr_t)&info->ae_ctrl[0];
 			para.u64[2] = (uintptr_t)&info->ae_ctrl[1];
+#ifdef __XIAOMI_CAMERA__
+			para.u64[3] = (uintptr_t)&awb_gain;
+#endif
 
 			dev_info(dev,
 				    "seamless %u s[%u %u %u %u %u] g[%u %u %u %u %u] s1[%u %u %u %u %u] g1[%u %u %u %u %u] %llu|%llu\n",

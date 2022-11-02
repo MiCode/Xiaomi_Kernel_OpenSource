@@ -2806,7 +2806,7 @@ static int mt6983_device_read_count_rc_n(struct lvts_data *lvts_data)
 			lvts_write_device(lvts_data, SET_TS_DIV_EN_6983, i);
 			lvts_write_device(lvts_data, SET_VCO_RST_6983, i);
 			lvts_write_device(lvts_data, SET_TS_DIV_EN_6983, i);
-			udelay(10);
+			udelay(20);
 
 			lvts_write_device(lvts_data, KICK_OFF_RCK_COUNTING_V4, i);
 			ret = readl_poll_timeout(LVTS_CONFIG_0 + base, data,
@@ -3220,7 +3220,7 @@ static struct lvts_data mt6983_lvts_data = {
 		.check_cal_data = mt6983_check_cal_data,
 		.update_coef_data = mt6983_update_coef_data,
 	},
-	.feature_bitmap = FEATURE_DEVICE_AUTO_RCK,
+	.feature_bitmap = 0,
 	.num_efuse_addr = 28,
 	.num_efuse_block = 3,
 	.cal_data = {

@@ -277,6 +277,7 @@ struct mtk_raw_device {
 	void __iomem *base;
 	void __iomem *base_inner;
 	void __iomem *yuv_base;
+	void __iomem *yuv_base_inner;
 	unsigned int num_clks;
 	struct clk **clks;
 #ifdef CONFIG_PM_SLEEP
@@ -310,12 +311,23 @@ struct mtk_yuv_device {
 	struct device *dev;
 	unsigned int id;
 	void __iomem *base;
+	void __iomem *base_inner;
 	unsigned int num_clks;
 	struct clk **clks;
 #ifdef CONFIG_PM_SLEEP
 	struct notifier_block pm_notifier;
 #endif
 };
+
+/* AE information */
+struct mtk_ae_debug_data {
+	u64 OBC_R1_Sum[4];
+	u64 OBC_R2_Sum[4];
+	u64 OBC_R3_Sum[4];
+	u64 AA_Sum[4];
+	u64 LTM_Sum[4];
+};
+
 /*
  * struct mtk_raw - the raw information
  *
@@ -357,6 +369,8 @@ void stagger_enable(struct mtk_raw_device *dev);
 
 void stagger_disable(struct mtk_raw_device *dev);
 
+void dbload_force(struct mtk_raw_device *dev);
+
 void toggle_db(struct mtk_raw_device *dev);
 
 void enable_tg_db(struct mtk_raw_device *dev, int en);
@@ -376,6 +390,9 @@ void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx,
 		signed int hw_scene);
 
 void reset(struct mtk_raw_device *dev);
+
+void dump_aa_info(struct mtk_cam_ctx *ctx,
+				 struct mtk_ae_debug_data *ae_info);
 
 int mtk_raw_call_pending_set_fmt(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_format *fmt);

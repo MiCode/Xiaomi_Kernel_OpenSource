@@ -377,6 +377,10 @@ struct sk_buff *ccci_alloc_skb(int size, unsigned char from_pool,
 			skb = __alloc_skb_from_kernel(size, GFP_ATOMIC);
 			if (!skb && count++ < 20)
 				goto fast_retry;
+			if (count > 1)
+				CCCI_NORMAL_LOG(-1, BM,
+						"%s, try to alloc skb %d times\n",
+						__func__, count);
 		}
 	}
  err_exit:

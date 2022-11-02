@@ -25,14 +25,30 @@ static bool axi_id_is_gpu(unsigned int axi_id)
 		return false;
 }
 
+static bool axi_id_is_gce(unsigned int axi_id)
+{
+	unsigned int port;
+	unsigned int id;
+
+	port = axi_id & (BIT_MASK(3) - 1);
+	id = axi_id >> 4;
+	pr_info("[EMI TEST]axi_id %x, port: %x id, %x \n", axi_id, port, id);
+	if (port == 5 && ((id & 0x5FF3) == 0x1C01)) {
+		pr_info("[EMI TEST] axi_id_is_gce\n");
+		return true;
+	}
+	else
+		return false;
+}
+
 static irqreturn_t emi_mpu_isr_hook(unsigned int emi_id,
 					struct reg_info_t *dump,
 					unsigned int leng)
 {
 	int i;
-	unsigned int srinfo_r = 0, axi_id_r = 0;
-	unsigned int srinfo_w = 0, axi_id_w = 0;
-	bool bypass;
+	unsigned int srinfo_r = 0, axi_id_r = 0, err_case_r = 0;
+	unsigned int srinfo_w = 0, axi_id_w = 0, err_case_w = 0;
+	bool bypass, gce;
 	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 3);
 
 	for (i = 0; i < leng; i++) {
@@ -41,26 +57,37 @@ static irqreturn_t emi_mpu_isr_hook(unsigned int emi_id,
 		else if (dump[i].offset == 0x3D8)
 			srinfo_r = dump[i].value;
 
-		if (srinfo_w == 3) {
-			if (dump[i].offset == 0x1E4) {
-				axi_id_w |= dump[i].value & (BIT_MASK(16) - 1);
-			} else if (dump[i].offset == 0x1E8) {
-				axi_id_w |=
-				(dump[i].value & (BIT_MASK(4) - 1)) << 16;
-			}
-		} else if (srinfo_r == 3) {
-			if (dump[i].offset == 0x3E4) {
-				axi_id_r |= dump[i].value & (BIT_MASK(16) - 1);
-			} else if (dump[i].offset == 0x3E8) {
-				axi_id_r |=
-				(dump[i].value & (BIT_MASK(4) - 1)) << 16;
-			}
+		if (dump[i].offset == 0x1D0)
+			err_case_w = dump[i].value;
+		else if (dump[i].offset == 0x3D0)
+			err_case_r = dump[i].value;
+
+//		if (srinfo_w == 3) {
+		if (dump[i].offset == 0x1E4) {
+			axi_id_w |= dump[i].value & (BIT_MASK(16) - 1);
+		} else if (dump[i].offset == 0x1E8) {
+			axi_id_w |=
+			(dump[i].value & (BIT_MASK(4) - 1)) << 16;
 		}
+//		} else if (srinfo_r == 3) {
+		if (dump[i].offset == 0x3E4) {
+			axi_id_r |= dump[i].value & (BIT_MASK(16) - 1);
+		} else if (dump[i].offset == 0x3E8) {
+			axi_id_r |=
+			(dump[i].value & (BIT_MASK(4) - 1)) << 16;
+		}
+//		}
 	}
+	if (axi_id_is_gce(axi_id_r)||axi_id_is_gce(axi_id_w))
+		gce = true;
+	else
+		gce = false;
 
 	if (srinfo_r == 3 && !axi_id_is_gpu(axi_id_r))
 		bypass = true;
 	else if (srinfo_w == 3 && !axi_id_is_gpu(axi_id_w))
+		bypass = true;
+	else if (err_case_w == 0 && err_case_r == 0)
 		bypass = true;
 	else
 		bypass = false;
@@ -75,7 +102,7 @@ static irqreturn_t emi_mpu_isr_hook(unsigned int emi_id,
 		}
 	}
 
-	return (bypass) ? IRQ_HANDLED : IRQ_NONE;
+	return (gce) ? IRQ_HANDLED : IRQ_NONE;
 }
 
 static __init int emi_mpu_mt6983_init(void)

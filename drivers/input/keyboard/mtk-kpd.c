@@ -108,7 +108,7 @@ static void kpd_keymap_handler(unsigned long data)
 
 			/* bit is 1: not pressed, 0: pressed */
 			pressed = (new_state[i] & mask) == 0U;
-			pr_debug("(%s) HW keycode = %d\n",
+			pr_info("(%s) HW keycode = %d\n",
 				(pressed) ? "pressed" : "released",
 					hw_keycode);
 
@@ -117,7 +117,7 @@ static void kpd_keymap_handler(unsigned long data)
 				continue;
 			input_report_key(keypad->input_dev, keycode, pressed);
 			input_sync(keypad->input_dev);
-			pr_debug("report Linux keycode = %d\n", keycode);
+			pr_info("report Linux keycode = %d\n", keycode);
 		}
 	}
 
@@ -143,26 +143,26 @@ static int kpd_get_dts_info(struct mtk_keypad *keypad,
 	ret = of_property_read_u32(node, "mediatek,key-debounce-ms",
 		&keypad->key_debounce);
 	if (ret) {
-		pr_debug("read mediatek,key-debounce-ms error.\n");
+		pr_err("read mediatek,key-debounce-ms error.\n");
 		return ret;
 	}
 
 	ret = of_property_read_u32(node, "mediatek, use-extend-type",
 		&keypad->use_extend_type);
 	if (ret) {
-		pr_debug("read mediatek,use-extend-type error.\n");
+		pr_err("read mediatek,use-extend-type error.\n");
 		keypad->use_extend_type = 0;
 	}
 
 	ret = of_property_read_u32(node, "mediatek,hw-map-num",
 		&keypad->hw_map_num);
 	if (ret) {
-		pr_debug("read mediatek,hw-map-num error.\n");
+		pr_err("read mediatek,hw-map-num error.\n");
 		return ret;
 	}
 
 	if (keypad->hw_map_num > KPD_NUM_KEYS) {
-		pr_debug("hw-map-num error, it cannot bigger than %d.\n",
+		pr_err("hw-map-num error, it cannot bigger than %d.\n",
 			KPD_NUM_KEYS);
 		return -EINVAL;
 	}
@@ -171,7 +171,7 @@ static int kpd_get_dts_info(struct mtk_keypad *keypad,
 		keypad->hw_init_map, keypad->hw_map_num);
 
 	if (ret) {
-		pr_debug("hw-init-map was not defined in dts.\n");
+		pr_err("hw-init-map was not defined in dts.\n");
 		return ret;
 	}
 
@@ -197,7 +197,7 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 
 	ret = clk_prepare_enable(keypad->clk);
 	if (ret) {
-		pr_debug("cannot prepare/enable keypad clock\n");
+		pr_err("cannot prepare/enable keypad clock\n");
 		return ret;
 	}
 
@@ -210,21 +210,21 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 	keypad->base = devm_ioremap(&pdev->dev, res->start,
 			resource_size(res));
 	if (!keypad->base) {
-		pr_debug("KP iomap failed\n");
+		pr_err("KP iomap failed\n");
 		ret = -EBUSY;
 		goto err_unprepare_clk;
 	}
 
 	keypad->irqnr = irq_of_parse_and_map(pdev->dev.of_node, 0);
 	if (!keypad->irqnr) {
-		pr_debug("KP get irqnr failed\n");
+		pr_err("KP get irqnr failed\n");
 		ret = -ENODEV;
 		goto err_unprepare_clk;
 	}
 
 	ret = kpd_get_dts_info(keypad, pdev->dev.of_node);
 	if (ret) {
-		pr_debug("get dts info failed.\n");
+		pr_err("get dts info failed.\n");
 		goto err_unprepare_clk;
 	}
 
@@ -232,7 +232,7 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 
 	keypad->input_dev = devm_input_allocate_device(&pdev->dev);
 	if (!keypad->input_dev) {
-		pr_notice("input allocate device fail.\n");
+		pr_err("input allocate device fail.\n");
 		ret = -ENOMEM;
 		goto err_unprepare_clk;
 	}
@@ -259,7 +259,7 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 
 	ret = input_register_device(keypad->input_dev);
 	if (ret) {
-		pr_notice("register input device failed (%d)\n", ret);
+		pr_err("register input device failed (%d)\n", ret);
 		goto err_unprepare_clk;
 	}
 
@@ -267,7 +267,7 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 
 	keypad->suspend_lock = wakeup_source_register(NULL, "kpd wakelock");
 	if (!keypad->suspend_lock) {
-		pr_notice("wakeup source init failed.\n");
+		pr_err("wakeup source init failed.\n");
 		goto err_unregister_device;
 	}
 
@@ -281,13 +281,13 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 	ret = request_irq(keypad->irqnr, kpd_irq_handler, IRQF_TRIGGER_NONE,
 			KPD_NAME, keypad);
 	if (ret) {
-		pr_notice("register IRQ failed (%d)\n", ret);
+		pr_err("register IRQ failed (%d)\n", ret);
 		goto err_irq;
 	}
 
 	ret = enable_irq_wake(keypad->irqnr);
 	if (ret < 0)
-		pr_notice("irq %d enable irq wake fail\n", keypad->irqnr);
+		pr_err("irq %d enable irq wake fail\n", keypad->irqnr);
 
 	platform_set_drvdata(pdev,keypad);
 
@@ -321,7 +321,7 @@ static int kpd_pdrv_suspend(struct platform_device *pdev, pm_message_t state)
 {
  	struct mtk_keypad *keypad = platform_get_drvdata(pdev);
 
-	enable_kpd(keypad->base, 0);
+	enable_kpd(keypad->base, 1);
 
 	return 0;
 }

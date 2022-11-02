@@ -61,6 +61,10 @@ static int debug_seq_get_debug(uint8_t sensor_type, uint8_t *buffer,
 	reinit_completion(&debug_done);
 
 	ctrl = kzalloc(sizeof(*ctrl), GFP_KERNEL);
+	if (!ctrl) {
+		ret = -ENOMEM;
+		return ret;
+	}
 	ctrl->sensor_type = sensor_type;
 	ctrl->command = SENS_COMM_CTRL_DEBUG_CMD;
 	ctrl->length = sizeof(ctrl->data[0]);
@@ -98,6 +102,10 @@ static int debug_seq_get_debug(uint8_t sensor_type, uint8_t *buffer,
 		goto out1;
 	}
 	shm_debug = kzalloc(sizeof(*shm_debug), GFP_KERNEL);
+	if (!shm_debug) {
+		ret = -ENOMEM;
+		goto out1;
+	}
 	ret = share_mem_read(&debug_shm_reader, shm_debug, sizeof(*shm_debug));
 	if (ret < 0) {
 		pr_err("%u read fail %d\n", sensor_type, ret);

@@ -101,6 +101,7 @@ static int dsu_enable = 1;
 static int dsu_opp_send = 0xff;
 static int dsu_mode;
 static int cm_aggr;
+unsigned int cm_hint;
 #endif
 int debounce_times_reset_adb;
 int light_load_cps = 1000;
@@ -125,6 +126,14 @@ int cm_mgr_cpu_map_dram_enable;
 int cm_mgr_cpu_map_emi_opp = 1;
 int cm_mgr_cpu_map_skip_cpu_opp = 2;
 unsigned int cm_work_flag;
+
+#if IS_ENABLED(CONFIG_MTK_CM_IPI)
+int get_cm_step_num(void)
+{
+	return cm_hint;
+}
+EXPORT_SYMBOL_GPL(get_cm_step_num);
+#endif
 
 struct icc_path *cm_mgr_get_bw_path(void)
 {
@@ -507,6 +516,8 @@ static ssize_t dbg_cm_mgr_show(struct kobject *kobj,
 			dsu_mode);
 	len += cm_mgr_print("cm_aggr %d\n",
 			cm_aggr);
+	len += cm_mgr_print("cm_hint %d\n",
+			cm_hint);
 #endif
 	len += cm_mgr_print("\n");
 
@@ -670,6 +681,8 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 	} else if (!strcmp(cmd, "cm_aggr")) {
 		cm_aggr = val_1;
 		cm_mgr_to_sspm_command(IPI_CM_MGR_AGGRESSIVE, val_1);
+	} else if (!strcmp(cmd, "cm_hint")) {
+		cm_hint = val_1;
 #endif
 	} else {
 		dbg_cm_mgr_platform_write(ret, cmd, val_1, val_2);

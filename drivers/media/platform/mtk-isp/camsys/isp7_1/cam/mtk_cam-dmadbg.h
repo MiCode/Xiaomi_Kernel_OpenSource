@@ -47,6 +47,36 @@ static __maybe_unused struct dma_debug_item dbg_RAWI_R3[] = {
 	{0x000002C1, "rawi_r3_smi_port / plane-0 / maddr_min record"},
 };
 
+static __maybe_unused struct dma_debug_item dbg_RAWI_R5[] = {
+	{0x00000007, "rawi_r5 32(hex) 0000"},
+	{0x00000107, "rawi_r5 state_checksum"},
+	{0x00000207, "rawi_r5 line_pix_cnt_tmp"},
+	{0x00000307, "rawi_r5 line_pix_cnt"},
+	{0x00000507, "rawi_r5 smi_debug_data (case 0)"},
+	{0x00010607, "rawi_r5 aff(fifo)_debug_data (case 1)"},
+	{0x00030607, "rawi_r5 aff(fifo)_debug_data (case 3)"},
+	{0x01000047, "rawi_r5_smi_port / plane-0 / data-crc"},
+	{0x01000065, "rawi_r5_smi_port / plane-0 / addr-crc"},
+	{0x00000085, "rawi_r5_smi_port / smi_latency_mon output"},
+	{0x000000A5, "rawi_r5_smi_port / plane-0 / { len-cnt, dle-cnt }"},
+	{0x000005C0, "rawi_r5_smi_port / plane-0 / maddr_max record"},
+	{0x000005C1, "rawi_r5_smi_port / plane-0 / maddr_min record"},
+};
+
+static __maybe_unused struct dma_debug_item dbg_RAWI_R6[] = {
+	{0x00000018, "rawi_r6 32(hex) 0000"},
+	{0x00000118, "rawi_r6 state_checksum"},
+	{0x00000218, "rawi_r6 line_pix_cnt_tmp"},
+	{0x00000318, "rawi_r6 line_pix_cnt"},
+	{0x00000418, "rawi_r6 important_status"},
+	{0x00000518, "rawi_r6 cmd_data_cnt"},
+	{0x00000618, "rawi_r6 tilex_byte_cnt"},
+	{0x00000718, "rawi_r6 tiley_cnt"},
+	{0x00000818, "rawi_r6 burst_line_cnt"},
+	{0x01000058, "aai_r1_smi_port / plane-2 (i.e. rawi_r6) / data-crc"},
+	{0x0000008A, "aai_r1_smi_port / smi_latency_mon output"},
+};
+
 static __maybe_unused struct dma_debug_item dbg_IMGO_R1[] = {
 	{0x00000019, "imgo_r1 32(hex) 0000"},
 	{0x00000119, "imgo_r1 state_checksum"},

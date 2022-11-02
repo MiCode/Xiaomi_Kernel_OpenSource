@@ -38,6 +38,9 @@ struct DRM_MMP_Events {
 	mmp_event dsi;
 	mmp_event dsi0;
 	mmp_event dsi1;
+	mmp_event aal;
+	mmp_event aal0;
+	mmp_event aal1;
 	mmp_event dp_intf0;
 	mmp_event ddp;
 	mmp_event mutex[DISP_MUTEX_DDP_COUNT];
@@ -59,6 +62,8 @@ struct DRM_MMP_Events {
 	mmp_event ion_import_free;
 	mmp_event set_mode;
 	mmp_event top_clk;
+	mmp_event sram_alloc;
+	mmp_event sram_free;
 };
 
 /* if changed, need to update init_crtc_mmp_event() */
@@ -114,9 +119,17 @@ struct CRTC_MMP_Events {
 	/*Msync 2.0 mmp end*/
 	mmp_event mode_switch;
 	mmp_event ddp_clk;
+	/*AAL mmp mark*/
+	mmp_event aal_sof_thread;
+	mmp_event aal_dre30_rw;
+	mmp_event aal_dre20_rh;
 	/*DRE30 mmp mark*/
 	mmp_event aal_sof_irq;
 	mmp_event aal_sof_rw;
+	mmp_event max_hrt_layers;
+	/*Gamma mmp mark*/
+	mmp_event gamma_ioctl;
+	mmp_event gamma_sof;
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);

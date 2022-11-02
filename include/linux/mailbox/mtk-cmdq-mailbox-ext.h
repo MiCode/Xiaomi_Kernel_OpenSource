@@ -189,6 +189,7 @@ struct cmdq_thread {
 	u64			timer_mod;
 	u64			irq_time;
 	u32			irq_task;
+	atomic_t		usage;
 };
 
 extern int mtk_cmdq_log;

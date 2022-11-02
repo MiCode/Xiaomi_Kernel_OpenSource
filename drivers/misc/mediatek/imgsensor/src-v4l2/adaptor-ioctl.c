@@ -1338,6 +1338,23 @@ static int s_tg(struct adaptor_ctx *ctx, void *arg)
 	return 0;
 }
 
+#ifdef __XIAOMI_CAMERA__
+static int s_enable_seamless_switch(struct adaptor_ctx *ctx, void *arg)
+{
+	u32 *info = arg;
+	union feature_para para;
+	u32 len;
+
+	para.u32[0] = *info;
+
+	subdrv_call(ctx, feature_control,
+		XIAOMI_FEATURE_ENABLE_SEAMLESS_SWITCH,
+		para.u8, &len);
+
+	return 0;
+}
+#endif
+
 struct ioctl_entry {
 	unsigned int cmd;
 	int (*func)(struct adaptor_ctx *ctx, void *arg);
@@ -1394,6 +1411,9 @@ static const struct ioctl_entry ioctl_list[] = {
 	{VIDIOC_MTK_S_LSC_TBL, s_lsc_tbl},
 	{VIDIOC_MTK_S_CONTROL, s_control},
 	{VIDIOC_MTK_S_TG, s_tg},
+#ifdef __XIAOMI_CAMERA__
+	{VIDIOC_XIAOMI_S_ENABLE_SEAMLESS_SWITCH, s_enable_seamless_switch},
+#endif
 };
 
 long adaptor_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)

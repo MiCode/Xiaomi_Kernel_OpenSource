@@ -1756,21 +1756,10 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 	struct mtk_csi_param *csi_param)
 {
-	csi_param->legacy_phy = 1;
-	csi_param->not_fixed_trail_settle = 1;
+	csi_param->legacy_phy = 0;
+	csi_param->not_fixed_trail_settle = 0;
+	csi_param->dphy_trail = 0;
 
-	switch (scenario_id) {
-	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
-		csi_param->dphy_trail = 0x20;
-		break;
-	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
-	case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
-		csi_param->dphy_trail = 0x3d;
-		break;
-	default:
-		csi_param->dphy_trail = 0;
-		break;
-	}
 	return 0;
 }
 

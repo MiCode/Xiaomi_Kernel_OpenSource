@@ -55,7 +55,7 @@ struct dw9800v_device {
 	struct pinctrl_state *vcamaf_off;
 };
 
-static int g_vendor_id;
+static int g_vendor_id = 0;
 
 static int read_vendor_id(struct i2c_client *client, u16 a_u2Addr)
 {
@@ -104,7 +104,7 @@ struct regval_list {
 static int dw9800v_set_position(struct dw9800v_device *dw9800v, u16 val)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&dw9800v->sd);
-	int dac_addr   = (g_vendor_id == 0x03/*semco*/) ?
+	int dac_addr   = (g_vendor_id == 0x03/*semco*/) ?\
 		AK7314_SET_POSITION_ADDR : DW9800V_SET_POSITION_ADDR;
 	int data_shift = (g_vendor_id == 0x03/*semco*/) ? 6 : 0;
 
@@ -147,28 +147,15 @@ static int dw9800v_init(struct dw9800v_device *dw9800v)
 	int ret = 0;
 	int i = 0;
 	unsigned char cmd_number = 7;
-#if defined(MATISSE_CAM)
-	char puSendCmdArray[8][2] = {
-	{0x02, 0x01}, {0x02, 0x00}, {0xFE, 0xFE},
-	{0x02, 0x02}, {0x06, 0x40}, {0x07, 0x07}, {0x10, 0x01}, {0xFE, 0xFE},
-	};
-	cmd_number = 8;
-#elif defined(RUBENS_CAM)
 	char puSendCmdArray[7][2] = {
 	{0x02, 0x01}, {0x02, 0x00}, {0xFE, 0xFE},
 	{0x02, 0x02}, {0x06, 0x80}, {0x07, 0x7C}, {0xFE, 0xFE},
 	};
-#else
-	char puSendCmdArray[7][2] = {
-	{0x02, 0x01}, {0x02, 0x00}, {0xFE, 0xFE},
-	{0x02, 0x02}, {0x06, 0x80}, {0x07, 0x7C}, {0xFE, 0xFE},
-	};
-#endif
 
 	LOG_INF("+\n");
 
 	client->addr = DW9800V_I2C_SLAVE_ADDR >> 1;
-	//ret = i2c_smbus_read_byte_data(client, 0x02);
+	ret = i2c_smbus_read_byte_data(client, 0x00);
 
 	LOG_INF("Check HW version: %x\n", ret);
 
@@ -201,7 +188,7 @@ static int ak7314_init(struct dw9800v_device *dw9800v)
 	LOG_INF("+\n");
 
 	client->addr = AK7314_I2C_SLAVE_ADDR >> 1;
-	//ret = i2c_smbus_read_byte_data(client, 0x02);
+	ret = i2c_smbus_read_byte_data(client, 0x02);
 
 	LOG_INF("Check HW version: %x\n", ret);
 
@@ -272,6 +259,15 @@ static int dw9800v_power_on(struct dw9800v_device *dw9800v)
 	LOG_INF("vendor id: %x\n", g_vendor_id);
 
 #ifdef MATISSE_CAM
+	client->addr = DW9800V_I2C_SLAVE_ADDR >> 1;
+	ret = i2c_smbus_read_byte_data(client, 0x00);
+
+	if (ret != 0xEB /* semco */) {
+		g_vendor_id = 0x03;
+	}
+
+	LOG_INF("Check HW version: %x\n", ret);
+
 	if (g_vendor_id == 0x03 /* semco */) {
 		ret = ak7314_init(dw9800v);
 	} else { /* ofilm */
@@ -286,6 +282,7 @@ static int dw9800v_power_on(struct dw9800v_device *dw9800v)
 	return 0;
 
 fail:
+	LOG_INF("dw9800v power on failed!\n");
 	regulator_disable(dw9800v->vin);
 	regulator_disable(dw9800v->vdd);
 	if (dw9800v->vcamaf_pinctrl && dw9800v->vcamaf_off) {
@@ -298,11 +295,16 @@ fail:
 
 static int dw9800v_set_ctrl(struct v4l2_ctrl *ctrl)
 {
+	int ret = 0;
 	struct dw9800v_device *dw9800v = to_dw9800v_vcm(ctrl);
 
 	if (ctrl->id == V4L2_CID_FOCUS_ABSOLUTE) {
-		LOG_INF("pos(%d)\n", ctrl->val);
-		return dw9800v_set_position(dw9800v, ctrl->val);
+		LOG_INF("vendor id(0x%x), pos(%d)\n", g_vendor_id, ctrl->val);
+		ret = dw9800v_set_position(dw9800v, ctrl->val);
+		if (ret) {
+			LOG_INF("I2C failure: %d", ret);
+			return ret;
+		}
 	}
 	return 0;
 }

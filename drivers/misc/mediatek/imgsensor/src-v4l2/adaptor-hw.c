@@ -15,6 +15,10 @@
 #include "adaptor.h"
 #include "adaptor-hw.h"
 
+/* MT6319 BUCK CONTROL */
+#define MT6319_BUCK_TOP_4PHASE_ANA_CON42		0x16b1
+struct regmap *mt6319_7_regmap;
+
 #define INST_OPS(__ctx, __field, __idx, __hw_id, __set, __unset) do {\
 	if (__ctx->__field[__idx]) { \
 		__ctx->hw_ops[__hw_id].set = __set; \
@@ -207,11 +211,18 @@ static int reinit_pinctrl(struct adaptor_ctx *ctx)
 
 	return 0;
 }
+
 int do_hw_power_on(struct adaptor_ctx *ctx)
 {
 	int i;
 	const struct subdrv_pw_seq_entry *ent;
 	struct adaptor_hw_ops *op;
+
+	if (ctx->sensor_ws)
+		__pm_stay_awake(ctx->sensor_ws);
+	else
+		dev_dbg(ctx->dev, "%s fail to __pm_stay_awake\n",
+			__func__);
 
 	/* may be released for mipi switch */
 	if (!ctx->pinctrl)
@@ -224,6 +235,12 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 	for (i = 0; i < ctx->subdrv->pw_seq_cnt; i++) {
 		ent = &ctx->subdrv->pw_seq[i];
 		op = &ctx->hw_ops[ent->id];
+#ifdef __XIAOMI_CAMERA__
+		if ((ent->id == HW_ID_AFVDD) && ctx->is_reset == 1) {
+			dev_info(ctx->dev, "%s skip power on for AF\n", __func__);
+			continue;
+		}
+#endif
 		if (!op->set) {
 			dev_dbg(ctx->dev, "cannot set comp %d val %d\n",
 				ent->id, ent->val);
@@ -244,7 +261,6 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 
 int adaptor_hw_power_on(struct adaptor_ctx *ctx)
 {
-
 #ifndef IMGSENSOR_USE_PM_FRAMEWORK
 	dev_dbg(ctx->dev, "%s power ref cnt = %d\n", __func__, ctx->power_refcnt);
 	ctx->power_refcnt++;
@@ -271,9 +287,19 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 	for (i = ctx->subdrv->pw_seq_cnt - 1; i >= 0; i--) {
 		ent = &ctx->subdrv->pw_seq[i];
 		op = &ctx->hw_ops[ent->id];
+#ifdef __XIAOMI_CAMERA__
+		if ((ent->id == HW_ID_AFVDD) && ctx->is_reset == 1) {
+			dev_info(ctx->dev, "%s skip power off for AF\n", __func__);
+			continue;
+		}
+#endif
 		if (!op->unset)
 			continue;
 		op->unset(ctx, op->data, ent->val);
+#ifdef __XIAOMI_CAMERA__
+		if (ent->delay)
+			mdelay(ent->delay);
+#endif
 		//msleep(ent->delay);
 	}
 
@@ -288,13 +314,19 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 		ctx->pinctrl = NULL;
 	}
 
+	if (ctx->sensor_ws)
+		__pm_relax(ctx->sensor_ws);
+	else
+		dev_dbg(ctx->dev, "%s fail to __pm_relax\n",
+			__func__);
+
 	//dev_dbg(ctx->dev, "%s\n", __func__);
 	return 0;
 
 }
+
 int adaptor_hw_power_off(struct adaptor_ctx *ctx)
 {
-
 #ifndef IMGSENSOR_USE_PM_FRAMEWORK
 
 	if (!ctx->power_refcnt) {
@@ -375,6 +407,9 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 	INST_OPS(ctx, regulator, REGULATOR_AVDD1, HW_ID_AVDD1,
 			set_reg, unset_reg);
 
+	INST_OPS(ctx, regulator, REGULATOR_AVDD2, HW_ID_AVDD2,
+                        set_reg, unset_reg);
+
 	if (ctx->state[STATE_MIPI_SWITCH_ON])
 		ctx->hw_ops[HW_ID_MIPI_SWITCH].set = set_state_mipi_switch;
 
@@ -405,12 +440,19 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 	INST_OPS(ctx, state, STATE_AVDD1_OFF, HW_ID_AVDD1,
 			set_state_boolean, unset_state);
 
+	INST_OPS(ctx, state, STATE_AVDD2_OFF, HW_ID_AVDD2,
+                        set_state_boolean, unset_state);
+
 	/* the pins of mipi switch are shared. free it for another users */
 	if (ctx->state[STATE_MIPI_SWITCH_ON] ||
 		ctx->state[STATE_MIPI_SWITCH_OFF]) {
 		devm_pinctrl_put(ctx->pinctrl);
 		ctx->pinctrl = NULL;
 	}
+
+#ifdef __XIAOMI_CAMERA__
+	ctx->is_reset = 0;
+#endif
 
 	return 0;
 }
@@ -427,8 +469,15 @@ int adaptor_hw_sensor_reset(struct adaptor_ctx *ctx)
 		ctx->is_sensor_inited == 1 &&
 		ctx->power_refcnt > 0) {
 
+#ifdef __XIAOMI_CAMERA__
+		/* do not power on/off for AFVDD */
+		ctx->is_reset = 1;
+#endif
 		do_hw_power_off(ctx);
 		do_hw_power_on(ctx);
+#ifdef __XIAOMI_CAMERA__
+		ctx->is_reset = 0;
+#endif
 
 		return 0;
 	}

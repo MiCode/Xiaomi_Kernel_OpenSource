@@ -348,6 +348,7 @@ struct tcpc_device {
 	struct semaphore timer_enable_mask_lock;
 	spinlock_t timer_tick_lock;
 	atomic_t pending_event;
+	atomic_t suspend_pending;
 	uint64_t timer_tick;
 	uint64_t timer_enable_mask;
 	wait_queue_head_t event_wait_que;

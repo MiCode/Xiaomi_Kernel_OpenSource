@@ -28,6 +28,7 @@ enum venc_ipi_msg_id {
 	AP_IPIMSG_ENC_ENCODE,
 	AP_IPIMSG_ENC_DEINIT,
 	AP_IPIMSG_ENC_QUERY_CAP,
+	AP_IPIMSG_ENC_BACKUP,
 
 	VCU_IPIMSG_ENC_INIT_DONE = VCU_IPIMSG_VENC_ACK_BASE,
 	VCU_IPIMSG_ENC_SET_PARAM_DONE,
@@ -35,6 +36,7 @@ enum venc_ipi_msg_id {
 	VCU_IPIMSG_ENC_DEINIT_DONE,
 	VCU_IPIMSG_ENC_QUERY_CAP_DONE,
 	VCU_IPIMSG_ENC_TRACE,
+	VCU_IPIMSG_ENC_BACKUP_DONE,
 
 	VCU_IPIMSG_ENC_POWER_ON = VCU_IPIMSG_VENC_SEND_BASE,
 	VCU_IPIMSG_ENC_POWER_OFF,
@@ -385,6 +387,7 @@ struct venc_vcu_ipi_mem_op {
 	__s32 status;
 	__u64 venc_inst;
 	struct vcodec_mem_obj mem;
+	__u32 reserved[2];
 };
 
 /*

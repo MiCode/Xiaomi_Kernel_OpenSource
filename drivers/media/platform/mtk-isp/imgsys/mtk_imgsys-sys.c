@@ -637,6 +637,7 @@ static void cmdq_cb_timeout_worker(struct work_struct *work)
 
 release_work:
 	mtk_hcp_put_gce_buffer(req->imgsys_pipe->imgsys_dev->scp_pdev);
+	media_request_put(&req->req);
 	/*vfree(swork);*/
 	pr_debug("%s leave\n", __func__);
 }
@@ -695,6 +696,7 @@ static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
 
 
 	/*swork = vzalloc(sizeof(struct gce_timeout_work));*/
+	media_request_get(&req->req);
 	swork = &(imgsys_timeout_winfo[imgsys_timeout_idx]);
 	swork->req = req;
 	swork->req_sbuf_kva = frm_info_cb->req_sbuf_kva;

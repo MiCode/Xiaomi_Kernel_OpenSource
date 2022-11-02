@@ -9,10 +9,9 @@
 #include <linux/bitops.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/pm_qos.h>
-
-#ifdef CONFIG_UFSFEATURE
 #include "ufshcd.h"
-#include "ufsfeature.h"
+#ifdef CONFIG_UFSFEATURE
+#include "vendor/ufsfeature.h"
 #endif
 
 /*
@@ -196,7 +195,6 @@ struct ufs_mtk_hw_ver {
 	u8 minor;
 	u8 major;
 };
-
 struct ufs_mtk_host {
 	struct phy *mphy;
 	struct regulator *reg_va09;

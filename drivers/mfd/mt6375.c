@@ -16,6 +16,7 @@
 #include <linux/of_platform.h>
 #include <linux/regmap.h>
 #include <linux/atomic.h>
+#include <inc/tcpci_typec.h>
 
 #define MT6375_SLAVEID_TCPC	0x4E
 #define MT6375_SLAVEID_PMU	0x34
@@ -58,6 +59,7 @@ struct mt6375_data {
 	struct irq_domain *domain;
 	struct irq_chip irq_chip;
 	struct mutex irq_lock;
+	struct tcpc_device *tcpc;
 	u8 mask_buf[MT6375_IRQ_REGS];
 	u8 chip_rev;
 	atomic_t in_sleep;
@@ -102,9 +104,11 @@ static int mt6375_regmap_write(void *context, const void *data, size_t count)
 			return ret;
 		return ret != count ? -EIO : 0;
 	}
-	return i2c_smbus_write_i2c_block_data(i2c, _data[1],
+	ret = i2c_smbus_write_i2c_block_data(i2c, _data[1],
 					      count - MT6375_REGADDR_SIZE,
 					      _data + MT6375_REGADDR_SIZE);
+
+	return ret;
 }
 
 static int mt6375_regmap_read(void *context, const void *reg_buf,
@@ -149,6 +153,7 @@ static int mt6375_regmap_read(void *context, const void *reg_buf,
 	}
 	if (ret < 0)
 		return ret;
+
 	return ret != len ? -EIO : 0;
 }
 
@@ -359,6 +364,19 @@ static int mt6375_check_devid(struct mt6375_data *ddata)
 	return 0;
 }
 
+static bool mt6375_set_tcpc_device(struct mt6375_data *data)
+{
+	if (data->tcpc)
+		goto out;
+	data->tcpc = tcpc_dev_get_by_name("type_c_port0");
+	if (!data->tcpc) {
+		dev_info(data->dev, "%s get tcpc dev fail\n", __func__);
+		return false;
+	}
+out:
+	return true;
+}
+
 static int mt6375_probe(struct i2c_client *client)
 {
 	int i, ret;
@@ -430,6 +448,7 @@ static int __maybe_unused mt6375_suspend(struct device *dev)
 
 	if (device_may_wakeup(dev))
 		enable_irq_wake(i2c->irq);
+	disable_irq(i2c->irq);
 	return 0;
 }
 
@@ -437,6 +456,7 @@ static int __maybe_unused mt6375_resume(struct device *dev)
 {
 	struct i2c_client *i2c = to_i2c_client(dev);
 
+	enable_irq(i2c->irq);
 	if (device_may_wakeup(dev))
 		disable_irq_wake(i2c->irq);
 	return 0;
@@ -460,7 +480,31 @@ static int mt6375_resume_noirq(struct device *dev)
 	return 0;
 }
 
+static int mt6375_prepare(struct device *dev)
+{
+	bool ret;
+	atomic_t suspend_pending, pending_event;
+	struct i2c_client *i2c = to_i2c_client(dev);
+	struct mt6375_data *data = i2c_get_clientdata(i2c);
+
+	dev_info(dev, "%s\n", __func__);
+	ret = mt6375_set_tcpc_device(data);
+	if (!ret)
+		return 0;
+	suspend_pending = tcpm_inquire_suspend_pending(data->tcpc);
+	pending_event = tcpm_inquire_pending_event(data->tcpc);
+	dev_info(dev, "%s: suspend_pending %d, pending_event %d\n",
+		 __func__, atomic_read(&suspend_pending),
+		 atomic_read(&pending_event));
+	suspend_pending = tcpm_inquire_suspend_pending(data->tcpc);
+	pending_event = tcpm_inquire_pending_event(data->tcpc);
+	if (atomic_read(&suspend_pending) > 0 || atomic_read(&pending_event) > 0)
+		return -EBUSY;
+	return 0;
+}
+
 static const struct dev_pm_ops mt6375_pm_ops = {
+	.prepare = mt6375_prepare,
 	SET_SYSTEM_SLEEP_PM_OPS(mt6375_suspend, mt6375_resume)
 		SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(mt6375_suspend_noirq,
 					      mt6375_resume_noirq)

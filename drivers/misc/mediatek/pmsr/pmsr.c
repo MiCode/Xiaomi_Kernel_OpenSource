@@ -78,6 +78,11 @@ static int pmsr_ipi_init(void)
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCMI)
 	tinfo = get_scmi_tinysys_info();
 
+	if (!tinfo) {
+		pr_info("get scmi info fail\n");
+		return ret;
+	}
+
 	ret = of_property_read_u32(tinfo->sdev->dev.of_node, "scmi_apmcupm",
 			&scmi_apmcupm_id);
 	if (ret) {
@@ -116,6 +121,9 @@ static ssize_t remote_data_write(struct file *fp, const char __user *userbuf,
 	static unsigned int window_len_pre;
 
 	if (kstrtou32_from_user(userbuf, count, 10, v))
+		return -EFAULT;
+
+	if (!tinfo)
 		return -EFAULT;
 
 	if ((void *)v == (void *)&cfg.pause) {
@@ -294,6 +302,9 @@ static ssize_t local_ipi_write(struct file *fp, const char __user *userbuf,
 			       size_t count, loff_t *f_pos)
 {
 	unsigned int *v = PDE_DATA(file_inode(fp));
+
+	if (v == NULL)
+		return -EFAULT;
 
 	if (kstrtou32_from_user(userbuf, count, 10, v))
 		return -EFAULT;

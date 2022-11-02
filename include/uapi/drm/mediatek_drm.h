@@ -125,10 +125,10 @@ struct msync_parameter_table {
 #define COLOR_TUNING_INDEX 19
 #define THSHP_TUNING_INDEX 24
 #define THSHP_PARAM_MAX 146 /* TDSHP_3_0 */
-#define PARTIAL_Y_INDEX 22
-#define GLOBAL_SAT_SIZE 22
-#define CONTRAST_SIZE 22
-#define BRIGHTNESS_SIZE 22
+#define PARTIAL_Y_INDEX 11
+#define GLOBAL_SAT_SIZE 101
+#define CONTRAST_SIZE 201
+#define BRIGHTNESS_SIZE 511
 #define PARTIAL_Y_SIZE 16
 #define PQ_HUE_ADJ_PHASE_CNT 4
 #define PQ_SAT_ADJ_PHASE_CNT 4
@@ -731,6 +731,10 @@ struct DRM_DISP_CCORR_COEF_T {
 	unsigned int offset[3];
 	int FinalBacklight;
 	int silky_bright_flag;
+
+	uint32_t crccoef0;
+	uint32_t crccoef1;
+	uint32_t dcthreshold;
 };
 
 enum drm_disp_gamma_id_t {

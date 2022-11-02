@@ -165,10 +165,11 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 		g_stress_test_enable ? "Enable" : "Disable",
 		gpu_opp_info.gpm_enable ? "Enable" : "Disable");
 	seq_printf(m,
-		"%-15s GPU_SB_Version: 0x%04x, GPU_PTP_Version: 0x%04x\n",
+		"%-15s GPU_SB_Ver: 0x%04x, GPU_PTP_Ver: 0x%04x, Temp_Compensate: %s\n",
 		"[Common-Status]",
 		gpu_opp_info.sb_version,
-		gpu_opp_info.ptp_version);
+		gpu_opp_info.ptp_version,
+		gpu_opp_info.temp_compensate ? "Enable" : "Disable");
 
 	mutex_unlock(&gpufreq_debug_lock);
 
@@ -444,6 +445,7 @@ static ssize_t fix_target_opp_index_proc_write(struct file *file,
 	char buf[64];
 	unsigned int len = 0;
 	int value = 0;
+	int opp_num = -1;
 
 	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
 	if (copy_from_user(buf, buffer, len)) {
@@ -454,7 +456,24 @@ static ssize_t fix_target_opp_index_proc_write(struct file *file,
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	if (sscanf(buf, "%2d", &value) == 1) {
+	if (sysfs_streq(buf, "min")) {
+		if (g_dual_buck)
+			opp_num = g_debug_stack.opp_num;
+		else
+			opp_num = g_debug_gpu.opp_num;
+		if (opp_num > 0) {
+			value = opp_num - 1;
+			ret = gpufreq_fix_target_oppidx(TARGET_DEFAULT, value);
+			if (ret) {
+				GPUFREQ_LOGE("fail to fix OPP index (%d)", ret);
+			} else {
+				if (g_dual_buck)
+					g_debug_stack.fixed_oppidx = value;
+				else
+					g_debug_gpu.fixed_oppidx = value;
+			}
+		}
+	} else if (sscanf(buf, "%2d", &value) == 1) {
 		ret = gpufreq_fix_target_oppidx(TARGET_DEFAULT, value);
 		if (ret) {
 			GPUFREQ_LOGE("fail to fix OPP index (%d)", ret);

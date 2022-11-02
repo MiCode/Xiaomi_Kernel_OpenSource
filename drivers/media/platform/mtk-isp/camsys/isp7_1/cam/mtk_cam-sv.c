@@ -18,6 +18,8 @@
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-subdev.h>
 
+#include <soc/mediatek/smi.h>
+
 #include "mtk_cam.h"
 #include "mtk_cam-feature.h"
 #include "mtk_cam_pm.h"
@@ -451,7 +453,7 @@ static const struct v4l2_subdev_video_ops mtk_camsv_subdev_video_ops = {
 };
 
 static const struct v4l2_subdev_pad_ops mtk_camsv_subdev_pad_ops = {
-	.link_validate = mtk_cam_link_validate,
+	.link_validate = mtk_cam_sv_link_validate,
 	.init_cfg = mtk_camsv_init_cfg,
 	.set_fmt = mtk_camsv_set_fmt,
 	.get_fmt = mtk_camsv_get_fmt,
@@ -730,6 +732,8 @@ void sv_reset(struct mtk_camsv_device *dev)
 			 readl(dev->base + REG_CAMSV_SW_CTL),
 			 readl(dev->base + REG_CAMSV_FRAME_SEQ_NO)
 			);
+
+		mtk_smi_dbg_hang_detect("camsys-camsv");
 
 		goto RESET_FAILURE;
 	}
@@ -1292,7 +1296,7 @@ int mtk_cam_sv_fbc_enable(
 	if (CAMSV_READ_BITS(dev->base + REG_CAMSV_TG_VF_CON,
 			CAMSV_TG_VF_CON, VFDATA_EN) == 1) {
 		ret = -1;
-		dev_dbg(dev->dev, "cannot enable fbc when streaming");
+		dev_info(dev->dev, "cannot enable fbc when streaming");
 		goto EXIT;
 	}
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSV_FBC_IMGO_CTL1,
@@ -1444,7 +1448,7 @@ int mtk_cam_sv_cal_cfg_info(struct mtk_cam_ctx *ctx,
 
 	fmt.Raw = mtk_cam_sv_format_sel(img_fmt->fmt.pix_mp.pixelformat);
 
-	cfg_in_param.fmt = fmt.Raw;
+	cfg_in_param.fmt = img_fmt->fmt.pix_mp.pixelformat;
 	cfg_in_param.in_crop.p.x = 0;
 	cfg_in_param.in_crop.p.y = 0;
 	cfg_in_param.in_crop.s.w = img_fmt->fmt.pix_mp.width;
@@ -1569,8 +1573,8 @@ int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx)
 				struct mtk_camsv_working_buf_entry, list_entry);
 		if (mtk_cam_sv_is_vf_on(camsv_dev) &&
 			(ctx->used_raw_num != 0)) {
-			if (buf_entry->is_stagger == 0 ||
-				(buf_entry->is_stagger == 1 && STAGGER_CQ_LAST_SOF == 0)) {
+			if ((CAMSV_CHECK_TS == 1) && (buf_entry->is_stagger == 0 ||
+				(buf_entry->is_stagger == 1 && STAGGER_CQ_LAST_SOF == 0))) {
 				if ((buf_entry->ts_sv == 0) ||
 					((buf_entry->ts_sv < buf_entry->ts_raw) &&
 					((buf_entry->ts_raw - buf_entry->ts_sv) > 10000000))) {
@@ -1747,6 +1751,7 @@ int mtk_cam_sv_apply_switch_buffers(struct mtk_cam_ctx *ctx)
 			base_addr =
 				buf_entry->s_data->sv_frame_params.img_out.buf[0][0].iova;
 			camsv_dev->is_enqueued = 1;
+			mtk_cam_sv_setup_cfg_info(camsv_dev, buf_entry->s_data);
 			mtk_cam_sv_enquehwbuf(camsv_dev, base_addr, seq_no);
 		}
 	}
@@ -1758,7 +1763,8 @@ int mtk_cam_sv_dev_config(
 	struct mtk_cam_ctx *ctx,
 	unsigned int idx,
 	unsigned int hw_scen,
-	unsigned int exp_order)
+	unsigned int exp_order,
+	unsigned int pixelmode)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct device *dev = cam->dev;
@@ -1768,7 +1774,8 @@ int mtk_cam_sv_dev_config(
 	struct mtk_camsv_device *camsv_dev;
 	struct v4l2_format *img_fmt;
 	unsigned int i;
-	int ret, pad_idx, pixel_mode = 0;
+	int ret, pad_idx;
+	int cfg_pixel_mode = pixelmode;
 
 	if (hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
 		if (hw_scen & (1 << MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW)) {
@@ -1782,6 +1789,8 @@ int mtk_cam_sv_dev_config(
 			pad_idx = PAD_SRC_RAW0;
 			mf = &ctx->pipe->cfg[MTK_RAW_SINK].mbus_fmt;
 		}
+		/* Use pixmode from raw pad */
+		mtk_cam_seninf_get_pixelmode(ctx->seninf, pad_idx, &cfg_pixel_mode);
 	} else {
 		img_fmt = &ctx->sv_pipe[idx]
 			->vdev_nodes[MTK_CAMSV_MAIN_STREAM_OUT-MTK_CAMSV_SINK_NUM].active_fmt;
@@ -1790,8 +1799,7 @@ int mtk_cam_sv_dev_config(
 	}
 
 	/* Update cfg_in_param */
-	mtk_cam_seninf_get_pixelmode(ctx->seninf, pad_idx, &pixel_mode);
-	cfg_in_param.pixel_mode = pixel_mode;
+	cfg_in_param.pixel_mode = cfg_pixel_mode;
 	cfg_in_param.data_pattern = 0x0;
 	cfg_in_param.in_crop.p.x = 0;
 	cfg_in_param.in_crop.p.y = 0;
@@ -1803,9 +1811,9 @@ int mtk_cam_sv_dev_config(
 	cfg_in_param.subsample = 0;
 	cfg_in_param.fmt = img_fmt->fmt.pix_mp.pixelformat;
 
-	if (cfg_in_param.in_crop.s.w % (1 << pixel_mode))
+	if (cfg_in_param.in_crop.s.w % (1 << cfg_pixel_mode))
 		dev_info(dev, "crop width(%d) is not the multiple of pixel mode(%d)\n",
-			cfg_in_param.in_crop.s.w, pixel_mode);
+			cfg_in_param.in_crop.s.w, cfg_pixel_mode);
 
 	if (hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
 		pm_runtime_get_sync(cam->sv.devs[idx]);
@@ -2380,7 +2388,7 @@ static int mtk_camsv_pm_suspend(struct device *dev)
 		return 0;
 
 	/* Disable ISP's view finder and wait for TG idle */
-	dev_dbg(dev, "camsv suspend, disable VF\n");
+	dev_info(dev, "camsv suspend, disable VF\n");
 	val = readl(camsv_dev->base + REG_CAMSV_TG_VF_CON);
 	writel(val & (~CAMSV_TG_VF_CON_VFDATA_EN),
 		camsv_dev->base + REG_CAMSV_TG_VF_CON);
@@ -2389,7 +2397,7 @@ static int mtk_camsv_pm_suspend(struct device *dev)
 					(val & CAMSV_TG_CS_MASK) == CAMSV_TG_IDLE_ST,
 					USEC_PER_MSEC, MTK_CAMSV_STOP_HW_TIMEOUT);
 	if (ret)
-		dev_dbg(dev, "can't stop HW:%d:0x%x\n", ret, val);
+		dev_info(dev, "can't stop HW:%d:0x%x\n", ret, val);
 
 	/* Disable CMOS */
 	val = readl(camsv_dev->base + REG_CAMSV_TG_SEN_MODE);
@@ -2418,7 +2426,7 @@ static int mtk_camsv_pm_resume(struct device *dev)
 		return ret;
 
 	/* Enable CMOS */
-	dev_dbg(dev, "camsv resume, enable CMOS/VF\n");
+	dev_info(dev, "camsv resume, enable CMOS/VF\n");
 	val = readl(camsv_dev->base + REG_CAMSV_TG_SEN_MODE);
 	writel(val | CAMSV_TG_SEN_MODE_CMOS_EN,
 		camsv_dev->base + REG_CAMSV_TG_SEN_MODE);
@@ -2728,10 +2736,10 @@ static int mtk_camsv_runtime_suspend(struct device *dev)
 
 	dev_dbg(dev, "%s:disable clock\n", __func__);
 
+	disable_irq(camsv_dev->irq);
+
 	for (i = 0; i < camsv_dev->num_clks; i++)
 		clk_disable_unprepare(camsv_dev->clks[i]);
-
-	disable_irq(camsv_dev->irq);
 
 	return 0;
 }

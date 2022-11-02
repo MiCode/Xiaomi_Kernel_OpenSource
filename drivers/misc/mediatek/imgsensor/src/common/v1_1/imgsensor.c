@@ -1076,7 +1076,7 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 		struct IMGSENSOR_SENSOR_LIST *psensor_list =
 			(struct IMGSENSOR_SENSOR_LIST *)pFeaturePara;
 
-		if (FeatureParaLen < 4 * sizeof(unsigned long long)) {
+		if (FeatureParaLen < 1 * sizeof(struct IMGSENSOR_SENSOR_LIST)) {
 			PK_DBG("FeatureParaLen is too small %d\n", FeatureParaLen);
 			kfree(pFeaturePara);
 			return -EINVAL;
@@ -1103,6 +1103,12 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 		/* keep the information to wait Vsync synchronize */
 		pSensorSyncInfo =
 			(struct ACDK_KD_SENSOR_SYNC_STRUCT *) pFeaturePara;
+
+		if (FeatureParaLen < 1 * sizeof(struct ACDK_KD_SENSOR_SYNC_STRUCT)) {
+			PK_DBG("FeatureParaLen is too small %d\n", FeatureParaLen);
+			kfree(pFeaturePara);
+			return -EINVAL;
+		}
 
 		FeatureParaLen = 2;
 
@@ -1854,6 +1860,12 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 				(void *)(uintptr_t) (*(pFeaturePara_64 + 1));
 			kal_uint32 index = *(pFeaturePara_64 + 2);
 			kal_uint8 *pReg = NULL;
+
+			if (FeatureParaLen < 3 * sizeof(unsigned long long)) {
+				PK_DBG("FeatureParaLen is too small %d\n", FeatureParaLen);
+				kfree(pFeaturePara);
+				return -EINVAL;
+			}
 
 			/* buffer size exam */
 			if ((sizeof(kal_uint8) * u4RegLen) >

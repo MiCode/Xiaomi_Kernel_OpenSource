@@ -1,0 +1,15 @@
+#
+# Nxp Nci protocol (I2C) devices
+#
+
+config NFC_NXP_I2C
+        tristate "NXP NCI based NFC I2C Slave Driver for SNxxx"
+        depends on I2C
+	help
+	  This module adds support for an I2C interface to the NXP NCI
+	  chips.
+	  Select this if your platform is using the I2C bus.
+
+	  To compile this driver as a module, choose m here. The module will
+	  be called nxp_nci_i2c.
+	  Say N if unsure.

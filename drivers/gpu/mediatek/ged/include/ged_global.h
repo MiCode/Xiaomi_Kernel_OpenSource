@@ -24,6 +24,8 @@ extern void ged_monitor_3D_fence_set_enable(GED_BOOL bEnable);
 
 extern unsigned int g_ui32EventStatus;
 extern unsigned int g_ui32EventDebugStatus;
+extern int g_target_fps_default;
+extern int g_target_time_default;
 
 extern void (*ged_dvfs_cal_gpu_utilization_ex_fp)(
 		unsigned int *pui32Loading,

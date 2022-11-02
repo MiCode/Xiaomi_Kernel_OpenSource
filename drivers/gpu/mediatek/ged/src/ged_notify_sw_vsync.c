@@ -420,6 +420,7 @@ bool ged_gpu_power_on_notified;
 bool ged_gpu_power_off_notified;
 void ged_dvfs_gpu_clock_switch_notify(bool bSwitch)
 {
+	int opp_idx = 0;
 
 	if (bSwitch) {
 		ged_gpu_power_on_notified = true;
@@ -428,7 +429,13 @@ void ged_dvfs_gpu_clock_switch_notify(bool bSwitch)
 
 #ifdef GED_DCS_POLICY
 		if (g_ns_gpu_on_ts - g_ns_gpu_off_ts > GED_DVFS_FB_TIMER_TIMEOUT)
-			dcs_restore_max_core_mask();
+			if (is_dcs_enable() &&
+				dcs_get_cur_core_num() < dcs_get_max_core_num) {
+					opp_idx = ged_get_min_oppidx_real();
+					ged_dvfs_gpu_freq_commit(opp_idx,
+						ged_get_freq_by_idx(opp_idx),
+						GED_DVFS_FB_FALLBACK_COMMIT);
+				}
 #endif /* GED_DCS_POLICY */
 
 		g_bGPUClock = true;

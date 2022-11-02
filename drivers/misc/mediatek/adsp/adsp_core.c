@@ -463,34 +463,6 @@ static void adsp_set_dram_remap(void)
 		      adsp_cores[ADSP_A_ID]->sysram_phys, size);
 }
 
-static void adsp_sram_restore_snapshot(struct adsp_priv *pdata)
-{
-	if (!pdata->itcm || !pdata->itcm_snapshot || !pdata->itcm_size ||
-	    !pdata->dtcm || !pdata->dtcm_snapshot || !pdata->dtcm_size)
-		return;
-
-	memcpy_toio(pdata->itcm, pdata->itcm_snapshot, pdata->itcm_size);
-	memcpy_toio(pdata->dtcm, pdata->dtcm_snapshot, pdata->dtcm_size);
-}
-
-static void adsp_sram_provide_snapshot(struct adsp_priv *pdata)
-{
-	if (!pdata->itcm || !pdata->dtcm)
-		return;
-
-	if (!pdata->itcm_snapshot)
-		pdata->itcm_snapshot = vmalloc(pdata->itcm_size);
-
-	if (!pdata->dtcm_snapshot)
-		pdata->dtcm_snapshot = vmalloc(pdata->dtcm_size);
-
-	if (!pdata->itcm_snapshot || !pdata->dtcm_snapshot)
-		return;
-
-	memcpy_fromio(pdata->itcm_snapshot, pdata->itcm, pdata->itcm_size);
-	memcpy_fromio(pdata->dtcm_snapshot, pdata->dtcm, pdata->dtcm_size);
-}
-
 int adsp_reset(void)
 {
 #ifdef CFG_RECOVERY_SUPPORT
@@ -509,11 +481,8 @@ int adsp_reset(void)
 	adsp_select_clock_mode(CLK_LOW_POWER);
 	adsp_select_clock_mode(CLK_DEFAULT_INIT);
 
-	/* restore tcm to initial state */
-	for (cid = 0; cid < get_adsp_core_total(); cid++) {
-		pdata = adsp_cores[cid];
-		adsp_sram_restore_snapshot(pdata);
-	}
+	/* reload adsp */
+	adsp_smc_send(MTK_ADSP_KERNEL_OP_RELOAD, 0, 0);
 
 	/* restart adsp */
 	for (cid = 0; cid < get_adsp_core_total(); cid++) {
@@ -646,13 +615,12 @@ int adsp_system_bootup(void)
 			goto ERROR;
 		}
 
-		adsp_sram_provide_snapshot(pdata);
-
 		reinit_completion(&pdata->done);
 		adsp_core_start(cid);
-		ret = wait_for_completion_timeout(&pdata->done, HZ);
+		ret = wait_for_completion_timeout(&pdata->done, 2 * HZ);
 
 		if (unlikely(ret == 0)) {
+			adsp_core_stop(cid);
 			pr_warn("%s, core %d boot_up timeout\n", __func__, cid);
 			ret = -ETIME;
 			goto ERROR;

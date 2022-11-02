@@ -36,7 +36,7 @@
 #if KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE
 //#include "linux/bootprof.h"
 #else
-#include "bootprof.h
+#include "bootprof.h"
 #endif /* KERNEL_VERSION */
 #endif /* CONFIG_MTPROF */
 
@@ -84,7 +84,7 @@ DECLARE_SEMA(pm_sema, 0);
 DECLARE_COMPLETION(boot_decryto_lock);
 
 #if !IS_ENABLED(CONFIG_MICROTRUST_DYNAMIC_CORE)
-#define TZ_PREFER_BIND_CORE (6)
+#define TZ_PREFER_BIND_CORE (7)
 #endif
 
 #define TEEI_RT_POLICY			(0x01)

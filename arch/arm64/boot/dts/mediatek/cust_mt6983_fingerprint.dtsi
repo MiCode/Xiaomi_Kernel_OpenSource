@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+
+/* fingerprint start */
+
+
+&spi7 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	fingerprint@0 {
+		compatible = "goodix,goodix-fp";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+		netlink-event = <30>;
+		vfp-supply = <&mt6373_vfp>;
+		power-type = <1>;
+		status = "okay";
+	};
+};
+
+&fingerprint {
+	pinctrl-names = "default", "reset_high", "reset_low", "eint_init", "spi_cs";
+	pinctrl-0 = <&fingerprint_default>;
+	pinctrl-1 = <&fingerprint_reset_high>;
+	pinctrl-2 = <&fingerprint_reset_low>;
+	pinctrl-3 = <&fingerprint_eint_init>;
+	pinctrl-4 = <&fingerprint_spi_cs>;
+	fpc,gpio_irq = <&pio 9 0>;
+	interrupt-parent = <&pio>;
+	interrupts = <9 IRQ_TYPE_EDGE_RISING 9 0>;
+	status = "okay";
+};
+
+&pio {
+	fingerprint_default: state_default {
+	};
+	fingerprint_reset_high: state_reset_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO69__FUNC_GPIO69>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fingerprint_reset_low: state_reset_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO69__FUNC_GPIO69>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	fingerprint_eint_init: state_eint_init {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO9__FUNC_GPIO9>;
+			slew-rate = <0>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_10>;
+			input-schmitt-enable;
+		};
+	};
+	fingerprint_spi_cs: state_spi_cs {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO169__FUNC_SPI7_B_CSB>;
+			slew-rate = <0>;
+			bias-disable;
+		};
+	};	
+};
+
+/* fingerprint end */

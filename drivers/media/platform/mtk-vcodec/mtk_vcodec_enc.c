@@ -62,7 +62,8 @@ static void set_venc_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_i
 		mtk_v4l2_debug(3, "[%d] mtk_venc_property_prev %s",
 					ctx->id, mtk_venc_property_prev);
 
-		if (strcmp(mtk_venc_property_prev, enc_prm.set_vcp_buf) != 0 &&
+		// set vcp log every time
+		if (/* strcmp(mtk_venc_property_prev, enc_prm.set_vcp_buf) != 0 && */
 			strlen(enc_prm.set_vcp_buf) != 0) {
 
 			if (venc_if_set_param(ctx,
@@ -79,7 +80,8 @@ static void set_venc_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_i
 		mtk_v4l2_debug(3, "[%d] mtk_venc_vcp_log %s", ctx->id, enc_prm.set_vcp_buf);
 		mtk_v4l2_debug(3, "[%d] mtk_venc_vcp_log_prev %s", ctx->id, mtk_venc_vcp_log_prev);
 
-		if (strcmp(mtk_venc_vcp_log_prev, enc_prm.set_vcp_buf) != 0 &&
+		// set vcp log every time
+		if (/* strcmp(mtk_venc_vcp_log_prev, enc_prm.set_vcp_buf) != 0 && */
 			strlen(enc_prm.set_vcp_buf) != 0) {
 
 			if (venc_if_set_param(ctx,
@@ -550,7 +552,10 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		ctx->param_change |= MTK_ENCODE_PARAM_DUMMY_NAL;
 		break;
 	case V4L2_CID_MPEG_MTK_LOG:
-		mtk_vcodec_set_log(ctx->dev, ctrl->p_new.p_char);
+		mtk_vcodec_set_log(ctx->dev, ctrl->p_new.p_char, MTK_VCODEC_LOG_INDEX_LOG);
+		break;
+	case V4L2_CID_MPEG_MTK_VCP_PROP:
+		mtk_vcodec_set_log(ctx->dev, ctrl->p_new.p_char, MTK_VCODEC_LOG_INDEX_PROP);
 		break;
 	default:
 		mtk_v4l2_debug(4, "ctrl-id=%d not support!", ctrl->id);
@@ -2104,8 +2109,10 @@ static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 		ctx->state = MTK_STATE_INIT;
 	}
 
+	mutex_lock(&ctx->dev->enc_dvfs_mutex);
 	mtk_venc_dvfs_begin_inst(ctx);
 	mtk_venc_pmqos_begin_inst(ctx);
+	mutex_unlock(&ctx->dev->enc_dvfs_mutex);
 
 	return 0;
 
@@ -2183,8 +2190,10 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 				v4l2_m2m_buf_done(src_vb2_v4l2, VB2_BUF_STATE_ERROR);
 		}
 		ctx->enc_flush_buf->lastframe = NON_EOS;
+		mutex_lock(&ctx->dev->enc_dvfs_mutex);
 		mtk_venc_dvfs_end_inst(ctx);
 		mtk_venc_pmqos_end_inst(ctx);
+		mutex_unlock(&ctx->dev->enc_dvfs_mutex);
 	}
 
 	if ((q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
@@ -3329,6 +3338,18 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.type = V4L2_CTRL_TYPE_STRING;
 	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
 	cfg.name = "Video Log";
+	cfg.min = 0;
+	cfg.max = 255;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_VCP_PROP;
+	cfg.type = V4L2_CTRL_TYPE_STRING;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video VCP Property";
 	cfg.min = 0;
 	cfg.max = 255;
 	cfg.step = 1;

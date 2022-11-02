@@ -356,7 +356,7 @@ static ssize_t mt_printk_ctrl_write(struct file *filp,
 	switch (val) {
 #ifdef CONFIG_MTK_PRINTK_UART_CONSOLE
 	case 0:
-		update_uartlog_status(true, 0);
+		//update_uartlog_status(true, 0);
 		break;
 	case 1:
 		update_uartlog_status(true, 1);

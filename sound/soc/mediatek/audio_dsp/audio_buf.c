@@ -293,12 +293,12 @@ void RingBuf_update_writeptr(struct RingBuf *RingBuf1, unsigned int count)
 			  __func__, count,
 			  RingBuf1->datacount, RingBuf1->bufLen);
 
-		if (RingBuf1->pRead >= RingBuf1->pWrite)
+		if (RingBuf1->pWrite >= RingBuf1->pRead)
 			RingBuf1->datacount =
-			RingBuf1->pRead - RingBuf1->pWrite;
+				RingBuf1->pWrite - RingBuf1->pRead;
 		else
 			RingBuf1->datacount =
-			RingBuf1->pWrite + RingBuf1->bufLen - RingBuf1->pRead;
+				RingBuf1->pRead + RingBuf1->bufLen - RingBuf1->pWrite;
 	} else
 		RingBuf1->datacount += count;
 

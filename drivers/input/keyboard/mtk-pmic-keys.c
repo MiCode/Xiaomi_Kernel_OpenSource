@@ -4,7 +4,6 @@
  *
  * Author: Chen Zhong <chen.zhong@mediatek.com>
  */
-
 #include <linux/input.h>
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
@@ -219,7 +218,7 @@ static irqreturn_t mtk_pmic_keys_release_irq_handler_thread(
 	input_sync(info->keys->input_dev);
 	if (info->suspend_lock)
 		__pm_relax(info->suspend_lock);
-	dev_dbg(info->keys->dev, "release key =%d using PMIC\n",
+	dev_info(info->keys->dev, "release key =%d using PMIC\n",
 			info->keycode);
 	return IRQ_HANDLED;
 }
@@ -244,7 +243,7 @@ static irqreturn_t mtk_pmic_keys_irq_handler_thread(int irq, void *data)
 		__pm_stay_awake(info->suspend_lock);
 	else if (info->suspend_lock)
 		__pm_relax(info->suspend_lock);
-	dev_dbg(info->keys->dev, "(%s) key =%d using PMIC\n",
+	dev_info(info->keys->dev, "(%s) key =%d using PMIC\n",
 		 pressed ? "pressed" : "released", info->keycode);
 
 	return IRQ_HANDLED;
@@ -279,7 +278,7 @@ static int mtk_pmic_key_setup(struct mtk_pmic_keys *keys,
 				IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
 				"mtk-pmic-keys", info);
 		if (ret) {
-			dev_dbg(keys->dev, "Failed to request IRQ: %d: %d\n",
+			dev_err(keys->dev, "Failed to request IRQ: %d: %d\n",
 				info->release_irq_num, ret);
 			return ret;
 		}
@@ -358,7 +357,7 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
 	if (!keys->regmap) {
 		pmic_chip =  dev_get_drvdata(pdev->dev.parent);
 		if (!pmic_chip || !pmic_chip->regmap) {
-			dev_info(keys->dev, "failed to get pmic key regmap\n");
+			dev_err(keys->dev, "failed to get pmic key regmap\n");
 			return -ENODEV;
 		}
 

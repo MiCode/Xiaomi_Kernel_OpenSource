@@ -2144,10 +2144,9 @@ static void ufs_mtk_fixup_dev_quirks(struct ufs_hba *hba)
 
 	ufshcd_fixup_dev_quirks(hba, ufs_mtk_dev_fixups);
 
-	if (dev_info->wmanufacturerid == UFS_VENDOR_MICRON) {
+	if (dev_info->wmanufacturerid == UFS_VENDOR_MICRON)
 		host->caps |= UFS_MTK_CAP_BROKEN_VCC;
-		dev_info->hpb_enabled = false;
-	}
+
 
 	if (ufs_mtk_is_delay_after_vcc_off(hba) && hba->vreg_info.vcc) {
 		/*
@@ -2229,6 +2228,10 @@ static void ufs_mtk_hibern8_notify(struct ufs_hba *hba, enum uic_cmd_dme cmd,
 
 	if (status == PRE_CHANGE && cmd == UIC_CMD_DME_HIBER_ENTER)
 		ufs_mtk_auto_hibern8_disable(hba);
+
+	if (status == POST_CHANGE && cmd == UIC_CMD_DME_HIBER_ENTER &&
+		hba->dev_info.wmanufacturerid == UFS_VENDOR_MICRON)
+		usleep_range(5000, 5100);
 }
 
 void ufs_mtk_setup_task_mgmt(struct ufs_hba *hba, int tag, u8 tm_function)

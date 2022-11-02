@@ -817,6 +817,32 @@ static ssize_t utc_count_show(struct kobject *kobj,
 	return len;
 }
 
+static ssize_t sports_mode_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+	int enable = therm_intf_read_csram_s32(SPORTS_MODE_ENABLE);
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n", enable);
+
+	return len;
+}
+
+static ssize_t sports_mode_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int enable = 0;
+
+	if (!kstrtoint(buf, 10, &enable))
+		therm_intf_write_csram(enable, SPORTS_MODE_ENABLE);
+	else {
+		pr_info("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	return count;
+}
+
 static struct kobj_attribute ttj_attr = __ATTR_RW(ttj);
 static struct kobj_attribute power_budget_attr = __ATTR_RW(power_budget);
 static struct kobj_attribute cpu_info_attr = __ATTR_RO(cpu_info);
@@ -837,6 +863,7 @@ static struct kobj_attribute max_ttj_attr = __ATTR_RW(max_ttj);
 static struct kobj_attribute min_ttj_attr = __ATTR_RW(min_ttj);
 static struct kobj_attribute min_throttle_freq_attr =
 	__ATTR_RW(min_throttle_freq);
+static struct kobj_attribute sports_mode_attr = __ATTR_RW(sports_mode);
 
 
 static struct attribute *thermal_attrs[] = {
@@ -859,6 +886,7 @@ static struct attribute *thermal_attrs[] = {
 	&min_ttj_attr.attr,
 	&utc_count_attr.attr,
 	&min_throttle_freq_attr.attr,
+	&sports_mode_attr.attr,
 	NULL
 };
 static struct attribute_group thermal_attr_group = {

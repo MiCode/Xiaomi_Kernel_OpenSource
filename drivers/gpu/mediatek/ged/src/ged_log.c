@@ -1127,7 +1127,7 @@ static int ged_log_buf_dump(struct GED_LOG_BUF *psGEDLogBuf, int i)
 			t = line->time;
 			nanosec_rem = do_div(t, 1000000000);
 
-			pr_debug("[%5llu.%06lu] ", t, nanosec_rem / 1000);
+			pr_info("[%5llu.%06lu] ", t, nanosec_rem / 1000);
 		}
 
 #if defined(CONFIG_RTC_LIB)
@@ -1138,14 +1138,14 @@ static int ged_log_buf_dump(struct GED_LOG_BUF *psGEDLogBuf, int i)
 			local_time = line->time;
 			rtc_time64_to_tm(local_time, &tm);
 
-			pr_debug("%02d-%02d %02d:%02d:%02d.%06lu %5d %5d ",
+			pr_info("%02d-%02d %02d:%02d:%02d.%06lu %5d %5d ",
 					tm.tm_mon + 1, tm.tm_mday,
 					tm.tm_hour, tm.tm_min, tm.tm_sec,
 					line->time_usec, line->pid, line->tid);
 		}
 #endif
 
-		pr_debug("%s\n", psGEDLogBuf->pcBuffer + line->offset);
+		pr_info("%s\n", psGEDLogBuf->pcBuffer + line->offset);
 	}
 
 	return err;
@@ -1162,7 +1162,7 @@ void ged_log_dump(GED_LOG_BUF_HANDLE hLogBuf)
 			psGEDLogBuf->ulIRQFlags);
 
 		if (psGEDLogBuf->acName[0] != '\0')
-			pr_debug("---------- %s (%d/%d) ----------\n",
+			pr_info("---------- %s (%d/%d) ----------\n",
 				psGEDLogBuf->acName,
 				psGEDLogBuf->i32BufferCurrent,
 				psGEDLogBuf->i32BufferSize);
@@ -1181,10 +1181,15 @@ void ged_log_dump(GED_LOG_BUF_HANDLE hLogBuf)
 				if (ged_log_buf_dump(psGEDLogBuf, i) != 0)
 					break;
 
+		if (psGEDLogBuf->acName[0] != '\0')
+			pr_info("-------------------------------\n");
+
 		spin_unlock_irqrestore(&psGEDLogBuf->sSpinLock,
 			psGEDLogBuf->ulIRQFlags);
 	}
 }
+EXPORT_SYMBOL(ged_log_dump);
+
 static noinline int tracing_mark_write(const char *buf)
 {
 	trace_printk(buf);

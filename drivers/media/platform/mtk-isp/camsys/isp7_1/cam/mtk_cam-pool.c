@@ -486,3 +486,4 @@ mtk_cam_mraw_working_buf_get(struct mtk_cam_ctx *ctx)
 	dev_dbg(ctx->cam->dev, "%s:ctx(%d):e\n", __func__, ctx->stream_id);
 	return buf_entry;
 }
+

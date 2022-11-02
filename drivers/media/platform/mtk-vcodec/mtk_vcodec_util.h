@@ -51,7 +51,8 @@ enum vdec_fb_status {
 	FB_ST_INIT              = 0,
 	FB_ST_DISPLAY           = (1 << 0),
 	FB_ST_FREE              = (1 << 1),
-	FB_ST_EOS               = (1 << 2)
+	FB_ST_EOS               = (1 << 2),
+	FB_ST_NO_GENERATED      = (1 << 3)
 };
 
 /**
@@ -84,6 +85,11 @@ struct mtk_vcodec_log_param {
 	char param_key[LOG_PARAM_INFO_SIZE];
 	char param_val[LOG_PARAM_INFO_SIZE];
 	struct list_head list;
+};
+
+enum mtk_vcodec_log_index {
+	MTK_VCODEC_LOG_INDEX_LOG = 1,
+	MTK_VCODEC_LOG_INDEX_PROP = 1 << 1
 };
 
 struct mtk_vcodec_ctx;
@@ -258,6 +264,7 @@ int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev,
 	struct dma_buf_attachment *attach, struct sg_table *sgt);
 #endif
 
-void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val);
+void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val,
+	enum mtk_vcodec_log_index log_index);
 
 #endif /* _MTK_VCODEC_UTIL_H_ */

@@ -86,6 +86,7 @@ struct mtk_cam_dump_param {
 struct mtk_cam_seninf_dump_work {
 	struct work_struct work;
 	struct v4l2_subdev *seninf;
+	unsigned int frame_seq_no;
 };
 
 struct mtk_cam_req_dbg_work {

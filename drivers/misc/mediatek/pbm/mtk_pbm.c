@@ -626,7 +626,10 @@ static void pbm_cpu_frequency_tracer(void *ignore, unsigned int frequency, unsig
 {
 	struct cpufreq_policy *policy = NULL;
 	struct cpu_pbm_policy *pbm_policy;
-	unsigned int cpu, num_cpus, freq;
+	unsigned int cpu;
+
+	if (!g_start_polling)
+		return;
 
 	policy = cpufreq_cpu_get(cpu_id);
 	if (!policy)
@@ -640,12 +643,15 @@ static void pbm_cpu_frequency_tracer(void *ignore, unsigned int frequency, unsig
 		cpu = pbm_policy->policy->cpu;
 
 		if (cpu == cpu_id)
-			freq = frequency;
+			pbm_policy->freq = frequency;
+		else if (pbm_policy->freq == 0)
+			pbm_policy->freq = cpufreq_quick_get(cpu);
 		else
-			freq = cpufreq_quick_get(cpu);
+			continue;
 
-		num_cpus = cpumask_weight(pbm_policy->policy->cpus);
-		pbm_policy->power = cpu_freq_to_power(pbm_policy, freq) * num_cpus;
+		pbm_policy->num_cpus = cpumask_weight(pbm_policy->policy->cpus);
+		pbm_policy->power = cpu_freq_to_power(pbm_policy, pbm_policy->freq) *
+			pbm_policy->num_cpus;
 	}
 
 	cpufreq_cpu_put(policy);

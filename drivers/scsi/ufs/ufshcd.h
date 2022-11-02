@@ -81,7 +81,6 @@ enum ufs_event_type {
 
 	UFS_EVT_CNT,
 };
-
 /**
  * struct uic_command - UIC command structure
  * @command: UIC command
