@@ -4324,6 +4324,39 @@ bail:
 	return err;
 }
 
+/*
+ * Function to restrict duplicate session creation with same tgid, cid.
+ * Check introduced after extended session creation
+ * to avoid breaking in case of extended sessions.
+ */
+
+static bool fastrpc_session_exists(struct fastrpc_apps *me, uint32_t cid, int tgid)
+{
+	struct fastrpc_file *fl;
+	struct hlist_node *n;
+	bool session_found = false;
+	unsigned long irq_flags = 0;
+	int total_session_count = 0;
+
+	spin_lock_irqsave(&me->hlock, irq_flags);
+	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
+		if (fl->tgid == tgid && fl->cid == cid) {
+			++total_session_count;
+			if (total_session_count > 1) {
+				session_found = true;
+				break;
+			}
+		}
+	}
+	spin_unlock_irqrestore(&me->hlock, irq_flags);
+	if (session_found)
+		ADSPRPC_ERR(
+			"trying to open a session that already exists for tgid %d, channel ID %u\n",
+			tgid, cid);
+
+	return session_found;
+}
+
 static int fastrpc_init_process(struct fastrpc_file *fl,
 				struct fastrpc_ioctl_init_attrs *uproc)
 {
@@ -4348,6 +4381,11 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 	VERIFY(err, VALID_FASTRPC_CID(cid));
 	if (err) {
 		err = -ECHRNG;
+		goto bail;
+	}
+	VERIFY(err, !fastrpc_session_exists(me, fl->cid, fl->tgid));
+	if (err) {
+		err = -EEXIST;
 		goto bail;
 	}
 	chan = &me->channel[cid];
@@ -5713,7 +5751,6 @@ skip_dump_wait:
 		fastrpc_session_free(&fl->apps->channel[cid], fl->sctx);
 	if (!err && fl->secsctx)
 		fastrpc_session_free(&fl->apps->channel[cid], fl->secsctx);
-
 	fastrpc_remote_buf_list_free(fl);
 	mutex_destroy(&fl->map_mutex);
 	mutex_destroy(&fl->internal_map_mutex);
@@ -6212,29 +6249,6 @@ bail:
 	return err;
 }
 
-static bool fastrpc_session_exists(struct fastrpc_apps *me, uint32_t cid, int tgid)
-{
-	struct fastrpc_file *fl;
-	struct hlist_node *n;
-	bool session_found = false;
-	unsigned long irq_flags = 0;
-
-	spin_lock_irqsave(&me->hlock, irq_flags);
-	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
-		if (fl->tgid == tgid && fl->cid == cid) {
-			session_found = true;
-			break;
-		}
-	}
-	spin_unlock_irqrestore(&me->hlock, irq_flags);
-	if (session_found)
-		ADSPRPC_ERR(
-			"trying to open a session that already exists for tgid %d, channel ID %u\n",
-			tgid, cid);
-
-	return session_found;
-}
-
 static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 {
 	int err = 0;
@@ -6249,12 +6263,6 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 	err = fastrpc_set_process_info(fl, cid);
 	if (err)
 		goto bail;
-
-	VERIFY(err, !fastrpc_session_exists(me, cid, fl->tgid));
-	if (err) {
-		err = -EEXIST;
-		goto bail;
-	}
 	if (fl->cid == -1) {
 		struct fastrpc_channel_ctx *chan = NULL;
 		VERIFY(err, cid < NUM_CHANNELS);
