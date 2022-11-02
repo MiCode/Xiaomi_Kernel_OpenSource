@@ -3076,6 +3076,8 @@ int icnss_get_soc_info(struct device *dev, struct icnss_soc_info *info)
 	strlcpy(info->fw_build_timestamp,
 		priv->fw_version_info.fw_build_timestamp,
 		WLFW_MAX_TIMESTAMP_LEN + 1);
+	strlcpy(info->fw_build_id, priv->fw_build_id,
+		ICNSS_WLFW_MAX_BUILD_ID_LEN + 1);
 
 	return 0;
 }
