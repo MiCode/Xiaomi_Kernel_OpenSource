@@ -13,6 +13,8 @@
  *	- Non-secure access to the SMMU
  *	- Context fault reporting
  *	- Extended Stream ID (16 bit)
+ *
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "arm-smmu: " fmt
@@ -3285,10 +3287,26 @@ static int arm_smmu_sid_switch(struct device *dev,
 	return ret;
 }
 
+static int arm_smmu_get_asid_nr(struct iommu_domain *domain)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	int ret;
+
+	mutex_lock(&smmu_domain->init_mutex);
+	if (!smmu_domain->smmu)
+		ret = -EINVAL;
+	else
+		ret = smmu_domain->cfg.asid;
+	mutex_unlock(&smmu_domain->init_mutex);
+	return ret;
+}
+
 static struct qcom_iommu_ops arm_smmu_ops = {
 	.iova_to_phys_hard = arm_smmu_iova_to_phys_hard,
 	.sid_switch		= arm_smmu_sid_switch,
 	.get_fault_ids		= arm_smmu_get_fault_ids,
+	.get_asid_nr		= arm_smmu_get_asid_nr,
+
 	.iommu_ops = {
 		.capable		= arm_smmu_capable,
 		.domain_alloc		= arm_smmu_domain_alloc,
