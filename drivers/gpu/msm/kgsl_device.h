@@ -318,6 +318,8 @@ struct kgsl_device {
 	struct reset_control *freq_limiter_irq_clear;
 	/** @freq_limiter_intr_num: The interrupt number for freq limiter */
 	int freq_limiter_intr_num;
+	/** @bcl_data_kobj: Kobj for bcl_data sysfs node */
+	struct kobject bcl_data_kobj;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \

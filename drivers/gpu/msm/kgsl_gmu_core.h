@@ -235,6 +235,8 @@ struct gmu_dev_ops {
 	int (*wait_for_active_transition)(struct kgsl_device *device);
 	bool (*scales_bandwidth)(struct kgsl_device *device);
 	int (*acd_set)(struct kgsl_device *device, bool val);
+	int (*bcl_sid_set)(struct kgsl_device *device, u32 sid_id, u64 sid_val);
+	u64 (*bcl_sid_get)(struct kgsl_device *device, u32 sid_id);
 };
 
 /**
