@@ -4244,7 +4244,27 @@ static int __maybe_unused arm_smmu_pm_suspend(struct device *dev)
 	return arm_smmu_runtime_suspend(dev);
 }
 
+static int arm_smmu_pm_prepare(struct device *dev)
+{
+	if (!of_device_is_compatible(dev->of_node, "qcom,adreno-smmu"))
+		return 0;
+
+	/*
+	 * In case of GFX smmu, race between rpm_suspend and system suspend could
+	 * cause a deadlock where cx vote is never put down causing timeout. So,
+	 * abort system suspend here if dev->power.usage_count is 1 as this indicates
+	 * rpm_suspend is in progress and prepare is the one incrementing this counter.
+	 * Now rpm_suspend can continue and put down cx vote. System suspend will resume
+	 * later and complete.
+	 */
+	if (pm_runtime_suspended(dev))
+		return 0;
+
+	return (atomic_read(&dev->power.usage_count) == 1) ? -EINPROGRESS : 0;
+}
+
 static const struct dev_pm_ops arm_smmu_pm_ops = {
+	.prepare = arm_smmu_pm_prepare,
 	SET_SYSTEM_SLEEP_PM_OPS(arm_smmu_pm_suspend, arm_smmu_pm_resume)
 	SET_RUNTIME_PM_OPS(arm_smmu_runtime_suspend,
 			   arm_smmu_runtime_resume, NULL)
