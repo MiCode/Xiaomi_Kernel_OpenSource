@@ -247,24 +247,12 @@ static void hgsl_mem_dma_buf_release(struct dma_buf *dmabuf)
 	hgsl_mem_free_actual(mem_node);
 }
 
-static void *hgsl_mem_dma_buf_kmap(struct dma_buf *dmabuf,
-		unsigned long offset)
-{
-	return NULL;
-}
-
-static void hgsl_mem_dma_buf_kunmap(struct dma_buf *dmabuf,
-		unsigned long offset,
-		void *ptr)
-{
-}
-
-static void *hgsl_mem_dma_buf_vmap(struct dma_buf *dmabuf)
+static int hgsl_mem_dma_buf_vmap(struct dma_buf *dmabuf, struct dma_buf_map *map)
 {
 	struct hgsl_mem_node *mem_node = dmabuf->priv;
 
 	if (mem_node->flags & GSL_MEMFLAGS_PROTECTED)
-		return ERR_PTR(-EINVAL);
+		return -EINVAL;
 
 	mutex_lock(&hgsl_map_global_lock);
 	if (IS_ERR_OR_NULL(mem_node->vmapping))
@@ -277,10 +265,14 @@ static void *hgsl_mem_dma_buf_vmap(struct dma_buf *dmabuf)
 		mem_node->vmap_count++;
 	mutex_unlock(&hgsl_map_global_lock);
 
-	return mem_node->vmapping;
+	if (!mem_node->vmapping)
+		return -ENOMEM;
+
+	dma_buf_map_set_vaddr(map, mem_node->vmapping);
+	return 0;
 }
 
-static void hgsl_mem_dma_buf_vunmap(struct dma_buf *dmabuf, void *vaddr)
+static void hgsl_mem_dma_buf_vunmap(struct dma_buf *dmabuf, struct dma_buf_map *map)
 {
 	struct hgsl_mem_node *mem_node = dmabuf->priv;
 
@@ -308,8 +300,6 @@ static struct dma_buf_ops dma_buf_ops = {
 	.unmap_dma_buf = hgsl_mem_unmap_dma_buf,
 	.mmap = hgsl_mem_mmap,
 	.release = hgsl_mem_dma_buf_release,
-	.map = hgsl_mem_dma_buf_kmap,
-	.unmap = hgsl_mem_dma_buf_kunmap,
 	.vmap = hgsl_mem_dma_buf_vmap,
 	.vunmap = hgsl_mem_dma_buf_vunmap,
 };

@@ -56,7 +56,8 @@ struct db_buffer {
 
 struct doorbell_queue {
 	struct dma_buf *dma;
-	void  *vbase;
+	struct dma_buf_map map;
+	void *vbase;
 	struct db_buffer data;
 	uint32_t state;
 	int tcsr_idx;
@@ -113,6 +114,7 @@ struct qcom_hgsl {
  **/
 struct hgsl_context {
 	struct hgsl_priv *priv;
+	struct dma_buf_map map;
 	uint32_t context_id;
 	uint32_t devhandle;
 	uint32_t flags;

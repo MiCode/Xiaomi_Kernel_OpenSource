@@ -694,7 +694,7 @@ static void hgsl_reset_dbq(struct doorbell_queue *dbq)
 		dma_buf_end_cpu_access(dbq->dma,
 				       DMA_BIDIRECTIONAL);
 		if (dbq->vbase) {
-			dma_buf_vunmap(dbq->dma, dbq->vbase);
+			dma_buf_vunmap(dbq->dma, &dbq->map);
 			dbq->vbase = NULL;
 		}
 		dma_buf_put(dbq->dma);
@@ -966,12 +966,11 @@ static int hgsl_dbq_init(struct qcom_hgsl *hgsl,
 	atomic_set(&dbq->seq_num, 0);
 
 	dma_buf_begin_cpu_access(dbq->dma, DMA_BIDIRECTIONAL);
-	dbq->vbase = dma_buf_vmap(dbq->dma);
-	if (dbq->vbase == NULL) {
-		ret = -EFAULT;
+	ret = dma_buf_vmap(dbq->dma, &dbq->map);
+	if (ret)
 		goto err;
-	}
 
+	dbq->vbase = dbq->map.vaddr;
 	dbq->data.vaddr = (uint32_t *)dbq->vbase +
 		hgsl->dbq_info[dbq_idx].queue_off_dwords;
 	dbq->data.dwords = hgsl->dbq_info[dbq_idx].queue_dwords;
@@ -1000,7 +999,7 @@ err:
 static inline void _unmap_shadow(struct hgsl_context *ctxt)
 {
 	if (ctxt->shadow_ts) {
-		dma_buf_vunmap(ctxt->shadow_ts_node.dma_buf, ctxt->shadow_ts);
+		dma_buf_vunmap(ctxt->shadow_ts_node.dma_buf, &ctxt->map);
 		dma_buf_end_cpu_access(ctxt->shadow_ts_node.dma_buf, DMA_FROM_DEVICE);
 		ctxt->shadow_ts = NULL;
 	}
@@ -1148,7 +1147,6 @@ static void hgsl_get_shadowts_mem(struct hgsl_hab_channel_t *hab_channel,
 	struct hgsl_context *ctxt)
 {
 	struct dma_buf *dma_buf = NULL;
-	void *vbase = NULL;
 	int ret = 0;
 
 	ret = hgsl_hyp_get_shadowts_mem(hab_channel, ctxt->context_id,
@@ -1159,14 +1157,12 @@ static void hgsl_get_shadowts_mem(struct hgsl_hab_channel_t *hab_channel,
 	dma_buf = ctxt->shadow_ts_node.dma_buf;
 	if (dma_buf) {
 		dma_buf_begin_cpu_access(dma_buf, DMA_FROM_DEVICE);
-		vbase = dma_buf_vmap(dma_buf);
-		if (vbase == NULL) {
-			ret = -EFAULT;
+		ret = dma_buf_vmap(dma_buf, &ctxt->map);
+		if (ret)
 			goto out;
-		}
-		ctxt->shadow_ts = (struct shadow_ts *)vbase;
+		ctxt->shadow_ts = (struct shadow_ts *)ctxt->map.vaddr;
 	}
-	LOGD("0x%llx, 0x%llx", (uint64_t)ctxt, (uint64_t)vbase);
+	LOGD("0x%llx, 0x%llx", (uint64_t)ctxt, (uint64_t)ctxt->map.vaddr);
 
 out:
 	if (ret) {
@@ -2887,7 +2883,7 @@ static int hgsl_ioctl_hsync_fence_create(struct file *filep,
 		return -EPERM;
 	}
 
-	copy_from_user(&param, USRPTR(arg), sizeof(param));
+	(void)copy_from_user(&param, USRPTR(arg), sizeof(param));
 
 	ctxt = hgsl_get_context_owner(priv, param.context_id);
 	if ((ctxt == NULL) || (ctxt->timeline  == NULL)) {
@@ -2900,7 +2896,7 @@ static int hgsl_ioctl_hsync_fence_create(struct file *filep,
 		ret = param.fence_fd;
 		goto out;
 	}
-	copy_to_user(USRPTR(arg), &param, sizeof(param));
+	(void)copy_to_user(USRPTR(arg), &param, sizeof(param));
 out:
 	hgsl_put_context(ctxt);
 
@@ -2916,7 +2912,7 @@ static int hgsl_ioctl_isync_timeline_create(struct file *filep,
 
 	ret = hgsl_isync_timeline_create(priv, &param, HGSL_ISYNC_32BITS_TIMELINE, 0);
 	if (ret == 0)
-		copy_to_user(USRPTR(arg), &param, sizeof(param));
+		(void)copy_to_user(USRPTR(arg), &param, sizeof(param));
 
 	return ret;
 }
@@ -2928,7 +2924,7 @@ static int hgsl_ioctl_isync_timeline_destroy(struct file *filep,
 	uint32_t param = 0;
 	int ret = 0;
 
-	copy_from_user(&param, USRPTR(arg), sizeof(param));
+	(void)copy_from_user(&param, USRPTR(arg), sizeof(param));
 	ret = hgsl_isync_timeline_destroy(priv, param);
 
 	return ret;
@@ -2943,7 +2939,7 @@ static int hgsl_ioctl_isync_fence_create(struct file *filep,
 	int fence = 0;
 	bool ts_is_valid;
 
-	copy_from_user(&param, USRPTR(arg), sizeof(param));
+	(void)copy_from_user(&param, USRPTR(arg), sizeof(param));
 	ts_is_valid = (param.padding == HGSL_ISYNC_FENCE_CREATE_USE_TS);
 
 	ret = hgsl_isync_fence_create(priv, param.timeline_id, param.ts,
@@ -2951,7 +2947,7 @@ static int hgsl_ioctl_isync_fence_create(struct file *filep,
 
 	if (ret == 0) {
 		param.fence_id = fence;
-		copy_to_user(USRPTR(arg), &param, sizeof(param));
+		(void)copy_to_user(USRPTR(arg), &param, sizeof(param));
 	}
 
 	return ret;
@@ -2964,7 +2960,7 @@ static int hgsl_ioctl_isync_fence_signal(struct file *filep,
 	struct hgsl_isync_signal_fence param;
 	int ret = 0;
 
-	copy_from_user(&param, USRPTR(arg), sizeof(param));
+	(void)copy_from_user(&param, USRPTR(arg), sizeof(param));
 
 	ret = hgsl_isync_fence_signal(priv, param.timeline_id,
 						  param.fence_id);
@@ -2979,7 +2975,7 @@ static int hgsl_ioctl_isync_forward(struct file *filep,
 	struct hgsl_isync_forward param;
 	int ret = 0;
 
-	copy_from_user(&param, USRPTR(arg), sizeof(param));
+	(void)copy_from_user(&param, USRPTR(arg), sizeof(param));
 
 	ret = hgsl_isync_forward(priv, param.timeline_id,
 						  (uint64_t)param.ts, true);
@@ -3000,7 +2996,7 @@ static int hgsl_ioctl_timeline_create(struct file *filep,
 	ret = hgsl_isync_timeline_create(priv, &param.timeline_id,
 					HGSL_ISYNC_64BITS_TIMELINE, param.initial_ts);
 	if (ret == 0)
-		copy_to_user(USRPTR(arg), &param, sizeof(param));
+		(void)copy_to_user(USRPTR(arg), &param, sizeof(param));
 
 	return ret;
 }
@@ -3075,7 +3071,7 @@ static int hgsl_ioctl_timeline_query(struct file *filep,
 		if (ret)
 			return ret;
 
-		copy_to_user(USRPTR(timelines), &val, sizeof(val));
+		(void)copy_to_user(USRPTR(timelines), &val, sizeof(val));
 
 		timelines += param.timelines_size;
 	}
@@ -3460,7 +3456,39 @@ static struct platform_driver qcom_hgsl_driver = {
 		.of_match_table = qcom_hgsl_of_match,
 	},
 };
-module_platform_driver(qcom_hgsl_driver);
+
+static int __init hgsl_init(void)
+{
+	int err;
+
+	err = platform_driver_register(&qcom_hgsl_driver);
+	if (err) {
+		pr_err("Failed to register hgsl driver: %d\n", err);
+		goto exit;
+	}
+
+#if IS_ENABLED(CONFIG_QCOM_HGSL_TCSR_SIGNAL)
+	err = platform_driver_register(&hgsl_tcsr_driver);
+	if (err) {
+		pr_err("Failed to register hgsl tcsr driver: %d\n", err);
+		platform_driver_unregister(&qcom_hgsl_driver);
+	}
+#endif
+
+exit:
+	return err;
+}
+
+static void __exit hgsl_exit(void)
+{
+	platform_driver_unregister(&qcom_hgsl_driver);
+#if IS_ENABLED(CONFIG_QCOM_HGSL_TCSR_SIGNAL)
+	platform_driver_unregister(&hgsl_tcsr_driver);
+#endif
+}
+
+module_init(hgsl_init);
+module_exit(hgsl_exit);
 
 MODULE_DESCRIPTION("QTI Hypervisor Graphics system driver");
 MODULE_LICENSE("GPL v2");

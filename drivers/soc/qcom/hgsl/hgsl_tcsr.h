@@ -56,7 +56,8 @@ enum hgsl_tcsr_role {
 
 struct hgsl_tcsr;
 
-#ifdef CONFIG_QCOM_HGSL_TCSR_SIGNAL
+extern struct platform_driver hgsl_tcsr_driver;
+#if IS_ENABLED(CONFIG_QCOM_HGSL_TCSR_SIGNAL)
 struct hgsl_tcsr *hgsl_tcsr_request(struct platform_device *pdev,
 				enum hgsl_tcsr_role role,
 				struct device *client,

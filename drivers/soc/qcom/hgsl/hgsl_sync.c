@@ -11,6 +11,7 @@
 #include <linux/spinlock.h>
 #include <linux/regmap.h>
 #include <linux/uaccess.h>
+#include <linux/jiffies.h>
 
 #include "hgsl.h"
 
@@ -808,4 +809,3 @@ static const struct dma_fence_ops hgsl_isync_fence_ops = {
 
 	.fence_value_str = hgsl_isync_fence_value_str,
 };
-

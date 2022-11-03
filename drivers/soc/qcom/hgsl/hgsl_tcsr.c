@@ -120,6 +120,7 @@ static int hgsl_tcsr_init_receiver(struct hgsl_tcsr *tcsr)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_QCOM_HGSL_TCSR_SIGNAL)
 struct hgsl_tcsr *hgsl_tcsr_request(struct platform_device *pdev,
 				enum hgsl_tcsr_role role,
 				struct device *client,
@@ -227,6 +228,7 @@ void hgsl_tcsr_irq_enable(struct hgsl_tcsr *tcsr, u32 mask, bool enable)
 	reg = enable ? (reg | mask) : (reg & ~mask);
 	regmap_write(tcsr->regmap, TCSR_COMPUTE_SIGNAL_MASK_REG, reg);
 }
+#endif
 
 static const struct of_device_id hgsl_tcsr_match_table[] = {
 	{ .compatible = "qcom,hgsl-tcsr-sender" },
@@ -269,7 +271,7 @@ static int hgsl_tcsr_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver hgsl_tcsr_driver = {
+struct platform_driver hgsl_tcsr_driver = {
 	.probe = hgsl_tcsr_probe,
 	.remove = hgsl_tcsr_remove,
 	.driver = {
@@ -277,16 +279,3 @@ static struct platform_driver hgsl_tcsr_driver = {
 		.of_match_table = hgsl_tcsr_match_table,
 	}
 };
-
-static int __init hgsl_tcsr_init(void)
-{
-	return platform_driver_register(&hgsl_tcsr_driver);
-}
-
-static void __exit hgsl_tcsr_exit(void)
-{
-	platform_driver_unregister(&hgsl_tcsr_driver);
-}
-
-subsys_initcall(hgsl_tcsr_init);
-module_exit(hgsl_tcsr_exit);

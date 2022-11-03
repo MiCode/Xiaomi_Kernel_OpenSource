@@ -3,7 +3,7 @@
 # Hypervisor graphics system layer configuration
 #
 config QCOM_HGSL
-	bool "Graphics driver for Hypervisor"
+	tristate "Graphics driver for Hypervisor"
 	depends on QTI_QUIN_GVM
 	depends on MSM_HAB
 	help
@@ -13,7 +13,7 @@ config QCOM_HGSL
 	  them to host system.
 
 config QCOM_HGSL_TCSR_SIGNAL
-	bool "TCSR signal for Hypervisor GSL"
+	tristate "TCSR signal for Hypervisor GSL"
 	depends on MFD_SYSCON && QCOM_HGSL
 	help
 	  The TCSR compute signal module provides hgsl driver
