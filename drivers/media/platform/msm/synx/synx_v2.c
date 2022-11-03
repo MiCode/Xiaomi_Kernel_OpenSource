@@ -2431,7 +2431,7 @@ int synx_ipc_callback(u32 client_id,
 	if (IS_ERR_OR_NULL(signal_cb))
 		return -SYNX_NOMEM;
 
-	dprintk(SYNX_INFO,
+	dprintk(SYNX_DBG,
 		"signal notification for %u received with status %u\n",
 		handle, status);
 
