@@ -98,7 +98,7 @@ TRACE_EVENT(ufs_qcom_pwr_change_notify,
 		__entry->err = err;
 	),
 
-	TP_printk("%s: status = %s, gear_rx = %d,  gear_rx = %d, = %d, pwr_rx = %d, hs_rate = %d, err = %d",
+	TP_printk("%s: status = %s, gear_rx = %d, pwr_rx = %d, hs_rate = %d, err = %d",
 		__get_str(dev_name),
 		__print_symbolic(__entry->status, UFS_NOTIFY_CHANGE_STATUS),
 		__entry->gear_rx,
@@ -203,6 +203,24 @@ TRACE_EVENT(ufs_qcom_hook_check_int_errors,
 	)
 );
 
+TRACE_EVENT(ufs_qcom_shutdown,
+	TP_PROTO(const char *dev_name),
+
+	TP_ARGS(dev_name),
+
+	TP_STRUCT__entry(
+		__string(dev_name, dev_name)
+	),
+
+	TP_fast_assign(
+		__assign_str(dev_name, dev_name);
+	),
+
+	TP_printk(
+		"%s: Going to Shutdown!",
+		 __get_str(dev_name)
+	)
+);
 
 DECLARE_EVENT_CLASS(ufs_qcom_clk_template,
 	TP_PROTO(const char *dev_name, int status, bool on, int err),
