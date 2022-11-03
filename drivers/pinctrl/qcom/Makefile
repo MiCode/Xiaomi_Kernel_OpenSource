@@ -53,3 +53,4 @@ obj-$(CONFIG_PINCTRL_SM6150) 	+= pinctrl-sm6150.o
 obj-$(CONFIG_PINCTRL_KONA) 	+= pinctrl-kona.o
 obj-$(CONFIG_PINCTRL_SDXBAAGHA) += pinctrl-sdxbaagha.o
 obj-$(CONFIG_PINCTRL_LEMANS) += pinctrl-lemans.o
+obj-$(CONFIG_PINCTRL_DIREWOLF) += pinctrl-direwolf.o
