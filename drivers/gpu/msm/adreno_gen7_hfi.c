@@ -209,7 +209,7 @@ int gen7_hfi_init(struct adreno_device *adreno_dev)
 	/* Allocates & maps memory for HFI */
 	if (IS_ERR_OR_NULL(hfi->hfi_mem)) {
 		hfi->hfi_mem = gen7_reserve_gmu_kernel_block(gmu, 0,
-				HFIMEM_SIZE, GMU_NONCACHED_KERNEL);
+				HFIMEM_SIZE, GMU_NONCACHED_KERNEL, 0);
 		if (!IS_ERR(hfi->hfi_mem))
 			init_queues(adreno_dev);
 	}

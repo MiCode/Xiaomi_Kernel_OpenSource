@@ -397,13 +397,13 @@ static int gen7_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)
 	return 0;
 
 err:
+	gen7_gmu_irq_disable(adreno_dev);
+
 	if (device->gmu_fault) {
 		gen7_gmu_suspend(adreno_dev);
 
 		return ret;
 	}
-
-	gen7_gmu_irq_disable(adreno_dev);
 
 clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
@@ -465,13 +465,13 @@ static int gen7_hwsched_gmu_boot(struct adreno_device *adreno_dev)
 
 	return 0;
 err:
+	gen7_gmu_irq_disable(adreno_dev);
+
 	if (device->gmu_fault) {
 		gen7_gmu_suspend(adreno_dev);
 
 		return ret;
 	}
-
-	gen7_gmu_irq_disable(adreno_dev);
 
 clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
@@ -571,6 +571,7 @@ static int gen7_hwsched_gmu_power_off(struct adreno_device *adreno_dev)
 	return ret;
 
 error:
+	gen7_gmu_irq_disable(adreno_dev);
 	gen7_hwsched_hfi_stop(adreno_dev);
 	gen7_gmu_suspend(adreno_dev);
 
@@ -1222,18 +1223,13 @@ int gen7_hwsched_reset(struct adreno_device *adreno_dev)
 	if (!test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
 		return 0;
 
-	gen7_hwsched_hfi_stop(adreno_dev);
-
 	gen7_disable_gpu_irq(adreno_dev);
 
-	gen7_gmu_suspend(adreno_dev);
+	gen7_gmu_irq_disable(adreno_dev);
 
-	/*
-	 * In some corner cases, it is possible that GMU put TS_RETIRE
-	 * on the msgq after we have turned off gmu interrupts. Hence,
-	 * drain the queue one last time before we reboot the GMU.
-	 */
-	gen7_hwsched_process_msgq(adreno_dev);
+	gen7_hwsched_hfi_stop(adreno_dev);
+
+	gen7_gmu_suspend(adreno_dev);
 
 	clear_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);
 

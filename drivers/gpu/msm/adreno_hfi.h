@@ -573,7 +573,7 @@ struct hfi_core_fw_start_cmd {
 	u32 handle;
 } __packed;
 
-struct hfi_mem_alloc_desc {
+struct hfi_mem_alloc_desc_legacy {
 	u64 gpu_addr;
 	u32 flags;
 	u32 mem_kind;
@@ -583,15 +583,36 @@ struct hfi_mem_alloc_desc {
 	u32 size; /* Bytes */
 } __packed;
 
+struct hfi_mem_alloc_desc {
+	u64 gpu_addr;
+	u32 flags;
+	u32 mem_kind;
+	u32 host_mem_handle;
+	u32 gmu_mem_handle;
+	u32 gmu_addr;
+	u32 size; /* Bytes */
+	/**
+	 * @va_align: Alignment requirement of the GMU VA specified as a power of two. For example,
+	 * a decimal value of 20 = (1 << 20) = 1 MB alignemnt
+	 */
+	u32 va_align;
+} __packed;
+
 struct hfi_mem_alloc_entry {
 	struct hfi_mem_alloc_desc desc;
 	struct kgsl_memdesc *md;
 };
 
 /* F2H */
-struct hfi_mem_alloc_cmd {
+struct hfi_mem_alloc_cmd_legacy {
 	u32 hdr;
 	u32 reserved; /* Padding to ensure alignment of 'desc' below */
+	struct hfi_mem_alloc_desc_legacy desc;
+} __packed;
+
+struct hfi_mem_alloc_cmd {
+	u32 hdr;
+	u32 version;
 	struct hfi_mem_alloc_desc desc;
 } __packed;
 
@@ -971,4 +992,38 @@ static inline void hfi_update_write_idx(volatile u32 *write_idx, u32 index)
 	 */
 	wmb();
 }
+
+/**
+ * hfi_get_mem_alloc_desc - Get the descriptor from F2H_MSG_MEM_ALLOC packet
+ * rcvd: Pointer to the F2H_MSG_MEM_ALLOC packet
+ * out: Pointer to copy the descriptor data to
+ *
+ * This function checks for the F2H_MSG_MEM_ALLOC packet version and based on that gets the
+ * descriptor data from the packet.
+ */
+static inline void hfi_get_mem_alloc_desc(void *rcvd, struct hfi_mem_alloc_desc *out)
+{
+	struct hfi_mem_alloc_cmd_legacy *in_legacy = (struct hfi_mem_alloc_cmd_legacy *)rcvd;
+	struct hfi_mem_alloc_cmd *in = (struct hfi_mem_alloc_cmd *)rcvd;
+
+	if (in->version > 0)
+		memcpy(out, &in->desc, sizeof(in->desc));
+	else
+		memcpy(out, &in_legacy->desc, sizeof(in_legacy->desc));
+}
+
+/**
+ * hfi_get_gmu_va_alignment - Get the alignment(in bytes) for a GMU VA
+ * va_align: Alignment specified as a power of two(2^n)
+ *
+ * This function derives the GMU VA alignment in bytes from the passed in value, which is specified
+ * in terms of power of two(2^n). For example, va_align = 20 means (1 << 20) = 1MB alignment. The
+ * minimum alignment(in bytes) is SZ_4K i.e. anything less than(or equal to) a va_align value of
+ * ilog2(SZ_4K) will default to SZ_4K alignment.
+ */
+static inline u32 hfi_get_gmu_va_alignment(u32 va_align)
+{
+	return (va_align > ilog2(SZ_4K)) ? (1 << va_align) : SZ_4K;
+}
+
 #endif
