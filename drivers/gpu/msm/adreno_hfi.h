@@ -353,9 +353,6 @@ struct hfi_queue_table {
 #define MSG_HDR_GET_TYPE(hdr) (((hdr) >> 16) & 0xF)
 #define MSG_HDR_GET_SEQNUM(hdr) (((hdr) >> 20) & 0xFFF)
 
-#define MSG_HDR_GET_SIZE(hdr) (((hdr) >> 8) & 0xFF)
-#define MSG_HDR_GET_SEQNUM(hdr) (((hdr) >> 20) & 0xFFF)
-
 #define HDR_CMP_SEQNUM(out_hdr, in_hdr) \
 	(MSG_HDR_GET_SEQNUM(out_hdr) == MSG_HDR_GET_SEQNUM(in_hdr))
 

@@ -164,6 +164,8 @@ enum kgsl_mmu_feature {
 	KGSL_MMU_IOPGTABLE,
 	/** @KGSL_MMU_SUPPORT_VBO: Non-secure VBOs are supported */
 	KGSL_MMU_SUPPORT_VBO,
+	/** @KGSL_MMU_PAGEFAULT_TERMINATE: Set to make pagefaults fatal */
+	KGSL_MMU_PAGEFAULT_TERMINATE,
 };
 
 #include "kgsl_iommu.h"

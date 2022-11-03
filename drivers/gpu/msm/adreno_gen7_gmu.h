@@ -109,13 +109,13 @@ struct gen7_gmu_device *to_gen7_gmu(struct adreno_device *adreno_dev);
 struct adreno_device *gen7_gmu_to_adreno(struct gen7_gmu_device *gmu);
 
 /**
- * gen7_reserve_gmu_kernel_block() - Allocate a gmu buffer
+ * gen7_reserve_gmu_kernel_block() - Allocate a global gmu buffer
  * @gmu: Pointer to the gen7 gmu device
  * @addr: Desired gmu virtual address
  * @size: Size of the buffer in bytes
  * @vma_id: Target gmu vma where this buffer should be mapped
  *
- * This function allocates a buffer and maps it in
+ * This function allocates a global gmu buffer and maps it in
  * the desired gmu vma
  *
  * Return: Pointer to the memory descriptor or error pointer on failure
@@ -125,7 +125,7 @@ struct kgsl_memdesc *gen7_reserve_gmu_kernel_block(struct gen7_gmu_device *gmu,
 
 /**
  * gen7_reserve_gmu_kernel_block_fixed() - Maps phyical resource address to gmu
- * @gmu: Pointer to the a6xx gmu device
+ * @gmu: Pointer to the gen7 gmu device
  * @addr: Desired gmu virtual address
  * @size: Size of the buffer in bytes
  * @vma_id: Target gmu vma where this buffer should be mapped
@@ -138,6 +138,45 @@ struct kgsl_memdesc *gen7_reserve_gmu_kernel_block(struct gen7_gmu_device *gmu,
  */
 struct kgsl_memdesc *gen7_reserve_gmu_kernel_block_fixed(struct gen7_gmu_device *gmu,
 	u32 addr, u32 size, u32 vma_id, const char *resource, int attrs);
+
+/**
+ * gen7_alloc_gmu_kernel_block() - Allocate a gmu buffer
+ * @gmu: Pointer to the gen7 gmu device
+ * @md: Pointer to the memdesc
+ * @size: Size of the buffer in bytes
+ * @vma_id: Target gmu vma where this buffer should be mapped
+ * @attrs: Attributes for the mapping
+ *
+ * This function allocates a buffer and maps it in the desired gmu vma
+ *
+ * Return: 0 on success or error code on failure
+ */
+int gen7_alloc_gmu_kernel_block(struct gen7_gmu_device *gmu,
+	struct kgsl_memdesc *md, u32 size, u32 vma_id, int attrs);
+
+/**
+ * gen7_gmu_import_buffer() - Import a gmu buffer
+ * @gmu: Pointer to the gen7 gmu device
+ * @vma_id: Target gmu vma where this buffer should be mapped
+ * @md: Pointer to the memdesc to be mapped
+ * @size: Size of the buffer in bytes
+ * @attrs: Attributes for the mapping
+ *
+ * This function imports and maps a buffer to a gmu vma
+ *
+ * Return: 0 on success or error code on failure
+ */
+int gen7_gmu_import_buffer(struct gen7_gmu_device *gmu, u32 vma_id,
+			struct kgsl_memdesc *md, u32 size, u32 attrs);
+
+/**
+ * gen7_free_gmu_block() - Free a gmu buffer
+ * @gmu: Pointer to the gen7 gmu device
+ * @md: Pointer to the memdesc that is to be freed
+ *
+ * This function frees a gmu block allocated by gen7_reserve_gmu_kernel_block()
+ */
+void gen7_free_gmu_block(struct gen7_gmu_device *gmu, struct kgsl_memdesc *md);
 
 /**
  * gen7_build_rpmh_tables - Build the rpmh tables

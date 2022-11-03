@@ -883,10 +883,6 @@ struct adreno_gpudev {
 	 */
 	int (*send_recurring_cmdobj)(struct adreno_device *adreno_dev,
 		struct kgsl_drawobj_cmd *cmdobj);
-	/**
-	 * @reset_and_snapshot - Target specific function to do reset and snapshot
-	 */
-	void (*reset_and_snapshot)(struct adreno_device *adreno_dev, int fault);
 };
 
 /**
