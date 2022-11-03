@@ -7,7 +7,6 @@
 
 #include <linux/types.h>
 #include <linux/percpu.h>
-#include <linux/android_vendor.h>
 
 void topology_normalize_cpu_scale(void);
 int topology_update_cpu_topology(void);
@@ -74,8 +73,6 @@ struct cpu_topology {
 	cpumask_t core_sibling;
 	cpumask_t cluster_sibling;
 	cpumask_t llc_sibling;
-
-	cpumask_t android_vendor_data1;
 };
 
 #ifdef CONFIG_GENERIC_ARCH_TOPOLOGY
@@ -97,6 +94,5 @@ void remove_cpu_topology(unsigned int cpuid);
 void reset_cpu_topology(void);
 int parse_acpi_topology(void);
 #endif
-extern bool topology_update_done;
 
 #endif /* _LINUX_ARCH_TOPOLOGY_H_ */

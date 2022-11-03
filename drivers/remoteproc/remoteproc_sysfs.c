@@ -5,6 +5,7 @@
 
 #include <linux/remoteproc.h>
 #include <linux/slab.h>
+#include <trace/hooks/remoteproc.h>
 
 #include "remoteproc_internal.h"
 
@@ -51,9 +52,11 @@ static ssize_t recovery_store(struct device *dev,
 	if (sysfs_streq(buf, "enabled")) {
 		/* change the flag and begin the recovery process if needed */
 		rproc->recovery_disabled = false;
+		trace_android_vh_rproc_recovery_set(rproc);
 		rproc_trigger_recovery(rproc);
 	} else if (sysfs_streq(buf, "disabled")) {
 		rproc->recovery_disabled = true;
+		trace_android_vh_rproc_recovery_set(rproc);
 	} else if (sysfs_streq(buf, "recover")) {
 		/* begin the recovery process without changing the flag */
 		rproc_trigger_recovery(rproc);
@@ -194,23 +197,12 @@ static ssize_t state_store(struct device *dev,
 	int ret = 0;
 
 	if (sysfs_streq(buf, "start")) {
-		if (rproc->state == RPROC_RUNNING ||
-		    rproc->state == RPROC_ATTACHED)
-			return -EBUSY;
-
 		ret = rproc_boot(rproc);
 		if (ret)
 			dev_err(&rproc->dev, "Boot failed: %d\n", ret);
 	} else if (sysfs_streq(buf, "stop")) {
-		if (rproc->state != RPROC_RUNNING &&
-		    rproc->state != RPROC_ATTACHED)
-			return -EINVAL;
-
 		ret = rproc_shutdown(rproc);
 	} else if (sysfs_streq(buf, "detach")) {
-		if (rproc->state != RPROC_ATTACHED)
-			return -EINVAL;
-
 		ret = rproc_detach(rproc);
 	} else {
 		dev_err(&rproc->dev, "Unrecognised option: %s\n", buf);
