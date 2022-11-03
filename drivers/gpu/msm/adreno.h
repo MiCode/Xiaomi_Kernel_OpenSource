@@ -883,6 +883,10 @@ struct adreno_gpudev {
 	 */
 	int (*send_recurring_cmdobj)(struct adreno_device *adreno_dev,
 		struct kgsl_drawobj_cmd *cmdobj);
+	/**
+	 * @context_destroy: Target specific function called during context destruction
+	 */
+	void (*context_destroy)(struct adreno_device *adreno_dev, struct adreno_context *drawctxt);
 };
 
 /**

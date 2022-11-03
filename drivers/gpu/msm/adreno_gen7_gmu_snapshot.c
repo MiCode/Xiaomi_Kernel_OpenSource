@@ -12,12 +12,7 @@
 #include "adreno_snapshot.h"
 #include "kgsl_device.h"
 
-struct gmu_mem_type_desc {
-	struct kgsl_memdesc *memdesc;
-	u32 type;
-};
-
-static size_t gen7_snapshot_gmu_mem(struct kgsl_device *device,
+size_t gen7_snapshot_gmu_mem(struct kgsl_device *device,
 		u8 *buf, size_t remain, void *priv)
 {
 	struct kgsl_snapshot_gmu_mem *mem_hdr =

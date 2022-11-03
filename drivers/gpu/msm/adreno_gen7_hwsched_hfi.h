@@ -174,4 +174,26 @@ int gen7_hwsched_lpac_cp_init(struct adreno_device *adreno_dev);
  * Return: 0 on success or negative error on failure
  */
 int gen7_hfi_send_lpac_feature_ctrl(struct adreno_device *adreno_dev);
+
+/**
+ * gen7_hwsched_context_destroy - Destroy any hwsched related resources during context destruction
+ * @adreno_dev: Pointer to adreno device
+ * @drawctxt: Pointer to the adreno context
+ *
+ * This functions destroys any hwsched related resources when this context is destroyed
+ */
+void gen7_hwsched_context_destroy(struct adreno_device *adreno_dev,
+	struct adreno_context *drawctxt);
+
+/**
+ * gen7_hwsched_hfi_get_value - Send GET_VALUE packet to GMU to get the value of a property
+ * @adreno_dev: Pointer to adreno device
+ * @prop: property to get from GMU
+ *
+ * This functions sends GET_VALUE HFI packet to query value of a property
+ *
+ * Return: On success, return the value in the GMU response. On failure, return 0
+ */
+u32 gen7_hwsched_hfi_get_value(struct adreno_device *adreno_dev, u32 prop);
+
 #endif

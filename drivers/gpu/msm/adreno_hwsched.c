@@ -46,6 +46,11 @@ static struct kmem_cache *jobs_cache;
 /* Use a kmem cache to speed up allocations for inflight command objects */
 static struct kmem_cache *obj_cache;
 
+inline bool adreno_hwsched_context_queue_enabled(struct adreno_device *adreno_dev)
+{
+	return test_bit(ADRENO_HWSCHED_CONTEXT_QUEUE, &adreno_dev->hwsched.flags);
+}
+
 static bool _check_context_queue(struct adreno_context *drawctxt, u32 count)
 {
 	bool ret;
@@ -1829,6 +1834,14 @@ static int unregister_context(int id, void *ptr, void *data)
 	struct kgsl_context *context = ptr;
 	struct adreno_context *drawctxt = ADRENO_CONTEXT(context);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(context->device);
+
+	if (drawctxt->gmu_context_queue.gmuaddr != 0) {
+		struct hfi_queue_header *header =  drawctxt->gmu_context_queue.hostptr;
+
+		header->read_index = header->write_index;
+		/* This is to make sure GMU sees the correct indices after recovery */
+		mb();
+	}
 
 	/*
 	 * We don't need to send the unregister hfi packet because

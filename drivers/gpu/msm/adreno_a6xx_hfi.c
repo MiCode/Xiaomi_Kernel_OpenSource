@@ -137,7 +137,7 @@ int a6xx_hfi_queue_write(struct adreno_device *adreno_dev, uint32_t queue_idx,
 		}
 	}
 
-	hfi_update_write_idx(hdr, write);
+	hfi_update_write_idx(&hdr->write_index, write);
 
 	return 0;
 }
