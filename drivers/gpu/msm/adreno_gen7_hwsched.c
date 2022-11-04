@@ -850,11 +850,55 @@ static void reset_preemption_records(struct adreno_device *adreno_dev)
 	}
 }
 
+/**
+ * drain_hw_fence_list_cpu - Force trigger the hardware fences that
+ * were not sent to TxQueue by the GMU
+ */
+static void drain_hwsched_hw_fence_list_cpu(struct adreno_device *adreno_dev)
+{
+	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+	struct adreno_hw_fence_entry *fence, *tmp;
+
+	list_for_each_entry_safe(fence, tmp, &hwsched->hw_fence_list, node) {
+		adreno_hwsched_trigger_hw_fence_cpu(adreno_dev, fence);
+		adreno_hwsched_remove_hw_fence_entry(adreno_dev, fence);
+	}
+}
+
+/**
+ * check_pending_hw_fence_list - During SLUMBER entry, we must make sure all fences have been sent
+ * to TxQueue. If not, then log an error and take a snapshot
+ */
+static int check_pending_hw_fence_list(struct adreno_device *adreno_dev)
+{
+	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+	struct adreno_hw_fence_entry *fence, *tmp;
+
+	list_for_each_entry_safe(fence, tmp, &hwsched->hw_fence_list, node) {
+		struct kgsl_sync_fence *kfence = fence->kfence;
+		struct adreno_context *drawctxt = fence->drawctxt;
+		struct gmu_context_queue_header *hdr = drawctxt->gmu_context_queue.hostptr;
+
+		/* Report any unsignaled fences when we are going to SLUMBER */
+		if (timestamp_cmp(hdr->out_fence_ts, kfence->timestamp) < 0) {
+			dev_err(adreno_dev->dev.dev, "pending hw fence ctx:%d ts:%d retired:%d\n",
+				drawctxt->base.id, kfence->timestamp, hdr->out_fence_ts);
+			gmu_core_fault_snapshot(KGSL_DEVICE(adreno_dev));
+			return -EINVAL;
+		}
+
+		adreno_hwsched_remove_hw_fence_entry(adreno_dev, fence);
+	}
+
+	return 0;
+}
+
 static int gen7_hwsched_power_off(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
 	int ret = 0;
+	bool drain_cpu = false;
 
 	if (!test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
 		return 0;
@@ -888,7 +932,15 @@ static int gen7_hwsched_power_off(struct adreno_device *adreno_dev)
 no_gx_power:
 	kgsl_pwrctrl_irq(device, false);
 
+	/* Make sure GMU has sent all hardware fences to TxQueue */
+	if (check_pending_hw_fence_list(adreno_dev))
+		drain_cpu = true;
+
 	gen7_hwsched_gmu_power_off(adreno_dev);
+
+	/* Now that we are sure that GMU is powered off, drain pending fences */
+	if (drain_cpu)
+		drain_hwsched_hw_fence_list_cpu(adreno_dev);
 
 	adreno_hwsched_unregister_contexts(adreno_dev);
 
@@ -1213,6 +1265,101 @@ static void gen7_hwsched_drain_ctxt_unregister(struct adreno_device *adreno_dev)
 	read_unlock(&hfi->msglock);
 }
 
+/**
+ * process_inflight_fences - This function processes all hardware fences that were sent to GMU
+ * prior to recovery. If a fence is not retired by the GPU, and it belongs to a context which
+ * is still good, then send this fence to the GMU again. If this fence is retired, or belongs to
+ * a bad context, then send it to GMU such that GMU immediately triggers this fence into the TxQueue
+ * without checking the memstore
+ */
+static int process_inflight_fences(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+	struct adreno_hw_fence_entry *fence, *tmp;
+	int ret = 0;
+
+	list_for_each_entry_safe(fence, tmp, &hwsched->hw_fence_list, node) {
+		struct kgsl_sync_fence *kfence = fence->kfence;
+		struct adreno_context *drawctxt = fence->drawctxt;
+		struct gmu_context_queue_header *hdr = drawctxt->gmu_context_queue.hostptr;
+		bool retired = kgsl_check_timestamp(device, &drawctxt->base, kfence->timestamp);
+
+		/* Delete the fences that GMU has sent to the TxQueue */
+		if (timestamp_cmp(hdr->out_fence_ts, kfence->timestamp) >= 0) {
+			adreno_hwsched_remove_hw_fence_entry(adreno_dev, fence);
+			continue;
+		}
+
+		/*
+		 * Force retire the fences if the corresponding submission is retired by GPU
+		 * or if the context has gone bad
+		 */
+		if (retired || kgsl_context_is_bad(&drawctxt->base)) {
+			ret = gen7_hwsched_trigger_hw_fence(adreno_dev, fence);
+			if (ret)
+				return ret;
+			adreno_hwsched_remove_hw_fence_entry(adreno_dev, fence);
+			continue;
+		}
+
+		/*
+		 * If GPU hasn't retired this timestamp, and context is still good, then send the
+		 * fence to the GMU
+		 */
+		ret = gen7_hwsched_send_hw_fence(adreno_dev, fence);
+		if (ret)
+			return ret;
+	}
+
+	return ret;
+}
+
+/**
+ * find_context_drain_hw_fence - This function returns a context which has the
+ * ADRENO_CONTEXT_DRAIN_HW_FENCE bit set.
+ */
+static struct kgsl_context *find_context_drain_hw_fence(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_context *context = NULL;
+	int id;
+
+	read_lock(&device->context_lock);
+	idr_for_each_entry(&device->context_idr, context, id) {
+		if (test_and_clear_bit(ADRENO_CONTEXT_DRAIN_HW_FENCE, &context->priv)) {
+			read_unlock(&device->context_lock);
+			return context;
+		}
+	}
+	read_unlock(&device->context_lock);
+
+	return NULL;
+}
+
+static int drain_context_hw_fence(struct adreno_device *adreno_dev)
+{
+	struct kgsl_context *context = NULL;
+	int ret = 0;
+
+	/*
+	 * We need to run this loop and iterate over all the contexts multiple times because we
+	 * cannot drain the fences while holding the context lock.
+	 */
+	while (1) {
+		context = find_context_drain_hw_fence(adreno_dev);
+
+		if (!context)
+			break;
+
+		ret = gen7_hwsched_drain_context_hw_fences(adreno_dev, ADRENO_CONTEXT(context));
+		if (ret)
+			break;
+	}
+
+	return ret;
+}
+
 int gen7_hwsched_reset(struct adreno_device *adreno_dev)
 {
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
@@ -1226,8 +1373,6 @@ int gen7_hwsched_reset(struct adreno_device *adreno_dev)
 	 */
 	gen7_hwsched_drain_ctxt_unregister(adreno_dev);
 
-	adreno_hwsched_unregister_contexts(adreno_dev);
-
 	if (!test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
 		return 0;
 
@@ -1239,10 +1384,21 @@ int gen7_hwsched_reset(struct adreno_device *adreno_dev)
 
 	gen7_gmu_suspend(adreno_dev);
 
+	adreno_hwsched_unregister_contexts(adreno_dev);
+
 	clear_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);
 
 	ret = gen7_hwsched_boot(adreno_dev);
+	if (ret)
+		goto done;
 
+	ret = drain_context_hw_fence(adreno_dev);
+	if (ret)
+		goto done;
+
+	ret = process_inflight_fences(adreno_dev);
+
+done:
 	BUG_ON(ret);
 
 	return ret;
@@ -1261,8 +1417,9 @@ const struct adreno_power_ops gen7_hwsched_power_ops = {
 };
 
 const struct adreno_hwsched_ops gen7_hwsched_ops = {
-	.submit_cmdobj = gen7_hwsched_submit_cmdobj,
+	.submit_drawobj = gen7_hwsched_submit_drawobj,
 	.preempt_count = gen7_hwsched_preempt_count_get,
+	.send_hw_fence = gen7_hwsched_send_hw_fence,
 };
 
 int gen7_hwsched_probe(struct platform_device *pdev,

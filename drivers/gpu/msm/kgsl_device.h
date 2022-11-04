@@ -83,6 +83,7 @@ struct kgsl_context;
 struct kgsl_power_stats;
 struct kgsl_event;
 struct kgsl_snapshot;
+struct kgsl_sync_fence;
 
 struct kgsl_functable {
 	/* Mandatory functions - these functions must be implemented
@@ -167,6 +168,8 @@ struct kgsl_functable {
 	/** @dequeue_recurring_cmd: Dequeue recurring commands from GMU */
 	int (*dequeue_recurring_cmd)(struct kgsl_device *device,
 		struct kgsl_context *context);
+	/** @create_hw_fence: Create a hardware fence */
+	void (*create_hw_fence)(struct kgsl_device *device, struct kgsl_sync_fence *kfence);
 };
 
 struct kgsl_ioctl {

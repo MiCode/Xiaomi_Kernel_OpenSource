@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2012-2014,2018-2019, 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef __KGSL_SYNC_H
 #define __KGSL_SYNC_H
@@ -51,6 +52,10 @@ struct kgsl_sync_fence {
 	struct list_head child_list;
 	u32 context_id;
 	unsigned int timestamp;
+	/** @hw_fence_index: Index of hw fence in hw fence table */
+	u64 hw_fence_index;
+	/** @hw_fence_handle: Handle to the hw fence client */
+	void *hw_fence_handle;
 };
 
 /**

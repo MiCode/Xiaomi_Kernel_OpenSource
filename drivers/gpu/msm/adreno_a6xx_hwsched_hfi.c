@@ -1581,13 +1581,13 @@ static void populate_ibs(struct adreno_device *adreno_dev,
 
 #define DISPQ_IRQ_BIT(_idx) BIT((_idx) + HFI_DSP_IRQ_BASE)
 
-int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
-	struct kgsl_drawobj_cmd *cmdobj)
+int a6xx_hwsched_submit_drawobj(struct adreno_device *adreno_dev,
+	struct kgsl_drawobj *drawobj)
 {
 	struct a6xx_hfi *hfi = to_a6xx_hfi(adreno_dev);
 	int ret = 0;
 	u32 cmd_sizebytes;
-	struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
+	struct kgsl_drawobj_cmd *cmdobj = CMDOBJ(drawobj);
 	struct hfi_submit_cmd *cmd;
 	struct adreno_submit_time time = {0};
 	static void *cmdbuf;

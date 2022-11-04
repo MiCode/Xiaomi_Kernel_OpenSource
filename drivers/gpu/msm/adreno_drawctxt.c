@@ -298,12 +298,25 @@ void adreno_drawctxt_invalidate(struct kgsl_device *device,
 void adreno_drawctxt_set_guilty(struct kgsl_device *device,
 		struct kgsl_context *context)
 {
+	struct adreno_context *drawctxt;
+
 	if (!context)
 		return;
 
 	context->reset_status = KGSL_CTX_STAT_GUILTY_CONTEXT_RESET_EXT;
 
 	adreno_drawctxt_invalidate(device, context);
+
+	drawctxt = ADRENO_CONTEXT(context);
+
+	if (list_empty(&drawctxt->hw_fence_list))
+		return;
+
+	/*
+	 * This makes sure that any pending hardware fences from this context
+	 * are sent to TxQueue after recovery
+	 */
+	set_bit(ADRENO_CONTEXT_DRAIN_HW_FENCE, &context->priv);
 }
 
 #define KGSL_CONTEXT_PRIORITY_MED	0x8
@@ -426,6 +439,7 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 	adreno_context_debugfs_init(ADRENO_DEVICE(device), drawctxt);
 
 	INIT_LIST_HEAD(&drawctxt->active_node);
+	INIT_LIST_HEAD(&drawctxt->hw_fence_list);
 
 	if (adreno_dev->dispatch_ops && adreno_dev->dispatch_ops->setup_context)
 		adreno_dev->dispatch_ops->setup_context(adreno_dev, drawctxt);

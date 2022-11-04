@@ -1184,7 +1184,7 @@ const struct adreno_power_ops a6xx_hwsched_power_ops = {
 };
 
 const struct adreno_hwsched_ops a6xx_hwsched_ops = {
-	.submit_cmdobj = a6xx_hwsched_submit_cmdobj,
+	.submit_drawobj = a6xx_hwsched_submit_drawobj,
 	.preempt_count = a6xx_hwsched_preempt_count_get,
 };
 
