@@ -3108,6 +3108,11 @@ int gen7_gmu_device_probe(struct platform_device *pdev,
 
 	timer_setup(&device->idle_timer, gmu_idle_timer, 0);
 
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_DMS)) {
+		set_bit(ADRENO_DEVICE_DMS, &adreno_dev->priv);
+		adreno_dev->dms_enabled = true;
+	}
+
 	adreno_dev->irq_mask = GEN7_INT_MASK;
 
 	return 0;

@@ -1285,6 +1285,25 @@ static int gen7_hfi_send_hw_fence_feature_ctrl(struct adreno_device *adreno_dev)
 	return ret;
 }
 
+static int gen7_hfi_send_dms_feature_ctrl(struct adreno_device *adreno_dev)
+{
+	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
+	int ret;
+
+	if (!test_bit(ADRENO_DEVICE_DMS, &adreno_dev->priv))
+		return 0;
+
+	ret = gen7_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_DMS, 1, 0);
+	if (ret == -ENOENT) {
+		dev_err(&gmu->pdev->dev, "GMU doesn't support DMS feature\n");
+		clear_bit(ADRENO_DEVICE_DMS, &adreno_dev->priv);
+		adreno_dev->dms_enabled = false;
+		return 0;
+	}
+
+	return ret;
+}
+
 int gen7_hwsched_hfi_start(struct adreno_device *adreno_dev)
 {
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
@@ -1335,6 +1354,10 @@ int gen7_hwsched_hfi_start(struct adreno_device *adreno_dev)
 		goto err;
 
 	ret = gen7_hfi_send_perfcounter_feature_ctrl(adreno_dev);
+	if (ret)
+		goto err;
+
+	ret = gen7_hfi_send_dms_feature_ctrl(adreno_dev);
 	if (ret)
 		goto err;
 

@@ -224,6 +224,20 @@ static int _bcl_store(struct adreno_device *adreno_dev, bool val)
 					val);
 }
 
+static bool _dms_show(struct adreno_device *adreno_dev)
+{
+	return adreno_dev->dms_enabled;
+}
+
+static int _dms_store(struct adreno_device *adreno_dev, bool val)
+{
+	if (!test_bit(ADRENO_DEVICE_DMS, &adreno_dev->priv) ||
+		adreno_dev->dms_enabled == val)
+		return 0;
+
+	return adreno_power_cycle_bool(adreno_dev, &adreno_dev->dms_enabled, val);
+}
+
 static bool _perfcounter_show(struct adreno_device *adreno_dev)
 {
 	return adreno_dev->perfcounter;
@@ -333,6 +347,7 @@ static ADRENO_SYSFS_BOOL(bcl);
 static ADRENO_SYSFS_BOOL(l3_vote);
 static ADRENO_SYSFS_BOOL(perfcounter);
 static ADRENO_SYSFS_BOOL(lpac);
+static ADRENO_SYSFS_BOOL(dms);
 
 static DEVICE_ATTR_RO(gpu_model);
 
@@ -357,6 +372,7 @@ static const struct attribute *_attr_list[] = {
 	&adreno_attr_l3_vote.attr.attr,
 	&adreno_attr_perfcounter.attr.attr,
 	&adreno_attr_lpac.attr.attr,
+	&adreno_attr_dms.attr.attr,
 	NULL,
 };
 
