@@ -5230,21 +5230,32 @@ static void cnss_dev_rddm_timeout_hdlr(struct timer_list *t)
 	struct cnss_pci_data *pci_priv =
 		from_timer(pci_priv, t, dev_rddm_timer);
 
+	enum mhi_ee_type mhi_ee;
+
 	if (!pci_priv)
 		return;
 
 	cnss_fatal_err("Timeout waiting for RDDM notification\n");
 
+	mhi_ee = mhi_get_exec_env(pci_priv->mhi_ctrl);
+
+	if (mhi_ee == MHI_EE_PBL)
+		cnss_pr_err("Unable to collect ramdumps due to abrupt reset\n");
+
+	if (mhi_ee == MHI_EE_RDDM) {
+		cnss_pr_info("Device MHI EE is RDDM, try to collect dump\n");
+		cnss_schedule_recovery(&pci_priv->pci_dev->dev,
+				       CNSS_REASON_RDDM);
+	} else {
+		cnss_mhi_debug_reg_dump(pci_priv);
+		cnss_pci_soc_scratch_reg_dump(pci_priv);
+		cnss_schedule_recovery(&pci_priv->pci_dev->dev,
+				       CNSS_REASON_TIMEOUT);
+	}
+
 	if (!cnss_pci_assert_host_sol(pci_priv))
 		return;
 
-	if (mhi_get_exec_env(pci_priv->mhi_ctrl) == MHI_EE_PBL)
-		cnss_pr_err("Unable to collect ramdumps due to abrupt reset\n");
-
-	cnss_mhi_debug_reg_dump(pci_priv);
-	cnss_pci_soc_scratch_reg_dump(pci_priv);
-
-	cnss_schedule_recovery(&pci_priv->pci_dev->dev, CNSS_REASON_TIMEOUT);
 }
 
 static void cnss_boot_debug_timeout_hdlr(struct timer_list *t)
