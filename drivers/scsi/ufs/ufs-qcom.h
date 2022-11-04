@@ -555,6 +555,7 @@ struct ufs_qcom_host {
 	cpumask_t perf_mask;
 	cpumask_t def_mask;
 	u32 vccq_lpm_uV;
+	bool disable_wb_support;
 };
 
 static inline u32
