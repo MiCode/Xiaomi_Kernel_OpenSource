@@ -44,6 +44,7 @@ obj-$(CONFIG_QCOM_SOC_WATCHDOG) += qcom_soc_wdt.o
 obj-$(CONFIG_QCOM_SUBSYSTEM_SLEEP_STATS) += subsystem_sleep_stats.o
 obj-$(CONFIG_MSM_SLATECOM) += slatecom_spi.o
 obj-$(CONFIG_MSM_SLATECOM_INTERFACE) += slatecom_interface.o
+obj-$(CONFIG_MSM_SLATECOM_RPMSG) += slatecom_rpmsg.o
 obj-$(CONFIG_MSM_SLATECOM_EVENT) += slatecom_event.o
 obj-$(CONFIG_MSM_SEB) += slate_events_bridge.o
 obj-$(CONFIG_MSM_SEB_RPMSG) += slate_events_bridge_rpmsg.o

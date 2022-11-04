@@ -812,6 +812,15 @@ config MSM_SLATECOM_INTERFACE
 		from hardware. Hardware will provide access to read
 		registers and read/write AHB memory in the device.
 
+config MSM_SLATECOM_RPMSG
+       tristate "Provide support for slate control GLINK channel"
+       depends on MSM_SLATECOM_INTERFACE
+       help
+         MSM_SLATECOM_RPMSG informs SLATECOM_INTERFACE driver if GLINK channel
+         has been opened by remote processor. It doesn't maintain state machine
+         and is probed when Slate opens channel and removed when the channel is
+         closed by remote processor.
+
 config MSM_SLATERSB
         tristate "Provide support for rsb events on Slate"
         help
