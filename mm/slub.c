@@ -40,6 +40,7 @@
 
 #include <linux/debugfs.h>
 #include <trace/events/kmem.h>
+#include <trace/hooks/mm.h>
 
 #include "internal.h"
 
@@ -734,6 +735,7 @@ static void set_track(struct kmem_cache *s, void *object,
 		p->cpu = smp_processor_id();
 		p->pid = current->pid;
 		p->when = jiffies;
+		trace_android_vh_save_track_hash(alloc == TRACK_ALLOC, p);
 	} else {
 		memset(p, 0, sizeof(struct track));
 	}
@@ -4934,6 +4936,8 @@ void *__kmalloc_track_caller(size_t size, gfp_t gfpflags, unsigned long caller)
 	/* Honor the call site pointer we received. */
 	trace_kmalloc(caller, ret, size, s->size, gfpflags);
 
+	ret = kasan_kmalloc(s, ret, size, gfpflags);
+
 	return ret;
 }
 EXPORT_SYMBOL(__kmalloc_track_caller);
@@ -4964,6 +4968,8 @@ void *__kmalloc_node_track_caller(size_t size, gfp_t gfpflags,
 
 	/* Honor the call site pointer we received. */
 	trace_kmalloc_node(caller, ret, size, s->size, gfpflags, node);
+
+	ret = kasan_kmalloc(s, ret, size, gfpflags);
 
 	return ret;
 }

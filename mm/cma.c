@@ -468,8 +468,10 @@ struct page *cma_alloc(struct cma *cma, unsigned long count,
 			if ((num_attempts < max_retries) && (ret == -EBUSY)) {
 				spin_unlock_irq(&cma->lock);
 
-				if (fatal_signal_pending(current))
+				if (fatal_signal_pending(current)) {
+					ret = -EINTR;
 					break;
+				}
 
 				/*
 				 * Page may be momentarily pinned by some other

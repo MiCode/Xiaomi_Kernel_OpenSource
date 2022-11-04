@@ -30,7 +30,7 @@ config REGMAP_SPI
 	depends on SPI
 
 config REGMAP_SPMI
-	tristate
+	tristate "Regmap SPMI"
 	depends on SPMI
 
 config REGMAP_W1
