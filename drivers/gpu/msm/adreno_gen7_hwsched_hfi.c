@@ -930,7 +930,8 @@ static struct hfi_mem_alloc_entry *get_mem_alloc_entry(
 	if (desc->flags & HFI_MEMFLAG_GFX_SECURE)
 		flags |= KGSL_MEMFLAGS_SECURE;
 
-	if (!(desc->flags & HFI_MEMFLAG_GFX_ACC)) {
+	if (!(desc->flags & HFI_MEMFLAG_GFX_ACC) &&
+		(desc->mem_kind != HFI_MEMKIND_HW_FENCE)) {
 		if (desc->mem_kind == HFI_MEMKIND_MMIO_IPC_CORE)
 			entry->md = gen7_reserve_gmu_kernel_block_fixed(gmu, 0,
 					desc->size,
@@ -957,8 +958,22 @@ static struct hfi_mem_alloc_entry *get_mem_alloc_entry(
 		goto done;
 	}
 
-	entry->md = kgsl_allocate_global(device, desc->size, 0, flags, priv,
-		memkind_string);
+	/*
+	 * Use pre-allocated memory descriptors to map the HFI_MEMKIND_HW_FENCE and
+	 * HFI_MEMKIND_MEMSTORE
+	 */
+	switch (desc->mem_kind) {
+	case HFI_MEMKIND_HW_FENCE:
+		entry->md = &adreno_dev->hwsched.hw_fence.memdesc;
+		break;
+	case HFI_MEMKIND_MEMSTORE:
+		entry->md = device->memstore;
+		break;
+	default:
+		entry->md = kgsl_allocate_global(device, desc->size, 0, flags,
+			priv, memkind_string);
+		break;
+	}
 	if (IS_ERR(entry->md)) {
 		int ret = PTR_ERR(entry->md);
 
@@ -1197,7 +1212,7 @@ static int enable_preemption(struct adreno_device *adreno_dev)
 	 * Bits[31:4] contain the timeout in ms
 	 */
 	return gen7_hfi_send_set_value(adreno_dev, HFI_VALUE_BIN_TIME, 1,
-		FIELD_PREP(GENMASK(31, 4), 3000) |
+		FIELD_PREP(GENMASK(31, 4), ADRENO_PREEMPT_TIMEOUT) |
 		FIELD_PREP(GENMASK(3, 0), 0xf));
 
 }
@@ -1251,6 +1266,25 @@ done:
 	return pending_ack.results[2];
 }
 
+static int gen7_hfi_send_hw_fence_feature_ctrl(struct adreno_device *adreno_dev)
+{
+	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
+	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+	int ret;
+
+	if (!test_bit(ADRENO_HWSCHED_HW_FENCE, &hwsched->flags))
+		return 0;
+
+	ret = gen7_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_HW_FENCE, 1, 0);
+	if (ret && (ret == -ENOENT)) {
+		dev_err(&gmu->pdev->dev, "GMU doesn't support HW_FENCE feature\n");
+		adreno_hwsched_deregister_hw_fence(hwsched->hw_fence.handle);
+		return 0;
+	}
+
+	return ret;
+}
+
 int gen7_hwsched_hfi_start(struct adreno_device *adreno_dev)
 {
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
@@ -1295,6 +1329,10 @@ int gen7_hwsched_hfi_start(struct adreno_device *adreno_dev)
 		if (ret)
 			goto err;
 	}
+
+	ret = gen7_hfi_send_hw_fence_feature_ctrl(adreno_dev);
+	if (ret)
+		goto err;
 
 	ret = gen7_hfi_send_perfcounter_feature_ctrl(adreno_dev);
 	if (ret)

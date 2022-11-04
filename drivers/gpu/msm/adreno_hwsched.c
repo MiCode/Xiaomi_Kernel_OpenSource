@@ -4,6 +4,8 @@
  * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
+#include <linux/soc/qcom/msm_hw_fence.h>
+
 #include "adreno.h"
 #include "adreno_hfi.h"
 #include "adreno_snapshot.h"
@@ -1169,6 +1171,24 @@ static const struct attribute *_hwsched_attr_list[] = {
 	NULL,
 };
 
+void adreno_hwsched_deregister_hw_fence(struct adreno_device *adreno_dev)
+{
+	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+	struct adreno_hw_fence *hw_fence = &hwsched->hw_fence;
+
+	if (!test_bit(ADRENO_HWSCHED_HW_FENCE, &hwsched->flags))
+		return;
+
+	msm_hw_fence_deregister(hwsched->hw_fence.handle);
+
+	if (hw_fence->memdesc.sgt)
+		sg_free_table(hw_fence->memdesc.sgt);
+
+	memset(&hw_fence->memdesc, 0x0, sizeof(hw_fence->memdesc));
+
+	clear_bit(ADRENO_HWSCHED_HW_FENCE, &hwsched->flags);
+}
+
 static void adreno_hwsched_dispatcher_close(struct adreno_device *adreno_dev)
 {
 	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
@@ -1185,6 +1205,8 @@ static void adreno_hwsched_dispatcher_close(struct adreno_device *adreno_dev)
 	sysfs_remove_files(&device->dev->kobj, _hwsched_attr_list);
 
 	kfree(hwsched->ctxt_bad);
+
+	adreno_hwsched_deregister_hw_fence(adreno_dev);
 }
 
 static void force_retire_timestamp(struct kgsl_device *device,
@@ -1959,4 +1981,54 @@ int adreno_hwsched_idle(struct adreno_device *adreno_dev)
 		return 0;
 
 	return -ETIMEDOUT;
+}
+
+void adreno_hwsched_register_hw_fence(struct adreno_device *adreno_dev)
+{
+	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+	struct adreno_hw_fence *hw_fence = &hwsched->hw_fence;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int ret;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_HW_FENCE))
+		return;
+
+	/* Enable hardware fences only if context queues are enabled */
+	if (!adreno_hwsched_context_queue_enabled(adreno_dev))
+		return;
+
+	if (test_bit(ADRENO_HWSCHED_HW_FENCE, &hwsched->flags))
+		return;
+
+	hw_fence->handle = msm_hw_fence_register(HW_FENCE_CLIENT_ID_CTX0,
+				&hw_fence->mem_descriptor);
+	if (IS_ERR_OR_NULL(hw_fence->handle)) {
+		dev_err(device->dev, "HW fences not supported: %d\n",
+			PTR_ERR_OR_ZERO(hw_fence->handle));
+		hw_fence->handle = NULL;
+		return;
+	}
+
+	/*
+	 * We need to set up the memory descriptor with the physical address of the Tx/Rx Queues so
+	 * that these buffers can be imported in to GMU VA space
+	 */
+	kgsl_memdesc_init(device, &hw_fence->memdesc, 0);
+	hw_fence->memdesc.physaddr = hw_fence->mem_descriptor.device_addr;
+	hw_fence->memdesc.size = hw_fence->mem_descriptor.size;
+	hw_fence->memdesc.hostptr = hw_fence->mem_descriptor.virtual_addr;
+	hw_fence->memdesc.priv |= KGSL_MEMDESC_IOMEM;
+
+	ret = kgsl_memdesc_sg_dma(&hw_fence->memdesc, hw_fence->memdesc.physaddr,
+		hw_fence->memdesc.size);
+	if (ret) {
+		dev_err(device->dev, "Failed to setup HW fences memdesc: %d\n",
+			ret);
+		msm_hw_fence_deregister(hw_fence->handle);
+		hw_fence->handle = NULL;
+		memset(&hw_fence->memdesc, 0x0, sizeof(hw_fence->memdesc));
+		return;
+	}
+
+	set_bit(ADRENO_HWSCHED_HW_FENCE, &hwsched->flags);
 }

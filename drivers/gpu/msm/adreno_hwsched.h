@@ -7,6 +7,8 @@
 #ifndef _ADRENO_HWSCHED_H_
 #define _ADRENO_HWSCHED_H_
 
+#include <linux/soc/qcom/msm_hw_fence.h>
+
 /**
  * struct adreno_hwsched_ops - Function table to hook hwscheduler things
  * to target specific routines
@@ -21,6 +23,18 @@ struct adreno_hwsched_ops {
 	 * @preempt_count - Target specific function to get preemption count
 	 */
 	u32 (*preempt_count)(struct adreno_device *adreno_dev);
+};
+
+/**
+ * struct adreno_hw_fence - Container for hardware fences instance
+ */
+struct adreno_hw_fence {
+	/** @handle: Handle for hardware fences */
+	void *handle;
+	/** @descriptor: Memory descriptor for hardware fences */
+	struct msm_hw_fence_mem_addr mem_descriptor;
+	/** @memdesc: Kgsl memory descriptor for hardware fences queue */
+	struct kgsl_memdesc memdesc;
 };
 
 /**
@@ -58,6 +72,8 @@ struct adreno_hwsched {
 	struct timer_list lsr_timer;
 	/** @lsr_check_ws: Lsr work to update power stats */
 	struct work_struct lsr_check_ws;
+	/** @hw_fence: Container for the hw fences instance */
+	struct adreno_hw_fence hw_fence;
 };
 
 /*
@@ -71,6 +87,7 @@ enum adreno_hwsched_flags {
 	ADRENO_HWSCHED_ACTIVE,
 	ADRENO_HWSCHED_CTX_BAD_LEGACY,
 	ADRENO_HWSCHED_CONTEXT_QUEUE,
+	ADRENO_HWSCHED_HW_FENCE,
 };
 
 /**
@@ -147,5 +164,24 @@ void adreno_hwsched_retire_cmdobj(struct adreno_hwsched *hwsched,
 	struct kgsl_drawobj_cmd *cmdobj);
 
 bool adreno_hwsched_context_queue_enabled(struct adreno_device *adreno_dev);
+
+/**
+ * adreno_hwsched_register_hw_fence - Register GPU as a hardware fence client
+ * @adreno_dev: pointer to the adreno device
+ *
+ * Register with the hardware fence driver to be able to trigger and wait
+ * for hardware fences. Also, set up the memory descriptor for mapping the
+ * client queue to the GMU.
+ */
+void adreno_hwsched_register_hw_fence(struct adreno_device *adreno_dev);
+
+/**
+ * adreno_hwsched_deregister_hw_fence - Deregister GPU as a hardware fence client
+ * @adreno_dev: pointer to the adreno device
+ *
+ * Deregister with the hardware fence driver and free up any resources allocated
+ * as part of registering with the hardware fence driver
+ */
+void adreno_hwsched_deregister_hw_fence(struct adreno_device *adreno_dev);
 
 #endif

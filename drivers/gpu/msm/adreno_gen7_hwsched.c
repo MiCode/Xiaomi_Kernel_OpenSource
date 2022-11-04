@@ -313,6 +313,12 @@ void gen7_hwsched_snapshot(struct adreno_device *adreno_dev,
 				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 				snapshot, adreno_snapshot_global,
 				entry->md);
+
+		if (entry->desc.mem_kind == HFI_MEMKIND_HW_FENCE)
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
+				snapshot, adreno_snapshot_global,
+				entry->md);
 	}
 
 	adreno_hwsched_parse_fault_cmdobj(adreno_dev, snapshot);
@@ -387,6 +393,8 @@ static int gen7_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)
 		if (gen7_hwsched_hfi_get_value(adreno_dev, HFI_VALUE_CONTEXT_QUEUE) == 1)
 			set_bit(ADRENO_HWSCHED_CONTEXT_QUEUE, &adreno_dev->hwsched.flags);
 	}
+
+	adreno_hwsched_register_hw_fence(adreno_dev);
 
 	icc_set_bw(pwr->icc_path, 0, 0);
 
