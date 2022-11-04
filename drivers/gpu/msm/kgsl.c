@@ -24,6 +24,7 @@
 #include <linux/qcom_dma_heap.h>
 #include <linux/security.h>
 #include <linux/sort.h>
+#include <linux/string_helpers.h>
 #include <soc/qcom/of_common.h>
 #include <soc/qcom/secure_buffer.h>
 
@@ -915,6 +916,7 @@ static void kgsl_destroy_process_private(struct kref *kref)
 	write_unlock(&kgsl_driver.proclist_lock);
 	mutex_unlock(&kgsl_driver.process_mutex);
 
+	kfree(private->cmdline);
 	put_pid(private->pid);
 	idr_destroy(&private->mem_idr);
 	idr_destroy(&private->syncsource_idr);
@@ -1002,6 +1004,7 @@ static struct kgsl_process_private *kgsl_process_private_new(
 	private->fd_count = 1;
 	private->pid = cur_pid;
 	get_task_comm(private->comm, current->group_leader);
+	private->cmdline = kstrdup_quotable_cmdline(current, GFP_KERNEL);
 
 	spin_lock_init(&private->mem_lock);
 	spin_lock_init(&private->syncsource_lock);

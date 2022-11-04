@@ -1434,6 +1434,9 @@ static void do_fault_header(struct adreno_device *adreno_dev,
 		drawobj->context->gmu_dispatch_queue, rptr, wptr,
 		ib1base, ib1sz, ib2base, ib2sz);
 
+	pr_context(device, drawobj->context, "cmdline: %s\n",
+			drawctxt->base.proc_priv->cmdline);
+
 	trace_adreno_gpu_fault(drawobj->context->id, drawobj->timestamp, status,
 		rptr, wptr, ib1base, ib1sz, ib2base, ib2sz,
 		adreno_get_level(drawobj->context));
