@@ -629,6 +629,7 @@
   drm_mode_set_name
   drm_mode_sort
   drm_object_property_set_value
+  drm_plane_from_index
   drm_wait_one_vblank
   __dynamic_dev_dbg
   __dynamic_pr_debug
