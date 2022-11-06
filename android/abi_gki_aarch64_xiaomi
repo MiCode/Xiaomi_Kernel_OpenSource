@@ -450,6 +450,7 @@
   iomap_dio_complete
   iov_iter_alignment
   iter_file_splice_write
+  kernfs_get
   kset_register
   migrate_page_move_mapping
   migrate_page_states
