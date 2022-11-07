@@ -1927,7 +1927,7 @@ static struct clk_branch gcc_emac1_xgxs_tx_clk = {
 
 static struct clk_branch gcc_emac_0_clkref_en = {
 	.halt_reg = 0x98108,
-	.halt_check = BRANCH_HALT_DELAY,
+	.halt_check = BRANCH_HALT_INVERT,
 	.clkr = {
 		.enable_reg = 0x98108,
 		.enable_mask = BIT(0),
@@ -1940,7 +1940,7 @@ static struct clk_branch gcc_emac_0_clkref_en = {
 
 static struct clk_branch gcc_emac_1_clkref_en = {
 	.halt_reg = 0x98108,
-	.halt_check = BRANCH_HALT_DELAY,
+	.halt_check = BRANCH_HALT_INVERT,
 	.clkr = {
 		.enable_reg = 0x98108,
 		.enable_mask = BIT(0),
@@ -2050,7 +2050,7 @@ static struct clk_branch gcc_mvmss_nts_clk = {
 
 static struct clk_branch gcc_pcie_0_clkref_en = {
 	.halt_reg = 0x98004,
-	.halt_check = BRANCH_HALT_DELAY,
+	.halt_check = BRANCH_HALT_INVERT,
 	.clkr = {
 		.enable_reg = 0x98004,
 		.enable_mask = BIT(0),
@@ -2096,7 +2096,7 @@ static struct clk_branch gcc_pcie_1_cfg_ahb_clk = {
 
 static struct clk_branch gcc_pcie_1_clkref_en = {
 	.halt_reg = 0x98114,
-	.halt_check = BRANCH_HALT_DELAY,
+	.halt_check = BRANCH_HALT_INVERT,
 	.clkr = {
 		.enable_reg = 0x98114,
 		.enable_mask = BIT(0),
@@ -2235,7 +2235,7 @@ static struct clk_branch gcc_pcie_2_cfg_ahb_clk = {
 
 static struct clk_branch gcc_pcie_2_clkref_en = {
 	.halt_reg = 0x98110,
-	.halt_check = BRANCH_HALT_DELAY,
+	.halt_check = BRANCH_HALT_INVERT,
 	.clkr = {
 		.enable_reg = 0x98110,
 		.enable_mask = BIT(0),
@@ -2818,7 +2818,7 @@ static struct clk_branch gcc_sys_noc_mvmss_clk = {
 
 static struct clk_branch gcc_usb2_clkref_en = {
 	.halt_reg = 0x98008,
-	.halt_check = BRANCH_HALT_DELAY,
+	.halt_check = BRANCH_HALT_INVERT,
 	.clkr = {
 		.enable_reg = 0x98008,
 		.enable_mask = BIT(0),
@@ -2944,7 +2944,7 @@ static struct clk_branch gcc_usb3_phy_pipe_clk = {
 
 static struct clk_branch gcc_usb3_prim_clkref_en = {
 	.halt_reg = 0x98000,
-	.halt_check = BRANCH_HALT_DELAY,
+	.halt_check = BRANCH_HALT_INVERT,
 	.clkr = {
 		.enable_reg = 0x98000,
 		.enable_mask = BIT(0),
@@ -2965,7 +2965,7 @@ static struct clk_branch gcc_usb_phy_cfg_ahb2phy_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(const struct clk_init_data){
 			.name = "gcc_usb_phy_cfg_ahb2phy_clk",
-			.ops = &clk_branch2_ops,
+			.ops = &clk_branch2_aon_ops,
 		},
 	},
 };
