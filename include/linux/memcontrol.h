@@ -349,11 +349,6 @@ struct mem_cgroup {
 	struct deferred_split deferred_split_queue;
 #endif
 
-#ifdef CONFIG_LRU_GEN
-	/* per-memcg mm_struct list */
-	struct lru_gen_mm_list mm_list;
-#endif
-
 	/* for dynamic low */
 	ANDROID_VENDOR_DATA(1);
 	ANDROID_OEM_DATA_ARRAY(1, 2);
