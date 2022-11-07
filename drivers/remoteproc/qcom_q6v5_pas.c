@@ -31,6 +31,7 @@
 #include <linux/soc/qcom/qcom_aoss.h>
 #include <soc/qcom/secure_buffer.h>
 #include <trace/events/rproc_qcom.h>
+#include <soc/qcom/qcom_ramdump.h>
 
 #include "qcom_common.h"
 #include "qcom_pil_info.h"
@@ -73,6 +74,7 @@ struct adsp_data {
 
 struct qcom_adsp {
 	struct device *dev;
+	struct device *minidump_dev;
 	struct rproc *rproc;
 
 	struct qcom_q6v5 q6v5;
@@ -162,7 +164,7 @@ static void adsp_minidump(struct rproc *rproc)
 	if (rproc->dump_conf == RPROC_COREDUMP_DISABLED)
 		goto exit;
 
-	qcom_minidump(rproc, adsp->minidump_id, adsp_segment_dump);
+	qcom_minidump(rproc, adsp->minidump_dev, adsp->minidump_id, adsp_segment_dump);
 
 exit:
 	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_minidump", "exit");
@@ -973,6 +975,7 @@ static int adsp_probe(struct platform_device *pdev)
 	struct rproc *rproc;
 	const char *fw_name;
 	const struct rproc_ops *ops = &adsp_ops;
+	char md_dev_name[32];
 	int ret;
 	bool signal_aop;
 
@@ -1105,12 +1108,21 @@ static int adsp_probe(struct platform_device *pdev)
 	if (ret)
 		goto remove_subdevs;
 
+	snprintf(md_dev_name, ARRAY_SIZE(md_dev_name), "%s-md", pdev->dev.of_node->name);
+	adsp->minidump_dev = qcom_create_ramdump_device(md_dev_name, NULL);
+	if (!adsp->minidump_dev)
+		dev_err(&pdev->dev, "Unable to create %s minidump device.\n", md_dev_name);
+
 	ret = rproc_add(rproc);
 	if (ret)
-		goto remove_attr_txn_id;
+		goto destroy_minidump_dev;
 
 	return 0;
-remove_attr_txn_id:
+
+destroy_minidump_dev:
+	if (adsp->minidump_dev)
+		qcom_destroy_ramdump_device(adsp->minidump_dev);
+
 	device_remove_file(adsp->dev, &dev_attr_txn_id);
 remove_subdevs:
 	qcom_remove_sysmon_subdev(adsp->sysmon);
@@ -1131,6 +1143,8 @@ static int adsp_remove(struct platform_device *pdev)
 	struct qcom_adsp *adsp = platform_get_drvdata(pdev);
 
 	rproc_del(adsp->rproc);
+	if (adsp->minidump_dev)
+		qcom_destroy_ramdump_device(adsp->minidump_dev);
 	device_remove_file(adsp->dev, &dev_attr_txn_id);
 	qcom_remove_glink_subdev(adsp->rproc, &adsp->glink_subdev);
 	qcom_remove_sysmon_subdev(adsp->sysmon);
