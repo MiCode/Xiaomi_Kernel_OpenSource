@@ -364,13 +364,6 @@ enum {
 	LRU_GEN_FILE,
 };
 
-enum {
-	LRU_GEN_CORE,
-	LRU_GEN_MM_WALK,
-	LRU_GEN_NONLEAF_YOUNG,
-	NR_LRU_GEN_CAPS
-};
-
 #define MIN_LRU_BATCH		BITS_PER_LONG
 #define MAX_LRU_BATCH		(MIN_LRU_BATCH * 128)
 
@@ -409,8 +402,6 @@ struct lru_gen_struct {
 	/* can be modified without holding the LRU lock */
 	atomic_long_t evicted[NR_HIST_GENS][ANON_AND_FILE][MAX_NR_TIERS];
 	atomic_long_t refaulted[NR_HIST_GENS][ANON_AND_FILE][MAX_NR_TIERS];
-	/* whether the multi-gen LRU is enabled */
-	bool enabled;
 };
 
 enum {
