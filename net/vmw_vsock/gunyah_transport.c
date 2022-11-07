@@ -175,6 +175,8 @@ static void ghvst_release(struct vsock_sock *vsk)
 
 	if (!sock_flag(sk, SOCK_ZAPPED))
 		ghvst_port_remove(vsk);
+
+	vsock_remove_bound(vsk);
 }
 
 static int ghvst_port_assign(struct vsock_sock *vsk, int *port)
