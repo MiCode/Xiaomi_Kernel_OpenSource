@@ -130,13 +130,6 @@ struct scan_control {
 	/* Always discard instead of demoting to lower tier memory */
 	unsigned int no_demotion:1;
 
-#ifdef CONFIG_LRU_GEN
-	/* help make better choices when multiple memcgs are available */
-	unsigned int memcgs_need_aging:1;
-	unsigned int memcgs_need_swapping:1;
-	unsigned int memcgs_avoid_swapping:1;
-#endif
-
 	/* Allocation order */
 	s8 order;
 
@@ -4289,22 +4282,6 @@ static void lru_gen_age_node(struct pglist_data *pgdat, struct scan_control *sc)
 
 	VM_BUG_ON(!current_is_kswapd());
 
-	/*
-	 * To reduce the chance of going into the aging path or swapping, which
-	 * can be costly, optimistically skip them unless their corresponding
-	 * flags were cleared in the eviction path. This improves the overall
-	 * performance when multiple memcgs are available.
-	 */
-	if (!sc->memcgs_need_aging) {
-		sc->memcgs_need_aging = true;
-		sc->memcgs_avoid_swapping = !sc->memcgs_need_swapping;
-		sc->memcgs_need_swapping = true;
-		return;
-	}
-
-	sc->memcgs_need_swapping = true;
-	sc->memcgs_avoid_swapping = true;
-
 	current->reclaim_state->mm_walk = &pgdat->mm_walk;
 
 	memcg = mem_cgroup_iter(NULL, NULL, NULL);
@@ -4709,8 +4686,7 @@ static int isolate_pages(struct lruvec *lruvec, struct scan_control *sc, int swa
 	return scanned;
 }
 
-static int evict_pages(struct lruvec *lruvec, struct scan_control *sc, int swappiness,
-		       bool *swapped)
+static int evict_pages(struct lruvec *lruvec, struct scan_control *sc, int swappiness)
 {
 	int type;
 	int scanned;
@@ -4775,9 +4751,6 @@ static int evict_pages(struct lruvec *lruvec, struct scan_control *sc, int swapp
 
 	sc->nr_reclaimed += reclaimed;
 
-	if (type == LRU_GEN_ANON && swapped)
-		*swapped = true;
-
 	return scanned;
 }
 
@@ -4806,10 +4779,8 @@ static long get_nr_to_scan(struct lruvec *lruvec, struct scan_control *sc, bool 
 	if (!nr_to_scan)
 		return 0;
 
-	if (!need_aging) {
-		sc->memcgs_need_aging = false;
+	if (!need_aging)
 		return nr_to_scan;
-	}
 
 	/* leave the work to lru_gen_age_node() */
 	if (current_is_kswapd())
@@ -4831,8 +4802,6 @@ static void lru_gen_shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc
 {
 	struct blk_plug plug;
 	long scanned = 0;
-	bool swapped = false;
-	unsigned long reclaimed = sc->nr_reclaimed;
 	struct pglist_data *pgdat = lruvec_pgdat(lruvec);
 
 	lru_add_drain();
@@ -4858,19 +4827,13 @@ static void lru_gen_shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc
 		if (!nr_to_scan)
 			break;
 
-		delta = evict_pages(lruvec, sc, swappiness, &swapped);
+		delta = evict_pages(lruvec, sc, swappiness);
 		if (!delta)
 			break;
 
-		if (sc->memcgs_avoid_swapping && swappiness < 200 && swapped)
-			break;
-
 		scanned += delta;
-		if (scanned >= nr_to_scan) {
-			if (!swapped && sc->nr_reclaimed - reclaimed >= MIN_LRU_BATCH)
-				sc->memcgs_need_swapping = false;
+		if (scanned >= nr_to_scan)
 			break;
-		}
 
 		cond_resched();
 	}
