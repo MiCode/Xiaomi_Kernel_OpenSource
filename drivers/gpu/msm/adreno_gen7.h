@@ -270,6 +270,16 @@ void gen7_snapshot(struct adreno_device *adreno_dev,
 void gen7_crashdump_init(struct adreno_device *adreno_dev);
 
 /**
+ * gen7_snapshot_external_core_regs - Dump external registers into snapshot
+ * @device: Pointer to KGSL device
+ * @snapshot: Pointer to the snapshot
+ *
+ * Dump external core registers like GPUCC, CPR into GPU snapshot.
+ */
+void gen7_snapshot_external_core_regs(struct kgsl_device *device,
+		struct kgsl_snapshot *snapshot);
+
+/**
  * gen7_read_alwayson - Read the current always on clock value
  * @adreno_dev: An Adreno GPU handle
  *

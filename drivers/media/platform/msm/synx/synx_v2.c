@@ -731,6 +731,9 @@ int synx_async_wait(struct synx_session *session,
 	if (IS_ERR_OR_NULL(session) || IS_ERR_OR_NULL(params))
 		return -SYNX_INVALID;
 
+	if (params->timeout_ms != SYNX_NO_TIMEOUT)
+		return -SYNX_NOSUPPORT;
+
 	client = synx_get_client(session);
 	if (IS_ERR_OR_NULL(client))
 		return -SYNX_INVALID;
@@ -1957,6 +1960,7 @@ static int synx_handle_async_wait(
 	params.h_synx = user_data.synx_obj;
 	params.cb_func = synx_util_default_user_callback;
 	params.userdata = (void *)user_data.payload[0];
+	params.timeout_ms = user_data.payload[2];
 
 	rc = synx_async_wait(session, &params);
 	if (rc)

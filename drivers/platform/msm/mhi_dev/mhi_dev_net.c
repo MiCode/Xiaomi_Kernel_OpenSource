@@ -802,7 +802,7 @@ channel_init_fail:
 }
 EXPORT_SYMBOL(mhi_dev_net_interface_init);
 
-void __exit mhi_dev_net_exit(void)
+void mhi_dev_net_exit(void)
 {
 	mhi_dev_net_log(MHI_INFO,
 			"MHI Network Interface Module exited\n");

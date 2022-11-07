@@ -503,6 +503,8 @@ int gen7_hfi_send_bcl_feature_ctrl(struct adreno_device *adreno_dev)
 	return gen7_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_BCL, 1, gen7_core->bcl_data);
 }
 
+#define EVENT_PWR_ACD_THROTTLE_PROF 44
+
 int gen7_hfi_send_acd_feature_ctrl(struct adreno_device *adreno_dev)
 {
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
@@ -511,13 +513,19 @@ int gen7_hfi_send_acd_feature_ctrl(struct adreno_device *adreno_dev)
 	if (adreno_dev->acd_enabled) {
 		ret = gen7_hfi_send_feature_ctrl(adreno_dev,
 			HFI_FEATURE_ACD, 1, 0);
+		if (ret)
+			return ret;
 
-		if (!ret)
-			ret = gen7_hfi_send_generic_req(adreno_dev,
+		ret = gen7_hfi_send_generic_req(adreno_dev,
 				&gmu->hfi.acd_table);
+		if (ret)
+			return ret;
+
+		gen7_hfi_send_set_value(adreno_dev, HFI_VALUE_LOG_EVENT_ON,
+				EVENT_PWR_ACD_THROTTLE_PROF, 0);
 	}
 
-	return ret;
+	return 0;
 }
 
 int gen7_hfi_send_ifpc_feature_ctrl(struct adreno_device *adreno_dev)

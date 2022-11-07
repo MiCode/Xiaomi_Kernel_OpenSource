@@ -282,16 +282,8 @@ int brl_resume(struct goodix_ts_core *cd)
 	ret = cd->hw_ops->reset(cd, GOODIX_NORMAL_RESET_DELAY_MS);
 #else
 	ret = cd->hw_ops->power_on(cd, 1);
-	if (ret) {
+	if (ret)
 		ts_err("failed power on");
-		return ret;
-	}
-
-	ret = cd->hw_ops->reset(cd, GOODIX_NORMAL_RESET_DELAY_MS);
-	if (ret) {
-		ts_err("failed reset tp");
-		return ret;
-	}
 #endif
 
 	return ret;

@@ -140,6 +140,7 @@ struct msm_hsphy {
 	struct regulator        *refgen;
 	int			vdd_levels[3]; /* none, low, high */
 	int			refgen_levels[3]; /* 0, REFGEN_VOL_MIN, REFGEN_VOL_MAX */
+	int			vdda18_max_uA;
 
 	bool			clocks_enabled;
 	bool			power_enabled;
@@ -246,7 +247,7 @@ static int msm_hsphy_enable_power(struct msm_hsphy *phy, bool on)
 		goto unconfig_vdd;
 	}
 
-	ret = regulator_set_load(phy->vdda18, USB_HSPHY_1P8_HPM_LOAD);
+	ret = regulator_set_load(phy->vdda18, phy->vdda18_max_uA);
 	if (ret < 0) {
 		dev_err(phy->phy.dev, "Unable to set HPM of vdda18:%d\n", ret);
 		goto disable_vdd;
@@ -1476,6 +1477,18 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
+
+	     /*
+	      * Some targets use PMOS LDOs, while others use NMOS LDOs,
+	      * but there is no support for NMOS LDOs whose load current threshold
+	      * for entering HPM is 30mA, which is greater than 19mA.
+	      * As a result of this property being passed in dt, the value of
+	      * USB_HSPHY_1P8_HPM_LOAD will be modified to meet the requirements.
+	      */
+
+	if (of_property_read_s32(dev->of_node, "qcom,vdd18-max-load-uA",
+			&phy->vdda18_max_uA) || !phy->vdda18_max_uA)
+		phy->vdda18_max_uA = USB_HSPHY_1P8_HPM_LOAD;
 
 	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",
 					 (u32 *) phy->vdd_levels,

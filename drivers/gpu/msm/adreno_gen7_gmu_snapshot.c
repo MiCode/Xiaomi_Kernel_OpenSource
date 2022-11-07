@@ -225,7 +225,7 @@ static size_t gen7_snapshot_rscc_registers(struct kgsl_device *device, u8 *buf,
  * This is where all of the GEN7 GMU specific bits and pieces are grabbed
  * into the snapshot memory
  */
-void gen7_gmu_device_snapshot(struct kgsl_device *device,
+static void gen7_gmu_device_snapshot(struct kgsl_device *device,
 	struct kgsl_snapshot *snapshot)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -268,4 +268,28 @@ void gen7_gmu_device_snapshot(struct kgsl_device *device,
 dtcm:
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GMU_MEMORY,
 		snapshot, gen7_gmu_snapshot_dtcm, gmu);
+}
+
+void gen7_gmu_snapshot(struct adreno_device *adreno_dev,
+	struct kgsl_snapshot *snapshot)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	/* Send nmi only if it was a gmu fault */
+	if (device->gmu_fault)
+		gen7_gmu_send_nmi(adreno_dev, false);
+
+	/*
+	 * Dump external register first to have GPUCC and other external
+	 * register in snapshot to analyze the system state even in partial
+	 * snapshot dump
+	 */
+	gen7_snapshot_external_core_regs(device, snapshot);
+
+	gen7_gmu_device_snapshot(device, snapshot);
+
+	gen7_snapshot(adreno_dev, snapshot);
+
+	gmu_core_regwrite(device, GEN7_GMU_GMU2HOST_INTR_CLR, UINT_MAX);
+	gmu_core_regwrite(device, GEN7_GMU_GMU2HOST_INTR_MASK, HFI_IRQ_MASK);
 }

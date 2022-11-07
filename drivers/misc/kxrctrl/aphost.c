@@ -252,7 +252,7 @@ static ssize_t jsmem_store(struct device *dev,struct device_attribute *attr, con
 			goto __end;
         
 		d_packet_set_instance(NULL);
-		dma_buf_kunmap(gspi_client->js_buf, 0, gspi_client->vaddr);
+		dma_buf_vunmap(gspi_client->js_buf, gspi_client->vaddr);
 		dma_buf_end_cpu_access(gspi_client->js_buf, DMA_BIDIRECTIONAL);
 		dma_buf_put(gspi_client->js_buf);
 		gspi_client->vaddr = NULL;
@@ -276,14 +276,15 @@ static ssize_t jsmem_store(struct device *dev,struct device_attribute *attr, con
 		}
 		
 		gspi_client->vsize = gspi_client->js_buf->size;
-		gspi_client->vaddr = dma_buf_kmap(gspi_client->js_buf, 0);
+		gspi_client->vaddr = dma_buf_vmap(gspi_client->js_buf);
 		
 		if (IS_ERR_OR_NULL(gspi_client->vaddr)) {
 			
 			dma_buf_end_cpu_access(gspi_client->js_buf, DMA_BIDIRECTIONAL);
 			dma_buf_put(gspi_client->js_buf);
 			gspi_client->js_buf = NULL;
-			pr_err("[%s]dma_buf_kmap failed for fd: %d\n",__func__,  gspi_client->memfd);
+			pr_err("[%s]dma_buf_vmap failed for fd: %d\n", __func__,
+					  gspi_client->memfd);
 			goto __end;
 		}
 		
@@ -1084,9 +1085,6 @@ static const struct usb_device_id yc_id_table[] = {
       
     { }	
 };
-
-MODULE_DEVICE_TABLE(usb, hub_id_table);
-
 
 static struct usb_driver pri_driver = {
 	.name =		"yc",

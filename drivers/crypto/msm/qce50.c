@@ -2303,6 +2303,20 @@ static int _qce_unlock_other_pipes(struct qce_device *pce_dev, int req_info)
 	return rc;
 }
 
+static int qce_sps_set_irqs(struct qce_device *pce_dev, bool enable)
+{
+	if (enable)
+		return sps_bam_enable_irqs(pce_dev->ce_bam_info.bam_handle);
+	else
+		return sps_bam_disable_irqs(pce_dev->ce_bam_info.bam_handle);
+}
+
+int qce_set_irqs(void *handle, bool enable)
+{
+	return qce_sps_set_irqs(handle, enable);
+}
+EXPORT_SYMBOL(qce_set_irqs);
+
 static inline void qce_free_req_info(struct qce_device *pce_dev, int req_info,
 		bool is_complete);
 

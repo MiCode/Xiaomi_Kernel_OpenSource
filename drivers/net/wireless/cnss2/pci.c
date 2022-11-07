@@ -1573,14 +1573,8 @@ static int cnss_rddm_trigger_debug(struct cnss_pci_data *pci_priv)
 {
 	int read_val, ret;
 
-	switch (pci_priv->device_id) {
-	case QCA6490_DEVICE_ID:
-	case KIWI_DEVICE_ID:
-		break;
-	default:
-		cnss_pr_err("RDDM Trigger debug not supported");
+	if (!pci_priv || pci_priv->device_id != QCA6490_DEVICE_ID)
 		return -EOPNOTSUPP;
-	}
 
 	cnss_pr_err("Write GCC Spare with ACE55 Pattern");
 	cnss_pci_reg_write(pci_priv, GCC_GCC_SPARE_REG_1, 0xACE55);
@@ -1596,14 +1590,8 @@ static int cnss_rddm_trigger_check(struct cnss_pci_data *pci_priv)
 {
 	int read_val, ret;
 
-	switch (pci_priv->device_id) {
-	case QCA6490_DEVICE_ID:
-	case KIWI_DEVICE_ID:
-		break;
-	default:
-		cnss_pr_err("RDDM Trigger check not supported");
+	if (!pci_priv || pci_priv->device_id != QCA6490_DEVICE_ID)
 		return -EOPNOTSUPP;
-	}
 
 	ret = cnss_pci_reg_read(pci_priv, GCC_GCC_SPARE_REG_1, &read_val);
 	cnss_pr_err("Read GCC spare to check reset status: 0x%x, ret: %d",

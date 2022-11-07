@@ -48,8 +48,13 @@
 #define RESULT_SUCCESS		0
 #define RESULT_FAILURE		-1
 
-/* Helios Ramdump Size 4 MB */
-#define HELIOS_RAMDUMP_SZ SZ_4M
+/* Helios Full Ramdump Size 16 MB */
+#define HELIOS_FULL_RAMDUMP_SZ SZ_16M
+
+/* Helios Ramdump Buffer Size 4 MB */
+#define HELIOS_RAMDUMP_BUFFER_SZ SZ_4M
+
+#define HELIOS_APP_PARTIAL_RAMDUMP 100
 
 uint32_t helios_app_uid = 286;
 static struct workqueue_struct *helios_reset_wq;
@@ -727,8 +732,10 @@ static void helios_coredump(struct rproc *rproc)
 	u64 shm_bridge_handle;
 	phys_addr_t start_addr;
 	void *region;
+	void *full_ramdump_buffer = NULL;
 	int ret;
-	unsigned long size = HELIOS_RAMDUMP_SZ;
+	unsigned long size = HELIOS_RAMDUMP_BUFFER_SZ;
+	size_t buffer_size = 0;
 
 	rproc_coredump_cleanup(rproc);
 
@@ -741,15 +748,21 @@ static void helios_coredump(struct rproc *rproc)
 				&start_addr, GFP_KERNEL, DMA_ATTR_SKIP_ZEROING);
 	if (region == NULL) {
 		dev_err(helios->dev,
-			"Helios failure to allocate ramdump region of size %zx\n",
-			size);
-		return;
+			"Allocation of ramdump region failed. Try with reduced size\n");
+		size = size / 2;
+		region = dma_alloc_attrs(helios->dev, size,
+					&start_addr, GFP_KERNEL, DMA_ATTR_SKIP_ZEROING);
+		if (region == NULL) {
+			dev_err(helios->dev,
+				"Helios failure to allocate ramdump region of size %zx\n",
+				size);
+			return;
+		}
 	}
 
 	ret = qtee_shmbridge_register(start_addr, size,
 		ns_vmids, ns_vm_perms, 1, PERM_READ|PERM_WRITE,
 		&shm_bridge_handle);
-
 	if (ret) {
 		dev_err(helios->dev,
 				"%s: Failed to create shm bridge. ret=[%d]\n",
@@ -761,14 +774,30 @@ static void helios_coredump(struct rproc *rproc)
 	helios_tz_req.address_fw = start_addr;
 	helios_tz_req.size_fw = size;
 
-	ret = helios_tzapp_comm(helios, &helios_tz_req);
-	if (ret || helios->cmd_status) {
-		dev_err(helios->dev, "%s: Helios Ramdump collection failed\n", __func__);
-		goto exit;
-	}
+	full_ramdump_buffer = vmalloc(HELIOS_FULL_RAMDUMP_SZ);
+	if (full_ramdump_buffer == NULL)
+		goto shm_free;
+
+	do {
+		ret = helios_tzapp_comm(helios, &helios_tz_req);
+		if (ret) {
+			dev_err(helios->dev, "%s: Helios Ramdump collection failed:[%d]\n",
+					__func__, ret);
+			goto exit;
+		}
+		if (helios->cmd_status &&
+				helios->cmd_status != HELIOS_APP_PARTIAL_RAMDUMP) {
+			dev_err(helios->dev, "%s: Helios Ramdump collection failed:[%d]\n",
+					__func__, helios->cmd_status);
+			goto exit;
+		}
+		memcpy(full_ramdump_buffer + buffer_size, region, size);
+		buffer_size += size;
+	} while (helios->cmd_status == HELIOS_APP_PARTIAL_RAMDUMP);
 
 	pr_debug("Add coredump segment!\n");
-	ret = rproc_coredump_add_custom_segment(rproc, start_addr, size, &dumpfn, region);
+	ret = rproc_coredump_add_custom_segment(rproc, start_addr, buffer_size,
+			&dumpfn, full_ramdump_buffer);
 	if (ret) {
 		dev_err(helios->dev, "failed to add rproc segment: %d\n", ret);
 		rproc_coredump_cleanup(helios->rproc);
@@ -779,6 +808,8 @@ static void helios_coredump(struct rproc *rproc)
 	rproc_coredump(rproc);
 
 exit:
+	vfree(full_ramdump_buffer);
+shm_free:
 	qtee_shmbridge_deregister(shm_bridge_handle);
 dma_free:
 	dma_free_attrs(helios->dev, size, region,

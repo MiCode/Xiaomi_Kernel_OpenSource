@@ -1066,9 +1066,9 @@ int gen7_gmu_parse_fw(struct adreno_device *adreno_dev)
 	}
 
 	/*
-	 * Zero payload fw blocks contain meta data and are
+	 * Zero payload fw blocks contain metadata and are
 	 * guaranteed to precede fw load data. Parse the
-	 * meta data blocks.
+	 * metadata blocks.
 	 */
 	while (offset < gmu->fw_image->size) {
 		blk = (struct gmu_block_header *)&gmu->fw_image->data[offset];
@@ -1532,23 +1532,6 @@ static irqreturn_t gen7_gmu_irq_handler(int irq, void *data)
 				status & ~GMU_AO_INT_MASK);
 
 	return IRQ_HANDLED;
-}
-
-void gen7_gmu_snapshot(struct adreno_device *adreno_dev,
-	struct kgsl_snapshot *snapshot)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-
-	/* Send nmi only if it was a gmu fault */
-	if (device->gmu_fault)
-		gen7_gmu_send_nmi(adreno_dev, false);
-
-	gen7_gmu_device_snapshot(device, snapshot);
-
-	gen7_snapshot(adreno_dev, snapshot);
-
-	gmu_core_regwrite(device, GEN7_GMU_GMU2HOST_INTR_CLR, UINT_MAX);
-	gmu_core_regwrite(device, GEN7_GMU_GMU2HOST_INTR_MASK, HFI_IRQ_MASK);
 }
 
 void gen7_gmu_aop_send_acd_state(struct gen7_gmu_device *gmu, bool flag)
