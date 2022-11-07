@@ -600,7 +600,7 @@ struct mdm_drv_data sdx_lemur = {
 };
 
 struct mdm_drv_data sdx_pinn = {
-	.fw = "sdx75m/xbl.elf",
+	.fw = "sdx75m/xbl_s.melf",
 };
 
 struct mdm_drv_data sdx_baagha = {
