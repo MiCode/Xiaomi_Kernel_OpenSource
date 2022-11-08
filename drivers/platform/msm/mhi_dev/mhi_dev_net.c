@@ -846,7 +846,7 @@ channel_init_fail:
 }
 EXPORT_SYMBOL(mhi_dev_net_interface_init);
 
-void __exit mhi_dev_net_exit(void)
+void mhi_dev_net_exit(void)
 {
 	mhi_dev_net_log(MHI_INFO,
 			"MHI Network Interface Module exited\n");
@@ -896,4 +896,4 @@ static void __exit mhi_dev_exit(void)
 {
 	platform_driver_unregister(&mhi_dev_net_driver);
 }
-module_exit(mhi_dev_net_exit);
+module_exit(mhi_dev_exit);
