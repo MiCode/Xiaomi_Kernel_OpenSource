@@ -747,7 +747,6 @@ static size_t snapshot_ib(struct kgsl_device *device, u8 *buf,
 		return 0;
 	}
 
-	/* only do this for IB1 because the IB2's are part of IB1 objects */
 	if (metadata->ib1base == obj->gpuaddr) {
 
 		snapshot->ib1dumped = active_ib_is_parsed(obj->gpuaddr,
@@ -768,9 +767,12 @@ static size_t snapshot_ib(struct kgsl_device *device, u8 *buf,
 	}
 
 
-	if (metadata->ib2base == obj->gpuaddr)
+	if (metadata->ib2base == obj->gpuaddr) {
 		snapshot->ib2dumped = active_ib_is_parsed(obj->gpuaddr,
 					obj->size, obj->entry->priv);
+		adreno_parse_ib(device, snapshot, obj->entry->priv,
+			       obj->gpuaddr, obj->size >> 2);
+	}
 
 	if (metadata->ib1base_lpac == obj->gpuaddr) {
 
@@ -791,9 +793,12 @@ static size_t snapshot_ib(struct kgsl_device *device, u8 *buf,
 		}
 	}
 
-	if (metadata->ib2base_lpac == obj->gpuaddr)
+	if (metadata->ib2base_lpac == obj->gpuaddr) {
 		snapshot->ib2dumped_lpac = active_ib_is_parsed(obj->gpuaddr,
 					obj->size, obj->entry->priv);
+		adreno_parse_ib_lpac(device, snapshot, obj->entry->priv,
+				     obj->gpuaddr, obj->size >> 2);
+	}
 
 	/* Write the sub-header for the section */
 	header->gpuaddr = obj->gpuaddr;
