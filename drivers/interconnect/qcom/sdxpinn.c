@@ -323,8 +323,9 @@ static struct qcom_icc_node qhm_pcie_rscc = {
 	.channels = 1,
 	.buswidth = 4,
 	.noc_ops = &qcom_qnoc4_ops,
-	.num_links = 29,
-	.links = { SLAVE_AUDIO, SLAVE_CLK_CTL,
+	.num_links = 31,
+	.links = { SLAVE_ETH0_CFG, SLAVE_ETH1_CFG,
+		   SLAVE_AUDIO, SLAVE_CLK_CTL,
 		   SLAVE_CRYPTO_0_CFG, SLAVE_IMEM_CFG,
 		   SLAVE_IPA_CFG, SLAVE_IPC_ROUTER_CFG,
 		   SLAVE_CNOC_MSS, ICBDI_SLAVE_MVMSS_CFG,
@@ -423,8 +424,9 @@ static struct qcom_icc_node qnm_gemnoc_cnoc = {
 	.channels = 1,
 	.buswidth = 8,
 	.noc_ops = &qcom_qnoc4_ops,
-	.num_links = 30,
-	.links = { SLAVE_AUDIO, SLAVE_CLK_CTL,
+	.num_links = 32,
+	.links = { SLAVE_ETH0_CFG, SLAVE_ETH1_CFG,
+		   SLAVE_AUDIO, SLAVE_CLK_CTL,
 		   SLAVE_CRYPTO_0_CFG, SLAVE_IMEM_CFG,
 		   SLAVE_IPA_CFG, SLAVE_IPC_ROUTER_CFG,
 		   SLAVE_CNOC_MSS, ICBDI_SLAVE_MVMSS_CFG,
@@ -804,6 +806,24 @@ static struct qcom_icc_node qns_pcie_gemnoc = {
 	.links = { MASTER_ANOC_PCIE_GEM_NOC },
 };
 
+static struct qcom_icc_node ps_eth0_cfg = {
+	.name = "ps_eth0_cfg",
+	.id = SLAVE_ETH0_CFG,
+	.channels = 1,
+	.buswidth = 4,
+	.noc_ops = &qcom_qnoc4_ops,
+	.num_links = 0,
+};
+
+static struct qcom_icc_node ps_eth1_cfg = {
+	.name = "ps_eth1_cfg",
+	.id = SLAVE_ETH1_CFG,
+	.channels = 1,
+	.buswidth = 4,
+	.noc_ops = &qcom_qnoc4_ops,
+	.num_links = 0,
+};
+
 static struct qcom_icc_node qhs_audio = {
 	.name = "qhs_audio",
 	.id = SLAVE_AUDIO,
@@ -1152,8 +1172,10 @@ static struct qcom_icc_bcm bcm_ce0 = {
 static struct qcom_icc_bcm bcm_cn0 = {
 	.name = "CN0",
 	.voter_idx = 0,
-	.num_nodes = 37,
+	.enable_mask = 0x1,
+	.num_nodes = 39,
 	.nodes = { &qhm_pcie_rscc, &qnm_gemnoc_cnoc,
+		   &ps_eth0_cfg, &ps_eth1_cfg,
 		   &qhs_audio, &qhs_clk_ctl,
 		   &qhs_crypto_cfg, &qhs_imem_cfg,
 		   &qhs_ipa, &qhs_ipc_router,
@@ -1205,6 +1227,7 @@ static struct qcom_icc_bcm bcm_sh0 = {
 static struct qcom_icc_bcm bcm_sh1 = {
 	.name = "SH1",
 	.voter_idx = 0,
+	.enable_mask = 0x1,
 	.num_nodes = 10,
 	.nodes = { &alm_sys_tcu, &chm_apps,
 		   &qnm_gemnoc_cfg, &qnm_mdsp,
@@ -1223,6 +1246,7 @@ static struct qcom_icc_bcm bcm_sn0 = {
 static struct qcom_icc_bcm bcm_sn1 = {
 	.name = "SN1",
 	.voter_idx = 0,
+	.enable_mask = 0x1,
 	.num_nodes = 21,
 	.nodes = { &xm_pcie3_0, &xm_pcie3_1,
 		   &xm_pcie3_2, &qhm_audio,
@@ -1416,6 +1440,8 @@ static struct qcom_icc_node *system_noc_nodes[] = {
 	[MASTER_SDCC_1] = &xm_sdc1,
 	[MASTER_SDCC_4] = &xm_sdc4,
 	[MASTER_USB3_0] = &xm_usb3,
+	[SLAVE_ETH0_CFG] = &ps_eth0_cfg,
+	[SLAVE_ETH1_CFG] = &ps_eth1_cfg,
 	[SLAVE_AUDIO] = &qhs_audio,
 	[SLAVE_CLK_CTL] = &qhs_clk_ctl,
 	[SLAVE_CRYPTO_0_CFG] = &qhs_crypto_cfg,
