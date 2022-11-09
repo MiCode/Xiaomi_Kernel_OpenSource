@@ -1086,6 +1086,8 @@
   __traceiter_android_rvh_find_new_ilb
   __traceiter_android_rvh_finish_prio_fork
   __traceiter_android_rvh_is_cpu_allowed
+  __traceiter_android_rvh_memcgv2_calc_decayed_watermark
+  __traceiter_android_rvh_memcgv2_init
   __traceiter_android_rvh_migrate_queued_task
   __traceiter_android_rvh_mmc_partition_status
   __traceiter_android_rvh_mmc_sd_cmdline_timing
@@ -1115,6 +1117,7 @@
   __traceiter_android_rvh_update_cpu_capacity
   __traceiter_android_rvh_update_misfit_status
   __traceiter_android_rvh_update_thermal_stats
+  __traceiter_android_rvh_update_watermark
   __traceiter_android_rvh_wake_up_new_task
   __traceiter_android_vh_arch_set_freq_scale
   __traceiter_android_vh_atomic_remove_fb
@@ -1177,6 +1180,8 @@
   __tracepoint_android_rvh_find_new_ilb
   __tracepoint_android_rvh_finish_prio_fork
   __tracepoint_android_rvh_is_cpu_allowed
+  __tracepoint_android_rvh_memcgv2_calc_decayed_watermark
+  __tracepoint_android_rvh_memcgv2_init
   __tracepoint_android_rvh_migrate_queued_task
   __tracepoint_android_rvh_mmc_partition_status
   __tracepoint_android_rvh_mmc_sd_cmdline_timing
@@ -1206,6 +1211,7 @@
   __tracepoint_android_rvh_update_cpu_capacity
   __tracepoint_android_rvh_update_misfit_status
   __tracepoint_android_rvh_update_thermal_stats
+  __tracepoint_android_rvh_update_watermark
   __tracepoint_android_rvh_wake_up_new_task
   __tracepoint_android_vh_arch_set_freq_scale
   __tracepoint_android_vh_atomic_remove_fb
