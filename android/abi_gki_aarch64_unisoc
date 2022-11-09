@@ -1097,6 +1097,7 @@
   __traceiter_android_rvh_psci_cpu_suspend
   __traceiter_android_rvh_psci_tos_resident_on
   __traceiter_android_rvh_rtmutex_prepare_setprio
+  __traceiter_android_rvh_rto_next_cpu
   __traceiter_android_rvh_sched_cpu_dying
   __traceiter_android_rvh_sched_cpu_starting
   __traceiter_android_rvh_sched_exec
@@ -1191,6 +1192,7 @@
   __tracepoint_android_rvh_psci_cpu_suspend
   __tracepoint_android_rvh_psci_tos_resident_on
   __tracepoint_android_rvh_rtmutex_prepare_setprio
+  __tracepoint_android_rvh_rto_next_cpu
   __tracepoint_android_rvh_sched_cpu_dying
   __tracepoint_android_rvh_sched_cpu_starting
   __tracepoint_android_rvh_sched_exec
