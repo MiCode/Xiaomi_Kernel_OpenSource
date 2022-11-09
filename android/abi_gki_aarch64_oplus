@@ -29,6 +29,7 @@
   blkdev_issue_flush
   blkdev_put
   blk_finish_plug
+  blk_mq_queue_inflight
   blk_queue_flag_clear
   blk_queue_flag_set
   blk_queue_io_min
