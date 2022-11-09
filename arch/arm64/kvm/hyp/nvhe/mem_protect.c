@@ -929,6 +929,9 @@ static int host_complete_share(u64 addr, const struct pkvm_mem_transition *tx,
 {
 	u64 size = tx->nr_pages * PAGE_SIZE;
 
+	if (tx->initiator.id == PKVM_ID_GUEST)
+		psci_mem_protect_dec();
+
 	return __host_set_page_state_range(addr, size, PKVM_PAGE_SHARED_BORROWED);
 }
 
@@ -936,6 +939,9 @@ static int host_complete_unshare(u64 addr, const struct pkvm_mem_transition *tx)
 {
 	u64 size = tx->nr_pages * PAGE_SIZE;
 	pkvm_id owner_id = initiator_owner_id(tx);
+
+	if (tx->initiator.id == PKVM_ID_GUEST)
+		psci_mem_protect_inc();
 
 	return host_stage2_set_owner_locked(addr, size, owner_id);
 }
