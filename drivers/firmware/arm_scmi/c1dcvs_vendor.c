@@ -19,6 +19,8 @@ enum scmi_c1dcvs_protocol_cmd {
 	GET_EFREQ_THRESH,
 	SET_HYSTERESIS,
 	GET_HYSTERESIS,
+	SET_C1DCVS_OPT_MODE,
+	GET_C1DCVS_OPT_MODE,
 };
 
 struct c1dcvs_thresh {
@@ -126,6 +128,15 @@ static int scmi_get_hysteresis(const struct scmi_protocol_handle *ph, void *buf)
 	return scmi_get_tunable_c1dcvs(ph, buf, GET_HYSTERESIS);
 }
 
+static int scmi_set_c1dcvs_opt_mode(const struct scmi_protocol_handle *ph, void *buf)
+{
+	return scmi_send_tunable_c1dcvs(ph, buf, SET_C1DCVS_OPT_MODE);
+}
+static int scmi_get_c1dcvs_opt_mode(const struct scmi_protocol_handle *ph, void *buf)
+{
+	return scmi_get_tunable_c1dcvs(ph, buf, GET_C1DCVS_OPT_MODE);
+}
+
 static struct scmi_c1dcvs_vendor_ops c1dcvs_config_ops = {
 	.set_enable_c1dcvs	= scmi_set_enable_c1dcvs,
 	.get_enable_c1dcvs	= scmi_get_enable_c1dcvs,
@@ -137,6 +148,8 @@ static struct scmi_c1dcvs_vendor_ops c1dcvs_config_ops = {
 	.get_efreq_thresh	= scmi_get_efreq_thresh,
 	.set_hysteresis		= scmi_set_hysteresis,
 	.get_hysteresis		= scmi_get_hysteresis,
+	.set_c1dcvs_opt_mode	= scmi_set_c1dcvs_opt_mode,
+	.get_c1dcvs_opt_mode	= scmi_get_c1dcvs_opt_mode,
 };
 
 static int scmi_c1dcvs_protocol_init(const struct scmi_protocol_handle *ph)
