@@ -98,6 +98,7 @@
 #define SLAVE_QDSS_STM				571
 #define SLAVE_TCU				572
 #define SLAVE_ANOC_SNOC				573
-#define SLAVE_UFS_MEM_CFG			757
+#define SLAVE_UFS_MEM_CFG			574
+#define SLAVE_PRNG				575
 
 #endif
