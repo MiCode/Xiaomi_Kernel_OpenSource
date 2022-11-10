@@ -1224,6 +1224,14 @@ config QCOM_VM_ALIVE_LOG_ENCRYPT
 	  wrapping. This needs to be enabled on both Primary VM and the other VM
 	  whose kmsg is desired.
 
+config QCOM_DEBUG_SYMBOL
+	tristate "Enable Debug Symbol Support"
+	help
+	  This enables Debug Symbol Support. This driver is based on
+	  Google Debug Kinfo driver, according to the provided info, this
+	  driver allows other modules to get symbol addresses by traversing
+	  kallsyms table for debug usage.
+
 source "drivers/soc/qcom/mem_buf/Kconfig"
 source "drivers/soc/qcom/tmecom/Kconfig"
 source "drivers/soc/qcom/gnsssirf/Kconfig"
