@@ -37,3 +37,4 @@ obj-$(CONFIG_QTI_RPM_SMD_COOLING_DEVICE) += rpm_smd_cooling_device.o
 obj-$(CONFIG_QTI_THERMAL_MINIDUMP) += thermal_minidump.o
 obj-$(CONFIG_QTI_BCL_OFF_COOLING_DEVICE) += bcl_off_cdev.o
 obj-$(CONFIG_QTI_VIRTUAL_SENSOR) += virtual-sensor.o
+obj-$(CONFIG_QTI_AOP_PMIC_SENSOR) += qti_aop_pmic_sensor.o

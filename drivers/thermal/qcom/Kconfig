@@ -273,3 +273,15 @@ config QTI_VIRTUAL_SENSOR
 	   This driver implements virtual sensors , which takes inputs from
 	   devicetree to give aggregated temperature of a set of thermal
 	   zones based on configurable aggregation logic.
+
+config QTI_AOP_PMIC_SENSOR
+	tristate "QTI AOP PMIC Sensor"
+	depends on THERMAL
+	help
+	   This driver enables different AOP pmic sensors like temperature
+	   sensors, voltage sensors etc. The temperature sensors interface
+	   with thermal framework and expose as thermal zone sensors. Other
+	   sensors like voltage sensors interface with hwmon sysfs interface.
+	   The userspace client can use these interfaces to read current
+	   value of these sensors. Driver uses AOP mailbox API and MSGRAM
+	   register base interfaces to get current value of these sensors.
