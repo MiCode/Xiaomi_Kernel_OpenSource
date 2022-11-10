@@ -399,7 +399,7 @@ static void eud_set_termios(struct uart_port *port, struct ktermios *new,
 static void eud_stop_tx(struct uart_port *port)
 {
 	/* Disable Tx interrupt */
-	writel_relaxed(~EUD_INT_TX, port->membase + EUD_REG_INT_STATUS_1);
+	writel_relaxed((u32)(~EUD_INT_TX), port->membase + EUD_REG_INT_STATUS_1);
 	/* Ensure Register Writes Complete */
 	wmb();
 }
@@ -415,7 +415,7 @@ static void eud_start_tx(struct uart_port *port)
 static void eud_stop_rx(struct uart_port *port)
 {
 	/* Disable Rx interrupt */
-	writel_relaxed(~EUD_INT_RX, port->membase + EUD_REG_INT_STATUS_1);
+	writel_relaxed((u32)(~EUD_INT_RX), port->membase + EUD_REG_INT_STATUS_1);
 	/* Ensure Register Writes Complete */
 	wmb();
 }
@@ -432,7 +432,7 @@ static int eud_startup(struct uart_port *port)
 static void eud_shutdown(struct uart_port *port)
 {
 	/* Disable both Tx & Rx interrupts */
-	writel_relaxed(~EUD_INT_TX | ~EUD_INT_RX,
+	writel_relaxed((u32)(~EUD_INT_TX | ~EUD_INT_RX),
 			port->membase + EUD_REG_INT_STATUS_1);
 	/* Ensure Register Writes Complete */
 	wmb();
@@ -458,7 +458,7 @@ static void eud_config_port(struct uart_port *port, int flags)
 {
 	/* set port type, clear Tx and Rx interrupts */
 	port->type = PORT_EUD_UART;
-	writel_relaxed(~EUD_INT_TX | ~EUD_INT_RX,
+	writel_relaxed((u32)(~EUD_INT_TX | ~EUD_INT_RX),
 			port->membase + EUD_REG_INT_STATUS_1);
 	/* Ensure Register Writes Complete */
 	wmb();

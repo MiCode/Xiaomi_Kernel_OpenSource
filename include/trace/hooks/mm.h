@@ -29,6 +29,8 @@
 
 struct oom_control;
 struct slabinfo;
+struct track;
+struct address_space;
 
 DECLARE_RESTRICTED_HOOK(android_rvh_set_skip_swapcache_flags,
 			TP_PROTO(gfp_t *flags),
@@ -36,6 +38,9 @@ DECLARE_RESTRICTED_HOOK(android_rvh_set_skip_swapcache_flags,
 DECLARE_RESTRICTED_HOOK(android_rvh_set_gfp_zone_flags,
 			TP_PROTO(gfp_t *flags),
 			TP_ARGS(flags), 1);
+DECLARE_RESTRICTED_HOOK(android_rvh_update_readahead_gfp_mask,
+			TP_PROTO(struct address_space *mapping, gfp_t *flags),
+			TP_ARGS(mapping, flags), 2);
 DECLARE_RESTRICTED_HOOK(android_rvh_set_readahead_gfp_mask,
 			TP_PROTO(gfp_t *flags),
 			TP_ARGS(flags), 1);
@@ -134,12 +139,18 @@ DECLARE_HOOK(android_vh_alloc_pages_failure_bypass,
 	TP_PROTO(gfp_t gfp_mask, int order, int alloc_flags,
 	int migratetype, struct page **page),
 	TP_ARGS(gfp_mask, order, alloc_flags, migratetype, page));
+DECLARE_HOOK(android_vh_save_track_hash,
+	TP_PROTO(bool alloc, struct track *p),
+	TP_ARGS(alloc, p));
 DECLARE_HOOK(android_vh_rmqueue,
 	TP_PROTO(struct zone *preferred_zone, struct zone *zone,
 		unsigned int order, gfp_t gfp_flags,
 		unsigned int alloc_flags, int migratetype),
 	TP_ARGS(preferred_zone, zone, order,
 		gfp_flags, alloc_flags, migratetype));
+DECLARE_HOOK(android_vh_kmalloc_slab,
+	TP_PROTO(unsigned int index, gfp_t flags, struct kmem_cache **s),
+	TP_ARGS(index, flags, s));
 #endif /* _TRACE_HOOK_MM_H */
 
 /* This part must be outside protection */

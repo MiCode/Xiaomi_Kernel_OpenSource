@@ -256,6 +256,7 @@
   dev_alloc_name
   __dev_change_net_namespace
   dev_close
+  dev_coredumpv
   _dev_crit
   dev_driver_string
   _dev_emerg
@@ -462,6 +463,7 @@
   driver_create_file
   driver_find
   driver_register
+  driver_remove_file
   driver_unregister
   drm_atomic_get_crtc_state
   drm_atomic_helper_async_commit
@@ -708,9 +710,11 @@
   i2c_del_driver
   i2c_for_each_dev
   i2c_get_adapter
+  i2c_get_dma_safe_msg_buf
   i2c_new_client_device
   i2c_new_dummy_device
   i2c_put_adapter
+  i2c_put_dma_safe_msg_buf
   i2c_register_driver
   i2c_smbus_xfer
   __i2c_transfer
@@ -808,6 +812,7 @@
   irq_to_desc
   is_bad_inode
   is_vmalloc_addr
+  jiffies_64_to_clock_t
   jiffies64_to_nsecs
   jiffies
   jiffies_to_msecs
@@ -1052,6 +1057,7 @@
   of_iomap
   of_irq_find_parent
   of_irq_get
+  of_irq_get_byname
   of_irq_parse_and_map_pci
   of_irq_parse_one
   of_machine_is_compatible
@@ -1349,6 +1355,7 @@
   rproc_get_by_child
   rproc_mem_entry_init
   rproc_of_resm_mem_entry_init
+  rproc_report_crash
   rproc_shutdown
   rproc_vq_interrupt
   rtc_add_group
@@ -1581,6 +1588,7 @@
   sysfs_streq
   sysfs_unmerge_group
   sysfs_update_group
+  system_freezable_power_efficient_wq
   system_freezable_wq
   system_freezing_cnt
   system_highpri_wq
@@ -1594,6 +1602,7 @@
   tasklet_unlock_wait
   thermal_cooling_device_unregister
   thermal_of_cooling_device_register
+  thermal_zone_get_temp
   thermal_zone_get_zone_by_name
   time64_to_tm
   _totalram_pages
