@@ -1704,6 +1704,19 @@ static const struct adsp_data lemans_cdsp_resource = {
 	.ssctl_id = 0x17,
 };
 
+static const struct adsp_data lemans_cdsp1_resource = {
+	.crash_reason_smem = 633,
+	.firmware_name = "cdsp1.mdt",
+	.pas_id = 30,
+	.uses_elf64 = true,
+	.has_aggre2_clk = false,
+	.auto_boot = false,
+	.ssr_name = "cdsp1",
+	.sysmon_name = "cdsp1",
+	.qmp_name = "cdsp1",
+	.ssctl_id = 0x20,
+};
+
 static const struct of_device_id adsp_of_match[] = {
 	{ .compatible = "qcom,msm8974-adsp-pil", .data = &adsp_resource_init},
 	{ .compatible = "qcom,msm8996-adsp-pil", .data = &adsp_resource_init},
@@ -1751,6 +1764,7 @@ static const struct of_device_id adsp_of_match[] = {
 	{ .compatible = "qcom,monaco-modem-pas", .data = &monaco_modem_resource},
 	{ .compatible = "qcom,lemans-adsp-pas", .data = &lemans_adsp_resource},
 	{ .compatible = "qcom,lemans-cdsp-pas", .data = &lemans_cdsp_resource},
+	{ .compatible = "qcom,lemans-cdsp1-pas", .data = &lemans_cdsp1_resource},
 	{ },
 };
 MODULE_DEVICE_TABLE(of, adsp_of_match);
