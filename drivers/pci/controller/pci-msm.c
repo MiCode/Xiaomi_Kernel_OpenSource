@@ -5705,7 +5705,9 @@ static int msm_pcie_config_l1_2_threshold(struct pci_dev *pdev, void *dev)
 
 	l1ss_ctl1_offset = l1ss_cap_id_offset + PCI_L1SS_CTL1;
 
-	msm_pcie_config_clear_set_dword(pdev, l1ss_ctl1_offset, 0,
+	msm_pcie_config_clear_set_dword(pdev, l1ss_ctl1_offset,
+		(PCI_L1SS_CTL1_LTR_L12_TH_SCALE |
+		PCI_L1SS_CTL1_LTR_L12_TH_VALUE),
 		(PCI_L1SS_CTL1_LTR_L12_TH_SCALE &
 		(pcie_dev->l1_2_th_scale << l1_2_th_scale_shift)) |
 		(PCI_L1SS_CTL1_LTR_L12_TH_VALUE &
