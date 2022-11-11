@@ -407,6 +407,25 @@ static const struct llcc_slice_config kalama_data[] =  {
 	{LLCC_VIDVSP,   28,  256, 4, 1, 0xFFFFFF, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 };
 
+static const struct llcc_slice_config kona_data[] =  {
+	{LLCC_CPUSS,     1, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 1},
+	{LLCC_VIDSC0,    2,  512, 3, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0},
+	{LLCC_AUDIO,     6, 1024, 1, 0, 0xFFF, 0x0, 0, 0, 0, 0, 0, 0},
+	{LLCC_CMPT,     10, 1024, 1, 0, 0xFFF, 0x0, 0, 0, 0, 0, 0, 0},
+	{LLCC_GPUHTW,   11, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0},
+	{LLCC_GPU,      12, 1024, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 1, 0},
+	{LLCC_MMUHWT,   13, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 0, 1},
+	{LLCC_CMPTDMA,  15, 1024, 1, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0},
+	{LLCC_DISP,     16, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0},
+	{LLCC_AUDHW,    22, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0},
+	{LLCC_NPU,      23, 3072, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0},
+	{LLCC_WLNHW,    24, 1024, 1, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0},
+	{LLCC_CVP,      28,  256, 3, 1, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0},
+	{LLCC_APTCM,    30,  128, 3, 0, 0x0,   0x3, 1, 0, 0, 0, 1, 0},
+	{LLCC_WRTCH,    31,  256, 1, 1, 0xFFF, 0x0, 0, 0, 0, 0, 0, 1},
+	{LLCC_CVPFW,    17,  512, 1, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1, 0},
+};
+
 static const struct llcc_slice_config cinder_data_2ch[] =  {
 	{LLCC_MDMHPGRW, 7, 512, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_MDMHW,    9, 256, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0, 0, 0 },
@@ -500,6 +519,11 @@ static const struct qcom_llcc_config waipio_cfg = {
 static const struct qcom_llcc_config kalama_cfg = {
 	.sct_data	= kalama_data,
 	.size		= ARRAY_SIZE(kalama_data),
+};
+
+static const struct qcom_llcc_config kona_cfg = {
+	.sct_data	= kona_data,
+	.size		= ARRAY_SIZE(kona_data),
 };
 
 static const struct qcom_llcc_config cinder_cfg[] = {
@@ -1139,6 +1163,7 @@ static const struct of_device_id qcom_llcc_of_match[] = {
 	{ .compatible = "qcom,waipio-llcc", .data = &waipio_cfg },
 	{ .compatible = "qcom,diwali-llcc", .data = &diwali_cfg },
 	{ .compatible = "qcom,kalama-llcc", .data = &kalama_cfg },
+	{ .compatible = "qcom,kona-llcc", .data = &kona_cfg },
 	{ .compatible = "qcom,cinder-llcc", .data = &cinder_cfg },
 	{ .compatible = "qcom,lemans-llcc", .data = &lemans_cfg },
 	{ }
