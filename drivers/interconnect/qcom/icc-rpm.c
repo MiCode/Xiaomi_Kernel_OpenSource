@@ -28,6 +28,21 @@ static int qcom_icc_rpm_smd_send_msg(int ctx, int rsc_type, int rpm_id, u64 val)
 }
 
 /**
+ * qcom_icc_get_bw_stub - initializes the bw values to zero
+ * @node: icc node to operate on
+ * @avg_bw: initial bw to sum aggregate
+ * @peak_bw: initial bw to max aggregate
+ */
+int qcom_icc_get_bw_stub(struct icc_node *node, u32 *avg, u32 *peak)
+{
+	*avg = 0;
+	*peak = 0;
+
+	return 0;
+}
+EXPORT_SYMBOL(qcom_icc_get_bw_stub);
+
+/**
  * qcom_icc_rpm_pre_aggregate - cleans up stale values from prior icc_set
  * @node: icc node to operate on
  */
