@@ -6955,6 +6955,10 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
 	if (ret)
 		return ret;
 
+#if IS_ENABLED(CONFIG_DWXGMAC_QCOM_4K)
+	priv->ptpaddr = priv->ioaddr + XGMAC_TIMESTAMP_BASE_ADDR;
+#endif
+
 	/* Get the HW capability (new GMAC newer than 3.50a) */
 	priv->hw_cap_support = stmmac_get_hw_features(priv);
 	if (priv->hw_cap_support) {
