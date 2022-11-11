@@ -3415,8 +3415,13 @@ int ep_pcie_core_trigger_msi(u32 idx, u32 vf_id)
 		n = vf_id - 1;
 		dbi = ep_pcie_dev.dm_core_vf;
 		msi = ep_pcie_dev.msi_vf;
-		/* Shift idx to the vf postion to generate msi */
-		idx = idx << (8 + (n*4));
+		if (!ep_pcie_dev.parf_msi_vf_indexed) {
+			/* Shift idx to the vf postion to generate msi */
+			idx = idx << (8 + (n*5));
+		}
+
+		/* Update msi virtual-function number field */
+		idx |= n << 6;
 		/* Set bit(5) to activate virtual function usage */
 		idx |= BIT(5);
 	}
@@ -3816,6 +3821,8 @@ static int ep_pcie_probe(struct platform_device *pdev)
 				"qcom,aoss-rst-clr");
 	EP_PCIE_DBG(&ep_pcie_dev,
 		"PCIe V%d: AOSS reset for perst needed\n", ep_pcie_dev.rev);
+	ep_pcie_dev.parf_msi_vf_indexed = of_property_read_bool((&pdev->dev)->of_node,
+							"qcom,pcie-parf-msi-vf-indexed");
 
 	ep_pcie_dev.db_fwd_off_varied = of_property_read_bool(
 						(&pdev->dev)->of_node,

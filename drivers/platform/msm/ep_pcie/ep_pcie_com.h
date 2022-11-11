@@ -392,6 +392,7 @@ struct ep_pcie_dev_t {
 	bool                         aggregated_irq;
 	bool                         mhi_a7_irq;
 	bool                         db_fwd_off_varied;
+	bool                         parf_msi_vf_indexed;
 	bool                         pcie_edma;
 	bool                         tcsr_not_supported;
 	bool			     m2_autonomous;
