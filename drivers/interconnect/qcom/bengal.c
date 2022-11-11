@@ -211,7 +211,7 @@ static struct qcom_icc_node mas_snoc_cnoc = {
 	.buswidth = 8,
 	.mas_rpm_id = -1,
 	.slv_rpm_id = -1,
-	.num_links = 47,
+	.num_links = 48,
 	.links = { SLAVE_AHB2PHY_USB, SLAVE_APSS_THROTTLE_CFG,
 		   SLAVE_BIMC_CFG, SLAVE_BOOT_ROM,
 		   SLAVE_CAMERA_NRT_THROTTLE_CFG, SLAVE_CAMERA_RT_THROTTLE_CFG,
@@ -235,7 +235,7 @@ static struct qcom_icc_node mas_snoc_cnoc = {
 		   SLAVE_TCSR, SLAVE_TLMM,
 		   SLAVE_USB3, SLAVE_VENUS_CFG,
 		   SLAVE_VENUS_THROTTLE_CFG, SLAVE_VSENSE_CTRL_CFG,
-		   SLAVE_SERVICE_CNOC },
+		   SLAVE_SERVICE_CNOC, SLAVE_UFS_MEM_CFG },
 };
 
 static struct qcom_icc_node xm_dap = {
@@ -245,7 +245,7 @@ static struct qcom_icc_node xm_dap = {
 	.buswidth = 8,
 	.mas_rpm_id = -1,
 	.slv_rpm_id = -1,
-	.num_links = 47,
+	.num_links = 48,
 	.links = { SLAVE_AHB2PHY_USB, SLAVE_APSS_THROTTLE_CFG,
 		   SLAVE_BIMC_CFG, SLAVE_BOOT_ROM,
 		   SLAVE_CAMERA_NRT_THROTTLE_CFG, SLAVE_CAMERA_RT_THROTTLE_CFG,
@@ -269,7 +269,7 @@ static struct qcom_icc_node xm_dap = {
 		   SLAVE_TCSR, SLAVE_TLMM,
 		   SLAVE_USB3, SLAVE_VENUS_CFG,
 		   SLAVE_VENUS_THROTTLE_CFG, SLAVE_VSENSE_CTRL_CFG,
-		   SLAVE_SERVICE_CNOC },
+		   SLAVE_SERVICE_CNOC, SLAVE_UFS_MEM_CFG },
 };
 
 static struct qcom_icc_qosbox mas_camera_nrt = {
@@ -618,6 +618,29 @@ static struct qcom_icc_node xm_sdc2 = {
 	.noc_ops = &qcom_qnoc4_ops,
 	.qosbox = &xm_sdc2_qos,
 	.mas_rpm_id = ICBID_MASTER_SDCC_2,
+	.slv_rpm_id = -1,
+	.num_links = 1,
+	.links = { SLAVE_ANOC_SNOC },
+};
+
+static struct qcom_icc_qosbox xm_ufs_qos = {
+	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
+	.num_ports = 1,
+	.offsets = { 0x2e000, },
+	.config = &(struct qos_config) {
+		.prio = 2,
+		.urg_fwd = 0,
+	},
+};
+
+static struct qcom_icc_node xm_ufs = {
+	.name = "xm_ufs",
+	.id = MASTER_UFS_MEM,
+	.channels = 1,
+	.buswidth = 8,
+	.noc_ops = &qcom_qnoc4_ops,
+	.qosbox = &xm_ufs_qos,
+	.mas_rpm_id = -1,
 	.slv_rpm_id = -1,
 	.num_links = 1,
 	.links = { SLAVE_ANOC_SNOC },
@@ -1057,6 +1080,16 @@ static struct qcom_icc_node qhs_sdc2 = {
 	.num_links = 0,
 };
 
+static struct qcom_icc_node qhs_ufs = {
+	.name = "qhs_ufs",
+	.id = SLAVE_UFS_MEM_CFG,
+	.channels = 1,
+	.buswidth = 4,
+	.mas_rpm_id = -1,
+	.slv_rpm_id = -1,
+	.num_links = 0,
+};
+
 static struct qcom_icc_node qhs_security = {
 	.name = "qhs_security",
 	.id = SLAVE_SECURITY,
@@ -1330,6 +1363,7 @@ static struct qcom_icc_node *config_noc_nodes[] = {
 	[SLAVE_RPM] = &qhs_rpm,
 	[SLAVE_SDCC_1] = &qhs_sdc1,
 	[SLAVE_SDCC_2] = &qhs_sdc2,
+	[SLAVE_UFS_MEM_CFG] = &qhs_ufs,
 	[SLAVE_SECURITY] = &qhs_security,
 	[SLAVE_SNOC_CFG] = &qhs_snoc_cfg,
 	[SLAVE_TCSR] = &qhs_tcsr,
@@ -1383,6 +1417,7 @@ static struct qcom_icc_node *sys_noc_nodes[] = {
 	[MASTER_QDSS_ETR] = &xm_qdss_etr,
 	[MASTER_SDCC_1] = &xm_sdc1,
 	[MASTER_SDCC_2] = &xm_sdc2,
+	[MASTER_UFS_MEM] = &xm_ufs,
 	[MASTER_USB3] = &xm_usb3_0,
 	[SLAVE_APPSS] = &qhs_apss,
 	[SNOC_CNOC_SLV] = &slv_snoc_cnoc,
