@@ -383,6 +383,8 @@ struct vm_area_struct *vm_area_dup(struct vm_area_struct *orig)
 
 static inline void ____vm_area_free(struct vm_area_struct *vma)
 {
+	if (vma->vm_file)
+		fput(vma->vm_file);
 	kmem_cache_free(vm_area_cachep, vma);
 }
 
@@ -400,15 +402,10 @@ void vm_area_free(struct vm_area_struct *vma)
 	free_anon_vma_name(vma);
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
 	if (atomic_read(&vma->vm_mm->mm_users) > 1) {
-		if (vma->vm_file)
-			vma_put_file_ref(vma);
-
 		call_rcu(&vma->vm_rcu, __vm_area_free);
 		return;
 	}
 #endif
-	if (vma->vm_file)
-		fput(vma->vm_file);
 	____vm_area_free(vma);
 }
 
