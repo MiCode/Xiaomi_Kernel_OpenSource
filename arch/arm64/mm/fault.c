@@ -542,6 +542,7 @@ static int __kprobes do_page_fault(unsigned long far, unsigned int esr,
 	unsigned int mm_flags = FAULT_FLAG_DEFAULT;
 	unsigned long addr = untagged_addr(far);
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+	struct file *orig_file = NULL;
 	struct vm_area_struct *vma;
 	struct vm_area_struct pvma;
 	unsigned long seq;
@@ -629,17 +630,26 @@ static int __kprobes do_page_fault(unsigned long far, unsigned int esr,
 		count_vm_spf_event(SPF_ABORT_NO_SPECULATE);
 		goto spf_abort;
 	}
+	if (vma->vm_file)
+		orig_file = get_file(vma->vm_file);
 	pvma = *vma;
 	rcu_read_unlock();
-	if (!mmap_seq_read_check(mm, seq, SPF_ABORT_VMA_COPY))
+	if (!mmap_seq_read_check(mm, seq, SPF_ABORT_VMA_COPY)) {
+		if (orig_file)
+			fput(orig_file);
 		goto spf_abort;
+	}
 	vma = &pvma;
 	if (!(vma->vm_flags & vm_flags)) {
+		if (orig_file)
+			fput(orig_file);
 		count_vm_spf_event(SPF_ABORT_ACCESS_ERROR);
 		goto spf_abort;
 	}
 	fault = do_handle_mm_fault(vma, addr & PAGE_MASK,
 			mm_flags | FAULT_FLAG_SPECULATIVE, seq, regs);
+	if (orig_file)
+		fput(orig_file);
 
 	/* Quick path to respond to signals */
 	if (fault_signal_pending(fault, regs)) {
