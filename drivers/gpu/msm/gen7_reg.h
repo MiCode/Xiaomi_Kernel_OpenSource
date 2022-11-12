@@ -1045,6 +1045,8 @@
 #define GEN7_CX_DBGC_PERF_ATB_DRAIN_CMD                 0x1844a
 #define GEN7_CX_DBGC_ECO_CNTL                           0x18450
 #define GEN7_CX_DBGC_AHB_DBG_CNTL                       0x18451
+#define GEN7_CX_DBGC_TCM_DBG_ADDR                       0x18580
+#define GEN7_CX_DBGC_TCM_DBG_DATA                       0x18581
 
 /* GMU control registers */
 #define GEN7_GMU_CM3_ITCM_START			0x1b400

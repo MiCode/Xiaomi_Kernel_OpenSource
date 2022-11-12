@@ -254,7 +254,7 @@ static void gen7_protect_init(struct adreno_device *adreno_dev)
 
 #define RBBM_CLOCK_CNTL_ON 0x8aa8aa82
 #define GMU_AO_CGC_MODE_CNTL 0x00020000
-#define GEN7_6_0_GMU_AO_CGC_MODE_CNTL 0x00020222
+#define GEN7_6_0_GMU_AO_CGC_MODE_CNTL 0x00020202
 #define GMU_AO_CGC_DELAY_CNTL 0x00010111
 #define GMU_AO_CGC_HYST_CNTL 0x00005555
 

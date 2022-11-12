@@ -47,6 +47,7 @@ static size_t gen7_gmu_snapshot_dtcm(struct kgsl_device *device,
 	struct kgsl_snapshot_gmu_mem *mem_hdr =
 		(struct kgsl_snapshot_gmu_mem *)buf;
 	struct gen7_gmu_device *gmu = (struct gen7_gmu_device *)priv;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	u32 *data = (u32 *)(buf + sizeof(*mem_hdr));
 	u32 i;
 
@@ -60,8 +61,25 @@ static size_t gen7_gmu_snapshot_dtcm(struct kgsl_device *device,
 	mem_hdr->gmuaddr = gmu->vma[GMU_DTCM].start;
 	mem_hdr->gpuaddr = 0;
 
-	for (i = 0; i < (gmu->vma[GMU_DTCM].size >> 2); i++)
-		gmu_core_regread(device, GEN7_GMU_CM3_DTCM_START + i, data++);
+	/*
+	 * Read of GMU TCMs over side-band debug controller interface is
+	 * supported on gen7_6_0
+	 */
+	if (adreno_is_gen7_6_0(adreno_dev)) {
+		/*
+		 * region [20]: Dump ITCM/DTCM. Select 1 for DTCM.
+		 * autoInc [31]: Autoincrement the address field after each
+		 * access to TCM_DBG_DATA
+		 */
+		adreno_cx_dbgc_regwrite(device, GEN7_CX_DBGC_TCM_DBG_ADDR,
+					BIT(20) | BIT(31));
+
+		for (i = 0; i < (gmu->vma[GMU_DTCM].size >> 2); i++)
+			adreno_cx_dbgc_regread(device, GEN7_CX_DBGC_TCM_DBG_DATA, data++);
+	} else {
+		for (i = 0; i < (gmu->vma[GMU_DTCM].size >> 2); i++)
+			gmu_core_regread(device, GEN7_GMU_CM3_DTCM_START + i, data++);
+	}
 
 	return gmu->vma[GMU_DTCM].size + sizeof(*mem_hdr);
 }
@@ -253,8 +271,11 @@ static void gen7_gmu_device_snapshot(struct kgsl_device *device,
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS_V2, snapshot,
 		adreno_snapshot_registers_v2, (void *) gen7_snapshot_block_list->gmu_gx_regs);
 
-	/* A stalled SMMU can lead to NoC timeouts when host accesses DTCM */
-	if (gen7_is_smmu_stalled(device)) {
+	/*
+	 * A stalled SMMU can lead to NoC timeouts when host accesses DTCM.
+	 * DTCM can be read through side-band DBGC interface on gen7_6_0.
+	 */
+	if (gen7_is_smmu_stalled(device) && !adreno_is_gen7_6_0(adreno_dev)) {
 		dev_err(&gmu->pdev->dev,
 			"Not dumping dtcm because SMMU is stalled\n");
 		return;
