@@ -73,4 +73,5 @@ int cnss_bus_get_iova_ipa(struct cnss_plat_data *plat_priv, u64 *addr,
 int cnss_bus_update_time_sync_period(struct cnss_plat_data *plat_priv,
 				     unsigned int time_sync_period);
 
+bool cnss_bus_is_smmu_s1_enabled(struct cnss_plat_data *plat_priv);
 #endif /* _CNSS_BUS_H */
