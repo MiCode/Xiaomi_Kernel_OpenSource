@@ -209,6 +209,35 @@ static void check_sync_rss_stat(struct task_struct *task)
 
 #endif /* SPLIT_RSS_COUNTING */
 
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+
+struct vm_area_struct *get_vma(struct mm_struct *mm, unsigned long addr)
+{
+	struct vm_area_struct *vma;
+
+	rcu_read_lock();
+	vma = __find_vma(mm, addr);
+	if (vma) {
+		if (vma->vm_start > addr ||
+		    !atomic_inc_unless_negative(&vma->file_ref_count))
+			vma = NULL;
+	}
+	rcu_read_unlock();
+
+	return vma;
+}
+
+void put_vma(struct vm_area_struct *vma)
+{
+	int new_ref_count;
+
+	new_ref_count = atomic_dec_return(&vma->file_ref_count);
+	if (new_ref_count < 0)
+		vm_area_free_no_check(vma);
+}
+
+#endif	/* CONFIG_SPECULATIVE_PAGE_FAULT */
+
 /*
  * Note: this doesn't free the actual pages themselves. That
  * has been handled earlier when unmapping all the memory regions.

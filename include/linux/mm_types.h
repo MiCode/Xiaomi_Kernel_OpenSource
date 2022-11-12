@@ -419,6 +419,11 @@ struct vm_area_struct {
 #endif
 	struct vm_userfaultfd_ctx vm_userfaultfd_ctx;
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+	/*
+	 * The name does not reflect the usage and is not renamed to keep
+	 * the ABI intact.
+	 * This is used to refcount VMA in get_vma/put_vma.
+	 */
 	atomic_t file_ref_count;
 #endif
 
