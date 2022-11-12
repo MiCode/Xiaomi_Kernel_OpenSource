@@ -3883,6 +3883,7 @@ bail:
 static int fastrpc_mmap_remove_pdr(struct fastrpc_file *fl);
 static int fastrpc_channel_open(struct fastrpc_file *fl);
 static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked);
+static int fastrpc_check_pd_status(struct fastrpc_file *fl, char *sloc_name);
 
 /*
  * This function makes a call to create a thread group in the root
@@ -3923,12 +3924,21 @@ static int fastrpc_init_attach_process(struct fastrpc_file *fl,
 	if (init->flags == FASTRPC_INIT_ATTACH)
 		fl->pd = 0;
 	else if (init->flags == FASTRPC_INIT_ATTACH_SENSORS) {
-		if (fl->cid == ADSP_DOMAIN_ID)
+		if (fl->cid == ADSP_DOMAIN_ID) {
 			fl->servloc_name =
 			SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME;
-		else if (fl->cid == SDSP_DOMAIN_ID)
+			err = fastrpc_check_pd_status(fl,
+					SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME);
+			if (err)
+				goto bail;
+		} else if (fl->cid == SDSP_DOMAIN_ID) {
 			fl->servloc_name =
 			SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME;
+			err = fastrpc_check_pd_status(fl,
+					SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME);
+			if (err)
+				goto bail;
+		}
 		/* Setting to 2 will route the message to sensorsPD */
 		fl->pd = 2;
 	}
@@ -4225,6 +4235,10 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 			proc_name);
 		goto bail;
 	}
+	err = fastrpc_check_pd_status(fl,
+			AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME);
+	if (err)
+		goto bail;
 
 	if (!me->staticpd_flags && !me->legacy_remote_heap) {
 		inbuf.pageslen = 1;
@@ -6432,11 +6446,15 @@ static int fastrpc_check_pd_status(struct fastrpc_file *fl, char *sloc_name)
 	int err = 0, session = -1, cid = -1;
 	struct fastrpc_apps *me = &gfa;
 
-	if (fl->servloc_name && sloc_name
-		&& !strcmp(fl->servloc_name, sloc_name)) {
+	if (sloc_name && !strcmp(fl->servloc_name, sloc_name)) {
 		err = fastrpc_get_spd_session(sloc_name, &session, &cid);
-		if (err || cid != fl->cid)
+		if (err)
 			goto bail;
+		VERIFY(err, cid == fl->cid);
+		if (err) {
+			err = -EBADR;
+			goto bail;
+		}
 		if (!me->channel[cid].spd[session].ispdup) {
 			err = -ENOTCONN;
 			goto bail;
@@ -6683,14 +6701,19 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 	p.inv.perf_dsp = NULL;
 	p.inv.job = NULL;
 
-	err = fastrpc_check_pd_status(fl,
-			AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME);
-	if (err)
-		goto bail;
-	err = fastrpc_check_pd_status(fl,
-			SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME);
-	if (err)
-		goto bail;
+	if (fl->servloc_name) {
+		if (fl->pd == 1) {
+			err = fastrpc_check_pd_status(fl,
+					AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME);
+		} else if (fl->pd == 2) {
+			err = fastrpc_check_pd_status(fl,
+					SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME);
+			err |= fastrpc_check_pd_status(fl,
+					SENSORS_PDR_SLPI_SERVICE_LOCATION_CLIENT_NAME);
+		}
+		if (err)
+			goto bail;
+	}
 
 	spin_lock(&fl->hlock);
 	if (fl->file_close >= FASTRPC_PROCESS_EXIT_START) {
@@ -6725,6 +6748,14 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 			err = -EFAULT;
 			goto bail;
 		}
+		VERIFY(err, fl->dsp_proc_init == 1);
+		if (err) {
+			ADSPRPC_ERR(
+			"application %s trying to invoke method without initialization\n",
+			current->comm);
+			err = -EBADR;
+			goto bail;
+		}
 		VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl, fl->mode,
 						USER_MSG, &p.inv)));
 		trace_fastrpc_msg("invoke: end");
@@ -6736,6 +6767,14 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 					sizeof(struct fastrpc_ioctl_invoke2));
 		if (err) {
 			err = -EFAULT;
+			goto bail;
+		}
+		VERIFY(err, fl->dsp_proc_init == 1);
+		if (err) {
+			ADSPRPC_ERR(
+			"application %s trying to invoke method without initialization\n",
+			current->comm);
+			err = -EBADR;
 			goto bail;
 		}
 		VERIFY(err, 0 == (err = fastrpc_internal_invoke2(fl, &p.inv2)));
