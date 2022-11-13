@@ -117,6 +117,8 @@ struct adreno_gen7_core {
 	bool fast_bus_hint;
 	/** @qos_value: GPU qos value to set for each RB. */
 	const u32 *qos_value;
+	/** @rt_bus_hint: IB level hint for real time clients i.e. RB-0 */
+	const u32 rt_bus_hint;
 };
 
 /**

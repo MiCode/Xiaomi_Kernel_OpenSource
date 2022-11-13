@@ -80,6 +80,25 @@ static unsigned int _ft_pagefault_policy_show(struct adreno_device *adreno_dev)
 	return device->mmu.pfpolicy;
 }
 
+static int _rt_bus_hint_store(struct adreno_device *adreno_dev, u32 val)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_pwrctrl *pwrctrl = &device->pwrctrl;
+
+	if (val > pwrctrl->pwrlevels[0].bus_max)
+		return -EINVAL;
+
+	adreno_power_cycle_u32(adreno_dev, &pwrctrl->rt_bus_hint, val);
+	return 0;
+}
+
+static u32 _rt_bus_hint_show(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	return device->pwrctrl.rt_bus_hint;
+}
+
 static int _gpu_llc_slice_enable_store(struct adreno_device *adreno_dev,
 		bool val)
 {
@@ -328,6 +347,7 @@ ssize_t adreno_sysfs_show_bool(struct device *dev,
 
 static ADRENO_SYSFS_U32(ft_policy);
 static ADRENO_SYSFS_U32(ft_pagefault_policy);
+static ADRENO_SYSFS_U32(rt_bus_hint);
 static ADRENO_SYSFS_RO_BOOL(ft_hang_intr_status);
 static ADRENO_SYSFS_BOOL(gpu_llc_slice_enable);
 static ADRENO_SYSFS_BOOL(gpuhtw_llc_slice_enable);
@@ -354,6 +374,7 @@ static DEVICE_ATTR_RO(gpu_model);
 static const struct attribute *_attr_list[] = {
 	&adreno_attr_ft_policy.attr.attr,
 	&adreno_attr_ft_pagefault_policy.attr.attr,
+	&adreno_attr_rt_bus_hint.attr.attr,
 	&adreno_attr_ft_hang_intr_status.attr.attr,
 	&dev_attr_wake_nice.attr.attr,
 	&dev_attr_wake_timeout.attr.attr,

@@ -10,6 +10,8 @@ enum kgsl_bus_vote {
 	KGSL_BUS_VOTE_OFF = 0,
 	KGSL_BUS_VOTE_ON,
 	KGSL_BUS_VOTE_MINIMUM,
+	KGSL_BUS_VOTE_RT_HINT_OFF,
+	KGSL_BUS_VOTE_RT_HINT_ON,
 };
 
 struct kgsl_device;
