@@ -137,6 +137,9 @@ static int cnss_stats_show_state(struct seq_file *s,
 		case CNSS_DRIVER_REGISTER:
 			seq_puts(s, "DRIVER_REGISTERED");
 			continue;
+		case CNSS_FS_READY:
+			seq_puts(s, "FS_READY");
+			continue;
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);

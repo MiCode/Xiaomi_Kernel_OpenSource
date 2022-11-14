@@ -2848,7 +2848,9 @@ static void cnss_wlan_reg_driver_work(struct work_struct *work)
 	struct cnss_cal_info *cal_info;
 	unsigned int timeout;
 
-	if (test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state)) {
+	if ((test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state) ||
+	     !plat_priv->cbc_enabled) &&
+	    test_bit(CNSS_FS_READY, &plat_priv->driver_state)) {
 		goto reg_driver;
 	} else {
 		if (plat_priv->charger_mode) {
@@ -2955,8 +2957,9 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 	cnss_get_driver_mode_update_fw_name(plat_priv);
 	set_bit(CNSS_DRIVER_REGISTER, &plat_priv->driver_state);
 
-	if (!plat_priv->cbc_enabled ||
-	    test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state))
+	if ((!plat_priv->cbc_enabled ||
+	     test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state)) &&
+	    test_bit(CNSS_FS_READY, &plat_priv->driver_state))
 		goto register_driver;
 
 	pci_priv->driver_ops = driver_ops;
@@ -2970,7 +2973,11 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 			  cnss_wlan_reg_driver_work);
 	schedule_delayed_work(&plat_priv->wlan_reg_driver_work,
 			      msecs_to_jiffies(timeout));
-	cnss_pr_info("WLAN register driver deferred for Calibration\n");
+	if (plat_priv->cbc_enabled)
+		cnss_pr_info("WLAN register driver deferred for Calibration\n");
+	else
+		cnss_pr_info("WLAN register driver deferred for FS Ready\n");
+
 	return 0;
 register_driver:
 	reinit_completion(&plat_priv->power_up_complete);
