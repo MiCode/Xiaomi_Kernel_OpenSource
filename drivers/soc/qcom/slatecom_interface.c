@@ -27,6 +27,7 @@
 #include <linux/regulator/consumer.h>
 #include <asm/dma.h>
 #include <linux/dma-mapping.h>
+#include <linux/remoteproc/qcom_rproc.h>
 
 #include "slatecom_rpmsg.h"
 
@@ -51,6 +52,7 @@
 
 static char btss_state[BUF_SIZE] = "offline";
 static char dspss_state[BUF_SIZE] = "offline";
+static void ssr_register(void);
 
 /* tzapp command list.*/
 enum slate_tz_commands {
@@ -120,6 +122,7 @@ struct slate_event {
 
 struct service_info {
 	const char                      name[32];
+	const char                      ssr_domains[32];
 	int                             domain_id;
 	void                            *handle;
 	struct notifier_block           *nb;
@@ -777,6 +780,8 @@ static int slate_daemon_probe(struct platform_device *pdev)
 	dev->platform_dev = &pdev->dev;
 	pr_info("%s success\n", __func__);
 
+	ssr_register();
+
 	return 0;
 }
 
@@ -801,6 +806,139 @@ static const struct file_operations fops = {
 	.release        = slatecom_char_close,
 	.unlocked_ioctl = slate_com_ioctl,
 };
+
+/**
+ *ssr_slate_cb(): callback function is called
+ *by ssr framework when SLATE goes down, up and during ramdump
+ *collection. It handles SLATE shutdown and power up events.
+ */
+static int ssr_slate_cb(struct notifier_block *this,
+		unsigned long opcode, void *data)
+{
+	struct slate_event slatee;
+	struct slatedaemon_priv *dev = container_of(slatecom_intf_drv,
+						struct slatedaemon_priv, lhndl);
+
+	switch (opcode) {
+	case QCOM_SSR_BEFORE_SHUTDOWN:
+		pr_debug("Slate before shutdown\n");
+		slatee.e_type = SLATE_BEFORE_POWER_DOWN;
+		slatecom_set_spi_state(SLATECOM_SPI_BUSY);
+		send_uevent(&slatee);
+		queue_work(dev->slatecom_wq, &dev->slatecom_down_work);
+		break;
+	case QCOM_SSR_AFTER_SHUTDOWN:
+		pr_debug("Slate after shutdown\n");
+		slatee.e_type = SLATE_AFTER_POWER_DOWN;
+		slatecom_slatedown_handler();
+		send_uevent(&slatee);
+		set_slate_bt_state(false);
+		set_slate_dsp_state(false);
+		break;
+	case QCOM_SSR_BEFORE_POWERUP:
+		pr_debug("Slate before powerup\n");
+		slatee.e_type = SLATE_BEFORE_POWER_UP;
+		send_uevent(&slatee);
+		break;
+	case QCOM_SSR_AFTER_POWERUP:
+		pr_debug("Slate after powerup\n");
+		slatee.e_type = SLATE_AFTER_POWER_UP;
+		slatecom_set_spi_state(SLATECOM_SPI_FREE);
+		send_uevent(&slatee);
+		if (dev->slatecom_current_state == SLATECOM_STATE_INIT ||
+			dev->slatecom_current_state == SLATECOM_STATE_SLATE_SSR)
+			queue_work(dev->slatecom_wq, &dev->slatecom_up_work);
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
+/**
+ *ssr_modem_cb(): callback function is called
+ *by ssr framework when modem goes down, up and during ramdump
+ *collection. It handles modem shutdown and power up events.
+ */
+static int ssr_modem_cb(struct notifier_block *this,
+		unsigned long opcode, void *data)
+{
+	struct slate_event modeme;
+	struct msg_header_t msg_header = {0, 0};
+	int ret = 0;
+
+	switch (opcode) {
+//	case SUBSYS_AFTER_DS_ENTRY:
+//		msg_header.opcode = GMI_MGR_SSR_MPSS_DOWN_NOTIFICATION;
+//		ret = slatecom_tx_msg(dev, &(msg_header.opcode), sizeof(msg_header.opcode));
+//		if (ret < 0)
+//			pr_err("failed to send mdsp down event to slate\n");
+//		break;
+	case QCOM_SSR_BEFORE_SHUTDOWN:
+		modeme.e_type = MODEM_BEFORE_POWER_DOWN;
+		reinit_completion(&slate_modem_down_wait);
+		send_uevent(&modeme);
+		msg_header.opcode = GMI_MGR_SSR_MPSS_DOWN_NOTIFICATION;
+		ret = slatecom_tx_msg(dev, &(msg_header.opcode), sizeof(msg_header.opcode));
+		if (ret < 0)
+			pr_err("failed to send mdsp down event to slate\n");
+		break;
+//	case SUBSYS_AFTER_DS_EXIT:
+//		msg_header.opcode = GMI_MGR_SSR_MPSS_UP_NOTIFICATION;
+//		ret = slatecom_tx_msg(dev, &(msg_header.opcode), sizeof(msg_header.opcode));
+//		if (ret < 0)
+//			pr_err("failed to send mdsp up event to slate\n");
+//		break;
+	case QCOM_SSR_AFTER_POWERUP:
+		modeme.e_type = MODEM_AFTER_POWER_UP;
+		send_uevent(&modeme);
+		msg_header.opcode = GMI_MGR_SSR_MPSS_UP_NOTIFICATION;
+		ret = slatecom_tx_msg(dev, &(msg_header.opcode), sizeof(msg_header.opcode));
+		if (ret < 0)
+			pr_err("failed to send mdsp up event to slate\n");
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
+static int ssr_adsp_cb(struct notifier_block *this,
+		unsigned long opcode, void *data)
+{
+	struct slate_event adspe;
+	struct msg_header_t msg_header = {0, 0};
+	int ret = 0;
+
+	switch (opcode) {
+//	case SUBSYS_AFTER_DS_ENTRY:
+//		msg_header.opcode = GMI_MGR_SSR_ADSP_DOWN_INDICATION;
+//		ret = slatecom_tx_msg(dev, &(msg_header.opcode), sizeof(msg_header.opcode));
+//		if (ret < 0)
+//			pr_err("failed to send adsp down event to slate\n");
+//		break;
+	case QCOM_SSR_BEFORE_SHUTDOWN:
+		adspe.e_type = ADSP_BEFORE_POWER_DOWN;
+		reinit_completion(&slate_adsp_down_wait);
+		send_uevent(&adspe);
+		msg_header.opcode = GMI_MGR_SSR_ADSP_DOWN_INDICATION;
+		ret = slatecom_tx_msg(dev, &(msg_header.opcode), sizeof(msg_header.opcode));
+		if (ret < 0)
+			pr_err("failed to send adsp up event to slate\n");
+		break;
+//	case SUBSYS_AFTER_DS_EXIT:
+//		msg_header.opcode = GMI_MGR_SSR_ADSP_UP_INDICATION;
+//		ret = slatecom_tx_msg(dev, &(msg_header.opcode), sizeof(msg_header.opcode));
+//		if (ret < 0)
+//			pr_err("failed to send adsp up event to slate\n");
+//		break;
+	case QCOM_SSR_AFTER_POWERUP:
+		adspe.e_type = ADSP_AFTER_POWER_UP;
+		send_uevent(&adspe);
+		msg_header.opcode = GMI_MGR_SSR_ADSP_UP_INDICATION;
+		ret = slatecom_tx_msg(dev, &(msg_header.opcode), sizeof(msg_header.opcode));
+		if (ret < 0)
+			pr_err("failed to send adsp up event to slate\n");
+		break;
+	}
+	return NOTIFY_DONE;
+}
 
 bool is_twm_exit(void)
 {
@@ -879,6 +1017,77 @@ int slatecom_unregister_notifier(void *notify, struct notifier_block *nb)
 	return srcu_notifier_chain_unregister(notify, nb);
 }
 EXPORT_SYMBOL(slatecom_unregister_notifier);
+
+static struct notifier_block ssr_modem_nb = {
+	.notifier_call = ssr_modem_cb,
+	.priority = 0,
+};
+
+static struct notifier_block ssr_adsp_nb = {
+	.notifier_call = ssr_adsp_cb,
+	.priority = 0,
+};
+
+static struct notifier_block ssr_slate_nb = {
+	.notifier_call = ssr_slate_cb,
+	.priority = 0,
+};
+
+static struct service_info service_data[3] = {
+	{
+		.name = "SSR_SLATE",
+		.ssr_domains = "slatefw",
+		.domain_id = SSR_DOMAIN_SLATE,
+		.nb = &ssr_slate_nb,
+		.handle = NULL,
+	},
+	{
+		.name = "SSR_MODEM",
+		.ssr_domains = "modem",
+		.domain_id = SSR_DOMAIN_MODEM,
+		.nb = &ssr_modem_nb,
+		.handle = NULL,
+	},
+	{
+		.name = "SSR_ADSP",
+		.ssr_domains = "adsp",
+		.domain_id = SSR_DOMAIN_ADSP,
+		.nb = &ssr_adsp_nb,
+		.handle = NULL,
+	},
+};
+
+/**
+ * ssr_register checks that domain id should be in range and register
+ * SSR framework for value at domain id.
+ */
+static void ssr_register(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(service_data); i++) {
+		if ((service_data[i].domain_id < 0) ||
+				(service_data[i].domain_id >= SSR_DOMAIN_MAX)) {
+			pr_err("Invalid service ID = %d\n",
+					service_data[i].domain_id);
+		} else {
+			service_data[i].handle =
+					qcom_register_ssr_notifier(
+					service_data[i].ssr_domains,
+					service_data[i].nb);
+			pr_info("subsys registration for id = %d, ssr domain = %s\n",
+				service_data[i].domain_id,
+				service_data[i].ssr_domains);
+			if (IS_ERR_OR_NULL(service_data[i].handle)) {
+				pr_err("subsys register failed for id = %d, ssr domain = %s\n",
+						service_data[i].domain_id,
+						service_data[i].ssr_domains);
+				service_data[i].handle = NULL;
+			}
+		}
+	}
+
+}
 
 static int __init init_slate_com_dev(void)
 {
