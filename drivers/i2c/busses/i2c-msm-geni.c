@@ -1407,7 +1407,6 @@ geni_i2c_txn_ret:
 	return ret;
 }
 
-#if IS_ENABLED(CONFIG_I2C_SLAVE_QCOM)
 /**
  * i2c_slave_xfer: SMbus transfer function.
  * @adap: I2C driver adapter.
@@ -1525,7 +1524,6 @@ static int geni_i2c_smbus_xfer(struct i2c_adapter *adap, u16 addr,
 	}
 	return 0;
 }
-#endif
 
 static u32 geni_i2c_func(struct i2c_adapter *adap)
 {
@@ -1535,9 +1533,7 @@ static u32 geni_i2c_func(struct i2c_adapter *adap)
 static const struct i2c_algorithm geni_i2c_algo = {
 	.master_xfer	= geni_i2c_xfer,
 	.functionality	= geni_i2c_func,
-#if IS_ENABLED(CONFIG_I2C_SLAVE_QCOM)
 	.smbus_xfer	= geni_i2c_smbus_xfer,
-#endif
 };
 
 #if I2C_HUB_DEF
