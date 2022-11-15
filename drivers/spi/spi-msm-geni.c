@@ -1763,6 +1763,7 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 
 		if (mas->is_dma_err) {
 			mas->is_dma_err = false;
+			mas->cur_xfer = NULL;
 			/* handle_fifo_timeout will do dma_unprep */
 			goto err_fifo_geni_transfer_one;
 		}
@@ -2003,15 +2004,17 @@ static void handle_dma_xfer(u32 dma_tx_status, u32 dma_rx_status, struct spi_gen
 		if (dma_tx_status & DMA_TX_ERROR_STATUS) {
 			geni_spi_dma_err(mas, dma_tx_status, 0);
 			mas->is_dma_err = true;
+			mas->cmd_done = true;
 			goto exit;
 		} else if (dma_tx_status & TX_RESET_DONE) {
+			mas->cmd_done = true;
 			GENI_SE_DBG(mas->ipc, false, mas->dev,
 				"%s: Tx Reset done. DMA_TX_IRQ_STAT:0x%x\n",
 				__func__, dma_tx_status);
 			goto exit;
 		} else if (dma_tx_status & TX_DMA_DONE) {
 			GENI_SE_DBG(mas->ipc, false, mas->dev,
-				"%s: DMA done.\n", __func__);
+				"%s: TX DMA done.\n", __func__);
 			mas->tx_rem_bytes = 0;
 		}
 	}
@@ -2024,15 +2027,18 @@ static void handle_dma_xfer(u32 dma_tx_status, u32 dma_rx_status, struct spi_gen
 		if (dma_rx_status & DMA_RX_ERROR_STATUS) {
 			geni_spi_dma_err(mas, dma_rx_status, 1);
 			mas->is_dma_err = true;
+			mas->cmd_done = true;
 			goto exit;
 		} else if (dma_rx_status & RX_RESET_DONE) {
+			mas->cmd_done = true;
 			GENI_SE_DBG(mas->ipc, false, mas->dev,
 				"%s: Rx Reset done. DMA_RX_IRQ_STAT:0x%x\n",
 				__func__, dma_rx_status);
 			goto exit;
 		} else if (dma_rx_status & RX_DMA_DONE) {
+			mas->cmd_done = true;
 			GENI_SE_DBG(mas->ipc, false, mas->dev,
-				"%s: DMA done.\n", __func__);
+				"%s: RX DMA done.\n", __func__);
 			if (dma_rx_len != dma_rx_len_in) {
 				mas->rx_rem_bytes = dma_rx_len - dma_rx_len_in;
 				mas->is_dma_err = true;
@@ -2045,8 +2051,9 @@ static void handle_dma_xfer(u32 dma_tx_status, u32 dma_rx_status, struct spi_gen
 			}
 		}
 	}
+
 	if (!mas->tx_rem_bytes && !mas->rx_rem_bytes)
-		return;
+		mas->cmd_done = true;
 exit:
 	return;
 }
@@ -2101,13 +2108,14 @@ static irqreturn_t geni_spi_irq(int irq, void *data)
 		u32 dma_rx_status = geni_read_reg(mas->base,
 							SE_DMA_RX_IRQ_STAT);
 
-		GENI_SE_DBG(mas->ipc, false, mas->dev,
-			"dma_txirq:0x%x dma_rxirq:0x%x\n", dma_tx_status, dma_rx_status);
 		handle_dma_xfer(dma_tx_status, dma_rx_status, mas);
-		mas->cmd_done = true;
 
 		if ((m_irq & M_CMD_CANCEL_EN) || (m_irq & M_CMD_ABORT_EN))
 			mas->cmd_done = true;
+
+		GENI_SE_DBG(mas->ipc, false, mas->dev,
+			    "dma_txirq:0x%x dma_rxirq:0x%x cmd_done=%d\n",
+			    dma_tx_status, dma_rx_status, mas->cmd_done);
 	}
 exit_geni_spi_irq:
 	geni_write_reg(m_irq, mas->base, SE_GENI_M_IRQ_CLEAR);
