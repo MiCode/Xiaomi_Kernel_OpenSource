@@ -44,6 +44,11 @@ struct slatersb_priv {
 static void *slatersb_drv;
 static int slatersb_enable(struct slatersb_priv *dev, bool enable);
 
+struct rsb_channel_ops rsb_ops = {
+	.glink_channel_state = slatersb_notify_glink_channel_state,
+	.rx_msg = slatersb_rx_msg,
+};
+
 static void slatersb_slatedown_work(struct work_struct *work)
 {
 	struct slatersb_priv *dev = container_of(work, struct slatersb_priv,
@@ -143,7 +148,6 @@ void slatersb_notify_glink_channel_state(bool state)
 	pr_debug("%s: RSB-CTRL channel state: %d\n", __func__, state);
 	dev->rsb_rpmsg = state;
 }
-EXPORT_SYMBOL(slatersb_notify_glink_channel_state);
 
 void slatersb_rx_msg(void *data, int len)
 {
@@ -154,7 +158,6 @@ void slatersb_rx_msg(void *data, int len)
 	wake_up(&dev->link_state_wait);
 	memcpy(dev->rx_buf, data, len);
 }
-EXPORT_SYMBOL(slatersb_rx_msg);
 
 static void slatersb_slateup_work(struct work_struct *work)
 {
