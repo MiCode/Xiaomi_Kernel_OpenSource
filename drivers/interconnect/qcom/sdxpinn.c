@@ -61,7 +61,7 @@ static struct qcom_icc_qosbox alm_sys_tcu_qos = {
 	.config = &(struct qos_config) {
 		.prio = 6,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -115,7 +115,7 @@ static struct qcom_icc_qosbox qnm_pcie_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -137,7 +137,7 @@ static struct qcom_icc_qosbox qnm_snoc_sf_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -160,7 +160,7 @@ static struct qcom_icc_qosbox xm_gic_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -182,7 +182,7 @@ static struct qcom_icc_qosbox xm_ipa2pcie_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -214,7 +214,7 @@ static struct qcom_icc_qosbox xm_pcie3_0_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -236,7 +236,7 @@ static struct qcom_icc_qosbox xm_pcie3_1_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -258,7 +258,7 @@ static struct qcom_icc_qosbox xm_pcie3_2_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -280,7 +280,7 @@ static struct qcom_icc_qosbox qhm_audio_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -302,7 +302,7 @@ static struct qcom_icc_qosbox qhm_gic_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -349,7 +349,7 @@ static struct qcom_icc_qosbox qhm_qdss_bam_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -371,7 +371,7 @@ static struct qcom_icc_qosbox qhm_qpic_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -393,7 +393,7 @@ static struct qcom_icc_qosbox qhm_qup0_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -481,7 +481,7 @@ static struct qcom_icc_qosbox qxm_crypto_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -503,7 +503,7 @@ static struct qcom_icc_qosbox qxm_ipa_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -525,7 +525,7 @@ static struct qcom_icc_qosbox qxm_mvmss_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -547,7 +547,7 @@ static struct qcom_icc_qosbox xm_emac_0_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -569,7 +569,7 @@ static struct qcom_icc_qosbox xm_emac_1_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -591,7 +591,7 @@ static struct qcom_icc_qosbox xm_qdss_etr0_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -613,7 +613,7 @@ static struct qcom_icc_qosbox xm_qdss_etr1_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -635,7 +635,7 @@ static struct qcom_icc_qosbox xm_sdc1_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -657,7 +657,7 @@ static struct qcom_icc_qosbox xm_sdc4_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -679,7 +679,7 @@ static struct qcom_icc_qosbox xm_usb3_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 0,
-		.prio_fwd_disable = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -1497,25 +1497,7 @@ static struct qcom_icc_desc sdxpinn_system_noc = {
 
 static int qnoc_probe(struct platform_device *pdev)
 {
-	const struct qcom_icc_desc *desc;
-	struct qcom_icc_node **qnodes;
-	size_t num_nodes, i;
 	int ret;
-
-	desc = of_device_get_match_data(&pdev->dev);
-	if (!desc)
-		return -EINVAL;
-
-	qnodes = desc->nodes;
-	num_nodes = desc->num_nodes;
-
-	for (i = 0; i < num_nodes; i++) {
-		if (!qnodes[i])
-			continue;
-
-		if (qnodes[i]->qosbox)
-			qnodes[i]->qosbox = NULL;
-	}
 
 	ret = qcom_icc_rpmh_probe(pdev);
 	if (ret)
