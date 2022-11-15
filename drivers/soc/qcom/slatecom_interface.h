@@ -39,8 +39,6 @@ void set_slate_dsp_state(bool status);
  * Set slate bt state
  */
 void set_slate_bt_state(bool status);
-void slatecom_intf_notify_glink_channel_state(bool state);
-void slatecom_rx_msg(void *data, int len);
 
 /*
  * Message header type - generic header structure

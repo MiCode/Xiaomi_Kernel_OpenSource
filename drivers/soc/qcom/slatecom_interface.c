@@ -128,6 +128,11 @@ struct service_info {
 	struct notifier_block           *nb;
 };
 
+struct ctrl_channel_ops ctrl_ops = {
+	.glink_channel_state = slatecom_intf_notify_glink_channel_state,
+	.rx_msg = slatecom_rx_msg,
+};
+
 static struct slatedaemon_priv *dev;
 static unsigned int slatereset_gpio;
 static  DEFINE_MUTEX(slate_char_mutex);
@@ -203,7 +208,6 @@ void slatecom_intf_notify_glink_channel_state(bool state)
 	pr_debug("%s: slate_ctrl channel state: %d\n", __func__, state);
 	dev->slatecom_rpmsg = state;
 }
-EXPORT_SYMBOL(slatecom_intf_notify_glink_channel_state);
 
 void slatecom_rx_msg(void *data, int len)
 {
@@ -214,7 +218,6 @@ void slatecom_rx_msg(void *data, int len)
 	wake_up(&dev->link_state_wait);
 	memcpy(dev->rx_buf, data, len);
 }
-EXPORT_SYMBOL(slatecom_rx_msg);
 
 static int slatecom_tx_msg(struct slatedaemon_priv *dev, void  *msg, size_t len)
 {
