@@ -212,7 +212,7 @@ bool has_system_slept(void)
 
 	for (i = 0; i < ARRAY_SIZE(system_stats); i++) {
 		if (b_system_stats[i].count == a_system_stats[i].count) {
-			pr_info("System %s has not entered sleep\n", system_stats[i].name);
+			pr_warn("System %s has not entered sleep\n", system_stats[i].name);
 			sleep_flag = false;
 		}
 	}
@@ -233,7 +233,7 @@ bool has_subsystem_slept(void)
 		if ((b_subsystem_stats[i].count == a_subsystem_stats[i].count) &&
 			(a_subsystem_stats[i].last_exited_at >
 				a_subsystem_stats[i].last_entered_at)) {
-			pr_info("Subsystem %s has not entered sleep\n", subsystem_stats[i].name);
+			pr_warn("Subsystem %s has not entered sleep\n", subsystem_stats[i].name);
 			sleep_flag = false;
 		}
 	}
