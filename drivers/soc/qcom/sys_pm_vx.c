@@ -100,42 +100,42 @@ static const char * const drv_names_lahaina[] = {
 
 static const char * const drv_names_waipio[] = {
 	"TZ", "HYP", "HLOS", "L3", "SECPROC", "AUDIO", "SENSOR", "AOP",
-	"DEBUG", "GPU", "DISPLAY", "COMPUTE_DSP", "TIME_SW", "TIME_HW",
+	"DEBUG", "GPU", "DISPLAY", "COMPUTE_DSP", "TME_SW", "TME_HW",
 	"MDM SW", "MDM HW", "WLAN RF", "WLAN BB", "DDR AUX", "ARC CPRF",
 	""
 };
 
 static const char * const drv_names_diwali[] = {
 	"TZ", "L3", "HLOS", "HYP", "SECPROC", "AUDIO", "SENSOR", "AOP",
-	"DEBUG", "GPU", "DISPLAY", "COMPUTE_DSP", "TIME_HW", "TIME_SW",
+	"DEBUG", "GPU", "DISPLAY", "COMPUTE_DSP", "TME_HW", "TME_SW",
 	"WPSS", "MDM SW", "MDM HW", "WLAN RF", "DDR AUX", "ARC CPRF",
 	""
 };
 
 static const char * const drv_names_cape[] = {
 	"TZ", "HYP", "HLOS", "L3", "SECPROC", "AUDIO", "SENSOR", "AOP",
-	"DEBUG", "GPU", "DISPLAY", "COMPUTE_DSP", "TIME_SW", "TIME_HW",
+	"DEBUG", "GPU", "DISPLAY", "COMPUTE_DSP", "TME_SW", "TME_HW",
 	"MDM SW", "MDM HW", "WLAN RF", "WLAN BB", "DDR AUX", "ARC CPRF",
 	""
 };
 
 static const char * const drv_names_parrot[] = {
 	"TZ", "L3", "HLOS", "HYP", "AUDIO", "AOP", "DEBUG", "GPU",
-	"DISPLAY", "COMPUTE_DSP", "TIME_HW", "TIME_SW", "WPSS",
+	"DISPLAY", "COMPUTE_DSP", "TME_HW", "TME_SW", "WPSS",
 	"MDM SW", "MDM HW", "WLAN RF", "WLAN BB", "DDR AUX", "ARC CPRF",
 	""
 };
 
 static const char * const drv_names_neo[] = {
 	"TZ", "HYP", "HLOS", "L3", "SECPROC", "AUDIO", "SENSOR", "AOP", "DEBUG",
-	"GPU", "DISPLAY", "COMPUTE_DSP", "TIME_HW", "TIME_SW", "WPSS",
+	"GPU", "DISPLAY", "COMPUTE_DSP", "TME_HW", "TME_SW", "WPSS",
 	"MDM SW", "MDM HW", "WLAN RF", "WLAN BB", "DDR AUX", "ARC CPRF",
 	""
 };
 
 static const char * const drv_names_anorak[] = {
 	"TZ", "L3", "HLOS", "HYP", "SECPROC", "AUDIO", "SENSOR", "AOP", "DEBUG",
-	"GPU", "DISPLAY", "COMPUTE_DSP", "TIME_HW", "TIME_SW", "DISPLAY_1",
+	"GPU", "DISPLAY", "COMPUTE_DSP", "TME_HW", "TME_SW", "DISPLAY_1",
 	"MDM SW", "MDM HW", "WLAN RF", "WLAN BB", "DDR AUX", "ARC CPRF",
 	""
 };
