@@ -977,6 +977,10 @@ struct sk_buff {
 	 * scm_io_uring is from 04df9719df18 ("io_uring/af_unix: defer
 	 * registered files gc to io_uring release")
 	 */
+	/* NOTE: due to these fields ending up after headers_end, we have to
+	 * manually copy them in the __copy_skb_header() call in skbuf.c.  Be
+	 * very aware of that if you change these fields.
+	 */
 	_ANDROID_KABI_REPLACE(_ANDROID_KABI_RESERVE(1),
 			 struct {
 				__u8 scm_io_uring:1;
