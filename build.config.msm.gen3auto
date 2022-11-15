@@ -13,7 +13,6 @@ if [ -e "${ROOT_DIR}/msm-kernel" -a "${KERNEL_DIR}" = "common" ]; then
 	KERNEL_DIR="msm-kernel"
 fi
 
-LTO="thin"
 ABL_SRC=bootable/bootloader/edk2
 BOOT_IMAGE_HEADER_VERSION=4
 BASE_ADDRESS=0x80000000
