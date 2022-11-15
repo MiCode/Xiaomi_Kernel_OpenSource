@@ -13,4 +13,12 @@
 /* APIs for slate_event_bridge_rpmsg */
 void seb_notify_glink_channel_state(bool state);
 void seb_rx_msg(void *data, int len);
+
+struct seb_channel_ops {
+	void (*glink_channel_state)(bool state);
+	void (*rx_msg)(void *data, int len);
+};
+
+struct seb_channel_ops seb_ops;
+
 #endif /* SLATE_EVENTS_BRIDGE_H */
