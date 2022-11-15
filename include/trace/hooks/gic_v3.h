@@ -32,6 +32,9 @@ DECLARE_RESTRICTED_HOOK(android_rvh_gic_v3_set_affinity,
 DECLARE_HOOK(android_vh_gic_resume,
 	TP_PROTO(struct gic_chip_data *gd),
 	TP_ARGS(gd));
+DECLARE_HOOK(android_vh_gic_suspend,
+	TP_PROTO(struct gic_chip_data *gd),
+	TP_ARGS(gd));
 
 #endif /* _TRACE_HOOK_GIC_V3_H */
 /* This part must be outside protection */
