@@ -133,6 +133,11 @@ struct ctrl_channel_ops ctrl_ops = {
 	.rx_msg = slatecom_rx_msg,
 };
 
+struct subsys_state_ops state_ops = {
+	.set_dsp_state = set_slate_dsp_state,
+	.set_bt_state = set_slate_bt_state,
+};
+
 static struct slatedaemon_priv *dev;
 static unsigned int slatereset_gpio;
 static  DEFINE_MUTEX(slate_char_mutex);
@@ -981,7 +986,6 @@ void set_slate_dsp_state(bool status)
 	}
 	send_uevent(&statee);
 }
-EXPORT_SYMBOL(set_slate_dsp_state);
 
 void set_slate_bt_state(bool status)
 {
@@ -1001,7 +1005,6 @@ void set_slate_bt_state(bool status)
 	}
 	send_uevent(&statee);
 }
-EXPORT_SYMBOL(set_slate_bt_state);
 
 void *slatecom_register_notifier(struct notifier_block *nb)
 {

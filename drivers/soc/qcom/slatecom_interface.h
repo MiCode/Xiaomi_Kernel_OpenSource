@@ -40,6 +40,13 @@ void set_slate_dsp_state(bool status);
  */
 void set_slate_bt_state(bool status);
 
+struct subsys_state_ops {
+	void (*set_dsp_state)(bool status);
+	void (*set_bt_state)(bool status);
+};
+
+struct subsys_state_ops state_ops;
+
 /*
  * Message header type - generic header structure
  */
