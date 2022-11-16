@@ -3192,6 +3192,9 @@ static int gcc_monaco_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	/* Configure WAKEUP cycle for gcc_gpu_memnoc_gfx_clk */
+	regmap_update_bits(regmap, 0x3600c, 0xF00, 0xF00);
+
 	ret = qcom_cc_really_probe(pdev, &gcc_monaco_desc, regmap);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register GCC clocks\n");
