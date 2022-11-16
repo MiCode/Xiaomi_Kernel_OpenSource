@@ -17,6 +17,7 @@
 #include <linux/uaccess.h>
 #include <soc/qcom/soc_sleep_stats.h>
 #include <soc/qcom/subsystem_sleep_stats.h>
+#include <asm/arch_timer.h>
 
 #define STATS_BASEMINOR				0
 #define STATS_MAX_MINOR				1
@@ -174,11 +175,9 @@ void ddr_stats_sleep_stat(struct sleep_stats_data *stats_data, struct sleep_stat
 
 	reg = stats_data->ddr_reg + DDR_STATS_NUM_MODES_ADDR + 0x4;
 	for (i = 0; i < stats_data->ddr_entry_count; i++) {
-		(ddr_stats + i)->version = readl_relaxed(reg + DDR_STATS_NAME_ADDR);
-		(ddr_stats + i)->count = readl_relaxed(reg + DDR_STATS_COUNT_ADDR);
+		memcpy_fromio(&ddr_stats[i], reg, sizeof(*ddr_stats));
 		(ddr_stats + i)->last_entered_at = 0xDEADDEAD;
 		(ddr_stats + i)->last_exited_at = 0xDEADDEAD;
-		(ddr_stats + i)->accumulated = readq_relaxed(reg + DDR_STATS_DURATION_ADDR);
 		reg += sizeof(struct sleep_stats) - 2 * sizeof(u64);
 	}
 }
