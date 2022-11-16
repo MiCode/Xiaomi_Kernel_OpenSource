@@ -251,6 +251,7 @@ config QCOM_QMI_HELPERS
 	tristate
 	depends on NET
 
+source "drivers/soc/qcom/hgsl/Kconfig"
 source "drivers/soc/qcom/hab/Kconfig"
 source "drivers/soc/qcom/memshare/Kconfig"
 
