@@ -1683,14 +1683,24 @@ int __boot_cpu_id;
 /* Horrific hacks because we can't add more to cpuhp_hp_states. */
 static int random_and_perf_prepare_fusion(unsigned int cpu)
 {
-	perf_event_init_cpu(cpu);
-	random_prepare_cpu(cpu);
+	int (*fn)(unsigned int cpu);
+	fn = perf_event_init_cpu;
+	if (fn)
+		fn(cpu);
+	fn = random_prepare_cpu;
+	if (fn)
+		fn(cpu);
 	return 0;
 }
 static int random_and_workqueue_online_fusion(unsigned int cpu)
 {
-	workqueue_online_cpu(cpu);
-	random_online_cpu(cpu);
+	int (*fn)(unsigned int cpu);
+	fn = workqueue_online_cpu;
+	if (fn)
+		fn(cpu);
+	fn = random_online_cpu;
+	if (fn)
+		fn(cpu);
 	return 0;
 }
 
