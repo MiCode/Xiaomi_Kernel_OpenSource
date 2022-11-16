@@ -609,13 +609,11 @@ struct mhi_dev {
 	bool				use_mhi_dma;
 
 	/* Denotes if the MHI instance is physcial or virtual */
-	bool				is_mhi_virtual;
+	bool				is_mhi_pf;
 
 	bool				is_flashless;
 
 	bool				mhi_has_smmu;
-
-	bool				is_mhi_pf;
 
 	/* iATU is required to map control and data region */
 	bool				config_iatu;

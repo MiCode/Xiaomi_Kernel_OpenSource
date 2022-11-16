@@ -4324,9 +4324,13 @@ static int mhi_get_device_tree_data(struct mhi_dev_ctx *mhictx, int vf_id)
 
 	mhi->vf_id = vf_id;
 
-	mhi->is_mhi_pf = vf_id ?  MHI_DMA_FUNCTION_TYPE_VIRTUAL : MHI_DMA_FUNCTION_TYPE_PHYSICAL;
+	mhi->is_mhi_pf = !vf_id;
 
-	mhi->mhi_dma_fun_params.function_type = mhi->is_mhi_pf;
+	if (mhi->is_mhi_pf)
+		mhi->mhi_dma_fun_params.function_type = MHI_DMA_FUNCTION_TYPE_PHYSICAL;
+	else
+		mhi->mhi_dma_fun_params.function_type = MHI_DMA_FUNCTION_TYPE_VIRTUAL;
+
 	mhi->mhi_dma_fun_params.vf_id = mhi->vf_id - 1;
 
 	rc = of_property_read_u32((&pdev->dev)->of_node,
@@ -4380,7 +4384,7 @@ static int mhi_get_device_tree_data(struct mhi_dev_ctx *mhictx, int vf_id)
 			goto err;
 		}
 
-		if (mhi->is_mhi_pf) {
+		if (!mhi->is_mhi_pf) {
 			snprintf(mhi_vf_int_name, sizeof(mhi_vf_int_name),
 					"mhi-virt-device-int-%d", vf_id - 1);
 			mhi_log(MHI_MSG_INFO, "mhi irq %d vf_id:%d %s\n",
@@ -4562,7 +4566,7 @@ static int mhi_dev_resume_mmio_mhi_reinit(struct mhi_dev *mhi_ctx)
 		goto fail;
 	}
 
-	if (!mhi_ctx->is_mhi_pf) {
+	if (mhi_ctx->is_mhi_pf) {
 		mhi_ctx->mhi_hw_ctx->event_reg.events = EP_PCIE_EVENT_PM_D3_HOT |
 			EP_PCIE_EVENT_PM_D3_COLD |
 			EP_PCIE_EVENT_PM_D0 |
@@ -4586,15 +4590,13 @@ static int mhi_dev_resume_mmio_mhi_reinit(struct mhi_dev *mhi_ctx)
 	}
 
 	if (mhi_ctx->use_mhi_dma) {
-		if (!mhi_ctx->is_mhi_pf) {
-			/*
-			 * In case of MHI VF, mhi_ring_int_cb() is not called as MHI DMA ready
-			 * event is registered/handled by PF. Involking mhi_dev_enable()
-			 * is necessary for enabling MHI IRQ.
-			 */
-			if (mhi_ctx->mhi_dma_ready || mhi_ctx->is_mhi_pf)
-				queue_work(mhi_ctx->ring_init_wq, &mhi_ctx->ring_init_cb_work);
-		}
+		/*
+		 * In case of MHI VF, mhi_ring_int_cb() is not called as MHI DMA ready
+		 * event is registered/handled by PF. Involking mhi_dev_enable()
+		 * is necessary for enabling MHI IRQ.
+		 */
+		if (mhi_ctx->mhi_dma_ready || !mhi_ctx->is_mhi_pf)
+			queue_work(mhi_ctx->ring_init_wq, &mhi_ctx->ring_init_cb_work);
 	}
 	/* Invoke MHI SM when device is in RESET state */
 	rc = mhi_dev_sm_init(mhi_ctx);
@@ -4694,7 +4696,7 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 	INIT_LIST_HEAD(&mhi_ctx->process_ring_list);
 	mutex_init(&mhi_ctx->mhi_event_lock);
 	mutex_init(&mhi_ctx->mhi_write_test);
-	if (!mhi_ctx->is_mhi_pf) {
+	if (mhi_ctx->is_mhi_pf) {
 		mhi_ctx->mhi_hw_ctx->phandle = ep_pcie_get_phandle(mhi_ctx->mhi_hw_ctx->ifc_id);
 		if (!mhi_ctx->mhi_hw_ctx->phandle) {
 			pr_err("PCIe driver get handle failed.\n");
@@ -4724,7 +4726,7 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 		return -ENOMEM;
 	}
 
-	if (!mhi_ctx->is_mhi_pf) {
+	if (mhi_ctx->is_mhi_pf) {
 		mhi_ctx->read_handle = alloc_coherent(mhi_ctx,
 				(TRB_MAX_DATA_SIZE * 4),
 				&mhi_ctx->mhi_hw_ctx->read_dma_handle,
@@ -4750,7 +4752,7 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 		mutex_unlock(&mhi_ctx->mhi_lock);
 		return rc;
 	}
-	if (!mhi_ctx->is_mhi_pf) {
+	if (mhi_ctx->is_mhi_pf) {
 		mhi_ctx->mhi_hw_ctx->event_reg.events = EP_PCIE_EVENT_PM_D3_HOT |
 			EP_PCIE_EVENT_PM_D3_COLD |
 			EP_PCIE_EVENT_PM_D0 |
@@ -4815,7 +4817,7 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 		 * event is registered/handled by PF. Involking mhi_dev_enable()
 		 * is necessary for enabling MHI IRQ.
 		 */
-		if (mhi_ctx->mhi_dma_ready || mhi_ctx->is_mhi_pf)
+		if (mhi_ctx->mhi_dma_ready || !mhi_ctx->is_mhi_pf)
 			queue_work(mhi_ctx->ring_init_wq, &mhi_ctx->ring_init_cb_work);
 	}
 	mutex_unlock(&mhi_ctx->mhi_lock);
