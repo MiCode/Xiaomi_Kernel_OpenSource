@@ -521,9 +521,11 @@ int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 				    plat_priv->dev_mem_info[i].size);
 		}
 	}
-	if (resp->fw_caps_valid)
+	if (resp->fw_caps_valid) {
 		plat_priv->fw_pcie_gen_switch =
 			!!(resp->fw_caps & QMI_WLFW_HOST_PCIE_GEN_SWITCH_V01);
+		plat_priv->fw_caps = resp->fw_caps;
+	}
 
 	if (resp->hang_data_length_valid &&
 	    resp->hang_data_length &&
