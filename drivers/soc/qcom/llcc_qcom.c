@@ -254,6 +254,12 @@ static const struct llcc_slice_config neo_xr_data[] =  {
 	{LLCC_SPAD,     24,  7168, 1, 1,        0x0,  0x0,   0, 0, 0, 1, 0, 0, 0 },
 };
 
+static const struct llcc_slice_config neo_xr_v2_data[] =  {
+};
+
+static const struct llcc_slice_config neo_xr_v3_data[] =  {
+};
+
 static const struct llcc_slice_config neo_sg_data[] =  {
 	{LLCC_CPUSS,     1,  4096, 1, 0, 0x3FF,  0x0,   0, 0, 0, 1, 1, 0, 0 },
 	{LLCC_VIDSC0,    2,   512, 3, 1, 0x3FF,  0x0,   0, 0, 0, 1, 0, 0, 0 },
@@ -428,21 +434,6 @@ static const struct qcom_llcc_config shima_cfg = {
 	.size		= ARRAY_SIZE(shima_data),
 };
 
-static const struct qcom_llcc_config neo_xr_cfg = {
-	.sct_data	= neo_xr_data,
-	.size		= ARRAY_SIZE(neo_xr_data),
-};
-
-static const struct qcom_llcc_config neo_sg_cfg = {
-	.sct_data	= neo_sg_data,
-	.size		= ARRAY_SIZE(neo_sg_data),
-};
-
-static const struct qcom_llcc_config neo_sg_v2_cfg = {
-	.sct_data	= neo_sg_v2_data,
-	.size		= ARRAY_SIZE(neo_sg_v2_data),
-};
-
 static const struct qcom_llcc_config waipio_cfg = {
 	.sct_data	= waipio_data,
 	.size		= ARRAY_SIZE(waipio_data),
@@ -456,6 +447,30 @@ static const struct qcom_llcc_config cape_cfg = {
 static const struct qcom_llcc_config ukee_cfg = {
 	.sct_data       = ukee_data,
 	.size           = ARRAY_SIZE(ukee_data),
+};
+
+static const struct qcom_llcc_config neo_cfg[] = {
+	{
+		.sct_data	= neo_xr_data,
+		.size		= ARRAY_SIZE(neo_xr_data),
+	},
+	{
+		.sct_data	= neo_xr_v2_data,
+		.size		= ARRAY_SIZE(neo_xr_v2_data),
+	},
+	{
+		.sct_data	= neo_xr_v3_data,
+		.size		= ARRAY_SIZE(neo_xr_v3_data),
+	},
+	{
+		.sct_data	= neo_sg_data,
+		.size		= ARRAY_SIZE(neo_sg_data),
+	},
+	{
+		.sct_data	= neo_sg_v2_data,
+		.size		= ARRAY_SIZE(neo_sg_v2_data),
+	},
+
 };
 
 static struct llcc_drv_data *drv_data = (void *) -EPROBE_DEFER;
@@ -1211,6 +1226,8 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 	struct device_node *tcm_memory_node;
 	void __iomem *ch_reg = NULL;
 	u32 sz, ch_reg_sz, ch_reg_off, ch_num;
+	bool multiple_llcc = false;
+	u32 sct_config;
 
 	drv_data = devm_kzalloc(dev, sizeof(*drv_data), GFP_KERNEL);
 	if (!drv_data) {
@@ -1275,6 +1292,9 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	if (!of_property_read_u32(dev->of_node, "qcom,sct-config", &sct_config))
+		multiple_llcc = true;
+
 	ch_reg = devm_platform_ioremap_resource_byname(pdev, "multi_ch_reg");
 	if (!IS_ERR(ch_reg)) {
 		if (of_property_read_u32_index(dev->of_node, "multi-ch-off", 1, &ch_reg_sz)) {
@@ -1296,7 +1316,11 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 
 		devm_iounmap(dev, ch_reg);
 		ch_reg = NULL;
+	} else if (multiple_llcc) {
+		llcc_cfg = cfg[sct_config].sct_data;
+		sz = cfg[sct_config].size;
 	} else {
+
 		llcc_cfg = cfg->sct_data;
 		sz = cfg->size;
 	}
@@ -1367,9 +1391,7 @@ static const struct of_device_id qcom_llcc_of_match[] = {
 	{ .compatible = "qcom,sdm845-llcc", .data = &sdm845_cfg },
 	{ .compatible = "qcom,lahaina-llcc", .data = &lahaina_cfg },
 	{ .compatible = "qcom,shima-llcc", .data = &shima_cfg },
-	{ .compatible = "qcom,neo-xr-llcc", .data = &neo_xr_cfg },
-	{ .compatible = "qcom,neo-sg-llcc", .data = &neo_sg_cfg },
-	{ .compatible = "qcom,neo-sg-v2-llcc", .data = &neo_sg_v2_cfg },
+	{ .compatible = "qcom,neo-llcc", .data = &neo_cfg },
 	{ .compatible = "qcom,waipio-llcc", .data = &waipio_cfg },
 	{ .compatible = "qcom,diwali-llcc", .data = &diwali_cfg },
 	{ .compatible = "qcom,cape-llcc", .data = &cape_cfg },
