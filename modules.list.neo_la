@@ -41,7 +41,6 @@ mem-offline.ko
 mem-hooks.ko
 memory_dump_v2.ko
 msm_dma_iommu_mapping.ko
-pdr_interface.ko
 qcom_wdt_core.ko
 qcom_rpmh.ko
 clk-qcom.ko
