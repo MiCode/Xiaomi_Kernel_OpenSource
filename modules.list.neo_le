@@ -40,6 +40,7 @@ smem.ko
 stub-regulator.ko
 mem_buf.ko
 mem_buf_dev.ko
+sdhci-msm-scaling.ko
 cqhci.ko
 sdhci-msm.ko
 core_hang_detect.ko
