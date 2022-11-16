@@ -266,7 +266,7 @@ static void vx_check_drv(struct vx_platform_data *pd)
 
 	ret = read_vx_data(pd, &log);
 	if (ret) {
-		pr_info("fail to read vx data\n");
+		pr_err("fail to read vx data\n");
 		return;
 	}
 
@@ -275,7 +275,7 @@ static void vx_check_drv(struct vx_platform_data *pd)
 			if (log.data[j].drv_vx[i] == 0)
 				break;
 			if (j == log.loglines - 1)
-				pr_info("DRV: %s has blocked power collapse\n", pd->drvs[i]);
+				pr_warn("DRV: %s has blocked power collapse\n", pd->drvs[i]);
 		}
 	}
 
