@@ -3110,6 +3110,7 @@ static int rmqueue_bulk(struct zone *zone, unsigned int order,
 	for (i = 0; i < count; ++i) {
 		struct page *page;
 
+		trace_android_rvh_rmqueue_bulk(NULL);
 		if (is_migrate_cma(migratetype))
 			page = __rmqueue_cma(zone, order, migratetype,
 					     alloc_flags);
