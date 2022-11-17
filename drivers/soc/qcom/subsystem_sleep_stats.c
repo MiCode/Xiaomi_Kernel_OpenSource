@@ -130,7 +130,7 @@ static struct system_data subsystem_stats[] = {
 	{ "apss", APSS, QCOM_SMEM_HOST_ANY },
 	{ "modem", MPSS, PID_MPSS },
 	{ "adsp", ADSP, PID_ADSP },
-	{ "adsp_island", PID_ADSP, SLPI_ISLAND },
+	{ "adsp_island", SLPI_ISLAND, PID_ADSP },
 	{ "cdsp", CDSP, PID_CDSP },
 	{ "slpi", SLPI, PID_SLPI },
 	{ "slpi_island", SLPI_ISLAND, PID_SLPI },
