@@ -438,6 +438,14 @@ static int qcom_ethqos_add_ipaddr(struct ip_params *ip_info,
 		ETHQOSINFO("Sock is null, unable to assign ipv4 address\n");
 		return res;
 	}
+
+	if (!net->ipv4.devconf_dflt) {
+		ETHQOSERR("ipv4.devconf_dflt is null, schedule wq\n");
+		schedule_delayed_work(&pethqos->ipv4_addr_assign_wq,
+				      msecs_to_jiffies(1000));
+		return res;
+	}
+
 	/*For valid Ipv4 address*/
 	memset(&ir, 0, sizeof(ir));
 	memcpy(&sin->sin_addr.s_addr, &ip_info->ipv4_addr,
@@ -1321,7 +1329,7 @@ static void ethqos_is_ipv4_NW_stack_ready(struct work_struct *work)
 	struct net_device *ndev = NULL;
 	int ret;
 
-	ETHQOSINFO("\n");
+	ETHQOSDBG("\n");
 	dwork = container_of(work, struct delayed_work, work);
 	ethqos = container_of(dwork, struct qcom_ethqos, ipv4_addr_assign_wq);
 
@@ -1351,7 +1359,7 @@ static void ethqos_is_ipv6_NW_stack_ready(struct work_struct *work)
 	struct net_device *ndev = NULL;
 	int ret;
 
-	ETHQOSINFO("\n");
+	ETHQOSDBG("\n");
 	dwork = container_of(work, struct delayed_work, work);
 	ethqos = container_of(dwork, struct qcom_ethqos, ipv6_addr_assign_wq);
 
@@ -1382,23 +1390,16 @@ static int ethqos_set_early_eth_param(struct stmmac_priv *priv,
 		priv->plat->mdio_bus_data->phy_mask =
 		 priv->plat->mdio_bus_data->phy_mask | DUPLEX_FULL | SPEED_100;
 
-	priv->early_eth = ethqos->early_eth_enabled;
-	qcom_ethqos_add_ipaddr(&pparams, priv->dev);
-
 	if (pparams.is_valid_ipv4_addr) {
 		INIT_DELAYED_WORK(&ethqos->ipv4_addr_assign_wq,
 				  ethqos_is_ipv4_NW_stack_ready);
-		ret = qcom_ethqos_add_ipaddr(&pparams, priv->dev);
-		if (ret)
 			schedule_delayed_work(&ethqos->ipv4_addr_assign_wq,
-					      msecs_to_jiffies(1000));
+					      0);
 	}
 
 	if (pparams.is_valid_ipv6_addr) {
 		INIT_DELAYED_WORK(&ethqos->ipv6_addr_assign_wq,
 				  ethqos_is_ipv6_NW_stack_ready);
-		ret = qcom_ethqos_add_ipv6addr(&pparams, priv->dev);
-		if (ret)
 			schedule_delayed_work(&ethqos->ipv6_addr_assign_wq,
 					      msecs_to_jiffies(1000));
 	}
@@ -1786,6 +1787,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	plat_dat->init_pps = ethqos_init_pps;
 	plat_dat->phy_irq_enable = ethqos_phy_irq_enable;
 	plat_dat->phy_irq_disable = ethqos_phy_irq_disable;
+	plat_dat->early_eth = ethqos->early_eth_enabled;
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,arm-smmu")) {
 		emac_emb_smmu_ctx.pdev_master = pdev;
@@ -2196,7 +2198,7 @@ static int __init qcom_ethqos_init_module(void)
 {
 	int ret = 0;
 
-	ETHQOSINFO("\n");
+	ETHQOSDBG("\n");
 
 	ret = platform_driver_register(&qcom_ethqos_driver);
 	if (ret < 0) {
@@ -2204,14 +2206,14 @@ static int __init qcom_ethqos_init_module(void)
 		return ret;
 	}
 
-	ETHQOSINFO("\n");
+	ETHQOSDBG("\n");
 
 	return ret;
 }
 
 static void __exit qcom_ethqos_exit_module(void)
 {
-	ETHQOSINFO("\n");
+	ETHQOSDBG("\n");
 
 	platform_driver_unregister(&qcom_ethqos_driver);
 
@@ -2220,7 +2222,7 @@ static void __exit qcom_ethqos_exit_module(void)
 
 	ipc_stmmac_log_ctxt = NULL;
 	ipc_stmmac_log_ctxt_low = NULL;
-	ETHQOSINFO("\n");
+	ETHQOSDBG("\n");
 }
 
 /*!
