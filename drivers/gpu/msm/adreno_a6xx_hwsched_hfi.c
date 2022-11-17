@@ -509,7 +509,7 @@ static void process_log_block(struct adreno_device *adreno_dev, void *data)
 	}
 }
 
-static void process_dbgq_irq(struct adreno_device *adreno_dev)
+static void a6xx_hwsched_process_dbgq(struct adreno_device *adreno_dev, bool limited)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	u32 rcvd[MAX_RCVD_SIZE];
@@ -528,6 +528,10 @@ static void process_dbgq_irq(struct adreno_device *adreno_dev)
 
 		if (MSG_HDR_GET_ID(rcvd[0]) == F2H_MSG_LOG_BLOCK)
 			process_log_block(adreno_dev, rcvd);
+
+		/* Process one debug queue message and return to not delay msgq processing */
+		if (limited)
+			break;
 	}
 
 	if (!recovery)
@@ -1058,6 +1062,9 @@ void a6xx_hwsched_hfi_stop(struct adreno_device *adreno_dev)
 	 */
 	a6xx_hwsched_process_msgq(adreno_dev);
 
+	/* Drain the debug queue before we reset HFI queues */
+	a6xx_hwsched_process_dbgq(adreno_dev, false);
+
 	reset_hfi_queues(adreno_dev);
 
 	kgsl_pwrctrl_axi(KGSL_DEVICE(adreno_dev), false);
@@ -1357,7 +1364,7 @@ static int hfi_f2h_main(void *arg)
 			break;
 
 		a6xx_hwsched_process_msgq(adreno_dev);
-		process_dbgq_irq(adreno_dev);
+		a6xx_hwsched_process_dbgq(adreno_dev, true);
 	}
 
 	return 0;
