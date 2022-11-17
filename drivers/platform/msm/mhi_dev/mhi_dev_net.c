@@ -336,6 +336,7 @@ static ssize_t mhi_dev_net_client_read(struct mhi_dev_net_client *mhi_handle)
 		req->len = MHI_NET_DEFAULT_MTU;
 		req->context = skb;
 		req->mode = DMA_ASYNC;
+		req->snd_cmpl = 0;
 		bytes_avail = mhi_dev_read_channel(req);
 
 		if (bytes_avail < 0) {
@@ -845,7 +846,7 @@ channel_init_fail:
 }
 EXPORT_SYMBOL(mhi_dev_net_interface_init);
 
-void __exit mhi_dev_net_exit(void)
+void mhi_dev_net_exit(void)
 {
 	mhi_dev_net_log(MHI_INFO,
 			"MHI Network Interface Module exited\n");
@@ -895,4 +896,4 @@ static void __exit mhi_dev_exit(void)
 {
 	platform_driver_unregister(&mhi_dev_net_driver);
 }
-module_exit(mhi_dev_net_exit);
+module_exit(mhi_dev_exit);

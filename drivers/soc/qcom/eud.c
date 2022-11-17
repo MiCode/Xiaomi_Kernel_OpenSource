@@ -180,14 +180,17 @@ static void enable_eud(struct platform_device *pdev)
 	if (priv->secure_eud_en && !check_eud_mode_mgr2(priv)) {
 		ret = qcom_scm_io_writel(priv->eud_mode_mgr2_phys_base +
 				   EUD_REG_EUD_EN2, EUD_ENABLE_CMD);
-		if (ret)
+		if (ret) {
 			dev_err(&pdev->dev,
 			"qcom_scm_io_writel failed with rc:%d\n", ret);
+			return;
+		}
 	}
 
 	/* Ensure Register Writes Complete */
 	wmb();
 
+	enable = EUD_ENABLE_CMD;
 	usleep_range(50, 100);
 	/* perform spoof connect as recommended */
 	extcon_set_state_sync(priv->extcon, EXTCON_USB, true);
@@ -213,11 +216,14 @@ static void disable_eud(struct platform_device *pdev)
 	if (priv->secure_eud_en) {
 		ret = qcom_scm_io_writel(priv->eud_mode_mgr2_phys_base +
 				   EUD_REG_EUD_EN2, EUD_DISABLE_CMD);
-		if (ret)
+		if (ret) {
 			dev_err(&pdev->dev,
 			"qcom_scm_io_write failed with rc:%d\n", ret);
+			return;
+		}
 	}
 
+	enable = EUD_DISABLE_CMD;
 	msm_eud_clkref_en(priv, false);
 
 	usleep_range(50, 100);
@@ -236,7 +242,6 @@ static int param_eud_set(const char *val, const struct kernel_param *kp)
 	if (enable != EUD_ENABLE_CMD && enable != EUD_DISABLE_CMD)
 		return -EINVAL;
 
-	*((uint *)kp->arg) = enable;
 	if (!eud_ready)
 		return 0;
 
@@ -394,7 +399,7 @@ static void eud_set_termios(struct uart_port *port, struct ktermios *new,
 static void eud_stop_tx(struct uart_port *port)
 {
 	/* Disable Tx interrupt */
-	writel_relaxed(~EUD_INT_TX, port->membase + EUD_REG_INT_STATUS_1);
+	writel_relaxed((u32)(~EUD_INT_TX), port->membase + EUD_REG_INT_STATUS_1);
 	/* Ensure Register Writes Complete */
 	wmb();
 }
@@ -410,7 +415,7 @@ static void eud_start_tx(struct uart_port *port)
 static void eud_stop_rx(struct uart_port *port)
 {
 	/* Disable Rx interrupt */
-	writel_relaxed(~EUD_INT_RX, port->membase + EUD_REG_INT_STATUS_1);
+	writel_relaxed((u32)(~EUD_INT_RX), port->membase + EUD_REG_INT_STATUS_1);
 	/* Ensure Register Writes Complete */
 	wmb();
 }
@@ -427,7 +432,7 @@ static int eud_startup(struct uart_port *port)
 static void eud_shutdown(struct uart_port *port)
 {
 	/* Disable both Tx & Rx interrupts */
-	writel_relaxed(~EUD_INT_TX | ~EUD_INT_RX,
+	writel_relaxed((u32)(~EUD_INT_TX | ~EUD_INT_RX),
 			port->membase + EUD_REG_INT_STATUS_1);
 	/* Ensure Register Writes Complete */
 	wmb();
@@ -453,7 +458,7 @@ static void eud_config_port(struct uart_port *port, int flags)
 {
 	/* set port type, clear Tx and Rx interrupts */
 	port->type = PORT_EUD_UART;
-	writel_relaxed(~EUD_INT_TX | ~EUD_INT_RX,
+	writel_relaxed((u32)(~EUD_INT_TX | ~EUD_INT_RX),
 			port->membase + EUD_REG_INT_STATUS_1);
 	/* Ensure Register Writes Complete */
 	wmb();

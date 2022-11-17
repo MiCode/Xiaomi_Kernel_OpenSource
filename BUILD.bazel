@@ -20,22 +20,52 @@ package(
 load("//build/kernel/kleaf:constants.bzl", "aarch64_gz_outs")
 load("//build/kernel/kleaf:common_kernels.bzl", "define_common_kernels", "define_db845c")
 
-# This uses android/abi_gki_aarch64* in kmi_configs. If the list of
-# glob(["android/abi_gki_aarch64*"]) differs from
-# KMI_SYMBOL_LIST + ADDITIONAL_KMI_SYMBOL_LISTS in build.config.gki.aarch64,
-# or TRIM_NONLISTED_KMI changes, override kmi_configs here.
+_aarch64_additional_kmi_symbol_lists = [
+    # keep sorted
+    "android/abi_gki_aarch64_amlogic",
+    "android/abi_gki_aarch64_db845c",
+    "android/abi_gki_aarch64_exynos",
+    "android/abi_gki_aarch64_exynosauto",
+    "android/abi_gki_aarch64_fips140",
+    "android/abi_gki_aarch64_galaxy",
+    "android/abi_gki_aarch64_honor",
+    "android/abi_gki_aarch64_imx",
+    "android/abi_gki_aarch64_mtk",
+    "android/abi_gki_aarch64_mtktv",
+    "android/abi_gki_aarch64_oplus",
+    "android/abi_gki_aarch64_pasa",
+    "android/abi_gki_aarch64_pixel",
+    "android/abi_gki_aarch64_qcom",
+    "android/abi_gki_aarch64_rtktv",
+    "android/abi_gki_aarch64_sony",
+    "android/abi_gki_aarch64_sunxi",
+    "android/abi_gki_aarch64_type_visibility",
+    "android/abi_gki_aarch64_unisoc",
+    "android/abi_gki_aarch64_virtual_device",
+    "android/abi_gki_aarch64_virtual_device_removed",
+    "android/abi_gki_aarch64_vivo",
+    "android/abi_gki_aarch64_xiaomi",
+]
+
 define_common_kernels(target_configs = {
+    # Sync with build.config.gki.aarch64
     "kernel_aarch64": {
         "module_implicit_outs": [
             "drivers/block/zram/zram.ko",
             "mm/zsmalloc.ko",
         ],
+        "kmi_symbol_list": "android/abi_gki_aarch64",
+        "additional_kmi_symbol_lists": _aarch64_additional_kmi_symbol_lists,
+        "abi_definition": "android/abi_gki_aarch64.xml",
     },
     "kernel_aarch64_debug": {
         "module_implicit_outs": [
             "drivers/block/zram/zram.ko",
             "mm/zsmalloc.ko",
         ],
+        "kmi_symbol_list": "android/abi_gki_aarch64",
+        "additional_kmi_symbol_lists": _aarch64_additional_kmi_symbol_lists,
+        "abi_definition": "android/abi_gki_aarch64.xml",
     },
 })
 

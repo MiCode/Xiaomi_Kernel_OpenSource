@@ -541,6 +541,9 @@ static int mhi_sm_prepare_resume(struct mhi_sm_dev *mhi_sm_ctx)
 					goto exit;
 				}
 			}
+		} else if (mhi_sm_ctx->mhi_dev->use_edma) {
+			/* edma resets  when device goes to D3 cold*/
+			mhi_edma_init(mhi_sm_ctx->mhi_dev->mhi_hw_ctx->dev);
 		}
 	}
 
@@ -707,27 +710,33 @@ static int mhi_sm_prepare_suspend(struct mhi_sm_dev *mhi_sm_ctx, enum mhi_dev_st
 	if ((old_state == MHI_DEV_M0_STATE) &&
 			((new_state == MHI_DEV_M2_STATE) ||
 			 (new_state == MHI_DEV_M3_STATE))) {
-		if (mhi_sm_ctx->mhi_dev->use_mhi_dma) {
-			MHI_SM_DBG("Disable MHI DMA with mhi_dma_disable()\n");
-			while (wait_timeout < MHI_DMA_DISABLE_COUNTER) {
+		MHI_SM_DBG("Disable MHI-DMA with mhi_dma_memcpy_disable()\n");
+		while (wait_timeout < MHI_DMA_DISABLE_COUNTER) {
+			if (mhi_sm_ctx->mhi_dev->use_mhi_dma) {
 				/* wait for the disable to finish */
 				res = mhi_dma_fun_ops->mhi_dma_memcpy_disable(mhi_dma_fun_params);
-				if (!res)
-					break;
-				MHI_SM_ERR
-					("MHI DMA disable fail cnt:%d\n",
-						wait_timeout);
-				msleep(MHI_DMA_DISABLE_DELAY_MS);
-				wait_timeout++;
+			} else if (mhi_sm_ctx->mhi_dev->use_edma) {
+				/* wait for edma to be idle*/
+				res = mhi_edma_status();
 			}
-
-			if (wait_timeout >= MHI_DMA_DISABLE_COUNTER) {
-				MHI_SM_ERR
-					("Fail to disable MHI DMA for M3\n");
-				goto exit;
-			}
-			MHI_SM_ERR("MHI DMA successfully disabled\n");
+			if (!res)
+				break;
+			MHI_SM_ERR
+				("DMA disable fail cnt:%d\n",
+					wait_timeout);
+			msleep(MHI_DMA_DISABLE_DELAY_MS);
+			wait_timeout++;
 		}
+
+		if (wait_timeout >= MHI_DMA_DISABLE_COUNTER) {
+			MHI_SM_ERR
+				("Fail to disable DMA for M3\n");
+			goto exit;
+		}
+		MHI_SM_ERR("MHI DMA successfully disabled\n");
+		/* edma completely resets when link goes to susupend state */
+		if (mhi_sm_ctx->mhi_dev->use_edma)
+			mhi_edma_release();
 	}
 
 	if ((old_state == MHI_DEV_M0_STATE) &&
@@ -1198,9 +1207,14 @@ int mhi_dev_sm_exit(struct mhi_dev *mhi_dev)
 	flush_workqueue(mhi_sm_ctx->mhi_sm_wq);
 	destroy_workqueue(mhi_sm_ctx->mhi_sm_wq);
 	/* Initiate MHI DMA reset */
-	mhi_dma_fun_ops->mhi_dma_memcpy_disable(mhi_dma_fun_params);
-	mhi_dma_fun_ops->mhi_dma_destroy(mhi_dma_fun_params);
-	mhi_dma_fun_ops->mhi_dma_memcpy_destroy(mhi_dma_fun_params);
+	if (mhi_sm_ctx->mhi_dev->use_mhi_dma) {
+		mhi_dma_fun_ops->mhi_dma_memcpy_disable(mhi_dma_fun_params);
+		mhi_dma_fun_ops->mhi_dma_destroy(mhi_dma_fun_params);
+		mhi_dma_fun_ops->mhi_dma_memcpy_destroy(mhi_dma_fun_params);
+	}
+
+	if (mhi_sm_ctx->mhi_dev->use_edma)
+		mhi_edma_release();
 	mutex_destroy(&mhi_sm_ctx->mhi_state_lock);
 	mhi_dev_sm_ctx[vf_id] = NULL;
 

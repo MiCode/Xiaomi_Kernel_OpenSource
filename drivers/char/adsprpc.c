@@ -6931,6 +6931,38 @@ static void fastrpc_smq_ctx_detail(struct smq_invoke_ctx *smq_ctx, int cid, void
 }
 
 /*
+ *  fastrpc_print_fastrpcfile : Print fastrpc_file structure parameter.
+ *  Input :
+ *        structure fastrpc_file
+ *        void* buffer
+ */
+static void fastrpc_print_fastrpcfile(struct fastrpc_file *fl, void *buffer)
+{
+	scnprintf(buffer +
+		strlen(buffer),
+		MINI_DUMP_DBG_SIZE -
+		strlen(buffer),
+		"\nfastrpc_file : %p\n", fl);
+	scnprintf(buffer +
+		strlen(buffer),
+		MINI_DUMP_DBG_SIZE -
+		strlen(buffer),
+		fastrpc_file_params, fl->tgid,
+		fl->cid, fl->ssrcount, fl->pd,
+		fl->profile, fl->mode,
+		fl->tgid_open, fl->num_cached_buf,
+		fl->num_pers_hdrs, fl->sessionid,
+		fl->servloc_name, fl->file_close,
+		fl->dsp_proc_init, fl->apps,
+		fl->qos_request, fl->dev_minor,
+		fl->debug_buf,
+		fl->debug_buf_alloced_attempted,
+		fl->wake_enable,
+		fl->ws_timeout,
+		fl->untrusted_process);
+}
+
+/*
  *  fastrpc_print_fastrpcbuf : Print fastrpc_buf structure parameter.
  *  Input :
  *        structure fastrpc_buf
@@ -6974,20 +7006,20 @@ static void  fastrpc_print_debug_data(int cid)
 	VERIFY(err, NULL != (gmsg_log_tx = kzalloc(MD_GMSG_BUFFER, GFP_KERNEL)));
 	if (err) {
 		err = -ENOMEM;
-		return;
+		goto bail;
 	}
 	VERIFY(err, NULL != (gmsg_log_rx = kzalloc(MD_GMSG_BUFFER, GFP_KERNEL)));
 	if (err) {
 		err = -ENOMEM;
-		return;
+		goto bail;
 	}
 	chan = &me->channel[cid];
 	if ((!chan) || (!chan->buf))
-		return;
+		goto bail;
 
 	mini_dump_buff = chan->buf->virt;
 	if (!mini_dump_buff)
-		return;
+		goto bail;
 
 	if (chan) {
 		tx_index = chan->gmsg_log.tx_index;
@@ -6996,28 +7028,7 @@ static void  fastrpc_print_debug_data(int cid)
 	spin_lock_irqsave(&me->hlock, irq_flags);
 	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
 		if (fl->cid == cid) {
-			scnprintf(mini_dump_buff +
-					strlen(mini_dump_buff),
-					MINI_DUMP_DBG_SIZE -
-					strlen(mini_dump_buff),
-					"\nfastrpc_file : %p\n", fl);
-			scnprintf(mini_dump_buff +
-					strlen(mini_dump_buff),
-					MINI_DUMP_DBG_SIZE -
-					strlen(mini_dump_buff),
-					fastrpc_file_params, fl->tgid,
-					fl->cid, fl->ssrcount, fl->pd,
-					fl->profile, fl->mode,
-					fl->tgid_open, fl->num_cached_buf,
-					fl->num_pers_hdrs, fl->sessionid,
-					fl->servloc_name, fl->file_close,
-					fl->dsp_proc_init, fl->apps,
-					fl->qos_request, fl->dev_minor,
-					fl->debug_buf,
-					fl->debug_buf_alloced_attempted,
-					fl->wake_enable,
-					fl->ws_timeout,
-					fl->untrusted_process);
+			fastrpc_print_fastrpcfile(fl, mini_dump_buff);
 			scnprintf(mini_dump_buff +
 					strlen(mini_dump_buff),
 					MINI_DUMP_DBG_SIZE -
@@ -7133,6 +7144,7 @@ static void  fastrpc_print_debug_data(int cid)
 			"gmsg_log_rx:\n %s\n", gmsg_log_rx);
 	if (chan && chan->buf)
 		chan->buf->size = strlen(mini_dump_buff);
+bail:
 	kfree(gmsg_log_tx);
 	kfree(gmsg_log_rx);
 }
@@ -7182,15 +7194,16 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 		pr_info("adsprpc: %s: subsystem %s is about to start\n",
 			__func__, gcinfo[cid].subsys);
 		if (cid == CDSP_DOMAIN_ID && dump_enabled() &&
-				ctx->ssrcount)
+				ctx->ssrcount) {
 			fastrpc_update_ramdump_status(cid);
+			mutex_lock(&me->channel[cid].smd_mutex);
+			fastrpc_print_debug_data(cid);
+			mutex_unlock(&me->channel[cid].smd_mutex);
+		}
 		fastrpc_notify_drivers(me, cid);
 		/* Skip ram dump collection in first boot */
 		if (cid == CDSP_DOMAIN_ID && dump_enabled() &&
 				ctx->ssrcount) {
-			mutex_lock(&me->channel[cid].smd_mutex);
-			fastrpc_print_debug_data(cid);
-			mutex_unlock(&me->channel[cid].smd_mutex);
 			ktime_get_real_ts64(&startT);
 			fastrpc_ramdump_collection(cid);
 			pr_info("adsprpc: %s: fastrpc ramdump finished in %lu (us)\n",

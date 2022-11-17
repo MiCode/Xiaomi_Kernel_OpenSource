@@ -7,6 +7,8 @@ arch/arm64/crypto/aes-modes.S
 arch/arm64/crypto/chacha-neon-core.S
 arch/arm64/crypto/chacha-neon-glue.c
 arch/arm64/crypto/poly1305-glue.c
+arch/arm64/crypto/polyval-ce-core.S
+arch/arm64/crypto/polyval-ce-glue.c
 arch/arm64/crypto/sha256-glue.c
 arch/arm64/crypto/sha2-ce-core.S
 arch/arm64/crypto/sha2-ce-glue.c
@@ -487,6 +489,7 @@ block/partitions/core.c
 block/partitions/efi.c
 block/partitions/efi.h
 block/partitions/msdos.c
+block/vendor_hooks.c
 certs/common.c
 certs/common.h
 certs/system_certificates.S
@@ -545,6 +548,7 @@ crypto/geniv.c
 crypto/gf128mul.c
 crypto/ghash-generic.c
 crypto/hash_info.c
+crypto/hctr2.c
 crypto/hmac.c
 crypto/internal.h
 crypto/jitterentropy.c
@@ -558,6 +562,7 @@ crypto/md5.c
 crypto/memneq.c
 crypto/nhpoly1305.c
 crypto/poly1305_generic.c
+crypto/polyval-generic.c
 crypto/proc.c
 crypto/rng.c
 crypto/rsa.c
@@ -573,6 +578,7 @@ crypto/shash.c
 crypto/skcipher.c
 crypto/testmgr.c
 crypto/xcbc.c
+crypto/xctr.c
 crypto/xts.c
 crypto/zstd.c
 drivers/amba/bus.c
@@ -2360,6 +2366,7 @@ include/crypto/nhpoly1305.h
 include/crypto/null.h
 include/crypto/pkcs7.h
 include/crypto/poly1305.h
+include/crypto/polyval.h
 include/crypto/public_key.h
 include/crypto/rng.h
 include/crypto/scatterwalk.h
@@ -2925,6 +2932,7 @@ include/linux/jump_label.h
 include/linux/jump_label_ratelimit.h
 include/linux/kallsyms.h
 include/linux/kasan-checks.h
+include/linux/kasan-enabled.h
 include/linux/kasan.h
 include/linux/kasan-tags.h
 include/linux/kbd_kern.h
@@ -3157,6 +3165,7 @@ include/linux/page_idle.h
 include/linux/page-isolation.h
 include/linux/pagemap.h
 include/linux/page_owner.h
+include/linux/page_pinner.h
 include/linux/page_ref.h
 include/linux/page_reporting.h
 include/linux/pagevec.h
@@ -4069,7 +4078,6 @@ include/trace/hooks/gic.h
 include/trace/hooks/gic_v3.h
 include/trace/hooks/hung_task.h
 include/trace/hooks/iommu.h
-include/trace/hooks/ipv4.h
 include/trace/hooks/logbuf.h
 include/trace/hooks/memory.h
 include/trace/hooks/mmc.h
@@ -4908,7 +4916,6 @@ kernel/trace/trace_printk.c
 kernel/trace/trace_probe.c
 kernel/trace/trace_probe.h
 kernel/trace/trace_probe_tmpl.h
-kernel/trace/trace_readwrite.c
 kernel/trace/trace_sched_switch.c
 kernel/trace/trace_seq.c
 kernel/trace/trace_stat.c
@@ -5100,6 +5107,7 @@ lib/strnlen_user.c
 lib/syscall.c
 lib/textsearch.c
 lib/timerqueue.c
+lib/trace_readwrite.c
 lib/ts_bm.c
 lib/ts_fsm.c
 lib/ts_kmp.c
@@ -5210,6 +5218,7 @@ mm/page_ext.c
 mm/page_io.c
 mm/page_isolation.c
 mm/page_owner.c
+mm/page_pinner.c
 mm/page_reporting.c
 mm/page_reporting.h
 mm/page_vma_mapped.c
@@ -5982,6 +5991,7 @@ security/selinux/ss/sidtab.h
 security/selinux/ss/symtab.c
 security/selinux/ss/symtab.h
 security/selinux/status.c
+security/selinux/vendor_hooks.c
 sound/core/compress_offload.c
 sound/core/control.c
 sound/core/control_compat.c

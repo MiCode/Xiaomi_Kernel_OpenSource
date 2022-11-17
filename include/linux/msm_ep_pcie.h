@@ -113,6 +113,12 @@ struct ep_pcie_inactivity {
 	uint32_t timer_us;
 };
 
+struct ep_pcie_cap {
+	bool sriov_enabled;
+	bool msix_enabled;
+	u32  num_vfs;
+};
+
 struct ep_pcie_hw {
 	struct list_head node;
 	u32 device_id;
@@ -133,6 +139,7 @@ struct ep_pcie_hw {
 	int (*mask_irq_event)(enum ep_pcie_irq_event event,
 				bool enable);
 	int (*configure_inactivity_timer)(struct ep_pcie_inactivity *param);
+	int (*get_capability)(struct ep_pcie_cap *ep_cap);
 };
 
 /*
@@ -323,6 +330,16 @@ int ep_pcie_configure_inactivity_timer(struct ep_pcie_hw *phandle,
  * Return: 0 on success, negative value on error
  */
 int ep_pcie_core_l1ss_sleep_config_enable(void);
+
+/*
+ * ep_pcie_core_get_capability - Exposes EP PCIE capability.
+ * @phandle:    PCIe endpoint HW driver handle
+ * @ep_cap:	Structure member to have capabilities
+ *
+ * Return: 0 on success, negative value on error
+ */
+int ep_pcie_core_get_capability(struct ep_pcie_hw *phandle,
+		struct ep_pcie_cap *ep_cap);
 
 #if IS_ENABLED(CONFIG_QCOM_PCI_EDMA)
 int qcom_edma_init(struct device *dev);

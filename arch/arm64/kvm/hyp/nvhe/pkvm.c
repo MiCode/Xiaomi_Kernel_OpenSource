@@ -338,14 +338,10 @@ static int copy_features(struct kvm_vcpu *shadow_vcpu, struct kvm_vcpu *host_vcp
 	/*
 	 * Check if remaining features are allowed:
 	 * - Performance Monitoring
-	 * - Scalable Vectors
 	 * - Pointer Authentication
 	 */
 	if (FIELD_GET(ARM64_FEATURE_MASK(ID_AA64DFR0_PMUVER), PVM_ID_AA64DFR0_ALLOW))
 	        set_bit(KVM_ARM_VCPU_PMU_V3, allowed_features);
-
-	if (FIELD_GET(ARM64_FEATURE_MASK(ID_AA64PFR0_SVE), PVM_ID_AA64PFR0_ALLOW))
-	        set_bit(KVM_ARM_VCPU_SVE, allowed_features);
 
 	if (FIELD_GET(ARM64_FEATURE_MASK(ID_AA64ISAR1_API), PVM_ID_AA64ISAR1_ALLOW) &&
 	    FIELD_GET(ARM64_FEATURE_MASK(ID_AA64ISAR1_APA), PVM_ID_AA64ISAR1_ALLOW))
@@ -414,6 +410,15 @@ static int set_host_vcpus(struct shadow_vcpu_state *shadow_vcpus, int nr_vcpus,
 	return 0;
 }
 
+static int init_ptrauth(struct kvm_vcpu *shadow_vcpu)
+{
+	int ret = 0;
+	if (test_bit(KVM_ARM_VCPU_PTRAUTH_ADDRESS, shadow_vcpu->arch.features) ||
+	    test_bit(KVM_ARM_VCPU_PTRAUTH_GENERIC, shadow_vcpu->arch.features))
+		ret = kvm_vcpu_enable_ptrauth(shadow_vcpu);
+	return ret;
+}
+
 static int init_shadow_structs(struct kvm *kvm, struct kvm_shadow_vm *vm,
 			       struct kvm_vcpu **vcpu_array, int nr_vcpus)
 {
@@ -435,6 +440,10 @@ static int init_shadow_structs(struct kvm *kvm, struct kvm_shadow_vm *vm,
 		shadow_vcpu->vcpu_idx = i;
 
 		ret = copy_features(shadow_vcpu, host_vcpu);
+		if (ret)
+			return ret;
+
+		ret = init_ptrauth(shadow_vcpu);
 		if (ret)
 			return ret;
 
@@ -851,14 +860,7 @@ void pkvm_reset_vcpu(struct kvm_vcpu *vcpu)
 
 	WARN_ON(!reset_state->reset);
 
-	if (test_bit(KVM_ARM_VCPU_PTRAUTH_ADDRESS, vcpu->arch.features) ||
-	    test_bit(KVM_ARM_VCPU_PTRAUTH_GENERIC, vcpu->arch.features)) {
-		/*
-		 * This call should not fail since we've already checked for
-		 * feature support on initialization.
-		 */
-		WARN_ON(kvm_vcpu_enable_ptrauth(vcpu));
-	}
+	init_ptrauth(vcpu);
 
 	/* Reset core registers */
 	memset(vcpu_gp_regs(vcpu), 0, sizeof(*vcpu_gp_regs(vcpu)));
@@ -1332,6 +1334,8 @@ bool kvm_handle_pvm_hvc64(struct kvm_vcpu *vcpu, u64 *exit_code)
 		return pkvm_install_ioguard_page(vcpu, exit_code);
 	case ARM_SMCCC_VENDOR_HYP_KVM_MMIO_GUARD_UNMAP_FUNC_ID:
 		if (__pkvm_remove_ioguard_page(vcpu, vcpu_get_reg(vcpu, 1)))
+			val[0] = SMCCC_RET_INVALID_PARAMETER;
+		else
 			val[0] = SMCCC_RET_SUCCESS;
 		break;
 	case ARM_SMCCC_VENDOR_HYP_KVM_MMIO_GUARD_INFO_FUNC_ID:

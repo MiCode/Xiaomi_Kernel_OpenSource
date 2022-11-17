@@ -1619,11 +1619,6 @@ static int qcom_slim_ngd_runtime_resume(struct device *dev)
 			ctrl->state = QCOM_SLIM_NGD_CTRL_ASLEEP;
 		else
 			SLIM_WARN(ctrl, "HW wakeup attempt during SSR\n");
-
-		SLIM_WARN(ctrl, "%s Power up request failed, try resume again\n",
-			  __func__);
-		qcom_slim_ngd_disable_irq(ctrl);
-		ret = -EAGAIN;
 	} else {
 		ctrl->state = QCOM_SLIM_NGD_CTRL_AWAKE;
 	}
@@ -1631,7 +1626,7 @@ static int qcom_slim_ngd_runtime_resume(struct device *dev)
 	mutex_unlock(&ctrl->suspend_resume_lock);
 	SLIM_INFO(ctrl, "Slim runtime resume: ret %d irq_disabled %d\n",
 			ret, ctrl->irq_disabled);
-	return ret;
+	return 0;
 }
 
 static int qcom_slim_ngd_enable(struct qcom_slim_ngd_ctrl *ctrl, bool enable)

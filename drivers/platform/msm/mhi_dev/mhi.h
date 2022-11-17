@@ -645,7 +645,8 @@ struct mhi_dev {
 
 	struct mhi_dev_ctx		*mhi_hw_ctx;
 	struct mhi_sm_dev		*mhi_sm_ctx;
-	int				vf_id;
+	/* MHI VF number */
+	uint32_t			vf_id;
 
 	int (*device_to_host)(uint64_t dst_pa, void *src, uint32_t len,
 				struct mhi_dev *mhi, struct mhi_req *req);
@@ -688,6 +689,7 @@ struct mhi_dev_ctx {
 
 	struct ep_pcie_notify		*notify;
 	struct mhi_dma_ops		mhi_dma_fun_ops;
+	struct ep_pcie_cap		ep_cap;
 };
 
 enum mhi_id {
@@ -1192,4 +1194,10 @@ void mhi_uci_chan_state_notify(struct mhi_dev *mhi,
 
 void mhi_dev_pm_relax(struct mhi_dev *mhi_ctx);
 void mhi_dev_resume_init_with_link_up(struct ep_pcie_notify *notify);
+
+int  mhi_edma_release(void);
+
+int  mhi_edma_status(void);
+
+int mhi_edma_init(struct device *dev);
 #endif /* _MHI_H */

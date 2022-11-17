@@ -135,6 +135,7 @@
 
 #define PCIE20_SRIOV_BAR_OFF(n)        (n * 0x4)
 #define PCIE20_SRIOV_BAR(n)            (PCIE20_SRIOV_BAR_OFF(n) + 0x24)
+#define PCIE20_TOTAL_VFS_INITIAL_VFS_REG 0xC
 
 #define PCIE20_PLR_IATU_VIEWPORT       0x900
 #define PCIE20_PLR_IATU_CTRL1          0x904
@@ -401,7 +402,11 @@ struct ep_pcie_dev_t {
 	u32                          rev;
 	u32                          phy_rev;
 	u32			     aux_clk_val;
-	/*sriov_mask signifies the BME bit positions in PARF_INT_ALL_3_STATUS register*/
+	/* MSIX enable status, offset of capability register */
+	u32			     msix_cap;
+	u32			     sriov_cap;
+	u32			     num_vfs;
+	/* sriov_mask signifies the BME bit positions in PARF_INT_ALL_3_STATUS register */
 	ulong                        sriov_mask;
 	ulong                        sriov_enumerated;
 	void                         *ipc_log_sel;

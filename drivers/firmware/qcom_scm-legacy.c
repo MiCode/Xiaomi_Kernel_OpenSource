@@ -17,16 +17,6 @@
 
 static DEFINE_MUTEX(qcom_scm_lock);
 
-
-/**
- * struct arm_smccc_args
- * @args:	The array of values used in registers in smc instruction
- */
-struct arm_smccc_args {
-	unsigned long args[8];
-};
-
-
 /**
  * struct scm_legacy_command - one SCM command buffer
  * @len: total available memory for command and response

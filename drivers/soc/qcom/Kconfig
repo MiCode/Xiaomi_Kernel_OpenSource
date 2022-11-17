@@ -606,6 +606,16 @@ config QCOM_ADSP_SLEEPMON
 	   detects and logs sleep violations from ADSP subsystem. The driver
 	   uses master stats from ADSP subsystem stored in SMEM.
 
+config QCOM_ADSP_SLEEPMON_RPROC_RESTART
+	bool "ADSP sleep monitor remoteproc based ASDP restart"
+	depends on QCOM_ADSP_SLEEPMON
+	depends on QCOM_RPROC_COMMON
+	help
+	  This enables ADSP sleep monitor to register with remoteproc framework
+	  to enable ADSP subsystem restart on sleepmon induced ADSP panics when
+	  enabled via device tree or debugfs nodes of ADSP sleep monitor driver.	  The configuration is used as a feature flag within ADSP sleep monitor
+	  driver.
+
 config QCOM_WDT_CORE
 	tristate "Qualcomm Technologies, Inc. Watchdog Support"
 	depends on ARCH_QCOM
@@ -811,6 +821,15 @@ config MSM_SLATECOM_INTERFACE
 		Single user space client can open device node for communication
 		from hardware. Hardware will provide access to read
 		registers and read/write AHB memory in the device.
+
+config MSM_SLATECOM_RPMSG
+       tristate "Provide support for slate control GLINK channel"
+       depends on MSM_SLATECOM_INTERFACE
+       help
+         MSM_SLATECOM_RPMSG informs SLATECOM_INTERFACE driver if GLINK channel
+         has been opened by remote processor. It doesn't maintain state machine
+         and is probed when Slate opens channel and removed when the channel is
+         closed by remote processor.
 
 config MSM_SLATERSB
         tristate "Provide support for rsb events on Slate"
@@ -1204,6 +1223,14 @@ config QCOM_VM_ALIVE_LOG_ENCRYPT
 	  This enables to encrypt alive log and use AES GCM mode for symmetric key
 	  wrapping. This needs to be enabled on both Primary VM and the other VM
 	  whose kmsg is desired.
+
+config QCOM_DEBUG_SYMBOL
+	tristate "Enable Debug Symbol Support"
+	help
+	  This enables Debug Symbol Support. This driver is based on
+	  Google Debug Kinfo driver, according to the provided info, this
+	  driver allows other modules to get symbol addresses by traversing
+	  kallsyms table for debug usage.
 
 source "drivers/soc/qcom/mem_buf/Kconfig"
 source "drivers/soc/qcom/tmecom/Kconfig"
