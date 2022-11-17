@@ -401,7 +401,7 @@ struct hfi_queue_table {
 	(((id) & 0xFF) | (((prio) & 0xFF) << 8) | \
 	(((rtype) & 0xFF) << 16) | (((stype) & 0xFF) << 24))
 
-#define HFI_RSP_TIMEOUT 100 /* msec */
+#define HFI_RSP_TIMEOUT 1000 /* msec */
 
 #define HFI_IRQ_MSGQ_MASK BIT(0)
 

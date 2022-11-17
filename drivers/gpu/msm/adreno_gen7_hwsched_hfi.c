@@ -693,7 +693,6 @@ static irqreturn_t gen7_hwsched_hfi_handler(int irq, void *data)
 }
 
 #define HFI_IRQ_MSGQ_MASK BIT(0)
-#define HFI_RSP_TIMEOUT 100 /* msec */
 
 static int wait_ack_completion(struct adreno_device *adreno_dev,
 		struct pending_cmd *ack)
