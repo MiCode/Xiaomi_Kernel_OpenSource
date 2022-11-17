@@ -49,6 +49,12 @@ enum ufs_qcom_phy_submode {
 	UFS_QCOM_PHY_SUBMODE_G5,
 };
 
+enum ufs_qcom_ber_mode {
+	UFS_QCOM_BER_MODE_G1_G4,
+	UFS_QCOM_BER_MODE_G5,
+	UFS_QCOM_BER_MODE_MAX,
+};
+
 #define UFS_QCOM_LIMIT_NUM_LANES_RX	2
 #define UFS_QCOM_LIMIT_NUM_LANES_TX	2
 #define UFS_QCOM_LIMIT_HSGEAR_RX	UFS_HS_G4
@@ -62,6 +68,7 @@ enum ufs_qcom_phy_submode {
 #define UFS_QCOM_LIMIT_HS_RATE		PA_HS_MODE_B
 #define UFS_QCOM_LIMIT_DESIRED_MODE	FAST
 #define UFS_QCOM_LIMIT_PHY_SUBMODE	UFS_QCOM_PHY_SUBMODE_G4
+#define UFS_MEM_REG_PA_ERR_CODE	0xCC
 
 /* default value of auto suspend is 3 seconds */
 #define UFS_QCOM_AUTO_SUSPEND_DELAY	3000
@@ -440,6 +447,43 @@ static inline void get_alg2_grp_params(unsigned int group, int *core, int *task)
 	 __get_alg2_grp_params(p->val, core, task);
 }
 
+/**
+ * struct ufs_qcom_ber_hist - record the detail of each BER event.
+ * @pos: index of event.
+ * @uec_pa: PA error type.
+ * @err_code: error code, only needed for PA error.
+ * @gear: the gear info when PHY PA occurs.
+ * @tstamp: record timestamp.
+ * @run_time: valid running time since last event.
+ * @full_time: total time since last event.
+ * @cnt: total error count.
+ * @name: mode name.
+ */
+struct ufs_qcom_ber_hist {
+	#define UFS_QCOM_EVT_LEN    32
+	int pos;
+	u32 uec_pa[UFS_QCOM_EVT_LEN];
+	u32 err_code[UFS_QCOM_EVT_LEN];
+	u32 gear[UFS_QCOM_EVT_LEN];
+	ktime_t tstamp[UFS_QCOM_EVT_LEN];
+	s64 run_time[UFS_QCOM_EVT_LEN];
+	s64 full_time[UFS_QCOM_EVT_LEN];
+	u32 cnt;
+	char *name;
+};
+
+struct ufs_qcom_ber_table {
+	enum ufs_qcom_ber_mode mode;
+	u32 ber_threshold;
+};
+
+struct ufs_qcom_regs {
+	struct list_head list;
+	const char *prefix;
+	u32 *ptr;
+	size_t len;
+};
+
 struct ufs_qcom_host {
 	/*
 	 * Set this capability if host controller supports the QUniPro mode
@@ -556,6 +600,9 @@ struct ufs_qcom_host {
 	cpumask_t def_mask;
 	u32 vccq_lpm_uV;
 	bool disable_wb_support;
+	struct ufs_qcom_ber_hist ber_hist[UFS_QCOM_BER_MODE_MAX];
+	struct list_head regs_list_head;
+	bool ber_th_exceeded;
 };
 
 static inline u32
