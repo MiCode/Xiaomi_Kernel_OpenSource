@@ -178,6 +178,16 @@ int synx_global_get_subscribed_cores(u32 idx, bool *cores);
 int synx_global_set_subscribed_core(u32 idx, enum synx_core_id id);
 
 /**
+ * synx_global_clear_subscribed_core - Clear core as a subscriber core on global entry
+ *
+ * @param idx : Global entry index
+ * @param id  : Core to be added as subscriber
+ *
+ * @return SYNX_SUCCESS on success. Negative error on failure.
+ */
+int synx_global_clear_subscribed_core(u32 idx, enum synx_core_id id);
+
+/**
  * synx_global_get_status - Get status of the global entry
  *
  * @param idx : Global entry index
