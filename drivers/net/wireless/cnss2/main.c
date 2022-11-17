@@ -298,6 +298,39 @@ int cnss_get_platform_cap(struct device *dev, struct cnss_platform_cap *cap)
 }
 EXPORT_SYMBOL(cnss_get_platform_cap);
 
+/**
+ * cnss_get_fw_cap - Check whether FW supports specific capability or not
+ * @dev: Device
+ * @fw_cap: FW Capability which needs to be checked
+ *
+ * Return: TRUE if supported, FALSE on failure or if not supported
+ */
+bool cnss_get_fw_cap(struct device *dev, enum cnss_fw_caps fw_cap)
+{
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	bool ret = false;
+
+	if (!plat_priv)
+		return ret;
+
+	if (!plat_priv->fw_caps)
+		return ret;
+
+	switch (fw_cap) {
+	case CNSS_FW_CAP_DIRECT_LINK_SUPPORT:
+		ret = !!(plat_priv->fw_caps &
+			 QMI_WLFW_DIRECT_LINK_SUPPORT_V01);
+		break;
+	default:
+		cnss_pr_err("Invalid FW Capability: 0x%x\n", fw_cap);
+	}
+
+	cnss_pr_dbg("FW Capability 0x%x is %s\n", fw_cap,
+		    ret ? "supported" : "not supported");
+	return ret;
+}
+EXPORT_SYMBOL(cnss_get_fw_cap);
+
 void cnss_request_pm_qos(struct device *dev, u32 qos_val)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);

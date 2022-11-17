@@ -206,6 +206,10 @@ enum cnss_recovery_reason {
 	CNSS_REASON_TIMEOUT,
 };
 
+enum cnss_fw_caps {
+	CNSS_FW_CAP_DIRECT_LINK_SUPPORT,
+};
+
 enum cnss_remote_mem_type {
 	CNSS_REMOTE_MEM_TYPE_FW,
 	CNSS_REMOTE_MEM_TYPE_QDSS,
@@ -295,4 +299,5 @@ extern int cnss_get_mem_segment_info(enum cnss_remote_mem_type type,
 extern int cnss_get_pci_slot(struct device *dev);
 extern int cnss_pci_get_reg_dump(struct device *dev, uint8_t *buffer,
 				 uint32_t len);
+extern bool cnss_get_fw_cap(struct device *dev, enum cnss_fw_caps fw_cap);
 #endif /* _NET_CNSS2_H */

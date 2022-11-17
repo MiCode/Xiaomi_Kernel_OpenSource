@@ -27,6 +27,7 @@
 #define QMI_WLFW_FW_READY_IND_V01 0x0021
 #define QMI_WLFW_QDSS_TRACE_MEM_INFO_RESP_V01 0x0040
 #define QMI_WLFW_CAL_UPDATE_REQ_V01 0x0029
+#define QMI_WLFW_PHY_CAP_REQ_V01 0x0057
 #define QMI_WLFW_REQUEST_MEM_IND_V01 0x0035
 #define QMI_WLFW_QDSS_TRACE_DATA_RESP_V01 0x0042
 #define QMI_WLFW_RESPOND_MEM_RESP_V01 0x0036
@@ -69,6 +70,7 @@
 #define QMI_WLFW_QDSS_TRACE_REQ_MEM_IND_V01 0x003F
 #define QMI_WLFW_INITIATE_CAL_DOWNLOAD_IND_V01 0x0028
 #define QMI_WLFW_ATHDIAG_WRITE_RESP_V01 0x0031
+#define QMI_WLFW_PHY_CAP_RESP_V01 0x0057
 #define QMI_WLFW_QDSS_TRACE_CONFIG_DOWNLOAD_RESP_V01 0x0044
 #define QMI_WLFW_SOC_WAKE_RESP_V01 0x004F
 #define QMI_WLFW_GET_INFO_RESP_V01 0x004A
@@ -309,6 +311,7 @@ enum wlfw_ini_file_type_v01 {
 #define QMI_WLFW_CBC_FILE_DOWNLOAD_V01 ((u64)0x02ULL)
 
 #define QMI_WLFW_HOST_PCIE_GEN_SWITCH_V01 ((u64)0x01ULL)
+#define QMI_WLFW_DIRECT_LINK_SUPPORT_V01 ((u64)0x02ULL)
 
 struct wlfw_ce_tgt_pipe_cfg_s_v01 {
 	u32 pipe_num;
@@ -618,9 +621,11 @@ struct wlfw_cap_resp_msg_v01 {
 	u8 regdb_mandatory;
 	u8 regdb_support_valid;
 	u8 regdb_support;
+	u8 rxgainlut_support_valid;
+	u8 rxgainlut_support;
 };
 
-#define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 1142
+#define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 1146
 extern struct qmi_elem_info wlfw_cap_resp_msg_v01_ei[];
 
 struct wlfw_bdf_download_req_msg_v01 {
@@ -1374,5 +1379,23 @@ struct wlfw_ini_file_download_resp_msg_v01 {
 };
 #define WLFW_INI_FILE_DOWNLOAD_RESP_MSG_V01_MAX_MSG_LEN 7
 extern struct qmi_elem_info wlfw_ini_file_download_resp_msg_v01_ei[];
+
+struct wlfw_phy_cap_req_msg_v01 {
+	char placeholder;
+};
+
+#define WLFW_PHY_CAP_REQ_MSG_V01_MAX_MSG_LEN 0
+extern struct qmi_elem_info wlfw_phy_cap_req_msg_v01_ei[];
+
+struct wlfw_phy_cap_resp_msg_v01 {
+	struct qmi_response_type_v01 resp;
+	u8 num_phy_valid;
+	u8 num_phy;
+	u8 board_id_valid;
+	u32 board_id;
+};
+
+#define WLFW_PHY_CAP_RESP_MSG_V01_MAX_MSG_LEN 18
+extern struct qmi_elem_info wlfw_phy_cap_resp_msg_v01_ei[];
 
 #endif
