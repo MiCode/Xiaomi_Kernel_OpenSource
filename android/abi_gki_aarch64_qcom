@@ -2306,7 +2306,6 @@
   usb_mon_deregister
   usb_mon_register
   usb_phy_set_charger_current
-  usb_pipe_type_check
   usb_put_function_instance
   usb_register_notify
   usb_remove_phy
