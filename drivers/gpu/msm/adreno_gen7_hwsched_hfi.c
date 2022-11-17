@@ -1619,12 +1619,13 @@ void gen7_hwsched_hfi_remove(struct adreno_device *adreno_dev)
 		kthread_stop(hw_hfi->f2h_task);
 }
 
-static void add_profile_events(struct adreno_device *adreno_dev,
-	struct kgsl_drawobj *drawobj, struct adreno_submit_time *time)
+static void gen7_add_profile_events(struct adreno_device *adreno_dev,
+	struct kgsl_drawobj_cmd *cmdobj, struct adreno_submit_time *time)
 {
 	unsigned long flags;
 	u64 time_in_s;
 	unsigned long time_in_ns;
+	struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
 	struct kgsl_context *context = drawobj->context;
 	struct submission_info info = {0};
 	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
@@ -1663,6 +1664,8 @@ static void add_profile_events(struct adreno_device *adreno_dev,
 	info.inflight = hwsched->inflight;
 	info.rb_id = adreno_get_level(context);
 	info.gmu_dispatch_queue = context->gmu_dispatch_queue;
+
+	cmdobj->submit_ticks = time->ticks;
 
 	trace_adreno_cmdbatch_submitted(drawobj, &info, time->ticks,
 		(unsigned long) time_in_s, time_in_ns / 1000, 0);
@@ -1870,7 +1873,8 @@ static void populate_ibs(struct adreno_device *adreno_dev,
 #define DISPQ_IRQ_BIT(_idx) BIT((_idx) + HFI_DSP_IRQ_BASE)
 
 int gen7_gmu_context_queue_write(struct adreno_device *adreno_dev,
-	struct adreno_context *drawctxt, u32 *msg)
+	struct adreno_context *drawctxt, u32 *msg,
+	struct kgsl_drawobj_cmd *cmdobj, struct adreno_submit_time *time)
 {
 	struct gmu_context_queue_header *hdr = drawctxt->gmu_context_queue.hostptr;
 	u32 *queue = drawctxt->gmu_context_queue.hostptr + sizeof(*hdr);
@@ -1886,8 +1890,6 @@ int gen7_gmu_context_queue_write(struct adreno_device *adreno_dev,
 	if (empty_space <= align_size)
 		return -ENOSPC;
 
-	trace_kgsl_hfi_send(id, size, MSG_HDR_GET_SEQNUM(*msg));
-
 	write = hdr->write_index;
 
 	for (i = 0; i < size; i++) {
@@ -1900,6 +1902,21 @@ int gen7_gmu_context_queue_write(struct adreno_device *adreno_dev,
 		queue[write] = 0xfafafafa;
 		write = (write + 1) % hdr->queue_size;
 	}
+
+	/* Ensure packet is written out before proceeding */
+	wmb();
+
+	gen7_add_profile_events(adreno_dev, cmdobj, time);
+
+	/*
+	 * Put the profiling information in the user profiling buffer.
+	 * The hfi_update_write_idx below has a wmb() before the actual
+	 * write index update to ensure that the GMU does not see the
+	 * packet before the profile data is written out.
+	 */
+	adreno_profile_submit_time(time);
+
+	trace_kgsl_hfi_send(id, size, MSG_HDR_GET_SEQNUM(*msg));
 
 	hfi_update_write_idx(&hdr->write_index, write);
 
@@ -2076,6 +2093,64 @@ static int process_hw_fence_queue(struct adreno_device *adreno_dev,
 	return ret;
 }
 
+/* Size in below functions are in unit of dwords */
+static int gen7_hfi_dispatch_queue_write(struct adreno_device *adreno_dev, u32 queue_idx,
+	u32 *msg, struct kgsl_drawobj_cmd *cmdobj, struct adreno_submit_time *time)
+{
+	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
+	struct hfi_queue_table *tbl = gmu->hfi.hfi_mem->hostptr;
+	struct hfi_queue_header *hdr = &tbl->qhdr[queue_idx];
+	u32 *queue;
+	u32 i, write, empty_space;
+	u32 size = MSG_HDR_GET_SIZE(*msg);
+	u32 align_size = ALIGN(size, SZ_4);
+	u32 id = MSG_HDR_GET_ID(*msg);
+
+	if (hdr->status == HFI_QUEUE_STATUS_DISABLED)
+		return -EINVAL;
+
+	queue = HOST_QUEUE_START_ADDR(gmu->hfi.hfi_mem, queue_idx);
+
+	empty_space = (hdr->write_index >= hdr->read_index) ?
+			(hdr->queue_size - (hdr->write_index - hdr->read_index))
+			: (hdr->read_index - hdr->write_index);
+
+	if (empty_space <= align_size)
+		return -ENOSPC;
+
+	write = hdr->write_index;
+
+	for (i = 0; i < size; i++) {
+		queue[write] = msg[i];
+		write = (write + 1) % hdr->queue_size;
+	}
+
+	/* Cookify any non used data at the end of the write buffer */
+	for (; i < align_size; i++) {
+		queue[write] = 0xfafafafa;
+		write = (write + 1) % hdr->queue_size;
+	}
+
+	/* Ensure packet is written out before proceeding */
+	wmb();
+
+	gen7_add_profile_events(adreno_dev, cmdobj, time);
+
+	/*
+	 * Put the profiling information in the user profiling buffer.
+	 * The hfi_update_write_idx below has a wmb() before the actual
+	 * write index update to ensure that the GMU does not see the
+	 * packet before the profile data is written out.
+	 */
+	adreno_profile_submit_time(time);
+
+	trace_kgsl_hfi_send(id, size, MSG_HDR_GET_SEQNUM(*msg));
+
+	hfi_update_write_idx(&hdr->write_index, write);
+
+	return 0;
+}
+
 int gen7_hwsched_submit_drawobj(struct adreno_device *adreno_dev, struct kgsl_drawobj *drawobj)
 {
 	struct gen7_hfi *hfi = to_gen7_hfi(adreno_dev);
@@ -2155,25 +2230,13 @@ skipib:
 
 	if (adreno_hwsched_context_queue_enabled(adreno_dev))
 		ret = gen7_gmu_context_queue_write(adreno_dev,
-			drawctxt, (u32 *)cmd);
+			drawctxt, (u32 *)cmd, cmdobj, &time);
 	else
-		ret = gen7_hfi_queue_write(adreno_dev,
+		ret = gen7_hfi_dispatch_queue_write(adreno_dev,
 			HFI_DSP_ID_0 + drawobj->context->gmu_dispatch_queue,
-			(u32 *)cmd);
+			(u32 *)cmd, cmdobj, &time);
 	if (ret)
 		return ret;
-
-	add_profile_events(adreno_dev, drawobj, &time);
-
-	cmdobj->submit_ticks = time.ticks;
-
-	/*
-	 * Put the profiling information in the user profiling buffer.
-	 * The gmu_core_regwrite below has a wmb() before the actual
-	 * register write to ensure any pending writes are complete
-	 * before the register write.
-	 */
-	adreno_profile_submit_time(&time);
 
 	/* Send interrupt to GMU to receive the message */
 	gmu_core_regwrite(KGSL_DEVICE(adreno_dev), GEN7_GMU_HOST2GMU_INTR_SET,
