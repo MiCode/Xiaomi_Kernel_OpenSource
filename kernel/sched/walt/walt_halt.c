@@ -285,7 +285,9 @@ static int halt_cpus(struct cpumask *cpus)
 
 	for_each_cpu(cpu, cpus) {
 
-		if (cpu == cpumask_first(system_32bit_el0_cpumask())) {
+		if ((cpumask_empty(system_32bit_el0_cpumask()) &&
+			(cpu == cpumask_first(cpu_possible_mask))) ||
+		    (cpu == cpumask_first(system_32bit_el0_cpumask()))) {
 			ret = -EINVAL;
 			goto out;
 		}
@@ -564,8 +566,17 @@ static void android_rvh_is_cpu_allowed(void *unused, struct task_struct *p, int 
 	}
 }
 
+static int walt_halt_hp_online_teardown(unsigned int cpu)
+{
+	if (cpu == cpumask_first(cpu_possible_mask))
+		return -EINVAL;
+
+	return 0;
+}
+
 void walt_halt_init(void)
 {
+	int ret;
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
 
 	walt_drain_thread = kthread_run(try_drain_rqs, &drain_data, "halt_drain_rqs");
@@ -575,6 +586,19 @@ void walt_halt_init(void)
 	}
 
 	sched_setscheduler_nocheck(walt_drain_thread, SCHED_FIFO, &param);
+
+	/*
+	 * register hotplug callback only for symmetric system (all or none
+	 * of the cores supporting 32bit).
+	 */
+	if (cpumask_empty(system_32bit_el0_cpumask()) ||
+		    (cpumask_weight(cpu_possible_mask) ==
+			     cpumask_weight(system_32bit_el0_cpumask()))) {
+		ret = cpuhp_setup_state(CPUHP_ANDROID_RESERVED_4, "walt-halt:online",
+					NULL, walt_halt_hp_online_teardown);
+		if (ret < 0)
+			pr_err("halt: error registering cpuhp callback\n");
+	}
 
 	register_trace_android_rvh_get_nohz_timer_target(android_rvh_get_nohz_timer_target, NULL);
 	register_trace_android_rvh_set_cpus_allowed_by_task(
