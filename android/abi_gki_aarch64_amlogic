@@ -689,6 +689,7 @@
   flush_delayed_work
   flush_work
   flush_workqueue
+  flush_signals
   fpsimd_context_busy
   fput
   free_irq
@@ -1120,6 +1121,7 @@
   net_ratelimit
   new_inode
   next_arg
+  nla_append
   nla_find
   nla_memcpy
   __nla_parse
@@ -1345,6 +1347,7 @@
   proc_create
   proc_create_data
   proc_dointvec
+  proc_get_parent_data
   proc_mkdir
   proc_mkdir_data
   proc_remove
@@ -1515,6 +1518,10 @@
   sdio_register_driver
   sdio_release_host
   sdio_release_irq
+  sdio_retune_crc_disable
+  sdio_retune_crc_enable
+  sdio_retune_hold_now
+  sdio_retune_release
   sdio_set_block_size
   sdio_set_host_pm_flags
   sdio_unregister_driver
@@ -1761,10 +1768,12 @@
   trace_event_raw_init
   trace_event_reg
   trace_handle_return
+  __traceiter_android_rvh_panic_unhandled
   __traceiter_android_vh_cpu_idle_enter
   __traceiter_android_vh_cpu_idle_exit
   __traceiter_android_vh_do_traversal_lruvec
   __traceiter_android_vh_dump_throttled_rt_tasks
+  __traceiter_android_vh_ftrace_format_check
   __traceiter_android_vh_mmc_sd_update_cmdline_timing
   __traceiter_android_vh_mmc_sd_update_dataline_timing
   __traceiter_android_vh_rmqueue
