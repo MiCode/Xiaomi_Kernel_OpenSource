@@ -93,6 +93,7 @@ struct qcom_iommu_ops {
 	int (*sid_switch)(struct device *dev, enum sid_switch_direction dir);
 	int (*get_fault_ids)(struct iommu_domain *domain,
 			struct qcom_iommu_fault_ids *ids);
+	int (*get_asid_nr)(struct iommu_domain *domain);
 	struct iommu_ops iommu_ops;
 };
 #define to_qcom_iommu_ops(x) (container_of(x, struct qcom_iommu_ops, iommu_ops))
@@ -119,6 +120,7 @@ extern int qcom_iommu_get_fault_ids(struct iommu_domain *domain,
 				struct qcom_iommu_fault_ids *f_ids);
 extern int qcom_iommu_get_msi_size(struct device *dev, u32 *msi_size);
 
+int qcom_iommu_get_asid_nr(struct iommu_domain *domain);
 
 #ifdef CONFIG_IOMMU_IO_PGTABLE_LPAE
 int __init qcom_arm_lpae_do_selftests(void);

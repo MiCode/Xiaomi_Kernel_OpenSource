@@ -238,6 +238,11 @@ void dwc3_dbg_print_reg(void *log_ctxt, const char *name, int reg)
 	ipc_log_string(log_ctxt, "%s = 0x%08x", name, reg);
 }
 
+void dbg_dwc3_dump_regs(void *log_ctxt, char *name, int offset, int value)
+{
+	ipc_log_string(log_ctxt, "[%s: 0x%x\t0x%08X]", name, offset, value);
+}
+
 void dwc3_dbg_dma_unmap(void *log_ctxt, u8 ep_num, struct dwc3_request *req)
 {
 	if (ep_num < 2)

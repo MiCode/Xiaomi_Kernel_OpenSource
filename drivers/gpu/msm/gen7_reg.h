@@ -132,9 +132,17 @@
 #define GEN7_CP_BV_CHICKEN_DBG           0xada
 
 /* LPAC registers */
+#define GEN7_CP_LPAC_RB_RPTR             0xb06
+#define GEN7_CP_LPAC_RB_WPTR             0xb07
 #define GEN7_CP_LPAC_DRAW_STATE_ADDR     0xb0a
 #define GEN7_CP_LPAC_DRAW_STATE_DATA     0xb0b
 #define GEN7_CP_LPAC_ROQ_DBG_ADDR        0xb0c
+#define GEN7_CP_LPAC_IB1_BASE            0xb0d
+#define GEN7_CP_LPAC_IB1_BASE_HI         0xb0e
+#define GEN7_CP_LPAC_IB1_REM_SIZE        0xb0f
+#define GEN7_CP_LPAC_IB2_BASE            0xb10
+#define GEN7_CP_LPAC_IB2_BASE_HI         0xb11
+#define GEN7_CP_LPAC_IB2_REM_SIZE        0xb12
 #define GEN7_CP_SQE_AC_UCODE_DBG_ADDR    0xb27
 #define GEN7_CP_SQE_AC_UCODE_DBG_DATA    0xb28
 #define GEN7_CP_SQE_AC_STAT_ADDR         0xb29
@@ -144,6 +152,7 @@
 #define GEN7_CP_LPAC_ROQ_DBG_DATA        0xb35
 #define GEN7_CP_LPAC_FIFO_DBG_DATA       0xb36
 #define GEN7_CP_LPAC_FIFO_DBG_ADDR       0xb40
+#define GEN7_LPAC_RBBM_STATUS            0x5fe
 
 /* RBBM registers */
 #define GEN7_RBBM_INT_0_STATUS                   0x201
@@ -1164,6 +1173,7 @@
 #define GEN7_GMU_AHB_FENCE_STATUS_CLR		0x23b14
 #define GEN7_GMU_RBBM_INT_UNMASKED_STATUS	0x23b15
 #define GEN7_GMU_AO_SPARE_CNTL			0x23b16
+#define GEN7_GPU_GMU_AO_GPU_LPAC_BUSY_STATUS	0x23b30
 
 /* GMU RSC control registers */
 #define GEN7_GMU_RSCC_CONTROL_REQ		0x23b07

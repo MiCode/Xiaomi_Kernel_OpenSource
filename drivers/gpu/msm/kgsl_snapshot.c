@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/notifier.h>
@@ -585,7 +586,7 @@ static void kgsl_device_snapshot_atomic(struct kgsl_device *device)
 	 * GMU state based on current GPU power state.
 	 */
 	if (device->ftbl->snapshot)
-		device->ftbl->snapshot(device, snapshot, NULL);
+		device->ftbl->snapshot(device, snapshot, NULL, NULL);
 
 	/*
 	 * The timestamp is the seconds since boot so it is easier to match to
@@ -612,7 +613,8 @@ static void kgsl_device_snapshot_atomic(struct kgsl_device *device)
  * and store it in the device snapshot memory.
  */
 void kgsl_device_snapshot(struct kgsl_device *device,
-		struct kgsl_context *context, bool gmu_fault)
+		struct kgsl_context *context,  struct kgsl_context *context_lpac,
+		bool gmu_fault)
 {
 	struct kgsl_snapshot *snapshot;
 	struct timespec64 boot;
@@ -675,7 +677,7 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 	snapshot->first_read = true;
 	snapshot->sysfs_read = 0;
 
-	device->ftbl->snapshot(device, snapshot, context);
+	device->ftbl->snapshot(device, snapshot, context, context_lpac);
 
 	/*
 	 * The timestamp is the seconds since boot so it is easier to match to

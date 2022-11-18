@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _ADRENO_GEN7_HWSCHED_HFI_H_
@@ -99,17 +100,17 @@ int gen7_hwsched_cp_init(struct adreno_device *adreno_dev);
 int gen7_hfi_send_cmd_async(struct adreno_device *adreno_dev, void *data);
 
 /**
- * gen7_hwsched_submit_cmdobj - Dispatch IBs to dispatch queues
+ * gen7_hwsched_submit_drawobj - Dispatch IBs to dispatch queues
  * @adreno_dev: Pointer to adreno device structure
- * @cmdobj: The command object which needs to be submitted
+ * @drawobj: The command draw object which needs to be submitted
  *
  * This function is used to register the context if needed and submit
  * IBs to the hfi dispatch queues.
 
  * Return: 0 on success and negative error on failure
  */
-int gen7_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
-		struct kgsl_drawobj_cmd *cmdobj);
+int gen7_hwsched_submit_drawobj(struct adreno_device *adreno_dev,
+		struct kgsl_drawobj *drawobj);
 
 /**
  * gen7_hwsched_context_detach - Unregister a context with GMU
@@ -154,4 +155,81 @@ u32 gen7_hwsched_parse_payload(struct payload_section *payload, u32 key);
  * queue
  */
 void gen7_hwsched_process_msgq(struct adreno_device *adreno_dev);
+
+/**
+ * gen7_hwsched_lpac_cp_init - Send CP_INIT to LPAC via HFI
+ * @adreno_dev: Pointer to adreno device structure
+ *
+ * This function is used to send CP INIT packet to LPAC and
+ * enable submission to LPAC queue.
+ *
+ * Return: 0 on success and negative error on failure.
+ */
+int gen7_hwsched_lpac_cp_init(struct adreno_device *adreno_dev);
+
+/**
+ * gen7_hfi_send_lpac_feature_ctrl - Send the lpac feature hfi packet
+ * @adreno_dev: Pointer to the adreno device
+ *
+ * Return: 0 on success or negative error on failure
+ */
+int gen7_hfi_send_lpac_feature_ctrl(struct adreno_device *adreno_dev);
+
+/**
+ * gen7_hwsched_context_destroy - Destroy any hwsched related resources during context destruction
+ * @adreno_dev: Pointer to adreno device
+ * @drawctxt: Pointer to the adreno context
+ *
+ * This functions destroys any hwsched related resources when this context is destroyed
+ */
+void gen7_hwsched_context_destroy(struct adreno_device *adreno_dev,
+	struct adreno_context *drawctxt);
+
+/**
+ * gen7_hwsched_hfi_get_value - Send GET_VALUE packet to GMU to get the value of a property
+ * @adreno_dev: Pointer to adreno device
+ * @prop: property to get from GMU
+ *
+ * This functions sends GET_VALUE HFI packet to query value of a property
+ *
+ * Return: On success, return the value in the GMU response. On failure, return 0
+ */
+u32 gen7_hwsched_hfi_get_value(struct adreno_device *adreno_dev, u32 prop);
+
+/**
+ * gen7_hwsched_send_hw_fence - Send hardware fence info to GMU
+ * @adreno_dev: Pointer to adreno device
+ * @entry: Pointer to the adreno hardware fence entry
+ *
+ * Send the hardware fence info to the GMU
+ *
+ * Return: Zero on success or negative error on failure
+ */
+int gen7_hwsched_send_hw_fence(struct adreno_device *adreno_dev,
+	struct adreno_hw_fence_entry *entry);
+
+/**
+ * gen7_hwsched_trigger_hw_fence - Trigger hardware fence via GMU
+ * @adreno_dev: Pointer to adreno device
+ * @entry: Pointer to the hardware fence entry
+ *
+ * Send HFI request to trigger a hardware fence into TxQueue
+ *
+ * Return: Zero on success or negative error on failure
+ */
+int gen7_hwsched_trigger_hw_fence(struct adreno_device *adreno_dev,
+	struct adreno_hw_fence_entry *entry);
+
+/**
+ * gen7_hwsched_drain_context_hw_fences - Drain context's hardware fences
+ * @adreno_dev: Pointer to adreno device
+ * @drawctxt: Pointer to the adreno context which is to be flushed
+ *
+ * Trigger hardware fences that were never dispatched to GMU
+ *
+ * Return: Zero on success or negative error on failure
+ */
+int gen7_hwsched_drain_context_hw_fences(struct adreno_device *adreno_dev,
+		struct adreno_context *drawctxt);
+
 #endif

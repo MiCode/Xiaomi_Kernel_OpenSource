@@ -46,8 +46,10 @@
 #define KGSL_MEMSTORE_SIZE	((int)(PAGE_SIZE * 8))
 #define KGSL_MEMSTORE_GLOBAL	(0)
 #define KGSL_PRIORITY_MAX_RB_LEVELS 4
+#define KGSL_LPAC_RB_ID		KGSL_PRIORITY_MAX_RB_LEVELS
+/* Subtract one for LPAC */
 #define KGSL_MEMSTORE_MAX	(KGSL_MEMSTORE_SIZE / \
-	sizeof(struct kgsl_devmemstore) - 1 - KGSL_PRIORITY_MAX_RB_LEVELS)
+	sizeof(struct kgsl_devmemstore) - 2 - KGSL_PRIORITY_MAX_RB_LEVELS)
 #define KGSL_MAX_CONTEXTS_PER_PROC 200
 
 #define MEMSTORE_RB_OFFSET(rb, field)	\
@@ -204,6 +206,8 @@ struct kgsl_memdesc_ops {
 #define KGSL_MEMDESC_RECLAIMED BIT(11)
 /* Skip reclaim of the memdesc pages */
 #define KGSL_MEMDESC_SKIP_RECLAIM BIT(12)
+/* The memdesc is mapped as iomem */
+#define KGSL_MEMDESC_IOMEM BIT(13)
 
 /**
  * struct kgsl_memdesc - GPU memory object descriptor

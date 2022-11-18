@@ -281,6 +281,9 @@ static int clk_rpmh_bcm_send_cmd(struct clk_rpmh *c, bool enable)
 		cmd_state = 0;
 	}
 
+	if (cmd_state > BCM_TCS_CMD_VOTE_MASK)
+		cmd_state = BCM_TCS_CMD_VOTE_MASK;
+
 	if (c->last_sent_aggr_state != cmd_state) {
 		cmd.addr = c->res_addr;
 		cmd.data = BCM_TCS_CMD(1, enable, 0, cmd_state);
@@ -610,7 +613,7 @@ static const struct clk_rpmh_desc clk_rpmh_neo = {
 
 DEFINE_CLK_RPMH_VRM(anorak, rf_clk1, rf_clk1_ao, "clka1", 1);
 DEFINE_CLK_RPMH_VRM(anorak, ln_bb_clk7, ln_bb_clk7_ao, "clka7", 2);
-DEFINE_CLK_RPMH_VRM(anorak, ln_bb_clk8, ln_bb_clk8_ao, "clka8", 2);
+DEFINE_CLK_RPMH_VRM(anorak, ln_bb_clk8, ln_bb_clk8_ao, "clka8", 4);
 DEFINE_CLK_RPMH_VRM(anorak, ln_bb_clk9, ln_bb_clk9_ao, "clka9", 2);
 
 static struct clk_hw *anorak_rpmh_clocks[] = {

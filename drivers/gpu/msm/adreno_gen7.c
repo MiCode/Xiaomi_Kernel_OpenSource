@@ -120,6 +120,10 @@ void gen7_cp_init_cmds(struct adreno_device *adreno_dev, u32 *cmds)
 	/* Enable the register init list with the spinlock */
 	mask |= BIT(8);
 
+	/* By default DMS is enabled from CP side, disable it if not supported */
+	if (!adreno_dev->dms_enabled)
+		mask |= BIT(11);
+
 	cmds[i++] = cp_type7_packet(CP_ME_INIT, 7);
 
 	/* Enabled ordinal mask */
@@ -200,6 +204,7 @@ int gen7_init(struct adreno_device *adreno_dev)
 
 	adreno_dev->highest_bank_bit = gen7_core->highest_bank_bit;
 	adreno_dev->gmu_hub_clk_freq = freq ? freq : 150000000;
+	adreno_dev->bcl_data = gen7_core->bcl_data;
 
 	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
 			ADRENO_COOP_RESET);
@@ -471,6 +476,11 @@ int gen7_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, GEN7_GMU_CX_GMU_POWER_COUNTER_SELECT_1,
 			FIELD_PREP(GENMASK(7, 0), 0x4));
 
+	/* Turn on counter to count total time spent in BCL throttle */
+	if (adreno_dev->bcl_enabled && adreno_is_gen7_6_0(adreno_dev))
+		kgsl_regrmw(device, GEN7_GMU_CX_GMU_POWER_COUNTER_SELECT_1, GENMASK(15, 8),
+				FIELD_PREP(GENMASK(15, 8), 0x26));
+
 	if (of_property_read_u32(device->pdev->dev.of_node,
 		"qcom,min-access-length", &mal))
 		mal = 32;
@@ -615,7 +625,7 @@ void gen7_spin_idle_debug(struct adreno_device *adreno_dev,
 
 	dev_err(device->dev, " hwfault=%8.8X\n", hwfault);
 
-	kgsl_device_snapshot(device, NULL, false);
+	kgsl_device_snapshot(device, NULL, NULL, false);
 }
 
 /*
@@ -1411,7 +1421,18 @@ static void gen7_power_stats(struct adreno_device *adreno_dev,
 		c = counter_delta(device, GEN7_GMU_CX_GMU_POWER_COUNTER_XOCLK_3_L,
 			&busy->throttle_cycles[2]);
 
-		trace_kgsl_bcl_clock_throttling(a, b, c);
+		if (a || b || c)
+			trace_kgsl_bcl_clock_throttling(a, b, c);
+
+		if (adreno_is_gen7_6_0(adreno_dev)) {
+			u32 bcl_throttle = counter_delta(device,
+				GEN7_GMU_CX_GMU_POWER_COUNTER_XOCLK_5_L, &busy->bcl_throttle);
+			/*
+			 * This counts number of cycles throttled in XO cycles. Convert it to
+			 * micro seconds by dividing by XO freq which is 19.2MHz.
+			 */
+			adreno_dev->bcl_throttle_time_us += ((bcl_throttle * 10) / 192);
+		}
 	}
 }
 
@@ -1469,6 +1490,7 @@ const struct gen7_gpudev adreno_gen7_hwsched_gpudev = {
 		.add_to_va_minidump = gen7_hwsched_add_to_minidump,
 		.gx_is_on = gen7_gmu_gx_is_on,
 		.send_recurring_cmdobj = gen7_hwsched_send_recurring_cmdobj,
+		.context_destroy = gen7_hwsched_context_destroy,
 	},
 	.hfi_probe = gen7_hwsched_hfi_probe,
 	.hfi_remove = gen7_hwsched_hfi_remove,

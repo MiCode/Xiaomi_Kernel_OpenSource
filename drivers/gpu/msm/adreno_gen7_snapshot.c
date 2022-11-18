@@ -1222,6 +1222,7 @@ void gen7_snapshot(struct adreno_device *adreno_dev,
 	size_t cp_indexed_reglist_len;
 	unsigned int i;
 	u32 hi, lo, cgc = 0, cgc1 = 0, cgc2 = 0;
+	int is_current_rt;
 
 	gen7_snapshot_block_list = gpucore->gen7_snapshot_block_list;
 	cp_indexed_reglist = gen7_snapshot_block_list->cp_indexed_reg_list;
@@ -1264,6 +1265,11 @@ void gen7_snapshot(struct adreno_device *adreno_dev,
 		return;
 	}
 
+	is_current_rt = rt_task(current);
+
+	if (is_current_rt)
+		sched_set_normal(current, 0);
+
 	kgsl_regread(device, GEN7_CP_IB1_BASE, &lo);
 	kgsl_regread(device, GEN7_CP_IB1_BASE_HI, &hi);
 
@@ -1276,6 +1282,19 @@ void gen7_snapshot(struct adreno_device *adreno_dev,
 
 	kgsl_regread(device, GEN7_CP_IB1_REM_SIZE, &snapshot->ib1size);
 	kgsl_regread(device, GEN7_CP_IB2_REM_SIZE, &snapshot->ib2size);
+
+	kgsl_regread(device, GEN7_CP_LPAC_IB1_BASE, &lo);
+	kgsl_regread(device, GEN7_CP_LPAC_IB1_BASE_HI, &hi);
+
+	snapshot->ib1base_lpac = (((u64) hi) << 32) | lo;
+
+	kgsl_regread(device, GEN7_CP_LPAC_IB2_BASE, &lo);
+	kgsl_regread(device, GEN7_CP_LPAC_IB2_BASE_HI, &hi);
+
+	snapshot->ib2base_lpac = (((u64) hi) << 32) | lo;
+
+	kgsl_regread(device, GEN7_CP_LPAC_IB1_REM_SIZE, &snapshot->ib1size_lpac);
+	kgsl_regread(device, GEN7_CP_LPAC_IB2_REM_SIZE, &snapshot->ib2size_lpac);
 
 	/* Assert the isStatic bit before triggering snapshot */
 	kgsl_regwrite(device, GEN7_RBBM_SNAPSHOT_STATUS, 0x1);
@@ -1346,6 +1365,8 @@ void gen7_snapshot(struct adreno_device *adreno_dev,
 				rb->preemption_desc);
 		}
 	}
+	if (is_current_rt)
+		sched_set_fifo(current);
 }
 
 void gen7_crashdump_init(struct adreno_device *adreno_dev)
@@ -1354,7 +1375,7 @@ void gen7_crashdump_init(struct adreno_device *adreno_dev)
 
 	if (IS_ERR_OR_NULL(gen7_capturescript))
 		gen7_capturescript = kgsl_allocate_global(device,
-			6 * PAGE_SIZE, 0, KGSL_MEMFLAGS_GPUREADONLY,
+			3 * PAGE_SIZE, 0, KGSL_MEMFLAGS_GPUREADONLY,
 			KGSL_MEMDESC_PRIVILEGED, "capturescript");
 
 	if (IS_ERR(gen7_capturescript))
@@ -1362,7 +1383,7 @@ void gen7_crashdump_init(struct adreno_device *adreno_dev)
 
 	if (IS_ERR_OR_NULL(gen7_crashdump_registers))
 		gen7_crashdump_registers = kgsl_allocate_global(device,
-			300 * PAGE_SIZE, 0, 0, KGSL_MEMDESC_PRIVILEGED,
+			25 * PAGE_SIZE, 0, 0, KGSL_MEMDESC_PRIVILEGED,
 			"capturescript_regs");
 
 	if (IS_ERR(gen7_crashdump_registers))

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef __ADRENO_DRAWCTXT_H
 #define __ADRENO_DRAWCTXT_H
@@ -75,6 +76,16 @@ struct adreno_context {
 
 	struct list_head active_node;
 	unsigned long active_time;
+	/** @gmu_context_queue: Queue to dispatch submissions to GMU */
+	struct kgsl_memdesc gmu_context_queue;
+	/** @gmu_hw_fence_queue: Queue for GMU to store hardware fences for this context */
+	struct kgsl_memdesc gmu_hw_fence_queue;
+	/** @hw_fence_list: List of hardware fences(sorted by timestamp) not yet submitted to GMU */
+	struct list_head hw_fence_list;
+	/** @hw_fence_ts: timestamp of the last hardware fence in the fence list */
+	u32 hw_fence_ts;
+	/** @hw_fence_count: Number of hardware fences not yet sent to Tx Queue */
+	u32 hw_fence_count;
 };
 
 /* Flag definitions for flag field in adreno_context */
@@ -100,6 +111,11 @@ enum adreno_context_priv {
 	ADRENO_CONTEXT_FORCE_PREAMBLE,
 	ADRENO_CONTEXT_SKIP_CMD,
 	ADRENO_CONTEXT_FENCE_LOG,
+	/**
+	 * @ADRENO_CONTEXT_DRAIN_HW_FENCE: Signal any hardware fences that weren't dispatched to
+	 * GMU
+	 */
+	ADRENO_CONTEXT_DRAIN_HW_FENCE,
 };
 
 struct kgsl_context *adreno_drawctxt_create(

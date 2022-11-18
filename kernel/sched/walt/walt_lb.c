@@ -570,23 +570,29 @@ static int walt_lb_find_busiest_from_lower_cap_cpu(int dst_cpu, const cpumask_t 
 	return busiest_cpu;
 }
 
+#define NOBUSY		-1
 static int walt_lb_find_busiest_cpu(int dst_cpu, const cpumask_t *src_mask, int *has_misfit,
 				    bool is_newidle)
 {
 	int fsrc_cpu = cpumask_first(src_mask);
-	int busiest_cpu;
 
+	/*
+	 * could there be extra intra cluster migration ? task may be pulled to
+	 * other cluster if cluster needs to be ignored?
+	 */
 	if (capacity_orig_of(dst_cpu) == capacity_orig_of(fsrc_cpu))
-		busiest_cpu = walt_lb_find_busiest_similar_cap_cpu(dst_cpu,
-							src_mask, has_misfit, is_newidle);
-	else if (capacity_orig_of(dst_cpu) > capacity_orig_of(fsrc_cpu))
-		busiest_cpu = walt_lb_find_busiest_from_lower_cap_cpu(dst_cpu,
-							src_mask, has_misfit, is_newidle);
-	else
-		busiest_cpu = walt_lb_find_busiest_from_higher_cap_cpu(dst_cpu,
-							src_mask, has_misfit, is_newidle);
+		return walt_lb_find_busiest_similar_cap_cpu(dst_cpu,
+						src_mask, has_misfit, is_newidle);
 
-	return busiest_cpu;
+	if (ignore_cluster_valid(NULL, cpu_rq(dst_cpu)))
+		return NOBUSY;
+
+	if (capacity_orig_of(dst_cpu) > capacity_orig_of(fsrc_cpu))
+		return walt_lb_find_busiest_from_lower_cap_cpu(dst_cpu,
+						src_mask, has_misfit, is_newidle);
+
+	return walt_lb_find_busiest_from_higher_cap_cpu(dst_cpu,
+						src_mask, has_misfit, is_newidle);
 }
 
 static DEFINE_RAW_SPINLOCK(walt_lb_migration_lock);

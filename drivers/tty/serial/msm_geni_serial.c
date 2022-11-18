@@ -3027,8 +3027,9 @@ static void msm_geni_serial_termios_cfg(struct uart_port *uport,
 static void msm_geni_serial_set_termios(struct uart_port *uport,
 				struct ktermios *termios, struct ktermios *old)
 {
+	int ret;
 	unsigned int baud;
-	int clk_div, ret;
+	unsigned int clk_div;
 	unsigned long ser_clk_cfg = 0;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 	unsigned long clk_rate;
@@ -3085,7 +3086,7 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	}
 
 	clk_div = DIV_ROUND_UP(clk_rate, desired_rate);
-	if (clk_div <= 0)
+	if (!clk_div)
 		goto exit_set_termios;
 
 	clk_freq_diff =  (desired_rate - (clk_rate / clk_div));

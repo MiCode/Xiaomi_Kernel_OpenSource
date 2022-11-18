@@ -979,7 +979,7 @@ void a6xx_spin_idle_debug(struct adreno_device *adreno_dev,
 
 	dev_err(device->dev, " hwfault=%8.8X\n", hwfault);
 
-	kgsl_device_snapshot(device, NULL, false);
+	kgsl_device_snapshot(device, NULL, NULL, false);
 
 }
 

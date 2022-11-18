@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _KGSL_SNAPSHOT_H_
@@ -63,6 +64,7 @@ struct kgsl_snapshot_section_header {
 /* OS sub-section header */
 #define KGSL_SNAPSHOT_OS_LINUX             0x0001
 #define KGSL_SNAPSHOT_OS_LINUX_V3          0x00000202
+#define KGSL_SNAPSHOT_OS_LINUX_V4          0x00000203
 
 /* Linux OS specific information */
 struct kgsl_snapshot_linux {
@@ -98,6 +100,27 @@ struct kgsl_snapshot_linux_v2 {
 	unsigned char release[32];  /* kernel release */
 	unsigned char version[32];  /* kernel version */
 	unsigned char comm[16];	    /* Name of the process that owns the PT */
+} __packed;
+
+struct kgsl_snapshot_linux_v4 {
+	int osid;		/* subsection OS identifier */
+	__u32 seconds;		/* Unix timestamp for the snapshot */
+	__u32 power_flags;	/* Current power flags */
+	__u32 power_level;	/* Current power level */
+	__u32 power_interval_timeout;	/* Power interval timeout */
+	__u32 grpclk;		/* Current GP clock value */
+	__u32 busclk;		/* Current busclk value */
+	__u64 ptbase;		/* Current ptbase */
+	__u64 ptbase_lpac;	/* Current LPAC ptbase */
+	__u32 pid;		/* PID of the process that owns the PT */
+	__u32 pid_lpac;		/* PID of the LPAC process that owns the PT */
+	__u32 current_context;	/* ID of the current context */
+	__u32 current_context_lpac;	/* ID of the current LPAC context */
+	__u32 ctxtcount;	/* Number of contexts appended to section */
+	unsigned char release[32];	/* kernel release */
+	unsigned char version[32];	/* kernel version */
+	unsigned char comm[16];		/* Name of the process that owns the PT */
+	unsigned char comm_lpac[16];	/* Name of the LPAC process that owns the PT */
 } __packed;
 
 /*
@@ -188,6 +211,7 @@ struct kgsl_snapshot_ib_v2 {
 #define SNAPSHOT_GMU_MEM_BWTABLE	0x03
 #define SNAPSHOT_GMU_MEM_DEBUG		0x04
 #define SNAPSHOT_GMU_MEM_BIN_BLOCK	0x05
+#define SNAPSHOT_GMU_MEM_CONTEXT_QUEUE	0x06
 
 /* GMU memory section data */
 struct kgsl_snapshot_gmu_mem {

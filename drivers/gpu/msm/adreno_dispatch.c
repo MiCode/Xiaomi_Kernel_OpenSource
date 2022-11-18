@@ -1566,13 +1566,15 @@ static void adreno_fault_header(struct kgsl_device *device,
 	const char *type = fault & ADRENO_GMU_FAULT ? "gmu" : "gpu";
 
 	if (!gx_on) {
-		if (drawobj != NULL)
+		if (drawobj != NULL) {
 			pr_fault(device, drawobj,
 				"%s fault ctx %u ctx_type %s ts %u and GX is OFF\n",
 				type, drawobj->context->id,
 				kgsl_context_type(drawctxt->type),
 				drawobj->timestamp);
-		else
+			pr_fault(device, drawobj, "cmdline: %s\n",
+					drawctxt->base.proc_priv->cmdline);
+		} else
 			dev_err(device->dev, "RB[%d] : %s fault and GX is OFF\n",
 				id, type);
 
@@ -1604,6 +1606,9 @@ static void adreno_fault_header(struct kgsl_device *device,
 			kgsl_context_type(drawctxt->type),
 			drawobj->timestamp, status,
 			rptr, wptr, ib1base, ib1sz, ib2base, ib2sz);
+
+		pr_fault(device, drawobj, "cmdline: %s\n",
+				drawctxt->base.proc_priv->cmdline);
 
 		if (rb != NULL)
 			pr_fault(device, drawobj,
@@ -1932,7 +1937,7 @@ static void do_header_and_snapshot(struct kgsl_device *device, int fault,
 	/* Always dump the snapshot on a non-drawobj failure */
 	if (cmdobj == NULL) {
 		adreno_fault_header(device, rb, NULL, fault);
-		kgsl_device_snapshot(device, NULL, fault & ADRENO_GMU_FAULT);
+		kgsl_device_snapshot(device, NULL, NULL, fault & ADRENO_GMU_FAULT);
 		return;
 	}
 
@@ -1944,7 +1949,7 @@ static void do_header_and_snapshot(struct kgsl_device *device, int fault,
 	adreno_fault_header(device, rb, cmdobj, fault);
 
 	if (!(drawobj->context->flags & KGSL_CONTEXT_NO_SNAPSHOT))
-		kgsl_device_snapshot(device, drawobj->context,
+		kgsl_device_snapshot(device, drawobj->context, NULL,
 					fault & ADRENO_GMU_FAULT);
 }
 
@@ -2761,6 +2766,8 @@ static struct attribute *dispatcher_attrs[] = {
 	NULL,
 };
 
+ATTRIBUTE_GROUPS(dispatcher);
+
 static ssize_t dispatcher_sysfs_show(struct kobject *kobj,
 				   struct attribute *attr, char *buf)
 {
@@ -2795,7 +2802,7 @@ static const struct sysfs_ops dispatcher_sysfs_ops = {
 
 static struct kobj_type ktype_dispatcher = {
 	.sysfs_ops = &dispatcher_sysfs_ops,
-	.default_attrs = dispatcher_attrs,
+	.default_groups = dispatcher_groups,
 };
 
 static const struct adreno_dispatch_ops swsched_ops = {

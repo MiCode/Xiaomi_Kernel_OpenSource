@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/sysfs.h>
@@ -223,6 +224,20 @@ static int _bcl_store(struct adreno_device *adreno_dev, bool val)
 					val);
 }
 
+static bool _dms_show(struct adreno_device *adreno_dev)
+{
+	return adreno_dev->dms_enabled;
+}
+
+static int _dms_store(struct adreno_device *adreno_dev, bool val)
+{
+	if (!test_bit(ADRENO_DEVICE_DMS, &adreno_dev->priv) ||
+		adreno_dev->dms_enabled == val)
+		return 0;
+
+	return adreno_power_cycle_bool(adreno_dev, &adreno_dev->dms_enabled, val);
+}
+
 static bool _perfcounter_show(struct adreno_device *adreno_dev)
 {
 	return adreno_dev->perfcounter;
@@ -234,6 +249,21 @@ static int _perfcounter_store(struct adreno_device *adreno_dev, bool val)
 		return 0;
 
 	return adreno_power_cycle_bool(adreno_dev, &adreno_dev->perfcounter, val);
+}
+
+static bool _lpac_show(struct adreno_device *adreno_dev)
+{
+	return adreno_dev->lpac_enabled;
+}
+
+static int _lpac_store(struct adreno_device *adreno_dev, bool val)
+{
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LPAC) ||
+				adreno_dev->lpac_enabled == val)
+		return 0;
+
+
+	return adreno_power_cycle_bool(adreno_dev, &adreno_dev->lpac_enabled, val);
 }
 
 ssize_t adreno_sysfs_store_u32(struct device *dev,
@@ -316,6 +346,8 @@ static ADRENO_SYSFS_BOOL(acd);
 static ADRENO_SYSFS_BOOL(bcl);
 static ADRENO_SYSFS_BOOL(l3_vote);
 static ADRENO_SYSFS_BOOL(perfcounter);
+static ADRENO_SYSFS_BOOL(lpac);
+static ADRENO_SYSFS_BOOL(dms);
 
 static DEVICE_ATTR_RO(gpu_model);
 
@@ -339,6 +371,8 @@ static const struct attribute *_attr_list[] = {
 	&dev_attr_gpu_model.attr,
 	&adreno_attr_l3_vote.attr.attr,
 	&adreno_attr_perfcounter.attr.attr,
+	&adreno_attr_lpac.attr.attr,
+	&adreno_attr_dms.attr.attr,
 	NULL,
 };
 

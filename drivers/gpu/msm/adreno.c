@@ -2178,6 +2178,8 @@ static int adreno_prop_u32(struct kgsl_device *device,
 		val = device->speed_bin;
 	else if (param->type == KGSL_PROP_VK_DEVICE_ID)
 		val = adreno_get_vk_device_id(device);
+	else if (param->type == KGSL_PROP_IS_LPAC_ENABLED)
+		val = adreno_dev->lpac_enabled ? 1 : 0;
 
 	return copy_prop(param, &val, sizeof(val));
 }
@@ -2203,6 +2205,7 @@ static const struct {
 	{ KGSL_PROP_GAMING_BIN, adreno_prop_gaming_bin },
 	{ KGSL_PROP_GPU_MODEL, adreno_prop_gpu_model},
 	{ KGSL_PROP_VK_DEVICE_ID, adreno_prop_u32},
+	{ KGSL_PROP_IS_LPAC_ENABLED, adreno_prop_u32 },
 };
 
 static int adreno_getproperty(struct kgsl_device *device,
@@ -3299,6 +3302,17 @@ static void adreno_deassert_gbif_halt(struct kgsl_device *device)
 		gpudev->deassert_gbif_halt(adreno_dev);
 }
 
+static void adreno_create_hw_fence(struct kgsl_device *device, struct kgsl_sync_fence *kfence)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	if (WARN_ON(!adreno_dev->dispatch_ops))
+		return;
+
+	if (adreno_dev->dispatch_ops->create_hw_fence)
+		adreno_dev->dispatch_ops->create_hw_fence(adreno_dev, kfence);
+}
+
 static const struct kgsl_functable adreno_functable = {
 	/* Mandatory functions */
 	.suspend_context = adreno_suspend_context,
@@ -3339,6 +3353,7 @@ static const struct kgsl_functable adreno_functable = {
 	.deassert_gbif_halt = adreno_deassert_gbif_halt,
 	.queue_recurring_cmd = adreno_queue_recurring_cmd,
 	.dequeue_recurring_cmd = adreno_dequeue_recurring_cmd,
+	.create_hw_fence = adreno_create_hw_fence,
 };
 
 static const struct component_master_ops adreno_ops = {

@@ -75,6 +75,7 @@
 #define KGSL_CONTEXT_TYPE_UNKNOWN	0x1E
 
 #define KGSL_CONTEXT_INVALIDATE_ON_FAULT 0x10000000
+#define KGSL_CONTEXT_LPAC 0x20000000
 #define KGSL_CONTEXT_FAULT_INFO	  0x40000000
 
 #define KGSL_CONTEXT_INVALID 0xffffffff
@@ -349,6 +350,7 @@ enum kgsl_timestamp_type {
 #define KGSL_PROP_CONTEXT_PROPERTY	0x28
 #define KGSL_PROP_GPU_MODEL		0x29
 #define KGSL_PROP_VK_DEVICE_ID		0x2A
+#define KGSL_PROP_IS_LPAC_ENABLED	0x2B
 
 /*
  * kgsl_capabilities_properties returns a list of supported properties.
