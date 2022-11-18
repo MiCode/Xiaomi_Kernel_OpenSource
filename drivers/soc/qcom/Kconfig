@@ -1290,6 +1290,24 @@ config ICNSS2_DEBUG
 	  features, enabling kernel panic for certain cases to aid the
 	  debugging, and enabling any other debug mechanisms.
 
+config MSM_POWER_STATE
+	tristate "Power State driver support for Deep Sleep and Hibernate"
+	help
+	  This option enables Power State Driver which is the kernel component
+	  for supporting deep sleep and hibernate. Create a power_state device
+	  node for user space communication. User space client can open device
+	  node for communication required for handling deep sleep and hibernate
+	  modes.
+
+config DEEPSLEEP
+	bool "Deep Sleep or Suspend-to-RAM sleep state"
+	depends on MSM_POWER_STATE
+	help
+	  Set this option to enable Deep Sleep. Deep Sleep is Suspend-to-RAM
+	  sleep state, in which entire system is put in a low-power state,
+	  except for memory, so that exit from this state can happen in shorter
+	  duration.
+
 config RENAME_DEVICES
 	tristate "Rename  block and network device names"
 	depends on VIRTIO_BLK
