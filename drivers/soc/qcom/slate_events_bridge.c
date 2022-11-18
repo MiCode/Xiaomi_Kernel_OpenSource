@@ -98,6 +98,11 @@ struct seb_priv {
 static void *seb_drv;
 static struct mutex seb_api_mutex;
 
+struct seb_channel_ops seb_ops = {
+	.glink_channel_state = seb_notify_glink_channel_state,
+	.rx_msg = seb_rx_msg,
+};
+
 /*
  * Register notify cb and manage the list
  */
@@ -363,10 +368,9 @@ void seb_notify_glink_channel_state(bool state)
 	struct seb_priv *dev =
 		container_of(seb_drv, struct seb_priv, lhndl);
 
-	pr_debug("%s: glink channel state: %d\n", __func__, state);
+	pr_info("%s: glink channel state: %d\n", __func__, state);
 	dev->seb_rpmsg = state;
 }
-EXPORT_SYMBOL(seb_notify_glink_channel_state);
 
 void *seb_notif_add_group(const enum event_group_type event_group)
 {
@@ -520,7 +524,6 @@ void seb_rx_msg(void *data, int len)
 		}
 	}
 }
-EXPORT_SYMBOL(seb_rx_msg);
 
 /**
  * ssr_slate_cb(): callback function is called.

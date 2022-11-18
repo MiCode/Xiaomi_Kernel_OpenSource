@@ -51,7 +51,7 @@ static int seb_rpmsg_probe(struct rpmsg_device  *rpdev)
 	dev_set_drvdata(&rpdev->dev, pdev);
 
 	/* send a callback to slate event bridge driver*/
-	seb_notify_glink_channel_state(true);
+	seb_ops.glink_channel_state(true);
 	if (pdev->message == NULL)
 		ret = seb_rpmsg_tx_msg(msg, 0);
 	return 0;
@@ -62,7 +62,7 @@ static void seb_rpmsg_remove(struct rpmsg_device *rpdev)
 	pdev->chnl_state = false;
 	pdev->message = NULL;
 	dev_dbg(&rpdev->dev, "rpmsg client driver is removed\n");
-	seb_notify_glink_channel_state(false);
+	seb_ops.glink_channel_state(false);
 	dev_set_drvdata(&rpdev->dev, NULL);
 }
 
@@ -74,7 +74,7 @@ static int seb_rpmsg_cb(struct rpmsg_device *rpdev,
 
 	if (!dev)
 		return -ENODEV;
-	seb_rx_msg(data, len);
+	seb_ops.rx_msg(data, len);
 	return 0;
 }
 
