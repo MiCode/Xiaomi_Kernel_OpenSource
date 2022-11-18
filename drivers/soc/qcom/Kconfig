@@ -555,6 +555,14 @@ config QTI_RIMPS_LOG
 	  This driver register with IPC_Logging framework, to have dedicated
 	  buffer for rimps hw device.
 
+config SILENT_MODE
+	bool "Driver support for  Silent mode feature on QCOM Chipsets"
+	help
+	  Enables the support for Silent mode for QCOM chipsets. This feature
+	  monitors a chosen external interface, ex: GPIO, when signalled a
+	  state change, will update /sys/power/pm_kernelsilentmode attribute to
+	  indicate the state transition from silent to non-silent.
+
 config QTI_PLH_SCMI_CLIENT
 	tristate "Qualcomm Technologies Inc. SCMI client driver for PLH"
 	depends on MSM_PERFORMANCE && QTI_SCMI_PLH_PROTOCOL
