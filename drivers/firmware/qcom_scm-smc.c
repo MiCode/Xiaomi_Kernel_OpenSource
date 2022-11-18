@@ -37,11 +37,12 @@ static void __scm_smc_do_quirk(const struct arm_smccc_args *smc,
 
 	unsigned long a0 = smc->args[0];
 	struct arm_smccc_quirk quirk = { .id = ARM_SMCCC_QUIRK_QCOM_A6 };
+	bool atomic = ARM_SMCCC_IS_FAST_CALL(smc->args[0]) ? true : false;
 
 	quirk.state.a6 = 0;
 
 	if (hab_calling_convention) {
-		scm_call_qcpe(smc, res, QCOM_SCM_CALL_ATOMIC);
+		scm_call_qcpe(smc, res, atomic);
 	} else {
 		do {
 			arm_smccc_smc_quirk(a0, smc->args[1], smc->args[2],
