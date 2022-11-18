@@ -56,4 +56,12 @@ struct slatersb_msg {
 
 void slatersb_notify_glink_channel_state(bool state);
 void slatersb_rx_msg(void *data, int len);
+
+struct rsb_channel_ops {
+	void (*glink_channel_state)(bool state);
+	void (*rx_msg)(void *data, int len);
+};
+
+struct rsb_channel_ops rsb_ops;
+
 #endif /* SLATECOM_H */

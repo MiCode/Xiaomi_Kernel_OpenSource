@@ -52,7 +52,7 @@ static int slatersb_rpmsg_probe(struct rpmsg_device  *rpdev)
 	dev_set_drvdata(&rpdev->dev, pdev);
 
 	/* send a callback to slate-rsb driver*/
-	slatersb_notify_glink_channel_state(true);
+	rsb_ops.glink_channel_state(true);
 	if (pdev->message == NULL)
 		ret = slatersb_rpmsg_tx_msg(msg, 0);
 	return 0;
@@ -63,7 +63,7 @@ static void slatersb_rpmsg_remove(struct rpmsg_device *rpdev)
 	pdev->chnl_state = false;
 	pdev->message = NULL;
 	dev_dbg(&rpdev->dev, "rpmsg client driver is removed\n");
-	slatersb_notify_glink_channel_state(false);
+	rsb_ops.glink_channel_state(false);
 	dev_set_drvdata(&rpdev->dev, NULL);
 }
 
@@ -75,7 +75,7 @@ static int slatersb_rpmsg_cb(struct rpmsg_device *rpdev,
 
 	if (!dev)
 		return -ENODEV;
-	slatersb_rx_msg(data, len);
+	rsb_ops.rx_msg(data, len);
 	return 0;
 }
 
