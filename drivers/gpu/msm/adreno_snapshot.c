@@ -335,6 +335,16 @@ static void snapshot_rb_ibs(struct kgsl_device *device,
 		return;
 
 	/*
+	 * KGSL tries to dump the active IB first. If it is not present, then
+	 * only it dumps all the IBs. In few cases, non-active IBs may help to
+	 * establish the flow and understand the hardware state better.
+	 */
+	if (device->dump_all_ibs) {
+		dump_all_ibs(device, rb, snapshot);
+		return;
+	}
+
+	/*
 	 * Figure out the window of ringbuffer data to dump.  First we need to
 	 * find where the last processed IB ws submitted.  Start walking back
 	 * from the rptr
