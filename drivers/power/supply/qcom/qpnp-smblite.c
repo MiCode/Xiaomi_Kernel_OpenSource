@@ -2356,6 +2356,16 @@ static int smblite_restore(struct device *dev)
 	pr_debug("SMBLITE: USB Present=%d Battery present=%d\n",
 		usb_present, batt_present);
 
+	/*
+	 * There can be a case where DS exit happens quickly
+	 * and APSD done bit is not yet set. This causes the WA
+	 * to re-run APSD once APSD done bit is set in source
+	 * change_irq to handle slow insertion false detection to
+	 * not trigger. Re-run APSD once DS is complete to handle
+	 * fix false port detection.
+	 */
+	smblite_lib_rerun_apsd_if_required(chg);
+
 	return rc;
 }
 

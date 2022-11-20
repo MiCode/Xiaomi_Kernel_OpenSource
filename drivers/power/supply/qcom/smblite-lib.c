@@ -3292,7 +3292,7 @@ void smblite_lib_rerun_apsd(struct smb_charger *chg)
 		smblite_lib_err(chg, "Couldn't re-run APSD rc=%d\n", rc);
 }
 
-static int smblite_lib_rerun_apsd_if_required(struct smb_charger *chg)
+int smblite_lib_rerun_apsd_if_required(struct smb_charger *chg)
 {
 	union power_supply_propval val;
 	int rc;
