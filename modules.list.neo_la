@@ -14,6 +14,8 @@ icc-debug.ko
 qnoc-neo.ko
 icc-rpmh.ko
 qcom_ipcc.ko
+dcvs_fp.ko
+qcom-dcvs.ko
 qnoc-qos.ko
 msm-geni-se.ko
 qcom-pdc.ko

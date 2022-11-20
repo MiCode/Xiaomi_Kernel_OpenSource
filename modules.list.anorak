@@ -1,5 +1,7 @@
 qcom_soc_wdt.ko
 gh_virt_wdt.ko
+dcvs_fp.ko
+qcom-dcvs.ko
 qcom_wdt_core.ko
 qcom_cpu_vendor_hooks.ko
 qcom-pdc.ko
