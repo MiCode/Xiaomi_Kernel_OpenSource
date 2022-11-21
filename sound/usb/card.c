@@ -691,7 +691,7 @@ static bool get_alias_id(struct usb_device *dev, unsigned int *id)
 	return false;
 }
 
-static int check_delayed_register_option(struct snd_usb_audio *chip)
+static bool check_delayed_register_option(struct snd_usb_audio *chip, int iface)
 {
 	int i;
 	unsigned int id, inum;
@@ -700,30 +700,13 @@ static int check_delayed_register_option(struct snd_usb_audio *chip)
 		if (delayed_register[i] &&
 		    sscanf(delayed_register[i], "%x:%x", &id, &inum) == 2 &&
 		    id == chip->usb_id)
-			return inum;
+			return iface < inum;
 	}
 
-	return -1;
+	return false;
 }
 
 static const struct usb_device_id usb_audio_ids[]; /* defined below */
-
-/* look for the last interface that matches with our ids and remember it */
-static void find_last_interface(struct snd_usb_audio *chip)
-{
-	struct usb_host_config *config = chip->dev->actconfig;
-	struct usb_interface *intf;
-	int i;
-
-	if (!config)
-		return;
-	for (i = 0; i < config->desc.bNumInterfaces; i++) {
-		intf = config->interface[i];
-		if (usb_match_id(intf, usb_audio_ids))
-			chip->last_iface = intf->altsetting[0].desc.bInterfaceNumber;
-	}
-	usb_audio_dbg(chip, "Found last interface = %d\n", chip->last_iface);
-}
 
 /* look for the corresponding quirk */
 static const struct snd_usb_audio_quirk *
@@ -833,7 +816,6 @@ static int usb_audio_probe(struct usb_interface *intf,
 			err = -ENODEV;
 			goto __error;
 		}
-		find_last_interface(chip);
 	}
 
 	if (chip->num_interfaces >= MAX_CARD_INTERFACES) {
@@ -885,11 +867,11 @@ static int usb_audio_probe(struct usb_interface *intf,
 		chip->need_delayed_register = false; /* clear again */
 	}
 
-	/* register card if we reach to the last interface or to the specified
-	 * one given via option
+	/* we are allowed to call snd_card_register() many times, but first
+	 * check to see if a device needs to skip it or do anything special
 	 */
-	if (check_delayed_register_option(chip) == ifnum ||
-	    chip->last_iface == ifnum) {
+	if (!snd_usb_registration_quirk(chip, ifnum) &&
+	    !check_delayed_register_option(chip, ifnum)) {
 		err = snd_card_register(chip->card);
 		if (err < 0)
 			goto __error;
