@@ -842,6 +842,21 @@ static struct clk_regmap_div gcc_usb20_mock_utmi_postdiv_clk_src = {
 	},
 };
 
+static struct clk_branch gcc_boot_rom_ahb_clk = {
+	.halt_reg = 0x37004,
+	.halt_check = BRANCH_HALT_VOTED,
+	.hwcg_reg = 0x37004,
+	.hwcg_bit = 1,
+	.clkr = {
+		.enable_reg = 0x7d008,
+		.enable_mask = BIT(26),
+		.hw.init = &(const struct clk_init_data){
+			.name = "gcc_boot_rom_ahb_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gcc_emac0_axi_clk = {
 	.halt_reg = 0x71018,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -1496,6 +1511,7 @@ static struct clk_branch gcc_usb_phy_cfg_ahb2phy_clk = {
 };
 
 static struct clk_regmap *gcc_sdxbaagha_clocks[] = {
+	[GCC_BOOT_ROM_AHB_CLK] = &gcc_boot_rom_ahb_clk.clkr,
 	[GCC_EMAC0_AXI_CLK] = &gcc_emac0_axi_clk.clkr,
 	[GCC_EMAC0_PHY_AUX_CLK] = &gcc_emac0_phy_aux_clk.clkr,
 	[GCC_EMAC0_PHY_AUX_CLK_SRC] = &gcc_emac0_phy_aux_clk_src.clkr,
