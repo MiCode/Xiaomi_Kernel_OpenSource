@@ -2802,17 +2802,8 @@ static int msm_geni_serial_port_setup(struct uart_port *uport)
 	if (!uart_console(uport)) {
 		/* For now only assume FIFO mode. */
 		msm_port->xfer_mode = SE_DMA;
-		se_get_packing_config(8, 4, false, &cfg0, &cfg1);
-		geni_write_reg_nolog(cfg0, uport->membase,
-						SE_GENI_TX_PACKING_CFG0);
-		geni_write_reg_nolog(cfg1, uport->membase,
-						SE_GENI_TX_PACKING_CFG1);
-		geni_write_reg_nolog(cfg0, uport->membase,
-						SE_GENI_RX_PACKING_CFG0);
-		geni_write_reg_nolog(cfg1, uport->membase,
-						SE_GENI_RX_PACKING_CFG1);
-		geni_write_reg_nolog(0x431c, uport->membase,
-			SE_GENI_CFG_REG80);
+		se_config_packing(uport->membase, 8, 4, false);
+		geni_write_reg_nolog(0x431c, uport->membase, SE_GENI_CFG_REG80);
 		if (!msm_port->rx_fifo) {
 			ret = -ENOMEM;
 			goto exit_portsetup;
@@ -2958,6 +2949,8 @@ static void geni_serial_write_term_regs(struct uart_port *uport, u32 loopback,
 							SE_UART_RX_WORD_LEN);
 	geni_write_reg_nolog(stop_bit_len, uport->membase,
 						SE_UART_TX_STOP_BIT_LEN);
+	if (!uart_console(uport))
+		se_config_packing(uport->membase, bits_per_char, 4, false);
 }
 
 static void msm_geni_serial_termios_cfg(struct uart_port *uport,
