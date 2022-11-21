@@ -216,7 +216,7 @@ struct vm_area_struct *get_vma(struct mm_struct *mm, unsigned long addr)
 	struct vm_area_struct *vma;
 
 	rcu_read_lock();
-	vma = __find_vma(mm, addr);
+	vma = find_vma_from_tree(mm, addr);
 	if (vma) {
 		if (vma->vm_start > addr ||
 		    !atomic_inc_unless_negative(&vma->file_ref_count))

@@ -2738,6 +2738,8 @@ extern int expand_upwards(struct vm_area_struct *vma, unsigned long address);
   #define expand_upwards(vma, address) (0)
 #endif
 
+extern struct vm_area_struct *find_vma_from_tree(struct mm_struct *mm,
+						 unsigned long addr);
 /* Look up the first VMA which satisfies  addr < vm_end,  NULL if none. */
 extern struct vm_area_struct * __find_vma(struct mm_struct * mm, unsigned long addr);
 extern struct vm_area_struct * find_vma_prev(struct mm_struct * mm, unsigned long addr,
