@@ -105,7 +105,7 @@ int gen7_hfi_queue_write(struct adreno_device *adreno_dev, u32 queue_idx,
 	struct hfi_queue_table *tbl = gmu->hfi.hfi_mem->hostptr;
 	struct hfi_queue_header *hdr = &tbl->qhdr[queue_idx];
 	u32 *queue;
-	u32 i, write, empty_space;
+	u32 i, write_idx, read_idx, empty_space;
 	u32 size = MSG_HDR_GET_SIZE(*msg);
 	u32 align_size = ALIGN(size, SZ_4);
 	u32 id = MSG_HDR_GET_ID(*msg);
@@ -117,27 +117,28 @@ int gen7_hfi_queue_write(struct adreno_device *adreno_dev, u32 queue_idx,
 
 	trace_kgsl_hfi_send(id, size, MSG_HDR_GET_SEQNUM(*msg));
 
-	empty_space = (hdr->write_index >= hdr->read_index) ?
-			(hdr->queue_size - (hdr->write_index - hdr->read_index))
-			: (hdr->read_index - hdr->write_index);
+	write_idx = hdr->write_index;
+	read_idx = hdr->read_index;
+
+	empty_space = (write_idx >= read_idx) ?
+			(hdr->queue_size - (write_idx - read_idx))
+			: (read_idx - write_idx);
 
 	if (empty_space <= align_size)
 		return -ENOSPC;
 
-	write = hdr->write_index;
-
 	for (i = 0; i < size; i++) {
-		queue[write] = msg[i];
-		write = (write + 1) % hdr->queue_size;
+		queue[write_idx] = msg[i];
+		write_idx = (write_idx + 1) % hdr->queue_size;
 	}
 
 	/* Cookify any non used data at the end of the write buffer */
 	for (; i < align_size; i++) {
-		queue[write] = 0xfafafafa;
-		write = (write + 1) % hdr->queue_size;
+		queue[write_idx] = 0xfafafafa;
+		write_idx = (write_idx + 1) % hdr->queue_size;
 	}
 
-	hfi_update_write_idx(&hdr->write_index, write);
+	hfi_update_write_idx(&hdr->write_index, write_idx);
 
 	return 0;
 }
