@@ -2767,16 +2767,13 @@ EXPORT_SYMBOL_GPL(apply_to_existing_page_range);
  * This is similar to what fast GUP does, but fast GUP also needs to
  * protect against races with THP page splitting, so it always needs
  * to disable interrupts.
- * Speculative page faults only need to protect against page table reclamation,
- * so rcu_read_lock() is sufficient in the MMU_GATHER_RCU_TABLE_FREE case.
+ * Speculative page faults need to protect against page table reclamation,
+ * even with MMU_GATHER_RCU_TABLE_FREE case page table removal slow-path is
+ * not RCU-safe (see comment inside tlb_remove_table_sync_one), therefore
+ * we still have to disable IRQs.
  */
-#ifdef CONFIG_MMU_GATHER_RCU_TABLE_FREE
-#define speculative_page_walk_begin() rcu_read_lock()
-#define speculative_page_walk_end()   rcu_read_unlock()
-#else
 #define speculative_page_walk_begin() local_irq_disable()
 #define speculative_page_walk_end()   local_irq_enable()
-#endif
 
 bool __pte_map_lock(struct vm_fault *vmf)
 {
