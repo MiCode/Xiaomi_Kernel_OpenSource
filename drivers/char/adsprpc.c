@@ -6929,14 +6929,33 @@ static void fastrpc_smq_ctx_detail(struct smq_invoke_ctx *smq_ctx, int cid, void
 		break;
 	}
 }
-
 /*
- *  fastrpc_print_fastrpcfile : Print fastrpc_file structure parameter.
+ *  fastrpc_print_map : Print fastrpc_map structure parameter.
+ *  Input :
+ *        structure fastrpc_map
+ *        void* buffer
+ */
+static void fastrpc_print_map(struct fastrpc_mmap *map, void *buffer)
+{
+	scnprintf(buffer +
+		strlen(buffer),
+		MINI_DUMP_DBG_SIZE -
+		strlen(buffer),
+		fastrpc_mmap_params,
+		map->fd,
+		map->flags, map->buf,
+		map->phys, map->size,
+		map->va, map->raddr,
+		map->len, map->refs,
+		map->secure);
+}
+/*
+ *  fastrpc_print_file : Print fastrpc_file structure parameter.
  *  Input :
  *        structure fastrpc_file
  *        void* buffer
  */
-static void fastrpc_print_fastrpcfile(struct fastrpc_file *fl, void *buffer)
+static void fastrpc_print_file(struct fastrpc_file *fl, void *buffer)
 {
 	scnprintf(buffer +
 		strlen(buffer),
@@ -6963,12 +6982,12 @@ static void fastrpc_print_fastrpcfile(struct fastrpc_file *fl, void *buffer)
 }
 
 /*
- *  fastrpc_print_fastrpcbuf : Print fastrpc_buf structure parameter.
+ *  fastrpc_print_buf : Print fastrpc_buf structure parameter.
  *  Input :
  *        structure fastrpc_buf
  *        void* buffer
  */
-static void fastrpc_print_fastrpcbuf(struct fastrpc_buf *buf, void *buffer)
+static void fastrpc_print_buf(struct fastrpc_buf *buf, void *buffer)
 {
 	if (!buf || !buffer)
 		return;
@@ -7028,43 +7047,41 @@ static void  fastrpc_print_debug_data(int cid)
 	spin_lock_irqsave(&me->hlock, irq_flags);
 	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
 		if (fl->cid == cid) {
-			fastrpc_print_fastrpcfile(fl, mini_dump_buff);
+			fastrpc_print_file(fl, mini_dump_buff);
 			scnprintf(mini_dump_buff +
 					strlen(mini_dump_buff),
 					MINI_DUMP_DBG_SIZE -
 					strlen(mini_dump_buff),
 					"\nSession Maps\n");
-			hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
-				scnprintf(mini_dump_buff +
-						strlen(mini_dump_buff),
-						MINI_DUMP_DBG_SIZE -
-						strlen(mini_dump_buff),
-						fastrpc_mmap_params,
-						map->fd,
-						map->flags, map->buf,
-						map->phys, map->size,
-						map->va, map->raddr,
-						map->len, map->refs,
-						map->secure);
+			hlist_for_each_entry_safe(map, n, &me->maps, hn) {
+				fastrpc_print_map(map, mini_dump_buff);
 			}
+			spin_unlock_irqrestore(&me->hlock, irq_flags);
+			mutex_lock(&fl->map_mutex);
+			hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
+				fastrpc_print_map(map, mini_dump_buff);
+			}
+			mutex_unlock(&fl->map_mutex);
+			spin_lock_irqsave(&me->hlock, irq_flags);
+			spin_lock(&fl->hlock);
 			scnprintf(mini_dump_buff + strlen(mini_dump_buff),
 					MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
 					"\ncached_bufs\n");
 			hlist_for_each_entry_safe(buf, n, &fl->cached_bufs, hn) {
-				fastrpc_print_fastrpcbuf(buf, mini_dump_buff);
+				fastrpc_print_buf(buf, mini_dump_buff);
 			}
 			scnprintf(mini_dump_buff + strlen(mini_dump_buff),
 					MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
 					"\ninit_mem: %p\n", fl->init_mem);
-			fastrpc_print_fastrpcbuf(fl->init_mem, mini_dump_buff);
+			fastrpc_print_buf(fl->init_mem, mini_dump_buff);
 			scnprintf(mini_dump_buff + strlen(mini_dump_buff),
 					MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
 					"\npers_hdr_buf: %p\n", fl->pers_hdr_buf);
-			fastrpc_print_fastrpcbuf(fl->pers_hdr_buf, mini_dump_buff);
+			fastrpc_print_buf(fl->pers_hdr_buf, mini_dump_buff);
 			snprintf(mini_dump_buff + strlen(mini_dump_buff),
 					MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
 					"\nhdr_bufs: %p\n", fl->hdr_bufs);
-			fastrpc_print_fastrpcbuf(fl->hdr_bufs, mini_dump_buff);
+			fastrpc_print_buf(fl->hdr_bufs, mini_dump_buff);
 			if (fl->debugfs_file) {
 				scnprintf(mini_dump_buff + strlen(mini_dump_buff),
 					   MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
@@ -7083,7 +7100,6 @@ static void  fastrpc_print_debug_data(int cid)
 					"\nfl->secsctx->smmu.cb : %d\n",
 					fl->secsctx->smmu.cb);
 			}
-			spin_lock(&fl->hlock);
 			scnprintf(mini_dump_buff +
 					strlen(mini_dump_buff),
 					MINI_DUMP_DBG_SIZE -
