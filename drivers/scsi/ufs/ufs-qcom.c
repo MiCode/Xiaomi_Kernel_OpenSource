@@ -4719,7 +4719,7 @@ static u32 is_bootdevice_ufs = UFS_BOOT_DEVICE;
 
 static int ufs_qcom_read_boot_config(struct platform_device *pdev)
 {
-	u32 *buf;
+	u8 *buf;
 	size_t len;
 	struct nvmem_cell *cell;
 
@@ -4727,7 +4727,7 @@ static int ufs_qcom_read_boot_config(struct platform_device *pdev)
 	if (IS_ERR(cell))
 		return -EINVAL;
 
-	buf = nvmem_cell_read(cell, &len);
+	buf = (u8 *)nvmem_cell_read(cell, &len);
 	if (IS_ERR(buf))
 		return -EINVAL;
 
