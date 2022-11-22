@@ -2071,25 +2071,17 @@ mtk_cam_read_hdr_timestamp(struct mtk_cam_ctx *ctx,
 		return;
 	}
 
-	if (mtk_cam_ctx_has_raw(ctx)) {
-		ctx->pipe->hdr_timestamp.le =
-			stream_data->hdr_timestamp_cache.le;
-		ctx->pipe->hdr_timestamp.le_mono =
-			stream_data->hdr_timestamp_cache.le_mono;
-		ctx->pipe->hdr_timestamp.ne =
-			stream_data->hdr_timestamp_cache.ne;
-		ctx->pipe->hdr_timestamp.ne_mono =
-			stream_data->hdr_timestamp_cache.ne_mono;
-		ctx->pipe->hdr_timestamp.se =
-			stream_data->hdr_timestamp_cache.se;
-		ctx->pipe->hdr_timestamp.se_mono =
-			stream_data->hdr_timestamp_cache.se_mono;
-		dev_dbg(ctx->cam->dev,
+	if (mtk_cam_ctx_has_raw(ctx) &&
+		(mtk_cam_scen_is_hdr(stream_data->feature.scen) &&
+		 !mtk_cam_scen_is_m2m(stream_data->feature.scen))) {
+		dev_info(ctx->cam->dev,
 			"[hdr timestamp to subdev pipe] req:%d le/ne/se:%lld/%lld/%lld\n",
 			stream_data->frame_seq_no,
 			stream_data->hdr_timestamp_cache.le,
 			stream_data->hdr_timestamp_cache.ne,
 			stream_data->hdr_timestamp_cache.se);
+		mtk_cam_push_hdr_tsfifo(
+			ctx->pipe, &stream_data->hdr_timestamp_cache);
 	}
 }
 

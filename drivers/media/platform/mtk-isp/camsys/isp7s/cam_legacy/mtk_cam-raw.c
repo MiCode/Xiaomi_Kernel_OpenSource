@@ -1237,24 +1237,17 @@ static const struct v4l2_ctrl_ops cam_ctrl_ops = {
 static int mtk_raw_hdr_timestamp_get_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct mtk_raw_pipeline *pipeline;
-	struct mtk_cam_hdr_timestamp_info *hdr_ts_info;
 	struct mtk_cam_hdr_timestamp_info *hdr_ts_info_p;
 	struct device *dev;
 	int ret = 0;
 
 	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
-	hdr_ts_info = &pipeline->hdr_timestamp;
 	hdr_ts_info_p = ctrl->p_new.p;
 	dev = pipeline->raw->devs[pipeline->id];
 
 	switch (ctrl->id) {
 	case V4L2_CID_MTK_CAM_CAMSYS_HDR_TIMESTAMP:
-		hdr_ts_info_p->le = hdr_ts_info->le;
-		hdr_ts_info_p->le_mono = hdr_ts_info->le_mono;
-		hdr_ts_info_p->ne = hdr_ts_info->ne;
-		hdr_ts_info_p->ne_mono = hdr_ts_info->ne_mono;
-		hdr_ts_info_p->se = hdr_ts_info->se;
-		hdr_ts_info_p->se_mono = hdr_ts_info->se_mono;
+		mtk_cam_pop_hdr_tsfifo(pipeline, hdr_ts_info_p);
 		dev_dbg(dev, "%s [le:%lld,%lld][ne:%lld,%lld][se:%lld,%lld]\n",
 			 __func__,
 			 hdr_ts_info_p->le, hdr_ts_info_p->le_mono,
@@ -2021,6 +2014,68 @@ static int push_msgfifo(struct mtk_raw_device *dev,
 	WARN_ON(len != sizeof(*info));
 
 	return 0;
+}
+
+/* vhdr timesatamp fifo control */
+int mtk_cam_init_hdr_tsfifo(struct mtk_raw *raw, struct v4l2_device *v4l2_dev)
+{
+	struct device *dev = raw->cam_dev;
+	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
+	unsigned int i;
+
+	for (i = 0; i < cam_dev->num_raw_drivers; i++) {
+		struct mtk_raw_pipeline *pipe = raw->pipelines + i;
+
+		pipe->hdr_ts_fifo_size =
+			roundup_pow_of_two(4 * sizeof(struct mtk_cam_hdr_timestamp_info));
+
+		pipe->hdr_ts_buffer =
+			devm_kzalloc(dev, pipe->hdr_ts_fifo_size, GFP_KERNEL);
+		if (!pipe->hdr_ts_buffer)
+			return -ENOMEM;
+	}
+
+	return 0;
+}
+
+int mtk_cam_reset_hdr_tsfifo(struct mtk_raw_pipeline *pipe)
+{
+	atomic_set(&pipe->is_hdr_ts_fifo_overflow, 0);
+	return kfifo_init(&pipe->hdr_ts_fifo,
+			pipe->hdr_ts_buffer, pipe->hdr_ts_fifo_size);
+}
+
+void mtk_cam_push_hdr_tsfifo(struct mtk_raw_pipeline *pipe,
+			struct mtk_cam_hdr_timestamp_info *ts_info)
+{
+	struct device *dev = pipe->raw->devs[pipe->id];
+	int len;
+
+	if (unlikely(kfifo_avail(&pipe->hdr_ts_fifo) < sizeof(*ts_info)))
+		atomic_set(&pipe->is_hdr_ts_fifo_overflow, 1);
+
+	len = kfifo_in(&pipe->hdr_ts_fifo, ts_info, sizeof(*ts_info));
+	if (len != sizeof(*ts_info))
+		dev_info(dev, " %s: (pipe:%d) push fail\n",
+				__func__, pipe->id);
+}
+
+void mtk_cam_pop_hdr_tsfifo(struct mtk_raw_pipeline *pipe,
+		struct mtk_cam_hdr_timestamp_info *ts_info)
+{
+	struct device *dev = pipe->raw->devs[pipe->id];
+	int len;
+
+	if (unlikely(atomic_cmpxchg(&pipe->is_hdr_ts_fifo_overflow, 1, 0)))
+		dev_info(dev, "hdr ts fifo overflow\n");
+
+	if (kfifo_len(&pipe->hdr_ts_fifo) >= sizeof(*ts_info)) {
+		len = kfifo_out(&pipe->hdr_ts_fifo, ts_info, sizeof(*ts_info));
+
+		if (len != sizeof(*ts_info))
+			dev_info(dev, " %s: (pipe:%d) pop fail\n",
+				__func__, pipe->id);
+	}
 }
 
 void toggle_db(struct mtk_raw_device *dev)

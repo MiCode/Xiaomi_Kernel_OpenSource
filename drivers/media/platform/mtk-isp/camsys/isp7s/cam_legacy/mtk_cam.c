@@ -9385,6 +9385,9 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 	if (ret)
 		goto fail_streaming_off;
 
+	/* reset hdr timestamp fifo*/
+	mtk_cam_reset_hdr_tsfifo(ctx->pipe);
+
 	mutex_lock(&cam->queue_lock);
 	mtk_cam_dev_req_try_queue(cam);  /* request moved into working list */
 	mutex_unlock(&cam->queue_lock);
@@ -9767,6 +9770,9 @@ static int mtk_cam_master_bind(struct device *dev)
 		goto fail_unreg_mraw_entities;
 	}
 	mtk_cam_dvfs_init(cam_dev);
+
+	/* init hdr timestamp fifo */
+	mtk_cam_init_hdr_tsfifo(&cam_dev->raw, &cam_dev->v4l2_dev);
 
 	dev_info(dev, "%s success\n", __func__);
 	return 0;
