@@ -418,6 +418,9 @@ static int venc_get_param(unsigned long handle,
 			return -EINVAL;
 		venc_get_resolution_change(inst, &inst->vsi->config, out);
 		break;
+	case GET_PARAM_VENC_VCU_VPUD_LOG:
+		VCU_FPTR(vcu_get_log)(out, LOG_PROPERTY_SIZE);
+		break;
 	default:
 		mtk_vcodec_err(inst, "invalid get parameter type=%d", type);
 		ret = -EINVAL;
@@ -549,6 +552,9 @@ static int venc_set_param(unsigned long handle,
 		break;
 	case VENC_SET_PARAM_PROPERTY:
 		mtk_vcodec_err(inst, "VCU not support SET_PARAM_VDEC_PROPERTY\n");
+		break;
+	case VENC_SET_PARAM_VCU_VPUD_LOG:
+		ret = VCU_FPTR(vcu_set_log)(enc_prm->log);
 		break;
 	default:
 		if (inst->vsi == NULL)

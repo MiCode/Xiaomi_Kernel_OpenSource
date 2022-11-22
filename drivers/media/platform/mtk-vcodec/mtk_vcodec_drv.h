@@ -458,6 +458,7 @@ struct venc_enc_param {
 	unsigned int slice_header_spacing;
 	struct mtk_venc_multi_ref *multi_ref;
 	struct mtk_venc_vui_info *vui_info;
+	char *log;
 };
 
 /*

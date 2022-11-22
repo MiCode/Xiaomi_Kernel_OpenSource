@@ -888,35 +888,38 @@ static void mtk_vcodec_build_log_string(struct mtk_vcodec_dev *dev,
 	mutex_unlock(plist_mutex);
 }
 
-void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val,
-	enum mtk_vcodec_log_index log_index)
+void mtk_vcodec_set_log(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_dev *dev,
+	const char *val, enum mtk_vcodec_log_index log_index,
+	void (*set_vcu_vpud_log)(struct mtk_vcodec_ctx *ctx, void *in))
 {
 	int i, argc = 0;
-	char *argv[MAX_SUPPORTED_LOG_PARAMS_COUNT * 2];
+	char (*argv)[LOG_PARAM_INFO_SIZE] = NULL;
 	char *temp = NULL;
 	char *token = NULL;
 	long temp_val = 0;
-	char log[LOG_PROPERTY_SIZE] = {0};
+	char *log = NULL;
+	char vcu_log[128] = {0};
 
-	if (dev == NULL) {
-		mtk_v4l2_err("Invalid arguments, dev=0x%x", dev);
+	if (dev == NULL || val == NULL || strlen(val) == 0)
 		return;
-	}
-
-	if (val == NULL || strlen(val) == 0)
-		return;
-
-	for (i = 0; i < MAX_SUPPORTED_LOG_PARAMS_COUNT * 2; i++)
-		argv[i] = kzalloc(LOG_PARAM_INFO_SIZE, GFP_KERNEL);
 
 	mtk_v4l2_debug(0, "val: %s, log_index: %d", val, log_index);
+
+	argv = kzalloc(MAX_SUPPORTED_LOG_PARAMS_COUNT * 2 * LOG_PARAM_INFO_SIZE, GFP_KERNEL);
+	if (!argv)
+		return;
+	log = kzalloc(LOG_PROPERTY_SIZE, GFP_KERNEL);
+	if (!log) {
+		kfree(argv);
+		return;
+	}
 
 	strncpy(log, val, LOG_PROPERTY_SIZE - 1);
 	temp = log;
 	for (token = strsep(&temp, "\n\r ");
 	     token != NULL && argc < MAX_SUPPORTED_LOG_PARAMS_COUNT * 2;
 	     token = strsep(&temp, "\n\r ")) {
-		if (argv[argc] == NULL || strlen(token) == 0)
+		if (strlen(token) == 0)
 			continue;
 		strncpy(argv[argc], token, LOG_PARAM_INFO_SIZE);
 		argv[argc][LOG_PARAM_INFO_SIZE - 1] = '\0';
@@ -924,35 +927,126 @@ void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val,
 	}
 
 	for (i = 0; i < argc-1; i += 2) {
-		if (argv[i] == NULL || strlen(argv[i]) == 0)
+		if (strlen(argv[i]) == 0)
 			continue;
 		if (strcmp("-mtk_vcodec_dbg", argv[i]) == 0) {
-			if (kstrtol(argv[i+1], 0, &temp_val) == 0)
+			if (kstrtol(argv[i+1], 0, &temp_val) == 0) {
 				mtk_vcodec_dbg = temp_val;
+				mtk_v4l2_debug(0, "mtk_vcodec_dbg: %d\n", mtk_vcodec_dbg);
+			}
 		} else if (strcmp("-mtk_vcodec_perf", argv[i]) == 0) {
-			if (kstrtol(argv[i+1], 0, &temp_val) == 0)
+			if (kstrtol(argv[i+1], 0, &temp_val) == 0) {
 				mtk_vcodec_perf = temp_val;
+				mtk_v4l2_debug(0, "mtk_vcodec_perf: %d\n", mtk_vcodec_perf);
+			}
 		} else if (strcmp("-mtk_v4l2_dbg_level", argv[i]) == 0) {
-			if (kstrtol(argv[i+1], 0, &temp_val) == 0)
+			if (kstrtol(argv[i+1], 0, &temp_val) == 0) {
 				mtk_v4l2_dbg_level = temp_val;
+				mtk_v4l2_debug(0, "mtk_v4l2_dbg_level: %d\n", mtk_v4l2_dbg_level);
+			}
 		} else {
-			mtk_vcodec_sync_log(dev, argv[i], argv[i+1], log_index);
+			// uP path
+			if ((dev->vfd_dec && mtk_vcodec_is_vcp(MTK_INST_DECODER))
+				|| (dev->vfd_enc && mtk_vcodec_is_vcp(MTK_INST_ENCODER))) {
+				mtk_vcodec_sync_log(dev, argv[i], argv[i+1], log_index);
+			} else { // vcu path
+				if (ctx == NULL) {
+					mtk_v4l2_err("ctx is null, cannot set log to vpud");
+					return;
+				}
+				if (log_index != MTK_VCODEC_LOG_INDEX_LOG) {
+					mtk_v4l2_err(
+						"invalid index: %d, only support set log on vcu path",
+						log_index);
+					return;
+				}
+				memset(vcu_log, 0x00, sizeof(vcu_log));
+				snprintf(vcu_log, sizeof(vcu_log) - 1, "%s %s", argv[i], argv[i+1]);
+				if (set_vcu_vpud_log != NULL)
+					set_vcu_vpud_log(ctx, vcu_log);
+			}
 		}
 	}
 
-	for (i = 0; i < MAX_SUPPORTED_LOG_PARAMS_COUNT * 2; i++)
-		kfree(argv[i]);
+	// uP path
+	if (mtk_vcodec_is_vcp(MTK_INST_DECODER) || mtk_vcodec_is_vcp(MTK_INST_ENCODER))
+		mtk_vcodec_build_log_string(dev, log_index);
 
-	mtk_vcodec_build_log_string(dev, log_index);
-
-	if (log_index == MTK_VCODEC_LOG_INDEX_LOG) {
-		pr_info("----------------Debug Config ----------------\n");
-		pr_info("mtk_vcodec_dbg: %d\n", mtk_vcodec_dbg);
-		pr_info("mtk_vcodec_perf: %d\n", mtk_vcodec_perf);
-		pr_info("mtk_v4l2_dbg_level: %d\n", mtk_v4l2_dbg_level);
-	}
+	kfree(argv);
+	kfree(log);
 }
 EXPORT_SYMBOL_GPL(mtk_vcodec_set_log);
+
+void mtk_vcodec_get_log(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_dev *dev,
+	char *val, enum mtk_vcodec_log_index log_index,
+	void (*get_vcu_vpud_log)(struct mtk_vcodec_ctx *ctx, void *out))
+{
+	int len = 0;
+
+	if (!dev || !val) {
+		mtk_v4l2_err("Invalid arguments, dev=0x%x, val=0x%x", dev, val);
+		return;
+	}
+
+	memset(val, 0x00, LOG_PROPERTY_SIZE);
+
+	if ((dev->vfd_dec && mtk_vcodec_is_vcp(MTK_INST_DECODER))
+		|| (dev->vfd_enc && mtk_vcodec_is_vcp(MTK_INST_ENCODER))) { // uP path
+		if (dev->vfd_dec) {
+			if (log_index == MTK_VCODEC_LOG_INDEX_LOG) {
+				strncpy(val, mtk_vdec_vcp_log, LOG_PROPERTY_SIZE - 1);
+			} else if (log_index == MTK_VCODEC_LOG_INDEX_PROP) {
+				strncpy(val, mtk_vdec_property, LOG_PROPERTY_SIZE - 1);
+			} else {
+				mtk_v4l2_err("invalid index: %d", log_index);
+				return;
+			}
+		} else {
+			if (log_index == MTK_VCODEC_LOG_INDEX_LOG) {
+				strncpy(val, mtk_venc_vcp_log, LOG_PROPERTY_SIZE - 1);
+			} else if (log_index == MTK_VCODEC_LOG_INDEX_PROP) {
+				strncpy(val, mtk_venc_property, LOG_PROPERTY_SIZE - 1);
+			} else {
+				mtk_v4l2_err("invalid index: %d", log_index);
+				return;
+			}
+		}
+	} else { // vcu path
+		if (ctx == NULL) {
+			mtk_v4l2_err("ctx is null, cannot set log to vpud");
+			return;
+		}
+		if (log_index != MTK_VCODEC_LOG_INDEX_LOG) {
+			mtk_v4l2_err(
+				"invalid index: %d, only support get log on vcu path", log_index);
+			return;
+		}
+
+		if (get_vcu_vpud_log != NULL)
+			get_vcu_vpud_log(ctx, val);
+	}
+
+	// join kernel log level
+	if (log_index == MTK_VCODEC_LOG_INDEX_LOG) {
+		len = strlen(val);
+		if (len < LOG_PROPERTY_SIZE)
+			snprintf(val + len, LOG_PROPERTY_SIZE - 1 - len,
+				" %s %d", "-mtk_vcodec_dbg", mtk_vcodec_dbg);
+
+		len = strlen(val);
+		if (len < LOG_PROPERTY_SIZE)
+			snprintf(val + len, LOG_PROPERTY_SIZE - 1 - len,
+				" %s %d", "-mtk_vcodec_perf", mtk_vcodec_perf);
+
+		len = strlen(val);
+		if (len < LOG_PROPERTY_SIZE)
+			snprintf(val + len, LOG_PROPERTY_SIZE - 1 - len,
+				" %s %d", "-mtk_v4l2_dbg_level", mtk_v4l2_dbg_level);
+	}
+
+	mtk_v4l2_debug(0, "val: %s, log_index: %d", val, log_index);
+}
+EXPORT_SYMBOL_GPL(mtk_vcodec_get_log);
 
 
 MODULE_LICENSE("GPL v2");

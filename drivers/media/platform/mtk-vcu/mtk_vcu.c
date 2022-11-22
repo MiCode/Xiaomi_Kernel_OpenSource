@@ -361,6 +361,8 @@ struct mtk_vcu {
 	struct log_test_nofuse *vdec_log_info;
 	wait_queue_head_t vdec_log_get_wq;
 	atomic_t vdec_log_got;
+	wait_queue_head_t vdec_log_set_wq;
+	atomic_t vdec_log_set;
 	struct cmdq_base *clt_base;
 	struct cmdq_client *clt_vdec[GCE_THNUM_MAX];
 	struct cmdq_client *clt_venc[GCE_THNUM_MAX];
@@ -714,14 +716,14 @@ static int vcu_log_get(struct mtk_vcu *vcu, unsigned long arg)
 	user_data_addr = (unsigned char *)arg;
 
 	ret = wait_event_freezable(vcu->vdec_log_get_wq,
-				   atomic_read(&vcu->vdec_log_got));
+				atomic_read(&vcu->vdec_log_got));
 	if (ret != 0) {
 		pr_info("[VCU][%d] wait event return %d @%s\n",
 			vcu->vcuid, ret, __func__);
 		return ret;
 	}
 	ret = copy_to_user(user_data_addr, vcu->vdec_log_info,
-			   (unsigned long)sizeof(struct log_test_nofuse));
+				(unsigned long)sizeof(struct log_test_nofuse));
 	if (ret != 0) {
 		pr_info("[VCU] %s(%d) Copy data to user failed!\n",
 			__func__, __LINE__);
@@ -760,6 +762,28 @@ static int vcu_sec_handle_get(struct mtk_vcu *vcu,
 
 	return ret;
 }
+
+static int vcu_log_set(struct mtk_vcu *vcu, unsigned long arg)
+{
+	int ret;
+	unsigned char *user_data_addr = NULL;
+
+	user_data_addr = (unsigned char *)arg;
+
+	ret = (long)copy_from_user(vcu->vdec_log_info, user_data_addr,
+				(unsigned long)sizeof(struct log_test_nofuse));
+	if (ret != 0) {
+		pr_info("[VCU] %s(%d) Copy data from user failed!\n",
+			__func__, __LINE__);
+		return -EINVAL;
+	}
+
+	atomic_set(&vcu->vdec_log_set, 1);
+	wake_up(&vcu->vdec_log_set_wq);
+
+	return ret;
+}
+
 static int vcu_gce_set_inst_id(void *ctx, u64 gce_handle)
 {
 	int i;
@@ -2120,6 +2144,9 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 	case VCU_GET_LOG_OBJECT:
 		ret = vcu_log_get(vcu_dev, arg);
 		break;
+	case VCU_SET_LOG_OBJECT:
+		ret = vcu_log_set(vcu_dev, arg);
+		break;
 	case VCU_MVA_ALLOCATION:
 	case VCU_UBE_MVA_ALLOCATION:
 	case VCU_PA_ALLOCATION:
@@ -2280,6 +2307,7 @@ static long mtk_vcu_unlocked_compat_ioctl(struct file *file, unsigned int cmd,
 	case COMPAT_VCU_SET_OBJECT:
 	case VCU_GET_OBJECT:
 	case VCU_GET_LOG_OBJECT:
+	case VCU_SET_LOG_OBJECT:
 	case VCU_GCE_SET_CMD_FLUSH:
 	case VCU_GCE_WAIT_CALLBACK:
 	case VCU_GET_DISP_MAPPED_IOVA:
@@ -2370,10 +2398,13 @@ static int mtk_vcu_write(const char *val, const struct kernel_param *kp)
 	if (vcu_ptr != NULL &&
 		vcu_ptr->vdec_log_info != NULL &&
 		val != NULL) {
-		ret = param_set_charp(val, kp);
-		if (ret != 0)
-			return -EINVAL;
+		if (kp) {
+			ret = param_set_charp(val, kp);
+			if (ret != 0)
+				return -EINVAL;
+		}
 
+		vcu_ptr->vdec_log_info->type = 0;
 		memcpy(vcu_ptr->vdec_log_info->log_info,
 			val, strnlen(val, LOG_INFO_SIZE - 1) + 1);
 	} else
@@ -2382,13 +2413,17 @@ static int mtk_vcu_write(const char *val, const struct kernel_param *kp)
 	vcu_ptr->vdec_log_info->log_info[LOG_INFO_SIZE - 1] = '\0';
 
 	// check if need to enable VCU debug log
-	if (strstr(vcu_ptr->vdec_log_info->log_info, "vcu_log 1"))
+	if (strstr(vcu_ptr->vdec_log_info->log_info, "vcu_log 1")) {
+		pr_info("[VCU] enable vcu_log\n");
 		vcu_ptr->enable_vcu_dbg_log = 1;
-	else if (strstr(vcu_ptr->vdec_log_info->log_info, "vcu_log 0"))
+	} else if (strstr(vcu_ptr->vdec_log_info->log_info, "vcu_log 0")) {
+		pr_info("[VCU] disable vcu_log\n");
 		vcu_ptr->enable_vcu_dbg_log = 0;
+	}
 
-	pr_info("[log wakeup VPUD] log_info %p vcu_ptr %p val %p: %s %lu\n",
+	pr_info("[log wakeup VPUD] log_info %p type %d vcu_ptr %p val %p: %s %lu\n",
 		(char *)vcu_ptr->vdec_log_info->log_info,
+		vcu_ptr->vdec_log_info->type,
 		vcu_ptr, val, val,
 		(unsigned long)strnlen(val, LOG_INFO_SIZE - 1) + 1);
 
@@ -2397,6 +2432,60 @@ static int mtk_vcu_write(const char *val, const struct kernel_param *kp)
 
 	return 0;
 }
+
+// mtk-vcodec call vcu_set_log to set log to vcu/vpud
+int vcu_set_log(const char *val)
+{
+	return mtk_vcu_write(val, NULL);
+}
+EXPORT_SYMBOL_GPL(vcu_set_log);
+
+// mtk-vcodec call vcu_get_log to get log from vcu/vpud
+int vcu_get_log(char *val, unsigned int val_len)
+{
+	int ret = -1;
+	int len;
+
+	if (vcu_ptr != NULL &&
+		vcu_ptr->vdec_log_info != NULL &&
+		val != NULL && val_len <= 1024) {
+		vcu_ptr->vdec_log_info->type = 1;
+	} else
+		return -EFAULT;
+
+
+	pr_info("[log wakeup VPUD] log_info %p type %d vcu_ptr %p\n",
+		(char *)vcu_ptr->vdec_log_info->log_info,
+		vcu_ptr->vdec_log_info->type, vcu_ptr);
+
+	atomic_set(&vcu_ptr->vdec_log_got, 1);
+	wake_up(&vcu_ptr->vdec_log_get_wq);
+
+	// wait vpud set log to vcu done
+	ret = wait_event_freezable(vcu_ptr->vdec_log_set_wq,
+				atomic_read(&vcu_ptr->vdec_log_set));
+	if (ret != 0) {
+		pr_info("[VCU][%d] wait event return %d @%s\n",
+			vcu_ptr->vcuid, ret, __func__);
+		return ret;
+	}
+
+	atomic_set(&vcu_ptr->vdec_log_set, 0);
+
+	strncpy(val, (char *)vcu_ptr->vdec_log_info->log_info, val_len);
+
+	// append vcu log
+	len = strlen(val);
+	if (len < val_len)
+		snprintf(val + len, val_len - 1 - len,
+			" %s %d", "-vcu_log", vcu_ptr->enable_vcu_dbg_log);
+
+	pr_info("[VCU] %s log_info: %s\n", __func__, val);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(vcu_get_log);
+
 
 static struct kernel_param_ops log_param_ops = {
 	.set = mtk_vcu_write,
@@ -2637,6 +2726,8 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 	}
 	init_waitqueue_head(&vcu->vdec_log_get_wq);
 	atomic_set(&vcu->vdec_log_got, 0);
+	init_waitqueue_head(&vcu->vdec_log_set_wq);
+	atomic_set(&vcu->vdec_log_set, 0);
 	for (i = 0; i < (int)VCODEC_INST_MAX; i++) {
 		atomic_set(&vcu->gce_info[i].flush_done, 0);
 		atomic_set(&vcu->gce_info[i].flush_pending, 0);
@@ -2778,6 +2869,8 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 	vcu_func.vcu_ipi_register = vcu_ipi_register;
 	vcu_func.vcu_ipi_send = vcu_ipi_send;
 	vcu_func.vcu_set_codec_ctx = vcu_set_codec_ctx;
+	vcu_func.vcu_get_log = vcu_get_log;
+	vcu_func.vcu_set_log = vcu_set_log;
 
 	dev_dbg(dev, "[VCU] initialization completed\n");
 	return 0;
