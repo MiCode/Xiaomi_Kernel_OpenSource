@@ -697,6 +697,49 @@ static int _aov_switch_pm_ops(struct v4l2_ctrl *ctrl)
 	return 0;
 }
 
+static u32 get_line_d(struct adaptor_ctx *ctx, u64 linetime_in_ns_readout, u64 linetime_in_ns)
+{
+	u32 line_d = 0;
+
+	if (linetime_in_ns > 0) {
+		line_d = ((linetime_in_ns_readout / linetime_in_ns) +
+			(linetime_in_ns_readout % linetime_in_ns > 0 ? 1 : 0));
+	}
+	if (!line_d)
+		line_d = 1;
+
+#if IMGSENSOR_LOG_MORE
+	adaptor_logd(ctx, "%llu|%llu|%u\n",
+		linetime_in_ns_readout,
+		linetime_in_ns,
+		line_d);
+#endif
+
+	return line_d;
+}
+
+u32 get_mode_vb(struct adaptor_ctx *ctx, const struct sensor_mode *mode)
+{
+	u32 vb, line_d = 1;
+
+	if (mode->linetime_in_ns_readout > mode->linetime_in_ns) {
+		line_d = get_line_d(ctx, mode->linetime_in_ns_readout, mode->linetime_in_ns);
+
+		vb = (mode->fll / line_d) - mode->height;
+	} else {
+		vb = mode->fll - mode->height;
+	}
+
+	adaptor_logd(ctx, "vb %u|%llu|%llu|%u|%u\n",
+		vb,
+		mode->linetime_in_ns_readout,
+		mode->linetime_in_ns,
+		mode->fll,
+		line_d);
+
+	return vb;
+}
+
 static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sensor_mode *mode)
 {
 	int ret = 0;
@@ -726,22 +769,7 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 			ctrl->val = 10000000 / mode->max_framerate;
 		break;
 	case V4L2_CID_VBLANK:
-		if (mode->linetime_in_ns_readout > mode->linetime_in_ns) {
-			ctrl->val = mode->fll - (mode->height *
-				((mode->linetime_in_ns_readout / mode->linetime_in_ns) +
-				(mode->linetime_in_ns_readout % mode->linetime_in_ns > 0 ? 1 : 0)));
-			dev_info(ctx->dev, "[%s] V4L2_CID_VBLANK %d|%d|%d|%d|%d\n",
-				__func__,
-				ctrl->val,
-				mode->linetime_in_ns_readout,
-				mode->linetime_in_ns,
-				mode->fll,
-				(mode->height *
-				((mode->linetime_in_ns_readout / mode->linetime_in_ns) +
-			(mode->linetime_in_ns_readout % mode->linetime_in_ns > 0 ? 1 : 0))));
-		} else {
-			ctrl->val = mode->fll - mode->height;
-		}
+		ctrl->val = get_mode_vb(ctx, mode);
 		break;
 	case V4L2_CID_HBLANK:
 		ctrl->val =
@@ -864,13 +892,7 @@ static int imgsensor_try_ctrl(struct v4l2_ctrl *ctrl)
 
 			info->fps = val / 10;
 
-			if (mode->linetime_in_ns_readout > mode->linetime_in_ns) {
-				info->vblank = mode->fll - (mode->height *
-				((mode->linetime_in_ns_readout / mode->linetime_in_ns) +
-				(mode->linetime_in_ns_readout % mode->linetime_in_ns > 0 ? 1 : 0)));
-			} else {
-				info->vblank = mode->fll - mode->height;
-			}
+			info->vblank = get_mode_vb(ctx, mode);
 
 			info->hblank =
 				(((mode->linetime_in_ns_readout *
@@ -885,13 +907,11 @@ static int imgsensor_try_ctrl(struct v4l2_ctrl *ctrl)
 			info->grab_w = mode->width;
 		}
 
-#if IMGSENSOR_LOG_MORE
-		dev_dbg(ctx->dev,
-				"%s [scenario %d]:fps: %d vb: %d hb: %d pixelrate: %d cust_pixel_rate: %d, w %d, h %d\n",
-				__func__, info->scenario_id, info->fps, info->vblank,
-				info->hblank, info->pixelrate, info->cust_pixelrate,
-				info->grab_w, info->grab_h);
-#endif
+		adaptor_logd(ctx,
+			"%s [scenario %d]:fps: %d vb: %d hb: %d pixelrate: %d cust_pixel_rate: %d, w %d, h %d\n",
+			__func__, info->scenario_id, info->fps, info->vblank,
+			info->hblank, info->pixelrate, info->cust_pixelrate,
+			info->grab_w, info->grab_h);
 	}
 		break;
 	default:
@@ -999,7 +1019,9 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_VBLANK:
 		para.u64[0] = ctx->exposure->val;
-		para.u64[1] = ctx->cur_mode->height + ctrl->val;
+		para.u64[1] = (u32) ((u64)(ctx->cur_mode->height + ctrl->val) *
+			get_line_d(ctx, ctx->cur_mode->linetime_in_ns_readout,
+				   ctx->cur_mode->linetime_in_ns));
 		para.u64[2] = 0;
 		subdrv_call(ctx, feature_control,
 			SENSOR_FEATURE_SET_FRAMELENGTH,
@@ -2007,7 +2029,7 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 		ctx->hblank->flags |= V4L2_CTRL_FLAG_VOLATILE;
 
 	/* vblank */
-	min = def = cur_mode->fll - cur_mode->height;
+	min = def = get_mode_vb(ctx, cur_mode);
 	max = ctx->subctx.max_frame_length - cur_mode->height;
 	ctx->vblank = v4l2_ctrl_new_std(ctrl_hdlr, &ctrl_ops,
 				V4L2_CID_VBLANK, min, max, 1, def);

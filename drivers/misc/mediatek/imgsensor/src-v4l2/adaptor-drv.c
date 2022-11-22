@@ -294,7 +294,7 @@ static int set_sensor_mode(struct adaptor_ctx *ctx,
 		__v4l2_ctrl_modify_range(ctx->hblank, min, max, 1, def);
 
 		/* vblank */
-		min = def = mode->fll - mode->height;
+		min = def = get_mode_vb(ctx, mode);
 		max = ctx->subctx.max_frame_length - mode->height;
 		__v4l2_ctrl_modify_range(ctx->vblank, min, max, 1, def);
 
