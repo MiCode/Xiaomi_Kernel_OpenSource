@@ -1013,6 +1013,7 @@ mtk_drm_crtc_duplicate_state(struct drm_crtc *crtc)
 		state->prop_val[CRTC_PROP_PRES_FENCE_IDX] =
 			old_state->prop_val[CRTC_PROP_PRES_FENCE_IDX];
 	}
+
 	return &state->base;
 }
 
@@ -1024,6 +1025,7 @@ static void mtk_drm_crtc_destroy_state(struct drm_crtc *crtc,
 	s = to_mtk_crtc_state(state);
 
 	__drm_atomic_helper_crtc_destroy_state(state);
+	DDPINFO("destroy/free crtc_state, 0x%llx\n", (u64)state);
 	kfree(s);
 }
 
