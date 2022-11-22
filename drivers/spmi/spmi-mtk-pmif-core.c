@@ -11,11 +11,14 @@
 #include <linux/of_device.h>
 #include <linux/spmi.h>
 #include <linux/irq.h>
-
 #include "spmi-mtk.h"
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-#include <aee.h>
+#include <mt-plat/aee.h>
 #endif
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+#include <mt-plat/mrdump.h>
+#endif
+#define DUMP_LIMIT 0x1000
 
 #define SWINF_IDLE	0x00
 #define SWINF_WFVLDCLR	0x06
@@ -846,6 +849,79 @@ static void pmif_irq_register(struct platform_device *pdev,
 			PMIF_IRQ_EVENT_EN_4);
 }
 
+static irqreturn_t spmi_nack_irq_handler(int irq, void *data)
+{
+	struct pmif *arb = data;
+	int flag = 0;
+	int spmi_nack = 0, spmi_nack_data = 0;
+	int spmi_rcs_nack = 0, spmi_debug_nack = 0, spmi_mst_nack = 0;
+
+	__pm_stay_awake(arb->pmifThread_lock);
+	mutex_lock(&arb->pmif_mutex);
+
+	spmi_nack = mtk_spmi_readl(arb, SPMI_REC0);
+	spmi_nack_data = mtk_spmi_readl(arb, SPMI_REC1);
+	spmi_rcs_nack = mtk_spmi_readl(arb, SPMI_REC_CMD_DEC);
+	spmi_debug_nack = mtk_spmi_readl(arb, SPMI_DEC_DBG);
+	spmi_mst_nack = mtk_spmi_readl(arb, SPMI_MST_DBG);
+
+	if ((spmi_nack & 0xF8)) {
+		pr_notice("%s spmi transaction fail irq triggered SPMI_REC0:0x%x, SPMI_REC1:0x%x\n",
+			__func__, spmi_nack, spmi_nack_data);
+		flag = 1;
+	}
+	if ((spmi_rcs_nack & 0xC0000)) {
+		pr_notice("%s spmi_rcs transaction fail irq triggered SPMI_REC_CMD_DEC:0x%x\n",
+			__func__, spmi_rcs_nack);
+		flag = 1;
+	}
+	if ((spmi_debug_nack & 0xF0000)) {
+		pr_notice("%s spmi_debug_nack transaction fail irq triggered SPMI_DEC_DBG:0x%x\n",
+			__func__, spmi_debug_nack);
+		flag = 1;
+	}
+	if ((spmi_mst_nack & 0xC0000)) {
+		pr_notice("%s spmi_mst_nack transaction fail irq triggered SPMI_MST_DBG:0x%x\n",
+			__func__, spmi_mst_nack);
+		flag = 1;
+	}
+
+	if (flag) {
+		/* trigger AEE event*/
+		if (IS_ENABLED(CONFIG_MTK_AEE_FEATURE))
+			aee_kernel_warning("SPMI", "SPMI:transaction_fail");
+
+		/* clear irq*/
+		mtk_spmi_writel(arb, 0x3, SPMI_REC_CTRL);
+
+		mutex_unlock(&arb->pmif_mutex);
+		__pm_relax(arb->pmifThread_lock);
+
+		return IRQ_HANDLED;
+	}
+
+	/* no spmi nack irq triggered */
+	mutex_unlock(&arb->pmif_mutex);
+	__pm_relax(arb->pmifThread_lock);
+	return IRQ_NONE;
+}
+
+static int spmi_nack_irq_register(struct platform_device *pdev,
+		struct pmif *arb, int irq)
+{
+	int ret = 0;
+
+	ret = devm_request_threaded_irq(&pdev->dev, irq, NULL,
+				spmi_nack_irq_handler,
+				IRQF_TRIGGER_HIGH | IRQF_ONESHOT | IRQF_SHARED,
+				"spmi_nack_irq", arb);
+	if (ret < 0) {
+		dev_notice(&pdev->dev, "request %s irq fail\n",
+			"spmi_nack_irq");
+	}
+	return ret;
+}
+
 static void rcs_irq_lock(struct irq_data *data)
 {
 	struct pmif *arb = irq_data_get_irq_chip_data(data);
@@ -966,6 +1042,41 @@ static int rcs_irq_register(struct platform_device *pdev,
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+static void pmif_spmi_mrdump_register(struct platform_device *pdev, struct pmif *arb)
+{
+	u32 reg[12] = {0};
+	int ret;
+
+	ret = of_property_read_u32_array(pdev->dev.of_node, "reg", reg, ARRAY_SIZE(reg));
+	if (ret < 0) {
+		dev_notice(&pdev->dev, "Failed to request reg from SPMI node\n");
+		return;
+	}
+
+	if (reg[3] > DUMP_LIMIT || reg[7] > DUMP_LIMIT || reg[11] > DUMP_LIMIT) {
+		dev_info(&pdev->dev, "%s: dump size > 4K\n", __func__);
+		return;
+	}
+	ret = mrdump_mini_add_extra_file((unsigned long)arb->base, reg[1], reg[3], "PMIF_DATA");
+	if (ret)
+		dev_info(&pdev->dev, "%s: PMIF_DATA add fail(%d)\n",
+			 __func__, ret);
+
+	ret = mrdump_mini_add_extra_file((unsigned long)arb->spmimst_base,
+					reg[5], reg[7], "SPMI_DATA");
+	if (ret)
+		dev_info(&pdev->dev, "%s: SPMI_DATA add fail(%d)\n",
+			__func__, ret);
+
+	ret = mrdump_mini_add_extra_file((unsigned long)arb->busdbgregs,
+					reg[9], reg[11], "DEM_DBG_DATA");
+	if (ret)
+		dev_info(&pdev->dev, "%s: DEM_DBG_DATA add fail(%d)\n",
+			__func__, ret);
+}
+#endif
+
 static int mtk_spmi_probe(struct platform_device *pdev)
 {
 	struct pmif *arb;
@@ -1012,6 +1123,13 @@ static int mtk_spmi_probe(struct platform_device *pdev)
 	arb->spmimst_base_p = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(arb->spmimst_base_p))
 		dev_notice(&pdev->dev, "[PMIF]:no spmimst-p found\n");
+
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "bugdbg");
+	arb->busdbgregs = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(arb->busdbgregs))
+		dev_notice(&pdev->dev, "[PMIF]:no bus dbg regs found\n");
+#endif
 
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 
@@ -1133,6 +1251,17 @@ static int mtk_spmi_probe(struct platform_device *pdev)
 				dev_notice(&pdev->dev,
 				   "Failed to register rcs_irq, ret = %d\n", arb->rcs_irq);
 		}
+		arb->spmi_nack_irq = platform_get_irq_byname(pdev, "spmi_nack_irq");
+		if (arb->spmi_nack_irq < 0) {
+			dev_notice(&pdev->dev,
+				"Failed to get spmi_nack_irq, ret = %d\n", arb->spmi_nack_irq);
+		} else {
+			err = spmi_nack_irq_register(pdev, arb, arb->spmi_nack_irq);
+			if (err)
+				dev_notice(&pdev->dev,
+					"Failed to register spmi_nack_irq, ret = %d\n",
+						 arb->spmi_nack_irq);
+		}
 	}
 #if defined(CONFIG_FPGA_EARLY_PORTING)
 	/* pmif/spmi initial setting */
@@ -1152,6 +1281,11 @@ static int mtk_spmi_probe(struct platform_device *pdev)
 	ctrl->read_cmd(ctrl, 0x38, test_id, test_w_addr, &val, 1);
 	dev_notice(&pdev->dev, "%s check [0x%x] = 0x%x\n", __func__, test_w_addr, val);
 
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+	/* add mrdump for reboot DB*/
+	pmif_spmi_mrdump_register(pdev, arb);
 #endif
 	platform_set_drvdata(pdev, ctrl);
 
@@ -1195,6 +1329,9 @@ static int mtk_spmi_remove(struct platform_device *pdev)
 
 static const struct of_device_id mtk_spmi_match_table[] = {
 	{
+		.compatible = "mediatek,mt6835-spmi",
+		.data = &mt6xxx_pmif_arb,
+	}, {
 		.compatible = "mediatek,mt6853-spmi",
 		.data = &mt6853_pmif_arb,
 	}, {

@@ -25,6 +25,7 @@ struct pmif {
 	void __iomem	*spmimst_base_p;
 	const u32	*spmimst_regs;
 	const u32	*dbgregs;
+	const u32	*busdbgregs;
 	u32		dbgver;
 	u32		soc_chan;
 	int     mstid;
@@ -57,6 +58,7 @@ struct pmif {
 			u16 addr, u8 *buf, size_t len);
 	int (*write_cmd)(struct spmi_controller *ctrl, u8 opc, u8 sid,
 			u16 addr, const u8 *buf, size_t len);
+	int spmi_nack_irq;
 	u32 caps;
 };
 
