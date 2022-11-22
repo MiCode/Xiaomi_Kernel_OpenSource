@@ -1260,6 +1260,16 @@ static const struct dvfsrc_soc_data mt6886_data = {
 #endif
 };
 
+static const struct dvfsrc_soc_data mt6835_data = {
+	DVFSRC_MT6983_SERIES_OPS,
+	.opps_desc = dvfsrc_opp_mt6873_desc,
+	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6873_desc),
+	.regs = mt6983_regs,
+#ifdef DVFSRC_FORCE_OPP_SUPPORT
+	.set_force_opp_level = mt6983_set_force_opp_level,
+#endif
+};
+
 static int mtk_dvfsrc_remove(struct platform_device *pdev)
 {
 	struct mtk_dvfsrc *dvfsrc = platform_get_drvdata(pdev);
@@ -1313,6 +1323,9 @@ static const struct of_device_id mtk_dvfsrc_of_match[] = {
 	}, {
 		.compatible = "mediatek,mt6886-dvfsrc",
 		.data = &mt6886_data,
+	}, {
+		.compatible = "mediatek,mt6835-dvfsrc",
+		.data = &mt6835_data,
 	}, {
 		/* sentinel */
 	},
