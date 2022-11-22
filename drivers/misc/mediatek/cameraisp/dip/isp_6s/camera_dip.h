@@ -34,22 +34,6 @@ enum m4u_callback_ret_t DIP_M4U_TranslationFault_callback
 #define DIP_IMGSYS_BASE_HW   0x15020000
 #define DIP_A_BASE_HW   0x15021000
 
-#if (MTK_MSF_OFFSET == 1)
-#define MFB_BASE_HW   0x15810000
-#define MSS_BASE_HW   0x15812000
-#define MSF_BASE_HW   0x15810000
-#else
-#define MFB_BASE_HW   0x15010000
-#define MSS_BASE_HW   0x15012000
-#define MSF_BASE_HW   0x15010000
-#endif
-
-
-#if (MTK_DIP_COUNT == 2)
-#define DIP_IMGSYS2_BASE_HW   0x15080000
-#define DIP_B_BASE_HW   0x15821000
-#endif
-
 /*PAGE_SIZE*6 = 4096*6 <=dependent on device tree setting */
 #define DIP_REG_RANGE           (0xC000)
 #define MFB_REG_RANGE           (0x1000)
@@ -58,7 +42,7 @@ enum m4u_callback_ret_t DIP_M4U_TranslationFault_callback
 #define MAX_TILE_TOT_NO (256)
 #define MAX_ISP_DUMP_HEX_PER_TILE (256)
 #define MAX_ISP_TILE_TDR_TOTAL_HEXNO (MAX_TILE_TOT_NO*MAX_ISP_DUMP_HEX_PER_TILE)
-#define MAX_ISP_TILE_TDR_HEX_NO (MAX_ISP_TILE_TDR_TOTAL_HEXNO * MTK_DIP_COUNT)
+/*#define MAX_ISP_TILE_TDR_HEX_NO (MAX_ISP_TILE_TDR_TOTAL_HEXNO*MTK_DIP_COUNT)*/
 
 #define MAX_DIP_CMDQ_BUFFER_SIZE (0x1000)
 
@@ -81,10 +65,8 @@ enum DIP_DEV_NODE_ENUM {
 	DIP_DIP_A_IDX, /* Remider: Add this device node manually in .dtsi */
 	DIP_MSS_IDX,
 	DIP_MSF_IDX,
-#if (MTK_DIP_COUNT == 2)
 	DIP_IMGSYS2_CONFIG_IDX,
 	DIP_DIP_B_IDX,
-#endif
 	DIP_DEV_NODE_NUM
 };
 

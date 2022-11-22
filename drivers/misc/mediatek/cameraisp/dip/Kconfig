@@ -1,4 +1,14 @@
-config MTK_CAMERA_ISP_DIP_SUPPORT
+config MTK_CAMERA_DIP_ISP6S
+	tristate "[DIP] Digital Image Process"
+	depends on MTK_CAMERA_ISP_SUPPORT
+	help
+	  Digital Image Process.
+          For isp6s
+	  digital computer process digital images
+	  through an algorithm.
+
+
+config MTK_CAMERA_DUAL_DIP_ISP6S
 	tristate "[DIP] Digital Image Process"
 	depends on MTK_CAMERA_ISP_SUPPORT
 	help
