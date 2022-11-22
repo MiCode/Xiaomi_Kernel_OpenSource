@@ -36,6 +36,9 @@ endif
 ifneq ($(wildcard $(srctree)/$(src)/mt6886/Makefile),)
 obj-$(CONFIG_SND_SOC_MT6886) += mt6886/
 endif
+ifneq ($(wildcard $(srctree)/sound/soc/mediatek/mt6835),)
+obj-$(CONFIG_SND_SOC_MT6835) += mt6835/
+endif
 # vow related code
 obj-$(CONFIG_MTK_VOW_SUPPORT) += vow/
 
