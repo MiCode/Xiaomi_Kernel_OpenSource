@@ -20,6 +20,7 @@
 #define IS_MT6873(id) ((id) == 0x6873)
 #define IS_MT6855(id) ((id) == 0x6855)
 #define IS_MT6853(id) ((id) == 0x6853)
+#define IS_MT6835(id) ((id) == 0x6835)
 #define IS_MT6833(id) ((id) == 0x6833)
 #define IS_MT6781(id) ((id) == 0x6781)
 #define IS_MT6789(id) ((id) == 0x6789)
@@ -39,6 +40,7 @@
 				IS_MT6877(id) ||	\
 				IS_MT6855(id) ||	\
 				IS_MT6853(id) ||	\
+				IS_MT6835(id) ||	\
 				IS_MT6833(id) ||	\
 				IS_MT6781(id) ||    \
 				IS_MT6789(id))
@@ -70,6 +72,7 @@
 			IS_MT6877(id) ||	\
 			IS_MT6855(id) ||	\
 			IS_MT6853(id) ||	\
+			IS_MT6835(id) ||	\
 			IS_MT6833(id) ||	\
 			IS_MT6781(id) ||    \
 			IS_MT6789(id))
@@ -164,6 +167,8 @@
 				platform_id = 0x6855;				\
 			else if (strncmp(platform_id_str, "mt6853", 6) == 0)	\
 				platform_id = 0x6853;				\
+			else if (strncmp(platform_id_str, "mt6835", 6) == 0)	\
+				platform_id = 0x6835;				\
 			else if (strncmp(platform_id_str, "mt6833", 6) == 0)	\
 				platform_id = 0x6833;				\
 			else if (strncmp(platform_id_str, "mt6781", 6) == 0)	\

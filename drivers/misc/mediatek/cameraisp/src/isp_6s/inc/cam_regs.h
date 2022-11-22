@@ -340,6 +340,7 @@ enum{
 #define CAMSYS_REG_HALT2_SEC_EN                (ISP_CAMSYS_CONFIG_BASE + 0x0364)
 #define CAMSYS_REG_HALT3_SEC_EN                (ISP_CAMSYS_CONFIG_BASE + 0x0368)
 #define CAMSYS_REG_HALT4_SEC_EN                (ISP_CAMSYS_CONFIG_BASE + 0x036C)
+#define CAMSYS_APB3_SPARE                      (ISP_CAMSYS_CONFIG_BASE + 0x0370)
 
 #define CAM_REG_CTL_EN(module)                  (isp_devs[module].regs + 0x0004)
 #define CAM_REG_CTL_EN2(module)                 (isp_devs[module].regs + 0x0008)
@@ -724,10 +725,17 @@ enum{
 #define CAM_REG_DMA_DEBUG_SEL(module)           (isp_devs[module].regs + 0x40B4)
 
 #define CAM_REG_IMGO_FH_SPARE_2(module)         (isp_devs[module].regs + 0x4850)
+#define CAM_REG_IMGO_FH_SPARE_3(module)         (isp_devs[module].regs + 0x4854)
+
+#define CAM_REG_IMGO_FH_SPARE_11(module)         (isp_devs[module].regs + 0x4874)
+#define CAM_REG_IMGO_FH_SPARE_12(module)         (isp_devs[module].regs + 0x4878)
+
 #define CAM_REG_RRZO_FH_SPARE_2(module)         (isp_devs[module].regs + 0x4930)
 
 #define CAM_REG_RRZ_HORI_STEP(module)           (isp_devs[module].regs + 0x110C)
 #define CAM_REG_RRZ_VERT_STEP(module)           (isp_devs[module].regs + 0x1110)
+
+#define CAM_REG_IMGO_FH_BASE_ADDR(module)       (isp_devs[module].regs + 0x484C)
 
 #define CAM_REG_CRZO_FH_BASE_ADDR(module)       (isp_devs[module].regs + 0x4B5C)
 

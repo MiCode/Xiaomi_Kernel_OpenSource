@@ -2739,6 +2739,11 @@ static void ISP_EnableClock(enum ISP_DEV_NODE_ENUM module, bool En)
 		G_u4EnableClockCount[module]++;
 		spin_unlock(&(IspInfo.SpinLockClock));
 		Prepare_Enable_ccf_clock(module); /* !!cannot be used in spinlock!! */
+		if (G_u4EnableClockCount[module] == 1) {
+			enable_irq(isp_devs[module].irq);
+			LOG_INF(
+				"enable_irq cam %d\n", module);
+		}
 #endif
 	} else { /* Disable clock. */
 #if defined(EP_NO_CLKMGR)
@@ -2774,6 +2779,11 @@ static void ISP_EnableClock(enum ISP_DEV_NODE_ENUM module, bool En)
 		G_u4EnableClockCount[module]--;
 		spin_unlock(&(IspInfo.SpinLockClock));
 		/* !!cannot be used in spinlock!! */
+		if (G_u4EnableClockCount[module] == 0) {
+			disable_irq(isp_devs[module].irq);
+			LOG_INF(
+				"disable_irq cam %d\n", module);
+		}
 		Disable_Unprepare_ccf_clock(module);
 #endif
 	}
@@ -10528,7 +10538,7 @@ irqreturn_t ISP_Irq_CAM(
 	/* Avoid touch hwmodule when clock is disable. */
 	/* DEVAPC will moniter this kind of err */
 	if (G_u4EnableClockCount[cam_idx] == 0)
-		return IRQ_HANDLED;
+		LOG_NOTICE("error: power off trigger IRQ module: %d", (unsigned int)cam_idx);
 
 	ktime_get_ts64(&time_frmb);
 	usec = time_frmb.tv_nsec / 1000;
