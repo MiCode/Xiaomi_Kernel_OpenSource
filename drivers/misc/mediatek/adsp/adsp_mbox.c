@@ -161,7 +161,7 @@ int adsp_mbox_send(struct mtk_mbox_pin_send *pin_send, void *msg,
 						pin_send->pin_index)) {
 			time_ipc_us = ktime_us_delta(ktime_get(), start_time);
 			if (time_ipc_us > 1000) {/* 1 ms */
-				pr_warn("%s, time_ipc_us > 1000", __func__);
+				pr_debug("%s, time_ipc_us > 1000 (%lld us)", __func__, time_ipc_us);
 				break;
 			}
 		}
