@@ -8,6 +8,7 @@
 #include <linux/list_sort.h>
 #include <linux/interrupt.h>
 #include <linux/mfd/mt6359p/registers.h>
+#include <linux/mfd/mt6377/registers.h>
 #include <linux/mfd/mt6397/core.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
@@ -119,6 +120,20 @@ static struct lbat_regs_t mt6375_lbat_regs = {
 	.volt_min = { MT6375_AUXADC_LBAT6, GENMASK(11, 0), 2 },
 	.adc_out = { MT6375_AUXADC_ADC_OUT_LBAT, GENMASK(11, 0), 2 },
 	.r_ratio_node_name = "lbat_service",
+	.volt_full = 1840,
+};
+
+struct lbat_regs_t mt6377_lbat_regs = {
+	.regmap_source = "dev_get_regmap",
+	.en = {MT6377_AUXADC_LBAT0, 0x1, 1},
+	.debt_max = {MT6377_AUXADC_LBAT1, 0xC, 1},
+	.debt_min = {MT6377_AUXADC_LBAT1, 0x30, 1},
+	.det_prd = {MT6377_AUXADC_LBAT1, 0x3, 1},
+	.max_en = {MT6377_AUXADC_LBAT2, 0x3, 1},
+	.volt_max = {MT6377_AUXADC_LBAT3, 0xFFF, 2},
+	.min_en = {MT6377_AUXADC_LBAT5, 0x3, 1},
+	.volt_min = {MT6377_AUXADC_LBAT6, 0xFFF, 2},
+	.adc_out = {MT6377_AUXADC_ADC_AUTO3_L, 0xFFF, 2},
 	.volt_full = 1840,
 };
 
@@ -804,6 +819,9 @@ static const struct of_device_id lbat_service_of_match[] = {
 	}, {
 		.compatible = "mediatek,mt6375-lbat-service",
 		.data = &mt6375_lbat_regs,
+	}, {
+		.compatible = "mediatek,mt6377-lbat-service",
+		.data = &mt6377_lbat_regs,
 	}, {
 		/* sentinel */
 	}

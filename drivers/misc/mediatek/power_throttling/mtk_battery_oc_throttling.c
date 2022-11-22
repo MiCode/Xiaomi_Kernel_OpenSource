@@ -7,6 +7,7 @@
 #include <linux/device.h>
 #include <linux/interrupt.h>
 #include <linux/mfd/mt6359p/registers.h>
+#include <linux/mfd/mt6377/registers.h>
 #include <linux/mfd/mt6397/core.h>
 #include <linux/math64.h>
 #include <linux/module.h>
@@ -45,8 +46,13 @@
 
 #define	MT6375_UNIT_FGCURRENT		(610352)
 
+#define MT6377_CHIP_ID			(0x77)
+#define	MT6377_DEFAULT_RFG		(50)
+#define	MT6377_UNIT_FGCURRENT		(610352)
+
 #define MTK_BATOC_DIR_NAME		"mtk_batoc_throttling"
 #define DEFAULT_BUF_LEN			512
+#define PMIC_SPMI_SWCID			(0xB)
 
 struct reg_t {
 	unsigned int addr;
@@ -59,6 +65,7 @@ struct battery_oc_data_t {
 	const char *gauge_node_name;
 	struct reg_t fg_cur_hth;
 	struct reg_t fg_cur_lth;
+	bool spmi_intf;
 	bool cust_rfg;
 	struct reg_t reg_default_rfg;
 };
@@ -68,6 +75,7 @@ struct battery_oc_data_t mt6359p_battery_oc_data = {
 	.gauge_node_name = "mtk_gauge",
 	.fg_cur_hth = {MT6359P_FGADC_CUR_CON2, 0xFFFF, 1},
 	.fg_cur_lth = {MT6359P_FGADC_CUR_CON1, 0xFFFF, 1},
+	.spmi_intf = false,
 	.cust_rfg = false,
 };
 
@@ -76,8 +84,18 @@ struct battery_oc_data_t mt6375_battery_oc_data = {
 	.gauge_node_name = "mtk_gauge",
 	.fg_cur_hth = {MT6375_FGADC_CUR_CON2, 0xFFFF, 2},
 	.fg_cur_lth = {MT6375_FGADC_CUR_CON1, 0xFFFF, 2},
+	.spmi_intf = false,
 	.cust_rfg = true,
 	.reg_default_rfg = {MT6375_FGADC_ANA_ELR4, FG_GAINERR_SEL_MASK, 1},
+};
+
+struct battery_oc_data_t mt6377_battery_oc_data = {
+	.regmap_source = "dev_get_regmap",
+	.gauge_node_name = "mtk_gauge",
+	.fg_cur_hth = {MT6377_FGADC_CUR_CON2_L, 0xFFFF, 2},
+	.fg_cur_lth = {MT6377_FGADC_CUR_CON1_L, 0xFFFF, 2},
+	.spmi_intf = true,
+	.cust_rfg = false,
 };
 
 struct battery_oc_priv {
@@ -434,6 +452,22 @@ static int battery_oc_parse_dt(struct platform_device *pdev)
 		else
 			priv->default_rfg = r_fg_val[regval];
 		priv->unit_fg_cur = MT6375_UNIT_FGCURRENT * priv->unit_multiple;
+	} else if (priv->ocdata->spmi_intf) {
+		ret = regmap_read(priv->regmap, PMIC_SPMI_SWCID, &regval);
+		if (ret) {
+			dev_info(&pdev->dev, "Failed to read chip id: %d\n", ret);
+			return ret;
+		}
+		switch (regval) {
+		case MT6377_CHIP_ID:
+			priv->default_rfg = MT6377_DEFAULT_RFG;
+			priv->unit_fg_cur = MT6377_UNIT_FGCURRENT;
+			break;
+
+		default:
+			dev_info(&pdev->dev, "unsupported chip: 0x%x\n", regval);
+			return -EINVAL;
+		}
 	} else {
 		pmic = dev_get_drvdata(pdev->dev.parent);
 		switch (pmic->chip_id) {
@@ -589,6 +623,9 @@ static const struct of_device_id battery_oc_throttling_of_match[] = {
 	}, {
 		.compatible = "mediatek,mt6375-battery_oc_throttling",
 		.data = &mt6375_battery_oc_data,
+	}, {
+		.compatible = "mediatek,mt6377-battery_oc_throttling",
+		.data = &mt6377_battery_oc_data,
 	}, {
 		/* sentinel */
 	}
