@@ -706,6 +706,7 @@ static int vdec_set_param(unsigned long h_vdec,
 		if (inst->vsi == NULL)
 			return -EINVAL;
 		inst->vsi->trick_mode = *(unsigned int *)in;
+		break;
 	case SET_PARAM_VDEC_VCU_VPUD_LOG:
 		ret = VCU_FPTR(vcu_set_log)((char *) in);
 		break;
