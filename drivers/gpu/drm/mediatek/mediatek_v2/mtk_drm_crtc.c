@@ -155,6 +155,8 @@ static bool g_ccorr_linear;
 #define DISP_REG_OVL_LX_BURST_ACC_WIN_MAX(n) (0x960UL + 0x4 * (n))
 #define DISP_REG_OVL_ELX_BURST_ACC_WIN_MAX(n) (0x970UL + 0x4 * (n))
 
+#define DISP_REG_OVL_GREQ_LAYER_CNT (0x234UL)
+
 struct drm_crtc *_get_context(void)
 {
 	static int is_context_inited;
@@ -6329,6 +6331,25 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		mutex_unlock(&mtk_crtc->mml_ir_sram.lock);
 	}
 
+	{	/* OVL reset debug */
+		unsigned int i;
+		unsigned int ovl_comp_id;
+
+		for (i = 0; i < OVL_RT_LOG_NR; i++) {
+			ovl_comp_id = *(unsigned int *)mtk_get_gce_backup_slot_va(mtk_crtc,
+							DISP_SLOT_OVL_COMP_ID(i));
+
+			if (ovl_comp_id) {
+				DDPPR_ERR("crtc%d(%d)%s reset, 0x%x\n", id, frame_idx,
+					mtk_dump_comp_str_id(ovl_comp_id),
+					*(unsigned int *)mtk_get_gce_backup_slot_va(mtk_crtc,
+					DISP_SLOT_OVL_GREQ_CNT(i)));
+				writel(0, mtk_get_gce_backup_slot_va(mtk_crtc,
+					DISP_SLOT_OVL_COMP_ID(i)));
+			}
+		}
+	}
+
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 	mutex_unlock(&priv->commit.lock);
 #ifdef MTK_DRM_ASYNC_HANDLE
@@ -7020,6 +7041,81 @@ static void cmdq_pkt_wait_te(struct cmdq_pkt *cmdq_handle,
 	*inst = *inst & ((u64)0xFFFFFFFF << 32);
 	*inst = *inst | CMDQ_REG_SHIFT_ADDR(jump_pa);
 }
+
+static void cmdq_pkt_reset_ovl_by_crtc(struct cmdq_pkt *cmdq_handle, struct mtk_ddp_comp *comp,
+	struct mtk_drm_crtc *mtk_crtc, unsigned int index)
+{
+	const u16 reg_jump = CMDQ_THR_SPR_IDX2;
+	const u16 ovl_greq_cnt = CMDQ_THR_SPR_IDX3;
+	struct cmdq_operand lop;
+	struct cmdq_operand rop;
+	u32 inst_condi_jump;
+	u64 *inst, jump_pa;
+
+	lop.reg = true;
+	lop.idx = ovl_greq_cnt;
+	rop.reg = false;
+	rop.value = 0;		/* condition */
+
+	cmdq_pkt_read(cmdq_handle, NULL,
+		comp->regs_pa + DISP_REG_OVL_GREQ_LAYER_CNT, ovl_greq_cnt);
+
+	inst_condi_jump = cmdq_handle->cmd_buf_size;
+	cmdq_pkt_assign_command(cmdq_handle, reg_jump, 0);
+	/* check OVL GREQ_LAYER_CNT is 0 */
+	cmdq_pkt_cond_jump_abs(cmdq_handle, reg_jump,
+		&lop, &rop, CMDQ_EQUAL);
+
+	/* if condition false, will jump here */
+	{
+		dma_addr_t addr_oci = mtk_get_gce_backup_slot_pa(mtk_crtc,
+			DISP_SLOT_OVL_COMP_ID(index));
+		dma_addr_t addr_ogc = mtk_get_gce_backup_slot_pa(mtk_crtc,
+			DISP_SLOT_OVL_GREQ_CNT(index));
+
+		mtk_ddp_comp_reset(comp, cmdq_handle);
+		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base, addr_oci, comp->id, ~0);
+		cmdq_pkt_mem_move(cmdq_handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_GREQ_LAYER_CNT, addr_ogc, CMDQ_THR_SPR_IDX1);
+	}
+
+	/* if condition true, will jump current postzion */
+	inst = cmdq_pkt_get_va_by_offset(cmdq_handle,  inst_condi_jump);
+	jump_pa = cmdq_pkt_get_pa_by_offset(cmdq_handle,
+				cmdq_handle->cmd_buf_size);
+	*inst = *inst | CMDQ_REG_SHIFT_ADDR(jump_pa);
+}
+
+/* check ovl GREQ_CNT then reset ovl */
+static void cmdq_pkt_reset_ovl(struct cmdq_pkt *cmdq_handle,
+		struct mtk_drm_crtc *mtk_crtc)
+{
+	struct mtk_ddp_comp *comp = NULL;
+	int type;
+	int i, j;
+	unsigned int index = 0;
+
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
+		type = mtk_ddp_comp_get_type(comp->id);
+		if (type != MTK_DISP_OVL)
+			continue;
+		cmdq_pkt_reset_ovl_by_crtc(cmdq_handle, comp, mtk_crtc, index);
+		if (index < OVL_RT_LOG_NR - 1)
+			index++;
+	}
+
+	if (mtk_crtc->is_dual_pipe) {
+		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+			type = mtk_ddp_comp_get_type(comp->id);
+			if (type != MTK_DISP_OVL)
+				continue;
+			cmdq_pkt_reset_ovl_by_crtc(cmdq_handle, comp, mtk_crtc, index);
+			if (index < OVL_RT_LOG_NR - 1)
+				index++;
+		}
+	}
+}
+
 #endif
 
 void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
@@ -10669,6 +10765,8 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 			mtk_ddp_comp_reset(comp, mtk_crtc_state->cmdq_handle);
 		}
 	}
+
+	cmdq_pkt_reset_ovl(mtk_crtc_state->cmdq_handle, mtk_crtc);
 
 	/* BW monitor: Read and Save BW info */
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_BW_MONITOR) &&

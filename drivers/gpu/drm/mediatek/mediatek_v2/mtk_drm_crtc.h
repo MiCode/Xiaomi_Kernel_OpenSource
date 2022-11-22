@@ -123,9 +123,14 @@ enum DISP_PMQOS_SLOT {
 #define DISP_SLOT_REQUEST_TE_PREPARE (DISP_SLOT_TE1_EN + 0x4)
 #define DISP_SLOT_REQUEST_TE_EN (DISP_SLOT_REQUEST_TE_PREPARE + 0x4)
 
+/* reset OVL log */
+#define OVL_RT_LOG_NR 10
+#define DISP_SLOT_OVL_COMP_ID(n) (DISP_SLOT_REQUEST_TE_EN + 0x4 + (0x4 * (n)))
+#define DISP_SLOT_OVL_GREQ_CNT(n) (DISP_SLOT_OVL_COMP_ID(OVL_RT_LOG_NR) + (0x4 * (n)))
+#define DISP_SLOT_OVL_RT_LOG_END DISP_SLOT_OVL_GREQ_CNT(OVL_RT_LOG_NR)
 
 #define DISP_SLOT_LAYER_AVG_RATIO(n)                                          \
-	(DISP_SLOT_REQUEST_TE_EN + 0x14 + (0x8 * (n)))
+	(DISP_SLOT_OVL_RT_LOG_END + 0x14 + (0x8 * (n)))
 #define DISP_SLOT_LAYER_PEAK_RATIO(n)                                          \
 	(DISP_SLOT_LAYER_AVG_RATIO(n) + 0x4)
 #define DISP_SLOT_SIZE            \
