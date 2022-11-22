@@ -2348,6 +2348,7 @@ int task_cgroup_path(struct task_struct *task, char *buf, size_t buflen)
 }
 EXPORT_SYMBOL_GPL(task_cgroup_path);
 
+#if !IS_ENABLED(CONFIG_MTK_FIX_CGROUP_USE_AFTER_FREE)
 /**
  * cgroup_attach_lock - Lock for ->attach()
  * @lock_threadgroup: whether to down_write cgroup_threadgroup_rwsem
@@ -2388,6 +2389,7 @@ static void cgroup_attach_unlock(bool lock_threadgroup)
 		percpu_up_write(&cgroup_threadgroup_rwsem);
 	cpus_read_unlock();
 }
+#endif
 
 /**
  * cgroup_migrate_add_task - add a migration target task to a migration context
@@ -2867,9 +2869,16 @@ int cgroup_attach_task(struct cgroup *dst_cgrp, struct task_struct *leader,
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_MTK_FIX_CGROUP_USE_AFTER_FREE)
+struct task_struct *cgroup_procs_write_start(char *buf, bool threadgroup,
+					     bool *locked,
+					     struct cgroup *dst_cgrp)
+	__acquires(&cgroup_threadgroup_rwsem)
+#else
 struct task_struct *cgroup_procs_write_start(char *buf, bool threadgroup,
 					     bool *threadgroup_locked,
 					     struct cgroup *dst_cgrp)
+#endif
 {
 	struct task_struct *tsk;
 	pid_t pid;
@@ -2887,8 +2896,17 @@ struct task_struct *cgroup_procs_write_start(char *buf, bool threadgroup,
 	 * Therefore, we can skip the global lock.
 	 */
 	lockdep_assert_held(&cgroup_mutex);
+#if IS_ENABLED(CONFIG_MTK_FIX_CGROUP_USE_AFTER_FREE)
+	if (pid || threadgroup) {
+		percpu_down_write(&cgroup_threadgroup_rwsem);
+		*locked = true;
+	} else {
+		*locked = false;
+	}
+#else
 	*threadgroup_locked = pid || threadgroup;
 	cgroup_attach_lock(*threadgroup_locked);
+#endif
 
 	rcu_read_lock();
 	if (pid) {
@@ -2922,14 +2940,26 @@ struct task_struct *cgroup_procs_write_start(char *buf, bool threadgroup,
 	goto out_unlock_rcu;
 
 out_unlock_threadgroup:
+#if IS_ENABLED(CONFIG_MTK_FIX_CGROUP_USE_AFTER_FREE)
+	if (*locked) {
+		percpu_up_write(&cgroup_threadgroup_rwsem);
+		*locked = false;
+	}
+#else
 	cgroup_attach_unlock(*threadgroup_locked);
 	*threadgroup_locked = false;
+#endif
 out_unlock_rcu:
 	rcu_read_unlock();
 	return tsk;
 }
 
+#if IS_ENABLED(CONFIG_MTK_FIX_CGROUP_USE_AFTER_FREE)
+void cgroup_procs_write_finish(struct task_struct *task, bool locked)
+	__releases(&cgroup_threadgroup_rwsem)
+#else
 void cgroup_procs_write_finish(struct task_struct *task, bool threadgroup_locked)
+#endif
 {
 	struct cgroup_subsys *ss;
 	int ssid;
@@ -2937,7 +2967,12 @@ void cgroup_procs_write_finish(struct task_struct *task, bool threadgroup_locked
 	/* release reference from cgroup_procs_write_start() */
 	put_task_struct(task);
 
+#if IS_ENABLED(CONFIG_MTK_FIX_CGROUP_USE_AFTER_FREE)
+	if (locked)
+		percpu_up_write(&cgroup_threadgroup_rwsem);
+#else
 	cgroup_attach_unlock(threadgroup_locked);
+#endif
 
 	for_each_subsys(ss, ssid)
 		if (ss->post_attach)
@@ -3015,7 +3050,12 @@ static int cgroup_update_dfl_csses(struct cgroup *cgrp)
 	 * write-locking can be skipped safely.
 	 */
 	has_tasks = !list_empty(&mgctx.preloaded_src_csets);
+#if IS_ENABLED(CONFIG_MTK_FIX_CGROUP_USE_AFTER_FREE)
+	if (has_tasks)
+		percpu_down_write(&cgroup_threadgroup_rwsem);
+#else
 	cgroup_attach_lock(has_tasks);
+#endif
 
 	/* NULL dst indicates self on default hierarchy */
 	ret = cgroup_migrate_prepare_dst(&mgctx);
@@ -3036,7 +3076,12 @@ static int cgroup_update_dfl_csses(struct cgroup *cgrp)
 	ret = cgroup_migrate_execute(&mgctx);
 out_finish:
 	cgroup_migrate_finish(&mgctx);
+#if IS_ENABLED(CONFIG_MTK_FIX_CGROUP_USE_AFTER_FREE)
+	if (has_tasks)
+		percpu_up_write(&cgroup_threadgroup_rwsem);
+#else
 	cgroup_attach_unlock(has_tasks);
+#endif
 	return ret;
 }
 
@@ -4986,13 +5031,21 @@ static ssize_t __cgroup_procs_write(struct kernfs_open_file *of, char *buf,
 	struct task_struct *task;
 	const struct cred *saved_cred;
 	ssize_t ret;
+#if IS_ENABLED(CONFIG_MTK_FIX_CGROUP_USE_AFTER_FREE)
+	bool locked;
+#else
 	bool threadgroup_locked;
+#endif
 
 	dst_cgrp = cgroup_kn_lock_live(of->kn, false);
 	if (!dst_cgrp)
 		return -ENODEV;
 
+#if IS_ENABLED(CONFIG_MTK_FIX_CGROUP_USE_AFTER_FREE)
+	task = cgroup_procs_write_start(buf, threadgroup, &locked, dst_cgrp);
+#else
 	task = cgroup_procs_write_start(buf, threadgroup, &threadgroup_locked, dst_cgrp);
+#endif
 	ret = PTR_ERR_OR_ZERO(task);
 	if (ret)
 		goto out_unlock;
@@ -5018,7 +5071,11 @@ static ssize_t __cgroup_procs_write(struct kernfs_open_file *of, char *buf,
 	ret = cgroup_attach_task(dst_cgrp, task, threadgroup);
 
 out_finish:
+#if IS_ENABLED(CONFIG_MTK_FIX_CGROUP_USE_AFTER_FREE)
+	cgroup_procs_write_finish(task, locked);
+#else
 	cgroup_procs_write_finish(task, threadgroup_locked);
+#endif
 out_unlock:
 	cgroup_kn_unlock(of->kn);
 
