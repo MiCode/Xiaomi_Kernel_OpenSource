@@ -133,6 +133,7 @@ extern char *mtk_venc_vcp_log;
 extern char mtk_venc_vcp_log_prev[LOG_PROPERTY_SIZE];
 extern int mtk_vdec_align_limit;
 extern int support_svp_region;
+extern int support_wfd_region;
 
 struct VENC_SLB_CB_T {
 	atomic_t release_slbc;

@@ -391,6 +391,12 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 		i++;
 	}
 
+	ret = of_property_read_u32(pdev->dev.of_node, "support-wfd-region", &support_wfd_region);
+	if (ret) {
+		mtk_v4l2_debug(0, "[VENC] Cannot get support-wfd-region, skip");
+		support_wfd_region = 0;
+	}
+
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (res == NULL) {
 		dev_info(&pdev->dev, "failed to get irq resource");
