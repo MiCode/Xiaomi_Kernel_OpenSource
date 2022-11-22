@@ -6394,7 +6394,7 @@ static int compat_get_dip_read_register_data(
 	struct DIP_REG_IO_STRUCT *data)
 {
 	long ret = -1;
-	struct compat_DIP_REG_IO_STRUCT data32;
+	struct compat_DIP_REG_IO_STRUCT data32 = {0, 0};
 
 	ret = (long)copy_from_user(&data32, compat_ptr(arg),
 			(unsigned long)sizeof(struct compat_DIP_REG_IO_STRUCT));
@@ -6410,7 +6410,7 @@ static int compat_put_dip_read_register_data(
 	struct DIP_REG_IO_STRUCT *data)
 {
 	long ret = -1;
-	struct compat_DIP_REG_IO_STRUCT data32;
+	struct compat_DIP_REG_IO_STRUCT data32 = {0, 0};
 	/*      compat_uptr_t uptr;*/
 	ret = (long)copy_from_user(&data32, compat_ptr(arg),
 			(unsigned long)sizeof(struct compat_DIP_REG_IO_STRUCT));
@@ -6427,7 +6427,7 @@ static int compat_get_dip_dump_buffer(
 	struct DIP_DUMP_BUFFER_STRUCT *data)
 {
 	long ret = -1;
-	struct compat_DIP_DUMP_BUFFER_STRUCT data32;
+	struct compat_DIP_DUMP_BUFFER_STRUCT data32 = {0, 0, 0};
 
 	ret = (long)copy_from_user(&data32, compat_ptr(arg),
 			(unsigned long)sizeof(struct compat_DIP_DUMP_BUFFER_STRUCT));
@@ -6444,7 +6444,7 @@ static int compat_get_dip_mem_info(
 	struct DIP_MEM_INFO_STRUCT *data)
 {
 	long ret = -1;
-	struct compat_DIP_MEM_INFO_STRUCT data32;
+	struct compat_DIP_MEM_INFO_STRUCT data32 = {0, 0, 0, 0};
 
 	ret = (long)copy_from_user(&data32, compat_ptr(arg),
 			(unsigned long)sizeof(struct compat_DIP_MEM_INFO_STRUCT));
@@ -7158,12 +7158,13 @@ static signed int DIP_probe(struct platform_device *pDev)
 	_dipdev = krealloc(dip_devs,
 		sizeof(struct dip_device) * nr_dip_devs,
 		GFP_KERNEL);
-	if (!_dipdev) {
+
+	dip_devs = _dipdev;
+
+	if (!dip_devs) {
 		LOG_INF("Unable to allocate dip_devs\n");
 		return -ENOMEM;
 	}
-	dip_devs = _dipdev;
-
 
 	dip_dev = &(dip_devs[nr_dip_devs - 1]);
 	dip_dev->dev = &pDev->dev;
