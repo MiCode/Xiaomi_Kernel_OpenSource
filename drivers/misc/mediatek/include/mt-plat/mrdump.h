@@ -165,7 +165,7 @@ struct mrdump_mini_header {
 #define MRDUMP_MINI_NR_SECTION 60
 #define MRDUMP_MINI_SECTION_SIZE (32 * 1024)
 #define NT_IPANIC_MISC 4095
-#define MRDUMP_MINI_NR_MISC 40
+#define MRDUMP_MINI_NR_MISC 80
 #define MRDUMP_MINI_MISC_LOAD "load"
 
 struct mrdump_mini_elf_misc {
