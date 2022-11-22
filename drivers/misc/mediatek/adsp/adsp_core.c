@@ -418,8 +418,7 @@ static int adsp_pm_event(struct notifier_block *notifier,
 {
 	switch (pm_event) {
 	case PM_POST_HIBERNATION:
-		pr_notice("[ADSP] %s: reboot\n", __func__);
-		adsp_reset();
+		pr_notice("[ADSP] %s: PM_POST_HIBERNATION\n", __func__);
 		return NOTIFY_DONE;
 	case PM_SUSPEND_PREPARE:
 		return adsp_pm_suspend_prepare();
