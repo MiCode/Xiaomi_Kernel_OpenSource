@@ -887,7 +887,10 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 		mutex_unlock(&dev->ctx_mutex);
 		break;
 	case VCP_EVENT_SUSPEND:
+		mutex_lock(&dev->dec_dvfs_mutex);
 		dev->is_codec_suspending = 1;
+		mutex_unlock(&dev->dec_dvfs_mutex);
+
 		while (atomic_read(&dev->mq.cnt)) {
 			timeout += 20;
 			usleep_range(10000, 20000);
