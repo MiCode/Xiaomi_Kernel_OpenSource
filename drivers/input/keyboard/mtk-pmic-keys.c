@@ -17,8 +17,10 @@
 #include <linux/mfd/mt6323/registers.h>
 #include <linux/mfd/mt6359p/registers.h>
 #include <linux/mfd/mt6363/registers.h>
+#include <linux/mfd/mt6377/registers.h>
 #include <linux/mfd/mt6397/registers.h>
 #include <linux/mfd/mt6363/core.h>
+#include <linux/mfd/mt6377/core.h>
 #include <linux/mfd/mt6397/core.h>
 
 #define MTK_PMIC_PWRKEY_INDEX			0
@@ -33,6 +35,9 @@
 #define MT6363_PWRKEY_RST_SHIFT			2
 #define MT6363_HOMEKEY_RST_SHIFT		4
 #define MT6363_RST_DU_SHIFT			6
+#define MT6377_PWRKEY_RST_SHIFT			5
+#define MT6377_HOMEKEY_RST_SHIFT		4
+#define MT6377_RST_DU_SHIFT			6
 #define PWRKEY_RST_EN				1
 #define HOMEKEY_RST_EN				1
 #define RST_DU_MASK				3
@@ -42,6 +47,12 @@
 #define RST_PWRKEY_HOME2_MODE			2
 #define RST_PWRKEY_HOME_HOME2_MODE		3
 #define INVALID_VALUE				0
+#define MT6377_TOP_TMA_KEY_LOCK			0
+#define MT6377_TOP_TMA_KEY_H_LOCK		0
+#define MT6377_TOP_TMA_KEY_UNLOCK		0x88
+#define MT6377_TOP_TMA_KEY_H_UNLOCK		0x9c
+#define MT6377_TOP_TMA_KEY_ADDR			0x39c
+#define MT6377_TOP_TMA_KEY_H_ADDR		0x39d
 
 struct mtk_pmic_keys_regs {
 	u32 deb_reg;
@@ -127,6 +138,20 @@ static const struct mtk_pmic_regs mt6363_regs = {
 	.rst_du_shift = MT6363_RST_DU_SHIFT,
 };
 
+static const struct mtk_pmic_regs mt6377_regs = {
+	.keys_regs[MTK_PMIC_PWRKEY_INDEX] =
+		MTK_PMIC_KEYS_REGS(MT6377_TOPSTATUS,
+		0x1, MT6377_PSC_TOP_INT_CON0, 0x0),
+	.keys_regs[MTK_PMIC_HOMEKEY_INDEX] =
+		MTK_PMIC_KEYS_REGS(MT6377_TOPSTATUS,
+		0x3, MT6377_PSC_TOP_INT_CON0, 0x1),
+	.release_irq = true,
+	.pmic_rst_reg = MT6377_STRUP_CON12,
+	.pwrkey_rst_shift = MT6377_PWRKEY_RST_SHIFT,
+	.homekey_rst_shift = MT6377_HOMEKEY_RST_SHIFT,
+	.rst_du_shift = MT6377_RST_DU_SHIFT,
+};
+
 struct mtk_pmic_keys_info {
 	struct mtk_pmic_keys *keys;
 	const struct mtk_pmic_keys_regs *regs;
@@ -162,6 +187,12 @@ static void mtk_pmic_keys_lp_reset_setup(struct mtk_pmic_keys *keys,
 		PWRKEY_RST_EN << pmic_regs->pwrkey_rst_shift;
 	u32 homekey_rst_shift =
 		RST_MODE_MASK << pmic_regs->homekey_rst_shift;
+
+	/* unlock PMIC protect key */
+	if (pmic_rst_reg == MT6377_STRUP_CON12) {
+		regmap_write(keys->regmap, MT6377_TOP_TMA_KEY_ADDR, MT6377_TOP_TMA_KEY_UNLOCK);
+		regmap_write(keys->regmap, MT6377_TOP_TMA_KEY_H_ADDR, MT6377_TOP_TMA_KEY_H_UNLOCK);
+	}
 
 	if (pmic_rst_para_reg == INVALID_VALUE) {
 		pmic_rst_para_reg = pmic_rst_reg;
@@ -209,6 +240,11 @@ static void mtk_pmic_keys_lp_reset_setup(struct mtk_pmic_keys *keys,
 		break;
 	default:
 		break;
+	}
+	/* lock PMIC protect key */
+	if (pmic_rst_reg == MT6377_STRUP_CON12) {
+		regmap_write(keys->regmap, MT6377_TOP_TMA_KEY_ADDR, MT6377_TOP_TMA_KEY_LOCK);
+		regmap_write(keys->regmap, MT6377_TOP_TMA_KEY_H_ADDR, MT6377_TOP_TMA_KEY_H_LOCK);
 	}
 }
 
@@ -334,6 +370,9 @@ static const struct of_device_id of_mtk_pmic_keys_match_tbl[] = {
 	}, {
 		.compatible = "mediatek,mt6363-keys",
 		.data = &mt6363_regs,
+	}, {
+		.compatible = "mediatek,mt6377-keys",
+		.data = &mt6377_regs,
 	}, {
 		/* sentinel */
 	}
