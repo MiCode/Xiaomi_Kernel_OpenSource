@@ -9126,6 +9126,7 @@
 		secure_dump = "enable";   /* enable dump via secure world*/
 		secure_dump_size = <0x480000>;
 		scp_pm_notify = "enable";
+		scp-thermal-wq = "enable";
 
 		scp_aovmem_key = "mediatek,scp_aov_reserved";
 		scp_mem_key = "mediatek,reserve-memory-scp_share";
