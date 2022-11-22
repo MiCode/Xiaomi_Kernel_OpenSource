@@ -35,6 +35,7 @@
 
 #define FDVT_BASE_HW   0x1B001000
 
+#define MAX_FACE_NUM   1024
 
 /*This macro is for setting irq status represnted
  * by a local variable,FDVTInfo.IrqInfo.status[FDVT_IRQ_TYPE_INT_FDVT_ST]
@@ -165,6 +166,124 @@ struct FDVT_MetaDataToGCE {
 };
 #define FDVT_MetaDataToGCE struct FDVT_MetaDataToGCE
 
+struct FDRESULT {
+	unsigned short anchor_x0[MAX_FACE_NUM];
+	unsigned short anchor_x1[MAX_FACE_NUM];
+	unsigned short anchor_y0[MAX_FACE_NUM];
+	unsigned short anchor_y1[MAX_FACE_NUM];
+	unsigned short landmark_x0[MAX_FACE_NUM];
+	unsigned short landmark_x1[MAX_FACE_NUM];
+	unsigned short landmark_x2[MAX_FACE_NUM];
+	unsigned short landmark_x3[MAX_FACE_NUM];
+	unsigned short landmark_x4[MAX_FACE_NUM];
+	unsigned short landmark_x5[MAX_FACE_NUM];
+	unsigned short landmark_x6[MAX_FACE_NUM];
+	unsigned short landmark_y0[MAX_FACE_NUM];
+	unsigned short landmark_y1[MAX_FACE_NUM];
+	unsigned short landmark_y2[MAX_FACE_NUM];
+	unsigned short landmark_y3[MAX_FACE_NUM];
+	unsigned short landmark_y4[MAX_FACE_NUM];
+	unsigned short landmark_y5[MAX_FACE_NUM];
+	unsigned short landmark_y6[MAX_FACE_NUM];
+	signed short anchor_score[MAX_FACE_NUM];
+	signed short landmark_score0[MAX_FACE_NUM];
+	signed short landmark_score1[MAX_FACE_NUM];
+	signed short landmark_score2[MAX_FACE_NUM];
+	signed short landmark_score3[MAX_FACE_NUM];
+	signed short landmark_score4[MAX_FACE_NUM];
+	signed short landmark_score5[MAX_FACE_NUM];
+	signed short landmark_score6[MAX_FACE_NUM];
+
+	signed short rip_landmark_score0[MAX_FACE_NUM];
+	signed short rip_landmark_score1[MAX_FACE_NUM];
+	signed short rip_landmark_score2[MAX_FACE_NUM];
+	signed short rip_landmark_score3[MAX_FACE_NUM];
+	signed short rip_landmark_score4[MAX_FACE_NUM];
+	signed short rip_landmark_score5[MAX_FACE_NUM];
+	signed short rip_landmark_score6[MAX_FACE_NUM];
+
+	signed short rop_landmark_score0[MAX_FACE_NUM];
+	signed short rop_landmark_score1[MAX_FACE_NUM];
+	signed short rop_landmark_score2[MAX_FACE_NUM];
+	unsigned short face_result_index[MAX_FACE_NUM];
+	unsigned short anchor_index[MAX_FACE_NUM];
+	unsigned int fd_partial_result;
+};
+
+struct FD_RESULT {
+	struct FDRESULT PYRAMID0_RESULT;
+	struct FDRESULT PYRAMID1_RESULT;
+	struct FDRESULT PYRAMID2_RESULT;
+	unsigned short FD_TOTAL_NUM;
+	unsigned long *FD_raw_result_0_va; // AIE2.0 for bit-true test only
+	unsigned long *FD_raw_result_1_va; // AIE2.0 for bit-true test only
+	unsigned long *FD_raw_result_2_va; // AIE2.0 for bit-true test only
+	unsigned long *FD_raw_result_run2_0_va; // AIE2.0 for bit-true test only
+	unsigned long *FD_raw_result_run2_1_va; // AIE2.0 for bit-true test only
+	unsigned long *FD_raw_result_run2_2_va; // AIE2.0 for bit-true test only
+};
+
+struct RACERESULT {
+	signed short RESULT[4][64]; // RESULT[Channel][Feature]
+};
+
+struct GENDERRESULT {
+	signed short RESULT[2][64]; // RESULT[Channel][Feature]
+};
+
+struct RIPRESULT {
+	signed short RESULT[7][64]; // RESULT[Channel][Feature]
+};
+
+struct ROPRESULT {
+	signed short RESULT[3][64]; // RESULT[Channel][Feature]
+};
+
+struct MERGED_RACERESULT { // AIE2.0
+	signed short RESULT[4]; // RESULT[Feature]
+};
+
+struct MERGED_GENDERRESULT { // AIE2.0
+	signed short RESULT[2]; // RESULT[Feature]
+};
+
+struct MERGED_AGERESULT { // AIE2.0
+	signed short RESULT[2]; // RESULT[Feature]
+};
+
+struct MERGED_IS_INDIANRESULT { // AIE2.0
+	signed short RESULT[2]; // RESULT[Feature]
+};
+
+struct MERGED_RIPRESULT { // AIE2.0
+	signed short RESULT[7]; // RESULT[Feature]
+};
+
+struct MERGED_ROPRESULT {  // AIE2.0
+	signed short RESULT[3]; // RESULT[Feature]
+};
+
+struct ATTRIBUTE_RESULT {
+	struct GENDERRESULT GENDER_RESULT;
+	struct RACERESULT RACE_RESULT;
+	struct MERGED_AGERESULT MERGED_AGE_RESULT;
+	struct MERGED_GENDERRESULT MERGED_GENDER_RESULT;
+	struct MERGED_IS_INDIANRESULT MERGED_IS_INDIAN_RESULT;
+	struct MERGED_RACERESULT MERGED_RACE_RESULT;
+	unsigned long *ATTR_raw_result_0_va; // AIE2.0 for bit-true test only
+	unsigned long *ATTR_raw_result_1_va; // AIE2.0 for bit-true test only
+	unsigned long *ATTR_raw_result_2_va; // AIE2.0 for bit-true test only
+	unsigned long *ATTR_raw_result_3_va; // AIE2.0 for bit-true test only
+};
+
+struct POSE_RESULT {
+	struct RIPRESULT RIP_RESULT;
+	struct ROPRESULT ROP_RESULT;
+	struct MERGED_RIPRESULT MERGED_RIP_RESULT;
+	struct MERGED_ROPRESULT MERGED_ROP_RESULT;
+};
+
+
 struct fdvt_config {
 	/*fdvt_reg_t REG_STRUCT;*/
 	unsigned int FDVT_RSCON_BASE_ADR;
@@ -183,6 +302,9 @@ struct fdvt_config {
 	unsigned int FDVT_FD_POSE_CON_BUFSIZE;
 	unsigned int FDVT_LOOPS_OF_FDMODE;
 	unsigned int FDVT_NUMBERS_OF_PYRAMID;
+	struct FD_RESULT *FDOUTPUT;
+	struct ATTRIBUTE_RESULT *ATTRIBUTEOUTPUT;
+	struct POSE_RESULT *POSEOUTPUT;
 	FDVT_MetaDataToGCE FDVT_METADATA_TO_GCE;
 	unsigned int *FDVT_IMG_Y_VA;
 	unsigned int *FDVT_IMG_UV_VA;
