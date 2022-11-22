@@ -394,20 +394,16 @@ static void tx_wakeup_worker(struct glink_slatecom *glink)
 	int rc;
 
 	mutex_lock(&glink->tx_avail_lock);
+	__pm_stay_awake(glink->ws);
 
-	do {
-		rc = slatecom_reg_read(glink->slatecom_handle,
-						SLATECOM_REG_FIFO_FILL, 1, &fifo_fill);
+	rc = slatecom_reg_read(glink->slatecom_handle, SLATECOM_REG_FIFO_FILL, 1,
+						&fifo_fill);
+	if (rc < 0) {
+		GLINK_ERR(glink, "%s: Error %d receiving data\n"
+					, __func__, rc);
+	}
 
-			if (rc < 0) {
-				GLINK_ERR(glink, "%s: Error %d receiving data\n"
-									, __func__, rc);
-				if (rc == -ECANCELED)
-					usleep_range(TX_WAIT_US, TX_WAIT_US + 1000);
-			}
-
-	} while (rc == -ECANCELED);
-
+	__pm_relax(glink->ws);
 	glink->fifo_fill.tx_avail = fifo_fill.tx_avail;
 	if (glink->fifo_fill.tx_avail > glink->fifo_size.to_slave/2)
 		glink->water_mark_reached = false;
