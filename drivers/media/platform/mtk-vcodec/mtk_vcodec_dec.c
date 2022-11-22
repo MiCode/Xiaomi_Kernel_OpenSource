@@ -1474,7 +1474,21 @@ int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, enum mtk_put_buffer_type type, b
 	update_dst_cnt(ctx);
 
 not_put_fb:
-	if (ctx->input_driven || no_need_put)
+	if (no_need_put) {
+		struct list_head *p, *q;
+		struct mtk_vcodec_ctx *tmp_ctx;
+
+		if (!mtk_vcodec_is_vcp(MTK_INST_DECODER))
+			mutex_lock(&ctx->dev->ctx_mutex);
+		list_for_each_safe(p, q, &ctx->dev->ctx_list) {
+			tmp_ctx = list_entry(p, struct mtk_vcodec_ctx, list);
+			if (tmp_ctx != NULL &&
+			    tmp_ctx->state < MTK_STATE_ABORT && tmp_ctx->state > MTK_STATE_FREE)
+				v4l2_m2m_try_schedule(tmp_ctx->m2m_ctx);
+		}
+		if (!mtk_vcodec_is_vcp(MTK_INST_DECODER))
+			mutex_unlock(&ctx->dev->ctx_mutex);
+	} else if (ctx->input_driven)
 		v4l2_m2m_try_schedule(ctx->m2m_ctx);
 
 	return 0;
