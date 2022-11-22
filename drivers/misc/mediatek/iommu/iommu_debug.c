@@ -5023,12 +5023,20 @@ static int m4u_debug_set(void *data, u64 val)
 		event_mgr[IOMMU_FREE].dump_log = 1;
 		event_mgr[IOMMU_MAP].dump_log = 1;
 		event_mgr[IOMMU_UNMAP].dump_log = 1;
+		event_mgr[IOMMU_SUSPEND].dump_log = 1;
+		event_mgr[IOMMU_RESUME].dump_log = 1;
+		event_mgr[IOMMU_POWER_ON].dump_log = 1;
+		event_mgr[IOMMU_POWER_OFF].dump_log = 1;
 		break;
 	case 12:	/* disable trace log */
 		event_mgr[IOMMU_ALLOC].dump_log = 0;
 		event_mgr[IOMMU_FREE].dump_log = 0;
 		event_mgr[IOMMU_MAP].dump_log = 0;
 		event_mgr[IOMMU_UNMAP].dump_log = 0;
+		event_mgr[IOMMU_SUSPEND].dump_log = 0;
+		event_mgr[IOMMU_RESUME].dump_log = 0;
+		event_mgr[IOMMU_POWER_ON].dump_log = 0;
+		event_mgr[IOMMU_POWER_OFF].dump_log = 0;
 		break;
 	case 13:	/* enable trace dump */
 		event_mgr[IOMMU_ALLOC].dump_trace = 1;
@@ -5037,6 +5045,10 @@ static int m4u_debug_set(void *data, u64 val)
 		event_mgr[IOMMU_UNMAP].dump_trace = 1;
 		event_mgr[IOMMU_SYNC].dump_trace = 1;
 		event_mgr[IOMMU_UNSYNC].dump_trace = 1;
+		event_mgr[IOMMU_SUSPEND].dump_trace = 1;
+		event_mgr[IOMMU_RESUME].dump_trace = 1;
+		event_mgr[IOMMU_POWER_ON].dump_trace = 1;
+		event_mgr[IOMMU_POWER_OFF].dump_trace = 1;
 		break;
 	case 14:	/* disable trace dump */
 		event_mgr[IOMMU_ALLOC].dump_trace = 0;
@@ -5045,18 +5057,30 @@ static int m4u_debug_set(void *data, u64 val)
 		event_mgr[IOMMU_UNMAP].dump_trace = 0;
 		event_mgr[IOMMU_SYNC].dump_trace = 0;
 		event_mgr[IOMMU_UNSYNC].dump_trace = 0;
+		event_mgr[IOMMU_SUSPEND].dump_trace = 0;
+		event_mgr[IOMMU_RESUME].dump_trace = 0;
+		event_mgr[IOMMU_POWER_ON].dump_trace = 0;
+		event_mgr[IOMMU_POWER_OFF].dump_trace = 0;
 		break;
 	case 15:	/* reset to default trace log & dump */
 		event_mgr[IOMMU_ALLOC].dump_trace = 1;
 		event_mgr[IOMMU_FREE].dump_trace = 1;
 		event_mgr[IOMMU_SYNC].dump_trace = 1;
 		event_mgr[IOMMU_UNSYNC].dump_trace = 1;
+		event_mgr[IOMMU_SUSPEND].dump_trace = 1;
+		event_mgr[IOMMU_RESUME].dump_trace = 1;
+		event_mgr[IOMMU_POWER_ON].dump_trace = 1;
+		event_mgr[IOMMU_POWER_OFF].dump_trace = 1;
 		event_mgr[IOMMU_MAP].dump_trace = 0;
 		event_mgr[IOMMU_UNMAP].dump_trace = 0;
 		event_mgr[IOMMU_ALLOC].dump_log = 0;
 		event_mgr[IOMMU_FREE].dump_log = 0;
 		event_mgr[IOMMU_MAP].dump_log = 0;
 		event_mgr[IOMMU_UNMAP].dump_log = 0;
+		event_mgr[IOMMU_SUSPEND].dump_log = 0;
+		event_mgr[IOMMU_RESUME].dump_log = 0;
+		event_mgr[IOMMU_POWER_ON].dump_log = 0;
+		event_mgr[IOMMU_POWER_OFF].dump_log = 0;
 		break;
 	case 16:	/* dump iova trace */
 		mtk_iommu_trace_dump(NULL);
@@ -5171,11 +5195,6 @@ static void mtk_iommu_trace_init(struct mtk_m4u_data *data)
 	event_mgr[IOMMU_RESUME].dump_trace = 1;
 	event_mgr[IOMMU_POWER_ON].dump_trace = 1;
 	event_mgr[IOMMU_POWER_OFF].dump_trace = 1;
-
-	event_mgr[IOMMU_SUSPEND].dump_log = 1;
-	event_mgr[IOMMU_RESUME].dump_log = 1;
-	event_mgr[IOMMU_POWER_ON].dump_log = 1;
-	event_mgr[IOMMU_POWER_OFF].dump_log = 1;
 
 	iommu_globals.record = vmalloc(total_size);
 	if (!iommu_globals.record) {
