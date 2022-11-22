@@ -3,6 +3,7 @@
 
 #include <linux/module.h>
 #include <linux/delay.h>
+#include <linux/minmax.h>
 
 #include "mtk_cam-seninf.h"
 #include "mtk_cam-seninf-hw.h"
@@ -3434,6 +3435,40 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 #define FT_30_FPS 33
 #define PKT_CNT_CHK_MARGIN 110
 
+#define MAX_DELAY_STEP 100
+
+/**
+ * Delay with stream off check
+ *
+ * @param ctx seninf_ctx
+ * @param delay Total delay
+ *
+ * @return {@code false} if it has been streamed off and delay partically, otherwise (@code true}
+ */
+static bool delay_with_stream_check(struct seninf_ctx *ctx, unsigned long delay)
+{
+	unsigned long delay_step, delay_inc;
+
+	delay_inc = 0;
+	delay_step = 1;
+	do {
+		if (!ctx->streaming)
+			break;
+
+		delay_step = min((unsigned long)MAX_DELAY_STEP, delay - delay_inc);
+		mdelay(delay_step);
+		delay_inc += delay_step;
+	} while (delay > delay_inc);
+
+	if (delay > delay_inc) {
+		dev_info(ctx->dev, "delay = %lu, inc = %lu, seninf streamed-off\n",
+			 delay, delay_inc);
+		return false;
+	}
+
+	return true;
+}
+
 static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 {
 	void *base_ana, *base_cphy, *base_dphy, *base_csi, *base_mux;
@@ -3603,7 +3638,8 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 
 		while (total_delay <= ((debug_ft * PKT_CNT_CHK_MARGIN) / 100)) {
 			tmp_mipi_packet_cnt = mipi_packet_cnt & 0xFFFF;
-			mdelay(debug_vb);
+			if (!delay_with_stream_check(ctx, debug_vb))
+				return ret; // has been stream off
 			total_delay += debug_vb;
 			mipi_packet_cnt = SENINF_READ_REG(base_csi,
 						SENINF_CSI2_PACKET_CNT_STATUS);
@@ -3621,8 +3657,8 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 
 	/* Check csi status again */
 	if (debug_ft > total_delay) {
-		mdelay(debug_ft - total_delay);
-		total_delay = debug_ft;
+		if (!delay_with_stream_check(ctx, debug_ft - total_delay))
+			return ret; // has been stream off
 	}
 
 	temp = SENINF_READ_REG(base_csi, SENINF_CSI2_IRQ_STATUS);
@@ -3652,10 +3688,13 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 			if (SENINF_READ_REG(base_mux, SENINF_MUX_IRQ_STATUS) & 0x1) {
 				SENINF_WRITE_REG(base_mux, SENINF_MUX_IRQ_STATUS,
 						 0xffffffff);
-				if (debug_ft > FT_30_FPS)
-					mdelay(FT_30_FPS);
-				else
-					mdelay(debug_ft);
+				if (debug_ft > FT_30_FPS) {
+					if (!delay_with_stream_check(ctx, FT_30_FPS))
+						return ret; // has been stream off
+				} else {
+					if (!delay_with_stream_check(ctx, debug_ft))
+						return ret; // has been stream off
+				}
 				dev_info(ctx->dev,
 					"after reset overrun, SENINF_MUX_IRQ_STATUS(0x%x) SENINF%d_MUX_SIZE(0x%x)\n",
 					SENINF_READ_REG(base_mux,
