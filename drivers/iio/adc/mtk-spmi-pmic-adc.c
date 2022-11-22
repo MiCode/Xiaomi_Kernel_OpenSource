@@ -11,6 +11,7 @@
 #include <linux/mfd/mt6363/registers.h>
 #include <linux/mfd/mt6368/registers.h>
 #include <linux/mfd/mt6373/registers.h>
+#include <linux/mfd/mt6377/registers.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
@@ -90,6 +91,7 @@ struct auxadc_channels {
  */
 static struct auxadc_channels auxadc_chans[] = {
 	AUXADC_CHANNEL(BATADC, 15),
+	AUXADC_CHANNEL(VCDT, 12),
 	AUXADC_CHANNEL(BAT_TEMP, 12),
 	AUXADC_CHANNEL(CHIP_TEMP, 12),
 	AUXADC_CHANNEL(VCORE_TEMP, 12),
@@ -98,6 +100,7 @@ static struct auxadc_channels auxadc_chans[] = {
 	AUXADC_CHANNEL(ACCDET, 12),
 	AUXADC_CHANNEL(HPOFS_CAL, 15),
 	AUXADC_CHANNEL(VTREF, 12),
+	AUXADC_CHANNEL(VBIF, 12),
 	AUXADC_CHANNEL(IMP, 15),
 	[AUXADC_IMIX_R] = {
 		.type = IIO_RESISTANCE,
@@ -192,6 +195,26 @@ static const struct auxadc_regs mt6373_auxadc_regs_tbl[] = {
 	TIA_ADC_REG(5, MT6373),
 };
 
+static const struct auxadc_regs mt6377_auxadc_regs_tbl[] = {
+	AUXADC_REG(BATADC, MT6377, AUXADC_RQST0, BIT(0), AUXADC_ADC0_L),
+	AUXADC_REG(VCDT, MT6377, AUXADC_RQST0, BIT(2), AUXADC_ADC2_L),
+	AUXADC_REG(BAT_TEMP, MT6377, AUXADC_RQST0, BIT(3), AUXADC_ADC3_L),
+	AUXADC_REG(CHIP_TEMP, MT6377, AUXADC_RQST0, BIT(4), AUXADC_ADC4_L),
+	AUXADC_REG(VCORE_TEMP, MT6377, AUXADC_RQST3, BIT(0), AUXADC_ADC32_L),
+	AUXADC_REG(VPROC_TEMP, MT6377, AUXADC_RQST3, BIT(1), AUXADC_ADC33_L),
+	AUXADC_REG(VGPU_TEMP, MT6377, AUXADC_RQST3, BIT(2), AUXADC_ADC34_L),
+	AUXADC_REG(ACCDET, MT6377, AUXADC_RQST0, BIT(5), AUXADC_ADC5_L),
+	AUXADC_REG(HPOFS_CAL, MT6377, AUXADC_RQST1, BIT(1), AUXADC_ADC9_L),
+	AUXADC_REG(VBIF, MT6377, AUXADC_RQST0, BIT(11), AUXADC_ADC11_L),
+	[AUXADC_IMP] = {
+		.enable_reg = MT6377_AUXADC_IMP0,
+		.enable_mask = BIT(0),
+		.ready_reg = MT6377_AUXADC_IMP1,
+		.ready_mask = BIT(7),
+		.value_reg = MT6377_AUXADC_ADC_AUTO1_L,
+	},
+};
+
 struct auxadc_info {
 	const struct auxadc_regs *regs_tbl;
 };
@@ -206,6 +229,10 @@ static const struct auxadc_info mt6368_info = {
 
 static const struct auxadc_info mt6373_info = {
 	.regs_tbl = mt6373_auxadc_regs_tbl,
+};
+
+static const struct auxadc_info mt6377_info = {
+	.regs_tbl = mt6377_auxadc_regs_tbl,
 };
 
 #define regmap_bulk_read_poll_timeout(map, addr, val, val_count, cond, sleep_us, timeout_us) \
@@ -725,6 +752,7 @@ static const struct of_device_id pmic_adc_of_match[] = {
 	{ .compatible = "mediatek,mt6363-auxadc", .data = &mt6363_info, },
 	{ .compatible = "mediatek,mt6368-auxadc", .data = &mt6368_info, },
 	{ .compatible = "mediatek,mt6373-auxadc", .data = &mt6373_info, },
+	{ .compatible = "mediatek,mt6377-auxadc", .data = &mt6377_info, },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, pmic_adc_of_match);
