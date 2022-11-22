@@ -107,6 +107,7 @@ enum {
 	IPI_IN_SCP_AOD            = 38,
 	IPI_OUT_AOV_SCP           = 39,
 	IPI_IN_SCP_AOV            = 40,
+	IPI_IN_RV_SPK_PROCESS     = 42,
 	IPI_OUT_NPU_SCP		  = 43,
 	IPI_IN_SCP_NPU		  = 44,
 	IPI_OUT_SCP_PM_NOTIFY_0	  = 45,
