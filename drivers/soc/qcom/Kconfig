@@ -1280,4 +1280,14 @@ config ICNSS2_DEBUG
 	  features, enabling kernel panic for certain cases to aid the
 	  debugging, and enabling any other debug mechanisms.
 
+config RENAME_DEVICES
+	tristate "Rename  block and network device names"
+	depends on VIRTIO_BLK
+	default n
+	help
+	  This option is to rename the block and network devices names
+	  which is needed during android verified boot process and it
+	  also maps to physical partition names on gvm side which help
+	  identify the block and network devices.
+
 endmenu
