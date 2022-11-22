@@ -12405,6 +12405,10 @@
 		compatible = "mediatek,mmdvfs-v3-start";
 	};
 
+	mmdvfs-ccu {
+		compatible = "mediatek,mmdvfs-ccu";
+	};
+
 	mmdvfs {
 		compatible = "mediatek,mmdvfs";
 		operating-points-v2 = <&opp_table_disp>;
