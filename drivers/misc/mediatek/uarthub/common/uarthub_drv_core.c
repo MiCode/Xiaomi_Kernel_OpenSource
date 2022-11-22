@@ -62,6 +62,7 @@ struct mutex g_lock_dump_log;
 #define UARTHUB_ENABLE_UART_1_CHANNEL 1
 
 #define DUMP_AP_UART_DBG_INFO 0
+#define ISR_CLEAR_ALL_IRQ 1
 
 #if !(SUPPORT_SSPM_DRIVER)
 #ifdef INIT_UARTHUB_DEFAULT
@@ -1994,7 +1995,11 @@ static void trigger_uarthub_error_worker_handler(struct work_struct *work)
 		if ((((tv_now_assert.tv_sec == tv_end_assert.tv_sec) &&
 				(tv_now_assert.tv_nsec > tv_end_assert.tv_nsec)) ||
 				(tv_now_assert.tv_sec > tv_end_assert.tv_sec)) == false) {
+#if ISR_CLEAR_ALL_IRQ
+			uarthub_core_irq_clear_ctrl(-1);
+#else
 			uarthub_core_irq_clear_ctrl(err_type);
+#endif
 			uarthub_core_irq_mask_ctrl(0);
 			tv_end_assert = tv_now_assert;
 			tv_end_assert.tv_sec += 1;
@@ -2032,7 +2037,11 @@ static void trigger_uarthub_error_worker_handler(struct work_struct *work)
 	}
 
 	if (!intfhub_base_remap_addr || uarthub_core_is_apb_bus_clk_enable() == 0) {
+#if ISR_CLEAR_ALL_IRQ
+		uarthub_core_irq_clear_ctrl(-1);
+#else
 		uarthub_core_irq_clear_ctrl(err_type);
+#endif
 		uarthub_core_irq_mask_ctrl(0);
 		return;
 	}
@@ -2046,14 +2055,22 @@ static void trigger_uarthub_error_worker_handler(struct work_struct *work)
 
 	if (uarthub_core_is_assert_state() == 1) {
 		pr_info("[%s] ignore irq error if assert flow\n", __func__);
+#if ISR_CLEAR_ALL_IRQ
+		uarthub_core_irq_clear_ctrl(-1);
+#else
 		uarthub_core_irq_clear_ctrl(err_type);
+#endif
 		uarthub_core_irq_mask_ctrl(0);
 		return;
 	}
 
 	uarthub_core_debug_info_with_tag(__func__);
 
+#if ISR_CLEAR_ALL_IRQ
+	uarthub_core_irq_clear_ctrl(-1);
+#else
 	uarthub_core_irq_clear_ctrl(err_type);
+#endif
 	uarthub_core_irq_mask_ctrl(0);
 
 	if (g_core_irq_callback)
@@ -2092,11 +2109,11 @@ int uarthub_core_assert_state_ctrl(int assert_ctrl)
 #endif
 
 	if (assert_ctrl == 1) {
-		UARTHUB_SET_BIT(UARTHUB_INTFHUB_DBG(intfhub_base_remap_addr),
-			(0x1 << 0));
+		UARTHUB_SET_BIT(UARTHUB_INTFHUB_DBG(intfhub_base_remap_addr), (0x1 << 0));
 	} else {
-		UARTHUB_CLR_BIT(UARTHUB_INTFHUB_DBG(intfhub_base_remap_addr),
-			(0x1 << 0));
+		UARTHUB_CLR_BIT(UARTHUB_INTFHUB_DBG(intfhub_base_remap_addr), (0x1 << 0));
+		uarthub_core_irq_clear_ctrl(-1);
+		uarthub_core_irq_mask_ctrl(0);
 	}
 
 	return 0;
