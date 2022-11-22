@@ -6,14 +6,18 @@
 #if !defined(_TRACE_HOOK_MMC_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_HOOK_MMC_H
 #include <trace/hooks/vendor_hooks.h>
-/* struct blk_mq_queue_data */
+
+#ifdef __GENKSYMS__
 #include <linux/blk-mq.h>
-/* struct mmc_host */
 #include <linux/mmc/host.h>
-/* struct mmc_card */
 #include <linux/mmc/card.h>
-/* struct sdhci_host */
 #include "../../drivers/mmc/host/sdhci.h"
+#endif
+
+struct blk_mq_queue_data;
+struct mmc_host;
+struct mmc_card;
+struct sdhci_host;
 
 /*
  * Following tracepoints are not exported in tracefs and provide a
@@ -67,6 +71,18 @@ DECLARE_HOOK(android_vh_mmc_sd_update_cmdline_timing,
 DECLARE_HOOK(android_vh_mmc_sd_update_dataline_timing,
 	TP_PROTO(struct mmc_card *card, int *err),
 	TP_ARGS(card, err));
+
+DECLARE_RESTRICTED_HOOK(android_rvh_mmc_partition_status,
+	TP_PROTO(struct mmc_card *card),
+	TP_ARGS(card), 1);
+
+DECLARE_RESTRICTED_HOOK(android_rvh_mmc_sd_cmdline_timing,
+	TP_PROTO(struct mmc_card *card, int *err),
+	TP_ARGS(card, err), 1);
+
+DECLARE_RESTRICTED_HOOK(android_rvh_mmc_sd_dataline_timing,
+	TP_PROTO(struct mmc_card *card, int *err),
+	TP_ARGS(card, err), 1);
 
 #endif /* _TRACE_HOOK_MMC_H */
 /* This part must be outside protection */

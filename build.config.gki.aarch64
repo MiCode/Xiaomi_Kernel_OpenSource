@@ -29,7 +29,9 @@ android/abi_gki_aarch64_unisoc
 android/abi_gki_aarch64_vivo
 android/abi_gki_aarch64_xiaomi
 android/abi_gki_aarch64_oplus
+android/abi_gki_aarch64_amlogic
 android/abi_gki_aarch64_sunxi
+android/abi_gki_aarch64_pasa
 "
 
 FILES="${FILES}

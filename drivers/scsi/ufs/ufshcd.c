@@ -28,10 +28,6 @@
 #include "ufshpb.h"
 #include <asm/unaligned.h>
 
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-#include <mt-plat/aee.h>
-#endif
-
 #define CREATE_TRACE_POINTS
 #include <trace/events/ufs.h>
 
@@ -1101,6 +1097,7 @@ static int ufshcd_wait_for_doorbell_clr(struct ufs_hba *hba,
 	u32 tr_doorbell;
 	bool timeout = false, do_last_check = false;
 	ktime_t start;
+	bool has_outstanding = false;
 
 	ufshcd_hold(hba, false);
 	spin_lock_irqsave(hba->host->host_lock, flags);
@@ -1116,7 +1113,12 @@ static int ufshcd_wait_for_doorbell_clr(struct ufs_hba *hba,
 		}
 
 		tm_doorbell = ufshcd_readl(hba, REG_UTP_TASK_REQ_DOOR_BELL);
-		tr_doorbell = ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL);
+		if (ufshcd_use_mcq_hooks(hba)) {
+			trace_android_vh_ufs_mcq_has_oustanding_reqs(hba, &has_outstanding);
+			tr_doorbell = has_outstanding ? 1 : 0;
+		} else {
+			tr_doorbell = ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL);
+		}
 		if (!tm_doorbell && !tr_doorbell) {
 			timeout = false;
 			break;
@@ -1274,11 +1276,11 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 	}
 
 	/* Enable Write Booster if we have scaled up else disable it */
-	downgrade_write(&hba->clk_scaling_lock);
-	is_writelock = false;
-#if !IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	ufshcd_wb_toggle(hba, scale_up);
-#endif
+	if (ufshcd_enable_wb_if_scaling_up(hba)) {
+		downgrade_write(&hba->clk_scaling_lock);
+		is_writelock = false;
+		ufshcd_wb_toggle(hba, scale_up);
+	}
 
 out_unprepare:
 	ufshcd_clock_scaling_unprepare(hba, is_writelock);
@@ -4475,7 +4477,7 @@ static int ufshcd_complete_dev_init(struct ufs_hba *hba)
 					QUERY_FLAG_IDN_FDEVICEINIT, 0, &flag_res);
 		if (!flag_res)
 			break;
-		usleep_range(5000, 10000);
+		usleep_range(500, 1000);
 	} while (ktime_before(ktime_get(), timeout));
 
 	if (err) {
@@ -4717,11 +4719,7 @@ void ufshcd_update_evt_hist(struct ufs_hba *hba, u32 id, u32 val)
 
 	e = &hba->ufs_stats.event[id];
 	e->val[e->pos] = val;
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	e->tstamp[e->pos] = local_clock();
-#else
 	e->tstamp[e->pos] = ktime_get();
-#endif
 	e->cnt += 1;
 	e->pos = (e->pos + 1) % UFS_EVENT_HIST_LENGTH;
 
@@ -6072,7 +6070,6 @@ static void ufshcd_err_handling_unprepare(struct ufs_hba *hba)
 	ufshcd_release(hba);
 	if (ufshcd_is_clkscaling_supported(hba))
 		ufshcd_clk_scaling_suspend(hba, false);
-
 	ufshcd_rpm_put(hba);
 }
 
@@ -6303,9 +6300,7 @@ do_reset:
 	if (needs_reset) {
 		hba->force_reset = false;
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 		trace_android_vh_ufs_mcq_retry_complete(hba);
-#endif
 		err = ufshcd_reset_and_restore(hba);
 		if (err)
 			dev_err(hba->dev, "%s: reset and restore failed with err %d\n",
@@ -6344,7 +6339,6 @@ static irqreturn_t ufshcd_update_uic_error(struct ufs_hba *hba)
 
 	/* PHY layer error */
 	reg = ufshcd_readl(hba, REG_UIC_ERROR_CODE_PHY_ADAPTER_LAYER);
-
 	if ((reg & UIC_PHY_ADAPTER_LAYER_ERROR) &&
 	    (reg & UIC_PHY_ADAPTER_LAYER_ERROR_CODE_MASK)) {
 		ufshcd_update_evt_hist(hba, UFS_EVT_PA_ERR, reg);
@@ -7013,9 +7007,7 @@ static int ufshcd_try_to_abort_task(struct ufs_hba *hba, int tag)
 	int poll_cnt;
 	u8 resp = 0xF;
 	u32 reg;
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	unsigned long *outstanding_reqs;
-#endif
 
 	for (poll_cnt = 100; poll_cnt; poll_cnt--) {
 		err = ufshcd_issue_tm_cmd(hba, lrbp->lun, lrbp->task_tag,
@@ -7033,7 +7025,6 @@ static int ufshcd_try_to_abort_task(struct ufs_hba *hba, int tag)
 			dev_err(hba->dev, "%s: cmd at tag %d not pending in the device.\n",
 				__func__, tag);
 
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 			if (ufshcd_use_mcq_hooks(hba)) {
 				trace_android_vh_ufs_mcq_get_outstanding_reqs(hba,
 							&outstanding_reqs, NULL);
@@ -7050,14 +7041,6 @@ static int ufshcd_try_to_abort_task(struct ufs_hba *hba, int tag)
 					continue;
 				}
 			}
-#else
-			reg = ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL);
-			if (reg & (1 << tag)) {
-				/* sleep for max. 200us to stabilize */
-				usleep_range(100, 200);
-				continue;
-			}
-#endif
 
 			/* command completed already */
 			dev_err(hba->dev, "%s: cmd at tag %d successfully cleared from DB.\n",
@@ -7231,11 +7214,7 @@ static int ufshcd_host_reset_and_restore(struct ufs_hba *hba)
 	hba->silence_err_logs = false;
 
 	/* scale up clocks to max frequency before full reinitialization */
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	ufshcd_scale_clks(hba, true);
-#else
-	ufshcd_set_clk_freq(hba, true);
-#endif
 
 	err = ufshcd_hba_enable(hba);
 
@@ -7887,49 +7866,6 @@ out:
 	return ret;
 }
 
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-static int dump_unipro_params(struct ufs_hba *hba)
-{
-	int ret = 0;
-	u32 granularity, peer_granularity;
-	u32 pa_tactivate, peer_pa_tactivate;
-	u32 pa_h8time, peer_pa_h8time = 0;
-
-	ret += ufshcd_dme_get(hba, UIC_ARG_MIB(PA_GRANULARITY),
-				  &granularity);
-
-	ret += ufshcd_dme_peer_get(hba, UIC_ARG_MIB(PA_GRANULARITY),
-				  &peer_granularity);
-
-
-	ret += ufshcd_dme_get(hba, UIC_ARG_MIB(PA_TACTIVATE), &pa_tactivate);
-
-
-	ret += ufshcd_dme_peer_get(hba, UIC_ARG_MIB(PA_TACTIVATE),
-				  &peer_pa_tactivate);
-
-
-	ret += ufshcd_dme_get(hba,
-		     UIC_ARG_MIB(PA_HIBERN8TIME),
-			 &pa_h8time);
-
-	ret += ufshcd_dme_peer_get(hba,
-			 UIC_ARG_MIB(PA_HIBERN8TIME),
-			 &peer_pa_h8time);
-
-	dev_info(hba->dev, "ufs: granularity=0x%x", granularity);
-	dev_info(hba->dev, "ufs: peer_granularity=0x%x", peer_granularity);
-	dev_info(hba->dev, "ufs: pa_tactivate=0x%x", pa_tactivate);
-	dev_info(hba->dev, "ufs: peer_pa_tactivate=0x%x", peer_pa_tactivate);
-	dev_info(hba->dev, "ufs: pa_h8time=0x%x", pa_h8time);
-	dev_info(hba->dev, "ufs: peer_pa_h8time=0x%x", peer_pa_h8time);
-
-	if (ret)
-		dev_info(hba->dev, "ufs: dump unipro error (%d)", ret);
-	return ret;
-}
-#endif
-
 static void ufshcd_tune_unipro_params(struct ufs_hba *hba)
 {
 	if (ufshcd_is_unipro_pa_params_tuning_req(hba)) {
@@ -7945,10 +7881,6 @@ static void ufshcd_tune_unipro_params(struct ufs_hba *hba)
 
 	if (hba->dev_quirks & UFS_DEVICE_QUIRK_HOST_PA_TACTIVATE)
 		ufshcd_quirk_tune_host_pa_tactivate(hba);
-
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	dump_unipro_params(hba);
-#endif
 }
 
 static void ufshcd_clear_dbg_ufs_stats(struct ufs_hba *hba)
@@ -8764,16 +8696,8 @@ static int ufshcd_set_dev_pwr_mode(struct ufs_hba *hba,
 				START_STOP_TIMEOUT, 0, 0, RQF_PM, NULL);
 		if (!scsi_status_is_check_condition(ret) ||
 				!scsi_sense_valid(&sshdr) ||
-				sshdr.sense_key != UNIT_ATTENTION) {
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-			if (scsi_status_is_check_condition(ret))
-				dev_err(hba->dev,
-				"%s: ret=%d, response_code=%d, sense_key=%d\n",
-				__func__, ret, sshdr.response_code,
-				sshdr.sense_key);
-#endif
+				sshdr.sense_key != UNIT_ATTENTION)
 			break;
-		}
 	}
 	if (ret) {
 		sdev_printk(KERN_WARNING, sdp,

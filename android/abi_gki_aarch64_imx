@@ -19,6 +19,7 @@
   atomic_notifier_chain_unregister
   bcmp
   __bitmap_and
+  __bitmap_complement
   blocking_notifier_call_chain
   blocking_notifier_chain_register
   blocking_notifier_chain_unregister
@@ -34,6 +35,7 @@
   cancel_delayed_work
   cancel_delayed_work_sync
   cancel_work_sync
+  capable
   cdev_add
   cdev_del
   cdev_init
@@ -142,6 +144,7 @@
   devm_clk_bulk_get
   devm_clk_get
   devm_clk_get_optional
+  devm_device_add_group
   __devm_drm_dev_alloc
   devm_drm_panel_bridge_add
   devm_extcon_dev_allocate
@@ -227,6 +230,7 @@
   dma_map_sg_attrs
   dma_map_sgtable
   dmam_free_coherent
+  dma_mmap_attrs
   dma_pool_alloc
   dma_pool_create
   dma_pool_destroy
@@ -421,9 +425,11 @@
   get_random_bytes
   get_unused_fd_flags
   gic_nonsecure_priorities
+  gpiochip_add_data_with_key
   gpiochip_generic_free
   gpiochip_generic_request
   gpiochip_get_data
+  gpiochip_remove
   gpiod_direction_output
   gpiod_direction_output_raw
   gpiod_get_optional
@@ -481,9 +487,11 @@
   init_timer_key
   init_wait_entry
   __init_waitqueue_head
+  input_alloc_absinfo
   input_event
   input_mt_init_slots
   input_mt_report_slot_state
+  input_mt_sync_frame
   input_register_device
   input_set_abs_params
   input_set_capability
@@ -508,6 +516,10 @@
   jiffies_to_usecs
   kasan_flag_enabled
   kasprintf
+  __kfifo_alloc
+  __kfifo_free
+  __kfifo_in
+  __kfifo_out
   kfree
   kfree_sensitive
   kfree_skb
@@ -968,6 +980,8 @@
   thermal_cooling_device_unregister
   thermal_of_cooling_device_register
   timer_of_init
+  touchscreen_parse_properties
+  touchscreen_report_pos
   trace_event_buffer_commit
   trace_event_buffer_reserve
   trace_event_ignore_this_pid
@@ -977,9 +991,13 @@
   trace_handle_return
   trace_raw_output_prep
   try_module_get
+  tty_encode_baud_rate
   tty_flip_buffer_push
   __tty_insert_flip_char
   tty_insert_flip_string_fixed_flag
+  tty_kref_put
+  tty_port_tty_get
+  tty_termios_baud_rate
   uart_add_one_port
   uart_console_device
   uart_console_write
@@ -1010,6 +1028,10 @@
   up_read
   up_write
   usb_add_phy_dev
+  usb_autopm_get_interface
+  usb_autopm_put_interface
+  usb_control_msg
+  usb_disabled
   usb_remove_phy
   usleep_range_state
   v4l2_ctrl_handler_free
@@ -1190,7 +1212,6 @@
   __usb_create_hcd
   usb_debug_root
   usb_del_gadget_udc
-  usb_disabled
   usb_ep_alloc_request
   usb_ep_clear_halt
   usb_ep_disable
@@ -1232,6 +1253,9 @@
   cma_get_name
   cma_release
   dma_contiguous_default_area
+
+# required by cp210x.ko
+  tty_termios_hw_change
 
 # required by cpufreq-dt.ko
   cpufreq_enable_boost_support
@@ -1296,6 +1320,9 @@
   devm_phy_optional_get
   __drmm_simple_encoder_alloc
   drm_of_encoder_active_endpoint
+
+# required by elants_i2c.ko
+  i2c_smbus_xfer
 
 # required by fb.ko
   console_lock
@@ -1390,9 +1417,9 @@
 # required by fsl_lpuart.ko
   add_timer
   console_suspend_enabled
-  tty_kref_put
-  tty_port_tty_get
-  tty_termios_baud_rate
+
+# required by ftdi_sio.ko
+  kstrtou8
 
 # required by galcore.ko
   anon_inode_getfd
@@ -1401,7 +1428,6 @@
   dev_pm_opp_remove
   dma_fence_array_ops
   dma_fence_signal
-  dma_mmap_attrs
   down
   driver_create_file
   driver_remove_file
@@ -1437,10 +1463,6 @@
 
 # required by goodix.ko
   gpiod_direction_input
-  input_alloc_absinfo
-  input_mt_sync_frame
-  touchscreen_parse_properties
-  touchscreen_report_pos
 
 # required by gpio-imx-rpmsg.ko
   generic_handle_irq
@@ -1465,7 +1487,6 @@
   register_syscore_ops
 
 # required by gpio-pca953x.ko
-  __bitmap_complement
   __bitmap_or
   __bitmap_replace
   __bitmap_xor
@@ -1653,9 +1674,6 @@
 # required by kfifo_buf.ko
   iio_buffer_init
   iio_buffer_put
-  __kfifo_alloc
-  __kfifo_free
-  __kfifo_in
   __kfifo_to_user
 
 # required by leds-gpio.ko
@@ -1818,7 +1836,6 @@
   bdi_alloc
   bdi_put
   bdi_register
-  capable
   deactivate_locked_super
   fixed_size_llseek
   generic_shutdown_super
@@ -2304,6 +2321,48 @@
   of_clk_set_defaults
   of_device_request_module
 
+# required by usbserial.ko
+  driver_attach
+  schedule_timeout_interruptible
+  seq_putc
+  __tty_alloc_driver
+  tty_driver_kref_put
+  tty_hangup
+  tty_ldisc_deref
+  tty_ldisc_ref
+  tty_port_close
+  tty_port_destroy
+  tty_port_hangup
+  tty_port_init
+  tty_port_open
+  tty_port_register_device
+  tty_port_tty_wakeup
+  tty_register_driver
+  tty_standard_install
+  tty_std_termios
+  tty_termios_copy_hw
+  tty_unregister_device
+  tty_unregister_driver
+  tty_vhangup
+  usb_alloc_urb
+  usb_deregister
+  usb_driver_claim_interface
+  usb_driver_release_interface
+  usb_free_urb
+  usb_get_dev
+  usb_get_intf
+  usb_kill_urb
+  usb_match_id
+  usb_match_one_id
+  usb_poison_urb
+  usb_put_dev
+  usb_put_intf
+  usb_register_driver
+  usb_show_dynids
+  usb_store_new_id
+  usb_submit_urb
+  usb_unpoison_urb
+
 # required by v4l2-async.ko
   _dev_notice
   fwnode_handle_get
@@ -2325,7 +2384,6 @@
   virtqueue_enable_cb
 
 # required by vsiv4l2.ko
-  devm_device_add_group
   v4l2_event_dequeue
   v4l2_event_queue_fh
   v4l2_src_change_event_subscribe

@@ -580,6 +580,8 @@ void page_cache_sync_ra(struct readahead_control *ractl,
 		do_forced_ra = true;
 	}
 
+	trace_android_vh_page_cache_forced_ra(ractl, req_count, &do_forced_ra);
+
 	/* be dumb */
 	if (do_forced_ra) {
 		force_page_cache_ra(ractl, req_count);

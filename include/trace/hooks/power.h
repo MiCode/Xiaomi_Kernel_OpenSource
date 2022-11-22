@@ -7,8 +7,15 @@
 #define _TRACE_HOOK_POWER_H
 #include <trace/hooks/vendor_hooks.h>
 
-/* struct task_struct */
+#ifdef __GENKSYMS__
 #include <linux/sched.h>
+#endif
+
+/* needed for enum freq_qos_req_type */
+#include <linux/pm_qos.h>
+
+struct task_struct;
+
 DECLARE_HOOK(android_vh_try_to_freeze_todo,
 	TP_PROTO(unsigned int todo, unsigned int elapsed_msecs, bool wq_busy),
 	TP_ARGS(todo, elapsed_msecs, wq_busy));

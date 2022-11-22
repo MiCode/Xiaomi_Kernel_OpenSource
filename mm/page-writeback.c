@@ -2755,9 +2755,7 @@ static void wb_inode_writeback_start(struct bdi_writeback *wb)
 
 static void wb_inode_writeback_end(struct bdi_writeback *wb)
 {
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	unsigned long flags;
-#endif
 	atomic_dec(&wb->writeback_inodes);
 	/*
 	 * Make sure estimate of writeback throughput gets updated after
@@ -2766,14 +2764,10 @@ static void wb_inode_writeback_end(struct bdi_writeback *wb)
 	 * that if multiple inodes end writeback at a similar time, they get
 	 * batched into one bandwidth update.
 	 */
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	spin_lock_irqsave(&wb->work_lock, flags);
 	if (test_bit(WB_registered, &wb->state))
-#endif
 		queue_delayed_work(bdi_wq, &wb->bw_dwork, BANDWIDTH_INTERVAL);
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	spin_unlock_irqrestore(&wb->work_lock, flags);
-#endif
 }
 
 int test_clear_page_writeback(struct page *page)

@@ -7,8 +7,12 @@
 #define _TRACE_HOOK_TRAPS_H
 #include <trace/hooks/vendor_hooks.h>
 
-/* struct pt_regs */
+#ifdef __GENKSYMS__
 #include <asm/ptrace.h>
+#endif
+
+struct pt_regs;
+
 DECLARE_RESTRICTED_HOOK(android_rvh_do_undefinstr,
 	TP_PROTO(struct pt_regs *regs),
 	TP_ARGS(regs),
@@ -27,11 +31,9 @@ DECLARE_RESTRICTED_HOOK(android_rvh_arm64_serror_panic,
 	TP_PROTO(struct pt_regs *regs, unsigned int esr),
 	TP_ARGS(regs, esr), 1);
 
-#if IS_ENABLED(CONFIG_ANDROID_FIX_PCIE_SLAVE_ERROR)
 DECLARE_RESTRICTED_HOOK(android_rvh_do_serror,
 	TP_PROTO(struct pt_regs *regs, unsigned int esr, int *ret),
 	TP_ARGS(regs, esr, ret), 1);
-#endif
 
 #endif /* _TRACE_HOOK_TRAPS_H */
 /* This part must be outside protection */
