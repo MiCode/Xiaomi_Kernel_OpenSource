@@ -493,6 +493,7 @@ static void msdc_gate_clock(struct msdc_host *host)
 {
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	clk_bulk_disable_unprepare(MSDC_NR_CLOCKS, host->bulk_clks);
+	clk_disable_unprepare(host->new_rx_clk);
 	clk_disable_unprepare(host->src_clk_cg);
 	clk_disable_unprepare(host->crypto_cg);
 	clk_disable_unprepare(host->src_clk);
@@ -516,6 +517,7 @@ static int msdc_ungate_clock(struct msdc_host *host)
 	clk_prepare_enable(host->src_clk);
 	clk_prepare_enable(host->crypto_cg);
 	clk_prepare_enable(host->src_clk_cg);
+	clk_prepare_enable(host->new_rx_clk);
 	ret = clk_bulk_prepare_enable(MSDC_NR_CLOCKS, host->bulk_clks);
 	if (ret) {
 		dev_info(host->dev, "Cannot enable pclk/axi/ahb clock gates\n");
@@ -1008,6 +1010,7 @@ static bool msdc_cmd_done(struct msdc_host *host, int events,
 				cmd->error, host->error);
 	}
 
+
 	msdc_cmd_next(host, mrq, cmd);
 	return true;
 }
@@ -1449,6 +1452,9 @@ static void msdc_init_hw(struct msdc_host *host)
 	if (support_new_rx(host->dev_comp->new_rx_ver))
 		sdr_set_bits(host->base + MSDC_NEW_RX_CFG,
 			MSDC_NEW_RX_PATH_SEL);
+
+	dev_info(host->dev, "[new_tx_dump]enter %s,check_new_tx:0x%x,new_rx:0x%x\n",
+		__func__, readl(host->base + SDC_ADV_CFG0), readl(host->base + MSDC_NEW_RX_CFG));
 
 	/* Configure to MMC/SD mode */
 	sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_MODE);
@@ -2653,6 +2659,10 @@ static int msdc_of_clock_parse(struct platform_device *pdev,
 	host->macro_clk = devm_clk_get_optional(&pdev->dev, "macro");
 	if (IS_ERR(host->macro_clk))
 		host->macro_clk = NULL;
+
+	host->new_rx_clk = devm_clk_get_optional(&pdev->dev, "new_rx_clk");
+	if (IS_ERR(host->new_rx_clk))
+		host->new_rx_clk = NULL;
 
 	host->crypto_clk = devm_clk_get_optional(&pdev->dev, "crypto_clk");
 	if (IS_ERR(host->crypto_clk))

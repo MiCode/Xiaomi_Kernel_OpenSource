@@ -510,6 +510,7 @@ struct msdc_host {
 	struct clk *src_clk;	/* msdc source clock */
 	struct clk *h_clk;      /* msdc h_clk */
 	struct clk *bus_clk;	/* bus clock which used to access register */
+	struct clk *new_rx_clk;    /* msdc new rx clock that is for new rx path */
 	struct clk *macro_clk;	/* msdc macro clock */
 	struct clk *crypto_clk;    /* msdc crypto clock */
 	struct clk *crypto_cg;     /* msdc crypto clock control gate */

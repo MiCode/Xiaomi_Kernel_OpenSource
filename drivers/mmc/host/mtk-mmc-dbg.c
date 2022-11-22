@@ -182,6 +182,10 @@ static void msdc_dump_clock_sts_core(char **buff, unsigned long *size,
 		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
 			"[bus_clk]enable:%d freq:%lu,",
 			__clk_is_enabled(host->bus_clk), clk_get_rate(host->bus_clk));
+	if (host->new_rx_clk)
+		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
+			"[new_rx_clk]enable:%d freq:%lu,",
+			__clk_is_enabled(host->new_rx_clk), clk_get_rate(host->new_rx_clk));
 	if (host->src_clk_cg)
 		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
 			"[src_clk_cg]enable:%d freq:%lu\n",
