@@ -1566,53 +1566,57 @@ static int mtk_atomic_commit(struct drm_device *drm,
 	uint32_t crtc_mask;
 	struct drm_crtc *crtc;
 	struct mtk_drm_crtc *mtk_crtc;
-	int ret, i = 0;
-	int index;
+	int ret, i = 0, j = 0;
+	unsigned int pf = 0;
+	struct drm_crtc_state *new_crtc_state = NULL;
+	struct mtk_crtc_state *mtk_crtc_state = NULL;
 
 	DDP_PROFILE("[PROFILE] %s+\n", __func__);
 	ret = drm_atomic_helper_prepare_planes(drm, state);
 	if (ret)
 		return ret;
 
-	mutex_lock(&private->commit.lock);
-	flush_work(&private->commit.work);
-
 	crtc_mask = mtk_atomic_crtc_mask(drm, state);
 
+	for_each_new_crtc_in_state(state, crtc, new_crtc_state, j) {
+		/* check only crtc 0 for mml and update pf */
+		if (!(crtc_mask & 0x1))
+			break;
+
+		mtk_crtc = to_mtk_crtc(crtc);
+		mtk_crtc_state = to_mtk_crtc_state(new_crtc_state);
+		pf = (unsigned int)mtk_crtc_state->prop_val[CRTC_PROP_PRES_FENCE_IDX];
+
+		if (mtk_crtc->is_mml) {
+			if (mtk_crtc_state->prop_val[CRTC_PROP_USER_SCEN] &
+					USER_SCEN_SAME_POWER_MODE) {
+				DDPMSG("MML IR skip atomic commit with same power mode\n");
+				return 0;
+			}
+
+			/* if last frame is mml, need to wait job done before holding lock */
+			ret = wait_event_interruptible(mtk_crtc->signal_mml_last_job_is_flushed_wq,
+					atomic_read(&mtk_crtc->wait_mml_last_job_is_flushed));
+			DDP_PROFILE("[PROFILE] pf:%u mml last job is flushed\n", pf);
+		}
+		break;
+	}
+
+	DDP_MUTEX_LOCK(&private->commit.lock, __func__, pf);
+	flush_work(&private->commit.work);
 	DRM_MMP_EVENT_START(mutex_lock, 0, 0);
+
 	for (i = 0; i < MAX_CRTC; i++) {
 		if (!(crtc_mask >> i & 0x1))
 			continue;
-
 		crtc = private->crtc[i];
 		mtk_crtc = to_mtk_crtc(crtc);
-		index = drm_crtc_index(crtc);
 
-		// if last frame is mml, need to wait job done before holding lock
-		if (mtk_crtc->is_mml) {
-			struct drm_crtc_state *new_crtc_state;
-			struct mtk_crtc_state *mtk_state;
-			int j;
-
-			for_each_new_crtc_in_state(state, crtc, new_crtc_state, j) {
-				mtk_state = to_mtk_crtc_state(new_crtc_state);
-				if (mtk_state->prop_val[CRTC_PROP_USER_SCEN] &
-				    USER_SCEN_SAME_POWER_MODE) {
-					DDPMSG("MML IR skip atomic commit with same power mode\n");
-					goto commit_unlock;
-				}
-			}
-
-			ret = wait_event_interruptible(
-				mtk_crtc->signal_mml_last_job_is_flushed_wq
-				, atomic_read(&mtk_crtc->wait_mml_last_job_is_flushed));
-		}
 		atomic_set(&(mtk_crtc->wait_mml_last_job_is_flushed), 0);
 
 		DRM_MMP_MARK(mutex_lock, (unsigned long)&mtk_crtc->lock, i);
-
 		DDP_MUTEX_LOCK_NESTED(&mtk_crtc->lock, i, __func__, __LINE__);
-		CRTC_MMP_EVENT_START(index, atomic_commit, 0, 0);
+		CRTC_MMP_EVENT_START(drm_crtc_index(crtc), atomic_commit, 0, 0);
 	}
 	mutex_nested_time_start = sched_clock();
 
@@ -1620,7 +1624,7 @@ static int mtk_atomic_commit(struct drm_device *drm,
 	if (ret) {
 		DDPPR_ERR("DRM swap state failed! state:%p, ret:%d\n",
 				state, ret);
-		goto crtc_unlock;
+		goto mutex_unlock;
 	}
 
 	drm_atomic_state_get(state);
@@ -1635,29 +1639,24 @@ static int mtk_atomic_commit(struct drm_device *drm,
 	if (mutex_nested_time_period > 1000000000) {
 		DDPPR_ERR("M_ULOCK_NESTED:%s[%d] timeout:<%lld ns>!\n",
 			__func__, __LINE__, mutex_nested_time_period);
-		DRM_MMP_MARK(mutex_lock,
-			(unsigned long)mutex_time_period, 0);
+		DRM_MMP_MARK(mutex_lock, (unsigned long)mutex_time_period, 0);
 		dump_stack();
 	}
 
-crtc_unlock:
+mutex_unlock:
 	for (i = MAX_CRTC - 1; i >= 0; i--) {
 		if (!(crtc_mask >> i & 0x1))
 			continue;
-
 		crtc = private->crtc[i];
 		mtk_crtc = to_mtk_crtc(crtc);
-		index = drm_crtc_index(crtc);
 
-		CRTC_MMP_EVENT_END(index, atomic_commit, 0, 0);
+		CRTC_MMP_EVENT_END(drm_crtc_index(crtc), atomic_commit, 0, 0);
 		DDP_MUTEX_UNLOCK_NESTED(&mtk_crtc->lock, i, __func__, __LINE__);
-		DRM_MMP_MARK(mutex_lock, (unsigned long)&mtk_crtc->lock,
-				i + (1 << 8));
+		DRM_MMP_MARK(mutex_lock, (unsigned long)&mtk_crtc->lock, i + (1 << 8));
 	}
 
-commit_unlock:
 	DRM_MMP_EVENT_END(mutex_lock, 0, 0);
-	mutex_unlock(&private->commit.lock);
+	DDP_MUTEX_UNLOCK(&private->commit.lock, __func__, pf);
 	DDP_PROFILE("[PROFILE] %s-\n", __func__);
 
 	return 0;
