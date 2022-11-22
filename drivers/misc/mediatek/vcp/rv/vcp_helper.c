@@ -39,6 +39,9 @@
 #include <linux/delay.h>
 #include <aee.h>
 #include <soc/mediatek/smi.h>
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
+#include <linux/soc/mediatek/devapc_public.h>
+#endif
 #include "vcp_feature_define.h"
 #include "vcp_err_info.h"
 #include "vcp_helper.h"
@@ -1080,6 +1083,18 @@ void vcp_set_clk(void)
 #endif
 }
 
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
+static bool devapc_power_cb(void)
+{
+	pr_info("[VCP] %s\n", __func__);
+	return mmup_enable_count();
+}
+
+static struct devapc_power_callbacks devapc_power_handle = {
+	.type = DEVAPC_TYPE_MMUP,
+	.query_power = devapc_power_cb,
+};
+#endif
 
 /*
  * reset vcp and create a timer waiting for vcp notify
@@ -1943,7 +1958,10 @@ void vcp_wait_core_stop_timeout(int mmup_enable)
 
 	while (timeout--) {
 		core0_status = readl(R_CORE0_STATUS);
-		core0_halt = (core0_status == (B_CORE_GATED | B_HART0_HALT | B_HART1_HALT));
+		core0_halt = vcpreg.twohart ?
+			(core0_status == (B_CORE_GATED | B_HART0_HALT | B_HART1_HALT)) :
+			(core0_status == (B_CORE_GATED | B_HART0_HALT));
+
 		if (vcpreg.core_nums == 2) {
 			core1_status = readl(R_CORE1_STATUS);
 			core1_halt = (core1_status == (B_CORE_GATED | B_HART0_HALT | B_HART1_HALT));
@@ -2976,6 +2994,10 @@ static int __init vcp_init(void)
 
 	vcp_set_fp(&vcp_helper_fp);
 	vcp_set_ipidev(&vcp_ipidev);
+
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
+	register_devapc_power_callback(&devapc_power_handle);
+#endif
 
 	return ret;
 err:
