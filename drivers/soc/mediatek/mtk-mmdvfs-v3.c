@@ -8,7 +8,6 @@
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
-#include <linux/remoteproc/mtk_ccu.h>
 #include <linux/sched/clock.h>
 #include <linux/slab.h>
 #include <linux/suspend.h>
@@ -76,6 +75,14 @@ enum {
 	log_adb,
 };
 static int log_level;
+
+static call_ccu call_ccu_fp;
+
+void mmdvfs_call_ccu_set_fp(call_ccu fp)
+{
+	call_ccu_fp = fp;
+}
+EXPORT_SYMBOL_GPL(mmdvfs_call_ccu_set_fp);
 
 void *mmdvfs_get_vcp_base(phys_addr_t *pa)
 {
@@ -296,7 +303,7 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate, unsigned l
 	struct mtk_mmdvfs_clk *clk = container_of(hw, typeof(*clk), clk_hw);
 	u8 opp, pwr_opp = MAX_OPP, user_opp = MAX_OPP;
 	u32 img_clk = rate / 1000000UL;
-	int i, ret, retry = 0;
+	int i, ret = 0, retry = 0;
 
 	if (!mmdvfs_is_init_done())
 		return 0;
@@ -345,9 +352,10 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate, unsigned l
 
 	if (clk->ipi_type == IPI_MMDVFS_CCU) {
 		writel(pwr_opp, MEM_VOTE_OPP_USR(clk->user_id));
-		ret = mtk_ccu_rproc_ipc_send(
-			ccu_pdev, MTK_CCU_FEATURE_ISPDVFS, /* DVFS_IMG_CLK */ 4,
-			(void *)&img_clk, sizeof(img_clk));
+		if (call_ccu_fp)
+			ret = call_ccu_fp(
+				ccu_pdev, MTK_CCU_FEATURE_ISPDVFS, /* DVFS_IMG_CLK */ 4,
+				(void *)&img_clk, sizeof(img_clk));
 	} else
 		ret = mmdvfs_vcp_ipi_send(FUNC_VOTE_OPP, clk->user_id, pwr_opp, NULL);
 
@@ -680,7 +688,7 @@ MODULE_PARM_DESC(vote_step, "vote mmdvfs to specified step");
 
 int mmdvfs_set_ccu_ipi(const char *val, const struct kernel_param *kp)
 {
-	int freq = 0, ret, retry = 0;
+	int freq = 0, ret = 0, retry = 0;
 
 	ret = kstrtou32(val, 0, &freq);
 	if (ret) {
@@ -701,8 +709,9 @@ int mmdvfs_set_ccu_ipi(const char *val, const struct kernel_param *kp)
 	}
 
 	mtk_mmdvfs_enable_ccu(true, CCU_PWR_USR_MMDVFS);
-	ret = mtk_ccu_rproc_ipc_send(ccu_pdev, MTK_CCU_FEATURE_ISPDVFS, /* DVFS_IMG_CLK */ 4,
-		(void *)&freq, sizeof(freq));
+	if (call_ccu_fp)
+		ret = call_ccu_fp(ccu_pdev, MTK_CCU_FEATURE_ISPDVFS, /* DVFS_IMG_CLK */ 4,
+			(void *)&freq, sizeof(freq));
 	mtk_mmdvfs_enable_ccu(false, CCU_PWR_USR_MMDVFS);
 	mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_MMDVFS_CCU);
 
