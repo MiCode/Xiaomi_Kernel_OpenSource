@@ -588,10 +588,14 @@ static int mmdvfs_debug_probe(struct platform_device *pdev)
 	}
 	g_mmdvfs->reg_vmm = reg;
 
+	g_mmdvfs->nb.notifier_call = mmdvfs_debug_smi_cb;
+	mtk_smi_dbg_register_notifier(&g_mmdvfs->nb);
+
+	/* Below code should be in the bottom of probe function */
 	ret = of_property_count_u8_elems(g_mmdvfs->dev->of_node, "fmeter-id");
 	if (ret < 0) {
 		MMDVFS_DBG("count_elems fmeter-id failed:%d", ret);
-		return ret;
+		return 0;
 	}
 	g_mmdvfs->fmeter_count = ret;
 
@@ -618,9 +622,6 @@ static int mmdvfs_debug_probe(struct platform_device *pdev)
 		MMDVFS_DBG("read_array fmeter-type failed:%d", ret);
 		return ret;
 	}
-
-	g_mmdvfs->nb.notifier_call = mmdvfs_debug_smi_cb;
-	mtk_smi_dbg_register_notifier(&g_mmdvfs->nb);
 
 	return 0;
 }
