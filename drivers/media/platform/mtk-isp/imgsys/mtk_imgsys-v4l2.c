@@ -2646,7 +2646,7 @@ static bool mtk_imgsys_idle(struct device *dev)
 	if (pipe->streaming || num)
 		idle = false;
 
-	dev_info(dev, "%s: [imgclk_dbg] idle(%d)\n", __func__, idle);
+	dev_dbg(dev, "%s: [imgclk_dbg] idle(%d)\n", __func__, idle);
 	return idle;
 }
 
@@ -2656,7 +2656,7 @@ int __maybe_unused mtk_imgsys_pm_suspend(struct device *dev)
 	int ret, num;
 	bool idle = true;
 
-	dev_info(dev, "%s: [imgclk_dbg] pm_suspend\n", __func__);
+	dev_dbg(dev, "%s: [imgclk_dbg] pm_suspend\n", __func__);
 	ret = wait_event_timeout
 		(imgsys_dev->flushing_waitq, (idle = mtk_imgsys_idle(dev)),
 		 msecs_to_jiffies(1000 / 30 * DIP_COMPOSING_MAX_NUM * 3));
@@ -2682,7 +2682,7 @@ int __maybe_unused mtk_imgsys_pm_suspend(struct device *dev)
 		return NOTIFY_BAD;
 	}
 #endif
-	dev_info(dev, "%s: [imgclk_dbg] return NOTIFY_DONE\n", __func__);
+	dev_dbg(dev, "%s: [imgclk_dbg] return NOTIFY_DONE\n", __func__);
 	return NOTIFY_DONE;
 }
 
@@ -2704,7 +2704,7 @@ int __maybe_unused mtk_imgsys_pm_resume(struct device *dev)
 		return NOTIFY_BAD;
 	}
 #endif
-	dev_info(dev, "%s: [imgclk_dbg] pm_resume\n", __func__);
+	dev_dbg(dev, "%s: [imgclk_dbg] pm_resume\n", __func__);
 	return NOTIFY_DONE;
 }
 
