@@ -149,7 +149,7 @@ static void i2c_slave_write_fifo(struct i2c_slave *i2c_slave)
 	int i;
 
 	if (i2c_slave->tx_count == 0) {
-		I2C_SLAVE_ERR(i2c_slave->ipcl, true, i2c_slave->dev,
+		I2C_SLAVE_ERR(i2c_slave->ipcl, false, i2c_slave->dev,
 			      "TX FIFO write count is zero\n");
 		return;
 	}
@@ -179,10 +179,10 @@ static void i2c_slave_read_fifo(struct i2c_slave *i2c_slave)
 
 	rx_data_count = read_rx_fifo_byte_count(i2c_slave);
 	if (rx_data_count == 0) {
-		I2C_SLAVE_ERR(i2c_slave->ipcl, true, i2c_slave->dev,
+		I2C_SLAVE_ERR(i2c_slave->ipcl, false, i2c_slave->dev,
 			      "RX FIFO empty\n");
 	} else if (i2c_slave->rx_count >= I2C_SLAVE_MAX_MSG_SIZE) {
-		I2C_SLAVE_ERR(i2c_slave->ipcl, true, i2c_slave->dev,
+		I2C_SLAVE_ERR(i2c_slave->ipcl, false, i2c_slave->dev,
 			      "RX data buffer full\n");
 	} else {
 		for (i = 0; i < rx_data_count &&
@@ -332,7 +332,7 @@ static irqreturn_t i2c_slave_irq(int irq, void *dev)
 		if (i2c_slave->tx_count > 0) {
 			i2c_slave_send_ack(i2c_slave);
 		} else {
-			I2C_SLAVE_ERR(i2c_slave->ipcl, true, i2c_slave->dev,
+			I2C_SLAVE_ERR(i2c_slave->ipcl, false, i2c_slave->dev,
 				      "TX FIFO empty\n");
 			i2c_slave_send_nack(i2c_slave);
 		}
@@ -409,7 +409,7 @@ static int i2c_slave_write(struct i2c_slave *i2c_slave, uint8_t *buf, size_t cou
 	}
 
 	if (!count) {
-		I2C_SLAVE_ERR(i2c_slave->ipcl, true, i2c_slave->dev,
+		I2C_SLAVE_ERR(i2c_slave->ipcl, false, i2c_slave->dev,
 			      "Write count is zero\n");
 		return -EINVAL;
 	}
@@ -442,7 +442,7 @@ static int i2c_slave_read(struct i2c_slave *i2c_slave, uint8_t *buf, size_t coun
 	}
 
 	if (count == 0) {
-		I2C_SLAVE_ERR(i2c_slave->ipcl, true, i2c_slave->dev,
+		I2C_SLAVE_ERR(i2c_slave->ipcl, false, i2c_slave->dev,
 			      "Read count is zero\n");
 		return -EINVAL;
 	}
@@ -494,7 +494,13 @@ static int i2c_slave_xfer(struct i2c_adapter *adap, u16 addr,
 	u8 buf[I2C_SMBUS_BLOCK_MAX];
 	int ret = 0, count, i;
 
-	if (addr != i2c_slave->slave_addr) {
+	/* Every open/close of i2c device node, i2c framework will set
+	 * slave address variable to 0 in i2c client structure and
+	 * client has to run IOCTL on every open/close opration.
+	 * So, to avoid slave address to be set to zero, added
+	 * check for non-zero slave address.
+	 */
+	if (addr && addr != i2c_slave->slave_addr) {
 		i2c_slave->slave_addr = addr;
 		writel_relaxed(addr, i2c_slave->base + I2C_S_DEVICE_ADDR);
 	}
@@ -825,7 +831,7 @@ static int i2c_slave_suspend(struct device *dev)
 	icc_disable(i2c_slave->icc_path);
 	clk_disable_unprepare(i2c_slave->ahb_clk);
 	clk_disable_unprepare(i2c_slave->xo_clk);
-	I2C_SLAVE_DBG(i2c_slave->ipcl, true, i2c_slave->dev,
+	I2C_SLAVE_DBG(i2c_slave->ipcl, false, i2c_slave->dev,
 		      "%s\n", __func__);
 	return 0;
 }
