@@ -440,7 +440,6 @@ static int dlpt_notify_handler(void *unused)
 				, cur_ui_soc, IMAX_MAX_VALUE);
 		}
 		pre_ui_soc = cur_ui_soc;
-		dlpt.notify_flag = false;
 
 		/* Check low battery volt < 3.1V */
 		if (dlpt_check_power_off()) {
@@ -449,6 +448,7 @@ static int dlpt_notify_handler(void *unused)
 			pr_info("[DLPT] notify battery SOC=0 to power off.\n");
 		}
 bypass:
+		dlpt.notify_flag = false;
 		mutex_unlock(&dlpt.notify_lock);
 		__pm_relax(dlpt.notify_ws);
 
