@@ -697,7 +697,9 @@ static inline bool tp_need_resize(struct mml_frame_info *info)
 		info->dest[0].crop.x_sub_px ||
 		info->dest[0].crop.y_sub_px ||
 		info->dest[0].crop.w_sub_px ||
-		info->dest[0].crop.h_sub_px;
+		info->dest[0].crop.h_sub_px ||
+		info->dest[0].compose.width != info->dest[0].data.width ||
+		info->dest[0].compose.height != info->dest[0].data.height;
 }
 
 static void tp_select_path(struct mml_topology_cache *cache,
