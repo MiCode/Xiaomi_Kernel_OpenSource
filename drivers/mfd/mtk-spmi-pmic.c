@@ -214,6 +214,10 @@ static const struct resource mt6377_lbat_service_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_BAT_L, "bat_l"),
 };
 
+static const struct resource mt6377_rtc_resources[] = {
+	DEFINE_RES_IRQ(MT6377_IRQ_RTC),
+};
+
 static const struct mfd_cell mt6363_devs[] = {
 	{
 		.name = "mt6363-auxadc",
@@ -367,6 +371,11 @@ static const struct mfd_cell mt6377_devs[] = {
 	}, {
 		.name = "mt6377-sound",
 		.of_compatible = "mediatek,mt6377-sound",
+	}, {
+		.name = "mt6377-rtc",
+		.num_resources = ARRAY_SIZE(mt6377_rtc_resources),
+		.resources = mt6377_rtc_resources,
+		.of_compatible = "mediatek,mt6377-rtc",
 	},
 };
 
