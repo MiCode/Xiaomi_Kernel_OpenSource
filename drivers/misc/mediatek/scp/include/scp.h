@@ -51,6 +51,7 @@
 #define PIN_IN_SIZE_SENSOR_NOTIFY        7
 #define PIN_OUT_SIZE_SCP_CONNSYS         3
 #define PIN_OUT_SIZE_SCP_HWVOTER_DEBUG   2
+#define PIN_OUT_SIZE_DEBUG_CMD           2
 #define PIN_OUT_SIZE_AOV_SCP             4
 #define PIN_IN_SIZE_SCP_AOV              4
 #define IPI_OUT_SIZE_SCP_PM_NOTIFY_0     1
@@ -107,6 +108,7 @@ enum {
 	IPI_IN_SCP_AOD            = 38,
 	IPI_OUT_AOV_SCP           = 39,
 	IPI_IN_SCP_AOV            = 40,
+	IPI_OUT_DEBUG_CMD         = 41,
 	IPI_IN_RV_SPK_PROCESS     = 42,
 	IPI_OUT_NPU_SCP		  = 43,
 	IPI_IN_SCP_NPU		  = 44,
