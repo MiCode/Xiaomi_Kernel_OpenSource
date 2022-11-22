@@ -93,8 +93,7 @@ static void adsp_ee_recovery(void)
 	u32 temp, irq_pending;
 	u64 temp_64;
 
-	if (!uodev->adsp_exception || !uodev->adsp_inited
-			|| !uodev->opened || !uodev->xhci)
+	if (!uodev->xhci)
 		return;
 
 	USB_OFFLOAD_INFO("ADSP EE ++ op:0x%08x, iman:0x%08X, erdp:0x%08X\n",
@@ -218,6 +217,11 @@ err:
 
 static void sound_usb_connect(void *data, struct usb_interface *intf, struct snd_usb_audio *chip)
 {
+	struct device_node *node_xhci_host;
+	struct platform_device *pdev_xhci_host = NULL;
+	struct xhci_hcd_mtk *mtk;
+	struct xhci_hcd *xhci;
+
 	USB_OFFLOAD_INFO("index=%d\n", chip->index);
 
 	if (chip->index >= 0)
@@ -230,7 +234,28 @@ static void sound_usb_connect(void *data, struct usb_interface *intf, struct snd
 	uodev->connected = true;
 	uodev->opened = false;
 	uodev->adsp_exception = false;
-	uodev->xhci = NULL;
+
+	node_xhci_host = of_parse_phandle(uodev->dev->of_node, "xhci_host", 0);
+	if (node_xhci_host) {
+		pdev_xhci_host = of_find_device_by_node(node_xhci_host);
+		if (!pdev_xhci_host) {
+			USB_OFFLOAD_ERR("no device found by node!\n");
+			return;
+		}
+		of_node_put(node_xhci_host);
+
+		mtk = platform_get_drvdata(pdev_xhci_host);
+		if (!mtk) {
+			USB_OFFLOAD_ERR("no drvdata set!\n");
+			return;
+		}
+		xhci = hcd_to_xhci(mtk->hcd);
+		uodev->xhci = xhci;
+	} else {
+		USB_OFFLOAD_ERR("No 'xhci_host' node, NOT SUPPORT USB Offload!\n");
+		uodev->xhci = NULL;
+		return;
+	}
 }
 
 static void sound_usb_disconnect(void *data, struct usb_interface *intf)
@@ -247,7 +272,6 @@ static void sound_usb_disconnect(void *data, struct usb_interface *intf)
 	uodev->connected = false;
 	uodev->opened = false;
 	uodev->adsp_exception = false;
-	uodev->xhci = NULL;
 
 	if (chip == USB_AUDIO_IFACE_UNUSED)
 		return;
@@ -1770,7 +1794,6 @@ int usb_offload_cleanup(void)
 	uodev->rx_streaming = false;
 	uodev->adsp_inited = false;
 	uodev->opened = false;
-	uodev->xhci = NULL;
 
 	msg.status = USB_AUDIO_STREAM_REQ_STOP;
 	msg.status_valid = 1;
@@ -1791,9 +1814,6 @@ int usb_offload_cleanup(void)
 
 static int usb_offload_open(struct inode *ip, struct file *fp)
 {
-	struct device_node *node_xhci_host;
-	struct platform_device *pdev_xhci_host = NULL;
-	struct xhci_hcd_mtk *mtk;
 	struct xhci_hcd *xhci;
 	struct usb_device *udev;
 	struct usb_host_config *config;
@@ -1822,27 +1842,12 @@ static int usb_offload_open(struct inode *ip, struct file *fp)
 			USB_OFFLOAD_ERR("Unable to notify ADSP.\n");
 	}
 
-	node_xhci_host = of_parse_phandle(uodev->dev->of_node, "xhci_host", 0);
-	if (node_xhci_host) {
-		pdev_xhci_host = of_find_device_by_node(node_xhci_host);
-		if (!pdev_xhci_host) {
-			mutex_unlock(&uodev->dev_lock);
-			return -ENODEV;
-		}
-		of_node_put(node_xhci_host);
-
-		mtk = platform_get_drvdata(pdev_xhci_host);
-		if (!mtk) {
-			mutex_unlock(&uodev->dev_lock);
-			return -ENODEV;
-		}
-		xhci = hcd_to_xhci(mtk->hcd);
-		uodev->xhci = xhci;
-	} else {
+	if (uodev->xhci == NULL) {
 		USB_OFFLOAD_ERR("No 'xhci_host' node, NOT SUPPORT USB Offload!\n");
 		err = -EINVAL;
 		goto GET_OF_NODE_FAIL;
 	}
+	xhci = uodev->xhci;
 
 	for (i = 0; i <= 2; i++) {
 		if (xhci->devs[i] != NULL)
