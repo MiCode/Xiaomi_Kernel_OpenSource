@@ -39,6 +39,10 @@ static struct wrapper_data wrapper_data_mt6985 = {
 	.max_ostd = 40,
 	.icc_dst_id = SLAVE_COMMON(0),
 };
+static struct wrapper_data wrapper_data_mt6835 = {
+	.max_ostd = 40,
+	.icc_dst_id = SLAVE_COMMON(0),
+};
 static struct wrapper_data *mmqos_wrapper;
 static struct device *dev;
 static BLOCKING_NOTIFIER_HEAD(hrt_bw_throttle_notifier);
@@ -230,6 +234,10 @@ static const struct of_device_id of_mmqos_wrapper_match_tbl[] = {
 	{
 		.compatible = "mediatek,mt6985-mmqos-wrapper",
 		.data = &wrapper_data_mt6985,
+	},
+	{
+		.compatible = "mediatek,mt6835-mmqos-wrapper",
+		.data = &wrapper_data_mt6835,
 	},
 	{}
 };

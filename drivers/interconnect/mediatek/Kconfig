@@ -65,3 +65,11 @@ config INTERCONNECT_MTK_MMQOS_MT6985
 	select INTERCONNECT_MTK_MMQOS_COMMON
 	help
 	  Support MT6985 multimedia QoS.
+
+config INTERCONNECT_MTK_MMQOS_MT6835
+	tristate "Mediatek MT6835 MMQoS interconnect driver"
+	depends on INTERCONNECT_MTK
+	depends on MTK_SMI
+	select INTERCONNECT_MTK_MMQOS_COMMON
+	help
+	  Support MT6835 multimedia QoS.
