@@ -2619,6 +2619,7 @@ static int mtk_lye_get_comp_id(int disp_idx, int disp_list, struct drm_device *d
 				layer_map_idx) {
 				if ((priv->data->mmsys_id == MMSYS_MT6895) ||
 					(priv->data->mmsys_id == MMSYS_MT6886) ||
+					(priv->data->mmsys_id == MMSYS_MT6835) ||
 					(priv->data->mmsys_id == MMSYS_MT6855))
 					return DDP_COMPONENT_OVL1_2L;
 				else

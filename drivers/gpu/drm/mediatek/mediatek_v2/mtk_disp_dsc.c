@@ -24,6 +24,8 @@
 #include "mtk_drm_gem.h"
 #include "mtk_drm_fb.h"
 #include "mtk_dp_api.h"
+#include "mtk_disp_dsc.h"
+#include "platform/mtk_drm_platform.h"
 
 #define DISP_REG_DSC_CON			0x0000
 	#define DSC_EN BIT(0)
@@ -110,14 +112,6 @@
 
 #define RC_BUF_THRESH_NUM (14)
 #define RANGE_BPG_OFS_NUM (15)
-
-struct mtk_disp_dsc_data {
-	bool support_shadow;
-	bool need_bypass_shadow;
-	bool need_obuf_sw;
-	bool dsi_buffer;
-};
-
 
 /**
  * struct mtk_disp_dsc - DISP_DSC driver structure

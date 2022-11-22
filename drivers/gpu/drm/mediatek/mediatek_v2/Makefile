@@ -56,6 +56,7 @@ mediatek-drm-y := mtk_drm_drv.o \
 		  mtk_disp_inlinerotate.o \
 		  mtk_mmlsys_bypass_mode.o \
 		  mtk_lease.o \
+		  platform/mtk_drm_6835.o \
 
 #ccflags-y += -DDRM_CMDQ_DISABLE
 #mediatek-drm-y += mtk_cmdq_dummy.o

@@ -23,6 +23,7 @@
 #include "mtk_drm_drv.h"
 #include "mtk_disp_color.h"
 #include "mtk_dump.h"
+#include "platform/mtk_drm_platform.h"
 #include "mtk_disp_ccorr.h"
 
 #define UNUSED(expr) (void)(expr)
@@ -3833,6 +3834,8 @@ static const struct of_device_id mtk_disp_color_driver_dt_match[] = {
 	 .data = &mt6985_color_driver_data},
 	{.compatible = "mediatek,mt6886-disp-color",
 	 .data = &mt6886_color_driver_data},
+	{.compatible = "mediatek,mt6835-disp-color",
+	 .data = &mt6835_color_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_color_driver_dt_match);

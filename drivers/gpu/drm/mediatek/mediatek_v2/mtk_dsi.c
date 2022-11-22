@@ -47,6 +47,8 @@
 #include "mtk_drm_arr.h"
 #include "mtk_panel_ext.h"
 #include "mtk_disp_notify.h"
+#include "mtk_dsi.h"
+#include "platform/mtk_drm_platform.h"
 
 /* ************ Panel Master ********** */
 #include "mtk_fbconfig_kdebug.h"
@@ -365,106 +367,9 @@ static const char * const mtk_dsi_porch_str[] = {
 
 #define AS_UINT32(x) (*(u32 *)((void *)x))
 
-struct mtk_dsi_driver_data {
-	const u32 reg_cmdq0_ofs;
-	const u32 reg_cmdq1_ofs;
-	const u32 reg_vm_cmd_con_ofs;
-	const u32 reg_vm_cmd_data0_ofs;
-	const u32 reg_vm_cmd_data10_ofs;
-	const u32 reg_vm_cmd_data20_ofs;
-	const u32 reg_vm_cmd_data30_ofs;
-	s32 (*poll_for_idle)(struct mtk_dsi *dsi, struct cmdq_pkt *handle);
-	irqreturn_t (*irq_handler)(int irq, void *dev_id);
-	char *esd_eint_compat;
-	bool support_shadow;
-	bool need_bypass_shadow;
-	bool need_wait_fifo;
-	const u32 buffer_unit;
-	const u32 sram_unit;
-	const u32 urgent_lo_fifo_us;
-	const u32 urgent_hi_fifo_us;
-	bool dsi_buffer;
-	bool smi_dbg_disable;
-	u32 max_vfp;
-	void (*mmclk_by_datarate)(struct mtk_dsi *dsi,
-		struct mtk_drm_crtc *mtk_crtc, unsigned int en);
-};
-
-struct t_condition_wq {
-	wait_queue_head_t wq;
-	atomic_t condition;
-};
-
 struct mtk_dsi_mgr {
 	struct mtk_dsi *master;
 	struct mtk_dsi *slave;
-};
-
-struct mtk_dsi {
-	struct mtk_ddp_comp ddp_comp;
-	struct device *dev;
-	struct mipi_dsi_host host;
-	struct drm_encoder encoder;
-	struct drm_connector conn;
-	struct drm_panel *panel;
-	struct mtk_panel_ext *ext;
-	struct cmdq_pkt_buffer cmdq_buf;
-	struct drm_bridge *bridge;
-	struct phy *phy;
-	bool is_slave;
-	struct mtk_dsi *slave_dsi;
-	struct mtk_dsi *master_dsi;
-	struct mtk_drm_connector_caps connector_caps;
-	void __iomem *regs;
-
-	struct clk *engine_clk;
-	struct clk *digital_clk;
-	struct clk *hs_clk;
-
-	u32 data_rate;
-	u32 d_rate;
-
-	unsigned long mode_flags;
-	enum mipi_dsi_pixel_format format;
-	unsigned int lanes;
-	struct videomode vm;
-	int clk_refcnt;
-	bool output_en;
-	bool doze_enabled;
-	u32 irq_data;
-	wait_queue_head_t irq_wait_queue;
-	struct mtk_dsi_driver_data *driver_data;
-
-	struct t_condition_wq enter_ulps_done;
-	struct t_condition_wq exit_ulps_done;
-	struct t_condition_wq te_rdy;
-	struct t_condition_wq frame_done;
-	unsigned int hs_trail;
-	unsigned int hs_prpr;
-	unsigned int hs_zero;
-	unsigned int lpx;
-	unsigned int ta_get;
-	unsigned int ta_sure;
-	unsigned int ta_go;
-	unsigned int da_hs_exit;
-	unsigned int cont_det;
-	unsigned int clk_zero;
-	unsigned int clk_hs_prpr;
-	unsigned int clk_hs_exit;
-	unsigned int clk_hs_post;
-
-	unsigned int vsa;
-	unsigned int vbp;
-	unsigned int vfp;
-	unsigned int hsa_byte;
-	unsigned int hbp_byte;
-	unsigned int hfp_byte;
-
-	bool mipi_hopping_sta;
-	bool panel_osc_hopping_sta;
-	unsigned int data_phy_cycle;
-	/* for Panel Master dcs read/write */
-	struct mipi_dsi_device *dev_for_PM;
 };
 
 enum DSI_MODE_CON {
@@ -478,7 +383,6 @@ static struct mtk_drm_property mtk_connector_property[CONNECTOR_PROP_MAX] = {
 };
 
 struct mtk_panel_ext *mtk_dsi_get_panel_ext(struct mtk_ddp_comp *comp);
-static s32 mtk_dsi_poll_for_idle(struct mtk_dsi *dsi, struct cmdq_pkt *handle);
 static void mtk_dsi_set_targetline(struct mtk_ddp_comp *comp,
 				struct cmdq_pkt *handle, unsigned int hacive);
 
@@ -799,6 +703,7 @@ CONFIG_REG:
 	if (priv->data->mmsys_id == MMSYS_MT6983 ||
 		priv->data->mmsys_id == MMSYS_MT6985 ||
 		priv->data->mmsys_id == MMSYS_MT6895 ||
+		priv->data->mmsys_id == MMSYS_MT6835 ||
 		priv->data->mmsys_id == MMSYS_MT6886) {
 		lpx = (lpx % 2) ? lpx + 1 : lpx; //lpx must be even
 		hs_prpr = (hs_prpr % 2) ? hs_prpr + 1 : hs_prpr; //hs_prpr must be even
@@ -916,6 +821,7 @@ static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 		priv->data->mmsys_id == MMSYS_MT6895 ||
 		priv->data->mmsys_id == MMSYS_MT6886 ||
 		priv->data->mmsys_id == MMSYS_MT6879 ||
+		priv->data->mmsys_id == MMSYS_MT6835 ||
 		priv->data->mmsys_id == MMSYS_MT6855) &&
 		(dsi->d_rate != 0)) {
 		data_rate = dsi->d_rate;
@@ -1159,6 +1065,7 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 	struct mtk_drm_private *priv = dsi->ddp_comp.mtk_crtc->base.dev->dev_private;
 	struct device *dev = dsi->dev;
 	int ret;
+	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(dsi->phy);
 
 	DDPDBG("%s+\n", __func__);
 	if (++dsi->clk_refcnt != 1)
@@ -1197,8 +1104,12 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 		}
 
 		if (dsi->ext) {
-			if (dsi->ext->params->ssc_enable)
-				mtk_mipi_tx_ssc_en(dsi->phy, dsi->ext);
+			if (dsi->ext->params->ssc_enable) {
+				if (mipi_tx->driver_data->mipi_tx_ssc_en)
+					mipi_tx->driver_data->mipi_tx_ssc_en(dsi->phy, dsi->ext);
+				else
+					mtk_mipi_tx_ssc_en(dsi->phy, dsi->ext);
+			}
 		}
 
 		pm_runtime_get_sync(dsi->host.dev);
@@ -1901,6 +1812,7 @@ static u16 mtk_get_gpr(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	case MMSYS_MT6879:
 	case MMSYS_MT6895:
 	case MMSYS_MT6886:
+	case MMSYS_MT6835:
 	case MMSYS_MT6855:
 		if (handle->cl == (void *)client)
 			return ((drm_crtc_index(crtc) == 0) ? CMDQ_GPR_R03 : CMDQ_GPR_R05);
@@ -1929,7 +1841,7 @@ static void mtk_dsi_cmdq_poll(struct mtk_ddp_comp *comp,
 				  reg, mask, 0xFFFF, gpr);
 }
 
-static s32 mtk_dsi_poll_for_idle(struct mtk_dsi *dsi, struct cmdq_pkt *handle)
+s32 mtk_dsi_poll_for_idle(struct mtk_dsi *dsi, struct cmdq_pkt *handle)
 {
 	unsigned int loop_cnt = 0;
 	s32 tmp;
@@ -2014,7 +1926,7 @@ void clear_dsi_underrun_event(void)
 	DDPMSG("%s, do clear underrun event\n", __func__);
 	dsi_underrun_trigger = 1;
 }
-static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
+irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 {
 	struct mtk_dsi *dsi = dev_id;
 	struct mtk_drm_crtc *mtk_crtc = NULL;
@@ -9126,6 +9038,7 @@ static const struct of_device_id mtk_dsi_of_match[] = {
 	{.compatible = "mediatek,mt6833-dsi", .data = &mt6833_dsi_driver_data},
 	{.compatible = "mediatek,mt6879-dsi", .data = &mt6879_dsi_driver_data},
 	{.compatible = "mediatek,mt6855-dsi", .data = &mt6855_dsi_driver_data},
+	{.compatible = "mediatek,mt6835-dsi", .data = &mt6835_dsi_driver_data},
 	{},
 };
 

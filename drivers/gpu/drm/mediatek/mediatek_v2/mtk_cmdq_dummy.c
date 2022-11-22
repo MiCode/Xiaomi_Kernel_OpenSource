@@ -323,7 +323,7 @@ u32 cmdq_pkt_write(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	}
 	if (!va) {
 		va = ioremap(pa, sizeof(va));
-		regs_addr = kzalloc(sizeof(struct repaint_job_t),
+		regs_addr = kzalloc(sizeof(struct regs_addr_record),
 			GFP_KERNEL);
 		if (!IS_ERR_OR_NULL(regs_addr)) {
 			regs_addr->regs = va;

@@ -21,6 +21,7 @@
 #include "mtk_log.h"
 #include "mtk_dump.h"
 #include "mtk_disp_dither.h"
+#include "platform/mtk_drm_platform.h"
 
 #define DISP_DITHER_EN 0x0
 #define DISP_DITHER_INTEN 0x08
@@ -983,6 +984,8 @@ static const struct of_device_id mtk_disp_dither_driver_dt_match[] = {
 	  .data = &mt6985_dither_driver_data},
 	{ .compatible = "mediatek,mt6886-disp-dither",
 	  .data = &mt6886_dither_driver_data},
+	{ .compatible = "mediatek,mt6835-disp-dither",
+	  .data = &mt6835_dither_driver_data},
 	{},
 };
 

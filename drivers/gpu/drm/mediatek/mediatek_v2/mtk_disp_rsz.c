@@ -20,7 +20,8 @@
 #include "mtk_dump.h"
 #include "mtk_rect.h"
 #include "mtk_drm_drv.h"
-
+#include "mtk_disp_rsz.h"
+#include "platform/mtk_drm_platform.h"
 
 #define DISP_REG_RSZ_ENABLE (0x000)
 #define FLD_RSZ_RST REG_FLD_MSB_LSB(16, 16)
@@ -68,13 +69,6 @@
 #define TILE_LOSS 4
 #define TILE_LOSS_LEFT 4
 #define TILE_LOSS_RIGHT 4
-
-struct mtk_disp_rsz_data {
-	unsigned int tile_length;
-	unsigned int in_max_height;
-	bool support_shadow;
-	bool need_bypass_shadow;
-};
 
 enum mtk_rsz_color_format {
 	ARGB2101010,
@@ -723,6 +717,8 @@ static const struct of_device_id mtk_disp_rsz_driver_dt_match[] = {
 	 .data = &mt6855_rsz_driver_data},
 	{.compatible = "mediatek,mt6985-disp-rsz",
 	 .data = &mt6985_rsz_driver_data},
+	{.compatible = "mediatek,mt6835-disp-rsz",
+	 .data = &mt6835_rsz_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_rsz_driver_dt_match);

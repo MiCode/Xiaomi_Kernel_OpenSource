@@ -24,6 +24,7 @@
 #include "mtk_log.h"
 #include "mtk_dump.h"
 #include "mtk_drm_helper.h"
+#include "platform/mtk_drm_platform.h"
 
 #ifdef CONFIG_LEDS_MTK_MODULE
 #define CONFIG_LEDS_BRIGHTNESS_CHANGED
@@ -1665,6 +1666,8 @@ static const struct of_device_id mtk_disp_ccorr_driver_dt_match[] = {
 	  .data = &mt6985_ccorr_driver_data},
 	{ .compatible = "mediatek,mt6886-disp-ccorr",
 	  .data = &mt6886_ccorr_driver_data},
+	{ .compatible = "mediatek,mt6835-disp-ccorr",
+	  .data = &mt6835_ccorr_driver_data},
 	{},
 };
 

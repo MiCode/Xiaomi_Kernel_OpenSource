@@ -24,6 +24,8 @@
 #include "mtk_drm_fb.h"
 #include "mtk_drm_trace.h"
 #include "mtk_drm_drv.h"
+#include "mtk_disp_wdma.h"
+#include "platform/mtk_drm_platform.h"
 
 #define DISP_REG_WDMA_INTEN 0x0000
 #define INTEN_FLD_FME_CPL_INTEN REG_FLD_MSB_LSB(0, 0)
@@ -207,25 +209,6 @@ enum GS_WDMA_FLD {
 	GS_WDMA_ISSUE_REG_TH_U,
 	GS_WDMA_ISSUE_REG_TH_V,
 	GS_WDMA_FLD_NUM,
-};
-
-struct mtk_disp_wdma_data {
-	/* golden setting */
-	unsigned int fifo_size_1plane;
-	unsigned int fifo_size_uv_1plane;
-	unsigned int fifo_size_2plane;
-	unsigned int fifo_size_uv_2plane;
-	unsigned int fifo_size_3plane;
-	unsigned int fifo_size_uv_3plane;
-
-	void (*sodi_config)(struct drm_device *drm, enum mtk_ddp_comp_id id,
-			    struct cmdq_pkt *handle, void *data);
-	unsigned int (*aid_sel)(struct mtk_ddp_comp *comp);
-	resource_size_t (*check_wdma_sec_reg)(struct mtk_ddp_comp *comp);
-	bool support_shadow;
-	bool need_bypass_shadow;
-	bool is_support_34bits;
-	bool use_larb_control_sec;
 };
 
 struct mtk_wdma_cfg_info {
@@ -2009,6 +1992,8 @@ static const struct of_device_id mtk_disp_wdma_driver_dt_match[] = {
 	 .data = &mt6855_wdma_driver_data},
 	{.compatible = "mediatek,mt6985-disp-wdma",
 	 .data = &mt6985_wdma_driver_data},
+	{.compatible = "mediatek,mt6835-disp-wdma",
+	 .data = &mt6835_wdma_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_wdma_driver_dt_match);

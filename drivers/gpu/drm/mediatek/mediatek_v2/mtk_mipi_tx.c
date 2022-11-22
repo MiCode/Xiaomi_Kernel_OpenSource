@@ -14,9 +14,9 @@
 #include "mtk_log.h"
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_drv.h"
-#include "mtk_panel_ext.h"
 #include "mtk_dump.h"
 #include "mtk_mipi_tx.h"
+#include "platform/mtk_drm_platform.h"
 
 #define MIPITX_DSI_CON 0x00
 #define RG_DSI_LDOCORE_EN BIT(0)
@@ -319,55 +319,12 @@ enum MIPITX_PAD_VALUE {
 	PAD_NUM
 };
 
-struct mtk_mipi_tx {
-	struct device *dev;
-	void __iomem *regs;
-	resource_size_t regs_pa;
-	struct cmdq_base *cmdq_base;
-	u32 data_rate;
-	u32 data_rate_adpt;
-	const struct mtk_mipitx_data *driver_data;
-	struct clk_hw pll_hw;
-	struct clk *pll;
-};
-
-struct mtk_mipitx_data {
-	const u32 mppll_preserve;
-	const u32 dsi_pll_sdm_pcw_chg;
-	const u32 dsi_pll_en;
-	const u32 dsi_ssc_en;
-	const u32 ck_sw_ctl_en;
-	const u32 d0_sw_ctl_en;
-	const u32 d1_sw_ctl_en;
-	const u32 d2_sw_ctl_en;
-	const u32 d3_sw_ctl_en;
-	const u32 d0_sw_lptx_pre_oe;
-	const u32 d0c_sw_lptx_pre_oe;
-	const u32 d1_sw_lptx_pre_oe;
-	const u32 d1c_sw_lptx_pre_oe;
-	const u32 d2_sw_lptx_pre_oe;
-	const u32 d2c_sw_lptx_pre_oe;
-	const u32 d3_sw_lptx_pre_oe;
-	const u32 d3c_sw_lptx_pre_oe;
-	const u32 ck_sw_lptx_pre_oe;
-	const u32 ckc_sw_lptx_pre_oe;
-	int (*pll_prepare)(struct clk_hw *hw);
-	int (*power_on_signal)(struct phy *phy);
-	void (*pll_unprepare)(struct clk_hw *hw);
-	int (*power_off_signal)(struct phy *phy);
-	unsigned int (*dsi_get_pcw)(unsigned long data_rate, unsigned int pcw_ratio);
-	unsigned int (*dsi_get_data_rate)(struct phy *phy);
-	void (*backup_mipitx_impedance)(struct mtk_mipi_tx *mipi_tx);
-	void (*refill_mipitx_impedance)(struct mtk_mipi_tx *mipi_tx);
-	void (*pll_rate_switch_gce)(struct phy *phy, void *handle, unsigned long rate);
-};
-
-static inline struct mtk_mipi_tx *mtk_mipi_tx_from_clk_hw(struct clk_hw *hw)
+inline struct mtk_mipi_tx *mtk_mipi_tx_from_clk_hw(struct clk_hw *hw)
 {
 	return container_of(hw, struct mtk_mipi_tx, pll_hw);
 }
 
-static void mtk_mipi_tx_clear_bits(struct mtk_mipi_tx *mipi_tx, u32 offset,
+void mtk_mipi_tx_clear_bits(struct mtk_mipi_tx *mipi_tx, u32 offset,
 				   u32 bits)
 {
 	u32 temp = readl(mipi_tx->regs + offset);
@@ -375,7 +332,7 @@ static void mtk_mipi_tx_clear_bits(struct mtk_mipi_tx *mipi_tx, u32 offset,
 	writel(temp & ~bits, mipi_tx->regs + offset);
 }
 
-static void mtk_mipi_tx_set_bits(struct mtk_mipi_tx *mipi_tx, u32 offset,
+void mtk_mipi_tx_set_bits(struct mtk_mipi_tx *mipi_tx, u32 offset,
 				 u32 bits)
 {
 	u32 temp = readl(mipi_tx->regs + offset);
@@ -383,7 +340,7 @@ static void mtk_mipi_tx_set_bits(struct mtk_mipi_tx *mipi_tx, u32 offset,
 	writel(temp | bits, mipi_tx->regs + offset);
 }
 
-static void mtk_mipi_tx_update_bits(struct mtk_mipi_tx *mipi_tx, u32 offset,
+void mtk_mipi_tx_update_bits(struct mtk_mipi_tx *mipi_tx, u32 offset,
 				    u32 mask, u32 data)
 {
 	u32 temp = readl(mipi_tx->regs + offset);
@@ -1045,6 +1002,52 @@ int mtk_mipi_tx_ssc_en(struct phy *phy, struct mtk_panel_ext *mtk_panel)
 	return 0;
 }
 
+int mtk_mipi_tx_ssc_en_N6(struct phy *phy, struct mtk_panel_ext *mtk_panel)
+{
+	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
+	unsigned int data_rate;
+	u16 pdelta1, ssc_prd;
+	u8 txdiv;
+	unsigned int delta1 = 5; /* Delta1 is SSC range, default is 0%~-5% */
+
+	DDPINFO("%s+\n", __func__);
+	if (mtk_panel->params->ssc_enable) {
+		data_rate = mtk_panel->params->data_rate;
+
+		if (data_rate >= 2000)
+			txdiv = 1;
+		else if (data_rate >= 1000)
+			txdiv = 2;
+		else if (data_rate >= 500)
+			txdiv = 4;
+		else if (data_rate > 250)
+			txdiv = 8;
+		else if (data_rate >= 125)
+			txdiv = 16;
+		else
+			return -EINVAL;
+
+		delta1 = (mtk_panel->params->ssc_range == 0) ?
+			delta1 : mtk_panel->params->ssc_range;
+
+		pdelta1 = data_rate * txdiv * delta1 / 26 * 262144 / 1000 / 433;
+
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON3_MT6983,
+						FLD_RG_DSI_PLL_SDM_SSC_DELTA1_MT6983, pdelta1);
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON3_MT6983,
+						FLD_RG_DSI_PLL_SDM_SSC_DELTA_MT6983, pdelta1 << 16);
+
+		ssc_prd = 0x1b1;//fix
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON2_MT6983,
+						FLD_RG_DSI_PLL_SDM_SSC_PRD_MT6983, ssc_prd << 16);
+		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_PLL_CON2_MT6983,
+						mipi_tx->driver_data->dsi_ssc_en);
+
+		DDPINFO("set ssc enabled\n");
+	}
+	return 0;
+}
+
 void mtk_mipi_tx_sw_control_en(struct phy *phy, bool en)
 {
 #ifndef CONFIG_FPGA_EARLY_PORTING
@@ -1196,7 +1199,7 @@ static int mtk_mipi_tx_pll_prepare(struct clk_hw *hw)
 	return 0;
 }
 
-static bool mtk_is_mipi_tx_enable(struct clk_hw *hw)
+bool mtk_is_mipi_tx_enable(struct clk_hw *hw)
 {
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
 	u32 tmp = readl(mipi_tx->regs + MIPITX_PLL_CON1);
@@ -1246,7 +1249,7 @@ static unsigned int _dsi_get_pcw_mt6983(unsigned long data_rate,
 	return tmp;
 }
 
-static unsigned int _dsi_get_pcw(unsigned long data_rate,
+unsigned int _dsi_get_pcw(unsigned long data_rate,
 	unsigned int pcw_ratio)
 {
 	unsigned int pcw, tmp, pcw_floor;
@@ -3586,7 +3589,7 @@ unsigned int rt_mt6886_code_backup[2][5];
 unsigned int rt_mt6886_dem_backup[2][5];
 #define SECOND_PHY_OFFSET  (0x10000UL)
 
-static void backup_mipitx_impedance(struct mtk_mipi_tx *mipi_tx)
+void backup_mipitx_impedance(struct mtk_mipi_tx *mipi_tx)
 {
 	unsigned int i = 0;
 	unsigned int j = 0;
@@ -3775,7 +3778,7 @@ static void backup_mipitx_impedance_mt6983(struct mtk_mipi_tx *mipi_tx)
 #endif /* mipitx impedance print */
 }
 
-static void refill_mipitx_impedance(struct mtk_mipi_tx *mipi_tx)
+void refill_mipitx_impedance(struct mtk_mipi_tx *mipi_tx)
 {
 	unsigned int i = 0;
 	unsigned int j = 0;
@@ -4704,6 +4707,7 @@ static const struct of_device_id mtk_mipi_tx_match[] = {
 	{.compatible = "mediatek,mt6833-mipi-tx", .data = &mt6833_mipitx_data},
 	{.compatible = "mediatek,mt6879-mipi-tx", .data = &mt6879_mipitx_data},
 	{.compatible = "mediatek,mt6855-mipi-tx", .data = &mt6855_mipitx_data},
+	{.compatible = "mediatek,mt6835-mipi-tx", .data = &mt6835_mipitx_data},
 	{.compatible = "mediatek,mt6873-mipi-tx-cphy",
 		.data = &mt6873_mipitx_cphy_data},
 	{.compatible = "mediatek,mt6879-mipi-tx-cphy",
@@ -4722,6 +4726,8 @@ static const struct of_device_id mtk_mipi_tx_match[] = {
 		.data = &mt6886_mipitx_cphy_data},
 	{.compatible = "mediatek,mt6855-mipi-tx-cphy",
 		.data = &mt6855_mipitx_cphy_data},
+	{.compatible = "mediatek,mt6835-mipi-tx-cphy",
+		.data = &mt6835_mipitx_cphy_data},
 	{},
 };
 

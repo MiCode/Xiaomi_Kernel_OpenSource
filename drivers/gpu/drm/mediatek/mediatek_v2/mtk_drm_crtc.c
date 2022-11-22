@@ -58,6 +58,7 @@
 #include "mtk_disp_ccorr.h"
 #include "mtk_debug.h"
 #include "mtk_disp_oddmr/mtk_disp_oddmr.h"
+#include "platform/mtk_drm_platform.h"
 
 /* *****Panel_Master*********** */
 #include "mtk_fbconfig_kdebug.h"
@@ -475,6 +476,7 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 	case MMSYS_MT6833:
 	case MMSYS_MT6879:
 	case MMSYS_MT6855:
+	case MMSYS_MT6835:
 		mmsys_config_dump_reg_mt6879(mtk_crtc->config_regs);
 		mutex_dump_reg_mt6879(mtk_crtc->mutex[0]);
 		break;
@@ -848,6 +850,10 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 	case MMSYS_MT6855:
 		mmsys_config_dump_analysis_mt6855(mtk_crtc->config_regs);
 		mutex_dump_analysis_mt6855(mtk_crtc->mutex[0]);
+		break;
+	case MMSYS_MT6835:
+		mmsys_config_dump_analysis_mt6835(mtk_crtc->config_regs);
+		mutex_dump_analysis_mt6835(mtk_crtc->mutex[0]);
 		break;
 	default:
 		DDPPR_ERR("%s mtk drm not support mmsys id %d\n",
@@ -5994,6 +6000,7 @@ void mtk_crtc_enable_iommu_runtime(struct mtk_drm_crtc *mtk_crtc,
 			priv->data->mmsys_id == MMSYS_MT6985 ||
 			priv->data->mmsys_id == MMSYS_MT6879 ||
 			priv->data->mmsys_id == MMSYS_MT6895 ||
+			priv->data->mmsys_id == MMSYS_MT6835 ||
 			priv->data->mmsys_id == MMSYS_MT6855 ||
 			priv->data->mmsys_id == MMSYS_MT6886) {
 			/*set smi_larb_sec_con reg as 1*/
@@ -8287,6 +8294,7 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 	if (priv->data->mmsys_id == MMSYS_MT6983 ||
 		priv->data->mmsys_id == MMSYS_MT6879 ||
 		priv->data->mmsys_id == MMSYS_MT6895 ||
+		priv->data->mmsys_id == MMSYS_MT6835 ||
 		priv->data->mmsys_id == MMSYS_MT6855 ||
 		priv->data->mmsys_id == MMSYS_MT6886) {
 		/*Set EVENT_GCED_EN EVENT_GCEM_EN*/
@@ -8603,6 +8611,7 @@ void mtk_crtc_prepare_instr(struct drm_crtc *crtc)
 		priv->data->mmsys_id == MMSYS_MT6879 ||
 		priv->data->mmsys_id == MMSYS_MT6895 ||
 		priv->data->mmsys_id == MMSYS_MT6886 ||
+		priv->data->mmsys_id == MMSYS_MT6835 ||
 		priv->data->mmsys_id == MMSYS_MT6855) {
 		handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
@@ -9259,6 +9268,7 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 		priv->data->mmsys_id == MMSYS_MT6985 ||
 		priv->data->mmsys_id == MMSYS_MT6879 ||
 		priv->data->mmsys_id == MMSYS_MT6895 ||
+		priv->data->mmsys_id == MMSYS_MT6835 ||
 		priv->data->mmsys_id == MMSYS_MT6855 ||
 		priv->data->mmsys_id == MMSYS_MT6886) {
 		/*Set EVENT_GCED_EN EVENT_GCEM_EN*/

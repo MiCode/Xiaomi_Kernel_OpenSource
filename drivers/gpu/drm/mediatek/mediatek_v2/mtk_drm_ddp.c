@@ -26,6 +26,7 @@
 #include "mtk_disp_c3d.h"
 #include "mtk_disp_gamma.h"
 #include "mtk_disp_oddmr/mtk_disp_oddmr.h"
+#include "platform/mtk_drm_platform.h"
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
 #endif
@@ -151,19 +152,6 @@
 #define DISP_REG_MUTEX_INTEN 0x00
 #define DISP_REG_MUTEX_INTSTA 0x04
 #define DISP_REG_MUTEX_CFG 0x08
-#define DISP_REG_MUTEX_EN(n) (0x20 + 0x20 * (n))
-#define DISP_REG_MUTEX(n) (0x24 + 0x20 * (n))
-#define DISP_REG_MUTEX_RST(n) (0x28 + 0x20 * (n))
-#define DISP_REG_MUTEX_SOF(data, n) (data->mutex_sof_reg + 0x20 * (n))
-#define DISP_REG_MUTEX_MOD(data, n) (data->mutex_mod_reg + 0x20 * (n))
-#define DISP_REG_MUTEX_MOD2(n) (0x34 + 0x20 * (n))
-
-#define SOF_FLD_MUTEX0_SOF REG_FLD(3, 0)
-#define SOF_FLD_MUTEX0_SOF_TIMING REG_FLD(2, 3)
-#define SOF_FLD_MUTEX0_SOF_WAIT REG_FLD(1, 5)
-#define SOF_FLD_MUTEX0_EOF REG_FLD(3, 6)
-#define SOF_FLD_MUTEX0_FOF_TIMING REG_FLD(2, 9)
-#define SOF_FLD_MUTEX0_EOF_WAIT REG_FLD(1, 11)
 
 #define INT_MUTEX BIT(1)
 
@@ -224,12 +212,6 @@
 #define MT6779_MUTEX_MOD_DISP_DSI0 BIT(19)
 #define MT6779_MUTEX_MOD_DISP_POSTMASK BIT(21)
 #define MT6779_MUTEX_MOD_DISP_RSZ BIT(22)
-
-#define MUTEX_SOF_SINGLE_MODE 0
-#define MUTEX_SOF_DSI0 1
-#define MUTEX_SOF_DSI1 2
-#define MUTEX_SOF_DPI0 3
-#define MUTEX_SOF_DPI1 4
 
 #define MT6779_MUTEX_SOF_SINGLE_MODE 0
 #define MT6779_MUTEX_SOF_DSI0 1
@@ -2400,31 +2382,6 @@ same with 6873
 #define MT6855_MUTEX_SOF_SINGLE_MODE 0
 #define MT6855_MUTEX_SOF_DSI0 1
 #define MT6855_MUTEX_EOF_DSI0 (MT6855_MUTEX_SOF_DSI0 << 6)
-
-enum mtk_ddp_mutex_sof_id {
-	DDP_MUTEX_SOF_SINGLE_MODE,
-	DDP_MUTEX_SOF_DSI0,
-	DDP_MUTEX_SOF_DSI1,
-	DDP_MUTEX_SOF_DPI0,
-	DDP_MUTEX_SOF_DPI1,
-	DDP_MUTEX_SOF_DSI2,
-	DDP_MUTEX_SOF_DSI3,
-	DDP_MUTEX_SOF_MAX,
-};
-
-struct mtk_mmsys_reg_data {
-	unsigned int ovl0_mout_en;
-	unsigned int rdma0_sout_sel_in;
-	unsigned int rdma0_sout_color0;
-	unsigned int rdma1_sout_sel_in;
-	unsigned int rdma1_sout_dpi0;
-	unsigned int rdma1_sout_dsi0;
-	unsigned int dpi0_sel_in;
-	unsigned int dpi0_sel_in_rdma1;
-	unsigned int *path_sel;
-	unsigned int path_sel_size;
-	const unsigned int *dispsys_map;
-};
 
 /* use DDP_COMPONENT_ID_MAX represent dispsys */
 /* use DDP_COMPONENT_ID_MAX | BIT(31) represent dispsys1 */
@@ -12519,6 +12476,29 @@ void mtk_ddp_add_comp_to_path(struct mtk_drm_crtc *mtk_crtc,
 			writel_relaxed(reg, config_regs + addr);
 		}
 		break;
+	case MMSYS_MT6835:
+		value = mtk_ddp_mout_en_MT6835(reg_data, cur, next, &addr);
+		if (value >= 0) {
+			reg = readl_relaxed(config_regs + addr) | value;
+			writel_relaxed(reg, config_regs + addr);
+		}
+
+		value = mtk_ddp_sout_sel_MT6835(reg_data, cur, next, &addr);
+		if (value >= 0)
+			writel_relaxed(value, config_regs + addr);
+
+		value = mtk_ddp_sel_in_MT6835(reg_data, cur, next, &addr);
+		if (value >= 0)
+			writel_relaxed(value, config_regs + addr);
+
+		value = mtk_ddp_ovl_bg_blend_en_MT6835(
+			reg_data, cur, next, &addr);
+		if (value >= 0) {
+			reg = readl_relaxed(config_regs + addr) | value;
+			writel_relaxed(reg, config_regs + addr);
+		}
+
+		break;
 
 	case MMSYS_MT6833:
 		value = mtk_ddp_mout_en_MT6833(reg_data, cur, next, &addr);
@@ -12871,6 +12851,35 @@ void mtk_ddp_add_comp_to_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 				+ addr, value, value);
 		}
 		break;
+	case MMSYS_MT6835:
+		value = mtk_ddp_mout_en_MT6835(reg_data,
+				cur, next, &addr);
+		if (value >= 0)
+			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+				config_regs_pa
+				+ addr, value, value);
+
+		value = mtk_ddp_sout_sel_MT6835(reg_data,
+				cur, next, &addr);
+		if (value >= 0)
+			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+				config_regs_pa
+				+ addr, value, ~0);
+
+		value = mtk_ddp_sel_in_MT6835(reg_data,
+				cur, next, &addr);
+		if (value >= 0)
+			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+				config_regs_pa
+				+ addr, value, ~0);
+
+		value = mtk_ddp_ovl_bg_blend_en_MT6835(reg_data,
+				cur, next, &addr);
+		if (value >= 0)
+			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+				config_regs_pa
+				+ addr, value, value);
+		break;
 
 	case MMSYS_MT6833:
 		value = mtk_ddp_mout_en_MT6833(reg_data,
@@ -13090,6 +13099,21 @@ void mtk_ddp_remove_comp_from_path(struct mtk_drm_crtc *mtk_crtc,
 		}
 		break;
 
+	case MMSYS_MT6835:
+		value = mtk_ddp_mout_en_MT6835(reg_data, cur, next, &addr);
+		if (value >= 0) {
+			reg = readl_relaxed(config_regs + addr) & ~value;
+			writel_relaxed(reg, config_regs + addr);
+		}
+
+		value = mtk_ddp_ovl_bg_blend_en_MT6835(reg_data, cur, next, &addr);
+
+		if (value >= 0) {
+			reg = readl_relaxed(config_regs + addr) & ~value;
+			writel_relaxed(reg, config_regs + addr);
+		}
+		break;
+
 	default:
 		DDPINFO("%s mtk drm not support mmsys id %d\n",
 			__func__, priv->data->mmsys_id);
@@ -13265,6 +13289,20 @@ void mtk_ddp_remove_comp_from_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 				       config_regs_pa + addr, ~value, value);
 		}
+		break;
+
+	case MMSYS_MT6835:
+		value = mtk_ddp_mout_en_MT6835(reg_data,
+					cur, next, &addr);
+		if (value >= 0)
+			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+				       config_regs_pa + addr, ~value, value);
+
+		value = mtk_ddp_ovl_bg_blend_en_MT6835(reg_data,
+					cur, next, &addr);
+		if (value >= 0)
+			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+				       config_regs_pa + addr, ~value, value);
 		break;
 
 	default:
@@ -14702,6 +14740,9 @@ mtk_ddp_get_mmsys_reg_data(enum mtk_mmsys_id mmsys_id)
 		break;
 	case MMSYS_MT6855:
 		data = &mt6855_mmsys_reg_data;
+		break;
+	case MMSYS_MT6835:
+		data = &mt6835_mmsys_reg_data;
 		break;
 	default:
 		DDPPR_ERR("mtk drm not support mmsys id %d\n", mmsys_id);
@@ -18504,6 +18545,8 @@ static const struct of_device_id ddp_driver_dt_match[] = {
 	 .data = &mt6833_ddp_driver_data},
 	{.compatible = "mediatek,mt6879-disp-mutex",
 	 .data = &mt6879_ddp_driver_data},
+	{.compatible = "mediatek,mt6835-disp-mutex",
+	 .data = &mt6835_ddp_driver_data},
 	{.compatible = "mediatek,mt6855-disp-mutex",
 	 .data = &mt6855_ddp_driver_data},
 	{.compatible = "mediatek,mt8173-disp-mutex",
