@@ -412,7 +412,8 @@ int mtk_btag_ufs_init(struct ufs_mtk_host *host)
 	if (hba_priv->is_mcq_enabled)
 		max_queue = hba_priv->mcq_nr_hw_queue;
 
-	ufs_mtk_btag_wq = alloc_workqueue("ufs_mtk_btag", WQ_FREEZABLE, 1);
+	ufs_mtk_btag_wq = alloc_workqueue("ufs_mtk_btag",
+			WQ_FREEZABLE | WQ_UNBOUND, 1);
 	INIT_WORK(&ufs_mtk_btag_worker, mtk_btag_ufs_work);
 
 	btag = mtk_btag_alloc("ufs",
