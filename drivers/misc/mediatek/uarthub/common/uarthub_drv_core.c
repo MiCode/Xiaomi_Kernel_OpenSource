@@ -99,11 +99,13 @@ static int uarthub_fb_notifier_callback(struct notifier_block *nb, unsigned long
 static enum hrtimer_restart dump_hrtimer_handler_cb(struct hrtimer *hrt);
 
 #if IS_ENABLED(CONFIG_OF)
+struct uarthub_ops_struct __weak mt6835_plat_data = {};
 struct uarthub_ops_struct __weak mt6886_plat_data = {};
 struct uarthub_ops_struct __weak mt6983_plat_data = {};
 struct uarthub_ops_struct __weak mt6985_plat_data = {};
 
 const struct of_device_id apuarthub_of_ids[] = {
+	{ .compatible = "mediatek,mt6835-uarthub", .data = &mt6835_plat_data },
 	{ .compatible = "mediatek,mt6886-uarthub", .data = &mt6886_plat_data },
 	{ .compatible = "mediatek,mt6983-uarthub", .data = &mt6983_plat_data },
 	{ .compatible = "mediatek,mt6985-uarthub", .data = &mt6985_plat_data },
