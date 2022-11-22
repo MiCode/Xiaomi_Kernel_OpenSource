@@ -44,9 +44,7 @@ struct service_handler reetime;
 struct service_handler vfs_handler;
 static struct completion teei_bdrv_comp;
 
-#ifdef DYNAMIC_SET_PRIORITY
 static struct completion teei_bdrv_done;
-#endif
 
 static long register_shared_param_buf(struct service_handler *handler)
 {
@@ -286,9 +284,7 @@ void teei_notify_bdrv_fn(void)
 
 void teei_wait_for_bdrv_done(void)
 {
-#ifdef DYNAMIC_SET_PRIORITY
 	wait_for_completion(&teei_bdrv_done);
-#endif
 }
 
 int teei_bdrv_fn(void *work)
@@ -313,9 +309,7 @@ int teei_bdrv_fn(void *work)
 			return retVal;
 		}
 
-#ifdef DYNAMIC_SET_PRIORITY
 		complete(&teei_bdrv_done);
-#endif
 	}
 
 	return 0;
@@ -325,9 +319,7 @@ int init_bdrv_comp_fn(void)
 {
 	init_completion(&teei_bdrv_comp);
 
-#ifdef DYNAMIC_SET_PRIORITY
 	init_completion(&teei_bdrv_done);
-#endif
 
 	return 0;
 }

@@ -1118,7 +1118,7 @@ static int teei_client_init(void)
 	teei_cpus_write_unlock();
 #endif
 
-	/* set_user_nice(teei_switch_task, MIN_NICE); */
+	set_user_nice(teei_switch_task, MIN_NICE);
 	wake_up_process(teei_switch_task);
 
 #if !IS_ENABLED(CONFIG_MICROTRUST_DYNAMIC_CORE)
