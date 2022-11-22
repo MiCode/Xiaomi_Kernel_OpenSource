@@ -2073,10 +2073,6 @@ int tcpc_typec_handle_cc_change(struct tcpc_device *tcpc)
 			typec_enter_low_power_mode(tcpc);
 		if (typec_is_drp_toggling())
 			return 0;
-		if (tcpc->tcpc_flags & TCPC_FLAGS_FLOATING_GROUND &&
-		   (tcpc->typec_state == typec_unattached_snk ||
-		    tcpc->typec_state == typec_unattached_src))
-			return 0;
 	}
 
 #if CONFIG_TYPEC_CAP_NORP_SRC
