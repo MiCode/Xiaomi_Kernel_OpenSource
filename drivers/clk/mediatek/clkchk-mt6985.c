@@ -50,7 +50,7 @@
 
 static DEFINE_SPINLOCK(clk_trace_lock);
 static unsigned int clk_event[EVT_LEN];
-static unsigned int evt_cnt;
+static unsigned int evt_cnt, suspend_cnt;
 
 /* xpu*/
 enum {
@@ -1223,6 +1223,22 @@ static const char * const *get_notice_pll_names(void)
 	return notice_pll_names;
 }
 
+static bool suspend_retry(bool reset_cnt)
+{
+	if (reset_cnt == true) {
+		suspend_cnt = 0;
+		return true;
+	}
+
+	suspend_cnt++;
+	pr_notice("%s: suspend cnt: %d\n", __func__, suspend_cnt);
+
+	if (suspend_cnt < 2)
+		return false;
+
+	return true;
+}
+
 static const char * const *get_bypass_pll_name(void)
 {
 	return bypass_pll_name;
@@ -1357,10 +1373,13 @@ static struct clkchk_ops clkchk_mt6985_ops = {
 	.dump_pll_reg = dump_pll_reg,
 	.trace_clk_event = trace_clk_event,
 	.check_hwv_irq_sta = check_hwv_irq_sta,
+	.suspend_retry = suspend_retry,
 };
 
 static int clk_chk_mt6985_probe(struct platform_device *pdev)
 {
+	suspend_cnt = 0;
+
 	init_regbase();
 
 	set_clkchk_notify();

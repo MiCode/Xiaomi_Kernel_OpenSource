@@ -27,7 +27,7 @@
 
 static DEFINE_SPINLOCK(pwr_trace_lock);
 static unsigned int pwr_event[EVT_LEN];
-static unsigned int evt_cnt;
+static unsigned int evt_cnt, suspend_cnt;
 
 static void trace_power_event(unsigned int id, unsigned int pwr_sta)
 {
@@ -980,6 +980,22 @@ static void check_hwv_irq_sta(void)
 		debug_dump(MT6985_CHK_PD_NUM, 0);
 }
 
+static bool pdchk_suspend_retry(bool reset_cnt)
+{
+	if (reset_cnt == true) {
+		suspend_cnt = 0;
+		return true;
+	}
+
+	suspend_cnt++;
+	pr_notice("%s: suspend cnt: %d\n", __func__, suspend_cnt);
+
+	if (suspend_cnt < 2)
+		return false;
+
+	return true;
+}
+
 /*
  * init functions
  */
@@ -998,10 +1014,13 @@ static struct pdchk_ops pdchk_mt6985_ops = {
 	.trace_power_event = trace_power_event,
 	.dump_power_event = dump_power_event,
 	.check_hwv_irq_sta = check_hwv_irq_sta,
+	.pdchk_suspend_retry = pdchk_suspend_retry,
 };
 
 static int pd_chk_mt6985_probe(struct platform_device *pdev)
 {
+	suspend_cnt = 0;
+
 	pdchk_common_init(&pdchk_mt6985_ops);
 	pdchk_hwv_irq_init(pdev);
 

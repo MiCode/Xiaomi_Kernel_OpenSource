@@ -588,13 +588,11 @@ static int clk_chk_dev_pm_suspend(struct device *dev)
 		for (; pvdck->ck != NULL; pvdck++)
 			dump_enabled_clks(pvdck);
 
+		if (!clkchk_retry_bug_on(false))
+			return -1;
 		if (is_pll_chk_bug_on() || pdchk_get_bug_on_stat()) {
-			if (clkchk_retry_bug_on(false)) {
-				clkchk_dump_pll_reg(false);
-				BUG_ON(1);
-			} else {
-				return -1;
-			}
+			clkchk_dump_pll_reg(false);
+			BUG_ON(1);
 		}
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 		aee_kernel_warning_api(__FILE__, __LINE__,
