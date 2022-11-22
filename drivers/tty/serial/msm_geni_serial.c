@@ -3892,8 +3892,10 @@ static int msm_geni_serial_remove(struct platform_device *pdev)
 		return 0;
 	if (port->wakeup_irq > 0)
 		destroy_workqueue(port->wakeup_irq_wq);
-	if (!uart_console(&port->uport))
+	if (!uart_console(&port->uport)) {
 		wakeup_source_unregister(port->geni_wake);
+		port->geni_wake = NULL;
+	}
 	uart_remove_one_port(drv, &port->uport);
 	if (port->rx_dma) {
 		geni_se_iommu_free_buf(port->wrapper_dev, &port->rx_dma,
