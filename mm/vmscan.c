@@ -1022,12 +1022,16 @@ static enum page_references page_check_references(struct page *page,
 	unsigned long vm_flags;
 	bool should_protect = false;
 	bool trylock_fail = false;
+	int ret = 0;
 
 	trace_android_vh_page_should_be_protected(page, &should_protect);
 	if (unlikely(should_protect))
 		return PAGEREF_ACTIVATE;
 
 	trace_android_vh_page_trylock_set(page);
+	trace_android_vh_check_page_look_around_ref(page, &ret);
+	if (ret)
+		return ret;
 	referenced_ptes = page_referenced(page, 1, sc->target_mem_cgroup,
 					  &vm_flags);
 	referenced_page = TestClearPageReferenced(page);
@@ -1040,6 +1044,10 @@ static enum page_references page_check_references(struct page *page,
 	 */
 	if (vm_flags & VM_LOCKED)
 		return PAGEREF_RECLAIM;
+
+	/* rmap lock contention: rotate */
+	if (referenced_ptes == -1)
+		return PAGEREF_KEEP;
 
 	if (referenced_ptes) {
 		/*
@@ -2115,8 +2123,9 @@ static void shrink_active_list(unsigned long nr_to_scan,
 		if (bypass)
 			goto skip_page_referenced;
 		trace_android_vh_page_trylock_set(page);
+		/* Referenced or rmap lock contention: rotate */
 		if (page_referenced(page, 0, sc->target_mem_cgroup,
-				    &vm_flags)) {
+				     &vm_flags) != 0) {
 			/*
 			 * Identify referenced, file-backed active pages and
 			 * give them one more trip around the active list. So
