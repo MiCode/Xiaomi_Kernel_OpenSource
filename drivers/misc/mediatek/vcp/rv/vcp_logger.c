@@ -1040,7 +1040,7 @@ void vcp_crash_log_move_to_buf(enum vcp_core_id vcp_id)
 		if (w_pos >= DRAM_BUF_LEN) {
 			pr_notice("[VCP] %s(): w_pos >= DRAM_BUF_LEN, w_pos=%u",
 				__func__, w_pos);
-			return;
+			goto exit;
 		}
 
 		/* copy to dram buffer */
@@ -1049,8 +1049,8 @@ void vcp_crash_log_move_to_buf(enum vcp_core_id vcp_id)
 		/* check write address don't over logger reserve memory */
 		if (dram_logger_buf > dram_logger_limit) {
 			pr_debug("[VCP] %s: dram_logger_buf %x oversize reserve mem %x\n",
-			__func__, dram_logger_buf, dram_logger_limit);
-		goto exit;
+				__func__, dram_logger_buf, dram_logger_limit);
+			goto exit;
 		}
 
 		/* memory copy from log buf */

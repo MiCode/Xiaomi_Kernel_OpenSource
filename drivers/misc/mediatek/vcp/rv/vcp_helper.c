@@ -318,6 +318,7 @@ static int vcp_ipi_dbg_resume_noirq(struct device *dev)
 static void vcp_wait_awake_count(void)
 {
 	int i = 0;
+	unsigned long spin_flags;
 
 	while (vcp_awake_counts[VCP_A_ID] != 0) {
 		i += 1;
@@ -327,7 +328,10 @@ static void vcp_wait_awake_count(void)
 			break;
 		}
 	}
-	pr_info("[VCP] %s wait count: %d\n", __func__, i);
+
+	spin_lock_irqsave(&vcp_awake_spinlock, spin_flags);
+	vcp_awake_counts[VCP_A_ID] = 0;
+	spin_unlock_irqrestore(&vcp_awake_spinlock, spin_flags);
 }
 
 /*
