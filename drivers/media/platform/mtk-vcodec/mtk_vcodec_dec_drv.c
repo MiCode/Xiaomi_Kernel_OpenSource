@@ -482,6 +482,12 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 			reg_index, dev->dec_reg_base[reg_index]);
 	}
 
+	ret = of_property_read_u32(pdev->dev.of_node, "support-svp-region", &support_svp_region);
+	if (ret) {
+		mtk_v4l2_debug(0, "[VDEC] Cannot get support-svp-region, skip");
+		support_svp_region = 0;
+	}
+
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (res == NULL) {
 		dev_info(&pdev->dev, "failed to get irq resource");

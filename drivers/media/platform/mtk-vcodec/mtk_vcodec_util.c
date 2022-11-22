@@ -157,6 +157,9 @@ bool mtk_vcodec_is_vcp(int type)
 }
 EXPORT_SYMBOL_GPL(mtk_vcodec_is_vcp);
 
+int support_svp_region;
+EXPORT_SYMBOL_GPL(support_svp_region);
+
 /* VCODEC FTRACE */
 #if VCODEC_TRACE
 unsigned long vcodec_get_tracing_mark(void)
@@ -670,7 +673,10 @@ int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev,
 	} else if (mem->type == MEM_TYPE_FOR_SEC_SW ||
 		   mem->type == MEM_TYPE_FOR_SEC_HW ||
 		   mem->type == MEM_TYPE_FOR_SEC_UBE_HW) {
-		dma_heap = dma_heap_find("mtk_svp_page-uncached");
+		if (support_svp_region)
+			dma_heap = dma_heap_find("mtk_svp_region-aligned");
+		else
+			dma_heap = dma_heap_find("mtk_svp_page-uncached");
 	} else if (mem->type == MEM_TYPE_FOR_SEC_WFD_HW) {
 		dma_heap = dma_heap_find("mtk_wfd_page-uncached");
 	} else {
