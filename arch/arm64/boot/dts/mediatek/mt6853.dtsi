@@ -2216,10 +2216,10 @@ loop.max_part=7 fw_devlink.strict=on";
 					  <6 200>, /* barge in */
 					  <7 10>;  /* vow dump */
 			scp_mem_key = "mediatek,reserve-memory-scp_share";
-			scp_mem_tbl = <0 0x4A700>, /* vow */
-				      <1 0x100000>, /* sensor */
-				      <2 0x180000>, /* logger */
-				      <3 0x19000>; /* audio */
+			scp-mem-tbl = <0 0x4a700 0x0>, /* vow */
+				      <1 0x100000 0x0>, /* sensor */
+				      <2 0x180000 0x0>, /* logger */
+				      <3 0x19000 0x0>; /* audio */
 		};
 
 		scp_clk_ctrl: scp_clk_ctrl@10721000 {
