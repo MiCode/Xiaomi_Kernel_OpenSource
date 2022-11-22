@@ -294,6 +294,134 @@ config COMMON_CLK_MT6797_VENCSYS
 	help
 	  This driver supports MediaTek MT6797 vencsys clocks.
 
+config COMMON_CLK_MT6835
+	tristate "Clock driver for MediaTek MT6835"
+	depends on ARM64 || COMPILE_TEST
+	select COMMON_CLK_MEDIATEK
+	default MACH_MT6835
+	help
+	  This driver supports MediaTek MT6835 basic clocks,
+	  which is used to control basic clock output.
+	  If you wish to use clock resources from the MT6835 SOC,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6835_ADSP
+	tristate "Clock driver for MediaTek MT6835 adsp"
+	depends on COMMON_CLK_MT6835
+	help
+	  This driver supports MediaTek MT6835 adsp clocks,
+	  which is used to control adsp clock output.
+	  If you wish to use clock resources from the adsp device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6835_CAM
+	tristate "Clock driver for MediaTek MT6835 cam"
+	depends on COMMON_CLK_MT6835
+	help
+	  This driver supports MediaTek MT6835 cam clocks,
+	  which is used to control cam clock output.
+	  If you wish to use clock resources from the cam device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6835_MMSYS
+	tristate "Clock driver for MediaTek MT6835 mmsys"
+	depends on COMMON_CLK_MT6835
+	help
+	  This driver supports MediaTek MT6835 mmsys clocks,
+	  which is used to control mmsys clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6835_IMGSYS1
+	tristate "Clock driver for MediaTek MT6835 imgsys1"
+	depends on COMMON_CLK_MT6835
+	help
+	  This driver supports MediaTek MT6835 imgsys1 clocks,
+	  which is used to control imgsys1 clock output.
+	  If you wish to use clock resources from the imgsys1 device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6835_PERI
+	tristate "Clock driver for MediaTek MT6835 peri"
+	depends on COMMON_CLK_MT6835
+	help
+	  This driver supports MediaTek MT6835 peri clocks,
+	  which is used to control peri clock output.
+	  If you wish to use clock resources from the peri device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6835_BUS
+	tristate "Clock driver for MediaTek MT6835 bus"
+	depends on COMMON_CLK_MT6835
+	help
+	  This driver supports MediaTek MT6835 bus clocks,
+	  which is used to control bus clock output.
+	  If you wish to use clock resources from the bus device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6835_IMG
+	tristate "Clock driver for MediaTek MT6835 img"
+	depends on COMMON_CLK_MT6835
+	help
+	  This driver supports MediaTek MT6835 img clocks,
+	  which is used to control img clock output.
+	  If you wish to use clock resources from the img device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6835_MDPSYS
+	tristate "Clock driver for MediaTek MT6835 mdpsys"
+	depends on COMMON_CLK_MT6835
+	help
+	  This driver supports MediaTek MT6835 mdpsys clocks,
+	  which is used to control mdpsys clock output.
+	  If you wish to use clock resources from the mdpsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6835_MFG
+	tristate "Clock driver for MediaTek MT6835 mfg"
+	depends on COMMON_CLK_MT6835
+	help
+	  This driver supports MediaTek MT6835 mfg clocks,
+	  which is used to control mfg clock output.
+	  If you wish to use clock resources from the mfg device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6835_NEMI_REG
+	tristate "Clock driver for MediaTek MT6835 nemi_reg"
+	depends on COMMON_CLK_MT6835
+	help
+	  This driver supports MediaTek MT6835 nemi_reg clocks,
+	  which is used to control nemi_reg clock output.
+	  If you wish to use clock resources from the nemi_reg device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6835_SCP_IIC
+	tristate "Clock driver for MediaTek MT6835 scp_iic"
+	depends on COMMON_CLK_MT6835
+	help
+	  This driver supports MediaTek MT6835 scp_iic clocks,
+	  which is used to control scp_iic clock output.
+	  If you wish to use clock resources from the scp_iic device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6835_SRAMRC_APB
+	tristate "Clock driver for MediaTek MT6835 sramrc_apb"
+	depends on COMMON_CLK_MT6835
+	help
+	  This driver supports MediaTek MT6835 sramrc_apb clocks,
+	  which is used to control sramrc_apb clock output.
+	  If you wish to use clock resources from the sramrc_apb device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6835_VCODEC
+	tristate "Clock driver for MediaTek MT6835 vcodec"
+	depends on COMMON_CLK_MT6835
+	help
+	  This driver supports MediaTek MT6835 vcodec clocks,
+	  which is used to control vcodec clock output.
+	  If you wish to use clock resources from the vcodec device,
+	  say Y. Otherwise, say N.
+
 config COMMON_CLK_MT6853
 	tristate "Clock driver for MediaTek MT6853"
 	depends on ARM64 || COMPILE_TEST

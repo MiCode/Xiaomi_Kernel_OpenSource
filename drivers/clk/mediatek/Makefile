@@ -41,6 +41,22 @@ obj-$(CONFIG_COMMON_CLK_MT2712_MFGCFG) += clk-mt2712-mfg.o
 obj-$(CONFIG_COMMON_CLK_MT2712_MMSYS) += clk-mt2712-mm.o
 obj-$(CONFIG_COMMON_CLK_MT2712_VDECSYS) += clk-mt2712-vdec.o
 obj-$(CONFIG_COMMON_CLK_MT2712_VENCSYS) += clk-mt2712-venc.o
+
+obj-$(CONFIG_COMMON_CLK_MT6835) += clk-mt6835.o clk-bringup.o
+obj-$(CONFIG_COMMON_CLK_MT6835_ADSP) += clk-mt6835-adsp.o
+obj-$(CONFIG_COMMON_CLK_MT6835_CAM) += clk-mt6835-cam.o
+obj-$(CONFIG_COMMON_CLK_MT6835_MMSYS) += clk-mt6835-mmsys.o
+obj-$(CONFIG_COMMON_CLK_MT6835_IMGSYS1) += clk-mt6835-imgsys1.o
+obj-$(CONFIG_COMMON_CLK_MT6835_PERI) += clk-mt6835-peri.o
+obj-$(CONFIG_COMMON_CLK_MT6835_BUS) += clk-mt6835-bus.o
+obj-$(CONFIG_COMMON_CLK_MT6835_IMG) += clk-mt6835-img.o
+obj-$(CONFIG_COMMON_CLK_MT6835_MDPSYS) += clk-mt6835-mdpsys.o
+obj-$(CONFIG_COMMON_CLK_MT6835_MFG) += clk-mt6835-mfgcfg.o
+obj-$(CONFIG_COMMON_CLK_MT6835_NEMI_REG) += clk-mt6835-nemi_reg.o
+obj-$(CONFIG_COMMON_CLK_MT6835_SCP_IIC) += clk-mt6835-scp_iic.o
+obj-$(CONFIG_COMMON_CLK_MT6835_SRAMRC_APB) += clk-mt6835-sramrc_apb.o
+obj-$(CONFIG_COMMON_CLK_MT6835_VCODEC) += clk-mt6835-vcodec.o
+
 obj-$(CONFIG_COMMON_CLK_MT6853) += clk-mt6853.o
 obj-$(CONFIG_COMMON_CLK_MT6853_APU0) += clk-mt6853-apu0.o
 obj-$(CONFIG_COMMON_CLK_MT6853_APU1) += clk-mt6853-apu1.o
@@ -184,6 +200,18 @@ ccflags-y += -I$(srctree)/include/linux/soc/mediatek/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpueb/
+
+ifneq ($(wildcard $(srctree)/$(src)/clk-mt6835.c),)
+obj-$(CONFIG_COMMON_CLK_MT6835) += clk-chk-mt6835.o
+clk-chk-mt6835-$(CONFIG_COMMON_CLK_MT6835) += clkchk-mt6835.o
+obj-$(CONFIG_COMMON_CLK_MT6835) += clk-fmeter-mt6835.o
+obj-$(CONFIG_COMMON_CLK_MT6835) += pd-chk-mt6835.o
+pd-chk-mt6835-$(CONFIG_COMMON_CLK_MT6835) += mtk-pd-chk-mt6835.o
+ifeq ($(CONFIG_DEBUG_FS), y)
+obj-$(CONFIG_COMMON_CLK_MT6835) += clk-dbg-mt6835.o
+clk-dbg-mt6835-$(CONFIG_COMMON_CLK_MT6835) += clkdbg-mt6835.o
+endif
+endif
 
 obj-$(CONFIG_COMMON_CLK_MT6853) += clk-chk.o
 clk-chk-$(CONFIG_COMMON_CLK_MT6853) += clkchk.o clkchk-mt6853.o
