@@ -161,7 +161,6 @@ static int mt6377_dcxo_dump_reg_log(char *buf)
 	}
 	return len;
 DUMP_REG_LOG_FAILED:
-	len -= 2;
 	len += snprintf(buf + len, PAGE_SIZE - len, "\n");
 	return len;
 }
