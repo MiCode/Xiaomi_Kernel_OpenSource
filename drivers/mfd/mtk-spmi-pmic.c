@@ -13,6 +13,8 @@
 #include <linux/mfd/mt6369/registers.h>
 #include <linux/mfd/mt6373/core.h>
 #include <linux/mfd/mt6373/registers.h>
+#include <linux/mfd/mt6377/core.h>
+#include <linux/mfd/mt6377/registers.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of_device.h>
@@ -86,6 +88,13 @@ static const struct resource mt6363_keys_resources[] = {
 	DEFINE_RES_IRQ(MT6363_IRQ_HOMEKEY_R),
 };
 
+static const struct resource mt6377_keys_resources[] = {
+	DEFINE_RES_IRQ(MT6377_IRQ_PWRKEY),
+	DEFINE_RES_IRQ(MT6377_IRQ_HOMEKEY),
+	DEFINE_RES_IRQ(MT6377_IRQ_PWRKEY_R),
+	DEFINE_RES_IRQ(MT6377_IRQ_HOMEKEY_R),
+};
+
 static const struct resource mt6373_regulators_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6373_IRQ_VUSB_OC, "VUSB"),
 	DEFINE_RES_IRQ_NAMED(MT6373_IRQ_VAUX18_OC, "VAUX18"),
@@ -154,6 +163,55 @@ static const struct resource mt6369_regulators_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6369_IRQ_VMC_OC, "VMC"),
 	DEFINE_RES_IRQ_NAMED(MT6369_IRQ_VANT18_OC, "VANT18"),
 	DEFINE_RES_IRQ_NAMED(MT6369_IRQ_VAUX18_OC, "VAUX18"),
+};
+
+static const struct resource mt6377_accdet_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_ACCDET, "ACCDET_IRQ"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_ACCDET_EINT0, "ACCDET_EINT0"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_ACCDET_EINT1, "ACCDET_EINT1"),
+};
+
+static const struct resource mt6377_regulators_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VPA_OC, "VPA"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VA12_OC, "VA12"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VAUD18_OC, "VAUD18"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VAUD28_OC, "VAUD28"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VAUX18_OC, "VAUX18"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VBIF28_OC, "VBIF28"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VCN33_1_OC, "VCN33_1"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VCN33_2_OC, "VCN33_2"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VCN18_OC, "VCN18"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VRFCK_OC, "VRFCK"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VBBCK_OC, "VBBCK"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VXO22_OC, "VXO22"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VM18_OC, "VM18"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VEFUSE_OC, "VEFUSE"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VEMC_OC, "VEMC"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VUFS_OC, "VUFS"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VIO18_OC, "VIO18"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VSRAM_MD_OC, "VSRAM_MD"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VRF18_OC, "VRF18"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VRF12_OC, "VRF12"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VRF09_OC, "VRF09"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VRFVA12_OC, "VRFVA12"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VRFIO18_OC, "VRFIO18"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VMCH_OC, "VMCH"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VMC_OC, "VMC"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VUSB_OC, "VUSB"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VIBR_OC, "VIBR"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VIO28_OC, "VIO28"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VFP_OC, "VFP"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_VTP_OC, "VTP"),
+};
+
+static const struct resource mt6377_battery_oc_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_FG_CUR_H, "fg_cur_h"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_FG_CUR_L, "fg_cur_l"),
+};
+
+static const struct resource mt6377_lbat_service_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_BAT_H, "bat_h"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_BAT_L, "bat_l"),
 };
 
 static const struct mfd_cell mt6363_devs[] = {
@@ -260,6 +318,49 @@ static const struct mfd_cell mt6373_devs[] = {
 	},
 };
 
+static const struct mfd_cell mt6377_devs[] = {
+	{
+		.name = "mt6377-auxadc",
+		.of_compatible = "mediatek,mt6377-auxadc",
+	}, {
+		.name = "mt6377-accdet",
+		.of_compatible = "mediatek,mt6377-accdet",
+		.num_resources = ARRAY_SIZE(mt6377_accdet_resources),
+		.resources = mt6377_accdet_resources,
+	}, {
+		.name = "mt6377-clock-buffer",
+		.of_compatible = "mediatek,clock_buffer",
+	}, {
+		.name = "mtk-battery-oc-throttling",
+		.of_compatible = "mediatek,mt6377-battery_oc_throttling",
+		.num_resources = ARRAY_SIZE(mt6377_battery_oc_resources),
+		.resources = mt6377_battery_oc_resources,
+	}, {
+		.name = "mtk-dynamic-loading-throttling",
+		.of_compatible = "mediatek,mt6377-dynamic_loading_throttling",
+	}, {
+		.name = "mtk-lbat-service",
+		.of_compatible = "mediatek,mt6377-lbat-service",
+		.num_resources = ARRAY_SIZE(mt6377_lbat_service_resources),
+		.resources = mt6377_lbat_service_resources,
+	}, {
+		.name = "mt6377-efuse",
+		.of_compatible = "mediatek,mt6377-efuse",
+	}, {
+		.name = "mt6377-regulator",
+		.num_resources = ARRAY_SIZE(mt6377_regulators_resources),
+		.resources = mt6377_regulators_resources,
+	}, {
+		.name = "mtk-pmic-keys",
+		.num_resources = ARRAY_SIZE(mt6377_keys_resources),
+		.resources = mt6377_keys_resources,
+		.of_compatible = "mediatek,mt6377-keys"
+	}, {
+		.name = "mt-pmic",
+		.of_compatible = "mediatek,spmi-pmic-debug",
+	},
+};
+
 static struct irq_top_t mt6363_ints[] = {
 	MT6363_TOP_GEN(BUCK),
 	MT6363_TOP_GEN(LDO),
@@ -288,6 +389,17 @@ static struct irq_top_t mt6373_ints[] = {
 	MT6373_TOP_GEN(BUCK),
 	MT6373_TOP_GEN(LDO),
 	MT6373_TOP_GEN(MISC),
+};
+
+static struct irq_top_t mt6377_ints[] = {
+	MT6377_TOP_GEN(BUCK),
+	MT6377_TOP_GEN(LDO),
+	MT6377_TOP_GEN(PSC),
+	MT6377_TOP_GEN(MISC),
+	MT6377_TOP_GEN(HK),
+	MT6377_TOP_GEN(SCK),
+	MT6377_TOP_GEN(BM),
+	MT6377_TOP_GEN(AUD),
 };
 
 static const struct mtk_spmi_pmic_data common_data = {
@@ -328,6 +440,15 @@ static const struct mtk_spmi_pmic_data mt6373_data = {
 	.num_pmic_irqs = MT6373_IRQ_NR,
 	.top_int_status_reg = MT6373_TOP_INT_STATUS1,
 	.pmic_ints = mt6373_ints,
+};
+
+static const struct mtk_spmi_pmic_data mt6377_data = {
+	.cells = mt6377_devs,
+	.cell_size = ARRAY_SIZE(mt6377_devs),
+	.num_top = ARRAY_SIZE(mt6377_ints),
+	.num_pmic_irqs = MT6377_IRQ_NR,
+	.top_int_status_reg = MT6377_TOP_INT_STATUS1,
+	.pmic_ints = mt6377_ints,
 };
 
 static void mtk_spmi_pmic_irq_enable(struct irq_data *data)
@@ -615,6 +736,7 @@ static const struct of_device_id mtk_spmi_pmic_of_match[] = {
 	{ .compatible = "mediatek,mt6368", .data = &mt6368_data, },
 	{ .compatible = "mediatek,mt6369", .data = &mt6369_data, },
 	{ .compatible = "mediatek,mt6373", .data = &mt6373_data, },
+	{ .compatible = "mediatek,mt6377", .data = &mt6377_data, },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, mtk_spmi_pmic_of_match);
