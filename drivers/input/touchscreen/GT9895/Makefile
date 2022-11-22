@@ -9,3 +9,6 @@ gt9895-y := \
 				goodix_ts_utils.o \
 				goodix_brl_fwupdate.o \
 				goodix_ts_tui.o
+ifeq ($(CONFIG_GCOV_KERNEL),y)
+	GCOV_PROFILE := y
+endif

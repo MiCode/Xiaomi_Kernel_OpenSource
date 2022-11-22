@@ -34,6 +34,7 @@
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 #include "mtk_panel_ext.h"
 static struct goodix_ts_core *ts_core;
+static struct goodix_ts_core *ktf_core;
 #endif
 
 #define GOODIX_DEFAULT_CFG_NAME		"goodix_cfg_group.cfg"
@@ -2047,6 +2048,7 @@ static int goodix_ts_disp_notifier_callback(struct notifier_block *nb,
 	struct goodix_ts_core *core_data =
 		container_of(nb, struct goodix_ts_core, disp_notifier);
 	int *data = (int *)v;
+	ktf_core = core_data;
 
 	if (core_data && v) {
 		if (value == MTK_DISP_EVENT_BLANK) {
@@ -2506,6 +2508,22 @@ static struct platform_driver goodix_ts_driver = {
 	.id_table = ts_core_ids,
 };
 
+int ktf_mtk_touch_test(char *str)
+{
+	int ret = 0;
+
+	if (!str)
+		return -EINVAL;
+	if (!strncmp(str, "suspend", 7)) {
+		goodix_ts_suspend(ktf_core);
+		ret = goodix_ts_resume(ktf_core);
+	} else {
+		ts_err("no such test case!!!");
+		ret = -ENODEV;
+	}
+	return ret;
+}
+EXPORT_SYMBOL(ktf_mtk_touch_test);
 static int __init goodix_ts_core_init(void)
 {
 	int ret;
