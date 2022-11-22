@@ -8548,6 +8548,7 @@
 			ged-supply = <&ged>;
 			firmware_idle_hytseresis_time_ms = <0>;
 			sleep-mode-enable = <0>;
+			pending-submission-mode = <1>;
 		};
 
 		gpu_mali_opp: opp-table0 {
