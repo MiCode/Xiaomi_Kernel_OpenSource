@@ -662,6 +662,7 @@ static const struct of_device_id mtk_vcodec_match[] = {
 	{.compatible = "mediatek,mt6985-vcodec-dec",},
 	{.compatible = "mediatek,mt6886-vcodec-dec",},
 	{.compatible = "mediatek,mt8195-vcodec-dec",},
+	{.compatible = "mediatek,mt6835-vcodec-dec",},
 	{.compatible = "mediatek,vdec_gcon",},
 	{},
 };
