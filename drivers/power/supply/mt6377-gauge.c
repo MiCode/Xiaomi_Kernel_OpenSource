@@ -1189,6 +1189,36 @@ static int instant_current(struct mtk_gauge *gauge)
 	return dvalue;
 }
 
+static int cic2_current(struct mtk_gauge *gauge)
+{
+	u16 reg_value = 0;
+	int dvalue;
+	int r_fg_value;
+	int car_tune_value;
+
+
+	r_fg_value = gauge->hw_status.r_fg_value;
+	car_tune_value = gauge->gm->fg_cust_data.car_tune_value;
+	pre_gauge_update(gauge);
+
+	regmap_raw_read(gauge->regmap, RG_FGADC_CUR_CON3, &reg_value, sizeof(reg_value));
+
+	post_gauge_update(gauge);
+	dvalue = reg_to_current(gauge, reg_value);
+
+	/* Auto adjust value */
+	if (r_fg_value != DEFAULT_R_FG) {
+		dvalue = (dvalue * DEFAULT_R_FG) /
+			r_fg_value;
+	}
+
+	dvalue =
+	((dvalue * car_tune_value) / 1000);
+	bm_err("%s, r_fg=%d, car_tune:%d, curr:%d\n", __func__, r_fg_value, car_tune_value, dvalue);
+
+	return dvalue;
+}
+
 void read_fg_hw_info_current_1(struct mtk_gauge *gauge_dev)
 {
 	gauge_dev->fg_hw_info.current_1 =
@@ -1197,50 +1227,8 @@ void read_fg_hw_info_current_1(struct mtk_gauge *gauge_dev)
 
 void read_fg_hw_info_current_2(struct mtk_gauge *gauge_dev)
 {
-	struct mt6377_priv *priv = &st_mt6377_priv;
-	long long fg_current_2_reg;
-	u16 cic2_reg = 0;
-	signed int dvalue;
-	long long Temp_Value;
-	int sign_bit = 0;
-
-	regmap_raw_read(gauge_dev->regmap, RG_FGADC_CUR_CON3, &cic2_reg, sizeof(cic2_reg));
-	fg_current_2_reg = cic2_reg;
-
-	/*calculate the real world data    */
-	dvalue = (unsigned int) fg_current_2_reg;
-	if (dvalue == 0) {
-		Temp_Value = (long long) dvalue;
-		sign_bit = 0;
-	} else if (dvalue > 32767) {
-		/* > 0x8000 */
-		Temp_Value = (long long) (dvalue - 65535);
-		Temp_Value = Temp_Value - (Temp_Value * 2);
-		sign_bit = 1;
-	} else {
-		Temp_Value = (long long) dvalue;
-		sign_bit = 0;
-	}
-
-	Temp_Value = Temp_Value * priv->unit_fgcurrent;
-#if defined(__LP64__) || defined(_LP64)
-	do_div(Temp_Value, 100000);
-#else
-	Temp_Value = div_s64(Temp_Value, 100000);
-#endif
-	dvalue = (unsigned int) Temp_Value;
-
-
-	if (gauge_dev->hw_status.r_fg_value != DEFAULT_R_FG)
-		dvalue = (dvalue * DEFAULT_R_FG) /
-			gauge_dev->hw_status.r_fg_value;
-
-	if (sign_bit == 1)
-		dvalue = dvalue - (dvalue * 2);
-
 	gauge_dev->fg_hw_info.current_2 =
-		((dvalue * gauge_dev->gm->fg_cust_data.car_tune_value) / 1000);
-
+		cic2_current(gauge_dev);
 }
 
 static int average_current_get(struct mtk_gauge *gauge_dev,
@@ -1667,9 +1655,6 @@ int hw_info_set(struct mtk_gauge *gauge_dev,
 	struct gauge_hw_status *gauge_status;
 
 	gauge_status = &gauge_dev->hw_status;
-	/* Set Read Latchdata */
-	post_gauge_update(gauge_dev);
-
 	/* Current_1 */
 	read_fg_hw_info_current_1(gauge_dev);
 
@@ -1698,6 +1683,8 @@ int hw_info_set(struct mtk_gauge *gauge_dev,
 	}
 	bm_debug("[read_fg_hw_info] thirdcheck first fg_set_iavg_intr %d %d\n",
 		is_iavg_valid, gauge_status->iavg_intr_flag);
+	/* Set Read Latchdata */
+	pre_gauge_update(gauge_dev);
 
 	/* Ncar */
 	read_fg_hw_info_ncar(gauge_dev);
@@ -2540,6 +2527,14 @@ static int battery_current_get(struct mtk_gauge *gauge,
 	return 0;
 }
 
+static int battery_cic2_get(struct mtk_gauge *gauge,
+	struct mtk_gauge_sysfs_field_info *attr, int *val)
+{
+	*val = cic2_current(gauge);
+
+	return 0;
+}
+
 static int hw_version_get(struct mtk_gauge *gauge,
 	struct mtk_gauge_sysfs_field_info *attr, int *val)
 {
@@ -3320,7 +3315,9 @@ static struct mtk_gauge_sysfs_field_info mt6377_sysfs_field_tbl[] = {
 		bat_temp_froze_en_set, GAUGE_PROP_BAT_TEMP_FROZE_EN),
 	GAUGE_SYSFS_FIELD_RO(battery_voltage_cali, GAUGE_PROP_BAT_EOC),
 	GAUGE_SYSFS_FIELD_RO(
-		regmap_type_get, GAUGE_PROP_REGMAP_TYPE)
+		regmap_type_get, GAUGE_PROP_REGMAP_TYPE),
+	GAUGE_SYSFS_FIELD_RO(battery_cic2_get,
+		GAUGE_PROP_CIC2)
 };
 
 static struct attribute *

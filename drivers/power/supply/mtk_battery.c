@@ -550,6 +550,11 @@ void gp_number_to_name(char *gp_name, unsigned int gp_no)
 			"GAUGE_PROP_REGMAP_TYPE");
 		break;
 
+	case GAUGE_PROP_CIC2:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_CIC2");
+		break;
+
 	default:
 		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
 			"FG_PROP_UNKNOWN");
