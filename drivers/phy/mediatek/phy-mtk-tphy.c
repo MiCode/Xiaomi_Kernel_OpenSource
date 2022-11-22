@@ -369,10 +369,18 @@
 #define SIB_STR	"sib"
 #define LOOPBACK_STR "loopback_test"
 
+#define PHY_MODE_UART "usb2uart_mode=1"
+#define PHY_MODE_JTAG "usb2jtag_mode=1"
+
 enum mtk_phy_version {
 	MTK_PHY_V1 = 1,
 	MTK_PHY_V2,
 	MTK_PHY_V3,
+};
+
+enum mtk_phy_jtag_version {
+	MTK_PHY_JTAG_V1 = 1,
+	MTK_PHY_JTAG_V2,
 };
 
 struct mtk_phy_pdata {
@@ -2331,6 +2339,161 @@ static int mtk_phy_set_mode(struct phy *phy, enum phy_mode mode, int submode)
 	return 0;
 }
 
+static bool mtk_phy_uart_mode(struct mtk_tphy *tphy)
+{
+	struct device_node *of_chosen;
+	char *bootargs;
+	bool uart_mode = false;
+
+	of_chosen = of_find_node_by_path("/chosen");
+	if (of_chosen) {
+		bootargs = (char *)of_get_property(of_chosen,
+			"bootargs", NULL);
+
+		if (bootargs && strstr(bootargs, PHY_MODE_UART))
+			uart_mode = true;
+	}
+
+	return uart_mode;
+}
+
+static int mtk_phy_uart_init(struct phy *phy)
+{
+	struct mtk_phy_instance *instance = phy_get_drvdata(phy);
+	struct mtk_tphy *tphy = dev_get_drvdata(phy->dev.parent);
+	int ret;
+
+	if  (instance->type != PHY_TYPE_USB2)
+		return 0;
+
+	dev_info(tphy->dev, "uart init\n");
+
+	ret = clk_bulk_prepare_enable(TPHY_CLKS_CNT, instance->clks);
+	if (ret) {
+		dev_info(tphy->dev, "failed to enable clock\n");
+		return ret;
+	}
+	udelay(250);
+
+	return 0;
+}
+
+static int mtk_phy_uart_exit(struct phy *phy)
+{
+	struct mtk_phy_instance *instance = phy_get_drvdata(phy);
+	struct mtk_tphy *tphy = dev_get_drvdata(phy->dev.parent);
+
+	if  (instance->type != PHY_TYPE_USB2)
+		return 0;
+
+	dev_info(tphy->dev, "uart exit\n");
+
+	clk_bulk_disable_unprepare(TPHY_CLKS_CNT, instance->clks);
+	return 0;
+}
+
+static bool mtk_phy_jtag_mode(struct mtk_tphy *tphy)
+{
+	struct device_node *of_chosen;
+	char *bootargs;
+	bool jtag_mode = false;
+
+	of_chosen = of_find_node_by_path("/chosen");
+	if (of_chosen) {
+		bootargs = (char *)of_get_property(of_chosen,
+			"bootargs", NULL);
+
+		if (bootargs && strstr(bootargs, PHY_MODE_JTAG))
+			jtag_mode = true;
+	}
+
+	return jtag_mode;
+}
+
+static int mtk_phy_jtag_init(struct phy *phy)
+{
+	struct mtk_phy_instance *instance = phy_get_drvdata(phy);
+	struct mtk_tphy *tphy = dev_get_drvdata(phy->dev.parent);
+	struct device *dev = &phy->dev;
+	struct device_node *np = dev->of_node;
+	struct u2phy_banks *u2_banks = &instance->u2_banks;
+	struct of_phandle_args args;
+	struct regmap *reg_base;
+	u32 jtag_vers;
+	u32 tmp;
+	int ret;
+
+	if  (instance->type != PHY_TYPE_USB2)
+		return 0;
+
+	dev_info(tphy->dev, "jtag init\n");
+
+	ret = of_parse_phandle_with_fixed_args(np, "usb2jtag", 1, 0, &args);
+	if (ret)
+		return ret;
+
+	jtag_vers = args.args[0];
+	reg_base = syscon_node_to_regmap(args.np);
+	of_node_put(args.np);
+
+	dev_info(tphy->dev, "base - reg:0x%x, version:%d\n",
+			reg_base, jtag_vers);
+
+	ret = clk_bulk_prepare_enable(TPHY_CLKS_CNT, instance->clks);
+	if (ret) {
+		dev_err(tphy->dev, "failed to enable clock\n");
+		return ret;
+	}
+	tmp = readl(u2_banks->com + 0x20);
+	tmp |= 0xf300;
+	writel(tmp, u2_banks->com + 0x20);
+
+	tmp = readl(u2_banks->com  + 0x18);
+	tmp &= 0xff7ffff;
+	writel(tmp, u2_banks->com  + 0x18);
+
+	tmp = readl(u2_banks->com);
+	tmp |= 0x1;
+	writel(tmp, u2_banks->com);
+
+	tmp = readl(u2_banks->com  + 0x08);
+	tmp &= 0xfffdffff;
+	writel(tmp, u2_banks->com  + 0x08);
+
+	udelay(100);
+
+	switch (jtag_vers) {
+	case MTK_PHY_JTAG_V1:
+		regmap_read(reg_base, 0xf00, &tmp);
+		tmp |= 0x4030;
+		regmap_write(reg_base, 0xf00, tmp);
+		break;
+	case MTK_PHY_JTAG_V2:
+		regmap_read(reg_base, 0x100, &tmp);
+		tmp |= 0x2;
+		regmap_write(reg_base, 0x100, tmp);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static int mtk_phy_jtag_exit(struct phy *phy)
+{
+	struct mtk_phy_instance *instance = phy_get_drvdata(phy);
+	struct mtk_tphy *tphy = dev_get_drvdata(phy->dev.parent);
+
+	if  (instance->type != PHY_TYPE_USB2)
+		return 0;
+
+	dev_info(tphy->dev, "jtag exit\n");
+
+	clk_bulk_disable_unprepare(TPHY_CLKS_CNT, instance->clks);
+	return 0;
+}
+
 static struct phy *mtk_phy_xlate(struct device *dev,
 					struct of_phandle_args *args)
 {
@@ -2388,6 +2551,18 @@ static struct phy *mtk_phy_xlate(struct device *dev,
 
 	return instance->phy;
 }
+
+static const struct phy_ops mtk_phy_uart_ops = {
+	.init		= mtk_phy_uart_init,
+	.exit		= mtk_phy_uart_exit,
+	.owner		= THIS_MODULE,
+};
+
+static const struct phy_ops mtk_phy_jtag_ops = {
+	.init		= mtk_phy_jtag_init,
+	.exit		= mtk_phy_jtag_exit,
+	.owner		= THIS_MODULE,
+};
 
 static const struct phy_ops mtk_tphy_ops = {
 	.init		= mtk_phy_init,
@@ -2549,6 +2724,12 @@ static int mtk_tphy_probe(struct platform_device *pdev)
 		retval = phy_type_syscon_get(instance, child_np);
 		if (retval)
 			goto put_child;
+
+		/* change ops to usb uart or jtage mode */
+		if (mtk_phy_uart_mode(tphy))
+			phy->ops = &mtk_phy_uart_ops;
+		else if (mtk_phy_jtag_mode(tphy))
+			phy->ops = &mtk_phy_jtag_ops;
 	}
 	mtk_phy_procfs_init(tphy);
 
