@@ -262,6 +262,7 @@ static const struct of_device_id msdc_of_ids[] = {
 	{ .compatible = "mediatek,common-mmc-v2", .data = &common_v2_compat},
 	{ .compatible = "mediatek,mt6985-mmc", .data = &mt6985_compat},
 	{ .compatible = "mediatek,mt6886-mmc", .data = &mt6886_compat},
+	{ .compatible = "mediatek,mt6835-mmc", .data = &mt6835_compat},
 	{}
 };
 MODULE_DEVICE_TABLE(of, msdc_of_ids);
