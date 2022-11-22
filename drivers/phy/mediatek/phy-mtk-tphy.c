@@ -1430,8 +1430,50 @@ static void u2_phy_instance_power_on(struct mtk_tphy *tphy,
 	u32 tmp;
 
 	tmp = readl(com + U3P_U2PHYDTM0);
+	tmp |= P2C_FORCE_SUSPENDM;
+	writel(tmp, com + U3P_U2PHYDTM0);
+
+	tmp = readl(com + U3P_U2PHYDTM0);
+	tmp &= ~P2C_RG_SUSPENDM;
+	writel(tmp, com + U3P_U2PHYDTM0);
+
+	tmp = readl(com + U3P_U2PHYDTM0);
+	tmp |= P2C_RG_SUSPENDM;
+	writel(tmp, com + U3P_U2PHYDTM0);
+
+	udelay(30);
+
+	tmp = readl(com + U3P_U2PHYDTM0);
+	tmp &= ~P2C_FORCE_SUSPENDM;
+	writel(tmp, com + U3P_U2PHYDTM0);
+
+	tmp = readl(com + U3P_U2PHYDTM0);
+	tmp &= ~P2C_RG_SUSPENDM;
+	writel(tmp, com + U3P_U2PHYDTM0);
+
+	tmp = readl(com + U3P_U2PHYDTM0);
+	tmp &= ~(P2C_FORCE_UART_EN);
+	writel(tmp, com + U3P_U2PHYDTM0);
+
+	tmp = readl(com + U3P_U2PHYDTM1);
+	tmp &= ~P2C_RG_UART_EN;
+	writel(tmp, com + U3P_U2PHYDTM1);
+
+	tmp = readl(com + U3P_U2PHYACR4);
+	tmp &= ~P2C_U2_GPIO_CTR_MSK;
+	writel(tmp, com + U3P_U2PHYACR4);
+
+	tmp = readl(com + U3P_U2PHYDTM0);
+	tmp &= ~P2C_FORCE_SUSPENDM;
+	writel(tmp, com + U3P_U2PHYDTM0);
+
+	tmp = readl(com + U3P_U2PHYDTM0);
 	tmp &= ~(P2C_RG_XCVRSEL | P2C_RG_DATAIN | P2C_DTM0_PART_MASK);
 	writel(tmp, com + U3P_U2PHYDTM0);
+
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp &= ~PA6_RG_U2_BC11_SW_EN;
+	writel(tmp, com + U3P_USBPHYACR6);
 
 	/* OTG Enable */
 	tmp = readl(com + U3P_USBPHYACR6);
@@ -1442,6 +1484,13 @@ static void u2_phy_instance_power_on(struct mtk_tphy *tphy,
 	tmp |= P2C_RG_VBUSVALID | P2C_RG_AVALID;
 	tmp &= ~P2C_RG_SESSEND;
 	writel(tmp, com + U3P_U2PHYDTM1);
+
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp &= ~PA6_RG_U2_PHY_REV6;
+	tmp |= PA6_RG_U2_PHY_REV6_VAL(1);
+	writel(tmp, com + U3P_USBPHYACR6);
+
+	udelay(800);
 
 	if (tphy->pdata->avoid_rx_sen_degradation && index) {
 		tmp = readl(com + U3D_U2PHYDCR0);
@@ -1464,9 +1513,20 @@ static void u2_phy_instance_power_off(struct mtk_tphy *tphy,
 	u32 tmp;
 
 	tmp = readl(com + U3P_U2PHYDTM0);
-	tmp &= ~(P2C_RG_XCVRSEL | P2C_RG_DATAIN);
-	tmp |= P2C_RG_XCVRSEL_VAL(1) | P2C_DTM0_PART_MASK2;
+	tmp &= ~(P2C_FORCE_UART_EN);
 	writel(tmp, com + U3P_U2PHYDTM0);
+
+	tmp = readl(com + U3P_U2PHYDTM1);
+	tmp &= ~P2C_RG_UART_EN;
+	writel(tmp, com + U3P_U2PHYDTM1);
+
+	tmp = readl(com + U3P_U2PHYACR4);
+	tmp &= ~P2C_U2_GPIO_CTR_MSK;
+	writel(tmp, com + U3P_U2PHYACR4);
+
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp &= ~PA6_RG_U2_BC11_SW_EN;
+	writel(tmp, com + U3P_USBPHYACR6);
 
 	/* OTG Disable */
 	tmp = readl(com + U3P_USBPHYACR6);
@@ -1477,6 +1537,29 @@ static void u2_phy_instance_power_off(struct mtk_tphy *tphy,
 	tmp &= ~(P2C_RG_VBUSVALID | P2C_RG_AVALID);
 	tmp |= P2C_RG_SESSEND;
 	writel(tmp, com + U3P_U2PHYDTM1);
+
+	tmp = readl(com + U3P_U2PHYDTM0);
+	tmp |= P2C_RG_SUSPENDM | P2C_FORCE_SUSPENDM;
+	writel(tmp, com + U3P_U2PHYDTM0);
+
+	mdelay(2);
+
+	tmp = readl(com + U3P_U2PHYDTM0);
+	tmp &= ~P2C_RG_DATAIN;
+	tmp |= (P2C_RG_XCVRSEL_VAL(1) | P2C_DTM0_PART_MASK);
+	writel(tmp, com + U3P_U2PHYDTM0);
+
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp |= PA6_RG_U2_PHY_REV6_VAL(1);
+	writel(tmp, com + U3P_USBPHYACR6);
+
+	udelay(800);
+
+	tmp = readl(com + U3P_U2PHYDTM0);
+	tmp &= ~P2C_RG_SUSPENDM;
+	writel(tmp, com + U3P_U2PHYDTM0);
+
+	udelay(1);
 
 	if (tphy->pdata->avoid_rx_sen_degradation && index) {
 		tmp = readl(com + U3P_U2PHYDTM0);
@@ -1554,6 +1637,42 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 			return;
 		}
 	}
+}
+
+static void u3_phy_instance_power_on(struct mtk_tphy *tphy,
+	struct mtk_phy_instance *instance)
+{
+	struct u3phy_banks *bank = &instance->u3_banks;
+	u32 index = instance->index;
+	u32 tmp;
+
+	tmp = readl(bank->chip + U3P_U3_CHIP_GPIO_CTLD);
+	tmp &= ~(P3C_FORCE_IP_SW_RST | P3C_REG_IP_SW_RST);
+	writel(tmp, bank->chip + U3P_U3_CHIP_GPIO_CTLD);
+
+	tmp = readl(bank->chip + U3P_U3_CHIP_GPIO_CTLE);
+	tmp &= ~(P3C_RG_SWRST_U3_PHYD_FORCE_EN | P3C_RG_SWRST_U3_PHYD);
+	writel(tmp, bank->chip + U3P_U3_CHIP_GPIO_CTLE);
+
+	dev_info(tphy->dev, "%s(%d)\n", __func__, index);
+}
+
+static void u3_phy_instance_power_off(struct mtk_tphy *tphy,
+	struct mtk_phy_instance *instance)
+{
+	struct u3phy_banks *bank = &instance->u3_banks;
+	u32 index = instance->index;
+	u32 tmp;
+
+	tmp = readl(bank->chip + U3P_U3_CHIP_GPIO_CTLD);
+	tmp |= P3C_FORCE_IP_SW_RST | P3C_REG_IP_SW_RST;
+	writel(tmp, bank->chip + U3P_U3_CHIP_GPIO_CTLD);
+
+	tmp = readl(bank->chip + U3P_U3_CHIP_GPIO_CTLE);
+	tmp |= P3C_RG_SWRST_U3_PHYD_FORCE_EN | P3C_RG_SWRST_U3_PHYD;
+	writel(tmp, bank->chip + U3P_U3_CHIP_GPIO_CTLE);
+
+	dev_info(tphy->dev, "%s(%d)\n", __func__, index);
 }
 
 static void pcie_phy_instance_init(struct mtk_tphy *tphy,
@@ -2132,6 +2251,8 @@ static int mtk_phy_power_on(struct phy *phy)
 	if (instance->type == PHY_TYPE_USB2) {
 		u2_phy_instance_power_on(tphy, instance);
 		hs_slew_rate_calibrate(tphy, instance);
+	} else if (instance->type == PHY_TYPE_USB3) {
+		u3_phy_instance_power_on(tphy, instance);
 	} else if (instance->type == PHY_TYPE_PCIE) {
 		pcie_phy_instance_power_on(tphy, instance);
 	}
@@ -2146,6 +2267,8 @@ static int mtk_phy_power_off(struct phy *phy)
 
 	if (instance->type == PHY_TYPE_USB2)
 		u2_phy_instance_power_off(tphy, instance);
+	else if (instance->type == PHY_TYPE_USB3)
+		u3_phy_instance_power_off(tphy, instance);
 	else if (instance->type == PHY_TYPE_PCIE)
 		pcie_phy_instance_power_off(tphy, instance);
 
