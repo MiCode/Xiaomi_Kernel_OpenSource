@@ -461,7 +461,6 @@ static bool mtk_cam_res_raw_mask_chk(struct device *dev,
 {
 	int raw_available;
 	int raw_must_selected;
-	int num_raws;
 
 	/* debug only, to fake the user select raws */
 	if (debug_raw && debug_user_raws != -1) {
@@ -478,7 +477,7 @@ static bool mtk_cam_res_raw_mask_chk(struct device *dev,
 	/* user let driver select raw, in legacy driver, we select it after streaming on */
 	if (raw_available == 0 && raw_must_selected == 0) {
 		dev_info(dev,
-			 "%s: user doesn't select raw, raws_must(0x%x), raws(0x%x), no raws can select\n",
+			 "%s: user doesn't select raw, raws_must(0x%x), raws(0x%x)\n",
 			 __func__, raw_must_selected, raw_available);
 		if (res_user->raw_res.raws_max_num > 2 || res_user->raw_res.raws_max_num < 1) {
 			dev_info(dev,
@@ -489,44 +488,13 @@ static bool mtk_cam_res_raw_mask_chk(struct device *dev,
 		return true;
 	}
 
-	if (raw_available != 0 && raw_must_selected == 0) {
-		dev_dbg(dev,
-			"%s: user doesn't select raw, raws_must(0x%x), raws(0x%x), let driver select raw\n",
-			__func__, raw_must_selected, raw_available);
-
-		num_raws = mtk_cam_res_get_raw_num(res_user->raw_res.raws);
-		/* Currently we only uses  2 raws at the same time*/
-		if (num_raws > 2)
-			num_raws = 2;
-
-		if (res_user->raw_res.raws_max_num == 0 ||
-			res_user->raw_res.raws_max_num > num_raws) {
-			dev_info(dev, "%s: raws_max_num(%d) is not allowed, reset it to %d\n",
-					 __func__, res_user->raw_res.raws_max_num, num_raws);
-			res_user->raw_res.raws_max_num = num_raws;
-		}
-
-		return true;
-	}
-
 	/* check invalid raw_must_selected */
 	if ((raw_available & raw_must_selected) != raw_must_selected) {
 		dev_info(dev,
 			 "%s: raws_must(0x%x) error, raws(0x%x), may select unavailable raw\n",
 			 __func__, raw_must_selected, raw_available);
 		return false;
-	}
 
-	if (mtk_cam_hw_mode_is_dc(res_user->raw_res.hw_mode)) {
-		if (raw_must_selected == (MTK_CAM_RAW_A | MTK_CAM_RAW_C) ||
-			raw_must_selected == (MTK_CAM_RAW_B | MTK_CAM_RAW_C) ||
-			raw_must_selected == (MTK_CAM_RAW_A | MTK_CAM_RAW_B | MTK_CAM_RAW_C)
-			) {
-			dev_info(dev,
-				 "%s: raws_must(0x%x) error, raws(0x%x), can't support DC mode with multiple raws\n",
-				 __func__, raw_must_selected, raw_available);
-			return false;
-		}
 	}
 
 	/* simple raw c can't support hdr scenarios */
@@ -551,47 +519,6 @@ static bool mtk_cam_res_raw_mask_chk(struct device *dev,
 	return true;
 }
 
-unsigned int
-mtk_cam_raw_select_try(unsigned int raws_available,
-		       int raw_num_used, struct mtk_cam_scen *scen)
-{
-	int raw_selected = 0;
-	int mask = 0;
-	int m;
-	bool is_suport_bc = false;
-	int raw_last_try = MTKCAM_SUBDEV_RAW_0;
-
-	if (raw_num_used == 0)
-		return 0;
-
-	if (raw_num_used == 1) {
-		for (m = MTKCAM_SUBDEV_RAW_0; m < MTKCAM_SUBDEV_RAW_END; m++) {
-			mask = 1 << m;
-			if ((raws_available & mask) == mask) {
-				raw_selected = mask;
-				break;
-			}
-		}
-	} else if (raw_num_used == 2) {
-		is_suport_bc = mtk_cam_scen_is_rgbw_enabled(scen);
-		raw_last_try = (is_suport_bc) ? MTKCAM_SUBDEV_RAW_1 : MTKCAM_SUBDEV_RAW_0;
-		for (m = MTKCAM_SUBDEV_RAW_0; m <= raw_last_try; m++) {
-			mask = (1 << m) | (1 << (m + 1));
-			if ((raws_available & mask) == mask) {
-				raw_selected = mask;
-				break;
-			}
-		}
-	} else if (raw_num_used == 3) {
-		mask = 1 << MTKCAM_SUBDEV_RAW_0	| 1 << MTKCAM_SUBDEV_RAW_1 |
-		       1 << MTKCAM_SUBDEV_RAW_2;
-		if ((raws_available & mask) == mask)
-			raw_selected = mask;
-	}
-
-	return raw_selected;
-}
-
 int
 mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 			 struct mtk_cam_resource_v2 *res_user,
@@ -602,32 +529,25 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 	int width, height;
 	struct device *dev = pipeline->raw->devs[pipeline->id];
 	struct v4l2_format img_fmt;
-	unsigned int raw_driver_selected;
-	bool ret;
-	bool streaming = !!pipeline->subdev.entity.stream_count;
 
 	res_cfg->bin_limit = res_user->raw_res.bin; /* 1: force bin on */
 	res_cfg->frz_limit = 0;
 
 	if (!mtk_cam_res_raw_mask_chk(dev, res_user))
-		return -EINVAL; /* error can't be recover */
+		return -EINVAL;
 
-	if (res_user->raw_res.raws && res_user->raw_res.raws_must) {
+	if (res_user->raw_res.raws) {
 		res_cfg->hwn_limit_max = mtk_cam_res_get_raw_num(res_user->raw_res.raws);
 		res_cfg->hwn_limit_min = res_cfg->hwn_limit_max;
 	} else if (mtk_cam_scen_is_rgbw_enabled(&res_user->raw_res.scen)) {
 		if (res_user->raw_res.raws_max_num != 2) {
 			dev_info(dev, "rgbw only support 2 raw flow (%d given)",
 					 res_user->raw_res.raws_max_num);
-			return -EINVAL; /* error can't be recover */
+			return -EINVAL;
 		}
 
 		res_cfg->hwn_limit_max = res_user->raw_res.raws_max_num;
 		res_cfg->hwn_limit_min = res_user->raw_res.raws_max_num;
-	} else if (mtk_cam_hw_mode_is_dc(res_user->raw_res.hw_mode)) {
-		/* not support using multiple raws in dc mode*/
-		res_cfg->hwn_limit_max = 1;
-		res_cfg->hwn_limit_min = 1;
 	} else {
 		res_cfg->hwn_limit_max = res_user->raw_res.raws_max_num;
 		res_cfg->hwn_limit_min = 1;
@@ -692,18 +612,10 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 			prate = 3 * prate;
 		}
 	}
-
-	ret = mtk_raw_resource_calc(dev_get_drvdata(pipeline->raw->cam_dev),
+	mtk_raw_resource_calc(dev_get_drvdata(pipeline->raw->cam_dev),
 			      res_cfg, prate,
 			      res_cfg->res_plan, res_user->sensor_res.width,
 			      res_user->sensor_res.height, &width, &height);
-	if (!ret) {
-		dev_info(dev,
-			 "%s:%s:pipe(%d): res calc failed\n",
-			 __func__, dbg_str, pipeline->id);
-		if (!streaming)
-			return -EINVAL;
-	}
 
 	if (res_user->raw_res.bin && !res_cfg->bin_enable) {
 		if (log)
@@ -711,26 +623,7 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 			 "%s:%s:pipe(%d): res calc failed on fource bin: user(%d)/bin_enable(%d)\n",
 			 __func__, dbg_str, pipeline->id, res_user->raw_res.bin,
 			 res_cfg->bin_enable);
-		if (!streaming)
-			return -EINVAL;
-	}
-
-	if (!res_user->raw_res.raws_must && res_user->raw_res.raws) {
-		raw_driver_selected =
-			mtk_cam_raw_select_try(res_user->raw_res.raws,
-					       res_cfg->raw_num_used,
-					       &res_cfg->scen);
-		if (!raw_driver_selected) {
-			dev_info(dev,
-			 "%s:%s: pipe(%d): res calc failed on raw used: user(0x%x/0x%x/%d/%d)/raw_num_used(%d)\n",
-			 __func__, dbg_str, pipeline->id,
-			 res_user->raw_res.raws, res_user->raw_res.raws_must,
-			 res_cfg->hwn_limit_max, res_cfg->hwn_limit_min,
-			 res_cfg->raw_num_used);
-			if (!streaming)
-				return -EINVAL;
-		}
-		res_user->raw_res.raws = raw_driver_selected;
+		return -EINVAL;
 	}
 
 	if (res_cfg->raw_num_used > res_cfg->hwn_limit_max ||
@@ -769,20 +662,20 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 
 	if (log)
 		dev_info(dev,
-			 "%s:%s:pipe(%d): res calc result: bin(%d)/hw_mode(%d)/buf_num(%d)/dc mode rawi fmt:(%d,%d,%d), raws(0x%x)\n",
+			 "%s:%s:pipe(%d): res calc result: bin(%d)/hw_mode(%d)/buf_num(%d)/dc mode rawi fmt:(%d,%d,%d)\n",
 			 __func__, dbg_str, pipeline->id,
 			 res_user->raw_res.bin, res_user->raw_res.hw_mode,
 			 res_user->raw_res.img_wbuf_num,
 			 img_fmt.fmt.pix_mp.width, img_fmt.fmt.pix_mp.height,
-			 res_user->raw_res.img_wbuf_size, res_user->raw_res.raws);
+			 res_user->raw_res.img_wbuf_size);
 	else
 		dev_dbg(dev,
-			"%s:%s:pipe(%d): res calc result: bin(%d)/hw_mode(%d)/buf_num(%d)/dc mode rawi fmt:(%d,%d,%d), raws(0x%x)\n",
+			"%s:%s:pipe(%d): res calc result: bin(%d)/hw_mode(%d)/buf_num(%d)/dc mode rawi fmt:(%d,%d,%d)\n",
 			__func__, dbg_str, pipeline->id,
 			res_user->raw_res.bin, res_user->raw_res.hw_mode,
 			res_user->raw_res.img_wbuf_num,
 			img_fmt.fmt.pix_mp.width, img_fmt.fmt.pix_mp.height,
-			res_user->raw_res.img_wbuf_size, res_user->raw_res.raws);
+			res_user->raw_res.img_wbuf_size);
 	/**
 	 * Other output not reveal to user now:
 	 * res_cfg->res_strategy[MTK_CAMSYS_RES_STEP_NUM];

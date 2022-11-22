@@ -2654,9 +2654,14 @@ static int mtk_cam_calc_pending_res(struct mtk_cam_device *cam,
 
 	res_cfg->bin_limit = res_user->raw_res.bin; /* 1: force bin on */
 	res_cfg->frz_limit = 0;
-	/* we didn't support dynamic twin now */
-	res_cfg->hwn_limit_max = res_cfg->raw_num_used;
-	res_cfg->hwn_limit_min = res_cfg->raw_num_used;
+	if (res_user->raw_res.raws_must) {
+		res_cfg->hwn_limit_max = mtk_cam_res_get_raw_num(res_user->raw_res.raws_must);
+		res_cfg->hwn_limit_min = res_cfg->hwn_limit_max;
+	} else {
+		res_cfg->hwn_limit_max = 2;
+		res_cfg->hwn_limit_min = 1;
+	}
+
 	res_cfg->hblank = res_user->sensor_res.hblank;
 	res_cfg->vblank = res_user->sensor_res.vblank;
 	res_cfg->sensor_pixel_rate = res_user->sensor_res.pixel_rate;
