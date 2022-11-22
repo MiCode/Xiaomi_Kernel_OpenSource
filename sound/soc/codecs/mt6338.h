@@ -22347,9 +22347,10 @@ enum {
 enum {
 	MUX_MIC_TYPE_0,	/* ain0, micbias 0 */
 	MUX_MIC_TYPE_1,	/* ain1, micbias 1 */
-	MUX_MIC_TYPE_2,	/* ain2/3, micbias 2 */
+	MUX_MIC_TYPE_2,	/* ain2, micbias 2 */
 	MUX_MIC_TYPE_3,	/* ain3/4, micbias 3 */
-	MUX_PGA_L,
+	MICBIAS_MAX,
+	MUX_PGA_L = MICBIAS_MAX,
 	MUX_PGA_R,
 	MUX_PGA_3,
 	MUX_PGA_4,
@@ -22358,6 +22359,7 @@ enum {
 	MUX_NUM,
 };
 
+#define MIC_MAX 7
 enum {
 	DEVICE_HP,
 	DEVICE_LO,
@@ -22759,6 +22761,8 @@ struct mt6338_priv {
 	int dmic_one_wire_mode;
 	int mic_hifi_mode;
 	int mic_ulcf_en;
+	unsigned int micbias_val[MICBIAS_MAX];
+	int micbias_mux[MIC_MAX];
 	unsigned int vd105;
 
 	/* hw version */

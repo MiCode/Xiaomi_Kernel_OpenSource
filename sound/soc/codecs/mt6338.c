@@ -1241,7 +1241,8 @@ static int dmic_used_get(struct snd_kcontrol *kcontrol,
 	ucontrol->value.integer.value[0] =
 		priv->mux_select[MUX_MIC_TYPE_0] == MIC_TYPE_MUX_DMIC ||
 		priv->mux_select[MUX_MIC_TYPE_1] == MIC_TYPE_MUX_DMIC ||
-		priv->mux_select[MUX_MIC_TYPE_2] == MIC_TYPE_MUX_DMIC;
+		priv->mux_select[MUX_MIC_TYPE_2] == MIC_TYPE_MUX_DMIC ||
+		priv->mux_select[MUX_MIC_TYPE_3] == MIC_TYPE_MUX_DMIC;
 
 	return 0;
 }
@@ -3835,8 +3836,9 @@ static int mt_mic_bias_0_event(struct snd_soc_dapm_widget *w,
 
 		/* MISBIAS0 = 1P9V */
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON59,
-			RG_AUDMICBIAS0VREF_MASK_SFT,
-			MIC_BIAS_1P9 << RG_AUDMICBIAS0VREF_SFT);
+				   RG_AUDMICBIAS0VREF_MASK_SFT,
+				   priv->micbias_val[MUX_MIC_TYPE_0] <<
+				   RG_AUDMICBIAS0VREF_SFT);
 		if (priv->vow_setup) {
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON59,
 				RG_AUDMICBIAS0LOWPEN_MASK_SFT,
@@ -3952,8 +3954,9 @@ static int mt_mic_bias_2_event(struct snd_soc_dapm_widget *w,
 
 		/* MISBIAS2 = 1P9V */
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON63,
-			RG_AUDMICBIAS2VREF_MASK_SFT,
-			MIC_BIAS_1P9 << RG_AUDMICBIAS2VREF_SFT);
+				   RG_AUDMICBIAS2VREF_MASK_SFT,
+				   priv->micbias_val[MUX_MIC_TYPE_2] <<
+				   RG_AUDMICBIAS2VREF_SFT);
 		if (priv->vow_setup) {
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON63,
 				RG_AUDMICBIAS2LOWPEN_MASK_SFT,
@@ -4019,8 +4022,9 @@ static int mt_mic_bias_3_event(struct snd_soc_dapm_widget *w,
 
 		/* MISBIAS3 = 1P9V */
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON65,
-			RG_AUDMICBIAS3VREF_MASK_SFT,
-			MIC_BIAS_1P9 << RG_AUDMICBIAS3VREF_SFT);
+				   RG_AUDMICBIAS3VREF_MASK_SFT,
+				   priv->micbias_val[MUX_MIC_TYPE_3] <<
+				   RG_AUDMICBIAS3VREF_SFT);
 		if (priv->vow_setup) {
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON65,
 				RG_AUDMICBIAS3LOWPEN_MASK_SFT,
@@ -7666,7 +7670,7 @@ static int mt_vow_amic_connect(struct snd_soc_dapm_widget *source,
 #endif
 
 static int mt_dcc_clk_connect(struct snd_soc_dapm_widget *source,
-			      struct snd_soc_dapm_widget *sink)
+			struct snd_soc_dapm_widget *sink)
 {
 	struct snd_soc_dapm_widget *w = sink;
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
@@ -7676,6 +7680,34 @@ static int mt_dcc_clk_connect(struct snd_soc_dapm_widget *source,
 	    IS_DCC_BASE(priv->mux_select[MUX_MIC_TYPE_1]) ||
 	    IS_DCC_BASE(priv->mux_select[MUX_MIC_TYPE_2]) ||
 	    IS_DCC_BASE(priv->mux_select[MUX_MIC_TYPE_3]))
+		return 1;
+	else
+		return 0;
+}
+
+static const char * const ainx_map[] = {
+	 "AIN0", "AIN1", "AIN2", "AIN3", "AIN4", "AIN5", "AIN6"
+};
+
+static const char * const bias_map[] = {
+	 "MIC_BIAS_0", "MIC_BIAS_1", "MIC_BIAS_2", "MIC_BIAS_3"
+};
+
+static int mt_bias_connect(struct snd_soc_dapm_widget *source,
+			      struct snd_soc_dapm_widget *sink)
+{
+	struct snd_soc_dapm_widget *w = sink;
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	int i = 0;
+	int bias_id = 0;
+
+	for (i = 0; i < ARRAY_SIZE(ainx_map); i++) {
+		if (strcmp(ainx_map[i], sink->name) == 0)
+			break;
+	}
+	bias_id = priv->micbias_mux[i];
+	if (strcmp(bias_map[bias_id], source->name) == 0)
 		return 1;
 	else
 		return 0;
@@ -7783,9 +7815,9 @@ static const struct snd_soc_dapm_route mt6338_dapm_routes[] = {
 	{"AIN3_DMIC", NULL, "DMIC_1"},
 	{"AIN4_DMIC", NULL, "DMIC_1"},
 	{"AIN0_DMIC", NULL, "MIC_BIAS_0"},
-	{"AIN2_DMIC", NULL, "MIC_BIAS_0"},
+	{"AIN2_DMIC", NULL, "MIC_BIAS_2"},
 	{"AIN3_DMIC", NULL, "MIC_BIAS_2"},
-	{"AIN4_DMIC", NULL, "MIC_BIAS_2"},
+	{"AIN4_DMIC", NULL, "MIC_BIAS_3"},
 	/* adc */
 	{"ADC_L", NULL, "ADC_L_Mux"},
 	{"ADC_L", NULL, "ADC_LR_CLKGEN"},
@@ -7846,13 +7878,25 @@ static const struct snd_soc_dapm_route mt6338_dapm_routes[] = {
 	{"PGA_4_Mux", "AIN4", "AIN4"},
 	{"PGA_4_Mux", "AIN6", "AIN6"},
 
-	{"AIN0", NULL, "MIC_BIAS_0"},
+	{"AIN0", NULL, "MIC_BIAS_0", mt_bias_connect},
+	{"AIN0", NULL, "MIC_BIAS_2", mt_bias_connect},
+	{"AIN0", NULL, "MIC_BIAS_3", mt_bias_connect},
 	{"AIN1", NULL, "MIC_BIAS_1"},
-	{"AIN2", NULL, "MIC_BIAS_2"},
-	{"AIN3", NULL, "MIC_BIAS_3"},
-	{"AIN4", NULL, "MIC_BIAS_3"},
-	{"AIN5", NULL, "MIC_BIAS_0"},
-	{"AIN6", NULL, "MIC_BIAS_0"},
+	{"AIN2", NULL, "MIC_BIAS_0", mt_bias_connect},
+	{"AIN2", NULL, "MIC_BIAS_2", mt_bias_connect},
+	{"AIN2", NULL, "MIC_BIAS_3", mt_bias_connect},
+	{"AIN3", NULL, "MIC_BIAS_0", mt_bias_connect},
+	{"AIN3", NULL, "MIC_BIAS_2", mt_bias_connect},
+	{"AIN3", NULL, "MIC_BIAS_3", mt_bias_connect},
+	{"AIN4", NULL, "MIC_BIAS_0", mt_bias_connect},
+	{"AIN4", NULL, "MIC_BIAS_2", mt_bias_connect},
+	{"AIN4", NULL, "MIC_BIAS_3", mt_bias_connect},
+	{"AIN5", NULL, "MIC_BIAS_0", mt_bias_connect},
+	{"AIN5", NULL, "MIC_BIAS_2", mt_bias_connect},
+	{"AIN5", NULL, "MIC_BIAS_3", mt_bias_connect},
+	{"AIN6", NULL, "MIC_BIAS_0", mt_bias_connect},
+	{"AIN6", NULL, "MIC_BIAS_2", mt_bias_connect},
+	{"AIN6", NULL, "MIC_BIAS_3", mt_bias_connect},
 
 	/* DL Supply */
 	{"DL Power Supply", NULL, "DL_GPIO"},
@@ -20807,9 +20851,11 @@ static const struct file_operations mt6338_debugfs_ops = {
 
 static int mt6338_parse_dt(struct mt6338_priv *priv)
 {
-	int ret, i;
-	const int mux_num = 3;
-	unsigned int mic_type_mux[3];
+	int ret, i, index;
+	const int mux_num = MICBIAS_MAX;
+	unsigned int mic_type_mux[MICBIAS_MAX];
+	const int mic_num = MIC_MAX;
+	unsigned int mic_mux[MIC_MAX];
 	struct device *dev = priv->dev;
 	struct device_node *np;
 
@@ -20835,8 +20881,43 @@ static int mt6338_parse_dt(struct mt6338_priv *priv)
 		priv->mux_select[MUX_MIC_TYPE_2] = MIC_TYPE_MUX_DCC;
 		priv->mux_select[MUX_MIC_TYPE_3] = MIC_TYPE_MUX_DCC;
 	} else {
-		for (i = MUX_MIC_TYPE_0; i <= MUX_MIC_TYPE_2; ++i)
+		for (i = MUX_MIC_TYPE_0; i < MICBIAS_MAX; ++i)
 			priv->mux_select[i] = mic_type_mux[i];
+	}
+	ret = of_property_read_u32_array(np, "mediatek,micbias-val",
+					 mic_type_mux, mux_num);
+	if (ret) {
+		dev_dbg(dev, "%s() failed to read micbias-val, default 1.9V\n",
+			 __func__);
+		priv->micbias_val[MUX_MIC_TYPE_0] = MIC_BIAS_1P9;
+		priv->micbias_val[MUX_MIC_TYPE_1] = -1;
+		priv->micbias_val[MUX_MIC_TYPE_2] = MIC_BIAS_1P9;
+		priv->micbias_val[MUX_MIC_TYPE_3] = MIC_BIAS_1P9;
+	} else {
+		for (i = MUX_MIC_TYPE_0; i < MICBIAS_MAX; ++i) {
+			/* Micbias1 set by accdet */
+			if (i == MUX_MIC_TYPE_1)
+				priv->micbias_val[i] = -1;
+			priv->micbias_val[i] = mic_type_mux[i];
+		}
+	}
+	ret = of_property_read_u32_array(np, "mediatek,micbias-mux",
+					 mic_mux, mic_num);
+	if (ret) {
+		dev_info(dev, "%s() failed to read micbias-mux, default AINx to Micbiasx\n",
+			 __func__);
+		for (i = 0; i < MIC_MAX; i++) {
+			index = i;
+			if (i >= MICBIAS_MAX)
+				index = 0;
+			priv->micbias_mux[i] = index;
+			dev_info(dev, "%s() sizeof(priv->micbias_mux[i]) = %d bias_map[%d] = %s\n",
+				 __func__, i,
+				 &priv->micbias_mux[i], index, bias_map[index]);
+		}
+	} else {
+		for (i = 0; i < MIC_MAX; ++i)
+			priv->micbias_mux[i] = mic_mux[i];
 	}
 
 	ret = of_property_read_bool(dev->of_node, "vow_dmic_lp");
