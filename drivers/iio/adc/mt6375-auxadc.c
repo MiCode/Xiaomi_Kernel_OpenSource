@@ -665,8 +665,9 @@ err_irq:
 	return ret;
 }
 
-static void auxadc_del_irq_chip(struct mt6375_priv *priv)
+static void auxadc_del_irq_chip(void *data)
 {
+	struct mt6375_priv *priv = data;
 	unsigned int virq;
 	int hwirq;
 
@@ -855,6 +856,13 @@ static int mt6375_auxadc_parse_dt(struct mt6375_priv *priv)
 	return ret;
 }
 
+static void mt6375_unregister_lockdep_key(void *data)
+{
+	struct lock_class_key *key = data;
+
+	lockdep_unregister_key(key);
+}
+
 static int mt6375_auxadc_probe(struct platform_device *pdev)
 {
 	struct mt6375_priv *priv;
@@ -878,6 +886,11 @@ static int mt6375_auxadc_probe(struct platform_device *pdev)
 	lockdep_register_key(&priv->info_exist_key);
 	iio_dev_opaque = to_iio_dev_opaque(indio_dev);
 	lockdep_set_class(&iio_dev_opaque->info_exist_lock, &priv->info_exist_key);
+
+	ret = devm_add_action_or_reset(&pdev->dev, mt6375_unregister_lockdep_key,
+				       &priv->info_exist_key);
+	if (ret)
+		return ret;
 
 	ret = mt6375_auxadc_parse_dt(priv);
 	if (ret) {
@@ -909,6 +922,10 @@ static int mt6375_auxadc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	ret = devm_add_action_or_reset(&pdev->dev, auxadc_del_irq_chip, priv);
+	if (ret)
+		return ret;
+
 	INIT_WORK(&priv->vbat0_work, auxadc_vbat0_poll_work);
 	alarm_init(&priv->vbat0_alarm, ALARM_BOOTTIME, vbat0_alarm_poll_func);
 
@@ -927,15 +944,6 @@ static int mt6375_auxadc_probe(struct platform_device *pdev)
 	indio_dev->num_channels = ARRAY_SIZE(auxadc_channels);
 
 	return devm_iio_device_register(&pdev->dev, indio_dev);
-}
-
-static int mt6375_auxadc_remove(struct platform_device *pdev)
-{
-	struct mt6375_priv *priv = platform_get_drvdata(pdev);
-
-	auxadc_del_irq_chip(priv);
-	lockdep_unregister_key(&priv->info_exist_key);
-	return 0;
 }
 
 static int mt6375_auxadc_suspend_late(struct device *dev)
@@ -962,7 +970,6 @@ MODULE_DEVICE_TABLE(of, mt6375_auxadc_of_match);
 
 static struct platform_driver mt6375_auxadc_driver = {
 	.probe = mt6375_auxadc_probe,
-	.remove = mt6375_auxadc_remove,
 	.driver = {
 		.name = "mt6375-auxadc",
 		.of_match_table = mt6375_auxadc_of_match,
