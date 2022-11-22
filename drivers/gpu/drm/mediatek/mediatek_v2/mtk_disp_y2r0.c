@@ -15,18 +15,20 @@
 #include "mtk_dump.h"
 #include "mtk_rect.h"
 #include "mtk_drm_drv.h"
+#include "../mml/mtk-mml-color.h"
 
 #define DISP_REG_DISP_Y2R0_EN 0x250
 #define DISP_REG_DISP_Y2R0_RST 0x254
 #define DISP_REG_DISP_Y2R0_CON0 0x258
-	#define DISP_REG_DISP_Y2R0_MATRIX_SEL_FULL_RANGE_BT709_RGB 0x4 //Bit 2 always on
-	#define DISP_REG_DISP_Y2R0_MATRIX_SEL_FULL_RANGE_BT601_RGB 0x5
-	#define DISP_REG_DISP_Y2R0_MATRIX_SEL_LIMIT_RANGE_BT709_RGB 0x6
-	#define DISP_REG_DISP_Y2R0_MATRIX_SEL_LIMIT_RANGE_BT601_RGB 0x7
+	#define DISP_REG_DISP_Y2R0_MATRIX_SEL_JPEG_RGB 0x4 //Bit 2 always on
+	#define DISP_REG_DISP_Y2R0_MATRIX_SEL_FULL_RANGE_BT709_RGB 0x5
+	#define DISP_REG_DISP_Y2R0_MATRIX_SEL_LIMIT_RANGE_BT601_RGB 0x6
+	#define DISP_REG_DISP_Y2R0_MATRIX_SEL_LIMIT_RANGE_BT709_RGB 0x7
 	#define DISP_REG_DISP_Y2R0_CLAMP BIT(4)
 	#define DISP_REG_DISP_Y2R0_BYPASS_DATA_PROCESS_NOBYPASS BIT(5)
 #define DISP_REG_DISP_DL_IN_RELAY3_SIZE 0x26C
 #define DISP_REG_DISP_DL_OUT_RELAY3_SIZE 0x27C
+
 
 /**
  * struct mtk_disp_y2r - DISP_RSZ driver structure
@@ -63,10 +65,30 @@ static void mtk_y2r_addon_config(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 			comp->regs_pa
 			+ DISP_REG_DISP_Y2R0_EN, addon_config->addon_mml_config.is_yuv, ~0);
-	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-			comp->regs_pa
-			+ DISP_REG_DISP_Y2R0_CON0,
-			DISP_REG_DISP_Y2R0_MATRIX_SEL_FULL_RANGE_BT601_RGB, ~0);
+	if (mtk_crtc->mml_cfg) {
+		/*follow mml output prefile*/
+		int profile = 5;
+
+		switch (mtk_crtc->mml_cfg->info.dest[0].data.profile) {
+		case MML_YCBCR_PROFILE_BT601:
+			profile = DISP_REG_DISP_Y2R0_MATRIX_SEL_LIMIT_RANGE_BT601_RGB;
+			break;
+		case MML_YCBCR_PROFILE_BT709:
+			profile = DISP_REG_DISP_Y2R0_MATRIX_SEL_LIMIT_RANGE_BT709_RGB;
+			break;
+		case MML_YCBCR_PROFILE_JPEG:
+			profile = DISP_REG_DISP_Y2R0_MATRIX_SEL_JPEG_RGB;
+			break;
+		default:
+			break;
+		}
+		cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+				comp->regs_pa + DISP_REG_DISP_Y2R0_CON0, profile, ~0);
+	} else
+		cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+				comp->regs_pa
+				+ DISP_REG_DISP_Y2R0_CON0,
+				DISP_REG_DISP_Y2R0_MATRIX_SEL_FULL_RANGE_BT709_RGB, ~0);
 }
 
 void mtk_y2r_dump(struct mtk_ddp_comp *comp)
