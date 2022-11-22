@@ -871,7 +871,9 @@ int apusys_mem_validate_by_cmd(void *session, void *cmd, uint64_t iova, uint32_t
 		mdw_vld_debug("check mem invoke list: va(0x%llx/%u) iova(0x%llx/%u) match\n",
 			(uint64_t)m->vaddr, m->size, m->device_va, m->dva_size);
 		if (c) {
+			mutex_lock(&mpriv->mdev->mctl_mtx);
 			ret = mdw_cmd_invoke_map(c, m->map);
+			mutex_unlock(&mpriv->mdev->mctl_mtx);
 			if (ret) {
 				mdw_drv_err("s(0x%llx)c(0x%llx)m(0x%llx/%u)get map fail(%d)\n",
 					(uint64_t)session, (uint64_t)cmd,

@@ -355,7 +355,9 @@ void mdw_cmd_mpriv_release(struct mdw_fpriv *mpriv)
 			mdw_cmd_delete(c);
 		}
 		mdw_flw_debug("s(0x%llx) release mem\n", (uint64_t)mpriv);
+		mutex_lock(&mpriv->mdev->mctl_mtx);
 		mdw_mem_mpriv_release(mpriv);
+		mutex_unlock(&mpriv->mdev->mctl_mtx);
 	}
 }
 
@@ -512,7 +514,9 @@ static void mdw_cmd_release(struct kref *ref)
 	mdw_trace_begin("apumdw:cmd_release|c:0x%llx", c->kid);
 	if (c->del_internal)
 		c->del_internal(c);
+	mutex_lock(&mpriv->mdev->mctl_mtx);
 	mdw_cmd_unvoke_map(c);
+	mutex_unlock(&mpriv->mdev->mctl_mtx);
 	mdw_cmd_delete_infos(c->mpriv, c);
 	mdw_mem_put(c->mpriv, c->exec_infos);
 	kfree(c->adj_matrix);
