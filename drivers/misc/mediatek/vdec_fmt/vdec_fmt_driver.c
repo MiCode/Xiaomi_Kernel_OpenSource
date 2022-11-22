@@ -465,16 +465,13 @@ static void fmt_gce_flush_callback(struct cmdq_cb_data data)
 {
 	struct cmdq_pkt *pkt_ptr;
 	struct mtk_vdec_fmt *fmt = fmt_mtkdev;
-	int i;
+
 	pkt_ptr = (struct cmdq_pkt *)data.data;
 
 	if (data.err < 0) {
 		fmt_err("pkt_ptr %p aee_cb %p", pkt_ptr, pkt_ptr->aee_cb);
 		atomic_set(&fmt->fmt_error, 1);
 		fmt_dump_addr_reg();
-		// reset bw request if fmt_error = 1
-		for (i = 0; i < fmt->gce_th_num; i++)
-			fmt_end_dvfs_emi_bw(fmt, i);
 	}
 }
 
