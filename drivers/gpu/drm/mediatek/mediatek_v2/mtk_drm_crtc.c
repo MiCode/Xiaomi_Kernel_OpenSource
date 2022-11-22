@@ -6269,7 +6269,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 				DISP_SLOT_PRESENT_FENCE(drm_crtc_index(crtc))));
 
 		if (fence_idx != cb_data->pres_fence_idx) {
-			DDPPR_ERR("%s:fence_idx:%d, cb_data->pres_fence_idx:%d",
+			DDPPR_ERR("%s:fence_idx:%d, cb_data->pres_fence_idx:%d\n",
 				__func__, fence_idx, cb_data->pres_fence_idx);
 			mtk_release_present_fence(session_id, cb_data->pres_fence_idx, 0);
 		}
