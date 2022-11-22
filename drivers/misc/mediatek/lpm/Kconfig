@@ -41,6 +41,16 @@ config MTK_LPM_MODULE_NAME
 	  name if the MTK_LPM_MODULE_NAME didn't
 	  set before.
 
+config MTK_LPM_MT6835
+	tristate "Specify Mediatek LPM Platform is MT6835"
+	depends on MTK_LOW_POWER_MODULE
+	select MTK_LPM_DBG_COMMON
+	help
+	  Select MediaTek Low Power Module Platform is MT6835
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6835.
+	  If unsure, set N to disable.
+
 config MTK_LPM_MT6983
 	tristate "Specify Mediatek LPM Platform is MT6983"
 	depends on MTK_LOW_POWER_MODULE
