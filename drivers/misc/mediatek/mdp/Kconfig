@@ -61,3 +61,9 @@ config MTK_MDP_MTEE_SUPPORT
 	  In secure camera. secure video playback scenario, mdp need
 	  use send cmdq control request to config mdp secure register
 	  in secure world.
+
+config MTK_MDP_DEBUG
+	bool "MDP Debug Support for Mediatek SoCs"
+	help
+	  Choose this option if you have a Mediatek SoCs.
+	  This driver provides mdp driver debug feature.
