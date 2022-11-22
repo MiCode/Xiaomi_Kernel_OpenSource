@@ -125,8 +125,14 @@ int mtk_qos_probe(struct platform_device *pdev,
 		if (!ret)
 			pr_info("mtkqos: dts qos enable = %d\n", mtk_qos_enable);
 		else {
-			pr_info("mtkqos: default enable\n");
-			mtk_qos_enable = 1;
+			ret = of_property_read_u32(node,
+				"mediatek,qos-enable", &mtk_qos_enable);
+			if (!ret)
+				pr_info("mtkqos: dts qos enable = %d\n", mtk_qos_enable);
+			else {
+				pr_info("mtkqos: default enable\n");
+				mtk_qos_enable = 1;
+			}
 		}
 	}
 
