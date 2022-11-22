@@ -8364,7 +8364,8 @@
 		spmi: spmi@1c804000 {
 			compatible = "mediatek,mt6985-spmi";
 			reg = <0 0x1c804000 0 0x0008ff>,
-			      <0 0x1c801000 0 0x000100>;
+			      <0 0x1c801000 0 0x000100>,
+			      <0 0x0d0a0000 0 0x0000dc>;
 			reg-names = "pmif", "spmimst";
 			interrupts-extended = <&pio 253 IRQ_TYPE_LEVEL_HIGH>,
 					      <&gic GIC_SPI 468 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -8382,7 +8383,8 @@
 			compatible = "mediatek,mt6985-spmi_pmif_mpu";
 			reg = <0 0x1c804900 0 0x000500>;
 			reg-names = "pmif_mpu";
-			mediatek,pmic_all_rgn_en = <0x1863F4>;
+			mediatek,pmic-all-rgn-en = <0x1863f4>;
+			mediatek,kernel-enable-time = <0x3c>;
 		};
 
 		mmc1: mmc@11240000 {
