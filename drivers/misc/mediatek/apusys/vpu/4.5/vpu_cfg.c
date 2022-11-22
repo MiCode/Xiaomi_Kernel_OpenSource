@@ -8,37 +8,10 @@
 #include "mtk_devinfo.h"
 #endif
 #include "vpu_debug.h"
-#include <soc/mediatek/emi.h>
 
+/* mtk_emimpu_set_protection is removed */
 static void vpu_emi_mpu_set_dummy(unsigned long start, unsigned int size)
 {
-}
-
-/* VPU EMI MPU setting for MT6885, MT6873, MT6853, MT6833 */
-static void vpu_emi_mpu_set_mt68xx(unsigned long start, unsigned int size)
-{
-#define MPU_PROCT_REGION	21
-#define MPU_PROCT_D0_AP		0
-#define MPU_PROCT_D5_APUSYS	5
-
-#if IS_ENABLED(CONFIG_MTK_EMI)
-	struct emimpu_region_t md_region;
-
-	mtk_emimpu_init_region(&md_region, MPU_PROCT_REGION);
-	mtk_emimpu_set_addr(&md_region, start,
-			    (start + (unsigned long)size) - 0x1);
-	mtk_emimpu_set_apc(&md_region, MPU_PROCT_D0_AP,
-			   MTK_EMIMPU_NO_PROTECTION);
-	mtk_emimpu_set_apc(&md_region, MPU_PROCT_D5_APUSYS,
-			   MTK_EMIMPU_NO_PROTECTION);
-	mtk_emimpu_lock_region(&md_region, true);
-	mtk_emimpu_set_protection(&md_region);
-	mtk_emimpu_free_region(&md_region);
-#endif
-
-#undef MPU_PROCT_REGION
-#undef MPU_PROCT_D0_AP
-#undef MPU_PROCT_D5_APUSYS
 }
 
 /**
@@ -408,12 +381,12 @@ struct vpu_config vpu_cfg_mt67xx = {
 };
 
 struct vpu_misc_ops vpu_cops_mt6885 = {
-	.emi_mpu_set = vpu_emi_mpu_set_mt68xx,
+	.emi_mpu_set = vpu_emi_mpu_set_dummy,
 	.is_disabled = vpu_is_disabled_mt6885,
 };
 
 struct vpu_misc_ops vpu_cops_mt68xx = {
-	.emi_mpu_set = vpu_emi_mpu_set_mt68xx,
+	.emi_mpu_set = vpu_emi_mpu_set_dummy,
 	.is_disabled = vpu_is_disabled_dummy,
 };
 
