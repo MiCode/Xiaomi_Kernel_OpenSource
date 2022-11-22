@@ -958,17 +958,14 @@ static void __mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, struct mtk_raw_device
 				dev_info(cam->dev, "[%s] port idx/name:%2d/%16s BW(kB/s)(avg:%lu,peak:%lu)\n",
 				  __func__, qos_port_id, raw_qos->port[i],
 				  BW_B2KB_WITH_RATIO(dvfs_info->qos_bw_avg[qos_port_id]),
-				  (is_raw_srt ?
-				   BW_B2KB(dvfs_info->qos_bw_avg[qos_port_id]) :
+				  (is_raw_srt ? 0 :
 				   BW_B2KB(dvfs_info->qos_bw_peak[qos_port_id])));
 #ifdef DVFS_QOS_READY
 			if (dvfs_info->qos_req[qos_port_id]) {
 				mtk_icc_set_bw(dvfs_info->qos_req[qos_port_id],
 					kBps_to_icc(BW_B2KB_WITH_RATIO(
 						dvfs_info->qos_bw_avg[qos_port_id])),
-					(is_raw_srt ?
-					 kBps_to_icc(BW_B2KB(
-					    dvfs_info->qos_bw_avg[qos_port_id])) :
+					(is_raw_srt ? 0 :
 					 kBps_to_icc(BW_B2KB(
 					    dvfs_info->qos_bw_peak[qos_port_id]))));
 			}
