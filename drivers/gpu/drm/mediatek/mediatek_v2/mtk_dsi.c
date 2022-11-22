@@ -384,6 +384,7 @@ struct mtk_dsi_driver_data {
 	const u32 urgent_lo_fifo_us;
 	const u32 urgent_hi_fifo_us;
 	bool dsi_buffer;
+	bool smi_dbg_disable;
 	u32 max_vfp;
 	void (*mmclk_by_datarate)(struct mtk_dsi *dsi,
 		struct mtk_drm_crtc *mtk_crtc, unsigned int en);
@@ -2097,7 +2098,10 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				mtk_drm_crtc_analysis(dsi->encoder.crtc);
 				mtk_drm_crtc_dump(dsi->encoder.crtc);
 				dsi_underrun_trigger = 0;
-				mtk_smi_dbg_hang_detect("dsi-underrun");
+				if (!dsi->driver_data->smi_dbg_disable ||
+				     mtk_drm_helper_get_opt(priv->helper_opt,
+				     MTK_DRM_OPT_DSI_UNDERRUN_AEE))
+					mtk_smi_dbg_hang_detect("dsi-underrun");
 				mtk_crtc->last_aee_trigger_ts = aee_now_ts;
 			}
 
@@ -8979,6 +8983,7 @@ static const struct mtk_dsi_driver_data mt6886_dsi_driver_data = {
 	.need_bypass_shadow = false,
 	.need_wait_fifo = false,
 	.dsi_buffer = true,
+	.smi_dbg_disable = true,
 	.buffer_unit = 32,
 	.sram_unit = 18,
 	.max_vfp = 0xffe,
