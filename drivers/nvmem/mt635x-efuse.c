@@ -54,6 +54,7 @@
 
 /* Timeout (us) of polling the status */
 #define EFUSE_POLL_TIMEOUT	30000
+#define EFUSE_TRIG_DELAY_US	40
 #define EFUSE_POLL_DELAY_US	50
 #define EFUSE_READ_DELAY_US	30
 
@@ -186,6 +187,7 @@ static int mt635x_efuse_read(void *context, unsigned int offset,
 			goto disable_efuse;
 		/* Start trigger read */
 		efuse->trig_sta = efuse->trig_sta ? 0 : 1;
+		udelay(EFUSE_TRIG_DELAY_US);
 		ret = regmap_write(efuse->regmap, reg->otp_rd_trig,
 				   efuse->trig_sta);
 		if (ret) {
