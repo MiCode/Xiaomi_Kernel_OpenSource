@@ -156,7 +156,6 @@ _dump_done:
 		return;
 	} else if (stage == 2) { /* got MD_EX_PASS or second timeout */
 		unsigned long flags;
-		int md_wdt_ee = 0;
 		unsigned int md_dump_flag = 0;
 		struct ccci_smem_region *mdss_dbg
 			= ccci_md_get_smem_by_user_id(SMEM_USER_RAW_MDSS_DBG);
@@ -165,14 +164,7 @@ _dump_done:
 		CCCI_MEM_LOG_TAG(0, FSM, "MD exception stage 2! ee=%x\n",
 			ee_ctl->ee_info_flag);
 
-		spin_lock_irqsave(&ee_ctl->ctrl_lock, flags);
-		if (MD_EE_WDT_GET & ee_ctl->ee_info_flag)
-			md_wdt_ee = 1;
-		spin_unlock_irqrestore(&ee_ctl->ctrl_lock, flags);
-
-		/* Dump MD register, only NO response case dump */
-		if (ee_ctl->ee_case == MD_EE_CASE_NO_RESPONSE)
-			md_dump_flag = DUMP_FLAG_REG | DUMP_FLAG_MD_WDT;
+		md_dump_flag = DUMP_FLAG_REG | DUMP_FLAG_MD_WDT;
 		if (ee_ctl->ee_case == MD_EE_CASE_ONLY_SWINT)
 			md_dump_flag |= (DUMP_FLAG_QUEUE_0
 			| DUMP_FLAG_CCIF | DUMP_FLAG_CCIF_REG);
