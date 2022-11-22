@@ -834,6 +834,14 @@ int gpufreq_commit(enum gpufreq_target target, int oppidx)
 	}
 
 	/* implement on AP */
+	if (gpufreq_fp && gpufreq_fp->update_temperature)
+		gpufreq_fp->update_temperature(false);
+	else {
+		ret = GPUFREQ_ENOENT;
+		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+	}
+
+	/* implement on AP */
 	if (gpuppm_fp && gpuppm_fp->limited_commit)
 		ret = gpuppm_fp->limited_commit(target, oppidx);
 	else {

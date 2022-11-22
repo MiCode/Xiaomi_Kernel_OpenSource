@@ -352,6 +352,7 @@ struct gpufreq_platform_fp {
 	void (*pdca_config)(enum gpufreq_power_state power);
 	void (*set_shared_status)(struct gpufreq_shared_status *shared_status);
 	int (*mssv_commit)(unsigned int target, unsigned int val);
+	void (*update_temperature)(unsigned int instant_dvfs);
 	/* GPU */
 	unsigned int (*get_cur_fgpu)(void);
 	unsigned int (*get_cur_vgpu)(void);
