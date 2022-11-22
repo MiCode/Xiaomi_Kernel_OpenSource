@@ -102,6 +102,7 @@ obj-$(CONFIG_REGULATOR_MT6363) += mt6363-regulator.o
 obj-$(CONFIG_REGULATOR_MT6368) += mt6368-regulator.o
 obj-$(CONFIG_REGULATOR_MT6369) += mt6369-regulator.o
 obj-$(CONFIG_REGULATOR_MT6373) += mt6373-regulator.o
+obj-$(CONFIG_REGULATOR_MT6377) += mt6377-regulator.o
 obj-$(CONFIG_REGULATOR_MT6380)	+= mt6380-regulator.o
 obj-$(CONFIG_REGULATOR_MT6397)	+= mt6397-regulator.o
 obj-$(CONFIG_REGULATOR_MTK_DVFSRC) += mtk-dvfsrc-regulator.o
