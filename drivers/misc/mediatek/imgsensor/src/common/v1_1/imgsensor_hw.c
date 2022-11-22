@@ -21,6 +21,7 @@ char * const imgsensor_hw_pin_names[] = {
 	"vcama1",
 	"vcamd",
 	"vcamio",
+	"vcama1_gpio",
 	"mipi_switch_en",
 	"mipi_switch_sel",
 	"mclk"

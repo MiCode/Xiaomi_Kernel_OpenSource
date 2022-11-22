@@ -2483,12 +2483,23 @@ static int __init imgsensor_init(void)
 	}
 	if (seninf_init() < 0)
 		return -ENODEV;
+
+#ifdef SENINF_N3D_SUPPORT
+	if (n3d_init() < 0)
+		return -ENODEV;
+#endif
+
 	return 0;
 }
 
 static void __exit imgsensor_exit(void)
 {
 	platform_driver_unregister(&gimgsensor_platform_driver);
+
+#ifdef SENINF_N3D_SUPPORT
+	n3d_exit();
+#endif
+
 	seninf_exit();
 }
 #ifdef NEED_LATE_INITCALL

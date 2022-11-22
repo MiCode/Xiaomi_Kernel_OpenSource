@@ -78,6 +78,11 @@ int seninf_dfs_ctrl(struct seninf_dfs_ctx *ctx,
 		freq = *(unsigned int *)pbuff;
 		freq = freq * 1000000; /*MHz->Hz*/
 		opp = dev_pm_opp_find_freq_ceil(ctx->dev, &freq);
+		if (IS_ERR(opp)) {
+			pr_info("Failed to find OPP for frequency %lu: %ld\n",
+				freq, PTR_ERR(opp));
+			return -EFAULT;
+		}
 		volt = dev_pm_opp_get_voltage(opp);
 		dev_pm_opp_put(opp);
 		pr_debug("%s: freq=%ld Hz, volt=%ld\n", __func__, freq, volt);
@@ -220,8 +225,8 @@ static inline void seninf_clk_check(struct SENINF_CLK *pclk)
 	int i;
 
 	for (i = 0; i < SENINF_CLK_IDX_MAX_NUM; i++) {
-		if (pclk->mclk_sel[i] != NULL)
-			WARN_ON(IS_ERR(pclk->mclk_sel[i]));
+		if (pclk->clk_sel[i] != NULL)
+			WARN_ON(IS_ERR(pclk->clk_sel[i]));
 	}
 }
 
@@ -238,13 +243,13 @@ enum SENINF_RETURN seninf_clk_init(struct SENINF_CLK *pclk)
 	}
 	/* get all possible using clocks */
 	for (i = 0; i < SENINF_CLK_IDX_MAX_NUM; i++) {
-		pclk->mclk_sel[i] = devm_clk_get(&pclk->pplatform_device->dev,
-						gseninf_mclk_name[i].pctrl);
+		pclk->clk_sel[i] = devm_clk_get(&pclk->pplatform_device->dev,
+						gseninf_clk_name[i].pctrl);
 		atomic_set(&pclk->enable_cnt[i], 0);
 
-		if ((pclk->mclk_sel[i] == NULL) || IS_ERR(pclk->mclk_sel[i])) {
+		if ((pclk->clk_sel[i] == NULL) || IS_ERR(pclk->clk_sel[i])) {
 			PK_DBG("cannot get %d clock\n", i);
-			pclk->mclk_sel[i] = NULL;
+			pclk->clk_sel[i] = NULL;
 		}
 	}
 #if IS_ENABLED(CONFIG_PM_SLEEP)
@@ -296,10 +301,10 @@ int seninf_clk_set(struct SENINF_CLK *pclk,
 	if (pmclk->on) {
 		if (IS_MT6893(pclk->g_platform_id) || IS_MT6885(pclk->g_platform_id)) {
 			/* Workaround for timestamp: TG1 always ON */
-			if (pclk->mclk_sel[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]
+			if (pclk->clk_sel[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]
 				!= NULL) {
 				if (clk_prepare_enable(
-					pclk->mclk_sel[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]))
+					pclk->clk_sel[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]))
 					PK_DBG("[CAMERA SENSOR] failed tg=%d\n",
 						SENINF_CLK_IDX_TG_TOP_MUX_CAMTG);
 				else
@@ -308,50 +313,50 @@ int seninf_clk_set(struct SENINF_CLK *pclk,
 			}
 		}
 
-		if (pclk->mclk_sel[idx_tg] != NULL) {
-			if (clk_prepare_enable(pclk->mclk_sel[idx_tg]))
+		if (pclk->clk_sel[idx_tg] != NULL) {
+			if (clk_prepare_enable(pclk->clk_sel[idx_tg]))
 				PK_DBG("[CAMERA SENSOR] failed tg=%d\n",
 					pmclk->TG);
 			else
 				atomic_inc(&pclk->enable_cnt[idx_tg]);
 		}
 
-		if (pclk->mclk_sel[idx_freq] != NULL) {
-			if (clk_prepare_enable(pclk->mclk_sel[idx_freq]))
+		if (pclk->clk_sel[idx_freq] != NULL) {
+			if (clk_prepare_enable(pclk->clk_sel[idx_freq]))
 				PK_DBG("[CAMERA SENSOR] failed freq idx= %d\n",
 					i);
 			else
 				atomic_inc(&pclk->enable_cnt[idx_freq]);
 		}
 
-		if ((pclk->mclk_sel[idx_tg] != NULL) &&
-			(pclk->mclk_sel[idx_freq] != NULL))
+		if ((pclk->clk_sel[idx_tg] != NULL) &&
+			(pclk->clk_sel[idx_freq] != NULL))
 			ret = clk_set_parent(
-				pclk->mclk_sel[idx_tg],
-				pclk->mclk_sel[idx_freq]);
+				pclk->clk_sel[idx_tg],
+				pclk->clk_sel[idx_freq]);
 	} else {
-		if (pclk->mclk_sel[idx_freq] != NULL) {
+		if (pclk->clk_sel[idx_freq] != NULL) {
 			if (atomic_read(&pclk->enable_cnt[idx_freq]) > 0) {
-				clk_disable_unprepare(pclk->mclk_sel[idx_freq]);
+				clk_disable_unprepare(pclk->clk_sel[idx_freq]);
 				atomic_dec(&pclk->enable_cnt[idx_freq]);
 			}
 		}
 
-		if (pclk->mclk_sel[idx_tg] != NULL) {
+		if (pclk->clk_sel[idx_tg] != NULL) {
 			if (atomic_read(&pclk->enable_cnt[idx_tg]) > 0) {
-				clk_disable_unprepare(pclk->mclk_sel[idx_tg]);
+				clk_disable_unprepare(pclk->clk_sel[idx_tg]);
 				atomic_dec(&pclk->enable_cnt[idx_tg]);
 			}
 		}
 
 		if (IS_MT6893(pclk->g_platform_id) || IS_MT6885(pclk->g_platform_id)) {
 			/* Workaround for timestamp: TG1 always ON */
-			if (pclk->mclk_sel[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG] != NULL) {
+			if (pclk->clk_sel[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG] != NULL) {
 				if (atomic_read(
 					&pclk->enable_cnt[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG])
 					> 0) {
 					clk_disable_unprepare(
-					pclk->mclk_sel[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]);
+					pclk->clk_sel[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]);
 					atomic_dec(
 					&pclk->enable_cnt[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]);
 				}
@@ -359,6 +364,54 @@ int seninf_clk_set(struct SENINF_CLK *pclk,
 		}
 	}
 
+	return ret;
+}
+
+
+int seninf_sys_clk_set(struct SENINF_CLK *pclk,
+					struct ACDK_SENSOR_SENINF_CLK_STRUCT *pseninfclk)
+{
+	int i, ret = 0;
+	unsigned int freq = pseninfclk->freq;
+	unsigned int seninf_port = pseninfclk->seninf_port;
+	unsigned int freq_idx = 0;
+	unsigned int seninf_idx = 0;
+
+	if (IS_MT6835(pclk->g_platform_id)) {
+		PK_DBG("[update seninf_clk] platform_id = %d, start update seninf_clk\n",
+			pclk->g_platform_id);
+	} else {
+		PK_DBG("[update seninf_clk] platform_id = %d no need update seninf_clk\n",
+			pclk->g_platform_id);
+		return ret;
+	}
+
+	if (seninf_port >= SENINF_CLK_SENINF_PORT_MAX_NUM ||
+		freq > SENINF_CLK_SYS_TOP_MUX_SENINF_FREQ_MAX ||
+		freq < SENINF_CLK_SYS_TOP_MUX_SENINF_FREQ_MIN) {
+		PK_DBG("[update seninf_clk]seninf_clk out of range, freq = %d\n", freq);
+		return -EFAULT;
+	}
+
+	seninf_clk_check(pclk);
+
+	for (i = 0; freq != gseninf_clk_freq[i]; i++)
+		;
+
+	freq_idx = SENINF_CLK_IDX_FREQ_MIN_NUM + i;
+	seninf_idx = SENINF_CLK_IDX_SYS_TOP_MUX_SENINF + seninf_port;
+	PK_DBG("[update seninf_clk] seninf_port = %d , freq_idx = %d\n", seninf_port, freq_idx);
+
+	if ((pclk->clk_sel[seninf_idx] != NULL) && (pclk->clk_sel[freq_idx] != NULL)) {
+		PK_DBG("[update seninf_clk] do clk_set_parent freq_idx = %d, seninf_idx = %d\n",
+			freq_idx, seninf_idx);
+		ret = clk_set_parent(
+			pclk->clk_sel[seninf_idx],
+			pclk->clk_sel[freq_idx]);
+	} else {
+		PK_DBG("[update seninf_clk] failed clk_set_parent freq_idx = %d, seninf_idx = %d\n",
+			freq_idx, seninf_idx);
+	}
 	return ret;
 }
 
@@ -377,8 +430,8 @@ void seninf_clk_open(struct SENINF_CLK *pclk)
 	for (i = SENINF_CLK_IDX_SYS_MIN_NUM;
 		i < SENINF_CLK_IDX_SYS_MAX_NUM;
 		i++) {
-		if (pclk->mclk_sel[i] != NULL) {
-			if (clk_prepare_enable(pclk->mclk_sel[i]))
+		if (pclk->clk_sel[i] != NULL) {
+			if (clk_prepare_enable(pclk->clk_sel[i]))
 				PK_DBG("[CAMERA SENSOR] failed sys idx= %d\n",
 					i);
 			else
@@ -395,9 +448,9 @@ void seninf_clk_release(struct SENINF_CLK *pclk)
 
 	do {
 		i--;
-		if (pclk->mclk_sel[i] != NULL) {
+		if (pclk->clk_sel[i] != NULL) {
 			for (; atomic_read(&pclk->enable_cnt[i]) > 0;) {
-				clk_disable_unprepare(pclk->mclk_sel[i]);
+				clk_disable_unprepare(pclk->clk_sel[i]);
 				atomic_dec(&pclk->enable_cnt[i]);
 			}
 		}
@@ -419,37 +472,34 @@ unsigned int seninf_clk_get_meter(struct SENINF_CLK *pclk, unsigned int clk)
  *		for (i = SENINF_CLK_IDX_SYS_MIN_NUM; i < SENINF_CLK_IDX_SYS_MAX_NUM; ++i) {
  *			PK_DBG("[sensor_dump][mclk]index=%u freq=%lu HW enable=%d enable_cnt=%u\n",
  *				i,
- *				clk_get_rate(pclk->mclk_sel[i]),
- *				__clk_is_enabled(pclk->mclk_sel[i]),
- *				__clk_get_enable_count(pclk->mclk_sel[i])
+ *				clk_get_rate(pclk->clk_sel[i]),
+ *				__clk_is_enabled(pclk->clk_sel[i]),
+ *				__clk_get_enable_count(pclk->clk_sel[i])
  *			);
  *		}
  *	}
  */
-/*
- * #if 0//SENINF_CLK_CONTROL
- *	// workaround
- *	mt_get_ckgen_freq(1);
- *
- *	if (clk == 4) {
- *		PK_DBG("CAMSYS_SENINF_CGPDN = %lu\n",
- *		clk_get_rate(
- *		pclk->mclk_sel[SENINF_CLK_IDX_SYS_CAMSYS_SENINF_CGPDN]));
- *		PK_DBG("TOP_MUX_SENINF = %lu\n",
- *			clk_get_rate(
- *			pclk->mclk_sel[SENINF_CLK_IDX_SYS_TOP_MUX_SENINF]));
- *	}
- *	if (clk < 64)
- *		return mt_get_ckgen_freq(clk);
- *	else
- *		return 0;
- * // #else
- *	if (clk < 64)
- *		return mt_get_ckgen_freq(clk);
- *	else
- *		return 0;
- * #endif
- */
-	return 0;
+#ifdef SENINF_CLK_CONTROL_workaround//SENINF_CLK_CONTROL
+	/* workaround */
+	mt_get_ckgen_freq(1);
+
+	if (clk == 4) {
+		PK_DBG("CAMSYS_SENINF_CGPDN = %lu\n",
+		clk_get_rate(
+		pclk->clk_sel[SENINF_CLK_IDX_SYS_CAMSYS_SENINF_CGPDN]));
+		PK_DBG("TOP_MUX_SENINF = %lu\n",
+			clk_get_rate(
+			pclk->clk_sel[SENINF_CLK_IDX_SYS_TOP_MUX_SENINF]));
+	}
+	if (clk < 64)
+		return mt_get_ckgen_freq(clk);
+	else
+		return 0;
+#else
+	if (clk < 64)
+		return mt_get_ckgen_freq(clk);
+	else
+		return 0;
+#endif
 }
 

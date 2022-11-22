@@ -15,6 +15,7 @@
 #include <linux/platform_device.h>
 
 #include "kd_imgsensor_define.h"
+#include "kd_seninf_define.h"
 
 #include "seninf_common.h"
 
@@ -99,7 +100,13 @@ enum SENINF_CLK_IDX_FREQ {
 	SENINF_CLK_IDX_FREQ_TOP_CLK26M,
 	SENINF_CLK_IDX_FREQ_TOP_UNIVP_192M_D4,
 	SENINF_CLK_IDX_FREQ_TOP_UNIVPLL_D3_D8,
-	SENINF_CLK_IDX_FREQ_MAX_NUM
+	SENINF_CLK_IDX_FREQ_MCLK_MAX,
+	SENINF_CLK_IDX_FREQ_SENINFCLK_MIN = SENINF_CLK_IDX_FREQ_MCLK_MAX,
+	SENINF_CLK_IDX_FREQ_TOP_IMGPLL = SENINF_CLK_IDX_FREQ_SENINFCLK_MIN,//seninf_clk 286
+	SENINF_CLK_IDX_FREQ_TOP_MMPLL_D7,				   //seninf_clk 392.857
+	SENINF_CLK_IDX_FREQ_TOP_TOP_UNIVPLL_D5,				   //seninf_clk 499.2
+	SENINF_CLK_IDX_FREQ_SENINFCLK_MAX,
+	SENINF_CLK_IDX_FREQ_MAX_NUM = SENINF_CLK_IDX_FREQ_SENINFCLK_MAX
 };
 
 enum SENINF_CLK_TG {
@@ -112,18 +119,32 @@ enum SENINF_CLK_TG {
 	SENINF_CLK_TG_MAX_NUM
 };
 
-enum SENINF_CLK_MCLK_FREQ {
+enum SENINF_CLK_FREQ {
 	SENINF_CLK_MCLK_FREQ_6MHZ = 6,
 	SENINF_CLK_MCLK_FREQ_12MHZ = 12,
 	SENINF_CLK_MCLK_FREQ_13MHZ = 13,
 	SENINF_CLK_MCLK_FREQ_24MHZ = 24,
 	SENINF_CLK_MCLK_FREQ_26MHZ = 26,
 	SENINF_CLK_MCLK_FREQ_48MHZ = 48,
-	SENINF_CLK_MCLK_FREQ_52MHZ = 52
+	SENINF_CLK_MCLK_FREQ_52MHZ = 52,
+	SENINF_CLK_SYS_TOP_MUX_SENINF_FREQ_286MHZ = 286, //seninf_clk 286
+	SENINF_CLK_SYS_TOP_MUX_SENINF_FREQ_392MHZ = 392, //seninf_clk 392.857
+	SENINF_CLK_SYS_TOP_MUX_SENINF_FREQ_499MHZ = 499, //seninf_clk 499.2
+};
+
+enum SENINF_CLK_SENINF_PORT {
+	SENINF_CLK_SENINF_PORT_0,
+	SENINF_CLK_SENINF_PORT_1,
+	SENINF_CLK_SENINF_PORT_2,
+	SENINF_CLK_SENINF_PORT_3,
+	SENINF_CLK_SENINF_PORT_MAX_NUM
 };
 
 #define SENINF_CLK_MCLK_FREQ_MAX    SENINF_CLK_MCLK_FREQ_52MHZ
 #define SENINF_CLK_MCLK_FREQ_MIN    SENINF_CLK_MCLK_FREQ_6MHZ
+#define SENINF_CLK_SYS_TOP_MUX_SENINF_FREQ_MAX    SENINF_CLK_SYS_TOP_MUX_SENINF_FREQ_499MHZ
+#define SENINF_CLK_SYS_TOP_MUX_SENINF_FREQ_MIN    SENINF_CLK_SYS_TOP_MUX_SENINF_FREQ_286MHZ
+
 #define SENINF_CLK_IDX_MIN_NUM      SENINF_CLK_IDX_SYS_MIN_NUM
 #define SENINF_CLK_IDX_MAX_NUM      SENINF_CLK_IDX_FREQ_MAX_NUM
 #define SENINF_CLK_IDX_FREQ_IDX_NUM \
@@ -133,7 +154,7 @@ struct SENINF_CLK_CTRL {
 	char *pctrl;
 };
 
-static struct SENINF_CLK_CTRL gseninf_mclk_name[SENINF_CLK_IDX_MAX_NUM] = {
+static struct SENINF_CLK_CTRL gseninf_clk_name[SENINF_CLK_IDX_MAX_NUM] = {
 #ifndef SENINF_USE_RPM
 	{"SCP_SYS_MDP"},
 	{"SCP_SYS_CAM"},
@@ -156,9 +177,12 @@ static struct SENINF_CLK_CTRL gseninf_mclk_name[SENINF_CLK_IDX_MAX_NUM] = {
 	{"TOP_CLK26M"},         /*  26*/
 	{"TOP_UNIVP_192M_D4"},  /*  48*/
 	{"TOP_UNIVPLL_D6_D8"},  /*  52*/
+	{"TOP_IMGPLL"},         //seninf_clk 286
+	{"TOP_MMPLL_D7"},       //seninf_clk 392.857
+	{"TOP_UNIVPLL_D5"},     //seninf_clk 499.2
 };
 
-static enum SENINF_CLK_MCLK_FREQ
+static enum SENINF_CLK_FREQ
 gseninf_clk_freq[SENINF_CLK_IDX_FREQ_IDX_NUM] = {
 	SENINF_CLK_MCLK_FREQ_6MHZ,
 	SENINF_CLK_MCLK_FREQ_12MHZ,
@@ -167,13 +191,16 @@ gseninf_clk_freq[SENINF_CLK_IDX_FREQ_IDX_NUM] = {
 	SENINF_CLK_MCLK_FREQ_26MHZ,
 	SENINF_CLK_MCLK_FREQ_48MHZ,
 	SENINF_CLK_MCLK_FREQ_52MHZ,
+	SENINF_CLK_SYS_TOP_MUX_SENINF_FREQ_286MHZ, //seninf_clk 286
+	SENINF_CLK_SYS_TOP_MUX_SENINF_FREQ_392MHZ, //seninf_clk 392.857
+	SENINF_CLK_SYS_TOP_MUX_SENINF_FREQ_499MHZ, //seninf_clk 499.2
 };
 
 
 
 struct SENINF_CLK {
 	struct platform_device *pplatform_device;
-	struct clk *mclk_sel[SENINF_CLK_IDX_MAX_NUM];
+	struct clk *clk_sel[SENINF_CLK_IDX_MAX_NUM];
 	atomic_t enable_cnt[SENINF_CLK_IDX_MAX_NUM];
 	atomic_t wakelock_cnt;
 	unsigned int g_platform_id;
@@ -190,6 +217,8 @@ void seninf_clk_exit(struct SENINF_CLK *pclk);
 
 int seninf_clk_set(
 	struct SENINF_CLK *pclk, struct ACDK_SENSOR_MCLK_STRUCT *pmclk);
+int seninf_sys_clk_set(
+	struct SENINF_CLK *pclk, struct ACDK_SENSOR_SENINF_CLK_STRUCT *pseninfclk);
 void seninf_clk_open(struct SENINF_CLK *pclk);
 void seninf_clk_release(struct SENINF_CLK *pclk);
 unsigned int seninf_clk_get_meter(struct SENINF_CLK *pclk, unsigned int clk);

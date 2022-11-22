@@ -57,9 +57,11 @@ static DEFINE_SPINLOCK(imgsensor_drv_lock);
 #define I2C_BUFFER_LEN 4
 #endif
 
+//#define video_720p_setting_flag 1
+
 static struct imgsensor_info_struct imgsensor_info = {
 	.sensor_id = S5KJD1_SENSOR_ID,
-	.checksum_value = 0xfb225e4d,
+	.checksum_value = 0x8c65ef72,
 	.pre = {
 		.pclk = 1056000000,
 		.linelength = 12108,
@@ -710,106 +712,106 @@ static kal_uint32 set_gain(kal_uint32 gain)
 
 static void hdr_write_gain(kal_uint16 lgain, kal_uint16 sgain)
 {
-/*
- *	kal_uint32 reg_lgain;
- *	kal_uint32 reg_sgain;
- *	kal_uint32 reg_d_lgain;
- *	kal_uint32 reg_d_sgain;
- *	kal_uint32 reg_a_gain;   // match to gain_table
- *	kal_uint32 reg_d_gain;
- *
- *	LOG_INF("setting lgain=%d sgain=%d\n", lgain, sgain);
- *
- *	reg_lgain = gain2reg(lgain);
- *	reg_sgain = gain2reg(sgain);
- *	spin_lock(&imgsensor_drv_lock);
- *	imgsensor.gain = reg_lgain;
- *	spin_unlock(&imgsensor_drv_lock);
- *	LOG_INF("setting reg_lgain = %d reg_sgain = %d\n ",
- *		reg_lgain, reg_sgain);
- *
- *	if (reg_lgain > 0x7c0) {
- *		reg_d_lgain = reg_lgain*1024/1984;
- *
- *		if (reg_d_lgain < 0x400) { // sensor 1xGain
- *			reg_d_lgain = 0x400;
- *		}
- *		if (reg_d_lgain > 0x3fff) { // sensor 16xGain
- *			reg_d_lgain = 0x3fff;
- *		}
- *		// long exposure
- *		write_cmos_sensor_8(0x0350a, (reg_d_lgain >> 8));
- *		write_cmos_sensor_8(0x0350b, (reg_d_lgain&0xff));
- *		write_cmos_sensor_8(0x03508, 0x07);
- *		write_cmos_sensor_8(0x03509, 0xc0);
- *		LOG_INF("setting reg_d_lgain = %d\n ", reg_d_lgain);
- *	} else {
- *		if (reg_lgain < 0x80) { // sensor 1xGain
- *			reg_lgain = 0x80;
- *		}
- *		if (reg_lgain > 0x7c0) {// sensor 15.5xGain
- *			reg_lgain = 0x7c0;
- *		}
- *
- *		// binary to find A_Gain
- *		reg_a_gain = binary_find_AGain(AGain_table,
- *			reg_lgain,
- *			ARRAY_SIZE(AGain_table));
- *
- *		// in case of insufficient accurary,
- *		// use D_Gain supplement A_Gain
- *		reg_d_gain = reg_lgain*1024/reg_a_gain;
- *
- *		// long gain
- *		write_cmos_sensor_8(0x0350a, (reg_d_gain >> 8));
- *		write_cmos_sensor_8(0x0350b, (reg_d_gain&0xff));
- *		write_cmos_sensor_8(0x03508, (reg_a_gain >> 8));
- *		write_cmos_sensor_8(0x03509, (reg_a_gain&0xff));
- *		LOG_INF("setting LONG Gain reg_a_gain =%d  reg_d_gain =%d\n ",
- *			reg_a_gain, reg_d_gain);
- *	}
- *
- *	if (reg_sgain > 0x7c0) {
- *		reg_d_sgain = reg_sgain*1024/1984;
- *
- *		if (reg_d_sgain < 0x400) {// sensor 1xGain
- *			reg_d_sgain = 0x400;
- *		}
- *		if (reg_d_sgain > 0x3fff) {// sensor 16xGain
- *			reg_d_sgain = 0x3fff;
- *		}
- *		// short gain
- *		write_cmos_sensor_8(0x0350e, (reg_d_sgain >> 8));
- *		write_cmos_sensor_8(0x0350f, (reg_d_sgain&0xff));
- *		write_cmos_sensor_8(0x0350c, 0x07);
- *		write_cmos_sensor_8(0x0350d, 0xc0);
- *		LOG_INF("setting reg_d_sgain = %d\n ", reg_d_sgain);
- *	} else {
- *		if (reg_sgain < 0x80) { // sensor 1xGain
- *			reg_sgain = 0x80;
- *		}
- *		if (reg_sgain > 0x7c0) {// sensor 15.5xGain
- *			reg_sgain = 0x7c0;
- *		}
- *
- *		// binary to find A_Gain
- *		reg_a_gain = binary_find_AGain(AGain_table,
- *			reg_sgain,
- *			ARRAY_SIZE(AGain_table));
- *
- *		// in case of insufficient accurary
- *		// use D_Gain supplement A_Gain
- *		reg_d_gain = reg_sgain*1024/reg_a_gain;
- *
- *		// short exposure
- *		write_cmos_sensor_8(0x0350e, (reg_d_gain >> 8));
- *		write_cmos_sensor_8(0x0350f, (reg_d_gain&0xff));
- *		write_cmos_sensor_8(0x0350c, (reg_a_gain >> 8));
- *		write_cmos_sensor_8(0x0350d, (reg_a_gain&0xff));
- *		LOG_INF("setting SHORT Gain reg_a_gain = %d reg_d_gain = %d\n ",
- *			reg_a_gain, reg_d_gain);
- *	}
- */
+#ifdef hdr_write_gain_define
+	kal_uint32 reg_lgain;
+	kal_uint32 reg_sgain;
+	kal_uint32 reg_d_lgain;
+	kal_uint32 reg_d_sgain;
+	kal_uint32 reg_a_gain;   // match to gain_table
+	kal_uint32 reg_d_gain;
+
+	LOG_INF("setting lgain=%d sgain=%d\n", lgain, sgain);
+
+	reg_lgain = gain2reg(lgain);
+	reg_sgain = gain2reg(sgain);
+	spin_lock(&imgsensor_drv_lock);
+	imgsensor.gain = reg_lgain;
+	spin_unlock(&imgsensor_drv_lock);
+	LOG_INF("setting reg_lgain = %d reg_sgain = %d\n ",
+		reg_lgain, reg_sgain);
+
+	if (reg_lgain > 0x7c0) {
+		reg_d_lgain = reg_lgain*1024/1984;
+
+		if (reg_d_lgain < 0x400) { // sensor 1xGain
+			reg_d_lgain = 0x400;
+		}
+		if (reg_d_lgain > 0x3fff) { // sensor 16xGain
+			reg_d_lgain = 0x3fff;
+		}
+		/* long exposure */
+		write_cmos_sensor_8(0x0350a, (reg_d_lgain >> 8));
+		write_cmos_sensor_8(0x0350b, (reg_d_lgain&0xff));
+		write_cmos_sensor_8(0x03508, 0x07);
+		write_cmos_sensor_8(0x03509, 0xc0);
+		LOG_INF("setting reg_d_lgain = %d\n ", reg_d_lgain);
+	} else {
+		if (reg_lgain < 0x80) { // sensor 1xGain
+			reg_lgain = 0x80;
+		}
+		if (reg_lgain > 0x7c0) {// sensor 15.5xGain
+			reg_lgain = 0x7c0;
+		}
+
+		/* binary to find A_Gain */
+		reg_a_gain = binary_find_AGain(AGain_table,
+			reg_lgain,
+			ARRAY_SIZE(AGain_table));
+
+		/* in case of insufficient accurary, */
+		/* use D_Gain supplement A_Gain */
+		reg_d_gain = reg_lgain*1024/reg_a_gain;
+
+		/* long gain */
+		write_cmos_sensor_8(0x0350a, (reg_d_gain >> 8));
+		write_cmos_sensor_8(0x0350b, (reg_d_gain&0xff));
+		write_cmos_sensor_8(0x03508, (reg_a_gain >> 8));
+		write_cmos_sensor_8(0x03509, (reg_a_gain&0xff));
+		LOG_INF("setting LONG Gain reg_a_gain =%d  reg_d_gain =%d\n ",
+			reg_a_gain, reg_d_gain);
+	}
+
+	if (reg_sgain > 0x7c0) {
+		reg_d_sgain = reg_sgain*1024/1984;
+
+		if (reg_d_sgain < 0x400) {// sensor 1xGain
+			reg_d_sgain = 0x400;
+		}
+		if (reg_d_sgain > 0x3fff) {// sensor 16xGain
+			reg_d_sgain = 0x3fff;
+		}
+		/* short gain */
+		write_cmos_sensor_8(0x0350e, (reg_d_sgain >> 8));
+		write_cmos_sensor_8(0x0350f, (reg_d_sgain&0xff));
+		write_cmos_sensor_8(0x0350c, 0x07);
+		write_cmos_sensor_8(0x0350d, 0xc0);
+		LOG_INF("setting reg_d_sgain = %d\n ", reg_d_sgain);
+	} else {
+		if (reg_sgain < 0x80) { // sensor 1xGain
+			reg_sgain = 0x80;
+		}
+		if (reg_sgain > 0x7c0) {// sensor 15.5xGain
+			reg_sgain = 0x7c0;
+		}
+
+		/* binary to find A_Gain */
+		reg_a_gain = binary_find_AGain(AGain_table,
+			reg_sgain,
+			ARRAY_SIZE(AGain_table));
+
+		/* in case of insufficient accurary */
+		/* use D_Gain supplement A_Gain */
+		reg_d_gain = reg_sgain*1024/reg_a_gain;
+
+		/* short exposure */
+		write_cmos_sensor_8(0x0350e, (reg_d_gain >> 8));
+		write_cmos_sensor_8(0x0350f, (reg_d_gain&0xff));
+		write_cmos_sensor_8(0x0350c, (reg_a_gain >> 8));
+		write_cmos_sensor_8(0x0350d, (reg_a_gain&0xff));
+		LOG_INF("setting SHORT Gain reg_a_gain = %d reg_d_gain = %d\n ",
+			reg_a_gain, reg_d_gain);
+	}
+#endif
 	LOG_INF("Exit setting hdr_dual_gain\n");
 }
 
@@ -820,53 +822,54 @@ static void ihdr_write_shutter_gain(kal_uint16 le,
 	/* LOG_INF("le:0x%x, se:0x%x, gain:0x%x\n",le,se,gain); */
 }
 
-/*
- * static void set_mirror_flip(kal_uint8 image_mirror)
- * {
- *	LOG_INF("image_mirror = %d\n", image_mirror);
- *
- *
- *
- *	// 0x3820[2] ISP Vertical flip
- *	// 0x3820[1] Sensor Vertical flip
- *
- *	// 0x3821[2] ISP Horizontal mirror
- *	// 0x3821[1] Sensor Horizontal mirror
- *
- *	// ISP and Sensor flip or mirror register bit should be the same!!
- *
- *
- *
- *	switch (image_mirror) {
- *	case IMAGE_NORMAL:
- *		write_cmos_sensor_8(0x3820,
- *			((read_cmos_sensor(0x3820) & 0xF9) | 0x00));
- *		write_cmos_sensor_8(0x3821,
- *			((read_cmos_sensor(0x3821) & 0xF9) | 0x06));
- *		break;
- *	case IMAGE_H_MIRROR:
- *		write_cmos_sensor_8(0x3820,
- *			((read_cmos_sensor(0x3820) & 0xF9) | 0x00));
- *		write_cmos_sensor_8(0x3821,
- *			((read_cmos_sensor(0x3821) & 0xF9) | 0x00));
- *		break;
- *	case IMAGE_V_MIRROR:
- *		write_cmos_sensor_8(0x3820,
- *			((read_cmos_sensor(0x3820) & 0xF9) | 0x06));
- *		write_cmos_sensor_8(0x3821,
- *			((read_cmos_sensor(0x3821) & 0xF9) | 0x06));
- *		break;
- *	case IMAGE_HV_MIRROR:
- *		write_cmos_sensor_8(0x3820,
- *			((read_cmos_sensor(0x3820) & 0xF9) | 0x06));
- *		write_cmos_sensor_8(0x3821,
- *			((read_cmos_sensor(0x3821) & 0xF9) | 0x00));
- *		break;
- *	default:
- *		LOG_INF("Error image_mirror setting\n");
- *	}
- * }
- */
+#ifdef set_mirror_flip_define
+static void set_mirror_flip(kal_uint8 image_mirror)
+{
+	LOG_INF("image_mirror = %d\n", image_mirror);
+
+	/********************************************************
+	 *
+	 *   0x3820[2] ISP Vertical flip
+	 *   0x3820[1] Sensor Vertical flip
+	 *
+	 *   0x3821[2] ISP Horizontal mirror
+	 *   0x3821[1] Sensor Horizontal mirror
+	 *
+	 *   ISP and Sensor flip or mirror register bit should be the same!!
+	 *
+	 ********************************************************/
+
+	switch (image_mirror) {
+	case IMAGE_NORMAL:
+		write_cmos_sensor_8(0x3820,
+			((read_cmos_sensor(0x3820) & 0xF9) | 0x00));
+		write_cmos_sensor_8(0x3821,
+			((read_cmos_sensor(0x3821) & 0xF9) | 0x06));
+		break;
+	case IMAGE_H_MIRROR:
+		write_cmos_sensor_8(0x3820,
+			((read_cmos_sensor(0x3820) & 0xF9) | 0x00));
+		write_cmos_sensor_8(0x3821,
+			((read_cmos_sensor(0x3821) & 0xF9) | 0x00));
+		break;
+	case IMAGE_V_MIRROR:
+		write_cmos_sensor_8(0x3820,
+			((read_cmos_sensor(0x3820) & 0xF9) | 0x06));
+		write_cmos_sensor_8(0x3821,
+			((read_cmos_sensor(0x3821) & 0xF9) | 0x06));
+		break;
+	case IMAGE_HV_MIRROR:
+		write_cmos_sensor_8(0x3820,
+			((read_cmos_sensor(0x3820) & 0xF9) | 0x06));
+		write_cmos_sensor_8(0x3821,
+			((read_cmos_sensor(0x3821) & 0xF9) | 0x00));
+		break;
+	default:
+		LOG_INF("Error image_mirror setting\n");
+	}
+
+}
+#endif
 
 /*************************************************************************
  * FUNCTION
@@ -4482,6 +4485,7 @@ static void video_1080p_setting(void)
 	LOG_INF("X\n");
 }
 
+#ifdef video_720p_setting_flag
 static void video_720p_setting(void)
 {
 	/********************************************************
@@ -4559,6 +4563,7 @@ static void video_720p_setting(void)
 
 	LOG_INF("Exit!");
 }				/*    preview_setting  */
+#endif
 
 static void hs_video_setting(void)
 {
@@ -4570,8 +4575,8 @@ static void hs_video_setting(void)
 static void slim_video_setting(void)
 {
 	LOG_INF("E\n");
-
-	video_720p_setting();
+	video_1080p_setting();
+	//video_720p_setting();
 }
 
 kal_uint16 addr_data_pair_custom1_jd1[] = {
@@ -4924,9 +4929,7 @@ static void custom2_setting(void)
 static kal_uint32 get_imgsensor_id(UINT32 *sensor_id)
 {
 	kal_uint8 i = 0;
-// #if 1
 	int retry = 1;
-// #endif
 	//sensor have two i2c address 0x6c 0x6d & 0x21 0x20,
 	//we should detect the module used i2c address
 	//while (imgsensor_info.i2c_addr_table[i] != 0xff) {
@@ -5826,15 +5829,40 @@ static kal_uint32 set_test_pattern_mode(kal_bool enable)
 {
 	LOG_INF("enable: %d\n", enable);
 
-	if (enable)
-		write_cmos_sensor_8(0x5081, 0x80);
-	else
-		write_cmos_sensor_8(0x5081, 0x00);
-
+	if (enable) {
+		// 0x5E00[8]: 1 enable,  0 disable
+		// 0x5E00[1:0]; 00 Color bar, 01 Random Data, 10 Square, 11 BLACK
+		write_cmos_sensor(0x3202, 0x0080);
+		write_cmos_sensor(0x3204, 0x0080);
+		write_cmos_sensor(0x3206, 0x0080);
+		write_cmos_sensor(0x3208, 0x0080);
+		write_cmos_sensor(0x3232, 0x0000);
+		write_cmos_sensor(0x3234, 0x0000);
+		write_cmos_sensor(0x32a0, 0x0100);
+		write_cmos_sensor(0x3300, 0x0001);
+		write_cmos_sensor(0x3400, 0x0001);
+		write_cmos_sensor(0x3402, 0x4e00);
+		write_cmos_sensor(0x3268, 0x0000);
+		write_cmos_sensor(0x0600, 0x0002);
+	} else {
+		// 0x5E00[8]: 1 enable,  0 disable
+		// 0x5E00[1:0]; 00 Color bar, 01 Random Data, 10 Square, 11 BLACK
+		write_cmos_sensor(0x3202, 0x0000);
+		write_cmos_sensor(0x3204, 0x0000);
+		write_cmos_sensor(0x3206, 0x0000);
+		write_cmos_sensor(0x3208, 0x0000);
+		write_cmos_sensor(0x3232, 0x0000);
+		write_cmos_sensor(0x3234, 0x0000);
+		write_cmos_sensor(0x32a0, 0x0000);
+		write_cmos_sensor(0x3300, 0x0000);
+		write_cmos_sensor(0x3400, 0x0000);
+		write_cmos_sensor(0x3402, 0x0000);
+		write_cmos_sensor(0x3268, 0x0000);
+		write_cmos_sensor(0x0600, 0x0000);
+	}
 	spin_lock(&imgsensor_drv_lock);
 	imgsensor.test_pattern = enable;
 	spin_unlock(&imgsensor_drv_lock);
-
 	return ERROR_NONE;
 }
 

@@ -21,4 +21,9 @@ struct KD_SENINF_REG {
 	struct KD_SENINF_MMAP gpio;
 };
 
+struct ACDK_SENSOR_SENINF_CLK_STRUCT {
+	MUINT32 freq;
+	MUINT8  seninf_port;
+};
+
 #endif

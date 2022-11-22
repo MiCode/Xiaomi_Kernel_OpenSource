@@ -58,7 +58,6 @@ unsigned int Switch_Tg_For_Stagger(unsigned int camtg)
 EXPORT_SYMBOL(Switch_Tg_For_Stagger);
 
 
-// #if 1
 MINT32 seninf_dump_reg(void)
 {
 	struct SENINF *pseninf = &gseninf;
@@ -135,7 +134,6 @@ MINT32 seninf_dump_reg(void)
 
 	return 0;
 }
-// #endif
 
 static irqreturn_t seninf_irq(MINT32 Irq, void *DeviceId)
 {
@@ -400,6 +398,12 @@ static long seninf_ioctl(struct file *pfile,
 #ifdef _CAM_MUX_SWITCH
 		ret = _seninf_set_tg_for_switch(
 			(*(unsigned int *)pbuff) >> 16, (*(unsigned int *)pbuff) & 0xFFFF);
+#endif
+		break;
+	case KDSENINFIOC_X_SET_SENINF_CLK:
+#if SENINF_CLK_CONTROL
+		ret = seninf_sys_clk_set(&pseninf->clk,
+			(struct ACDK_SENSOR_SENINF_CLK_STRUCT *)pbuff);
 #endif
 		break;
 	default:

@@ -35,6 +35,7 @@ struct SENINF {
 	int pm_domain_cnt;
 	struct device **pm_domain_devs;
 #endif
+
 };
 extern MINT32 seninf_dump_reg(void);
 #ifdef SENINF_IRQ

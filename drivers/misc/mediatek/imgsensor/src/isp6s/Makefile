@@ -24,6 +24,9 @@ imgsensor_isp6s-objs += ../common/$(COMMON_VERSION)/imgsensor_sensor_list.o
 imgsensor_isp6s-objs += ../common/$(COMMON_VERSION)/seninf_clk.o
 imgsensor_isp6s-objs += ../common/$(COMMON_VERSION)/seninf.o
 
+IMG_COMMON_CODE_PATH := ../common/$(COMMON_VERSION)
+include $(IMGSENSOR_DRIVER_PATH)/common/$(COMMON_VERSION)/n3d_fsync/Makefile
+
 # for adding sensor driver
 define add_subdrv
 $(eval subdrv-rpath = $1)
@@ -98,6 +101,7 @@ $(eval $(call add_subdrv,seninf))
 endif
 
 subdir-ccflags-y += -DNO_I2C_MTK -DNO_CLK_METER -DSENINF_USE_RPM -DDFS_CTRL_BY_OPP
+subdir-ccflags-y += -DSENINF_N3D_SUPPORT
 
 $(info imgsensor_isp6s-objs : $(imgsensor_isp6s-objs))
 $(info imgsensor_isp6s subdir-ccflags-y : $(subdir-ccflags-y))
