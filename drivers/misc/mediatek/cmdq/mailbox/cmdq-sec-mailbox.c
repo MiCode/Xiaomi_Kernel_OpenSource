@@ -1808,7 +1808,7 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 
 	cmdq_msg("%s", __func__);
 
-	gz_node = of_find_compatible_node(NULL, NULL, "android,trusty-virtio-v1");
+	gz_node = of_find_compatible_node(NULL, NULL, "mediatek,trusty-mtee-v1");
 	if (!gz_node) {
 		cmdq_err("failed to get android,trusty-virtio-v1");
 		return -EINVAL;

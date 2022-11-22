@@ -1285,39 +1285,11 @@ u32 KREE_GetSystemCntFrq(void)
 }
 EXPORT_SYMBOL(KREE_GetSystemCntFrq);
 
-static int tz_system_add_device_link(struct device *dev, void *data)
-{
-	struct device *self = (struct device *)data;
-	unsigned int dl_flags = DL_FLAG_PM_RUNTIME | DL_FLAG_AUTOREMOVE_CONSUMER |
-				DL_FLAG_AUTOREMOVE_SUPPLIER;
-
-	if (dev != self) {
-		struct device_link *link = device_link_add(self, dev, dl_flags);
-
-		if (link) {
-			KREE_INFO("%s Link consumer %s to supplier %s flags 0x%x\n",
-				__func__, dev_name(self), dev_name(dev), dl_flags);
-
-			if (link->status == DL_STATE_DORMANT)
-				return -EPROBE_DEFER;
-		} else
-			KREE_ERR("%s Failed to link consumer %s to supplier %s flags 0x%x\n",
-				__func__, dev_name(self), dev_name(dev), dl_flags);
-	}
-
-	return 0;
-}
-
 static int tz_system_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	struct device *trusty_dev = pdev->dev.parent;
 
-	KREE_DEBUG("%s\n", __func__);
-
-	ret = device_for_each_child(trusty_dev, (void *)&pdev->dev, tz_system_add_device_link);
-	if (ret)
-		return ret;
+	KREE_INFO("%s+\n", __func__);
 
 	perf_boost_cnt = 0;
 	mutex_init(&perf_boost_lock);
@@ -1349,6 +1321,8 @@ static int tz_system_probe(struct platform_device *pdev)
 
 	tz_system_dev = pdev;
 
+	KREE_INFO("%s-\n", __func__);
+
 	return ret;
 }
 static int tz_system_remove(struct platform_device *pdev)
@@ -1358,9 +1332,9 @@ static int tz_system_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#define MODULE_NAME "trusty_gz"
+#define MODULE_NAME "trusty_tz"
 static const struct of_device_id tz_system_of_match[] = {
-	{ .compatible = "mediatek,trusty-gz", },
+	{ .compatible = "mediatek,trusty-tz", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, tz_system_of_match);
