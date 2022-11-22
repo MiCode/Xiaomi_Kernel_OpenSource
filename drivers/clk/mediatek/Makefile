@@ -42,6 +42,7 @@ obj-$(CONFIG_COMMON_CLK_MT2712_MMSYS) += clk-mt2712-mm.o
 obj-$(CONFIG_COMMON_CLK_MT2712_VDECSYS) += clk-mt2712-vdec.o
 obj-$(CONFIG_COMMON_CLK_MT2712_VENCSYS) += clk-mt2712-venc.o
 
+ifneq ($(wildcard $(srctree)/$(src)/clk-mt6835.c),)
 obj-$(CONFIG_COMMON_CLK_MT6835) += clk-mt6835.o clk-bringup.o
 obj-$(CONFIG_COMMON_CLK_MT6835_ADSP) += clk-mt6835-adsp.o
 obj-$(CONFIG_COMMON_CLK_MT6835_CAM) += clk-mt6835-cam.o
@@ -56,6 +57,7 @@ obj-$(CONFIG_COMMON_CLK_MT6835_NEMI_REG) += clk-mt6835-nemi_reg.o
 obj-$(CONFIG_COMMON_CLK_MT6835_SCP_IIC) += clk-mt6835-scp_iic.o
 obj-$(CONFIG_COMMON_CLK_MT6835_SRAMRC_APB) += clk-mt6835-sramrc_apb.o
 obj-$(CONFIG_COMMON_CLK_MT6835_VCODEC) += clk-mt6835-vcodec.o
+endif
 
 obj-$(CONFIG_COMMON_CLK_MT6853) += clk-mt6853.o
 obj-$(CONFIG_COMMON_CLK_MT6853_APU0) += clk-mt6853-apu0.o
