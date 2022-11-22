@@ -2091,7 +2091,9 @@
   __tracepoint_android_rvh_check_preempt_wakeup
   __tracepoint_android_rvh_cpu_cgroup_attach
   __tracepoint_android_rvh_cpu_cgroup_online
+  __tracepoint_android_rvh_do_ptrauth_fault
   __tracepoint_android_rvh_do_sched_yield
+  __tracepoint_android_rvh_do_undefinstr
   __tracepoint_android_rvh_find_busiest_queue
   __tracepoint_android_rvh_find_lowest_rq
   __tracepoint_android_rvh_flush_task
