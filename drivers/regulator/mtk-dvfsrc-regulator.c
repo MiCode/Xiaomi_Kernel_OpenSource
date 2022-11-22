@@ -358,6 +358,9 @@ static const struct of_device_id mtk_dvfsrc_regulator_match[] = {
 		.compatible = "mediatek,mt6886-dvfsrc",
 		.data = &regulator_mt6886_data,
 	}, {
+		.compatible = "mediatek,mt6835-dvfsrc",
+		.data = &regulator_mt6853_data,
+	}, {
 		/* sentinel */
 	},
 };
