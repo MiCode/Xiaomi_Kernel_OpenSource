@@ -1677,6 +1677,9 @@ void reset(struct mtk_raw_device *dev)
 	writel(4, dev->base + REG_CTL_SW_CTL);
 	writel(0, dev->base + REG_CTL_SW_CTL);
 
+	/* CAM_MAIN_ADLRD_MUX_SEL forcely use raw C */
+	writel(0x2 << 1 | 0x1, dev->cam->base + 0x32c);
+
 RESET_FAILURE:
 	/* Enable all DMA DCM back */
 	writel(0x0, dev->base + REG_CTL_RAW_MOD5_DCM_DIS);
