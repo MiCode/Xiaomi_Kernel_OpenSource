@@ -769,6 +769,8 @@ void mtk_cam_req_seninf_change(struct mtk_cam_request *req)
 				 __func__, stream_id, req_stream_data->seninf_new->name);
 
 			mtk_cam_qos_bw_calc(ctx, req_stream_data, true);
+			mtk_cam_qos_sv_bw_calc(ctx, req_stream_data, true);
+			mtk_cam_qos_mraw_bw_calc(ctx, req_stream_data, true);
 		}
 	}
 
@@ -3106,6 +3108,7 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	bool is_mstream_first = false;
 	u64 time_boot = ktime_get_boottime_ns();
 	u64 time_mono = ktime_get_ns();
+	bool force;
 
 	/*touch watchdog*/
 	if (watchdog_scenario(ctx))
@@ -3249,9 +3252,20 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 			/* req_stream_data of req_cq*/
 			req_stream_data = mtk_cam_ctrl_state_to_req_s_data(current_state);
 			/* update qos bw */
-			mtk_cam_qos_bw_calc(ctx, req_stream_data,
+			force =
 				(req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_QOS_FORCE_INC)
-				? true : false);
+				? true : false;
+			mtk_cam_qos_bw_calc(ctx, req_stream_data, force);
+			if (req_stream_data->feature.switch_feature_type ==
+				EXPOSURE_CHANGE_1_to_2 ||
+				req_stream_data->feature.switch_feature_type ==
+				EXPOSURE_CHANGE_1_to_3) {
+				mtk_cam_qos_sv_bw_calc(ctx, req_stream_data, true);
+				mtk_cam_qos_mraw_bw_calc(ctx, req_stream_data, true);
+			} else {
+				mtk_cam_qos_sv_bw_calc(ctx, req_stream_data, force);
+				mtk_cam_qos_mraw_bw_calc(ctx, req_stream_data, force);
+			}
 			if (mtk_cam_ctx_has_raw(ctx) &&
 			    mtk_cam_scen_is_subsample(req_stream_data->feature.scen))
 				state_transition(current_state,
@@ -3362,9 +3376,12 @@ void mtk_camsys_composed_delay_enque(struct mtk_raw_device *raw_dev,
 		spin_unlock(&sensor_ctrl->camsys_state_lock);
 		spin_unlock(&ctx->processing_buffer_list.lock);
 		spin_unlock(&ctx->composed_buffer_list.lock);
-		if (ctx->sensor)
+		if (ctx->sensor) {
 			/* update qos bw */
 			mtk_cam_qos_bw_calc(ctx, req_stream_data, false);
+			mtk_cam_qos_sv_bw_calc(ctx, req_stream_data, false);
+			mtk_cam_qos_mraw_bw_calc(ctx, req_stream_data, false);
+		}
 
 	}
 
@@ -3383,7 +3400,7 @@ static void seamless_switch_check_bad_frame(
 
 {
 	struct mtk_cam_request *req, *req_bad, *req_cq;
-	struct mtk_cam_request_stream_data *s_data, *s_data_bad, *s_data_cq;
+	struct mtk_cam_request_stream_data *s_data, *s_data_bad, *s_data_cq, *s_data_next;
 	struct mtk_raw_device *raw_dev;
 	struct mtk_cam_working_buf_entry *buf_entry;
 	int switch_type;
@@ -3398,8 +3415,30 @@ static void seamless_switch_check_bad_frame(
 		switch_type = s_data->feature.switch_feature_type;
 		/* update qos bw */
 		if (switch_type == EXPOSURE_CHANGE_1_to_2 ||
-			switch_type == EXPOSURE_CHANGE_1_to_3)
-			mtk_cam_qos_bw_calc(ctx, s_data, true);
+			switch_type == EXPOSURE_CHANGE_1_to_3) {
+			s_data_next =
+				mtk_cam_get_req_s_data(ctx, ctx->stream_id, frame_seq_no + 1);
+			if (s_data_next &&
+				s_data_next->feature.switch_feature_type !=
+				EXPOSURE_CHANGE_2_to_1 &&
+				s_data_next->feature.switch_feature_type !=
+				EXPOSURE_CHANGE_3_to_1) {
+				mtk_cam_qos_bw_calc(ctx, s_data, true);
+			}
+		}
+		if (switch_type == EXPOSURE_CHANGE_2_to_1 ||
+			switch_type == EXPOSURE_CHANGE_3_to_1) {
+			s_data_next =
+				mtk_cam_get_req_s_data(ctx, ctx->stream_id, frame_seq_no + 1);
+			if (s_data_next &&
+				s_data_next->feature.switch_feature_type !=
+				EXPOSURE_CHANGE_1_to_2 &&
+				s_data_next->feature.switch_feature_type !=
+				EXPOSURE_CHANGE_1_to_3) {
+				mtk_cam_qos_sv_bw_calc(ctx, s_data, true);
+				mtk_cam_qos_mraw_bw_calc(ctx, s_data, true);
+			}
+		}
 
 		if (switch_type &&
 			!mtk_cam_feature_change_is_mstream(switch_type)) {
@@ -4365,11 +4404,16 @@ mtk_camsys_raw_prepare_frame_done(struct mtk_raw_device *raw_dev,
 				req_s_data->feature.switch_feature_type ==
 				(EXPOSURE_CHANGE_2_to_1 | MSTREAM_EXPOSURE_CHANGE)) {
 			mtk_cam_qos_bw_calc(ctx, req_s_data, true);
+			mtk_cam_qos_sv_bw_calc(ctx, req_s_data, true);
+			mtk_cam_qos_mraw_bw_calc(ctx, req_s_data, true);
 		} else if (req_s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_QOS_FORCE_DEC) {
 			next_req = mtk_cam_get_req(ctx, dequeued_frame_seq_no + 1);
 			if (next_req &&
-				!(next_req->flags & MTK_CAM_REQ_S_DATA_FLAG_QOS_FORCE_INC))
+				!(next_req->flags & MTK_CAM_REQ_S_DATA_FLAG_QOS_FORCE_INC)) {
 				mtk_cam_qos_bw_calc(ctx, req_s_data, true);
+				mtk_cam_qos_sv_bw_calc(ctx, req_s_data, true);
+				mtk_cam_qos_mraw_bw_calc(ctx, req_s_data, true);
+			}
 		}
 	}
 

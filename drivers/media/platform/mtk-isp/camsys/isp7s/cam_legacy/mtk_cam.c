@@ -6234,6 +6234,8 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 
 		/* mmqos update */
 		mtk_cam_qos_bw_calc(ctx, s_data, true);
+		mtk_cam_qos_sv_bw_calc(ctx, s_data, true);
+		mtk_cam_qos_mraw_bw_calc(ctx, s_data, true);
 
 		if (ctx->sv_dev) {
 			/* may be programmed by raw's scq under dcif case */
