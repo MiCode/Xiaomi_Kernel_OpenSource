@@ -1425,6 +1425,12 @@ static void gpufreq_dump_dvfs_status(void)
 		GPUFREQ_LOGI("STACK[%d] Freq: %d, Volt: %d, Vsram: %d",
 			g_shared_status->cur_oppidx_stack, g_shared_status->cur_fstack,
 			g_shared_status->cur_vstack, g_shared_status->cur_vsram_stack);
+		GPUFREQ_LOGI("Temperature: %d'C, GPUTemperComp: %d/%d, STACKTemperComp: %d/%d\n",
+			g_shared_status->temperature,
+			g_shared_status->temper_comp_norm_gpu,
+			g_shared_status->temper_comp_high_gpu,
+			g_shared_status->temper_comp_norm_stack,
+			g_shared_status->temper_comp_high_stack);
 		GPUFREQ_LOGI("Ceiling/Floor: %d/%d, Limiter: %d/%d",
 			g_shared_status->cur_ceiling, g_shared_status->cur_floor,
 			g_shared_status->cur_c_limiter, g_shared_status->cur_f_limiter);
