@@ -1885,13 +1885,13 @@ static void tcp_cwnd_validate(struct sock *sk, bool is_cwnd_limited)
 	 * chose to not update tp->max_packets_out to avoid an extra else
 	 * clause with no functional impact.)
 	 */
-	if (!before(tp->snd_una, tp->cwnd_usage_seq) ||
+	if (!before(tp->snd_una, tp->max_packets_seq) ||
 	    is_cwnd_limited ||
 	    (!tp->is_cwnd_limited &&
 	     tp->packets_out > tp->max_packets_out)) {
 		tp->is_cwnd_limited = is_cwnd_limited;
 		tp->max_packets_out = tp->packets_out;
-		tp->cwnd_usage_seq = tp->snd_nxt;
+		tp->max_packets_seq= tp->snd_nxt;
 	}
 
 	if (tcp_is_cwnd_limited(sk)) {
