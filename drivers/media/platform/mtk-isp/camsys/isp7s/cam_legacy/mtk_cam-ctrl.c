@@ -55,6 +55,9 @@ module_param(debug_cam_ctrl, int, 0644);
 #define SENSOR_SET_EXTISP_DEADLINE_MS  18
 #define SENSOR_SET_EXTISP_RESERVED_MS  7
 
+#define SENSOR_SET_DEADLINE_CONSIDER_VB 1
+#define SENSOR_SET_DEADLINE_SHIFT  3
+
 
 #define STATE_NUM_AT_SOF 5
 #define INITIAL_DROP_FRAME_CNT 1
@@ -6122,7 +6125,23 @@ void mtk_cam_req_ctrl_setup(struct mtk_raw_pipeline *raw_pipe,
 		mtk_cam_complete_raw_hdl(req_stream_data);
 	}
 }
+static void timer_refined_consider_vb(struct mtk_camsys_sensor_ctrl *s_ctrl)
+{
+	int senset_ms = s_ctrl->timer_req_event;
+	int sensor_margin_ms = s_ctrl->timer_req_sensor;
+	int deque_ms = s_ctrl->deque_timing_ref;
 
+	if (deque_ms - senset_ms <= 2 &&
+		deque_ms - senset_ms >= -1) {
+		s_ctrl->timer_req_event =
+			deque_ms - SENSOR_SET_DEADLINE_SHIFT;
+		s_ctrl->timer_req_sensor =
+			sensor_margin_ms + (senset_ms - s_ctrl->timer_req_event);
+		dev_info(s_ctrl->ctx->cam->dev, "[%s] %d/%d -> %d/%d , deque_ms:%d\n",
+		__func__, senset_ms, sensor_margin_ms,
+		s_ctrl->timer_req_event, s_ctrl->timer_req_sensor, deque_ms);
+	}
+}
 static int timer_reqdrained_chk(int fps_ratio, int sub_sample)
 {
 	int timer_ms = 0;
@@ -6175,11 +6194,33 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 	struct mtk_camsys_sensor_ctrl *camsys_sensor_ctrl = &ctx->sensor_ctrl;
 	struct v4l2_subdev_frame_interval fi;
 	int fps_factor, sub_ratio = 0;
+	struct v4l2_subdev_format sd_fmt;
+	struct v4l2_ctrl *ctrl;
+	unsigned long vblank = 0, height = 0;
+	unsigned long h_ratio = 0, deque_ms = 0;
 
 	memset(&fi, 0, sizeof(fi));
-
-	fi.pad = 0;
-	v4l2_subdev_call(ctx->sensor, video, g_frame_interval, &fi);
+	memset(&sd_fmt, 0, sizeof(sd_fmt));
+	if (ctx->sensor) {
+		fi.pad = 0;
+		v4l2_subdev_call(ctx->sensor, video, g_frame_interval, &fi);
+		/* query vblank and h ratio to avoid entering mutex lock slowpath */
+		/* ctrl unbind (reinit request) vs. ctrl setup (sensor worker) */
+		ctrl = v4l2_ctrl_find(ctx->sensor->ctrl_handler, V4L2_CID_VBLANK);
+		if (!ctrl)
+			dev_info(ctx->cam->dev, "[%s] ctrl is NULL\n", __func__);
+		else
+			vblank = v4l2_ctrl_g_ctrl(ctrl);
+		sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+		sd_fmt.pad = PAD_SRC_RAW0;
+		v4l2_subdev_call(ctx->seninf, pad, get_fmt, NULL, &sd_fmt);
+		height = sd_fmt.format.height;
+		h_ratio = height * 100 / (height + vblank);
+		deque_ms = h_ratio * fi.interval.numerator * 1000 / fi.interval.denominator / 100;
+		camsys_sensor_ctrl->deque_timing_ref = deque_ms;
+		dev_info(ctx->cam->dev, "[%s] H:%lu, VB:%lu, h_ratio:%lu, deque_ms = sof+%lums\n",
+			 __func__, height, vblank, h_ratio, deque_ms);
+	}
 	fps_factor = (fi.interval.numerator > 0) ?
 			(fi.interval.denominator / fi.interval.numerator / 30) : 1;
 	if (mtk_cam_ctx_has_raw(ctx) &&
@@ -6215,6 +6256,14 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 		timer_reqdrained_chk(fps_factor, sub_ratio);
 	camsys_sensor_ctrl->timer_req_sensor =
 		timer_setsensor(fps_factor, sub_ratio);
+	/* query vblank and h ratio to avoid entering mutex lock slowpath */
+	/* ctrl unbind (reinit request) vs. ctrl setup (sensor worker) */
+	if (mtk_cam_ctx_has_raw(ctx) &&
+		mtk_cam_scen_is_sensor_normal(&ctx->pipe->scen_active) &&
+		!mtk_cam_hw_is_dc(ctx) && !mtk_cam_hw_is_m2m(ctx) &&
+		SENSOR_SET_DEADLINE_CONSIDER_VB)
+		timer_refined_consider_vb(camsys_sensor_ctrl);
+
 	if (mtk_cam_ctx_has_raw(ctx) && mtk_cam_scen_is_sensor_stagger(&ctx->pipe->scen_active) &&
 		fps_factor == 1 && sub_ratio == 0) {
 		camsys_sensor_ctrl->timer_req_event =
