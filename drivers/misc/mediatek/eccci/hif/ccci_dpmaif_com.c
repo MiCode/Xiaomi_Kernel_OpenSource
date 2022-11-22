@@ -31,6 +31,7 @@
 #include <mt-plat/aee.h>
 #endif
 #include <linux/clk.h>
+#include <linux/suspend.h>
 
 #include "modem_secure_base.h"
 #include "ccci_dpmaif_com.h"
@@ -1640,6 +1641,7 @@ static inline int dpmaif_wait_resume_done(void)
 			CCCI_NORMAL_LOG(-1, TAG,
 				"[%s] warning: suspend_flag = 1; (cnt: %d)\n",
 				__func__, cnt);
+			pm_system_wakeup();
 			return -1;
 		}
 	}
