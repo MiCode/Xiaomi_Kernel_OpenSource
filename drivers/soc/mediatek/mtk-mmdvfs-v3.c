@@ -334,7 +334,8 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate, unsigned l
 
 	// spec_type != SPEC_MMDVFS_ALONE
 	for (i = 0; i < mmdvfs_clk_num; i++)
-		if (clk->pwr_id == mtk_mmdvfs_clks[i].pwr_id && mtk_mmdvfs_clks[i].opp < pwr_opp)
+		if (clk->pwr_id == mtk_mmdvfs_clks[i].pwr_id && mtk_mmdvfs_clks[i].opp < pwr_opp &&
+			mtk_mmdvfs_clks[i].spec_type != SPEC_MMDVFS_ALONE)
 			pwr_opp = mtk_mmdvfs_clks[i].opp;
 
 	if (pwr_opp == mmdvfs_pwr_opp[clk->pwr_id])
@@ -351,7 +352,7 @@ static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate, unsigned l
 	}
 
 	if (clk->ipi_type == IPI_MMDVFS_CCU) {
-		writel(pwr_opp, MEM_VOTE_OPP_USR(clk->user_id));
+		writel(clk->opp, MEM_VOTE_OPP_USR(clk->user_id));
 		if (call_ccu_fp)
 			ret = call_ccu_fp(
 				ccu_pdev, MTK_CCU_FEATURE_ISPDVFS, /* DVFS_IMG_CLK */ 4,
