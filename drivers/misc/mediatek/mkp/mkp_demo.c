@@ -428,25 +428,12 @@ static void __update_cpu_avc_sbuf(unsigned long key, int index)
 	sb->pos = (sb->pos + 1) % MAX_CACHED_NUM;
 }
 
-static void update_cpu_avc_sbuf(unsigned long key, int index)
-{
-	unsigned long flags;
-
-	local_irq_save(flags);
-
-	__update_cpu_avc_sbuf(key, index);
-
-	local_irq_restore(flags);
-}
-
+/* This function should be called with IRQ disabled */
 static int fast_avc_lookup(unsigned long key)
 {
-	unsigned long flags;
 	int pos;
 	struct avc_sbuf_cache *sb;
 	int index = -1;
-
-	local_irq_save(flags);
 
 	sb = this_cpu_ptr(&cpu_avc_sbuf);
 
@@ -467,8 +454,6 @@ static int fast_avc_lookup(unsigned long key)
 	}
 
 exit:
-	local_irq_restore(flags);
-
 	return index;
 }
 
@@ -540,6 +525,7 @@ static void probe_android_rvh_selinux_avc_lookup(void *ignore,
 	struct mkp_avc_node *temp_node = NULL;
 	bool ready = false;
 	static DEFINE_RATELIMIT_STATE(rs_avc, 1*HZ, 10);
+	unsigned long flags;
 #if IS_ENABLED(CONFIG_KASAN)
 	bool cached = false;
 #endif
@@ -556,15 +542,19 @@ static void probe_android_rvh_selinux_avc_lookup(void *ignore,
 		va = page_address(avc_pages);
 		ro_avc_sharebuf_ptr = (struct avc_sbuf_content *)va;
 
+		/* "lookup" and "compare" should be done atomically */
+		local_irq_save(flags);
+
 		index = fast_avc_lookup((unsigned long)temp_node);
 		if (index != -1) {
 			ro_avc_sharebuf_ptr += index;
 			if ((unsigned long)ro_avc_sharebuf_ptr->avc_node ==
-				(unsigned long)temp_node)
+				(unsigned long)temp_node) {
 				ready = true;
 #if IS_ENABLED(CONFIG_KASAN)
-			cached = true;
+				cached = true;
 #endif
+			}
 		}
 
 		if (!ready) {
@@ -573,11 +563,12 @@ static void probe_android_rvh_selinux_avc_lookup(void *ignore,
 				if ((unsigned long)ro_avc_sharebuf_ptr->avc_node ==
 					(unsigned long)temp_node) {
 					ready = true;
-					update_cpu_avc_sbuf((unsigned long)temp_node, i);
+					__update_cpu_avc_sbuf((unsigned long)temp_node, i);
 					break;
 				}
 			}
 		}
+
 		if (ready) {
 			if (ro_avc_sharebuf_ptr->ssid != ssid ||
 				ro_avc_sharebuf_ptr->tsid != tsid ||
@@ -616,6 +607,9 @@ static void probe_android_rvh_selinux_avc_lookup(void *ignore,
 				handle_mkp_err_action(MKP_POLICY_SELINUX_AVC);
 			}
 		}
+
+		/* "lookup" and "compare" should be done atomically */
+		local_irq_restore(flags);
 		MKP_HOOK_END(__func__);
 		return; // pass
 	}
