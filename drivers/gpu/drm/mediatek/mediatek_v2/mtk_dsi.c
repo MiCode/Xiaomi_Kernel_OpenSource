@@ -7931,6 +7931,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		if (dsi == NULL)
 			break;
 
+		mutex_lock(&dsi->conn.dev->mode_config.mutex);
 		mode = (struct drm_display_mode **)params;
 		list_for_each_entry_safe(max_mode, next, &dsi->conn.modes, head) {
 
@@ -7939,6 +7940,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 				*mode = max_mode;
 			}
 		}
+		mutex_unlock(&dsi->conn.dev->mode_config.mutex);
 	}
 		break;
 	case DSI_GET_MODE_CONT:
