@@ -3165,7 +3165,7 @@ static int mtk_vdec_get_align_limit(struct mtk_vcodec_ctx *ctx)
 		return mtk_vdec_align_limit;
 	if (ctx->dec_params.svp_mode || ctx->picinfo.buf_w * ctx->picinfo.buf_h > MTK_VDEC_4K_WH)
 		return MIN(ctx->dpb_size - 6, 2);
-	return MIN(ctx->dpb_size - 6, 6);
+	return MIN(ctx->dpb_size - 6, 4);
 }
 
 static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
