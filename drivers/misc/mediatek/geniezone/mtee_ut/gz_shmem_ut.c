@@ -95,6 +95,7 @@ TZ_RESULT shmem_test_continuous(void)
 	char *buf = NULL;
 	int num_PA = 0;
 	uint64_t pa = 0;
+	uint32_t rem = 0;
 	KREE_SESSION_HANDLE mem_sn = 0;
 	KREE_SHAREDMEM_HANDLE mem_hd;
 	KREE_SHAREDMEM_PARAM shm_param;
@@ -118,7 +119,8 @@ TZ_RESULT shmem_test_continuous(void)
 
 	pa = (uint64_t) virt_to_phys((void *)buf);
 
-	if ((pa % PAGE_SIZE) != 0)	{
+	(void)div_u64_rem(pa, PAGE_SIZE, &rem);
+	if (rem != 0)	{
 		KREE_ERR("[%s] buf PA(0x%llx) !aligned, stop UT\n",
 			__func__, pa);
 		ret = TZ_RESULT_ERROR_BAD_PARAMETERS;
@@ -217,6 +219,7 @@ TZ_RESULT shmem_test_discontinuous(void)
 	int num_PA1_mod = 0, num_PA2_mod = 0;
 
 	uint64_t pa1 = 0, pa2 = 0;
+	uint32_t rem = 0;
 	uint64_t *paAry = NULL;
 	KREE_SESSION_HANDLE mem_sn = 0;
 	KREE_SHAREDMEM_HANDLE mem_hd;
@@ -274,14 +277,16 @@ TZ_RESULT shmem_test_discontinuous(void)
 	pa1 = (uint64_t) virt_to_phys((void *)buf1);
 	pa2 = (uint64_t) virt_to_phys((void *)buf2);
 
-	if ((pa1 % PAGE_SIZE) != 0)	{
+	(void)div_u64_rem(pa1, PAGE_SIZE, &rem);
+	if (rem != 0)	{
 		KREE_ERR("[%s] buf1 PA(0x%llx) !aligned, stop UT\n",
 			__func__, pa1);
 		ret = TZ_RESULT_ERROR_BAD_PARAMETERS;
 		goto out_free_buf2;
 	}
 
-	if ((pa2 % PAGE_SIZE) != 0)	{
+	(void)div_u64_rem(pa2, PAGE_SIZE, &rem);
+	if (rem != 0)	{
 		KREE_ERR("[%s] buf2 PA(0x%llx) !aligned, stop UT\n",
 			__func__, pa2);
 		ret = TZ_RESULT_ERROR_BAD_PARAMETERS;
