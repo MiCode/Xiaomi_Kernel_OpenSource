@@ -1196,6 +1196,11 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 	/* 3. action and poll event queue */
 	ccci_md_pre_start();
 	fsm_broadcast_state(ctl, BOOT_WAITING_FOR_HS1);
+	/* clear md emi mpu violation */
+#if IS_ENABLED(CONFIG_MTK_EMI)
+	CCCI_NORMAL_LOG(0, FSM, "mtk_clear_md_violation\n");
+	mtk_clear_md_violation();
+#endif
 	ret = ccci_md_start();
 	if (ret)
 		goto fail;
