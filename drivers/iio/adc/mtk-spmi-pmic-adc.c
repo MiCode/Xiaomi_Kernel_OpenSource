@@ -333,6 +333,9 @@ static int get_imp_out(struct pmic_adc_device *adc_dev, int *val)
 	*val = buf & (BIT(auxadc_chan->res) - 1);
 	adc_dev->imp_curr = gauge_get_imp_ibat();
 
+	regmap_write(adc_dev->regmap,
+		     auxadc_chan->regs->enable_reg, 0);
+
 	return 0;
 }
 
