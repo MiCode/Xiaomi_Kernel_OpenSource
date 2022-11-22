@@ -248,6 +248,23 @@ static const struct mtk_mmc_compatible mt6886_compat = {
 	.new_rx_ver = 0,
 };
 
+static const struct mtk_mmc_compatible mt6835_compat = {
+	.clk_div_bits = 12,
+	.recheck_sdio_irq = false,
+	.hs400_tune = false,
+	.pad_tune_reg = MSDC_PAD_TUNE0,
+	.async_fifo = true,
+	.data_tune = true,
+	.busy_check = true,
+	.stop_clk_fix = true,
+	.enhance_rx = true,
+	.support_64g = true,
+	.need_gate_cg = false,
+	.new_tx_ver = MSDC_NEW_TX_V1,
+	.new_rx_ver = MSDC_NEW_RX_V1,
+	.set_crypto_enable_in_sw = true,
+};
+
 static const struct of_device_id msdc_of_ids[] = {
 	{ .compatible = "mediatek,mt8135-mmc", .data = &mt8135_compat},
 	{ .compatible = "mediatek,mt8173-mmc", .data = &mt8173_compat},
