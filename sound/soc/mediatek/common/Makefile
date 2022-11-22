@@ -8,6 +8,8 @@ DSP_VERSION := hifi3_v2
 # adsp include path
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/include
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/include
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/rv
 
 # common driver
 obj-$(CONFIG_SND_SOC_MEDIATEK) += snd-soc-mtk-common.o
