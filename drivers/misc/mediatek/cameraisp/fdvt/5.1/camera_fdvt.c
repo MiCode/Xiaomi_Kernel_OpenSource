@@ -4369,7 +4369,12 @@ static signed int FDVT_probe(struct platform_device *pDev)
 
 	FDVT_dev = &fdvt_devs[nr_fdvt_devs - 1];
 	FDVT_dev->dev = &pDev->dev;
-	dma_set_mask_and_coherent(FDVT_dev->dev, DMA_BIT_MASK(34));
+	ret = dma_set_mask_and_coherent(FDVT_dev->dev, DMA_BIT_MASK(34));
+	if (ret) {
+		dev_dbg(&pDev->dev,
+		"Unable to dma_set_mask_and_coherent, ret(%x).\n", ret);
+		return -ENOMEM;
+	}
 	/* iomap registers */
 	FDVT_dev->regs = of_iomap(pDev->dev.of_node, 0);
 	/* gISPSYS_Reg[nr_fdvt_devs - 1] = FDVT_dev->regs; */
