@@ -9,7 +9,6 @@
 #include <linux/mfd/mt6685/registers.h>
 
 /*features*/
-#define SUPPORT_EOSC_CALI
 #define SUPPORT_PWR_OFF_ALARM
 
 #define HWID                    MT6685_HWCID_L
@@ -136,12 +135,16 @@
 #define RTC_RG_FG2                      0x54
 #define RTC_RG_FG3                      0x56
 
+#define EOSC_CALI_TD_MT6685				0x29
+#define EOSC_CALI_TD_MT6377				0x28
+#define EOSC_CALI_TD_MASK               0x3
+
+#define HWID_MT6685				        0x8
+#define HWID_MT6377				        0x8
+
 #define TOP_RTC_EOSC32_CK_PDN           MT6685_SCK_TOP_CKPDN_CON0_L
 #define TOP_RTC_EOSC32_CK_PDN_MASK      (MT6685_RG_RTC_EOSC32_CK_PDN_MASK \
 						<< MT6685_RG_RTC_EOSC32_CK_PDN_SHIFT)
-
-#define EOSC_CALI_TD					RTC_AL_DOW_H
-#define EOSC_CALI_TD_MASK               MT6685_RG_EOSC_CALI_TD_MASK
 
 #define TOP_DIG_WPK                     MT6685_TOP_DIG_WPK
 #define DIG_WPK_KEY_MASK        (MT6685_DIG_WPK_KEY_MASK << MT6685_DIG_WPK_KEY_SHIFT)
@@ -197,11 +200,11 @@ enum rtc_reg_set {
 	RTC_SHIFT
 };
 
-enum unlock_version {
-	UNLOCK_MT6685_SERIES,
+enum chip_version {
+	NULL_SERIES,
+	MT6685_SERIES,
 };
 
-#ifdef SUPPORT_EOSC_CALI
 
 #define EOSC_SOL_1      0x5
 #define EOSC_SOL_2      0x7
@@ -214,7 +217,10 @@ enum rtc_eosc_cali_td {
 	EOSC_CALI_TD_16_SEC,
 };
 
-#endif
+enum cali_field_enum {
+	EOSC_CALI_TD,
+	CALI_FILED_MAX,
+};
 
 #ifdef SUPPORT_PWR_OFF_ALARM
 struct tag_bootmode {
@@ -243,7 +249,11 @@ enum boot_mode_t {
 
 struct mtk_rtc_data {
 	u32         wrtgr;
-	u32			unlock_version;
+	u32         hwid;
+	u32			chip_version;
+	bool        single_read_write_is_supported;
+	struct reg_field *spare_reg_fields;
+	struct reg_field *cali_reg_fields;
 };
 
 static const char *rtc_time_reg_name[RTC_OFFSET_COUNT] = {
@@ -290,9 +300,7 @@ struct mt6685_rtc {
 	int                     irq;
 	u32                     addr_base;
 	const struct mtk_rtc_data *data;
-#ifdef SUPPORT_EOSC_CALI
 	bool                    cali_is_supported;
-#endif
 #ifdef SUPPORT_PWR_OFF_ALARM
 	struct work_struct work;
 	struct completion comp;
