@@ -1632,11 +1632,11 @@ EXPORT_SYMBOL_GPL(vcp_get_reserve_mem_virt);
 
 phys_addr_t vcp_get_reserve_mem_size(enum vcp_reserve_mem_id_t id)
 {
-	if (id >= NUMS_MEM_ID) {
-		pr_notice("[VCP] no reserve memory for %d", id);
-		return 0;
-	} else
+	if (id >= 0 && id < NUMS_MEM_ID)
 		return vcp_reserve_mblock[id].size;
+
+	pr_notice("[VCP] no reserve memory for %d", id);
+	return 0;
 }
 EXPORT_SYMBOL_GPL(vcp_get_reserve_mem_size);
 
@@ -1649,7 +1649,7 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 	enum vcp_reserve_mem_id_t id;
 	phys_addr_t accumlate_memory_size = 0;
 	unsigned int vcp_mem_num = 0;
-	unsigned int i, m_idx, m_size;
+	unsigned int i = 0, m_idx = 0, m_size = 0;
 	int ret;
 	uint64_t iova_upper = 0;
 	uint64_t iova_lower = 0xFFFFFFFFFFFFFFFF;
@@ -2427,6 +2427,10 @@ static int vcp_device_probe(struct platform_device *pdev)
 	vcpreg.sram = devm_ioremap_resource(dev, res);
 	if (IS_ERR((void const *) vcpreg.sram)) {
 		pr_notice("[VCP] vcpreg.sram error\n");
+		return -1;
+	}
+	if (res == NULL) {
+		pr_notice("[VCP] platform_get_resource_byname error\n");
 		return -1;
 	}
 	vcpreg.total_tcmsize = (unsigned int)resource_size(res);
