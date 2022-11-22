@@ -609,8 +609,10 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 		CCCI_BOOTUP_LOG(0, TAG, "[POWER OFF] gen98+ stop MD UART\n");
 		CCCI_NORMAL_LOG(0, TAG, "[POWER OFF] gen98+ stop MD UART\n");
 
+		md_cd_lock_modem_clock_src(1);
 		ccci_write32(reg, 0x180, ccci_read32(reg, 0x180) | 0x4);
 		ccci_write32(reg, 0x1A0, ccci_read32(reg, 0x1A0) | 0x4);
+		md_cd_lock_modem_clock_src(0);
 		iounmap(reg);
 	}
 
