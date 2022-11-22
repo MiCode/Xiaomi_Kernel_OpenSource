@@ -378,6 +378,122 @@ static const int irq_to_ipi_type(int irq)
 	return -1;
 }
 
+#define MAX_HWT_IRQ_FILE_SIZE SZ_128K
+#define MAX_HWT_IRQ_BUF_SIZE (MAX_HWT_IRQ_FILE_SIZE / 2)
+static char *hwt_irq_info;
+static char *cur_buf;
+static char *irq_buf_a;
+static char *irq_buf_b;
+static int write_irq_buf_index;
+
+static void log_hwt_irq_info(char *addr, const char *fmt, ...)
+{
+	unsigned long len;
+	va_list ap;
+
+	if ((write_irq_buf_index + SZ_256) >=
+			(unsigned long)MAX_HWT_IRQ_BUF_SIZE)
+		return;
+
+	va_start(ap, fmt);
+	len = vscnprintf(&addr[write_irq_buf_index], SZ_256, fmt, ap);
+	va_end(ap);
+	write_irq_buf_index += len;
+}
+
+static void show_irq_info(char *addr)
+{
+#define MAX_IRQ_NUM 1024
+#define MAX_CPU_NUM 8
+	int index;
+	unsigned long len;
+	struct irq_desc *desc;
+	char msg[SZ_256];
+	int irq;
+	int j;
+	unsigned long long record_irq_time;
+
+	memset(msg, 0, SZ_256);
+
+	/*record first row： timestamp*/
+	record_irq_time = sched_clock();
+	scnprintf(msg, SZ_256, "\ntime: %llu\n", record_irq_time);
+	log_hwt_irq_info(addr, "%s", msg);
+
+	/*record second row： CPU-num*/
+	index = 0;
+	memset(msg, 0, SZ_256);
+	len = scnprintf(&msg[index], SZ_256, "%5s", "");
+	index += len;
+	for (j = 0; j < min_t(int, nr_cpu_ids, MAX_CPU_NUM); j++) {
+		len = scnprintf(&msg[index], SZ_256-index, "CPU%-7d", j);
+		index += len;
+		/*reserved '\0' memory*/
+		if (index >= SZ_256 - 2) {
+			index = SZ_256 - 2;
+			msg[index] = '\0';
+			break;
+		}
+	}
+	log_hwt_irq_info(addr, "%s\n", msg);
+
+	/*record irq info*/
+	for (irq = 1; irq < min_t(int, nr_irqs, MAX_IRQ_NUM); irq++) {
+		index = 0;
+		memset(msg, 0, SZ_256);
+		desc = irq_to_desc(irq);
+		len = scnprintf(&msg[index], SZ_256-index, "%3d: ", irq);
+		index += len;
+
+		if (desc && desc->kstat_irqs) {
+			for (j = 0; j < min_t(int, nr_cpu_ids, MAX_CPU_NUM); j++) {
+				len = scnprintf(&msg[index], SZ_256-index, "%-10d",
+				/*
+				 * read desc->kstat_irqs maybe encounter data race.
+				 * use data_race bypass iterator_category
+				 */
+					data_race(*per_cpu_ptr(desc->kstat_irqs, j)));
+				index += len;
+				if (index >= SZ_256 - 2) {
+					index = SZ_256 - 2;
+					msg[index] = '\0';
+					goto flush;
+				}
+			}
+
+			if (desc->action && desc->action->name) {
+				const char *irq_name = desc->action->name;
+
+				if (!strcmp(irq_name, "IPI")) {
+					scnprintf(&msg[index], SZ_256-index, "  %s%d\n",
+						irq_name, irq_to_ipi_type(irq));
+				} else {
+					scnprintf(&msg[index], SZ_256-index, "  %s\n", irq_name);
+				}
+			} else {
+				scnprintf(&msg[index], SZ_256-index, "  %s\n", "NULL");
+			}
+flush:
+			log_hwt_irq_info(addr, "%s", msg);
+		}
+	}
+
+}
+
+static void save_irq_info(void)
+{
+	if (hwt_irq_info == NULL)
+		return;
+
+	if (cur_buf == irq_buf_a)
+		cur_buf = irq_buf_b;
+	else
+		cur_buf = irq_buf_a;
+	memset(cur_buf, 0, MAX_HWT_IRQ_BUF_SIZE);
+	write_irq_buf_index = 0;
+	show_irq_info(cur_buf);
+}
+
 static void show_irq_count(void)
 {
 #define MAX_IRQ_NUM 1024
@@ -468,6 +584,7 @@ static void kwdt_dump_func(void)
 		p_mt_aee_dump_irq_info();
 #endif
 	show_irq_count();
+	save_irq_info();
 	sysrq_sched_debug_show_at_AEE();
 
 	if (toprgu_base)
@@ -650,6 +767,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 		dump_timeout = 0;
 		local_bit = 0;
 		kwdt_time_sync();
+		save_irq_info();
 		if (toprgu_base)
 			iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
 	}
@@ -1012,6 +1130,24 @@ static int __init hangdet_init(void)
 #endif
 	struct device_node *np_toprgu, *np_systimer;
 
+
+#if IS_ENABLED(CONFIG_MTK_HANG_DETECT_DB)
+	hwt_irq_info = kmalloc(MAX_HWT_IRQ_FILE_SIZE, GFP_KERNEL);
+	if (hwt_irq_info != NULL) {
+		irq_buf_a = hwt_irq_info;
+		irq_buf_b = hwt_irq_info + MAX_HWT_IRQ_BUF_SIZE;
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+		res = mrdump_mini_add_extra_file((unsigned long)hwt_irq_info,
+			__pa_nodebug(hwt_irq_info), MAX_HWT_IRQ_FILE_SIZE, "HWT_IRQ");
+		if (res) {
+			kfree(hwt_irq_info);
+			hwt_irq_info = NULL;
+			pr_info("SYS_HWT_IRQ_RAW file add fail...\n");
+		}
+#endif
+	}
+#endif
+
 	for_each_matching_node(np_toprgu, toprgu_of_match) {
 		pr_info("%s: compatible node found: %s\n",
 			 __func__, np_toprgu->name);
@@ -1100,6 +1236,7 @@ static void __exit hangdet_exit(void)
 	unregister_pm_notifier(&wdt_pm_nb);
 	kthread_stop((struct task_struct *)wk_tsk);
 	aee_reboot_hook_exit();
+	kfree(hwt_irq_info);
 }
 
 module_init(hangdet_init);
