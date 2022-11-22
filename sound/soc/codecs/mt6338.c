@@ -74,7 +74,7 @@ static int mt6338_key_get(struct snd_kcontrol *kcontrol,
 }
 
 static int mt6338_key_set(struct snd_kcontrol *kcontrol,
-			       struct snd_ctl_elem_value *ucontrol)
+			  struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
 	struct mt6338_priv *priv  = snd_soc_component_get_drvdata(cmpnt);
@@ -85,6 +85,32 @@ static int mt6338_key_set(struct snd_kcontrol *kcontrol,
 		keylock_set(priv);
 	else
 		keylock_reset(priv);
+	return 0;
+}
+
+static int mt6338_hw_version_get(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+	struct mt6338_priv *priv = snd_soc_component_get_drvdata(component);
+
+	ucontrol->value.integer.value[0] = priv->hw_ver;
+	dev_dbg(priv->dev, "%s(), value = %ld\n",
+		__func__, ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int mt6338_fab_code_get(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_soc_kcontrol_component(kcontrol);
+	struct mt6338_priv *priv = snd_soc_component_get_drvdata(component);
+	unsigned long efuse_val = 0;
+
+	nvmem_device_read(priv->hp_efuse, 0xE, 1, &efuse_val);
+	ucontrol->value.integer.value[0] = (efuse_val >> 5) & 0x7;
+	dev_dbg(priv->dev, "%s(), value = %ld\n",
+		__func__, ucontrol->value.integer.value[0]);
 	return 0;
 }
 
@@ -1475,7 +1501,11 @@ static const struct snd_kcontrol_new mt6338_snd_controls[] = {
 
 	/* debug */
 	SOC_SINGLE_EXT("Codec keylock", SND_SOC_NOPM, 0, 0x1, 0,
-			   mt6338_key_get, mt6338_key_set),
+		       mt6338_key_get, mt6338_key_set),
+	SOC_SINGLE_EXT("Codec Chip ID", SND_SOC_NOPM, 0, 0xff, 0,
+		       mt6338_hw_version_get, NULL),
+	SOC_SINGLE_EXT("Codec Fab code", SND_SOC_NOPM, 0, 0xff, 0,
+		       mt6338_fab_code_get, NULL),
 };
 
 /* LOL MUX */
