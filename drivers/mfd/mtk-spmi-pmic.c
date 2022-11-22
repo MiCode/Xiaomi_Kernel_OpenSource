@@ -218,6 +218,21 @@ static const struct resource mt6377_rtc_resources[] = {
 	DEFINE_RES_IRQ(MT6377_IRQ_RTC),
 };
 
+static const struct resource mt6377_gauge_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_FG_BAT_H, "COULOMB_H"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_FG_BAT_L, "COULOMB_L"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_BAT2_H, "VBAT_H"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_BAT2_L, "VBAT_L"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_NAG_C_DLTV, "NAFG"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_BATON_BAT_OUT, "BAT_OUT"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_FG_ZCV, "ZCV"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_FG_N_CHARGE_L, "FG_N_CHARGE_L"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_FG_IAVG_H, "FG_IAVG_H"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_FG_IAVG_L, "FG_IAVG_L"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_BAT_TEMP_H, "BAT_TMP_H"),
+	DEFINE_RES_IRQ_NAMED(MT6377_IRQ_BAT_TEMP_L, "BAT_TMP_L"),
+};
+
 static const struct mfd_cell mt6363_devs[] = {
 	{
 		.name = "mt6363-auxadc",
@@ -365,6 +380,11 @@ static const struct mfd_cell mt6377_devs[] = {
 		.num_resources = ARRAY_SIZE(mt6377_keys_resources),
 		.resources = mt6377_keys_resources,
 		.of_compatible = "mediatek,mt6377-keys"
+	}, {
+		.name = "mt6377-gauge",
+		.num_resources = ARRAY_SIZE(mt6377_gauge_resources),
+		.resources = mt6377_gauge_resources,
+		.of_compatible = "mediatek,mt6377-gauge",
 	}, {
 		.name = "mt-pmic",
 		.of_compatible = "mediatek,spmi-pmic-debug",
