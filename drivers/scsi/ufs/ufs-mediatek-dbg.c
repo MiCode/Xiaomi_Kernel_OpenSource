@@ -15,6 +15,7 @@
 #include <linux/spinlock.h>
 #include <linux/sysfs.h>
 #include <linux/tracepoint.h>
+#include "governor.h"
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 #include <mt-plat/mrdump.h>
 #endif
@@ -39,7 +40,6 @@ static unsigned int cmd_hist_ptr = MAX_CMD_HIST_ENTRY_CNT - 1;
 static struct cmd_hist_struct *cmd_hist;
 static struct ufs_hba *ufshba;
 static char *ufs_aee_buffer;
-static struct ufs_mtk_clk_scaling_attr clkscale_attr;
 
 static void ufs_mtk_dbg_print_err_hist(char **buff, unsigned long *size,
 				  struct seq_file *m, u32 id,
@@ -1053,7 +1053,7 @@ static int ufs_mtk_dbg_init_procfs(void)
 	return 0;
 }
 
-static ssize_t ufs_mtk_clkscale_downdifferential_show(struct device *dev,
+static ssize_t downdifferential_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
@@ -1061,7 +1061,7 @@ static ssize_t ufs_mtk_clkscale_downdifferential_show(struct device *dev,
 	return sysfs_emit(buf, "%d\n", hba->vps->ondemand_data.downdifferential);
 }
 
-static ssize_t ufs_mtk_clkscale_downdifferential_store(struct device *dev,
+static ssize_t downdifferential_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
@@ -1083,7 +1083,7 @@ out:
 	return err ? err : count;
 }
 
-static ssize_t ufs_mtk_clkscale_upthreshold_show(struct device *dev,
+static ssize_t upthreshold_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
@@ -1091,7 +1091,7 @@ static ssize_t ufs_mtk_clkscale_upthreshold_show(struct device *dev,
 	return sysfs_emit(buf, "%d\n", hba->vps->ondemand_data.upthreshold);
 }
 
-static ssize_t ufs_mtk_clkscale_upthreshold_store(struct device *dev,
+static ssize_t upthreshold_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
@@ -1113,33 +1113,91 @@ out:
 	return err ? err : count;
 }
 
+static ssize_t clkscale_control_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	ssize_t size = 0;
+	int value, powerhal;
+
+	value = atomic_read((&host->clkscale_control));
+	powerhal = atomic_read((&host->clkscale_control_powerhal));
+	if (!value)
+		value = powerhal;
+
+	size += sprintf(buf + size, "current: %d\n", value);
+	size += sprintf(buf + size, "powerhal_set: %d\n", powerhal);
+	size += sprintf(buf + size, "===== control manual =====\n");
+	size += sprintf(buf + size, "0: free run\n");
+	size += sprintf(buf + size, "1: scale down\n");
+	size += sprintf(buf + size, "2: scale up\n");
+
+	return size;
+}
+
+static ssize_t clkscale_control_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	atomic_t *set_target = &host->clkscale_control;
+	unsigned long flags;
+	const char *opcode = buf;
+	u32 value;
+
+	if (!strncmp(buf, "powerhal_set: ", 14)) {
+		set_target = &host->clkscale_control_powerhal;
+		opcode = buf + 14;
+	}
+
+	if (kstrtou32(opcode, 0, &value) || value > 2)
+		return -EINVAL;
+
+	atomic_set(set_target, value);
+
+	ufshcd_rpm_get_sync(hba);
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	if (!hba->clk_scaling.window_start_t) {
+		hba->clk_scaling.window_start_t = ktime_sub_us(ktime_get(), 1);
+		hba->clk_scaling.tot_busy_t = 0;
+		hba->clk_scaling.busy_start_t = 0;
+		hba->clk_scaling.is_busy_started = false;
+
+	}
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	update_devfreq(hba->devfreq);
+	ufshcd_rpm_put(hba);
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(downdifferential);
+static DEVICE_ATTR_RW(upthreshold);
+static DEVICE_ATTR_RW(clkscale_control);
+
+static struct attribute	*ufs_mtk_sysfs_clkscale_attrs[] = {
+	&dev_attr_downdifferential.attr,
+	&dev_attr_upthreshold.attr,
+	&dev_attr_clkscale_control.attr,
+	NULL
+};
+
+struct attribute_group ufs_mtk_sysfs_clkscale_group = {
+	.name = "clkscale",
+	.attrs = ufs_mtk_sysfs_clkscale_attrs,
+};
+
 void ufs_mtk_init_clk_scaling_sysfs(struct ufs_hba *hba)
 {
-	clkscale_attr.downdifferential.show = ufs_mtk_clkscale_downdifferential_show;
-	clkscale_attr.downdifferential.store = ufs_mtk_clkscale_downdifferential_store;
-	sysfs_attr_init(&clkscale_attr.downdifferential.attr);
-	clkscale_attr.downdifferential.attr.name = "clkscale_downdifferential";
-	clkscale_attr.downdifferential.attr.mode = 0644;
-	if (device_create_file(hba->dev, &clkscale_attr.downdifferential))
-		dev_info(hba->dev, "Failed to create sysfs for clkscale_downdifferential\n");
-
-	clkscale_attr.upthreshold.show = ufs_mtk_clkscale_upthreshold_show;
-	clkscale_attr.upthreshold.store = ufs_mtk_clkscale_upthreshold_store;
-	sysfs_attr_init(&clkscale_attr.upthreshold.attr);
-	clkscale_attr.upthreshold.attr.name = "clkscale_upthreshold";
-	clkscale_attr.upthreshold.attr.mode = 0644;
-	if (device_create_file(hba->dev, &clkscale_attr.upthreshold))
-		dev_info(hba->dev, "Failed to create sysfs for clkscale_upthreshold\n");
-
+	if (sysfs_create_group(&hba->dev->kobj, &ufs_mtk_sysfs_clkscale_group))
+		dev_info(hba->dev, "Failed to create sysfs for clkscale_control\n");
 }
 EXPORT_SYMBOL_GPL(ufs_mtk_init_clk_scaling_sysfs);
 
 void ufs_mtk_remove_clk_scaling_sysfs(struct ufs_hba *hba)
 {
-	if (clkscale_attr.downdifferential.attr.name)
-		device_remove_file(hba->dev, &clkscale_attr.downdifferential);
-	if (clkscale_attr.upthreshold.attr.name)
-		device_remove_file(hba->dev, &clkscale_attr.upthreshold);
+	sysfs_remove_group(&hba->dev->kobj, &ufs_mtk_sysfs_clkscale_group);
 }
 EXPORT_SYMBOL_GPL(ufs_mtk_remove_clk_scaling_sysfs);
 
