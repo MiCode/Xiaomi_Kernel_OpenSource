@@ -93,6 +93,10 @@ static void adsp_ee_recovery(void)
 	u32 temp, irq_pending;
 	u64 temp_64;
 
+	if (!uodev->adsp_exception || !uodev->adsp_inited
+			|| !uodev->opened || !uodev->xhci)
+		return;
+
 	USB_OFFLOAD_INFO("ADSP EE ++ op:0x%08x, iman:0x%08X, erdp:0x%08X\n",
 			readl(&uodev->xhci->op_regs->status),
 			readl(&uodev->xhci->run_regs->ir_set[1].irq_pending),
@@ -132,7 +136,8 @@ static int usb_offload_event_receive(struct notifier_block *this, unsigned long 
 		pr_info("%s event[%lu]\n", __func__, event);
 		uodev->adsp_exception = true;
 		uodev->adsp_ready = false;
-		adsp_ee_recovery();
+		if (uodev->connected)
+			adsp_ee_recovery();
 		break;
 	case ADSP_EVENT_READY: {
 		pr_info("%s event[%lu]\n", __func__, event);
@@ -225,6 +230,7 @@ static void sound_usb_connect(void *data, struct usb_interface *intf, struct snd
 	uodev->connected = true;
 	uodev->opened = false;
 	uodev->adsp_exception = false;
+	uodev->xhci = NULL;
 }
 
 static void sound_usb_disconnect(void *data, struct usb_interface *intf)
@@ -241,6 +247,7 @@ static void sound_usb_disconnect(void *data, struct usb_interface *intf)
 	uodev->connected = false;
 	uodev->opened = false;
 	uodev->adsp_exception = false;
+	uodev->xhci = NULL;
 
 	if (chip == USB_AUDIO_IFACE_UNUSED)
 		return;
@@ -948,9 +955,6 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 	mutex_lock(&uodev->dev_lock);
 	USB_OFFLOAD_INFO("inside mutex\n");
 
-	USB_OFFLOAD_INFO("pcm_substream->wait_time: %d\n",
-			subs->pcm_substream->wait_time);
-
 	if (subs->cur_audiofmt)
 		interface = subs->cur_audiofmt->iface;
 	else
@@ -1031,6 +1035,8 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 	}
 
 	substream = subs->pcm_substream;
+	USB_OFFLOAD_INFO("pcm_substream->wait_time: %d\n",
+			substream->wait_time);
 
 	if (!substream->ops->hw_params || !substream->ops->hw_free
 		|| !substream->ops->prepare) {
@@ -1764,6 +1770,7 @@ int usb_offload_cleanup(void)
 	uodev->rx_streaming = false;
 	uodev->adsp_inited = false;
 	uodev->opened = false;
+	uodev->xhci = NULL;
 
 	msg.status = USB_AUDIO_STREAM_REQ_STOP;
 	msg.status_valid = 1;
@@ -2144,6 +2151,7 @@ static int usb_offload_probe(struct platform_device *pdev)
 	uodev->adsp_inited = false;
 	uodev->connected = false;
 	uodev->opened = false;
+	uodev->xhci = NULL;
 
 	USB_OFFLOAD_INFO("default_use_sram:%d, current_mem_mode:%d, mem_id:%d\n",
 		uodev->default_use_sram, uodev->current_mem_mode, uodev->mem_id);
