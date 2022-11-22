@@ -1365,11 +1365,6 @@ void mtk_cam_subspl_req_prepare(struct mtk_camsys_sensor_ctrl *sensor_ctrl)
 		/*initial request handling*/
 		if (sensor_seq_no_next == 2)
 			req_stream_data->state.estate = E_STATE_SUBSPL_SENSOR;
-		if (req_stream_data->state.estate < E_STATE_SUBSPL_SENSOR) {
-			dev_info(cam->dev, "[%s:pass] sensor_no:%d state:0x%x\n", __func__,
-					sensor_seq_no_next - 1, req_stream_data->state.estate);
-			return;
-		}
 	}
 	req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, sensor_seq_no_next);
 	if (req_stream_data) {
@@ -2186,10 +2181,11 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 				if (state_outer->estate == E_STATE_SUBSPL_OUTER) {
 					mtk_cam_submit_kwork_in_sensorctrl(
 						sensor_ctrl->sensorsetting_wq, sensor_ctrl);
-					dev_info(raw_dev->dev, "sensor delay to SOF, pass next CQ (in:%d)\n",
+					dev_info(raw_dev->dev, "sensor delay to SOF(in:%d)\n",
 						frame_idx_inner);
-					return STATE_RESULT_PASS_CQ_SW_DELAY;
 				}
+				state_transition(state_outer, E_STATE_SUBSPL_OUTER,
+						 E_STATE_SUBSPL_INNER);
 				state_transition(state_outer, E_STATE_SUBSPL_SENSOR,
 						 E_STATE_SUBSPL_INNER);
 				atomic_set(&sensor_ctrl->isp_request_seq_no, frame_idx_inner);

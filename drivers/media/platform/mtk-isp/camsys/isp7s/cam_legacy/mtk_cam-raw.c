@@ -2533,7 +2533,7 @@ void stream_on(struct mtk_cam_ctx *ctx,
 				writel_relaxed(0xffffffff, dev->base + REG_SCQ_START_PERIOD);
 			else
 				writel_relaxed(SCQ_DEADLINE_MS * 1000 * SCQ_DEFAULT_CLK_RATE /
-				(val * 2) / fps_ratio, dev->base + REG_SCQ_START_PERIOD);
+				(val) / fps_ratio, dev->base + REG_SCQ_START_PERIOD);
 #else
 			writel_relaxed(CQ_THR0_MODE_CONTINUOUS | CQ_THR0_EN,
 			       dev->base + REG_CQ_THR0_CTL);
