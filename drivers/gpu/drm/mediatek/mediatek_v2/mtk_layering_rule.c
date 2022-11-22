@@ -767,7 +767,7 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc,
 	tmp = 0;
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
-	if (!mtk_crtc->res_switch) {
+	if (!mtk_crtc->res_switch && disp_idx != 0) {
 		if (output_comp) {
 			DDPINFO("%s, crtc_state:0x%llx\n", __func__, (u64)mtk_crtc->base.state);
 			mtk_ddp_comp_io_cmd(output_comp, NULL,
