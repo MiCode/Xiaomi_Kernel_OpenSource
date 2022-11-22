@@ -9,7 +9,9 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <aee.h>
+#endif
 #include <mtk_ccci_common.h>
 
 #define NOTIFY_TIMES_MAX	2
@@ -38,6 +40,28 @@ struct oc_debug_info {
 	.is_md_reg = true,		\
 	.md_data = _md_data,		\
 }
+
+static struct oc_debug_t mt6835_oc_debug[] = {
+	MD_REG_OC_DEBUG(VPA, BIT(0)),
+	REG_OC_DEBUG(mt6377_vaux18),
+	REG_OC_DEBUG(mt6377_vbif28),
+	REG_OC_DEBUG(mt6377_vcn33_1),
+	REG_OC_DEBUG(mt6377_vcn33_2),
+	REG_OC_DEBUG(mt6377_vcn18),
+	REG_OC_DEBUG(mt6377_vm18),
+	REG_OC_DEBUG(mt6377_vefuse),
+	REG_OC_DEBUG(mt6377_vemc),
+	REG_OC_DEBUG(mt6377_vufs),
+	REG_OC_DEBUG(mt6377_vio18),
+	MD_REG_OC_DEBUG(mt6377_vrf18, BIT(4)),
+	REG_OC_DEBUG(mt6377_vrf12),
+	MD_REG_OC_DEBUG(mt6377_vrf09, BIT(2)),
+	REG_OC_DEBUG(mt6377_vrfva12),
+	MD_REG_OC_DEBUG(mt6377_vrfio18, BIT(5)),
+	REG_OC_DEBUG(mt6377_vusb),
+	REG_OC_DEBUG(mt6377_vio28),
+	REG_OC_DEBUG(mt6377_vfp),
+};
 
 static struct oc_debug_t mt6879_oc_debug[] = {
 	MD_REG_OC_DEBUG(mt6363_vcn15, BIT(5)),
@@ -112,6 +136,11 @@ static struct oc_debug_t mt6983_oc_debug[] = {
 	REG_OC_DEBUG(mt6373_vfp),
 };
 
+static struct oc_debug_info mt6835_debug_info = {
+	.oc_debug = mt6835_oc_debug,
+	.oc_debug_num = ARRAY_SIZE(mt6835_oc_debug),
+};
+
 static struct oc_debug_info mt6879_debug_info = {
 	.oc_debug = mt6879_oc_debug,
 	.oc_debug_num = ARRAY_SIZE(mt6879_oc_debug),
@@ -144,23 +173,24 @@ static int regulator_oc_notify(struct notifier_block *nb, unsigned long event,
 
 	oc_dbg = container_of(nb, struct oc_debug_t, nb);
 	oc_dbg->times++;
-	if (oc_dbg->times > NOTIFY_TIMES_MAX)
+	if (oc_dbg->times > NOTIFY_TIMES_MAX) {
+		if (oc_dbg->is_md_reg)
+			md_oc_notify(oc_dbg);
 		return NOTIFY_OK;
+	}
 
 	pr_notice("regulator:%s OC %d times\n",
 		  oc_dbg->name, oc_dbg->times);
 	len += snprintf(oc_str, 30, "PMIC OC:%s", oc_dbg->name);
 	if (oc_dbg->is_md_reg) {
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-		aee_kernel_warning(oc_str,
-				   "\nCRDISPATCH_KEY:MD OC\nOC Interrupt: %s",
+		aee_kernel_warning(oc_str, "\nCRDISPATCH_KEY:MD OC\nOC Interrupt: %s",
 				   oc_dbg->name);
 #endif
 		md_oc_notify(oc_dbg);
 	} else if (oc_dbg->times == NOTIFY_TIMES_MAX) {
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-		aee_kernel_warning(oc_str,
-				   "\nCRDISPATCH_KEY:PMIC OC\nOC Interrupt: %s",
+		aee_kernel_warning(oc_str, "\nCRDISPATCH_KEY:PMIC OC\nOC Interrupt: %s",
 				   oc_dbg->name);
 #endif
 	}
@@ -328,6 +358,9 @@ static int pmic_oc_debug_probe(struct platform_device *pdev)
 
 static const struct of_device_id pmic_oc_debug_of_match[] = {
 	{
+		.compatible = "mediatek,mt6835-oc-debug",
+		.data = &mt6835_debug_info,
+	}, {
 		.compatible = "mediatek,mt6879-oc-debug",
 		.data = &mt6879_debug_info,
 	}, {
