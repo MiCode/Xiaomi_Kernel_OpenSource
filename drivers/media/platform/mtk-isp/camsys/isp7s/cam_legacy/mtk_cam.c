@@ -9579,8 +9579,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 
 fail_stream_off:
 #if CCD_READY
-	if (ctx->used_raw_num)
-		isp_composer_destroy_session_async(ctx);
+	isp_composer_destroy_session_async(ctx);
 #endif
 
 	dev_dbg(cam->dev, "streamed off camsys ctx:%d\n", ctx->stream_id);
