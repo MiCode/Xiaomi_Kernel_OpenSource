@@ -3331,6 +3331,12 @@ fail:
 static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
 {
 	int i;
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	static int err_count;
+	static ktime_t err_ktime;
+	ktime_t delta_ktime;
+	s64 delta_msecs;
+#endif
 
 	mt_irq_dump_status(hba->irq);
 
@@ -3385,9 +3391,28 @@ static void ufs_mtk_dbg_register_dump(struct ufs_hba *hba)
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	aee_kernel_warning_api(__FILE__,
-		__LINE__, DB_OPT_FS_IO_LOG | DB_OPT_FTRACE,
-		"ufs", "error dump");
+	delta_ktime = ktime_sub(local_clock(), err_ktime);
+	delta_msecs = ktime_to_ms(delta_ktime);
+
+	/* If last error happen more than 72 hrs, clear error count */
+	if (delta_msecs >= 72 * 60 * 60 * 1000)
+		err_count = 0;
+
+	/* Treat errors happen in 3000 ms as one time error */
+	if (delta_msecs >= 3000) {
+		err_ktime = local_clock();
+		err_count++;
+	}
+
+	/*
+	 * Most uic error is recoverable, it should be minor.
+	 * Only dump db if uic error heppen frequently(>=6) in 72 hrs.
+	 */
+	if (err_count >= 6) {
+		aee_kernel_warning_api(__FILE__,
+			__LINE__, DB_OPT_FS_IO_LOG | DB_OPT_FTRACE,
+			"ufs", "error dump %d", err_count);
+	}
 #endif
 }
 
