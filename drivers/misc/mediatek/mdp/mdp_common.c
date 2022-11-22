@@ -643,6 +643,8 @@ static void cmdq_mdp_lock_thread(struct cmdqRecStruct *handle)
 	else
 		cmdq_sec_mbox_enable(((struct cmdq_client *) handle->pkt->cl)->chan);
 #endif
+	if (handle->pkt_rb)
+		cmdq_mbox_enable(((struct cmdq_client *) handle->pkt_rb->cl)->chan);
 
 	CMDQ_PROF_END(current->pid, __func__);
 }
@@ -746,8 +748,10 @@ static void cmdq_mdp_handle_stop(struct cmdqRecStruct *handle)
 		cmdq_mbox_disable(((struct cmdq_client *) handle->pkt->cl)->chan);
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 	else
-		cmdq_sec_mbox_disable(((struct cmdq_client *)handle->pkt->cl)->chan);
+		cmdq_sec_mbox_disable(((struct cmdq_client *) handle->pkt->cl)->chan);
 #endif
+	if (handle->pkt_rb)
+		cmdq_mbox_disable(((struct cmdq_client *) handle->pkt_rb->cl)->chan);
 
 	cmdq_mdp_common_clock_disable(handle->engineFlag);
 
@@ -2122,21 +2126,21 @@ static int cmdq_mdp_init_pq_readback(struct platform_device *pdev)
 
 #if defined(CMDQ_SECURE_PATH_SUPPORT)
 	ret = of_property_read_u16(pdev->dev.of_node,
-		"pq_rb_thread_id", &rb_thread_id);
+		"pq-rb-thread-id", &rb_thread_id);
 	if (ret != 0)
-		CMDQ_MSG("pq_rb_thread_id is not defined\n");
+		CMDQ_MSG("pq-rb-thread-id is not defined\n");
 	mdp_ctx.pq_readback.rb_thread_id = rb_thread_id;
 
 	ret = of_property_read_u16(pdev->dev.of_node,
-		"pq_rb_event_lock", &rb_event_lock);
+		"pq-rb-event-lock", &rb_event_lock);
 	if (ret != 0)
-		CMDQ_MSG("pq_rb_event_lock is not defined\n");
+		CMDQ_MSG("pq-rb-event-lock is not defined\n");
 	mdp_ctx.pq_readback.rb_event_lock = rb_event_lock;
 
 	ret = of_property_read_u16(pdev->dev.of_node,
-		"pq_rb_event_unlock", &rb_event_unlock);
+		"pq-rb-event-unlock", &rb_event_unlock);
 	if (ret != 0)
-		CMDQ_MSG("pq_rb_event_unlock is not defined\n");
+		CMDQ_MSG("pq-rb-event-unlock is not defined\n");
 	mdp_ctx.pq_readback.rb_event_unlock = rb_event_unlock;
 #endif
 
@@ -2651,9 +2655,8 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 			mdp_list_pmqos = (struct mdp_pmqos *)curTask->prop_addr;
 			pmqos_list_record =
 			    (struct mdp_pmqos_record *)curTask->user_private;
-			total_pixel = mdp_list_pmqos->mdp_total_pixel ?
-				mdp_list_pmqos->mdp_total_pixel :
-				mdp_list_pmqos->isp_total_pixel;
+			total_pixel = max(mdp_list_pmqos->mdp_total_pixel,
+				mdp_list_pmqos->isp_total_pixel);
 
 			if (first_task) {
 				target_pmqos = mdp_list_pmqos;
@@ -2720,9 +2723,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 	} else {
 		DP_TIMER_GET_DURATION_IN_US(pmqos_curr_record->submit_tm,
 			pmqos_curr_record->end_tm, denominator);
-		total_pixel = mdp_curr_pmqos->mdp_total_pixel ?
-			mdp_curr_pmqos->mdp_total_pixel :
-			mdp_curr_pmqos->isp_total_pixel;
+		total_pixel = max(mdp_curr_pmqos->mdp_total_pixel, mdp_curr_pmqos->isp_total_pixel);
 		pmqos_curr_record->mdp_throughput =
 			total_pixel / denominator;
 		target_pmqos = mdp_curr_pmqos;
@@ -2735,9 +2736,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 		goto done;
 	}
 
-	total_pixel = target_pmqos->mdp_total_pixel ?
-		target_pmqos->mdp_total_pixel :
-		target_pmqos->isp_total_pixel;
+	total_pixel = max(target_pmqos->mdp_total_pixel, target_pmqos->isp_total_pixel);
 
 	CMDQ_LOG_PMQOS(
 		"[%d]begin task, is_mdp %d, target_pmqos max_throughput %u total_pixel %u\n",
@@ -2923,9 +2922,8 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 
 		if (first_task) {
 			target_pmqos = mdp_list_pmqos;
-			curr_pixel_size = mdp_list_pmqos->mdp_total_pixel ?
-				mdp_list_pmqos->mdp_total_pixel :
-				mdp_list_pmqos->isp_total_pixel;
+			curr_pixel_size = max(mdp_list_pmqos->mdp_total_pixel,
+				mdp_list_pmqos->isp_total_pixel);
 			first_task = false;
 		}
 
@@ -2966,9 +2964,8 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 				(struct mdp_pmqos_record *)
 					curTask->user_private;
 
-			total_pixel = mdp_list_pmqos->mdp_total_pixel ?
-				mdp_list_pmqos->mdp_total_pixel :
-				mdp_list_pmqos->isp_total_pixel;
+			total_pixel = max(mdp_list_pmqos->mdp_total_pixel,
+				mdp_list_pmqos->isp_total_pixel);
 
 			if (first_task) {
 				DP_TIMER_GET_DURATION_IN_US(

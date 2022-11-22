@@ -109,6 +109,8 @@ typedef void *(*MdpQosPathGet) (u32 thread_id, u32 port);
 
 typedef void (*MdpQosClearAll) (u32 thread_id);
 
+typedef void (*MdpQosCheckBWLimit) (u32 thread_id, u32 port, u32 user_bw, u32 set_bw);
+
 typedef u32 (*MdpGetGroup) (void);
 
 typedef const char **const (*MdpGetEngineGroupName) (void);
@@ -188,6 +190,7 @@ struct cmdqMDPFuncStruct {
 	MdpQosPathGet qosGetPath;
 	MdpQosClearAll qosClearAll;
 	MdpQosClearAll qosClearAllIsp;
+	MdpQosCheckBWLimit qosCheckBWLimit;
 	MdpGetGroup getGroupMax;
 	MdpGetGroup getGroupIsp;
 	MdpGetGroup getGroupMdp;

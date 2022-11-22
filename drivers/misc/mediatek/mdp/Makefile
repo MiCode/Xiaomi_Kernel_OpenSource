@@ -21,6 +21,10 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/iommu \
              -I$(srctree)/drivers/misc/mediatek/iommu/
 
+ifeq ($(CONFIG_MTK_MDP_MTEE_SUPPORT),m)
+ccflags-y += -I$(srctree)/drivers/dma-buf/heaps
+endif
+
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
 
 ifeq ($(strip $(CONFIG_MTK_PQ_COLOR_MODE)),"MDP")
@@ -62,6 +66,9 @@ endif
 ifneq ($(wildcard $(srctree)/$(src)/mdp_mt6985.c),)
 obj-$(CONFIG_MTK_MDP) += mdp_drv_mt6985.o
 endif
+ifneq ($(wildcard $(srctree)/$(src)/mdp_mt6835.c),)
+obj-$(CONFIG_MTK_MDP) += mdp_drv_mt6835.o
+endif
 
 mdp_drv_mt6886-objs := mdp_mt6886.o\
 	mdp_driver.o \
@@ -102,6 +109,18 @@ mdp_drv_mt6985-objs := mdp_mt6985.o\
 	cmdq_mmp.o \
 	mdp_fence.o
 
+mdp_drv_mt6835-objs := mdp_mt6835.o\
+	mdp_driver.o \
+	mdp_ioctl_ex.o \
+	mdp_common.o \
+	cmdq_record.o \
+	cmdq_virtual.o \
+	cmdq_device.o \
+	mdp_event_common.o \
+	cmdq_subsys_common.o \
+	cmdq_helper_ext.o \
+	cmdq_mmp.o \
+	mdp_fence.o
 #obj-y += cmdq_prof.o
 #obj-y += cmdq_test.o
 

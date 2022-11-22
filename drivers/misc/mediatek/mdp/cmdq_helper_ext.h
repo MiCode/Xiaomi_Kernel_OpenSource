@@ -187,7 +187,11 @@ do {if (1) mmprofile_log_ex(args); } while (0);	\
 #endif
 
 /* CMDQ FTRACE */
-#define TRACE_MSG_LEN	1024
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
+#define TRACE_MSG_LEN 1024
+#else
+#define TRACE_MSG_LEN 896
+#endif
 
 #define CMDQ_TRACE_FORCE_BEGIN_TID(tid, fmt, args...) \
 	tracing_mark_write("B|%d|" fmt "\n", tid, ##args)
