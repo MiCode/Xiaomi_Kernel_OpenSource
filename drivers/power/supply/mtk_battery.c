@@ -1818,21 +1818,45 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 	}
 }
 
+void fg_convert_prop_tolower(char *s)
+{
+	int loop = 0;
+
+	while (*s && loop <= MAX_PROP_NAME_LEN) {
+		if (*s == '_')
+			*s = '-';
+		else
+			*s = tolower(*s);
+		loop++;
+		s++;
+	}
+}
+
 #if IS_ENABLED(CONFIG_OF)
 static int fg_read_dts_val(const struct device_node *np,
 		const char *node_srting,
 		int *param, int unit)
 {
 	static unsigned int val;
+	int s_len = strnlen(node_srting, MAX_PROP_NAME_LEN);
+	char *temp = kmalloc(s_len + 1, GFP_KERNEL);
 
-	if (!of_property_read_u32(np, node_srting, &val)) {
+	strncpy(temp, node_srting, s_len + 1);
+	fg_convert_prop_tolower(temp);
+	if (!of_property_read_u32(np, temp, &val)) {
+		*param = (int)val * unit;
+		bm_debug("Get %s: %d\n",
+			 temp, *param);
+	} else if (!of_property_read_u32(np, node_srting, &val)) {
 		*param = (int)val * unit;
 		bm_debug("Get %s: %d\n",
 			 node_srting, *param);
 	} else {
-		bm_debug("Get %s no data\n", node_srting);
+		bm_debug("Get %s %s no data\n", temp, node_srting);
+		kvfree(temp);
 		return -1;
 	}
+	kvfree(temp);
 	return 0;
 }
 
@@ -1841,15 +1865,25 @@ static int fg_read_dts_val_by_idx(const struct device_node *np,
 		int idx, int *param, int unit)
 {
 	unsigned int val;
+	int s_len = strnlen(node_srting, MAX_PROP_NAME_LEN);
+	char *temp = kmalloc(s_len + 1, GFP_KERNEL);
 
-	if (!of_property_read_u32_index(np, node_srting, idx, &val)) {
+	strncpy(temp, node_srting, s_len + 1);
+	fg_convert_prop_tolower(temp);
+	if (!of_property_read_u32_index(np, temp, idx, &val)) {
+		*param = (int)val * unit;
+		bm_debug("Get %s %d: %d\n",
+			 temp, idx, *param);
+	} else if (!of_property_read_u32_index(np, node_srting, idx, &val)) {
 		*param = (int)val * unit;
 		bm_debug("Get %s %d: %d\n",
 			 node_srting, idx, *param);
-	} else {
-		bm_debug("Get %s no data, idx %d\n", node_srting, idx);
+	}  else {
+		bm_debug("Get %s %s no data, idx %d\n", node_srting, temp, idx);
+		kvfree(temp);
 		return -1;
 	}
+	kvfree(temp);
 	return 0;
 }
 
@@ -1861,6 +1895,15 @@ static void fg_custom_parse_table(struct mtk_battery *gm,
 	int mah, voltage, resistance, idx, saddles;
 	int i = 0, charge_rdc[MAX_CHARGE_RDC];
 	struct fuelgauge_profile_struct *profile_p;
+	int s_len = strnlen(node_srting, MAX_PROP_NAME_LEN);
+	char *temp = kmalloc(s_len + 1, GFP_KERNEL);
+
+	idx = 0;
+	strncpy(temp, node_srting, s_len + 1);
+	fg_convert_prop_tolower(temp);
+
+	if (!of_property_read_u32_index(np, temp, idx, &mah))
+		node_srting = temp;
 
 	profile_p = profile_struct;
 
@@ -1921,6 +1964,7 @@ static void fg_custom_parse_table(struct mtk_battery *gm,
 	if (idx == 0) {
 		bm_err("[%s] cannot find %s in dts\n",
 			__func__, node_srting);
+		kvfree(temp);
 		return;
 	}
 
@@ -1937,6 +1981,7 @@ static void fg_custom_parse_table(struct mtk_battery *gm,
 
 		idx = idx + column;
 	}
+	kvfree(temp);
 }
 
 
@@ -2459,7 +2504,7 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 		int min_vol;
 
 		min_vol = fg_table_cust_data->fg_profile[0].pmic_min_vol;
-		if (!of_property_read_u32(np, "PMIC_MIN_VOL", &val)) {
+		if (!fg_read_dts_val(np, "PMIC_MIN_VOL", &val, 1)) {
 			for (i = 0; i < MAX_TABLE; i++)
 				fg_table_cust_data->fg_profile[i].pmic_min_vol =
 				(int)val;
@@ -2469,7 +2514,7 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 			bm_err("Get PMIC_MIN_VOL no data\n");
 		}
 
-		if (!of_property_read_u32(np, "POWERON_SYSTEM_IBOOT", &val)) {
+		if (!fg_read_dts_val(np, "POWERON_SYSTEM_IBOOT", &val, 1)) {
 			for (i = 0; i < MAX_TABLE; i++)
 				fg_table_cust_data->fg_profile[i].pon_iboot =
 				(int)val * UNIT_TRANS_10;
@@ -2578,13 +2623,13 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 				__func__, node_name, column);
 			/* correction */
 			column = 3;
-	}
+		}
 
 		sprintf(node_name, "battery%d_profile_t%d", bat_id, i);
 		fg_custom_parse_table(gm, np, node_name,
 			fg_table_cust_data->fg_profile[i].fg_profile, column);
 	}
-		}
+}
 
 #endif	/* end of CONFIG_OF */
 
