@@ -53,6 +53,9 @@ do { \
 	}	\
 } while (0)
 
+#define mtk_base_dprintk_always(fmt, args...) \
+	pr_debug("[FPSGO_BASE]" fmt, ##args)
+
 static int total_fps_control_pid_info_num;
 
 static struct kobject *base_kobj;
@@ -1142,6 +1145,7 @@ static void fpsgo_check_BQid_status(void)
 	struct rb_node *next;
 	struct BQ_id *pos;
 	int tgid = 0;
+	int count = 0;
 
 	fpsgo_lockprove(__func__);
 
@@ -1150,12 +1154,16 @@ static void fpsgo_check_BQid_status(void)
 
 		pos = rb_entry(n, struct BQ_id, entry);
 		tgid = fpsgo_get_tgid(pos->pid);
-		if (tgid)
+		if (tgid) {
+			count++;
 			continue;
+		}
 
 		rb_erase(n, &BQ_id_list);
 		kfree(pos);
 	}
+
+	mtk_base_dprintk_always("[%s] BQ rb_tree_size=%d", __func__, count);
 }
 
 void fpsgo_clear_llf_cpu_policy(void)
