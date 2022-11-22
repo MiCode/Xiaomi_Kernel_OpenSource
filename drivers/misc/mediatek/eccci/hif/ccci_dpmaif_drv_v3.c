@@ -724,6 +724,24 @@ static irqreturn_t drv3_isr(int irq, void *data)
 		CCCI_NOTICE_LOG(0, TAG, "[%s] wake up by MD0 HIF L2(%x/%x)(%x/%x)!\n",
 			__func__, L2TISAR0, L2TIMR0, L2RISAR0, L2RIMR0);
 
+	/* check UL&DL mask status register */
+	if (((L2TIMR0 & AP_UL_L2INTR_Msk_Check) != AP_UL_L2INTR_Msk_Check) ||
+		((L2RIMR0 & AP_DL_L2INTR_Msk_Check) != AP_DL_L2INTR_Msk_Check)) {
+		/* if has error bit, set mask */
+		DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMSR0, ~(AP_UL_L2INTR_En_Msk));
+		/* use msk to clear dummy interrupt */
+		DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0, ~(AP_UL_L2INTR_En_Msk));
+
+		/* if has error bit, set mask */
+		DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMSR0, ~(AP_DL_L2INTR_En_Msk));
+		/* use msk to clear dummy interrupt */
+		DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TISAR0, ~(AP_DL_L2INTR_En_Msk));
+		CCCI_NORMAL_LOG(0, TAG, "[%s]mask:dl=0x%x(0x%x) ul=0x%x(0x%x)\n",
+			__func__,
+			DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMR0), L2RIMR0,
+			DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMR0), L2TIMR0);
+	}
+
 	/* TX interrupt */
 	if (L2TISAR0) {
 		L2TISAR0 &= ~(L2TIMR0);
@@ -1172,17 +1190,30 @@ static int drv3_suspend_noirq(struct device *dev)
 {
 	g_backup_dl_isr = drv3_get_dl_interrupt_mask();
 	g_backup_ul_isr = DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMR0);
+
+	CCCI_NORMAL_LOG(0, TAG, "[%s]mask:dl=0x%x ul=0x%x,power down=%u\n",
+		__func__, g_backup_dl_isr, g_backup_ul_isr, ops.drv_check_power_down());
+
 	return 0;
 }
 
 static int drv3_resume_noirq(struct device *dev)
 {
-	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMSR0, g_backup_ul_isr);
-	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMSR0, g_backup_dl_isr);
-
+	/* DL set mask */
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMSR0, ~(AP_DL_L2INTR_En_Msk));
 	/* use msk to clear dummy interrupt */
-	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TISAR0, g_backup_dl_isr);
-	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0, g_backup_ul_isr);
+	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TISAR0, ~(AP_DL_L2INTR_En_Msk));
+
+	/* UL set mask */
+	DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMSR0, ~(AP_UL_L2INTR_En_Msk));
+	/* use msk to clear dummy interrupt */
+	DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0, ~(AP_UL_L2INTR_En_Msk));
+
+	CCCI_NORMAL_LOG(0, TAG, "[%s]mask:dl=0x%x ul=0x%x\n",
+		__func__,
+		DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMR0),
+		DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMR0));
+
 	return 0;
 }
 

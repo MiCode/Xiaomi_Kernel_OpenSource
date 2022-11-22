@@ -351,4 +351,8 @@
 	(AP_DL_L2INTR_ERR_En_Msk | \
 	DPMAIF_DL_INT_LRO0_QDONE_MSK | DPMAIF_DL_INT_LRO1_QDONE_MSK)
 
+/* dl&ul mask check */
+#define AP_DL_L2INTR_Msk_Check ((~AP_DL_L2INTR_En_Msk)&0x1FFF)
+#define AP_UL_L2INTR_Msk_Check ((~AP_UL_L2INTR_En_Msk)&0x1FFF)
+
 #endif /* __CCCI_DPMAIF_REG_V1_H__ */
