@@ -1924,8 +1924,8 @@ int mtk_cam_call_sv_pipeline_config(
 	cfg_in_param->data_pattern = 0x0;
 	cfg_in_param->in_crop.p.x = 0x0;
 	cfg_in_param->in_crop.p.y = 0x0;
-	cfg_in_param->in_crop.s.w =	img_fmt->fmt.pix_mp.width;
-	cfg_in_param->in_crop.s.h = img_fmt->fmt.pix_mp.height;
+	cfg_in_param->in_crop.s.w =	(mf->width) ? img_fmt->fmt.pix_mp.width : 0;
+	cfg_in_param->in_crop.s.h = (mf->height) ? img_fmt->fmt.pix_mp.height : 0;
 	cfg_in_param->fmt = mtk_cam_get_sensor_fmt(mf->code);
 	cfg_in_param->raw_pixel_id = mtk_cam_get_sensor_pixel_id(mf->code);
 	cfg_in_param->subsample = sub_ratio;
