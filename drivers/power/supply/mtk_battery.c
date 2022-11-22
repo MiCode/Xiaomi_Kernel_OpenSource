@@ -1984,6 +1984,8 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 
 	gm->disableGM30 = of_property_read_bool(
 		np, "DISABLE_MTKBATTERY");
+	gm->disableGM30 = of_property_read_bool(
+		np, "disable_mtkbattery");
 	fg_read_dts_val(np, "MULTI_TEMP_GAUGE0",
 		&(fg_cust_data->multi_temp_gauge0), 1);
 	fg_read_dts_val(np, "FGC_FGV_TH1",

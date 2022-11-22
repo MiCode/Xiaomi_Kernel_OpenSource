@@ -112,6 +112,8 @@ obj-$(CONFIG_CHARGER_MT6375)	+= mt6375-charger.o
 obj-$(CONFIG_CHARGER_RT9759)	+= rt9759.o
 obj-$(CONFIG_CHARGER_RT9490)	+= rt9490-charger.o
 obj-$(CONFIG_CHARGER_RT9758)	+= rt9758-charger.o
+obj-$(CONFIG_BATTERY_MT6377)	+= mt6377-battery.o
+mt6377-battery-objs := mtk_battery_coulomb_service.o mtk_battery.o mtk_battery_algo.o mt6377-gauge.o mtk_battery_daemon.o
 obj-$(CONFIG_GAUGE_MT6375)	+= mt6375-battery.o
 mt6375-battery-objs := mtk_battery_coulomb_service.o mtk_battery.o mtk_battery_algo.o mt6375-gauge.o mtk_battery_daemon.o
 ifneq ($(wildcard $(srctree)/$(src)/k6985v1_64_alpha),)

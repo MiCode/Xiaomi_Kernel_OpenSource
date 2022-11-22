@@ -178,6 +178,16 @@ config BATTERY_MT6359P
 	  battery information , It issues interrupt when trigger
 	  threshold is met.
 
+config BATTERY_MT6377
+	tristate "MT6377 fuel gauge support"
+	depends on MFD_MTK_SPMI_PMIC
+	default m
+	help
+	  Say Y to enable support for MT6377 battery driver.
+	  it measure battery current and temperature to provid
+	  battery information . It issues interrupt when trigger
+	  threshold is met.
+
 config BATTERY_PMU
 	tristate "Apple PMU battery"
 	depends on PPC32 && ADB_PMU
