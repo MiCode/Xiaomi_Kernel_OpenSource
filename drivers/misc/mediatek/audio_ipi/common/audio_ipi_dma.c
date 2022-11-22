@@ -58,8 +58,7 @@
 
 //#define DUMP_DMA_DEBUG
 #if defined(DUMP_DMA_DEBUG)
-#define DMA_DUMP_MAX_SIZE (512)
-static char *g_dump_buf[DMA_DUMP_MAX_SIZE];
+#define DMA_DUMP_UINT32 (4)
 #endif
 
 /*
@@ -243,14 +242,13 @@ int init_audio_ipi_dma_by_dsp(const uint32_t dsp_id)
 		goto IPI_DMA_INIT_EXIT;
 	}
 
-#if !defined(MTK_AUDIO_CM4_DMA_SUPPORT)
 	if (dsp_id == AUDIO_OPENDSP_USE_CM4_A ||
 	    dsp_id == AUDIO_OPENDSP_USE_CM4_B) {
-		pr_info("dsp_id: %u", dsp_id);
+		pr_info("dsp_id: %u not support audio ipi dma", dsp_id);
 		ret = -ENODEV;
 		goto IPI_DMA_INIT_EXIT;
 	}
-#endif
+
 	ret = get_reserve_mem_size(dsp_id, &mem_id, &size);
 	if (ret != 0 || mem_id == 0xFFFFFFFF || size == 0) {
 		pr_info("dsp_id(%u), mem_id(%u), size(%u) ret %d error!!",
@@ -397,6 +395,7 @@ int audio_ipi_dma_init_dsp(const uint32_t dsp_id)
 	uint8_t task = TASK_SCENE_INVALID;
 	uint64_t payload[2];
 
+	ipi_dbg("+dsp_id: %u, task: %d, ret: %d", dsp_id, task, ret);
 	if (dsp_id >= NUM_OPENDSP_TYPE) {
 		pr_info("dsp_id(%u) invalid!!!", dsp_id);
 		return -ENODEV;
@@ -770,7 +769,7 @@ int audio_ipi_dma_free_region(const uint8_t task)
 		}
 		phy_value = offset_to_phy_addr(region->offset, dsp_id);
 		ipi_dbg("task %d, region[%d] sz 0x%x, offset 0x%x, phy_value 0x%x",
-			task, i, region->size, region->offset, phy_value);
+			task, i, region->size, region->offset, (uint32_t)phy_value);
 
 		gen_pool_free(g_dma_pool[dsp_id],
 			      phy_addr_to_vir_addr_val(phy_value, dsp_id),
@@ -904,10 +903,8 @@ static int audio_region_write_from_linear(uint32_t dsp_id,
 	uint8_t *base = NULL;
 	uint32_t w2e = 0;
 #if defined(DUMP_DMA_DEBUG)
-	uint32_t dump_size = DMA_DUMP_MAX_SIZE;
-	uint8_t *dump_start_idx = NULL;
-
-	memset(g_dump_buf, '\0', DMA_DUMP_MAX_SIZE);
+	uint8_t *dump_head_idx = NULL;
+	uint8_t *dump_tail_idx = NULL;
 #endif
 
 	if (!region) {
@@ -948,47 +945,40 @@ static int audio_region_write_from_linear(uint32_t dsp_id,
 
 	base = dma_vir_base(dsp_id) + region->offset;
 #if defined(DUMP_DMA_DEBUG)
-	dump_start_idx = base + region->write_idx;
+	dump_head_idx = base + region->write_idx;
 #endif
 	if (region->read_idx <= region->write_idx) {
 		w2e = region->size - region->write_idx;
 		if (count_align <= w2e) {
 			memcpy(base + region->write_idx, linear_buf, count);
+#if defined(DUMP_DMA_DEBUG)
+			dump_tail_idx = base + region->write_idx + count - DMA_DUMP_UINT32;
+#endif
 			region->write_idx += count_align;
 			if (region->write_idx == region->size)
 				region->write_idx = 0;
 		} else {
 			memcpy(base + region->write_idx, linear_buf, w2e);
 			memcpy(base, (uint8_t *)linear_buf + w2e, count - w2e);
+#if defined(DUMP_DMA_DEBUG)
+			dump_tail_idx = base + count - w2e - DMA_DUMP_UINT32;
+#endif
 			region->write_idx = count_align - w2e;
 		}
 	} else {
 		memcpy(base + region->write_idx, linear_buf, count);
+#if defined(DUMP_DMA_DEBUG)
+		dump_tail_idx = base + region->write_idx + count - DMA_DUMP_UINT32;
+#endif
 		region->write_idx += count_align;
 	}
 	DUMP_REGION(ipi_dbg, "out", region, count);
 #if defined(DUMP_DMA_DEBUG)
-	if (count < DMA_DUMP_MAX_SIZE)
-		dump_size = count;
-
-	if (count_align <= w2e) {
-		memcpy(g_dump_buf, dump_start_idx, dump_size);
-		pr_info("count(%u), dump size(%u), buf(%p)(%s)"
-			, count, dump_size, dump_start_idx, g_dump_buf);
-	} else {
-		if (dump_size <= w2e) {
-			memcpy(g_dump_buf, dump_start_idx, dump_size);
-			pr_info("count(%u), dump size(%u), buf(%p)(%s)"
-				, count, dump_size, dump_start_idx, g_dump_buf);
-		} else {
-			memcpy(g_dump_buf, dump_start_idx, w2e);
-			memcpy(g_dump_buf, base, dump_size - w2e);
-			pr_info(
-				"count(%u), dump size(%u), buf1(%p), buf2(%p), buf1+2(%s)"
-				, count, dump_size, dump_start_idx, base,
-				g_dump_buf);
-		}
-	}
+	pr_info("count(%u), linear_buf head(%p)(0x%x), linear_buf tail(%p)(0x%x), count_align(%u), dma_buf head(%p)(0x%x), dma_buf tail(%p)(0x%x)"
+		, count, (uint32_t *)linear_buf, *(uint32_t *)linear_buf,
+		(uint32_t *)linear_buf + count/4 - 1, *((uint32_t *)linear_buf + count/4 - 1),
+		count_align, (uint32_t *)dump_head_idx, *(uint32_t *)dump_head_idx,
+		(uint32_t *)dump_tail_idx, *((uint32_t *)dump_tail_idx));
 #endif
 	return 0;
 }

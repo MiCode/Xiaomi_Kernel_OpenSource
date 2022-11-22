@@ -13,6 +13,7 @@ enum dsp_id_t {
 	AUDIO_OPENDSP_USE_CM4_B, /* => SCP_B_ID */
 	AUDIO_OPENDSP_USE_HIFI3_A, /* => ADSP_A_ID */
 	AUDIO_OPENDSP_USE_HIFI3_B, /* => ADSP_B_ID */
+	AUDIO_OPENDSP_USE_RV_A, /* => SCP_A_ID */
 	NUM_OPENDSP_TYPE,
 	AUDIO_OPENDSP_ID_INVALID
 };
@@ -27,6 +28,7 @@ bool is_audio_use_adsp(const uint32_t dsp_id);
 uint32_t scp_cid_to_ipi_dsp_id(const uint32_t core_id);
 uint32_t ipi_dsp_id_to_scp_cid(const uint32_t dsp_id);
 bool is_audio_use_scp(const uint32_t dsp_id);
+bool is_audio_scp_support(void);
 
 /* common */
 bool is_audio_dsp_support(const uint32_t dsp_id);

@@ -28,11 +28,10 @@
 #include <adsp_helper.h>
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)
-#include <scp_ipi.h>
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+#include <scp_helper.h>
+#include <scp_audio_ipi.h>
 #endif
-
-
 
 #include <audio_messenger_ipi.h>
 
@@ -57,8 +56,12 @@
  */
 
 #define MAX_DSP_MSG_NUM_IN_QUEUE (64)
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+#define SCP_SHARE_BUF_SIZE 128
+#define DSP_MSG_BUFFER_SIZE ((SCP_SHARE_BUF_SIZE) - 16)
+#else
 #define DSP_MSG_BUFFER_SIZE ((SHARE_BUF_SIZE) - 16)
-
+#endif
 
 /*
  * =============================================================================
@@ -347,6 +350,23 @@ int dsp_dispatch_ipi_hanlder_to_queue_wrap(
 }
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+int scp_dispatch_ipi_hanlder_to_queue_wrap(
+	uint32_t core_id, /* enum adsp_core_id */
+	uint32_t ipi_id,
+	void *buf,
+	uint32_t len,
+	void (*ipi_handler)(int ipi_id, void *buf, unsigned int len))
+{
+	uint32_t dsp_id = scp_cid_to_ipi_dsp_id(core_id);
+
+	if (dsp_id >= NUM_OPENDSP_TYPE)
+		return -1;
+
+	return dsp_dispatch_ipi_hanlder_to_queue(dsp_id, ipi_id, buf, len, ipi_handler);
+}
+#endif
+
 void ipi_queue_init(void)
 {
 	uint32_t dsp_id = 0;
@@ -360,6 +380,12 @@ void ipi_queue_init(void)
 	hook_ipi_queue_send_msg_handler(dsp_send_msg_to_queue_wrap);
 	hook_ipi_queue_recv_msg_hanlder(dsp_dispatch_ipi_hanlder_to_queue_wrap);
 #endif
+
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+	if (is_audio_scp_support())
+		hook_scp_ipi_queue_recv_msg_handler(scp_dispatch_ipi_hanlder_to_queue_wrap);
+#endif
+
 }
 
 int dsp_flush_msg_queue(uint32_t dsp_id)
@@ -1036,13 +1062,17 @@ static int audio_ipi_send_msg_to_adsp(const struct dsp_msg_t *p_dsp_msg,
 static int audio_ipi_send_msg_to_scp(struct dsp_msg_t *p_dsp_msg,
 				     const uint32_t dsp_id)
 {
-#if !IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)
+#if !IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
 	DUMP_IPC_MSG("DSP not support!!", p_dsp_msg);
 	return -ENODEV;
 #else
 	uint32_t core_id = 0xFFFFFFFF;
 	int ret = -1;
 
+	if (!is_audio_use_scp(dsp_id)) {
+		DUMP_IPC_MSG("DSP not support!!", p_dsp_msg);
+		return -ENODEV;
+	}
 	if (p_dsp_msg == NULL)
 		return -EFAULT;
 
@@ -1050,8 +1080,8 @@ static int audio_ipi_send_msg_to_scp(struct dsp_msg_t *p_dsp_msg,
 	if (core_id == 0xFFFFFFFF)
 		return -ENODEV;
 
-	ret = scp_ipi_send(
-		      (enum ipi_id)p_dsp_msg->ipi_id,
+	ret = scp_send_message(
+		      (enum scp_audio_ipi_id)p_dsp_msg->ipi_id,
 		      (void *)p_dsp_msg->buf,
 		      p_dsp_msg->len,
 		      0, /* avoid busy waiting */

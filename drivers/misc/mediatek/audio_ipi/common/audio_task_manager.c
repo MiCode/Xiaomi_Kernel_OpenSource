@@ -13,10 +13,6 @@
 #include <linux/io.h>
 #include <linux/mutex.h>
 
-#if IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)
-#include <scp_ipi.h>
-#endif
-
 #include "audio_log.h"
 #include "audio_assert.h"
 

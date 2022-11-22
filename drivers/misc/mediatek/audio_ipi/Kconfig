@@ -1,6 +1,6 @@
 config MTK_AUDIO_IPI
 	tristate "Enable MTK audio ipi support"
-	depends on MTK_AUDIODSP_SUPPORT
+	depends on MTK_AUDIODSP_SUPPORT || CONFIG_MTK_SCP_AUDIO
 	default m
 	help
 	  This option enables MTK audio ipi modules to communicate
