@@ -851,7 +851,7 @@ static int __init transceiver_init(void)
 {
 	int ret = 0;
 	struct transceiver_device *dev = &transceiver_dev;
-	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
+	struct sched_param param = { .sched_priority = MAX_RT_PRIO / 2 };
 
 	mutex_init(&dev->enable_lock);
 	mutex_init(&dev->flush_lock);
@@ -940,7 +940,7 @@ static int __init transceiver_init(void)
 		pr_err("create thread fail %d\n", ret);
 		goto out_pm_notify;
 	}
-	sched_setscheduler(dev->task, SCHED_FIFO, &param);
+	sched_setscheduler_nocheck(dev->task, SCHED_FIFO, &param);
 
 	/*
 	 * NOTE: handler resgiter must before host ready to avoid lost
