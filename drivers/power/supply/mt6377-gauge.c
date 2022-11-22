@@ -185,13 +185,13 @@
 #define UNIT_CHARGE			(85)
 
 /* AUXADC */
-#define R_VAL_TEMP_2			(15)
-#define R_VAL_TEMP_3			(40)
+#define R_VAL_TEMP_2			(25)
+#define R_VAL_TEMP_3			(35)
 
 #define UNIT_TIME			(50)
 #define UNIT_FG_IAVG			(305176)
 /* IAVG LSB: 305.176 uA */
-#define DEFAULT_R_FG			(20)
+#define DEFAULT_R_FG			(50)
 /* 5mm ohm */
 #define UNIT_FGCAR_ZCV			(85)
 /* CHARGE_LSB = 0.085 uAh */
