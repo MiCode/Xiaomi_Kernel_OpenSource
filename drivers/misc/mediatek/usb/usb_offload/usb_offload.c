@@ -88,6 +88,39 @@ static struct snd_usb_audio *usb_chip[SNDRV_CARDS];
 
 static void uaudio_disconnect_cb(struct snd_usb_audio *chip);
 
+static void adsp_ee_recovery(void)
+{
+	u32 temp, irq_pending;
+	u64 temp_64;
+
+	USB_OFFLOAD_INFO("ADSP EE ++ op:0x%08x, iman:0x%08X, erdp:0x%08X\n",
+			readl(&uodev->xhci->op_regs->status),
+			readl(&uodev->xhci->run_regs->ir_set[1].irq_pending),
+			xhci_read_64(uodev->xhci, &uodev->xhci->ir_set[1].erst_dequeue));
+
+	USB_OFFLOAD_INFO("// Disabling event ring interrupts\n");
+	temp = readl(&uodev->xhci->op_regs->status);
+	writel((temp & ~0x1fff) | STS_EINT, &uodev->xhci->op_regs->status);
+	temp = readl(&uodev->xhci->ir_set[1].irq_pending);
+	writel(ER_IRQ_DISABLE(temp), &uodev->xhci->ir_set[1].irq_pending);
+
+	irq_pending = readl(&uodev->xhci->run_regs->ir_set[1].irq_pending);
+	irq_pending |= IMAN_IP;
+	writel(irq_pending, &uodev->xhci->run_regs->ir_set[1].irq_pending);
+
+	temp_64 = xhci_read_64(uodev->xhci, &uodev->xhci->ir_set[1].erst_dequeue);
+	/* Clear the event handler busy flag (RW1C) */
+	temp_64 |= ERST_EHB;
+	xhci_write_64(uodev->xhci, temp_64, &uodev->xhci->ir_set[1].erst_dequeue);
+
+	uodev->adsp_exception = false;
+
+	USB_OFFLOAD_INFO("ADSP EE -- op:0x%08x, iman:0x%08X, erdp:0x%08X\n",
+			readl(&uodev->xhci->op_regs->status),
+			readl(&uodev->xhci->run_regs->ir_set[1].irq_pending),
+			xhci_read_64(uodev->xhci, &uodev->xhci->ir_set[1].erst_dequeue));
+}
+
 #ifdef CFG_RECOVERY_SUPPORT
 static int usb_offload_event_receive(struct notifier_block *this, unsigned long event,
 			    void *ptr)
@@ -99,11 +132,11 @@ static int usb_offload_event_receive(struct notifier_block *this, unsigned long 
 		pr_info("%s event[%lu]\n", __func__, event);
 		uodev->adsp_exception = true;
 		uodev->adsp_ready = false;
+		adsp_ee_recovery();
 		break;
 	case ADSP_EVENT_READY: {
 		pr_info("%s event[%lu]\n", __func__, event);
 		uodev->adsp_ready = true;
-		uodev->adsp_exception = false;
 		break;
 	}
 	default:
@@ -191,6 +224,7 @@ static void sound_usb_connect(void *data, struct usb_interface *intf, struct snd
 	uodev->adsp_inited = false;
 	uodev->connected = true;
 	uodev->opened = false;
+	uodev->adsp_exception = false;
 }
 
 static void sound_usb_disconnect(void *data, struct usb_interface *intf)
@@ -206,6 +240,7 @@ static void sound_usb_disconnect(void *data, struct usb_interface *intf)
 	uodev->adsp_inited = false;
 	uodev->connected = false;
 	uodev->opened = false;
+	uodev->adsp_exception = false;
 
 	if (chip == USB_AUDIO_IFACE_UNUSED)
 		return;
@@ -912,6 +947,9 @@ static int usb_offload_enable_stream(struct usb_audio_stream_info *uainfo)
 
 	mutex_lock(&uodev->dev_lock);
 	USB_OFFLOAD_INFO("inside mutex\n");
+
+	USB_OFFLOAD_INFO("pcm_substream->wait_time: %d\n",
+			subs->pcm_substream->wait_time);
 
 	if (subs->cur_audiofmt)
 		interface = subs->cur_audiofmt->iface;
@@ -1918,35 +1956,6 @@ static long usb_offload_ioctl(struct file *fp,
 
 		USB_OFFLOAD_INFO("adsp_exception:%d, adsp_ready:%d\n",
 				uodev->adsp_exception, uodev->adsp_ready);
-		if (uodev->adsp_exception) {
-			u32 temp, irq_pending;
-			u64 temp_64;
-
-			USB_OFFLOAD_INFO("ADSP EE ++ op:0x%08x, iman:0x%08X, erdp:0x%08X\n",
-				readl(&uodev->xhci->op_regs->status),
-				readl(&uodev->xhci->run_regs->ir_set[1].irq_pending),
-				xhci_read_64(uodev->xhci, &uodev->xhci->ir_set[1].erst_dequeue));
-
-			USB_OFFLOAD_INFO("// Disabling event ring interrupts\n");
-			temp = readl(&uodev->xhci->op_regs->status);
-			writel((temp & ~0x1fff) | STS_EINT, &uodev->xhci->op_regs->status);
-			temp = readl(&uodev->xhci->ir_set[1].irq_pending);
-			writel(ER_IRQ_DISABLE(temp), &uodev->xhci->ir_set[1].irq_pending);
-
-			irq_pending = readl(&uodev->xhci->run_regs->ir_set[1].irq_pending);
-			irq_pending |= IMAN_IP;
-			writel(irq_pending, &uodev->xhci->run_regs->ir_set[1].irq_pending);
-
-			temp_64 = xhci_read_64(uodev->xhci, &uodev->xhci->ir_set[1].erst_dequeue);
-			/* Clear the event handler busy flag (RW1C) */
-			temp_64 |= ERST_EHB;
-			xhci_write_64(uodev->xhci, temp_64, &uodev->xhci->ir_set[1].erst_dequeue);
-
-			USB_OFFLOAD_INFO("ADSP EE -- op:0x%08x, iman:0x%08X, erdp:0x%08X\n",
-				readl(&uodev->xhci->op_regs->status),
-				readl(&uodev->xhci->run_regs->ir_set[1].irq_pending),
-				xhci_read_64(uodev->xhci, &uodev->xhci->ir_set[1].erst_dequeue));
-		}
 
 		ret = send_init_ipi_msg_to_adsp(xhci_mem);
 		if (ret || (value == 0)) {
