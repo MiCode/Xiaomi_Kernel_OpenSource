@@ -68,15 +68,10 @@ enum ISP_DEV_NODE_ENUM {
 	ISP_CAM_B_IDX,
 	ISP_CAM_C_IDX,
 	ISP_CAMSV_START_IDX,
-#if (DISABLE_CAMSV_TOP0 == 0)
 	ISP_CAMSV0_IDX = ISP_CAMSV_START_IDX,
 	ISP_CAMSV1_IDX,
 	ISP_CAMSV2_IDX,
 	ISP_CAMSV3_IDX,
-#else
-	ISP_CAMSV2_IDX = ISP_CAMSV_START_IDX,
-	ISP_CAMSV3_IDX,
-#endif
 	ISP_CAMSV4_IDX,
 	ISP_CAMSV5_IDX,
 	ISP_CAMSV6_IDX,
@@ -103,6 +98,7 @@ enum CAM_FrameST {
 	CAM_FST_NORMAL             = 0,
 	CAM_FST_DROP_FRAME         = 1,
 	CAM_FST_LAST_WORKING_FRAME = 2,
+	CAM_FST_BLOCK_FRAME        = 3, /* for CQ_VS_ERR recovery*/
 };
 
 /**
@@ -125,15 +121,10 @@ enum ISP_IRQ_TYPE_ENUM {
 	ISP_IRQ_TYPE_INT_CAM_B_ST,
 	ISP_IRQ_TYPE_INT_CAM_C_ST,
 	ISP_IRQ_TYPE_INT_CAMSV_START_ST,
-#if (DISABLE_CAMSV_TOP0 == 0)
 	ISP_IRQ_TYPE_INT_CAMSV_0_ST = ISP_IRQ_TYPE_INT_CAMSV_START_ST,
 	ISP_IRQ_TYPE_INT_CAMSV_1_ST,
 	ISP_IRQ_TYPE_INT_CAMSV_2_ST,
 	ISP_IRQ_TYPE_INT_CAMSV_3_ST,
-#else
-	ISP_IRQ_TYPE_INT_CAMSV_2_ST = ISP_IRQ_TYPE_INT_CAMSV_START_ST,
-	ISP_IRQ_TYPE_INT_CAMSV_3_ST,
-#endif
 	ISP_IRQ_TYPE_INT_CAMSV_4_ST,
 	ISP_IRQ_TYPE_INT_CAMSV_5_ST,
 	ISP_IRQ_TYPE_INT_CAMSV_6_ST,
@@ -604,6 +595,12 @@ struct ISP_RAW_INT_STATUS {
 	unsigned int ispInt5Err;
 };
 
+struct ISP_CQ0_NOTE_INFO {
+	unsigned int cq0_data[ISP_IRQ_TYPE_INT_CAMSV_START_ST][3];
+	unsigned int exposureNum;
+	unsigned int cqCnt;
+};
+
 /*******************************************************************************
  * pass1 real time buffer control use cq0c
  ******************************************************************************/
@@ -697,7 +694,8 @@ enum ISP_CMD_ENUM {
 	ISP_CMD_ION_UNMAP_PA, /* AOSP ION: unmap physical address from fd */
 	ISP_CMD_ION_UNMAP_PA_BY_MODULE,
 	ISP_CMD_ION_GET_PA,
-	ISP_CMD_SET_VIR_CQCNT
+	ISP_CMD_SET_VIR_CQCNT,
+	ISP_CMD_POWER_CTRL
 };
 
 enum ISP_HALT_DMA_ENUM {
@@ -788,6 +786,9 @@ enum ISP_HALT_DMA_ENUM {
 
 #define ISP_SET_VIR_CQCNT \
 	_IOWR(ISP_MAGIC, ISP_CMD_SET_VIR_CQCNT, unsigned int*)
+
+#define ISP_POWER_CTRL                            \
+	_IOWR(ISP_MAGIC, ISP_CMD_POWER_CTRL, unsigned int*)
 
 #define ISP_SET_PM_QOS                           \
 	_IOWR(ISP_MAGIC, ISP_CMD_SET_PM_QOS, unsigned int)
@@ -902,6 +903,15 @@ enum ISP_HALT_DMA_ENUM {
 
 #define COMPAT_ISP_VF_LOG                        \
 	_IOW(ISP_MAGIC, ISP_CMD_VF_LOG, compat_uptr_t)
+
+#define COMPAT_ISP_NOTE_CQTHR0_BASE              \
+	_IOWR(ISP_MAGIC, ISP_CMD_NOTE_CQTHR0_BASE, compat_uptr_t)
+
+#define COMPAT_ISP_SET_VIR_CQCNT                 \
+	_IOWR(ISP_MAGIC, ISP_CMD_SET_VIR_CQCNT, compat_uptr_t)
+
+#define COMPAT_ISP_POWER_CTRL                 \
+	_IOWR(ISP_MAGIC, ISP_CMD_POWER_CTRL, compat_uptr_t)
 
 #define COMPAT_ISP_DUMP_BUFFER                   \
 	_IOWR(ISP_MAGIC,                         \

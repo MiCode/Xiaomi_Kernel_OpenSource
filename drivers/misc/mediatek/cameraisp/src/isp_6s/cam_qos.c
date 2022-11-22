@@ -18,9 +18,10 @@
 #include <linux/of_platform.h>
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
-#include "inc/cam_qos.h"
-//#include <linux/interconnect.h>
+
 #include "mtk-interconnect.h"
+#include "inc/cam_qos.h"
+#include "inc/cam_common.h"
 
 #define CONFIG_MTK_QOS_SUPPORT_ENABLE
 //#define EP_STAGE
@@ -30,14 +31,6 @@
 #ifndef EP_STAGE
 // #include <mmdvfs_pmqos.h>
 #include <linux/pm_qos.h>
-
-#ifdef CAMERA_ISP_MT6873
-#include <mt6873-larb-port.h>
-#include <dt-bindings/memory/mt6873-larb-port.h>
-#elif defined(CAMERA_ISP_MT6853)
-#include <mt6853-larb-port.h>
-#include <dt-bindings/memory/mt6853-larb-port.h>
-#endif
 
 #include <dt-bindings/interconnect/mtk,mmqos.h>
 
@@ -99,6 +92,18 @@ static u32 target_clk;
 
 #ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
 
+/* dts data: mediatek,platform */
+static unsigned int g_cam_qos_platform_id;
+
+/* dts data: lx_cam_xxx = <M4U_PORT_LX_CAM_XXX> */
+static struct m4u_port_larbX_cam m4u_port;
+
+#ifdef CAM_QOS_DBGFS
+#include <linux/debugfs.h>
+
+struct dentry *cam_qos_dbg_root;
+#endif
+
 void mtk_pmqos_remove(enum ISP_IRQ_TYPE_ENUM module)
 {
 	switch (module) {
@@ -106,10 +111,8 @@ void mtk_pmqos_remove(enum ISP_IRQ_TYPE_ENUM module)
 	case ISP_IRQ_TYPE_INT_CAM_B_ST:
 	case ISP_IRQ_TYPE_INT_CAM_C_ST:
 		break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
-#endif
 	case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_4_ST:
@@ -126,6 +129,11 @@ void mtk_pmqos_remove(enum ISP_IRQ_TYPE_ENUM module)
 /* if module and portID are valid, return true. */
 bool check_module_and_portID(enum ISP_IRQ_TYPE_ENUM module, u32 portID)
 {
+	if (IS_2RAW_PLATFORM(g_cam_qos_platform_id)) {
+		if (module == ISP_IRQ_TYPE_INT_CAM_C_ST)
+			return false;
+	}
+
 	switch (module) {
 	case ISP_IRQ_TYPE_INT_CAM_A_ST:
 	case ISP_IRQ_TYPE_INT_CAM_B_ST:
@@ -135,10 +143,8 @@ bool check_module_and_portID(enum ISP_IRQ_TYPE_ENUM module, u32 portID)
 			return false;
 		}
 		break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
-#endif
 	case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_4_ST:
@@ -160,24 +166,26 @@ bool check_module_and_portID(enum ISP_IRQ_TYPE_ENUM module, u32 portID)
 
 void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID)
 {
+	unsigned int slave_common_id;
+
 	if (check_module_and_portID(module, portID) == false)
 		return;
 
-	switch (module) {
+	SET_2ND_SLAVE_COMMON(g_cam_qos_platform_id, slave_common_id);
 
-#if (DISABLE_CAMSV_TOP0 == 0)
-#ifdef CAMERA_ISP_MT6873
+	switch (module) {
 	case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 		switch (portID) {
 		case _camsv_imgo_:
 			gSV_BW_REQ[module][portID] = mtk_icc_get(dev,
-				MASTER_LARB_PORT(M4U_PORT_L14_CAM_CAMSV0),
+				MASTER_LARB_PORT(m4u_port.l14_cam_camsv0),
 				SLAVE_COMMON(0));
 			break;
 		case _camsv_ufeo_:
+			/* isp6s HW exists, but sw no supports. */
 			gSV_BW_REQ[module][portID] = mtk_icc_get(dev,
-				MASTER_LARB_PORT(M4U_PORT_L13_CAM_CAMSV1),
-				SLAVE_COMMON(0));
+				MASTER_LARB_PORT(m4u_port.l13_cam_camsv1),
+				slave_common_id);
 			break;
 		default:
 			LOG_NOTICE("modlue(%d): unsupported port:%d\n", module, portID);
@@ -188,63 +196,26 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 		switch (portID) {
 		case _camsv_imgo_:
 			gSV_BW_REQ[module][portID] = mtk_icc_get(dev,
-				MASTER_LARB_PORT(M4U_PORT_L13_CAM_CAMSV2),
-				SLAVE_COMMON(0));
+				MASTER_LARB_PORT(m4u_port.l13_cam_camsv2),
+				slave_common_id);
 			break;
 		case _camsv_ufeo_:
 			gSV_BW_REQ[module][portID] = mtk_icc_get(dev,
-				MASTER_LARB_PORT(M4U_PORT_L13_CAM_CAMSV3),
-				SLAVE_COMMON(0));
+				MASTER_LARB_PORT(m4u_port.l13_cam_camsv3),
+				slave_common_id);
 			break;
 		default:
 			LOG_NOTICE("modlue(%d): unsupported port:%d\n", module, portID);
 			break;
 		}
 		break;
-#elif defined(CAMERA_ISP_MT6853)
-	case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
-		switch (portID) {
-		case _camsv_imgo_:
-			gSV_BW_REQ[module][portID] = mtk_icc_get(dev,
-				MASTER_LARB_PORT(M4U_PORT_L14_CAM_RESERVE4),
-				SLAVE_COMMON(0));
-			break;
-		case _camsv_ufeo_:
-			gSV_BW_REQ[module][portID] = mtk_icc_get(dev,
-				MASTER_LARB_PORT(M4U_PORT_L13_CAM_RESERVE1),
-				SLAVE_COMMON(0));
-			break;
-		default:
-			LOG_NOTICE("modlue(%d): unsupported port:%d\n", module, portID);
-			break;
-		}
-		break;
-	case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
-		switch (portID) {
-		case _camsv_imgo_:
-			gSV_BW_REQ[module][portID] = mtk_icc_get(dev,
-				MASTER_LARB_PORT(M4U_PORT_L13_CAM_RESERVE2),
-				SLAVE_COMMON(0));
-			break;
-		case _camsv_ufeo_:
-			gSV_BW_REQ[module][portID] = mtk_icc_get(dev,
-				MASTER_LARB_PORT(M4U_PORT_L13_CAM_RESERVE3),
-				SLAVE_COMMON(0));
-			break;
-		default:
-			LOG_NOTICE("modlue(%d): unsupported port:%d\n", module, portID);
-			break;
-		}
-		break;
-#endif
-#endif
 	case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
 		switch (portID) {
 		case _camsv_imgo_:
-			gSV_BW_REQ[module - ISP_IRQ_TYPE_INT_CAMSV_START_ST][portID] = mtk_icc_get(dev,
-				MASTER_LARB_PORT(M4U_PORT_L13_CAM_CAMSV4),
-				SLAVE_COMMON(0));
+			gSV_BW_REQ[module - ISP_IRQ_TYPE_INT_CAMSV_START_ST][portID] =
+				mtk_icc_get(dev, MASTER_LARB_PORT(m4u_port.l13_cam_camsv4),
+				slave_common_id);
 			break;
 		default:
 			LOG_NOTICE("modlue(%d): unsupported port:%d\n", module, portID);
@@ -255,9 +226,9 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 	case ISP_IRQ_TYPE_INT_CAMSV_5_ST:
 		switch (portID) {
 		case _camsv_imgo_:
-			gSV_BW_REQ[module - ISP_IRQ_TYPE_INT_CAMSV_START_ST][portID] = mtk_icc_get(dev,
-				MASTER_LARB_PORT(M4U_PORT_L13_CAM_CAMSV5),
-				SLAVE_COMMON(0));
+			gSV_BW_REQ[module - ISP_IRQ_TYPE_INT_CAMSV_START_ST][portID] =
+				mtk_icc_get(dev, MASTER_LARB_PORT(m4u_port.l13_cam_camsv5),
+				slave_common_id);
 			break;
 		}
 		break;
@@ -265,9 +236,9 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 	case ISP_IRQ_TYPE_INT_CAMSV_7_ST:
 		switch (portID) {
 		case _camsv_imgo_:
-			gSV_BW_REQ[module - ISP_IRQ_TYPE_INT_CAMSV_START_ST][portID] = mtk_icc_get(dev,
-				MASTER_LARB_PORT(M4U_PORT_L13_CAM_CAMSV6),
-				SLAVE_COMMON(0));
+			gSV_BW_REQ[module - ISP_IRQ_TYPE_INT_CAMSV_START_ST][portID] =
+				mtk_icc_get(dev, MASTER_LARB_PORT(m4u_port.l13_cam_camsv6),
+				slave_common_id);
 			break;
 		}
 		break;
@@ -277,18 +248,18 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 			switch (module) {
 			case ISP_IRQ_TYPE_INT_CAM_A_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L16_CAM_IMGO_R1_A),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l16_cam_imgo_r1_a),
+					slave_common_id);
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_B_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L17_CAM_IMGO_R1_B),
+					MASTER_LARB_PORT(m4u_port.l17_cam_imgo_r1_b),
 					SLAVE_COMMON(0));
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_C_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L18_CAM_IMGO_R1_C),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l18_cam_imgo_r1_c),
+					slave_common_id);
 				break;
 			default:
 				LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
@@ -301,18 +272,18 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 			switch (module) {
 			case ISP_IRQ_TYPE_INT_CAM_A_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L16_CAM_LTMSO_R1_A),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l16_cam_ltmso_r1_a),
+					slave_common_id);
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_B_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L17_CAM_LTMSO_R1_B),
+					MASTER_LARB_PORT(m4u_port.l17_cam_ltmso_r1_b),
 					SLAVE_COMMON(0));
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_C_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L18_CAM_LTMSO_R1_C),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l18_cam_ltmso_r1_c),
+					slave_common_id);
 				break;
 			default:
 				LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
@@ -323,18 +294,18 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 			switch (module) {
 			case ISP_IRQ_TYPE_INT_CAM_A_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L16_CAM_RRZO_R1_A),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l16_cam_rrzo_r1_a),
+					slave_common_id);
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_B_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L17_CAM_RRZO_R1_B),
+					MASTER_LARB_PORT(m4u_port.l17_cam_rrzo_r1_b),
 					SLAVE_COMMON(0));
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_C_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L18_CAM_RRZO_R1_C),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l18_cam_rrzo_r1_c),
+					slave_common_id);
 				break;
 			default:
 				LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
@@ -345,18 +316,18 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 			switch (module) {
 			case ISP_IRQ_TYPE_INT_CAM_A_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L16_CAM_LCESO_R1_A),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l16_cam_lceso_r1_a),
+					slave_common_id);
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_B_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L17_CAM_LCESO_R1_B),
+					MASTER_LARB_PORT(m4u_port.l17_cam_lceso_r1_b),
 					SLAVE_COMMON(0));
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_C_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L18_CAM_LCESO_R1_C),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l18_cam_lceso_r1_c),
+					slave_common_id);
 				break;
 			default:
 				LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
@@ -367,18 +338,18 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 			switch (module) {
 			case ISP_IRQ_TYPE_INT_CAM_A_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L16_CAM_AAHO_R1_A),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l16_cam_aaho_r1_a),
+					slave_common_id);
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_B_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L17_CAM_AAHO_R1_B),
+					MASTER_LARB_PORT(m4u_port.l17_cam_aaho_r1_b),
 					SLAVE_COMMON(0));
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_C_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L18_CAM_AAHO_R1_C),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l18_cam_aaho_r1_c),
+					slave_common_id);
 				break;
 			default:
 				LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
@@ -389,18 +360,18 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 			switch (module) {
 			case ISP_IRQ_TYPE_INT_CAM_A_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L16_CAM_AAO_R1_A),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l16_cam_aao_r1_a),
+					slave_common_id);
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_B_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L17_CAM_AAO_R1_B),
+					MASTER_LARB_PORT(m4u_port.l17_cam_aao_r1_b),
 					SLAVE_COMMON(0));
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_C_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L18_CAM_AAO_R1_C),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l18_cam_aao_r1_c),
+					slave_common_id);
 				break;
 			default:
 				LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
@@ -412,18 +383,18 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 			switch (module) {
 			case ISP_IRQ_TYPE_INT_CAM_A_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L16_CAM_FLKO_R1_A),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l16_cam_flko_r1_a),
+					slave_common_id);
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_B_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L17_CAM_FLKO_R1_B),
+					MASTER_LARB_PORT(m4u_port.l17_cam_flko_r1_b),
 					SLAVE_COMMON(0));
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_C_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L18_CAM_FLKO_R1_C),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l18_cam_flko_r1_c),
+					slave_common_id);
 				break;
 			default:
 				LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
@@ -435,18 +406,18 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 			switch (module) {
 			case ISP_IRQ_TYPE_INT_CAM_A_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L16_CAM_AFO_R1_A),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l16_cam_afo_r1_a),
+					slave_common_id);
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_B_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L17_CAM_AFO_R1_B),
+					MASTER_LARB_PORT(m4u_port.l17_cam_afo_r1_b),
 					SLAVE_COMMON(0));
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_C_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L18_CAM_AFO_R1_C),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l18_cam_afo_r1_c),
+					slave_common_id);
 				break;
 			default:
 				LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
@@ -460,18 +431,18 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 			switch (module) {
 			case ISP_IRQ_TYPE_INT_CAM_A_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L16_CAM_RSSO_R1_A),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l16_cam_rsso_r1_a),
+					slave_common_id);
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_B_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L17_CAM_RSSO_R1_B),
+					MASTER_LARB_PORT(m4u_port.l17_cam_rsso_r1_b),
 					SLAVE_COMMON(0));
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_C_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L18_CAM_RSSO_R1_C),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l18_cam_rsso_r1_c),
+					slave_common_id);
 				break;
 			default:
 				LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
@@ -484,18 +455,18 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 			switch (module) {
 			case ISP_IRQ_TYPE_INT_CAM_A_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L16_CAM_CRZO_R1_A),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l16_cam_crzo_r1_a),
+					slave_common_id);
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_B_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L17_CAM_CRZO_R1_B),
+					MASTER_LARB_PORT(m4u_port.l17_cam_crzo_r1_b),
 					SLAVE_COMMON(0));
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_C_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L18_CAM_CRZO_R1_C),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l18_cam_crzo_r1_c),
+					slave_common_id);
 				break;
 			default:
 				LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
@@ -508,18 +479,18 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 			switch (module) {
 			case ISP_IRQ_TYPE_INT_CAM_A_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L16_CAM_YUVO_R1_A),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l16_cam_yuvo_r1_a),
+					slave_common_id);
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_B_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L17_CAM_YUVO_R1_B),
+					MASTER_LARB_PORT(m4u_port.l17_cam_yuvo_r1_b),
 					SLAVE_COMMON(0));
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_C_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L18_CAM_YUVO_R1_C),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l18_cam_yuvo_r1_c),
+					slave_common_id);
 				break;
 			default:
 				LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
@@ -530,18 +501,18 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 			switch (module) {
 			case ISP_IRQ_TYPE_INT_CAM_A_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L16_CAM_RAWI_R2_A),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l16_cam_rawi_r2_a),
+					slave_common_id);
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_B_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L17_CAM_RAWI_R2_B),
+					MASTER_LARB_PORT(m4u_port.l17_cam_rawi_r2_b),
 					SLAVE_COMMON(0));
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_C_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L18_CAM_RAWI_R2_C),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l18_cam_rawi_r2_c),
+					slave_common_id);
 				break;
 			default:
 				LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
@@ -552,18 +523,18 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 			switch (module) {
 			case ISP_IRQ_TYPE_INT_CAM_A_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L16_CAM_RAWI_R3_A),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l16_cam_rawi_r3_a),
+					slave_common_id);
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_B_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L17_CAM_RAWI_R3_B),
+					MASTER_LARB_PORT(m4u_port.l17_cam_rawi_r3_b),
 					SLAVE_COMMON(0));
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_C_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L18_CAM_RAWI_R3_C),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l18_cam_rawi_r3_c),
+					slave_common_id);
 				break;
 			default:
 				LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
@@ -577,18 +548,18 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 			switch (module) {
 			case ISP_IRQ_TYPE_INT_CAM_A_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L16_CAM_BPCI_R1_A),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l16_cam_bpci_r1_a),
+					slave_common_id);
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_B_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L17_CAM_BPCI_R1_B),
+					MASTER_LARB_PORT(m4u_port.l17_cam_bpci_r1_b),
 					SLAVE_COMMON(0));
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_C_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L18_CAM_BPCI_R1_C),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l18_cam_bpci_r1_c),
+					slave_common_id);
 				break;
 			default:
 				LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
@@ -600,18 +571,18 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 			switch (module) {
 			case ISP_IRQ_TYPE_INT_CAM_A_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L16_CAM_CQI_R1_A),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l16_cam_cqi_r1_a),
+					slave_common_id);
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_B_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L17_CAM_CQI_R1_B),
+					MASTER_LARB_PORT(m4u_port.l17_cam_cqi_r1_b),
 					SLAVE_COMMON(0));
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_C_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L18_CAM_CQI_R1_C),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l18_cam_cqi_r1_c),
+					slave_common_id);
 				break;
 			default:
 				LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
@@ -622,18 +593,18 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 			switch (module) {
 			case ISP_IRQ_TYPE_INT_CAM_A_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L16_CAM_LSCI_R1_A),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l16_cam_lsci_r1_a),
+					slave_common_id);
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_B_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L17_CAM_LSCI_R1_B),
+					MASTER_LARB_PORT(m4u_port.l17_cam_lsci_r1_b),
 					SLAVE_COMMON(0));
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_C_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L18_CAM_LSCI_R1_C),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l18_cam_lsci_r1_c),
+					slave_common_id);
 				break;
 			default:
 				LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
@@ -644,18 +615,18 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 			switch (module) {
 			case ISP_IRQ_TYPE_INT_CAM_A_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L16_CAM_UFDI_R2_A),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l16_cam_ufdi_r2_a),
+					slave_common_id);
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_B_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L17_CAM_UFDI_R2_B),
+					MASTER_LARB_PORT(m4u_port.l17_cam_ufdi_r2_b),
 					SLAVE_COMMON(0));
 				break;
 			case ISP_IRQ_TYPE_INT_CAM_C_ST:
 				gCAM_BW_REQ[module][portID] = mtk_icc_get(dev,
-					MASTER_LARB_PORT(M4U_PORT_L18_CAM_UFDI_R2_C),
-					SLAVE_COMMON(0));
+					MASTER_LARB_PORT(m4u_port.l18_cam_ufdi_r2_c),
+					slave_common_id);
 				break;
 			default:
 				LOG_NOTICE("portID(%d): unsupported module:%d\n", portID, module);
@@ -672,6 +643,11 @@ void mtk_pmqos_add(struct device *dev, enum ISP_IRQ_TYPE_ENUM module, u32 portID
 
 void mtk_pmqos_set(enum ISP_IRQ_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 {
+	if (IS_2RAW_PLATFORM(g_cam_qos_platform_id)) {
+		if (module == ISP_IRQ_TYPE_INT_CAM_C_ST)
+			return;
+	}
+
 	switch (module) {
 	case ISP_IRQ_TYPE_INT_CAM_A_ST:
 	case ISP_IRQ_TYPE_INT_CAM_B_ST:
@@ -736,10 +712,8 @@ void mtk_pmqos_set(enum ISP_IRQ_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 		break;
 	}
 	break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
-#endif
 	case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_4_ST:
@@ -752,7 +726,8 @@ void mtk_pmqos_set(enum ISP_IRQ_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 			//BW_COMP_DEFAULT
 			int ret;
 
-			ret = mtk_icc_set_bw(gSV_BW_REQ[module - ISP_IRQ_TYPE_INT_CAMSV_START_ST][portID],
+			ret = mtk_icc_set_bw(
+				gSV_BW_REQ[module - ISP_IRQ_TYPE_INT_CAMSV_START_ST][portID],
 				MBps_to_icc(bw.avg), MBps_to_icc(bw.peak));
 
 			if (ret)
@@ -765,7 +740,8 @@ void mtk_pmqos_set(enum ISP_IRQ_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 			//BW_COMP_NONE
 			int ret;
 
-			ret = mtk_icc_set_bw(gSV_BW_REQ[module - ISP_IRQ_TYPE_INT_CAMSV_START_ST][portID],
+			ret = mtk_icc_set_bw(
+				gSV_BW_REQ[module - ISP_IRQ_TYPE_INT_CAMSV_START_ST][portID],
 				MBps_to_icc(bw.avg), MBps_to_icc(bw.peak));
 
 			if (ret)
@@ -788,6 +764,11 @@ void mtk_pmqos_clr(enum ISP_IRQ_TYPE_ENUM module)
 {
 	unsigned short portID = 0;
 
+	if (IS_2RAW_PLATFORM(g_cam_qos_platform_id)) {
+		if (module == ISP_IRQ_TYPE_INT_CAM_C_ST)
+			return;
+	}
+
 	switch (module) {
 	case ISP_IRQ_TYPE_INT_CAM_A_ST:
 	case ISP_IRQ_TYPE_INT_CAM_B_ST:
@@ -803,10 +784,8 @@ void mtk_pmqos_clr(enum ISP_IRQ_TYPE_ENUM module)
 		}
 	}
 		break;
-#if (DISABLE_CAMSV_TOP0 == 0)
 	case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
-#endif
 	case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
 	case ISP_IRQ_TYPE_INT_CAMSV_4_ST:
@@ -817,7 +796,8 @@ void mtk_pmqos_clr(enum ISP_IRQ_TYPE_ENUM module)
 		int ret;
 
 		for (portID = _camsv_imgo_; portID < _camsv_max_; portID++) {
-			ret = mtk_icc_set_bw(gSV_BW_REQ[module - ISP_IRQ_TYPE_INT_CAMSV_START_ST][portID], 0, 0);
+			ret = mtk_icc_set_bw(
+				gSV_BW_REQ[module - ISP_IRQ_TYPE_INT_CAMSV_START_ST][portID], 0, 0);
 
 			if (ret)
 				LOG_NOTICE("mtk_icc_set_bw(0, 0) failed(%d)\n", ret);
@@ -912,7 +892,7 @@ int ISP_SetPMQOS(
 			ptr = (struct ISP_BW *)pvalue;
 			mtk_pmqos_set(module, i, ptr[i]);
 		}
-		LOG_INF(
+		LOG_DBG(
 			"PM_QoS: module[%d]-bw_update, bw(peak avg)(%d %d) MB/s\n",
 			module, ptr[_rrzo_].peak, ptr[_rrzo_].avg);
 	}
@@ -951,7 +931,7 @@ int ISP_SetPMQOS(
 		return 1;
 #else
 		unsigned int num_available, i = 0;
-		u32 *speeds;
+		u32 *speeds = NULL;
 		struct dev_pm_opp *opp;
 		unsigned long freq;
 		#define STR_SIZE (128)
@@ -978,12 +958,17 @@ int ISP_SetPMQOS(
 					i++;
 					dev_pm_opp_put(opp);
 				}
+			} else
+				LOG_INF("Error: kcalloc speeds(%d) failed\n", num_available);
+		}
+		if (speeds) {
+			for (i = 0; i < num_available; i++) {
+				do_div(speeds[i], 1000000); /* Hz to MHz */
+				pvalue[i] = speeds[i];
 			}
+			kfree(speeds);
 		}
-		for (i = 0; i < num_available; i++) {
-			do_div(speeds[i], 1000000); /* Hz to MHz */
-			pvalue[i] = speeds[i];
-		}
+
 		if (num_available > 0)
 			target_clk = pvalue[num_available - 1];
 
@@ -1069,15 +1054,10 @@ int SV_SetPMQOS(
 		struct ISP_BW *ptr;
 
 		for (; i < _camsv_max_; i++) {
-#if (DISABLE_CAMSV_TOP0 == 0)
 			if ((i == _camsv_ufeo_) &&
 				(module < ISP_IRQ_TYPE_INT_CAMSV_0_ST ||
 				module > ISP_IRQ_TYPE_INT_CAMSV_1_ST))
 				continue;
-#else
-			if (i == _camsv_ufeo_)
-				continue;
-#endif
 			ptr = (struct ISP_BW *)pvalue;
 			mtk_pmqos_set(module, i, ptr[i]);
 		}
@@ -1124,7 +1104,7 @@ int SV_SetPMQOS(
 		return 1;
 #else
 		unsigned int num_available, i = 0;
-		u32 *speeds;
+		u32 *speeds = NULL;
 		struct dev_pm_opp *opp;
 		unsigned long freq;
 
@@ -1147,11 +1127,15 @@ int SV_SetPMQOS(
 					i++;
 					dev_pm_opp_put(opp);
 				}
-			}
+			} else
+				LOG_INF("Error: kcalloc speeds(%d) failed\n", num_available);
 		}
-		for (i = 0; i < num_available; i++) {
-			do_div(speeds[i], 1000000); /* Hz to MHz */
-			pvalue[i] = speeds[i];
+		if (speeds) {
+			for (i = 0; i < num_available; i++) {
+				do_div(speeds[i], 1000000); /* Hz to MHz */
+				pvalue[i] = speeds[i];
+			}
+			kfree(speeds);
 		}
 		if (num_available > 0)
 			target_clk = pvalue[num_available - 1];
@@ -1177,6 +1161,132 @@ int SV_SetPMQOS(
 }
 EXPORT_SYMBOL_GPL(SV_SetPMQOS);
 
+/* Parse m4u port from DTS. */
+static void cam_qos_parse_m4u_port(struct platform_device *pdev)
+{
+	of_property_read_u32(pdev->dev.of_node, "l13_cam_mrawi", &(m4u_port.l13_cam_mrawi));
+	of_property_read_u32(pdev->dev.of_node, "l13_cam_mrawo0", &(m4u_port.l13_cam_mrawo0));
+	of_property_read_u32(pdev->dev.of_node, "l13_cam_mrawo1", &(m4u_port.l13_cam_mrawo1));
+	of_property_read_u32(pdev->dev.of_node, "l13_cam_camsv1", &(m4u_port.l13_cam_camsv1));
+	of_property_read_u32(pdev->dev.of_node, "l13_cam_camsv2", &(m4u_port.l13_cam_camsv2));
+	of_property_read_u32(pdev->dev.of_node, "l13_cam_camsv3", &(m4u_port.l13_cam_camsv3));
+	of_property_read_u32(pdev->dev.of_node, "l13_cam_camsv4", &(m4u_port.l13_cam_camsv4));
+	of_property_read_u32(pdev->dev.of_node, "l13_cam_camsv5", &(m4u_port.l13_cam_camsv5));
+	of_property_read_u32(pdev->dev.of_node, "l13_cam_camsv6", &(m4u_port.l13_cam_camsv6));
+
+	of_property_read_u32(pdev->dev.of_node, "l14_cam_mrawi", &(m4u_port.l14_cam_mrawi));
+	of_property_read_u32(pdev->dev.of_node, "l14_cam_mrawo0", &(m4u_port.l14_cam_mrawo0));
+	of_property_read_u32(pdev->dev.of_node, "l14_cam_mrawo1", &(m4u_port.l14_cam_mrawo1));
+	of_property_read_u32(pdev->dev.of_node, "l14_cam_camsv0", &(m4u_port.l14_cam_camsv0));
+
+	of_property_read_u32(pdev->dev.of_node,
+		"l16_cam_imgo_r1_a", &(m4u_port.l16_cam_imgo_r1_a));
+	of_property_read_u32(pdev->dev.of_node,
+		"l16_cam_rrzo_r1_a", &(m4u_port.l16_cam_rrzo_r1_a));
+	of_property_read_u32(pdev->dev.of_node,
+		"l16_cam_cqi_r1_a", &(m4u_port.l16_cam_cqi_r1_a));
+	of_property_read_u32(pdev->dev.of_node,
+		"l16_cam_bpci_r1_a", &(m4u_port.l16_cam_bpci_r1_a));
+	of_property_read_u32(pdev->dev.of_node,
+		"l16_cam_yuvo_r1_a", &(m4u_port.l16_cam_yuvo_r1_a));
+	of_property_read_u32(pdev->dev.of_node,
+		"l16_cam_ufdi_r2_a", &(m4u_port.l16_cam_ufdi_r2_a));
+	of_property_read_u32(pdev->dev.of_node,
+		"l16_cam_rawi_r2_a", &(m4u_port.l16_cam_rawi_r2_a));
+	of_property_read_u32(pdev->dev.of_node,
+		"l16_cam_rawi_r3_a", &(m4u_port.l16_cam_rawi_r3_a));
+	of_property_read_u32(pdev->dev.of_node,
+		"l16_cam_aao_r1_a", &(m4u_port.l16_cam_aao_r1_a));
+	of_property_read_u32(pdev->dev.of_node,
+		"l16_cam_afo_r1_a", &(m4u_port.l16_cam_afo_r1_a));
+	of_property_read_u32(pdev->dev.of_node,
+		"l16_cam_flko_r1_a", &(m4u_port.l16_cam_flko_r1_a));
+	of_property_read_u32(pdev->dev.of_node,
+		"l16_cam_lceso_r1_a", &(m4u_port.l16_cam_lceso_r1_a));
+	of_property_read_u32(pdev->dev.of_node,
+		"l16_cam_crzo_r1_a", &(m4u_port.l16_cam_crzo_r1_a));
+	of_property_read_u32(pdev->dev.of_node,
+		"l16_cam_ltmso_r1_a", &(m4u_port.l16_cam_ltmso_r1_a));
+	of_property_read_u32(pdev->dev.of_node,
+		"l16_cam_rsso_r1_a", &(m4u_port.l16_cam_rsso_r1_a));
+	of_property_read_u32(pdev->dev.of_node,
+		"l16_cam_aaho_r1_a", &(m4u_port.l16_cam_aaho_r1_a));
+	of_property_read_u32(pdev->dev.of_node,
+		"l16_cam_lsci_r1_a", &(m4u_port.l16_cam_lsci_r1_a));
+
+	of_property_read_u32(pdev->dev.of_node,
+		"l17_cam_imgo_r1_b", &(m4u_port.l17_cam_imgo_r1_b));
+	of_property_read_u32(pdev->dev.of_node,
+		"l17_cam_rrzo_r1_b", &(m4u_port.l17_cam_rrzo_r1_b));
+	of_property_read_u32(pdev->dev.of_node,
+		"l17_cam_cqi_r1_b", &(m4u_port.l17_cam_cqi_r1_b));
+	of_property_read_u32(pdev->dev.of_node,
+		"l17_cam_bpci_r1_b", &(m4u_port.l17_cam_bpci_r1_b));
+	of_property_read_u32(pdev->dev.of_node,
+		"l17_cam_yuvo_r1_b", &(m4u_port.l17_cam_yuvo_r1_b));
+	of_property_read_u32(pdev->dev.of_node,
+		"l17_cam_ufdi_r2_b", &(m4u_port.l17_cam_ufdi_r2_b));
+	of_property_read_u32(pdev->dev.of_node,
+		"l17_cam_rawi_r2_b", &(m4u_port.l17_cam_rawi_r2_b));
+	of_property_read_u32(pdev->dev.of_node,
+		"l17_cam_rawi_r3_b", &(m4u_port.l17_cam_rawi_r3_b));
+	of_property_read_u32(pdev->dev.of_node,
+		"l17_cam_aao_r1_b", &(m4u_port.l17_cam_aao_r1_b));
+	of_property_read_u32(pdev->dev.of_node,
+		"l17_cam_afo_r1_b", &(m4u_port.l17_cam_afo_r1_b));
+	of_property_read_u32(pdev->dev.of_node,
+		"l17_cam_flko_r1_b", &(m4u_port.l17_cam_flko_r1_b));
+	of_property_read_u32(pdev->dev.of_node,
+		"l17_cam_lceso_r1_b", &(m4u_port.l17_cam_lceso_r1_b));
+	of_property_read_u32(pdev->dev.of_node,
+		"l17_cam_crzo_r1_b", &(m4u_port.l17_cam_crzo_r1_b));
+	of_property_read_u32(pdev->dev.of_node,
+		"l17_cam_ltmso_r1_b", &(m4u_port.l17_cam_ltmso_r1_b));
+	of_property_read_u32(pdev->dev.of_node,
+		"l17_cam_rsso_r1_b", &(m4u_port.l17_cam_rsso_r1_b));
+	of_property_read_u32(pdev->dev.of_node,
+		"l17_cam_aaho_r1_b", &(m4u_port.l17_cam_aaho_r1_b));
+	of_property_read_u32(pdev->dev.of_node,
+		"l17_cam_lsci_r1_b", &(m4u_port.l17_cam_lsci_r1_b));
+
+	if (IS_3RAW_PLATFORM(g_cam_qos_platform_id)) {
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_imgo_r1_c", &(m4u_port.l18_cam_imgo_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_rrzo_r1_c", &(m4u_port.l18_cam_rrzo_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_cqi_r1_c", &(m4u_port.l18_cam_cqi_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_bpci_r1_c", &(m4u_port.l18_cam_bpci_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_yuvo_r1_c", &(m4u_port.l18_cam_yuvo_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_ufdi_r2_c", &(m4u_port.l18_cam_ufdi_r2_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_rawi_r2_c", &(m4u_port.l18_cam_rawi_r2_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_rawi_r3_c", &(m4u_port.l18_cam_rawi_r3_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_aao_r1_c", &(m4u_port.l18_cam_aao_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_afo_r1_c", &(m4u_port.l18_cam_afo_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_flko_r1_c", &(m4u_port.l18_cam_flko_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_lceso_r1_c", &(m4u_port.l18_cam_lceso_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_crzo_r1_c", &(m4u_port.l18_cam_crzo_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_ltmso_r1_c", &(m4u_port.l18_cam_ltmso_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_rsso_r1_c", &(m4u_port.l18_cam_rsso_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_aaho_r1_c", &(m4u_port.l18_cam_aaho_r1_c));
+		of_property_read_u32(pdev->dev.of_node,
+			"l18_cam_lsci_r1_c", &(m4u_port.l18_cam_lsci_r1_c));
+	}
+}
+
 static int cam_qos_probe(struct platform_device *pdev)
 {
 	LOG_INF("CAM QOS probe.\n");
@@ -1185,6 +1295,10 @@ static int cam_qos_probe(struct platform_device *pdev)
 	mmdvfsDev = &pdev->dev;
 	mmdvfsRegulator = devm_regulator_get(&pdev->dev, "dvfsrc-vcore");
 #endif
+
+	/* parse m4u port from dts. */
+	cam_qos_parse_m4u_port(pdev);
+
 	return 0;
 }
 
@@ -1203,6 +1317,23 @@ static struct platform_driver cam_qos_drv = {
 
 static int __init cam_qos_init(void)
 {
+	g_cam_qos_platform_id = GET_PLATFORM_ID("mediatek,camisp_legacy");
+	if (g_cam_qos_platform_id == 0) {
+		LOG_NOTICE("get platform id failed\n");
+		return -ENODEV;
+	}
+
+	LOG_NOTICE("platform id(0x%x)\n", g_cam_qos_platform_id);
+
+#ifdef CAM_QOS_DBGFS
+	cam_qos_dbg_root = debugfs_create_dir("cam_qos", NULL);
+
+	debugfs_create_x32("platform", 0644,
+		cam_qos_dbg_root, &g_cam_qos_platform_id);
+	debugfs_create_x32("l13_cam_camsv1", 0644,
+		cam_qos_dbg_root, &m4u_port.l13_cam_camsv1);
+#endif
+
 	return platform_driver_register(&cam_qos_drv);
 }
 
