@@ -7083,12 +7083,14 @@
 				<0 0x1e00810c 0 0x4>, /* MBOX2 clr */
 				<0 0x1e009000 0 0x100>, /* MBOX3 base */
 				<0 0x1e009100 0 0x4>, /* MBOX3 set */
-				<0 0x1e00910c 0 0x4>; /* MBOX3 clr */
+				<0 0x1e00910c 0 0x4>, /* MBOX3 clr */
+				<0 0x1c0016b0 0 0x4>; /* SPM SEMAPHORE */
 			reg-names = "cfg", "cfg2",
 				"mbox0_base", "mbox0_set", "mbox0_clr",
 				"mbox1_base", "mbox1_set", "mbox1_clr",
 				"mbox2_base", "mbox2_set", "mbox2_clr",
-				"mbox3_base", "mbox3_set", "mbox3_clr";
+				"mbox3_base", "mbox3_set", "mbox3_clr",
+				"spm_sema";
 
 			interrupts = <GIC_SPI 739 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX0 */
 				<GIC_SPI 740 IRQ_TYPE_LEVEL_HIGH 0>, /* MBOX1 */
