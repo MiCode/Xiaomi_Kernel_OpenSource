@@ -5,6 +5,7 @@
 
 #include "ccci_fsm_internal.h"
 #include "modem_sys.h"
+#include "md_sys1_platform.h"
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
@@ -339,17 +340,18 @@ int fsm_check_ee_done(struct ccci_fsm_ee *ee_ctl, int timeout)
 int fsm_ee_init(struct ccci_fsm_ee *ee_ctl)
 {
 	int ret = 0;
+	struct ccci_modem *md = ccci_get_modem();
 
 	spin_lock_init(&ee_ctl->ctrl_lock);
-
-#if (MD_GENERATION >= 6297)
-	ret = mdee_dumper_v5_alloc(ee_ctl);
-#elif (MD_GENERATION >= 6292)
-	ret = mdee_dumper_v3_alloc(ee_ctl);
-#elif (MD_GENERATION == 6291)
-	ret = mdee_dumper_v2_alloc(ee_ctl);
-#endif
-
+	if (md->hw_info->plat_val->md_gen  >= 6299)
+		ret = mdee_dumper_v6_alloc(ee_ctl);
+	else if (md->hw_info->plat_val->md_gen  >= 6297)
+		ret = mdee_dumper_v5_alloc(ee_ctl);
+	else if (md->hw_info->plat_val->md_gen  >= 6292)
+		ret = mdee_dumper_v3_alloc(ee_ctl);
+	else if (md->hw_info->plat_val->md_gen  == 6291)
+		ret = mdee_dumper_v2_alloc(ee_ctl);
 	return ret;
 }
+
 

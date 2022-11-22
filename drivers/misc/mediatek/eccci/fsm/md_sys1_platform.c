@@ -1047,7 +1047,7 @@ static int md_cd_power_on(struct ccci_modem *md)
 	}
 
 	/* disable sequencer setting to AOC2.5 for gen98 */
-	if (md_cd_plat_val_ptr.md_gen >= 6298) {
+	if (md_cd_plat_val_ptr.md_gen == 6298) {
 		ret = md1_disable_sequencer_setting(md);
 		if (ret)
 			return ret;
