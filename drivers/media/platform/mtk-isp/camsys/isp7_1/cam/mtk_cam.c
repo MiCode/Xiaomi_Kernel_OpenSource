@@ -6595,21 +6595,17 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 
 		/* power on the remote proc device */
 		if (!cam->rproc_handle)  {
-			/* Get the remote proc device of composers */
-			cam->rproc_handle =
-				rproc_get_by_phandle(cam->rproc_phandle);
-			if (!cam->rproc_handle) {
-				dev_info(cam->dev,
-					"fail to get rproc_handle\n");
-				return NULL;
-			}
-			/* Power on remote proc device of composers*/
-			ret = rproc_boot(cam->rproc_handle);
-			if (ret) {
-				dev_info(cam->dev,
-					"failed to rproc_boot:%d\n", ret);
-				goto fail_rproc_put;
-			}
+			dev_info(cam->dev,
+				"fail to get rproc_handle\n");
+			return NULL;
+		}
+
+		/* Power on remote proc device of composers*/
+		ret = rproc_boot(cam->rproc_handle);
+		if (ret) {
+			dev_info(cam->dev,
+				"failed to rproc_boot:%d\n", ret);
+			goto fail_rproc_put;
 		}
 
 		/* To catch camsys exception and trigger dump */

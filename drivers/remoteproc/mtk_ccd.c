@@ -19,6 +19,9 @@
 
 char ccd_firmware[100] = {0};
 
+static struct mutex g_ccd_open_mutex;
+static int ccd_user_cnt;
+
 DECLARE_BUILTIN_FIRMWARE("remoteproc_scp", ccd_firmware);
 
 struct platform_device *ccd_get_pdev(struct platform_device *pdev)
@@ -173,11 +176,22 @@ static int ccd_open(struct inode *inode,
 		    struct file *filp)
 {
 	int ret = 0;
-
 	struct mtk_ccd *ccd = container_of(inode->i_cdev,
-					   struct mtk_ccd,
-					   ccd_cdev);
+					struct mtk_ccd,
+					ccd_cdev);
 	filp->private_data = ccd;
+
+	mutex_lock(&g_ccd_open_mutex);
+
+	ccd_user_cnt++;
+	if (ccd_user_cnt > 1) {
+		dev_info(ccd->dev, "%s: ccd_user_cnt(%d) > 1. Do nothing.\n",
+			__func__, ccd_user_cnt);
+		mutex_unlock(&g_ccd_open_mutex);
+		return 0;
+	}
+	mutex_unlock(&g_ccd_open_mutex);
+
 	dev_dbg(ccd->dev, "%s: %p\n", __func__, ccd);
 	return ret;
 }
@@ -189,9 +203,21 @@ static int ccd_release(struct inode *inode,
 	struct ccd_master_status_item master_obj;
 	struct mtk_ccd *ccd = (struct mtk_ccd *)filp->private_data;
 
+	mutex_lock(&g_ccd_open_mutex);
+
+	ccd_user_cnt--;
+	if (ccd_user_cnt > 0) {
+		dev_info(ccd->dev, "%s: ccd_user_cnt(%d) > 0. Do nothing.\n",
+			__func__, ccd_user_cnt);
+		mutex_unlock(&g_ccd_open_mutex);
+		return 0;
+	}
+
 	master_obj.state = CCD_MASTER_EXIT;
 	ccd_master_destroy(ccd, &master_obj);
-	dev_info(ccd->dev, "%s: %p\n", __func__, ccd);
+	mutex_unlock(&g_ccd_open_mutex);
+
+	dev_dbg(ccd->dev, "%s: %p\n", __func__, ccd);
 	return ret;
 }
 
@@ -404,6 +430,8 @@ static int ccd_probe(struct platform_device *pdev)
 	ccd = (struct mtk_ccd *)rproc->priv;
 	ccd->rproc = rproc;
 	ccd->dev = dev;
+	ccd->ccd_open_mutex = &g_ccd_open_mutex;
+
 	platform_set_drvdata(pdev, ccd);
 	ccd_regcdev(ccd);
 	dev_info(ccd->dev, "ccd is created: %p\n", ccd);
@@ -482,6 +510,8 @@ static struct platform_driver mtk_ccd_driver = {
 static int __init ccd_init(void)
 {
 	int ret;
+
+	mutex_init(&g_ccd_open_mutex);
 
 	ret = platform_driver_register(&mtk_ccd_driver);
 	return ret;
