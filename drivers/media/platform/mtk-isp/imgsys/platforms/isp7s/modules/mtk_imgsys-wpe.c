@@ -43,6 +43,8 @@ const unsigned int mtk_imgsys_wpe_base_ofst[] = {0x0, 0x300000, 0x400000};
 #define WPE_REG_CQ_THR0_CTL (0xB08)
 #define WPE_REG_CQ_THR1_CTL (0xB18)
 #define WPE_REG_DEC_CTL1    (0x784)
+#define WPE_REG_MERGE_DBG_SET     (0x840)
+#define WPE_REG_MERGE_DBG_PORT    (0x844)
 
 const struct mtk_imgsys_init_array
 			mtk_imgsys_wpe_init_ary[] = {
@@ -473,6 +475,219 @@ void imgsys_wpe_debug_dl_dump(struct mtk_imgsys_dev *imgsys_dev,
 	   ((debug_value[2] >> 24) & 0x1), ((debug_value[2] >> 23) & 0x1));
 }
 
+void imgsys_wpe_debug_module_dump(struct mtk_imgsys_dev *imgsys_dev,
+							void __iomem *wpeRegBA, unsigned int ofst)
+{
+	unsigned int i = 0;
+	unsigned int debug_value[4] = {0x0};
+	unsigned int sel_value[4] = {0x0};
+
+	//merge
+	writel(0x1, (wpeRegBA + WPE_REG_MERGE_DBG_SET + ofst));
+	sel_value[0] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_MERGE_DBG_SET + ofst));
+	debug_value[0] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_MERGE_DBG_PORT + ofst));
+
+	dev_info(imgsys_dev->dev,
+		"%s:[0x%x]merge_dbg_sel,[0x%x]merge_dbg_port, merge[0x%x]0x%x",
+		__func__, (WPE_REG_MERGE_DBG_SET + ofst), (WPE_REG_MERGE_DBG_PORT + ofst),
+		sel_value[0], debug_value[0]);
+
+	//cache
+for (i = 0; i <= 3; i += 2) {
+	writel(((0x2<<12) | (0x0<<8) | (i<<0)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[0] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[0] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0x2<<12) | (0x1<<8) | (i<<0)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[1] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[1] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0x2<<12) | (0x0<<8) | ((i+1)<<0)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[2] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[2] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0x2<<12) | (0x1<<8) | ((i+1)<<0)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[3] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[3] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	dev_info(imgsys_dev->dev,
+		"%s:[0x%x]dbg_sel,[0x%x]dbg_port, cache[0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x",
+		__func__, (WPE_REG_DBG_SET + ofst), (WPE_REG_DBG_PORT + ofst),
+		sel_value[0], debug_value[0], sel_value[1], debug_value[1],
+		sel_value[2], debug_value[2], sel_value[3], debug_value[3]);
+}
+
+for (i = 0xc; i <= 0xf; i += 2) {
+	writel(((0x2<<12) | (0x0<<8) | (i<<0)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[0] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[0] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0x2<<12) | (0x1<<8) | (i<<0)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[1] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[1] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0x2<<12) | (0x0<<8) | ((i+1)<<0)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[2] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[2] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0x2<<12) | (0x1<<8) | ((i+1)<<0)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[3] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[3] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	dev_info(imgsys_dev->dev,
+		"%s:[0x%x]dbg_sel,[0x%x]dbg_port, cache[0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x",
+		__func__, (WPE_REG_DBG_SET + ofst), (WPE_REG_DBG_PORT + ofst),
+		sel_value[0], debug_value[0], sel_value[1], debug_value[1],
+		sel_value[2], debug_value[2], sel_value[3], debug_value[3]);
+}
+
+for (i = 0x1d; i <= 0x20; i += 2) {
+	writel(((0x2<<12) | (0x0<<8) | (i<<0)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[0] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[0] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0x2<<12) | (0x1<<8) | (i<<0)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[1] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[1] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0x2<<12) | (0x0<<8) | ((i+1)<<0)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[2] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[2] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0x2<<12) | (0x1<<8) | ((i+1)<<0)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[3] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[3] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	dev_info(imgsys_dev->dev,
+		"%s:[0x%x]dbg_sel,[0x%x]dbg_port, cache[0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x",
+		__func__, (WPE_REG_DBG_SET + ofst), (WPE_REG_DBG_PORT + ofst),
+		sel_value[0], debug_value[0], sel_value[1], debug_value[1],
+		sel_value[2], debug_value[2], sel_value[3], debug_value[3]);
+}
+
+	//psp, top
+	writel(((0x4<<12) | (0x2<<8)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[0] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[0] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0x4<<12) | (0x3<<8)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[1] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[1] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0x4<<12) | (0x4<<8)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[2] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[2] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel((0x5<<12), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[3] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[3] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	dev_info(imgsys_dev->dev,
+		"%s:[0x%x]dbg_sel,[0x%x]dbg_port, psp[0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, top[0x%x]0x%x",
+		__func__, (WPE_REG_DBG_SET + ofst), (WPE_REG_DBG_PORT + ofst),
+		sel_value[0], debug_value[0], sel_value[1], debug_value[1],
+		sel_value[2], debug_value[2], sel_value[3], debug_value[3]);
+
+	//traw_chksum
+	writel(((0xe<<12) | (0x0<<8)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[0] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[0] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0xe<<12) | (0x1<<8)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[1] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[1] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0xe<<12) | (0x2<<8)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[2] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[2] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	dev_info(imgsys_dev->dev,
+		"%s:[0x%x]dbg_sel,[0x%x]dbg_port, traw_chksum[0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x",
+		__func__, (WPE_REG_DBG_SET + ofst), (WPE_REG_DBG_PORT + ofst),
+		sel_value[0], debug_value[0], sel_value[1], debug_value[1],
+		sel_value[2], debug_value[2]);
+
+	//wpeo_chksum
+	writel(((0x10<<12) | (0x0<<8)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[0] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[0] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0x10<<12) | (0x1<<8)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[1] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[1] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0x10<<12) | (0x2<<8)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[2] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[2] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	dev_info(imgsys_dev->dev,
+		"%s:[0x%x]dbg_sel,[0x%x]dbg_port, wpeo_chksum[0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x",
+		__func__, (WPE_REG_DBG_SET + ofst), (WPE_REG_DBG_PORT + ofst),
+		sel_value[0], debug_value[0], sel_value[1], debug_value[1],
+		sel_value[2], debug_value[2]);
+
+	//wpeo2_chksum
+	writel(((0x11<<12) | (0x0<<8)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[0] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[0] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0x11<<12) | (0x1<<8)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[1] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[1] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0x11<<12) | (0x2<<8)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[2] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[2] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	dev_info(imgsys_dev->dev,
+		"%s:[0x%x]dbg_sel,[0x%x]dbg_port, wpeo2_chksum[0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x",
+		__func__, (WPE_REG_DBG_SET + ofst), (WPE_REG_DBG_PORT + ofst),
+		sel_value[0], debug_value[0], sel_value[1], debug_value[1],
+		sel_value[2], debug_value[2]);
+
+	//wpeo_crop, wpeo2_crop, traw_crop
+	writel(((0x15<<12) | (0x1<<8)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[0] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[0] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0x16<<12) | (0x1<<8)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[1] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[1] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0x17<<12) | (0x1<<8)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[2] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[2] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	dev_info(imgsys_dev->dev,
+		"%s:[0x%x]dbg_sel,[0x%x]dbg_port, wpeo_crop[0x%x]0x%x, wpeo2_crop[0x%x]0x%x, traw_crop[0x%x]0x%x",
+		__func__, (WPE_REG_DBG_SET + ofst), (WPE_REG_DBG_PORT + ofst),
+		sel_value[0], debug_value[0], sel_value[1], debug_value[1],
+		sel_value[2], debug_value[2]);
+
+	//pak_c, pak_y
+	writel(((0x1a<<12) | (0x1<<8)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[0] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[0] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0x1a<<12) | (0x2<<8)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[1] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[1] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0x1b<<12) | (0x1<<8)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[2] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[2] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	writel(((0x1b<<12) | (0x2<<8)), (wpeRegBA + WPE_REG_DBG_SET + ofst));
+	sel_value[3] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_SET + ofst));
+	debug_value[3] = (unsigned int)ioread32((void *)(wpeRegBA + WPE_REG_DBG_PORT + ofst));
+
+	dev_info(imgsys_dev->dev,
+		"%s:[0x%x]dbg_sel,[0x%x]dbg_port, pak_c[0x%x]0x%x, [0x%x]0x%x, pak_y[0x%x]0x%x, [0x%x]0x%x",
+		__func__, (WPE_REG_DBG_SET + ofst), (WPE_REG_DBG_PORT + ofst),
+		sel_value[0], debug_value[0], sel_value[1], debug_value[1],
+		sel_value[2], debug_value[2], sel_value[3], debug_value[3]);
+}
+
 void imgsys_wpe_debug_cq_dump(struct mtk_imgsys_dev *imgsys_dev,
 							void __iomem *wpeRegBA)
 {
@@ -599,6 +814,10 @@ void imgsys_wpe_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 		}
 
 		imgsys_wpe_debug_cq_dump(imgsys_dev, wpeRegBA);
+		imgsys_wpe_debug_module_dump(imgsys_dev, wpeRegBA, 0);
+#ifdef WPE_TF_DUMP_7S_1
+		imgsys_wpe_debug_module_dump(imgsys_dev, wpeRegBA, 0x1000);
+#endif
 
 		//
 		for (j = 0; j < WPE_REG_ARRAY_COUNT; j++) {
