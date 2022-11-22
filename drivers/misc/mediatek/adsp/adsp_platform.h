@@ -39,6 +39,10 @@ bool check_hifi_status(u32 mask);
 bool is_adsp_axibus_idle(u32 *backup);
 bool is_infrabus_timeout(void);
 
+bool is_spm_semaphore_valid(void);
+void adsp_mt_toggle_spm_semaphore(u32 bit);
+u32 adsp_mt_get_spm_semaphore(u32 bit);
+
 void adsp_hardware_init(struct adspsys_priv *adspsys);
 
 #endif

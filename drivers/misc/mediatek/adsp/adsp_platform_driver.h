@@ -101,6 +101,7 @@ struct adspsys_priv {
 	size_t cfg_secure_size;
 	size_t cfg2_size;
 
+	void __iomem *spm_sema;
 	struct device *dev;
 	struct miscdevice mdev;
 	struct wait_queue_head waitq;

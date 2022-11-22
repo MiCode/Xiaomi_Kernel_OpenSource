@@ -45,6 +45,7 @@ static bool is_adsp_core_suspend(struct adsp_priv *pdata)
 {
 	u32 status = 0;
 	u32 is_bus_idle = 0;
+	bool ret = 0;
 
 	if (unlikely(!pdata))
 		return false;
@@ -53,15 +54,21 @@ static bool is_adsp_core_suspend(struct adsp_priv *pdata)
 				 ADSP_SHAREDMEM_SYS_STATUS,
 				 &status, sizeof(status));
 
+	if (!get_adsp_clock_semaphore())
+		pr_notice("%s() get adsp clock smeaphore fail\n", __func__);
+
 	if (pdata->id == ADSP_A_ID) {
 		is_bus_idle = is_adsp_axibus_idle(&adsp_pending_cnt);
-		return check_hifi_status(ADSP_A_IS_WFI) &&
+		ret = check_hifi_status(ADSP_A_IS_WFI) &&
 		       (check_hifi_status(ADSP_AXI_BUS_IS_IDLE) || is_bus_idle) &&
 		       (status == ADSP_SUSPEND);
 	} else { /* ADSP_B_ID */
-		return check_hifi_status(ADSP_B_IS_WFI) &&
+		ret = check_hifi_status(ADSP_B_IS_WFI) &&
 		       (status == ADSP_SUSPEND);
 	}
+	release_adsp_clock_semaphore();
+
+	return ret;
 }
 
 static void show_adsp_core_suspend(struct adsp_priv *pdata)
@@ -74,6 +81,8 @@ static void show_adsp_core_suspend(struct adsp_priv *pdata)
 	adsp_copy_from_sharedmem(pdata,
 				 ADSP_SHAREDMEM_SYS_STATUS,
 				 &status, sizeof(status));
+	if (!get_adsp_clock_semaphore())
+		pr_notice("%s() get adsp clock smeaphore fail\n", __func__);
 
 	if (pdata->id == ADSP_A_ID)
 		pr_info("%s(), IS_WFI(%d), IS_BUS_IDLE(%d), PENDING(0x%x), STATUS(%d)", __func__,
@@ -85,6 +94,7 @@ static void show_adsp_core_suspend(struct adsp_priv *pdata)
 		pr_info("%s(), IS_WFI(%d), STATUS(%d)", __func__,
 			check_hifi_status(ADSP_B_IS_WFI),
 			status);
+	release_adsp_clock_semaphore();
 }
 
 static int wait_another_core_suspend(struct adsp_priv *pdata)

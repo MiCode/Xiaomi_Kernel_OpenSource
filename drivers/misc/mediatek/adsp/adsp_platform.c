@@ -22,6 +22,8 @@
 static void __iomem *mt_base;
 static u32 axibus_idle_val;
 
+static void __iomem *mt_spm_sema;
+
 /* below access adsp register necessary */
 void adsp_mt_set_swirq(u32 cid)
 {
@@ -122,12 +124,28 @@ u32 adsp_mt_get_semaphore(u32 bit)
 	return (readl(ADSP_SEMAPHORE) >> bit) & 0x1;
 }
 
+bool is_spm_semaphore_valid(void)
+{
+	return (mt_spm_sema == NULL) ? 0 : 1;
+}
+
+void adsp_mt_toggle_spm_semaphore(u32 bit)
+{
+	writel((1 << bit), mt_spm_sema);
+}
+
+u32 adsp_mt_get_spm_semaphore(u32 bit)
+{
+	return (readl(mt_spm_sema) >> bit) & 0x1;
+}
+
 void adsp_hardware_init(struct adspsys_priv *adspsys)
 {
 	if (unlikely(!adspsys))
 		return;
 
 	mt_base = adspsys->cfg;
+	mt_spm_sema = adspsys->spm_sema;
 	axibus_idle_val = adspsys->desc->axibus_idle_val;
 }
 

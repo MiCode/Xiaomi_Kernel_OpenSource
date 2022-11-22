@@ -44,9 +44,11 @@ struct adsp_priv *_get_adsp_core(void *ptr, int id);
 void set_adsp_state(struct adsp_priv *pdata, int state);
 int get_adsp_state(struct adsp_priv *pdata);
 bool is_adsp_system_running(void);
+bool is_adsp_system_suspend(void);
 
 void switch_adsp_power(bool on);
 int adsp_reset(void);
+void adsp_core_clear(void);
 void adsp_core_start(u32 cid);
 void adsp_core_stop(u32 cid);
 void adsp_latch_dump_region(bool en);

@@ -16,6 +16,8 @@ struct adsp_sem_info {
 };
 
 struct adsp_sem_info sem_info;
+/* spm semaphore spm_sem_info*/
+struct adsp_sem_info spm_sem_info;
 
 int adsp_semaphore_init(unsigned int way_bits,
 			unsigned int ctrl_bit,
@@ -30,6 +32,9 @@ int adsp_semaphore_init(unsigned int way_bits,
 		timeout = 1;
 	sem_info.timeout = timeout;
 	spin_lock_init(&sem_info.lock);
+	/* spm semaphore info */
+	spm_sem_info.timeout = 5000;
+	spin_lock_init(&spm_sem_info.lock);
 
 	return ADSP_OK;
 }
@@ -98,4 +103,72 @@ int release_adsp_semaphore(unsigned int sem_id)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(release_adsp_semaphore);
+
+/*
+ * acquire a hardware semaphore
+ * @param flag: semaphore id
+ * return ADSP_OK: get sema success
+ *        ADSP_ERROR: get sema fail
+ */
+int get_adsp_clock_semaphore(void)
+{
+	enum adsp_status ret = ADSP_OK;
+	unsigned long spin_flags;
+	int retry = spm_sem_info.timeout;
+
+	if (!is_spm_semaphore_valid())
+		return ret;
+
+	/* return ADSP_ERROR to prevent from access when adsp not ready.
+	 * Both adsp enter suspend/resume at the same time.
+	 */
+	if (is_adsp_system_suspend())
+		return ADSP_ERROR;
+
+	spin_lock_irqsave(&spm_sem_info.lock, spin_flags);
+
+	while (!adsp_mt_get_spm_semaphore(5)) {
+		adsp_mt_toggle_spm_semaphore(5);
+
+		if (retry-- <= 0) {
+			ret = ADSP_SEMAPHORE_BUSY;
+			pr_notice("%s: adsp clock semaphore is busy.", __func__);
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&spm_sem_info.lock, spin_flags);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(get_adsp_clock_semaphore);
+
+/*
+ * release a hardware semaphore
+ * @param flag: semaphore id
+ * return ADSP_OK: release sema success
+ *        ADSP_ERROR: release sema fail
+ */
+int release_adsp_clock_semaphore(void)
+{
+	enum adsp_status ret = ADSP_OK;
+	unsigned long spin_flags;
+
+	if (!is_spm_semaphore_valid())
+		return ret;
+
+	if (is_adsp_system_suspend()) {
+		pr_notice("%s: adsp is suspended.", __func__);
+		return ADSP_ERROR;
+	}
+
+	spin_lock_irqsave(&spm_sem_info.lock, spin_flags);
+
+	if (adsp_mt_get_spm_semaphore(5))
+		adsp_mt_toggle_spm_semaphore(5);
+
+	spin_unlock_irqrestore(&spm_sem_info.lock, spin_flags);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(release_adsp_clock_semaphore);
 

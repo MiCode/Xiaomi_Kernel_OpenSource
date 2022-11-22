@@ -13,4 +13,7 @@ int adsp_semaphore_init(unsigned int way_bits,
 			unsigned int ctrl_bit,
 			unsigned int timeout);
 
+int get_adsp_clock_semaphore(void);
+int release_adsp_clock_semaphore(void);
+
 #endif

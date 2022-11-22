@@ -90,6 +90,17 @@ int is_adsp_ready(u32 cid)
 }
 EXPORT_SYMBOL(is_adsp_ready);
 
+int is_adsp_not_suspend(u32 cid)
+{
+	if (unlikely(cid >= get_adsp_core_total()))
+		return -EINVAL;
+
+	if (unlikely(!adsp_cores[cid]))
+		return -EINVAL;
+
+	return (adsp_cores[cid]->state != ADSP_SUSPEND);
+}
+
 u32 get_adsp_core_total(void)
 {
 	return adspsys ? adspsys->num_cores : 0;
@@ -106,6 +117,18 @@ bool is_adsp_system_running(void)
 	}
 	return false;
 }
+
+bool is_adsp_system_suspend(void)
+{
+	unsigned int id;
+
+	for (id = 0; id < get_adsp_core_total(); id++) {
+		if (is_adsp_not_suspend(id) > 0)
+			return false;
+	}
+	return true;
+}
+
 
 int adsp_copy_to_sharedmem(struct adsp_priv *pdata, int id, const void *src,
 			   int count)
@@ -126,7 +149,11 @@ int adsp_copy_to_sharedmem(struct adsp_priv *pdata, int id, const void *src,
 	if (count > item->size)
 		count = item->size;
 
+	if (get_adsp_clock_semaphore() != ADSP_OK)
+		pr_notice("%s() get clock semaphore fail\n", __func__);
+
 	memcpy_toio(dst, src, count);
+	release_adsp_clock_semaphore();
 
 	return count;
 }
@@ -151,7 +178,11 @@ int adsp_copy_from_sharedmem(struct adsp_priv *pdata, int id, void *dst,
 	if (count > item->size)
 		count = item->size;
 
+	if (get_adsp_clock_semaphore() != ADSP_OK)
+		pr_notice("%s() get clock semaphore fail\n", __func__);
+
 	memcpy_fromio(dst, src, count);
+	release_adsp_clock_semaphore();
 
 	return count;
 }
@@ -226,11 +257,16 @@ static irqreturn_t adsp_irq_top_handler(int irq, void *data)
 {
 	struct irq_t *pdata = (struct irq_t *)data;
 
-	adsp_mt_clr_spm(pdata->cid);
-	if (!pdata->clear_irq)
-		return IRQ_NONE;
+	if (get_adsp_clock_semaphore() != ADSP_OK)
+		pr_notice("%s() get clock semaphore fail\n", __func__);
 
+	adsp_mt_clr_spm(pdata->cid);
+	if (!pdata->clear_irq) {
+		release_adsp_clock_semaphore();
+		return IRQ_NONE;
+	}
 	pdata->clear_irq(pdata->cid);
+	release_adsp_clock_semaphore();
 
 	if (pdata->irq_cb)
 		pdata->irq_cb(irq, pdata->data, pdata->cid);
@@ -433,23 +469,40 @@ void adsp_latch_dump_region(bool en)
 	/* MUST! latch/unlatch region symmetric */
 	if (en) {
 		mutex_lock(&access_lock);
+		if (get_adsp_clock_semaphore() != ADSP_OK)
+			pr_notice("%s() get clock semaphore fail\n", __func__);
 		adsp_smc_send(MTK_ADSP_KERNEL_OP_CFG_LATCH, true, 0);
 	} else {
 		adsp_smc_send(MTK_ADSP_KERNEL_OP_CFG_LATCH, false, 0);
+		release_adsp_clock_semaphore();
 		mutex_unlock(&access_lock);
 	}
+}
+
+void adsp_core_clear(void)
+{
+	if (get_adsp_clock_semaphore() != ADSP_OK)
+		pr_notice("%s() get clock semaphore fail\n", __func__);
+	adsp_smc_send(MTK_ADSP_KERNEL_OP_SYS_CLEAR, ADSP_MAGIC_PATTERN, 0);
+	release_adsp_clock_semaphore();
 }
 
 void adsp_core_start(u32 cid)
 {
 	mutex_lock(&access_lock);
+	if (get_adsp_clock_semaphore() != ADSP_OK)
+		pr_notice("%s() get clock semaphore fail\n", __func__);
 	adsp_smc_send(MTK_ADSP_KERNEL_OP_CORE_START, cid, 0);
+	release_adsp_clock_semaphore();
 	mutex_unlock(&access_lock);
 }
 
 void adsp_core_stop(u32 cid)
 {
+	if (get_adsp_clock_semaphore() != ADSP_OK)
+		pr_notice("%s() get clock semaphore fail\n", __func__);
 	adsp_smc_send(MTK_ADSP_KERNEL_OP_CORE_STOP, cid, 0);
+	release_adsp_clock_semaphore();
 }
 
 int adsp_reset(void)
@@ -465,7 +518,7 @@ int adsp_reset(void)
 	}
 
 	/* clear adsp cfg */
-	adsp_smc_send(MTK_ADSP_KERNEL_OP_SYS_CLEAR, ADSP_MAGIC_PATTERN, 0);
+	adsp_core_clear();
 
 	/* choose default clk mux */
 	adsp_select_clock_mode(CLK_LOW_POWER);
@@ -603,8 +656,7 @@ int adsp_system_bootup(void)
 	if (ret)
 		goto ERROR;
 
-	adsp_smc_send(MTK_ADSP_KERNEL_OP_SYS_CLEAR, ADSP_MAGIC_PATTERN, 0);
-
+	adsp_core_clear();
 	for (cid = 0; cid < get_adsp_core_total(); cid++) {
 		pdata = adsp_cores[cid];
 		if (unlikely(!pdata)) {
