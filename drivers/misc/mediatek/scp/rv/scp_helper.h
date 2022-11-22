@@ -147,6 +147,7 @@ struct scp_work_struct {
 
 struct scp_reserve_mblock {
 	enum scp_reserve_mem_id_t num;
+	u32 alignment;
 	u64 start_phys;
 	u64 start_virt;
 	u64 size;
