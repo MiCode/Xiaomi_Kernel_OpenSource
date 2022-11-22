@@ -247,6 +247,316 @@ bool is_kernel_power_off_charging(void)
 	return false;
 }
 
+void reg_type_to_name(char *reg_type_name, unsigned int regmap_type)
+{
+	switch (regmap_type) {
+	case REGMAP_TYPE_I2C:
+		snprintf(reg_type_name, MAX_REGMAP_TYPE_LEN, "I2C", regmap_type);
+		break;
+	case REGMAP_TYPE_SPMI:
+	case RGEMAP_TYPE_MMIO:
+	case REGMAP_TYPE_SPI:
+	default:
+		snprintf(reg_type_name, MAX_REGMAP_TYPE_LEN, "None_I2C_%d", regmap_type);
+		break;
+	}
+}
+
+void gp_number_to_name(char *gp_name, unsigned int gp_no)
+{
+	switch (gp_no) {
+	case GAUGE_PROP_INITIAL:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_INITIAL");
+		break;
+
+	case GAUGE_PROP_BATTERY_CURRENT:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_BATTERY_CURRENT");
+		break;
+
+	case GAUGE_PROP_COULOMB:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_COULOMB");
+		break;
+
+	case GAUGE_PROP_COULOMB_HT_INTERRUPT:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_COULOMB_HT_INTERRUPT");
+		break;
+
+	case GAUGE_PROP_COULOMB_LT_INTERRUPT:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_COULOMB_LT_INTERRUPT");
+		break;
+
+	case GAUGE_PROP_BATTERY_EXIST:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_BATTERY_EXIST");
+		break;
+
+	case GAUGE_PROP_HW_VERSION:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_HW_VERSION");
+		break;
+
+	case GAUGE_PROP_BATTERY_VOLTAGE:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_BATTERY_VOLTAGE");
+		break;
+
+	case GAUGE_PROP_BATTERY_TEMPERATURE_ADC:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_BATTERY_TEMPERATURE_ADC");
+		break;
+
+	case GAUGE_PROP_BIF_VOLTAGE:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_BIF_VOLTAGE");
+		break;
+
+	case GAUGE_PROP_EN_HIGH_VBAT_INTERRUPT:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_EN_HIGH_VBAT_INTERRUPT");
+		break;
+
+	case GAUGE_PROP_EN_LOW_VBAT_INTERRUPT:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_EN_LOW_VBAT_INTERRUPT");
+		break;
+
+	case GAUGE_PROP_VBAT_HT_INTR_THRESHOLD:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_VBAT_HT_INTR_THRESHOLD");
+		break;
+
+	case GAUGE_PROP_VBAT_LT_INTR_THRESHOLD:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_VBAT_LT_INTR_THRESHOLD");
+		break;
+
+	case GAUGE_PROP_RTC_UI_SOC:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_RTC_UI_SOC");
+		break;
+
+	case GAUGE_PROP_PTIM_BATTERY_VOLTAGE:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_PTIM_BATTERY_VOLTAGE");
+		break;
+
+	case GAUGE_PROP_PTIM_RESIST:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_PTIM_RESIST");
+		break;
+
+	case GAUGE_PROP_RESET:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_RESET");
+		break;
+
+	case GAUGE_PROP_BOOT_ZCV:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_BOOT_ZCV");
+		break;
+
+	case GAUGE_PROP_ZCV:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_ZCV");
+		break;
+
+	case GAUGE_PROP_ZCV_CURRENT:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_ZCV_CURRENT");
+		break;
+
+	case GAUGE_PROP_NAFG_CNT:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_NAFG_CNT");
+		break;
+
+	case GAUGE_PROP_NAFG_DLTV:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_NAFG_DLTV");
+		break;
+
+	case GAUGE_PROP_NAFG_C_DLTV:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_NAFG_C_DLTV");
+		break;
+
+	case GAUGE_PROP_NAFG_EN:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_NAFG_EN");
+		break;
+
+	case GAUGE_PROP_NAFG_ZCV:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_NAFG_ZCV");
+		break;
+
+	case GAUGE_PROP_NAFG_VBAT:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_NAFG_VBAT");
+		break;
+
+	case GAUGE_PROP_RESET_FG_RTC:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_RESET_FG_RTC");
+		break;
+
+	case GAUGE_PROP_GAUGE_INITIALIZED:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_GAUGE_INITIALIZED");
+		break;
+
+	case GAUGE_PROP_AVERAGE_CURRENT:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_AVERAGE_CURRENT");
+		break;
+
+	case GAUGE_PROP_BAT_PLUGOUT_EN:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_BAT_PLUGOUT_EN");
+		break;
+
+	case GAUGE_PROP_ZCV_INTR_THRESHOLD:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_ZCV_INTR_THRESHOLD");
+		break;
+
+	case GAUGE_PROP_ZCV_INTR_EN:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_ZCV_INTR_EN");
+		break;
+
+	case GAUGE_PROP_SOFF_RESET:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_SOFF_RESET");
+		break;
+
+	case GAUGE_PROP_NCAR_RESET:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_NCAR_RESET");
+		break;
+
+	case GAUGE_PROP_BAT_CYCLE_INTR_THRESHOLD:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_BAT_CYCLE_INTR_THRESHOLD");
+		break;
+
+	case GAUGE_PROP_HW_INFO:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_HW_INFO");
+		break;
+
+	case GAUGE_PROP_EVENT:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_EVENT");
+		break;
+
+	case GAUGE_PROP_EN_BAT_TMP_HT:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_EN_BAT_TMP_HT");
+		break;
+
+	case GAUGE_PROP_EN_BAT_TMP_LT:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_EN_BAT_TMP_LT");
+		break;
+
+	case GAUGE_PROP_BAT_TMP_HT_THRESHOLD:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_BAT_TMP_HT_THRESHOLD");
+		break;
+
+	case GAUGE_PROP_BAT_TMP_LT_THRESHOLD:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_BAT_TMP_LT_THRESHOLD");
+		break;
+
+	case GAUGE_PROP_2SEC_REBOOT:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_2SEC_REBOOT");
+		break;
+
+	case GAUGE_PROP_PL_CHARGING_STATUS:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_PL_CHARGING_STATUS");
+		break;
+
+	case GAUGE_PROP_MONITER_PLCHG_STATUS:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_MONITER_PLCHG_STATUS");
+		break;
+
+	case GAUGE_PROP_BAT_PLUG_STATUS:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_BAT_PLUG_STATUS");
+		break;
+
+	case GAUGE_PROP_IS_NVRAM_FAIL_MODE:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_IS_NVRAM_FAIL_MODE");
+		break;
+
+	case GAUGE_PROP_MONITOR_SOFF_VALIDTIME:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_MONITOR_SOFF_VALIDTIME");
+		break;
+
+	case GAUGE_PROP_CON0_SOC:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_CON0_SOC");
+		break;
+
+	case GAUGE_PROP_SHUTDOWN_CAR:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_SHUTDOWN_CAR");
+		break;
+
+	case GAUGE_PROP_CAR_TUNE_VALUE:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_CAR_TUNE_VALUE");
+		break;
+
+	case GAUGE_PROP_R_FG_VALUE:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_R_FG_VALUE");
+		break;
+
+	case GAUGE_PROP_VBAT2_DETECT_TIME:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_VBAT2_DETECT_TIME");
+		break;
+
+	case GAUGE_PROP_VBAT2_DETECT_COUNTER:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_VBAT2_DETECT_COUNTER");
+		break;
+
+	case GAUGE_PROP_BAT_TEMP_FROZE_EN:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_BAT_TEMP_FROZE_EN");
+		break;
+
+	case GAUGE_PROP_BAT_EOC:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_BAT_EOC");
+		break;
+
+	case GAUGE_PROP_REGMAP_TYPE:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"GAUGE_PROP_REGMAP_TYPE");
+		break;
+
+	default:
+		snprintf(gp_name, MAX_GAUGE_PROP_LEN,
+			"FG_PROP_UNKNOWN");
+		break;
+	}
+}
+
 /* ============================================================ */
 /* power supply: battery */
 /* ============================================================ */
@@ -900,6 +1210,7 @@ int force_get_tbat(struct mtk_battery *gm, bool update)
 {
 	struct property_control *prop_control;
 	int prop_map = CONTROL_GAUGE_PROP_BATTERY_TEMPERATURE_ADC;
+	ktime_t ctime = 0, dtime = 0, diff = 0;
 	int bat_temperature_val = 0;
 
 	prop_control = &gm->prop_control;
@@ -917,9 +1228,20 @@ int force_get_tbat(struct mtk_battery *gm, bool update)
 	if (update == true || gm->no_prop_timeout_control) {
 		bat_temperature_val = force_get_tbat_internal(gm);
 		prop_control->val[prop_map] = bat_temperature_val;
+		prop_control->last_prop_update_time[prop_map] = ktime_get_boottime();
 	} else {
-		bat_temperature_val = prop_control->val[prop_map];
-		prop_control->counter += 1;
+		ctime = ktime_get_boottime();
+		dtime = ktime_sub(ctime, prop_control->last_prop_update_time[prop_map]);
+		diff = ktime_to_ms(dtime);
+		prop_control->binder_counter += 1;
+
+		if (diff > prop_control->diff_time_th[prop_map]) {
+			bat_temperature_val = force_get_tbat_internal(gm);
+			prop_control->val[prop_map] = bat_temperature_val;
+			prop_control->last_prop_update_time[prop_map] = ctime;
+		} else {
+			bat_temperature_val = prop_control->val[prop_map];
+		}
 	}
 
 	if (bat_temperature_val == -EHOSTDOWN)
@@ -938,7 +1260,11 @@ int gauge_get_property(enum gauge_property gp,
 {
 	struct mtk_gauge *gauge;
 	struct power_supply *psy;
+	struct property_control *prop_control;
+	ktime_t dtime;
+	struct timespec64 diff;
 	struct mtk_gauge_sysfs_field_info *attr;
+	static struct mtk_battery *gm;
 	int ret = 0;
 
 	psy = power_supply_get_by_name("mtk-gauge");
@@ -946,7 +1272,10 @@ int gauge_get_property(enum gauge_property gp,
 		return -ENODEV;
 
 	gauge = (struct mtk_gauge *)power_supply_get_drvdata(psy);
+	gm = gauge->gm;
+
 	attr = gauge->attr;
+	prop_control = &gauge->gm->prop_control;
 
 	if (attr == NULL) {
 		bm_err("%s attr =NULL\n", __func__);
@@ -954,7 +1283,20 @@ int gauge_get_property(enum gauge_property gp,
 	}
 	if (attr[gp].prop == gp) {
 		mutex_lock(&gauge->ops_lock);
+		prop_control->start_get_prop_time = ktime_get_boottime();
+		prop_control->curr_gp = gp;
+		prop_control->end_get_prop_time = 0;
 		ret = attr[gp].get(gauge, &attr[gp], val);
+		prop_control->end_get_prop_time = ktime_get_boottime();
+		dtime = ktime_sub(prop_control->end_get_prop_time,
+			prop_control->start_get_prop_time);
+		diff = ktime_to_timespec64(dtime);
+		if (timespec64_compare(&diff, &prop_control->max_get_prop_time) > 0) {
+			prop_control->max_gp = gp;
+			prop_control->max_get_prop_time = diff;
+		}
+		if (diff.tv_sec > prop_control->i2c_fail_th)
+			prop_control->i2c_fail_counter[gp] += 1;
 
 		mutex_unlock(&gauge->ops_lock);
 	} else {
@@ -1025,8 +1367,7 @@ int gauge_get_property_control(struct mtk_battery *gm, enum gauge_property gp,
 	int *val, int mode)
 {
 	struct property_control *prop_control;
-	ktime_t ctime = 0, dtime = 0;
-	struct timespec64 diff;
+	ktime_t ctime = 0, dtime = 0, diff = 0;
 	int prop_map, ret = 0;
 
 	prop_control = &gm->prop_control;
@@ -1042,10 +1383,10 @@ int gauge_get_property_control(struct mtk_battery *gm, enum gauge_property gp,
 	} else {
 		ctime = ktime_get_boottime();
 		dtime = ktime_sub(ctime, prop_control->last_prop_update_time[prop_map]);
-		diff = ktime_to_timespec64(dtime);
-		prop_control->counter += 1;
+		diff = ktime_to_ms(dtime);
+		prop_control->binder_counter += 1;
 
-		if (diff.tv_sec > prop_control->diff_time_th[prop_map]) {
+		if (diff > prop_control->diff_time_th[prop_map]) {
 			ret = gauge_get_property(gp, val);
 			prop_control->val[prop_map] = *val;
 			prop_control->last_prop_update_time[prop_map] = ctime;
@@ -1054,6 +1395,26 @@ int gauge_get_property_control(struct mtk_battery *gm, enum gauge_property gp,
 		}
 	}
 	return ret;
+}
+
+void fg_update_porp_control(struct property_control *prop_control)
+{
+	ktime_t ctime, diff;
+	int i;
+
+	prop_control->total_fail = 0;
+	ctime = ktime_get_boottime();
+	diff = ktime_sub(ctime, prop_control->pre_log_time);
+	prop_control->last_period = ktime_to_timespec64(diff);
+	diff = ktime_sub(ctime, prop_control->start_get_prop_time);
+	prop_control->last_diff_time = ktime_to_timespec64(diff);
+
+	for (i = 0; i < GAUGE_PROP_MAX; i++)
+		prop_control->total_fail += prop_control->i2c_fail_counter[i];
+
+	prop_control->last_binder_counter = prop_control->binder_counter;
+	prop_control->binder_counter = 0;
+	prop_control->pre_log_time = ctime;
 }
 /* ============================================================ */
 /* load .h/dtsi */
@@ -1226,6 +1587,8 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 	gm->ext_hwocv_swocv = EXT_HWOCV_SWOCV;
 	gm->ext_hwocv_swocv_lt = EXT_HWOCV_SWOCV_LT;
 	gm->ext_hwocv_swocv_lt_temp = EXT_HWOCV_SWOCV_LT_TEMP;
+
+	gm->no_prop_timeout_control = NO_PROP_TIMEOUT_CONTROL;
 
 	fg_cust_data->dc_ratio_sel = DC_RATIO_SEL;
 	fg_cust_data->dc_r_cnt = DC_R_CNT;
@@ -2791,10 +3154,16 @@ void fg_nafg_monitor(struct mtk_battery *gm)
 static void fg_drv_update_hw_status(struct mtk_battery *gm)
 {
 	ktime_t ktime;
+	struct property_control *prop_control;
+	char gp_name[MAX_GAUGE_PROP_LEN];
+	char reg_type_name[MAX_REGMAP_TYPE_LEN];
+	int i, regmap_type;
 
+	prop_control = &gm->prop_control;
 	gm->tbat = force_get_tbat_internal(gm);
+	fg_update_porp_control(prop_control);
 
-	bm_err("car[%d,%ld,%ld,%ld,%ld] tmp:%d soc:%d uisoc:%d vbat:%d ibat:%d baton:%d algo:%d gm3:%d %d %d %d %d %d bat_cnt: %d, boot:%d\n",
+	bm_err("car[%d,%ld,%ld,%ld,%ld] tmp:%d soc:%d uisoc:%d vbat:%d ibat:%d baton:%d algo:%d gm3:%d %d %d %d %d %d, get_prop:%d %d %d %d %d %ld %d, boot:%d\n",
 		gauge_get_int_property(GAUGE_PROP_COULOMB),
 		gm->coulomb_plus.end, gm->coulomb_minus.end,
 		gm->uisoc_plus.end, gm->uisoc_minus.end,
@@ -2806,13 +3175,38 @@ static void fg_drv_update_hw_status(struct mtk_battery *gm)
 		gm->algo.active,
 		gm->disableGM30, gm->fg_cust_data.disable_nafg,
 		gm->ntc_disable_nafg, gm->cmd_disable_nafg, gm->vbat0_flag,
-		gm->no_prop_timeout_control,
-		gm->prop_control.counter,
-		gm->bootmode);
+		gm->no_prop_timeout_control, prop_control->last_period.tv_sec,
+		prop_control->last_binder_counter, prop_control->total_fail,
+		prop_control->max_gp, prop_control->max_get_prop_time.tv_sec,
+		prop_control->max_get_prop_time.tv_nsec/1000000,
+		prop_control->last_diff_time.tv_sec, gm->bootmode);
 
 	fg_drv_update_daemon(gm);
+	prop_control->max_get_prop_time = ktime_to_timespec64(0);
+	if (prop_control->end_get_prop_time == 0 &&
+		prop_control->last_diff_time.tv_sec > prop_control->i2c_fail_th) {
+		gp_number_to_name(gp_name, prop_control->curr_gp);
+		regmap_type = gauge_get_int_property(GAUGE_PROP_REGMAP_TYPE);
+		reg_type_to_name(reg_type_name, regmap_type);
 
-	gm->prop_control.counter = 0;
+		bm_err("[%s_Error] get %s hang over 3 sec, time:%d\n",
+			reg_type_name, gp_name, prop_control->last_diff_time.tv_sec);
+		if (!gm->disableGM30)
+			WARN_ON(1);
+	}
+	if (!gm->disableGM30 && prop_control->total_fail > 20) {
+		regmap_type = gauge_get_int_property(GAUGE_PROP_REGMAP_TYPE);
+		reg_type_to_name(reg_type_name, regmap_type);
+
+		bm_err("[%s_Error] Binder last counter: %d, period: %d", reg_type_name,
+			prop_control->last_binder_counter, prop_control->last_period);
+		for (i = 0; i < GAUGE_PROP_MAX; i++) {
+			gp_number_to_name(gp_name, i);
+			bm_err("[%s_Error] %s, fail_counter: %d\n",
+				reg_type_name, gp_name, prop_control->i2c_fail_counter[i]);
+		}
+		WARN_ON(1);
+	}
 	/* kernel mode need regular update info */
 	if (gm->algo.active == true)
 		battery_update(gm);
@@ -3639,16 +4033,17 @@ int fg_prop_control_init(struct mtk_battery *gm)
 	memset(prop_control->last_prop_update_time, 0,
 		sizeof(prop_control->last_prop_update_time));
 	prop_control->diff_time_th[CONTROL_GAUGE_PROP_BATTERY_EXIST] =
-		PROP_BATTERY_EXIST_TIMEOUT;
+		PROP_BATTERY_EXIST_TIMEOUT * 100;
 	prop_control->diff_time_th[CONTROL_GAUGE_PROP_BATTERY_CURRENT] =
-		PROP_BATTERY_CURRENT_TIMEOUT;
+		PROP_BATTERY_CURRENT_TIMEOUT * 100;
 	prop_control->diff_time_th[CONTROL_GAUGE_PROP_AVERAGE_CURRENT] =
-		PROP_AVERAGE_CURRENT_TIMEOUT;
+		PROP_AVERAGE_CURRENT_TIMEOUT * 100;
 	prop_control->diff_time_th[CONTROL_GAUGE_PROP_BATTERY_VOLTAGE] =
-		PROP_BATTERY_VOLTAGE_TIMEOUT;
+		PROP_BATTERY_VOLTAGE_TIMEOUT * 100;
 	prop_control->diff_time_th[CONTROL_GAUGE_PROP_BATTERY_TEMPERATURE_ADC] =
-		PROP_BATTERY_TEMPERATURE_ADC_TIMEOUT;
-	prop_control->counter = 0;
+		PROP_BATTERY_TEMPERATURE_ADC_TIMEOUT * 100;
+	prop_control->i2c_fail_th = I2C_FAIL_TH;
+	prop_control->binder_counter = 0;
 	return 0;
 }
 

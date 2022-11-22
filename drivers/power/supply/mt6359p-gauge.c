@@ -2703,6 +2703,14 @@ static int battery_temperature_adc_get(struct mtk_gauge *gauge,
 	return ret;
 }
 
+static int regmap_type_get(struct mtk_gauge *gauge,
+				struct mtk_gauge_sysfs_field_info *attr,
+				int *val)
+{
+	*val = gauge->regmap_type;
+	return 0;
+}
+
 static int bif_voltage_get(struct mtk_gauge *gauge,
 	struct mtk_gauge_sysfs_field_info *attr, int *val)
 {
@@ -3387,6 +3395,8 @@ static struct mtk_gauge_sysfs_field_info mt6359_sysfs_field_tbl[] = {
 	GAUGE_SYSFS_FIELD_WO(
 		bat_temp_froze_en_set, GAUGE_PROP_BAT_TEMP_FROZE_EN),
 	GAUGE_SYSFS_FIELD_RO(battery_voltage_cali, GAUGE_PROP_BAT_EOC),
+	GAUGE_SYSFS_FIELD_RO(
+		regmap_type_get, GAUGE_PROP_REGMAP_TYPE)
 };
 
 static struct attribute *
@@ -3751,6 +3761,7 @@ static int mt6359_gauge_probe(struct platform_device *pdev)
 	gauge->chip = (struct mt6397_chip *)dev_get_drvdata(
 		pdev->dev.parent);
 	gauge->regmap = gauge->chip->regmap;
+	gauge->regmap_type = REGMAP_TYPE_SPI;
 	dev_set_drvdata(&pdev->dev, gauge);
 	gauge->pdev = pdev;
 	mutex_init(&gauge->ops_lock);

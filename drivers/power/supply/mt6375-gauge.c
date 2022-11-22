@@ -3043,6 +3043,14 @@ static int mt6375_auxadc_init_vbat_calibration(struct mt6375_priv *priv)
 	return mt6375_enable_tm(priv, false);
 }
 
+static int regmap_type_get(struct mtk_gauge *gauge,
+				struct mtk_gauge_sysfs_field_info *attr,
+				int *val)
+{
+	*val = gauge->regmap_type;
+	return 0;
+}
+
 static int bif_voltage_get(struct mtk_gauge *gauge, struct mtk_gauge_sysfs_field_info *attr,
 			   int *val)
 {
@@ -3524,7 +3532,8 @@ static struct mtk_gauge_sysfs_field_info mt6375_sysfs_field_tbl[] = {
 	GAUGE_SYSFS_INFO_FIELD_RW(vbat2_detect_time, GAUGE_PROP_VBAT2_DETECT_TIME),
 	GAUGE_SYSFS_INFO_FIELD_RW(vbat2_detect_counter, GAUGE_PROP_VBAT2_DETECT_COUNTER),
 	GAUGE_SYSFS_FIELD_WO(bat_temp_froze_en_set, GAUGE_PROP_BAT_TEMP_FROZE_EN),
-	GAUGE_SYSFS_FIELD_RO(battery_voltage_cali, GAUGE_PROP_BAT_EOC)
+	GAUGE_SYSFS_FIELD_RO(battery_voltage_cali, GAUGE_PROP_BAT_EOC),
+	GAUGE_SYSFS_FIELD_RO(regmap_type_get, GAUGE_PROP_REGMAP_TYPE)
 };
 
 static struct attribute *mt6375_sysfs_attrs[GAUGE_PROP_MAX + 1];
@@ -3926,6 +3935,7 @@ static int mtk_gauge_proprietary_init(struct mt6375_priv *priv)
 	struct mtk_gauge *gauge = &priv->gauge;
 	/* Variable initialization */
 	gauge->regmap = priv->regmap;
+	gauge->regmap_type = REGMAP_TYPE_I2C;
 	gauge->pdev = to_platform_device(priv->dev);
 	mutex_init(&gauge->ops_lock);
 	gauge->hw_status.car_tune_value = 1000;

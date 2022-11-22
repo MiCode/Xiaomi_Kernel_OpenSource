@@ -1645,6 +1645,39 @@ void exec_BAT_EC(int cmd, int param)
 				cmd, param);
 		}
 		break;
+	case 806:
+		{
+			struct property_control *prop_control;
+			int i, regmap_type;
+			char gp_name[MAX_GAUGE_PROP_LEN];
+			char reg_type_name[MAX_REGMAP_TYPE_LEN];
+
+			regmap_type = gauge_get_int_property(GAUGE_PROP_REGMAP_TYPE);
+			reg_type_to_name(reg_type_name, regmap_type);
+
+			bm_err("[%s_Error] exe_BAT_EC cmd %d. show all gauge i2c fail conuter\n",
+				reg_type_name, cmd);
+			prop_control = &gm->prop_control;
+			bm_err("[%s_Error] Binder last counter: %d, period: %d", reg_type_name,
+				prop_control->last_binder_counter, prop_control->last_period);
+			for (i = 0; i < GAUGE_PROP_MAX; i++) {
+				gp_number_to_name(gp_name, i);
+				bm_err("[%s_Error] %s, fail_counter: %d\n",
+					reg_type_name, gp_name, prop_control->i2c_fail_counter[i]);
+			}
+		}
+		break;
+	case 807:
+		{
+			char reg_type_name[MAX_REGMAP_TYPE_LEN];
+			int regmap_type;
+
+			regmap_type = gauge_get_int_property(GAUGE_PROP_REGMAP_TYPE);
+			reg_type_to_name(reg_type_name, regmap_type);
+
+			bm_err("[%s] exe_BAT_EC cmd %d. show regmap type %d\n",
+				reg_type_name, cmd, regmap_type);
+		}
 
 
 

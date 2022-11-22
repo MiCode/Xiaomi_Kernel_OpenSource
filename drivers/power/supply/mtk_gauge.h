@@ -46,6 +46,7 @@
 	.get	= info_get,	\
 }
 
+#define MAX_GAUGE_PROP_LEN 50
 enum gauge_property {
 	GAUGE_PROP_INITIAL,
 	GAUGE_PROP_BATTERY_CURRENT,
@@ -104,6 +105,7 @@ enum gauge_property {
 	GAUGE_PROP_VBAT2_DETECT_COUNTER,
 	GAUGE_PROP_BAT_TEMP_FROZE_EN,
 	GAUGE_PROP_BAT_EOC,
+	GAUGE_PROP_REGMAP_TYPE,
 	GAUGE_PROP_MAX,
 };
 
@@ -155,6 +157,15 @@ enum gauge_hw_version {
 	GAUGE_HW_V2001 = 2001,
 
 	GAUGE_HW_MAX
+};
+
+#define MAX_REGMAP_TYPE_LEN 30
+enum gauge_regmap_type {
+	REGMAP_TYPE_I2C,
+	REGMAP_TYPE_SPMI,
+	RGEMAP_TYPE_MMIO,
+	REGMAP_TYPE_SPI,
+	REGMAP_TYPE_MAX
 };
 
 /* for gauge hal only */
@@ -249,6 +260,9 @@ struct mtk_gauge {
 	struct mtk_gauge_sysfs_field_info *attr;
 	struct zcv_data zcv_info;
 
+	/* regmap type */
+	int regmap_type;
+
 	/* hw nafg */
 	int nafg_corner;
 	int nafg_zcv_mv;
@@ -280,7 +294,6 @@ struct mtk_gauge {
 	wait_queue_head_t  wait_que;
 	unsigned int gauge_update_flag;
 	struct hrtimer gauge_hrtimer;
-
 };
 
 struct mtk_gauge_sysfs_field_info {

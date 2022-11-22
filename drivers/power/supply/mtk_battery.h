@@ -34,10 +34,11 @@
 #define BMLOG_DEBUG_LEVEL   7
 #define BMLOG_TRACE_LEVEL   8
 
+/*0.1s*/
 #define PROP_BATTERY_EXIST_TIMEOUT 10
-#define	PROP_BATTERY_CURRENT_TIMEOUT 1
-#define	PROP_AVERAGE_CURRENT_TIMEOUT 5
-#define	PROP_BATTERY_VOLTAGE_TIMEOUT 5
+#define	PROP_BATTERY_CURRENT_TIMEOUT 5
+#define	PROP_AVERAGE_CURRENT_TIMEOUT 10
+#define	PROP_BATTERY_VOLTAGE_TIMEOUT 10
 #define	PROP_BATTERY_TEMPERATURE_ADC_TIMEOUT 10
 
 #define BMLOG_DEFAULT_LEVEL BMLOG_DEBUG_LEVEL
@@ -129,11 +130,26 @@ enum property_control_data {
 	CONTROL_MAX,
 };
 
+#define I2C_FAIL_TH 3
 struct property_control {
 	int val[CONTROL_MAX];
 	ktime_t last_prop_update_time[CONTROL_MAX];
 	int diff_time_th[CONTROL_MAX];
-	int counter;
+
+	ktime_t start_get_prop_time;
+	ktime_t end_get_prop_time;
+	struct timespec64 max_get_prop_time;
+	struct timespec64 last_period;
+	struct timespec64 last_diff_time;
+	int curr_gp;
+	int max_gp;
+
+	int i2c_fail_th;
+	int i2c_fail_counter[GAUGE_PROP_MAX];
+	int total_fail;
+	int binder_counter;
+	int last_binder_counter;
+	ktime_t pre_log_time;
 };
 struct battery_data {
 	struct power_supply_desc psd;
@@ -1144,6 +1160,8 @@ extern int gauge_get_property_control(struct mtk_battery *gm,
 	enum gauge_property gp, int *val, int mode);
 extern int gauge_set_property(enum gauge_property gp,
 			    int val);
+extern void gp_number_to_name(char *gp_name, unsigned int gp_no);
+extern void reg_type_to_name(char *reg_type_name, unsigned int regmap_type);
 extern int battery_init(struct platform_device *pdev);
 extern int battery_psy_init(struct platform_device *pdev);
 extern struct mtk_battery *get_mtk_battery(void);
