@@ -752,7 +752,6 @@ void qcom_add_ssr_subdev(struct rproc *rproc, struct qcom_rproc_ssr *ssr,
 	timer_setup(&ssr->timer, ssr_notif_timeout_handler, 0);
 
 	ssr->info = info;
-	ssr->is_notified = false;
 	ssr->subdev.prepare = ssr_notify_prepare;
 	ssr->subdev.start = ssr_notify_start;
 	ssr->subdev.stop = ssr_notify_stop;
