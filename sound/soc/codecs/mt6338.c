@@ -6213,27 +6213,16 @@ static int mt_pga_l_event(struct snd_soc_dapm_widget *w,
 			RG_AUDPREAMPLGAIN_MASK_SFT,
 			mic_gain_l << RG_AUDPREAMPLGAIN_SFT);
 
-		if (IS_DCC_BASE(mic_type)) {
-			/* L preamplifier DCCEN */
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON0,
-				RG_AUDPREAMPLDCCEN_MASK_SFT,
-				0x1 << RG_AUDPREAMPLDCCEN_SFT);
-		} else {
+		if (!IS_DCC_BASE(mic_type)) {
 			/* Audio L preamplifier ACC gain adjust */
 			/* (000) 0dB, (001) 6dB, (010) 12dB (011) 18dB, (100) 24dB */
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON38,
 			   RG_AUDPREAMPLACCGAIN_MASK_SFT,
 			   0x0 << RG_AUDPREAMPLACCGAIN_SFT);
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON0,
-			   RG_AUDPREAMPLDCCEN_MASK_SFT,
-			   0x0 << RG_AUDPREAMPLDCCEN_SFT);
 		}
+		usleep_range(1000, 1020);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		/* L preamplifier DCCEN */
-		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON0,
-			RG_AUDPREAMPLDCCEN_MASK_SFT,
-			0x0 << RG_AUDPREAMPLDCCEN_SFT);
 		/* if is vow rec concurrent, MIC BIAS0 need to change to lowpower mode */
 		if ((priv->vow_enable == 1) && (priv->vow_setup == 0)) {
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON59,
@@ -6322,27 +6311,16 @@ static int mt_pga_r_event(struct snd_soc_dapm_widget *w,
 			RG_AUDPREAMPRGAIN_MASK_SFT,
 			mic_gain_r << RG_AUDPREAMPRGAIN_SFT);
 
-		if (IS_DCC_BASE(mic_type)) {
-			/* R preamplifier DCCEN */
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON2,
-				RG_AUDPREAMPRDCCEN_MASK_SFT,
-				0x1 << RG_AUDPREAMPRDCCEN_SFT);
-		} else {
+		if (!IS_DCC_BASE(mic_type)) {
 			/* Audio R preamplifier ACC gain adjust */
 			/* (000) 0dB, (001) 6dB, (010) 12dB (011) 18dB, (100) 24dB */
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON38,
 			   RG_AUDPREAMPRACCGAIN_MASK_SFT,
 			   0x0 << RG_AUDPREAMPRACCGAIN_SFT);
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON2,
-			   RG_AUDPREAMPRDCCEN_MASK_SFT,
-			   0x0 << RG_AUDPREAMPRDCCEN_SFT);
 		}
+		usleep_range(1000, 1020);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		/* R preamplifier DCCEN */
-		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON2,
-			RG_AUDPREAMPRDCCEN_MASK_SFT,
-			0x0 << RG_AUDPREAMPRDCCEN_SFT);
 		/* if is vow rec concurrent, MIC BIAS0 need to change to lowpower mode */
 		if ((priv->vow_enable == 1) && (priv->vow_setup == 0)) {
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON59,
@@ -6432,21 +6410,14 @@ static int mt_pga_3_event(struct snd_soc_dapm_widget *w,
 			RG_AUDPREAMP3GAIN_MASK_SFT,
 			mic_gain_3 << RG_AUDPREAMP3GAIN_SFT);
 
-		if (IS_DCC_BASE(mic_type)) {
-			/* 3 preamplifier DCCEN */
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON4,
-				RG_AUDPREAMP3DCCEN_MASK_SFT,
-				0x1 << RG_AUDPREAMP3DCCEN_SFT);
-		} else {
+		if (!IS_DCC_BASE(mic_type)) {
 			/* Audio 3 preamplifier ACC gain adjust */
 			/* (000) 0dB, (001) 6dB, (010) 12dB (011) 18dB, (100) 24dB */
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON39,
 				RG_AUDPREAMP3ACCGAIN_MASK_SFT,
 				0x0 << RG_AUDPREAMP3ACCGAIN_SFT);
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON4,
-				RG_AUDPREAMP3DCCEN_MASK_SFT,
-				0x0 << RG_AUDPREAMP3DCCEN_SFT);
 		}
+		usleep_range(1000, 1020);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* 3 preamplifier DCCEN */
@@ -6540,21 +6511,14 @@ static int mt_pga_4_event(struct snd_soc_dapm_widget *w,
 			RG_AUDPREAMP4GAIN_MASK_SFT,
 			mic_gain_4 << RG_AUDPREAMP4GAIN_SFT);
 
-		if (IS_DCC_BASE(mic_type)) {
-			/* 4 preamplifier DCCEN */
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON6,
-				RG_AUDPREAMP4DCCEN_MASK_SFT,
-				0x1 << RG_AUDPREAMP4DCCEN_SFT);
-		} else {
+		if (!IS_DCC_BASE(mic_type)) {
 			/* Audio 4 preamplifier ACC gain adjust */
 			/* (000) 0dB, (001) 6dB, (010) 12dB (011) 18dB, (100) 24dB */
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON39,
 				RG_AUDPREAMP4ACCGAIN_MASK_SFT,
 				0x0 << RG_AUDPREAMP4ACCGAIN_SFT);
-			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON6,
-				RG_AUDPREAMP4DCCEN_MASK_SFT,
-				0x0 << RG_AUDPREAMP4DCCEN_SFT);
 		}
+		usleep_range(1000, 1020);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* 4 preamplifier DCCEN */
@@ -9606,6 +9570,34 @@ static void get_hp_trim_offset(struct mt6338_priv *priv, bool force)
 #endif
 }
 
+static void mic_type_default_init(struct mt6338_priv *priv)
+{
+	/* L preamp maps to 0th mic */
+	if (IS_DCC_BASE(priv->mux_select[priv->micbias_mux[0]]))
+		/* L preamplifier DCCEN */
+		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON0,
+				   RG_AUDPREAMPLDCCEN_MASK_SFT,
+				   0x1 << RG_AUDPREAMPLDCCEN_SFT);
+	/* R preamp maps to 2nd mic */
+	if (IS_DCC_BASE(priv->mux_select[priv->micbias_mux[2]]))
+		/* R preamplifier DCCEN */
+		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON2,
+				   RG_AUDPREAMPRDCCEN_MASK_SFT,
+				   0x1 << RG_AUDPREAMPRDCCEN_SFT);
+	/* 3 preamp maps to 3rd mic */
+	if (IS_DCC_BASE(priv->mux_select[priv->micbias_mux[3]]))
+		/* 3 preamplifier DCCEN */
+		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON4,
+				   RG_AUDPREAMP3DCCEN_MASK_SFT,
+				   0x1 << RG_AUDPREAMP3DCCEN_SFT);
+	/* 4 preamp maps to 4th mic */
+	if (IS_DCC_BASE(priv->mux_select[priv->micbias_mux[4]]))
+		/* 4 preamplifier DCCEN */
+		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON6,
+				   RG_AUDPREAMP4DCCEN_MASK_SFT,
+				   0x1 << RG_AUDPREAMP4DCCEN_SFT);
+}
+
 static int dc_trim_thread(void *arg)
 {
 	struct mt6338_priv *priv = arg;
@@ -10699,6 +10691,8 @@ static int mt6338_codec_init_reg(struct mt6338_priv *priv)
 	priv->hp_hifi_mode = 0;
 	/* mic hifi mode, default hifi mode */
 	priv->mic_hifi_mode = 0;
+	/* mic type setting */
+	mic_type_default_init(priv);
 
 	/* vow */
 	priv->vow_enable = 0;
