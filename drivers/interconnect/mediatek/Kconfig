@@ -73,3 +73,9 @@ config INTERCONNECT_MTK_MMQOS_MT6835
 	select INTERCONNECT_MTK_MMQOS_COMMON
 	help
 	  Support MT6835 multimedia QoS.
+
+config MTK_MMQOS_DEBUG
+	tristate "enable MMQoS driver debug"
+	help
+	  This debug config is for mmqos driver to enable systrace in user/eng
+	  load and avoid user load performance concern.

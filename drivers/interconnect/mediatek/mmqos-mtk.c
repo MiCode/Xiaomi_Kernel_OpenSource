@@ -41,7 +41,11 @@
 
 static u32 mmqos_state = MMQOS_ENABLE;
 
+#if IS_ENABLED(CONFIG_MTK_MMQOS_DEBUG)
+static int ftrace_ena = (1 << MMQOS_PROFILE_SYSTRACE);
+#else
 static int ftrace_ena;
+#endif
 
 struct comm_port_bw_record {
 	u8 idx[MAX_RECORD_COMM_NUM][MAX_RECORD_PORT_NUM];
@@ -254,7 +258,7 @@ static void set_comm_icc_bw(struct common_node *comm_node)
 	u32 volt, i, j, comm_id;
 	s32 ret;
 
-	MMQOS_SYSTRACE_BEGIN("%s %s\n", __func__, comm_node->base->icc_node->name);
+	MMQOS_DETAIL_SYSTRACE_BEGIN("%s %s\n", __func__, comm_node->base->icc_node->name);
 	list_for_each_entry(comm_port_node, &comm_node->comm_port_list, list) {
 		mutex_lock(&comm_port_node->bw_lock);
 		avg_bw += comm_port_node->latest_avg_bw;
@@ -297,6 +301,7 @@ static void set_comm_icc_bw(struct common_node *comm_node)
 					"comm(%d) max_bw=%u smi_clk=%u volt=%u\n",
 					comm_id, max_bw, smi_clk, volt);
 			}
+			MMQOS_SYSTRACE_BEGIN("set_voltage %d\n", volt);
 			if (IS_ERR_OR_NULL(comm_node->comm_reg)) {
 				if (IS_ERR_OR_NULL(comm_node->clk))
 					dev_notice(comm_node->comm_dev,
@@ -312,6 +317,7 @@ static void set_comm_icc_bw(struct common_node *comm_node)
 				dev_notice(comm_node->comm_dev,
 					"regulator_set_voltage failed volt=%lu\n", volt);
 			comm_node->volt = volt;
+			MMQOS_SYSTRACE_END();
 
 		}
 		comm_node->smi_clk = smi_clk;
@@ -321,7 +327,7 @@ static void set_comm_icc_bw(struct common_node *comm_node)
 	icc_set_bw(comm_node->icc_hrt_path, peak_bw, 0);
 	MMQOS_SYSTRACE_END();
 
-	MMQOS_SYSTRACE_END();
+	MMQOS_DETAIL_SYSTRACE_END();
 }
 
 static void update_hrt_bw(struct mtk_mmqos *mmqos)
@@ -594,7 +600,7 @@ static int mtk_mmqos_aggregate(struct icc_node *node,
 	if (!node || !node->data)
 		return 0;
 
-	MMQOS_SYSTRACE_BEGIN("%s %s\n", __func__, node->name);
+	MMQOS_DETAIL_SYSTRACE_BEGIN("%s %s\n", __func__, node->name);
 	switch (NODE_TYPE(node->id)) {
 	case MTK_MMQOS_NODE_LARB_PORT:
 		larb_port_node = (struct larb_port_node *)node->data;
@@ -626,7 +632,7 @@ static int mtk_mmqos_aggregate(struct icc_node *node,
 	else
 		*agg_peak += peak_bw;
 
-	MMQOS_SYSTRACE_END();
+	MMQOS_DETAIL_SYSTRACE_END();
 	return 0;
 }
 
@@ -1143,6 +1149,11 @@ bool mmqos_met_enabled(void)
 bool mmqos_systrace_enabled(void)
 {
 	return ftrace_ena & (1 << MMQOS_PROFILE_SYSTRACE);
+}
+
+bool mmqos_detail_systrace_enabled(void)
+{
+	return ftrace_ena & (1 << MMQOS_PROFILE_DETAIL_SYSTRACE);
 }
 
 noinline int tracing_mark_write(char *fmt, ...)
