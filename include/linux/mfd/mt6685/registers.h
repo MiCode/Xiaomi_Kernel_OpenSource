@@ -201,6 +201,10 @@
 	MT6685_SCK_TOP_CKPDN_CON0_L
 #define MT6685_RG_RTC_MCLK_PDN_MASK                         0x1
 #define MT6685_RG_RTC_MCLK_PDN_SHIFT                        4
+#define MT6685_RG_RTC_32K_CK_PDN_ADDR                       \
+	MT6685_SCK_TOP_CKPDN_CON0_L
+#define MT6685_RG_RTC_32K_CK_PDN_MASK                       0x1
+#define MT6685_RG_RTC_32K_CK_PDN_SHIFT                      5
 #define MT6685_SCK_TOP_CKPDN_CON0_L_SET_ADDR                \
 	MT6685_SCK_TOP_CKPDN_CON0_L_SET
 #define MT6685_SCK_TOP_CKPDN_CON0_L_SET_MASK                0xFF

@@ -48,7 +48,8 @@ static int counter;
 void power_on_mclk(struct mt6685_rtc *rtc)
 {
 	mutex_lock(&rtc->clk_lock);
-	/*Power on RTC MCLK before write RTC register*/
+	/*Power on RTC MCLK and 32k clk before write RTC register*/
+	regmap_write(rtc->regmap, RG_RTC_32K_CK_PDN_CLR, RG_RTC_32K_CK_PDN_MASK);
 	regmap_write(rtc->regmap, RG_RTC_MCLK_PDN_CLR, RG_RTC_MCLK_PDN_MASK);
 	counter++;
 	mdelay(1);
@@ -64,7 +65,8 @@ static void power_down_mclk(struct mt6685_rtc *rtc)
 		pr_info("mclk_counter[%d]\n", counter);
 	}
 	if (counter == 0) {
-		/*Power down RTC MCLK after write RTC register*/
+		/*Power down RTC MCLK and 32k clk after write RTC register*/
+		regmap_write(rtc->regmap, RG_RTC_32K_CK_PDN_SET, RG_RTC_32K_CK_PDN_MASK);
 		regmap_write(rtc->regmap, RG_RTC_MCLK_PDN_SET, RG_RTC_MCLK_PDN_MASK);
 		mdelay(1);
 	}
