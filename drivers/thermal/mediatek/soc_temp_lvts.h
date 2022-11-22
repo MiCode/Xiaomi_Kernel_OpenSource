@@ -15,11 +15,15 @@
 
 #define MIN_THERMAL_HW_REBOOT_POINT     (80000)
 
+#define SCP_APPOINTED_CONTROLLER  (5)
+#define SCP_APPOINTED_SENSOR   (0)
+
 #define CLOCK_26MHZ_CYCLE_NS	(38)
 #define BUS_ACCESS_US		(2)
 
 #define FEATURE_DEVICE_AUTO_RCK	(BIT(0))
 #define FEATURE_CK26M_ACTIVE	(BIT(1))
+#define FEATURE_SCP_OC		(BIT(2))
 #define ENABLE_FEATURE(feature)		(lvts_data->feature_bitmap |= feature)
 #define DISABLE_FEATURE(feature)	(lvts_data->feature_bitmap &= (~feature))
 #define IS_ENABLE(feature)		(lvts_data->feature_bitmap & feature)
@@ -321,6 +325,11 @@ struct lvts_id {
 #define HOT_INT2_EN		(1 << 11)
 #define HOT_INT1_EN		(1 << 6)
 #define HOT_INT0_EN		(1 << 1)
+
+#define COLD_INT3_EN		(1 << 22)
+#define COLD_INT2_EN		(1 << 10)
+#define COLD_INT1_EN		(1 << 5)
+#define COLD_INT0_EN		(1 << 0)
 
 #define LVTSMONINTSTS_0	0x010
 #define LVTSMONIDET0_0	0x014

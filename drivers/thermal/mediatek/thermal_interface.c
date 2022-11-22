@@ -158,6 +158,17 @@ int set_reboot_temperature(int temp)
 }
 EXPORT_SYMBOL(set_reboot_temperature);
 
+int set_cold_interrupt_enable_addr(int val)
+{
+	if (!tm_data.sw_ready)
+		return -ENODEV;
+
+	therm_intf_write_csram(val, COLD_INTERRUPT_ENABLE_OFFSET);
+
+	return 0;
+}
+EXPORT_SYMBOL(set_cold_interrupt_enable_addr);
+
 static ssize_t headroom_info_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
