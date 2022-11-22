@@ -6922,6 +6922,8 @@
 		wifi_page_pool: wifi_page_pool {
 			compatible = "mediatek,wifi_page_pool";
 			emi-size = <0x8000000>;
+			mpu-protect = <1>;
+			dynamic-alloc = <0>;
 		};
 
 		consys: consys@18000000 {
