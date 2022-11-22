@@ -471,7 +471,7 @@ void mtk_set_cpu_min_opp(int cpu, unsigned long min_util)
 
 	gear_id = topology_physical_package_id(cpu);
 	min_util = map_util_perf(min_util);
-	min_opp = pd_get_util_opp(cpu, min_util);
+	min_opp = pd_get_util_opp_legacy(cpu, min_util);
 	set_cpu_min_opp(gear_id, min_opp);
 }
 

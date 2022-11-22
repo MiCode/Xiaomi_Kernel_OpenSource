@@ -179,6 +179,18 @@ unsigned long pd_get_util_opp(int cpu, unsigned long util)
 }
 EXPORT_SYMBOL_GPL(pd_get_util_opp);
 
+unsigned long pd_get_util_opp_legacy(int cpu, unsigned long util)
+{
+	int i, idx;
+	struct pd_capacity_info *pd_info;
+
+	i = per_cpu(gear_id, cpu);
+	pd_info = &pd_capacity_tbl[i];
+	idx = map_util_idx_by_tbl(pd_info, util);
+	return pd_info->util_opp_map_legacy[idx];
+}
+EXPORT_SYMBOL_GPL(pd_get_util_opp_legacy);
+
 unsigned long pd_get_util_freq(int cpu, unsigned long util)
 {
 	int i, idx;
@@ -397,6 +409,8 @@ static void free_capacity_table(void)
 		pd_capacity_tbl[i].table = NULL;
 		kfree(pd_capacity_tbl[i].util_opp_map);
 		pd_capacity_tbl[i].util_opp_map = NULL;
+		kfree(pd_capacity_tbl[i].util_opp_map_legacy);
+		pd_capacity_tbl[i].util_opp_map_legacy = NULL;
 		kfree(pd_capacity_tbl[i].freq_opp_map);
 		pd_capacity_tbl[i].freq_opp_map = NULL;
 		kfree(pd_capacity_tbl[i].freq_opp_map_legacy);
@@ -427,11 +441,25 @@ static int init_util_freq_opp_mapping_table(void)
 									GFP_KERNEL);
 		if (!pd_info->util_opp_map)
 			goto nomem;
+		pd_info->util_opp_map_legacy = kcalloc(pd_info->nr_util_opp_map, sizeof(int),
+									GFP_KERNEL);
+		if (!pd_info->util_opp_map_legacy)
+			goto nomem;
+
 		for (j = 0; j < nr_opp; j++) {
 			k = max_cap - pd_info->table[j].capacity;
 			next_k = max_cap - pd_info->table[min(nr_opp - 1, j + 1)].capacity;
-			for (; k <= next_k; k++)
+			for (; k <= next_k; k++) {
 				pd_info->util_opp_map[k] = j;
+				for (opp = mtk_em_pd_ptr_public[i].nr_perf_states - 1; opp >= 0;
+						opp--) {
+					if (mtk_em_pd_ptr_public[i].table[opp].capacity >=
+							(max_cap - k)) {
+						break;
+					}
+				}
+				pd_info->util_opp_map_legacy[k] = opp;
+			}
 		}
 
 		/* init freq_opp_map */
@@ -682,6 +710,7 @@ static int alloc_capacity_table(void)
 		pd_capacity_tbl[cur_tbl].freq_min =
 			min(pd->table[pd->nr_perf_states - 1].frequency, pd->table[0].frequency);
 		pd_capacity_tbl[cur_tbl].util_opp_map = NULL;
+		pd_capacity_tbl[cur_tbl].util_opp_map_legacy = NULL;
 		pd_capacity_tbl[cur_tbl].freq_opp_map = NULL;
 		pd_capacity_tbl[cur_tbl].freq_opp_map_legacy = NULL;
 

@@ -40,6 +40,7 @@ struct pd_capacity_info {
 	// for util mapping in O(1)
 	int nr_util_opp_map;
 	int *util_opp_map;
+	int *util_opp_map_legacy;
 
 	// for freq mapping in O(1)
 	unsigned int DFreq;
@@ -97,6 +98,7 @@ extern struct mtk_em_perf_state *pd_get_util_ps(int cpu, unsigned long util, int
 extern unsigned long pd_get_util_freq(int cpu, unsigned long util);
 extern unsigned long pd_get_util_pwr_eff(int cpu, unsigned long util);
 extern unsigned long pd_get_util_opp(int cpu, unsigned long util);
+extern unsigned long pd_get_util_opp_legacy(int cpu, unsigned long util);
 extern unsigned long pd_get_opp_pwr_eff(int cpu, int opp);
 extern unsigned int pd_get_cpu_opp(int cpu);
 extern unsigned int pd_get_opp_leakage(unsigned int cpu, unsigned int opp,
