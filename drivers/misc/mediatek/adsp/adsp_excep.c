@@ -39,6 +39,24 @@ static char *adsp_ke_buffer;
 static struct adsp_exception_control excep_ctrl;
 static bool suppress_test_ee;
 
+static u32 copy_from_iomem(void *dest, size_t destsize, const void *src,
+			   size_t srcsize, u32 offset, size_t request)
+{
+	/* if request == -1, offset == 0, copy full srcsize */
+	if (offset + request > srcsize)
+		request = srcsize - offset;
+
+	/* if destsize == -1, don't check the request size */
+	if (!src || !dest || destsize < request) {
+		pr_warn("%s, buffer null or not enough space", __func__);
+		return 0;
+	}
+
+	memcpy_fromio(dest, src + offset, request);
+
+	return request;
+}
+
 static u32 copy_from_buffer(void *dest, size_t destsize, const void *src,
 			    size_t srcsize, u32 offset, size_t request)
 {
@@ -108,16 +126,16 @@ static u32 dump_adsp_internal_memory(void *buf, size_t size, struct adsp_priv *p
 	adsp_latch_dump_region(true);
 
 	n += write_mem_header(buf + n, size - n, "cfg", adspsys->cfg_size);
-	n += copy_from_buffer(buf + n, size - n, adspsys->cfg, adspsys->cfg_size, 0, -1);
+	n += copy_from_iomem(buf + n, size - n, adspsys->cfg, adspsys->cfg_size, 0, -1);
 
 	n += write_mem_header(buf + n, size - n, "cfg2", adspsys->cfg2_size);
-	n += copy_from_buffer(buf + n, size - n, adspsys->cfg2, adspsys->cfg2_size, 0, -1);
+	n += copy_from_iomem(buf + n, size - n, adspsys->cfg2, adspsys->cfg2_size, 0, -1);
 
 	n += write_mem_header(buf + n, size - n, "itcm", pdata->itcm_size);
-	n += copy_from_buffer(buf + n, size - n, pdata->itcm, pdata->itcm_size, 0, -1);
+	n += copy_from_iomem(buf + n, size - n, pdata->itcm, pdata->itcm_size, 0, -1);
 
 	n += write_mem_header(buf + n, size - n, "dtcm", pdata->dtcm_size);
-	n += copy_from_buffer(buf + n, size - n, pdata->dtcm, pdata->dtcm_size, 0, -1);
+	n += copy_from_iomem(buf + n, size - n, pdata->dtcm, pdata->dtcm_size, 0, -1);
 
 	adsp_latch_dump_region(false);
 	adsp_disable_clock();
@@ -475,17 +493,17 @@ void get_adsp_aee_buffer(unsigned long *vaddr, unsigned long *size)
 
 	pdata = get_adsp_core_by_id(ADSP_A_ID);
 	if (pdata) {
-		n += copy_from_buffer(buf + n, len - n,
+		n += copy_from_iomem(buf + n, len - n,
 					adspsys->cfg, adspsys->cfg_size, 0, -1);
-		n += copy_from_buffer(buf + n, len - n,
+		n += copy_from_iomem(buf + n, len - n,
 					adspsys->cfg2, adspsys->cfg2_size, 0, -1);
-		n += copy_from_buffer(buf + n, len - n,
+		n += copy_from_iomem(buf + n, len - n,
 					pdata->dtcm, pdata->dtcm_size, 0, -1);
 	}
 
 	pdata = get_adsp_core_by_id(ADSP_B_ID);
 	if (pdata) {
-		n += copy_from_buffer(buf + n, len - n,
+		n += copy_from_iomem(buf + n, len - n,
 					pdata->dtcm, pdata->dtcm_size, 0, -1);
 	}
 	adsp_latch_dump_region(false);
