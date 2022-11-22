@@ -1131,6 +1131,11 @@ static void mtk_pcie_power_down(struct mtk_pcie_port *port)
 
 	/* BBCK2 is controlled by itself hardware mode */
 	clk_buf_voter_ctrl_by_id(7, HW);
+
+	if (port->pextpcfg) {
+		iounmap(port->pextpcfg);
+		iounmap(port->vlpcfg_base);
+	}
 }
 
 static int mtk_pcie_setup(struct mtk_pcie_port *port)
