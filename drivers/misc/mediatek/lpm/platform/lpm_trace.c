@@ -44,8 +44,7 @@ int __init lpm_trace_parsing(struct device_node *parent)
 
 		if (!of_address_to_resource(node, 0, &res)) {
 			lpm_trace_ins.size = (size_t)resource_size(&res);
-			lpm_trace_ins.mmu = ioremap(res.start,
-							resource_size(&res));
+			lpm_trace_ins.mmu = of_iomap(node, 0);
 		}
 		of_node_put(node);
 	}

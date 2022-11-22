@@ -80,7 +80,7 @@ struct LPM_TRACE_COMM {
 	unsigned int rc_info;
 	unsigned int rc_fp;
 	unsigned int rc_valid;
-};
+} __aligned(8);
 
 static ssize_t lpm_dbg_trace_suspend_show(char *ToUserBuf,
 							size_t sz, void *priv)
