@@ -2975,12 +2975,12 @@ static int mtk_disp_clarity_set_reg(struct mtk_ddp_comp *comp,
 		clarity_regs->disp_tdshp_clarity_regs.SIZE_PARAMETER << 2 |
 		clarity_regs->disp_tdshp_clarity_regs.Luma_shift << 12 |
 		clarity_regs->disp_tdshp_clarity_regs.Chroma_shift << 15),
-		(1 << 15) | (1 << 12) | (1 << 2) | (1 << 1) | (1 << 0));
+		(0x7 << 15) | (0x7 << 12) | (0x1F << 2) | (1 << 1) | (1 << 0));
 
 	cmdq_pkt_write(handle, comp->cmdq_base, comp_tdshp->regs_pa + CLASS_0_2_GAIN,
 		(clarity_regs->disp_tdshp_clarity_regs.class_0_positive_gain << 0 |
 		clarity_regs->disp_tdshp_clarity_regs.class_0_negative_gain << 5),
-		(1 << 5) | (1 << 0));
+		0x3FF);
 
 	CRTC_MMP_MARK(0, clarity_set_regs, comp->id, 2);
 
