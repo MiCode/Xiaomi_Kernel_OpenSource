@@ -5023,7 +5023,7 @@ static void mic_type_default_init(struct mt6368_priv *priv)
 		/* L preamplifier DCCEN */
 		regmap_update_bits(priv->regmap, MT6368_AUDENC_ANA_CON0,
 				   RG_AUDPREAMPLDCCEN_MASK_SFT,
-				   0x0 << RG_AUDPREAMPLDCCEN_SFT);
+				   0x1 << RG_AUDPREAMPLDCCEN_SFT);
 		/* R preamplifier DCCEN */
 		regmap_update_bits(priv->regmap, MT6368_AUDENC_ANA_CON2,
 				   RG_AUDPREAMPRDCCEN_MASK_SFT,
