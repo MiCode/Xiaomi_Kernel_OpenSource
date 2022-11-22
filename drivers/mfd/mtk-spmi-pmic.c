@@ -358,6 +358,9 @@ static const struct mfd_cell mt6377_devs[] = {
 	}, {
 		.name = "mt-pmic",
 		.of_compatible = "mediatek,spmi-pmic-debug",
+	}, {
+		.name = "mt6377-sound",
+		.of_compatible = "mediatek,mt6377-sound",
 	},
 };
 
