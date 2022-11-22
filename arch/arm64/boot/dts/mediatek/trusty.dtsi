@@ -12,21 +12,24 @@
 		tee-id = <0>;
 		tee-name = "trusty";
 
-		mtee {
-			compatible = "mediatek,trusty-mtee-v1";
+		trusty_virtio:trusty-virtio {
+			compatible = "android,trusty-virtio-v1";
 		};
 
-		gz-main {
-			compatible = "mediatek,trusty-gz";
-		};
-
-		trusty-irq {
+		trusty_irq:trusty-irq {
 			compatible = "android,trusty-irq-v1";
 			ppi-interrupt-parent = <&gic>;
 		};
 
-		trusty-virtio {
-			compatible = "android,trusty-virtio-v1";
+		tz_system:tz-system {
+			compatible = "mediatek,trusty-tz";
+			virtio-supply = <&trusty_virtio>;
+			irq-supply = <&trusty_irq>;
+		};
+
+		mtee {
+			compatible = "mediatek,trusty-mtee-v1";
+			tz-supply = <&tz_system>;
 		};
 
 		trusty-gz-log {
