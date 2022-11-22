@@ -775,8 +775,11 @@ int uarthub_core_dev0_is_uarthub_ready(void)
 		(0x1 << 9)) >> 9);
 
 	if (state == 1) {
-#if UARTHUB_INFO_LOG
+#if UARTHUB_DEBUG_LOG
 		uarthub_core_debug_clk_info("HUB_DBG_SetTX_E");
+#endif
+#if UARTHUB_INFO_LOG
+		uarthub_core_debug_byte_cnt_info("HUB_DBG_SetTX_E");
 #endif
 #if INIT_UARTHUB_DEFAULT
 		if (uarthub_core_is_uarthub_clk_enable() == 1) {
@@ -3374,15 +3377,15 @@ int uarthub_core_debug_uart_ip_info_with_tag_ex(const char *tag, int boundary)
 	if (dev0_sta == dev1_sta && dev1_sta == dev2_sta &&
 			dev2_sta == cmm_sta && cmm_sta == ap_sta) {
 		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-			",rx_woffset=[%d]", dev0_sta);
+			",fifo_woffset=[R:%d", dev0_sta);
 	} else {
 #if DUMP_AP_UART_DBG_INFO
 		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-			",rx_woffset=[%d-%d-%d-%d-%d]",
+			",fifo_woffset=[R:%d-%d-%d-%d-%d",
 			dev0_sta, dev1_sta, dev2_sta, cmm_sta, ap_sta);
 #else
 		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-			",rx_woffset=[%d-%d-%d-%d]",
+			",fifo_woffset=[R:%d-%d-%d-%d",
 			dev0_sta, dev1_sta, dev2_sta, cmm_sta);
 #endif
 	}
@@ -3395,15 +3398,78 @@ int uarthub_core_debug_uart_ip_info_with_tag_ex(const char *tag, int boundary)
 	if (dev0_sta == dev1_sta && dev1_sta == dev2_sta &&
 			dev2_sta == cmm_sta && cmm_sta == ap_sta) {
 		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-			",tx_woffset=[%d]", dev0_sta);
+			",T:%d]", dev0_sta);
 	} else {
 #if DUMP_AP_UART_DBG_INFO
 		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-			",tx_woffset=[%d-%d-%d-%d-%d]",
+			",T:%d-%d-%d-%d-%d]",
 			dev0_sta, dev1_sta, dev2_sta, cmm_sta, ap_sta);
 #else
 		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-			",tx_woffset=[%d-%d-%d-%d]",
+			",T:%d-%d-%d-%d]",
+			dev0_sta, dev1_sta, dev2_sta, cmm_sta);
+#endif
+	}
+
+	dev0_sta = (((debug4.dev0 & 0xC0) >> 6) + ((debug5.dev0 & 0xF) << 2));
+	dev1_sta = (((debug4.dev1 & 0xC0) >> 6) + ((debug5.dev1 & 0xF) << 2));
+	dev2_sta = (((debug4.dev2 & 0xC0) >> 6) + ((debug5.dev2 & 0xF) << 2));
+	cmm_sta = (((debug4.cmm & 0xC0) >> 6) + ((debug5.cmm & 0xF) << 2));
+	ap_sta = (((debug4.ap & 0xC0) >> 6) + ((debug5.ap & 0xF) << 2));
+	if (dev0_sta == dev1_sta && dev1_sta == dev2_sta &&
+			dev2_sta == cmm_sta && cmm_sta == ap_sta) {
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",fifo_tx_roffset=[%d]", dev0_sta);
+	} else {
+#if DUMP_AP_UART_DBG_INFO
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",fifo_tx_roffset=[%d-%d-%d-%d-%d]",
+			dev0_sta, dev1_sta, dev2_sta, cmm_sta, ap_sta);
+#else
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",fifo_tx_roffset=[%d-%d-%d-%d]",
+			dev0_sta, dev1_sta, dev2_sta, cmm_sta);
+#endif
+	}
+
+	dev0_sta = ((debug6.dev0 & 0xFC) >> 2);
+	dev1_sta = ((debug6.dev1 & 0xFC) >> 2);
+	dev2_sta = ((debug6.dev2 & 0xFC) >> 2);
+	cmm_sta = ((debug6.cmm & 0xFC) >> 2);
+	ap_sta = ((debug6.ap & 0xFC) >> 2);
+	if (dev0_sta == dev1_sta && dev1_sta == dev2_sta &&
+			dev2_sta == cmm_sta && cmm_sta == ap_sta) {
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",offset_dma=[R:%d", dev0_sta);
+	} else {
+#if DUMP_AP_UART_DBG_INFO
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",offset_dma=[R:%d-%d-%d-%d-%d",
+			dev0_sta, dev1_sta, dev2_sta, cmm_sta, ap_sta);
+#else
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",offset_dma=[R:%d-%d-%d-%d",
+			dev0_sta, dev1_sta, dev2_sta, cmm_sta);
+#endif
+	}
+
+	dev0_sta = ((debug3.dev0 & 0xFC) >> 2);
+	dev1_sta = ((debug3.dev1 & 0xFC) >> 2);
+	dev2_sta = ((debug3.dev2 & 0xFC) >> 2);
+	cmm_sta = ((debug3.cmm & 0xFC) >> 2);
+	ap_sta = ((debug3.ap & 0xFC) >> 2);
+	if (dev0_sta == dev1_sta && dev1_sta == dev2_sta &&
+			dev2_sta == cmm_sta && cmm_sta == ap_sta) {
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",T:%d]", dev0_sta);
+	} else {
+#if DUMP_AP_UART_DBG_INFO
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",T:%d-%d-%d-%d-%d]",
+			dev0_sta, dev1_sta, dev2_sta, cmm_sta, ap_sta);
+#else
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",T:%d-%d-%d-%d]",
 			dev0_sta, dev1_sta, dev2_sta, cmm_sta);
 #endif
 	}
@@ -3786,6 +3852,17 @@ int uarthub_core_debug_info_with_tag(const char *tag)
 	if (mutex_lock_killable(&g_clear_trx_req_lock)) {
 		mutex_unlock(&g_lock_dump_log);
 		return -6;
+	}
+
+	dev0_sta = UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV0_STA(intfhub_base_remap_addr));
+	dev1_sta = UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV1_STA(intfhub_base_remap_addr));
+	dev2_sta = UARTHUB_REG_READ(UARTHUB_INTFHUB_DEV2_STA(intfhub_base_remap_addr));
+	if (dev0_sta == dev1_sta && dev1_sta == dev2_sta) {
+		if (dev0_sta == 0x300 || dev0_sta == 0x0) {
+			pr_notice("[%s] all host sta is[0x%x]\n", __func__, dev0_sta);
+			mutex_unlock(&g_lock_dump_log);
+			return -1;
+		}
 	}
 
 	uarthub_core_clk_univpll_ctrl(1);
@@ -4933,15 +5010,15 @@ int uarthub_core_debug_byte_cnt_info(const char *tag)
 	if (dev0_sta == dev1_sta && dev1_sta == dev2_sta &&
 			dev2_sta == cmm_sta && cmm_sta == ap_sta) {
 		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-			",fifo=[R:%d", dev0_sta);
+			",fifo_woffset=[R:%d", dev0_sta);
 	} else {
 #if DUMP_AP_UART_DBG_INFO
 		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-			",fifo=[R:%d-%d-%d-%d-%d",
+			",fifo_woffset=[R:%d-%d-%d-%d-%d",
 			dev0_sta, dev1_sta, dev2_sta, cmm_sta, ap_sta);
 #else
 		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
-			",fifo=[R:%d-%d-%d-%d",
+			",fifo_woffset=[R:%d-%d-%d-%d",
 			dev0_sta, dev1_sta, dev2_sta, cmm_sta);
 #endif
 	}
@@ -4951,6 +5028,69 @@ int uarthub_core_debug_byte_cnt_info(const char *tag)
 	dev2_sta = (debug4.dev2 & 0x3F);
 	cmm_sta = (debug4.cmm & 0x3F);
 	ap_sta = (debug4.ap & 0x3F);
+	if (dev0_sta == dev1_sta && dev1_sta == dev2_sta &&
+			dev2_sta == cmm_sta && cmm_sta == ap_sta) {
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",T:%d]", dev0_sta);
+	} else {
+#if DUMP_AP_UART_DBG_INFO
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",T:%d-%d-%d-%d-%d]",
+			dev0_sta, dev1_sta, dev2_sta, cmm_sta, ap_sta);
+#else
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",T:%d-%d-%d-%d]",
+			dev0_sta, dev1_sta, dev2_sta, cmm_sta);
+#endif
+	}
+
+	dev0_sta = (((debug4.dev0 & 0xC0) >> 6) + ((debug5.dev0 & 0xF) << 2));
+	dev1_sta = (((debug4.dev1 & 0xC0) >> 6) + ((debug5.dev1 & 0xF) << 2));
+	dev2_sta = (((debug4.dev2 & 0xC0) >> 6) + ((debug5.dev2 & 0xF) << 2));
+	cmm_sta = (((debug4.cmm & 0xC0) >> 6) + ((debug5.cmm & 0xF) << 2));
+	ap_sta = (((debug4.ap & 0xC0) >> 6) + ((debug5.ap & 0xF) << 2));
+	if (dev0_sta == dev1_sta && dev1_sta == dev2_sta &&
+			dev2_sta == cmm_sta && cmm_sta == ap_sta) {
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",fifo_tx_roffset=[%d]", dev0_sta);
+	} else {
+#if DUMP_AP_UART_DBG_INFO
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",fifo_tx_roffset=[%d-%d-%d-%d-%d]",
+			dev0_sta, dev1_sta, dev2_sta, cmm_sta, ap_sta);
+#else
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",fifo_tx_roffset=[%d-%d-%d-%d]",
+			dev0_sta, dev1_sta, dev2_sta, cmm_sta);
+#endif
+	}
+
+	dev0_sta = ((debug6.dev0 & 0xFC) >> 2);
+	dev1_sta = ((debug6.dev1 & 0xFC) >> 2);
+	dev2_sta = ((debug6.dev2 & 0xFC) >> 2);
+	cmm_sta = ((debug6.cmm & 0xFC) >> 2);
+	ap_sta = ((debug6.ap & 0xFC) >> 2);
+	if (dev0_sta == dev1_sta && dev1_sta == dev2_sta &&
+			dev2_sta == cmm_sta && cmm_sta == ap_sta) {
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",offset_dma=[R:%d", dev0_sta);
+	} else {
+#if DUMP_AP_UART_DBG_INFO
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",offset_dma=[R:%d-%d-%d-%d-%d",
+			dev0_sta, dev1_sta, dev2_sta, cmm_sta, ap_sta);
+#else
+		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
+			",offset_dma=[R:%d-%d-%d-%d",
+			dev0_sta, dev1_sta, dev2_sta, cmm_sta);
+#endif
+	}
+
+	dev0_sta = ((debug3.dev0 & 0xFC) >> 2);
+	dev1_sta = ((debug3.dev1 & 0xFC) >> 2);
+	dev2_sta = ((debug3.dev2 & 0xFC) >> 2);
+	cmm_sta = ((debug3.cmm & 0xFC) >> 2);
+	ap_sta = ((debug3.ap & 0xFC) >> 2);
 	if (dev0_sta == dev1_sta && dev1_sta == dev2_sta &&
 			dev2_sta == cmm_sta && cmm_sta == ap_sta) {
 		len += snprintf(dmp_info_buf + len, DBG_LOG_LEN - len,
