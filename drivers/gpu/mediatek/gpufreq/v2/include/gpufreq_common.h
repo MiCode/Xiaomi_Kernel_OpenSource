@@ -108,6 +108,7 @@ unsigned int __gpufreq_get_cur_vgpu(void);
 unsigned int __gpufreq_get_cur_pgpu(void);
 unsigned int __gpufreq_get_max_pgpu(void);
 unsigned int __gpufreq_get_min_pgpu(void);
+unsigned int __gpufreq_get_cur_vcore(void);
 int __gpufreq_get_cur_idx_gpu(void);
 int __gpufreq_get_opp_num_gpu(void);
 int __gpufreq_get_signed_opp_num_gpu(void);
