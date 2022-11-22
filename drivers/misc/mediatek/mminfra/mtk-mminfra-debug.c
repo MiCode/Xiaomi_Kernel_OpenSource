@@ -108,6 +108,26 @@ static void do_mminfra_bkrs(bool is_restore)
 	}
 }
 
+static struct device *mminfra_get_if_in_use(void)
+{
+	s32 i, ret = 0;
+
+	for (i = 0; i < MAX_SMI_COMM_NUM; i++) {
+		if (!dev || !dbg || !dbg->comm_dev[i])
+			break;
+
+		ret = pm_runtime_get_if_in_use(dbg->comm_dev[i]);
+		if (ret <= 0)
+			continue;
+		else
+			return dbg->comm_dev[i];
+	}
+
+	pr_info("MMinfra may off, idx:%d ret=%d\n", i, ret);
+
+	return NULL;
+}
+
 static void mminfra_clk_set(bool is_enable)
 {
 	int err = 0;
@@ -426,16 +446,16 @@ static int mminfra_smi_dbg_cb(struct notifier_block *nb,
 static bool aee_dump;
 static irqreturn_t mminfra_irq_handler(int irq, void *data)
 {
-	s32 ret;
+	struct device *comm_dev;
 	//char buf[LINK_MAX + 1] = {0};
 
 	pr_notice("handle mminfra irq!\n");
 	if (!dev || !dbg || !dbg->comm_dev[0])
 		return IRQ_NONE;
 
-	ret = pm_runtime_get_if_in_use(dev);
-	if (ret <= 0) {
-		pr_notice("%s: mminfra is power off(%d)\n", __func__, ret);
+	comm_dev = mminfra_get_if_in_use();
+	if (!comm_dev) {
+		pr_notice("%s: mminfra is power off\n", __func__);
 		return IRQ_HANDLED;
 	}
 
@@ -454,7 +474,7 @@ static irqreturn_t mminfra_irq_handler(int irq, void *data)
 
 	cmdq_util_mminfra_cmd(0);
 
-	pm_runtime_put(dev);
+	pm_runtime_put(comm_dev);
 
 	return IRQ_HANDLED;
 }
