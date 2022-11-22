@@ -101,7 +101,9 @@ struct scp_region_info_st *scp_region_info;
 struct scp_region_info_st scp_region_info_copy;
 
 struct scp_work_struct scp_sys_reset_work;
+struct scp_work_struct scp_sys_thermal_work;
 struct wakeup_source *scp_reset_lock;
+unsigned int scp_thermal_wq_support;
 
 DEFINE_SPINLOCK(scp_reset_spinlock);
 
@@ -123,6 +125,8 @@ unsigned char *scp_recv_buff[SCP_CORE_TOTAL];
 static struct workqueue_struct *scp_workqueue;
 
 static struct workqueue_struct *scp_reset_workqueue;
+
+static struct workqueue_struct *scp_thermal_workqueue;
 
 #if SCP_LOGGER_ENABLE
 static struct workqueue_struct *scp_logger_workqueue;
@@ -560,13 +564,17 @@ void scp_schedule_reset_work(struct scp_work_struct *scp_ws)
 	queue_work(scp_reset_workqueue, &scp_ws->work);
 }
 
-
 #if SCP_LOGGER_ENABLE
 void scp_schedule_logger_work(struct scp_work_struct *scp_ws)
 {
 	queue_work(scp_logger_workqueue, &scp_ws->work);
 }
 #endif
+
+void scp_schedule_thermal_work(struct scp_work_struct *scp_ws)
+{
+	queue_work(scp_thermal_workqueue, &scp_ws->work);
+}
 
 /*
  * callback function for work struct
@@ -1929,6 +1937,45 @@ void scp_send_reset_wq(enum SCP_RESET_TYPE type)
 }
 #endif
 
+void scp_send_thermal_wq(enum SCP_THERMAL_TYPE type)
+{
+	scp_sys_thermal_work.flags = (unsigned int) type;
+	scp_sys_thermal_work.id = SCP_A_ID;
+	scp_schedule_thermal_work(&scp_sys_thermal_work);
+}
+EXPORT_SYMBOL_GPL(scp_send_thermal_wq);
+
+void scp_sys_thermal_ws(struct work_struct *ws)
+{
+	struct scp_work_struct *sws = container_of(ws
+			, struct scp_work_struct, work);
+	unsigned int scp_thermal_type = sws->flags;
+	struct scpctl_cmd_s cmd;
+	int ret;
+
+	pr_notice("[SCP] %s(), type = %d\n", __func__, scp_thermal_type);
+
+	if (!scp_thermal_wq_support) {
+		pr_notice("thermal wq disable, bypass it\n");
+		return;
+	}
+
+	if (scp_thermal_type >= NUM_SCP_THERMAL_TYPE) {
+		pr_notice("[SCP] %s() error thermal type %d", scp_thermal_type);
+		return;
+	}
+
+	cmd.type = SCPCTL_THERMAL_EVENT;
+	cmd.op = scp_thermal_type;
+
+	ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_SCPCTL_1, 0, &cmd,
+			PIN_OUT_SIZE_SCPCTL_1, 0);
+
+	if (ret != IPI_ACTION_DONE)
+		pr_notice("[SCP] %s() ipi failed, scp_thermal_type = %d\n"
+				, __func__, scp_thermal_type);
+}
+
 int scp_check_resource(void)
 {
 	/* called by lowpower related function
@@ -2432,6 +2479,7 @@ static int scp_device_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *node;
 	const char *scp_pm_notify = NULL;
+	const char *scp_thermal_wq = NULL;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	scpreg.sram = devm_ioremap_resource(dev, res);
@@ -2571,6 +2619,16 @@ static int scp_device_probe(struct platform_device *pdev)
 		if (!strncmp(scp_pm_notify, "enable", strlen("enable"))) {
 			pr_notice("[SCP] scp_pm_notify enabled\n");
 			scp_pm_notify_support = 1;
+		}
+	}
+
+	/* scp thermal wq support*/
+	scp_thermal_wq_support = 0;
+	if (!of_property_read_string(pdev->dev.of_node,
+				"scp-thermal-wq", &scp_thermal_wq)){
+		if (!strncmp(scp_thermal_wq, "enable", strlen("enable"))) {
+			pr_notice("[SCP] scp_thermal_wq enabled\n");
+			scp_thermal_wq_support = 1;
 		}
 	}
 
@@ -2901,6 +2959,10 @@ static int __init scp_init(void)
 
 	scp_recovery_init();
 
+	pr_notice("[SCP] thermal wq init\n");
+	scp_thermal_workqueue = create_singlethread_workqueue("SCP_THERMAL_WQ");
+	INIT_WORK(&scp_sys_thermal_work.work, scp_sys_thermal_ws);
+
 #ifdef SCP_PARAMS_TO_SCP_SUPPORT
 	/* The function, sending parameters to scp must be anchored before
 	 * 1. disabling 26M, 2. resetting SCP
@@ -2968,6 +3030,8 @@ static void __exit scp_exit(void)
 	flush_workqueue(scp_logger_workqueue);
 	destroy_workqueue(scp_logger_workqueue);
 #endif
+	flush_workqueue(scp_thermal_workqueue);
+	destroy_workqueue(scp_thermal_workqueue);
 
 #if SCP_BOOT_TIME_OUT_MONITOR
 	for (i = 0; i < SCP_CORE_TOTAL ; i++)

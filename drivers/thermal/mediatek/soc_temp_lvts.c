@@ -24,7 +24,9 @@
 #include "soc_temp_lvts.h"
 #include "thermal_interface.h"
 #include "../thermal_core.h"
-
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
+#include "scp.h"
+#endif  /* #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT) */
 /*==================================================
  * LVTS debug patch
  *==================================================
@@ -1528,6 +1530,7 @@ static bool scp_temperature_detection_flow(struct lvts_data *lvts_data, unsigned
 		temp = lvts_read_tc_temperature(lvts_data, s_index + 1, true);
 		dev_info(dev, "it is controller%d, sensor0 hot interrupt, temp = %d\n",
 			tc_id, temp);
+		scp_send_thermal_wq(SCP_THERMAL_TYPE_HOT);
 
 		ret = true;
 	} else if (interrupt_reg_status & THERMAL_COLD_INTERRUPT_0) {
@@ -1546,6 +1549,7 @@ static bool scp_temperature_detection_flow(struct lvts_data *lvts_data, unsigned
 		temp = lvts_read_tc_temperature(lvts_data, s_index + 1, true);
 		dev_info(dev, "it is controller%d, sensor0 cold interrupt, temp = %d\n",
 			tc_id, temp);
+		scp_send_thermal_wq(SCP_THERMAL_TYPE_COLD);
 
 		ret = true;
 	} else {

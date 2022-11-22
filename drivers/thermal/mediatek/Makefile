@@ -4,6 +4,9 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/mcupm/include \
 	-I$(srctree)/drivers/gpu/mediatek/gpufreq \
 	-I$(srctree)/drivers/misc/mediatek/connectivity/power_throttling
+ifneq ($(CONFIG_MTK_TINYSYS_SCP_SUPPORT),)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include
+endif
 
 obj-$(CONFIG_MTK_SOC_THERMAL)	+= soc_temp.o
 obj-$(CONFIG_MTK_SOC_THERMAL_LVTS)	+= soc_temp_lvts.o

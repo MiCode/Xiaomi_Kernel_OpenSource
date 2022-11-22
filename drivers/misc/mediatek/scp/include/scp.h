@@ -179,6 +179,12 @@ enum feature_id {
 	NUM_FEATURE_ID = 16,
 };
 
+enum SCP_THERMAL_TYPE {
+	SCP_THERMAL_TYPE_HOT = 0,
+	SCP_THERMAL_TYPE_COLD = 1,
+	NUM_SCP_THERMAL_TYPE,
+};
+
 extern struct mtk_mbox_device scp_mboxdev;
 extern struct mtk_ipi_device scp_ipidev;
 extern struct mtk_mbox_pin_send *scp_mbox_pin_send;
@@ -228,6 +234,8 @@ extern void scp_wdt_reset(int cpu_id);
 
 /* APIs for get status of scp dram_region_manage */
 extern int get_scp_dram_region_manage(void);
+
+extern void scp_send_thermal_wq(enum SCP_THERMAL_TYPE type);
 
 #endif
 
