@@ -22,6 +22,7 @@
 #include <linux/string.h>
 #include <linux/iopoll.h>
 #include "soc_temp_lvts.h"
+#include "thermal_interface.h"
 #include "../thermal_core.h"
 
 /*==================================================
@@ -965,6 +966,14 @@ static int soc_temp_lvts_set_trip_temp(void *data, int trip, int temp)
 	struct soc_temp_tz *lvts_tz = (struct soc_temp_tz *) data;
 	struct lvts_data *lvts_data = lvts_tz->lvts_data;
 	const struct thermal_trip *trip_points;
+	struct device *dev = lvts_data->dev;
+	int ret;
+
+	if (temp <= MIN_THERMAL_HW_REBOOT_POINT && temp != THERMAL_TEMP_INVALID) {
+		dev_info(dev, "input temperature is lower than %d\n",
+			MIN_THERMAL_HW_REBOOT_POINT);
+		return -EINVAL;
+	}
 
 	trip_points = of_thermal_get_trip_points(lvts_data->tz_dev);
 	if (!trip_points)
@@ -976,7 +985,9 @@ static int soc_temp_lvts_set_trip_temp(void *data, int trip, int temp)
 	update_all_tc_hw_reboot_point(lvts_data, temp);
 	set_all_tc_hw_reboot(lvts_data);
 
-	return 0;
+	ret = set_reboot_temperature(temp);
+
+	return ret;
 }
 
 static const struct thermal_zone_of_device_ops soc_temp_lvts_ops = {

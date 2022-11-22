@@ -37,6 +37,7 @@
 #define APU_ATC_NUM                   (1)
 #define UTC_COUNT_OFFSET           (0x27C)
 #define INFOB_OFFSET               (0x2C4)
+#define REBOOT_TEMPERATURE_ADDR_OFFSET (0x330)
 #define GPU_COOLER_BASE             (0x3A0)
 #define CPU_COOLER_BASE             (0x3D0)
 
@@ -137,6 +138,7 @@ extern void write_jatm_suspend(int jatm_suspend);
 extern int get_jatm_suspend(void);
 extern int get_catm_ttj(void);
 extern int get_catm_min_ttj(void);
+extern int set_reboot_temperature(int temp);
 
 #if IS_ENABLED(CONFIG_MTK_THERMAL_INTERFACE)
 extern void __iomem *thermal_csram_base;

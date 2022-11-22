@@ -147,6 +147,17 @@ int get_cpu_temp(int cpu_id)
 }
 EXPORT_SYMBOL(get_cpu_temp);
 
+int set_reboot_temperature(int temp)
+{
+	if (!tm_data.sw_ready)
+		return -ENODEV;
+
+	therm_intf_write_csram(temp, REBOOT_TEMPERATURE_ADDR_OFFSET);
+
+	return 0;
+}
+EXPORT_SYMBOL(set_reboot_temperature);
+
 static ssize_t headroom_info_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
