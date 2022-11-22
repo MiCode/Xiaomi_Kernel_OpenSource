@@ -51,6 +51,8 @@
 #define I2C_BUFFER_LEN 255 /* trans# max is 255, each 3 bytes */
 
 static kal_uint8 qsc_flag;
+// static kal_uint8 otp_flag;
+
 #if USE_BURST_MODE
 static kal_uint16 imx686_table_write_cmos_sensor(
 		kal_uint16 *para, kal_uint32 len);
@@ -62,7 +64,7 @@ static DEFINE_SPINLOCK(imgsensor_drv_lock);
 #define use_capture_setting 1
 
 #define new_init_setting 1
-//#define imx686_seamless_test 1
+#define imx686_seamless_test 1
 
 #ifdef imx686_seamless_test
 #define _I2C_BUF_SIZE 4096
@@ -606,7 +608,7 @@ static void set_dummy(void)
 		imgsensor.dummy_line, imgsensor.dummy_pixel);
 	/* return;*/ /* for test */
 
-#ifdef imx686_seamless_test //need check
+#ifdef imx686_seamless_test
 	if (!imx686_is_seamless) {
 		write_cmos_sensor_8(0x0104, 0x01);
 
@@ -723,7 +725,7 @@ static void write_shutter(kal_uint32 shutter)
 	}
 
 #ifdef imx686_seamless_test
-	if (!imx686_is_seamless) //need check
+	if (!imx686_is_seamless)
 		write_cmos_sensor_8(0x0104, 0x01);
 #endif
 
@@ -760,13 +762,13 @@ static void write_shutter(kal_uint32 shutter)
 	} else if (long_exposure_status == 1) {
 		long_exposure_status = 0;
 #ifdef imx686_seamless_test
-		if (!imx686_is_seamless)
+		if (!imx686_is_seamless) {
 			write_cmos_sensor_8(0x0104, 0x01);
 			write_cmos_sensor_8(0x3100, 0x00);
 			write_cmos_sensor_8(0x0340, imgsensor.frame_length >> 8);
 			write_cmos_sensor_8(0x0341, imgsensor.frame_length & 0xFF);
 			write_cmos_sensor_8(0x0104, 0x00);
-		else {
+		} else {
 			imx686_i2c_data[imx686_size_to_write++] = 0x0104;
 			imx686_i2c_data[imx686_size_to_write++] = 1;
 			imx686_i2c_data[imx686_size_to_write++] = 0x3100;
@@ -790,13 +792,13 @@ static void write_shutter(kal_uint32 shutter)
 	/* Update Shutter */
 
 #ifdef imx686_seamless_test
-	if (!imx686_is_seamless)
+	if (!imx686_is_seamless) {
 		write_cmos_sensor_8(0x0104, 0x01);
 		write_cmos_sensor_8(0x0350, 0x01);
 		write_cmos_sensor_8(0x0202, (shutter >> 8) & 0xFF);
 		write_cmos_sensor_8(0x0203, shutter  & 0xFF);
 		write_cmos_sensor_8(0x0104, 0x00);
-	else {
+	} else {
 		imx686_i2c_data[imx686_size_to_write++] = 0x0104;
 		imx686_i2c_data[imx686_size_to_write++] = 1;
 		imx686_i2c_data[imx686_size_to_write++] = 0x0350;
@@ -4709,8 +4711,8 @@ static kal_uint16 imx686_custom6_setting[] = {
 	0x0310,  0x01,
 	/*Other Setting*/
 	0x30D9,  0x01,
-	0x32D5,  0x00,
-	0x32D6,  0x01,
+	0x32D5,  0x01,//enable remosaic
+	0x32D6,  0x00,//disable QSC
 	0x403D,  0x10,
 	0x403E,  0x00,
 	0x403F,  0x78,
@@ -4740,8 +4742,8 @@ static kal_uint16 imx686_custom6_setting[] = {
 	0x401F,  0xCC,
 	0x59EE,  0x00,
 	0x59D1,  0x01,
-	0xAF06,  0x07,
-	0xAF07,  0xF1,
+	0xAF06,  0x03,
+	0xAF07,  0xFB,
 	/*Integration Setting*/
 	0x0202,  0x1B,
 	0x0203,  0x5D,
@@ -4885,7 +4887,7 @@ static kal_uint16 imx686_custom6_setting[] = {
 
 static void sensor_init(void)
 {
-	pr_debug("[%s] imx686_sensor_init\n", __func__);
+	pr_debug("[%s] imx686_sensor_init_start\n", __func__);
 	#if USE_BURST_MODE
 	imx686_table_write_cmos_sensor(imx686_init_setting,
 		sizeof(imx686_init_setting)/sizeof(kal_uint16));
@@ -4990,7 +4992,7 @@ static void sensor_init(void)
 	write_cmos_sensor_8(0x0138, 0x01);
 
 	set_mirror_flip(imgsensor.mirror);
-	pr_debug("[%s] imx686_sensor_init_end\n", __func__);
+	pr_debug("[%s] imx686_sensor_init_End\n", __func__);
 }	/*	  sensor_init  */
 
 
@@ -5841,15 +5843,15 @@ static void custom5_setting(void)
 		imx686_size_to_write += _length;
 	}
 
-	if (otp_flag == OTP_QSC_NONE) {
-		pr_info("OTP no QSC Data, close qsc register");
-		if (!imx686_is_seamless)
-			write_cmos_sensor_8(0x3621, 0x00);//need check
-		else {
-			imx686_i2c_data[imx686_size_to_write++] = 0x3621;
-			imx686_i2c_data[imx686_size_to_write++] = 0x0;
-		}
-	}
+	//if (otp_flag == OTP_QSC_NONE) {
+	//	pr_info("OTP no QSC Data, close qsc register");
+	//	if (!imx686_is_seamless)
+	//		write_cmos_sensor_8(0x3621, 0x00);//need check
+	//	else {
+	//		imx686_i2c_data[imx686_size_to_write++] = 0x3621;
+	//		imx686_i2c_data[imx686_size_to_write++] = 0x0;
+	//	}
+	//}
 #else
 	#if USE_BURST_MODE
 	imx686_table_write_cmos_sensor(imx686_custom5_setting,
@@ -5989,15 +5991,15 @@ static void custom6_setting(void)
 		imx686_size_to_write += _length;
 	}
 
-	if (otp_flag == OTP_QSC_NONE) {
-		pr_info("OTP no QSC Data, close qsc register");
-		if (!imx686_is_seamless)
-			write_cmos_sensor_8(0x3621, 0x00);//need check
-		else {
-			imx686_i2c_data[imx686_size_to_write++] = 0x3621;
-			imx686_i2c_data[imx686_size_to_write++] = 0x0;
-		}
-	}
+	//if (otp_flag == OTP_QSC_NONE) {
+	//	pr_info("OTP no QSC Data, close qsc register");
+	//	if (!imx686_is_seamless)
+	//		write_cmos_sensor_8(0x3621, 0x00);//need check
+	//	else {
+	//		imx686_i2c_data[imx686_size_to_write++] = 0x3621;
+	//		imx686_i2c_data[imx686_size_to_write++] = 0x0;
+	//	}
+	//}
 #else
 	#if USE_BURST_MODE
 	imx686_table_write_cmos_sensor(imx686_custom6_setting,
@@ -6525,7 +6527,7 @@ static kal_uint32 close(void)
 static kal_uint32 preview(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 			  MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	pr_debug("%s E\n", __func__);
+	pr_debug("%s. 4608*3456@30FPS\n", __func__);
 	spin_lock(&imgsensor_drv_lock);
 	imgsensor.sensor_mode = IMGSENSOR_MODE_PREVIEW;
 	imgsensor.pclk = imgsensor_info.pre.pclk;
@@ -6557,7 +6559,7 @@ static kal_uint32 preview(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 static kal_uint32 capture(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 			  MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	pr_debug("E\n");
+	pr_debug("%s. 4608*3456@30FPS\n", __func__);
 	spin_lock(&imgsensor_drv_lock);
 	imgsensor.sensor_mode = IMGSENSOR_MODE_CAPTURE;
 
@@ -6581,7 +6583,7 @@ static kal_uint32 capture(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 static kal_uint32 normal_video(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 				MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	pr_debug("E\n");
+	pr_debug("%s. 4608*2592@30FPS\n", __func__);
 
 	spin_lock(&imgsensor_drv_lock);
 	imgsensor.sensor_mode = IMGSENSOR_MODE_VIDEO;
@@ -6600,7 +6602,7 @@ static kal_uint32 normal_video(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 static kal_uint32 hs_video(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 				MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	pr_debug("E\n");
+	pr_debug("%s. 2304*1296@120FPS\n", __func__);
 
 	spin_lock(&imgsensor_drv_lock);
 	imgsensor.sensor_mode = IMGSENSOR_MODE_HIGH_SPEED_VIDEO;
@@ -6623,7 +6625,7 @@ static kal_uint32 hs_video(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 static kal_uint32 slim_video(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 				MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	pr_debug("%s. 4k@30FPS\n", __func__);
+	pr_debug("%s. 4608*2592@30FPS\n", __func__);
 
 	spin_lock(&imgsensor_drv_lock);
 	imgsensor.sensor_mode = IMGSENSOR_MODE_SLIM_VIDEO;
@@ -6647,7 +6649,7 @@ static kal_uint32 slim_video(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 static kal_uint32 custom1(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 			  MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	pr_debug("%s.custom1_setting\n", __func__);
+	pr_debug("%s. 4608*3456@24FPS\n", __func__);
 
 	spin_lock(&imgsensor_drv_lock);
 	imgsensor.sensor_mode = IMGSENSOR_MODE_CUSTOM1;
@@ -6667,7 +6669,7 @@ static kal_uint32 custom1(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 static kal_uint32 custom2(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 			  MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	pr_debug("%s.custom2_setting\n", __func__);
+	pr_debug("%s. 4608*2592@60FPS\n", __func__);
 
 	spin_lock(&imgsensor_drv_lock);
 	imgsensor.sensor_mode = IMGSENSOR_MODE_CUSTOM2;
@@ -6686,7 +6688,7 @@ static kal_uint32 custom2(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 static kal_uint32 custom3(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 			  MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	pr_debug("%s.custom3_setting\n", __func__);
+	pr_debug("%s. 1280*720@120FPS\n", __func__);
 
 	spin_lock(&imgsensor_drv_lock);
 	imgsensor.sensor_mode = IMGSENSOR_MODE_CUSTOM3;
@@ -6712,7 +6714,7 @@ static kal_uint32 custom3(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 static kal_uint32 custom4(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 			  MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	pr_debug("%s. 2312*1296@240FPS\n", __func__);
+	pr_debug("%s. 2304*1296@240FPS\n", __func__);
 
 	spin_lock(&imgsensor_drv_lock);
 	imgsensor.sensor_mode = IMGSENSOR_MODE_CUSTOM4;
@@ -6731,7 +6733,7 @@ static kal_uint32 custom4(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 static kal_uint32 custom5(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 			  MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	pr_debug("%s. 4600*2992@60FPS\n", __func__);
+	pr_debug("%s. 4608*3456@30FPS\n", __func__);
 
 	spin_lock(&imgsensor_drv_lock);
 	imgsensor.sensor_mode = IMGSENSOR_MODE_CUSTOM5;
@@ -6750,7 +6752,7 @@ static kal_uint32 custom5(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 static kal_uint32 custom6(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 			  MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data)
 {
-	pr_debug("%s. 4600*2992@60FPS\n", __func__);
+	pr_debug("%s. 9216*6912@30FPS\n", __func__);
 
 	spin_lock(&imgsensor_drv_lock);
 	imgsensor.sensor_mode = IMGSENSOR_MODE_CUSTOM6;
@@ -6760,6 +6762,13 @@ static kal_uint32 custom6(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 	imgsensor.min_frame_length = imgsensor_info.custom6.framelength;
 	imgsensor.autoflicker_en = KAL_FALSE;
 	spin_unlock(&imgsensor_drv_lock);
+	//if (!qsc_flag) {
+	//	pr_debug("write_sensor_QSC Start\n");
+	//	mdelay(1);
+	//	write_sensor_QSC();
+	//	pr_debug("write_sensor_QSC End\n");
+	//	qsc_flag = 1;
+	//}
 	custom6_setting();
 	set_mirror_flip(imgsensor.mirror);
 
@@ -7433,6 +7442,8 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	struct SET_PD_BLOCK_INFO_T *PDAFinfo;
 	struct SENSOR_WINSIZE_INFO_STRUCT *wininfo;
 	struct SENSOR_VC_INFO_STRUCT *pvcinfo;
+	uint32_t *pAeCtrls;
+	uint32_t *pScenarios;
 	/* SET_SENSOR_AWB_GAIN *pSetSensorAWB
 	 *  = (SET_SENSOR_AWB_GAIN *)feature_para;
 	 */
@@ -8060,8 +8071,6 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		case MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO:
 		case MSDK_SCENARIO_ID_CUSTOM1:
 		case MSDK_SCENARIO_ID_CUSTOM2:
-		case MSDK_SCENARIO_ID_CUSTOM5:
-		case MSDK_SCENARIO_ID_CUSTOM6:
 		case MSDK_SCENARIO_ID_CUSTOM7:
 		case MSDK_SCENARIO_ID_CUSTOM8:
 		case MSDK_SCENARIO_ID_CUSTOM9:
