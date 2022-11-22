@@ -235,7 +235,7 @@ static int mt_mdpm_create_procfs(void)
 	return 0;
 }
 
-static int get_md1_scenario_internal(u32 share_reg)
+static int get_md1_scenario_internal(u64 share_reg)
 {
 	int hit = -1;
 	int i = 0;
@@ -473,16 +473,24 @@ void init_md1_section_level(u32 *share_mem)
 enum md_scenario get_md1_scenario_by_shm(u32 *share_mem)
 {
 	int scenario = S_STANDBY;
-	u32 scen_status = -1;
+	u32 scen_status1 = -1;
+	u32 scen_status2 = -1;
+	u64 scen_status = -1;
 
-	mdpm_shm_read(share_mem, M_MD_SCENARIO, &scen_status,
+	mdpm_shm_read(share_mem, M_MD_SCENARIO_1, &scen_status1,
 		MDPM_SHARE_MEMORY_MASK, MDPM_SHARE_MEMORY_SHIFT);
+	mdpm_shm_read(share_mem, M_MD_SCENARIO_2, &scen_status2,
+		MDPM_SHARE_MEMORY_MASK, MDPM_SHARE_MEMORY_SHIFT);
+
+	scen_status = ((u64)scen_status2 << 32 | scen_status1);
 
 	scenario = get_md1_scenario_internal(scen_status);
 
 	scenario = (scenario < 0) ? S_STANDBY : scenario;
 
 	if (mt_mdpm_debug)
+		pr_info("scen_status: 0x%lx, scen_status1: 0x%x, scen_status2: 0x%x\n",
+				scen_status, scen_status1, scen_status2);
 		pr_info("MD1 scenario: %d(%s), scen_status: 0x%x\n",
 			scenario, mdpm_scen[scenario].scenario_name,
 			scen_status);
@@ -826,7 +834,8 @@ enum mdpm_platform {
 	MT6879_MDPM_DATA,
 	MT6895_MDPM_DATA,
 	MT6886_MDPM_DATA,
-	MT6985_MDPM_DATA
+	MT6985_MDPM_DATA,
+	MT6835_MDPM_DATA
 };
 
 static struct mdpm_data mt6873_mdpm_data = {
@@ -878,6 +887,13 @@ static struct mdpm_data mt6985_mdpm_data = {
 	.prority_t = (void *)&mt6985_scen_priority
 };
 
+static struct mdpm_data mt6835_mdpm_data = {
+	.platform = MT6835_MDPM_DATA,
+	.scenario_power_t = mt6835_mdpm_scen,
+	.tx_power_t = mt6835_mdpm_tx_pwr,
+	.prority_t = (void *)&mt6835_scen_priority
+};
+
 static const struct of_device_id mdpm_of_match[] = {
 	{
 		.compatible = "mediatek,mt6873-mdpm",
@@ -906,6 +922,10 @@ static const struct of_device_id mdpm_of_match[] = {
 	{
 		.compatible = "mediatek,mt6985-mdpm",
 		.data = (void *)&mt6985_mdpm_data,
+	},
+	{
+		.compatible = "mediatek,mt6835-mdpm",
+		.data = (void *)&mt6835_mdpm_data,
 	},
 	{
 	},

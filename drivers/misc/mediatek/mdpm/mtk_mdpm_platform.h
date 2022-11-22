@@ -176,10 +176,10 @@ enum share_mem_mapping {	/* each of 8 bytes */
 	M_NR_SECTION_1_LEVEL,
 	M_NR_SECTION_2_LEVEL,
 	M_NR_SECTION_3_LEVEL,
-	M_4G_SECTION_5_LEVEL,
-	M_4G_SECTION_6_LEVEL,
-	M_4G_SECTION_7_LEVEL,
-	M_MD_SCENARIO,
+	M_MD_SCENARIO_2,
+	M_RESERVE_1,
+	M_RESERVE_2,
+	M_MD_SCENARIO_1,
 	M_2G_SECTION_1_LEVEL,
 	M_3G_SECTION_1_LEVEL,
 	M_4G_SECTION_9_LEVEL,
@@ -237,7 +237,7 @@ struct scenario_power_type_t {
 };
 
 struct mdpm_scenario {
-	u32 scenario_reg;
+	u64 scenario_reg;
 	char scenario_name[MAX_MDPM_NAME_LEN];
 	struct scenario_power_type_t *scenario_power;
 	enum tx_rat_type tx_power_rat[MAX_DBM_FUNC_NUM];
