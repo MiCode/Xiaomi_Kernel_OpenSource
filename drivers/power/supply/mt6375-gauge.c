@@ -528,25 +528,25 @@ static int mv_to_reg_12_temp_value(signed int _reg)
 	return ret;
 }
 
-static void pre_gauge_update(struct mtk_gauge *gauge)
+static int pre_gauge_update(struct mtk_gauge *gauge)
 {
 	u32 rdata = 0;
-	int i, ret, max_retry_cnt = 5;
+	int i, ret = 0, max_retry_cnt = 5;
 
 	if (gauge->gm->disableGM30)
-		return;
+		return ret;
 
 	ret = regmap_update_bits(gauge->regmap, RG_FGADC_CON3,
 				 FG_SW_READ_PRE_MASK, FG_SW_READ_PRE_MASK);
 	if (ret) {
 		pr_notice("%s: failed to set pre read(%d)\n", __func__, ret);
-		return;
+		return ret;
 	}
 	for (i = 0; i < max_retry_cnt; i++) {
 		ret = regmap_read(gauge->regmap, RG_FGADC_CON2, &rdata);
 		if (ret) {
 			pr_notice("%s: failed to read latch stat(%d)\n", __func__, ret);
-			return;
+			return ret;
 		}
 		if (rdata & FG_LATCHDATA_ST_MASK)
 			break;
@@ -560,7 +560,9 @@ static void pre_gauge_update(struct mtk_gauge *gauge)
 		pr_notice("[%s] HK1[0x5D]=0x%x, ret:%d\n", __func__, rdata, ret);
 		ret = regmap_read(gauge->regmap, 0x35E, &rdata);
 		pr_notice("[%s] HK1[0x5E]=0x%x, ret:%d\n", __func__, rdata, ret);
+		ret = -ETIMEDOUT;
 	}
+	return ret;
 }
 
 void disable_all_irq(struct mtk_battery *gm)
@@ -1053,11 +1055,16 @@ static int instant_current(struct mtk_gauge *gauge, int *val)
 	int r_fg_value = 0;
 	int car_tune_value = 0;
 	int ret = 0;
+	int vbat_p = 0, ibat_p = 0;
+	u32 rdata = 0, rdata2 = 0;
+	bool latch_timeout = false;
 
 	r_fg_value = gauge->hw_status.r_fg_value;
 	car_tune_value = gauge->gm->fg_cust_data.car_tune_value;
 
-	pre_gauge_update(gauge);
+	ret = pre_gauge_update(gauge);
+	if (ret == -ETIMEDOUT)
+		latch_timeout = true;
 
 	ret = regmap_raw_read(gauge->regmap, RG_FGADC_CUR_CON0, &reg_value,
 			      sizeof(reg_value));
@@ -1077,6 +1084,29 @@ static int instant_current(struct mtk_gauge *gauge, int *val)
 	dvalue = ((dvalue * car_tune_value) / 1000);
 
 	*val = dvalue;
+
+	if (latch_timeout) {
+		pr_notice("[%s] read cic1 with external 32k failed\n", __func__);
+		aee_kernel_warning("BATTERY", "read cic1 failed");
+
+		ret = iio_read_channel_attribute(gauge->chan_ptim_bat_voltage,
+					 &vbat_p, &ibat_p, IIO_CHAN_INFO_PROCESSED);
+		pr_notice("[%s] ptim vbat=%d, ibat=%d, ret=%d\n", __func__, vbat_p, ibat_p, ret);
+
+		ret = regmap_read(gauge->regmap, RG_FGADC_CON2, &rdata);
+		ret = regmap_read(gauge->regmap, RG_FGADC_CON3, &rdata2);
+		pr_notice("[%s] BM[0ax6F,70]=0x%x,0x%x\n", __func__, rdata, rdata2);
+
+		ret = regmap_update_bits(gauge->regmap, 0x110, 0x10, 0x10);
+		pre_gauge_update(gauge);
+		ret = regmap_raw_read(gauge->regmap, RG_FGADC_CUR_CON0, &reg_value,
+				      sizeof(reg_value));
+		post_gauge_update(gauge);
+		ret = regmap_update_bits(gauge->regmap, 0x110, 0x10, 0x00);
+
+		dvalue = reg_to_current(gauge, reg_value);
+		pr_notice("[%s] internal 32k cic1 = %d, ret:%d\n", __func__, dvalue, ret);
+	}
 	return ret;
 }
 
