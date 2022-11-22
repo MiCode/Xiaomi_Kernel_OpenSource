@@ -32,6 +32,9 @@
 #include <linux/blkdev.h>
 #include <linux/slab.h>
 #include <linux/ratelimit.h>
+#if IS_ENABLED(CONFIG_MTK_DEBUG_STACK_CORRUPTION)
+#include <linux/of.h>
+#endif
 #include <linux/oom.h>
 #include <linux/topology.h>
 #include <linux/sysctl.h>
@@ -9623,3 +9626,31 @@ bool has_managed_dma(void)
 	return false;
 }
 #endif /* CONFIG_ZONE_DMA */
+#if IS_ENABLED(CONFIG_MTK_DEBUG_STACK_CORRUPTION)
+unsigned long rmqueue_bulk_start;
+unsigned long rmqueue_bulk_end;
+static int __init init_dfd_debug(void)
+{
+	struct device_node *node;
+	unsigned long func_size = 0;
+	const char *stack_corrupt_debug;
+	int dfd_debug_on = 0;
+
+	node = of_find_node_by_path("/chosen");
+	if (node) {
+		if (of_property_read_string(node, "stack-corrupt-debug",
+				  &stack_corrupt_debug) == 0) {
+			if (strncmp(stack_corrupt_debug, "on", 2) == 0)
+				dfd_debug_on = 1;
+		}
+	}
+	if (dfd_debug_on) {
+		rmqueue_bulk_start = kallsyms_lookup_name("rmqueue_bulk");
+		kallsyms_lookup_size_offset(rmqueue_bulk_start, &func_size, NULL);
+		rmqueue_bulk_end = (unsigned long)rmqueue_bulk_start + func_size;
+		pr_info("Enable dfd_debug");
+	}
+	return 0;
+}
+device_initcall(init_dfd_debug);
+#endif /* CONFIG_MTK_DEBUG_STACK_CORRUPTION */
