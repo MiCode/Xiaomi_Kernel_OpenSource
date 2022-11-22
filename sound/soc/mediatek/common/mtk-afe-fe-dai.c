@@ -31,6 +31,12 @@
 #include "adsp_helper.h"
 #endif
 
+/* scp relate */
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+#include "../audio_scp/mtk-scp-audio-pcm.h"
+#include "../audio_scp/mtk-scp-audio-mem-control.h"
+#endif
+
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
@@ -262,6 +268,20 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 		}
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+		if (memif->use_scp_share_mem) {
+			ret = mtk_scp_allocate_mem(substream,
+						    params_buffer_bytes(params));
+			if (ret < 0) {
+				dev_info(afe->dev, "%s(), scp_share_mem: %d, err: %d\n",
+					__func__, memif->use_scp_share_mem, ret);
+				return ret;
+			}
+
+			goto MEM_ALLOCATE_DONE;
+		}
+#endif
+
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
 	if (memif->scp_ultra_enable) {
 		ret = notify_allocate_mem(NOTIFIER_ULTRASOUND_ALLOCATE_MEM, substream);
@@ -355,6 +375,11 @@ MEM_ALLOCATE_DONE:
 		snd_pcm_set_runtime_buffer(substream, dmab);
 	}
 
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+	afe_pcm_ipi_to_scp(AUDIO_DSP_TASK_PCM_HWPARAM,
+			   substream, params, dai, afe);
+#endif
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_afe_fe_hw_params);
@@ -382,6 +407,11 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 			   substream, NULL, dai, afe);
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+	afe_pcm_ipi_to_scp(AUDIO_DSP_TASK_PCM_HWFREE,
+			   substream, NULL, dai, afe);
+#endif
+
 	if (memif->using_sram == 0 && afe->release_dram_resource)
 		afe->release_dram_resource(afe->dev);
 
@@ -404,6 +434,10 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 		if (is_adsp_genpool_addr_valid(substream))
 			return mtk_adsp_free_mem(substream);
+#endif
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+		if (is_scp_genpool_addr_valid(substream))
+			return mtk_scp_free_mem(substream);
 #endif
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
 		// ultrasound uses reserve dram, ignore free
@@ -517,6 +551,11 @@ int mtk_afe_fe_prepare(struct snd_pcm_substream *substream,
 
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	afe_pcm_ipi_to_dsp(AUDIO_DSP_TASK_PCM_PREPARE,
+			   substream, NULL, dai, afe);
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+	afe_pcm_ipi_to_scp(AUDIO_DSP_TASK_PCM_PREPARE,
 			   substream, NULL, dai, afe);
 #endif
 

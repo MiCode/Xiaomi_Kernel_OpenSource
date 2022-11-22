@@ -20,6 +20,7 @@
 #include <linux/kobject.h>
 #include <base.h>
 #include "richtek_spm_cls.h"
+#include "mtk-sp-spk-amp.h"
 
 enum {
 	RICHTEK_SPM_DEV_TMAX,

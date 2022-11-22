@@ -517,16 +517,12 @@ int mtk_audio_register_notify(void)
 	return 0;
 }
 
-int mtk_spk_send_ipi_buf_to_dsp(void *data_buffer, uint32_t data_size)
+int mtk_get_ipi_buf_scene_adsp(void)
 {
-	int result = -1;
-	struct ipi_msg_t ipi_msg;
-	int task_scene;
+	int task_scene = -1;
 
 	if (adsp_standby_flag)
-		return result;
-
-	memset((void *)&ipi_msg, 0, sizeof(struct ipi_msg_t));
+		return task_scene;
 
 	if (get_task_attr(AUDIO_TASK_CALL_FINAL_ID,
 			  ADSP_TASK_ATTR_RUNTIME) > 0)
@@ -537,49 +533,9 @@ int mtk_spk_send_ipi_buf_to_dsp(void *data_buffer, uint32_t data_size)
 	else {
 		pr_info("%s(), callfinal and playback are not enable\n",
 			__func__);
-		return result;
 	}
 
-	result = audio_send_ipi_buf_to_dsp(&ipi_msg, task_scene,
-					   AUDIO_DSP_TASK_AURISYS_SET_BUF,
-					   mtk_spk_get_type(),
-					   data_buffer, data_size);
-
-	return result;
+	return task_scene;
 }
-EXPORT_SYMBOL(mtk_spk_send_ipi_buf_to_dsp);
-
-int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer,
-				  int16_t size,
-				  uint32_t *buf_len)
-{
-	int result = -1;
-	struct ipi_msg_t ipi_msg;
-	int task_scene;
-
-	if (adsp_standby_flag)
-		return result;
-
-	memset((void *)&ipi_msg, 0, sizeof(struct ipi_msg_t));
-
-	if (get_task_attr(AUDIO_TASK_CALL_FINAL_ID,
-			  ADSP_TASK_ATTR_RUNTIME) > 0)
-		task_scene = TASK_SCENE_CALL_FINAL;
-	else if (get_task_attr(AUDIO_TASK_PLAYBACK_ID,
-			       ADSP_TASK_ATTR_RUNTIME) > 0)
-		task_scene = TASK_SCENE_AUDPLAYBACK;
-	else {
-		pr_info("%s(), callfinal and playback are not enable\n",
-			__func__);
-		return result;
-	}
-
-	result = audio_recv_ipi_buf_from_dsp(&ipi_msg,
-					     task_scene,
-					     AUDIO_DSP_TASK_AURISYS_GET_BUF,
-					     mtk_spk_get_type(),
-					     buffer, size, buf_len);
-	return result;
-}
-EXPORT_SYMBOL(mtk_spk_recv_ipi_buf_from_dsp);
+EXPORT_SYMBOL(mtk_get_ipi_buf_scene_adsp);
 

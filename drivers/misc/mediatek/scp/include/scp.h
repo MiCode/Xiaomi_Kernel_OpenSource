@@ -153,6 +153,7 @@ enum scp_reserve_mem_id_t {
 	SENS_CUSTOM_W_MEM_ID,
 	SENS_CUSTOM_R_MEM_ID,
 	SCP_AOV_MEM_ID,
+	SCP_SPK_MEM_ID,
 	NUMS_MEM_ID,
 };
 
@@ -172,7 +173,8 @@ enum feature_id {
 	VOW_DUAL_MIC_FEATURE_ID = 11,
 	VOW_DUAL_MIC_BARGE_IN_FEATURE_ID = 12,
 	ULTRA_FEATURE_ID = 13,
-	NUM_FEATURE_ID = 14,
+	RVSPKPROCESS_FEATURE_ID = 14,
+	NUM_FEATURE_ID = 15,
 };
 
 extern struct mtk_mbox_device scp_mboxdev;

@@ -53,5 +53,8 @@ struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
 	{
 		.feature        = ULTRA_FEATURE_ID,
 	},
+	{
+		.feature        = RVSPKPROCESS_FEATURE_ID,
+	},
 };
 

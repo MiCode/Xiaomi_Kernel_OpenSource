@@ -28,6 +28,17 @@
 #include "aw87339.h"
 #endif
 
+/* adsp relate */
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+#include "../audio_dsp/mtk-dsp-common.h"
+#include "audio_messenger_ipi.h"
+#endif
+
+/* rv relate */
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+#include "../audio_scp/mtk-scp-audio-pcm.h"
+#endif
+
 #define MTK_SPK_NAME "Speaker Codec"
 #define MTK_SPK_REF_NAME "Speaker Codec Ref"
 
@@ -250,6 +261,61 @@ BYPASS_UPDATE:
 	return 0;
 }
 EXPORT_SYMBOL(mtk_spk_update_info);
+
+int mtk_spk_send_ipi_buf_to_dsp(void *data_buffer, uint32_t data_size)
+{
+	int result = -1, task_scene = -1;
+	struct ipi_msg_t ipi_msg;
+
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+	task_scene = mtk_get_ipi_buf_scene_adsp();
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+	if (task_scene == -1)
+		task_scene = mtk_get_ipi_buf_scene_rv();
+#endif
+
+	if (task_scene >= 0) {
+		memset((void *)&ipi_msg, 0, sizeof(struct ipi_msg_t));
+
+		result = audio_send_ipi_buf_to_dsp(&ipi_msg, task_scene,
+						   AUDIO_DSP_TASK_AURISYS_SET_BUF,
+						   mtk_spk_type,
+						   data_buffer, data_size);
+	}
+	return result;
+}
+EXPORT_SYMBOL(mtk_spk_send_ipi_buf_to_dsp);
+
+int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer,
+				  int16_t size,
+				  uint32_t *buf_len)
+{
+	int result = -1, task_scene = -1;
+	struct ipi_msg_t ipi_msg;
+
+
+#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+	task_scene = mtk_get_ipi_buf_scene_adsp();
+#endif
+#if IS_ENABLED(CONFIG_MTK_SCP_AUDIO)
+	if (task_scene == -1)
+		task_scene = mtk_get_ipi_buf_scene_rv();
+#endif
+
+	if (task_scene >= 0) {
+		memset((void *)&ipi_msg, 0, sizeof(struct ipi_msg_t));
+
+		result = audio_recv_ipi_buf_from_dsp(&ipi_msg,
+						     task_scene,
+						     AUDIO_DSP_TASK_AURISYS_GET_BUF,
+						     mtk_spk_type,
+						     buffer, size, buf_len);
+	}
+	return result;
+}
+EXPORT_SYMBOL(mtk_spk_recv_ipi_buf_from_dsp);
 
 static const struct i2c_device_id mtk_spk_i2c_id[] = {
 	{ "tfa9874", 0},
