@@ -8452,6 +8452,8 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 			cfg_in_param->subsample;
 		config_param.mraw_input[i].input.in_crop =
 			ctx->mraw_pipe[i]->res_config.tg_crop;
+		ctx->mraw_pipe[i]->res_config.subsample =
+			cfg_in_param->subsample;
 		dev_info(dev, "%s pipe id:%d tg crop width: %d height: %d", __func__,
 			config_param.mraw_input[i].pipe_id,
 			config_param.mraw_input[i].input.in_crop.s.w,

@@ -37,12 +37,22 @@ union MRAW_MRAWCTL_MOD2_EN {
 
 #define REG_MRAW_CQ_EN					0x0400
 #define REG_MRAW_SCQ_START_PERIOD		0x0408
+#define REG_MRAW_CQ_SUB_EN				0x04A0
 #define REG_MRAW_CQ_SUB_THR0_CTL		0x04B0
 
 #define REG_MRAW_CTL_SW_CTL				0x0048
 #define REG_MRAW_CTL_START				0x0040
 #define REG_MRAW_CTL_MOD_EN				0x0000
 
+#define REG_MRAW_CTL_SW_PASS1_DONE		0x0050
+union MRAW_MRAWCTL_SW_PASS1_DONE {
+	struct {
+		unsigned int MRAWCTL_DOWN_SAMPLE_PERIOD  :  8;  /*  0.. 7, 0x000000ff */
+		unsigned int MRAWCTL_DOWN_SAMPLE_EN      :  1;  /*  8.. 8, 0x00000100 */
+		unsigned int rsv_9                       : 23;  /*  9..31, 0xfffffe00 */
+	} Bits;
+	unsigned int Raw;
+};
 
 #define REG_MRAWCQ_CQ_SUB_THR0_BASEADDR_2			0x04BC
 #define REG_MRAWCQ_CQ_SUB_THR0_BASEADDR_2_MSB			0x04C0
@@ -50,7 +60,9 @@ union MRAW_MRAWCTL_MOD2_EN {
 #define MRAWCQ_SCQ_TRIG_TIME						0x040C
 #define SCQ_STAGGER_MODE			BIT(12)
 #define SCQ_SUBSAMPLE_EN			BIT(21)
+#define CQ_SOF_SEL					BIT(2)
 #define CQ_DB_EN					BIT(4)
+#define CQ_SUB_DB_EN				BIT(4)
 #define CQ_DB_LOAD_MODE				BIT(8)
 #define CQ_SUB_THR0_MODE_IMMEDIATE	BIT(4)
 #define CQ_SUB_THR0_MODE_CONTINUOUS	BIT(5)
@@ -150,8 +162,8 @@ union MRAW_TG_VF_CON {
 #define REG_MRAW_TG_SEN_GRAB_LIN				0x050C
 #define MRAW_TG_PATH_TG_FULL_SEL				BIT(15)
 #define REG_MRAW_TG_PATH_CFG					0x0510
-//[todo]: implement LOAD_HOLD
-union MRAW_TG_PATH_CFG // only for db_load test
+
+union MRAW_TG_PATH_CFG
 {
 	struct {
 		unsigned int TG_SEN_IN_LSB        :  3;    /*  0.. 2, 0x00000007 */
@@ -174,6 +186,16 @@ union MRAW_TG_PATH_CFG // only for db_load test
 		unsigned int TG_EXP_ESC           :  1;    /* 19..19, 0x00080000 */
 		unsigned int TG_SUB_SOF_SRC_SEL   :  2;    /* 20..21, 0x00300000 */
 		unsigned int rsv_22               : 10;    /* 22..31, 0xffc00000 */
+	} Bits;
+	unsigned int Raw;
+};
+
+#define REG_MRAW_TG_SUB_PERIOD					0x0564
+union MRAW_TG_SUB_PERIOD {
+	struct {
+		unsigned int TG_VS_PERIOD         :  8;    /*  0.. 7, 0x000000ff */
+		unsigned int TG_SOF_PERIOD        :  8;    /*  8..15, 0x0000ff00 */
+		unsigned int rsv_16               : 16;    /* 16..31, 0xffff0000 */
 	} Bits;
 	unsigned int Raw;
 };
@@ -371,7 +393,6 @@ union MRAW_CTL_MOD2_EN {
 };
 
 #define REG_MRAW_M_MRAWCTL_MISC 0x0060
-//[todo]: implement MRAWCTL_DB_LOAD_FORCE
 union MRAW_CTL_MISC {
 	struct {
 		unsigned int MRAWCTL_DB_LOAD_HOLD        :  1; /*  0.. 0, 0x00000001 */
@@ -379,14 +400,16 @@ union MRAW_CTL_MISC {
 		unsigned int MRAWCTL_DB_LOAD_SRC         :  2; /*  2.. 3, 0x0000000c */
 		unsigned int MRAWCTL_DB_EN               :  1; /*  4.. 4, 0x00000010 */
 		unsigned int MRAWCTL_DB_LOAD_FORCE       :  1; /*  5.. 5, 0x00000020 */
-		unsigned int rsv_6                       :  2; /*  5.. 7, 0x000000e0 */
+		unsigned int rsv_6                       :  2; /*  6.. 7, 0x000000c0 */
 		unsigned int MRAWCTL_APB_CLK_GATE_BYPASS :  1; /*  8.. 8, 0x00000100 */
-		unsigned int rsv_9                       : 19; /*  9..31, 0xfffffe00 */
-		unsigned int MRAWCTL_PERF_MEAS_EN        :  1; /* 12..12, 0x00001000 */
-		unsigned int rsv_29                      : 3; /* 13..31, 0xffffe000 */
+		unsigned int rsv_9                       : 19; /*  9..27, 0x0ffffe00 */
+		unsigned int MRAWCTL_PERF_MEAS_EN        :  1; /* 28..28, 0x10000000 */
+		unsigned int rsv_29                      :  3; /* 29..31, 0xe0000000 */
 	} Bits;
 	unsigned int Raw;
 };
+
+#define REG_MRAW_M_MRAWCTL_SW_SUB_CTL       0x0064
 
 #define REG_MRAW_M_IMGO_ORIWDMA_CON0        0x22B0
 #define REG_MRAW_M_IMGO_ORIWDMA_CON1        0x22B4
