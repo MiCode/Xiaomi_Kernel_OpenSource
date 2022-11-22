@@ -865,9 +865,9 @@ static int imgsensor_try_ctrl(struct v4l2_ctrl *ctrl)
 			info->fps = val / 10;
 
 			if (mode->linetime_in_ns_readout > mode->linetime_in_ns) {
-				info->vblank = mode->fll - mode->height *
+				info->vblank = mode->fll - (mode->height *
 				((mode->linetime_in_ns_readout / mode->linetime_in_ns) +
-				(mode->linetime_in_ns_readout % mode->linetime_in_ns) ? 1 : 0);
+				(mode->linetime_in_ns_readout % mode->linetime_in_ns > 0 ? 1 : 0)));
 			} else {
 				info->vblank = mode->fll - mode->height;
 			}
