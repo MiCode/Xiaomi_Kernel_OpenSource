@@ -290,6 +290,9 @@ static const struct mfd_cell mt6369_devs[] = {
 		.name = "mt6369-efuse",
 		.of_compatible = "mediatek,mt6373-efuse",
 	}, {
+		.name = "mt6369-consys",
+		.of_compatible = "mediatek,mt6369-consys",
+	}, {
 		.name = "mt6369-sound",
 		.of_compatible = "mediatek,mt6369-sound",
 	},
@@ -346,6 +349,9 @@ static const struct mfd_cell mt6377_devs[] = {
 	}, {
 		.name = "mt6377-efuse",
 		.of_compatible = "mediatek,mt6377-efuse",
+	}, {
+		.name = "mt6377-consys",
+		.of_compatible = "mediatek,mt6377-consys",
 	}, {
 		.name = "mt6377-regulator",
 		.num_resources = ARRAY_SIZE(mt6377_regulators_resources),
