@@ -94,6 +94,7 @@
 #define PA6_RG_U2_PHY_REV4_VAL(x)	((0x1 & (x)) << 28)
 #define PA6_RG_U2_PHY_REV4_MASK	(0x1)
 #define PA6_RG_U2_PHY_REV4_OFET	(28)
+#define PA6_RG_U2_PHY_REV1		BIT(25)
 #define PA6_RG_U2_BC11_SW_EN		BIT(23)
 #define PA6_RG_U2_OTG_VBUSCMP_EN	BIT(20)
 #define PA6_RG_U2_DISCTH		GENMASK(7, 4)
@@ -346,6 +347,8 @@
 
 #define PHY_MODE_BC11_SW_SET 1
 #define PHY_MODE_BC11_SW_CLR 2
+#define PHY_MODE_DPDMPULLDOWN_SET 3
+#define PHY_MODE_DPDMPULLDOWN_CLR 4
 
 /* PHY switch between pcie/usb3/sgmii/sata */
 #define USB_PHY_SWITCH_CTRL	0x0
@@ -1631,6 +1634,32 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 		case PHY_MODE_BC11_SW_CLR:
 			tmp = readl(u2_banks->com + U3P_USBPHYACR6);
 			tmp &= ~PA6_RG_U2_BC11_SW_EN;
+			writel(tmp, u2_banks->com + U3P_USBPHYACR6);
+			break;
+		case PHY_MODE_DPDMPULLDOWN_SET:
+			tmp = readl(u2_banks->com + U3P_U2PHYDTM0);
+			tmp |= P2C_RG_DPPULLDOWN | P2C_RG_DMPULLDOWN;
+			writel(tmp, u2_banks->com + U3P_U2PHYDTM0);
+
+			tmp = readl(u2_banks->com + U3P_USBPHYACR6);
+			tmp &= ~PA6_RG_U2_PHY_REV1;
+			writel(tmp, u2_banks->com + U3P_USBPHYACR6);
+
+			tmp = readl(u2_banks->com + U3P_USBPHYACR6);
+			tmp &= ~PA6_RG_U2_BC11_SW_EN;
+			writel(tmp, u2_banks->com + U3P_USBPHYACR6);
+			break;
+		case PHY_MODE_DPDMPULLDOWN_CLR:
+			tmp = readl(u2_banks->com + U3P_U2PHYDTM0);
+			tmp &= ~(P2C_RG_DPPULLDOWN | P2C_RG_DMPULLDOWN);
+			writel(tmp, u2_banks->com + U3P_U2PHYDTM0);
+
+			tmp = readl(u2_banks->com + U3P_USBPHYACR6);
+			tmp |= PA6_RG_U2_PHY_REV1;
+			writel(tmp, u2_banks->com + U3P_USBPHYACR6);
+
+			tmp = readl(u2_banks->com + U3P_USBPHYACR6);
+			tmp |= PA6_RG_U2_BC11_SW_EN;
 			writel(tmp, u2_banks->com + U3P_USBPHYACR6);
 			break;
 		default:
