@@ -338,7 +338,7 @@
 				local-timer-stop;
 				entry-latency-us = <77>;
 				exit-latency-us = <179>;
-				min-residency-us = <2520>;
+				min-residency-us = <6840>;
 			};
 			cpuoff_b: cpuoff_b {
 				compatible = "arm,idle-state";
@@ -346,7 +346,7 @@
 				local-timer-stop;
 				entry-latency-us = <52>;
 				exit-latency-us = <129>;
-				min-residency-us = <1890>;
+				min-residency-us = <2770>;
 			};
 			clusteroff_l: clusteroff_l {
 				compatible = "arm,idle-state";
@@ -362,7 +362,7 @@
 				local-timer-stop;
 				entry-latency-us = <82>;
 				exit-latency-us = <253>;
-				min-residency-us = <3020>;
+				min-residency-us = <6840>;
 			};
 			clusteroff_b: clusteroff_b {
 				compatible = "arm,idle-state";
@@ -370,7 +370,7 @@
 				local-timer-stop;
 				entry-latency-us = <46>;
 				exit-latency-us = <150>;
-				min-residency-us = <2460>;
+				min-residency-us = <3130>;
 			};
 			mcusysoff_l: mcusysoff_l {
 				compatible = "arm,idle-state";
@@ -386,7 +386,7 @@
 				local-timer-stop;
 				entry-latency-us = <563>;
 				exit-latency-us = <486>;
-				min-residency-us = <4100>;
+				min-residency-us = <6840>;
 			};
 			mcusysoff_b: mcusysoff_b {
 				compatible = "arm,idle-state";
@@ -394,7 +394,7 @@
 				local-timer-stop;
 				entry-latency-us = <524>;
 				exit-latency-us = <337>;
-				min-residency-us = <4570>;
+				min-residency-us = <5170>;
 			};
 			system_mem: system_mem {
 				compatible = "arm,idle-state";
@@ -402,7 +402,7 @@
 				local-timer-stop;
 				entry-latency-us = <697>;
 				exit-latency-us = <886>;
-				min-residency-us = <5700>;
+				min-residency-us = <6840>;
 			};
 			system_pll: system_pll {
 				compatible = "arm,idle-state";
@@ -410,7 +410,7 @@
 				local-timer-stop;
 				entry-latency-us = <697>;
 				exit-latency-us = <936>;
-				min-residency-us = <5700>;
+				min-residency-us = <6840>;
 			};
 			system_bus: system_bus {
 				compatible = "arm,idle-state";
@@ -418,7 +418,7 @@
 				local-timer-stop;
 				entry-latency-us = <697>;
 				exit-latency-us = <2686>;
-				min-residency-us = <5700>;
+				min-residency-us = <6840>;
 			};
 			system_vcore: system_vcore {
 				compatible = "arm,idle-state";
