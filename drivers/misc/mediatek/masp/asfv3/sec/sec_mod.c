@@ -160,7 +160,8 @@ MODULE_PARM_DESC(recovery_done,
 static int sec_init(struct platform_device *dev)
 {
 	int ret = 0;
-	dev_t id;
+	dev_t id = {0};
+	struct proc_dir_entry *entry = NULL;
 
 	pr_debug("[%s] %s (%d)\n", SEC_DEV_NAME, __func__, ret);
 
@@ -173,44 +174,59 @@ static int sec_init(struct platform_device *dev)
 	}
 
 	sec_class = class_create(THIS_MODULE, SEC_DEV_NAME);
-	if (sec_class == NULL) {
+	if (IS_ERR(sec_class)) {
+		ret = PTR_ERR(sec_class);
 		pr_notice("[%s] Create class failed(0x%x)\n",
 			  SEC_DEV_NAME,
 			  ret);
-		ret = -1;
-		return ret;
+		goto err_chedev;
 	}
 
 	cdev_init(&sec_dev, &sec_fops);
 	sec_dev.owner = THIS_MODULE;
 
 	ret = cdev_add(&sec_dev, id, 1);
-	if (ret < 0)
-		goto exit;
+	if (ret) {
+		pr_notice("[%s] Cdev_add Failed (0x%x)\n",
+			SEC_DEV_NAME,
+			ret);
+		goto err_class;
+	}
 
 	sec_device = device_create(sec_class, NULL, id, NULL, SEC_DEV_NAME);
-	if (sec_class == NULL) {
+	if (IS_ERR(sec_device)) {
+		ret = PTR_ERR(sec_device);
 		pr_notice("[%s] Create device failed(0x%x)\n",
 			  SEC_DEV_NAME,
 			  ret);
-		class_destroy(sec_class);
-		ret = -1;
-		return ret;
+		goto err_cdev;
 	}
 
 	sec.id = id;
 	sec.init = 1;
 	spin_lock_init(&sec.lock);
 
-	proc_create("rid", 0444, NULL, &sec_proc_rid_fops);
+	entry = proc_create("rid", 0444, NULL, &sec_proc_rid_fops);
 
-exit:
-	if (ret != 0) {
-		device_destroy(sec_class, id);
-		class_destroy(sec_class);
-		unregister_chrdev_region(id, 1);
-		memset(&sec, 0, sizeof(sec));
+	if (!entry) {
+		ret = -ENOMEM;
+		pr_notice("[%s] Create /proc/rid failed(0x%x)\n",
+			  SEC_DEV_NAME,
+			  ret);
+		goto err_device;
 	}
+
+	return ret;
+
+err_device:
+	device_destroy(sec_class, id);
+err_cdev:
+	cdev_del(&sec_dev);
+err_class:
+	class_destroy(sec_class);
+err_chedev:
+	unregister_chrdev_region(id, 1);
+	memset(&sec, 0, sizeof(sec));
 
 	return ret;
 }
@@ -222,7 +238,9 @@ exit:
 static void sec_exit(void)
 {
 	remove_proc_entry("rid", NULL);
+	device_destroy(sec_class, sec.id);
 	cdev_del(&sec_dev);
+	class_destroy(sec_class);
 	unregister_chrdev_region(sec.id, 1);
 	memset(&sec, 0, sizeof(sec));
 
