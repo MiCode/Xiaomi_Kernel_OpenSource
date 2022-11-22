@@ -26,6 +26,7 @@ enum mml_query_mode_reason {
 	mml_query_sec,
 	mml_query_pqen,
 	mml_query_2out,
+	mml_query_opp_out,
 	mml_query_acttime,
 	mml_query_rot,
 	mml_query_highpixel,

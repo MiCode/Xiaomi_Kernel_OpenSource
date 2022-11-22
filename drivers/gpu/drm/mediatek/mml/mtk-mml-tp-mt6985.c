@@ -27,7 +27,8 @@
 #define MML_IR_RSZ_MIN_RATIO	375	/* resize must lower than this ratio */
 #define MML_IR_OUT_MIN_W	784	/* wqhd 1440/2+64=784 */
 
-#define MML_IR_MAX_OPP		1	/* use OPP index 0(229Mhz) 1(273Mhz) */
+/* use OPP index 0(229Mhz) 1(273Mhz) 2(458Mhz) */
+#define MML_IR_MAX_OPP		2
 
 int mml_force_rsz;
 module_param(mml_force_rsz, int, 0644);
@@ -441,6 +442,12 @@ static u8 engine_reset_bit[MML_ENGINE_TOTAL] = {
 	[MML_BIRSZ1] = 36,
 };
 
+/* 6.6 ms as dc mode active time threshold by:
+ * 1 / (fps * vblank) = 1000000 / 120 / 1.25 = 6666us
+ */
+#define MML_DC_ACT_DUR	6600
+static u32 opp_pixel_table[MML_MAX_OPPS];
+
 static void tp_dump_path(const struct mml_topology_path *path)
 {
 	u8 i;
@@ -835,7 +842,6 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 {
 	struct mml_topology_cache *tp;
 	u32 pixel;
-	u32 freq;
 
 	if (unlikely(mml_path_mode))
 		return mml_path_mode;
@@ -895,16 +901,43 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 		goto decouple;
 	}
 
-	freq = tp->opp_speeds[MML_IR_MAX_OPP];
-	if (!freq) {
-		mml_err("no opp table support");
-		goto decouple;
-	}
 	pixel = max(info->src.width * info->src.height,
 		info->dest[0].data.width * info->dest[0].data.height);
 
 	if (info->act_time) {
-		if (div_u64(pixel / 2, freq) >= info->act_time / 1000) {
+		u32 i, dc_opp, ir_freq, ir_opp;
+		u32 pipe_pixel = pixel / 2;
+
+		if (!tp->opp_cnt) {
+			mml_err("no opp table support");
+			goto decouple;
+		}
+
+		if (!opp_pixel_table[0]) {
+			for (i = 0; i < ARRAY_SIZE(opp_pixel_table); i++) {
+				opp_pixel_table[i] = tp->opp_speeds[i] * MML_DC_ACT_DUR;
+				mml_log("[topology]Racing pixel OPP %u: %u",
+					i, opp_pixel_table[i]);
+			}
+		}
+
+		for (i = 0; i < tp->opp_cnt; i++)
+			if (pipe_pixel < opp_pixel_table[i])
+				break;
+		dc_opp = min_t(u32, i, ARRAY_SIZE(opp_pixel_table) - 1);
+		if (dc_opp > MML_IR_MAX_OPP) {
+			*reason = mml_query_opp_out;
+			goto decouple;
+		}
+
+		ir_freq = pipe_pixel * 1000 / info->act_time;
+		for (i = 0; i < tp->opp_cnt; i++)
+			if (ir_freq < tp->opp_speeds[i])
+				break;
+		ir_opp = min_t(u32, i, ARRAY_SIZE(opp_pixel_table) - 1);
+
+		/* simple check if ir mode need higher opp */
+		if (ir_opp > dc_opp) {
 			*reason = mml_query_acttime;
 			goto decouple;
 		}

@@ -723,15 +723,15 @@ static u32 mml_calc_bw(u64 data, u32 pixel, u64 throughput)
 
 static u32 mml_calc_bw_racing(u32 datasize)
 {
-	/* hrt bw: width * height * bpp * fps * 1.25 * 1.33 = HRT MB/s
+	/* hrt bw: width * height * bpp * fps * 1.25 * 1.75 = HRT MB/s
 	 *
 	 * width * height * bpp = datasize in bytes
 	 * the 1.25 (v-blanking) separate to * 10 / 8
-	 * the 1.33 (occupy bandwidth) separate to * 4 / 3
+	 * the 1.75 (occupy bandwidth for IR) separate to * 7 / 4
 	 *
-	 * so div_u64((u64)(datasize * 120 * 10 * 4) >> 3, 3 * 1000000)
+	 * so div_u64((u64)(datasize * 120 * 10 * 7) >> 3, 4 * 1000000)
 	 */
-	return (u32)div_u64((u64)datasize, 5000);
+	return (u32)div_u64((u64)datasize * 21, 80000);
 }
 
 void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,

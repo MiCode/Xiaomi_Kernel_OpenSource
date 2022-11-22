@@ -1532,9 +1532,23 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 		dest->data.format, dest->data.width);
 	dest->data.uv_stride = mml_color_get_min_uv_stride(
 		dest->data.format, dest->data.width);
+
+	/* for better wrot burst 16 bytes performance,
+	 * always align output width to 16 pixel
+	 */
+	if (dest->data.y_stride & 0xf &&
+		(dest->rotate == MML_ROT_90 || dest->rotate == MML_ROT_270)) {
+		u32 align_w = align_up(dest->data.width, 16);
+
+		dest->data.y_stride = mml_color_get_min_y_stride(
+			dest->data.format, align_w);
+		dest->compose.left = align_w - dest->data.width;
+	}
+
 	memset(&dest->pq_config, 0, sizeof(dest->pq_config));
 
 	info_pq->src = dest->data;
+	info_pq->dest[0].crop.r.left += dest->compose.left;
 	info_pq->dest[0].crop.r.width = dest->compose.width;
 	info_pq->dest[0].crop.r.height = dest->compose.height;
 	info_pq->dest[0].rotate = 0;

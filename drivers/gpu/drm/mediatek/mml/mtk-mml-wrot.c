@@ -176,6 +176,7 @@ static s32 wrot_write_addr(struct cmdq_pkt *pkt,
 			reuse, cache, label_idx);
 	if (ret)
 		return ret;
+
 	ret = mml_write(pkt, addr_high, value >> 32, U32_MAX,
 			reuse, cache, label_idx + 1);
 	return ret;
@@ -410,10 +411,11 @@ static void wrot_config_top(struct mml_frame_data *src,
 	wrot_frm->en_y_crop = true;
 	wrot_frm->out_crop.top = 0;
 	wrot_frm->out_crop.height = wrot_frm->out_h >> 1;
-	if (MML_FMT_COMPRESS(src->format))
+	if (MML_FMT_IS_YUV(src->format) || MML_FMT_COMPRESS(src->format))
 		wrot_frm->out_crop.height = align_up(wrot_frm->out_crop.height, 16);
 	else if (wrot_frm->out_crop.height & 0x1)
 		wrot_frm->out_crop.height++;
+	wrot_frm->out_crop.width = dest->data.height;
 }
 
 static void wrot_config_bottom(struct mml_frame_data *src,
@@ -427,6 +429,7 @@ static void wrot_config_bottom(struct mml_frame_data *src,
 	else if (wrot_frm->out_crop.top & 0x1)
 		wrot_frm->out_crop.top++;
 	wrot_frm->out_crop.height = wrot_frm->out_h - wrot_frm->out_crop.top;
+	wrot_frm->out_crop.width = dest->data.height;
 }
 
 static void wrot_config_pipe0(struct mml_frame_config *cfg,
@@ -530,6 +533,11 @@ static s32 wrot_prepare(struct mml_comp *comp, struct mml_task *task,
 
 			if (dest->flip)
 				wrot_frm->sram_side = !wrot_frm->sram_side;
+
+			mml_msg("%s wrot pipe %u out crop %u %u %u %u",
+				__func__, ccfg->pipe,
+				wrot_frm->out_crop.left, wrot_frm->out_crop.top,
+				wrot_frm->out_crop.width, wrot_frm->out_crop.height);
 		}
 	}
 
@@ -1092,17 +1100,20 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 		swap(wrot_frm->plane_offset[1], wrot_frm->plane_offset[2]);
 	}
 
-	calc_plane_offset(wrot_frm->compose.left, wrot_frm->compose.top,
-			  wrot_frm->y_stride, wrot_frm->uv_stride,
-			  wrot_frm->bbp_y, wrot_frm->bbp_uv,
-			  wrot_frm->hor_sh_uv, wrot_frm->ver_sh_uv,
-			  wrot_frm->plane_offset);
-
 	if (dest->data.secure) {
 		/* TODO: for secure case setup plane offset and reg */
 	}
 
 	if (task->config->info.mode == MML_MODE_RACING) {
+		u64 sram_addr;
+
+		calc_plane_offset(wrot_frm->compose.left, 0,
+			wrot_frm->y_stride, wrot_frm->uv_stride,
+			wrot_frm->bbp_y, wrot_frm->bbp_uv,
+			wrot_frm->hor_sh_uv, wrot_frm->ver_sh_uv,
+			wrot_frm->plane_offset);
+		sram_addr = wrot->sram_pa + wrot_frm->plane_offset[0];
+
 		/* config smi addr to emi (iova) or sram */
 		cmdq_pkt_write(pkt, NULL, wrot->smi_larb_con,
 			GENMASK(19, 16), GENMASK(19, 16));
@@ -1112,17 +1123,17 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 		/* inline rotate case always write to sram pa */
 		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_BASE_ADDR,
-			wrot->sram_pa, U32_MAX);
+			sram_addr, U32_MAX);
 		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_BASE_ADDR_HIGH,
-			wrot->sram_pa >> 32, U32_MAX);
+			sram_addr >> 32, U32_MAX);
 		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_BASE_ADDR_C,
-			wrot->sram_pa, U32_MAX);
+			sram_addr, U32_MAX);
 		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_BASE_ADDR_HIGH_C,
-			wrot->sram_pa >> 32, U32_MAX);
+			sram_addr >> 32, U32_MAX);
 		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_BASE_ADDR_V,
-			wrot->sram_pa, U32_MAX);
+			sram_addr, U32_MAX);
 		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_BASE_ADDR_HIGH_V,
-			wrot->sram_pa >> 32, U32_MAX);
+			sram_addr >> 32, U32_MAX);
 
 		cmdq_pkt_write(pkt, NULL,
 			wrot->irot_base[0] + DISPSYS_SHADOW_CTRL, 0x2, U32_MAX);
@@ -1134,8 +1145,15 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 			cmdq_pkt_write(pkt, NULL,
 				wrot->irot_base[0] + INLINEROT_OVLSEL, 0xc, U32_MAX);
 
-		mml_msg("%s sram pa %#x", __func__, (u32)wrot->sram_pa);
+		mml_msg("%s sram pa %#x offset %u",
+			__func__, (u32)sram_addr, wrot_frm->plane_offset[0]);
 	} else {
+		calc_plane_offset(wrot_frm->compose.left, wrot_frm->compose.top,
+			wrot_frm->y_stride, wrot_frm->uv_stride,
+			wrot_frm->bbp_y, wrot_frm->bbp_uv,
+			wrot_frm->hor_sh_uv, wrot_frm->ver_sh_uv,
+			wrot_frm->plane_offset);
+
 		if (wrot->smi_larb_con) {
 			/* always reset larb con to va mode to avoid last frame fail */
 			cmdq_pkt_write(pkt, NULL, wrot->smi_larb_con, 0, GENMASK(19, 16));
