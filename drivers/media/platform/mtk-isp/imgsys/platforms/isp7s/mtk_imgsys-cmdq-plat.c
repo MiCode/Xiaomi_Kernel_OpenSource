@@ -216,6 +216,7 @@ void imgsys_cmdq_streamoff_plat7s(struct mtk_imgsys_dev *imgsys_dev)
 	cmdq_mbox_disable(imgsys_clt[0]->chan);
 
 	#if DVFS_QOS_READY
+	mtk_imgsys_mmdvfs_reset_plat7s(imgsys_dev);
 	mtk_imgsys_mmqos_reset_plat7s(imgsys_dev);
 	mtk_imgsys_mmqos_monitor_plat7s(imgsys_dev, SMI_MONITOR_STOP_STATE);
 	#endif
@@ -2017,12 +2018,7 @@ void mtk_imgsys_mmdvfs_set_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 			idx--;
 		volt = dvfs_info->voltlv[opp_idx][idx];
 
-		if (freq > 0) {
-			freq = dvfs_info->clklv[opp_idx][idx]; // signed-off
-		} else {
-			volt = 0;
-			freq = 0;
-		}
+		freq = dvfs_info->clklv[opp_idx][idx]; // signed-off
 
 		if (dvfs_info->cur_volt != volt) {
 			if (imgsys_dvfs_dbg_enable_plat7s())
@@ -2052,7 +2048,8 @@ void mtk_imgsys_mmdvfs_reset_plat7s(struct mtk_imgsys_dev *imgsys_dev)
 {
 	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
 	unsigned int *clklv = NULL, *voltlv = NULL;
-	int idx = 0, opp_idx = 0;
+	int volt = 0, ret = 0, idx = 0, opp_idx = 0;
+	unsigned long freq = 0;
 
 	for (opp_idx = 0; opp_idx < dvfs_info->opp_num; opp_idx++) {
 		if (imgsys_fine_grain_dvfs_enable_plat7s()) {
@@ -2080,8 +2077,31 @@ void mtk_imgsys_mmdvfs_reset_plat7s(struct mtk_imgsys_dev *imgsys_dev)
 	for (idx = 0; idx < MTK_IMGSYS_DVFS_GROUP; idx++)
 		dvfs_info->pixel_size[idx] = 0;
 
-	dvfs_info->cur_volt = 0;
-	dvfs_info->cur_freq = 0;
+	if (IS_ERR_OR_NULL(dvfs_info->reg) && IS_ERR_OR_NULL(dvfs_info->mmdvfs_clk))
+		dev_dbg(dvfs_info->dev, "%s: [ERROR] reg and clk is err or null\n", __func__);
+	else {
+		if (dvfs_info->cur_volt != volt) {
+			/* if (imgsys_dvfs_dbg_enable_plat7s()) */
+				dev_info(dvfs_info->dev, "[%s] volt change clk=%d volt=%d\n",
+					__func__, freq, volt);
+			if (dvfs_info->reg) {
+				ret = regulator_set_voltage(dvfs_info->reg, volt, INT_MAX);
+				if (ret)
+					dev_info(dvfs_info->dev,
+						"[%s] Failed to set regulator voltage(%d) with ret(%d)\n",
+						__func__, volt, ret);
+			} else if (dvfs_info->mmdvfs_clk) {
+				ret = clk_set_rate(dvfs_info->mmdvfs_clk, freq);
+				if (ret)
+					dev_info(dvfs_info->dev,
+						"[%s] Failed to set mmdvfs rate(%ld) with ret(%d)\n",
+						__func__, freq, ret);
+			}
+		}
+	}
+
+	dvfs_info->cur_volt = volt;
+	dvfs_info->cur_freq = freq;
 	dvfs_info->vss_task_cnt = 0;
 	dvfs_info->smvr_task_cnt = 0;
 }
