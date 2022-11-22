@@ -138,6 +138,7 @@ typedef bool (*MdpSvpSupportMetaData) (void);
 
 typedef u16 (*MdpGetReadbackEventLock) (void);
 typedef u16 (*MdpGetReadbackEventUnlock) (void);
+typedef u32 (*MdpGetPollGpr) (u16 engine, u32 reg_addr);
 
 struct cmdqMDPFuncStruct {
 #ifdef CONFIG_MTK_SMI_EXT
@@ -205,6 +206,7 @@ struct cmdqMDPFuncStruct {
 	MdpSvpSupportMetaData mdpSvpSupportMetaData;
 	MdpGetReadbackEventLock mdpGetReadbackEventLock;
 	MdpGetReadbackEventUnlock mdpGetReadbackEventUnlock;
+	MdpGetPollGpr mdpGetPollGpr;
 
 };
 
@@ -336,6 +338,7 @@ s32 cmdq_mdp_get_rdma_idx(u32 base);
 u32 cmdq_mdp_vcp_pq_readback_support(void);
 void cmdq_mdp_vcp_pq_readback(struct cmdqRecStruct *handle, u16 engine,
 	u32 vcp_offset, u32 count);
+u32 cmdq_mdp_get_poll_gpr(u16 engine, u32 reg_addr);
 u16 mdp_get_rb_event_lock(void);
 u16 mdp_get_rb_event_unlock(void);
 

@@ -3247,6 +3247,11 @@ u16 mdp_get_rb_event_unlock(void)
 #endif
 }
 
+static u32 mdp_get_poll_gpr_dummy(u16 engine, u32 reg_addr)
+{
+	return CMDQ_GPR_R12;
+}
+
 #define MDP_AAL_SRAM_CFG	0x0C4
 #define MDP_AAL_SRAM_STATUS	0x0C8
 #define MDP_AAL_SRAM_RW_IF_2	0x0D4
@@ -3665,6 +3670,7 @@ void cmdq_mdp_virtual_function_setting(void)
 	pFunc->mdpSvpSupportMetaData = mdp_svp_support_meta_data_virtual;
 	pFunc->mdpGetReadbackEventLock = mdp_get_rb_event_lock;
 	pFunc->mdpGetReadbackEventUnlock = mdp_get_rb_event_unlock;
+	pFunc->mdpGetPollGpr = mdp_get_poll_gpr_dummy;
 
 }
 
@@ -4528,6 +4534,11 @@ void cmdq_mdp_vcp_pq_readback(struct cmdqRecStruct *handle, u16 engine,
 	u32 vcp_offset, u32 count)
 {
 	cmdq_mdp_get_func()->mdpVcpPQReadback(handle, engine, vcp_offset, count);
+}
+
+u32 cmdq_mdp_get_poll_gpr(u16 engine, u32 reg_addr)
+{
+	return cmdq_mdp_get_func()->mdpGetPollGpr(engine, reg_addr);
 }
 
 #ifdef MDP_COMMON_ENG_SUPPORT

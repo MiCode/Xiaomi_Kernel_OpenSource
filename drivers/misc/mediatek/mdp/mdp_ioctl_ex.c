@@ -535,13 +535,22 @@ static s32 translate_meta(struct op_meta *meta,
 		break;
 	}
 	case CMDQ_MOP_POLL:
+	{
+		u32 gpr;
+
 		reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
 		if (!reg_addr)
 			return -EINVAL;
 
+		/* get gpr based on meta->engine */
+		gpr = cmdq_mdp_get_poll_gpr(meta->engine, reg_addr);
+		if (!gpr)
+			return -EINVAL;
+
 		status = cmdq_op_poll_ex(handle, cmd_buf, reg_addr,
-					meta->value, meta->mask);
+			meta->value, meta->mask, gpr);
 		break;
+	}
 	case CMDQ_MOP_WAIT:
 		status = cmdq_op_wait_ex(handle, cmd_buf, meta->event);
 		break;
