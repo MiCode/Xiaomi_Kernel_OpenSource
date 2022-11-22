@@ -155,12 +155,13 @@ static void ufs_mtk_dbg_print_info(char **buff, unsigned long *size,
 		      hba->pwr_info.pwr_tx,
 		      hba->pwr_info.hs_rate);
 
+	if (hba->sdev_ufs_device) {
 	/* Device info */
-	SPREAD_PRINTF(buff, size, m,
-		      "Device vendor=%.8s, model=%.16s, rev=%.4s\n",
-		      hba->sdev_ufs_device->vendor,
-		      hba->sdev_ufs_device->model, hba->sdev_ufs_device->rev);
-
+		SPREAD_PRINTF(buff, size, m,
+			      "Device vendor=%.8s, model=%.16s, rev=%.4s\n",
+			      hba->sdev_ufs_device->vendor,
+			      hba->sdev_ufs_device->model, hba->sdev_ufs_device->rev);
+	}
 	if (hba_priv->is_mcq_enabled) {
 		SPREAD_PRINTF(buff, size, m,
 				  "MCQ enable: yes\n");
