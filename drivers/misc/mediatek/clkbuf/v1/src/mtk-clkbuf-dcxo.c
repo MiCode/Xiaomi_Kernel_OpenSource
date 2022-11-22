@@ -26,11 +26,8 @@ EXPORT_SYMBOL(dcxo);
 #define CLKBUF_XO_NAME_PROP		"mediatek,xo-buf-name"
 #define CLKBUF_XO_PROP			"mediatek,xo-"
 #define CLKBUF_BBLPM_SUPPORT		"mediatek,bblpm-support"
-#define CLKBUF_HW_BBLPM_SUPPORT		"mediatek,hwbblpm-support"
 #define CLKBUF_VOTER_SUPPORT		"mediatek,xo-voter-support"
 #define CLKBUF_INIT_AT_KERNEL		"mediatek,clkbuf-kernel-init"
-#define XO_BUF_HWBBLPM_MASK_PROP	"mediatek,xo-buf-hwbblpm-mask"
-#define XO_BUF_HWBBLPM_BYPASS_PROP	"mediatek,xo-buf-hwbblpm-bypass"
 #define DCXO_DESENSE_SUPPORT		"mediatek,dcxo-de-sense-support"
 #define DCXO_IMPEDANCE_SUPPORT		"mediatek,dcxo-impedance-support"
 #define DCXO_DRV_CURR_SUPPORT		"mediatek,dcxo-drv-curr-support"
@@ -395,86 +392,12 @@ bool clkbuf_dcxo_is_xo_in_use(u8 idx)
 	return dcxo->xo_bufs[idx].in_use;
 }
 
-int clkbuf_dcxo_set_hwbblpm(bool onoff)
-{
-	short no_lock = 0;
-	int ret = 0;
-
-	if (!dcxo->hwbblpm_support)
-		return -EHW_NOT_SUPPORT;
-
-	if (preempt_count() > 0 || irqs_disabled()
-		|| system_state != SYSTEM_RUNNING || oops_in_progress)
-		no_lock = 1;
-
-	if (!no_lock)
-		mutex_lock(&dcxo->lock);
-
-	ret = clk_buf_write(&dcxo->hw, &dcxo->_hwbblpm_sel, onoff);
-
-	if (!no_lock)
-		mutex_unlock(&dcxo->lock);
-
-	return ret;
-}
-
 int clkbuf_dcxo_get_hwbblpm_sel(u32 *en)
 {
 	if (!dcxo->hwbblpm_support)
 		return -EHW_NOT_SUPPORT;
 
 	return clk_buf_read(&dcxo->hw, &dcxo->_hwbblpm_sel, en);
-}
-
-int clkbuf_dcxo_set_hwbblpm_mask(u8 xo_id, bool onoff)
-{
-	short no_lock = 0;
-	int ret = 0;
-
-	if (!dcxo->hwbblpm_support)
-		return -EHW_NOT_SUPPORT;
-
-	ret = clkbuf_xo_sanity_check(xo_id);
-	if (ret) {
-		pr_notice("xo id: %d does not support for hwbblpm mask\n",
-				xo_id);
-		return ret;
-	}
-
-	if (preempt_count() > 0 || irqs_disabled()
-		|| system_state != SYSTEM_RUNNING || oops_in_progress)
-		no_lock = 1;
-
-	if (!no_lock)
-		mutex_lock(&dcxo->lock);
-
-	ret = clk_buf_write(&dcxo->hw,
-		&dcxo->xo_bufs[xo_id]._hwbblpm_msk, onoff);
-
-	if (!no_lock)
-		mutex_unlock(&dcxo->lock);
-
-	return ret;
-}
-
-int clkbuf_dcxo_set_swbblpm(bool onoff)
-{
-	short no_lock = 0;
-	int ret = 0;
-
-	if (preempt_count() > 0 || irqs_disabled()
-		|| system_state != SYSTEM_RUNNING || oops_in_progress)
-		no_lock = 1;
-
-	if (!no_lock)
-		mutex_lock(&dcxo->lock);
-
-	ret = clk_buf_write(&dcxo->hw, &dcxo->_swbblpm_en, onoff);
-
-	if (!no_lock)
-		mutex_unlock(&dcxo->lock);
-
-	return ret;
 }
 
 int clkbuf_dcxo_get_bblpm_en(u32 *val)
@@ -861,44 +784,6 @@ int clkbuf_dcxo_pmic_store(const char *cmd, const char *arg1, const char *arg2)
 	return -EPERM;
 }
 
-static int clkbuf_dcxo_bblpm_init(void)
-{
-	bool hwbblpm_en = true;
-	int ret = 0;
-	int i;
-
-	if (!dcxo->bblpm_support) {
-		pr_debug("bblpm not support\n");
-		return 0;
-	}
-
-	if (!dcxo->hwbblpm_support)
-		return 0;
-
-	for (i = 0; i < dcxo->xo_num; i++) {
-		if (!dcxo->xo_bufs[i].in_use)
-			continue;
-		ret = clkbuf_dcxo_set_hwbblpm_mask(i,
-				dcxo->xo_bufs[i].hwbblpm_msk);
-		if (ret) {
-			pr_notice("init hwbblpm mask failed: %d\n", ret);
-			return ret;
-		}
-	}
-
-	for (i = 0; i < dcxo->xo_num; i++)
-		if (dcxo->xo_bufs[i].hwbblpm_bypass)
-			hwbblpm_en &= !clkbuf_dcxo_get_xo_support(i);
-
-	if (hwbblpm_en)
-		ret = clkbuf_dcxo_set_hwbblpm(true);
-
-	if (ret == -EHW_NOT_SUPPORT)
-		pr_notice("set hwbblpm failed due to its not support\n");
-
-	return ret;
-}
-
 static int clkbuf_dcxo_dct_init_in_k(void)
 {
 	int ret = 0;
@@ -987,10 +872,6 @@ int clkbuf_dcxo_post_init(void)
 		dcxo->xo_bufs[i].init_rc_voter = val;
 	}
 
-	ret = clkbuf_dcxo_bblpm_init();
-	if (ret)
-		pr_notice("bblpm init failed\n");
-
 	return ret;
 }
 
@@ -1064,56 +945,6 @@ static int clkbuf_dcxo_dts_init_dct(struct device_node *node)
 	}
 
 	of_node_put(clkbuf_ctl);
-
-	return ret;
-}
-
-static int clkbuf_dcxo_dts_init_hwbblpm(struct device_node *node)
-{
-	struct device_node *ctl_node = NULL;
-	u32 val = 0;
-	int ret = 0;
-	int i;
-
-	ctl_node = of_parse_phandle(node, CLKBUF_CTL_PHANDLE_NAME, 0);
-	if (!ctl_node) {
-		pr_notice("can not find clkbuf_ctl node\n");
-		return -EFIND_DTS_ERR;
-	}
-
-	ret = of_property_count_u32_elems(ctl_node, XO_BUF_HWBBLPM_MASK_PROP);
-	if (ret >= 0 && ret != dcxo->xo_num) {
-		pr_notice("xo count does not equal to hwbblpm mask count\n");
-		pr_notice("xo count: %u\n", dcxo->xo_num);
-		pr_notice("hwbblpm mask count: %d\n", ret);
-		return 0;
-	} else if (ret < 0) {
-		pr_notice("find hwbblpm mask property failed\n");
-		pr_notice("skip function\n");
-		return 0;
-	}
-
-	for (i = 0; i < dcxo->xo_num; i++) {
-		ret = of_property_read_u32_index(ctl_node,
-				XO_BUF_HWBBLPM_MASK_PROP, i, &val);
-		if (ret) {
-			pr_notice("read hwbblpm mask index: %d failed: %d\n",
-				i, ret);
-			return 0;
-		}
-		dcxo->xo_bufs[i].hwbblpm_msk = val;
-
-		ret = of_property_read_u32_index(ctl_node,
-				XO_BUF_HWBBLPM_BYPASS_PROP, i, &val);
-		if (ret) {
-			pr_notice("read hwbblpm bypass index: %d failed: %d\n",
-				i, ret);
-			return 0;
-		}
-		dcxo->xo_bufs[i].hwbblpm_bypass = val;
-	}
-
-	of_node_put(ctl_node);
 
 	return ret;
 }
@@ -1225,8 +1056,6 @@ static int clkbuf_dcxo_dts_init(struct platform_device *pdev)
 	}
 
 	dcxo->bblpm_support = of_property_read_bool(node, CLKBUF_BBLPM_SUPPORT);
-	dcxo->hwbblpm_support = of_property_read_bool(node,
-			CLKBUF_HW_BBLPM_SUPPORT);
 	dcxo->voter_support = of_property_read_bool(node,
 			CLKBUF_VOTER_SUPPORT);
 	dcxo->de_sense_support = of_property_read_bool(node,
@@ -1252,12 +1081,6 @@ static int clkbuf_dcxo_dts_init(struct platform_device *pdev)
 	ret = clkbuf_dcxo_dts_init_xo(node);
 	if (ret)
 		return ret;
-
-	if (dcxo->hwbblpm_support) {
-		ret = clkbuf_dcxo_dts_init_hwbblpm(node);
-		if (ret)
-			return ret;
-	}
 
 	if (dcxo->do_init_in_k) {
 		ret = clkbuf_dcxo_dts_init_dct(node);

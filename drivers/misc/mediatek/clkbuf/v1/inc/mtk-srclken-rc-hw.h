@@ -22,6 +22,7 @@ struct srclken_rc_subsys {
 
 struct srclken_rc_hw {
 	struct srclken_rc_subsys *subsys;
+	bool init_done;
 	u8 subsys_num;
 };
 

@@ -11,6 +11,8 @@
 #include <linux/platform_device.h>
 
 #include "mtk_clkbuf_common.h"
+#include "mtk_clkbuf_ctl.h"
+#include "mtk-clkbuf-dcxo.h"
 #include "mtk-srclken-rc-hw.h"
 #if IS_ENABLED(CONFIG_MTK_SRCLKEN_RC_V1)
 #include "mtk-srclken-rc-hw-v1.h"
@@ -32,6 +34,16 @@ const char *srclken_rc_get_subsys_name(u8 idx)
 	return rc_hw.subsys[idx].name;
 }
 
+static int srclken_rc_bblpm_ctrl(struct srclken_rc_subsys *subsys)
+{
+	if (clkbuf_dcxo_is_bblpm_support())
+		pr_notice("BBLPM call to TF-A not implemented!! (Subsys: %s)\n", subsys->name);
+	else
+		pr_notice("Invalid request BBLPM mode!! (Subsys: %s)\n", subsys->name);
+
+	return -EPERM;
+}
+
 int srclken_rc_subsys_ctrl(u8 idx, const char *mode)
 {
 	if (idx >= rc_hw.subsys_num)
@@ -50,11 +62,10 @@ int srclken_rc_subsys_ctrl(u8 idx, const char *mode)
 		return __srclken_rc_subsys_ctrl(&rc_hw.subsys[idx],
 			CLKBUF_CMD_SW, RC_FPM_REQ);
 	else if (!strcmp(mode, "SW_BBLPM"))
+		return srclken_rc_bblpm_ctrl(&rc_hw.subsys[idx]);
+	else if (!strcmp(mode, "SW_SET_PMRC"))
 		return __srclken_rc_subsys_ctrl(&rc_hw.subsys[idx],
-			CLKBUF_CMD_SW, RC_BBLPM_REQ);
-	else if (!strcmp(mode, "SW_LPM"))
-		return __srclken_rc_subsys_ctrl(&rc_hw.subsys[idx],
-			CLKBUF_CMD_SW, RC_LPM_VOTE_REQ);
+			CLKBUF_CMD_SW, RC_SET_PMRC_REQ);
 	else if (!strcmp(mode, "INIT"))
 		return __srclken_rc_subsys_ctrl(&rc_hw.subsys[idx],
 			CLKBUF_CMD_INIT, RC_NONE_REQ);
@@ -62,6 +73,29 @@ int srclken_rc_subsys_ctrl(u8 idx, const char *mode)
 	pr_notice("invalid mode: %s\n", mode);
 	return -EPERM;
 }
+
+int srclken_pwr_ctrl_by_id(const uint8_t subsys_id, bool onoff)
+{
+	/* SW_SET_PMRC is NOT a DCXO mode,
+	 * it will set CFG6 and RC_SWFPM, end to be PMRC_EN=1 & vote LPM
+	 */
+	if (!rc_hw.init_done) {
+		pr_notice("[%s] RC HW not init yet\n", __func__);
+		return -ENODEV;
+	}
+
+	if (subsys_id >= rc_hw.subsys_num) {
+		pr_notice("[%s] Invalid subsys id: %d!\n", __func__, subsys_id);
+		return -EINVAL;
+	}
+
+	pr_notice("[%s] Subsys %u set RC mode to %d\n", __func__, subsys_id, onoff);
+	if (onoff)
+		return srclken_rc_subsys_ctrl(subsys_id, "SW_SET_PMRC");
+	else
+		return srclken_rc_subsys_ctrl(subsys_id, "SW_OFF");
+}
+EXPORT_SYMBOL(srclken_pwr_ctrl_by_id);
 
 static int srclken_rc_dts_subsys_callback_init(struct device_node *node,
 		struct srclken_rc_subsys *subsys)
@@ -164,11 +198,13 @@ static int mtk_srclken_rc_probe(struct platform_device *pdev)
 		goto RC_INIT_FAILED;
 	}
 
+	rc_hw.init_done = true;
 	srclken_rc_init_done_callback(RC_INIT_DONE);
 
 	return 0;
 
 RC_INIT_FAILED:
+	rc_hw.init_done = false;
 	srclken_rc_init_done_callback(ret);
 
 	return ret;

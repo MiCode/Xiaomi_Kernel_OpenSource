@@ -62,15 +62,21 @@ EXPORT_SYMBOL(clk_buf_hw_ctrl);
 int clk_buf_voter_ctrl_by_id(const uint8_t subsys_id, enum RC_CTRL_CMD rc_req)
 {
 	if (!clkbuf_ctl.init_done) {
-		pr_notice("clkbuf HW not init yet\n");
+		pr_notice("[%s] clkbuf HW not init yet\n", __func__);
 		return -ENODEV;
 	}
 
-	if (rc_req >= MAX_RC_REQ_NUM) {
-		pr_notice("rc_req exceeds MAX_RC_REQ_NUM!\n");
+	if (subsys_id >= rc_hw.subsys_num) {
+		pr_notice("[%s] Invalid subsys id: %d!\n", __func__, subsys_id);
 		return -EINVAL;
 	}
 
+	if (rc_req >= MAX_RC_REQ_NUM) {
+		pr_notice("[%s] Invalid rc_req mode: %d!\n", __func__, rc_req);
+		return -EINVAL;
+	}
+
+	pr_notice("[%s] Subsys %u set RC mode to %s\n", __func__, subsys_id, rc_req_list[rc_req]);
 	return srclken_rc_subsys_ctrl(subsys_id, rc_req_list[rc_req]);
 }
 EXPORT_SYMBOL(clk_buf_voter_ctrl_by_id);
@@ -103,25 +109,6 @@ int clk_buf_set_voter_by_name(const char *xo_name, const char *voter)
 }
 EXPORT_SYMBOL(clk_buf_set_voter_by_name);
 #endif /* defined(SRCLKEN_RC_SUPPORT) */
-
-int clk_buf_control_bblpm(bool onoff)
-{
-	if (!clkbuf_ctl.init_done) {
-		pr_notice("clkbuf not init yet\n");
-		return -ENODEV;
-	}
-
-	if (!clkbuf_dcxo_is_bblpm_support()) {
-		pr_notice("clkbuf not support bblpm\n");
-		return -ENODEV;
-	}
-
-	if (clkbuf_dcxo_set_hwbblpm(false))
-		pr_debug("clkbuf not support hw bblpm\n");
-
-	return clkbuf_dcxo_set_swbblpm(onoff);
-}
-EXPORT_SYMBOL(clk_buf_control_bblpm);
 
 static ssize_t __clk_buf_dump_xo_en_sta(char *buf)
 {
@@ -710,71 +697,6 @@ static ssize_t clk_buf_debug_show(struct kobject *kobj,
 	return len;
 }
 
-static ssize_t clk_buf_bblpm_store(struct kobject *kobj,
-		struct kobj_attribute *attr, const char *buf, size_t count)
-{
-	char cmd[11] = {0};
-	int ret = 0;
-
-	if (!clkbuf_ctl.init_done) {
-		pr_notice("clkbuf HW not init yet\n");
-		return -ENODEV;
-	}
-
-	if (!clkbuf_dcxo_is_bblpm_support()) {
-		pr_notice("clkbuf bblpm not support\n");
-		return -ENODEV;
-	}
-
-	if (sscanf(buf, "%10s", cmd) != 1)
-		return -EPERM;
-
-	if (!strcmp(cmd, "HW")) {
-		ret = clkbuf_dcxo_set_hwbblpm(true);
-		if (ret) {
-			pr_notice("hw bblpm not support\n");
-			return ret;
-		}
-		goto BBLPM_STORE_DONE;
-	} else if (!strcmp(cmd, "SW_OFF")) {
-		ret = clkbuf_dcxo_set_hwbblpm(false);
-		if (ret == -EHW_NOT_SUPPORT) {
-			pr_debug("hw bblpm not support\n");
-		} else if (ret) {
-			pr_notice("hw bblpm set failed\n");
-			return ret;
-		}
-
-		ret = clkbuf_dcxo_set_swbblpm(false);
-		if (ret) {
-			pr_notice("bblpm set failed\n");
-			return ret;
-		}
-		goto BBLPM_STORE_DONE;
-	} else if (!strcmp(cmd, "SW_ON")) {
-		ret = clkbuf_dcxo_set_hwbblpm(false);
-		if (ret == -EHW_NOT_SUPPORT) {
-			pr_debug("hw bblpm not support\n");
-		} else if (ret) {
-			pr_notice("hw bblpm set failed\n");
-			return ret;
-		}
-
-		ret = clkbuf_dcxo_set_swbblpm(true);
-		if (ret) {
-			pr_notice("bblpm set failed\n");
-			return ret;
-		}
-		goto BBLPM_STORE_DONE;
-	}
-
-	pr_notice("unknown command: %s\n", cmd);
-	return -EPERM;
-
-BBLPM_STORE_DONE:
-	return count;
-}
-
 static ssize_t clk_buf_bblpm_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
@@ -787,11 +709,6 @@ static ssize_t clk_buf_bblpm_show(struct kobject *kobj,
 
 	if (!clkbuf_ctl.init_done) {
 		pr_notice("clkbuf HW not init yet\n");
-		return -ENODEV;
-	}
-
-	if (!clkbuf_dcxo_is_bblpm_support()) {
-		pr_notice("clkbuf bblpm not support\n");
 		return -ENODEV;
 	}
 
@@ -824,7 +741,7 @@ static ssize_t clk_buf_bblpm_show(struct kobject *kobj,
 	}
 
 	len += snprintf(buf + len, PAGE_SIZE - len,
-			"available input: HW, SW, SW_ON, SW_OFF");
+			"available input: HW, SW, SW_ON, SW_OFF\n");
 
 	return len;
 }
@@ -895,7 +812,7 @@ static ssize_t rc_subsys_ctl_show(struct kobject *kobj,
 
 	len -= 2;
 	len += snprintf(buf + len, PAGE_SIZE - len,
-			"\navailable control: HW/SW/SW_OFF/SW_FPM/SW_BBLPM\n");
+			"\navailable control: HW/SW/SW_OFF/SW_FPM/SW_BBLPM/SW_SET_PMRC\n");
 
 	return len;
 }
@@ -1108,7 +1025,7 @@ DEFINE_ATTR_RO(clk_buf_ctrl);
 DEFINE_ATTR_RW(clk_buf_pmic);
 DEFINE_ATTR_RW(clk_buf_pmif);
 DEFINE_ATTR_RW(clk_buf_debug);
-DEFINE_ATTR_RW(clk_buf_bblpm);
+DEFINE_ATTR_RO(clk_buf_bblpm);
 #if defined(SRCLKEN_RC_SUPPORT)
 DEFINE_ATTR_RO(rc_cfg_ctl);
 DEFINE_ATTR_RW(rc_sta_reg);

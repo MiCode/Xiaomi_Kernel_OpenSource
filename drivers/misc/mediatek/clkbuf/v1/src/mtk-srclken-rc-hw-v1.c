@@ -573,13 +573,13 @@ int __srclken_rc_subsys_ctrl(struct srclken_rc_subsys *subsys,
 	if (cmd <= CLKBUF_CMD_SW) {
 		val &= (~(SW_SRCLKEN_RC_EN_MASK << SW_SRCLKEN_RC_EN_SHIFT));
 		val |= (SW_SRCLKEN_RC_EN_MASK << SW_SRCLKEN_RC_EN_SHIFT);
-		if (rc_req == RC_BBLPM_REQ) {
-			val &= (~(SW_RC_REQ_MASK << SW_RC_REQ_SHIFT));
-			val |= (SW_BBLPM_EN_MASK << SW_BBLPM_EN_SHIFT);
-		} else if (rc_req == RC_FPM_REQ) {
+		if (rc_req == RC_FPM_REQ) {
 			val &= (~(SW_RC_REQ_MASK << SW_RC_REQ_SHIFT));
 			val |= (SW_FPM_EN_MASK << SW_FPM_EN_SHIFT);
-		} else if (rc_req == RC_LPM_VOTE_REQ) {
+		} else if (rc_req == RC_SET_PMRC_REQ) {
+			/* SW_SET_PMRC is NOT a DCXO mode,
+			 * it will set CFG6 and RC_SWFPM, end to be PMRC_EN=1 & vote LPM
+			 */
 			val &= (~(SW_RC_REQ_MASK << SW_RC_REQ_SHIFT));
 			val |= (SW_FPM_EN_MASK << SW_FPM_EN_SHIFT);
 			cfg6_val |= (1 << subsys->idx);
