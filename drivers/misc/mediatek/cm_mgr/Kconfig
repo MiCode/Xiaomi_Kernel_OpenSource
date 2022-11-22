@@ -22,6 +22,14 @@ config MTK_CM_MGR_LEGACY
 	  on power table.
 	  If unsure, say N.
 
+config MTK_CM_MGR_MT6835
+        tristate "MTK CM_MGR for MT6835"
+        help
+          This kernel config can be used to enable CM_MGR MT6835. When enable
+          this option, dram opp level will be changed which will depended
+          on power table.
+          If unsure, say N.
+
 config MTK_CM_MGR_MT6853
 	tristate "MTK CM_MGR for MT6853"
 	help
