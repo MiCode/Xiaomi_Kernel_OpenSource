@@ -204,12 +204,7 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len,
 	if (ret != IPI_ACTION_DONE) {
 		mtk_vcodec_err(inst, "mtk_ipi_send %X fail %d", *(u32 *)msg, ret);
 		mutex_unlock(msg_mutex);
-		inst->vcu.failure = VDEC_IPI_MSG_STATUS_FAIL;
-		inst->vcu.abort = 1;
-		if (inst->vcu.daemon_pid == get_vcp_generation())
-			trigger_vcp_halt(VCP_A_ID);
-		inst->ctx->err_msg = *(__u32 *)msg;
-		return -EIO;
+		goto ipi_err;
 	}
 
 	if (!is_ack) {
@@ -239,12 +234,7 @@ wait_ack:
 			mtk_vcodec_err(inst, "wait vcp ipi %X ack time out! %d %d",
 				*(u32 *)msg, ret, inst->vcu.failure);
 			mutex_unlock(msg_mutex);
-			inst->vcu.failure = VDEC_IPI_MSG_STATUS_FAIL;
-			inst->vcu.abort = 1;
-			if (inst->vcu.daemon_pid == get_vcp_generation())
-				trigger_vcp_halt(VCP_A_ID);
-			inst->ctx->err_msg = *(__u32 *)msg;
-			return -EIO;
+			goto ipi_err;
 		} else if (-ERESTARTSYS == ret) {
 			mtk_vcodec_err(inst, "wait vcp ipi %X ack ret %d RESTARTSYS retry! (%d)",
 				*(u32 *)msg, ret, inst->vcu.failure);
@@ -260,6 +250,26 @@ wait_ack:
 		return inst->vcu.failure;
 
 	return 0;
+
+ipi_err:
+	timeout = 0;
+	if (inst->vcu.daemon_pid == get_vcp_generation()) {
+		trigger_vcp_halt(VCP_A_ID);
+		while (inst->vcu.daemon_pid == get_vcp_generation()) {
+			if (timeout > VCP_SYNC_TIMEOUT_MS) {
+				mtk_v4l2_debug(0, "halt restart timeout %x\n",
+					inst->vcu.daemon_pid);
+				break;
+			}
+			usleep_range(10000, 20000);
+			timeout += 10;
+		}
+	}
+	inst->vcu.failure = VDEC_IPI_MSG_STATUS_FAIL;
+	inst->vcu.abort = 1;
+	inst->ctx->err_msg = *(__u32 *)msg;
+
+	return -EIO;
 }
 
 static void handle_init_ack_msg(struct vdec_vcu_ipi_init_ack *msg)
