@@ -3299,16 +3299,19 @@ signed int CmdqDPEHW(struct frame *frame)
 	unsigned int dma_bandwidth, trig_num;
 #endif
 
-	if (frame == NULL || frame->data == NULL)
+	if (frame == NULL || frame->data == NULL) {
+		LOG_INF("Cmdq frame Null or frame data null\n");
 		return -1;
+	}
 
-	LOG_DBG("%s request sent to CMDQ driver", __func__);
+
+	LOG_INF("%s request sent to CMDQ driver", __func__);
 	pDpeUserConfig = (struct DPE_Config *) frame->data;
 
 
 	pDpeConfig = &DpeConfig;
 /************** Pass User info to DPE_Kernel_Config **************/
-
+	LOG_INF("Cmdq Dpe_engineSelect = %d\n", pDpeUserConfig->Dpe_engineSelect);
 	if (pDpeUserConfig->Dpe_engineSelect == MODE_DVS_DVP_BOTH) {
 		DPE_Config_DVS(pDpeUserConfig, pDpeConfig);
 		DPE_Config_DVP(pDpeUserConfig, pDpeConfig);
@@ -5991,32 +5994,53 @@ unsigned int dpe_fop_poll(struct file *file, poll_table *wait)
 	//struct DPE_Kernel_Config *pDpeConfig;
 	//struct DPE_Kernel_Config DpeConfig;
 	struct DPE_USER_INFO_STRUCT *pUserInfo;
-	unsigned int buf_rdy;
+	//unsigned int buf_rdy;
+	unsigned int DVS_buf_rdy = 0;
+	unsigned int DVP_buf_rdy = 0;
 	unsigned long flags;
 	unsigned int p;
 
-
-	if (DPE_debug_log_en == 1)
-		LOG_INF("DPE Poll\n");
+	//if (DPE_debug_log_en == 1)
+	LOG_INF("DPE Poll star\n");
 
 	//DPE_DumpUserSpaceReg(pDpeConfig);
 	//LOG_INF("DPE_DumpReg star dpe_fop_poll!\n");
 	//DPE_DumpReg();
 	pUserInfo = (struct DPE_USER_INFO_STRUCT *) (file->private_data);
 	poll_wait(file, &DPEInfo.WaitQueueHead, wait);
-	buf_rdy = DPE_GetIRQState(DPE_IRQ_TYPE_INT_DVP_ST,
+
+
+	DVS_buf_rdy = DPE_GetIRQState(DPE_IRQ_TYPE_INT_DVS_ST,
 				0x0,
 				DPE_INT_ST, DPE_PROCESS_ID_DPE,
 				pUserInfo->Pid);
+
+	DVP_buf_rdy = DPE_GetIRQState(DPE_IRQ_TYPE_INT_DVP_ST,
+				0x0,
+				DPE_INT_ST, DPE_PROCESS_ID_DPE,
+				pUserInfo->Pid);
+
+
 	p = pUserInfo->Pid % IRQ_USER_NUM_MAX;
-	LOG_INF("buf_rdy = %d\n", buf_rdy);
-	if (buf_rdy) {
+	//LOG_INF("buf_rdy = %d\n", buf_rdy);
+	LOG_INF("DVS_buf_rdy = %d, DVP_buf_rdy = %d\n",
+	DVS_buf_rdy, DVP_buf_rdy);
+
+	if (DVP_buf_rdy) {
 		spin_lock_irqsave
 		(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]), flags);
 		DPEInfo.IrqInfo.DpeIrqCnt[p]--;
-if (DPEInfo.IrqInfo.DpeIrqCnt[p] == 0)
-	DPEInfo.IrqInfo.Status[DPE_IRQ_TYPE_INT_DVP_ST] &= (~DPE_INT_ST);
-spin_unlock_irqrestore(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]), flags);
+		if (DPEInfo.IrqInfo.DpeIrqCnt[p] == 0)
+			DPEInfo.IrqInfo.Status[DPE_IRQ_TYPE_INT_DVP_ST] &= (~DPE_INT_ST);
+		spin_unlock_irqrestore(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]), flags);
+		return POLLIN | POLLRDNORM;
+	} else if (DVS_buf_rdy) {
+		spin_lock_irqsave
+		(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVS_ST]), flags);
+		DPEInfo.IrqInfo.DpeIrqCnt[p]--;
+		if (DPEInfo.IrqInfo.DpeIrqCnt[p] == 0)
+			DPEInfo.IrqInfo.Status[DPE_IRQ_TYPE_INT_DVS_ST] &= (~DPE_INT_ST);
+		spin_unlock_irqrestore(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVS_ST]), flags);
 		return POLLIN | POLLRDNORM;
 	} else
 		return 0;
