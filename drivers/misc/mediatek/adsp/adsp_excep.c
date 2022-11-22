@@ -188,11 +188,9 @@ static int dump_buffer(struct adsp_exception_control *ctrl, int coredump_id)
 	n += dump_adsp_shared_memory(buf + n, total - n, ADSP_A_LOGGER_MEM_ID, "log_a");
 	n += dump_adsp_shared_memory(buf + n, total - n, ADSP_B_LOGGER_MEM_ID, "log_b");
 
-	mutex_lock(&ctrl->lock);
 	reinit_completion(&ctrl->done);
 	ctrl->buf_backup = buf;
 	ctrl->buf_size = total;
-	mutex_unlock(&ctrl->lock);
 
 	pr_debug("%s, vmalloc size %u, buffer %p, dump_size %u",
 		 __func__, total, buf, n);
@@ -405,20 +403,13 @@ void adsp_aed_worker(struct work_struct *ws)
 bool adsp_aed_dispatch(enum adsp_excep_id type, void *data)
 {
 	struct adsp_exception_control *ctrl = &excep_ctrl;
-	int ret = 0;
 
-	mutex_lock(&ctrl->lock);
-	if (work_busy(&ctrl->aed_work)) {
-		mutex_unlock(&ctrl->lock);
+	if (work_busy(&ctrl->aed_work))
 		return false;
-	}
 
 	ctrl->excep_id = type;
 	ctrl->priv_data = data;
-	ret = queue_work(ctrl->workq, &ctrl->aed_work);
-	mutex_unlock(&ctrl->lock);
-
-	return ret;
+	return queue_work(ctrl->workq, &ctrl->aed_work);
 }
 
 static void adsp_wdt_counter_reset(struct timer_list *t)
@@ -440,9 +431,6 @@ int init_adsp_exception_control(struct device *dev,
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 	mrdump_set_extra_dump(AEE_EXTRA_FILE_ADSP, get_adsp_misc_buffer);
 #endif
-
-	mutex_init(&ctrl->lock);
-
 	ctrl->waitq = waitq;
 	ctrl->workq = workq;
 	ctrl->buf_backup = NULL;
@@ -528,7 +516,6 @@ static ssize_t adsp_dump_show(struct file *filep, struct kobject *kobj,
 	ssize_t n = 0;
 	struct adsp_exception_control *ctrl = &excep_ctrl;
 
-	mutex_lock(&ctrl->lock);
 	if (ctrl->buf_backup) {
 		n = copy_from_buffer(buf, -1, ctrl->buf_backup,
 			ctrl->buf_size, offset, size);
@@ -542,7 +529,6 @@ static ssize_t adsp_dump_show(struct file *filep, struct kobject *kobj,
 			complete(&ctrl->done);
 		}
 	}
-	mutex_unlock(&ctrl->lock);
 
 	return n;
 }
