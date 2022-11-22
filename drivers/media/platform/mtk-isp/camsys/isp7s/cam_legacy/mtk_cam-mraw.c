@@ -1185,6 +1185,14 @@ static int push_msgfifo(struct mtk_mraw_device *dev,
 	return 0;
 }
 
+void mraw_reset_by_mraw_top(struct mtk_mraw_device *dev)
+{
+	writel(0, dev->cam->mraw_base + REG_CAMSYS_MRAW_SW_RST);
+	writel(3 << ((dev->id) * 2 + 4), dev->cam->mraw_base + REG_CAMSYS_MRAW_SW_RST);
+	writel(0, dev->cam->mraw_base + REG_CAMSYS_MRAW_SW_RST);
+	wmb(); /* make sure committed */
+}
+
 void mraw_reset(struct mtk_mraw_device *dev)
 {
 	int sw_ctl;
@@ -2398,7 +2406,6 @@ static int mtk_mraw_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "mraw, map_addr(inner)=0x%pK\n", mraw->base_inner);
 
-
 	mraw->irq = platform_get_irq(pdev, 0);
 	if (!mraw->irq) {
 		dev_dbg(dev, "failed to get irq\n");
@@ -2572,8 +2579,6 @@ static int mtk_mraw_runtime_resume(struct device *dev)
 	if (ret)
 		return ret;
 
-	enable_irq(mraw_dev->irq);
-
 	dev_dbg(dev, "%s:enable clock\n", __func__);
 	for (i = 0; i < mraw_dev->num_clks; i++) {
 		ret = clk_prepare_enable(mraw_dev->clks[i]);
@@ -2587,7 +2592,10 @@ static int mtk_mraw_runtime_resume(struct device *dev)
 			return ret;
 		}
 	}
-	mraw_reset(mraw_dev);
+	mraw_reset_by_mraw_top(mraw_dev);
+
+	enable_irq(mraw_dev->irq);
+	dev_info(dev, "%s:enable irq\n", __func__);
 
 	return 0;
 }

@@ -10809,6 +10809,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 		pr_info("probe cmdq_mbox_create: client: %d\n", cam_dev->cmdq_clt);
 
 	cam_dev->adl_base = ioremap(0x1a0f0000, 0x1900);
+	cam_dev->mraw_base = ioremap(0x1a170000, 0x1000);
 
 	if (!cam_dev->ctxs)
 		return -ENOMEM;

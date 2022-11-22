@@ -562,6 +562,7 @@ struct mtk_cam_device {
 	struct media_device media_dev;
 	void __iomem *base;
 	void __iomem *adl_base;
+	void __iomem *mraw_base;
 	//TODO: for real SCP
 	//struct device *smem_dev;
 	//struct platform_device *scp_pdev; /* only for scp case? */

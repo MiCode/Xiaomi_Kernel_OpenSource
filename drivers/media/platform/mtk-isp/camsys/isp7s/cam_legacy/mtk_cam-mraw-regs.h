@@ -6,6 +6,8 @@
 #ifndef _MRAW_REGS_H
 #define _MRAW_REGS_H
 
+#define REG_CAMSYS_MRAW_SW_RST					0xA0
+
 #define REG_MRAW_MRAWCTL_MOD_EN					0x0000
 #define REG_MRAW_MRAWCTL_MOD2_EN				0x0004
 union MRAW_MRAWCTL_MOD2_EN {
