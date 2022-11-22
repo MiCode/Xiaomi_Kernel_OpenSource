@@ -2072,6 +2072,7 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			&& (atomic_read(&mtk_crtc->force_high_step) == 0)) {
 			unsigned long long aee_now_ts = sched_clock();
 			int trigger_aee = 0;
+			int en = 0;
 
 			++underrun_cnt;
 
@@ -2109,6 +2110,10 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 
 			if (mtk_crtc)
 				atomic_set(&mtk_crtc->force_high_step, 1);
+
+			/* disable dsi underrun irq*/
+			en = 0;
+			mtk_ddp_comp_io_cmd(&dsi->ddp_comp, NULL, IRQ_UNDERRUN, &en);
 		}
 
 		//if (status & INP_UNFINISH_INT_EN)

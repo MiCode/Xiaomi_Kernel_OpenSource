@@ -3791,14 +3791,9 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 		unsigned int step_size = mtk_drm_get_mmclk_step_size();
 
 		if (!mtk_crtc->force_high_enabled) {
-			DDPMSG("start SET MMCLK step 0, and disable underrun irq\n");
+			DDPMSG("start SET MMCLK step 0\n");
 			/* set MMCLK highest step for next 2048 frame */
 			mtk_crtc->force_high_enabled = 2048;
-			/* disable dsi underrun irq*/
-			output_comp = mtk_ddp_comp_request_output(mtk_crtc);
-			en = 0;
-			if (output_comp)
-				mtk_ddp_comp_io_cmd(output_comp, NULL, IRQ_UNDERRUN, &en);
 		}
 		mtk_crtc->force_high_enabled--;
 
