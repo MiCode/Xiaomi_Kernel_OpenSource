@@ -268,6 +268,19 @@ int scp_resource_req(unsigned int req_type)
 	return res.a0;
 }
 
+static int scp_set_scp2spm_vol(unsigned int spm_opp)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_SCP_DVFS_CONTROL, SCP2SPM_VOL_SET,
+		spm_opp, 0, 0, 0, 0, 0, &res);
+
+	if (res.a0)
+		pr_notice("[%s] smc call failed with error: %d\n",
+		__func__, res.a0);
+	return res.a0;
+}
+
 static int scp_reg_update(struct regmap *regmap, struct reg_info *reg, u32 val)
 {
 	u32 mask;
@@ -536,7 +549,10 @@ static void scp_vcore_request(unsigned int clk_opp)
 	}
 
 	/* SCP vcore request to SPM */
-	DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, dvfs.opp[idx].spm_opp);
+	if (dvfs.secure_access_scp)
+		scp_set_scp2spm_vol(dvfs.opp[idx].spm_opp);
+	else
+		DRV_WriteReg32(SCP_SCP2SPM_VOL_LV, dvfs.opp[idx].spm_opp);
 }
 
 void scp_init_vcore_request(void)

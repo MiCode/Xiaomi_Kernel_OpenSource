@@ -68,6 +68,7 @@ enum scp_cmd_type {
 	RESOURCE_REQ,
 	ULPOSC2_TURN_ON,
 	ULPOSC2_TURN_OFF,
+	SCP2SPM_VOL_SET,
 };
 
 enum scp_req_r {
