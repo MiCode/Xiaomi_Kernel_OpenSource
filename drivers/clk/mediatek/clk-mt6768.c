@@ -3175,6 +3175,7 @@ void aud_intbus_mux_sel(unsigned int aud_idx)
 	clk_writel(cksys_base + CLK_CFG_4_SET, aud_idx << 0);
 	clk_writel(cksys_base + CLK_CFG_UPDATE, 0x00010000);/*[16]*/
 }
+EXPORT_SYMBOL(aud_intbus_mux_sel);
 
 static const struct of_device_id of_match_clk_mt6768[] = {
 	{

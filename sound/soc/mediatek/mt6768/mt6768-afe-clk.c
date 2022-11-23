@@ -12,10 +12,10 @@
 #include "mt6768-afe-common.h"
 #include "mt6768-afe-clk.h"
 
-//#if !defined(CONFIG_FPGA_EARLY_PORTING)
-//#include <mtk_idle.h>
-//#include <mtk_spm_resource_req.h>
-//#endif
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#include <mtk_idle.h>
+#include <mtk_spm_resource_req.h>
+#endif
 
 static DEFINE_MUTEX(mutex_request_dram);
 
@@ -395,12 +395,10 @@ int mt6768_afe_dram_request(struct device *dev)
 		 __func__, afe_priv->dram_resource_counter);
 
 	mutex_lock(&mutex_request_dram);
-/*
- * #if !defined(CONFIG_FPGA_EARLY_PORTING)
- *	if (afe_priv->dram_resource_counter == 0)
- *		spm_resource_req(SPM_RESOURCE_USER_AUDIO, SPM_RESOURCE_ALL);
- * #endif
- */
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
+	if (afe_priv->dram_resource_counter == 0)
+		spm_resource_req(SPM_RESOURCE_USER_AUDIO, SPM_RESOURCE_ALL);
+#endif
 	afe_priv->dram_resource_counter++;
 	mutex_unlock(&mutex_request_dram);
 	return 0;
@@ -416,11 +414,11 @@ int mt6768_afe_dram_release(struct device *dev)
 
 	mutex_lock(&mutex_request_dram);
 	afe_priv->dram_resource_counter--;
-/* #if !defined(CONFIG_FPGA_EARLY_PORTING)
- *	if (afe_priv->dram_resource_counter == 0)
- *		spm_resource_req(SPM_RESOURCE_USER_AUDIO, SPM_RESOURCE_RELEASE);
- * #endif
- */
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
+	if (afe_priv->dram_resource_counter == 0)
+		spm_resource_req(SPM_RESOURCE_USER_AUDIO, SPM_RESOURCE_RELEASE);
+#endif
+
 	if (afe_priv->dram_resource_counter < 0) {
 		dev_warn(dev, "%s(), dram_resource_counter %d\n",
 			 __func__, afe_priv->dram_resource_counter);
@@ -673,40 +671,40 @@ void mt6768_mck_disable(struct mtk_base_afe *afe, int mck_id)
 		clk_disable_unprepare(afe_priv->clk[m_sel_id]);
 }
 
-/* #if !defined(CONFIG_FPGA_EARLY_PORTING)
- * enum {
- *	aud_intbus_sel_26m = 0,
- *	aud_intbus_sel_syspll_d1_d4,
- *	aud_intbus_sel_syspll_d4_d2,
- * };
- *
- * static int mt6768_afe_idle_notify_call(struct notifier_block *nfb,
- *				       unsigned long id,
- *				       void *arg)
- * {
- *	switch (id) {
- *	case NOTIFY_DPIDLE_ENTER:
- *	case NOTIFY_SOIDLE_ENTER:
- *		aud_intbus_mux_sel(aud_intbus_sel_26m);
- *		break;
- *	case NOTIFY_DPIDLE_LEAVE:
- *	case NOTIFY_SOIDLE_LEAVE:
- *		aud_intbus_mux_sel(aud_intbus_sel_syspll_d1_d4);
- *		break;
- *	case NOTIFY_SOIDLE3_ENTER:
- *	case NOTIFY_SOIDLE3_LEAVE:
- *	default:
- *		break;
- *	}
- *
- *	return NOTIFY_OK;
- * }
- *
- * static struct notifier_block mt6768_afe_idle_nfb = {
- *	.notifier_call = mt6768_afe_idle_notify_call,
- * };
- * #endif
- */
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
+enum {
+	aud_intbus_sel_26m = 0,
+	aud_intbus_sel_syspll_d1_d4,
+	aud_intbus_sel_syspll_d4_d2,
+};
+
+static int mt6768_afe_idle_notify_call(struct notifier_block *nfb,
+				       unsigned long id,
+				       void *arg)
+{
+	switch (id) {
+	case NOTIFY_DPIDLE_ENTER:
+	case NOTIFY_SOIDLE_ENTER:
+		aud_intbus_mux_sel(aud_intbus_sel_26m);
+		break;
+	case NOTIFY_DPIDLE_LEAVE:
+	case NOTIFY_SOIDLE_LEAVE:
+		aud_intbus_mux_sel(aud_intbus_sel_syspll_d1_d4);
+		break;
+	case NOTIFY_SOIDLE3_ENTER:
+	case NOTIFY_SOIDLE3_LEAVE:
+	default:
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block mt6768_afe_idle_nfb = {
+	.notifier_call = mt6768_afe_idle_notify_call,
+};
+#endif
+
 int mt6768_init_clock(struct mtk_base_afe *afe)
 {
 	struct mt6768_afe_private *afe_priv = afe->platform_priv;
@@ -744,9 +742,9 @@ int mt6768_init_clock(struct mtk_base_afe *afe)
 		return PTR_ERR(afe_priv->topckgen);
 	}
 
-/* #if !defined(CONFIG_FPGA_EARLY_PORTING)
- *	mtk_idle_notifier_register(&mt6768_afe_idle_nfb);
- * #endif
- */
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
+	mtk_idle_notifier_register(&mt6768_afe_idle_nfb);
+#endif
+
 	return 0;
 }
