@@ -90,7 +90,6 @@ int mvpu_plat_init(struct platform_device *pdev)
 	int ret = 0;
 	struct device *dev = &(pdev->dev);
 	uint64_t mask = 0;
-
 	// get dma mask
 	of_property_read_u64(dev->of_node, "mask", &mask);
 
@@ -118,6 +117,7 @@ int mvpu_plat_init(struct platform_device *pdev)
 
 int mvpu_config_init(struct mtk_apu *apu)
 {
+
 	int id, level = 0;
 
 	struct mvpu_preempt_data *info;
@@ -211,7 +211,7 @@ int mvpu_config_init(struct mtk_apu *apu)
 				pr_info("nr_core_ids error\n");
 			}
 
-	}
+		}
 	}
 	return 0;
 }
