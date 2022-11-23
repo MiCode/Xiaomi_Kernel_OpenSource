@@ -488,6 +488,7 @@
   divider_ro_round_rate_parent
   divider_round_rate_parent
   dma_alloc_attrs
+  dma_alloc_noncontiguous
   dma_alloc_pages
   dma_async_device_register
   dma_async_device_unregister
@@ -522,6 +523,7 @@
   dma_fence_signal_timestamp_locked
   dma_fence_wait_timeout
   dma_free_attrs
+  dma_free_noncontiguous
   dma_free_pages
   dma_get_sgtable_attrs
   dma_get_slave_channel
@@ -552,6 +554,8 @@
   dma_unmap_page_attrs
   dma_unmap_resource
   dma_unmap_sg_attrs
+  dma_vmap_noncontiguous
+  dma_vunmap_noncontiguous
   do_exit
   __do_once_done
   __do_once_start
@@ -625,6 +629,7 @@
   drm_mode_set_name
   drm_mode_sort
   drm_object_property_set_value
+  drm_plane_from_index
   drm_wait_one_vblank
   __dynamic_dev_dbg
   __dynamic_pr_debug
