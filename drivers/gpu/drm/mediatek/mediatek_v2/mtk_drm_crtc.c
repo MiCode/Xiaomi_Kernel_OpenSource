@@ -1335,7 +1335,7 @@ void mtk_crtc_prepare_dual_pipe(struct mtk_drm_crtc *mtk_crtc)
 	for (j = 0; j < DDP_SECOND_PATH; j++) {
 		mtk_crtc->dual_pipe_ddp_ctx.ddp_comp_nr[j] =
 			mtk_crtc->path_data->dual_path_len[j];
-		mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[j] = devm_kmalloc_array(
+		mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[j] = devm_kcalloc(
 			dev, mtk_crtc->path_data->dual_path_len[j],
 			sizeof(struct mtk_ddp_comp *), GFP_KERNEL);
 		DDPDBG("j:%d,com_nr:%d,path_len:%d\n",
@@ -10982,14 +10982,14 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		for (j = 0; j < DDP_PATH_NR; j++) {
 			mtk_crtc->ddp_ctx[i].ddp_comp_nr[j] =
 				path_data->path_len[i][j];
-			mtk_crtc->ddp_ctx[i].ddp_comp[j] = devm_kmalloc_array(
+			mtk_crtc->ddp_ctx[i].ddp_comp[j] = devm_kcalloc(
 				dev, path_data->path_len[i][j],
 				sizeof(struct mtk_ddp_comp *), GFP_KERNEL);
 			mtk_crtc->ddp_ctx[i].req_hrt[j] =
 				path_data->path_req_hrt[i][j];
 		}
 		mtk_crtc->ddp_ctx[i].wb_comp_nr = path_data->wb_path_len[i];
-		mtk_crtc->ddp_ctx[i].wb_comp = devm_kmalloc_array(
+		mtk_crtc->ddp_ctx[i].wb_comp = devm_kcalloc(
 			dev, path_data->wb_path_len[i],
 			sizeof(struct mtk_ddp_comp *), GFP_KERNEL);
 	}
