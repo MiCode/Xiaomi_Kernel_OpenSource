@@ -45,6 +45,9 @@ struct mdw_mem *mdw_mem_get(struct mdw_fpriv *mpriv, int handle)
 
 	mutex_lock(&mdev->m_mtx);
 	list_for_each_entry_safe(m, tmp, &mdev->m_list, d_node) {
+		if (!m)
+			break;
+
 		if (m->dbuf == dbuf) {
 			mutex_unlock(&mdev->m_mtx);
 			return m;
@@ -80,13 +83,13 @@ static struct mdw_mem *mdw_mem_get_by_dbuf(struct mdw_fpriv *mpriv, struct dma_b
 
 void mdw_mem_all_print(struct mdw_fpriv *mpriv)
 {
-	struct list_head *tmp = NULL, *list_ptr = NULL;
-	struct mdw_mem *m = NULL;
+	struct mdw_mem *m = NULL, *tmp = NULL;
 
 	mdw_mem_debug("---list--\n");
 	mutex_lock(&mpriv->mtx);
-	list_for_each_safe(list_ptr, tmp, &mpriv->mems) {
-		m = list_entry(list_ptr, struct mdw_mem, u_item);
+	list_for_each_entry_safe(m, tmp, &mpriv->mems, u_item) {
+		if (!m)
+			break;
 		mdw_mem_show(m);
 	}
 	mutex_unlock(&mpriv->mtx);
@@ -363,6 +366,9 @@ static int mdw_mem_map_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 		goto out;
 	}
 
+	map->get = mdw_mem_map_get;
+	map->put = mdw_mem_map_put;
+
 	mdw_trace_begin("map create: attach|size(%u) align(%u)",
 		m->size, m->align);
 	map->attach = dma_buf_attach(m->dbuf, m->mdev);
@@ -438,7 +444,7 @@ static void mdw_mem_invoke_release(struct kref *ref)
 		m->unbind(m_invoke->invoker, m_invoke->m);
 	list_del(&m_invoke->u_node);
 	kfree(m_invoke);
-	mdw_mem_map_put(map);
+	map->put(map);
 	dma_buf_put(dbuf);
 }
 
@@ -448,6 +454,9 @@ static struct mdw_mem_invoke *mdw_mem_invoke_find(struct mdw_fpriv *mpriv,
 	struct mdw_mem_invoke *m_invoke = NULL;
 
 	list_for_each_entry(m_invoke, &mpriv->invokes, u_node) {
+		if (!m_invoke)
+			break;
+
 		if (m_invoke->m == m) {
 			mdw_flw_debug("s(0x%llx) find invoke(0x%llx) to mem(0x%llx)\n",
 				(uint64_t)mpriv, (uint64_t)m_invoke,
@@ -486,7 +495,7 @@ static int mdw_mem_invoke_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 		return -ENOMEM;
 
 	get_dma_buf(m->dbuf);
-	mdw_mem_map_get(map);
+	map->get(map);
 	mdw_mem_show(m);
 	m_invoke->m = m;
 	m_invoke->invoker = mpriv;
@@ -507,7 +516,7 @@ static int mdw_mem_invoke_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 
 delete_invoke:
 	list_del(&m_invoke->u_node);
-	mdw_mem_map_put(map);
+	map->put(map);
 	dma_buf_put(m->dbuf);
 	kfree(m_invoke);
 out:
@@ -544,7 +553,7 @@ int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 					(uint64_t)m, ret);
 		}
 
-		mdw_mem_map_put(m->map);
+		m->map->put(m->map);
 		goto out;
 	}
 
@@ -637,6 +646,9 @@ void mdw_mem_mpriv_release(struct mdw_fpriv *mpriv)
 	struct mdw_mem_invoke *m_invoke = NULL, *tmp = NULL;
 
 	list_for_each_entry_safe(m_invoke, tmp, &mpriv->invokes, u_node) {
+		if (!m_invoke)
+			break;
+
 		if (m_invoke->m->handle >= 0) {
 			mdw_mem_show(m_invoke->m);
 			mdw_mem_invoke_release(&m_invoke->ref);
@@ -820,6 +832,9 @@ struct mdw_mem *mdw_mem_query_mem(uint64_t kva)
 
 	mutex_lock(&mdw_dev->m_mtx);
 	list_for_each_entry_safe(m, tmp, &mdw_dev->m_list, d_node) {
+		if (!m)
+			break;
+
 		if (kva >= (uint64_t)m->vaddr &&
 			kva < (uint64_t)m->vaddr + m->size) {
 
@@ -834,17 +849,41 @@ struct mdw_mem *mdw_mem_query_mem(uint64_t kva)
 	return m;
 }
 
-int apusys_mem_get_by_iova(void *session, uint64_t iova)
+int apusys_mem_validate_by_cmd(void *session, void *cmd, uint64_t iova, uint32_t size)
 {
 	struct mdw_fpriv *mpriv = (struct mdw_fpriv *)session;
+	struct mdw_cmd *c = (struct mdw_cmd *)cmd;
 	struct mdw_mem_invoke *m_invoke = NULL;
 	struct mdw_mem *m = NULL;
+	int ret = 0;
 
+	if (c) {
+		/* check c/s match */
+		if (c->mpriv != session) {
+			mdw_drv_err("session(0x%llx) cmd(0x%llx) not match\n",
+				(uint64_t)mpriv, (uint64_t)c);
+			return -EINVAL;
+		}
+	}
+
+	/* query */
 	list_for_each_entry(m_invoke, &mpriv->invokes, u_node) {
+		if (!m_invoke)
+			break;
+
 		m = m_invoke->m;
-		if (iova >= m->device_va &&
-			iova < m->device_va + m->dva_size)
-			return 0;
+		if (iova < m->device_va || iova + size > m->device_va + m->dva_size)
+			continue;
+
+		if (c) {
+			ret = mdw_cmd_invoke_map(c, m->map);
+			if (ret) {
+				mdw_drv_err("s(0x%llx)c(0x%llx)m(0x%llx/%u)get map fail(%d)\n",
+					(uint64_t)session, (uint64_t)cmd,
+					iova, size, ret);
+			}
+		}
+		return ret;
 	}
 
 	return -EINVAL;
@@ -857,6 +896,9 @@ void *apusys_mem_query_kva_by_sess(void *session, uint64_t iova)
 	struct mdw_mem *m = NULL;
 
 	list_for_each_entry(m_invoke, &mpriv->invokes, u_node) {
+		if (!m_invoke)
+			break;
+
 		m = m_invoke->m;
 		if (iova >= m->device_va &&
 			iova < m->device_va + m->dva_size &&
@@ -912,6 +954,9 @@ uint64_t apusys_mem_query_kva(uint64_t iova)
 
 	mutex_lock(&mdw_dev->m_mtx);
 	list_for_each_entry_safe(m, tmp, &mdw_dev->m_list, d_node) {
+		if (!m)
+			break;
+
 		if (iova >= m->device_va &&
 			iova < m->device_va + m->size) {
 			if (m->vaddr == NULL)
@@ -934,6 +979,9 @@ uint64_t apusys_mem_query_iova(uint64_t kva)
 
 	mutex_lock(&mdw_dev->m_mtx);
 	list_for_each_entry_safe(m, tmp, &mdw_dev->m_list, d_node) {
+		if (!m)
+			break;
+
 		if (kva >= (uint64_t)m->vaddr &&
 			kva < (uint64_t)m->vaddr + m->size) {
 			if (!m->device_va)

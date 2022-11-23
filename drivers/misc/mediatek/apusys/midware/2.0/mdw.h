@@ -54,6 +54,8 @@ struct mdw_mem_map {
 	struct sg_table *sgt;
 	struct kref map_ref;
 	struct mdw_mem *m;
+	void (*get)(struct mdw_mem_map *map);
+	void (*put)(struct mdw_mem_map *map);
 };
 
 struct mdw_mem_invoke {
@@ -255,6 +257,11 @@ struct mdw_fence {
 	spinlock_t lock;
 };
 
+struct mdw_cmd_map_invoke {
+	struct list_head c_node;
+	struct mdw_mem_map *map;
+};
+
 struct mdw_cmd {
 	pid_t pid;
 	pid_t tgid;
@@ -281,6 +288,7 @@ struct mdw_cmd {
 
 	struct mutex mtx;
 	struct list_head u_item;
+	struct list_head map_invokes; // mdw_cmd_map_invoke
 
 	struct timespec64 start_ts;
 	struct timespec64 end_ts;
@@ -337,6 +345,7 @@ int mdw_mem_ioctl(struct mdw_fpriv *mpriv, void *data);
 int mdw_cmd_ioctl(struct mdw_fpriv *mpriv, void *data);
 int mdw_util_ioctl(struct mdw_fpriv *mpriv, void *data);
 
+int mdw_cmd_invoke_map(struct mdw_cmd *c, struct mdw_mem_map *map);
 void mdw_cmd_mpriv_release(struct mdw_fpriv *mpriv);
 void mdw_mem_mpriv_release(struct mdw_fpriv *mpriv);
 
@@ -366,6 +375,6 @@ void mdw_dev_deinit(struct mdw_device *mdev);
 void mdw_dev_session_create(struct mdw_fpriv *mpriv);
 void mdw_dev_session_delete(struct mdw_fpriv *mpriv);
 int mdw_dev_validation(struct mdw_fpriv *mpriv, uint32_t dtype,
-	struct apusys_cmdbuf *cbs, uint32_t num);
+	struct mdw_cmd *cmd, struct apusys_cmdbuf *cbs, uint32_t num);
 
 #endif

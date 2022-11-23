@@ -77,6 +77,7 @@ struct apusys_cmdbuf {
 
 struct apusys_cmd_valid_handle {
 	void *session;
+	void *cmd;
 	uint32_t num_cmdbufs;
 	struct apusys_cmdbuf *cmdbufs;
 };
@@ -158,8 +159,9 @@ struct apusys_device {
 int apusys_register_device(struct apusys_device *dev);
 int apusys_unregister_device(struct apusys_device *dev);
 
-
-int apusys_mem_get_by_iova(void *session, uint64_t iova);
+/* only used in cmd validation */
+int apusys_mem_validate_by_cmd(void *session, void *cmd, uint64_t iova, uint32_t size);
+/* query kva from session */
 void *apusys_mem_query_kva_by_sess(void *session, uint64_t iova);
 
 uint64_t apusys_mem_query_kva(uint64_t iova);
