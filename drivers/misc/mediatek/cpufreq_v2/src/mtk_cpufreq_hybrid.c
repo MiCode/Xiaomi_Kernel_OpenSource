@@ -181,8 +181,8 @@ int Ripi_cpu_dvfs_thread(void *data)
 	uint32_t pwdata[4];
 	struct cpufreq_freqs freqs;
 
-	int previous_limit = -1;
-	int previous_base = -1;
+	int previous_limit = 0;
+	int previous_base = 15;
 	int num_log;
 	unsigned int buf[ENTRY_EACH_LOG] = {0};
 	unsigned int bk_log_offs;
@@ -316,48 +316,16 @@ int Ripi_cpu_dvfs_thread(void *data)
 						break;
 				}
 			}
-
 			/* Avoid memory issue */
 			if (p->mt_policy && p->mt_policy->governor &&
-				/* p->mt_policy->governor_enabled && */
-				(p->mt_policy->cpu < 10) &&
-				(p->mt_policy->cpu >= 0)) {
+					(p->mt_policy->cpu < 10) &&
+					(p->mt_policy->cpu >= 0)) {
 				int cid;
-
-				previous_limit = p->idx_opp_ppm_limit;
-				previous_base = p->idx_opp_ppm_base;
-				if (num_log > 0) {
-					p->idx_opp_ppm_limit =
-	(int)(log_box_parsed[num_log - 1].cluster_opp_cfg[i].limit_idx);
-					p->idx_opp_ppm_base =
-	(int)(log_box_parsed[num_log - 1].cluster_opp_cfg[i].base_idx);
-				}
-
-				if (p->idx_opp_ppm_base > 15 ||
-					p->idx_opp_ppm_base < 0)
-					p->idx_opp_ppm_base = 15;
-
-				if (p->idx_opp_ppm_limit > 15 ||
-					p->idx_opp_ppm_limit < 0)
-					p->idx_opp_ppm_limit = 0;
 
 				if (j < p->idx_opp_ppm_limit)
 					j = p->idx_opp_ppm_limit;
-
 				if (j > p->idx_opp_ppm_base)
 					j = p->idx_opp_ppm_base;
-
-				/* Update policy min/max */
-
-				p->mt_policy->min =
-					cpu_dvfs_get_freq_by_idx(p,
-					p->idx_opp_ppm_base);
-				p->mt_policy->max =
-					cpu_dvfs_get_freq_by_idx(p,
-					p->idx_opp_ppm_limit);
-				p->mt_policy->min =
-					(p->mt_policy->min > p->mt_policy->max) ?
-					p->mt_policy->max : p->mt_policy->min;
 
 #ifdef SINGLE_CLUSTER
 				cid =
@@ -368,6 +336,7 @@ int Ripi_cpu_dvfs_thread(void *data)
 #endif
 
 #ifdef MET_READY
+
 				if (cid == 0) {
 					met_tag_oneshot(0, "sched_dvfs_max_c0",
 							p->mt_policy->max);
@@ -392,6 +361,8 @@ int Ripi_cpu_dvfs_thread(void *data)
 				if (p->idx_opp_tbl != j ||
 				(p->idx_opp_ppm_limit != previous_limit) ||
 				(p->idx_opp_ppm_base != previous_base)) {
+					previous_limit = p->idx_opp_ppm_limit;
+					previous_base = p->idx_opp_ppm_base;
 					freqs.old = cpu_dvfs_get_cur_freq(p);
 					freqs.new =
 					cpu_dvfs_get_freq_by_idx(p, j);
@@ -1169,7 +1140,6 @@ int cpuhvfs_set_dvfs(int cluster_id, unsigned int freq)
 
 	/* [3:0] freq_idx */
 	freq_idx = _search_available_freq_idx(p, freq, 0);
-
 	csram_write((OFFS_WFI_S + (cluster_id * 4)), freq_idx);
 
 	return 0;
