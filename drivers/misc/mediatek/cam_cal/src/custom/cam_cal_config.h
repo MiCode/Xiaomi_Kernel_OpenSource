@@ -12,6 +12,104 @@
 #include "eeprom_utils.h"
 
 /*****************************************************************************
+ * Structures  custom
+ *****************************************************************************/
+#define CUSTOM_PART_NUMBER_SIZE  10
+#define CUSTOM_SN_SIZE           16
+#define CUSTOM_AF_DATA_SIZE      11
+#define CUSTOM_AWB_DATA_SIZE     31
+#define CUSTOM_AF_CAL_COEFF      64
+#define CUSTOM_PDAF_PROC1_SIZE   496
+#define CUSTOM_PDAF_PROC2_SIZE   1004
+#define CUSTOM_PDAF_DATA_SIZE    (CUSTOM_PDAF_PROC1_SIZE + CUSTOM_PDAF_PROC2_SIZE)
+#define CUSTOM_LSC_DATA_SIZE     1868
+
+#define ENABLE_CHECK_SUM         1
+
+struct STRUCT_CAM_CAL_MODULE_INFO {
+    unsigned char flag;
+    unsigned char part_number[CUSTOM_PART_NUMBER_SIZE];
+    unsigned char supplier_id;
+    unsigned char sensor_id;
+    unsigned char lens_id;
+    unsigned char vcm_id;
+    unsigned char driverIC_id;
+    unsigned char phase;
+    unsigned char mirror_flip_status;
+    unsigned char year;
+    unsigned char month;
+    unsigned char day;
+    unsigned char SN[CUSTOM_SN_SIZE];
+    unsigned char check_sum_h;
+    unsigned char check_sum_l;
+};
+
+struct STRUCT_CAM_CAL_AWB_INFO {
+    unsigned char flag;
+    unsigned char golden_awb_r_h;
+    unsigned char golden_awb_r_l;
+    unsigned char golden_awb_gr_h;
+    unsigned char golden_awb_gr_l;
+    unsigned char golden_awb_gb_h;
+    unsigned char golden_awb_gb_l;
+    unsigned char golden_awb_b_h;
+    unsigned char golden_awb_b_l;
+    unsigned char golden_awb_rg_h;
+    unsigned char golden_awb_rg_l;
+    unsigned char golden_awb_bg_h;
+    unsigned char golden_awb_bg_l;
+    unsigned char golden_awb_grgb_h;
+    unsigned char golden_awb_grgb_l;
+    unsigned char awb_r_h;
+    unsigned char awb_r_l;
+    unsigned char awb_gr_h;
+    unsigned char awb_gr_l;
+    unsigned char awb_gb_h;
+    unsigned char awb_gb_l;
+    unsigned char awb_b_h;
+    unsigned char awb_b_l;
+    unsigned char awb_rg_h;
+    unsigned char awb_rg_l;
+    unsigned char awb_bg_h;
+    unsigned char awb_bg_l;
+    unsigned char awb_grgb_h;
+    unsigned char awb_grgb_l;
+    unsigned char check_sum_h;
+    unsigned char check_sum_l;
+};
+
+struct STRUCT_CAM_CAL_AF_INFO {
+    unsigned char flag;
+    unsigned char af_hor_inf_h;
+    unsigned char af_hor_inf_l;
+    unsigned char af_hor_macro_h;
+    unsigned char af_hor_macro_l;
+    unsigned char af_scan_inf_h;
+    unsigned char af_scan_inf_l;
+    unsigned char af_scan_macro_h;
+    unsigned char af_scan_macro_l;
+    unsigned char check_sum_h;
+    unsigned char check_sum_l;
+};
+
+struct STRUCT_CAM_CAL_PDAF_INFO {
+    unsigned char flag;
+    unsigned char pdaf_proc1[CUSTOM_PDAF_PROC1_SIZE];
+    unsigned char pdaf_proc2[CUSTOM_PDAF_PROC2_SIZE];
+    unsigned char check_proc1_sum_h;
+    unsigned char check_proc1_sum_l;
+    unsigned char check_proc2_sum_h;
+    unsigned char check_proc2_sum_l;
+};
+
+struct STRUCT_CAM_CAL_LSC_INFO {
+    unsigned char flag;
+    unsigned char lsc_data[CUSTOM_LSC_DATA_SIZE];
+    unsigned char check_sum_h;
+    unsigned char check_sum_l;
+};
+
+/*****************************************************************************
  * Structures
  *****************************************************************************/
 
@@ -81,4 +179,16 @@ int read_data(struct EEPROM_DRV_FD_DATA *pdata,
 unsigned int read_data_region(struct EEPROM_DRV_FD_DATA *pdata,
 		unsigned char *buf, unsigned int offset, unsigned int size);
 
+unsigned int custom_do_module_info(struct EEPROM_DRV_FD_DATA *pdata,
+		unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData);
+unsigned int custom_do_2a_gain(struct EEPROM_DRV_FD_DATA *pdata,
+		unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData);
+unsigned int custom_do_awb_gain(struct EEPROM_DRV_FD_DATA *pdata,
+		unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData);
+unsigned int custom_do_pdaf(struct EEPROM_DRV_FD_DATA *pdata,
+		unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData);
+unsigned int custom_do_single_lsc(struct EEPROM_DRV_FD_DATA *pdata,
+		unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData);
+unsigned int custom_layout_check(struct EEPROM_DRV_FD_DATA *pdata,
+				unsigned int sensorID);
 #endif /* __CAM_CAL_LAYOUT_H */
