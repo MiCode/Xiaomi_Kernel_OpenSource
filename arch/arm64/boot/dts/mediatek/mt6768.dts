@@ -3318,6 +3318,8 @@ cma=64M transparent_hugepage=never";
 		interconnects = <&dvfsrc MT6873_MASTER_DBGIF &dvfsrc MT6873_SLAVE_DDR_EMI>;
 		interconnect-names = "icc-bw";
 		required-opps = <&dvfsrc_freq_opp0>;
+		usb-audio;
+		small-core = <1250000>;
 	};
 
 	msdc0_top@11cd0000 {
