@@ -174,6 +174,22 @@ static const struct mtk_mmc_compatible mt6789_compat = {
 	.set_crypto_enable_in_sw = true,
 };
 
+static const struct mtk_mmc_compatible mt6833_compat = {
+	.clk_div_bits = 12,
+	.recheck_sdio_irq = false,
+	.hs400_tune = false,
+	.pad_tune_reg = MSDC_PAD_TUNE0,
+	.async_fifo = true,
+	.data_tune = true,
+	.busy_check = true,
+	.stop_clk_fix = true,
+	.enhance_rx = true,
+	.support_64g = true,
+	.need_gate_cg = true,
+	.new_tx_ver = 0,
+	.new_rx_ver = 0,
+};
+
 static const struct mtk_mmc_compatible mt6765_compat = {
 	.clk_div_bits = 12,
 	.recheck_sdio_irq = false,
@@ -247,6 +263,7 @@ static const struct of_device_id msdc_of_ids[] = {
 	{ .compatible = "mediatek,mt6765-mmc", .data = &mt6765_compat},
 	{ .compatible = "mediatek,mt6768-mmc", .data = &mt6768_compat},
 	{ .compatible = "mediatek,mt6789-mmc", .data = &mt6789_compat},
+	{ .compatible = "mediatek,mt6833-mmc", .data = &mt6833_compat},
 	{ .compatible = "mediatek,common-mmc", .data = &common_compat},
 	{ .compatible = "mediatek,common-mmc-v2", .data = &common_v2_compat},
 	{}
