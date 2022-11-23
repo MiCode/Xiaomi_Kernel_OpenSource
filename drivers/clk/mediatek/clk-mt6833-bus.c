@@ -125,7 +125,7 @@ static const struct mtk_gate ifrao_clks[] = {
 	GATE_IFRAO0(CLK_IFRAO_I2C_PSEUDO, "ifrao_i2c_pseudo",
 			"i2c_ck"/* parent */, 11),
 	GATE_IFRAO0(CLK_IFRAO_I2C1_PSEUDO, "ifrao_i2c1_pseudo",
-			"i2c_ck"/* parent */, 12),
+			"axi_ck"/* parent */, 12),
 	GATE_IFRAO0(CLK_IFRAO_PWM_HCLK, "ifrao_pwm_hclk",
 			"axi_ck"/* parent */, 15),
 	GATE_IFRAO0(CLK_IFRAO_PWM1, "ifrao_pwm1",

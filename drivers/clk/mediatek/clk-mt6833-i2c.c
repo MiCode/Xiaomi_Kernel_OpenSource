@@ -114,9 +114,9 @@ static const struct mtk_gate_regs imps_cg_regs = {
 
 static const struct mtk_gate imps_clks[] = {
 	GATE_IMPS(CLK_IMPS_I3C9_AP_CLOCK, "imps_i3c9_ap_clock",
-			"i2c_pseudo_ck"/* parent */, 0),
-	GATE_IMPS(CLK_IMPS_I3C8_AP_CLOCK, "imps_i3c8_ap_clock",
 			"i2c_pseudo_ck"/* parent */, 1),
+	GATE_IMPS(CLK_IMPS_I3C8_AP_CLOCK, "imps_i3c8_ap_clock",
+			"i2c_pseudo_ck"/* parent */, 0),
 };
 
 static const struct mtk_clk_desc imps_mcd = {
