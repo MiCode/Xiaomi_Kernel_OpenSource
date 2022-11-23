@@ -12869,7 +12869,7 @@ int mtk_crtc_enter_tui(struct drm_crtc *crtc)
 	if (i >= 60)
 		DDPPR_ERR("wait repaint %d\n", i);
 
-	DDP_MUTEX_LOCK(&mtk_crtc->blank_lock, __func__, __LINE__);
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	/* TODO: HardCode select OVL0, maybe store in platform data */
 	priv->ddp_comp[DDP_COMPONENT_OVL0]->blank_mode = true;
@@ -12911,7 +12911,7 @@ int mtk_crtc_enter_tui(struct drm_crtc *crtc)
 		cmdq_pkt_destroy(cmdq_handle2);
 	}
 
-	DDP_MUTEX_UNLOCK(&mtk_crtc->blank_lock, __func__, __LINE__);
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	wake_up(&mtk_crtc->state_wait_queue);
 
