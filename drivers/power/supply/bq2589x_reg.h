@@ -11,6 +11,7 @@
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
+
 #ifndef __BQ2589X_HEADER__
 #define __BQ2589X_HEADER__
 
@@ -253,6 +254,11 @@
 #define BQ2589X_JEITA_VSET_SHIFT    4
 #define BQ2589X_JEITA_VSET_N150MV   0
 #define BQ2589X_JEITA_VSET_VREG     1
+
+#define BQ2589X_BATFET_DLY_MASK     0x08
+#define BQ2589X_BATFET_DLY_SHIFT    3
+#define BQ2589X_BATFET_DLY_EN       1
+
 #define BQ2589X_BATFET_RST_EN_MASK  0x04
 #define BQ2589X_BATFET_RST_EN_SHIFT 2
 #define BQ2589X_PUMPX_UP_MASK       0x02
@@ -424,6 +430,9 @@
 #define BQ2589X_DEV_REV_MASK        0x03
 #define BQ2589X_DEV_REV_SHIFT       0
 
+#define BQ2589X_VBUS_UVLO (3600 * 1000)
+#define BQ2589X_VBUS_VALID (4200 * 1000)
+
 struct bq2589x {
 	struct device *dev;
 	struct i2c_client *client;
@@ -444,21 +453,17 @@ struct bq2589x {
 
 	int status;
 	int irq;
-	int irq_gpios;
-	int chg_en_gpio;
 	int otg_enable_pin;
 	int otg_en2_pin;
 	int otg_sgm6111_pin;
 	int otg_ocflag_pin;
-	int attach;
 	struct mutex i2c_rw_lock;
 
 	bool charge_enabled;	/* Register bit status */
 	bool power_good;
-	bool dpdm;
 	bool sc_power_good;
 	bool slj_power_good;
-
+	bool float_type_flag;
 
 	struct bq2589x_platform_data *platform_data;
 	struct charger_device *chg_dev;
@@ -476,4 +481,6 @@ extern int bq2589x_get_usb_type(struct bq2589x *bq, int *type);
 extern int bq2589x_enable_hz(struct charger_device *chgdev, bool en);
 extern int bq2589x_set_enable_otg(bool en);
 extern int bq2589x_is_enable_hiz(struct charger_device *chg_dev, bool *en);
+extern bool bq2589x_is_usb_type(void);
+extern int thub_plug_flag;
 #endif
