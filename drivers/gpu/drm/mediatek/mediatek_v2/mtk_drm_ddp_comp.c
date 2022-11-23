@@ -594,9 +594,6 @@ void mtk_ddp_comp_get_name(struct mtk_ddp_comp *comp, char *buf, int buf_len)
 		return;
 	}
 
-	if (buf_len > sizeof(buf))
-		buf_len = sizeof(buf);
-
 	r = snprintf(buf, buf_len, "%s%d",
 		  mtk_ddp_comp_stem[mtk_ddp_matches[comp->id].type],
 		  mtk_ddp_matches[comp->id].alias_id);
