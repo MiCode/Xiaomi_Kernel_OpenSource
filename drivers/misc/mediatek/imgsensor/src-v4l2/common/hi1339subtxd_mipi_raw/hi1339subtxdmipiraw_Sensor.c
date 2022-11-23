@@ -68,7 +68,7 @@ static DEFINE_SPINLOCK(imgsensor_drv_lock);
 static struct imgsensor_info_struct imgsensor_info = {
 	.sensor_id = HI1339SUBTXD_SENSOR_ID,
 
-	.checksum_value = 0x20225021,
+	.checksum_value = 0xc63f6ef9,
 	.pre = {
 		.pclk = 72000000,
 		.linelength = 720,
@@ -177,7 +177,7 @@ static struct imgsensor_struct imgsensor = {
 	.dummy_line = 0,	/* current dummyline */
 	.current_fps = 300,
 	.autoflicker_en = KAL_FALSE,
-	.test_pattern = KAL_FALSE,
+	.test_pattern = 0,
 	.current_scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW,
 	.ihdr_mode = 0, /* sensor need support LE, SE with HDR feature */
 	.i2c_write_id = 0x40, /* record current sensor's i2c write id */
@@ -3352,7 +3352,7 @@ static int open(struct subdrv_ctx *ctx)
 	ctx->dummy_pixel = 0;
 	ctx->dummy_line = 0;
 	ctx->ihdr_mode = 0;
-	ctx->test_pattern = KAL_FALSE;
+	ctx->test_pattern = 0;
 	ctx->current_fps = imgsensor_info.pre.max_framerate;
 
 	spin_unlock(&imgsensor_drv_lock);
@@ -3894,22 +3894,30 @@ static kal_uint32 get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 	return ERROR_NONE;
 }
 
-static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx,kal_bool enable)
+static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 {
-	cam_pr_debug("set_test_pattern_mode enable: %d", enable);
 
-	if (enable) {
-		write_cmos_sensor(ctx,0x0B04, 0x8001);
-		write_cmos_sensor(ctx,0x0C0A, 0x0202);
-	}
-	else {
-		//write_cmos_sensor(ctx,0x0B04, 0x8000);
-		//write_cmos_sensor(ctx,0x0C0A, 0x0000);
+	if (mode != ctx->test_pattern)
+		pr_debug("mode %d -> %d\n", ctx->test_pattern, mode);
+	//1:Solid Color 2:Color bar 5:Black
+	if (mode == 5) {
+		write_cmos_sensor(ctx, 0x0B04, 0x8001);
+		write_cmos_sensor(ctx, 0x0C0A, 0x0202);
+	} else if (mode) {
+		write_cmos_sensor(ctx, 0x0B04, 0x8001);
+		write_cmos_sensor(ctx, 0x0C0A, 0x0202);
 	}
 
-	spin_lock(&imgsensor_drv_lock);
-	ctx->test_pattern = enable;
-	spin_unlock(&imgsensor_drv_lock);
+	if ((ctx->test_pattern) && (mode != ctx->test_pattern)) {
+		if (ctx->test_pattern == 5) {
+			write_cmos_sensor(ctx, 0x0B04, 0x8001);
+			write_cmos_sensor(ctx, 0x0C0A, 0x0202);
+		} else if (mode == 0) {
+			write_cmos_sensor(ctx, 0x0B04, 0x8000);
+			write_cmos_sensor(ctx, 0x0C0A, 0x0000);
+		}
+	}
+	ctx->test_pattern = mode;
 	return ERROR_NONE;
 }
 
@@ -4088,7 +4096,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 				(MUINT32 *)(uintptr_t)(*(feature_data+1)));
 		break;
 	case SENSOR_FEATURE_SET_TEST_PATTERN:
-		set_test_pattern_mode(ctx,(BOOL)*feature_data);
+		set_test_pattern_mode(ctx, (UINT32)*feature_data);
 		break;
 	case SENSOR_FEATURE_GET_TEST_PATTERN_CHECKSUM_VALUE:
 		/* for factory mode auto testing */

@@ -2097,23 +2097,24 @@ static kal_uint32 get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 	return ERROR_NONE;
 }
 
-static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 modes)
+static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 {
-	if (modes != ctx->test_pattern)
-		pr_debug("Test_Pattern modes: %d -> %d\n", ctx->test_pattern, modes);
 
-	if (modes) {
-		write_cmos_sensor(ctx, 0x5000, 0x81);
+	if (mode != ctx->test_pattern)
+		pr_debug("mode %d -> %d\n", ctx->test_pattern, mode);
+	//1:Solid Color 2:Color bar 5:Black
+	if (mode == 5)
 		write_cmos_sensor(ctx, 0x5080, 0x80);
-		if (modes == 5) { //black Color
-			write_cmos_sensor(ctx, 0x5080, 0x81);
-		}
-	} else {
-		write_cmos_sensor(ctx, 0x5000, 0xff);
-		write_cmos_sensor(ctx, 0x5080, 0x00);
-	} /*No pattern*/
+	else if (mode)
+		write_cmos_sensor(ctx, 0x5080, 0x80);
 
-	ctx->test_pattern = modes;
+	if ((ctx->test_pattern) && (mode != ctx->test_pattern)) {
+		if (ctx->test_pattern == 5)
+			write_cmos_sensor(ctx, 0x5080, 0x81);
+		else if (mode == 0)
+			write_cmos_sensor(ctx, 0x5080, 0x00);
+	}
+	ctx->test_pattern = mode;
 	return ERROR_NONE;
 }
 

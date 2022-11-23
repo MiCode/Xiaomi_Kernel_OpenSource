@@ -1720,7 +1720,7 @@ static int open(struct subdrv_ctx *ctx)
     ctx->dummy_pixel = 0;
     ctx->dummy_line = 0;
     ctx->ihdr_mode = 0;
-    ctx->test_pattern = KAL_FALSE;
+	ctx->test_pattern = 0;
     ctx->current_fps = imgsensor_info.pre.max_framerate;
 
     return ERROR_NONE;
@@ -2198,19 +2198,26 @@ static kal_uint32 get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
     return ERROR_NONE;
 }
 
-static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_bool enable)
+static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 {
-    LOG_INF("enable: %d\n", enable);
+	if (mode != ctx->test_pattern)
+		pr_debug("mode %d -> %d\n", ctx->test_pattern, mode);
+	//1:Solid Color 2:Color bar 5:Black
+	if (mode == 5)
+		write_cmos_sensor(0x8c, 0x11);//Dgain = 0
+	else if (mode) {
+		write_cmos_sensor(0xfe, 0x01);
+		write_cmos_sensor(0x8c, 0x11);
+	}
 
-    write_cmos_sensor(0xfe, 0x01);
-    if (enable)
-        write_cmos_sensor(0x8c, 0x11);
-    else
-        write_cmos_sensor(0x8c, 0x10);
-    write_cmos_sensor(0xfe, 0x00);
-
-    ctx->test_pattern = enable;
-    return ERROR_NONE;
+	if ((ctx->test_pattern) && (mode != ctx->test_pattern)) {
+		if (ctx->test_pattern == 5)
+			write_cmos_sensor(0x8c, 0x11);
+		else if (mode == 0)
+			write_cmos_sensor(0xfe, 0x00);
+	}
+	ctx->test_pattern = mode;
+	return ERROR_NONE;
 }
 
 static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
@@ -2344,7 +2351,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
             (MUINT32 *)(uintptr_t)(*(feature_data+1)));
         break;
     case SENSOR_FEATURE_SET_TEST_PATTERN:
-        set_test_pattern_mode(ctx, (BOOL)*feature_data);
+		set_test_pattern_mode(ctx, (UINT32)*feature_data);
         break;
     case SENSOR_FEATURE_GET_TEST_PATTERN_CHECKSUM_VALUE:
         //for factory mode auto testing
@@ -2587,7 +2594,7 @@ static const struct subdrv_ctx defctx = {
     .autoflicker_en = KAL_FALSE,
     //test pattern mode or not. KAL_FALSE for in test pattern mode,
     //KAL_TRUE for normal output
-    .test_pattern = KAL_FALSE,
+	.test_pattern = 0,
     //current scenario id
     .current_scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW,
     .ihdr_mode = 0, //sensor need support LE, SE with HDR feature
