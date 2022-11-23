@@ -1703,8 +1703,30 @@ cma=64M transparent_hugepage=never";
 		#iommu-cells = <1>;
 	};
 
+	iommu_mtee_pa_mode {
+		compatible = "mediatek,iommu_mtee_pa_mode";
+	};
+
 	mtk_iommu_debug {
 		compatible = "mediatek,mt6768-iommu-debug";
+	};
+
+	secure_m4u {
+		compatible = "mediatek,secure_m4u";
+		mediatek,mm_m4u = <&iommu>;
+		interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH 0>; /* sec mm m4u */
+		iommus = <&iommu M4U_PORT_HW_VDEC_MC_EXT>,
+			 <&iommu M4U_PORT_VENC_RCPU>,
+			 <&iommu M4U_PORT_DISP_2L_OVL0_LARB0>;
+	};
+
+	mtk_iommu_tee_debug {
+		compatible = "mediatek,mt6768-iommu-tee-debug";
+	};
+
+	mtk_sec_dmaheap {
+		compatible = "mediatek,dmaheap-region-base";
+		iommus = <&iommu M4U_PORT_DISP_OVL0>;
 	};
 
 	mtk_dmabufheap_debug0: dmaheap_test0{
