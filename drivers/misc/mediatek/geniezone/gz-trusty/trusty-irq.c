@@ -393,7 +393,8 @@ static int trusty_irq_init_normal_irq(struct trusty_irq_state *is, int tirq)
 		oirq.args[1] = irq - 32;
 		oirq.args[2] = IRQ_TYPE_LEVEL_HIGH;
 
-		irq = irq_create_of_mapping(&oirq);
+		irq = irq_find_mapping(irq_find_host(spi_node), irq);
+		irq = !irq ? irq_create_of_mapping(&oirq) : irq;
 		if (irq == 0) {
 			ret = -EINVAL;
 			goto err_request_irq;
@@ -487,7 +488,8 @@ static int trusty_irq_init_per_cpu_irq(struct trusty_irq_state *is, int tirq)
 		oirq.args[1] = irq - 16;
 		oirq.args[2] = IRQ_TYPE_LEVEL_HIGH;
 
-		irq = irq_create_of_mapping(&oirq);
+		irq = irq_find_mapping(irq_find_host(ppi_node), irq);
+		irq = !irq ? irq_create_of_mapping(&oirq) : irq;
 		if (irq == 0) {
 			ret = -EINVAL;
 			goto err_request_percpu_irq;
