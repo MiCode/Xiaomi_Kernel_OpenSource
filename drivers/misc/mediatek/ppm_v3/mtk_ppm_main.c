@@ -933,11 +933,6 @@ static int ppm_main_data_init(void)
 			ppm_main_info.cluster_num;
 	}
 
-#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
-	/* init SRAM debug info */
-	for_each_ppm_clusters(i)
-#endif
-
 	ppm_info("@%s: done!\n", __func__);
 
 	FUNC_EXIT(FUNC_LV_MAIN);
