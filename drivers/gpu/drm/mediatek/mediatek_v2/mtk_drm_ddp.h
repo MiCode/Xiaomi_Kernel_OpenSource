@@ -22,7 +22,7 @@
 #define DISP_MUTEX_INT_MSK                                                     \
 	((__DISP_MUTEX_INT_MSK << DISP_MUTEX_TOTAL) | __DISP_MUTEX_INT_MSK)
 
-/* CHIST path select*/
+/* CHIST path select */
 #define DISP_CHIST0_FROM_RDMA0_POS 0
 #define DISP_CHIST1_FROM_RDMA0_POS 1
 #define DISP_CHIST0_FROM_POSTMASK0 2
