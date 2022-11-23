@@ -1,4 +1,4 @@
-config MTK_CAMERA_ISP_RAW_SUPPORT_MT6768
+config MTK_CAMERA_ISP_RAW_SUPPORT_ISP4_T
 	tristate "[ISP] Image Signal Processor - mt6768"
 	help
 	  Enable to build mt6768 camera isp driver which

@@ -32,10 +32,10 @@ ifeq ($(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT), m)
     obj-$(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT) += cam_qos_4.o
 
 else ifeq ($(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT), y)
-    ifeq ($(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT_MT6768), y)
-        obj-$(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT_MT6768) += camera_isp_4_t.o
-    else ifeq ($(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT_MT6765), y)
-        obj-$(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT_MT6765) += camera_isp_4_c.o
+    ifeq ($(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT_ISP4_T), y)
+        obj-$(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT_ISP4_T) += camera_isp_4_t.o
+    else ifeq ($(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT_ISP4_C), y)
+        obj-$(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT_ISP4_C) += camera_isp_4_c.o
     endif
 
     obj-$(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT) += cam_qos_4.o
