@@ -4002,6 +4002,7 @@ static signed int DIP_DumpDIPReg(void)
 				g_pPhyDIPBuffer[i+3] =
 					DIP_RD32(DIP_A_BASE + ((i+3)*4));
 			}
+			spin_lock(&(IspInfo.SpinLockClock));
 			if (mtk_dip_count == 2) {
 				for (i = 0; i < (DIP_REG_RANGE >> 2); i = i + 4) {
 					g_pPhyDIPBuffer[i] =
@@ -4014,6 +4015,7 @@ static signed int DIP_DumpDIPReg(void)
 						DIP_RD32(DIP_B_BASE + ((i+3)*4));
 				}
 			}
+			spin_unlock(&(IspInfo.SpinLockClock));
 		} else {
 			CMDQ_ERR("g_pPhyDIPBuffer:(0x%pK)",
 			g_pPhyDIPBuffer);
@@ -4223,19 +4225,23 @@ static inline void Prepare_Enable_ccf_clock(void)
 	if (ret)
 		LOG_ERR("cannot prepare and enable DIP_IMG_MFB_DIP clock\n");
 	}
-
+	spin_lock(&(IspInfo.SpinLockClock));
 	if (mtk_dip_count == 2) {
 		ret = clk_prepare_enable(dip_clk.DIP_IMG_DIP2);
 		if (ret)
 			LOG_ERR("cannot prepare and enable DIP_IMG_DIP clock\n");
 	}
+	spin_unlock(&(IspInfo.SpinLockClock));
 }
 #endif
 
 static inline void Disable_Unprepare_ccf_clock(void)
 {
+	spin_lock(&(IspInfo.SpinLockClock));
 	if (mtk_dip_count == 2)
 		clk_disable_unprepare(dip_clk.DIP_IMG_DIP2);
+
+	spin_unlock(&(IspInfo.SpinLockClock));
 
 	if (dip_clk.DIP_IMG_MFB_DIP != NULL) {
 		clk_disable_unprepare(dip_clk.DIP_IMG_MFB_DIP);
@@ -4443,9 +4449,11 @@ static void DIP_EnableClock(bool En)
 			setReg = 0xFFFFFFFF;
 			/*DIP_WR32(CAMSYS_REG_CG_CLR, setReg);*/
 			DIP_WR32(IMGSYS_REG_CG_CLR, setReg);
+			spin_lock(&(IspInfo.SpinLockClock));
 			if (mtk_dip_count == 2)
 				DIP_WR32(IMGSYS2_REG_CG_CLR, setReg);
 
+			spin_unlock(&(IspInfo.SpinLockClock));
 			break;
 		default:
 			break;
@@ -6641,9 +6649,12 @@ static inline void DIP_Load_InitialSettings(void)
 		DIP_WR32(DIP_A_BASE + DIP_INIT_ARY[i].ofset,
 				DIP_INIT_ARY[i].val);
 
+		spin_lock(&(IspInfo.SpinLockClock));
 		if (mtk_dip_count == 2)
 			DIP_WR32(DIP_B_BASE + DIP_INIT_ARY[i].ofset,
 				DIP_INIT_ARY[i].val);
+
+		spin_unlock(&(IspInfo.SpinLockClock));
 	}
 
 }
@@ -7340,6 +7351,7 @@ static signed int DIP_probe(struct platform_device *pDev)
 	}
 
 	/*   */
+	spin_lock(&(IspInfo.SpinLockClock));
 	if (nr_dip_devs == 6) {
 		mtk_dip_count = 2;
 		mfb_base_hw = 0x15010000;
@@ -7354,6 +7366,7 @@ static signed int DIP_probe(struct platform_device *pDev)
 	}
 	max_tdr_no = MAX_ISP_TILE_TDR_TOTAL_HEXNO * mtk_dip_count;
 
+	spin_unlock(&(IspInfo.SpinLockClock));
 	/* Only register char driver in the 1st time */
 	if (nr_dip_devs == 1) {
 		/* Register char driver */
