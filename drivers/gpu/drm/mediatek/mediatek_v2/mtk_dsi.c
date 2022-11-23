@@ -165,6 +165,10 @@
 #define DSI_HSA_WC 0x50
 #define DSI_HBP_WC 0x54
 #define DSI_HFP_WC 0x58
+#define HFP_WC_FLD_REG_HFP_HS_EN REG_FLD_MSB_LSB(31, 31)
+#define HFP_WC_FLD_REG_HFP_HS_VB_PS_WC REG_FLD_MSB_LSB(30, 16)
+#define HFP_WC_FLD_REG_DSI_HFP_WC REG_FLD_MSB_LSB(14, 0)
+
 #define DSI_BLLP_WC 0x5C
 
 #define DSI_CMDQ_SIZE 0x60
@@ -1965,6 +1969,39 @@ static void mtk_dsi_config_vdo_timing(struct mtk_dsi *dsi)
 	writel(dsi->hsa_byte, dsi->regs + DSI_HSA_WC);
 	writel(dsi->hbp_byte, dsi->regs + DSI_HBP_WC);
 	writel(dsi->hfp_byte, dsi->regs + DSI_HFP_WC);
+	DDPDUMP("%s, 0x58=0x%x\n", __func__, readl(dsi->regs + DSI_HFP_WC));
+
+	if (dsi->ext && dsi->ext->params->vdo_per_frame_lp_enable) {
+		unsigned int lpx = 0, da_hs_exit = 0, da_hs_prep = 0;
+		unsigned int da_hs_zero = 0, ps_wc = 0, hs_vb_ps_wc = 0;
+		unsigned int value = 0;
+
+		lpx = readl(dsi->regs + DSI_PHY_TIMECON0) & 0xff;
+		da_hs_exit = (readl(dsi->regs + DSI_PHY_TIMECON1) >> 24) & 0xff;
+		da_hs_prep = (readl(dsi->regs + DSI_PHY_TIMECON0) >> 8) & 0xff;
+		da_hs_zero = (readl(dsi->regs + DSI_PHY_TIMECON0) >> 16) & 0xff;
+		ps_wc = readl(dsi->regs + DSI_PSCTRL) & 0x7fff;
+		DDPDUMP("%s, lpx=0x%x, da_hs_exit=0x%x, da_hs_prep=0x%x\n",
+			__func__, lpx, da_hs_exit, da_hs_prep);
+		DDPDUMP("%s, da_hs_zero=0x%x, ps_wc=0x%x, lane_num=0x%x\n",
+			__func__, da_hs_zero, ps_wc, dsi->lanes);
+
+		if (dsi->ext->params->is_cphy)
+			hs_vb_ps_wc = ps_wc -
+				(lpx + da_hs_exit + da_hs_prep + da_hs_zero + 4)
+				* 2 * dsi->lanes;
+		else
+			hs_vb_ps_wc = ps_wc -
+				(lpx + da_hs_exit + da_hs_prep + da_hs_zero + 2)
+				* dsi->lanes;
+
+		DDPDUMP("%s, hs_vb_ps_wc=0x%x\n", __func__, hs_vb_ps_wc);
+		value = REG_FLD_VAL(HFP_WC_FLD_REG_HFP_HS_EN, 1)
+			| REG_FLD_VAL(HFP_WC_FLD_REG_HFP_HS_VB_PS_WC, hs_vb_ps_wc)
+			| REG_FLD_VAL(HFP_WC_FLD_REG_DSI_HFP_WC, dsi->hfp_byte);
+		writel(value, dsi->regs + DSI_HFP_WC);
+		DDPDUMP("%s, 0x58=0x%x\n", __func__, readl(dsi->regs + DSI_HFP_WC));
+	}
 }
 
 #ifdef DSI_SELF_PATTERN
