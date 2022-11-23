@@ -4810,6 +4810,7 @@
 		#clock-cells = <1>;
 		iommus = <&iommu0 M4U_PORT_L1_OVL_2L_RDMA0>;
 		mediatek,larb = <&smi_larb1>;
+		mediatek,smi-id = <1>;
 		fake-engine = <&smi_larb0 M4U_PORT_L0_DISP_FAKE0>,
 				<&smi_larb1 M4U_PORT_L1_DISP_FAKE1>;
 		power-domains = <&scpsys MT6833_POWER_DOMAIN_DISP>;
@@ -5075,6 +5076,16 @@
 		mediatek,smi-id = <0>;
 		iommus = <&iommu0 M4U_PORT_L0_OVL_RDMA0>,
 			   <&iommu0 M4U_PORT_L0_OVL_RDMA0_HDR>;
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_OVL_RDMA0)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_OVL_RDMA0)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_OVL_RDMA0)
+					&mmqos SLAVE_COMMON(0)>;
+		interconnect-names = "DDP_COMPONENT_OVL0_qos",
+					"DDP_COMPONENT_OVL0_fbdc_qos",
+					"DDP_COMPONENT_OVL0_hrt_qos";
 	};
 
 	disp_ovl0_2l: disp_ovl0_2l@14006000 {
@@ -5087,6 +5098,16 @@
 		mediatek,smi-id = <1>;
 		iommus = <&iommu0 M4U_PORT_L1_OVL_2L_RDMA0>,
 			<&iommu0 M4U_PORT_L1_OVL_2L_RDMA0_HDR>;
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L1_OVL_2L_RDMA0)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L1_OVL_2L_RDMA0)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L1_OVL_2L_RDMA0)
+					&mmqos SLAVE_COMMON(0)>;
+		interconnect-names = "DDP_COMPONENT_OVL0_2L_qos",
+					"DDP_COMPONENT_OVL0_2L_fbdc_qos",
+					"DDP_COMPONENT_OVL0_2L_hrt_qos";
 	};
 
 	disp_rdma0: disp_rdma0@14007000 {
@@ -5098,8 +5119,14 @@
 		mediatek,larb = <&smi_larb1>;
 		mediatek,smi-id = <1>;
 		iommus = <&iommu0 M4U_PORT_L1_DISP_RDMA0>;
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L1_DISP_RDMA0)
+					&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L1_DISP_RDMA0)
+					&mmqos SLAVE_COMMON(0)>;
+		interconnect-names = "DDP_COMPONENT_RDMA0_qos",
+					"DDP_COMPONENT_RDMA0_hrt_qos";
 	};
-
 	disp_rsz0: disp_rsz0@14008000 {
 		compatible = "mediatek,disp_rsz0",
 				"mediatek,mt6833-disp-rsz";
