@@ -135,7 +135,15 @@ EXPORT_SYMBOL_GPL(mtk_iommu_sec_init);
 
 bool is_disable_map_sec(void)
 {
-	return (iommu_on_mtee == STATE_ENABLED);
+	struct device_node *iommu_mtee_pa_mode;
+
+	iommu_mtee_pa_mode = of_find_node_by_name(NULL, "iommu_mtee_pa_mode");
+	if (iommu_mtee_pa_mode) {
+		pr_info("%s iommu_sec_pa_mode, return true\n", __func__);
+		return true;
+	} else {
+		return (iommu_on_mtee == STATE_ENABLED);
+	}
 }
 EXPORT_SYMBOL_GPL(is_disable_map_sec);
 
