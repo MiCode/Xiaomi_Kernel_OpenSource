@@ -19,6 +19,11 @@
 
 #include <media/v4l2-flash-led-class.h>
 
+#if IS_ENABLED(CONFIG_MTK_FLASHLIGHT)
+#include "flashlight-core.h"
+#include <linux/power_supply.h>
+#endif
+
 enum {
 	MT6370_LED_FLASH1,
 	MT6370_LED_FLASH2,
@@ -75,6 +80,9 @@ struct mt6370_led {
 	struct mt6370_priv *priv;
 	u32 led_no;
 	u32 default_state;
+#if IS_ENABLED(CONFIG_MTK_FLASHLIGHT)
+	struct flashlight_device_id dev_id;
+#endif
 };
 
 struct mt6370_priv {
@@ -113,6 +121,16 @@ static int mt6370_torch_brightness_set(struct led_classdev *lcdev,
 		ret = -EBUSY;
 		goto unlock;
 	}
+
+#ifdef CONFIG_MTK_FLASHLIGHT_DLPT
+	flashlight_kicker_pbm(1);
+#endif
+#ifdef CONFIG_MTK_FLASHLIGHT_PT
+	if (flashlight_pt_is_low()) {
+		dev_info(lcdev->dev, "pt is low\n");
+		return 0;
+	}
+#endif
 
 	if (level)
 		curr = priv->fled_torch_used | BIT(led->led_no);
@@ -225,6 +243,16 @@ static int mt6370_strobe_set(struct led_classdev_flash *fl_cdev, bool state)
 		ret = -EBUSY;
 		goto unlock;
 	}
+
+#ifdef CONFIG_MTK_FLASHLIGHT_DLPT
+	flashlight_kicker_pbm(state);
+#endif
+#ifdef CONFIG_MTK_FLASHLIGHT_PT
+	if (flashlight_pt_is_low()) {
+		dev_info(lcdev->dev, "pt is low\n");
+		return 0;
+	}
+#endif
 
 	if (state)
 		curr = priv->fled_strobe_used | BIT(led->led_no);
@@ -357,6 +385,189 @@ static const struct led_flash_ops mt6370_flash_ops = {
 	.timeout_set = mt6370_timeout_set,
 	.fault_get = mt6370_fault_get,
 };
+
+#if IS_ENABLED(CONFIG_MTK_FLASHLIGHT)
+static struct led_classdev_flash *mt6370_flash_class[MT6370_MAX_LEDS];
+/* is decrease voltage */
+static int is_decrease_voltage;
+static DEFINE_MUTEX(mt6370_mutex);
+/* define usage count */
+static int fd_use_count;
+/******************************************************************************
+ * Charger power supply class
+ *****************************************************************************/
+static int mt6370_high_voltage_supply(int enable)
+{
+	union power_supply_propval prop;
+	static struct power_supply *chg_psy;
+	int ret;
+
+	if (chg_psy == NULL)
+		chg_psy = power_supply_get_by_name("mtk-master-charger");
+	if (chg_psy == NULL || IS_ERR(chg_psy)) {
+		ret = -1;
+	} else {
+		prop.intval = enable;
+		ret = power_supply_set_property(chg_psy,
+			POWER_SUPPLY_PROP_VOLTAGE_MAX, &prop);
+		pr_info("%s enable_hv:%d\n", __func__, prop.intval);
+		power_supply_changed(chg_psy);
+	}
+
+	return ret;
+}
+
+static int mt6370_set_scenario(int scenario)
+{
+	/* notify charger to increase or decrease voltage */
+	mutex_lock(&mt6370_mutex);
+	if (scenario & FLASHLIGHT_SCENARIO_CAMERA_MASK) {
+		if (!is_decrease_voltage) {
+			mt6370_high_voltage_supply(0);
+			is_decrease_voltage = 1;
+		}
+	} else {
+		if (is_decrease_voltage) {
+			mt6370_high_voltage_supply(1);
+			is_decrease_voltage = 0;
+		}
+	}
+	mutex_unlock(&mt6370_mutex);
+
+	return 0;
+}
+
+static int mt6370_open(void)
+{
+	mutex_lock(&mt6370_mutex);
+	fd_use_count++;
+	mutex_unlock(&mt6370_mutex);
+
+	return 0;
+}
+
+static int mt6370_release(void)
+{
+	mutex_lock(&mt6370_mutex);
+	fd_use_count--;
+	/* If camera NE, we need to enable pe by ourselves*/
+	if (fd_use_count == 0 && is_decrease_voltage) {
+		pr_info("Increase voltage level.\n");
+		mt6370_high_voltage_supply(1);
+		is_decrease_voltage = 0;
+	}
+	mutex_unlock(&mt6370_mutex);
+
+	return 0;
+}
+
+static int mt6370_ioctl(unsigned int cmd, unsigned long arg)
+{
+	struct flashlight_dev_arg *fl_arg;
+	int channel;
+	struct led_classdev_flash *flcdev;
+	struct led_classdev *lcdev;
+
+	fl_arg = (struct flashlight_dev_arg *)arg;
+	channel = fl_arg->channel;
+
+	if (channel >= MT6370_MAX_LEDS || channel < 0)
+		return -EINVAL;
+
+	flcdev = mt6370_flash_class[channel];
+	if (flcdev == NULL)
+		return -EINVAL;
+
+	lcdev = &flcdev->led_cdev;
+	if (lcdev == NULL)
+		return -EINVAL;
+
+	switch (cmd) {
+	case FLASH_IOC_SET_ONOFF:
+		mt6370_torch_brightness_set(lcdev, (int)fl_arg->arg);
+		break;
+
+	case FLASH_IOC_SET_SCENARIO:
+		mt6370_set_scenario(fl_arg->arg);
+		break;
+
+	default:
+		dev_info(lcdev->dev, "No such command and arg(%d): (%d, %d)\n",
+				channel, _IOC_NR(cmd), (int)fl_arg->arg);
+		return -ENOTTY;
+	}
+
+	return 0;
+}
+
+static ssize_t mt6370_strobe_store(struct flashlight_arg arg)
+{
+	struct led_classdev_flash *flcdev;
+	struct led_classdev *lcdev;
+
+	if (arg.channel < 0 || arg.channel >= MT6370_MAX_LEDS)
+		return -EINVAL;
+
+	flcdev = mt6370_flash_class[arg.channel];
+	lcdev = &flcdev->led_cdev;
+	mt6370_torch_brightness_set(lcdev, LED_ON);
+	msleep(arg.dur);
+	mt6370_torch_brightness_set(lcdev, LED_OFF);
+	return 0;
+}
+
+static int mt6370_set_driver(int set)
+{
+	return 0;
+}
+
+static struct flashlight_operations mt6370_ops = {
+	mt6370_open,
+	mt6370_release,
+	mt6370_ioctl,
+	mt6370_strobe_store,
+	mt6370_set_driver
+};
+
+static int mt6370_init_proprietary_properties(struct mt6370_led *led,
+					struct led_init_data *init_data)
+{
+	struct led_classdev_flash *flash = &led->flash;
+	struct led_classdev *lcdev = &flash->led_cdev;
+	int ret;
+
+	ret = fwnode_property_read_u32(init_data->fwnode,
+			"reg", &led->dev_id.channel);
+	if (ret)
+		return ret;
+
+	ret = fwnode_property_read_u32(init_data->fwnode,
+			"type", &led->dev_id.type);
+	if (ret)
+		return ret;
+
+	ret = fwnode_property_read_u32(init_data->fwnode,
+			"ct", &led->dev_id.ct);
+	if (ret)
+		return ret;
+
+	ret = fwnode_property_read_u32(init_data->fwnode,
+			"part", &led->dev_id.part);
+	if (ret)
+		return ret;
+
+	strscpy(led->dev_id.name, lcdev->dev->kobj.name,
+		sizeof(led->dev_id.name));
+
+	led->dev_id.decouple = 0;
+	mt6370_flash_class[led->dev_id.channel] = &led->flash;
+
+	if (flashlight_dev_register_by_device_id(&led->dev_id, &mt6370_ops))
+		return -EFAULT;
+
+	return 0;
+}
+#endif
 
 #if IS_ENABLED(CONFIG_V4L2_FLASH_LED_CLASS)
 static int mt6370_flash_external_strobe_set(struct v4l2_flash *v4l2_flash,
@@ -639,6 +850,11 @@ static int mt6370_led_probe(struct platform_device *pdev)
 		if (ret)
 			return ret;
 
+#if IS_ENABLED(CONFIG_MTK_FLASHLIGHT)
+		ret = mt6370_init_proprietary_properties(led, &init_data);
+		if (ret)
+			return ret;
+#endif
 		i++;
 	}
 
