@@ -25,6 +25,7 @@
 #include "mtk_rect.h"
 #include "mtk_drm_drv.h"
 #include "mtk_drm_graphics_base.h"
+#include "mtk_drm_mmp.h"
 
 #include <soc/mediatek/mmqos.h>
 
@@ -543,6 +544,7 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc, int mode_idx)
 
 	dvfs_bw *= 10000;
 
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (!mtk_crtc->res_switch) {
 		DDPDBG("%s mode_idx:%d\n", __func__, mode_idx);
@@ -558,6 +560,7 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc, int mode_idx)
 			mtk_ddp_comp_io_cmd(output_comp, NULL,
 				GET_FRAME_HRT_BW_BY_MODE, &tmp);
 	}
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	if (!tmp) {
 		DDPPR_ERR("Get frame hrt bw by datarate is zero\n");
