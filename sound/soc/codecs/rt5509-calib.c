@@ -53,6 +53,10 @@ static int rt5509_calib_get_dcroffset(struct rt5509_chip *chip)
 	if (ret < 0)
 		return ret;
 	vtemp = ret & 0xffff;
+	if (vtemp == 0) {
+		dev_dbg(component->dev, "%s invalid vtemp\n", __func__);
+		return -EINVAL;
+	}
 	ret = snd_soc_component_read(component, RT5509_REG_VTHRMDATA);
 	if (ret < 0)
 		return ret;

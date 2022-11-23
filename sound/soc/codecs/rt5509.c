@@ -2374,31 +2374,72 @@ static int rt5509_dbg_io_write(void *drvdata, u16 reg, const void *val, u16 size
 }
 
 static ssize_t dump_attr_show(struct device *dev,
-			      struct device_attribute *attr,
-			      char *buf)
+			      struct device_attribute *attr, char *buf)
 {
 	struct rt5509_chip *chip = dev_get_drvdata(dev);
 	int i = 0, ret = 0, j = 0;
 	u8 data[24] = {0};
 
 	buf[0] = '\0';
-	for (i = 0; i < ARRAY_SIZE(rt5509_reg_size_table); i++) {
+	for (i = 0; i < ARRAY_SIZE(rt5509_reg_size_table)/2; i++) {
 		ret = rt5509_block_read(chip->i2c, rt5509_reg_size_table[i].addr,
 					rt5509_reg_size_table[i].size, data);
 		if (ret < 0)
 			return ret;
-		ret = snprintf(buf + strlen(buf), PAGE_SIZE, "reg0x02%x = 0x",
+		ret = snprintf(buf + strlen(buf), PAGE_SIZE, "reg0x%02x = 0x",
 			       rt5509_reg_size_table[i].addr);
-		for (j = 0; j < rt5509_reg_size_table[i].size; j++)
-			ret = snprintf(buf + strlen(buf), PAGE_SIZE, "02%x,", data[j]);
-		snprintf(buf + strlen(buf), PAGE_SIZE, "\n");
+		if (ret < 0)
+			dev_dbg(dev, "snprintf failed\n");
+		for (j = 0; j < rt5509_reg_size_table[i].size; j++) {
+			ret = snprintf(buf + strlen(buf), PAGE_SIZE, "%02x,", data[j]);
+			if (ret < 0)
+				dev_dbg(dev, "snprintf failed\n");
+		}
+		ret = snprintf(buf + strlen(buf), PAGE_SIZE, "\n");
+		if (ret < 0)
+			dev_dbg(dev, "snprintf failed\n");
 	}
-	return strlen(buf);
+	return ret < 0 ? ret : strlen(buf);
+}
+
+static ssize_t dump2_attr_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	struct rt5509_chip *chip = dev_get_drvdata(dev);
+	int i = 0, ret = 0, j = 0;
+	u8 data[24] = {0};
+
+	buf[0] = '\0';
+	for (i = ARRAY_SIZE(rt5509_reg_size_table)/2;
+		i < ARRAY_SIZE(rt5509_reg_size_table); i++) {
+		ret = rt5509_block_read(chip->i2c, rt5509_reg_size_table[i].addr,
+					rt5509_reg_size_table[i].size, data);
+		if (ret < 0)
+			return ret;
+		ret = snprintf(buf + strlen(buf), PAGE_SIZE, "reg0x%02x = 0x",
+			       rt5509_reg_size_table[i].addr);
+		if (ret < 0)
+			dev_dbg(dev, "snprintf failed\n");
+		for (j = 0; j < rt5509_reg_size_table[i].size; j++) {
+			ret = snprintf(buf + strlen(buf), PAGE_SIZE, "%02x,", data[j]);
+			if (ret < 0)
+				dev_dbg(dev, "snprintf failed\n");
+		}
+		ret = snprintf(buf + strlen(buf), PAGE_SIZE, "\n");
+		if (ret < 0)
+			dev_dbg(dev, "snprintf failed\n");
+	}
+	return ret < 0 ? ret : strlen(buf);
 }
 
 static const struct device_attribute dump_attr = {
 	.attr = { .name = "dump", .mode = 0444 },
 	.show = dump_attr_show,
+};
+
+static const struct device_attribute dump2_attr = {
+	.attr = { .name = "dump2", .mode = 0444 },
+	.show = dump2_attr_show,
 };
 
 int rt5509_i2c_probe(struct i2c_client *client,
@@ -2484,6 +2525,10 @@ int rt5509_i2c_probe(struct i2c_client *client,
 	ret = device_create_file(chip->dev, &dump_attr);
 	if (ret < 0)
 		dev_err(&client->dev, "Failed to add dump attr\n");
+
+	ret = device_create_file(chip->dev, &dump2_attr);
+	if (ret < 0)
+		dev_dbg(&client->dev, "Failed to add dump attr\n");
 
 	ret = rt5509_i2c_initreg(chip);
 	if (ret < 0) {
