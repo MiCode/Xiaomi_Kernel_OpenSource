@@ -2193,9 +2193,15 @@ static irqreturn_t mt6375_fl_bc12_dn_handler(int irq, void *data)
 
 	mt_dbg(ddata->dev, "++\n");
 	mutex_lock(&ddata->attach_lock);
-	ddata->bc12_dn = true;
 	attach = atomic_read(&ddata->attach);
+	ddata->bc12_dn = (attach == ATTACH_TYPE_NONE) ? false : true;
 	mutex_unlock(&ddata->attach_lock);
+
+	if (!ddata->bc12_dn) {
+		dev_notice(ddata->dev, "%s attach=%d, bc12_dn=%d",
+			   __func__, attach, ddata->bc12_dn);
+		return IRQ_HANDLED;
+	}
 
 	if (attach < ATTACH_TYPE_PD && !queue_work(ddata->wq, &ddata->bc12_work))
 		dev_notice(ddata->dev, "%s bc12 work already queued\n", __func__);
