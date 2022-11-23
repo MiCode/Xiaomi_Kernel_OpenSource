@@ -4535,6 +4535,10 @@ cma=64M transparent_hugepage=never clk_ignore_unused=1";
 		};
 	};
 
+	mtk_composite_v4l2_1: mtk_composite_v4l2_1 {
+		compatible = "mediatek,mtk_composite_v4l2_1";
+	};
+
 	camsv1@1a050000 {
 		compatible = "mediatek,camsv1";
 		reg = <0 0x1a050000 0 0x1000>;
