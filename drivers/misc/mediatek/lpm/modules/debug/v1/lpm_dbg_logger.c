@@ -399,7 +399,7 @@ int lpm_logger_init(void)
 }
 EXPORT_SYMBOL(lpm_logger_init);
 
-void __exit lpm_logger_deinit(void)
+void lpm_logger_deinit(void)
 {
 	struct device_node *node = NULL;
 	int state_cnt = 0;

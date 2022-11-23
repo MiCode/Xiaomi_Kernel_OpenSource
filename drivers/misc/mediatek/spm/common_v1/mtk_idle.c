@@ -132,7 +132,7 @@ static void mtk_idle_init(void)
 			, 0644, &idle_state_fops, NULL);
 }
 
-void __init mtk_cpuidle_framework_init(void)
+void mtk_cpuidle_framework_init(void)
 {
 	mtk_idle_sysfs_entry_create();
 
