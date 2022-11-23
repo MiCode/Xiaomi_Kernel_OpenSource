@@ -10,7 +10,6 @@
 		compatible = "mediatek,clk-disable-unused";
 		clocks =
 			<&mdpsys_config_clk CLK_MDP_RDMA0>,
-			<&mdpsys_config_clk CLK_MDP_RDMA1>,
 			<&mdpsys_config_clk CLK_MDP_TDSHP0>,
 			<&mdpsys_config_clk CLK_MDP_IMG_DL_ASYNC0>,
 			<&mdpsys_config_clk CLK_MDP_IMG_DL_ASYNC1>,
