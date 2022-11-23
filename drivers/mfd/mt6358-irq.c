@@ -286,15 +286,19 @@ int mt6358_irq_init(struct mt6397_chip *chip)
 					  irqd->num_pmic_irqs,
 					  sizeof(*irqd->enable_hwirq),
 					  GFP_KERNEL);
-	if (!irqd->enable_hwirq)
+	if (!irqd->enable_hwirq) {
+		dev_dbg(chip->dev, "enable hwirq fail\n");
 		return -ENOMEM;
+	}
 
 	irqd->cache_hwirq = devm_kcalloc(chip->dev,
 					 irqd->num_pmic_irqs,
 					 sizeof(*irqd->cache_hwirq),
 					 GFP_KERNEL);
-	if (!irqd->cache_hwirq)
+	if (!irqd->cache_hwirq) {
+		dev_dbg(chip->dev, "%s cache hwirq fail\n", __func__);
 		return -ENOMEM;
+	}
 
 	/* Disable all interrupts for initializing */
 	for (i = 0; i < irqd->num_top; i++) {

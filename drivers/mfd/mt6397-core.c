@@ -740,12 +740,16 @@ static int mt6397_probe(struct platform_device *pdev)
 	 * Regmap is set from its parent.
 	 */
 	pmic->regmap = dev_get_regmap(pdev->dev.parent, NULL);
-	if (!pmic->regmap)
+	if (!pmic->regmap) {
+		dev_dbg(&pdev->dev, "%s Could not get regmap\n", __func__);
 		return -ENODEV;
+	}
 
 	pmic_core = of_device_get_match_data(&pdev->dev);
-	if (!pmic_core)
+	if (!pmic_core) {
+		dev_dbg(&pdev->dev, "%s Could not get match data\n", __func__);
 		return -ENODEV;
+	}
 
 	ret = regmap_read(pmic->regmap, pmic_core->cid_addr, &id);
 	if (ret) {
@@ -762,8 +766,10 @@ static int mt6397_probe(struct platform_device *pdev)
 		return pmic->irq;
 
 	ret = pmic_core->irq_init(pmic);
-	if (ret)
+	if (ret) {
+		dev_dbg(&pdev->dev, "%s Fail to init pmic: %d\n", __func__, ret);
 		return ret;
+	}
 
 	ret = devm_mfd_add_devices(&pdev->dev, PLATFORM_DEVID_NONE,
 				   pmic_core->cells, pmic_core->cell_size,
