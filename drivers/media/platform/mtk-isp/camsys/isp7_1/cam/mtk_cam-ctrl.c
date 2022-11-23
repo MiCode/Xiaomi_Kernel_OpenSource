@@ -5421,16 +5421,23 @@ void mtk_cam_extisp_sv_stream_delayed(struct mtk_cam_ctx *ctx,
 			(1 << MTKCAM_SV_SPECIAL_SCENARIO_EXT_ISP);
 	int sv_i;
 
-	if (camsv_dev->sof_count == 1 &&
+	/* for preisp pure raw will comes 2 SOFs in 1ms , to avoid missing stream on meta */
+	if (camsv_dev->sof_count > 0 &&
+		camsv_dev->sof_count < 3 &&
 		seninf_padidx == PAD_SRC_RAW0) {
 		for (sv_i = MTKCAM_SUBDEV_CAMSV_END - 1;
 		sv_i >= MTKCAM_SUBDEV_CAMSV_START; sv_i--) {
 			int seninf_padidx_i = ctx->cam->sv.pipelines
 				[sv_i - MTKCAM_SUBDEV_CAMSV_START]
 				.seninf_padidx;
+			struct device *dev_sv = ctx->cam->sv.devs
+				[sv_i - MTKCAM_SUBDEV_CAMSV_START];
+			struct mtk_camsv_device *sv_dev =
+				dev_get_drvdata(dev_sv);
 
 			if (ctx->pipe->enabled_raw & (1 << sv_i) &&
-				(seninf_padidx_i == PAD_SRC_GENERAL0))
+				(seninf_padidx_i == PAD_SRC_GENERAL0) &&
+				mtk_cam_sv_is_vf_on(sv_dev) == 0)
 				mtk_cam_sv_dev_stream_on(ctx,
 					sv_i - MTKCAM_SUBDEV_CAMSV_START,
 					1, hw_scen);
