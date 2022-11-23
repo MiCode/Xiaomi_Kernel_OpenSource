@@ -2416,6 +2416,7 @@ int exec_ccci_kern_func_by_md_id(int md_id, unsigned int id, char *buf,
 		fallthrough;
 	case MD_NR_BAND_ACTIVATE_INFO:
 		tmp_data = 0;
+		len = (len < sizeof(tmp_data)) ? len : sizeof(tmp_data);
 		memcpy((void *)&tmp_data, buf, len);
 		ret = ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX,
 			id, tmp_data, 0);

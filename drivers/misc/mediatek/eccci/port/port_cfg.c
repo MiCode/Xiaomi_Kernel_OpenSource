@@ -792,12 +792,14 @@ int find_port_by_channel(int index, struct port_t **port)
 		md1_ccci_ports_6293 : md1_ccci_ports;
 	unsigned int port_array_size = ccci_get_port_size();
 
-	if (index < port_array_size) {
-		*port = &ccci_port[index];
-		return 0;
+	if (index < 0 || index >= port_array_size) {
+		CCCI_ERROR_LOG(-1, PORT, "%s: invalid index = %d\n",
+				__func__, index);
+		return -EINVAL;
 	}
-	CCCI_ERROR_LOG(-1, PORT, "cannot find port by index %d\n", index);
-	return -1;
+
+	*port = &ccci_port[index];
+	return 0;
 }
 
 int mtk_ccci_open_port(int index)
