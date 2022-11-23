@@ -16,9 +16,6 @@
 #include <mtk_sleep.h>
 
 static bool spm_drv_init;
-#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
-extern void ccci_set_spm_mdsrc_cb(void (*md_clock_src_cb)(u8 set));
-#endif
 
 bool mtk_spm_drv_ready(void)
 {
@@ -40,6 +37,7 @@ static int __init mtk_sleep_init(void)
 	spm_drv_init = !ret;
 #if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
 	ccci_set_spm_mdsrc_cb(&spm_ap_mdsrc_req);
+	ccci_set_spm_md_sleep_cb(&spm_is_md1_sleep);
 #endif
 	return 0;
 }

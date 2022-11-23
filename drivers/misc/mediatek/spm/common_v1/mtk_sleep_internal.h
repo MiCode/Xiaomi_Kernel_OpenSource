@@ -41,6 +41,10 @@ extern void subsys_if_on(void);
 extern void pll_if_on(void);
 extern void gpio_dump_regs(void);
 extern void __init mtk_cpuidle_framework_init(void);
+#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
+extern void ccci_set_spm_mdsrc_cb(void (*md_clock_src_cb)(u8 set));
+extern void ccci_set_spm_md_sleep_cb(bool (*spm_md_sleep_cb)(void));
+#endif
 
 enum gs_flag {
 	GS_PMIC = (0x1 << 0),

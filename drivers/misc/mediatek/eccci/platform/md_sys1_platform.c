@@ -680,11 +680,10 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 		"[POWER OFF] MD MTCMOS OFF start\n");
 	CCCI_NORMAL_LOG(md->index, TAG,
 		"[POWER OFF] MD MTCMOS OFF start\n");
-#ifdef USING_PM_RUNTIME
-	ret = pm_runtime_put_sync(&md->plat_dev->dev);
-#else
+#if IS_ENABLED(CONFIG_COMMON_CLK_PG_LEGACY)
 	clk_disable_unprepare(clk_table[0].clk_ref);
-	CCCI_BOOTUP_LOG(md->index, TAG, "CCF:disable md1 clk\n");
+#else
+	ret = pm_runtime_put_sync(&md->plat_dev->dev);
 #endif
 	CCCI_BOOTUP_LOG(md->index, TAG,
 		"[POWER OFF] MD MTCMOS OFF end: ret = %d\n", ret);
@@ -1319,15 +1318,10 @@ static int md_cd_power_on(struct ccci_modem *md)
 	/* steip 3: power on MD_INFRA and MODEM_TOP */
 	flight_mode_set_by_atf(md, false);
 
-#ifdef USING_PM_RUNTIME
 #if IS_ENABLED(CONFIG_COMMON_CLK_PG_LEGACY)
 	ret = clk_prepare_enable(clk_table[0].clk_ref);
-	CCCI_BOOTUP_LOG(md->index, TAG, "[POWER ON] CONFIG_COMMON_CLK_PG_LEGACY enabled\n");
-	CCCI_NORMAL_LOG(md->index, TAG, "[POWER ON] CONFIG_COMMON_CLK_PG_LEGACY enabled\n");
-#endif
-	ret = pm_runtime_get_sync(&md->plat_dev->dev);
 #else
-	ret = clk_prepare_enable(clk_table[0].clk_ref);
+	ret = pm_runtime_get_sync(&md->plat_dev->dev);
 #endif
 	CCCI_BOOTUP_LOG(md->index, TAG, "[POWER ON] MD MTCMOS ON end: ret = %d\n", ret);
 	CCCI_NORMAL_LOG(md->index, TAG, "[POWER ON] MD MTCMOS ON end: ret = %d\n", ret);

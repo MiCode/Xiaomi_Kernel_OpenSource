@@ -52,15 +52,27 @@
 
 static void debug_in_flight_mode(struct ccci_modem *md);
 
-#ifdef CCCI_KMODULE_ENABLE
+static bool (*s_spm_md_sleep_callback)(void);
+void ccci_set_spm_md_sleep_cb(bool (*spm_md_sleep_cb)(void))
+{
+	s_spm_md_sleep_callback = spm_md_sleep_cb;
+}
+EXPORT_SYMBOL(ccci_set_spm_md_sleep_cb);
+
 bool spm_is_md1_sleep(void)
 {
 	struct arm_smccc_res res;
 
+	if ((md_cd_plat_val_ptr.md_gen < 6295) &&
+	    s_spm_md_sleep_callback) {
+		CCCI_NORMAL_LOG(0, TAG, "[%s][%d] using spm\n",
+				__func__, md_cd_plat_val_ptr.md_gen);
+		return s_spm_md_sleep_callback();
+	}
 	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
 		MD_GET_SLEEP_MODE, 0, 0, 0, 0, 0, &res);
 
-	CCCI_NORMAL_LOG(-1, TAG,
+	CCCI_NORMAL_LOG(0, TAG,
 		"[%s] flag_1=%llx, flag_2=%llx, flag_3=%llx, flag_4=%llx\n",
 		__func__, res.a0, res.a1, res.a2, res.a3);
 	if (res.a0 == 0)
@@ -68,8 +80,6 @@ bool spm_is_md1_sleep(void)
 	else
 		return 2; /* not support, no wait */
 }
-
-#endif
 
 void ccif_enable_irq(struct ccci_modem *md)
 {

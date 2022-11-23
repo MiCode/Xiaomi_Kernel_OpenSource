@@ -222,6 +222,8 @@ int ccci_md_get_ex_type(struct ccci_modem *md);
 /* API Region called by ccci modem object */
 /***************************************************************************/
 
+extern struct ccci_plat_val md_cd_plat_val_ptr;
+
 #if defined(FEATURE_SYNC_C2K_MEID)
 extern unsigned char tc1_read_meid_syncform(unsigned char *meid, int leng);
 #endif
@@ -229,7 +231,6 @@ extern unsigned char tc1_read_meid_syncform(unsigned char *meid, int leng);
 #if defined(FEATURE_TC1_CUSTOMER_VAL)
 extern int get_md_customer_val(unsigned char *value, unsigned int len);
 #endif
-extern bool spm_is_md1_sleep(void);
 
 //extern unsigned int trace_sample_time;
 
