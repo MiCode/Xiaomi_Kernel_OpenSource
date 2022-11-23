@@ -2741,7 +2741,7 @@ static void musb_restore_context(struct musb *musb)
 		USB_L1INTM, musb->context.l1_int);
 }
 
-bool __attribute__ ((weak)) usb_pre_clock(bool enable)
+bool usb_pre_clock(bool enable)
 {
 	return 0;
 }
