@@ -32,5 +32,8 @@ enum md_dump_flag {
 };
 
 void md_dump_register_6873(unsigned int md_index);
-void md_dump_reg(unsigned int md_index);
+void md_dump_reg(struct ccci_modem *md);
+extern u32 get_expected_boot_status_val(void);
+extern void md_cd_lock_modem_clock_src(int locked);
+
 #endif

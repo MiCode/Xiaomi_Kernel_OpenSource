@@ -59,13 +59,17 @@ static wait_queue_head_t scp_ipi_rx_wq;
 static struct ccci_skb_queue scp_ipi_rx_skb_list;
 static unsigned int init_work_done;
 static unsigned int scp_clk_last_state;
+#if !IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_CM4_SUPPORT) //#if (MD_GENERATION >= 6297)
 static struct ccci_ipi_msg scp_ipi_rx_msg;
+#endif
 
 static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
 {
 	int ret = 0;
+#if !IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_CM4_SUPPORT)//#if (MD_GENERATION >= 6297)
 	int ipi_status = 0;
 	unsigned int cnt = 0;
+#endif
 
 	if (atomic_read(&scp_state) == SCP_CCCI_STATE_INVALID) {
 		CCCI_ERROR_LOG(md_id, FSM,
@@ -84,6 +88,7 @@ static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
 		scp_ipi_tx_msg.op_id, scp_ipi_tx_msg.data[0],
 		(int)sizeof(struct ccci_ipi_msg));
 
+#if !IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_CM4_SUPPORT)//#if (MD_GENERATION >= 6297)
 	while (1) {
 		ipi_status = mtk_ipi_send(&scp_ipidev, IPI_OUT_APCCCI_0,
 		0, &scp_ipi_tx_msg, (sizeof(scp_ipi_tx_msg) / 4), 1);
@@ -91,15 +96,22 @@ static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
 			break;
 		cnt++;
 		if (cnt > 10) {
-			CCCI_ERROR_LOG(md_id, FSM, "IPI send 10 times!\n");
+			CCCI_ERROR_LOG(0, FSM, "IPI send 10 times!\n");
 			/* aee_kernel_warning("ccci", "ipi:tx busy");*/
 			break;
 		}
 	}
 	if (ipi_status != IPI_ACTION_DONE) {
-		CCCI_ERROR_LOG(md_id, FSM, "IPI send fail!\n");
+		CCCI_ERROR_LOG(0, FSM, "IPI send fail!\n");
 		ret = -CCCI_ERR_MD_NOT_READY;
 	}
+#else
+	if (scp_ipi_send(IPI_APCCCI, &scp_ipi_tx_msg,
+			sizeof(scp_ipi_tx_msg), 1, SCP_A_ID) != SCP_IPI_DONE) {
+		CCCI_ERROR_LOG(0, FSM, "IPI send fail!\n");
+		ret = -CCCI_ERR_MD_NOT_READY;
+	}
+#endif
 
 	mutex_unlock(&scp_ipi_tx_mutex);
 	return ret;
@@ -307,6 +319,7 @@ static void ccci_scp_ipi_rx_work(struct work_struct *work)
 	}
 }
 
+#if !IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_CM4_SUPPORT)//#if (MD_GENERATION >= 6297)
 /*
  * IPI for logger init
  * @param id:   IPI id
@@ -329,7 +342,6 @@ static int ccci_scp_ipi_handler(unsigned int id, void *prdata, void *data,
 	skb = ccci_alloc_skb(len, 0, 0);
 	if (!skb)
 		return -1;
-
 	memcpy(skb_put(skb, len), data, len);
 	ccci_skb_enqueue(&scp_ipi_rx_skb_list, skb);
 	/* ipi_send use mutex, can not be called from ISR context */
@@ -337,6 +349,31 @@ static int ccci_scp_ipi_handler(unsigned int id, void *prdata, void *data,
 
 	return 0;
 }
+#else
+static void ccci_scp_ipi_handler(int id, void *data, unsigned int len)
+{
+	struct ccci_ipi_msg *ipi_msg_ptr = (struct ccci_ipi_msg *)data;
+	struct sk_buff *skb = NULL;
+
+	if (len != sizeof(struct ccci_ipi_msg)) {
+		CCCI_ERROR_LOG(-1, CORE,
+		"IPI handler, data length wrong %d vs. %d\n",
+		len, (int)sizeof(struct ccci_ipi_msg));
+		return;
+	}
+	CCCI_NORMAL_LOG(0, CORE, "IPI handler %d/0x%x, %d\n",
+		ipi_msg_ptr->op_id,
+		ipi_msg_ptr->data[0], len);
+
+	skb = ccci_alloc_skb(len, 0, 0);
+	if (!skb)
+		return;
+	memcpy(skb_put(skb, len), data, len);
+	ccci_skb_enqueue(&scp_ipi_rx_skb_list, skb);
+	/* ipi_send use mutex, can not be called from ISR context */
+	schedule_work(&scp_ipi_rx_work);
+}
+#endif
 #endif
 
 int fsm_ccism_init_ack_handler(int md_id, int data)
@@ -377,10 +414,16 @@ void fsm_scp_init0(void)
 
 	CCCI_NORMAL_LOG(-1, FSM, "register IPI\n");
 
+#if !IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_CM4_SUPPORT)
 	if (mtk_ipi_register(&scp_ipidev, IPI_IN_APCCCI_0,
 		(void *)ccci_scp_ipi_handler, NULL,
 		&scp_ipi_rx_msg) != IPI_ACTION_DONE)
 		CCCI_ERROR_LOG(-1, FSM, "register IPI fail!\n");
+#else
+	if (scp_ipi_registration(IPI_APCCCI, ccci_scp_ipi_handler,
+		"AP CCCI") != SCP_IPI_DONE)
+		CCCI_ERROR_LOG(-1, FSM, "register IPI fail!\n");
+#endif
 
 	atomic_set(&scp_state, SCP_CCCI_STATE_BOOTING);
 

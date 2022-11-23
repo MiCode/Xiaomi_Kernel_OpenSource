@@ -2958,16 +2958,14 @@ static struct syscore_ops ccci_cldma_sysops = {
 
 static int ccci_cldma_set_plat_ops(void)
 {
-	if (cldma_ctrl->cldma_platform == 6761 ||
-		cldma_ctrl->cldma_platform == 6765) {
+	if (cldma_ctrl->plat_val.md_gen <= 6293) {
 		cldma_ctrl->cldma_plat_ops.hw_reset = &cldma_plat_hw_reset;
 		cldma_ctrl->cldma_plat_ops.set_clk_cg = &cldma_plat_set_clk_cg;
 		cldma_ctrl->cldma_plat_ops.syssuspend = &cldma_plat_suspend;
 		cldma_ctrl->cldma_plat_ops.sysresume = &cldma_plat_resume;
 
 	} else {
-		CCCI_ERROR_LOG(-1, TAG,
-			"error: platform number is invalid.\n");
+		CCCI_ERROR_LOG(-1, TAG, "error: platform number is invalid\n");
 		return -1;
 	}
 
@@ -3217,7 +3215,7 @@ int ccci_hif_cldma_probe(struct platform_device *pdev)
 {
 	int ret;
 
-	CCCI_ERROR_LOG(-1, TAG, "[%s] start", __func__);
+	CCCI_DEBUG_LOG(-1, TAG, "[%s] start", __func__);
 
 	ret = ccci_cldma_hif_init(pdev, CLDMA_HIF_ID, MD_SYS1);
 	if (ret < 0) {
@@ -3249,7 +3247,7 @@ static int __init ccci_cldma_init(void)
 
 	ret = platform_driver_register(&ccci_cldma_driver);
 	if (ret) {
-		CCCI_ERROR_LOG(-1, TAG, "ccci hif_cldma driver init fail %d",
+		CCCI_ERROR_LOG(-1, TAG, "ccci hif_cldma driver init fail %d\n",
 			ret);
 		return ret;
 	}

@@ -24,7 +24,8 @@
 				MD_CAP_FDD_LTE|MD_CAP_CDMA2000|MD_CAP_NR)
 
 /* Note: this must keep sync with md_rat_map table.
- *   If MD_CAP_FULL_SET change or md_rat_map table change, this macro should change too.
+ * If MD_CAP_FULL_SET change or md_rat_map table change,
+ * this macro should change too.
  */
 #define MD_CAP_FULL_SET_IDX	(24)
 

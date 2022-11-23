@@ -13,6 +13,7 @@ struct  ccci_plat_val {
 	struct regmap *topckgen_clk_base;
 	struct regmap *spm_sleep_base;
 	unsigned int md_gen;
+	unsigned int md_sub_ver;
 	unsigned long offset_epof_md1;
 	void __iomem *md_plat_info;
 	unsigned int power_flow_config;
@@ -27,6 +28,7 @@ struct ccci_clk_node {
 
 struct md_pll_reg {
 	void __iomem *md_top_clkSW;
+	void __iomem *md_top_Pll;
 
 	void __iomem *md_boot_stats_select;
 	void __iomem *md_boot_stats;
@@ -86,6 +88,20 @@ enum {
 	REVERT_SEQUENCER_BIT,
 	MD_PLL_SETTING,
 	SKIP_TOPCLK_BIT,
+};
+
+enum MD_REG_DUMP_ID {
+	MD_REG_PC_MONITOR = 1,
+	MD_REG_PLL_REG,
+	MD_REG_BUS,
+	MD_REG_MDMCU_BUSMON,
+	MD_REG_MDINFRA_BUSMON,
+	MD_REG_ECT,
+	MD_REG_TOPSM_REG,
+	MD_REG_MD_RGU_REG,
+	MD_REG_OST_STATUS,
+	MD_REG_CSC_REG,
+	MD_REG_ELM_REG,
 };
 
 extern unsigned int ap_plat_info;

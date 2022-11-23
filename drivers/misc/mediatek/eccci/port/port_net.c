@@ -482,7 +482,7 @@ static int port_net_recv_skb(struct port_t *port, struct sk_buff *skb)
 
 	total_time = sched_clock();
 #endif
-	if (port->hif_id == MD1_NET_HIF) {
+	if ((port->hif_id == MD1_NET_HIF) || (port->hif_id == CLDMA_HIF_ID)) {
 		skb_pull(skb, sizeof(struct lhif_header));
 		CCCI_DEBUG_LOG(port->md_id, NET,
 			"port %s recv: 0x%08X, 0x%08X, %08X, 0x%08X\n",

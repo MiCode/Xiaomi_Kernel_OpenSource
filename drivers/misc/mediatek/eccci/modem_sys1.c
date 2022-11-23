@@ -1356,9 +1356,12 @@ int ccci_modem_init_common(struct platform_device *plat_dev,
 
 	ret = of_property_read_u32(plat_dev->dev.of_node,
 		"mediatek,mdhif_type", &md->hif_flag);
-	if (ret != 0)
-		md->hif_flag = (1 << MD1_NET_HIF | 1 << MD1_NORMAL_HIF);
-
+	if (ret != 0) {
+		if (md->hw_info->plat_val->md_gen < 6295)
+			md->hif_flag = (1 << CLDMA_HIF_ID | 1 << MD1_NORMAL_HIF);
+		else
+			md->hif_flag = (1 << MD1_NET_HIF | 1 << MD1_NORMAL_HIF);
+	}
 	//ret = ccci_hif_init(md->index, md->hif_flag);
 	//if (ret < 0) {
 	//	CCCI_ERROR_LOG(md->index, TAG,

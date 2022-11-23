@@ -47,6 +47,12 @@
 #include "mtk_pbm.h"
 #endif
 
+/* MD1 PLL */
+#define MDTOP_PLLMIXED_BASE	(0x20140000)
+#define MDTOP_PLLMIXED_LENGTH	(0x1000)
+#define MDTOP_CLKSW_BASE	(0x20150000)
+#define MDTOP_CLKSW_LENGTH	(0x1000)
+
 unsigned int ap_plat_info;
 
 struct ccci_md_regulator {
@@ -63,7 +69,7 @@ static struct ccci_md_regulator md_reg_table[] = {
 	{ NULL, "md_vdigrf", 700000, 700000},
 };
 
-static struct ccci_plat_val md_cd_plat_val_ptr;
+struct ccci_plat_val md_cd_plat_val_ptr;
 
 static struct ccci_clk_node clk_table[] = {
 /* #ifdef USING_PM_RUNTIME */
@@ -129,10 +135,14 @@ static int md_cd_io_remap_md_side_register(struct ccci_modem *md)
 		return -1;
 	}
 
-	md_reg->md_boot_stats_select =
-		ioremap_wc(MD1_BOOT_STATS_SELECT, 4);
+	md_reg->md_boot_stats_select = ioremap_wc(MD1_BOOT_STATS_SELECT, 4);
 	md_reg->md_boot_stats = ioremap_wc(MD1_CFG_BOOT_STATS, 4);
 	/*just for dump end*/
+
+	if (md_cd_plat_val_ptr.md_gen == 6293) {
+		md_reg->md_top_Pll = ioremap(MDTOP_PLLMIXED_BASE, MDTOP_PLLMIXED_LENGTH);
+		md_reg->md_top_clkSW = ioremap(MDTOP_CLKSW_BASE, MDTOP_CLKSW_LENGTH);
+	}
 
 	md_info->md_pll_base = md_reg;
 
@@ -141,6 +151,14 @@ static int md_cd_io_remap_md_side_register(struct ccci_modem *md)
 #endif
 	return 0;
 }
+
+static void (*s_md_clock_src_callback)(u8 set);
+
+void ccci_set_spm_mdsrc_cb(void (*md_clock_src_cb)(u8 set))
+{
+	s_md_clock_src_callback = md_clock_src_cb;
+}
+EXPORT_SYMBOL(ccci_set_spm_mdsrc_cb);
 
 void md_cd_lock_modem_clock_src(int locked)
 {
@@ -152,6 +170,13 @@ void md_cd_lock_modem_clock_src(int locked)
 	if (res.a0)
 		CCCI_ERROR_LOG(-1, TAG,
 			"md clock source requeset ret = 0x%llX\n", res.a0);
+
+	if (res.a0 && md_cd_plat_val_ptr.md_gen < 6295) {
+		CCCI_ERROR_LOG(-1, TAG, "[md_gen < 6295] using spm\n");
+		if (s_md_clock_src_callback)
+			s_md_clock_src_callback(locked);
+		return;
+	}
 
 	if (locked) {
 		arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
@@ -181,10 +206,11 @@ void md_cd_lock_modem_clock_src(int locked)
 	}
 }
 
-static void md_cd_get_md_bootup_status(
-	unsigned int *buff, int length)
+void md_cd_get_md_bootup_status(unsigned int *buff, int length)
 {
 	struct arm_smccc_res res = {0};
+	void __iomem *md_boot_status0;
+	void __iomem *md_boot_status1;
 
 	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
 		MD_BOOT_STATUS, 0, 0, 0, 0, 0, &res);
@@ -197,6 +223,55 @@ static void md_cd_get_md_bootup_status(
 	CCCI_NOTICE_LOG(-1, TAG,
 		"[%s] AP: boot_ret=%lu, boot_status_0=%lX, boot_status_1=%lX\n",
 		__func__, res.a0, res.a1, res.a2);
+
+	if (res.a0 && md_cd_plat_val_ptr.md_gen < 6295) {
+		md_boot_status0 = ioremap(0x1020E300, 0x4);
+		md_boot_status1 = ioremap(0x1020E304, 0x4);
+
+		if (buff && (length >= 2)) {
+
+			buff[0] = ccci_read32(md_boot_status0, 0);
+			buff[1] = ccci_read32(md_boot_status1, 0);
+		}
+
+		CCCI_BOOTUP_LOG(0, TAG, "kernel: md_boot_status0=0x%x, md_boot_status1=0x%x\n",
+				ccci_read32(md_boot_status0, 0), ccci_read32(md_boot_status1, 0));
+
+		iounmap(md_boot_status0);
+		iounmap(md_boot_status1);
+	}
+}
+
+/*
+ * get MD boot up status default value
+ * GEN95 and before == 0x54430007U;
+ * New GEN95 (6789,6781) == 0x5443000CU;
+ * GEN97 and GEN98 == 0x5443000CU;
+ * GEN98+ == 0x5443000FU;
+ * GEN99 == 0x54430012U;
+ */
+u32 get_expected_boot_status_val(void)
+{
+	u32 boot_status_val = 0;
+
+	if ((md_cd_plat_val_ptr.md_gen <= 6295) && !md_cd_plat_val_ptr.md_sub_ver)
+		boot_status_val = 0x54430007U;
+	else if (((md_cd_plat_val_ptr.md_gen == 6295) && md_cd_plat_val_ptr.md_sub_ver) ||
+		(md_cd_plat_val_ptr.md_gen == 6297) ||
+		((md_cd_plat_val_ptr.md_gen == 6298) && !md_cd_plat_val_ptr.md_sub_ver))
+		boot_status_val = 0x5443000CU;
+	else if ((md_cd_plat_val_ptr.md_gen == 6298) && md_cd_plat_val_ptr.md_sub_ver)
+		boot_status_val = 0x5443000FU;
+	else if (md_cd_plat_val_ptr.md_gen >= 6299)
+		boot_status_val = 0x54430012U;
+	else {
+		CCCI_ERROR_LOG(-1, TAG,
+			       "%s, unexpected MD Gen:%d (sub_ver:%d)\n",
+			       __func__, md_cd_plat_val_ptr.md_gen, md_cd_plat_val_ptr.md_sub_ver);
+		return 0;
+	}
+
+	return boot_status_val;
 }
 
 static atomic_t reg_dump_ongoing;
@@ -207,11 +282,14 @@ static void md_cd_dump_debug_register(struct ccci_modem *md)
 	unsigned int reg_value[2] = { 0 };
 	unsigned int ccif_sram[
 		CCCI_EE_SIZE_CCIF_SRAM/sizeof(unsigned int)] = { 0 };
+	u32 boot_status_val = 0;
 
 	/* EMI debug feature */
 #if IS_ENABLED(CONFIG_MTK_EMI)
 	mtk_emidbg_dump();
 #endif
+
+	boot_status_val = get_expected_boot_status_val();
 
 	md_cd_get_md_bootup_status(reg_value, 2);
 	md->ops->dump_info(md, DUMP_FLAG_CCIF, ccif_sram, 0);
@@ -220,10 +298,10 @@ static void md_cd_dump_debug_register(struct ccci_modem *md)
 		CCCI_MEM_LOG_TAG(md->index, TAG,
 			"((reg_value[0] == 0) && (ccif_sram[1] == 0))\n");
 		return;
-	} else if (!((reg_value[0] == 0x5443000CU) || (reg_value[0] == 0) ||
+	} else if (!((reg_value[0] == boot_status_val) || (reg_value[0] == 0) ||
 		(reg_value[0] >= 0x53310000 && reg_value[0] <= 0x533100FF))) {
-		CCCI_MEM_LOG_TAG(md->index, TAG,
-			"0x%X, no dump\n", reg_value[0]);
+		CCCI_MEM_LOG_TAG(0, TAG, "get 0x%X, expect 0x%X, no dump\n",
+			reg_value[0], boot_status_val);
 		return;
 	}
 	if (unlikely(in_interrupt())) {
@@ -238,7 +316,7 @@ static void md_cd_dump_debug_register(struct ccci_modem *md)
 	}
 
 	md_cd_lock_modem_clock_src(1);
-	md_dump_reg(md->index);
+	md_dump_reg(md);
 	md_cd_lock_modem_clock_src(0);
 
 	atomic_set(&reg_dump_ongoing, 0);
@@ -267,12 +345,11 @@ static void md1_pmic_setting_init(struct platform_device *plat_dev)
 		if (IS_ERR(md_reg_table[idx].reg_ref)) {
 			ret = PTR_ERR(md_reg_table[idx].reg_ref);
 			if ((ret != -ENODEV) && plat_dev->dev.of_node) {
-				CCCI_ERROR_LOG(-1, TAG,
-					"%s:get regulator(%s) fail, ret = %d\n",
-					__func__, md_reg_table[idx].reg_name, ret);
 				md_reg_table[idx].reg_vol0 = 0;
 				md_reg_table[idx].reg_vol0 = 0;
 			}
+			CCCI_ERROR_LOG(-1, TAG, "%s:get regulator(%s) fail, ret = %d\n",
+					__func__, md_reg_table[idx].reg_name, ret);
 		} else {
 			/* get regulator success and get value from dts */
 			ret = of_property_read_u32_array(plat_dev->dev.of_node,
@@ -690,6 +767,9 @@ static int md_start_platform(struct ccci_modem *md)
 
 	md1_pmic_setting_init(md->plat_dev);
 
+	if (md_cd_plat_val_ptr.md_gen < 6295)
+		return 0;
+
 	while (timeout > 0) {
 		arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG, MD_CHECK_DONE,
 			0, 0, 0, 0, 0, &res);
@@ -995,9 +1075,207 @@ static void md_pll_setting(struct ccci_modem *md)
 	CCCI_NORMAL_LOG(md->index, TAG, "[POWER ON] %s end, %d\n", __func__, ret);
 }
 
+static void md1_pre_access_md_reg(struct ccci_modem *md)
+{
+	unsigned int reg_value, reg_value1;
+
+	/* clear dummy reg flag to access modem reg */
+	regmap_read(md->hw_info->plat_val->infra_ao_base, INFRA_AP2MD_DUMMY_REG, &reg_value);
+	reg_value &= (~(0x1 << INFRA_AP2MD_DUMMY_BIT));
+	regmap_write(md->hw_info->plat_val->infra_ao_base, INFRA_AP2MD_DUMMY_REG, reg_value);
+	regmap_read(md->hw_info->plat_val->infra_ao_base, INFRA_AP2MD_DUMMY_REG, &reg_value);
+	CCCI_BOOTUP_LOG(0, TAG, "pre: ap2md dummy reg 0x%X: 0x%X\n",
+		INFRA_AP2MD_DUMMY_REG, reg_value);
+
+	/* disable MD to AP */
+	regmap_write(md->hw_info->plat_val->infra_ao_base, INFRA_MD2PERI_PROT_SET,
+		(0x1 << INFRA_MD2PERI_PROT_BIT));
+	reg_value = 0;
+	while (reg_value != (0x1 << INFRA_MD2PERI_PROT_BIT)) {
+		regmap_read(md->hw_info->plat_val->infra_ao_base,
+			INFRA_MD2PERI_PROT_RDY, &reg_value);
+		reg_value &= (0x1 << INFRA_MD2PERI_PROT_BIT);
+	}
+	regmap_read(md->hw_info->plat_val->infra_ao_base, INFRA_MD2PERI_PROT_EN, &reg_value);
+	regmap_read(md->hw_info->plat_val->infra_ao_base, INFRA_MD2PERI_PROT_RDY, &reg_value1);
+	CCCI_BOOTUP_LOG(0, TAG, "md2peri: en[0x%X], rdy[0x%X]\n", reg_value, reg_value1);
+}
+
+static void md1_post_access_md_reg(struct ccci_modem *md)
+{
+	unsigned int reg_value, reg_value1;
+
+	// disable AP to MD
+	regmap_write(md->hw_info->plat_val->infra_ao_base, INFRA_PERI2MD_PROT_SET,
+		(0x1 << INFRA_PERI2MD_PROT_BIT));
+
+	do {
+		regmap_read(md->hw_info->plat_val->infra_ao_base,
+			INFRA_PERI2MD_PROT_RDY, &reg_value);
+		reg_value &= (0x1 << INFRA_PERI2MD_PROT_BIT);
+	} while (reg_value != (0x1 << INFRA_PERI2MD_PROT_BIT));
+
+	regmap_read(md->hw_info->plat_val->infra_ao_base, INFRA_MD2PERI_PROT_EN, &reg_value);
+	regmap_read(md->hw_info->plat_val->infra_ao_base, INFRA_MD2PERI_PROT_RDY, &reg_value1);
+	CCCI_BOOTUP_LOG(0, TAG, "peri2md: en[0x%X], rdy[0x%X]\n", reg_value, reg_value1);
+
+	// enable MD to AP
+	regmap_write(md->hw_info->plat_val->infra_ao_base, INFRA_MD2PERI_PROT_CLR,
+		(0x1 << INFRA_MD2PERI_PROT_BIT));
+
+	do {
+		regmap_read(md->hw_info->plat_val->infra_ao_base,
+			INFRA_MD2PERI_PROT_RDY, &reg_value);
+		reg_value &= (0x1 << INFRA_MD2PERI_PROT_BIT);
+	} while (reg_value);
+
+	regmap_read(md->hw_info->plat_val->infra_ao_base, INFRA_MD2PERI_PROT_EN, &reg_value);
+	regmap_read(md->hw_info->plat_val->infra_ao_base, INFRA_MD2PERI_PROT_RDY, &reg_value1);
+	CCCI_BOOTUP_LOG(0, TAG, "md2peri: en[0x%X], rdy[0x%X]\n", reg_value, reg_value1);
+
+	// set dummy reg flag and let md access AP
+	regmap_read(md->hw_info->plat_val->infra_ao_base, INFRA_AP2MD_DUMMY_REG, &reg_value);
+	reg_value |= (0x1 << INFRA_AP2MD_DUMMY_BIT);
+	regmap_write(md->hw_info->plat_val->infra_ao_base, INFRA_AP2MD_DUMMY_REG, reg_value);
+
+	CCCI_BOOTUP_LOG(0, TAG,
+		"post: ap2md dummy reg 0x%X: 0x%X\n", INFRA_AP2MD_DUMMY_REG,
+		reg_value);
+}
+
+void md1_pll_init(struct ccci_modem *md)
+{
+	struct md_sys1_info *md_info = (struct md_sys1_info *)md->private_data;
+	struct md_pll_reg *md_pll = md_info->md_pll_base;
+	void __iomem *map_addr = ioremap(0x1000C000, 0x1000);
+	int cnt = 0;
+	unsigned int reg_val;
+
+	if (!md_pll->md_top_Pll || !md_pll->md_top_clkSW)
+		CCCI_NORMAL_LOG(0, TAG, "pll init: missing mapping\n");
+
+	reg_val = ccci_read32(md_pll->md_top_Pll, 0x0);
+	CCCI_BOOTUP_LOG(0, TAG, "md_top_Pll[0x%X] val:0x%X before\n", md_pll->md_top_Pll, reg_val);
+
+	while (1) {
+		reg_val = ccci_read32(md_pll->md_top_Pll, 0x0);
+		if (reg_val != 0)
+			break;
+		msleep(20);
+	}
+
+	CCCI_BOOTUP_LOG(0, TAG, "md_top_Pll[0x%X] val:0x%X after\n", md_pll->md_top_Pll, reg_val);
+	/* Enables clock square1 low-pass filter for 26M quality. */
+	ROr2W(map_addr, 0x0, 0x2);
+	udelay(100);
+
+	/* Default md_srclkena_ack settle time = 147T 32K */
+	ccci_write32(md_pll->md_top_Pll, 0x4, 0x02020E93);
+
+	/* PLL init */
+	ccci_write32(md_pll->md_top_Pll, 0x60, 0x801713B1);
+	ccci_write32(md_pll->md_top_Pll, 0x58, 0x80171400);
+	ccci_write32(md_pll->md_top_Pll, 0x50, 0x80229E00);
+	ccci_write32(md_pll->md_top_Pll, 0x48, 0x80204E00);
+	ccci_write32(md_pll->md_top_Pll, 0x40, 0x80213C00);
+
+	while ((ccci_read32(md_pll->md_top_Pll, 0xC00) >> 14) & 0x1)
+		;
+
+	RAnd2W(md_pll->md_top_Pll, 0x64, ~(0x80));
+
+	ccci_write32(md_pll->md_top_Pll, 0x104, 0x4C43100);
+	ccci_write32(md_pll->md_top_Pll, 0x10, 0x100010);
+	do {
+		reg_val = ccci_read32(md_pll->md_top_Pll, 0x10);
+		cnt++;
+		if ((cnt % 5) == 0) {
+			CCCI_BOOTUP_LOG(0, TAG,
+				"pll init: rewrite 0x100010(%d)\n", cnt);
+			ccci_write32(md_pll->md_top_Pll, 0x10, 0x100010);
+		}
+		msleep(20);
+	} while (reg_val != 0x100010);
+	CCCI_BOOTUP_LOG(0, TAG,
+		"pll init: check 0x100010[0x%X], cnt:%d\n", reg_val, cnt);
+
+	while ((ccci_read32(md_pll->md_top_clkSW, 0x84) & 0x8000) != 0x8000) {
+		msleep(20);
+		CCCI_BOOTUP_LOG(0, TAG, "pll init: [0x%x]=0x%x\n",
+			MDTOP_CLKSW_BASE + 0x84,
+			ccci_read32(md_pll->md_top_clkSW, 0x84));
+	}
+
+	ROr2W(md_pll->md_top_clkSW, 0x24, 0x3);
+	ROr2W(md_pll->md_top_clkSW, 0x24, 0x58103FC);
+	ROr2W(md_pll->md_top_clkSW, 0x28, 0x10);
+
+	ccci_write32(md_pll->md_top_clkSW, 0x20, 0x1);
+
+	ccci_write32(md_pll->md_top_Pll, 0x314, 0xFFFF);
+	ccci_write32(md_pll->md_top_Pll, 0x318, 0xFFFF);
+
+	/*make a record that means MD pll has been initialized.*/
+	ccci_write32(md_pll->md_top_Pll, 0xF00, 0x62930000);
+	CCCI_BOOTUP_LOG(0, TAG, "pll init: end\n");
+}
+
+int md_cd_vcore_config(unsigned int md_id, unsigned int hold_req)
+{
+	static int is_hold;
+	int volt_cnt, volt, ret;
+	struct regulator *reg_ref;
+	struct ccci_modem *md;
+
+	md = ccci_md_get_modem_by_id(0);
+	if (!md)
+		return -1;
+	if (md_cd_plat_val_ptr.md_gen >= 6295)
+		return 0;
+
+	reg_ref = devm_regulator_get(&md->plat_dev->dev, "dvfsrc-vcore");
+	if (IS_ERR(reg_ref)) {
+		pr_notice("%s: get regulator fail(%d)\n", __func__, PTR_ERR(reg_ref));
+		return PTR_ERR(reg_ref);
+	}
+
+	CCCI_BOOTUP_LOG(0, TAG,
+		"[POWER ON]%s: is_hold=%d, hold_req=%d\n", __func__, is_hold, hold_req);
+	if (hold_req && is_hold == 0) {
+		volt_cnt = regulator_count_voltages(reg_ref);
+		if (volt_cnt <= 0) {
+			CCCI_NORMAL_LOG(0, TAG, "%s: regulator_count_voltages fail(%d)\n",
+				__func__, volt_cnt);
+			return -EINVAL;
+		}
+		volt = regulator_list_voltage(reg_ref, volt_cnt - 1);
+
+		CCCI_NORMAL_LOG(0, TAG, "[POWER ON]%s: set vcore voltage(%d)\n", __func__, volt);
+		CCCI_BOOTUP_LOG(0, TAG, "[POWER ON]%s: set vcore voltage(%d)\n", __func__, volt);
+		regulator_set_voltage(reg_ref, volt, INT_MAX);
+		ret = regulator_get_voltage(reg_ref);
+		if (ret < 0)
+			CCCI_BOOTUP_LOG(0, TAG, "[POWER ON]%s: get voltage fail, ret:%d\n",
+					__func__, ret);
+		CCCI_BOOTUP_LOG(0, TAG, "[POWER ON]%s: get vcore voltage(%d)\n", __func__, ret);
+
+		is_hold = 1;
+	} else if (hold_req == 0 && is_hold) {
+		is_hold = 0;
+
+
+	} else
+		CCCI_ERROR_LOG(0, TAG,
+			"[POWER ON]%s: invalid hold_req: is_hold=%d, hold_req=%d\n",
+			__func__, is_hold, hold_req);
+
+	return 0;
+}
+
 static int md_cd_power_on(struct ccci_modem *md)
 {
 	int ret = 0;
+	void __iomem *md_rgu_base;
 
 	/* step 1: PMIC setting */
 	md1_pmic_setting_on();
@@ -1040,35 +1318,46 @@ static int md_cd_power_on(struct ccci_modem *md)
 
 	/* steip 3: power on MD_INFRA and MODEM_TOP */
 	flight_mode_set_by_atf(md, false);
-	CCCI_BOOTUP_LOG(md->index, TAG,
-		"[POWER ON] MD MTCMOS ON start\n");
-	CCCI_NORMAL_LOG(md->index, TAG,
-		"[POWER ON] MD MTCMOS ON start\n");
+
 #ifdef USING_PM_RUNTIME
+#if IS_ENABLED(CONFIG_COMMON_CLK_PG_LEGACY)
+	ret = clk_prepare_enable(clk_table[0].clk_ref);
+	CCCI_BOOTUP_LOG(md->index, TAG, "[POWER ON] CONFIG_COMMON_CLK_PG_LEGACY enabled\n");
+	CCCI_NORMAL_LOG(md->index, TAG, "[POWER ON] CONFIG_COMMON_CLK_PG_LEGACY enabled\n");
+#endif
 	ret = pm_runtime_get_sync(&md->plat_dev->dev);
 #else
 	ret = clk_prepare_enable(clk_table[0].clk_ref);
 #endif
-	CCCI_BOOTUP_LOG(md->index, TAG,
-		"[POWER ON] MD MTCMOS ON end: ret = %d\n", ret);
-	CCCI_NORMAL_LOG(md->index, TAG,
-		"[POWER ON] MD MTCMOS ON end: ret = %d\n", ret);
+	CCCI_BOOTUP_LOG(md->index, TAG, "[POWER ON] MD MTCMOS ON end: ret = %d\n", ret);
+	CCCI_NORMAL_LOG(md->index, TAG, "[POWER ON] MD MTCMOS ON end: ret = %d\n", ret);
 
 #if IS_ENABLED(CONFIG_MTK_PBM)
 	kicker_pbm_by_md(KR_MD1, true);
-	CCCI_BOOTUP_LOG(md->index, TAG,
-		"Call end kicker_pbm_by_md(0,true)\n");
+	CCCI_BOOTUP_LOG(md->index, TAG, "Call end kicker_pbm_by_md(0, true)\n");
 #endif
-
 	if (ret)
 		return ret;
+
+	if (md_cd_plat_val_ptr.md_gen == 6293)
+		md1_pre_access_md_reg(md);
 
 #ifdef FEATURE_INFORM_NFC_VSIM_CHANGE
 	/* notify NFC */
 	inform_nfc_vsim_change(md->index, 1, 0);
 #endif
 
-	md_pll_setting(md);
+	if (md_cd_plat_val_ptr.md_gen < 6295) {
+		/* step 5: pll init */
+		md1_pll_init(md);
+
+		/* step 8: disable MD WDT */
+		md_rgu_base = ioremap(0x200f0100, 0x300);
+		ccci_write32(md_rgu_base, 0, 0x55000030); //0x200f0000 + 0x100
+		CCCI_BOOTUP_LOG(0, TAG, "[POWER ON] disable MD WDT, 0x%x=0x%x\n",
+			md_rgu_base, ccci_read32(md_rgu_base, 0));
+	} else
+		md_pll_setting(md);
 
 	/* md_first_power_on set 1 */
 	md_cd_plat_val_ptr.md_first_power_on = 1;
@@ -1079,21 +1368,41 @@ static int md_cd_power_on(struct ccci_modem *md)
 static int md_cd_let_md_go(struct ccci_modem *md)
 {
 	struct arm_smccc_res res;
+	void __iomem *md_boot_slave_en;
 
 	if (MD_IN_DEBUG(md))
 		return -1;
-	CCCI_BOOTUP_LOG(md->index, TAG, "[POWER ON]set MD boot slave\n");
-	CCCI_NORMAL_LOG(md->index, TAG, "[POWER ON]set MD boot slave\n");
+	CCCI_BOOTUP_LOG(0, TAG, "[POWER ON]set MD boot slave\n");
+	CCCI_NORMAL_LOG(0, TAG, "[POWER ON]set MD boot slave\n");
 
 	/* make boot vector take effect */
 	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
 		MD_KERNEL_BOOT_UP, 0, 0, 0, 0, 0, &res);
-	CCCI_BOOTUP_LOG(md->index, TAG,
-		"[POWER ON]set MD boot slave done: ret=%lx, boot_status_0=%lx, boot_status_1=%lx, boot_slave = %lx\n",
+	CCCI_BOOTUP_LOG(0, TAG,
+		"[POWER ON]set MD boot slave done: ret=%lu, boot_status_0=%lu, boot_status_1=%lu, boot_slave = %lu\n",
 		res.a0, res.a1, res.a2, res.a3);
-	CCCI_NORMAL_LOG(md->index, TAG,
-		"[POWER ON]set MD boot slave done: ret=%lx, boot_status_0=%lx, boot_status_1=%lx, boot_slave = %lx\n",
+	CCCI_NORMAL_LOG(0, TAG,
+		"[POWER ON]set MD boot slave done: ret=%lu, boot_status_0=%lu, boot_status_1=%lu, boot_slave = %lu\n",
 		res.a0, res.a1, res.a2, res.a3);
+
+	if (res.a0 && md_cd_plat_val_ptr.md_gen < 6295) {
+		md_boot_slave_en = ioremap(0x20000024, 0x4);
+
+		CCCI_BOOTUP_LOG(0, TAG, "MD boot slave[0x%x] = 0x%x\n",
+						md_boot_slave_en, ccci_read32(md_boot_slave_en, 0));
+		ccci_write32(md_boot_slave_en, 0, 1);
+		CCCI_BOOTUP_LOG(0, TAG, "MD boot slave[0x%x] = 0x%x\n",
+						md_boot_slave_en, ccci_read32(md_boot_slave_en, 0));
+
+		CCCI_BOOTUP_LOG(0, TAG, "MD boot slave[0x%x] = 0x%x\n",
+						md_boot_slave_en, ccci_read32(md_boot_slave_en, 0));
+
+		iounmap(md_boot_slave_en);
+		md1_post_access_md_reg(md);
+		md_cd_get_md_bootup_status(NULL, 0);
+	}
+
+	CCCI_BOOTUP_LOG(0, TAG, "[POWER ON] %s done\n", __func__);
 
 	return 0;
 }
@@ -1114,7 +1423,7 @@ static struct ccci_plat_ops md_cd_plat_ptr = {
 	.power_on = &md_cd_power_on,
 	.let_md_go = &md_cd_let_md_go,
 	.power_off = &md_cd_power_off,
-	.vcore_config = NULL,
+	.vcore_config = md_cd_vcore_config,
 };
 
 static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
@@ -1200,6 +1509,17 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		return -1;
 	}
 
+	/* "mediatek,md_sub_version" = 0 or can't find this properity
+	 * defaults to the MD major generation, such as Gen98;
+	 * when this value is set to 1 in dts, it refers to an advanced
+	 * subversion of the same MD major generation, such as Gen98+
+	 */
+	ret = of_property_read_u32(dev_ptr->dev.of_node,
+		"mediatek,md_sub_version", &md_cd_plat_val_ptr.md_sub_ver);
+	if (ret < 0) {
+		CCCI_NORMAL_LOG(0, TAG, "%s: No md_sun_ver found\n", __func__);
+		md_cd_plat_val_ptr.md_sub_ver = 0;
+	}
 
 	md_cd_plat_val_ptr.infra_ao_base =
 			syscon_regmap_lookup_by_phandle(dev_ptr->dev.of_node,
@@ -1265,10 +1585,9 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 			"%s:srclken_o1_bit=0x%x\n",
 			__func__, md_cd_plat_val_ptr.srclken_o1_bit);
 
-	if (hw_info->ap_ccif_irq1_id == 0 ||
-		hw_info->md_wdt_irq_id == 0) {
+	if (hw_info->ap_ccif_irq1_id == 0 || hw_info->md_wdt_irq_id == 0) {
 		CCCI_ERROR_LOG(dev_cfg->index, TAG,
-			"ccif_irq1:%d, md_wdt_irq:%d\n",
+			"error: ccif_irq1:%d, md_wdt_irq:%d\n",
 			hw_info->ap_ccif_irq1_id, hw_info->md_wdt_irq_id);
 		return -1;
 	}
@@ -1296,19 +1615,20 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 #ifdef USING_PM_RUNTIME
 	pm_runtime_enable(&dev_ptr->dev);
 	dev_pm_syscore_device(&dev_ptr->dev, true);
+	if (md_cd_plat_val_ptr.md_gen > 6293) {
 
-	CCCI_BOOTUP_LOG(dev_cfg->index, TAG,
-		"[POWER ON] dummy: MD MTCMOS ON start\n");
-	CCCI_NORMAL_LOG(dev_cfg->index, TAG,
-		"[POWER ON] dummy: MD MTCMOS ON start\n");
+		CCCI_BOOTUP_LOG(0, TAG,
+			"[POWER ON] dummy: MD MTCMOS ON start\n");
+		CCCI_NORMAL_LOG(0, TAG,
+			"[POWER ON] dummy: MD MTCMOS ON start\n");
 
-	retval = pm_runtime_get_sync(&dev_ptr->dev); /* match lk on */
+		retval = pm_runtime_get_sync(&dev_ptr->dev); /* match lk on */
 
-	CCCI_BOOTUP_LOG(dev_cfg->index, TAG,
-		"[POWER ON] dummy: MD MTCMOS ON end %d\n", retval);
-	CCCI_NORMAL_LOG(dev_cfg->index, TAG,
-		"[POWER ON] dummy: MD MTCMOS ON end %d\n", retval);
-
+		CCCI_BOOTUP_LOG(0, TAG,
+			"[POWER ON] dummy: MD MTCMOS ON end %d\n", retval);
+		CCCI_NORMAL_LOG(0, TAG,
+			"[POWER ON] dummy: MD MTCMOS ON end %d\n", retval);
+	}
 #endif
 
 	return 0;

@@ -756,14 +756,13 @@ static void md_HS1_Fail_dump(int md_id, char *ex_info, unsigned int len)
 	unsigned int ccif_sram[CCCI_EE_SIZE_CCIF_SRAM/sizeof(unsigned int)]
 	= { 0 };
 	int ret = 0;
+	u32 boot_status_val = get_expected_boot_status_val();
 
-	ccci_md_dump_info(md_id,
-		DUMP_MD_BOOTUP_STATUS, reg_value, 2);
-	ccci_md_dump_info(md_id,
-				DUMP_FLAG_CCIF, ccif_sram, 0);
+	ccci_md_dump_info(md_id, DUMP_MD_BOOTUP_STATUS, reg_value, 2);
+	ccci_md_dump_info(md_id, DUMP_FLAG_CCIF, ccif_sram, 0);
 
 	CCCI_MEM_LOG_TAG(md_id, FSM,
-		"md_boot_stats0 /1 / bootuptrace:0x%X / 0x%X / 0x%X\n",
+		"md_boot_status0 /1 / bootuptrace:0x%X / 0x%X / 0x%X\n",
 		reg_value[0], reg_value[1], ccif_sram[0]);
 	if ((reg_value[0] == 0) && (ccif_sram[0] == 0)) {
 		ret = scnprintf(ex_info, len,
@@ -771,19 +770,15 @@ static void md_HS1_Fail_dump(int md_id, char *ex_info, unsigned int len)
 			"boot_status0: 0x%x\nboot_status1: 0x%x\n"
 			"MD Offender:DVFS\n",
 			0, reg_value[0], reg_value[1]);
-	} else if ((reg_value[0] == 0x5443000C) ||
+	} else if ((reg_value[0] == boot_status_val) ||
 				(reg_value[0] == 0) ||
 				(reg_value[0] >= 0x53310000 &&
 				reg_value[0] <= 0x533100FF)) {
-		ret = scnprintf(ex_info, len,
-			"\n[Others] MD_BOOT_UP_FAIL(HS%d)\n",
-			1);
-		ccci_md_dump_info(md_id,
-			DUMP_FLAG_REG, NULL, 0);
+		ret = scnprintf(ex_info, len, "\n[Others] MD_BOOT_UP_FAIL(HS%d)\n", 1);
+		ccci_md_dump_info(md_id, DUMP_FLAG_REG, NULL, 0);
 		msleep(10000);
-		ccci_md_dump_info(md_id,
-			DUMP_FLAG_REG, NULL, 0);
-	}  else {
+		ccci_md_dump_info(md_id, DUMP_FLAG_REG, NULL, 0);
+	} else {
 	/* ((reg_value[0] >= 0x54430001 &&
 	 * reg_value[0] <= 0x54430006) ||
 	 * (reg_value[0] >= 0x53310100 &&

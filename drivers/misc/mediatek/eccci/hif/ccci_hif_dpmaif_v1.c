@@ -1041,7 +1041,6 @@ static int dpmaif_net_rx_push_thread(void *arg)
 #else
 		ccci_port_recv_skb(hif_ctrl->md_id, hif_ctrl->hif_id, skb,
 			CLDMA_NET_DATA);
-		//ccci_md_recv_skb(hif_ctrl->md_id, hif_ctrl->hif_id, skb);
 		count++;
 #endif
 

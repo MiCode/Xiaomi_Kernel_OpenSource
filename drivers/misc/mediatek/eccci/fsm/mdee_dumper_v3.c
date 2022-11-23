@@ -693,14 +693,13 @@ static void md_HS1_Fail_dump(int md_id, char *ex_info, unsigned int len)
 	unsigned int ccif_sram[CCCI_EE_SIZE_CCIF_SRAM/sizeof(unsigned int)]
 	= { 0 };
 	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	u32 boot_status_val = get_expected_boot_status_val();
 
-	ccci_md_dump_info(md_id,
-		DUMP_MD_BOOTUP_STATUS, reg_value, 2);
-	ccci_md_dump_info(md_id,
-				DUMP_FLAG_CCIF, ccif_sram, 0);
+	ccci_md_dump_info(md_id, DUMP_MD_BOOTUP_STATUS, reg_value, 2);
+	ccci_md_dump_info(md_id, DUMP_FLAG_CCIF, ccif_sram, 0);
 
 	CCCI_MEM_LOG_TAG(md_id, FSM,
-		"md_boot_stats0 /1 / bootuptrace:0x%X / 0x%X / 0x%X\n",
+		"md_boot_status0 /1 / bootuptrace:0x%X / 0x%X / 0x%X\n",
 		reg_value[0], reg_value[1], ccif_sram[0]);
 	if ((reg_value[0] == 0) && (ccif_sram[0] == 0)) {
 		scnprintf(ex_info, len,
@@ -709,46 +708,22 @@ static void md_HS1_Fail_dump(int md_id, char *ex_info, unsigned int len)
 			"MD Offender:DVFS\n",
 			0, reg_value[0], reg_value[1]);
 
-	} else if (((reg_value[0] == 0x5443000C) ||
+	} else if (((reg_value[0] == boot_status_val) ||
 				(reg_value[0] == 0) ||
 				(reg_value[0] >= 0x53310000 &&
 				reg_value[0] <= 0x533100FF)) &&
 				(md->hw_info->plat_val->md_gen >= 6295)) {
-		scnprintf(ex_info, len,
-			"\n[Others] MD_BOOT_UP_FAIL(HS%d)\n",
-			1);
-		ccci_md_dump_info(md_id,
-			DUMP_FLAG_REG, NULL, 0);
+		scnprintf(ex_info, len, "\n[Others] MD_BOOT_UP_FAIL(HS%d)\n", 1);
+		ccci_md_dump_info(md_id, DUMP_FLAG_REG, NULL, 0);
 		msleep(10000);
-		ccci_md_dump_info(md_id,
-			DUMP_FLAG_REG, NULL, 0);
-	} else if (((reg_value[0] == 0x54430007) ||
-				(reg_value[0] == 0) ||
-				(reg_value[0] >= 0x53310000 &&
-				reg_value[0] <= 0x533100FF)) &&
-				(md->hw_info->plat_val->md_gen < 6295)) {
-		scnprintf(ex_info, len,
-			"\n[Others] MD_BOOT_UP_FAIL(HS%d)\n",
-			1);
-		ccci_md_dump_info(md_id,
-			DUMP_FLAG_REG, NULL, 0);
-		msleep(10000);
-		ccci_md_dump_info(md_id,
-			DUMP_FLAG_REG, NULL, 0);
-	}  else {
-	/* ((reg_value[0] >= 0x54430001 &&
-	 * reg_value[0] <= 0x54430006) ||
-	 * (reg_value[0] >= 0x53310100 &&
-	 * reg_value[0] <= 0x5331FFFF))
-	 * or else
-	 */
+		ccci_md_dump_info(md_id, DUMP_FLAG_REG, NULL, 0);
+	} else {
 		scnprintf(ex_info, len,
 			"\n[Others] MD_BOOT_UP_FAIL(HS%d - MD bootrom failed)\n"
 			"boot_status0: 0x%x\nboot_status1: 0x%x\n"
 			"MD Offender:BOOTROM\n",
 			0, reg_value[0], reg_value[1]);
 	}
-
 }
 
 static void mdee_dumper_v3_dump_ee_info(struct ccci_fsm_ee *mdee,
@@ -784,11 +759,9 @@ static void mdee_dumper_v3_dump_ee_info(struct ccci_fsm_ee *mdee,
 			CCCI_MEM_LOG_TAG(md_id, FSM, "Dump MD EX log\n");
 			if (md_dbg_dump_flag & (1U << MD_DBG_DUMP_SMEM)) {
 				ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
-					mdccci_dbg->base_ap_view_vir,
-						mdccci_dbg->size);
+					mdccci_dbg->base_ap_view_vir, mdccci_dbg->size);
 				ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
-					mdss_dbg->base_ap_view_vir,
-						mdss_dbg->size);
+					mdss_dbg->base_ap_view_vir, mdss_dbg->size);
 				if (md && md->hw_info && md->hw_info->md_l2sram_base) {
 					md_cd_lock_modem_clock_src(1);
 

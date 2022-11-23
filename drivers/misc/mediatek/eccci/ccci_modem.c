@@ -767,7 +767,7 @@ void ccci_md_config(struct ccci_modem *md)
 			, md->mem_layout.md_bank4_cacheable_total.size);
 		if (md->index == MD_SYS1) {
 			md->mem_layout.md_bank4_cacheable_total.base_md_view_phy
-				= 0x40000000 + (224 * 1024 * 1024) +
+				= 0x40000000 + get_md_smem_cachable_offset(MD_SYS1) +
 			md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy
 				- round_down(
 			md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy
@@ -1207,12 +1207,6 @@ int ccci_md_stop(unsigned char md_id, unsigned int stop_type)
 	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
 
 	return md->ops->stop(md, stop_type);
-}
-
-int __weak md_cd_vcore_config(unsigned int md_id, unsigned int hold_req)
-{
-	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
-	return 0;
 }
 
 int ccci_md_pre_start(unsigned char md_id)
@@ -2318,11 +2312,16 @@ EXPORT_SYMBOL(ccci_get_per_md_data);
 static void receive_wakeup_src_notify(int md_id, char *buf, unsigned int len)
 {
 	int tmp_data = 0;
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
 
 	if (len == 0) {
 		/* before spm add MD_WAKEUP_SOURCE parameter. */
 		if (md_id == MD_SYS1) {
-			ccci_hif_set_wakeup_src(MD1_NET_HIF, 1);
+			if (md->hw_info->plat_val->md_gen < 6295)
+				ccci_hif_set_wakeup_src(CLDMA_HIF_ID, 1);
+			else
+				ccci_hif_set_wakeup_src(MD1_NET_HIF, 1);
+
 			ccci_hif_set_wakeup_src(CCIF_HIF_ID, 1);
 		}
 		if (md_id == MD_SYS3)
@@ -2339,6 +2338,8 @@ static void receive_wakeup_src_notify(int md_id, char *buf, unsigned int len)
 		ccci_hif_set_wakeup_src(CCIF_HIF_ID, 1);
 		break;
 	case WAKE_SRC_HIF_CLDMA:
+		ccci_hif_set_wakeup_src(CLDMA_HIF_ID, 1);
+		break;
 	case WAKE_SRC_HIF_DPMAIF:
 		ccci_hif_set_wakeup_src(MD1_NET_HIF, 1);
 		break;

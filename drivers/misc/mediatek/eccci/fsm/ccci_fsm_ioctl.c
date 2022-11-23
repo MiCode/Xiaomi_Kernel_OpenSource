@@ -60,12 +60,9 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 	case CCCI_IOC_GET_MD_PROTOCOL_TYPE:
-		snprintf(buffer, sizeof(buffer), "%d",
-			md_gen);
-		snprintf((void *)ap_platform, sizeof(ap_platform), "%d",
-			md_gen);
-		if (copy_to_user((void __user *)arg,
-			ap_platform, sizeof(ap_platform))) {
+		snprintf(buffer, sizeof(buffer), "%d", md_gen);
+		snprintf((void *)ap_platform, sizeof(ap_platform), "%d", md_gen);
+		if (copy_to_user((void __user *)arg, ap_platform, sizeof(ap_platform))) {
 			CCCI_ERROR_LOG(md_id, FSM,
 				"CCCI_IOC_GET_MD_PROTOCOL_TYPE: copy_from_user fail\n");
 			return -EFAULT;

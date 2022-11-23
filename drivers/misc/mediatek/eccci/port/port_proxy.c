@@ -1551,10 +1551,10 @@ static inline void proxy_dispatch_queue_status(struct port_proxy *proxy_p,
 		}
 	}
 	/*handle ccmni tx queue or tx ack queue state change*/
-	if (!matched && hif == MD1_NET_HIF) {
+	if ((!matched && hif == MD1_NET_HIF) || (!matched && hif == CLDMA_HIF_ID)) {
 		for (i = 0; i < proxy_p->port_number; i++) {
 			port = proxy_p->ports + i;
-			if (port->hif_id == MD1_NET_HIF) {
+			if ((port->hif_id == MD1_NET_HIF) || (port->hif_id == CLDMA_HIF_ID)) {
 				/* consider network data/ack queue design */
 				if (dir == OUT)
 					match = qno == port->txq_index
