@@ -28,19 +28,20 @@ ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/misc/mediatek/include/mt-
 
 
 ifeq ($(CONFIG_MTK_CAMERA_DPE_ISP7),m)
-
 obj-$(CONFIG_MTK_CAMERA_DPE_ISP7) += camera_dpe_isp70.o
-
 camera_dpe_isp70-objs += isp_70/engine_request.o
 camera_dpe_isp70-objs  += isp_70/camera_dpe.o
 camera_dpe_isp70-objs += isp_70/videobuf2-dma-contig.o
-
 endif
 
 ifeq ($(CONFIG_MTK_CAMERA_DPE_ISP6S),m)
 obj-$(CONFIG_MTK_CAMERA_DPE_ISP6S) += camera_dpe_isp60.o
-
 camera_dpe_isp60-objs += isp_60/engine_request.o
 camera_dpe_isp60-objs  += isp_60/camera_dpe.o
 camera_dpe_isp60-objs += isp_60/videobuf2-dma-contig.o
+endif
+
+ifeq ($(CONFIG_MTK_CAMERA_DPE_ISP40),m)
+obj-$(CONFIG_MTK_CAMERA_DPE_ISP40) += camera_dpe_isp40.o
+camera_dpe_isp40-objs += isp_40/camera_dpe.o
 endif
