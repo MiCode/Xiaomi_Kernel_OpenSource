@@ -312,4 +312,12 @@ unsigned int g_ptpod_opp_idx_table[] = {
 	25, 27, 29, 31
 };
 
+struct mt_gpufreq_power_table_info {
+	unsigned int gpufreq_khz;
+	unsigned int gpufreq_volt;
+	unsigned int gpufreq_power;
+};
+
+#define MT_GPUFREQ_STATIC_PWR_READY2USE
+
 #endif /* __GPUFREQ_MT6879_H__ */

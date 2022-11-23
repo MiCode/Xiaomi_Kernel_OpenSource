@@ -35,4 +35,11 @@ extern unsigned int mt_gpufreq_get_ori_opp_idx(unsigned int idx);
 extern unsigned int mt_gpufreq_get_volt_by_real_idx(unsigned int idx);
 extern unsigned int mt_gpufreq_get_freq_by_real_idx(unsigned int idx);
 
+/* Thermal for legacy chip*/
+extern struct mt_gpufreq_power_table_info *mt_gpufreq_get_power_table(void);
+extern unsigned int mt_gpufreq_get_seg_max_opp_index(void);
+extern unsigned int mt_gpufreq_get_dvfs_table_num(void);
+extern unsigned int mt_gpufreq_get_power_table_num(void);
+extern void mt_gpufreq_set_gpu_wrap_fp(int (*gpu_wrap_fp)(void));
+
 #endif /* __GPU_MISC_H__ */

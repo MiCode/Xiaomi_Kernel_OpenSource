@@ -212,6 +212,8 @@ struct gpufreq_platform_fp {
 	int (*generic_commit_stack)(int target_oppidx, enum gpufreq_dvfs_state key);
 	int (*fix_target_oppidx_stack)(int oppidx);
 	int (*fix_custom_freq_volt_stack)(unsigned int freq, unsigned int volt);
+	int (*get_idx_by_pgpu)(unsigned int power);
+	void (*update_power_table)(void);
 };
 
 struct gpuppm_platform_fp {
@@ -265,6 +267,8 @@ unsigned int gpufreq_get_leakage_power(enum gpufreq_target target, unsigned int 
 unsigned int gpufreq_get_dynamic_power(enum gpufreq_target target,
 	unsigned int freq, unsigned int volt);
 int gpufreq_set_limit(enum gpufreq_target target,
+	enum gpuppm_limiter limiter, int ceiling_info, int floor_info);
+int gpufreq_set_limit_by_power(enum gpufreq_target target,
 	enum gpuppm_limiter limiter, int ceiling_info, int floor_info);
 int gpufreq_get_cur_limit_idx(enum gpufreq_target target,enum gpuppm_limit_type limit);
 unsigned int gpufreq_get_cur_limiter(enum gpufreq_target target, enum gpuppm_limit_type limit);

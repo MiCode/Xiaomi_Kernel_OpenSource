@@ -22,6 +22,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/power_throttling/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/pbm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/aee/aed/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/leakage_table_v2/
 
 ccflags-y += \
 	-Wno-unused-variable \
