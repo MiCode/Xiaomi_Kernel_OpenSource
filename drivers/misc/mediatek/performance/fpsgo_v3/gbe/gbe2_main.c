@@ -117,6 +117,9 @@ static int check_dep_run_and_update(struct gbe_boost_unit *iter)
 	unsigned long long new_runtime = 0;
 	int tmplen;
 
+	if (!gbe_enable)
+		return ret;
+
 	for (i = 0; i < iter->dep_num; i++) {
 		rcu_read_lock();
 		p = find_task_by_vpid(iter->dep[i].pid);
