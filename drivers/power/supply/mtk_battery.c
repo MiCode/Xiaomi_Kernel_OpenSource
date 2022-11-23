@@ -923,8 +923,10 @@ int gauge_get_property(enum gauge_property gp,
 	int ret = 0;
 
 	psy = power_supply_get_by_name("mtk-gauge");
-	if (psy == NULL)
+	if (psy == NULL) {
+		bm_err("Cannot get power supply of name\n");
 		return -ENODEV;
+	}
 
 	gauge = (struct mtk_gauge *)power_supply_get_drvdata(psy);
 	gm = gauge->gm;
@@ -967,8 +969,10 @@ int gauge_set_property(enum gauge_property gp,
 	struct mtk_gauge_sysfs_field_info *attr;
 
 	psy = power_supply_get_by_name("mtk-gauge");
-	if (psy == NULL)
+	if (psy == NULL) {
+		bm_err("Cannot get power supply of name\n");
 		return -ENODEV;
+	}
 
 	gauge = (struct mtk_gauge *)power_supply_get_drvdata(psy);
 	attr = gauge->attr;
