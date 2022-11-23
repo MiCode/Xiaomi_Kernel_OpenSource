@@ -528,13 +528,6 @@ static void scp_A_ready_ipi_handler(int id, void *data, unsigned int len)
 	scp_ram_dump_init();
 }
 
-__attribute__((weak)) void report_hub_dmd(uint32_t case_id,
-				uint32_t sensor_id, char *context)
-{
-	pr_notice("[SCP] weak function to do nothing for cid(%d), sid(%d)\n",
-			case_id, sensor_id);
-}
-
 
 /*
  * Handle notification from scp.
@@ -560,7 +553,6 @@ static void scp_err_info_handler(int id, void *data, unsigned int len)
 	pr_notice("[SCP] Error_info: sensor id: %u\n", info->sensor_id);
 	pr_notice("[SCP] Error_info: context: %s\n", info->context);
 
-	report_hub_dmd(info->case_id, info->sensor_id, info->context);
 }
 
 

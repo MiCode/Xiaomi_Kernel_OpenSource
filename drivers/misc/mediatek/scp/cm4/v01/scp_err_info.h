@@ -26,9 +26,5 @@ struct error_info {
 };
 
 
-__attribute__((weak)) void report_hub_dmd(uint32_t case_id, uint32_t sensor_id,
-						char *context);
-
-
 #endif  // SCP_ERR_INFO_H
 

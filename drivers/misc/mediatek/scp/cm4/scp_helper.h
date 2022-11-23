@@ -167,8 +167,5 @@ extern struct scp_region_info_st *scp_region_info;
 extern void __iomem *scp_l1c_start_virt;
 #endif
 
-__attribute__((weak))
-int sensor_params_to_scp(void *addr_vir, size_t size);
-
 #endif
 
