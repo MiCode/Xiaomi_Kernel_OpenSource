@@ -104,7 +104,7 @@ struct smartcharging {
 	int sc_ibat;
 	int pre_ibat;
 	int bh;
-
+	int last_solution;
 	bool disable_in_this_plug;
 };
 
