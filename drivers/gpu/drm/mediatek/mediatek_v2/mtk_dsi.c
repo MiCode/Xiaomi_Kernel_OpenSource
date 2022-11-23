@@ -7413,7 +7413,7 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 		data_rate = data_rate * bdg_rxtx_ratio / 100;
 
 	dsi->ext = find_panel_ext(dsi->panel);
-	if (dsi->ext->params->dsc_params.enable)
+	if (dsi->ext && dsi->ext->params->dsc_params.enable)
 		bpp = dsi->ext->params->dsc_params.bit_per_channel * 3;
 
 	bw_base = vact * hact * vrefresh * 4 / 1000;
