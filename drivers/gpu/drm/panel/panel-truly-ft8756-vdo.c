@@ -729,7 +729,12 @@ static struct mtk_panel_params ext_params = {
 		.count = 1,
 		.para_list[0] = 0x9c,
 	},
-
+	.dyn = {
+		.switch_en = 1,
+		.pll_clk = 535,
+		.hfp = 32,
+		.vfp = 93,
+	},
 };
 
 static struct mtk_panel_funcs ext_funcs = {
