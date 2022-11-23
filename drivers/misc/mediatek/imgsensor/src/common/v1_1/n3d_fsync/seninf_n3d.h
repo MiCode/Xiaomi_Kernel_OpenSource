@@ -7,8 +7,8 @@
 #define __SENINF_N3D_H__
 
 #define SENINF_N3D_A_CTL 0x0000
-#define MODE_SHIFT 0
-#define MODE_MASK (0x3 << 0)
+#define N3D_MODE_SHIFT 0
+#define N3D_MODE_MASK (0x3 << 0)
 #define I2C1_EN_SHIFT 2
 #define I2C1_EN_MASK (0x1 << 2)
 #define I2C2_EN_SHIFT 3

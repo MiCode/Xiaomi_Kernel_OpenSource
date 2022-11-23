@@ -129,35 +129,42 @@ static unsigned int fs_flicker_table[FLICKER_TABLE_SIZE][2] = {
 inline unsigned int
 calcLineTimeInNs(unsigned int pclk, unsigned int linelength)
 {
-	unsigned int val = 0;
+	unsigned long long val = 0;
 
-
-	val = ((unsigned long long)linelength * 1000000 + ((pclk / 1000) - 1))
-		/ (pclk / 1000);
+	val = (unsigned long long)linelength * 1000000 + ((pclk / 1000) - 1);
+	do_div(val, (pclk / 1000));
 
 	LOG_INF("lineTime(us):%u\n", val);
 
-
-	return val;
+	return (unsigned int)val;
 }
 
 
 inline unsigned int
 convert2TotalTime(unsigned int lineTimeInNs, unsigned int lc)
 {
+	unsigned long long val = 0;
+
 	if (lineTimeInNs == 0)
 		return 0;
 
-	return (unsigned int)((unsigned long long)(lc)
-				* lineTimeInNs / 1000);
+	val = (unsigned long long)(lc) * lineTimeInNs;
+	do_div(val, 1000);
+
+	return (unsigned int)val;
 }
 
 
 inline unsigned int
 convert2LineCount(unsigned int lineTimeInNs, unsigned int val)
 {
-	return ((1000 * (unsigned long long)val) / lineTimeInNs) +
-		((1000 * (unsigned long long)val) % lineTimeInNs ? 1 : 0);
+	unsigned long long val_64 = 0;
+	unsigned long long res_64 = 0;
+
+	val_64 = 1000 * (unsigned long long)val;
+	res_64 = do_div(val_64, lineTimeInNs);
+
+	return (unsigned int)(val_64 + (res_64 ? 1 : 0));
 }
 
 

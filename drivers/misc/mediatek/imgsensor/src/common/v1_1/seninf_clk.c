@@ -15,6 +15,7 @@ int seninf_dfs_init(struct seninf_dfs_ctx *ctx, struct device *dev)
 	int ret, i;
 	struct dev_pm_opp *opp;
 	unsigned long freq;
+	unsigned long long freq_hz;
 
 	ctx->dev = dev;
 
@@ -42,8 +43,9 @@ int seninf_dfs_init(struct seninf_dfs_ctx *ctx, struct device *dev)
 	i = 0;
 	freq = 0;
 	while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(dev, &freq))) {
-		ctx->freqs[ctx->cnt-1-i] = freq;
-		do_div(ctx->freqs[ctx->cnt-1-i], 1000000); /*Hz->MHz*/
+		freq_hz = freq;
+		do_div(freq_hz, 1000000); /*Hz->MHz*/
+		ctx->freqs[ctx->cnt-1-i] = freq_hz;
 		ctx->volts[ctx->cnt-1-i] = dev_pm_opp_get_voltage(opp);
 		freq++;
 		i++;

@@ -780,9 +780,10 @@ unsigned int do_stereo_data(struct EEPROM_DRV_FD_DATA *pdata,
 
 	int read_data_size;
 	unsigned int err =  0;
-	char Stereo_Data[1360];
+	char *Stereo_Data = NULL;
 
 	debug_log("DoCamCal_Stereo_Data sensorID = %x\n", pCamCalData->sensorID);
+	Stereo_Data = kmalloc(1360, GFP_KERNEL);
 	read_data_size = read_data(pdata, pCamCalData->sensorID, pCamCalData->deviceID,
 			start_addr, block_size, (unsigned char *)Stereo_Data);
 	if (read_data_size > 0)
@@ -791,6 +792,7 @@ unsigned int do_stereo_data(struct EEPROM_DRV_FD_DATA *pdata,
 		error_log("Read Failed\n");
 		show_cmd_error_log(pCamCalData->Command);
 	}
+	kfree(Stereo_Data);
 
 	debug_log("======================DoCamCal_Stereo_Data==================\n");
 	debug_log("======================DoCamCal_Stereo_Data==================\n");
@@ -1362,7 +1364,7 @@ unsigned int custom_do_single_lsc(struct EEPROM_DRV_FD_DATA *pdata,
 	unsigned int err = CamCalReturnErr[pCamCalData->Command];
 
 #ifdef ENABLE_CHECK_SUM
-	struct STRUCT_CAM_CAL_LSC_INFO CalLscData;
+	struct STRUCT_CAM_CAL_LSC_INFO *CalLscData = NULL;
 	unsigned int checkSum;
 #endif
 
@@ -1370,6 +1372,9 @@ unsigned int custom_do_single_lsc(struct EEPROM_DRV_FD_DATA *pdata,
 		err = CAM_CAL_ERR_NO_DEVICE;
 		error_log("Read Failed\n");
 		show_cmd_error_log(pCamCalData->Command);
+#ifdef ENABLE_CHECK_SUM
+		kfree(CalLscData);
+#endif
 		return err;
 	}
 
@@ -1377,29 +1382,34 @@ unsigned int custom_do_single_lsc(struct EEPROM_DRV_FD_DATA *pdata,
 	pCamCalData->SingleLsc.LscTable.MtkLcsData.PixId = 8;
 
 #ifdef ENABLE_CHECK_SUM
+	CalLscData = kmalloc(sizeof(struct STRUCT_CAM_CAL_LSC_INFO), GFP_KERNEL);
 	read_data_size = read_data(pdata, pCamCalData->sensorID, pCamCalData->deviceID,
 							   start_addr,
 							   sizeof(struct STRUCT_CAM_CAL_LSC_INFO),
-							   (unsigned char *)&CalLscData);
+							   (unsigned char *)CalLscData);
 
 	if (read_data_size <= 0) {
 		must_log("[LSC_INFO] %s,%d: read data failed\n",__func__,__LINE__);
+		kfree(CalLscData);
 		return CamCalReturnErr[pCamCalData->Command];
 	}
 
-	if(CalLscData.flag != 0x40) {
-		 must_log("flag of lsc is invalid %x\n", CalLscData.flag);
-		 return CamCalReturnErr[pCamCalData->Command];
+	if (CalLscData->flag != 0x40) {
+		must_log("flag of lsc is invalid %x\n", CalLscData->flag);
+		kfree(CalLscData);
+		return CamCalReturnErr[pCamCalData->Command];
 	}
 
 	err = CAM_CAL_ERR_NO_ERR;
 
-	checkSum = CalLscData.check_sum_h << 8 | CalLscData.check_sum_l;
-	if(checkSum != CRC16_IBMMSB((unsigned char *)&CalLscData,sizeof(struct STRUCT_CAM_CAL_LSC_INFO)-2)){
+	checkSum = CalLscData->check_sum_h << 8 | CalLscData->check_sum_l;
+	if (checkSum != CRC16_IBMMSB((unsigned char *)CalLscData,
+		sizeof(struct STRUCT_CAM_CAL_LSC_INFO)-2)) {
 		must_log("[LSC_INFO] checkSum failed, checksum: %d, %d\n",
 				  checkSum,
-				  CRC16_IBMMSB((unsigned char *)&CalLscData,
+				  CRC16_IBMMSB((unsigned char *)CalLscData,
 								sizeof(struct STRUCT_CAM_CAL_LSC_INFO)-2));
+		kfree(CalLscData);
 		return CamCalReturnErr[pCamCalData->Command];
 	}
 
@@ -1439,7 +1449,9 @@ unsigned int custom_do_single_lsc(struct EEPROM_DRV_FD_DATA *pdata,
 		pCamCalData->SingleLsc.LscTable.MtkLcsData.CapIspReg[4]);
 	debug_log("RETURN = 0x%x\n", err);
 	debug_log("======================SingleLsc Data==================\n");
-
+#ifdef ENABLE_CHECK_SUM
+	kfree(CalLscData);
+#endif
 	return err;
 }
 
@@ -1453,41 +1465,48 @@ unsigned int custom_do_pdaf(struct EEPROM_DRV_FD_DATA *pdata,
 	int err =  CamCalReturnErr[pCamCalData->Command];
 
 #ifdef ENABLE_CHECK_SUM
-	struct STRUCT_CAM_CAL_PDAF_INFO CalPdafData;
+	struct STRUCT_CAM_CAL_PDAF_INFO *CalPdafData = NULL;
 	unsigned int checkSum;
 
+	CalPdafData = kmalloc(sizeof(struct STRUCT_CAM_CAL_PDAF_INFO), GFP_KERNEL);
 	read_data_size = read_data(pdata, pCamCalData->sensorID, pCamCalData->deviceID,
 							   start_addr,
 							   sizeof(struct STRUCT_CAM_CAL_PDAF_INFO),
-							   (unsigned char *)&CalPdafData);
+							   (unsigned char *)CalPdafData);
 
 	if (read_data_size <= 0) {
 		must_log("[PDAF_INFO] %s,%d: read data failed\n",__func__,__LINE__);
+		kfree(CalPdafData);
 		return CamCalReturnErr[pCamCalData->Command];
 	}
 
-	if(CalPdafData.flag != 0x40) {
-		 must_log("flag of pdaf is invalid %x\n", CalPdafData.flag);
-		 return CamCalReturnErr[pCamCalData->Command];
+	if (CalPdafData->flag != 0x40) {
+		must_log("flag of pdaf is invalid %x\n", CalPdafData->flag);
+		kfree(CalPdafData);
+		return CamCalReturnErr[pCamCalData->Command];
 	}
 
-	checkSum = CalPdafData.check_proc1_sum_h << 8 | CalPdafData.check_proc1_sum_l;
-	if(checkSum != CRC16_IBMMSB((unsigned char *)&CalPdafData,CUSTOM_PDAF_PROC1_SIZE + 1)){
+	checkSum = CalPdafData->check_proc1_sum_h << 8 | CalPdafData->check_proc1_sum_l;
+	if (checkSum != CRC16_IBMMSB((unsigned char *)CalPdafData,
+		CUSTOM_PDAF_PROC1_SIZE + 1)){
 		must_log("[PDAF_INFO] PROC 1 checkSum failed, checksum: %d, %d\n",
 						checkSum,
-						CRC16_IBMMSB((unsigned char *)&CalPdafData,
+						CRC16_IBMMSB((unsigned char *)CalPdafData,
 						CUSTOM_PDAF_PROC1_SIZE + 1));
+		kfree(CalPdafData);
 		return CamCalReturnErr[pCamCalData->Command];
 	}
 
 	must_log("[PDAF_INFO] PROC 1 checkSum succeed\n");
 
-	checkSum = CalPdafData.check_proc2_sum_h << 8 | CalPdafData.check_proc2_sum_l;
-	if(checkSum != CRC16_IBMMSB((unsigned char *)&(CalPdafData.pdaf_proc2[0]),CUSTOM_PDAF_PROC2_SIZE)) {
+	checkSum = CalPdafData->check_proc2_sum_h << 8 | CalPdafData->check_proc2_sum_l;
+	if (checkSum != CRC16_IBMMSB((unsigned char *)&(CalPdafData->pdaf_proc2[0]),
+		CUSTOM_PDAF_PROC2_SIZE)) {
 		must_log("[PDAF_INFO] PROC 2 checkSum failed, checksum: %d, %d\n",
-						checkSum,
-						CRC16_IBMMSB((unsigned char *)&(CalPdafData.pdaf_proc2[0]),
-						CUSTOM_PDAF_PROC2_SIZE));
+			checkSum,
+			CRC16_IBMMSB((unsigned char *)&(CalPdafData->pdaf_proc2[0]),
+			CUSTOM_PDAF_PROC2_SIZE));
+		kfree(CalPdafData);
 		return CamCalReturnErr[pCamCalData->Command];
 	}
 
@@ -1504,6 +1523,9 @@ unsigned int custom_do_pdaf(struct EEPROM_DRV_FD_DATA *pdata,
 							(unsigned char *)&pCamCalData->PDAF.Data[0]);
 	if (read_data_size <= 0) {
 		must_log("[PDAF_INFO] %s,%d: read data failed\n",__func__,__LINE__);
+#ifdef ENABLE_CHECK_SUM
+		kfree(CalPdafData);
+#endif
 		return CamCalReturnErr[pCamCalData->Command];
 	}
 
@@ -1517,7 +1539,9 @@ unsigned int custom_do_pdaf(struct EEPROM_DRV_FD_DATA *pdata,
 					pCamCalData->PDAF.Data[4]);
 	debug_log("RETURN = 0x%x\n", err);
 	debug_log("======================PDAF Data==================\n");
-
+#ifdef ENABLE_CHECK_SUM
+	kfree(CalPdafData);
+#endif
 	return err;
 }
 
@@ -1528,7 +1552,7 @@ unsigned int custom_layout_check(struct EEPROM_DRV_FD_DATA *pdata,
 
 	must_log("%s ,%d Enter\n", __func__,__LINE__);
 
-	if(cam_cal_config->sensor_id == sensorID) {
+	if (cam_cal_config->sensor_id == sensorID) {
 		must_log("%s,%d: sensor_id matched\n",cam_cal_config->name);
 		result = CAM_CAL_ERR_NO_ERR;
 	} else {
@@ -1602,7 +1626,8 @@ unsigned int custom_do_awb_gain(struct EEPROM_DRV_FD_DATA *pdata,
 
 #ifdef ENABLE_CHECK_SUM
 		checkSum = CalAwbGain.check_sum_h << 8 | CalAwbGain.check_sum_l;
-		if(checkSum != CRC16_IBMMSB((unsigned char *)&CalAwbGain,(sizeof(struct STRUCT_CAM_CAL_AWB_INFO)-2))) {
+		if (checkSum != CRC16_IBMMSB((unsigned char *)&CalAwbGain,
+			(sizeof(struct STRUCT_CAM_CAL_AWB_INFO)-2))) {
 			must_log("[AWB_INFO]checkSum failed, checksum: %d, %d\n",
 			                   checkSum,
 			                   CRC16_IBMMSB((unsigned char *)&CalAwbGain,(sizeof(struct STRUCT_CAM_CAL_AWB_INFO)-2)));
