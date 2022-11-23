@@ -3,6 +3,10 @@
 # Copyright (c) 2021 MediaTek Inc.
 #
 
+#==========================================================================
+#  Command Queue Common Headers
+#==========================================================================
+
 ccflags-y += -I$(srctree)/drivers/iommu \
              -I$(srctree)/drivers/misc/mediatek/iommu/ \
              -I$(srctree)/drivers/misc/mediatek/include \
@@ -15,22 +19,46 @@ ccflags-y += -I$(srctree)/drivers/iommu \
 
 ccflags-$(CONFIG_DEBUG_FS) += -DCMDQ_MMPROFILE_SUPPORT
 
+#==========================================================================
+# Secure Command Queue driver
+#==========================================================================
+
+ifneq ($(filter y m, $(or $(CONFIG_MTK_TEE_GP_COORDINATOR), $(CONFIG_MTK_GZ_TZ_SYSTEM))),)
+ccflags-y += -DCMDQ_SECURE_SUPPORT
+
+ifneq ($(filter y m, $(CONFIG_MTK_TEE_GP_COORDINATOR)),)
+include $(srctree)/drivers/tee/gpapi/Makefile.client.include
+include $(srctree)/drivers/tee/teei/Makefile.include
+include $(srctree)/drivers/tee/gud/Makefile.include
+ccflags-y += -DCMDQ_GP_SUPPORT
+else
 ifneq ($(filter y m, $(CONFIG_MICROTRUST_TEE_SUPPORT)),)
 include $(srctree)/drivers/tee/teei/Makefile.include
-endif
-
+endif # !CONFIG_MICROTRUST_TEE_SUPPORT
 ifneq ($(filter y m, $(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
 include $(srctree)/drivers/tee/gud/Makefile.include
-endif
+endif # !CONFIG_TRUSTONIC_TEE_SUPPORT
+endif # !CONFIG_MTK_TEE_GP_COORDINATOR
 
 ifneq ($(filter y m, $(CONFIG_MTK_GZ_TZ_SYSTEM)),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
 ccflags-y += -DCMDQ_SECURE_MTEE_SUPPORT
+endif # CONFIG_MTK_GZ_TZ_SYSTEM
 
-ccflags-y += -DCMDQ_SECURE_SUPPORT
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq-sec-drv.o
-cmdq-sec-drv-y := cmdq_sec_mtee.o cmdq-sec-mailbox.o cmdq-sec-helper.o
-endif
+ifneq ($(filter y m, $(CONFIG_MTK_TEE_GP_COORDINATOR)),)
+cmdq-sec-drv-y += cmdq-sec-gp.o
+endif # !CONFIG_MTK_TEE_GP_COORDINATOR
+ifneq ($(filter y m, $(CONFIG_MTK_GZ_TZ_SYSTEM)),)
+cmdq-sec-drv-y += cmdq_sec_mtee.o
+endif # !CONFIG_MTK_GZ_TZ_SYSTEM
+cmdq-sec-drv-y += cmdq-sec-mailbox.o
+cmdq-sec-drv-y += cmdq-sec-helper.o
+endif #!CONFIG_MTK_TEE_GP_COORDINATOR or CONFIG_MTK_GZ_TZ_SYSTEM
+
+#==========================================================================
+# Normal Command Queue driver
+#==========================================================================
 
 obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += mtk-cmdq-drv-ext.o
 mtk-cmdq-drv-ext-y := mtk-cmdq-mailbox-ext.o mtk-cmdq-helper-ext.o cmdq-util.o

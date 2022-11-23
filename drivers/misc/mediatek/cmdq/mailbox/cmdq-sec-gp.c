@@ -25,24 +25,34 @@ s32 cmdq_sec_init_context(struct cmdq_sec_tee_context *tee)
 {
 	s32 status;
 
-	cmdq_msg("[SEC]%s", __func__);
-#if defined(CONFIG_MICROTRUST_TEE_SUPPORT)
-	while (!is_teei_ready()) {
-		cmdq_msg("[SEC]Microtrust TEE is not ready, wait...");
+	cmdq_msg("[SEC][TEE] %s", __func__);
+
+#if IS_ENABLED(CONFIG_MTK_TEE_GP_COORDINATOR)
+	while (!is_teei_ready() && !is_mobicore_ready()) {
+		cmdq_msg("[SEC][TEE] TEE is not ready, wait...");
 		msleep(1000);
 	}
 #else
-	while (!is_mobicore_ready()) {
-		cmdq_msg("[SEC]Trustonic TEE is not ready, wait...");
+#if IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+	while (!is_teei_ready()) {
+		cmdq_msg("[SEC][TEE] Microtrust TEE is not ready, wait...");
 		msleep(1000);
 	}
 #endif
-	cmdq_log("[SEC]TEE is ready");
+#if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT)
+	while (!is_mobicore_ready()) {
+		cmdq_msg("[SEC][TEE] Trustonic TEE is not ready, wait...");
+		msleep(1000);
+	}
+#endif
+#endif
+
+	cmdq_msg("[SEC][TEE] TEE is ready!");
 
 	/* do m4u sec init */
 	if (atomic_cmpxchg(&m4u_init, 0, 1) == 0) {
 		m4u_sec_init();
-		cmdq_msg("[SEC] M4U_sec_init is called\n");
+		cmdq_msg("[SEC][TEE] M4U_sec_init is called\n");
 	}
 
 	status = TEEC_InitializeContext(NULL, &tee->gp_context);

@@ -1238,6 +1238,7 @@ cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
 
 		if (iwc_cmd == CMD_CMDQ_TL_SUBMIT_TASK && pkt)
 			pkt->rec_trigger = sched_clock();
+
 		err = cmdq_sec_session_send(
 			cmdq->context, task, iwc_cmd, thrd_idx, cmdq, mtee);
 
@@ -1343,7 +1344,7 @@ void cmdq_sec_mbox_stop(struct cmdq_client *cl)
 		container_of(cl->chan->mbox, typeof(*cmdq), mbox);
 	struct cmdq_sec_thread *thread =
 		(struct cmdq_sec_thread *)cl->chan->con_priv;
-	struct cmdq_sec_task *task;
+	struct cmdq_sec_task *task = NULL;
 
 	task = list_first_entry_or_null(
 		&thread->task_list, struct cmdq_sec_task, list_entry);
@@ -1701,8 +1702,11 @@ static void cmdq_sec_reserved_mem_lookup(struct cmdq_sec_shared_mem *shared_mem)
 		return;
 
 	pa = mem->base + mem->size - PAGE_SIZE;
-	if (!va)
-		va = ioremap(pa, PAGE_SIZE);
+	va = ioremap(pa, PAGE_SIZE);
+	if (!va) {
+		cmdq_err("%s:shared memory map fail", __func__);
+		return;
+	}
 	shared_mem->va = va;
 	if (!cpr_not_support_cookie) {
 		shared_mem->pa = pa;
@@ -1726,15 +1730,17 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 	struct resource *res;
 	s32 i, err;
 
-	cmdq_msg("%s", __func__);
+	cmdq_msg("[SEC] %s entry ++", __func__);
 
 	cmdq = devm_kzalloc(&pdev->dev, sizeof(*cmdq), GFP_KERNEL);
 	if (!cmdq)
 		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	cmdq->base_pa = res->start;
-	cmdq->base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	if (res) {
+		cmdq->base_pa = res->start;
+		cmdq->base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	}
 	if (IS_ERR(cmdq->base)) {
 		cmdq_err("base devm_ioremap failed:%ld", PTR_ERR(cmdq->base));
 		return PTR_ERR(cmdq->base);
@@ -1806,6 +1812,8 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 #ifdef CMDQ_SECURE_SUPPORT
 	cmdq_sec_helper_set_fp(&helper_fp);
 #endif
+
+	cmdq_msg("[SEC] %s leave --", __func__);
 	return 0;
 }
 
@@ -1868,6 +1876,7 @@ static s32 cmdq_sec_late_init_wsm(void *data)
 			cmdq_err("session init failed:%d", err);
 			continue;
 		}
+		cmdq_msg("[SEC] %s init sec context done!", __func__);
 	} while (++i < g_cmdq_cnt);
 	return err;
 }
@@ -1888,6 +1897,7 @@ static int __init cmdq_sec_init(void)
 {
 	s32 err;
 
+	cmdq_msg("%s entry ++", __func__);
 	err = platform_driver_register(&cmdq_sec_drv);
 	if (err)
 		cmdq_err("platform_driver_register failed:%d", err);
@@ -1896,6 +1906,7 @@ static int __init cmdq_sec_init(void)
 	cmdq_sec_late_init();
 #endif
 
+	cmdq_msg("%s leave --", __func__);
 	return err;
 }
 

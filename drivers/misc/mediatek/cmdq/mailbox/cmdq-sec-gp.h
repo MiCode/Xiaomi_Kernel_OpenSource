@@ -9,12 +9,18 @@
 #include <linux/types.h>
 #include <linux/delay.h>
 
+#if IS_ENABLED(CONFIG_MTK_TEE_GP_COORDINATOR)
 #include "tee_client_api.h"
-#if defined(CONFIG_MICROTRUST_TEE_SUPPORT)
+#include "teei_client_main.h"
+#include "mobicore_driver_api.h"
+#else
+#include "tee_client_api.h"
+#if IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
 #include "teei_client_main.h"
 #endif
-#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT)
+#if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT)
 #include "mobicore_driver_api.h"
+#endif
 #endif
 
 /* context for tee vendor */
@@ -34,6 +40,6 @@ s32 cmdq_sec_open_session(struct cmdq_sec_tee_context *tee, void *wsm_buffer);
 s32 cmdq_sec_execute_session(struct cmdq_sec_tee_context *tee,
 	u32 cmd, s32 timeout_ms, bool mem_ex1, bool mem_ex2);
 
-int m4u_sec_init(void);
+extern int m4u_sec_init(void);
 
 #endif	/* __CMDQ_SEC_GP_H__ */
