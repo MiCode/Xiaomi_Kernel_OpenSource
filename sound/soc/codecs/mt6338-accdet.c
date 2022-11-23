@@ -35,7 +35,7 @@
 #endif
 
 #ifndef __weak
-#define __weak __attribute__((weak))
+#define __weak
 #endif
 
 /* SCP -> AP ipi structure */
