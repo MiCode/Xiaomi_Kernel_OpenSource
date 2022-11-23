@@ -1486,6 +1486,7 @@
 			"CCU_CLK_CAM_GALS",
 			"CCU_CLK_CAM_CCU_GALS";
 		mediatek,larbs = <&smi_larb13>;
+		mediatek,ccu1 = <&ccu1>;
 		interconnects =
 			<&mmqos SLAVE_LARB(21) &mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_L13_CAM_CCUI) &mmqos SLAVE_COMMON(0)>,
@@ -1496,6 +1497,13 @@
 				    "ccu_o";
 		operating-points-v2 = <&opp_table_ccu>;
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+	};
+
+	ccu1: ccu1@1a181000 {
+		compatible = "mediatek,ccu1";
+		dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+		iommus = <&iommu0 M4U_PORT_L14_CAM_CCUI>,
+			 <&iommu0 M4U_PORT_L14_CAM_CCUO>;
 	};
 
 	btif@1100c000 {
