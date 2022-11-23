@@ -249,7 +249,6 @@
 			capacity-dmips-mhz = <405>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
-			#cooling-cells = <2>;
 		};
 
 		cpu1: cpu@001 {
@@ -263,7 +262,6 @@
 			capacity-dmips-mhz = <405>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
-			#cooling-cells = <2>;
 		};
 
 		cpu2: cpu@002 {
@@ -277,7 +275,6 @@
 			capacity-dmips-mhz = <405>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
-			#cooling-cells = <2>;
 		};
 
 		cpu3: cpu@003 {
@@ -291,7 +288,6 @@
 			capacity-dmips-mhz = <405>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
-			#cooling-cells = <2>;
 		};
 
 		cpu4: cpu@004 {
@@ -305,7 +301,6 @@
 			capacity-dmips-mhz = <405>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff  &s2idle>;
-			#cooling-cells = <2>;
 		};
 
 		cpu5: cpu@005 {
@@ -319,7 +314,6 @@
 			capacity-dmips-mhz = <405>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff  &s2idle>;
-			#cooling-cells = <2>;
 		};
 
 		cpu6: cpu@100 {
@@ -333,7 +327,6 @@
 			capacity-dmips-mhz = <1024>;
 			cpu-idle-states = <&cpuoff_b &clusteroff_b
 						&mcusysoff  &s2idle>;
-			#cooling-cells = <2>;
 		};
 
 		cpu7: cpu@101 {
@@ -347,7 +340,6 @@
 			capacity-dmips-mhz = <1024>;
 			cpu-idle-states = <&cpuoff_b &clusteroff_b
 						&mcusysoff &s2idle>;
-			#cooling-cells = <2>;
 		};
 
 		cpu-map {
@@ -425,7 +417,7 @@
 			};
 			s2idle: s2idle {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x01010100>;
+				arm,psci-suspend-param = <0x01011f01>;
 				local-timer-stop;
 				entry-latency-us = <500>;
 				exit-latency-us = <1400>;
@@ -6095,7 +6087,7 @@
 		#size-cells = <2>;
 		ranges;
 		lpm-kernel-suspend = <0>;
-		suspend-method = "disable";
+		suspend-method = "enable";
 		logger-enable-states = "mcusysoff";
 		cpupm-method = "mcu";
 
