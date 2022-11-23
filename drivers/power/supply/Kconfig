@@ -815,17 +815,6 @@ config CHARGER_WILCO
 	  information can be found in
 	  Documentation/ABI/testing/sysfs-class-power-wilco
 
-config CHARGER_MT6370
-        tristate "Mediatek MT6370 Charger Driver"
-        #depends on MFD_MT6370
-        #depends on REGULATOR
-        select EXTCON
-        help
-          Say Y here to enable MT6370 Charger Part.
-          support High-Accuracy Voltage/Current Regulation,
-          Average Input Current Regulation, Battery Tempature Sensing,
-          Over-Temperature Protection, DPDM Detection for BC1.2
-
 config CHARGER_MT6360
 	tristate "Mediatek MT6360 Charger Driver"
 	depends on MFD_MT6360
@@ -845,6 +834,20 @@ config CHARGER_MT6362
 	  It supports BC1.2 and OTG boost.
 	  The driver can also be build as a module.
 	  If so, the module will be called mt6362_chg
+
+config CHARGER_MT6370
+	tristate "MediaTek MT6370 Charger Driver"
+	depends on MFD_MT6370
+	depends on REGULATOR
+	select LINEAR_RANGES
+	help
+	  Say Y here to enable MT6370 Charger Part.
+	  The device supports High-Accuracy Voltage/Current Regulation,
+	  Average Input Current Regulation, Battery Temperature Sensing,
+	  Over-Temperature Protection, DPDM Detection for BC1.2.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called "mt6370-charger".
 
 config CHARGER_MT6375
 	tristate "MT6375 charger driver"
