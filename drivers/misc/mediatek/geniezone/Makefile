@@ -31,7 +31,9 @@ ifneq ($(filter y m, $(CONFIG_TEE)),)
   ccflags-y += -I$(src)/$(MTK_PLATFORM)
   ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/public
   ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)
-  ifneq ($(filter y m, $(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
+  ifneq ($(filter y m, $(CONFIG_MTK_TEE_GP_COORDINATOR)),)
+    include $(srctree)/drivers/tee/gpapi/Makefile.client.include
+  else ifneq ($(filter y m, $(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
     include $(srctree)/drivers/tee/gud/Makefile.include
   else ifneq ($(filter y m, $(CONFIG_MICROTRUST_TEE_SUPPORT)),)
     include $(srctree)/drivers/tee/teei/Makefile.include
