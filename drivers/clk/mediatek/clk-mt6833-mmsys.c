@@ -144,8 +144,6 @@ static const struct mtk_gate mdp_clks[] = {
 			"mdp_ck"/* parent */, 2),
 	GATE_MDP0(CLK_MDP_IMG_DL_ASYNC1, "mdp_img_dl_async1",
 			"mdp_ck"/* parent */, 3),
-	GATE_MDP0(CLK_MDP_RDMA1, "mdp_rdma1",
-			"mdp_ck"/* parent */, 4),
 	GATE_MDP0(CLK_MDP_SMI0, "mdp_smi0",
 			"mdp_ck"/* parent */, 6),
 	GATE_MDP0(CLK_MDP_APB_BUS, "mdp_apb_bus",
