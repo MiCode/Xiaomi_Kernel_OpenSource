@@ -332,7 +332,8 @@ static void mdw_mem_map_get(struct mdw_mem_map *map)
 static int mdw_mem_map_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 {
 	struct mdw_mem_map *map = NULL;
-	int ret = 0;
+	struct scatterlist *sg = NULL;
+	int ret = 0, i = 0;
 
 	mutex_lock(&m->mtx);
 	get_dma_buf(m->dbuf);
@@ -369,6 +370,7 @@ static int mdw_mem_map_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 	map->get = mdw_mem_map_get;
 	map->put = mdw_mem_map_put;
 
+	/* attach device */
 	mdw_trace_begin("map create: attach|size(%u) align(%u)",
 		m->size, m->align);
 	map->attach = dma_buf_attach(m->dbuf, m->mdev);
@@ -382,6 +384,7 @@ static int mdw_mem_map_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 	mdw_trace_end("map create: attach|size(%u) align(%u)",
 		m->size, m->align);
 
+	/* map device va */
 	mdw_trace_begin("map create: map|size(%u) align(%u)",
 		m->size, m->align);
 	map->sgt = dma_buf_map_attachment(map->attach,
@@ -396,8 +399,15 @@ static int mdw_mem_map_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 	mdw_trace_end("map create: map|size(%u) align(%u)",
 		m->size, m->align);
 
+	/* get start addr and size */
 	m->device_va = sg_dma_address(map->sgt->sgl);
-	m->dva_size = sg_dma_len(map->sgt->sgl);
+	for_each_sgtable_dma_sg(map->sgt, sg, i) {
+		if (!sg)
+			break;
+		m->dva_size += sg_dma_len(sg);
+	}
+
+	/* check dva and size */
 	if (!m->device_va || !m->dva_size) {
 		mdw_drv_err("can't get mem(0x%llx) dva(0x%llx/%u)\n",
 			(uint64_t)m, m->device_va, m->dva_size);
@@ -857,6 +867,9 @@ int apusys_mem_validate_by_cmd(void *session, void *cmd, uint64_t iova, uint32_t
 	struct mdw_mem *m = NULL;
 	int ret = 0;
 
+	mdw_vld_debug("target: s(0x%llx) c(0x%llx) iova(0x%llx/%u)\n",
+		(uint64_t)mpriv, (uint64_t)c, iova, size);
+
 	if (c) {
 		/* check c/s match */
 		if (c->mpriv != session) {
@@ -866,15 +879,21 @@ int apusys_mem_validate_by_cmd(void *session, void *cmd, uint64_t iova, uint32_t
 		}
 	}
 
-	/* query */
+	/* query from mpriv invoke list */
 	list_for_each_entry(m_invoke, &mpriv->invokes, u_node) {
-		if (!m_invoke)
+		if (!m_invoke) {
+			mdw_vld_debug("s(0x%llx) no mem invokes\n",
+				(uint64_t)mpriv);
 			break;
+		}
 
 		m = m_invoke->m;
+		mdw_vld_debug("check mem invoke list: va(0x%llx/%u) iova(0x%llx/%u)...\n",
+			(uint64_t)m->vaddr, m->size, m->device_va, m->dva_size);
 		if (iova < m->device_va || iova + size > m->device_va + m->dva_size)
 			continue;
-
+		mdw_vld_debug("check mem invoke list: va(0x%llx/%u) iova(0x%llx/%u) match\n",
+			(uint64_t)m->vaddr, m->size, m->device_va, m->dva_size);
 		if (c) {
 			ret = mdw_cmd_invoke_map(c, m->map);
 			if (ret) {

@@ -22,6 +22,7 @@ enum {
 	MDW_DBG_MEM = 0x08,
 	MDW_DBG_PEF = 0x10,
 	MDW_DBG_SUB = 0x20,
+	MDW_DBG_VLD = 0x40,
 };
 
 extern struct mdw_device *mdw_dev;
@@ -53,6 +54,7 @@ int mdw_debug_on(int mask)
 #define mdw_mem_debug(x, ...) mdw_debug(MDW_DBG_MEM, x, ##__VA_ARGS__)
 #define mdw_pef_debug(x, ...) mdw_debug(MDW_DBG_PEF, x, ##__VA_ARGS__)
 #define mdw_sub_debug(x, ...) mdw_debug(MDW_DBG_SUB, x, ##__VA_ARGS__)
+#define mdw_vld_debug(x, ...) mdw_debug(MDW_DBG_VLD, x, ##__VA_ARGS__)
 
 /* print to console via seq file */
 #define mdw_con_info(s, x, args...) \
