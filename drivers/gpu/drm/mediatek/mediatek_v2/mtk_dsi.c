@@ -4316,6 +4316,7 @@ int mtk_dsi_esd_cmp(struct mtk_ddp_comp *comp, void *handle, void *ptr)
 {
 	int i, ret = 0;
 	u32 tmp0, tmp1, chk_val;
+	unsigned int *tmp_reg;
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 	struct esd_check_item *lcm_esd_tb;
 	struct mtk_panel_params *params;
@@ -4331,10 +4332,12 @@ int mtk_dsi_esd_cmp(struct mtk_ddp_comp *comp, void *handle, void *ptr)
 			break;
 
 		if (mtk_crtc) {
-			tmp0 = AS_UINT32(mtk_get_gce_backup_slot_va(mtk_crtc,
-				DISP_SLOT_READ_DDIC_BASE + (i * 2) * 0x4));
-			tmp1 = AS_UINT32(mtk_get_gce_backup_slot_va(mtk_crtc,
-				DISP_SLOT_READ_DDIC_BASE + (i * 2 + 1) * 0x4));
+			tmp_reg = mtk_get_gce_backup_slot_va(mtk_crtc,
+				DISP_SLOT_READ_DDIC_BASE + (i * 2) * 0x4);
+			tmp0 = tmp_reg ? AS_UINT32(tmp_reg) : 0;
+			tmp_reg = mtk_get_gce_backup_slot_va(mtk_crtc,
+				DISP_SLOT_READ_DDIC_BASE + (i * 2 + 1) * 0x4);
+			tmp1 = tmp_reg ? AS_UINT32(tmp_reg) : 0;
 		} else if (i == 0) {
 			tmp0 = readl(dsi->regs + DSI_RX_DATA0);
 			tmp1 = readl(dsi->regs + DSI_RX_DATA1);
@@ -7251,8 +7254,7 @@ unsigned int mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
 					(vact * hact)) / 100;
 			pixclk = pixclk * bubble_rate / 100;
 			pixclk = (unsigned int)(pixclk / 1000);
-			if (mtk_crtc->is_dual_pipe &&
-				ext->params->output_mode != MTK_PANEL_DUAL_PORT)
+			if (mtk_crtc->is_dual_pipe) //dual display pipe pixclk need /2
 				pixclk /= 2;
 		} else {
 			//CMD mode
@@ -7418,7 +7420,7 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 	if (dsi->ext && dsi->ext->params->dsc_params.enable)
 		bpp = dsi->ext->params->dsc_params.bit_per_channel * 3;
 
-	bw_base = vact * hact * vrefresh * 4 / 1000;
+	bw_base = DO_COMMON_DIV((unsigned long long)vact * hact * vrefresh * 4, 1000);
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
 		if (vact)
 			bw_base = DO_COMMON_DIV(bw_base * vtotal, vact);
@@ -7427,6 +7429,8 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 		bw_base = DO_COMMON_DIV(bw_base, 1000);
 	} else {
 		bw_base = data_rate * dsi->lanes * compress_rate * 4;
+		if (ext->params->output_mode == MTK_PANEL_DUAL_PORT)
+			bw_base *= 2;
 		bw_base = DO_COMMON_DIV(DO_COMMON_DIV(bw_base, bpp), 100);
 	}
 
