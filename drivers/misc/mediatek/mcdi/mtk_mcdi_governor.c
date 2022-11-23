@@ -39,11 +39,14 @@
 		res;							\
 	})
 
+unsigned int __attribute__((weak)) mtk_mcdi_get_boot_mode(void) { return 0; }
+
 static int last_core_token = -1;
 static int core_cluster_off_token[NF_CLUSTER];
 static int last_cpu_enter;
 static int last_cpu_enter_in_cluster[NF_CLUSTER];
 static int boot_time_check;
+static int boot_mode;
 
 struct mcdi_status {
 	bool valid;
@@ -596,7 +599,7 @@ int mcdi_governor_select(int cpu, int cluster_idx)
 
 		if (tbl->states[MCDI_STATE_CLUSTER_OFF].exit_latency
 				< latency_req
-			&& mcdi_feature_stat.cluster_off) {
+			&& mcdi_feature_stat.cluster_off && boot_mode != 2) {
 			select_state = MCDI_STATE_CLUSTER_OFF;
 
 			if (is_last_core_in_cluster(cpu))
@@ -769,6 +772,7 @@ void mcdi_governor_init(void)
 	unsigned long flags;
 	int i;
 
+	boot_mode = mtk_mcdi_get_boot_mode();
 	cpu_latency_qos_add_request(&mcdi_qos_request,
 		PM_QOS_DEFAULT_VALUE);
 

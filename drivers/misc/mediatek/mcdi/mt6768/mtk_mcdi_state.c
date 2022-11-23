@@ -10,6 +10,16 @@
 #include <mtk_mcdi.h>
 #include <mtk_mcdi_state.h>
 #include <mtk_mcdi_plat.h>
+#include <linux/of.h>
+#include <linux/of_irq.h>
+#include <linux/of_address.h>
+
+struct tag_bootmode {
+	u32 size;
+	u32 tag;
+	u32 bootmode;
+	u32 boottype;
+};
 
 static int mcdi_idle_state_mapping[NR_TYPES] = {
 	MCDI_STATE_DPIDLE,		/* IDLE_TYPE_DP */
@@ -315,4 +325,25 @@ int mtk_cpuidle_register_driver(void)
 }
 EXPORT_SYMBOL_GPL(mtk_cpuidle_register_driver);
 
+unsigned int mtk_mcdi_get_boot_mode(void)
+{
+	struct device_node *mcdi_dev = NULL;
+	struct tag_bootmode *tag = NULL;
+	unsigned int boot_mode = 0;
+
+
+	mcdi_dev = of_find_node_by_path("/chosen");
+	if (!mcdi_dev)
+		mcdi_dev = of_find_node_by_path("/chosen@0");
+	if (mcdi_dev) {
+		pr_info("get chosen_dev!\n");
+		tag = (struct tag_bootmode *)of_get_property(mcdi_dev, "atag,boot", NULL);
+		if (tag)
+			boot_mode = tag->bootmode;
+		else
+			pr_info("failed to get boot mode\n");
+		}
+	pr_info("mcdi get boot mode = %d\n", boot_mode);
+	return boot_mode;
+}
 
