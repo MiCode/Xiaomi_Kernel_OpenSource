@@ -2985,6 +2985,7 @@ void pll_if_on(void)
 	if (clk_readl(UNIVPLL_CON0) & 0x1)
 		pr_notice("suspend warning: UNIVPLL is on!!!\n");
 }
+EXPORT_SYMBOL(pll_if_on);
 
 void clock_force_on(void)
 {

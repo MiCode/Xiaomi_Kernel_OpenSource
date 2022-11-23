@@ -3664,6 +3664,7 @@ void subsys_if_on(void)
 	 *	WARN_ON(1);
 	 */
 }
+EXPORT_SYMBOL(subsys_if_on);
 
 void mtcmos_force_off(void)
 {

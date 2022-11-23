@@ -38,7 +38,9 @@ enum MTK_SPM_CIRQ_SMC_CALL {
 	MTK_SPM_IRQ_SMC_MASK_ALL,
 	MTK_SPM_IRQ_SMC_UNMASK_FOR_SLEEP_EX,
 	MTK_SPM_IRQ_SMC_MASK_RESTORE,
-	MTK_SPM_IRQ_SMC_SET_PENDING
+	MTK_SPM_IRQ_SMC_SET_PENDING,
+	MTK_SPM_IRQ_SMC_REG_IRQ,
+	MTK_SPM_IRQ_SMC_SET_WAKEUP_SOURCES
 };
 
 static inline unsigned int virq_to_hwirq(unsigned int virq)
@@ -97,6 +99,8 @@ static void mtk_spm_get_edge_trigger_irq(void)
 	int i;
 	struct device_node *node;
 	unsigned int irq_type;
+	struct arm_smccc_res smc_res;
+	unsigned int hwirq = 0;
 
 	pr_info("[SPM] edge trigger irqs:\n");
 	for (i = 0; i < IRQ_NUMBER; i++) {
@@ -119,6 +123,13 @@ static void mtk_spm_get_edge_trigger_irq(void)
 		/* Note: Initialize irq type to avoid pending irqs */
 		irq_type = irq_get_trigger_type(edge_trig_irqs[i]);
 		irq_set_irq_type(edge_trig_irqs[i], irq_type);
+		hwirq = virq_to_hwirq(edge_trig_irqs[i]);
+		arm_smccc_smc(MTK_SIP_MTK_LPM_CONTROL,
+					MTK_SPM_IRQ_SMC_REG_IRQ,
+					hwirq, i, 0, 0, 0, 0, &smc_res);
+		if (smc_res.a0)
+			pr_info("[SPM] fail to register wakeup source %d:,ret=0x%lx\n",
+				i, smc_res.a0);
 
 		pr_info("[SPM] '%s', irq=%d, type=%d\n", list[i].name,
 			edge_trig_irqs[i], irq_type);
@@ -314,7 +325,9 @@ struct spm_irq_desc {
 
 int mtk_spm_irq_register(unsigned int spmirq0)
 {
+	struct arm_smccc_res smc_res;
 	int i, err, r = 0;
+
 	struct spm_irq_desc irqdesc[] = {
 		{.irq = 0, .handler = spm_irq0_handler,}
 	};
@@ -339,9 +352,11 @@ int mtk_spm_irq_register(unsigned int spmirq0)
 
 	mtk_spm_get_edge_trigger_irq();
 
-#if IS_ENABLED(CONFIG_FAST_CIRQ_CLONE_FLUSH)
-	set_wakeup_sources(edge_trig_irqs, IRQ_NUMBER);
-#endif
+	//set_wakeup_sources(edge_trig_irqs, IRQ_NUMBER);
+	arm_smccc_smc(MTK_SIP_MTK_LPM_CONTROL, MTK_SPM_IRQ_SMC_SET_WAKEUP_SOURCES,
+		0, 0, 0, 0, 0, 0, &smc_res);
+	if (smc_res.a0)
+		pr_info("[SPM] fail to set wakeup sources, ret=0x%lx\n", smc_res.a0);
 
 	//#if IS_ENABLED(CONFIG_MTK_GIC_V3_EXT)
 	cpu_pm_register_notifier(&mtk_spm_cpu_pm_notifier_block);

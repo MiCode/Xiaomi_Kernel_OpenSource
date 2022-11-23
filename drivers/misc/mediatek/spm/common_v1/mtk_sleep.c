@@ -93,22 +93,6 @@ void __attribute__ ((weak)) bus_tracer_enable(void)
 }
 #endif /* CONFIG_MTK_BUS_TRACER */
 
-void __attribute__((weak)) subsys_if_on(void)
-{
-	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
-}
-
-void __attribute__((weak)) pll_if_on(void)
-{
-	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
-}
-
-void __attribute__((weak))
-gpio_dump_regs(void)
-{
-
-}
-
 void __attribute__((weak))
 spm_output_sleep_option(void)
 {
