@@ -306,53 +306,40 @@ void mtktspmic_cali_prepare2(void)
 		g_tsbuck3_slope1, g_tsbuck3_slope2, g_tsbuck3_intercept, vbe_t);
 }
 #if defined(THERMAL_USE_IIO_CHANNEL)
-int mtktspmic_get_from_dts(struct platform_device *pdev)
+void mtktspmic_get_from_dts(struct platform_device *pdev)
 {
 	int ret;
 
 	chan_chip_temp = devm_iio_channel_get(&pdev->dev, "pmic_chip_temp");
-	ret = PTR_ERR_OR_ZERO(chan_chip_temp);
-	if (ret) {
-		if (ret != -EPROBE_DEFER)
-			mtktspmic_dprintk("AUXADC_CHIP_TEMP get fail, ret=%d\n", ret);
-		return ret;
+	if (IS_ERR(chan_chip_temp)) {
+		ret = PTR_ERR(chan_chip_temp);
+		pr_notice("AUXADC_CHIP_TEMP get fail, ret=%d\n", ret);
 	}
 	chan_vcore_temp = devm_iio_channel_get(&pdev->dev, "pmic_buck1_temp");
-	ret = PTR_ERR_OR_ZERO(chan_vcore_temp);
-	if (ret) {
-		if (ret != -EPROBE_DEFER)
-			mtktspmic_dprintk("AUXADC_VCORE_TEMP get fail, ret=%d\n", ret);
-		return ret;
+	if (IS_ERR(chan_vcore_temp)) {
+		ret = PTR_ERR(chan_vcore_temp);
+		pr_notice("AUXADC_VCORE_TEMP get fail, ret=%d\n", ret);
 	}
 	chan_vproc_temp = devm_iio_channel_get(&pdev->dev, "pmic_buck2_temp");
-	ret = PTR_ERR_OR_ZERO(chan_vproc_temp);
-	if (ret) {
-		if (ret != -EPROBE_DEFER)
-			mtktspmic_dprintk("AUXADC_VPROC_TEMP get fail, ret=%d\n", ret);
-		return ret;
+	if (IS_ERR(chan_vproc_temp)) {
+		ret = PTR_ERR(chan_vproc_temp);
+		pr_notice("AUXADC_VPROC_TEMP get fail, ret=%d\n", ret);
 	}
 	chan_vgpu_temp = devm_iio_channel_get(&pdev->dev, "pmic_buck3_temp");
-	ret = PTR_ERR_OR_ZERO(chan_vgpu_temp);
-	if (ret) {
-		if (ret != -EPROBE_DEFER)
-			mtktspmic_dprintk("AUXADC_VGPU_TEMP get fail, ret=%d\n", ret);
-		return ret;
+	if (IS_ERR(chan_vgpu_temp)) {
+		ret = PTR_ERR(chan_vgpu_temp);
+		pr_notice("AUXADC_VGPU_TEMP get fail, ret=%d\n", ret);
 	}
 	chan_tsx_temp = devm_iio_channel_get(&pdev->dev, "pmic_tsx_temp");
-	ret = PTR_ERR_OR_ZERO(chan_tsx_temp);
-	if (ret) {
-		if (ret != -EPROBE_DEFER)
-			mtktspmic_dprintk("AUXADC_TSX_TEMP get fail, ret=%d\n", ret);
-		return ret;
+	if (IS_ERR(chan_tsx_temp)) {
+		ret = PTR_ERR(chan_tsx_temp);
+		pr_notice("AUXADC_TSX_TEMP get fail, ret=%d\n", ret);
 	}
 	chan_dcxo_temp = devm_iio_channel_get(&pdev->dev, "pmic_dcxo_temp");
-	ret = PTR_ERR_OR_ZERO(chan_dcxo_temp);
-	if (ret) {
-		if (ret != -EPROBE_DEFER)
-			mtktspmic_dprintk("AUXADC_DCXO_TEMP get fail, ret=%d\n", ret);
-		return ret;
+	if (IS_ERR(chan_dcxo_temp)) {
+		ret = PTR_ERR(chan_dcxo_temp);
+		pr_notice("AUXADC_DCXO_TEMP get fail, ret=%d\n", ret);
 	}
-	return 0;
 }
 #endif
 int mtktspmic_get_hw_temp(void)
@@ -366,8 +353,7 @@ int mtktspmic_get_hw_temp(void)
 	if (!IS_ERR(chan_chip_temp)) {
 		ret = iio_read_channel_processed(chan_chip_temp, &temp);
 		if (ret < 0)
-			mtktspmic_dprintk("pmic_chip_temp read fail, ret=%d\n", ret);
-			return ret;
+			pr_notice("pmic_chip_temp read fail, ret=%d\n", ret);
 	}
 #else
 	temp = pmic_get_auxadc_value(AUXADC_LIST_CHIP_TEMP);
@@ -407,8 +393,7 @@ int mt6359vcore_get_hw_temp(void)
 	if (!IS_ERR(chan_vcore_temp)) {
 		ret = iio_read_channel_processed(chan_vcore_temp, &temp);
 		if (ret < 0)
-			mtktspmic_dprintk("pmic_vcore_temp read fail, ret=%d\n", ret);
-			return ret;
+			pr_notice("pmic_vcore_temp read fail, ret=%d\n", ret);
 	}
 #else
 	temp = pmic_get_auxadc_value(AUXADC_LIST_VCORE_TEMP);
@@ -449,8 +434,7 @@ int mt6359vproc_get_hw_temp(void)
 	if (!IS_ERR(chan_vproc_temp)) {
 		ret = iio_read_channel_processed(chan_vproc_temp, &temp);
 		if (ret < 0)
-			mtktspmic_dprintk("pmic_vproc_temp read fail, ret=%d\n", ret);
-			return ret;
+			pr_notice("pmic_vproc_temp read fail, ret=%d\n", ret);
 	}
 #else
 	temp = pmic_get_auxadc_value(AUXADC_LIST_VPROC_TEMP);
@@ -490,8 +474,7 @@ int mt6359vgpu_get_hw_temp(void)
 	if (!IS_ERR(chan_vgpu_temp)) {
 		ret = iio_read_channel_processed(chan_vgpu_temp, &temp);
 		if (ret < 0)
-			mtktspmic_dprintk("pmic_vgpu_temp read fail, ret=%d\n", ret);
-			return ret;
+			pr_notice("pmic_vgpu_temp read fail, ret=%d\n", ret);
 	}
 #else
 	temp = pmic_get_auxadc_value(AUXADC_LIST_VGPU_TEMP);
