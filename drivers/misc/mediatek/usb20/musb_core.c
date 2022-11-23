@@ -22,7 +22,7 @@
 #include <linux/regmap.h>
 #include <linux/mfd/syscon.h>
 #include <linux/dma-map-ops.h>
-
+#include "mtk_spm_resource_req.h"
 #if IS_ENABLED(CONFIG_USBIF_COMPLIANCE)
 #include <linux/kthread.h>
 #include <linux/err.h>
@@ -2973,9 +2973,6 @@ EXPORT_SYMBOL(register_usb_hal_disconnect_check);
 #include <mt-plat/mtk_usb2jtag.h>
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_BASE_POWER)
-#include "mtk_spm_resource_req.h"
-
 static int dpidle_status = USB_DPIDLE_ALLOWED;
 module_param(dpidle_status, int, 0644);
 
@@ -3012,7 +3009,25 @@ static void issue_dpidle_timer(void)
 	add_timer(timer);
 }
 
-static void usb_6765_dpidle_request(int mode)
+static bool (*spm_resource_req_fptr)(unsigned int user, unsigned int req_mask);
+
+static void spm_resource_req_usb(unsigned int user, unsigned int req_mask)
+{
+	if (spm_resource_req_fptr) {
+		spm_resource_req_fptr(user, req_mask);
+		DBG(0, "spm_resource_req() function is ready!!!\n");
+	} else
+		DBG(0, "spm_resource_req() function not ready!!!\n");
+}
+
+void register_spm_resource_req_func(bool (*spm_resource_req_func)(unsigned int user,
+								unsigned int req_mask))
+{
+	spm_resource_req_fptr = spm_resource_req_func;
+}
+EXPORT_SYMBOL(register_spm_resource_req_func);
+
+static void usb_spm_dpidle_request(int mode)
 {
 	unsigned long flags;
 
@@ -3020,24 +3035,23 @@ static void usb_6765_dpidle_request(int mode)
 
 	/* update dpidle_status */
 	dpidle_status = mode;
-
 	switch (mode) {
 	case USB_DPIDLE_ALLOWED:
-		spm_resource_req(SPM_RESOURCE_USER_SSUSB, SPM_RESOURCE_RELEASE);
+		spm_resource_req_usb(SPM_RESOURCE_USER_SSUSB, SPM_RESOURCE_RELEASE);
 		if (likely(!dpidle_debug))
 			DBG_LIMIT(1, "USB_DPIDLE_ALLOWED");
 		else
 			DBG(0, "USB_DPIDLE_ALLOWED\n");
 		break;
 	case USB_DPIDLE_FORBIDDEN:
-		spm_resource_req(SPM_RESOURCE_USER_SSUSB, SPM_RESOURCE_ALL);
+		spm_resource_req_usb(SPM_RESOURCE_USER_SSUSB, SPM_RESOURCE_ALL);
 		if (likely(!dpidle_debug))
 			DBG_LIMIT(1, "USB_DPIDLE_FORBIDDEN");
 		else
 			DBG(0, "USB_DPIDLE_FORBIDDEN\n");
 		break;
 	case USB_DPIDLE_SRAM:
-		spm_resource_req(SPM_RESOURCE_USER_SSUSB,
+		spm_resource_req_usb(SPM_RESOURCE_USER_SSUSB,
 				SPM_RESOURCE_CK_26M | SPM_RESOURCE_MAINPLL);
 		if (likely(!dpidle_debug))
 			DBG_LIMIT(1, "USB_DPIDLE_SRAM");
@@ -3045,19 +3059,19 @@ static void usb_6765_dpidle_request(int mode)
 			DBG(0, "USB_DPIDLE_SRAM\n");
 		break;
 	case USB_DPIDLE_TIMER:
-		spm_resource_req(SPM_RESOURCE_USER_SSUSB,
+		spm_resource_req_usb(SPM_RESOURCE_USER_SSUSB,
 				SPM_RESOURCE_CK_26M | SPM_RESOURCE_MAINPLL);
 		DBG(0, "USB_DPIDLE_TIMER\n");
 		issue_dpidle_timer();
 		break;
 	case USB_DPIDLE_SUSPEND:
-		spm_resource_req(SPM_RESOURCE_USER_SSUSB,
+		spm_resource_req_usb(SPM_RESOURCE_USER_SSUSB,
 			SPM_RESOURCE_MAINPLL | SPM_RESOURCE_CK_26M |
 			SPM_RESOURCE_AXI_BUS);
 		DBG(0, "DPIDLE_SUSPEND\n");
 		break;
 	case USB_DPIDLE_RESUME:
-		spm_resource_req(SPM_RESOURCE_USER_SSUSB,
+		spm_resource_req_usb(SPM_RESOURCE_USER_SSUSB,
 			SPM_RESOURCE_RELEASE);
 		DBG(0, "DPIDLE_RESUME\n");
 		break;
@@ -3068,7 +3082,6 @@ static void usb_6765_dpidle_request(int mode)
 
 	spin_unlock_irqrestore(&usb_hal_dpidle_lock, flags);
 }
-#endif
 
 /* default value 0 */
 static int usb_rdy;
@@ -3153,6 +3166,7 @@ static u32 uwk_vers;
 enum musb_uwk_vers {
 	MUSB_UWK_V1 = 1,  /* MT6855 */
 	MUSB_UWK_V2,      /* MT6789 */
+	MUSB_UWK_V3,      /* MT6768 */
 };
 
 /* MT6855 */
@@ -3167,6 +3181,9 @@ enum musb_uwk_vers {
 #define MISC_CONFIG		0xf08
 #define USB_CD_CLR		BIT(7)
 
+/* MT6768 */
+#define USB_WAKEUP_DEC_CON1_MT6768	0x404
+#define USB1_CDDEBOUNCE(x)	(((x) & 0xf) << 1)
 static void mt_usb_wakeup(struct musb *musb, bool enable)
 {
 
@@ -3220,6 +3237,16 @@ static void mt_usb_wakeup(struct musb *musb, bool enable)
 			tmp &= ~USB_CD_CLR;
 			regmap_write(infracg, MISC_CONFIG, tmp);
 			break;
+		case MUSB_UWK_V3:
+			if (IS_ERR_OR_NULL(pericfg)) {
+				DBG(0, "init fail");
+				return;
+			}
+
+			regmap_read(pericfg, USB_WAKEUP_DEC_CON1_MT6768, &tmp);
+			tmp |= USB1_CDDEBOUNCE(0x8) | USB1_CDEN;
+			regmap_write(pericfg, USB_WAKEUP_DEC_CON1_MT6768, tmp);
+			break;
 		default:
 			return;
 		}
@@ -3238,6 +3265,18 @@ static void mt_usb_wakeup(struct musb *musb, bool enable)
 			regmap_read(pericfg, USB_WK_CTRL, &tmp);
 			tmp &= ~(USB_CDEN | USB_CDDEBOUNCE(0x8));
 			regmap_write(pericfg, USB_WK_CTRL, tmp);
+			break;
+		case MUSB_UWK_V3:
+			if (IS_ERR_OR_NULL(pericfg))
+				return;
+			regmap_read(pericfg, USB_WAKEUP_DEC_CON1_MT6768, &tmp);
+			tmp &= ~(USB1_CDEN | USB1_CDDEBOUNCE(0xf));
+			regmap_write(pericfg, USB_WAKEUP_DEC_CON1_MT6768, tmp);
+
+			if (is_con && !musb->is_active) {
+				DBG(0, "resume with device connected\n");
+				musb->is_active = 1;
+			}
 			break;
 		default:
 			return;
@@ -3267,6 +3306,8 @@ static int mt_usb_wakeup_init(struct musb *musb)
 			uwk_vers = 1;
 		else if (of_device_is_compatible(node, "mediatek,mt6789-usb20"))
 			uwk_vers = 2;
+		else if (of_device_is_compatible(node, "mediatek,mt6768-usb20"))
+			uwk_vers = 3;
 		else
 			return -EINVAL;
 		/* Add another platform with specific uwk_vers here  */
@@ -4491,7 +4532,11 @@ static int musb_probe(struct platform_device *pdev)
 	mtk_host_qmu_force_isoc_restart = 0;
 #endif
 #ifndef FPGA_PLATFORM
-	register_usb_hal_dpidle_request(usb_dpidle_request);
+	if (of_find_compatible_node(NULL, NULL,
+					"mediatek,mt6768-usb20"))
+		register_usb_hal_dpidle_request(usb_spm_dpidle_request);
+	else
+		register_usb_hal_dpidle_request(usb_dpidle_request);
 #endif
 	register_usb_hal_disconnect_check(trigger_disconnect_check_work);
 

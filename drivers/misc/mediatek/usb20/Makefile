@@ -26,6 +26,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 
 # for SPM control usage
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/spm/
 
 # for musb main
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/usb20/musb_main/
