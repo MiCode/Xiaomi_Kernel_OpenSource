@@ -207,7 +207,7 @@ struct scp_pmic_regs scp_pmic_hw_regs[MAX_SCP_DVFS_CHIP_HW] = {
 	[MT6833] = {
 		REG_DEFINE_WITH_INIT(sshub_op_mode, 0x1520, 0x1, 11, 0, 1)
 		REG_DEFINE_WITH_INIT(sshub_op_en, 0x1514, 0x1, 11, 1, 1)
-		REG_DEFINE_WITH_INIT(sshub_op_cfg, 0x151a, 0x1, 11, 1, 1)
+		REG_DEFINE_WITH_INIT(sshub_op_cfg, 0x151a, 0x1, 11, 0, 1)
 	},
 };
 
