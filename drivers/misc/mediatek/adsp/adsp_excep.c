@@ -349,20 +349,13 @@ void adsp_aed_worker(struct work_struct *ws)
 bool adsp_aed_dispatch(enum adsp_excep_id type, void *data)
 {
 	struct adsp_exception_control *ctrl = &excep_ctrl;
-	int ret = 0;
 
-	mutex_lock(&ctrl->lock);
-	if (work_busy(&ctrl->aed_work)) {
-		mutex_unlock(&ctrl->lock);
+	if (work_busy(&ctrl->aed_work))
 		return false;
-	}
 
 	ctrl->excep_id = type;
 	ctrl->priv_data = data;
-	ret = queue_work(ctrl->workq, &ctrl->aed_work);
-	mutex_unlock(&ctrl->lock);
-
-	return ret;
+	return queue_work(ctrl->workq, &ctrl->aed_work);
 }
 
 static void adsp_wdt_counter_reset(struct timer_list *t)
