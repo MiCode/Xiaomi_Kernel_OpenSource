@@ -919,7 +919,6 @@
 			<&topckgen_clk CLK_TOP_IPE_SEL>,
 			<&topckgen_clk CLK_TOP_VDEC_SEL>,
 			<&topckgen_clk CLK_TOP_VENC_SEL>,
-			<&topckgen_clk CLK_TOP_MDP_SEL>,
 			<&topckgen_clk CLK_TOP_DISP_SEL>,
 			<&topckgen_clk CLK_TOP_AUD_INTBUS_SEL>,
 			<&topckgen_clk CLK_TOP_ADSP_SEL>,
@@ -950,7 +949,7 @@
 			<&camsys_rawa_clk CLK_CAM_RA_LARBX>,
 			<&camsys_rawb_clk CLK_CAM_RB_LARBX>;
 		clock-names = "mfg1", "mfg2", "isp", "isp2", "ipe",
-			"vdec", "venc", "mdp", "disp",
+			"vdec", "venc", "disp",
 			"audio", "adsp", "cam", "isp-0",
 			"isp-1", "isp2-0", "isp2-1", "isp2-2",
 			"ipe-0", "ipe-1", "ipe-2", "ipe-3",
