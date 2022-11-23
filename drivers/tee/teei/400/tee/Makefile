@@ -11,6 +11,9 @@
 # GNU General Public License for more details.
 
 $(info "whf src=")
+
+include $(srctree)/drivers/tee/gpapi/Makefile.impl.include
+
 obj-y += tee.o
 tee-objs += tee_core.o
 tee-objs += tee_shm.o

@@ -58,6 +58,10 @@
 #include <irq_register.h>
 #include <../teei_fp/fp_func.h>
 
+#if IS_ENABLED(CONFIG_MTK_TEE_GP_COORDINATOR)
+	extern bool register_gp_api(void);
+#endif
+
 #if IS_ENABLED(CONFIG_MICROTRUST_TZ_DRIVER_MTK_BOOTPROF) && IS_ENABLED(CONFIG_MTPROF)
 
 #if KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE
@@ -1246,6 +1250,10 @@ static int teei_client_init(void)
 	wake_up_process(teei_log_task);
 
 	IMSG_DEBUG("create the sub_thread successfully!\n");
+
+#if IS_ENABLED(CONFIG_MTK_TEE_GP_COORDINATOR)
+	register_gp_api();
+#endif
 
 	ret_code = teei_vfs_init();
 	if (ret_code != 0) {

@@ -37,6 +37,8 @@ endif
 $(info "=----------------1---------------------------")
 subdir-ccflags-$(CONFIG_MICROTRUST_DEBUG) += -DDEBUG
 
+include $(srctree)/drivers/tee/gpapi/Makefile.impl.include
+
 obj-m += isee.o
 isee-y :=              tee/tee_core.o \
                        tee/capi_proxy.o \
