@@ -205,8 +205,11 @@ void topology_update_thermal_pressure(const struct cpumask *cpus,
 
 	trace_thermal_pressure_update(cpu, th_pressure);
 
-	for_each_cpu(cpu, cpus)
+	for_each_cpu(cpu, cpus) {
 		WRITE_ONCE(per_cpu(thermal_pressure, cpu), th_pressure);
+		trace_android_rvh_update_thermal_stats(cpu);
+	}
+
 }
 EXPORT_SYMBOL_GPL(topology_update_thermal_pressure);
 
@@ -361,7 +364,7 @@ void topology_init_cpu_capacity_cppc(void)
 	struct cppc_perf_caps perf_caps;
 	int cpu;
 
-	if (likely(acpi_disabled || !acpi_cpc_valid()))
+	if (likely(!acpi_cpc_valid()))
 		return;
 
 	raw_capacity = kcalloc(num_possible_cpus(), sizeof(*raw_capacity),
@@ -848,5 +851,24 @@ void __init init_cpu_topology(void)
 		reset_cpu_topology();
 		return;
 	}
+}
+
+void store_cpu_topology(unsigned int cpuid)
+{
+	struct cpu_topology *cpuid_topo = &cpu_topology[cpuid];
+
+	if (cpuid_topo->package_id != -1)
+		goto topology_populated;
+
+	cpuid_topo->thread_id = -1;
+	cpuid_topo->core_id = cpuid;
+	cpuid_topo->package_id = cpu_to_node(cpuid);
+
+	pr_debug("CPU%u: package %d core %d thread %d\n",
+		 cpuid, cpuid_topo->package_id, cpuid_topo->core_id,
+		 cpuid_topo->thread_id);
+
+topology_populated:
+	update_siblings_masks(cpuid);
 }
 #endif

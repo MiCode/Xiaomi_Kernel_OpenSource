@@ -128,11 +128,6 @@ DECLARE_RESTRICTED_HOOK(android_rvh_sched_getaffinity,
 	TP_PROTO(struct task_struct *p, struct cpumask *in_mask),
 	TP_ARGS(p, in_mask), 1);
 
-DECLARE_RESTRICTED_HOOK(android_rvh_update_cpus_allowed,
-	TP_PROTO(struct task_struct *p, cpumask_var_t cpus_requested,
-		 const struct cpumask *new_mask, int *ret),
-	TP_ARGS(p, cpus_requested, new_mask, ret), 1);
-
 DECLARE_RESTRICTED_HOOK(android_rvh_set_task_cpu,
 	TP_PROTO(struct task_struct *p, unsigned int new_cpu),
 	TP_ARGS(p, new_cpu), 1);
@@ -301,10 +296,6 @@ DECLARE_RESTRICTED_HOOK(android_rvh_dequeue_task_fair,
 	TP_PROTO(struct rq *rq, struct task_struct *p, int flags),
 	TP_ARGS(rq, p, flags), 1);
 
-DECLARE_RESTRICTED_HOOK(android_rvh_post_init_entity_util_avg,
-	TP_PROTO(struct sched_entity *se),
-	TP_ARGS(se), 1);
-
 DECLARE_RESTRICTED_HOOK(android_rvh_util_est_update,
 	TP_PROTO(struct cfs_rq *cfs_rq, struct task_struct *p, bool task_sleep, int *ret),
 	TP_ARGS(cfs_rq, p, task_sleep, ret), 1);
@@ -316,6 +307,10 @@ DECLARE_HOOK(android_vh_setscheduler_uclamp,
 DECLARE_HOOK(android_vh_update_topology_flags_workfn,
 	TP_PROTO(void *unused),
 	TP_ARGS(unused));
+
+DECLARE_RESTRICTED_HOOK(android_rvh_update_thermal_stats,
+		TP_PROTO(int cpu),
+		TP_ARGS(cpu), 1);
 
 /* macro versions of hooks are no longer required */
 
