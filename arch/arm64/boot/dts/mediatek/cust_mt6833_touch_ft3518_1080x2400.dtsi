@@ -22,6 +22,8 @@
 	tpd-key-dim-local = <90 883 100 40 230
 				 883 100 40 370 883 100 40 0 0 0 0>;
 	tpd-max-touch-num = <10>;
+	tpd_panel_max_x = <1080>;
+	tpd_panel_max_y = <2400>;
 	tpd-filter-enable = <0>;
 	tpd-filter-pixel-density = <106>;
 	tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
