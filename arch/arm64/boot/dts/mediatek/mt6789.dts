@@ -2223,8 +2223,8 @@
 			reg = <0 0x10000000 0 0x1000>;
 		};
 
-		infracfg_ao@10001000 {
-			compatible = "mediatek,infracfg_ao";
+		infracfg_ao: infracfg_ao@10001000 {
+			compatible = "mediatek,infracfg_ao", "syscon";
 			reg = <0 0x10001000 0 0x1000>;
 		};
 
@@ -2233,8 +2233,8 @@
 			reg = <0 0x10002000 0 0x1000>;
 		};
 
-		pericfg@10003000 {
-			compatible = "mediatek,pericfg";
+		pericfg: pericfg@10003000 {
+			compatible = "mediatek,pericfg", "syscon";
 			reg = <0 0x10003000 0 0x1000>;
 		};
 
@@ -6038,6 +6038,9 @@
 			dr_mode = "otg";
 			usb-role-switch;
 			cdp-block;
+			wakeup-source;
+			pericfg = <&pericfg>;
+			infracg = <&infracfg_ao>;
 			port {
 				musb_drd_switch: endpoint@0 {
 					remote-endpoint = <&usb_role>;
