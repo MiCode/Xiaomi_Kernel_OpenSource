@@ -42,12 +42,13 @@
 #include <linux/iommu.h>
 #endif
 #include "mtk_vcodec_mem.h"
+#include <linux/dma-heap.h>
+#include <uapi/linux/dma-heap.h>
 #include <linux/mtk_vcu_controls.h>
 #include "mtk_vcu.h"
 #include "vcp_helper.h"
 #include "mtk_heap.h"
 #include "iommu_pseudo.h"
-
 
 /**
  * VCU (Video Communication/Controller Unit) is a tiny processor
@@ -1449,12 +1450,32 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 			const u64 dapc_engine =
 				(1LL << CMDQ_SEC_VENC_BSDMA) |
 				(1LL << CMDQ_SEC_VENC_CUR_LUMA) |
-				(1LL << CMDQ_SEC_VENC_CUR_CHROMA);
+				(1LL << CMDQ_SEC_VENC_CUR_CHROMA) |
+				(1LL << CMDQ_SEC_VENC_REF_LUMA) |
+				(1LL << CMDQ_SEC_VENC_REF_CHROMA) |
+				(1LL << CMDQ_SEC_VENC_REC) |
+				(1LL << CMDQ_SEC_VENC_SUB_R_LUMA) |
+				(1LL << CMDQ_SEC_VENC_SUB_W_LUMA) |
+				(1LL << CMDQ_SEC_VENC_SV_COMV) |
+				(1LL << CMDQ_SEC_VENC_RD_COMV) |
+				(1LL << CMDQ_SEC_VENC_NBM_WDMA) |
+				(1LL << CMDQ_SEC_VENC_NBM_WDMA_LITE) |
+				(1LL << CMDQ_SEC_VENC_FCS_NBM_WDMA);
 
 			const u64 port_sec_engine =
 				(1LL << CMDQ_SEC_VENC_BSDMA) |
 				(1LL << CMDQ_SEC_VENC_CUR_LUMA) |
-				(1LL << CMDQ_SEC_VENC_CUR_CHROMA);
+				(1LL << CMDQ_SEC_VENC_CUR_CHROMA) |
+				(1LL << CMDQ_SEC_VENC_REF_LUMA) |
+				(1LL << CMDQ_SEC_VENC_REF_CHROMA) |
+				(1LL << CMDQ_SEC_VENC_REC) |
+				(1LL << CMDQ_SEC_VENC_SUB_R_LUMA) |
+				(1LL << CMDQ_SEC_VENC_SUB_W_LUMA) |
+				(1LL << CMDQ_SEC_VENC_SV_COMV) |
+				(1LL << CMDQ_SEC_VENC_RD_COMV) |
+				(1LL << CMDQ_SEC_VENC_NBM_WDMA) |
+				(1LL << CMDQ_SEC_VENC_NBM_WDMA_LITE) |
+				(1LL << CMDQ_SEC_VENC_FCS_NBM_WDMA);
 
 			pr_debug("[VCU] dapc_engine: 0x%llx, port_sec_engine: 0x%llx\n",
 				dapc_engine, port_sec_engine);
@@ -2439,6 +2460,8 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 	case VCU_MVA_ALLOCATION:
 	case VCU_UBE_MVA_ALLOCATION:
 	case VCU_PA_ALLOCATION:
+	case VCU_SECURE_HANDLE_ALLOCATION:
+	case VCU_SECURE_BUFFER_ALLOCATION:
 		user_data_addr = (unsigned char *)arg;
 		ret = (long)copy_from_user(&mem_buff_data, user_data_addr,
 			(unsigned long)sizeof(struct mem_obj));
@@ -2451,6 +2474,10 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 		mutex_lock(&vcu_queue->dev_lock);
 		if (cmd == VCU_MVA_ALLOCATION) {
 			mem_priv = mtk_vcu_get_buffer(vcu_queue, &mem_buff_data);
+		} else if (cmd == VCU_SECURE_HANDLE_ALLOCATION) {
+			mem_priv = mtk_vcu_get_sec_handle(vcu_queue, &mem_buff_data);
+		} else if (cmd == VCU_SECURE_BUFFER_ALLOCATION) {
+			mem_priv = mtk_vcu_get_sec_buffer(vcu_dev->dev, vcu_queue, &mem_buff_data);
 		} else if (cmd == VCU_UBE_MVA_ALLOCATION) {
 			struct device *io_dev = vcu_queue->dev;
 
@@ -2476,9 +2503,9 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 			return PTR_ERR(mem_priv);
 		}
 
-		vcu_dbg_log("[VCU] ALLOCATION %d va %llx, pa %llx, iova %llx\n",
+		vcu_dbg_log("[VCU] ALLOCATION %d va %llx, pa %llx, iova %llx len %d\n",
 			cmd == VCU_MVA_ALLOCATION, mem_buff_data.va,
-			mem_buff_data.pa, mem_buff_data.iova);
+			mem_buff_data.pa, mem_buff_data.iova, mem_buff_data.len);
 
 		ret = (long)copy_to_user(user_data_addr, &mem_buff_data,
 					 (unsigned long)sizeof(struct mem_obj));
@@ -2542,6 +2569,77 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 		mem_buff_data.va = 0;
 		mem_buff_data.iova = 0;
 		mem_buff_data.pa = 0;
+
+		ret = (long)copy_to_user(user_data_addr, &mem_buff_data,
+					 (unsigned long)sizeof(struct mem_obj));
+		if (ret != 0L) {
+			pr_info("[VCU] %s(%d) Copy data to user failed!\n",
+			       __func__, __LINE__);
+			return -EINVAL;
+		}
+		ret = 0;
+		break;
+	case VCU_SECURE_HANDLE_FREE:
+		user_data_addr = (unsigned char *)arg;
+		ret = (long)copy_from_user(&mem_buff_data, user_data_addr,
+			(unsigned long)sizeof(struct mem_obj));
+		if ((ret != 0L) || (mem_buff_data.pa == 0UL)) {
+			pr_info("[VCU] %s(%d) Free buf failed!\n",
+			       __func__, __LINE__);
+			return -EINVAL;
+		}
+
+		ret = mtk_vcu_free_sec_handle(vcu_queue, &mem_buff_data);
+
+		if (ret != 0L) {
+			pr_info("[VCU] VCU_SECURE_HANDLE_FREE failed sec_handle %llx, len %d\n",
+				mem_buff_data.pa, mem_buff_data.len);
+			return -EINVAL;
+		}
+
+		vcu_dbg_log("[VCU] VCU_SECURE_HANDLE_FREE sec_handle %llx, len %d\n",
+			mem_buff_data.pa, mem_buff_data.len);
+
+		mem_buff_data.va = 0;
+		mem_buff_data.iova = 0;
+		mem_buff_data.pa = 0;
+		mem_buff_data.len = 0;
+
+		ret = (long)copy_to_user(user_data_addr, &mem_buff_data,
+					 (unsigned long)sizeof(struct mem_obj));
+		if (ret != 0L) {
+			pr_info("[VCU] %s(%d) Copy data to user failed!\n",
+			       __func__, __LINE__);
+			return -EINVAL;
+		}
+		ret = 0;
+		break;
+	case VCU_SECURE_BUFFER_FREE:
+		user_data_addr = (unsigned char *)arg;
+		ret = (long)copy_from_user(&mem_buff_data, user_data_addr,
+			(unsigned long)sizeof(struct mem_obj));
+		if ((ret != 0L) || (mem_buff_data.iova == 0UL)) {
+			pr_info("[VCU] %s(%d) Free buf failed!\n",
+			       __func__, __LINE__);
+			return -EINVAL;
+		}
+
+		pr_info("VCU_SECURE_BUFFER_FREE sec iova 0x%lx\n", mem_buff_data.iova);
+		ret = mtk_vcu_free_sec_buffer(vcu_queue, &mem_buff_data);
+
+		if (ret != 0L) {
+			pr_info("[VCU] VCU_SECURE_HANDLE_FREE failed sec_buffer  %lx, len %d\n",
+				mem_buff_data.iova, mem_buff_data.len);
+			return -EINVAL;
+		}
+
+		vcu_dbg_log("[VCU] VCU_SECURE_HANDLE_FREE sec iova %llx, len %d\n",
+			mem_buff_data.iova, mem_buff_data.len);
+
+		mem_buff_data.va = 0;
+		mem_buff_data.iova = 0;
+		mem_buff_data.pa = 0;
+		mem_buff_data.len = 0;
 
 		ret = (long)copy_to_user(user_data_addr, &mem_buff_data,
 					 (unsigned long)sizeof(struct mem_obj));
@@ -2681,6 +2779,8 @@ static long mtk_vcu_unlocked_compat_ioctl(struct file *file, unsigned int cmd,
 	case COMPAT_VCU_MVA_ALLOCATION:
 	case COMPAT_VCU_UBE_MVA_ALLOCATION:
 	case COMPAT_VCU_PA_ALLOCATION:
+	case COMPAT_VCU_SECURE_HANDLE_ALLOCATION:
+	case COMPAT_VCU_SECURE_BUFFER_ALLOCATION:
 		data32 = compat_ptr((uint32_t)arg);
 		data = compat_alloc_user_space(sizeof(struct mem_obj));
 		if (data == NULL)
@@ -2697,6 +2797,14 @@ static long mtk_vcu_unlocked_compat_ioctl(struct file *file, unsigned int cmd,
 			ret = file->f_op->unlocked_ioctl(file,
 				(uint32_t)VCU_UBE_MVA_ALLOCATION,
 				(unsigned long)data);
+		else if (cmd == COMPAT_VCU_SECURE_HANDLE_ALLOCATION)
+			ret = file->f_op->unlocked_ioctl(file,
+				(uint32_t)VCU_SECURE_HANDLE_ALLOCATION,
+				(unsigned long)data);
+		else if (cmd == COMPAT_VCU_SECURE_BUFFER_ALLOCATION)
+			ret = file->f_op->unlocked_ioctl(file,
+				(uint32_t)VCU_SECURE_BUFFER_ALLOCATION,
+				(unsigned long)data);
 		else
 			ret = file->f_op->unlocked_ioctl(file,
 				(uint32_t)VCU_PA_ALLOCATION,
@@ -2708,6 +2816,8 @@ static long mtk_vcu_unlocked_compat_ioctl(struct file *file, unsigned int cmd,
 	case COMPAT_VCU_MVA_FREE:
 	case COMPAT_VCU_UBE_MVA_FREE:
 	case COMPAT_VCU_PA_FREE:
+	case COMPAT_VCU_SECURE_HANDLE_FREE:
+	case COMPAT_VCU_SECURE_BUFFER_FREE:
 		data32 = compat_ptr((uint32_t)arg);
 		data = compat_alloc_user_space(sizeof(struct mem_obj));
 		if (data == NULL)
@@ -2722,6 +2832,12 @@ static long mtk_vcu_unlocked_compat_ioctl(struct file *file, unsigned int cmd,
 		else if (cmd == COMPAT_VCU_UBE_MVA_FREE)
 			ret = file->f_op->unlocked_ioctl(file,
 				(uint32_t)VCU_UBE_MVA_FREE, (unsigned long)data);
+		else if (cmd == COMPAT_VCU_SECURE_HANDLE_FREE)
+			ret = file->f_op->unlocked_ioctl(file,
+				(uint32_t)VCU_SECURE_HANDLE_FREE, (unsigned long)data);
+		else if (cmd == COMPAT_VCU_SECURE_BUFFER_FREE)
+			ret = file->f_op->unlocked_ioctl(file,
+				(uint32_t)VCU_SECURE_BUFFER_FREE, (unsigned long)data);
 		else
 			ret = file->f_op->unlocked_ioctl(file,
 				(uint32_t)VCU_PA_FREE, (unsigned long)data);

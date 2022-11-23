@@ -50,6 +50,8 @@ struct mtk_vcu_mem {
 	dma_addr_t iova;
 	atomic_t ref_cnt;
 	uint64_t va_id;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
 };
 
 struct vcu_pa_pages {
@@ -62,6 +64,14 @@ struct vcu_pa_pages {
 struct vcu_page_info {
 	struct vcu_pa_pages *page;
 	struct list_head list;
+};
+
+struct mtk_vcu_sec_handle {
+	void *mem_priv;
+	size_t size;
+	struct dma_buf *dbuf;
+	uint32_t sec_handle;
+	atomic_t ref_cnt;
 };
 
 /**
@@ -83,8 +93,12 @@ struct mtk_vcu_queue {
 	struct mutex dev_lock;
 	struct cmdq_client *cmdq_clt;
 	unsigned int num_buffers;
+	unsigned int num_sec_handles;
+	unsigned int num_sec_buffers;
 	const struct vb2_mem_ops *mem_ops;
 	struct mtk_vcu_mem bufs[CODEC_MAX_BUFFER];
+	struct mtk_vcu_sec_handle sec_handles[CODEC_MAX_BUFFER];
+	struct mtk_vcu_mem sec_bufs[CODEC_MAX_BUFFER];
 	uint64_t map_buf_pa;
 	struct vcu_pa_pages pa_pages;
 	int enable_vcu_dbg_log;
@@ -137,6 +151,11 @@ void *mtk_vcu_get_buffer(struct mtk_vcu_queue *vcu_queue,
 						 struct mem_obj *mem_buff_data);
 void *mtk_vcu_get_page(struct mtk_vcu_queue *vcu_queue,
 						 struct mem_obj *mem_buff_data);
+void *mtk_vcu_get_sec_handle(struct mtk_vcu_queue *vcu_queue,
+						 struct mem_obj *mem_buff_data);
+void *mtk_vcu_get_sec_buffer(struct device *dev,
+						struct mtk_vcu_queue *vcu_queue,
+						 struct mem_obj *mem_buff_data);
 
 /**
  * mtk_vcu_free_buffer/mtk_vcu_free_page - just free unused buffer iova/va/pa
@@ -150,6 +169,11 @@ int mtk_vcu_free_buffer(struct mtk_vcu_queue *vcu_queue,
 						struct mem_obj *mem_buff_data);
 int mtk_vcu_free_page(struct mtk_vcu_queue *vcu_queue,
 						struct mem_obj *mem_buff_data);
+int mtk_vcu_free_sec_handle(struct mtk_vcu_queue *vcu_queue,
+						struct mem_obj *mem_buff_data);
+int mtk_vcu_free_sec_buffer(struct mtk_vcu_queue *vcu_queue,
+						struct mem_obj *mem_buff_data);
+
 
 /**
  * mtk_vcu_free_buffer - decreas reference count for mem_priv
