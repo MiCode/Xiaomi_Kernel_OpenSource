@@ -270,6 +270,7 @@ obj-$(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING) += fhctl.o
 fhctl-y += clk-fhctl.o
 fhctl-y += clk-fhctl-ap.o
 fhctl-y += clk-fhctl-pll.o
+fhctl-$(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING_SSPM) += clk-fhctl-sspm.o
 ifeq ($(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING_MCUPM),y)
 fhctl-y += clk-fhctl-mcupm.o
 ccflags-y += -DUSE_FHCTL_MCUPM
@@ -282,7 +283,10 @@ fhctl-$(CONFIG_DEBUG_FS) += clk-fhctl-debug.o
 endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/include/linux/soc/mediatek/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+
+ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_V1)),)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
+endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpueb/
 ccflags-y += -I$(srctree)/drivers/clk/mediatek/

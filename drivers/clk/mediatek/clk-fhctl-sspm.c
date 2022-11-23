@@ -4,12 +4,15 @@
  * Author: Pierre Lee <pierre.lee@mediatek.com>
  */
 
+#include <linux/slab.h>
+#include "clk-fhctl-pll.h"
 #include "clk-fhctl.h"
 #include "sspm_ipi.h"
+#include "clk-fhctl-util.h"
 
 #define FHCTL_D_LEN  9
 #define MAX_SSC_RATE 8
-
+#define FHCTL_TARGET FHCTL_SSPM
 
 /* SSPM IPI CMD. Should sync with mt_freqhopping.h in tinysys driver. */
 enum FH_DEVCTL_CMD_ID {
@@ -20,6 +23,17 @@ enum FH_DEVCTL_CMD_ID {
 	FH_DCTL_CMD_SSC_TBL_CONFIG = 0x100A,
 	FH_DCTL_CMD_PLL_PAUSE = 0x100E,
 	FH_DCTL_CMD_MAX
+};
+
+struct match {
+	char *name;
+	struct fh_hdlr *hdlr;
+	int (*init)(struct pll_dts *array, struct match *match);
+};
+struct hdlr_data_v1 {
+	struct pll_dts *array;
+	spinlock_t *lock;
+	struct fh_pll_domain *domain;
 };
 
 struct freqhopping_ioctl {
@@ -79,76 +93,69 @@ static int fhctl_to_sspm_command(unsigned int cmd,
 	return ack_data;
 }
 
-static int clk_mt_fh_sspm_hal_init(void)
+static int sspm_init_v1(struct pll_dts *array, struct match *match)
 {
-	return 0;
-}
-
-static int clk_mt_fh_sspm_pll_init(struct clk_mt_fhctl *fh)
-{
+	static DEFINE_SPINLOCK(lock);
+	struct hdlr_data_v1 *priv_data;
 	struct fhctl_ipi_data ipi_data;
 	int pll_id;
+	struct fh_hdlr *hdlr;
 
-	pll_id = fh->pll_data->pll_id;
+	pll_id = array->fh_id;
+
+	priv_data = kzalloc(sizeof(*priv_data), GFP_KERNEL);
+	hdlr = kzalloc(sizeof(*hdlr), GFP_KERNEL);
+	init_fh_domain(array->domain,
+			array->comp,
+			array->fhctl_base,
+			array->apmixed_base);
+
+	priv_data->array = array;
+	priv_data->lock = &lock;
+	priv_data->domain = get_fh_domain(array->domain);
 
 	/* Check default enable SSC */
-	if (fh->pll_data->pll_default_ssc_rate > 0) {
+	if (array->ssc_rate > 0) {
 		/* Init SSPM g_pll_ssc_setting_tbl table */
 		ipi_data.u.fh_ctl.pll_id = pll_id;
 		ipi_data.u.fh_ctl.ssc_setting.dt = 0;
 		ipi_data.u.fh_ctl.ssc_setting.df = 0;
 		ipi_data.u.fh_ctl.ssc_setting.upbnd = 0;
 		ipi_data.u.fh_ctl.ssc_setting.lowbnd =
-			fh->pll_data->pll_default_ssc_rate;
+			array->ssc_rate;
 		fhctl_to_sspm_command(FH_DCTL_CMD_SSC_TBL_CONFIG, &ipi_data);
 
 		pr_debug("Default Enable SSC PLL_ID:%d SSC_RATE:0~-%d",
-				pll_id, fh->pll_data->pll_default_ssc_rate);
+				pll_id, array->ssc_rate);
+	}
 
+	/* hook to array */
+	hdlr->data = priv_data;
+	hdlr->ops = match->hdlr->ops;
+	/* hook hdlr to array is the last step */
+	mb();
+	array->hdlr = hdlr;
+
+	if (array->ssc_rate) {
 		/* Default Enable SSC to 0~-N%; */
-		fh->hal_ops->pll_ssc_enable(fh,
-				fh->pll_data->pll_default_ssc_rate);
+		hdlr = array->hdlr;
+		hdlr->ops->ssc_enable(hdlr->data,
+				array->domain,
+				array->fh_id,
+				array->ssc_rate);
 	}
 
 	return 0;
 }
 
-static int __clk_mt_fh_sspm_pll_pause(struct clk_mt_fhctl *fh, bool pause)
-{
-	struct fhctl_ipi_data ipi_data;
-	int pll_id;
-
-	pll_id = fh->pll_data->pll_id;
-
-	/* Only for support pause in CPU PLL. */
-	if (fh->pll_data->pll_type != FH_PLL_TYPE_CPU)
-		return -EPERM;
-
-	ipi_data.u.args[0] = pll_id;
-	ipi_data.u.args[1] = (pause) ? 1 : 0;
-	fhctl_to_sspm_command(FH_DCTL_CMD_PLL_PAUSE, &ipi_data);
-
-	return 0;
-}
-
-static int clk_mt_fh_sspm_pll_unpause(struct clk_mt_fhctl *fh)
-{
-	return __clk_mt_fh_sspm_pll_pause(fh, false);
-}
-
-static int clk_mt_fh_sspm_pll_pause(struct clk_mt_fhctl *fh)
-{
-
-	return __clk_mt_fh_sspm_pll_pause(fh, true);
-}
-
-static int clk_mt_fh_sspm_pll_ssc_disable(struct clk_mt_fhctl *fh)
+static int sspm_ssc_disable_v1(void *priv_data,
+	char *domain_name, int fh_id)
 {
 	struct freqhopping_ioctl fh_ctl;
 	struct fhctl_ipi_data ipi_data;
 	int pll_id;
 
-	pll_id = fh->pll_data->pll_id;
+	pll_id = fh_id;
 
 	fh_ctl.pll_id = pll_id;
 
@@ -162,19 +169,19 @@ static int clk_mt_fh_sspm_pll_ssc_disable(struct clk_mt_fhctl *fh)
 }
 
 
-static int clk_mt_fh_sspm_pll_ssc_enable(struct clk_mt_fhctl *fh, int ssc_rate)
+static int sspm_ssc_enable_v1(void *priv_data,
+		char *domain_name, int fh_id, int rate)
 {
 	struct freqhopping_ioctl fh_ctl;
 	struct fhctl_ipi_data ipi_data;
 	int pll_id;
+	int ssc_rate;
+	struct hdlr_data_v1 *d = (struct hdlr_data_v1 *)priv_data;
+	struct pll_dts *array = d->array;
 
-	pll_id = fh->pll_data->pll_id;
+	pll_id = fh_id;
 	fh_ctl.pll_id = pll_id;
-
-	if (fh->pll_data->pll_type == FH_PLL_TYPE_NOT_SUPPORT) {
-		pr_info("%s not support SSC.", fh->pll_data->pll_name);
-		return -EPERM;
-	}
+	ssc_rate = rate;
 
 	if (ssc_rate > MAX_SSC_RATE) {
 		pr_info("[Error] ssc_rate:%d over spec!!!", ssc_rate);
@@ -193,32 +200,23 @@ static int clk_mt_fh_sspm_pll_ssc_enable(struct clk_mt_fhctl *fh, int ssc_rate)
 	fhctl_to_sspm_command(FH_DCTL_CMD_SSC_ENABLE, &ipi_data);
 
 	pr_info("PLL:%d ssc rate change [O]:%d => [N]:%d ",
-			pll_id, fh->pll_data->pll_default_ssc_rate, ssc_rate);
+			pll_id, array->ssc_rate, ssc_rate);
 
 	/* Update clock ssc rate variable. */
 
-	fh->pll_data->pll_default_ssc_rate = ssc_rate;
+	array->ssc_rate = ssc_rate;
 
 	return 0;
 }
 
-static int clk_mt_fh_sspm_pll_hopping(struct clk_mt_fhctl *fh,
-					unsigned int new_dds,
-					int postdiv)
+static int sspm_hopping_v1(void *priv_data, char *domain_name, int fh_id,
+		unsigned int new_dds, int postdiv)
 {
 	struct fhctl_ipi_data ipi_data;
 	int pll_id, cmd_id;
 
 
-	pll_id = fh->pll_data->pll_id;
-
-	/* CPU is forbidden hopping in AP side. (clk driver owner reqest) */
-	if ((fh->pll_data->pll_type == FH_PLL_TYPE_NOT_SUPPORT) ||
-			(fh->pll_data->pll_type == FH_PLL_TYPE_CPU)) {
-		pr_info("%s not support hopping in AP side.",
-					fh->pll_data->pll_name);
-		return 0;
-	}
+	pll_id = fh_id;
 
 	cmd_id = FH_DCTL_CMD_GENERAL_DFS;
 
@@ -235,14 +233,62 @@ static int clk_mt_fh_sspm_pll_hopping(struct clk_mt_fhctl *fh,
 	return 0;
 }
 
-const struct clk_mt_fhctl_hal_ops mt_fhctl_hal_ops = {
-	.hal_init = clk_mt_fh_sspm_hal_init,
-	.pll_init = clk_mt_fh_sspm_pll_init,
-	.pll_unpause = clk_mt_fh_sspm_pll_unpause,
-	.pll_pause = clk_mt_fh_sspm_pll_pause,
-	.pll_ssc_disable = clk_mt_fh_sspm_pll_ssc_disable,
-	.pll_ssc_enable = clk_mt_fh_sspm_pll_ssc_enable,
-	.pll_hopping = clk_mt_fh_sspm_pll_hopping,
+static struct fh_operation sspm_ops_v1 = {
+	.hopping = sspm_hopping_v1,
+	.ssc_enable = sspm_ssc_enable_v1,
+	.ssc_disable = sspm_ssc_disable_v1,
+};
+static struct fh_hdlr sspm_hdlr_v1 = {
+	.ops = &sspm_ops_v1,
+};
+static struct match mt6768_match = {
+	.name = "mediatek,mt6768-fhctl",
+	.hdlr = &sspm_hdlr_v1,
+	.init = &sspm_init_v1,
 };
 
+static struct match *matches[] = {
+	&mt6768_match,
+	NULL,
+};
+
+int fhctl_sspm_init(struct pll_dts *array)
+{
+	int i;
+	int num_pll;
+	struct match **match;
+
+	FHDBG("\n");
+	match = matches;
+	num_pll = array->num_pll;
+
+	/* find match by compatible */
+	while (*match != NULL) {
+		char *comp = (*match)->name;
+		char *target = array->comp;
+
+		if (strcmp(comp, target) == 0)
+			break;
+
+	match++;
+	}
+
+	if (*match == NULL) {
+		FHDBG("no match!\n");
+		return -1;
+	}
+
+	/* init flow for every pll */
+	for (i = 0; i < num_pll ; i++, array++) {
+		char *method = array->method;
+
+		if (strcmp(method, FHCTL_TARGET) == 0) {
+			FHDBG("FHCTL SSPM\n");
+			(*match)->init(array, *match);
+		}
+	}
+
+	FHDBG("\n");
+	return 0;
+}
 
