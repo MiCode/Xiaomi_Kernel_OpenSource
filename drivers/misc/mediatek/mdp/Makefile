@@ -11,7 +11,9 @@
 # GNU General Public License for more details.
 #
 
-# driver code for MDP
+#==========================================================================
+# MDP Common Headers
+#==========================================================================
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/mmdvfs/ \
@@ -19,15 +21,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/include/ \
              -I$(srctree)/drivers/misc/mediatek/mmp/ \
              -I$(srctree)/drivers/iommu \
-             -I$(srctree)/drivers/misc/mediatek/iommu/
-
-ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),m)
-ifeq ($(CONFIG_MTK_MDP_MTEE_SUPPORT),m)
-ccflags-y += -I$(srctree)/drivers/dma-buf/heaps
-endif
-endif
-
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
+             -I$(srctree)/drivers/misc/mediatek/iommu/ \
+             -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
 
 ifeq ($(strip $(CONFIG_MTK_PQ_COLOR_MODE)),"MDP")
 ccflags-y += -DCMDQ_MDP_COLOR
@@ -47,19 +42,26 @@ endif
 # dump mdp command
 #ccflags-y += -DMDP_COMMAND_SIMULATE
 
-# Secure path for SVP/HDCP/SecCam
-ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),m)
-ifeq ($(CONFIG_MTK_MDP_MTEE_SUPPORT),m)
+#==========================================================================
+# MDP Secure path for SVP/HDCP/SecCam
+#==========================================================================
+
+ifneq ($(filter y m, $(or $(CONFIG_MTK_TEE_GP_SUPPORT), $(CONFIG_HAVE_MTK_ENABLE_GENIEZONE))),)
+ifneq ($(filter y m, $(CONFIG_MTK_MDP_MTEE_SUPPORT)),)
 ccflags-y += -DCMDQ_SECURE_PATH_SUPPORT
-endif
-endif
+ccflags-y += -I$(srctree)/drivers/dma-buf/heaps
+endif # !CONFIG_MTK_MDP_MTEE_SUPPORT
+endif # !SECURE_PATH_SUPPORET
 
 # platform dependent definition
 ifneq ($(strip $(CONFIG_MTK_GMO_RAM_OPTIMIZE)),y)
 ccflags-y += -DCMDQ_LARGE_MAX_FIRSTERROR_BUFFER
-endif
+endif # !CONFIG_MTK_GMO_RAM_OPTIMIZE
 
-# driver module
+#==========================================================================
+# MDP driver module
+#==========================================================================
+
 obj-$(CONFIG_MTK_MDP) += cmdq_helper_inf.o
 obj-$(CONFIG_MTK_MDP_MT6873) += mdp_drv_mt6873.o
 obj-$(CONFIG_MTK_MDP_MT6853) += mdp_drv_mt6853.o

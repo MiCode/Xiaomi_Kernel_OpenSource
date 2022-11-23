@@ -653,7 +653,7 @@ static u64 cmdq_mdp_get_not_used_engine(const u64 engine_flag)
 	struct mdp_thread *thread = mdp_ctx.thread;
 	u64 engine_not_use = 0LL;
 	s32 index;
-	s32 owner_thd = CMDQ_INVALID_THREAD;
+	s32 owner_thd;
 
 	for (index = 0; index < CMDQ_MAX_ENGINE_COUNT; index++) {
 		if (!(engine_flag & (1LL << index)))
@@ -920,7 +920,7 @@ static s32 cmdq_mdp_find_free_thread(struct cmdqRecStruct *handle)
 static s32 cmdq_mdp_consume_handle(void)
 {
 	s32 err;
-	struct cmdqRecStruct *handle, *temp;
+	struct cmdqRecStruct *handle = NULL, *temp;
 	u32 index;
 	bool acquired = false;
 	struct CmdqCBkStruct *callback = cmdq_core_get_group_cb();
@@ -998,7 +998,7 @@ static s32 cmdq_mdp_consume_handle(void)
 			"%s dispatch thread:%d for handle:0x%p engine:0x%llx thread engine:0x%llx\n",
 			__func__, handle->thread, handle,
 			handle->engineFlag,
-			handle->thread >= 0 ?
+			handle->thread >= 0 && handle->thread < ARRAY_SIZE(mdp_ctx.thread) ?
 			mdp_ctx.thread[handle->thread].engine_flag : 0);
 
 		/* callback task for tracked group */
@@ -1317,8 +1317,11 @@ s32 cmdq_mdp_config_readback_thread(struct cmdqRecStruct *handle)
 
 	/* Assign static normal thread */
 	if (handle->scenario == CMDQ_SCENARIO_USER_MDP &&
-		handle->secData.is_secure)  {
-		handle->thread_rb = mdp_ctx.pq_readback.rb_thread_id;
+		handle->secData.is_secure) {
+		if (mdp_ctx.pq_readback.rb_thread_id == 0)
+			handle->thread_rb = CMDQ_INVALID_THREAD;
+		else
+			handle->thread_rb = mdp_ctx.pq_readback.rb_thread_id;
 	}
 
 	CMDQ_MSG("%s engine:%llx, handle->thread_rb:%d, readback_cnt:%d\n", __func__,
@@ -1438,7 +1441,8 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 			kfree(addr_meta);
 			return -EFAULT;
 		}
-		cmdq_mdp_init_secure_id(addr_meta, secData->addrMetadataCount);
+		cmdq_mdp_init_secure_id(addr_meta, secData->addrMetadataCount,
+			cmdq_mdp_get_func()->mdpIsMtee(handle));
 		cmdq_sec_pkt_assign_metadata(handle->pkt,
 			secData->addrMetadataCount,
 			addr_meta);
@@ -1495,12 +1499,12 @@ void cmdq_mdp_cmdqSecIspMeta_fd_to_handle(struct cmdqSecIspMeta *ispMeta)
 #endif
 }
 
-void cmdq_mdp_init_secure_id(void *meta_array, u32 count)
+void cmdq_mdp_init_secure_id(void *meta_array, u32 count, bool mtee)
 {
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 	u32 i;
 	struct dma_buf *buf = NULL;
-	uint32_t sec_id = 0;
+	int sec_id = 0;
 	uint32_t sec_handle = 0;
 	struct cmdqSecAddrMetadataStruct *secMetadatas =
 			(struct cmdqSecAddrMetadataStruct *)meta_array;
@@ -1513,14 +1517,17 @@ void cmdq_mdp_init_secure_id(void *meta_array, u32 count)
 		}
 
 		buf = dma_buf_get(secMetadatas[i].baseHandle);
-		sec_id = dmabuf_to_sec_id(buf, &sec_handle);
+		if (mtee)
+			sec_id = dmabuf_to_sec_id(buf, &sec_handle);
+		else
+			sec_id = dmabuf_to_tmem_type(buf, &sec_handle);
+		secMetadatas[i].sec_id = sec_id;
+		secMetadatas[i].baseHandle = (uint64_t)sec_handle;
 		CMDQ_MSG("%s,port:%d,baseHandle:%#llx,sec_id:%d,sec_handle:%#x",
 				__func__, secMetadatas[i].port,
 				secMetadatas[i].baseHandle,
-				sec_id,
+				secMetadatas[i].sec_id,
 				sec_handle);
-		secMetadatas[i].baseHandle = (uint64_t)sec_handle;
-		secMetadatas[i].sec_id = sec_id;
 		dma_buf_put(buf);
 	}
 #endif
@@ -1629,9 +1636,11 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	if (desc->prop_size && desc->prop_addr &&
 		desc->prop_size < CMDQ_MAX_USER_PROP_SIZE) {
 		handle->prop_addr = kzalloc(desc->prop_size, GFP_KERNEL);
-		memcpy(handle->prop_addr, (void *)CMDQ_U32_PTR(desc->prop_addr),
-			desc->prop_size);
-		handle->prop_size = desc->prop_size;
+		if (handle->prop_addr) {
+			memcpy(handle->prop_addr, (void *)CMDQ_U32_PTR(desc->prop_addr),
+				desc->prop_size);
+			handle->prop_size = desc->prop_size;
+		}
 	} else {
 		handle->prop_addr = NULL;
 		handle->prop_size = 0;
@@ -1697,7 +1706,7 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	 */
 	err = cmdq_mdp_flush_async_impl(handle);
 	CMDQ_TRACE_FORCE_END();
-	return 0;
+	return err;
 
 flush_err_end:
 	CMDQ_TRACE_FORCE_END();

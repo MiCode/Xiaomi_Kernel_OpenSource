@@ -1213,6 +1213,25 @@ u64 cmdq_mdp_get_secure_engine(u64 engine_flags)
 {
 	u64 sec_eng_flag = 0;
 
+	/* MDP engines */
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_RDMA0);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_RDMA1);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_WDMA);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_WROT0);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_WROT1);
+
+	/* DISP engines */
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DISP_RDMA0);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DISP_RDMA1);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DISP_WDMA0);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DISP_WDMA1);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DISP_OVL0);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DISP_OVL1);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DISP_OVL2);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DISP_2L_OVL0);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DISP_2L_OVL1);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DISP_2L_OVL2);
+
 	/* ISP */
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_IMGI);
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_VIPI);
@@ -1381,13 +1400,12 @@ static s32 mdp_get_rdma_idx(u32 eng_base)
 
 static bool mdp_check_camin_support_virtual(void)
 {
-	return true;
+	return false;
 }
 
 static bool mdp_svp_support_meta_data(void)
 {
-	/* early GKI2.0 about mt6768 not support secure */
-	return false;
+	return true;
 }
 
 void cmdq_mdp_platform_function_setting(void)
