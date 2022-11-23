@@ -740,17 +740,17 @@ static void set_shutter(struct subdrv_ctx *ctx, kal_uint16 shutter)
     write_shutter(ctx, shutter);
 } /* set_shutter */
 
-static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint32 gain)
+static kal_uint32 gain2reg(struct subdrv_ctx *ctx, const kal_uint32 gain)
 {
-    kal_uint16 reg_gain = gain << 2;
+	kal_uint32 reg_gain = gain/4;
 
-    if (reg_gain < GC5035_SENSOR_GAIN_BASE)
-        reg_gain = GC5035_SENSOR_GAIN_BASE;
-    else if (reg_gain > GC5035_SENSOR_GAIN_MAX)
-        reg_gain = GC5035_SENSOR_GAIN_MAX;
+	if (reg_gain < GC5035_SENSOR_GAIN_BASE)
+		reg_gain = GC5035_SENSOR_GAIN_BASE;
+	if (reg_gain > GC5035_SENSOR_GAIN_MAX)
+		reg_gain = GC5035_SENSOR_GAIN_MAX;
 
 
-    return (kal_uint16) reg_gain;
+	return (kal_uint32) reg_gain;
 }
 
 /*************************************************************************
@@ -771,7 +771,7 @@ static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint32 gain)
  *************************************************************************/
 __attribute__((unused)) static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 {
-    kal_uint16 reg_gain;
+	kal_uint32 reg_gain;
     kal_uint32 temp_gain;
     kal_int16 gain_index;
     kal_uint16 GC5035_AGC_Param[GC5035_SENSOR_GAIN_MAP_SIZE][2] = {
