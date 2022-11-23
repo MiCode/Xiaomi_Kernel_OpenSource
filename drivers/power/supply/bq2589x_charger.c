@@ -2078,26 +2078,23 @@ static int bq2589x_chg_set_property(struct power_supply *psy,
 #if 1
 static int bq2589x_boost_enable(struct regulator_dev *rdev)
 {
-	struct bq2589x *bq = rdev_get_drvdata(rdev);
+	pr_info("%s\n", __func__);
 
-	pr_info("%s\n");
-
-	return bq2589x_enable_otg(bq);
+	return bq2589x_set_enable_otg(1);
 }
 
 static int bq2589x_boost_disable(struct regulator_dev *rdev)
 {
-	struct bq2589x *bq = rdev_get_drvdata(rdev);
+	pr_info("%s\n", __func__);
 
-	pr_info("%s\n");
-
-	return bq2589x_disable_otg(bq);
+	return bq2589x_set_enable_otg(0);
 }
 
 static int bq2589x_boost_is_enabled(struct regulator_dev *rdev)
 {
 	struct bq2589x *bq = rdev_get_drvdata(rdev);
-	pr_info("%s\n");
+
+	pr_info("%s\n", __func__);
 
 	return bq2589x_is_otg_enable(bq);
 }
