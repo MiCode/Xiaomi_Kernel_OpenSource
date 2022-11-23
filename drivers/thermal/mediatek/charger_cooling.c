@@ -97,8 +97,7 @@ static int cooling_state_to_charger_limit_v1(struct charger_cooling_device *chg)
 		pr_info("Couldn't get chg_psy\n");
 		return ret;
 	}
-	//prop_bat_chr.intval = master_charger_state_to_current_limit[chg->target_state];
-	prop_bat_chr.intval = -1;
+	prop_bat_chr.intval = master_charger_state_to_current_limit[chg->target_state];
 
 	ret = power_supply_set_property(chg->chg_psy,
 		POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
