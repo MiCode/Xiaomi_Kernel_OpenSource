@@ -843,7 +843,7 @@ static bool mtk_rtc_check_set_time(struct mt6685_rtc *rtc, struct rtc_time *tm,
 	int retry_time, int rtc_time_reg)
 {
 	int ret, i, j, write_fail = 0, prot_key = 0, hwid = 0, mclk = 0;
-	u16 data[RTC_OFFSET_COUNT], latest[RTC_OFFSET_COUNT];
+	u16 data[RTC_OFFSET_COUNT] = {0}, latest[RTC_OFFSET_COUNT] = {0};
 
 	data[RTC_OFFSET_SEC] = tm->tm_sec;
 	data[RTC_OFFSET_MIN] = tm->tm_min;
