@@ -2764,15 +2764,15 @@ static int mt6358_amic_enable(struct mt6358_priv *priv)
 	if (IS_DCC_BASE(mic_type)) {
 		/* Audio L/R preamplifier DCC precharge */
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
-				   0xf8ff, 0x0004);
+				   0xf8fd, 0x0004);
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
-				   0xf8ff, 0x0004);
+				   0xf8fd, 0x0004);
 	} else {
 		/* reset reg */
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
-				   0xf8ff, 0x0000);
+				   0xf8fd, 0x0000);
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
-				   0xf8ff, 0x0000);
+				   0xf8fd, 0x0000);
 	}
 
 	if (mux_pga_l != PGA_MUX_NONE) {
@@ -2786,14 +2786,6 @@ static int mt6358_amic_enable(struct mt6358_priv *priv)
 				   RG_AUDPREAMPLON_MASK_SFT,
 				   0x1 << RG_AUDPREAMPLON_SFT);
 
-		if (IS_DCC_BASE(mic_type)) {
-			/* L preamplifier DCCEN */
-			regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
-					   RG_AUDPREAMPLDCCEN_MASK_SFT,
-					   0x1 << RG_AUDPREAMPLDCCEN_SFT);
-		}
-
-		usleep_range(1000, 1050);
 		/* Audio L ADC input selection: Left Preamplifier */
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
 				   RG_AUDADCLINPUTSEL_MASK_SFT,
@@ -2818,14 +2810,6 @@ static int mt6358_amic_enable(struct mt6358_priv *priv)
 				   RG_AUDPREAMPRON_MASK_SFT,
 				   0x1 << RG_AUDPREAMPRON_SFT);
 
-		if (IS_DCC_BASE(mic_type)) {
-			/* R preamplifier DCCEN */
-			regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
-					   RG_AUDPREAMPRDCCEN_MASK_SFT,
-					   0x1 << RG_AUDPREAMPRDCCEN_SFT);
-		}
-
-		usleep_range(1000, 1050);
 		/* R ADC input sel : R PGA. Enable audio R ADC */
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
 				   RG_AUDADCRINPUTSEL_MASK_SFT,
@@ -2912,12 +2896,9 @@ static void mt6358_amic_disable(struct mt6358_priv *priv)
 	/* L ADC input sel : off, disable L ADC */
 	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
 			   0xf000, 0x0000);
-	/* L preamplifier DCCEN */
-	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
-			   0x1 << 1, 0x0);
 	/* L preamplifier input sel : off, L PGA 0 dB gain */
 	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
-			   0xfffb, 0x0000);
+			   0x0ff9, 0x0000);
 
 	/* disable L preamplifier DCC precharge */
 	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
@@ -2926,12 +2907,9 @@ static void mt6358_amic_disable(struct mt6358_priv *priv)
 	/* R ADC input sel : off, disable R ADC */
 	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
 			   0xf000, 0x0000);
-	/* R preamplifier DCCEN */
-	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
-			   0x1 << 1, 0x0);
 	/* R preamplifier input sel : off, R PGA 0 dB gain */
 	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
-			   0x0ffb, 0x0000);
+			   0x0ff9, 0x0000);
 
 	/* disable R preamplifier DCC precharge */
 	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
@@ -3098,11 +3076,11 @@ static int mt6358_vow_amic_enable(struct mt6358_priv *priv)
 	if (IS_DCC_BASE(mic_type)) {
 		/* Audio L preamplifier DCC precharge */
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
-				   0xf8ff, 0x0004);
+				   0xf8fd, 0x0004);
 	} else {
 		/* reset reg */
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
-				   0xf8ff, 0x0000);
+				   0xf8fd, 0x0000);
 
 	}
 	if (mux_pga_l != PGA_MUX_NONE) {
@@ -3116,14 +3094,6 @@ static int mt6358_vow_amic_enable(struct mt6358_priv *priv)
 				   RG_AUDPREAMPLON_MASK_SFT,
 				   0x1 << RG_AUDPREAMPLON_SFT);
 
-		if (IS_DCC_BASE(mic_type)) {
-			/* L preamplifier DCCEN */
-			regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
-					   RG_AUDPREAMPLDCCEN_MASK_SFT,
-					   0x1 << RG_AUDPREAMPLDCCEN_SFT);
-		}
-
-		usleep_range(1000, 1050);
 		/* Audio L ADC input selection: Left Preamplifier */
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
 				   RG_AUDADCLINPUTSEL_MASK_SFT,
@@ -3202,12 +3172,10 @@ static int mt6358_vow_amic_disable(struct mt6358_priv *priv)
 	/* L ADC input sel : off, disable L ADC */
 	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
 			   0xf000, 0x0000);
-	/* L preamplifier DCCEN */
-	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
-			   0x1 << 1, 0x0);
+
 	/* L preamplifier input sel : off, L PGA 0 dB gain */
 	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
-			   0xfffb, 0x0000);
+			   0x0ff9, 0x0000);
 
 	/* disable L preamplifier DCC precharge */
 	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
@@ -5879,6 +5847,20 @@ static void get_hp_trim_offset(struct mt6358_priv *priv, bool force)
 		 dc_trim->hp_offset[CH_L], dc_trim->hp_offset[CH_R]);
 }
 
+static void mic_type_default_init(struct mt6358_priv *priv)
+{
+	if (IS_DCC_BASE(priv->mux_select[MUX_MIC_TYPE])) {
+		/* L preamplifier DCCEN */
+		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON0,
+					RG_AUDPREAMPLDCCEN_MASK_SFT,
+					0x1 << RG_AUDPREAMPLDCCEN_SFT);
+		/* R preamplifier DCCEN */
+		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON1,
+					RG_AUDPREAMPRDCCEN_MASK_SFT,
+					0x1 << RG_AUDPREAMPRDCCEN_SFT);
+	}
+}
+
 static int dc_trim_thread(void *arg)
 {
 	struct mt6358_priv *priv = arg;
@@ -6638,6 +6620,8 @@ static void mt6358_codec_init_reg(struct mt6358_priv *priv)
 	capture_gpio_reset(priv);
 
 	mt6358_set_gpio_smt(priv);
+	/* mic type setting */
+	mic_type_default_init(priv);
 
 	/* disable clk buf */
 	regmap_update_bits(priv->regmap, MT6358_DCXO_CW14,
