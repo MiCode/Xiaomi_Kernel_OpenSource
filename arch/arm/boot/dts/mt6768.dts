@@ -4514,6 +4514,8 @@ cma=64M transparent_hugepage=never clk_ignore_unused=1";
 			"CLK_MIPI_ANA_2B_CG",
 			"CLK_TOP_CAMTM_SEL_CG",
 			"CLK_TOP_CAMTM_208_CG";
+		operating-points-v2 = <&opp_table_cam>;
+		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 	};
 
 	flashlight_core: flashlight_core {
