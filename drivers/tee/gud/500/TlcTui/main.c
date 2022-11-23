@@ -86,13 +86,12 @@ static long tui_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 	case TUI_IO_ACK: {
 		struct tlc_tui_response_t rsp_id;
 
+		ret = 0;
 		tui_dev_devel("TUI_IO_ACK");
 
 		/* Read user response */
 		if (copy_from_user(&rsp_id, uarg, sizeof(rsp_id)))
-			ret = -EFAULT;
-		else
-			ret = 0;
+			return -EFAULT;
 
 		tui_dev_devel("IOCTL: User completed command %d.", rsp_id.id);
 		ret = tlc_ack_cmd(&rsp_id);
@@ -142,6 +141,8 @@ static long tui_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 
 		/* Get the fd of the ion buffer */
 		struct tlc_tui_ioctl_ion_t ion;
+
+		ion.buffer_fd = 0;
 
 		if (fptr_get_fd)
 			ion.buffer_fd = (*fptr_get_fd)(buff_id);

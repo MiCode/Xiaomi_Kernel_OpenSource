@@ -13,8 +13,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef TLCTUI_H_
-#define TLCTUI_H_
+#ifndef TLCTUI_H
+#define TLCTUI_H
 
 #include "tui_ioctl.h"
 #include "dciTui.h"
@@ -55,4 +55,4 @@ extern struct device tui_dev;
 #define tui_dev_devel(...)		do {} while (0)
 #endif /* !DEBUG */
 
-#endif /* TLCTUI_H_ */
+#endif /* TLCTUI_H */

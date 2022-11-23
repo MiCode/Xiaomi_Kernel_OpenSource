@@ -12,8 +12,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
-#ifndef __DCITUI_H__
-#define __DCITUI_H__
+#ifndef DCITUI_H
+#define DCITUI_H
 
 /* Linux checkpatch suggests to use the BIT macro */
 #ifndef BIT
@@ -169,4 +169,4 @@ struct tui_dci_msg_t {
  */
 #define DR_TUI_UUID { { 7, 0xC, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } }
 
-#endif /* __DCITUI_H__ */
+#endif /* DCITUI_H */

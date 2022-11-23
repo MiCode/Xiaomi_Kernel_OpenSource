@@ -7,6 +7,7 @@
 #include <linux/device.h>
 #include <linux/fb.h>
 #include <linux/delay.h>
+#include <linux/clk.h>
 
 #include "t-base-tui.h"
 
@@ -69,6 +70,75 @@ static void __always_unused free_tui_memory_pool(struct tui_mempool *pool)
 {
 	kfree(pool->va);
 	memset(pool, 0, sizeof(*pool));
+}
+
+static int i2c_tui_clock_enable(int id)
+{
+	int ret = 0;
+	struct i2c_adapter *adap = NULL;
+	struct device *i2c_device = NULL;
+	struct clk *i2c_clk_main = NULL;
+	struct clk *i2c_clk_dma = NULL;
+
+	adap = i2c_get_adapter(id);
+	if (adap) {
+		i2c_device = adap->dev.parent;
+		i2c_clk_main = devm_clk_get(i2c_device, "main");
+		if (IS_ERR(i2c_clk_main)) {
+			pr_notice("[TUI-HAL] %s() cannot get i2c main clock\n", __func__);
+			return PTR_ERR(i2c_clk_main);
+		}
+		ret = clk_prepare_enable(i2c_clk_main);
+		if (ret) {
+			pr_notice("[TUI-HAL] %s() enable i2c main clock fail\n", __func__);
+			return ret;
+		}
+		i2c_clk_dma = devm_clk_get(i2c_device, "dma");
+		if (IS_ERR(i2c_clk_dma)) {
+			pr_notice("[TUI-HAL] %s() cannot get i2c dma clock\n", __func__);
+			return PTR_ERR(i2c_clk_dma);
+		}
+		ret = clk_prepare_enable(i2c_clk_dma);
+		if (ret) {
+			pr_notice("[TUI-HAL] %s() enable i2c dma clock fail\n", __func__);
+			return ret;
+		}
+	} else {
+		pr_notice("[TUI-HAL] %s() cannot get i2c adapter\n", __func__);
+		ret = -1;
+	}
+	return ret;
+}
+
+static int i2c_tui_clock_disable(int id)
+{
+	int ret = 0;
+	struct i2c_adapter *adap = NULL;
+	struct device *i2c_device = NULL;
+	struct clk *i2c_clk_main = NULL;
+	struct clk *i2c_clk_dma = NULL;
+
+	adap = i2c_get_adapter(id);
+	if (adap) {
+		i2c_device = adap->dev.parent;
+		i2c_clk_main = devm_clk_get(i2c_device, "main");
+		if (IS_ERR(i2c_clk_main)) {
+			pr_notice("[TUI-HAL] %s() cannot get i2c main clock\n", __func__);
+			return PTR_ERR(i2c_clk_main);
+		}
+		clk_disable_unprepare(i2c_clk_main);
+
+		i2c_clk_dma = devm_clk_get(i2c_device, "dma");
+		if (IS_ERR(i2c_clk_dma)) {
+			pr_notice("[TUI-HAL] %s() cannot get i2c dma clock\n", __func__);
+			return PTR_ERR(i2c_clk_dma);
+		}
+		clk_disable_unprepare(i2c_clk_dma);
+	} else {
+		pr_notice("[TUI-HAL] %s() cannot get i2c adapter\n", __func__);
+		ret = -1;
+	}
+	return ret;
 }
 
 /**
@@ -219,7 +289,7 @@ uint32_t hal_tui_deactivate(void)
 	tpd_enter_tui();
 #endif
 #ifdef TUI_LOCK_I2C
-	i2c_tui_enable_clock(0);
+	i2c_tui_clock_enable(0);
 #endif
 
 #ifdef TUI_ENABLE_DISPLAY
@@ -265,7 +335,7 @@ uint32_t hal_tui_activate(void)
 #endif
 
 #ifdef TUI_LOCK_I2C
-	i2c_tui_disable_clock(0);
+	i2c_tui_clock_disable(0);
 #endif
 
 #ifdef TUI_ENABLE_DISPLAY
@@ -292,49 +362,4 @@ uint32_t hal_tui_notif(void)
 void hal_tui_post_start(struct tlc_tui_response_t *rsp)
 {
 	pr_info("%s\n", __func__);
-}
-
-int __weak ssmr_offline(phys_addr_t *pa, unsigned long *size, bool is_64bit,
-		unsigned int feat)
-{
-	return -1;
-}
-int __weak ssmr_online(unsigned int feat)
-{
-	return -1;
-}
-
-int __weak tpd_reregister_from_tui(void)
-{
-	return 0;
-}
-
-int __weak tpd_enter_tui(void)
-{
-	return 0;
-}
-
-int __weak tpd_exit_tui(void)
-{
-	return 0;
-}
-
-int __weak display_enter_tui(void)
-{
-	return 0;
-}
-
-int __weak display_exit_tui(void)
-{
-	return 0;
-}
-
-int __weak i2c_tui_enable_clock(int id)
-{
-	return 0;
-}
-
-int __weak i2c_tui_disable_clock(int id)
-{
-	return 0;
 }

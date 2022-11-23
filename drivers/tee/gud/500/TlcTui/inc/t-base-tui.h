@@ -13,8 +13,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __TBASE_TUI_H__
-#define __TBASE_TUI_H__
+#ifndef TBASE_TUI_H
+#define TBASE_TUI_H
 
 #define TRUSTEDUI_MODE_OFF                0x00
 #define TRUSTEDUI_MODE_ALL                0xff
@@ -36,4 +36,4 @@ int trustedui_clear_mask(int mask);
 
 #endif /* CONFIG_TRUSTONIC_TRUSTED_UI */
 
-#endif /* __TBASE_TUI_H__ */
+#endif /* TBASE_TUI_H */

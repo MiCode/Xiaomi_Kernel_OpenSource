@@ -13,10 +13,14 @@
  * GNU General Public License for more details.
  */
 
-#ifndef TUI_IOCTL_H_
-#define TUI_IOCTL_H_
+#ifndef TUI_IOCTL_H
+#define TUI_IOCTL_H
 
+#if defined(__QNX__)
+typedef unsigned int __u32;
+#else
 #include <linux/types.h>
+#endif
 
 #define MAX_BUFFER_NUMBER 3
 
@@ -125,4 +129,4 @@ struct tlc_tui_ioctl_ion_t {
 #define reinit_completion(x) INIT_COMPLETION(*(x))
 #endif
 
-#endif /* TUI_IOCTL_H_ */
+#endif /* TUI_IOCTL_H */
