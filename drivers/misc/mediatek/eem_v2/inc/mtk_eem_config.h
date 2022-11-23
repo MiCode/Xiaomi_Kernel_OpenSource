@@ -55,23 +55,24 @@ enum mt_cpu_dvfs_id {
 	NR_MT_CPU_DVFS,
 };
 
-#define DEVINFO_IDX_0 50	/* 10580 */
-#define DEVINFO_IDX_1 51	/* 10584 */
-#define DEVINFO_IDX_2 52	/* 10588 */
-#define DEVINFO_IDX_3 53	/* 1058C */
-#define DEVINFO_IDX_4 54	/* 10590 */
-#define DEVINFO_IDX_5 55	/* 10594 */
-#define DEVINFO_IDX_6 56	/* 10598 */
-#define DEVINFO_IDX_7 57	/* 1059C */
-#define DEVINFO_IDX_8 58	/* 105A0 */
-#define DEVINFO_IDX_9 59	/* 105A4 */
-#define DEVINFO_IDX_10 60       /* 105A8 */
-#define DEVINFO_IDX_11 61       /* 105AC */
-#define DEVINFO_IDX_12 62       /* 105B0 */
+#define DEVINFO_IDX_0 0	/* 10580 */
+#define DEVINFO_IDX_1 1	/* 10584 */
+#define DEVINFO_IDX_2 2	/* 10588 */
+#define DEVINFO_IDX_3 3	/* 1058C */
+#define DEVINFO_IDX_4 4	/* 10590 */
+#define DEVINFO_IDX_5 5	/* 10594 */
+#define DEVINFO_IDX_6 6	/* 10598 */
+#define DEVINFO_IDX_7 7	/* 1059C */
+#define DEVINFO_IDX_8 8	/* 105A0 */
+#define DEVINFO_IDX_9 9	/* 105A4 */
+#define DEVINFO_IDX_10 10       /* 105A8 */
+#define DEVINFO_IDX_11 11       /* 105AC */
+#define DEVINFO_IDX_12 12       /* 105B0 */
 
 
-#define GPU_BIN_CODE_IDX 64		/* 05B8 for GPU bin */
-#define GPU_VB_IDX 58			/* 05B8 for GPU bin */
+#define GPU_BIN_CODE_IDX 14		/* 05B8 for GPU bin */
+#define GPU_VB_IDX 8			/* 05B8 for GPU bin */
+#define NUM_EFUSE_ADDR 15
 
 #if 0
 /* Fake EFUSE */

@@ -24,7 +24,8 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/thermal/inc/			\
 	-I$(srctree)/drivers/misc/mediatek/mcupm/include/		\
 	-I$(srctree)/drivers/misc/mediatek/mcdi/include/		\
-	-I$(srctree)/include/linux/soc/mediatek/
+	-I$(srctree)/include/linux/soc/mediatek/				\
+	-I$(srctree)/drivers/gpu/mediatek/gpufreq/v2/include/
 
 
 
@@ -52,12 +53,14 @@ subdir-ccflags-y += -DCORN_LOAD
 endif
 
 ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6768)),)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/inc/mach
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eem_v2/inc
 obj-$(CONFIG_MTK_PTPOD_LEGACY) += mediatek_eem.o
 mediatek_eem-y += mtk_eem.o
 mediatek_eem-y += mtk_eem_platform.o
 mediatek_eem-y += mtk_eem_internal.o
 mediatek_eem-y += mtk_eem_api.o
+mediatek_eem-y += mtk_aee_rr.o
 
 else ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6765)),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eem_v2/common_v2/inc

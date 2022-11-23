@@ -18,7 +18,8 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/include/leakage_table_v2	\
 	-I$(srctree)/drivers/misc/mediatek/include/upower		\
 	-I$(srctree)/drivers/misc/mediatek/eem_v2/  			\
-	-I$(srctree)/drivers/misc/mediatek/cpufreq_v2/
+	-I$(srctree)/drivers/misc/mediatek/cpufreq_v2/		\
+	-I$(srctree)/drivers/misc/mediatek/eem_v2/inc
 
 
 ifneq ($(filter m y, $(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)),)

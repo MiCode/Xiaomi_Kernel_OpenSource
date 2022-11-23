@@ -21,7 +21,7 @@
 #include "apu_dvfs.h"
 #endif
 #if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
-#include "mtk_gpufreq.h"
+#include "gpu_misc.h"
 #endif
 extern unsigned int mt_gpufreq_get_cur_volt(void);
 /*
