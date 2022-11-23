@@ -65,19 +65,21 @@ static char *mpam_path_partid_map[] = {
 	"/system-background"
 };
 
+#define CSS_MAX 50
+
 /*
  * cgroup css->id -> PARTID cache
  *
  * Not sure how stable those IDs are supposed to be. If we are supposed to
  * support cgroups being deleted, we may need more hooks to cache that.
  */
-static int mpam_css_partid_map[50] = { [0 ... 49] = -1 };
+static int mpam_css_partid_map[CSS_MAX] = { [0 ... 49] = -1 };
 
 /*
  * group number by mpam_path_partid_map -> css->id
  *
  */
-static int mpam_group_css_map[50] = { [0 ... 49] = -1 };
+static int mpam_group_css_map[CSS_MAX] = { [0 ... 49] = -1 };
 
 /* The MPAM0_EL1.PARTID_D in use by a given CPU */
 static DEFINE_PER_CPU(int, mpam_local_partid);
@@ -192,6 +194,9 @@ static int mpam_map_css_partid(struct cgroup_subsys_state *css)
 	int partid;
 
 	if (!css)
+		goto no_match;
+
+	if ((css->id < 0) || (css->id >= CSS_MAX))
 		goto no_match;
 
 	/*
@@ -361,7 +366,7 @@ int set_ct_group(int group_id, bool set)
 		return -1;
 
 	css_id = mpam_group_css_map[group_id];
-	if (css_id < 0)
+	if ((css_id < 0) || (css_id >= CSS_MAX))
 		return -1;
 
 	old_partid = mpam_css_partid_map[css_id];
@@ -642,7 +647,7 @@ static void __init __map_css_children(struct cgroup_subsys_state *css, char *tmp
 	struct cgroup_subsys_state *child;
 
 	list_for_each_entry_rcu(child, &css->children, sibling) {
-		if (!child || !child->cgroup)
+		if (!child || !child->cgroup || (child->id >= CSS_MAX))
 			continue;
 
 		__map_css_partid(child, tmp, pathlen);
@@ -674,6 +679,11 @@ static int __init mpam_init_cgroup_partid_map(void)
 	css = rcu_dereference(cgroup->subsys[cpuqos_subsys_id]);
 	if (IS_ERR_OR_NULL(css)) {
 		ret = -ENOENT;
+		goto out_unlock;
+	}
+
+	if ((css->id < 0) || (css->id >= CSS_MAX)) {
+		ret = -ENOMEM;
 		goto out_unlock;
 	}
 
