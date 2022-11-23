@@ -66,8 +66,6 @@ void mt_ppm_register_client(enum ppm_client client,
 	switch (client) {
 	case PPM_CLIENT_DVFS:
 		ppm_main_info.client_info[client].name = "DVFS";
-		/* Replace DVFS callback fun with qos*/
-		ppm_init_qos_request();
 		break;
 	case PPM_CLIENT_HOTPLUG:
 		ppm_main_info.client_info[client].name = "HOTPLUG";

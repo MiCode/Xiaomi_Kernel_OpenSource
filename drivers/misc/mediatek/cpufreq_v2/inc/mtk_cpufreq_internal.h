@@ -274,15 +274,6 @@ enum dvfs_time_profile {
 	NR_SET_V_F,
 };
 
-static inline unsigned int cpu_dvfs_get_idx_by_freq(struct mt_cpu_dvfs *mt_dvfs, unsigned int freq)
-{
-	unsigned int idx = mt_dvfs->nr_opp_tbl - 1;
-
-	while (mt_dvfs->opp_tbl[idx].cpufreq_khz < freq && idx > 0)
-		idx--;
-	return idx;
-}
-
 extern int _search_available_freq_idx(struct mt_cpu_dvfs *p,
 	unsigned int target_khz, unsigned int relation);
 extern int _search_available_freq_idx_under_v(struct mt_cpu_dvfs *p,
