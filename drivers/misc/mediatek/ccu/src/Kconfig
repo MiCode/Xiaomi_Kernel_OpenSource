@@ -1,8 +1,50 @@
 config MTK_CCU
 	tristate "MTK_CCU"
+	default n
 	help
 	  Support 3A using CCU hardware
 	  Offers speed up of 3A, including
 	  Faster control flow and
 	  Stabler frame rate.
+	  Select yes to build the CCU driver into the kernel.
+	  Select module to build CCU drivers of all platforms as modules.
 
+config MTK_CCU_ISP4
+	bool "Build ISP4 CCU driver into kernel"
+	default n
+	depends on MTK_CCU
+	help
+	  Select yes to build the ISP4 CCU driver
+	  into the kernel.
+	  Select no to build the ISP4 CCU driver as
+	  a kernel module.
+
+config MTK_CCU_ISP5
+	bool "Build ISP5 CCU driver into kernel"
+	default n
+	depends on MTK_CCU
+	help
+	  Select yes to build the ISP5 CCU driver
+	  into the kernel.
+	  Select no to build the ISP5 CCU driver as
+	  a kernel module.
+
+config MTK_CCU_ISP6
+	bool "Build ISP6 CCU driver into kernel"
+	default n
+	depends on MTK_CCU
+	help
+	  Select yes to build the ISP6 CCU driver
+	  into the kernel.
+	  Select no to build the ISP6 CCU driver as
+	  a kernel module.
+
+config MTK_CCU_ISP6S
+	bool "Build ISP6S CCU driver into kernel"
+	default n
+	depends on MTK_CCU
+	help
+	  Select yes to build the ISP6S CCU driver
+	  into the kernel.
+	  Select no to build the ISP6S CCU driver as
+	  a kernel module.
