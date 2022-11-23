@@ -817,10 +817,9 @@ config REGULATOR_MT6370
 	tristate "MT6370 SubPMIC Regulator"
 	depends on MFD_MT6370
 	help
-	  Say Y here to enable MT6360 regulator support.
-	  This is support MT6360 PMIC/LDO part include
-	  2-channel buck with Thermal Shutdown and Overload Protection
-	  6-channel High PSRR and Low Dropout LDO.
+	  Say Y here to enable MT6370 regulator support.
+	  This driver supports the control for DisplayBias voltages and one
+	  general purpose LDO which is commonly used to drive the vibrator.
 
 config REGULATOR_MT6373
 	tristate "MT6373 SPMI Regulator driver"
