@@ -1553,10 +1553,9 @@ if (unlikely(err)) {				\
 
 s32 cmdq_op_poll_ex(struct cmdqRecStruct *handle,
 	struct cmdq_command_buffer *cmd_buf, u32 addr,
-	CMDQ_VARIABLE value, u32 mask)
+	CMDQ_VARIABLE value, u32 mask, u32 gpr)
 {
 	s32 err;
-	bool use_gpr = false;
 	u16 arg_a;
 	u8 s_op, arg_a_type;
 
@@ -1568,17 +1567,13 @@ s32 cmdq_op_poll_ex(struct cmdqRecStruct *handle,
 		addr = addr | 0x1;
 	}
 
-	use_gpr = true;
-	err = cmdq_op_wait_ex(handle, cmd_buf,
-		CMDQ_SYNC_TOKEN_GPR_SET_4);
-	CMDQ_CHECK_ERR(err);
 	/* Move extra handle APB address to GPR */
 	err = cmdq_instr_encoder(handle, cmd_buf, CMDQ_GET_ARG_C(addr),
-		CMDQ_GET_ARG_B(addr), 0, CMDQ_DATA_REG_DEBUG,
+		CMDQ_GET_ARG_B(addr), 0, gpr,
 		0, 0, 1, CMDQ_CODE_MOVE);
 	CMDQ_CHECK_ERR(err);
 	arg_a = addr & 0x1;
-	s_op = CMDQ_DATA_REG_DEBUG;
+	s_op = gpr;
 	arg_a_type = 1;
 
 	err = cmdq_instr_encoder(handle, cmd_buf,
@@ -1586,11 +1581,6 @@ s32 cmdq_op_poll_ex(struct cmdqRecStruct *handle,
 		arg_a, s_op, 0, 0, arg_a_type, CMDQ_CODE_POLL);
 	CMDQ_CHECK_ERR(err);
 
-	if (use_gpr)
-		err = cmdq_op_set_event_ex(handle, cmd_buf,
-			CMDQ_SYNC_TOKEN_GPR_SET_4);
-
-	CMDQ_CHECK_ERR(err);
 	return err;
 }
 

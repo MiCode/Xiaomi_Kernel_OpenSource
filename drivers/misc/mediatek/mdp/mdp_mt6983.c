@@ -1825,6 +1825,39 @@ static bool mdp_vcp_pq_readback_support(void)
 	return gVcpPQReadbackSupport;
 }
 
+static u32 mdp_get_poll_gpr(u16 engine, u32 reg_addr)
+{
+	u32 gpr;
+
+	switch (engine) {
+	case ENGBASE_MDP_RDMA0:
+	case ENGBASE_MDP_HDR0:
+	case ENGBASE_MDP_AAL0:
+	case ENGBASE_MDP_RSZ0:
+	case ENGBASE_MDP_TDSHP0:
+	case ENGBASE_MDP_COLOR0:
+	case ENGBASE_MDP_WROT0:
+		gpr = CMDQ_GPR_R12;
+		break;
+	case ENGBASE_MDP_RDMA1:
+	case ENGBASE_MDP_HDR1:
+	case ENGBASE_MDP_AAL1:
+	case ENGBASE_MDP_RSZ1:
+	case ENGBASE_MDP_TDSHP1:
+	case ENGBASE_MDP_COLOR1:
+	case ENGBASE_MDP_WROT1:
+		gpr = CMDQ_GPR_R14;
+		break;
+	default:
+		CMDQ_ERR("%s engine not support:%hu reg_addr:%#x\n",
+			__func__, engine, reg_addr);
+		gpr = CMDQ_GPR_R12;
+		break;
+	}
+
+	return gpr;
+}
+
 void mdp_vcp_pq_readback_impl(struct cmdqRecStruct *handle,
 	u16 engine, u32 vcp_offset, u32 count)
 {
@@ -1903,7 +1936,7 @@ void cmdq_mdp_platform_function_setting(void)
 	pFunc->mdpIsCaminSupport = mdp_check_camin_support_virtual;
 	pFunc->mdpVcpPQReadbackSupport = mdp_vcp_pq_readback_support;
 	pFunc->mdpVcpPQReadback = mdp_vcp_pq_readback_impl;
-
+	pFunc->mdpGetPollGpr = mdp_get_poll_gpr;
 }
 
 MODULE_LICENSE("GPL");
