@@ -3261,6 +3261,7 @@ cma=64M transparent_hugepage=never clk_ignore_unused=1";
 		phys = <&u2port0 PHY_TYPE_USB2>;
 		dr_mode = "otg";
 		usb-role-switch;
+		usb_phy_offset = <0x800>;
 		cdp-block;
 		port {
 			musb_drd_switch: endpoint@0 {
