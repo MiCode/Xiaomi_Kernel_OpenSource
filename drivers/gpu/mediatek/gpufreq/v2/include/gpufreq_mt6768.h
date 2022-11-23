@@ -100,7 +100,6 @@ struct gpufreq_core_mask_info g_core_mask_table_6768[] = {
 /**************************************************
  * Reference Power Setting MT6768 TBD
  **************************************************/
-// TODO:GKI
 #define GPU_ACT_REF_POWER			(1285)		/* mW  */
 #define GPU_ACT_REF_FREQ			(900000)	/* KHz */
 #define GPU_ACT_REF_VOLT			(90000)		/* mV x 100 */
@@ -145,17 +144,11 @@ struct gpufreq_core_mask_info g_core_mask_table_6768[] = {
  * SRAMRC Setting
  **************************************************/
 #define GPUFREQ_SAFE_VLOGIC             (60000)
-//TODO:GKI
-#if 0
-#define VSRAM_LEVEL_0                   (75000)
-#define VSRAM_LEVEL_1                   (80000)
-#define SRAM_PARK_VOLT                  (75000)
-#endif
 
 /**************************************************
  * Power Throttling Setting
  **************************************************/
-//TODO:GKI
+//Not support
 #define GPUFREQ_BATT_OC_ENABLE          (0)
 #define GPUFREQ_BATT_PERCENT_ENABLE     (0)
 #define GPUFREQ_LOW_BATT_ENABLE         (0)
