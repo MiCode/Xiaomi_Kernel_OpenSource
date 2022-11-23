@@ -517,6 +517,7 @@
 #define CLK_MDP_AAL0					13
 #define CLK_MDP_IMG_DL_RELAY0_ASYNC0			14
 #define CLK_MDP_IMG_DL_RELAY1_ASYNC1			15
-#define CLK_MDP_NR_CLK					16
+#define CLK_MDP_RDMA1					16
+#define CLK_MDP_NR_CLK					17
 
 #endif /* _DT_BINDINGS_CLK_MT6833_H */
