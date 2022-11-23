@@ -57,7 +57,7 @@ static int
 mtk_ccu_allocate_mem(struct device *dev, struct mtk_ccu_mem_handle *memHandle)
 {
 	if (memHandle->meminfo.size <= 0)
-		return 0;
+		return -EINVAL;
 
 	/* get buffer virtual address */
 	memHandle->meminfo.va = dma_alloc_attrs(dev, memHandle->meminfo.size,
