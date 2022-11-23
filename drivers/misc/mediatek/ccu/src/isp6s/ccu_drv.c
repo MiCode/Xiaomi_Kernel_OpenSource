@@ -59,6 +59,7 @@
  **************************************************************************/
 
 #define CCU_DEV_NAME            "ccu"
+#define CCU1_DEV_NAME           "ccu1"
 
 static int32_t _user_count;
 /* [0]: CCU_CLK_TOP_MUX, [1]: MDP_PWR, [2]: CAM_PWR, [3]: CCU_CLK_CAM_CCU */
@@ -90,7 +91,7 @@ int iova_buf_count;
 // static struct ion_handle
 //	*import_buffer_handle[CCU_IMPORT_BUF_NUM];
 
-// #ifdef CONFIG_PM_WAKELOCKS
+// #if IS_ENABLED(CONFIG_PM_WAKELOCKS)
 // struct wakeup_source ccu_wake_lock;
 // #else
 // struct wake_lock ccu_wake_lock;
@@ -153,11 +154,16 @@ static int ccu_suspend(struct platform_device *dev,
 		       pm_message_t mesg);
 
 static int ccu_resume(struct platform_device *dev);
+static int ccu1_probe(struct platform_device *dev);
+static int ccu1_remove(struct platform_device *dev);
+static int ccu1_suspend(struct platform_device *dev,
+		       pm_message_t mesg);
+static int ccu1_resume(struct platform_device *dev);
 static int32_t _clk_count;
 /*-------------------------------------------------------------------------*/
 /* CCU Driver: pm operations                                               */
 /*-------------------------------------------------------------------------*/
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 int ccu_pm_suspend(struct device *device)
 {
 	struct platform_device *pdev = to_platform_device(device);
@@ -180,9 +186,38 @@ int ccu_pm_resume(struct device *device)
 /* extern void mt_irq_set_polarity(unsigned int irq, unsigned int polarity); */
 int ccu_pm_restore_noirq(struct device *device)
 {
-#ifndef CONFIG_OF
+#if !IS_ENABLED(CONFIG_OF)
 	mt_irq_set_sens(CAM0_IRQ_BIT_ID, MT_LEVEL_SENSITIVE);
 	mt_irq_set_polarity(CAM0_IRQ_BIT_ID, MT_POLARITY_LOW);
+#endif
+	return 0;
+}
+
+int ccu1_pm_suspend(struct device *device)
+{
+	struct platform_device *pdev = to_platform_device(device);
+
+	WARN_ON(pdev == NULL);
+
+	return ccu1_suspend(pdev, PMSG_SUSPEND);
+}
+
+int ccu1_pm_resume(struct device *device)
+{
+	struct platform_device *pdev = to_platform_device(device);
+
+	WARN_ON(pdev == NULL);
+
+	return ccu1_resume(pdev);
+}
+
+/* extern void mt_irq_set_sens(unsigned int irq, unsigned int sens); */
+/* extern void mt_irq_set_polarity(unsigned int irq, unsigned int polarity); */
+int ccu1_pm_restore_noirq(struct device *device)
+{
+#if !IS_ENABLED(CONFIG_OF)
+	// mt_irq_set_sens(CAM0_IRQ_BIT_ID, MT_LEVEL_SENSITIVE);
+	// mt_irq_set_polarity(CAM0_IRQ_BIT_ID, MT_POLARITY_LOW);
 #endif
 	return 0;
 }
@@ -190,6 +225,9 @@ int ccu_pm_restore_noirq(struct device *device)
 #define ccu_pm_suspend NULL
 #define ccu_pm_resume  NULL
 #define ccu_pm_restore_noirq NULL
+#define ccu1_pm_suspend NULL
+#define ccu1_pm_resume  NULL
+#define ccu1_pm_restore_noirq NULL
 #endif
 
 const struct dev_pm_ops ccu_pm_ops = {
@@ -202,7 +240,15 @@ const struct dev_pm_ops ccu_pm_ops = {
 	.restore_noirq = ccu_pm_restore_noirq,
 };
 
-
+const struct dev_pm_ops ccu1_pm_ops = {
+	.suspend = ccu1_pm_suspend,
+	.resume = ccu1_pm_resume,
+	.freeze = ccu1_pm_suspend,
+	.thaw = ccu1_pm_resume,
+	.poweroff = ccu1_pm_suspend,
+	.restore = ccu1_pm_resume,
+	.restore_noirq = ccu1_pm_restore_noirq,
+};
 /*---------------------------------------------------------------------------*/
 /* CCU Driver: Prototype                                                     */
 /*---------------------------------------------------------------------------*/
@@ -222,16 +268,36 @@ static struct platform_driver ccu_driver = {
 	.driver = {
 		.name = CCU_DEV_NAME,
 		.owner = THIS_MODULE,
-#ifdef CONFIG_OF
+#if IS_ENABLED(CONFIG_OF)
 		.of_match_table = ccu_of_ids,
 #endif
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 		.pm = &ccu_pm_ops,
 #endif
 	}
 };
 
+static const struct of_device_id ccu1_of_ids[] = {
+	{.compatible = "mediatek,ccu1",},
+	{}
+};
 
+static struct platform_driver ccu1_driver = {
+	.probe = ccu1_probe,
+	.remove = ccu1_remove,
+	.suspend = ccu1_suspend,
+	.resume = ccu1_resume,
+	.driver = {
+		.name = CCU1_DEV_NAME,
+		.owner = THIS_MODULE,
+#if IS_ENABLED(CONFIG_OF)
+		.of_match_table = ccu1_of_ids,
+#endif
+#if IS_ENABLED(CONFIG_PM)
+		.pm = &ccu1_pm_ops,
+#endif
+	}
+};
 /*---------------------------------------------------------------------------*/
 /* CCU Driver: file operations                                               */
 /*---------------------------------------------------------------------------*/
@@ -242,7 +308,7 @@ static int ccu_release(struct inode *inode, struct file *flip);
 static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		      unsigned long arg);
 
-#ifdef CONFIG_COMPAT
+#if IS_ENABLED(CONFIG_COMPAT)
 static long ccu_compat_ioctl(struct file *flip, unsigned int cmd,
 			     unsigned long arg);
 #endif
@@ -252,7 +318,7 @@ static const struct file_operations ccu_fops = {
 	.open = ccu_open,
 	.release = ccu_release,
 	.unlocked_ioctl = ccu_ioctl,
-#ifdef CONFIG_COMPAT
+#if IS_ENABLED(CONFIG_COMPAT)
 	/*for 32bit usersapce program doing ioctl, compat_ioctl will be called*/
 	.compat_ioctl = ccu_compat_ioctl
 #endif
@@ -494,7 +560,7 @@ static int ccu_open(struct inode *inode, struct file *flip)
 	return ret;
 }
 
-#ifdef CONFIG_COMPAT
+#if IS_ENABLED(CONFIG_COMPAT)
 static long ccu_compat_ioctl(struct file *flip,
 	unsigned int cmd, unsigned long arg)
 {
@@ -1220,20 +1286,20 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 
 	case CCU_IOCTL_GET_IOVA:
 	{
-		int va = 0;
+		int fd = 0;
 		int ret = 0;
 		dma_addr_t dma_addr;
 		struct dma_buf *buf;
 
-		ret = copy_from_user(&va,
+		ret = copy_from_user(&fd,
 			(void *)arg, sizeof(int));
 		LOG_ERR(
-			"[CCU_IOCTL_GET_IOVA] copy_from_user va=%d\n", va);
+			"[CCU_IOCTL_GET_IOVA] copy_from_user fd=%d\n", fd);
 
-		buf = dma_buf_get(va);
+		buf = dma_buf_get(fd);
 		if (IS_ERR(buf)) {
 			LOG_ERR(
-			"[CCU_IOCTL_GET_IOVA] dma_buf_get failed, ret=%d va=%d\n", buf, va);
+			"[CCU_IOCTL_GET_IOVA] dma_buf_get failed, ret=%d fd=%d\n", buf, fd);
 			mutex_unlock(&g_ccu_device->dev_mutex);
 			return false;
 		}
@@ -1241,7 +1307,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 			"[CCU_IOCTL_GET_IOVA] dma_buf_get va=%x\n", buf);
 		ccu_iova[iova_buf_count].dma_buf = buf;
 		ccu_iova[iova_buf_count].attach =
-			dma_buf_attach(ccu_iova[iova_buf_count].dma_buf, g_ccu_device->dev);
+			dma_buf_attach(ccu_iova[iova_buf_count].dma_buf, g_ccu_device->dev1);
 		if (IS_ERR(ccu_iova[iova_buf_count].attach)) {
 			LOG_ERR(
 			"[CCU_IOCTL_GET_IOVA] dma_buf_attach failed, attach=%d va=%x\n",
@@ -1532,7 +1598,7 @@ static int ccu_read_platform_info_from_dt(struct device_node
 
 static int ccu_probe(struct platform_device *pdev)
 {
-#ifdef CONFIG_OF
+#if IS_ENABLED(CONFIG_OF)
 
 	struct device *dev = &pdev->dev;
 	struct device_node *node;
@@ -1542,6 +1608,9 @@ static int ccu_probe(struct platform_device *pdev)
 	uint32_t phy_addr;
 	uint32_t phy_size;
 	uint32_t clki;
+	struct device_node *node1;
+	phandle ccu1_phandle;
+	struct platform_device *pdev1;
 
 	node = pdev->dev.of_node;
 	g_ccu_device->dev = &pdev->dev;
@@ -1653,11 +1722,30 @@ static int ccu_probe(struct platform_device *pdev)
 		g_ccu_device->path_ccui = of_mtk_icc_get(g_ccu_device->dev, "ccu_i");
 		g_ccu_device->path_ccug = of_mtk_icc_get(g_ccu_device->dev, "ccu_g");
 #endif
+
+		ret = of_property_read_u32(node, "mediatek,ccu1",
+			&ccu1_phandle);
+		node1 = of_find_node_by_phandle(ccu1_phandle);
+		if (!node1) {
+			dev_err(dev, "failed to get ccu1 node handle\n");
+			return -ENODEV;
+		}
+
+		pdev1 = of_find_device_by_node(node1);
+		if (WARN_ON(!pdev1)) {
+			dev_err(dev, "failed to get ccu1 pdev\n");
+			of_node_put(node1);
+			return -ENODEV;
+		}
+
+		g_ccu_device->dev1 = &pdev1->dev;
+		LOG_INF("ccu1@0x%lx\n", (uint64_t)g_ccu_device->dev1);
+
 		g_ccu_device->irq_num = irq_of_parse_and_map(node, 0);
 		LOG_INF_MUST("probe 1, ccu_base: 0x%lx, bin_base: 0x%lx,",
 		(uint64_t)g_ccu_device->ccu_base, (uint64_t)g_ccu_device->bin_base);
-		LOG_INF_MUST("probe 1, ccu_base:irq_num: %d, pdev: %p\n",
-		g_ccu_device->irq_num, g_ccu_device->dev);
+		LOG_INF_MUST("probe 1, ccu_base:irq_num: %d, pdev: 0x%lx\n",
+		g_ccu_device->irq_num, (uint64_t)g_ccu_device->dev);
 
 		if (g_ccu_device->irq_num > 0) {
 			/* get IRQ flag from device node */
@@ -1702,7 +1790,7 @@ static int ccu_probe(struct platform_device *pdev)
 				goto EXIT;
 			}
 
-// #ifdef CONFIG_PM_WAKELOCKS
+// #if IS_ENABLED(CONFIG_PM_WAKELOCKS)
 //			wakeup_source_init(&ccu_wake_lock, "ccu_lock_wakelock");
 // #else
 //			wake_lock_init(&ccu_wake_lock, WAKE_LOCK_SUSPEND,
@@ -1812,6 +1900,37 @@ static int ccu_resume(struct platform_device *pdev)
 	return 0;
 }
 
+static int ccu1_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+
+	dma_set_mask_and_coherent(dev, DMA_BIT_MASK(36));
+
+	pm_runtime_enable(dev);
+
+	return 0;
+}
+
+
+static int ccu1_remove(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+
+	pm_runtime_disable(dev);
+
+	return 0;
+}
+
+static int ccu1_suspend(struct platform_device *pdev,
+		       pm_message_t mesg)
+{
+	return 0;
+}
+
+static int ccu1_resume(struct platform_device *pdev)
+{
+	return 0;
+}
 /******************************************************************************
  *
  *****************************************************************************/
@@ -1843,6 +1962,11 @@ static int __init CCU_INIT(void)
 	LOG_DBG("platform_driver_register start\n");
 	if (platform_driver_register(&ccu_driver)) {
 		LOG_ERR("failed to register CCU driver");
+		return -ENODEV;
+	}
+
+	if (platform_driver_register(&ccu1_driver)) {
+		LOG_ERR("failed to register CCU1 driver");
 		return -ENODEV;
 	}
 
@@ -1880,6 +2004,7 @@ static void __exit CCU_EXIT(void)
 	kfree(_g_freq_steps);
 #endif
 	platform_driver_unregister(&ccu_driver);
+	platform_driver_unregister(&ccu1_driver);
 	kfree(g_ccu_device);
 }
 

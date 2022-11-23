@@ -23,6 +23,7 @@ enum ccu_req_type_e {
 struct ccu_device_s {
 	struct proc_dir_entry *proc_dir;
 	struct device *dev;
+	struct device *dev1;
 	struct device *smi_dev;
 	struct dentry *debug_root;
 	void __iomem *ccu_base;
