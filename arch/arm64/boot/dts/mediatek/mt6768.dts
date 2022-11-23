@@ -4999,6 +4999,11 @@ cma=64M transparent_hugepage=never";
 		status = "okay";
 	};
 
+	mtee_svp: mtee_svp {
+		compatible = "medaitek,svp";
+
+	};
+
 	met {
 		met_emi: met-emi {
 			compatible = "mediatek,met_emi";
