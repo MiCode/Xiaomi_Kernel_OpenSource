@@ -445,7 +445,7 @@ static void do_host_work(struct work_struct *data)
 		musb_writeb(mtk_musb->mregs,
 				MUSB_DEVCTL, (devctl | MUSB_DEVCTL_SESSION));
 
-		/* phy_set_mode(glue->phy, PHY_MODE_USB_HOST); */
+		phy_set_mode(glue->phy, PHY_MODE_USB_HOST);
 		set_usb_phy_mode(PHY_MODE_USB_HOST);
 
 		musb_start(mtk_musb);
