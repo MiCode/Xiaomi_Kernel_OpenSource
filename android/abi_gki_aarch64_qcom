@@ -2166,6 +2166,7 @@
   __tracepoint_android_vh_kswapd_per_node
   __tracepoint_android_vh_logbuf
   __tracepoint_android_vh_logbuf_pr_cont
+  __tracepoint_android_vh_madvise_cold_or_pageout
   __tracepoint_android_vh_mmc_sdio_pm_flag_set
   __tracepoint_android_vh_mmc_sd_update_cmdline_timing
   __tracepoint_android_vh_printk_hotplug
