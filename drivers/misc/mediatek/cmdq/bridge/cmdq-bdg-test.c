@@ -153,11 +153,14 @@ static void cmdq_bdg_test_mbox_tasks(struct cmdq_bdg_test *test,
 	cmplt = kzalloc(cmpltSizeCount, GFP_KERNEL);
 	if (!cmplt) {
 		cmdq_msg("cmplt cmdq_flush_completion not init");
+		kfree(pkt);
 		return;
 	}
 
 	if (flag == sync) {
 		cmdq_err("%s: count:%u flag:%d", __func__, count, flag);
+		kfree(pkt);
+		kfree(cmplt);
 		return;
 	}
 
