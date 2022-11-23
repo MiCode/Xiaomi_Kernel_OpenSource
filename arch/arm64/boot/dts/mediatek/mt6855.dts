@@ -4168,20 +4168,20 @@
 				 <0 0x17820000 0 0x10000>,  /* VENC_C1_BASE */
 				 <0 0x14006000 0 0x1000>,  /* DISP_WDMA0_BASE */
 				 <0 0x14106000 0 0x1000>;  /* DISP_WDMA1_BASE */
-			iommus = <&disp_iommu M4U_LARB4_PORT0>,
-				<&disp_iommu M4U_LARB4_PORT1>,
-				<&disp_iommu M4U_LARB4_PORT2>,
-				<&disp_iommu M4U_LARB4_PORT3>,
-				<&disp_iommu M4U_LARB4_PORT4>,
-				<&disp_iommu M4U_LARB4_PORT5>,
-				<&disp_iommu M4U_LARB4_PORT5>,
-				<&disp_iommu M4U_LARB4_PORT6>,
-				<&disp_iommu M4U_LARB4_PORT7>,
-				<&disp_iommu M4U_LARB4_PORT8>,
-				<&disp_iommu M4U_LARB4_PORT9>,
-				<&disp_iommu M4U_LARB4_PORT10>,
-				<&disp_iommu M4U_LARB4_PORT11>,
-				<&disp_iommu M4U_LARB4_PORT12>;
+			iommus = <&disp_iommu M4U_LARB7_PORT0>,
+				<&disp_iommu M4U_LARB7_PORT1>,
+				<&disp_iommu M4U_LARB7_PORT2>,
+				<&disp_iommu M4U_LARB7_PORT3>,
+				<&disp_iommu M4U_LARB7_PORT4>,
+				<&disp_iommu M4U_LARB7_PORT5>,
+				<&disp_iommu M4U_LARB7_PORT5>,
+				<&disp_iommu M4U_LARB7_PORT6>,
+				<&disp_iommu M4U_LARB7_PORT7>,
+				<&disp_iommu M4U_LARB7_PORT8>,
+				<&disp_iommu M4U_LARB7_PORT9>,
+				<&disp_iommu M4U_LARB7_PORT10>,
+				<&disp_iommu M4U_LARB7_PORT11>,
+				<&disp_iommu M4U_LARB7_PORT12>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			mediatek,mailbox-gce = <&gce>;
 			mediatek,gcem = <&gce_m>;
