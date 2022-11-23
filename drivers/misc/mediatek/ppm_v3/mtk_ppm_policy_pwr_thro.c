@@ -47,8 +47,7 @@ static void ppm_pwrthro_status_change_cb(bool enable)
 	FUNC_EXIT(FUNC_LV_POLICY);
 }
 
-// todo: by pass dlpt
-#ifdef DISABLE_BATTERY_PERCENT_PROTECT
+#ifndef DISABLE_BATTERY_PERCENT_PROTECT
 static void ppm_pwrthro_bat_per_protect(BATTERY_PERCENT_LEVEL level)
 {
 	unsigned int limited_power = ~0;
@@ -86,7 +85,7 @@ end:
 #endif
 
 
-#ifdef DISABLE_BATTERY_OC_PROTECT
+#ifndef DISABLE_BATTERY_OC_PROTECT
 static void ppm_pwrthro_bat_oc_protect(enum BATTERY_OC_LEVEL_TAG level)
 {
 	unsigned int limited_power = ~0;
@@ -123,7 +122,7 @@ end:
 }
 #endif
 
-#ifdef DISABLE_LOW_BATTERY_PROTECT
+#ifndef DISABLE_LOW_BATTERY_PROTECT
 void ppm_pwrthro_low_bat_protect(enum LOW_BATTERY_LEVEL_TAG level)
 {
 	unsigned int limited_power = ~0;
@@ -175,18 +174,18 @@ int ppm_pwrthro_policy_init(void)
 		goto out;
 	}
 
-// todo: by pass dlpt
-#ifdef DISABLE_BATTERY_PERCENT_PROTECT
+
+#ifndef DISABLE_BATTERY_PERCENT_PROTECT
 	register_bp_thl_notify(&ppm_pwrthro_bat_per_protect,
 		BATTERY_PERCENT_PRIO_CPU_L);
 #endif
 
-#ifdef DISABLE_BATTERY_OC_PROTECT
+#ifndef DISABLE_BATTERY_OC_PROTECT
 	register_battery_oc_notify(&ppm_pwrthro_bat_oc_protect,
 		BATTERY_OC_PRIO_CPU_L);
 #endif
 
-#ifdef DISABLE_LOW_BATTERY_PROTECT
+#ifndef DISABLE_LOW_BATTERY_PROTECT
 	register_low_battery_notify(&ppm_pwrthro_low_bat_protect,
 		LOW_BATTERY_PRIO_CPU_L);
 #endif
