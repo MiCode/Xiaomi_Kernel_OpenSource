@@ -1337,7 +1337,37 @@ void tpd_off(void)
 	tpd_halt = 1;
 	gt1x_irq_disable();
 }
+#if IS_ENABLED(CONFIG_TOUCHSCREEN_MTK_TUI_COMMON_API)
+int gt1151_tpd_enter_tui(void)
+{
+	int ret = 0;
 
+	tpd_tui_flag = 1;
+	GTP_INFO("[%s] enter tui", __func__);
+	return ret;
+}
+EXPORT_SYMBOL(gt1151_tpd_enter_tui);
+
+int gt1151_tpd_exit_tui(void)
+{
+	int ret = 0;
+
+	GTP_INFO("[%s] exit TUI+", __func__);
+	tpd_reregister_from_tui();
+	mutex_lock(&tui_lock);
+	tpd_tui_flag = 0;
+	mutex_unlock(&tui_lock);
+	if (tpd_tui_low_power_skipped) {
+		tpd_tui_low_power_skipped = 0;
+		GTP_INFO("[%s] do low power again+", __func__);
+		tpd_suspend(NULL);
+		GTP_INFO("[%s] do low power again-", __func__);
+	}
+	GTP_INFO("[%s] exit TUI-", __func__);
+	return ret;
+}
+EXPORT_SYMBOL(gt1151_tpd_exit_tui);
+#else
 int tpd_enter_tui(void)
 {
 	int ret = 0;
@@ -1365,6 +1395,7 @@ int tpd_exit_tui(void)
 	GTP_INFO("[%s] exit TUI-", __func__);
 	return ret;
 }
+#endif
 
 void tpd_on(void)
 {

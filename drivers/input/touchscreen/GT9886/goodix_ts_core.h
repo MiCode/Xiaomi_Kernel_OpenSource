@@ -753,6 +753,11 @@ extern void goodix_msg_printf(const char *fmt, ...);
 extern int i2c_touch_resume(void);
 extern int i2c_touch_suspend(void);
 extern int goodix_start_cfg_bin(struct goodix_ts_core *ts_core);
+#if (IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI) && IS_ENABLED(CONFIG_TOUCHSCREEN_MTK_TUI_COMMON_API))
+extern void register_tpd_tui_request(int (*enter_func)(void), int (*exit_func)(void));
+extern int gt9886_tpd_enter_tui(void);
+extern int gt9886_tpd_exit_tui(void);
+#endif
 int gt9886_touch_filter_register(void);
 int goodix_ts_core_init(void);
 int goodix_fwu_module_init(void *data);

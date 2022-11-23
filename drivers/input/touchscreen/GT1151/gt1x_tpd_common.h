@@ -285,6 +285,11 @@ extern void gt1x_power_switch(s32 state);
 extern void gt1x_irq_enable(void);
 extern void gt1x_irq_disable(void);
 extern int gt1x_debug_proc(u8 *buf, int count);
+#if IS_ENABLED(CONFIG_TOUCHSCREEN_MTK_TUI_COMMON_API)
+extern int gt1151_tpd_enter_tui(void);
+extern int gt1151_tpd_exit_tui(void);
+extern void register_tpd_tui_request(int (*enter_func)(void), int (*exit_func)(void));
+#endif
 
 struct fw_update_info {
 	int update_type;

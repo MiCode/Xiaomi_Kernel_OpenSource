@@ -13,6 +13,7 @@
 #include <linux/fb.h>
 #include <linux/of_gpio.h>
 #include <linux/workqueue.h>
+#include "gt1x_tpd_common.h"
 
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
@@ -563,6 +564,11 @@ static int tpd_probe(struct platform_device *pdev)
 
 	if (misc_register(&tpd_misc_device))
 		TPD_ERR("mtk_tpd: tpd_misc_device register failed\n");
+
+#if IS_ENABLED(CONFIG_TOUCHSCREEN_MTK_TUI_COMMON_API)
+	TPD_DEBUG("%s: %d set tui function\n", __func__, __LINE__);
+	register_tpd_tui_request(gt1151_tpd_enter_tui, gt1151_tpd_exit_tui);
+#endif
 
 	return 0;
 }

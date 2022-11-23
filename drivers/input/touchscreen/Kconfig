@@ -145,6 +145,18 @@ config TOUCHSCREEN_MTK_GT1151
 
 source "drivers/input/touchscreen/GT1151/Kconfig"
 
+config TOUCHSCREEN_MTK_TUI_COMMON_API
+        tristate "Tui common api ko for Mediatek package"
+        default n
+        help
+          Say Y here if you need tui common api ko.
+
+          If unsure, say N.
+
+          To compile this dirver as a module, choose M here: the
+          module will be called.
+
+
 config TOUCHSCREEN_ATMEL_MXT_T37
 	bool "Support T37 Diagnostic Data"
 	depends on TOUCHSCREEN_ATMEL_MXT
