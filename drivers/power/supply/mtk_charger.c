@@ -3414,7 +3414,7 @@ static int __init mtk_charger_init(void)
 {
 	return platform_driver_register(&mtk_charger_driver);
 }
-module_init(mtk_charger_init);
+late_initcall(mtk_charger_init);
 
 static void __exit mtk_charger_exit(void)
 {
