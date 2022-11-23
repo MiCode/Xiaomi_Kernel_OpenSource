@@ -19,6 +19,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/port
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/platform
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/mt6873
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/rv/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/hif/
 

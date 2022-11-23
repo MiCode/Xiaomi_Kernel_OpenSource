@@ -27,8 +27,8 @@
 #include <asm/setup.h>
 #include <linux/atomic.h>
 #ifdef ENABLE_MD_IMG_SECURITY_FEATURE
-#include <sec_osal.h>
-#include <sec_export.h>
+//#include <sec_osal.h>
+//#include <sec_export.h>
 #endif
 #include "mt-plat/mtk_ccci_common.h"
 #include "ccci_util_log.h"

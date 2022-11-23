@@ -24,7 +24,9 @@
 #include <linux/pm_qos.h>
 #include <linux/cpufreq.h>
 #include <linux/interconnect.h>
+#if IS_ENABLED(CONFIG_MTK_DVFSRC)
 #include <mt-plat/dvfsrc-exp.h>
+#endif
 #include <linux/of.h>
 
 static unsigned int s_cluster_num;
@@ -127,12 +129,20 @@ void mtk_ccci_qos_dram_update(int lvl)
 		curr_lvl = lvl;
 		switch (lvl) {
 		case 0:
+#if IS_ENABLED(CONFIG_MTK_DVFSRC)
 			peak_bw = dvfsrc_get_required_opp_peak_bw(np_node, 1); /* <<< Note here */
+#else
+			peak_bw = 0;
+#endif
 			icc_set_bw(net_icc_path, 0, peak_bw);
 			pr_info("ccci: spd: dram:0\n");
 			break;
 		case 1:
+#if IS_ENABLED(CONFIG_MTK_DVFSRC)
 			peak_bw = dvfsrc_get_required_opp_peak_bw(np_node, 0); /* <<< Note here */
+#else
+			peak_bw = 0;
+#endif
 			icc_set_bw(net_icc_path, 0, peak_bw);
 			pr_info("ccci: spd: dram: 1\n");
 			break;

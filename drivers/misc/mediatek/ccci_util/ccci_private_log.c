@@ -930,12 +930,21 @@ static void ccci_dump_buffer_init(void)
 			node_ptr++;
 		}
 	}
+#if IS_ENABLED(CONFIG_ARM64)
 	mrdump_mini_add_extra_file((unsigned long)reg_dump_ctlb[0].buffer,
 		__pa_nodebug(reg_dump_ctlb[0].buffer),
 		CCCI_REG_DUMP_BUF, "EXTRA_MD");
 	mrdump_mini_add_extra_file((unsigned long)ke_dump_ctlb[0].buffer,
 		__pa_nodebug(ke_dump_ctlb[0].buffer),
 		CCCI_KE_DUMP_BUF, "EXTRA_CCCI");
+#else
+	mrdump_mini_add_extra_file((unsigned long)reg_dump_ctlb[0].buffer,
+		__pa(reg_dump_ctlb[0].buffer),
+		CCCI_REG_DUMP_BUF, "EXTRA_MD");
+	mrdump_mini_add_extra_file((unsigned long)ke_dump_ctlb[0].buffer,
+		__pa(ke_dump_ctlb[0].buffer),
+		CCCI_KE_DUMP_BUF, "EXTRA_CCCI");
+#endif
 }
 
 /* functions will be called by external */

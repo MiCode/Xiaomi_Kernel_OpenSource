@@ -32,7 +32,8 @@ ccci_hif_all-y := ccci_hif.o \
 		ccci_hif_dpmaif.o dpmaif_drv.o \
 		ccci_hif_dpmaif_comm.o ccci_hif_dpmaif_v3.o dpmaif_drv_v3.o \
 		ccci_hif_dpmaif_v1.o dpmaif_drv_v1.o \
-		dpmaif_bat.o dpmaif_bat_v3.o dpmaif_debug.o net_speed.o net_pool.o
+		dpmaif_bat.o dpmaif_bat_v3.o dpmaif_debug.o net_speed.o net_pool.o \
+		md_spd_dvfs_method.o md_spd_dvfs_fn.o
 
 ccci_hif_all-y += ccci_ringbuf.o ccci_hif_ccif.o
 

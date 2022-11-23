@@ -180,9 +180,7 @@ struct ccci_ipi_msg {
 struct ccci_fsm_scp {
 	int md_id;
 	struct work_struct scp_md_state_sync_work;
-#ifdef CCCI_KMODULE_ENABLE
 	void (*md_state_sync)(int);
-#endif
 	void __iomem *ccif2_ap_base;
 	void __iomem *ccif2_md_base;
 };
@@ -245,11 +243,8 @@ struct ccci_fsm_ctl {
 
 	unsigned long boot_count; /* for throttling feature */
 
-#ifdef CCCI_KMODULE_ENABLE
 	struct ccci_fsm_scp *scp_ctl;
-#else
-	struct ccci_fsm_scp scp_ctl;
-#endif
+
 	struct ccci_fsm_poller poller_ctl;
 	struct ccci_fsm_ee ee_ctl;
 	struct ccci_fsm_monitor monitor_ctl;
@@ -301,20 +296,15 @@ int fsm_append_command(struct ccci_fsm_ctl *ctl,
 int fsm_append_event(struct ccci_fsm_ctl *ctl, enum CCCI_FSM_EVENT event_id,
 	unsigned char *data, unsigned int length);
 
-#ifndef CCCI_KMODULE_ENABLE
-int fsm_scp_init(struct ccci_fsm_scp *scp_ctl);
-#else
-extern void ccci_fsm_scp_register(int md_id, struct ccci_fsm_scp *scp_ctl);
-#endif
 int fsm_poller_init(struct ccci_fsm_poller *poller_ctl);
 int fsm_ee_init(struct ccci_fsm_ee *ee_ctl);
 int fsm_monitor_init(struct ccci_fsm_monitor *monitor_ctl);
 int fsm_sys_init(void);
 
+extern void ccci_fsm_scp_register(int md_id, struct ccci_fsm_scp *scp_ctl);
 struct ccci_fsm_ctl *fsm_get_entity_by_device_number(dev_t dev_n);
 struct ccci_fsm_ctl *fsm_get_entity_by_md_id(int md_id);
 int fsm_monitor_send_message(int md_id, enum CCCI_MD_MSG msg, u32 resv);
-int fsm_ccism_init_ack_handler(int md_id, int data);
 
 void fsm_md_bootup_timeout_handler(struct ccci_fsm_ee *ee_ctl);
 void fsm_md_wdt_handler(struct ccci_fsm_ee *ee_ctl);

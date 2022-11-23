@@ -1625,7 +1625,11 @@ static void ccci_md_mem_inf_prepare(int md_id,
 		tbl[add_num].md_view_phy = 0;
 		tbl[add_num].size = ro_rw_size;
 		tbl[add_num].ap_view_phy_lo32 = (u32)ro_rw_base;
+#if IS_ENABLED(CONFIG_ARM64)
 		tbl[add_num].ap_view_phy_hi32 = (u32)(ro_rw_base >> 32);
+#else
+		tbl[add_num].ap_view_phy_hi32 = 0;
+#endif
 		add_num++;
 	} else
 		CCCI_REPEAT_LOG(md_id, TAG, "%s add bank0/1 fail(%d)\n",
@@ -1635,7 +1639,11 @@ static void ccci_md_mem_inf_prepare(int md_id,
 		tbl[add_num].md_view_phy = 0x40000000;
 		tbl[add_num].size = ncrw_size;
 		tbl[add_num].ap_view_phy_lo32 = (u32)ncrw_base;
+#if IS_ENABLED(CONFIG_ARM64)
 		tbl[add_num].ap_view_phy_hi32 = (u32)(ncrw_base >> 32);
+#else
+		tbl[add_num].ap_view_phy_hi32 = 0;
+#endif
 		add_num++;
 	} else
 		CCCI_REPEAT_LOG(md_id, TAG, "%s add bank4 nc fail(%d)\n",
@@ -1646,7 +1654,11 @@ static void ccci_md_mem_inf_prepare(int md_id,
 				get_md_smem_cachable_offset(md_id);
 		tbl[add_num].size = crw_size;
 		tbl[add_num].ap_view_phy_lo32 = (u32)crw_base;
+#if IS_ENABLED(CONFIG_ARM64)
 		tbl[add_num].ap_view_phy_hi32 = (u32)(crw_base >> 32);
+#else
+		tbl[add_num].ap_view_phy_hi32 = 0;
+#endif
 		add_num++;
 	} else
 		CCCI_REPEAT_LOG(md_id, TAG, "%s add bank4 c fail(%d)\n",

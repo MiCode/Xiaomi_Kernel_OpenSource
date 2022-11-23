@@ -4185,8 +4185,13 @@ static int ccci_dpmaif_hif_init(struct device *dev)
 		CCCI_ERROR_LOG(-1, TAG, "[%s] error: alloc g_isr_log fail\n", __func__);
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 	else
+#if IS_ENABLED(CONFIG_ARM64)
 		mrdump_mini_add_extra_file((unsigned long)g_isr_log, __pa_nodebug(g_isr_log),
 				(sizeof(struct dpmaif_isr_log) * ISR_LOG_DATA_LEN), "DPMAIF_ISR");
+#else
+		mrdump_mini_add_extra_file((unsigned long)g_isr_log, __pa(g_isr_log),
+			(sizeof(struct dpmaif_isr_log) * ISR_LOG_DATA_LEN), "DPMAIF_ISR");
+#endif
 #endif
 #endif
 	return 0;

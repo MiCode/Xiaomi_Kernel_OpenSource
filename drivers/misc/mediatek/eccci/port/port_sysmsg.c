@@ -4,6 +4,7 @@
  */
 #include <linux/device.h>
 #include <linux/wait.h>
+#include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/power_supply.h>
 #include <linux/sched/clock.h> /* local_clock() */
@@ -205,7 +206,7 @@ static void sys_msg_handler(struct port_t *port, struct sk_buff *skb)
 	struct ccci_header *ccci_h = (struct ccci_header *)skb->data;
 	int md_id = port->md_id;
 	unsigned long rem_nsec;
-	u64 ts_nsec, ref;
+	u64 ts_nsec, ref, cost;
 
 	CCCI_NORMAL_LOG(md_id, SYS, "system message (%x %x %x %x)\n",
 		ccci_h->data[0], ccci_h->data[1],
@@ -264,8 +265,9 @@ static void sys_msg_handler(struct port_t *port, struct sk_buff *skb)
 	};
 	ccci_free_skb(skb);
 	ts_nsec = sched_clock();
-	CCCI_HISTORY_LOG(md_id, SYS, "cost: %lu us\n",
-			(unsigned long)((ts_nsec - ref) / 1000));
+	cost = ts_nsec - ref;
+	div_u64(cost, 1000);
+	CCCI_HISTORY_LOG(md_id, SYS, "cost: %llu us\n", cost);
 }
 
 static int port_sys_init(struct port_t *port)

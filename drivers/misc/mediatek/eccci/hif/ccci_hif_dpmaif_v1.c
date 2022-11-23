@@ -4886,8 +4886,11 @@ static inline int dpmaif_set_skb_data_to_smem_drb(struct dpmaif_tx_queue *txq,
 		drb_pd->c_bit = c_bit;
 		drb_pd->data_len = data_len;
 		drb_pd->p_data_addr = phy_addr & 0xFFFFFFFF;
+#if IS_ENABLED(CONFIG_ARM64)
 		drb_pd->data_addr_ext = (phy_addr >> 32) & 0xFF;
-
+#else
+		drb_pd->data_addr_ext = 0;
+#endif
 		drb_skb = &smem_drb_skb[cur_idx];
 		drb_skb->skb = skb;
 		drb_skb->phy_addr = phy_addr;

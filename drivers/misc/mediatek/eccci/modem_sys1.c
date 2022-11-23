@@ -59,7 +59,7 @@ void ccci_set_spm_md_sleep_cb(bool (*spm_md_sleep_cb)(void))
 }
 EXPORT_SYMBOL(ccci_set_spm_md_sleep_cb);
 
-bool spm_is_md1_sleep(void)
+bool spm_is_md1_sleep_ccci(void)
 {
 	struct arm_smccc_res res;
 
@@ -485,17 +485,6 @@ void __weak md1_sleep_timeout_proc(void)
 
 static int md_cd_pre_stop(struct ccci_modem *md, unsigned int stop_type)
 {
-	u32 pending;
-	struct ccci_smem_region *mdccci_dbg =
-		ccci_md_get_smem_by_user_id(md->index,
-			SMEM_USER_RAW_MDCCCI_DBG);
-	struct ccci_smem_region *mdss_dbg =
-		ccci_md_get_smem_by_user_id(md->index,
-			SMEM_USER_RAW_MDSS_DBG);
-	struct ccci_per_md *per_md_data =
-		ccci_get_per_md_data(md->index);
-	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
-
 	/* 1. mutex check */
 	if (atomic_add_return(1, &md->reset_on_going) > 1) {
 		CCCI_NORMAL_LOG(md->index, TAG,
@@ -509,35 +498,8 @@ static int md_cd_pre_stop(struct ccci_modem *md, unsigned int stop_type)
 	wdt_disable_irq(md);
 
 	/* only debug in Flight mode */
-	if (stop_type == MD_FLIGHT_MODE_ENTER) {
+	if (stop_type == MD_FLIGHT_MODE_ENTER)
 		debug_in_flight_mode(md);
-#ifdef CCCI_KMODULE_ENABLE
-		pending = 0;
-#else
-		pending = mt_irq_get_pending(md->md_wdt_irq_id);
-#endif
-		if (pending) {
-			CCCI_NORMAL_LOG(md->index, TAG, "WDT IRQ occur.");
-			CCCI_MEM_LOG_TAG(md->index, TAG, "Dump MD EX log\n");
-			if (md_dbg_dump_flag & (1 << MD_DBG_DUMP_SMEM)) {
-				ccci_util_mem_dump(md->index,
-					CCCI_DUMP_MEM_DUMP,
-					mdccci_dbg->base_ap_view_vir,
-					mdccci_dbg->size);
-				ccci_util_mem_dump(md->index,
-					CCCI_DUMP_MEM_DUMP,
-					mdss_dbg->base_ap_view_vir,
-					mdss_dbg->size);
-			}
-			if (md->hw_info->plat_ptr->debug_reg)
-				md->hw_info->plat_ptr->debug_reg(md);
-			/* cldma_dump_register(CLDMA_HIF_ID);*/
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-			aed_md_exception_api(NULL, 0, NULL, 0,
-				"WDT IRQ occur.", DB_OPT_DEFAULT);
-#endif
-		}
-	}
 
 	CCCI_NORMAL_LOG(md->index, TAG, "Reset when MD state: %d\n",
 			ccci_fsm_get_md_state(md->index));
@@ -558,7 +520,7 @@ static void debug_in_flight_mode(struct ccci_modem *md)
 	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
 
 	count = 5;
-	while (spm_is_md1_sleep() == 0) {
+	while (spm_is_md1_sleep_ccci() == 0) {
 		count--;
 		if (count == 0) {
 			if (en_power_check) {

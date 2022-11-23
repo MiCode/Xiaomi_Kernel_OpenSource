@@ -3,13 +3,11 @@
  * Copyright (C) 2016 MediaTek Inc.
  */
 
-#ifdef CCCI_KMODULE_ENABLE
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
-#endif
 #include <linux/clk.h> /* for clk_prepare/un* */
 
 #include "ccci_config.h"
@@ -21,7 +19,6 @@
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 #include "scp_ipi.h"
 
-#ifdef CCCI_KMODULE_ENABLE
 void ccci_scp_md_state_sync(int md_state);
 
 struct ccci_fsm_scp ccci_scp_ctl = {
@@ -39,7 +36,7 @@ void ccci_scp_md_state_sync(int md_state)
 	schedule_work(&ccci_scp_ctl.scp_md_state_sync_work);
 }
 
-
+#ifdef CCCI_KMODULE_ENABLE
 /*
  * for debug log:
  * 0 to disable; 1 for print to ram; 2 for print to uart
@@ -376,18 +373,19 @@ static void ccci_scp_ipi_handler(int id, void *data, unsigned int len)
 #endif
 #endif
 
-int fsm_ccism_init_ack_handler(int md_id, int data)
-{
 #ifdef FEATURE_SCP_CCCI_SUPPORT
+static int fsm_ccism_init_ack_handler(int md_id, int data)
+{
 	struct ccci_smem_region *ccism_scp =
 		ccci_md_get_smem_by_user_id(md_id, SMEM_USER_CCISM_SCP);
 
 	memset_io(ccism_scp->base_ap_view_vir, 0, ccism_scp->size);
 	ccci_scp_ipi_send(md_id, CCCI_OP_SHM_INIT,
 		&ccism_scp->base_ap_view_phy);
-#endif
+
 	return 0;
 }
+#endif
 
 static int fsm_sim_type_handler(int md_id, int data)
 {
@@ -397,7 +395,6 @@ static int fsm_sim_type_handler(int md_id, int data)
 	return 0;
 }
 
-#ifdef CCCI_KMODULE_ENABLE
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 void fsm_scp_init0(void)
 {
@@ -447,7 +444,6 @@ static struct notifier_block apsync_notifier = {
 	.notifier_call = apsync_event,
 };
 #endif
-#endif
 
 static int ccif_scp_clk_init(struct device *dev)
 {
@@ -485,10 +481,6 @@ static int fsm_scp_hw_init(struct ccci_fsm_scp *scp_ctl, struct device *dev)
 int fsm_scp_init(struct ccci_fsm_scp *scp_ctl, struct device *dev)
 {
 	int ret = 0;
-#ifndef CCCI_KMODULE_ENABLE
-	struct ccci_fsm_ctl *ctl =
-		container_of(scp_ctl, struct ccci_fsm_ctl, scp_ctl);
-#endif
 
 	ret = fsm_scp_hw_init(scp_ctl, dev);
 	if (ret < 0) {
@@ -504,11 +496,9 @@ int fsm_scp_init(struct ccci_fsm_scp *scp_ctl, struct device *dev)
 
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 	scp_A_register_notify(&apsync_notifier);
-#endif
-#ifndef CCCI_KMODULE_ENABLE
-	scp_ctl->md_id = ctl->md_id;
-#endif
-#ifdef FEATURE_SCP_CCCI_SUPPORT
+
+	scp_ctl->md_id = MD_SYS1;
+
 	INIT_WORK(&scp_ctl->scp_md_state_sync_work,
 		ccci_scp_md_state_sync_work);
 	register_ccci_sys_call_back(scp_ctl->md_id, CCISM_SHM_INIT_ACK,
@@ -521,7 +511,6 @@ int fsm_scp_init(struct ccci_fsm_scp *scp_ctl, struct device *dev)
 	return ret;
 }
 
-#ifdef CCCI_KMODULE_ENABLE
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 int ccci_scp_probe(struct platform_device *pdev)
 {
@@ -574,4 +563,3 @@ MODULE_AUTHOR("ccci");
 MODULE_DESCRIPTION("ccci scp driver");
 MODULE_LICENSE("GPL");
 
-#endif

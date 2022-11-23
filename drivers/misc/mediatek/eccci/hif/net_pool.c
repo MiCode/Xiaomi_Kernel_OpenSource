@@ -72,7 +72,9 @@ static inline void fifo_write(struct fifo_t *fifo, void *skb)
 	/* wait: fifo->buf[fifo->w] = skb done*/
 	mb();
 
-	(w_idx < (DL_POOL_LEN - 1)) ? atomic_inc(&fifo->w) :
+	if (w_idx < (DL_POOL_LEN - 1))
+		atomic_inc(&fifo->w);
+	else
 		atomic_set(&fifo->w, 0);
 }
 
@@ -89,7 +91,9 @@ static inline void *fifo_read(struct fifo_t *fifo)
 	/* wait: data = fifo->buf[r] done*/
 	mb();
 
-	(r_idx < (DL_POOL_LEN - 1)) ? atomic_inc(&fifo->r) :
+	if (r_idx < (DL_POOL_LEN - 1))
+		atomic_inc(&fifo->r);
+	else
 		atomic_set(&fifo->r, 0);
 
 	return data;

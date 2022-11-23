@@ -878,13 +878,7 @@ int ccci_fsm_init(int md_id)
 	}
 	ctl->fsm_thread = kthread_run(fsm_main_thread, ctl,
 		"ccci_fsm%d", md_id + 1);
-#ifndef CCCI_KMODULE_ENABLE
-#ifdef FEATURE_SCP_CCCI_SUPPORT
-	fsm_scp_init(&ctl->scp_ctl);
-#endif
-#else
-	CCCI_NORMAL_LOG(md_id, FSM, "%s oringinal position scp_init\n", __func__);
-#endif
+
 	fsm_poller_init(&ctl->poller_ctl);
 	fsm_ee_init(&ctl->ee_ctl);
 	fsm_monitor_init(&ctl->monitor_ctl);
@@ -894,7 +888,6 @@ int ccci_fsm_init(int md_id)
 	return 0;
 }
 
-#ifdef CCCI_KMODULE_ENABLE
 void ccci_fsm_scp_register(int md_id, struct ccci_fsm_scp *scp_ctl)
 {
 	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(md_id);
@@ -909,7 +902,7 @@ void ccci_fsm_scp_register(int md_id, struct ccci_fsm_scp *scp_ctl)
 
 }
 EXPORT_SYMBOL(ccci_fsm_scp_register);
-#endif
+
 enum MD_STATE ccci_fsm_get_md_state(int md_id)
 {
 	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(md_id);
@@ -1011,11 +1004,6 @@ int ccci_fsm_recv_control_packet(int md_id, struct sk_buff *skb)
 			per_md_data->dtr_state = 1; /*connect */
 		else
 			per_md_data->dtr_state = 0; /*disconnect */
-		break;
-	case C2K_CCISM_SHM_INIT_ACK:
-#ifndef CCCI_KMODULE_ENABLE
-		fsm_ccism_init_ack_handler(ctl->md_id, ccci_h->reserved);
-#endif
 		break;
 	case C2K_FLOW_CTRL_MSG:
 		ccci_hif_start_queue(ctl->md_id, ccci_h->reserved, OUT);

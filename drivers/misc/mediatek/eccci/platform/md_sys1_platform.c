@@ -1705,9 +1705,9 @@ static int ccci_modem_probe(struct platform_device *plat_dev)
 		md_hw = NULL;
 		return -1;
 	}
-#ifdef CCCI_KMODULE_ENABLE
+
 	ccci_init();
-#endif
+
 	ret = ccci_modem_init_common(plat_dev, &dev_cfg, md_hw);
 	if (ret < 0) {
 		kfree(md_hw);
