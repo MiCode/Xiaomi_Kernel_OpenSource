@@ -1632,7 +1632,7 @@ static int open(struct subdrv_ctx *ctx)
 	//ctx->ihdr_en = 0;
 	ctx->test_pattern = 0;
 	ctx->current_fps = imgsensor_info.pre.max_framerate;
-	ctx->pdaf_mode = 0;
+	ctx->pdaf_mode = 1;
 
 
 	return ERROR_NONE;
@@ -1811,7 +1811,7 @@ static int get_info(struct subdrv_ctx *ctx, enum MSDK_SCENARIO_ID_ENUM scenario_
 	sensor_info->IHDR_LE_FirstLine = imgsensor_info.ihdr_le_firstline;
 	sensor_info->SensorModeNum = imgsensor_info.sensor_mode_num;
 	/*0: NO PDAF, 1: PDAF Raw Data mode, 2:PDAF VC mode*/
-	sensor_info->PDAF_Support = 0;  //fuzr change from 1 t 0
+	sensor_info->PDAF_Support = 1;
 
 	//sensor_info->HDR_Support = 0; /*0: NO HDR, 1: iHDR, 2:mvHDR, 3:zHDR*/
 	sensor_info->SensorMIPILaneNumber = imgsensor_info.mipi_lane_num;
@@ -1827,7 +1827,7 @@ static int get_info(struct subdrv_ctx *ctx, enum MSDK_SCENARIO_ID_ENUM scenario_
 	sensor_info->SensorWidthSampling = 0;
 	sensor_info->SensorHightSampling = 0;
 	sensor_info->SensorPacketECCOrder = 1;
-/*  no use confirm 
+/*  no use confirm
 	switch (scenario_id) {
 	case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
 		sensor_info->SensorGrabStartX = ctx->info.pre.startx;
@@ -2413,13 +2413,13 @@ case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO:
 		switch (*feature_data) {
 		case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
 		case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
-		case SENSOR_SCENARIO_ID_CUSTOM1:
+		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 			memcpy((void *)PDAFinfo, (void *)&imgsensor_pd_info,
 				sizeof(struct SET_PD_BLOCK_INFO_T));
 			break;
+		case SENSOR_SCENARIO_ID_CUSTOM1:
 		case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
 		case SENSOR_SCENARIO_ID_SLIM_VIDEO:
-		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 		default:
 			break;
 		}
@@ -2440,10 +2440,10 @@ case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO:
 			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 0;
 			break;
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
-			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 0;
+			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 1;
 			break;
 		case SENSOR_SCENARIO_ID_CUSTOM1:
-			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 1;
+			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 0;
 			break;
 		default:
 			*(MUINT32 *)(uintptr_t)(*(feature_data+1)) = 0;
@@ -2483,7 +2483,7 @@ case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO:
 			break;
 		case SENSOR_SCENARIO_ID_CUSTOM1:
 			rate = imgsensor_info.custom1.mipi_pixel_rate;
-			break;	
+			break;
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 		default:
 			rate = imgsensor_info.pre.mipi_pixel_rate;
