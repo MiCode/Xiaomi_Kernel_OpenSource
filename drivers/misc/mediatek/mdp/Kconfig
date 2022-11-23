@@ -69,3 +69,9 @@ config MTK_MDP_MT6789
 	  cmdq-record, pre-dump, timeout error dump, first error buffer
 	  and aee db. Enable performance tools which add instruction
 	  inside packet and profiling.
+
+config MTK_MDP_DEBUG
+	bool "MDP Debug Support for Mediatek SoCs"
+	help
+	  Choose this option if you have a Mediatek SoCs.
+	  This driver provides mdp driver debug feature.
