@@ -25,6 +25,7 @@ config MTK_TEE_GP_SUPPORT
 	  Trustonic TEE Support or Microtrust TEE Support or Google Trusty
 	  TEE or other 3rd-party TEE)
 
+source "drivers/tee/gpapi/Kconfig"
 source "drivers/tee/optee/Kconfig"
 source "drivers/tee/amdtee/Kconfig"
 source "drivers/tee/teeperf/Kconfig"

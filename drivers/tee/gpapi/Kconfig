@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config MTK_TEE_GP_COORDINATOR
+	tristate "GPAPI support multiple TEE implementations"
+	depends on MTK_TEE_GP_SUPPORT
+	help
+	  Unified GPAPI that support multiple TEE implementations and select one dynamically.
+	  Originally, each TEE ko will export one set of GPAPI, and TEE clients (CA) only can
+	  link one set at building time. This middle-layer will export GP api for client use,
+	  and invoke real GP api by function pointer which registered by each TEE ko.
+	  This will remove export GPAPI in each TEE ko implemented by vendors.
+
+config MTK_TEE_GP_TESTS
+	tristate "GPAPI coordinator tests"
+	depends on MTK_TEE_GP_COORDINATOR
+	help
+	  This is a test module that test each GP API of gpapi_coorinator if can work rightly.
+	  It connects with tee_sanity TA and utilize existed test cases. So must enable one TEE
+	  by dts and enable tee_sanity TA and t-driver.
+	  To assure gpapi_coordinator work rightly with every TEE implementation, it better to
+	  enable TEE implementation by dts one by one.

@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0
+ifneq ($(filter y m, $(CONFIG_MTK_TEE_GP_COORDINATOR)),)
+	ccflags-y += -I$(srctree)/drivers/tee/gpapi/public/client
+endif
