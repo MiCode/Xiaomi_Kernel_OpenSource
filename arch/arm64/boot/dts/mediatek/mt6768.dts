@@ -3300,6 +3300,8 @@ cma=64M transparent_hugepage=never";
 		usb-role-switch;
 		usb_phy_offset = <0x800>;
 		cdp-block;
+		wakeup-source;
+		infracg = <&infracfg_ao>;
 		port {
 			musb_drd_switch: endpoint@0 {
 				remote-endpoint = <&usb_role>;
