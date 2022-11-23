@@ -3475,8 +3475,8 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 		mode_chg_index = mtk_crtc->mode_change_index;
 
 		/* add for ESD recovery */
-		if (!mtk_crtc->res_switch && (mode_id != 0)
-			&& (mtk_dsi_is_cmd_mode(&dsi->ddp_comp) ||
+		if ((!mtk_crtc->skip_unnecessary_switch) && (!mtk_crtc->res_switch) &&
+			 (mode_id != 0) && (mtk_dsi_is_cmd_mode(&dsi->ddp_comp) ||
 				mode_chg_index & MODE_DSI_HFP)) {
 			if (dsi->ext && dsi->ext->funcs &&
 				dsi->ext->funcs->mode_switch) {
@@ -8640,6 +8640,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		unsigned int i = 0;
 		u16 vdisplay = 0;
 
+		panel_ext = mtk_dsi_get_panel_ext(comp);
 		crtc->avail_modes_num = 0;
 		list_for_each_entry(m, &dsi->conn.modes, head)
 			crtc->avail_modes_num++;
@@ -8657,6 +8658,10 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 				DDPMSG("Panel support resolution switch.\n");
 				crtc->res_switch = true;
 			}
+		}
+		if (panel_ext && panel_ext->params && panel_ext->params->skip_unnecessary_switch) {
+			DDPDBG("we will skip mode switch before suspend or after resume.\n");
+			crtc->skip_unnecessary_switch = true;
 		}
 	}
 		break;

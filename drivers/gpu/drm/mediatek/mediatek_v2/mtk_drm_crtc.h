@@ -795,6 +795,7 @@ struct mtk_drm_crtc {
 	unsigned int mode_change_index;
 	int mode_idx;
 	bool res_switch;
+	bool skip_unnecessary_switch;
 
 	wait_queue_head_t state_wait_queue;
 	bool crtc_blank;

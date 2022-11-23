@@ -406,6 +406,7 @@ struct mtk_panel_params {
 	unsigned int vfp_low_power;
 	struct dynamic_mipi_params dyn;
 	struct dynamic_fps_params dyn_fps;
+	bool skip_unnecessary_switch;
 	struct mtk_ddic_dsi_cmd send_cmd_to_ddic;
 	unsigned int cust_esd_check;
 	unsigned int esd_check_enable;

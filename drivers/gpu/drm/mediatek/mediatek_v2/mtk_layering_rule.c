@@ -545,6 +545,8 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc, int mode_idx)
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (!mtk_crtc->res_switch) {
+		DDPDBG("%s mode_idx:%d\n", __func__, mode_idx);
+		mtk_crtc->mode_idx = mode_idx;
 		if (output_comp)
 			mtk_ddp_comp_io_cmd(output_comp, NULL,
 				GET_FRAME_HRT_BW_BY_DATARATE, &tmp);
