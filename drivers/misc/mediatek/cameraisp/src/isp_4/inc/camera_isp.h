@@ -581,10 +581,17 @@ struct ISP_PM_QOS_STRUCT {
 	unsigned int       bw_sum;
 };
 
+/* For k510 */
+struct ISP_BW {
+	unsigned int peak;
+	unsigned int avg;
+};
+
 struct ISP_PM_QOS_INFO_STRUCT {
 	unsigned int       bw_value;
 	unsigned int       module;
 	unsigned int       fps;
+	struct ISP_BW      port_bw[_cam_max_]; /* For k510 */
 };
 
 /*******************************************************************************
