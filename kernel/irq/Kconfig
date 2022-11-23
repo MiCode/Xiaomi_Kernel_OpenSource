@@ -147,3 +147,9 @@ config GENERIC_IRQ_MULTI_HANDLER
 	bool
 	help
 	  Allow to specify the low level IRQ handler at run time.
+
+config MTK_FIX_IRQ_RCU_DEAD_LOCK
+	bool "fix irq_enter/rcu dead lock"
+	help
+	  This is a temporary config used for mtk eng load to fix
+	  the ALPS07671891 rcu warning log print dead lock 32bit system only.
