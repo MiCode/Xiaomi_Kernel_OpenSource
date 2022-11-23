@@ -2356,6 +2356,8 @@ static int rpmb_gp_listenDci(void *arg)
 			mc_ret = rpmb_gp_execute_ufs(cmdId);
 #endif
 		/* Notify the STH*/
+		// fix for TEE Driver issue, Swd can not receive msg from Nwd with time issue.
+		MSG(INFO, "%s, Nwd Call notify to Swd...\n", __func__);
 		mc_ret = mc_notify(&rpmb_gp_session);
 		if (mc_ret != MC_DRV_OK) {
 			MSG(ERR, "%s: mcNotify returned: %d\n",
