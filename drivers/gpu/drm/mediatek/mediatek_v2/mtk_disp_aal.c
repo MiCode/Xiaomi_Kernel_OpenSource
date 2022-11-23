@@ -448,6 +448,7 @@ void disp_aal_notify_backlight_changed(int trans_backlight, int max_backlight)
 {
 	unsigned long flags;
 	unsigned int service_flags;
+	int prev_backlight;
 
 	if (default_comp == NULL || default_comp->mtk_crtc == NULL) {
 		AALERR("%s null pointer!\n", __func__);
@@ -465,9 +466,13 @@ void disp_aal_notify_backlight_changed(int trans_backlight, int max_backlight)
 	if (trans_backlight > max_backlight)
 		trans_backlight = max_backlight;
 
+	prev_backlight = atomic_read(&g_aal_backlight_notified);
 	atomic_set(&g_aal_backlight_notified, trans_backlight);
 
 	service_flags = 0;
+	if ((prev_backlight == 0) && (prev_backlight != trans_backlight))
+		service_flags = AAL_SERVICE_FORCE_UPDATE;
+
 	if (trans_backlight == 0) {
 		mtk_leds_brightness_set("lcd-backlight", 0);
 		/* set backlight = 0 may be not from AAL, */
@@ -935,12 +940,6 @@ static int disp_aal_copy_hist_to_user(struct DISP_AAL_HIST *hist)
 		g_aal_hist.srcHeight = g_aal_size.height;
 	}
 
-	g_aal_hist.serviceFlags = 0;
-	atomic_set(&g_aal0_hist_available, 0);
-	atomic_set(&g_aal1_hist_available, 0);
-	atomic_set(&g_aal0_dre20_hist_is_ready, 0);
-	atomic_set(&g_aal1_dre20_hist_is_ready, 0);
-
 	memcpy(&g_aal_hist_db, &g_aal_hist, sizeof(g_aal_hist));
 
 	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
@@ -953,6 +952,12 @@ static int disp_aal_copy_hist_to_user(struct DISP_AAL_HIST *hist)
 	if (g_aal_fo->mtk_dre30_support)
 		ret = copy_to_user(AAL_U32_PTR(g_aal_init_dre30.dre30_hist_addr),
 			&g_aal_dre30_hist_db, sizeof(g_aal_dre30_hist_db));
+
+	g_aal_hist.serviceFlags = 0;
+	atomic_set(&g_aal0_hist_available, 0);
+	atomic_set(&g_aal1_hist_available, 0);
+	atomic_set(&g_aal0_dre20_hist_is_ready, 0);
+	atomic_set(&g_aal1_dre20_hist_is_ready, 0);
 
 	AALFLOW_LOG("%s set g_aal_force_enable_irq to 0 +\n", __func__);
 	atomic_set(&g_aal_force_enable_irq, 0);
@@ -2086,6 +2091,22 @@ static void disp_aal_single_pipe_hist_update(struct mtk_ddp_comp *comp)
 					atomic_set(&g_aal0_dre20_hist_is_ready, 1);
 					AALIRQ_LOG("DDP_COMPONENT_AAL0 read_success = %d\n",
 						read_success);
+
+					if (comp->mtk_crtc->is_dual_pipe) {
+						if ((atomic_read(&g_aal_first_frame) == 1) &&
+							(atomic_read(&g_aal1_first_frame) == 1)) {
+							atomic_set(&g_aal_first_frame, 0);
+							atomic_set(&g_aal1_first_frame, 0);
+							queue_work(aal_refresh_wq,
+								&g_aal_data->aal_refresh_task);
+						}
+					} else {
+						if (atomic_read(&g_aal_first_frame) == 1) {
+							atomic_set(&g_aal_first_frame, 0);
+							queue_work(aal_refresh_wq,
+								&g_aal_data->aal_refresh_task);
+						}
+					}
 				}
 				if (comp->id == DDP_COMPONENT_AAL1) {
 					atomic_set(&g_aal1_dre20_hist_is_ready, 1);
