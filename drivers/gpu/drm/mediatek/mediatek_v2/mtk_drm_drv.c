@@ -1769,6 +1769,18 @@ static const struct mtk_addon_scenario_data mt6765_addon_ext[ADDON_SCN_NR] = {
 	},
 };
 
+static const enum mtk_ddp_comp_id mt6768_mtk_ddp_sec_main[] = {
+	DDP_COMPONENT_OVL0,
+	DDP_COMPONENT_RDMA0, DDP_COMPONENT_RDMA0_VIRTUAL0,
+#ifndef DRM_BYPASS_PQ
+	DDP_COMPONENT_COLOR0,   DDP_COMPONENT_CCORR0,
+	DDP_COMPONENT_AAL0,      DDP_COMPONENT_GAMMA0,
+	DDP_COMPONENT_DITHER0,
+#endif
+	DDP_COMPONENT_DSI0,
+	DDP_COMPONENT_PWM0,
+};
+
 static const enum mtk_ddp_comp_id mt6768_mtk_ddp_main[] = {
 	DDP_COMPONENT_OVL0_2L, DDP_COMPONENT_OVL0,
 	DDP_COMPONENT_RDMA0, DDP_COMPONENT_RDMA0_VIRTUAL0,
@@ -1803,6 +1815,13 @@ static const enum mtk_ddp_comp_id mt6768_mtk_ddp_main_wb_path[] = {
 	DDP_COMPONENT_OVL0, DDP_COMPONENT_WDMA0,
 };
 #endif
+
+static const struct mtk_addon_scenario_data mt6768_addon_sec_main[ADDON_SCN_NR] = {
+		[NONE] = {
+				.module_num = 0,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
+};
 
 static const struct mtk_addon_scenario_data mt6768_addon_main[ADDON_SCN_NR] = {
 		[NONE] = {
@@ -2829,7 +2848,7 @@ static const struct mtk_crtc_path_data mt6765_mtk_third_path_data = {
 	.addon_data = mt6765_addon_ext,
 };
 
-static const struct mtk_crtc_path_data mt6768_mtk_main_path_data = {
+static struct mtk_crtc_path_data mt6768_mtk_main_path_data = {
 	.path[DDP_MAJOR][0] = mt6768_mtk_ddp_main,
 	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6768_mtk_ddp_main),
 	.path_req_hrt[DDP_MAJOR][0] = true,
@@ -6097,6 +6116,44 @@ done:
 	return ret;
 }
 
+bool mtk_disp_is_svp_on_mtee(void)
+{
+	static int mtee_on = -1;
+	struct device_node *dt_node;
+
+	if (mtee_on != -1)
+		return mtee_on;
+	dt_node = of_find_node_by_name(NULL, "MTEE");
+	if (!dt_node) {
+		mtee_on = 0;
+		return false;
+	}
+	mtee_on = 1;
+	return true;
+}
+EXPORT_SYMBOL_GPL(mtk_disp_is_svp_on_mtee);
+
+static bool init_secure_static_path_switch(struct device *dev, struct mtk_drm_private *priv)
+{
+	struct device_node *dt_node;
+
+	dt_node = of_find_node_by_name(dev->of_node, "SecureVideoPath");
+	if (!dt_node) {
+		priv->secure_static_path_switch = false;
+		return false;
+	}
+	if (priv->data->mmsys_id == MMSYS_MT6768) {
+		mt6768_mtk_main_path_data.path[DDP_MAJOR][0] = mt6768_mtk_ddp_sec_main;
+		mt6768_mtk_main_path_data.path_len[DDP_MAJOR][0] =
+			ARRAY_SIZE(mt6768_mtk_ddp_sec_main);
+		mt6768_mtk_main_path_data.addon_data = mt6768_addon_sec_main;
+		priv->secure_static_path_switch = true;
+		return true;
+	}
+	priv->secure_static_path_switch = false;
+	return false;
+}
+
 static int mtk_drm_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -6142,6 +6199,10 @@ static int mtk_drm_probe(struct platform_device *pdev)
 		disp_helper_set_stage(DISP_HELPER_STAGE_NORMAL);
 	else
 		disp_helper_set_stage(DISP_HELPER_STAGE_BRING_UP);
+
+	init_secure_static_path_switch(dev, private);
+	if (private->secure_static_path_switch == true)
+		mtk_drm_helper_set_opt_by_name(private->helper_opt, "MTK_DRM_OPT_RPO", 0);
 
 	if (private->data->mmsys_id == MMSYS_MT6895) {
 		if (mtk_drm_get_segment_id(pdev, private))

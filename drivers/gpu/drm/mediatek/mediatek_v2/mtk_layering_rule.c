@@ -184,10 +184,11 @@ static void filter_by_yuv_layers(struct drm_mtk_layering_info *disp_info)
 
 static void filter_2nd_display(struct drm_mtk_layering_info *disp_info)
 {
-	unsigned int i, j, layer_cnt = 0;
+	unsigned int i = 0, j = 0;
 
 	for (i = HRT_SECONDARY; i < HRT_DISP_TYPE_NUM; i++) {
 		unsigned int max_layer_cnt = SECONDARY_OVL_LAYER_NUM;
+		unsigned int layer_cnt = 0;
 
 		if (is_triple_disp(disp_info) && i == HRT_SECONDARY)
 			max_layer_cnt = 1;
@@ -196,7 +197,11 @@ static void filter_2nd_display(struct drm_mtk_layering_info *disp_info)
 				continue;
 
 			layer_cnt++;
-			if (layer_cnt > max_layer_cnt)
+			if (disp_info->layer_num[i] <= SECONDARY_OVL_LAYER_NUM &&
+					layer_cnt > max_layer_cnt)
+				mtk_rollback_layer_to_GPU(disp_info, i, j);
+			else if (disp_info->layer_num[i] > SECONDARY_OVL_LAYER_NUM &&
+					layer_cnt >= max_layer_cnt)
 				mtk_rollback_layer_to_GPU(disp_info, i, j);
 		}
 	}
@@ -407,24 +412,27 @@ static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx,
 	switch (tb_type) {
 	case DISP_HW_OVL_TB:
 		map = ovl_mapping_table[addon_data->hrt_type];
-		if (mtk_drm_helper_get_opt(priv->helper_opt,
+		if (priv->secure_static_path_switch == true ||
+			(mtk_drm_helper_get_opt(priv->helper_opt,
 			MTK_DRM_OPT_VDS_PATH_SWITCH) &&
-			priv->need_vds_path_switch)
+			priv->need_vds_path_switch))
 			map = ovl_mapping_tb_vds_switch[addon_data->hrt_type];
 		break;
 	case DISP_HW_LARB_TB:
 		map = larb_mapping_table[addon_data->hrt_type];
-		if (mtk_drm_helper_get_opt(priv->helper_opt,
+		if (priv->secure_static_path_switch == true ||
+			(mtk_drm_helper_get_opt(priv->helper_opt,
 			MTK_DRM_OPT_VDS_PATH_SWITCH) &&
-			priv->need_vds_path_switch)
+			priv->need_vds_path_switch))
 			map = larb_mapping_tb_vds_switch[addon_data->hrt_type];
 		break;
 	case DISP_HW_LAYER_TB:
 		if (param <= MAX_PHY_OVL_CNT && param >= 0) {
 			tmp_map = layer_mapping_table[addon_data->hrt_type];
-			if (mtk_drm_helper_get_opt(priv->helper_opt,
+			if (priv->secure_static_path_switch == true ||
+				(mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_VDS_PATH_SWITCH) &&
-				priv->need_vds_path_switch)
+				priv->need_vds_path_switch))
 				tmp_map = layer_mapping_table_vds_switch[
 					addon_data->hrt_type];
 

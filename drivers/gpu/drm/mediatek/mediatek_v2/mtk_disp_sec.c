@@ -20,6 +20,7 @@
 #include "mtk_heap.h"
 #include "mtk_drm_gem.h"
 #include "mtk-cmdq-ext.h"
+#include "mtk_drm_fb.h"
 
 #define RETRY_SEC_CMDQ_FLUSH 3
 
@@ -202,12 +203,31 @@ static struct platform_driver disp_sec_drv = {
 	},
 };
 
-int mtk_disp_mtee_domain_enable(struct cmdq_pkt *handle, u32 regs_addr, u32 lye_addr,
-				u32 offset, u32 size)
+#define GET_M4U_PORT 0x1F
+int mtk_disp_mtee_domain_enable(struct cmdq_pkt *handle, struct mtk_ddp_comp *comp,
+				u32 regs_addr, u32 lye_addr, u32 offset, u32 size)
 {
+	int port = 0, ret = 0, sec_id = 0;
+
 	DDPINFO("%s+\n", __func__);
 
-	cmdq_sec_pkt_write_reg(handle, regs_addr, lye_addr, CMDQ_IWC_H_2_MVA, offset, size, 0);
+	if (!comp) {
+		cmdq_sec_pkt_write_reg_disp(handle, regs_addr, lye_addr,
+					CMDQ_IWC_H_2_MVA, offset, size, port, sec_id);
+		return true;
+	}
+	sec_id = mtk_fb_get_sec_id(comp->fb);
+	ret = of_property_read_u32_index(comp->dev->of_node,
+				"iommus", 1, &port);
+	if (ret < 0) {
+		DDPMSG("%s, %d, parse iommus port fail, ret = %d, port = %d, sec_id = %d\n",
+				__func__, __LINE__, ret,  port, sec_id);
+		port = 0;
+	}
+	port &= (unsigned int)GET_M4U_PORT;
+	DDPINFO("%s, %d, port = %d, sec_id = %d\n", __func__, __LINE__, port, sec_id);
+	cmdq_sec_pkt_write_reg_disp(handle, regs_addr, lye_addr,
+				CMDQ_IWC_H_2_MVA, offset, size, port, sec_id);
 
 	return true;
 }
@@ -282,7 +302,7 @@ int mtk_disp_mtee_cmdq_secure_start(int value, struct cmdq_pkt *cmdq_handle,
 			sec_disp_port, sec_disp_scn,
 			CMDQ_METAEX_NONE);
 	cmdq_sec_pkt_set_secid(cmdq_handle, 1);
-	cmdq_sec_pkt_set_mtee(cmdq_handle, true);
+	cmdq_sec_pkt_set_mtee(cmdq_handle, mtk_disp_is_svp_on_mtee());
 
 	return true;
 }
@@ -299,7 +319,10 @@ int mtk_disp_mtee_gem_fd_to_sec_hdl(u32 fd, struct mtk_drm_gem_obj *mtk_gem_obj)
 		return false;
 	}
 
-	sec_id = dmabuf_to_sec_id(dma_buf, &sec_handle);
+	if (mtk_disp_is_svp_on_mtee())
+		sec_id = dmabuf_to_sec_id(dma_buf, &sec_handle);
+	else
+		sec_id = dmabuf_to_tmem_type(dma_buf, &sec_handle);
 	if (sec_id >= 0)
 		DDPINFO("%s:sec_hnd=0x%x,sec_id=%d\n", __func__, sec_handle, sec_id);
 	else {
@@ -308,7 +331,7 @@ int mtk_disp_mtee_gem_fd_to_sec_hdl(u32 fd, struct mtk_drm_gem_obj *mtk_gem_obj)
 		return false;
 	}
 	mtk_gem_obj->dma_addr = sec_handle;
-
+	mtk_gem_obj->sec_id = sec_id;
 	dma_buf_put(dma_buf);
 	return true;
 }
@@ -317,14 +340,14 @@ static int mtk_drm_disp_mtee_cb_event(int value, int fd, struct mtk_drm_gem_obj 
 	struct cmdq_pkt *handle, struct mtk_ddp_comp *comp, u32 crtc_id, u32 regs_addr,
 	u32 lye_addr, u32 offset, u32 size)
 {
-	DDPINFO("%s,cmd-%d\n", __func__, value);
+	DDPINFO("%s, cmd-%d,comp id = %d\n", __func__, value, comp ? comp->id : 0);
 	switch (value) {
 	case DISP_SEC_START:
 		return mtk_disp_mtee_cmdq_secure_start(value, handle, comp, crtc_id);
 	case DISP_SEC_STOP:
 		return mtk_disp_mtee_cmdq_secure_start(value, handle, comp, crtc_id);
 	case DISP_SEC_ENABLE:
-		return mtk_disp_mtee_domain_enable(handle, regs_addr, lye_addr, offset, size);
+		return mtk_disp_mtee_domain_enable(handle, comp, regs_addr, lye_addr, offset, size);
 	case DISP_SEC_FD_TO_SEC_HDL:
 		return mtk_disp_mtee_gem_fd_to_sec_hdl(fd, mtk_gem_obj);
 	default:
@@ -338,6 +361,7 @@ static void mtk_crtc_init_gce_sec_obj(struct drm_device *drm_dev, struct device 
 	int index;
 	unsigned int i = CLIENT_SEC_CFG;
 	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
+	static struct cmdq_client *tmp_client;
 
 	/* Load CRTC GCE client */
 	if (crtc_id == 0)
@@ -353,10 +377,14 @@ static void mtk_crtc_init_gce_sec_obj(struct drm_device *drm_dev, struct device 
 	if (index < 0) {
 		mtk_crtc->gce_obj.client[i] = NULL;
 		DDPPR_ERR("get index failed\n");
-	} else
+	} else {
 		mtk_crtc->gce_obj.client[i] =
 			cmdq_mbox_create(dev, index);
-
+		if (crtc_id == 1)
+			tmp_client = mtk_crtc->gce_obj.client[i];
+		if (crtc_id == 2 && mtk_crtc->gce_obj.client[i] == NULL)
+			mtk_crtc->gce_obj.client[i] = tmp_client;
+	}
 	/* support DC with color matrix config no more */
 	/* mtk_crtc_init_color_matrix_data_slot(mtk_crtc); */
 	mtk_crtc->gce_obj.base = cmdq_register_device(dev);

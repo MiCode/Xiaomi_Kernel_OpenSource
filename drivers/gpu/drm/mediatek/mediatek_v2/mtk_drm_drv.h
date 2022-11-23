@@ -178,6 +178,12 @@ struct mtk_drm_private {
 
 	bool already_first_config;
 
+	/*
+	 * When legacy chip HDCP and SVP is enabled,
+	 * Prime display always uses OVL0,Virtual display always uses OVL0_2L.
+	 */
+	bool secure_static_path_switch;
+
 	struct mml_drm_ctx *mml_ctx;
 	atomic_t mml_job_done;
 	wait_queue_head_t signal_mml_job_done_wq;
@@ -350,5 +356,6 @@ void mtk_free_mml_submit(struct mml_submit *temp);
 int copy_mml_submit(struct mml_submit *src, struct mml_submit *dst);
 void **mtk_drm_disp_sec_cb_init(void);
 void **mtk_drm_disp_mtee_cb_init(void);
+bool mtk_disp_is_svp_on_mtee(void);
 
 #endif /* MTK_DRM_DRV_H */

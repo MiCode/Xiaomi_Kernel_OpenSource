@@ -11084,10 +11084,8 @@ void mtk_ddp_add_comp_to_path(struct mtk_drm_crtc *mtk_crtc,
 
 	case MMSYS_MT6768:
 		value = mtk_ddp_mout_en_MT6768(reg_data, cur, next, &addr);
-		if (value >= 0) {
-			reg = readl_relaxed(config_regs + addr) | value;
-			writel_relaxed(reg, config_regs + addr);
-		}
+		if (value >= 0)
+			writel_relaxed(value, config_regs + addr);
 
 		value = mtk_ddp_sout_sel_MT6768(reg_data, cur, next, &addr);
 		if (value >= 0)
@@ -11450,7 +11448,7 @@ void mtk_ddp_add_comp_to_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 		if (value >= 0)
 			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 				mtk_crtc->config_regs_pa
-				+ addr, value, value);
+				+ addr, value, ~0);
 
 		value = mtk_ddp_sout_sel_MT6768(mtk_crtc->mmsys_reg_data,
 				cur, next, &addr);
@@ -11680,10 +11678,8 @@ void mtk_ddp_remove_comp_from_path(struct mtk_drm_crtc *mtk_crtc,
 
 	case MMSYS_MT6768:
 		value = mtk_ddp_mout_en_MT6768(reg_data, cur, next, &addr);
-		if (value >= 0) {
-			reg = readl_relaxed(config_regs + addr) & ~(unsigned int)value;
-			writel_relaxed(reg, config_regs + addr);
-		}
+		if (value >= 0)
+			writel_relaxed(value, config_regs + addr);
 
 		break;
 
@@ -11864,7 +11860,7 @@ void mtk_ddp_remove_comp_from_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 					cur, next, &addr);
 		if (value >= 0)
 			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
-				       mtk_crtc->config_regs_pa + addr, ~value, value);
+				       mtk_crtc->config_regs_pa + addr, ~value, ~0);
 
 		break;
 

@@ -304,6 +304,7 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define FBDC_8XE_MODE BIT(24)
 #define FBDC_FILTER_EN BIT(28)
 
+#define OVL_SECURE 0xfc0
 #define EXT_SECURE_OFFSET 4
 
 #define OVL_LAYER_DOMAIN 0xfc4
@@ -1489,7 +1490,7 @@ static void write_sec_phy_layer_addr_cmdq(struct mtk_ddp_comp *comp,
 	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
 
 	if (disp_mtee_cb.cb != NULL)
-		disp_mtee_cb.cb(DISP_SEC_ENABLE, 0, NULL, handle, NULL, 0,
+		disp_mtee_cb.cb(DISP_SEC_ENABLE, 0, NULL, handle, comp, 0,
 				comp->regs_pa + DISP_REG_OVL_ADDR(ovl, id),
 				addr, offset, buf_size);
 }
@@ -1501,7 +1502,7 @@ static void write_sec_ext_layer_addr_cmdq(struct mtk_ddp_comp *comp,
 	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
 
 	if (disp_mtee_cb.cb != NULL)
-		disp_mtee_cb.cb(DISP_SEC_ENABLE, 0, NULL, handle, NULL, 0,
+		disp_mtee_cb.cb(DISP_SEC_ENABLE, 0, NULL, handle, comp, 0,
 				comp->regs_pa + DISP_REG_OVL_EL_ADDR(ovl, id),
 				addr, offset, buf_size);
 }
@@ -1513,7 +1514,7 @@ static void write_sec_phy_layer_hdr_addr_cmdq(struct mtk_ddp_comp *comp,
 	//struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
 
 	if (disp_mtee_cb.cb != NULL)
-		disp_mtee_cb.cb(DISP_SEC_ENABLE, 0, NULL, handle, NULL, 0,
+		disp_mtee_cb.cb(DISP_SEC_ENABLE, 0, NULL, handle, comp, 0,
 			comp->regs_pa + DISP_REG_OVL_LX_HDR_ADDR(id),
 			addr, offset, buf_size);
 }
@@ -1525,7 +1526,7 @@ static void write_sec_ext_layer_hdr_addr_cmdq(struct mtk_ddp_comp *comp,
 	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
 
 	if (disp_mtee_cb.cb != NULL)
-		disp_mtee_cb.cb(DISP_SEC_ENABLE, 0, NULL, handle, NULL, 0,
+		disp_mtee_cb.cb(DISP_SEC_ENABLE, 0, NULL, handle, comp, 0,
 			comp->regs_pa + DISP_REG_OVL_ELX_HDR_ADDR(ovl, id),
 			addr, offset, buf_size);
 }
@@ -1535,15 +1536,21 @@ static void set_sec_phy_layer_dom_cmdq(struct mtk_ddp_comp *comp,
 {
 	u32 domain_val = 0, domain_mask = 0;
 
-	SET_VAL_MASK(domain_val, domain_mask,
+	if (!mtk_disp_is_svp_on_mtee()) {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + OVL_SECURE,
+				BIT(id), BIT(id));
+	} else {
+		SET_VAL_MASK(domain_val, domain_mask,
 				 OVL_LAYER_SVP_DOMAIN_INDEX, OVL_LAYER_Lx_DOMAIN(id));
-	cmdq_pkt_write(handle, comp->cmdq_base,
+		cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_LAYER_DOMAIN,
 					domain_val, domain_mask);
-	DDPINFO("%s:%d,L%dSet dom(0x%llx,0x%x,0x%x)\n",
+		DDPINFO("%s:%d,L%dSet dom(0x%llx,0x%x,0x%x)\n",
 					__func__, __LINE__, id,
 					comp->regs_pa + OVL_LAYER_DOMAIN,
 					domain_val, domain_mask);
+	}
 }
 
 static void set_sec_ext_layer_dom_cmdq(struct mtk_ddp_comp *comp,
@@ -1551,11 +1558,18 @@ static void set_sec_ext_layer_dom_cmdq(struct mtk_ddp_comp *comp,
 {
 	u32 domain_val = 0, domain_mask = 0;
 
-	SET_VAL_MASK(domain_val, domain_mask,
-				 OVL_LAYER_SVP_DOMAIN_INDEX, OVL_LAYER_ELx_DOMAIN(id));
-	cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
-					domain_val, domain_mask);
+	if (!mtk_disp_is_svp_on_mtee()) {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + OVL_SECURE,
+				BIT(id + EXT_SECURE_OFFSET),
+				BIT(id + EXT_SECURE_OFFSET));
+	} else {
+		SET_VAL_MASK(domain_val, domain_mask,
+				OVL_LAYER_SVP_DOMAIN_INDEX, OVL_LAYER_ELx_DOMAIN(id));
+		cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+				domain_val, domain_mask);
+	}
 }
 
 static void clr_sec_phy_layer_dom_cmdq(struct mtk_ddp_comp *comp,
@@ -1563,15 +1577,21 @@ static void clr_sec_phy_layer_dom_cmdq(struct mtk_ddp_comp *comp,
 {
 	u32 domain_val = 0, domain_mask = 0;
 
-	SET_VAL_MASK(domain_val, domain_mask,
-					0, OVL_LAYER_Lx_DOMAIN(id));
-	cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + OVL_LAYER_DOMAIN,
-					domain_val, domain_mask);
-	DDPINFO("%s:%d,L%d clr dom(0x%llx,0x%x,0x%x)\n",
-					__func__, __LINE__, id,
-					comp->regs_pa + OVL_LAYER_DOMAIN,
-					domain_val, domain_mask);
+	if (!mtk_disp_is_svp_on_mtee()) {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + OVL_SECURE,
+				0, BIT(id));
+	} else {
+		SET_VAL_MASK(domain_val, domain_mask,
+				0, OVL_LAYER_Lx_DOMAIN(id));
+		cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + OVL_LAYER_DOMAIN,
+				domain_val, domain_mask);
+		DDPINFO("%s:%d,L%d clr dom(0x%llx,0x%x,0x%x)\n",
+			__func__, __LINE__, id,
+			comp->regs_pa + OVL_LAYER_DOMAIN,
+			domain_val, domain_mask);
+	}
 }
 
 static void clr_sec_ext_layer_dom_cmdq(struct mtk_ddp_comp *comp,
@@ -1579,15 +1599,21 @@ static void clr_sec_ext_layer_dom_cmdq(struct mtk_ddp_comp *comp,
 {
 	u32 domain_val = 0, domain_mask = 0;
 
-	SET_VAL_MASK(domain_val, domain_mask,
-					0, OVL_LAYER_ELx_DOMAIN(id));
-	cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
-					domain_val, domain_mask);
-	DDPINFO("%s:%d,L%d clr dom(0x%llx,0x%x,0x%x)\n",
-					__func__, __LINE__, id,
-					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
-					domain_val, domain_mask);
+	if (!mtk_disp_is_svp_on_mtee()) {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + OVL_SECURE,
+				0, BIT(id + EXT_SECURE_OFFSET));
+	} else {
+		SET_VAL_MASK(domain_val, domain_mask,
+				0, OVL_LAYER_ELx_DOMAIN(id));
+		cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+				domain_val, domain_mask);
+		DDPINFO("%s:%d,L%d clr dom(0x%llx,0x%x,0x%x)\n",
+			__func__, __LINE__, id,
+			comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+			domain_val, domain_mask);
+	}
 }
 
 /* config addr, pitch, src_size */
@@ -1798,6 +1824,10 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		dim_color = 0xff000000;
 	}
 
+	/* Replace drm_framebuffer members that are not used in mtk_ddp_comp(OVL), */
+	/* Replace with the drm_framebuffer member in drm_plane_state, */
+	/* Because the drm_framebuffer in drm_plane_state can record the sec_id. */
+	comp->fb = state->base.fb;
 	/* handle buffer de-compression */
 	if (ovl->data->compr_info && ovl->data->compr_info->l_config) {
 		if (ovl->data->compr_info->l_config(comp,

@@ -79,6 +79,22 @@ bool mtk_drm_fb_is_secure(struct drm_framebuffer *fb)
 	return mtk_gem->sec;
 }
 
+int mtk_fb_get_sec_id(struct drm_framebuffer *fb)
+{
+	struct drm_gem_object *gem = NULL;
+	struct mtk_drm_gem_obj *mtk_gem = NULL;
+
+
+	if (!fb)
+		return false;
+	gem = mtk_fb_get_gem_obj(fb);
+	if (!gem)
+		return false;
+	mtk_gem = to_mtk_gem_obj(gem);
+	return mtk_gem->sec_id;
+}
+EXPORT_SYMBOL_GPL(mtk_fb_get_sec_id);
+
 static int mtk_drm_fb_create_handle(struct drm_framebuffer *fb,
 				    struct drm_file *file_priv,
 				    unsigned int *handle)

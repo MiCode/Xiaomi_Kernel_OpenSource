@@ -936,9 +936,20 @@ static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
 		}
 	}
 
-	write_dst_addr(comp, handle, 1, dstAddress + u_off);
-	if (has_v)
-		write_dst_addr(comp, handle, 2, dstAddress + v_off);
+	if (disp_mtee_cb.cb != NULL && sec) {
+		disp_mtee_cb.cb(DISP_SEC_ENABLE, 0, NULL, handle, comp, 0,
+				comp->regs_pa + DISP_REG_WDMA_DST_ADDRX(1),
+				dstAddress, u_off, u_size);
+		if (has_v) {
+			disp_mtee_cb.cb(DISP_SEC_ENABLE, 0, NULL, handle, comp, 0,
+				comp->regs_pa + DISP_REG_WDMA_DST_ADDRX(2),
+				dstAddress, v_off, u_size);
+		}
+	} else {
+		write_dst_addr(comp, handle, 1, dstAddress + u_off);
+		if (has_v)
+			write_dst_addr(comp, handle, 2, dstAddress + v_off);
+	}
 
 	mtk_ddp_write_mask(comp, u_stride,
 			DISP_REG_WDMA_DST_UV_PITCH, 0xFFFF, handle);
@@ -1090,9 +1101,16 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 		}
 	}
 
-	write_dst_addr(comp, handle, 0, addr);
+	if (disp_mtee_cb.cb != NULL && sec) {
+		u32 buffer_size = clip_w * comp->fb->pitches[0];
 
-	mtk_ddp_write(comp, frame_cnt, DISP_REG_WDMA_DUMMY, handle);
+		disp_mtee_cb.cb(DISP_SEC_ENABLE, 0, NULL, handle, comp, 0,
+			comp->regs_pa + DISP_REG_WDMA_DST_ADDRX(0),
+			addr & 0xFFFFFFFFU, 0, buffer_size);
+	} else {
+		write_dst_addr(comp, handle, 0, addr);
+		mtk_ddp_write(comp, frame_cnt, DISP_REG_WDMA_DUMMY, handle);
+	}
 
 	gsc = cfg->p_golden_setting_context;
 	mtk_wdma_golden_setting(comp, gsc, handle);

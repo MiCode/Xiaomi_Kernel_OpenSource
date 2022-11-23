@@ -7487,13 +7487,13 @@ bool is_tzmp2_enable(void)
 }
 
 static int mtk_mtee_sec_flow_by_cmdq(struct cmdq_pkt *cmdq_handle, struct mtk_ddp_comp *comp,
-		u32 crtc_id)
+		u32 crtc_id, bool start)
 {
 	int ret = -1;
 
 	if (disp_mtee_cb.cb != NULL)
-		ret = disp_mtee_cb.cb(DISP_SEC_STOP, 0, NULL, cmdq_handle, comp, crtc_id,
-					0, 0, 0, 0);
+		ret = disp_mtee_cb.cb((start ? DISP_SEC_START : DISP_SEC_STOP), 0, NULL,
+					cmdq_handle, comp, crtc_id, 0, 0, 0, 0);
 	else
 		DDPMSG("%s not support mtee flow\n", __func__);
 
@@ -7523,7 +7523,7 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 
 	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
 	if (mtk_crtc->sec_on && !is_tzmp2_enable())
-		mtk_mtee_sec_flow_by_cmdq(cmdq_handle, comp, idx);
+		mtk_mtee_sec_flow_by_cmdq(cmdq_handle, comp, idx, false);
 
 	if (idx == 2)
 		mtk_ddp_comp_io_cmd(comp, cmdq_handle, IRQ_LEVEL_NORMAL, NULL);
@@ -7646,7 +7646,7 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
 
 		comp = mtk_ddp_comp_request_output(mtk_crtc);
 		if (!is_tzmp2_enable())
-			mtk_mtee_sec_flow_by_cmdq(cmdq_handle, comp, idx);
+			mtk_mtee_sec_flow_by_cmdq(cmdq_handle, comp, idx, true);
 		if (idx == 2)
 			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 					IRQ_LEVEL_IDLE, NULL);

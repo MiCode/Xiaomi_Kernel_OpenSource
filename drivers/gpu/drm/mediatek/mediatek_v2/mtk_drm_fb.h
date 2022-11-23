@@ -18,4 +18,5 @@ mtk_drm_framebuffer_create(struct drm_device *dev,
 			   const struct drm_mode_fb_cmd2 *mode,
 			   struct drm_gem_object *obj);
 bool mtk_drm_fb_is_secure(struct drm_framebuffer *fb);
+int mtk_fb_get_sec_id(struct drm_framebuffer *fb);
 #endif /* MTK_DRM_FB_H */
