@@ -236,9 +236,11 @@ static char *_logger_pr_type_spy(enum DPREC_LOGGER_PR_TYPE type)
 
 static void init_log_buffer(void)
 {
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	unsigned long va;
 	unsigned long pa;
 	unsigned long size;
+#endif
 	int i, buf_size, buf_idx;
 	char *temp_buf;
 
@@ -301,13 +303,13 @@ static void init_log_buffer(void)
 	dprec_logger_buffer[4].buffer_ptr = status_buffer;
 
 	is_buffer_init = true;
-
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	va = (unsigned long)err_buffer[0];
 	pa = __pa_nodebug(va);
 	size = (DEBUG_BUFFER_SIZE - 4096);
 
 	mrdump_mini_add_extra_file(va, pa, size, "DISPLAY");
-
+#endif
 	DDPINFO("[DISP]%s success\n", __func__);
 	return;
 err:
