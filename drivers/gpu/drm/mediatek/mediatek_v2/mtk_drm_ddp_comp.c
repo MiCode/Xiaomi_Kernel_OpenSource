@@ -88,7 +88,7 @@
 
 #define MT6768_HRT_URGENT_CTL_SEL_ALL             REG_FLD_MSB_LSB(7, 0)
 	#define MT6768_HRT_URGENT_CTL_SEL_RDMA0       REG_FLD_MSB_LSB(0, 0)
-	#define MT6768_HRT_URGENT_CTL_SEL_WDMA0       REG_FLD_MSB_LSB(2, 2)
+	#define MT6768_HRT_URGENT_CTL_SEL_WDMA0       REG_FLD_MSB_LSB(1, 1)
 	#define MT6768_HRT_URGENT_CTL_SEL_DSI0        REG_FLD_MSB_LSB(5, 5)
 
 #define MT6768_HRT_URGENT_CTL_VAL_ALL             REG_FLD_MSB_LSB(15, 8)
@@ -1118,6 +1118,8 @@ void mt6768_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 	} else
 		return;
 
+	emi_req_val = 0;
+	emi_req_mask = 3;
 	if (handle == NULL) {
 		unsigned int v;
 
