@@ -13,6 +13,36 @@
 #include "ep_pcie_com.h"
 #include "ep_pcie_phy.h"
 
+#define EP_PCIE_MAX_DEBUGFS_OPTION 24
+
+static const char * const
+	ep_pcie_debugfs_option_desc[EP_PCIE_MAX_DEBUGFS_OPTION] = {
+	"Output status",
+	"Output PHY and PARF registers",
+	"Output Core/DBI registers",
+	"Output MMIO/MHI registers",
+	"Output ELBI registers",
+	"Output MSI registers",
+	"Turn on link",
+	"Enumeration",
+	"Turn off link",
+	"Check MSI",
+	"Trigger MSI",
+	"Indicate the status of PCIe link",
+	"Configure outbound iATU",
+	"Wake up from D3hot",
+	"Configure routing of doorbells",
+	"Write D3",
+	"Write D0",
+	"Assert wake",
+	"Deassert wake",
+	"Output PERST# status",
+	"Output WAKE# status",
+	"Enable dumping core/dbi registers when D3hot set by host",
+	"Disable dumping core/dbi registers when D3hot set by host",
+	"Dump edma registers",
+	};
+
 static struct dentry *dent_ep_pcie;
 static struct dentry *dfile_case;
 static struct ep_pcie_dev_t *dev;
@@ -273,6 +303,22 @@ static void ep_pcie_show_status(struct ep_pcie_dev_t *dev)
 		dev->perst_deast_counter);
 }
 
+static int ep_pcie_cmd_debug_show(struct seq_file *m, void *v)
+{
+	int i;
+
+	for (i = 0; i < EP_PCIE_MAX_DEBUGFS_OPTION; i++)
+		seq_printf(m, "\t%d:\t %s\n", i,
+			ep_pcie_debugfs_option_desc[i]);
+
+	return 0;
+}
+
+static int ep_pcie_cmd_debug_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ep_pcie_cmd_debug_show, NULL);
+}
+
 static ssize_t ep_pcie_cmd_debug(struct file *file,
 				const char __user *buf,
 				size_t count, loff_t *ppos)
@@ -351,7 +397,7 @@ static ssize_t ep_pcie_cmd_debug(struct file *file,
 	case 14: /* Configure routing of doorbells */
 		ep_pcie_config_db_routing(phandle, chdb_cfg, erdb_cfg);
 		break;
-	case 21: /* write D3 */
+	case 15: /* write D3 */
 		EP_PCIE_DBG_FS("\nPCIe Testcase %d: write D3 to EP\n\n",
 			testcase);
 		EP_PCIE_DBG_FS("\nPCIe: 0x44 of EP is 0x%x before change\n\n",
@@ -360,7 +406,7 @@ static ssize_t ep_pcie_cmd_debug(struct file *file,
 		EP_PCIE_DBG_FS("\nPCIe: 0x44 of EP is 0x%x now\n\n",
 			readl_relaxed(dev->dm_core + 0x44));
 		break;
-	case 22: /* write D0 */
+	case 16: /* write D0 */
 		EP_PCIE_DBG_FS("\nPCIe Testcase %d: write D0 to EP\n\n",
 			testcase);
 		EP_PCIE_DBG_FS("\nPCIe: 0x44 of EP is 0x%x before change\n\n",
@@ -369,33 +415,33 @@ static ssize_t ep_pcie_cmd_debug(struct file *file,
 		EP_PCIE_DBG_FS("\nPCIe: 0x44 of EP is 0x%x now\n\n",
 			readl_relaxed(dev->dm_core + 0x44));
 		break;
-	case 23: /* assert wake */
+	case 17: /* assert wake */
 		EP_PCIE_DBG_FS("\nPCIe Testcase %d: assert wake\n\n",
 			testcase);
 		gpio_set_value(dev->gpio[EP_PCIE_GPIO_WAKE].num,
 			dev->gpio[EP_PCIE_GPIO_WAKE].on);
 		break;
-	case 24: /* deassert wake */
+	case 18: /* deassert wake */
 		EP_PCIE_DBG_FS("\nPCIe Testcase %d: deassert wake\n\n",
 			testcase);
 		gpio_set_value(dev->gpio[EP_PCIE_GPIO_WAKE].num,
 			1 - dev->gpio[EP_PCIE_GPIO_WAKE].on);
 		break;
-	case 25: /* output PERST# status */
+	case 19: /* output PERST# status */
 		EP_PCIE_DBG_FS("\nPCIe: PERST# is %d\n\n",
 			gpio_get_value(dev->gpio[EP_PCIE_GPIO_PERST].num));
 		break;
-	case 26: /* output WAKE# status */
+	case 20: /* output WAKE# status */
 		EP_PCIE_DBG_FS("\nPCIe: WAKE# is %d\n\n",
 			gpio_get_value(dev->gpio[EP_PCIE_GPIO_WAKE].num));
 		break;
-	case 31: /* output core registers when D3 hot is set by host*/
+	case 21: /* output core registers when D3 hot is set by host*/
 		dev->dump_conf = true;
 		break;
-	case 32: /* do not output core registers when D3 hot is set by host*/
+	case 22: /* do not output core registers when D3 hot is set by host*/
 		dev->dump_conf = false;
 		break;
-	case 33: /* output edma registers */
+	case 23: /* output edma registers */
 		edma_dump();
 		break;
 	default:
@@ -411,6 +457,9 @@ static ssize_t ep_pcie_cmd_debug(struct file *file,
 
 const struct file_operations ep_pcie_cmd_debug_ops = {
 	.write = ep_pcie_cmd_debug,
+	.release = single_release,
+	.read = seq_read,
+	.open = ep_pcie_cmd_debug_open,
 };
 
 void ep_pcie_debugfs_init(struct ep_pcie_dev_t *ep_dev)
