@@ -891,10 +891,7 @@ static s32 cmdq_sec_fill_iwc_msg(struct cmdq_sec_context *context,
 	iwc_msg->command.scenario = task->scenario;
 	iwc_msg->command.priority = task->pkt->priority;
 	iwc_msg->command.engineFlag = task->engineFlag;
-#ifdef CMDQ_SECURE_MTEE_SUPPORT
-	if (data->mtee)
-		iwc_msg->command.sec_id = data->sec_id;
-#endif
+	iwc_msg->command.sec_id = data->sec_id;
 	last = list_last_entry(&task->pkt->buf, typeof(*last), list_entry);
 	list_for_each_entry(buf, &task->pkt->buf, list_entry) {
 		if (buf == last)

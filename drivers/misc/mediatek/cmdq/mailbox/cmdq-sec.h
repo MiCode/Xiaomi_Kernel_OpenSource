@@ -134,6 +134,9 @@ s32 cmdq_sec_pkt_set_payload(struct cmdq_pkt *pkt, u8 idx,
 s32 cmdq_sec_pkt_write_reg(struct cmdq_pkt *pkt, u32 addr, u64 base,
 	const enum CMDQ_IWC_ADDR_METADATA_TYPE type,
 	const u32 offset, const u32 size, const u32 port);
+s32 cmdq_sec_pkt_write_reg_disp(struct cmdq_pkt *pkt, u32 addr, u64 base,
+	const enum CMDQ_IWC_ADDR_METADATA_TYPE type,
+	const u32 offset, const u32 size, const u32 port, u32 sec_id);
 s32 cmdq_sec_pkt_assign_metadata(struct cmdq_pkt *pkt,
 	u32 count, void *meta_array);
 void cmdq_sec_dump_secure_data(struct cmdq_pkt *pkt);

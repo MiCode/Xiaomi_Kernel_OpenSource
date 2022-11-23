@@ -53,7 +53,7 @@ static s32 cmdq_sec_check_sec(struct cmdq_pkt *pkt)
 
 static s32 cmdq_sec_append_metadata(
 	struct cmdq_pkt *pkt, const enum CMDQ_IWC_ADDR_METADATA_TYPE type,
-	const u64 base, const u32 offset, const u32 size, const u32 port)
+	const u64 base, const u32 offset, const u32 size, const u32 port, u32 sec_id)
 {
 	struct cmdq_sec_data *sec_data;
 	struct cmdq_sec_addr_meta *meta;
@@ -100,6 +100,8 @@ static s32 cmdq_sec_append_metadata(
 	meta[idx].offset = offset;
 	meta[idx].size = size;
 	meta[idx].port = port;
+	meta[idx].sec_id = sec_id;
+	meta[idx].useSecIdinMeta = (sec_id != U32_MAX) ? true : false;
 	sec_data->addrMetadataCount += 1;
 	return 0;
 }
@@ -205,6 +207,27 @@ s32 cmdq_sec_pkt_set_payload(struct cmdq_pkt *pkt, u8 idx,
 }
 EXPORT_SYMBOL(cmdq_sec_pkt_set_payload);
 
+s32 cmdq_sec_pkt_write_reg_disp(struct cmdq_pkt *pkt, u32 addr, u64 base,
+	const enum CMDQ_IWC_ADDR_METADATA_TYPE type,
+	const u32 offset, const u32 size, const u32 port, u32 sec_id)
+{
+	s32 ret;
+
+	ret = cmdq_pkt_assign_command(pkt, CMDQ_SPR_FOR_TEMP, addr);
+	if (ret)
+		return ret;
+
+	ret = cmdq_pkt_append_command(pkt,
+		base & 0xffff, base >> 16, CMDQ_SPR_FOR_TEMP, 0,
+		CMDQ_IMMEDIATE_VALUE, CMDQ_IMMEDIATE_VALUE, CMDQ_REG_TYPE,
+		CMDQ_CODE_WRITE_S);
+	if (ret)
+		return ret;
+
+	return cmdq_sec_append_metadata(pkt, type, base, offset, size, port, sec_id);
+}
+EXPORT_SYMBOL(cmdq_sec_pkt_write_reg_disp);
+
 s32 cmdq_sec_pkt_write_reg(struct cmdq_pkt *pkt, u32 addr, u64 base,
 	const enum CMDQ_IWC_ADDR_METADATA_TYPE type,
 	const u32 offset, const u32 size, const u32 port)
@@ -222,7 +245,7 @@ s32 cmdq_sec_pkt_write_reg(struct cmdq_pkt *pkt, u32 addr, u64 base,
 	if (ret)
 		return ret;
 
-	return cmdq_sec_append_metadata(pkt, type, base, offset, size, port);
+	return cmdq_sec_append_metadata(pkt, type, base, offset, size, port, U32_MAX);
 }
 EXPORT_SYMBOL(cmdq_sec_pkt_write_reg);
 
