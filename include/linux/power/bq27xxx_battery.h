@@ -70,6 +70,7 @@ struct bq27xxx_device_info {
 	unsigned long last_update;
 	struct delayed_work work;
 	struct power_supply *bat;
+	struct power_supply *chg_psy;
 	struct list_head list;
 	struct mutex lock;
 	u8 *regs;

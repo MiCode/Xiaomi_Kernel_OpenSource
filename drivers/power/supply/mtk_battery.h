@@ -918,6 +918,7 @@ struct mtk_battery {
 	bool is_probe_done;
 	bool disable_nafg_int;
 	bool disableGM30;
+	bool disable_bs_psy;
 	bool ntc_disable_nafg;
 	bool cmd_disable_nafg;
 
