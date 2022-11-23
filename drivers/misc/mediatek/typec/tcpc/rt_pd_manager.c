@@ -64,7 +64,7 @@ struct rt_pd_manager_data {
 	struct usb_pd_identity partner_identity;
 };
 
-void __attribute__((weak)) usb_dpdm_pulldown(bool enable)
+void usb_dpdm_pulldown(bool enable)
 {
 	pr_notice("%s is not defined\n", __func__);
 }

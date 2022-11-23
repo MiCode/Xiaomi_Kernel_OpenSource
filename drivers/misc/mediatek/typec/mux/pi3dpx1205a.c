@@ -55,10 +55,6 @@ struct pi3dpx1205a {
 	u8 conf;
 };
 
-void __attribute__ ((weak)) mtk_dp_SWInterruptSet(int bstatus)
-{
-}
-
 /*
  * Read PI3DPX1205A I2C reg from BYTE0 to BYTE len-1
  * return value: no of byte read
