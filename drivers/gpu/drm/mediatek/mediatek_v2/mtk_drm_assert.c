@@ -407,19 +407,26 @@ void drm_set_dal(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 
 void drm_update_dal(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 {
+	struct MFC_CONTEXT *ctxt = (struct MFC_CONTEXT *)mfc_handle;
+	unsigned int width, height;
+
 	if (!mfc_handle)
 		return;
 
 	DAL_LOCK();
-	MFC_SetWH(mfc_handle, crtc->state->mode.hdisplay,
-		     crtc->state->mode.vdisplay);
+	width = crtc->state->mode.hdisplay;
+	height = crtc->state->mode.vdisplay;
+	/* check DAL buffer size is available after width/height change */
+	if (ctxt->buffer_size < width * height * DAL_BPP)
+		height = DO_COMMON_DIV(ctxt->buffer_size, (DAL_BPP * width));
+	MFC_SetWH(mfc_handle, width, height);
 	DAL_SetScreenColor(DAL_COLOR_RED);
 
 	if (drm_dal_enable)
 		MFC_Print(mfc_handle, "Resolution switch, clean dal!\n");
 	DAL_UNLOCK();
 
-	if (drm_dal_enable)
+	if (drm_dal_enable && cmdq_handle)
 		drm_set_dal(crtc, cmdq_handle);
 }
 

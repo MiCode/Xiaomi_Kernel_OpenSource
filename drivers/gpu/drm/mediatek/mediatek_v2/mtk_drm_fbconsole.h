@@ -50,6 +50,7 @@ struct MFC_CONTEXT {
 	UINT32 font_width;
 	UINT32 font_height;
 	UINT32 scale;
+	UINT32 buffer_size;
 	/*Avoid Kmemleak scan*/
 	struct file *filp;
 };
