@@ -215,6 +215,13 @@ config COMMON_CLK_MT6768
 	  If you wish to use clock resources from the MT6853 SOC,
 	  say Y. Otherwise, say N.
 
+config COMMON_CLK_PG_LEGACY
+	tristate "Clock PG driver for legacy"
+	depends on ARM64 || ARM || COMPILE_TEST
+	select COMMON_CLK_MEDIATEK
+	help
+	  This driver supports MediaTek legacy PG.
+
 config COMMON_CLK_MT6779
 	bool "Clock driver for MediaTek MT6779"
 	depends on ARM64 || COMPILE_TEST
