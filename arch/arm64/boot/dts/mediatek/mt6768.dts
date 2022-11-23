@@ -292,6 +292,19 @@ aliases {
 				<0>; /*MTK_DRM_OPT_RES_SWITCH*/
 		};
 
+		disp_mtee_sec: disp_mtee_sec {
+			compatible = "mediatek,disp_mtee";
+
+			mediatek,mailbox-gce = <&gce_mbox>;
+			mboxes = <&gce_mbox_sec 8 0 CMDQ_THR_PRIO_3>,
+				<&gce_mbox_sec 9 0 CMDQ_THR_PRIO_3>,
+				<&gce_mbox_sec 9 0 CMDQ_THR_PRIO_3>;
+
+			gce-client-names = "CLIENT_SEC_CFG0",
+					"CLIENT_SEC_CFG1",
+					"CLIENT_SEC_CFG2";
+		};
+
 		disp_mutex0: disp_mutex0@14001000 {
 			compatible = "mediatek,disp_mutex0",
 					"mediatek,mt6768-disp-mutex";
