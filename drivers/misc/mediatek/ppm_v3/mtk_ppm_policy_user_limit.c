@@ -162,7 +162,7 @@ unsigned int mt_ppm_userlimit_cpu_freq(
 
 	return 0;
 }
-
+EXPORT_SYMBOL(mt_ppm_userlimit_cpu_freq);
 unsigned int mt_ppm_userlimit_freq_limit_by_others(unsigned int cluster)
 {
 	struct ppm_data *p = &ppm_main_info;

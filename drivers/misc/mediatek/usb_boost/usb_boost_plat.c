@@ -15,6 +15,8 @@
 #include <linux/cpufreq.h>
 #include "usb_boost.h"
 #include "dvfsrc-exp.h"
+#include "mtk_ppm_api.h"
+#include "fbt_cpu_ctrl.h"
 
 static struct pm_qos_request pm_qos_req;
 static LIST_HEAD(usb_policy_list);
@@ -28,6 +30,204 @@ static struct icc_path *usb_icc_path;
 unsigned int peak_bw;
 struct device *gdev;
 
+#if IS_ENABLED(CONFIG_MTK_PPM_V3)
+
+#define CPU_KIR_USB 6
+#define CPU_MAX_KIR 12
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+
+#define LOG_BUF_SIZE (128)
+static struct ppm_limit_data *freq_set[CPU_MAX_KIR];
+static struct ppm_limit_data *current_freq;
+static unsigned long *policy_mask;
+static struct cpu_ctrl_data *freq_to_set;
+static int cluster_num;
+static struct mutex boost_freq;
+#define for_each_perfmgr_clusters(i)	\
+	for (i = 0; i < cluster_num; i++)
+
+static int arch_get_nr_clusters(void)
+{
+	int __arch_nr_clusters = -1;
+	int max_id = 0;
+	unsigned int cpu;
+
+	/* assume socket id is monotonic increasing without gap. */
+	for_each_possible_cpu(cpu) {
+		struct cpu_topology *cpu_topo = &cpu_topology[cpu];
+
+		if (cpu_topo->package_id > max_id)
+			max_id = cpu_topo->package_id;
+	}
+	__arch_nr_clusters = max_id + 1;
+	return __arch_nr_clusters;
+}
+
+static int update_userlimit_cpu_freq_usb(int kicker, int num_cluster
+		, struct cpu_ctrl_data *freq_limit)
+{
+	struct ppm_limit_data *final_freq;
+	int retval = 0;
+	int i, j, len = 0, len1 = 0;
+	char msg[128];
+	char msg1[128];
+
+	mutex_lock(&boost_freq);
+
+	final_freq = kcalloc(num_cluster
+			, sizeof(struct ppm_limit_data), GFP_KERNEL);
+	if (!final_freq) {
+		retval = -1;
+		//perfmgr_trace_printk("cpu_ctrl", "!final_freq\n");
+		goto ret_update;
+	}
+	//if (num_cluster != perfmgr_clusters) {
+	//	pr_debug(
+	//			"num_cluster : %d perfmgr_clusters: %d, doesn't match\n",
+	//			num_cluster, perfmgr_clusters);
+	//	retval = -1;
+	//	//perfmgr_trace_printk("cpu_ctrl","num_cluster != perfmgr_clusters\n");
+	//	goto ret_update;
+	//}
+
+	if (kicker < 0 || kicker >= CPU_MAX_KIR) {
+		pr_debug("kicker:%d, error\n", kicker);
+		retval = -1;
+		goto ret_update;
+	}
+
+	for_each_perfmgr_clusters(i) {
+		final_freq[i].min = -1;
+		final_freq[i].max = -1;
+	}
+
+	len += snprintf(msg + len, sizeof(msg) - len, "[%d] ", kicker);
+	if (len < 0) {
+		//perfmgr_trace_printk("cpu_ctrl", "return -EIO 1\n");
+		mutex_unlock(&boost_freq);
+		return -EIO;
+	}
+	for_each_perfmgr_clusters(i) {
+		freq_set[kicker][i].min = freq_limit[i].min >= -1 ?
+			freq_limit[i].min : -1;
+		freq_set[kicker][i].max = freq_limit[i].max >= -1 ?
+			freq_limit[i].max : -1;
+
+		len += snprintf(msg + len, sizeof(msg) - len, "(%d)(%d) ",
+		freq_set[kicker][i].min, freq_set[kicker][i].max);
+		if (len < 0) {
+			//perfmgr_trace_printk("cpu_ctrl", "return -EIO 2\n");
+			mutex_unlock(&boost_freq);
+			return -EIO;
+		}
+
+		if (freq_set[kicker][i].min == -1 &&
+				freq_set[kicker][i].max == -1)
+			clear_bit(kicker, &policy_mask[i]);
+		else
+			set_bit(kicker, &policy_mask[i]);
+
+		len1 += snprintf(msg1 + len1, sizeof(msg1) - len1,
+				"[0x %lx] ", policy_mask[i]);
+		if (len1 < 0) {
+			//perfmgr_trace_printk("cpu_ctrl", "return -EIO 3\n");
+			mutex_unlock(&boost_freq);
+			return -EIO;
+		}
+	}
+
+	for (i = 0; i < CPU_MAX_KIR; i++) {
+		for_each_perfmgr_clusters(j) {
+			final_freq[j].min
+				= MAX(freq_set[i][j].min, final_freq[j].min);
+// #if IS_ENABLED(CONFIG_MTK_CPU_CTRL_CFP)
+			final_freq[j].max
+				= final_freq[j].max != -1 &&
+				freq_set[i][j].max != -1 ?
+				MIN(freq_set[i][j].max, final_freq[j].max) :
+				MAX(freq_set[i][j].max, final_freq[j].max);
+// #else
+//			final_freq[j].max
+//			= MAX(freq_set[i][j].max, final_freq[j].max);
+// #endif
+			if (final_freq[j].min > final_freq[j].max &&
+					final_freq[j].max != -1)
+				final_freq[j].max = final_freq[j].min;
+		}
+	}
+
+	for_each_perfmgr_clusters(i) {
+		current_freq[i].min = final_freq[i].min;
+		current_freq[i].max = final_freq[i].max;
+		len += snprintf(msg + len, sizeof(msg) - len, "{%d}{%d} ",
+				current_freq[i].min, current_freq[i].max);
+		if (len < 0) {
+			//perfmgr_trace_printk("cpu_ctrl", "return -EIO 4\n");
+			mutex_unlock(&boost_freq);
+			return -EIO;
+		}
+	}
+
+	if (len >= 0 && len < LOG_BUF_SIZE) {
+		len1 = LOG_BUF_SIZE - len - 1;
+		if (len1 > 0)
+			strncat(msg, msg1, len1);
+	}
+	// if (log_enable)
+	pr_debug("%s", msg);
+
+// #if IS_ENABLED(CONFIG_TRACING)
+//	perfmgr_trace_printk("cpu_ctrl", msg);
+// #endif
+
+
+// #if IS_ENABLED(CONFIG_MTK_CPU_CTRL_CFP)
+//	if (!cfp_init_ret)
+//		cpu_ctrl_cfp(final_freq);
+//	else
+//		mt_ppm_userlimit_cpu_freq(perfmgr_clusters, final_freq);
+// #else
+	mt_ppm_userlimit_cpu_freq(num_cluster, final_freq);
+// #endif
+
+ret_update:
+	kfree(final_freq);
+	mutex_unlock(&boost_freq);
+	return retval;
+
+	return 0;
+}
+static int freq_hold_no_qos(struct act_arg_obj *arg)
+{
+		int i;
+
+		USB_BOOST_DBG("\n");
+
+		for (i = 0; i < cluster_num; i++) {
+			freq_to_set[i].min = arg->arg1;
+			freq_to_set[i].max = -1;
+		}
+		update_userlimit_cpu_freq_usb(CPU_KIR_USB, cluster_num, freq_to_set);
+		return 0;
+}
+
+static int freq_release_no_qos(struct act_arg_obj *arg)
+{
+	int i;
+
+	USB_BOOST_DBG("\n");
+
+	for (i = 0; i < cluster_num; i++) {
+		freq_to_set[i].min = -1;
+		freq_to_set[i].max = -1;
+	}
+
+	update_userlimit_cpu_freq_usb(CPU_KIR_USB, cluster_num, freq_to_set);
+	return 0;
+}
+
+#else
 static int freq_hold(struct act_arg_obj *arg)
 {
 
@@ -81,6 +281,7 @@ static int freq_release(struct act_arg_obj *arg)
 	}
 	return 0;
 }
+#endif
 
 static int core_hold(struct act_arg_obj *arg)
 {
@@ -129,15 +330,51 @@ static int usb_boost_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
 	bool audio_boost;
-
+#if IS_ENABLED(CONFIG_MTK_PPM_V3)
+	unsigned int i = 0;
+#endif
 	USB_BOOST_NOTICE("\n");
 
 	/* mandatory, related resource inited*/
 	usb_boost_init();
 
 	/* mandatory, hook callback depends on platform */
+#if IS_ENABLED(CONFIG_MTK_PPM_V3)
+	/* init freq ppm data */
+
+	cluster_num = arch_get_nr_clusters();
+	USB_BOOST_DBG("cluster_num:%d\n", cluster_num);
+
+	mutex_init(&boost_freq);
+	current_freq = kcalloc(cluster_num, sizeof(struct ppm_limit_data),
+		GFP_KERNEL);
+
+	policy_mask = kcalloc(cluster_num, sizeof(unsigned long),
+			GFP_KERNEL);
+
+	for (i = 0; i < CPU_MAX_KIR; i++)
+		freq_set[i] = kcalloc(cluster_num
+			, sizeof(struct ppm_limit_data)
+			, GFP_KERNEL);
+
+	for_each_perfmgr_clusters(i) {
+		current_freq[i].min = -1;
+		current_freq[i].max = -1;
+		policy_mask[i] = 0;
+	}
+	USB_BOOST_DBG("cluster_num=%d\n", cluster_num);
+	freq_to_set = kcalloc(cluster_num,
+		sizeof(struct cpu_ctrl_data), GFP_KERNEL);
+	if (!freq_to_set) {
+		USB_BOOST_DBG("kcalloc freq_to_set fail\n");
+		return -1;
+	}
+	register_usb_boost_act(TYPE_CPU_FREQ, ACT_HOLD, freq_hold_no_qos);
+	register_usb_boost_act(TYPE_CPU_FREQ, ACT_RELEASE, freq_release_no_qos);
+#else
 	register_usb_boost_act(TYPE_CPU_FREQ, ACT_HOLD, freq_hold);
 	register_usb_boost_act(TYPE_CPU_FREQ, ACT_RELEASE, freq_release);
+#endif
 	register_usb_boost_act(TYPE_CPU_CORE, ACT_HOLD, core_hold);
 	register_usb_boost_act(TYPE_CPU_CORE, ACT_RELEASE, core_release);
 	register_usb_boost_act(TYPE_DRAM_VCORE, ACT_HOLD, vcorefs_hold);
@@ -201,6 +438,15 @@ module_init(usbboost);
 
 static void __exit clean(void)
 {
+#if IS_ENABLED(CONFIG_MTK_PPM_V3)
+	unsigned int i = 0;
+
+	kfree(freq_to_set);
+	kfree(current_freq);
+	kfree(policy_mask);
+	for (i = 0; i < CPU_MAX_KIR; i++)
+		kfree(freq_set[i]);
+#endif
 }
 module_exit(clean);
 MODULE_LICENSE("GPL v2");

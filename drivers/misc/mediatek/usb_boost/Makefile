@@ -4,7 +4,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 ccflags-y += -I$(srctree)/drivers/usb/host
 ccflags-y += -I$(srctree)/drivers/usb/mtu3
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/usb20
-
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/ppm_v3
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/performance/fpsgo_v3/fbt/include
 ifeq ($(CONFIG_MTK_USB_BOOST), y)
 ifeq ($(CONFIG_USB_MTK_HDRC), y)
 obj-$(CONFIG_MTK_USB_BOOST) += musb_boost_common.o usb_boost_plat.o
