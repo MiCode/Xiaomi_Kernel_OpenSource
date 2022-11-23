@@ -188,7 +188,7 @@ static int wl2868c_regulator_init(struct wl2868c *chip)
 {
 	struct regulator_config config = { };
 	struct regulator_desc *rdesc;
-	u8 vsel_range[1];
+	u8 vsel_range[1] = {0};
 	int id, ret = 0;
 	const unsigned int ldo_regs[WL2868C_MAX_REGULATORS] = {
 		WL2868C_LDO1_VOUT,
@@ -278,11 +278,14 @@ static int wl2868c_regulator_init(struct wl2868c *chip)
 	}
 	ret = regmap_bulk_read(chip->regmap, WL2868C_LDO_EN,
 				       vsel_range, 1);
-
+	if (ret < 0) {
+		dev_info(chip->dev,
+				"Failed to read register\n");
+		return ret;
+	}
 
 	if (vsel_range[0] == 0x80)
 		pr_info("%s p sensor 3.3v power on success\n", __func__);
-
 
 	return 0;
 }
