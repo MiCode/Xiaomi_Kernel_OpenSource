@@ -2215,7 +2215,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		case SENSOR_SCENARIO_ID_SLIM_VIDEO:
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 		default:
-			*feature_return_para_32 = 2; /*BINNING_AVERAGED*/
+			*feature_return_para_32 = 1; /*BINNING_AVERAGED*/
 			break;
 		}
 		pr_debug("SENSOR_FEATURE_GET_BINNING_TYPE AE_binning_type:%d,\n",
