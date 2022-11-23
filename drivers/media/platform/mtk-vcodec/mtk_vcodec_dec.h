@@ -95,6 +95,7 @@ void mtk_vcodec_dec_set_default_params(struct mtk_vcodec_ctx *ctx);
 void mtk_vcodec_dec_empty_queues(struct file *file, struct mtk_vcodec_ctx *ctx);
 void mtk_vcodec_dec_release(struct mtk_vcodec_ctx *ctx);
 int mtk_vcodec_dec_ctrls_setup(struct mtk_vcodec_ctx *ctx);
+void mtk_vdec_check_alive_work(struct work_struct *work);
 
 extern void mtk_vdec_do_gettimeofday(struct timespec64 *tv);
 

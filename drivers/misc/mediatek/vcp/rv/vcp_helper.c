@@ -743,7 +743,7 @@ void vcp_enable_pm_clk(enum feature_id id)
 		vcp_enable_irqs();
 
 		if (!is_vcp_ready(VCP_A_ID))
-			reset_vcp(VCP_ALL_ENABLE);
+			reset_vcp(VCP_ALL_RESUME);
 	}
 	pwclkcnt++;
 	pr_notice("[VCP] %s id %d done %d clk %d\n", __func__, id,
@@ -904,7 +904,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 			vcp_enable_irqs();
 #if VCP_RECOVERY_SUPPORT
 			cpuidle_pause_and_lock();
-			reset_vcp(VCP_ALL_SUSPEND);
+			reset_vcp(VCP_ALL_RESUME);
 			is_suspending = false;
 			waitCnt = vcp_wait_ready_sync(RTOS_FEATURE_ID);
 			cpuidle_resume_and_unlock();
@@ -912,6 +912,10 @@ static int vcp_pm_event(struct notifier_block *notifier
 		}
 		is_suspending = false;
 		mutex_unlock(&vcp_pw_clk_mutex);
+
+		mutex_lock(&vcp_A_notify_mutex);
+		vcp_extern_notify(VCP_EVENT_RESUME);
+		mutex_unlock(&vcp_A_notify_mutex);
 
 		// SMC call to TFA / DEVAPC
 		// arm_smccc_smc(MTK_SIP_KERNEL_VCP_CONTROL, MTK_TINYSYS_VCP_KERNEL_OP_XXX,
@@ -995,7 +999,7 @@ int reset_vcp(int reset)
 		vcp_ready_timer[VCP_A_ID].tl.expires = jiffies + VCP_READY_TIMEOUT;
 		add_timer(&vcp_ready_timer[VCP_A_ID].tl);
 #endif
-		if (reset == VCP_ALL_SUSPEND) {
+		if (reset == VCP_ALL_RESUME) {
 			arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
 				MTK_TINYSYS_VCP_KERNEL_OP_RESET_RELEASE,
 				0, 0, 0, 0, 0, 0, &res);

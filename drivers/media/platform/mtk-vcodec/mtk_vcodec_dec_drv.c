@@ -82,8 +82,10 @@ static int fops_vcodec_open(struct file *file)
 	}
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER))
+	if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) {
 		vcp_register_feature(VDEC_FEATURE_ID);
+		ctx->is_vcp_active = true;
+	}
 #endif
 
 	mutex_lock(&dev->dev_mutex);
@@ -100,6 +102,7 @@ static int fops_vcodec_open(struct file *file)
 	mutex_init(&ctx->worker_lock);
 	mutex_init(&ctx->hw_status);
 	mutex_init(&ctx->q_mutex);
+	mutex_init(&ctx->vcp_active_mutex);
 
 	ctx->type = MTK_INST_DECODER;
 	ret = mtk_vcodec_dec_ctrls_setup(ctx);
@@ -176,6 +179,7 @@ static int fops_vcodec_release(struct file *file)
 {
 	struct mtk_vcodec_dev *dev = video_drvdata(file);
 	struct mtk_vcodec_ctx *ctx = fh_to_ctx(file->private_data);
+	bool is_vcp_active;
 
 	mtk_v4l2_debug(0, "[%d][%d] decoder", ctx->id, dev->dec_cnt);
 	mutex_lock(&dev->dev_mutex);
@@ -206,13 +210,14 @@ static int fops_vcodec_release(struct file *file)
 	v4l2_fh_exit(&ctx->fh);
 	v4l2_ctrl_handler_free(&ctx->ctrl_hdl);
 
+	is_vcp_active = ctx->is_vcp_active;
 	kfree(ctx->dec_flush_buf);
 	kfree(ctx);
 	if (dev->dec_cnt > 0)
 		dev->dec_cnt--;
 	mutex_unlock(&dev->dev_mutex);
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER))
+	if ((mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) && is_vcp_active)
 		vcp_deregister_feature(VDEC_FEATURE_ID);
 #endif
 
@@ -316,6 +321,7 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 	if (!dev)
 		return -ENOMEM;
 
+	dev->type = MTK_INST_DECODER;
 	INIT_LIST_HEAD(&dev->ctx_list);
 	dev->plat_dev = pdev;
 
@@ -470,6 +476,11 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 		goto err_event_workq;
 	}
 
+#ifdef VDEC_CHECK_ALIVE
+/*Init workqueue for vdec alive checker*/
+	dev->check_alive_workqueue = create_singlethread_workqueue("vdec_check_alive");
+	INIT_WORK(&dev->check_alive_work, mtk_vdec_check_alive_work);
+#endif
 	ret = video_register_device(vfd_dec, VFL_TYPE_VIDEO, -1);
 	if (ret) {
 		mtk_v4l2_err("Failed to register video device");

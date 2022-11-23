@@ -514,6 +514,13 @@ struct mtk_vcodec_ctx {
 
 	int init_cnt;
 	int decoded_frame_cnt;
+
+	/* for timer to check active state of decoded ctx */
+	unsigned int dec_input_cnt;
+	unsigned int last_dec_input_cnt;
+	bool is_vcp_active;
+	struct mutex vcp_active_mutex;
+
 	struct mutex buf_lock;
 	struct mutex worker_lock;
 	struct slbc_data sram_data;
@@ -577,6 +584,7 @@ struct mtk_vcodec_dev {
 	struct iommu_domain *io_domain;
 
 	const char *platform;
+	enum mtk_instance_type type;
 	enum mtk_vcodec_ipm vdec_hw_ipm;
 	enum mtk_vcodec_ipm venc_hw_ipm;
 
@@ -602,6 +610,11 @@ struct mtk_vcodec_dev {
 
 	struct workqueue_struct *decode_workqueue;
 	struct workqueue_struct *encode_workqueue;
+	struct workqueue_struct *check_alive_workqueue;
+	struct work_struct check_alive_work;
+	struct timer_list vdec_active_checker;
+	bool has_timer;
+
 	int int_cond;
 	int int_type;
 	struct mutex ctx_mutex;

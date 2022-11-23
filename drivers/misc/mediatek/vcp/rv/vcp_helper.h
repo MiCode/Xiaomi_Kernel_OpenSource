@@ -50,7 +50,7 @@ struct VCP_IRQ_AST_INFO {
 /* reset ID */
 #define VCP_ALL_ENABLE	0x00
 #define VCP_ALL_REBOOT	0x01
-#define VCP_ALL_SUSPEND	0x10
+#define VCP_ALL_RESUME	0x10
 
 #define VCP_PACK_IOVA(addr)     ((uint32_t)((addr) | (((addr) >> 32) & 0xF)))
 #define VCP_UNPACK_IOVA(addr)   \

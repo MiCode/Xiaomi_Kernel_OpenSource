@@ -303,6 +303,7 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 	if (!dev)
 		return -ENOMEM;
 
+	dev->type = MTK_INST_ENCODER;
 	INIT_LIST_HEAD(&dev->ctx_list);
 	dev->plat_dev = pdev;
 #if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)

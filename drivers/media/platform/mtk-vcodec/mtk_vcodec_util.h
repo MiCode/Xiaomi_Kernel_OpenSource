@@ -12,6 +12,7 @@
 #include <linux/types.h>
 #include <linux/dma-direction.h>
 #include <linux/mtk_vcu_controls.h>
+#include <linux/timer.h>
 #include "vcodec_ipi_msg.h"
 // include vcp header to make build pass even if CONFIG_MTK_TINYSYS_VCP_SUPPORT is off
 // dynamic to switch vcp or vcu path by "mtk_vcodec_vcp"
@@ -33,6 +34,11 @@
 #define LOG_PARAM_INFO_SIZE 64
 #define LOG_PROPERTY_SIZE 1024
 #define ROUND_N(X, N)   (((X) + ((N)-1)) & (~((N)-1)))    //only for N is exponential of 2
+
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+#define VDEC_CHECK_ALIVE 1
+#endif
+#define MTK_VDEC_CHECK_ACTIVE_INTERVAL 2000 // ms
 
 struct mtk_vcodec_mem {
 	size_t length;
@@ -277,6 +283,9 @@ void mtk_vcodec_set_log(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_dev *dev,
 void mtk_vcodec_get_log(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_dev *dev,
 	char *val, enum mtk_vcodec_log_index log_index,
 	void (*get_vcu_vpud_log)(struct mtk_vcodec_ctx *ctx, void *out));
+
+void mtk_vcodec_alive_checker_suspend(struct mtk_vcodec_dev *dev);
+void mtk_vcodec_alive_checker_resume(struct mtk_vcodec_dev *dev);
 
 long long div_64(long long a, long long b);
 
