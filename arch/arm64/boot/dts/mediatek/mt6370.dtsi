@@ -1,53 +1,91 @@
-// SPDX-License-Identifier: GPL-2.0+
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
 /*
- * Copyright (c) 2019 MediaTek Inc.
- * Author: Owen Chen <owen.chen@mediatek.com>
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
-/ {
-	mt6370_pmu: mt6370_pmu_dts {
+#include <dt-bindings/iio/adc/mediatek,mt6370_adc.h>
+#include <dt-bindings/leds/common.h>
+
+&i2c5 {
+	clock-frequency = <1000000>;
+	mt6370: mt6370@34 {
+		compatible = "mediatek,mt6370";
+		reg = <0x34>;
+		status = "okay";
+		interrupt-parent = <&pio>;
+		interrupts = <20 IRQ_TYPE_LEVEL_LOW 20 0>;
+		//interrupts-extended = <&pio 20 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-controller;
 		#interrupt-cells = <1>;
-		mt6370,intr_gpio_num = <3>; /* direct defined GPIO num */
-		mt6370,intr_gpio = <&pio 3 0x0>; /* GPIO */
-		core {
-			compatible = "mediatek,mt6370_pmu_core";
-			interrupt-names = "otp", "vdda_ovp", "vdda_uv";
-			/* i2cstmr_rst_en; *//* i2c safe timer reset function */
-			i2cstmr_rst_tmr = <0>;	/* 0: 0.5s, 1: 0.75s */
-						/* 2: 1s, 3: 2s */
-			mrstb_en; /* external reset pin enable */
-			mrstb_tmr = <3>; /* 0: 0.75ms, 1: 1ms, 2: 1.25ms, */
-					 /* 3: 1.5ms, 4: 1.75ms, 5: 2ms, */
-					 /* 6: 2.25ms, 7: 2.5ms */
-			int_wdt = <0>;	/* 0: disable, 1: 250ms */
-					/* 2: 500ms, 3: 1s */
-			int_deg = <0>;	/* interrupt deglitch */
-					/* 0: 1ms, 1: 2ms, 2: 5ms, 3: 10ms */
+		wakeup-source;
+		mt6370_adc: adc {
+			#io-channel-cells = <1>;
+			compatible = "mediatek,mt6370-adc";
 		};
+
+		mt6370_pmu: pmu_legacy {
+		};
+		mt6370_typec: teypc_legacy {
+		};
+
+		regulators {
+			dsvbst {
+				regulator-name = "mt6370-dsv-vbst";
+				regulator-min-microvolt = <4000000>;
+				regulator-max-microvolt = <6200000>;
+			};
+			dsvpos {
+				regulator-name = "dsv_pos";
+				regulator-min-microvolt = <4000000>;
+				regulator-max-microvolt = <6000000>;
+				regulator-always-on;
+			};
+			dsvneg {
+				regulator-name = "dsv_neg";
+				regulator-min-microvolt = <4000000>;
+				regulator-max-microvolt = <6000000>;
+				regulator-always-on;
+			};
+			vibldo {
+				regulator-name = "mt6370-vib-ldo";
+				regulator-min-microvolt = <1600000>;
+				regulator-max-microvolt = <4000000>;
+			};
+		};
+
 		mt6370_chg: charger {
-			compatible = "mediatek,mt6370_pmu_charger";
-			interrupt-names = "chg_mivr", "chg_aiclmeasi",
-				"attachi", "ovpctrl_uvp_d_evt", "chg_wdtmri",
-				"chg_vbusov", "chg_tmri", "chg_treg", "dcdti";
-			bootmode = <&chosen>;
+			compatible = "mediatek,mt6370-charger";
+			interrupts = <48>, <68>, <6>, <4>, <15>, <27>, <32>, <35>, <37>, <39>, <55>;
+			interrupt-names = "attach_i", "uvp_d_evt", "mivr", "treg",
+					  "vbusov", "tmri", "aiclmeasi", "wdtmri",
+					  "rechgi", "ieoci", "dcdti";
+			io-channels = <&mt6370_adc MT6370_CHAN_VBUSDIV5>,
+				      <&mt6370_adc MT6370_CHAN_VBUSDIV2>,
+				      <&mt6370_adc MT6370_CHAN_VSYS>,
+				      <&mt6370_adc MT6370_CHAN_VBAT>,
+				      <&mt6370_adc MT6370_CHAN_TS_BAT>,
+				      <&mt6370_adc MT6370_CHAN_IBUS>,
+				      <&mt6370_adc MT6370_CHAN_IBAT>,
+				      <&mt6370_adc MT6370_CHAN_CHG_VDDP>,
+				      <&mt6370_adc MT6370_CHAN_TEMP_JC>;
+			boot_mode = <&chosen>;
 			charger_name = "primary_chg";
 			load_switch_name = "primary_load_switch";
-			ichg = <2000000>;	/* uA */
-			aicr = <500000>;	/* uA */
-			mivr = <4400000>;	/* uV */
-			cv = <4350000>;		/* uA */
-			ieoc = <150000>;	/* uA */
-			safety_timer = <12>;	/* hour */
-			dc_wdt = <4000000>;	/* us */
-			ircmp_resistor = <25000>;	/* uohm */
-			ircmp_vclamp = <32000>;		/* uV */
+			ichg = <2000000>;       /* uA */
+			aicr = <500000>;        /* uA */
+			mivr = <4400000>;       /* uV */
+			cv = <4350000>;         /* uA */
+			ieoc = <150000>;        /* uA */
+			safety_timer = <12>;    /* hour */
+			dc_wdt = <4000000>;     /* us */
+			ircmp_resistor = <25000>;       /* uohm */
+			ircmp_vclamp = <32000>;         /* uV */
 			enable_te;
 			enable_wdt;
 			enable_otg_wdt;
-			lbp_hys_sel = <1>;	/* 0: 100mV, 1: 200mV */
-			lbp_dt = <1>;		/* 0: 10ms, 1: 20ms */
-						/* 2: 40ms, 3: 500us */
+			lbp_hys_sel = <1>;      /* 0: 100mV, 1: 200mV */
+			lbp_dt = <1>;           /* 0: 10ms, 1: 20ms */
+			/* 2: 40ms, 3: 500us */
 			/* with it: don't check 1.2v while PD/SD during BC12 */
 			/* disable_vlgc; */
 			/* with it: enable fast unknown TA detection */
@@ -55,10 +93,13 @@
 			/* enable_polling; */
 			/* with it: do post aicl measure */
 			/* post_aicl; */
-			charger = <&mt6370_chg>;
-			bc12_sel = <0>;
-			otg_vbus: usb-otg-vbus {
-				regulator-compatible = "usb-otg-vbus";
+			//charger = <&mt6370_chg>;
+			bc12_sel = <&mtk_ctd>;
+			phys = <&u2port0 PHY_TYPE_USB2>;
+			phy-names = "usb2-phy";
+			usb = <&usb>;
+			otg_vbus: usb-otg-vbus-regulator {
+				//enable-gpios = <&gpio GPIOH_4 0>;
 				regulator-name = "usb-otg-vbus";
 				regulator-min-microvolt = <4350000>;
 				regulator-max-microvolt = <5800000>;
@@ -66,236 +107,218 @@
 				regulator-max-microamp = <3000000>;
 			};
 		};
-		mt6370_pmu_fled1 {
-			compatible = "mediatek,mt6370_pmu_fled1";
-			interrupt-names = "fled_lvf", "fled2_short",
-					  "fled1_short";
-			fled_enable = <1>;
-			torch_cur = <300000>;  /* 25000 ~ 400000 uA */
-			strobe_cur = <1200000>; /* 100000 ~ 1500000 uA */
-			strobe_timeout = <2400>; /* 64 ~ 2432 ms */
-		};
-		mt6370_pmu_fled2 {
-			compatible = "mediatek,mt6370_pmu_fled2";
-			fled_enable = <1>;
-			torch_cur = <200000>;
-			strobe_cur = <1000000>;
-			strobe_timeout = <1200>;
-		};
-		ldo {
-			compatible = "mediatek,mt6370_pmu_ldo";
-			interrupt-names = "ldo_oc";
 
-			/* 0: floating */
-			/* 1: discharge to ground for off mode */
-			ldo_oms = <1>;
-			/* ldo_vrc = <0>; */	/* to assign this, a value */
-						/* will also set vrc_en = 1 */
-						/* 0: 1 step/16us */
-						/* 1: 2 steps/16us */
-						/* 2: 4 steps/16us */
-						/* 3: 8 steps/16us */
-			ldo_vrc_lt = <1>;	/* 0: disable, 1: 10us */
-						/* 2: 20us, 3: 40us */
-			mt6370_ldo {
-				/* change name by yourself */
-				regulator-name = "irtx_ldo";
-				regulator-min-microvolt = <1600000>;
+		mt6370_usbc: type_c_port0 {
+			compatible = "mediatek,mt6370-tcpc";
+			mt6370pd-intr-gpios = <&pio 41 0>;
+			tcpc,name = "type_c_port0"; /* tcpc_device's name */
+			/* 0: Unknown, 1: SNK, 2: SRC, 3: DRP, 4: Try.SRC, 5: Try.SNK */
+			tcpc,role-def = <5>;
+			tcpc,rp-level = <1>; /* 0: Default, 1: 1.5, 2: 3.0 */
+			/* 0: Never, 1: Always, 2: EMarkOnly, 3: StartOnly */
+			tcpc,vconn-supply  = <1>;
+			/* the number of notifier supply */
+			tcpc,notifier-supply-num = <3>;
 
-				/* max == min then apply_uV = 1 */
-				regulator-max-microvolt = <4000000>;
+			//charger = <&mt6370_chg>;
+			boot-mode = <&chosen>;
 
-				/* optional */
-				/* regulator-microvolt-offset = <0>; */
+			pd-data {
+				pd,vid = <0x29cf>;
+				pd,pid = <0x5081>;
+				pd,source-cap-ext = <0x508129cf 0x00000000 0x00000000
+						     0x00000000 0x00000000 0x07000000>;
+				pd,mfrs = "RichtekTCPC";
 
-				/* optional: exist = enabled */
-				/* regulator-boot-on; */
 
-				/* optional: exist = enabled */
-				/* regulator-always-on; */
+				/*
+				 *	VSAFE5V = 0, MAX_POWER = 1, CUSTOM = 2,
+				 *	MAX_POWER_LV = 0x21, MAX_POWER_LVIC = 0x31
+				 *	MAX_POWER_HV = 0x41, MAX_POWER_HVIC = 0x51
+				 */
+				pd,charging_policy= <0x31>;
 
-				/* optional */
-				/* regulator-ramp-delay = <100>; */
+				/*
+				 * Fixed 5V, 500 mA <0x00019032>
+				 * Fixed 5V, 1A <0x00019064>
+				 * Fixed 5V, 2A <0x000190c8>
+				 * Fixed 5V, 3A <0x0001912c>
+				 * Fixed 9V, 500 mA <0x0002d032>
+				 * Fixed 9V, 1A <0x0002d064>
+				 * Fixed 9V, 2A <0x0002d0c8>
+				 * Fixed 9V, 3A <0x0002d12c>
+				 * Variable 5-9V, 1A <0x8642d064>
+				 * Variable 5-9V, 2A <0x8642d0c8>
+				 * Variable 5-9V, 3A <0x8642d12c>
+				 * PPS 3V~5.9V, 3A <0xC0761E3C>
+				 */
+				pd,source-pdo-size = <1>;
+				pd,source-pdo-data = <0x00019096>; /* 5V, 1500 mA */
+				pd,sink-pdo-size = <1>;
+				pd,sink-pdo-data = <0x000190c8>;
+
+				/*
+				 * No DP, host + device
+				 *	pd,id-vdo-size = <6>;
+				 *	pd,id-vdo-data = <0xd14029cf 0x0 0x50810000
+							  0x41800000 0x0 0x21800000>;
+				 * With DP
+				 *	pd,id-vdo-size = <6>;
+				 *	pd,id-vdo-data = <0xd54029cf 0x0 0x50810000
+							  0x41800000 0x0 0x21800000>;
+				 */
+
+				pd,id-vdo-size = <6>;
+				pd,id-vdo-data = <0xd14029cf 0x0 0x50810000
+						  0x41800000 0x0 0x21800000>;
+
+				bat,nr = <1>;
+				pd,country_nr = <0>;
+
+				bat-info0 {
+					bat,vid = <0x29cf>;
+					bat,pid = <0x5081>;
+					bat,mfrs = "bat1";
+					bat,design_cap = <3000>;
+				};
+
+				//bat-info1 {
+				//	bat,vid = <0x8abc>;
+				//	bat,pid = <0x5234>;
+				//	bat,mfrs = "bat2";
+				//	bat,design_cap = <4000>;
+				//};
+
+				//country0 {
+				//	pd,country_code = <0x5457>;
+				//	pd,country_len = <2>; /* max len = 26 */
+				//	pd,country_data = <0xff 0xff>;
+				//};
+
+				//country1 {
+				//	pd,country_code = <0x5553>;
+				//	pd,country_len = <3>; /* max len = 26 */
+				//	pd,country_data = <0xf1 0xf2 0xf3>;
+				//};
+			};
+			dpm_caps {
+				local_dr_power;
+				local_dr_data;
+				//local_ext_power;
+				local_usb_comm;
+				//local_usb_suspend;
+				//local_high_cap;
+				//local_give_back;
+				local_no_suspend;
+				local_vconn_supply;
+
+				//attempt_discover_cable_dfp;
+				attempt_enter_dp_mode;
+				attempt_discover_cable;
+				attempt_discover_id;
+
+				/* 0: disable, 1: prefer_snk, 2: prefer_src */
+				pr_check = <0>;
+				//pr_reject_as_source;
+				//pr_reject_as_sink;
+				//pr_check_gp_source;
+				//pr_check_gp_sink;
+
+				/* 0: disable, 1: prefer_ufp, 2: prefer_dfp */
+				dr_check = <0>;
+				//dr_reject_as_dfp;
+				//dr_reject_as_ufp;
+			};
+			displayport {
+				/* connection type = "both", "ufp_d", "dfp_d" */
+				1st_connection = "dfp_d";
+				2nd_connection = "dfp_d";
+				signal,dp_v13;
+				//signal,dp_gen2;
+				//usbr20_not_used;
+				typec,receptacle;
+				ufp_d {
+					//pin_assignment,mode_a;
+					//pin_assignment,mode_b;
+					//pin_assignment,mode_c;
+					//pin_assignment,mode_d;
+					//pin_assignment,mode_e;
+				};
+				dfp_d {
+					//pin_assignment,mode_a;
+					//pin_assignment,mode_b;
+					pin_assignment,mode_c;
+					pin_assignment,mode_d;
+					pin_assignment,mode_e;
+					//pin_assignment,mode_f;
+				};
 			};
 		};
-		rgbled {
-			compatible = "mediatek,mt6370_pmu_rgbled";
-			interrupt-names = "isink4_short", "isink3_short",
-					  "isink2_short", "isink1_short",
-					  "isink4_open", "isink3_open",
-					  "isink2_open", "isink1_open";
-			/* name cnt must be 4 */
-			mt,led_name = "mt6370_pmu_led1", "mt6370_pmu_led2",
-				      "mt6370_pmu_led3", "mt6370_pmu_led4";
-			/* trigger cnt must be 4, mode can be selected as */
-			/* cc_mode -> const current mode */
-			/* pwm_mode -> pwm dimming mode */
-			/* breath_mode -> as the name */
-			mt,led_default_trigger = "cc_mode", "cc_mode",
-						 "cc_mode", "none";
+
+		mt6370_backlight: backlight {
+			compatible = "mediatek,mt6370-backlight";
+			default-brightness = <512>;
+			mediatek,bled-channel-use = /bits/ 8 <15>;
+			mediatek,bled-exponential-mode-enable;
 		};
-		bled {
-			compatible = "mediatek,mt6370_pmu_bled";
-			interrupt-names = "bled_ocp";
-			mt,bled_name = "mt6370_pmu_bled";
-			/* mt,ext_en_pin; */
-			mt,chan_en  = <0xF>; /* bit 0 1 2 3 -> chan 1 2 3 4 */
-			mt,map_linear;
-			mt,bl_ovp_level = <3>;	/* 0: 17v */
-						/* 1: 21v */
-						/* 2: 25v */
-						/* 3: 29v */
-			mt,bl_ocp_level = <2>;	/* 0: 900mA */
-						/* 1: 1200mA */
-						/* 2: 1500mA */
-						/* 3: 1800mA */
-			mt,use_pwm;
-			mt,pwm_fsample = <2>;	/* 0: 1MHz */
-						/* 1: 4MHz */
-						/* 2: or 3: 24mHz */
-			mt,pwm_deglitch = <1>;	/* 0: no filter */
-						/* 1: 100ns */
-						/* 2: 160ns */
-						/* 3: 200ns */
-			mt,pwm_hys_en = <1>;	/* PWM Input Hysteresis */
-			mt,pwm_hys = <0>;	/* 0: 1 bit, 1: 2 bit */
-						/* 2: 4 bit, 3: 6 bit */
-			mt,pwm_avg_cycle = <0>; /* 0: disable avg */
-						/* 1: avg 2 cycle */
-						/* 2: avg 4 cycle */
-						/* 3: avg 8 cycle */
-						/* 4: avg 16 cycle */
-						/* 5: avg 32 cycle */
-			mt,bled_ramptime = <3>; /* 0, 500us, 750us, 1ms, 2ms */
-						/* 5ms, 10ms, 20ms, 50ms */
-						/* 100ms, 250ms, 800ms */
-						/* 1s, 2s, 4s, 8s */
-			mt,bled_flash_ramp = <1>;	/* 0, 500us, 750us */
-							/* 1ms, 2ms, 5ms */
 
-			/* we have 11 bit resolution, quantize in driver */
-			mt,max_bled_brightness = <512>; /* maximum 2047 */
+		indicator {
+			compatible = "mediatek,mt6370-indicator";
+			#address-cells = <1>;
+			#size-cells = <0>;
 
-			mt,bled_curr_scale = <0>;	/* 0: 30mA, 1: 22.5mA */
-							/* 2: 20mA, 3: 17.5mA */
-			/* If use bled lpf,
-			 * Set	//mt,map_linear;
-			 *	pwm_lpf_coef = <2>;
-			 *	mt,pwm_lpf_en;
-			 *	mt,bled_curr_mode;
-			 * Else
-			 * Set	mt,map_linear;
-			 *	pwm_lpf_coef = <0>;
-			 *	//mt,pwm_lpf_en;
-			 *	//mt,bled_curr_mode;
-			 */
-			mt,pwm_lpf_coef = <0>;	/* 0: (1)/(2^15) */
-						/* 1: (2)/(2^15) */
-						/* 2: (3)/(2^15) */
-						/* 3: (4)/(2^15) */
-			/* with it, Alpha-LPF enable */
-			/* mt,pwm_lpf_en; */
-			/* with it, pwm duty is multiplied after
-			 * linear/expenential mapper
-			 */
-			/* mt,bled_curr_mode; */
-		};
-		dsv {
-			compatible = "mediatek,mt6370_pmu_dsv";
-			interrupt-names = "dsv_vneg_ocp", "dsv_vpos_ocp",
-					  "dsv_bst_ocp", "dsv_vneg_scp",
-					  "dsv_vpos_scp";
-			db_ext_en = <0>;  /* 0 = i2c ctrl, 1 = ext pin */
-
-			/* 1 = prevent from voltage drop when db is restarted */
-			db_periodic_fix = <0>;
-
-			/* 0 : VOS & VNEG are ctrled by DB_ENP & DB_ENN */
-			/* 1 : single pin ctrl */
-			db_single_pin = <0>;
-
-			/* 0 = 20Hz */
-			/* 1 = 33Hz, valid if db_period_mode = 1 */
-			db_freq_pm = <0>;
-
-			/* 0 = always on if DB is enabled */
-			/* 1 = DB period mode */
-			db_periodic_mode = <0>;
-
-			/* 0 = close loop, wait 80% */
-			/* 1 = open loop, go after soft-start dimming */
-			db_startup = <0>;
-
-			/* 1 = DB VNEG discharge 20ms when shutdown */
-			/* 0 = disable */
-			db_vneg_20ms = <1>;
-
-			/* 1 = Discharge VNEG when turn off */
-			/* 0 = disable */
-			db_vneg_disc = <0>;
-
-			/* 1 = DB VPOS discharge 20ms when shutdown */
-			/* 0 = disable */
-			db_vpos_20ms = <1>;
-
-			/* 1 = Discharge VPOS when turn off */
-			/* 0 = disable */
-			db_vpos_disc = <1>;
-
-			db_delay = <3>;	/* 0 = no constraint */
-					/* 1 = 0ms */
-					/* 2 = 1ms */
-					/* 3 = 4ms */
-			db_vbst  = <5700>;      /* mV */
-			db_vpos_slew = <1>;	/* 0: 8.54 V/ms */
-						/* 1: 5.84 V/ms */
-						/* 2: 4.83 V/ms */
-						/* 3: 3.00 V/ms */
-			db_vneg_slew = <1>;	/* 0: -10.09 V/ms */
-						/* 1: -6.31 V/ms */
-						/* 2: -5.05 V/ms */
-						/* 3: -3.15 V/ms */
-			mt6370_dsvp {
-				/* change name by yourself */
-				regulator-name = "dsv_pos";
-
-				regulator-min-microvolt = <4000000>;
-
-				/* max == min then apply_uV = 1 */
-				regulator-max-microvolt = <6000000>;
-
-				/* optional */
-				/* regulator-microvolt-offset = <0>; */
-
-				/* optional, exist = enabled */
-				/* regulator-boot-on; */
-
-				/* optional, exist = enabled */
-				/* regulator-always-on; */
-
-				/* optional */
-				/* regulator-ramp-delay = <100>; */
+			multi-led@0 {
+				reg = <0>;
+				function = LED_FUNCTION_INDICATOR;
+				color = <LED_COLOR_ID_RGB>;
+				led-max-microamp = <24000>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				led@0 {
+					reg = <0>;
+					color = <LED_COLOR_ID_RED>;
+				};
+				led@1 {
+					reg = <1>;
+					color = <LED_COLOR_ID_GREEN>;
+				};
+				led@2 {
+					reg = <2>;
+					color = <LED_COLOR_ID_BLUE>;
+				};
 			};
-			mt6370_dsvn {
-				/* change name by yourself */
-				regulator-name = "dsv_neg";
+			led@3 {
+				reg = <3>;
+				function = LED_FUNCTION_INDICATOR;
+				color = <LED_COLOR_ID_WHITE>;
+				led-max-microamp = <6000>;
+			};
+		};
 
-				regulator-min-microvolt = <4000000>;
+		flashlight {
+			compatible = "mediatek,mt6370-flashlight";
+			#address-cells = <1>;
+			#size-cells = <0>;
 
-				/* max == min then apply_uV = 1 */
-				regulator-max-microvolt = <6000000>;
-
-				/* optional */
-				/* regulator-microvolt-offset = <0> */
-
-				/* optional, exist = enabled */
-				/* regulator-boot-on; */
-
-				/* optional, exist = enabled */
-				/* regulator-always-on; */
-
-				/* optional */
-				/* regulator-ramp-delay = <100>; */
+			led@0 {
+				reg = <0>;
+				led-sources = <0>;
+				function = LED_FUNCTION_FLASH;
+				color = <LED_COLOR_ID_WHITE>;
+				function-enumerator = <1>;
+				led-max-microamp = <200000>;
+				flash-max-microamp = <500000>;
+				flash-max-timeout-us = <2400000>;
+			};
+			led@1 {
+				reg = <1>;
+				led-sources = <1>;
+				function = LED_FUNCTION_FLASH;
+				color = <LED_COLOR_ID_WHITE>;
+				function-enumerator = <2>;
+				led-max-microamp = <200000>;
+				flash-max-microamp = <500000>;
+				flash-max-timeout-us = <1024000>;
 			};
 		};
 	};
