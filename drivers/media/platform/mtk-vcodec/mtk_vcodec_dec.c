@@ -167,6 +167,26 @@ err_set_vcp_data:
 	kfree(tmp_buf);
 }
 
+static void set_vcu_vpud_log(struct mtk_vcodec_ctx *ctx, void *in)
+{
+	if (!mtk_vdec_is_vcu()) {
+		mtk_v4l2_err("only support on vcu dec path");
+		return;
+	}
+
+	vdec_if_set_param(ctx, SET_PARAM_VDEC_VCU_VPUD_LOG, in);
+}
+
+static void get_vcu_vpud_log(struct mtk_vcodec_ctx *ctx, void *out)
+{
+	if (!mtk_vdec_is_vcu()) {
+		mtk_v4l2_err("only support on vcu dec path");
+		return;
+	}
+
+	vdec_if_get_param(ctx, GET_PARAM_VDEC_VCU_VPUD_LOG, out);
+}
+
 static void get_supported_format(struct mtk_vcodec_ctx *ctx)
 {
 	unsigned int i;
@@ -2986,6 +3006,15 @@ static int mtk_vdec_g_v_ctrl(struct v4l2_ctrl *ctrl)
 			ret = -EINVAL;
 		}
 		break;
+	case V4L2_CID_MPEG_MTK_GET_LOG:
+		mtk_vcodec_get_log(
+			ctx, ctx->dev, ctrl->p_new.p_char,
+			MTK_VCODEC_LOG_INDEX_LOG, get_vcu_vpud_log);
+		break;
+	case V4L2_CID_MPEG_MTK_GET_VCP_PROP:
+		mtk_vcodec_get_log(
+			ctx, ctx->dev, ctrl->p_new.p_char, MTK_VCODEC_LOG_INDEX_PROP, NULL);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -3052,10 +3081,13 @@ static int mtk_vdec_s_ctrl(struct v4l2_ctrl *ctrl)
 		ctx->dec_params.queued_frame_buf_count = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_MTK_LOG:
-		mtk_vcodec_set_log(ctx->dev, ctrl->p_new.p_char, MTK_VCODEC_LOG_INDEX_LOG);
+		mtk_vcodec_set_log(
+			ctx, ctx->dev, ctrl->p_new.p_char,
+			MTK_VCODEC_LOG_INDEX_LOG, set_vcu_vpud_log);
 		break;
 	case V4L2_CID_MPEG_MTK_VCP_PROP:
-		mtk_vcodec_set_log(ctx->dev, ctrl->p_new.p_char, MTK_VCODEC_LOG_INDEX_PROP);
+		mtk_vcodec_set_log(
+			ctx, ctx->dev, ctrl->p_new.p_char, MTK_VCODEC_LOG_INDEX_PROP, NULL);
 		break;
 	default:
 		mtk_v4l2_debug(4, "ctrl-id=%x not support!", ctrl->id);
@@ -3327,6 +3359,30 @@ int mtk_vcodec_dec_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.name = "Video VCP Property";
 	cfg.min = 0;
 	cfg.max = 255;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_GET_LOG;
+	cfg.type = V4L2_CTRL_TYPE_STRING;
+	cfg.flags = V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE;
+	cfg.name = "Get Video Log";
+	cfg.min = 0;
+	cfg.max = LOG_PROPERTY_SIZE;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_GET_VCP_PROP;
+	cfg.type = V4L2_CTRL_TYPE_STRING;
+	cfg.flags = V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE;
+	cfg.name = "Get Video VCP Property";
+	cfg.min = 0;
+	cfg.max = LOG_PROPERTY_SIZE;
 	cfg.step = 1;
 	cfg.def = 0;
 	cfg.ops = ops;

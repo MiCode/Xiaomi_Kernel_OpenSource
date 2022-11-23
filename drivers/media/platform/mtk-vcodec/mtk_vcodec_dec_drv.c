@@ -41,7 +41,7 @@ static int mtk_vcodec_vcp_log_write(const char *val, const struct kernel_param *
 {
 	if (!(val == NULL || strlen(val) == 0)) {
 		mtk_v4l2_debug(0, "val: %s, len: %zu", val, strlen(val));
-		mtk_vcodec_set_log(dev_ptr, val, MTK_VCODEC_LOG_INDEX_LOG);
+		mtk_vcodec_set_log(NULL, dev_ptr, val, MTK_VCODEC_LOG_INDEX_LOG, NULL);
 	}
 	return 0;
 }
@@ -54,7 +54,7 @@ static int mtk_vcodec_vcp_property_write(const char *val, const struct kernel_pa
 {
 	if (!(val == NULL || strlen(val) == 0)) {
 		mtk_v4l2_debug(0, "val: %s, len: %zu", val, strlen(val));
-		mtk_vcodec_set_log(dev_ptr, val, MTK_VCODEC_LOG_INDEX_PROP);
+		mtk_vcodec_set_log(NULL, dev_ptr, val, MTK_VCODEC_LOG_INDEX_PROP, NULL);
 	}
 	return 0;
 }

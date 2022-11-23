@@ -238,6 +238,7 @@ enum mtk_put_buffer_type {
 	PUT_BUFFER_CALLBACK = 0,
 };
 
+bool mtk_vcodec_is_vcp(int type);
 void __iomem *mtk_vcodec_get_dec_reg_addr(struct mtk_vcodec_ctx *data,
 	unsigned int reg_idx);
 void __iomem *mtk_vcodec_get_enc_reg_addr(struct mtk_vcodec_ctx *data,
@@ -269,8 +270,13 @@ int mtk_vcodec_free_mem(struct vcodec_mem_obj *mem, struct device *dev,
 	struct dma_buf_attachment *attach, struct sg_table *sgt);
 #endif
 
-void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val,
-	enum mtk_vcodec_log_index log_index);
+void mtk_vcodec_set_log(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_dev *dev,
+	const char *val, enum mtk_vcodec_log_index log_index,
+	void (*set_vcu_vpud_log)(struct mtk_vcodec_ctx *ctx, void *in));
+
+void mtk_vcodec_get_log(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_dev *dev,
+	char *val, enum mtk_vcodec_log_index log_index,
+	void (*get_vcu_vpud_log)(struct mtk_vcodec_ctx *ctx, void *out));
 
 long long div_64(long long a, long long b);
 

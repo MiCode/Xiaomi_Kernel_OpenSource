@@ -520,6 +520,10 @@ static int vdec_get_param(unsigned long h_vdec,
 		get_input_driven(inst, out);
 		break;
 
+	case GET_PARAM_VDEC_VCU_VPUD_LOG:
+		VCU_FPTR(vcu_get_log)(out, LOG_PROPERTY_SIZE);
+		break;
+
 	default:
 		mtk_vcodec_err(inst, "invalid get parameter type=%d", type);
 		ret = -EINVAL;
@@ -575,6 +579,9 @@ static int vdec_set_param(unsigned long h_vdec,
 		break;
 	case SET_PARAM_VDEC_PROPERTY:
 		mtk_vcodec_err(inst, "VCU not support SET_PARAM_VDEC_PROPERTY\n");
+		break;
+	case SET_PARAM_VDEC_VCU_VPUD_LOG:
+		ret = VCU_FPTR(vcu_set_log)((char *) in);
 		break;
 	default:
 		mtk_vcodec_err(inst, "invalid set parameter type=%d\n", type);

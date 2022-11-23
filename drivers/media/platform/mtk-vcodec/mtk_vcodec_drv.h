@@ -364,6 +364,7 @@ struct venc_enc_param {
 	unsigned int slbc_addr;
 	char set_vcp_buf[1024];
 	char property_buf[1024];
+	char *log;
 };
 
 /*
@@ -884,5 +885,12 @@ static inline struct mtk_vcodec_ctx *ctrl_to_ctx(struct v4l2_ctrl *ctrl)
 	(V4L2_CID_MPEG_MTK_BASE+48)
 #define V4L2_CID_MPEG_MTK_VCP_PROP \
 	(V4L2_CID_MPEG_MTK_BASE+49)
+
+#define V4L2_CID_MPEG_MTK_GET_LOG \
+	(V4L2_CID_MPEG_MTK_BASE+63)
+
+#define V4L2_CID_MPEG_MTK_GET_VCP_PROP \
+	(V4L2_CID_MPEG_MTK_BASE+64)
+
 
 #endif /* _MTK_VCODEC_DRV_H_ */
