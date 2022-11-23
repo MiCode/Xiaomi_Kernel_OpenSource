@@ -25,9 +25,15 @@
 #include "ccci_util_log.h"
 #include "ccci_util_lib_main.h"
 
+/* Broadcast event.time_stamp defination */
+struct ccci_timespec {
+	long tv_sec;	/* seconds */
+	long tv_nsec;	/* nanoseconds */
+};
+
 /* Broadcast event defination */
 struct md_status_event {
-	struct timespec64 time_stamp;
+	struct ccci_timespec time_stamp;
 	int md_id;
 	int event_type;
 	char reason[32];
@@ -116,7 +122,7 @@ static void inject_event_helper(struct ccci_util_bc_user_ctlb *user_ctlb,
 		return;
 	}
 
-	user_ctlb->event_buf[user_ctlb->curr_w].time_stamp = *ev_rtime;
+	user_ctlb->event_buf[user_ctlb->curr_w].time_stamp = *(struct ccci_timespec *)ev_rtime;
 	user_ctlb->event_buf[user_ctlb->curr_w].md_id = md_id;
 	user_ctlb->event_buf[user_ctlb->curr_w].event_type = event_type;
 	if (reason != NULL)
