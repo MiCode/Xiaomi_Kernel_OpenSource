@@ -1361,7 +1361,7 @@ static void __exit cmdq_exit(void)
 	CMDQ_LOG("MDP driver exit end\n");
 }
 
-subsys_initcall(cmdq_init);
+module_init(cmdq_init);
 module_exit(cmdq_exit);
 
 MODULE_DESCRIPTION("MTK CMDQ driver");
