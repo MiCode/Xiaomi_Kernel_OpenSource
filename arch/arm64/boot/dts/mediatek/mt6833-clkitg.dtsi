@@ -14,8 +14,6 @@
 			<&infracfg_ao_clk CLK_IFRAO_GCE>,
 			<&infracfg_ao_clk CLK_IFRAO_GCE2>,
 			<&infracfg_ao_clk CLK_IFRAO_THERM>,
-			<&infracfg_ao_clk CLK_IFRAO_I2C_PSEUDO>,
-			<&infracfg_ao_clk CLK_IFRAO_I2C1_PSEUDO>,
 			<&infracfg_ao_clk CLK_IFRAO_GCE_26M>,
 			<&infracfg_ao_clk CLK_IFRAO_BTIF>,
 			<&infracfg_ao_clk CLK_IFRAO_AUXADC>,
@@ -39,19 +37,7 @@
 			<&infracfg_ao_clk CLK_IFRAO_INFRA_FREE_DCM_66M>,
 			<&infracfg_ao_clk CLK_IFRAO_PERU_BUS_DCM_133M>,
 			<&infracfg_ao_clk CLK_IFRAO_PERU_BUS_DCM_66M>,
-			<&infracfg_ao_clk CLK_IFRAO_RG_FLASHIF_SFLASH_CK>,
-			<&imp_iic_wrap_c_clk CLK_IMPC_I2C10_AP_CLOCK>,
-			<&imp_iic_wrap_c_clk CLK_IMPC_I2C11_AP_CLOCK>,
-			<&imp_iic_wrap_e_clk CLK_IMPE_I2C3_AP_CLOCK>,
-			<&imp_iic_wrap_s_clk CLK_IMPS_I3C9_AP_CLOCK>,
-			<&imp_iic_wrap_s_clk CLK_IMPS_I3C8_AP_CLOCK>,
-			<&imp_iic_wrap_ws_clk CLK_IMPWS_I2C1_AP_CLOCK>,
-			<&imp_iic_wrap_ws_clk CLK_IMPWS_I3C2_AP_CLOCK>,
-			<&imp_iic_wrap_ws_clk CLK_IMPWS_I3C4_AP_CLOCK>,
-			<&imp_iic_wrap_w_clk CLK_IMPW_I2C0_AP_CLOCK>,
-			<&imp_iic_wrap_w_clk CLK_IMPW_I2C5_AP_CLOCK>,
-			<&imp_iic_wrap_w_clk CLK_IMPW_I3C7_AP_CLOCK>,
-			<&imp_iic_wrap_n_clk CLK_IMPN_I2C6_AP_CLOCK>;
+			<&infracfg_ao_clk CLK_IFRAO_RG_FLASHIF_SFLASH_CK>;
 	};
 
 	bring-up-pd-disp {
