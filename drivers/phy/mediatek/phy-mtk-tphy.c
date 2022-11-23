@@ -2126,28 +2126,28 @@ static void u2_phy_host_props_set(struct mtk_tphy *tphy,
 	if (instance->eye_src_host) {
 		tmp = readl(com + U3P_USBPHYACR5);
 		tmp &= ~PA5_RG_U2_HSTX_SRCTRL;
-		tmp |= PA5_RG_U2_HSTX_SRCTRL_VAL(instance->eye_src);
+		tmp |= PA5_RG_U2_HSTX_SRCTRL_VAL(instance->eye_src_host);
 		writel(tmp, com + U3P_USBPHYACR5);
 	}
 
 	if (instance->eye_vrt_host) {
 		tmp = readl(com + U3P_USBPHYACR1);
 		tmp &= ~PA1_RG_VRT_SEL;
-		tmp |= PA1_RG_VRT_SEL_VAL(instance->eye_vrt);
+		tmp |= PA1_RG_VRT_SEL_VAL(instance->eye_vrt_host);
 		writel(tmp, com + U3P_USBPHYACR1);
 	}
 
 	if (instance->eye_term_host) {
 		tmp = readl(com + U3P_USBPHYACR1);
 		tmp &= ~PA1_RG_TERM_SEL;
-		tmp |= PA1_RG_TERM_SEL_VAL(instance->eye_term);
+		tmp |= PA1_RG_TERM_SEL_VAL(instance->eye_term_host);
 		writel(tmp, com + U3P_USBPHYACR1);
 	}
 
 	if (instance->rev6_host) {
 		tmp = readl(com + U3P_USBPHYACR6);
 		tmp &= ~PA6_RG_U2_PHY_REV6;
-		tmp |= PA6_RG_U2_PHY_REV6_VAL(instance->rev6);
+		tmp |= PA6_RG_U2_PHY_REV6_VAL(instance->rev6_host);
 		writel(tmp, com + U3P_USBPHYACR6);
 	}
 }
