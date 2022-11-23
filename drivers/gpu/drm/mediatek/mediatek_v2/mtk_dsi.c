@@ -9484,7 +9484,8 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 #endif
 
 	/* Assume DSI0 enable already in LK */
-	if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0) {
+	/* in dual port project, dsi1 has enable in lk too, make it same as dsi0 */
+	if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0 || dsi->is_slave) {
 #ifndef CONFIG_MTK_DISP_NO_LK
 		unsigned int alias = mtk_ddp_comp_get_alias(dsi->ddp_comp.id);
 
