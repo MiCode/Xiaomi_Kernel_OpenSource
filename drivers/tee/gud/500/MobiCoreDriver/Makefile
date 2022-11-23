@@ -55,3 +55,5 @@ endif
 
 # timesync to get boot time
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/timer/timesync/
+
+include $(srctree)/drivers/tee/gpapi/Makefile.impl.include

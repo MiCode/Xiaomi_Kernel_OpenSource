@@ -56,3 +56,5 @@ KBUILD_CFLAGS += -I${VLM_VDRIVERS}/drivers/vlx
 
 # MobiCore Driver includes
 ccflags-y += -I$(GUD_ROOT_FOLDER)/MobiCoreDriver
+
+include $(srctree)/drivers/tee/gpapi/Makefile.impl.include

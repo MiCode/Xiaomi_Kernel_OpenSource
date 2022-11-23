@@ -210,7 +210,9 @@ u32 teec_initialize_context(const char *name, struct teec_context *context)
 
 	return TEEC_SUCCESS;
 }
+#if !IS_ENABLED(CONFIG_MTK_TEE_GP_COORDINATOR)
 EXPORT_SYMBOL(teec_initialize_context);
+#endif
 
 /*
  * The implementation of this function MUST NOT be able to fail: after this
@@ -237,7 +239,9 @@ void teec_finalize_context(struct teec_context *context)
 	client_close(context->imp.client);
 	context->imp.client = NULL;
 }
+#if !IS_ENABLED(CONFIG_MTK_TEE_GP_COORDINATOR)
 EXPORT_SYMBOL(teec_finalize_context);
+#endif
 
 /*
  * If the return_origin is different from TEEC_ORIGIN_TRUSTED_APP, an error code
@@ -334,7 +338,9 @@ u32 teec_open_session(struct teec_context *context,
 	mc_dev_devel(" %s() = 0x%x", __func__, gp_ret.value);
 	return gp_ret.value;
 }
+#if !IS_ENABLED(CONFIG_MTK_TEE_GP_COORDINATOR)
 EXPORT_SYMBOL(teec_open_session);
+#endif
 
 u32 teec_invoke_command(struct teec_session *session,
 			u32 command_id,
@@ -392,7 +398,9 @@ u32 teec_invoke_command(struct teec_session *session,
 	mc_dev_devel(" %s() = 0x%x", __func__, gp_ret.value);
 	return gp_ret.value;
 }
+#if !IS_ENABLED(CONFIG_MTK_TEE_GP_COORDINATOR)
 EXPORT_SYMBOL(teec_invoke_command);
+#endif
 
 void teec_close_session(struct teec_session *session)
 {
@@ -423,7 +431,9 @@ void teec_close_session(struct teec_session *session)
 
 	mc_dev_devel(" %s() = 0x%x", __func__, ret);
 }
+#if !IS_ENABLED(CONFIG_MTK_TEE_GP_COORDINATOR)
 EXPORT_SYMBOL(teec_close_session);
+#endif
 
 /*
  * Implementation note. We handle internally 2 kind of pointers : kernel memory
@@ -488,7 +498,9 @@ u32 teec_register_shared_memory(struct teec_context *context,
 
 	return TEEC_SUCCESS;
 }
+#if !IS_ENABLED(CONFIG_MTK_TEE_GP_COORDINATOR)
 EXPORT_SYMBOL(teec_register_shared_memory);
+#endif
 
 u32 teec_allocate_shared_memory(struct teec_context *context,
 				struct teec_shared_memory *shared_mem)
@@ -547,7 +559,9 @@ u32 teec_allocate_shared_memory(struct teec_context *context,
 
 	return TEEC_SUCCESS;
 }
+#if !IS_ENABLED(CONFIG_MTK_TEE_GP_COORDINATOR)
 EXPORT_SYMBOL(teec_allocate_shared_memory);
+#endif
 
 void teec_release_shared_memory(struct teec_shared_memory *shared_mem)
 {
@@ -582,7 +596,9 @@ void teec_release_shared_memory(struct teec_shared_memory *shared_mem)
 		}
 	}
 }
+#if !IS_ENABLED(CONFIG_MTK_TEE_GP_COORDINATOR)
 EXPORT_SYMBOL(teec_release_shared_memory);
+#endif
 
 void teec_request_cancellation(struct teec_operation *operation)
 {
@@ -625,4 +641,36 @@ void teec_request_cancellation(struct teec_operation *operation)
 	if (ret)
 		mc_dev_devel("Notify failed: %d", ret);
 }
+#if !IS_ENABLED(CONFIG_MTK_TEE_GP_COORDINATOR)
 EXPORT_SYMBOL(teec_request_cancellation);
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_TEE_GP_COORDINATOR)
+#include "tee_impl_api.h"
+static const struct gp_api_impl_info trustonic_gp_api_export_info = {
+	.name = "trustonic 510",
+	.size = {
+		.sharedmemory_max = TEEC_CONFIG_SHAREDMEM_MAX_SIZE,
+		.context          = sizeof(struct TEEC_Context),
+		.session          = sizeof(struct TEEC_Session),
+		.sharedmemory     = sizeof(struct TEEC_SharedMemory),
+		.operation        = sizeof(struct TEEC_Operation),
+	},
+	.ops = {
+		.initializecontext    = &TEEC_InitializeContext,
+		.finalizecontext      = &TEEC_FinalizeContext,
+		.registersharedmemory = &TEEC_RegisterSharedMemory,
+		.allocatesharedmemory = &TEEC_AllocateSharedMemory,
+		.releasesharedmemory  = &TEEC_ReleaseSharedMemory,
+		.opensession          = &TEEC_OpenSession,
+		.closesession         = &TEEC_CloseSession,
+		.invokecommand        = &TEEC_InvokeCommand,
+		.requestcancellation  = &TEEC_RequestCancellation,
+	},
+};
+
+bool register_gp_api(void)
+{
+	return gp_api_impl_add(&trustonic_gp_api_export_info);
+}
+#endif

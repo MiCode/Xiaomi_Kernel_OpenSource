@@ -41,6 +41,10 @@
 #include <linux/cpuhotplug.h>
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_TEE_GP_COORDINATOR)
+	extern bool register_gp_api(void);
+#endif
+
 /* Default entry for our driver in device tree */
 #ifndef MC_DEVICE_PROPNAME
 #define MC_DEVICE_PROPNAME "arm,mcd"
@@ -604,6 +608,10 @@ static int mobicore_probe(struct platform_device *pdev)
 		mc_dev_err(ret, "Running in secure MODE!");
 		return ret;
 	}
+
+#if IS_ENABLED(CONFIG_MTK_TEE_GP_COORDINATOR)
+	register_gp_api();
+#endif
 
 	/* Make sure we can create debugfs entries */
 	g_ctx.debug_dir = debugfs_create_dir("trustonic_tee", NULL);
