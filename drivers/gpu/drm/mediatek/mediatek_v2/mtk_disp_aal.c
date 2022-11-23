@@ -494,6 +494,28 @@ void disp_aal_notify_backlight_changed(int trans_backlight, int max_backlight)
 }
 
 #ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
+static bool is_led_need_aal(int connector_id)
+{
+	unsigned int crtc0_connector_id = 0;
+	struct mtk_ddp_comp *output_comp = NULL;
+
+	if (connector_id <= 0) {
+		AALFLOW_LOG("%s: invalid connector id\n", __func__);
+		return true;
+	}
+	if (default_comp == NULL || default_comp->mtk_crtc == NULL) {
+		AALERR("%s: null pointer!\n", __func__);
+		return false;
+	}
+	output_comp = mtk_ddp_comp_request_output(default_comp->mtk_crtc);
+	if (output_comp == NULL) {
+		AALERR("%s: output_comp is null!\n", __func__);
+		return false;
+	}
+	mtk_ddp_comp_io_cmd(output_comp, NULL, GET_CRTC0_CONNECTOR_ID, &crtc0_connector_id);
+	return (connector_id == crtc0_connector_id);
+}
+
 int led_brightness_changed_event_to_aal(struct notifier_block *nb, unsigned long event,
 	void *v)
 {
@@ -504,6 +526,11 @@ int led_brightness_changed_event_to_aal(struct notifier_block *nb, unsigned long
 
 	switch (event) {
 	case LED_BRIGHTNESS_CHANGED:
+		if (!is_led_need_aal(led_conf->connector_id)) {
+			AALFLOW_LOG("connector id %d no need aal\n", led_conf->connector_id);
+			led_conf->aal_enable = 0;
+			break;
+		}
 		if (m_new_pq_persist_property[DISP_PQ_GAMMA_SILKY_BRIGHTNESS]) {
 			trans_level = led_conf->cdev.brightness;
 
