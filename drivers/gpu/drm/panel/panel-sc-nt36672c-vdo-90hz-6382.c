@@ -235,7 +235,9 @@ static void lcm_panel_init(struct lcm *ctx)
 	lcm_dcs_write_seq_static(ctx, 0XC0, 0X03);
 	lcm_dcs_write_seq_static(ctx, 0XC1, 0X89, 0X28, 0X00, 0X08, 0X00, 0XAA, 0X02, 0X0E,
 				0X00, 0X2B, 0X00, 0X07, 0X0D, 0XB7, 0X0C, 0XB7);
+	udelay(1000);
 	lcm_dcs_write_seq_static(ctx, 0XC2, 0X1B, 0XA0);
+	udelay(1000);
 #else
 	lcm_dcs_write_seq_static(ctx, 0xC0, 0X00);
 #endif
@@ -729,7 +731,7 @@ static int lcm_enable(struct drm_panel *panel)
 }
 
 static const struct drm_display_mode default_mode = {
-	.clock = 285818,
+	.clock = 286930,
 	.hdisplay = FRAME_WIDTH,
 	.hsync_start = FRAME_WIDTH + MODE_0_HFP,
 	.hsync_end = FRAME_WIDTH + MODE_0_HFP + HSA,
@@ -741,7 +743,7 @@ static const struct drm_display_mode default_mode = {
 };
 
 static const struct drm_display_mode performance_mode_1 = {
-	.clock = 336420,//286080
+	.clock = 286080,
 	.hdisplay = FRAME_WIDTH,
 	.hsync_start = FRAME_WIDTH + MODE_1_HFP,
 	.hsync_end = FRAME_WIDTH + MODE_1_HFP + HSA,
@@ -756,7 +758,7 @@ static const struct drm_display_mode performance_mode_1 = {
 static struct mtk_panel_params ext_params = {
 	.vfp_low_power = 2526,//60hz
 	.cust_esd_check = 1,
-	.esd_check_enable = 0,
+	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0a,
 		.count = 1,
@@ -802,20 +804,26 @@ static struct mtk_panel_params ext_params = {
 	.data_rate = DATA_RATE,
 	.bdg_ssc_enable = 0,
 	.ssc_enable = 0,
+	.dyn_fps = {
+		.switch_en = 1,
+		.vact_timing_fps = 90,
+	},
+	/* dsi_hbp is hbp_wc, cal hbp according to hbp_wc, ref:4997538 */
 	.dyn = {
 		.switch_en = 1,
-		.pll_clk = 380,
-		.hfp = MODE_0_HFP,
-		.vfp = MODE_0_VFP,
-		.vsa = VSA,
+		.data_rate = 750,
+		.hbp = 14,
 		.vfp_lp_dyn = 2526,
+	},
+	.phy_timcon = {
+		.clk_hs_post = 0x24,
 	},
 };
 
 static struct mtk_panel_params ext_params_mode_1 = {
 	.vfp_low_power = 1290,//90hz
 	.cust_esd_check = 1,
-	.esd_check_enable = 0,
+	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0a,
 		.count = 1,
@@ -861,13 +869,18 @@ static struct mtk_panel_params ext_params_mode_1 = {
 	.data_rate = DATA_RATE,
 	.bdg_ssc_enable = 0,
 	.ssc_enable = 0,
+	.dyn_fps = {
+		.switch_en = 1,
+		.vact_timing_fps = 90,
+	},
 	.dyn = {
 		.switch_en = 1,
-		.pll_clk = 380,
-		.hfp = MODE_1_HFP,
-		.vfp = MODE_1_VFP,
-		.vsa = VSA,
+		.data_rate = 750,
+		.hbp = 14,
 		.vfp_lp_dyn = 1290,
+	},
+	.phy_timcon = {
+		.clk_hs_post = 0x24,
 	},
 };
 
@@ -1087,8 +1100,7 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 	ctx->dev = dev;
 	dsi->lanes = 4;
 	dsi->format = MIPI_DSI_FMT_RGB888;
-	// dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE;
-	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_BURST;
+	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE;
 
 	ret = of_property_read_u32(dev->of_node, "gate-ic", &value);
 	if (ret < 0)

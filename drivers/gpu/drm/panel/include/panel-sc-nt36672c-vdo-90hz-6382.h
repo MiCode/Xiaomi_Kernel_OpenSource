@@ -28,7 +28,7 @@
 /*Parameter setting for mode 0 Start*/
 #define MODE_0_FPS                  60
 #define MODE_0_VFP                  1290
-#define MODE_0_HFP                  160
+#define MODE_0_HFP                  165
 /*Parameter setting for mode 0 End*/
 
 /*Parameter setting for mode 1 Start*/

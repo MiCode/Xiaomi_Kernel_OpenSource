@@ -4183,13 +4183,6 @@ static int mtk_dsi_start_vdo_mode(struct mtk_ddp_comp *comp, void *handle)
 	unsigned char startdsi[] = {0x00, 0x10, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00}; //ID 0x00
 	unsigned char setrxvdo[] = {0x70, 0x31, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00};
 
-	if (is_bdg_supported()) {
-		mipi_dsi_write_6382(dsi, handle, setvdo, 8);
-		mipi_dsi_write_6382(dsi, handle, setrxvdo, 8);
-		mipi_dsi_write_6382(dsi, handle, stopdsi, 8);
-		mipi_dsi_write_6382(dsi, handle, startdsi, 8);
-	}
-
 	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
 		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST)
 			vid_mode = BURST_MODE;
@@ -4197,6 +4190,15 @@ static int mtk_dsi_start_vdo_mode(struct mtk_ddp_comp *comp, void *handle)
 			vid_mode = SYNC_PULSE_MODE;
 		else
 			vid_mode = SYNC_EVENT_MODE;
+	}
+
+	setvdo[4] = (unsigned char)vid_mode;
+
+	if (is_bdg_supported()) {
+		mipi_dsi_write_6382(dsi, handle, setvdo, 8);
+		mipi_dsi_write_6382(dsi, handle, setrxvdo, 8); //set 6382 rx mode to cmd
+		mipi_dsi_write_6382(dsi, handle, stopdsi, 8);
+		mipi_dsi_write_6382(dsi, handle, startdsi, 8);
 	}
 
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_START, 0,
