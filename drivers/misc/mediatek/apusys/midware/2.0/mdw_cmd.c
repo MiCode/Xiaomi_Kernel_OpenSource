@@ -391,9 +391,6 @@ static void mdw_cmd_unvoke_map(struct mdw_cmd *c)
 	struct mdw_cmd_map_invoke *cm_invoke = NULL, *tmp = NULL;
 
 	list_for_each_entry_safe(cm_invoke, tmp, &c->map_invokes, c_node) {
-		if (!cm_invoke)
-			break;
-
 		list_del(&cm_invoke->c_node);
 		mdw_cmd_debug("s(0x%llx)c(0x%llx) unvoke m(0x%llx/%u)\n",
 			(uint64_t)c->mpriv, (uint64_t)c,
@@ -557,11 +554,13 @@ static void mdw_cmd_delete(struct mdw_cmd *c)
 static void mdw_cmd_check_rets(struct mdw_cmd *c, int ret)
 {
 	uint32_t idx = 0, is_dma = 0;
+	DECLARE_BITMAP(tmp, 64);
+
+	memcpy(&tmp, &c->einfos->c.sc_rets, sizeof(c->einfos->c.sc_rets));
 
 	/* extract fail subcmd */
 	do {
-		idx = find_next_bit((unsigned long *)&c->einfos->c.sc_rets,
-			c->num_subcmds, idx);
+		idx = find_next_bit((unsigned long *)&tmp, c->num_subcmds, idx);
 		if (idx >= c->num_subcmds)
 			break;
 
