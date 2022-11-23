@@ -22,7 +22,7 @@
 #include <linux/string.h>
 #include "clk-fhctl.h"
 #include "clk-fhctl-debug.h"
-#include "../clk-mtk.h"
+#include "clk-mtk.h"
 
 
 /************************************************
@@ -519,11 +519,6 @@ static const u16 mt6765_pll_con0_regs[] = {
 			0xdead, 0x02A0, 0x025C, 0x021C,
 			0x022C};
 
-static const u16 mt6768_pll_con0_regs[] = {
-			0x0208, 0x0258, 0x033C, 0x0248,
-			0xdead, 0x032C, 0x031C, 0x0218,
-			0x0228};
-
 static const struct mtk_fhctl_compatible mt6765_fhctl_compat = {
 	.common_regs = mt_fhctl_regs_v2,
 	.pll_num = 9,
@@ -535,20 +530,8 @@ static const struct mtk_fhctl_compatible mt6765_fhctl_compat = {
 	.pll_slope1_reg_setting = 0x6003c97,
 };
 
-static const struct mtk_fhctl_compatible mt6768_fhctl_compat = {
-	.common_regs = mt_fhctl_regs_v2,
-	.pll_num = 9,
-	.pll_names = mt6765_pll_names,
-	.pll_dds_reg_field_size = 22,
-	.pll_regs = mt6765_pll_regs,
-	.pll_con0_regs = mt6768_pll_con0_regs,
-	.pll_slope0_reg_setting = 0x6003c97,
-	.pll_slope1_reg_setting = 0x6003c97,
-};
-
 static const struct of_device_id mtk_fhctl_of_match[] = {
 	{ .compatible = "mediatek,mt6765-fhctl", .data = &mt6765_fhctl_compat },
-	{ .compatible = "mediatek,mt6768-fhctl", .data = &mt6768_fhctl_compat },
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_fhctl_of_match);

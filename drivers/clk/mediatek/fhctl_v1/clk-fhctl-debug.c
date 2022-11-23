@@ -19,7 +19,7 @@
 #include <linux/uaccess.h>
 
 #include "clk-fhctl.h"
-#include "../clk-mtk.h"
+#include "clk-mtk.h"
 
 
 enum FH_DEBUG_CMD_ID {
