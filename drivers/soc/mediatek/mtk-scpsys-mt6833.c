@@ -174,7 +174,7 @@ static const struct scp_domain_data scp_domain_data_mt6833[] = {
 		.ctl_offs = 0x354,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
-		.basic_clk_name = {"disp", "mdp"},
+		.basic_clk_name = {"disp"},
 		.subsys_lp_clk_prefix = "disp_lp",
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
