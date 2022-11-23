@@ -232,11 +232,11 @@
 #define tscpu_dprintk(fmt, args...) \
 do {                                    \
 	if (tscpu_debug_log == 1) {                \
-		pr_info(TSCPU_LOG_TAG fmt, ##args); \
+		pr_notice(TSCPU_LOG_TAG fmt, ##args); \
 	}                                   \
 } while (0)
-#define tscpu_printk(fmt, args...) pr_info(TSCPU_LOG_TAG fmt, ##args)
-#define tscpu_warn(fmt, args...)  pr_info(TSCPU_LOG_TAG fmt, ##args)
+#define tscpu_printk(fmt, args...) pr_notice(TSCPU_LOG_TAG fmt, ##args)
+#define tscpu_warn(fmt, args...)  pr_notice(TSCPU_LOG_TAG fmt, ##args)
 /*=============================================================
  * Tsense Structure and Enum
  *=============================================================

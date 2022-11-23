@@ -80,7 +80,7 @@ static int polling_factor2 = 10000;
 #define mtktspa_dprintk(fmt, args...) \
 do {                                    \
 	if (mtktspa_debug_log) {                \
-		pr_info("[Thermal/TZ/PA]" fmt, ##args); \
+		pr_notice("[Thermal/TZ/PA]" fmt, ##args); \
 	}                                   \
 } while (0)
 

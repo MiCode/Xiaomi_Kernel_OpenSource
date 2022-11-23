@@ -100,6 +100,7 @@ static int isTimerCancelled;
 
 #if !IS_ENABLED(CONFIG_MTK_CLKMGR)
 struct clk *therm_main;		/* main clock for Thermal */
+struct clk *auxadc_main;        /* main clock for Auxadc */
 #endif
 
 void __iomem  *therm_clk_infracfg_ao_base;
@@ -1625,7 +1626,6 @@ static int tscpu_thermal_suspend
 
 	do_gettimeofday(&begin);
 #endif
-
 	g_tc_resume = 1;	/* set "1", don't read temp during suspend */
 
 	if (talking_flag == false) {
@@ -1686,6 +1686,7 @@ static int tscpu_thermal_suspend
 						(end.tv_sec - begin.tv_sec),
 						(end.tv_usec - begin.tv_usec));
 #endif
+	clk_disable_unprepare(auxadc_main);
 	return 0;
 }
 
@@ -1700,6 +1701,7 @@ static int tscpu_thermal_resume(struct platform_device *dev)
 	int temp = 0;
 	int cnt = 0;
 #endif
+	clk_prepare_enable(auxadc_main);
 	tscpu_printk("%s, %d\n", __func__, talking_flag);
 
 	g_is_temp_valid = 0;
@@ -1824,8 +1826,13 @@ static const struct dev_pm_ops lvts_pm_ops = {
 };
 #endif
 
+static int tscpu_thermal_remove(struct platform_device *pdev)
+{
+	clk_disable_unprepare(auxadc_main);
+	return 0;
+}
 static struct platform_driver mtk_thermal_driver = {
-	.remove = NULL,
+	.remove = tscpu_thermal_remove,
 	.shutdown = tscpu_thermal_shutdown,
 	.probe = tscpu_thermal_probe,
 #if !defined(CFG_THERM_SUSPEND_RESUME_NOIRQ)
@@ -2596,6 +2603,13 @@ static int tscpu_thermal_probe(struct platform_device *dev)
 		return PTR_ERR(therm_main);
 	}
 	tscpu_dprintk("therm-main Ptr=%p", therm_main);
+	auxadc_main = devm_clk_get(&dev->dev, "auxadc-main");
+	if (IS_ERR(auxadc_main)) {
+		tscpu_printk("cannot get auxadc clock.\n");
+		return PTR_ERR(auxadc_main);
+	}
+	tscpu_dprintk("auxadc_main Ptr=%p", auxadc_main);
+	clk_prepare_enable(auxadc_main);
 #endif
 
 #if CFG_THERMAL_KERNEL_IGNORE_HOT_SENSOR

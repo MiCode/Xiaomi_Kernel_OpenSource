@@ -91,7 +91,7 @@ static int polling_factor2 = 10000;
 #define mtkts_btsmdpa_dprintk(fmt, args...)   \
 do {                                    \
 	if (mtkts_btsmdpa_debug_log) {                \
-		pr_info("[Thermal/TZ/BTSMDPA]" fmt, ##args); \
+		pr_notice("[Thermal/TZ/BTSMDPA]" fmt, ##args); \
 	}                                   \
 } while (0)
 
