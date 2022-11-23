@@ -1077,7 +1077,7 @@ static void md_pll_setting(struct ccci_modem *md)
 
 static void md1_pre_access_md_reg(struct ccci_modem *md)
 {
-	unsigned int reg_value, reg_value1;
+	unsigned int reg_value = 0, reg_value1 = 0;
 
 	/* clear dummy reg flag to access modem reg */
 	regmap_read(md->hw_info->plat_val->infra_ao_base, INFRA_AP2MD_DUMMY_REG, &reg_value);
@@ -1103,7 +1103,7 @@ static void md1_pre_access_md_reg(struct ccci_modem *md)
 
 static void md1_post_access_md_reg(struct ccci_modem *md)
 {
-	unsigned int reg_value, reg_value1;
+	unsigned int reg_value = 0, reg_value1 = 0;
 
 	// disable AP to MD
 	regmap_write(md->hw_info->plat_val->infra_ao_base, INFRA_PERI2MD_PROT_SET,
@@ -1149,13 +1149,13 @@ void md1_pll_init(struct ccci_modem *md)
 	struct md_pll_reg *md_pll = md_info->md_pll_base;
 	void __iomem *map_addr = ioremap(0x1000C000, 0x1000);
 	int cnt = 0;
-	unsigned int reg_val;
+	unsigned int reg_val = 0;
 
 	if (!md_pll->md_top_Pll || !md_pll->md_top_clkSW)
 		CCCI_NORMAL_LOG(0, TAG, "pll init: missing mapping\n");
 
 	reg_val = ccci_read32(md_pll->md_top_Pll, 0x0);
-	CCCI_BOOTUP_LOG(0, TAG, "md_top_Pll[0x%X] val:0x%X before\n", md_pll->md_top_Pll, reg_val);
+	CCCI_BOOTUP_LOG(0, TAG, "md_top_Pll val:0x%X before\n", reg_val);
 
 	while (1) {
 		reg_val = ccci_read32(md_pll->md_top_Pll, 0x0);
@@ -1164,7 +1164,7 @@ void md1_pll_init(struct ccci_modem *md)
 		msleep(20);
 	}
 
-	CCCI_BOOTUP_LOG(0, TAG, "md_top_Pll[0x%X] val:0x%X after\n", md_pll->md_top_Pll, reg_val);
+	CCCI_BOOTUP_LOG(0, TAG, "md_top_Pll val:0x%X after\n", reg_val);
 	/* Enables clock square1 low-pass filter for 26M quality. */
 	ROr2W(map_addr, 0x0, 0x2);
 	udelay(100);
@@ -1354,8 +1354,8 @@ static int md_cd_power_on(struct ccci_modem *md)
 		/* step 8: disable MD WDT */
 		md_rgu_base = ioremap(0x200f0100, 0x300);
 		ccci_write32(md_rgu_base, 0, 0x55000030); //0x200f0000 + 0x100
-		CCCI_BOOTUP_LOG(0, TAG, "[POWER ON] disable MD WDT, 0x%x=0x%x\n",
-			md_rgu_base, ccci_read32(md_rgu_base, 0));
+		CCCI_BOOTUP_LOG(0, TAG, "[POWER ON] disable MD WDT, 0x%x\n",
+			ccci_read32(md_rgu_base, 0));
 	} else
 		md_pll_setting(md);
 
@@ -1387,16 +1387,7 @@ static int md_cd_let_md_go(struct ccci_modem *md)
 
 	if (res.a0 && md_cd_plat_val_ptr.md_gen < 6295) {
 		md_boot_slave_en = ioremap(0x20000024, 0x4);
-
-		CCCI_BOOTUP_LOG(0, TAG, "MD boot slave[0x%x] = 0x%x\n",
-						md_boot_slave_en, ccci_read32(md_boot_slave_en, 0));
 		ccci_write32(md_boot_slave_en, 0, 1);
-		CCCI_BOOTUP_LOG(0, TAG, "MD boot slave[0x%x] = 0x%x\n",
-						md_boot_slave_en, ccci_read32(md_boot_slave_en, 0));
-
-		CCCI_BOOTUP_LOG(0, TAG, "MD boot slave[0x%x] = 0x%x\n",
-						md_boot_slave_en, ccci_read32(md_boot_slave_en, 0));
-
 		iounmap(md_boot_slave_en);
 		md1_post_access_md_reg(md);
 		md_cd_get_md_bootup_status(NULL, 0);

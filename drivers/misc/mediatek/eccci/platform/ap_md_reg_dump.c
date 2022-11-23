@@ -808,7 +808,7 @@ void md_dump_register_for_6768(struct ccci_modem *md)
 	unsigned int reg_value[2] = { 0 };
 	unsigned int ccif_sram[CCCI_EE_SIZE_CCIF_SRAM/sizeof(unsigned int)] = { 0 };
 	void __iomem *dump_reg0;
-	unsigned int reg_value1, reg_value2;
+	unsigned int reg_value1 = 0, reg_value2 = 0;
 	u32 boot_status_val = get_expected_boot_status_val();
 
 	CCCI_MEM_LOG_TAG(md->index, TAG, "%s, 0x%x\n", __func__, boot_status_val);
