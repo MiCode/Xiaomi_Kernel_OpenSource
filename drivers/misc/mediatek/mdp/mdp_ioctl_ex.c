@@ -1092,7 +1092,7 @@ s32 mdp_ioctl_alloc_readback_slots(void *fp, unsigned long param)
 	s32 status;
 	u32 free_slot, free_slot_group, alloc_slot_index;
 	u64 exec_cost = sched_clock(), alloc;
-	dma_addr_t vcp_iova_base;
+	dma_addr_t vcp_iova_base = 0;
 	void *vcp_va_base;
 
 	if (copy_from_user(&rb_req, (void *)param, sizeof(rb_req))) {
