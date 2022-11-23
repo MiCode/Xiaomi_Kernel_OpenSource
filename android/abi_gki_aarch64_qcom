@@ -67,6 +67,7 @@
   __blk_alloc_disk
   blk_cleanup_disk
   blk_cleanup_queue
+  blkdev_get_by_dev
   blk_execute_rq_nowait
   blk_freeze_queue_start
   blk_get_queue
@@ -1231,6 +1232,7 @@
   mutex_lock_interruptible
   mutex_trylock
   mutex_unlock
+  name_to_dev_t
   neigh_destroy
   neigh_resolve_output
   netdev_alert
