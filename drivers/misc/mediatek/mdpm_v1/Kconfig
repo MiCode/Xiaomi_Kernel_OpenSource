@@ -5,3 +5,11 @@ config MTK_MDPM_LEGACY
 	  When enable this option, mdpm will collect modem status for
 	  MD power meter.
 	  If unsure, say N.
+
+config MTK_MDPM_LEGACY_V1
+	tristate "MTK modem power meter v1"
+	help
+	  This kernel config can be used to enable modem power meter v1.
+	  When enable this option, mdpm will collect modem status for
+	  MD power meter.
+	  If unsure, say N.

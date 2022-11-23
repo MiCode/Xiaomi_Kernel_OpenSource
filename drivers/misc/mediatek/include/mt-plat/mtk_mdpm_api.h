@@ -16,7 +16,7 @@ enum mdpm_power_type {
 };
 
 
-extern void init_md_section_level(enum pbm_kicker kicker);
+extern void init_md_section_level(enum pbm_kicker kicker, u32 *share_mem);
 extern int get_md1_power(enum mdpm_power_type power_type, bool need_update);
 
 #endif

@@ -1,0 +1,7 @@
+config MTK_PBM_LEGACY
+	tristate "MTK power budget management legacy"
+	help
+	  This kernel config can be used to enable power budget management.
+	  When enable this option, pbm will allocate limit power budget to
+	  CPU and GPU when battery voltage is low.
+	  If unsure, say N.

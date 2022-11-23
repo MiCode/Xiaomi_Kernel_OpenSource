@@ -27,6 +27,7 @@ u32 fake_share_mem[SHARE_MEM_BLOCK_NUM];
 
 #if MD_POWER_METER_ENABLE
 static bool md1_ccci_ready;
+u32 *md_share_mem;
 #endif
 
 #ifdef pr_fmt
@@ -47,22 +48,15 @@ spm_vcorefs_get_MD_status(void)
 }
 
 #if MD_POWER_METER_ENABLE
-void init_md_section_level(enum pbm_kicker kicker)
+void init_md_section_level(enum pbm_kicker kicker, u32 *share_mem)
 {
-	u32 *share_mem = NULL;
-#if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
-	share_mem =
-		(u32 *)get_smem_start_addr(MD_SYS1, SMEM_USER_RAW_DBM, NULL);
 	if (share_mem == NULL) {
-		pr_notice("ERROR: can't get SMEM_USER_RAW_DBM address");
-		return;
+		pr_notice("mdpm init md share mem failed\n");
 	}
-#else
-	return;
-#endif
 
 	if (kicker == KR_MD1) {
 		init_md1_section_level(share_mem);
+		md_share_mem = share_mem;
 		md1_ccci_ready = 1;
 	} else
 		pr_warn("unknown MD kicker: %d\n", kicker);
@@ -104,7 +98,7 @@ int get_md1_power(enum mdpm_power_type power_type, bool need_update)
 #ifdef MD_POWER_UT
 	share_mem = fake_share_mem;
 #else
-	share_mem = (u32 *)get_smem_start_addr(MD_SYS1, 0, NULL);
+	share_mem = md_share_mem;
 #endif
 	dbm_power = get_md1_dBm_power(scenario, share_mem, power_type);
 	g_dbm_power[power_type] = dbm_power;
@@ -230,7 +224,7 @@ static int mt_mdpm_create_procfs(void)
 }
 
 #else /* MD_POWER_METER_ENABLE */
-void init_md_section_level(enum pbm_kicker kicker)
+void init_md_section_level(enum pbm_kicker kicker, u32 *share_mem)
 {
 	pr_notice("MD_POWER_METER_ENABLE:0\n");
 }

@@ -12,18 +12,10 @@
 #
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/pbm/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/spm/
+#ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/mach/
+#ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/$(MTK_PLATFORM)/inc/
+ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mdpm_v1/inc/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/power_throttling/
 
-obj-$(CONFIG_MTK_MDPM_LEGACY) += mtk_mdpm_v1.o
-obj-$(CONFIG_MTK_MDPM_LEGACY_V1) += mtk_mdpm_v1.o
-mtk_mdpm_v1-y += mtk_mdpm_common.o
-
-ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6765)),)
-mtk_mdpm_v1-y += mtk_mdpm_platform_6765.o
-endif
-
-ifneq ($(strip $(CONFIG_MTK_MDPM_LEGACY_V1)),)
-mtk_mdpm_v1-y += mtk_mdpm_platform_v1.o
-endif
+obj-$(CONFIG_MTK_PBM_LEGACY) += mtk_pbm.o
