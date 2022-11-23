@@ -228,11 +228,11 @@ static void lcm_panel_init(struct lcm *ctx)
 	// gpiod_set_value(ctx->reset_gpio, 0);
 	// usleep_range(10 * 1000, 11 * 1000);
 	gpiod_set_value(ctx->reset_gpio, 1);
-	usleep_range(10 * 1000, 11 * 1000);
+	usleep_range(1000, 1100);
 	gpiod_set_value(ctx->reset_gpio, 0);
 	usleep_range(10 * 1000, 11 * 1000);
 	gpiod_set_value(ctx->reset_gpio, 1);
-	usleep_range(10 * 1000, 11 * 1000);
+	usleep_range(5 * 1000, 6 * 1000);
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 
 	lcm_dcs_write_seq_static(ctx, 0xB0, 0x00);
@@ -560,7 +560,7 @@ static int lcm_enable(struct drm_panel *panel)
 }
 
 static struct drm_display_mode default_mode = {
-	.clock = 151110,
+	.clock = 180885,
 	.hdisplay = HAC,
 	.hsync_start = HAC + HFP,
 	.hsync_end = HAC + HFP + HSA,
@@ -659,8 +659,8 @@ static int lcm_get_virtual_width(void)
 }
 
 static struct mtk_panel_params ext_params = {
-	.pll_clk = 525,
-	.data_rate = 1050,
+	.pll_clk = 585,
+	.data_rate = 1170,
 	.vfp_low_power = 750,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
