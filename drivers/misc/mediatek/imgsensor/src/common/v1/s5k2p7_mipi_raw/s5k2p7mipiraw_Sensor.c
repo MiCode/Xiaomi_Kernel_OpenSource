@@ -342,12 +342,13 @@ static void set_dummy(void)
 
 static kal_uint16 table_write_cmos_sensor(kal_uint16 *para, kal_uint32 len)
 {
-	char puSendCmd[I2C_BUFFER_LEN];
+	char *puSendCmd = NULL;
 	kal_uint32 tosend, IDX;
 	kal_uint16 addr = 0, addr_last = 0, data;
 
 	tosend = 0;
 	IDX = 0;
+	puSendCmd = kmalloc(I2C_BUFFER_LEN, GFP_KERNEL);
 
 	while (len > IDX) {
 		addr = para[IDX];
@@ -378,6 +379,7 @@ static kal_uint16 table_write_cmos_sensor(kal_uint16 *para, kal_uint32 len)
 
 #endif
 	}
+	kfree(puSendCmd);
 	return 0;
 }
 

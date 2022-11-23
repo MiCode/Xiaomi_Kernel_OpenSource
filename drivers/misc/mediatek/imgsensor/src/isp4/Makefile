@@ -6,14 +6,7 @@ MTK_SENSOR_PROJECT :=
 COMMON_VERSION := v1
 IMGSENSOR_DRIVER_PATH  := $(srctree)/drivers/misc/mediatek/imgsensor/src
 MTK_PLATFORM_KO := imgsensor_$(MTK_PLATFORM)
-
-obj-$(CONFIG_MTK_IMGSENSOR) += $(MTK_PLATFORM_KO).o
-subdir-ccflags-y += \
-    -I$(IMGSENSOR_DRIVER_PATH)/common/$(COMMON_VERSION) \
-	-I$(srctree)/drivers/i2c/busses/ \
-	-DNO_I2C_MTK -DNO_CLK_METER -DIMGSENSOR_USE_RPM -DIMGSENSOR_DFS_CTRL_ENABLE
-
-$(eval $(MTK_PLATFORM_KO)-objs += \
+IMGSENSOR_DRIVER_OBJ := \
 	../common/$(COMMON_VERSION)/imgsensor.o \
 	../common/$(COMMON_VERSION)/imgsensor_hw.o \
 	../common/$(COMMON_VERSION)/imgsensor_i2c.o \
@@ -21,11 +14,21 @@ $(eval $(MTK_PLATFORM_KO)-objs += \
 	../common/$(COMMON_VERSION)/imgsensor_proc.o \
 	../common/$(COMMON_VERSION)/imgsensor_sensor_list.o \
 	imgsensor_clk.o \
-)
+
+ifeq ($(CONFIG_MTK_IMGSENSOR), m)
+obj-$(CONFIG_MTK_IMGSENSOR) += $(MTK_PLATFORM_KO).o
+$(eval $(MTK_PLATFORM_KO)-objs += $(IMGSENSOR_DRIVER_OBJ))
+else ifeq ($(CONFIG_MTK_IMGSENSOR), y)
+obj-$(CONFIG_MTK_IMGSENSOR) += $(IMGSENSOR_DRIVER_OBJ)
+endif
+
+subdir-ccflags-y += \
+    -I$(IMGSENSOR_DRIVER_PATH)/common/$(COMMON_VERSION) \
+	-I$(srctree)/drivers/i2c/busses/ \
+	-DNO_I2C_MTK -DNO_CLK_METER -DIMGSENSOR_USE_RPM -DIMGSENSOR_DFS_CTRL_ENABLE
 
 define add_subdrv
 $(eval subdrv-rpath = $1)
-$(info path: $(src)/$1/Makefile)
 $(eval include $(src)/$1/Makefile)
 endef
 
@@ -78,6 +81,3 @@ $(eval $(call add_subdrv,camera_project/$(MTK_SENSOR_PROJECT)/camera_hw))
 subdir-ccflags-y += -I$(IMGSENSOR_DRIVER_PATH)/$(MTK_PLATFORM)/camera_project/$(MTK_SENSOR_PROJECT)/camera_hw
 subdir-ccflags-y += -I$(IMGSENSOR_DRIVER_PATH)/$(MTK_PLATFORM)/camera_hw
 endif
-
-$(info $(MTK_PLATFORM_KO)-objs : $($(MTK_PLATFORM_KO)-objs))
-$(info $(MTK_PLATFORM_KO) subdir-ccflags-y : $(subdir-ccflags-y))
