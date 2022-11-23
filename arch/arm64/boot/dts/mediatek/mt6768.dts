@@ -3352,6 +3352,8 @@ cma=64M transparent_hugepage=never";
 		eem-offset-big = <0xff>;
 		eem-offset-cci = <0xff>;
 		eem-offset-gpu = <0xff>;
+		nvmem-cells = <&efuse_ptpod>;
+		nvmem-cell-names = "eem-calibration-data";
 	};
 
 	thermal_ctrl@1100b000 {
