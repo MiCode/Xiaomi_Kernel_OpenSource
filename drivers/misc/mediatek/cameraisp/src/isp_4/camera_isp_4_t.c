@@ -56,11 +56,6 @@
 #include <linux/seq_file.h>
 #include <linux/dma-mapping.h>
 #include <soc/mediatek/smi.h>
-// +++
-// k69v1_64_k510 FIXME: sth is not rdy yet. So, Add the following macro to skip some code.
-// + #ifdef CCU_HELP
-// + #ifdef P2_HELP
-// ---
 
 /*for kernel log count*/
 #define _K_LOG_ADJUST (0)//wait log owner rdy
@@ -107,10 +102,7 @@
 #endif
 
 #include <archcounter_timesync.h>
-
-#ifdef CCU_HELP
 #include <ccu_inc.h>
-#endif
 
 /*  */
 #ifndef MTRUE
@@ -7104,10 +7096,10 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			unsigned int globaltime[2];
 			unsigned long long reg_trans_Time;
 			unsigned long long sum;
-#ifdef CCU_HELP
+
 			ccu_get_timestamp(&hwTickCnt_ccu_direct[0],
 				&hwTickCnt_ccu_direct[1]);
-#endif
+
 			pr_debug("hwTickCnt_ccu_direct[0]:%u,hwTickCnt_ccu_direct[1]:%u\n",
 					hwTickCnt_ccu_direct[0],
 					hwTickCnt_ccu_direct[1]);
@@ -11234,7 +11226,7 @@ irqreturn_t ISP_Irq_CAMSV(enum ISP_IRQ_TYPE_ENUM irq_module,
 			}
 
 			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
-				"%s P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x),int_us:0x%08x, timestamp[0x%08x]\n",
+				"%s P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x),int_us:%d, timestamp[0x%08x]\n",
 				str, sof_count[module], cur_v_cnt,
 				ISP_RD32(CAMSV_REG_FBC_IMGO_CTL1(reg_module)),
 				ISP_RD32(CAMSV_REG_FBC_IMGO_CTL2(reg_module)),
