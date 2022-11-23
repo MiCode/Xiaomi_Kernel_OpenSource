@@ -14,6 +14,7 @@ struct mt63xx_consumer_data {
 	unsigned int reg_value;
 };
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 static ssize_t pmic_access_show(struct device *dev,
 				struct device_attribute *attr,
 				char *buf)
@@ -24,7 +25,6 @@ static ssize_t pmic_access_show(struct device *dev,
 	return sprintf(buf, "0x%x\n", data->reg_value);
 }
 
-#if IS_ENABLED(CONFIG_DEBUG_FS)
 static ssize_t pmic_access_store(struct device *dev,
 				 struct device_attribute *attr,
 				 const char *buf,
