@@ -35,6 +35,14 @@ long mtk_dma_buf_set_name(struct dma_buf *dmabuf, const char *buf);
 int dmabuf_to_sec_id(const struct dma_buf *dmabuf, u32 *sec_hdl);
 
 /*
+ * dmabuf_to_tmem_type() - Get trusted memory type corresponding to dma-buf
+ * @dmabuf: the dma-buf
+ * @sec_hdl: for get secure handle
+ * returns >0 means valid the trusted memory type, -1 means error
+ */
+int dmabuf_to_tmem_type(const struct dma_buf *dmabuf, u32 *sec_hdl);
+
+/*
  * in 32bit project compile the arithmetic division, the "/" will
  * cause the __aeabi_uldivmod error.
  *

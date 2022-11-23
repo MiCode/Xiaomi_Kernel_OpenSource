@@ -1359,6 +1359,31 @@ int dmabuf_to_sec_id(const struct dma_buf *dmabuf, u32 *sec_hdl)
 }
 EXPORT_SYMBOL_GPL(dmabuf_to_sec_id);
 
+int dmabuf_to_tmem_type(const struct dma_buf *dmabuf, u32 *sec_hdl)
+{
+	struct mtk_sec_heap_buffer *buffer = NULL;
+	struct secure_heap_region *sec_heap = NULL;
+
+	if (!is_region_base_dmabuf(dmabuf)) {
+		pr_err("%s err, dmabuf is not region base\n", __func__);
+		return -1;
+	}
+
+	*sec_hdl = dmabuf_to_secure_handle(dmabuf);
+
+	buffer = dmabuf->priv;
+	sec_heap = sec_heap_region_get(buffer->heap);
+	if (!sec_heap) {
+		pr_err("%s, sec_heap_region_get(%s) failed!!\n", __func__,
+		       buffer->heap ? dma_heap_get_name(buffer->heap) :
+		       "null ptr");
+		return -1;
+	}
+
+	return sec_heap->tmem_type;
+}
+EXPORT_SYMBOL_GPL(dmabuf_to_tmem_type);
+
 /*
  * NOTE: the range of heap_id is (s, e), not [s, e] or [s, e)
  */
