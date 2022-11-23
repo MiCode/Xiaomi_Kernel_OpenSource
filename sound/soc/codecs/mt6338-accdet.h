@@ -149,4 +149,5 @@ extern void mt_accdet_resume(void);
 extern void accdet_set_debounce(int state, unsigned int debounce);
 extern void mt6338_accdet_modify_vref_volt(void);
 extern int mt6338_accdet_init(struct snd_soc_component *component, struct snd_soc_card *card);
+extern void accdet_eint_callback_wrapper_mt6338(unsigned int plug_status);
 #endif

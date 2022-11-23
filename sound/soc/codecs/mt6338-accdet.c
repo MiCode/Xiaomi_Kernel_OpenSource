@@ -2144,6 +2144,27 @@ static void accdet_irq_handle(void)
 	}
 }
 
+void accdet_eint_callback_wrapper_mt6338(unsigned int plug_status)
+{
+	int ret = 0;
+
+	pr_info("%s: call ex eint handler, plug_status %d\n", __func__, plug_status);
+	if (plug_status == 1) {
+		accdet->cur_eint_state = EINT_PIN_PLUG_IN;
+		if (accdet_dts.moisture_detect_mode != 0x5) {
+			mod_timer(&micbias_timer,
+				jiffies + MICBIAS_DISABLE_TIMER);
+		}
+	} else {
+		accdet->cur_eint_state = EINT_PIN_PLUG_OUT;
+	}
+
+	ret = queue_work(accdet->eint_workqueue, &accdet->eint_work);
+
+	pr_debug("%s: exit queue work\n", __func__);
+}
+EXPORT_SYMBOL(accdet_eint_callback_wrapper_mt6338);
+
 static irqreturn_t ex_eint_handler(int irq, void *data)
 {
 	int ret = 0;
