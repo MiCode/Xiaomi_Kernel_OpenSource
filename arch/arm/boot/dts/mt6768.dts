@@ -4532,12 +4532,34 @@ cma=64M transparent_hugepage=never clk_ignore_unused=1";
 	};
 
 	ccu@1a0b1000 {
+		#address-cells = <2>;
+		#size-cells = <2>;
 		compatible = "mediatek,ccu";
-		reg = <0 0x1a0b1000 0 0x10000>;
-		interrupts = <GIC_SPI 261 IRQ_TYPE_LEVEL_LOW 0>;
 		power-domains = <&scpsys MT6768_POWER_DOMAIN_CAM>;
-		clocks = <&camsys CLK_CAM_CCU>;
-		clock-names = "CCU_CLK_CAM_CCU";
+		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		iommus = <&iommu M4U_PORT_CAM_CCUI>,
+			 <&iommu M4U_PORT_CAM_CCUO>;
+		reg = <0 0x1a0b1000 0 0x10000>;
+		interrupts = <GIC_SPI 261 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&topckgen CLK_TOP_CAM>,
+			<&camsys CLK_CAM>,
+			<&camsys CLK_CAM_LARB3>,
+			<&camsys CLK_CAM_CCU>;
+		clock-names = "TOP_CAM_CLK",
+			"CCU_CLK_CAM_CAM",
+			"CCU_CLK_CAM_CCU_LARB3",
+			"CCU_CLK_CAM_CCU";
+		mediatek,larbs = <&smi_larb3>;
+		interconnects =
+			<&mmqos SLAVE_LARB(21) &mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_CAM_CCUI) &mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_CAM_CCUO) &mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"ccu_g",
+			"ccu_i",
+			"ccu_o";
+		operating-points-v2 = <&opp_table_cam>;
+		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 	};
 
 	/* ATF logger SW IRQ number 328  = 32 + 296 */
