@@ -59,16 +59,19 @@ void mt_ppm_cpu_thermal_protect(unsigned int limited_power)
 end:
 	FUNC_EXIT(FUNC_LV_POLICY);
 }
+EXPORT_SYMBOL(mt_ppm_cpu_thermal_protect);
 
 unsigned int mt_ppm_thermal_get_min_power(void)
 {
 	return (unsigned int)ppm_get_min_pwr_idx();
 }
+EXPORT_SYMBOL(mt_ppm_thermal_get_min_power);
 
 unsigned int mt_ppm_thermal_get_max_power(void)
 {
 	return (unsigned int)ppm_get_max_pwr_idx();
 }
+EXPORT_SYMBOL(mt_ppm_thermal_get_max_power);
 
 unsigned int mt_ppm_thermal_get_cur_power(void)
 {
@@ -113,6 +116,7 @@ unsigned int mt_ppm_thermal_get_cur_power(void)
 	return (power == -1)
 		? mt_ppm_thermal_get_max_power() : (unsigned int)power;
 }
+EXPORT_SYMBOL(mt_ppm_thermal_get_cur_power);
 
 static void ppm_thermal_update_limit_cb(void)
 {
