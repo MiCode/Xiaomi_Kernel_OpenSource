@@ -7363,6 +7363,8 @@
 			dr_mode = "otg";
 			usb-role-switch;
 			cdp-block;
+			wakeup-source;
+			pericfg = <&pericfg_ao_clk>;
 			port {
 				musb_drd_switch: endpoint@0 {
 					remote-endpoint = <&usb_role>;
