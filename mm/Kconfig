@@ -951,6 +951,8 @@ config SPECULATIVE_PAGE_FAULT
 	bool "Speculative page faults"
 	default y
 	depends on ARCH_SUPPORTS_SPECULATIVE_PAGE_FAULT && MMU && SMP
+	# split ptl lock can result in PTL destruction under RCU
+	depends on !ALLOC_SPLIT_PTLOCKS
 	help
 	  Try to handle user space page faults without holding the mmap lock.
 
