@@ -1595,7 +1595,9 @@ cma=64M transparent_hugepage=never";
 			      "mediatek,mt6765-timer",
 			      "mediatek,sys_timer";
 		reg = <0 0x10017000 0 0x1000>;
-		interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&clk13m>;
 	};
 
