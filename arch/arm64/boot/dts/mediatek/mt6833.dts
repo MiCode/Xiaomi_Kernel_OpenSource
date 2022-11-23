@@ -547,15 +547,15 @@
 		compatible = "mediatek,mt6873-cache-parity";
 		ecc-irq-support = <1>;
 		arm_dsu_ecc_hwirq = <32>;
-		interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH 0>;
 	};
 
 	memory_ssmr_features: memory-ssmr-features {
@@ -1558,9 +1558,9 @@
 			/*BGF_EINT */
 		interrupts = <GIC_SPI 378 IRQ_TYPE_LEVEL_HIGH 0>,
 			/*WDT_EINT */
-			<GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH 0>,
 			/*conn2ap_sw_irq*/
-			<GIC_SPI 379 IRQ_TYPE_LEVEL_HIGH>;
+			<GIC_SPI 379 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6833_POWER_DOMAIN_CONN>;
 		pmic = <&pmic>;
 		/*clocks = <&infracfg_ao_clk CLK_IFRAO_CCIF4_AP>;*/
@@ -2808,7 +2808,7 @@
 		compatible = "mediatek,therm_ctrl";
 		reg = <0 0x1100b000 0 0x1000>;
 		interrupts =
-			<GIC_SPI 169 IRQ_TYPE_LEVEL_HIGH>;
+			<GIC_SPI 169 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&infracfg_ao_clk CLK_IFRAO_THERM>;
 		clock-names = "therm-main";
 	};
@@ -6235,7 +6235,7 @@
 	eem_fsm: eem_fsm@11278000 {
 		compatible = "mediatek,eem_fsm";
 		reg = <0 0x11278000 0 0x1000>;
-		interrupts = <GIC_SPI 168 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 168 IRQ_TYPE_LEVEL_HIGH 0>;
 		eem-status = <1>;
 		sn-status = <1>;
 		eem-initmon-little = <0xff>;
