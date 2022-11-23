@@ -40,9 +40,7 @@
 #include <net/net_namespace.h>
 #include <linux/netlink.h>
 
-#if IS_ENABLED(CONFIG_SCSI_UFS_MEDIATEK)
 #include "ufs-mediatek.h"
-#endif
 
 #if IS_ENABLED(CONFIG_MMC_MTK_PRO)
 #include <uapi/linux/mmc/ioctl.h>
@@ -381,10 +379,13 @@ static void rpmb_dump_frame(u8 *data_frame)
 	MSG(DBG_INFO, "type, frame[511] = 0x%x\n", data_frame[511]);
 }
 
+#if IS_ENABLED(CONFIG_SCSI_UFS_MEDIATEK)
 static struct rpmb_frame *rpmb_alloc_frames(unsigned int cnt)
 {
 	return kzalloc(sizeof(struct rpmb_frame) * cnt, 0);
 }
+#endif
+
 
 #ifdef __RPMB_KERNEL_NL_SUPPORT
 static int nl_rpmb_cmd_req(const struct rpmb_data *rpmbd)
@@ -1616,7 +1617,7 @@ error:
 
 	mmc_put_card(card, NULL);
 
-	/* rpmb_dump_frame(rpmb_req->data_frame); */
+	rpmb_dump_frame(rpmb_req->data_frame);
 	vfree(part_md);
 	return ret;
 }
