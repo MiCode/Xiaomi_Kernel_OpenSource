@@ -490,6 +490,7 @@ static int mt6358_regulator_set_mode(struct regulator_dev *rdev,
 		val = MT6358_BUCK_MODE_AUTO;
 		break;
 	default:
+		dev_dbg(&rdev->dev, "%s set mode fail\n", __func__);
 		return -EINVAL;
 	}
 
@@ -521,6 +522,7 @@ static unsigned int mt6358_regulator_get_mode(struct regulator_dev *rdev)
 	case MT6358_BUCK_MODE_FORCE_PWM:
 		return REGULATOR_MODE_FAST;
 	default:
+		dev_dbg(&rdev->dev, "%s get mode fail\n", __func__);
 		return -EINVAL;
 	}
 }
