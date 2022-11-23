@@ -56,13 +56,13 @@
 	/* chosen */
 	chosen: chosen {
 		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
-			earlycon=uart8250,mmio32,0x11002000 \
 			8250.nr_uarts=4 \
 			vmalloc=400M swiotlb=noforce \
 			firmware_class.path=/vendor/firmware \
 			androidboot.hardware=mt6833 \
 			transparent_hugepage=never \
-			initcall_debug=1 pelt=8";
+			initcall_debug=1 pelt=8 \
+			rodata=0";
 		kaslr-seed = <0 0>;
 	};
 
