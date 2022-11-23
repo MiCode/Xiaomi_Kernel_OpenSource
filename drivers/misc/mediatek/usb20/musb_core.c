@@ -3146,16 +3146,26 @@ static void usb_dpidle_request(int mode)
 
 #if IS_ENABLED(CONFIG_USB_MTK_OTG)
 static struct regmap *pericfg;
+static struct regmap *infracg;
+
 static u32 uwk_vers;
 
 enum musb_uwk_vers {
 	MUSB_UWK_V1 = 1,  /* MT6855 */
-	MUSB_UWK_V2,
+	MUSB_UWK_V2,      /* MT6789 */
 };
 
 /* MT6855 */
 #define USB_WAKEUP_DEC_CON1     0x214
 #define USB1_CDEN               BIT(0)
+
+/* MT6789 */
+#define USB_WK_CTRL		0x420
+#define USB_CDEN		BIT(6)
+#define USB_IP_SLEEP		BIT(12)
+#define USB_CDDEBOUNCE(x)	(((x) & 0xf) << 28)
+#define MISC_CONFIG		0xf08
+#define USB_CD_CLR		BIT(7)
 
 static void mt_usb_wakeup(struct musb *musb, bool enable)
 {
@@ -3191,6 +3201,25 @@ static void mt_usb_wakeup(struct musb *musb, bool enable)
 			tmp |= USB1_CDEN;
 			regmap_write(pericfg, USB_WAKEUP_DEC_CON1, tmp);
 			break;
+		case MUSB_UWK_V2:
+			if (pericfg == NULL || infracg == NULL)
+				return;
+			regmap_read(infracg, MISC_CONFIG, &tmp);
+			tmp |= USB_CD_CLR;
+			regmap_write(infracg, MISC_CONFIG, tmp);
+
+			mdelay(5);
+
+			regmap_read(pericfg, USB_WK_CTRL, &tmp);
+			tmp |= USB_CDDEBOUNCE(0x8) | USB_CDEN;
+			regmap_write(pericfg, USB_WK_CTRL, tmp);
+
+			mdelay(5);
+
+			regmap_read(infracg, MISC_CONFIG, &tmp);
+			tmp &= ~USB_CD_CLR;
+			regmap_write(infracg, MISC_CONFIG, tmp);
+			break;
 		default:
 			return;
 		}
@@ -3202,6 +3231,13 @@ static void mt_usb_wakeup(struct musb *musb, bool enable)
 			regmap_read(pericfg, USB_WAKEUP_DEC_CON1, &tmp);
 			tmp &= ~(USB1_CDEN);
 			regmap_write(pericfg, USB_WAKEUP_DEC_CON1, tmp);
+			break;
+		case MUSB_UWK_V2:
+			if (pericfg == NULL)
+				return;
+			regmap_read(pericfg, USB_WK_CTRL, &tmp);
+			tmp &= ~(USB_CDEN | USB_CDDEBOUNCE(0x8));
+			regmap_write(pericfg, USB_WK_CTRL, tmp);
 			break;
 		default:
 			return;
@@ -3229,6 +3265,8 @@ static int mt_usb_wakeup_init(struct musb *musb)
 		DBG(0, "Support remote wakeup\n");
 		if (of_device_is_compatible(node, "mediatek,mt6855-usb20"))
 			uwk_vers = 1;
+		else if (of_device_is_compatible(node, "mediatek,mt6789-usb20"))
+			uwk_vers = 2;
 		else
 			return -EINVAL;
 		/* Add another platform with specific uwk_vers here  */
@@ -3243,6 +3281,14 @@ static int mt_usb_wakeup_init(struct musb *musb)
 	if (IS_ERR(pericfg)) {
 		DBG(0, "fail to get pericfg regs\n");
 		pericfg = NULL;
+	}
+
+	infracg = syscon_regmap_lookup_by_phandle(node,
+					"infracg");
+
+	if (IS_ERR(infracg)) {
+		DBG(0, "fail to get infracg regs\n");
+		infracg = NULL;
 	}
 
 	DBG(0, "usb wakeup init successful");
