@@ -67,3 +67,10 @@ ufshcd-crypto-qti.ko
 crypto-qti-tz.ko
 qcom_logbuf_vh.ko
 mem-hooks.ko
+soc_sleep_stats.ko
+boot_stats.ko
+pcs_xpcs.ko
+micrel.ko
+stmmac.ko
+stmmac-platform.ko
+dwmac-qcom-eth.ko
