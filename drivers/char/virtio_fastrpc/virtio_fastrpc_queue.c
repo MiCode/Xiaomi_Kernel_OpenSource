@@ -19,8 +19,8 @@ void *get_a_tx_buf(struct vfastrpc_file *vfl)
 	 * either pick the next unused tx buffer
 	 * (half of our buffers are used for sending messages)
 	 */
-	if (me->last_sbuf < me->num_bufs / 2)
-		ret = me->sbufs + me->buf_size * me->last_sbuf++;
+	if (me->last_sbuf < me->num_bufs)
+		ret = me->sbufs[me->last_sbuf++];
 	/* or recycle a used one */
 	else
 		ret = virtqueue_get_buf(me->svq.vq, &len);
