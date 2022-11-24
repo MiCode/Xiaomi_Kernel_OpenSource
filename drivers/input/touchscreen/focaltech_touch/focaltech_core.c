@@ -97,6 +97,7 @@ static void fts_ts_panel_notifier_callback(enum panel_event_notifier_tag tag,
 static struct ft_chip_t ctype[] = {
 	{0x88, 0x56, 0x52, 0x00, 0x00, 0x00, 0x00, 0x56, 0xB2},
 	{0x81, 0x54, 0x52, 0x54, 0x52, 0x00, 0x00, 0x54, 0x5C},
+	{0x1C, 0x87, 0x26, 0x87, 0x20, 0x87, 0xA0, 0x00, 0x00},
 };
 
 /*****************************************************************************
@@ -2732,8 +2733,7 @@ static int fts_ts_probe_delayed(struct fts_ts_data *fts_data)
 	}
 #endif
 
-	if (!FTS_CHIP_IDC(fts_data->pdata->type))
-		fts_reset_proc(200);
+	fts_reset_proc(200);
 
 	ret = fts_get_ic_information(fts_data);
 	if (ret) {
@@ -2870,11 +2870,25 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
 	fts_ts_trusted_touch_init(ts_data);
 	mutex_init(&(ts_data->fts_clk_io_ctrl_mutex));
 #endif
+
+#ifndef CONFIG_ARCH_QTI_VM
+	if (ts_data->pdata->type == _FT8726) {
+		atomic_set(&ts_data->delayed_vm_probe_pending, 1);
+		ts_data->suspended = true;
+	} else {
+		ret = fts_ts_probe_delayed(ts_data);
+		if (ret) {
+			FTS_ERROR("Failed to enable resources\n");
+			goto err_probe_delayed;
+		}
+	}
+#else
 	ret = fts_ts_probe_delayed(ts_data);
 	if (ret) {
 		FTS_ERROR("Failed to enable resources\n");
 		goto err_probe_delayed;
 	}
+#endif
 
 #if defined(CONFIG_DRM)
 	if (ts_data->ts_workqueue)
@@ -3037,6 +3051,7 @@ static int fts_ts_suspend(struct device *dev)
 static int fts_ts_resume(struct device *dev)
 {
 	struct fts_ts_data *ts_data = fts_data;
+	int ret = 0;
 
 	FTS_FUNC_ENTER();
 	if (!ts_data->suspended) {
@@ -3050,6 +3065,18 @@ static int fts_ts_resume(struct device *dev)
 		wait_for_completion_interruptible(
 			&ts_data->trusted_touch_powerdown);
 #endif
+
+	if (ts_data->pdata->type == _FT8726 &&
+			atomic_read(&ts_data->delayed_vm_probe_pending)) {
+		ret = fts_ts_probe_delayed(ts_data);
+		if (ret) {
+			FTS_ERROR("Failed to enable resources\n");
+			return ret;
+		}
+		ts_data->suspended = false;
+		atomic_set(&ts_data->delayed_vm_probe_pending, 0);
+		return ret;
+	}
 
 	mutex_lock(&ts_data->transition_lock);
 

@@ -57,6 +57,7 @@
 #define _FT7250             0x7250081A
 #define _FT7120             0x7120081B
 #define _FT8720             0x8720081C
+#define _FT8726             0x8726081C
 #define _FT8016             0x8016081D
 
 
@@ -228,7 +229,7 @@
 /*
  * Numbers of modules support
  */
-#define FTS_GET_MODULE_NUM                      0
+#define FTS_GET_MODULE_NUM                      2
 
 /*
  * module_id: mean vendor_id generally, also maybe gpio or lcm_id...
@@ -238,7 +239,7 @@
  * FTS_GET_MODULE_NUM >= 3, compatible with FTS_MODULE3_ID
  */
 #define FTS_MODULE_ID                          0x0000
-#define FTS_MODULE2_ID                         0x0000
+#define FTS_MODULE2_ID                         0xd566
 #define FTS_MODULE3_ID                         0x0000
 
 /*
@@ -250,7 +251,7 @@
  * etc/firmware or by customers
  */
 #define FTS_MODULE_NAME                        "gvo"
-#define FTS_MODULE2_NAME                       ""
+#define FTS_MODULE2_NAME                       "jdi"
 #define FTS_MODULE3_NAME                       ""
 
 /*
