@@ -72,6 +72,8 @@
   blk_freeze_queue_start
   blk_get_queue
   blk_get_request
+  blk_ksm_get_slot_idx
+  blk_ksm_register
   blk_mark_disk_dead
   blk_mq_alloc_request
   blk_mq_alloc_request_hctx
