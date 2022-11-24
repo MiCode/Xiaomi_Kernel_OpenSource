@@ -2142,6 +2142,7 @@
   __traceiter_android_vh_check_hibernation_swap
   __traceiter_android_vh_check_uninterruptible_tasks
   __traceiter_android_vh_check_uninterruptible_tasks_dn
+  __traceiter_android_vh_cma_alloc_retry
   __traceiter_android_vh_cpu_idle_enter
   __traceiter_android_vh_cpu_idle_exit
   __traceiter_android_vh_cpuidle_psci_enter
@@ -2254,6 +2255,7 @@
   __tracepoint_android_vh_check_hibernation_swap
   __tracepoint_android_vh_check_uninterruptible_tasks
   __tracepoint_android_vh_check_uninterruptible_tasks_dn
+  __tracepoint_android_vh_cma_alloc_retry
   __tracepoint_android_vh_cpu_idle_enter
   __tracepoint_android_vh_cpu_idle_exit
   __tracepoint_android_vh_cpuidle_psci_enter
