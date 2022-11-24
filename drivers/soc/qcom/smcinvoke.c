@@ -1158,7 +1158,7 @@ static void process_tzcb_req(void *buf, size_t buf_len, struct file **arr_filp)
 	timeout_jiff = msecs_to_jiffies(1000);
 
 	while (cbobj_retries < CBOBJ_MAX_RETRIES) {
-		ret = wait_event_interruptible_timeout(srvr_info->rsp_wait_q,
+		ret = wait_event_timeout(srvr_info->rsp_wait_q,
 				(cb_txn->state == SMCINVOKE_REQ_PROCESSED) ||
 				(srvr_info->state == SMCINVOKE_SERVER_STATE_DEFUNCT),
 				timeout_jiff);
