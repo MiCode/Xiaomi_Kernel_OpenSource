@@ -426,6 +426,20 @@ config TI_K3_R5_REMOTEPROC
 	  It's safe to say N here if you're not interested in utilizing
 	  a slave processor.
 
+config QCOM_RPROC_SLATE
+	tristate "QCOM Slate remoteproc support"
+	depends on OF && ARCH_QCOM
+	select QCOM_PIL_INFO
+	select QCOM_MDT_LOADER
+	select QCOM_RPROC_COMMON
+	select QCOM_SCM
+	help
+	  Say y here to support the TrustZone based Peripheral Image Loader
+	  for the QCOM Slate.
+
+	  It's safe to say N here if you're not intereseted in utilizing
+	  a aon processor slate.
+
 endif # REMOTEPROC
 
 endmenu
