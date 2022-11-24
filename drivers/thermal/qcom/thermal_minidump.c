@@ -26,6 +26,9 @@ int thermal_minidump_update_data(struct minidump_data *md,
 	char *type, int *temp)
 {
 	int ret;
+	unsigned long flags;
+
+	spin_lock_irqsave(&md->update_md_lock, flags);
 
 	if (md->md_count == MD_NUM)
 		md->md_count = 0;
@@ -36,6 +39,9 @@ int thermal_minidump_update_data(struct minidump_data *md,
 	md->md_count++;
 
 	ret = msm_minidump_update_region(md->region, &md->md_entry);
+
+	spin_unlock_irqrestore(&md->update_md_lock, flags);
+
 	if (ret < 0)
 		pr_err("Failed to update data to minidump, ret:%d\n", ret);
 
@@ -60,7 +66,7 @@ struct minidump_data *thermal_minidump_register(const char *name)
 {
 	struct minidump_data *md;
 
-	md = kmalloc(sizeof(*md), GFP_KERNEL);
+	md = kzalloc(sizeof(*md), GFP_KERNEL);
 	if (!md)
 		return NULL;
 
@@ -73,8 +79,12 @@ struct minidump_data *thermal_minidump_register(const char *name)
 		kfree(md);
 		md = NULL;
 		pr_err("Failed to add %s into minidump\n", name);
+		goto exit;
 	}
 
+	spin_lock_init(&md->update_md_lock);
+
+exit:
 	return md;
 }
 EXPORT_SYMBOL(thermal_minidump_register);
