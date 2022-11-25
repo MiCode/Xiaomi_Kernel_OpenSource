@@ -311,6 +311,7 @@ enum cnss_driver_state {
 	CNSS_DAEMON_CONNECTED,
 	CNSS_PCI_PROBE_DONE,
 	CNSS_DRIVER_REGISTER,
+	CNSS_FS_READY,
 };
 
 struct cnss_recovery_data {
