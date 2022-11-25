@@ -563,7 +563,7 @@ static struct clk_branch disp_cc_mdss_mdp_clk = {
 
 static struct clk_branch disp_cc_mdss_mdp_lut1_clk = {
 	.halt_reg = 0xa014,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_VOTED,
 	.clkr = {
 		.enable_reg = 0xa014,
 		.enable_mask = BIT(0),
@@ -581,7 +581,7 @@ static struct clk_branch disp_cc_mdss_mdp_lut1_clk = {
 
 static struct clk_branch disp_cc_mdss_mdp_lut_clk = {
 	.halt_reg = 0x8018,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_VOTED,
 	.clkr = {
 		.enable_reg = 0x8018,
 		.enable_mask = BIT(0),
