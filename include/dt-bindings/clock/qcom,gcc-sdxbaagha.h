@@ -76,6 +76,7 @@
 #define GCC_USB_PHY_CFG_AHB2PHY_CLK				66
 #define GCC_XO_DIV4_CLK						67
 #define GCC_XO_PCIE_LINK_CLK					68
+#define GCC_BOOT_ROM_AHB_CLK					69
 
 /* GCC resets */
 #define GCC_EMAC0_BCR						0
