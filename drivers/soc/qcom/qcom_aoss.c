@@ -58,6 +58,14 @@ struct qmp_cooling_device {
 	bool state;
 };
 
+struct qmp_rx_client {
+	size_t rx_offset;
+	size_t rx_size;
+	void *rx_buf;
+	void *rx_priv;
+	qmp_rx_cb_t rx_cb;
+};
+
 /**
  * struct qmp - driver state for QMP implementation
  * @msgram: iomem referencing the message RAM used for communication
@@ -81,6 +89,8 @@ struct qmp {
 
 	size_t offset;
 	size_t size;
+
+	struct qmp_rx_client qmp_rx;
 
 	wait_queue_head_t event;
 
@@ -152,9 +162,20 @@ static int qmp_open(struct qmp *qmp)
 	qmp->offset = readl(qmp->msgram + QMP_DESC_MCORE_MBOX_OFFSET);
 	qmp->size = readl(qmp->msgram + QMP_DESC_MCORE_MBOX_SIZE);
 	if (!qmp->size) {
-		dev_err(qmp->dev, "invalid mailbox size\n");
+		dev_err(qmp->dev, "invalid tx mailbox size\n");
 		return -EINVAL;
 	}
+
+	qmp->qmp_rx.rx_offset = readl(qmp->msgram + QMP_DESC_UCORE_MBOX_OFFSET);
+	qmp->qmp_rx.rx_size = readl(qmp->msgram + QMP_DESC_UCORE_MBOX_SIZE);
+	if (!qmp->qmp_rx.rx_size) {
+		dev_err(qmp->dev, "invalid rx mailbox size\n");
+		return -EINVAL;
+	}
+
+	qmp->qmp_rx.rx_buf = devm_kzalloc(qmp->dev, qmp->qmp_rx.rx_size, GFP_KERNEL);
+	if (!qmp->qmp_rx.rx_buf)
+		return -ENOMEM;
 
 	/* Ack remote core's link state */
 	val = readl(qmp->msgram + QMP_DESC_UCORE_LINK_STATE);
@@ -214,8 +235,22 @@ static void qmp_close(struct qmp *qmp)
 static irqreturn_t qmp_intr(int irq, void *data)
 {
 	struct qmp *qmp = data;
+	u32 len;
 
 	AOSS_INFO("\n");
+
+	len = readl_relaxed(qmp->msgram + qmp->qmp_rx.rx_offset);
+	if (len) {
+		len = ALIGN(len, 4);
+		__ioread32_copy(qmp->qmp_rx.rx_buf,
+				qmp->msgram + qmp->qmp_rx.rx_offset + sizeof(u32),
+				len / sizeof(u32));
+		if (qmp->qmp_rx.rx_cb)
+			qmp->qmp_rx.rx_cb(qmp->qmp_rx.rx_buf, qmp->qmp_rx.rx_priv, len);
+		writel_relaxed(0, qmp->msgram + qmp->qmp_rx.rx_offset);
+		qmp_kick(qmp);
+	}
+
 	wake_up_all(&qmp->event);
 
 	return IRQ_HANDLED;
@@ -225,6 +260,25 @@ static bool qmp_message_empty(struct qmp *qmp)
 {
 	return readl(qmp->msgram + qmp->offset) == 0;
 }
+
+int qmp_register_rx_cb(struct qmp *qmp, void *priv, qmp_rx_cb_t cb)
+{
+	if (!qmp) {
+		pr_err("Invalid qmp handle\n");
+		return -EINVAL;
+	}
+	AOSS_INFO("Registering RX callback\n");
+
+	qmp->qmp_rx.rx_priv = priv;
+
+	if (qmp->qmp_rx.rx_cb)
+		return -EINVAL;
+
+	qmp->qmp_rx.rx_cb = cb;
+
+	return 0;
+}
+EXPORT_SYMBOL(qmp_register_rx_cb);
 
 /**
  * qmp_send() - send a message to the AOSS
