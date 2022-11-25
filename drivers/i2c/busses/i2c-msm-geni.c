@@ -350,7 +350,7 @@ static int do_pending_cancel(struct geni_i2c_dev *gi2c)
 		}
 	}
 	gi2c->prev_cancel_pending = false;
-	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+	I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 		"%s: Pending Cancel done\n", __func__);
 	return timeout;
 }
@@ -1335,7 +1335,7 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 			/* WAR: Set flag to mark cancel pending if IOS bad */
 			geni_ios = geni_read_reg_nolog(gi2c->base, SE_GENI_IOS);
 			if ((geni_ios & 0x3) != 0x3) { //SCL:b'1, SDA:b'0
-				I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+				I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 					"%s: IO lines not in good state\n",
 					__func__);
 				/* doing pending cancel only rtl based SE's */
@@ -1346,11 +1346,11 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 			}
 		} else {
 			if (msgs[i].flags & I2C_M_RD)
-				I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+				I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 				"%s: Read operation completed for len:%d\n",
 				__func__, msgs[i].len);
 			else
-				I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+				I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 				"%s:Write operation completed for len:%d\n",
 				__func__,  msgs[i].len);
 		}
@@ -1360,7 +1360,7 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 				/* WAR: Set flag to mark cancel pending if IOS bad */
 				geni_ios = geni_read_reg_nolog(gi2c->base, SE_GENI_IOS);
 				if ((geni_ios & 0x3) != 0x3) { //SCL:b'1, SDA:b'0
-					I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+					I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 						"%s: IO lines not in good state\n",
 						__func__);
 					gi2c->prev_cancel_pending = true;
