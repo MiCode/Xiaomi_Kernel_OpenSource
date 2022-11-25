@@ -27,6 +27,7 @@
 #include <linux/regulator/consumer.h>
 #include <asm/dma.h>
 #include <linux/dma-mapping.h>
+#include <linux/remoteproc.h>
 #include <linux/remoteproc/qcom_rproc.h>
 
 #include "slatecom_rpmsg.h"
@@ -155,6 +156,7 @@ static  struct   slatecom_open_config_type   config_type;
 static DECLARE_COMPLETION(slate_modem_down_wait);
 static DECLARE_COMPLETION(slate_adsp_down_wait);
 static struct srcu_notifier_head slatecom_notifier_chain;
+static struct platform_device *slate_pdev;
 
 static ssize_t slate_bt_state_sysfs_read
 			(struct class *class, struct class_attribute *attr, char *buf)
@@ -400,6 +402,75 @@ static int slatechar_write_cmd(struct slate_ui_data *fui_obj_msg, unsigned int t
 	return ret;
 }
 
+static int slatecom_fw_load(struct slatedaemon_priv *priv)
+{
+	struct platform_device *pdev = NULL;
+	int ret;
+	const char *firmware_name = NULL;
+	phandle rproc_phandle;
+
+	pdev = slate_pdev;
+
+	if (!pdev) {
+		pr_err("%s: Platform device null\n", __func__);
+		goto fail;
+	}
+
+	if (!pdev->dev.of_node) {
+		pr_err("%s: Device tree information missing\n", __func__);
+		goto fail;
+	}
+
+	ret = of_property_read_string(pdev->dev.of_node,
+		"qcom,firmware-name", &firmware_name);
+	if (ret < 0) {
+		pr_err("can't get fw name.\n");
+		goto fail;
+	}
+
+	if (!priv->pil_h) {
+		if (of_property_read_u32(pdev->dev.of_node, "qcom,rproc-handle",
+					 &rproc_phandle)) {
+			pr_err("error reading rproc phandle\n");
+			goto fail;
+		}
+
+		priv->pil_h = rproc_get_by_phandle(rproc_phandle);
+		if (!priv->pil_h) {
+			pr_err("rproc not found\n");
+			goto fail;
+		}
+	}
+
+	ret = rproc_boot(priv->pil_h);
+	if (ret) {
+		pr_err("%s: rproc boot failed, err: %d\n",
+			__func__, ret);
+		goto fail;
+	}
+
+	pr_err("%s: SLATE image is loaded\n", __func__);
+	return 0;
+
+fail:
+	pr_err("%s: SLATE image loading failed\n", __func__);
+	return -EFAULT;
+}
+
+static void slatecom_fw_unload(struct slatedaemon_priv *priv)
+{
+	if (!priv) {
+		pr_err("%s: handle not found\n", __func__);
+		return;
+	}
+
+	if (priv->pil_h) {
+		pr_err("%s: calling subsystem put\n", __func__);
+		rproc_shutdown(priv->pil_h);
+		priv->pil_h = NULL;
+	}
+}
+
 int slate_soft_reset(void)
 {
 	pr_debug("do SLATE reset using gpio %d\n", slatereset_gpio);
@@ -582,10 +653,17 @@ static long slate_com_ioctl(struct file *filp,
 		ret = 0;
 		break;
 	case SLATE_LOAD:
-		pr_err("cmd SLATE_LOAD depricated\n");
+		ret = 0;
+		if (dev->pil_h) {
+			pr_err("slate is already loaded\n");
+			ret = -EFAULT;
+			break;
+		}
+		ret = slatecom_fw_load(dev);
 		break;
 	case SLATE_UNLOAD:
-		pr_err("cmd SLATE_UNLOAD depricated\n");
+		slatecom_fw_unload(dev);
+		ret = 0;
 		break;
 	case DEVICE_STATE_TRANSITION:
 		if (dev->slatecom_current_state != SLATECOM_STATE_GLINK_OPEN) {
@@ -787,6 +865,7 @@ static int slate_daemon_probe(struct platform_device *pdev)
 		return -ENODEV;
 	dev->platform_dev = &pdev->dev;
 	pr_info("%s success\n", __func__);
+	slate_pdev = pdev;
 
 	ssr_register();
 
