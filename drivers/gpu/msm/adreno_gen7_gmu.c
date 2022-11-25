@@ -1045,7 +1045,8 @@ static int _map_gmu_dynamic(struct gen7_gmu_device *gmu,
 
 	spin_lock(&vma->lock);
 	vma_node = find_va(vma, md->gmuaddr, md->size);
-	rb_erase(&vma_node->node, &vma->vma_root);
+	if (vma_node)
+		rb_erase(&vma_node->node, &vma->vma_root);
 	spin_unlock(&vma->lock);
 	kfree(vma_node);
 
