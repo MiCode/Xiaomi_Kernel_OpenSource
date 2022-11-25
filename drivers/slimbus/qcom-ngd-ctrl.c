@@ -1103,8 +1103,7 @@ static int qcom_slim_ngd_xfer_msg_sync(struct slim_controller *ctrl,
 	if (ret < 0) {
 		SLIM_ERR(dev, "SLIM %s: PM get_sync failed ret :%d count:%d TID:%d\n",
 		__func__, ret, atomic_read(&ctrl->dev->power.usage_count), txn->tid);
-		pm_runtime_put_sync(ctrl->dev);
-		return ret;
+		goto err;
 	}
 
 	SLIM_INFO(dev, "SLIM %s: PM get_sync count:%d TID:%d\n",
@@ -1114,20 +1113,25 @@ static int qcom_slim_ngd_xfer_msg_sync(struct slim_controller *ctrl,
 
 	ret = qcom_slim_ngd_xfer_msg(ctrl, txn);
 	if (ret) {
-		pm_runtime_put_sync(ctrl->dev);
-		SLIM_INFO(dev, "SLIM %s: PM put_sync count:%d TID:%d\n",
-		__func__, atomic_read(&ctrl->dev->power.usage_count), txn->tid);
-		return ret;
+		SLIM_INFO(dev, "SLIM %s: xfer_msg failed PM put count:%d TID:%d\n",
+			  __func__, atomic_read(&ctrl->dev->power.usage_count), txn->tid);
+		goto err;
 	}
 
 	timeout = wait_for_completion_timeout(&done, HZ);
 	if (!timeout) {
-		pm_runtime_put_sync(ctrl->dev);
 		SLIM_WARN(dev, "TX sync timed out:MC:0x%x,mt:0x%x", txn->mc,
 				txn->mt);
-		return -ETIMEDOUT;
+		ret = -ETIMEDOUT;
+		goto err;
 	}
 	return 0;
+
+err:
+	pm_runtime_put_noidle(ctrl->dev);
+	/* Set device in suspended since resume failed */
+	pm_runtime_set_suspended(ctrl->dev);
+	return ret;
 }
 
 static int qcom_slim_calc_coef(struct slim_stream_runtime *rt, int *exp)
