@@ -501,6 +501,24 @@ static void qmp_recv_data(struct qmp_mbox *mbox, u32 mbox_of)
 	send_irq(mbox->mdev);
 }
 
+void qmp_rx_callback(void *rx_bf, void *priv, u32 len)
+{
+	struct qmp_mbox *mbox = NULL;
+	struct qmp_pkt pkt;
+
+	if (!rx_bf || !priv || !len) {
+		pr_err("Invalid packet\n");
+		return;
+	}
+
+	mbox = (struct qmp_mbox *)priv;
+	pkt.size = len;
+	pkt.data = rx_bf;
+
+	QMP_INFO(mbox->mdev->ilc, "rx_buf = %s\n", (char *)rx_bf);
+	mbox_chan_received_data(&mbox->ctrl.chans[mbox->idx_in_flight], &pkt);
+}
+
 /**
  * init_mcore_state() - initialize the mcore state of a mailbox.
  * @mdev:	mailbox device to be initialized.
@@ -806,6 +824,7 @@ static void qmp_shim_worker(struct work_struct *work)
 		if (!send)
 			continue;
 
+		mbox->idx_in_flight = i;
 		QMP_INFO(mdev->ilc, "Calling qmp_send msg:%s\n", pkt->data);
 		rc = qmp_send(mbox->mdev->qmp, pkt->data, pkt->size);
 
@@ -1051,6 +1070,8 @@ static int qmp_shim_init(struct platform_device *pdev, struct qmp_device *mdev)
 		return rc;
 	}
 	mdev_add_mbox(mdev, mbox);
+	qmp_register_rx_cb(mdev->qmp, (void *)mbox, qmp_rx_callback);
+
 	mdev->ilc = ipc_log_context_create(QMP_IPC_LOG_PAGE_CNT, mdev->name, 0);
 
 	return 0;
