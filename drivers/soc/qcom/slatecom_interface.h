@@ -158,5 +158,11 @@ static inline int send_wlan_state(enum WMSlateCtrlChnlOpcode type)
 }
 #endif
 
+#ifdef CONFIG_COMPAT
+long compat_slate_com_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
+#else
+#define compat_slate_com_ioctl NULL
+#endif
+
 #endif /* SLATECOM_INTERFACE_H */
 

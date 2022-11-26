@@ -29,7 +29,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/remoteproc.h>
 #include <linux/remoteproc/qcom_rproc.h>
-
+#include <linux/compat.h>
 #include "slatecom_rpmsg.h"
 
 #define SLATECOM "slate_com_dev"
@@ -606,8 +606,8 @@ static long slate_com_ioctl(struct file *filp,
 		return -EINVAL;
 
 	switch (ui_slatecom_cmd) {
-	case REG_READ:
-	case AHB_READ:
+	case SLATECOM_REG_READ:
+	case SLATECOM_AHB_READ:
 		if (copy_from_user(&ui_obj_msg, (void __user *) arg,
 				sizeof(ui_obj_msg))) {
 			pr_err("The copy from user failed\n");
@@ -618,8 +618,8 @@ static long slate_com_ioctl(struct file *filp,
 		if (ret < 0)
 			pr_err("slatechar_read_cmd failed\n");
 		break;
-	case AHB_WRITE:
-	case REG_WRITE:
+	case SLATECOM_AHB_WRITE:
+	case SLATECOM_REG_WRITE:
 		if (copy_from_user(&ui_obj_msg, (void __user *) arg,
 				sizeof(ui_obj_msg))) {
 			pr_err("The copy from user failed\n");
@@ -652,7 +652,7 @@ static long slate_com_ioctl(struct file *filp,
 		slate_app_running = true;
 		ret = 0;
 		break;
-	case SLATE_LOAD:
+	case SLATECOM_SLATE_LOAD:
 		ret = 0;
 		if (dev->pil_h) {
 			pr_err("slate is already loaded\n");
@@ -661,7 +661,7 @@ static long slate_com_ioctl(struct file *filp,
 		}
 		ret = slatecom_fw_load(dev);
 		break;
-	case SLATE_UNLOAD:
+	case SLATECOM_SLATE_UNLOAD:
 		slatecom_fw_unload(dev);
 		ret = 0;
 		break;
@@ -714,6 +714,13 @@ static long slate_com_ioctl(struct file *filp,
 		break;
 	}
 	return ret;
+}
+
+long compat_slate_com_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	unsigned int nr = _IOC_NR(cmd);
+
+	return (long)slate_com_ioctl(file, nr, arg);
 }
 
 static ssize_t slatecom_char_write(struct file *f, const char __user *buf,
@@ -892,6 +899,9 @@ static const struct file_operations fops = {
 	.write          = slatecom_char_write,
 	.release        = slatecom_char_close,
 	.unlocked_ioctl = slate_com_ioctl,
+	#ifdef CONFIG_COMPAT
+	.compat_ioctl   = compat_slate_com_ioctl,
+	#endif
 };
 
 /**
