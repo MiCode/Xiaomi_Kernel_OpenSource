@@ -991,6 +991,7 @@ static void cti_remove(struct amba_device *adev)
 	struct cti_drvdata *drvdata = dev_get_drvdata(&adev->dev);
 
 	mutex_lock(&ect_mutex);
+	cti_disable_hw(drvdata);
 	cti_remove_conn_xrefs(drvdata);
 	mutex_unlock(&ect_mutex);
 
