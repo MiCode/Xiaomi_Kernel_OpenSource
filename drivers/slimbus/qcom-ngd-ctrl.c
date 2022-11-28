@@ -136,6 +136,7 @@ enum qcom_slim_ngd_state {
 	QCOM_SLIM_NGD_CTRL_IDLE,
 	QCOM_SLIM_NGD_CTRL_ASLEEP,
 	QCOM_SLIM_NGD_CTRL_DOWN,
+	QCOM_SLIM_NGD_CTRL_SSR_GOING_DOWN,
 };
 
 struct qcom_slim_ngd_qmi {
@@ -501,6 +502,11 @@ static int qcom_slim_qmi_init(struct qcom_slim_ngd_ctrl *ctrl,
 	struct slimbus_select_inst_req_msg_v01 req;
 	struct qmi_handle *handle;
 	int rc;
+
+	if (ctrl->qmi.handle) {
+		SLIM_INFO(ctrl, "qmi handle already allocated\n");
+		return 0;
+	}
 
 	handle = devm_kzalloc(ctrl->dev, sizeof(*handle), GFP_KERNEL);
 	if (!handle)
@@ -971,6 +977,21 @@ static int qcom_slim_ngd_xfer_msg(struct slim_controller *sctrl,
 			txn->rl > SLIM_MSGQ_BUF_LEN) {
 		SLIM_ERR(ctrl, "msg exceeds HW limit\n");
 		return -EINVAL;
+	}
+
+	/*
+	 * As part of SSR/PDR notify when ngd is going down tx_lock is
+	 * acquired and is waiting for ctrl_lock. While in parallel for
+	 * slim_get_logical_addr request from codecs ctrl_lock is acquired
+	 * first followed by qcom_slim_ngd_xfer_msg.
+	 * In qcom_slim_ngd_xfer_msg check if tx lock is already acquired
+	 * as part of SSR/PDR notify and ngd is going down to avoid deadlock
+	 * scenario if there is a get logical address request.
+	 */
+	if (mutex_is_locked(&ctrl->tx_lock) &&
+			    ctrl->state == QCOM_SLIM_NGD_CTRL_SSR_GOING_DOWN) {
+		SLIM_ERR(ctrl, "ngd going down due SSR/PDR, try again!\n");
+		return -EAGAIN;
 	}
 
 	mutex_lock(&ctrl->tx_lock);
@@ -1754,8 +1775,6 @@ MODULE_DEVICE_TABLE(of, qcom_slim_ngd_dt_match);
 static void qcom_slim_ngd_down(struct qcom_slim_ngd_ctrl *ctrl)
 {
 	mutex_lock(&ctrl->ssr_lock);
-	device_for_each_child(ctrl->ctrl.dev, NULL,
-			      qcom_slim_ngd_update_device_status);
 	qcom_slim_ngd_enable(ctrl, false);
 	mutex_unlock(&ctrl->ssr_lock);
 }
@@ -1786,17 +1805,26 @@ static int qcom_slim_ngd_ssr_pdr_notify(struct qcom_slim_ngd_ctrl *ctrl,
 		/* Make sure the last dma xfer is finished */
 		mutex_lock(&ctrl->suspend_resume_lock);
 		mutex_lock(&ctrl->tx_lock);
+		SLIM_INFO(ctrl, "SLIM SSR Before Shutdown\n");
 		if (ctrl->state != QCOM_SLIM_NGD_CTRL_DOWN) {
+			ctrl->state = QCOM_SLIM_NGD_CTRL_SSR_GOING_DOWN;
+			SLIM_INFO(ctrl, "SLIM SSR going down\n");
 			pm_runtime_get_noresume(ctrl->ctrl.dev);
 			SLIM_INFO(ctrl, "SLIM %s: PM get_no_resume count:%d\n",
 				__func__, atomic_read(&ctrl->ctrl.dev->power.usage_count));
-			qcom_slim_ngd_down(ctrl);
+			device_for_each_child(ctrl->ctrl.dev, NULL,
+					      qcom_slim_ngd_update_device_status);
 			qcom_slim_ngd_exit_dma(ctrl);
 			ctrl->state = QCOM_SLIM_NGD_CTRL_DOWN;
 			SLIM_INFO(ctrl, "SLIM SSR down\n");
 		}
 		mutex_unlock(&ctrl->tx_lock);
 		mutex_unlock(&ctrl->suspend_resume_lock);
+
+		/* PDR must clean up everything as part of state down notification */
+		if (action == SERVREG_SERVICE_STATE_DOWN)
+			qcom_slim_ngd_down(ctrl);
+
 		break;
 	case QCOM_SSR_AFTER_POWERUP:
 	case SERVREG_SERVICE_STATE_UP:
@@ -1809,6 +1837,10 @@ static int qcom_slim_ngd_ssr_pdr_notify(struct qcom_slim_ngd_ctrl *ctrl,
 
 		schedule_work(&ctrl->ngd_up_work);
 		SLIM_INFO(ctrl, "SLIM SSR up\n");
+		break;
+	case QCOM_SSR_AFTER_SHUTDOWN:
+		SLIM_INFO(ctrl, "SLIM SSR After Shutdown\n");
+		qcom_slim_ngd_down(ctrl);
 		break;
 	default:
 		break;
