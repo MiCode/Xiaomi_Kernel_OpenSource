@@ -230,6 +230,7 @@ enum {
  * @intent_req_lock: Synchronises multiple intent requests
  * @intent_req_result: Result of intent request
  * @intent_req_comp: Completion for intent_req signalling
+ * @remote_close: Tracks remote initiated close request
  */
 struct glink_helioscom_channel {
 	struct rpmsg_endpoint ept;
@@ -263,6 +264,7 @@ struct glink_helioscom_channel {
 
 	struct completion intent_req_comp;
 	struct completion intent_alloc_comp;
+	bool remote_close;
 };
 
 struct rx_pkt {
@@ -317,6 +319,7 @@ glink_helioscom_alloc_channel(struct glink_helioscom *glink, const char *name)
 
 	channel->glink = glink;
 	channel->name = kstrdup(name, GFP_KERNEL);
+	channel->remote_close = false;
 
 	init_completion(&channel->open_req);
 	init_completion(&channel->open_ack);
@@ -989,10 +992,12 @@ static void glink_helioscom_send_close_req(struct glink_helioscom *glink,
 		GLINK_ERR(glink, "transmit error:%d\n", ret);
 		return;
 	}
-	ret = wait_for_completion_timeout(&channel->close_ack, 2 * HZ);
-	if (!ret) {
-		GLINK_ERR(glink, "rx_close_ack timedout[%d]:[%d]\n",
-				 channel->rcid, channel->lcid);
+	if (!channel->remote_close) {
+		ret = wait_for_completion_timeout(&channel->close_ack, 2 * HZ);
+		if (!ret) {
+			GLINK_ERR(glink, "rx_close_ack timedout[%d]:[%d]\n",
+					channel->rcid, channel->lcid);
+		}
 	}
 }
 
@@ -1310,6 +1315,7 @@ static void glink_helioscom_rx_close(struct glink_helioscom *glink, unsigned int
 	mutex_unlock(&glink->idr_lock);
 	if (WARN(!channel, "close request on unknown channel\n"))
 		return;
+	channel->remote_close = true;
 	CH_INFO(channel, "\n");
 
 	/* Decouple the potential rpdev from the channel */
