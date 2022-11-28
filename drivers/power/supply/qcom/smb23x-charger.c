@@ -1759,6 +1759,7 @@ static int smb23x_usb_set_property(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  const union power_supply_propval *val)
 {
+	int rc = 0;
 	struct smb23x_chip *chip = power_supply_get_drvdata(psy);
 
 	switch (psp) {
