@@ -510,6 +510,9 @@ static int glink_helioscom_tx(struct glink_helioscom *glink, void *data,
 {
 	int ret = 0;
 
+	if (atomic_read(&glink->in_reset))
+		return -ENXIO;
+
 	mutex_lock(&glink->tx_lock);
 
 	while (glink_helioscom_tx_avail(glink) < dlen/WORD_SIZE) {
@@ -980,8 +983,12 @@ static void glink_helioscom_send_close_req(struct glink_helioscom *glink,
 	req.param1 = cpu_to_le16(channel->lcid);
 
 	CH_INFO(channel, "\n");
-	glink_helioscom_tx(glink, &req, sizeof(req), true);
 
+	ret = glink_helioscom_tx(glink, &req, sizeof(req), true);
+	if (ret < 0) {
+		GLINK_ERR(glink, "transmit error:%d\n", ret);
+		return;
+	}
 	ret = wait_for_completion_timeout(&channel->close_ack, 2 * HZ);
 	if (!ret) {
 		GLINK_ERR(glink, "rx_close_ack timedout[%d]:[%d]\n",
@@ -2120,6 +2127,7 @@ static int glink_helioscom_cleanup(struct glink_helioscom *glink)
 	/* Release any defunct local channels, waiting for close-ack */
 	idr_for_each_entry(&glink->lcids, channel, cid) {
 		/* Wakeup threads waiting for intent*/
+		complete(&channel->close_ack);
 		complete(&channel->intent_req_comp);
 		kref_put(&channel->refcount, glink_helioscom_channel_release);
 		idr_remove(&glink->lcids, cid);
