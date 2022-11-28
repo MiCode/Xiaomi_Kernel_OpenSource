@@ -255,6 +255,8 @@ struct glink_helioscom_channel {
 	struct completion open_ack;
 	struct completion open_req;
 
+	struct completion close_ack;
+
 	struct mutex intent_req_lock;
 	bool intent_req_result;
 	bool channel_ready;
@@ -318,6 +320,9 @@ glink_helioscom_alloc_channel(struct glink_helioscom *glink, const char *name)
 
 	init_completion(&channel->open_req);
 	init_completion(&channel->open_ack);
+
+	init_completion(&channel->close_ack);
+
 	init_completion(&channel->intent_req_comp);
 	init_completion(&channel->intent_alloc_comp);
 
@@ -968,6 +973,7 @@ static void glink_helioscom_send_version_ack(struct glink_helioscom *glink)
 static void glink_helioscom_send_close_req(struct glink_helioscom *glink,
 				     struct glink_helioscom_channel *channel)
 {
+	int ret;
 	struct glink_helioscom_msg req = { 0 };
 
 	req.cmd = cpu_to_le16(HELIOSCOM_CMD_CLOSE);
@@ -975,6 +981,12 @@ static void glink_helioscom_send_close_req(struct glink_helioscom *glink,
 
 	CH_INFO(channel, "\n");
 	glink_helioscom_tx(glink, &req, sizeof(req), true);
+
+	ret = wait_for_completion_timeout(&channel->close_ack, 2 * HZ);
+	if (!ret) {
+		GLINK_ERR(glink, "rx_close_ack timedout[%d]:[%d]\n",
+				 channel->rcid, channel->lcid);
+	}
 }
 
 /**
@@ -1256,6 +1268,8 @@ static void glink_helioscom_destroy_ept(struct rpmsg_endpoint *ept)
 	struct glink_helioscom *glink = channel->glink;
 	unsigned long flags;
 
+	CH_INFO(channel, "\n");
+
 	spin_lock_irqsave(&channel->recv_lock, flags);
 	if (!channel->ept.cb) {
 		spin_unlock_irqrestore(&channel->recv_lock, flags);
@@ -1337,6 +1351,7 @@ static void glink_helioscom_rx_close_ack(struct glink_helioscom *glink,
 
 		rpmsg_unregister_device(glink->dev, &chinfo);
 	}
+	complete_all(&channel->close_ack);
 	channel->rpdev = NULL;
 
 	kref_put(&channel->refcount, glink_helioscom_channel_release);
@@ -1480,6 +1495,7 @@ static int glink_helioscom_rx_open(struct glink_helioscom *glink, unsigned int r
 		create_device = true;
 	}
 
+	CH_INFO(channel, "start\n");
 	mutex_lock(&glink->idr_lock);
 	ret = idr_alloc(&glink->rcids, channel, rcid, rcid + 1, GFP_ATOMIC);
 	if (ret < 0) {
@@ -1516,7 +1532,7 @@ static int glink_helioscom_rx_open(struct glink_helioscom *glink, unsigned int r
 
 		channel->rpdev = rpdev;
 	}
-	CH_INFO(channel, "\n");
+	CH_INFO(channel, "end\n");
 
 	return 0;
 
