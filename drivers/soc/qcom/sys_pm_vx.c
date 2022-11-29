@@ -139,6 +139,14 @@ static const char * const drv_names_anorak[] = {
 	"MDM SW", "MDM HW", "WLAN RF", "WLAN BB", "DDR AUX", "ARC CPRF",
 	""
 };
+
+static const char * const drv_names_ravelin[] = {
+	"TZ", "L3", "HLOS", "HYP", "AUDIO", "AOP", "DEBUG", "RESERVED",
+	"DISPLAY", "RESERVED", "TME_HW", "TME_SW", "WPSS", "MDM SW",
+	"MDM HW", "WLAN RF", "WLAN BB", "DDR AUX", "ARC CPRF",
+	""
+};
+
 static ssize_t debug_time_ms_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
@@ -426,6 +434,8 @@ static const struct of_device_id drv_match_table[] = {
 	  .data = drv_names_neo },
 	{ .compatible = "qcom,sys-pm-anorak",
 	  .data = drv_names_anorak },
+	{ .compatible = "qcom,sys-pm-ravelin",
+	  .data = drv_names_ravelin },
 	{ }
 };
 
