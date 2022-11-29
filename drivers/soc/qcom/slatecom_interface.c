@@ -157,20 +157,21 @@ static DECLARE_COMPLETION(slate_modem_down_wait);
 static DECLARE_COMPLETION(slate_adsp_down_wait);
 static struct srcu_notifier_head slatecom_notifier_chain;
 static struct platform_device *slate_pdev;
+struct kobject *kobj_ref;
 
 static ssize_t slate_bt_state_sysfs_read
-			(struct class *class, struct class_attribute *attr, char *buf)
+			(struct kobject *class, struct kobj_attribute *attr, char *buf)
 {
 	return scnprintf(buf, BUF_SIZE, btss_state);
 }
 
 static ssize_t slate_dsp_state_sysfs_read
-			(struct class *class, struct class_attribute *attr, char *buf)
+			(struct kobject *class, struct kobj_attribute *attr, char *buf)
 {
 	return	scnprintf(buf, BUF_SIZE, dspss_state);
 }
 
-struct class_attribute slatecom_attr[] = {
+struct kobj_attribute slatecom_attr[] = {
 	{
 		.attr = {
 			.name = "slate_bt_state",
@@ -185,9 +186,6 @@ struct class_attribute slatecom_attr[] = {
 		},
 		.show	= slate_dsp_state_sysfs_read,
 	},
-};
-struct class slatecom_intf_class = {
-	.name = "slatecom"
 };
 
 /**
@@ -1218,15 +1216,14 @@ static int __init init_slate_com_dev(void)
 		return PTR_ERR(dev_ret);
 	}
 
-	ret = class_register(&slatecom_intf_class);
-	if (ret < 0) {
-		pr_err("Failed to register slatecom_intf_class rc=%d\n", ret);
-		return ret;
-	}
-
 	for (i = 0; i < SLATECOM_INTF_N_FILES; i++) {
-		if (class_create_file(&slatecom_intf_class, &slatecom_attr[i]))
+		kobj_ref = kobject_create_and_add(slatecom_attr[i].attr.name, kernel_kobj);
+		/*Creating sysfs file for power_state*/
+		if (sysfs_create_file(kobj_ref, &slatecom_attr[i].attr)) {
 			pr_err("%s: failed to create slate-bt/dsp entry\n", __func__);
+			kobject_put(kobj_ref);
+			sysfs_remove_file(kernel_kobj, &slatecom_attr[i].attr);
+		}
 	}
 
 	if (platform_driver_register(&slate_daemon_driver))
@@ -1241,12 +1238,12 @@ static void __exit exit_slate_com_dev(void)
 {
 	int i = 0;
 
+	kobject_put(kobj_ref);
+	for (i = 0; i < SLATECOM_INTF_N_FILES; i++)
+		sysfs_remove_file(kernel_kobj, &slatecom_attr[i].attr);
+
 	device_destroy(slate_class, slate_dev);
 	class_destroy(slate_class);
-	for (i = 0; i < SLATECOM_INTF_N_FILES; i++)
-		class_remove_file(&slatecom_intf_class, &slatecom_attr[i]);
-
-	class_unregister(&slatecom_intf_class);
 	cdev_del(&slate_cdev);
 	unregister_chrdev_region(slate_dev, 1);
 	platform_driver_unregister(&slate_daemon_driver);
