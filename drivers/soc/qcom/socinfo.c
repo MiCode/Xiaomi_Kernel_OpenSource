@@ -772,6 +772,43 @@ msm_get_ncluster_array_offset(struct device *dev,
 }
 ATTR_DEFINE(ncluster_array_offset);
 
+uint32_t
+socinfo_get_cluster_info(enum defective_cluster_type cluster)
+{
+	uint32_t def_cluster, num_cluster, offset;
+	void *cluster_val;
+	void *info = socinfo;
+
+	if (cluster >= NUM_CLUSTERS_MAX) {
+		pr_err("Bad cluster\n");
+		return -EINVAL;
+	}
+
+	num_cluster = socinfo_get_num_clusters();
+	offset = socinfo_get_ncluster_array_offset();
+
+	if (!num_cluster || !offset)
+		return -EINVAL;
+
+	info += offset;
+	cluster_val = info + (sizeof(uint32_t) * cluster);
+	def_cluster = get_unaligned_le32(cluster_val);
+
+	return def_cluster;
+}
+EXPORT_SYMBOL(socinfo_get_cluster_info);
+
+static ssize_t
+msm_get_defective_cores(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	uint32_t def_cluster = socinfo_get_cluster_info(CLUSTER_CPUSS);
+
+	return scnprintf(buf, PAGE_SIZE, "%x\n", def_cluster);
+}
+ATTR_DEFINE(defective_cores);
+
 static ssize_t
 msm_get_num_defective_parts(struct device *dev,
 		struct device_attribute *attr,
@@ -791,6 +828,60 @@ msm_get_ndefective_parts_array_offset(struct device *dev,
 			socinfo_get_ndefective_parts_array_offset());
 }
 ATTR_DEFINE(ndefective_parts_array_offset);
+
+static uint32_t
+socinfo_get_defective_parts(void)
+{
+	uint32_t num_parts = socinfo_get_num_defective_parts();
+	uint32_t offset = socinfo_get_ndefective_parts_array_offset();
+	uint32_t def_parts = 0;
+	void *info = socinfo;
+	uint32_t part_entry;
+	int i;
+
+	if (!num_parts || !offset)
+		return -EINVAL;
+
+	info += offset;
+	for (i = 0; i < num_parts; i++) {
+		part_entry = get_unaligned_le32(info);
+		if (part_entry)
+			def_parts |= BIT(i);
+		info += sizeof(uint32_t);
+	}
+	return def_parts;
+}
+
+bool
+socinfo_get_part_info(enum defective_part_type part)
+{
+	uint32_t partinfo;
+
+	if (part >= NUM_PARTS_MAX) {
+		pr_err("Bad part number\n");
+		return false;
+	}
+
+	partinfo = socinfo_get_defective_parts();
+	if (partinfo < 0) {
+		pr_err("Failed to get part information\n");
+		return false;
+	}
+
+	return (partinfo & BIT(part));
+}
+EXPORT_SYMBOL(socinfo_get_part_info);
+
+static ssize_t
+msm_get_defective_parts(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	uint32_t def_parts = socinfo_get_defective_parts();
+
+	return scnprintf(buf, PAGE_SIZE, "%x\n", def_parts);
+}
+ATTR_DEFINE(defective_parts);
 
 /* Version 15 */
 static ssize_t
@@ -1266,7 +1357,6 @@ __ATTR(select_image, 0644,
 static struct device_attribute images =
 __ATTR(images, 0444, msm_get_images, NULL);
 
-
 static umode_t soc_info_attribute(struct kobject *kobj,
 		struct attribute *attr,
 		int index)
@@ -1306,6 +1396,8 @@ static void socinfo_populate_sysfs(struct qcom_socinfo *qcom_socinfo)
 			&dev_attr_num_defective_parts.attr;
 		msm_custom_socinfo_attrs[i++] =
 			&dev_attr_ndefective_parts_array_offset.attr;
+		msm_custom_socinfo_attrs[i++] = &dev_attr_defective_cores.attr;
+		msm_custom_socinfo_attrs[i++] = &dev_attr_defective_parts.attr;
 	case SOCINFO_VERSION(0, 13):
 		msm_custom_socinfo_attrs[i++] = &dev_attr_nproduct_id.attr;
 		msm_custom_socinfo_attrs[i++] = &dev_attr_chip_id.attr;
