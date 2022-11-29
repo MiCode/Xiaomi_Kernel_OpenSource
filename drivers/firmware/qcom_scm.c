@@ -2249,6 +2249,7 @@ int qcom_scm_tsens_reinit(int *tsens_ret)
 	struct qcom_scm_desc desc = {
 		.svc = QCOM_SCM_SVC_TSENS,
 		.cmd = QCOM_SCM_TSENS_INIT_ID,
+		.owner = ARM_SMCCC_OWNER_SIP
 	};
 	struct qcom_scm_res res;
 
