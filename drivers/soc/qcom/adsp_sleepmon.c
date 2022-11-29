@@ -470,7 +470,7 @@ static int adspsleepmon_driver_probe(struct platform_device *pdev)
 static int current_audio_pid(struct dsppm_stats *curr_dsppm_stats)
 {
 	int i;
-	int curr_pid_audio, audio_pid_active = 0;
+	int curr_pid_audio = 0, audio_pid_active = 0;
 
 	for (i = 0; i < ADSPSLEEPMON_DSPPMSTATS_NUMPD; i++) {
 
@@ -538,19 +538,20 @@ static int adspsleepmon_worker(void *data)
 
 			curr_timestamp = __arch_counter_get_cntvct();
 
+			if (curr_timestamp >= g_adspsleepmon.backup_lpm_timestamp)
+				elapsed_time = (curr_timestamp -
+					 g_adspsleepmon.backup_lpm_timestamp);
+			else
+				elapsed_time = U64_MAX -
+					g_adspsleepmon.backup_lpm_timestamp +
+					curr_timestamp;
+
 			if (!g_adspsleepmon.timer_event && g_adspsleepmon.suspend_event) {
 				/*
 				 * Check if we have elapsed enough duration
 				 * to make a decision if it is not timer
 				 * event
 				 */
-				if (curr_timestamp >= g_adspsleepmon.backup_lpm_timestamp)
-					elapsed_time = (curr_timestamp -
-						 g_adspsleepmon.backup_lpm_timestamp);
-				else
-					elapsed_time = U64_MAX -
-						g_adspsleepmon.backup_lpm_timestamp +
-						curr_timestamp;
 
 				if (elapsed_time <
 					(g_adspsleepmon.lpm_wait_time *
