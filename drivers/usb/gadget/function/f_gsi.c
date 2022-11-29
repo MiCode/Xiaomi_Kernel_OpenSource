@@ -2169,8 +2169,12 @@ invalid:
 static void gsi_ctrl_cmd_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct f_gsi *gsi = req->context;
-	struct usb_composite_dev *cdev = gsi->function.config->cdev;
+	struct usb_composite_dev *cdev;
 
+	if (!gsi->function.config)
+		return;
+
+	cdev = gsi->function.config->cdev;
 	gsi_ctrl_send_cpkt_tomodem(gsi, req->buf, req->actual);
 	cdev->setup_pending = false;
 }
