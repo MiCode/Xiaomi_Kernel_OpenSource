@@ -79,6 +79,7 @@
 #define SLP_ENABLE                    BIT(0)
 #define WAKEUP_COMMAND                BIT(1)
 #define SLEEP_COMMAND                 BIT(0)
+#define WR_ENABLE                     BIT(1)
 #define SZ_7MB                        7168
 #define SZ_6MB                        6144
 #define ACTIVE_STATE                  0x0
@@ -103,6 +104,7 @@
 #define SPAD_LPI_LB_PCB_PWR_STATUS1    0x0058
 #define SPAD_LPI_LB_PCB_PWR_STATUS2    0x005C
 #define SPAD_LPI_LB_PCB_PWR_STATUS3    0x0060
+#define SPAD_LPI_LB_PRED_WAKEUP_EN     0x0284
 #define SPAD_LPI_LB_FF_CLK_ON_CTRL     0x1254
 
 static u32 llcc_offsets_v2[] = {
@@ -649,6 +651,12 @@ static int llcc_spad_act_slp_wake(void)
 			   lpi_val);
 	if (ret)
 		return ret;
+	lpi_reg = SPAD_LPI_LB_PRED_WAKEUP_EN;
+	lpi_val = WR_ENABLE;
+	ret = regmap_write(drv_data->spad_or_bcast_regmap, lpi_reg,
+			   lpi_val);
+	if (ret)
+		return ret;
 
 	/* As activity based sleep and wakeup tracks inflight transactions,
 	 * idle cycles etc for an PCB few other CSRs needs to be configured
@@ -710,6 +718,12 @@ static int llcc_spad_init(struct llcc_slice_desc *desc)
 	 * based sleep and wakeup.
 	 */
 	lpi_reg = SPAD_LPI_LB_PCB_ENABLE;
+	lpi_val = 0;
+	ret = regmap_write(drv_data->spad_or_bcast_regmap, lpi_reg,
+			   lpi_val);
+	if (ret)
+		return ret;
+	lpi_reg = SPAD_LPI_LB_PRED_WAKEUP_EN;
 	lpi_val = 0;
 	ret = regmap_write(drv_data->spad_or_bcast_regmap, lpi_reg,
 			   lpi_val);
