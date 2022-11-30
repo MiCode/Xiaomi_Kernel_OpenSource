@@ -230,6 +230,8 @@ SYM_FUNC_END_PI(__dma_flush_area)
  *	- dir	- DMA direction
  */
 SYM_FUNC_START_PI(__dma_map_area)
+	cmp	w2, #DMA_FROM_DEVICE
+	b.eq	__dma_flush_area
 	add	x1, x0, x1
 	b	__dma_clean_area
 SYM_FUNC_END_PI(__dma_map_area)
