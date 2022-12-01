@@ -1082,7 +1082,10 @@ static u32 base_sel;
 static u32 wr_offset;
 static u32 wr_mask;
 static u32 wr_value;
+
+#ifdef CONFIG_DEBUG_FS
 static u32 corr_counter_limit = 5;
+#endif
 
 /* CRC8 table for BDF to SID translation */
 static u8 msm_pcie_crc8_table[CRC8_TABLE_SIZE];
