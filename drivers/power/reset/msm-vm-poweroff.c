@@ -48,7 +48,7 @@ static int vm_restart_probe(struct platform_device *pdev)
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
 
 	restart_nb.notifier_call = do_vm_restart;
-	restart_nb.priority = 128;
+	restart_nb.priority = 200;
 	register_restart_handler(&restart_nb);
 
 	return 0;

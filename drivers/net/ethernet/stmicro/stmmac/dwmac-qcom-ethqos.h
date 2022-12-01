@@ -16,8 +16,8 @@
 #include <linux/uaccess.h>
 #include <linux/ipc_logging.h>
 
-#define QCOM_ETH_QOS_MAC_ADDR_LEN
-#define QCOM_ETH_QOS_MAC_ADDR_STR_LEN
+#define QCOM_ETH_QOS_MAC_ADDR_LEN 6
+#define QCOM_ETH_QOS_MAC_ADDR_STR_LEN 18
 
 extern void *ipc_stmmac_log_ctxt;
 extern void *ipc_stmmac_log_ctxt_low;
@@ -100,17 +100,27 @@ do {\
 #define ETHQOS_CONFIG_PPSOUT_CMD 44
 #define ETHQOS_AVB_ALGORITHM 27
 
-#define MAC_PPS_CONTROL			0x00000b70
 #define PPS_MAXIDX(x)			((((x) + 1) * 8) - 1)
 #define PPS_MINIDX(x)			((x) * 8)
 #define MCGRENX(x)			BIT(PPS_MAXIDX(x))
 #define PPSEN0				BIT(4)
-#define MAC_PPSX_TARGET_TIME_SEC(x)	(0x00000b80 + ((x) * 0x10))
-#define MAC_PPSX_TARGET_TIME_NSEC(x)	(0x00000b84 + ((x) * 0x10))
+
+#if IS_ENABLED(CONFIG_DWXGMAC_QCOM_4K)
+	#define MAC_PPS_CONTROL		0x000007070
+	#define MAC_PPSX_TARGET_TIME_SEC(x)	(0x00007080 + ((x) * 0x10))
+	#define MAC_PPSX_TARGET_TIME_NSEC(x)	(0x00007084 + ((x) * 0x10))
+	#define MAC_PPSX_INTERVAL(x)		(0x00007088 + ((x) * 0x10))
+	#define MAC_PPSX_WIDTH(x)		(0x0000708c + ((x) * 0x10))
+#else
+	#define MAC_PPS_CONTROL		0x00000b70
+	#define MAC_PPSX_TARGET_TIME_SEC(x)	(0x00000b80 + ((x) * 0x10))
+	#define MAC_PPSX_TARGET_TIME_NSEC(x)	(0x00000b84 + ((x) * 0x10))
+	#define MAC_PPSX_INTERVAL(x)		(0x00000b88 + ((x) * 0x10))
+	#define MAC_PPSX_WIDTH(x)		(0x00000b8c + ((x) * 0x10))
+#endif
+
 #define TRGTBUSY0			BIT(31)
 #define TTSL0				GENMASK(30, 0)
-#define MAC_PPSX_INTERVAL(x)		(0x00000b88 + ((x) * 0x10))
-#define MAC_PPSX_WIDTH(x)		(0x00000b8c + ((x) * 0x10))
 
 #define PPS_START_DELAY 100000000
 #define ONE_NS 1000000000

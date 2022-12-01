@@ -777,17 +777,17 @@ static inline bool task_fits_capacity(struct task_struct *p,
 		margin = sched_capacity_margin_down[cpu];
 		if (task_in_related_thread_group(p)) {
 			if (is_min_cluster_cpu(cpu))
-				margin = sysctl_sched_early_down[0];
+				margin = max(margin, sysctl_sched_early_down[0]);
 			else if (!is_max_cluster_cpu(cpu))
-				margin = sysctl_sched_early_down[1];
+				margin = max(margin, sysctl_sched_early_down[1]);
 		}
 	} else {
 		margin = sched_capacity_margin_up[task_cpu(p)];
 		if (task_in_related_thread_group(p)) {
 			if (is_min_cluster_cpu(task_cpu(p)))
-				margin = sysctl_sched_early_up[0];
+				margin = max(margin, sysctl_sched_early_up[0]);
 			else if (!is_max_cluster_cpu(task_cpu(p)))
-				margin = sysctl_sched_early_up[1];
+				margin = max(margin, sysctl_sched_early_up[1]);
 		}
 	}
 

@@ -4015,6 +4015,39 @@ bail:
 	kfree(proc_name);
 }
 
+/*
+ * Function to restrict duplicate session creation with same tgid, cid.
+ * check introduced after extended session creation
+ * to avoid breaking in case of extended sessions.
+ */
+
+static bool fastrpc_session_exists(struct fastrpc_apps *me, uint32_t cid, int tgid)
+{
+	struct fastrpc_file *fl;
+	struct hlist_node *n;
+	bool session_found = false;
+	unsigned long irq_flags = 0;
+	int total_session_count = 0;
+
+	spin_lock_irqsave(&me->hlock, irq_flags);
+	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
+		if (fl->tgid == tgid && fl->cid == cid) {
+			++total_session_count;
+			if (total_session_count > 1) {
+				session_found = true;
+				break;
+			}
+		}
+	}
+	spin_unlock_irqrestore(&me->hlock, irq_flags);
+	if (session_found)
+		ADSPRPC_ERR(
+			"trying to open a session that already exists for tgid %d, channel ID %u\n",
+			tgid, cid);
+
+	return session_found;
+}
+
 int fastrpc_init_process(struct fastrpc_file *fl,
 				struct fastrpc_ioctl_init_attrs *uproc)
 {
@@ -4037,6 +4070,11 @@ int fastrpc_init_process(struct fastrpc_file *fl,
 	VERIFY(err, VALID_FASTRPC_CID(cid));
 	if (err) {
 		err = -ECHRNG;
+		goto bail;
+	}
+	VERIFY(err, !fastrpc_session_exists(me, fl->cid, fl->tgid));
+	if (err) {
+		err = -EEXIST;
 		goto bail;
 	}
 	chan = &me->channel[cid];
@@ -5607,7 +5645,7 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 			"\n=======%s %s %s======\n", title,
 			" LIST OF MAPS ", title);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-			"%-20s|%-20s|%-20s\n", "va", "phys", "size");
+			"%-20s|%-20s|%-20s|%-20s\n", "va", "phys", "size", "flags");
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 			"%s%s%s%s%s\n",
 			single_line, single_line, single_line,
@@ -5615,13 +5653,13 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 		mutex_lock(&fl->map_mutex);
 		hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
 			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-				"0x%-20lX|0x%-20llX|0x%-20zu\n\n",
+				"0x%-20lX|0x%-20llX|0x%-20zu|0x%-17llX\n\n",
 				map->va, map->phys,
-				map->size);
+				map->size, map->flags);
 		}
 		mutex_unlock(&fl->map_mutex);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-			"%-20s|%-20s|%-20s|%-20s\n",
+			"%-20s|%-20s|%-20s\n",
 			"len", "refs",
 			"raddr");
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
@@ -5631,7 +5669,7 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 		mutex_lock(&fl->map_mutex);
 		hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
 			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-				"%-20zu|%-20d|0x%-20lX|%-20d\n\n",
+				"%-20zu|%-20d|0x%-20lX\n\n",
 				map->len, map->refs, map->raddr);
 		}
 		mutex_unlock(&fl->map_mutex);
@@ -5653,16 +5691,16 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 			" LIST OF BUFS ", title);
 		spin_lock(&fl->hlock);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-			"%-19s|%-19s|%-19s\n",
-			"virt", "phys", "size");
+			"%-19s|%-19s|%-19s|%-19s\n",
+			"virt", "phys", "size", "flags");
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 			"%s%s%s%s%s\n", single_line, single_line,
 			single_line, single_line, single_line);
 		hlist_for_each_entry_safe(buf, n, &fl->cached_bufs, hn) {
 			len += scnprintf(fileinfo + len,
 				DEBUGFS_SIZE - len,
-				"0x%-17p|0x%-17llX|%-19zu\n",
-				buf->virt, (uint64_t)buf->phys, buf->size);
+				"0x%-17p|0x%-17llX|%-19zu|0x%-17llX\n",
+				buf->virt, (uint64_t)buf->phys, buf->size, buf->flags);
 		}
 
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
@@ -6929,14 +6967,33 @@ static void fastrpc_smq_ctx_detail(struct smq_invoke_ctx *smq_ctx, int cid, void
 		break;
 	}
 }
-
 /*
- *  fastrpc_print_fastrpcfile : Print fastrpc_file structure parameter.
+ *  fastrpc_print_map : Print fastrpc_map structure parameter.
+ *  Input :
+ *        structure fastrpc_map
+ *        void* buffer
+ */
+static void fastrpc_print_map(struct fastrpc_mmap *map, void *buffer)
+{
+	scnprintf(buffer +
+		strlen(buffer),
+		MINI_DUMP_DBG_SIZE -
+		strlen(buffer),
+		fastrpc_mmap_params,
+		map->fd,
+		map->flags, map->buf,
+		map->phys, map->size,
+		map->va, map->raddr,
+		map->len, map->refs,
+		map->secure);
+}
+/*
+ *  fastrpc_print_file : Print fastrpc_file structure parameter.
  *  Input :
  *        structure fastrpc_file
  *        void* buffer
  */
-static void fastrpc_print_fastrpcfile(struct fastrpc_file *fl, void *buffer)
+static void fastrpc_print_file(struct fastrpc_file *fl, void *buffer)
 {
 	scnprintf(buffer +
 		strlen(buffer),
@@ -6963,12 +7020,12 @@ static void fastrpc_print_fastrpcfile(struct fastrpc_file *fl, void *buffer)
 }
 
 /*
- *  fastrpc_print_fastrpcbuf : Print fastrpc_buf structure parameter.
+ *  fastrpc_print_buf : Print fastrpc_buf structure parameter.
  *  Input :
  *        structure fastrpc_buf
  *        void* buffer
  */
-static void fastrpc_print_fastrpcbuf(struct fastrpc_buf *buf, void *buffer)
+static void fastrpc_print_buf(struct fastrpc_buf *buf, void *buffer)
 {
 	if (!buf || !buffer)
 		return;
@@ -7028,43 +7085,41 @@ static void  fastrpc_print_debug_data(int cid)
 	spin_lock_irqsave(&me->hlock, irq_flags);
 	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
 		if (fl->cid == cid) {
-			fastrpc_print_fastrpcfile(fl, mini_dump_buff);
+			fastrpc_print_file(fl, mini_dump_buff);
 			scnprintf(mini_dump_buff +
 					strlen(mini_dump_buff),
 					MINI_DUMP_DBG_SIZE -
 					strlen(mini_dump_buff),
 					"\nSession Maps\n");
-			hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
-				scnprintf(mini_dump_buff +
-						strlen(mini_dump_buff),
-						MINI_DUMP_DBG_SIZE -
-						strlen(mini_dump_buff),
-						fastrpc_mmap_params,
-						map->fd,
-						map->flags, map->buf,
-						map->phys, map->size,
-						map->va, map->raddr,
-						map->len, map->refs,
-						map->secure);
+			hlist_for_each_entry_safe(map, n, &me->maps, hn) {
+				fastrpc_print_map(map, mini_dump_buff);
 			}
+			spin_unlock_irqrestore(&me->hlock, irq_flags);
+			mutex_lock(&fl->map_mutex);
+			hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
+				fastrpc_print_map(map, mini_dump_buff);
+			}
+			mutex_unlock(&fl->map_mutex);
+			spin_lock_irqsave(&me->hlock, irq_flags);
+			spin_lock(&fl->hlock);
 			scnprintf(mini_dump_buff + strlen(mini_dump_buff),
 					MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
 					"\ncached_bufs\n");
 			hlist_for_each_entry_safe(buf, n, &fl->cached_bufs, hn) {
-				fastrpc_print_fastrpcbuf(buf, mini_dump_buff);
+				fastrpc_print_buf(buf, mini_dump_buff);
 			}
 			scnprintf(mini_dump_buff + strlen(mini_dump_buff),
 					MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
 					"\ninit_mem: %p\n", fl->init_mem);
-			fastrpc_print_fastrpcbuf(fl->init_mem, mini_dump_buff);
+			fastrpc_print_buf(fl->init_mem, mini_dump_buff);
 			scnprintf(mini_dump_buff + strlen(mini_dump_buff),
 					MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
 					"\npers_hdr_buf: %p\n", fl->pers_hdr_buf);
-			fastrpc_print_fastrpcbuf(fl->pers_hdr_buf, mini_dump_buff);
+			fastrpc_print_buf(fl->pers_hdr_buf, mini_dump_buff);
 			snprintf(mini_dump_buff + strlen(mini_dump_buff),
 					MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
 					"\nhdr_bufs: %p\n", fl->hdr_bufs);
-			fastrpc_print_fastrpcbuf(fl->hdr_bufs, mini_dump_buff);
+			fastrpc_print_buf(fl->hdr_bufs, mini_dump_buff);
 			if (fl->debugfs_file) {
 				scnprintf(mini_dump_buff + strlen(mini_dump_buff),
 					   MINI_DUMP_DBG_SIZE - strlen(mini_dump_buff),
@@ -7083,7 +7138,6 @@ static void  fastrpc_print_debug_data(int cid)
 					"\nfl->secsctx->smmu.cb : %d\n",
 					fl->secsctx->smmu.cb);
 			}
-			spin_lock(&fl->hlock);
 			scnprintf(mini_dump_buff +
 					strlen(mini_dump_buff),
 					MINI_DUMP_DBG_SIZE -

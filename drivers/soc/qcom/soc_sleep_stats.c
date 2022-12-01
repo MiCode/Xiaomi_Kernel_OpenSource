@@ -205,10 +205,7 @@ static int soc_sleep_stats_show(struct seq_file *s, void *d)
 	void __iomem *reg = prv_data->reg;
 	struct sleep_stats stat;
 
-	stat.count = readl_relaxed(reg + COUNT_ADDR);
-	stat.last_entered_at = readq(reg + LAST_ENTERED_AT_ADDR);
-	stat.last_exited_at = readq(reg + LAST_EXITED_AT_ADDR);
-	stat.accumulated = readq(reg + ACCUMULATED_ADDR);
+	memcpy_fromio(&stat, reg, sizeof(struct sleep_stats));
 
 	print_sleep_stats(s, &stat);
 
@@ -229,10 +226,13 @@ static void  print_ddr_stats(struct seq_file *s, int *count,
 {
 
 	u32 cp_idx = 0;
-	u32 name, duration = 0;
+	u32 name;
+	u64 duration = 0;
 
-	if (accumulated_duration)
-		duration = (data->duration * 100) / accumulated_duration;
+	if (accumulated_duration) {
+		duration = data->duration * 100;
+		do_div(duration, accumulated_duration);
+	}
 
 	name = (data->name >> 8) & 0xFF;
 	if (name == 0x0) {
@@ -268,9 +268,7 @@ static void ddr_stats_fill_data(void __iomem *reg, u32 entry_count,
 	int i;
 
 	for (i = 0; i < entry_count; i++) {
-		data[i].count = readl_relaxed(reg + DDR_STATS_COUNT_ADDR);
-		data[i].name = readl_relaxed(reg + DDR_STATS_NAME_ADDR);
-		data[i].duration = readq_relaxed(reg + DDR_STATS_DURATION_ADDR);
+		memcpy_fromio(&data[i], reg, sizeof(*data));
 		*accumulated_duration += data[i].duration;
 		reg += sizeof(struct stats_entry);
 	}
@@ -298,13 +296,11 @@ static int ddr_stats_show(struct seq_file *s, void *d)
 	accumulated_duration = 0;
 	reg += sizeof(struct stats_entry) * 0x4;
 	for (i = DDR_STATS_NUM_MODES_ADDR; i < entry_count; i++) {
-		data[i].count = readl_relaxed(reg + DDR_STATS_COUNT_ADDR);
+		memcpy_fromio(&data[i], reg, sizeof(*data));
 		if (ddr_stats_is_freq_overtime(&data[i])) {
 			seq_puts(s, "ddr_stats: Freq update failed.\n");
 			return 0;
 		}
-		data[i].name = readl_relaxed(reg + DDR_STATS_NAME_ADDR);
-		data[i].duration = readq_relaxed(reg + DDR_STATS_DURATION_ADDR);
 		accumulated_duration += data[i].duration;
 		reg += sizeof(struct stats_entry);
 	}

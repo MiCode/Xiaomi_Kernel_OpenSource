@@ -860,6 +860,13 @@ static const struct file_operations qbt_fops = {
 	.poll = qbt_poll
 };
 
+/**
+ * qbt_dev_register() - Registers a device node
+ *
+ * @drvdata: ptr to driver data
+ *
+ * Return:   0 on success. Error code on failure.
+ */
 static int qbt_dev_register(struct qbt_drvdata *drvdata)
 {
 	dev_t dev_no, major_no;
@@ -869,12 +876,13 @@ static int qbt_dev_register(struct qbt_drvdata *drvdata)
 	struct device *dev = drvdata->dev;
 	struct device *device;
 
+	pr_debug("entry\n");
 	node_size = strlen(node_name) + 1;
 
 	drvdata->qbt_node = devm_kzalloc(dev, node_size, GFP_KERNEL);
 	if (!drvdata->qbt_node) {
 		ret = -ENOMEM;
-		goto err_alloc;
+		goto end;
 	}
 
 	strscpy(drvdata->qbt_node, node_name, node_size);
@@ -882,7 +890,7 @@ static int qbt_dev_register(struct qbt_drvdata *drvdata)
 	ret = alloc_chrdev_region(&dev_no, 0, 2, drvdata->qbt_node);
 	if (ret) {
 		pr_err("alloc_chrdev_region failed %d\n", ret);
-		goto err_alloc;
+		goto end;
 	}
 	major_no = MAJOR(dev_no);
 
@@ -940,8 +948,34 @@ err_class_create:
 err_cdev_add:
 	unregister_chrdev_region(drvdata->qbt_fd_cdev.dev, 1);
 	unregister_chrdev_region(drvdata->qbt_ipc_cdev.dev, 1);
-err_alloc:
+end:
+
 	return ret;
+}
+
+/**
+ * qbt_dev_unregister() - Unregisters a device node
+ *
+ * @drvdata: ptr to driver data
+ *
+ * Return:   None
+ */
+static void qbt_dev_unregister(struct qbt_drvdata *drvdata)
+{
+	pr_debug("entry\n");
+
+	class_destroy(drvdata->qbt_class);
+	pr_debug("qbt_class destroyed\n");
+
+	cdev_del(&drvdata->qbt_fd_cdev);
+	cdev_del(&drvdata->qbt_ipc_cdev);
+	pr_debug("FD and IPC cdev deleted\n");
+
+	unregister_chrdev_region(drvdata->qbt_fd_cdev.dev, 1);
+	unregister_chrdev_region(drvdata->qbt_ipc_cdev.dev, 1);
+	pr_debug("chrdev region unregistered\n");
+
+	pr_debug("exit\n");
 }
 
 /**
@@ -1001,6 +1035,19 @@ end:
 	if (rc)
 		input_free_device(drvdata->in_dev);
 	return rc;
+}
+
+/**
+ * qbt_unregister_input_device() - Unregisters a previously registered device.
+ * Once device is unregistered, it should not be accessed as it may get freed at any moment.
+ *
+ * @drvdata: ptr to driver data
+ *
+ * Return:   None
+ */
+static void qbt_unregister_input_device(struct qbt_drvdata *drvdata)
+{
+	input_unregister_device(drvdata->in_dev);
 }
 
 static void qbt_gpio_report_event(struct qbt_drvdata *drvdata, int state)
@@ -1241,6 +1288,7 @@ static int setup_ipc_irq(struct platform_device *pdev,
 	}
 
 end:
+	pr_debug("rc %d\n", rc);
 	return rc;
 }
 
@@ -1328,30 +1376,35 @@ static int qbt_probe(struct platform_device *pdev)
 		goto end;
 	rc = qbt_create_input_device(drvdata);
 	if (rc < 0)
-		goto end;
+		goto err_input_device;
 	INIT_KFIFO(drvdata->fd_events);
 	INIT_KFIFO(drvdata->ipc_events);
 	init_waitqueue_head(&drvdata->read_wait_queue_fd);
 	init_waitqueue_head(&drvdata->read_wait_queue_ipc);
 
-	if (gpio_is_valid(drvdata->intr2_gpio))
+	if (gpio_is_valid(drvdata->intr2_gpio)) {
 		rc = setup_intr2_irq(pdev, drvdata);
+		if (rc < 0)
+			goto err_irq;
+	}
 
 	rc = setup_fd_gpio_irq(pdev, drvdata);
 	if (rc < 0)
-		goto end;
+		goto err_irq;
 	drvdata->fd_gpio.irq_enabled = false;
 	disable_irq(drvdata->fd_gpio.irq);
 
 	rc = setup_ipc_irq(pdev, drvdata);
 	if (rc < 0)
-		goto end;
+		goto err_irq;
 	drvdata->fw_ipc.irq_enabled = false;
 	disable_irq(drvdata->fw_ipc.irq);
 
 	rc = device_init_wakeup(&pdev->dev, 1);
-	if (rc < 0)
-		goto end;
+	if (rc < 0) {
+		pr_err("Failed to configure device as wakeup capable %d\n", rc);
+		goto err_device_wakeup;
+	}
 
 	qbt_touch_handler.private = drvdata;
 	INIT_WORK(&drvdata->fd_touch.work, qbt_touch_work_func);
@@ -1360,10 +1413,22 @@ static int qbt_probe(struct platform_device *pdev)
 		drvdata->fd_touch.last_events[slot].id = -1;
 	}
 	rc = input_register_handler(&qbt_touch_handler);
-	if (rc < 0)
+	if (rc < 0) {
 		pr_err("Failed to register input handler: %d\n", rc);
+		goto err_input_handler;
+	}
+	return rc;
 
+err_input_handler:
+	device_init_wakeup(&pdev->dev, 0);
+err_device_wakeup:
+err_irq: // IRQs/GPIOs will be freed up automatically when the device is destroyed
+	qbt_unregister_input_device(drvdata);
+err_input_device:
+	qbt_dev_unregister(drvdata);
 end:
+
+	pr_debug("exit\n");
 	return rc;
 }
 

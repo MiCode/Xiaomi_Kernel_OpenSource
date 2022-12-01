@@ -196,7 +196,8 @@ static void *alloc_coherent(struct mhi_dev *mhi, size_t size, dma_addr_t *phys, 
 
 static inline struct mhi_dev *mhi_get_dev_ctx(struct mhi_dev_ctx *mhi_hw_ctx, enum mhi_id id)
 {
-	return mhi_hw_ctx ? mhi_hw_ctx->mhi_dev[id] : NULL;
+	return (mhi_hw_ctx && (id <= mhi_hw_ctx->ep_cap.num_vfs)) ?
+					mhi_hw_ctx->mhi_dev[id] : NULL;
 }
 
 /*
@@ -1971,7 +1972,9 @@ static void mhi_dev_trigger_cb(uint32_t vf_id, enum mhi_client_channel ch_id)
 
 	list_for_each_entry(info, &mhi_ctx->client_cb_list, list)
 		if (info->cb && info->cb_data.channel == ch_id) {
-			mhi_ctrl_state_info(info->cb_data.channel, &state_data);
+			mhi_vf_ctrl_state_info(mhi_ctx->vf_id,
+					       info->cb_data.channel,
+					       &state_data);
 			info->cb_data.ctrl_info = state_data;
 			info->cb(&info->cb_data);
 		}
@@ -2400,6 +2403,7 @@ static int mhi_dev_process_tre_ring(struct mhi_dev *mhi,
 	}
 
 	ch = &mhi->ch[ring->id - mhi->ch_ring_start];
+	reason.vf_id = mhi->vf_id;
 	reason.ch_id = ch->ch_id;
 	reason.reason = MHI_DEV_TRE_AVAILABLE;
 
@@ -3224,7 +3228,7 @@ static uint32_t mhi_dev_get_evt_ring_size(struct mhi_dev *mhi, uint32_t ch_id)
 	int rc;
 
 	/* If channel was started by host, get event ring size */
-	rc = mhi_ctrl_state_info(ch_id, &info);
+	rc = mhi_vf_ctrl_state_info(mhi->vf_id, ch_id, &info);
 	if (rc || (info != MHI_STATE_CONNECTED))
 		return NUM_TR_EVENTS_DEFAULT;
 
@@ -3420,6 +3424,7 @@ static int __mhi_dev_open_channel(struct mhi_dev *mhi_ctx,
 	ch->active_client = (*handle_client);
 	(*handle_client)->channel = ch;
 	(*handle_client)->event_trigger = mhi_dev_client_cb_reason;
+	(*handle_client)->vf_id = mhi_ctx->vf_id;
 	ch->pend_wr_count = 0;
 
 	if (ch->state == MHI_DEV_CH_UNINT) {
@@ -3452,6 +3457,19 @@ int mhi_dev_open_channel(uint32_t chan_id,
 				      mhi_dev_client_cb_reason);
 }
 EXPORT_SYMBOL(mhi_dev_open_channel);
+
+int mhi_dev_vf_open_channel(uint32_t vf_id, uint32_t chan_id,
+			    struct mhi_dev_client **handle_client,
+			    void (*mhi_dev_client_cb_reason)
+			    (struct mhi_dev_client_cb_reason *cb))
+{
+	struct mhi_dev *mhi = mhi_get_dev_ctx(mhi_hw_ctx, vf_id);
+
+	return __mhi_dev_open_channel(mhi, chan_id, handle_client,
+				      mhi_dev_client_cb_reason);
+
+}
+EXPORT_SYMBOL(mhi_dev_vf_open_channel);
 
 int mhi_dev_channel_isempty(struct mhi_dev_client *handle)
 {
@@ -3493,7 +3511,7 @@ EXPORT_SYMBOL(mhi_dev_channel_has_pending_write);
 void mhi_dev_close_channel(struct mhi_dev_client *handle)
 {
 	struct mhi_dev_channel *ch;
-	struct mhi_dev *mhi_ctx = mhi_get_dev_ctx(mhi_hw_ctx, MHI_DEV_PHY_FUN);
+	struct mhi_dev *mhi_ctx = mhi_get_dev_ctx(mhi_hw_ctx, handle->vf_id);
 	int count = 0;
 	int rc = 0;
 	struct event_req *itr, *tmp;
@@ -3595,10 +3613,17 @@ int mhi_dev_read_channel(struct mhi_req *mreq)
 	uint32_t usr_buf_remaining;
 	int td_done = 0, rc = 0;
 	struct mhi_dev_client *handle_client;
-	struct mhi_dev *mhi_ctx = mhi_get_dev_ctx(mhi_hw_ctx, MHI_DEV_PHY_FUN);
+	struct mhi_dev *mhi_ctx = NULL;
 
 	if (WARN_ON(!mreq))
 		return -ENXIO;
+
+	mhi_ctx = mhi_get_dev_ctx(mhi_hw_ctx, mreq->vf_id);
+	if (!mhi_ctx) {
+		mhi_log(MHI_MSG_ERROR, "invalid mhi context for vf =%d\n",
+			mreq->vf_id);
+		return -ENXIO;
+	}
 
 	if (mhi_ctx->ctrl_info != MHI_STATE_CONNECTED) {
 		pr_err("Channel not connected:%d\n", mhi_ctx->ctrl_info);
@@ -3750,10 +3775,17 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 	uint32_t tre_len = 0, suspend_wait_timeout = 0;
 	bool async_wr_sched = false;
 	enum mhi_ctrl_info info;
-	struct mhi_dev *mhi_ctx = mhi_get_dev_ctx(mhi_hw_ctx, MHI_DEV_PHY_FUN);
+	struct mhi_dev *mhi_ctx = NULL;
 
 	if (WARN_ON(!wreq || !wreq->client || !wreq->buf)) {
 		pr_err("%s: invalid parameters\n", __func__);
+		return -ENXIO;
+	}
+
+	mhi_ctx = mhi_get_dev_ctx(mhi_hw_ctx, wreq->vf_id);
+	if (!mhi_ctx) {
+		mhi_log(MHI_MSG_ERROR, "invalid mhi context for vf =%d\n",
+			wreq->vf_id);
 		return -ENXIO;
 	}
 
@@ -3803,7 +3835,7 @@ int mhi_dev_write_channel(struct mhi_req *wreq)
 
 	mutex_lock(&ch->ch_lock);
 
-	rc = mhi_ctrl_state_info(ch->ch_id, &info);
+	rc = mhi_vf_ctrl_state_info(mhi_ctx->vf_id, ch->ch_id, &info);
 	if (rc || (info != MHI_STATE_CONNECTED)) {
 		mhi_log(MHI_MSG_ERROR, "Channel %d not started by host\n",
 				ch->ch_id);
@@ -4098,8 +4130,8 @@ static void mhi_dev_enable(struct work_struct *work)
 	if (mhi->ctrl_info != MHI_STATE_CONNECTED)
 		mhi_update_state_info(mhi, MHI_STATE_CONFIGURED);
 
-	/*Enable MHI dev network stack Interface*/
-	rc = mhi_dev_net_interface_init();
+	/* Enable MHI dev network stack Interface */
+	rc = mhi_dev_net_interface_init(mhi->vf_id, mhi_hw_ctx->ep_cap.num_vfs);
 	if (rc)
 		pr_err("%s Failed to initialize mhi_dev_net iface\n", __func__);
 }
@@ -4177,6 +4209,29 @@ int mhi_register_state_cb(void (*mhi_state_cb) (struct mhi_dev_client_cb_data *c
 }
 EXPORT_SYMBOL(mhi_register_state_cb);
 
+int mhi_vf_register_state_cb(void (*mhi_state_cb)(struct mhi_dev_client_cb_data *cb_data),
+			     void *data, enum mhi_client_channel channel, unsigned int vf_id)
+{
+
+	struct mhi_dev *mhi = mhi_get_dev_ctx(mhi_hw_ctx, vf_id);
+	int ret_val = 0;
+
+	if (!mhi)
+		return -EPROBE_DEFER;
+
+	if (channel >= MHI_MAX_SOFTWARE_CHANNELS) {
+		pr_err("Invalid channel :%d\n", channel);
+		return -EINVAL;
+	}
+
+	mutex_lock(&mhi->mhi_lock);
+	ret_val = __mhi_register_state_cb(mhi_state_cb, data, channel, mhi);
+	mutex_unlock(&mhi->mhi_lock);
+
+	return ret_val;
+}
+EXPORT_SYMBOL(mhi_vf_register_state_cb);
+
 static void mhi_update_state_info_ch(uint32_t vf_id,
 				     uint32_t ch_id,
 				     enum mhi_ctrl_info info)
@@ -4225,6 +4280,14 @@ int mhi_ctrl_state_info(uint32_t ch_id, uint32_t *info)
 	return __mhi_ctrl_state_info(mhi, mhi->vf_id, ch_id, info);
 }
 EXPORT_SYMBOL(mhi_ctrl_state_info);
+
+int mhi_vf_ctrl_state_info(uint32_t vf_id, uint32_t ch_id, uint32_t *info)
+{
+	struct mhi_dev *mhi = mhi_get_dev_ctx(mhi_hw_ctx, vf_id);
+
+	return __mhi_ctrl_state_info(mhi, vf_id, ch_id, info);
+}
+EXPORT_SYMBOL(mhi_vf_ctrl_state_info);
 
 static int mhi_get_device_tree_data(struct mhi_dev_ctx *mhictx, int vf_id)
 {

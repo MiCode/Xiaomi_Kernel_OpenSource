@@ -787,9 +787,9 @@ static int virtio_spmi_probe(struct virtio_device *vdev)
 
 	ctrl->read_cmd = pmic_arb_read_cmd;
 	ctrl->write_cmd = pmic_arb_write_cmd;
-	ctrl->dev.of_node = (vdev->dev.parent)->of_node;
+	ctrl->dev.of_node = (vdev->dev.parent)->of_node->child;
 
-	pa->irq = of_irq_get_byname(ctrl->dev.of_node, "periph_irq");
+	pa->irq = of_irq_get_byname((vdev->dev.parent)->of_node, "periph_irq");
 	if (pa->irq < 0) {
 		err = pa->irq;
 		goto err_put_ctrl;
@@ -819,7 +819,7 @@ static int virtio_spmi_probe(struct virtio_device *vdev)
 	}
 
 	dev_dbg(&vdev->dev, "adding irq domain\n");
-	pa->domain = irq_domain_add_tree(ctrl->dev.of_node,
+	pa->domain = irq_domain_add_tree((vdev->dev.parent)->of_node,
 					 &pmic_arb_irq_domain_ops, pa);
 	if (!pa->domain) {
 		dev_err(&vdev->dev, "unable to create irq_domain\n");

@@ -9,6 +9,8 @@ MSM_ARCH=gen3auto
 VARIANTS=(perf_defconfig debug_defconfig)
 [ -z "${VARIANT}" ] && VARIANT=debug_defconfig
 
+ABL_SRC=bootable/bootloader/edk2
+BUILD_CONFIG_ABL=${ABL_SRC}/QcomModulePkg/build.config.msm.gen3auto.lxc
 BOOT_IMAGE_HEADER_VERSION=2
 BASE_ADDRESS=0x80000000
 BUILD_BOOT_IMG=1

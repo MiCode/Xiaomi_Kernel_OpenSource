@@ -145,7 +145,7 @@ static void cluster_predict(struct lpm_cluster *cluster_gov)
 	 */
 	for (j = 1; j < genpd->state_count; j++) {
 		uint32_t count = 0;
-		u32 residency = genpd->states[j].residency_ns;
+		u64 residency = genpd->states[j].residency_ns;
 
 		avg_residency = 0;
 		for (i = 0; i < MAXSAMPLES; i++) {
@@ -251,7 +251,7 @@ static void cluster_power_down(struct lpm_cluster *cluster_gov)
 {
 	struct generic_pm_domain *genpd = cluster_gov->genpd;
 	int idx = genpd->state_idx;
-	uint32_t residency;
+	uint64_t residency;
 
 	if (idx < 0)
 		return;

@@ -19,6 +19,15 @@ struct slatecom_rpmsg_dev {
 	size_t message_length;
 };
 
+void slatecom_intf_notify_glink_channel_state(bool state);
+void slatecom_rx_msg(void *data, int len);
+
+struct ctrl_channel_ops {
+	void (*glink_channel_state)(bool state);
+	void (*rx_msg)(void *data, int len);
+};
+
+struct ctrl_channel_ops ctrl_ops;
 
 #if IS_ENABLED(CONFIG_MSM_SLATECOM_RPMSG)
 int slatecom_rpmsg_tx_msg(void  *msg, size_t len);

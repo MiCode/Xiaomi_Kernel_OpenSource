@@ -100,14 +100,14 @@ static const char * const drv_names_lahaina[] = {
 
 static const char * const drv_names_waipio[] = {
 	"TZ", "HYP", "HLOS", "L3", "SECPROC", "AUDIO", "SENSOR", "AOP",
-	"DEBUG", "GPU", "DISPLAY", "COMPUTE_DSP", "TIME_SW", "TIME_HW",
+	"DEBUG", "GPU", "DISPLAY", "COMPUTE_DSP", "TME_SW", "TME_HW",
 	"MDM SW", "MDM HW", "WLAN RF", "WLAN BB", "DDR AUX", "ARC CPRF",
 	""
 };
 
 static const char * const drv_names_kalama[] = {
 	"TZ", "HYP", "HLOS", "L3", "SECPROC", "AUDIO", "AOP", "DEBUG",
-	"GPU", "DISPLAY", "COMPUTE_DSP", "TIME_SW", "TIME_HW", "MDM SW",
+	"GPU", "DISPLAY", "COMPUTE_DSP", "TME_SW", "TME_HW", "MDM SW",
 	"MDM HW", "WLAN RF", "WLAN BB", "CAM_IFE0", "CAM_IFE1", "CAM_IFE2",
 	"DDR AUX", "ARC CPRF",
 	""
@@ -266,7 +266,7 @@ static void vx_check_drv(struct vx_platform_data *pd)
 
 	ret = read_vx_data(pd, &log);
 	if (ret) {
-		pr_info("fail to read vx data\n");
+		pr_err("fail to read vx data\n");
 		return;
 	}
 
@@ -275,7 +275,7 @@ static void vx_check_drv(struct vx_platform_data *pd)
 			if (log.data[j].drv_vx[i] == 0)
 				break;
 			if (j == log.loglines - 1)
-				pr_info("DRV: %s has blocked power collapse\n", pd->drvs[i]);
+				pr_warn("DRV: %s has blocked power collapse\n", pd->drvs[i]);
 		}
 	}
 

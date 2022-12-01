@@ -37,6 +37,8 @@ struct minidump_data {
 
 	struct md_region md_entry;
 	int region;
+
+	spinlock_t update_md_lock;
 };
 #if IS_ENABLED(CONFIG_QTI_THERMAL_MINIDUMP)
 int thermal_minidump_update_data(struct minidump_data *md,

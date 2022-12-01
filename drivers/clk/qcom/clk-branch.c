@@ -69,6 +69,9 @@ static bool clk_branch2_check_halt(const struct clk_branch *br, bool enabling)
 		return (val & BRANCH_CLK_OFF) == 0 ||
 			val == BRANCH_NOC_FSM_STATUS_ON;
 	} else {
+		if (br->halt_check == BRANCH_HALT_INVERT)
+			return (val & BRANCH_CLK_OFF) == 0;
+
 		return val & BRANCH_CLK_OFF;
 	}
 }
@@ -104,6 +107,7 @@ static int clk_branch_wait(const struct clk_branch *br, bool enabling,
 		udelay(10);
 	} else if (br->halt_check == BRANCH_HALT_ENABLE ||
 		   br->halt_check == BRANCH_HALT ||
+		   br->halt_check == BRANCH_HALT_INVERT ||
 		   (enabling && voted)) {
 		timeout = get_branch_timeout(br);
 

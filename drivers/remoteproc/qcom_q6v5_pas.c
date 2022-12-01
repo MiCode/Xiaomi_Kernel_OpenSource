@@ -581,11 +581,7 @@ static int adsp_attach(struct rproc *rproc)
 		goto begin_attach;
 	}
 
-	ret = qcom_register_dump_segments(rproc, fw);
-	if (ret) {
-		dev_err(adsp->dev, "Failed to register dump segments\n");
-		dev_err(adsp->dev, "Dumps will not be available\n");
-	}
+	adsp_add_coredump_segments(adsp, fw);
 	release_firmware(fw);
 
 begin_attach:
@@ -707,7 +703,6 @@ static const struct rproc_ops adsp_minidump_ops = {
 	.start = adsp_start,
 	.stop = adsp_stop,
 	.da_to_va = adsp_da_to_va,
-	.parse_fw = qcom_register_dump_segments,
 	.load = adsp_load,
 	.panic = adsp_panic,
 	.coredump = adsp_minidump,
@@ -1682,6 +1677,18 @@ static const struct adsp_data scuba_auto_lpass_resource = {
 	.ssctl_id = 0x14,
 };
 
+static const struct adsp_data lemans_adsp_resource = {
+	.crash_reason_smem = 2,
+	.firmware_name = "adsp.mdt",
+	.pas_id = 1,
+	.uses_elf64 = true,
+	.has_aggre2_clk = false,
+	.auto_boot = false,
+	.ssr_name = "lpass",
+	.sysmon_name = "adsp",
+	.qmp_name = "adsp",
+	.ssctl_id = 0x14,
+};
 
 static const struct of_device_id adsp_of_match[] = {
 	{ .compatible = "qcom,msm8974-adsp-pil", .data = &adsp_resource_init},
@@ -1728,6 +1735,7 @@ static const struct of_device_id adsp_of_match[] = {
 	{ .compatible = "qcom,scuba_auto-lpass-pas", .data = &scuba_auto_lpass_resource},
 	{ .compatible = "qcom,monaco-adsp-pas", .data = &monaco_adsp_resource},
 	{ .compatible = "qcom,monaco-modem-pas", .data = &monaco_modem_resource},
+	{ .compatible = "qcom,lemans-adsp-pas", .data = &lemans_adsp_resource},
 	{ },
 };
 MODULE_DEVICE_TABLE(of, adsp_of_match);

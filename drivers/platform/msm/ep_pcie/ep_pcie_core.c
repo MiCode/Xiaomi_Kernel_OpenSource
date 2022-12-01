@@ -2166,7 +2166,7 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 			dev->rev);
 		ret = EP_PCIE_ERROR;
 		ep_pcie_reg_dump(dev, BIT(EP_PCIE_RES_PHY), false);
-		goto link_fail;
+		goto link_fail_pipe_clk_deinit;
 	} else {
 		EP_PCIE_INFO(dev, "PCIe V%d: PCIe  PHY is ready\n", dev->rev);
 	}
@@ -2201,12 +2201,12 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 				"PCIe V%d: Perst asserted No. %ld while waiting for link to be up\n",
 				dev->rev, dev->perst_ast_in_enum_counter);
 		ret = EP_PCIE_ERROR;
-		goto link_fail;
+		goto link_fail_pipe_clk_deinit;
 	} else if (retries == LINK_UP_CHECK_MAX_COUNT) {
 		EP_PCIE_ERR(dev, "PCIe V%d: link initialization failed\n",
 			dev->rev);
 		ret = EP_PCIE_ERROR;
-		goto link_fail;
+		goto link_fail_pipe_clk_deinit;
 	} else {
 		dev->link_status = EP_PCIE_LINK_UP;
 		dev->l23_ready = false;
@@ -2278,15 +2278,15 @@ checkbme:
 	dev->suspending = false;
 	goto out;
 
+link_fail_pipe_clk_deinit:
+	if (!ep_pcie_debug_keep_resource)
+		ep_pcie_pipe_clk_deinit(dev);
 link_fail:
 	dev->power_on = false;
 	if (dev->phy_rev >= 3)
 		ep_pcie_write_mask(dev->parf + PCIE20_PARF_LTSSM, BIT(8), 0);
 	else
 		ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_SYS_CTRL, BIT(0), 0);
-
-	if (!ep_pcie_debug_keep_resource)
-		ep_pcie_pipe_clk_deinit(dev);
 pipe_clk_fail:
 	if (!ep_pcie_debug_keep_resource)
 		ep_pcie_clk_deinit(dev);

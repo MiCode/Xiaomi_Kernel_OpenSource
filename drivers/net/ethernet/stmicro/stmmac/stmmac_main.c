@@ -1082,7 +1082,7 @@ static void stmmac_validate(struct phylink_config *config,
 	/* Early ethernet settings to bring up link in 100M,
 	 * Auto neg Off with full duplex link.
 	 */
-	if (priv->early_eth && !priv->early_eth_config_set) {
+	if (priv->phydev && priv->plat->early_eth && !priv->early_eth_config_set) {
 		priv->phydev->autoneg = AUTONEG_DISABLE;
 		priv->phydev->speed = SPEED_100;
 		priv->phydev->duplex = DUPLEX_FULL;
@@ -6954,6 +6954,10 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
 	ret = stmmac_hwif_init(priv);
 	if (ret)
 		return ret;
+
+#if IS_ENABLED(CONFIG_DWXGMAC_QCOM_4K)
+	priv->ptpaddr = priv->ioaddr + XGMAC_TIMESTAMP_BASE_ADDR;
+#endif
 
 	/* Get the HW capability (new GMAC newer than 3.50a) */
 	priv->hw_cap_support = stmmac_get_hw_features(priv);
