@@ -1913,11 +1913,6 @@ module_init(qcom_memlat_init);
 #else
 arch_initcall(qcom_memlat_init);
 #endif
-static __exit void qcom_memlat_exit(void)
-{
-	platform_driver_unregister(&qcom_memlat_driver);
-}
-module_exit(qcom_memlat_exit);
 
 MODULE_DESCRIPTION("QCOM MEMLAT Driver");
 MODULE_LICENSE("GPL v2");
