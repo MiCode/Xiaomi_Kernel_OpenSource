@@ -100,42 +100,42 @@ static const char * const drv_names_lahaina[] = {
 
 static const char * const drv_names_waipio[] = {
 	"TZ", "HYP", "HLOS", "L3", "SECPROC", "AUDIO", "SENSOR", "AOP",
-	"DEBUG", "GPU", "DISPLAY", "COMPUTE_DSP", "TIME_SW", "TIME_HW",
+	"DEBUG", "GPU", "DISPLAY", "COMPUTE_DSP", "TME_SW", "TME_HW",
 	"MDM SW", "MDM HW", "WLAN RF", "WLAN BB", "DDR AUX", "ARC CPRF",
 	""
 };
 
 static const char * const drv_names_diwali[] = {
 	"TZ", "L3", "HLOS", "HYP", "SECPROC", "AUDIO", "SENSOR", "AOP",
-	"DEBUG", "GPU", "DISPLAY", "COMPUTE_DSP", "TIME_HW", "TIME_SW",
+	"DEBUG", "GPU", "DISPLAY", "COMPUTE_DSP", "TME_HW", "TME_SW",
 	"WPSS", "MDM SW", "MDM HW", "WLAN RF", "DDR AUX", "ARC CPRF",
 	""
 };
 
 static const char * const drv_names_cape[] = {
 	"TZ", "HYP", "HLOS", "L3", "SECPROC", "AUDIO", "SENSOR", "AOP",
-	"DEBUG", "GPU", "DISPLAY", "COMPUTE_DSP", "TIME_SW", "TIME_HW",
+	"DEBUG", "GPU", "DISPLAY", "COMPUTE_DSP", "TME_SW", "TME_HW",
 	"MDM SW", "MDM HW", "WLAN RF", "WLAN BB", "DDR AUX", "ARC CPRF",
 	""
 };
 
 static const char * const drv_names_parrot[] = {
 	"TZ", "L3", "HLOS", "HYP", "AUDIO", "AOP", "DEBUG", "GPU",
-	"DISPLAY", "COMPUTE_DSP", "TIME_HW", "TIME_SW", "WPSS",
+	"DISPLAY", "COMPUTE_DSP", "TME_HW", "TME_SW", "WPSS",
 	"MDM SW", "MDM HW", "WLAN RF", "WLAN BB", "DDR AUX", "ARC CPRF",
 	""
 };
 
 static const char * const drv_names_neo[] = {
 	"TZ", "HYP", "HLOS", "L3", "SECPROC", "AUDIO", "SENSOR", "AOP", "DEBUG",
-	"GPU", "DISPLAY", "COMPUTE_DSP", "TIME_HW", "TIME_SW", "WPSS",
+	"GPU", "DISPLAY", "COMPUTE_DSP", "TME_HW", "TME_SW", "WPSS",
 	"MDM SW", "MDM HW", "WLAN RF", "WLAN BB", "DDR AUX", "ARC CPRF",
 	""
 };
 
 static const char * const drv_names_anorak[] = {
 	"TZ", "L3", "HLOS", "HYP", "SECPROC", "AUDIO", "SENSOR", "AOP", "DEBUG",
-	"GPU", "DISPLAY", "COMPUTE_DSP", "TIME_HW", "TIME_SW", "DISPLAY_1",
+	"GPU", "DISPLAY", "COMPUTE_DSP", "TME_HW", "TME_SW", "DISPLAY_1",
 	"MDM SW", "MDM HW", "WLAN RF", "WLAN BB", "DDR AUX", "ARC CPRF",
 	""
 };
@@ -292,7 +292,7 @@ static void vx_check_drv(struct vx_platform_data *pd)
 
 	ret = read_vx_data(pd, &log);
 	if (ret) {
-		pr_info("fail to read vx data\n");
+		pr_err("fail to read vx data\n");
 		return;
 	}
 
@@ -301,7 +301,7 @@ static void vx_check_drv(struct vx_platform_data *pd)
 			if (log.data[j].drv_vx[i] == 0)
 				break;
 			if (j == log.loglines - 1)
-				pr_info("DRV: %s has blocked power collapse\n", pd->drvs[i]);
+				pr_warn("DRV: %s has blocked power collapse\n", pd->drvs[i]);
 		}
 	}
 

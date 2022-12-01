@@ -31,7 +31,6 @@ static int btfm_slim_major;
 
 struct btfmslim *btfm_slim_drv_data;
 
-static bool btfm_is_port_opening_delayed = true;
 static int btfm_num_ports_open;
 
 int btfm_slim_write(struct btfmslim *btfmslim,
@@ -89,19 +88,6 @@ int btfm_slim_read(struct btfmslim *btfmslim, uint32_t reg, uint8_t pgd)
 	return ret;
 }
 
-static bool btfm_slim_is_sb_reset_needed(int chip_ver)
-{
-	switch (chip_ver) {
-	case QCA_APACHE_SOC_ID_0100:
-	case QCA_APACHE_SOC_ID_0110:
-	case QCA_APACHE_SOC_ID_0120:
-	case QCA_APACHE_SOC_ID_0121:
-		return true;
-	default:
-		return false;
-	}
-}
-
 int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 	uint8_t rxport, uint32_t rates, uint8_t nchan)
 {
@@ -146,23 +132,6 @@ int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 	BTFMSLIM_INFO("port: %d, ch: %d", chan->port, chan->ch);
 	chipset_ver = btpower_get_chipset_version();
 	BTFMSLIM_INFO("chipset soc version:%x", chipset_ver);
-
-	/* Delay port opening for few chipsets if:
-		1. for 8k, feedback channel
-		2. 44.1k, 88.2k rxports
-	*/
-	if (((rates == 8000 && btfm_feedback_ch_setting && rxport == 0) ||
-		(rxport == 1 && (rates == 44100 || rates == 88200))) &&
-		btfm_slim_is_sb_reset_needed(chipset_ver)) {
-
-		BTFMSLIM_INFO("btfm_is_port_opening_delayed %d",
-					btfm_is_port_opening_delayed);
-		if (!btfm_is_port_opening_delayed) {
-			BTFMSLIM_INFO("SB reset needed, sleeping");
-			btfm_is_port_opening_delayed = true;
-			msleep(DELAY_FOR_PORT_OPEN_MS);
-		}
-	}
 
 	/* for feedback channel, PCM bit should not be set */
 	if (btfm_feedback_ch_setting) {
@@ -211,8 +180,6 @@ int btfm_slim_disable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 		BTFMSLIM_ERR("Channel not enabled yet. returning");
 		return -EINVAL;
 	}
-
-	btfm_is_port_opening_delayed = false;
 
 	if (rxport && (btfmslim->sample_rate == 44100 ||
 		btfmslim->sample_rate == 88200)) {

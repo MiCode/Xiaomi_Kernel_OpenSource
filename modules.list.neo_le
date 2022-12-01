@@ -25,6 +25,8 @@ qcom_ipc_logging.ko
 qcom-pdc.ko
 qcom_rpmh.ko
 qcom-scm.ko
+dcvs_fp.ko
+qcom-dcvs.ko
 qmi_helpers.ko
 qcom_hwspinlock.ko
 gh_msgq.ko
@@ -40,6 +42,7 @@ smem.ko
 stub-regulator.ko
 mem_buf.ko
 mem_buf_dev.ko
+sdhci-msm-scaling.ko
 cqhci.ko
 sdhci-msm.ko
 core_hang_detect.ko

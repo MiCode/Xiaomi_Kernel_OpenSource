@@ -130,7 +130,7 @@ static struct system_data subsystem_stats[] = {
 	{ "apss", APSS, QCOM_SMEM_HOST_ANY },
 	{ "modem", MPSS, PID_MPSS },
 	{ "adsp", ADSP, PID_ADSP },
-	{ "adsp_island", PID_ADSP, SLPI_ISLAND },
+	{ "adsp_island", SLPI_ISLAND, PID_ADSP },
 	{ "cdsp", CDSP, PID_CDSP },
 	{ "slpi", SLPI, PID_SLPI },
 	{ "slpi_island", SLPI_ISLAND, PID_SLPI },
@@ -212,7 +212,7 @@ bool has_system_slept(void)
 
 	for (i = 0; i < ARRAY_SIZE(system_stats); i++) {
 		if (b_system_stats[i].count == a_system_stats[i].count) {
-			pr_info("System %s has not entered sleep\n", system_stats[i].name);
+			pr_warn("System %s has not entered sleep\n", system_stats[i].name);
 			sleep_flag = false;
 		}
 	}
@@ -233,7 +233,7 @@ bool has_subsystem_slept(void)
 		if ((b_subsystem_stats[i].count == a_subsystem_stats[i].count) &&
 			(a_subsystem_stats[i].last_exited_at >
 				a_subsystem_stats[i].last_entered_at)) {
-			pr_info("Subsystem %s has not entered sleep\n", subsystem_stats[i].name);
+			pr_warn("Subsystem %s has not entered sleep\n", subsystem_stats[i].name);
 			sleep_flag = false;
 		}
 	}

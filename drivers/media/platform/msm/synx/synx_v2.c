@@ -519,6 +519,13 @@ void synx_signal_handler(struct work_struct *cb_dispatch)
 			dprintk(SYNX_ERR,
 				"global status update of %u failed=%d\n",
 				h_synx, rc);
+		/*
+		 * We are decrementing the reference here assuming this code will be
+		 * executed after handle is released. But in case if clients signal
+		 * dma fence in middle of execution sequence, then we will put
+		 * one reference thus deleting the global idx. As of now clients cannot
+		 * signal dma fence.
+		 */
 		synx_global_put_ref(idx);
 	}
 
@@ -573,6 +580,7 @@ fail:
 void synx_fence_callback(struct dma_fence *fence,
 	struct dma_fence_cb *cb)
 {
+	s32 status;
 	struct synx_signal_cb *signal_cb =
 		container_of(cb, struct synx_signal_cb, fence_cb);
 
@@ -581,7 +589,19 @@ void synx_fence_callback(struct dma_fence *fence,
 		fence, signal_cb->handle);
 
 	/* other signal_cb members would be set during cb registration */
-	signal_cb->status = dma_fence_get_status_locked(fence);
+	status = dma_fence_get_status_locked(fence);
+
+	/*
+	 * dma_fence_get_status_locked API returns 1 if signaled,
+	 * 0 if ACTIVE,
+	 * and negative error code in case of any failure
+	 */
+	if (status == 1)
+		status = SYNX_STATE_SIGNALED_SUCCESS;
+	else if (status < 0)
+		status = SYNX_STATE_SIGNALED_EXTERNAL;
+
+	signal_cb->status = status;
 
 	INIT_WORK(&signal_cb->cb_dispatch, synx_signal_handler);
 	queue_work(synx_dev->wq_cb, &signal_cb->cb_dispatch);

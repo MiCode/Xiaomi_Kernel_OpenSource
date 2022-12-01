@@ -1608,7 +1608,7 @@ static const struct msm_pingroup ravelin_groups[] = {
 	[135] = PINGROUP(135, NA, phase_flag_status17, NA, NA, NA, NA, NA, NA,
 			 NA, 0x88014, 4),
 	[136] = UFS_RESET(ufs_reset, 0x197000),
-	[137] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x18c000, 15, 0),
+	[137] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x18c004, 0, 0),
 	[138] = SDC_QDSD_PINGROUP(sdc1_clk, 0x18c000, 13, 6),
 	[139] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x18c000, 11, 3),
 	[140] = SDC_QDSD_PINGROUP(sdc1_data, 0x18c000, 9, 0),

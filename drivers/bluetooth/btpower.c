@@ -23,6 +23,7 @@
 #include <linux/uaccess.h>
 #include <linux/btpower.h>
 #include <linux/of_device.h>
+#include <linux/thermal.h>
 #include <soc/qcom/cmd-db.h>
 #ifdef CONFIG_ARCH_NEO
 #if IS_ENABLED(CONFIG_ICNSS2)
@@ -44,6 +45,10 @@
 #define BTPOWER_MBOX_MSG_MAX_LEN 64
 #define BTPOWER_MBOX_TIMEOUT_MS 1000
 #define XO_CLK_RETRY_COUNT_MAX 5
+#define BT_EN_MAX_DELAY 500
+#define BT_EN_DEFAULT_DELAY 100
+#define TEMP_THRESHOLD 5000
+
 /**
  * enum btpower_vreg_param: Voltage regulator TCS param
  * @BTPOWER_VREG_VOLTAGE: Provides voltage level to be configured in TCS
@@ -235,6 +240,30 @@ static struct class *bt_class;
 static int bt_major;
 static int soc_id;
 static bool probe_finished;
+
+static int btpower_get_temperature(struct btpower_platform_data *pdata,
+				   int *temp)
+{
+	struct thermal_zone_device *thermal_dev;
+	int ret;
+
+	/* Temperature sensor is not provided in dts */
+	if (!pdata->tsens)
+		return -ENODEV;
+
+	thermal_dev = thermal_zone_get_zone_by_name(pdata->tsens);
+	if (IS_ERR(thermal_dev)) {
+		pr_err("Fail to get thermal zone. ret: %d\n",
+			PTR_ERR(thermal_dev));
+		return PTR_ERR(thermal_dev);
+	}
+
+	ret = thermal_zone_get_temp(thermal_dev, temp);
+	if (ret)
+		pr_err("Fail to get temperature. ret: %d\n", ret);
+
+	return ret;
+}
 
 #ifdef CONFIG_MSM_BT_OOBS
 static void btpower_uart_transport_locked(struct btpower_platform_data *drvdata,
@@ -533,6 +562,7 @@ static int bt_configure_gpios(int on)
 		}
 		bt_power_src_status[BT_RESET_GPIO] =
 			gpio_get_value(bt_reset_gpio);
+
 		msleep(50);
 		pr_info("BTON:Turn Bt OFF post asserting BT_EN to low\n");
 		pr_info("bt-reset-gpio(%d) value(%d)\n", bt_reset_gpio,
@@ -564,6 +594,8 @@ static int bt_configure_gpios(int on)
 			btpower_set_xo_clk_gpio_state(false);
 		}
 		if ((wl_reset_gpio >= 0) && (gpio_get_value(wl_reset_gpio) == 0)) {
+			int temp;
+			int bt_en_delay = BT_EN_DEFAULT_DELAY;
 			if (gpio_get_value(bt_reset_gpio)) {
 				pr_info("BTON: WLAN OFF and BT ON are too close\n");
 				pr_info("reset BT_EN, enable it after delay\n");
@@ -576,9 +608,16 @@ static int bt_configure_gpios(int on)
 				bt_power_src_status[BT_RESET_GPIO] =
 					gpio_get_value(bt_reset_gpio);
 			}
-			pr_info("BTON: WLAN OFF waiting for 100ms delay\n");
+			/* BT_EN delay will decided based on the current temperature */
+			if (!btpower_get_temperature(bt_power_pdata, &temp)) {
+				if (temp < TEMP_THRESHOLD)
+					bt_en_delay = BT_EN_MAX_DELAY;
+				pr_info("%s: current temperature:%d and bt_en delay %d\n",
+				__func__, temp, bt_en_delay);
+			}
+			pr_info("BTON: WLAN OFF waiting for %d ms delay\n", bt_en_delay);
 			pr_info("for AON output to fully discharge\n");
-			msleep(100);
+			msleep(bt_en_delay);
 			pr_info("BTON: WLAN OFF Asserting BT_EN to high\n");
 			btpower_set_xo_clk_gpio_state(true);
 			rc = gpio_direction_output(bt_reset_gpio, 1);
@@ -1054,6 +1093,15 @@ static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 			pr_warn("%s: bthostwake_gpio not provided in device tree\n",
 				__func__);
 #endif
+		rc = of_property_read_string(pdev->dev.of_node,
+					      "tsens",
+					      &bt_power_pdata->tsens);
+		if (rc)
+			pr_warn("%s: temperature sensor is not provided in dts\n",
+				__func__);
+		else
+			pr_info("%s: temperature sensor is provided in dts\n",
+				__func__);
 	}
 
 	bt_power_pdata->bt_power_setup = bluetooth_power;
