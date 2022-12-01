@@ -1915,7 +1915,14 @@ static int hyp_zero_page(phys_addr_t phys)
 	if (!addr)
 		return -EINVAL;
 	memset(addr, 0, PAGE_SIZE);
-	__clean_dcache_guest_page(addr, PAGE_SIZE);
+	/*
+	 * Prefer kvm_flush_dcache_to_poc() over __clean_dcache_guest_page()
+	 * here as the latter may elide the CMO under the assumption that FWB
+	 * will be enabled on CPUs that support it. This is incorrect for the
+	 * host stage-2 and would otherwise lead to a malicious host potentially
+	 * being able to read the content of newly reclaimed guest pages.
+	 */
+	kvm_flush_dcache_to_poc(addr, PAGE_SIZE);
 
 	return hyp_fixmap_unmap();
 }

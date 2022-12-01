@@ -13,6 +13,7 @@
 #include <hyp/adjust_pc.h>
 #include <linux/kvm_host.h>
 #include <asm/kvm_emulate.h>
+#include <asm/kvm_mmu.h>
 
 #if !defined (__KVM_NVHE_HYPERVISOR__) && !defined (__KVM_VHE_HYPERVISOR__)
 #error Hypervisor code only!
@@ -165,7 +166,8 @@ static void enter_exception64(struct kvm_vcpu *vcpu, unsigned long target_mode,
 	*vcpu_pc(vcpu) = vbar + offset;
 
 	old = *vcpu_cpsr(vcpu);
-	new = get_except64_cpsr(old, kvm_has_mte(vcpu->kvm), sctlr, target_mode);
+	new = get_except64_cpsr(old, kvm_has_mte(kern_hyp_va(vcpu->kvm)), sctlr,
+				target_mode);
 	*vcpu_cpsr(vcpu) = new;
 	__vcpu_write_spsr(vcpu, old);
 }
