@@ -528,10 +528,10 @@ static int glink_helioscom_tx(struct glink_helioscom *glink, void *data,
 		usleep_range(TX_WAIT_US, TX_WAIT_US + 50);
 
 		mutex_lock(&glink->tx_lock);
-
-		if (glink_helioscom_tx_avail(glink) >= dlen/WORD_SIZE)
-			glink->sent_read_notify = false;
 	}
+
+	if (glink->sent_read_notify)
+		glink->sent_read_notify = false;
 
 	glink_helioscom_tx_write(glink, data, dlen);
 
@@ -794,10 +794,10 @@ static int glink_helioscom_send_final(struct glink_helioscom_channel *channel,
 		usleep_range(TX_WAIT_US, TX_WAIT_US + 50);
 
 		mutex_lock(&glink->tx_lock);
-
-		if (glink_helioscom_tx_avail(glink) >= command_size)
-			glink->sent_read_notify = false;
 	}
+
+	if (glink->sent_read_notify)
+		glink->sent_read_notify = false;
 
 	if (chunk_size) {
 		helioscom_ahb_write(glink->helioscom_handle,
