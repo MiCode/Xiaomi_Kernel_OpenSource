@@ -3460,12 +3460,14 @@ static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
 		return rc;
 	}
 
-	rc = regulator_enable(dev->gdsc_phy);
+	if (dev->gdsc_phy) {
+		rc = regulator_enable(dev->gdsc_phy);
 
-	if (rc) {
-		PCIE_ERR(dev, "PCIe: fail to enable GDSC-PHY for RC%d (%s)\n",
-			dev->rc_idx, dev->pdev->name);
-		return rc;
+		if (rc) {
+			PCIE_ERR(dev, "PCIe: fail to enable GDSC-PHY for RC%d (%s)\n",
+				dev->rc_idx, dev->pdev->name);
+			return rc;
+		}
 	}
 
 	/* switch pipe clock source after gdsc-core is turned on */
@@ -3532,7 +3534,8 @@ static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
 		if (dev->pipe_clk_mux && dev->ref_clk_src)
 			clk_set_parent(dev->pipe_clk_mux, dev->ref_clk_src);
 
-		regulator_disable(dev->gdsc_phy);
+		if (dev->gdsc_phy)
+			regulator_disable(dev->gdsc_phy);
 		regulator_disable(dev->gdsc_core);
 	}
 
@@ -3603,7 +3606,8 @@ static void msm_pcie_clk_deinit(struct msm_pcie_dev_t *dev)
 	if (dev->pipe_clk_mux && dev->ref_clk_src)
 		clk_set_parent(dev->pipe_clk_mux, dev->ref_clk_src);
 
-	regulator_disable(dev->gdsc_phy);
+	if (dev->gdsc_phy)
+		regulator_disable(dev->gdsc_phy);
 	regulator_disable(dev->gdsc_core);
 
 	PCIE_DBG(dev, "RC%d: exit\n", dev->rc_idx);
@@ -4102,10 +4106,11 @@ static int msm_pcie_get_vreg(struct msm_pcie_dev_t *pcie_dev)
 		PCIE_ERR(pcie_dev, "PCIe: RC%d: Failed to get %s GDSC-PHY:%ld\n",
 			 pcie_dev->rc_idx, pdev->name,
 			 PTR_ERR(pcie_dev->gdsc_phy));
-		if (PTR_ERR(pcie_dev->gdsc_phy) == -EPROBE_DEFER)
+		if (PTR_ERR(pcie_dev->gdsc_phy) == -EPROBE_DEFER) {
 			PCIE_DBG(pcie_dev, "PCIe: EPROBE_DEFER for %s GDSC-PHY\n",
 				pdev->name);
-		return PTR_ERR(pcie_dev->gdsc_phy);
+			return PTR_ERR(pcie_dev->gdsc_phy);
+		}
 	}
 
 	return 0;
