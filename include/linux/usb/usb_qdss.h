@@ -55,7 +55,7 @@ static inline int usb_qdss_write(struct usb_qdss_ch *c, struct qdss_request *d)
 	return -ENODEV;
 }
 
-static inline int usb_qdss_alloc_req(struct usb_qdss_ch *c, int n_wr, int n_rd)
+static inline int usb_qdss_alloc_req(struct usb_qdss_ch *c, int n_wr)
 {
 	return -ENODEV;
 }
