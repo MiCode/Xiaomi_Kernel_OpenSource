@@ -134,7 +134,7 @@ DEFINE_SCHED_CLASS(stop) = {
 	.balance		= balance_stop,
 	.pick_task		= pick_task_stop,
 	.select_task_rq		= select_task_rq_stop,
-	.set_cpus_allowed	= set_cpus_allowed_common,
+	.set_cpus_allowed	= set_cpus_allowed_common_cb,
 #endif
 
 	.task_tick		= task_tick_stop,

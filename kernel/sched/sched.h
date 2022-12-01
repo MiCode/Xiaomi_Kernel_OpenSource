@@ -1560,6 +1560,7 @@ struct rq_flags {
 	 */
 	unsigned int clock_update_flags;
 #endif
+
 };
 
 #ifdef CONFIG_SMP
@@ -1905,6 +1906,13 @@ static inline void dirty_sched_domain_sysctl(int cpu)
 
 extern int sched_update_scaling(void);
 
+static inline const struct cpumask *task_user_cpus(struct task_struct *p)
+{
+	if (!p->user_cpus_ptr)
+		return cpu_possible_mask; /* &init_task.cpus_mask */
+	return p->user_cpus_ptr;
+}
+
 extern void flush_smp_call_function_from_idle(void);
 
 #else /* !CONFIG_SMP: */
@@ -2162,6 +2170,12 @@ extern const u32		sched_prio_to_wmult[40];
 
 #define RETRY_TASK		((void *)-1UL)
 
+struct affinity_context {
+	const struct cpumask *new_mask;
+	struct cpumask *user_mask;
+	unsigned int flags;
+};
+
 struct sched_class {
 
 #ifdef CONFIG_UCLAMP_TASK
@@ -2305,7 +2319,19 @@ extern void update_group_capacity(struct sched_domain *sd, int cpu);
 
 extern void trigger_load_balance(struct rq *rq);
 
-extern void set_cpus_allowed_common(struct task_struct *p, const struct cpumask *new_mask, u32 flags);
+extern void set_cpus_allowed_dl(struct task_struct *p, struct affinity_context *ctx);
+extern void set_cpus_allowed_common(struct task_struct *p, struct affinity_context *ctx);
+
+static inline void set_cpus_allowed_common_cb(struct task_struct *p, const struct cpumask *new_mask, u32 flags)
+{
+	struct affinity_context ac = {
+		.new_mask  = new_mask,
+		.flags     = flags,
+	};
+
+	WARN_ONCE(1, "Unexpected use of sched_class::set_cpus_allowed()");
+	set_cpus_allowed_common(p, &ac);
+}
 
 static inline struct task_struct *get_push_task(struct rq *rq)
 {
