@@ -190,23 +190,12 @@ static struct qcom_icc_node qxm_ipa = {
 	.links = { SLAVE_A2NOC_SNOC },
 };
 
-static struct qcom_icc_qosbox qxm_wcss_qos = {
-	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
-	.num_ports = 1,
-	.offsets = { 0x1a000 },
-	.config = &(struct qos_config) {
-		.prio = 2,
-		.urg_fwd = 0,
-	},
-};
-
 static struct qcom_icc_node qxm_wcss = {
 	.name = "qxm_wcss",
 	.id = MASTER_WLAN,
 	.channels = 1,
 	.buswidth = 8,
 	.noc_ops = &qcom_qnoc4_ops,
-	.qosbox = &qxm_wcss_qos,
 	.num_links = 1,
 	.links = { SLAVE_A2NOC_SNOC },
 };
@@ -237,7 +226,7 @@ static struct qcom_icc_qosbox xm_qdss_etr_1_qos = {
 	.num_ports = 1,
 	.offsets = { 0x19000 },
 	.config = &(struct qos_config) {
-		.prio = 0,
+		.prio = 2,
 		.urg_fwd = 0,
 	},
 };
@@ -788,7 +777,7 @@ static struct qcom_icc_qosbox qnm_video_cpu_qos = {
 	.num_ports = 1,
 	.offsets = { 0x18000 },
 	.config = &(struct qos_config) {
-		.prio = 0,
+		.prio = 4,
 		.urg_fwd = 1,
 	},
 };
@@ -819,7 +808,7 @@ static struct qcom_icc_qosbox xm_pcie3_0_qos = {
 	.num_ports = 1,
 	.offsets = { 0x7000 },
 	.config = &(struct qos_config) {
-		.prio = 3,
+		.prio = 2,
 		.urg_fwd = 0,
 	},
 };
@@ -2413,25 +2402,7 @@ static struct qcom_icc_desc ravelin_video_aggre_noc = {
 
 static int qnoc_probe(struct platform_device *pdev)
 {
-	const struct qcom_icc_desc *desc;
-	struct qcom_icc_node **qnodes;
-	size_t num_nodes, i;
 	int ret;
-
-	desc = of_device_get_match_data(&pdev->dev);
-	if (!desc)
-		return -EINVAL;
-
-	qnodes = desc->nodes;
-	num_nodes = desc->num_nodes;
-
-	for (i = 0; i < num_nodes; i++) {
-		if (!qnodes[i])
-			continue;
-
-		if (qnodes[i]->qosbox)
-			qnodes[i]->qosbox = NULL;
-	}
 
 	ret = qcom_icc_rpmh_probe(pdev);
 	if (ret)
