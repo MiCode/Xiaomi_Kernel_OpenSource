@@ -1277,6 +1277,10 @@ static enum page_references page_check_references(struct page *page,
 	if (vm_flags & VM_LOCKED)
 		return PAGEREF_RECLAIM;
 
+	/* rmap lock contention: rotate */
+	if (referenced_ptes == -1)
+		return PAGEREF_KEEP;
+
 	if (referenced_ptes) {
 		/*
 		 * All mapped pages start out with page table
@@ -1648,8 +1652,8 @@ retry:
 
 			if (unlikely(PageTransHuge(page)))
 				flags |= TTU_SPLIT_HUGE_PMD;
-
-			trace_android_vh_page_trylock_set(page);
+			if (!ignore_references)
+				trace_android_vh_page_trylock_set(page);
 			try_to_unmap(page, flags);
 			if (page_mapped(page)) {
 				stat->nr_unmap_fail += nr_pages;
@@ -2448,8 +2452,9 @@ static void shrink_active_list(unsigned long nr_to_scan,
 		if (bypass)
 			goto skip_page_referenced;
 		trace_android_vh_page_trylock_set(page);
+		/* Referenced or rmap lock contention: rotate */
 		if (page_referenced(page, 0, sc->target_mem_cgroup,
-				    &vm_flags)) {
+				     &vm_flags) != 0) {
 			/*
 			 * Identify referenced, file-backed active pages and
 			 * give them one more trip around the active list. So
