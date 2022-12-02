@@ -1692,7 +1692,7 @@ static const struct adsp_data lemans_adsp_resource = {
 
 static const struct adsp_data lemans_cdsp_resource = {
 	.crash_reason_smem = 601,
-	.firmware_name = "cdsp.mdt",
+	.firmware_name = "cdsp0.mdt",
 	.pas_id = 18,
 	.uses_elf64 = true,
 	.has_aggre2_clk = false,
