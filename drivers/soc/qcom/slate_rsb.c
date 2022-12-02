@@ -6,6 +6,7 @@
 
 #define pr_fmt(msg) "slatersb: %s: " msg, __func__
 #include "slatersb.h"
+#include <linux/remoteproc/qcom_rproc.h>
 
 struct slatersb_priv {
 	void *handle;
@@ -212,12 +213,12 @@ static int ssr_slatersb_cb(struct notifier_block *this,
 				struct slatersb_priv, lhndl);
 
 	switch (opcode) {
-	case SUBSYS_BEFORE_SHUTDOWN:
+	case QCOM_SSR_BEFORE_SHUTDOWN:
 		if (dev->slatersb_current_state == SLATERSB_STATE_RSB_ENABLED)
 			dev->pending_enable = true;
 		queue_work(dev->slatersb_wq, &dev->slate_down_work);
 		break;
-	case SUBSYS_AFTER_POWERUP:
+	case QCOM_SSR_AFTER_POWERUP:
 		if (dev->slatersb_current_state == SLATERSB_STATE_INIT)
 			queue_work(dev->slatersb_wq, &dev->slate_up_work);
 		break;
@@ -248,7 +249,7 @@ static int slatersb_ssr_register(struct slatersb_priv *dev)
 
 	nb = &ssr_slate_nb;
 	dev->slate_subsys_handle =
-			subsys_notif_register_notifier(SLATERSB_SLATE_SUBSYS, nb);
+			qcom_register_ssr_notifier(SLATERSB_SLATE_SUBSYS, nb);
 
 	if (!dev->slate_subsys_handle) {
 		dev->slate_subsys_handle = NULL;
