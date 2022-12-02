@@ -143,6 +143,10 @@ do {\
 #define VOTE_IDX_100MBPS 2
 #define VOTE_IDX_1000MBPS 3
 
+//Mac config
+#define XGMAC_RX_CONFIG		0x00000004
+#define XGMAC_CONFIG_LM			BIT(10)
+
 static inline u32 PPSCMDX(u32 x, u32 val)
 {
 	return (GENMASK(PPS_MINIDX(x) + 3, PPS_MINIDX(x)) &
@@ -161,9 +165,29 @@ static inline u32 PPSX_MASK(u32 x)
 }
 
 enum IO_MACRO_PHY_MODE {
-		RGMII_MODE,
-		RMII_MODE,
-		MII_MODE
+	RGMII_MODE,
+	RMII_MODE,
+	MII_MODE
+};
+
+enum loopback_mode {
+	DISABLE_LOOPBACK = 0,
+	ENABLE_IO_MACRO_LOOPBACK,
+	ENABLE_MAC_LOOPBACK,
+	ENABLE_PHY_LOOPBACK
+};
+
+enum phy_power_mode {
+	DISABLE_PHY_IMMEDIATELY = 1,
+	ENABLE_PHY_IMMEDIATELY,
+	DISABLE_PHY_AT_SUSPEND_ONLY,
+	DISABLE_PHY_SUSPEND_ENABLE_RESUME,
+	DISABLE_PHY_ON_OFF,
+};
+
+enum current_phy_state {
+	PHY_IS_ON = 0,
+	PHY_IS_OFF,
 };
 
 struct ethqos_emac_por {
@@ -179,6 +203,7 @@ struct ethqos_emac_driver_data {
 struct qcom_ethqos {
 	struct platform_device *pdev;
 	void __iomem *rgmii_base;
+	void __iomem *ioaddr;
 
 	struct msm_bus_scale_pdata *bus_scale_vec;
 	u32 bus_hdl;
@@ -237,6 +262,19 @@ struct qcom_ethqos {
 	/* Key Performance Indicators */
 	bool print_kpi;
 	struct dentry *debugfs_dir;
+	unsigned int emac_phy_off_suspend;
+	int loopback_speed;
+	enum loopback_mode current_loopback;
+	enum phy_power_mode current_phy_mode;
+	enum current_phy_state phy_state;
+	/*Backup variable for phy loopback*/
+	int backup_duplex;
+	int backup_speed;
+	u32 bmcr_backup;
+	/*Backup variable for suspend resume*/
+	int backup_suspend_speed;
+	u32 backup_bmcr;
+	unsigned backup_autoneg:1;
 };
 
 struct pps_cfg {
@@ -292,6 +330,9 @@ bool qcom_ethqos_is_phy_link_up(struct qcom_ethqos *ethqos);
 void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos);
 
 int ppsout_config(struct stmmac_priv *priv, struct pps_cfg *eth_pps_cfg);
+int ethqos_phy_power_on(struct qcom_ethqos *ethqos);
+void  ethqos_phy_power_off(struct qcom_ethqos *ethqos);
+void ethqos_reset_phy_enable_interrupt(struct qcom_ethqos *ethqos);
 
 u16 dwmac_qcom_select_queue(struct net_device *dev,
 			    struct sk_buff *skb,
@@ -351,4 +392,5 @@ void dwmac_qcom_program_avb_algorithm(struct stmmac_priv *priv,
 				      struct ifr_data_struct *req);
 unsigned int dwmac_qcom_get_plat_tx_coal_frames(struct sk_buff *skb);
 int ethqos_init_pps(void *priv);
+unsigned int dwmac_qcom_get_eth_type(unsigned char *buf);
 #endif
