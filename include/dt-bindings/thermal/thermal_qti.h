@@ -88,6 +88,18 @@
 #define QMI_EPM7		71
 #define QMI_SDR0_PA		72
 #define QMI_SDR1_PA		73
+#define QMI_SDR2_PA		74
+#define QMI_SDR3_PA		75
+#define QMI_SDR4_PA		76
+#define QMI_SDR5_PA		77
+#define QMI_SDR6_PA		78
+#define QMI_SDR7_PA		79
+#define QMI_SDR2		80
+#define QMI_SDR3		81
+#define QMI_SDR4		82
+#define QMI_SDR5		83
+#define QMI_SDR6		84
+#define QMI_SDR7		85
 
 #define QMI_MODEM_INST_ID	0x0
 #define QMI_ADSP_INST_ID	0x1
