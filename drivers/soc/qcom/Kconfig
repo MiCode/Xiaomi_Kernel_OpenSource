@@ -556,11 +556,14 @@ config QTI_RIMPS_LOG
 	  buffer for rimps hw device.
 
 config SILENT_MODE
-	bool "Driver support for  Silent mode feature on QCOM Chipsets"
+	tristate "Driver support for  Silent mode feature on QCOM Chipsets"
+	depends on PM_SILENT_MODE
 	help
 	  Enables the support for Silent mode for QCOM chipsets. This feature
 	  monitors a chosen external interface, ex: GPIO, when signalled a
-	  state change, will update /sys/power/pm_kernelsilentmode attribute to
+	  state change, will update
+	  /sys/kernel/silent_boot/pm_silentmode_kernel_state and
+	  /sys/kernel/silent_boot/pm_silentmode_hw_state attribute to
 	  indicate the state transition from silent to non-silent.
 
 config QTI_PLH_SCMI_CLIENT

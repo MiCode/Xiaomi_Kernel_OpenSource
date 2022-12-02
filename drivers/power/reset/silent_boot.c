@@ -18,11 +18,8 @@
 #include <linux/kernel.h>
 #include <asm/arch_timer.h>
 #include <asm/div64.h>
-#include "power.h"
 #include <linux/silent_mode.h>
 
-
-#ifdef CONFIG_PM_SILENT_MODE
 static BLOCKING_NOTIFIER_HEAD(pm_silentmode_chain);
 
 static atomic_t pm_silentmode_userspace_cntrl =
@@ -35,6 +32,50 @@ static atomic_t pm_silent_mode_enable =
 static atomic_t pm_silentmode_hw_state =
 					ATOMIC_INIT(MODE_GPIO_LOW);
 
+static struct kobject *silent_boot_kobj;
+
+/*
+ * On the kernel command line specify silent_boot.mode=<mode>
+ * to set mode in silent mode module.
+ */
+static char *mode = "nonsilent";
+static int silent_mode;
+static int silent_mode_param_set(const char *, const struct kernel_param *);
+static int silent_mode_param_get(char *, const struct kernel_param *);
+static const struct kernel_param_ops silent_mode_param_ops = {
+	.set = silent_mode_param_set,
+	.get = silent_mode_param_get,
+};
+module_param_cb(mode, &silent_mode_param_ops, &mode, 0644);
+
+static int silent_mode_param_set(const char *val, const struct kernel_param *kp)
+{
+	if (!silent_mode) {
+		int len = strlen("forcednonsilent");
+		char *s = strstrip((char *)val);
+
+		if (strnstr(s, "forcednonsilent", len)) {
+			silent_mode = -MODE_NON_SILENT;
+		} else if (strnstr(s, "forcedsilent", len)) {
+			silent_mode = -MODE_SILENT;
+		} else if (strnstr(s, "nonsilent", len)) {
+			silent_mode = MODE_NON_SILENT;
+		} else if (strnstr(s, "silent", len)) {
+			silent_mode = MODE_SILENT;
+		} else {
+			silent_mode = MODE_NON_SILENT;
+			pr_debug("silent_mode: No string found: NON_SILENT\n");
+		}
+	}
+
+	pr_debug("Silent Mode set to %d\n", silent_mode);
+	return 0;
+}
+
+static int silent_mode_param_get(char *buf, const struct kernel_param *kp)
+{
+	return scnprintf(buf, strlen(mode)+1, "%s\n", mode);
+}
 
 /*
  * pm_silentmode_kernel_set: Check if userspace is controlling this node
@@ -43,11 +84,11 @@ static atomic_t pm_silentmode_hw_state =
 static int pm_silentmode_kernel_set(int val)
 {
 	if (!atomic_read(&pm_silentmode_userspace_cntrl)) {
-		pr_err("%s: Kernel Control sysfs\n", __func__);
+		pr_debug("%s: Kernel Control sysfs\n", __func__);
 		atomic_set(&pm_silent_mode_enable, val);
 		return 0;
 	}
-	pr_err("%s: Userspace Controls sysfs\n", __func__);
+	pr_debug("%s: Userspace Controls sysfs\n", __func__);
 	return -USERSPACE_CONTROL_ENABLED;
 }
 
@@ -121,7 +162,8 @@ int  pm_silentmode_update(int val, struct kobject *kobj, bool us)
 	pr_debug("%s:Driver update to sysfs\n", __func__);
 	pm_silentmode_kernel_set(val ^ 1);
 	pm_silentmode_hw_state_set((val ^ 1));
-	sysfs_notify(power_kobj, NULL, "pm_silentmode_kernel_state");
+	sysfs_notify(silent_boot_kobj, NULL, "pm_silentmode_kernel_state");
+	sysfs_notify(silent_boot_kobj, NULL, "pm_silentmode_hw_state");
 	pm_silent_mode_cb_chain();
 
 	return 0;
@@ -134,52 +176,17 @@ int pm_silentmode_status(void)
 }
 EXPORT_SYMBOL(pm_silentmode_status);
 
-/*
- * Parse the command line for the androidboot.silentmode
- * Based on the options set :
- * pm_silent_mode_enable: kernel silent mode
- */
-static int silent_mode_parse_boot_str(char *inputString)
+int pm_silentmode_get_mode(void)
 {
-	char *match = strnstr(saved_command_line,
-					inputString,
-					strlen(saved_command_line));
-
-	if (match == NULL) {
-		pm_silentmode_kernel_set(MODE_NON_SILENT);
-		return MODE_NON_SILENT;
-	}
-
-	pr_debug("%s: returned %s\n", __func__, match);
-
-	if (strnstr(match, "forcednonsilent", strlen(match))) {
-		pm_silentmode_hw_state_set(MODE_GPIO_LOW);
-		pm_silentmode_kernel_set(MODE_NON_SILENT);
-		return MODE_NON_SILENT;
-	} else if (strnstr(match, "forcedsilent", strlen(match))) {
-		pm_silentmode_hw_state_set(MODE_GPIO_HIGH);
-		pm_silentmode_kernel_set(MODE_SILENT);
-		return MODE_NON_SILENT;
-	} else if (strnstr(match, "nonsilent", strlen(match))) {
-		pm_silentmode_hw_state_set(MODE_GPIO_LOW);
-		pm_silentmode_kernel_set(MODE_NON_SILENT);
-		return MODE_NON_SILENT;
-	} else if (strnstr(match, "silent", strlen(match))) {
-		pm_silentmode_hw_state_set(MODE_GPIO_HIGH);
-		pm_silentmode_kernel_set(MODE_SILENT);
-		return MODE_SILENT;
-	}
-
-	pr_debug("silent_mode: No string found: NON_SILENT\n");
-	return MODE_NON_SILENT;
+	return silent_mode;
 }
-
+EXPORT_SYMBOL(pm_silentmode_get_mode);
 
 #define silentmode_attr(_name) \
 static struct kobj_attribute _name##_attr = {	\
 	.attr	= {				\
 		.name = __stringify(_name),	\
-		.mode = 0666,			\
+		.mode = 0664,			\
 	},					\
 	.show	= _name##_show,			\
 	.store	= _name##_store,		\
@@ -233,24 +240,38 @@ static const struct attribute_group attr_group = {
 
 static int __init pm_silentmode_init(void)
 {
-	int kernel_silent_mode, error;
+	int error;
 
 	pr_debug("%s: Silent Boot Mode Entered\n", __func__);
-	// 1. Parse Command Line arguments
-	kernel_silent_mode = silent_mode_parse_boot_str("silent_boot_mode");
+	/* 1. Set based on Parse Command Line arguments */
+	if (!silent_mode) {
+		silent_mode = MODE_NON_SILENT;
+	}
+	if (silent_mode == MODE_SILENT || silent_mode == -MODE_SILENT) {
+		pm_silentmode_hw_state_set(MODE_GPIO_HIGH);
+		pm_silentmode_kernel_set(1);
+	} else {
+		pm_silentmode_hw_state_set(MODE_GPIO_LOW);
+		pm_silentmode_kernel_set(0);
+		pr_debug("%s: Silent Boot Mode disabled\n", __func__);
+	}
 
-	// 2. Append sysfs enteries under /sys/power/
-	error = sysfs_create_group(power_kobj, &attr_group);
+	silent_boot_kobj = kobject_create_and_add("silent_boot", kernel_kobj);
+	if (!silent_boot_kobj) {
+		pr_err("%s: Failed to add silent_boot_kobj\n", __func__);
+		return -ENOMEM;
+	}
+
+	/* 2. Append sysfs entries under /sys/kernel/ */
+	error = sysfs_create_group(silent_boot_kobj, &attr_group);
 	if (error) {
 		pr_err("%s: failed to create sysfs %d\n", __func__, error);
 		return error;
 	}
-	// 2. Set the monitoring state as monitoring or Forced state
-	if (kernel_silent_mode == MODE_NON_SILENT)
-		pr_debug("%s: Silent Boot Mode disabled\n", __func__);
 
 	return 0;
 }
 postcore_initcall(pm_silentmode_init);
 
-#endif
+MODULE_DESCRIPTION("Qualcomm Technologies, Inc. PM Silent Mode driver");
+MODULE_LICENSE("GPL v2");
