@@ -763,6 +763,11 @@ static void tsens_debug_init(struct platform_device *pdev)
 		dev_err(&pdev->dev, "%s: unable to create IPC Logging for %s\n",
 				__func__, tsens_name);
 
+	snprintf(tsens_name, sizeof(tsens_name), "%s_2", dev_name(&pdev->dev));
+	priv->ipc_log2 = ipc_log_context_create(0x1, tsens_name, 0);
+	if (!priv->ipc_log2)
+		dev_err(&pdev->dev, "%s: unable to create IPC Logging for %s\n",
+				__func__, tsens_name);
 }
 #else
 static inline void tsens_debug_init(struct platform_device *pdev) {}
@@ -1099,7 +1104,7 @@ static int tsens_register_irq(struct tsens_priv *priv, char *irqname,
 
 static int tsens_register(struct tsens_priv *priv)
 {
-	int i, ret;
+	int i, temp, ret;
 	struct thermal_zone_device *tzd;
 
 	for (i = 0;  i < priv->num_sensors; i++) {
@@ -1109,6 +1114,18 @@ static int tsens_register(struct tsens_priv *priv)
 							   &tsens_of_ops);
 		if (IS_ERR(tzd))
 			continue;
+
+		if (priv->ops->get_temp) {
+			ret = priv->ops->get_temp(&priv->sensor[i], &temp);
+			if (ret) {
+				dev_err(priv->dev, "[%u] %s: error reading sensor\n",
+					priv->sensor[i].hw_id, __func__);
+				continue;
+			}
+			TSENS_DBG_2(priv, "Sensor_id: %d name:%s temp: %d",
+					priv->sensor[i].hw_id, tzd->type, temp);
+		}
+
 		priv->sensor[i].tzd = tzd;
 		if (priv->ops->enable)
 			priv->ops->enable(priv, i);
