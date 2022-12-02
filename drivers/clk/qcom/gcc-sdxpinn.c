@@ -928,12 +928,18 @@ static struct clk_rcg2 gcc_pcie_1_aux_phy_clk_src = {
 	},
 };
 
+static const struct freq_tbl ftbl_gcc_pcie_1_phy_rchng_clk_src[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(100000000, P_GPLL0_OUT_EVEN, 3, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 gcc_pcie_1_phy_rchng_clk_src = {
 	.cmd_rcgr = 0x6706c,
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_2,
-	.freq_tbl = ftbl_gcc_eee_emac0_clk_src,
+	.freq_tbl = ftbl_gcc_pcie_1_phy_rchng_clk_src,
 	.enable_safe_config = true,
 	.clkr.hw.init = &(const struct clk_init_data){
 		.name = "gcc_pcie_1_phy_rchng_clk_src",
@@ -976,7 +982,7 @@ static struct clk_rcg2 gcc_pcie_2_phy_rchng_clk_src = {
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_2,
-	.freq_tbl = ftbl_gcc_eee_emac0_clk_src,
+	.freq_tbl = ftbl_gcc_pcie_1_phy_rchng_clk_src,
 	.enable_safe_config = true,
 	.clkr.hw.init = &(const struct clk_init_data){
 		.name = "gcc_pcie_2_phy_rchng_clk_src",
@@ -1018,7 +1024,7 @@ static struct clk_rcg2 gcc_pcie_rchng_phy_clk_src = {
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_2,
-	.freq_tbl = ftbl_gcc_eee_emac0_clk_src,
+	.freq_tbl = ftbl_gcc_pcie_1_phy_rchng_clk_src,
 	.enable_safe_config = true,
 	.clkr.hw.init = &(const struct clk_init_data){
 		.name = "gcc_pcie_rchng_phy_clk_src",
