@@ -723,14 +723,11 @@ struct perf_event {
 	struct fasync_struct		*fasync;
 
 	/* delayed work for NMIs and such */
-	unsigned int			pending_wakeup;
-	unsigned int			pending_kill;
-	unsigned int			pending_disable;
-	unsigned int			pending_sigtrap;
+	int				pending_wakeup;
+	int				pending_kill;
+	int				pending_disable;
 	unsigned long			pending_addr;	/* SIGTRAP */
-	struct irq_work			pending_irq;
-	struct callback_head		pending_task;
-	unsigned int			pending_work;
+	struct irq_work			pending;
 
 	atomic_t			event_limit;
 
@@ -844,14 +841,6 @@ struct perf_event_context {
 #endif
 	void				*task_ctx_data; /* pmu specific data */
 	struct rcu_head			rcu_head;
-
-	/*
-	 * Sum (event->pending_sigtrap + event->pending_work)
-	 *
-	 * The SIGTRAP is targeted at ctx->task, as such it won't do changing
-	 * that until the signal is delivered.
-	 */
-	local_t				nr_pending;
 };
 
 /*
