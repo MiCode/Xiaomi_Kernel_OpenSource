@@ -27,7 +27,6 @@
 static unsigned long(attrs);
 
 static struct qmi_handle *mem_share_svc_handle;
-static struct workqueue_struct *mem_share_svc_workqueue;
 static uint64_t bootup_request;
 static bool ramdump_event;
 static void *memshare_ramdump_dev[MAX_CLIENTS];
@@ -785,17 +784,10 @@ static void memshare_init_worker(struct work_struct *work)
 {
 	int rc;
 
-	mem_share_svc_workqueue =
-		create_singlethread_workqueue("mem_share_svc");
-	if (!mem_share_svc_workqueue)
-		return;
-
 	mem_share_svc_handle = kzalloc(sizeof(struct qmi_handle),
 					  GFP_KERNEL);
-	if (!mem_share_svc_handle) {
-		destroy_workqueue(mem_share_svc_workqueue);
+	if (!mem_share_svc_handle)
 		return;
-	}
 
 	rc = qmi_handle_init(mem_share_svc_handle,
 		sizeof(struct qmi_elem_info),
@@ -805,7 +797,6 @@ static void memshare_init_worker(struct work_struct *work)
 			"memshare: Creating mem_share_svc qmi handle failed\n");
 		kfree(mem_share_svc_handle);
 		mem_share_svc_handle = NULL;
-		destroy_workqueue(mem_share_svc_workqueue);
 		return;
 	}
 	rc = qmi_add_server(mem_share_svc_handle, MEM_SHARE_SERVICE_SVC_ID,
@@ -818,7 +809,6 @@ static void memshare_init_worker(struct work_struct *work)
 			kfree(mem_share_svc_handle);
 			mem_share_svc_handle = NULL;
 		}
-		destroy_workqueue(mem_share_svc_workqueue);
 		return;
 	}
 	dev_dbg(memsh_drv->dev, "memshare: memshare_init successful\n");
@@ -999,13 +989,11 @@ static int memshare_remove(struct platform_device *pdev)
 	if (!memsh_drv)
 		return 0;
 
-	flush_workqueue(mem_share_svc_workqueue);
 	if (mem_share_svc_handle) {
 		qmi_handle_release(mem_share_svc_handle);
 		kfree(mem_share_svc_handle);
 		mem_share_svc_handle = NULL;
 	}
-	destroy_workqueue(mem_share_svc_workqueue);
 	return 0;
 }
 
