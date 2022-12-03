@@ -70,7 +70,7 @@
 #define TZ_PIL_AUTH_QDSP6_PROC 1
 
 #define FASTRPC_ENOSUCH 39
-#define DEBUGFS_SIZE 3072
+#define DEBUGFS_SIZE (32*1024)
 #define PID_SIZE 10
 
 #define AUDIO_PDR_ADSP_DTSI_PROPERTY_NAME        "qcom,fastrpc-adsp-audio-pdr"
