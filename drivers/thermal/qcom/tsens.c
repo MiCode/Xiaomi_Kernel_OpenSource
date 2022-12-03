@@ -638,7 +638,11 @@ get_temp:
 			s->tzd->type, temp);
 
 dump_and_exit:
-	TSENS_DBG(priv, "Sensor_id: %d temp: %d", hw_id, *temp);
+	if (s->tzd)
+		TSENS_DBG(priv, "Sensor_id: %d name:%s temp: %d",
+				hw_id, s->tzd->type, *temp);
+	else
+		TSENS_DBG(priv, "Sensor_id: %d temp: %d", hw_id, *temp);
 
 	return 0;
 }
@@ -666,7 +670,11 @@ int get_temp_common(const struct tsens_sensor *s, int *temp)
 
 		*temp = code_to_degc(last_temp, s) * 1000;
 
-		TSENS_DBG(priv, "Sensor_id: %d temp: %d", hw_id, *temp);
+		if (s->tzd)
+			TSENS_DBG(priv, "Sensor_id: %d name:%s temp: %d",
+					hw_id, s->tzd->type, *temp);
+		else
+			TSENS_DBG(priv, "Sensor_id: %d temp: %d", hw_id, *temp);
 
 		return 0;
 	} while (time_before(jiffies, timeout));
