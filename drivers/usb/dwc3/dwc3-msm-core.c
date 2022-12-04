@@ -3425,9 +3425,7 @@ static void dwc3_dis_sleep_mode(struct dwc3_msm *mdwc)
 /* Force Gen1 speed on Gen2 controller if required */
 static void dwc3_force_gen1(struct dwc3_msm *mdwc)
 {
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-
-	if (mdwc->force_gen1 && DWC3_IP_IS(DWC31))
+	if (mdwc->force_gen1 && (mdwc->ip == DWC31_IP))
 		dwc3_msm_write_reg_field(mdwc->base, DWC3_LLUCTL, DWC3_LLUCTL_FORCE_GEN1, 1);
 }
 
@@ -3477,6 +3475,8 @@ static int dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 		if (mdwc->dis_sending_cm_l1_quirk)
 			mdwc3_dis_sending_cm_l1(mdwc);
 	}
+
+	dwc3_force_gen1(mdwc);
 
 	return 0;
 }
