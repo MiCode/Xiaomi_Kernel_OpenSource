@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _UAPI_MSM_IPA_H_
@@ -508,9 +509,15 @@ enum ipa_client_type {
 
 	/* RESERVED PROD                        = 124, */
 	IPA_CLIENT_TPUT_CONS                    = 125,
+
+	IPA_CLIENT_Q6_DL_NLO_ETH_DATA_PROD      = 126,
+	/* RESERVED CONS			            = 127, */
+
+	IPA_CLIENT_APPS_WAN_ETH_PROD            = 128,
+	/* RESERVED CONS			            = 129, */
 };
 
-#define IPA_CLIENT_MAX (IPA_CLIENT_TPUT_CONS + 1)
+#define IPA_CLIENT_MAX (IPA_CLIENT_APPS_WAN_ETH_PROD + 1)
 
 #define IPA_CLIENT_WLAN2_PROD IPA_CLIENT_A5_WLAN_AMPDU_PROD
 #define IPA_CLIENT_Q6_DL_NLO_DATA_PROD IPA_CLIENT_Q6_DL_NLO_DATA_PROD
@@ -553,7 +560,8 @@ enum ipa_client_type {
 	((client) == IPA_CLIENT_APPS_LAN_PROD || \
 	(client) == IPA_CLIENT_APPS_WAN_PROD || \
 	(client) == IPA_CLIENT_APPS_WAN_LOW_LAT_PROD || \
-	(client) == IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_PROD)
+	(client) == IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_PROD || \
+	(client) == IPA_CLIENT_APPS_WAN_ETH_PROD)
 
 #define IPA_CLIENT_IS_USB_CONS(client) \
 	((client) == IPA_CLIENT_USB_CONS || \
@@ -937,7 +945,14 @@ enum ipa_ext_route_evt {
 #define IPA_SET_EXT_ROUTER_MODE_EVENT_MAX IPA_SET_EXT_ROUTER_MODE_EVENT_MAX
 };
 
-#define IPA_EVENT_MAX_NUM (IPA_SET_EXT_ROUTER_MODE_EVENT_MAX)
+enum ipa_eth_pdu_evt {
+	IPA_ENABLE_ETH_PDU_MODE_EVENT = IPA_SET_EXT_ROUTER_MODE_EVENT_MAX,
+	IPA_ENABLE_ETH_PDU_MODE_EVENT_MAX
+#define IPA_ENABLE_ETH_PDU_MODE_EVENT_MAX IPA_ENABLE_ETH_PDU_MODE_EVENT_MAX
+};
+
+
+#define IPA_EVENT_MAX_NUM (IPA_ENABLE_ETH_PDU_MODE_EVENT_MAX)
 #define IPA_EVENT_MAX ((int)IPA_EVENT_MAX_NUM)
 
 /**
