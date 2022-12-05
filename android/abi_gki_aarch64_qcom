@@ -2,6 +2,7 @@
 [abi_symbol_list]
   access_process_vm
   activate_task
+  ack_all_badblocks
   add_cpu
   add_device_randomness
   add_memory
@@ -20,6 +21,7 @@
   __alloc_skb
   alloc_skb_with_frags
   alloc_workqueue
+  alloc_page_buffers
   amba_bustype
   amba_driver_register
   amba_driver_unregister
@@ -41,6 +43,7 @@
   __arm_smccc_sve_check
   async_schedule_node
   async_synchronize_cookie
+  _atomic_dec_and_lock
   atomic_notifier_call_chain
   atomic_notifier_chain_register
   atomic_notifier_chain_unregister
@@ -50,6 +53,24 @@
   backlight_device_set_brightness
   __balance_callbacks
   balance_push_callback
+  badblocks_clear
+  badblocks_exit
+  badblocks_init
+  badblocks_set
+  badblocks_show
+  badblocks_store
+  bd_link_disk_holder
+  bd_unlink_disk_holder
+  bdev_check_media_change
+  bdev_read_only
+  bdevname
+  bio_add_page
+  bio_clone_fast
+  bio_init
+  bio_put
+  bio_split
+  bioset_exit
+  bioset_init
   bio_associate_blkg
   bio_endio
   bio_end_io_acct_remapped
@@ -64,6 +85,7 @@
   bitmap_release_region
   __bitmap_set
   bitmap_zalloc
+  __blkdev_issue_discard
   __blk_alloc_disk
   blk_cleanup_disk
   blk_cleanup_queue
@@ -111,9 +133,17 @@
   blk_rq_map_user_iov
   blk_rq_unmap_user
   blk_sync_queue
+  blk_finish_plug
+  blk_queue_max_write_same_sectors
+  blk_queue_split
+  blk_set_stacking_limits
+  blk_start_plug
+  blkdev_get_by_dev
+  blkdev_put
   blocking_notifier_call_chain
   blocking_notifier_chain_register
   blocking_notifier_chain_unregister
+  bmap
   bpf_trace_run1
   bpf_trace_run10
   bpf_trace_run11
@@ -295,6 +325,7 @@
   csum_partial
   _ctype
   datagram_poll
+  disk_stack_limits
   deactivate_task
   debugfs_attr_read
   debugfs_attr_write
@@ -677,6 +708,7 @@
   find_vpid
   finish_wait
   firmware_request_nowarn
+  file_path
   flow_block_cb_setup_simple
   flow_rule_match_basic
   flow_rule_match_ipv4_addrs
@@ -687,6 +719,7 @@
   flush_delayed_work
   flush_work
   flush_workqueue
+  flush_signals
   fput
   free_io_pgtable_ops
   free_irq
@@ -697,6 +730,7 @@
   freq_qos_add_request
   freq_qos_remove_request
   freq_qos_update_request
+  free_buffer_head
   fsync_bdev
   ftrace_dump
   fwnode_find_reference
@@ -934,6 +968,8 @@
   interval_tree_iter_next
   interval_tree_remove
   int_sqrt
+  int_pow
+  invalidate_bdev
   iomem_resource
   iommu_alloc_resv_region
   iommu_attach_device
@@ -1418,6 +1454,11 @@
   __per_cpu_offset
   per_cpu_ptr_to_phys
   percpu_up_write
+  percpu_ref_exit
+  percpu_ref_init
+  percpu_ref_is_zero
+  percpu_ref_switch_to_atomic_sync
+  percpu_ref_switch_to_percpu
   perf_aux_output_begin
   perf_aux_output_end
   perf_aux_output_flag
@@ -1844,6 +1885,7 @@
   seq_read
   seq_release
   seq_vprintf
+  seq_file_path
   set_capacity
   set_capacity_and_notify
   set_cpus_allowed_ptr
@@ -1999,9 +2041,12 @@
   strreplace
   strscpy
   strsep
+  submit_bio_noacct
+  submit_bio_wait
   __sw_hweight32
   __sw_hweight64
   __sw_hweight8
+  sync_blockdev
   synchronize_irq
   synchronize_rcu
   synchronize_rcu_expedited
@@ -2196,6 +2241,8 @@
   __traceiter_sched_switch
   __traceiter_suspend_resume
   __traceiter_unmap
+  __traceiter_block_bio_remap
+  __tracepoint_block_bio_remap
   __tracepoint_android_rvh_account_irq_end
   __tracepoint_android_rvh_account_irq_start
   __tracepoint_android_rvh_after_dequeue_task
@@ -2463,6 +2510,7 @@
   vchan_tx_desc_free
   vchan_tx_submit
   vfree
+  vfs_fsync
   vhost_add_used_and_signal
   vhost_dev_check_owner
   vhost_dev_cleanup
