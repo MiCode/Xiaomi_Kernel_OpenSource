@@ -100,6 +100,12 @@ static void allow_subpage_alloc(void *data, bool *allow_subpage_alloc, struct de
 	}
 }
 
+static void allow_shared_pages_reclaim(void *unused, struct vm_area_struct *vma, bool *allow_shared)
+{
+	/* Allow shared pages reclaim through process_madvise() only */
+	*allow_shared = (current->mm != vma->vm_mm);
+}
+
 static int __init init_mem_hooks(void)
 {
 	int ret;
@@ -150,6 +156,12 @@ static int __init init_mem_hooks(void)
 		return ret;
 	}
 
+	ret = register_trace_android_vh_madvise_cold_or_pageout(
+				allow_shared_pages_reclaim, NULL);
+	if (ret) {
+		pr_err("Failed to register madvise_cold_or_pageout_pte_range hook\n");
+		return ret;
+	}
 
 	return 0;
 }
@@ -158,6 +170,8 @@ void exit_mem_hooks(void)
 {
 	unregister_trace_android_vh_oom_check_panic(
 			__oom_panic_defer, NULL);
+	unregister_trace_android_vh_madvise_cold_or_pageout(
+			allow_shared_pages_reclaim, NULL);
 }
 
 module_init(init_mem_hooks);
