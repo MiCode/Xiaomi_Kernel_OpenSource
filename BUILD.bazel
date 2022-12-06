@@ -1,26 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2021 The Android Open Source Project
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#       http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-package(
-    default_visibility = [
-        "//visibility:public",
-    ],
-)
 
 load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 load("//build/kernel/kleaf:common_kernels.bzl", "define_common_kernels", "define_db845c")
 load("//build/kernel/kleaf:kernel.bzl", "ddk_headers", "kernel_build", "kernel_images", "kernel_modules_install")
 load(":modules.bzl", "COMMON_GKI_MODULES_LIST")
+
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
 
 define_common_kernels(target_configs = {
     "kernel_aarch64": {
@@ -324,6 +314,42 @@ copy_to_dist_dir(
     flat = True,
 )
 
+# allmodconfig build tests.
+# These are build tests only, so:
+# - outs are intentionally set to empty to not copy anything to DIST_DIR
+# - --allow-undeclared-modules must be used so modules are not declared or copied.
+# - No dist target because these are build tests. We don't care about the artifacts.
+
+# tools/bazel build --allow_undeclared_modules //common:kernel_aarch64_allmodconfig
+kernel_build(
+    name = "kernel_aarch64_allmodconfig",
+    # Hack to actually check the build.
+    # Otherwise, Bazel thinks that there are no output files, and skip building.
+    outs = [".config"],
+    build_config = "build.config.allmodconfig.aarch64",
+    visibility = ["//visibility:private"],
+)
+
+# tools/bazel build --allow_undeclared_modules //common:kernel_x86_64_allmodconfig
+kernel_build(
+    name = "kernel_x86_64_allmodconfig",
+    # Hack to actually check the build.
+    # Otherwise, Bazel thinks that there are no output files, and skip building.
+    outs = [".config"],
+    build_config = "build.config.allmodconfig.x86_64",
+    visibility = ["//visibility:private"],
+)
+
+# tools/bazel build --allow_undeclared_modules //common:kernel_arm_allmodconfig
+kernel_build(
+    name = "kernel_arm_allmodconfig",
+    # Hack to actually check the build.
+    # Otherwise, Bazel thinks that there are no output files, and skip building.
+    outs = [".config"],
+    build_config = "build.config.allmodconfig.arm",
+    visibility = ["//visibility:private"],
+)
+
 # DDK Headers
 # All headers. These are the public targets for DDK modules to use.
 alias(
@@ -335,6 +361,15 @@ alias(
 ddk_headers(
     name = "all_headers_aarch64",
     hdrs = [":all_headers_allowlist_aarch64"] + select({
+        "//build/kernel/kleaf:allow_ddk_unsafe_headers_set": [":all_headers_unsafe"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+)
+
+ddk_headers(
+    name = "all_headers_arm",
+    hdrs = [":all_headers_allowlist_arm"] + select({
         "//build/kernel/kleaf:allow_ddk_unsafe_headers_set": [":all_headers_unsafe"],
         "//conditions:default": [],
     }),
@@ -374,6 +409,24 @@ ddk_headers(
 )
 
 ddk_headers(
+    name = "all_headers_allowlist_arm",
+    hdrs = [
+        ":all_headers_allowlist_arm_globs",
+        ":all_headers_allowlist_common_globs",
+    ],
+    # The list of include directories where source files can #include headers
+    # from. In other words, these are the `-I` option to the C compiler.
+    # These are prepended to LINUXINCLUDE.
+    linux_includes = [
+        "arch/arm/include",
+        "arch/arm/include/uapi",
+        "include",
+        "include/uapi",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+ddk_headers(
     name = "all_headers_allowlist_x86_64",
     hdrs = [
         ":all_headers_allowlist_common_globs",
@@ -396,6 +449,13 @@ ddk_headers(
 # are safe to use.
 # These are separate filegroup targets so the all_headers_allowlist_* are
 # more friendly to batch BUILD file update tools like buildozer.
+
+# globs() for arm only
+filegroup(
+    name = "all_headers_allowlist_arm_globs",
+    srcs = glob(["arch/arm/include/**/*.h"]),
+    visibility = ["//visibility:private"],
+)
 
 # globs() for arm64 only
 filegroup(
