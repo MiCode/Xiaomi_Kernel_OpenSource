@@ -694,8 +694,10 @@ int handle_domain_irq(struct irq_domain *domain,
 	int ret = 0;
 
 
+	__irq_enter_raw();
 	/* The irqdomain code provides boundary checks */
 	desc = irq_resolve_mapping(domain, hwirq);
+	__irq_exit_raw();
 	if (likely(desc)) {
 		if (IS_ENABLED(CONFIG_ARCH_WANTS_IRQ_RAW) &&
 		    unlikely(irq_settings_is_raw(desc))) {
