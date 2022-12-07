@@ -405,6 +405,10 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_save_hib_resume_bdev);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_dma_buf_stats_teardown);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_madvise_cold_or_pageout);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cma_alloc_retry);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_encrypt_page);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_init_aes_encrypt);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_skip_swap_map_write);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_post_image_save);
 
 /*
  * For type visibility
