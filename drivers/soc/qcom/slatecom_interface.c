@@ -129,16 +129,6 @@ struct service_info {
 	struct notifier_block           *nb;
 };
 
-struct ctrl_channel_ops ctrl_ops = {
-	.glink_channel_state = slatecom_intf_notify_glink_channel_state,
-	.rx_msg = slatecom_rx_msg,
-};
-
-struct subsys_state_ops state_ops = {
-	.set_dsp_state = set_slate_dsp_state,
-	.set_bt_state = set_slate_bt_state,
-};
-
 static struct slatedaemon_priv *dev;
 static unsigned int slatereset_gpio;
 static  DEFINE_MUTEX(slate_char_mutex);
@@ -1230,7 +1220,8 @@ static int __init init_slate_com_dev(void)
 		pr_err("%s: failed to register slate-daemon register\n", __func__);
 
 	srcu_init_notifier_head(&slatecom_notifier_chain);
-
+	slatecom_state_init(&set_slate_dsp_state, &set_slate_bt_state);
+	slatecom_ctrl_channel_init(&slatecom_intf_notify_glink_channel_state, &slatecom_rx_msg);
 	return 0;
 }
 

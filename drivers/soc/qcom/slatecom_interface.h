@@ -45,7 +45,8 @@ struct subsys_state_ops {
 	void (*set_bt_state)(bool status);
 };
 
-struct subsys_state_ops state_ops;
+void slatecom_state_init(void (*fn1)(bool), void (*fn2)(bool));
+
 
 /*
  * Message header type - generic header structure

@@ -178,6 +178,8 @@ static int slatecom_reg_read_internal(void *handle, uint8_t reg_start_addr,
 	uint32_t num_regs, void *read_buf);
 static int slatecom_force_resume(void *handle);
 
+struct subsys_state_ops state_ops;
+
 static struct spi_device *get_spi_device(void)
 {
 	struct slate_spi_priv *slate_spi = container_of(slate_com_drv,
@@ -190,6 +192,13 @@ static void augmnt_fifo(uint8_t *data, int pos)
 {
 	data[pos] = '\0';
 }
+
+void slatecom_state_init(void (*fn1)(bool), void (*fn2)(bool))
+{
+	state_ops.set_dsp_state = fn1;
+	state_ops.set_bt_state = fn2;
+}
+EXPORT_SYMBOL(slatecom_state_init);
 
 static void send_input_events(struct work_struct *work)
 {
@@ -532,21 +541,21 @@ static void send_back_notification(uint32_t slav_status_reg,
 		}
 
 		if (slav_status_reg & BIT(26)) {
-			pr_debug("Slate DSP DOWN\n", __func__);
+			pr_err("Slate DSP DOWN\n", __func__);
 			state_ops.set_dsp_state(false);
 		} else if (slav_status_reg & BIT(30)) {
 			if (!(slav_status_reg & BIT(26))) {
-				pr_debug("Slate DSP UP\n", __func__);
+				pr_err("Slate DSP UP\n", __func__);
 				state_ops.set_dsp_state(true);
 			}
 		}
 
 		if (slav_status_reg & BIT(25)) {
-			pr_debug("Slate BT DOWN\n", __func__);
+			pr_err("Slate BT DOWN\n", __func__);
 			state_ops.set_bt_state(false);
 		} else if (slav_status_reg & BIT(30)) {
 			if (!(slav_status_reg & BIT(25))) {
-				pr_debug("Slate BT UP\n", __func__);
+				pr_err("Slate BT UP\n", __func__);
 				state_ops.set_bt_state(true);
 			}
 		}

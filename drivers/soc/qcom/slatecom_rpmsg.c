@@ -10,6 +10,14 @@
 #include "slatecom_rpmsg.h"
 
 static struct slatecom_rpmsg_dev *pdev;
+struct ctrl_channel_ops ctrl_ops;
+
+void slatecom_ctrl_channel_init(void (*fn1)(bool), void (*fn2)(void *data, int len))
+{
+	ctrl_ops.glink_channel_state = fn1;
+	ctrl_ops.rx_msg = fn2;
+}
+EXPORT_SYMBOL(slatecom_ctrl_channel_init);
 
 int slatecom_rpmsg_tx_msg(void  *msg, size_t len)
 {
