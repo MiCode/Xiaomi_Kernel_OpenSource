@@ -220,7 +220,7 @@ config QTI_DEVFREQ_CDEV
 	   allow limiting the devfreq frequency.
 
 config QTI_AOP_REG_COOLING_DEVICE
-	bool "QTI AOP Regulator cooling device"
+	tristate "QTI AOP Regulator cooling device"
 	depends on THERMAL_OF && MSM_QMP
 	help
 	  This enables the AOP based Regulator cooling device. This cooling
