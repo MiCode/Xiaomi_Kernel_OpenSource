@@ -18,6 +18,9 @@
 #define GPU_CC_GX_GMU_CLK			8
 #define GPU_CC_PLL1				9
 #define GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK		10
+#define GPU_CC_GX_VSENSE_CLK			11
+#define GPU_CC_PLL0				12
+#define GPU_CC_SLEEP_CLK			13
 
 /* GPU_CC Resets */
 #define GPUCC_GPU_CC_ACD_BCR			0
