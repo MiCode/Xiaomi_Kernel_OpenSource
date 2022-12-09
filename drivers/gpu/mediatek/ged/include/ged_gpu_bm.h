@@ -13,14 +13,6 @@ struct job_status_qos {
 	size_t size;
 };
 
-struct v1_data {
-	unsigned int version;
-	unsigned int ctx;
-	unsigned int frame;
-	unsigned int job;
-	unsigned int freq;
-};
-
 #define SYSRAM_LOG_SIZE sizeof(int)
 
 enum gpu_bm_counter {
