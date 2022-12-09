@@ -310,7 +310,7 @@ ssize_t vcp_A_log_read(char __user *data, size_t len)
 		goto error;
 	}
 
-	if (r_pos == w_pos)
+	if (r_pos == w_pos || (r_pos == 0 && w_pos == DRAM_BUF_LEN))
 		goto error;
 
 	if (r_pos > w_pos)
@@ -352,8 +352,11 @@ error:
 
 unsigned int vcp_A_log_poll(void)
 {
-	if (VCP_A_buf_info->r_pos != VCP_A_buf_info->w_pos)
+	if (VCP_A_buf_info->r_pos != VCP_A_buf_info->w_pos) {
+		if (VCP_A_buf_info->r_pos == 0 && VCP_A_buf_info->w_pos == DRAM_BUF_LEN)
+			return 0;
 		return POLLIN | POLLRDNORM;
+	}
 
 	/*vcp_log_timer_add();*/
 
