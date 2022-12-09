@@ -1000,10 +1000,6 @@ static int __init touch_boost_init(void)
 	spin_lock_init(&ktchboost.touch_lock);
 	init_waitqueue_head(&ktchboost.wq);
 	atomic_set(&ktchboost.event, 0);
-	ktchboost.thread = (struct task_struct *)kthread_run(ktchboost_thread,
-			&ktchboost, "touch_boost");
-	if (IS_ERR(ktchboost.thread))
-		return -EINVAL;
 
 	handle = input_register_handler(&dbs_input_handler);
 
@@ -1071,6 +1067,11 @@ static int __init touch_boost_init(void)
 		cpu = cpumask_last(policy->related_cpus);
 		cpufreq_cpu_put(policy);
 	}
+
+	ktchboost.thread = (struct task_struct *)kthread_run(ktchboost_thread,
+			&ktchboost, "touch_boost");
+	if (IS_ERR(ktchboost.thread))
+		return -EINVAL;
 
 	touch_boost_get_cmd_fp = touch_boost_get_cmd;
 
