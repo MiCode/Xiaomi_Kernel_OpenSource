@@ -8,6 +8,8 @@
 
 #include <linux/dma-mapping.h>
 #include <linux/dma-buf.h>
+#include <linux/irqflags.h>
+#include <linux/timekeeping.h>
 
 #include "mtk_ccu_common.h"
 
@@ -131,6 +133,8 @@ static long mtk_ccu_ioctl(struct file *flip, unsigned int cmd,
 			log_info = ccu->log_info[log_idx-1];
 			log_info.buf_idx = log_idx;
 		}
+		log_info.ktime = ccu->ktime;
+		log_info.gtick = ccu->gtick;
 		ret = copy_to_user((void *)arg, &log_info,
 			sizeof(struct mtk_ccu_buffer));
 		if (ret) {
@@ -243,6 +247,7 @@ ERR:
 void mtk_ccu_ipc_log_handle(uint32_t data, uint32_t len, void *priv)
 {
 	struct mtk_ccu *ccu = priv;
+	unsigned long flags;
 
 	if (data > LOG_BUF_IDX_MAX) {
 		dev_info(ccu->dev, "BUG: log buf idx %d\n", data);
@@ -252,6 +257,10 @@ void mtk_ccu_ipc_log_handle(uint32_t data, uint32_t len, void *priv)
 	dev_info(ccu->dev, "got APMCU_FLUSH_LOG:%d\n", data);
 	ccu->bWaitCond = true;
 	ccu->g_LogBufIdx = (uint32_t)data;
+	local_irq_save(flags);
+	ccu->ktime = ktime_get_ns();
+	ccu->gtick = (uint32_t)arch_timer_read_counter();
+	local_irq_restore(flags);
 	wake_up_interruptible(&ccu->WaitQueueHead);
 }
 

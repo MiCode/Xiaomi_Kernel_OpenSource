@@ -90,6 +90,8 @@ struct mtk_ccu_buffer {
 	uint32_t offset;
 	dma_addr_t mva;
 	char *va;
+	u64 ktime;
+	uint32_t gtick;
 };
 
 struct mtk_ccu_ipc_data {
@@ -172,6 +174,8 @@ struct mtk_ccu {
 	int log_taglevel;
 	uint32_t ipc_tout_fid;
 	uint32_t ipc_tout_mid;
+	u64 ktime;
+	uint32_t gtick;
 };
 
 struct mtk_ccu_clk_name {
