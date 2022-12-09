@@ -196,7 +196,6 @@ extern void ged_get_gpu_utli_ex(struct GpuUtilization_Ex *util_ex);
 #define MAX(x, y)	((x) < (y) ? (y) : (x))
 #endif
 
-extern unsigned int ged_log_perf_trace_enable;
 extern unsigned int g_gpufreq_v2;
 
 extern void (*mtk_set_fastdvfs_mode_fp)(unsigned int u32Mode);

@@ -24,6 +24,7 @@
 #include "ged_monitor_3D_fence.h"
 #include <ged_notify_sw_vsync.h>
 #include "ged_log.h"
+#include "ged_tracepoint.h"
 #include "ged_base.h"
 #include "ged_global.h"
 #include "ged_eb.h"
@@ -497,8 +498,9 @@ bool ged_dvfs_cal_gpu_utilization_ex(unsigned int *pui32Loading,
 				0, g_Util_Ex, 0);
 
 		if (pui32Loading) {
-			Loading__(Util_Ex->util_active, Util_Ex->util_ta, Util_Ex->util_3d,
-				Util_Ex->util_compute, Util_Ex->util_iter, Util_Ex->util_mcu);
+			trace_GPU_DVFS__Loading(Util_Ex->util_active, Util_Ex->util_ta,
+				Util_Ex->util_3d, Util_Ex->util_compute, Util_Ex->util_iter,
+				Util_Ex->util_mcu);
 
 			gpu_av_loading = *pui32Loading;
 
@@ -590,32 +592,30 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 			avg_freq = mtk_gpueb_sysram_batch_read(BATCH_MAX_READ_COUNT,
 						batch_freq, BATCH_STR_SIZE);
 
-			ged_log_perf_trace_batch_counter("gpu_freq",
-				(long long)(avg_freq),
-				5566, 0, 0, batch_freq);
+			trace_tracing_mark_write(5566, "gpu_freq", avg_freq);
 
-			Frequency__(avg_freq*1000, gpufreq_get_cur_freq(TARGET_DEFAULT));
+			trace_GPU_DVFS__Frequency(avg_freq*1000,
+				gpufreq_get_cur_freq(TARGET_DEFAULT));
 		} else {
-			ged_log_perf_trace_counter("gpu_freq",
-				(long long)(ged_get_cur_freq() / 1000), 5566, 0, 0);
+			trace_tracing_mark_write(5566, "gpu_freq",
+				(long long) ged_get_cur_freq() / 1000);
 
-			Frequency__(ged_get_cur_freq(),
+			trace_GPU_DVFS__Frequency(ged_get_cur_freq(),
 				gpufreq_get_cur_freq(TARGET_DEFAULT));
 		}
 
-		ged_log_perf_trace_counter("gpu_freq_ceil",
-			(long long)ged_get_freq_by_idx(ui32CeilingID) / 1000, 5566, 0, 0);
-		ged_log_perf_trace_counter("gpu_freq_floor",
-			(long long)ged_get_freq_by_idx(ui32FloorID) / 1000, 5566, 0, 0);
-		ged_log_perf_trace_counter("limitter_ceil",
-			(long long)ged_get_cur_limiter_ceil(), 5566, 0, 0);
-		ged_log_perf_trace_counter("limitter_floor",
-			(long long)ged_get_cur_limiter_floor(), 5566, 0, 0);
-		ged_log_perf_trace_counter("commit_type",
-			(long long)eCommitType, 5566, 0, 0);
+		trace_tracing_mark_write(5566, "gpu_freq_ceil",
+			(long long) ged_get_freq_by_idx(ui32CeilingID) / 1000);
+		trace_tracing_mark_write(5566, "gpu_freq_floor",
+			(long long) ged_get_freq_by_idx(ui32FloorID) / 1000);
+		trace_tracing_mark_write(5566, "limitter_ceil",
+			ged_get_cur_limiter_ceil());
+		trace_tracing_mark_write(5566, "limitter_floor",
+			ged_get_cur_limiter_floor());
+		trace_tracing_mark_write(5566, "commit_type", eCommitType);
 
 		policy_state = ged_get_policy_state();
-		Policy__Common(eCommitType, policy_state);
+		trace_GPU_DVFS__Policy__Common(eCommitType, policy_state);
 
 	}
 	return bCommited;
@@ -1106,23 +1106,22 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 		gx_fb_dvfs_margin = margin_low_bound;
 
 	//  * 10 to keep unit uniform
-	Policy__Frame_based__Margin(dvfs_margin_value, gx_fb_dvfs_margin,
-		margin_low_bound);
+	trace_GPU_DVFS__Policy__Frame_based__Margin(dvfs_margin_value,
+		gx_fb_dvfs_margin, margin_low_bound);
 
-	Policy__Frame_based__Margin__Detail(dvfs_margin_mode, target_fps_margin,
-		dvfs_min_margin_inc_step, dvfs_margin_low_bound);
+	trace_GPU_DVFS__Policy__Frame_based__Margin__Detail(dvfs_margin_mode,
+		target_fps_margin, dvfs_min_margin_inc_step, dvfs_margin_low_bound);
 
 	t_gpu_target_hd = t_gpu_target * (1000 - gx_fb_dvfs_margin) / 1000;
 
 	//  * 100 to keep unit uniform
-	Policy__Frame_based__GPU_Time((t_gpu * 100),
+	trace_GPU_DVFS__Policy__Frame_based__GPU_Time((t_gpu * 100),
 								  (t_gpu_target * 100),
 								  (t_gpu_target_hd * 100),
 								  (t_gpu_real * 100),
 								  (t_gpu_pipe * 100));
-	ged_log_perf_trace_counter("t_gpu", (long long)(t_gpu * 100), 5566, 0, 0);
-	ged_log_perf_trace_counter("t_gpu_target", (long long)(t_gpu_target * 100),
-		5566, 0, 0);
+	trace_tracing_mark_write(5566, "t_gpu", (long long) t_gpu * 100);
+	trace_tracing_mark_write(5566, "t_gpu_target", (long long) t_gpu_target * 100);
 
 	// Hint target frame time w/z headroom
 	if (ged_is_fdvfs_support())
@@ -1150,7 +1149,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 			gpu_busy_cycle : busy_cycle_cur;
 	}
 
-	Policy__Frame_based__Workload((busy_cycle_cur * 100),
+	trace_GPU_DVFS__Policy__Frame_based__Workload((busy_cycle_cur * 100),
 		(gpu_busy_cycle * 100), (ap_workload_real * 100),
 		(ap_workload_pipe * 100), ged_get_dvfs_loading_mode());
 
@@ -1164,7 +1163,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 	if (gpu_freq_tar < gpu_freq_floor)
 		gpu_freq_tar = gpu_freq_floor;
 
-	Policy__Frame_based__Frequency(gpu_freq_tar, gpu_freq_floor);
+	trace_GPU_DVFS__Policy__Frame_based__Frequency(gpu_freq_tar, gpu_freq_floor);
 	pre_frame_idx = cur_frame_idx;
 	cur_frame_idx = (cur_frame_idx + 1) %
 		GED_DVFS_BUSY_CYCLE_MONITORING_WINDOW_NUM;
@@ -1465,15 +1464,16 @@ static bool ged_dvfs_policy(
 				ged_kpi_get_main_bq_uncomplete_count() <= 0)
 			ged_set_policy_state(POLICY_STATE_LB);
 
-		Policy__Loading_based__Margin(g_tb_dvfs_margin_value*10,
-			gx_tb_dvfs_margin*10, g_tb_dvfs_margin_value_min*10);
-		Policy__Loading_based__Margin__Detail(g_tb_dvfs_margin_mode,
-			g_tb_dvfs_margin_step, g_tb_dvfs_margin_value_min*10);
-		Policy__Loading_based__GPU_Time(t_gpu, t_gpu_target, t_gpu_target_hd,
-			t_gpu_complete, t_gpu_uncomplete);
-		ged_log_perf_trace_counter("t_gpu", (long long)t_gpu, 5566, 0, 0);
-		ged_log_perf_trace_counter("t_gpu_target", (long long)t_gpu_target,
-			5566, 0, 0);
+		trace_GPU_DVFS__Policy__Loading_based__Margin(
+			g_tb_dvfs_margin_value*10, gx_tb_dvfs_margin*10,
+			g_tb_dvfs_margin_value_min*10);
+		trace_GPU_DVFS__Policy__Loading_based__Margin__Detail(
+			g_tb_dvfs_margin_mode, g_tb_dvfs_margin_step,
+			g_tb_dvfs_margin_value_min*10);
+		trace_GPU_DVFS__Policy__Loading_based__GPU_Time(t_gpu, t_gpu_target,
+			t_gpu_target_hd, t_gpu_complete, t_gpu_uncomplete);
+		trace_tracing_mark_write(5566, "t_gpu", t_gpu);
+		trace_tracing_mark_write(5566, "t_gpu_target", t_gpu_target);
 
 		/* bound update */
 		if (init == 0) {
@@ -1500,7 +1500,8 @@ static bool ged_dvfs_policy(
 		if (low < ultra_low)
 			low = ultra_low;
 
-		Policy__Loading_based__Bound(ultra_high, high, low, ultra_low);
+		trace_GPU_DVFS__Policy__Loading_based__Bound(ultra_high, high, low,
+			ultra_low);
 
 		/* opp control */
 		// use fallback window size in fallback mode
@@ -1510,7 +1511,8 @@ static bool ged_dvfs_policy(
 			window_size_ms = g_fallback_window_size;
 		ui32GPULoading = gpu_util_history_query_loading(window_size_ms * 1000);
 		loading_mode = ged_get_dvfs_loading_mode();
-		Policy__Loading_based__Loading(ui32GPULoading, loading_mode);
+		trace_GPU_DVFS__Policy__Loading_based__Loading(ui32GPULoading,
+			loading_mode);
 
 		if (ui32GPULoading >= ultra_high)
 			i32NewFreqID -= ultra_high_step_size;
@@ -1558,14 +1560,13 @@ static bool ged_dvfs_policy(
 	else if (i32NewFreqID < 0)
 		i32NewFreqID = 0;
 
-	Policy__Loading_based__Opp(i32NewFreqID);
+	trace_GPU_DVFS__Policy__Loading_based__Opp(i32NewFreqID);
 	*pui32NewFreqID = (unsigned int)i32NewFreqID;
 	g_policy_tar_freq = ged_get_freq_by_idx(i32NewFreqID);
 
 	g_mode = 2;
 
-	return ((*pui32NewFreqID != ui32GPUFreq) || ged_log_perf_trace_enable)
-		? GED_TRUE : GED_FALSE;
+	return (*pui32NewFreqID != ui32GPUFreq) ? GED_TRUE : GED_FALSE;
 }
 
 #ifdef ENABLE_COMMON_DVFS

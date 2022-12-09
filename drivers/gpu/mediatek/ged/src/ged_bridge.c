@@ -11,6 +11,7 @@
 #include "ged_base.h"
 #include "ged_bridge.h"
 #include "ged_log.h"
+#include "ged_tracepoint.h"
 #include "ged_monitor_3D_fence.h"
 #include "ged_notify_sw_vsync.h"
 #include "ged_dvfs.h"
@@ -169,7 +170,7 @@ int ged_bridge_gpu_hint_to_cpu(
 {
 	int ret = 0;
 	set_api_sync_flag(in->hint);
-	Policy__Common__Sync_Api(in->hint);
+	trace_GPU_DVFS__Policy__Common__Sync_Api(in->hint);
 #ifdef CONFIG_MTK_FPSGO_V3
 	ret = fpsgo_notify_gpu_block(in->tid, in->i32BridgeFD, in->hint);
 #endif

@@ -26,6 +26,9 @@
 #include "ged_hashtable.h"
 #include "ged_sysfs.h"
 
+#define CREATE_TRACE_POINTS
+#include "ged_tracepoint.h"
+
 enum {
 	/* 0x00 - 0xff reserved for internal buffer type */
 
@@ -99,8 +102,7 @@ static struct dentry *gpsGEDLogBufsDir;
 
 static GED_HASHTABLE_HANDLE ghHashTable;
 
-unsigned int ged_log_trace_enable;
-unsigned int ged_log_perf_trace_enable;
+static unsigned int ged_log_perf_trace_enable;
 
 static struct kobject *gpu_debug_kobj;
 static unsigned int gpu_debug_log_enable;
@@ -1072,9 +1074,6 @@ GED_ERROR ged_log_system_init(void)
 		goto ERROR;
 	}
 
-	ged_log_trace_enable = 0;
-	ged_log_perf_trace_enable = 0;
-
 	err = ged_sysfs_create_dir(NULL, "gpu_debug", &gpu_debug_kobj);
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE("Failed to create gpu_debug dir!\n");
@@ -1195,329 +1194,27 @@ void ged_log_dump(GED_LOG_BUF_HANDLE hLogBuf)
 }
 EXPORT_SYMBOL(ged_log_dump);
 
-static noinline int tracing_mark_write(const char *buf)
+static int set_ged_log_perf_trace_enable(const char *val,
+	const struct kernel_param *kp)
 {
-	trace_printk(buf);
+	int ret = param_set_uint(val, kp);
+
+	if (ret)
+		return ret;
+
+	// enable/disable ged tracepoints
+	if (ged_log_perf_trace_enable == 0)
+		trace_set_clr_event("ged", NULL, 0);
+	else if (ged_log_perf_trace_enable == 1)
+		trace_set_clr_event("ged", NULL, 1);
+
 	return 0;
 }
 
-noinline void Policy__Frame_based__Frequency(int v1, int v2)
-{
-	char buf[256];
-	int cx;
+static struct kernel_param_ops ged_log_perf_trace_enable_ops = {
+	.set = set_ged_log_perf_trace_enable,
+	.get = param_get_uint,
+};
 
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf), "target=%d, floor=%d\n", v1, v2);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
-noinline void Policy__Frame_based__Workload(int v1, int v2, int v3, int v4, unsigned int v5)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf),
-			"cur=%d, avg=%d, real=%d, pipe=%d, mode=%u\n",
-			v1, v2, v3, v4, v5);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
-noinline void Policy__Frame_based__GPU_Time(int v1, int v2, int v3, int v4, int v5)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf),
-			"cur=%d, target=%d, target_hd=%d, real=%d, pipe=%d\n",
-			v1, v2, v3, v4, v5);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
-noinline void Policy__Frame_based__Margin(int v1, int v2, int v3)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf), "ceil=%d, cur=%d, floor=%d\n", v1, v2, v3);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
-noinline void Policy__Frame_based__Margin__Detail(unsigned int v1, int v2, int v3, int v4)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf),
-			"margin_mode=%d, target_fps_margin=%d, min_margin_inc_step=%d, min_margin=%d\n",
-			v1, v2, v3, v4);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
-noinline void Policy__Loading_based__Opp(int v1)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf), "target=%d\n", v1);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
-noinline void Policy__Loading_based__Loading(unsigned int v1, unsigned int v2)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf), "cur=%u, mode=%d\n", v1, v2);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
-noinline void Policy__Loading_based__Bound(int v1, int v2, int v3, int v4)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf),
-			"ultra_high=%d, high=%d, low=%d, ultra_low=%d\n",
-			v1, v2, v3, v4);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
-noinline void Policy__Loading_based__GPU_Time(int v1, int v2, int v3, int v4, int v5)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf),
-			"cur=%d, target=%d, target_hd=%d, complete=%d, uncomplete=%d\n",
-			v1, v2, v3, v4, v5);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
-noinline void Policy__Loading_based__Margin(int v1, int v2, int v3)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf), "ceil=%d, cur=%d, floor=%d\n", v1, v2, v3);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
-noinline void Policy__Loading_based__Margin__Detail(unsigned int v1, int v2, int v3)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf),
-			"margin_mode=%u, margin_step=%d, min_margin=%d\n",
-			v1, v2, v3);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
-noinline void Policy__DCS(int v1, int v2)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf), "max_core=%d, current_core=%d\n", v1, v2);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
-noinline void Policy__DCS__Detail(unsigned int v1)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf), "core_mask=%u\n", v1);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
-noinline void Policy__Common(unsigned int v1, unsigned int v2)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf), "commit_type=%u, policy_state=%u\n", v1, v2);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
-noinline void Policy__Common__Commit_Reason(unsigned int v1, unsigned int v2)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf), "same=%u, diff=%u\n", v1, v2);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
-noinline void Policy__Common__Commit_Reason__TID(int PID, int BQID, int count)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf),
-			"%d_%d=%d\n",
-			PID, BQID, count);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
-noinline void Policy__Common__Sync_Api(int hint)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf), "hint=%d\n", hint);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
-noinline void Frequency__(unsigned int v1, unsigned int v2)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf), "virtual=%u, real=%u\n", v1, v2);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
-noinline void Loading__(unsigned int v1, unsigned int v2, unsigned int v3,
-	unsigned int v4, unsigned int v5, unsigned int v6)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf),
-			"active=%u, tiler=%u, frag=%u, comp=%u, iter=%u, mcu=%u\n",
-			v1, v2, v3, v4, v5, v6);
-		if (cx >= 0 && cx < sizeof(buf))
-			trace_printk(buf);
-	}
-}
-
-void ged_log_trace_begin(char *name)
-{
-#ifdef ENABLE_GED_SYSTRACE_UTIL
-	char buf[256];
-	int cx;
-
-	if (ged_log_trace_enable) {
-		cx = snprintf(buf, sizeof(buf),
-			"B|%d|%s\n", current->tgid, name);
-		if (cx >= 0 && cx < sizeof(buf))
-			tracing_mark_write(buf);
-	}
-#endif
-}
-EXPORT_SYMBOL(ged_log_trace_begin);
-void ged_log_trace_end(void)
-{
-#ifdef ENABLE_GED_SYSTRACE_UTIL
-	char buf[256];
-	int cx;
-
-	if (ged_log_trace_enable) {
-		cx = snprintf(buf, sizeof(buf), "E\n");
-		if (cx >= 0 && cx < sizeof(buf))
-			tracing_mark_write(buf);
-	}
-#endif
-}
-EXPORT_SYMBOL(ged_log_trace_end);
-void ged_log_trace_counter(char *name, int count)
-{
-#ifdef ENABLE_GED_SYSTRACE_UTIL
-	char buf[256];
-	int cx;
-
-	if (ged_log_trace_enable) {
-		cx = snprintf(buf, sizeof(buf), "C|5566|%s|%d\n", name, count);
-		if (cx >= 0 && cx < sizeof(buf))
-			tracing_mark_write(buf);
-	}
-#endif
-}
-EXPORT_SYMBOL(ged_log_trace_counter);
-void ged_log_perf_trace_counter(char *name, long long count, int pid,
-	unsigned long frameID, u64 BQID)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf), "C|%d|%s|%lld|%llu|%lu\n",
-		pid, name, count, (unsigned long long)BQID, frameID);
-		if (cx >= 0 && cx < sizeof(buf))
-			tracing_mark_write(buf);
-	}
-}
-EXPORT_SYMBOL(ged_log_perf_trace_counter);
-
-void ged_log_perf_trace_batch_counter(char *name, long long count, int pid,
-	unsigned long frameID, u64 BQID, char *batch_str)
-{
-	char buf[256];
-	int cx;
-
-	if (ged_log_perf_trace_enable) {
-		cx = snprintf(buf, sizeof(buf), "C|%d|%s|%lld|%llu|%lu%s\n",
-		pid, name, count, (unsigned long long)BQID, frameID, batch_str);
-		if (cx >= 0 && cx < sizeof(buf))
-			tracing_mark_write(buf);
-	}
-}
-EXPORT_SYMBOL(ged_log_perf_trace_batch_counter);
-
-module_param(ged_log_trace_enable, uint, 0644);
-module_param(ged_log_perf_trace_enable, uint, 0644);
+module_param_cb(ged_log_perf_trace_enable, &ged_log_perf_trace_enable_ops,
+	&ged_log_perf_trace_enable, 0644);

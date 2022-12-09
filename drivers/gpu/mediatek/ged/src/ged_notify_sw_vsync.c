@@ -19,6 +19,7 @@
 #include <mt-plat/mtk_gpu_utility.h>
 #include "ged_notify_sw_vsync.h"
 #include "ged_log.h"
+#include "ged_tracepoint.h"
 #include "ged_base.h"
 #include "ged_monitor_3D_fence.h"
 #include "ged.h"
@@ -500,7 +501,7 @@ void ged_dvfs_gpu_clock_switch_notify(enum ged_gpu_power_state power_state)
 		ged_log_buf_print(ghLogBuf_DVFS, "[GED_K] Buck-off");
 	}
 	// Update power on/off state
-	ged_log_perf_trace_counter("gpu_state", power_state, 5566, 0, 0);
+	trace_tracing_mark_write(5566, "gpu_state", power_state);
 }
 EXPORT_SYMBOL(ged_dvfs_gpu_clock_switch_notify);
 

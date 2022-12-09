@@ -15,6 +15,7 @@
 #include <ged_hashtable.h>
 #include <ged_dvfs.h>
 #include <ged_log.h>
+#include <ged_tracepoint.h>
 #include <ged.h>
 #include "ged_thread.h"
 /* #include <ged_vsync.h> */
@@ -972,9 +973,9 @@ static void ged_kpi_set_fallback_mode(struct GED_KPI_HEAD *psHead)
 	if (diff_times > GED_KPI_MAX_SWITCH_COUNT)
 		diff_times = GED_KPI_MAX_SWITCH_COUNT;
 
-	Policy__Common__Commit_Reason__TID(psHead->pid, (int)(psHead->ullWnd % 0xF)
-						, psHead->i32Count);
-	Policy__Common__Commit_Reason(same_times, diff_times);
+	trace_GPU_DVFS__Policy__Common__Commit_Reason__TID(psHead->pid,
+		(int)(psHead->ullWnd % 0xF), psHead->i32Count);
+	trace_GPU_DVFS__Policy__Common__Commit_Reason(same_times, diff_times);
 	/*check if LB or FB*/
 	if (same_times >= GED_KPI_SWITCH_FB_THRESHOLD) {
 		if (main_head->isSF == 1) //surfacefliger use LB only
@@ -1347,12 +1348,10 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			ged_kpi_statistics_and_remove(psHead, psKPI);
 
 		/* hint JS0, JS1 info to EAT */
-		ged_log_perf_trace_counter("is_gift_on", g_psGIFT->gift_ratio,
-				psTimeStamp->pid, psTimeStamp->i32FrameID, ulID);
-		ged_log_perf_trace_counter("t_cpu", psKPI->t_cpu,
-			psTimeStamp->pid, psTimeStamp->i32FrameID, ulID);
-		ged_log_perf_trace_counter("t_gpu",	psKPI->t_gpu,
-			psTimeStamp->pid, psTimeStamp->i32FrameID, ulID);
+		trace_tracing_mark_write(psTimeStamp->pid, "is_gift_on",
+			g_psGIFT->gift_ratio);
+		trace_tracing_mark_write(psTimeStamp->pid, "t_cpu", psKPI->t_cpu);
+		trace_tracing_mark_write(psTimeStamp->pid, "t_gpu",	psKPI->t_gpu);
 		break;
 
 	/* Prefence scope */
@@ -1381,14 +1380,12 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			long long pre_fence_delay;
 
 			pre_fence_delay = psTimeStamp->ullTimeStamp - psKPI->ullTimeStamp1;
-			ged_log_perf_trace_counter("t_pre_fence_delay",
-				pre_fence_delay, psTimeStamp->pid,
-				psTimeStamp->i32FrameID, ulID);
+			trace_tracing_mark_write(psTimeStamp->pid, "t_pre_fence_delay",
+				pre_fence_delay);
 			psKPI->ulMask |= GED_TIMESTAMP_TYPE_P;
 			psKPI->ullTimeStampP = psTimeStamp->ullTimeStamp;
 		} else {
-			ged_log_perf_trace_counter("t_pre_fence_delay",
-				0, psTimeStamp->pid, psTimeStamp->i32FrameID, ulID);
+			trace_tracing_mark_write(psTimeStamp->pid, "t_pre_fence_delay", 0);
 			GED_LOGD("[Exception] TYPE_P: psKPI NULL, frameID: %lu",
 				psTimeStamp->i32FrameID);
 			}
@@ -1461,8 +1458,8 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			eara_fps_margin,
 			GED_KPI_FRC_DEFAULT_MODE, -1);
 
-		ged_log_perf_trace_counter("target_fps_fpsgo",
-				(target_FPS&0x000000ff), 5566, 0, 0);
+		trace_tracing_mark_write(5566, "target_fps_fpsgo",
+			(target_FPS&0x000000ff));
 		break;
 
 	case GED_SET_PANEL_REFRESH_RATE:
@@ -1474,8 +1471,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				ged_hashtable_iterator(gs_hashtable,
 					ged_kpi_update_default_target_fps_fcn, NULL);
 			}
-			ged_log_perf_trace_counter("target_fps_panel",
-				(long long) target_FPS, 5566, 0, 0);
+			trace_tracing_mark_write(5566, "target_fps_panel", target_FPS);
 		}
 		break;
 
@@ -1538,24 +1534,18 @@ static GED_ERROR ged_kpi_push_timestamp(
 		case GED_TIMESTAMP_TYPE_D:
 			break;
 		case GED_TIMESTAMP_TYPE_1:
-			ged_log_trace_counter("GED_KPI_QedBuffer_CNT",
-				atomic_inc_return(&event_QedBuffer_cnt));
-			ged_log_trace_counter("GED_KPI_3D_fence_CNT",
-				atomic_inc_return(&event_3d_fence_cnt));
+			atomic_inc_return(&event_QedBuffer_cnt);
+			atomic_inc_return(&event_3d_fence_cnt);
 			break;
 		case GED_TIMESTAMP_TYPE_2:
-			ged_log_trace_counter("GED_KPI_3D_fence_CNT",
-				atomic_dec_return(&event_3d_fence_cnt));
+			atomic_dec_return(&event_3d_fence_cnt);
 			break;
 		case GED_TIMESTAMP_TYPE_P:
 			break;
 		case GED_TIMESTAMP_TYPE_S:
-			ged_log_trace_counter("GED_KPI_QedBuffer_CNT",
-				atomic_dec_return(&event_QedBuffer_cnt));
+			atomic_dec_return(&event_QedBuffer_cnt);
 			break;
 		case GED_TIMESTAMP_TYPE_H:
-			ged_log_trace_counter("GED_KPI_HW_Vsync",
-				atomic_read(&event_hw_vsync));
 			atomic_set(&event_hw_vsync,
 				(atomic_inc_return(&event_hw_vsync)%2));
 			break;
