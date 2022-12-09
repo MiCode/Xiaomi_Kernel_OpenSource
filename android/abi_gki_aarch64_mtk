@@ -620,6 +620,7 @@
   drm_dp_dpcd_write
   drm_dp_link_train_channel_eq_delay
   drm_dp_link_train_clock_recovery_delay
+  drm_dp_read_dpcd_caps
   drm_edid_duplicate
   drm_edid_to_sad
   drm_encoder_cleanup
@@ -1110,6 +1111,7 @@
   led_trigger_remove
   led_update_brightness
   led_update_flash_brightness
+  linear_range_get_max_value
   linear_range_get_selector_within
   linear_range_get_value
   __list_add_valid
@@ -1567,8 +1569,12 @@
   rb_next
   rb_prev
   rb_replace_node
+  rc_allocate_device
+  rc_free_device
+  rc_register_device
   rcu_idle_enter
   rcu_idle_exit
+  rc_unregister_device
   __rcu_read_lock
   __rcu_read_unlock
   rdev_get_dev
@@ -1596,6 +1602,7 @@
   register_shrinker
   register_syscore_ops
   register_sysctl_table
+  register_tracepoint_module_notifier
   register_virtio_device
   register_virtio_driver
   regmap_bulk_read
