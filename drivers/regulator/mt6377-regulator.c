@@ -336,8 +336,7 @@ static const unsigned int ldo_volt_table6[] = {
 };
 
 static const unsigned int ldo_volt_table7[] = {
-	0, 0, 0, 0, 1100000, 0, 0, 0,
-	1150000, 0, 0, 0, 1200000,
+	1200000, 1240000, 1260000, 1290000,
 };
 
 static const unsigned int ldo_volt_table8[] = {
