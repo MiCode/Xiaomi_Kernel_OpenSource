@@ -2399,6 +2399,9 @@ static void mtk_output_en_doze_switch(struct mtk_dsi *dsi)
 static int mtk_preconfig_dsi_enable(struct mtk_dsi *dsi)
 {
 	int ret;
+	struct mtk_panel_ext *ext = mtk_dsi_get_panel_ext(&dsi->ddp_comp);
+	struct mtk_drm_crtc *mtk_crtc =	dsi->is_slave ?
+			dsi->master_dsi->ddp_comp.mtk_crtc : dsi->ddp_comp.mtk_crtc;
 
 	ret = mtk_dsi_poweron(dsi);
 	if (ret < 0) {
@@ -2410,8 +2413,21 @@ static int mtk_preconfig_dsi_enable(struct mtk_dsi *dsi)
 	mtk_dsi_phy_timconfig(dsi, NULL);
 
 	mtk_dsi_rxtx_control(dsi);
-	if (dsi->driver_data->dsi_buffer)
+	if (dsi->driver_data->dsi_buffer) {
 		mtk_dsi_tx_buf_rw(dsi);
+	} else {
+		if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+			// cmd mode
+			if (ext->params->lp_perline_en) {
+			// LP mode per line  => enables DSI wait data every line in command mode
+				mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
+							DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
+			} else {
+				mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
+							0);
+			}
+		}
+	}
 	mtk_dsi_cmd_type1_hs(dsi);
 	mtk_dsi_ps_control_vact(dsi);
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
@@ -4020,6 +4036,9 @@ static void mtk_dsi_enter_idle(struct mtk_dsi *dsi)
 static void mtk_dsi_leave_idle(struct mtk_dsi *dsi)
 {
 	int ret;
+	struct mtk_panel_ext *ext = mtk_dsi_get_panel_ext(&dsi->ddp_comp);
+	struct mtk_drm_crtc *mtk_crtc =	dsi->is_slave ?
+			dsi->master_dsi->ddp_comp.mtk_crtc : dsi->ddp_comp.mtk_crtc;
 
 	ret = mtk_dsi_poweron(dsi);
 
@@ -4032,8 +4051,21 @@ static void mtk_dsi_leave_idle(struct mtk_dsi *dsi)
 	mtk_dsi_phy_timconfig(dsi, NULL);
 
 	mtk_dsi_rxtx_control(dsi);
-	if (dsi->driver_data->dsi_buffer)
+	if (dsi->driver_data->dsi_buffer) {
 		mtk_dsi_tx_buf_rw(dsi);
+	} else {
+		if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+			// cmd mode
+			if (ext->params->lp_perline_en) {
+			// LP mode per line  => enables DSI wait data every line in command mode
+				mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
+							DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
+			} else {
+				mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
+							0);
+			}
+		}
+	}
 	mtk_dsi_cmd_type1_hs(dsi);
 	mtk_dsi_ps_control_vact(dsi);
 	mtk_dsi_cmdq_size_sel(dsi);
