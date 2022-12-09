@@ -240,7 +240,7 @@ static void mt6338_get_hw_ver(struct mt6338_priv *priv)
 	ecid2 = (efuse_val & 0x3f) << 26 | ecid2;
 
 	priv->hw_ver = value;
-	pr_info("%s() mt6338 fab=%d, hw_ver= %d, ecid = %x%x\n",
+	pr_info("MT6338W_ECID %s() mt6338 fab=%d, hw_ver= %d, ecid = %x%x\n",
 		__func__, fab, priv->hw_ver, ecid, ecid2);
 }
 
