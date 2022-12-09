@@ -943,6 +943,11 @@ void ccu_read_struct_size(uint32_t *structSizes, uint32_t structCnt)
 	int offset = ccu_read_reg(ccu_base, SPREG_10_STRUCT_SIZE_CHECK);
 	uint32_t *ptr = ccu_da_to_va(offset, structCnt*sizeof(uint32_t));
 
+	if (ptr == NULL) {
+		LOG_ERR("%s: ptr null\n", __func__);
+		return;
+	}
+
 	for (i = 0; i < structCnt; i++)
 		structSizes[i] = ptr[i];
 	LOG_DBG("%s: %x\n", __func__, offset);
