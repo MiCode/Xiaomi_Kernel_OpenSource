@@ -925,7 +925,7 @@ RESET_FAILURE:
 
 void sv_reset(struct mtk_camsv_device *dev)
 {
-	int dma_sw_ctl, cq_dma_sw_ctl, i;
+	int dma_sw_ctl, cq_dma_sw_ctl;
 	int ret;
 
 	dev_dbg(dev->dev, "%s camsv_id:%d\n", __func__, dev->id);
@@ -996,18 +996,6 @@ void sv_reset(struct mtk_camsv_device *dev)
 	CAMSV_WRITE_BITS(dev->base_scq + REG_CAMSVCQ_CQ_EN,
 		CAMSVCQ_CQ_EN, CAMSVCQ_CQ_RESET, 0);
 
-
-	/* avoid camsv tag data leakage */
-	for (i = SVTAG_START; i < SVTAG_END; i++) {
-		writel(0, dev->base + REG_CAMSVCENTRAL_GRAB_PXL_TAG1 +
-			CAMSVCENTRAL_GRAB_PXL_TAG_SHIFT * i);
-		writel(0, dev->base_inner + REG_CAMSVCENTRAL_GRAB_PXL_TAG1 +
-			CAMSVCENTRAL_GRAB_PXL_TAG_SHIFT * i);
-		writel(0, dev->base + REG_CAMSVCENTRAL_GRAB_LIN_TAG1 +
-			CAMSVCENTRAL_GRAB_LIN_TAG_SHIFT * i);
-		writel(0, dev->base_inner + REG_CAMSVCENTRAL_GRAB_LIN_TAG1 +
-			CAMSVCENTRAL_GRAB_LIN_TAG_SHIFT * i);
-	}
 	wmb();/* make sure committed */
 
 
@@ -1499,8 +1487,6 @@ int mtk_cam_sv_central_common_enable(struct mtk_camsv_device *dev)
 {
 	int ret = 0;
 
-	mtk_cam_sv_toggle_tg_db(dev);
-
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_SEN_MODE,
 		CAMSVCENTRAL_SEN_MODE, CMOS_EN, 1);
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_VF_CON,
@@ -1553,10 +1539,23 @@ int mtk_cam_sv_fbc_pertag_enable(
 
 int mtk_cam_sv_central_common_disable(struct mtk_camsv_device *dev)
 {
-	int ret = 0;
+	int ret = 0, i;
 
 	/* disable dma dcm before do dma reset */
 	writel(1, dev->base + REG_CAMSVCENTRAL_DCM_DIS);
+
+	/* turn off interrupt */
+	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_DONE_STATUS_EN, 0);
+	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_ERR_STATUS_EN, 0);
+	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_SOF_STATUS_EN, 0);
+
+	/* avoid camsv tag data leakage */
+	for (i = SVTAG_START; i < SVTAG_END; i++) {
+		writel(0, dev->base_inner + REG_CAMSVCENTRAL_GRAB_PXL_TAG1 +
+			CAMSVCENTRAL_GRAB_PXL_TAG_SHIFT * i);
+		writel(0, dev->base_inner + REG_CAMSVCENTRAL_GRAB_LIN_TAG1 +
+			CAMSVCENTRAL_GRAB_LIN_TAG_SHIFT * i);
+	}
 
 	/* bypass tg_mode function before vf off */
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_SEN_MODE,
@@ -1566,10 +1565,6 @@ int mtk_cam_sv_central_common_disable(struct mtk_camsv_device *dev)
 		CAMSVCENTRAL_VF_CON, VFDATA_EN, 0);
 
 	mtk_cam_sv_toggle_tg_db(dev);
-
-	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_DONE_STATUS_EN, 0);
-	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_ERR_STATUS_EN, 0);
-	CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_SOF_STATUS_EN, 0);
 
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_SEN_MODE,
 		CAMSVCENTRAL_SEN_MODE, CMOS_EN, 0);
