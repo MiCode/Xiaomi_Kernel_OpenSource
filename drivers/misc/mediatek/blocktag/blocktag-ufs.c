@@ -221,6 +221,24 @@ void mtk_btag_ufs_transfer_req_compl(__u16 task_id, unsigned long req_mask)
 }
 EXPORT_SYMBOL_GPL(mtk_btag_ufs_transfer_req_compl);
 
+/* evaluate throughput and workload of given context */
+static void mtk_btag_ufs_ctx_eval(struct mtk_btag_ufs_ctx *ctx)
+{
+	__u64 period;
+
+	ctx->workload.usage = ctx->period_usage;
+
+	if (ctx->workload.period > (ctx->workload.usage * 100)) {
+		ctx->workload.percent = 1;
+	} else {
+		period = ctx->workload.period;
+		DIV64_U64_ROUND_UP(period, 100);
+		ctx->workload.percent =
+			(__u32)ctx->workload.usage / (__u32)period;
+	}
+	mtk_btag_throughput_eval(&ctx->throughput);
+}
+
 /* print context to trace ring buffer */
 static void mtk_btag_ufs_work(struct work_struct *work)
 {
@@ -241,26 +259,22 @@ static void mtk_btag_ufs_work(struct work_struct *work)
 			spin_unlock_irqrestore(&rt->lock, flags);
 			break;
 		}
-
 		memset(tr, 0, sizeof(struct mtk_btag_trace));
-		tr->pid = 0;
-		tr->qid = idx;
+		tr->flags |= BTAG_TR_NOCLEAR;
+		spin_unlock_irqrestore(&rt->lock, flags);
 
-		ctx = mtk_btag_ufs_curr_ctx(idx);
-		if (!ctx) {
-			spin_unlock_irqrestore(&rt->lock, flags);
-			break;
-		}
-
-		spin_lock(&ctx->lock);
+		ctx = &((struct mtk_btag_ufs_ctx *)BTAG_CTX(ufs_mtk_btag))[idx];
+		spin_lock_irqsave(&ctx->lock, flags);
 		time = sched_clock();
 		if (time - ctx->period_start_t < BTAG_UFS_TRACE_LATENCY) {
-			spin_unlock(&ctx->lock);
-			spin_unlock_irqrestore(&rt->lock, flags);
+			spin_unlock_irqrestore(&ctx->lock, flags);
 			continue;
 		}
 
+		tr->pid = 0;
+		tr->qid = idx;
 		tr->time = time;
+		mtk_btag_ufs_ctx_eval(ctx);
 		mtk_btag_pidlog_eval(&tr->pidlog, &ctx->pidlog);
 		mtk_btag_vmstat_eval(&tr->vmstat);
 		mtk_btag_cpu_eval(&tr->cpu);
@@ -273,29 +287,17 @@ static void mtk_btag_ufs_work(struct work_struct *work)
 		ctx->period_usage = 0;
 		memset(&ctx->throughput, 0, sizeof(struct mtk_btag_throughput));
 		memset(&ctx->workload, 0, sizeof(struct mtk_btag_workload));
-		spin_unlock(&ctx->lock);
+		spin_unlock_irqrestore(&ctx->lock, flags);
 
-		mtk_btag_next_trace(rt);
+		spin_lock_irqsave(&rt->lock, flags);
+		if (tr->flags & BTAG_TR_NOCLEAR) {
+			tr->flags |= BTAG_TR_READY;
+			mtk_btag_next_trace(rt);
+		} else {
+			memset(tr, 0, sizeof(struct mtk_btag_trace));
+		}
 		spin_unlock_irqrestore(&rt->lock, flags);
 	}
-}
-
-/* evaluate throughput and workload of given context */
-static void mtk_btag_ufs_ctx_eval(struct mtk_btag_ufs_ctx *ctx)
-{
-	__u64 period;
-
-	ctx->workload.usage = ctx->period_usage;
-
-	if (ctx->workload.period > (ctx->workload.usage * 100)) {
-		ctx->workload.percent = 1;
-	} else {
-		period = ctx->workload.period;
-		do_div(period, 100);
-		ctx->workload.percent =
-			(__u32)ctx->workload.usage / (__u32)period;
-	}
-	mtk_btag_throughput_eval(&ctx->throughput);
 }
 
 static void mtk_btag_ufs_ctx_count_usage(struct mtk_btag_ufs_ctx *ctx,
@@ -336,7 +338,6 @@ void mtk_btag_ufs_check(__u16 task_id, unsigned long req_mask)
 	if (period_time >= BTAG_UFS_TRACE_LATENCY) {
 		ctx->period_end_t = end_time;
 		ctx->workload.period = period_time;
-		mtk_btag_ufs_ctx_eval(ctx);
 		queue_work(ufs_mtk_btag_wq, &ufs_mtk_btag_worker);
 	}
 	spin_unlock_irqrestore(&ctx->lock, flags);

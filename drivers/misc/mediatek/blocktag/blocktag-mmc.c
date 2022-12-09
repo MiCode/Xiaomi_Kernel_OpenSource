@@ -267,6 +267,7 @@ static struct mtk_btag_trace *mmc_mtk_bio_print_trace(
 	memcpy(&tr->workload, &ctx->workload, sizeof(struct mtk_btag_workload));
 
 	tr->time = sched_clock();
+	tr->flags |= BTAG_TR_READY;
 	mtk_btag_next_trace(rt);
 out:
 	spin_unlock_irqrestore(&rt->lock, flags);

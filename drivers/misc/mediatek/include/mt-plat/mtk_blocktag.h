@@ -193,10 +193,14 @@ struct mtk_btag_cpu {
 };
 
 /* Trace: entry of the ring buffer */
+#define BTAG_TR_READY		(1 << 0)
+#define BTAG_TR_NOCLEAR		(1 << 1)
+
 struct mtk_btag_trace {
 	__u64 time;
 	__u32 qid;
 	__s16 pid;
+	__u8 flags;
 	struct mtk_btag_workload workload;
 	struct mtk_btag_throughput throughput;
 	struct mtk_btag_vmstat vmstat;

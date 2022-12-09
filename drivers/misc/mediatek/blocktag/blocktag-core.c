@@ -437,6 +437,9 @@ static void mtk_btag_seq_trace(char **buff, unsigned long *size,
 {
 	int i;
 
+	if (!(tr->flags & BTAG_TR_READY))
+		return;
+
 	if (tr->time <= 0)
 		return;
 
