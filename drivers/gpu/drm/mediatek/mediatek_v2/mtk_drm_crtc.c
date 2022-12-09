@@ -4088,7 +4088,10 @@ unsigned int mtk_crtc_get_idle_interval(struct drm_crtc *crtc, unsigned int fps)
 	if (!vblank_off && idle_interval > 50)
 		return 0;
 
-	idle_interval = (3 * 1000) / fps + 1;
+	if (fps > 90)
+		idle_interval = (4 * 1000) / fps + 1;
+	else
+		idle_interval = (3 * 1000) / fps + 1;
 
 	if (idle_interval > 50)
 		idle_interval = 50;
