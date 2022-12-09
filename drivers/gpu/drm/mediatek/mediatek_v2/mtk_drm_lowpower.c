@@ -641,6 +641,15 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 
 	/* 2. prepare modules would be used in this CRTC */
 	mtk_drm_idlemgr_enable_connector(crtc);
+
+	/* 3. start event loop first */
+	if (crtc_id == 0) {
+		if (mtk_crtc_with_event_loop(crtc) &&
+			(mtk_crtc_is_frame_trigger_mode(crtc)))
+			mtk_crtc_start_event_loop(crtc);
+	}
+
+	/* 4. prepare modules would be used in this CRTC */
 	mtk_crtc_ddp_prepare(mtk_crtc);
 
 	mtk_gce_backup_slot_init(mtk_crtc);
@@ -650,27 +659,23 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 		mtk_crtc_prepare_instr(crtc);
 #endif
 
-	/* 3. start trigger loop first to keep gce alive */
+	/* 5. start trigger loop first to keep gce alive */
 	if (crtc_id == 0) {
 		if (mtk_crtc_with_sodi_loop(crtc) &&
 			(!mtk_crtc_is_frame_trigger_mode(crtc)))
 			mtk_crtc_start_sodi_loop(crtc);
 
-		if (mtk_crtc_with_event_loop(crtc) &&
-			(mtk_crtc_is_frame_trigger_mode(crtc)))
-			mtk_crtc_start_event_loop(crtc);
-
 		mtk_crtc_start_trig_loop(crtc);
 		mtk_crtc_hw_block_ready(crtc);
 	}
 
-	/* 4. connect path */
+	/* 6. connect path */
 	mtk_crtc_connect_default_path(mtk_crtc);
 
-	/* 5. config ddp engine & set dirty for cmd mode */
+	/* 7. config ddp engine & set dirty for cmd mode */
 	mtk_crtc_config_default_path(mtk_crtc);
 
-	/* 6. conect addon module and config */
+	/* 8. conect addon module and config */
 	if (mtk_crtc->mml_ir_state == MML_IR_IDLE)
 		mtk_crtc_addon_connector_connect(crtc, NULL); /* config dsc only */
 	else
@@ -679,30 +684,30 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 	if (mtk_crtc->mml_ir_sram.bk_hrt_idx)
 		mtk_crtc_alloc_sram(mtk_crtc, mtk_crtc->mml_ir_sram.bk_hrt_idx);
 
-	/* 7. restore OVL setting */
+	/* 9. restore OVL setting */
 	mtk_crtc_restore_plane_setting(mtk_crtc);
 
-	/* 8. Set QOS BW */
+	/* 10. Set QOS BW */
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 		mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, NULL);
 
-	/* 9. restore HRT BW */
+	/* 11. restore HRT BW */
 	if (mtk_drm_helper_get_opt(priv->helper_opt,
 			MTK_DRM_OPT_MMQOS_SUPPORT))
 		mtk_disp_set_hrt_bw(mtk_crtc,
 			mtk_crtc->qos_ctx->last_hrt_req);
 
-	/* 10. Request MMClock */
+	/* 12. Request MMClock */
 	mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (output_comp)
 		mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE,
 				&en);
 
-	/* 11. set vblank */
+	/* 13. set vblank */
 	drm_crtc_vblank_on(crtc);
 
-	/* 12. enable fake vsync if need */
+	/* 14. enable fake vsync if need */
 	mtk_drm_fake_vsync_switch(crtc, true);
 
 	DDPINFO("crtc%d do %s-\n", crtc_id, __func__);
