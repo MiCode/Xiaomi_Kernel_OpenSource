@@ -172,7 +172,7 @@
 			rcupdate.rcu_expedited=1 \
 			swiotlb=noforce disable_dma32=on \
 			8250.nr_uarts=4 \
-			initcall_debug=1 transparent_hugepage=never \
+			transparent_hugepage=never \
 			allow_mismatched_32bit_el0 cgroup.memory=nosocket,nokmem \
 			firmware_class.path=/vendor/firmware";
 			kaslr-seed = <0 0>;
