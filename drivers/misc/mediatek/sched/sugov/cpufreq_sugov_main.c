@@ -251,7 +251,7 @@ unsigned long mtk_cpu_util(int cpu, struct util_rq *util_rq,
 
 	if (type == FREQUENCY_UTIL) {
 		if ((rq->curr->android_vendor_data1[T_SBB_FLG] || is_busy_tick_boost_all() ||
-				rq->curr->sched_task_group->android_vendor_data1[TG_SBB_FLG]) &&
+				rq->curr->group_leader->android_vendor_data1[T_SBB_TG_FLG]) &&
 				p == (struct task_struct *)UINTPTR_MAX &&
 				rq->android_vendor_data1[RQ_SBB_ACTIVE]) {
 			util = util * rq->android_vendor_data1[RQ_SBB_BOOST_FACTOR];
