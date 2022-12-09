@@ -38,6 +38,7 @@
 //#include "lcm_i2c.h"
 
 static char bl_tb0[] = { 0x51, 0xff };
+static int current_fps = 90;
 
 //TO DO: You have to do that remove macro BYPASSI2C and solve build error
 //otherwise voltage will be unstable
@@ -362,7 +363,11 @@ static void jdi_panel_init(struct jdi *ctx)
 	jdi_dcs_write_seq_static(ctx, 0XFF, 0X25);
 	//REGR 0XFE,0X25
 	jdi_dcs_write_seq_static(ctx, 0XFB, 0X01);
-	jdi_dcs_write_seq_static(ctx, 0X0F, 0X1B);
+	if (current_fps == 90)
+		jdi_dcs_write_seq_static(ctx, 0X18, 0X20);
+	else
+		jdi_dcs_write_seq_static(ctx, 0X18, 0X21);
+	//jdi_dcs_write_seq_static(ctx, 0X0F, 0X1B);
 	//jdi_dcs_write_seq_static(ctx, 0X18, 0X21);
 	jdi_dcs_write_seq_static(ctx, 0X19, 0XE4);
 	jdi_dcs_write_seq_static(ctx, 0X21, 0X40);
@@ -872,11 +877,11 @@ static int jdi_enable(struct drm_panel *panel)
 	return 0;
 }
 static const struct drm_display_mode default_mode = {
-	.clock = 316845, //h_total * v_total * fps
+	.clock = 316806, //h_total * v_total * fps
 	.hdisplay = 1080,
-	.hsync_start = 1080 + 1004,//HFP
-	.hsync_end = 1080 + 1004 + 20,//HSA
-	.htotal = 1080 + 1004 + 20 + 22,//HBP
+	.hsync_start = 1080 + 996,//HFP
+	.hsync_end = 1080 + 996 + 20,//HSA
+	.htotal = 1080 + 996 + 20 + 22,//HBP
 	.vdisplay = 2400,
 	.vsync_start = 2400 + 54,//VFP
 	.vsync_end = 2400 + 54 + 10,//VSA
@@ -906,6 +911,8 @@ static struct mtk_panel_params ext_params = {
 	},
 	.is_cphy = 1,
 	.data_rate = 1110,
+	.lfr_enable = 1,
+	.lfr_minimum_fps = 60,
 	.dyn_fps = {
 		.switch_en = 1,
 		.vact_timing_fps = 60,
@@ -927,7 +934,7 @@ static struct mtk_panel_params ext_params = {
 
 static struct mtk_panel_params ext_params_90hz = {
 	.pll_clk = 555,
-	.vfp_low_power = 1360, //60HZ
+	.vfp_low_power = 1350, //60HZ
 	.cust_esd_check = 1,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -935,6 +942,8 @@ static struct mtk_panel_params ext_params_90hz = {
 	},
 	.is_cphy = 1,
 	.data_rate = 1110,
+	.lfr_enable = 1,
+	.lfr_minimum_fps = 60,
 	.dyn_fps = {
 		.switch_en = 1,
 		.vact_timing_fps = 90,
@@ -1005,6 +1014,9 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 		ext->params = &ext_params_90hz;
 	else
 		ret = 1;
+
+	if (!ret)
+		current_fps = drm_mode_vrefresh(m);
 
 	return ret;
 }
@@ -1254,6 +1266,8 @@ static int jdi_remove(struct mipi_dsi_device *dsi)
 	mipi_dsi_detach(dsi);
 	drm_panel_remove(&ctx->panel);
 #if defined(CONFIG_MTK_PANEL_EXT)
+	if (ext_ctx == NULL)
+		return -1;
 	mtk_panel_detach(ext_ctx);
 	mtk_panel_remove(ext_ctx);
 #endif

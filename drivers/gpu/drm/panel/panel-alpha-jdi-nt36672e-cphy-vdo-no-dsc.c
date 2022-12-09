@@ -878,9 +878,9 @@ static const struct drm_display_mode default_mode = {
 	.hsync_end = 1080 + 76 + 20,//HSA
 	.htotal = 1080 + 76 + 20 + 22,//HBP
 	.vdisplay = 2400,
-	.vsync_start = 2400 + 1360,//VFP
-	.vsync_end = 2400 + 1360 + 10,//VSA
-	.vtotal = 2400 + 1360 + 10 + 10,//VBP
+	.vsync_start = 2400 + 1350,//VFP
+	.vsync_end = 2400 + 1350 + 10,//VSA
+	.vtotal = 2400 + 1350 + 10 + 10,//VBP
 };
 
 static const struct drm_display_mode performance_mode_90hz = {
@@ -906,6 +906,8 @@ static struct mtk_panel_params ext_params = {
 	},
 	.is_cphy = 1,
 	.data_rate = 1110,
+	.lfr_enable = 1,
+	.lfr_minimum_fps = 60,
 	.dyn = {
 		.switch_en = 1,
 		.pll_clk = 560,
@@ -917,7 +919,7 @@ static struct mtk_panel_params ext_params = {
 
 static struct mtk_panel_params ext_params_90hz = {
 	.pll_clk = 555,
-	.vfp_low_power = 1360, //60HZ
+	.vfp_low_power = 1350, //60HZ
 	.cust_esd_check = 1,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -925,6 +927,8 @@ static struct mtk_panel_params ext_params_90hz = {
 	},
 	.is_cphy = 1,
 	.data_rate = 1110,
+	.lfr_enable = 1,
+	.lfr_minimum_fps = 60,
 	.dyn = {
 		.switch_en = 1,
 		.pll_clk = 560,
@@ -1234,6 +1238,8 @@ static int jdi_remove(struct mipi_dsi_device *dsi)
 	mipi_dsi_detach(dsi);
 	drm_panel_remove(&ctx->panel);
 #if defined(CONFIG_MTK_PANEL_EXT)
+	if (ext_ctx == NULL)
+		return -1;
 	mtk_panel_detach(ext_ctx);
 	mtk_panel_remove(ext_ctx);
 #endif
