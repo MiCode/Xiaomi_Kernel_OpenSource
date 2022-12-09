@@ -2439,6 +2439,8 @@ static int ext_layer_grouping(struct drm_device *dev,
 		 * Now when layer > 12, limit ext layer cnt
 		 */
 		max_ext_layer_cnt = PRIMARY_OVL_LAYER_NUM - phy_layer_cnt;
+		if (max_ext_layer_cnt > PRIMARY_OVL_EXT_LAYER_NR)
+			max_ext_layer_cnt = PRIMARY_OVL_EXT_LAYER_NR;
 
 		for (i = 1; i < disp_info->layer_num[disp_idx]; i++) {
 			dst_info = &disp_info->input_config[disp_idx][i];
@@ -2910,6 +2912,13 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 			DDPINFO("%s layer_id %d no compress phy layer\n",
 				__func__, i);
 			no_compress_layer_num++;
+		}
+
+		if (disp_idx >= MAX_CRTC || plane_idx >= OVL_LAYER_NR) {
+			dump_disp_info(disp_info, DISP_DEBUG_LEVEL_INFO);
+			DDPAEE("%s Error disp_idx %d, plane_idx %d\n", __func__,
+				disp_idx, plane_idx);
+			break;
 		}
 
 		lye_add_lye_priv_blob(&comp_state, lyeblob_ids, plane_idx,
