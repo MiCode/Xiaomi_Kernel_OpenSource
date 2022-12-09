@@ -257,11 +257,19 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 		chr_err("use default V_CHARGER_MIN:%d\n", V_CHARGER_MIN);
 		info->data.min_charger_voltage = V_CHARGER_MIN;
 	}
-	info->enable_vbat_mon = of_property_read_bool(np, "enable_vbat_mon");
-	if (info->enable_vbat_mon == true)
-		info->setting.vbat_mon_en = true;
+
+	if (of_property_read_u32(np, "enable_vbat_mon", &val) >= 0) {
+		info->enable_vbat_mon = val;
+		info->enable_vbat_mon_bak = val;
+	} else if (of_property_read_u32(np, "enable-vbat-mon", &val) >= 0) {
+		info->enable_vbat_mon = val;
+		info->enable_vbat_mon_bak = val;
+	} else {
+		chr_err("use default enable 6pin\n");
+		info->enable_vbat_mon = 0;
+		info->enable_vbat_mon_bak = 0;
+	}
 	chr_err("use 6pin bat, enable_vbat_mon:%d\n", info->enable_vbat_mon);
-	info->enable_vbat_mon_bak = of_property_read_bool(np, "enable_vbat_mon");
 
 	/* sw jeita */
 	info->enable_sw_jeita = of_property_read_bool(np, "enable_sw_jeita");
