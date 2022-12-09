@@ -228,6 +228,8 @@ enum dvfsrc_regs {
 	DVFSRC_INT,
 	DVFSRC_INT_EN,
 	DVFSRC_INT_CLR,
+	DVFSRC_DEFAULT_OPP_2,
+	DVFSRC_DEFAULT_OPP_1,
 };
 
 static const int mt8183_regs[] = {
@@ -256,6 +258,7 @@ static const int mt6873_regs[] = {
 static const int mt6983_regs[] = {
 	[DVFSRC_BASIC_CONTROL] =	0x0,
 	[DVFSRC_SW_REQ] =		0x18,
+	[DVFSRC_SW_REQ2] =		0x1C,
 	[DVFSRC_LEVEL] =		0x5F0,
 	[DVFSRC_SW_PEAK_BW] =		0x1F4,
 	[DVFSRC_SW_BW] =		0x1E8,
@@ -269,6 +272,8 @@ static const int mt6983_regs[] = {
 	[DVFSRC_INT] =			0xC8,
 	[DVFSRC_INT_EN] =		0xCC,
 	[DVFSRC_INT_CLR] =		0xD0,
+	[DVFSRC_DEFAULT_OPP_2] =	0x230,
+	[DVFSRC_DEFAULT_OPP_1] =	0x22C,
 };
 
 static const struct dvfsrc_opp *get_current_opp(struct mtk_dvfsrc *dvfsrc)
@@ -572,6 +577,61 @@ static void mt6983_set_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 }
 
 #ifdef DVFSRC_FORCE_OPP_SUPPORT
+static void mt6985_set_force_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
+{
+	unsigned long flags;
+	int val;
+	int ret = 0;
+
+	spin_lock_irqsave(&dvfsrc->force_lock, flags);
+	if (level > dvfsrc->curr_opps->num_opp - 1) {
+		if (dvfsrc->opp_forced) {
+			dvfsrc_rmw(dvfsrc, DVFSRC_BASIC_CONTROL, 1, 0x1, 14);
+			dvfsrc_write(dvfsrc, DVFSRC_DEFAULT_OPP_2, 1);
+			dvfsrc_write(dvfsrc, DVFSRC_DEFAULT_OPP_1, 0);
+			dvfsrc_write(dvfsrc, DVFSRC_SW_REQ2, 0x0);
+			dvfsrc_rmw(dvfsrc, DVFSRC_BASIC_CONTROL, 0, 0x1, 14);
+			dvfsrc->opp_forced = false;
+		}
+		goto out;
+	}
+
+	if (!dvfsrc->opp_forced) {
+		dvfsrc_write(dvfsrc, DVFSRC_SW_REQ2, 0xFFFFFFFF);
+		udelay(STARTUP_TIME);
+		dvfsrc_wait_for_idle(dvfsrc);
+		udelay(STARTUP_TIME);
+		dvfsrc_wait_for_idle(dvfsrc);
+	}
+
+	dvfsrc->opp_forced = true;
+	dvfsrc_rmw(dvfsrc, DVFSRC_BASIC_CONTROL, 1, 0x1, 14);
+	if (level >= 32) {
+		dvfsrc_write(dvfsrc, DVFSRC_DEFAULT_OPP_1, 1 << (level - 32));
+		dvfsrc_write(dvfsrc, DVFSRC_DEFAULT_OPP_2, 0);
+	} else {
+		dvfsrc_write(dvfsrc, DVFSRC_DEFAULT_OPP_2, 1 << level);
+		dvfsrc_write(dvfsrc, DVFSRC_DEFAULT_OPP_1, 0);
+	}
+	dvfsrc_rmw(dvfsrc, DVFSRC_BASIC_CONTROL, 0, 0x1, 14);
+	ret = readl_poll_timeout_atomic(
+			dvfsrc->regs + dvfsrc->dvd->regs[DVFSRC_LEVEL],
+			val, (val & 0x3f) == level, STARTUP_TIME, POLL_TIMEOUT);
+out:
+	spin_unlock_irqrestore(&dvfsrc->force_lock, flags);
+	if (ret < 0) {
+		dev_info(dvfsrc->dev,
+			"[%s] wait idle, level: %d, last: %d -> %x\n",
+			__func__, level,
+			dvfsrc->dvd->get_current_level(dvfsrc),
+			dvfsrc->dvd->get_target_level(dvfsrc));
+#ifdef DVFSRC_DEBUG_ENHANCE
+		mtk_dvfsrc_dump_notify(dvfsrc, 0);
+		mtk_dvfsrc_aee_notify(dvfsrc, DVFSRC_AEE_FORCE_ERROR);
+#endif
+	}
+}
+
 static void mt6983_set_force_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 {
 	unsigned long flags;
@@ -1231,7 +1291,7 @@ static const struct dvfsrc_soc_data mt6985_data = {
 	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6985_desc),
 	.regs = mt6983_regs,
 #ifdef DVFSRC_FORCE_OPP_SUPPORT
-	.set_force_opp_level = mt6983_set_force_opp_level,
+	.set_force_opp_level = mt6985_set_force_opp_level,
 #endif
 };
 
