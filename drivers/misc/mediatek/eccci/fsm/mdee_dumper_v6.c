@@ -298,10 +298,22 @@ static void mdee_info_dump_v6(struct ccci_fsm_ee *mdee)
 		 * the former EE info will be printed out
 		 */
 		db_opt |= (unsigned int)DB_OPT_FTRACE;
+		ret = snprintf(ex_info, EE_BUF_LEN_UMOLY, "%s",
+			mdee_more_inf_str[dumper->more_info]);
+		if (ret < 0 || ret >= EE_BUF_LEN_UMOLY) {
+			CCCI_ERROR_LOG(0, FSM, "%s-%d:snprintf fail,ret = %d\n",
+				__func__, __LINE__, ret);
+			goto err_exit;
+		}
+		break;
 	case MD_EE_CASE_WDT:
-		strncpy(ex_info, mdee_more_inf_str[dumper->more_info],
-			EE_BUF_LEN_UMOLY);
-		ex_info[EE_BUF_LEN_UMOLY] = '\0';
+		ret = snprintf(ex_info, EE_BUF_LEN_UMOLY, "%s",
+			mdee_more_inf_str[dumper->more_info]);
+		if (ret < 0 || ret >= EE_BUF_LEN_UMOLY) {
+			CCCI_ERROR_LOG(0, FSM, "%s-%d:snprintf fail,ret = %d\n",
+				__func__, __LINE__, ret);
+			goto err_exit;
+		}
 		break;
 	default:
 		mdee_output_debug_info_to_buf(mdee, debug_info, ex_info);
