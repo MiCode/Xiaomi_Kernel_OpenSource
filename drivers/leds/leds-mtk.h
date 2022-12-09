@@ -5,6 +5,7 @@
  */
 
 #include<linux/leds-mtk.h>
+#include "../drivers/gpu/drm/mediatek/mediatek_v2/mtk_panel_ext.h"
 
 extern struct list_head leds_list;
 

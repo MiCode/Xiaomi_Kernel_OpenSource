@@ -11,7 +11,6 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <leds-mtk.h>
-#include "../drivers/gpu/drm/mediatek/mediatek_v2/mtk_panel_ext.h"
 
 #undef pr_fmt
 #define pr_fmt(fmt) KBUILD_MODNAME " %s(%d) :" fmt, __func__, __LINE__
