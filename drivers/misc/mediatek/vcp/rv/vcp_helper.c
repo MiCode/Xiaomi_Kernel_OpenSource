@@ -916,8 +916,8 @@ int vcp_disable_pm_clk(enum feature_id id)
 			readl(VCP_BUS_DEBUG_OUT), waitCnt);
 #endif  // CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT
 
-		vcp_disable_dapc();
 		vcp_wait_awake_count();
+		vcp_disable_dapc();
 
 		ret = pm_runtime_put_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 		if (ret)
