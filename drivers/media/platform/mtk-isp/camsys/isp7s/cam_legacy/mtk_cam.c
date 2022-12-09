@@ -8712,8 +8712,6 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 #endif
 	cam->composer_cnt++;
 
-	cmdq_mbox_enable(cam->cmdq_clt->chan);
-
 	ret = mtk_cam_working_buf_pool_alloc(ctx);
 	if (ret) {
 		dev_info(cam->dev, "failed to reserve DMA memory:%d\n", ret);
@@ -8819,6 +8817,8 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 			*target_sd = media_entity_to_v4l2_subdev(entity);
 	}
 	mutex_unlock(&cam->v4l2_dev.mdev->graph_mutex);
+
+	cmdq_mbox_enable(cam->cmdq_clt->chan);
 
 	return ctx;
 
