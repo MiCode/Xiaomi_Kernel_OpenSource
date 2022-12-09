@@ -30,7 +30,7 @@
 #include <linux/part_stat.h>
 #include <linux/blk-crypto.h>
 #include <linux/keyslot-manager.h>
-
+#include <trace/hooks/dm.h>
 #define DM_MSG_PREFIX "core"
 
 /*
@@ -1292,7 +1292,7 @@ static int clone_bio(struct dm_target_io *tio, struct bio *bio,
 	int r;
 
 	__bio_clone_fast(clone, bio);
-
+	trace_android_vh_dm_update_clone_bio(clone, bio);
 	r = bio_crypt_clone(clone, bio, GFP_NOIO);
 	if (r < 0)
 		return r;
