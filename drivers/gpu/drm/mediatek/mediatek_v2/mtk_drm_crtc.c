@@ -9808,6 +9808,7 @@ void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 	struct mtk_drm_private *priv =
 			mtk_crtc->base.dev->dev_private;
 	int en = 1;
+	unsigned int invoke_fps, init_idle_timeout = 50;
 
 	comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (comp == NULL)
@@ -9834,8 +9835,15 @@ void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 	crtc->state->adjusted_mode.vtotal       = timing->vtotal;
 	crtc->state->adjusted_mode.vscan        = timing->vscan;
 
-	drm_invoke_fps_chg_callbacks(drm_mode_vrefresh(timing));
+	invoke_fps = drm_mode_vrefresh(timing);
+
+	drm_invoke_fps_chg_callbacks(invoke_fps);
 	mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
+
+	if (invoke_fps > 0)
+		init_idle_timeout = mtk_crtc_get_idle_interval(crtc, invoke_fps);
+	if (init_idle_timeout > 0)
+		mtk_drm_set_idle_check_interval(crtc, init_idle_timeout);
 
 	/* backup display context */
 	if (crtc_id == 0) {
