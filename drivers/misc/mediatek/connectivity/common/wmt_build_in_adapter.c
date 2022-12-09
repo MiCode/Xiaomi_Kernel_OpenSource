@@ -13,6 +13,8 @@
 #include <linux/proc_fs.h>
 #include <linux/ctype.h>
 #include <linux/cdev.h>
+#include <linux/sched/clock.h>
+#include "conn_dbg.h"
 
 /*device tree mode*/
 #ifdef CONFIG_OF
@@ -80,6 +82,88 @@ static struct cdev gConnDbgdev;
 static struct wmt_platform_bridge bridge;
 static struct wmt_platform_dbg_bridge g_dbg_bridge;
 
+#define CONN_DBG_LOG_BUF_SIZE 256
+static spinlock_t conn_dbg_log_lock;
+static enum conn_dbg_log_type conn_dbg_actvie_log_type;
+static char conn_dbg_log_buf[CONN_DBG_LOG_TYPE_NUM][CONN_DBG_LOG_BUF_SIZE];
+
+static void conn_dbg_get_local_time(u64 *sec, unsigned long *nsec)
+{
+	if (sec != NULL && nsec != NULL) {
+		*sec = local_clock();
+		*nsec = do_div(*sec, 1000000000)/1000;
+	} else
+		pr_info("The input parameters error when get local time\n");
+}
+
+int conn_dbg_add_log(enum conn_dbg_log_type type, const char *buf)
+{
+	unsigned long flag;
+	int space;
+	u64 sec;
+	unsigned long nsec;
+	char temp[CONN_DBG_LOG_BUF_SIZE];
+
+	if (type >= CONN_DBG_LOG_TYPE_NUM || buf == NULL) {
+		pr_info("%s type %d or buf %x is invalid\n", __func__, type, buf);
+		return -1;
+	}
+
+	pr_info("%s type = %d, log = %s\n", __func__, type, buf);
+	conn_dbg_get_local_time(&sec, &nsec);
+	if (snprintf(temp, CONN_DBG_LOG_BUF_SIZE, "[%llu.%06lu]%s", sec, nsec, buf) < 0) {
+		pr_info("%s snprintf error\n", __func__);
+		return -2;
+	}
+
+	spin_lock_irqsave(&conn_dbg_log_lock, flag);
+
+	space = CONN_DBG_LOG_BUF_SIZE - strlen(conn_dbg_log_buf[type]) - 1;
+	if (space > 0)
+		strncat(conn_dbg_log_buf[type], temp, space);
+	else
+		pr_info("%s buffer is full\n", __func__);
+
+	spin_unlock_irqrestore(&conn_dbg_log_lock, flag);
+
+	return 0;
+}
+EXPORT_SYMBOL(conn_dbg_add_log);
+
+static ssize_t conn_dbg_read_log(struct file *filp, char __user *buffer,
+				size_t count, loff_t *f_pos)
+{
+	unsigned long flag;
+	int dump_len = 0;
+	int ret = 0;
+	char temp[CONN_DBG_LOG_BUF_SIZE];
+
+	if (*f_pos < 0 || conn_dbg_actvie_log_type >= CONN_DBG_LOG_TYPE_NUM)
+		return -EFAULT;
+
+	/* copy data to temp buffer because copy_to_user might sleep */
+	spin_lock_irqsave(&conn_dbg_log_lock, flag);
+	memcpy(temp, conn_dbg_log_buf[conn_dbg_actvie_log_type], CONN_DBG_LOG_BUF_SIZE);
+	spin_unlock_irqrestore(&conn_dbg_log_lock, flag);
+
+	dump_len = strlen(temp) - *f_pos;
+	if (dump_len > 0 && dump_len < CONN_DBG_LOG_BUF_SIZE - *f_pos) {
+		if (dump_len > count)
+			dump_len = count;
+
+		pr_info("%s f_pos=%d, dump_len=%d, %s", __func__, *f_pos, dump_len, &temp[*f_pos]);
+		ret = copy_to_user(buffer, &temp[*f_pos], dump_len);
+		if (ret) {
+			pr_info("%s copy_to_user failed, ret = %d", __func__, ret);
+			ret = -EFAULT;
+		} else {
+			*f_pos += dump_len;
+			ret = dump_len;
+		}
+	}
+	return ret;
+}
+
 ssize_t conn_dbg_dev_write(struct file *filp, const char __user *buffer,
 				size_t count, loff_t *f_pos)
 {
@@ -92,16 +176,38 @@ ssize_t conn_dbg_dev_write(struct file *filp, const char __user *buffer,
 ssize_t conn_dbg_dev_read(struct file *filp, char __user *buffer,
 				size_t count, loff_t *f_pos)
 {
-	if (g_dbg_bridge.read_cb)
-		return g_dbg_bridge.read_cb(filp, buffer, count, f_pos);
+	ssize_t ret, ret2;
 
-	return 0;
+	ret = conn_dbg_read_log(filp, buffer, count, f_pos);
+	if (ret > 0) {
+		count -= ret;
+		buffer += ret;
+	}
+
+	if (g_dbg_bridge.read_cb) {
+		ret2 = g_dbg_bridge.read_cb(filp, buffer, count, f_pos);
+		if (ret2 > 0)
+			ret = ret > 0 ? ret + ret2 : ret2;
+	}
+	return ret;
 }
 
 static const struct file_operations gConnDbgDevFops = {
 	.read = conn_dbg_dev_read,
 	.write = conn_dbg_dev_write,
 };
+
+static int conn_dbg_log_init(void)
+{
+	int i;
+
+	spin_lock_init(&conn_dbg_log_lock);
+
+	for (i = 0; i < CONN_DBG_LOG_TYPE_NUM; i++)
+		memset(conn_dbg_log_buf[i], 0, CONN_DBG_LOG_BUF_SIZE);
+
+	return 0;
+}
 
 static int conn_dbg_dev_init(void)
 {
@@ -184,6 +290,8 @@ void wmt_export_platform_bridge_register(struct wmt_platform_bridge *cb)
 	bridge.conninfra_reg_readable_cb = cb->conninfra_reg_readable_cb;
 	bridge.conninfra_reg_is_bus_hang_cb = cb->conninfra_reg_is_bus_hang_cb;
 
+	conn_dbg_dev_init();
+	conn_dbg_log_init();
 	CONNADP_INFO_FUNC("\n");
 }
 EXPORT_SYMBOL(wmt_export_platform_bridge_register);
@@ -197,10 +305,11 @@ EXPORT_SYMBOL(wmt_export_platform_bridge_unregister);
 
 void wmt_export_platform_dbg_bridge_register(const struct wmt_platform_dbg_bridge *cb)
 {
+	if (unlikely(!cb))
+		return;
 	if (cb->write_cb != NULL && cb->read_cb != NULL) {
 		g_dbg_bridge.write_cb = cb->write_cb;
 		g_dbg_bridge.read_cb = cb->read_cb;
-		conn_dbg_dev_init();
 	}
 }
 EXPORT_SYMBOL(wmt_export_platform_dbg_bridge_register);
