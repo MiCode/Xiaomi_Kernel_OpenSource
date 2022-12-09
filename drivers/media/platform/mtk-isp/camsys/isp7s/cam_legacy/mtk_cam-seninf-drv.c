@@ -1090,12 +1090,10 @@ static int set_aov_test_model_param(struct seninf_ctx *ctx,
 		/* must enable mux(clk) before clk_set_parent
 		 * pm_runtime_get_sync will call runtime_resume.
 		 */
-		mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_SENIF);
 		ret = pm_runtime_get_sync(ctx->dev);
 		if (ret < 0) {
 			dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
 			pm_runtime_put_noidle(ctx->dev);
-			mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_SENIF);
 			return ret;
 		}
 
@@ -1123,7 +1121,6 @@ static int set_aov_test_model_param(struct seninf_ctx *ctx,
 		}
 	} else {
 		pm_runtime_put_sync(ctx->dev);
-		mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_SENIF);
 		/* array size of aov_ctx[] is
 		 * 6: most number of sensors support
 		 */
@@ -1185,12 +1182,10 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 	}
 
 	if (enable) {
-		mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_SENIF);
 		ret = pm_runtime_get_sync(ctx->dev);
 		if (ret < 0) {
 			dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
 			pm_runtime_put_noidle(ctx->dev);
-			mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_SENIF);
 			return ret;
 		}
 
@@ -1235,7 +1230,6 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 			seninf_dfs_set(ctx, 0);
 
 		pm_runtime_put_sync(ctx->dev);
-		mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_SENIF);
 	}
 
 	ctx->streaming = enable;
@@ -1653,12 +1647,10 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 					ctx->sensor_pad_idx, &ctx->buffered_pixel_rate);
 
 		get_customized_pixel_rate(ctx, ctx->sensor_sd, &ctx->customized_pixel_rate);
-		mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_SENIF);
 		ret = pm_runtime_get_sync(ctx->dev);
 		if (ret < 0) {
 			dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
 			pm_runtime_put_noidle(ctx->dev);
-			mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_SENIF);
 			return ret;
 		}
 
@@ -1696,7 +1688,6 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 		g_seninf_ops->_poweroff(ctx);
 		ctx->dbg_last_dump_req = 0;
 		pm_runtime_put_sync(ctx->dev);
-		mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_SENIF);
 	}
 
 	ctx->csi_streaming = enable;
@@ -3051,13 +3042,10 @@ int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id, bool force_check)
 		if (val > 0)
 			ctx->dbg_timeout = val;
 	}
-
-	mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_SENIF);
 	ret = pm_runtime_get_sync(ctx->dev);
 	if (ret < 0) {
 		dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
 		pm_runtime_put_noidle(ctx->dev);
-		mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_SENIF);
 		return ret;
 	}
 
@@ -3074,7 +3062,6 @@ int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id, bool force_check)
 		dev_info(ctx->dev, "%s should not dump during stream off\n", __func__);
 
 	pm_runtime_put_sync(ctx->dev);
-	mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_SENIF);
 
 	dev_info(ctx->dev, "%s ret(%d), req(%u), force(%d) reset_by_user(%d)\n",
 		 __func__, ret, seq_id, force_check, reset_by_user);
