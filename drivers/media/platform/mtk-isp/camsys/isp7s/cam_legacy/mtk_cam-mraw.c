@@ -1155,7 +1155,7 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, int initial)
 				buf_entry->mraw_cq_desc_size,
 				buf_entry->mraw_cq_desc_offset, initial);
 		} else {
-			mtk_ctx_watchdog_stop(ctx, ctx->mraw_pipe[i]->id);
+			mtk_ctx_watchdog_stop(ctx, ctx->mraw_pipe[i]->id, 0);
 			if (buf_entry->s_data->pad_fmt_update & (1 << MTK_MRAW_SINK))
 				mtk_cam_mraw_vf_on(mraw_dev, 0);
 		}
@@ -1729,7 +1729,7 @@ int mtk_cam_mraw_dev_stream_on(
 		atomic_set(&mraw_dev->is_enqueued, 0);
 		/* reset format status */
 		atomic_set(&mraw_dev->pipeline->res_config.is_fmt_change, 0);
-		mtk_ctx_watchdog_stop(ctx, mraw_dev->pipeline->id);
+		mtk_ctx_watchdog_stop(ctx, mraw_dev->pipeline->id, 1);
 
 		ret = mtk_cam_mraw_top_disable(mraw_dev) ||
 			mtk_cam_mraw_cq_disable(mraw_dev) ||

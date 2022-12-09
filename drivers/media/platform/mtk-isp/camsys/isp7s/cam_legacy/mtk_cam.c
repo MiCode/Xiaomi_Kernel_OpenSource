@@ -6292,7 +6292,7 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 				(1 << ctx->sv_pipe[i]->id)))
 				mtk_ctx_watchdog_start(ctx, 4, ctx->sv_pipe[i]->id);
 			else
-				mtk_ctx_watchdog_stop(ctx, ctx->sv_pipe[i]->id);
+				mtk_ctx_watchdog_stop(ctx, ctx->sv_pipe[i]->id, 0);
 		}
 
 		/* apply mraw CQ for all streams */
@@ -6306,7 +6306,7 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 					mraw_buf_entry[i]->mraw_cq_desc_offset,
 					1);
 			} else {
-				mtk_ctx_watchdog_stop(ctx, ctx->mraw_pipe[i]->id);
+				mtk_ctx_watchdog_stop(ctx, ctx->mraw_pipe[i]->id, 0);
 				mtk_cam_mraw_vf_on(mraw_dev, 0);
 			}
 		}
@@ -6985,7 +6985,7 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 		// stream_on(raw_dev, 0);
 		dev_info(ctx->cam->dev, "%s: Disable cammux: %s\n", __func__,
 				s_data->seninf_old->name);
-		mtk_ctx_watchdog_stop(ctx, raw_dev->id + MTKCAM_SUBDEV_RAW_START);
+		mtk_ctx_watchdog_stop(ctx, raw_dev->id + MTKCAM_SUBDEV_RAW_START, 0);
 		/* m2m support raw switch? */
 		mtk_cam_seninf_set_camtg(s_data->seninf_old, PAD_SRC_RAW0, 0xFF);
 		mtk_cam_seninf_set_camtg(s_data->seninf_old, PAD_SRC_RAW1, 0xFF);
@@ -7011,7 +7011,7 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 			if (ctx->sv_dev->enabled_tags & (1 << i)) {
 				if (i >= SVTAG_META_START && i < SVTAG_META_END)
 					mtk_ctx_watchdog_stop(ctx,
-						ctx->sv_dev->tag_info[i].sv_pipe->id);
+						ctx->sv_dev->tag_info[i].sv_pipe->id, 0);
 				mtk_cam_seninf_set_camtg_camsv(s_data->seninf_old,
 					ctx->sv_dev->tag_info[i].seninf_padidx, 0xFF, i);
 			}
@@ -7020,7 +7020,7 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 
 	for (i = 0 ; i < ctx->used_mraw_num ; i++) {
 		mraw_dev = get_mraw_dev(cam, ctx->mraw_pipe[i]);
-		mtk_ctx_watchdog_stop(ctx, ctx->mraw_pipe[i]->id);
+		mtk_ctx_watchdog_stop(ctx, ctx->mraw_pipe[i]->id, 0);
 		mtk_cam_mraw_vf_on(mraw_dev, 0);
 		atomic_set(&mraw_dev->is_enqueued, 0);
 		mtk_cam_seninf_set_camtg(s_data->seninf_old,
@@ -8870,12 +8870,12 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	if (watchdog_scenario(ctx)) {
 		if (mtk_cam_ctx_has_raw(ctx)) {
 			raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
-			mtk_ctx_watchdog_stop(ctx, raw_dev->id + MTKCAM_SUBDEV_RAW_START);
+			mtk_ctx_watchdog_stop(ctx, raw_dev->id + MTKCAM_SUBDEV_RAW_START, 1);
 		}
 		for (i = 0; i < ctx->used_sv_num; i++)
-			mtk_ctx_watchdog_stop(ctx, ctx->sv_pipe[i]->id);
+			mtk_ctx_watchdog_stop(ctx, ctx->sv_pipe[i]->id, 1);
 		for (i = 0; i < ctx->used_mraw_num; i++)
-			mtk_ctx_watchdog_stop(ctx, ctx->mraw_pipe[i]->id);
+			mtk_ctx_watchdog_stop(ctx, ctx->mraw_pipe[i]->id, 1);
 	}
 
 	if (mtk_cam_ctx_has_raw(ctx) && ctx->m2m_watchdog.is_running)
@@ -9933,8 +9933,9 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 
 	ctx = watchdog_data->ctx;
 	if (!ctx) {
-		pr_info("%s:ctx(%d):stop watchdog task for ctx is null\n",
+		pr_info("%s:stop watchdog task for ctx is null\n",
 			__func__);
+		complete(&watchdog_data->watchdog_complete);
 		return;
 	}
 	seninf = ctx->seninf;
@@ -9942,6 +9943,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 		dev_info(ctx->cam->dev,
 			 "%s:ctx(%d):stop watchdog task for no seninf ctx:%d\n",
 			 __func__, ctx->stream_id);
+		complete(&watchdog_data->watchdog_complete);
 		return;
 	}
 	pipe_id = watchdog_data->pipe_id;
@@ -9955,6 +9957,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 		dev_info(ctx->cam->dev,
 			 "%s:ctx(%d):watchdog task(pipe_id:%d) is stopped, return\n",
 			 __func__, ctx->stream_id, pipe_id);
+		complete(&watchdog_data->watchdog_complete);
 		return;
 	}
 
@@ -9980,6 +9983,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 		if (camsv_dev == NULL) {
 			dev_info(ctx->cam->dev, "%s:ctx/pipe_id(%d/%d):camsv device not found\n",
 				__func__, ctx->stream_id, pipe_id);
+			complete(&watchdog_data->watchdog_complete);
 			return;
 		}
 		dequeued_frame_seq_no =
@@ -9993,6 +9997,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 		if (dev == NULL) {
 			dev_info(ctx->cam->dev, "%s:ctx/pipe_id(%d/%d):mraw device not found\n",
 				__func__, ctx->stream_id, pipe_id);
+			complete(&watchdog_data->watchdog_complete);
 			return;
 		}
 		mraw_dev = dev_get_drvdata(dev);
@@ -10037,8 +10042,10 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 			atomic_inc(&watchdog_data->watchdog_dump_cnt);
 			atomic_set(&watchdog_data->watchdog_dumped, 0);
 
-			if (!(is_raw_subdev(pipe_id)))
+			if (!(is_raw_subdev(pipe_id))) {
+				complete(&watchdog_data->watchdog_complete);
 				return;
+			}
 			watchdog_dump_cnt = atomic_read(
 				&watchdog_data->watchdog_dump_cnt);
 			watchdog_timeout_cnt = atomic_read(
@@ -10141,6 +10148,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 				watchdog_data->watchdog_time_diff_ns/1000000);
 		}
 	}
+	complete(&watchdog_data->watchdog_complete);
 }
 
 static void mtk_ctx_watchdog(struct timer_list *t)
@@ -10298,6 +10306,7 @@ static void mtk_ctx_watchdog_init(struct mtk_cam_ctx *ctx)
 	for (i = 0 ; i < MTKCAM_SUBDEV_MAX ; i++) {
 		INIT_WORK(&ctx->watchdog_data[i].watchdog_work,
 			mtk_cam_ctx_watchdog_worker);
+		init_completion(&ctx->watchdog_data[i].watchdog_complete);
 		ctx->watchdog_data[i].pipe_id = i;
 	}
 	timer_setup(&ctx->watchdog_timer, mtk_ctx_watchdog, 0);
@@ -10353,7 +10362,7 @@ void mtk_ctx_watchdog_start(struct mtk_cam_ctx *ctx, int timeout_cnt, int pipe_i
 	}
 }
 
-void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx, int pipe_id)
+void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx, int pipe_id, int ctx_streamoff)
 {
 	struct mtk_cam_watchdog_data *watchdog_data = &ctx->watchdog_data[pipe_id];
 	int enabled_watchdog_pipe;
@@ -10377,6 +10386,17 @@ void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx, int pipe_id)
 
 	dev_info(ctx->cam->dev, "%s:ctx/pipe_id(%d/%d):stop the watchdog\n",
 		__func__, ctx->stream_id, pipe_id);
+
+	/* Prevent from ctx stopping in the middle of last watchdog worker */
+	if (ctx_streamoff && wait_for_completion_timeout(&watchdog_data->watchdog_complete,
+					msecs_to_jiffies(10)) == 0)
+		dev_info(ctx->cam->dev,
+			"%s:ctx/pipe_id(%d/%d): complete timeout\n",
+			__func__, ctx->stream_id, pipe_id);
+	else
+		dev_info(ctx->cam->dev,
+			"%s:ctx/pipe_id(%d/%d): complete\n",
+			__func__, ctx->stream_id, pipe_id);
 
 	spin_lock_irqsave(&ctx->watchdog_pipe_lock, flags);
 	ctx->enabled_watchdog_pipe &= ~(1 << pipe_id);

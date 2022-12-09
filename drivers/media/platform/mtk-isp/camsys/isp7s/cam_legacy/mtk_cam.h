@@ -432,6 +432,7 @@ struct mtk_cam_watchdog_data {
 	atomic_t watchdog_dumped;
 	atomic_t watchdog_dump_cnt;
 	struct work_struct watchdog_work;
+	struct completion watchdog_complete;
 	u64 watchdog_time_diff_ns;
 };
 
@@ -1065,7 +1066,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx);
 bool watchdog_scenario(struct mtk_cam_ctx *ctx);
 void mtk_ctx_watchdog_kick(struct mtk_cam_ctx *ctx, int pipe_id);
 void mtk_ctx_watchdog_start(struct mtk_cam_ctx *ctx, int timeout_cnt, int pipe_id);
-void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx, int pipe_id);
+void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx, int pipe_id, int ctx_streamoff);
 void mtk_ctx_m2m_watchdog_kick(struct mtk_cam_ctx *ctx);
 void mtk_ctx_m2m_watchdog_start(struct mtk_cam_ctx *ctx, int timeout_cnt);
 void mtk_ctx_m2m_watchdog_stop(struct mtk_cam_ctx *ctx);

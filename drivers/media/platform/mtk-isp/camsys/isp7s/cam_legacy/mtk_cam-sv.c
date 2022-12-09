@@ -1707,7 +1707,7 @@ int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx, int initial)
 					(1 << ctx->sv_pipe[i]->id))
 					mtk_ctx_watchdog_start(ctx, 4, ctx->sv_pipe[i]->id);
 				else
-					mtk_ctx_watchdog_stop(ctx, ctx->sv_pipe[i]->id);
+					mtk_ctx_watchdog_stop(ctx, ctx->sv_pipe[i]->id, 0);
 			}
 		}
 	}
@@ -2018,7 +2018,7 @@ int mtk_cam_sv_dev_pertag_stream_on(
 			tag_idx < SVTAG_META_END)) {
 			sv_pipe = camsv_dev->tag_info[tag_idx].sv_pipe;
 			if (sv_pipe)
-				mtk_ctx_watchdog_stop(ctx, sv_pipe->id);
+				mtk_ctx_watchdog_stop(ctx, sv_pipe->id, 1);
 		}
 
 		ret |= mtk_cam_sv_fbc_disable(camsv_dev, tag_idx);
