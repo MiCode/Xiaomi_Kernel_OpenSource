@@ -406,6 +406,16 @@ static int handle_enc_get_bs_buf(struct venc_vcu_inst *vcu, void *data)
 	return 1;
 }
 
+static void venc_vcp_free_mq_node(struct mtk_vcodec_dev *dev,
+	struct mtk_vcodec_msg_node *mq_node)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&dev->mq.lock, flags);
+	list_add(&mq_node->list, &dev->mq.nodes);
+	spin_unlock_irqrestore(&dev->mq.lock, flags);
+}
+
 int vcp_enc_ipi_handler(void *arg)
 {
 	struct mtk_vcodec_dev *dev = (struct mtk_vcodec_dev *)arg;
@@ -463,7 +473,7 @@ int vcp_enc_ipi_handler(void *arg)
 		if (msg == NULL ||
 		   (struct venc_vcu_inst *)(unsigned long)msg->ap_inst_addr == NULL) {
 			mtk_v4l2_err(" msg invalid %lx\n", msg);
-			kfree(mq_node);
+			venc_vcp_free_mq_node(dev, mq_node);
 			continue;
 		}
 
@@ -481,7 +491,7 @@ int vcp_enc_ipi_handler(void *arg)
 					PIN_OUT_SIZE_VENC, 100);
 				if (ret != IPI_ACTION_DONE)
 					mtk_v4l2_err("mtk_ipi_send fail %d", ret);
-				kfree(mq_node);
+				venc_vcp_free_mq_node(dev, mq_node);
 				continue;
 			}
 		}
@@ -502,7 +512,7 @@ int vcp_enc_ipi_handler(void *arg)
 		if (!msg_valid) {
 			mtk_v4l2_err(" msg vcu not exist %p\n", vcu);
 			mutex_unlock(&dev->ctx_mutex);
-			kfree(mq_node);
+			venc_vcp_free_mq_node(dev, mq_node);
 			continue;
 		}
 
@@ -510,7 +520,7 @@ int vcp_enc_ipi_handler(void *arg)
 			mtk_v4l2_err(" [%d] msg vcu abort %d %d\n",
 				vcu->ctx->id, vcu->daemon_pid, get_vcp_generation());
 			mutex_unlock(&dev->ctx_mutex);
-			kfree(mq_node);
+			venc_vcp_free_mq_node(dev, mq_node);
 			continue;
 		}
 		inst = container_of(vcu, struct venc_inst, vcu_inst);
@@ -622,7 +632,7 @@ int vcp_enc_ipi_handler(void *arg)
 		}
 		mtk_vcodec_debug(vcu, "- id=%X", msg->msg_id);
 		mutex_unlock(&dev->ctx_mutex);
-		kfree(mq_node);
+		venc_vcp_free_mq_node(dev, mq_node);
 	} while (!kthread_should_stop());
 	mtk_v4l2_debug_leave();
 
@@ -640,19 +650,19 @@ static int venc_vcp_ipi_isr(unsigned int id, void *prdata, void *data, unsigned 
 	msg = (struct venc_vcu_ipi_msg_common *)obj->share_buf;
 
 	// add to ipi msg list
-	mq_node = kmalloc(sizeof(struct mtk_vcodec_msg_node), GFP_DMA | GFP_ATOMIC);
-
-	if (mq_node != NULL) {
+	spin_lock_irqsave(&dev->mq.lock, flags);
+	if (!list_empty(&dev->mq.nodes)) {
+		mq_node = list_entry(dev->mq.nodes.next, struct mtk_vcodec_msg_node, list);
 		memcpy(&mq_node->ipi_data, obj, sizeof(struct share_obj));
-		spin_lock_irqsave(&dev->mq.lock, flags);
-		list_add_tail(&mq_node->list, &dev->mq.head);
+		list_move_tail(&mq_node->list, &dev->mq.head);
 		atomic_inc(&dev->mq.cnt);
 		spin_unlock_irqrestore(&dev->mq.lock, flags);
 		mtk_v4l2_debug(8, "push ipi_id %x msg_id %x, ml_cnt %d",
 			obj->id, msg->msg_id, atomic_read(&dev->mq.cnt));
 		wake_up(&dev->mq.wq);
 	} else {
-		mtk_v4l2_err("kmalloc fail\n");
+		spin_unlock_irqrestore(&dev->mq.lock, flags);
+		mtk_v4l2_err("mq no free nodes\n");
 	}
 
 	return 0;
@@ -756,13 +766,20 @@ static int vcp_venc_notify_callback(struct notifier_block *this,
 
 void venc_vcp_probe(struct mtk_vcodec_dev *dev)
 {
-	int ret;
+	int ret, i;
+	struct mtk_vcodec_msg_node *mq_node;
 
 	mtk_v4l2_debug_enter();
 	INIT_LIST_HEAD(&dev->mq.head);
 	spin_lock_init(&dev->mq.lock);
 	init_waitqueue_head(&dev->mq.wq);
 	atomic_set(&dev->mq.cnt, 0);
+
+	INIT_LIST_HEAD(&dev->mq.nodes);
+	for (i = 0; i < MTK_VCODEC_MAX_MQ_NODE_CNT; i++) {
+		mq_node = kmalloc(sizeof(struct mtk_vcodec_msg_node), GFP_DMA | GFP_ATOMIC);
+		list_add(&mq_node->list, &dev->mq.nodes);
+	}
 
 	if (!VCU_FPTR(vcu_load_firmware))
 		mtk_vcodec_vcp |= 1 << MTK_INST_ENCODER;
@@ -778,6 +795,29 @@ void venc_vcp_probe(struct mtk_vcodec_dev *dev)
 	vcp_A_register_notify(&dev->vcp_notify);
 
 	mtk_v4l2_debug_leave();
+}
+
+void venc_vcp_remove(struct mtk_vcodec_dev *dev)
+{
+	int timeout = 0;
+	struct mtk_vcodec_msg_node *mq_node, *next;
+	unsigned long flags;
+
+	while (atomic_read(&dev->mq.cnt)) {
+		timeout++;
+		mdelay(1);
+		if (timeout > VCP_SYNC_TIMEOUT_MS) {
+			mtk_v4l2_err("wait msgq empty timeout\n");
+			break;
+		}
+	}
+
+	spin_lock_irqsave(&dev->mq.lock, flags);
+	list_for_each_entry_safe(mq_node, next, &dev->mq.nodes, list) {
+		list_del(&(mq_node->list));
+		kfree(mq_node);
+	}
+	spin_unlock_irqrestore(&dev->mq.lock, flags);
 }
 
 static unsigned int venc_h265_get_profile(struct venc_inst *inst,

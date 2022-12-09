@@ -97,6 +97,7 @@ struct mtk_vcodec_msgq {
 	wait_queue_head_t wq;
 	spinlock_t lock;
 	atomic_t cnt;
+	struct list_head nodes; // free msg q nodes
 };
 
 struct mtk_vcodec_msg_node {

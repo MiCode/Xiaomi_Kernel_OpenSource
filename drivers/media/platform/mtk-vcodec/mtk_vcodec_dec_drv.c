@@ -380,6 +380,7 @@ static int mtk_vcodec_dec_suspend_notifier(struct notifier_block *nb,
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 extern void vdec_vcp_probe(struct mtk_vcodec_dev *dev);
+extern void vdec_vcp_remove(struct mtk_vcodec_dev *dev);
 #endif
 
 static int mtk_vcodec_dec_probe(struct platform_device *pdev)
@@ -699,6 +700,10 @@ static int mtk_vcodec_dec_remove(struct platform_device *pdev)
 
 	v4l2_device_unregister(&dev->v4l2_dev);
 	mtk_vcodec_release_dec_pm(dev);
+
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+	vdec_vcp_remove(dev);
+#endif
 	return 0;
 }
 
