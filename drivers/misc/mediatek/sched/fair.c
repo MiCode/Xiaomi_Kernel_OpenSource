@@ -716,7 +716,10 @@ int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool laten
 		ts[6] = sched_clock();
 #endif
 		/*select cpu in allowed_cpu_mask, not paused, and no rt running */
-		target_cpu = cpumask_any(&allowed_cpu_mask);
+		if (cpumask_empty(&allowed_cpu_mask))
+			target_cpu = this_cpu;
+		else
+			target_cpu = cpumask_any(&allowed_cpu_mask);
 		select_reason = LB_IRQ_BACKUP_ALLOWED;
 	}
 
