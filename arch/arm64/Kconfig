@@ -639,6 +639,7 @@ config ARM64_ERRATUM_1463225
 config ARM64_ERRATUM_1542419
 	bool "Neoverse-N1: workaround mis-ordering of instruction fetches"
 	default y
+	depends on BROKEN # CPU cap re-allocated by Android
 	help
 	  This option adds a workaround for ARM Neoverse-N1 erratum
 	  1542419.
@@ -822,6 +823,7 @@ config CAVIUM_ERRATUM_23154
 config CAVIUM_ERRATUM_27456
 	bool "Cavium erratum 27456: Broadcast TLBI instructions may cause icache corruption"
 	default y
+	depends on BROKEN # CPU cap re-allocated by Android
 	help
 	  On ThunderX T88 pass 1.x through 2.1 parts, broadcast TLBI
 	  instructions may cause the icache to become corrupted if it
@@ -833,6 +835,7 @@ config CAVIUM_ERRATUM_27456
 config CAVIUM_ERRATUM_30115
 	bool "Cavium erratum 30115: Guest may disable interrupts in host"
 	default y
+	depends on BROKEN # CPU cap re-allocated by Android
 	help
 	  On ThunderX T88 pass 1.x through 2.2, T81 pass 1.0 through
 	  1.2, and T83 Pass 1.0, KVM guest execution may disable
@@ -844,6 +847,7 @@ config CAVIUM_ERRATUM_30115
 config CAVIUM_TX2_ERRATUM_219
 	bool "Cavium ThunderX2 erratum 219: PRFM between TTBR change and ISB fails"
 	default y
+	depends on BROKEN # CPU caps re-allocated by Android
 	help
 	  On Cavium ThunderX2, a load, store or prefetch instruction between a
 	  TTBR update and the corresponding context synchronizing operation can

@@ -193,7 +193,9 @@
   clk_notifier_unregister
   clk_prepare
   clk_put
+  clk_restore_context
   clk_round_rate
+  clk_save_context
   clk_set_parent
   clk_set_rate
   clk_sync_state
@@ -579,6 +581,7 @@
   drm_client_init
   drm_client_modeset_commit_locked
   drm_client_register
+  drm_connector_list_update
   drm_crtc_vblank_reset
   drm_dp_atomic_find_vcpi_slots
   drm_dp_atomic_release_vcpi_slots
@@ -588,6 +591,7 @@
   drm_dp_mst_allocate_vcpi
   drm_dp_mst_deallocate_vcpi
   drm_dp_mst_detect_port
+  drm_dp_mst_dump_topology
   drm_dp_mst_get_edid
   drm_dp_mst_get_port_malloc
   drm_dp_mst_hpd_irq
@@ -609,12 +613,17 @@
   drm_is_current_master
   drm_kms_helper_poll_disable
   drm_kms_helper_poll_enable
+  drm_master_get
+  drm_master_put
   drm_mode_convert_umode
   drm_mode_create_dp_colorspace_property
+  drm_mode_create_tile_group
   drm_mode_is_420_only
   drm_mode_match
+  drm_mode_prune_invalid
   drm_mode_set_crtcinfo
   drm_mode_set_name
+  drm_mode_sort
   drm_object_property_set_value
   drm_wait_one_vblank
   __dynamic_dev_dbg
@@ -642,6 +651,7 @@
   extcon_get_edev_name
   extcon_get_extcon_dev
   extcon_get_property
+  extcon_get_property_capability
   extcon_get_state
   extcon_register_notifier
   extcon_set_property
@@ -1124,6 +1134,10 @@
   __local_bh_enable_ip
   __lock_page
   lock_sock_nested
+  log_post_read_mmio
+  log_post_write_mmio
+  log_read_mmio
+  log_write_mmio
   lookup_page_ext
   match_string
   mbox_chan_received_data
@@ -1180,11 +1194,21 @@
   misc_deregister
   misc_register
   mmc_cqe_request_done
+  mmc_execute_tuning
   mmc_of_parse
+  __mmc_poll_for_busy
+  mmc_prepare_busy_cmd
   mmc_regulator_get_supply
   mmc_regulator_set_ocr
   mmc_regulator_set_vqmmc
+  mmc_retune_hold
+  mmc_retune_release
+  mmc_select_card
   mmc_send_tuning
+  mmc_set_bus_mode
+  mmc_set_bus_width
+  mmc_set_clock
+  mmc_set_timing
   mmput
   mod_delayed_work_on
   mod_node_page_state
@@ -1789,6 +1813,7 @@
   sdhci_cqe_disable
   sdhci_cqe_enable
   sdhci_cqe_irq
+  sdhci_dumpregs
   sdhci_enable_clk
   sdhci_get_property
   sdhci_pltfm_free
@@ -2031,6 +2056,7 @@
   tick_nohz_get_sleep_length
   time64_to_tm
   timer_unstable_counter_workaround
+  timespec64_to_jiffies
   topology_clear_scale_freq_source
   topology_set_thermal_pressure
   topology_update_done
@@ -2098,12 +2124,14 @@
   __tracepoint_android_rvh_update_cpu_capacity
   __tracepoint_android_rvh_update_cpus_allowed
   __tracepoint_android_rvh_update_misfit_status
+  __tracepoint_android_rvh_update_readahead_gfp_mask
   __tracepoint_android_rvh_update_thermal_stats
   __tracepoint_android_rvh_wake_up_new_task
   __tracepoint_android_vh_audio_usb_offload_connect
   __tracepoint_android_vh_binder_restore_priority
   __tracepoint_android_vh_binder_set_priority
   __tracepoint_android_vh_binder_wakeup_ilocked
+  __tracepoint_android_vh_check_hibernation_swap
   __tracepoint_android_vh_check_uninterruptible_tasks
   __tracepoint_android_vh_check_uninterruptible_tasks_dn
   __tracepoint_android_vh_cpu_idle_enter
@@ -2126,9 +2154,12 @@
   __tracepoint_android_vh_logbuf
   __tracepoint_android_vh_logbuf_pr_cont
   __tracepoint_android_vh_mmc_sdio_pm_flag_set
+  __tracepoint_android_vh_mmc_sd_update_cmdline_timing
   __tracepoint_android_vh_printk_hotplug
   __tracepoint_android_vh_rproc_recovery
   __tracepoint_android_vh_rproc_recovery_set
+  __tracepoint_android_vh_save_cpu_resume
+  __tracepoint_android_vh_save_hib_resume_bdev
   __tracepoint_android_vh_scheduler_tick
   __tracepoint_android_vh_show_resume_epoch_val
   __tracepoint_android_vh_show_suspend_epoch_val
@@ -2389,14 +2420,3 @@
   xsk_tx_peek_desc
   xsk_tx_release
   xsk_uses_need_wakeup
-  mmc_set_clock
-  mmc_execute_tuning
-  mmc_set_bus_mode
-  mmc_set_timing
-  mmc_set_bus_width
-  mmc_retune_release
-  __mmc_poll_for_busy
-  mmc_select_card
-  mmc_prepare_busy_cmd
-  mmc_retune_hold
-  sdhci_dumpregs

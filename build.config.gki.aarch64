@@ -7,13 +7,13 @@ Image.lz4
 Image.gz
 "
 
+# Sync with BUILD.bazel
 ABI_DEFINITION=android/abi_gki_aarch64.xml
-# Update BUILD.bazel, define_common_kernels() if the list differs from
-# android/abi_gki_aarch64* in the filesystem.
 KMI_SYMBOL_LIST=android/abi_gki_aarch64
 ADDITIONAL_KMI_SYMBOL_LISTS="
 android/abi_gki_aarch64_virtual_device
 android/abi_gki_aarch64_virtual_device_removed
+android/abi_gki_aarch64_type_visibility
 android/abi_gki_aarch64_db845c
 android/abi_gki_aarch64_exynos
 android/abi_gki_aarch64_exynosauto
@@ -25,6 +25,8 @@ android/abi_gki_aarch64_pixel
 android/abi_gki_aarch64_mtktv
 android/abi_gki_aarch64_mtk
 android/abi_gki_aarch64_qcom
+android/abi_gki_aarch64_rtktv
+android/abi_gki_aarch64_sony
 android/abi_gki_aarch64_unisoc
 android/abi_gki_aarch64_vivo
 android/abi_gki_aarch64_xiaomi
