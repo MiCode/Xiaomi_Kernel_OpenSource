@@ -1587,7 +1587,7 @@ int mtk_pcie_hw_control_vote(int port, bool hw_mode_en, u8 who)
 	struct device_node *pcie_node;
 	struct platform_device *pdev;
 	struct mtk_pcie_port *pcie_port;
-	bool vote_hw_mode_en;
+	bool vote_hw_mode_en = false, last_hw_mode = false;
 	int err = 0;
 	u32 val;
 
@@ -1607,36 +1607,33 @@ int mtk_pcie_hw_control_vote(int port, bool hw_mode_en, u8 who)
 
 	mutex_lock(&pcie_port->vote_lock);
 
-	if (who) {
-		if (hw_mode_en)
-			pcie_port->ep_hw_mode_en = true;
-		else
-			pcie_port->ep_hw_mode_en = false;
-	} else {
-		if (hw_mode_en)
-			pcie_port->rc_hw_mode_en = true;
-		else
-			pcie_port->rc_hw_mode_en = false;
-	}
+	last_hw_mode = (pcie_port->ep_hw_mode_en && pcie_port->rc_hw_mode_en)
+			? true : false;
+	if (who)
+		pcie_port->ep_hw_mode_en = hw_mode_en;
+	else
+		pcie_port->rc_hw_mode_en = hw_mode_en;
 
 	vote_hw_mode_en = (pcie_port->ep_hw_mode_en && pcie_port->rc_hw_mode_en)
 			   ? true : false;
 	mtk_pcie_enable_hw_control(pcie_port, vote_hw_mode_en);
 
-	mutex_unlock(&pcie_port->vote_lock);
-
-	if (!vote_hw_mode_en) {
+	if (!vote_hw_mode_en && last_hw_mode) {
 		/* Check the sleep protect ready */
 		err = readl_poll_timeout(pcie_port->vlpcfg_base +
 					 PCIE_VLP_AXI_PROTECT_STA, val,
 					 !(val & (PCIE_MAC0_SLP_READY_MASK |
 					 PCIE_PHY0_SLP_READY_MASK)),
-					 20, 50 * USEC_PER_MSEC);
+					 10, 10 * USEC_PER_MSEC);
 		if (err)
-			dev_info(pcie_port->dev, "PCIe sleep protect not ready, %#x\n",
+			dev_info(pcie_port->dev, "PCIe sleep protect not ready, %#x, PCIe HW MODE BIT=%#x\n",
 				 readl_relaxed(pcie_port->vlpcfg_base +
-				 PCIE_VLP_AXI_PROTECT_STA));
+					       PCIE_VLP_AXI_PROTECT_STA),
+				 readl_relaxed(pcie_port->pextpcfg +
+					       PEXTP_PWRCTL_0));
 	}
+
+	mutex_unlock(&pcie_port->vote_lock);
 
 	return err;
 }
