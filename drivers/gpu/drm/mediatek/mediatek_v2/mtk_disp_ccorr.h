@@ -17,6 +17,7 @@ struct mtk_disp_ccorr_data {
 void ccorr_test(const char *cmd, char *debug_output);
 int ccorr_interface_for_color(unsigned int ccorr_idx,
 	unsigned int ccorr_coef[3][3], void *handle);
+void disp_ccorr_on_start_of_frame(void);
 void disp_ccorr_on_end_of_frame(struct mtk_ddp_comp *comp);
 void disp_pq_notify_backlight_changed(int bl_1024);
 int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,

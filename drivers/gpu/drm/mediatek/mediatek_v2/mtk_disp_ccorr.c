@@ -72,6 +72,7 @@ bool disp_aosp_ccorr;
 static bool g_prim_ccorr_force_linear;
 static bool g_prim_ccorr_pq_nonlinear;
 static bool g_is_aibld_cv_mode;
+static atomic_t g_ccorr_irq_en = ATOMIC_INIT(0);
 
 #define index_of_ccorr(module) ((module == DDP_COMPONENT_CCORR0) ? 0 : \
 		((module == DDP_COMPONENT_CCORR1) ? 1 : \
@@ -452,6 +453,14 @@ ccorr_write_coef_unlock:
 	return ret;
 }
 
+void disp_ccorr_on_start_of_frame(void)
+{
+	if (atomic_read(&g_ccorr_irq_en) == 1) {
+		atomic_set(&g_ccorr_get_irq, 1);
+		wake_up_interruptible(&g_ccorr_get_irq_wq);
+	}
+}
+
 void disp_ccorr_on_end_of_frame(struct mtk_ddp_comp *comp)
 {
 	unsigned int intsta;
@@ -473,10 +482,10 @@ void disp_ccorr_on_end_of_frame(struct mtk_ddp_comp *comp)
 		writel(intsta & ~0x3, comp->regs
 			+ DISP_REG_CCORR_INTSTA);
 
-		if (index == 0) {
-			atomic_set(&g_ccorr_get_irq, 1);
-			wake_up_interruptible(&g_ccorr_get_irq_wq);
-		}
+//		if (index == 0) {
+//			atomic_set(&g_ccorr_get_irq, 1);
+//			wake_up_interruptible(&g_ccorr_get_irq_wq);
+//		}
 	}
 	spin_unlock_irqrestore(&g_ccorr_clock_lock, flags);
 }
@@ -749,10 +758,14 @@ static int mtk_disp_ccorr_set_interrupt(struct mtk_ddp_comp *comp, void *data)
 		}
 		/* Enable output frame end interrupt */
 		writel(0x2, comp->regs + DISP_REG_CCORR_INTEN);
+		if (index == 0)
+			atomic_set(&g_ccorr_irq_en, 1);
 		DDPINFO("%s: Interrupt enabled\n", __func__);
 	} else {
 		/* Disable output frame end interrupt */
 		writel(0x0, comp->regs + DISP_REG_CCORR_INTEN);
+		if (index == 0)
+			atomic_set(&g_ccorr_irq_en, 0);
 		DDPINFO("%s: Interrupt disabled\n", __func__);
 	}
 	spin_unlock_irqrestore(&g_ccorr_clock_lock, flags);
@@ -999,7 +1012,7 @@ int mtk_drm_ioctl_set_ccorr(struct drm_device *dev, void *data,
 	} else {
 		ret = mtk_crtc_user_cmd(crtc, comp, SET_CCORR, data);
 
-		mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+		mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
 
 		return ret;
 	}

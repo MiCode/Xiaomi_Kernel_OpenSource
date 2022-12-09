@@ -24,6 +24,7 @@
 #include "mtk_drm_mmp.h"
 #include "mtk_disp_aal.h"
 #include "mtk_disp_c3d.h"
+#include "mtk_disp_ccorr.h"
 #include "mtk_disp_gamma.h"
 #include "mtk_disp_oddmr/mtk_disp_oddmr.h"
 #include "platform/mtk_drm_platform.h"
@@ -15562,7 +15563,7 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 	unsigned int val = 0;
 	unsigned int m_id = 0;
 	int ret = 0;
-	unsigned long long irq_debug[10] = {0};
+	unsigned long long irq_debug[11] = {0};
 	static DEFINE_RATELIMIT_STATE(irq_ratelimit, 5 * HZ, 1);
 	struct mtk_drm_private *priv = ddp->mtk_crtc[0]->base.dev->dev_private;
 	struct mtk_drm_crtc *mtk_crtc = ddp->mtk_crtc[0];
@@ -15628,20 +15629,23 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 			irq_debug[8] = sched_clock();
 			disp_gamma_on_start_of_frame();
 			irq_debug[9] = sched_clock();
+			disp_ccorr_on_start_of_frame();
+			irq_debug[10] = sched_clock();
 #endif
 		}
 	}
 
 	if (((sched_clock() - irq_debug[0]) > 850000) &&
 			__ratelimit(&irq_ratelimit)) {
-		DDPMSG("%s > 850 us, %llu %llu %llu %llu %llu %llu\n",
+		DDPMSG("%s > 850 us, %llu %llu %llu %llu %llu %llu %llu\n",
 			__func__,
 			(irq_debug[2] - irq_debug[1]),
 			(irq_debug[4] - irq_debug[3]),
 			(irq_debug[6] - irq_debug[5]),
 			(irq_debug[7] - irq_debug[6]),
 			(irq_debug[8] - irq_debug[7]),
-			(irq_debug[9] - irq_debug[8])
+			(irq_debug[9] - irq_debug[8]),
+			(irq_debug[10] - irq_debug[9])
 			);
 	}
 
