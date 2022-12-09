@@ -1473,8 +1473,12 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 
 	if (dsc_params->enable)
 		ps_wc = dsc_params->chunk_size * (dsc_params->slice_mode + 1);
-	else
-		ps_wc = width * dsi_buf_bpp;
+	else {
+		if (dsc_params->bit_per_pixel == 10)
+			ps_wc = width * 30 / 8;
+		else
+			ps_wc = width * dsi_buf_bpp;
+	}
 
 	buffer_unit = dsi->driver_data->buffer_unit;
 	sram_unit = dsi->driver_data->sram_unit;
