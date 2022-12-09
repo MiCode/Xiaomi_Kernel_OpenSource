@@ -842,16 +842,15 @@ static void vdec_vcp_mmdvfs_resume(struct mtk_vcodec_ctx *ctx)
 	if (!inst)
 		return;
 
-	// power always when high freq
 	mutex_lock(&ctx->dev->dec_dvfs_mutex);
-	if (ctx->dev->vdec_dvfs_params.target_freq == VDEC_HIGHEST_FREQ) {
-		memset(&msg, 0, sizeof(msg));
-		msg.msg_id = AP_IPIMSG_DEC_SET_PARAM;
-		msg.ctx_id = inst->ctx->id;
-		msg.vcu_inst_addr = inst->vcu.inst_addr;
-		msg.data[0] = MTK_INST_RESUME;
-		err = vdec_vcp_ipi_send(inst, &msg, sizeof(msg), false, false, true);
-	}
+
+	memset(&msg, 0, sizeof(msg));
+	msg.msg_id = AP_IPIMSG_DEC_SET_PARAM;
+	msg.ctx_id = inst->ctx->id;
+	msg.vcu_inst_addr = inst->vcu.inst_addr;
+	msg.data[0] = MTK_INST_RESUME;
+	err = vdec_vcp_ipi_send(inst, &msg, sizeof(msg), false, false, true);
+
 	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
 
 	mtk_vcodec_debug(inst, "- ret=%d", err);
