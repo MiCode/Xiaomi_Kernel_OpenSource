@@ -666,12 +666,13 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 	mtk_crtc_config_default_path(mtk_crtc);
 
 	/* 6. conect addon module and config */
-	if (mtk_crtc->mml_ir_state == MML_IR_IDLE) {
-		/* do not config mml addon module but dsc */
-		mtk_crtc_addon_connector_connect(crtc, NULL);
-		mtk_crtc_alloc_sram(mtk_crtc, mtk_crtc->mml_ir_sram.bk_hrt_idx);
-	} else
+	if (mtk_crtc->mml_ir_state == MML_IR_IDLE)
+		mtk_crtc_addon_connector_connect(crtc, NULL); /* config dsc only */
+	else
 		mtk_crtc_connect_addon_module(crtc);
+
+	if (mtk_crtc->mml_ir_sram.bk_hrt_idx)
+		mtk_crtc_alloc_sram(mtk_crtc, mtk_crtc->mml_ir_sram.bk_hrt_idx);
 
 	/* 7. restore OVL setting */
 	mtk_crtc_restore_plane_setting(mtk_crtc);

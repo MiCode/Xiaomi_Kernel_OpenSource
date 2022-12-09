@@ -3390,6 +3390,7 @@ bool mtk_crtc_alloc_sram(struct mtk_drm_crtc *mtk_crtc, unsigned int hrt_idx)
 		       (unsigned long)sram->paddr, sram->size);
 
 		kref_init(&mtk_crtc->mml_ir_sram.ref);
+		mtk_crtc->mml_ir_sram.bk_hrt_idx = 0;
 	} else {
 		kref_get(&mtk_crtc->mml_ir_sram.ref);
 	}
@@ -9108,7 +9109,7 @@ skip:
 			PMQOS_UPDATE_BW, NULL);
 
 	/* 3.1 stop the last mml pkt */
-	if (mtk_crtc->is_mml || (mtk_crtc->mml_ir_state == MML_IR_LEAVING)) {
+	if (kref_read(&mtk_crtc->mml_ir_sram.ref)) {
 		struct mtk_drm_sram_list *entry, *tmp;
 
 		if (mtk_crtc_is_frame_trigger_mode(crtc) || mtk_crtc_is_connector_enable(mtk_crtc))
