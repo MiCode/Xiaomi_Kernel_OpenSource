@@ -593,6 +593,8 @@ static void scp_A_notify_ws(struct work_struct *ws)
 		container_of(ws, struct scp_work_struct, work);
 	unsigned int scp_notify_flag = sws->flags;
 
+	while (IS_ERR_OR_NULL((void const *) scpreg.scpsys))
+		msleep(100);
 
 	if (scp_notify_flag) {
 		scp_recovery_flag[SCP_A_ID] = SCP_A_RECOVERY_OK;
@@ -703,7 +705,11 @@ static void scp_A_set_ready(void)
 {
 	pr_debug("[SCP] %s()\n", __func__);
 #if SCP_BOOT_TIME_OUT_MONITOR
-	del_timer(&scp_ready_timer[SCP_A_ID].tl);
+	/* confirm scpsys has already probed*/
+	if (IS_ERR_OR_NULL((void const *) scpreg.scpsys))
+		pr_notice("[SCP] scpreg.scpsys error\n");
+	else
+		del_timer(&scp_ready_timer[SCP_A_ID].tl);
 #endif
 	scp_A_notify_work.flags = 1;
 	scp_schedule_work(&scp_A_notify_work);
