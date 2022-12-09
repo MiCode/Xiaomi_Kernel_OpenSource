@@ -253,9 +253,6 @@ static spinlock_t gs_hashtableLock;
 static struct GED_KPI g_asKPI[GED_KPI_TOTAL_ITEMS];
 static int g_i32Pos;
 static GED_THREAD_HANDLE ghThread;
-// static unsigned int gx_dfps; /* variable to fix FPS*/
-
-static unsigned int enable_gpu_boost = 1;
 
 #if !defined(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT)
 /* Disable for bring-up stage unexpected exception */
@@ -265,7 +262,6 @@ static unsigned int is_GED_KPI_enabled = 1;
 #endif
 
 static unsigned int g_force_gpu_dvfs_fallback;
-static int g_fb_dvfs_threshold = 80;
 
 #define FW_IDLE_TIMER_0_MS    0
 #define FW_IDLE_TIMER_5_MS    5
@@ -284,10 +280,7 @@ static int g_is_panel_hz_change;
 
 u64 fb_timeout = 100000000;/*100 ms*/
 u64 lb_timeout = 100000000;
-module_param(g_fb_dvfs_threshold, int, 0644);
 
-// module_param(gx_dfps, uint, 0644);
-module_param(enable_gpu_boost, uint, 0644);
 module_param(is_GED_KPI_enabled, uint, 0644);
 
 /* for calculating remained time budgets of CPU and GPU:

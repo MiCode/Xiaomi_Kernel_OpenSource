@@ -77,7 +77,6 @@ static unsigned int g_cust_boost_freq_id;
 #define LIMITER_APIBOOST 1
 
 unsigned int g_gpu_timer_based_emu;
-// unsigned int gpu_bw_err_debug;
 
 static unsigned int gpu_pre_loading;
 unsigned int gpu_loading;
@@ -902,8 +901,6 @@ unsigned int dvfs_margin_mode = DYNAMIC_MARGIN_MODE_PERF;
 
 static int dvfs_min_margin_inc_step = MIN_MARGIN_INC_STEP;
 static int dvfs_margin_low_bound = MIN_DVFS_MARGIN;
-
-module_param(gx_fb_dvfs_margin, int, 0644);
 
 static int ged_dvfs_is_fallback_mode_triggered(void)
 {
@@ -2357,6 +2354,5 @@ module_param(gpu_bottom_freq, uint, 0644);
 module_param(gpu_cust_boost_freq, uint, 0644);
 module_param(gpu_cust_upbound_freq, uint, 0644);
 module_param(g_gpu_timer_based_emu, uint, 0644);
-// module_param(gpu_bw_err_debug, uint, 0644);
 #endif /* ENABLE_COMMON_DVFS */
 
