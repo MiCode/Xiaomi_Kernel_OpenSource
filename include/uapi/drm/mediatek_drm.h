@@ -1030,6 +1030,7 @@ struct DISP_MDP_AAL_CLARITY_REG {
 	__u32 bilateral_range_flt_slope;
 	__u32 bilateral_flt_en;
 	__u32 have_bilateral_filter;
+	__u32 dre_output_mode;
 
 	// Bilateral Blending
 	__u32 dre_bilateral_activate_blending_A;
