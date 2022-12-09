@@ -872,15 +872,15 @@ static int jdi_enable(struct drm_panel *panel)
 	return 0;
 }
 static const struct drm_display_mode default_mode = {
-	.clock = 275316, //h_total * v_total * fps
+	.clock = 272929, //h_total * v_total * fps
 	.hdisplay = 1080,
 	.hsync_start = 1080 + 76,//HFP
 	.hsync_end = 1080 + 76 + 20,//HSA
 	.htotal = 1080 + 76 + 20 + 22,//HBP
 	.vdisplay = 2400,
-	.vsync_start = 2400 + 1410,//VFP
-	.vsync_end = 2400 + 1410 + 10,//VSA
-	.vtotal = 2400 + 1410 + 10 + 10,//VBP
+	.vsync_start = 2400 + 1360,//VFP
+	.vsync_end = 2400 + 1360 + 10,//VSA
+	.vtotal = 2400 + 1360 + 10 + 10,//VBP
 };
 
 static const struct drm_display_mode performance_mode_90hz = {
@@ -898,7 +898,7 @@ static const struct drm_display_mode performance_mode_90hz = {
 #if defined(CONFIG_MTK_PANEL_EXT)
 static struct mtk_panel_params ext_params = {
 	.pll_clk = 555,
-	.vfp_low_power = 2680, //45HZ
+	.vfp_low_power = 2620, //45HZ
 	.cust_esd_check = 1,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -909,15 +909,15 @@ static struct mtk_panel_params ext_params = {
 	.dyn = {
 		.switch_en = 1,
 		.pll_clk = 560,
-		.vfp_lp_dyn = 2680,
+		.vfp_lp_dyn = 2660,
 		.hfp = 76,
-		.vfp = 1410,
+		.vfp = 1398,
 	},
 };
 
 static struct mtk_panel_params ext_params_90hz = {
 	.pll_clk = 555,
-	.vfp_low_power = 1410, //60HZ
+	.vfp_low_power = 1360, //60HZ
 	.cust_esd_check = 1,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -928,9 +928,9 @@ static struct mtk_panel_params ext_params_90hz = {
 	.dyn = {
 		.switch_en = 1,
 		.pll_clk = 560,
-		.vfp_lp_dyn = 1410,
+		.vfp_lp_dyn = 1398,
 		.hfp = 76,
-		.vfp = 54,
+		.vfp = 78,
 	},
 };
 

@@ -866,28 +866,28 @@ static int jdi_enable(struct drm_panel *panel)
 	return 0;
 }
 static const struct drm_display_mode default_mode = {
-	.clock = 177832, //h_total * v_total * fps
+	.clock = 169394, //h_total * v_total * fps
 	.hdisplay = 1080,
-	.hsync_start = 1080 + 76,//HFP
-	.hsync_end = 1080 + 76 + 20,//HSA
-	.htotal = 1080 + 76 + 20 + 22,//HBP
+	.hsync_start = 1080 + 48,//HFP
+	.hsync_end = 1080 + 48 + 10,//HSA
+	.htotal = 1080 + 48 + 10 + 10,//HBP
 	.vdisplay = 2400,
-	.vsync_start = 2400 + 54,//VFP
-	.vsync_end = 2400 + 54 + 10,//VSA
-	.vtotal = 2400 + 54 + 10 + 10,//VBP
+	.vsync_start = 2400 + 25,//VFP
+	.vsync_end = 2400 + 25 + 10,//VSA
+	.vtotal = 2400 + 25 + 10 + 10,//VBP
 };
 
 #if defined(CONFIG_MTK_PANEL_EXT)
 static struct mtk_panel_params ext_params = {
-	.pll_clk = 354,
-	.vfp_low_power = 850, //45HZ
+	.pll_clk = 344,
+	.vfp_low_power = 835, //45HZ
 	.cust_esd_check = 1,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
 	},
 	.is_cphy = 1,
-	.data_rate = 708,
+	.data_rate = 688,
 };
 
 static int panel_ata_check(struct drm_panel *panel)
@@ -1042,7 +1042,7 @@ static int jdi_probe(struct mipi_dsi_device *dsi)
 	ctx->dev = dev;
 	dsi->lanes = 3;
 	dsi->format = MIPI_DSI_FMT_RGB888;
-	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
+	dsi->mode_flags = MIPI_DSI_MODE_VIDEO |
 			  MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET |
 			  MIPI_DSI_CLOCK_NON_CONTINUOUS;
 

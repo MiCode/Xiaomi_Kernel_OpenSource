@@ -348,7 +348,7 @@ void mtk_mipi_tx_update_bits(struct mtk_mipi_tx *mipi_tx, u32 offset,
 	writel((temp & ~mask) | (data & mask), mipi_tx->regs + offset);
 }
 
-static unsigned int _dsi_get_data_rate(struct phy *phy)
+unsigned int _dsi_get_data_rate(struct phy *phy)
 {
 	int i = 0;
 	unsigned int pcw;
@@ -368,7 +368,7 @@ static unsigned int _dsi_get_data_rate(struct phy *phy)
 	return i > 0 ? 26 * pcw / i : 0;
 }
 
-static unsigned int _dsi_get_data_rate_mt6983(struct phy *phy)
+unsigned int _dsi_get_data_rate_mt6983(struct phy *phy)
 {
 	int i = 0;
 	unsigned int pcw;
