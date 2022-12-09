@@ -108,13 +108,15 @@ static s32 dequeue_msg(struct mml_pq_chan *chan,
 	if (temp) {
 		atomic_dec(&chan->msg_cnt);
 		list_del(&temp->mbox_list);
+	} else if (!err_print) {
+		mml_pq_log("%s msg_cnt[%d]", __func__, atomic_read(&chan->msg_cnt));
+		atomic_dec_if_positive(&chan->msg_cnt);
 	}
 	mutex_unlock(&chan->msg_lock);
 
 	if (!temp) {
 		if (err_print)
-			mml_pq_err("%s temp is null msg_cnt[%d]",
-				__func__, atomic_read(&chan->msg_cnt));
+			mml_pq_err("%s temp is null", __func__);
 		mml_pq_trace_ex_end();
 		return -ENOENT;
 	}
@@ -1059,13 +1061,14 @@ static struct mml_pq_sub_task *wait_next_sub_task(struct mml_pq_chan *chan)
 
 		ret = dequeue_msg(chan, &sub_task, err_print);
 		if (unlikely(ret)) {
-			if (error_cnt < 10)
+			if (error_cnt < 5)
 				mml_pq_err("%s err: dequeue msg failed: %d msg_cnt[%d]",
 					__func__, ret, atomic_read(&chan->msg_cnt));
-			if (error_cnt <= 10)
+			if (error_cnt <= 5)
 				error_cnt++;
 			else
 				err_print = false;
+			usleep_range(5000, 5100);
 			continue;
 		}
 
