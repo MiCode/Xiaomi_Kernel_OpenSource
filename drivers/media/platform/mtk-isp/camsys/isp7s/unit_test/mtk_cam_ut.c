@@ -332,9 +332,9 @@ static int cam_composer_init(struct mtk_cam_ut *ut)
 
 	ccd = (struct mtk_ccd *)ut->rproc_handle->priv;
 	rpmsg_subdev = ccd->rpmsg_subdev;
-	snprintf(msg->name, RPMSG_NAME_SIZE, "mtk-isp-unit-test\0\n");
+	snprintf(msg->name, RPMSG_NAME_SIZE, "mtk-camsys0");
 	msg->src = CCD_IPI_ISP_MAIN;
-	ut->rpmsg_dev = mtk_create_client_msgdevice(rpmsg_subdev, msg);
+	ut->rpmsg_dev = mtk_get_client_msgdevice(rpmsg_subdev, msg);
 	if (!ut->rpmsg_dev) {
 		ret = -EINVAL;
 		goto fail_shutdown;
