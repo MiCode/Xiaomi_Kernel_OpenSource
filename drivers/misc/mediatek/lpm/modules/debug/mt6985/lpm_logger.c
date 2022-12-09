@@ -493,6 +493,8 @@ static u32 is_blocked_cnt;
 		else if (sta_list->spm_req[i].req_sta_num < SPM_REQ_STA_IDX_MAX)
 			temp = req_sta[sta_list->spm_req[i].req_sta_num] &
 						sta_list->spm_req[i].mask;
+		else
+			temp = 0;
 
 		if (temp) {
 			log_size += scnprintf(log_buf + log_size,
