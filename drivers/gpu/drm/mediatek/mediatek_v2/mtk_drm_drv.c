@@ -5875,7 +5875,6 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 		goto err_unset_dma_parms;
 	}
 
-	drm_kms_helper_poll_init(drm);
 	drm_mode_config_reset(drm);
 
 	INIT_WORK(&private->unreference.work, mtk_unreference_work);
