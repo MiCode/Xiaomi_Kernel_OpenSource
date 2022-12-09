@@ -81,12 +81,9 @@ static int scp_ultra_pcm_dev_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 
 	if (pdev->dev.of_node) {
-		dev_set_name(&pdev->dev, "%s", "snd-scp-ultra");
-		pdev->name = pdev->dev.kobj.name;
-	} else {
-		pr_debug("%s(), pdev->dev.of_node NULL!!!\n", __func__);
+		pr_info("%s of_node->name:%s fullname:%s\n", __func__,
+			pdev->dev.of_node->name, pdev->dev.of_node->full_name);
 	}
-
 	ret = snd_soc_register_component(&pdev->dev,
 			&mtk_scp_ultra_pcm_platform, NULL, 0);
 	if (ret) {
