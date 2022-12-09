@@ -482,7 +482,7 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 		mtk_plane_state->pending.pitch = pitch;
 		mtk_plane_state->pending.format = fb->format->format;
 		mtk_plane_state->pending.addr = (dma_addr_t)(mtk_crtc->mml_ir_sram.data.paddr);
-		mtk_plane_state->pending.modifier = MTK_FMT_NONE;
+		mtk_plane_state->pending.modifier = fb->modifier;
 		mtk_plane_state->pending.size = pitch  * height;
 		mtk_plane_state->pending.src_x = 0;
 		mtk_plane_state->pending.src_y = 0;
