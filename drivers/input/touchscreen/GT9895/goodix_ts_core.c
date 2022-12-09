@@ -1257,6 +1257,8 @@ void goodix_ts_report_finger(struct input_dev *dev,
 	}
 
 	input_report_key(dev, BTN_TOUCH, touch_num > 0 ? 1 : 0);
+	input_set_timestamp(dev,
+		ns_to_ktime(atomic64_read(&touch_data->timestamp)));
 	input_sync(dev);
 
 	mutex_unlock(&dev->mutex);
@@ -1283,6 +1285,16 @@ static int goodix_ts_request_handle(struct goodix_ts_core *cd,
 			  ts_event->request_code);
 	return ret;
 }
+
+static irqreturn_t goodix_ts_interrupt_func(int irq, void *data)
+{
+	struct goodix_ts_core *core_data = data;
+
+	atomic64_set(&core_data->ts_event.touch_data.timestamp,
+		ktime_to_ns(ktime_get()));
+	return IRQ_WAKE_THREAD;
+}
+
 /**
  * goodix_ts_threadirq_func - Bottom half of interrupt
  * This functions is excuted in thread context,
@@ -1376,7 +1388,7 @@ static int goodix_ts_irq_setup(struct goodix_ts_core *core_data)
 
 	ts_info("IRQ:%u,flags:%d", core_data->irq, (int)ts_bdata->irq_flags);
 	ret = devm_request_threaded_irq(&core_data->pdev->dev,
-				      core_data->irq, NULL,
+				      core_data->irq, goodix_ts_interrupt_func,
 				      goodix_ts_threadirq_func,
 				      ts_bdata->irq_flags | IRQF_ONESHOT,
 				      GOODIX_CORE_DRIVER_NAME,

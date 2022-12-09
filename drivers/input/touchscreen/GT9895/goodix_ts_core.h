@@ -27,6 +27,7 @@
 #include <linux/firmware.h>
 #include <linux/slab.h>
 #include <asm/unaligned.h>
+#include <linux/atomic.h>
 #include <linux/vmalloc.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
@@ -397,6 +398,7 @@ struct goodix_pen_coords {
 /* touch event data */
 struct goodix_touch_data {
 	int touch_num;
+	atomic64_t timestamp;
 	struct goodix_ts_coords coords[GOODIX_MAX_TOUCH];
 };
 
