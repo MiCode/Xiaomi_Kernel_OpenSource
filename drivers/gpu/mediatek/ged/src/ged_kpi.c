@@ -63,16 +63,17 @@
 /* set default margin to be distinct from FPSGO(0 or 3) */
 #define GED_KPI_DEFAULT_FPS_MARGIN 4
 #define GED_KPI_CPU_MAX_OPP 0
-#define GED_KPI_FPS_LIMIT 120
+#define GED_KPI_FPS_LIMIT 165
 
-#define GED_TIMESTAMP_TYPE_D    0x1
-#define GED_TIMESTAMP_TYPE_1    0x2
-#define GED_TIMESTAMP_TYPE_2    0x4
-#define GED_TIMESTAMP_TYPE_S    0x8
-#define GED_TIMESTAMP_TYPE_P    0x10
-#define GED_TIMESTAMP_TYPE_H    0x20
-#define GED_SET_TARGET_FPS      0x40
-#define GED_TIMESTAMP_TYPE      int
+#define GED_TIMESTAMP_TYPE_D       0x1
+#define GED_TIMESTAMP_TYPE_1       0x2
+#define GED_TIMESTAMP_TYPE_2       0x4
+#define GED_TIMESTAMP_TYPE_S       0x8
+#define GED_TIMESTAMP_TYPE_P       0x10
+#define GED_TIMESTAMP_TYPE_H       0x20
+#define GED_SET_TARGET_FPS         0x40
+#define GED_SET_PANEL_REFRESH_RATE 0x80
+#define GED_TIMESTAMP_TYPE         int
 
 /* No frame control is applied */
 #define GED_KPI_FRC_DEFAULT_MODE    0
@@ -105,7 +106,7 @@ struct GED_KPI_HEAD {
 	int isFRR_enabled;
 	int isARR_enabled;
 
-	int target_fps;
+	int target_fps;   // -1 means target FPS via FPSGO is invalid or unprovided
 	int target_fps_margin;
 	int eara_fps_margin;
 
@@ -232,7 +233,6 @@ struct GED_KPI_MEOW_DVFS_FREQ_PRED {
 static struct GED_KPI_MEOW_DVFS_FREQ_PRED *g_psGIFT;
 
 int g_target_fps_default = GED_KPI_MAX_FPS;
-int g_target_time_default = GED_KPI_SEC_DIVIDER / GED_KPI_MAX_FPS;
 
 #define GED_KPI_TOTAL_ITEMS 32
 #define GED_KPI_UID(pid, wnd) (pid | ((unsigned long)wnd))
@@ -734,6 +734,7 @@ static GED_BOOL ged_kpi_update_TargetTimeAndTargetFps(
 		vsync_period = GED_KPI_SEC_DIVIDER / GED_KPI_MAX_FPS;
 		GED_LOGD("[Exception]: no invalid",
 			"FRC mode is specified, use default mode");
+		break;
 	}
 
 	if (g_is_fw_idle_enable) {
@@ -765,10 +766,10 @@ static GED_BOOL ged_kpi_update_TargetTimeAndTargetFps(
 	psHead->target_fps_margin = target_fps_margin;
 	psHead->eara_fps_margin = eara_fps_margin;
 	psHead->t_cpu_fpsgo = cpu_time;
-	if (target_fps > 0 && target_fps <= GED_KPI_FPS_LIMIT) {
+	if (target_fps > 0 && target_fps <= GED_KPI_FPS_LIMIT) {   // valid range
 		psHead->t_cpu_target = (int)((int)GED_KPI_SEC_DIVIDER/target_fps);
 		psHead->target_fps = target_fps;
-	} else {
+	} else {   // invalid range, use default value
 		psHead->t_cpu_target = (int)((int)GED_KPI_SEC_DIVIDER/g_target_fps_default);
 		psHead->target_fps = -1;
 	}
@@ -785,6 +786,25 @@ static GED_BOOL ged_kpi_update_TargetTimeAndTargetFps(
 
 	return ret;
 }
+
+static GED_BOOL ged_kpi_update_default_target_fps_fcn(unsigned long ulID,
+	void *pvoid, void *pvParam)
+{
+	struct GED_KPI_HEAD *psHead = (struct GED_KPI_HEAD *) pvoid;
+
+	if (psHead) {
+		if (psHead->target_fps == -1)
+			// only reset target FPS for those who use the default
+			ged_kpi_update_TargetTimeAndTargetFps(
+					psHead,
+					-1,
+					GED_KPI_DEFAULT_FPS_MARGIN, 0, 0,
+					GED_KPI_FRC_DEFAULT_MODE, -1);
+	}
+
+	return GED_TRUE;
+}
+
 /* ------------------------------------------------------------------- */
 struct GED_KPI_MISS_TAG {
 	u64 ulID;
@@ -1049,7 +1069,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			spin_lock_init(&psHead->sListLock);
 			ged_kpi_update_TargetTimeAndTargetFps(
 				psHead,
-				g_target_fps_default,
+				-1,
 				GED_KPI_DEFAULT_FPS_MARGIN, 0, 0,
 				GED_KPI_FRC_DEFAULT_MODE, -1);
 			ged_kpi_set_gift_status(0);
@@ -1168,7 +1188,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			psTimeStamp->i32QedBuffer_length,
 			psTimeStamp->ullTimeStamp,
 			psHead);
-	break;
+		break;
 
 	/* GPU done scope */
 	case GED_TIMESTAMP_TYPE_2:
@@ -1340,7 +1360,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			ged_log_perf_trace_counter("fb_t_target",
 				(long long)psKPI->t_gpu_target, 5566, 0, 0);
 		}
-	break;
+		break;
 
 	/* Prefence scope */
 	case GED_TIMESTAMP_TYPE_P:
@@ -1379,7 +1399,6 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			GED_LOGD("[Exception] TYPE_P: psKPI NULL, frameID: %lu",
 				psTimeStamp->i32FrameID);
 			}
-
 		break;
 
 	/* acquire buffer scope (deprecated) */
@@ -1451,6 +1470,22 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 
 		ged_log_perf_trace_counter("target_fps_fpsgo",
 				(target_FPS&0x000000ff), 5566, 0, 0);
+		break;
+
+	case GED_SET_PANEL_REFRESH_RATE:
+		target_FPS = psTimeStamp->i32FrameID;
+		if (target_FPS > 0 &&
+				target_FPS <= GED_KPI_FPS_LIMIT) {   // valid range
+			if (g_target_fps_default != target_FPS) {   // panel refresh rate change
+				g_target_fps_default = target_FPS;
+				ged_hashtable_iterator(gs_hashtable,
+					ged_kpi_update_default_target_fps_fcn, NULL);
+			}
+			ged_log_perf_trace_counter("target_fps_panel",
+				(long long) target_FPS, 5566, 0, 0);
+		}
+		break;
+
 	default:
 		break;
 	}
@@ -1861,12 +1896,10 @@ void ged_dfrc_fps_limit_cb(unsigned int target_fps)
 
 	g_is_panel_hz_change = 1;
 
-	g_target_fps_default =
-		(target_fps > 0 && target_fps <= GED_KPI_FPS_LIMIT) ?
-		target_fps : g_target_fps_default;
-
-	GED_LOGD("dfrc_fps:%d, dfrc_time %u\n",
-		g_target_fps_default, g_target_time_default);
+#ifdef MTK_GED_KPI
+	ged_kpi_push_timestamp(GED_SET_PANEL_REFRESH_RATE, 0, -1, 0,
+		(int) target_fps, -1, -1, NULL);
+#endif /* MTK_GED_KPI */
 }
 /* ------------------------------------------------------------------- */
 GED_ERROR ged_kpi_system_init(void)
