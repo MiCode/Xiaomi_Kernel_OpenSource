@@ -25,14 +25,14 @@ static unsigned int venc_h265_get_profile(struct venc_inst *inst,
 {
 	switch (profile) {
 	case V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN:
-		return 2;
+		return 1;
 	case V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_10:
-		return 4;
+		return 2;
 	case V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_STILL_PICTURE:
-		return 8;
+		return 4;
 	default:
 		mtk_vcodec_debug(inst, "unsupported profile %d", profile);
-		return 0;
+		return 1;
 	}
 }
 
@@ -41,34 +41,34 @@ static unsigned int venc_h265_get_level(struct venc_inst *inst,
 {
 	switch (level) {
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_1:
-		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 0 : 1;
+		return 1;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_2:
-		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 2 : 3;
+		return 7;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_2_1:
-		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 4 : 5;
+		return 8;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_3:
-		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 6 : 7;
+		return 10;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_3_1:
-		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 8 : 9;
+		return 11;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_4:
-		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 10 : 11;
+		return 13;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_4_1:
-		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 12 : 13;
+		return 14;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_5:
-		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 14 : 15;
+		return 16;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_5_1:
-		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 16 : 17;
+		return 17;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_5_2:
-		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 18 : 19;
+		return 18;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_6:
-		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 20 : 21;
+		return 19;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_6_1:
-		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 22 : 23;
+		return 20;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_6_2:
-		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 24 : 25;
+		return 21;
 	default:
 		mtk_vcodec_debug(inst, "unsupported level %d", level);
-		return 26;
+		return 21;
 	}
 }
 
