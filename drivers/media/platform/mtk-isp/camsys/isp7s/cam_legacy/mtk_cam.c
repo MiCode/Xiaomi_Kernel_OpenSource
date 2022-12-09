@@ -1476,6 +1476,15 @@ STOP_SCAN:
 		}
 		atomic_set(&s_data->frame_done_work.is_queued, 1);
 
+		if (atomic_read(&s_data->seninf_s_fmt_work.is_queued)) {
+			cancel_work_sync(&s_data->seninf_s_fmt_work.work);
+			dev_info(cam->dev,
+				 "%s:%s:pipe(%d):seq(%d): cancel seninf_s_fmt_work\n",
+				 __func__, req->req.debug_str, pipe_id,
+				 s_data->frame_seq_no);
+		}
+		atomic_set(&s_data->seninf_s_fmt_work.is_queued, 1);
+
 		if (atomic_read(&s_data->dbg_exception_work.state) ==
 			MTK_CAM_REQ_DBGWORK_S_PREPARED) {
 			atomic_set(&s_data->dbg_exception_work.state, MTK_CAM_REQ_DBGWORK_S_CANCEL);
@@ -4432,6 +4441,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 		req_stream_data->ctx = ctx;
 		req_stream_data->no_frame_done_cnt = 0;
 		atomic_set(&req_stream_data->sensor_work.is_queued, 0);
+		atomic_set(&req_stream_data->seninf_s_fmt_work.is_queued, 0);
 		atomic_set(&req_stream_data->dbg_work.state, MTK_CAM_REQ_DBGWORK_S_INIT);
 		req_stream_data->dbg_work.dump_flags = 0;
 		atomic_set(&req_stream_data->dbg_exception_work.state, MTK_CAM_REQ_DBGWORK_S_INIT);
@@ -4669,6 +4679,7 @@ static void fill_mstream_s_data(struct mtk_cam_ctx *ctx,
 	req_stream_data_mstream->ctx = ctx;
 	req_stream_data_mstream->no_frame_done_cnt = 0;
 	atomic_set(&req_stream_data_mstream->sensor_work.is_queued, 0);
+	atomic_set(&req_stream_data_mstream->seninf_s_fmt_work.is_queued, 0);
 	atomic_set(&req_stream_data_mstream->dbg_work.state,
 			MTK_CAM_REQ_DBGWORK_S_INIT);
 	req_stream_data_mstream->dbg_work.dump_flags = 0;

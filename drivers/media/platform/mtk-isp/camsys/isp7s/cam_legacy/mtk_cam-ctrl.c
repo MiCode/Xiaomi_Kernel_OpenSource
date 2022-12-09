@@ -3863,6 +3863,7 @@ static bool mtk_cam_handle_seamless_switch(struct mtk_cam_request_stream_data *s
 		ret = mtk_cam_hw_mode_is_dc(ctx->pipe->hw_mode) ? true : false;
 		state_transition(&s_data->state, E_STATE_OUTER, E_STATE_CAMMUX_OUTER_CFG);
 		INIT_WORK(&s_data->seninf_s_fmt_work.work, mtk_cam_seamless_switch_work);
+		atomic_set(&s_data->seninf_s_fmt_work.is_queued, 1);
 		queue_work(cam->link_change_wq, &s_data->seninf_s_fmt_work.work);
 	}
 
