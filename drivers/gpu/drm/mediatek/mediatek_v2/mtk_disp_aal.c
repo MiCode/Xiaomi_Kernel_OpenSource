@@ -2397,6 +2397,14 @@ int mtk_drm_ioctl_clarity_set_reg(struct drm_device *dev, void *data,
 
 static void dumpAlgAALClarityRegOutput(struct DISP_CLARITY_REG clarityHWReg)
 {
+	AALCRT_LOG("bilateral_impulse_noise_en[%d] dre_bilateral_detect_en[%d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.bilateral_impulse_noise_en,
+		clarityHWReg.mdp_aal_clarity_regs.dre_bilateral_detect_en);
+
+	AALCRT_LOG("have_bilateral_filter[%d] dre_output_mode[%d]\n",
+		clarityHWReg.mdp_aal_clarity_regs.have_bilateral_filter,
+		clarityHWReg.mdp_aal_clarity_regs.dre_output_mode);
+
 	AALCRT_LOG("bilateral_range_flt_slope[%d] dre_bilateral_activate_blending_A[%d]\n",
 		clarityHWReg.mdp_aal_clarity_regs.bilateral_range_flt_slope,
 		clarityHWReg.mdp_aal_clarity_regs.dre_bilateral_activate_blending_A);
@@ -2769,6 +2777,9 @@ static int mtk_disp_clarity_set_reg(struct mtk_ddp_comp *comp,
 		clarity_regs->mdp_aal_clarity_regs.bilateral_range_flt_slope << 4 |
 		clarity_regs->mdp_aal_clarity_regs.bilateral_flt_en << 1 |
 		clarity_regs->mdp_aal_clarity_regs.have_bilateral_filter << 0), ~0);
+
+	cmdq_pkt_write(handle, comp->cmdq_base, dre3_pa + DISP_AAL_CFG_MAIN,
+		clarity_regs->mdp_aal_clarity_regs.dre_output_mode, 0x1 << 5);
 
 	cmdq_pkt_write(handle, comp->cmdq_base, dre3_pa + MDP_AAL_DRE_BILATERAL_Blending_00,
 		(clarity_regs->mdp_aal_clarity_regs.dre_bilateral_activate_blending_D << 27 |
