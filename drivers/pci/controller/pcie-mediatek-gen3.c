@@ -183,6 +183,7 @@ u32 mtk_pcie_dump_link_info(int port);
 #define PCIE_VLPCFG_BASE		0x1C00C000
 #define PCIE_VLP_AXI_PROTECT_STA	0x240
 #define PCIE_MAC0_SLP_READY_MASK	BIT(11)
+#define PCIE_PHY0_SLP_READY_MASK	BIT(13)
 #define SRCLKEN_RC_REQ_STA		0x1130
 
 enum mtk_pcie_suspend_link_state {
@@ -1372,9 +1373,11 @@ u32 mtk_pcie_dump_link_info(int port)
 
 	/* Check the sleep protect ready */
 	val = readl_relaxed(pcie_port->vlpcfg_base + PCIE_VLP_AXI_PROTECT_STA);
-	val &= PCIE_MAC0_SLP_READY_MASK;
-	if (val)
+	val &= (PCIE_MAC0_SLP_READY_MASK | PCIE_PHY0_SLP_READY_MASK);
+	if (val) {
+		pr_info("PCIe sleep protect is not ready=%#x\n", val);
 		return 0;
+	}
 
 	pr_info("ltssm reg:%#x, link sta:%#x, power sta:%#x, IP basic sta:%#x, int sta:%#x, axi err add:%#x, axi err info:%#x\n",
 		readl_relaxed(pcie_port->base + PCIE_LTSSM_STATUS_REG),
@@ -1384,10 +1387,12 @@ u32 mtk_pcie_dump_link_info(int port)
 		readl_relaxed(pcie_port->base + PCIE_INT_STATUS_REG),
 		readl_relaxed(pcie_port->base + PCIE_AXI0_ERR_ADDR_L),
 		readl_relaxed(pcie_port->base + PCIE_AXI0_ERR_INFO));
-	pr_info("clock gate:%#x, PCIe HW MODE BIT:%#x, Modem HW MODE BIT:%#x\n",
+	pr_info("clock gate:%#x, PCIe HW MODE BIT:%#x, Modem HW MODE BIT:%#x, slp ready:%#x\n",
 		readl_relaxed(pcie_port->pextpcfg + PCIE_PEXTP_CG_0),
 		readl_relaxed(pcie_port->pextpcfg + PEXTP_PWRCTL_0),
-		readl_relaxed(pcie_port->pextpcfg + PEXTP_RSV_0));
+		readl_relaxed(pcie_port->pextpcfg + PEXTP_RSV_0),
+		readl_relaxed(pcie_port->vlpcfg_base +
+			      PCIE_VLP_AXI_PROTECT_STA));
 
 	val = readl_relaxed(pcie_port->base + PCIE_LTSSM_STATUS_REG);
 	ret_val |= PCIE_LTSSM_STATE(val);
@@ -1624,7 +1629,8 @@ int mtk_pcie_hw_control_vote(int port, bool hw_mode_en, u8 who)
 		/* Check the sleep protect ready */
 		err = readl_poll_timeout(pcie_port->vlpcfg_base +
 					 PCIE_VLP_AXI_PROTECT_STA, val,
-					 !(val & PCIE_MAC0_SLP_READY_MASK),
+					 !(val & (PCIE_MAC0_SLP_READY_MASK |
+					 PCIE_PHY0_SLP_READY_MASK)),
 					 20, 50 * USEC_PER_MSEC);
 		if (err)
 			dev_info(pcie_port->dev, "PCIe sleep protect not ready, %#x\n",
