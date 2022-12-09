@@ -115,9 +115,6 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 	if (preempt_count())
 		ipi_wait_type = IPI_SEND_POLLING;
 
-	if (inst->vcu_inst.abort || inst->vcu_inst.daemon_pid != get_vcp_generation())
-		return -EIO;
-
 	if (!is_ack && *(u32 *)msg != AP_IPIMSG_ENC_BACKUP) {
 		while (inst->ctx->dev->is_codec_suspending == 1) {
 			suspend_block_cnt++;
@@ -129,6 +126,12 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 		}
 	}
 
+	if (!is_ack)
+		mutex_lock(&inst->ctx->dev->ipi_mutex);
+
+	if (inst->vcu_inst.abort || inst->vcu_inst.daemon_pid != get_vcp_generation())
+		goto ipi_err_unlock;
+
 	while (!is_vcp_ready(VCP_A_ID)) {
 		mtk_v4l2_debug((((timeout % 20) == 10) ? 0 : 4), "[VCP] wait ready %d ms", timeout);
 		mdelay(1);
@@ -139,20 +142,15 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 #if IS_ENABLED(CONFIG_MTK_EMI)
 			mtk_emidbg_dump();
 #endif
-			inst->vcu_inst.abort = 1;
 			//BUG_ON(1);
-			return -EIO;
+			goto ipi_err_unlock;
 		}
 	}
 
 	if (len > (sizeof(struct share_obj) - sizeof(int32_t) - sizeof(uint32_t))) {
 		mtk_vcodec_err(inst, "ipi data size wrong %d > %d", len, sizeof(struct share_obj));
-		inst->vcu_inst.abort = 1;
-		return -EIO;
+		goto ipi_err_unlock;
 	}
-
-	if (!is_ack)
-		mutex_lock(&inst->ctx->dev->ipi_mutex);
 
 	memset(&obj, 0, sizeof(obj));
 	memcpy(obj.share_buf, msg, len);
@@ -172,8 +170,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 
 	if (ret != IPI_ACTION_DONE) {
 		mtk_vcodec_err(inst, "mtk_ipi_send %X fail %d", *(u32 *)msg, ret);
-		mutex_unlock(&inst->ctx->dev->ipi_mutex);
-		goto ipi_err;
+		goto ipi_err_wait_and_unlock;
 	}
 	if (!is_ack) {
 		/* wait for VCP's ACK */
@@ -203,15 +200,14 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 		if (ret == 0 || inst->vcu_inst.failure) {
 			mtk_vcodec_err(inst, "wait vcp ipi %X ack time out or fail!%d %d",
 				*(u32 *)msg, ret, inst->vcu_inst.failure);
-			mutex_unlock(&inst->ctx->dev->ipi_mutex);
-			goto ipi_err;
+			goto ipi_err_wait_and_unlock;
 		}
 	}
 	mutex_unlock(&inst->ctx->dev->ipi_mutex);
 
 	return 0;
 
-ipi_err:
+ipi_err_wait_and_unlock:
 	timeout = 0;
 	if (inst->vcu_inst.daemon_pid == get_vcp_generation()) {
 		trigger_vcp_halt(VCP_A_ID);
@@ -226,8 +222,12 @@ ipi_err:
 		}
 	}
 	inst->vcu_inst.failure = VENC_IPI_MSG_STATUS_FAIL;
-	inst->vcu_inst.abort = 1;
 	inst->ctx->err_msg = *(__u32 *)msg;
+
+ipi_err_unlock:
+	inst->vcu_inst.abort = 1;
+	if (!is_ack)
+		mutex_unlock(&inst->ctx->dev->ipi_mutex);
 
 	return -EIO;
 }
