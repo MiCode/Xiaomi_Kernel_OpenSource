@@ -13,11 +13,13 @@ enum swpm_perf_evt_id {
 	DSU_CYCLES_EVT,
 };
 
-extern int swpm_arm_pmu_get_status(void);
-extern int swpm_arm_dsu_pmu_get_status(void);
+extern unsigned int swpm_arm_pmu_get_status(void);
+extern unsigned int swpm_arm_dsu_pmu_get_status(void);
 extern int swpm_arm_pmu_get_idx(unsigned int evt_id,
 				unsigned int cpu);
 extern int swpm_arm_pmu_enable_all(unsigned int enable);
 extern int swpm_arm_dsu_pmu_enable(unsigned int enable);
+extern unsigned int swpm_arm_dsu_pmu_get_type(void);
+extern int swpm_arm_dsu_pmu_set_type(unsigned int type);
 
 #endif

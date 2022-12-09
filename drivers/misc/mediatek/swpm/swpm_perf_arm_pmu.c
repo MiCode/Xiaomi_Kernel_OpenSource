@@ -240,19 +240,40 @@ int swpm_arm_pmu_get_idx(unsigned int evt_id, unsigned int cpu)
 }
 EXPORT_SYMBOL(swpm_arm_pmu_get_idx);
 
-int swpm_arm_dsu_pmu_get_status(void)
+unsigned int swpm_arm_dsu_pmu_get_status(void)
 {
 	return swpm_arm_dsu_pmu_status;
 }
 EXPORT_SYMBOL(swpm_arm_dsu_pmu_get_status);
 
-int swpm_arm_pmu_get_status(void)
+unsigned int swpm_arm_pmu_get_status(void)
 {
 	return (pmu_dsu_support << 24 |
 		boundary << 20 |
 		swpm_arm_pmu_status);
 }
 EXPORT_SYMBOL(swpm_arm_pmu_get_status);
+
+unsigned int swpm_arm_dsu_pmu_get_type(void)
+{
+	return pmu_dsu_type;
+}
+EXPORT_SYMBOL(swpm_arm_dsu_pmu_get_type);
+
+int swpm_arm_dsu_pmu_set_type(unsigned int type)
+{
+	int ret = 0;
+
+	if (pmu_dsu_support && !swpm_arm_dsu_pmu_status) {
+		pmu_dsu_type = type;
+		dsu_cycle_event_attr.type = pmu_dsu_type;
+	} else {
+		ret = -1;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(swpm_arm_dsu_pmu_set_type);
 
 int swpm_arm_dsu_pmu_enable(unsigned int enable)
 {
