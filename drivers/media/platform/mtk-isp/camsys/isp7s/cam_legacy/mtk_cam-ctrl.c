@@ -5062,22 +5062,31 @@ static void mtk_camsys_mraw_check_frame_done(struct mtk_cam_ctx *ctx,
 #define CHECK_STATE_DEPTH 3
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
 	struct mtk_camsys_ctrl_state *state_temp;
-	struct mtk_cam_request_stream_data *req_stream_data;
+	struct mtk_cam_request_stream_data *stream_data_ctx, *stream_data_pipe;
 	unsigned long flags;
 	unsigned int seqList[CHECK_STATE_DEPTH];
 	unsigned int cnt = 0;
 	int i;
+	u64 time_boot = ktime_get_boottime_ns();
+	u64 time_mono = ktime_get_ns();
 
 	if (ctx->sensor) {
 		spin_lock_irqsave(&sensor_ctrl->camsys_state_lock, flags);
 		list_for_each_entry(state_temp, &sensor_ctrl->camsys_state_list,
 						state_element) {
-			req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_temp);
-			if (req_stream_data->frame_seq_no < dequeued_frame_seq_no)
-				seqList[cnt++] = req_stream_data->frame_seq_no;
+			stream_data_ctx = mtk_cam_ctrl_state_to_req_s_data(state_temp);
+			stream_data_pipe = mtk_cam_req_get_s_data(stream_data_ctx->req,
+				mraw_dev->pipeline->id, stream_data_ctx->index);
+			/* update timestamp */
+			if (stream_data_pipe &&
+				stream_data_ctx->frame_seq_no == dequeued_frame_seq_no)
+				mtk_cam_set_timestamp(stream_data_pipe, time_boot, time_mono);
+
+			if (stream_data_ctx->frame_seq_no < dequeued_frame_seq_no)
+				seqList[cnt++] = stream_data_ctx->frame_seq_no;
 			else if (mtk_cam_mraw_is_zero_fbc_cnt(ctx, mraw_dev) &&
-				(req_stream_data->frame_seq_no == dequeued_frame_seq_no))
-				seqList[cnt++] = req_stream_data->frame_seq_no;
+				(stream_data_ctx->frame_seq_no == dequeued_frame_seq_no))
+				seqList[cnt++] = stream_data_ctx->frame_seq_no;
 
 			if (cnt == CHECK_STATE_DEPTH)
 				break;
@@ -5094,22 +5103,31 @@ static void mtk_camsys_camsv_check_frame_done(struct mtk_cam_ctx *ctx,
 #define CHECK_STATE_DEPTH 3
 	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
 	struct mtk_camsys_ctrl_state *state_temp;
-	struct mtk_cam_request_stream_data *req_stream_data;
+	struct mtk_cam_request_stream_data *stream_data_ctx, *stream_data_pipe;
 	unsigned long flags;
 	unsigned int seqList[CHECK_STATE_DEPTH];
 	unsigned int cnt = 0, tag_idx = mtk_cam_get_sv_tag_index(ctx, pipe_id);
 	int i;
+	u64 time_boot = ktime_get_boottime_ns();
+	u64 time_mono = ktime_get_ns();
 
 	if (ctx->sensor) {
 		spin_lock_irqsave(&sensor_ctrl->camsys_state_lock, flags);
 		list_for_each_entry(state_temp, &sensor_ctrl->camsys_state_list,
 						state_element) {
-			req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_temp);
-			if (req_stream_data->frame_seq_no < dequeued_frame_seq_no)
-				seqList[cnt++] = req_stream_data->frame_seq_no;
+			stream_data_ctx = mtk_cam_ctrl_state_to_req_s_data(state_temp);
+			stream_data_pipe = mtk_cam_req_get_s_data(stream_data_ctx->req,
+				pipe_id, stream_data_ctx->index);
+			/* update timestamp */
+			if (stream_data_pipe &&
+				stream_data_ctx->frame_seq_no == dequeued_frame_seq_no)
+				mtk_cam_set_timestamp(stream_data_pipe, time_boot, time_mono);
+
+			if (stream_data_ctx->frame_seq_no < dequeued_frame_seq_no)
+				seqList[cnt++] = stream_data_ctx->frame_seq_no;
 			else if (mtk_cam_sv_is_zero_fbc_cnt(ctx, tag_idx) &&
-				(req_stream_data->frame_seq_no == dequeued_frame_seq_no))
-				seqList[cnt++] = req_stream_data->frame_seq_no;
+				(stream_data_ctx->frame_seq_no == dequeued_frame_seq_no))
+				seqList[cnt++] = stream_data_ctx->frame_seq_no;
 
 			if (cnt == CHECK_STATE_DEPTH)
 				break;
