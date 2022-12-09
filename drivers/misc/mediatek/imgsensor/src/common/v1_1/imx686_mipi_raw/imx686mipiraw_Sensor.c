@@ -994,10 +994,18 @@ static kal_uint16 set_gain(kal_uint16 gain)
 	pr_debug("gain = %d, reg_gain = 0x%x, max_gain:0x%x\n ",
 		gain, reg_gain, max_gain);
 
-	write_cmos_sensor_8(0x0104, 0x01);
-	write_cmos_sensor_8(0x0204, (reg_gain>>8) & 0xFF);
-	write_cmos_sensor_8(0x0205, reg_gain & 0xFF);
-	write_cmos_sensor_8(0x0104, 0x00);
+	if (!imx686_is_seamless) {
+		write_cmos_sensor_8(0x0104, 0x01);
+		write_cmos_sensor_8(0x0204, (reg_gain>>8) & 0xFF);
+		write_cmos_sensor_8(0x0205, reg_gain & 0xFF);
+		write_cmos_sensor_8(0x0104, 0x00);
+	} else {
+		imx686_i2c_data[imx686_size_to_write++] = 0x0204;
+		imx686_i2c_data[imx686_size_to_write++] =  (reg_gain>>8) & 0xFF;
+		imx686_i2c_data[imx686_size_to_write++] = 0x0205;
+		imx686_i2c_data[imx686_size_to_write++] = reg_gain & 0xFF;
+	}
+
 
 	return gain;
 } /* set_gain */
