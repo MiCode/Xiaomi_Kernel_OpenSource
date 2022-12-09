@@ -7482,13 +7482,6 @@
 			clock-names = "MDP_RDMA3";
 		};
 
-		hre_top_mdpsys: hre-top-mdpsys@1f017000 {
-			compatible = "mediatek,hre_top_mdpsys";
-			reg = <0 0x1f017000 0 0x1000>;
-			clocks = <&mdpsys_config_clk CLK_MDP_HRE_TOP_MDPSYS>;
-			clock-names = "MDP_HRE_TOP_MDPSYS";
-		};
-
 		mdp_birsz0: mdp-birsz0@1f018000 {
 			compatible = "mediatek,mdp_birsz0";
 			reg = <0 0x1f018000 0 0x1000>;
