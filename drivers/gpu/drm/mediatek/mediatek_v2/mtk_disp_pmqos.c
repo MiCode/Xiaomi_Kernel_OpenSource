@@ -17,15 +17,15 @@
 #include <soc/mediatek/mmqos.h>
 #include <soc/mediatek/mmdvfs_v3.h>
 
-#define CRTC_NUM		3
+#define CRTC_NUM		4
 static struct drm_crtc *dev_crtc;
 /* add for mm qos */
 static struct clk *mm_clk;
 static struct regulator *mm_freq_request;
 static unsigned long *g_freq_steps;
 static unsigned int lp_freq;
-static int g_freq_level[CRTC_NUM] = {-1, -1, -1};
-static bool g_freq_lp[CRTC_NUM] = {false, false, false};
+static int g_freq_level[CRTC_NUM] = {-1, -1, -1, -1};
+static bool g_freq_lp[CRTC_NUM] = {false, false, false, false};
 static long g_freq;
 static int step_size = 1;
 
@@ -339,15 +339,26 @@ void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level, bool lp_mode,
 	int final_lp_mode = true;
 	int final_level = -1;
 	int cnt = 0;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *output_comp;
 
 	idx = drm_crtc_index(crtc);
 
+	if (IS_ERR_OR_NULL(mtk_crtc)) {
+		DDPPR_ERR("%s invalid mtk_crtc\n", __func__);
+		return;
+	}
+
+	/* memory session do not use */
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (IS_ERR_OR_NULL(output_comp) ||
+		mtk_ddp_comp_get_type(output_comp->id) == MTK_DISP_WDMA) {
+		DDPINFO("crtc%d not support set mmclk\n", idx);
+		return;
+	}
+
 	DDPINFO("%s[%d] g_freq_level[idx=%d]: %d, g_freq_lp[idx=%d]: %d\n",
 		__func__, __LINE__, idx, level, idx, lp_mode);
-
-	/* only for crtc = 0, 1 */
-	if (idx > 2)
-		return;
 
 	if (level < 0 || level > (step_size - 1))
 		level = -1;
