@@ -220,6 +220,10 @@ static void __iomem *g_mfg_ips_base;
 static void __iomem *g_mali_base;
 static void __iomem *g_emi_base;
 static void __iomem *g_sub_emi_base;
+static void __iomem *g_nemi_mi32_smi_sub;
+static void __iomem *g_nemi_mi33_smi_sub;
+static void __iomem *g_semi_mi32_smi_sub;
+static void __iomem *g_semi_mi33_smi_sub;
 static struct gpufreq_pmic_info *g_pmic;
 static struct gpufreq_clk_info *g_clk;
 static struct gpufreq_mtcmos_info *g_mtcmos;
@@ -1137,6 +1141,17 @@ void __gpufreq_dump_infra_status(void)
 		0x1021E82C, readl(STH_MFG_EMI1_GALS_SLV_DBG),
 		0x1021E830, readl(STH_MFG_EMI0_GALS_SLV_DBG));
 
+	/* NTH_APU_EMI1_GALS_SLV_DBG */
+	/* NTH_APU_EMI0_GALS_SLV_DBG */
+	/* STH_APU_EMI1_GALS_SLV_DBG */
+	/* STH_APU_EMI0_GALS_SLV_DBG */
+	GPUFREQ_LOGI("%-11s (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x",
+		"[EMI]",
+		0x1021C824, readl(NTH_APU_EMI1_GALS_SLV_DBG),
+		0x1021C828, readl(NTH_APU_EMI0_GALS_SLV_DBG),
+		0x1021E824, readl(STH_APU_EMI1_GALS_SLV_DBG),
+		0x1021E828, readl(STH_APU_EMI0_GALS_SLV_DBG));
+
 	/* NTH_M6M7_IDLE_BIT_EN_1 */
 	/* NTH_M6M7_IDLE_BIT_EN_0 */
 	/* STH_M6M7_IDLE_BIT_EN_1 */
@@ -1198,6 +1213,50 @@ void __gpufreq_dump_infra_status(void)
 		0x1021D9A4, readl(SEMI_MD_WR_LAT_HRT_UGT_CNT),
 		0x1021DCC4, readl(SEMI_MDMCU_HIGH_LAT_UGT_CNT),
 		0x1021DCCC, readl(SEMI_MDMCU_HIGH_WR_LAT_UGT_CNT));
+
+	/* NEMI_MI32_SMI_SUB_DEBUG_S0 */
+	/* NEMI_MI32_SMI_SUB_DEBUG_S1 */
+	/* NEMI_MI32_SMI_SUB_DEBUG_M0 */
+	/* NEMI_MI32_SMI_SUB_DEBUG_MISC */
+	GPUFREQ_LOGI("%-11s (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x",
+		"[EMI_SMI]",
+		0x1025E400, readl(NEMI_MI32_SMI_SUB_DEBUG_S0),
+		0x1025E404, readl(NEMI_MI32_SMI_SUB_DEBUG_S1),
+		0x1025E430, readl(NEMI_MI32_SMI_SUB_DEBUG_M0),
+		0x1025E440, readl(NEMI_MI32_SMI_SUB_DEBUG_MISC));
+
+	/* NEMI_MI33_SMI_SUB_DEBUG_S0 */
+	/* NEMI_MI33_SMI_SUB_DEBUG_S1 */
+	/* NEMI_MI33_SMI_SUB_DEBUG_M0 */
+	/* NEMI_MI33_SMI_SUB_DEBUG_MISC */
+	GPUFREQ_LOGI("%-11s (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x",
+		"[EMI_SMI]",
+		0x1025F400, readl(NEMI_MI33_SMI_SUB_DEBUG_S0),
+		0x1025F404, readl(NEMI_MI33_SMI_SUB_DEBUG_S1),
+		0x1025F430, readl(NEMI_MI33_SMI_SUB_DEBUG_M0),
+		0x1025F440, readl(NEMI_MI33_SMI_SUB_DEBUG_MISC));
+
+	/* SEMI_MI32_SMI_SUB_DEBUG_S0 */
+	/* SEMI_MI32_SMI_SUB_DEBUG_S1 */
+	/* SEMI_MI32_SMI_SUB_DEBUG_M0 */
+	/* SEMI_MI32_SMI_SUB_DEBUG_MISC */
+	GPUFREQ_LOGI("%-11s (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x",
+		"[EMI_SMI]",
+		0x10309400, readl(SEMI_MI32_SMI_SUB_DEBUG_S0),
+		0x10309404, readl(SEMI_MI32_SMI_SUB_DEBUG_S1),
+		0x10309430, readl(SEMI_MI32_SMI_SUB_DEBUG_M0),
+		0x10309440, readl(SEMI_MI32_SMI_SUB_DEBUG_MISC));
+
+	/* SEMI_MI33_SMI_SUB_DEBUG_S0 */
+	/* SEMI_MI33_SMI_SUB_DEBUG_S1 */
+	/* SEMI_MI33_SMI_SUB_DEBUG_M0 */
+	/* SEMI_MI33_SMI_SUB_DEBUG_MISC */
+	GPUFREQ_LOGI("%-11s (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x",
+		"[EMI_SMI]",
+		0x1030A400, readl(SEMI_MI33_SMI_SUB_DEBUG_S0),
+		0x1030A404, readl(SEMI_MI33_SMI_SUB_DEBUG_S1),
+		0x1030A430, readl(SEMI_MI33_SMI_SUB_DEBUG_M0),
+		0x1030A440, readl(SEMI_MI33_SMI_SUB_DEBUG_MISC));
 
 	/* IFR_MFGSYS_PROT_EN_STA_0 */
 	/* IFR_MFGSYS_PROT_RDY_STA_0 */
@@ -5890,6 +5949,54 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	g_sub_emi_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_sub_emi_base)) {
 		GPUFREQ_LOGE("fail to ioremap SUB_EMI_REG: 0x%llx", res->start);
+		goto done;
+	}
+
+	/* 0x1025E000 */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "nemi_mi32_smi_sub");
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource NEMI_MI32_SMI_SUB");
+		goto done;
+	}
+	g_nemi_mi32_smi_sub = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_nemi_mi32_smi_sub)) {
+		GPUFREQ_LOGE("fail to ioremap NEMI_MI32_SMI_SUB: 0x%llx", res->start);
+		goto done;
+	}
+
+	/* 0x1025F000 */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "nemi_mi33_smi_sub");
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource NEMI_MI33_SMI_SUB");
+		goto done;
+	}
+	g_nemi_mi33_smi_sub = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_nemi_mi33_smi_sub)) {
+		GPUFREQ_LOGE("fail to ioremap NEMI_MI33_SMI_SUB: 0x%llx", res->start);
+		goto done;
+	}
+
+	/* 0x10309000 */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "semi_mi32_smi_sub");
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource SEMI_MI32_SMI_SUB");
+		goto done;
+	}
+	g_semi_mi32_smi_sub = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_semi_mi32_smi_sub)) {
+		GPUFREQ_LOGE("fail to ioremap SEMI_MI32_SMI_SUB: 0x%llx", res->start);
+		goto done;
+	}
+
+	/* 0x1030A000 */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "semi_mi33_smi_sub");
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource SEMI_MI33_SMI_SUB");
+		goto done;
+	}
+	g_semi_mi33_smi_sub = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_semi_mi33_smi_sub)) {
+		GPUFREQ_LOGE("fail to ioremap SEMI_MI33_SMI_SUB: 0x%llx", res->start);
 		goto done;
 	}
 

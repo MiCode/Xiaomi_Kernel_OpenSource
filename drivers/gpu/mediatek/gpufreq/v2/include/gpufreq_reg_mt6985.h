@@ -184,12 +184,16 @@ static inline u32 readl_mfg(const void __iomem *addr)
 #define NTH_EMICFG_BASE                 (g_nth_emicfg_base)                   /* 0x1021C000 */
 #define NTH_MFG_EMI1_GALS_SLV_DBG       (NTH_EMICFG_BASE + 0x82C)             /* 0x1021C82C */
 #define NTH_MFG_EMI0_GALS_SLV_DBG       (NTH_EMICFG_BASE + 0x830)             /* 0x1021C830 */
+#define NTH_APU_EMI1_GALS_SLV_DBG       (NTH_EMICFG_BASE + 0x824)             /* 0x1021C824 */
+#define NTH_APU_EMI0_GALS_SLV_DBG       (NTH_EMICFG_BASE + 0x828)             /* 0x1021C828 */
 #define NTH_APU_ACP_GALS_SLV_CTRL       (NTH_EMICFG_BASE + 0x600)             /* 0x1021C600 */
 #define NTH_APU_EMI1_GALS_SLV_CTRL      (NTH_EMICFG_BASE + 0x624)             /* 0x1021C624 */
 
 #define STH_EMICFG_BASE                 (g_sth_emicfg_base)                   /* 0x1021E000 */
 #define STH_MFG_EMI1_GALS_SLV_DBG       (STH_EMICFG_BASE + 0x82C)             /* 0x1021E82C */
 #define STH_MFG_EMI0_GALS_SLV_DBG       (STH_EMICFG_BASE + 0x830)             /* 0x1021E830 */
+#define STH_APU_EMI1_GALS_SLV_DBG       (STH_EMICFG_BASE + 0x824)             /* 0x1021E824 */
+#define STH_APU_EMI0_GALS_SLV_DBG       (STH_EMICFG_BASE + 0x828)             /* 0x1021E828 */
 
 #define NTH_EMICFG_AO_MEM_BASE          (g_nth_emicfg_ao_mem_base)            /* 0x10270000 */
 #define NTH_SLEEP_PROT_START            (NTH_EMICFG_AO_MEM_BASE + 0x000)      /* 0x10270000 */
@@ -283,6 +287,30 @@ static inline u32 readl_mfg(const void __iomem *addr)
 #define SEMI_MD_WR_LAT_HRT_UGT_CNT      (SUB_EMI_BASE + 0x9A4)                /* 0x1021D9A4 */
 #define SEMI_MDMCU_HIGH_LAT_UGT_CNT     (SUB_EMI_BASE + 0xCC4)                /* 0x1021DCC4 */
 #define SEMI_MDMCU_HIGH_WR_LAT_UGT_CNT  (SUB_EMI_BASE + 0xCCC)                /* 0x1021DCCC */
+
+#define NEMI_MI32_SMI_SUB_BASE          (g_nemi_mi32_smi_sub)                 /* 0x1025E000 */
+#define NEMI_MI32_SMI_SUB_DEBUG_S0      (NEMI_MI32_SMI_SUB_BASE + 0x400)      /* 0x1025E400 */
+#define NEMI_MI32_SMI_SUB_DEBUG_S1      (NEMI_MI32_SMI_SUB_BASE + 0x404)      /* 0x1025E404 */
+#define NEMI_MI32_SMI_SUB_DEBUG_M0      (NEMI_MI32_SMI_SUB_BASE + 0x430)      /* 0x1025E430 */
+#define NEMI_MI32_SMI_SUB_DEBUG_MISC    (NEMI_MI32_SMI_SUB_BASE + 0x440)      /* 0x1025E440 */
+
+#define NEMI_MI33_SMI_SUB_BASE          (g_nemi_mi33_smi_sub)                 /* 0x1025F000 */
+#define NEMI_MI33_SMI_SUB_DEBUG_S0      (NEMI_MI33_SMI_SUB_BASE + 0x400)      /* 0x1025F400 */
+#define NEMI_MI33_SMI_SUB_DEBUG_S1      (NEMI_MI33_SMI_SUB_BASE + 0x404)      /* 0x1025F404 */
+#define NEMI_MI33_SMI_SUB_DEBUG_M0      (NEMI_MI33_SMI_SUB_BASE + 0x430)      /* 0x1025F430 */
+#define NEMI_MI33_SMI_SUB_DEBUG_MISC    (NEMI_MI33_SMI_SUB_BASE + 0x440)      /* 0x1025F440 */
+
+#define SEMI_MI32_SMI_SUB_BASE          (g_semi_mi32_smi_sub)                 /* 0x10309000 */
+#define SEMI_MI32_SMI_SUB_DEBUG_S0      (SEMI_MI32_SMI_SUB_BASE + 0x400)      /* 0x10309400 */
+#define SEMI_MI32_SMI_SUB_DEBUG_S1      (SEMI_MI32_SMI_SUB_BASE + 0x404)      /* 0x10309404 */
+#define SEMI_MI32_SMI_SUB_DEBUG_M0      (SEMI_MI32_SMI_SUB_BASE + 0x430)      /* 0x10309430 */
+#define SEMI_MI32_SMI_SUB_DEBUG_MISC    (SEMI_MI32_SMI_SUB_BASE + 0x440)      /* 0x10309440 */
+
+#define SEMI_MI33_SMI_SUB_BASE          (g_semi_mi33_smi_sub)                 /* 0x1030A000 */
+#define SEMI_MI33_SMI_SUB_DEBUG_S0      (SEMI_MI33_SMI_SUB_BASE + 0x400)      /* 0x1030A400 */
+#define SEMI_MI33_SMI_SUB_DEBUG_S1      (SEMI_MI33_SMI_SUB_BASE + 0x404)      /* 0x1030A404 */
+#define SEMI_MI33_SMI_SUB_DEBUG_M0      (SEMI_MI33_SMI_SUB_BASE + 0x430)      /* 0x1030A430 */
+#define SEMI_MI33_SMI_SUB_DEBUG_MISC    (SEMI_MI33_SMI_SUB_BASE + 0x440)      /* 0x1030A440 */
 
 /**************************************************
  * MFGSYS Register Info
