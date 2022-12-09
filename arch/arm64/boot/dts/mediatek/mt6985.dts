@@ -177,7 +177,6 @@
 			firmware_class.path=/vendor/firmware";
 			kaslr-seed = <0 0>;
 			mkp_panic="on";
-			stack-corrupt-debug="on";
 	};
 
 	cpus {
