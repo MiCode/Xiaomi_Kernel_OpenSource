@@ -1964,7 +1964,7 @@ static void phy_parse_property(struct mtk_tphy *tphy,
 				 &instance->intr);
 	device_property_read_u32(dev, "mediatek,discth",
 				 &instance->discth);
-	device_property_read_u32(dev, "mediatek,rx_sqth",
+	device_property_read_u32(dev, "mediatek,rx-sqth",
 				 &instance->rx_sqth);
 	device_property_read_u32(dev, "mediatek,rev4",
 				 &instance->rev4);
