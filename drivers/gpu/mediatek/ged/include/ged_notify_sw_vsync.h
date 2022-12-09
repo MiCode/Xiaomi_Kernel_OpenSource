@@ -33,9 +33,10 @@ enum gpu_dvfs_policy_state {
 	POLICY_STATE_FORCE_LB_FALLBACK,
 	POLICY_STATE_FB_FALLBACK,
 };
-enum gpu_dvfs_policy_state ged_get_policy_state_pre(void);
 enum gpu_dvfs_policy_state ged_get_policy_state(void);
+enum gpu_dvfs_policy_state ged_get_prev_policy_state(void);
 void ged_set_policy_state(enum gpu_dvfs_policy_state state);
+void ged_set_prev_policy_state(enum gpu_dvfs_policy_state state);
 
 #if defined(CONFIG_GPU_MT8167) || defined(CONFIG_GPU_MT8173) ||\
 defined(CONFIG_GPU_MT6739) || defined(CONFIG_GPU_MT6761) ||\

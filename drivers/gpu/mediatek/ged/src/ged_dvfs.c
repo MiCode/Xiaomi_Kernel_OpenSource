@@ -614,6 +614,7 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 		trace_tracing_mark_write(5566, "commit_type", eCommitType);
 
 		policy_state = ged_get_policy_state();
+		ged_set_prev_policy_state(policy_state);
 		trace_GPU_DVFS__Policy__Common(eCommitType, policy_state);
 
 	}
@@ -2013,7 +2014,6 @@ void ged_dvfs_run(
 	GED_DVFS_COMMIT_TYPE eCommitType)
 {
 	unsigned long ui32IRQFlags;
-	enum gpu_dvfs_policy_state policy_state;
 
 	mutex_lock(&gsDVFSLock);
 
@@ -2067,22 +2067,26 @@ void ged_dvfs_run(
 		if (phase == GED_DVFS_TIMER_BACKUP)
 #endif /* GED_DVFS_UM_CAL */
 		{
-			/* timer-backup DVFS use only */
-			if (ged_dvfs_policy(gpu_loading, &g_ui32FreqIDFromPolicy, t, phase,
-					ul3DFenceDoneTime, false)) {
-				// overwrite eCommitType in case fallback is needed in LB
-				policy_state = ged_get_policy_state();
+			bool freq_change_flag;
+			enum gpu_dvfs_policy_state policy_state, prev_policy_state;
+
+			// perform LB algorithm
+			freq_change_flag = ged_dvfs_policy(gpu_loading,
+				&g_ui32FreqIDFromPolicy, t, phase, ul3DFenceDoneTime, false);
+			policy_state = ged_get_policy_state();
+			prev_policy_state = ged_get_prev_policy_state();
+
+			// commit new frequency
+			if (freq_change_flag || policy_state != prev_policy_state) {
+				// correct eCommitType in case fallback is triggered in LB
 				if (policy_state == POLICY_STATE_LB ||
-					policy_state == POLICY_STATE_FORCE_LB)
+						policy_state == POLICY_STATE_FORCE_LB)
 					eCommitType = GED_DVFS_LOADING_BASE_COMMIT;
 				else
 					eCommitType = GED_DVFS_FALLBACK_COMMIT;
 
-				// commit new frequency
 				ged_dvfs_gpu_freq_commit(g_ui32FreqIDFromPolicy,
-						ged_get_freq_by_idx(
-						g_ui32FreqIDFromPolicy),
-						eCommitType);
+					ged_get_freq_by_idx(g_ui32FreqIDFromPolicy), eCommitType);
 			}
 		}
 	}

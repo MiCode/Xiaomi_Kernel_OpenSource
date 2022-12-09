@@ -68,7 +68,7 @@ struct GED_NOTIFY_SW_SYNC {
 struct GED_NOTIFY_SW_SYNC loading_base_notify[MAX_NOTIFY_CNT];
 int notify_index;
 static enum gpu_dvfs_policy_state g_policy_state = POLICY_STATE_INIT;
-static enum gpu_dvfs_policy_state g_policy_state_pre = POLICY_STATE_INIT;
+static enum gpu_dvfs_policy_state g_prev_policy_state = POLICY_STATE_INIT;
 
 int (*ged_sw_vsync_event_fp)(bool bMode) = NULL;
 EXPORT_SYMBOL(ged_sw_vsync_event_fp);
@@ -116,15 +116,19 @@ enum gpu_dvfs_policy_state ged_get_policy_state(void)
 	return g_policy_state;
 }
 
-enum gpu_dvfs_policy_state ged_get_policy_state_pre(void)
+enum gpu_dvfs_policy_state ged_get_prev_policy_state(void)
 {
-	return g_policy_state_pre;
+	return g_prev_policy_state;
 }
 
 void ged_set_policy_state(enum gpu_dvfs_policy_state state)
 {
-	g_policy_state_pre = g_policy_state;
 	g_policy_state = state;
+}
+
+void ged_set_prev_policy_state(enum gpu_dvfs_policy_state state)
+{
+	g_prev_policy_state = state;
 }
 
 static unsigned long long sw_vsync_ts;
