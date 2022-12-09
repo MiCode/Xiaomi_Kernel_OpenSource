@@ -657,6 +657,12 @@ static void slbc_dump_data(struct seq_file *m, struct slbc_data *d)
 {
 	unsigned int uid = d->uid;
 
+	if (uid >= sizeof(slbc_uid_used)) {
+		pr_info("slbc: uid size % >= slbc_uid_used size %d\n",
+				uid, sizeof(slbc_uid_used));
+		return;
+	}
+
 	seq_printf(m, "ID %s\t", slbc_uid_str[uid]);
 
 	if (test_bit(uid, &slbc_uid_used))
@@ -812,6 +818,12 @@ static ssize_t dbg_slbc_proc_write(struct file *file,
 			list_for_each_entry(ops, &slbc_ops_list, node) {
 				struct slbc_data *d = ops->data;
 				unsigned int uid = d->uid;
+
+				if (uid >= sizeof(slbc_uid_used)) {
+					pr_info("slbc: uid size % >= slbc_uid_used size %d\n",
+							uid, sizeof(slbc_uid_used));
+					return -EINVAL;
+				}
 
 				if (test_bit(uid, &slbc_uid_used))
 					ops->deactivate(d);
