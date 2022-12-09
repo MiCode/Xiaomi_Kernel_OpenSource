@@ -1804,8 +1804,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 				atomic_cmpxchg(&ctx->align_type, VDEC_ALIGN_FULL, VDEC_ALIGN_WAIT);
 				(*ctx->wait_align) = true;
 			}
-		}
-		if (pair_cnt == 0) {
+		} else if (pair_cnt == 0) {
 			if (atomic_cmpxchg(&ctx->align_type,
 				VDEC_ALIGN_FULL, VDEC_ALIGN_WAIT) == VDEC_ALIGN_FULL) // 1->0
 				mtk_v4l2_debug(2, "[%d] pair cnt %d(%d,%d) set align_type to WAIT(%d)",
