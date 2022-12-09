@@ -14,22 +14,13 @@
 #include <linux/timer.h>
 
 #include <lpm.h>
-
-#if IS_ENABLED(CONFIG_MTK_LPM_MT6983)
-#include <lpm_dbg_cpc_v5.h>
-#else
-#include <lpm_dbg_cpc_v3.h>
-#endif
-
 #include <lpm_dbg_syssram_v1.h>
 #include <mtk_cpuidle_sysfs.h>
-
 #include "mtk_cpupm_dbg.h"
 #include "mtk_cpuidle_status.h"
 #include "mtk_cpuidle_cpc.h"
 
 #define DUMP_INTERVAL       sec_to_ns(5)
-static u64 last_dump_ns;
 static unsigned long long mtk_lpm_last_cpuidle_dis;
 
 /* stress test */
@@ -394,111 +385,6 @@ long mtk_cpuidle_state_enabled(void)
 	return state_info.val;
 }
 
-static bool mtk_cpuidle_need_dump(unsigned int idx)
-{
-	u64 curr_ns;
-	bool dump = false;
-
-	if (!mtk_cpuidle_ctrl.log_en || !idx)
-		return false;
-
-	curr_ns = sched_clock();
-
-	if (curr_ns - last_dump_ns > DUMP_INTERVAL) {
-		last_dump_ns = curr_ns;
-		dump = true;
-	}
-
-	return dump;
-}
-
-static unsigned int mtk_cpuidle_get_cluster_off_cnt(void)
-{
-	unsigned int cnt = mtk_cpupm_mcusys_read(CPC_DORMANT_COUNTER);
-
-	/**
-	 * Cluster off count
-	 * bit[0:15] : memory retention
-	 * bit[16:31] : memory off
-	 */
-	if ((cnt & 0x7FFF) == 0)
-		cnt = ((cnt >> 16) & 0x7FFF);
-	else
-		cnt = cnt & 0x7FFF;
-
-	cnt += mtk_cpupm_syssram_read(SYSRAM_CPC_CPUSYS_CNT_BACKUP);
-
-	cpc_cluster_cnt_clr();
-
-	mtk_cpupm_syssram_write(SYSRAM_CPC_CPUSYS_CNT_BACKUP, 0);
-
-	/**
-	 * Add mcusys off count because CPC cluster counter will be cleared
-	 * when mcusys power off.
-	 */
-	cnt += mtk_cpupm_syssram_read(SYSRAM_MCUPM_MCUSYS_COUNTER);
-
-	mtk_cpupm_syssram_write(SYSRAM_CPUSYS_CNT,
-			mtk_cpupm_syssram_read(SYSRAM_CPUSYS_CNT) + cnt);
-
-	return cnt;
-}
-
-static unsigned int mtk_cpuidle_get_mcusys_off_cnt(void)
-{
-	unsigned int cnt = mtk_cpupm_syssram_read(SYSRAM_MCUPM_MCUSYS_COUNTER);
-
-	mtk_cpupm_syssram_write(SYSRAM_MCUPM_MCUSYS_COUNTER, 0);
-
-	mtk_cpupm_syssram_write(SYSRAM_MCUSYS_CNT,
-			mtk_cpupm_syssram_read(SYSRAM_MCUSYS_CNT) + cnt);
-	return cnt;
-}
-
-static void mtk_cpuidle_dump_info(void)
-{
-	struct mtk_cpuidle_device *mtk_idle;
-	int cpu, idx, ofs;
-	unsigned int avail_cpu_mask = 0;
-
-	for_each_possible_cpu(cpu) {
-
-		if (cpu_online(cpu))
-			avail_cpu_mask |= (1 << cpu);
-
-		mtk_idle = &per_cpu(mtk_cpuidle_dev, cpu);
-
-		if (!mtk_idle)
-			continue;
-
-		ofs = SYSRAM_RECENT_CPU_CNT(cpu);
-
-		mtk_cpupm_syssram_write(ofs, 0);
-
-		for (idx = 1; idx < mtk_idle->state_count ; idx++) {
-
-			mtk_cpupm_syssram_write(ofs, mtk_cpupm_syssram_read(ofs)
-						+ mtk_idle->info.cnt[idx]);
-			mtk_idle->info.cnt[idx] = 0;
-		}
-	}
-
-	/* Should calculate cluster off count before mcusys counter reset */
-	mtk_cpupm_syssram_write(SYSRAM_RECENT_CPUSYS_CNT,
-				mtk_cpuidle_get_cluster_off_cnt());
-
-	mtk_cpupm_syssram_write(SYSRAM_RECENT_MCUSYS_CNT,
-				mtk_cpuidle_get_mcusys_off_cnt());
-
-	mtk_cpupm_syssram_write(SYSRAM_CPU_ONLINE, avail_cpu_mask);
-
-	mtk_cpupm_syssram_write(SYSRAM_RECENT_CNT_TS_H,
-			(unsigned int)((last_dump_ns >> 32) & 0xFFFFFFFF));
-
-	mtk_cpupm_syssram_write(SYSRAM_RECENT_CNT_TS_L,
-			(unsigned int)(last_dump_ns & 0xFFFFFFFF));
-}
-
 static enum hrtimer_restart mtk_cpuidle_hrtimer_func(struct hrtimer *timer)
 {
 	return HRTIMER_NORESTART;
@@ -556,10 +442,6 @@ static int mtk_cpuidle_status_update(struct notifier_block *nb,
 		/* prevent race conditions by mtk_lp_mod_locker */
 		if (mtk_cpuidle_ctrl.prof_en)
 			mtk_cpuidle_save_idle_time(nb_data->index);
-
-		if (mtk_cpuidle_need_dump(nb_data->index))
-			mtk_cpuidle_dump_info();
-
 	} else if (action & LPM_NB_RESUME) {
 		mtk_idle = &per_cpu(mtk_cpuidle_dev, nb_data->cpu);
 		mtk_idle->info.idle_index = -1;

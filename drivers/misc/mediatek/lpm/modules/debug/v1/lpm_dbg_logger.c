@@ -17,19 +17,11 @@
 #include <linux/ctype.h>
 
 #include <lpm.h>
-
 #include <mtk_lpm_sysfs.h>
 #include <mtk_cpupm_dbg.h>
 #include <lpm_dbg_common_v1.h>
 #include <lpm_timer.h>
 #include <lpm_module.h>
-
-#if IS_ENABLED(CONFIG_MTK_LPM_MT6983)
-#include <lpm_dbg_cpc_v5.h>
-#else
-#include <lpm_dbg_cpc_v3.h>
-#endif
-
 #include <lpm_dbg_syssram_v1.h>
 
 #define LPM_LOG_DEFAULT_MS		5000
@@ -48,14 +40,12 @@
 			buf_##Cnt[ix_##Cnt] = toupper(*str_##Cnt); \
 	buf_##Cnt; })
 
-//static struct lpm_spm_wake_status lpm_wake;
 static struct lpm_dbg_plat_ops _lpm_dbg_plat_ops;
 
 void __iomem *lpm_spm_base;
 EXPORT_SYMBOL(lpm_spm_base);
 
 struct lpm_log_helper lpm_logger_help = {
-	//.wakesrc = &lpm_wake,
 	.wakesrc = NULL,
 	.cur = 0,
 	.prev = 0,
@@ -183,8 +173,7 @@ static int lpm_log_timer_func(unsigned long long dur, void *priv)
 		if (issuer.log_type >= LOG_SUCCEESS &&
 				info->mcusys_cnt_chk == 1) {
 			mcusys_cnt_cur =
-			mtk_cpupm_syssram_read(SYSRAM_MCUSYS_CNT) +
-			mtk_cpupm_syssram_read(SYSRAM_RECENT_MCUSYS_CNT);
+			mtk_cpupm_syssram_read(SYSRAM_MCUPM_MCUSYS_COUNTER);
 
 			if (mcusys_cnt_prev == mcusys_cnt_cur)
 				issuer.log_type = LOG_MCUSYS_NOT_OFF;

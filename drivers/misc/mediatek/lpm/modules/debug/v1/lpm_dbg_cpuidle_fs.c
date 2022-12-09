@@ -4,15 +4,7 @@
  */
 #include <mtk_cpuidle_sysfs.h>
 #include <lpm_dbg_fs_common.h>
-
-#if IS_ENABLED(CONFIG_MTK_LPM_MT6983)
-#include <lpm_dbg_cpc_v5.h>
-#else
-#include <lpm_dbg_cpc_v3.h>
-#endif
-
 #include <lpm_dbg_syssram_v1.h>
-
 #include "mtk_cpupm_dbg.h"
 #include "mtk_cpuidle_status.h"
 #include "mtk_cpuidle_cpc.h"
@@ -22,13 +14,23 @@ static ssize_t cpuidle_info_read(char *ToUserBuf, size_t sz, void *priv)
 	char *p = ToUserBuf;
 	int cpu;
 	unsigned long long ts, rem;
+	unsigned int enabled;
 
 	if (!p)
 		return -EINVAL;
 
 	ts = mtk_cpupm_syssram_read(SYSRAM_RECENT_CNT_TS_H);
 	ts = (ts << 32) | mtk_cpupm_syssram_read(SYSRAM_RECENT_CNT_TS_L);
-	ts = div64_u64_rem(ts, 1000 * 1000 * 1000, &rem);
+	ts = div64_u64_rem(ts, 1000 * 1000, &rem);
+
+	enabled = (unsigned int)lpm_smc_cpu_pm_lp(CPU_PM_COUNTER_CTRL,
+			MT_LPM_SMC_ACT_GET, 0, 0);
+
+	mtk_dbg_cpuidle_log("\n==== CPU idle info: %s ====\n",
+				enabled ? "Enabled" : "Disabled");
+
+	if (!enabled)
+		return p - ToUserBuf;
 
 	mtk_dbg_cpuidle_log("\n========= Power off count =========\n");
 
@@ -56,16 +58,29 @@ static ssize_t cpuidle_info_read(char *ToUserBuf, size_t sz, void *priv)
 	mtk_dbg_cpuidle_log("\n---- Total ----\n");
 	mtk_dbg_cpuidle_log("%8s %d\n",
 			"cluster:",
-			mtk_cpupm_syssram_read(SYSRAM_CPUSYS_CNT)
-			+ mtk_cpupm_syssram_read(SYSRAM_RECENT_CPUSYS_CNT));
+			mtk_cpupm_syssram_read(SYSRAM_CPUSYS_CNT));
 	mtk_dbg_cpuidle_log("%8s %d\n",
 			"mcusys:",
-			mtk_cpupm_syssram_read(SYSRAM_MCUSYS_CNT)
-			+ mtk_cpupm_syssram_read(SYSRAM_RECENT_MCUSYS_CNT));
+			mtk_cpupm_syssram_read(SYSRAM_MCUSYS_CNT));
 
 	return p - ToUserBuf;
 }
 
+static ssize_t cpuidle_info_write(char *FromUserBuf, size_t sz, void *priv)
+{
+	unsigned int enabled = 0;
+
+	if (!FromUserBuf)
+		return -EINVAL;
+
+	if (!kstrtouint(FromUserBuf, 10, &enabled)) {
+		lpm_smc_cpu_pm_lp(CPU_PM_COUNTER_CTRL, MT_LPM_SMC_ACT_SET,
+					!!enabled, 0);
+		return sz;
+	}
+
+	return -EINVAL;
+}
 static ssize_t cpuidle_enable_read(char *ToUserBuf, size_t sz, void *priv)
 {
 	char *p = ToUserBuf;
@@ -103,6 +118,7 @@ static ssize_t cpuidle_enable_write(char *FromUserBuf, size_t sz, void *priv)
 
 static const struct mtk_lp_sysfs_op cpuidle_info_fops = {
 	.fs_read = cpuidle_info_read,
+	.fs_write = cpuidle_info_write,
 };
 
 static const struct mtk_lp_sysfs_op cpuidle_enable_fops = {

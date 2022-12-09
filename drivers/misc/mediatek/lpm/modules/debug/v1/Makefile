@@ -3,19 +3,18 @@ MTK_LPM_MODULES_FOLDER=$(srctree)/drivers/misc/mediatek/lpm/modules/
 
 MTK_LPM_DBG_COMMON_NAME=mtk-lpm-dbg-common-v1
 
-MTK_LPM_CPC_VERSION=cpc_v3
 MTK_LPM_GS_DUMP_VERSION=v1
 MTK_LPM_SYSSRAM_VERSION=v1
 
-BUILD_LPM_DBG_CPC_NAME=mtk_lpm_debug_cpc_v3
+BUILD_LPM_DBG_CPC_NAME=mtk_lpm_debug_cpc
 
-include $(MTK_LPM_MODULES_FOLDER)/debug/$(MTK_LPM_CPC_VERSION)/Makefile
+include $(MTK_LPM_MODULES_FOLDER)/debug/cpc/Makefile
 
-LPM_MODULE_DEBUG_COMMON += $(${BUILD_LPM_DBG_CPC_NAME}_objs:%.o=../$(MTK_LPM_CPC_VERSION)/%.o)
+LPM_MODULE_DEBUG_COMMON += $(${BUILD_LPM_DBG_CPC_NAME}_objs:%.o=../cpc/%.o)
 
 
 ccflags-y += -I$(MTK_LPM_MODULES_FOLDER)/include/
-ccflags-y += -I$(MTK_LPM_MODULES_FOLDER)/debug/$(MTK_LPM_CPC_VERSION)
+ccflags-y += -I$(MTK_LPM_MODULES_FOLDER)/debug/cpc
 
 obj-$(CONFIG_MTK_LOW_POWER_MODULE) += ${MTK_LPM_DBG_COMMON_NAME}.o
 ${MTK_LPM_DBG_COMMON_NAME}-objs += lpm_dbg_cpuidle_status.o

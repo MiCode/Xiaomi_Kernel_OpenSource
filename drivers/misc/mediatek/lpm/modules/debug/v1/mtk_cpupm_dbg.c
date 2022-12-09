@@ -134,7 +134,6 @@ int mtk_cpupm_dbg_init(void)
 	mtk_cpupm_node_init();
 
 	mtk_cpuidle_status_init();
-	mtk_cpc_init();
 	cpc_time_sync();
 
 	return 0;
@@ -144,7 +143,6 @@ EXPORT_SYMBOL(mtk_cpupm_dbg_init);
 void mtk_cpupm_dbg_exit(void)
 {
 	mtk_cpuidle_status_exit();
-	mtk_cpc_exit();
 
 	cpu_latency_qos_remove_request(&cpuidle_dbg_qos_req);
 }

@@ -2,13 +2,12 @@
 LPM_MODULES_FOLDER=$(srctree)/drivers/misc/mediatek/lpm/modules/
 
 MTK_LPM_DBG_VERSION = v1
-MTK_LPM_CPC_VERSION = cpc_v3
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/modules/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/modules/common/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/modules/debug/$(MTK_LPM_DBG_VERSION)/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/modules/debug/$(MTK_LPM_CPC_VERSION)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/lpm/modules/debug/cpc/
 ccflags-y += -I$(LPM_MODULES_FOLDER)/debug/mt6985/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y += -I$(LPM_MODULES_FOLDER)/include/mt6985/
