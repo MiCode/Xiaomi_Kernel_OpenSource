@@ -211,8 +211,6 @@ void MTKGPUQoS_mode(void)
 	high_idx = (mt_gpufreq_get_dvfs_table_num()-1) / 4 + 1;
 #endif
 
-	mutex_lock(&g_GPU_BM_lock);
-
 	/* sport mode */
 	if (g_mode_sport_flag) {
 		/* if gpu freq at top quartile, boost dram freq. */
@@ -250,7 +248,6 @@ void MTKGPUQoS_mode(void)
 			gpu_info_buf->freq = g_value;
 	}
 
-	mutex_unlock(&g_GPU_BM_lock);
 }
 EXPORT_SYMBOL(MTKGPUQoS_mode);
 
@@ -259,16 +256,12 @@ static void bw_v1_gpu_power_change_notify(int power_on)
 	static int ctx;
 
 	if (!power_on) {
-		mutex_lock(&g_GPU_BM_lock);
 		ctx = gpu_info_buf->ctx;
 		gpu_info_buf->ctx = 0; // ctx
-		mutex_unlock(&g_GPU_BM_lock);
 		return;
 	}
 
-	mutex_lock(&g_GPU_BM_lock);
 	gpu_info_buf->ctx = ctx;
-	mutex_unlock(&g_GPU_BM_lock);
 
 	MTKGPUQoS_mode();
 
@@ -291,23 +284,15 @@ static void _MTKGPUQoS_init(void)
 			of_property_read_u32(gpu_bm_node, "qos-value", &g_value);
 			pr_info("@%s: g_mode: %d, g_value: %d\n", __func__, g_mode, g_value);
 			if (g_value >= GPU_BW_RATIO_FLOOR && g_value <= GPU_BW_RATIO_CEIL) {
-				mutex_lock(&g_GPU_BM_lock);
-
 				if (g_mode == GPU_BW_DEFAULT_MODE)
 					gpu_info_buf->freq = g_value;
 				else if (g_mode == GPU_BW_NO_PRED_MODE)
 					gpu_info_buf->freq = g_value + 2000;
-
-				mutex_unlock(&g_GPU_BM_lock);
 			} else {
-				mutex_lock(&g_GPU_BM_lock);
-
 				if (g_mode == GPU_BW_DEFAULT_MODE)
 					gpu_info_buf->freq = g_mode;
 				else if (g_mode == GPU_BW_NO_PRED_MODE)
 					gpu_info_buf->freq = g_mode;
-
-				mutex_unlock(&g_GPU_BM_lock);
 			}
 		}
 
