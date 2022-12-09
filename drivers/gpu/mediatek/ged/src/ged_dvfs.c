@@ -1120,6 +1120,9 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 								  (t_gpu_target_hd * 100),
 								  (t_gpu_real * 100),
 								  (t_gpu_pipe * 100));
+	ged_log_perf_trace_counter("t_gpu", (long long)(t_gpu * 100), 5566, 0, 0);
+	ged_log_perf_trace_counter("t_gpu_target", (long long)(t_gpu_target * 100),
+		5566, 0, 0);
 
 	// Hint target frame time w/z headroom
 	if (ged_is_fdvfs_support())
@@ -1185,11 +1188,6 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 
 	if (dvfs_margin_mode == VARIABLE_MARGIN_MODE_OPP_INDEX)
 		gx_fb_dvfs_margin = (ui32NewFreqID / 3)*10;
-
-	ged_log_perf_trace_counter("fb_workload",
-			(long long)busy_cycle_cur, 5566, 0, 0);
-	ged_log_perf_trace_counter("fb_margin_value",
-			(long long)gx_fb_dvfs_margin / 10, 5566, 0, 0);
 
 	ged_log_buf_print(ghLogBuf_DVFS,
 	"[GED_K][FB_DVFS]t_gpu:%d,t_gpu_tar_hd:%d,gpu_freq_tar:%d,gpu_freq_pre:%d",
@@ -1473,6 +1471,9 @@ static bool ged_dvfs_policy(
 			g_tb_dvfs_margin_step, g_tb_dvfs_margin_value_min*10);
 		Policy__Loading_based__GPU_Time(t_gpu, t_gpu_target, t_gpu_target_hd,
 			t_gpu_complete, t_gpu_uncomplete);
+		ged_log_perf_trace_counter("t_gpu", (long long)t_gpu, 5566, 0, 0);
+		ged_log_perf_trace_counter("t_gpu_target", (long long)t_gpu_target,
+			5566, 0, 0);
 
 		/* bound update */
 		if (init == 0) {

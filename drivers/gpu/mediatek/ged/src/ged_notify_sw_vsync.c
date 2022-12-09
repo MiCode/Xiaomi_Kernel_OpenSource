@@ -234,9 +234,6 @@ void ged_set_backup_timer_timeout(u64 time_out)
 		g_fallback_time_out = time_out;
 	else
 		g_fallback_time_out = GED_DVFS_FB_TIMER_TIMEOUT;
-
-	ged_log_perf_trace_counter("lb_timer",
-		(long long)g_fallback_time_out / 1000000, 5566, 0, 0);
 }
 
 
