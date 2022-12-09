@@ -12654,11 +12654,11 @@ static void mtk_atomic_hbm_bypass_pq(struct drm_crtc *crtc,
 	struct mtk_ddp_comp *comp;
 	int i, j;
 
-	DDPINFO("%s: enter\n", __func__);
+	DDPINFO("%s: enter en[%d]\n", __func__, en);
 
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
-		if (comp && (comp->id == DDP_COMPONENT_AAL0 ||
-			comp->id == DDP_COMPONENT_CCORR0)) {
+		if (comp && (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_AAL ||
+				mtk_ddp_comp_get_type(comp->id) == MTK_DISP_CCORR)) {
 			if (comp->funcs && comp->funcs->bypass)
 				mtk_ddp_comp_bypass(comp, en, handle);
 		}
@@ -12666,8 +12666,8 @@ static void mtk_atomic_hbm_bypass_pq(struct drm_crtc *crtc,
 
 	if (mtk_crtc->is_dual_pipe) {
 		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
-			if (comp && (comp->id == DDP_COMPONENT_AAL1 ||
-				comp->id == DDP_COMPONENT_CCORR1)) {
+			if (comp && (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_AAL ||
+					mtk_ddp_comp_get_type(comp->id) == MTK_DISP_CCORR)) {
 				if (comp->funcs && comp->funcs->bypass)
 					mtk_ddp_comp_bypass(comp, en, handle);
 			}
