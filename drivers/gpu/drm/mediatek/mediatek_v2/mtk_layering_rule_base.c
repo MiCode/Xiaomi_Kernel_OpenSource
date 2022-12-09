@@ -1736,9 +1736,9 @@ static int get_layer_weight(struct drm_device *dev, int disp_idx,
 		}
 	}
 
-	if (hrt_lp_switch_get() == 1 &&
+	if (hrt_lp_switch_get() > 0 && hrt_lp_switch_get() < 100 &&
 			((!layer_info) || (layer_info && layer_info->compress))) {
-		weight *= 66;
+		weight *= hrt_lp_switch_get();
 		do_div(weight, 100);
 	}
 
