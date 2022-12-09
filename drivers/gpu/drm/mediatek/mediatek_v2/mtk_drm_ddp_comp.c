@@ -76,6 +76,8 @@
 
 #define MT6873_SODI_REQ_VAL_ALL                   REG_FLD_MSB_LSB(13, 12)
 
+#define MT6985_SODI_REQ_VAL 0x13F6C0
+
 #define MT6879_DVFS_HALT_MASK_SEL_ALL             REG_FLD_MSB_LSB(21, 16)
 	#define MT6879_DVFS_HALT_MASK_SEL_RDMA0       REG_FLD_MSB_LSB(16, 16)
 	#define MT6879_DVFS_HALT_MASK_SEL_RDMA1       REG_FLD_MSB_LSB(17, 17)
@@ -1991,7 +1993,7 @@ void mt6985_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 		 * v += (sodi_req_val & sodi_req_mask);
 		 */
 		/* 0xF4/0xF8: only config on DISPSYS(HARD CODE) */
-		v = 0x13F6C0;
+		v = MT6985_SODI_REQ_VAL;
 		writel_relaxed(v, priv->config_regs + MMSYS_SODI_REQ_MASK);
 		if (priv->side_config_regs)
 			writel_relaxed(v, priv->side_config_regs + MMSYS_SODI_REQ_MASK);
@@ -2015,12 +2017,12 @@ void mt6985_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 	} else {
 		/* 0xF4/0xF8: only config on DISPSYS(HARD CODE) */
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
-			MMSYS_SODI_REQ_MASK, 0x13F6C0, ~0);
+			MMSYS_SODI_REQ_MASK, MT6985_SODI_REQ_VAL, ~0);
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
 			MMSYS_EMI_REQ_CTL, 0, ~0);
 		if (priv->side_config_regs_pa) {
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
-				MMSYS_SODI_REQ_MASK, 0x13F6C0, ~0);
+				MMSYS_SODI_REQ_MASK, MT6985_SODI_REQ_VAL, ~0);
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
 				MMSYS_EMI_REQ_CTL, 0, ~0);
 		}
@@ -2414,6 +2416,41 @@ void mt6985_mtk_sodi_apsrc_config(struct drm_crtc *crtc,
 	} else if (!reset)
 		mt6985_mtk_sodi_apsrc_enable(crtc, _cmdq_handle, crtc_id, enable);
 }
+
+void mtk_sodi_ddren(struct drm_crtc *crtc, struct cmdq_pkt *_cmdq_handle, bool enable)
+{
+	struct mtk_drm_crtc *mtk_crtc = NULL;
+	struct mtk_drm_private *priv = NULL;
+	unsigned int val = 0;
+	unsigned int en = 0;
+
+	if (!crtc)
+		return;
+	mtk_crtc = to_mtk_crtc(crtc);
+	priv = crtc->dev->dev_private;
+
+	if (priv->data->mmsys_id == MMSYS_MT6985) {
+		val = MT6985_SODI_REQ_VAL;
+		en = BIT(8) | BIT(11) | BIT(14) | BIT(17);
+	} else
+		return;
+
+	if (!_cmdq_handle) {
+		if (enable)
+			writel_relaxed(val | en, priv->config_regs + MMSYS_SODI_REQ_MASK);
+		else
+			writel_relaxed(val, priv->config_regs + MMSYS_SODI_REQ_MASK);
+		return;
+	}
+
+	if (enable)
+		cmdq_pkt_write(_cmdq_handle, mtk_crtc->gce_obj.base, priv->config_regs_pa +
+			       MMSYS_SODI_REQ_MASK, en, en);
+	else
+		cmdq_pkt_write(_cmdq_handle, mtk_crtc->gce_obj.base, priv->config_regs_pa +
+			       MMSYS_SODI_REQ_MASK, val, ~0); /* HARD CODE default value */
+}
+
 
 int mtk_ddp_comp_helper_get_opt(struct mtk_ddp_comp *comp,
 				enum MTK_DRM_HELPER_OPT option)

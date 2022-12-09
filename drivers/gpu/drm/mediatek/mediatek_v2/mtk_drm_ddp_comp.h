@@ -1031,6 +1031,8 @@ void mt6985_mtk_sodi_apsrc_config(struct drm_crtc *crtc,
 	struct cmdq_pkt *_cmdq_handle, bool reset, bool condition_check,
 	unsigned int crtc_id, bool enable);
 
+void mtk_sodi_ddren(struct drm_crtc *crtc, struct cmdq_pkt *_cmdq_handle, bool enable);
+
 int mtk_ddp_comp_helper_get_opt(struct mtk_ddp_comp *comp,
 				enum MTK_DRM_HELPER_OPT option);
 
