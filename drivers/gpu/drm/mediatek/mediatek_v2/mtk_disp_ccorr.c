@@ -983,14 +983,20 @@ int mtk_drm_ioctl_set_ccorr(struct drm_device *dev, void *data,
 	struct DRM_DISP_CCORR_COEF_T *ccorr_config = data;
 	int ret;
 
-	if (ccorr_config->hw_id == DRM_DISP_CCORR1) {
-		comp = private->ddp_comp[DDP_COMPONENT_CCORR1];
-		g_disp_ccorr_without_gamma = CCORR_INVERSE_GAMMA;
-	} else if (disp_ccorr_linear&0x01) {
-		g_disp_ccorr_without_gamma = CCORR_INVERSE_GAMMA;
+	if (ccorr_config->hw_id != DRM_DISP_CCORR_TOTAL) {
+		DDPINFO("hw_id = %d", ccorr_config->hw_id);
+		if (ccorr_config->hw_id == DRM_DISP_CCORR1) {
+			comp = private->ddp_comp[DDP_COMPONENT_CCORR1];
+			g_disp_ccorr_without_gamma = CCORR_INVERSE_GAMMA;
+		} else if (disp_ccorr_linear & 0x01) {
+			g_disp_ccorr_without_gamma = CCORR_INVERSE_GAMMA;
+		} else {
+			g_disp_ccorr_without_gamma = CCORR_BYASS_GAMMA;
+			g_prim_ccorr_pq_nonlinear = true;
+		}
 	} else {
-		g_disp_ccorr_without_gamma = CCORR_BYASS_GAMMA;
-		g_prim_ccorr_pq_nonlinear = true;
+		DDPMSG("ccorr hw_id uncorrect, please check!\n");
+		return -1;
 	}
 
 	if (m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS]) {
