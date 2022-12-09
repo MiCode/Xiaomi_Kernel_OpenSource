@@ -5450,6 +5450,27 @@ int mtk_drm_ioctl_get_lcm_index(struct drm_device *dev, void *data,
 	return ret;
 }
 
+int mtk_drm_ioctl_kick_idle(struct drm_device *dev, void *data,
+		struct drm_file *file_priv)
+{
+	int ret = 0;
+	unsigned int *crtc_id = data;
+	struct drm_crtc *crtc;
+
+	crtc = drm_crtc_find(dev, file_priv, *crtc_id);
+	if (!crtc) {
+		DDPPR_ERR("Unknown CRTC ID %d\n", *crtc_id);
+		ret = -ENOENT;
+		return ret;
+	}
+	DDPINFO("[%s CRTC:%d:%s]\n", __func__, crtc->base.id, crtc->name);
+
+	/* async kick idle */
+	mtk_drm_idlemgr_kick_async(crtc);
+
+	return ret;
+}
+
 int mtk_drm_ioctl_get_all_connector_panel_info(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
 {
@@ -6131,6 +6152,8 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MTK_ODDMR_CTL, mtk_drm_ioctl_oddmr_ctl,
 				  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_SET_GAMMA_MUL_DISABLE, mtk_drm_ioctl_gamma_mul_disable,
+				  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_KICK_IDLE, mtk_drm_ioctl_kick_idle,
 				  DRM_UNLOCKED),
 };
 

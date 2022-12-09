@@ -513,6 +513,8 @@ struct DISP_AAL_TRIG_STATE {
 #define DRM_MTK_SET_GAMMA_MUL_DISABLE 0x59
 #define DRM_MTK_GET_PANELS_INFO 0x5a
 
+#define DRM_MTK_KICK_IDLE 0x5b
+
 /* C3D */
 #define DISP_C3D_1DLUT_SIZE 32
 
@@ -1591,6 +1593,9 @@ struct mtk_drm_panels_info {
 			DRM_MTK_ODDMR_LOAD_PARAM, struct mtk_drm_oddmr_param)
 #define DRM_IOCTL_MTK_ODDMR_CTL    DRM_IOWR(DRM_COMMAND_BASE + \
 				DRM_MTK_ODDMR_CTL, struct mtk_drm_oddmr_ctl)
+
+#define DRM_IOCTL_MTK_KICK_IDLE    DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_KICK_IDLE, unsigned int)
 
 
 /* AAL IOCTL */
