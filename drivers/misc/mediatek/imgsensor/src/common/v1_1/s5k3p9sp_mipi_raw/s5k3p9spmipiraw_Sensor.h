@@ -19,7 +19,7 @@
  ****************************************************************************/
 #ifndef _s5k3p9spMIPI_SENSOR_H
 #define _s5k3p9spMIPI_SENSOR_H
-
+#include "imgsensor_sensor.h"
 
 enum IMGSENSOR_MODE {
 	IMGSENSOR_MODE_INIT,
@@ -80,6 +80,7 @@ struct imgsensor_struct {
 	kal_uint8  ihdr_mode;//ihdr mode 0: disable, 1: ihdr, 2:mVHDR, 9:zigzag
 
 	kal_uint8 i2c_write_id;//record current sensor's i2c write id
+	struct SENSOR_FUNCTION_STRUCT *psensor_func;
 };
 
 /* SENSOR PRIVATE STRUCT FOR CONSTANT*/
