@@ -35,6 +35,7 @@
 #include "unipro.h"
 #include "ufs-mediatek.h"
 #include "ufs-mediatek-sip.h"
+#include "ufshpb.h"
 
 #if IS_ENABLED(CONFIG_SCSI_UFS_MEDIATEK_DBG)
 #include "ufs-mediatek-dbg.h"
@@ -1107,7 +1108,8 @@ static inline bool ufs_mtk_is_data_cmd(struct scsi_cmnd *cmd)
 
 	if (cmd_op == WRITE_10 || cmd_op == READ_10 ||
 	    cmd_op == WRITE_16 || cmd_op == READ_16 ||
-	    cmd_op == WRITE_6 || cmd_op == READ_6)
+	    cmd_op == WRITE_6 || cmd_op == READ_6 ||
+	    cmd_op == UFSHPB_READ)
 		return true;
 
 	return false;

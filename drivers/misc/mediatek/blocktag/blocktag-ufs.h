@@ -8,6 +8,7 @@
 
 #include <linux/types.h>
 #include "mtk_blocktag.h"
+#include "ufshpb.h"
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 
