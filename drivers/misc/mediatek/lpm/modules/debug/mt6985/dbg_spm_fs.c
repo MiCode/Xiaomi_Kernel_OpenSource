@@ -6,6 +6,7 @@
 #include <linux/device.h>
 #include <linux/fs.h>
 #include <linux/module.h>
+#include <linux/rtc.h>
 #include <linux/of_device.h>
 #include <linux/spinlock.h>
 
@@ -730,7 +731,8 @@ static ssize_t system_stat_read(char *ToUserBuf, size_t sz, void *priv)
 	char *p = ToUserBuf;
 	struct md_sleep_status tmp_md_data;
 	struct lpm_dbg_lp_info info;
-	int i;
+	unsigned int i;
+	struct spm_req_sta_list *sta_list;
 
 	mtk_get_lp_info(&info, SPM_IDLE_STAT);
 	for (i = 0; i < NUM_SPM_STAT; i++) {
@@ -767,6 +769,29 @@ static ssize_t system_stat_read(char *ToUserBuf, size_t sz, void *priv)
 		cur_md_sleep_status.nr_sleep_time / 1000000,
 		(cur_md_sleep_status.nr_sleep_time % 1000000) / 1000);
 
+	/* dump last suspend blocking request */
+	sta_list = spm_get_req_sta_list();
+	if (!sta_list || sta_list->is_blocked == 0) {
+		mtk_dbg_spm_log("Last Suspend is not blocked\n");
+		goto SKIP_REQ_DUMP;
+	}
+
+	mtk_dbg_spm_log("Last Suspend %d-%02d-%02d %02d:%02d:%02d (UTC) blocked by ",
+		sta_list->suspend_tm->tm_year + 1900, sta_list->suspend_tm->tm_mon + 1,
+		sta_list->suspend_tm->tm_mday, sta_list->suspend_tm->tm_hour,
+		sta_list->suspend_tm->tm_min, sta_list->suspend_tm->tm_sec);
+
+	for (i = 0; i < sta_list->spm_req_num; i++) {
+		if (sta_list->spm_req[i].on)
+			mtk_dbg_spm_log("%s ", sta_list->spm_req[i].name);
+	}
+
+	for (i = 0; i < NUM_SPM_SCENE; i++) {
+		if ((sta_list->lp_scenario_sta & (1 << i)))
+			mtk_dbg_spm_log("%s ", get_spm_scenario_str(i));
+	}
+	mtk_dbg_spm_log("\n");
+SKIP_REQ_DUMP:
 	return p - ToUserBuf;
 }
 
