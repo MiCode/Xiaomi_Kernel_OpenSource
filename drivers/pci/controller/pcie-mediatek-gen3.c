@@ -44,6 +44,7 @@ u32 mtk_pcie_dump_link_info(int port);
 #define PCIE_HW_MTCMOS_EN_P1		BIT(0)
 #define PEXTP_RSV_0			0x60
 #define PCIE_HW_MTCMOS_EN_MD_P0		BIT(0)
+#define PCIE_BBCK2_BYPASS		BIT(5)
 #define PEXTP_RSV_1			0x64
 #define PCIE_HW_MTCMOS_EN_MD_P1		BIT(0)
 
@@ -1654,15 +1655,26 @@ static int __maybe_unused mtk_pcie_suspend_noirq(struct device *dev)
 			err = mtk_pcie_hw_control_vote(0, true, 0);
 			if (err)
 				return err;
-
 		} else if (port->port_num == 1) {
 			val = readl_relaxed(port->pextpcfg + PEXTP_PWRCTL_1);
 			val |= PCIE_HW_MTCMOS_EN_P1;
 			writel_relaxed(val, port->pextpcfg + PEXTP_PWRCTL_1);
 		}
 
+		/* Binding of BBCK1 and BBCK2 */
+		clk_buf_set_voter_by_name("XO_BBCK2", "0x2C1");
+
+		/* Need wait take effect */
+		udelay(400);
+
+		/* Enable Bypass BBCK2 */
+		val = readl_relaxed(port->pextpcfg + PEXTP_RSV_0);
+		val |= PCIE_BBCK2_BYPASS;
+		writel_relaxed(val, port->pextpcfg + PEXTP_RSV_0);
+
 		/* BBCK2 is controlled by itself hardware mode */
 		clk_buf_voter_ctrl_by_id(7, HW);
+
 		/* srclken rc request state */
 		dev_info(port->dev, "PCIe0 Modem HW MODE BIT=%#x, srclken rc state=%#x\n",
 			 readl_relaxed(port->pextpcfg + PEXTP_RSV_0),
@@ -1698,6 +1710,12 @@ static int __maybe_unused mtk_pcie_resume_noirq(struct device *dev)
 	if (port->suspend_mode == LINK_STATE_L12) {
 		/* Software enable BBCK2 */
 		clk_buf_voter_ctrl_by_id(7, SW_FPM);
+
+		/* Need wait take effect */
+		udelay(400);
+
+		/* Unbinding of BBCK1 and BBCK2 */
+		clk_buf_set_voter_by_name("XO_BBCK2", "0x2C0");
 
 		if (port->port_num == 0) {
 			err = mtk_pcie_hw_control_vote(0, false, 0);
