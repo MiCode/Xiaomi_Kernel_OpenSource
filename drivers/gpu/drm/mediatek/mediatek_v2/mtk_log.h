@@ -144,6 +144,21 @@ int mtk_dprec_logger_pr(unsigned int type, char *fmt, ...);
 				       str, string, ##args);                   \
 		DDPPR_ERR("[DDP Error]" string, ##args);                       \
 	} while (0)
+
+#define DDPAEE_FATAL(string, args...)                                          \
+	do {										\
+		char str[200];								\
+		int r;	\
+		r = snprintf(str, 199, "DDP:" string, ##args);				\
+		if (r < 0) {	\
+			pr_err("snprintf error\n"); \
+		}	\
+		aee_kernel_fatal_api(__FILE__, __LINE__,					\
+					DB_OPT_DEFAULT |					\
+					DB_OPT_MMPROFILE_BUFFER,		\
+					str, string, ##args);			\
+		DDPPR_ERR("[DDP Fatal Error]" string, ##args);			\
+	} while (0)
 #else /* !CONFIG_MTK_AEE_FEATURE */
 #define DDPAEE(string, args...)                                                \
 	do {                                                                   \
@@ -154,6 +169,17 @@ int mtk_dprec_logger_pr(unsigned int type, char *fmt, ...);
 			pr_err("snprintf error\n");	\
 		}	\
 		pr_err("[DDP Error]" string, ##args);                          \
+	} while (0)
+
+#define DDPAEE_FATAL(string, args...)                                          \
+	do {										\
+		char str[200];								\
+		int r;	\
+		r = snprintf(str, 199, "DDP:" string, ##args);				\
+		if (r < 0) {	\
+			pr_err("snprintf error\n"); \
+		}	\
+		pr_err("[DDP Fatal Error]" string, ##args);				\
 	} while (0)
 #endif /* CONFIG_MTK_AEE_FEATURE */
 
