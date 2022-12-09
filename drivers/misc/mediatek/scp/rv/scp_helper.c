@@ -1231,6 +1231,7 @@ static ssize_t scp_debug_write(struct file *filp, const char __user *buffer,
 	char *vaddr = NULL;
 	unsigned int data[2]; /* addr, size */
 	int offset;
+	int ret;
 
 	/* use logger memory (offset from end) */
 	vaddr = (char *)scp_get_reserve_mem_virt(SCP_A_LOGGER_MEM_ID);
@@ -1246,9 +1247,12 @@ static ssize_t scp_debug_write(struct file *filp, const char __user *buffer,
 	data[0] = scp_get_reserve_mem_phys(SCP_A_LOGGER_MEM_ID) + offset;
 	data[1] = DEBUG_CMD_BUFFER_SZ;
 
-	if (scp_ready[SCP_A_ID])
-		mtk_ipi_send(&scp_ipidev, IPI_OUT_DEBUG_CMD, 0, data,
-			     PIN_OUT_SIZE_DEBUG_CMD, 0);
+	if (scp_ready[SCP_A_ID]) {
+		ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_DEBUG_CMD, 0, data,
+				PIN_OUT_SIZE_DEBUG_CMD, 0);
+		if (ret)
+			pr_notice("[SCP] %s IPI_OUT_DEBUG_CMD failed\n", __func__);
+	}
 
 	return count;
 }
