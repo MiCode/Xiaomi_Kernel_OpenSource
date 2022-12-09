@@ -10406,7 +10406,8 @@ static void mtk_ctx_m2m_watchdog(struct timer_list *t)
 	struct mtk_cam_request_stream_data *s_data;
 	u64 current_time_ns = ktime_get_boottime_ns();
 	u64 cost_time_ms, timer_expires_ms;
-	int watchdog_cnt, watchdog_dump_cnt, watchdog_timeout_cnt;
+	int watchdog_dump_cnt, watchdog_timeout_cnt;
+	bool is_timeout;
 
 	m2m_watchdog = from_timer(m2m_watchdog, t, timer);
 	if (!m2m_watchdog) {
@@ -10445,18 +10446,20 @@ static void mtk_ctx_m2m_watchdog(struct timer_list *t)
 
 	/* no VF */
 	watchdog_data = &ctx->m2m_watchdog.data;
-	watchdog_cnt = atomic_inc_return(&watchdog_data->watchdog_cnt);
 	watchdog_timeout_cnt = atomic_read(&watchdog_data->watchdog_timeout_cnt);
 	watchdog_data->watchdog_time_diff_ns =
 		current_time_ns - raw->last_sof_time_ns;
 	watchdog_dump_cnt = atomic_read(&watchdog_data->watchdog_dump_cnt);
 
-	if (watchdog_cnt >= watchdog_timeout_cnt && !watchdog_dump_cnt) {
+	is_timeout = watchdog_data->watchdog_time_diff_ns >
+		(u64)watchdog_timeout_cnt * MTK_CAM_CTX_WATCHDOG_INTERVAL * 1000000;
+
+	if (is_timeout && !watchdog_dump_cnt) {
 		atomic_inc(&watchdog_data->watchdog_dump_cnt);
 
 		dev_info(ctx->cam->dev,
-			"%s:ctx(%d): [m2m] no p1 done, sof_cnt/seq(%d), watchdog_cnt(%d), time_diff_from_last_p1_done:%lldms\n",
-			__func__, ctx->stream_id, raw->sof_count, watchdog_cnt,
+			"%s:ctx(%d): [m2m] no p1 done, sof_cnt/seq(%d), time_diff_from_last_p1_done:%lldms\n",
+			__func__, ctx->stream_id, raw->sof_count,
 			watchdog_data->watchdog_time_diff_ns / 1000000);
 
 		s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id,
@@ -10475,8 +10478,8 @@ static void mtk_ctx_m2m_watchdog(struct timer_list *t)
 	ctx->m2m_watchdog.timer.expires =
 		jiffies + msecs_to_jiffies(timer_expires_ms);
 	dev_dbg(ctx->cam->dev,
-		"%s:ctx(%d): sof_cnt/seq(%d), watchdog_cnt(%d), watchdog_dump_cnt(%d) time_diff_from_last_p1_done:%lldms\n",
-		__func__, ctx->stream_id, raw->sof_count, watchdog_cnt,
+		"%s:ctx(%d): sof_cnt/seq(%d), watchdog_dump_cnt(%d) time_diff_from_last_p1_done:%lldms\n",
+		__func__, ctx->stream_id, raw->sof_count,
 		watchdog_dump_cnt, watchdog_data->watchdog_time_diff_ns / 1000000);
 	add_timer(&ctx->m2m_watchdog.timer);
 }
@@ -10517,10 +10520,9 @@ void mtk_ctx_m2m_watchdog_kick(struct mtk_cam_ctx *ctx)  /* seq ?*/
 	/* update time seq here */
 
 	dev_dbg(ctx->cam->dev,
-		"%s:ctx/pipe_id(%d/%d): sof_cnt/seq(%d), ts(%lld ns), watchdog_cnt(%d)\n",
+		"%s:ctx/pipe_id(%d/%d): sof_cnt/seq(%d), ts(%lld ns)\n",
 		__func__, ctx->stream_id, pipe->id, raw->sof_count,
-		raw->last_sof_time_ns, atomic_read(&watchdog_data->watchdog_cnt));
-	atomic_set(&watchdog_data->watchdog_cnt, 0);
+		raw->last_sof_time_ns);
 	atomic_set(&watchdog_data->watchdog_dump_cnt, 0);
 }
 
