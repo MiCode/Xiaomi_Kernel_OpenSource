@@ -105,10 +105,11 @@ static void ufs_mtk_dbg_print_info(char **buff, unsigned long *size,
 		      hba->auto_bkops_enabled,
 		      hba->host->host_self_blocked);
 	SPREAD_PRINTF(buff, size, m,
-		      "Clk scale sup./en=%d/%d, min g.=G%d, polling_ms=%d, upthr=%d, downthr=%d\n",
+		      "Clk scale sup./en.=%d/%d, min/max g.=G%d/G%d, polling_ms=%d, upthr=%d, downthr=%d\n",
 		    !!ufshcd_is_clkscaling_supported(hba),
 			hba->clk_scaling.is_enabled,
 			hba->clk_scaling.min_gear,
+			hba->clk_scaling.saved_pwr_info.info.gear_rx,
 			hba->vps->devfreq_profile.polling_ms,
 			hba->vps->ondemand_data.upthreshold,
 			hba->vps->ondemand_data.downdifferential
@@ -139,8 +140,8 @@ static void ufs_mtk_dbg_print_info(char **buff, unsigned long *size,
 		      "quirks=0x%x, dev. quirks=0x%x\n", hba->quirks,
 		      hba->dev_quirks);
 	SPREAD_PRINTF(buff, size, m,
-		      "hba->ufs_version = 0x%x, hba->capabilities = 0x%x\n",
-		      hba->ufs_version, hba->capabilities);
+		      "hba->ufs_version = 0x%x, wspecversion=0x%x, capabilities = 0x%x\n",
+		      hba->ufs_version, hba->dev_info.wspecversion, hba->capabilities);
 	SPREAD_PRINTF(buff, size, m,
 		      "last_hibern8_exit_tstamp at %lld us, hibern8_exit_cnt = %d\n",
 		      ktime_to_us(hba->ufs_stats.last_hibern8_exit_tstamp),
