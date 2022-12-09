@@ -134,8 +134,13 @@ static void mmqos_update_comm_bw(struct device *dev,
 	if (max_bwl)
 		comm_bw = 0xfff;
 	if (comm_bw)
-		value = ((comm_bw > 0xfff) ? 0xfff : comm_bw) |
-			((bw_peak > 0 || !qos_bound) ? 0x1000 : 0x3000);
+		if (mmqos_state & BWL_MIN_ENABLE)
+			value = ((comm_bw > 0xfff) ? 0xfff :
+				((comm_bw < 0x200) ? 0x200 : comm_bw)) |
+				((bw_peak > 0 || !qos_bound) ? 0x1000 : 0x3000);
+		else
+			value = ((comm_bw > 0xfff) ? 0xfff : comm_bw) |
+				((bw_peak > 0 || !qos_bound) ? 0x1000 : 0x3000);
 	else
 		value = 0x1200;
 	mtk_smi_common_bw_set(dev, comm_port, value);
