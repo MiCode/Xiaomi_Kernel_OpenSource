@@ -7155,11 +7155,16 @@ static signed int DIP_probe(struct platform_device *pDev)
 
 	nr_dip_devs += 1;
 
+	if (sizeof(struct dip_device) * nr_dip_devs == 0) {
+		LOG_INF("size of dip_devs is 0\n");
+		return -ENOMEM;
+	}
+
 	_dipdev = krealloc(dip_devs,
 		sizeof(struct dip_device) * nr_dip_devs,
 		GFP_KERNEL);
 
-	if (!_dipdev || _dipdev == ZERO_SIZE_PTR) {
+	if (!_dipdev || (void *)_dipdev == ZERO_SIZE_PTR) {
 		LOG_INF("Unable to allocate dip_devs\n");
 		return -ENOMEM;
 	}
