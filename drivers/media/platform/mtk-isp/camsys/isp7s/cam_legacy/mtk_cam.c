@@ -3707,11 +3707,12 @@ EXIT:
 #if PURE_RAW_WITH_SV
 	if (mtk_cam_ctx_support_pure_raw_with_sv(ctx) &&
 	    frame_param->raw_param.imgo_path_sel == MTKCAM_IPI_IMGO_UNPROCESSED &&
-	    !mtk_cam_scen_is_mstream(&scen) &&
-	    !mtk_cam_scen_is_mstream_m2m(&scen) &&
+	    !mtk_cam_scen_is_mstream_types(&scen) &&
 	    !mtk_cam_scen_is_subsample(&scen) &&
+	    !mtk_cam_scen_is_m2m(&scen) &&
+	    !mtk_cam_scen_is_time_shared(&scen) &&
 	    !mtk_cam_scen_is_rgbw_enabled(&scen) &&
-	    mtk_cam_scen_is_sensor_normal(&scen) &&
+	    !mtk_cam_scen_is_ext_isp(&scen) &&
 	    !mtk_cam_hw_mode_is_dc(ctx->pipe->hw_mode_pending)) {
 		dev_dbg(cam->dev,
 			"%s: seq(%d) is pure raw with camsv(%d)\n",
@@ -7846,6 +7847,7 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 		!mtk_cam_scen_is_mstream_m2m(scen) && !mtk_cam_scen_is_subsample(scen) &&
 		!mtk_cam_is_hsf(ctx)) {
 #if PURE_RAW_WITH_SV
+		/* TODO: update imgo again is required */
 		unsigned int hw_scen, exp_no, req_amount;
 		unsigned int idle_tags, seninf_padidx, tag_order;
 
