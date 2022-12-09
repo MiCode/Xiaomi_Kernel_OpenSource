@@ -1048,6 +1048,73 @@ int mtk_mipi_tx_ssc_en_N6(struct phy *phy, struct mtk_panel_ext *mtk_panel)
 	return 0;
 }
 
+
+int mtk_mipi_tx_ssc_en_mt6886(struct phy *phy, struct mtk_panel_ext *mtk_panel)
+{
+	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
+	unsigned int data_rate;
+	u16 pdelta1, ssc_prd;
+	u8 txdiv, div3;
+	unsigned int delta1 = 5; /* Delta1 is SSC range, default is 0%~-0.5% */
+
+	DDPINFO("%s+\n", __func__);
+	if (mtk_panel->params->ssc_enable) {
+
+		data_rate = mtk_panel->params->data_rate;
+
+		if (data_rate >= 6000) {
+			txdiv = 1;
+			div3  = 1;
+		} else if (data_rate >= 3000) {
+			txdiv = 2;
+			div3  = 1;
+		} else if (data_rate >= 2000) {
+			txdiv = 1;
+			div3  = 3;
+		} else if (data_rate >= 1500) {
+			txdiv = 4;
+			div3  = 1;
+		} else if (data_rate >= 1000) {
+			txdiv = 2;
+			div3  = 3;
+		} else if (data_rate >= 750) {
+			txdiv = 8;
+			div3  = 1;
+		} else if (data_rate >= 500) {
+			txdiv = 4;
+			div3  = 3;
+		} else if (data_rate >= 375) {
+			txdiv = 16;
+			div3 = 1;
+		} else if (data_rate >= 250) {
+			txdiv = 8;
+			div3 = 3;
+		} else {
+			DDPPR_ERR("data rate is too low\n");
+			return -EINVAL;
+		}
+		delta1 = (mtk_panel->params->ssc_range == 0) ?
+			delta1 : mtk_panel->params->ssc_range;
+
+		DDPMSG("delta1:%d\n", delta1);
+		pdelta1 = data_rate / 2 * txdiv * div3 * delta1 / 26 * 262144 / 1000 / 433;
+
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON3_MT6983,
+						FLD_RG_DSI_PLL_SDM_SSC_DELTA1_MT6983, pdelta1);
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON3_MT6983,
+						FLD_RG_DSI_PLL_SDM_SSC_DELTA_MT6983, pdelta1 << 16);
+
+		ssc_prd = 0x1b1;//fix
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON2_MT6983,
+						FLD_RG_DSI_PLL_SDM_SSC_PRD_MT6983, ssc_prd << 16);
+		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_PLL_CON2_MT6983,
+						mipi_tx->driver_data->dsi_ssc_en);
+
+		DDPINFO("set ssc enabled\n");
+	}
+	return 0;
+}
+
 void mtk_mipi_tx_sw_control_en(struct phy *phy, bool en)
 {
 #ifndef CONFIG_FPGA_EARLY_PORTING
@@ -1225,6 +1292,51 @@ static unsigned int _dsi_get_pcw_mt6983(unsigned long data_rate,
 	else if (data_rate >= 750)
 		div3 = 1;
 	else if (data_rate >= 510)
+		div3 = 3;
+	else {
+		DDPPR_ERR("invalid data rate %u\n");
+		return -EINVAL;
+	}
+
+	data_rate = data_rate >> 1;
+	fbksel = (data_rate * pcw_ratio) >= 3800 ? 2 : 1;
+
+	/**
+	 * PCW bit 24~30 = floor(pcw)
+	 * PCW bit 16~23 = (pcw - floor(pcw))*256
+	 * PCW bit 8~15 = (pcw*256 - floor(pcw)*256)*256
+	 * PCW bit 0~7 = (pcw*256*256 - floor(pcw)*256*256)*256
+	 */
+	pcw = data_rate * pcw_ratio * div3 / fbksel / 26;
+	pcw_floor = data_rate * pcw_ratio  * div3 / fbksel % 26;
+	tmp = ((pcw & 0xFF) << 24) | (((256 * pcw_floor / 26) & 0xFF) << 16) |
+		(((256 * (256 * pcw_floor % 26) / 26) & 0xFF) << 8) |
+		((256 * (256 * (256 * pcw_floor % 26) % 26) / 26) & 0xFF);
+
+	return tmp;
+}
+static unsigned int _dsi_get_pcw_mt6886(unsigned long data_rate,
+	unsigned int pcw_ratio)
+{
+	unsigned int pcw, tmp, pcw_floor, fbksel, div3 = 0;
+
+	if (data_rate >= 6000)
+		div3 = 1;
+	else if (data_rate >= 3000)
+		div3 = 1;
+	else if (data_rate >= 2000)
+		div3 = 3;
+	else if (data_rate >= 1500)
+		div3 = 1;
+	else if (data_rate >= 1000)
+		div3 = 3;
+	else if (data_rate >= 750)
+		div3 = 1;
+	else if (data_rate >= 500)
+		div3 = 3;
+	else if (data_rate >= 375)
+		div3 = 1;
+	else if (data_rate >= 250)
 		div3 = 3;
 	else {
 		DDPPR_ERR("invalid data rate %u\n");
@@ -1508,9 +1620,21 @@ static int mtk_mipi_tx_pll_prepare_mt6886(struct clk_hw *hw)
 		txdiv1 = 0;
 		div3 = 1;
 		div3_en = 0;
-	} else if (rate >= 510) {
+	} else if (rate >= 500) {
 		txdiv = 4;
 		txdiv0 = 2;
+		txdiv1 = 0;
+		div3 = 3;
+		div3_en = 1;
+	} else if (rate >= 375) {
+		txdiv = 16;
+		txdiv0 = 4;
+		txdiv1 = 0;
+		div3 = 1;
+		div3_en = 0;
+	} else if (rate >= 250) {
+		txdiv = 8;
+		txdiv0 = 3;
 		txdiv1 = 0;
 		div3 = 3;
 		div3_en = 1;
@@ -3361,9 +3485,17 @@ void mtk_mipi_tx_pll_rate_switch_gce_mt6886(struct phy *phy,
 		txdiv = 8;
 		txdiv0 = 3;
 		txdiv1 = 0;
-	} else if (rate >= 510) {
+	} else if (rate >= 500) {
 		txdiv = 4;
 		txdiv0 = 2;
+		txdiv1 = 0;
+	}  else if (rate >= 375) {
+		txdiv = 16;
+		txdiv0 = 4;
+		txdiv1 = 0;
+	} else if (rate >= 250) {
+		txdiv = 8;
+		txdiv0 = 3;
 		txdiv1 = 0;
 	} else {
 		return;
@@ -4325,11 +4457,12 @@ static const struct mtk_mipitx_data mt6886_mipitx_data = {
 	.ckc_sw_lptx_pre_oe = MIPITX_CKC_SW_LPTX_PRE_OE_MT6983,
 	.pll_prepare = mtk_mipi_tx_pll_prepare_mt6886,
 	.pll_unprepare = mtk_mipi_tx_pll_unprepare_mt6983,
-	.dsi_get_pcw = _dsi_get_pcw_mt6983,
+	.dsi_get_pcw = _dsi_get_pcw_mt6886,
 	.dsi_get_data_rate = _dsi_get_data_rate_mt6983,
 	.backup_mipitx_impedance = backup_mipitx_impedance_mt6886,
 	.refill_mipitx_impedance = refill_mipitx_impedance_mt6886,
 	.pll_rate_switch_gce = mtk_mipi_tx_pll_rate_switch_gce_mt6886,
+	.mipi_tx_ssc_en = mtk_mipi_tx_ssc_en_mt6886,
 };
 
 static const struct mtk_mipitx_data mt6983_mipitx_cphy_data = {
