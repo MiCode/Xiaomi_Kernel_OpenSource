@@ -72,3 +72,62 @@ void cleanup_sched_common_sysfs(void)
 		kobj = NULL;
 	}
 }
+
+static ssize_t show_sched_target_margin(struct kobject *kobj,
+					struct kobj_attribute *attr,
+					char *buf)
+{
+	unsigned int len = 0;
+	unsigned int max_len = 4096;
+	int pd_count = 3, i;
+
+	for (i = 0; i < pd_count; i++)
+		len += snprintf(buf+len, max_len-len,
+			"C%d=%d ", get_target_margin(i));
+	len += snprintf(buf + len, max_len-len, "\n");
+	return len;
+}
+
+static ssize_t show_sched_turn_point_freq(struct kobject *kobj,
+					struct kobj_attribute *attr,
+					char *buf)
+{
+	unsigned int len = 0;
+	unsigned int max_len = 4096;
+	int pd_count = 3, i;
+
+	for (i = 0; i < pd_count; i++)
+		len += snprintf(buf+len, max_len-len,
+			"C%d=%d ", get_turn_point_freq(i));
+	len += snprintf(buf + len, max_len-len, "\n");
+	return len;
+}
+
+ssize_t store_sched_turn_point_freq(struct kobject *kobj, struct kobj_attribute *attr,
+const char __user *buf, size_t cnt)
+{
+	int cluster;
+	int freq;
+
+	if (sscanf(buf, "%d %d", &cluster, &freq) != 2)
+		return -EINVAL;
+	set_turn_point_freq(cluster, freq);
+	return cnt;
+}
+
+ssize_t store_sched_target_margin(struct kobject *kobj, struct kobj_attribute *attr,
+const char __user *buf, size_t cnt)
+{
+	int cluster;
+	int value;
+
+	if (sscanf(buf, "%d %d", &cluster, &value) != 2)
+		return -EINVAL;
+	set_target_margin(cluster, value);
+	return cnt;
+}
+
+struct kobj_attribute sched_turn_point_freq_attr =
+__ATTR(sched_turn_point_freq, 0644, show_sched_turn_point_freq, store_sched_turn_point_freq);
+struct kobj_attribute sched_target_margin_attr =
+__ATTR(sched_target_margin, 0644, show_sched_target_margin, store_sched_target_margin);

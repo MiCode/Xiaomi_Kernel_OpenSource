@@ -323,6 +323,36 @@ static long eas_ioctl_impl(struct file *filp,
 			return -1;
 		set_sbb_active_ratio(val);
 		break;
+	case EAS_TURN_POINT_UTIL_C0:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_turn_point_freq(0, val);
+		break;
+	case EAS_TURN_POINT_UTIL_C1:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_turn_point_freq(1, val);
+		break;
+	case EAS_TURN_POINT_UTIL_C2:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_turn_point_freq(2, val);
+		break;
+	case EAS_TARGET_MARGIN_C0:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_target_margin(0, val);
+		break;
+	case EAS_TARGET_MARGIN_C1:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_target_margin(1, val);
+		break;
+	case EAS_TARGET_MARGIN_C2:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_target_margin(2, val);
+		break;
 	default:
 		pr_debug(TAG "%s %d: unknown cmd %x\n",
 			__FILE__, __LINE__, cmd);
