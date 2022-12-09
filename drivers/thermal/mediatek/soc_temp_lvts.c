@@ -1502,83 +1502,79 @@ static void lvts_close(struct lvts_data *lvts_data)
 
 }
 
-static bool scp_temperature_detection_flow(struct lvts_data *lvts_data, unsigned int tc_id,
-	unsigned int sensor_id, unsigned int interrupt_reg_status)
+static enum interrupt_type interrupt_type_switch(struct lvts_data *lvts_data,
+	unsigned int tc_id, unsigned int interrupt_reg_status)
 {
-	struct tc_settings *tc = lvts_data->tc;
-	struct device *dev = lvts_data->dev;
 	void __iomem *base;
-	unsigned int s_index, interrupt_reg_val;
-	int temp;
-	bool ret;
+	unsigned int interrupt_reg_val;
+	enum interrupt_type ret;
 
 	base = GET_BASE_ADDR(tc_id);
+	interrupt_reg_val = readl(LVTSMONINT_0 + base);
 
 	if (interrupt_reg_status & THERMAL_HOT_INTERRUPT_0) {
-		interrupt_reg_val = readl(LVTSMONINT_0 + base);
 		interrupt_reg_val = interrupt_reg_val & ~(HOT_INT0_EN);
 
 		interrupt_reg_val = interrupt_reg_val | (COLD_INT0_EN);
 
-		disable_sensing_points(lvts_data, tc_id);
-		writel(interrupt_reg_val, LVTSMONINT_0 + base);
-		enable_sensing_points(lvts_data, tc_id);
-
-		set_cold_interrupt_enable_addr(1);
-
-		s_index = tc[tc_id].sensor_map[sensor_id];
-		temp = lvts_read_tc_temperature(lvts_data, s_index + 1, true);
-		dev_info(dev, "it is controller%d, sensor0 hot interrupt, temp = %d\n",
-			tc_id, temp);
-		scp_send_thermal_wq(SCP_THERMAL_TYPE_HOT);
-
-		ret = true;
+		ret = HOT;
 	} else if (interrupt_reg_status & THERMAL_COLD_INTERRUPT_0) {
-		interrupt_reg_val = readl(LVTSMONINT_0 + base);
 		interrupt_reg_val = interrupt_reg_val | (HOT_INT0_EN);
 
 		interrupt_reg_val = interrupt_reg_val & ~(COLD_INT0_EN);
 
-		disable_sensing_points(lvts_data, tc_id);
-		writel(interrupt_reg_val, LVTSMONINT_0 + base);
-		enable_sensing_points(lvts_data, tc_id);
-
-		set_cold_interrupt_enable_addr(0);
-
-		s_index = tc[tc_id].sensor_map[sensor_id];
-		temp = lvts_read_tc_temperature(lvts_data, s_index + 1, true);
-		dev_info(dev, "it is controller%d, sensor0 cold interrupt, temp = %d\n",
-			tc_id, temp);
-		scp_send_thermal_wq(SCP_THERMAL_TYPE_COLD);
-
-		ret = true;
+		ret = COLD;
 	} else {
-		ret = false;
+		ret = OTHER;
+		return ret;
 	}
+
+	disable_sensing_points(lvts_data, tc_id);
+	writel(interrupt_reg_val, LVTSMONINT_0 + base);
+	enable_sensing_points(lvts_data, tc_id);
 
 	return ret;
 }
 
-static void tc_irq_handler(struct lvts_data *lvts_data, int tc_id)
+static void tc_irq_handler(struct lvts_data *lvts_data, int tc_id, char thermintst_str[])
 {
 	struct device *dev = lvts_data->dev;
 	unsigned int ret = 0;
 	void __iomem *base;
 	int temp;
 
-	if (IS_ENABLE(FEATURE_SCP_OC) &&
-		tc_id == SCP_APPOINTED_CONTROLLER) {
-		bool ignore_dump_log = false;
+	if (IS_ENABLE(FEATURE_SCP_OC)) {
+		if (tc_id == SCP_APPOINTED_CONTROLLER) {
+			enum interrupt_type ignore_dump_log = OTHER;
 
-		base = GET_BASE_ADDR(tc_id);
-		ret = readl(LVTSMONINTSTS_0 + base);
-		ignore_dump_log = scp_temperature_detection_flow(lvts_data, tc_id,
-			SCP_APPOINTED_SENSOR, ret);
-		if (ignore_dump_log) {
-			/* Write back to clear interrupt status */
-			writel(ret, LVTSMONINTSTS_0 + base);
-			return;
+			base = GET_BASE_ADDR(tc_id);
+			ret = readl(LVTSMONINTSTS_0 + base);
+			ignore_dump_log = interrupt_type_switch(lvts_data, tc_id, ret);
+			if (ignore_dump_log == HOT || ignore_dump_log == COLD) {
+				int change_cold = 0;
+				enum SCP_THERMAL_TYPE scp_thermal_type;
+#if (SCP_OC_DUMP_LOG == 1)
+				struct tc_settings *tc = lvts_data->tc;
+				int s_index = tc[tc_id].sensor_map[SCP_APPOINTED_SENSOR];
+				char *hotOrCold = (ignore_dump_log == HOT)?"hot":"cold";
+
+				temp = lvts_read_tc_temperature(lvts_data, s_index + 1, true);
+				dev_info(dev, "%s", thermintst_str);
+				dev_info(dev, "it is controller%d, sensor%d %s interrupt, temp = %d\n",
+					tc_id, SCP_APPOINTED_SENSOR, hotOrCold, temp);
+#endif
+
+				change_cold = (ignore_dump_log == HOT)?1:0;
+				scp_thermal_type = (ignore_dump_log == HOT) ? SCP_THERMAL_TYPE_HOT :
+					SCP_THERMAL_TYPE_COLD;
+				set_cold_interrupt_enable_addr(change_cold);
+				scp_send_thermal_wq(scp_thermal_type);
+				/* Write back to clear interrupt status */
+				writel(ret, LVTSMONINTSTS_0 + base);
+				return;
+			}
 		}
+		dev_info(dev, "%s", thermintst_str);
 	}
 #ifdef DUMP_MORE_LOG
 	temp = lvts_read_all_tc_temperature(lvts_data, true);
@@ -1617,17 +1613,32 @@ static irqreturn_t irq_handler(int irq, void *dev_id)
 	struct tc_settings *tc = lvts_data->tc;
 	unsigned int i;
 	void __iomem *base;
+	char thermintst_str[200];
+	int thermintst_str_size = sizeof(thermintst_str);
+	int thermintst_str_offset = 0;
 
 	for (i = 0; i < lvts_data->num_domain; i++) {
 		base = lvts_data->domain[i].base;
 		lvts_data->irq_bitmap[i] = readl(THERMINTST + base);
-		dev_info(dev, "%s : THERMINTST = 0x%x\n", __func__, lvts_data->irq_bitmap[i]);
+		if (!IS_ENABLE(FEATURE_SCP_OC))
+			dev_info(dev, "%s : THERMINTST = 0x%x\n", __func__,
+				lvts_data->irq_bitmap[i]);
+		else
+			thermintst_str_offset += snprintf(thermintst_str + thermintst_str_offset,
+				thermintst_str_size - thermintst_str_offset,
+				"%s : THERMINTST = 0x%x\n", __func__, lvts_data->irq_bitmap[i]);
 	}
+	if (thermintst_str_offset < 0)
+		return -EINVAL;
+	if (thermintst_str_offset >= thermintst_str_size)
+		return -ENOMEM;
+
+	thermintst_str[thermintst_str_offset] = '\0';
 
 	for (i = 0; i < lvts_data->num_tc; i++) {
 		if ((lvts_data->irq_bitmap[tc[i].domain_index] & tc[i].irq_bit) == 0 &&
 			lvts_data->irq_bitmap[tc[i].domain_index] != 0)
-			tc_irq_handler(lvts_data, i);
+			tc_irq_handler(lvts_data, i, thermintst_str);
 	}
 
 	return IRQ_HANDLED;

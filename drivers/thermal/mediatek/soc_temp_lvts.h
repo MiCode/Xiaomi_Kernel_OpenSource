@@ -24,6 +24,7 @@
 #define FEATURE_DEVICE_AUTO_RCK	(BIT(0))
 #define FEATURE_CK26M_ACTIVE	(BIT(1))
 #define FEATURE_SCP_OC		(BIT(2))
+#define SCP_OC_DUMP_LOG         (0)
 #define ENABLE_FEATURE(feature)		(lvts_data->feature_bitmap |= feature)
 #define DISABLE_FEATURE(feature)	(lvts_data->feature_bitmap &= (~feature))
 #define IS_ENABLE(feature)		(lvts_data->feature_bitmap & feature)
@@ -136,6 +137,12 @@ struct formula_coeff {
 enum sensor_switch_status {
 	SEN_OFF,
 	SEN_ON
+};
+
+enum interrupt_type {
+	HOT,
+	COLD,
+	OTHER
 };
 
 struct tc_settings {
