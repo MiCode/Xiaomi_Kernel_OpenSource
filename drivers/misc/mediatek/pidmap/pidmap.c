@@ -66,7 +66,7 @@ static void mtk_pidmap_update(struct task_struct *task, const char *task_comm)
 	name = mtk_pidmap + ((pid - 1) * PIDMAP_ENTRY_SIZE);
 
 	/* copy task name */
-	memcpy(name, task_comm, PIDMAP_TASKNAME_SIZE);
+	strncpy(name, task_comm, PIDMAP_TASKNAME_SIZE);
 	*(name + PIDMAP_TASKNAME_SIZE) = '\0';
 
 	/* clear garbage tail chars to help parsers */
