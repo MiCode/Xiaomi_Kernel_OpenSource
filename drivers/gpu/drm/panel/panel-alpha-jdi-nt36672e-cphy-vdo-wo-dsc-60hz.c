@@ -865,16 +865,23 @@ static int jdi_enable(struct drm_panel *panel)
 
 	return 0;
 }
-static const struct drm_display_mode default_mode = {
+
+#define VAC (2400)
+#define HAC (1080)
+static u32 fake_heigh = 2400;
+static u32 fake_width = 1080;
+static bool need_fake_resolution;
+
+static struct drm_display_mode default_mode = {
 	.clock = 169394, //h_total * v_total * fps
-	.hdisplay = 1080,
-	.hsync_start = 1080 + 48,//HFP
-	.hsync_end = 1080 + 48 + 10,//HSA
-	.htotal = 1080 + 48 + 10 + 10,//HBP
-	.vdisplay = 2400,
-	.vsync_start = 2400 + 25,//VFP
-	.vsync_end = 2400 + 25 + 10,//VSA
-	.vtotal = 2400 + 25 + 10 + 10,//VBP
+	.hdisplay = HAC,
+	.hsync_start = HAC + 48,//HFP
+	.hsync_end = HAC + 48 + 10,//HSA
+	.htotal = HAC + 48 + 10 + 10,//HBP
+	.vdisplay = VAC,
+	.vsync_start = VAC + 25,//VFP
+	.vsync_end = VAC + 25 + 10,//VSA
+	.vtotal = VAC + 25 + 10 + 10,//VBP
 };
 
 #if defined(CONFIG_MTK_PANEL_EXT)
@@ -955,11 +962,23 @@ static int panel_ext_reset(struct drm_panel *panel, int on)
 	return 0;
 }
 
+static int lcm_get_virtual_heigh(void)
+{
+	return VAC;
+}
+
+static int lcm_get_virtual_width(void)
+{
+	return HAC;
+}
+
 static struct mtk_panel_funcs ext_funcs = {
 	.reset = panel_ext_reset,
 	.set_backlight_cmdq = jdi_setbacklight_cmdq,
 	.ext_param_set = mtk_panel_ext_param_set,
 	.ata_check = panel_ata_check,
+	.get_virtual_heigh = lcm_get_virtual_heigh,
+	.get_virtual_width = lcm_get_virtual_width,
 };
 #endif
 
@@ -993,10 +1012,41 @@ struct panel_desc {
 	} delay;
 };
 
+static void change_drm_disp_mode_params(struct drm_display_mode *mode)
+{
+	int vtotal = mode->vtotal;
+	int htotal = mode->htotal;
+	int fps = mode->clock * 1000 / vtotal / htotal;
+
+	if (fake_heigh > 0 && fake_heigh < VAC) {
+		mode->vsync_start = mode->vsync_start - mode->vdisplay
+					+ fake_heigh;
+		mode->vsync_end = mode->vsync_end - mode->vdisplay + fake_heigh;
+		mode->vtotal = mode->vtotal - mode->vdisplay + fake_heigh;
+		mode->vdisplay = fake_heigh;
+	}
+	if (fake_width > 0 && fake_width < HAC) {
+		mode->hsync_start = mode->hsync_start - mode->hdisplay
+					+ fake_width;
+		mode->hsync_end = mode->hsync_end - mode->hdisplay + fake_width;
+		mode->htotal = mode->htotal - mode->hdisplay + fake_width;
+		mode->hdisplay = fake_width;
+	}
+	if (fps > 70)
+		fps = 90;
+	else
+		fps = 60;
+	mode->clock = fps * mode->vtotal * mode->htotal / 1000;
+	mode->clock += 1;
+}
+
 static int jdi_get_modes(struct drm_panel *panel,
 					struct drm_connector *connector)
 {
 	struct drm_display_mode *mode;
+
+	if (need_fake_resolution)
+		change_drm_disp_mode_params(&default_mode);
 
 	mode = drm_mode_duplicate(connector->dev, &default_mode);
 	if (!mode) {
@@ -1023,6 +1073,22 @@ static const struct drm_panel_funcs jdi_drm_funcs = {
 	.enable = jdi_enable,
 	.get_modes = jdi_get_modes,
 };
+
+static void check_is_need_fake_resolution(struct device *dev)
+{
+	unsigned int ret = 0;
+
+	ret = of_property_read_u32(dev->of_node, "fake-heigh", &fake_heigh);
+	if (ret)
+		need_fake_resolution = false;
+	ret = of_property_read_u32(dev->of_node, "fake-width", &fake_width);
+	if (ret)
+		need_fake_resolution = false;
+	if (fake_heigh > 0 && fake_heigh < VAC)
+		need_fake_resolution = true;
+	if (fake_width > 0 && fake_width < HAC)
+		need_fake_resolution = true;
+}
 
 static int jdi_probe(struct mipi_dsi_device *dsi)
 {
@@ -1111,6 +1177,7 @@ static int jdi_probe(struct mipi_dsi_device *dsi)
 		return ret;
 
 #endif
+	check_is_need_fake_resolution(dev);
 
 	pr_info("%s- jdi,nt36672e,cphy,vdo,wo,dsc,60hz\n", __func__);
 
@@ -1127,6 +1194,8 @@ static int jdi_remove(struct mipi_dsi_device *dsi)
 	mipi_dsi_detach(dsi);
 	drm_panel_remove(&ctx->panel);
 #if defined(CONFIG_MTK_PANEL_EXT)
+	if (ext_ctx == NULL)
+		return -1;
 	mtk_panel_detach(ext_ctx);
 	mtk_panel_remove(ext_ctx);
 #endif
