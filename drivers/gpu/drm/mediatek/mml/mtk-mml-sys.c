@@ -1094,7 +1094,8 @@ static void sys_mml_calc_cfg(struct mtk_ddp_comp *ddp_comp,
 
 	outputs = cfg->task->config->tile_output;
 	for (i = 0; i < pipe_cnt; i++) {
-		cfg->mml_src_roi[i].x = outputs[i]->src_crop.left;
+		cfg->mml_src_roi[i].x = outputs[i]->src_crop.left +
+			cfg->submit.info.dest[0].crop.r.left;
 		cfg->mml_src_roi[i].y = outputs[i]->src_crop.top;
 		cfg->mml_src_roi[i].width = outputs[i]->src_crop.width;
 		cfg->mml_src_roi[i].height = outputs[i]->src_crop.height;

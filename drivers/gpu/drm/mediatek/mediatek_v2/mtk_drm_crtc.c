@@ -11508,8 +11508,7 @@ void mtk_drm_layer_dispatch_to_dual_pipe(
 
 			plane_state_r->pending.width = crtc_state->mml_src_roi[1].width;
 			plane_state_r->pending.height = crtc_state->mml_src_roi[1].height;
-			plane_state_r->pending.src_x = crtc_state->mml_src_roi[1].x -
-				crtc_state->mml_src_roi[0].x;
+			plane_state_r->pending.src_x = crtc_state->mml_src_roi[1].x;
 			plane_state_r->pending.src_y = crtc_state->mml_src_roi[1].y;
 			plane_state_r->pending.dst_x = 0;
 			plane_state_r->pending.dst_y = 0;
