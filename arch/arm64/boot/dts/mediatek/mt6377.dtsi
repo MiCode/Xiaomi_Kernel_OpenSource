@@ -170,7 +170,6 @@
 				regulator-name = "mt6377_vbuck1";
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1193750>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 1 2>;
 			};
@@ -179,7 +178,6 @@
 				regulator-name = "mt6377_vbuck2";
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1193750>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 1 2>;
 			};
@@ -188,7 +186,6 @@
 				regulator-name = "mt6377_vbuck3";
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1193750>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 1 2>;
 			};
@@ -197,7 +194,6 @@
 				regulator-name = "mt6377_vbuck4";
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1193750>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 1 2>;
 			};
@@ -206,7 +202,6 @@
 				regulator-name = "mt6377_vbuck5";
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1193750>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 1 2>;
 			};
@@ -215,7 +210,6 @@
 				regulator-name = "mt6377_vbuck6";
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1193750>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 1 2>;
 			};
@@ -224,7 +218,6 @@
 				regulator-name = "mt6377_vs1";
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <2200000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 1 2>;
 				regulator-always-on;
@@ -235,7 +228,6 @@
 				regulator-name = "mt6377_vs2";
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1600000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 1 2>;
 				regulator-always-on;
@@ -246,7 +238,6 @@
 				regulator-name = "mt6377_vsram_md";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <1293750>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 2>;
 				regulator-always-on;
@@ -256,7 +247,6 @@
 				regulator-name = "mt6377_vsram_proc1";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <1293750>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 2>;
 				regulator-always-on;
@@ -266,7 +256,6 @@
 				regulator-name = "mt6377_vsram_proc2";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <1293750>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 2>;
 				regulator-always-on;
@@ -276,7 +265,6 @@
 				regulator-name = "mt6377_vsram_others";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <1293750>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 2>;
 				regulator-always-on;
@@ -286,7 +274,6 @@
 				regulator-name = "mt6377_va12";
 				regulator-min-microvolt = <1100000>;
 				regulator-max-microvolt = <1300000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
 				regulator-always-on;
@@ -297,7 +284,6 @@
 				regulator-name = "mt6377_vaud18";
 				regulator-min-microvolt = <1700000>;
 				regulator-max-microvolt = <1900000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
 				regulator-allow-set-load;
@@ -307,7 +293,6 @@
 				regulator-name = "mt6377_vaud28";
 				regulator-min-microvolt = <2700000>;
 				regulator-max-microvolt = <2900000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <240>;
 				regulator-allowed-modes = <0 2>;
 				regulator-always-on;
@@ -318,7 +303,6 @@
 				regulator-name = "mt6377_vaux18";
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <1900000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <240>;
 				regulator-allowed-modes = <0 2>;
 				regulator-always-on;
@@ -329,7 +313,6 @@
 				regulator-name = "mt6377_vbif28";
 				regulator-min-microvolt = <2700000>;
 				regulator-max-microvolt = <2900000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
 				regulator-allow-set-load;
@@ -339,7 +322,6 @@
 				regulator-name = "mt6377_vcn33_1";
 				regulator-min-microvolt = <2800000>;
 				regulator-max-microvolt = <3500000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
 				regulator-allow-set-load;
@@ -349,7 +331,6 @@
 				regulator-name = "mt6377_vcn33_2";
 				regulator-min-microvolt = <2800000>;
 				regulator-max-microvolt = <3500000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
 				regulator-allow-set-load;
@@ -359,7 +340,6 @@
 				regulator-name = "mt6377_vcn18";
 				regulator-min-microvolt = <1600000>;
 				regulator-max-microvolt = <1800000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
 				regulator-allow-set-load;
@@ -369,7 +349,6 @@
 				regulator-name = "mt6377_vxo22";
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <2200000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <200>;
 				regulator-allowed-modes = <0 2>;
 				regulator-always-on;
@@ -380,7 +359,6 @@
 				regulator-name = "mt6377_vm18";
 				regulator-min-microvolt = <1700000>;
 				regulator-max-microvolt = <1900000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
 				regulator-always-on;
@@ -391,7 +369,6 @@
 				regulator-name = "mt6377_vefuse";
 				regulator-min-microvolt = <1700000>;
 				regulator-max-microvolt = <1900000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
 				regulator-allow-set-load;
@@ -401,7 +378,6 @@
 				regulator-name = "mt6377_vemc";
 				regulator-min-microvolt = <1200000>;
 				regulator-max-microvolt = <3500000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
 				regulator-allow-set-load;
@@ -411,7 +387,6 @@
 				regulator-name = "mt6377_vufs";
 				regulator-min-microvolt = <1700000>;
 				regulator-max-microvolt = <1900000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
 				regulator-allow-set-load;
@@ -421,7 +396,6 @@
 				regulator-name = "mt6377_vio18";
 				regulator-min-microvolt = <1700000>;
 				regulator-max-microvolt = <1900000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
 				regulator-always-on;
@@ -432,7 +406,6 @@
 				regulator-name = "mt6377_vrf18";
 				regulator-min-microvolt = <1700000>;
 				regulator-max-microvolt = <1900000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <200>;
 				regulator-allowed-modes = <0 2>;
 				regulator-allow-set-load;
@@ -442,7 +415,6 @@
 				regulator-name = "mt6377_vrf12";
 				regulator-min-microvolt = <1100000>;
 				regulator-max-microvolt = <1300000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 2>;
 				regulator-allow-set-load;
@@ -452,7 +424,6 @@
 				regulator-name = "mt6377_vrf09";
 				regulator-min-microvolt = <900000>;
 				regulator-max-microvolt = <1000000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 2>;
 				regulator-allow-set-load;
@@ -462,7 +433,6 @@
 				regulator-name = "mt6377_vrfva12";
 				regulator-min-microvolt = <1100000>;
 				regulator-max-microvolt = <1300000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <200>;
 				regulator-allowed-modes = <0 2>;
 				regulator-allow-set-load;
@@ -472,7 +442,6 @@
 				regulator-name = "mt6377_vrfio18";
 				regulator-min-microvolt = <1700000>;
 				regulator-max-microvolt = <1900000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <500>;
 				regulator-allowed-modes = <0 2>;
 				regulator-allow-set-load;
@@ -482,7 +451,6 @@
 				regulator-name = "mt6377_vmch";
 				regulator-min-microvolt = <1700000>;
 				regulator-max-microvolt = <3300000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
 				regulator-allow-set-load;
@@ -492,7 +460,6 @@
 				regulator-name = "mt6377_vmc";
 				regulator-min-microvolt = <1700000>;
 				regulator-max-microvolt = <3000000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
 				regulator-allow-set-load;
@@ -502,7 +469,6 @@
 				regulator-name = "mt6377_vusb";
 				regulator-min-microvolt = <3000000>;
 				regulator-max-microvolt = <3000000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
 				regulator-always-on;
@@ -513,7 +479,6 @@
 				regulator-name = "mt6377_vibr";
 				regulator-min-microvolt = <1200000>;
 				regulator-max-microvolt = <3300000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <200>;
 				regulator-allowed-modes = <0 2>;
 				regulator-allow-set-load;
@@ -523,7 +488,6 @@
 				regulator-name = "mt6377_vio28";
 				regulator-min-microvolt = <1200000>;
 				regulator-max-microvolt = <3300000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <200>;
 				regulator-allowed-modes = <0 2>;
 				regulator-always-on;
@@ -534,7 +498,6 @@
 				regulator-name = "mt6377_vfp";
 				regulator-min-microvolt = <1200000>;
 				regulator-max-microvolt = <3300000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <200>;
 				regulator-allowed-modes = <0 2>;
 				regulator-allow-set-load;
@@ -544,7 +507,6 @@
 				regulator-name = "mt6377_vtp";
 				regulator-min-microvolt = <1200000>;
 				regulator-max-microvolt = <3300000>;
-				regulator-ramp-delay = <6250>;
 				regulator-enable-ramp-delay = <200>;
 				regulator-allowed-modes = <0 2>;
 				regulator-allow-set-load;
