@@ -270,6 +270,7 @@ static void mtk_btag_ufs_work(struct work_struct *work)
 			spin_unlock_irqrestore(&ctx->lock, flags);
 			continue;
 		}
+		ctx->workload.period = time - ctx->period_start_t;
 
 		tr->pid = 0;
 		tr->qid = idx;
