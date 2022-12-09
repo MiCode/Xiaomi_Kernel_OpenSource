@@ -15610,8 +15610,10 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 				vcp_cmd_ex(VCP_SET_DISP_SYNC);
 			}
 #endif
-			if (m_id == 0 && ddp->data->wakeup_pf_wq)
+			if (m_id == 0 && ddp->data->wakeup_pf_wq) {
+				mtk_crtc->sof_time = ktime_get();
 				mtk_wakeup_pf_wq();
+			}
 			if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
 				irq_debug[3] = sched_clock();
 				mtk_drm_cwb_backup_copy_size();

@@ -902,7 +902,7 @@ struct mtk_drm_crtc {
 	atomic_t cwb_task_active;
 
 	ktime_t pf_time;
-	ktime_t prev_pf_time;
+	ktime_t sof_time;
 	struct task_struct *signal_present_fece_task;
 	struct cmdq_cb_data cb_data;
 	atomic_t cmdq_done;
