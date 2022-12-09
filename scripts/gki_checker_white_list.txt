@@ -68,6 +68,7 @@ f include/linux/remoteproc.h
 f include/media/media-entity.h
 f include/trace/events/block.h
 f include/trace/events/f2fs.h
+f include/trace/events/writeback.h
 f include/trace/hooks/traps.h
 f include/trace/hooks/ufshcd.h
 f kernel/audit.c
@@ -340,12 +341,14 @@ s mtk_mutex_unprepare
 s mutex_driver_dt_match
 s netgear_fa120_info
 s of_match_mtk_mmsys
+s perf_trace_writeback_page_template
 s products
 s rtl8152_nway_reset
 s rtl_ethtool_set_eee
 s samsung_info
 s sitecom_info
 s toshiba_info
+s trace_event_raw_event_writeback_page_template
 s __typeid__ZTSFiP6usbnethhttPKvtE_global_addr
 s __typeid__ZTSFiP6usbnethhttPvtE_global_addr
 s __typeid__ZTSFiP6usbnethtttPvE_global_addr
