@@ -8885,6 +8885,10 @@
 				<0 0x13fe0000 0 0x1000>,  /* MFG_IPS */
 				<0 0x10219000 0 0x1000>,  /* EMI_REG */
 				<0 0x1021d000 0 0x1000>,  /* SUB_EMI_REG */
+				<0 0x1025e000 0 0x1000>,  /* NEMI_MI32_SMI_SUB */
+				<0 0x1025f000 0 0x1000>,  /* NEMI_MI33_SMI_SUB */
+				<0 0x10309000 0 0x1000>,  /* SEMI_MI32_SMI_SUB */
+				<0 0x1030a000 0 0x1000>,  /* SEMI_MI33_SMI_SUB */
 				<0 0x00118800 0 0x2000>;  /* SYSRAM_MFG_HISTORY */
 			reg-names =
 				"mfg_top_config",
@@ -8910,6 +8914,10 @@
 				"mfg_ips",
 				"emi_reg",
 				"sub_emi_reg",
+				"nemi_mi32_smi_sub",
+				"nemi_mi33_smi_sub",
+				"semi_mi32_smi_sub",
+				"semi_mi33_smi_sub",
 				"sysram_mfg_history";
 			vgpu-supply = <&mt6373_vbuck4>;
 			vstack-supply = <&mt6373_vbuck2>;
