@@ -1344,10 +1344,10 @@ void mtk_cam_req_dbg_works_clean(struct mtk_cam_request_stream_data *s_data)
 	if (state != MTK_CAM_REQ_DBGWORK_S_INIT &&
 	    state != MTK_CAM_REQ_DBGWORK_S_FINISHED) {
 		start = ktime_get_boottime_ns();
-		cancel_work_sync(&s_data->dbg_work.work);
+		flush_work(&s_data->dbg_work.work);
 		cost = ktime_get_boottime_ns() - start;
 		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d):%s:seq(%d): cancel dbg_work(%d), wait: %llu ns\n",
+			 "%s:ctx(%d):%s:seq(%d): flush dbg_work(%d), wait: %llu ns\n",
 			  __func__, ctx->stream_id, dbg_str,
 			 s_data->frame_seq_no, state, cost);
 		atomic_set(&s_data->dbg_work.state, MTK_CAM_REQ_DBGWORK_S_FINISHED);

@@ -3314,23 +3314,24 @@ static int mtk_raw_sd_subscribe_event(struct v4l2_subdev *subdev,
 				      struct v4l2_fh *fh,
 				      struct v4l2_event_subscription *sub)
 {
+#define EVENT_DEPTH 4
 	switch (sub->type) {
 	case V4L2_EVENT_FRAME_SYNC:
-		return v4l2_event_subscribe(fh, sub, 0, NULL);
+		return v4l2_event_subscribe(fh, sub, EVENT_DEPTH, NULL);
 	case V4L2_EVENT_REQUEST_DRAINED:
-		return v4l2_event_subscribe(fh, sub, 0, NULL);
+		return v4l2_event_subscribe(fh, sub, EVENT_DEPTH, NULL);
 	case V4L2_EVENT_EOS:
-		return v4l2_event_subscribe(fh, sub, 0, NULL);
+		return v4l2_event_subscribe(fh, sub, EVENT_DEPTH, NULL);
 	case V4L2_EVENT_REQUEST_DUMPED:
-		return v4l2_event_subscribe(fh, sub, 0, NULL);
+		return v4l2_event_subscribe(fh, sub, EVENT_DEPTH, NULL);
 	case V4L2_EVENT_ESD_RECOVERY:
-		return v4l2_event_subscribe(fh, sub, 0, NULL);
+		return v4l2_event_subscribe(fh, sub, EVENT_DEPTH, NULL);
 	case V4L2_EVENT_REQUEST_SENSOR_TRIGGER:
-		return v4l2_event_subscribe(fh, sub, 0, NULL);
+		return v4l2_event_subscribe(fh, sub, EVENT_DEPTH, NULL);
 	case V4L2_EVENT_ERROR:
-		return v4l2_event_subscribe(fh, sub, 0, NULL);
+		return v4l2_event_subscribe(fh, sub, EVENT_DEPTH, NULL);
 	case V4L2_EVENT_EXTISP_CAMSYS_READY:
-		return v4l2_event_subscribe(fh, sub, 0, NULL);
+		return v4l2_event_subscribe(fh, sub, EVENT_DEPTH, NULL);
 
 	default:
 		return -EINVAL;
