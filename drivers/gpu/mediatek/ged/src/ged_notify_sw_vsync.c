@@ -488,8 +488,10 @@ void ged_dvfs_gpu_clock_switch_notify(enum ged_gpu_power_state power_state)
 			ged_log_buf_print(ghLogBuf_DVFS,
 				"[GED_K] Timer Already Start");
 		} else {
+			mutex_lock(&gsPolicyLock);
 			hrtimer_start(&g_HT_hwvsync_emu,
-			ns_to_ktime(GED_DVFS_TIMER_TIMEOUT), HRTIMER_MODE_REL);
+				ns_to_ktime(GED_DVFS_TIMER_TIMEOUT), HRTIMER_MODE_REL);
+			mutex_unlock(&gsPolicyLock);
 			ged_log_buf_print(ghLogBuf_DVFS,
 				"[GED_K] HW Start Timer");
 			timer_switch(true);
