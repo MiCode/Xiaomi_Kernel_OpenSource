@@ -96,6 +96,7 @@ int mtk_camsv_translation_fault_callback(int port, dma_addr_t mva, void *data)
 {
 	int index;
 	struct mtk_camsv_device *sv_dev = (struct mtk_camsv_device *)data;
+	unsigned int first_tag, last_tag, group_info;
 
 	dev_info(sv_dev->dev, "tg_sen_mode:0x%x tg_vf_con:0x%x tg_path_cfg:0x%x",
 		readl_relaxed(sv_dev->base_inner + REG_CAMSVCENTRAL_SEN_MODE),
@@ -131,6 +132,16 @@ int mtk_camsv_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				REG_CAMSVDMATOP_WDMA_BASE_ADDR_MSB_IMG1 +
 				index * CAMSVDMATOP_WDMA_BASE_ADDR_MSB_IMG_SHIFT));
 	}
+
+	first_tag = readl_relaxed(sv_dev->base + REG_CAMSVCENTRAL_FIRST_TAG);
+	last_tag = readl_relaxed(sv_dev->base + REG_CAMSVCENTRAL_LAST_TAG);
+	for (index = 0; index < MAX_SV_HW_GROUPS; index++) {
+		group_info = readl_relaxed(sv_dev->base + REG_CAMSVCENTRAL_GROUP_TAG0 +
+			REG_CAMSVCENTRAL_GROUP_TAG_SHIFT * index);
+		dev_info(sv_dev->dev, "group%d: group_info:%x", index, group_info);
+	}
+	dev_info(sv_dev->dev, "first_tag:0x%x last_tag:0x%x",
+		first_tag, last_tag);
 	return 0;
 }
 #endif
@@ -990,7 +1001,11 @@ void sv_reset(struct mtk_camsv_device *dev)
 	for (i = SVTAG_START; i < SVTAG_END; i++) {
 		writel(0, dev->base + REG_CAMSVCENTRAL_GRAB_PXL_TAG1 +
 			CAMSVCENTRAL_GRAB_PXL_TAG_SHIFT * i);
+		writel(0, dev->base_inner + REG_CAMSVCENTRAL_GRAB_PXL_TAG1 +
+			CAMSVCENTRAL_GRAB_PXL_TAG_SHIFT * i);
 		writel(0, dev->base + REG_CAMSVCENTRAL_GRAB_LIN_TAG1 +
+			CAMSVCENTRAL_GRAB_LIN_TAG_SHIFT * i);
+		writel(0, dev->base_inner + REG_CAMSVCENTRAL_GRAB_LIN_TAG1 +
 			CAMSVCENTRAL_GRAB_LIN_TAG_SHIFT * i);
 	}
 	wmb();/* make sure committed */
@@ -1484,7 +1499,6 @@ int mtk_cam_sv_central_common_enable(struct mtk_camsv_device *dev)
 {
 	int ret = 0;
 
-	mtk_cam_sv_toggle_db(dev);
 	mtk_cam_sv_toggle_tg_db(dev);
 
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_SEN_MODE,

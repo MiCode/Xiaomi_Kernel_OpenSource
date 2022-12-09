@@ -7682,8 +7682,8 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 	int ret;
 	u32 mf_code;
 	struct mtk_cam_scen *scen;
-	unsigned int *used_tag_cnt;
-	unsigned int *enabled_sv_tags;
+	unsigned int used_tag_cnt;
+	unsigned int enabled_sv_tags;
 	struct mtk_camsv_tag_info *arr_tag;
 
 	req = mtk_cam_s_data_get_req(s_data);
@@ -7752,17 +7752,15 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 		return -EINVAL;
 	}
 	if (req->ctx_link_update & 1 << ctx->stream_id) {
-		used_tag_cnt = &s_raw_pipe_data->used_tag_cnt;
-		enabled_sv_tags = &s_raw_pipe_data->enabled_sv_tags;
 		arr_tag = s_raw_pipe_data->tag_info;
+		used_tag_cnt = 0;
+		enabled_sv_tags = 0;
+		mtk_cam_sv_reset_tag_info(arr_tag);
 	} else {
-		used_tag_cnt = &ctx->sv_dev->used_tag_cnt;
-		enabled_sv_tags = &ctx->sv_dev->enabled_tags;
 		arr_tag = ctx->sv_dev->tag_info;
+		used_tag_cnt = 0;
+		enabled_sv_tags = 0;
 	}
-	*used_tag_cnt = 0;
-	*enabled_sv_tags = 0;
-	mtk_cam_sv_reset_tag_info(arr_tag);
 
 	if (config_pipe && mtk_cam_scen_is_sensor_stagger(scen)) {
 		int hw_scen, exp_no, req_amount, idle_tags;
@@ -7804,7 +7802,7 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 		}
 
 		idle_tags = mtk_cam_get_sv_idle_tags(ctx,
-			*enabled_sv_tags,
+			enabled_sv_tags,
 			hw_scen, exp_no, req_amount, true, is_rgbw);
 		if (idle_tags == 0) {
 #if PURE_RAW_WITH_SV_VHDR
@@ -7818,8 +7816,8 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 
 		mtk_cam_sv_hdr_tag_update(ctx, arr_tag, idle_tags,
 			hw_scen, exp_no, cfg_in_param->subsample, mf, img_fmt);
-		*used_tag_cnt += req_amount;
-		*enabled_sv_tags |= idle_tags;
+		used_tag_cnt += req_amount;
+		enabled_sv_tags |= idle_tags;
 	} else if (config_pipe && mtk_cam_hw_is_dc(ctx)) {
 		int hw_scen, exp_no, req_amount, idle_tags;
 		bool is_rgbw;
@@ -7830,7 +7828,7 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 		is_rgbw = mtk_cam_scen_is_rgbw_enabled(scen);
 
 		idle_tags = mtk_cam_get_sv_idle_tags(ctx,
-			*enabled_sv_tags,
+			enabled_sv_tags,
 			hw_scen, exp_no, req_amount, true, is_rgbw);
 		if (idle_tags == 0) {
 			dev_info(cam->dev, "no available sv tags(scen:%d/req_amount:%d)",
@@ -7841,8 +7839,8 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 
 		mtk_cam_sv_hdr_tag_update(ctx, arr_tag, idle_tags,
 			hw_scen, exp_no, cfg_in_param->subsample, mf, img_fmt);
-		*used_tag_cnt += req_amount;
-		*enabled_sv_tags |= idle_tags;
+		used_tag_cnt += req_amount;
+		enabled_sv_tags |= idle_tags;
 	} else if (config_pipe && !mtk_cam_scen_is_mstream(scen) &&
 		!mtk_cam_scen_is_mstream_m2m(scen) && !mtk_cam_scen_is_subsample(scen) &&
 		!mtk_cam_is_hsf(ctx)) {
@@ -7855,7 +7853,7 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 		exp_no = 1;
 		req_amount = 1;
 		idle_tags = mtk_cam_get_sv_idle_tags(ctx,
-			*enabled_sv_tags,
+			enabled_sv_tags,
 			hw_scen, exp_no, req_amount, true, false);
 		if (idle_tags == 0) {
 			dev_info(cam->dev, "no available sv tags(scen:%d/req_amount:%d)",
@@ -7870,8 +7868,8 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 		mtk_cam_call_sv_pipeline_config(ctx, arr_tag, SVTAG_2,
 			seninf_padidx, hw_scen, tag_order, 3,
 			cfg_in_param->subsample, NULL, mf, img_fmt);
-		*used_tag_cnt += req_amount;
-		*enabled_sv_tags |= idle_tags;
+		used_tag_cnt += req_amount;
+		enabled_sv_tags |= idle_tags;
 #endif
 	}
 
@@ -7881,7 +7879,7 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 		unsigned int sv_cammux_id;
 
 		idle_tags = mtk_cam_get_sv_idle_tags(ctx,
-			*enabled_sv_tags, 0, 1, 1, true, false);
+			enabled_sv_tags, 0, 1, 1, true, false);
 		if (idle_tags == 0) {
 			dev_info(cam->dev, "no available sv tags for meta use");
 			return -EINVAL;
@@ -7912,13 +7910,21 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 				3, cfg_in_param->subsample,
 				ctx->sv_pipe[i], mf, img_fmt);
 
-		*enabled_sv_tags |= (1 << tag_idx);
-		*used_tag_cnt += 1;
+		enabled_sv_tags |= (1 << tag_idx);
+		used_tag_cnt += 1;
+	}
+
+	if (req->ctx_link_update & 1 << ctx->stream_id) {
+		s_raw_pipe_data->used_tag_cnt = used_tag_cnt;
+		s_raw_pipe_data->enabled_sv_tags = enabled_sv_tags;
+	} else {
+		ctx->sv_dev->used_tag_cnt = used_tag_cnt;
+		ctx->sv_dev->enabled_tags = enabled_sv_tags;
 	}
 
 	/* camsv's config param update */
 	for (i = SVTAG_START; i < SVTAG_END; i++) {
-		if (*enabled_sv_tags & (1 << i)) {
+		if (enabled_sv_tags & (1 << i)) {
 			/* camsv todo: ais */
 			config_param.sv_input[0][i].pipe_id =
 				ctx->sv_dev->id + MTKCAM_SUBDEV_CAMSV_START;
