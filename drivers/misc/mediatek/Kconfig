@@ -117,15 +117,6 @@ config MTK_VM_DEBUG
 	  Say Y here if you need debug kernel memory management.
 	  If unsure, say N
 
-config MTK_DEBUG_STACK_CORRUPTION
-	bool "MTK_DEBUG_STACK_CORRUPTION"
-	def_bool n
-	help
-	   This is temporary config used for mtk userdebug and eng load.
-	   ALPS07692406 stack corruption issue.
-	   Say Y here if you need debug stack corruption issue.
-	   If unsure, say N
-
 source "drivers/misc/mediatek/blocktag/Kconfig"
 source "drivers/misc/mediatek/mtprof/Kconfig"
 source "drivers/misc/mediatek/locking/Kconfig"

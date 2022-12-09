@@ -31,8 +31,6 @@ c CONFIG_USB_NET_AX88179_178A
 c CONFIG_USB_NET_AX8817X
 c CONFIG_USB_PD_VBUS_STABLE_TOUT
 c CONFIG_ZRAM_WRITEBACK
-f arch/arm64/include/asm/exception.h
-f arch/arm64/kernel/entry-common.c
 f arch/arm64/kernel/traps.c
 f arch/arm64/mm/flush.c
 f arch/arm64/mm/pageattr.c
@@ -90,7 +88,6 @@ f kernel/trace/trace_events.c
 f kernel/workqueue.c
 f lib/dynamic_debug.c
 f mm/backing-dev.c
-f mm/page_alloc.c
 f mm/page-writeback.c
 f mm/memory.c
 f mm/mempool.c

@@ -405,21 +405,6 @@ asmlinkage void noinstr el1h_64_sync_handler(struct pt_regs *regs)
 {
 	unsigned long esr = read_sysreg(esr_el1);
 
-#if IS_ENABLED(CONFIG_MTK_DEBUG_STACK_CORRUPTION)
-	if (rmqueue_bulk_start > 0 && (regs->regs[30] > rmqueue_bulk_start &&
-		  regs->regs[30] < rmqueue_bulk_end)) {
-		asm volatile(
-		"mrs	x0, pmcr_el0\n\t"
-		"orr	x0, x0, #0x100\n\t"
-		"msr	pmcr_el0, x0\n\t"
-		:
-		:
-		:
-		);
-		dsb(sy);
-		asm volatile("b .");
-	}
-#endif
 	switch (ESR_ELx_EC(esr)) {
 	case ESR_ELx_EC_DABT_CUR:
 	case ESR_ELx_EC_IABT_CUR:

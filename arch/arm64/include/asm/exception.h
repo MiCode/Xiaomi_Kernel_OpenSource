@@ -19,11 +19,6 @@
 #define __exception_irq_entry	__kprobes
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_DEBUG_STACK_CORRUPTION)
-extern unsigned long rmqueue_bulk_start;
-extern unsigned long rmqueue_bulk_end;
-#endif
-
 static inline u32 disr_to_esr(u64 disr)
 {
 	unsigned int esr = ESR_ELx_EC_SERROR << ESR_ELx_EC_SHIFT;
