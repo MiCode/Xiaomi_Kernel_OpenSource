@@ -9424,7 +9424,8 @@
 				<&level_ufshci>,
 				<&level_usb_host>,
 				<&level_apusys_rv_mbox0 &level_apusys_rv_mbox1>,
-				<&level_vcpsys_rv_mbox0>;
+				<&level_vcpsys_rv_mbox0>,
+				<&level_disp_ccorr0_0>;
 		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
 		constraints = <&rc_bus26m &rc_syspll &rc_vcore>;
@@ -9481,6 +9482,10 @@
 			level_vcpsys_rv_mbox0: level-vcpsys-rv-mbox0 {
 				target = <&vcp>;
 				value = <0 2 0 0>;
+			};
+			level_disp_ccorr0_0: level-disp-ccorr0-0 {
+				target = <&disp_ccorr0_0>;
+				value = <0 0 0 0>;
 			};
 		};
 		resource-ctrl-list {
