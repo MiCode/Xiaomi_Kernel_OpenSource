@@ -12774,22 +12774,22 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		if (crtc->state->color_mgmt_changed)
 			mtk_ddp_gamma_set(comp, crtc->state, cmdq_handle);
 		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+				COMP_ODDMR_CFG, &mtk_crtc->sec_on);
+		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 				PMQOS_UPDATE_BW, NULL);
 		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 				FRAME_DIRTY, NULL);
-		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
-				COMP_SEC_CFG, &mtk_crtc->sec_on);
 	}
 	if (mtk_crtc->is_dual_pipe) {
 		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
 			if (crtc->state->color_mgmt_changed)
 				mtk_ddp_gamma_set(comp, crtc->state, cmdq_handle);
 			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+					COMP_ODDMR_CFG, &mtk_crtc->sec_on);
+			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 					PMQOS_UPDATE_BW, NULL);
 			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 					FRAME_DIRTY, NULL);
-			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
-					COMP_SEC_CFG, &mtk_crtc->sec_on);
 		}
 	}
 
