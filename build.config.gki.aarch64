@@ -28,6 +28,7 @@ android/abi_gki_aarch64_mtk
 android/abi_gki_aarch64_qcom
 android/abi_gki_aarch64_rtktv
 android/abi_gki_aarch64_sony
+android/abi_gki_aarch64_tuxera
 android/abi_gki_aarch64_unisoc
 android/abi_gki_aarch64_vivo
 android/abi_gki_aarch64_xiaomi
