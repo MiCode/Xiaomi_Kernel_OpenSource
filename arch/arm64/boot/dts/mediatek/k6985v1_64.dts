@@ -11,10 +11,8 @@
 
 &chosen {
 bootargs_ext = "console=tty0 root=/dev/ram vmalloc=400M \
-loglevel=8 \
 androidboot.hardware=mt6985 \
-8250.nr_uarts=4 \
-initcall_debug=1";
+8250.nr_uarts=4";
 };
 
 &mtk_leds {
