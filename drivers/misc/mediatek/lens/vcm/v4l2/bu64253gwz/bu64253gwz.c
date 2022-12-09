@@ -50,6 +50,9 @@ struct bu64253gwz_device {
 	struct pinctrl_state *vcamaf_off;
 };
 
+#define VCM_IOC_POWER_ON         _IO('V', BASE_VIDIOC_PRIVATE + 3)
+#define VCM_IOC_POWER_OFF        _IO('V', BASE_VIDIOC_PRIVATE + 4)
+
 static inline struct bu64253gwz_device *to_bu64253gwz_vcm(struct v4l2_ctrl *ctrl)
 {
 	return container_of(ctrl->handler, struct bu64253gwz_device, ctrls);
@@ -276,12 +279,47 @@ static int bu64253gwz_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	return 0;
 }
 
+static long bu64253gwz_ops_core_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
+{
+	int ret = 0;
+
+	LOG_INF("+\n");
+
+	switch (cmd) {
+
+	case VCM_IOC_POWER_ON:
+	{
+		// customized area
+		LOG_INF("active mode\n");
+	}
+	break;
+	case VCM_IOC_POWER_OFF:
+	{
+		// customized area
+		LOG_INF("stand by mode\n");
+	}
+	break;
+	default:
+		ret = -ENOIOCTLCMD;
+		break;
+	}
+
+	LOG_INF("-\n");
+	return ret;
+}
+
 static const struct v4l2_subdev_internal_ops bu64253gwz_int_ops = {
 	.open = bu64253gwz_open,
 	.close = bu64253gwz_close,
 };
 
-static const struct v4l2_subdev_ops bu64253gwz_ops = { };
+static struct v4l2_subdev_core_ops bu64253gwz_ops_core = {
+	.ioctl = bu64253gwz_ops_core_ioctl,
+};
+
+static const struct v4l2_subdev_ops bu64253gwz_ops = {
+	.core = &bu64253gwz_ops_core,
+};
 
 static void bu64253gwz_subdev_cleanup(struct bu64253gwz_device *bu64253gwz)
 {

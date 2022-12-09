@@ -50,6 +50,9 @@ struct dw9800w_device {
 	struct pinctrl_state *vcamaf_off;
 };
 
+#define VCM_IOC_POWER_ON         _IO('V', BASE_VIDIOC_PRIVATE + 3)
+#define VCM_IOC_POWER_OFF        _IO('V', BASE_VIDIOC_PRIVATE + 4)
+
 static inline struct dw9800w_device *to_dw9800w_vcm(struct v4l2_ctrl *ctrl)
 {
 	return container_of(ctrl->handler, struct dw9800w_device, ctrls);
@@ -270,12 +273,47 @@ static int dw9800w_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	return 0;
 }
 
+static long dw9800w_ops_core_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
+{
+	int ret = 0;
+
+	LOG_INF("+\n");
+
+	switch (cmd) {
+
+	case VCM_IOC_POWER_ON:
+	{
+		// customized area
+		LOG_INF("active mode\n");
+	}
+	break;
+	case VCM_IOC_POWER_OFF:
+	{
+		// customized area
+		LOG_INF("stand by mode\n");
+	}
+	break;
+	default:
+		ret = -ENOIOCTLCMD;
+		break;
+	}
+
+	LOG_INF("-\n");
+	return ret;
+}
+
 static const struct v4l2_subdev_internal_ops dw9800w_int_ops = {
 	.open = dw9800w_open,
 	.close = dw9800w_close,
 };
 
-static const struct v4l2_subdev_ops dw9800w_ops = { };
+static struct v4l2_subdev_core_ops dw9800w_ops_core = {
+	.ioctl = dw9800w_ops_core_ioctl,
+};
+
+static const struct v4l2_subdev_ops dw9800w_ops = {
+	.core = &dw9800w_ops_core,
+};
 
 static void dw9800w_subdev_cleanup(struct dw9800w_device *dw9800w)
 {

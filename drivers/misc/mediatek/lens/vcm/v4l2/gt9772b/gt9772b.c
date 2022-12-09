@@ -50,6 +50,9 @@ struct gt9772b_device {
 	struct pinctrl_state *vcamaf_off;
 };
 
+#define VCM_IOC_POWER_ON         _IO('V', BASE_VIDIOC_PRIVATE + 3)
+#define VCM_IOC_POWER_OFF        _IO('V', BASE_VIDIOC_PRIVATE + 4)
+
 static inline struct gt9772b_device *to_gt9772b_vcm(struct v4l2_ctrl *ctrl)
 {
 	return container_of(ctrl->handler, struct gt9772b_device, ctrls);
@@ -251,12 +254,47 @@ static int gt9772b_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	return 0;
 }
 
+static long gt9772b_ops_core_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
+{
+	int ret = 0;
+
+	LOG_INF("+\n");
+
+	switch (cmd) {
+
+	case VCM_IOC_POWER_ON:
+	{
+		// customized area
+		LOG_INF("active mode\n");
+	}
+	break;
+	case VCM_IOC_POWER_OFF:
+	{
+		// customized area
+		LOG_INF("stand by mode\n");
+	}
+	break;
+	default:
+		ret = -ENOIOCTLCMD;
+		break;
+	}
+
+	LOG_INF("-\n");
+	return ret;
+}
+
 static const struct v4l2_subdev_internal_ops gt9772b_int_ops = {
 	.open = gt9772b_open,
 	.close = gt9772b_close,
 };
 
-static const struct v4l2_subdev_ops gt9772b_ops = { };
+static struct v4l2_subdev_core_ops gt9772b_ops_core = {
+	.ioctl = gt9772b_ops_core_ioctl,
+};
+
+static const struct v4l2_subdev_ops gt9772b_ops = {
+	.core = &gt9772b_ops_core,
+};
 
 static void gt9772b_subdev_cleanup(struct gt9772b_device *gt9772b)
 {

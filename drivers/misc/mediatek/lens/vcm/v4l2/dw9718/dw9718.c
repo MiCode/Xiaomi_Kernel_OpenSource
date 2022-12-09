@@ -47,6 +47,9 @@ struct dw9718_device {
 	struct pinctrl_state *vcamaf_off;
 };
 
+#define VCM_IOC_POWER_ON         _IO('V', BASE_VIDIOC_PRIVATE + 3)
+#define VCM_IOC_POWER_OFF        _IO('V', BASE_VIDIOC_PRIVATE + 4)
+
 static inline struct dw9718_device *to_dw9718_vcm(struct v4l2_ctrl *ctrl)
 {
 	return container_of(ctrl->handler, struct dw9718_device, ctrls);
@@ -295,12 +298,47 @@ static int dw9718_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	return 0;
 }
 
+static long dw9718_ops_core_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
+{
+	int ret = 0;
+
+	pr_info("+\n");
+
+	switch (cmd) {
+
+	case VCM_IOC_POWER_ON:
+	{
+		// customized area
+		pr_info("active mode\n");
+	}
+	break;
+	case VCM_IOC_POWER_OFF:
+	{
+		// customized area
+		pr_info("stand by mode\n");
+	}
+	break;
+	default:
+		ret = -ENOIOCTLCMD;
+		break;
+	}
+
+	pr_info("-\n");
+	return ret;
+}
+
 static const struct v4l2_subdev_internal_ops dw9718_int_ops = {
 	.open = dw9718_open,
 	.close = dw9718_close,
 };
 
-static const struct v4l2_subdev_ops dw9718_ops = { };
+static struct v4l2_subdev_core_ops dw9718_ops_core = {
+	.ioctl = dw9718_ops_core_ioctl,
+};
+
+static const struct v4l2_subdev_ops dw9718_ops = {
+	.core = &dw9718_ops_core,
+};
 
 static void dw9718_subdev_cleanup(struct dw9718_device *dw9718)
 {
