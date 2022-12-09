@@ -8949,8 +8949,11 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	}
 
 	if (mtk_cam_ctx_has_raw(ctx)) {
+		struct mtk_camsys_dvfs *dvfs = &cam->camsys_ctrl.dvfs_info;
+
 		mutex_lock(&cam->dvfs_op_lock);
 		memset(&ctx->dvfs_tbl, 0, sizeof(ctx->dvfs_tbl.opp_cnt));
+		atomic_set(&dvfs->fixed_clklv, 0);
 		mtk_cam_dvfs_update_clk(cam, false);
 		mutex_unlock(&cam->dvfs_op_lock);
 	}
