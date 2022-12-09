@@ -131,6 +131,17 @@ struct mtk_disp_color {
 	const struct mtk_disp_color_data *data;
 };
 
+struct mtk_disp_color_tile_overhead {
+	unsigned int left_in_width;
+	unsigned int left_overhead;
+	unsigned int left_comp_overhead;
+	unsigned int right_in_width;
+	unsigned int right_overhead;
+	unsigned int right_comp_overhead;
+};
+
+struct mtk_disp_color_tile_overhead color_tile_overhead = { 0 };
+
 /* global PQ param for kernel space */
 static struct DISP_PQ_PARAM g_Color_Param[2] = {
 	{
@@ -2103,24 +2114,57 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 		}
 	}
 }
+
+static void mtk_disp_color_config_overhead(struct mtk_ddp_comp *comp,
+	struct mtk_ddp_config *cfg)
+{
+	DDPINFO("line: %d\n", __LINE__);
+
+	if (cfg->tile_overhead.is_support) {
+		if (comp->id == DDP_COMPONENT_COLOR0) {
+			color_tile_overhead.left_comp_overhead = 0;
+			/*add component overhead on total overhead*/
+			cfg->tile_overhead.left_overhead += color_tile_overhead.left_comp_overhead;
+			cfg->tile_overhead.left_in_width += color_tile_overhead.left_comp_overhead;
+			/*copy from total overhead info*/
+			color_tile_overhead.left_in_width = cfg->tile_overhead.left_in_width;
+			color_tile_overhead.left_overhead = cfg->tile_overhead.left_overhead;
+		} else {
+			/*set component overhead*/
+			color_tile_overhead.right_comp_overhead = 0;
+			/*add component overhead on total overhead*/
+			cfg->tile_overhead.right_overhead +=
+				color_tile_overhead.right_comp_overhead;
+			cfg->tile_overhead.right_in_width +=
+				color_tile_overhead.right_comp_overhead;
+			/*copy from total overhead info*/
+			color_tile_overhead.right_in_width = cfg->tile_overhead.right_in_width;
+			color_tile_overhead.right_overhead = cfg->tile_overhead.right_overhead;
+		}
+	}
+}
+
 static void mtk_color_config(struct mtk_ddp_comp *comp,
 			     struct mtk_ddp_config *cfg,
 			     struct cmdq_pkt *handle)
 {
 	struct mtk_disp_color *color = comp_to_color(comp);
 
-	//if (!cfg->dst_dirty)
-	//	return 0;
-
 	int id = index_of_color(comp->id);
 	unsigned int width;
 
+	if (comp->mtk_crtc->is_dual_pipe && cfg->tile_overhead.is_support)
+		width = color_tile_overhead.left_in_width;
+	else {
+		if (comp->mtk_crtc->is_dual_pipe)
+			width = cfg->w / 2;
+		else
+			width = cfg->w;
+	}
+
 	if (comp->mtk_crtc->is_dual_pipe) {
-		width = cfg->w / 2;
 		g_width = width;
 	}
-	else
-		width = cfg->w;
 
 	if (comp->mtk_crtc->is_dual_pipe)
 		g_color_dst_w[id] = cfg->w / 2;
@@ -3563,6 +3607,7 @@ static const struct mtk_ddp_comp_funcs mtk_disp_color_funcs = {
 	.user_cmd = mtk_color_user_cmd,
 	.prepare = mtk_color_prepare,
 	.unprepare = mtk_color_unprepare,
+	.config_overhead = mtk_disp_color_config_overhead,
 };
 
 void mtk_color_dump(struct mtk_ddp_comp *comp)

@@ -1217,7 +1217,7 @@ static int mtk_dsi_get_virtual_heigh(struct mtk_dsi *dsi,
 	unsigned int virtual_heigh = adjusted_mode.vdisplay;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-	if (!mtk_crtc->res_switch) {
+	if (mtk_crtc->res_switch == RES_SWITCH_NO_USE) {
 		panel_ext = dsi->ext;
 		if (panel_ext && panel_ext->funcs
 				&& panel_ext->funcs->get_virtual_heigh)
@@ -1240,7 +1240,7 @@ static int mtk_dsi_get_virtual_width(struct mtk_dsi *dsi,
 	unsigned int virtual_width = adjusted_mode.hdisplay;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-	if (!mtk_crtc->res_switch) {
+	if (mtk_crtc->res_switch == RES_SWITCH_NO_USE) {
 		panel_ext = dsi->ext;
 		if (panel_ext && panel_ext->funcs
 				&& panel_ext->funcs->get_virtual_width)
@@ -1317,15 +1317,25 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 	struct mtk_panel_dsc_params *dsc_params = &ext->params->dsc_params;
 	struct mtk_panel_spr_params *spr_params = &ext->params->spr_params;
 	u32 dsi_buf_bpp = mtk_get_dsi_buf_bpp(dsi);
+	struct mtk_drm_crtc *mtk_crtc =	dsi->is_slave ?
+			dsi->master_dsi->ddp_comp.mtk_crtc : dsi->ddp_comp.mtk_crtc;
+	struct mtk_ddp_comp *comp = dsi->is_slave ?
+			(&dsi->master_dsi->ddp_comp) : (&dsi->ddp_comp);
 
-	if (!dsi->is_slave) {
-		width = mtk_dsi_get_virtual_width(dsi, dsi->encoder.crtc);
-		height = mtk_dsi_get_virtual_heigh(dsi, dsi->encoder.crtc);
+	/* scaling path */
+	if (mtk_crtc->scaling_ctx.scaling_en) {
+		width = mtk_crtc_get_width_by_comp(__func__, &mtk_crtc->base, comp, false);
+		height = mtk_crtc_get_height_by_comp(__func__, &mtk_crtc->base, comp, false);
 	} else {
-		width = mtk_dsi_get_virtual_width(dsi,
-				dsi->master_dsi->encoder.crtc);
-		height = mtk_dsi_get_virtual_heigh(dsi,
-				dsi->master_dsi->encoder.crtc);
+		if (!dsi->is_slave) {
+			width = mtk_dsi_get_virtual_width(dsi, dsi->encoder.crtc);
+			height = mtk_dsi_get_virtual_heigh(dsi, dsi->encoder.crtc);
+		} else {
+			width = mtk_dsi_get_virtual_width(dsi,
+					dsi->master_dsi->encoder.crtc);
+			height = mtk_dsi_get_virtual_heigh(dsi,
+					dsi->master_dsi->encoder.crtc);
+		}
 	}
 
 	if (dsi->is_slave || dsi->slave_dsi)
@@ -1442,15 +1452,23 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 	struct mtk_drm_crtc *mtk_crtc =	dsi->is_slave ?
 			dsi->master_dsi->ddp_comp.mtk_crtc : dsi->ddp_comp.mtk_crtc;
 	u32 dsi_buf_bpp = mtk_get_dsi_buf_bpp(dsi);
+		struct mtk_ddp_comp *comp = dsi->is_slave ?
+			(&dsi->master_dsi->ddp_comp) : (&dsi->ddp_comp);
 
-	if (!dsi->is_slave) {
-		width = mtk_dsi_get_virtual_width(dsi, dsi->encoder.crtc);
-		height = mtk_dsi_get_virtual_heigh(dsi, dsi->encoder.crtc);
+	/* scaling path */
+	if (mtk_crtc->scaling_ctx.scaling_en) {
+		width = mtk_crtc_get_width_by_comp(__func__, &mtk_crtc->base, comp, false);
+		height = mtk_crtc_get_height_by_comp(__func__, &mtk_crtc->base, comp, false);
 	} else {
-		width = mtk_dsi_get_virtual_width(dsi,
-				dsi->master_dsi->encoder.crtc);
-		height = mtk_dsi_get_virtual_heigh(dsi,
-				dsi->master_dsi->encoder.crtc);
+		if (!dsi->is_slave) {
+			width = mtk_dsi_get_virtual_width(dsi, dsi->encoder.crtc);
+			height = mtk_dsi_get_virtual_heigh(dsi, dsi->encoder.crtc);
+		} else {
+			width = mtk_dsi_get_virtual_width(dsi,
+					dsi->master_dsi->encoder.crtc);
+			height = mtk_dsi_get_virtual_heigh(dsi,
+					dsi->master_dsi->encoder.crtc);
+		}
 	}
 
 	if (dsc_params->enable)
@@ -2560,7 +2578,8 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 		mode_chg_index = mtk_crtc->mode_change_index;
 
 		/* add for ESD recovery */
-		if (!mtk_crtc->res_switch && (mode_id != 0)
+		if ((mtk_crtc->res_switch == RES_SWITCH_NO_USE)
+			&& (mode_id != 0)
 			&& (mtk_dsi_is_cmd_mode(&dsi->ddp_comp) ||
 				mode_chg_index & MODE_DSI_HFP)) {
 			if (dsi->ext && dsi->ext->funcs &&
@@ -2812,6 +2831,15 @@ static bool mtk_dsi_encoder_mode_fixup(struct drm_encoder *encoder,
 static void mtk_dsi_mode_set(struct mtk_dsi *dsi,
 			     struct drm_display_mode *adjusted)
 {
+	struct mtk_drm_crtc *mtk_crtc =	dsi->is_slave ?
+			dsi->master_dsi->ddp_comp.mtk_crtc : dsi->ddp_comp.mtk_crtc;
+	struct mtk_ddp_comp *comp = dsi->is_slave ?
+			(&dsi->master_dsi->ddp_comp) : (&dsi->ddp_comp);
+
+	if (mtk_crtc->scaling_ctx.scaling_en)
+		adjusted = mtk_crtc_get_display_mode_by_comp(__func__,
+						&mtk_crtc->base, comp, false);
+
 	dsi->vm.pixelclock = adjusted->clock;
 	dsi->vm.hactive = adjusted->hdisplay;
 	dsi->vm.hback_porch = adjusted->htotal - adjusted->hsync_end;
@@ -3003,6 +3031,7 @@ static void mtk_drm_set_connector_caps(struct drm_connector *conn)
 		DDPPR_ERR("create_blob error\n");
 
 	mtk_connector_property[CONNECTOR_PROP_CAPS_BLOB_ID].val = blob_id;
+	dsi->connector_caps_blob_id = blob_id;
 }
 
 
@@ -3596,8 +3625,7 @@ unsigned int mtk_dsi_mode_change_index(struct mtk_dsi *dsi,
 	if (cur_panel_params && adjust_panel_params &&
 		!(dsi->mipi_hopping_sta && (cur_panel_params->dyn.switch_en ||
 		adjust_panel_params->dyn.switch_en))) {
-		if (mtk_drm_helper_get_opt(priv->helper_opt,
-				MTK_DRM_OPT_RES_SWITCH)
+		if ((mtk_crtc->res_switch != RES_SWITCH_NO_USE)
 			&& mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
 			if (!drm_mode_equal_res(adjust_mode, old_mode))
 				mode_chg_index |= MODE_DSI_RES;
@@ -3623,8 +3651,7 @@ unsigned int mtk_dsi_mode_change_index(struct mtk_dsi *dsi,
 		//else if (adjust_mode->clock != old_mode->clock)
 			//mode_chg_index |= MODE_DSI_CLK;
 	} else if (cur_panel_params && adjust_panel_params) {
-		if (mtk_drm_helper_get_opt(priv->helper_opt,
-				 MTK_DRM_OPT_RES_SWITCH)
+		if ((mtk_crtc->res_switch != RES_SWITCH_NO_USE)
 			&& mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
 			if (!drm_mode_equal_res(adjust_mode, old_mode))
 				mode_chg_index |= MODE_DSI_RES;
@@ -6586,12 +6613,19 @@ unsigned int mtk_dsi_get_ps_wc(struct mtk_drm_crtc *mtk_crtc,
 	u32 dsi_buf_bpp = mtk_get_dsi_buf_bpp(dsi);
 	struct mtk_panel_dsc_params *dsc_params = &dsi->ext->params->dsc_params;
 	u32 width;
+	struct mtk_ddp_comp *comp = dsi->is_slave ?
+		(&dsi->master_dsi->ddp_comp) : (&dsi->ddp_comp);
 
-	if (!dsi->is_slave) {
-		width = mtk_dsi_get_virtual_width(dsi, dsi->encoder.crtc);
+	/* scaling path */
+	if (mtk_crtc->scaling_ctx.scaling_en) {
+		width = mtk_crtc_get_height_by_comp(__func__, &mtk_crtc->base, comp, false);
 	} else {
-		width = mtk_dsi_get_virtual_width(dsi,
-				dsi->master_dsi->encoder.crtc);
+		if (!dsi->is_slave) {
+			width = mtk_dsi_get_virtual_width(dsi, dsi->encoder.crtc);
+		} else {
+			width = mtk_dsi_get_virtual_width(dsi,
+					dsi->master_dsi->encoder.crtc);
+		}
 	}
 
 	if (dsi->is_slave || dsi->slave_dsi)
@@ -6725,12 +6759,21 @@ void mtk_dsi_set_mmclk_by_datarate_V1(struct mtk_dsi *dsi,
 	unsigned int pixclk = 0;
 	u32 bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
 	unsigned int pixclk_min = 0;
-	unsigned int hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
-	unsigned int htotal = mtk_crtc->base.state->adjusted_mode.htotal;
-	unsigned int vtotal = mtk_crtc->base.state->adjusted_mode.vtotal;
-	unsigned int vact = mtk_crtc->base.state->adjusted_mode.vdisplay;
-	unsigned int vrefresh =
-		drm_mode_vrefresh(&mtk_crtc->base.state->adjusted_mode);
+	unsigned int hact = 0;
+	unsigned int htotal = 0;
+	unsigned int vtotal = 0;
+	unsigned int vact = 0;
+	unsigned int vrefresh = 0;
+	struct drm_display_mode *mode;
+	struct mtk_ddp_comp *comp = dsi->is_slave ?
+		(&dsi->master_dsi->ddp_comp) : (&dsi->ddp_comp);
+
+	mode = mtk_crtc_get_display_mode_by_comp(__func__, &mtk_crtc->base, comp, false);
+	hact = mode->hdisplay;
+	htotal = mode->htotal;
+	vtotal = mode->vtotal;
+	vact = mode->vdisplay;
+	vrefresh = drm_mode_vrefresh(mode);
 
 	if (!en) {
 		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk,
@@ -6816,16 +6859,30 @@ void mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
 	unsigned int pixclk = 0;
 	u32 bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
 	unsigned int pixclk_min = 0;
-	unsigned int hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
-	unsigned int htotal = mtk_crtc->base.state->adjusted_mode.htotal;
-	unsigned int vtotal = mtk_crtc->base.state->adjusted_mode.vtotal;
-	unsigned int vact = mtk_crtc->base.state->adjusted_mode.vdisplay;
-	unsigned int vrefresh =
-		drm_mode_vrefresh(&mtk_crtc->base.state->adjusted_mode);
+	unsigned int hact = 0;
+	unsigned int htotal = 0;
+	unsigned int vtotal = 0;
+	unsigned int vact = 0;
+	unsigned int vrefresh = 0;
 	unsigned int image_time;
 	unsigned int line_time;
 	unsigned int null_packet_len =
 		dsi->ext->params->cmd_null_pkt_len;
+	struct drm_display_mode *mode;
+	struct mtk_ddp_comp *comp = dsi->is_slave ?
+		(&dsi->master_dsi->ddp_comp) : (&dsi->ddp_comp);
+	struct total_tile_overhead to_info;
+
+	to_info = mtk_crtc_get_total_overhead(mtk_crtc);
+	DDPINFO("%s:overhead is_support:%d, width L:%d R:%d\n", __func__,
+			to_info.is_support, to_info.left_in_width, to_info.right_in_width);
+
+	mode = mtk_crtc_get_display_mode_by_comp(__func__, &mtk_crtc->base, comp, false);
+	hact = mode->hdisplay;
+	htotal = mode->htotal;
+	vtotal = mode->vtotal;
+	vact = mode->vdisplay;
+	vrefresh = drm_mode_vrefresh(mode);
 
 	if (!en) {
 		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk,
@@ -6886,6 +6943,17 @@ void mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
 			if (mtk_crtc->is_dual_pipe)
 				pixclk /= 2;
 			pixclk = pixclk * bubble_rate / 100;
+		}
+
+		if (to_info.is_support) {
+			if (mtk_crtc->scaling_ctx.scaling_en) {
+				pixclk *= (mode->hdisplay + to_info.left_overhead_scaling +
+					to_info.right_overhead_scaling) * 1000 / mode->hdisplay;
+			} else {
+				pixclk *= (mode->hdisplay + to_info.left_overhead +
+					to_info.right_overhead) * 1000 / mode->hdisplay;
+			}
+			pixclk /= 1000;
 		}
 
 		DDPMSG("%s, data_rate=%d, mmclk=%u pixclk_min=%d, dual=%u\n", __func__,
@@ -7041,6 +7109,17 @@ void mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
 			pixclk = pixclk * image_time / line_time;
 		}
 
+		if (to_info.is_support) {
+			if (mtk_crtc->scaling_ctx.scaling_en) {
+				pixclk *= (mode->hdisplay + to_info.left_overhead_scaling +
+					to_info.right_overhead_scaling) * 1000 / mode->hdisplay;
+			} else {
+				pixclk *= (mode->hdisplay + to_info.left_overhead +
+					to_info.right_overhead) * 1000 / mode->hdisplay;
+			}
+			pixclk /= 1000;
+		}
+
 		DDPMSG("%s, data_rate=%d, mmclk=%u pixclk_min=%d, dual=%u\n", __func__,
 				data_rate, pixclk, pixclk_min, mtk_crtc->is_dual_pipe);
 		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
@@ -7057,7 +7136,7 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 		struct mtk_drm_crtc *mtk_crtc,
 		struct mtk_dsi *dsi)
 {
-	static unsigned long long bw_base;
+	unsigned long long bw_base;
 	int hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
 	int vtotal = mtk_crtc->base.state->adjusted_mode.vtotal;
 	int vact = mtk_crtc->base.state->adjusted_mode.vdisplay;
@@ -7069,6 +7148,11 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 	u32 bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
 	struct mtk_panel_ext *ext = dsi->ext;
 	u32 ps_wc = 0;
+	struct total_tile_overhead to_info;
+
+	to_info = mtk_crtc_get_total_overhead(mtk_crtc);
+	DDPINFO("%s:overhead is_support:%d, width L:%d R:%d\n", __func__,
+			to_info.is_support, to_info.left_in_width, to_info.right_in_width);
 
 	dsi->ext = find_panel_ext(dsi->panel);
 	if (dsi->ext->params->dsc_params.enable)
@@ -7076,6 +7160,11 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
 		//vdo mode
+		if (to_info.is_support) {
+			hact += (to_info.left_overhead + to_info.right_overhead);
+			DDPDBG("%s vdo mode hact with total overhead %d\n", __func__, hact);
+		}
+
 		bw_base = (unsigned long long) vact * hact * vrefresh * 4 / 1000;
 		bw_base =  bw_base * vtotal / vact;
 		bw_base =  bw_base / 1000;
@@ -7086,6 +7175,9 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 		//cmd mode
 		bw_base = (unsigned long long) data_rate * dsi->lanes * compress_rate * 4;
 		bw_base = bw_base / bpp / 100;
+
+		if (mtk_crtc->res_switch == RES_SWITCH_ON_AP)
+			hact = mtk_crtc->scaling_ctx.lcm_width;
 
 		if (dsi->driver_data->dsi_buffer) {
 			u32 line_time = 0, image_time = 1;
@@ -7107,9 +7199,21 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 			line_time = mtk_dsi_get_line_time(mtk_crtc, dsi, ps_wc);
 
 			bw_base = bw_base * image_time / line_time;
+
 			DDPINFO("%s, image_time=%d, line_time=%d\n",
 				__func__, image_time, line_time);
 		}
+
+		if (to_info.is_support) {
+			DDPDBG("%s cmd mode bw %d\n", __func__, bw_base);
+			bw_base *= (mtk_crtc->base.state->adjusted_mode.hdisplay +
+				to_info.left_overhead + to_info.right_overhead)
+				* 1000 / mtk_crtc->base.state->adjusted_mode.hdisplay;
+			bw_base /= 1000;
+			DDPDBG("%s cmd mode bw with total overhead %d\n",
+				__func__, bw_base);
+		}
+
 		DDPDBG("%s cmd mode bw_base:%llu, ps_wc:%d, bpp=%d\n",
 				__func__, bw_base, ps_wc, bpp);
 	}
@@ -7121,7 +7225,7 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 		struct mtk_drm_crtc *mtk_crtc,
 		struct mtk_dsi *dsi, int mode_idx)
 {
-	static unsigned long long bw_base;
+	unsigned long long bw_base;
 	struct drm_display_mode *mode
 		= mtk_drm_crtc_avail_disp_mode(&mtk_crtc->base, mode_idx);
 	int vrefresh = drm_mode_vrefresh(mode);
@@ -7130,6 +7234,11 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 	u32 bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
 	struct mtk_panel_ext *panel_ext = mtk_crtc->panel_ext;
 	u32 ps_wc = 0;
+	struct total_tile_overhead to_info;
+
+	to_info = mtk_crtc_get_total_overhead(mtk_crtc);
+	DDPINFO("%s:overhead is_support:%d, width L:%d R:%d\n", __func__,
+			to_info.is_support, to_info.left_in_width, to_info.right_in_width);
 
 	if (dsi->ext->params->dsc_params.enable)
 		bpp = dsi->ext->params->dsc_params.bit_per_channel * 3;
@@ -7161,8 +7270,15 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
 		//vdo mode
+		u32 hact = mode->hdisplay;
+
+		if (to_info.is_support) {
+			hact += (to_info.left_overhead + to_info.right_overhead);
+			DDPDBG("%s vdo mode hact with total overhead %d\n", __func__, hact);
+		}
+
 		bw_base = (unsigned long long) mode->vdisplay
-		* mode->hdisplay * vrefresh * 4 / 1000;
+		* hact * vrefresh * 4 / 1000;
 		bw_base = bw_base * mode->vtotal / mode->vdisplay;
 		bw_base = bw_base / 1000;
 
@@ -7176,7 +7292,11 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 		if (dsi->driver_data->dsi_buffer) {
 			u32 line_time = 0, image_time = 1, hact;
 
-			hact = mode->hdisplay;
+			if (mtk_crtc->res_switch == RES_SWITCH_ON_AP)
+				hact = mtk_crtc->scaling_ctx.lcm_width;
+			else
+				hact = mode->hdisplay;
+
 			if (dsi->is_slave || dsi->slave_dsi)
 				hact /= 2;
 
@@ -7194,9 +7314,21 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 			line_time = mtk_dsi_get_line_time(mtk_crtc, dsi, ps_wc);
 
 			bw_base = bw_base * image_time / line_time;
+
 			DDPINFO("%s, image_time=%d, line_time=%d\n",
 				__func__, image_time, line_time);
 		}
+
+		if (to_info.is_support) {
+			DDPDBG("%s cmd mode bw %d\n", __func__, bw_base);
+			bw_base *= (mtk_crtc->base.state->adjusted_mode.hdisplay +
+				to_info.left_overhead + to_info.right_overhead)
+				* 1000 / mtk_crtc->base.state->adjusted_mode.hdisplay;
+			bw_base /= 1000;
+			DDPDBG("%s cmd mode bw with total overhead %d\n",
+				__func__, bw_base);
+		}
+
 		DDPDBG("%s cmd mode bw_base:%llu, ps_wc:%d, bpp=%d\n",
 				__func__, bw_base, ps_wc, bpp);
 	}
@@ -7220,11 +7352,16 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 	bool need_mipi_change = 1;
 	unsigned int clk_cnt = 0;
 	struct mtk_drm_private *priv = NULL;
+	struct drm_display_mode *mode;
+	struct mtk_ddp_comp *comp = NULL;
 
 	if (!dsi) {
 		DDPPR_ERR("%s, %d, invalid parameter\n", __func__, __LINE__);
 		return;
 	}
+
+	comp = dsi->is_slave ?
+		(&dsi->master_dsi->ddp_comp) : (&dsi->ddp_comp);
 
 	/* use no mipi clk change solution */
 	if (mtk_crtc && mtk_crtc->base.dev)
@@ -7263,9 +7400,10 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 		mtk_dsi_poll_for_idle(dsi, cmdq_handle);
 		cmdq_pkt_flush(cmdq_handle);
 		cmdq_pkt_destroy(cmdq_handle);
-	} else
-		drm_display_mode_to_videomode(
-			&mtk_crtc->base.state->adjusted_mode, &dsi->vm);
+	} else {
+		mode = mtk_crtc_get_display_mode_by_comp(__func__, &mtk_crtc->base, comp, false);
+		drm_display_mode_to_videomode(mode, &dsi->vm);
+	}
 
 	/*  send lcm cmd before DSI power down if needed */
 	if (dsi->ext && dsi->ext->funcs && dsi->ext->funcs->mode_switch_hs) {
@@ -8272,11 +8410,13 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	case DSI_SET_CRTC_AVAIL_MODES:
 	{
 		struct mtk_drm_crtc *crtc = (struct mtk_drm_crtc *)params;
+		struct mtk_drm_private *priv = (crtc->base).dev->dev_private;
 		struct drm_display_mode *m;
 		struct drm_display_mode *avail_modes;
 		unsigned int i = 0, num = 0;
 		u16 vdisplay = 0;
 
+		panel_ext = mtk_dsi_get_panel_ext(comp);
 		list_for_each_entry(m, &dsi->conn.modes, head)
 			num++;
 
@@ -8289,15 +8429,80 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 				vdisplay = m->vdisplay;
 			else if ((vdisplay != m->vdisplay) && !crtc->res_switch) {
 				DDPMSG("Panel support resolution switch.\n");
-				crtc->res_switch = true;
+				/* check project res switch type */
+				if (panel_ext && panel_ext->funcs &&
+					  panel_ext->funcs->get_res_switch_type)
+					crtc->res_switch = panel_ext->funcs->get_res_switch_type();
+				else
+					crtc->res_switch = RES_SWITCH_ON_DDIC;
 			}
 		}
+
+		/* check platform res switch option */
+		if (!(((crtc->res_switch == RES_SWITCH_ON_DDIC) &&
+				mtk_drm_helper_get_opt(priv->helper_opt,
+					MTK_DRM_OPT_RES_SWITCH)) ||
+			((crtc->res_switch == RES_SWITCH_ON_AP) &&
+				mtk_drm_helper_get_opt(priv->helper_opt,
+					MTK_DRM_OPT_RES_SWITCH_ON_AP))))
+			crtc->res_switch = RES_SWITCH_NO_USE;
 
 		m = crtc->avail_modes;
 		crtc->avail_modes_num = num;
 		crtc->avail_modes = avail_modes;
 		if (m)
 			vfree(m);
+	}
+		break;
+	case DSI_FILL_CONNECTOR_PROP_CAPS:
+	{
+		struct mtk_drm_crtc *crtc = (struct mtk_drm_crtc *)params;
+		struct drm_display_mode *m;
+		struct drm_property *prop;
+		struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+		struct drm_connector *conn = &dsi->conn;
+		struct drm_device *dev = dsi->conn.dev;
+		struct mtk_drm_private *private = dev->dev_private;
+		struct mtk_drm_connector_caps *connector_caps = &dsi->connector_caps;
+		unsigned int i = 0;
+
+		struct drm_property_blob *new_blob = NULL;
+		struct drm_property_blob *old_blob = NULL;
+		uint32_t new_blob_id = 0;
+		uint32_t old_blob_id = 0;
+
+		if (crtc->res_switch == RES_SWITCH_ON_AP) {
+			list_for_each_entry(m, &dsi->conn.modes, head) {
+				connector_caps->width_after_pq[i] = crtc->scaling_ctx.lcm_width;
+				connector_caps->height_after_pq[i] = crtc->scaling_ctx.lcm_height;
+				i++;
+			}
+		} else {
+			list_for_each_entry(m, &dsi->conn.modes, head) {
+				connector_caps->width_after_pq[i] = m->hdisplay;
+				connector_caps->height_after_pq[i] = m->vdisplay;
+				i++;
+			}
+		}
+
+		new_blob = drm_property_create_blob(dev,
+			sizeof(struct mtk_drm_connector_caps), &dsi->connector_caps);
+		if (!IS_ERR_OR_NULL(new_blob)) {
+			new_blob_id = new_blob->base.id;
+		} else {
+			DDPPR_ERR("create_blob error\n");
+			break;
+		}
+
+		prop = private->connector_property[conn->index][CONNECTOR_PROP_CAPS_BLOB_ID];
+		drm_object_property_set_value(&conn->base, prop, new_blob_id);
+
+		old_blob_id = dsi->connector_caps_blob_id;
+		old_blob = drm_property_lookup_blob(dev, old_blob_id);
+		drm_property_blob_put(old_blob);
+		drm_property_blob_put(old_blob);
+
+		dsi->connector_caps_blob_id = new_blob_id;
 	}
 		break;
 	case DSI_TIMING_CHANGE:
@@ -9886,6 +10091,7 @@ void Panel_Master_primary_display_config_dsi(struct mtk_dsi *dsi,
 {
 	unsigned long mipi_tx_rate;
 	int ret;
+
 	if (!strcmp(name, "PM_CLK")) {
 		pr_debug("Pmaster_config_dsi: PM_CLK:%d\n", config_value);
 		dsi->ext->params->pll_clk = config_value;

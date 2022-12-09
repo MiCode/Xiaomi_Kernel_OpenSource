@@ -44,6 +44,17 @@ struct mtk_disp_tdshp {
 	const struct mtk_disp_tdshp_data *data;
 };
 
+struct mtk_disp_tdshp_tile_overhead {
+	unsigned int left_in_width;
+	unsigned int left_overhead;
+	unsigned int left_comp_overhead;
+	unsigned int right_in_width;
+	unsigned int right_overhead;
+	unsigned int right_comp_overhead;
+};
+
+struct mtk_disp_tdshp_tile_overhead tdshp_tile_overhead = { 0 };
+
 static inline struct mtk_disp_tdshp *comp_to_disp_tdshp(struct mtk_ddp_comp *comp)
 {
 	return container_of(comp, struct mtk_disp_tdshp, ddp_comp);
@@ -413,11 +424,79 @@ int mtk_drm_ioctl_tdshp_get_size(struct drm_device *dev, void *data,
 	return 0;
 }
 
+static void mtk_disp_tdshp_config_overhead(struct mtk_ddp_comp *comp,
+	struct mtk_ddp_config *cfg)
+{
+	struct mtk_disp_tdshp *tdshp = comp_to_disp_tdshp(comp);
+
+	DDPINFO("line: %d\n", __LINE__);
+
+	if (cfg->tile_overhead.is_support) {
+		/*set component overhead*/
+		if (tdshp->data->single_pipe_tdshp_num == 2) {
+			if (comp->id == DDP_COMPONENT_TDSHP0) {
+				tdshp_tile_overhead.left_comp_overhead = 3;
+				/*add component overhead on total overhead*/
+				cfg->tile_overhead.left_overhead +=
+					tdshp_tile_overhead.left_comp_overhead;
+				cfg->tile_overhead.left_in_width +=
+						tdshp_tile_overhead.left_comp_overhead;
+				/*copy from total overhead info*/
+				tdshp_tile_overhead.left_in_width =
+					cfg->tile_overhead.left_in_width;
+				tdshp_tile_overhead.left_overhead =
+					cfg->tile_overhead.left_overhead;
+			}
+			if (comp->id == DDP_COMPONENT_TDSHP2) {
+				tdshp_tile_overhead.right_comp_overhead = 3;
+				/*add component overhead on total overhead*/
+				cfg->tile_overhead.right_overhead +=
+					tdshp_tile_overhead.right_comp_overhead;
+				cfg->tile_overhead.right_in_width +=
+					tdshp_tile_overhead.right_comp_overhead;
+				/*copy from total overhead info*/
+				tdshp_tile_overhead.right_in_width =
+					cfg->tile_overhead.right_in_width;
+				tdshp_tile_overhead.right_overhead =
+					cfg->tile_overhead.right_overhead;
+			}
+		} else {
+			if (comp->id == DDP_COMPONENT_TDSHP0) {
+				tdshp_tile_overhead.left_comp_overhead = 3;
+				/*add component overhead on total overhead*/
+				cfg->tile_overhead.left_overhead +=
+					tdshp_tile_overhead.left_comp_overhead;
+				cfg->tile_overhead.left_in_width +=
+					tdshp_tile_overhead.left_comp_overhead;
+				/*copy from total overhead info*/
+				tdshp_tile_overhead.left_in_width =
+					cfg->tile_overhead.left_in_width;
+				tdshp_tile_overhead.left_overhead =
+					cfg->tile_overhead.left_overhead;
+			}
+			if (comp->id == DDP_COMPONENT_TDSHP1) {
+				tdshp_tile_overhead.right_comp_overhead = 3;
+				/*add component overhead on total overhead*/
+				cfg->tile_overhead.right_overhead +=
+					tdshp_tile_overhead.right_comp_overhead;
+				cfg->tile_overhead.right_in_width +=
+					tdshp_tile_overhead.right_comp_overhead;
+				/*copy from total overhead info*/
+				tdshp_tile_overhead.right_in_width =
+					cfg->tile_overhead.right_in_width;
+				tdshp_tile_overhead.right_overhead =
+					cfg->tile_overhead.right_overhead;
+			}
+		}
+	}
+}
+
 static void mtk_disp_tdshp_config(struct mtk_ddp_comp *comp,
 	struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
 {
-	unsigned int width;
-	unsigned int val;
+	unsigned int in_width, out_width;
+	unsigned int in_val, out_val;
+	struct mtk_disp_tdshp *tdshp = comp_to_disp_tdshp(comp);
 
 	DDPINFO("line: %d\n", __LINE__);
 
@@ -430,21 +509,50 @@ static void mtk_disp_tdshp_config(struct mtk_ddp_comp *comp,
 	else
 		DDPPR_ERR("%s: Invalid bpc: %u\n", __func__, cfg->bpc);
 
-	if (comp->mtk_crtc->is_dual_pipe)
-		width = cfg->w / 2;
-	else
-		width = cfg->w;
+	if (comp->mtk_crtc->is_dual_pipe && cfg->tile_overhead.is_support) {
+		in_width = tdshp_tile_overhead.left_in_width;
+		out_width = in_width - tdshp_tile_overhead.left_comp_overhead;
+	} else {
+		if (comp->mtk_crtc->is_dual_pipe)
+			in_width = cfg->w / 2;
+		else
+			in_width = cfg->w;
 
-	val = (width << 16) | (cfg->h);
+		out_width = in_width;
+	}
 
-	DDPINFO("%s: 0x%08x\n", __func__, val);
+	in_val = (in_width << 16) | (cfg->h);
+	out_val = (out_width << 16) | (cfg->h);
+
+	DDPINFO("%s: in: 0x%08x, out: 0x%08x\n", __func__, in_val, out_val);
 	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_TDSHP_INPUT_SIZE, val, ~0);
+		comp->regs_pa + DISP_TDSHP_INPUT_SIZE, in_val, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_TDSHP_OUTPUT_SIZE, val, ~0);
+		comp->regs_pa + DISP_TDSHP_OUTPUT_SIZE, out_val, ~0);
 	// DISP_TDSHP_OUTPUT_OFFSET
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_TDSHP_OUTPUT_OFFSET, 0x0, ~0);
+	if (comp->mtk_crtc->is_dual_pipe && cfg->tile_overhead.is_support) {
+		if (tdshp->data->single_pipe_tdshp_num == 2) {
+			if (comp->id == DDP_COMPONENT_TDSHP0
+				|| comp->id == DDP_COMPONENT_TDSHP1)
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + DISP_TDSHP_OUTPUT_OFFSET, 0x0, ~0);
+			else
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + DISP_TDSHP_OUTPUT_OFFSET,
+					tdshp_tile_overhead.right_comp_overhead << 16 | 0, ~0);
+		} else {
+			if (comp->id == DDP_COMPONENT_TDSHP0)
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + DISP_TDSHP_OUTPUT_OFFSET, 0x0, ~0);
+			else
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + DISP_TDSHP_OUTPUT_OFFSET,
+					tdshp_tile_overhead.right_comp_overhead << 16 | 0, ~0);
+		}
+	} else
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_TDSHP_OUTPUT_OFFSET, 0x0, ~0);
+
 	// DISP_TDSHP_SWITCH
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_TDSHP_CFG, 0x1 << 13, 0x1 << 13);
@@ -462,7 +570,7 @@ static void mtk_disp_tdshp_config(struct mtk_ddp_comp *comp,
 	if (g_tdshp_get_size_available == false) {
 		g_tdshp_get_size_available = true;
 		wake_up_interruptible(&g_tdshp_size_wq);
-		pr_notice("size available: (w, h)=(%d, %d)+\n", width, cfg->h);
+		pr_notice("size available: (w, h)=(%d, %d)+\n", cfg->w, cfg->h);
 	}
 }
 
@@ -506,6 +614,7 @@ static int mtk_disp_tdshp_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *h
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
 			struct mtk_ddp_comp *comp_tdshp1 = priv->ddp_comp[DDP_COMPONENT_TDSHP1];
+
 			if (tdshp->data->single_pipe_tdshp_num == 2)
 				comp_tdshp1 = priv->ddp_comp[DDP_COMPONENT_TDSHP2];
 
@@ -529,6 +638,7 @@ static int mtk_disp_tdshp_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *h
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
 			struct mtk_ddp_comp *comp_tdshp1 = priv->ddp_comp[DDP_COMPONENT_TDSHP1];
+
 			if (tdshp->data->single_pipe_tdshp_num == 2)
 				comp_tdshp1 = priv->ddp_comp[DDP_COMPONENT_TDSHP2];
 
@@ -602,6 +712,7 @@ static const struct mtk_ddp_comp_funcs mtk_disp_tdshp_funcs = {
 	.user_cmd = mtk_disp_tdshp_user_cmd,
 	.prepare = mtk_disp_tdshp_prepare,
 	.unprepare = mtk_disp_tdshp_unprepare,
+	.config_overhead = mtk_disp_tdshp_config_overhead,
 };
 
 static int mtk_disp_tdshp_bind(struct device *dev, struct device *master,

@@ -119,6 +119,17 @@ struct mtk_disp_c3d {
 };
 static struct mtk_disp_c3d *g_c3d_data;
 
+struct mtk_disp_c3d_tile_overhead {
+	unsigned int left_in_width;
+	unsigned int left_overhead;
+	unsigned int left_comp_overhead;
+	unsigned int right_in_width;
+	unsigned int right_overhead;
+	unsigned int right_comp_overhead;
+};
+
+struct mtk_disp_c3d_tile_overhead c3d_tile_overhead = { 0 };
+
 static bool debug_flow_log;
 #define C3DFLOW_LOG(fmt, arg...) do { \
 	if (debug_flow_log) \
@@ -945,6 +956,36 @@ static int mtk_disp_c3d_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *han
 	return 0;
 }
 
+static void mtk_disp_c3d_config_overhead(struct mtk_ddp_comp *comp,
+	struct mtk_ddp_config *cfg)
+{
+	DDPINFO("line: %d\n", __LINE__);
+
+	if (cfg->tile_overhead.is_support) {
+		/*set component overhead*/
+		if (comp->id == DDP_COMPONENT_C3D0) {
+			c3d_tile_overhead.left_comp_overhead = 0;
+			/*add component overhead on total overhead*/
+			cfg->tile_overhead.left_overhead += c3d_tile_overhead.left_comp_overhead;
+			cfg->tile_overhead.left_in_width += c3d_tile_overhead.left_comp_overhead;
+			/*copy from total overhead info*/
+			c3d_tile_overhead.left_in_width = cfg->tile_overhead.left_in_width;
+			c3d_tile_overhead.left_overhead = cfg->tile_overhead.left_overhead;
+		}
+		if (comp->id == DDP_COMPONENT_C3D1) {
+			c3d_tile_overhead.right_comp_overhead = 0;
+			/*add component overhead on total overhead*/
+			cfg->tile_overhead.right_overhead += c3d_tile_overhead.right_comp_overhead;
+			cfg->tile_overhead.right_in_width += c3d_tile_overhead.right_comp_overhead;
+			/*copy from total overhead info*/
+			c3d_tile_overhead.right_in_width = cfg->tile_overhead.right_in_width;
+			c3d_tile_overhead.right_overhead = cfg->tile_overhead.right_overhead;
+		}
+	}
+
+}
+
+
 static void mtk_disp_c3d_config(struct mtk_ddp_comp *comp,
 	struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
 {
@@ -952,12 +993,18 @@ static void mtk_disp_c3d_config(struct mtk_ddp_comp *comp,
 
 	C3DFLOW_LOG("line: %d\n", __LINE__);
 
-	if (comp->mtk_crtc->is_dual_pipe) {
+	if (comp->mtk_crtc->is_dual_pipe)
 		isDualPQ = true;
-		width = cfg->w/2;
-	} else {
+	else
 		isDualPQ = false;
-		width = cfg->w;
+
+	if (comp->mtk_crtc->is_dual_pipe && cfg->tile_overhead.is_support)
+		width = c3d_tile_overhead.left_in_width;
+	else {
+		if (comp->mtk_crtc->is_dual_pipe)
+			width = cfg->w / 2;
+		else
+			width = cfg->w;
 	}
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1024,6 +1071,7 @@ static void mtk_disp_c3d_prepare(struct mtk_ddp_comp *comp)
 static void mtk_disp_c3d_unprepare(struct mtk_ddp_comp *comp)
 {
 	unsigned long flags;
+
 	gHasSet1DLut[index_of_c3d(comp->id)] = false;
 
 	C3DFLOW_LOG("line: %d\n", __LINE__);
@@ -1051,6 +1099,7 @@ static const struct mtk_ddp_comp_funcs mtk_disp_c3d_funcs = {
 	.user_cmd = mtk_disp_c3d_user_cmd,
 	.prepare = mtk_disp_c3d_prepare,
 	.unprepare = mtk_disp_c3d_unprepare,
+	.config_overhead = mtk_disp_c3d_config_overhead,
 };
 
 static int mtk_disp_c3d_bind(struct device *dev, struct device *master,

@@ -970,9 +970,9 @@ static void set_cwb_info_buffer(struct drm_crtc *crtc, int format)
 	u32 color_format = DRM_FORMAT_RGB888;
 	int Bpp;
 
-	/*alloc && config two fb*/
-	mode.width = crtc->state->adjusted_mode.hdisplay;
-	mode.height = crtc->state->adjusted_mode.vdisplay;
+	/*alloc && config two fb if WDMA after PQ, use width height affcted by resolution switch*/
+	mtk_crtc_set_width_height(&mode.width, &mode.height,
+		crtc, (cwb_info->scn == WDMA_WRITE_BACK));
 
 	if (format == 0)
 		color_format = DRM_FORMAT_RGB888;
@@ -1600,13 +1600,12 @@ static void mtk_drm_cwb_info_init(struct drm_crtc *crtc)
 
 	cwb_info->count = 0;
 
-	cwb_info->src_roi.width =
-				crtc->state->adjusted_mode.hdisplay;
-	cwb_info->src_roi.height =
-				crtc->state->adjusted_mode.vdisplay;
-
 	if (cwb_info->scn == NONE)
 		cwb_info->scn = WDMA_WRITE_BACK;
+
+	/* Check if wdith height size will be affect by resolution switch */
+	mtk_crtc_set_width_height(&(cwb_info->src_roi.width), &(cwb_info->src_roi.height),
+		crtc, (cwb_info->scn == WDMA_WRITE_BACK));
 
 	if (crtc_idx == 0) {
 		if (cwb_info->scn == WDMA_WRITE_BACK)
@@ -1708,10 +1707,13 @@ bool mtk_drm_set_cwb_roi(struct mtk_rect rect)
 		return false;
 	}
 	cwb_info = mtk_crtc->cwb_info;
-	cwb_info->src_roi.width =
-				crtc->state->adjusted_mode.hdisplay;
-	cwb_info->src_roi.height  =
-				crtc->state->adjusted_mode.vdisplay;
+
+	if (cwb_info->scn == NONE)
+		cwb_info->scn = WDMA_WRITE_BACK;
+
+	/* Check if wdith height size will be affect by resolution switch */
+	mtk_crtc_set_width_height(&(cwb_info->src_roi.width), &(cwb_info->src_roi.height),
+		crtc, (cwb_info->scn == WDMA_WRITE_BACK));
 
 	if (rect.x >= cwb_info->src_roi.width ||
 		rect.y >= cwb_info->src_roi.height ||

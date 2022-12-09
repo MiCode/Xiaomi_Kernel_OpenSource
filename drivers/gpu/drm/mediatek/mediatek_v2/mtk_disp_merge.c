@@ -196,8 +196,9 @@ static void mtk_merge_addon_config(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_VPP_MERGE_CFG_12, 0x01, ~0);
 
-	width = crtc->mode.hdisplay;
-	height = crtc->mode.vdisplay;
+	/* To do: get width & height by addon scenario */
+	width = mtk_crtc_get_width_by_comp(__func__, crtc, comp, true);
+	height = mtk_crtc_get_height_by_comp(__func__, crtc, comp, true);
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_REG_VPP_MERGE_CFG_0,

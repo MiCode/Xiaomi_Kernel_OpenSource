@@ -305,6 +305,18 @@ enum DISP_PMQOS_SLOT {
 			mtk_crtc->ddp_mode, (__i), (__j)), 1) ; (__j)--)                     \
 			for_each_if(comp)
 
+#define for_each_comp_in_dual_pipe_reverse(comp, mtk_crtc, __i, __j)           \
+	for ((__i) = DDP_SECOND_PATH - 1; (__i) >= 0; (__i)--)					   \
+		for ((__j) = ((mtk_crtc)->dual_pipe_ddp_ctx.ovl_comp_nr[(__i)] + \
+			(mtk_crtc)->dual_pipe_ddp_ctx.ddp_comp_nr[(__i)]) - 1;	 \
+			(__j) >= 0 &&                    \
+			((comp) = ((__j) < (mtk_crtc)->dual_pipe_ddp_ctx.ovl_comp_nr[(__i)]) ? \
+			(mtk_crtc)->dual_pipe_ddp_ctx.ovl_comp[(__i)][(__j)] : \
+			(mtk_crtc)->dual_pipe_ddp_ctx.ddp_comp[(__i)] \
+			[(__j) - (mtk_crtc)->dual_pipe_ddp_ctx.ovl_comp_nr[(__i)]], \
+			1) ; (__j)--)					  \
+			for_each_if(comp)
+
 #define for_each_comp_in_all_crtc_mode(comp, mtk_crtc, __i, __j, p_mode)       \
 	for ((p_mode) = 0; (p_mode) < DDP_MODE_NR; (p_mode)++)                 \
 		for ((__i) = 0; (__i) < DDP_PATH_NR; (__i)++)                  \
@@ -559,12 +571,14 @@ struct mtk_crtc_path_data {
 	const enum mtk_ddp_comp_id *wb_path[DDP_MODE_NR];
 	unsigned int wb_path_len[DDP_MODE_NR];
 	const struct mtk_addon_scenario_data *addon_data;
+	const enum mtk_ddp_comp_id *scaling_data;
 	//for dual path
 	const enum mtk_ddp_comp_id *dual_ovl_path[DDP_PATH_NR];
 	unsigned int dual_ovl_path_len[DDP_PATH_NR];
 	const enum mtk_ddp_comp_id *dual_path[DDP_PATH_NR];
 	unsigned int dual_path_len[DDP_PATH_NR];
 	const struct mtk_addon_scenario_data *addon_data_dual;
+	const enum mtk_ddp_comp_id *scaling_data_dual;
 };
 
 struct mtk_crtc_gce_obj {
@@ -598,6 +612,13 @@ struct mtk_crtc_ddp_ctx {
 	struct drm_framebuffer *wb_fb;
 	struct drm_framebuffer *dc_fb;
 	unsigned int dc_fb_idx;
+};
+
+struct mtk_scaling_ctx {
+	bool scaling_en;
+	int lcm_width;
+	int lcm_height;
+	struct drm_display_mode *scaling_mode;
 };
 
 struct mtk_drm_fake_vsync {
@@ -856,7 +877,9 @@ struct mtk_drm_crtc {
 	bool layer_rec_en;
 	unsigned int mode_change_index;
 	int mode_idx;
-	bool res_switch;
+	int mode_chg;
+	enum RES_SWITCH_TYPE res_switch;
+	struct mtk_scaling_ctx scaling_ctx;
 	int fbt_layer_id;
 
 	wait_queue_head_t state_wait_queue;
@@ -916,6 +939,7 @@ struct mtk_drm_crtc {
 
 	atomic_t force_high_step;
 	int force_high_enabled;
+	struct total_tile_overhead tile_overhead;
 };
 
 struct mtk_crtc_state {
@@ -964,6 +988,9 @@ struct mtk_cmdq_cb_data {
 };
 #define TIGGER_INTERVAL_S(x) ((unsigned long long)x*1000*1000*1000)
 extern unsigned int disp_spr_bypass;
+extern unsigned int g_left_pipe_overhead[2];
+extern unsigned int g_right_pipe_overhead[2];
+
 
 int mtk_drm_crtc_enable_vblank(struct drm_crtc *crtc);
 void mtk_drm_crtc_disable_vblank(struct drm_crtc *crtc);
@@ -1120,7 +1147,7 @@ void mtk_drm_crtc_init_para(struct drm_crtc *crtc);
 void trigger_without_cmdq(struct drm_crtc *crtc);
 void mtk_crtc_set_dirty(struct mtk_drm_crtc *mtk_crtc);
 void mtk_drm_layer_dispatch_to_dual_pipe(
-	unsigned int mmsys_id,
+	struct mtk_drm_crtc *mtk_crtc, unsigned int mmsys_id,
 	struct mtk_plane_state *plane_state,
 	struct mtk_plane_state *plane_state_l,
 	struct mtk_plane_state *plane_state_r,
@@ -1152,6 +1179,33 @@ bool mtk_crtc_alloc_sram(struct mtk_drm_crtc *mtk_crtc, unsigned int hrt_idx);
 int mtk_crtc_attach_ddp_comp(struct drm_crtc *crtc, int ddp_mode, bool is_attach);
 void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc, struct cmdq_pkt *handle);
 
+void mtk_crtc_store_total_overhead(struct mtk_drm_crtc *mtk_crtc,
+	struct total_tile_overhead info);
+struct total_tile_overhead mtk_crtc_get_total_overhead(struct mtk_drm_crtc *mtk_crtc);
+bool mtk_crtc_check_is_scaling_comp(struct mtk_drm_crtc *mtk_crtc,
+		enum mtk_ddp_comp_id comp_id);
+void mtk_crtc_divide_default_path_by_rsz(struct mtk_drm_crtc *mtk_crtc);
+struct drm_display_mode *mtk_crtc_get_display_mode_by_comp(
+	const char *source,
+	struct drm_crtc *crtc,
+	struct mtk_ddp_comp *comp,
+	bool in_scaling_path);
+unsigned int mtk_crtc_get_width_by_comp(
+	const char *source,
+	struct drm_crtc *crtc,
+	struct mtk_ddp_comp *comp,
+	bool in_scaling_path);
+unsigned int mtk_crtc_get_height_by_comp(
+	const char *source,
+	struct drm_crtc *crtc,
+	struct mtk_ddp_comp *comp,
+	bool in_scaling_path);
+void mtk_crtc_set_width_height(
+	int *w,
+	int *h,
+	struct drm_crtc *crtc,
+	bool is_scaling_path);
+
 /* ********************* Legacy DISP API *************************** */
 unsigned int DISP_GetScreenWidth(void);
 unsigned int DISP_GetScreenHeight(void);
@@ -1160,6 +1214,8 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc);
 int mtk_crtc_check_out_sec(struct drm_crtc *crtc);
 struct golden_setting_context *
 	__get_golden_setting_context(struct mtk_drm_crtc *mtk_crtc);
+struct golden_setting_context *
+	__get_scaling_golden_setting_context(struct mtk_drm_crtc *mtk_crtc);
 /***********************  PanelMaster  ********************************/
 void mtk_crtc_start_for_pm(struct drm_crtc *crtc);
 void mtk_crtc_stop_for_pm(struct mtk_drm_crtc *mtk_crtc, bool need_wait);

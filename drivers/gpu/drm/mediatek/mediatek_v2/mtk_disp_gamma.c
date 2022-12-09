@@ -127,6 +127,18 @@ struct mtk_disp_gamma {
 	struct mtk_ddp_comp ddp_comp;
 	struct drm_crtc *crtc;
 };
+
+struct mtk_disp_gamma_tile_overhead {
+	unsigned int left_in_width;
+	unsigned int left_overhead;
+	unsigned int left_comp_overhead;
+	unsigned int right_in_width;
+	unsigned int right_overhead;
+	unsigned int right_comp_overhead;
+};
+
+struct mtk_disp_gamma_tile_overhead gamma_tile_overhead = { 0 };
+
 struct mtk_disp_gamma_sb_param {
 	unsigned int gain[3];
 	unsigned int bl;
@@ -138,10 +150,14 @@ static void mtk_gamma_init(struct mtk_ddp_comp *comp,
 {
 	unsigned int width;
 
-	if (comp->mtk_crtc->is_dual_pipe)
-		width = cfg->w / 2;
-	else
-		width = cfg->w;
+	if (comp->mtk_crtc->is_dual_pipe && cfg->tile_overhead.is_support)
+		width = gamma_tile_overhead.left_in_width;
+	else {
+		if (comp->mtk_crtc->is_dual_pipe)
+			width = cfg->w / 2;
+		else
+			width = cfg->w;
+	}
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_GAMMA_SIZE,
@@ -161,6 +177,38 @@ static void mtk_gamma_init(struct mtk_ddp_comp *comp,
 
 //	atomic_set(&g_gamma_sof_filp, 0);
 	atomic_set(&g_gamma_sof_irq_available, 0);
+}
+
+
+static void mtk_disp_gamma_config_overhead(struct mtk_ddp_comp *comp,
+	struct mtk_ddp_config *cfg)
+{
+	DDPINFO("line: %d\n", __LINE__);
+
+	if (cfg->tile_overhead.is_support) {
+		/*set component overhead*/
+		if (comp->id == DDP_COMPONENT_GAMMA0) {
+			gamma_tile_overhead.left_comp_overhead = 0;
+			/*add component overhead on total overhead*/
+			cfg->tile_overhead.left_overhead += gamma_tile_overhead.left_comp_overhead;
+			cfg->tile_overhead.left_in_width += gamma_tile_overhead.left_comp_overhead;
+			/*copy from total overhead info*/
+			gamma_tile_overhead.left_in_width = cfg->tile_overhead.left_in_width;
+			gamma_tile_overhead.left_overhead = cfg->tile_overhead.left_overhead;
+		}
+		if (comp->id == DDP_COMPONENT_GAMMA1) {
+			gamma_tile_overhead.right_comp_overhead = 0;
+			/*add component overhead on total overhead*/
+			cfg->tile_overhead.right_overhead +=
+				gamma_tile_overhead.right_comp_overhead;
+			cfg->tile_overhead.right_in_width +=
+				gamma_tile_overhead.right_comp_overhead;
+			/*copy from total overhead info*/
+			gamma_tile_overhead.right_in_width = cfg->tile_overhead.right_in_width;
+			gamma_tile_overhead.right_overhead = cfg->tile_overhead.right_overhead;
+		}
+	}
+
 }
 
 static void mtk_gamma_config(struct mtk_ddp_comp *comp,
@@ -493,6 +541,7 @@ int mtk_drm_ioctl_set_12bit_gammalut(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
 {
 	struct mtk_drm_private *private = dev->dev_private;
+
 	g_gamma_flip_comp[0] = private->ddp_comp[DDP_COMPONENT_GAMMA0];
 	//g_gamma_flip_comp[1] = private->ddp_comp[DDP_COMPONENT_GAMMA1];
 
@@ -915,9 +964,16 @@ int mtk_gamma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	return 0;
 }
 
+void mtk_gamma_first_cfg(struct mtk_ddp_comp *comp,
+	       struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
+{
+	mtk_gamma_config(comp, cfg, handle);
+}
+
 static const struct mtk_ddp_comp_funcs mtk_disp_gamma_funcs = {
 	.gamma_set = mtk_gamma_set,
 	.config = mtk_gamma_config,
+	.first_cfg = mtk_gamma_first_cfg,
 	.start = mtk_gamma_start,
 	.stop = mtk_gamma_stop,
 	.bypass = mtk_gamma_bypass,
@@ -925,6 +981,7 @@ static const struct mtk_ddp_comp_funcs mtk_disp_gamma_funcs = {
 	.io_cmd = mtk_gamma_io_cmd,
 	.prepare = mtk_gamma_prepare,
 	.unprepare = mtk_gamma_unprepare,
+	.config_overhead = mtk_disp_gamma_config_overhead,
 };
 
 static int mtk_disp_gamma_bind(struct device *dev, struct device *master,

@@ -95,6 +95,18 @@ struct mtk_disp_dither {
 	const struct mtk_disp_dither_data *data;
 };
 
+struct mtk_disp_dither_tile_overhead {
+	unsigned int left_in_width;
+	unsigned int left_overhead;
+	unsigned int left_comp_overhead;
+	unsigned int right_in_width;
+	unsigned int right_overhead;
+	unsigned int right_comp_overhead;
+};
+
+struct mtk_disp_dither_tile_overhead dither_tile_overhead[DITHER_TOTAL_MODULE_NUM] = {
+	{ 0 }, { 0 },  { 0 }, { 0 }};
+
 static inline struct mtk_disp_dither *comp_to_dither(struct mtk_ddp_comp *comp)
 {
 	return container_of(comp, struct mtk_disp_dither, ddp_comp);
@@ -264,23 +276,109 @@ static irqreturn_t mtk_disp_dither_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static void mtk_disp_dither_config_overhead(struct mtk_ddp_comp *comp,
+	struct mtk_ddp_config *cfg)
+{
+	int index = index_of_dither(comp->id);
+	struct mtk_disp_dither *dither = comp_to_dither(comp);
+
+	DDPINFO("line: %d\n", __LINE__);
+
+	if (cfg->tile_overhead.is_support) {
+		/*set component overhead*/
+		if (dither->data->single_pipe_dither_num == 2) {
+			if (comp->id == DDP_COMPONENT_DITHER0 ||
+				comp->id == DDP_COMPONENT_DITHER1) {
+				dither_tile_overhead[index].left_comp_overhead = 0;
+				/*add component overhead on total overhead*/
+				cfg->tile_overhead.left_overhead +=
+					dither_tile_overhead[index].left_comp_overhead;
+				cfg->tile_overhead.left_in_width +=
+					dither_tile_overhead[index].left_comp_overhead;
+				/*copy from total overhead info*/
+				dither_tile_overhead[index].left_in_width =
+						cfg->tile_overhead.left_in_width;
+				dither_tile_overhead[index].left_overhead =
+						cfg->tile_overhead.left_overhead;
+			}
+			if (comp->id == DDP_COMPONENT_DITHER2 ||
+				comp->id == DDP_COMPONENT_DITHER3) {
+				dither_tile_overhead[index].right_comp_overhead = 0;
+				/*add component overhead on total overhead*/
+				cfg->tile_overhead.right_overhead +=
+					dither_tile_overhead[index].right_comp_overhead;
+				cfg->tile_overhead.right_in_width +=
+					dither_tile_overhead[index].right_comp_overhead;
+				/*copy from total overhead info*/
+				dither_tile_overhead[index].right_in_width =
+						cfg->tile_overhead.right_in_width;
+				dither_tile_overhead[index].right_overhead =
+						cfg->tile_overhead.right_overhead;
+			}
+		} else {
+			if (comp->id == DDP_COMPONENT_DITHER0) {
+				dither_tile_overhead[index].left_comp_overhead = 0;
+				/*add component overhead on total overhead*/
+				cfg->tile_overhead.left_overhead +=
+					dither_tile_overhead[index].left_comp_overhead;
+				cfg->tile_overhead.left_in_width +=
+					dither_tile_overhead[index].left_comp_overhead;
+				/*copy from total overhead info*/
+				dither_tile_overhead[index].left_in_width =
+						cfg->tile_overhead.left_in_width;
+				dither_tile_overhead[index].left_overhead =
+						cfg->tile_overhead.left_overhead;
+			}
+			if (comp->id == DDP_COMPONENT_DITHER1) {
+				dither_tile_overhead[index].right_comp_overhead = 0;
+				/*add component overhead on total overhead*/
+				cfg->tile_overhead.right_overhead +=
+					dither_tile_overhead[index].right_comp_overhead;
+				cfg->tile_overhead.right_in_width +=
+					dither_tile_overhead[index].right_comp_overhead;
+				/*copy from total overhead info*/
+				dither_tile_overhead[index].right_in_width =
+						cfg->tile_overhead.right_in_width;
+				dither_tile_overhead[index].right_overhead =
+						cfg->tile_overhead.right_overhead;
+			}
+		}
+	}
+}
 
 static void mtk_dither_config(struct mtk_ddp_comp *comp,
 			      struct mtk_ddp_config *cfg,
 			      struct cmdq_pkt *handle)
 {
 	struct mtk_disp_dither *priv = dev_get_drvdata(comp->dev);
+	int index = index_of_dither(comp->id);
+	struct mtk_disp_dither *dither = comp_to_dither(comp);
 
 	unsigned int enable = 1;
 	unsigned int width;
 
-	if (comp->mtk_crtc->is_dual_pipe)
-		width = cfg->w / 2;
-	else
-		width = cfg->w;
+	if (comp->mtk_crtc->is_dual_pipe && cfg->tile_overhead.is_support) {
+		if (dither->data->single_pipe_dither_num == 2) {
+			if (comp->id == DDP_COMPONENT_DITHER0 ||
+				comp->id == DDP_COMPONENT_DITHER1)
+				width = dither_tile_overhead[index].left_in_width;
+			else
+				width = dither_tile_overhead[index].right_in_width;
+		} else {
+			if (comp->id == DDP_COMPONENT_DITHER0)
+				width = dither_tile_overhead[index].left_in_width;
+			else
+				width = dither_tile_overhead[index].right_in_width;
+		}
+	} else {
+		if (comp->mtk_crtc->is_dual_pipe)
+			width = cfg->w / 2;
+		else
+			width = cfg->w;
+	}
 
 	DDPINFO("%s: bbp = %u\n", __func__, cfg->bpc);
-	DDPINFO("%s: width = %u height = %u\n", __func__, cfg->w, cfg->h);
+	DDPINFO("%s: width = %u height = %u\n", __func__, width, cfg->h);
 
 	/* skip redundant config */
 	if (priv->pwr_sta != 0)
@@ -631,6 +729,7 @@ static int mtk_dither_user_cmd(struct mtk_ddp_comp *comp,
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
 			struct mtk_ddp_comp *comp_dither1 = priv->ddp_comp[DDP_COMPONENT_DITHER1];
+
 			if (dither->data->single_pipe_dither_num == 2)
 				comp_dither1 = priv->ddp_comp[DDP_COMPONENT_DITHER2];
 
@@ -649,6 +748,7 @@ static int mtk_dither_user_cmd(struct mtk_ddp_comp *comp,
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
 			struct mtk_ddp_comp *comp_dither1 = priv->ddp_comp[DDP_COMPONENT_DITHER1];
+
 			if (dither->data->single_pipe_dither_num == 2)
 				comp_dither1 = priv->ddp_comp[DDP_COMPONENT_DITHER2];
 
@@ -667,6 +767,7 @@ static int mtk_dither_user_cmd(struct mtk_ddp_comp *comp,
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
 			struct mtk_ddp_comp *comp_dither1 = priv->ddp_comp[DDP_COMPONENT_DITHER1];
+
 			if (dither->data->single_pipe_dither_num == 2)
 				comp_dither1 = priv->ddp_comp[DDP_COMPONENT_DITHER2];
 
@@ -694,6 +795,7 @@ static int mtk_dither_user_cmd(struct mtk_ddp_comp *comp,
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
 			struct mtk_ddp_comp *comp_dither1 = priv->ddp_comp[DDP_COMPONENT_DITHER1];
+
 			if (dither->data->single_pipe_dither_num == 2)
 				comp_dither1 = priv->ddp_comp[DDP_COMPONENT_DITHER2];
 
@@ -736,6 +838,7 @@ static const struct mtk_ddp_comp_funcs mtk_disp_dither_funcs = {
 	.user_cmd = mtk_dither_user_cmd,
 	.prepare = mtk_dither_prepare,
 	.unprepare = mtk_dither_unprepare,
+	.config_overhead = mtk_disp_dither_config_overhead,
 	/* partial update
 	 * .io_cmd = mtk_dither_io_cmd,
 	 */

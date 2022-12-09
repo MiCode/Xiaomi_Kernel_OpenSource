@@ -69,6 +69,7 @@ struct mtk_dsi {
 	struct mtk_dsi *slave_dsi;
 	struct mtk_dsi *master_dsi;
 	struct mtk_drm_connector_caps connector_caps;
+	uint32_t connector_caps_blob_id;
 
 	void __iomem *regs;
 

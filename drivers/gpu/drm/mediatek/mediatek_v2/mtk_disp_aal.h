@@ -85,6 +85,8 @@
 
 #define MDP_AAL_DUAL_PIPE00				(0x500)
 #define MDP_AAL_DUAL_PIPE08				(0x544)
+#define MDP_AAL_DRE_ROI_00						(0x520)
+#define MDP_AAL_DRE_ROI_01						(0x524)
 
 /* AAL Calarty */
 #define MDP_AAL_DRE_BILATEAL                    (0x53C)

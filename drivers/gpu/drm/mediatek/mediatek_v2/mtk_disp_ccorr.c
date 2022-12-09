@@ -193,6 +193,18 @@ struct mtk_disp_ccorr {
 	const struct mtk_disp_ccorr_data *data;
 };
 
+struct mtk_disp_ccorr_tile_overhead {
+	unsigned int left_in_width;
+	unsigned int left_overhead;
+	unsigned int left_comp_overhead;
+	unsigned int right_in_width;
+	unsigned int right_overhead;
+	unsigned int right_comp_overhead;
+};
+
+struct mtk_disp_ccorr_tile_overhead ccorr_tile_overhead[DISP_CCORR_TOTAL] = {
+	{ 0 }, { 0 }, { 0 }, { 0 }};
+
 static inline struct mtk_disp_ccorr *comp_to_ccorr(struct mtk_ddp_comp *comp)
 {
 	return container_of(comp, struct mtk_disp_ccorr, ddp_comp);
@@ -1141,16 +1153,102 @@ int mtk_set_ccorr_caps(struct drm_mtk_ccorr_caps *ccorr_caps)
 	return 0;
 }
 
+static void mtk_disp_ccorr_config_overhead(struct mtk_ddp_comp *comp,
+	struct mtk_ddp_config *cfg)
+{
+	int index = index_of_ccorr(comp->id);
+	struct mtk_disp_ccorr *ccorr = comp_to_ccorr(comp);
+
+	DDPINFO("line: %d\n", __LINE__);
+
+	if (cfg->tile_overhead.is_support) {
+		/*set component overhead*/
+		if (ccorr->data->single_pipe_ccorr_num == 2) {
+			if (comp->id == DDP_COMPONENT_CCORR0 || comp->id == DDP_COMPONENT_CCORR1) {
+				ccorr_tile_overhead[index].left_comp_overhead = 0;
+				/*add component overhead on total overhead*/
+				cfg->tile_overhead.left_overhead +=
+					ccorr_tile_overhead[index].left_comp_overhead;
+				cfg->tile_overhead.left_in_width +=
+					ccorr_tile_overhead[index].left_comp_overhead;
+				/*copy from total overhead info*/
+				ccorr_tile_overhead[index].left_in_width =
+					cfg->tile_overhead.left_in_width;
+				ccorr_tile_overhead[index].left_overhead =
+					cfg->tile_overhead.left_overhead;
+			}
+			if (comp->id == DDP_COMPONENT_CCORR2 || comp->id == DDP_COMPONENT_CCORR3) {
+				ccorr_tile_overhead[index].right_comp_overhead = 0;
+				/*add component overhead on total overhead*/
+				cfg->tile_overhead.right_overhead +=
+					ccorr_tile_overhead[index].right_comp_overhead;
+				cfg->tile_overhead.right_in_width +=
+					ccorr_tile_overhead[index].right_comp_overhead;
+				/*copy from total overhead info*/
+				ccorr_tile_overhead[index].right_in_width =
+					cfg->tile_overhead.right_in_width;
+				ccorr_tile_overhead[index].right_overhead =
+					cfg->tile_overhead.right_overhead;
+			}
+		} else {
+			if (comp->id == DDP_COMPONENT_CCORR0) {
+				ccorr_tile_overhead[index].left_comp_overhead = 0;
+				/*add component overhead on total overhead*/
+				cfg->tile_overhead.left_overhead +=
+					ccorr_tile_overhead[index].left_comp_overhead;
+				cfg->tile_overhead.left_in_width +=
+					ccorr_tile_overhead[index].left_comp_overhead;
+				/*copy from total overhead info*/
+				ccorr_tile_overhead[index].left_in_width =
+					cfg->tile_overhead.left_in_width;
+				ccorr_tile_overhead[index].left_overhead =
+					cfg->tile_overhead.left_overhead;
+			}
+			if (comp->id == DDP_COMPONENT_CCORR1) {
+				ccorr_tile_overhead[index].right_comp_overhead = 0;
+				/*add component overhead on total overhead*/
+				cfg->tile_overhead.right_overhead +=
+					ccorr_tile_overhead[index].right_comp_overhead;
+				cfg->tile_overhead.right_in_width +=
+					ccorr_tile_overhead[index].right_comp_overhead;
+				/*copy from total overhead info*/
+				ccorr_tile_overhead[index].right_in_width =
+					cfg->tile_overhead.right_in_width;
+				ccorr_tile_overhead[index].right_overhead =
+					cfg->tile_overhead.right_overhead;
+			}
+
+		}
+	}
+}
+
 static void mtk_ccorr_config(struct mtk_ddp_comp *comp,
 			     struct mtk_ddp_config *cfg,
 			     struct cmdq_pkt *handle)
 {
 	unsigned int width;
+	int index = index_of_ccorr(comp->id);
+	struct mtk_disp_ccorr *ccorr = comp_to_ccorr(comp);
 
-	if (comp->mtk_crtc->is_dual_pipe)
-		width = cfg->w / 2;
-	else
-		width = cfg->w;
+	if (comp->mtk_crtc->is_dual_pipe && cfg->tile_overhead.is_support) {
+		if (ccorr->data->single_pipe_ccorr_num == 2) {
+			if (comp->id == DDP_COMPONENT_CCORR0
+				|| comp->id == DDP_COMPONENT_CCORR1)
+				width = ccorr_tile_overhead[index].left_in_width;
+			else
+				width = ccorr_tile_overhead[index].right_in_width;
+		} else {
+			if (comp->id == DDP_COMPONENT_CCORR0)
+				width = ccorr_tile_overhead[index].left_in_width;
+			else
+				width = ccorr_tile_overhead[index].right_in_width;
+		}
+	} else {
+		if (comp->mtk_crtc->is_dual_pipe)
+			width = cfg->w / 2;
+		else
+			width = cfg->w;
+	}
 
 	DDPINFO("%s\n", __func__);
 
@@ -1225,6 +1323,7 @@ static int mtk_ccorr_user_cmd(struct mtk_ddp_comp *comp,
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
 			struct mtk_ddp_comp *comp_ccorr1 = priv->ddp_comp[DDP_COMPONENT_CCORR1];
+
 			if (ccorr->data->single_pipe_ccorr_num == 2)
 				comp_ccorr1 = priv->ddp_comp[DDP_COMPONENT_CCORR3];
 
@@ -1247,6 +1346,7 @@ static int mtk_ccorr_user_cmd(struct mtk_ddp_comp *comp,
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
 			struct mtk_ddp_comp *comp_ccorr1 = priv->ddp_comp[DDP_COMPONENT_CCORR1];
+
 			if (ccorr->data->single_pipe_ccorr_num == 2)
 				comp_ccorr1 = priv->ddp_comp[DDP_COMPONENT_CCORR2];
 
@@ -1371,14 +1471,22 @@ static int mtk_ccorr_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	return 0;
 }
 
+void mtk_ccorr_first_cfg(struct mtk_ddp_comp *comp,
+	       struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
+{
+	mtk_ccorr_config(comp, cfg, handle);
+}
+
 static const struct mtk_ddp_comp_funcs mtk_disp_ccorr_funcs = {
 	.config = mtk_ccorr_config,
+	.first_cfg = mtk_ccorr_first_cfg,
 	.start = mtk_ccorr_start,
 	.bypass = mtk_ccorr_bypass,
 	.user_cmd = mtk_ccorr_user_cmd,
 	.io_cmd = mtk_ccorr_io_cmd,
 	.prepare = mtk_ccorr_prepare,
 	.unprepare = mtk_ccorr_unprepare,
+	.config_overhead = mtk_disp_ccorr_config_overhead,
 };
 
 static int mtk_disp_ccorr_bind(struct device *dev, struct device *master,

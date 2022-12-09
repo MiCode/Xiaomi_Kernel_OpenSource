@@ -85,10 +85,14 @@
 #define DISP_REG_SPR_RDY_SEL_EN			0x0040
 	#define DISP_SPR_RDY_SEL_EN BIT(0)
 
+#define DISP_REG_SPR_OPTION		0x004C
+	#define DISP_SPR_AUTO_CLOCK BIT(4)
+
 #define DISP_REG_SPR_CK_ON		0x0044
 	#define DISP_SPR_CK_ON BIT(0)
 	#define CROP_HOFFSET            REG_FLD_MSB_LSB(23, 16)
 	#define CROP_VOFFSET            REG_FLD_MSB_LSB(31, 24)
+
 #define DISP_REG_SPR_DBG0			0x0050
 	#define INP_PIX_CNT REG_FLD_MSB_LSB(12, 0)
 	#define INP_LINE_CNT REG_FLD_MSB_LSB(28, 16)
@@ -1000,6 +1004,66 @@ static unsigned int disp_spr_get_tile_overhead(unsigned int type)
 		return 0;
 	}
 }
+struct mtk_disp_spr_tile_overhead {
+	unsigned int left_in_width;
+	unsigned int left_overhead;
+	unsigned int left_comp_overhead;
+	unsigned int right_in_width;
+	unsigned int right_overhead;
+	unsigned int right_comp_overhead;
+};
+
+struct mtk_disp_spr_tile_overhead spr_tile_overhead;
+
+static void mtk_disp_spr_config_overhead(struct mtk_ddp_comp *comp,
+	struct mtk_ddp_config *cfg)
+{
+	unsigned int tile_overhead;
+	struct mtk_panel_spr_params *spr_params;
+	struct mtk_disp_spr *spr = comp_to_spr(comp);
+
+	spr_params = &comp->mtk_crtc->panel_ext->params->spr_params;
+
+	DDPMSG("line: %d\n", __LINE__);
+	g_left_pipe_overhead[0] = cfg->tile_overhead.left_overhead;
+	g_right_pipe_overhead[0] = cfg->tile_overhead.right_overhead;
+	if (cfg->tile_overhead.is_support && spr->data && spr->data->version == MTK_SPR_V2) {
+		if (comp->id == DDP_COMPONENT_SPR0) {
+			if (spr_params->enable == 1 && spr_params->relay == 0) {
+				tile_overhead =
+					disp_spr_get_tile_overhead(spr_params->spr_format_type);
+				spr_tile_overhead.left_comp_overhead =
+					(cfg->tile_overhead.left_in_width + tile_overhead + 3)
+					/ 4 * 4 - cfg->tile_overhead.left_in_width;
+			} else
+				spr_tile_overhead.left_comp_overhead = 0;
+			cfg->tile_overhead.left_overhead += spr_tile_overhead.left_comp_overhead;
+			cfg->tile_overhead.left_in_width += spr_tile_overhead.left_comp_overhead;
+			spr_tile_overhead.left_in_width = cfg->tile_overhead.left_in_width;
+			spr_tile_overhead.left_overhead = cfg->tile_overhead.left_overhead;
+			g_left_pipe_overhead[0] = cfg->tile_overhead.left_overhead;
+		}
+
+		if (comp->id == DDP_COMPONENT_SPR1) {
+			if (spr_params->enable == 1 && spr_params->relay == 0) {
+				tile_overhead =
+					disp_spr_get_tile_overhead(spr_params->spr_format_type);
+				spr_tile_overhead.right_comp_overhead =
+					(cfg->tile_overhead.right_in_width + tile_overhead + 3)
+					/ 4 * 4 - cfg->tile_overhead.right_in_width;
+			} else
+				spr_tile_overhead.right_comp_overhead = 0;
+			cfg->tile_overhead.right_overhead += spr_tile_overhead.right_comp_overhead;
+			cfg->tile_overhead.right_in_width += spr_tile_overhead.right_comp_overhead;
+			spr_tile_overhead.right_in_width = cfg->tile_overhead.right_in_width;
+			spr_tile_overhead.right_overhead = cfg->tile_overhead.right_overhead;
+			g_right_pipe_overhead[0] = cfg->tile_overhead.right_overhead;
+		}
+	}
+}
+
+
+
 
 static void mtk_spr_config_V2(struct mtk_ddp_comp *comp,
 				 struct mtk_ddp_config *cfg,
@@ -1007,10 +1071,12 @@ static void mtk_spr_config_V2(struct mtk_ddp_comp *comp,
 {
 	struct mtk_panel_spr_params *spr_params;
 	unsigned int width, height;
-	unsigned int tile_overhead;
+	unsigned int postalign_width;
 	u32 reg_val;
 	void __iomem *config_regs;
 	resource_size_t config_regs_pa;
+	unsigned int crop_hoffset = 0;
+	unsigned int crop_out_hsize = 0;
 
 	if (!comp->mtk_crtc || !comp->mtk_crtc->panel_ext)
 		return;
@@ -1026,24 +1092,34 @@ static void mtk_spr_config_V2(struct mtk_ddp_comp *comp,
 	spr_params = &comp->mtk_crtc->panel_ext->params->spr_params;
 
 	if (comp->mtk_crtc->is_dual_pipe == true) {
-		tile_overhead = disp_spr_get_tile_overhead(spr_params->spr_format_type);
-		if (tile_overhead == 0) {
-			DDPMSG("spr format is not support\n");
-			return;
+		postalign_width = cfg->w / 2;
+		if (cfg->tile_overhead.is_support) {
+			if (comp->id == DDP_COMPONENT_SPR0) {
+				width = spr_tile_overhead.left_in_width;
+				crop_hoffset = 0;
+				crop_out_hsize = width - spr_tile_overhead.left_comp_overhead;
+			}
+			if (comp->id == DDP_COMPONENT_SPR1) {
+				width = spr_tile_overhead.right_in_width;
+				crop_hoffset = spr_tile_overhead.right_comp_overhead;
+				crop_out_hsize = width - spr_tile_overhead.right_comp_overhead;
+			}
+		} else {
+			width = cfg->w / 2;
+			crop_out_hsize = width;
 		}
-
-		//todo
-		//width = (cfg->w / 2 + tile_overhead + 3) / 4 * 4;
-		width = cfg->w / 2;
 		height = cfg->h;
 
-		mtk_ddp_write_mask(comp, (width) << 16,
+		mtk_ddp_write_mask(comp, (crop_out_hsize) << 16,
 			DISP_REG_SPR_RDY_SEL, REG_FLD_MASK(CROP_OUT_HSIZE), handle);
 		mtk_ddp_write_mask(comp, height << 16,
 			DISP_REG_SPR_RDY_SEL_EN, REG_FLD_MASK(CROP_OUT_VSIZE), handle);
-		mtk_ddp_write_mask(comp, 0 << 16,
+		mtk_ddp_write_mask(comp, crop_hoffset << 16,
 				DISP_REG_SPR_CK_ON, REG_FLD_MASK(CROP_HOFFSET), handle);
+		mtk_ddp_write_mask(comp, 0, DISP_REG_SPR_OPTION,
+			DISP_SPR_AUTO_CLOCK, handle);
 	} else {
+		postalign_width = cfg->w;
 		width = cfg->w;
 		height = cfg->h;
 		mtk_ddp_write_mask(comp, width << 16,
@@ -1091,11 +1167,11 @@ static void mtk_spr_config_V2(struct mtk_ddp_comp *comp,
 				reg_val, ~0);
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				config_regs_pa + DISP_REG_POSTALIGN0_CON1,
-				(height << 16 | width), ~0);
+				(height << 16 | postalign_width), ~0);
 		} else {
 			writel_relaxed(reg_val,
 				config_regs + DISP_REG_POSTALIGN0_CON0);
-			writel_relaxed((height << 16 | width),
+			writel_relaxed((height << 16 | postalign_width),
 				config_regs + DISP_REG_POSTALIGN0_CON1);
 		}
 
@@ -1189,6 +1265,17 @@ static void mtk_spr_config(struct mtk_ddp_comp *comp,
 		mtk_spr_config_V1(comp, cfg, handle);
 }
 
+static void mtk_spr_first_config(struct mtk_ddp_comp *comp,
+				 struct mtk_ddp_config *cfg,
+				 struct cmdq_pkt *handle)
+{
+	struct mtk_disp_spr *spr = comp_to_spr(comp);
+
+	if (spr->data && spr->data->version == MTK_SPR_V2)
+		mtk_spr_config_V2(comp, cfg, handle);
+}
+
+
 void mtk_spr_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
@@ -1244,11 +1331,13 @@ int mtk_spr_analysis(struct mtk_ddp_comp *comp)
 }
 
 static const struct mtk_ddp_comp_funcs mtk_disp_spr_funcs = {
+	.first_cfg = mtk_spr_first_config,
 	.config = mtk_spr_config,
 	.start = mtk_spr_start,
 	.stop = mtk_spr_stop,
 	.prepare = mtk_spr_prepare,
 	.unprepare = mtk_spr_unprepare,
+	.config_overhead = mtk_disp_spr_config_overhead,
 };
 
 static int mtk_disp_spr_bind(struct device *dev, struct device *master,

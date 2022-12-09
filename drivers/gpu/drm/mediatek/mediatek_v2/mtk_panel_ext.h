@@ -203,6 +203,12 @@ enum MODE_CHANGE_INDEX {
 	MODE_DSI_RES = BIT(3),
 };
 
+enum RES_SWITCH_TYPE {
+	RES_SWITCH_NO_USE,
+	RES_SWITCH_ON_DDIC,
+	RES_SWITCH_ON_AP,
+};
+
 enum MTK_LCM_DUMP_FLAG {
 	MTK_DRM_PANEL_DUMP_PARAMS,
 	MTK_DRM_PANEL_DUMP_OPS,
@@ -554,6 +560,7 @@ struct mtk_panel_funcs {
 		struct drm_connector *connector,
 		struct mtk_panel_params **ext_para,
 		unsigned int mode);
+	enum RES_SWITCH_TYPE (*get_res_switch_type)(void);
 	int (*mode_switch)(struct drm_panel *panel,
 		struct drm_connector *connector, unsigned int cur_mode,
 		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage);

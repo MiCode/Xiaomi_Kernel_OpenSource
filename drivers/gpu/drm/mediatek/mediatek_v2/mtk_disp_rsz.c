@@ -66,9 +66,7 @@
 
 
 #define UNIT 32768
-#define TILE_LOSS 4
-#define TILE_LOSS_LEFT 4
-#define TILE_LOSS_RIGHT 4
+#define OUT_TILE_LOSS 0
 
 enum mtk_rsz_color_format {
 	ARGB2101010,
@@ -106,6 +104,23 @@ struct mtk_disp_rsz {
 	const struct mtk_disp_rsz_data *data;
 };
 
+struct mtk_disp_rsz_tile_overhead {
+	unsigned int left_in_width;
+	unsigned int left_overhead;
+	unsigned int left_comp_overhead;
+	unsigned int left_out_tile_loss;
+	unsigned int right_in_width;
+	unsigned int right_overhead;
+	unsigned int right_comp_overhead;
+	unsigned int right_out_tile_loss;
+	bool is_support;
+
+	/* store rsz tile_overhead calc */
+	struct rsz_tile_params tw[2];
+};
+
+struct mtk_disp_rsz_tile_overhead rsz_tile_overhead = { 0 };
+
 static inline struct mtk_disp_rsz *comp_to_rsz(struct mtk_ddp_comp *comp)
 {
 	return container_of(comp, struct mtk_disp_rsz, ddp_comp);
@@ -113,12 +128,12 @@ static inline struct mtk_disp_rsz *comp_to_rsz(struct mtk_ddp_comp *comp)
 
 static void mtk_rsz_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
-	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
-
-	if (priv->data->mmsys_id == MMSYS_MT6985 &&
-		((comp->id == DDP_COMPONENT_RSZ0) ||
-		 (comp->id == DDP_COMPONENT_RSZ2)))
+	if ((!comp->mtk_crtc->scaling_ctx.scaling_en)
+		&& mtk_crtc_check_is_scaling_comp(comp->mtk_crtc, comp->id)) {
+		DDPDBG("%s: scaling-up disable, no need to start %s\n", __func__,
+			mtk_dump_comp_str(comp));
 		return;
+	}
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_RSZ_ENABLE, 0x1, ~0);
@@ -135,17 +150,15 @@ static void mtk_rsz_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 int mtk_rsz_calc_tile_params(u32 frm_in_len, u32 frm_out_len, bool tile_mode,
 			     struct rsz_tile_params t[])
 {
-	u32 tile_loss = 0;
+	u32 out_tile_loss[2] = {OUT_TILE_LOSS, OUT_TILE_LOSS};
+	u32 in_tile_loss[2] = {out_tile_loss[0] + 4, out_tile_loss[1] + 4};
 	u32 step = 0;
 	s32 init_phase = 0;
 	s32 offset[2] = {0};
 	s32 int_offset[2] = {0};
 	s32 sub_offset[2] = {0};
 	u32 tile_in_len[2] = {0};
-	u32 tile_out_len = 0;
-
-	if (tile_mode)
-		tile_loss = TILE_LOSS;
+	u32 tile_out_len[2] = {0};
 
 	if (frm_out_len > 1)
 		step = (UNIT * (frm_in_len - 1) + (frm_out_len - 2)) /
@@ -169,18 +182,31 @@ int mtk_rsz_calc_tile_params(u32 frm_in_len, u32 frm_out_len, bool tile_mode,
 		sub_offset[0] = sub_offset[0] - UNIT;
 	}
 	if (tile_mode) {
-		tile_in_len[0] = frm_in_len / 2 + tile_loss;
-		tile_out_len = frm_out_len / 2;
+		out_tile_loss[0] =
+			(rsz_tile_overhead.is_support ? rsz_tile_overhead.left_out_tile_loss : 0);
+		in_tile_loss[0] = out_tile_loss[0] + 4;
+		DDPINFO("%s :out_tile_loss[0]:%d, in_tile_loss[0]:%d\n", __func__,
+			out_tile_loss[0], in_tile_loss[0]);
+
+		tile_in_len[0] = (((frm_out_len / 2) * frm_in_len * 10) /
+			frm_out_len + 5) / 10;
+		if (tile_in_len[0] + in_tile_loss[0] >= frm_in_len)
+			in_tile_loss[0] = frm_in_len - tile_in_len[0];
+
+		tile_out_len[0] = frm_out_len / 2 + out_tile_loss[0];
+		if (tile_in_len[0] + in_tile_loss[0] > tile_out_len[0])
+			in_tile_loss[0] = tile_out_len[0] - tile_in_len[0];
+		tile_in_len[0] += in_tile_loss[0];
 	} else {
 		tile_in_len[0] = frm_in_len;
-		tile_out_len = frm_out_len;
+		tile_out_len[0] = frm_out_len;
 	}
 
 	t[0].step = step;
 	t[0].int_offset = (u32)(int_offset[0] & 0xffff);
 	t[0].sub_offset = (u32)(sub_offset[0] & 0x1fffff);
 	t[0].in_len = tile_in_len[0];
-	t[0].out_len = tile_out_len;
+	t[0].out_len = tile_out_len[0];
 
 	DDPDBG("%s:%s:step:%u,offset:%u.%u,len:%u->%u\n", __func__,
 	       tile_mode ? "dual" : "single", t[0].step, t[0].int_offset,
@@ -190,25 +216,36 @@ int mtk_rsz_calc_tile_params(u32 frm_in_len, u32 frm_out_len, bool tile_mode,
 		return 0;
 
 	/* right half */
-	offset[1] =
-		(init_phase + frm_out_len / 2 * step) -
-		(frm_in_len / 2 - tile_loss - (offset[0] ? 1 : 0) + 1) * UNIT +
-		UNIT;
-	int_offset[1] = offset[1] / UNIT;
-	sub_offset[1] = offset[1] - UNIT * int_offset[1];
-	tile_in_len[1] = frm_in_len / 2 + tile_loss + (offset[0] ? 1 : 0);
+	out_tile_loss[1] =
+		(rsz_tile_overhead.is_support ? rsz_tile_overhead.right_out_tile_loss : 0);
+	in_tile_loss[1] = out_tile_loss[1] + 4;
+	DDPINFO("%s :out_tile_loss[1]:%d, in_tile_loss[1]:%d\n", __func__,
+		out_tile_loss[1], in_tile_loss[1]);
 
-	if (int_offset[1] & 0x1) {
-		int_offset[1]++;
-		tile_in_len[1]++;
-		DDPMSG("right tile int_offset: make odd to even\n");
-	}
+	tile_out_len[1] = frm_out_len - (tile_out_len[0] - out_tile_loss[0]) + out_tile_loss[1];
+	tile_in_len[1] = (((tile_out_len[1] - out_tile_loss[1]) * frm_in_len * 10) /
+		frm_out_len + 5) / 10;
+	if (tile_in_len[1] + in_tile_loss[1] >= frm_in_len)
+		in_tile_loss[1] = frm_in_len - tile_in_len[1];
+
+	if (tile_in_len[1] + in_tile_loss[1] > tile_out_len[1])
+		in_tile_loss[1] = tile_out_len[1] - tile_in_len[1];
+	tile_in_len[1] += in_tile_loss[1];
+
+	offset[1] = (-offset[0]) + ((tile_out_len[0] - out_tile_loss[0] - out_tile_loss[1]) *
+		step) - (frm_in_len - tile_in_len[1]) * UNIT;
+
+	int_offset[1] = offset[1] / UNIT;
+	if (offset[1] >= 0)
+		sub_offset[1] = offset[1] - UNIT * int_offset[1];
+	else
+		sub_offset[1] = UNIT * int_offset[1] - offset[1];
 
 	t[1].step = step;
 	t[1].int_offset = (u32)(int_offset[1] & 0xffff);
 	t[1].sub_offset = (u32)(sub_offset[1] & 0x1fffff);
 	t[1].in_len = tile_in_len[1];
-	t[1].out_len = tile_out_len;
+	t[1].out_len = tile_out_len[1];
 
 	DDPDBG("%s:%s:step:%u,offset:%u.%u,len:%u->%u\n", __func__,
 	       tile_mode ? "dual" : "single", t[1].step, t[1].int_offset,
@@ -253,6 +290,224 @@ static int mtk_rsz_check_params(struct mtk_rsz_config_struct *rsz_config,
 	}
 
 	return 0;
+}
+
+static void mtk_disp_rsz_config_overhead(struct mtk_ddp_comp *comp,
+	struct mtk_ddp_config *cfg)
+{
+	bool tile_mode = true;
+	u32 tile_idx = 0;
+	u32 frm_in_len, frm_out_len;
+	u32 in_w = 0, out_w = 0;
+	u32 left_in_w = 0, right_in_w = 0;
+
+	DDPINFO("%s comp:%s, scaling_en:%d, cfg:(%ux%u)->(%ux%u)\n", __func__,
+		mtk_dump_comp_str(comp), comp->mtk_crtc->scaling_ctx.scaling_en,
+		cfg->rsz_src_w, cfg->rsz_src_h, cfg->w, cfg->h);
+
+	if (!comp->mtk_crtc->scaling_ctx.scaling_en)
+		return;
+
+	if (cfg->tile_overhead.is_support) {
+
+		frm_in_len = cfg->rsz_src_w;
+		frm_out_len = cfg->w;
+
+		left_in_w = cfg->rsz_src_w / 2;
+		right_in_w =  cfg->rsz_src_w / 2;
+
+		/*set component overhead*/
+		if (comp->id == DDP_COMPONENT_RSZ0) {
+
+			/* copy from post-accumulation */
+			rsz_tile_overhead.left_out_tile_loss = cfg->tile_overhead.left_overhead;
+			rsz_tile_overhead.is_support = cfg->tile_overhead.is_support;
+
+			mtk_rsz_calc_tile_params(frm_in_len, frm_out_len,
+				tile_mode, rsz_tile_overhead.tw);
+
+			tile_idx = 0;
+			in_w = rsz_tile_overhead.tw[tile_idx].in_len;
+			out_w = rsz_tile_overhead.tw[tile_idx].out_len;
+
+			rsz_tile_overhead.left_comp_overhead = in_w - left_in_w;
+
+			/*add component overhead on total overhead*/
+			cfg->tile_overhead.left_overhead =
+				rsz_tile_overhead.left_comp_overhead;
+			cfg->tile_overhead.left_in_width =
+				rsz_tile_overhead.left_comp_overhead + left_in_w;
+			cfg->tile_overhead.left_overhead_scaling =
+				rsz_tile_overhead.left_out_tile_loss;
+
+			/*copy from total overhead info*/
+			rsz_tile_overhead.left_in_width = cfg->tile_overhead.left_in_width;
+			rsz_tile_overhead.left_overhead = cfg->tile_overhead.left_overhead;
+		}
+		if (comp->id == DDP_COMPONENT_RSZ2) {
+
+			/* copy from post-accumulation */
+			rsz_tile_overhead.right_out_tile_loss = cfg->tile_overhead.right_overhead;
+			rsz_tile_overhead.is_support = cfg->tile_overhead.is_support;
+
+			mtk_rsz_calc_tile_params(frm_in_len, frm_out_len,
+				tile_mode, rsz_tile_overhead.tw);
+
+			tile_idx = 1;
+			in_w = rsz_tile_overhead.tw[tile_idx].in_len;
+			out_w = rsz_tile_overhead.tw[tile_idx].out_len;
+
+			rsz_tile_overhead.right_comp_overhead = in_w - right_in_w;
+
+			/*add component overhead on total overhead*/
+			cfg->tile_overhead.right_overhead =
+				rsz_tile_overhead.right_comp_overhead;
+			cfg->tile_overhead.right_in_width =
+				rsz_tile_overhead.right_comp_overhead + right_in_w;
+			cfg->tile_overhead.right_overhead_scaling =
+				rsz_tile_overhead.right_out_tile_loss;
+
+			/*copy from total overhead info*/
+			rsz_tile_overhead.right_in_width = cfg->tile_overhead.right_in_width;
+			rsz_tile_overhead.right_overhead = cfg->tile_overhead.right_overhead;
+		}
+	}
+}
+
+static void mtk_rsz_config(struct mtk_ddp_comp *comp,
+			   struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
+{
+	struct mtk_rsz_config_struct *rsz_config = NULL;
+	struct mtk_disp_rsz *rsz = comp_to_rsz(comp);
+	enum mtk_rsz_color_format fmt = ARGB2101010;
+	bool tile_mode = false;
+	u32 reg_val = 0;
+	u32 tile_idx = 0;
+	u32 in_w = 0, in_h = 0, out_w = 0, out_h = 0;
+
+	if (!mtk_crtc_check_is_scaling_comp(comp->mtk_crtc, comp->id)) {
+		DDPINFO("%s only for res switch on ap, return\n", __func__);
+		return;
+	}
+
+	DDPINFO("%s comp:%s, scaling_en:%d, cfg:(%ux%u)->(%ux%u)\n", __func__,
+		mtk_dump_comp_str(comp), comp->mtk_crtc->scaling_ctx.scaling_en,
+		cfg->rsz_src_w, cfg->rsz_src_h, cfg->w, cfg->h);
+
+	if (!comp->mtk_crtc->scaling_ctx.scaling_en) {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+				   comp->regs_pa + DISP_REG_RSZ_ENABLE, 0x0, ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+				   comp->regs_pa + DISP_REG_RSZ_INPUT_IMAGE, 0x0, ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+				   comp->regs_pa + DISP_REG_RSZ_OUTPUT_IMAGE, 0x0, ~0);
+		return;
+	}
+
+	rsz_config = kzalloc(sizeof(struct mtk_rsz_config_struct), GFP_KERNEL);
+	if (!rsz_config) {
+		DDPPR_ERR("fail to create rsz_config!\n");
+		return;
+	}
+
+	if (comp->mtk_crtc->is_dual_pipe) {
+		rsz_config->frm_in_w = cfg->rsz_src_w / 2;
+		rsz_config->frm_out_w = cfg->w / 2;
+	} else {
+		rsz_config->frm_in_w = cfg->rsz_src_w;
+		rsz_config->frm_out_w = cfg->w;
+	}
+
+	rsz_config->frm_in_h = cfg->rsz_src_h;
+	rsz_config->frm_out_h = cfg->h;
+
+	if (mtk_rsz_check_params(rsz_config, rsz->data->tile_length)) {
+		kfree(rsz_config);
+		return;
+	}
+
+	if (comp->mtk_crtc->is_dual_pipe && cfg->tile_overhead.is_support) {
+		if (comp->id == DDP_COMPONENT_RSZ0)
+			tile_idx = 0;
+		else if (comp->id == DDP_COMPONENT_RSZ2)
+			tile_idx = 1;
+
+		rsz_config->tw[tile_idx].in_len =
+			rsz_tile_overhead.tw[tile_idx].in_len;
+		rsz_config->tw[tile_idx].out_len =
+			rsz_tile_overhead.tw[tile_idx].out_len;
+		rsz_config->tw[tile_idx].step =
+			rsz_tile_overhead.tw[tile_idx].step;
+		rsz_config->tw[tile_idx].int_offset =
+			rsz_tile_overhead.tw[tile_idx].int_offset;
+		rsz_config->tw[tile_idx].sub_offset =
+			rsz_tile_overhead.tw[tile_idx].sub_offset;
+	} else {
+		/* dual pipe without tile_overhead or single pipe */
+		mtk_rsz_calc_tile_params(rsz_config->frm_in_w, rsz_config->frm_out_w,
+					 tile_mode, rsz_config->tw);
+	}
+
+	mtk_rsz_calc_tile_params(rsz_config->frm_in_h, rsz_config->frm_out_h,
+				 tile_mode, rsz_config->th);
+
+	in_w = rsz_config->tw[tile_idx].in_len;
+	in_h = rsz_config->th[0].in_len;
+	out_w = rsz_config->tw[tile_idx].out_len;
+	out_h = rsz_config->th[0].out_len;
+
+	if (in_w > out_w || in_h > out_h) {
+		DDPPR_ERR("DISP_RSZ only supports scale-up,(%ux%u)->(%ux%u)\n",
+			  in_w, in_h, out_w, out_h);
+		kfree(rsz_config);
+		return;
+	}
+
+	reg_val = 0;
+	reg_val |= REG_FLD_VAL(FLD_RSZ_HORIZONTAL_EN, (in_w != out_w));
+	reg_val |= REG_FLD_VAL(FLD_RSZ_VERTICAL_EN, (in_h != out_h));
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_REG_RSZ_CONTROL_1, reg_val, ~0);
+	DDPDBG("%s:CONTROL_1:0x%x\n", __func__, reg_val);
+
+	reg_val = mtk_rsz_set_color_format(fmt);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_REG_RSZ_CONTROL_2, reg_val, ~0);
+	DDPDBG("%s:CONTROL_2:0x%x\n", __func__, reg_val);
+
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_REG_RSZ_INPUT_IMAGE,
+		       in_h << 16 | in_w, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_REG_RSZ_OUTPUT_IMAGE,
+		       out_h << 16 | out_w, ~0);
+	DDPDBG("%s:%s:(%ux%u)->(%ux%u)\n", __func__, mtk_dump_comp_str(comp),
+	       in_w, in_h, out_w, out_h);
+
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_REG_RSZ_HORIZONTAL_COEFF_STEP,
+		       rsz_config->tw[tile_idx].step, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_REG_RSZ_VERTICAL_COEFF_STEP,
+		       rsz_config->th[0].step, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa +
+			       DISP_REG_RSZ_LUMA_HORIZONTAL_INTEGER_OFFSET,
+		       rsz_config->tw[tile_idx].int_offset, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa +
+			       DISP_REG_RSZ_LUMA_HORIZONTAL_SUBPIXEL_OFFSET,
+		       rsz_config->tw[tile_idx].sub_offset, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa +
+			       DISP_REG_RSZ_LUMA_VERTICAL_INTEGER_OFFSET,
+		       rsz_config->th[0].int_offset, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa +
+			       DISP_REG_RSZ_LUMA_VERTICAL_SUBPIXEL_OFFSET,
+		       rsz_config->th[0].sub_offset, ~0);
+
+	kfree(rsz_config);
 }
 
 static void mtk_rsz_addon_config(struct mtk_ddp_comp *comp,
@@ -537,6 +792,8 @@ static const struct mtk_ddp_comp_funcs mtk_disp_rsz_funcs = {
 	.start = mtk_rsz_start,
 	.stop = mtk_rsz_stop,
 	.addon_config = mtk_rsz_addon_config,
+	.config = mtk_rsz_config,
+	.config_overhead = mtk_disp_rsz_config_overhead,
 	.prepare = mtk_rsz_prepare,
 	.unprepare = mtk_rsz_unprepare,
 	.io_cmd = mtk_rsz_io_cmd,

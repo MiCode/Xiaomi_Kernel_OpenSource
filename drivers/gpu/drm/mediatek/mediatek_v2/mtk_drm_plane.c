@@ -326,7 +326,8 @@ static int mtk_plane_atomic_check(struct drm_plane *plane,
 		return PTR_ERR(crtc_state);
 
 	mtk_crtc = to_mtk_crtc(new_plane_state->crtc);
-	if (mtk_crtc->res_switch && (drm_crtc_index(new_plane_state->crtc) == 0)) {
+	if ((mtk_crtc->res_switch != RES_SWITCH_NO_USE)
+		&& (drm_crtc_index(new_plane_state->crtc) == 0)) {
 		struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc_state);
 		struct mtk_crtc_state *old_mtk_state =
 			to_mtk_crtc_state(new_plane_state->crtc->state);

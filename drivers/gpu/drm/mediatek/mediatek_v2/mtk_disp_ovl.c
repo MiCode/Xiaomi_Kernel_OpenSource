@@ -686,6 +686,25 @@ unsigned int mtk_ovl_aid_sel_MT6879(struct mtk_ddp_comp *comp)
 	}
 }
 
+bool is_right_ovl_comp_MT6985(struct mtk_ddp_comp *comp)
+{
+	switch (comp->id) {
+	case DDP_COMPONENT_OVL0_2L:
+	case DDP_COMPONENT_OVL1_2L:
+	case DDP_COMPONENT_OVL2_2L:
+	case DDP_COMPONENT_OVL3_2L:
+		return false;
+	case DDP_COMPONENT_OVL4_2L:
+	case DDP_COMPONENT_OVL5_2L:
+	case DDP_COMPONENT_OVL6_2L:
+	case DDP_COMPONENT_OVL7_2L:
+		return true;
+	default:
+		DDPPR_ERR("%s invalid ovl module=%d\n", __func__, comp->id);
+		return false;
+	}
+}
+
 int mtk_ovl_aid_bit(struct mtk_ddp_comp *comp, bool is_ext, int id)
 {
 	if (is_ext)
@@ -1072,10 +1091,17 @@ static void mtk_ovl_config(struct mtk_ddp_comp *comp,
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	unsigned long crtc_idx = (unsigned long)drm_crtc_index(crtc);
 	int fps = drm_mode_vrefresh(&crtc->state->adjusted_mode);
+	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
 
-	if (comp->mtk_crtc->is_dual_pipe)
-		width = cfg->w / 2;
-	else
+	if (comp->mtk_crtc->is_dual_pipe) {
+		if (cfg->tile_overhead.is_support) {
+			if (ovl->data->is_right_ovl_comp && ovl->data->is_right_ovl_comp(comp))
+				width = cfg->tile_overhead.right_in_width;
+			else
+				width = cfg->tile_overhead.left_in_width;
+		} else
+			width = cfg->w / 2;
+	} else
 		width = cfg->w;
 
 	if (cfg->w != 0 && cfg->h != 0) {
@@ -4817,6 +4843,7 @@ static const struct mtk_disp_ovl_data mt6985_ovl_driver_data = {
 	.mmsys_mapping = &mtk_ovl_mmsys_mapping_MT6985,
 	.source_bpc = 10,
 	.support_pq_selfloop = true, /* pq in out self loop */
+	.is_right_ovl_comp = &is_right_ovl_comp_MT6985,
 };
 
 static const struct compress_info compr_info_mt6895  = {

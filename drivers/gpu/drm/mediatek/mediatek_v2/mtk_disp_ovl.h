@@ -33,6 +33,7 @@ struct mtk_disp_ovl_data {
 	resource_size_t (*mmsys_mapping)(struct mtk_ddp_comp *comp);
 	unsigned int source_bpc;
 	bool support_pq_selfloop;
+	bool (*is_right_ovl_comp)(struct mtk_ddp_comp *comp);
 };
 
 struct compress_info {

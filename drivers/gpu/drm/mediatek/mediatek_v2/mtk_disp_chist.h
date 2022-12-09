@@ -38,5 +38,7 @@ int mtk_drm_ioctl_get_chist_caps(struct drm_device *dev, void *data,
 int mtk_drm_ioctl_set_chist_config(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
 
+extern unsigned int g_left_pipe_overhead[2];
+extern unsigned int g_right_pipe_overhead[2];
 #endif
 

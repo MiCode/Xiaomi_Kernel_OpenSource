@@ -3479,8 +3479,8 @@ static bool same_ratio_limitation(struct drm_crtc *crtc,
 }
 
 #define UNIT 32768
-#define TILE_LOSS 4
 static int check_cross_pipe_rpo(
+	struct mtk_drm_crtc *mtk_crtc,
 	unsigned int src_x, unsigned int src_w,
 	unsigned int dst_x, unsigned int dst_w,
 	unsigned int disp_w)
@@ -3488,7 +3488,8 @@ static int check_cross_pipe_rpo(
 	int left = dst_x;
 	int right = dst_x + dst_w - 1;
 	int tile_idx = 0;
-	int tile_loss = 4;
+	u32 out_tile_loss[2] = {0, 0};
+	u32 in_tile_loss[2] = {out_tile_loss[0] + 4, out_tile_loss[1] + 4};
 	u32 step = 0;
 	s32 init_phase = 0;
 	s32 offset[2] = {0};
@@ -3500,6 +3501,11 @@ static int check_cross_pipe_rpo(
 	bool is_dual = true;
 	int width = disp_w;
 	struct mtk_rsz_param param[2];
+	struct total_tile_overhead to_info;
+
+	to_info = mtk_crtc_get_total_overhead(mtk_crtc);
+	DDPINFO("%s:overhead is_support:%d, width L:%d R:%d\n", __func__,
+			to_info.is_support, to_info.left_in_width, to_info.right_in_width);
 
 	if (right < width / 2)
 		tile_idx = 0;
@@ -3525,9 +3531,20 @@ static int check_cross_pipe_rpo(
 	}
 	if (is_dual) {
 		/*left side*/
-		tile_in_len[0] = (((width / 2) * src_w * 10) /
-			dst_w + 5) / 10 - src_x + tile_loss;
-		tile_out_len[0] = width / 2 - dst_x;
+		out_tile_loss[0] = (to_info.is_support ? to_info.left_overhead : 0);
+		in_tile_loss[0] = out_tile_loss[0] + 4;
+		DDPINFO("%s :out_tile_loss[0]:%d, in_tile_loss[0]:%d\n", __func__,
+			out_tile_loss[0], in_tile_loss[0]);
+
+		tile_in_len[0] = (((width / 2 - dst_x) * src_w * 10) /
+			dst_w + 5) / 10;
+		if (tile_in_len[0] + in_tile_loss[0] >= src_w)
+			in_tile_loss[0] = src_w - tile_in_len[0];
+
+		tile_out_len[0] = width / 2 - dst_x + out_tile_loss[0];
+		if (tile_in_len[0] + in_tile_loss[0] > tile_out_len[0])
+			in_tile_loss[0] = tile_out_len[0] - tile_in_len[0];
+		tile_in_len[0] += in_tile_loss[0];
 		out_x[0] = dst_x;
 	} else {
 		tile_in_len[0] = src_w;
@@ -3535,7 +3552,8 @@ static int check_cross_pipe_rpo(
 		if (tile_idx == 0)
 			out_x[0] = dst_x;
 		else
-			out_x[0] = dst_x - width / 2;
+			out_x[0] = dst_x - width / 2 +
+			(to_info.is_support ? to_info.right_overhead : 0);
 	}
 
 	param[tile_idx].out_x = out_x[0];
@@ -3546,35 +3564,39 @@ static int check_cross_pipe_rpo(
 	param[tile_idx].out_len = tile_out_len[0];
 	DDPINFO("HRT %s:%s:step:%u,offset:%u.%u,len:%u->%u,out_x:%u\n", __func__,
 		   is_dual ? "dual" : "single",
-		   param[0].step,
-		   param[0].int_offset,
-		   param[0].sub_offset,
-		   param[0].in_len,
-		   param[0].out_len,
-		   param[0].out_x);
+		   param[tile_idx].step,
+		   param[tile_idx].int_offset,
+		   param[tile_idx].sub_offset,
+		   param[tile_idx].in_len,
+		   param[tile_idx].out_len,
+		   param[tile_idx].out_x);
 
 	/* right half */
-	tile_out_len[1] = dst_w - tile_out_len[0];
-	tile_in_len[1] = ((tile_out_len[1] * src_w * 10) /
-		dst_w + 5) / 10 + tile_loss + (offset[0] ? 1 : 0);
+	out_tile_loss[1] = (to_info.is_support ? to_info.right_overhead : 0);
+	in_tile_loss[1] = out_tile_loss[1] + 4;
+	DDPINFO("%s :out_tile_loss[1]:%d, in_tile_loss[1]:%d\n", __func__,
+			out_tile_loss[1], in_tile_loss[1]);
 
-	offset[1] = (-offset[0]) + (tile_out_len[0] * step) -
+	tile_out_len[1] = dst_w - (tile_out_len[0] - out_tile_loss[0]) + out_tile_loss[1];
+	tile_in_len[1] = (((tile_out_len[1] - out_tile_loss[1]) * src_w * 10) /
+		dst_w + 5) / 10;
+	if (tile_in_len[1] + in_tile_loss[1] >= src_w)
+		in_tile_loss[1] = src_w - tile_in_len[1];
+
+	if (tile_in_len[1] + in_tile_loss[1] > tile_out_len[1])
+		in_tile_loss[1] = tile_out_len[1] - tile_in_len[1];
+	tile_in_len[1] += in_tile_loss[1];
+
+	offset[1] = (-offset[0]) + ((tile_out_len[0] - out_tile_loss[0] -
+			out_tile_loss[1]) * step) -
 			(src_w - tile_in_len[1]) * UNIT;
-	/*
-	 * offset[1] = (init_phase + dst_w / 2 * step) -
-	 *	(src_w / 2 - tile_loss - (offset[0] ? 1 : 0) + 1) * UNIT +
-	 *	UNIT;
-	 */
 	DDPINFO("HRT %s,in_ph:%d,off[1]:%d\n", __func__, init_phase, offset[1]);
 	int_offset[1] = offset[1] / UNIT;
-	sub_offset[1] = offset[1] - UNIT * int_offset[1];
-	/**
-	*	if (int_offset[1] & 0x1) {
-	*	int_offset[1]++;
-	*	tile_in_len[1]++;
-	*	DDPINFO("HRT right tile int_offset: make odd to even\n");
-	*	}
-	*/
+	if (offset[1] >= 0)
+		sub_offset[1] = offset[1] - UNIT * int_offset[1];
+	else
+		sub_offset[1] = UNIT * int_offset[1] - offset[1];
+
 	param[1].step = step;
 	param[1].out_x = 0;
 	param[1].int_offset = (u32)(int_offset[1] & 0xffff);
@@ -3601,6 +3623,7 @@ static int check_cross_pipe_rpo(
 
 	return 0;
 }
+
 static int RPO_rule(struct drm_crtc *crtc,
 		struct drm_mtk_layering_info *disp_info, int disp_idx,
 		bool has_pq)
@@ -3698,7 +3721,7 @@ static int RPO_rule(struct drm_crtc *crtc,
 			break;
 
 		if (mtk_crtc->is_dual_pipe &&
-			check_cross_pipe_rpo(src_roi.x, src_roi.width,
+			check_cross_pipe_rpo(mtk_crtc, src_roi.x, src_roi.width,
 						dst_roi.x, dst_roi.width, disp_w))
 			break;
 

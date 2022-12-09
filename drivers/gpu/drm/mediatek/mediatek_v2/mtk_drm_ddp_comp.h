@@ -575,6 +575,7 @@ enum mtk_ddp_io_cmd {
 	DSI_HBM_WAIT,
 	LCM_ATA_CHECK,
 	DSI_SET_CRTC_AVAIL_MODES,
+	DSI_FILL_CONNECTOR_PROP_CAPS,
 	DSI_TIMING_CHANGE,
 	GET_PANEL_NAME,
 	GET_ALL_CONNECTOR_PANEL_NAME,
@@ -648,6 +649,16 @@ struct golden_setting_context {
 	unsigned int vrefresh;
 };
 
+struct total_tile_overhead {
+unsigned int left_in_width;
+unsigned int left_overhead;
+unsigned int left_overhead_scaling;
+unsigned int right_in_width;
+unsigned int right_overhead;
+unsigned int right_overhead_scaling;
+bool is_support;
+};
+
 struct mtk_ddp_config {
 	void *pa;
 	unsigned int w;
@@ -659,6 +670,9 @@ struct mtk_ddp_config {
 	unsigned int bpc;
 	struct golden_setting_context *p_golden_setting_context;
 	unsigned int source_bpc;
+	struct total_tile_overhead tile_overhead;
+	unsigned int rsz_src_w;
+	unsigned int rsz_src_h;
 };
 
 struct mtk_oddmr_timing {
@@ -724,6 +738,7 @@ struct mtk_ddp_comp_funcs {
 			     struct cmdq_pkt *handle);
 	void (*dump)(struct mtk_ddp_comp *comp);
 	void (*reset)(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle);
+	void (*config_overhead)(struct mtk_ddp_comp *comp, struct mtk_ddp_config *cfg);
 };
 
 struct mtk_ddp_comp {
@@ -760,7 +775,15 @@ struct mtk_ddp_comp {
 	u32 last_qos_bw_other;
 	u32 fbdc_bw;
 	u32 hrt_bw;
+	bool in_scaling_path;
 };
+
+static inline void mtk_ddp_comp_config_overhead(struct mtk_ddp_comp *comp,
+				       struct mtk_ddp_config *cfg)
+{
+	if (comp && comp->funcs && comp->funcs->config_overhead && !comp->blank_mode)
+		comp->funcs->config_overhead(comp, cfg);
+}
 
 static inline void mtk_ddp_comp_config(struct mtk_ddp_comp *comp,
 				       struct mtk_ddp_config *cfg,

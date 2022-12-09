@@ -349,7 +349,8 @@ static void mtk_atomic_rsz_calc_dual_params(
 	int left = dst_roi->x;
 	int right = dst_roi->x + dst_roi->width - 1;
 	int tile_idx = 0;
-	int tile_loss = 4;
+	u32 out_tile_loss[2] = {0, 0};
+	u32 in_tile_loss[2] = {out_tile_loss[0] + 4, out_tile_loss[1] + 4};
 	u32 step = 0;
 	s32 init_phase = 0;
 	s32 offset[2] = {0};
@@ -362,6 +363,11 @@ static void mtk_atomic_rsz_calc_dual_params(
 	int width = crtc->state->adjusted_mode.hdisplay;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *output_comp;
+	struct total_tile_overhead to_info;
+
+	to_info = mtk_crtc_get_total_overhead(mtk_crtc);
+	DDPINFO("%s:overhead is_support:%d, width L:%d R:%d\n", __func__,
+			to_info.is_support, to_info.left_in_width, to_info.right_in_width);
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (output_comp && drm_crtc_index(crtc) == 0)
@@ -377,8 +383,8 @@ static void mtk_atomic_rsz_calc_dual_params(
 		is_dual = true;
 
 
-	DDPINFO("%s :loss:%d,idx:%d,width:%d,src_w:%d,dst_w:%d,src_x:%d\n", __func__,
-	       tile_loss, tile_idx, width, src_roi->width, dst_roi->width, src_roi->x);
+	DDPINFO("%s :idx:%d,width:%d,src_w:%d,dst_w:%d,src_x:%d\n", __func__,
+	       tile_idx, width, src_roi->width, dst_roi->width, src_roi->x);
 	step = (UNIT * (src_roi->width - 1) + (dst_roi->width - 2)) /
 			(dst_roi->width - 1); /* for ceil */
 
@@ -398,10 +404,22 @@ static void mtk_atomic_rsz_calc_dual_params(
 
 	if (is_dual) {
 		/*left side*/
+		out_tile_loss[0] = (to_info.is_support ? to_info.left_overhead : 0);
+		in_tile_loss[0] = out_tile_loss[0] + 4;
+
+		DDPINFO("%s :out_tile_loss[0]:%d, in_tile_loss[0]:%d\n", __func__,
+			out_tile_loss[0], in_tile_loss[0]);
+
 		/*right bound - left bound + tile loss*/
-		tile_in_len[0] = (((width / 2) * src_roi->width * 10) /
-			dst_roi->width + 5) / 10 - src_roi->x + tile_loss;
-		tile_out_len[0] = width / 2 - dst_roi->x;
+		tile_in_len[0] = (((width / 2 - dst_roi->x) * src_roi->width * 10) /
+			dst_roi->width + 5) / 10;
+		if (tile_in_len[0] + in_tile_loss[0] >= src_roi->width)
+			in_tile_loss[0] = src_roi->width - tile_in_len[0];
+
+		tile_out_len[0] = width / 2 - dst_roi->x + out_tile_loss[0];
+		if (tile_in_len[0] + in_tile_loss[0] > tile_out_len[0])
+			in_tile_loss[0] = tile_out_len[0] - tile_in_len[0];
+		tile_in_len[0] += in_tile_loss[0];
 		out_x[0] = dst_roi->x;
 	} else {
 		tile_in_len[0] = src_roi->width;
@@ -409,7 +427,8 @@ static void mtk_atomic_rsz_calc_dual_params(
 		if (tile_idx == 0)
 			out_x[0] = dst_roi->x;
 		else
-			out_x[0] = dst_roi->x - width / 2;
+			out_x[0] = dst_roi->x - width / 2 +
+			(to_info.is_support ? to_info.right_overhead : 0);
 	}
 
 	param[tile_idx].out_x = out_x[0];
@@ -420,40 +439,49 @@ static void mtk_atomic_rsz_calc_dual_params(
 	param[tile_idx].out_len = tile_out_len[0];
 	DDPINFO("%s,%d:%s:step:%u,offset:%u.%u,len:%u->%u,out_x:%u\n", __func__, __LINE__,
 	       is_dual ? "dual" : "single",
-	       param[0].step,
-	       param[0].int_offset,
-	       param[0].sub_offset,
-	       param[0].in_len,
-	       param[0].out_len,
-	       param[0].out_x);
+	       param[tile_idx].step,
+	       param[tile_idx].int_offset,
+	       param[tile_idx].sub_offset,
+	       param[tile_idx].in_len,
+	       param[tile_idx].out_len,
+	       param[tile_idx].out_x);
 
 	if (!is_dual)
 		return;
 
 	/* right half */
-	tile_out_len[1] = dst_roi->width - tile_out_len[0];
-	tile_in_len[1] = ((tile_out_len[1] * src_roi->width * 10) /
-		dst_roi->width + 5) / 10 + tile_loss + (offset[0] ? 1 : 0);
+	out_tile_loss[1] = (to_info.is_support ? to_info.right_overhead : 0);
+	in_tile_loss[1] = out_tile_loss[1] + 4;
+	DDPINFO("%s :out_tile_loss[1]:%d, in_tile_loss[1]:%d\n", __func__,
+		out_tile_loss[1], in_tile_loss[1]);
 
-	offset[1] = (-offset[0]) + (tile_out_len[0] * step) -
+	tile_out_len[1] = dst_roi->width - (tile_out_len[0] - out_tile_loss[0]) +
+			out_tile_loss[1];
+	tile_in_len[1] = (((tile_out_len[1] - out_tile_loss[1]) * src_roi->width *
+			10) / dst_roi->width + 5) / 10;
+	if (tile_in_len[1] + in_tile_loss[1] >= src_roi->width)
+		in_tile_loss[1] = src_roi->width - tile_in_len[1];
+
+	if (tile_in_len[1] + in_tile_loss[1] > tile_out_len[1])
+		in_tile_loss[1] = tile_out_len[1] - tile_in_len[1];
+	tile_in_len[1] += in_tile_loss[1];
+
+	offset[1] = (-offset[0]) + ((tile_out_len[0] - out_tile_loss[0] -
+			out_tile_loss[1]) * step) -
 			(src_roi->width - tile_in_len[1]) * UNIT + manual_shift;
 	/*
 	 * offset[1] = (init_phase + dst_roi->width / 2 * step) -
-	 *	(src_roi->width / 2 - tile_loss - (offset[0] ? 1 : 0) + 1) * UNIT +
+	 *	(src_roi->width / 2 - in_tile_loss[1] - (offset[0] ? 1 : 0) + 1) * UNIT +
 	 *	UNIT + manual_shift;
 	 */
 	if (no_shift)
 		offset[1] = 0;
 	DDPINFO("%s,in_ph:%d,man_sh:%d,off[1]:%d\n", __func__, init_phase, manual_shift, offset[1]);
 	int_offset[1] = offset[1] / UNIT;
-	sub_offset[1] = offset[1] - UNIT * int_offset[1];
-	/*
-	*	if (int_offset[1] & 0x1) {
-	*	int_offset[1]++;
-	*	tile_in_len[1]++;
-	*	DDPINFO("%s :right tile int_offset: make odd to even\n", __func__);
-	*	}
-	*/
+	if (offset[1] >= 0)
+		sub_offset[1] = offset[1] - UNIT * int_offset[1];
+	else
+		sub_offset[1] = UNIT * int_offset[1] - offset[1];
 	param[1].step = step;
 	param[1].out_x = 0;
 	param[1].int_offset = (u32)(int_offset[1] & 0xffff);
@@ -1559,6 +1587,189 @@ static int mtk_atomic_check(struct drm_device *dev,
 	return ret;
 }
 
+static void mtk_atomic_check_res_scaling(struct mtk_drm_crtc *mtk_crtc,
+	struct drm_display_mode *mode)
+{
+	struct drm_display_mode *pmode = NULL;
+	int i;
+
+	if ((mtk_crtc == NULL) || (mode == NULL))
+		return;
+
+	if ((mode->hdisplay != mtk_crtc->scaling_ctx.lcm_width) ||
+			(mode->vdisplay != mtk_crtc->scaling_ctx.lcm_height)) {
+		mtk_crtc->scaling_ctx.scaling_en = true;
+		/* adjusted_mode -> scaling_mode */
+		if (mtk_crtc->avail_modes_num > 0) {
+			for (i = 0; i < mtk_crtc->avail_modes_num; i++) {
+				pmode = &mtk_crtc->avail_modes[i];
+				if ((pmode->hdisplay == mtk_crtc->scaling_ctx.lcm_width)
+					&& (pmode->vdisplay == mtk_crtc->scaling_ctx.lcm_height)
+					&& (drm_mode_vrefresh(pmode) == drm_mode_vrefresh(mode))) {
+					mtk_crtc->scaling_ctx.scaling_mode = pmode;
+					break;
+				}
+			}
+		}
+
+		DDPINFO("%s++ scaling-up enable, resolution:(%ux%u)=>(%ux%u)\n",
+			__func__, mode->hdisplay, mode->vdisplay,
+			mtk_crtc->scaling_ctx.scaling_mode->hdisplay,
+			mtk_crtc->scaling_ctx.scaling_mode->vdisplay);
+	} else {
+		mtk_crtc->scaling_ctx.scaling_en = false;
+		mtk_crtc->scaling_ctx.scaling_mode = mode;
+		DDPINFO("%s++ scaling-up disable, resolution:(%ux%u)=>(%ux%u)\n",
+			__func__, mode->hdisplay, mode->vdisplay,
+			mtk_crtc->scaling_ctx.scaling_mode->hdisplay,
+			mtk_crtc->scaling_ctx.scaling_mode->vdisplay);
+	}
+}
+
+static void mtk_atomic_check_res_switch(struct mtk_drm_private *private,
+				struct drm_atomic_state *old_state)
+{
+	struct drm_crtc *crtc = NULL;
+	struct mtk_drm_crtc *mtk_crtc = NULL;
+	struct drm_crtc_state *old_crtc_state;
+	struct drm_display_mode *mode = NULL;
+	struct drm_display_mode *old_mode = NULL;
+	int j, o_i, o_j;
+	struct mtk_ddp_config cfg;
+	struct mtk_ddp_config scaling_cfg = {0};
+	struct mtk_ddp_comp *comp;
+
+	for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, j) {
+
+		mtk_crtc = to_mtk_crtc(crtc);
+		mode = &crtc->state->adjusted_mode;
+		old_mode = &old_crtc_state->adjusted_mode;
+
+		if ((drm_crtc_index(crtc) == 0)
+			&& (mtk_crtc->res_switch != RES_SWITCH_NO_USE)
+			&& mtk_crtc->mode_chg){
+
+			if (mtk_crtc->res_switch == RES_SWITCH_ON_AP)
+				mtk_atomic_check_res_scaling(mtk_crtc, mode);
+
+			if ((mode->hdisplay == old_mode->hdisplay) &&
+				(mode->vdisplay == old_mode->vdisplay))
+				return;
+
+			DDPMSG("%s++ resolution switch:%dx%d->%dx%d,fps:%d->%d\n", __func__,
+				old_mode->hdisplay, old_mode->vdisplay,
+				mode->hdisplay, mode->vdisplay,
+				drm_mode_vrefresh(old_mode), drm_mode_vrefresh(mode));
+
+			/* update tile overhead in advance */
+			cfg.w = crtc->state->adjusted_mode.hdisplay;
+			cfg.h = crtc->state->adjusted_mode.vdisplay;
+			if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params &&
+				mtk_crtc->panel_ext->params->dyn_fps.switch_en == 1
+				&& mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps != 0)
+				cfg.vrefresh =
+					mtk_crtc->panel_ext->params->dyn_fps.vact_timing_fps;
+			else
+				cfg.vrefresh = drm_mode_vrefresh(&crtc->state->adjusted_mode);
+			cfg.bpc = mtk_crtc->bpc;
+			cfg.p_golden_setting_context = __get_golden_setting_context(mtk_crtc);
+
+			cfg.rsz_src_w = cfg.w;
+			cfg.rsz_src_h = cfg.h;
+
+			if (mtk_crtc->scaling_ctx.scaling_en) {
+				memcpy(&scaling_cfg, &cfg, sizeof(struct mtk_ddp_config));
+				scaling_cfg.w = mtk_crtc->scaling_ctx.scaling_mode->hdisplay;
+				scaling_cfg.h = mtk_crtc->scaling_ctx.scaling_mode->vdisplay;
+				scaling_cfg.p_golden_setting_context =
+					__get_scaling_golden_setting_context(mtk_crtc);
+			}
+
+			if (mtk_crtc->is_dual_pipe &&
+				mtk_drm_helper_get_opt(private->helper_opt,
+					MTK_DRM_OPT_TILE_OVERHEAD)) {
+				cfg.tile_overhead.is_support = true;
+				cfg.tile_overhead.left_in_width = cfg.w / 2;
+				cfg.tile_overhead.right_in_width = cfg.w / 2;
+
+				if (mtk_crtc->scaling_ctx.scaling_en) {
+					scaling_cfg.tile_overhead.is_support = true;
+					scaling_cfg.tile_overhead.left_in_width =
+						scaling_cfg.w / 2;
+					scaling_cfg.tile_overhead.right_in_width =
+						scaling_cfg.w / 2;
+				}
+
+			} else {
+				cfg.tile_overhead.is_support = false;
+				cfg.tile_overhead.left_in_width = cfg.w;
+				cfg.tile_overhead.right_in_width = cfg.w;
+			}
+
+			/*Calculate total overhead*/
+			for_each_comp_in_crtc_path_reverse(comp, mtk_crtc, o_i, o_j) {
+
+				if (mtk_crtc->scaling_ctx.scaling_en &&
+						comp->in_scaling_path) {
+					mtk_ddp_comp_config_overhead(comp, &scaling_cfg);
+					DDPINFO("%s:comp %s (scaling_path) width L:%d R:%d, overhead L:%d R:%d\n",
+						__func__, mtk_dump_comp_str(comp),
+						scaling_cfg.tile_overhead.left_in_width,
+						scaling_cfg.tile_overhead.right_in_width,
+						scaling_cfg.tile_overhead.left_overhead,
+						scaling_cfg.tile_overhead.right_overhead);
+				} else {
+					mtk_ddp_comp_config_overhead(comp, &cfg);
+					DDPINFO("%s:comp %s width L:%d R:%d, overhead L:%d R:%d\n",
+						__func__, mtk_dump_comp_str(comp),
+						cfg.tile_overhead.left_in_width,
+						cfg.tile_overhead.right_in_width,
+						cfg.tile_overhead.left_overhead,
+						cfg.tile_overhead.right_overhead);
+				}
+
+				if (mtk_crtc->scaling_ctx.scaling_en
+					&& mtk_crtc_check_is_scaling_comp(mtk_crtc, comp->id))
+					cfg.tile_overhead = scaling_cfg.tile_overhead;
+			}
+
+			if (mtk_crtc->is_dual_pipe) {
+
+				/*Calculate total overhead*/
+				for_each_comp_in_dual_pipe_reverse(comp, mtk_crtc, o_i, o_j) {
+
+					if (mtk_crtc->scaling_ctx.scaling_en &&
+							comp->in_scaling_path) {
+						mtk_ddp_comp_config_overhead(comp, &scaling_cfg);
+						DDPINFO("%s:comp %s (scaling_path) width L:%d R:%d, overhead L:%d R:%d\n",
+							__func__, mtk_dump_comp_str(comp),
+							scaling_cfg.tile_overhead.left_in_width,
+							scaling_cfg.tile_overhead.right_in_width,
+							scaling_cfg.tile_overhead.left_overhead,
+							scaling_cfg.tile_overhead.right_overhead);
+					} else {
+						mtk_ddp_comp_config_overhead(comp, &cfg);
+						DDPINFO("%s:comp %s width L:%d R:%d, overhead L:%d R:%d\n",
+							__func__, mtk_dump_comp_str(comp),
+							cfg.tile_overhead.left_in_width,
+							cfg.tile_overhead.right_in_width,
+							cfg.tile_overhead.left_overhead,
+							cfg.tile_overhead.right_overhead);
+					}
+
+					if (mtk_crtc->scaling_ctx.scaling_en
+						&& mtk_crtc_check_is_scaling_comp(mtk_crtc,
+							comp->id))
+						cfg.tile_overhead = scaling_cfg.tile_overhead;
+				}
+			}
+
+			/*store total overhead data*/
+			mtk_crtc_store_total_overhead(mtk_crtc, cfg.tile_overhead);
+		}
+	}
+}
+
 static int mtk_atomic_commit(struct drm_device *drm,
 			     struct drm_atomic_state *state, bool async)
 {
@@ -1628,6 +1839,8 @@ static int mtk_atomic_commit(struct drm_device *drm,
 	}
 
 	drm_atomic_state_get(state);
+	mtk_atomic_check_res_switch(private, state);
+
 	if (async)
 		mtk_atomic_schedule(private, state);
 	else
@@ -2067,6 +2280,15 @@ static const enum mtk_ddp_comp_id mt6985_mtk_ddp_dual_main[] = {
 	DDP_COMPONENT_MERGE1_OUT_CB0,
 	DDP_COMPONENT_DLO_ASYNC2,
 };
+
+static const enum mtk_ddp_comp_id mt6985_scaling_main[] = {
+	DDP_COMPONENT_RSZ0,
+};
+
+static const enum mtk_ddp_comp_id mt6985_scaling_main_dual[] = {
+	DDP_COMPONENT_RSZ2,
+};
+
 /* CRTC0 */
 
 /* CRTC1 */
@@ -3395,6 +3617,8 @@ static const struct mtk_crtc_path_data mt6985_mtk_main_path_data = {
 //	.wb_path_len[DDP_MAJOR] = ARRAY_SIZE(mt6983_mtk_ddp_main_wb_path),
 	.addon_data = mt6985_addon_main,
 	.addon_data_dual = mt6985_addon_main_dual,
+	.scaling_data = mt6985_scaling_main,
+	.scaling_data_dual = mt6985_scaling_main_dual,
 };
 
 static const struct mtk_crtc_path_data mt6985_mtk_ext_path_data = {
@@ -5021,8 +5245,8 @@ int mtk_drm_disp_test_show(struct drm_crtc *crtc, bool enable)
 		if (plane_state->comp_state.comp_id == 0)
 			plane_state->comp_state.comp_id = ovl_comp->id;
 
-		mtk_drm_layer_dispatch_to_dual_pipe(priv->data->mmsys_id, plane_state,
-			&plane_state_l, &plane_state_r,
+		mtk_drm_layer_dispatch_to_dual_pipe(mtk_crtc, priv->data->mmsys_id,
+			plane_state, &plane_state_l, &plane_state_r,
 			crtc->state->adjusted_mode.hdisplay);
 
 		comp = priv->ddp_comp[plane_state_r.comp_state.comp_id];
