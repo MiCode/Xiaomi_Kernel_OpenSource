@@ -828,6 +828,7 @@ static const struct proc_ops jpeg_fops = {
 	.proc_open = jpeg_open,
 	.proc_release = jpeg_release,
 	.proc_read = jpeg_read,
+	.proc_lseek = no_llseek,
 
 };
 
