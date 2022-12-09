@@ -9421,7 +9421,8 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		goto fail_streaming_off;
 
 	/* reset hdr timestamp fifo*/
-	mtk_cam_reset_hdr_tsfifo(ctx->pipe);
+	if (mtk_cam_ctx_has_raw(ctx))
+		mtk_cam_reset_hdr_tsfifo(ctx->pipe);
 
 	mutex_lock(&cam->queue_lock);
 	mtk_cam_dev_req_try_queue(cam);  /* request moved into working list */
