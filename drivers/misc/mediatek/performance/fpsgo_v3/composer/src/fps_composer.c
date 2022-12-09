@@ -864,10 +864,10 @@ static ssize_t connect_api_info_show
 	posi += length;
 
 	fpsgo_render_tree_lock(__func__);
-	rcu_read_lock();
 
 	for (n = rb_first(&connect_api_tree); n != NULL; n = rb_next(n)) {
 		iter = rb_entry(n, struct connect_api_info, rb_node);
+		rcu_read_lock();
 		tsk = find_task_by_vpid(iter->tgid);
 		if (tsk) {
 			get_task_struct(tsk);
@@ -883,6 +883,7 @@ static ssize_t connect_api_info_show
 			posi += length;
 			put_task_struct(tsk);
 		}
+		rcu_read_unlock();
 
 		length = scnprintf(temp + posi,
 			FPSGO_SYSFS_MAX_BUFF_SIZE - posi,
@@ -917,8 +918,6 @@ static ssize_t connect_api_info_show
 				"=================================\n");
 		posi += length;
 	}
-
-	rcu_read_unlock();
 	fpsgo_render_tree_unlock(__func__);
 
 	length = scnprintf(buf, PAGE_SIZE, "%s", temp);
