@@ -6314,6 +6314,12 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 		s_data->timestamp = ktime_get_boottime_ns();
 		s_data->timestamp_mono = ktime_get_ns();
 
+		if (mtk_cam_scen_is_m2m(&scen)) {
+			/* m2m watchdog kick here? */
+			raw_dev->last_sof_time_ns = ktime_get_boottime_ns();
+			raw_dev->sof_count =  1;
+		}
+
 		return 0;
 	}
 	spin_lock(&ctx->composed_buffer_list.lock);
@@ -6980,6 +6986,7 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 		dev_info(ctx->cam->dev, "%s: Disable cammux: %s\n", __func__,
 				s_data->seninf_old->name);
 		mtk_ctx_watchdog_stop(ctx, raw_dev->id + MTKCAM_SUBDEV_RAW_START);
+		/* m2m support raw switch? */
 		mtk_cam_seninf_set_camtg(s_data->seninf_old, PAD_SRC_RAW0, 0xFF);
 		mtk_cam_seninf_set_camtg(s_data->seninf_old, PAD_SRC_RAW1, 0xFF);
 		mtk_cam_seninf_set_camtg(s_data->seninf_old, PAD_SRC_RAW2, 0xFF);
@@ -7295,6 +7302,10 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 					mtk_ctx_watchdog_start(ctx, 4, ctx->mraw_pipe[j]->id);
 				}
 			}
+			/* m2m watchdog */
+			if (mtk_cam_ctx_has_raw(ctx) && initial_frame &&
+			    mtk_cam_scen_is_m2m(scen))
+				mtk_ctx_m2m_watchdog_start(ctx, 4);
 
 			dev_dbg(cam->dev, "%s:ctx:%d:req:%d(%s) enqueue ctx_used:0x%x,streaming_ctx:0x%x,job cnt:%d, running(%d)\n",
 				__func__, stream_id, req_stream_data->frame_seq_no,
@@ -8867,6 +8878,9 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 			mtk_ctx_watchdog_stop(ctx, ctx->mraw_pipe[i]->id);
 	}
 
+	if (mtk_cam_ctx_has_raw(ctx) && ctx->m2m_watchdog.is_running)
+		mtk_ctx_m2m_watchdog_stop(ctx);
+
 	media_pipeline_stop(entity);
 
 	/* Consider scenario that stop the ctx while the ctx is not streamed on */
@@ -10380,6 +10394,210 @@ void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx, int pipe_id)
 		del_timer_sync(&ctx->watchdog_timer);
 }
 
+/* m2m watchdog */
+static void mtk_ctx_m2m_watchdog(struct timer_list *t)
+{
+	struct mtk_cam_device *cam;
+	struct mtk_raw_device *raw;
+	struct mtk_cam_ctx *ctx;
+	struct mtk_raw_pipeline *pipe;
+	struct mtk_cam_m2m_watchdog *m2m_watchdog;
+	struct mtk_cam_watchdog_data *watchdog_data;
+	struct mtk_cam_request_stream_data *s_data;
+	u64 current_time_ns = ktime_get_boottime_ns();
+	u64 cost_time_ms, timer_expires_ms;
+	int watchdog_cnt, watchdog_dump_cnt, watchdog_timeout_cnt;
+
+	m2m_watchdog = from_timer(m2m_watchdog, t, timer);
+	if (!m2m_watchdog) {
+		pr_info("%s: get m2m_watchdog failed", __func__);
+		return;
+	}
+
+	ctx = m2m_watchdog->data.ctx;
+	if (!ctx) {
+		pr_info("%s: get ctx failed", __func__);
+		return;
+	}
+
+	if (!ctx->streaming)
+		return;
+
+	cam = ctx->cam;
+	if (!cam) {
+		pr_info("%s:ctx(%d): get cam failed", __func__, ctx->stream_id);
+		return;
+	}
+
+	pipe = ctx->pipe;
+	if (!pipe) {
+		pr_info("%s:ctx(%d): get pipe failed", __func__, ctx->stream_id);
+		return;
+	}
+
+	raw = get_master_raw_dev(cam, pipe);
+	if (!raw) {
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d): get raw failed\n",
+			 __func__, ctx->stream_id);
+		return;
+	}
+
+	/* no VF */
+	watchdog_data = &ctx->m2m_watchdog.data;
+	watchdog_cnt = atomic_inc_return(&watchdog_data->watchdog_cnt);
+	watchdog_timeout_cnt = atomic_read(&watchdog_data->watchdog_timeout_cnt);
+	watchdog_data->watchdog_time_diff_ns =
+		current_time_ns - raw->last_sof_time_ns;
+	watchdog_dump_cnt = atomic_read(&watchdog_data->watchdog_dump_cnt);
+
+	if (watchdog_cnt >= watchdog_timeout_cnt && !watchdog_dump_cnt) {
+		atomic_inc(&watchdog_data->watchdog_dump_cnt);
+
+		dev_info(ctx->cam->dev,
+			"%s:ctx(%d): [m2m] no p1 done, sof_cnt/seq(%d), watchdog_cnt(%d), time_diff_from_last_p1_done:%lldms\n",
+			__func__, ctx->stream_id, raw->sof_count, watchdog_cnt,
+			watchdog_data->watchdog_time_diff_ns / 1000000);
+
+		s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id,
+						raw->sof_count);
+		if (s_data)
+			mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_DEQUEUE_FAILED,
+					"Camsys: [m2m] no p1 done", false);
+		else
+			dev_info(ctx->cam->dev,
+				"%s:ctx(%d): [m2m] no s_data for dump\n",
+				__func__, ctx->stream_id);
+	}
+
+	cost_time_ms = (ktime_get_boottime_ns() - current_time_ns)/1000000;
+	timer_expires_ms = MTK_CAM_CTX_WATCHDOG_INTERVAL - cost_time_ms;
+	ctx->m2m_watchdog.timer.expires =
+		jiffies + msecs_to_jiffies(timer_expires_ms);
+	dev_dbg(ctx->cam->dev,
+		"%s:ctx(%d): sof_cnt/seq(%d), watchdog_cnt(%d), watchdog_dump_cnt(%d) time_diff_from_last_p1_done:%lldms\n",
+		__func__, ctx->stream_id, raw->sof_count, watchdog_cnt,
+		watchdog_dump_cnt, watchdog_data->watchdog_time_diff_ns / 1000000);
+	add_timer(&ctx->m2m_watchdog.timer);
+}
+
+void mtk_ctx_m2m_watchdog_kick(struct mtk_cam_ctx *ctx)  /* seq ?*/
+{
+	struct mtk_cam_watchdog_data *watchdog_data;
+	struct mtk_raw_device *raw;
+	struct mtk_cam_device *cam;
+	struct mtk_raw_pipeline *pipe;
+
+	if (!ctx) {
+		pr_info("%s: get ctx failed", __func__);
+		return;
+	}
+
+	cam = ctx->cam;
+	if (!cam) {
+		pr_info("%s:ctx(%d): get cam failed", __func__, ctx->stream_id);
+		return;
+	}
+
+	pipe = ctx->pipe;
+	if (!pipe) {
+		pr_info("%s:ctx(%d): get pipe failed", __func__, ctx->stream_id);
+		return;
+	}
+
+	raw = get_master_raw_dev(cam, pipe);
+	if (!raw) {
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d): get raw failed\n",
+			 __func__, ctx->stream_id);
+		return;
+	}
+
+	watchdog_data = &ctx->m2m_watchdog.data;
+	/* update time seq here */
+
+	dev_dbg(ctx->cam->dev,
+		"%s:ctx/pipe_id(%d/%d): sof_cnt/seq(%d), ts(%lld ns), watchdog_cnt(%d)\n",
+		__func__, ctx->stream_id, pipe->id, raw->sof_count,
+		raw->last_sof_time_ns, atomic_read(&watchdog_data->watchdog_cnt));
+	atomic_set(&watchdog_data->watchdog_cnt, 0);
+	atomic_set(&watchdog_data->watchdog_dump_cnt, 0);
+}
+
+static void mtk_ctx_m2m_watchdog_init(struct mtk_cam_ctx *ctx)
+{
+	if (!ctx) {
+		pr_info("%s: get ctx failed", __func__);
+		return;
+	}
+
+	timer_setup(&ctx->m2m_watchdog.timer, mtk_ctx_m2m_watchdog, 0);
+	ctx->m2m_watchdog.is_running = false;
+}
+
+void mtk_ctx_m2m_watchdog_start(struct mtk_cam_ctx *ctx, int timeout_cnt)
+{
+	struct mtk_cam_watchdog_data *watchdog_data;
+	struct mtk_raw_pipeline *pipe;
+
+	if (!ctx) {
+		pr_info("%s: get ctx failed", __func__);
+		return;
+	}
+
+	pipe = ctx->pipe;
+	if (!pipe) {
+		pr_info("%s: get pipe failed", __func__);
+		return;
+	}
+
+	watchdog_data = &ctx->m2m_watchdog.data;
+
+	dev_info(ctx->cam->dev,
+		"%s:ctx/pipe_id(%d/%d):start the watchdog, timeout setting(%d)\n",
+		__func__, ctx->stream_id, pipe->id,
+		MTK_CAM_CTX_WATCHDOG_INTERVAL * timeout_cnt);
+
+	atomic_set(&watchdog_data->watchdog_timeout_cnt, timeout_cnt);
+	atomic_set(&watchdog_data->watchdog_cnt, 0);
+	atomic_set(&watchdog_data->watchdog_dumped, 0);
+	atomic_set(&watchdog_data->watchdog_dump_cnt, 0);
+	watchdog_data->ctx = ctx;
+	ctx->m2m_watchdog.is_running = true;
+
+	ctx->m2m_watchdog.timer.expires =
+		jiffies + msecs_to_jiffies(MTK_CAM_CTX_WATCHDOG_INTERVAL);
+	add_timer(&ctx->m2m_watchdog.timer);
+}
+
+void mtk_ctx_m2m_watchdog_stop(struct mtk_cam_ctx *ctx)
+{
+	struct mtk_cam_watchdog_data *watchdog_data;
+	struct mtk_raw_pipeline *pipe;
+
+	if (!ctx) {
+		pr_info("%s: get ctx failed", __func__);
+		return;
+	}
+
+	pipe = ctx->pipe;
+	if (!pipe) {
+		pr_info("%s: get pipe failed", __func__);
+		return;
+	}
+
+	watchdog_data = &ctx->m2m_watchdog.data;
+
+	dev_info(ctx->cam->dev,
+		"%s:ctx/pipe_id(%d/%d):stop the watchdog\n",
+		__func__, ctx->stream_id, pipe->id);
+
+	watchdog_data->ctx = NULL;
+	ctx->m2m_watchdog.is_running = false;
+
+	del_timer_sync(&ctx->watchdog_timer);
+}
+
 static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
 			     struct mtk_cam_device *cam,
 			     unsigned int stream_id)
@@ -10456,6 +10674,7 @@ static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
 	ctx->composed_buffer_list.cnt = 0;
 	spin_unlock(&ctx->composed_buffer_list.lock);
 	mtk_ctx_watchdog_init(ctx);
+	mtk_ctx_m2m_watchdog_init(ctx);
 	if (is_raw_subdev(ctx->stream_id))
 		mtk_ctx_sensor_worker_init(ctx);
 }

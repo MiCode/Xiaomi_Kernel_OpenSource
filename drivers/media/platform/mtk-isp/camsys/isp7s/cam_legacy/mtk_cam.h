@@ -435,6 +435,12 @@ struct mtk_cam_watchdog_data {
 	u64 watchdog_time_diff_ns;
 };
 
+struct mtk_cam_m2m_watchdog {  /* independent from sensor */
+	struct timer_list timer;
+	struct mtk_cam_watchdog_data data;
+	bool is_running;
+};
+
 struct mtk_cam_dvfs_tbl {
 	int opp_cnt[MTK_CAM_OPP_TBL_MAX];
 	int opp_num;
@@ -541,6 +547,8 @@ struct mtk_cam_ctx {
 	unsigned int enabled_watchdog_pipe;
 	struct timer_list watchdog_timer;
 	struct mtk_cam_watchdog_data watchdog_data[MTKCAM_SUBDEV_MAX];
+
+	struct mtk_cam_m2m_watchdog m2m_watchdog;
 
 	/* To support debug dump */
 	struct mtkcam_ipi_config_param config_params;
@@ -1010,7 +1018,7 @@ static inline bool mtk_cam_ctx_support_pure_raw_with_sv(struct mtk_cam_ctx *ctx)
 
 static inline bool mtk_cam_ctx_has_raw(struct mtk_cam_ctx *ctx)
 {
-	return (ctx && ctx->used_raw_num > 0);
+	return (ctx && ctx->used_raw_num > 0 && ctx->pipe);
 }
 
 static inline bool mtk_cam_is_raw_switch_req(struct mtk_cam_request *req,
@@ -1058,6 +1066,9 @@ bool watchdog_scenario(struct mtk_cam_ctx *ctx);
 void mtk_ctx_watchdog_kick(struct mtk_cam_ctx *ctx, int pipe_id);
 void mtk_ctx_watchdog_start(struct mtk_cam_ctx *ctx, int timeout_cnt, int pipe_id);
 void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx, int pipe_id);
+void mtk_ctx_m2m_watchdog_kick(struct mtk_cam_ctx *ctx);
+void mtk_ctx_m2m_watchdog_start(struct mtk_cam_ctx *ctx, int timeout_cnt);
+void mtk_ctx_m2m_watchdog_stop(struct mtk_cam_ctx *ctx);
 
 // FIXME: refine following
 void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,

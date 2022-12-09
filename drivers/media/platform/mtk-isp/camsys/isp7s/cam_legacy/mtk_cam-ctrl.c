@@ -2945,6 +2945,7 @@ void mtk_cam_m2m_try_apply_cq(struct mtk_cam_ctx *ctx)
 		s_data->timestamp = ktime_get_boottime_ns();
 		s_data->timestamp_mono = ktime_get_ns();
 		mtk_cam_m2m_enter_cq_state(&s_data->state);
+		/* m2m watchdog kick here? */
 		dev_info(raw_dev->dev,
 			"[M2M] apply cq, s_data->frame_seq_no:%d\n",
 			s_data->frame_seq_no);
@@ -2997,7 +2998,10 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 	}
 
 	/* assign at SOF */
+	raw_dev->last_sof_time_ns = ktime_get_boottime_ns();
+	raw_dev->sof_count = dequeued_frame_seq_no + 1;
 	ctx->dequeued_frame_seq_no = dequeued_frame_seq_no;
+	mtk_ctx_m2m_watchdog_kick(ctx);
 
 	/* List state-queue status*/
 	spin_lock(&sensor_ctrl->camsys_state_lock);
@@ -3053,9 +3057,7 @@ static void mtk_cam_handle_m2m_frame_done(struct mtk_cam_ctx *ctx,
 	}
 
 	/* apply next composed buffer */
-	if (req_stream_data &&
-	    mtk_cam_scen_is_m2m(req_stream_data->feature.scen))
-		mtk_cam_m2m_try_apply_cq(ctx);
+	mtk_cam_m2m_try_apply_cq(ctx);
 
 	if (dequeue_cnt) {
 		mutex_lock(&ctx->cam->queue_lock);
