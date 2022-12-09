@@ -704,6 +704,7 @@ static ssize_t dcs_mode_store(struct kobject *kobj,
 static KOBJ_ATTR_RW(dcs_mode);
 #endif /* GED_DCS_POLICY */
 
+#if defined(MTK_GPU_FW_IDLE)
 static ssize_t fw_idle_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -715,7 +716,7 @@ static ssize_t fw_idle_show(struct kobject *kobj,
 	ui32FwIdle = ged_kpi_get_fw_idle_mode();
 	fw_idle_enable = ged_kpi_is_fw_idle_policy_enable();
 
-	if (fw_idle_enable) {
+	if (fw_idle_enable > 0) {
 		pos += scnprintf(buf + pos, PAGE_SIZE - pos,
 					"FW idle policy is enable\n");
 		pos += scnprintf(buf + pos, PAGE_SIZE - pos,
@@ -758,6 +759,7 @@ static ssize_t fw_idle_store(struct kobject *kobj,
 	return count;
 }
 static KOBJ_ATTR_RW(fw_idle);
+#endif /* MTK_GPU_FW_IDLE */
 //-----------------------------------------------------------------------------
 
 unsigned int g_loading_stride_size = GED_DEFAULT_SLIDE_STRIDE_SIZE;
@@ -1108,11 +1110,13 @@ GED_ERROR ged_hal_init(void)
 	}
 #endif /* GED_DCS_POLICY */
 
+#if defined(MTK_GPU_FW_IDLE)
 	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_fw_idle);
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE("Failed to create fw_idle entry!\n");
 		goto ERROR;
 	}
+#endif /* MTK_GPU_FW_IDLE */
 
 	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_loading_window_size);
 	if (unlikely(err != GED_OK)) {
@@ -1193,7 +1197,9 @@ void ged_hal_exit(void)
 #ifdef GED_DCS_POLICY
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_dcs_mode);
 #endif
+#if defined(MTK_GPU_FW_IDLE)
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_fw_idle);
+#endif /* MTK_GPU_FW_IDLE */
 
 	ged_sysfs_remove_dir(&hal_kobj);
 }

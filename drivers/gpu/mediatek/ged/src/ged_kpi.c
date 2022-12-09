@@ -263,6 +263,7 @@ static unsigned int is_GED_KPI_enabled = 1;
 
 static unsigned int g_force_gpu_dvfs_fallback;
 
+#if defined(MTK_GPU_FW_IDLE)
 #define FW_IDLE_TIMER_0_MS    0
 #define FW_IDLE_TIMER_5_MS    5
 #define FW_IDLE_TIMER_10_MS   10
@@ -273,10 +274,17 @@ static unsigned int g_force_gpu_dvfs_fallback;
 #define FW_IDLE_MODE_Fix_0    3
 
 #define FW_IDLE_FPS_THRESHOLD 60
-static int g_is_fw_idle_enable = 1;
+
+/* -1:default flavor
+ *  0:disable
+ *  1:enable
+ */
+static int g_is_fw_idle_enable = -1;
+
 static int g_fw_idle_mode;
 static int g_fw_idle_timer;
 static int g_is_panel_hz_change;
+#endif /* MTK_GPU_FW_IDLE */
 
 u64 fb_timeout = 100000000;/*100 ms*/
 u64 lb_timeout = 100000000;
@@ -713,7 +721,9 @@ static GED_BOOL ged_kpi_update_TargetTimeAndTargetFps(
 	int client)
 {
 	GED_BOOL ret = GED_FALSE;
+#if defined(MTK_GPU_FW_IDLE)
 	int idle_timer_ms = g_fw_idle_timer;
+#endif /* MTK_GPU_FW_IDLE */
 
 	if (!psHead)
 		return ret;
@@ -730,8 +740,8 @@ static GED_BOOL ged_kpi_update_TargetTimeAndTargetFps(
 			"FRC mode is specified, use default mode");
 		break;
 	}
-
-	if (g_is_fw_idle_enable) {
+#if defined(MTK_GPU_FW_IDLE)
+	if (g_is_fw_idle_enable > 0) {
 		/* update fw idle timer value */
 		switch (g_fw_idle_mode) {
 		case FW_IDLE_MODE_DEFAULT:
@@ -755,6 +765,7 @@ static GED_BOOL ged_kpi_update_TargetTimeAndTargetFps(
 			g_is_panel_hz_change = 0;
 		}
 	}
+#endif /* MTK_GPU_FW_IDLE */
 
 	psHead->target_fps = target_fps;
 	psHead->target_fps_margin = target_fps_margin;
@@ -1016,6 +1027,11 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		psKPI = &g_asKPI[g_i32Pos++];
 		if (g_i32Pos >= GED_KPI_TOTAL_ITEMS)
 			g_i32Pos = 0;
+#if defined(MTK_GPU_FW_IDLE)
+		/* enable fw idle policy after first dequeue event */
+		if (g_is_fw_idle_enable == -1)
+			g_is_fw_idle_enable = 1;
+#endif /* MTK_GPU_FW_IDLE */
 
 		/* remove */
 		ulID = psKPI->ullWnd;
@@ -1856,6 +1872,7 @@ unsigned int ged_kpi_get_cur_avg_gpu_freq(void)
 /* ------------------------------------------------------------------- */
 void ged_dfrc_fps_limit_cb(unsigned int target_fps)
 {
+#if defined(MTK_GPU_FW_IDLE)
 	/* update fw idle timer value */
 	switch (g_fw_idle_mode) {
 	case FW_IDLE_MODE_DEFAULT:
@@ -1871,6 +1888,7 @@ void ged_dfrc_fps_limit_cb(unsigned int target_fps)
 	}
 
 	g_is_panel_hz_change = 1;
+#endif /* MTK_GPU_FW_IDLE */
 
 #ifdef MTK_GED_KPI
 	ged_kpi_push_timestamp(GED_SET_PANEL_REFRESH_RATE, 0, -1, 0,
@@ -1993,6 +2011,7 @@ void ged_kpi_set_target_FPS_margin(u64 ulID, int target_FPS,
 }
 EXPORT_SYMBOL(ged_kpi_set_target_FPS_margin);
 /* ------------------------------------------------------------------- */
+#if defined(MTK_GPU_FW_IDLE)
 int ged_kpi_get_fw_idle_mode(void)
 {
 	return g_fw_idle_mode;
@@ -2023,6 +2042,7 @@ void ged_kpi_enable_fw_idle_policy(unsigned int enable)
 		g_fw_idle_mode = FW_IDLE_MODE_DEFAULT;
 }
 EXPORT_SYMBOL(ged_kpi_enable_fw_idle_policy);
+#endif /* MTK_GPU_FW_IDLE */
 /* ------------------------------------------------------------------- */
 
 static GED_BOOL ged_kpi_find_riskyBQ_func(unsigned long ulID,

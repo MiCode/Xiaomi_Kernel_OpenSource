@@ -25,6 +25,7 @@
 #include "ged.h"
 #include "ged_dvfs.h"
 #include "ged_dcs.h"
+#include "ged_kpi.h"
 
 #if defined(CONFIG_MTK_GPUFREQ_V2)
 #include <ged_gpufreq_v2.h>
@@ -164,6 +165,12 @@ static void ged_notify_sw_sync_work_handle(struct work_struct *psWork)
 				eCommitType = GED_DVFS_LOADING_BASE_COMMIT;
 			}
 			ged_set_backup_timer_timeout(timeout_value);   // set init value
+
+#if defined(MTK_GPU_FW_IDLE)
+			/* set initial idle time to 5ms if runtime policy stay default flavor */
+			if (ged_kpi_is_fw_idle_policy_enable() == -1)
+				mtk_set_gpu_idle(5);
+#endif /* MTK_GPU_FW_IDLE */
 
 			temp = 0;
 			/* if callback is queued, send mode off to real driver */

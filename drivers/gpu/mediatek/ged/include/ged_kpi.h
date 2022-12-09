@@ -52,10 +52,12 @@ void ged_kpi_set_target_FPS(u64 ulID, int target_FPS);
 void ged_kpi_set_target_FPS_margin(u64 ulID, int target_FPS,
 		int target_FPS_margin, int eara_fps_margin, int cpu_time);
 
+#if defined(MTK_GPU_FW_IDLE)
 int ged_kpi_get_fw_idle_mode(void);
 int ged_kpi_is_fw_idle_policy_enable(void);
 void ged_kpi_set_fw_idle_mode(unsigned int mode);
 void ged_kpi_enable_fw_idle_policy(unsigned int mode);
+#endif /* MTK_GPU_FW_IDLE */
 
 void ged_kpi_update_t_gpu_latest_uncompleted(void);
 struct ged_risky_bq_info {
