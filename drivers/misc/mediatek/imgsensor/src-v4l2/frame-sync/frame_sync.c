@@ -2512,7 +2512,7 @@ void fs_seamless_switch(const unsigned int ident,
 
 	fs_set_seamless_switch_info(idx, p_seamless_info, seamless_sof_cnt);
 
-	fs_chk_valid_for_doing_seamless_switch(idx);
+	fs_chk_valid_for_doing_seamless_switch(ident);
 }
 
 
