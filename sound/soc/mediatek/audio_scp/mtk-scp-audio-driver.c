@@ -106,7 +106,7 @@ static int scp_audio_dev_probe(struct platform_device *pdev)
 	struct device *dev;
 
 	ret = of_property_read_u32_array(pdev->dev.of_node,
-					 "scp_spk_process_enable",
+					 "scp-spk-process-enable",
 					 (unsigned int *)&task_attr,
 					 SND_SCP_AUDIO_DTS_SIZE);
 	if (ret != 0) {
