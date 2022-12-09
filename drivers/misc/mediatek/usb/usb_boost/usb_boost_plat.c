@@ -293,6 +293,19 @@ int audio_freq_hold(void)
 		}
 	}
 
+	if (of_device_is_compatible(np, "mediatek,mt6835-usb_boost")) {
+		device_property_read_u32(gdev, "small-core", &(cpu_freq_audio[0]));
+		device_property_read_u32(gdev, "big-core", &(cpu_freq_audio[1]));
+		USB_BOOST_NOTICE("%s: request cpu freq(%d) (%d)\n", __func__,
+			cpu_freq_audio[0], cpu_freq_audio[1]);
+		list_for_each_entry(req_policy, &usb_policy_list, list) {
+			if (req_policy->policy->cpu == 0 && cpu_freq_audio[0] > 0)
+				freq_qos_update_request(&req_policy->qos_req, cpu_freq_audio[0]);
+			if (req_policy->policy->cpu == 6 && cpu_freq_audio[1] > 0)
+				freq_qos_update_request(&req_policy->qos_req, cpu_freq_audio[1]);
+		}
+	}
+
 	return 0;
 }
 
