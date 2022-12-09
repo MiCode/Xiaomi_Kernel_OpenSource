@@ -89,9 +89,13 @@ static long lpm_per_cpuidle_drv_param(void *pData)
 			mtk_dbg_cpuidle_log("\n");
 		}
 		mtk_dbg_cpuidle_log("%11s%d:", "cpu", info->cpu);
-		for (i = 0; i < drv->state_count; i++) {
-			mtk_dbg_cpuidle_log("%12ld ",
-				mtk_cpuidle_get_param(drv, i, info->param));
+		if (cpu_is_offline(info->cpu))
+			mtk_dbg_cpuidle_log("%18s ", "Offline");
+		else {
+			for (i = 0; i < drv->state_count; i++) {
+				mtk_dbg_cpuidle_log("%12ld ",
+					mtk_cpuidle_get_param(drv, i, info->param));
+			}
 		}
 
 		mtk_dbg_cpuidle_log("\n");
@@ -166,8 +170,7 @@ static int idle_proc_state_param_setting(char *cmd, size_t *sz, int param)
 		if (cpu == topology[i]->id)
 			cpu_mask = topology[i]->cpu_mask;
 	}
-
-	for_each_possible_cpu(cpu) {
+	for_each_online_cpu(cpu) {
 		if ((cpu_mask & (1 << cpu)) == 0)
 			continue;
 
