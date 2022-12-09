@@ -865,7 +865,7 @@ static irqreturn_t spmi_nack_irq_handler(int irq, void *data)
 	spmi_debug_nack = mtk_spmi_readl(arb, SPMI_DEC_DBG);
 	spmi_mst_nack = mtk_spmi_readl(arb, SPMI_MST_DBG);
 
-	if ((spmi_nack & 0xF8)) {
+	if ((spmi_nack & 0xD8)) {
 		pr_notice("%s spmi transaction fail irq triggered SPMI_REC0:0x%x, SPMI_REC1:0x%x\n",
 			__func__, spmi_nack, spmi_nack_data);
 		flag = 1;
@@ -885,25 +885,28 @@ static irqreturn_t spmi_nack_irq_handler(int irq, void *data)
 			__func__, spmi_mst_nack);
 		flag = 1;
 	}
+	if ((spmi_nack & 0x20)) {
+		pr_notice("%s spmi transaction PARITY_ERR triggered SPMI_REC0:0x%x, SPMI_REC1:0x%x\n",
+			__func__, spmi_nack, spmi_nack_data);
+		pr_notice("%s SPMI_REC_CMD_DEC:0x%x\n", __func__, spmi_rcs_nack);
+		pr_notice("%s SPMI_DEC_DBG:0x%x\n", __func__, spmi_debug_nack);
+		pr_notice("%s SPMI_MST_DBG:0x%x\n", __func__, spmi_mst_nack);
+		flag = 0;
+	}
 
 	if (flag) {
 		/* trigger AEE event*/
 		if (IS_ENABLED(CONFIG_MTK_AEE_FEATURE))
 			aee_kernel_warning("SPMI", "SPMI:transaction_fail");
-
-		/* clear irq*/
-		mtk_spmi_writel(arb, 0x3, SPMI_REC_CTRL);
-
-		mutex_unlock(&arb->pmif_mutex);
-		__pm_relax(arb->pmifThread_lock);
-
-		return IRQ_HANDLED;
 	}
 
-	/* no spmi nack irq triggered */
+	/* clear irq*/
+	mtk_spmi_writel(arb, 0x3, SPMI_REC_CTRL);
+
 	mutex_unlock(&arb->pmif_mutex);
 	__pm_relax(arb->pmifThread_lock);
-	return IRQ_NONE;
+
+	return IRQ_HANDLED;
 }
 
 static int spmi_nack_irq_register(struct platform_device *pdev,
