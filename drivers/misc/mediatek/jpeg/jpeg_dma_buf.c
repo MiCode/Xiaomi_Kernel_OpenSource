@@ -33,8 +33,8 @@ int jpg_dmabuf_get_iova(struct dma_buf *dbuf, u64 *iova,
 void jpg_dmabuf_free_iova(struct dma_buf *dbuf,
 	struct dma_buf_attachment *attach, struct sg_table *sgt)
 {
-	if (attach == NULL || sgt == NULL) {
-		JPEG_LOG(0, "attach or sgt null, not need to free iova");
+	if (dbuf == NULL || attach == NULL || sgt == NULL) {
+		JPEG_LOG(0, "dbuf or attach or sgt null, not need to free iova");
 		return;
 	}
 	dma_buf_unmap_attachment(attach, sgt, DMA_TO_DEVICE);

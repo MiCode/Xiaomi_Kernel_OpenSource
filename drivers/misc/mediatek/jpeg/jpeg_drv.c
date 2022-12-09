@@ -82,6 +82,7 @@ static int jpeg_drv_hybrid_dec_start(unsigned int data[],
 	obuf_iova = 0;
 	node_id = id / 2;
 
+	mutex_lock(&jpeg_hybrid_dec_lock);
 	bufInfo[id].o_dbuf = jpg_dmabuf_alloc(data[20], 128, 0);
 	bufInfo[id].o_attach = NULL;
 	bufInfo[id].o_sgt = NULL;
@@ -91,11 +92,13 @@ static int jpeg_drv_hybrid_dec_start(unsigned int data[],
 	bufInfo[id].i_sgt = NULL;
 
 	if (!bufInfo[id].o_dbuf) {
+		mutex_unlock(&jpeg_hybrid_dec_lock);
 		JPEG_LOG(0, "o_dbuf alloc failed");
 		return -1;
 	}
 
 	if (!bufInfo[id].i_dbuf) {
+		mutex_unlock(&jpeg_hybrid_dec_lock);
 		JPEG_LOG(0, "i_dbuf null error");
 		return -1;
 	}
@@ -120,13 +123,13 @@ static int jpeg_drv_hybrid_dec_start(unsigned int data[],
 		(unsigned long)(unsigned char *)(ibuf_iova>>32));
 
 	if (ret != 0) {
+		mutex_unlock(&jpeg_hybrid_dec_lock);
 		JPEG_LOG(0, "get iova fail i:0x%llx o:0x%llx", ibuf_iova, obuf_iova);
 		return ret;
 	}
 	bufInfo[id].o_dbuf = jpg_dmabuf_get(*index_buf_fd);
 	// get obuf for adding reference count, avoid early release in userspace.
 
-	mutex_lock(&jpeg_hybrid_dec_lock);
 	if (!dec_hwlocked[id]) {
 		mutex_unlock(&jpeg_hybrid_dec_lock);
 		JPEG_LOG(0, "hw %d unlocked, start fail", id);
@@ -421,6 +424,8 @@ static void jpeg_drv_hybrid_dec_unlock(unsigned int hwid)
 			bufInfo[hwid].o_sgt);
 		jpg_dmabuf_put(bufInfo[hwid].i_dbuf);
 		jpg_dmabuf_put(bufInfo[hwid].o_dbuf);
+		bufInfo[hwid].i_dbuf = NULL;
+		bufInfo[hwid].o_dbuf = NULL;
 		// we manually add 1 ref count, need to put it.
 	}
 	mutex_unlock(&jpeg_hybrid_dec_lock);
@@ -860,6 +865,17 @@ static int jpeg_probe(struct platform_device *pdev)
 
 	JPEG_LOG(0, "JPEG Probe");
 	atomic_inc(&nodeCount);
+
+	for (i = 0; i < HW_CORE_NUMBER; i++) {
+		bufInfo[i].o_dbuf = NULL;
+		bufInfo[i].o_attach = NULL;
+		bufInfo[i].o_sgt = NULL;
+
+		bufInfo[i].i_dbuf = NULL;
+		bufInfo[i].i_attach = NULL;
+		bufInfo[i].i_sgt = NULL;
+		JPEG_LOG(1, "initializing io dma buf for core id: %d", i);
+	}
 
 	node_index = jpeg_get_node_index(pdev->dev.of_node->name);
 
