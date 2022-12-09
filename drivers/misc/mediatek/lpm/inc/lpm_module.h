@@ -159,6 +159,7 @@ enum MT_SPM_DBG_SMC_UID {
 	MT_SPM_DBG_SMC_PERI_REQ_STATUS_RAW,
 	MT_SPM_DBG_SMC_IDLE_PWR_STAT,
 	MT_SPM_DBG_SMC_SUSPEND_PWR_STAT,
+	MT_SPM_DBG_SMC_LP_REQ_STAT,
 };
 
 #define lpm_smc_spm_dbg(_lp_id, _act, _val1, _val2) ({\

@@ -270,6 +270,99 @@ static void dump_peri_cg_status(void)
 
 }
 
+static char *spm_resource_str[MT_SPM_RES_MAX] = {
+	[MT_SPM_RES_XO_FPM] = "XO_FPM",
+	[MT_SPM_RES_CK_26M] = "CK_26M",
+	[MT_SPM_RES_INFRA] = "INFRA",
+	[MT_SPM_RES_SYSPLL] = "SYSPLL",
+	[MT_SPM_RES_DRAM_S0] = "DRAM_S0",
+	[MT_SPM_RES_DRAM_S1] = "DRAM_S1",
+	[MT_SPM_RES_VCORE] = "VCORE",
+	[MT_SPM_RES_EMI] = "EMI",
+	[MT_SPM_RES_PMIC] = "PMIC",
+};
+
+static char *spm_scenario_str[NUM_SPM_SCENE] = {
+	[MT_SPM_AUDIO_AFE] = "AUDIO_AFE",
+	[MT_SPM_AUDIO_DSP] = "AUDIO_DSP",
+	[MT_SPM_USB_HEADSET] = "USB_HEADSET",
+};
+
+static void dump_lp_sw_request(void)
+{
+#undef LOG_BUF_SIZE
+#define LOG_BUF_SIZE	(128)
+	char log_buf[LOG_BUF_SIZE] = { 0 };
+	unsigned int log_size = 0;
+	unsigned int rnum, rusage, per_usage, unum, sta;
+	unsigned int unamei, unamet;
+	char uname[MT_LP_RQ_USER_NAME_LEN+1];
+	int i, j, s, u;
+
+	/* dump spm request by SW */
+	rnum = lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RES_NUM,
+		MT_LPM_SMC_ACT_GET, 0, 0);
+
+	rusage = lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RES_USAGE,
+		MT_LPM_SMC_ACT_GET,
+		MT_LP_RQ_ID_ALL_USAGE, 0);
+
+	unum = lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RES_USER_NUM,
+		MT_LPM_SMC_ACT_GET, 0, 0);
+
+	for (i = 0; i < rnum; i++) {
+		if ((1U<<i) & rusage) {
+
+			per_usage = lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RES_USAGE,
+				MT_LPM_SMC_ACT_GET, i, 0);
+
+			log_size += scnprintf(log_buf + log_size,
+				 LOG_BUF_SIZE - log_size,
+				"%s request:", spm_resource_str[i]);
+
+			for (j = 0; j < unum; j++) {
+				if (per_usage & (1U << j)) {
+					unamei = lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RES_USER_NAME,
+						MT_LPM_SMC_ACT_GET, j, 0);
+					/* convert user name */
+					for (s = 0, u = 0; s < MT_LP_RQ_USER_NAME_LEN;
+						s++, u += MT_LP_RQ_USER_CHAR_U) {
+						unamet = ((unamei >> u) & MT_LP_RQ_USER_CHAR_MASK);
+						uname[s] = (unamet) ? (char)unamet : ' ';
+					}
+					uname[s] = '\0';
+					log_size += scnprintf(log_buf + log_size,
+						 LOG_BUF_SIZE - log_size,
+						"%s ", uname);
+				}
+			}
+			pr_info("suspend warning: %s\n", log_buf);
+			log_size = 0;
+			memset(log_buf, 0, sizeof(log_buf));
+		}
+	}
+
+	/* dump LP request by scenario (Audio/USB) */
+	sta = (unsigned int)lpm_smc_spm_dbg(MT_SPM_DBG_SMC_LP_REQ_STAT,
+		 MT_LPM_SMC_ACT_GET, 0, 0);
+	if (sta) {
+		log_size = 0;
+		memset(log_buf, 0, sizeof(log_buf));
+
+		log_size += scnprintf(log_buf + log_size,
+			 LOG_BUF_SIZE - log_size,
+			"scenario:");
+
+		for (i = 0; i < NUM_SPM_SCENE; i++)
+			if (sta & (0x1 << i))
+				log_size += scnprintf(log_buf + log_size,
+					LOG_BUF_SIZE - log_size,
+					"%s ", spm_scenario_str[i]);
+
+		pr_info("suspend warning: %s\n", log_buf);
+	}
+}
+
 static void lpm_save_sleep_info(void)
 {
 }
@@ -376,6 +469,7 @@ static u32 is_blocked_cnt;
 	pr_info("[name:spm&][SPM] %s\n", log_buf);
 	dump_hw_cg_status();
 	dump_peri_cg_status();
+	dump_lp_sw_request();
 }
 
 static int lpm_show_message(int type, const char *prefix, void *data)

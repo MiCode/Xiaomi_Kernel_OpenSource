@@ -75,6 +75,14 @@ enum MT_SPM_STAT_STATE {
 	NUM_SPM_STAT,
 };
 
+enum MT_SPM_SCENE_STATE {
+	MT_SPM_AUDIO_AFE,
+	MT_SPM_AUDIO_DSP,
+	MT_SPM_USB_HEADSET,
+	NUM_SPM_SCENE,
+};
+
+
 struct lpm_stat_record {
 	u64 count;
 	u64 duration;
