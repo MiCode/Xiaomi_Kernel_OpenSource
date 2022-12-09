@@ -5855,43 +5855,32 @@ static kal_uint32 get_default_framerate_by_scenario(
 	return ERROR_NONE;
 }
 
-static kal_uint32 set_test_pattern_mode(kal_bool enable)
-{
-	LOG_INF("enable: %d\n", enable);
 
-	if (enable) {
-		// 0x5E00[8]: 1 enable,  0 disable
-		// 0x5E00[1:0]; 00 Color bar, 01 Random Data, 10 Square, 11 BLACK
-		write_cmos_sensor(0x3202, 0x0080);
-		write_cmos_sensor(0x3204, 0x0080);
-		write_cmos_sensor(0x3206, 0x0080);
-		write_cmos_sensor(0x3208, 0x0080);
-		write_cmos_sensor(0x3232, 0x0000);
-		write_cmos_sensor(0x3234, 0x0000);
-		write_cmos_sensor(0x32a0, 0x0100);
-		write_cmos_sensor(0x3300, 0x0001);
-		write_cmos_sensor(0x3400, 0x0001);
-		write_cmos_sensor(0x3402, 0x4e00);
-		write_cmos_sensor(0x3268, 0x0000);
-		write_cmos_sensor(0x0600, 0x0002);
-	} else {
-		// 0x5E00[8]: 1 enable,  0 disable
-		// 0x5E00[1:0]; 00 Color bar, 01 Random Data, 10 Square, 11 BLACK
-		write_cmos_sensor(0x3202, 0x0000);
-		write_cmos_sensor(0x3204, 0x0000);
-		write_cmos_sensor(0x3206, 0x0000);
-		write_cmos_sensor(0x3208, 0x0000);
-		write_cmos_sensor(0x3232, 0x0000);
-		write_cmos_sensor(0x3234, 0x0000);
-		write_cmos_sensor(0x32a0, 0x0000);
-		write_cmos_sensor(0x3300, 0x0000);
-		write_cmos_sensor(0x3400, 0x0000);
-		write_cmos_sensor(0x3402, 0x0000);
-		write_cmos_sensor(0x3268, 0x0000);
-		write_cmos_sensor(0x0600, 0x0000);
-	}
+static kal_uint32 set_test_pattern_mode(kal_uint32 modes,
+	struct SET_SENSOR_PATTERN_SOLID_COLOR *pdata)
+{
+	kal_uint16 Color_R, Color_Gr, Color_Gb, Color_B;
+
+	pr_debug("set_test_pattern enum: %d\n", modes);
+
+	if (modes) {
+		write_cmos_sensor(0x2600, modes);
+		if (modes == 1 && (pdata != NULL)) { //Solid Color
+			pr_debug("R=0x%x,Gr=0x%x,B=0x%x,Gb=0x%x",
+				pdata->COLOR_R, pdata->COLOR_Gr, pdata->COLOR_B, pdata->COLOR_Gb);
+			Color_R = (pdata->COLOR_R >> 22) & 0x3FF; //10bits depth color
+			Color_Gr = (pdata->COLOR_Gr >> 22) & 0x3FF;
+			Color_B = (pdata->COLOR_B >> 22) & 0x3FF;
+			Color_Gb = (pdata->COLOR_Gb >> 22) & 0x3FF;
+			write_cmos_sensor(0x2602, Color_Gr);
+			write_cmos_sensor(0x2604, Color_R);
+			write_cmos_sensor(0x2606, Color_B);
+			write_cmos_sensor(0x2608, Color_Gb);
+		}
+	} else
+		write_cmos_sensor(0x2600, 0x00); /*No pattern*/
 	spin_lock(&imgsensor_drv_lock);
-	imgsensor.test_pattern = enable;
+	imgsensor.test_pattern = modes;
 	spin_unlock(&imgsensor_drv_lock);
 	return ERROR_NONE;
 }
@@ -6049,7 +6038,8 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		pr_debug("SENSOR_FEATURE_GET_PDAF_DATA\n");
 		break;
 	case SENSOR_FEATURE_SET_TEST_PATTERN:
-		set_test_pattern_mode((BOOL) * feature_data);
+		set_test_pattern_mode((UINT32)*feature_data,
+		(struct SET_SENSOR_PATTERN_SOLID_COLOR *)(uintptr_t)(*(feature_data + 1)));
 		break;
 	case SENSOR_FEATURE_GET_TEST_PATTERN_CHECKSUM_VALUE:
 		*feature_return_para_32 = imgsensor_info.checksum_value;
