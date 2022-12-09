@@ -8,6 +8,7 @@
 #include <linux/mutex.h>
 #include <linux/sched.h>
 #include <linux/sched/clock.h>
+#include <uapi/linux/sched/types.h>
 #include <linux/delay.h>
 #include <drm/mediatek_drm.h>
 #include <drm/drm_vblank.h>
@@ -331,10 +332,13 @@ static bool mtk_planes_is_yuv_fmt(struct drm_crtc *crtc)
 
 static int mtk_drm_async_kick_idlemgr_thread(void *data)
 {
+	struct sched_param param = {.sched_priority = 87 };
 	struct drm_crtc *crtc = (struct drm_crtc *)data;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_idlemgr *idlemgr = mtk_crtc->idlemgr;
 	int ret = 0;
+
+	sched_setscheduler(current, SCHED_RR, &param);
 
 	while (!kthread_should_stop()) {
 		ret = wait_event_interruptible(
