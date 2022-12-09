@@ -249,7 +249,8 @@ void touch_boost(void)
 {
 	int i = 0, ret = -1, isact = 0;
 
-	isact = fpsgo_get_fstb_active_fp(active_time * 1000);
+	if (fpsgo_get_fstb_active_fp)
+		isact = fpsgo_get_fstb_active_fp(active_time * 1000);
 	_cpu_ctrl_systrace(isact, "is_fstb_active");
 	if (isact || !enable)
 		return;
