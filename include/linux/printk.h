@@ -22,6 +22,7 @@ void set_printk_uart_status(int value);
 
 
 #if defined(CONFIG_MTK_PRINTK_DEBUG)
+#include <linux/cache.h>
 #ifndef KBUILD_MODNAME
 #define KBUILD_MODNAME "unknown module"
 #endif
