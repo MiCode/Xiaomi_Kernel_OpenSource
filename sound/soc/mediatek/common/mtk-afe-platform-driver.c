@@ -174,9 +174,14 @@ int mtk_afe_pcm_copy_user(struct snd_soc_component *component,
 	mtk_sp_copy_f sp_copy;
 	int ret;
 
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
+	int memif_num = cpu_dai->id;
+	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
+
 	sp_copy = is_playback ? default_write_copy : default_read_copy;
 
-	if (afe->copy) {
+	if (afe->copy && !(memif->fast_palyback == 1)) {
 		ret = afe->copy(substream, channel, hwoff,
 				(void __user *)buf, bytes, sp_copy);
 		if (ret)

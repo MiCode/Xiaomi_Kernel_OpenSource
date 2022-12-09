@@ -8127,6 +8127,7 @@ static int mt6985_afe_pcm_dev_probe(struct platform_device *pdev)
 		afe->memif[i].const_irq = 1;
 	}
 	afe->memif[MT6985_DEEP_MEMIF].ack = mtk_sp_clean_written_buffer_ack;
+	afe->memif[MT6985_FAST_MEMIF].fast_palyback = 1;
 
 	/* init arm_smccc_smc call */
 	arm_smccc_smc(MTK_SIP_AUDIO_CONTROL, MTK_AUDIO_SMC_OP_INIT,
