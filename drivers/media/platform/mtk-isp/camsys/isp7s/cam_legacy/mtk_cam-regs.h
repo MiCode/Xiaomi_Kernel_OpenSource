@@ -246,7 +246,7 @@
 
 #define CQ_THR0_MODE_IMMEDIATE				BIT(4)
 #define CQ_THR0_MODE_CONTINUOUS				BIT(5)
-#define CQ_THR0_EN							BIT(0)
+#define CQ_THR0_EN							0x1
 
 #define REG_TG_SEN_MODE						0x0700
 #define TG_CMOS_RDY_SEL						BIT(14)

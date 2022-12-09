@@ -219,7 +219,7 @@
 #define CQ_DROP_FRAME_EN					BIT(1)
 #define CQ_THR0_MODE_IMMEDIATE				BIT(4)
 #define CQ_THR0_MODE_CONTINUOUS				BIT(5)
-#define CQ_THR0_EN							BIT(0)
+#define CQ_THR0_EN							0x1
 #define SCQ_SUB_RESET						BIT(16)
 
 

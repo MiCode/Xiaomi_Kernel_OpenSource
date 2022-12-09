@@ -61,7 +61,7 @@ union MRAW_MRAWCTL_MOD2_EN {
 #define CQ_DB_LOAD_MODE				BIT(8)
 #define CQ_THR0_MODE_IMMEDIATE		BIT(4)
 #define CQ_THR0_MODE_CONTINUOUS		BIT(5)
-#define CQ_THR0_EN					BIT(0)
+#define CQ_THR0_EN					0x1
 #define SCQ_SUB_RESET				BIT(16)
 
 union MRAW_MRAWCQ_CQ_EN {

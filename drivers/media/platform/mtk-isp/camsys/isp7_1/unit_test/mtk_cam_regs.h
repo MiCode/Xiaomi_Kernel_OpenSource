@@ -228,7 +228,7 @@
 #define SCQ_SUBSAMPLE_EN                                BIT(21)
 #define SCQ_SUB_RESET					BIT(16)
 
-#define CQ_THR0_EN						BIT(0)
+#define CQ_THR0_EN						0x1
 #define CQ_CQI_R1_EN					BIT(15)
 #define CQ_CQI_R2_EN					BIT(16)
 #define CAMCQ_SCQ_EN					BIT(20)
