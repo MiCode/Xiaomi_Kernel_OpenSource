@@ -5729,12 +5729,12 @@ EXIT:
 static int compat_get_isp_read_register_data(
 	unsigned long arg,
 	struct compat_ISP_REG_IO_STRUCT *data32,
-	struct ISP_REG_IO_STRUCT __user *data)
+	struct ISP_REG_IO_STRUCT *data)
 {
 	long ret = 0;
 
-	ret = (long)copy_from_user(&data32, compat_ptr(arg),
-			(unsigned long)sizeof(struct ISP_REG_IO_STRUCT));
+	ret = (long)copy_from_user(data32, compat_ptr(arg),
+		(unsigned long)sizeof(struct compat_ISP_REG_IO_STRUCT));
 
 	if (ret != 0L) {
 		LOG_INF("Copy data from user failed!\n");
