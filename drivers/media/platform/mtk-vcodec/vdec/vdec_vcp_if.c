@@ -914,6 +914,7 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 		mutex_lock(&dev->ipi_mutex_res);
 		mutex_unlock(&dev->ipi_mutex_res);
 		mutex_unlock(&dev->ipi_mutex);
+
 		// send backup ipi to vcp by one of any instances
 		mutex_lock(&dev->ctx_mutex);
 		list_for_each_safe(p, q, &dev->ctx_list) {
@@ -928,15 +929,17 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 		mutex_unlock(&dev->ctx_mutex);
 		if (ctx) {
 			vdec_vcp_backup((struct vdec_inst *)ctx->drv_handle);
-			vdec_suspend_power(ctx);
 			mutex_lock(&dev->dec_dvfs_mutex);
 			// if power always on, put pw ref cnt before suspend
 			if (mtk_vdec_dvfs_is_pw_always_on(ctx))
 				mtk_vcodec_dec_pw_off(&ctx->dev->pm);
 			mutex_unlock(&dev->dec_dvfs_mutex);
 		}
+		vdec_suspend_power(dev);
 	break;
 	case VCP_EVENT_RESUME:
+		vdec_resume_power(dev);
+
 		mutex_lock(&dev->ctx_mutex);
 		list_for_each_safe(p, q, &dev->ctx_list) {
 			tmp_ctx = list_entry(p, struct mtk_vcodec_ctx, list);
@@ -948,14 +951,12 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 		}
 		mtk_vcodec_alive_checker_resume(dev);
 		mutex_unlock(&dev->ctx_mutex);
-
 		if (ctx) {
 			mutex_lock(&dev->dec_dvfs_mutex);
 			// if power always on before suspend, get pw ref cnt after resume
 			if (mtk_vdec_dvfs_is_pw_always_on(ctx))
 				mtk_vcodec_dec_pw_on(&ctx->dev->pm);
 			mutex_unlock(&dev->dec_dvfs_mutex);
-			vdec_resume_power(ctx);
 			vdec_vcp_mmdvfs_resume(ctx);
 		}
 		dev->is_codec_suspending = 0;

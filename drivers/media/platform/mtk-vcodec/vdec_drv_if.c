@@ -345,37 +345,31 @@ void vdec_check_release_lock(void *ctx_check)
 	}
 }
 
-void vdec_suspend_power(void *ctx_check)
+void vdec_suspend_power(struct mtk_vcodec_dev *dev)
 {
-	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_check;
 	int hw_id;
 
-	mutex_lock(&ctx->hw_status);
 	for (hw_id = 0; hw_id < MTK_VDEC_HW_NUM; hw_id++) {
-		if (ctx->dev->dec_always_on[hw_id] > 0) {
-			mtk_vcodec_dec_clock_off(&ctx->dev->pm, hw_id);
+		if (dev->dec_always_on[hw_id] > 0) {
+			mtk_vcodec_dec_clock_off(&dev->pm, hw_id);
 			mtk_v4l2_debug(0, "hw_id %d clock off for is always on %d",
-				hw_id, ctx->dev->dec_always_on[hw_id]);
+				hw_id, dev->dec_always_on[hw_id]);
 		}
 	}
-	ctx->dev->dec_is_suspend_off = true;
-	mutex_unlock(&ctx->hw_status);
+	dev->dec_is_suspend_off = true;
 }
 
-void vdec_resume_power(void *ctx_check)
+void vdec_resume_power(struct mtk_vcodec_dev *dev)
 {
-	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_check;
 	int hw_id;
 
-	mutex_lock(&ctx->hw_status);
 	for (hw_id = 0; hw_id < MTK_VDEC_HW_NUM; hw_id++) {
-		if (ctx->dev->dec_always_on[hw_id] > 0) {
-			mtk_vcodec_dec_clock_on(&ctx->dev->pm, hw_id);
+		if (dev->dec_always_on[hw_id] > 0) {
+			mtk_vcodec_dec_clock_on(&dev->pm, hw_id);
 			mtk_v4l2_debug(0, "hw_id %d clock on for is always on %d",
-				hw_id, ctx->dev->dec_always_on[hw_id]);
+				hw_id, dev->dec_always_on[hw_id]);
 		}
 	}
-	ctx->dev->dec_is_suspend_off = false;
-	mutex_unlock(&ctx->hw_status);
+	dev->dec_is_suspend_off = false;
 }
 
