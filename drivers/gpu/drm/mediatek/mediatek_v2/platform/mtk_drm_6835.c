@@ -32,8 +32,6 @@
 #define MT6835_OVL0_2L_NWCG_AID_SEL	(0xB0CUL)
 #define MT6835_OVL1_2L_NWCG_AID_SEL	(0xB10UL)
 
-#define MT6835_OVL_DUMMY_REG	(0x200UL)
-
 //#define MTK_DRM_BRINGUP_STAGE
 //#define DRM_BYPASS_PQ
 
@@ -82,24 +80,6 @@ resource_size_t mtk_ovl_mmsys_mapping_MT6835(struct mtk_ddp_comp *comp)
 	}
 }
 
-resource_size_t mtk_wdma_check_sec_reg_MT6835(struct mtk_ddp_comp *comp)
-{
-	struct mtk_ddp_comp *comp_sec;
-	resource_size_t base;
-	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
-
-	switch (comp->id) {
-	case DDP_COMPONENT_WDMA0:
-		return 0;
-	case DDP_COMPONENT_WDMA1:
-		comp_sec = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
-		base = comp_sec->regs_pa;
-		return base + MT6835_OVL_DUMMY_REG;
-	default:
-		return 0;
-	}
-}
-
 const struct mtk_disp_ovl_data mt6835_ovl_driver_data = {
 	.addr = DISP_REG_OVL_ADDR_BASE,
 	.el_addr_offset = 0x10,
@@ -133,11 +113,9 @@ const struct mtk_disp_wdma_data mt6835_wdma_driver_data = {
 	.fifo_size_3plane = 503,
 	.fifo_size_uv_3plane = 125,
 	.sodi_config = mt6835_mtk_sodi_config,
-	.check_wdma_sec_reg = &mtk_wdma_check_sec_reg_MT6835,
 	.support_shadow = false,
 	.need_bypass_shadow = true,
 	.is_support_34bits = true,
-	.use_larb_control_sec = true,
 };
 
 // rdma
