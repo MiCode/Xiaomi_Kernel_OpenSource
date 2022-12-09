@@ -125,6 +125,7 @@ phys_addr_t vcp_mem_base_virt;
 phys_addr_t vcp_sec_dump_base_phys;
 phys_addr_t vcp_sec_dump_base_virt;
 phys_addr_t vcp_mem_size;
+bool vcp_hwvoter_support = true;
 struct vcp_regs vcpreg;
 struct clk *vcpsel;
 struct clk *vcpclk;
@@ -2420,6 +2421,7 @@ static int vcp_device_probe(struct platform_device *pdev)
 	int ret = 0, i = 0;
 	struct resource *res;
 	const char *core_status = NULL;
+	const char *vcp_hwvoter = NULL;
 	struct device *dev = &pdev->dev;
 	struct device_node *node;
 	const char *clk_name;
@@ -2534,6 +2536,20 @@ static int vcp_device_probe(struct platform_device *pdev)
 	else {
 		pr_debug("[VCP] core-0 enable\n");
 		vcp_enable[VCP_A_ID] = 1;
+	}
+
+	of_property_read_string(pdev->dev.of_node, "vcp-hwvoter", &vcp_hwvoter);
+	if (vcp_hwvoter) {
+		if (strcmp(vcp_hwvoter, "enable") != 0) {
+			pr_notice("[VCP] vcp_hwvoter not enable\n");
+			vcp_hwvoter_support = false;
+		} else {
+			pr_notice("[VCP] vcp_hwvoter enable\n");
+			vcp_hwvoter_support = true;
+		}
+	} else {
+		vcp_hwvoter_support = true;
+		pr_notice("[VCP] vcp_hwvoter support by default: %d\n", vcp_hwvoter_support);
 	}
 
 	of_property_read_u32(pdev->dev.of_node, "core-nums"
@@ -2960,7 +2976,9 @@ static int __init vcp_init(void)
 		goto err;
 	}
 
-	vcp_hw_voter_dbg_init();
+	/* scp hwvoter debug init */
+	if (vcp_hwvoter_support)
+		vcp_hw_voter_dbg_init();
 
 #if VCP_LOGGER_ENABLE
 	/* vcp logger initialise */
