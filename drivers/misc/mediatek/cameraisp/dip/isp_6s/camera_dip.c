@@ -7159,12 +7159,12 @@ static signed int DIP_probe(struct platform_device *pDev)
 		sizeof(struct dip_device) * nr_dip_devs,
 		GFP_KERNEL);
 
-	dip_devs = _dipdev;
-
-	if (!dip_devs) {
+	if (!_dipdev || _dipdev == ZERO_SIZE_PTR) {
 		LOG_INF("Unable to allocate dip_devs\n");
 		return -ENOMEM;
 	}
+
+	dip_devs = _dipdev;
 
 	dip_dev = &(dip_devs[nr_dip_devs - 1]);
 	dip_dev->dev = &pDev->dev;
