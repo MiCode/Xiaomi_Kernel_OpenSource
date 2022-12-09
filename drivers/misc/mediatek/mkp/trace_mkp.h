@@ -6,7 +6,7 @@
 #ifndef _TRACE_MKP_H
 #define _TRACE_MKP_H
 
-#if IS_ENABLED(CONFIG_TRACING)
+#if IS_ENABLED(CONFIG_TRACING) && IS_ENABLED(CONFIG_MTK_VM_DEBUG)
 
 #include <linux/types.h>
 #include <linux/kernel.h>
