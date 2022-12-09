@@ -6450,10 +6450,6 @@ static int mt_pga_3_event(struct snd_soc_dapm_widget *w,
 		usleep_range(1000, 1020);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		/* 3 preamplifier DCCEN */
-		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON4,
-			RG_AUDPREAMP3DCCEN_MASK_SFT,
-			0x0 << RG_AUDPREAMP3DCCEN_SFT);
 		/* if is vow rec concurrent, MIC BIAS0 need to change to lowpower mode */
 		if ((priv->vow_enable == 1) && (priv->vow_setup == 0)) {
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON59,
@@ -6551,10 +6547,6 @@ static int mt_pga_4_event(struct snd_soc_dapm_widget *w,
 		usleep_range(1000, 1020);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		/* 4 preamplifier DCCEN */
-		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON6,
-			RG_AUDPREAMP4DCCEN_MASK_SFT,
-			0x0 << RG_AUDPREAMP4DCCEN_SFT);
 		/* if is vow rec concurrent, MIC BIAS0 need to change to lowpower mode */
 		if ((priv->vow_enable == 1) && (priv->vow_setup == 0)) {
 			regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON59,
