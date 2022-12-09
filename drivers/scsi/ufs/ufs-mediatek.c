@@ -390,9 +390,16 @@ static const u8 *mphy_str[] = {
 extern void mt_irq_dump_status(unsigned int irq);
 static int ufs_mtk_auto_hibern8_disable(struct ufs_hba *hba);
 
+
+#include <trace/events/ufs.h>
+
 #define CREATE_TRACE_POINTS
+#define TRACE_INCLUDE_PATH ../../drivers/scsi/ufs/
+#define TRACE_INCLUDE_FILE ufs-mediatek-trace
 #include "ufs-mediatek-trace.h"
 #undef CREATE_TRACE_POINTS
+
+EXPORT_TRACEPOINT_SYMBOL_GPL(ufs_mtk_mcq_command);
 
 static struct ufs_dev_fix ufs_mtk_dev_fixups[] = {
 	UFS_FIX(UFS_ANY_VENDOR, UFS_ANY_MODEL,

@@ -22,6 +22,7 @@
 #include "ufshcd.h"
 #include "ufs-mediatek.h"
 #include "ufs-mediatek-dbg.h"
+#include "ufs-mediatek-trace.h"
 
 #define MAX_CMD_HIST_ENTRY_CNT (500)
 #define UFS_AEE_BUFFER_SIZE (100 * 1024)
@@ -564,6 +565,13 @@ static void probe_ufshcd_system_resume(void *data, const char *dev_name,
 			UFSDBG_SYSTEM_RESUME);
 }
 
+/* trace point enable condition */
+enum tp_en {
+	TP_EN_ALL,
+	TP_EN_LEGACY,
+	TP_EN_MCQ,
+};
+
 /*
  * Data structures to store tracepoints information
  */
@@ -572,10 +580,35 @@ struct tracepoints_table {
 	void *func;
 	struct tracepoint *tp;
 	bool init;
+	enum tp_en en;
+};
+
+struct mod_tracepoints_table {
+	const char *mod_name;
+	const char *name;
+	void *func;
+	struct tracepoint *tp;
+	bool init;
+	enum tp_en en;
+};
+
+
+static struct mod_tracepoints_table mod_interests[] = {
+	{
+		.mod_name = "ufs_mediatek_mod",
+		.name = "ufs_mtk_mcq_command",
+		.func = probe_ufshcd_command,
+		.en = TP_EN_MCQ
+	}
 };
 
 static struct tracepoints_table interests[] = {
+/* @ CL 6502432*/
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	{.name = "ufshcd_command", .func = probe_ufshcd_command, .en = TP_EN_LEGACY},
+#else
 	{.name = "ufshcd_command", .func = probe_ufshcd_command},
+#endif
 	{.name = "ufshcd_uic_command", .func = probe_ufshcd_uic_command},
 	{.name = "ufshcd_clk_gating", .func = probe_ufshcd_clk_gating},
 	{
@@ -601,6 +634,23 @@ static struct tracepoints_table interests[] = {
 	for (i = 0; i < sizeof(interests) / sizeof(struct tracepoints_table); \
 	i++)
 
+#define FOR_EACH_MOD_INTEREST(i) \
+	for (i = 0; i < sizeof(mod_interests) / sizeof(struct mod_tracepoints_table); \
+	i++)
+
+
+static void for_each_tracepoint_range(tracepoint_ptr_t *begin, tracepoint_ptr_t *end,
+		void (*fct)(struct tracepoint *tp, void *priv),
+		void *priv)
+{
+	tracepoint_ptr_t *iter;
+
+	if (!begin)
+		return;
+	for (iter = begin; iter < end; iter++)
+		fct(tracepoint_ptr_deref(iter), priv);
+}
+
 /*
  * Find the struct tracepoint* associated with a given tracepoint
  * name.
@@ -612,6 +662,26 @@ static void lookup_tracepoints(struct tracepoint *tp, void *ignore)
 	FOR_EACH_INTEREST(i) {
 		if (strcmp(interests[i].name, tp->name) == 0)
 			interests[i].tp = tp;
+	}
+}
+
+/*
+ * Find the struct tracepoint* associated with a given tracepoint
+ * name in a module.
+ */
+void lookup_mod_tracepoints(struct tracepoint *tp, void *priv)
+{
+	struct module *mod = priv;
+	int i = 0;
+
+	FOR_EACH_MOD_INTEREST(i) {
+		if (!strcmp(mod_interests[i].mod_name, mod->name) &&
+			!strcmp(mod_interests[i].name, tp->name)) {
+
+			pr_info("%s: tracepoint %s from module %s found",
+				THIS_MODULE->name, tp->name, mod->name);
+			mod_interests[i].tp = tp;
+		}
 	}
 }
 
@@ -1202,14 +1272,40 @@ void ufs_mtk_remove_clk_scaling_sysfs(struct ufs_hba *hba)
 }
 EXPORT_SYMBOL_GPL(ufs_mtk_remove_clk_scaling_sysfs);
 
-static void ufs_mtk_dbg_cleanup(void)
+static bool check_tp_enable(struct ufs_hba_private *hba_priv, enum tp_en en)
+{
+	if (en == TP_EN_ALL)
+		return true;
+	else if ((en == TP_EN_MCQ) && hba_priv->is_mcq_enabled)
+		return true;
+	else if ((en == TP_EN_LEGACY) && !hba_priv->is_mcq_enabled)
+		return true;
+
+	return false;
+}
+
+
+static void ufs_mtk_dbg_cleanup(struct ufs_hba *hba)
 {
 	int i;
+	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
 
 	FOR_EACH_INTEREST(i) {
 		if (interests[i].init) {
+			if (!check_tp_enable(hba_priv, interests[i].en))
+				continue;
 			tracepoint_probe_unregister(interests[i].tp,
 						    interests[i].func,
+						    NULL);
+		}
+	}
+
+	FOR_EACH_MOD_INTEREST(i) {
+		if (mod_interests[i].init) {
+			if (!check_tp_enable(hba_priv, mod_interests[i].en))
+				continue;
+			tracepoint_probe_unregister(mod_interests[i].tp,
+						    mod_interests[i].func,
 						    NULL);
 		}
 	}
@@ -1217,9 +1313,34 @@ static void ufs_mtk_dbg_cleanup(void)
 	_cmd_hist_cleanup();
 }
 
+static int ufs_mtk_tp_module_notifier_handler(struct notifier_block *nb,
+			unsigned long action, void *data)
+{
+	struct tp_module *tpmd = data;
+	struct module *mod = tpmd->mod;
+	int i = 0;
+
+	/* search if current loaded module is in mod_interests */
+	FOR_EACH_MOD_INTEREST(i) {
+		if (!strcmp(tpmd->mod->name, mod_interests[i].mod_name)) {
+			for_each_tracepoint_range(mod->tracepoints_ptrs,
+				mod->tracepoints_ptrs + mod->num_tracepoints,
+				lookup_mod_tracepoints, mod);
+			break;
+		}
+	}
+
+	return 0;
+}
+
+struct notifier_block tp_nb = {
+	.notifier_call = ufs_mtk_tp_module_notifier_handler,
+};
+
 int ufs_mtk_dbg_register(struct ufs_hba *hba)
 {
 	int i, ret;
+	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
 
 	/*
 	 * Ignore any failure of AEE buffer allocation to still allow
@@ -1239,15 +1360,36 @@ int ufs_mtk_dbg_register(struct ufs_hba *hba)
 			pr_info("Error: %s not found\n",
 				interests[i].name);
 			/* Unload previously loaded */
-			ufs_mtk_dbg_cleanup();
+			ufs_mtk_dbg_cleanup(hba);
 			return -EINVAL;
 		}
+		if (!check_tp_enable(hba_priv, interests[i].en))
+			continue;
 
 		tracepoint_probe_register(interests[i].tp,
 					  interests[i].func,
 					  NULL);
 		interests[i].init = true;
 	}
+
+/* @ CL 6502432*/
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	FOR_EACH_MOD_INTEREST(i) {
+		if (mod_interests[i].tp == NULL) {
+			pr_info("Error: %s not found in modules. Check tracepoint or module load order.\n",
+				mod_interests[i].name);
+			ufs_mtk_dbg_cleanup(hba);
+			return -EINVAL;
+		}
+
+		if (!check_tp_enable(hba_priv, mod_interests[i].en))
+			continue;
+		tracepoint_probe_register(mod_interests[i].tp,
+					  mod_interests[i].func,
+					  NULL);
+		mod_interests[i].init = true;
+	}
+#endif
 
 	/* Create control nodes in procfs */
 	ret = ufs_mtk_dbg_init_procfs();
@@ -1256,7 +1398,7 @@ int ufs_mtk_dbg_register(struct ufs_hba *hba)
 	if (!ret)
 		ufs_mtk_dbg_cmd_hist_enable();
 	else
-		ufs_mtk_dbg_cleanup();
+		ufs_mtk_dbg_cleanup(hba);
 
 	return ret;
 }
@@ -1277,6 +1419,11 @@ static int __init ufs_mtk_dbg_init(void)
 			   GFP_KERNEL);
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 	mrdump_set_extra_dump(AEE_EXTRA_FILE_UFS, ufs_mtk_dbg_get_aee_buffer);
+#endif
+
+/* @ CL 6502432*/
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	register_tracepoint_module_notifier(&tp_nb);
 #endif
 	return 0;
 }
