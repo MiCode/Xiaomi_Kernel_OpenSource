@@ -474,8 +474,8 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 		struct mml_submit *cfg = mtk_plane_state->pending.mml_cfg;
 		uint32_t width, height, pitch;
 
-		width = cfg->info.src.width;
-		height = cfg->info.src.height;
+		width = cfg->info.dest[0].crop.r.width;
+		height = cfg->info.dest[0].crop.r.height;
 		pitch = cfg->info.src.y_stride;
 
 		mtk_plane_state->pending.enable = plane->state->visible;
@@ -484,8 +484,8 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 		mtk_plane_state->pending.addr = (dma_addr_t)(mtk_crtc->mml_ir_sram.data.paddr);
 		mtk_plane_state->pending.modifier = fb->modifier;
 		mtk_plane_state->pending.size = pitch  * height;
-		mtk_plane_state->pending.src_x = 0;
-		mtk_plane_state->pending.src_y = 0;
+		mtk_plane_state->pending.src_x = crtc_state->mml_src_roi[0].x;
+		mtk_plane_state->pending.src_y = crtc_state->mml_src_roi[0].y;
 		mtk_plane_state->pending.dst_x =
 			(mtk_crtc->is_force_mml_scen) ? 0 : dst_x;
 		mtk_plane_state->pending.dst_y =
@@ -520,9 +520,11 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	DDPINFO("%s:%d en%d,pitch%d,fmt:%p4cc\n",
 		__func__, __LINE__, (unsigned int)mtk_plane_state->pending.enable,
 		mtk_plane_state->pending.pitch, &mtk_plane_state->pending.format);
-	DDPINFO("addr:0x%llx,x%d,y%d,width%d,height%d\n",
-		mtk_plane_state->pending.addr, mtk_plane_state->pending.dst_x,
-		mtk_plane_state->pending.dst_y, mtk_plane_state->pending.width,
+	DDPINFO("addr:0x%llx,sx%d,sy%d,dx%d,dy%d,width%d,height%d\n",
+		mtk_plane_state->pending.addr,
+		mtk_plane_state->pending.src_x, mtk_plane_state->pending.src_y,
+		mtk_plane_state->pending.dst_x, mtk_plane_state->pending.dst_y,
+		mtk_plane_state->pending.width,
 		mtk_plane_state->pending.height);
 
 	for (i = 0; i < PLANE_PROP_MAX; i++) {

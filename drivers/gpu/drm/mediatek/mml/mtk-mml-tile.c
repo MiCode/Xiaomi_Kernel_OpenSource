@@ -526,10 +526,10 @@ s32 calc_tile(struct mml_task *task, u32 pipe, struct mml_tile_cache *tile_cache
 		goto err_tile;
 
 #if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
-	if ((dump_tile == 1 && task->config->info.mode == MML_MODE_DDP_ADDON) ||
-		(dump_tile == 2 && task->config->info.mode == MML_MODE_MML_DECOUPLE)) {
+	if (task->config->info.mode == dump_tile) {
 		mutex_lock(&tile_dump_mutex);
-		mml_log("%s task %p pipe %u", __func__, task, pipe);
+		mml_log("%s task %p pipe %u mode %u",
+			__func__, task, pipe, task->config->info.mode);
 		dump_tile_working(&ctx);
 		dump_tile_output(ctx.output);
 		mutex_unlock(&tile_dump_mutex);

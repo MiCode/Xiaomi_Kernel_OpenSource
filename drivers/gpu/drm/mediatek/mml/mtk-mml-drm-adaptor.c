@@ -1476,17 +1476,17 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 	} else {
 		dest->compose.left = 0;
 		dest->compose.top = 0;
-		dest->compose.width = dest->crop.r.height;
+		dest->compose.width = dest->crop.r.height; /* even or odd */
 		dest->compose.height = dest->crop.r.width;
 
 		if (MML_FMT_H_SUBSAMPLE(dest->data.format)) {
-			mml_check_boundary_w(&info->src, dest, lrtb);
+			mml_check_boundary_w(&info->src, dest, lrtb); /* (wrot) align to even */
 			mml_check_boundary_h(&info->src, dest, lrtb);
 		} else if (MML_FMT_V_SUBSAMPLE(dest->data.format)) {
 			mml_check_boundary_w(&info->src, dest, lrtb);
 		}
 
-		dest->data.width = dest->crop.r.height;
+		dest->data.width = dest->crop.r.height; /* even */
 		dest->data.height = dest->crop.r.width;
 	}
 
@@ -1544,6 +1544,7 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 	dest->data.uv_stride = mml_color_get_min_uv_stride(
 		dest->data.format, dest->data.width);
 
+	info_pq->src = dest->data;
 	/* for better wrot burst 16 bytes performance,
 	 * always align output width to 16 pixel
 	 */
@@ -1554,11 +1555,15 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 		dest->data.y_stride = mml_color_get_min_y_stride(
 			dest->data.format, align_w);
 		dest->compose.left = align_w - dest->data.width;
+		/* same as
+		 * dest->compose.left + dest->compose.width + info_pq->dest[0].crop.r.left
+		 */
+		info_pq->src.width = align_w;
+		info_pq->src.y_stride = dest->data.y_stride;
 	}
 
 	memset(&dest->pq_config, 0, sizeof(dest->pq_config));
 
-	info_pq->src = dest->data;
 	info_pq->dest[0].crop.r.left += dest->compose.left;
 	info_pq->dest[0].crop.r.width = dest->compose.width;
 	info_pq->dest[0].crop.r.height = dest->compose.height;

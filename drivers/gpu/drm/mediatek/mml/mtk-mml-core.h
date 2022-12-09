@@ -323,7 +323,8 @@ struct mml_frame_config {
 	struct mml_frame_info info;
 	/* frame output pixel size */
 	struct mml_frame_size frame_out[MML_MAX_OUTPUTS];
-	/* direct-link output rect */
+	/* direct-link input roi offset and output rect */
+	struct mml_rect dl_in[MML_DL_OUT_CNT];
 	struct mml_rect dl_out[MML_DL_OUT_CNT];
 	struct list_head tasks;
 	struct list_head await_tasks;
