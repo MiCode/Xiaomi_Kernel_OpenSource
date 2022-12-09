@@ -423,7 +423,7 @@ void mtk_tick_entry(void *data, struct rq *rq)
 #endif
 
 	if (rq->curr->android_vendor_data1[T_SBB_FLG] || is_busy_tick_boost_all() ||
-		rq->curr->group_leader->android_vendor_data1[T_SBB_TG_FLG]) {
+		rq->curr->sched_task_group->android_vendor_data1[TG_SBB_FLG]) {
 
 		if (rq->android_vendor_data1[RQ_SBB_TICK_START]) {
 			idle_time = get_cpu_idle_time(rq->cpu, &wall_time, 1);

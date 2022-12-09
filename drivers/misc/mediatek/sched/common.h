@@ -7,7 +7,9 @@
 
 /* Task Vendor Data */
 #define T_SBB_FLG 5
-#define T_SBB_TG_FLG 8
+
+/* Task Group Vendor Data */
+#define TG_SBB_FLG 0
 
 /* Run Queue Vendor Data */
 #define RQ_SBB_ACTIVE 0
