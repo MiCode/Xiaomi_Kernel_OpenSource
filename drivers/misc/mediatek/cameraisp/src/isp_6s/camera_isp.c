@@ -3804,9 +3804,9 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 		Timeout = wait_event_interruptible_timeout(
 			IspInfo.WaitQHeadCam[ISP_GetWaitQCamIndex(
 				dev_node_WaitIrq_Type)]
-					    [ISP_GetWaitQCamIrqIndex(
-						    WaitIrq->EventInfo.St_type,
-						    WaitIrq->EventInfo.Status)],
+				[ISP_GetWaitQCamIrqIndex(
+					WaitIrq->EventInfo.St_type,
+					WaitIrq->EventInfo.Status)],
 			ISP_GetIRQState(dev_node_WaitIrq_Type,
 					WaitIrq->EventInfo.St_type,
 					WaitIrq->EventInfo.UserKey,
@@ -5768,7 +5768,7 @@ static int compat_get_isp_buf_ctrl_struct_data(
 {
 	long ret = 0;
 
-	ret = (long)copy_from_user(&data32, compat_ptr(arg),
+	ret = (long)copy_from_user(data32, compat_ptr(arg),
 			(unsigned long)sizeof(struct compat_ISP_BUFFER_CTRL_STRUCT));
 
 	if (ret != 0L) {
@@ -6133,13 +6133,13 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 	/*  */
 	/* LOG_DBG("UserCount(%d)",IspInfo.UserCount); */
 	/*  */
+	spin_lock(&(IspInfo.SpinLockIspRef));
 	if (pFile->private_data != NULL) {
 		pUserInfo = (struct ISP_USER_INFO_STRUCT *)pFile->private_data;
 		kfree(pFile->private_data);
 		pFile->private_data = NULL;
 	}
 	/*      */
-	spin_lock(&(IspInfo.SpinLockIspRef));
 	IspInfo.UserCount--;
 	if (IspInfo.UserCount > 0) {
 		spin_unlock(&(IspInfo.SpinLockIspRef));
