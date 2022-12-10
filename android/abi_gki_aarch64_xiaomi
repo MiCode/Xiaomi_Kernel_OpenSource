@@ -508,3 +508,9 @@
   ZSTD_initCStream
   ZSTD_initDStream
   ZSTD_maxCLevel
+
+#required by cache module
+  __mod_lruvec_state
+  __mod_zone_page_state
+  d_delete
+  mem_cgroup_update_lru_size
