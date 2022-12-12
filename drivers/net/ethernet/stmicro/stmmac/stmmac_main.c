@@ -660,6 +660,7 @@ static int stmmac_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
 	u32 ts_master_en = 0;
 	u32 ts_event_en = 0;
 	u32 av_8021asm_en = 0;
+	int ret = 0;
 
 	if (!(priv->dma_cap.time_stamp || priv->adv_ts)) {
 		netdev_alert(priv->dev, "No support for HW time stamping\n");
@@ -825,6 +826,10 @@ static int stmmac_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
 	priv->hwts_tx_en = config.tx_type == HWTSTAMP_TX_ON;
 
 	priv->systime_flags = STMMAC_HWTS_ACTIVE;
+
+	ret = stmmac_init_tstamp_counter(priv, STMMAC_HWTS_ACTIVE);
+	if (ret)
+		return ret;
 
 	if (priv->hwts_tx_en || priv->hwts_rx_en) {
 		priv->systime_flags |= tstamp_all | ptp_v2 |
