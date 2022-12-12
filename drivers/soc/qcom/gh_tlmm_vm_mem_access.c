@@ -257,8 +257,11 @@ static int gh_tlmm_vm_populate_vm_info(struct platform_device *dev, struct gh_tl
 		vm_info->iomem_sizes[i] = resource_size(res);
 	}
 
+	kfree(gpios);
+	kfree(res);
 	return rc;
 io_sizes_error:
+	kfree(res);
 	kfree(vm_info->iomem_sizes);
 io_bases_error:
 	kfree(vm_info->iomem_bases);
