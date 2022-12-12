@@ -240,7 +240,7 @@ static irqreturn_t qmp_intr(int irq, void *data)
 	AOSS_INFO("\n");
 
 	len = readl_relaxed(qmp->msgram + qmp->qmp_rx.rx_offset);
-	if (len) {
+	if (len && qmp->qmp_rx.rx_buf) {
 		len = ALIGN(len, 4);
 		__ioread32_copy(qmp->qmp_rx.rx_buf,
 				qmp->msgram + qmp->qmp_rx.rx_offset + sizeof(u32),
