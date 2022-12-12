@@ -255,13 +255,23 @@ config DWMAC_VISCONTI
 
 config DWXGMAC_QCOM_4K
 	bool "Support for 4K Virtualization of XGMAC registers"
-	depends on ARCH_SDXPINN
+	depends on (ARCH_SDXPINN || ARCH_SA525)
 	default y
 	help
 	  This selects 4K virtualization of DMA and MTL offsets for the
 	  stmmac device driver. With this config different base addresses
 	  for various MTL and DMA registers are selected. This config is
 	  only applicable for XGMAC2 HW version. Other targets should
+	  not enable this config.
+
+config ETHQOS_QCOM_VER4
+	bool "Emac ethqos support for HW version 4"
+	depends on (ARCH_SDXPINN || ARCH_SA525)
+	default y
+	help
+	  This selects proper registers and corresponding bit mapping
+	  for the  configuration of IO Macro block. This config is
+	  only applicable for EMAC version 4. Other targets should
 	  not enable this config.
 
 endif
