@@ -142,6 +142,3 @@
   unregister_shrinker
   wait_on_page_bit
   __wake_up
-
-# preserved by --additions-only
-  __sysfs_match_string
