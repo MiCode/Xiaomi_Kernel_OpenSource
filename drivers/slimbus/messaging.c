@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2011-2017, The Linux Foundation
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -112,6 +113,7 @@ int slim_do_transfer(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	DECLARE_COMPLETION_ONSTACK(done);
 	bool need_tid = false, clk_pause_msg = false;
 	int ret, timeout;
+	struct completion *comp;
 
 	/*
 	 * do not vote for runtime-PM if the transactions are part of clock
@@ -132,10 +134,10 @@ int slim_do_transfer(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 		if (ret)
 			return ret;
 
-		if (!txn->msg->comp)
+		if (!txn->msg->comp) {
+			comp = txn->comp;
 			txn->comp = &done;
-		else
-			txn->comp = txn->comp;
+		}
 	}
 
 	if (!clk_pause_msg) {
@@ -147,12 +149,16 @@ int slim_do_transfer(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 			pm_runtime_put_noidle(ctrl->dev);
 			/* Set device in suspended since resume failed */
 			pm_runtime_set_suspended(ctrl->dev);
+			if (need_tid && !txn->msg->comp)
+				txn->comp = comp;
 			return ret;
 		}
 
 		if (ctrl->sched.clk_state != SLIM_CLK_ACTIVE) {
 			dev_err(ctrl->dev, "ctrl wrong state:%d, ret:%d\n",
 				ctrl->sched.clk_state, ret);
+			if (need_tid && !txn->msg->comp)
+				txn->comp = comp;
 			goto slim_xfer_err;
 		}
 	}
