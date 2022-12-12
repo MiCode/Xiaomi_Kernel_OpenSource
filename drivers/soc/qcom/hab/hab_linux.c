@@ -419,7 +419,11 @@ static void __exit hab_exit(void)
 	pr_debug("hab exit called\n");
 }
 
+#if IS_MODULE(CONFIG_MSM_HAB)
 module_init(hab_init);
+#else
+subsys_initcall(hab_init);
+#endif
 module_exit(hab_exit);
 
 MODULE_DESCRIPTION("Hypervisor abstraction layer");
