@@ -45,11 +45,6 @@ struct slatersb_priv {
 static void *slatersb_drv;
 static int slatersb_enable(struct slatersb_priv *dev, bool enable);
 
-struct rsb_channel_ops rsb_ops = {
-	.glink_channel_state = slatersb_notify_glink_channel_state,
-	.rx_msg = slatersb_rx_msg,
-};
-
 static void slatersb_slatedown_work(struct work_struct *work)
 {
 	struct slatersb_priv *dev = container_of(work, struct slatersb_priv,
@@ -538,6 +533,8 @@ static int slatersb_init(struct slatersb_priv *dev)
 	INIT_WORK(&dev->rsb_down_work, slatersb_disable_rsb);
 	INIT_WORK(&dev->rsb_calibration_work, slatersb_calibration);
 	INIT_WORK(&dev->bttn_configr_work, slatersb_buttn_configration);
+
+	slatersb_channel_init(&slatersb_notify_glink_channel_state, &slatersb_rx_msg);
 
 	return 0;
 }

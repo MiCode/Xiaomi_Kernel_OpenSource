@@ -18,6 +18,14 @@ struct slatersb_rpmsg_dev {
 	size_t message_length;
 };
 
+struct rsb_channel_ops {
+	void (*glink_channel_state)(bool state);
+	void (*rx_msg)(void *data, int len);
+};
+
+void slatersb_channel_init(void (*fn1)(bool), void (*fn2)(void *, int));
+
+
 #if IS_ENABLED(CONFIG_MSM_SLATERSB_RPMSG)
 int slatersb_rpmsg_tx_msg(void  *msg, size_t len);
 #else
