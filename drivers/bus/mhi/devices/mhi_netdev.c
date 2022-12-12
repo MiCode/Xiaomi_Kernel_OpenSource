@@ -610,7 +610,8 @@ static int mhi_netdev_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 	return rc;
 }
 
-static int mhi_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+static int mhi_netdev_ioctl(struct net_device *dev, struct ifreq *ifr,
+					void __user *data, int cmd)
 {
 	int rc = 0;
 	struct rmnet_ioctl_data_s ioctl_data;
@@ -656,7 +657,7 @@ static int mhi_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 static const struct net_device_ops mhi_netdev_ops_ip = {
 	.ndo_open = mhi_netdev_open,
 	.ndo_start_xmit = mhi_netdev_xmit,
-	.ndo_do_ioctl = mhi_netdev_ioctl,
+	.ndo_siocdevprivate = mhi_netdev_ioctl,
 	.ndo_change_mtu = mhi_netdev_change_mtu,
 	.ndo_set_mac_address = 0,
 	.ndo_validate_addr = 0,
