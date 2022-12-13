@@ -74,7 +74,7 @@ enum socinfo_parttype {
 	SOCINFO_PART_MAX_PARTTYPE
 };
 
-enum defective_part_type {
+enum subset_part_type {
 	PART_UNKNOWN      = 0,
 	PART_GPU          = 1,
 	PART_VIDEO        = 2,
@@ -93,7 +93,7 @@ enum defective_part_type {
 	NUM_PARTS_MAX,
 };
 
-enum defective_cluster_type {
+enum subset_cluster_type {
 	CLUSTER_CPUSS      = 0,
 	NUM_CLUSTERS_MAX,
 };
@@ -108,8 +108,8 @@ char *socinfo_get_partinfo_part_name(unsigned int part_id);
 uint32_t socinfo_get_partinfo_chip_id(unsigned int part_id);
 uint32_t socinfo_get_partinfo_vulkan_id(unsigned int part_id);
 int socinfo_get_oem_variant_id(void);
-uint32_t socinfo_get_cluster_info(enum defective_cluster_type cluster);
-bool socinfo_get_part_info(enum defective_part_type part);
+uint32_t socinfo_get_cluster_info(enum subset_cluster_type cluster);
+bool socinfo_get_part_info(enum subset_part_type part);
 #else
 static inline uint32_t socinfo_get_id(void)
 {
@@ -149,11 +149,11 @@ int socinfo_get_oem_variant_id(void)
 {
 	return -EINVAL;
 }
-uint32_t socinfo_get_cluster_info(enum defective_cluster_type cluster)
+uint32_t socinfo_get_cluster_info(enum subset_cluster_type cluster)
 {
 	return 0;
 }
-bool socinfo_get_part_info(enum defective_part_type part)
+bool socinfo_get_part_info(enum subset_part_type part)
 {
 	return false;
 }
