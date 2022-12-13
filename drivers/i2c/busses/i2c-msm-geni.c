@@ -350,7 +350,7 @@ static int do_pending_cancel(struct geni_i2c_dev *gi2c)
 		}
 	}
 	gi2c->prev_cancel_pending = false;
-	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+	I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 		"%s: Pending Cancel done\n", __func__);
 	return timeout;
 }
@@ -1335,7 +1335,7 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 			/* WAR: Set flag to mark cancel pending if IOS bad */
 			geni_ios = geni_read_reg_nolog(gi2c->base, SE_GENI_IOS);
 			if ((geni_ios & 0x3) != 0x3) { //SCL:b'1, SDA:b'0
-				I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+				I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 					"%s: IO lines not in good state\n",
 					__func__);
 				/* doing pending cancel only rtl based SE's */
@@ -1346,11 +1346,11 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 			}
 		} else {
 			if (msgs[i].flags & I2C_M_RD)
-				I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+				I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 				"%s: Read operation completed for len:%d\n",
 				__func__, msgs[i].len);
 			else
-				I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+				I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 				"%s:Write operation completed for len:%d\n",
 				__func__,  msgs[i].len);
 		}
@@ -1360,7 +1360,7 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 				/* WAR: Set flag to mark cancel pending if IOS bad */
 				geni_ios = geni_read_reg_nolog(gi2c->base, SE_GENI_IOS);
 				if ((geni_ios & 0x3) != 0x3) { //SCL:b'1, SDA:b'0
-					I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+					I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 						"%s: IO lines not in good state\n",
 						__func__);
 					gi2c->prev_cancel_pending = true;
@@ -1452,6 +1452,7 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	struct platform_device *wrapper_pdev;
 	struct device_node *wrapper_ph_node;
 	int ret;
+	u32 geni_se_hw_param_2;
 
 	gi2c = devm_kzalloc(&pdev->dev, sizeof(*gi2c), GFP_KERNEL);
 	if (!gi2c)
@@ -1491,11 +1492,6 @@ static int geni_i2c_probe(struct platform_device *pdev)
 		gi2c->is_le_vm = true;
 		gi2c->first_resume = true;
 		dev_info(&pdev->dev, "LE-VM usecase\n");
-	}
-
-	if (of_property_read_bool(pdev->dev.of_node, "qcom,rtl_se")) {
-		gi2c->is_i2c_rtl_based  = true;
-		dev_info(&pdev->dev, "%s: RTL based SE\n", __func__);
 	}
 
 	gi2c->i2c_rsc.wrapper_dev = &wrapper_pdev->dev;
@@ -1571,6 +1567,13 @@ static int geni_i2c_probe(struct platform_device *pdev)
 			dev_err(gi2c->dev, "Request_irq failed:%d: err:%d\n",
 					   gi2c->irq, ret);
 			return ret;
+		}
+
+		/* Check if SE is RTL based SE */
+		geni_se_hw_param_2 = readl_relaxed(gi2c->base + SE_HW_PARAM_2);
+		if (geni_se_hw_param_2 & GEN_HW_FSM_I2C) {
+			gi2c->is_i2c_rtl_based  = true;
+			dev_info(&pdev->dev, "%s: RTL based SE\n", __func__);
 		}
 	}
 

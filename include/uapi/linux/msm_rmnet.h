@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _UAPI_MSM_RMNET_H_
@@ -72,6 +73,10 @@
 #define RMNET_IOCTL_SET_MTU                    0x0020   /* Set v4/v6 MTU   */
 #define RMNET_IOCTL_GET_EPID_LL                0x0021   /* Get LL ep ID    */
 #define RMNET_IOCTL_GET_EP_PAIR_LL             0x0022   /* LL ep pair      */
+#define RMNET_IOCTL_SET_ETH_VLAN               0x0023   /* Set ETH Vlan   */
+#define RMNET_IOCTL_ADD_MUX_CHANNEL_v2         0x0024   /* Add MUX ID + mac*/
+#define RMNET_IOCTL_GET_EPID_ETH               0x0025   /* Get ETH ep ID   */
+#define RMNET_IOCTL_GET_EP_PAIR_ETH            0x0026   /* ETH data ep pair*/
 
 /**
  * RMNET_IOCTL_EXTENDED_V2 ioctl types.
@@ -100,19 +105,21 @@
 #define RMNET_IOCTL_FEAT_FLOW_CONTROL                    (1<<7)
 #define RMNET_IOCTL_FEAT_GET_DFLT_CONTROL_CHANNEL        (1<<8)
 #define RMNET_IOCTL_FEAT_GET_HWSW_MAP                    (1<<9)
+#define RMNET_IOCTL_FEAT_ETH_PDU                         (1<<10)
 
 /* Input values for the RMNET_IOCTL_SET_EGRESS_DATA_FORMAT IOCTL  */
 #define RMNET_IOCTL_EGRESS_FORMAT_MAP                  (1<<1)
 #define RMNET_IOCTL_EGRESS_FORMAT_AGGREGATION          (1<<2)
 #define RMNET_IOCTL_EGRESS_FORMAT_MUXING               (1<<3)
 #define RMNET_IOCTL_EGRESS_FORMAT_CHECKSUM             (1<<4)
-
+#define RMNET_IOCTL_EGRESS_FORMAT_IP_ROUTE             (1<<5)
 /* Input values for the RMNET_IOCTL_SET_INGRESS_DATA_FORMAT IOCTL */
 #define RMNET_IOCTL_INGRESS_FORMAT_MAP                 (1<<1)
 #define RMNET_IOCTL_INGRESS_FORMAT_DEAGGREGATION       (1<<2)
 #define RMNET_IOCTL_INGRESS_FORMAT_DEMUXING            (1<<3)
 #define RMNET_IOCTL_INGRESS_FORMAT_CHECKSUM            (1<<4)
 #define RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA            (1<<5)
+#define RMNET_IOCTL_INGRESS_FORMAT_IP_ROUTE            (1<<6)
 
 /* Input values for the RMNET_IOCTL_SET_OFFLOAD */
 #define RMNET_IOCTL_OFFLOAD_FORMAT_NONE                   (0)
@@ -124,6 +131,9 @@
 #define IFNAMSIZ 16
 #endif
 
+/* size of the mac address */
+#define MAC_ADDR_SIZE  6
+
 /**
  * enum rmnet_egress_ep_type - To specify pipe type for egress
  * @RMNET_EGRESS_DEFAULT: WAN Producer pipe
@@ -132,10 +142,11 @@
  * Add any number of pipes before max
  */
 enum rmnet_egress_ep_type {
-	RMNET_EGRESS_DEFAULT	= 0x0000,
+	RMNET_EGRESS_DEFAULT		= 0x0000,
 	RMNET_EGRESS_LOW_LAT_CTRL	= 0x0001,
 	RMNET_EGRESS_LOW_LAT_DATA	= 0x0002,
-	RMNET_EGRESS_MAX		= 0x0003,
+	RMNET_EGRESS_ETH_DATA		= 0x0003,
+	RMNET_EGRESS_MAX		= 0x0004,
 };
 
 
@@ -300,7 +311,7 @@ struct rmnet_ioctl_extended_s {
 		/* Input values for the RMNET_IOCTL_ADD_MUX_CHANNEL IOCTL */
 		struct {
 			__u32  mux_id;
-			__s8    vchannel_name[IFNAMSIZ];
+			__s8   vchannel_name[IFNAMSIZ];
 		} rmnet_mux_val;
 
 		/* Input values for the RMNET_IOCTL_FLOW_CONTROL IOCTL */
@@ -309,7 +320,7 @@ struct rmnet_ioctl_extended_s {
 			__u8   mux_id;
 		} flow_control_prop;
 
-		/* Return values for RMNET_IOCTL_GET_EP_PAIR */
+		/* Return values for RMNET_IOCTL_GET_EP_PAIR/LL/ETH */
 		struct {
 			__u32   consumer_pipe_num;
 			__u32   producer_pipe_num;
@@ -334,6 +345,13 @@ struct rmnet_ioctl_extended_s {
 			__u16   mtu_v4;
 			__u16   mtu_v6;
 		} mtu_params;
+
+		/* Input values for the RMNET_IOCTL_ADD_MUX_CHANNEL_v2 IOCTL */
+		struct {
+			__u32  mux_id;
+			__s8   vchannel_name[IFNAMSIZ];
+			__u8   mac[MAC_ADDR_SIZE];
+		} rmnet_mux_val_v2;
 	} u;
 };
 

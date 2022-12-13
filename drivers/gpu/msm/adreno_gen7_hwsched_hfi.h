@@ -29,6 +29,8 @@ struct gen7_hwsched_hfi {
 	struct kgsl_memdesc *big_ib;
 	/** @big_ib_recurring: GMU buffer to hold big recurring IBs */
 	struct kgsl_memdesc *big_ib_recurring;
+	/** @msg_mutex: Mutex for accessing the msgq */
+	struct mutex msgq_mutex;
 };
 
 struct kgsl_drawobj_cmd;
@@ -146,15 +148,6 @@ u32 gen7_hwsched_preempt_count_get(struct adreno_device *adreno_dev);
  * Return: The value of the key or 0 if key is not found
  */
 u32 gen7_hwsched_parse_payload(struct payload_section *payload, u32 key);
-
-/**
- * gen7_hwsched_process_msgq - Process hfi msg queue
- * @adreno_dev: Pointer to adreno device
- *
- * Process any pending firmware to host packets in the message
- * queue
- */
-void gen7_hwsched_process_msgq(struct adreno_device *adreno_dev);
 
 /**
  * gen7_hwsched_lpac_cp_init - Send CP_INIT to LPAC via HFI

@@ -297,9 +297,9 @@ struct fts_ts_data {
 	atomic_t trusted_touch_transition;
 	atomic_t trusted_touch_event;
 	atomic_t trusted_touch_abort_status;
-	atomic_t delayed_vm_probe_pending;
 	atomic_t trusted_touch_mode;
 #endif
+	atomic_t delayed_vm_probe_pending;
 };
 
 enum _FTS_BUS_TYPE {

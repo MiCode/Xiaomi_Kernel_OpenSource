@@ -1097,8 +1097,9 @@ static inline int adreno_is_a505_or_a506(struct adreno_device *adreno_dev)
 
 static inline int adreno_is_a6xx(struct adreno_device *adreno_dev)
 {
-	return ADRENO_GPUREV(adreno_dev) >= 600 &&
-			ADRENO_GPUREV(adreno_dev) < 700;
+	return ((ADRENO_GPUREV(adreno_dev) >= 600 &&
+			ADRENO_GPUREV(adreno_dev) < 700) ||
+			ADRENO_GPUREV(adreno_dev) == 0x032600);
 }
 
 static inline int adreno_is_a660_shima(struct adreno_device *adreno_dev)

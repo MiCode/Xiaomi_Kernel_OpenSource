@@ -1018,6 +1018,10 @@ static int rproc_helios_driver_probe(struct platform_device *pdev)
 	helios->ssctl_id = 0x1d;
 	platform_set_drvdata(pdev, helios);
 
+	ret = device_init_wakeup(helios->dev, true);
+	if (ret)
+		goto free_rproc;
+
 	qcom_add_ssr_subdev(rproc, &helios->ssr_subdev, helios->ssr_name);
 
 	qcom_add_glink_subdev(rproc, &helios->glink_subdev, helios->ssr_name);
@@ -1028,7 +1032,7 @@ static int rproc_helios_driver_probe(struct platform_device *pdev)
 		ret = PTR_ERR(helios->sysmon);
 		dev_err(helios->dev, "%s: Error while adding sysmon subdevice:[%d]\n",
 				__func__, ret);
-		goto free_rproc;
+		goto deinit_wakeup_source;
 	}
 
 	/* Register callback for Helios Crash with heliosCom */
@@ -1038,7 +1042,7 @@ static int rproc_helios_driver_probe(struct platform_device *pdev)
 	if (!config_handle) {
 		ret = -ENOMEM;
 		dev_err(helios->dev, "%s: Invalid Handle\n", __func__);
-		goto free_rproc;
+		goto deinit_wakeup_source;
 	}
 
 	/* Register callback for handling reboot */
@@ -1068,6 +1072,8 @@ destroy_wq:
 	destroy_workqueue(helios_reset_wq);
 unregister_notify:
 	unregister_reboot_notifier(&helios->reboot_nb);
+deinit_wakeup_source:
+	device_init_wakeup(helios->dev, false);
 free_rproc:
 	rproc_free(rproc);
 
@@ -1081,6 +1087,7 @@ static int rproc_helios_driver_remove(struct platform_device *pdev)
 	if (helios_reset_wq)
 		destroy_workqueue(helios_reset_wq);
 	unregister_reboot_notifier(&helios->reboot_nb);
+	device_init_wakeup(helios->dev, false);
 	rproc_del(helios->rproc);
 	rproc_free(helios->rproc);
 

@@ -100,6 +100,15 @@ enum cnss_bus_event_type {
 	BUS_EVENT_INVALID = 0xFFFF,
 };
 
+enum cnss_wfc_mode {
+	CNSS_WFC_MODE_OFF,
+	CNSS_WFC_MODE_ON,
+};
+
+struct cnss_wfc_cfg {
+	enum cnss_wfc_mode mode;
+};
+
 struct cnss_hang_event {
 	void *hang_event_data;
 	u16 hang_event_data_len;
@@ -300,4 +309,5 @@ extern int cnss_get_pci_slot(struct device *dev);
 extern int cnss_pci_get_reg_dump(struct device *dev, uint8_t *buffer,
 				 uint32_t len);
 extern bool cnss_get_fw_cap(struct device *dev, enum cnss_fw_caps fw_cap);
+extern int cnss_set_wfc_mode(struct device *dev, struct cnss_wfc_cfg cfg);
 #endif /* _NET_CNSS2_H */

@@ -141,7 +141,7 @@ static ssize_t store_##name(struct kobject *kobj,			\
 {									\
 	int ret, i = 0;							\
 	char *s = kstrdup(buf, GFP_KERNEL);				\
-	unsigned int msg[2];						\
+	unsigned int msg[2] = {0};						\
 	char *str;							\
 									\
 	if (!ops)							\

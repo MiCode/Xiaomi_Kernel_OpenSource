@@ -1576,6 +1576,9 @@ static int cnss_rddm_trigger_debug(struct cnss_pci_data *pci_priv)
 	if (!pci_priv || pci_priv->device_id != QCA6490_DEVICE_ID)
 		return -EOPNOTSUPP;
 
+	if (cnss_pci_check_link_status(pci_priv))
+		return -EINVAL;
+
 	cnss_pr_err("Write GCC Spare with ACE55 Pattern");
 	cnss_pci_reg_write(pci_priv, GCC_GCC_SPARE_REG_1, 0xACE55);
 	ret = cnss_pci_reg_read(pci_priv, GCC_GCC_SPARE_REG_1, &read_val);
@@ -1589,13 +1592,26 @@ static int cnss_rddm_trigger_debug(struct cnss_pci_data *pci_priv)
 static int cnss_rddm_trigger_check(struct cnss_pci_data *pci_priv)
 {
 	int read_val, ret;
+	u32 pbl_stage, sbl_log_start, sbl_log_size, pbl_wlan_boot_cfg;
 
 	if (!pci_priv || pci_priv->device_id != QCA6490_DEVICE_ID)
 		return -EOPNOTSUPP;
 
+	if (cnss_pci_check_link_status(pci_priv))
+		return -EINVAL;
+
 	ret = cnss_pci_reg_read(pci_priv, GCC_GCC_SPARE_REG_1, &read_val);
 	cnss_pr_err("Read GCC spare to check reset status: 0x%x, ret: %d",
 		    read_val, ret);
+
+	cnss_pci_reg_read(pci_priv, TCSR_PBL_LOGGING_REG, &pbl_stage);
+	cnss_pci_reg_read(pci_priv, PCIE_BHI_ERRDBG2_REG, &sbl_log_start);
+	cnss_pci_reg_read(pci_priv, PCIE_BHI_ERRDBG3_REG, &sbl_log_size);
+	cnss_pci_reg_read(pci_priv, PBL_WLAN_BOOT_CFG, &pbl_wlan_boot_cfg);
+	cnss_pr_dbg("TCSR_PBL_LOGGING: 0x%08x PCIE_BHI_ERRDBG: Start: 0x%08x Size:0x%08x\n",
+		    pbl_stage, sbl_log_start, sbl_log_size);
+	cnss_pr_dbg("PBL_WLAN_BOOT_CFG: 0x%08x\n", pbl_wlan_boot_cfg);
+
 	return ret;
 }
 
@@ -2848,7 +2864,9 @@ static void cnss_wlan_reg_driver_work(struct work_struct *work)
 	struct cnss_cal_info *cal_info;
 	unsigned int timeout;
 
-	if (test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state)) {
+	if ((test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state) ||
+	     !plat_priv->cbc_enabled) &&
+	    test_bit(CNSS_FS_READY, &plat_priv->driver_state)) {
 		goto reg_driver;
 	} else {
 		if (plat_priv->charger_mode) {
@@ -2955,8 +2973,9 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 	cnss_get_driver_mode_update_fw_name(plat_priv);
 	set_bit(CNSS_DRIVER_REGISTER, &plat_priv->driver_state);
 
-	if (!plat_priv->cbc_enabled ||
-	    test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state))
+	if ((!plat_priv->cbc_enabled ||
+	     test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state)) &&
+	    test_bit(CNSS_FS_READY, &plat_priv->driver_state))
 		goto register_driver;
 
 	pci_priv->driver_ops = driver_ops;
@@ -2970,7 +2989,11 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 			  cnss_wlan_reg_driver_work);
 	schedule_delayed_work(&plat_priv->wlan_reg_driver_work,
 			      msecs_to_jiffies(timeout));
-	cnss_pr_info("WLAN register driver deferred for Calibration\n");
+	if (plat_priv->cbc_enabled)
+		cnss_pr_info("WLAN register driver deferred for Calibration\n");
+	else
+		cnss_pr_info("WLAN register driver deferred for FS Ready\n");
+
 	return 0;
 register_driver:
 	reinit_completion(&plat_priv->power_up_complete);
@@ -4906,7 +4929,6 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
 	cnss_mhi_debug_reg_dump(pci_priv);
 	cnss_pci_soc_scratch_reg_dump(pci_priv);
 	cnss_pci_dump_misc_reg(pci_priv);
-	cnss_pci_dump_shadow_reg(pci_priv);
 
 	cnss_rddm_trigger_debug(pci_priv);
 	ret = mhi_download_rddm_image(pci_priv->mhi_ctrl, in_panic);

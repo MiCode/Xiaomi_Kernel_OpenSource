@@ -394,6 +394,7 @@ struct ep_pcie_dev_t {
 	ulong                        wake_counter;
 	ulong                        msi_counter;
 	ulong                        global_irq_counter;
+	ulong                        perst_ast_in_enum_counter;
 
 	bool                         dump_conf;
 	bool                         config_mmio_init;

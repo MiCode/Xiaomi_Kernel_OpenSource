@@ -44,7 +44,7 @@ enum {
 };
 
 static const struct pll_vco lucid_evo_vco[] = {
-	{ 249600000, 2000000000, 0 },
+	{ 249600000, 2020000000, 0 },
 };
 
 /* 600MHz Configuration */
@@ -82,7 +82,7 @@ static struct clk_alpha_pll disp_cc_pll0 = {
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
 				[VDD_NOMINAL] = 1800000000,
-				[VDD_HIGH] = 2000000000},
+				[VDD_HIGH] = 2020000000},
 		},
 	},
 };
@@ -122,7 +122,7 @@ static struct clk_alpha_pll disp_cc_pll1 = {
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
 				[VDD_NOMINAL] = 1800000000,
-				[VDD_HIGH] = 2000000000},
+				[VDD_HIGH] = 2020000000},
 		},
 	},
 };
@@ -563,7 +563,7 @@ static struct clk_branch disp_cc_mdss_mdp_clk = {
 
 static struct clk_branch disp_cc_mdss_mdp_lut1_clk = {
 	.halt_reg = 0xa014,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_VOTED,
 	.clkr = {
 		.enable_reg = 0xa014,
 		.enable_mask = BIT(0),
@@ -581,7 +581,7 @@ static struct clk_branch disp_cc_mdss_mdp_lut1_clk = {
 
 static struct clk_branch disp_cc_mdss_mdp_lut_clk = {
 	.halt_reg = 0x8018,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_VOTED,
 	.clkr = {
 		.enable_reg = 0x8018,
 		.enable_mask = BIT(0),

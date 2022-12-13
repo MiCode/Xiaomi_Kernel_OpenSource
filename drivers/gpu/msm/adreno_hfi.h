@@ -274,7 +274,7 @@ static const char * const hfi_memkind_strings[] = {
 /* Host can access */
 #define HFI_MEMFLAG_HOST_ACC		BIT(8)
 
-/* Host initializes the buffer */
+/* Host initializes(zero-init) the buffer */
 #define HFI_MEMFLAG_HOST_INIT		BIT(9)
 
 /* Gfx buffer needs to be secure */
@@ -401,7 +401,7 @@ struct hfi_queue_table {
 	(((id) & 0xFF) | (((prio) & 0xFF) << 8) | \
 	(((rtype) & 0xFF) << 16) | (((stype) & 0xFF) << 24))
 
-#define HFI_RSP_TIMEOUT 100 /* msec */
+#define HFI_RSP_TIMEOUT 1000 /* msec */
 
 #define HFI_IRQ_MSGQ_MASK BIT(0)
 
@@ -1053,4 +1053,20 @@ static inline u32 hfi_get_gmu_va_alignment(u32 va_align)
 	return (va_align > ilog2(SZ_4K)) ? (1 << va_align) : SZ_4K;
 }
 
+/**
+ * adreno_hwsched_wait_ack_completion - Wait for HFI ack asynchronously
+ * adreno_dev: Pointer to the adreno device
+ * dev: Pointer to the device structure
+ * ack: Pointer to the pending ack
+ * process_msgq: Function pointer to the msgq processing function
+ *
+ * This function waits for the completion structure, which gets signaled asynchronously. In case
+ * there is a timeout, process the msgq one last time. If the ack is present, log an error and move
+ * on. If the ack isn't present, log an error, take a snapshot and return -ETIMEDOUT.
+ *
+ * Return: 0 on success and -ETIMEDOUT on failure
+ */
+int adreno_hwsched_wait_ack_completion(struct adreno_device *adreno_dev,
+	struct device *dev, struct pending_cmd *ack,
+	void (*process_msgq)(struct adreno_device *adreno_dev));
 #endif
