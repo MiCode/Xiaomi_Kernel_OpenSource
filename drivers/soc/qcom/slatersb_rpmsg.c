@@ -16,8 +16,8 @@ struct rsb_channel_ops rsb_ops;
 
 void slatersb_channel_init(void (*fn1)(bool), void (*fn2)(void *data, int len))
 {
-	ctrl_ops.glink_channel_state = fn1;
-	ctrl_ops.rx_msg = fn2;
+	rsb_ops.glink_channel_state = fn1;
+	rsb_ops.rx_msg = fn2;
 }
 EXPORT_SYMBOL(slatersb_channel_init);
 
