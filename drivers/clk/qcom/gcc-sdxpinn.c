@@ -3126,6 +3126,7 @@ static struct clk_regmap *gcc_sdxpinn_clocks[] = {
 
 static const struct qcom_reset_map gcc_sdxpinn_resets[] = {
 	[GCC_EMAC0_BCR] = { 0x71000 },
+	[GCC_EMAC0_RGMII_CLK_ARES] = { 0x71050, 2 },
 	[GCC_EMAC1_BCR] = { 0x72000 },
 	[GCC_EMMC_BCR] = { 0x6b000 },
 	[GCC_MVMSS_BCR] = { 0x6f000 },
