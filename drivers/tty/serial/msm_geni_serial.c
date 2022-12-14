@@ -3598,6 +3598,8 @@ static int msm_geni_serial_get_irq_pinctrl(struct platform_device *pdev,
 	if (dev_port->wakeup_irq > 0) {
 		dev_port->wakeup_irq_wq = alloc_workqueue("%s", WQ_HIGHPRI, 1,
 							  dev_name(uport->dev));
+		if (!dev_port->wakeup_irq_wq)
+			return -ENOMEM;
 		INIT_DELAYED_WORK(&dev_port->wakeup_irq_dwork, msm_geni_wakeup_work);
 		ret = devm_request_irq(uport->dev, dev_port->wakeup_irq,
 					msm_geni_wakeup_isr,
