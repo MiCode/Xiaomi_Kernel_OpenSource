@@ -799,7 +799,10 @@
 #define GEN7_VFD_PERFCTR_VFD_SEL_13         0xa61d
 #define GEN7_VFD_PERFCTR_VFD_SEL_14         0xa61e
 #define GEN7_VFD_PERFCTR_VFD_SEL_15         0xa61f
+
+/* SP registers */
 #define GEN7_SP_READ_SEL                    0xae6d
+#define GEN7_SP_DBG_CNTL                    0xae71
 #define GEN7_SP_AHB_READ_APERTURE           0xc000
 
 /* VPC registers */
