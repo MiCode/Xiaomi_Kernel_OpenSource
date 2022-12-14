@@ -47,6 +47,9 @@ DECLARE_HOOK(android_vh_cpufreq_target,
 		unsigned int old_target_freq),
 	TP_ARGS(policy, target_freq, old_target_freq));
 
+DECLARE_HOOK(android_vh_cpufreq_offline,
+	TP_PROTO(struct device *dev, int val),
+	TP_ARGS(dev, val));
 #endif /* _TRACE_HOOK_CPUFREQ_H */
 /* This part must be outside protection */
 #include <trace/define_trace.h>

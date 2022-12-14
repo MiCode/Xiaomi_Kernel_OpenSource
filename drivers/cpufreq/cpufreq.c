@@ -1629,6 +1629,7 @@ static int cpufreq_offline(unsigned int cpu)
 	}
 
 	if (cpufreq_thermal_control_enabled(cpufreq_driver)) {
+		trace_android_vh_cpufreq_offline(&policy->cdev->device, true);
 		cpufreq_cooling_unregister(policy->cdev);
 		trace_android_vh_thermal_unregister(policy);
 		policy->cdev = NULL;
