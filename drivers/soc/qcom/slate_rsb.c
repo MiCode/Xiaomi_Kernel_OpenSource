@@ -550,7 +550,7 @@ static int slate_rsb_probe(struct platform_device *pdev)
 	if (!dev)
 		return -ENOMEM;
 	/* Add wake lock for PM suspend */
-	wakeup_source_add(&dev->slatersb_ws);
+	wakeup_source_register(&pdev->dev, "slate_rsb");
 	dev->slatersb_current_state = SLATERSB_STATE_UNKNOWN;
 	rc = slatersb_init(dev);
 	if (rc)
@@ -574,7 +574,7 @@ static int slate_rsb_remove(struct platform_device *pdev)
 	struct slatersb_priv *dev = platform_get_drvdata(pdev);
 
 	destroy_workqueue(dev->slatersb_wq);
-	wakeup_source_trash(&dev->slatersb_ws);
+	wakeup_source_unregister(&dev->slatersb_ws);
 	return 0;
 }
 
