@@ -1945,10 +1945,10 @@ static struct clk_branch gcc_emac_0_clkref_en = {
 };
 
 static struct clk_branch gcc_emac_1_clkref_en = {
-	.halt_reg = 0x98108,
+	.halt_reg = 0x9810c,
 	.halt_check = BRANCH_HALT_INVERT,
 	.clkr = {
-		.enable_reg = 0x98108,
+		.enable_reg = 0x9810c,
 		.enable_mask = BIT(0),
 		.hw.init = &(const struct clk_init_data){
 			.name = "gcc_emac_1_clkref_en",
