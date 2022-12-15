@@ -119,7 +119,6 @@ define_db845c(
         "drivers/interconnect/qcom/qnoc-sm8250.ko",
         "drivers/iommu/arm/arm-smmu/arm_smmu.ko",
         "drivers/irqchip/qcom-pdc.ko",
-        "drivers/leds/led-class-multicolor.ko",
         "drivers/mailbox/qcom-apcs-ipc-mailbox.ko",
         "drivers/mailbox/qcom-ipcc.ko",
         "drivers/mfd/qcom-spmi-pmic.ko",
