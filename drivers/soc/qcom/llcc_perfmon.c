@@ -100,6 +100,7 @@ enum fltr_config {
  * @num_mc:		number of MCS
  * @version:		Version information of llcc block
  * @clock:		clock node to enable qdss
+ * @clock_enabled:	flag to control profiling enable and disable
  * @drv_ver:		driver version of llcc-qcom
  * @mc_proftag:		Prof tag to MC
  */
@@ -123,6 +124,7 @@ struct llcc_perfmon_private {
 	unsigned int num_mc;
 	unsigned int version;
 	struct clk *clock;
+	bool clock_enabled;
 	int drv_ver;
 	unsigned long mc_proftag;
 };
@@ -298,7 +300,7 @@ static void remove_counters(struct llcc_perfmon_private *llcc_priv)
 		counter_map = &llcc_priv->configured[i];
 		port_ops = llcc_priv->port_ops[counter_map->port_sel];
 		port_ops->event_config(llcc_priv, 0, &i, false);
-		pr_info("removed counter %2d for event %2ld from port %2ld\n", (i + 1),
+		pr_info("removed counter %2d for event %2ld from port %2ld\n", i,
 				counter_map->event_sel, counter_map->port_sel);
 		if ((llcc_priv->enables_port & (1 << counter_map->port_sel)) &&
 				port_ops->event_enable)
@@ -398,7 +400,7 @@ static ssize_t perfmon_configure_store(struct device *dev,
 
 		port_ops = llcc_priv->port_ops[port_sel];
 		if (!port_ops->event_config(llcc_priv, event_sel, &j, true)) {
-			llcc_priv->configured_cntrs = j++;
+			llcc_priv->configured_cntrs = ++j;
 			remove_counters(llcc_priv);
 			goto out_configure;
 		}
@@ -888,21 +890,23 @@ static ssize_t perfmon_start_store(struct device *dev,
 	if (kstrtoul(buf, 0, &start))
 		return -EINVAL;
 
+	if (!llcc_priv->configured_cntrs) {
+		pr_err("perfmon not configured!\n");
+		return -EINVAL;
+	}
+
 	mutex_lock(&llcc_priv->mutex);
 	if (start) {
-		if (!llcc_priv->configured_cntrs) {
-			pr_err("start failed. perfmon not configured\n");
-			mutex_unlock(&llcc_priv->mutex);
-			return -EINVAL;
-		}
 
-		if (llcc_priv->clock) {
+		if (llcc_priv->clock && !llcc_priv->clock_enabled) {
 			ret = clk_prepare_enable(llcc_priv->clock);
 			if (ret) {
 				mutex_unlock(&llcc_priv->mutex);
 				pr_err("clock not enabled\n");
 				return -EINVAL;
 			}
+
+			llcc_priv->clock_enabled = true;
 		}
 
 		val = MANUAL_MODE | MONITOR_EN;
@@ -919,18 +923,19 @@ static ssize_t perfmon_start_store(struct device *dev,
 	} else {
 		if (llcc_priv->expires)
 			hrtimer_cancel(&llcc_priv->hrtimer);
-
-		if (!llcc_priv->configured_cntrs)
-			pr_err("stop failed. perfmon not configured\n");
 	}
 
-	mask_val = PERFMON_MODE_MONITOR_MODE_MASK |
-		PERFMON_MODE_MONITOR_EN_MASK;
+	mask_val = PERFMON_MODE_MONITOR_MODE_MASK | PERFMON_MODE_MONITOR_EN_MASK;
 	offset = PERFMON_MODE(llcc_priv->drv_ver);
-	llcc_bcast_modify(llcc_priv, offset, val, mask_val);
+	if (!llcc_priv->clock)
+		llcc_bcast_modify(llcc_priv, offset, val, mask_val);
+	else if (llcc_priv->clock_enabled)
+		llcc_bcast_modify(llcc_priv, offset, val, mask_val);
 
-	if (!start && llcc_priv->clock)
+	if (!start && llcc_priv->clock && llcc_priv->clock_enabled) {
 		clk_disable_unprepare(llcc_priv->clock);
+		llcc_priv->clock_enabled = false;
+	}
 
 	mutex_unlock(&llcc_priv->mutex);
 	return count;
@@ -2089,6 +2094,7 @@ static int llcc_perfmon_probe(struct platform_device *pdev)
 		pr_warn("failed to get qdss clock node\n");
 		llcc_priv->clock =  NULL;
 	}
+	llcc_priv->clock_enabled = false;
 
 	result = sysfs_create_group(&pdev->dev.kobj, &llcc_perfmon_group);
 	if (result) {
