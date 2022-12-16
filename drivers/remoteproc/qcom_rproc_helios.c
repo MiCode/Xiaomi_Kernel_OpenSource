@@ -393,142 +393,6 @@ end:
 	return ret;
 }
 
-/**
- * helios_auth_metadata() - Called by load operation of remoteproc framework
- * send command to tz app for authentication of metadata.
- * @helios_data: struct containing private <helios> data
- * @metadata: metadata load address
- * @size: size of metadata
- *
- * Return: 0 on success. Error code on failure.
- */
-static int helios_auth_metadata(struct qcom_helios *helios_data,
-		const u8 *metadata, size_t size)
-{
-	struct tzapp_helios_req helios_tz_req;
-	struct qtee_shm shm;
-	int ret;
-
-	ret = qtee_shmbridge_allocate_shm(size, &shm);
-	if (ret) {
-		pr_err("Shmbridge memory allocation failed\n");
-		return ret;
-	}
-
-	/* Make sure there are no mappings in PKMAP and fixmap */
-	kmap_flush_unused();
-
-	memcpy(shm.vaddr, metadata, size);
-
-	helios_tz_req.tzapp_helios_cmd = HELIOS_RPROC_AUTH_MDT;
-	helios_tz_req.address_fw = shm.paddr;
-	helios_tz_req.size_fw = size;
-
-	ret = helios_tzapp_comm(helios_data, &helios_tz_req);
-	if (ret || helios_data->cmd_status) {
-		dev_err(helios_data->dev,
-				"%s: Metadata loading failed\n",
-				__func__);
-		ret = helios_data->cmd_status;
-		goto tzapp_com_failed;
-	}
-
-	pr_debug("Metadata loaded successfully\n");
-
-tzapp_com_failed:
-	qtee_shmbridge_free_shm(&shm);
-	return ret;
-}
-
-/**
- * helios_auth_and_xfer() - Called by start operation of remoteproc framework
- * to signal tz app to authenticate and boot helios chip.
- * @helios_data: struct containing private <helios> data.
- *
- * Return: 0 on success. Error code on failure.
- */
-static int helios_auth_and_xfer(struct qcom_helios *helios_data)
-{
-	struct tzapp_helios_req helios_tz_req;
-	int ret;
-
-	helios_tz_req.tzapp_helios_cmd = HELIOS_RPROC_IMAGE_LOAD;
-	helios_tz_req.address_fw = 0;
-	helios_tz_req.size_fw = 0;
-
-	ret = helios_tzapp_comm(helios_data, &helios_tz_req);
-	if (ret || helios_data->cmd_status) {
-		dev_err(helios_data->dev,
-				"%s: Firmware image authentication failed\n",
-				__func__);
-		ret = helios_data->cmd_status;
-		goto tzapp_comm_failed;
-	}
-
-	/* helios Transfer of image is complete, free up the memory */
-	pr_debug("Firmware authentication and transfer done\n");
-	helios_data->is_ready = true;
-
-tzapp_comm_failed:
-	return ret;
-}
-
-/**
- * helios_prepare() - Called by rproc_boot. This loads tz app.
- * @rproc: struct containing private helios data.
- *
- * Return: 0 on success. Error code on failure.
- */
-static int helios_prepare(struct rproc *rproc)
-{
-	struct qcom_helios *helios = (struct qcom_helios *)rproc->priv;
-	int ret = 0;
-
-	init_completion(&helios->err_ready);
-	if (helios->app_status != RESULT_SUCCESS) {
-		ret = load_helios_tzapp(helios);
-		if (ret) {
-			dev_err(helios->dev,
-					"%s: helios TZ app load failure\n",
-					__func__);
-			return ret;
-		}
-	}
-
-	pr_debug("heliosapp loaded\n");
-	return ret;
-}
-
-static int helios_load(struct rproc *rproc, const struct firmware *fw)
-{
-	struct qcom_helios *helios = (struct qcom_helios *)rproc->priv;
-	int ret;
-
-	/* Send the metadata */
-	ret = helios_auth_metadata(helios, fw->data, fw->size);
-	if (ret) {
-		dev_err(helios->dev, "%s: helios TZ app load failure\n", __func__);
-		return ret;
-	}
-
-	return ret;
-}
-
-static int helios_start(struct rproc *rproc)
-{
-	struct qcom_helios *helios = (struct qcom_helios *)rproc->priv;
-	int ret;
-
-	ret = helios_auth_and_xfer(helios);
-	if (ret) {
-		dev_err(helios->dev, "%s: helios TZ app load failure\n", __func__);
-		return ret;
-	}
-	pr_err("Helios is booted up!\n");
-
-	return ret;
-}
-
 static void dumpfn(struct rproc *rproc, struct rproc_dump_segment *segment,
 		void *dest, size_t offset, size_t size)
 {
@@ -552,11 +416,6 @@ static void helios_coredump(struct rproc *rproc)
 	size_t buffer_size = 0;
 
 	rproc_coredump_cleanup(rproc);
-
-	if (!helios->is_ready) {
-		dev_err(helios->dev, "%s: Helios is not up! Returning..\n", __func__);
-		return;
-	}
 
 	region = dma_alloc_attrs(helios->dev, size,
 				&start_addr, GFP_KERNEL, DMA_ATTR_SKIP_ZEROING);
@@ -628,6 +487,113 @@ shm_free:
 dma_free:
 	dma_free_attrs(helios->dev, size, region,
 			   start_addr, DMA_ATTR_SKIP_ZEROING);
+}
+
+/**
+ * helios_prepare() - Called by rproc_boot. This loads tz app.
+ * @rproc: struct containing private helios data.
+ *
+ * Return: 0 on success. Error code on failure.
+ */
+static int helios_prepare(struct rproc *rproc)
+{
+	struct qcom_helios *helios = (struct qcom_helios *)rproc->priv;
+	int ret = 0;
+
+	init_completion(&helios->err_ready);
+	if (helios->app_status != RESULT_SUCCESS) {
+		ret = load_helios_tzapp(helios);
+		if (ret) {
+			dev_err(helios->dev,
+					"%s: helios TZ app load failure\n",
+					__func__);
+			return ret;
+		}
+	}
+
+	pr_debug("heliosapp loaded\n");
+	return ret;
+}
+
+/**
+ * helios_load() - Called by rproc_start. This send command to TZ app to copy
+ * the FW buffer to local buffer.
+ * @rproc: struct containing private helios data.
+ *
+ * Return: 0 on success. Error code on failure.
+ */
+static int helios_load(struct rproc *rproc, const struct firmware *fw)
+{
+	struct qcom_helios *helios = (struct qcom_helios *)rproc->priv;
+	struct tzapp_helios_req helios_tz_req;
+	struct qtee_shm shm;
+	int ret;
+
+	ret = qtee_shmbridge_allocate_shm(fw->size, &shm);
+	if (ret) {
+		pr_err("Shmbridge memory allocation failed\n");
+		return ret;
+	}
+
+	/* Make sure there are no mappings in PKMAP and fixmap */
+	kmap_flush_unused();
+
+	memcpy(shm.vaddr, fw->data, fw->size);
+
+	helios_tz_req.tzapp_helios_cmd = HELIOS_RPROC_AUTH_MDT;
+	helios_tz_req.address_fw = shm.paddr;
+	helios_tz_req.size_fw = fw->size;
+
+	ret = helios_tzapp_comm(helios, &helios_tz_req);
+	if (ret || helios->cmd_status) {
+		dev_err(helios->dev, "%s: FW copy to TA failed:[%d]\n",
+				__func__, helios->cmd_status);
+		ret = helios->cmd_status;
+		goto tzapp_com_failed;
+	}
+
+	pr_debug("Metadata loaded successfully\n");
+
+tzapp_com_failed:
+	qtee_shmbridge_free_shm(&shm);
+	return ret;
+}
+
+/**
+ * helios_start() - Called by rproc_start. This send command to TZ app to
+ * signal tz app to authenticate and boot helios chip.
+ * @rproc: struct containing private helios data.
+ *
+ * Return: 0 on success. Error code on failure.
+ */
+static int helios_start(struct rproc *rproc)
+{
+	struct qcom_helios *helios = (struct qcom_helios *)rproc->priv;
+	struct tzapp_helios_req helios_tz_req;
+	int ret;
+
+	helios_tz_req.tzapp_helios_cmd = HELIOS_RPROC_IMAGE_LOAD;
+	helios_tz_req.address_fw = 0;
+	helios_tz_req.size_fw = 0;
+
+	ret = helios_tzapp_comm(helios, &helios_tz_req);
+	if (ret || helios->cmd_status) {
+		dev_err(helios->dev, "%s: Helios Image Load failed:[%d]\n",
+				__func__, helios->cmd_status);
+		ret = helios->cmd_status;
+		goto image_load_failed;
+	}
+
+	pr_err("Helios is booted up!\n");
+	helios->is_ready = true;
+
+	return 0;
+
+image_load_failed:
+	pr_err("Image Load failed. Try to collect dump!\n");
+	helios_coredump(rproc);
+	helios->is_ready = false;
+	return ret;
 }
 
 static int helios_force_powerdown(struct qcom_helios *helios)
