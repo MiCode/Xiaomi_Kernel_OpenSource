@@ -13,3 +13,5 @@ obj-$(CONFIG_QRTR_GUNYAH) += qrtr-gunyah.o
 qrtr-gunyah-y	:= gunyah.o
 obj-$(CONFIG_QRTR_GENPOOL) += qrtr-genpool.o
 qrtr-genpool-y	:= genpool.o
+obj-$(CONFIG_QRTR_BPF_FILTER) += qrtr-bpf_service.o
+qrtr-bpf_service-y	:= bpf_service.o
