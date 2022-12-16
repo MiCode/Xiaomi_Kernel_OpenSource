@@ -20,6 +20,7 @@ android/abi_gki_aarch64_exynosauto
 android/abi_gki_aarch64_exynos_wear
 android/abi_gki_aarch64_fips140
 android/abi_gki_aarch64_galaxy
+android/abi_gki_aarch64_general
 android/abi_gki_aarch64_honor
 android/abi_gki_aarch64_imx
 android/abi_gki_aarch64_pixel
