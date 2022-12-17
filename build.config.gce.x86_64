@@ -20,3 +20,7 @@ POST_DEFCONFIG_CMDS="rm ${ROOT_DIR}/${KERNEL_DIR}/arch/x86/configs/${DEFCONFIG}"
 
 BUILD_GOLDFISH_DRIVERS=m
 EXT_MODULES="common-modules/virtual-device"
+
+if [ -n "${GKI_BUILD_CONFIG_FRAGMENT}" ]; then
+source ${GKI_BUILD_CONFIG_FRAGMENT}
+fi
