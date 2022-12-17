@@ -12,6 +12,7 @@
 #include <linux/uio.h>
 #include <linux/task_io_accounting_ops.h>
 #include "trace.h"
+#include <trace/hooks/direct_io.h>
 
 #include "../internal.h"
 
@@ -323,6 +324,7 @@ static loff_t iomap_dio_bio_iter(const struct iomap_iter *iter,
 		bio->bi_private = dio;
 		bio->bi_end_io = iomap_dio_bio_end_io;
 		bio->bi_opf = bio_opf;
+		trace_android_vh_direct_io_update_bio(dio->iocb, bio);
 
 		ret = bio_iov_iter_get_pages(bio, dio->submit.iter);
 		if (unlikely(ret)) {
