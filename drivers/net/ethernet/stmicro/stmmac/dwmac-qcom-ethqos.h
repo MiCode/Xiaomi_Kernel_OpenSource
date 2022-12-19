@@ -102,6 +102,7 @@ do {\
 #define EMAC_HW_v2_3_0 0x20030000
 #define EMAC_HW_v2_3_1 0x20030001
 #define EMAC_HW_v3_0_0_RG 0x30000000
+#define EMAC_HW_v3_1_0 0x30010000
 #define EMAC_HW_v4_0_0 0x40000000
 #define EMAC_HW_vMAX 9
 

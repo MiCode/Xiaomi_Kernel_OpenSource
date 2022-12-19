@@ -1060,10 +1060,58 @@ static int ethqos_rgmii_macro_init_v3(struct qcom_ethqos *ethqos)
 	return 0;
 }
 
+int ethqos_configure_sgmii_v3_1(struct qcom_ethqos *ethqos)
+{
+	u32 value = 0;
+
+	value = readl(ethqos->ioaddr + MAC_CTRL_REG);
+	switch (ethqos->speed) {
+	case SPEED_1000:
+		value &= ~BIT(15);
+		writel(value, ethqos->ioaddr + MAC_CTRL_REG);
+		rgmii_updatel(ethqos, BIT(16), BIT(16), RGMII_IO_MACRO_CONFIG2);
+	break;
+
+	case SPEED_100:
+		value |= BIT(15) | BIT(14);
+		writel(value, ethqos->ioaddr + MAC_CTRL_REG);
+	break;
+	case SPEED_10:
+		value |= BIT(15);
+		value &= ~BIT(14);
+		writel(value, ethqos->ioaddr + MAC_CTRL_REG);
+	break;
+
+	default:
+		dev_err(&ethqos->pdev->dev,
+			"Invalid speed %d\n", ethqos->speed);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int ethqos_configure_mac_v3_1(struct qcom_ethqos *ethqos)
+{
+	struct stmmac_priv *priv = qcom_ethqos_get_priv(ethqos);
+	int ret = 0;
+
+	switch (priv->plat->interface) {
+	case PHY_INTERFACE_MODE_SGMII:
+		ret = ethqos_configure_sgmii_v3_1(ethqos);
+		qcom_ethqos_serdes_update(ethqos, ethqos->speed, priv->plat->interface);
+		break;
+	}
+	return ret;
+}
+
 static int ethqos_configure(struct qcom_ethqos *ethqos)
 {
 	volatile unsigned int dll_lock;
 	unsigned int i, retry = 1000;
+
+	if (ethqos->emac_ver == EMAC_HW_v3_1_0)
+		return ethqos_configure_mac_v3_1(ethqos);
 
 	/* Reset to POR values and enable clk */
 	for (i = 0; i < ethqos->num_por; i++)
